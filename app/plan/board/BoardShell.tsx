@@ -2954,7 +2954,11 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
   // navegador. «Al intentar agarrar una tarea del kanban, debería tener la misma animación
   // que tenemos hoy en día en el CRM» (23/09/2026) — y son los mismos tres valores que usa
   // `CrmBoard.tsx`: se atenúa, se achica un poco y se despega con una sombra.
-  const [hover, setHover] = useState(false);
+  //
+  // ⚠️ LA CASILLA YA NO CUELGA DE UN `hover` DE REACT. Se montaba con `hover && <input>`
+  // y aparecía de golpe, con el título saltando: un nodo que no existe no se puede animar.
+  // Ahora está siempre y la abre `.mk-sel-tarjeta` (app/globals.css), la MISMA regla del
+  // CRM: de ancho 0 a 15 con el hover de `.mk-tarjeta-sel`.
   // ⚠️ `oculta` YA NO PINTA NADA en la tarjeta (ver el `style`): el Kanban lo sigue
   // pasando porque lo necesita para saber cuál excluir al calcular el hueco, pero acá
   // adentro lo único que cambia de aspecto durante un arrastre con mouse es NADA.
@@ -2966,7 +2970,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
   // dos líneas. Mismo chip que el detalle (color del proyecto), no un estilo nuevo.
   const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
   return (
-    <div
+    <div className="mk-tarjeta-sel"
       // ⚠️ El click se traga si el gesto anterior fue un arrastre: el navegador sintetiza un
       // `click` sobre donde empezó el toque, y sin esto se soltaba la tarjeta, salía el
       // pop-up de la prioridad y DETRÁS se abría el detalle.
@@ -3035,14 +3039,17 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
         // Con el DEDO sí se levanta: el dedo tapa la tarjeta y hay que verla salir. Con el
         // mouse no, porque ahí lo que se ve viajar es la copia.
         ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' } : {}) }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; setHover(true); }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; setHover(false); }}>
-      {/* header: [casilla] + proyecto + #id + [aviso] + prioridad */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
-        {onElegir && (hover || haySeleccion) && (
-          <input type="checkbox" checked={elegida} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(t.id)}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}>
+      {/* header: [casilla] + proyecto + #id + [aviso] + prioridad.
+          ⚠️ `gap: 8` y no 7: el `-8` de `.mk-sel-tarjeta` lo cancela con la casilla cerrada. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, minWidth: 0 }}>
+        {onElegir && (
+          <input type="checkbox" className="mk-sel-tarjeta" checked={elegida} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(t.id)}
+            data-marcada={elegida ? '1' : undefined} data-seleccionando={haySeleccion ? '1' : undefined}
             title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
-            style={{ width: 14, height: 14, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)', margin: 0 }} />
+            // ⚠️ SIN `width` NI `margin` lateral: los gobierna la clase, y un inline le gana.
+            style={{ height: 15, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)', marginTop: 0, marginBottom: 0 }} />
         )}
         {proys.length > 0
           ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
@@ -4402,14 +4409,14 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
 }) {
   const completo = prog.total > 0 && prog.done === prog.total;
   const arrastrable = !!onAgarrar;
-  /** ⚠️ LA CASILLA APARECE AL PASAR EL MOUSE, o cuando ya hay algo elegido. Es la misma
-   *  decisión que en la tarjeta de una tarea y por el mismo motivo: en una tabla una casilla
-   *  en la primera columna se espera, en una tarjeta es un control más compitiendo con el
-   *  emoji, el pid y el puntaje. Apareciendo al hover no le saca lugar a nada hasta que hace
-   *  falta. El hook va ACÁ ARRIBA, antes de cualquier `return`. */
-  const [hoverSel, setHoverSel] = useState(false);
+  /* ⚠️ LA CASILLA APARECE AL PASAR EL MOUSE, o cuando ya hay algo elegido. Es la misma
+   * decisión que en la tarjeta de una tarea y por el mismo motivo: en una tabla una casilla
+   * en la primera columna se espera, en una tarjeta es un control más compitiendo con el
+   * emoji, el pid y el puntaje. Apareciendo al hover no le saca lugar a nada hasta que hace
+   * falta. Y aparece ANIMADA, con la regla del CRM (`.mk-sel-tarjeta`, app/globals.css): ya
+   * no la monta un `hoverSel` de React, que la hacía saltar sin transición. */
   return (
-    <div onClick={onOpen} data-projcard={arrastrable ? l.id : undefined} draggable={arrastrable}
+    <div className="mk-tarjeta-sel" onClick={onOpen} data-projcard={arrastrable ? l.id : undefined} draggable={arrastrable}
       // ⚠️ MISMO MOLDE QUE EL KANBAN, no uno nuevo: foto vacía del sistema operativo + la
       // copia que monta `useArrastreCopia`. Y la tarjeta de origen NO cambia nada mientras
       // viaja («que la tarjeta no cambie nada», 24/09/2026): lo que se mueve es la copia y
@@ -4426,7 +4433,7 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
       // la casilla marcada sola es de 14 px en una tarjeta de 360 de alto, así que de un
       // vistazo no se ve cuántas hay elegidas.
       style={{ background: elegido ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, width: '100%', minWidth: 0, position: 'relative', transition: 'border-color .12s, background .12s' }}
-      onMouseEnter={(e) => { if (!elegido) e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(true); }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(false); }}>
+      onMouseEnter={(e) => { if (!elegido) e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; }}>
       {/* LA PORTADA (mig 0173), sangrando el padding para llegar a los bordes de la
           tarjeta. Se dibuja SÓLO si la eligieron: sin esto, todas las tarjetas nacerían con
           una banda de color que nadie pidió y la grilla pasaría de leerse por título a
@@ -4480,13 +4487,15 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
           `stopPropagation` porque la tarjeta entera abre el detalle: sin eso, tildar
           un proyecto lo abriría encima de la grilla. */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
-        {onElegir && (hoverSel || haySeleccion) && (
-          <input type="checkbox" checked={elegido} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(l.id)}
+        {onElegir && (
+          <input type="checkbox" className="mk-sel-tarjeta" checked={elegido} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(l.id)}
+            data-marcada={elegido ? '1' : undefined} data-seleccionando={haySeleccion ? '1' : undefined}
             title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
-            style={{ width: 14, height: 14, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)',
+            // ⚠️ SIN `width` NI `margin` lateral: los gobierna la clase, y un inline le gana.
+            style={{ height: 15, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)',
               // Alineada con la primera línea del título, no con el centro del bloque:
               // con un título de dos renglones, centrada queda flotando al medio.
-              margin: '3px 0 0' }} />
+              marginTop: 3, marginBottom: 0 }} />
         )}
         <span style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, minWidth: 0 }}>{l.name}</span>
       </div>

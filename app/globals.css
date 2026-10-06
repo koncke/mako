@@ -720,7 +720,21 @@ textarea.mako-field {
    forma de saber CUALES son los tres. Eso lo dice `data-marcada`, que la tarjeta
    escribe junto al `checked`.
 
-   ⚠️ Y :focus-visible, o con el teclado se llega a un control que no se ve. */
+   ⚠️ Y :focus-visible, o con el teclado se llega a un control que no se ve.
+
+   ── Y la MISMA casilla en las tarjetas del PLAN (tareas y proyectos) ──────────
+   «Copiá la animación de aparición del checkbox para la selección de múltiples
+   tarjetas que hizo el CRM» (05/10/2026). Es esta regla y no una copia: la tarjeta
+   lleva `.mk-tarjeta-sel` y la casilla `.mk-sel-tarjeta`, y la animación es una sola.
+   Antes el Plan MONTABA la casilla al hover (`hover && <input>`): aparecía de golpe
+   y el título saltaba, sin transición posible porque el nodo no existía.
+
+   ⚠️ EN EL PLAN, CON ALGO ELEGIDO SE VEN TODAS, no sólo las marcadas: es como se
+   agrega la segunda sin tener que apuntarle a una casilla invisible. Eso lo dice
+   `data-seleccionando`, que la tarjeta escribe con `haySeleccion`. El CRM no lo usa.
+
+   ⚠️ Y LA FILA DE LA TARJETA LLEVA `gap: 8`, porque el `-8` de abajo lo cancela: con
+   otro gap queda una sangría fantasma (o un solapamiento) del tamaño de la diferencia. */
 .mk-sel-tarjeta {
   width: 0;
   /* ⚠️ EL CHECKBOX TRAE MARGEN DEL NAVEGADOR, y distinto en cada motor. Sin este 0, con
@@ -736,7 +750,8 @@ textarea.mako-field {
 .mk-tarjeta-lead:hover .mk-sel-tarjeta,
 .mk-tarjeta-sel:hover .mk-sel-tarjeta,
 .mk-sel-tarjeta:focus-visible,
-.mk-sel-tarjeta[data-marcada='1'] { width: 15px; margin-right: 0; opacity: 1; }
+.mk-sel-tarjeta[data-marcada='1'],
+.mk-sel-tarjeta[data-seleccionando='1'] { width: 15px; margin-right: 0; opacity: 1; }
 
 /* ⚠️ En la fila de un video los botones van AL ALTO DEL DESPLEGABLE. El botón de
    ícono mide 34 px y el `Select` mide `--touch` (40, y 44 en táctil): puestos en
