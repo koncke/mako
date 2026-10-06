@@ -49,6 +49,7 @@ import { PARTES as SELFHEALINGDEV_PARTES, BITACORA as SELFHEALINGDEV_BITACORA } 
 import { PARTES as METAPLATFORM_PARTES, BITACORA as METAPLATFORM_BITACORA } from './meta-platform/bitacora';
 import { PARTES as CONFIGURACIONES_PARTES, BITACORA as CONFIGURACIONES_BITACORA } from './configuraciones/bitacora';
 import { PARTES as PLAN_PARTES, BITACORA as PLAN_BITACORA } from './plan/bitacora';
+import { PARTES as ADSMANAGER_PARTES, BITACORA as ADSMANAGER_BITACORA } from './ads-manager/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
@@ -57,6 +58,7 @@ const REGISTROS: Record<string, Registro> = {
   general: { partes: GENERAL_PARTES, bitacora: GENERAL_BITACORA },
   chatbot: { partes: CHATBOT_PARTES, bitacora: CHATBOT_BITACORA },
   'ads-writer': { partes: ADS_PARTES, bitacora: ADS_BITACORA },
+  'ads-manager': { partes: ADSMANAGER_PARTES, bitacora: ADSMANAGER_BITACORA },
   semaforo: { partes: SEMAFORO_PARTES, bitacora: SEMAFORO_BITACORA },
   pricing: { partes: PRICING_PARTES, bitacora: PRICING_BITACORA },
   'products-offers': { partes: PRODUCTOS_PARTES, bitacora: PRODUCTOS_BITACORA },

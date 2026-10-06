@@ -578,21 +578,32 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     setEntSel({ node: r.node, level: r.level as 'campaign' | 'adset', cross: { cierres: r.perf.cierres, cash_usd: r.perf.cash_usd, agendasCrm: r.perf.agendas } });
   };
 
-  // Acciones de edición por fila (textos en anuncios; +anuncio/público en conjuntos;
-  // +conjunto en campañas). Los nombres nuevos salen con nomenclatura (001.01.a…).
-  const rowActionsFor = (r: Row): Array<{ label: string; title: string; onClick: () => void }> => {
-    if (r.level === 'ad') return [{ label: 'Aa textos', title: 'Editar textos del anuncio', onClick: () => setEditCopyAd({ id: r.node.id, name: nameOf(r.node) }) }];
-    if (r.level === 'adset') {
-      const adsetCode = nameOf(r.node).split(/\s+/)[0] || (nameOf(r.node).match(/^\d+/)?.[0] ?? '000');
-      const kids = (health?.ads ?? []).filter((a) => a.parentId === r.node.id);
-      return [
-        { label: '+ anuncio', title: 'Agregar un anuncio a este conjunto', onClick: () => setAddAnuncioAdset({ id: r.node.id, name: `${adsetCode}.${letra(nextSuffix(kids, 'letra'))} Anuncio` }) },
-        { label: '👥 público', title: 'Editar el público de este conjunto', onClick: () => setEditPublicoAdset({ id: r.node.id, name: nameOf(r.node) }) },
-      ];
-    }
-    const campCode = nameOf(r.node).match(/^\d+/)?.[0] ?? '000';
-    const kids = (health?.adsets ?? []).filter((a) => a.parentId === r.node.id);
-    return [{ label: '+ conjunto', title: 'Agregar un conjunto a esta campaña', onClick: () => setAddConjuntoCamp({ id: r.node.id, name: `${campCode}.${pad(nextSuffix(kids, 'num'), 2)} Conjunto` }) }];
+  /**
+   * Acciones de EDICIÓN por fila. Agregar ya no vive acá: «+ conjunto» y «+ anuncio»
+   * se fueron a la barra de la selección múltiple (Martín, 06/10: «elimina el botón de
+   * "+conjunto" que hay en cada fila… como también el "+anuncio" en los adset»). Una
+   * fila es para mirar y corregir lo que ya existe; crear algo nuevo se decide sobre lo
+   * que uno eligió.
+   *
+   * El ícono sale del catálogo y nunca es un emoji: el 👥 de «público» se dibujaba
+   * distinto en cada sistema y no heredaba el color del botón.
+   */
+  const rowActionsFor = (r: Row): Array<{ icono: string; label: string; title: string; onClick: () => void }> => {
+    if (r.level === 'ad') return [{ icono: 'escribir', label: 'Textos', title: 'Editar textos del anuncio', onClick: () => setEditCopyAd({ id: r.node.id, name: nameOf(r.node) }) }];
+    if (r.level === 'adset') return [{ icono: 'users', label: 'Público', title: 'Editar el público de este conjunto', onClick: () => setEditPublicoAdset({ id: r.node.id, name: nameOf(r.node) }) }];
+    return [];
+  };
+
+  // Los nombres de lo que se crea salen con la nomenclatura (001.01.a…), igual que antes.
+  const nombreConjuntoNuevo = (camp: NodoEstado) => {
+    const code = nameOf(camp).match(/^\d+/)?.[0] ?? '000';
+    const kids = (health?.adsets ?? []).filter((a) => a.parentId === camp.id);
+    return `${code}.${pad(nextSuffix(kids, 'num'), 2)} Conjunto`;
+  };
+  const nombreAnuncioNuevo = (adset: NodoEstado) => {
+    const code = nameOf(adset).split(/\s+/)[0] || (nameOf(adset).match(/^\d+/)?.[0] ?? '000');
+    const kids = (health?.ads ?? []).filter((a) => a.parentId === adset.id);
+    return `${code}.${letra(nextSuffix(kids, 'letra'))} Anuncio`;
   };
 
   // columnas visibles para la tab actual
@@ -613,6 +624,10 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     if (level === 'adset') return health.adsets.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(n.parentId), adsetName: null, createdTime: n.createdTime ?? null, parentId: n.parentId ?? null }));
     return health.ads.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(adsetCampId(n.parentId)), adsetName: n.parentId ? adsetsById.get(n.parentId)?.name ?? null : null, createdTime: n.createdTime ?? null, parentId: n.parentId ?? null }));
   }, [health, level, optimistic]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Agregar necesita UN padre: con dos campañas elegidas no hay de cuál colgar el
+  // conjunto, así que esos botones no se dibujan (uno que no hace nada se lee como roto).
+  const unaSola = selSet.size === 1 ? sorted.find((r) => selSet.has(r.node.id)) : undefined;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -637,12 +652,13 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 12, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 10px rgba(47,111,237,.25)' }}>
             <MakoStar size={14} color="#fff" /> Nueva campaña
           </button>
+          {/* «Ordenar nombres» se fue a la barra de la selección (renombra LO ELEGIDO) y
+              «Actualizar estado» a su propio botón al lado del filtro: las dos se usan
+              seguido y un menú las esconde. */}
           <MenuAcciones acciones={[
-            { label: 'Subir creativos a una campaña', sub: 'Se agregan en pausa; la campaña no se toca', onClick: () => { setNuevaModo('existente'); setNuevaOpen(true); } },
-            { label: 'Agregar conjunto a una campaña', sub: 'Un conjunto nuevo, en pausa', onClick: () => setElegirCampana(true) },
-            { label: 'Analizar con Meta', sub: 'Recomendaciones y oportunity score', onClick: () => setRecosOpen(true) },
-            { label: 'Ordenar nombres', sub: 'Propone una nomenclatura y la aplica', onClick: () => setRenameOpen(true) },
-            { label: 'Actualizar estado', sub: 'Vuelve a preguntarle a Meta', onClick: () => cargar() },
+            { label: 'Subir creativos a una campaña', icono: 'creativos', onClick: () => { setNuevaModo('existente'); setNuevaOpen(true); } },
+            { label: 'Agregar conjunto a una campaña', icono: 'users', onClick: () => setElegirCampana(true) },
+            { label: 'Analizar con Meta', icono: 'meta', onClick: () => setRecosOpen(true) },
           ]} />
         </div>
       </header>
@@ -661,7 +677,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
           );
         })}
       </div>
-        <div style={{ paddingBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 6 }}>
           <FiltrosMenu
             hoyReal={hoyReal}
             estado={estado}
@@ -671,6 +687,11 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
             visibles={visibleCols}
             onColumna={(id) => setVisibleCols((v) => ({ ...v, [id]: !v[id as ColId] }))}
           />
+          <button type="button" onClick={() => cargar()} disabled={loading} title="Actualizar estado: vuelve a preguntarle a Meta"
+            aria-label="Actualizar estado"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: loading ? 'wait' : 'pointer' }}>
+            <Icon name="regenerar" size={16} />
+          </button>
         </div>
       </div>
 
@@ -702,6 +723,9 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
               onPresupuesto={level === 'ad' ? undefined : bulkPresupuesto}
               productos={level === 'ad' || !asig || asig.productos.length <= 1 ? null : [{ value: '', label: 'Sin asignar' }, ...asig.productos.map((p) => ({ value: valorDeProducto(p.id), label: p.nombre }))]}
               onProducto={level === 'ad' || !asig ? undefined : bulkProducto}
+              onRenombrar={() => setRenameOpen(true)}
+              onAgregarConjunto={level === 'campaign' && unaSola ? () => setAddConjuntoCamp({ id: unaSola.node.id, name: nombreConjuntoNuevo(unaSola.node) }) : undefined}
+              onAgregarAnuncio={level === 'adset' && unaSola ? () => setAddAnuncioAdset({ id: unaSola.node.id, name: nombreAnuncioNuevo(unaSola.node) }) : undefined}
               onEliminar={level === 'campaign' ? bulkDelete : undefined}
             />
           )}
@@ -773,7 +797,10 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
           desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoMxn={entSel.node.dailyBudgetMxn ?? null} onClose={() => setEntSel(null)} />
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
-      {renameOpen && <RenameModal level={level} entities={renameEntities} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
+      {/* Renombra LO ELEGIDO, no la tab entera: el único camino de entrada es la barra
+          de la selección, y proponerle una nomenclatura a 80 campañas cuando se tildaron
+          tres es cambiar lo que nadie pidió. */}
+      {renameOpen && <RenameModal level={level} entities={renameEntities.filter((e) => selSet.has(e.id))} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
       {/* key: si cambia el modo con el modal abierto, se remonta limpio (el estado inicial depende del modo) */}
       {nuevaOpen && <NuevaCampanaModal key={nuevaModo} modo={nuevaModo} health={health} healthError={error} senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
@@ -844,7 +871,7 @@ function SortLabel({ label, active, dir, onClick, align }: { label: string; acti
 // ── fila ──
 function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, onShowProblema, rowActions, productoCell, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
   r: Row; cols: ColDef[]; selected: boolean; onSelect: () => void; onOpen: () => void;
-  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; rowActions?: Array<{ label: string; title: string; onClick: () => void }>; productoCell?: ReactNode; writing: boolean; editing: boolean; editingName: boolean;
+  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; rowActions?: Array<{ icono: string; label: string; title: string; onClick: () => void }>; productoCell?: ReactNode; writing: boolean; editing: boolean; editingName: boolean;
   onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
   onStartName: () => void; onCancelName: () => void; onSaveName: (name: string) => void;
 }) {
@@ -889,10 +916,12 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
             <>
               <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--primary)' }}>{name}</span>
               <button type="button" title="Renombrar" disabled={writing} onClick={(e) => { stop(e); onStartName(); }}
-                style={{ flex: 'none', background: 'transparent', border: 'none', cursor: writing ? 'default' : 'pointer', color: 'var(--faint)', fontSize: 12, padding: '2px 4px', lineHeight: 1 }}>✎</button>
+                style={{ flex: 'none', display: 'inline-flex', background: 'transparent', border: 'none', cursor: writing ? 'default' : 'pointer', color: 'var(--faint)', padding: '2px 4px', lineHeight: 1 }}><Icon name="pen" size={13} /></button>
               {(rowActions ?? []).map((a) => (
                 <button key={a.label} type="button" title={a.title} onClick={(e) => { stop(e); a.onClick(); }}
-                  style={{ flex: 'none', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 7, cursor: 'pointer', color: 'var(--dim)', fontFamily: MONO, fontSize: 10, fontWeight: 600, padding: '2px 6px', lineHeight: 1.3, whiteSpace: 'nowrap' }}>{a.label}</button>
+                  style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 7, cursor: 'pointer', color: 'var(--dim)', fontFamily: SANS, fontSize: 11.5, fontWeight: 600, padding: '3px 7px', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
+                  <Icon name={a.icono} size={12} />{a.label}
+                </button>
               ))}
             </>
           )}
@@ -920,7 +949,7 @@ function BudgetCell({ r, budgetMxn, editing, writing, onStart, onCancel, onSave 
     <button type="button" onClick={(e) => { stop(e); onStart(); }} disabled={writing} title="Editar presupuesto"
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid transparent', borderRadius: 8, padding: '4px 8px', cursor: writing ? 'default' : 'pointer', color: 'var(--ink)', font: 'inherit', fontVariantNumeric: 'tabular-nums' }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}>
-      {budgetMxn != null ? `${fmtUSD(mxnAUsd(budgetMxn), 0)}/día` : '—'}<span style={{ fontSize: 11, color: 'var(--faint)' }}>✎</span>
+      {budgetMxn != null ? `${fmtUSD(mxnAUsd(budgetMxn), 0)}/día` : '—'}<span style={{ display: 'inline-flex', color: 'var(--faint)' }}><Icon name="pen" size={12} /></span>
     </button>
   );
 }
@@ -976,7 +1005,7 @@ function Pill({ semaforo, label, onClick }: { semaforo: Semaforo; label: string;
     return (
       <button type="button" title="Ver por qué y cómo resolverlo" onClick={(e) => { e.stopPropagation(); onClick(); }}
         style={{ ...base, border: `1px solid ${colorDeSemaforo(semaforo)}`, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}>
-        {dot}{label}<span style={{ fontSize: 11, textDecoration: 'none' }}>ⓘ</span>
+        {dot}{label}<span style={{ display: 'inline-flex', textDecoration: 'none' }}><Icon name="eye" size={12} /></span>
       </button>
     );
   }
@@ -1015,7 +1044,7 @@ function ProblemaModal({ ads, accountId, onClose, onEditAd }: { ads: ProblemAd[]
                       Aprobar en Meta ↗
                     </a>
                   )}
-                  <button type="button" onClick={() => onEditAd(ad.id, ad.name)} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✎ Editar textos</button>
+                  <button type="button" onClick={() => onEditAd(ad.id, ad.name)} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><span style={{ display: 'inline-flex', marginRight: 6, verticalAlign: '-2px' }}><Icon name="escribir" size={13} /></span>Editar textos</button>
                 </div>
                 {pendienteAprobar && <div style={{ marginTop: 10 }}><TutorialAprobacionMeta /></div>}
               </div>
@@ -1228,7 +1257,7 @@ function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: 
 
   return (
     <FloatingPanel ariaLabel="Rango de fecha de creación" panelWidth={300} triggerStyle={triggerStyle}
-      trigger={<><span aria-hidden>📅</span><span style={{ whiteSpace: 'nowrap' }}>{etiqueta}</span><span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>▾</span></>}>
+      trigger={<><span style={{ whiteSpace: 'nowrap' }}>{etiqueta}</span><span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>▾</span></>}>
       {(close) => (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
@@ -1409,7 +1438,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
 
             {/* Resumen del alcance */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
-              <span style={{ fontSize: 15 }}>📝</span>
+              <span style={{ display: 'inline-flex', flex: 'none', color: 'var(--faint)' }}><Icon name="notepencil" size={15} /></span>
               <span>Se renombrarán <b style={{ color: 'var(--ink)' }}>{enAlcance.length}</b> de {entities.length} {NIVEL_NOUN[level]}{(desde || hasta) ? `, creadas${desde ? ` desde ${diaLegible(desde)}` : ''}${hasta ? ` hasta ${diaLegible(hasta)}` : ''}. El resto no se toca.` : '.'} Se numeran de la más vieja a la más nueva.</span>
             </div>
 

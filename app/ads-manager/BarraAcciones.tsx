@@ -28,6 +28,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { presetsDeFecha } from '../_components/FechaFiltroGlobal';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { Icon } from '../_components/icons';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -64,7 +65,7 @@ const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '
 // El menú «⋯»: todo lo que no es crear una campaña
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type AccionMenu = { label: string; sub?: string; onClick: () => void };
+export type AccionMenu = { label: string; icono: string; onClick: () => void };
 
 export function MenuAcciones({ acciones }: { acciones: AccionMenu[] }) {
   const [abierto, setAbierto] = useState(false);
@@ -81,9 +82,9 @@ export function MenuAcciones({ acciones }: { acciones: AccionMenu[] }) {
             <button key={a.label} type="button" role="menuitem" onClick={() => { setAbierto(false); a.onClick(); }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              style={{ ...item, flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+              style={{ ...item, justifyContent: 'flex-start', gap: 10 }}>
+              <span style={{ display: 'inline-flex', color: 'var(--dim)' }}><Icon name={a.icono} size={17} /></span>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</span>
-              {a.sub && <span style={{ fontSize: 12, color: 'var(--dim)' }}>{a.sub}</span>}
             </button>
           ))}
         </div>
@@ -156,12 +157,13 @@ export function FiltrosMenu({ hoyReal, estado, opcionesEstado, onEstado, columna
     <div ref={ref} style={{ position: 'relative', flex: 'none' }}>
       <button type="button" onClick={() => { setAbierto((v) => !v); setDentro(null); }} aria-expanded={abierto}
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
-          border: '1px solid ' + (activos ? 'var(--primary)' : 'var(--border-strong)'),
-          background: activos ? 'var(--primary-bg)' : 'var(--surface)',
-          color: activos ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 999,
+          border: '1px solid ' + (activos ? 'var(--primary)' : 'var(--border)'),
+          background: 'var(--surface)',
+          color: activos ? 'var(--primary-strong)' : 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer',
         }}>
-        ⚙ Filtros
+        <span style={{ display: 'inline-flex', color: activos ? 'var(--primary-strong)' : 'var(--dim)' }}><Icon name="funnel" size={16} /></span>
+        Filtrar
         {activos > 0 && <span style={{ fontFamily: MONO, fontSize: 11, background: 'var(--primary)', color: '#fff', borderRadius: 999, padding: '0 6px' }}>{activos}</span>}
       </button>
 
@@ -240,12 +242,39 @@ const NOMBRE: Record<LoteNivel, [string, string]> = {
 };
 
 const chip: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 34, padding: '0 12px',
+  display: 'inline-flex', alignItems: 'center', gap: 7, height: 34, padding: '0 12px',
   borderRadius: 10, border: '1px solid rgba(243,245,248,.22)', background: 'rgba(243,245,248,.08)',
   color: 'var(--surface)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
 };
 
-export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onPresupuesto, productos, onProducto, onEliminar }: {
+/**
+ * Ícono del catálogo + TEXTO.
+ *
+ * ⚠️ La primera versión era sólo íconos, y Martín la frenó el 06/10: «no exageres con
+ * poner solo iconos y nada de botones con texto, porque se acumularon todos a la izquierda
+ * y no se entiende… No pongas emoji, siempre iconos para que sea mas profesional». Las dos
+ * mitades importan: el texto es lo que hace legible la barra, y el ícono sale de
+ * `app/_components/icons.tsx` — un emoji se dibuja distinto en cada sistema y no hereda el
+ * color del botón.
+ */
+function BotonLote({ icono, children, onClick, activo, tono, disabled }: {
+  icono: string; children: React.ReactNode; onClick: () => void; activo?: boolean; tono?: 'malo'; disabled?: boolean;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      style={{
+        ...chip,
+        background: tono === 'malo' ? 'var(--bad)' : activo ? 'rgba(243,245,248,.22)' : 'rgba(243,245,248,.08)',
+        borderColor: tono === 'malo' ? 'transparent' : 'rgba(243,245,248,.22)',
+        cursor: disabled ? 'wait' : 'pointer',
+      }}>
+      <span style={{ display: 'inline-flex', opacity: 0.9 }}><Icon name={icono} size={15} /></span>
+      {children}
+    </button>
+  );
+}
+
+export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onPresupuesto, productos, onProducto, onRenombrar, onAgregarConjunto, onAgregarAnuncio, onEliminar }: {
   n: number;
   nivel: LoteNivel;
   /** Encendido = los N están activos. Con una mezcla va apagado. */
@@ -256,6 +285,12 @@ export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onP
   onPresupuesto?: (mxn: number) => void;
   productos?: Array<{ value: string; label: string }> | null;
   onProducto?: (valor: string) => void;
+  /** La nomenclatura con MaKo, ahora sobre lo SELECCIONADO y no sobre toda la tab. */
+  onRenombrar?: () => void;
+  /** Sólo con UNA campaña elegida: un conjunto cuelga de una, no de seis. */
+  onAgregarConjunto?: () => void;
+  /** Sólo con UN conjunto elegido. */
+  onAgregarAnuncio?: () => void;
   /** Meta sólo deja borrar lo que está en pausa, así que esto no siempre se puede. */
   onEliminar?: () => void;
 }) {
@@ -263,31 +298,27 @@ export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onP
   const [monto, setMonto] = useState('');
   const [sing, plur] = NOMBRE[nivel];
 
-  const icono = (titulo: string, glifo: string, onClick: () => void, activo: boolean) => (
-    <button type="button" title={titulo} aria-label={titulo} onClick={onClick} disabled={trabajando}
-      style={{ ...chip, width: 38, padding: 0, background: activo ? 'rgba(243,245,248,.22)' : 'rgba(243,245,248,.08)', fontSize: 15, cursor: trabajando ? 'wait' : 'pointer' }}>
-      {glifo}
-    </button>
-  );
-
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--ink)', color: 'var(--surface)', borderRadius: 14, padding: '10px 14px' }}>
-      <span style={{ fontSize: 14, fontWeight: 600, marginRight: 2 }}>{n} {n === 1 ? sing : plur}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'var(--ink)', color: 'var(--surface)', borderRadius: 14, padding: '10px 14px' }}>
+      <span style={{ fontSize: 14, fontWeight: 600, marginRight: 4 }}>{n} {n === 1 ? sing : plur}</span>
 
       {/* un solo interruptor: encendido = los N activos */}
       <button type="button" role="switch" aria-checked={todosActivos} disabled={trabajando}
         title={todosActivos ? `Pausar ${n === 1 ? sing : plur}` : `Activar ${n === 1 ? sing : plur}`}
         onClick={() => onEstado(todosActivos ? 'PAUSED' : 'ACTIVE')}
-        style={{ ...chip, padding: '0 10px 0 6px', cursor: trabajando ? 'wait' : 'pointer' }}>
+        style={{ ...chip, padding: '0 12px 0 6px', cursor: trabajando ? 'wait' : 'pointer' }}>
         <span style={{ width: 34, height: 19, borderRadius: 999, background: todosActivos ? 'var(--good)' : 'rgba(243,245,248,.28)', position: 'relative', transition: 'background .15s', flex: 'none' }}>
           <span style={{ position: 'absolute', top: 2, left: todosActivos ? 17 : 2, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
         </span>
         {todosActivos ? 'Activas' : 'En pausa'}
       </button>
 
-      {onPresupuesto && icono('Cambiar presupuesto diario', '💲', () => setModo((m) => (m === 'presupuesto' ? null : 'presupuesto')), modo === 'presupuesto')}
-      {productos && productos.length > 0 && onProducto && icono('Asignar a un producto del CRM', '🎯', () => setModo((m) => (m === 'producto' ? null : 'producto')), modo === 'producto')}
-      {onEliminar && icono('Eliminar (sólo lo que está en pausa)', '🗑', () => setModo((m) => (m === 'eliminar' ? null : 'eliminar')), modo === 'eliminar')}
+      {onPresupuesto && <BotonLote icono="sales" disabled={trabajando} activo={modo === 'presupuesto'} onClick={() => setModo((m) => (m === 'presupuesto' ? null : 'presupuesto'))}>Presupuesto</BotonLote>}
+      {productos && productos.length > 0 && onProducto && <BotonLote icono="tag" disabled={trabajando} activo={modo === 'producto'} onClick={() => setModo((m) => (m === 'producto' ? null : 'producto'))}>Producto</BotonLote>}
+      {onRenombrar && <BotonLote icono="notepencil" disabled={trabajando} onClick={onRenombrar}>Renombrar</BotonLote>}
+      {onAgregarConjunto && <BotonLote icono="users" disabled={trabajando} onClick={onAgregarConjunto}>Agregar conjunto</BotonLote>}
+      {onAgregarAnuncio && <BotonLote icono="creativos" disabled={trabajando} onClick={onAgregarAnuncio}>Agregar anuncio</BotonLote>}
+      {onEliminar && <BotonLote icono="trash" disabled={trabajando} activo={modo === 'eliminar'} onClick={() => setModo((m) => (m === 'eliminar' ? null : 'eliminar'))}>Eliminar</BotonLote>}
 
       {modo === 'presupuesto' && onPresupuesto && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

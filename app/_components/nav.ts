@@ -440,6 +440,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           // bibliotecas globales (Ángulos y Estructuras) que antes colgaban
           // sueltas de /admin/guiones con un nombre que no se entendía.
           { key: 'dev-ads-writer', label: 'Ads Writer', href: '/admin/dev/ads-writer', icon: 'escribir', match: (p) => starts('/admin/dev/ads-writer')(p) || starts('/admin/dev/ads-generator')(p) || starts('/admin/guiones')(p) },
+          { key: 'dev-ads-manager', label: 'Ads Manager', href: '/admin/dev/ads-manager', icon: 'grid', match: starts('/admin/dev/ads-manager') },
           { key: 'dev-semaforo', label: 'El semáforo', href: '/admin/dev/semaforo', icon: 'graphics', match: starts('/admin/dev/semaforo') },
           { key: 'dev-products-offers', label: 'Products & Offers', href: '/admin/dev/products-offers', icon: 'crm', match: starts('/admin/dev/products-offers') },
           { key: 'dev-pricing', label: 'Pricing', href: '/admin/dev/pricing', icon: 'tag', match: starts('/admin/dev/pricing') },

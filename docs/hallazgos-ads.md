@@ -2609,3 +2609,71 @@ que no existe.
 - De los pendientes de la entrada anterior, **el payload al dataset y los dos `custom_data`
   quedaron CERRADOS** por esta corrida; la conversión personalizada por API y el camino de polling
   siguen abiertos.
+
+## Un guard de «no hay emoji» busca donde uno adivina, y los emoji estaban en otras cuatro partes (06/10)
+
+**Síntoma.** Martín, sobre la barra de la selección múltiple del Ads Manager: *«No pongas
+emoji, siempre iconos para que sea mas profesional»*. Se cambiaron los tres de la barra
+(💲🎯🗑) por íconos de `app/_components/icons.tsx`, se escribió un guard, y el guard pasó.
+
+**La causa real.** El guard leía el bloque de `rowActionsFor` y el de `BarraLoteAds`, o sea
+los dos lugares donde yo ya sabía que había emoji. Lo que encontró el navegador, con la tab
+abierta de verdad, fueron **cuatro más** que ningún assert miraba:
+
+| Dónde | Qué dibujaba |
+|---|---|
+| la celda del presupuesto | un **segundo `✎`**, al lado del del nombre que YA era `<Icon name="pen">` |
+| el chip «Con problemas · N» | `ⓘ` (U+24D8, un alfanumérico encerrado: cambia de ancho con la fuente) |
+| el modal de renombrar | `📅` en el rango de fechas y `📝` en el resumen de alcance |
+| el panel de un anuncio con problemas | `✎ Editar textos` |
+
+El del presupuesto es el peor de los cuatro y no se ve leyendo el diff: deja **dos lápices
+en la MISMA fila**, uno vectorial y otro tipográfico, que se leen como dos cosas distintas.
+
+**La regla que queda.** Un guard de «esto no aparece» se escribe sobre el **ARCHIVO**, no
+sobre el bloque donde uno vio el problema: el universo de un `doesNotMatch` es lo único que
+decide qué encuentra, y acotarlo a lo que ya se arregló es escribir un test que sólo puede
+pasar. Acá son los cuatro `.tsx` de `app/ads-manager/` (`tests/ads-barra.test.ts`).
+
+**Y qué NO persigue, a propósito:** los planos pictográficos (`1F300–1FAFF`, `2460–24FF`,
+`2B00–2BFF`). `✓` (2713), `✕` (2715) y `✦` (2726) quedan afuera: son tipografía monocroma que
+el repo usa en todos sus modales. Meter `2600–27BF` entero —que es el rango obvio— haría
+fallar el guard sobre siete cierres de modal perfectamente sanos.
+
+**Vive en:** `app/ads-manager/CampanasBrowser.tsx`, `app/ads-manager/BarraAcciones.tsx`,
+`tests/ads-barra.test.ts`.
+
+## Dónde vive cada acción del Ads Manager, y por qué no donde estaba (06/10)
+
+Las dos tandas de pedidos de Martín (05 y 06/10) movieron todo de lugar. El mapa, para no
+volver a poner una acción donde ya se decidió que no va:
+
+| Acción | Dónde vive | Por qué |
+|---|---|---|
+| Nueva campaña | arriba a la derecha, botón primario | es lo único que se crea de cero |
+| Subir creativos · Agregar conjunto a una campaña · Analizar con Meta | el `⋯` | se usan poco; con ícono y **sin subtítulo** |
+| Filtrar (fechas + estados + columnas) | a la altura de las tabs, pastilla blanca con el embudo | un solo botón, con categorías como el del plan |
+| Actualizar estado | **su propio botón**, a la derecha del filtro | se usa seguido y un menú la escondía |
+| Activar/pausar, presupuesto, producto, **renombrar**, agregar conjunto/anuncio, eliminar | la barra de la **selección** | operan sobre lo elegido |
+| Editar textos (anuncio) · Editar público (conjunto) | la fila | corrigen lo que YA existe |
+
+Dos cosas que no se ven en el mapa:
+
+- **Agregar conjunto/anuncio sólo se dibuja con UNA fila tildada** (`unaSola`): un conjunto
+  cuelga de una campaña, no de seis, y un botón que no puede hacer nada se lee como roto.
+- **«Renombrar» renombra LO ELEGIDO**, no la tab entera: antes salía del `⋯`, donde no había
+  selección, así que le proponía una nomenclatura a las 80 campañas. Hoy
+  `renameEntities.filter((e) => selSet.has(e.id))`.
+- **La barra de lote lleva ícono Y TEXTO.** La primera versión era sólo íconos y Martín la
+  frenó: *«se acumularon todos a la izquierda y no se entiende»*. El texto es lo que la hace
+  legible; el ícono es lo que la hace rápida de barrer. Las dos mitades, no una.
+
+**Vive en:** `app/ads-manager/BarraAcciones.tsx` (`MenuAcciones`, `FiltrosMenu`,
+`BarraLoteAds`), `app/ads-manager/CampanasBrowser.tsx`.
+
+**Lo que quedó SIN hacer:** la asignación a producto sigue siendo de **UN** producto por
+campaña. Que sea múltiple choca con que un lead tiene un solo `funnel_id`
+(`lib/campana-config.ts`), y las tres salidas —partir por conjunto (ya funciona), múltiple
+con prioridad (desempate silencioso), un lead por producto (cambia el modelo del CRM)— las
+tiene que decidir Martín. El default por si la cuenta tiene un solo producto SÍ está: la
+columna no se dibuja y el lote no la ofrece (`asig.productos.length > 1`).
