@@ -46,12 +46,13 @@ import { TAB_ONBOARDINGS } from '../lib/tab-onboarding-catalogo';
  */
 const COMPARTIDAS_A_PROPOSITO: Record<string, string> = {
   wa_no_oficial: 'El WhatsApp por QR: el mismo número en /whatsapp y en /chatbot.',
-  wa_no_oficial_prueba: 'La prueba de vida de ese mismo número.',
-  wa_oficial: 'La API oficial de Meta: la misma cuenta en /whatsapp y en /chatbot.',
-  wa_oficial_plantilla: 'La plantilla aprobada por Meta, que es una sola.',
-  wa_oficial_prueba: 'La prueba de vida del canal oficial.',
-  email_conectar: 'La cuenta de Resend: la misma en /email y en /chatbot.',
-  email_prueba: 'El mail de prueba de esa misma cuenta.',
+  // 05/10/2026 — se fueron seis, y las dos razones están en el producto:
+  //  · /chatbot dejó de ser un wizard (#833): su lista quedó en UN paso, el QR, así que
+  //    `wa_no_oficial_prueba`, `email_conectar` y `email_prueba` ya no las comparte con nadie
+  //    (viven en /whatsapp y en /email, cada una en su tab).
+  //  · el WhatsApp OFICIAL salió del producto (#832): `wa_oficial`, `wa_oficial_plantilla` y
+  //    `wa_oficial_prueba` no están en ninguna tab.
+  // Quedan declaradas abajo SOLO si vuelven a aparecer en dos listas a la vez.
   conectar: 'La cuenta de Instagram conectada, que la usan Instagram, Reels y Stories.',
 };
 

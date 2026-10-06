@@ -55,5 +55,9 @@ export default async function WhatsAppPage() {
   // pantalla donde estaba, con el chat abierto perdido.
   const rolWs = await getRolWsEfectivo();
   const puedeChatbot = rolWs == null || rolWs === 'admin' || rolWs === 'setter';
-  return <WhatsAppApp puedeChatbot={puedeChatbot} />;
+  // El canal OFICIAL salió del producto (tarea #832): Meta cobra por mensaje y el no
+  // oficial no tiene esa restricción. Se esconde para todos MENOS para quien ya lo tiene
+  // conectado — ahí hay conversaciones reales, y sacarle la pestaña sería esconderle su
+  // propio inbox. `oficial` ya está medido arriba con `integracionConectada('whatsapp')`.
+  return <WhatsAppApp puedeChatbot={puedeChatbot} mostrarOficial={oficial} />;
 }

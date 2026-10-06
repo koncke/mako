@@ -26,10 +26,11 @@
 // emisor no manda `ref`, se arma una con el contacto: es lo que identifica a la persona.
 // =============================================================================
 
+import { wsEnContexto } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
 import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
 import { crearPropuesta } from '@/lib/propuestas';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
       leads: filas.length,
       // Lo que NO entró se devuelve: un lead que se cae en silencio es peor que un error.
       descartados: errores.length ? errores : undefined,
-      url: `${APP_BASE_URL}/crm/revisar/${id}`,
+      url: linkApp(`/crm/revisar/${id}`, wsEnContexto()),
       mensaje: 'Quedó para confirmar. Pásale el link al usuario: los contactos entran al CRM recién cuando los confirma.',
     });
   } catch (e) {

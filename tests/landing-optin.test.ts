@@ -532,7 +532,9 @@ test('un lead de landing AVISA, o la propuesta no existe para nadie', () => {
   // LLM ya falló en este repo, y la forma silenciosa —un link que resuelve a una
   // propuesta REAL pero equivocada— es la peor.
   assert.ok(/texto: `/.test(ruta), 'el mensaje va determinista (texto), no escrito por el modelo (contexto)');
-  assert.ok(/\$\{APP_BASE_URL\}\/crm\/revisar\/\$\{id\}/.test(ruta), 'falta el link absoluto a la propuesta real');
+  // El link va por `linkApp`, que le pega el `?ws=`: este aviso viaja a un teléfono y lo
+  // abre alguien que puede tener la app parada en otro workspace (05/10, tarea #834).
+  assert.ok(/linkApp\(`\/crm\/revisar\/\$\{id\}`, wsEnContexto\(\)\)/.test(ruta), 'falta el link a la propuesta real, armado por el código y con su workspace');
   // Y el aviso NO puede tumbar la ingesta: el lead ya está guardado, y eso es el
   // hecho. Lo que se pierde si el aviso falla es la notificación, no la persona.
   assert.ok(/\.catch\(\(e\) => \{/.test(ruta.slice(ruta.indexOf("emitirDelCatalogo('lead-de-landing'"))), 'un aviso caído no puede perder el lead');

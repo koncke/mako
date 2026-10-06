@@ -88,10 +88,9 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
       { key: 'wa_no_oficial_prueba', label: 'Verificación' },
-      // Lo que NO bloquea, al final: se puede dejar para después.
-      { key: 'wa_oficial', label: 'WhatsApp oficial', opcional: true },
-      { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla', opcional: true },
-      { key: 'wa_oficial_prueba', label: 'Verificación del oficial', opcional: true },
+      // Los tres pasos del OFICIAL se fueron con la tarea #832: Meta cobra por mensaje y
+      // el no oficial no tiene esa restricción, así que el producto deja de ofrecerlo.
+      // Quien ya lo tenga conectado lo sigue viendo; nadie nuevo lo configura.
     ],
   },
 
@@ -117,18 +116,24 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     key: 'setting',
     titulo: 'Configuración del Chatbot',
     nombre: 'Chatbot',
+    // ⚠️ UN SOLO PASO, Y ES EL QR. La tab dejó de ser un wizard: es el lienzo donde se
+    // dibujan las secuencias, y lo único que hay que tener antes es la línea vinculada
+    // (Martín, 05/10: «esa pestaña ya no requeriría un onboarding al menos que no tengas
+    // vinculado WhatsApp todavía; lo único que tiene que salir es el QR»).
+    //
+    // Dónde fue a parar cada paso viejo, para que nadie lo busque:
+    //  · «Verificación» — la pantalla del QR detecta sola cuando engancha.
+    //  · «Tus audios» — el editor graba el audio DE CADA PASO (`PasoAudioControl`).
+    //  · «Ensayo» — el simulador vive adentro de la tab.
+    //  · «Tus secuencias» — Publicar y Activar están en el lienzo.
+    //  · «WhatsApp oficial» ×3 — el oficial salió del producto (tarea #832).
+    //  · «Tu email» ×2 — /email tiene su propia tab y su propio onboarding.
+    //  · «Tu forma de escribir» — es el único que produce un dato sin otra casa (la guía
+    //    de voz). Decisión de Martín: no va al entrar, va la primera vez que se enciende
+    //    la IA en una tarjeta del lienzo. Hasta que esa opción exista, la pantalla sigue
+    //    en `OnboardingChatAgent.tsx`, sin montar.
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
-      { key: 'wa_no_oficial_prueba', label: 'Verificación' },
-      { key: 'contexto', label: 'Tu forma de escribir' },
-      { key: 'voz', label: 'Tus audios' },
-      { key: 'ensayo', label: 'Ensayo de conversación' },
-      { key: 'aprobar', label: 'Tus secuencias de mensajes' },
-      { key: 'wa_oficial', label: 'WhatsApp oficial', opcional: true },
-      { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla', opcional: true },
-      { key: 'wa_oficial_prueba', label: 'Verificación del oficial', opcional: true },
-      { key: 'email_conectar', label: 'Tu email', opcional: true },
-      { key: 'email_prueba', label: 'Verificación del email', opcional: true },
     ],
     href: '/chatbot',
   },

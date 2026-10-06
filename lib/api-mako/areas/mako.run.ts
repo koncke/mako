@@ -5,6 +5,7 @@
 // ciclo (reclamar → ejecutar → resolver). Nada de lógica acá.
 // =============================================================================
 
+import { wsEnContexto, getWorkspaceActual } from '@/lib/workspace';
 import 'server-only';
 import type { Ctx, Runners } from '../tipos';
 import { listarPendientes, confirmarPendiente, cancelarPendiente, RUTA_BANDEJA } from '../acciones';
@@ -17,7 +18,7 @@ import { rutaDePropuesta, PANTALLA_DE_PROPUESTA } from '@/lib/propuestas-tipos';
 import { listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { CAPACIDADES } from '@/lib/mako-capacidades';
 import { TODOS_LOS_ITEMS } from '@/app/_components/nav';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 
 const num = (input: Record<string, unknown>, k: string): number | null => {
   const v = input[k];
@@ -242,12 +243,12 @@ export const RUNNERS: Runners = {
         ...(tienePlan ? {
           borradores_plan: borradores
             ? {
-                n: borradores.length, tope: TOPE_PROPUESTAS, recortado: borradores.length >= TOPE_PROPUESTAS, url: `${APP_BASE_URL}/plan`,
+                n: borradores.length, tope: TOPE_PROPUESTAS, recortado: borradores.length >= TOPE_PROPUESTAS, url: linkApp('/plan', wsEnContexto()),
                 nota: `Se leen los ${TOPE_PROPUESTAS} borradores más nuevos y después se descartan los vacíos: si hay más, el número puede quedar corto.`,
               }
-            : { n: null, url: `${APP_BASE_URL}/plan`, ...NULO },
+            : { n: null, url: linkApp('/plan', wsEnContexto()), ...NULO },
         } : {}),
-        ...(tieneCrm ? { confirmaciones_crm: { n: c.crmAuto, url: `${APP_BASE_URL}/crm`, como: 'Aparecen como aviso al entrar al CRM, repartidas por producto.', ...nulo(c.crmAuto) } } : {}),
+        ...(tieneCrm ? { confirmaciones_crm: { n: c.crmAuto, url: linkApp('/crm', await getWorkspaceActual()), como: 'Aparecen como aviso al entrar al CRM, repartidas por producto.', ...nulo(c.crmAuto) } } : {}),
         bandejas_que_este_negocio_no_tiene: [...(tieneCrm ? [] : ['contactos', 'confirmaciones_crm']), ...(tienePlan ? [] : ['borradores_plan'])],
       });
     },

@@ -25,13 +25,13 @@ import 'server-only';
 
 import { buscarUsuarioPorEmail, buscarUsuarioPorNombre, telefonoDeUsuario, emailDuenoWorkspace, type Usuario } from './usuarios';
 import { getUsuarioActual } from './auth';
-import { estaImpersonando, getWorkspaceActual } from './workspace';
+import { wsEnContexto, estaImpersonando, getWorkspaceActual } from './workspace';
 import { findLeadByContacto } from './leads';
 import { enviarAPersonaMaKo } from './mako-grupo';
 import { enviarTexto } from './evolution';
 import { sendEmail } from './resend';
 import { crearPropuesta, type PropuestaTarea } from './plan-propuesta';
-import { APP_BASE_URL as APP_URL } from './app-url';
+import { linkApp, APP_BASE_URL as APP_URL } from './app-url';
 
 /** Una tarea que se le reparte a alguien (lo mínimo que viaja del modal al server).
  *  `minuto`/`minutos` viajan para que la tarjeta que le queda a la otra persona abra
@@ -262,5 +262,5 @@ export async function cargarTareasEnPlanDe(opts: {
     ref: opts.ref,
     resumen: `${de || 'Alguien'} te mandó ${tareas.length} ${tareas.length === 1 ? 'tarea' : 'tareas'} de la reunión${reunion.titulo ? ` «${reunion.titulo}»` : ''}${f ? ` del ${f}` : ''}.`,
   });
-  return { ok: true, id, link: `${APP_URL}/plan/revisar/${id}` };
+  return { ok: true, id, link: linkApp(`/plan/revisar/${id}`, wsEnContexto()) };
 }

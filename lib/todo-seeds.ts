@@ -10,7 +10,7 @@ import 'server-only';
 // Idempotente: solo siembra si el cliente todavía no tiene ni proyectos ni tareas.
 // =============================================================================
 
-import { getCapaActual, getTenantDb } from './workspace';
+import { wsEnContexto, getCapaActual, getTenantDb } from './workspace';
 import { capaDef } from './capas';
 import type { Categoria, Tarea } from './todo';
 import { editarTarea } from './todo';
@@ -93,7 +93,7 @@ export async function seedTodoBoardSiVacio(): Promise<Categoria[]> {
 // resueltas se cierran solas, con la evidencia en el historial.
 
 import { emitirDelCatalogo } from './avisos';
-import { APP_BASE_URL } from './app-url';
+import { linkApp, APP_BASE_URL } from './app-url';
 
 const MARCA_AUTO = 'MaKo la marcó hecha';
 
@@ -150,7 +150,7 @@ export async function autocompletarPorSenales(tareas: Tarea[]): Promise<number> 
 ${lista}
 
 Si alguna no está lista, ábrela y reábrela: no la vuelvo a tocar.
-${APP_BASE_URL}/plan`,
+${linkApp('/plan', wsEnContexto())}`,
       dedupTtlMin: 1440,
     }).catch((e) => console.error('[plan-auto] aviso:', e instanceof Error ? e.message : String(e)));
   }

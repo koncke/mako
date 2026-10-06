@@ -18,13 +18,13 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
-import { runWithWorkspace, getWorkspace, OWNER_WS } from '@/lib/workspace';
+import { wsEnContexto, runWithWorkspace, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { listPlanBoard } from '@/lib/plan-board';
 import { listTareas, listCategorias } from '@/lib/todo';
 import { estaPendiente } from '@/lib/todo-estados';
 import { crearPropuesta } from '@/lib/plan-propuesta';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
         origen: 'claude-code',
       }),
     );
-    return NextResponse.json({ ok: true, id, url: `${APP_BASE_URL}/plan/revisar/${id}` });
+    return NextResponse.json({ ok: true, id, url: linkApp(`/plan/revisar/${id}`, wsEnContexto()) });
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }

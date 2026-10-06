@@ -18,10 +18,10 @@
 
 import 'server-only';
 
-import { APP_BASE_URL } from './app-url';
+import { linkApp, APP_BASE_URL } from './app-url';
 import { RUTA_DE_LINK, resolverVariables, necesitaFichaDelLead } from './variables-aviso';
 import { tzDeWorkspace } from './timezone';
-import { getWorkspace } from './workspace';
+import { wsEnContexto, getWorkspace } from './workspace';
 import { partesEn } from './cron-aviso';
 import { valoresDelLead } from './variables-del-lead';
 
@@ -42,7 +42,7 @@ export type CtxVariables = { ws: number; leadId?: number | null; leadNombre?: st
 export async function valoresDeVariables(ctx: CtxVariables, texto?: string, datos?: Record<string, string>): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const [k, ruta] of Object.entries(RUTA_DE_LINK)) out[k] = `${APP_BASE_URL}${ruta}`;
-  if (ctx.leadId) out.link_lead = `${APP_BASE_URL}/crm/${ctx.leadId}/resumen`;
+  if (ctx.leadId) out.link_lead = linkApp(`/crm/${ctx.leadId}/resumen`, wsEnContexto());
   if (ctx.leadNombre) out.lead_nombre = ctx.leadNombre;
   try {
     const tz = await tzDeWorkspace(ctx.ws);

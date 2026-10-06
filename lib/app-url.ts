@@ -39,6 +39,8 @@
 // y /api/track del 410 de mudanza. Esa red se saca recién cuando están hechos.
 // =============================================================================
 
+import { conWs } from './ws-tab';
+
 export const APP_BASE_URL = (
   process.env.APP_BASE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
@@ -120,4 +122,20 @@ function validarEmailMako(v: string): string {
     );
   }
   return v;
+}
+
+/**
+ * Un link a una pantalla del producto que se MANDA AFUERA (WhatsApp, email, un aviso).
+ *
+ * ⚠️ SIEMPRE lleva el `?ws=`, y por eso existe. Un aviso viaja hasta el teléfono de alguien
+ * que puede estar mirando OTRO workspace cuando lo toca: sin el parámetro, el link abre la
+ * pantalla en el workspace de la pestaña y la app contesta «este lead no es de esta cuenta»
+ * sobre un lead que sí es suyo. Medido el 05/10/2026 con un aviso de agendado: se lee como
+ * una fuga entre clientes y es un link al que le falta el destino.
+ *
+ * Es la misma regla que AGENTS.md ya tiene para la navegación de adentro («las cuatro formas
+ * llevan el ?ws=»), aplicada a la quinta: la que sale por mensaje.
+ */
+export function linkApp(ruta: string, ws: number | null): string {
+  return `${APP_BASE_URL}${conWs(ruta, ws)}`;
 }

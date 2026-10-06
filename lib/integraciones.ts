@@ -157,7 +157,22 @@ export async function getIntegraciones(): Promise<Integracion[]> {
   const wsActual = await getWorkspaceActual().catch(() => null);
   const esSuper = wsActual != null && wsActual === (await wsSuperAdmin().catch(() => -1));
 
-  const defs = defsVisibles(DEFS, { cats, ocultas, esSuper });
+  const defsTodas = defsVisibles(DEFS, { cats, ocultas, esSuper });
+  /**
+   * El WhatsApp OFICIAL (Cloud API de Meta, vía Chatwoot) sale del producto.
+   *
+   * Martín, 05/10: «ahora Meta te cobra por la app de oficial… si ya tengo el chatbot que
+   * maneja tranquilamente el no oficial y no tenía restricciones, directamente voy a sacar
+   * el tema de oficial». El costo por mensaje no se justifica para el volumen de estos
+   * clientes, y la vinculación por QR no tiene ni tarifa ni trámite de aprobación.
+   *
+   * Se ESCONDE, no se borra, y con una excepción medida: el workspace que YA lo tiene
+   * conectado lo sigue viendo. Sacárselo a quien hoy recibe conversaciones por ahí le
+   * dejaría el inbox sin forma de administrar sus credenciales — esconder una integración
+   * viva no la apaga, solo la vuelve inmanejable.
+   */
+  const yaUsaOficial = await credWs('CHATWOOT_API_TOKEN').then(Boolean).catch(() => false);
+  const defs = defsTodas.filter((d) => d.key !== 'whatsapp' || yaUsaOficial);
   return Promise.all(defs.map(async (d) => {
     if (d.key === 'landing') {
       return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };

@@ -26,7 +26,7 @@ import 'server-only';
 // de funcionar para ese cliente y nadie se entera.
 // =============================================================================
 
-import { getCapaActual, getWorkspaceActual } from './workspace';
+import { wsEnContexto, getCapaActual, getWorkspaceActual } from './workspace';
 import { capaDef } from './capas';
 import { perfilNegocioTexto } from './onboarding';
 import { faseNegocioTexto } from './fase-store';
@@ -44,7 +44,7 @@ import { renderPrompt } from './prompt-render';
 import { parseJsonObject } from './campaign-structurer';
 import { normTitulo } from './tareas-dedup';
 import { crearPropuesta } from './plan-propuesta';
-import { APP_BASE_URL } from './app-url';
+import { linkApp, APP_BASE_URL } from './app-url';
 
 /** El candado: un solo plan de arranque por workspace, para siempre. El índice único
  *  por (workspace_id, ref) lo hace imposible de duplicar aunque se llame dos veces. */
@@ -268,5 +268,5 @@ export async function crearBorradorPlanArranque(): Promise<{ ok: true; id: strin
       incluir: t.yaHecha ? false : undefined,
     })),
   });
-  return { ok: true, id, url: `${APP_BASE_URL}/plan/revisar/${id}`, n: r.plan.tareas.length };
+  return { ok: true, id, url: linkApp(`/plan/revisar/${id}`, wsEnContexto()), n: r.plan.tareas.length };
 }

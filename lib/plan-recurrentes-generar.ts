@@ -32,13 +32,13 @@
 // carrera en el medio es lo que ya se pagó con los avisos duplicados del 27/09.
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual } from './workspace';
+import { wsEnContexto, getTenantDb, getWorkspaceActual } from './workspace';
 import { hoyEnWorkspace } from './timezone';
 import { getWorkspace } from './workspace';
 import { tableroDeCapa, tablasDe } from './tablero-de-capa';
 import { proximaFecha, queGenerar } from './plan-recurrentes-fechas';
 import { recurrenciaDe, textoRepeticion } from './plan-recurrentes';
-import { APP_BASE_URL } from './app-url';
+import { linkApp, APP_BASE_URL } from './app-url';
 
 export type ResultadoGeneracion = {
   plantillas: number;
@@ -213,7 +213,7 @@ async function nuevaInstancia(
     // DE DÓNDE SALIÓ, con el chip que la pantalla ya sabe dibujar y el link a la
     // plantilla. Es lo que evita que la instancia se lea como una tarea que alguien
     // creó a mano y que nadie entienda por qué vuelve cada semana.
-    fuente: { tipo: 'recurrente', etiqueta: ritmo ?? 'Se repite', url: `${APP_BASE_URL}/plan?tarea=${encodeURIComponent(String(p.id))}` },
+    fuente: { tipo: 'recurrente', etiqueta: ritmo ?? 'Se repite', url: linkApp(`/plan?tarea=${encodeURIComponent(String(p.id))}`, wsEnContexto()) },
     historial: [{ id: `h${Date.now().toString(36)}`, ts: Date.now(), actor: 'ia', text: `MaKo la creó desde «${p.titulo.slice(0, 60)}», que ${ritmo ? ritmo.toLowerCase() : 'se repite'}` }],
   };
   // ⚠️ LAS DOS MITADES NI SIQUIERA COMPARTEN LOS NOMBRES DE LAS COLUMNAS (`title` contra

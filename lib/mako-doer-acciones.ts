@@ -14,7 +14,7 @@ import 'server-only';import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle
 
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalogo';
-import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
+import { wsEnContexto, runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes, reclamarPendiente } from '@/lib/mako-pendientes';
 import { porId } from '@/lib/api-mako/registro';
 import { esAccion } from '@/lib/api-mako/tipos';
@@ -34,7 +34,7 @@ import { agregarTareasPlanOwner, priorizarNuevasOwner } from '@/lib/plan-board';
 import { decidirRecurrente } from '@/lib/plan-criterio-reglas';
 import { crearPropuesta } from '@/lib/plan-propuesta';
 // Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
-import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
+import { linkApp, APP_BASE_URL as APP_URL } from '@/lib/app-url';
 const PRIOS: Prioridad[] = ['alta', 'media', 'baja', 'futuro'];
 const prioOk = (p: unknown): Prioridad => (PRIOS.includes(p as Prioridad) ? (p as Prioridad) : 'media');
 
@@ -212,7 +212,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
             items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle, recurrente: it.recurrente })),
             { tipo: 'whatsapp' },
           );
-          const links = ids.map((id) => `${APP_URL}/plan/agencia?tarea=${id}`);
+          const links = ids.map((id) => linkApp(`/plan/agencia?tarea=${id}`, wsEnContexto()));
           // El Perro Guardián trabaja las nuevas server-side (no depende de abrir el board):
           // puntúa + arma checklists + a los proyectos les pone emoji/detalle/score. Si falla,
           // las tareas quedan con su score inicial (no rompe la carga).
@@ -257,7 +257,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
               if (catId == null) { const c = await crearCategoria(nombreCat, d.color ?? '#2F6FED'); catId = c.id; byName.set(k, c.id); }
             }
             const tarea = await crearTarea({ titulo: it.titulo, prioridad: it.prioridad, deadline: it.deadline ?? null, detalle: it.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako' });
-            links.push(`${APP_URL}/plan?tarea=${tarea.id}`);
+            links.push(linkApp(`/plan?tarea=${tarea.id}`, wsEnContexto()));
           } catch (e) {
             fallidas++;
             console.error('[mako-doer-acciones] tareas_plan item:', e instanceof Error ? e.message : String(e));
@@ -660,7 +660,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
             datos: { nombre, telefono: telefono || null, email: email || null, empresa: empresa || null, nota: nota || null },
             resumen: `${nombre}${empresa ? ` (${empresa})` : ''}${telefono ? ` · ${telefono}` : ''}`,
           });
-          const url = `${APP_URL}/crm/revisar/${id}`;
+          const url = linkApp(`/crm/revisar/${id}`, wsEnContexto());
           return JSON.stringify({
             ok: true, url, nueva,
             instruccion: nueva
@@ -824,7 +824,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         // ni "sí" por WhatsApp. Sin preguntas: el alta no pregunta nada desde el 05/10/2026.
         try {
           const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), eliminar, resumen, origen: 'whatsapp' });
-          const link = `${APP_URL}/plan/revisar/${id}`;
+          const link = linkApp(`/plan/revisar/${id}`, wsEnContexto());
           // Los números van SIEMPRE, incluido el cero. Antes `extras` quedaba vacío cuando
           // no había preguntas y el modelo rellenaba el hueco inventando: se midió en prod
           // que anunciaba «y 3 preguntas» en los seis borradores de WhatsApp del día, y

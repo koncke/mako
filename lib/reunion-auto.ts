@@ -37,14 +37,14 @@ import { getSetting, setSetting } from './settings';
 import { emitirDelCatalogo } from './avisos';
 import { listarUsuarios } from './usuarios';
 import { emailsConCuenta, repartoDeTarea, cuantasSonMias, resumenDelReparto } from './reunion-reparto';
-import { getWorkspace } from './workspace';
+import { wsEnContexto, getWorkspace } from './workspace';
 import { tzDeWorkspace } from './timezone';
 import { fechaHoraEnTz } from './date-utils';
 import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
 import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-cliente';
 import type { TipoReunion } from './reunion-clasificar';
-import { APP_BASE_URL as APP_URL } from './app-url';
+import { linkApp, APP_BASE_URL as APP_URL } from './app-url';
 import { tableroDeCapa } from './tablero-de-capa';
 
 /**
@@ -99,7 +99,7 @@ export function textoAviso(hechas: ReunionHecha[], tz: string): string {
   // que el mensaje prometía una revisión y el link no llevaba a ninguna. Con VARIAS,
   // cada reunión lleva el suyo en su viñeta: son borradores distintos y cada uno se
   // confirma por separado.
-  const linkDe = (h: ReunionHecha) => `${APP_URL}/plan/revisar/${h.propId}`;
+  const linkDe = (h: ReunionHecha) => linkApp(`/plan/revisar/${h.propId}`, wsEnContexto());
   const totalMias = hechas.reduce((s, h) => s + h.mias, 0);
   const totalOtras = hechas.reduce((s, h) => s + h.otras, 0);
   const tuyas = `*${totalMias} ${totalMias === 1 ? 'tarea tuya' : 'tareas tuyas'}*`;

@@ -18,16 +18,17 @@
 // =============================================================================
 
 import 'server-only';
-import { getWorkspace, getTenantDb } from '@/lib/workspace';
+import { wsEnContexto, getWorkspace, getTenantDb } from '@/lib/workspace';
 import { AREA_GLOSARIO } from '@/lib/glosario';
 import { listPlanBoard } from '@/lib/plan-board';
 import { listTareas, listCategorias } from '@/lib/todo';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import type { Dep } from '@/app/plan/board/dependencias';
 // «Se repite para siempre» (mig 0163): el predicado sale del módulo de datos, no se
 // reescribe acá. Sin `server-only`, así que se puede importar desde cualquier lado.
 import { diasQuieta } from '@/app/plan/board/envejecer';
-import { esRecurrente, textoRepeticion } from '@/lib/plan-recurrentes';
+import { esRecurrente, textoRepeticion } from '@/lib/plan-recurrentes';
+
 import { tableroDeCapa } from '../../tablero-de-capa';
 
 export type ItemChecklist = { id: string; text: string; done: boolean };
@@ -127,9 +128,9 @@ export async function usaPlanBoard(ws: number): Promise<boolean> {
   return tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
 }
 
-export const linkTarea = (id: string): string => `${APP_BASE_URL}/plan?tarea=${encodeURIComponent(id)}`;
-export const linkProyecto = (id: string): string => `${APP_BASE_URL}/plan?proyecto=${encodeURIComponent(id)}`;
-export const linkBorrador = (id: string): string => `${APP_BASE_URL}/plan/revisar/${encodeURIComponent(id)}`;
+export const linkTarea = (id: string): string => linkApp(`/plan?tarea=${encodeURIComponent(id)}`, wsEnContexto());
+export const linkProyecto = (id: string): string => linkApp(`/plan?proyecto=${encodeURIComponent(id)}`, wsEnContexto());
+export const linkBorrador = (id: string): string => linkApp(`/plan/revisar/${encodeURIComponent(id)}`, wsEnContexto());
 
 const hist = (h: ReadonlyArray<{ ts: number; actor: string; text: string }> | undefined): EntradaHistorial[] =>
   (h ?? []).map((e) => ({ ts: Number(e.ts) || 0, actor: String(e.actor), text: String(e.text) }));

@@ -192,6 +192,20 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
 });
 
 /** Workspace efectivo del request, o null si un admin no está impersonando. */
+/**
+ * El workspace del contexto EN CURSO, sin `await`.
+ *
+ * Existe para armar links que se mandan afuera desde funciones sincrónicas (ver `linkApp`):
+ * `getStore()` ya es sincrónico, y volver async a un helper que se usa inline obligaba a
+ * tocar sus catorce llamadores para resolver un dato que ya estaba a mano.
+ *
+ * ⚠️ Fuera de `runWithWorkspace` devuelve `null` y NO mira las cookies — no es un reemplazo
+ * de `getWorkspaceActual()`, que es el que resuelve de verdad en un request.
+ */
+export function wsEnContexto(): number | null {
+  return wsStore.getStore() ?? null;
+}
+
 export async function getWorkspaceActual(): Promise<number | null> {
   const enContexto = wsStore.getStore();
   if (enContexto !== undefined) return enContexto; // dentro de la caché

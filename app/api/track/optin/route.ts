@@ -26,7 +26,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { emitirDelCatalogo } from '@/lib/avisos';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { crearPropuesta } from '@/lib/propuestas';
 import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
@@ -37,7 +37,7 @@ import { normalizarUrl } from '@/lib/landing-paginas';
 import { funnelDeLanding } from '@/lib/landing-funnel';
 import { funnelDeCampana } from '@/lib/campana-funnel';
 import { textoDuplicado } from '@/lib/leads-duplicados';
-import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
+import { wsEnContexto, getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
             email ? `✉️ ${email}` : null,
             resumenForm,
             hayAtribucion(atrib) ? `📢 ${[atrib.utm_campaign, atrib.utm_content].filter(Boolean).join(' · ') || atrib.utm_source}` : null,
-            `👉 ${APP_BASE_URL}/crm/${lead.id}`,
+            `👉 ${linkApp(`/crm/${lead.id}`, wsEnContexto())}`,
           ].filter(Boolean).join('\n'),
         }),
       ).catch((e) => console.error('[track:optin] el lead entró pero el aviso falló:', e instanceof Error ? e.message : e));
@@ -423,7 +423,7 @@ export async function POST(req: NextRequest) {
         ws,
         // Se dice POR QUÉ quedó esperando. «Confirmalo» a secas, sobre algo que
         // el resto de las veces entra solo, se lee como que el sistema falló.
-        texto: `*${quien}* dejó sus datos en tu landing${contacto ? ` — ${contacto}` : ''}. ${textoDuplicado(dup) || 'Necesito que lo mires'} Por eso NO lo cargué solo: fundir dos contactos no se puede deshacer. Decides tú aquí 👉 ${APP_BASE_URL}/crm/revisar/${id}`,
+        texto: `*${quien}* dejó sus datos en tu landing${contacto ? ` — ${contacto}` : ''}. ${textoDuplicado(dup) || 'Necesito que lo mires'} Por eso NO lo cargué solo: fundir dos contactos no se puede deshacer. Decides tú aquí 👉 ${linkApp(`/crm/revisar/${id}`, wsEnContexto())}`,
         // Sin dedup por tiempo: cada persona que deja sus datos es un aviso
         // propio. Agrupar dos leads distintos en uno es perder el segundo.
       }),

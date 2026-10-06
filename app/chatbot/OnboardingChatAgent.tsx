@@ -1,7 +1,25 @@
 'use client';
 
 // =============================================================================
-// OnboardingChatAgent — el recorrido que deja la tab Chatbot lista
+// OnboardingChatAgent — el wizard COMPARTIDO de los canales (ya no es del Chatbot)
+// =============================================================================
+// ⚠️ LA TAB CHATBOT YA NO LO MONTA (05/10/2026, tarea #833). Pasó a ser el lienzo y su
+// único requisito previo es la línea vinculada: `ChatAgentApp` dibuja el QR y nada más.
+// Lo demás encontró su casa — el audio se graba en cada paso del lienzo, el ensayo es el
+// simulador de la tab, «aprobar» es Publicar — y los tres pasos del WhatsApp oficial se
+// fueron del producto con la tarea #832.
+//
+// Sigue vivo porque lo montan las OTRAS dos tabs con su propia lista de pasos:
+// `app/whatsapp/OnboardingCanalWhatsApp.tsx` (tab 'whatsapp') y
+// `app/email/OnboardingCanalEmail.tsx` (tab 'email'). Está parametrizado por tab y los
+// pasos se comparten, así que escanear el QR en una lo deja hecho en la otra.
+//
+// ⚠️ EL PASO «Tu forma de escribir» (contexto) QUEDÓ SIN PANTALLA: era exclusivo de la
+// lista 'setting', que ahora tiene un solo paso. Produce la GUÍA DE VOZ, que gobierna todo
+// lo que MaKo redacta, así que NO se borra. Decisión de Martín (05/10): vuelve en el
+// momento en que hace falta — la primera vez que se encienda la opción de IA en una
+// tarjeta del lienzo. Cuando esa opción exista, se extrae ese paso a su propio componente.
+// Lo mismo corre para 'voz', 'ensayo' y 'aprobar': su código sigue acá y no lo abre nadie.
 // =============================================================================
 // Aplica la metodología de .claude/skills/tab-onboarding (Conectar → Contexto →
 // Ensayo) con el MISMO chrome que el onboarding global (WizardShell fullscreen +

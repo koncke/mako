@@ -22,6 +22,7 @@ import 'server-only';
 import { getLead, type Lead, type FathomLink } from './leads';
 import { APP_BASE_URL } from './app-url';
 import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
+import { linkApp } from './app-url';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from './queries';
 import { insightsDeLlamadaDeLead, type InsightLlamada } from './insights-llamada';
@@ -32,8 +33,10 @@ import { insightsDeLlamadaDeLead, type InsightLlamada } from './insights-llamada
  * lead sin que nada se vea roto (la regla vive en AGENTS.md → «un DATO EXACTO
  * que pasa por las manos de un LLM deja de ser exacto»).
  */
-export function linkResumenLead(leadId: number): string {
-  return `${APP_BASE_URL}/crm/${leadId}/resumen`;
+export function linkResumenLead(leadId: number, ws: number | null): string {
+  // El `ws` es OBLIGATORIO a propósito (ver `linkApp`): este link viaja por WhatsApp y lo
+  // abre alguien que puede tener la app parada en otro workspace.
+  return linkApp(`/crm/${leadId}/resumen`, ws);
 }
 
 /**
@@ -224,7 +227,7 @@ export async function textoAvisoPostLlamada(input: {
     `✅ Terminó la *${reunion} con ${nombre}*${dur}.`,
     '',
     '👉 Mira el resumen de la llamada:',
-    linkResumenLead(leadId),
+    linkResumenLead(leadId, await getWorkspaceActual()),
     '',
     '— MaKo',
   ].join('\n');
@@ -251,7 +254,7 @@ export async function textoAvisoPreLlamada(input: {
     `⏰ En ${cuanto} tienes la *${cual}* con ${quien}.`,
     '',
     '👉 Mira el resumen del lead:',
-    linkResumenLead(leadId),
+    linkResumenLead(leadId, await getWorkspaceActual()),
     '',
     '— MaKo',
   ].join('\n');

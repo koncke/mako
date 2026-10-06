@@ -25,8 +25,8 @@ import { SecuenciaWizard } from './SecuenciaWizard';
 import { SimuladorWhatsApp } from './SimuladorWhatsApp';
 import type { CronAviso } from '@/lib/cron-aviso';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
-import { OnboardingChatAgent } from './OnboardingChatAgent';
-// Vive en app/whatsapp porque nacio ahi; lo que se mudo es DONDE se muestra.
+// La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
+import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -132,14 +132,19 @@ function ChatAgentInner() {
   const [audios, setAudios] = useState<AudioSetting[]>([]);
   // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
   const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
-  // Onboarding de la tab (regla: toda tab tiene onboarding). null = todavía no
-  // sabemos; true = arranca en el recorrido; false = la tab normal.
+  /**
+   * El onboarding de esta tab es UNA pregunta: ¿hay un WhatsApp vinculado?
+   *
+   * Eran once pasos y un wizard de 1.800 líneas. Martín (05/10): «esa pestaña ya no
+   * requeriría un onboarding, al menos que no tengas vinculado WhatsApp todavía; lo único
+   * que tiene que salir es el QR». Lo demás encontró su casa en la propia tab —el audio se
+   * graba en cada paso del lienzo, el ensayo es el simulador, aprobar es Publicar— y el
+   * oficial salió del producto (#832).
+   *
+   * `null` = todavía no se sabe: ni el QR ni la tab, porque dibujar una y reemplazarla
+   * medio segundo después es el flash que hace sentir la app rota.
+   */
   const [enOnboarding, setEnOnboarding] = useState<boolean | null>(null);
-  // Qué recorrido eligió arrancar. Si nunca configuró NADA, primero se le
-  // pregunta en vez de meterlo de prepo en los 11 pasos: el que solo quiere
-  // WhatsApp no tiene por qué pasar por el email.
-  const [plan, setPlan] = useState<'setting' | 'whatsapp' | 'email' | null>(null);
-  const [preguntarPlan, setPreguntarPlan] = useState(false);
   // Estado del WhatsApp del negocio. Arranca en 'desconocido' a propósito: hasta
   // que la API conteste, la pantalla no afirma que esta conectado NI que no.
   const [canal, setCanal] = useState<{ estado: string; desde: string | null; desvinculado?: boolean }>({ estado: 'desconocido', desde: null });
@@ -181,12 +186,10 @@ function ChatAgentInner() {
       // afirmar que sí lo está. Es la misma regla que el paso del WhatsApp
       // oficial: «no pudimos preguntarlo» no es «está listo».
       const falta = jo.ok ? jo.estado?.status !== 'done' : ro.status !== 403;
+      // Con un solo paso en el catálogo («Tu WhatsApp»), esto es literalmente
+      // «¿hay línea vinculada?»: el paso lo marca y lo DESMARCA `lib/evolution.ts`
+      // contra el estado real de la instancia, no un tilde que alguien apretó.
       setEnOnboarding(falta);
-      // Arrancar de cero = ni un paso hecho en todo el recorrido. Ahí se
-      // pregunta. Si ya venía a mitad de camino, se sigue donde quedó.
-      const pasos = (jo?.estado?.steps ?? {}) as Record<string, { done?: boolean }>;
-      const ningunoHecho = Object.values(pasos).every((x) => !x?.done);
-      setPreguntarPlan(falta && ningunoHecho);
     } catch (e) {
       // Sin red tampoco se afirma que está listo: se muestra el onboarding, que
       // es reversible (se sigue de largo), en vez del dashboard, que no lo es.
@@ -257,19 +260,19 @@ function ChatAgentInner() {
     );
   }
 
-  // El onboarding cubre la tab (mismo chrome que el global, pero embebido: el
-  // sidebar sigue visible). Al terminarlo —o al elegir "lo configuro después"—
-  // se entra a la vista normal.
-  if (enOnboarding && preguntarPlan && plan === null) {
-    return <ElegirRecorrido onElegir={(k) => { setPlan(k); setPreguntarPlan(false); }} onSaltar={() => setEnOnboarding(false)} />;
-  }
-
+  // Sin línea vinculada, la tab ES el QR: ocupa la pantalla en vez de abrir un pop-up sobre
+  // un lienzo que todavía no puede mandar nada. `EvolutionConnect` es la misma pieza que usa
+  // /whatsapp —ahí viven el sondeo, el QR y la recuperación de una sesión caída— y en modo
+  // `inline` se dibuja sola y desaparece en cuanto engancha.
   if (enOnboarding) {
     return (
-      <OnboardingChatAgent
-        tab={plan ?? 'setting'}
-        onListo={() => { setEnOnboarding(false); setPlan(null); void load(); }}
-      />
+      <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px', gap: 16 }}>
+        <div>
+          <h1 style={{ fontWeight: 600, fontSize: 34, letterSpacing: '-0.025em', margin: 0, color: 'var(--ink)' }}>Chatbot</h1>
+          <p style={{ fontSize: 14, color: 'var(--dim)', margin: '6px 0 0' }}>Vincula tu WhatsApp y esta pantalla pasa a ser el editor de tus secuencias.</p>
+        </div>
+        <EvolutionConnect inline onEstado={(e) => { if (e === 'conectado') { setEnOnboarding(false); void load(); } }} />
+      </main>
     );
   }
 
@@ -427,42 +430,3 @@ function ChatAgentInner() {
  * recorrido real (lib/tab-onboarding-state.ts) y comparten los pasos, así que
  * elegir "solo WhatsApp" hoy y "todo" mañana no repite lo ya hecho.
  */
-function ElegirRecorrido({ onElegir, onSaltar }: {
-  onElegir: (k: 'setting' | 'whatsapp' | 'email') => void;
-  onSaltar: () => void;
-}) {
-  const OPCIONES: Array<{ k: 'setting' | 'whatsapp' | 'email'; icono: string; titulo: string; sub: string; detalle: string }> = [
-    { k: 'setting', icono: '✦', titulo: 'Todo', sub: 'Recorrido completo', detalle: 'Los dos métodos de WhatsApp, el email, tu forma de escribir, tus audios y las secuencias de mensajes.' },
-    { k: 'whatsapp', icono: '💬', titulo: 'Solo WhatsApp', sub: 'Conectar y verificar el canal', detalle: 'Tu número de empresa, la verificación de entrega y el canal oficial si lo necesitas.' },
-    { k: 'email', icono: '✉️', titulo: 'Solo Email', sub: 'Conectar y verificar la bandeja', detalle: 'Tu dominio verificado y un correo de prueba a tu bandeja.' },
-  ];
-  return (
-    <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
-      <div style={{ width: '100%', maxWidth: 560, textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 12 }}>✦ Chatbot</div>
-        <h1 style={{ fontWeight: 700, fontSize: 30, letterSpacing: '-0.025em', color: 'var(--ink)', margin: '0 0 8px' }}>¿Por dónde arrancamos?</h1>
-        <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 26px', lineHeight: 1.55 }}>Puedes configurarlo todo de una vez o avanzar canal por canal. Lo que completes ahora no se vuelve a pedir.</p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {OPCIONES.map((o) => (
-            <button key={o.k} type="button" onClick={() => onElegir(o.k)}
-              style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '15px 17px', borderRadius: 14, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>
-              <span aria-hidden style={{ flex: 'none', width: 40, height: 40, borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{o.icono}</span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 15.5, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{o.titulo}</span>
-                <span style={{ display: 'block', fontSize: 12.5, color: 'var(--faint)', marginTop: 2 }}>{o.sub}</span>
-                <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.5 }}>{o.detalle}</span>
-              </span>
-              <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 15 }}>→</span>
-            </button>
-          ))}
-        </div>
-
-        <button type="button" onClick={onSaltar}
-          style={{ marginTop: 20, background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>
-          Configurar más tarde
-        </button>
-      </div>
-    </main>
-  );
-}

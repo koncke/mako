@@ -210,16 +210,16 @@ function etapaChip(key: string | null, label: string | null): { style: CSSProper
 // Componente
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function WhatsAppApp({ puedeChatbot = true }: { puedeChatbot?: boolean }) {
+export function WhatsAppApp({ puedeChatbot = true, mostrarOficial = true }: { puedeChatbot?: boolean; mostrarOficial?: boolean }) {
   // useSearchParams (deep-link ?chat=) exige un boundary de Suspense en la página.
   return (
     <Suspense fallback={null}>
-      <WhatsAppInner puedeChatbot={puedeChatbot} />
+      <WhatsAppInner puedeChatbot={puedeChatbot} mostrarOficial={mostrarOficial} />
     </Suspense>
   );
 }
 
-function WhatsAppInner({ puedeChatbot }: { puedeChatbot: boolean }) {
+function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean; mostrarOficial: boolean }) {
   // La tab es SOLO conversaciones: las secuencias viven en /chatbot, que lee las mismas
   // filas de `nutricion_secuencias`. Tener el mismo tablero en dos pantallas era la
   // forma mas facil de que una quedara vieja.
@@ -231,7 +231,9 @@ function WhatsAppInner({ puedeChatbot }: { puedeChatbot: boolean }) {
   const [oficialProblema, setOficialProblema] = useState<boolean | null>(null);
   // Canal del inbox de Conversaciones: 'oficial' (Chatwoot/Bot) o 'empresa'
   // (no oficial/Evolution, leído del espejo en nuestra DB).
-  const [canal, setCanal] = useState<'oficial' | 'empresa'>('oficial');
+  // Sin canal oficial (lo normal desde la tarea #832), la tab ES el no oficial: arranca
+  // ahí y el botón del oficial no se dibuja.
+  const [canal, setCanal] = useState<'oficial' | 'empresa'>(mostrarOficial ? 'oficial' : 'empresa');
 
   // Contactos + estado de no-leídos viven en el provider global (un solo poller,
   // corre en toda la app). Acá los consumimos.
@@ -391,7 +393,7 @@ function WhatsAppInner({ puedeChatbot }: { puedeChatbot: boolean }) {
   useEffect(() => {
     const c = searchParamsWA.get('canal');
     if (c === 'empresa' || c === 'no-oficial' || c === 'no_oficial') setCanal('empresa');
-    else if (c === 'oficial') setCanal('oficial');
+    else if (c === 'oficial' && mostrarOficial) setCanal('oficial');
   }, [searchParamsWA]);
 
   const irACanal = useCallback((c: 'oficial' | 'empresa') => {
@@ -917,12 +919,12 @@ function WhatsAppInner({ puedeChatbot }: { puedeChatbot: boolean }) {
             El boton ES el indicador: titila en rojo cuando ese canal esta caido, y al
             entrar se abre su pantalla de conexion (el QR grande, en el no oficial). */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
-          <button onClick={() => { if (canal === 'oficial' && oficialProblema) setModalOficial(true); else irACanal('oficial'); }}
+          {mostrarOficial && <button onClick={() => { if (canal === 'oficial' && oficialProblema) setModalOficial(true); else irACanal('oficial'); }}
             title={oficialProblema ? 'La detección de respuestas no está activa — toca para arreglarla' : 'Número oficial de Meta: el verificado, para el tráfico frío de los anuncios'}
             className={oficialProblema ? 'mk-tab-alarma' : undefined}
             style={{ ...(canal === 'oficial' ? tabActive : tabIdle), ...(oficialProblema ? avisoRojo : null), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             Oficial{oficialUnread > 0 && <span style={badgeCanal}>{oficialUnread}</span>}
-          </button>
+          </button>}
           <button onClick={() => { if (canal === 'empresa' && canalNoOficial === 'conectado') setModalNoOficial(true); else irACanal('empresa'); }}
             title={noOficialOk ? 'El número que usa el chatbot. Tócalo de nuevo para sincronizar, desconectar o borrar el historial.' : 'Tu WhatsApp no oficial está desconectado: el chatbot no manda nada. Entra para volver a vincularlo.'}
             className={noOficialOk ? undefined : 'mk-tab-alarma'}

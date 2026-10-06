@@ -315,7 +315,7 @@ export async function POST(request: NextRequest) {
               // scheduled_event es único por reserva; el horario va en la clave
               // para que un REAGENDADO (que sí hay que avisar) no quede tapado.
               dedupTtlMin: 180, dedupKey: `calendly:${payload.scheduled_event?.uri ?? emailJ2}|${startTimeIso}`,
-              texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
+              texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
             });
             // Flujos configurados por el dueño: disparar 'lead.agendo' (R2).
             await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2' });
@@ -467,7 +467,7 @@ export async function POST(request: NextRequest) {
         await emitirDelCatalogo('reunion-nuevo-agendado', {
           // Ver la nota de la R2: dedup por reserva + horario.
           dedupTtlMin: 180, dedupKey: `calendly:${payload.scheduled_event?.uri ?? email}|${startTimeIso}`,
-          texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.${anuncio}\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
+          texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.${anuncio}\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.agendo' (R1).
         await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: nombre, reunion: 'R1' });
@@ -518,7 +518,7 @@ export async function POST(request: NextRequest) {
           // horario?») no tenía a dónde ir: nadie escuchaba la respuesta. Ahora
           // MaKo sí puede reagendar en Calendly desde el chat, así que se dice
           // exactamente qué escribirle para que pase (ver lib/calendly-agenda.ts).
-          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} (era el ${fmtFechaHoraLocal(startTimeIso, tzWs)}) y todavía no reagendó.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id)}\n\nSi consigues otro horario, dime *«reagéndale la ${tipoCancelada} a ${lead.nombre}»*.\n\n— MaKo`,
+          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} (era el ${fmtFechaHoraLocal(startTimeIso, tzWs)}) y todavía no reagendó.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\nSi consigues otro horario, dime *«reagéndale la ${tipoCancelada} a ${lead.nombre}»*.\n\n— MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.cancelo'.
         await dispararEvento('lead.cancelo', { leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada });

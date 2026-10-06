@@ -34,6 +34,7 @@ import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago } from '@/lib/pagos';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { getUltimoInsightGenerado, generarInsightLead } from '@/lib/lead-insights';
 import { buildJourney } from '@/lib/journey';
 import { propuestasPendientes, crearPropuesta } from '@/lib/propuestas';
@@ -45,7 +46,7 @@ import { horariosLibresDeGoogle } from '@/lib/google-calendar';
 import { eventTypeDeReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
   nombresAsignables, marcarPendientesIgnorados, guardarEntradas, guardarDeal, existeIdentidadFiscal, proponerLote,
@@ -296,10 +297,11 @@ export const RUNNERS: Runners = {
     leer: async () => {
       const ps = await propuestasPendientes('lead');
       const ahora = Date.now();
+      const wsLink = await getWorkspaceActual();
       return json({
         tope: 100, recortado: ps.length >= 100,
         propuestas: ps.map((p) => ({
-          id: p.id, url: `${APP_BASE_URL}/crm/revisar/${p.id}`, resumen: p.resumen, origen: p.origen,
+          id: p.id, url: linkApp(`/crm/revisar/${p.id}`, wsLink), resumen: p.resumen, origen: p.origen,
           contactos: Array.isArray(p.datos.leads) ? p.datos.leads.length : 1,
           creada: p.createdAt, horas_esperando: Math.max(0, Math.round((ahora - Date.parse(p.createdAt)) / 3_600_000)),
         })),
@@ -383,7 +385,7 @@ export const RUNNERS: Runners = {
         ? new Date(r.proximaReunion.iso).toLocaleString('es-MX', { weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: r.tz })
         : null;
       return json({
-        lead_id: id, nombre: r.lead.nombre, link: linkResumenLead(id),
+        lead_id: id, nombre: r.lead.nombre, link: linkResumenLead(id, await getWorkspaceActual()),
         proxima_reunion: r.proximaReunion ? { reunion: r.proximaReunion.cual, cuando, zona: r.tz } : null,
         llamadas_analizadas: r.llamadas.length, follow_up_sin_enviar: !!r.borradorSeguimiento,
         instruccion: 'Pasa el link TAL CUAL. No cuentes el contenido de la reunión por el chat.',
@@ -435,7 +437,7 @@ export const RUNNERS: Runners = {
           datos: { nombre, telefono: telefono || null, email: s(input.email) ?? null, empresa, nota: s(input.nota) ?? null },
           resumen: `${nombre}${empresa ? ` (${empresa})` : ''}${telefono ? ` · ${telefono}` : ''}`,
         });
-        return { id, url: `${APP_BASE_URL}/crm/revisar/${id}`, nueva };
+        return { id, url: linkApp(`/crm/revisar/${id}`, await getWorkspaceActual()), nueva };
       }
       const j = JSON.parse(await texto(legado(ctx)('proponer_lead', input))) as Record<string, unknown>;
       if (j.ok !== true || typeof j.url !== 'string') return { error: String(j.error ?? 'no se pudo proponer') };
@@ -904,7 +906,7 @@ export const RUNNERS: Runners = {
     proponer: async (input, ctx) => {
       const r = await proponerLote(ctx.ws, (input.leads as Array<Record<string, unknown>>) ?? [], s(input.origen) ?? null, s(input.ref) ?? null, origenPropuesta(ctx));
       if ('error' in r) return { error: r.error ?? 'ningún contacto válido' };
-      return { id: r.id, url: `${APP_BASE_URL}/crm/revisar/${r.id}`, nueva: r.nueva, extra: { leads: r.leads, ...(r.descartados.length ? { descartados: r.descartados } : {}) } };
+      return { id: r.id, url: linkApp(`/crm/revisar/${r.id}`, await getWorkspaceActual()), nueva: r.nueva, extra: { leads: r.leads, ...(r.descartados.length ? { descartados: r.descartados } : {}) } };
     },
     ejecutar: async () => ({ ok: false, resumen: 'Esta propuesta se confirma en su pantalla de revisión, no por aquí.' }),
   },
