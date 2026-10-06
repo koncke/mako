@@ -6756,5 +6756,55 @@ en Customer Success, no aquí.»
   - ⚠️ **«La foto del email» es Gravatar.** La de Gmail no es pública: 550 de 1155 leads del
     cliente más grande son de Gmail y la mayoría queda en iniciales. No es un bug.
   - ⚠️ **La de WhatsApp vence a los 10 días** (`evolution_contactos.foto_url`, firmada con `oe`):
-    hoy están vencidas 1298 de 1807 en el ws1. Un cron que la refresque, o copiar los bytes a un
-    bucket propio, escriben datos personales: lo decide Martín.
+    hoy están vencidas 1298 de 1807 en el ws1. Martín aprobó guardarla («Sí, guarda las fotos sin
+    problemas»): ver la sección siguiente.
+
+### La foto de WhatsApp se GUARDA, y lo que eso no puede arreglar (06/10/2026, segunda tanda)
+
+**Vive en:** `lib/fotos-contacto.ts` (el trabajo) · `lib/contacto-lead.ts` (`venceFotoWa`,
+`numeroCanonico`, `fotosVigentes`, `leadsParaGuardarFoto`, puras y con test) ·
+`app/api/cron/fotos-contacto/route.ts` (diario, 09:40 UTC) · mig 0195
+
+- **Columna propia, no `avatar_url`.** `leads.foto_auto_url` es la copia automática y
+  `avatar_url`/`icono` la cara que eligió una persona, que gana siempre. Mezclarlas haría que el
+  cron pise una foto elegida. El guard lo fija leyendo el fuente sin comentarios.
+- **El vencimiento es un dato, no una suposición**: `oe` son los segundos de expiración en hex.
+  Se copian sólo las URLs que valen al menos 6 h más; una vencida da 403 y no se puede bajar.
+- ⚠️ **EL TOPE NO LO PONE EL CÓDIGO: LO PONE CUÁNTAS URLs VALEN HOY.** La agenda de Evolution
+  (`fetchContactosEvolution`, que lee la base de Evolution y no le habla a la línea) trajo 5199
+  contactos en el ws1 y sólo **509** con una URL vigente: WhatsApp Web refresca la foto de un
+  contacto cuando lo vuelve a sincronizar, no por pedirlo. El primer relleno copió **32** leads
+  en el ws1 y **11** en el ws11 (1 falló). El cron diario copia las que se van refrescando, así
+  que la cobertura crece de a poco y **no va a llegar al 100%**: el que nunca escribe nunca
+  refresca. No es un bug del cron.
+- **La clave es la línea, no el texto del teléfono.** `52·1·10` y `52·10` son el mismo celular
+  mexicano (el 1 viejo de móvil), así que se canoniza antes de cruzar. Y si dos números
+  DISTINTOS comparten los últimos 10 dígitos, esa clave se descarta entera: elegir uno pone en la
+  ficha la cara de otra persona.
+- **La descarga se acota**: `AbortSignal.timeout(8000)`, sólo `image/*`, hasta 2 MB. Una sola
+  descarga colgada no puede llevarse el cron entero (tope de la ruta: 300 s, 200 fotos por
+  workspace por vuelta).
+- Se sube a `avatars/leads/<ws>/<lead>.jpg` con upsert y la URL lleva `?v=<ts>`: sin eso el
+  navegador sigue mostrando la foto vieja después de un refresco.
+
+### La cabecera del pop-up, y la regla «Ganado → Customer Success» (06/10/2026)
+
+- **«Está todo amontonado»** era la columna derecha del pop-up: la ✕, el rótulo «Producto», dos
+  desplegables y el aviso de datos sin marcar, apilados. Ahora la cabecera es cara + nombre + ✕, y
+  abajo UNA fila: producto (con un ícono en vez del rótulo: `ProductoDelLead rotulo={false}`),
+  etapa, y el aviso empujado a la derecha. Verificado en el navegador a 1440 y a 390 px: en el
+  teléfono baja de renglón y el aviso queda a la derecha.
+- **«Cuando un lead cae a Ganado, las reuniones que vienen van a Customer Success»** no pidió
+  código: `esGrabacionDeEntrega` ya compara contra `fecha_cierre`, y `fecha_cierre` se escribe
+  sola al pasar a Ganado (`lib/leads.ts`, la normalización de `cerro`). La regla de Martín y la del
+  código son la misma. Sólo un ganado viejo no tiene la fecha.
+
+### Lo que quedó SIN hacer
+
+- **«Quitar de este producto», sólo para quien esté en más de uno**: hoy un lead vive en
+  EXACTAMENTE un producto (`leads.funnel_id`) y `ProductoDelLead` lo MUEVE. Medido: una sola
+  persona de todo el sistema figura en dos productos, y es porque tiene dos fichas (mismo teléfono,
+  ws11). Para que el botón tenga a quién aplicarse hay que decidir el modelo: participación en
+  varios productos (con el riesgo de que dos secuencias de nutrición le escriban a la vez) o tratar
+  las fichas duplicadas de la misma persona como «está en dos». Lo decide Martín.
+- **Customer Success no pasa todavía `fotoGuardada`** a `useFotoContacto`: avisado el 06/10.

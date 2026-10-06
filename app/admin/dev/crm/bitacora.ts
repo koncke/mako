@@ -963,5 +963,46 @@ export const BITACORA: Hito[] = [
       "app/_components/foto-contacto.ts — la cadena de la cara, compartida con Customer Success",
       "supabase/migrations/0194_lead_web.sql — leads.web"
     ]
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "02:33",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Cabecera del pop-up, guardar las fotos, campañas sólo en la entrada, Ganado → Customer Success",
+    "pedido": "1. Los 2 desplegables uno abajo del otro, el texto de \"producto\" y encima \"2 sin marcar Solucionar →\" esta todo amontonado, no esta bien en diseño, te dejo a tu criterio, pero que eso quede bien. 2. Si, guarda las fotos sin problemas. 3. Está bien que las campañas solo caigan en la primera etapa. No, sin botón de solo los nuevos. 4. Es fácil, cuando un lead cae a \"Ganado\" ahí ya las reuniones que vienen van para Customer Success.\n\nTambién revisa que debe existir la opción de \"Quitar de este producto\", pero solo para los leads que estén en más de 1 producto.",
+    "puntos": []
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "02:46",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "La cabecera del pop-up es una fila, y las fotos de WhatsApp se guardan en nuestro bucket",
+    "puntos": [
+      "Cabecera: cara, nombre y ✕; abajo una fila con producto (ícono en vez del rótulo), etapa y el aviso a la derecha. Verificada a 1440 y a 390 px.",
+      "La foto de WhatsApp vence a los 10 días: ahora se copia a `avatars/leads/<ws>/<lead>.jpg` (columna propia, nunca la cara elegida) y un cron diario sigue copiando.",
+      "⚠️ El tope no es el código: de 5199 contactos de la agenda del cliente más grande sólo 509 tenían la URL vigente. Primer relleno: 43 leads.",
+      "«Ganado → Customer Success» ya era la regla: `fecha_cierre` se escribe sola al pasar a Ganado. «Quitar de este producto» queda para decidir: hoy un lead vive en un solo producto."
+    ],
+    "commits": [
+      {
+        "sha": "0418a6ab",
+        "msg": "Las fotos de WhatsApp se guardan en nuestro bucket, y la cabecera del pop-up es una fila",
+        "lineas": 407,
+        "archivos": 11
+      }
+    ],
+    "archivos": [
+      "lib/fotos-contacto.ts — copia las fotos vigentes al bucket",
+      "lib/contacto-lead.ts — vencimiento, línea canónica y qué copiar (puras, con test)",
+      "app/api/cron/fotos-contacto/route.ts — el cron diario",
+      "supabase/migrations/0195_lead_foto_guardada.sql — leads.foto_auto_url / foto_auto_at",
+      "app/crm/LeadSheet.tsx — la fila de controles del pop-up"
+    ]
   }
 ];
