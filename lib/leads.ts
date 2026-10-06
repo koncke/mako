@@ -35,6 +35,8 @@ import { EVENTOS_CALIFICADO, eventIdCalificado } from './meta-capi-payload';
 // Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
 // canal de MaKo, para que los tres apliquen la MISMA regla.
 import { calificadoSeDescarta } from './calificado-reunion';
+// Qué reunión anula una cancelación: puro y con test (tests/recordatorio-lead.test.ts).
+import { juntaACancelar } from './recordatorio-lead';
 import type { Stage } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
 // El funnel vive en lib/funnels.ts desde la mig 0170. Acá se usa el lector DEL
@@ -1572,30 +1574,37 @@ export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
  * - Si la junta ya pasó (o no matchea ninguna fecha) → no toca nada.
  * Un reagendamiento llega como canceled + created, así que la fecha nueva la
  * vuelve a llenar el created.
+ *
+ * ⚠️ PERO EL ORDEN NO ESTÁ GARANTIZADO, y por eso `inicioCancelado`: con la reserva nueva
+ * llegada primero y la reagenda en el MISMO día, comparar sólo la fecha borraba la reunión
+ * nueva (el porqué y la decisión, en `juntaACancelar`, lib/recordatorio-lead.ts, con test).
+ * Y el UPDATE exige en su WHERE la fecha (y la hora, si se conoce) que se acaba de comparar:
+ * si la reserva nueva escribió entre la lectura del lead y esto, no se toca nada.
+ * `junta_X_at` NO se escribe (corrección del refutador del #17: en null, la regla T1 del CRM
+ * propone No Show sobre la reunión cancelada).
  * @returns descripción de lo que cambió, para el log.
  */
 export async function cancelarJuntaEnLead(
   lead: Lead,
   fechaCancelada: string,
   hoy: string,
+  inicioCancelado?: string | null,
 ): Promise<string> {
-  const yaPaso = fechaCancelada < hoy;
-  if (yaPaso) return 'reunión ya pasó — sin cambios';
-
-  let campo: 'fecha_junta_2' | 'fecha_junta_1' | null = null;
-  if (lead.fecha_junta_2 && fechaCancelada === lead.fecha_junta_2) {
-    campo = 'fecha_junta_2';
-  } else if (lead.fecha_junta_1 && fechaCancelada === lead.fecha_junta_1) {
-    campo = 'fecha_junta_1';
-  }
-  if (!campo) return 'fecha cancelada no coincide con R1/R2 — sin cambios';
+  const d = juntaACancelar(lead, fechaCancelada, hoy, inicioCancelado);
+  if ('motivo' in d) return d.motivo;
+  const campo = d.cual === 'R2' ? 'fecha_junta_2' : 'fecha_junta_1';
+  const campoHora = d.cual === 'R2' ? 'junta_2_at' : 'junta_1_at';
 
   const supabase = (await getTenantDb());
-  const { error } = await supabase
+  let q = supabase
     .from('leads')
     .update({ [campo]: null })
-    .eq('id', lead.id);
+    .eq('id', lead.id)
+    .eq(campo, fechaCancelada);
+  if (d.inicio) q = q.eq(campoHora, d.inicio);
+  const { data, error } = await q.select('id');
   if (error) throw new Error(`Error cancelando ${campo} en lead ${lead.id}: ${error.message}`);
+  if (!data?.length) return `${campo}: la reunión cambió entre medio (reagenda) — sin cambios`;
   return `${campo} = NULL (cancelación de reunión futura)`;
 }
 
@@ -1610,11 +1619,22 @@ export async function cancelarJuntaEnLead(
  *
  * Y se escribe SIEMPRE que entra una reserva, también en null: una reserva nueva sin link (una
  * llamada por teléfono) no puede heredar el link de la reunión anterior de ese lead.
+ *
+ * `soloSiInicio` (la cancelación): borra el link sólo si la reunión de la fila SIGUE siendo la
+ * cancelada. Si la reserva nueva de una reagenda escribió su hora y su link a la vez que esto,
+ * el WHERE no calza y el link nuevo se queda.
  */
-export async function guardarLinkDeReunion(leadId: number, cual: 'R1' | 'R2', url: string | null): Promise<boolean> {
+export async function guardarLinkDeReunion(
+  leadId: number,
+  cual: 'R1' | 'R2',
+  url: string | null,
+  opts: { soloSiInicio?: string | null } = {},
+): Promise<boolean> {
   try {
     const col = cual === 'R2' ? 'junta_2_url' : 'junta_1_url';
-    const { error } = await (await getTenantDb()).from('leads').update({ [col]: url }).eq('id', leadId);
+    let q = (await getTenantDb()).from('leads').update({ [col]: url }).eq('id', leadId);
+    if (opts.soloSiInicio) q = q.eq(cual === 'R2' ? 'junta_2_at' : 'junta_1_at', opts.soloSiInicio);
+    const { error } = await q;
     if (error) {
       console.error(`[leads] no pude guardar el link de la ${cual} del lead ${leadId}: ${error.message}`);
       return false;

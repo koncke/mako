@@ -519,14 +519,16 @@ export async function POST(request: NextRequest) {
         // fecha de la junta contra "hoy". Mezclar zonas entre el dato guardado y
         // el hoy es justo lo que rompe los bordes del día (ver isoToFechaTijuana).
         const fechaCancelada = isoToFechaTijuana(startTimeIso);
-        const cambio = await cancelarJuntaEnLead(lead, fechaCancelada, hoyEnTijuana());
+        // Con el INSTANTE: en una reagenda del mismo día, la reserva nueva puede haber llegado
+        // primero y la fecha sola no distingue cuál de las dos se cancela (`juntaACancelar`).
+        const cambio = await cancelarJuntaEnLead(lead, fechaCancelada, hoyEnTijuana(), startTimeIso);
         // El link de la reunión cancelada se borra; `junta_X_at` NO (corrección del refutador del
         // #17: en null, la regla T1 del CRM propone No Show sobre la R1 cancelada). El recordatorio
         // al lead ya no sale porque mira `fecha_junta_X`, que la cancelación sí pone en null.
         // Se compara el INSTANTE: si la reserva nueva de una reagenda llegó primero, la fila ya
         // tiene el horario nuevo y su link no se toca.
         const cualLink = juntaQueSeCancela(lead, startTimeIso);
-        if (cualLink) await guardarLinkDeReunion(lead.id, cualLink, null);
+        if (cualLink) await guardarLinkDeReunion(lead.id, cualLink, null, { soloSiInicio: startTimeIso });
         // Aviso al dueño: reunión cancelada → sugerir reagendar (best-effort).
         const tipoCancelada = clasificarJunta(payload.scheduled_event, cfgJuntas) === 'j2' ? 'R2' : 'R1';
         await emitirDelCatalogo('reunion-cancelada', {

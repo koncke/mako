@@ -39,6 +39,7 @@
 // =============================================================================
 
 import { cuandoEs, horaDe, primerNombreDe } from './curso-mensajes-texto';
+import { partesEn } from './cron-aviso';
 
 /** Los minutos antes de la reunión en que sale cada toque: 24 h, 1 h y 15 min. */
 export const TOQUES = [1440, 60, 15] as const;
@@ -107,6 +108,47 @@ export function claveToque(leadId: number, cual: CualReunion, inicioIso: string,
   return `mako.recordatorio-lead.${leadId}.${cual}.${isoCanonico(inicioIso) ?? inicioIso}.${min}`;
 }
 
+/**
+ * La zona en la que los webhooks de agenda escriben `fecha_junta_X` (`isoToFechaTijuana` en
+ * lib/calendly.ts, que usan Calendly y Cal.com). No se importa de ahí porque ese módulo trae
+ * `node:crypto`; si esa convención cambia, cambia en los dos.
+ */
+export const TZ_FECHA_AGENDA = 'America/Tijuana';
+
+/** El día de calendario (`YYYY-MM-DD`) de un instante en una zona, o null si algo no se lee. */
+export function fechaEnZona(iso: string, tz: string): string | null {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  try {
+    const p = partesEn(tz, new Date(t));
+    return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ¿`junta_X_at` sigue siendo la hora de la reunión que dice `fecha_junta_X`?
+ *
+ * ⚠️ NO SIEMPRE: la fecha se edita a mano sin tocar la hora. `updateLead` (la ficha, el
+ * Kanban con «Agendada fuera de Calendly», `setMeetingManual` de MaKo) escribe
+ * `fecha_junta_X` y nunca `junta_X_at`, y la cancelación de Calendly tampoco borra la hora
+ * (corrección del refutador del #17). O sea: un lead que canceló su R1 del 10/10 a las 10:00
+ * y al que el setter le agendó otra para el 09/10 por WhatsApp queda con `fecha_junta_1` en
+ * pie y `junta_1_at` apuntando a la reunión CANCELADA — y el recordatorio le escribiría
+ * «tu reunión mañana a las 10:00» sobre una que no existe. Medido en el ws1 (06/10/2026): 1
+ * de 50 leads con hora tiene la fecha en otro día.
+ *
+ * La fecha la escriben en dos zonas: los webhooks en la de `TZ_FECHA_AGENDA`, y el
+ * «reagendar» del CRM en la del negocio (lo que la persona eligió en su calendario). Vale
+ * cualquiera de las dos; un día que no es ninguno es una hora que quedó vieja, y no se manda.
+ */
+export function fechaCoincide(fecha: string, inicioIso: string, tzNegocio?: string | null): boolean {
+  const f = String(fecha).slice(0, 10);
+  if (fechaEnZona(inicioIso, TZ_FECHA_AGENDA) === f) return true;
+  return !!tzNegocio && fechaEnZona(inicioIso, tzNegocio) === f;
+}
+
 export type ToqueVencido = {
   cual: CualReunion;
   /** El ISO canónico de la reunión. */
@@ -119,7 +161,8 @@ export type ToqueVencido = {
 /**
  * Los toques que esta corrida tiene que mandar, y ninguno más. Ver la cabecera: vence el que
  * cayó en `[momento, momento + tolerancia)`, nunca con la reunión empezada, nunca de una reunión
- * cancelada (`fecha` null) o con la asistencia ya marcada.
+ * cancelada (`fecha` null) o con la asistencia ya marcada, y nunca si la hora quedó vieja
+ * respecto de la fecha (`fechaCoincide`). `tz` es la zona del negocio.
  */
 export function toquesVencidos(p: {
   leadId: number;
@@ -127,6 +170,7 @@ export function toquesVencidos(p: {
   ahora: number;
   tolMin?: number;
   toques?: readonly number[];
+  tz?: string | null;
 }): ToqueVencido[] {
   const tol = (p.tolMin ?? TOLERANCIA_MIN) * 60_000;
   const toques = p.toques ?? TOQUES;
@@ -135,6 +179,7 @@ export function toquesVencidos(p: {
     if (!j.inicio || !j.fecha || j.asistio != null) continue;
     const inicio = isoCanonico(j.inicio);
     if (!inicio) continue;
+    if (!fechaCoincide(j.fecha, inicio, p.tz)) continue;
     const t = Date.parse(inicio);
     if (t <= p.ahora) continue;
     for (const min of toques) {
@@ -152,8 +197,8 @@ export function toquesVencidos(p: {
  *
  *   · null            → nadie lo tomó: se RECLAMA (compare-and-set contra «no existe»).
  *   · `fallo:…`       → el envío anterior no salió: se vuelve a reclamar contra ESE valor.
- *   · cualquier otra  → `enviado:…`, o `reclamado:…` de otra corrida que lo está mandando
- *                       (o que murió mandándolo): no se toca. Un reclamo viejo NO se recupera
+ *   · cualquier otra  → `enviado:…`, `incierto:…` (ver `envioIncierto`), o `reclamado:…` de
+ *                       otra corrida que lo está mandando (o que murió mandándolo): no se toca. Un reclamo viejo NO se recupera
  *                       a propósito: si el proceso murió después de que Evolution mandara,
  *                       recuperarlo es mandar dos veces, y perder un recordatorio es lo menos malo.
  */
@@ -161,6 +206,63 @@ export function estadoDeLaMarca(valor: string | null): 'libre' | 'reintento' | '
   if (valor == null) return 'libre';
   if (valor.startsWith('fallo:')) return 'reintento';
   return 'tomada';
+}
+
+/**
+ * ¿Este error de envío deja la duda de si el mensaje SALIÓ? Entonces la marca queda en
+ * `incierto:` (tomada) y NO se reintenta.
+ *
+ * Es la misma regla que el reclamo viejo de arriba: Evolution retiene el HTTP con su `delay` y
+ * `evFetch` corta a los 30 s (lib/evolution.ts), así que un corte por tiempo o una conexión que
+ * se cae a mitad puede llegar DESPUÉS de que WhatsApp lo entregó. Reintentarlo es mandarle el
+ * mismo recordatorio dos veces a un lead real. Lo que sí se reintenta es lo que Evolution
+ * CONTESTÓ con un error (la línea caída, el número que no existe) o lo que ni salió de acá.
+ *
+ * Se equivoca para el lado seguro: un error que diga «timeout» sin haber viajado se pierde, no
+ * se duplica.
+ */
+export function envioIncierto(error: string | null | undefined): boolean {
+  return /time ?out|timed out|aborted|fetch failed|socket hang up|other side closed|ECONNRESET/i.test(String(error ?? ''));
+}
+
+/** La fila del lead con lo que hace falta para decidir qué reunión anula una cancelación. */
+export type FilaCancelacion = {
+  fecha_junta_1: string | null; fecha_junta_2: string | null;
+  junta_1_at?: string | null; junta_2_at?: string | null;
+};
+
+/**
+ * Qué reunión anula una cancelación de Calendly o Cal.com (`cancelarJuntaEnLead`, lib/leads.ts),
+ * o por qué ninguna.
+ *
+ * Por FECHA, como siempre, y además por INSTANTE cuando los dos lo tienen. ⚠️ Sin el instante,
+ * una REAGENDA EN EL MISMO DÍA borraba la reunión nueva: Calendly manda la cancelación de la
+ * vieja y la reserva de la nueva sin orden garantizado, y si la nueva llega primero la fila ya
+ * dice el día de las dos — la cancelación de las 10:00 ponía en null la `fecha_junta_1` de la de
+ * las 16:00, el lead salía de «Agendado» y el recordatorio al lead (que exige la fecha en pie)
+ * no salía. `inicio` vuelve para que el UPDATE lo exija en su WHERE: así también pierde la
+ * carrera si las dos llegan a la vez.
+ */
+export function juntaACancelar(
+  l: FilaCancelacion,
+  fechaCancelada: string,
+  hoy: string,
+  inicioCancelado?: string | null,
+): { cual: CualReunion; inicio: string | null } | { motivo: string } {
+  if (fechaCancelada < hoy) return { motivo: 'reunión ya pasó — sin cambios' };
+  const c = inicioCancelado ? isoCanonico(inicioCancelado) : null;
+  let otroHorario = false;
+  const candidatas: Array<[CualReunion, string | null, string | null | undefined]> = [
+    ['R2', l.fecha_junta_2, l.junta_2_at],
+    ['R1', l.fecha_junta_1, l.junta_1_at],
+  ];
+  for (const [cual, fecha, at] of candidatas) {
+    if (!fecha || String(fecha).slice(0, 10) !== fechaCancelada) continue;
+    const vigente = at ? isoCanonico(at) : null;
+    if (c && vigente && vigente !== c) { otroHorario = true; continue; }
+    return { cual, inicio: c && vigente ? (inicioCancelado as string) : null };
+  }
+  return { motivo: otroHorario ? 'la reunión vigente es otro horario (reagenda) — sin cambios' : 'fecha cancelada no coincide con R1/R2 — sin cambios' };
 }
 
 // ── El link ─────────────────────────────────────────────────────────────────

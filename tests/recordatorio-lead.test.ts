@@ -31,6 +31,19 @@
 //   · el webhook sin `guardarLinkDeReunion` en la R1; `cancelarJuntaEnLead` poniendo `junta_1_at: null`.
 //   · el cron sacando los workspaces del lead de `correrPorWorkspace('calendly'`.
 //   · la tarjeta sin montar en ChatAgentApp; la ruta sin el guard de admin.
+//
+// REVISIÓN ADVERSARIAL (06/10/2026): cinco agujeros más, con su test. Sin romper: 31 pass / 0
+// fail. Las 15 roturas cayeron, cada una en el test que la persigue (30 / 1 todas):
+//   · `toquesVencidos` sin `fechaCoincide` (la hora vieja tras editar la fecha a mano);
+//     `fechaCoincide` sin la zona del negocio.
+//   · `juntaACancelar` sin comparar el instante (la reagenda del mismo día); y cortando en la R2
+//     de otro horario en vez de seguir a la R1.
+//   · `envioIncierto` siempre false; el emisor marcando `fallo:` (reintentable) para todo.
+//   · el emisor sin pasarle `tz` a `toquesVencidos`.
+//   · `cancelarJuntaEnLead` sin la fecha o sin la hora en el WHERE; escribiendo la hora en null.
+//   · `guardarLinkDeReunion` sin `soloSiInicio`; el webhook borrando el link sin condición.
+//   · Calendly y Cal.com sin pasarle el instante a `cancelarJuntaEnLead`.
+//   · la ruta de /chatbot con el `envioWhatsappHabilitado` que se come el error.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,7 +52,8 @@ import { join } from 'node:path';
 import {
   TOQUES, TOLERANCIA_MIN, TEXTO_DEFAULT, KEY_RECORDATORIO, toquesVencidos, juntasDe, leadAbierto, claveToque,
   isoCanonico, estadoDeLaMarca, linkDeReunion, juntaQueSeCancela, configDeRecordatorio, serializarConfig,
-  variablesDesconocidas, textoDelToque, faltanTexto, type Junta,
+  variablesDesconocidas, textoDelToque, faltanTexto, fechaEnZona, fechaCoincide, juntaACancelar, envioIncierto,
+  TZ_FECHA_AGENDA, type Junta,
 } from '../lib/recordatorio-lead';
 import { marcasDeVoseo } from '../lib/puestas-data';
 
@@ -58,13 +72,18 @@ function bloque(src: string, firma: string): string {
 const MIN = 60_000;
 const AHORA = Date.parse('2026-10-07T15:00:00Z');
 const LINK = 'https://meet.google.com/abc-defg-hij';
-const junta = (p: Partial<Junta> & { enMin: number }): Junta => ({
-  cual: p.cual ?? 'R1',
-  inicio: p.inicio ?? new Date(AHORA + p.enMin * MIN).toISOString(),
-  fecha: p.fecha === undefined ? '2026-10-08' : p.fecha,
-  asistio: p.asistio ?? null,
-  link: p.link === undefined ? LINK : p.link,
-});
+// La fecha por default es la del DÍA de la reunión en la zona de los webhooks, como la escribe
+// `isoToFechaTijuana`: una fecha de otro día es una hora vieja y no se manda (`fechaCoincide`).
+const junta = (p: Partial<Junta> & { enMin: number }): Junta => {
+  const inicio = p.inicio ?? new Date(AHORA + p.enMin * MIN).toISOString();
+  return {
+    cual: p.cual ?? 'R1',
+    inicio,
+    fecha: p.fecha === undefined ? fechaEnZona(inicio, TZ_FECHA_AGENDA) : p.fecha,
+    asistio: p.asistio ?? null,
+    link: p.link === undefined ? LINK : p.link,
+  };
+};
 const vencen = (j: Junta, tolMin?: number, toques?: number[]) =>
   toquesVencidos({ leadId: 7, juntas: [j], ahora: AHORA, tolMin, toques }).map((v) => v.min);
 
@@ -101,6 +120,26 @@ test('cancelada (fecha null), con la asistencia marcada o sin hora: no sale nada
   assert.deepEqual(vencen(junta({ enMin: 60, asistio: true })), []);
   assert.deepEqual(vencen({ cual: 'R1', inicio: null, fecha: '2026-10-07', asistio: null }), []);
   assert.deepEqual(vencen({ cual: 'R1', inicio: 'no es una fecha', fecha: '2026-10-07', asistio: null }), []);
+});
+
+test('una HORA VIEJA (la fecha se editó a mano y junta_X_at no) no sale; la fecha del negocio sí vale', () => {
+  // AHORA = 07/10 15:00Z; la reunión «vieja» es 08/10 15:00Z (08/10 08:00 en Tijuana). El setter
+  // la movió a mano al 09/10: `fecha_junta_1` dice 09/10 y `junta_1_at` sigue en la del 08/10.
+  assert.deepEqual(vencen(junta({ enMin: 1440, fecha: '2026-10-09' })), [], 'recordaría una reunión que ya no existe');
+  assert.deepEqual(vencen(junta({ enMin: 1440, fecha: '2026-10-08' })), [1440]);
+  // El «reagendar» del CRM escribe la fecha en la zona del NEGOCIO: 08/10 03:30Z es el 07/10 en
+  // Tijuana y el 08/10 en Buenos Aires. Con la zona del negocio vale; sin ella, no.
+  const inicio = '2026-10-08T03:30:00.000Z';
+  assert.equal(fechaEnZona(inicio, TZ_FECHA_AGENDA), '2026-10-07');
+  assert.equal(fechaCoincide('2026-10-08', inicio, 'America/Argentina/Buenos_Aires'), true);
+  assert.equal(fechaCoincide('2026-10-08', inicio, null), false);
+  assert.equal(fechaCoincide('2026-10-07', inicio, null), true);
+  const ahora = Date.parse(inicio) - 60 * MIN;
+  const j: Junta = { cual: 'R1', inicio, fecha: '2026-10-08', asistio: null, link: null };
+  assert.deepEqual(toquesVencidos({ leadId: 7, juntas: [j], ahora, tz: 'America/Argentina/Buenos_Aires' }).map((v) => v.min), [60]);
+  assert.deepEqual(toquesVencidos({ leadId: 7, juntas: [j], ahora, tz: 'America/Tijuana' }).map((v) => v.min), []);
+  // Una zona que no existe no tira: no coincide.
+  assert.equal(fechaEnZona(inicio, 'No/Existe'), null);
 });
 
 test('la R2 tiene sus toques y su clave; R1 y R2 del mismo lead son independientes', () => {
@@ -142,7 +181,40 @@ test('la marca: libre se reclama, un fallo se reintenta, lo demás no se toca', 
   assert.equal(estadoDeLaMarca('fallo:2026-10-07T15:00:00Z'), 'reintento');
   assert.equal(estadoDeLaMarca('enviado:2026-10-07T15:00:00Z'), 'tomada');
   assert.equal(estadoDeLaMarca('reclamado:2026-10-07T15:00:00Z'), 'tomada', 'un reclamo viejo no se recupera: sería mandar dos veces');
+  assert.equal(estadoDeLaMarca('incierto:2026-10-07T15:00:00Z'), 'tomada', 'un envío que pudo haber salido no se reintenta');
   assert.equal(estadoDeLaMarca(''), 'tomada');
+});
+
+test('un envío cortado por TIEMPO pudo haber salido: incierto, no se reintenta; un rechazo sí', () => {
+  // Lo que devuelve evFetch cuando el AbortSignal.timeout(30 s) corta, y cuando la conexión cae.
+  assert.equal(envioIncierto('The operation was aborted due to timeout'), true);
+  assert.equal(envioIncierto('fetch failed'), true);
+  assert.equal(envioIncierto('socket hang up'), true);
+  // Evolution CONTESTÓ con un error, o ni se salió de acá: eso no viajó y se puede reintentar.
+  assert.equal(envioIncierto('["Connection Closed"]'), false);
+  assert.equal(envioIncierto('teléfono inválido'), false);
+  assert.equal(envioIncierto('Evolution 500'), false);
+  assert.equal(envioIncierto(undefined), false);
+});
+
+test('una cancelación anula la reunión de esa FECHA, y si las dos tienen hora, la de ese INSTANTE', () => {
+  const hoy = '2026-10-07';
+  const R1 = { fecha_junta_1: '2026-10-08', fecha_junta_2: null, junta_1_at: '2026-10-08T17:00:00+00:00', junta_2_at: null };
+  assert.deepEqual(juntaACancelar(R1, '2026-10-08', hoy, '2026-10-08T17:00:00.000000Z'), { cual: 'R1', inicio: '2026-10-08T17:00:00.000000Z' });
+  // REAGENDA EN EL MISMO DÍA, con la reserva nueva (23:00) llegada antes que la cancelación de
+  // la vieja (17:00): la fila ya dice el día de las dos, y borrar la fecha borraba la NUEVA.
+  const nueva = { ...R1, junta_1_at: '2026-10-08T23:00:00+00:00' };
+  assert.deepEqual(juntaACancelar(nueva, '2026-10-08', hoy, '2026-10-08T17:00:00Z'), { motivo: 'la reunión vigente es otro horario (reagenda) — sin cambios' });
+  // Sin hora en la fila (leads viejos) o sin instante en el pedido: por fecha, como siempre, y
+  // sin exigir la hora en el UPDATE.
+  assert.deepEqual(juntaACancelar({ ...R1, junta_1_at: null }, '2026-10-08', hoy, '2026-10-08T17:00:00Z'), { cual: 'R1', inicio: null });
+  assert.deepEqual(juntaACancelar(R1, '2026-10-08', hoy), { cual: 'R1', inicio: null });
+  // La R2 primero; ya pasó; no coincide.
+  const ambas = { fecha_junta_1: '2026-10-08', fecha_junta_2: '2026-10-08', junta_1_at: '2026-10-08T15:00:00Z', junta_2_at: '2026-10-08T20:00:00Z' };
+  assert.deepEqual(juntaACancelar(ambas, '2026-10-08', hoy, '2026-10-08T20:00:00Z'), { cual: 'R2', inicio: '2026-10-08T20:00:00Z' });
+  assert.deepEqual(juntaACancelar(ambas, '2026-10-08', hoy, '2026-10-08T15:00:00Z'), { cual: 'R1', inicio: '2026-10-08T15:00:00Z' }, 'la R2 del mismo día no tapa a la R1 cancelada');
+  assert.deepEqual(juntaACancelar(R1, '2026-10-06', hoy), { motivo: 'reunión ya pasó — sin cambios' });
+  assert.deepEqual(juntaACancelar(R1, '2026-10-09', hoy), { motivo: 'fecha cancelada no coincide con R1/R2 — sin cambios' });
 });
 
 // ── El link ──────────────────────────────────────────────────────────────────
@@ -283,6 +355,16 @@ test('CABLEADO: reclamo con compare-and-set ANTES de mandar, y `enviado:` DESPU�
   assert.ok(iEnviado > iEnvio, 'la marca de enviado va DESPUÉS del envío ok, nunca antes');
   assert.match(b.slice(iEnvio, iEnviado), /if \(r\.ok\) \{/);
   assert.match(b, /getSettingEstricto\(v\.clave\)/, 'con getSetting un error de lectura se lee como «no hay marca» y manda otra vez');
+  // El fallo que pudo haber salido no vuelve a `fallo:` (que se reintenta).
+  const rama = b.slice(b.indexOf('} else {', iEnviado));
+  assert.match(rama, /const marcaFallo = envioIncierto\(r\.error\) \? 'incierto' : 'fallo';/);
+  assert.match(rama, /cambiarSettingSi\(v\.clave, reclamo, `\$\{marcaFallo\}:/);
+});
+
+test('CABLEADO: el emisor le pasa la zona del negocio a toquesVencidos (la hora vieja no sale)', () => {
+  const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
+  assert.match(b, /toquesVencidos\(\{ leadId: lead\.id, juntas: juntasDe\(lead\), ahora: t, tz \}\)/);
+  assert.ok(b.indexOf('const tz = ') >= 0 && b.indexOf('const tz = ') < b.indexOf('toquesVencidos('), 'la zona se resuelve ANTES de decidir');
 });
 
 test('CABLEADO: el setting no se hereda del dueño — se lee con el workspace_id explícito', () => {
@@ -306,14 +388,30 @@ test('CABLEADO: el webhook guarda el link al agendar y lo limpia al cancelar, si
   const wh = sinComentarios(leer('app/api/webhooks/calendly/route.ts'));
   assert.match(wh, /guardarLinkDeReunion\(lead\.id, 'R1', linkDeReunion\(payload\.scheduled_event\?\.location\)\)/);
   assert.match(wh, /guardarLinkDeReunion\(lead\.id, 'R2', linkDeReunion\(payload\.scheduled_event\?\.location\)\)/);
-  assert.match(wh, /const cualLink = juntaQueSeCancela\(lead, startTimeIso\);\s*if \(cualLink\) await guardarLinkDeReunion\(lead\.id, cualLink, null\);/);
+  assert.match(wh, /const cualLink = juntaQueSeCancela\(lead, startTimeIso\);\s*if \(cualLink\) await guardarLinkDeReunion\(lead\.id, cualLink, null, \{ soloSiInicio: startTimeIso \}\);/,
+    'el link se borra sólo si la fila sigue en la reunión cancelada: si no, una reagenda simultánea pierde el link nuevo');
   const leads = sinComentarios(leer('lib/leads.ts'));
   const cancelar = bloque(leads, 'export async function cancelarJuntaEnLead(');
-  assert.doesNotMatch(cancelar, /junta_[12]_at/, 'en null, la regla T1 del CRM propone No Show sobre la R1 cancelada (refutador del #17)');
+  // Lo que el UPDATE ESCRIBE: sólo la fecha. La hora va al WHERE, nunca al payload.
+  assert.match(cancelar, /\.update\(\{ \[campo\]: null \}\)/);
+  assert.doesNotMatch(cancelar, /junta_[12]_at['"]?\s*:\s*null|\[campoHora\]\s*:/, 'en null, la regla T1 del CRM propone No Show sobre la R1 cancelada (refutador del #17)');
   const guardar = bloque(leads, 'export async function guardarLinkDeReunion(');
   assert.match(guardar, /try \{[\s\S]*\} catch/, 'guardar el link NUNCA puede tumbar la reserva');
+  assert.match(guardar, /if \(opts\.soloSiInicio\) q = q\.eq\(/);
   assert.doesNotMatch(bloque(leads, 'export async function upsertLeadFromCalendly('), /junta_[12]_url/,
     'el link va en un update APARTE: en el upsert, sin la migración ninguna reserva entra');
+});
+
+test('CABLEADO: la cancelación decide con juntaACancelar y su UPDATE exige lo que comparó', () => {
+  const cancelar = bloque(sinComentarios(leer('lib/leads.ts')), 'export async function cancelarJuntaEnLead(');
+  assert.match(cancelar, /const d = juntaACancelar\(lead, fechaCancelada, hoy, inicioCancelado\);/);
+  assert.match(cancelar, /\.eq\(campo, fechaCancelada\);/, 'si la reserva nueva escribió entre medio, el WHERE no calza');
+  assert.match(cancelar, /if \(d\.inicio\) q = q\.eq\(campoHora, d\.inicio\);/);
+  // Y los DOS webhooks le pasan el instante cancelado.
+  assert.match(sinComentarios(leer('app/api/webhooks/calendly/route.ts')),
+    /cancelarJuntaEnLead\(lead, fechaCancelada, hoyEnTijuana\(\), startTimeIso\)/);
+  assert.match(sinComentarios(leer('app/api/webhooks/calcom/route.ts')),
+    /cancelarJuntaEnLead\(lead, isoToFechaTijuana\(reserva\.inicio\), hoyEnTijuana\(\), reserva\.inicio\)/);
 });
 
 test('CABLEADO: el cron recorre TODOS los workspaces activos para el lead, con su ?dry=1', () => {
@@ -348,4 +446,7 @@ test('CABLEADO: la tarjeta de /chatbot está montada y guarda por una ruta con g
   assert.match(api, /if \(ws == null \|\| rol !== 'admin'\)/);
   assert.match(api, /runWithWorkspace\(g\.ws, \(\) => setSetting\(KEY_RECORDATORIO,/, 'se escribe en el workspace del request, explícito');
   assert.match(api, /variablesDesconocidas\(v\)/, 'una variable que no existe se rechaza al guardar');
+  // «No pude leer» no se dibuja «envío apagado»: el no-estricto se come el error y el catch no corre.
+  assert.match(api, /runWithWorkspace\(ws, \(\) => envioWhatsappHabilitadoEstricto\(\)\)\.catch\(\(\) => null\)/);
+  assert.doesNotMatch(api, /envioWhatsappHabilitado\(\)/);
 });

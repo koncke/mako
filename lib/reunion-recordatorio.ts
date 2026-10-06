@@ -34,7 +34,7 @@ import { normalizarTelefono } from './leads';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import {
   KEY_RECORDATORIO, TOQUES, TOLERANCIA_MIN as TOLERANCIA_LEAD_MIN, configDeRecordatorio, juntasDe, leadAbierto,
-  toquesVencidos, estadoDeLaMarca, textoDelToque, type ConfigRecordatorio, type CualReunion, type Toque,
+  toquesVencidos, estadoDeLaMarca, envioIncierto, textoDelToque, type ConfigRecordatorio, type CualReunion, type Toque,
 } from './recordatorio-lead';
 
 /**
@@ -185,8 +185,9 @@ export async function mandarRecordatoriosDeReunion(ws: number): Promise<Resultad
 // los minutos), con compare-and-set ANTES de mandar (`reclamado:`) para que dos corridas del
 // mismo tick no manden las dos —Evolution retiene el HTTP hasta 9 s con su `delay`, y el 27/09 eso
 // dejó 21 pares duplicados en los avisos programados—, y la marca de `enviado:` DESPUÉS del envío
-// ok. Si el envío falla, la marca queda en `fallo:` y la corrida siguiente lo reintenta mientras
-// siga dentro de la tolerancia; pasada, el toque se pierde.
+// ok. Si Evolution rechaza el envío, la marca queda en `fallo:` y la corrida siguiente lo
+// reintenta mientras siga dentro de la tolerancia; pasada, el toque se pierde. Si el envío se
+// cortó por tiempo (pudo haber salido), queda `incierto:` y NO se reintenta (revisión del #17).
 
 export type RecordatorioEnSeco = { leadId: number; cual: CualReunion; min: number; conLink: boolean; texto: string };
 
@@ -274,10 +275,13 @@ export async function mandarRecordatoriosAlLead(
       .or(`and(junta_1_at.gt.${desde},junta_1_at.lte.${hasta}),and(junta_2_at.gt.${desde},junta_2_at.lte.${hasta})`);
     if (error) { res.errores.push(`no pude leer las reuniones: ${error.message}`); return res; }
 
-    let tz: string | null = null;
-    for (const lead of (data ?? []) as FilaLeadRecordatorio[]) {
+    const filas = (data ?? []) as FilaLeadRecordatorio[];
+    // La zona del negocio ANTES de decidir: dice la hora del texto y también si la fecha de la
+    // reunión sigue siendo la de su hora (`fechaCoincide`). Sólo se pide si hay a quién mirar.
+    const tz = filas.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
+    for (const lead of filas) {
       if (!leadAbierto(lead.estado_lead)) continue;
-      const vencidos = toquesVencidos({ leadId: lead.id, juntas: juntasDe(lead), ahora: t });
+      const vencidos = toquesVencidos({ leadId: lead.id, juntas: juntasDe(lead), ahora: t, tz });
       for (const v of vencidos) {
         res.vencidos += 1;
         const telefono = normalizarTelefono(lead.telefono);
@@ -291,7 +295,6 @@ export async function mandarRecordatoriosAlLead(
 
         if (await estaBloqueado(telefono)) { omitir('contacto bloqueado'); continue; }
 
-        tz ??= await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
         const texto = textoDelToque({
           plantilla: cfg.textos[v.min as Toque], nombre: lead.nombre,
           inicio: new Date(v.inicio), ahora, tz, link: v.link,
@@ -314,8 +317,11 @@ export async function mandarRecordatoriosAlLead(
             console.error(`[recordatorio-lead] ws=${ws} lead=${lead.id}: salió y no pude marcarlo (${msgErr(e)})`));
           res.enviados += 1;
         } else {
-          await cambiarSettingSi(v.clave, reclamo, `fallo:${new Date().toISOString()}`).catch(() => false);
-          res.errores.push(`lead ${lead.id} ${v.cual} ${v.min} min: ${r.error ?? 'no salió'}`);
+          // Un corte por tiempo NO es «no salió»: puede haber salido. Queda `incierto:` y no se
+          // reintenta (ver `envioIncierto`); sólo lo que Evolution rechazó vuelve a `fallo:`.
+          const marcaFallo = envioIncierto(r.error) ? 'incierto' : 'fallo';
+          await cambiarSettingSi(v.clave, reclamo, `${marcaFallo}:${new Date().toISOString()}`).catch(() => false);
+          res.errores.push(`lead ${lead.id} ${v.cual} ${v.min} min (${marcaFallo}): ${r.error ?? 'no salió'}`);
         }
       }
     }

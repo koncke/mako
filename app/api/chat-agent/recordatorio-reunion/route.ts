@@ -15,7 +15,7 @@
 import type { NextRequest } from 'next/server';
 import { getWorkspaceActual, getRolWsEfectivo, runWithWorkspace } from '@/lib/workspace';
 import { setSetting } from '@/lib/settings';
-import { envioWhatsappHabilitado } from '@/lib/envio-flags';
+import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 import { leerConfigRecordatorio } from '@/lib/reunion-recordatorio';
 import {
   KEY_RECORDATORIO, TOQUES, TEXTO_DEFAULT, TOPE_TEXTO, VARIABLES, serializarConfig, variablesDesconocidas,
@@ -36,7 +36,10 @@ async function guard(): Promise<{ ws: number } | { error: Response }> {
 
 async function estado(ws: number, cfg: ConfigRecordatorio): Promise<Record<string, unknown>> {
   // `null` = no se pudo leer: la tarjeta no afirma que el envío está apagado si no lo sabe.
-  const envio = await runWithWorkspace(ws, () => envioWhatsappHabilitado()).catch(() => null);
+  // ⚠️ Con el ESTRICTO: `envioWhatsappHabilitado` lee con `getSetting`, que se come el error y
+  // devuelve «apagado», así que este `.catch` no corría nunca y un 5xx se dibujaba «No sale:
+  // envío apagado» (revisión del #17).
+  const envio = await runWithWorkspace(ws, () => envioWhatsappHabilitadoEstricto()).catch(() => null);
   return {
     activo: cfg.activo,
     envioWhatsapp: envio,

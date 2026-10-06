@@ -100,10 +100,12 @@ export function RecordatorioReunion() {
         <Modal titulo="Recordatorio de la reunión" onCerrar={() => setBorrador(null)}
           pie={(
             <>
-              <Button variant="secondary" onClick={() => setBorrador(null)}>Cancelar</Button>
+              {/* Cada botón nombra su acción y su objeto: «Cancelar» / «Guardar» a secas no
+                  (AGENTS.md, «Un contrato de datos no es un layout»). */}
+              <Button variant="secondary" onClick={() => setBorrador(null)}>No guardar</Button>
               <Button variant="primary" loading={guardando}
                 onClick={() => void guardar({ textos: borrador }).then((ok) => { if (ok) setBorrador(null); })}>
-                Guardar
+                Guardar textos
               </Button>
             </>
           )}>

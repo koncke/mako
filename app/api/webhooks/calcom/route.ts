@@ -145,7 +145,9 @@ export async function POST(request: NextRequest) {
         if (!reserva.inicio) {
           return Response.json({ ok: false, error: 'incomplete_payload', missing: { startTime: true } }, { status: 400 });
         }
-        const detalle = await cancelarJuntaEnLead(lead, isoToFechaTijuana(reserva.inicio), hoyEnTijuana());
+        // Con el instante, como en Calendly: la fecha sola borra la reunión nueva de una reagenda
+        // del mismo día (`juntaACancelar`, lib/recordatorio-lead.ts).
+        const detalle = await cancelarJuntaEnLead(lead, isoToFechaTijuana(reserva.inicio), hoyEnTijuana(), reserva.inicio);
         console.log(`[webhook:calcom] cancelación lead=${lead.id}: ${detalle} ms=${ms}`);
         return Response.json({ ok: true, trigger: body.triggerEvent, action: 'cancelar', lead_id: lead.id, detalle, ms });
       }
