@@ -482,4 +482,28 @@ export const BITACORA: Hito[] = [
       "lib/clientes-ganados.ts \u2014 fechaCierre, que se seleccionaba y no se mapeaba",
     ],
   },
+  {
+    fecha: "6 oct", hora: "02:25", chat: "Customer Success", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Clientes por producto, la ficha con las tabs del CRM y el editor por cajas",
+    pedido: "1. No hagas que el editor sea totalmente blanco que parezca que est\u00e1n flotando las cosas, eso no se entiende... Yo lo que pienso es que las fases sean contenedores grandes, y que el bot\u00f3n de nueva fase sea como una fase arriba del todo, as\u00ed como hacemos lo de \"Nuevo proyecto\" que es como mas gris y opaco.\n2. La secci\u00f3n de \"Trabajo\" no deber\u00eda estar en el resumen, para eso ya est\u00e1 la secci\u00f3n de \"Prioridades\". Por lo tanto, en esa tab deber\u00eda estar el link al plan... Te pido que pongas ese bot\u00f3n de ver en el plan en el lugar donde est\u00e1 el bot\u00f3n de 3 puntos, que no deber\u00eda estar m\u00e1s, ya que no cumple funci\u00f3n all\u00ed. Y que la tab pase a llamarse \"Tareas\".\n3. Elimina la secci\u00f3n de \"Entrega\" y para eso, tal como est\u00e1 en el CRM, un desplegable con la etapa actual y que se pueda cambiar a otra etapa. Como tambi\u00e9n deber\u00eda aparecer el desplegable de productos, por si quiero poner a ese cliente en otro producto.\n4. Los datos que deben aparecer son esos 4 de la captura, menos direcci\u00f3n, con sus botones para poder ir al WhatsApp o copiar. Y Si eliminamos el WhatsApp OFICIAL, solo debe quedar 1 bot\u00f3n de WhatsApp. Y ser\u00eda bueno que siempre traigas la foto de perfil del cliente, buscala en WhatsApp y sino tiene, la foto del email... En lugar de \"Direcci\u00f3n\" pon \"Web\" eso tambi\u00e9n lo estoy cambiando en el CRM as\u00ed que esos datos van a salir de all\u00ed tambi\u00e9n.\n5. Ser\u00eda bueno que traigas la tab de Pagos directamente, como est\u00e1 en el CRM...\n6. Falta la tab de Historial, que es importante que se registre historial en los clientes de Customer Success.",
+    puntos: [
+      "\u26a0\ufe0f CADA TABLERO DIBUJABA A LA CARTERA ENTERA. \u00abPrueba\u00bb mostraba a los 14 clientes de Negocio que Escala en Bienvenida sin una sola fila: la regla \u00absin fila, primera etapa\u00bb nunca pregunt\u00f3 de qu\u00e9 producto era el cliente. Lo destap\u00f3 la respuesta de Mart\u00edn (\u00abun cliente puede estar en varios productos\u2026 en PRUEBA deber\u00eda estar vac\u00edo\u00bb). Ahora es de un producto si es su CASA (el embudo del CRM) o si tiene una fila ah\u00ed, aplicado UNA vez a kanban, tabla, \u00abN de M\u00bb y el conteo del editor.",
+      "LA ETAPA DE LA FICHA NO PUEDE SER UNA FOTO DEL SERVER: un desplegable que mueve tiene que leer la asignaci\u00f3n con lo movido en la sesi\u00f3n, o despu\u00e9s de moverlo dice la etapa de antes. El desplegable de producto elige qu\u00e9 entrega se mira, no muda al cliente (al rev\u00e9s que el del CRM).",
+      "RENOMBRAR AL CLIENTE DESDE SU FICHA NO DEJABA HISTORIAL: escrib\u00eda `leads` a pelo. Ahora pasa por `logLeadChanges`, el mismo de la ficha del CRM. Queda a medias que los movimientos de entrega firman \u00abCRM\u00bb y no a la persona.",
+      "LA FOTO WHATSAPP \u2192 EMAIL NO SE PUEDE ENCADENAR CON `Marca`: su `onError` cae directo a las iniciales. Se prueba cada candidata con un `Image()` y se pasa s\u00f3lo la que carg\u00f3; el `<img>` lleva el `?ws=` a mano porque no pasa por el parche de fetch.",
+      "El editor por cajas lo hizo un agente aparte (verificado en el navegador, 14 roturas probadas). La Web y el WhatsApp \u00fanico de la \u00abInformaci\u00f3n principal\u00bb los hizo la sesi\u00f3n del CRM en el mismo componente, que ac\u00e1 se reusa sin copiarlo.",
+    ],
+    commits: [
+      { sha: "b7a72267", msg: "Customer Success: clientes por producto, la ficha con las tabs del CRM y el editor por cajas", lineas: 2048, archivos: 22 },
+    ],
+    archivos: [
+      "app/customer-success/pertenencia.ts \u2014 de qu\u00e9 productos es cada cliente (casa o fila)",
+      "app/customer-success/FichaEntrega.tsx \u2014 producto y etapa en la cabecera de la ficha",
+      "app/customer-success/foto-cliente.ts \u2014 la foto de WhatsApp o del email, probada antes de dibujar",
+      "app/customer-success/FichaPestanas.tsx \u2014 Resumen, Pagos e Historial con los componentes del CRM",
+      "app/customer-success/EtapasEntregaModal.tsx \u2014 el editor con las fases como cajas",
+      "app/plan/board/BoardShell.tsx \u2014 accionEnLugarDelMenu: \u00abVer en el Plan\u00bb en lugar del \u22ee",
+    ],
+  },
 ];
