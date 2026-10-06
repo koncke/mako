@@ -103,4 +103,33 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-seguridad.md → «Un guard BYOK que vive en UNA action no cubre la credencial»',
     ],
   },
+  {
+    fecha: '6 oct', hora: '12:51', chat: 'Chatbot', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sacar Instagram del producto',
+    pedido: 'Instagram: C: sacar la tab',
+    puntos: [
+      'Una de las trece decisiones del formulario de las tarjetas del Chatbot. La medición que la acompañó: cero DMs y cero publicaciones en toda la historia del canal.',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '14:57', chat: 'Chatbot', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Instagram sale del producto: la tab, su API y su integración',
+    puntos: [
+      'Se borraron la tab, su bandeja, su programador, el puente de los DMs al setter y sus 21 operaciones de la API de MaKo. /instagram lleva a /chatbot y el webhook de Zernio contesta 200 sin procesar nada. Las tablas quedan.',
+      'Reels, Carousels y Stories mandaban sus piezas como borrador a /instagram: ahora el botón es «Copiar» y la pieza se sube a mano. Lo encontró el retiro, no el pedido.',
+      'La revisión encontró una fuente de KPI que seguía contando lo que escribía la tab borrada y se ofrecía como KPI automático; salió del catálogo. Un guard falla si algo vuelve a cablear Instagram.',
+      'SIN HACER, escrituras en producción: las llaves de Zernio de dos clientes y su webhook registrado en Zernio, y el proyecto «Instagram» del catálogo del tablero, al que el Perro todavía puede mandar tareas.',
+    ],
+    commits: [
+      { sha: '8d16c6ff', msg: 'Instagram sale del producto: la tab, su API y su integración; el Chatbot es sólo WhatsApp (#792)', lineas: 6217, archivos: 61 },
+      { sha: '74e1f5e7', msg: 'Instagram afuera, segunda pasada: el KPI que contaba lo que escribía la tab, y el guard que no lo veía (#792)', lineas: 83, archivos: 9 },
+    ],
+    archivos: [
+      'tests/sin-instagram.test.ts — falla si algo vuelve a cablear Instagram',
+      'docs/hallazgos-comunicacion.md → «Las seis tarjetas del Chatbot en paralelo» → «Instagram afuera»',
+      'docs/hallazgos-objectives.md → «Retirar una tab deja vivas las FUENTES que contaban lo que esa tab escribía»',
+    ],
+  },
 ];

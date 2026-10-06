@@ -39,6 +39,9 @@ Reglas para cualquier agente que trabaje acá:
 - **Nunca** uses `git push --no-verify` (saltea el único chequeo de tipos que queda).
 - Antes de pushear, si tocaste rutas nuevas, corré `npm run build` una vez: el hook usa
   `tsc --noEmit`, que solo valida los tipos generados de rutas si `.next/types` está fresco.
+- **Y si BORRASTE una ruta, corré `npx next typegen` en el clon.** `.next/types/validator.ts`
+  sigue nombrando la ruta borrada y el typecheck del clon compartido queda rojo para TODAS las
+  sesiones — o sea, el pre-push de los vecinos bloqueado por un archivo generado.
 - **Un push cuesta lo mismo dure lo que dure el build** (~US$0,105 con la máquina en
   `turbo`; **US$0** con Standard y on-demand concurrency apagado). Agrupá commits y pusheá
   cuando haya algo que probar, no después de cada paso interno — lo que se ahorra es el
@@ -145,6 +148,11 @@ idéntico (11/09/2026). El `sinCR` va sobre la ENTRADA, antes de cualquier `repl
 ⚠️ **Y se prueba en un árbol recién checkouteado, no en el tuyo.** Las cuatro daban «✓ al
 día» en el repo, que es el único lugar donde ese bug no puede verse. Comprobar una guarda
 donde no puede fallar es no comprobarla.
+
+⚠️ **Y VALE IGUAL PARA LOS TESTS QUE LEEN FUENTE.** El 06/10/2026 seis agentes, cada uno en su
+worktree, encontraron por separado los mismos 7 rojos en cuatro tests que cortaban el fuente
+con `'\n}\n'`: en el clon los archivos estaban en LF y pasaban. Todo test que haga
+`readFileSync` de un fuente normaliza con `.replace(/\r\n/g, '\n')` ANTES de buscar.
 
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
@@ -1749,6 +1757,14 @@ clave que el cliente no puede dejar vacía** — obligatoria, o `auto` (la compl
 `META_PAGE_ID` al pegar el token). Y la nota del campo dice qué se pierde si se deja vacío,
 no sólo que hace falta.
 
+⚠️ **Y UN WEBHOOK CONTESTA 5xx SÓLO A LO QUE SE ARREGLA REINTENTANDO.** Un 5xx le dice al
+proveedor «reintentá», y Calendly reintenta un par de días y después **deshabilita la
+suscripción entera**, sin avisar. Un evento que falla SIEMPRE —un dato que no cierra, una
+excepción del código— apaga así la integración de todos: pasó el 11/09 y otra vez el 21/09
+(tres cancelaciones del anfitrión en un minuto, y 4 reservas perdidas). Lo transitorio (la base
+caída) va 5xx; lo que va a fallar igual en el próximo intento va **2xx y se registra** donde se
+pueda leer. Es la otra mitad de «un 200 es un ACK» (`docs/hallazgos-infra.md` → «Webhooks»).
+
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
 que **si un campo tiene ayuda propia, el tutorial del servicio no se ve nunca para ese
@@ -2978,6 +2994,13 @@ El caso que lo probó: el Perro Guardián está en Gemini desde hace meses, Gemi
 Perro corre en tandas— y el código caía derecho a Sonnet. Dos corridas de priorización
 costaron US$0,25 con otros cuatro proveedores gratis configurados y sin usar. Un fallback
 que cobra tiene que ser la excepción rara y ruidosa, no la reacción al primer 429.
+
+⚠️ **Y `CASCADA_GRATIS` NO TIENE GEMINI.** Medido el 06/10/2026: tres clientes (ws13, ws15,
+ws17) tienen cargada SÓLO la key de Gemini, así que todo lo que corra por esa lista no tiene a
+quién preguntarle — y `errorDeCascada`, que mide con `CASCADA_DOCS`, les contesta «tu IA está
+conectada pero no pudo». **Lo que tiene que andar con la key gratis del CLIENTE va por
+`CASCADA_DOCS`**, que es la misma lista con la que se juzga el error. El detalle, en
+`docs/hallazgos-ia.md`.
 
 # Un contrato de datos no es un layout
 
@@ -4680,6 +4703,13 @@ cansa y concluye que el producto está roto.
 ⚠️ **Y LOS COMPONENTES NO SE VAN CON LA RUTA.** Next sólo hace ruta de un `page.tsx`: lo
 que el `page.tsx` montaba puede seguir donde está y seguir montándose desde otras pantallas.
 Antes de mover o borrar un componente de esa carpeta, `grep` de quién más lo importa.
+
+⚠️ **Y LA TERCERA ENUMERACIÓN: QUIÉN LEE LO QUE ESA PANTALLA ESCRIBÍA.** Al sacar Instagram
+(06/10/2026) se buscó quién importaba la carpeta y quién enlazaba la ruta, y quedó viva una
+fuente de KPI que contaba `contenido_posts` — filas que sólo escribía la tab borrada. Daba 0
+para siempre y se ofrecía como KPI automático, o sea que nacía en rojo por un problema nuestro.
+Las fuentes de KPI de Objectives son lectores de tablas de OTRAS áreas. Y el guard busca el nombre
+de la tabla como CADENA: `.from('<tabla>')` no ve `contar('<tabla>')`.
 
 **El guard que lo sostiene** barre `git ls-files app lib` y falla si alguien vuelve a
 enlazar la ruta (`tests/funnel-estructura.test.ts` es el molde). Dos afinados que costaron

@@ -3346,3 +3346,49 @@ lee bien en el fuente si uno cree que el escape existe.
   nombre real.
 - El guard ejecuta `renderTemplate` sobre el template y pregunta si los placeholders llegan
   (`tests/paso-ia.test.ts`).
+
+## `CASCADA_GRATIS` no tiene Gemini: para tres clientes, «la IA gratis» no existe (06/10/2026)
+
+**Vive en:** `lib/ai-cheap.ts` (`CASCADA_GRATIS`, `CASCADA_DOCS`, `errorDeCascada`,
+`chatCheapCascade`) · `lib/paso-ia.ts` · `app/api/chat-agent/guion-audio/route.ts` ·
+*2026-10-06 wf_fe0d104c-25c, implementador de #748*
+
+**El diagnóstico obvio era el equivocado — y lo pedía la tarea.** El guion del audio se iba a
+escribir con `CASCADA_GRATIS`, «igual que `lib/paso-ia.ts`». Pero esa lista es
+`['groq','openrouter','mistral','openai']`: **no tiene Gemini**. Medido en prod (sólo por nombre
+de clave): el ws13, el ws15 y el ws17 tienen cargada SOLAMENTE `GEMINI_API_KEY`, y el ws14 sólo
+Gemini y OpenAI. Con `CASCADA_GRATIS` esos tres workspaces no tienen a quién preguntarle.
+
+Y el mensaje miente encima: `errorDeCascada` decide «hay IA» con `docsIADisponible`, que mira
+`CASCADA_DOCS` (la que SÍ tiene Gemini adelante). Así que les contesta «Tu IA está conectada pero
+no pudo… Prueba de nuevo» — un reintento que no puede andar nunca, y que le echa la culpa a un
+bache cuando lo que falta es un proveedor en la lista.
+
+- **Copy que tiene que andar con la key gratis que carga cada cliente va por `CASCADA_DOCS`**, que
+  es la misma lista con la que `errorDeCascada` mide. Las dos son gratis y ninguna toca Claude.
+- ⚠️ **SIN HACER: `lib/paso-ia.ts` («Lo adapta MaKo») tiene el mismo agujero.** En el ws13, ws15
+  y ws17 no adapta nunca: siempre sale el texto de respaldo, con el motivo engañoso «la IA vino
+  vacío», porque `errores` queda vacío. Pasarlo a `CASCADA_DOCS` es una línea; no se tocó porque
+  era otra tarjeta.
+
+## Lo que rechaza `validar` no deja rastro, y el error que sale es el de otra cosa
+
+**Vive en:** `lib/ai-cheap.ts` (`chatCheapCascade`, el parámetro `validar`) · *2026-10-06
+wf_fe0d104c-25c, implementador y revisor de #748*
+
+`chatCheapCascade` no empuja a `erroresOut` los rechazos de `validar`: si todos los proveedores
+contestan 200 con algo inservible (un guion con una palabra prohibida, un número inventado), la
+lista de errores llega vacía y `errorDeCascada` dice «tu IA está conectada pero no pudo» en vez
+del motivo real. Quien pasa `validar` junta sus propios rechazos y dice el último — así lo hace
+la ruta del guion. **Revisar los otros que validan: `productos-ia`, `ofertas-ia` y avatares.**
+
+⚠️ **Y un `validar` puede rechazar lo que el propio pedido exige.** El filtro del guion prohibía
+«agendar» en los negocios sin link de agenda, y una secuencia con objetivo «agendar» hace que el
+modelo la escriba: rechazado en CADA proveedor, con la pantalla diciendo «Prueba de nuevo». Lo que
+el pedido declara (objetivo, gancho, preguntas del negocio) tiene que abrir la prohibición antes
+de validar, o la validación es un candado sin llave.
+
+Y el modo de falla de la ruta VIEJA, que es la regla del veto vista desde afuera: llamaba a
+`chatClaude` con una feature que no estaba en `CLAUDE_PERMITIDO`, el veto la cortaba, y su
+`catch {}` devolvía las viñetas como si fueran el guion. Cero llamadas desde el 05/08 y la
+pantalla mostrando un resultado.

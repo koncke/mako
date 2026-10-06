@@ -405,6 +405,31 @@ devuelve en `error`).
 hereda esta ambigüedad. Un reporte que diga «sin objetivos» sobre una base caída es exactamente lo
 que esa migración no puede permitirse.
 
+## Retirar una tab deja vivas las FUENTES que contaban lo que esa tab escribía (06/10/2026)
+
+**Vive en:** `lib/objectives-fuentes.ts` · `lib/objectives-modelo.ts` (`CANDIDATOS_KPI`) ·
+`lib/focus.ts` · `lib/api-mako/areas/general.def.ts` y `.run.ts` · `tests/sin-instagram.test.ts`
+· *2026-10-06 wf_fe0d104c-25c, revisor de #792*
+
+**Síntoma (leído, no visto pasar):** al sacar Instagram del producto, la fuente
+`contenido_publicado` quedó contando `contenido_posts` con estado `publicado` — filas que sólo
+escribía el programador de /instagram, borrado en el mismo commit. Desde ahí da **0 para
+siempre**. Y `CANDIDATOS_KPI` la proponía como KPI AUTOMÁTICO con 7 por semana a los negocios con
+cuello `foco` o `delegacion` (en `delegacion`, primera): un KPI que nace en rojo por un problema
+nuestro, que es exactamente lo que `leerFuente` dice que no hay que hacer. Medido: 0 KPIs la
+usaban y la tabla tenía 0 filas, así que no le pasó a nadie.
+
+**Por qué no lo vio la enumeración del retiro:** se buscó quién importaba la carpeta de la tab y
+quién enlazaba la ruta. La fuente de un KPI no hace ninguna de las dos cosas: lee una TABLA. Y el
+guard nuevo buscaba la tabla como `.from('contenido_posts')`, que no ve `contar('contenido_posts')`
+— con el lector devuelto y el patrón viejo daba 7/0.
+
+**La regla:** retirar una pantalla son TRES enumeraciones, no dos — quién la importa, quién la
+enlaza, **y quién lee lo que ella escribía**. La tercera es la que en este repo cae en
+Objectives, porque las fuentes de KPI son lectores de tablas de otras áreas. Y el guard busca el
+nombre de la tabla como CADENA, no como argumento de `.from(`. Volverlo un KPI manual es una
+línea en `CANDIDATOS_KPI` y es decisión de producto.
+
 ## Lo que quedó sin hacer
 
 - **`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**

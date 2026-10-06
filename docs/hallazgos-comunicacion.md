@@ -7511,6 +7511,11 @@ no el código**: los tests del grafo pasaban porque ninguno tenía un paso con
 
 ### Lo que quedó SIN hacer, y por qué
 
+- ⚠️ **SUPERADO el 06/10/2026: la cobranza NO le escribe al cliente.** Martín decidió «C: nada
+  al cliente», así que lo de abajo ya no es trabajo pendiente: el texto de la cuota dejó de
+  prometer «¿Le escribo?» y la vista previa dejó de dibujar al dueño contestando que sí (ver
+  «Las seis tarjetas del Chatbot en paralelo» → Avisos). Se deja por lo que enseña del paso
+  `wa_lead`, que sigue sin poder ejecutarse.
 - **El mensaje AL CLIENTE.** Martín eligió «al grupo, y al cliente sólo si lo confirmás
   una vez por cuota». La primera mitad está; la segunda no se puede hacer hoy: el paso
   `wa_lead` deja una pendiente de tipo `flujo_wa_lead` que **`confirmarPendiente` no sabe
@@ -8482,3 +8487,209 @@ saltea. Sale por el MISMO borrador (`enviarBorrador` lo reclama atómico).
 - SIN HACER: las 5 inscripciones de ws1 que dicen «no respondió» sin que se les haya mandado nada
   (181-185) — no está decidido si se corrigen; la relectura anti-mensaje-viejo no cubre Chatwoot;
   el aviso rojo de /chatbot sigue mirando sólo la línea por default.
+
+## Las seis tarjetas del Chatbot en paralelo: lo que encontró cada una (06/10/2026)
+
+Seis agentes, uno por tarjeta y cada uno en su worktree, implementaron y después un revisor
+adversarial por tarjeta buscó lo que faltaba (21 confirmados, todos arreglados en el mismo
+lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el código.
+
+### Recordatorio al lead, 24 h / 1 h / 15 min (#17)
+
+**Vive en:** `lib/reunion-recordatorio.ts` · `lib/recordatorio-lead.ts` · `lib/leads.ts`
+(`cancelarJuntaEnLead`, `guardarLinkDeReunion`, `upsertLeadFromCalendly`) ·
+`app/api/webhooks/calendly/route.ts` · `app/chatbot/RecordatorioReunion.tsx` ·
+`supabase/migrations/0204_link_de_la_reunion.sql`
+
+- ⚠️ **Hoy no hay a quién recordarle en el ws1: el webhook de Calendly está muerto OTRA VEZ**
+  (desde el 21/09, la segunda vez). El detalle y la causa estructural están en
+  `docs/hallazgos-infra.md` → «Webhooks», porque viven en el route. Nace apagado por negocio
+  (`chatbot.recordatorio_reunion`) y nadie lo tiene prendido.
+- **La suscripción de n8n a Calendly también está deshabilitada, desde el 22/08** (scope user,
+  sólo `invitee.created`). El workflow «WhatsApp Reminders for Calendly» no recibe reservas
+  nuevas desde entonces: no está mandando nada. O sea que «apagar n8n» hoy no cambia lo que sale,
+  pero hay que apagarlo igual — recrear esa suscripción traería los duplicados.
+- **`getSetting(k).catch(() => …)` es un candado decorativo.** `getSetting` convierte el error en
+  null, así que el `.catch` no corre nunca: el aviso de 30 min al dueño se re-mandaba con un error
+  de lectura. Donde «no pude leer» tiene que frenar, va `getSettingEstricto`. La misma trampa
+  estaba en la tarjeta de /chatbot, que decía «envío apagado» sobre un 5xx.
+- **`updateLead` nunca sincroniza `junta_X_at` con `fecha_junta_X`.** El Kanban, la ficha y MaKo
+  escriben la fecha y no la hora, así que una reunión cancelada en Calendly y re-agendada a mano
+  dejaba una HORA vieja en pie: el recordatorio salía sobre la reunión cancelada. Ahora el
+  recordatorio exige que el día de la hora sea el de la fecha (en la zona de los webhooks o en la
+  del negocio). La fuente del desfase sigue: 1 de 50 leads del ws1 la tiene.
+- **Una reagenda en el mismo día borraba la reunión NUEVA.** Calendly no garantiza el orden entre
+  el `canceled` de la vieja y el `created` de la nueva; `cancelarJuntaEnLead` comparaba sólo la
+  fecha, y si llegaba primero la reserva nueva la cancelación la anulaba. Se compara el INSTANTE
+  cuando hay hora, con el valor comparado en el `WHERE` (si la fila cambió en el medio, no toca).
+  Lo mismo para borrar el link: sólo si el inicio sigue siendo el de la cancelada.
+- **Un envío cortado por tiempo puede haber salido.** Evolution retiene la respuesta mientras
+  simula el tipeo y `evFetch` corta a los 30 s: marcarlo `fallo` lo re-mandaba en la corrida
+  siguiente. Timeout, abort y conexión cortada se marcan `incierto:` y cuentan como tomados — un
+  recordatorio de menos, nunca uno doble.
+- **SIN HACER:** recrear la suscripción de Calendly y recuperar las 4 reservas perdidas (escribe
+  en prod; dos todavía vienen: 10/10 01:00 UTC y 13/10 17:00 UTC). **Cal.com no guarda el link**
+  (`app/api/webhooks/calcom/route.ts`), así que el ws13 recibiría el recordatorio sin ese renglón.
+  **Un lead que faltó a la R1 y vuelve a agendar por Calendly no recibe recordatorios**:
+  `upsertLeadFromCalendly` no toca `asistio_j1` (es manual) y el emisor saltea toda reunión con la
+  asistencia marcada — justo el caso donde más sirve. Medido: 13 leads del ws1 y 11 del ws13. Es
+  una decisión del CRM (sacarlo de «No Show»), no un arreglo.
+
+### La reagenda: la post-agenda vuelve con una reunión nueva (#789)
+
+**Vive en:** `lib/nutricion-reinscripcion.ts` · `lib/nutricion.ts` (`aInscribir`,
+`reactivarReusables`, `enrolarPorEvento`, `procesarEnvios`) · `lib/nutricion-desenlace.ts` ·
+`supabase/migrations/0205_reagenda.sql`
+
+- **El diagnóstico obvio era el equivocado: «nada le llegó, entonces se reusa» es un bucle.** Un
+  contacto bloqueado o el tope de antigüedad terminan la corrida con pasos `omitido` y nada
+  enviado; reusarla la volvía a quemar cada ~25 h. Regla: una inscripción prepara UNA reunión, UNA
+  vez. «Nada le llegó» sólo vale cuando no se sabe qué reunión preparaba (`reunion_at` null).
+- **`reunion_at` escrita sólo al inscribir queda vieja.** El lead reprograma antes del paso 0, la
+  corrida manda todo para la nueva, y al terminar la fila decía la vieja: el cron siguiente leía
+  «otra reunión» y mandaba la post-agenda entera de nuevo. Se re-anota en cada paso que sale, en
+  un update APARTE del avance (con la columna adentro, una 0205 sin aplicar rechazaba el avance y
+  el paso se reenviaba).
+- **La R2 no es «volver a agendar».** La decisión y la anotación usaban `reunionFuturaMs`, que
+  devuelve la más próxima entre R1 y R2: con la R1 recién pasada y la R2 agendada en la llamada,
+  daba «reunión nueva» y le mandaba «te dejo el video para que llegues con contexto» a quien
+  acababa de salir de la R1. Ahora es `reunionQuePreparaMs` (sólo la R1), en los cinco lugares.
+- **Reusar una fila exige desligar también los ENVÍOS.** Cuatro lectores preguntan por
+  `inscripcion_id` (el silencio cumplido, la charla, las respuestas tardías y `anotarPasoEnviado`)
+  y con lo viejo colgado mienten sobre la corrida nueva.
+- **El corte del reuso es el de la DECISIÓN, no el de la llamada.** Con `ahora` al reactivar, la
+  corrida que perdía el reclamo descartaba el borrador de la que ganó. `decididoAt` se toma antes
+  de leer las filas.
+- **Una «reunión» es su DÍA en hora de México, no su instante**: la hora se refina sola y comparar
+  instantes trata como nueva lo que es la misma.
+- **`enrolarPorEvento` no aplicaba la exclusión de familia** que sí aplica el cohorte, así que un
+  lead con la mitad «primer contacto» corriendo que re-agendaba recibía los dos audios de apertura.
+  Medido: 0 casos en prod. La exclusión se pregunta en un lugar y la llaman todos los que inscriben.
+- **SIN HACER, para que decida Martín (consecuencias de la «b»):** quien reprograma por el chat del
+  setter («reprogramar» contesta solo) recibe la post-agenda entera para la fecha nueva; quien
+  reprograma para más tarde EL MISMO DÍA no la recibe. Y tres que quedaron: `enrolarPorEvento` no
+  mira las condiciones del cohorte (un ganado que re-agenda por el evento de la R1 la recibe; sin
+  `CALENDLY_EVENT_TYPE_J2` una R2 entra como R1 y pisa `fecha_junta_1`); la guarda «la reunión ya
+  pasó» de `procesarEnvios` sigue usando `reunionFuturaMs` (una corrida con la R1 pasada y una R2
+  por delante sigue mandando la preparación de la R1 — ya pasaba antes); `diaDeReunion` usa −6
+  fijo y cerca de la medianoche puede caer en el día equivocado.
+
+### El residuo: WhatsApp escalonado a los que tuvieron reunión (#790)
+
+**Vive en:** `lib/nutricion-residuo.ts` · `lib/nutricion-residuo-cohorte.ts` · `lib/nutricion.ts`
+(`procesarEnvios`) · `lib/email-marketing.ts` · `lib/api-mako/areas/email.def.ts`
+
+- **Cohorte medida el 06/10 (sólo lectura):** WhatsApp 63 (25 asistieron sin comprar, 38 faltaron
+  a la R1), email 884. Quedan afuera hasta que Martín decida: 9 perdidos, 6 descalificados, 2 «no
+  responde» con reunión y 12 con la R1 sin asistencia marcada.
+- ⚠️ **Pausar una secuencia QUEMA sus turnos.** `procesarEnvios` cierra como `completada` toda
+  inscripción vencida cuya secuencia no está activa (`if (!sec || !paso)`), sin mandar. Con la
+  exclusión de familia, esos leads no vuelven a entrar al residuo nunca. Pausarla a mitad del
+  escalonado es perder a los que faltaban.
+- **El escalonado sólo vale al inscribir, y se deshace solo.** Con la línea caída cada fila que
+  vence falla y se corre +24 h desde la misma corrida: a los días hay decenas con el mismo minuto,
+  y al volver la línea salen juntas delante de la post-agenda. Va un techo por corrida
+  (`RESIDUO_POR_CORRIDA = 1`, ≤ 9 por día con el cron actual): la fila que no pasa sigue vencida.
+- **La re-pregunta al mandar colgaba de una línea sin test**: contar la inscripción del PROPIO
+  residuo como «otra secuencia le habla» cerraba a los 63 sin mandar y sin error. La partición es
+  `clasificarInscripciones` (pura), con test.
+- **`respondio` es permanente** y cuenta como «ocupado»: quien contestó UNA vez cualquier
+  secuencia vieja nunca va a ser residuo. Hoy afecta a 0 (lo pidió así la tarea; queda anotado).
+- **El broadcast no resuelve `{{negocio}}` ni los `[tu link…]`**: `enviarBroadcast` llama a
+  `valoresVariablesLead(lead)` sin negocio. Los textos propuestos no usan ninguno de los dos.
+- ⚠️ **El remitente del ws1 es «MaKo <…>»** (`resend_from`, 29/07): el mail a los 884 saldría
+  firmado por MaKo y las respuestas caerían en su buzón, no en el de Mauricio. Es la trampa de
+  `OWNER_WS` vista desde el cliente. Se arregla antes de mandar.
+- **MaKo listaba el segmento y no podía usarlo**: el enum de `email.def.ts` no lo tenía. Ahora sí,
+  con un test que cruza los segmentos contra las cuatro operaciones.
+- **SIN HACER:** sembrar la secuencia `residuo-sin-cierre` APAGADA en el ws1 (con
+  `antiguedad_max_horas` en null, o `aTiempo` los descarta a todos) y decidir si sale sola; armar
+  el broadcast en BORRADOR; corregir el remitente. El orden dentro de una corrida sigue siendo por
+  `proximo_envio_at`, no por prioridad (como mucho una hora de demora para la post-agenda).
+
+### Los avisos: el semanal, la línea caída y la cobranza (#834, #784, #19)
+
+**Vive en:** `app/api/cron/reporte-semanal/route.ts` · `lib/notify.ts` (`despacharReporte`) ·
+`lib/linea-vigilancia.ts` · `lib/lineas-vigilante.ts` · `lib/evolution-sonda.ts` ·
+`lib/avisos-catalogo.ts` · `app/agencia/PlantillasView.tsx`
+
+- **El semanal tenía DOS interruptores y el cron leía uno**: `notification_prefs.semanal.activo`
+  y el `enabled` de la plantilla, que es el que el cliente ve en su lista. Quien lo apagaba ahí lo
+  seguía recibiendo. **El diagnóstico obvio —ponerlo en el choke point `despacharReporte`— era el
+  equivocado**: el diario y el horario no tienen `porDefecto 'on'` y se callaban en el ws1. Vive en
+  el cron semanal.
+- **A quién le llega el primer semanal (lunes 12/10, 14:00 UTC), medido:** ws1 por WhatsApp y mail;
+  ws10, 11, 13 y 14 sólo por mail; ws15 tiene dos teléfonos y ningún mail, y sin Chatwoot no le
+  llega nada aunque el cron diga que salió; ws3, 4, 9 y 17 quedan salteados por no tener
+  destinatario. Como `DEFAULT_PREFS` lo trae activo, cinco clientes lo reciben sin haber
+  configurado nada. Por WhatsApp sólo el ws1: es el único con Chatwoot completo.
+- **Una línea que el negocio DESVINCULÓ no es una línea caída.** `desconectar()` borra la
+  instancia y deja la fila; la sonda recibía 404 «instance does not exist», lo leía como muerta, y
+  «Se cortó tu WhatsApp» salía cada 24 h para siempre. Lo que distingue es la sonda: una caída deja
+  la instancia viva en Evolution (una llevó 22 días así); una desvinculada no tiene instancia
+  (`esInstanciaInexistente`, en un solo lugar). Ni el estado de la fila ni `ultima_conexion_at`
+  sirven: el webhook escribe lo mismo en los dos casos.
+- **El aviso de línea caída nunca va a nombrar el número**: el webhook y `desconectar()` ponen
+  `numero` en null y las 3 filas de prod tienen `etiqueta` null. El ejemplo del catálogo, que lo
+  muestra, promete algo que no pasa. Hace falta guardar el último número conocido.
+- **Un aviso apagado se loguea como «ya avisado hace poco»**: `emitirDelCatalogo` devuelve
+  `deduped: true` y no `apagado` (`lib/avisos.ts`). Sólo afecta al log, y lo hace mentir.
+- **La cobranza prometía dos veces**: el texto decía «¿Le escribo?» y `requiereRespuesta: true` hacía
+  que la vista previa dibujara al dueño contestando «Sí, adelante 👍» y a MaKo «Listo, lo hago
+  ahora». Y el `ejemplo:` del catálogo ES el texto que sale cuando el negocio no escribió el suyo
+  (ningún store tiene override de la cuota): la promesa llegaba al grupo tal cual.
+- **SIN HACER, decisiones de Martín:** que `wa-desconectado` entre en la lista de avisos que el
+  cliente puede apagar; un aviso de «volvió» (hoy al recuperarse se borran las marcas sin mensaje);
+  y si el semanal a los clientes va también por el grupo de MaKo, porque por Chatwoot sólo lo tiene
+  el ws1. Quedan dos de otra tarjeta: el lienzo sigue dibujando un `wa_lead` como «Le escribe al
+  lead», y los pasos `accion` de un flujo mueren como «operación desconocida».
+
+### El guion del audio con IA gratis (#748)
+
+**Vive en:** `lib/guion-audio.ts` · `app/api/chat-agent/guion-audio/route.ts` ·
+`app/chatbot/PasoAudioControl.tsx` · `lib/nutricion-canal.ts` (`textoDelPaso`) · `lib/nutricion.ts`
+(`setSecuenciaPasos`)
+
+- ⚠️ **`setSecuenciaPasos` conserva las variantes por número de orden aunque el paso cambie de
+  tipo.** Un paso de texto con variantes pasado a nota de voz seguía sorteando el texto viejo como
+  pie: el lead recibía el audio Y una variante escrita. Lo corta el motor (un audio no sortea; su
+  pie es su cuerpo), pero el dato sigue quedando guardado en la fila. Hoy: 0 pasos de audio con
+  variantes, no salió a nadie.
+- **La ruta vieja fallaba muda**: llamaba a `chatClaude` con una feature que no estaba en
+  `CLAUDE_PERMITIDO`, el veto la cortaba, y su `catch {}` devolvía las viñetas como un éxito. La
+  última llamada en `anthropic_usage` es del 05/08. Una feature nueva escrita con `chatClaude` ya
+  está vetada el día que se escribe.
+- **`MAKO_NUCLEO` no sirve para un texto que se dice en voz alta**: exige markdown, negritas y
+  «nunca termines con una pregunta», las tres cosas al revés de un guion.
+- **El filtro del guion rechazaba lo que la propia secuencia pide**: en un negocio sin link de
+  agenda la palabra «agendar» está prohibida, y con objetivo «agendar» el modelo la escribe; se
+  rechazaba en cada proveedor y la pantalla decía «Prueba de nuevo» sobre algo que no podía andar
+  nunca. Lo que la secuencia declara (objetivo, gancho, preguntas) abre la prohibición.
+- **El guion de MaKo quedaba viejo bajo `key={i}`**: «↻ Reescribir» cambiaba el texto y el control
+  conservaba el guion del anterior. Va atado al texto del que salió, no a la transcripción.
+- **SIN HACER:** en el lienzo un paso de texto no se puede pasar a audio ni editar su pie; «Grabar
+  uno nuevo…» del desplegable no graba — llama `onElegir(null)` y devuelve el paso a texto;
+  `lib/api-mako/areas/chatbot.run.ts:381` pasa un paso a audio conservando el cuerpo como pie.
+
+### Instagram afuera (#792)
+
+**Vive en:** `tests/sin-instagram.test.ts` · `lib/api-mako/registro.ts` · `app/carousels/`,
+`app/reels/`, `app/stories/` · `lib/ig-formatos.ts`
+
+- **El diagnóstico obvio —«borrar `app/instagram` y redirigir»— dejaba tres tabs vivas rotas**:
+  Reels, Carousels y Stories importaban de esa carpeta y mandaban sus piezas como borrador a
+  /instagram. Retirar una tab es grepear quién importa su carpeta, incluidos los `../instagram/`
+  relativos.
+- **Y también quién LEE sus tablas**: una fuente de KPI contaba `contenido_posts`, que sólo
+  escribía la tab borrada, y se proponía como KPI automático (nacía en rojo por un problema
+  nuestro). El detalle, en `docs/hallazgos-objectives.md`. El guard nuevo buscaba la tabla como
+  `.from('<tabla>')` y no veía `contar('contenido_posts')`: ahora busca el nombre como cadena.
+- **Un `gating.tab` de una tab que ya no existe esconde la operación sin dar error**:
+  `tabsDeCapa` la filtra para toda capa con lista de tabs.
+- **SIN HACER, escrituras en prod o decisiones:** el ws11 y el ws13 siguen con `ZERNIO_API_KEY`
+  propia, su fila en `zernio_workspace` y su webhook registrado en Zernio, y como la tarjeta salió
+  del catálogo ninguna pantalla puede borrarla; el proyecto «Instagram» sigue en
+  `lib/plan-proyectos-catalogo.ts` y el Perro puede rutear ahí; los límites de `lib/ig-formatos.ts`
+  (90 s, 10 ítems, JPEG) son los de publicar por API y la publicación ahora es a mano.
+
+*Corrida wf_fe0d104c-25c (6 implementadores + 6 revisores), integrada en `79b4aa95` el 06/10/2026.*

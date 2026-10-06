@@ -1021,6 +1021,39 @@ prender. **La pregunta antes de un backfill no es sólo qué escribe, sino a qui
 
 **Vive en:** scripts/arreglar-webhook-calendly.ts · app/api/webhooks/calendly/route.ts:100-140 · scripts/backfill-calendly.ts · docs/estado-del-arte.md:174 · *2026-09-19 ~calendly-suscripcion-deshabilitada · corrido 2026-09-23*
 
+### ⚠️ Y se murió OTRA VEZ dos días después de arreglarla — por un evento, no por la integración (06/10/2026)
+
+**Síntoma:** en el ws1 no entra un agendamiento desde el 23/09 mientras siguen entrando leads por
+formulario (41 desde el 20/09). Medido en sólo lectura: la suscripción que creó el script el 19/09
+está `disabled`, con `retry_started_at` **2026-09-21T08:28:39Z** — el mismo minuto de **tres
+cancelaciones hechas por el anfitrión** entre las 08:27 y las 08:28. La signing key no se tocó
+desde el 19/09, así que no es una clave pisada. Calendly tiene 4 reservas posteriores que no
+están en el CRM (28/09, 30/09, 01/10, 02/10); dos todavía vienen (10/10 01:00 y 13/10 17:00 UTC).
+
+**La causa, hasta donde se puede medir:** la rama `invitee.canceled` contestó algo que no era
+2xx, Calendly reintentó dos días y deshabilitó la suscripción ENTERA. Qué falló adentro no se
+sabe: los logs ya vencieron. Lo estructural sí se ve en el route: **ante un error de proceso
+devuelve 500/400**, y un evento que falla SIEMPRE —el mismo cuerpo, la misma excepción— se
+reintenta hasta que el proveedor apaga todo. Es la segunda vez (11/09 y 21/09).
+
+**La regla que queda, y es la otra mitad de «un 200 es un ACK»:** un 5xx le dice al proveedor
+«reintentá», y eso sólo es verdad para lo TRANSITORIO (la base caída, un timeout). Lo que va a
+fallar igual en cada reintento —un dato que no cierra, un lead que no se encuentra, una
+excepción del código— se contesta 2xx y se REGISTRA donde se pueda leer, o un solo evento
+envenenado apaga la integración de todos. Ya se había decidido así para el «sin ruteo»; la rama
+de proceso no lo hace.
+
+**Y la suscripción de n8n también está muerta**, desde el 22/08 (scope user,
+`automation.leandrotejado.space`, sólo `invitee.created`): el workflow «WhatsApp Reminders for
+Calendly» no recibe reservas nuevas desde entonces. Corrige la memoria que lo daba prendido.
+
+**SIN HACER (escribe en prod):** recrear la suscripción (`scripts/arreglar-webhook-calendly.ts`,
+primero con `--dry`), recuperar las 4 reservas con `scripts/backfill-calendly.ts` —ojo con
+`avisarFusion`, justo arriba—, y cambiar la rama de proceso del route para que un
+error que no es transitorio no devuelva 5xx.
+
+**Vive en:** app/api/webhooks/calendly/route.ts (la rama `invitee.canceled` y el `catch` de proceso) · scripts/arreglar-webhook-calendly.ts · scripts/backfill-calendly.ts · *2026-10-06 wf_fe0d104c-25c, implementador y revisor de #17*
+
 ---
 
 ## Crons y trabajo de fondo
@@ -1392,6 +1425,17 @@ cablear la campanita. La otra salida válida es borrar el código y dejar de men
 **Regla:** un CRUD diseñado para «no romper al caller» tiene que distinguir **tabla ausente**
 (`42P01`/`PGRST205`) de error transitorio, y gritarlo. Un catch propio en el escritor convierte
 «falta media feature» en «no pasa nada».
+
+⚠️ **Re-medido el 06/10/2026, y el riesgo de aplicarla tal cual CRECIÓ.** Sigue sin existir
+(`PGRST205`). Desde ese día los reportes salen también para los clientes (el semanal de la
+tarjeta #834), así que el día que alguien aplique la 0048 sin `workspace_id`,
+`pendientesWhatsapp()` trae los pendientes de TODOS y `flushPendientesWhatsapp` —cron horario,
+corre en el contexto del dueño— se los manda a los teléfonos del ws1. Quedó escrito en el
+comentario de esa función en `lib/notify.ts`.
+
+⚠️ **Y la trampa con la que se mide mal:** `select('*', { count: 'exact', head: true })` sobre
+una tabla que NO existe devuelve `error: null` y `count: null` — se lee como «tabla vacía».
+Para saber si una tabla existe va un `select` sin `head`, o `information_schema`.
 
 **Vive en:** supabase/migrations/0048_notificaciones.sql (sin aplicar) · lib/notificaciones.ts:76-101 · app/api/notificaciones/route.ts · lib/avisos.ts:14 y :71 · lib/workspace.ts (TENANT_TABLES) · *2026-08-01 auditoria-plan-y-whatsapp (contra 2026-07-19, 2026-07-29 ~forense-canal-mako-mudo y 2026-07-30 ~cola-de-accion-mako)*
 
@@ -2209,6 +2253,29 @@ con el mismo nombre compilan para siempre.
 | **`node --test` corre cada archivo en su propio proceso** | ídem | Se aprovecha a favor: para un ciclo de imports, un test importa A primero y otro importa B primero, y así quedan cubiertos los dos órdenes de carga |
 | **tsx NO resuelve el alias `@/`** | ídem | Los tests usan imports relativos |
 | **El typecheck no corre en el build** | `.git/hooks/pre-push` | Ver [Build, deploy y entrega](#build-deploy-y-entrega) |
+
+⚠️ **La fila de los guards de texto se pagó otra vez el 06/10/2026, y la pagaron SEIS agentes por
+separado.** Cada uno trabajó en su worktree y los seis devolvieron el mismo hallazgo: 7 rojos en
+`tests/nutricion-agenda`, `nutricion-etapa`, `cs-mover-etapa` y `replay-ficha`, que cortan el
+fuente con `'\n}\n'` o `/\n\s+anidada\n/`. En el clon esos archivos están en LF y pasan; en un
+worktree recién checkouteado llegan en CRLF y fallan sobre código correcto. Seis agentes gastaron
+una investigación cada uno en descubrir que no era suyo. Arreglado en `79b4aa95` normalizando la
+ENTRADA antes de cualquier regex. **La regla de AGENTS.md («se prueba en un árbol recién
+checkouteado») vale para los tests que leen fuente igual que para las guardas del pre-push.**
+
+⚠️ **Y el `CRON_SECRET` de `.env.local` NO es el de producción.** Un `?dry=1` contra
+`hola-mako.com` con el de `.env.local` contesta **401 `{"error":"Unauthorized"}`** — el texto de
+la RUTA (`lib/cron-auth.ts`), no el del middleware, así que el header llegó y el valor no
+coincide. Para un simulacro contra prod hace falta el secreto de Vercel; con el local no se
+puede. Medido el 06/10/2026.
+
+⚠️ **Y BORRAR una ruta deja el typecheck del clon compartido ROJO para todas las sesiones.**
+`tsconfig` incluye `.next/types/**`, y `.next/types/validator.ts` es una foto de las rutas del
+último build o dev: al sacar las rutas de Instagram, `npm run typecheck` en el clon contestaba
+`Cannot find module '../../app/api/instagram/enviar/route.js'` — o sea que el pre-push de
+CUALQUIER sesión quedaba bloqueado por un archivo generado. En un worktree limpio no pasa (no
+hay `.next`), y por eso el push de la integración salió verde. La cura es `npx next typegen`
+(Next 16: regenera los tipos de rutas sin build, ~10 s). Medido el 06/10/2026.
 
 ### ⚠️ `127.0.0.1` NO es `localhost` para el dev server: la página se ve entera y no hidrata
 
