@@ -3105,6 +3105,107 @@ es el comportamiento correcto y es, exactamente, no grabar nada.
 
 ---
 
+### La grabación de una prueba se MIRA con un lead PRUEBA, no sacando el reproductor del CRM
+
+El commit anterior dejó esto escrito como lo que NO quedaba: la prueba del Pixel podía
+AFIRMAR que grabó y no llevaba a ningún lado, porque el reproductor de rrweb vive en la
+ficha del lead (`app/crm/lead-view/GrabacionModal.tsx`, 180 líneas con su modal, su huso
+horario y su server action) y una prueba no tiene lead. La salida obvia —extraer el modal
+del CRM— es la que NO se tomó: Martín pidió la otra, «que simplemente se cree un lead de
+PRUEBA en el CRM en ese producto», y es mejor, porque reusa el reproductor que ya existe en
+vez de montar un segundo lugar donde el mismo cuerpo se dibuja.
+
+**Lo que hace que funcione, y las cuatro cosas que no se ven:**
+
+- **La PÁGINA la dice la GRABACIÓN, no la pantalla.** `replay_sesiones` guarda `visitor_id`
+  y `landing_url`, así que el lead sale de la sesión y no del selector. Leyendo la landing
+  elegida, cambiar de página entre hacer la prueba y apretar el botón mandaría el lead al
+  producto equivocado **con el visitante correcto**: la grabación se vería igual, en el
+  tablero de otro producto, sin un solo error.
+- **UN lead por producto y se REUSA:** al PRUEBA que ya existe se le repunta el
+  `visitor_id` a la grabación nueva. Es la diferencia entre una fila que se borra cuando
+  moleste y un tablero que se llena de PRUEBAS, una por click. Y se busca por nombre **Y**
+  producto: el PRUEBA de A tiene que seguir en el tablero de A.
+- **El embudo del negocio se pregunta con `.is('funnel_id', null)`.** `.eq('funnel_id',
+  null)` en Postgres no matchea nada (`= NULL` es NULL, no true), así que la búsqueda de
+  «¿ya existe?» daría vacío **siempre** y crearía una fila por click, sin error.
+- **Y nace con su propio `origen_lead: 'prueba'`.** `landing` sería mentir —nadie llenó un
+  formulario— y NULL es el tacho que `app/crm/origen-lead.ts` vino a cerrar. Es la QUINTA
+  alta del repo y el guard de ese catálogo subió de 4 a 5 con el motivo escrito, que es la
+  decisión que su propio comentario pedía.
+
+**Lo que quedó SIN hacer:** el botón aparece sólo con la grabación LISTA. Con el cuerpo sin
+sellar (hasta 10 minutos) la ficha se abriría con la sesión en la lista y sin nada que
+reproducir — se dice cuánto falta y el botón aparece solo, pero no hay nada que avise
+cuando llegó: hay que volver a la prueba.
+
+**Vive en:** app/integraciones/prueba-lead-actions.ts · app/integraciones/ProbarTracking.tsx
+(`verLaGrabacion`) · lib/replay-leer.ts (`replayDePrueba`) · app/crm/origen-lead.ts ·
+*2026-10-06*
+
+### ⚠️ Un alta que se REPARTE a N filas choca con su propio chequeo de duplicados
+
+Decisión de Martín el 06/10/2026 sobre el Pixel: una landing puede vender VARIOS productos
+y **«el lead entra a TODOS»**. Un lead vive en UN embudo —`leads.funnel_id` es una columna—
+así que «entra a los tres» no puede ser una fila: son TRES fichas de la misma persona, una
+por tablero, cada una moviéndose por sus etapas.
+
+**La trampa, y es la que no se ve leyendo el fan-out:** `createLead` corre
+`duplicadosDeLead` por nombre, email y teléfono. La PRIMERA ficha entra; la SEGUNDA
+**encuentra a la primera** y tira `LeadDuplicadoError`. Y en el opt-in un alta que falla cae
+a propuesta, así que el reparto dejaría a la persona esperando un click que nadie sabe que
+hay que dar — justo el agujero que la bandeja `/crm/revisar` vino a cerrar. Las extras van
+con `permitirDuplicado: true`, y se puede porque el duplicado **ya se chequeó arriba**,
+contra el CRM entero.
+
+La regla general: **cuando una función empieza a crear N filas de la misma entidad, su
+propio chequeo de duplicados pasa a ser el obstáculo.** Se chequea UNA vez afuera del bucle
+y adentro se declara que ya está chequeado.
+
+**Y las otras tres decisiones del reparto:**
+
+- **Cada extra es best-effort, con su propio `try`.** Si falla una, la persona YA está en el
+  CRM: caer a propuesta ahí crearía un borrador de alguien que ya entró. Se registra con el
+  producto que falló y se sigue — lo que se pierde es una ficha secundaria, no el lead.
+- **La lista de embudos NUNCA vuelve vacía** (`funnelsDeLanding` → `[null]` en sus cuatro
+  caminos). Es la mitad del contrato que no se ve en el tipo: quien llama crea una ficha por
+  elemento, así que una lista vacía haría que el opt-in **no cree ningún lead**. Perder a la
+  persona es infinitamente peor que ponerla en el embudo equivocado.
+- **La campaña asignada sigue mandando, y manda a UNO.** Asignar una campaña a un producto
+  es decir a qué producto van sus leads, no a cuáles: una landing con tres productos no
+  amplía eso.
+
+**Y el campo pasó de `funnelId` a `funnelIds`, con lo que eso arregla de paso:** con un solo
+producto, lo que DESASIGNABA era un `0` centinela (porque `undefined` es «no lo toques»).
+Una lista vacía dice lo mismo sin inventar un valor que significa otra cosa. `parsearConfig`
+sigue leyendo el formato de uno solo — medido el 06/10/2026, ninguna de las seis páginas
+declaradas en los cuatro workspaces con `landing.config` tiene producto asignado, así que
+hoy no arregla ninguna fila; entre medir y desplegar hay un rato y lo que se perdería es a
+qué CRM entran los leads de esa página, en silencio.
+
+**Lo que quedó SIN hacer:** el camino del DUPLICADO sigue sin llevar el producto (ninguno),
+que ya estaba anotado — `FilaImport` no declara `funnel_id`. Con varios productos eso es lo
+mismo de antes, no algo nuevo: el duplicado lo decide una persona mirando el CRM.
+
+**Verificado en un navegador** a las 05:16:43Z del 06/10/2026, y costó dar vueltas: el dev
+server de este directorio lo tenía una sesión vecina y el guard de Next es por DIRECTORIO,
+así que se verificó contra el worktree de OTRA sesión (`C:\Users\marti\wtf`, puerto 3122),
+que ya tenía el commit adentro. Los cuatro pasos salen en orden —página · **producto** ·
+código · prueba—, el paso 2 dibuja sus casillas con «El CRM de tu negocio» en el embudo por
+defecto y el renglón de «sin marcar ninguno», y cero errores de consola. **No se clickeó
+ninguna casilla a propósito:** guardar escribe `landing.config` del ws1, que es un cliente
+real. Las vueltas quedaron escritas en `hallazgos-infra.md` → «el worktree para tener dev
+server propio».
+
+⚠️ Y la primera corrida mintió por una razón que vale para cualquier pantalla con server
+actions: la captura salió con **«Buscando tus productos…»**, que es un estado legítimo, y el
+guard lo habría leído como «el paso no dibuja nada». Se espera a que el cargando DESAPAREZCA,
+no un `waitForTimeout`.
+
+**Vive en:** lib/landing-config.ts (`funnelIds`, `idsDeFila`) · lib/landing-funnel.ts
+(`funnelsDeLanding`, `funnelPrincipalDeLanding`) · app/api/track/optin/route.ts ·
+app/integraciones/AsignarProducto.tsx · *2026-10-06*
+
 ### ⚠️ Una grabación sin sellar NO es un sellado roto: el cron corre cada 10 minutos
 
 **Síntoma / el casi-reporte.** Al revisar si el replay propio estaba al 100%, la foto de

@@ -379,4 +379,41 @@ export const BITACORA: Hito[] = [
       'docs/replay-diseno.md — la migración ya no figura sin aplicar',
     ],
   },
+  {
+    fecha: '6 oct', hora: '04:30', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La grabación se tiene que poder VER, y el producto es otro paso',
+    pedido: '«1. Para probar la grabación de la sesión que hicimos, que simplemente se cree un lead de PRUEBA en el CRM en ese producto. Con el nombre de PRUEBA. Y allí se podrá ver esa grabación.\n2. Tiene que ser otro paso en la configuración del pixel asignar PRODUCTO, ponlo como segundo paso… Y no solo se debería poder seleccionar 1 producto, si quiero puedo seleccionar más de 1.»',
+    puntos: [
+      'Y la semántica del multi-producto la decidió él, contestando la pregunta: **«el lead entra a TODOS los productos»**. Un lead vive en UN embudo —`leads.funnel_id` es una columna— así que son TRES fichas de la misma persona, una por tablero, cada una moviéndose por sus etapas.',
+      'El punto 1 cierra lo que el commit anterior dejó escrito como pendiente: la prueba podía AFIRMAR que grabó y no llevaba a ningún lado. La salida obvia era sacar el reproductor del CRM; la que pidió él reusa el que ya existe, que es mejor — un segundo reproductor serían dos lugares donde el mismo cuerpo se dibuja.',
+    ],
+    archivos: [],
+  },
+  {
+    fecha: '6 oct', hora: '05:20', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lead PRUEBA para ver la grabación · el producto como paso 2, y múltiple',
+    commits: [
+      { sha: '29d64bea', msg: 'la grabación de una prueba se MIRA, con un lead PRUEBA en el CRM', lineas: 265, archivos: 7 },
+      { sha: 'b42c5194', msg: 'el PRODUCTO es el paso 2 del Pixel, y se puede elegir más de uno', lineas: 710, archivos: 11 },
+    ],
+    puntos: [
+      '**La página la dice la GRABACIÓN, no la pantalla.** `replay_sesiones` guarda `visitor_id` y `landing_url`, así que el lead PRUEBA sale de la sesión. Leyendo la landing elegida, cambiar de página entre hacer la prueba y apretar el botón mandaría el lead al producto equivocado **con el visitante correcto**: la grabación se vería igual, en el tablero de otro producto, sin un solo error.',
+      'UN lead PRUEBA por producto y se REUSA (se le repunta el `visitor_id`), buscado por nombre **Y** producto. El embudo del negocio se pregunta con `.is(\'funnel_id\', null)`: `.eq(…, null)` no matchea nada en Postgres, así que crearía una fila por click sin error.',
+      'Nace con `origen_lead: \'prueba\'` — es la QUINTA alta del repo y el guard de ese catálogo subió de 4 a 5 con el motivo escrito. `landing` sería mentir y NULL es el tacho que el catálogo vino a cerrar.',
+      '⚠️ **La trampa del reparto, que no se ve leyendo el fan-out:** `createLead` corre `duplicadosDeLead`, así que la SEGUNDA ficha encuentra a la primera y tira `LeadDuplicadoError` — y acá un alta que falla cae a propuesta, o sea que el reparto dejaría a la persona esperando un click que nadie sabe que hay que dar. Las extras van con `permitirDuplicado: true` porque el duplicado ya se chequeó arriba. Quedó como regla en AGENTS.md.',
+      'Y `funnelsDeLanding` **nunca vuelve vacía** (`[null]` en sus cuatro caminos): quien llama crea una ficha por elemento, así que vacía haría que el opt-in no cree NINGÚN lead. Perder a la persona es peor que ponerla en el embudo equivocado.',
+      '**Verificado en un navegador a las 05:16:43Z**, y costó dar vueltas: el dev server de este directorio lo tenía una sesión vecina y el guard de Next es por DIRECTORIO (`-p 3021` también muere), así que se verificó contra el worktree de OTRA sesión, que ya tenía el commit adentro. Los cuatro pasos salen en orden —página · producto · código · prueba—, el paso 2 dibuja sus casillas y cero errores de consola. **No se clickeó ninguna casilla**: guardar escribe el `landing.config` del ws1, que es un cliente real.',
+      '⚠️ Y la receta del worktree se documentó MAL primero: «no sirve para `next dev`» salió de una sola medición —el junction bajo el scratchpad muere con «points out of the filesystem root»— y veinte minutos después el worktree de la tercera sesión, en una ruta corta, estaba sirviendo `next dev` perfecto. Queda corregido en `hallazgos-infra.md`, con la variable que quedó sin aislar escrita como tal.',
+    ],
+    archivos: [
+      'app/integraciones/prueba-lead-actions.ts — el lead PRUEBA, idempotente por nombre y producto',
+      'app/integraciones/AsignarProducto.tsx — el paso 2, con casillas y no un desplegable',
+      'app/integraciones/IntegracionesBoard.tsx — pasos 1-2-3-4',
+      'lib/landing-config.ts — `funnelIds`, con lectura del formato de uno solo',
+      'lib/landing-funnel.ts — `funnelsDeLanding` y `funnelPrincipalDeLanding`',
+      'app/api/track/optin/route.ts — una ficha por producto, las extras best-effort',
+    ],
+  },
 ];

@@ -3344,6 +3344,28 @@ formulario ✓» y era **cierto** — le faltaba el segundo verbo: llegó ¿y **
 proceso que tiene un paso humano en el medio, el estado sale del paso que **falta**, no del
 que se cumplió.
 
+# Un alta que pasa a crear N filas choca con su propio chequeo de duplicados
+
+Cuando una función que creaba UNA fila pasa a crear varias de la misma entidad —el mismo
+lead en tres embudos, el mismo cliente en dos productos, la misma tarea en dos tableros— el
+chequeo de duplicados que la protegía se vuelve el obstáculo: la PRIMERA entra y la SEGUNDA
+**encuentra a la primera**.
+
+Medido el 06/10/2026 en el opt-in de la landing, cuando el Pixel pasó a poder asignar varios
+productos. `createLead` corre `duplicadosDeLead` por nombre, email y teléfono; la segunda
+ficha tiraba `LeadDuplicadoError`, y en esa ruta **un alta que falla cae a propuesta** — o
+sea que el reparto dejaba a la persona esperando un click que nadie sabe que hay que dar,
+que es exactamente el agujero que la bandeja de revisión vino a cerrar. No da error visible:
+el lead entra al primer producto y el resto se convierte en un borrador.
+
+- **Se chequea UNA vez, afuera del bucle, y adentro se declara que ya está chequeado**
+  (`permitirDuplicado: true`). Pasarlo sin haber chequeado es lo contrario de esta regla.
+- **Y cada fila extra es best-effort, con su propio `try`.** Si falla la tercera, la persona
+  YA está en el CRM: tratarla como un fallo del alta crearía un duplicado o un borrador de
+  alguien que ya entró. Se registra CUÁL falló y se sigue.
+- **El olor:** un `for` nuevo alrededor de una llamada que antes estaba sola, cuyo cuerpo
+  valida contra lo que el propio bucle acaba de escribir.
+
 # Si la misma pregunta se contesta en DOS lugares, el BORRADO va por una función
 
 La regla de arriba autoriza partir un dato en dos claves, y está bien. Lo que no

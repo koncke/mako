@@ -2410,6 +2410,63 @@ por IPv6. Antes de medir contra el server de otro, un `curl --max-time 20`; si n
 no se lo mata —es de otra sesión— y se levanta uno propio desde un worktree (ver «Las tres
 cosas que hay que recrear a mano»).
 
+### ⚠️ El worktree para tener dev server propio: sirve, pero NO desde el scratchpad
+
+Es la letra chica del párrafo de arriba, y se escribió dos veces porque **la primera
+versión era falsa**: «el worktree no sirve para `next dev`» fue la conclusión de una sola
+medición, y veinte minutos después se midió el caso que la refutaba.
+
+Lo que falla, medido el 06/10/2026: `git worktree add --detach` bajo el scratchpad de la
+sesión (`AppData\Local\Temp\claude\…\scratchpad\wt`) + `New-Item -ItemType Junction`
+al `node_modules` del clon. El dev server muere con:
+
+```
+- Execution of find_package failed
+- Symlink [project]/node_modules is invalid, it points out of the filesystem root
+```
+
+Para Turbopack el árbol del worktree ES la raíz del proyecto, y el link apunta afuera.
+
+Lo que SÍ funciona, medido el mismo día contra el worktree de la tercera sesión:
+**`C:\Users\marti\wtf`, con `node_modules` como symlink al del clon principal**, estaba
+sirviendo `npx next dev -p 3122` perfecto — y ahí se verificó el paso 2 del Pixel a las
+05:16:43Z, con cero errores de consola. O sea que la receta vale; lo que no vale es la ruta
+profunda bajo `Temp` (o el junction de PowerShell contra el `ln -s` de Git Bash: **esa
+variable quedó sin aislar**, y se dice así en vez de inventar la causa).
+
+La receta, entonces: worktree a una **ruta corta** (`C:\Users\marti\wt-<area>`), `ln -s`
+al `node_modules` del clon, `npx next dev -p <puerto>`. Y el guard de Next sigue siendo por
+DIRECTORIO, así que en el clon compartido `-p` no destraba nada.
+
+⚠️ **Y antes de armar nada, medí los puertos: «vivo» y «contesta» cambian en minutos.** La
+misma noche, `:3010` contestaba 500 en todo a las 05:0xZ; `:3011` contestaba
+`/api/auth/dev-login` con **307** a las 05:12:47Z; a las 05:18:53Z `:3011`, `:3122` y
+`:3000` estaban los tres muertos; y a las 05:19 otra sesión ya había tomado el directorio.
+Un reporte sobre un dev server ajeno **se fecha o no se entiende** — y el PID que imprime
+Next puede ser de un server que ya se reinició, que es lo que le pasó a la sesión de
+Customer Success (leyó PID 6364, a los tres minutos era el 26504).
+
+⚠️ **Y UN 404 EN `/api/auth/dev-login` CASI NUNCA ES LA ENV: ES `.next/dev` CORRUPTO.**
+Esto lo midió la sesión de Customer Success el 06/10/2026 —a las 02:27 local, sobre su
+`:3010` recién levantado— y es la pieza que cierra el caso: **TODAS** las rutas `/api`
+daban 404 (dev-login y `/api/auth/me`) y el log decía `○ Compiling /_not-found/page`. La
+causa es un dev server que se murió a mitad de escribir la caché de desarrollo; el suyo se
+había reiniciado solo por «approaching the used memory threshold». Ads Manager vio lo mismo
+en su `:3011` a las 02:06.
+
+La cura, medida: bajar el server, **`rm -rf .next/dev`** (sólo la caché de dev, NO `.next`
+entero) y levantarlo de nuevo → `dev-login` contestó **307 al primer intento**.
+
+**Y lo que distingue los dos casos en un request:** `/api/auth/me`. Con el guard de
+`dev-login` activo (`VERCEL`, `VERCEL_ENV` o `NODE_ENV` en producción,
+`app/api/auth/dev-login/route.ts`) `me` contesta **401 o 200**; con la caché rota contesta
+**404 igual que dev-login**. Sin ese segundo request, un 404 se lee como «hay una env
+puesta» y manda a buscar en `.env.local` algo que no está — es un diagnóstico que apunta a
+un archivo perfecto.
+
+**Vive en:** `app/api/auth/dev-login/route.ts` · *2026-10-06, medido por la sesión de
+Customer Success*
+
 ### 2. `?ws=3` NO sirve para verificar una tab nueva: el onboarding la tapa
 
 El Cliente de Prueba tiene el onboarding **pendiente**, así que `guardOnboarding()`
