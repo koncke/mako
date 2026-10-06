@@ -21,6 +21,8 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type Dispatch, 
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon } from '@/lib/queries';
+import { campanasAsignadasAction, asignarCampanaAction, type ProductoNombre } from '../crm/campanas-actions';
+import { valorDeProducto, funnelDeValor } from '@/lib/campana-asignar';
 import { ganadoresParaReusar } from '@/lib/ganadores-reuso';
 import { useGanadoresBloqueados } from './useGanadoresBloqueados';
 import { colorDeSemaforo, linkAprobarEnMeta, type MetaHealth, type NodoEstado } from '@/lib/meta-health-ui';
@@ -241,6 +243,13 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   const [uso, setUso] = useState<Uso>(d0.uso);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<{ campaign_id: string; ads: number } | null>(null);
+  // A qué producto del CRM entran los leads de esta campaña. Opcional y por defecto «sin
+  // producto», que es donde caían hasta hoy. La asignación la hace la MISMA acción que usa
+  // el CRM, después de que Meta devuelve el id. Una campaña recién creada no tiene leads,
+  // así que va con `traer = false`: no hay nada que mover.
+  const [productos, setProductos] = useState<ProductoNombre[] | null>(null);
+  const [producto, setProducto] = useState('');
+  const [avisoProducto, setAvisoProducto] = useState<string | null>(null);
   // Meta puede retener los anuncios recién publicados hasta que un admin los
   // apruebe a mano (ver /api/ads-manager/ad-aprobacion). null = todavía chequeando.
   const [aprobacion, setAprobacion] = useState<{ pendientes: Array<{ id: string; name: string }>; accountId: string | null } | null>(null);
@@ -260,6 +269,13 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // En ws13 los ganadores activos son de OTRA página, donde la conexión no es
   // anunciante: reusarlos daba 1885499 recién al publicar (lib/meta-publicar-errores.ts).
   const ganadoresBloqueados = useGanadoresBloqueados(senales);
+  useEffect(() => {
+    let vivo = true;
+    campanasAsignadasAction()
+      .then((r) => { if (vivo && r.ok) setProductos(r.productos); })
+      .catch(() => { /* sin productos no se ofrece: un control que no puede escribir se lee como roto */ });
+    return () => { vivo = false; };
+  }, []);
   const [convs, setConvs] = useState<Array<ConvItem> | null>(null);
   const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
   // Eventos ACTIVOS del pixel elegido (null = sin cargar). Elegir uno inactivo arruina la entrega.
@@ -689,6 +705,10 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
       if (!j.ok) throw new Error(j.error || 'No se pudo publicar');
       try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
       setResult({ campaign_id: j.campaign_id, ads: (j.ad_ids ?? []).length });
+      if (producto) {
+        const a = await asignarCampanaAction(funnelDeValor(producto), { tipo: 'campana', id: String(j.campaign_id), nombre: spec.name }, false).catch(() => null);
+        if (!a?.ok) setAvisoProducto('No quedó asignada al producto: hazlo desde la tabla.');
+      }
       setStep('listo');
       chequearAprobacion(j.ad_ids ?? [], spec.name ?? '');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setStep('revision'); }
@@ -887,7 +907,20 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
           )}
 
           {step === 'revision' && spec && (
-            <Revision spec={spec} budgetUsd={budgetUsd} tray={tray} setSpec={setSpec} fijo={existente} />
+            <>
+              <Revision spec={spec} budgetUsd={budgetUsd} tray={tray} setSpec={setSpec} fijo={existente} />
+              {!existente && productos && (
+                <div style={{ padding: '0 26px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 13, color: 'var(--dim)' }}>Sus leads entran en</span>
+                  <Dropdown
+                    value={producto}
+                    options={[{ value: '', label: 'Sin producto' }, ...productos.map((p) => ({ value: valorDeProducto(p.id), label: p.nombre }))]}
+                    onChange={setProducto}
+                    width={230}
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {step === 'publicando' && (
@@ -922,6 +955,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
                   <TutorialAprobacionMeta />
                 </div>
               )}
+              {avisoProducto && <p style={{ fontSize: 13, color: 'var(--warn-fill)', margin: 0 }}>{avisoProducto}</p>}
               <button onClick={() => { if (!existente) onPublished(); onClose(); }} style={btnDark}>Ver en la tabla</button>
             </div>
           )}

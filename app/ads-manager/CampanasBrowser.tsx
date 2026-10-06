@@ -27,6 +27,10 @@ import {
 type ProblemAd = { id: string; name: string; issues: Issue[]; statusLabel: string };
 import type { CrossData } from './EntityDetalle';
 import { resolverAd, synthSenal } from './ad-resolver';
+import { ProductoCelda } from './ProductoCelda';
+import { campanasAsignadasAction, type ProductoNombre } from '../crm/campanas-actions';
+import type { CampanaAsignada } from '@/lib/campana-config';
+import { Toast, useToast } from '@/app/_ui';
 
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
@@ -81,7 +85,7 @@ const ESTADO_OPCIONES = [
 ];
 
 // ── columnas (data-driven: sort + show/hide) ──
-type ColId = 'entrega' | 'resultados' | 'costoRes' | 'presupuesto' | 'gastado' | 'impresiones' | 'cierres' | 'cash' | 'aprendizaje';
+type ColId = 'entrega' | 'resultados' | 'costoRes' | 'presupuesto' | 'gastado' | 'impresiones' | 'cierres' | 'cash' | 'aprendizaje' | 'producto';
 type ColDef = { id: ColId; label: string; levels?: Level[] };
 const ALL_COLS: ColDef[] = [
   { id: 'entrega', label: 'Entrega' },
@@ -93,11 +97,13 @@ const ALL_COLS: ColDef[] = [
   { id: 'cierres', label: 'Cierres (CRM)' },
   { id: 'cash', label: 'Cash (CRM)' },
   { id: 'aprendizaje', label: 'Aprendizaje', levels: ['adset'] },
+  // Un anuncio no se asigna: el ruteo es por campaña o conjunto (lib/campana-config.ts).
+  { id: 'producto', label: 'Producto (CRM)', levels: ['campaign', 'adset'] },
 ];
 const ALWAYS_ON: ColId[] = ['entrega'];
 const COLS_KEY = (tab: Tab) => `mako.adsTable.cols.${tab}`;
 function defaultCols(): Record<ColId, boolean> {
-  return { entrega: true, resultados: true, costoRes: true, presupuesto: true, gastado: true, impresiones: true, cierres: true, cash: true, aprendizaje: true };
+  return { entrega: true, resultados: true, costoRes: true, presupuesto: true, gastado: true, impresiones: true, cierres: true, cash: true, aprendizaje: true, producto: true };
 }
 function loadCols(tab: Tab): Record<ColId, boolean> {
   const def = defaultCols();
@@ -149,6 +155,12 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
   const [selAd, setSelAd] = useState<Set<string>>(new Set());
 
   const [visibleCols, setVisibleCols] = useState<Record<ColId, boolean>>(defaultCols);
+  // A qué PRODUCTO del CRM entran los leads de cada campaña. La pieza entera es del CRM
+  // (app/crm/campanas-actions.ts): acá sólo se ofrece donde Martín la pidió. Se pregunta
+  // UNA vez y no llama a Meta. Si no contesta (no sos admin), la columna no se dibuja —
+  // un desplegable que no puede escribir se lee como que la app está rota.
+  const [asig, setAsig] = useState<{ productos: ProductoNombre[]; asignadas: CampanaAsignada[] } | null>(null);
+  const { toast: toastProd, show: showProd, clear: clearProd } = useToast(7000);
   const [colsOpen, setColsOpen] = useState(false);
 
   // escrituras
@@ -204,6 +216,15 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
     }
     return { byAd, byCamp, byAdset };
   }, [senales]);
+
+  useEffect(() => {
+    let vivo = true;
+    campanasAsignadasAction()
+      .then((r) => { if (vivo && r.ok) setAsig({ productos: r.productos, asignadas: r.asignadas }); })
+      .catch(() => { /* sin productos no hay columna: no poder preguntar no apaga la tabla */ });
+    return () => { vivo = false; };
+  }, []);
+  const asignadaDe = useMemo(() => new Map((asig?.asignadas ?? []).map((a) => [a.id, a])), [asig]);
 
   const campaignsById = useMemo(() => new Map((health?.campaigns ?? []).map((c) => [c.id, c])), [health]);
   const adsetsById = useMemo(() => new Map((health?.adsets ?? []).map((a) => [a.id, a])), [health]);
@@ -311,6 +332,8 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
       case 'cierres': return r.perf.cierres;
       case 'cash': return r.perf.cash_usd;
       case 'aprendizaje': return r.node.learning?.status ?? '';
+      // Sin asignar al final: lo que hay que mirar es lo que YA entra a un producto.
+      case 'producto': return asignadaDe.get(r.node.id) ? (asig?.productos.find((p) => p.id === asignadaDe.get(r.node.id)!.funnelId)?.nombre ?? 'zz') : 'zzz';
     }
   };
   const sorted = useMemo(() => {
@@ -504,8 +527,9 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
   };
 
   // columnas visibles para la tab actual
-  const cols = ALL_COLS.filter((c) => (!c.levels || c.levels.includes(level)) && (ALWAYS_ON.includes(c.id) || visibleCols[c.id]));
-  const configurables = ALL_COLS.filter((c) => !c.levels || c.levels.includes(level));
+  const hayCol = (c: ColDef) => (!c.levels || c.levels.includes(level)) && (c.id !== 'producto' || !!asig);
+  const cols = ALL_COLS.filter((c) => hayCol(c) && (ALWAYS_ON.includes(c.id) || visibleCols[c.id]));
+  const configurables = ALL_COLS.filter(hayCol);
 
   const tabs: Array<{ key: Tab; label: string; n: number }> = [
     { key: 'campanas', label: 'Campañas', n: health?.campaigns.length ?? 0 },
@@ -635,6 +659,15 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
                     childIssues={r.level === 'ad' ? 0 : problemaAds.length}
                     onShowProblema={problemaAds.length > 0 ? () => setProblemaSel({ titulo: nameOf(r.node), ads: problemaAds }) : undefined}
                     rowActions={rowActionsFor(r)}
+                    productoCell={asig && r.level !== 'ad' ? (
+                      <ProductoCelda
+                        item={{ tipo: r.level === 'campaign' ? 'campana' : 'conjunto', id: r.node.id, nombre: nameOf(r.node), campanaId: r.level === 'adset' ? (r.node.parentId ?? undefined) : undefined }}
+                        productos={asig.productos}
+                        asignada={asignadaDe.get(r.node.id)}
+                        onAsignadas={(a) => setAsig((v) => (v ? { ...v, asignadas: a } : v))}
+                        show={showProd}
+                      />
+                    ) : undefined}
                     writing={writing.has(r.node.id)} editing={editingBudgetId === r.node.id} editingName={editingNameId === r.node.id}
                     onToggleStatus={(next) => writeStatus(r.level, r.node.id, next)}
                     onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(mxn) => writeBudget(r.level as Level, r.node.id, mxn)}
@@ -672,6 +705,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
       {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
       {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
       {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
+      <Toast state={toastProd} onClose={clearProd} />
     </div>
   );
 }
@@ -691,9 +725,9 @@ function SortLabel({ label, active, dir, onClick, align }: { label: string; acti
 }
 
 // ── fila ──
-function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, onShowProblema, rowActions, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
+function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, onShowProblema, rowActions, productoCell, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
   r: Row; cols: ColDef[]; selected: boolean; onSelect: () => void; onOpen: () => void;
-  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; rowActions?: Array<{ label: string; title: string; onClick: () => void }>; writing: boolean; editing: boolean; editingName: boolean;
+  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; rowActions?: Array<{ label: string; title: string; onClick: () => void }>; productoCell?: ReactNode; writing: boolean; editing: boolean; editingName: boolean;
   onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
   onStartName: () => void; onCancelName: () => void; onSaveName: (name: string) => void;
 }) {
@@ -716,6 +750,7 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
       case 'cash': return r.perf.cash_usd > 0 ? fmtUSD(r.perf.cash_usd, 0) : '—';
       case 'aprendizaje': return r.node.learning ? <Pill semaforo={r.node.learning.semaforo} label={r.node.learning.label} /> : '—';
       case 'presupuesto': return <BudgetCell r={r} budgetMxn={budgetMxn} editing={editing} writing={writing} onStart={onStartBudget} onCancel={onCancelBudget} onSave={onSaveBudget} />;
+      case 'producto': return productoCell ?? <span style={{ color: 'var(--faint)' }}>—</span>;
     }
   };
 
@@ -747,7 +782,7 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
         </span>
       </td>
       {cols.map((c) => (
-        <td key={c.id} style={{ ...td, textAlign: c.id === 'entrega' || c.id === 'aprendizaje' || c.id === 'presupuesto' ? 'left' : 'right' }}>{cell(c)}</td>
+        <td key={c.id} style={{ ...td, textAlign: c.id === 'entrega' || c.id === 'aprendizaje' || c.id === 'presupuesto' || c.id === 'producto' ? 'left' : 'right' }}>{cell(c)}</td>
       ))}
     </tr>
   );
