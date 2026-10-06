@@ -109,6 +109,9 @@ const TENANT_TABLES = new Set<string>([
   'producto_entrega', 'cliente_entrega',
   // Y las dos de la 0196: quién se sacó de su producto y el orden manual de cada columna.
   'cliente_entrega_fuera', 'cliente_entrega_orden',
+  // El orden manual de las columnas del kanban del CRM (mig 0200), la gemela de `cliente_entrega_orden`.
+  // Sin esta línea la lectura devolvería el orden de las columnas de CUALQUIER workspace.
+  'lead_orden',
   // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
   // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
   // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.

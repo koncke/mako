@@ -108,7 +108,8 @@ test('CABLEADO: mover desde el tablero se guarda aunque falten datos', () => {
 
 test('CABLEADO: soltar una card no abre el wizard de datos', () => {
   const board = leer('../app/crm/CrmBoard.tsx');
-  const i = board.indexOf('const handleDrop = (stageKey: string) => {');
+  // Sin cerrar el paréntesis: desde el 06/10 recibe también DÓNDE cayó (`antesDe`).
+  const i = board.indexOf('const handleDrop = (stageKey: string');
   assert.ok(i >= 0, 'no encontré handleDrop');
   const drop = board.slice(i, board.indexOf('\n  };\n', i));
   assert.ok(!/openStageMove\(/.test(drop), 'handleDrop volvió a abrir StageMoveDialog en vez de mover');

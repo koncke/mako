@@ -25,6 +25,7 @@ import { credWs } from '@/lib/credenciales';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
 import { mapToCrmLead } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
+import { leerOrdenManual } from '@/lib/crm-orden';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -120,6 +121,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     getAnunciosMap().catch(() => ({}) as Record<string, { campaignId: string | null; adsetId: string | null }>),
     getAdNameMap().catch(() => ({}) as Record<string, string>),
   ]);
+  // El orden que se armó arrastrando tarjetas en ESTE embudo (mig 0200). Nunca tira: sin él,
+  // las columnas van por fecha de llegada.
+  const pOrden = leerOrdenManual(funnelId);
 
   try {
     // Las etapas van en la misma ola (antes serializaban al frente).
@@ -175,7 +179,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   pendientesRaw = pendientesRaw.filter((p) => idsDelFunnel.has(p.lead_id));
 
   const validStageKeys = new Set(stages.map((s) => s.key));
-  const [anunciosObj, adMap] = await pAtrib;
+  const [[anunciosObj, adMap], ordenManual] = await Promise.all([pAtrib, pOrden]);
   const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));
 
@@ -223,6 +227,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       errorMsg={errorMsg}
       hoy={hoy}
       equipo={equipo}
+      ordenManual={ordenManual}
     />
   );
 }

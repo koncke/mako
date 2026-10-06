@@ -107,6 +107,9 @@ import {
   type ListaFiltro,
 } from './CrmToolbar';
 import { opcionesDeFiltro, SIN_ORIGEN_ADS } from '@/lib/campana-atribucion';
+import { antesDeQuien, columnaConInsercion, mismaLista } from '@/app/customer-success/orden-manual';
+import { ordenarKanbanManual, ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
+import { ordenarColumnaCrmAction } from './orden-actions';
 
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
@@ -369,6 +372,7 @@ export function CrmBoard({
   funnels = [],
   abrirEmbudo = null,
   funnelActivo = null,
+  ordenManual = {},
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -405,6 +409,8 @@ export function CrmBoard({
   abrirEmbudo?: 'etapas' | 'entradas' | null;
   /** null = el funnel del negocio (sin `?funnel=` en la URL). */
   funnelActivo?: number | null;
+  /** El orden que se armó arrastrando tarjetas en este embudo: etapa → leads (mig 0200). */
+  ordenManual?: Record<string, number[]>;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -804,13 +810,30 @@ export function CrmBoard({
    */
   const idASoltar = useRef<number | null>(null);
 
-  const handleDrop = (stageKey: string) => {
+  /**
+   * `antesDe` = DÓNDE cayó adentro de la columna: antes de qué lead (`null` = al final). Lo
+   * manda el arrastre, que es el único que dibujó un hueco; el alta desde el placeholder no
+   * lo manda (`undefined`) y entonces el orden no se toca.
+   *
+   * ⚠️ HASTA EL 06/10 SOLTAR EN LA MISMA COLUMNA NO HACÍA NADA, y el hueco seguía al cursor
+   * igual: dibujaba un lugar que después no se respetaba. Ahora reordena (`reordenarColumna`).
+   */
+  const handleDrop = (stageKey: string, antesDe?: number | null) => {
     const id = idASoltar.current ?? dragId;
     idASoltar.current = null;
     setDragId(null);
     if (id == null) return;
     const lead = leads.find((l) => l.id === id);
-    if (!lead || effStage(lead) === stageKey) return;
+    if (!lead) return;
+    if (effStage(lead) === stageKey) {
+      if (antesDe !== undefined) reordenarColumna(id, stageKey, antesDe, false);
+      return;
+    }
+    // El lugar donde cayó se guarda recién cuando el movimiento SE HACE: si la confirmación
+    // se cancela, la tarjeta vuelve a su columna y no hay lugar que respetar. Las etapas que
+    // abren un diálogo propio (el plazo de la manual, la agenda) no lo guardan: la tarjeta
+    // entra por fecha de llegada, como siempre.
+    const guardarLugar = antesDe !== undefined ? () => reordenarColumna(id, stageKey, antesDe, true) : () => {};
     if (stageKey === 'manual') { openManualNutri(id); return; }
     if (esEtapaCalendly(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
@@ -847,6 +870,7 @@ export function CrmBoard({
     // menú de agenda. Ninguno de los dos es una confirmación.
     if (!hayAlgoQueOfrecer(ofrecer)) {
       persistStage(id, stageKey, from, tr, senalesRef.current);
+      guardarLugar();
       return;
     }
 
@@ -860,7 +884,7 @@ export function CrmBoard({
       ),
       confirmLabel: `Mover a ${destino}`,
       tono: 'primary',
-      onOk: () => persistStage(id, stageKey, from, tr, senalesRef.current),
+      onOk: () => { persistStage(id, stageKey, from, tr, senalesRef.current); guardarLugar(); },
     });
   };
 
@@ -1476,7 +1500,7 @@ export function CrmBoard({
     { cat: 'creativo', label: 'Creativo', todas: 'Todos', opciones: opcionesCreativo.some((o) => o.value !== SIN_ORIGEN_ADS) ? opcionesCreativo : [], sel: creativoFilter, set: setCreativoFilter },
   ];
   const hayFiltros = stageFilter.size > 0 || originFilter.size > 0 || campanaFilter.size > 0 || creativoFilter.size > 0 || search.trim().length > 0;
-  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setCampanaFilter(new Set()); setCreativoFilter(new Set()); setSearch(''); };
+  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setCampanaFilter(new Set()); setCreativoFilter(new Set()); setSearch(''); setOrdenElegido(null); };
 
   /**
    * EL ORDEN DE LA TABLA. Es lo que separa una tabla de una lista: el plan ordena por
@@ -1650,6 +1674,86 @@ export function CrmBoard({
   // Cerrar el aviso de error es SÓLO de esta vista: al recargar vuelve a calcularse.
   const [errorCerrado, setErrorCerrado] = useState(false);
   const { toast: avisoBoard, show: mostrarAviso, clear: limpiarAviso } = useToast();
+
+  // ── El orden de las tarjetas adentro de cada columna (mig 0200) ─────────────
+  // «Es como poner un "ORDENAMIENTO" dentro de filtros» (Martín, 06/10/2026). La pieza pura
+  // y el porqué de cada regla están en app/crm/orden-kanban.ts.
+  /**
+   * Lo que se arrastró en esta pestaña, encima de lo que mandó el server, hasta que el server
+   * lo confirme. La clave lleva el EMBUDO: las claves de etapa se repiten entre embudos, y
+   * sin él el orden arrastrado en uno se aplicaría a la columna del mismo nombre en otro.
+   */
+  const [ordenMovs, setOrdenMovs] = useState<Record<string, number[]>>({});
+  const claveCol = (etapa: string) => `${funnelActivo ?? 0}:${etapa}`;
+  const listaManual = (etapa: string): number[] | undefined => ordenMovs[claveCol(etapa)] ?? ordenManual[etapa];
+  const hayOrdenManual = stages.some((s) => (listaManual(s.key)?.length ?? 0) > 0);
+  /**
+   * «Ordenar». `null` = nadie eligió en este embudo, y manda la BASE: «Manual» si hay algo
+   * arrastrado, si no la fecha de llegada.
+   *
+   * ⚠️ SE CALCULA, NO SE INICIALIZA. Arrancando en un `useState` fijo, el orden armado
+   * arrastrando desaparecería en cada F5 (se leería como que no se guardó), y al cambiar de
+   * embudo quedaría el criterio del anterior. Y por la misma cuenta «Limpiar filtros» vuelve
+   * a lo arrastrado: es volver a la base.
+   */
+  const [ordenElegido, setOrdenElegido] = useState<{ funnel: number | null; valor: OrdenKanban } | null>(null);
+  const ordenBase: OrdenKanban = hayOrdenManual ? 'manual' : 'llegada';
+  const ordenKanban: OrdenKanban = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.valor : ordenBase;
+  const elegirOrden = (v: OrdenKanban) => setOrdenElegido(v === ordenBase ? null : { funnel: funnelActivo, valor: v });
+  /** «Ordenar» del menú, sólo en el kanban: la tabla se ordena por sus columnas. */
+  const ordenFiltro = vista === 'kanban'
+    ? { valor: ordenKanban, base: ordenBase, opciones: ORDEN_KANBAN, elegir: (v: string) => elegirOrden(v === 'manual' ? 'manual' : 'llegada') }
+    : undefined;
+  /** Una columna en el orden en que se dibuja con el criterio de ahora. */
+  const enOrden = (ls: CrmLead[]) => (ordenKanban === 'manual' ? ordenarKanbanManual(ls, (l) => l.id, effStage, listaManual) : ls);
+
+  /**
+   * Soltar en un lugar de una columna: guarda la columna ENTERA con la tarjeta ahí y deja
+   * «Ordenar» en «Manual».
+   *
+   * ⚠️ LA COLUMNA ES LA ENTERA, también los que el buscador o un filtro esconden: guardar sólo
+   * lo que se ve mandaría a los escondidos al final. Por eso llega un VECINO («antes de Juan»)
+   * y no un número.
+   *
+   * ⚠️ SOLTAR DONDE YA ESTABA NO ES UN CAMBIO: no se guarda, no se anuncia y no pasa «Ordenar»
+   * a «Manual» — un gesto que no movió nada no puede reacomodar la pantalla.
+   *
+   * Un movimiento de etapa (`mueve`) ya ofrece SU deshacer; un reordenamiento en la misma
+   * columna ofrece uno que devuelve la lista y el criterio de antes, y lo escribe en el server.
+   */
+  const reordenarColumna = (id: number, etapa: string, antesDe: number | null, mueve: boolean) => {
+    const columna = enOrden(leads.filter((l) => effStage(l) === etapa)).map((l) => l.id);
+    const nueva = columnaConInsercion(columna, [id], antesDe);
+    if (!mueve && mismaLista(nueva, columna)) return;
+    const clave = claveCol(etapa);
+    const previa = listaManual(etapa) ?? [];
+    const elegidoAntes = ordenElegido;
+    const funnel = funnelActivo;
+    setOrdenMovs((v) => ({ ...v, [clave]: nueva }));
+    setOrdenElegido(null);   // con algo arrastrado, la base pasa a ser «Manual»
+    startTransition(async () => {
+      // ⚠️ UNA ACCIÓN QUE NO LLEGA (sin red) RECHAZA LA PROMESA, y adentro de una transición eso
+      // tumba la pantalla entera. Se ataja como un error más (medido en Customer Success).
+      const r = await ordenarColumnaCrmAction(funnel, etapa, nueva)
+        .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo guardar el orden.' }));
+      if (!r.ok) {
+        setOrdenMovs((v) => ({ ...v, [clave]: previa }));
+        mostrarAviso('No se guardó el orden', undefined, 'bad');
+        return;
+      }
+      if (mueve) return;
+      mostrarAviso('Reordenado', () => {
+        setOrdenMovs((v) => ({ ...v, [clave]: previa }));
+        setOrdenElegido(elegidoAntes);
+        startTransition(async () => {
+          const d = await ordenarColumnaCrmAction(funnel, etapa, previa)
+            .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo deshacer.' }));
+          if (!d.ok) mostrarAviso('No se pudo deshacer', undefined, 'bad');
+        });
+      });
+    });
+  };
+
   const [flashCsv, setFlashCsv] = useState<string | null>(null);
   // Por qué no se pudo abrir Calendly (este negocio no lo tiene configurado, el
   // event type no coincide…). Se DICE: antes, cuando no había config, el botón
@@ -1958,7 +2062,7 @@ export function CrmBoard({
 
   // Una columna del Kanban (reutilizada por cada banda).
   const renderColumn = (c: Stage) => {
-    const cards = filtered.filter((l) => effStage(l) === c.key);
+    const cards = enOrden(filtered.filter((l) => effStage(l) === c.key));
     const bandC = CATEGORY[bandToCategory(c.band)].c;
     // Dónde está esta columna entre las reordenables, y si la marca de destino cae acá.
     const iProp = colsPropias.indexOf(c.key);
@@ -2004,7 +2108,16 @@ export function CrmBoard({
             setInsTarjeta((p) => (p && p.col === c.key ? null : p));
           }
         }}
-        onDrop={(e) => { e.preventDefault(); handleDrop(c.key); limpiarArrastreTarjeta(); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          // Antes de QUIÉN cae, leído del hueco que se dibujó. Sin hueco en esta columna no se
+          // prometió ningún lugar, y el orden no se toca.
+          const antes = dragId != null && insTarjeta?.col === c.key
+            ? antesDeQuien(cards.map((x) => x.id), insTarjeta.idx, [dragId])
+            : undefined;
+          handleDrop(c.key, antes);
+          limpiarArrastreTarjeta();
+        }}
         style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', borderLeft: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderRight: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderBottom: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
       >
         {/* ⚠️ EL CONTADOR VA DESPUÉS DEL TÍTULO, y el lugar de la derecha es para el menú.
@@ -2379,6 +2492,7 @@ export function CrmBoard({
             etapas={stageFilter} setEtapas={setStageFilter}
             origenes={originOptions} origen={originFilter} setOrigen={setOriginFilter}
             listas={listasFiltro}
+            orden={ordenFiltro}
             abierto={filtroAbierto} setAbierto={setFiltroAbierto}
           />
         </>}
@@ -2402,6 +2516,7 @@ export function CrmBoard({
           etapas={stageFilter} setEtapas={setStageFilter}
           origen={originFilter} setOrigen={setOriginFilter}
           listas={listasFiltro}
+          orden={ordenFiltro}
           onAbrir={abrirFiltro}
         />
       )}
