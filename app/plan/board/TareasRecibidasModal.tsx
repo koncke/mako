@@ -17,14 +17,20 @@
 // Confirmás lo que va (y sacás lo que no) y recién ahí se crean, con el Perro
 // puntuándolas server-side —una sola pasada sobre todo el lote— igual que cualquier
 // otra tarea. "Ahora no" cierra sin descartar: siguen esperándote.
+//
+// ⛔ SIN PASO DE PREGUNTAS (05/10/2026). «Agregar N al plan» carga derecho. Antes, al
+// apretarlo, MaKo armaba preguntas sobre lo elegido («¿Para cuándo tiene que estar
+// resuelto…?») y las mostraba de a una en un WizardShell antes de crear nada. Martín:
+// «habíamos dicho de sacar absolutamente toda la fricción al agregar tareas y me salta
+// esto luego de intentar agregar tareas del fathom». Lo que esas preguntas contestaban
+// ya lo decide el Perro solo: la fecha (mig 0114) y la prioridad, que después se
+// cambian a mano en el detalle. Se sacó también de /plan/revisar y de los que las
+// generaban (ver docs/hallazgos-plan.md, «Cargar tareas no pregunta nada»).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
-import { WizardShell } from '@/app/_components/WizardShell';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
-import { PreguntaCampo } from './guardian-form';
-import { ayudaDePregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
 import { pareceLaMisma, textoRepetidas, type TareaEnTablero } from '@/lib/tareas-dedup';
 import { type Label, type Prio } from './types';
 
@@ -45,24 +51,16 @@ const MONO = "'Geist Mono', monospace";
  * `lib/plan-propuesta` no viaja, y el compilador sí avisa del próximo campo.
  */
 type PropTarea = PropuestaTarea;
-// El `tipo` es el del contrato, NO un `string` suelto: mientras fue string, el
-// compilador no podía avisar que esta pantalla y la de /plan/revisar dibujaban cosas
-// distintas para el mismo valor (y de hecho lo hacían).
-type PropPregunta = { pregunta: string; tipo?: TipoPregunta; opciones?: string[]; sobre?: string[] };
 
-/** Título comparable: sin acentos, sin puntuación, en minúscula. */
-const normTit = (t: string): string =>
-  t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 export type PropuestaPendiente = {
   id: string; resumen: string; origen?: string; tareas: PropTarea[]; createdAt: string;
   /** El estado REAL de la fila. Una reunión ya aplicada o descartada se sigue pudiendo
    *  abrir —lo que salió de esa charla no desaparece— pero en modo lectura. */
   estado?: 'pendiente' | 'aplicada' | 'descartada';
   enviadoPor?: string; fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string; ref?: string;
-  /** si trae preguntas, se confirma en el wizard /plan/revisar, no acá. */
-  preguntas?: PropPregunta[];
-  /** las que MaKo dice que YA ESTÁN HECHAS. Igual que las preguntas: mandan al wizard,
-   *  porque cada una se mira de a una con su evidencia delante. */
+  /** las que MaKo dice que YA ESTÁN HECHAS. Mandan al wizard /plan/revisar, porque cada
+   *  una se mira de a una con su evidencia delante. Es lo ÚNICO que lo manda ahí: las
+   *  preguntas se fueron del alta (ver la cabecera). */
   cerrar?: Array<{ id: string; titulo?: string; evidencia: string; confianza?: string }>;
   /** las tuyas que ya cargaste: el borrador siguió abierto por las de los demás. */
   aplicadas?: Array<{ titulo: string; tareaId: string; minutos?: number[] }>;
@@ -91,18 +89,6 @@ const recordingDeRef = (ref?: string): number | undefined => {
  * la MISMA definición: cuando cada una tenía la suya, el botón prometía 16 altas sobre
  * una reunión que no creaba ninguna.
  */
-/** «3 para cargar · 16 para ampliar» — lo que va a pasar, en el título. */
-const resumenAccion = (nuevas: number, amplia: number): string =>
-  [nuevas ? `${nuevas} ${nuevas === 1 ? 'tarea' : 'tareas'} para cargar` : '',
-    amplia ? `${amplia} para ampliar` : ''].filter(Boolean).join(' · ') || 'nada para cargar';
-
-/** El botón NOMBRA lo que hace. Nunca «Cargar N» cuando no crea ninguna. */
-const etiquetaAccion = (nuevas: number, amplia: number): string =>
-  nuevas && amplia ? `Cargar ${nuevas} y ampliar ${amplia}`
-    : nuevas ? `Cargar ${nuevas} al plan`
-      : amplia ? `Ampliar ${amplia} que ya ${amplia === 1 ? 'está' : 'están'}`
-        : 'Cargar al plan';
-
 export const esAmpliarFila = (f: { enriquece?: { id: string }; ampliar?: boolean; esDeOtro?: boolean; omitir?: boolean }): boolean =>
   !!f.enriquece?.id && f.ampliar !== false && !f.esDeOtro && !f.omitir;
 
@@ -162,9 +148,6 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   /** se descartaron de verdad: ya no hay nada pendiente. */
   onDescartadas: () => void;
 }) {
-  // Los borradores de REUNIÓN traen sus preguntas cerradas y se responden acá, en el
-  // paso previo a cargar. Los de WhatsApp (que además proponen bajas) siguen yendo al
-  // wizard de /plan/revisar, que es donde se resuelven de a una.
   // CERRADO = ya se aplicó entero o se descartó. La reunión igual se abre —lo que salió
   // de una charla no desaparece— pero en modo LECTURA: sin «Agregar al plan» (el server
   // lo rechaza con «la propuesta ya fue aplicada») y sin autosave (guardarRevision exige
@@ -178,25 +161,16 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // Pila de modales: abrir la tarjeta de una tarea desde acá esconde ESTE modal y al
   // cerrarla volvés al mismo lugar de la revisión, con el scroll donde estaba.
   const capa = useCapaModal(!oculto);
-  // Un borrador que propone CIERRES va al wizard sí o sí, aunque no traiga preguntas.
+  // Un borrador que propone CIERRES va al wizard, y es lo ÚNICO que lo manda ahí.
   // No es una limitación: es la decisión de diseño del canal. Un cierre se mira de a uno,
   // con su evidencia delante y tres respuestas posibles («sí» / «está a medias» / «no»),
   // porque la precisión medida de un «ya está hecho» dicho por IA fue 8 de 17. Confirmarlo
   // acá, en una lista con casillas, es exactamente la pantalla que no queremos.
-  const alWizard = (p: PropuestaPendiente) => (p.origen !== 'fathom' && !!p.preguntas?.length) || (p.cerrar?.length ?? 0) > 0;
+  // ⚠️ Tener PREGUNTAS ya no manda al wizard: un borrador viejo de WhatsApp que las trae
+  // se confirma acá como cualquier otro, y las preguntas se ignoran (ver la cabecera).
+  const alWizard = (p: PropuestaPendiente) => (p.cerrar?.length ?? 0) > 0;
   const props = todos.filter((p) => !alWizard(p));
-  const conPreguntas = todos.filter(alWizard);
-  // Las preguntas de los borradores que SÍ se confirman acá.
-  const preguntasTodas = props.flatMap((p) => (p.preguntas ?? []).map((q) => ({ ...q, propId: p.id })));
-  const [paso, setPaso] = useState<'tareas' | 'preguntas'>('tareas');
-  const [respuestas, setRespuestas] = useState<Record<number, string>>({});
-  // Las preguntas se piden RECIÉN cuando el dueño terminó de elegir, y sobre las tareas
-  // que de verdad va a cargar. Antes venían del cron —armadas sobre TODO lo que sacó la
-  // reunión— y le preguntaban por trabajo que había destildado o pasado a otro; encima
-  // salían genéricas, porque una pregunta que habla de 40 tareas a la vez no puede ser
-  // concreta. Se muestran DE A UNA, como el resto de los formularios de la app.
-  const [preguntasIA, setPreguntasIA] = useState<PropPregunta[] | null>(null);
-  const [pensando, setPensando] = useState(false);
+  const conCierres = todos.filter(alWizard);
   /** El Perro está cruzando contra el tablero. Mientras dure, la pantalla NO deja
    *  cargar: si no, se confirma un lote que dos segundos después iba a quedar marcado
    *  como repetido, y quedan duplicados en el board. */
@@ -204,7 +178,6 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   /** El cruce terminó en ESTA sesión: el autosave lo sella en la base (`cruzado_at`)
    *  para que no se vuelva a correr la próxima vez que se abra la reunión. */
   const [cruzado, setCruzado] = useState(false);
-  const [qIdx, setQIdx] = useState(0);
   // Init perezoso (el padre monta con una key que depende de los ids: si cambian, es
   // un componente nuevo y no hace falta re-sincronizar por efecto).
   const [filas, setFilas] = useState<FilaConProp[]>(() => {
@@ -275,25 +248,6 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       reunion: { recordingId: recordingDeRef(p.ref), titulo: p.fuenteTitulo ?? '', fecha: p.fuenteFecha ?? null, url: p.fuenteUrl ?? null },
     })).map((fila) => { deOtrosBorradores.push({ id: '', titulo: fila.titulo, hecha: false }); return fila; }));
   });
-
-  // Solo se pregunta por lo que REALMENTE vas a cargar. MaKo arma las preguntas cuando
-  // lee la reunión; vos reasignás ("no es mía") y destildás recién al confirmar, horas
-  // después. Sin esto te preguntaba por el trabajo de otro: cada pregunta declara de qué
-  // tareas habla (`sobre`) y se cae sola si ninguna sobrevivió de tu lado.
-  const preguntas = useMemo(() => {
-    const vivos = new Set(filas.filter((f) => f.incluir && !f.esDeOtro).map((f) => normTit(f.titulo)));
-    const hablaDeAlgoMio = (t: string): boolean => {
-      const n = normTit(t);
-      if (vivos.has(n)) return true;
-      // El modelo a veces recorta o alarga el título al citarlo: vale que uno contenga al otro.
-      for (const v of vivos) if (v.length > 12 && n.length > 12 && (v.includes(n) || n.includes(v))) return true;
-      return false;
-    };
-    // Sin `sobre` (borradores viejos) no hay con qué decidir: se muestran, como antes.
-    // Una comparación ("¿A o B?") pierde el sentido si B se fue: ahí se piden TODAS.
-    return preguntasTodas.filter((q) => !q.sobre?.length
-      || (q.tipo === 'comparacion' ? q.sobre.every(hablaDeAlgoMio) : q.sobre.some(hablaDeAlgoMio)));
-  }, [preguntasTodas, filas]);
 
   const [guardando, setGuardando] = useState<'' | 'aplicar' | 'descartar'>('');
   // En qué tab está parado el usuario: null = «Mías». Cambia el pie entero.
@@ -379,24 +333,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     setGuardando('aplicar'); setErr('');
     // Un lote por borrador: cada reunión conserva su contexto para el Perro, pero el
     // Perro corre UNA sola vez sobre todo (lo arma el server).
-    // Lo que respondió en el paso de preguntas viaja como CONTEXTO del Perro: es
-    // justamente lo que la reunión no dejó claro.
-    // Las respuestas viajan al Perro del borrador de ESA reunión, no al de todas: lo que
-    // aclaraste de la reunión con Fran no es contexto de la reunión con Mauricio.
-    // El contexto para el Perro sale de las preguntas que el dueño REALMENTE contestó
-    // —`preguntasVivas`, que es la lista que vio en pantalla—, no de las guardadas en
-    // el borrador. Los índices de `respuestas` son de esa lista: mapearlos contra otra
-    // le pegaba la respuesta a la pregunta equivocada, o la perdía entera cuando las
-    // preguntas las había armado MaKo recién (esas no tienen propId).
-    const dichasDe = (propId: string): string => preguntasVivas
-      .map((q, i) => {
-        const suya = !('propId' in q) || (q as { propId?: string }).propId === propId;
-        return suya && respuestas[i] ? `${q.pregunta} → ${respuestas[i]}` : '';
-      })
-      .filter(Boolean).join(' · ');
     const lotes = props.map((p) => ({
       id: p.id,
-      contexto: [contextoDe(p), dichasDe(p.id)].filter(Boolean).join(' '),
+      contexto: contextoDe(p),
       // ⚠️ LAS AMPLIACIONES VIAJAN TAMBIÉN. Este filtro pedía `f.incluir`, y una
       // ampliación tiene `incluir: false` por definición (no se crea, se le suma el
       // contexto a la tarjeta que ya está). O sea que la pantalla decía «se le suma a
@@ -440,11 +379,11 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
 
   const de = props.find((p) => p.enviadoPor?.trim())?.enviadoPor?.trim();
   const varias = props.length > 1;
-  const soloPreguntas = props.length === 0 && conPreguntas.length > 0;
-  const titulo = soloPreguntas ? 'MaKo te dejó un borrador para revisar'
+  const soloCierres = props.length === 0 && conCierres.length > 0;
+  const titulo = soloCierres ? 'MaKo te dejó un borrador para revisar'
     : de ? `${de} te envió estas tareas`
       : varias ? `MaKo leyó tus ${props.length} reuniones` : 'MaKo leyó tu reunión';
-  const sub = soloPreguntas ? 'Necesita que le aclares un par de cosas antes de cargarlas.'
+  const sub = soloCierres ? 'Cree que hay tareas que ya están hechas.'
     // Ya cargaste lo tuyo y volviste: lo que queda es repartir lo de los demás.
     : (!hayMias && yaCargadas.length)
       ? `${yaCargadas.length === 1 ? 'Tu tarea ya está' : `Tus ${yaCargadas.length} tareas ya están`} en el plan. ${nOtras === 1 ? 'Queda 1 de otra persona' : `Quedan ${nOtras} de las otras personas`} para repartir.`
@@ -578,113 +517,20 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     ? `${textoRepetidas(nRepetidas)} — ${nRepetidas === 1 ? 'la dejé destildada' : 'las dejé destildadas'}${nForzadas ? `, y ${nForzadas} las volviste a tildar: esas las creo igual` : ''}.`
     : '';
 
-  // Las que se muestran: las que armó MaKo para lo elegido; si no pudo (sin IA, o
-  // decidió que no hace falta ninguna), caen las del borrador filtradas por `sobre`.
-  const preguntasVivas = preguntasIA ?? preguntas;
-  const qActual = preguntasVivas[qIdx];
-  const esUltimaQ = qIdx >= preguntasVivas.length - 1;
-
-  /** Terminó de elegir: MaKo mira SOLO lo elegido y arma las preguntas de eso. */
-  const irAPreguntas = async () => {
-    const elegidas = filas.filter((f) => f.incluir && !f.esDeOtro);
-    // Solo ampliaciones: no hay tarea nueva sobre la que preguntar nada, así que se
-    // aplica derecho. Con el `return` de antes el botón quedaba muerto — se veía
-    // habilitado y no pasaba nada al tocarlo.
-    if (!elegidas.length) { if (nAmpliar) void aplicar(); return; }
-    setPensando(true);
-    const j = await api({
-      action: 'preguntar', id: props[0]?.id ?? '',
-      tareas: elegidas.map((f) => ({ titulo: f.titulo, detalle: f.detalle, proyecto: nombreProyecto(f.proyectoId) ?? f.proyectoPropuesto })),
-    });
-    setPensando(false);
-    const qs = (j?.ok && Array.isArray(j.preguntas) ? (j.preguntas as PropPregunta[]) : []);
-    // Sin preguntas (ni de MaKo ni del borrador) se carga derecho: no se inventa un paso.
-    const finales = qs.length ? qs : preguntas;
-    if (!finales.length) { void aplicar(); return; }
-    setPreguntasIA(qs.length ? qs : null);
-    setRespuestas({}); setQIdx(0); setPaso('preguntas');
-  };
-
   const aplicando = guardando === 'aplicar';
-
-  // El paso de preguntas usa el MISMO chrome que todos los cuestionarios de la app
-  // (WizardShell: ✦ MAKO + puntitos + una pregunta grande y centrada + Atrás/Siguiente).
-  // Antes era una lista propia dentro de este modal y se veía como otra cosa; no hay
-  // razón para que el formulario de una reunión no se parezca al de un lead.
-  if (paso === 'preguntas' && preguntasVivas.length) {
-    const resp = respuestas[qIdx] ?? '';
-    return (
-      <div style={{ display: oculto ? 'none' : 'block' }}>
-        <WizardShell
-          titulo={[props[0]?.fuenteTitulo, resumenAccion(nIncluidas, nAmpliar)].filter(Boolean).join(' · ')}
-          total={preguntasVivas.length} idx={qIdx}
-          pregunta={qActual?.pregunta ?? ''}
-          // De qué tarea habla + CÓMO se contesta. Lo segundo sale del tipo
-          // (lib/preguntas-contrato.ts): decir «elegí una opción» sobre un calendario
-          // o sobre una escala de 1 a 5 es contradecir el campo que está abajo.
-          sub={[
-            qActual?.sobre?.length ? `Por: ${qActual.sobre.map((t) => `«${t}»`).join(' · ')}` : '',
-            qActual ? ayudaDePregunta((qActual.tipo ?? 'opcion') as TipoPregunta, (qActual.opciones?.length ?? 0) > 0) : '',
-          ].filter(Boolean).join(' — ')}
-          puedeAvanzar={!guardando}
-          enUltimo={esUltimaQ}
-          confirmLabel={etiquetaAccion(nIncluidas, nAmpliar)}
-          pending={!!guardando}
-          // El loader del aplicado tiene que estar ACÁ. El overlay lindo que dibuja este
-          // modal (más abajo, con el spinner y el «no cierres ni refresques») vive en el
-          // OTRO return: cuando `paso === 'preguntas'` esta rama corta antes y no se
-          // renderiza nunca. O sea que al confirmar desde la última pregunta —que es el
-          // camino normal de una reunión de Fathom— lo único que pasaba en pantalla era
-          // que el botón cambiaba a «Guardando…», con el cuerpo de la pregunta intacto
-          // detrás. Crear las tareas y que el Perro las puntúe tarda minutos: sin loader
-          // se lee como que la app se colgó. Va por `cargando` de la pieza y no por un
-          // overlay propio a propósito — uno con z-index propio queda POR DEBAJO del
-          // modal (ver el comentario del loader en WizardShell).
-          cargando={aplicando ? (
-            <>
-              <div>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dim)', lineHeight: 1.5, marginTop: 6, maxWidth: 380 }}>
-                El Perro las está puntuando contra tu plan y escribiéndoles el detalle. Con muchas tareas puede tardar un par de minutos.
-                <br /><b>No cierres ni refresques</b> hasta que termine.
-              </div>
-            </>
-          ) : null}
-          atrasLabel={qIdx > 0 ? 'Atrás' : 'Volver a las tareas'}
-          onAtras={() => (qIdx > 0 ? setQIdx((i) => i - 1) : setPaso('tareas'))}
-          onSiguiente={() => setQIdx((i) => i + 1)}
-          onConfirmar={() => void aplicar()}
-          onClose={onClose}
-          // Mientras carga NO se puede cerrar: son N tareas creadas + el Perro
-          // puntuándolas por tandas, y cortarlo a la mitad deja el board a medio armar.
-          bloqueante={!!guardando}
-          siguienteLabel={resp ? 'Siguiente →' : 'Saltear →'}
-        >
-          {/* El MISMO campo que dibuja /plan/revisar. Antes esta pantalla tenía su
-              propia versión y no coincidían: una 'escala' salía como una lista de
-              radios con las etiquetas "1".."5" —idéntica a un multiple choice, pero
-              con números en vez de respuestas—, no había campo de fecha, ni forma de
-              escribir una respuesta propia, ni rama para 'comparacion'. */}
-          {qActual && <PreguntaCampo q={qActual} value={resp} onChange={(v) => setRespuestas((r) => ({ ...r, [qIdx]: v }))} autoFocus />}
-        </WizardShell>
-      </div>
-    );
-  }
 
   return (
     // Cerrar clickeando AFUERA, como cualquier modal de la app. Cerrar no descarta
     // nada: el borrador sigue esperando y se vuelve desde el botón de Fathom. Lo único
     // que no se puede interrumpir es el aplicado (ahí sí queda el board a medio armar).
-    <div onClick={() => { if (!guardando && !pensando && !cruzando) onClose(); }}
+    <div onClick={() => { if (!guardando && !cruzando) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto || !capa.visible ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()}
         style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
         {/* Cargando: tapa TODO el modal. Crear N tareas + puntuarlas por tandas puede
-            tardar más de un minuto, y hasta ahora no se veía nada pasar.
-            Tapa también mientras MaKo arma las preguntas (`pensando`): es la MISMA
-            espera larga detrás del MISMO botón, un paso antes, y sin el velo lo único
-            que cambiaba era el texto del botón. */}
-        {(aplicando || pensando || cruzando) && (
+            tardar más de un minuto, y hasta ahora no se veía nada pasar. */}
+        {(aplicando || cruzando) && (
           <div role="status" aria-live="polite" style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
             {/* El velo va en SU capa: un `opacity` sobre el contenedor apagaría también
                 el spinner y el texto. Y sale de --surface, no de un blanco fijo — en
@@ -696,13 +542,6 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               // Una línea. Lo que el usuario necesita saber es QUÉ está pasando, no cómo
               // funciona por dentro ni una promesa sobre la próxima vez.
               <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cruzando con tu plan…</div>
-            ) : pensando ? (
-              <>
-                <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>MaKo está mirando lo que elegiste…</div>
-                <div style={{ position: 'relative', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
-                  Prepara las preguntas de contexto sobre estas {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'}, para que el Perro las priorice con criterio.
-                </div>
-              </>
             ) : (
               <>
                 <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
@@ -745,21 +584,24 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
 
           {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600 }}>{err}</div>}
 
-          {/* Borradores que MaKo dejó con preguntas: no se confirman acá, pero TIENEN
-              que verse — si no, MaKo dice "entrá al plan" y no hay nada. */}
-          {conPreguntas.map((p) => (
-            <a key={p.id} href={`/plan/revisar/${p.id}`}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--warn)', background: 'var(--warn-bg, var(--surface-2))', textDecoration: 'none' }}>
-              <span style={{ fontSize: 18 }}>💬</span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                  MaKo dejó {p.tareas.length} {p.tareas.length === 1 ? 'tarea' : 'tareas'} con {p.preguntas!.length} {p.preguntas!.length === 1 ? 'pregunta' : 'preguntas'}
+          {/* Borradores que proponen CIERRES: no se confirman acá, pero TIENEN que
+              verse — si no, MaKo dice "entrá al plan" y no hay nada. */}
+          {conCierres.map((p) => {
+            const n = p.cerrar?.length ?? 0;
+            return (
+              <a key={p.id} href={`/plan/revisar/${p.id}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--warn)', background: 'var(--warn-bg, var(--surface-2))', textDecoration: 'none' }}>
+                <span style={{ fontSize: 18 }}>✓</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                    {n === 1 ? '1 tarea parece hecha' : `${n} tareas parecen hechas`}
+                  </span>
+                  {p.resumen && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>{p.resumen}</span>}
                 </span>
-                <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>{p.resumen || 'Necesita contexto tuyo antes de cargarlas.'}</span>
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>Responder →</span>
-            </a>
-          ))}
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>Revisar →</span>
+              </a>
+            );
+          })}
 
           {(filas.length > 0 || yaCargadas.length > 0) && <ReunionTareas
             filas={filas}
@@ -781,8 +623,6 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flexWrap: 'wrap' }}>
           {/* Descartar es explícito y borra TODO lo que está en pantalla; cerrar con la
               ✕ las deja esperando para la próxima. */}
-          {/* Este footer es SOLO el de la lista de tareas: el paso de preguntas se
-              dibuja con WizardShell, que trae su propio Atrás/Siguiente. */}
           {/* DESCARTAR solo cuando queda algo TUYO. Si lo único pendiente son
               compromisos de otras personas, este botón los tiraba a la basura sin
               repartirlos — y encima se llamaba «Descartar lo que queda», como si fuera
@@ -815,12 +655,12 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             </button>
           ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mándaselo desde la lista.</span>}
           {hayMias && !cerrado && !personaActiva && (
-            <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas + nAmpliar === 0 || !!guardando || pensando || cruzando}
-              style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas + nAmpliar ? 'var(--primary)' : 'var(--border)', color: nIncluidas + nAmpliar ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas + nAmpliar && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
+            // Carga DERECHO: no hay paso de preguntas en el medio (ver la cabecera).
+            <button type="button" onClick={() => void aplicar()} disabled={nIncluidas + nAmpliar === 0 || !!guardando || cruzando}
+              style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas + nAmpliar ? 'var(--primary)' : 'var(--border)', color: nIncluidas + nAmpliar ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas + nAmpliar && !guardando ? 'pointer' : 'default', fontFamily: SANS }}>
               {/* El botón dice las DOS cosas que va a hacer. Con solo `nIncluidas` mentía
                   por omisión: «Agregar 15» sobre una reunión que además ampliaba 5. */}
               {guardando === 'aplicar' ? 'Cargando…'
-                : pensando ? 'MaKo está mirando lo que elegiste…'
                   : nIncluidas && nAmpliar ? `Agregar ${nIncluidas} y ampliar ${nAmpliar} →`
                     : nIncluidas ? `Agregar ${nIncluidas} al plan →`
                       : nAmpliar ? `Ampliar ${nAmpliar} que ya ${nAmpliar === 1 ? 'está' : 'están'} →`

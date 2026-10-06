@@ -615,7 +615,7 @@ curl -s "https://hola-mako.com/api/v1/plan/listar_borradores_plan" -H "Authoriza
 
 ### `GET /api/v1/plan/ver_borrador_plan` — Ver un borrador de tareas
 
-El contenido de UN borrador: tareas propuestas (con quién la asumió, si amplía una que ya existe, en qué minuto de la grabación se dijo), preguntas de contexto, cierres con su evidencia, bajas sugeridas (informativas: no se ejecutan) y las que ya se cargaron. El id viene de listar_borradores_plan o del link /plan/revisar/<id>: cópialo tal cual, nunca de memoria.
+El contenido de UN borrador: tareas propuestas (con quién la asumió, si amplía una que ya existe, en qué minuto de la grabación se dijo), cierres con su evidencia, bajas sugeridas (informativas: no se ejecutan) y las que ya se cargaron. El id viene de listar_borradores_plan o del link /plan/revisar/<id>: cópialo tal cual, nunca de memoria.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -805,7 +805,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/plan/guardar_termino_glosario" -H 
 
 ### `POST /api/v1/plan/proponer_tareas_plan` — Proponer tareas al plan
 
-PROPONE agregar tareas al plan: deja un BORRADOR con las tareas y las preguntas de contexto. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir (fechas duras, si un ítem es una tarea o varias, qué bloquea) va en `preguntas` con 2-4 opciones: se contestan de a una en la pantalla. NUNCA preguntes la prioridad: la decide el Perro Guardián al aplicar. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.
+PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir va escrito en el `detalle` de la tarea: el alta NO hace preguntas, y la prioridad y la fecha las decide el Perro Guardián al aplicar. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** deja una **propuesta** y devuelve un **link** (/plan/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -822,10 +822,6 @@ PROPONE agregar tareas al plan: deja un BORRADOR con las tareas y las preguntas 
 | `tareas.proyecto` | string | no | NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó. |
 | `tareas.deadline` | string | no | fecha límite AAAA-MM-DD, solo si la dijeron. |
 | `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la decide el Perro Guardián. |
-| `preguntas` | object[] | no | hechos que el Perro no puede deducir (nunca la prioridad). Tope 8. |
-| `preguntas.pregunta` | string | sí | la pregunta, concreta y sobre ESTAS tareas. |
-| `preguntas.tipo` | string (opcion \\| multi \\| fecha \\| escala \\| comparacion \\| texto) | no | cómo se contesta, coherente con las opciones. |
-| `preguntas.opciones` | string[] | no | 2-4 respuestas probables. |
 
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/plan/proponer_tareas_plan" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \

@@ -79,7 +79,7 @@ import {
   PROYECTO_SYSTEM_TEMPLATE, PROYECTO_USER_TEMPLATE,
 } from './checklist-coach';
 import { CRITERIO_JUEZ_SYSTEM_TEMPLATE, CRITERIO_JUEZ_USER_TEMPLATE } from './plan-criterio-reglas';
-import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE, PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE, PLAN_FATHOM_DEDUP_USER_TEMPLATE, PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE } from './plan-fathom';
+import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE, PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE, PLAN_FATHOM_DEDUP_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
 import { CRUCE_SYSTEM_TEMPLATE, CRUCE_USER_TEMPLATE, RUTEAR_SYSTEM_TEMPLATE, RUTEAR_USER_TEMPLATE } from './mako-guardian';
 import { GATE_SYSTEM_TEMPLATE, GATE_USER_TEMPLATE } from './retro-gate';
@@ -899,20 +899,8 @@ export const REGISTRY: Group[] = [
         default: PLAN_FATHOM_DEDUP_USER_TEMPLATE,
         context: 'La lista numerada que se revisa. No borres el slot {{tareas}}.',
       },
-      {
-        key: 'plan-fathom.preguntas.system', source: 'override',
-        label: 'Preguntas de contexto de la reunión (system)', kind: 'system', dynamic: true,
-        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
-        default: PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE,
-        context: 'Las preguntas CERRADAS que MaKo hace antes de cargar las tareas de una reunión. Regla que no se toca: nunca pregunta por prioridad (eso lo decide el Perro), solo hechos que no puede deducir.',
-      },
-      {
-        key: 'plan-fathom.preguntas.user', source: 'override',
-        label: 'Reunión + tareas para preguntar (user)', kind: 'user', dynamic: true,
-        variables: [v('reunion', 'título de la reunión'), v('tareas', 'lista de tareas propias')], scope: 'full', sensitive: false,
-        default: PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE,
-        context: 'No borres los slots {{reunion}}/{{tareas}}.',
-      },
+      // ⛔ Las dos de «plan-fathom.preguntas» se fueron con el paso de preguntas del alta
+      // (05/10/2026). Un override guardado con esas claves queda huérfano: no lo lee nadie.
       {
         key: 'plan-criterio.juez.system', source: 'override',
         label: 'Juzgar con el criterio de compromisos del cliente (system)', kind: 'system', dynamic: true,

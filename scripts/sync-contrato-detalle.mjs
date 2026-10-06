@@ -19,7 +19,6 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 const CHECK = process.argv.includes('--check');
 const FUENTE = 'lib/detalle-contrato.ts';
 const FUENTE_PROY = 'lib/plan-proyectos-catalogo.ts';
-const FUENTE_PREG = 'lib/preguntas-contrato.ts';
 const DESTINOS = ['.claude/skills/plan-tareas/SKILL.md'];
 
 const marca = (nombre) => [
@@ -28,7 +27,6 @@ const marca = (nombre) => [
 ];
 const [INICIO, FIN] = marca('CONTRATO-DETALLE');
 const [P_INICIO, P_FIN] = marca('REGLA-NOMBRE-PROYECTO');
-const [Q_INICIO, Q_FIN] = marca('CONTRATO-PREGUNTAS');
 
 /** Saca MOLDE_DETALLE y MOLDE_ADVERTENCIA del módulo sin importarlo (es TS + server-only). */
 function leerFuente() {
@@ -82,26 +80,8 @@ const bloqueProy = [
   P_FIN,
 ].join('\n');
 
-/** El catálogo de tipos de pregunta del Perro. Mismo motivo que los otros dos: la skill
- *  lo tenía copiado a mano y se quedó vieja — decía que existía `escala` pero no `fecha`,
- *  o sea que desde Claude Code se seguían pidiendo deadlines con una escala del 1 al 5. */
-function leerContratoPreguntas() {
-  const src = readFileSync(FUENTE_PREG, 'utf8');
-  const m = src.match(/export const CONTRATO_TIPOS_PREGUNTA = `([\s\S]*?)`;/);
-  if (!m) throw new Error(`No pude leer CONTRATO_TIPOS_PREGUNTA de ${FUENTE_PREG}`);
-  return m[1];
-}
-
-const bloquePreg = [
-  Q_INICIO,
-  '',
-  '**Los tipos de pregunta y su campo.** Vive en `lib/preguntas-contrato.ts` y se copia acá',
-  'sola: si cambia allá, cambia acá. No la edites a mano.',
-  '',
-  ...leerContratoPreguntas().split('\n').map((l) => (l.trim() ? `> ${l}` : '>')),
-  '',
-  Q_FIN,
-].join('\n');
+// ⛔ Acá se copiaba también el catálogo de tipos de pregunta (CONTRATO-PREGUNTAS). La skill
+// ya no enseña a armar preguntas: el alta dejó de preguntar el 05/10/2026.
 
 /** Reemplaza lo que hay entre dos marcadores. Devuelve null si faltan. */
 const entre = (txt, ini, fin, bloque) => {
@@ -115,7 +95,6 @@ const entre = (txt, ini, fin, bloque) => {
 const BLOQUES = [
   { nombre: 'CONTRATO-DETALLE', ini: INICIO, fin: FIN, texto: bloque },
   { nombre: 'REGLA-NOMBRE-PROYECTO', ini: P_INICIO, fin: P_FIN, texto: bloqueProy },
-  { nombre: 'CONTRATO-PREGUNTAS', ini: Q_INICIO, fin: Q_FIN, texto: bloquePreg },
 ];
 
 let sucio = 0;

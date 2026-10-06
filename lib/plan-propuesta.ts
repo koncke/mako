@@ -14,16 +14,13 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { agregarTareasPlanOwner, ampliarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard, fusionarDetalle } from '@/lib/plan-board';
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, editarTarea, ampliarTareasCliente, type Prioridad } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
-import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
+import { mismaTarea } from '@/lib/tareas-dedup';
 import { rutearTareasCliente } from '@/lib/todo-rutear';
 import { criterioDelWorkspace } from '@/lib/plan-criterio';
 import { decidirRecurrente } from '@/lib/plan-criterio-reglas';
 import { tipoDeResponsable } from '@/lib/reunion-reparto';
-import { chatCheapCascade } from '@/lib/ai-cheap';
-import { parseJsonObject } from '@/lib/campaign-structurer';
-import { sanearPregunta, avisoSaneo, apuntarSobre, CONTRATO_TIPOS_PREGUNTA, JSON_PREGUNTAS, type Pregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
+import type { Pregunta, TipoPregunta } from '@/lib/preguntas-contrato';
 import { corregirMarca } from '@/lib/mako-gramatica';
-import { MOLDE_DETALLE } from '@/lib/detalle-contrato';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
 import { tableroDeCapa } from './tablero-de-capa';
 
@@ -146,7 +143,7 @@ export type PropuestaCerrar = {
 };
 export type Propuesta = {
   id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; resumen: string; origen?: string;
-  tareas: PropuestaTarea[]; preguntas: PropuestaPregunta[]; eliminar: PropuestaEliminar[]; cerrar: PropuestaCerrar[]; createdAt: string;
+  tareas: PropuestaTarea[]; eliminar: PropuestaEliminar[]; cerrar: PropuestaCerrar[]; createdAt: string;
   /** quién se las mandó ('' = las sacó MaKo sola de una reunión tuya). */
   enviadoPor?: string;
   /** de dónde salieron: título + link de la reunión. */
@@ -175,13 +172,6 @@ function limpiarAplicada(a: unknown): PropuestaAplicada | null {
     : undefined;
   return { titulo, tareaId, minutos: minutos?.length ? minutos : undefined };
 }
-
-/** El detalle recortado SOLO para armar un prompt. Se guarda entero (6000) porque es el
- *  contenido de la tarjeta, pero mandarlo entero a los prompts de PREGUNTAS es tirar
- *  plata: 40 tareas x 6000 son ~60k tokens de entrada para decidir qué preguntar, y para
- *  eso alcanza con saber de qué va cada una. Recortar al guardar sería perder contexto;
- *  recortar acá no pierde nada. */
-const paraPrompt = (d?: string): string => (d ? d.replace(/\s+/g, ' ').trim().slice(0, 600) : '');
 
 
 function limpiarTarea(t: unknown): PropuestaTarea | null {
@@ -264,61 +254,9 @@ function limpiarCerrar(c: unknown): PropuestaCerrar | null {
   const conf = str(o.confianza);
   return { id, evidencia, confianza: conf === 'alta' ? 'alta' : 'media', titulo: o.titulo ? str(o.titulo).slice(0, 200) : undefined };
 }
-/**
- * El techo de preguntas según cuántas tareas se cargan: ~1 cada 3, con piso y techo.
- * Antes era 6 SIEMPRE — cargar 2 tareas y cargar 40 hacían la misma cantidad de
- * preguntas, que es justo lo que no cierra: con 40, 34 entraban sin que nadie
- * preguntara nada y el Perro las puntuaba a ojo.
- */
-export const topePreguntas = (nTareas: number): number =>
-  Math.max(2, Math.min(16, Math.ceil(nTareas / 3) + 1));
-
-/**
- * ¿Las opciones son LA LISTA QUE LE PASAMOS en vez de una respuesta?
- *
- * Es el error concreto que apareció (y es el único de "pregunta sin sentido" que se
- * puede detectar sin entender el significado):
- *
- *   «¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?»
- *   opciones: [General renovado] [CRM] [Chats] [Plan] [Dashboard]
- *
- * El modelo tenía la lista de tareas en el prompt y la devolvió como opciones de un
- * enunciado binario. Se reconoce sin adivinar: (a) el enunciado plantea DOS caminos
- * («… A o B?»), (b) hay más de dos opciones, y (c) TODAS las opciones son texto que
- * viene de la lista que le pasamos, no una respuesta.
- *
- * Intencionalmente estrecho. Una primera versión más ambiciosa —"ninguna opción
- * comparte palabra con la disyuntiva"— descartó una pregunta perfectamente sana
- * («¿hay alguien del equipo entrando, o son todos de un solo dueño?» con opciones
- * «Todavía nadie…», «Sí, en el equipo de Mauricio»): perder una pregunta buena en
- * silencio es peor que dejar pasar una mala, que el dueño puede saltear.
- */
-const palabras = (s: string): Set<string> => new Set(
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-    .replace(/[^a-z0-9ñ ]/gi, ' ').split(/\s+/).filter((w) => w.length >= 4),
-);
-export function opcionesSonLaLista(pregunta: string, opciones: string[], universo: string[]): boolean {
-  if (opciones.length <= 2 || !universo.length) return false;
-  if (!/\bo\b[^?]{6,90}\?\s*$/i.test(pregunta)) return false;   // no plantea dos caminos
-  const heno = ` ${universo.map((u) => u.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()).join(' | ')} `;
-  // TODAS tienen que venir de la lista: con que una sea una respuesta de verdad,
-  // la pregunta se respeta.
-  return opciones.every((op) => {
-    const ws = [...palabras(op)];
-    return ws.length > 0 && ws.every((w) => heno.includes(w));
-  });
-}
-
-/**
- * El saneo vive en lib/preguntas-contrato.ts (`sanearPregunta`): es la ÚNICA
- * definición de qué tipo se corresponde con qué campo, y la comparten este módulo,
- * plan-fathom y las dos pantallas. Antes cada lado tenía la suya y por eso una
- * pregunta de fecha podía terminar dibujada como una escala del 1 al 5.
- */
-const limpiarPregunta = (p: unknown): PropuestaPregunta | null => sanearPregunta(p, avisoSaneo('plan-propuesta'));
 
 export type CrearPropuestaDraft = {
-  tareas: PropuestaTarea[]; preguntas?: unknown[]; eliminar?: unknown[]; cerrar?: unknown[]; resumen?: string; origen?: string;
+  tareas: PropuestaTarea[]; eliminar?: unknown[]; cerrar?: unknown[]; resumen?: string; origen?: string;
   /** nombre de quien se las manda a esta persona ('' = MaKo sola). */
   enviadoPor?: string;
   /** reunión/archivo del que salieron, y cuándo ocurrió. */
@@ -347,7 +285,6 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
   return runWithWorkspace(destino, async () => {
     const db = await getTenantDb();
     const tareas = asArr<unknown>(draft.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
-    const preguntas = asArr<unknown>(draft.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 25);
     const eliminar = asArr<unknown>(draft.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e).slice(0, 30);
     const cerrar = asArr<unknown>(draft.cerrar).map(limpiarCerrar).filter((c): c is PropuestaCerrar => !!c).slice(0, 40);
     const ref = draft.ref?.trim().slice(0, 120) || null;
@@ -376,7 +313,9 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
     const id = genId('prop');
     const { error } = await db.from('plan_propuestas').insert({
       id, estado: draft.estado ?? 'pendiente', origen: draft.origen ?? 'whatsapp', resumen: (draft.resumen ?? '').slice(0, 300),
-      tareas, notas: preguntas, eliminar, cerrar, // `notas` guarda {pregunta,opciones}; `eliminar` = {id,titulo,motivo}; `cerrar` = {id,evidencia,confianza}
+      // `notas` eran las preguntas del borrador: nace vacía siempre desde que el alta dejó
+      // de preguntar (05/10/2026). `eliminar` = {id,titulo,motivo}; `cerrar` = {id,evidencia,confianza}.
+      tareas, notas: [], eliminar, cerrar,
       ref, enviado_por: draft.enviadoPor?.slice(0, 120) ?? null,
       fuente_titulo: draft.fuenteTitulo?.slice(0, 200) ?? null, fuente_url: draft.fuenteUrl?.slice(0, 500) ?? null,
       fuente_fecha: draft.fuenteFecha ?? null,
@@ -392,7 +331,6 @@ function rowToPropuesta(r: Row): Propuesta {
     id: str(r.id), estado: (str(r.estado, 'pendiente') as Propuesta['estado']),
     resumen: str(r.resumen), origen: r.origen ? str(r.origen) : undefined,
     tareas: asArr<unknown>(r.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t),
-    preguntas: asArr<unknown>(r.notas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p),
     eliminar: asArr<unknown>(r.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e),
     cerrar: asArr<unknown>(r.cerrar).map(limpiarCerrar).filter((c): c is PropuestaCerrar => !!c),
     createdAt: str(r.created_at),
@@ -532,201 +470,10 @@ export async function listPropuestasPendientes(limite = 8): Promise<Propuesta[]>
   });
 }
 
-// ── Formularios DINÁMICOS: repreguntas generadas según lo ya respondido ──────────
-// El wizard, tras las preguntas iniciales, llama acá con las respuestas. MaKo genera
-// 0-3 preguntas de SEGUIMIENTO que profundizan el CONTEXTO para que el PERRO decida —
-// NUNCA la prioridad. IA barata (nunca Claude), formatos variados. Si no hay nada que
-// profundizar, devuelve lista vacía y el wizard sigue de largo.
-const PROFUNDIZAR_SYSTEM = `Eres MaKo, cargando tareas al plan de un negocio. El dueño ya respondió unas preguntas de contexto. Tu trabajo: decidir si hace falta PROFUNDIZAR con PREGUNTAS DE SEGUIMIENTO para que EL PERRO GUARDIÁN pueda decidir la prioridad con buen criterio.
-TÚ decides cuántas: pueden ser NINGUNA (si lo respondido ya alcanza), una, o las que de verdad hagan falta. No inventes por inventar ni te cortes por miedo a preguntar de más.
-⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Pregunta HECHOS que una respuesta previa recién abrió: un deadline que apareció (tipo "fecha"), una dependencia o bloqueo, un alcance ambiguo, qué sería "listo".
-⛔ REGLA DURA: la pregunta tiene que salir DE ESTAS TAREAS, no de un formulario de consultoría. Antes de escribirla, relee la tarea de la que hablas y pregúntate si el dueño podría contestarla mirando SU trabajo. Si la pregunta le serviría igual a cualquier negocio del mundo, está mal.
-  MAL (pasó de verdad): sobre «Capacitar al equipo en la nueva estructura de funnels», preguntar "¿Cuál es el presupuesto asignado para la capacitación del equipo?" con opciones de dinero. Es el equipo propio y la capacita él mismo: no hay ningún presupuesto, y la pregunta suena a plantilla.
-  De DINERO pregunta solo cuando el dinero es REAL y del negocio —lo que factura un cliente, lo que se le paga a un proveedor, cuánto se va a invertir en pauta—, nunca un presupuesto interno que nadie asignó.
-CRITERIO — cada pregunta tiene que TENER SENTIDO y sumar: si la respuesta es obvia, se contradice con lo ya dicho, o no cambia nada para el Perro, NO la hagas.
-CRITERIO — MEJOR NINGUNA QUE UNA DE RELLENO. Estas preguntas son EXTRA: el dueño ya contestó las de contexto. Si lo que respondió no abrió nada nuevo, devuelve { "preguntas": [] } y listo. No hay ninguna cuota que cumplir.
-
-${CONTRATO_TIPOS_PREGUNTA}
-
-"sobre" = el título EXACTO de la tarea (o hasta 4) de la que habla la pregunta, tal cual te lo pasé. Es lo que le muestra al dueño de qué le estás hablando: sin eso, una pregunta correcta sobre la tarea 14 de 20 se lee como una pregunta al azar.
-${JSON_PREGUNTAS}
-Español neutro (tuteo).`;
-
-export async function profundizarPropuesta(id: string, respuestas: Array<{ pregunta: string; respuesta: string }>): Promise<PropuestaPregunta[]> {
-  const prop = await getPropuesta(id);
-  if (!prop || prop.estado !== 'pendiente') return [];
-  const respStr = (respuestas || []).filter((r) => r?.respuesta?.trim()).map((r) => `P: ${r.pregunta}\nR: ${r.respuesta}`).join('\n\n');
-  if (!respStr.trim()) return []; // sin respuestas, no hay de dónde profundizar
-  const tareasStr = prop.tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${paraPrompt(t.detalle)}` : ''}`).join('\n');
-  const user = `TAREAS QUE SE ESTÁN CARGANDO:\n${tareasStr}\n\nRESPUESTAS DE CONTEXTO YA DADAS:\n${respStr}\n\nGenera 0-3 preguntas de SEGUIMIENTO (solo si una respuesta abre algo que vale aclarar). JSON.`;
-  // maxTokens amplio: la IA decide cuántas preguntas hacen falta (no la limitamos a un
-  // número). El slice(0, 40) es solo un tope de SEGURIDAD (respuesta rota), no un límite real.
-  const raw = await chatCheapCascade({ system: PROFUNDIZAR_SYSTEM, user, maxTokens: 3000, feature: 'mako-doer-in', motivo: 'Profundizar borrador (preguntas dinámicas)' }).catch(() => '');
-  if (!raw) return [];
-  let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
-  // Filtro de la incoherencia que sí se puede reconocer: el modelo tiene la lista de
-  // tareas en el prompt y a veces la devuelve COMO OPCIONES de una pregunta binaria
-  // («¿son fijos o hay que revisarlos?» + [CRM] [Chats] [Plan]). Ahí ninguna opción
-  // contesta y la pregunta no se puede responder.
-  const universo = prop.tareas.map((t) => t.titulo);
-  return asArr<unknown>(obj.preguntas).map(limpiarPregunta)
-    .filter((p): p is PropuestaPregunta => {
-      if (!p) return false;
-      if (p.opciones.length > 2 && opcionesSonLaLista(p.pregunta, p.opciones, universo)) {
-        console.warn(`[plan-propuesta] pregunta descartada: las opciones son la lista de tareas, no una respuesta — «${p.pregunta.slice(0, 70)}»`);
-        return false;
-      }
-      return true;
-    })
-    // El chip «Por: …» se verifica contra las tareas REALES del lote. Acá no se hacía
-    // nada (a diferencia de preguntasParaCargar) y salía tal cual lo mandaba el modelo:
-    // una pregunta sobre la capacitación del equipo con el chip de la tarea de rediseñar
-    // funnels se lee como una pregunta al azar, aunque la pregunta sea pertinente.
-    .map((p) => ({ ...p, sobre: apuntarSobre(p.pregunta, p.sobre, universo) }))
-    .slice(0, 40);
-}
-
-// ── Tareas que SALEN de lo que el dueño contestó ─────────────────────────────
-// Una «idea» tirada por WhatsApp casi nunca es una tarea: es un proyecto. El dueño
-// manda una línea, MaKo pregunta cuatro cosas, y de esas respuestas aparece trabajo
-// que no estaba en el borrador original — y hasta acá se perdía, porque el wizard solo
-// sabía crear lo que ya venía escrito. La regla del dueño: «dale la libertad al perro
-// de decidir si debe agregar más tareas».
-//
-// Nada se crea solo: lo que devuelve esto se muestra en el último paso del wizard, con
-// checkbox y con el contexto editable, igual que las tareas de una reunión.
-const TAREAS_EXTRA_SYSTEM = `Eres el Perro Guardián de MaKo. El dueño está por cargar unas tareas al plan y acaba de contestar unas preguntas de contexto. Tu trabajo: decidir si de esas respuestas SALE TRABAJO QUE NO ESTÁ EN LA LISTA.
-
-TÚ decides cuántas: pueden ser NINGUNA, una, o siete. No hay cuota. El caso típico es que lo que entró como UNA idea suelta sea en realidad un proyecto entero, y ahí faltan los pasos.
-
-⛔ NO REPITAS lo que ya está. Te paso las tareas que se van a cargar: si lo que ibas a proponer ya está escrito ahí —aunque sea con otras palabras— no lo propongas. Un duplicado aquí es peor que una tarea de menos, porque el dueño ya revisó esa lista.
-⛔ NO INVENTES. Cada tarea nueva tiene que SALIR de algo que él dijo en las respuestas. Si no puedes señalar la frase de la que sale, no la propongas.
-⛔ NADA de tareas de relleno tipo «revisar», «hacer seguimiento», «documentar el proceso» o «definir la estrategia». Una tarea es algo que alguien HACE y que se puede dar por terminado.
-
-QUÉ SÍ proponer:
-· El paso que la respuesta reveló que falta ANTES o DESPUÉS de lo que ya está («no puedo grabar hasta tener el guion» → falta el guion).
-· El bloqueo que nombró y que nadie va a resolver solo.
-· Lo que dijo al pasar como si fuera obvio y no está anotado en ninguna parte.
-· Cuando una tarea de la lista es en realidad TRES: propón las que faltan, sin repetir la original.
-
-CÓMO SE ESCRIBE CADA UNA:
-· "titulo": el trabajo concreto, arranca con un verbo, sin jerga. Se entiende sin leer nada más.
-· "detalle": con el molde de abajo. En «Por qué» va la FRASE TEXTUAL del dueño entre « » de la que sale la tarea — es lo que le deja verificar de un vistazo que no la inventaste.
-· "porQue": una línea, para la pantalla: de qué respuesta salió.
-⛔ El "proyecto" NO lo eliges tú: lo decide el ruteo del Perro al aplicar. No lo mandes.
-
-{{molde}}
-
-Devuelve EXCLUSIVAMENTE un objeto JSON (sin markdown):
-{ "tareas": [ { "titulo": "<con un verbo>", "detalle": "<con el molde>", "porQue": "<de qué respuesta sale>" } ] }
-Español neutro (tuteo). Si de las respuestas no sale nada nuevo, { "tareas": [] } — y es la respuesta más común.`;
-
-export type TareaExtra = { titulo: string; detalle: string; porQue: string };
-
-/**
- * Las tareas que aparecieron al contestar. Devuelve [] cuando no hay nada nuevo, que es
- * lo normal: esto NO tiene que producir tareas para justificar la llamada.
- */
-export async function tareasDesdeRespuestas(
-  tareas: Array<{ titulo: string; detalle?: string }>,
-  respuestas: Array<{ pregunta: string; respuesta: string }>,
-): Promise<TareaExtra[]> {
-  const respStr = (respuestas || []).filter((r) => r?.respuesta?.trim()).map((r) => `P: ${r.pregunta}\nR: ${r.respuesta}`).join('\n\n');
-  if (!respStr.trim() || !tareas.length) return [];
-  const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.detalle ? ` — ${paraPrompt(t.detalle)}` : ''}`).join('\n');
-  const system = TAREAS_EXTRA_SYSTEM.replace('{{molde}}', MOLDE_DETALLE);
-  const user = `TAREAS QUE YA SE VAN A CARGAR (no las repitas):\n${lista}\n\nLO QUE CONTESTÓ EL DUEÑO:\n${respStr}\n\n¿Sale de ahí algún trabajo que NO esté en la lista? JSON.`;
-  const raw = await chatCheapCascade({ system, user, maxTokens: 4000, feature: 'mako-guardian', motivo: 'Tareas que salen de las respuestas del wizard' }).catch(() => '');
-  if (!raw) return [];
-  let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
-  const yaEstan = tareas.map((t) => normTitulo(t.titulo));
-  return asArr<unknown>(obj.tareas)
-    .map((t) => {
-      const o = (t ?? {}) as Record<string, unknown>;
-      const titulo = corregirMarca(str(o.titulo).trim()).slice(0, 200);
-      return titulo ? { titulo, detalle: corregirMarca(str(o.detalle)).slice(0, 6000), porQue: str(o.porQue).trim().slice(0, 300) } : null;
-    })
-    .filter((t): t is TareaExtra => !!t)
-    // El «no repitas» del prompt no alcanza: se verifica. Mismo criterio de dedup que
-    // usa el resto del riel (lib/tareas-dedup), no una comparación de strings.
-    .filter((t) => {
-      const n = normTitulo(t.titulo);
-      if (yaEstan.some((y) => y === n || mismaTarea(y, t.titulo))) {
-        console.warn(`[plan-propuesta] tarea extra descartada por repetida: «${t.titulo.slice(0, 60)}»`);
-        return false;
-      }
-      return true;
-    })
-    .slice(0, 12);
-}
-
-// ── Preguntas sobre LO QUE SE VA A CARGAR ────────────────────────────────────
-// Las preguntas del borrador las arma el cron cuando lee la reunión, sobre TODAS las
-// tareas que sacó. Pero entre que las arma y que el dueño confirma pasan horas: él
-// destilda la mitad y le pasa otras a un colaborador. Preguntarle entonces por trabajo
-// que no va a cargar (o que ya no es suyo) es hacerle perder el tiempo con preguntas
-// que además salen genéricas, porque hablan de un montón de cosas a la vez.
-const PREGUNTAS_SYSTEM = `Eres MaKo, cargando tareas al plan de un negocio. Te paso LAS TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (ya destildó lo que no va y repartió lo de otros). Tu trabajo: las preguntas de contexto que EL PERRO GUARDIÁN necesita para priorizarlas bien.
-
-CUÁNTAS — ESCALA CON EL TAMAÑO DEL LOTE. No es lo mismo cargar 2 tareas que 20: si son 20 y haces 4 preguntas, 16 tareas entran a ciegas y el Perro las puntúa adivinando. La regla es aproximadamente UNA pregunta cada TRES tareas:
-· 1 a 3 tareas → 1 o 2 preguntas
-· 4 a 8 → 2 a 4
-· 9 a 15 → 4 a 6
-· 16 a 25 → 6 a 9
-· 26 a 40 → 9 a 13
-· más de 40 → 12 a 16
-Es una guía, no una cuota: si de verdad no hay nada que preguntar sobre un bloque de tareas, no inventes. Pero si quedan tareas grandes sobre las que no preguntaste nada, te faltaron preguntas.
-
-COBERTURA: reparte las preguntas por TODO el lote, no las amontones en las primeras tres tareas. Cuando son muchas, agrupa por proyecto o por tema y haz una pregunta por grupo: una respuesta que sirve para cinco tareas del mismo proyecto vale por cinco. Puedes hacer DOS preguntas sobre la misma tarea solo si es grande y las dos cambian cosas distintas.
-
-⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Pregunta HECHOS: un deadline (tipo "fecha"), una dependencia o bloqueo, un número de dinero, un alcance ambiguo, quién lo hace, qué sería "listo".
-⛔ REGLA DURA: NADA de preguntas ABIERTAS. Siempre con un campo concreto para tocar (opciones, o el calendario de "fecha").
-CRITERIO — CADA PREGUNTA TIENE QUE SER CONCRETA Y DE ESTAS TAREAS. Nómbralas: "¿Para cuándo tiene que estar el filtro por fecha del tablero de guiones?" (tipo "fecha") y NO "¿qué impacto tienen estas correcciones?". Si una pregunta sirve igual para cualquier reunión, está mal.
-CRITERIO — que sume: si la respuesta es obvia, ya está dicha en el detalle de la tarea, o no cambia NADA de lo que el Perro va a decidir, no la hagas. Una pregunta que no cambia nada es peor que ninguna: quema la paciencia del dueño y hace que conteste las que sí importan de cualquier manera.
-
-${CONTRATO_TIPOS_PREGUNTA}
-
-"sobre" = SOLO los títulos, tal cual te los pasé, sin el detalle ni el número (1-4 títulos).
-${JSON_PREGUNTAS}
-Español neutro (tuteo).`;
-
-/**
- * Las preguntas de contexto para EXACTAMENTE las tareas que el dueño está por cargar.
- * Devuelve [] si no hay IA configurada o si el modelo decide que no hace falta ninguna
- * — en los dos casos el flujo sigue de largo y se cargan las tareas igual.
- */
-export async function preguntasParaCargar(titulosYDetalles: Array<{ titulo: string; detalle?: string; proyecto?: string }>): Promise<PropuestaPregunta[]> {
-  const tareas = titulosYDetalles.filter((t) => t?.titulo?.trim()).slice(0, 80);
-  if (!tareas.length) return [];
-  const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${paraPrompt(t.detalle)}` : ''}`).join('\n');
-  // El techo se le dice explícito, además de la tabla del system: el modelo respeta un
-  // número concreto mucho mejor que un rango, y con 40 tareas la diferencia entre 6 y 16
-  // preguntas es la diferencia entre priorizar con datos y priorizar adivinando.
-  const techo = topePreguntas(tareas.length);
-  const user = `TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (${tareas.length}):\n${lista}\n\nSon ${tareas.length} tareas: haz hasta ${techo} preguntas, repartidas por todo el lote (no solo sobre las primeras). Genera las preguntas de contexto que le hagan falta al Perro para priorizar ESTAS. JSON.`;
-  const raw = await chatCheapCascade({ system: PREGUNTAS_SYSTEM, user, maxTokens: 8000, feature: 'mako-doer-in', motivo: 'Preguntas de contexto (lo que se va a cargar)' }).catch(() => '');
-  if (!raw) return [];
-  let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
-  // El filtro de "las opciones son la lista de tareas que le pasamos, no una respuesta"
-  // corre TAMBIÉN acá. Vivía solo en `profundizarPropuesta`, y este generador —que es el
-  // que se dispara al confirmar una reunión, o sea el que más preguntas produce— tiene
-  // exactamente el mismo riesgo: la lista de tareas está en su prompt.
-  const universo = tareas.map((t) => t.titulo);
-  const qs = asArr<unknown>(obj.preguntas).map(limpiarPregunta)
-    .filter((p): p is PropuestaPregunta => {
-      if (!p) return false;
-      if (p.opciones.length > 2 && opcionesSonLaLista(p.pregunta, p.opciones, universo)) {
-        console.warn(`[plan-propuesta] pregunta descartada: las opciones son la lista de tareas, no una respuesta — «${p.pregunta.slice(0, 70)}»`);
-        return false;
-      }
-      return true;
-    })
-    .slice(0, techo);
-  // `sobre` se normaliza al título REAL y se verifica que la pregunta hable DE ESA
-  // tarea (lib/preguntas-contrato.ts). El modelo tiende a devolver la línea entera que
-  // le pasamos ("3. Título — detalle") y a veces apunta a la tarea equivocada del lote.
-  return qs.map((q) => ({ ...q, sobre: apuntarSobre(q.pregunta, q.sobre, universo) }));
-}
+// ⛔ Acá vivían las tres generadoras de preguntas del alta —las de contexto sobre lo que
+// se iba a cargar, las repreguntas «para profundizar» y las tareas extra que salían de lo
+// contestado—. Se fueron el 05/10/2026 con el paso de preguntas: «habíamos dicho de sacar
+// absolutamente toda la fricción al agregar tareas». Ver docs/hallazgos-plan.md.
 
 export type LoteAplicar = {
   id: string; tareas?: PropuestaTarea[]; eliminarIds?: string[]; contexto?: string;
@@ -1127,51 +874,6 @@ export async function estadoDePropuesta(id: string): Promise<{ estado: string; n
       estado: str(fila.estado, 'pendiente'), n: tareas.length, resumen: str(fila.resumen), tareas,
       cruzadoAt: fila.cruzado_at ? str(fila.cruzado_at) : undefined,
     };
-  });
-}
-
-/**
- * Una línea del ACTA de la revisión: qué se preguntó y qué se contestó.
- *
- * Existe porque el formulario no se podía auditar. Las preguntas dinámicas vivían
- * solo en el localStorage del navegador y las estáticas se borraban al aplicar, así
- * que un bug del wizard —un tipo que no pega con el campo, una opción repetida, una
- * respuesta que se pierde— solo se descubría si el dueño lo veía en pantalla. Pasó:
- * «no creo que hayas revisado bien los borradores, porque me aparecen bugs como
- * este». Tenía razón, y no había forma de haberlo visto desde la base.
- */
-export type LineaRevision = {
-  pregunta: string;
-  tipo: string;
-  opciones: string[];
-  respuesta: string;
-  /** `dinamica` = la armó «Profundizar borrador» al abrir el link. Son las que no
-   *  dejaban rastro, y son la mitad del formulario. */
-  origen: 'estatica' | 'dinamica';
-  ts: string;
-};
-
-/**
- * Guarda el acta. Es APPEND-ONLY y no se vacía nunca —ni al aplicar— porque el
- * registro sirve justo después de que el borrador dejó de existir como tal.
- *
- * Se escribe apenas hay respuestas, no al final: un wizard abandonado a la mitad es
- * exactamente el caso donde uno quiere saber qué pregunta lo hizo abandonar.
- */
-export async function guardarActaRevision(id: string, lineas: LineaRevision[]): Promise<boolean> {
-  if (!lineas.length) return false;
-  return enWs(async () => {
-    const db = await getTenantDb();
-    const { data } = await db.from('plan_propuestas').select('revision').eq('id', id).maybeSingle();
-    const previas = asArr<LineaRevision>((data as Row | null)?.revision);
-    // Idempotente por (pregunta, origen): abrir el link dos veces, o contestar y
-    // volver atrás, no tiene que dejar la misma pregunta tres veces en el acta. Gana
-    // la ÚLTIMA respuesta, que es la que el dueño dejó.
-    const porClave = new Map(previas.map((l) => [`${l.origen}|${l.pregunta}`, l]));
-    for (const l of lineas) porClave.set(`${l.origen}|${l.pregunta}`, l);
-    const { error } = await db.from('plan_propuestas').update({ revision: [...porClave.values()] }).eq('id', id);
-    if (error) { console.error(`[plan-propuesta] guardarActaRevision ${id}: ${error.message}`); return false; }
-    return true;
   });
 }
 

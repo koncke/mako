@@ -2,8 +2,8 @@
 name: plan-tareas
 description: >
   Revisar el PLAN del super-admin (board /plan) ANTES de arrancar una tarea grande, y
-  proponerle tareas nuevas por el MISMO camino que MaKo en WhatsApp: un BORRADOR con
-  preguntas de contexto que él revisa en la app y que puntúa el Perro Guardián. Usar al
+  proponerle tareas nuevas por el MISMO camino que MaKo en WhatsApp: un BORRADOR que él
+  confirma en la app y que puntúa el Perro Guardián. Usar al
   empezar un trabajo sustancial en este repo, o cuando identifiques algo que vale la pena
   anotar. NUNCA insertar en plan_tareas a mano: eso saltea el Perro.
 ---
@@ -18,10 +18,11 @@ snapshot` **está muerto**: no lo uses.
 ## LA REGLA (no negociable)
 
 **Todo origen que carga tareas pasa por el MISMO proceso**: se resuelve lo deducible →
-se preguntan los HECHOS que faltan → **el Perro Guardián puntúa**. Da igual si viene de
+lo que falta va escrito en el `detalle` → **el Perro Guardián puntúa**. **El alta no hace
+preguntas** (05/10/2026: «sacar absolutamente toda la fricción al agregar tareas»). Da igual si viene de
 WhatsApp, de Fathom, de un archivo o de Claude Code.
 
-⛔ **NUNCA hagas `insert into plan_tareas`.** Saltea las preguntas, el Perro, la checklist
+⛔ **NUNCA hagas `insert into plan_tareas`.** Saltea el Perro, la checklist
 y la descripción del proyecto — y deja una tarea con prioridad inventada por vos.
 ✅ **Creá una PROPUESTA** (`plan_propuestas`) y pasale el link. La app corre el wizard y el
 Perro con las credenciales del dueño (que vos no tenés: se descifran con
@@ -139,7 +140,7 @@ Insertá UNA fila en `plan_propuestas` y entregá el link `/plan/revisar/<id>`:
 ```js
 await sql`insert into plan_propuestas (id, workspace_id, estado, origen, resumen, tareas, notas, eliminar)
           values (${id}, ${ws}, 'pendiente', 'claude-code', ${resumen},
-                  ${sql.json(tareas)}, ${sql.json(preguntas)}, ${sql.json([])})`;
+                  ${sql.json(tareas)}, ${sql.json([])}, ${sql.json([])})`;
 ```
 
 - `tareas`: `[{ titulo, proyecto, detalle }]`. **No mandes `prioridad` ni `deadline`**: las
@@ -201,8 +202,8 @@ Esta forma va DENTRO DEL VALOR de este campo, no en tu respuesta al usuario. Có
 
   Una tarea con detalle pobre es una que en tres semanas nadie sabe hacer — y el Perro
   estima el ESFUERZO con lo que le des, así que escribir corto la hace parecer barata.
-- `notas` = las **preguntas** `[{ pregunta, tipo, opciones }]`. **Mandá al menos una**:
-  sin preguntas el wizard aplica con `contexto=''` y el Perro puntúa a ciegas.
+- `notas` va **vacío** (`[]`): eran las preguntas del borrador y el alta ya no pregunta
+  nada. Lo que no sepas, escribilo en el `detalle` de la tarea.
 - `eliminar`: `[{ id, motivo }]` si esta carga deja tareas viejas obsoletas o duplicadas.
 
 ### Antes de mandar: ¿ya existe?
@@ -228,43 +229,6 @@ Corre server-side al aplicar, en **Gemini Flash** (`mako-guardian` + `checklist-
 | **`haceloEn`** | si la tarea se resuelve en una tab de MaKo (`lib/mako-capacidades.ts`) |
 
 Las **notas** de una tarjeta son del dueño: la IA no las toca nunca.
-
-### Las preguntas (mismas reglas que MaKo)
-
-Son para **sacarle CONTEXTO al dueño y que EL PERRO decida**, nunca para que él elija la
-prioridad (exagera, se encariña, no sabe priorizar).
-
-- ⛔ Prohibido: "¿qué prioridad le das?", "¿cuál te urge primero?", "¿alta/media/baja?".
-- ✅ Preguntá HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en plata y
-  en cuánto, qué sería "listo", si es 1 tarea o varias.
-- Si la respuesta es obvia o se contradice con lo que ya sabés, **no la preguntes**.
-- **CUÁNTAS: escalá con el tamaño del lote**, ~1 cada 3 tareas (`topePreguntas` en
-  `lib/plan-propuesta.ts`). Con 20 tareas y 4 preguntas, 16 entran a ciegas.
-- **Variá el formato** eligiendo el mejor para cada una, según el catálogo de acá abajo.
-
-<!-- CONTRATO-PREGUNTAS:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->
-
-**Los tipos de pregunta y su campo.** Vive en `lib/preguntas-contrato.ts` y se copia acá
-sola: si cambia allá, cambia acá. No la edites a mano.
-
-> TIPO Y OPCIONES — TIENEN QUE SER COHERENTES ENTRE SÍ. Es donde más se falla, y una pregunta incoherente es una pregunta que el dueño no puede contestar:
-> · "opcion" → una sola respuesta, excluyente. OBLIGATORIO: 2 a 6 opciones cortas y concretas.
-> · "multi" → pueden valer VARIAS a la vez. OBLIGATORIO: 2 a 6 opciones. NO agregues "Todas" ni "Ambas": para eso tilda varias.
-> · "comparacion" → enfrentar DOS ítems para ver cuál pesa más. OBLIGATORIO: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
-> · "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Puedes sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
-> · "escala" → intensidad de 1 a 5, y NADA MÁS. NO lleva opciones: el dueño ve los números pelados. Por eso la pregunta TIENE que decir qué significan los dos extremos, dentro del enunciado mismo: "¿Qué tan firme es esa fecha? (1 = es una idea, 5 = ya está comprometida con el cliente)".
-> · "texto" → un campo abierto. ⛔⛔ **CASI NUNCA.** La regla del dueño es NUNCA campos abiertos: un textarea vacío es la pregunta que más se saltea. Úsalo solo si de verdad no existe ningún otro campo que la conteste, y antes de usarlo intenta dos veces convertirla en "opcion" o en "fecha". Si mandas cualquier otro tipo sin las opciones que ese tipo exige, la pregunta **se descarta entera** — no se convierte en un campo abierto.
->
-> ⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntas cuándo, el tipo es "fecha"; si preguntas cuánto, dale opciones con rangos concretos.
-> ⛔ Una "escala" sin los extremos explicados en el enunciado es una pregunta muerta.
-> ⛔ Una "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambia la pregunta hasta que se te ocurran, o no la hagas.
->
-> ⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Lee tu enunciado y lee tus opciones: si al elegir una la frase no queda contestada, está mal.
->   MAL (pasó de verdad): "¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?" con opciones ["CRM", "Chats", "Plan", "Dashboard"]. El enunciado es "¿A o B?" y abajo hay una lista de sustantivos: ninguna opción lo contesta.
->   BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambias el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
->   Nunca dejes un enunciado binario con una lista de nombres abajo.
-
-<!-- CONTRATO-PREGUNTAS:FIN -->
 
 ## 3. Entregá el link ENTERO (o abrilo) y pará
 

@@ -7,7 +7,7 @@
 // y para cualquier cliente.
 //
 // La regla que enseña es la misma para todos los orígenes: el agente NO crea
-// tareas — deja un borrador con preguntas y el Perro Guardián puntúa al aplicar.
+// tareas — deja un borrador y el Perro Guardián puntúa al aplicar.
 // Función pura (sin server-only) para poder mostrarla y copiarla desde la UI.
 // =============================================================================
 
@@ -204,8 +204,8 @@ puede rotarlo en MaKo cuando termine.
 ## LA REGLA (no negociable)
 
 Todo lo que entra al plan pasa por el MISMO proceso: se resuelve lo deducible →
-se preguntan los HECHOS que faltan → **el Perro Guardián puntúa**. Da igual si
-viene de WhatsApp, de una reunión, de un archivo o de aquí.
+lo que falta se escribe en el \`detalle\` → **el Perro Guardián puntúa**. Da igual si
+viene de WhatsApp, de una reunión, de un archivo o de aquí. **El alta no hace preguntas.**
 
 ⛔ No inventes prioridades ni las pidas. ✅ Deja un borrador y pasa el link.
 
@@ -405,8 +405,7 @@ curl -s -X POST "$BASE/api/agente/plan" \\
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \\
   -d '{
     "resumen": "Qué encontraste, en una línea",
-    "tareas": [{ "titulo": "...", "proyecto": "<nombre EXACTO de uno del GET>", "detalle": "..." }],
-    "preguntas": [{ "pregunta": "...", "tipo": "opcion", "opciones": ["A", "B"] }]
+    "tareas": [{ "titulo": "...", "proyecto": "<nombre EXACTO de uno del GET>", "detalle": "..." }]
   }'
 \`\`\`
 
@@ -474,24 +473,11 @@ Corre al aplicar y en una sola pasada define el **score 1-100**, el **deadline y
 (vacío es respuesta válida; nunca pisa una fecha que ya venía), y **amplía** tu descripción
 con su detalle escrito. Las **notas** de una tarjeta son del usuario: la IA no las toca.
 
-### Las preguntas
+### Sin preguntas
 
-Son para sacarle **CONTEXTO** al usuario y que **el Perro decida**, nunca para que él
-elija la prioridad (exagera, se encariña, no sabe priorizar).
-
-- ⛔ Prohibido: "¿qué prioridad le das?", "¿cuál te urge primero?", "¿alta/media/baja?".
-- ✅ Pregunta HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en
-  dinero y cuánto, qué sería "listo", si es una tarea o varias.
-- Si la respuesta es obvia o ya la sabes, **no la preguntes**.
-- **CUÁNTAS: escala con el tamaño del lote**, ~1 cada 3 tareas. Con 20 tareas y 4
-  preguntas, 16 entran a ciegas.
-- **Varía el formato**: \`multi\` (varias válidas — sin opción "todas") · \`opcion\`
-  (excluyente) · \`escala\` (1-5) · \`comparacion\` (A vs B).
-- **Nada de preguntas abiertas**: siempre con opciones para tocar.
-- ⚠️ **Tipo y opciones tienen que ser coherentes**: una \`opcion\` sin \`opciones\` se dibuja
-  sin un solo botón y no se puede contestar. Una \`escala\` NO lleva opciones y la pregunta
-  tiene que explicar los extremos ("1 = es una idea, 5 = ya está comprometido"). Una
-  \`comparacion\` lleva EXACTAMENTE dos.
+El borrador **no lleva preguntas**: el alta no le pregunta nada a la persona, ni la fecha
+ni la prioridad, que las decide el Perro. Lo que no pudiste deducir va escrito en el
+\`detalle\` de la tarea. Si mandas \`preguntas\`, se ignoran.
 
 ### Un lote grande NO se manda de a partes
 

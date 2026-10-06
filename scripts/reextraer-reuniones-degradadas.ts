@@ -48,7 +48,7 @@ async function main() {
   const { getSupabaseServer } = await import('../lib/supabase');
   const { setSetting } = await import('../lib/settings');
   const {
-    extraerTareasDeReunion, preguntasDeContexto, cacheKeyReunion,
+    extraerTareasDeReunion, cacheKeyReunion,
     ROL_CONSULTOR, ROL_DESCONOCIDO,
   } = await import('../lib/plan-fathom');
   const { emailsConCuenta, repartoDeTarea, resumenDelReparto } = await import('../lib/reunion-reparto');
@@ -143,19 +143,14 @@ async function main() {
       const antes = (f.tareas ?? []).length;
       console.log(`    ${antes} → ${nuevas.length} tareas · ${resumen}`);
 
-      // Las preguntas apuntan a títulos que ya no existen: se rehacen sobre las nuevas.
-      // Se le pasan las candidatas PROPIAS tal cual salieron de la extracción: preguntarle
-      // al dueño por el trabajo de otro es justo lo que el `sobre` de cada pregunta vino a
-      // evitar.
-      const { preguntas } = await preguntasDeContexto(
-        out.tareas, f.fuente_titulo ?? '', 'Preguntas de contexto (re-lectura)',
-      ).catch(() => ({ preguntas: [] as unknown[] }));
+      // Las preguntas viejas apuntaban a títulos que ya no existen. No se rehacen: el
+      // alta dejó de preguntar el 05/10/2026, así que `notas` se vacía y listo.
 
       // `cruzado_at: null` ACÁ SÍ corresponde y es la excepción a la regla del día: no se
       // está invalidando trabajo humano, se están reemplazando tareas que ya no existen.
       // Un `enriquece` guardado apunta a un título que se fue con la lectura vieja.
       const { error } = await db.from('plan_propuestas')
-        .update({ tareas: nuevas, resumen, notas: preguntas, cruzado_at: null })
+        .update({ tareas: nuevas, resumen, notas: [], cruzado_at: null })
         .eq('id', f.id).eq('estado', 'pendiente');
       if (error) { console.log(`    ✗ ${error.message}`); return; }
       // El cache se refresca con la lectura buena: es la lista blanca de a quién se le

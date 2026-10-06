@@ -1,9 +1,9 @@
 // =============================================================================
-// probe-revision-borrador — ¿sobrevive la revisión a un F5? ¿y las preguntas?
+// probe-revision-borrador — ¿sobrevive la revisión a un F5?
 // =============================================================================
 // Escribe SOBRE UNA COPIA: crea un borrador de prueba en el workspace indicado,
 // simula la revisión (destildar + reasignar + corregir título), la vuelve a leer
-// como lo haría un F5, pide las preguntas para lo elegido, y BORRA la copia.
+// como lo haría un F5, y BORRA la copia. (Las preguntas se fueron del alta el 05/10/2026.)
 // No toca ningún borrador real.
 //
 //   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/probe-revision-borrador.ts <ws>
@@ -15,7 +15,7 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
 import { runWithWorkspace } from '../lib/workspace';
-import { crearPropuesta, getPropuesta, guardarRevision, preguntasParaCargar, descartarPropuesta } from '../lib/plan-propuesta';
+import { crearPropuesta, getPropuesta, guardarRevision, descartarPropuesta } from '../lib/plan-propuesta';
 
 const WS = Number(process.argv[2] || 9);
 const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
@@ -54,20 +54,6 @@ async function main() {
         && (releida?.tareas ?? []).some((t) => t.titulo.includes('TÍTULO CORREGIDO'));
       console.log(`\n${sobrevive ? '✓' : '✗'} la revisión sobrevive al F5 (destildado + reparto + título corregido)`);
 
-      // — Las preguntas: solo sobre lo que queda tildado y es mío.
-      const elegidas = (releida?.tareas ?? []).filter((t) => t.incluir !== false && !t.esDeOtro);
-      console.log(`\npidiendo preguntas para las ${elegidas.length} elegidas (de ${releida?.tareas.length})…`);
-      const qs = await preguntasParaCargar(elegidas.map((t) => ({ titulo: t.titulo, detalle: t.detalle, proyecto: t.proyecto })));
-      console.log(`MaKo devolvió ${qs.length} pregunta(s):`);
-      for (const q of qs) {
-        console.log(`  · [${q.tipo}] ${q.pregunta}`);
-        console.log(`      opciones: ${(q.opciones ?? []).join(' / ') || '(1-5)'}`);
-        console.log(`      sobre: ${(q.sobre ?? []).map((x) => `«${x}»`).join(' · ') || '(no lo dijo)'}`);
-      }
-      const abiertas = qs.filter((q) => !(q.opciones ?? []).length && q.tipo !== 'escala');
-      console.log(`\n${abiertas.length === 0 ? '✓' : '✗'} todas cerradas (${abiertas.length} abiertas)`);
-      const hablanDeElegidas = qs.every((q) => !q.sobre?.length || q.sobre.some((tt) => elegidas.some((e) => e.titulo.includes(tt.slice(0, 20)) || tt.includes(e.titulo.slice(0, 20)))));
-      console.log(`${hablanDeElegidas ? '✓' : '✗'} ninguna pregunta habla de lo destildado ni de lo de otro`);
     });
   } finally {
     if (id) {

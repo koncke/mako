@@ -33,7 +33,7 @@ import { listPlanBoard, guardarPlanTarea, agregarDependencia, borrarDependencia,
 import { listTareas, editarTarea } from '@/lib/todo';
 import {
   getPropuesta, getPropuestaPorRef, listPropuestasPendientes, estadoDePropuesta, resumenPropuestasPorRefs,
-  descartarPropuesta, crearPropuesta, preguntasParaCargar,
+  descartarPropuesta, crearPropuesta,
 } from '@/lib/plan-propuesta';
 import { matchTarea, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/lib/buscar-tareas';
 import { resolverDeps, estaBloqueada, puedeDepender, type EntidadDep, type ClaseDep, type EstadoDeps } from '@/app/plan/board/dependencias';
@@ -454,7 +454,7 @@ export const RUNNERS: Runners = {
           id: p.id, link: linkBorrador(p.id), resumen: p.resumen, origen: p.origen ?? null,
           enviado_por: soloFueraDeHttp(ctx.canal, p.enviadoPor ?? null), fuente: p.fuenteTitulo ?? null, fuente_fecha: p.fuenteFecha ?? null,
           creado: p.createdAt,
-          tareas: p.tareas.length, preguntas: p.preguntas.length, cierres: p.cerrar.length, bajas_sugeridas: p.eliminar.length,
+          tareas: p.tareas.length, cierres: p.cerrar.length, bajas_sugeridas: p.eliminar.length,
         })),
       });
     },
@@ -484,7 +484,6 @@ export const RUNNERS: Runners = {
           amplia_tarea: t.enriquece ? { id: t.enriquece.id, razon: t.enriquece.razon } : null,
           destildada: t.incluir === false,
         })),
-        preguntas: p.preguntas.map((q) => ({ pregunta: q.pregunta, tipo: q.tipo, opciones: q.opciones })),
         cierres: p.cerrar.map((c) => ({ id: c.id, titulo: c.titulo ?? null, evidencia: c.evidencia, confianza: c.confianza ?? 'media' })),
         bajas_sugeridas: p.eliminar.map((e) => ({ id: e.id, titulo: e.titulo ?? null, motivo: e.motivo ?? null })),
         ya_cargadas: (p.aplicadas ?? []).map((a) => ({ titulo: a.titulo, tarea_id: a.tareaId })),
@@ -514,7 +513,7 @@ export const RUNNERS: Runners = {
           ya_cargadas: (p.aplicadas ?? []).length,
           pendientes_propias: p.tareas.filter((t) => !t.esDeOtro).length,
           pendientes_de_otras_personas: p.tareas.filter((t) => t.esDeOtro).length,
-          cierres: p.cerrar.length, preguntas: p.preguntas.length,
+          cierres: p.cerrar.length,
         },
       });
     },
@@ -580,18 +579,6 @@ export const RUNNERS: Runners = {
         duplicados: out.duplicados.filter((d) => titulo.has(d.id)).map((d) => ({ id: d.id, titulo: titulo.get(d.id), razon: d.razon, link: linkTarea(d.id) })),
         // buscarDuplicados falla abierto (JSON ilegible o veto → []): vacío no prueba nada.
         ...(out.duplicados.length === 0 ? { advertencia: 'El modelo no devolvió ningún duplicado: puede que no haya o que la respuesta haya venido vacía. Ante la duda, revisa con buscar_tareas_plan.' } : {}),
-      });
-    },
-  },
-
-  sugerir_preguntas_tareas: {
-    leer: async (input) => {
-      const tareas = lista(input, 'tareas').map((t) => ({ titulo: str(t, 'titulo'), detalle: str(t, 'detalle') || undefined, proyecto: str(t, 'proyecto') || undefined })).filter((t) => t.titulo);
-      if (!tareas.length) return error('Pasa al menos una tarea con título.');
-      const preguntas = await preguntasParaCargar(tareas);
-      return json({
-        preguntas: preguntas.map((q) => ({ pregunta: q.pregunta, tipo: q.tipo, opciones: q.opciones, sobre: q.sobre ?? [] })),
-        ...(preguntas.length ? {} : { nota: 'Ninguna pregunta: el modelo no vio nada que preguntar, o no hay IA disponible. El borrador se puede proponer igual.' }),
       });
     },
   },
@@ -782,7 +769,7 @@ export const RUNNERS: Runners = {
   // ── Acciones por pantalla (borrador en /plan/revisar) ─────────────────────
 
   // Heredada: la tool vieja valida, arma el borrador y devuelve { ok, link, borrador,
-  // tareas, preguntas, eliminar, instruccion }. `eliminar` ya no se declara como
+  // tareas, eliminar, instruccion }. `eliminar` ya no se declara como
   // parámetro (las bajas no se ejecutan: /plan/revisar no tiene paso de bajas y
   // aplicarPropuestas no borra sin eliminarIds), así que tampoco se devuelve.
   // ⚠️ La tool vieja firma el borrador con origen 'whatsapp' venga de donde venga (por
@@ -797,7 +784,7 @@ export const RUNNERS: Runners = {
       if (j.ok !== true || typeof j.link !== 'string') return { error: String(j.error ?? 'No se pudo armar el borrador.') };
       return {
         id: j.link.split('/').pop() ?? '', url: j.link, nueva: true,
-        extra: { borrador: j.borrador, tareas: j.tareas, preguntas: j.preguntas },
+        extra: { borrador: j.borrador, tareas: j.tareas },
       };
     },
     ejecutar: async () => ({ ok: false, resumen: 'Este borrador se confirma en su pantalla de revisión (/plan/revisar), no por aquí.' }),

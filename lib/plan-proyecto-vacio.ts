@@ -19,14 +19,14 @@ import 'server-only';
 // Acá pesa doble, porque lo que se propone salió de una intuición sobre un nombre de
 // proyecto — es lo más especulativo que produce MaKo en todo el tablero.
 //
-// Y reusa el MISMO form de preguntas que el resto (`preguntasParaCargar`), tal cual lo
-// pidió: no hay una segunda pantalla de revisión ni un segundo contrato de preguntas.
+// Y reusa la MISMA pantalla de revisión que el resto: no hay una segunda. Sin preguntas,
+// como todo alta desde el 05/10/2026.
 // =============================================================================
 
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { chatCheapCascade, errorDeCascada } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
-import { crearPropuesta, preguntasParaCargar, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { crearPropuesta, type PropuestaTarea } from '@/lib/plan-propuesta';
 import { faseNegocioTexto } from '@/lib/fase-store';
 import { contenidoNoConfiable } from '@/lib/prompt-render-pure';
 import { MOLDE_DETALLE } from '@/lib/detalle-contrato';
@@ -157,14 +157,9 @@ export async function proponerTareasParaProyecto(projId: string): Promise<{ id: 
       .slice(0, 10);
     if (!tareas.length) return { error: `MaKo no supo qué tareas tendría «${nombre}». Escríbele una descripción al proyecto y prueba de nuevo.` };
 
-    // EL MISMO form de preguntas que el resto del tablero, tal cual lo pidió el dueño. Si
-    // falla, se sigue igual: un borrador sin preguntas es peor que uno con preguntas, pero
-    // muchísimo mejor que ningún borrador.
-    const preguntas = await preguntasParaCargar(tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle, proyecto: nombre }))).catch(() => []);
-
     const nota = str(obj.nota).trim().slice(0, 300);
     const id = await crearPropuesta({
-      tareas, preguntas, origen: 'proyecto-vacio',
+      tareas, origen: 'proyecto-vacio',
       resumen: `Tareas para «${nombre}», que estaba sin ninguna${nota ? ` · ${nota}` : ''}`,
       // Anti-duplicado: si ya hay un borrador pendiente para este proyecto, devuelve ese en
       // vez de dejar cinco borradores idénticos porque alguien tocó el botón cinco veces.

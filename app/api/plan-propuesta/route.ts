@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, guardarRevision, guardarActaRevision, type LineaRevision, preguntasParaCargar, tareasDesdeRespuestas, getPropuesta, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, guardarRevision, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -105,24 +105,10 @@ export async function POST(req: NextRequest) {
       if (!r) return NextResponse.json({ ok: false, error: 'No existe la propuesta.' }, { status: 404 });
       return NextResponse.json(r);
     }
-    if (action === 'profundizar') {
-      // Formularios DINÁMICOS: con las respuestas dadas, MaKo genera 0-3 repreguntas de
-      // contexto (nunca prioridad). El wizard las inserta antes de aplicar.
-      const respuestas = Array.isArray(body.respuestas)
-        ? (body.respuestas as unknown[]).map((r) => { const o = (r ?? {}) as Record<string, unknown>; return { pregunta: String(o.pregunta ?? ''), respuesta: String(o.respuesta ?? '') }; })
-        : [];
-      const preguntas = await profundizarPropuesta(id, respuestas);
-      return NextResponse.json({ ok: true, preguntas });
-    }
-    // EL ACTA de lo que se preguntó y se contestó. Va por su propia acción y no
-    // colgada de 'guardar' a propósito: se escribe apenas hay respuestas, incluso si
-    // el wizard se abandona a la mitad — y ese es justo el caso donde uno quiere saber
-    // qué pregunta lo hizo abandonar. Ver lib/plan-propuesta.ts → guardarActaRevision.
-    if (action === 'acta') {
-      const lineas = Array.isArray(body.lineas) ? (body.lineas as LineaRevision[]) : [];
-      return NextResponse.json({ ok: await guardarActaRevision(id, lineas) });
-    }
-
+    // ⛔ Acá vivían 'preguntar', 'profundizar', 'tareas-extra' y 'acta': las cuatro
+    // servían al paso de preguntas del alta, que se fue el 05/10/2026 («habíamos dicho de
+    // sacar absolutamente toda la fricción al agregar tareas»). Una pestaña vieja que
+    // todavía las pida cae en «action inválida» de abajo, que es lo correcto.
     if (action === 'guardar') {
       // Guarda la revisión en curso (reparto + destildado + correcciones) sin aplicar
       // nada. Es lo que hace que un F5 no borre veinte reasignaciones hechas a mano.
@@ -131,26 +117,6 @@ export async function POST(req: NextRequest) {
       // sella el borrador para que ese análisis no se repita en cada apertura.
       const ok = await guardarRevision(id, tareas, body.cruzado === true);
       return NextResponse.json({ ok });
-    }
-    // Las tareas que SALEN de lo que el dueño contestó en el wizard. No crean nada:
-    // se muestran en el último paso, con checkbox y contexto editable.
-    if (action === 'tareas-extra') {
-      const prop = await getPropuesta(id);
-      if (!prop) return NextResponse.json({ ok: false, error: 'No existe la propuesta.' }, { status: 404 });
-      const respuestas = Array.isArray(body.respuestas)
-        ? (body.respuestas as unknown[]).map((r) => { const o = (r ?? {}) as Record<string, unknown>; return { pregunta: String(o.pregunta ?? ''), respuesta: String(o.respuesta ?? '') }; })
-        : [];
-      const tareas = await tareasDesdeRespuestas(prop.tareas.filter((t) => !t.esDeOtro).map((t) => ({ titulo: t.titulo, detalle: t.detalle })), respuestas);
-      return NextResponse.json({ ok: true, tareas });
-    }
-    if (action === 'preguntar') {
-      // Las preguntas de contexto para EXACTAMENTE lo que se va a cargar (no para todo
-      // lo que sacó la reunión: entre medio el dueño destildó y repartió).
-      const tareas = Array.isArray(body.tareas)
-        ? (body.tareas as unknown[]).map((t) => { const o = (t ?? {}) as Record<string, unknown>; return { titulo: String(o.titulo ?? ''), detalle: o.detalle ? String(o.detalle) : undefined, proyecto: o.proyecto ? String(o.proyecto) : undefined }; })
-        : [];
-      const preguntas = await preguntasParaCargar(tareas);
-      return NextResponse.json({ ok: true, preguntas });
     }
     if (action === 'descartar') {
       const ok = await descartarPropuesta(id);

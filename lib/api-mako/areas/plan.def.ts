@@ -144,7 +144,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_borrador_plan', area: 'plan', tipo: 'lectura',
     titulo: 'Ver un borrador de tareas',
-    descripcion: 'El contenido de UN borrador: tareas propuestas (con quién la asumió, si amplía una que ya existe, en qué minuto de la grabación se dijo), preguntas de contexto, cierres con su evidencia, bajas sugeridas (informativas: no se ejecutan) y las que ya se cargaron. El id viene de listar_borradores_plan o del link /plan/revisar/<id>: cópialo tal cual, nunca de memoria.',
+    descripcion: 'El contenido de UN borrador: tareas propuestas (con quién la asumió, si amplía una que ya existe, en qué minuto de la grabación se dijo), cierres con su evidencia, bajas sugeridas (informativas: no se ejecutan) y las que ya se cargaron. El id viene de listar_borradores_plan o del link /plan/revisar/<id>: cópialo tal cual, nunca de memoria.',
     parametros: [
       { nombre: 'id', tipo: 'string', descripcion: 'id del borrador (empieza con «prop»).', obligatorio: true, max: 80 },
     ],
@@ -200,22 +200,6 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Dada UNA tarea del plan (por id), cuáles de las otras tareas abiertas son en el fondo el mismo trabajo aunque estén escritas distinto, con la razón. Semántica, no coincidencia de palabras. Útil antes de proponer bajas o para fusionar contexto.',
     parametros: [
       { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#412».', obligatorio: true, max: 80 },
-    ],
-    salida: 'json', canales: SIN_HTTP, costo: 'ia', lenta: true, gating: TAB_ADMIN,
-  },
-  {
-    id: 'sugerir_preguntas_tareas', area: 'plan', tipo: 'lectura',
-    titulo: 'Preguntas antes de cargar tareas',
-    descripcion: 'Las preguntas de contexto que el Perro Guardián necesita para puntuar EXACTAMENTE estas tareas: deadlines duros, bloqueos, dinero real, alcance, qué es «listo». Nunca preguntan la prioridad. Devuelve preguntas con tipo y opciones listas para pasar en `preguntas` de proponer_tareas_plan. Puede devolver ninguna. No crea nada.',
-    parametros: [
-      {
-        nombre: 'tareas', tipo: 'object[]', descripcion: 'las tareas que se van a proponer.', obligatorio: true, max: 80,
-        campos: [
-          { nombre: 'titulo', tipo: 'string', descripcion: 'título de la tarea.', obligatorio: true, max: 200 },
-          { nombre: 'detalle', tipo: 'string', descripcion: 'detalle de la tarea.', max: 2000 },
-          { nombre: 'proyecto', tipo: 'string', descripcion: 'nombre del proyecto al que iría.', max: 120 },
-        ],
-      },
     ],
     salida: 'json', canales: SIN_HTTP, costo: 'ia', lenta: true, gating: TAB_ADMIN,
   },
@@ -315,7 +299,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_tareas_plan', area: 'plan', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/plan/revisar', reversible: true,
     titulo: 'Proponer tareas al plan',
-    descripcion: 'PROPONE agregar tareas al plan: deja un BORRADOR con las tareas y las preguntas de contexto. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir (fechas duras, si un ítem es una tarea o varias, qué bloquea) va en `preguntas` con 2-4 opciones: se contestan de a una en la pantalla. NUNCA preguntes la prioridad: la decide el Perro Guardián al aplicar. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.',
+    descripcion: 'PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir va escrito en el `detalle` de la tarea: el alta NO hace preguntas, y la prioridad y la fecha las decide el Perro Guardián al aplicar. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.',
     parametros: [
       {
         nombre: 'tareas', tipo: 'object[]', descripcion: 'las tareas a agregar, con lo deducible resuelto.', obligatorio: true, max: 30,
@@ -325,14 +309,6 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'proyecto', tipo: 'string', descripcion: 'NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó.', max: 120 },
           { nombre: 'deadline', tipo: 'string', descripcion: 'fecha límite AAAA-MM-DD, solo si la dijeron.', max: 10 },
           { nombre: 'prioridad', tipo: 'string', descripcion: 'se ignora al aplicar: la decide el Perro Guardián.', enum: ['alta', 'media', 'baja', 'futuro'] },
-        ],
-      },
-      {
-        nombre: 'preguntas', tipo: 'object[]', descripcion: 'hechos que el Perro no puede deducir (nunca la prioridad). Tope 8.', max: 8,
-        campos: [
-          { nombre: 'pregunta', tipo: 'string', descripcion: 'la pregunta, concreta y sobre ESTAS tareas.', obligatorio: true, max: 300 },
-          { nombre: 'tipo', tipo: 'string', descripcion: 'cómo se contesta, coherente con las opciones.', enum: ['opcion', 'multi', 'fecha', 'escala', 'comparacion', 'texto'] },
-          { nombre: 'opciones', tipo: 'string[]', descripcion: '2-4 respuestas probables.', max: 6 },
         ],
       },
     ],
@@ -378,7 +354,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_tareas_proyecto_vacio', area: 'plan', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/plan/revisar', reversible: true,
     titulo: 'Proponer tareas para proyecto vacío',
-    descripcion: 'Para un proyecto sin tareas abiertas (de listar_proyectos_vacios), MaKo intuye las tareas que tendría y deja un borrador con preguntas. Es lo más especulativo que produce: nunca crea tareas, la persona las revisa y corrige. Solo en el tablero del super-admin. Devuelve un LINK: pásalo tal cual.',
+    descripcion: 'Para un proyecto sin tareas abiertas (de listar_proyectos_vacios), MaKo intuye las tareas que tendría y deja un borrador. Es lo más especulativo que produce: nunca crea tareas, la persona las revisa y corrige. Solo en el tablero del super-admin. Devuelve un LINK: pásalo tal cual.',
     parametros: [
       { nombre: 'projId', tipo: 'string', descripcion: 'id del proyecto vacío (de listar_proyectos_vacios).', obligatorio: true, max: 80 },
     ],

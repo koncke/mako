@@ -19,7 +19,6 @@ import 'server-only';
 // =============================================================================
 
 import { chatClaude } from './anthropic';
-import { sanearPregunta, avisoSaneo, CONTRATO_TIPOS_PREGUNTA, type Pregunta } from './preguntas-contrato';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { sumarUsage, type UsageInfo } from './anthropic-usage';
@@ -600,98 +599,9 @@ export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: s
   return { tareas: out, fusionadas: quitar.size, usage };
 }
 
-export const PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE = `Eres el Perro Guardián de MaKo. Te paso las tareas que salieron de una reunión, tal como quedaron. Antes de priorizarlas necesitas CONTEXTO que la reunión no dejó claro.
-
-Tu trabajo: hacer las preguntas MÍNIMAS que cambian cómo se prioriza o se ejecuta esto.
-
-⛔ REGLAS DURAS:
-- NUNCA preguntes qué prioridad poner, qué urge más, ni en qué orden hacerlo. Ese es TU trabajo, no el del dueño (el dueño exagera y no sabe priorizar). Prohibido "¿qué prioridad?", "¿cuál primero?", "¿alta o media?".
-- Pregunta HECHOS que no puedes deducir de las tareas: fechas duras que ya existen (esas van con tipo "fecha"), de qué DEPENDE algo, quién tiene que estar, cuánto dinero mueve, si un ítem es una tarea o varias, qué versión/herramienta se eligió.
-- Si la respuesta ya está en las tareas o en el detalle, NO la preguntes.
-- Si no cambia NADA de lo que va a pasar, no la hagas.
-- CERRADAS SIEMPRE: nada de preguntas abiertas. Cada pregunta con un campo concreto para tocar — 2-4 opciones, o el calendario de "fecha". Cómo elegir el campo, abajo.
-- CADA PREGUNTA DECLARA DE QUÉ TAREAS HABLA: en "sobre" va el título de cada una, copiado TAL CUAL de entre las comillas « » de la lista (sin el detalle que va después del guion). Si no puedes atribuirla a ninguna tarea concreta de la lista, NO la hagas: es una pregunta sobre la reunión en general, y eso no lo necesitamos.
-- HAZ LAS QUE HAGAN FALTA, ni una más. Si la reunión dejó 9 cosas ambiguas, son 9 preguntas; si no dejó ninguna, devuelve cero. Lo que NO vale es inventar preguntas para llenar, ni comerte una que de verdad cambia la ejecución.
-
-{{contratoTipos}}
-
-Escribe como MaKo: neutro, corto, sin vueltas.
-
-{{jsonShape}}`;
-
-export const PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE = `REUNIÓN: {{reunion}}
-
-TAREAS QUE SALIERON:
-{{tareas}}`;
-
-// El enum sale del contrato compartido y ya no se escribe a mano acá. La versión
-// vieja ofrecía "escala" sin explicarla NUNCA en todo el prompt y exigía opciones
-// para TODA pregunta: un modelo al que le ofrecen un valor sin definírselo lo usa
-// de comodín, y así una pregunta de deadline salía como {tipo:'escala', opciones:
-// [fechas]} — el saneo tiraba las fechas y en pantalla quedaban cinco números.
-const PREGUNTAS_JSON_SHAPE = `Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
-{
-  "preguntas": [
-    {
-      "pregunta": "<corta y concreta, sobre un HECHO>",
-      "tipo": "opcion" | "multi" | "fecha" | "escala" | "comparacion" | "texto",
-      "opciones": ["<2-4 respuestas cortas y concretas — vacío si el tipo no las lleva>"],
-      "sobre": ["<el título de cada tarea afectada, copiado tal cual de entre las « » de la lista>"]
-    }
-  ]
-}
-Si la reunión no dejó nada ambiguo, devuelve {"preguntas": []}.`;
-
-/**
- * Las preguntas de contexto para un lote de tareas de reunión. CERRADAS (con opciones),
- * como el resto de la app: el dueño toca y sigue.
- *
- * Existían solo para los borradores que arma MaKo por WhatsApp; los de reuniones se
- * creaban sin ninguna, así que el Perro priorizaba a ciegas sobre 70 tareas.
- */
-export async function preguntasDeContexto(
-  tareas: TareaCandidata[], reunion: string, usoMotivo?: string,
-): Promise<{ preguntas: Pregunta[]; usage?: UsageInfo }> {
-  const mias = tareas.filter((t) => !t.esDeOtro);
-  if (mias.length < 3) return { preguntas: [] };   // un lote chico no necesita ceremonia
-  // El título entre « » para que el modelo lo cite EXACTO en `sobre` sin arrastrar el
-  // detalle: eso es lo que después deja filtrar las preguntas que ya no te tocan.
-  const lista = mias.map((t, i) => `${i + 1}. «${t.titulo}»${t.detalle ? ` — ${t.detalle.slice(0, 120)}` : ''}`).join('\n');
-  const sys = await brandSystem(await renderPrompt('plan-fathom.preguntas.system', PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, { contratoTipos: CONTRATO_TIPOS_PREGUNTA, jsonShape: PREGUNTAS_JSON_SHAPE }));
-  const user = await renderPrompt('plan-fathom.preguntas.user', PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE, {
-    reunion: reunion || '(sin título)',
-    tareas: contenidoNoConfiable(lista, 'tareas'),
-  });
-  let usage: UsageInfo | undefined;
-  try {
-    const raw = await chatClaude(sys, [{ role: 'user', content: user }], {
-      // Sin tope de preguntas, el techo de salida importa: Gemini gasta ~2.900 tokens
-      // PENSANDO dentro del mismo presupuesto y una respuesta cortada se pierde entera.
-      effort: 'high', maxTokens: 12000, feature: 'plan-fathom',
-      motivo: usoMotivo || 'Preguntas de contexto de la reunión', onUsage: (u) => { usage = u; },
-    });
-    const obj = parseJsonObject(raw);
-    const arr = Array.isArray(obj.preguntas) ? obj.preguntas : [];
-    // El saneo es el MISMO que usan el borrador y las dos pantallas
-    // (lib/preguntas-contrato.ts). Antes acá había un segundo normalizador, parecido
-    // pero distinto en tres cosas —un tipo desconocido caía en 'opcion' en vez de
-    // degradarse, el tope de opciones era 4 y no 6, y no tenía ninguna regla para la
-    // escala—, así que la MISMA pregunta quedaba distinta según por qué puerta entró.
-    // Ya no hace falta el filtro que había («o es escala o tiene 2+ opciones»): ese
-    // DESCARTABA en silencio lo que ahora se arregla, y encima dejaba pasar cualquier
-    // escala. `sanearPregunta` devuelve siempre un tipo que se puede contestar.
-    const preguntas = arr
-      .map((o) => sanearPregunta(o, avisoSaneo('plan-fathom')))
-      .filter((p): p is NonNullable<typeof p> => !!p)
-      // Tope alto y solo de seguridad (que un modelo desbocado no devuelva 200): la
-      // cantidad la decide la reunión, no un número que elegimos nosotros.
-      .slice(0, 25);
-    return { preguntas, usage };
-  } catch (e) {
-    console.error(`[plan-fathom] preguntas: ${e instanceof Error ? e.message : String(e)}`);
-    return { preguntas: [], usage };
-  }
-}
+// ⛔ Acá vivían las preguntas de contexto que el cron armaba al leer cada reunión, para
+// contestarlas antes de cargar. Se fueron el 05/10/2026 con el paso de preguntas del
+// alta: «habíamos dicho de sacar absolutamente toda la fricción al agregar tareas».
 
 /** "12:34" / "1:03:40" — para listarle los momentos al revisor. */
 function relojCorto(seg?: number): string {

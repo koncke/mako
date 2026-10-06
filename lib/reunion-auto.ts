@@ -27,7 +27,7 @@ import 'server-only';
 // negocio lee SU Fathom con SU key y escribe en SU tablero.
 // =============================================================================
 
-import { listReunionesRecientes, extraerTareasDeReunion, preguntasDeContexto, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
+import { listReunionesRecientes, extraerTareasDeReunion, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
 import { crearPropuesta, existePropuestaRef, type PropuestaTarea } from './plan-propuesta';
 import { criterioDelWorkspace } from './plan-criterio';
 import { juzgarConCriterio, type SalidaJuez } from './plan-criterio-juez';
@@ -504,11 +504,10 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         .map((p) => p.nombre || p.email.split('@')[0])
         .slice(0, 3).join(', ');
 
-      // Preguntas CERRADAS de contexto: lo que la reunión no dejó claro y el Perro
-      // necesita para priorizar bien. Se responden en el modal, antes de cargar.
-      const { preguntas } = await preguntasDeContexto(tareas, r.titulo, 'Preguntas de contexto (reunión nueva)').catch(() => ({ preguntas: [] }));
+      // ⛔ Acá se armaban preguntas de contexto para responder antes de cargar. El alta
+      // dejó de preguntar el 05/10/2026: el Perro decide fecha y prioridad solo.
       const propId = await crearPropuesta({
-        ws, ref, tareas: propuestas, preguntas, origen: 'fathom',
+        ws, ref, tareas: propuestas, origen: 'fathom',
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         // CON QUÉ CLIENTE fue (mig 0160). Antes se usaba para elegir el proyecto y se
         // tiraba: al confirmar ya no había reunión a la cual preguntarle, y las tareas

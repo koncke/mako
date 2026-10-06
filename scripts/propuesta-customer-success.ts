@@ -406,7 +406,7 @@ async function main() {
       `${NUEVAS.length} nuevas y ${ampliar.length} que ya existían y se amplían en vez de duplicarse (#109, #287, #327, #521, #29 y #332 — el barrido las encontró a mano contra las 461 abiertas). ` +
       `El programa completo, con los 12 módulos de la propuesta original, vive en /admin/dev/customer-success.`,
     tareas,
-    preguntas: PREGUNTAS,
+    // `preguntas: PREGUNTAS` ya no viaja: el alta dejó de preguntar (05/10/2026).
     eliminar: [],
     cerrar: [],
   });

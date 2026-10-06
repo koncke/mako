@@ -8,7 +8,7 @@
 //        que ya está anotado y pueda avisar si hay algo alta/vencido.
 // POST → deja un BORRADOR (plan_propuestas) y devuelve la URL de revisión.
 //
-// LA REGLA: el agente NO crea tareas. Crea una propuesta con preguntas; el humano
+// LA REGLA: el agente NO crea tareas. Crea una propuesta; el humano
 // la revisa en /plan/revisar/<id> y al aplicar corre el Perro Guardián. Es el
 // MISMO camino que MaKo por WhatsApp — un solo proceso para todos los orígenes.
 //
@@ -124,7 +124,8 @@ export async function POST(req: NextRequest) {
             enriquece: o.enriquece as { id: string; razon: string; confianza?: 'alta' | 'media' } | undefined,
           };
         }),
-        preguntas: Array.isArray(body.preguntas) ? body.preguntas : [],
+        // `preguntas` ya no viaja: el alta dejó de preguntar (05/10/2026). Si un agente
+        // viejo las manda, se ignoran acá y no en el borrador.
         eliminar: Array.isArray(body.eliminar) ? body.eliminar : [],
         // «Estas ya están hechas»: el agente las PROPONE con su evidencia (commit,
         // archivo:línea) y el dueño las confirma de a una en /plan/revisar. Nunca se

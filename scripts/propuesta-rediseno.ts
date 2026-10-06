@@ -268,7 +268,7 @@ async function main() {
 
   const id = await runWithWorkspace(ws.id, () => crearPropuesta({
     tareas: TAREAS.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, detalle: t.detalle })),
-    preguntas: PREGUNTAS,
+    // `preguntas: PREGUNTAS` ya no viaja: el alta dejó de preguntar (05/10/2026).
     eliminar: ELIMINAR,
     resumen: RESUMEN,
     origen: 'claude-code',

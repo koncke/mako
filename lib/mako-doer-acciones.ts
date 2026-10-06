@@ -13,7 +13,6 @@ import 'server-only';import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle
 
 
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
-import { CONTRATO_TIPOS_PREGUNTA } from '@/lib/preguntas-contrato';
 import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalogo';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes, reclamarPendiente } from '@/lib/mako-pendientes';
@@ -457,7 +456,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
   },
   {
     name: 'proponer_tareas_plan',
-    description: 'PROPONE agregar TAREAS al plan del negocio. Úsala cuando te pasan una lista de cosas para el plan (aunque venga desordenada). Cada tarea necesita al menos un título. Resuelve tú lo DEDUCIBLE (a qué proyecto va, dedup con ver_plan). Para lo que NO puedes deducir (fechas/urgencia, si un ítem es 1 o varias tareas, prioridad), NO hagas el ida-y-vuelta por WhatsApp: pasa esas dudas en "preguntas" (cada una con 2-4 opciones) — se responden de a UNA en la pantalla de revisión de la app. La tool te devuelve un LINK a esa pantalla: pásaselo tal cual, NO pidas "sí" ni repitas la lista por el chat.',
+    description: 'PROPONE agregar TAREAS al plan del negocio. Úsala cuando te pasan una lista de cosas para el plan (aunque venga desordenada). Cada tarea necesita al menos un título. Resuelve tú lo DEDUCIBLE (a qué proyecto va, dedup con ver_plan). Lo que NO puedes deducir va escrito en el "detalle" de la tarea: NO hagas el ida-y-vuelta por WhatsApp y NO armes preguntas — el alta no pregunta nada, y la fecha y la prioridad las decide el Perro Guardián. La tool te devuelve un LINK a la pantalla de revisión de la app: pásaselo tal cual, NO pidas "sí" ni repitas la lista por el chat.',
     input_schema: {
       type: 'object',
       properties: {
@@ -484,32 +483,6 @@ ${MOLDE_DETALLE}
 Lo que no escribas aca SE PERDIO: nadie vuelve a leer el WhatsApp, y el Perro decide el proyecto leyendo esto.` },
             },
             required: ['titulo'],
-          },
-        },
-        preguntas: {
-          type: 'array',
-          // El catálogo de tipos NO se escribe acá: sale de lib/preguntas-contrato.ts,
-          // igual que en los otros generadores. La versión que vivía en este string
-          // enseñaba justo el mapeo equivocado — «¿Intensidad/grado? → escala (ej. ¿qué
-          // tan firme es el deadline?)»— y era el ÚNICO ejemplo de escala que veía el
-          // modelo: de ahí a tipear «¿cuál es el deadline?» como escala hay un paso.
-          description: `Preguntas para SACARLE CONTEXTO al dueño y que EL PERRO GUARDIÁN decida la prioridad. ⛔ REGLA DURA: NUNCA le preguntes qué prioridad poner ni qué le urge más — ese es el trabajo del Perro (el dueño exagera y no sabe priorizar). PROHIBIDO "¿qué prioridad?", "¿cuál te urge?", "¿alta/media/baja?". Pregunta HECHOS que el Perro no puede deducir: deadlines duros (tipo "fecha"), qué BLOQUEA o de qué DEPENDE, qué mueve en DINERO y en cuánto, qué sería "listo", si es 1 tarea o varias.
-
-CRITERIO — CADA pregunta tiene que TENER SENTIDO y SUMAR:
-1) Si la respuesta es OBVIA o ya se sabe por las tareas, NO la preguntes. No preguntes cosas que se contradicen con lo dicho (ej: si los leads entran por Ads de Meta, no preguntes "¿por qué canal entran?").
-2) Si no cambia NADA para el Perro, no la hagas.
-
-HAZ LAS QUE HAGAN FALTA (lista larga → varias).
-
-${CONTRATO_TIPOS_PREGUNTA}`,
-          items: {
-            type: 'object',
-            properties: {
-              pregunta: { type: 'string', description: 'la pregunta, corta y concreta. Sobre HECHOS/CONTEXTO, no sobre qué prioridad poner. Que tenga sentido para las tareas.' },
-              tipo: { type: 'string', enum: ['opcion', 'multi', 'fecha', 'escala', 'comparacion', 'texto'], description: 'ELIGE el mejor: multi (varias válidas) / opcion (una excluyente) / fecha (¿para cuándo? → calendario) / escala (intensidad 1-5, con los extremos explicados en el enunciado) / comparacion (A vs B). NUNCA escala para preguntar cuándo.' },
-              opciones: { type: 'array', description: '2-6 respuestas cortas (opcion/multi); los DOS ítems a enfrentar (comparacion); 2-4 atajos opcionales (fecha). Escala y texto no la llevan.', items: { type: 'string' } },
-            },
-            required: ['pregunta', 'tipo'],
           },
         },
         eliminar: {
@@ -830,7 +803,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
             // que no está en el catálogo lo deja igual — ahí manda el Perro al aplicar.
             proyecto: x.proyecto ? canonNombre(String(x.proyecto).trim()).slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 6000) : undefined }))
           .filter((t) => t.titulo);
-        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resuelve lo deducible con ver_plan; si falta info, ponla en "preguntas" — no preguntes por aquí.' });
+        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resuelve lo deducible con ver_plan; si falta info, escríbela en el "detalle" — no preguntes por aquí.' });
         // CANDADO: el mensaje era un "sí" pelado y no una lista → las tareas no salen
         // de lo que el dueño acaba de decir, salen de la memoria del modelo. Cortarlo acá
         // (no con una instrucción en el prompt) es lo único que evita que reviva
@@ -841,14 +814,6 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
             error: 'CONFIRMACIÓN SIN LISTA: el último mensaje es un "sí/dale" y no trae las tareas. NO inventes ni las saques del historial — pueden ser de otra conversación. Pregunta a QUÉ lista se refiere, o si venía de una reunión dile que entre al plan a confirmarla, o pídele que te la pegue.',
           });
         }
-        const preguntasRaw = (input as { preguntas?: unknown }).preguntas;
-        const preguntas = Array.isArray(preguntasRaw)
-          ? preguntasRaw.map((p) => {
-              if (typeof p === 'string') return { pregunta: p.trim().slice(0, 300), opciones: [] as string[], tipo: undefined as string | undefined };
-              const o = (p ?? {}) as Record<string, unknown>;
-              return { pregunta: String(o.pregunta ?? '').trim().slice(0, 300), opciones: Array.isArray(o.opciones) ? o.opciones.map((x) => String(x).trim()).filter(Boolean).slice(0, 6) : [], tipo: typeof o.tipo === 'string' ? o.tipo : undefined };
-            }).filter((p) => p.pregunta).slice(0, 8)
-          : [];
         const eliminarRaw = (input as { eliminar?: unknown }).eliminar;
         const eliminar = Array.isArray(eliminarRaw)
           ? eliminarRaw.map((e) => { const o = (e ?? {}) as Record<string, unknown>; return { id: String(o.id ?? '').trim().slice(0, 80), motivo: o.motivo ? String(o.motivo).slice(0, 300) : undefined }; }).filter((e) => e.id).slice(0, 30)
@@ -856,21 +821,21 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const resumen = `Agregar ${tareas.length} tarea${tareas.length === 1 ? '' : 's'} al plan${eliminar.length ? ` y borrar ${eliminar.length}` : ''}`;
 
         // BORRADOR + link a /plan/revisar para TODOS (dueño y clientes): nada de ida-y-vuelta
-        // ni "sí" por WhatsApp. Las preguntas se responden de a una en la app; las bajas se confirman con checkbox.
+        // ni "sí" por WhatsApp. Sin preguntas: el alta no pregunta nada desde el 05/10/2026.
         try {
-          const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), preguntas, eliminar, resumen, origen: 'whatsapp' });
+          const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), eliminar, resumen, origen: 'whatsapp' });
           const link = `${APP_URL}/plan/revisar/${id}`;
           // Los números van SIEMPRE, incluido el cero. Antes `extras` quedaba vacío cuando
           // no había preguntas y el modelo rellenaba el hueco inventando: se midió en prod
           // que anunciaba «y 3 preguntas» en los seis borradores de WhatsApp del día, y
           // los seis tenían cero. Un hueco en la instrucción se llena solo.
-          const extras = `${preguntas.length} pregunta${preguntas.length === 1 ? '' : 's'} y ${eliminar.length} baja${eliminar.length === 1 ? '' : 's'} sugerida${eliminar.length === 1 ? '' : 's'}`;
-          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: preguntas.length, eliminar: eliminar.length, // ⛔ El link es el punto FRÁGIL de todo esto: el id son 17 caracteres al azar
+          const extras = `${eliminar.length} baja${eliminar.length === 1 ? '' : 's'} sugerida${eliminar.length === 1 ? '' : 's'}`;
+          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, eliminar: eliminar.length, // ⛔ El link es el punto FRÁGIL de todo esto: el id son 17 caracteres al azar
 // («propmskimbc4s4b4h») y el modelo lo tiene que copiar en su mensaje. Se midió
 // mal en prod —un link que apuntaba a otro borrador— así que la instrucción lo
 // dice explícito. Y como una instrucción no es una garantía, /plan/revisar/[id]
 // tiene la red: si el id no existe, ofrece los borradores pendientes que sí hay.
-instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Manda UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" aquí, NO repitas la lista). ⛔⛔ EL LINK SE COPIA Y SE PEGA TAL CUAL, carácter por carácter — no lo reescribas de memoria ni lo acortes: un solo carácter cambiado lo manda a un borrador que no es, o a ninguno. ⛔ Si das un número, usa EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
+instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Manda UNA línea corta + este link para que lo revisen y confirmen EN LA APP (NO pidas "sí" aquí, NO repitas la lista). ⛔⛔ EL LINK SE COPIA Y SE PEGA TAL CUAL, carácter por carácter — no lo reescribas de memoria ni lo acortes: un solo carácter cambiado lo manda a un borrador que no es, o a ninguno. ⛔ Si das un número, usa EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
         } catch (e) {
           return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
         }

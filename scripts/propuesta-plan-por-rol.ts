@@ -56,7 +56,7 @@ async function main() {
   const ws = (wss ?? [])[0] as { id: number };
   const id = await runWithWorkspace(ws.id, () => crearPropuesta({
     tareas: [{ titulo: 'Cada rol con su propio Plan (el del dueño deja de ser el de todos)', proyecto: PROYECTO, detalle: DETALLE }],
-    preguntas: PREGUNTAS,
+    // `preguntas: PREGUNTAS` ya no viaja: el alta dejó de preguntar (05/10/2026).
     resumen: 'Lo único NUEVO del documento de arquitectura: el resto amplió tareas que ya estaban.',
     origen: 'claude-code',
     fuenteTitulo: 'Arquitectura de Información + App Shell (Fase 1, v1)',
