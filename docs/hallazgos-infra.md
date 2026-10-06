@@ -2623,6 +2623,13 @@ formas distintas:
    `node_modules` del clon principal. `Remove-Item` sobre el junction dio
    `NullReferenceException`, y la carpeta del worktree necesita el prefijo `\\?\` (rutas
    largas de `.next/`).
+   ⚠️ **Y NO ES EL ÚNICO JUNCTION: el BUILD deja otro.** `next build` en el worktree crea
+   `.next/node_modules/sharp-<hash>`, un junction al `sharp` del CLON. Medido el 06/10/2026:
+   `git worktree remove --force` borra todo lo de git y deja atrás la carpeta con ese enlace
+   adentro. Borrarla en forma recursiva vacía el `sharp` del clon, y con eso se rompen las
+   imágenes del build de todas las sesiones. Antes de borrar lo que queda, se listan los
+   enlaces (`Get-ChildItem -Recurse -Attributes ReparsePoint`) y se sacan de a uno, igual que
+   el de `node_modules`.
 2. **`.env.local`** — está en `.gitignore`, así que el worktree nace sin él y la app arranca sin
    credenciales. Se copia.
 3. **El puerto** — `next start` y `next dev` compiten igual. `EADDRINUSE` se lee como si el
