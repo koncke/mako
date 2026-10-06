@@ -369,6 +369,26 @@ De ahí tres cosas que valen siempre que haya más de una sesión:
 2. **Si el pre-push da rojo, lo PRIMERO es `git status --short` de los archivos que el
    error nombra.** `??` o ` M` ajeno → no es tuyo: worktree limpio y seguir. `M ` propio
    → es tuyo y se arregla. Saltearse ese paso es lo que produce el reporte equivocado.
+
+   ⚠️ **Y UN GUARD QUE LEE FUENTE NO NOMBRA SU SUJETO: nombra al GUARD.** La regla de
+   arriba se aplica sobre el archivo que el assert LEE, que casi nunca es el que aparece
+   en el error. Medido el 06/10/2026: `tests/landing-optin.test.ts` falló, y como el test
+   dice «landing» se miró el `git status` de `app/integraciones/` y `app/crm/` —las dos
+   limpias— y de ahí salió «es un rojo de HEAD, del commit b42c5194». Las dos
+   afirmaciones eran falsas. El assert hace
+   `leer('../app/api/cron/tracking-vigilante/route.ts')`, y ESE archivo estaba ` M`,
+   escrito a las 02:24 por una tercera sesión que está pasando los links de los avisos a
+   `linkApp(ruta, ws)`: en HEAD `LINK_LANDING` aparece 3 veces y en el disco 0.
+
+   O sea que el reporte acusó al commit equivocado de otra sesión sobre una falla que no
+   existía en HEAD. Son dos comandos y contestan las dos preguntas distintas:
+
+   ```bash
+   grep -n "leer('\|readFileSync" tests/<el-test>.ts   # a quién mira de verdad
+   git show HEAD:<ese-archivo> | grep -c "<lo que el assert pide>"
+   ```
+
+   Si HEAD lo tiene y el disco no, no hay nada que arreglar: hay alguien tipeando.
 3. ⚠️ **UN `tmp-` SIN COMMITEAR ES UN CANDADO PARA TODOS, Y EL QUE LO ESCRIBE ES EL ÚNICO
    QUE NO LO SUFRE.** Un script de diagnóstico con un error de tipos bloqueó el push de
    las otras dos sesiones durante **~3 horas** y les costó dos pushes desde worktree
