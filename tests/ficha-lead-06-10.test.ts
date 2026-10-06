@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { esGrabacionDeEntrega } from '../lib/insights-llamada-reparto';
 import { hrefDeWeb, candidatasDeFoto } from '../lib/contacto-lead';
+import { emojiDe } from './_emoji';
 
 const leer = (p: string) => readFileSync(p, 'utf8');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -140,15 +141,17 @@ test('en la ruta, el bloque del nombre cede y la columna de producto/etapa queda
 // es la lección de ese mismo chat: el guard que leía sólo el bloque conocido dejó pasar
 // cuatro. `✓` y `✕` quedan permitidos: son tipografía monocroma y los usa todo el repo.
 //
-// PROBADO ROMPIÉNDOLO: con la planta de vuelta en «Nutrición», cae.
+// El rango vive en tests/_emoji.ts, compartido con el guard de Ads Manager: había tres
+// rangos distintos en dos archivos, y el flojo no cazaba `⚠` (26A0).
+//
+// PROBADO ROMPIÉNDOLO: con la planta de vuelta en «Nutrición», y con un `⚠` en el mismo
+// lugar, cae (10 / 1 las dos veces).
 test('las pantallas de la ficha y de las campañas no tienen emoji (íconos o nada)', () => {
-  const PICTO = /[\u{1F300}-\u{1FAFF}\u{2460}-\u{24FF}\u{2B00}-\u{2BFF}\u{2600}-\u{26FF}]/u;
   const archivos = [
     'app/crm/LeadSheet.tsx', 'app/crm/[id]/page.tsx', 'app/crm/[id]/LeadDetailBody.tsx',
     'app/crm/lead-view/InfoPrincipalCard.tsx', 'app/crm/lead-view/DatosSinMarcarCard.tsx',
     'app/crm/lead-view/CaraDelLead.tsx', 'app/crm/CampanasModal.tsx', 'app/crm/CampanasDelProducto.tsx',
   ];
-  const malos = archivos.flatMap((f) => sinComentarios(leer(f)).split('\n')
-    .map((l, i) => (PICTO.test(l) ? `${f}:${i + 1} ${l.trim().slice(0, 60)}` : null)).filter(Boolean));
+  const malos = archivos.map((f) => ({ f, e: emojiDe(leer(f)) })).filter((x) => x.e).map((x) => `${x.f}: ${x.e!.join(' ')}`);
   assert.deepEqual(malos, []);
 });
