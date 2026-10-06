@@ -3978,6 +3978,30 @@ Lo que se sigue de eso al escribir código nuevo del editor:
 con razón (`lib/ventana-24h.ts`). Lo que la decisión fija es el ALCANCE — son dos canales,
 y el del chatbot no es el oficial.
 
+# Un negocio tiene VARIAS líneas de WhatsApp: por cuál sale un mensaje lo decide `elegirLinea`
+
+Desde el 06/10/2026 (`0936f1da`, migs 0198+0199) `evolution_instancias` tiene N filas por
+workspace. Mandar por la línea equivocada es mandar desde el WhatsApp de OTRO número — o de otro
+cliente —, y no da error: el mensaje sale.
+
+- **Todo camino nuevo que mande, lea o conecte por el no oficial recibe una `linea` y la pasa a
+  las funciones de `lib/evolution.ts`**, que la resuelven con `elegirLinea`
+  (`lib/lineas-whatsapp.ts`, pura y con test). Sin `linea`, la de por default. Nunca se deriva
+  el nombre del workspace (`instanceNameDeWs(ws)` sólo existe como respaldo de lecturas sin
+  línea pedida), y nunca se elige «a mano».
+- **Una línea pedida que no es del negocio, o que ya no está, NO manda y NO cae a la de por
+  default.** Elegir otra que la pedida es mandar desde el número equivocado sin que nadie lo vea.
+  El motivo vuelve como el error del envío.
+- **Lo que tiene un destinatario guarda su línea**: la secuencia (`nutricion_secuencias.instance_name`),
+  el borrador (`wa_borradores.instance_name`), cada fila del espejo. Un borrador que nombra su
+  línea sale por ella o falla — no se re-apunta ni cae al oficial.
+- **Una respuesta va por la línea a la que la persona escribió**, no por la de la secuencia ni
+  la de por default: es el número que esa persona conoce.
+- **Un link a un chat lleva la línea del chat** (`&linea=`), y una caché de la bandeja lleva la
+  línea en la clave. Las dos cosas se olvidaron en la primera versión y las cazó la revisión.
+- **El nombre de una línea nueva nunca se reusa** (sufijo al azar): el espejo de una línea
+  quitada se queda, y un nombre reusado lo hereda.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

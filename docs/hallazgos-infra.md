@@ -4229,3 +4229,26 @@ export function linkApp(ruta: string, ws: number | null): string {
 **La regla que queda, y es la que gobierna código nuevo:** antes de dar por cerrado un
 barrido de navegación se enumeran las CINCO, y la quinta se busca por otro patrón que las
 demás — no hay `redirect` ni `<Link>` que grepear, hay una interpolación de `APP_BASE_URL`.
+
+## La conexión directa a la base es sólo IPv6: desde una red sin IPv6, el pooler (06/10/2026)
+
+**Vive en:** `scripts/apply-migration.mjs` (lee `DATABASE_URL`) · cualquier script con `postgres`
+
+El host `db.<ref>.supabase.co` de la conexión directa resuelve **sólo a IPv6**. Desde una red que
+no lo da, `postgres` contesta `getaddrinfo ENOENT db.<ref>.supabase.co` — y se lee como «se cortó
+internet», porque a la vez GitHub, Vercel y la API REST de Supabase (`<ref>.supabase.co`, que sí
+tiene IPv4) contestan perfecto. El mismo día, a la madrugada, la 0198 se aplicó por la directa y
+dos horas después la 0199 ya no conectaba: la red cambió, el código no.
+
+- **La salida es el pooler (Supavisor), que sí tiene IPv4**, en modo sesión (puerto 5432, que
+  soporta los bloques `do $$` y `begin/commit` de las migraciones): usuario `postgres.<ref>`, la
+  misma contraseña, host `aws-1-us-west-2.pooler.supabase.com`. ⚠️ **`aws-0-us-west-2` contesta
+  «tenant/user not found»**: el prefijo del cluster no es siempre `aws-0`, y el error no dice
+  «probá aws-1».
+- **Para mirar datos alcanza la REST** (`createClient` con la service role): no necesita la base.
+- Se aplicó pasándole a `apply-migration.mjs` la URL del pooler sólo para ese proceso, armada a
+  partir de `DATABASE_URL` sin imprimirla.
+
+Y una menor del mismo rato: **`vercel ls` escribe la tabla de deploys en STDERR.** Un
+`npx vercel ls 2>/dev/null | grep …` contesta vacío sobre una lista llena, y un bucle que espera
+«Ready» así no termina nunca.

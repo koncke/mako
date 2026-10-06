@@ -8080,7 +8080,10 @@ despachó nada y uno que despachó nueve se ven iguales.
 **Vive en:** `supabase/migrations/0072_evolution_instancias.sql` · `lib/evolution.ts`
 (`instanceNameDeWs`) · `lib/evolution-mensajes.ts` (`getConversacionesNoOficial`)
 
-**SIN HACER.** Es la tarjeta #831 del tablero y lo que sigue es el costo medido, para que
+**✅ HECHO el 06/10/2026 (`0936f1da`)** — ver «Varias líneas de WhatsApp por negocio» más
+abajo. Lo que sigue es el costo que se midió antes, y se respetó el orden que pedía.
+
+Es la tarjeta #831 del tablero y lo que sigue es el costo medido, para que
 no se empiece por la mitad — media implementación acá **manda desde la línea equivocada**,
 que es peor que no tenerla.
 
@@ -8228,3 +8231,98 @@ a `error` aunque el envío salga bien.
 - **La conversación de contexto se lee por lead, no por línea** (`conversacionReciente` en
   `lib/paso-ia.ts`). Con varias líneas de WhatsApp (el #831) hay que decidir si el modelo ve todo
   lo hablado con esa persona o sólo lo de la línea que manda.
+
+## Varias líneas de WhatsApp por negocio (06/10/2026)
+
+**Vive en:** `lib/lineas-whatsapp.ts` (`elegirLinea`, puro) · `lib/evolution.ts` (`listarLineas`,
+`lineaEstricta`/`lineaSuave`, `upsertInstancia`, `conectar({ nueva })`, `desconectar(linea)`) ·
+`lib/evolution-envio.ts` · `lib/evolution-mensajes.ts` · `lib/nutricion.ts` (`canalDeLinea`,
+`setSecuenciaLinea`) · `app/whatsapp/WhatsAppApp.tsx` · `app/whatsapp/EvolutionConnect.tsx` ·
+`app/whatsapp/EmpresaInbox.tsx` · `app/chatbot/SecuenciaPerfil.tsx` · migs 0198 y 0199 ·
+`tests/lineas-whatsapp.test.ts`
+
+Pedido de Martín (06/10): *«haz que los usuarios puedan escanear varios QR, tener varios
+WhatsApp… es la misma dinámica que "Productos" en el CRM… un desplegable que cambiaría el chat.
+Y dentro del chatbot una opción para seleccionar de qué número sale esa automatización»*. Cierra
+la entrada del 05/10 «Vincular DOS líneas» de más arriba, que tenía el costo medido.
+
+**Lo que decide todo: la elección de la línea es UNA función y nadie más elige.** Hasta acá el
+nombre de la instancia se DERIVABA del workspace (`mako_ws<id>`), así que «qué línea» y «qué
+negocio» eran la misma pregunta. Con varias son dos, y equivocar la segunda es mandar desde el
+WhatsApp de otro cliente. `elegirLinea(lineas del ws, pedida, ws)`:
+
+- Una línea PEDIDA se usa sólo si está en la lista del negocio (leída con su scope) y su nombre
+  es de ese workspace. Si no, **no se manda, y no cae a la de por default**: elegir otra que la
+  pedida es mandar desde el número equivocado sin que nadie lo vea.
+- Sin pedido, la de por default (índice parcial único en la base); sin filas, el nombre de
+  siempre — así conectar la primera y todo camino viejo siguen igual.
+
+### Cuatro trampas que estaban en el código de una sola línea
+
+- **`upsertInstancia` hacía `onConflict: 'workspace_id'`.** En cuanto se saca el único por
+  workspace, Postgres rechaza ese `ON CONFLICT` y «conectar» deja de andar para todos. Por eso la
+  migración se partió en DOS: la 0198 agrega (antes del deploy) y la 0199 saca (después).
+- **`getInstanciaRow()` era un `.maybeSingle()` sin filtro.** Con dos filas supabase-js devuelve
+  error y `data` null: los ~15 lugares que preguntan «¿hay WhatsApp?» habrían leído «no» el día
+  que alguien vinculara su segundo número. El mismo `maybeSingle` estaba copiado en
+  `lib/api-mako/areas/chatbot.helpers.ts`.
+- **Los salientes se espejaban con `instance_name: ''`.** Inofensivo con una línea; con dos, un
+  mensaje mandado desde la bandeja no aparecía en el hilo de ninguna. Medido: 12 filas así en
+  producción (9 del ws1, 3 del ws11), rellenadas en la 0198 con la única línea que tenían.
+- **El error de escribir la fila se ignoraba.** Con una línea nueva, una fila que no se escribe
+  deja una instancia viva en Evolution sin dueño, y el webhook contesta «instancia sin workspace»
+  a cada mensaje que entra. Ahora la fila se escribe ANTES de crear la instancia y el error tira.
+
+### Y dos que aparecieron al hacerlo
+
+- **Con dos líneas, la bandeja sin línea es la bandeja de las DOS.** `getConversacionesNoOficial`
+  sin filtro lee el espejo entero: mezcla los hilos y una respuesta sale por la de por default.
+  La pantalla siempre le pasa una línea explícita y espera a tener la lista para montarla.
+- **La caché de hilos de la bandeja era de MÓDULO e indexada sólo por el chat.** Sobrevive al
+  cambio de línea y al de cliente en la misma pestaña; ahora la clave lleva la línea, cuyo nombre
+  ya lleva el workspace.
+
+### Lo que quedó SIN hacer
+
+- **La prueba de punta a punta con un SEGUNDO número escaneado de verdad.** Todo lo de acá se
+  verificó con tests, contra producción (las dos migraciones) y en el navegador con las
+  escrituras abortadas — pero ningún negocio tiene dos líneas todavía. La primera vez que alguien
+  escanee un segundo QR es la prueba que falta.
+- **El cartel rojo de /chatbot sigue mirando la línea por default** (`estadoCanalWhatsapp`, el GET
+  de `/api/chat-agent/secuencias`). La tarjeta de cada secuencia ya avisa si SU número está caído;
+  el cartel general no.
+- **El seguimiento post-llamada** (`lib/post-llamada.ts`, `crearBorrador` sin línea) y **las
+  etiquetas, la foto de perfil y el LID** (lectores sin línea pedida en lib/evolution.ts) van por la
+  de por default.
+- **Desvincular la de por default con otras vivas** deja a las secuencias sin línea apuntando a
+  una caída: hay que tocar «Usar por default» en otra. No se promueve sola a propósito (la persona
+  puede querer volver a escanear la misma).
+- **Un mensaje entre dos líneas del MISMO negocio** choca con el único `(workspace_id,
+  wa_message_id)` del espejo: el lado que llega segundo no se guarda.
+- **El chip verde de la línea por default** sigue arriba mientras se escanea el QR de una nueva.
+
+## La revisión adversarial: 22 confirmados, 0 refutados — y la mitad eran de la pantalla
+
+Una corrida de 6 agentes (3 lentes con su refutador, sobre el árbol sin commitear) encontró 22
+cosas y no se pudo refutar ninguna. Los dos graves los podía producir el uso normal, no un caso
+raro: el nombre reusado que hereda el espejo de otro número, y el borrador asistido saliendo por
+la línea por default. Lo que conviene llevarse para la próxima feature «de uno a varios»:
+
+- **Cada lugar que antes tenía UN valor implícito tiene ahora una pregunta, y las cachés son las
+  que se olvidan.** Dos cachés de MÓDULO en la bandeja (hilos y conversaciones) estaban indexadas
+  como si hubiera una sola línea; ninguna da error, pintan la conversación de otro número por un
+  instante y una de ellas además la marcaba como leída.
+- **Las dos preguntas que una sola línea fundía: «¿qué estoy mirando?» y «¿por dónde manda el
+  chatbot?».** El chip «Chatbot: ON» y la alarma del botón salían de la línea mirada; con dos
+  números se contradecían con la realidad en las dos direcciones.
+- **Un link que nombra un chat necesita la línea del chat**: el de MaKo, el del aviso de mensaje
+  nuevo y el del proxy de la media. Sin ella abren la bandeja de la de por default, y el auto-abrir
+  caía a la primera conversación — la de OTRA persona. Ahora un `?chat=` que no está en la lista
+  se espera en vez de caer.
+- **«Agregar» que crea algo antes de confirmarlo necesita su deshacer al irse**: la fila y la
+  instancia nacen al pedir el QR, así que cancelar dejaba una línea fantasma para siempre.
+
+## Una trampa del entorno: la base directa es sólo IPv6
+
+Ver docs/hallazgos-infra.md → «La conexión directa a la base es sólo IPv6». Costó media hora
+porque se leyó como un corte de red.

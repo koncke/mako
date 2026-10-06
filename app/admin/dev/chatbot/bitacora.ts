@@ -608,4 +608,18 @@ export const BITACORA: Hito[] = [
       { sha: "8b37cb84", msg: "El interruptor de IA en la tarjeta de chat: MaKo adapta el mensaje a cada lead", lineas: 755, archivos: 12 },
     ],
   },
+  {
+    fecha: "6 oct", hora: "05:13", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Varios WhatsApp por negocio: el desplegable de la bandeja y «Sale por» en el chatbot",
+    puntos: [
+      "En /whatsapp (No Oficial) un desplegable con los números del negocio y «Agregar otro número», que pone el QR de la línea nueva en el lugar de los chats — la misma dinámica que el producto en el CRM, con la línea en la URL. En el lienzo del chatbot, «Sale por» en la tarjeta de entrada, sólo con dos números o más. El motor manda cada secuencia por su línea y el borrador asistido contesta por la línea a la que escribió el lead.",
+      "Qué línea manda lo decide una sola función y una línea pedida que no es del negocio no manda: no cae a la de por default, porque eso es mandar desde el número equivocado. La migración se partió en dos (la que agrega antes del deploy, la que saca después) porque el código desplegado conectaba la línea apoyándose en el único que había que sacar.",
+      "Una revisión adversarial de 6 agentes confirmó 22 hallazgos y no se pudo refutar ninguno; todos quedaron arreglados en el mismo commit. Los dos graves los producía el uso normal: una línea nueva reusaba el nombre de una quitada y heredaba sus chats, y el borrador asistido salía por la línea por default.",
+      "SIN HACER: la prueba con un segundo número escaneado de verdad (ningún negocio tiene dos todavía), el cartel rojo general de /chatbot que sigue mirando la línea por default, y el seguimiento post-llamada, que sale por la de por default.",
+    ],
+    commits: [
+      { sha: "0936f1da", msg: "Varias líneas de WhatsApp por negocio: el desplegable de la bandeja y «Sale por» en el chatbot", lineas: 1730, archivos: 29 },
+    ],
+  },
 ];
