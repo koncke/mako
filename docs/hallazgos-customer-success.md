@@ -3337,6 +3337,14 @@ están en `closing_analyses` (`category = 'entrega_servicio'`, con `call_date` y
 Medido con TEXX en el ws1: 18 llamadas ahí. La pestaña une las dos fuentes sin repetir la
 misma grabación.
 
+⚠️ **Corrección del 06/10 (la sesión del CRM):** cuando esto se escribió, «sólo ventas» NO era
+del todo cierto. El webhook de Fathom etiquetaba como «Reunión 2» cada sesión de ENTREGA de un
+cliente que ya había tenido su R2, y había 45 de ésas en `fathom_links` (6 clientes del ws1).
+Ahora no las engancha más y se sacaron; siguen en `closing_analyses` con su `lead_id`, así que
+«Llamadas» las muestra igual. La regla que separa una de otra es `esGrabacionDeEntrega`
+(`lib/insights-llamada-reparto.ts`): lead ganado y grabación ESTRICTAMENTE posterior a
+`fecha_cierre` — el primer pago no sirve, porque el apartado se cobra en la R1.
+
 **Vive en:** `app/customer-success/ficha-datos.ts` (`llamadasDe`), `app/customer-success/ficha-lectura.ts`.
 
 ### Esconder la pestaña «Equipo» no protegía nada
@@ -3499,7 +3507,18 @@ navegador la sirve de caché: el proxy contesta con `max-age`).
   admin mirando a un cliente le pediría la foto a la línea de WhatsApp de SU workspace.
 - El Gravatar sale armado del server (`ficha.fotoEmail`): el hash usa `node:crypto`.
 
-**Vive en:** `app/customer-success/foto-cliente.ts` · *2026-10-06*
+⚠️ **El mismo día la sesión del CRM mudó esta lógica a una pieza común**
+(`app/_components/foto-contacto.ts` + `candidatasDeFoto` en `lib/contacto-lead.ts`, con test),
+porque Martín pidió lo mismo para la ficha del lead. `foto-cliente.ts` quedó como un envoltorio
+que arma el contacto desde `ClienteCruce`: con dos copias, las dos fichas elegirían distinto el
+día que una cambie el orden. Dos datos que midió esa sesión: «la foto del email» es Gravatar —la
+de una cuenta de Gmail no es pública, y 550 de 1155 leads del ws1 son de Gmail, así que la
+mayoría queda en iniciales y no es un bug—; y la de WhatsApp sale de `evolution_contactos.foto_url`,
+que vence a los 10 días (1298 de 1807 vencidas en el ws1), con el proxy tardando hasta 68 s si la
+línea está colgada — mientras tanto se ven las iniciales.
+
+**Vive en:** `app/_components/foto-contacto.ts` · `lib/contacto-lead.ts` ·
+`app/customer-success/foto-cliente.ts` · *2026-10-06*
 
 ### El editor por cajas (lo hizo un agente, verificado en el navegador)
 
