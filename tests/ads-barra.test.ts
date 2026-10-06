@@ -14,12 +14,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+// El rango de emoji y el saneo de comentarios viven en UN lugar: el guard de la ficha
+// del lead nació el mismo día con otro rango, y el más angosto dejaba pasar el ⚠️.
+import { emojiDe, sinComentarios } from './_emoji';
 
 const leer = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace(/\r/g, '');
-// Los comentarios de este repo CITAN lo que se sacó, así que un `doesNotMatch` sobre el
-// archivo entero se acusa a sí mismo (AGENTS.md). Las líneas ANTES que los bloques: un
-// `/*` dentro de un `//` abre un bloque que se cierra páginas abajo.
-const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const BROWSER = 'app/ads-manager/CampanasBrowser.tsx';
 const VISTA = 'app/ads-manager/AdsManagerView.tsx';
@@ -106,9 +105,8 @@ test('la barra de lote lleva ícono Y TEXTO en cada acción, y ni un emoji', () 
   for (const icono of ['sales', 'tag', 'notepencil', 'users', 'creativos', 'trash']) {
     assert.match(bloque, new RegExp(`icono="${icono}"`), `el botón de «${icono}» tiene que traer su ícono`);
   }
-  // Emoji y pictogramas: el rango que incluye 💲🎯🗑, que es lo que había.
-  const emoji = bloque.match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu);
-  assert.equal(emoji, null, `la barra no puede tener emoji: ${emoji?.join(' ')}`);
+  // Que no haya emoji lo fija el guard del ARCHIVO, acá abajo: tenerlo también en este
+  // bloque era la misma pregunta con un rango distinto, que es como se desincronizan.
   //   ROTO A PROPÓSITO (2026-10-06): volviendo «Eliminar» a `>🗑 Eliminar<` sin BotonLote,
   //   pass 9 / fail 1 (cae por el rótulo Y por el emoji).
 });
@@ -135,11 +133,10 @@ test('ni un emoji en toda la tab: siempre un ícono del catálogo', () => {
   // problemas y un 📅/📝 adentro del modal de renombrar, que es donde ahora entra el
   // «Renombrar» de la selección—. Un guard acotado a `rowActionsFor` los dejaba pasar.
   //
-  // Se persiguen los PLANOS pictográficos. ✓ (2713), ✕ (2715) y ✦ (2726) quedan afuera a
-  // propósito: son tipografía monocroma que el repo usa en todos sus modales, no emoji.
-  const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2460}-\u{24FF}\u{2B00}-\u{2BFF}]/gu;
+  // El rango y su porqué viven en tests/_emoji.ts, que lo comparte con el guard de la
+  // ficha del lead. Acá se dice QUÉ archivos, no QUÉ es un emoji.
   for (const rel of [BROWSER, BARRA, VISTA, 'app/ads-manager/ProductoCelda.tsx']) {
-    const hits = sinComentarios(leer(rel)).match(EMOJI);
+    const hits = emojiDe(leer(rel));
     assert.equal(hits, null, `${rel} dibuja un emoji en vez de un <Icon>: ${hits?.join(' ')}`);
   }
   // Y los dos lápices de una misma fila son el MISMO ícono, no uno dibujado y otro escrito.
@@ -149,6 +146,12 @@ test('ni un emoji en toda la tab: siempre un ícono del catálogo', () => {
   //   ROTO A PROPÓSITO (2026-10-06): devolviendo el `✎` escrito a la celda del
   //   presupuesto, pass 9 / fail 1 (cae por el conteo de lápices). Y con un `🗑` en
   //   el chip de problemas, pass 9 / fail 1 (cae por el barrido de emoji).
+  //
+  //   Y el RANGO, probado metiendo cada glifo en el botón del filtro (cae también el
+  //   guard del rótulo, de ahí el 2): `⚠` U+26A0 → pass 8 / fail 2, `🗑` U+1F5D1 →
+  //   pass 8 / fail 2, y `✓` U+2713 → pass 9 / fail 1, o sea que el barrido de emoji
+  //   NO se despierta con el check. Eso es lo que compró importar tests/_emoji.ts: el
+  //   rango de acá dejaba pasar el ⚠, y el de la ficha del lead no.
 });
 
 test('un conjunto sin producto propio dice el de SU campaña, no «sin asignar»', () => {

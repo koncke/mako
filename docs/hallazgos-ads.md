@@ -2677,3 +2677,35 @@ campaña. Que sea múltiple choca con que un lead tiene un solo `funnel_id`
 con prioridad (desempate silencioso), un lead por producto (cambia el modelo del CRM)— las
 tiene que decidir Martín. El default por si la cuenta tiene un solo producto SÍ está: la
 columna no se dibuja y el lote no la ofrece (`asig.productos.length > 1`).
+
+## Dos guards de «no hay emoji», escritos el mismo día, ya habían divergido (06/10)
+
+**Síntoma.** Ninguno: los dos pasaban. La sesión del CRM escribió su guard de emoji para
+la ficha del lead horas después del de Ads Manager, y avisó por mensaje — al compararlos
+había **tres rangos distintos en dos archivos**:
+
+| Dónde | Rango | Qué deja pasar |
+|---|---|---|
+| `ads-barra.test.ts` (el del bloque de la barra) | `1F300–1FAFF`, `2600–27BF` | — pero falla sobre `✓ ✕ ✦` |
+| `ads-barra.test.ts` (el del archivo) | `1F300–1FAFF`, `2460–24FF`, `2B00–2BFF` | **`⚠` (26A0) y `⛔` (26D4)** |
+| `ficha-lead-06-10.test.ts` | lo anterior **+ `2600–26FF`** | nada de los tres |
+
+O sea que el mío era el más flojo, y su debilidad era justo el `⚠️` — el glifo más común
+de toda la interfaz. **Un guard flojo se ve exactamente igual que uno que pasa**, así que
+nada iba a avisar nunca.
+
+**La causa real.** «No pongas emoji, siempre iconos» es una regla sobre TODA la interfaz,
+no sobre una tab, así que la iban a querer más guards. Copiada, el segundo se queda viejo:
+es «una cosa, un lugar» aplicada a un test en vez de a un módulo de producto.
+
+**La regla que queda.** El rango vive en `tests/_emoji.ts` (`PICTOGRAFICOS`, `sinComentarios`,
+`emojiDe`) y los guards lo importan. Cada guard dice QUÉ archivos mira; ninguno vuelve a
+decir QUÉ es un emoji.
+
+**Y qué queda afuera, con su porqué, en un solo lugar:** `2700–27BF`. Ahí viven `✓` (2713),
+`✕` (2715) y `✦` (2726), que son tipografía monocroma —heredan el color del texto— y las usa
+todo el repo. Medido metiendo cada glifo en el botón del filtro: `⚠` → fail 2, `🗑` → fail 2,
+`✓` → fail 1, o sea que el barrido de emoji **no** se despierta con el check (el otro fallo,
+en los tres casos, es el guard del rótulo «Filtrar», que el glifo también rompe).
+
+**Vive en:** `tests/_emoji.ts`, `tests/ads-barra.test.ts`, `tests/ficha-lead-06-10.test.ts`.
