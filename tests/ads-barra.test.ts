@@ -77,6 +77,66 @@ test('el filtro dice «Filtrar» con el embudo, y «Actualizar estado» es su pr
   //   ROTO A PROPÓSITO (2026-10-06): devolviendo «⚙ Filtros» al botón, pass 9 / fail 1.
 });
 
+test('los BOTONES son cuadrados como los del CRM; redondos quedan sólo chips y switches', () => {
+  // «¿por qué hiciste los botones muy redondos?… venimos con una estetica más cuadrada…
+  // Copialo del CRM» (Martín, 06/10). El CRM resuelve sus botones en `borderRadius: 10`
+  // —app/crm/CrmToolbar.tsx, el filtro— y deja el 999 para chips y contadores.
+  //
+  // Se mira el STYLE DEL BOTÓN y no el bloque entero: el contador del filtro sí es 999 (es
+  // un badge, igual que en el CRM) y vive ADENTRO del botón, así que un `doesNotMatch`
+  // sobre el bloque fallaría por la parte que está bien.
+  const barra = sinComentarios(leer(BARRA));
+  // Anclado en el `title` del filtro: `aria-expanded={abierto}` lo tiene TAMBIÉN el botón
+  // del ⋯, y la primera versión de este guard medía ése (radio 12) creyendo medir el filtro.
+  const iFiltro = barra.indexOf("'Filtrar por fecha, estado o columnas'");
+  const estiloFiltro = barra.slice(iFiltro, barra.indexOf('}}>', iFiltro));
+  assert.ok(estiloFiltro.length > 100 && estiloFiltro.length < 900, `el style del filtro mide ${estiloFiltro.length}`);
+  assert.match(estiloFiltro, /borderRadius: 10/, 'el filtro lleva el radio de los botones del CRM');
+  assert.doesNotMatch(estiloFiltro, /borderRadius: 999/, 'el filtro dejó de ser una pastilla');
+
+  const browser = sinComentarios(leer(BROWSER));
+  const iAct = browser.indexOf('aria-label="Actualizar estado"');
+  const estiloAct = browser.slice(iAct, browser.indexOf('}}>', iAct));
+  assert.ok(estiloAct.length > 50 && estiloAct.length < 600, `el style de actualizar mide ${estiloAct.length}`);
+  assert.match(estiloAct, /borderRadius: 10/, '«Actualizar estado» va cuadrado, del alto del filtro');
+  assert.doesNotMatch(estiloAct, /borderRadius: 999/);
+  //   ROTO A PROPÓSITO (2026-10-06): volviendo el filtro a `borderRadius: 999`, pass 11 /
+  //   fail 1; y lo mismo con el de actualizar, pass 11 / fail 1.
+});
+
+test('la barra de lote: el medio centrado, y activar + eliminar JUNTOS a la derecha', () => {
+  // «intenta que los botones estén centrados. El botón de activar y eliminar juntos, a la
+  // derecha del todo» (Martín, 06/10). Es el layout de la barra genérica de la casa
+  // (app/plan/board/AccionesLote.tsx): `space-between` y el grupo del medio centrado.
+  const bloque = barraDeLote();
+  assert.match(bloque, /justifyContent: 'space-between'/, 'tres zonas, no una fila corrida a la izquierda');
+  assert.match(bloque, /justifyContent: 'center', gap: 14, flexWrap: 'wrap', flex: 'none'/, 'el grupo del medio va centrado y no crece');
+  // ⚠️ Lo que CENTRA no es el `space-between`: es que las dos puntas lleven el mismo flex.
+  // Con `space-between` solo, el medio quedó 74 px corrido a la izquierda (medido en el
+  // navegador: centro del grupo 648, de la barra 722), porque la punta derecha —activar +
+  // eliminar— es más ancha que la izquierda. Con las dos en `1 1 0`: 722 y 722.
+  assert.equal(bloque.match(/flex: '1 1 0', minWidth: 'max-content'/g)?.length, 2, 'las DOS puntas se reparten el sobrante por igual');
+
+  // El ORDEN es lo que dice en qué zona cae cada uno: todo lo que edita va antes del
+  // interruptor, y el interruptor y «Eliminar» quedan pegados al final.
+  const iSwitch = bloque.indexOf('role="switch"');
+  const iEliminar = bloque.indexOf('>Eliminar</BotonLote>');
+  for (const rotulo of ['Presupuesto', 'Producto', 'Renombrar', 'Agregar conjunto', 'Agregar anuncio']) {
+    const i = bloque.indexOf(`>${rotulo}</BotonLote>`);
+    assert.ok(i > 0 && i < iSwitch, `«${rotulo}» va en el medio, antes del interruptor`);
+  }
+  assert.ok(iSwitch > 0 && iEliminar > iSwitch, 'el interruptor y «Eliminar» van a la derecha, en ese orden');
+  // Nada entre los dos: «juntos» quiere decir eso. El corte termina donde ABRE el botón de
+  // «Eliminar» y no en su rótulo: cortando en el rótulo se lleva su propia etiqueta de
+  // apertura, y el guard fallaba sobre el layout correcto (medido: la primera versión).
+  const abreEliminar = bloque.lastIndexOf('<BotonLote', iEliminar);
+  assert.doesNotMatch(bloque.slice(iSwitch, abreEliminar), /<BotonLote/, 'no puede haber otro botón entre activar y eliminar');
+  //   ROTO A PROPÓSITO (2026-10-06), pass 11 / fail 1 en los tres: sacando el
+  //   `space-between`, mudando «Eliminar» al medio, y colando otro botón entre el
+  //   interruptor y «Eliminar». Y dejando la punta derecha en `flex: 'none'` —que es
+  //   como vuelven los 74 px de corrimiento—, pass 11 / fail 1.
+});
+
 test('un solo filtro, y ningún «Limpiar selección»', () => {
   const src = sinComentarios(leer(BROWSER));
   assert.match(src, /<FiltrosMenu/);

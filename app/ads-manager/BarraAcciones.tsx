@@ -155,16 +155,30 @@ export function FiltrosMenu({ hoyReal, estado, opcionesEstado, onEstado, columna
 
   return (
     <div ref={ref} style={{ position: 'relative', flex: 'none' }}>
+      {/* Copiado del botón de filtro del CRM (app/crm/CrmToolbar.tsx) y no inventado acá:
+          «venimos con una estetica más cuadrada… Copialo del CRM» (Martín, 06/10). Era una
+          pastilla de `borderRadius: 999` y el repo no tiene ni una: el CRM resuelve sus
+          BOTONES en 10 —72 veces, el radio más usado del módulo— y deja el 999 para los
+          CHIPS y los contadores, que sí son redondos ahí también. La diferencia no es de
+          gusto: una pastilla dice «soy una etiqueta» y este control se aprieta.
+          ⚠️ El contador SÍ queda redondo, porque es un badge y no un botón, y va absoluto
+          en la esquina como el del CRM — inline empujaba el ancho del botón con cada
+          filtro que se prendía. */}
       <button type="button" onClick={() => { setAbierto((v) => !v); setDentro(null); }} aria-expanded={abierto}
+        title={activos > 0 ? `${activos} filtro${activos === 1 ? '' : 's'} activo${activos === 1 ? '' : 's'}` : 'Filtrar por fecha, estado o columnas'}
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 999,
-          border: '1px solid ' + (activos ? 'var(--primary)' : 'var(--border)'),
-          background: 'var(--surface)',
-          color: activos ? 'var(--primary-strong)' : 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+          position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 7, flex: 'none',
+          height: 40, padding: '0 14px', borderRadius: 10,
+          border: '1px solid ' + (activos ? 'var(--primary-weak)' : 'var(--border-strong)'),
+          background: abierto ? 'var(--surface-2)' : 'var(--surface)',
+          color: activos ? 'var(--primary)' : 'var(--dim)',
+          fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
         }}>
-        <span style={{ display: 'inline-flex', color: activos ? 'var(--primary-strong)' : 'var(--dim)' }}><Icon name="funnel" size={16} /></span>
+        <Icon name="funnel" size={13} />
         Filtrar
-        {activos > 0 && <span style={{ fontFamily: MONO, fontSize: 11, background: 'var(--primary)', color: '#fff', borderRadius: 999, padding: '0 6px' }}>{activos}</span>}
+        {activos > 0 && (
+          <span style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{activos}</span>
+        )}
       </button>
 
       {abierto && (
@@ -298,30 +312,62 @@ export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onP
   const [monto, setMonto] = useState('');
   const [sing, plur] = NOMBRE[nivel];
 
+  /**
+   * TRES ZONAS, como la barra de lote genérica de la casa (`app/plan/board/AccionesLote.tsx`):
+   * `space-between` con el grupo del medio centrado. «Intenta que los botones estén
+   * centrados. El botón de activar y eliminar juntos, a la derecha del todo» (Martín, 06/10).
+   *
+   * Y el reparto no es estético: a la izquierda va lo que DICE sobre qué se está actuando,
+   * en el medio lo que se puede deshacer, y a la derecha los dos que cambian el estado de
+   * verdad —prender/pausar y borrar—. Juntarlos ahí los saca del camino del ojo cuando uno
+   * está eligiendo qué editar.
+   */
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'var(--ink)', color: 'var(--surface)', borderRadius: 14, padding: '10px 14px' }}>
-      <span style={{ fontSize: 14, fontWeight: 600, marginRight: 4 }}>{n} {n === 1 ? sing : plur}</span>
+    <div role="group" aria-label={`Acciones sobre ${n} ${n === 1 ? sing : plur}`}
+      style={{ display: 'flex', width: '100%', boxSizing: 'border-box', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', background: 'var(--ink)', color: 'var(--surface)', borderRadius: 14, padding: '10px 14px' }}>
 
-      {/* un solo interruptor: encendido = los N activos */}
-      <button type="button" role="switch" aria-checked={todosActivos} disabled={trabajando}
-        title={todosActivos ? `Pausar ${n === 1 ? sing : plur}` : `Activar ${n === 1 ? sing : plur}`}
-        onClick={() => onEstado(todosActivos ? 'PAUSED' : 'ACTIVE')}
-        style={{ ...chip, padding: '0 12px 0 6px', cursor: trabajando ? 'wait' : 'pointer' }}>
-        <span style={{ width: 34, height: 19, borderRadius: 999, background: todosActivos ? 'var(--good)' : 'rgba(243,245,248,.28)', position: 'relative', transition: 'background .15s', flex: 'none' }}>
-          <span style={{ position: 'absolute', top: 2, left: todosActivos ? 17 : 2, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
-        </span>
-        {todosActivos ? 'Activas' : 'En pausa'}
-      </button>
+      {/* IZQUIERDA: sobre cuántos se está actuando.
+          ⚠️ Las dos puntas llevan el MISMO `flex: 1 1 0` y ése es el centrado: con
+          `space-between` solo, el medio queda centrado únicamente si las dos puntas miden
+          igual, y no miden igual —«1 campaña» son ~90 px y activar + eliminar ~220—.
+          Medido en el navegador con `space-between`: el centro del grupo cayó en 648 con
+          la barra en 722, o sea 74 px corrido a la izquierda. Con las dos puntas
+          repartiéndose el sobrante por igual, el medio queda en el centro de la BARRA y no
+          en el del hueco que le dejan. `minWidth: max-content` evita que una punta se
+          aplaste por debajo de su contenido cuando la barra se angosta. */}
+      <span style={{ fontSize: 14, fontWeight: 600, flex: '1 1 0', minWidth: 'max-content' }}>{n} {n === 1 ? sing : plur}</span>
 
-      {onPresupuesto && <BotonLote icono="sales" disabled={trabajando} activo={modo === 'presupuesto'} onClick={() => setModo((m) => (m === 'presupuesto' ? null : 'presupuesto'))}>Presupuesto</BotonLote>}
-      {productos && productos.length > 0 && onProducto && <BotonLote icono="tag" disabled={trabajando} activo={modo === 'producto'} onClick={() => setModo((m) => (m === 'producto' ? null : 'producto'))}>Producto</BotonLote>}
-      {onRenombrar && <BotonLote icono="notepencil" disabled={trabajando} onClick={onRenombrar}>Renombrar</BotonLote>}
-      {onAgregarConjunto && <BotonLote icono="users" disabled={trabajando} onClick={onAgregarConjunto}>Agregar conjunto</BotonLote>}
-      {onAgregarAnuncio && <BotonLote icono="creativos" disabled={trabajando} onClick={onAgregarAnuncio}>Agregar anuncio</BotonLote>}
-      {onEliminar && <BotonLote icono="trash" disabled={trabajando} activo={modo === 'eliminar'} onClick={() => setModo((m) => (m === 'eliminar' ? null : 'eliminar'))}>Eliminar</BotonLote>}
+      {/* CENTRO: lo que EDITA. `gap: 14` y no 8, por lo mismo que la barra del plan: son
+          controles con borde Y palabra, y más juntos sus cajas se tocan y se leen como un
+          solo bloque partido por una raya. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, flexWrap: 'wrap', flex: 'none' }}>
+        {onPresupuesto && <BotonLote icono="sales" disabled={trabajando} activo={modo === 'presupuesto'} onClick={() => setModo((m) => (m === 'presupuesto' ? null : 'presupuesto'))}>Presupuesto</BotonLote>}
+        {productos && productos.length > 0 && onProducto && <BotonLote icono="tag" disabled={trabajando} activo={modo === 'producto'} onClick={() => setModo((m) => (m === 'producto' ? null : 'producto'))}>Producto</BotonLote>}
+        {onRenombrar && <BotonLote icono="notepencil" disabled={trabajando} onClick={onRenombrar}>Renombrar</BotonLote>}
+        {onAgregarConjunto && <BotonLote icono="users" disabled={trabajando} onClick={onAgregarConjunto}>Agregar conjunto</BotonLote>}
+        {onAgregarAnuncio && <BotonLote icono="creativos" disabled={trabajando} onClick={onAgregarAnuncio}>Agregar anuncio</BotonLote>}
+      </div>
 
+      {/* DERECHA: los dos que cambian el estado, juntos y contra el borde. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flex: '1 1 0', minWidth: 'max-content' }}>
+        {/* un solo interruptor: encendido = los N activos */}
+        <button type="button" role="switch" aria-checked={todosActivos} disabled={trabajando}
+          title={todosActivos ? `Pausar ${n === 1 ? sing : plur}` : `Activar ${n === 1 ? sing : plur}`}
+          onClick={() => onEstado(todosActivos ? 'PAUSED' : 'ACTIVE')}
+          style={{ ...chip, padding: '0 12px 0 6px', cursor: trabajando ? 'wait' : 'pointer' }}>
+          <span style={{ width: 34, height: 19, borderRadius: 999, background: todosActivos ? 'var(--good)' : 'rgba(243,245,248,.28)', position: 'relative', transition: 'background .15s', flex: 'none' }}>
+            <span style={{ position: 'absolute', top: 2, left: todosActivos ? 17 : 2, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
+          </span>
+          {todosActivos ? 'Activas' : 'En pausa'}
+        </button>
+        {onEliminar && <BotonLote icono="trash" disabled={trabajando} activo={modo === 'eliminar'} onClick={() => setModo((m) => (m === 'eliminar' ? null : 'eliminar'))}>Eliminar</BotonLote>}
+      </div>
+
+      {/* ⚠️ Lo desplegado va en su PROPIO renglón (`flexBasis: '100%'`), no adentro de una
+          zona: metido en el medio, el input de 220 px corría los botones de los costados
+          cada vez que alguien abría un panel, y la barra se leía como que se movió sola. */}
       {modo === 'presupuesto' && onPresupuesto && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexBasis: '100%' }}>
           <input autoFocus inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.,]/g, ''))}
             placeholder="Diario, en la moneda de la cuenta"
             style={{ height: 34, width: 220, padding: '0 10px', borderRadius: 10, border: '1px solid rgba(243,245,248,.25)', background: 'rgba(243,245,248,.10)', color: 'var(--surface)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
@@ -331,7 +377,7 @@ export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onP
       )}
 
       {modo === 'producto' && productos && onProducto && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flexBasis: '100%' }}>
           {productos.map((p) => (
             <button key={p.value} type="button" onClick={() => { onProducto(p.value); setModo(null); }} style={chip}>{p.label}</button>
           ))}
@@ -339,7 +385,7 @@ export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onP
       )}
 
       {modo === 'eliminar' && onEliminar && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexBasis: '100%' }}>
           <span style={{ fontSize: 13 }}>Sólo se eliminan las pausadas.</span>
           <button type="button" onClick={() => { onEliminar(); setModo(null); }} style={{ ...chip, background: 'var(--bad)', borderColor: 'transparent' }}>Eliminar {n}</button>
           <button type="button" onClick={() => setModo(null)} style={chip}>No eliminar</button>

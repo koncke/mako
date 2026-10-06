@@ -689,7 +689,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
           />
           <button type="button" onClick={() => cargar()} disabled={loading} title="Actualizar estado: vuelve a preguntarle a Meta"
             aria-label="Actualizar estado"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: loading ? 'wait' : 'pointer' }}>
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: loading ? 'wait' : 'pointer' }}>
             <Icon name="regenerar" size={16} />
           </button>
         </div>
