@@ -770,5 +770,60 @@ export const BITACORA: Hito[] = [
       "app/crm/CampanasDelProducto.tsx — el selector en la tarjeta de «Lead entrante»",
       "supabase/migrations/0193_lead_campana_meta.sql — leads.meta_campaign_id"
     ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "22:37",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Campañas de Meta: tabla, menú de la columna, traer lo viejo",
+    "pedido": "1. Una vez que marco las opciones de \"Marca hasta tres.\" y le doy guardar, debería ocultarse esas opciones, y como mucho quedar editable sutilmente... 2. En la opción de los 3 puntos de \"Lead entrante\" debería estar la opción para asignar una campaña. 3. Veo que \"Campañas de Meta\" tiene un loader... Entiendo que busca las campañas, pero el loader debería aparecer dentro del desplegable en todo caso, no en toda la sección, la sección siempre debe estar presente. Propongo que no sea un loader, que sea una sección directamente, porque es algo importante que requiere tener una barra de busqueda, filtros, ordenamientos... Si son muchas campañas debería poder buscar facilmente... Si le doy a los 3 puntos debería abrir un modal solo de eso. Haz que sea formato tabla, procura que se vea bonito y minimalista. Ya tenemos varios diseños de tablas. 4. Es importante que no haya tanta fricción al asignar una nueva campaña, porque podrían haber nuevas campañas todo el tiempo... Por eso, te propongo le pases al chat de Ads Manager que también agregue la opción de seleccionar producto al crear una campaña y que ahí se vayan cargando los leads de esa camapaña automáticamente. También en la vista de tabla de Ads Manager la opción de asignar a X producto. 5. Es importante que si selecciono una campaña, me traiga todos los leads. No solo los futuros. Por ejemplo, si yo estoy creando un nuevo producto, pero tengo una campaña que lleva tiempo, si la selecciono debería traerme esos leads... 6. También te consulto si consideras que estas opcioens deberían activarse también en otras etapas, como \"Agenda llamada\", para que un lead entrante ingrese por allí directo. O si de ante mano, para no complicar habilitar esta opción en cualquier etapa y que el usuario elija en que columna quiere que caigan los leads entrantes.",
+    "puntos": [
+      "Seis puntos: plegar la declaración, el «⋯» de la entrada, la sección siempre presente con la tabla en un modal, menos fricción (y pasarle al chat de Ads Manager el selector de producto), traer los leads viejos, y una pregunta sobre otras etapas."
+    ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "23:34",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "La tabla de campañas, y asignar trae los leads que la campaña ya tiene",
+    "puntos": [
+      "**La campaña de un lead viejo se reconstruye con datos exactos** (utm_campaign con id, y el anuncio cruzado con las métricas): 96% de los leads de Meta del cliente más grande. El nombre no agrega ninguno.",
+      "⚠️ **Traer mueve sólo el producto, no la etapa.** `moverLeadsAFunnelAction` habría mandado a un lead que pagó de vuelta a «Lead entrante» — y una sola campaña tiene 896.",
+      "**Pregunta sólo si va a mover leads**: una campaña nueva se asigna con un clic; una vieja dice cuántos y de dónde. Después queda el «Deshacer».",
+      "La tabla también sirve sin Meta: completa con las campañas que conocen las métricas."
+    ],
+    "commits": [
+      {
+        "sha": "ebcfbad8",
+        "msg": "Campañas de Meta: tabla en un modal, y asignar trae los leads que ya tiene",
+        "lineas": 1372,
+        "archivos": 10
+      }
+    ],
+    "archivos": [
+      "app/crm/CampanasModal.tsx — la tabla (buscador, filtros, orden, conjuntos)",
+      "lib/campana-atribucion.ts — de qué campaña es cada lead, y cuáles se mueven (puro, con test)",
+      "lib/campana-traer.ts — el movimiento en lote, sin tocar la etapa",
+      "app/crm/EmbudoEntradas.tsx — la declaración plegada después de guardar"
+    ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "23:34",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "correccion",
+    "titulo": "Verificar escribió: un clic «para ver la pregunta» asignó una campaña en un cliente real",
+    "puntos": [
+      "La pregunta depende de un número del server; en ese cliente la previa dio 0 y el clic asignó directo. No se movió ningún lead y se revirtió en el acto.",
+      "**Regla**: antes de hacer clic donde la rama la decide un dato del server, ese dato se mide con una lectura, y el clic va donde la rama esperada está garantizada."
+    ]
   }
 ];
