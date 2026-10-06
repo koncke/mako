@@ -46,6 +46,19 @@ type FilaSesion = {
 };
 
 /**
+ * La grabación de una PRUEBA, que sabe además de quién es y en qué página se
+ * hizo. Son los dos datos que convierten una grabación en algo que se puede
+ * MIRAR: el `visitorId` es la llave con la que la ficha del lead la busca
+ * (`replayDeLead`), y la `landingUrl` es la que dice a qué producto entra el lead
+ * de prueba (`funnelDeLanding`). Sin ellos, la prueba puede afirmar que grabó y
+ * no puede llevar a ningún lado — que es exactamente donde quedó el 06/10/2026.
+ */
+export type SesionDePrueba = SesionDeLead & {
+  visitorId: string;
+  landingUrl: string | null;
+};
+
+/**
  * Lo que la ficha necesita saber del replay de un lead, en UNA llamada.
  *
  * `ultimaActividadISO` lo trae quien llama: la ficha ya lo calcula para gatear el
@@ -152,18 +165,28 @@ export async function replayDeLead(
  * esa sesión está grabando o esperando el sellado, y las dos son un estado
  * legítimo de una prueba que recién se hizo.
  */
-export async function replayDePrueba(marcador: string | null): Promise<SesionDeLead | null> {
+export async function replayDePrueba(marcador: string | null): Promise<SesionDePrueba | null> {
   if (!marcador) return null;
   const db = await getTenantDb();
   const { data, error } = await db
     .from('replay_sesiones')
-    .select('id, inicio, segundos, eventos, corte, storage_path')
+    // ⚠️ `visitor_id` y `landing_url` NO son para dibujar: son para poder ABRIR
+    // la grabación. El reproductor vive en la ficha de un lead y busca por
+    // `visitor_id`; sin traerlo acá, la única forma de ver una prueba sería
+    // sacar el reproductor del CRM. Y `landing_url` dice a qué producto entra
+    // ese lead, que es la página en la que se hizo la prueba y no la que esté
+    // elegida en la pantalla cuando alguien toque el botón.
+    .select('id, inicio, segundos, eventos, corte, storage_path, visitor_id, landing_url')
     .eq('prueba', marcador)
     .order('inicio', { ascending: false })
     .limit(1);
   if (error) return null;
-  const f = ((data ?? []) as FilaSesion[])[0];
+  const f = ((data ?? []) as Array<FilaSesion & { visitor_id: string | null; landing_url: string | null }>)[0];
   if (!f) return null;
+  // Sin `visitor_id` no hay grabación que se pueda atar a nadie. La columna es
+  // `not null` en la migración 0191, así que esto no debería pasar nunca — y por
+  // eso mismo sale como «no hay», que es lo único honesto que se puede decir.
+  if (!f.visitor_id) return null;
   return {
     id: f.id,
     inicio: f.inicio,
@@ -171,6 +194,8 @@ export async function replayDePrueba(marcador: string | null): Promise<SesionDeL
     eventos: Math.max(0, Number(f.eventos) || 0),
     corte: f.corte === 'tiempo' || f.corte === 'bytes' ? f.corte : null,
     lista: !!f.storage_path,
+    visitorId: f.visitor_id,
+    landingUrl: f.landing_url,
   };
 }
 

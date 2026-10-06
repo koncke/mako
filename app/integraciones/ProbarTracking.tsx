@@ -24,6 +24,7 @@ import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
 import { analizarLandingAction } from './landing-config-actions';
 import { finPruebaAction } from './landing-actions';
+import { leadDePruebaAction } from './prueba-lead-actions';
 import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
 
 const SANS = "'Geist', sans-serif";
@@ -185,6 +186,10 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   const [editando, setEditando] = useState<string | null>(null); // la que se está corrigiendo
   const [errPagina, setErrPagina] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  // Mientras se resuelve el lead PRUEBA con el que se mira la grabación. Va
+  // aparte de `ocupado` —que es el de editar la lista de páginas— porque son
+  // dos botones distintos y apagar el otro no significa nada acá.
+  const [abriendoFicha, setAbriendoFicha] = useState(false);
   // Sin esquema también vale: «tu-pagina.com» es lo que la gente escribe, y el
   // server lo normaliza. Acá solo se pide que tenga un punto.
   const urlValida = /^(https?:\/\/)?[^\s.]+\.[^\s]{2,}/i.test(url.trim());
@@ -531,6 +536,37 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     </div>
   );
 
+  /**
+   * Abre la grabación de esta prueba en la ficha de su lead PRUEBA.
+   *
+   * ⚠️ VA ACÁ ARRIBA, en el cuerpo de la función y antes de los dos `return`
+   * tempranos: adentro del `if (paso === 'videos')` sólo existiría en esa rama,
+   * y el botón que la llama se dibuja en la otra.
+   *
+   * ⚠️ Y NAVEGA EN ESTA MISMA PESTAÑA, a propósito. `window.open` después de un
+   * `await` lo bloquea el navegador —el click ya no cuenta como gesto del
+   * usuario—, y lo que queda es un botón que no hace nada. Se pierde de vista la
+   * prueba, que a esta altura ya está contestada.
+   *
+   * Y lleva el `?ws=`: es la cuarta forma de navegar de la casa (un
+   * `window.location`), así que sin eso el super admin que está mirando a un
+   * cliente aterriza en SU propio CRM.
+   */
+  const verLaGrabacion = async () => {
+    if (!prueba) return;
+    setAbriendoFicha(true);
+    setErr(null);
+    const r = await leadDePruebaAction(prueba).catch(() => null);
+    if (!r || !r.ok) {
+      setAbriendoFicha(false);
+      setErr(r && r.ok === false ? r.error : 'No pude abrir la grabación.');
+      return;
+    }
+    // El `setAbriendoFicha(false)` no va acá: la navegación ya salió y volver a
+    // «Ver la grabación» mientras la página se va es un botón que parpadea.
+    window.location.href = conWs(`/crm/${r.leadId}`, wsDeBusqueda(window.location.search));
+  };
+
   // ── PASO: ¿qué es cada video? ─────────────────────────────────────────────
   // ⚠️ VA ANTES DEL `if (!activo)`, y no es un detalle de orden: puesto después
   // era código INALCANZABLE. El primer `return` se disparaba siempre y el lápiz
@@ -856,18 +892,33 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
       {/* ⚠️ LA GRABACIÓN DE ESTA PRUEBA, que ahora es PROPIA. Antes esto era un
           link al panel de Clarity y una advertencia de que tardaba entre 30
           minutos y 2 horas. El estado de si llegó lo dice el chequeo «Grabación
-          de la sesión», que sale del server junto con los demás; acá queda sólo
-          el renglón que cambia mientras se mira: se está guardando → ya está.
+          de la sesión», que sale del server junto con los demás; acá queda el
+          renglón que cambia mientras se mira y el botón para verla.
 
-          ⚠️ Y NO HAY BOTÓN PARA VERLA todavía: el reproductor vive en la ficha
-          del lead (app/crm/lead-view/GrabacionModal.tsx) y una prueba no tiene
-          lead. Ofrecer un botón que no lleva a ningún lado es peor que no
-          ofrecerlo — para que exista acá hay que sacar ese modal del CRM. */}
+          ⚠️ Y EL BOTÓN NO ABRE UN REPRODUCTOR ACÁ: crea (o reusa) el lead PRUEBA
+          de ese producto y lleva a su ficha, que es donde el reproductor ya vive
+          (app/crm/lead-view/GrabacionModal.tsx). Pedido de Martín el 06/10/2026,
+          textual: «que simplemente se cree un lead de PRUEBA en el CRM en ese
+          producto. Con el nombre de PRUEBA. Y allí se podrá ver esa grabación.»
+          El porqué, en app/integraciones/prueba-lead-actions.ts.
+
+          ⚠️ Y SÓLO CUANDO SE PUEDE VER. Con `lista: false` la grabación llegó y
+          todavía no se selló el cuerpo (el cron corre cada 10 minutos): la
+          ficha se abriría con la sesión en la lista y sin nada que reproducir, o
+          sea un botón que lleva a una pantalla que no cumple. Se dice cuánto
+          falta y el botón aparece solo. */}
       {diag?.grabacion && (
-        <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 12, lineHeight: 1.5 }}>
-          {diag.grabacion.lista
-            ? `Grabé esta prueba: ${Math.round(diag.grabacion.segundos)}s.`
-            : `Grabé esta prueba: ${Math.round(diag.grabacion.segundos)}s. Se termina de guardar en unos minutos.`}
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5, flex: '0 1 auto' }}>
+            {diag.grabacion.lista
+              ? `Grabé esta prueba: ${Math.round(diag.grabacion.segundos)}s.`
+              : `Grabé esta prueba: ${Math.round(diag.grabacion.segundos)}s. Se termina de guardar en unos minutos.`}
+          </div>
+          {diag.grabacion.lista && (
+            <Button variant="secondary" size="sm" disabled={abriendoFicha} onClick={() => { void verLaGrabacion(); }}>
+              {abriendoFicha ? 'Abriendo…' : 'Ver la grabación'}
+            </Button>
+          )}
         </div>
       )}
       {err && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}

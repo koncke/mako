@@ -86,7 +86,7 @@ function llamadasACreateLead(src: string): string[] {
 }
 
 /** Las cuatro altas, por archivo. Son las que crean un lead que nadie escribió solo. */
-const ALTAS = ['app/crm/actions.ts', 'app/customer-success/actions.ts'];
+const ALTAS = ['app/crm/actions.ts', 'app/customer-success/actions.ts', 'app/integraciones/prueba-lead-actions.ts'];
 
 test('las cuatro altas estampan `origen_lead`: ninguna crea un lead sin procedencia', () => {
   let total = 0;
@@ -105,7 +105,14 @@ test('las cuatro altas estampan `origen_lead`: ninguna crea un lead sin proceden
   // Las cuatro del pedido: alta manual, chat de WhatsApp, importación y Customer
   // Success. Si aparece una quinta, el assert de arriba ya la obliga a estampar; este
   // número está para que agregar un camino de alta sea una decisión y no un descuido.
-  assert.equal(total, 4, `son 4 altas conocidas y encontré ${total}: revisa la nueva`);
+  // La QUINTA (06/10/2026): el lead PRUEBA del Pixel, que no es un canal de venta
+  // —no lo escribió nadie— pero crea una fila en el CRM igual que las otras cuatro,
+  // y por eso tiene que estampar de dónde vino. Subir este número es la decisión que
+  // el comentario de arriba pide: queda escrito que el camino nuevo se revisó.
+  //
+  // Probado rompiéndolo el 06/10/2026: sacándole el `origen_lead:` al createLead de
+  // `prueba-lead-actions.ts` quedan 5 pases y 2 fallos (éste y el del catálogo).
+  assert.equal(total, 5, `son 5 altas conocidas y encontré ${total}: revisa la nueva`);
 });
 
 test('los valores salen del catálogo, no de una cadena en el call site', () => {

@@ -43,6 +43,10 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
     // afirmación, no un fallback. Cada valor que la columna puede tener lleva su case,
     // y el default se reserva para lo que de verdad no se sabe.
     case 'landing': return { texto: 'Formulario de tu landing', color: 'var(--accent)' };
+    // No es un lead: es la fila que la prueba del Pixel crea para poder mostrar
+    // su propia grabación. Se dice así, entero, porque quien la abre tiene que
+    // entender en un renglón por qué hay un «PRUEBA» en su tablero.
+    case 'prueba': return { texto: 'La creó la prueba del Pixel', color: 'var(--dim)' };
     // ⚠️ Y LOS TRES DE LAS ALTAS QUE NO ESTAMPABAN NADA (03/10/2026). Hasta entonces el
     // alta a mano, la importación, el alta desde el chat y el alta de un cliente en
     // Customer Success llamaban a `createLead` sin pasarle el origen, así que los

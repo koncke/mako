@@ -34,7 +34,14 @@ export type OrigenLeadId =
   // Los tres que faltaban, uno por alta que no estampaba nada:
   | 'carga_manual'   // alguien lo tipeó: /crm/new, el modal del tablero, Customer Success
   | 'importacion'    // entró en un archivo (la lista en frío)
-  | 'chat_whatsapp'; // se creó desde una conversación del inbox
+  | 'chat_whatsapp'  // se creó desde una conversación del inbox
+  // ⚠️ Y EL OCTAVO, que no es un canal de venta: lo crea la PRUEBA del Pixel
+  // (app/integraciones/prueba-lead-actions.ts) para que la grabación de esa
+  // prueba se pueda ver en el único lugar donde existe el reproductor, que es la
+  // ficha de un lead. Es un origen propio y no `landing` porque nadie llenó un
+  // formulario: poner `landing` sería meter una fila inventada entre los leads
+  // reales de ese producto, y es justo el tacho que este catálogo vino a cerrar.
+  | 'prueba';        // la creó la prueba del Pixel, para poder ver su grabación
 
 export type OrigenLeadDef = {
   id: OrigenLeadId;
@@ -59,6 +66,7 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
   carga_manual: { id: 'carga_manual', lista: 'Cargado a mano' },
   importacion: { id: 'importacion', lista: 'Importado' },
   chat_whatsapp: { id: 'chat_whatsapp', lista: 'WhatsApp' },
+  prueba: { id: 'prueba', lista: 'Prueba del Pixel' },
 };
 
 /**
