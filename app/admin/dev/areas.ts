@@ -481,7 +481,7 @@ export const AREAS: AreaDev[] = [
       'app/crm/lead-view/GrabacionCard.tsx', 'app/crm/lead-view/GrabacionModal.tsx',
       'lib/lead-de-prueba.ts', 'lib/landing-config-leer.ts',
       // El aviso fijo «Actualiza el Pixel» y el ancla del clic (Pixel v22), 06/10/2026.
-      'lib/pixel-aviso.ts', 'app/api/integraciones/landing/version/route.ts',
+      'lib/pixel-aviso.ts', 'lib/pixel-servido.ts', 'lib/pixel-estado.ts', 'app/api/integraciones/landing/version/route.ts',
       'app/_components/AvisoPixelViejo.tsx', 'app/_components/EsquinaAvisos.tsx',
       'supabase/migrations/0201_clic_anclado.sql', 'tests/pixel-aviso.test.ts', 'tests/landing-clic-anclado.test.ts',
     ],

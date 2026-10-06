@@ -4417,6 +4417,14 @@ adelantada cuando el cambio ya se hizo y todavía no llegó un evento nuevo. Y c
 nueva no le aporta nada a ese caso, el renglón lo **dice** y no frena: mandar a hacer un
 trámite que no va a medir distinto es cómo se aprende a ignorar los avisos.
 
+⚠️ **Y la versión de una página no se entera sólo por los eventos.** Desde el 06/10/2026 la
+pregunta «¿hay que repegar el Pixel?» la contesta `estadoPixel` (`lib/pixel-estado.ts`): por
+página (el mapa que anota el beacon en cada pageview) y, si las visitas dicen viejo, mirando lo
+que la página SIRVE (`versionServida`). Con los eventos solos, a quien acababa de republicar se
+le seguía diciendo «Actualiza el Pixel» hasta la próxima visita. Un consumidor nuevo de esa
+pregunta llama a `estadoPixel`; no lee `landing.snippet_version`, que es del workspace y lo
+escribe el último evento.
+
 # Un arnés que no le pasa todas las entradas al código bajo prueba reporta una regresión que no existe
 
 Verificar un cambio llamando a la función con menos insumos de los que recibe en producción

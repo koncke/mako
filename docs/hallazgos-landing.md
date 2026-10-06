@@ -3361,10 +3361,8 @@ probó rompiéndolo (commit `1120ba01`):
   un fallo y la misma página se analizaba dos veces, pagando dos veces la IA.
 
 ⚠️ **SIN HACER (medidos por la revisión, no arreglados):**
-- **El aviso fijo decide con el setting donde gana el último evento** (`/api/integraciones/landing/version`).
-  Con dos páginas en versiones distintas se prende y se apaga según qué página recibió la
-  última visita. Arreglarlo es preguntar por página (como `atrasadas` en el vigilante) en cada
-  carga de la app. Es la misma decisión pendiente que el chip `snippetDesactualizado`.
+- ~~**El aviso fijo decide con el setting donde gana el último evento**~~ — **resuelto el mismo
+  día** (`f229d313`): ver «El aviso del Pixel esperaba una VISITA…», abajo.
 - **El aviso fijo no mira si el Pixel sigue vivo.** Una landing dada de baja con una v18 deja la
   pastilla para siempre. El WhatsApp sí exige tracking de menos de 48 h.
 - **Quitar el diagnóstico de una página declarada no dura:** el cron horario lo rehace y gasta
@@ -3379,6 +3377,77 @@ probó rompiéndolo (commit `1120ba01`):
   iframe, que es el candado que importa.
 - La lista dice «REVISANDO» en un análisis cortado, y en un negocio pausado o sin token nada
   barre la fila 'pendiente'.
+
+*2026-10-06*
+
+### El aviso del Pixel esperaba una VISITA para enterarse de algo que se podía LEER
+
+**Vive en:** `lib/pixel-aviso.ts` (`versionEnHtml`, `veredictoPixel`, el mapa por página) ·
+`lib/pixel-servido.ts` · `lib/pixel-estado.ts` · `app/api/track/vsl/route.ts` (el mapa) ·
+`app/api/integraciones/landing/version/route.ts` · `app/integraciones/page.tsx` ·
+`app/api/cron/tracking-vigilante/route.ts` · `lib/landing-token.ts` (el diagnóstico)
+
+**Síntoma (06/10/2026, Martín, con la captura de Lovable):** «Ya publiqué y sigue apareciendo que
+falta publicar el pixel». La página servía `var SV = 22;` —medido con un `fetch` del HTML, con y
+sin `www`— y el aviso fijo y el chip del modal seguían diciendo «Actualiza el Pixel».
+
+**Causa:** la versión del Pixel sólo se enteraba por las VISITAS. El beacon anota la versión que
+trae cada evento, y la última visita (15:46 UTC) era anterior a la publicación: hasta que entra
+alguien con el código nuevo, el número no cambia. Y era UNA versión para todo el workspace,
+escrita por el último evento, así que con dos páginas en versiones distintas el aviso se
+prendía y se apagaba solo (la revisión de la mañana lo había dejado como pendiente).
+
+⚠️ **El diagnóstico obvio era «falta que pase un rato»** — y es cierto que se arreglaba solo con
+la próxima visita. Pero eso es exactamente lo que el aviso NO puede decir: la persona acaba de
+hacer lo que se le pidió y la pantalla le contesta que no. **Si el hecho se puede leer en la
+fuente, se lee; no se espera al próximo evento para enterarse.** Es la regla de AGENTS.md («el
+razonamiento "ya les llega el aviso" se mide contra lo que SIRVEN las páginas») aplicada al
+propio aviso.
+
+**Lo hecho:**
+- **La versión se lleva por PÁGINA**: el beacon anota cada pageview en un mapa aparte
+  (`landing.snippet_versiones`, con techo de 30 porque lo escribe un endpoint público). El
+  setting viejo se queda: lo leen el pulso, la API y el diagnóstico.
+- **Cuando las visitas dicen «viejo», se mira lo que la página SIRVE** (`versionServida`), con
+  las barandas del análisis de landings y un plazo propio de 5 s. Si hay dos copias del código
+  pegadas, gana la vieja. Sin nuestro endpoint en el HTML, no se concluye nada (puede entrar por
+  un administrador de etiquetas) y manda la visita.
+- **Caché asimétrico**: «al día» 10 minutos, «viejo» o «no pude leer» 30 segundos. Con 10
+  minutos para todo, quien vuelve a MaKo justo después de republicar seguiría viendo el aviso —
+  que es el reporte.
+- **El aviso, el chip del modal, el WhatsApp de «quedó viejo» y «Comprobar»** miran lo mismo.
+  El WhatsApp no nombra una página que ya sirve el código actual, y si todas ya lo sirven no
+  manda nada.
+
+Medido contra producción (sólo lectura): el ws1 pasa a «al día, v22, fuente: página». Los ws 4
+(sin páginas declaradas), 11, 13 y 14 siguen viejos, que es verdad. Las dos páginas del ws13 y
+una del ws11 dan «fuente: negocio»: su HTML no trae el código (o no se pudo leer en 5 s), así que
+deciden sus visitas, y el mapa por página se va a llenar con los próximos pageviews.
+
+⚠️ **SIN HACER:** el aviso todavía no mira si el Pixel sigue VIVO — una landing dada de baja con
+una v18 deja la pastilla para siempre (ver la entrada de la revisión, arriba).
+
+*2026-10-06*
+
+### La grabación de las visitas ya no se apaga
+
+**Vive en:** `lib/replay-contrato.ts` (`ReplayConfig`, `grabaA`) · `lib/replay-ficha.ts` ·
+`app/integraciones/IntegracionesBoard.tsx`
+
+Decisión de Martín (06/10/2026), textual: **«elimina lo de "Grabar las visitas" eso por default debe
+estar siempre activado»**. El interruptor había nacido esa misma mañana, apagado por default.
+
+- **Se sacó el CAMPO, no sólo la pantalla.** Dejar `activo` en true para siempre era un
+  interruptor que miente; sacándolo del tipo, el compilador listó los siete lugares que lo
+  miraban, y todos eran casos que ya no pueden pasar: el motivo «apagado» de la ficha (con su
+  link), el descarte «apagado» de la ingesta, el renglón de apagada del chequeo de la prueba, el
+  aviso de la prueba que sólo prometía la grabación si estaba prendida, el cron que avisa de la
+  grabación lista y el «no graban» del WhatsApp.
+- **Lo guardado se ignora**: los ws 1, 11, 13 y 14 tenían `activo: true` y siguen igual; los cinco
+  con token y sin fila (4, 9, 10, 15 y 17) pasan a grabar en cuanto su página tenga un Pixel v21+
+  — hoy el único en esa condición es el ws4.
+- **El muestreo y la retención siguen siendo perillas**, sin pantalla: el muestreo es la salida
+  para un cliente con una avalancha de tráfico, sin desplegar.
 
 *2026-10-06*
 

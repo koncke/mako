@@ -34,7 +34,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Conectar tu Claude', detalle: 'Token del agente con la pantalla del trato + el tutorial de 4 pasos, el mismo que monta /second-brain', estado: 'hecha' },
   { titulo: 'El Pixel de MaKo', detalle: 'UN código que mide visita, video, clics, opt-in y agenda · elegir la página es el paso 1 y gobierna todo lo demás', estado: 'hecha' },
   { titulo: 'Probar el Pixel en vivo', detalle: 'Ventana de MaKo apoyada sobre la landing · chequeos que se adaptan a lo que la página tiene · marcador para ver SOLO tu prueba', estado: 'hecha' },
-  { titulo: 'Grabar las visitas y el mapa de calor', detalle: 'Clarity salió del producto el 6/10: graba MaKo, con el interruptor del Pixel, y el mapa de calor vive en Landing Analyst · falta que los clientes repeguen el código (Pixel v22): les llega el WhatsApp y un aviso fijo en la app', estado: 'sigue' },
+  { titulo: 'Grabar las visitas y el mapa de calor', detalle: 'Clarity salió del producto el 6/10: graba MaKo (siempre prendida, sin interruptor), y el mapa de calor vive en Landing Analyst · falta que los clientes repeguen el código (Pixel v22): les llega el WhatsApp y un aviso fijo en la app', estado: 'sigue' },
   { titulo: 'Identificar tus videos', detalle: 'Nombre propio, título real de Panda y ocultar los ajenos · falta que la curva de retención se filtre por video: la capacidad existe hace meses y nadie se la pasa', estado: 'sigue' },
   { titulo: 'Dar de alta un servicio sin cuatro listas', detalle: 'Hoy una integración se declara en el catálogo, en CAT_ORDER, en capas.ts, en el de íconos y en el del método; olvidar una la deja invisible y sin error', estado: 'cola' },
 ];
@@ -531,6 +531,36 @@ export const BITACORA: Hito[] = [
       'lib/replay-ficha.ts — `noGrabanTodas` · app/api/cron/tracking-vigilante/route.ts',
       'app/landing-analyst/MapaDeCalor.tsx · lib/landing-mapa.ts · lib/landing-mapa-foto.ts · lib/landing-mapa-server.ts',
       'lib/landing-analyst.ts · lib/landing-token.ts',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '13:11', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Ya publiqué y sigue el aviso; y que la grabación esté siempre prendida',
+    pedido: '«Ya publiqué y sigue apareciendo que falta publicar el pixel...\nY por otro lado, elimina lo de "Grabar las visitas" eso por default debe estar siempre activado»',
+    puntos: [
+      'Con dos capturas: el modal del Pixel con el chip «Actualiza el Pixel» y la pastilla de la esquina, y Lovable con la landing ya republicada en la v22.',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '13:33', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El aviso mira lo que sirve la página y decide por página; la grabación ya no se apaga',
+    commits: [
+      { sha: 'f229d313', msg: 'Pixel: el aviso mira lo que sirve la página y decide por página; la grabación ya no se apaga', lineas: 752, archivos: 23 },
+    ],
+    puntos: [
+      'La página ya servía la v22 y MaKo decía 21: la versión sólo se enteraba por las VISITAS, y la última era de antes de publicar. Ahora, cuando las visitas dicen «viejo», se lee el HTML que sirve la página; y la versión se lleva por página, no con el último evento del negocio.',
+      'Lo leen el aviso fijo, el chip del modal, el WhatsApp de «quedó viejo» y «Comprobar». Medido contra producción: el ws1 pasa a «al día» y el aviso se le apaga.',
+      '«Grabar las visitas» fuera: se sacó el campo del contrato, no sólo el interruptor, y el compilador listó los siete lugares que lo miraban. Los cinco negocios sin fila pasan a grabar.',
+      'SIN HACER: el aviso todavía no mira si el Pixel sigue vivo (una landing dada de baja deja la pastilla para siempre).',
+    ],
+    archivos: [
+      'lib/pixel-aviso.ts — versionEnHtml, el mapa por página y veredictoPixel (puros, con test)',
+      'lib/pixel-servido.ts · lib/pixel-estado.ts — la página leída y el veredicto por página',
+      'app/api/track/vsl/route.ts — el beacon anota cada página en el pageview',
+      'lib/replay-contrato.ts — la grabación sin apagador',
+      'app/integraciones/IntegracionesBoard.tsx — sin el interruptor',
     ],
   },
 ];
