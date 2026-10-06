@@ -685,14 +685,17 @@ export const RUNNERS: Runners = {
       // ESA; si no, la cola. EmpresaInbox, con un ?chat= que no está en su lista, abre
       // la primera conversación: la de OTRA persona, al lado del borrador.
       const chat = await chatEmpresaPorUltimos10(u10);
-      const url = chat ? linkApp(`/whatsapp?canal=no-oficial&chat=${encodeURIComponent(chat.chatJid)}`, await getWorkspaceActual()) : linkApp('/whatsapp?canal=no-oficial', await getWorkspaceActual());
+      // Con varias líneas, el link lleva la del chat: sin ella abre la bandeja de la de por default,
+      // donde ese contacto no está.
+      const url = chat ? linkApp(`/whatsapp?canal=no-oficial&chat=${encodeURIComponent(chat.chatJid)}${chat.linea ? `&linea=${encodeURIComponent(chat.linea)}` : ''}`, await getWorkspaceActual()) : linkApp('/whatsapp?canal=no-oficial', await getWorkspaceActual());
       // crearBorrador sin inscripción inserta a secas: un reintento apilaría el mismo
       // mensaje dos veces. Un borrador idéntico pendiente es LA propuesta.
       const igual = await borradorPendienteIgual(u10, texto);
       if (igual != null) return { id: String(igual), url, nueva: false };
       // ⚠️ crearBorrador devuelve void y se traga el error del insert (deuda de
       // lib/evolution-envio.ts): se relee, y si no está, NO se dice que quedó.
-      await crearBorrador({ leadId: lead?.id ?? null, telefono: tel, texto, chatJid: chat?.chatJid ?? `${tel}@s.whatsapp.net`, origen: 'mako' });
+      // Por la línea en la que viene la charla con ese contacto: es el número que conoce.
+      await crearBorrador({ leadId: lead?.id ?? null, telefono: tel, texto, chatJid: chat?.chatJid ?? `${tel}@s.whatsapp.net`, origen: 'mako', linea: chat?.linea ?? null });
       const creado = await borradorPendienteIgual(u10, texto);
       if (creado == null) return { error: 'No pude dejar el borrador en la cola. No se envió nada.' };
       return { id: String(creado), url, nueva: true, extra: { para: lead?.nombre ?? tel, nota: 'Quedó en la cola de borradores de /whatsapp: una persona lo manda con un clic. No se envió nada.' } };

@@ -166,7 +166,7 @@ function cargarLeidoEmpresa(): Map<string, number> {
 function guardarLeidoEmpresa(m: Map<string, number>) {
   try { localStorage.setItem(EMPRESA_LEIDO_KEY, JSON.stringify(Object.fromEntries(m))); } catch { /* sin storage */ }
 }
-type ConvNoOf = { chatJid: string; nombre: string; ultimaFecha: string | null; ultimoEntrante: boolean };
+type ConvNoOf = { chatJid: string; nombre: string; ultimaFecha: string | null; ultimoEntrante: boolean; linea?: string | null };
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -239,7 +239,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setToast(null);
     noOfLeidoRef.current.set(chatJid, noOfSnapRef.current.get(chatJid) ?? Date.now());
     guardarLeidoEmpresa(noOfLeidoRef.current);
-    router.push(`/whatsapp?canal=no-oficial&n=${Date.now()}`);
+    // Con varias líneas, a la bandeja del número por el que ENTRÓ y con ese chat abierto. Sin la
+    // línea abría la de por default, donde ese contacto no está, con el mensaje ya marcado leído.
+    const linea = noOfConvsRef.current.find((c) => c.chatJid === chatJid)?.linea ?? null;
+    const extra = `${linea ? `&linea=${encodeURIComponent(linea)}` : ''}&chat=${encodeURIComponent(chatJid)}`;
+    router.push(`/whatsapp?canal=no-oficial${extra}&n=${Date.now()}`);
   };
 
   const setOpenChat = (id: string | null) => { openChatRef.current = id; };

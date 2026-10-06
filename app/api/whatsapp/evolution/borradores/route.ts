@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       return Response.json({ ok: true, borradores, pendientes });
     }
     // Un solo viaje para todos: con el no oficial vivo ni se consulta Chatwoot.
-    const caminos = await caminosDeEnvio(borradores.map((b) => ({ id: b.id, telefono: b.telefono })));
+    const caminos = await caminosDeEnvio(borradores.map((b) => ({ id: b.id, telefono: b.telefono, linea: b.linea })));
     return Response.json({
       ok: true,
       pendientes,

@@ -58,6 +58,8 @@ export type SecuenciaDto = {
   funnel_id?: number | null;
   /** El PRODUCTO de cuya ENTREGA cuelga (trigger entrega_actual, mig 0189). */
   producto_id?: number | null;
+  /** Por qué número de WhatsApp sale (mig 0198). `null`/ausente = la línea por default. */
+  instance_name?: string | null;
   /**
    * EL HORARIO con el que inscribe (mig 0192). `null`/ausente = se dispara por una
    * ACCIÓN, que es lo que hacen hoy todas las filas. Ver lib/nutricion-agenda.ts.

@@ -32,7 +32,8 @@ import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
 import { listConversations, contactoIdPorTelefono, sendToContact } from '@/lib/chatwoot';
 import { integracionConectada } from '@/lib/credenciales';
-import { getInstanciaRow } from '@/lib/evolution';
+import { listarLineas } from '@/lib/evolution';
+import { lineaPorDefault } from '@/lib/lineas-whatsapp';
 import { enviarBorrador } from '@/lib/evolution-envio';
 import { MOTIVO_FUERA_DE_VENTANA, venceVentana24h, ventanaAbierta24h } from '@/lib/ventana-24h';
 
@@ -63,6 +64,8 @@ export const CAMINO_INDETERMINADO: CaminoBorrador = { via: null, motivo: 'No se 
 const POR_EMPRESA: CaminoBorrador = { via: 'empresa', motivo: null, venceAt: null };
 const SIN_CANAL: CaminoBorrador = { via: null, motivo: 'No hay ningún WhatsApp conectado para mandarlo.', venceAt: null };
 const SIN_LECTURA: CaminoBorrador = { via: null, motivo: 'No se pudo leer el estado del WhatsApp oficial.', venceAt: null };
+const LINEA_CAIDA: CaminoBorrador = { via: null, motivo: 'El número de este borrador está desconectado.', venceAt: null };
+const LINEA_IDA: CaminoBorrador = { via: null, motivo: 'El número de este borrador ya no está vinculado.', venceAt: null };
 const FUERA_DE_VENTANA: CaminoBorrador = { via: null, motivo: MOTIVO_FUERA_DE_VENTANA, venceAt: null };
 
 type VentanaPersona = { abierta: boolean; venceAt: number | null };
@@ -98,16 +101,31 @@ async function ventanasOficiales(paginas = 12): Promise<Map<string, VentanaPerso
  * borrador.
  */
 export async function caminosDeEnvio(
-  borradores: Array<{ id: number; telefono: string | null }>,
+  borradores: Array<{ id: number; telefono: string | null; linea?: string | null }>,
 ): Promise<Map<number, CaminoBorrador>> {
   const out = new Map<number, CaminoBorrador>();
   if (!borradores.length) return out;
 
-  const inst = await getInstanciaRow().catch(() => null);
-  if (inst && (inst.estado === 'conectado' || inst.estado === 'conectando')) {
-    for (const b of borradores) out.set(b.id, POR_EMPRESA);
-    return out;
+  // ⚠️ CADA BORRADOR CON SU LÍNEA (06/10/2026, varios números por negocio). Se decidía con la
+  // línea por default para todos: un borrador de la línea 2 conectada se mandaba por el OFICIAL
+  // porque la 1 estaba caída. Un borrador que NOMBRA su línea sale por ella o no sale — nunca
+  // por el oficial ni por otra: el lead venía hablando con ESE número.
+  const lineas = await listarLineas().catch(() => null);
+  const viva = (estado: string | null | undefined) => estado === 'conectado' || estado === 'conectando';
+  const def = lineas ? lineaPorDefault(lineas) : null;
+  const sinLinea: typeof borradores = [];
+  for (const b of borradores) {
+    if (b.linea) {
+      const fila = lineas?.find((l) => l.instance_name === b.linea);
+      out.set(b.id, fila ? (viva(fila.estado) ? POR_EMPRESA : LINEA_CAIDA) : (lineas ? LINEA_IDA : CAMINO_INDETERMINADO));
+    } else if (def && viva(def.estado)) {
+      out.set(b.id, POR_EMPRESA);
+    } else {
+      sinLinea.push(b);
+    }
   }
+  if (!sinLinea.length) return out;
+  borradores = sinLinea;
 
   if (!(await integracionConectada('whatsapp').catch(() => false))) {
     for (const b of borradores) out.set(b.id, SIN_CANAL);
@@ -133,11 +151,11 @@ export async function caminosDeEnvio(
   return out;
 }
 
-type BorradorFila = { id: number; telefono: string | null; texto: string | null; estado: string };
+type BorradorFila = { id: number; telefono: string | null; texto: string | null; estado: string; instance_name: string | null };
 
 async function leerBorrador(id: number): Promise<BorradorFila | null> {
   const db = await getTenantDb();
-  const { data } = await db.from('wa_borradores').select('id, telefono, texto, estado').eq('id', id).maybeSingle();
+  const { data } = await db.from('wa_borradores').select('id, telefono, texto, estado, instance_name').eq('id', id).maybeSingle();
   return (data as BorradorFila | null) ?? null;
 }
 
@@ -185,7 +203,7 @@ export async function enviarBorradorPorSuCanal(id: number, porEmail: string): Pr
   const b = await leerBorrador(id);
   if (!b || b.estado !== 'pendiente') return { ok: false, error: 'el borrador ya no está pendiente' };
 
-  const camino = (await caminosDeEnvio([{ id: b.id, telefono: b.telefono }])).get(b.id);
+  const camino = (await caminosDeEnvio([{ id: b.id, telefono: b.telefono, linea: b.instance_name }])).get(b.id);
   if (camino?.via === 'empresa') return enviarBorrador(id, porEmail);
   if (camino?.via === 'oficial') return mandarPorOficial(b, porEmail);
   return { ok: false, error: camino?.motivo ?? SIN_CANAL.motivo ?? 'No hay por dónde mandarlo.' };

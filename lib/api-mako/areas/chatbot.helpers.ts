@@ -113,7 +113,10 @@ export async function inscripcionesDeLead(leadId: number) {
 export async function estadoCanalWhatsapp() {
   const fuente = 'último estado registrado en la base, no una sonda en vivo: puede decir conectado sobre una sesión que ya se cayó';
   const db = await getTenantDb();
-  const { data, error } = await db.from('evolution_instancias').select('instance_name, estado, ultima_conexion_at').maybeSingle();
+  // La línea POR DEFAULT del negocio (mig 0198). Era un `maybeSingle()` sin filtro: con dos
+  // líneas Supabase devuelve error y esto contestaba «no se pudo leer» sobre un canal que anda.
+  const { data, error } = await db.from('evolution_instancias').select('instance_name, estado, ultima_conexion_at')
+    .order('es_default', { ascending: false }).order('id', { ascending: true }).limit(1).maybeSingle();
   if (error) return { estado: 'desconocido', desde: null, desvinculado: false, fuente, nota: 'No se pudo leer el estado: no es lo mismo que desconectado.' };
   const instancia = data as { instance_name: string; estado: string; ultima_conexion_at: string | null } | null;
   if (!instancia) return { estado: 'sin_vincular', desde: null, desvinculado: false, fuente };

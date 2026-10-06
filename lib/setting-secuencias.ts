@@ -377,7 +377,10 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
   const total = sec.pasos.length;
   const vars = valoresVariablesLead({ nombre: contacto.nombre || 'Prueba' });
 
-  const [inst, sandbox] = await Promise.all([getInstanciaRow(), remitenteEsSandbox()]);
+  // La prueba sale por la línea de ESTA secuencia (`null` = la de por default): probarla
+  // por otra sería probar otra cosa — y el estado que se mira es el de esa línea.
+  const lineaSec = sec.instance_name;
+  const [inst, sandbox] = await Promise.all([getInstanciaRow(lineaSec), remitenteEsSandbox()]);
   const evoConectada = inst?.estado === 'conectado';
 
   // ⚠️ EL NÚMERO CAÍDO SE CONTESTA ANTES DEL BUCLE, Y UNA SOLA VEZ.
@@ -414,11 +417,11 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
         const audio = await getAudio(Number(paso.audio_id));
         const b64 = audio ? await audioBase64(audio) : null;
         if (!audio || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el audio «${audio?.titulo ?? paso.audio_id}».`); continue; }
-        const ra = await enviarAudioYEspejar({ telefono: contacto.telefono, base64: b64, mimetype: audio.media_mime });
+        const ra = await enviarAudioYEspejar({ telefono: contacto.telefono, base64: b64, mimetype: audio.media_mime, linea: lineaSec });
         if (ra.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (audio): ${ra.error ?? 'no salió'}`);
         continue;
       }
-      const r = await enviarYEspejar({ telefono: contacto.telefono, texto: cuerpo });
+      const r = await enviarYEspejar({ telefono: contacto.telefono, texto: cuerpo, linea: lineaSec });
       if (r.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (WhatsApp): ${r.error ?? 'no salió'}`);
     } else {
       if (!contacto.email) { avisos.push(`Paso ${paso.orden}: sin email en Perfil, no se probó.`); continue; }

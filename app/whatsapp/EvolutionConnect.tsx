@@ -48,7 +48,19 @@ const chipBase: CSSProperties = {
 };
 const MAX_FALLOS = 5; // tras N fallos seguidos del polling, cortar y avisar
 
-export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbierto, inline = false, panelVisible = true }: {
+export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbierto, inline = false, panelVisible = true, linea = null, nueva = false, onLineaCreada, onLineasCambiaron }: {
+  /**
+   * La línea de la que habla este panel (`evolution_instancias.instance_name`); `null` = la de
+   * por default. Quien lo monta le pone `key` con la línea: así cambiar de línea es otro
+   * panel, sin estado viejo de la anterior.
+   */
+  linea?: string | null;
+  /** «Agregar otro número»: el QR es el de una línea NUEVA, que nace al pedirlo. */
+  nueva?: boolean;
+  /** La línea nueva quedó vinculada: quien lo monta la elige en el desplegable. */
+  onLineaCreada?: (linea: string) => void;
+  /** Se desvinculó, renombró o cambió la de por default: hay que releer la lista. */
+  onLineasCambiaron?: (movidas?: number) => void;
   /**
    * Le avisa al padre en qué estado quedó el canal.
    *
@@ -129,18 +141,35 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [pedirSync, setPedirSync] = useState(false); // pop-up "¿sincronizar?" al recién conectar
   const [borrando, setBorrando] = useState(false);
+  // La línea de este panel. En un ref porque con `nueva` NACE en el primer pedido: el QR
+  // de la línea nueva se pide sin línea y de ahí en adelante todo habla de la que volvió.
+  const lineaRef = useRef<string | null>(linea);
+  const conLinea = <T extends Record<string, unknown>>(b: T): T & { linea: string | null } => ({ ...b, linea: lineaRef.current });
+  // Lo que la pantalla de gestión necesita saber de ESTA línea entre todas las del negocio.
+  const [infoLinea, setInfoLinea] = useState<{ etiqueta: string; esDefault: boolean; total: number } | null>(null);
+  const [etiquetaEdit, setEtiquetaEdit] = useState('');
 
   const load = useCallback(async () => {
     try {
-      const { status, body } = await apiGet<{ ok: boolean; configurado: boolean; estado: Estado; numero: string | null; confirmado?: boolean; caida?: { codigo: number | null; cuando: string | null; desvinculado: boolean } | null }>('/api/whatsapp/evolution');
+      const q = lineaRef.current ? `?linea=${encodeURIComponent(lineaRef.current)}` : '';
+      const { status, body } = await apiGet<{ ok: boolean; configurado: boolean; estado: Estado; numero: string | null; confirmado?: boolean; caida?: { codigo: number | null; cuando: string | null; desvinculado: boolean } | null; linea?: string | null; lineas?: Array<{ linea: string; etiqueta: string | null; esDefault: boolean }> }>(`/api/whatsapp/evolution${q}`);
       if (status === 403) { setVisible(false); return; }      // setter/closer → sin chip
       setVisible(true);                                        // admin (o error): mostrar chip
-      if (body.ok) { setConfigurado(body.configurado); setEstado(body.estado); setNumero(body.numero); setConfirmado(body.confirmado !== false); setCaida(body.caida ?? null); }
+      // Una línea NUEVA todavía no existe: el estado de la de por default no es el suyo, y
+      // tomarlo dibujaría «conectado» en vez del QR que se vino a escanear.
+      if (body.ok && nueva && !lineaRef.current) { setConfigurado(body.configurado); setEstado('desconectado'); setCargado(true); return; }
+      if (body.ok) {
+        setConfigurado(body.configurado); setEstado(body.estado); setNumero(body.numero); setConfirmado(body.confirmado !== false); setCaida(body.caida ?? null);
+        if (body.linea) lineaRef.current = body.linea;
+        const esta = (body.lineas ?? []).find((l) => l.linea === body.linea);
+        setInfoLinea(esta ? { etiqueta: esta.etiqueta ?? '', esDefault: esta.esDefault, total: (body.lineas ?? []).length } : null);
+        setEtiquetaEdit(esta?.etiqueta ?? '');
+      }
       setCargado(true);
     } catch {
       setVisible(true); setEstado('error'); setCargado(true); // fallo de red → chip visible, reintentable
     }
-  }, []);
+  }, [nueva]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -176,12 +205,18 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
     let fallos = 0;
     const poll = setInterval(() => {
       void (async () => {
+        // Una línea NUEVA todavía sin nombre: sondear sin línea preguntaría por la de por
+        // default, y con ella conectada el panel diría «Conectado» con el número de OTRA línea.
+        if (nueva && !lineaRef.current) return;
         try {
-          const { body } = await apiPost<{ ok: boolean; estado: Estado; numero: string | null }>('/api/whatsapp/evolution', { action: 'estado' });
+          const { body } = await apiPost<{ ok: boolean; estado: Estado; numero: string | null }>('/api/whatsapp/evolution', conLinea({ action: 'estado' }));
           if (body.ok && body.estado !== 'error') {
             fallos = 0; setCaido(false);
             // Transición a conectado (recién escaneó el QR) → preguntar si sincronizar.
-            if (body.estado === 'conectado' && estadoRef.current !== 'conectado') setPedirSync(true);
+            if (body.estado === 'conectado' && estadoRef.current !== 'conectado') {
+              setPedirSync(true);
+              if (nueva && lineaRef.current) onLineaCreada?.(lineaRef.current);
+            }
             setEstado(body.estado);
             if (body.numero) setNumero(body.numero);
           } else if (++fallos >= MAX_FALLOS) { setCaido(true); }
@@ -191,14 +226,17 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
     const refresh = setInterval(() => {
       void (async () => {
         if (estadoRef.current === 'conectado') return;
+        if (nueva && !lineaRef.current) return;   // ver el sondeo de arriba
         try {
-          const { body } = await apiPost<{ ok: boolean; qr?: Qr }>('/api/whatsapp/evolution', { action: 'refrescar' });
+          const { body } = await apiPost<{ ok: boolean; qr?: Qr }>('/api/whatsapp/evolution', conLinea({ action: 'refrescar' }));
           if (body.ok && body.qr) { setQr(body.qr); setCaido(false); }
           else setCaido(true); // no se pudo renovar → el QR de pantalla ya venció
         } catch { setCaido(true); }
       })();
     }, 20000);
     return () => { clearInterval(poll); clearInterval(refresh); };
+    // `nueva` y `onLineaCreada` no cambian durante la vida del panel (va con `key` por línea).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conectando, estado]);
 
   // Salud del espejo de mensajes: al abrir el modal ya conectado, verificamos que
@@ -208,17 +246,47 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
     let vivo = true;
     void (async () => {
       try {
-        const { body } = await apiPost<{ ok: boolean; estado: WhEstado }>('/api/whatsapp/evolution', { action: 'webhook-estado' });
+        const { body } = await apiPost<{ ok: boolean; estado: WhEstado }>('/api/whatsapp/evolution', conLinea({ action: 'webhook-estado' }));
         if (vivo && body.ok) setWh(body.estado);
       } catch { /* sin salud → no mostramos nada, no rompe */ }
     })();
     return () => { vivo = false; };
   }, [open, estado]);
 
+  // ⚠️ La fila y la instancia de una línea NUEVA nacen al pedir el QR, antes de que nadie escanee.
+  // Si el panel se va sin haberla conectado (Cancelar, elegir otra línea, cambiar de tab), queda
+  // una línea fantasma para siempre en el desplegable. Al desmontar se suelta, con `keepalive`
+  // porque la página puede estar yéndose. Es una línea extra: desvincularla borra su fila.
+  useEffect(() => () => {
+    if (!nueva || !lineaRef.current || estadoRef.current === 'conectado') return;
+    try {
+      void fetch('/api/whatsapp/evolution', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ action: 'desconectar', linea: lineaRef.current }),
+      });
+    } catch { /* si no sale, queda en la lista con «Quitar este número» */ }
+    // Sólo al desmontar: `nueva` no cambia durante la vida del panel (va con `key` por línea).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // «Quitar este número»: una línea EXTRA que no está conectada (una que nunca se escaneó, o una
+  // que se cayó) se puede sacar desde el mismo panel del QR. La de por default no: se vuelve a
+  // vincular, porque es por la que sale todo lo que no nombra una línea.
+  async function quitarLinea() {
+    if (!(await confirm('¿Quitar este número del negocio?'))) return;
+    setBusy(true); setErr(null);
+    try {
+      const { body } = await apiPost<{ ok: boolean; error?: string; movidas?: number }>('/api/whatsapp/evolution', conLinea({ action: 'desconectar' }));
+      if (!body.ok) throw new Error(body.error || 'No se pudo quitar');
+      onLineasCambiaron?.(body.movidas ?? 0);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
   async function repararMirror() {
     setReparando(true); setErr(null);
     try {
-      const { body } = await apiPost<{ ok: boolean; estado: WhEstado; error?: string }>('/api/whatsapp/evolution', { action: 'reparar-webhook' });
+      const { body } = await apiPost<{ ok: boolean; estado: WhEstado; error?: string }>('/api/whatsapp/evolution', conLinea({ action: 'reparar-webhook' }));
       setWh(body.estado);
       if (!body.ok && body.error) setErr(body.error);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
@@ -228,7 +296,7 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
   async function sincronizar() {
     setSincronizando(true); setSyncMsg(null); setErr(null);
     try {
-      const { body } = await apiPost<{ ok: boolean; chats?: number; mensajes?: number; error?: string }>('/api/whatsapp/evolution', { action: 'sincronizar' });
+      const { body } = await apiPost<{ ok: boolean; chats?: number; mensajes?: number; error?: string }>('/api/whatsapp/evolution', conLinea({ action: 'sincronizar' }));
       if (!body.ok) throw new Error(body.error || 'No se pudo sincronizar');
       setSyncMsg(`Listo: ${body.chats ?? 0} chats · ${body.mensajes ?? 0} mensajes traídos.`);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
@@ -239,7 +307,7 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
     if (!(await confirm('¿Borrar TODOS los chats guardados del WhatsApp no oficial? Empiezas de 0. (No afecta tu WhatsApp; solo el espejo guardado en la app.)'))) return;
     setBorrando(true); setSyncMsg(null); setErr(null);
     try {
-      const { body } = await apiPost<{ ok: boolean; borrados?: number; error?: string }>('/api/whatsapp/evolution', { action: 'borrar-chats' });
+      const { body } = await apiPost<{ ok: boolean; borrados?: number; error?: string }>('/api/whatsapp/evolution', conLinea({ action: 'borrar-chats' }));
       if (!body.ok) throw new Error(body.error || 'No se pudo borrar');
       setSyncMsg(`Listo: se borraron ${body.borrados ?? 0} mensajes guardados. Empiezas de 0.`);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
@@ -251,23 +319,51 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
     void load(); // revalida el chip con el estado real al cerrar
   }
 
+  // El nombre de la línea se guarda al salir del campo. Vacío = sin nombre (se ve el número).
+  async function guardarEtiqueta() {
+    if (!infoLinea || etiquetaEdit.trim() === infoLinea.etiqueta.trim()) return;
+    try {
+      const { body } = await apiPost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution', conLinea({ action: 'renombrar-linea', etiqueta: etiquetaEdit }));
+      if (!body.ok) throw new Error(body.error || 'No se pudo guardar el nombre');
+      setInfoLinea({ ...infoLinea, etiqueta: etiquetaEdit.trim() });
+      onLineasCambiaron?.();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+  }
+
+  async function usarPorDefault() {
+    setBusy(true); setErr(null);
+    try {
+      const { body } = await apiPost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution', conLinea({ action: 'predeterminar-linea' }));
+      if (!body.ok) throw new Error(body.error || 'No se pudo cambiar');
+      if (infoLinea) setInfoLinea({ ...infoLinea, esDefault: true });
+      onLineasCambiaron?.();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
   async function abrir() {
     setOpen(true); setBusy(true); setErr(null); setQr(null); setCaido(false);
     try {
-      const { body } = await apiPost<{ ok: boolean; error?: string; estado: Estado; qr: Qr }>('/api/whatsapp/evolution', { action: 'conectar' });
+      // La primera vez de una línea NUEVA se pide «nueva-linea»; las siguientes (el «↻ Nuevo
+      // QR») ya hablan de la que volvió. Pedir «nueva-linea» de nuevo crearía una tercera.
+      const primeraDeNueva = nueva && !lineaRef.current;
+      const { body } = await apiPost<{ ok: boolean; error?: string; estado: Estado; qr: Qr; linea?: string }>('/api/whatsapp/evolution', primeraDeNueva ? { action: 'nueva-linea' } : conLinea({ action: 'conectar' }));
       if (!body.ok) throw new Error(body.error || 'No se pudo iniciar la conexión');
+      if (body.linea) lineaRef.current = body.linea;
       setEstado(body.estado); setQr(body.qr);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
 
   async function desconectar() {
-    if (!(await confirm('¿Desconectar el WhatsApp de empresa? Vas a tener que volver a escanear el QR para reconectar.'))) return;
+    const cual = infoLinea && infoLinea.total > 1 ? ` «${infoLinea.etiqueta || numero || 'esta línea'}»` : ' el WhatsApp de empresa';
+    if (!(await confirm(`¿Desconectar${cual}? Vas a tener que volver a escanear el QR para reconectar.`))) return;
     setBusy(true); setErr(null);
     try {
-      const { body } = await apiPost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution', { action: 'desconectar' });
+      const { body } = await apiPost<{ ok: boolean; error?: string; movidas?: number }>('/api/whatsapp/evolution', conLinea({ action: 'desconectar' }));
       if (!body.ok) throw new Error(body.error || 'No se pudo desconectar');
       setEstado('desconectado'); setNumero(null); setOpen(false);
+      onLineasCambiaron?.(body.movidas ?? 0);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -345,8 +441,10 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
     if (!panelVisible) return null;            // otra tab a la vista: sondea, no dibuja
     return (
       <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '24px' }}>
+        {/* El diálogo de «Quitar este número» se dibuja acá: sin su nodo, `confirm` espera para siempre. */}
+        {confirmNode}
         <div style={{ textAlign: 'center', maxWidth: '360px' }}>
-          <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--ink)' }}>Conecta tu WhatsApp</div>
+          <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--ink)' }}>{nueva ? 'Conecta otro número' : 'Conecta tu WhatsApp'}</div>
           {caida?.desvinculado && (
             // El único texto que se agrega al mínimo, y es el que evita el «no entiendo, mi
             // teléfono anda bien»: nombra el hecho del mundo del dueño, no nuestro estado.
@@ -370,6 +468,9 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
             )}
           </div>
           <button onClick={() => void abrir()} disabled={busy} style={{ marginTop: '12px', padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>↻ Nuevo QR</button>
+          {!nueva && infoLinea && infoLinea.total > 1 && !infoLinea.esDefault && (
+            <div><button onClick={() => void quitarLinea()} disabled={busy} style={{ marginTop: '8px', background: 'none', border: 'none', color: 'var(--bad)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>Quitar este número</button></div>
+          )}
           {!configurado && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--warn)' }}>El WhatsApp no oficial no está configurado en el servidor.</div>}
           {err && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--bad)' }}>{err}</div>}
         </div>
@@ -414,6 +515,21 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--good)', marginTop: '6px' }}>Conectado</div>
                 {numero && <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '2px', fontFamily: "'Geist Mono', monospace" }}>{numero}</div>}
+
+                {/* El nombre de la línea y cuál manda: sólo con más de una. Con un número, el
+                    nombre no distingue nada y «por default» no tiene alternativa. */}
+                {infoLinea && infoLinea.total > 1 && (
+                  <div style={{ marginTop: '14px', textAlign: 'left' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: '5px' }}>Nombre</label>
+                    <input value={etiquetaEdit} onChange={(e) => setEtiquetaEdit(e.target.value)} onBlur={() => void guardarEtiqueta()}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      placeholder="Ventas, Soporte…" maxLength={40}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', outline: 'none' }} />
+                    {infoLinea.esDefault
+                      ? <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '7px' }}>Por default</div>
+                      : <button onClick={() => void usarPorDefault()} disabled={busy} style={{ marginTop: '8px', padding: '6px 12px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>Usar por default</button>}
+                  </div>
+                )}
 
                 {/* Recién conectó → preguntar si querés traer las conversaciones. */}
                 {pedirSync && (

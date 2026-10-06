@@ -210,16 +210,20 @@ function etapaChip(key: string | null, label: string | null): { style: CSSProper
 // Componente
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function WhatsAppApp({ puedeChatbot = true, mostrarOficial = true }: { puedeChatbot?: boolean; mostrarOficial?: boolean }) {
+export function WhatsAppApp({ puedeChatbot = true, mostrarOficial = true, puedeAgregarLinea = false }: { puedeChatbot?: boolean; mostrarOficial?: boolean; puedeAgregarLinea?: boolean }) {
   // useSearchParams (deep-link ?chat=) exige un boundary de Suspense en la página.
   return (
     <Suspense fallback={null}>
-      <WhatsAppInner puedeChatbot={puedeChatbot} mostrarOficial={mostrarOficial} />
+      <WhatsAppInner puedeChatbot={puedeChatbot} mostrarOficial={mostrarOficial} puedeAgregarLinea={puedeAgregarLinea} />
     </Suspense>
   );
 }
 
-function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean; mostrarOficial: boolean }) {
+/** Una línea del no oficial, tal como la dibuja el desplegable. */
+type LineaWa = { linea: string; rotulo: string; estado: string; esDefault: boolean };
+const AGREGAR_LINEA = '__agregar_linea__';
+
+function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea }: { puedeChatbot: boolean; mostrarOficial: boolean; puedeAgregarLinea: boolean }) {
   // La tab es SOLO conversaciones: las secuencias viven en /chatbot, que lee las mismas
   // filas de `nutricion_secuencias`. Tener el mismo tablero en dos pantallas era la
   // forma mas facil de que una quedara vieja.
@@ -298,6 +302,31 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean
   // sabe todavía, y con `null` acá NO se acusa nada: es la misma regla de tres
   // estados que ese chip aplica adentro. Ver el ⚠️ del rótulo «Envío real».
   const [canalNoOficial, setCanalNoOficial] = useState<'desconectado' | 'conectando' | 'conectado' | 'error' | null>(null);
+
+  // ── Las líneas del no oficial (06/10/2026: varios números por negocio) ──────────────
+  // Pedido de Martín: «es la misma dinámica que "Productos" en el CRM… un desplegable que
+  // cambiaría el chat». La línea vive en la URL (`?linea=`), como el producto en el CRM: así
+  // el link que se copia abre el chat de ESE número. Sin `?linea=`, la de por default.
+  const [lineas, setLineas] = useState<LineaWa[]>([]);
+  const [agregando, setAgregando] = useState(false);
+  const [avisoLineas, setAvisoLineas] = useState<string | null>(null);
+  // ⚠️ LA BANDEJA ESPERA A LA LISTA. Sin línea, la bandeja lee el espejo ENTERO: con dos números
+  // mostraría los dos mezclados y una respuesta saldría por la de por default. Así que siempre
+  // recibe una línea explícita — y montarla antes de saber cuál la cargaría dos veces.
+  const [lineasCargadas, setLineasCargadas] = useState(false);
+  // ⚠️ «No pude leer la lista» no es «no hay líneas». Con dos números y la lista caída, la bandeja
+  // se montaba SIN línea: leía el espejo entero (los dos números fundidos) y contestaba por la de
+  // por default. Sin lista no hay bandeja: se dice y se ofrece reintentar.
+  const [lineasError, setLineasError] = useState(false);
+  const recargarLineas = useCallback(async () => {
+    try {
+      const r = await fetch('/api/whatsapp/evolution/mensajes?lineas=1', { cache: 'no-store' });
+      const j = (await r.json()) as { ok: boolean; lineas?: LineaWa[] };
+      if (j.ok) { setLineas(j.lineas ?? []); setLineasError(false); } else setLineasError(true);
+    } catch { setLineasError(true); }
+    finally { setLineasCargadas(true); }
+  }, []);
+  useEffect(() => { void recargarLineas(); }, [recargarLineas]);
   const [caidaNoOficial, setCaidaNoOficial] = useState<{ desvinculado: boolean; fecha: string | null } | null>(null);
   const onEstadoNoOficial = useCallback((e: 'desconectado' | 'conectando' | 'conectado' | 'error' | null, c?: { desvinculado: boolean; fecha: string | null }) => {
     setCanalNoOficial(e);
@@ -313,7 +342,6 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean
    * WhatsApp desvinculó el dispositivo: esa sesión se queda en `conectando` para siempre.
    */
   const canalCaido = canalNoOficial === 'desconectado' || (canalNoOficial === 'conectando' && caidaNoOficial?.desvinculado === true);
-  const noOficialOk = !canalCaido;
   const [envioAdmin, setEnvioAdmin] = useState(false);
   const [envioBusy, setEnvioBusy] = useState(false);
   const [envioErr, setEnvioErr] = useState<string | null>(null);
@@ -395,6 +423,38 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean
     if (c === 'empresa' || c === 'no-oficial' || c === 'no_oficial') setCanal('empresa');
     else if (c === 'oficial' && mostrarOficial) setCanal('oficial');
   }, [searchParamsWA]);
+
+  const lineaPedida = searchParamsWA.get('linea');
+  // ⚠️ Una `?linea=` que no está en la lista (otra cuenta, una línea que se fue) NO se usa: se
+  // cae a la de por default. La lista sale de una lectura con el scope del workspace, y el
+  // servidor vuelve a validar la línea en cada envío.
+  const lineaActiva: LineaWa | null = lineas.find((l) => l.linea === lineaPedida)
+    ?? lineas.find((l) => l.esDefault) ?? lineas[0] ?? null;
+  const irALinea = useCallback((linea: string) => {
+    const p = new URLSearchParams(searchParamsWA.toString());
+    p.set('linea', linea);
+    // Lo que se abre pertenece a la línea de la que se sale (misma regla que `irACanal`).
+    p.delete('chat'); p.delete('lead'); p.delete('n');
+    router.replace(`/whatsapp?${p.toString()}`, { scroll: false });
+  }, [router, searchParamsWA]);
+  // ⚠️ DOS PREGUNTAS DISTINTAS. El estado de la línea que se MIRA decide QR o bandeja; el de la
+  // línea por la que MANDA el chatbot (la de por default) decide la alarma del botón y el chip
+  // «Chatbot: ON». Juntas, mirar la línea 2 viva con la 1 caída dejaba el chip en verde sin que
+  // saliera nada, y mirar una línea extra caída hacía titilar todo en rojo con el chatbot andando.
+  // Mirando la de por default (o con un solo número) manda la sonda, que es lo medido; mirando
+  // otra, la fila de la de por default.
+  const lineaDefault = lineas.find((l) => l.esDefault) ?? lineas[0] ?? null;
+  const viendoLaDefault = !lineaActiva || !lineaDefault || lineaActiva.linea === lineaDefault.linea;
+  const caidoQueManda = viendoLaDefault ? canalCaido : (lineaDefault.estado !== 'conectado' && lineaDefault.estado !== 'conectando');
+  const noOficialOk = !caidoQueManda;
+  const onLineaCreada = useCallback((linea: string) => {
+    setAgregando(false);
+    void recargarLineas().then(() => irALinea(linea));
+  }, [recargarLineas, irALinea]);
+  const onLineasCambiaron = useCallback((movidas?: number) => {
+    void recargarLineas();
+    setAvisoLineas(movidas ? `${movidas} secuencia${movidas === 1 ? '' : 's'} pasan a la línea por default` : null);
+  }, [recargarLineas]);
 
   const irACanal = useCallback((c: 'oficial' | 'empresa') => {
     setCanal(c);
@@ -894,11 +954,11 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean
               <button onClick={() => void toggleEnvioWa()} disabled={envioBusy} aria-pressed={envioWaOn}
                 title={
                   !envioWaOn ? 'El chatbot no envía: los pasos de las secuencias quedan esperando — clic para activar'
-                    : canalCaido ? 'El interruptor está encendido, pero tu WhatsApp no oficial está desconectado: no sale nada. Entra a la tab «No Oficial» para volver a vincularlo.'
+                    : caidoQueManda ? 'El interruptor está encendido, pero tu WhatsApp no oficial está desconectado: no sale nada. Entra a la tab «No Oficial» para volver a vincularlo.'
                       : 'El chatbot manda WhatsApps reales — clic para pausar'
                 }
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, border: '1px solid ' + (envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--border-strong)'), background: envioWaOn ? (canalCaido ? 'var(--warn-bg)' : 'var(--good-bg)') : 'var(--surface)', color: envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--dim)' }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--faint)' }} />
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, border: '1px solid ' + (envioWaOn ? (caidoQueManda ? 'var(--warn)' : 'var(--good)') : 'var(--border-strong)'), background: envioWaOn ? (caidoQueManda ? 'var(--warn-bg)' : 'var(--good-bg)') : 'var(--surface)', color: envioWaOn ? (caidoQueManda ? 'var(--warn)' : 'var(--good)') : 'var(--dim)' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: envioWaOn ? (caidoQueManda ? 'var(--warn)' : 'var(--good)') : 'var(--faint)' }} />
                 {/* ⚠️ «Envío real: ON» AFIRMABA LA MITAD BUENA DE UN PROCESO DE DOS
                     PASOS, que es la regla que este repo ya tiene escrita («llegó el
                     formulario ✓» sin decir si ENTRÓ). Para que salga un mensaje hacen
@@ -909,7 +969,7 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean
                     Ahora, con el canal caído, el mismo chip dice qué falta. No se
                     apaga: el interruptor SÍ está en ON, y mentir en la otra dirección
                     haría que lo prendiera de nuevo sin efecto. */}
-                Chatbot: {envioWaOn ? (canalCaido ? 'ON, pero el número está caído' : 'ON') : 'OFF'}
+                Chatbot: {envioWaOn ? (caidoQueManda ? 'ON, pero el número está caído' : 'ON') : 'OFF'}
               </button>
             )}
             {envioErr && <span style={{ fontSize: '12px', color: 'var(--bad)' }}>{envioErr}</span>}
@@ -932,6 +992,36 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean
             No Oficial{noOficialUnread > 0 && <span style={badgeCanal}>{noOficialUnread}</span>}
           </button>
         </div>
+        {/* El número de la bandeja. Se dibuja con DOS líneas o más, o con una si quien mira
+            puede agregar otra: ahí es la puerta a «Agregar otro número». Con una sola línea y
+            sin permiso, un desplegable de una opción no elige nada. */}
+        {canal === 'empresa' && lineaActiva && (lineas.length > 1 || puedeAgregarLinea) && (
+          <Dropdown
+            value={agregando ? AGREGAR_LINEA : lineaActiva.linea}
+            width={200}
+            ariaLabel="Número de WhatsApp de la bandeja"
+            options={[
+              // La que se está mirando primero, como el producto en el CRM.
+              ...[lineaActiva, ...lineas.filter((l) => l.linea !== lineaActiva.linea)].map((l) => ({
+                value: l.linea, label: l.rotulo,
+                // El punto dice si esa línea puede mandar: el color nunca va solo, el rótulo
+                // del desplegable de cerrado lo repite en el `title` del botón del canal.
+                color: l.estado === 'conectado' ? 'var(--good)' : 'var(--warn)',
+              })),
+              ...(puedeAgregarLinea ? [{ value: AGREGAR_LINEA, label: 'Agregar otro número', crear: true }] : []),
+            ]}
+            onChange={(v) => {
+              setAvisoLineas(null);
+              // El modal de gestión es de la línea que se deja: abierto, se volvería a abrir solo
+              // sobre la siguiente apenas cargue «conectado».
+              setModalNoOficial(false);
+              if (v === AGREGAR_LINEA) { setAgregando(true); return; }
+              setAgregando(false);
+              irALinea(v);
+            }}
+          />
+        )}
+        {avisoLineas && <span style={{ fontSize: '12px', color: 'var(--dim)' }}>{avisoLineas}</span>}
       </header>
 
       {/* ============= CONVERSACIONES — EMPRESA (no oficial, espejo en DB) ============= */}
@@ -939,11 +1029,33 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean
           pop-up encima de los chats: el que entra rápido lo cierra y se queda sin saber
           que el número no manda nada. El componente queda montado siempre —también con la
           otra tab a la vista— porque de él sale el estado que hace titilar el botón. */}
-      <EvolutionConnect inline panelVisible={canal === 'empresa'} abierto={modalNoOficial} onAbierto={setModalNoOficial} onEstado={onEstadoNoOficial} />
+      {/* `key` por línea: cambiar de número es otro panel, sin el estado ni el QR del anterior. */}
+      {lineasCargadas && <EvolutionConnect key={`conexion-${lineaActiva?.linea ?? 'default'}`} linea={lineaActiva?.linea ?? null}
+        inline panelVisible={canal === 'empresa' && !agregando} abierto={modalNoOficial} onAbierto={setModalNoOficial} onEstado={onEstadoNoOficial}
+        onLineasCambiaron={onLineasCambiaron} />}
+      {/* «Agregar otro número»: el QR de una línea NUEVA en el lugar de los chats. Sin
+          `onEstado`: su «todavía no conectada» no es el estado del número que manda, y si lo
+          fuera el botón del canal titilaría en rojo mientras la persona escanea. */}
+      {canal === 'empresa' && agregando && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <EvolutionConnect key="nueva-linea" nueva inline panelVisible onLineaCreada={onLineaCreada} />
+          <button onClick={() => setAgregando(false)}
+            style={{ alignSelf: 'center', background: 'none', border: 'none', color: 'var(--dim)', fontSize: '13px', cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>Cancelar</button>
+        </div>
+      )}
       {/* La bandeja y el panel de conexión son excluyentes, y el corte es CONECTADO, no
           «no está caído»: con el número a medio vincular manda la pantalla del QR.
           Mientras no se sabe (null) se muestra la bandeja: el panel todavía no existe. */}
-      {canal === 'empresa' && (canalNoOficial == null || canalNoOficial === 'conectado') && <EmpresaInbox puedeChatbot={puedeChatbot} />}
+      {canal === 'empresa' && lineasError && !lineas.length && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--ink)', fontWeight: 600 }}>No pude cargar tus números</div>
+          <button onClick={() => void recargarLineas()}
+            style={{ padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Reintentar</button>
+        </div>
+      )}
+      {canal === 'empresa' && lineasCargadas && !(lineasError && !lineas.length) && !agregando && (canalNoOficial == null || canalNoOficial === 'conectado') && (
+        <EmpresaInbox key={`bandeja-${lineaActiva?.linea ?? 'default'}`} puedeChatbot={puedeChatbot} linea={lineaActiva?.linea ?? null} />
+      )}
 
       {/* ============= CONVERSACIONES — BOT OFICIAL (Chatwoot) ============= */}
       {canal === 'oficial' && (

@@ -48,7 +48,11 @@ async function jpost<T>(url: string, body: unknown): Promise<T> { const r = awai
 // Cache a NIVEL MÓDULO: sobrevive el desmontaje del componente (toggle de canal o
 // navegación entre tabs) → al volver, la lista y el hilo aparecen al instante y se
 // refrescan en 2º plano, sin recargar todo con spinner.
-let convsCache: Conv[] = [];
+// La lista por LÍNEA (06/10/2026). Era un solo arreglo de módulo: al pasar a otro número la
+// bandeja arrancaba con la lista del anterior, y el auto-abrir elegía un contacto de la OTRA
+// línea —lo marcaba leído y dejaba de notificarlo—. La clave es el nombre de la línea, que ya
+// lleva el workspace adentro.
+const convsCache = new Map<string, Conv[]>();
 const msgsCache = new Map<string, Msg[]>();
 function cacheMsgs(chat: string, m: Msg[]) {
   if (msgsCache.has(chat)) msgsCache.delete(chat);
@@ -92,7 +96,18 @@ function preview(c: Conv): string {
 const last10 = (tel: string | null) => (tel || '').replace(/\D/g, '').slice(-10);
 function leerLeido(): Record<string, number> { try { const raw = localStorage.getItem(LEIDO_KEY); return raw ? (JSON.parse(raw) as Record<string, number>) : {}; } catch { return {}; } }
 
-export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean } = {}) {
+/**
+ * `linea`: la bandeja de UN número (06/10/2026). `null` = todo el espejo del negocio, que con
+ * una sola línea es lo mismo. Quien la monta le pone `key` con la línea: cambiar de número es
+ * otra bandeja, sin el chat abierto ni el borrador de la anterior.
+ */
+export function EmpresaInbox({ puedeChatbot = true, linea = null }: { puedeChatbot?: boolean; linea?: string | null } = {}) {
+  // El sufijo de la línea para los GET de la bandeja, y el campo para los POST.
+  const qLinea = linea ? `linea=${encodeURIComponent(linea)}` : '';
+  // ⚠️ La caché de hilos es de MÓDULO: sobrevive al cambio de línea y al de cliente en la misma
+  // pestaña. Indexada sólo por el chat, abrir el mismo contacto en otra línea pintaba por un
+  // instante el hilo de la anterior. La línea va en la clave, y su nombre ya lleva el workspace.
+  const claveCache = (chat: string) => `${linea ?? ''}|${chat}`;
   const { setOpenChatNoOficial } = useNotifications();
   const { confirm, confirmNode } = useConfirm();
   const router = useRouter();
@@ -100,11 +115,11 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
   // Recuerda el último ?chat= ya aplicado, para no reforzarlo si el usuario
   // después elige otra conversación a mano (mismo patrón que WhatsAppApp).
   const chatDeepLinkRef = useRef<string | null>(null);
-  const [convs, setConvs] = useState<Conv[]>(convsCache);
+  const [convs, setConvs] = useState<Conv[]>(convsCache.get(linea ?? '') ?? []);
   const [busqLeads, setBusqLeads] = useState<Conv[]>([]); // leads del CRM traídos por el buscador (#2)
   const [sel, setSel] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [loadingConvs, setLoadingConvs] = useState(convsCache.length === 0);
+  const [loadingConvs, setLoadingConvs] = useState((convsCache.get(linea ?? '') ?? []).length === 0);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [errMsgs, setErrMsgs] = useState<string | null>(null);   // fallo de CARGA del hilo (con Reintentar)
@@ -170,14 +185,14 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
 
   const loadConvs = useCallback(async () => {
     try {
-      const j = await jget<{ ok: boolean; error?: string; conversaciones: Conv[] }>(`/api/whatsapp/evolution/mensajes${verOcultos ? '?ocultos=1' : ''}`);
+      const j = await jget<{ ok: boolean; error?: string; conversaciones: Conv[] }>(`/api/whatsapp/evolution/mensajes?${[verOcultos ? 'ocultos=1' : '', qLinea].filter(Boolean).join('&')}`);
       if (!j.ok) throw new Error(j.error || 'No se pudieron cargar las conversaciones');
-      if (!verOcultos) convsCache = j.conversaciones; // la vista normal alimenta el cache; la de ocultos no
+      if (!verOcultos) convsCache.set(linea ?? '', j.conversaciones); // la vista normal alimenta el cache; la de ocultos no
       setConvs(j.conversaciones); setErr(null);
       setLeidoMap(leerLeido()); // refrescar marcadores de leído (los actualiza el provider)
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setLoadingConvs(false); }
-  }, [verOcultos]);
+  }, [verOcultos, qLinea]);
 
   // Auto-abrir un chat al entrar (#1) — sin pisar una elección manual (solo si
   // no hay nada seleccionado). Prioridad: el deep-link `?chat=<jid>` (desde el
@@ -187,9 +202,15 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
   useEffect(() => {
     if (sel != null || !convs.length) return;
     const target = searchParamsEmpresa.get('chat');
-    if (target && chatDeepLinkRef.current !== target && convs.some((c) => c.chatJid === target)) {
-      chatDeepLinkRef.current = target;
-      setSel(target);
+    if (target && chatDeepLinkRef.current !== target) {
+      if (convs.some((c) => c.chatJid === target)) {
+        chatDeepLinkRef.current = target;
+        setSel(target);
+      }
+      // ⚠️ Pedido y todavía no está en la lista: se ESPERA, no se cae a la primera. Abrir otra
+      // conversación al lado de un link que nombraba a alguien es mostrar el chat de OTRA persona
+      // (con un borrador de MaKo al lado, si vino de ahí). Con varias líneas pasa cada vez que el
+      // link apunta a otro número: la persona elige el chat a mano.
       return;
     }
     setSel(convs[0].chatJid);
@@ -213,13 +234,13 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
   const loadMsgs = useCallback(async (chat: string) => {
     // Spinner SOLO en la primera carga del chat (sin cache): el refresco de 8s
     // no debe parpadear el spinner en chats vacíos (leads recién traídos, total=0).
-    if (!msgsCache.has(chat)) setLoadingMsgs(true);
+    if (!msgsCache.has(claveCache(chat))) setLoadingMsgs(true);
     // Timeout duro: un backend colgado (p.ej. storage lento firmando media) NO
     // puede dejar el hilo "Cargando…" para siempre — cae a error + Reintentar.
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 15000);
     try {
-      const r = await fetch(`/api/whatsapp/evolution/mensajes?chat=${encodeURIComponent(chat)}`, { cache: 'no-store', signal: ctrl.signal });
+      const r = await fetch(`/api/whatsapp/evolution/mensajes?chat=${encodeURIComponent(chat)}${qLinea ? `&${qLinea}` : ''}`, { cache: 'no-store', signal: ctrl.signal });
       const j = (await r.json()) as { ok: boolean; error?: string; mensajes: Msg[] };
       if (selRef.current !== chat) return; // el user cambió de chat mientras cargaba → descartar
       if (!j.ok) { setErrMsgs(j.error || 'No se pudieron cargar los mensajes'); return; }
@@ -228,7 +249,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
       setMsgs((prev) => {
         const urlPorId = new Map(prev.filter((m) => m.mediaUrl).map((m) => [m.id, m.mediaUrl] as const));
         const merged = j.mensajes.map((m) => (m.mediaUrl && urlPorId.has(m.id) ? { ...m, mediaUrl: urlPorId.get(m.id)! } : m));
-        cacheMsgs(chat, merged);
+        cacheMsgs(claveCache(chat), merged);
         return merged;
       });
     } catch { if (selRef.current === chat) setErrMsgs('Error de red al cargar los mensajes'); }
@@ -249,7 +270,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
     // (foto/nombre/número + botón mostrar). El historial queda oculto.
     if (!sel || verOcultos) { setMsgs([]); return; }
     stickRef.current = true;       // al abrir un chat, arrancamos pegados al fondo
-    setMsgs(msgsCache.get(sel) ?? []); // pinta el cache al instante (sin spinner) y refresca
+    setMsgs(msgsCache.get(claveCache(sel)) ?? []); // pinta el cache al instante (sin spinner) y refresca
     void loadMsgs(sel);
     const t = setInterval(() => void loadMsgs(sel), 8000);
     return () => clearInterval(t);
@@ -292,7 +313,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
     if (!sc || !draft.trim()) return;
     setSending(true); setSendErr(null);
     try {
-      const j = await jpost<{ ok: boolean; error?: string; chatJid?: string | null }>('/api/whatsapp/evolution/mensajes', { telefono: sc.telefono, chat: sc.chatJid, texto: draft.trim(), leadId: sc.leadId });
+      const j = await jpost<{ ok: boolean; error?: string; chatJid?: string | null }>('/api/whatsapp/evolution/mensajes', { telefono: sc.telefono, chat: sc.chatJid, texto: draft.trim(), leadId: sc.leadId, linea });
       if (j.ok) { setDraft(''); stickRef.current = true; await enfocarTrasEnvio(sc.chatJid, j.chatJid ?? null); }
       else setSendErr(j.error || 'No se pudo enviar el mensaje.');
     } catch (e) { setSendErr('No se pudo enviar (' + (e instanceof Error ? e.message : 'error de red') + ').'); }
@@ -323,6 +344,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
       if (sc.leadId) fd.append('leadId', String(sc.leadId));
       if (caption) fd.append('caption', caption);
       fd.append('tipo', tipo);
+      if (linea) fd.append('linea', linea);   // por el número de la bandeja abierta
       fd.append('archivo', blob, fileName);
       const r = await fetch('/api/whatsapp/evolution/mensajes', { method: 'POST', body: fd });
       const j = (await r.json()) as { ok: boolean; error?: string; chatJid?: string | null };
@@ -372,7 +394,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
       const j = await jpost<{ ok: boolean; error?: string; bloqueado: boolean }>('/api/whatsapp/evolution/block', { telefono: sc.telefono, action: bloquear ? 'block' : 'unblock', leadId: sc.leadId, motivo });
       if (j.ok) {
         const upd = (arr: Conv[]) => arr.map((c) => (c.chatJid === sc.chatJid ? { ...c, bloqueado: j.bloqueado } : c));
-        setConvs((prev) => upd(prev)); setBusqLeads((prev) => upd(prev)); convsCache = upd(convsCache);
+        setConvs((prev) => upd(prev)); setBusqLeads((prev) => upd(prev)); convsCache.set(linea ?? '', upd(convsCache.get(linea ?? '') ?? []));
       } else setSendErr(j.error || 'No se pudo cambiar el bloqueo.');
     } finally { setBlocking(false); }
   }
@@ -406,7 +428,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
       else if (r.coincidencias.length === 1) id = r.coincidencias[0].id;
       else { setSendErr(r.error); return; }
       const upd = (arr: Conv[]) => arr.map((c) => (c.chatJid === sc.chatJid ? { ...c, leadId: id } : c));
-      setConvs((prev) => upd(prev)); setBusqLeads((prev) => upd(prev)); convsCache = upd(convsCache);
+      setConvs((prev) => upd(prev)); setBusqLeads((prev) => upd(prev)); convsCache.set(linea ?? '', upd(convsCache.get(linea ?? '') ?? []));
       setDetalleLeadId(id);
     } catch (e) {
       setSendErr(e instanceof Error ? e.message : 'No se pudo agregar al CRM.');
@@ -419,7 +441,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
     if (!sc) return;
     setChatBusy('sync'); setSendErr(null);
     try {
-      const j = await jpost<{ ok: boolean; mensajes?: number; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono ?? '', chat: sc.chatJid, action: 'sync-chat' });
+      const j = await jpost<{ ok: boolean; mensajes?: number; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono ?? '', chat: sc.chatJid, action: 'sync-chat', linea });
       if (j.ok) { await loadConvs(); if (selRef.current) await loadMsgs(selRef.current); }
       else setSendErr(j.error || 'No se pudo sincronizar el chat.');
     } catch { setSendErr('No se pudo sincronizar el chat.'); }
@@ -432,7 +454,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
     if (!(await confirm(`¿Borrar el historial guardado de ${sc.nombre}? (Solo el espejo de la app; no toca tu WhatsApp. Puedes volver a sincronizarlo.)`))) return;
     setChatBusy('clear'); setSendErr(null);
     try {
-      const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono ?? '', chat: sc.chatJid, action: 'clear-chat' });
+      const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono ?? '', chat: sc.chatJid, action: 'clear-chat', linea });
       if (j.ok) { setMsgs([]); await loadConvs(); }
       else setSendErr(j.error || 'No se pudo borrar el chat.');
     } catch { setSendErr('No se pudo borrar el chat.'); }

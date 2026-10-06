@@ -142,8 +142,15 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   // instancia y nunca muestra un QR nuevo.
   try {
     const { runWithWorkspace } = await import('./workspace');
-    const { desconectar } = await import('./evolution');
-    await runWithWorkspace(ws, () => desconectar());
+    const { desconectar, listarLineas } = await import('./evolution');
+    // TODAS las líneas, no sólo la de por default (06/10/2026, varias por negocio): una que
+    // quede viva en Evolution sigue recibiendo mensajes de un workspace que se acaba de vaciar.
+    // Las extra primero —desvincularlas borra su fila—, la de por default al final.
+    await runWithWorkspace(ws, async () => {
+      const lineas = await listarLineas().catch(() => []);
+      const nombres: Array<string | null> = lineas.length ? lineas.map((l) => l.instance_name).reverse() : [null];
+      for (const n of nombres) await desconectar(n);
+    });
   } catch (e) {
     avisos.push(`WhatsApp no oficial: no se pudo cerrar la sesión (${msg(e)}). Si el código QR no aparece, desconecta el número manualmente desde la sección de WhatsApp.`);
   }

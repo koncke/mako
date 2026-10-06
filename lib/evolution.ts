@@ -1,10 +1,16 @@
 // =============================================================================
 // Evolution API — WhatsApp NO oficial (número por QR, texto libre)
 // =============================================================================
-// Cuenta única de MaKo (env EVOLUTION_BASE_URL / EVOLUTION_API_KEY), UNA
-// instancia por workspace (instance_name = 'mako_ws<id>'). El estado y el
-// mapeo instancia↔workspace viven en evolution_instancias; el QR se pide en
-// vivo (efímero). Contrato verificado contra Evolution v2.3.7.
+// Cuenta única de MaKo (env EVOLUTION_BASE_URL / EVOLUTION_API_KEY), una o VARIAS
+// instancias por workspace (06/10/2026: `mako_ws<id>`, `mako_ws<id>_2`…). El estado y
+// el mapeo instancia↔workspace viven en evolution_instancias; el QR se pide en vivo
+// (efímero). Contrato verificado contra Evolution v2.3.7.
+//
+// ⚠️ QUÉ LÍNEA USA CADA FUNCIÓN lo decide `elegirLinea` (lib/lineas-whatsapp.ts) y nadie
+// más: cada función que habla con una instancia recibe una `linea` opcional y la pasa por
+// `lineaEstricta` / `lineaSuave`. Sin `linea`, la de por default — que es lo que hace que
+// todo camino viejo siga igual. Una línea pedida que no es del negocio NO cae a la de por
+// default: no se usa, porque eso es mandar desde el número equivocado.
 //
 // Reglas del PDF: a leads calientes NUNCA se dispara automático (F2.3, cola de
 // borradores). Acá viven el cliente HTTP, la conexión (QR) y los helpers.
@@ -13,6 +19,11 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { hayQueRecrear, mensajeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
+import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, lineaPorDefault } from './lineas-whatsapp';
+
+// El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
+// test). Se re-exporta para que ningún import cambie.
+export { instanceNameDeWs };
 
 // El veredicto de la sonda y el reconocedor de «sesión caída» viven en lib/evolution-sonda.ts
 // (puros, testeados con respuestas medidas). Se re-exportan para que nadie cambie su import.
@@ -35,11 +46,6 @@ const WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET || '';
 
 export function evolutionConfigurado(): boolean {
   return !!BASE && !!KEY;
-}
-
-// instance_name estable por workspace. Único en la cuenta de Evolution.
-export function instanceNameDeWs(ws: number): string {
-  return `mako_ws${ws}`;
 }
 
 export type EstadoConexion = 'desconectado' | 'conectando' | 'conectado' | 'error';
@@ -184,33 +190,125 @@ export type InstanciaRow = {
   ultima_conexion_at: string | null;
 };
 
-export async function getInstanciaRow(): Promise<InstanciaRow | null> {
+/** Una línea del negocio: la fila de la instancia, con su nombre y si es la de por default. */
+export type LineaRow = InstanciaRow & { etiqueta: string | null; es_default: boolean };
+
+const COLS_LINEA = 'id, instance_name, instance_id, estado, numero, perfil_nombre, ultima_conexion_at, etiqueta, es_default';
+
+/**
+ * Las líneas del workspace del contexto, la de por default primero y después por antigüedad.
+ * Con el scope de `getTenantDb`: es la lectura de la que `elegirLinea` saca qué líneas son
+ * del negocio, así que un error acá TIRA — un `[]` por un error de lectura haría que una
+ * línea pedida se lea como «no es de este negocio», o peor, que se use la de siempre.
+ */
+export async function listarLineas(): Promise<LineaRow[]> {
   const supabase = await getTenantDb();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('evolution_instancias')
-    .select('id, instance_name, instance_id, estado, numero, perfil_nombre, ultima_conexion_at')
-    .maybeSingle();
-  return (data as InstanciaRow | null) ?? null;
+    .select(COLS_LINEA)
+    .order('es_default', { ascending: false })
+    .order('id', { ascending: true });
+  if (error) throw new Error(`listarLineas: ${error.message}`);
+  return (data ?? []) as LineaRow[];
 }
 
-async function upsertInstancia(patch: Record<string, unknown>): Promise<void> {
+/** La línea que se usa, para lo que tiene que MANDAR o CONECTAR: si no se puede elegir, tira. */
+async function lineaEstricta(linea?: string | null): Promise<string> {
   const ws = await wsEstricto();
+  const e = elegirLinea(await listarLineas(), linea, ws);
+  if (!e.ok) throw new Error(e.motivo);
+  return e.instance;
+}
+
+/**
+ * La línea para una LECTURA best-effort: sin workspace o sin línea elegible, null. Exportada
+ * como `lineaParaLeer` para el espejo (lib/evolution-mensajes.ts), que tiene que estampar
+ * en cada fila sincronizada la línea de la que la trajo.
+ */
+export async function lineaParaLeer(linea?: string | null): Promise<string | null> {
+  return lineaSuave(linea);
+}
+async function lineaSuave(linea?: string | null): Promise<string | null> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) return null;
+  try {
+    const e = elegirLinea(await listarLineas(), linea, ws);
+    return e.ok ? e.instance : null;
+  } catch { return null; }
+}
+
+/**
+ * La fila de UNA línea: la nombrada, o la de por default. Sin `linea` es lo que esta
+ * función devolvía siempre — la única fila del workspace —, así que los ~15 lugares que la
+ * llaman para preguntar «¿el WhatsApp del negocio está conectado?» siguen preguntando lo
+ * mismo.
+ *
+ * ⚠️ Era un `.maybeSingle()` sin filtro: con DOS filas, supabase-js devuelve error y `data`
+ * null, y todo el producto habría leído «no hay WhatsApp» el día que alguien vinculara su
+ * segundo número.
+ */
+export async function getInstanciaRow(linea?: string | null): Promise<LineaRow | null> {
+  const lineas = await listarLineas();
+  const p = (linea ?? '').trim();
+  if (p) return lineas.find((l) => l.instance_name === p) ?? null;
+  return lineaPorDefault(lineas);
+}
+
+/**
+ * Escribe la fila de UNA línea. `onConflict: 'instance_name'` —el único que es la llave real
+ * desde la 0072—, nunca `workspace_id`, que la 0199 saca para que pueda haber dos.
+ *
+ * ⚠️ El nombre se comprueba contra el workspace ANTES de escribir: con `onConflict` por
+ * nombre, un `upsert` de un nombre ajeno le reasignaría la línea de otro cliente a éste
+ * (`getTenantDb` estampa el `workspace_id` del contexto). Y el error se LEE: antes se
+ * ignoraba, y una fila que no se escribió deja una instancia de Evolution sin dueño, cuyo
+ * webhook contesta «instancia sin workspace» a cada mensaje que entra.
+ */
+async function upsertInstancia(instance: string, patch: Record<string, unknown>): Promise<void> {
+  const ws = await wsEstricto();
+  if (!esLineaDelWorkspace(instance, ws)) throw new Error(`La línea ${instance} no es de este negocio.`);
   const supabase = await getTenantDb();
-  const name = instanceNameDeWs(ws);
-  // getTenantDb estampa workspace_id; onConflict por workspace_id (único).
-  await supabase.from('evolution_instancias').upsert(
-    { instance_name: name, updated_at: new Date().toISOString(), ...patch },
-    { onConflict: 'workspace_id' },
+  const { error } = await supabase.from('evolution_instancias').upsert(
+    { instance_name: instance, updated_at: new Date().toISOString(), ...patch },
+    { onConflict: 'instance_name' },
   );
+  if (error) throw new Error(`No pude guardar la línea: ${error.message}`);
 }
 
 // ── Acciones de conexión ─────────────────────────────────────────────────────
 
-// Crea (si no existe) la instancia del workspace y devuelve el QR para escanear.
+// Crea (si no existe) la instancia de UNA línea y devuelve el QR para escanear.
 // Idempotente: si ya existe, pide un QR nuevo con /instance/connect.
-export async function conectar(): Promise<{ ok: true; qr: QrData; estado: EstadoConexion } | { ok: false; error: string }> {
+//
+// `nueva: true` es «Agregar otro número»: un nombre libre (`mako_ws<id>_2`…) y su fila
+// escrita ANTES de crear la instancia en Evolution. Al revés, si la fila no se puede escribir
+// (la 0199 todavía sin aplicar, un duplicado) queda una instancia viva sin dueño: cada mensaje
+// que entra por ella contesta «instancia sin workspace» y se pierde.
+export async function conectar(
+  opts: { linea?: string | null; nueva?: boolean; etiqueta?: string | null } = {},
+): Promise<{ ok: true; qr: QrData; estado: EstadoConexion; linea: string } | { ok: false; error: string }> {
   const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+  let instance: string;
+  if (opts.nueva) {
+    const lineas = await listarLineas();
+    instance = nombreLineaNueva(ws, lineas.map((l) => l.instance_name));
+    try {
+      await upsertInstancia(instance, {
+        estado: 'conectando',
+        etiqueta: opts.etiqueta ?? null,
+        // La PRIMERA línea de un negocio es la de por default: sin eso quedaría con cero, y
+        // todo lo que no nombra una línea no tendría por dónde salir.
+        es_default: lineas.length === 0,
+      });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'No pude registrar la línea nueva.' };
+    }
+  } else {
+    instance = await lineaEstricta(opts.linea);
+  }
+  // Si NINGUNA línea es la de por default, ésta pasa a serlo. No alcanza con «no hay filas»: el
+  // código viejo, entre la 0198 y el deploy, crea filas con es_default=false.
+  const primera = !opts.nueva && !(await listarLineas()).some((l) => l.es_default);
 
   // ¿Ya existe en Evolution? Matcheamos por NOMBRE exacto (no length>0): si una
   // versión ignorara el filtro y devolviera todas, no adoptamos la equivocada.
@@ -218,24 +316,38 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
   const yaExiste = existe.ok && Array.isArray(existe.data)
     && existe.data.some((i) => (i.name ?? i.instanceName) === instance);
 
-  const crearDeCero = async (): Promise<{ ok: true; qr: QrData; estado: EstadoConexion } | { ok: false; error: string }> => {
+  const crearDeCero = async (): Promise<{ ok: true; qr: QrData; estado: EstadoConexion; linea: string } | { ok: false; error: string }> => {
     const r = await evFetch<CreateResp>('/instance/create', {
       method: 'POST',
       body: JSON.stringify({ instanceName: instance, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
     });
-    if (!r.ok) return { ok: false, error: r.error };
+    if (!r.ok) {
+      // Una línea NUEVA que Evolution no creó no puede quedar en el desplegable: sería una
+      // opción que no lleva a ningún número.
+      if (opts.nueva) await borrarFilaLinea(instance).catch(() => {});
+      return { ok: false, error: r.error };
+    }
     // Config best-effort (no fatal).
     await setWebhook(instance);
     await setSettings(instance);
-    await upsertInstancia({ instance_id: r.data.instance?.instanceId ?? null, estado: 'conectando' });
+    await upsertInstancia(instance, { instance_id: r.data.instance?.instanceId ?? null, estado: 'conectando', ...(primera ? { es_default: true } : {}) });
     return {
       ok: true,
       estado: 'conectando',
+      linea: instance,
       qr: { base64: r.data.qrcode?.base64 ?? null, code: r.data.qrcode?.code ?? null, pairingCode: r.data.qrcode?.pairingCode ?? null },
     };
   };
 
   if (!yaExiste) return crearDeCero();
+  // ⚠️ Una línea NUEVA no adopta una sesión que ya existía con ese nombre: sería conectar el
+  // número de otra línea sin escanear nada. Con el sufijo al azar no debería pasar; si pasa, se
+  // recrea de cero.
+  if (opts.nueva) {
+    await evFetch(`/instance/logout/${encodeURIComponent(instance)}`, { method: 'DELETE' }).catch(() => undefined);
+    await evFetch(`/instance/delete/${encodeURIComponent(instance)}`, { method: 'DELETE' }).catch(() => undefined);
+    return crearDeCero();
+  }
 
   // Ya existe → pedir un QR fresco (re-vincular).
   await setWebhook(instance);
@@ -271,12 +383,41 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
   }
 
   if (!c.ok) return { ok: false, error: c.error };
-  await upsertInstancia({ estado: 'conectando' });
+  await upsertInstancia(instance, { estado: 'conectando', ...(primera ? { es_default: true } : {}) });
   return {
     ok: true,
     estado: 'conectando',
+    linea: instance,
     qr: { base64: c.data.base64 ?? null, code: c.data.code ?? null, pairingCode: c.data.pairingCode ?? null },
   };
+}
+
+/** Borra la FILA de una línea del negocio (no toca Evolution). Con el scope del workspace. */
+async function borrarFilaLinea(instance: string): Promise<void> {
+  const ws = await wsEstricto();
+  if (!esLineaDelWorkspace(instance, ws)) throw new Error(`La línea ${instance} no es de este negocio.`);
+  const supabase = await getTenantDb();
+  const { error } = await supabase.from('evolution_instancias').delete().eq('instance_name', instance);
+  if (error) throw new Error(`No pude borrar la línea: ${error.message}`);
+}
+
+/** Le pone (o le saca) el nombre a una línea: «Ventas», «Soporte». */
+export async function renombrarLinea(linea: string, etiqueta: string | null): Promise<void> {
+  const instance = await lineaEstricta(linea);
+  await upsertInstancia(instance, { etiqueta });
+}
+
+/**
+ * Marca una línea como la de por default. Primero se apaga la que estaba y después se
+ * prende la nueva: el índice parcial de la 0198 rechaza dos en `true` a la vez, y al revés
+ * el segundo update fallaría con la vieja todavía marcada.
+ */
+export async function predeterminarLinea(linea: string): Promise<void> {
+  const instance = await lineaEstricta(linea);
+  const supabase = await getTenantDb();
+  const off = await supabase.from('evolution_instancias').update({ es_default: false }).eq('es_default', true).neq('instance_name', instance);
+  if (off.error) throw new Error(`No pude cambiar la línea por default: ${off.error.message}`);
+  await upsertInstancia(instance, { es_default: true });
 }
 
 /**
@@ -428,9 +569,8 @@ export async function sondearSocketDetalle(instance: string, topeMs?: number): P
 }
 
 // Estado en vivo (para el polling de la UI). Reconcilia la fila en DB.
-export async function estadoEnVivo(): Promise<{ estado: EstadoConexion; numero: string | null; perfil: string | null }> {
-  const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+export async function estadoEnVivo(linea?: string | null): Promise<{ estado: EstadoConexion; numero: string | null; perfil: string | null }> {
+  const instance = await lineaEstricta(linea);
   const r = await evFetch<StateResp>(`/instance/connectionState/${encodeURIComponent(instance)}`);
   if (!r.ok) {
     // 404 = instancia no creada aún → desconectado (sin ruido).
@@ -479,38 +619,84 @@ export async function estadoEnVivo(): Promise<{ estado: EstadoConexion; numero: 
   // dato no es un valor del dato».
   // Lo que sí se guarda es lo MEDIDO: vivo o muerto.
   if (estado !== 'error') {
-    await upsertInstancia({
+    // La escritura es un caché de lo medido: si falla, el estado que se devuelve sigue siendo
+    // cierto. Antes el error se tragaba en el `upsert`; ahora `upsertInstancia` tira, y acá
+    // eso no puede tumbar la respuesta.
+    await upsertInstancia(instance, {
       estado,
       ...(numero ? { numero } : {}),
       ...(perfil ? { perfil_nombre: perfil } : {}),
       ...(estado === 'conectado' ? { ultima_conexion_at: new Date().toISOString() } : {}),
-    });
+    }).catch((e) => console.error(`[evolution] estado de ${instance}: ${e instanceof Error ? e.message : String(e)}`));
   }
   return { estado, numero, perfil };
 }
 
 // Refresca el QR (nuevo código) sin recrear la instancia.
-export async function refrescarQr(): Promise<{ ok: true; qr: QrData } | { ok: false; error: string }> {
-  const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+export async function refrescarQr(linea?: string | null): Promise<{ ok: true; qr: QrData } | { ok: false; error: string }> {
+  const instance = await lineaEstricta(linea);
   const c = await evFetch<ConnectResp>(`/instance/connect/${encodeURIComponent(instance)}`);
   if (!c.ok) return { ok: false, error: c.error };
   return { ok: true, qr: { base64: c.data.base64 ?? null, code: c.data.code ?? null, pairingCode: c.data.pairingCode ?? null } };
 }
 
 // Cierra sesión y elimina la instancia (chip nuevo → volver a conectar).
-export async function desconectar(): Promise<{ ok: boolean; error?: string }> {
+//
+// Con varias líneas, desvincular UNA que no es la de por default la SACA del negocio:
+// se borra su fila, y lo que la nombraba (las secuencias y los borradores pendientes) pasa
+// a la de por default — devuelto en `movidas` para que la pantalla lo diga. La de por
+// default conserva su fila en «desconectado», como siempre: es la que se vuelve a vincular.
+//
+// ⚠️ Y EL ONBOARDING SÓLO VUELVE ATRÁS SI NO QUEDA NINGUNA LÍNEA VIVA. `revertirEstadoNoOficial`
+// le baja el paso del WhatsApp y el envío a todo el negocio: soltar el segundo número no
+// puede apagar el chatbot que sigue mandando por el primero.
+export async function desconectar(linea?: string | null): Promise<{ ok: boolean; error?: string; movidas?: number }> {
   const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+  const lineas = await listarLineas();
+  const instance = await lineaEstricta(linea);
+  // «La de por default» con la MISMA regla que el resolvedor, no con el flag crudo: una fila que
+  // nació sin el flag (el código viejo, entre la 0198 y el deploy) igual es la que manda.
+  const esLaDefault = (lineaPorDefault(lineas)?.instance_name ?? instance) === instance;
   await evFetch(`/instance/logout/${encodeURIComponent(instance)}`, { method: 'DELETE' });
   const del = await evFetch(`/instance/delete/${encodeURIComponent(instance)}`, { method: 'DELETE' });
-  await upsertInstancia({ estado: 'desconectado', numero: null, perfil_nombre: null, instance_id: null });
+  const borrada = del.ok || del.status === 404;
+  let movidas = 0;
+  const otras = lineas.filter((l) => l.instance_name !== instance);
+  if (!esLaDefault && otras.length) {
+    // ⚠️ SÓLO SI EVOLUTION LA BORRÓ. Con Evolution caído, borrar la fila dejaba la sesión viva
+    // y SIN DUEÑO: el webhook contestaba «instancia sin workspace» a cada mensaje que entraba, y
+    // la línea desaparecía de la pantalla sin forma de reintentar.
+    if (!borrada) return { ok: false, error: del.error, movidas: 0 };
+    movidas = await soltarReferencias(instance);
+    await borrarFilaLinea(instance);
+  } else {
+    // La fila es caché de lo que pasó en Evolution: si no se puede escribir, se dice en el log
+    // pero no tumba la vuelta atrás de abajo (la instancia ya se borró allá).
+    await upsertInstancia(instance, { estado: 'desconectado', numero: null, perfil_nombre: null, instance_id: null })
+      .catch((e) => console.error(`[evolution] desconectar ${instance}: ${e instanceof Error ? e.message : String(e)}`));
+  }
   // Desvincular vuelve TODO atrás, no solo la fila. Sin esto, el onboarding
   // seguía diciendo "conectado" para siempre y el motor seguía creyendo que
   // tenía por dónde mandar.
-  await revertirEstadoNoOficial(ws).catch(() => {});
+  if (!otras.some((l) => l.estado === 'conectado')) await revertirEstadoNoOficial(ws).catch(() => {});
   // Idempotente: borrar algo que ya no existe (404) es el resultado deseado.
-  return del.ok || del.status === 404 ? { ok: true } : { ok: false, error: del.error };
+  return del.ok || del.status === 404 ? { ok: true, movidas } : { ok: false, error: del.error, movidas };
+}
+
+/**
+ * Las SECUENCIAS que salían por una línea que se va pasan a la de por default (`null`), y la
+ * pantalla dice cuántas: es una decisión sobre el futuro, y la persona la acaba de tomar.
+ *
+ * ⚠️ LOS BORRADORES NO SE MUEVEN. Cada uno es un mensaje a UNA persona que le venía escribiendo a
+ * ESE número: re-apuntarlo a la de por default es mandarlo desde un número que esa persona no
+ * conoce, que es justo lo que `elegirLinea` prohíbe. Se quedan con su línea y al mandarlos
+ * fallan a la vista («ya no está vinculada»), donde el setter los descarta o los reescribe.
+ */
+async function soltarReferencias(instance: string): Promise<number> {
+  const supabase = await getTenantDb();
+  const sec = await supabase.from('nutricion_secuencias').update({ instance_name: null }).eq('instance_name', instance).select('id');
+  if (sec.error) throw new Error(`No pude mover las secuencias de esa línea: ${sec.error.message}`);
+  return (sec.data ?? []).length;
 }
 
 /**
@@ -582,9 +768,8 @@ async function pingReceiver(url: string): Promise<number> {
   } catch { return 0; }
 }
 
-export async function estadoWebhook(): Promise<WebhookSalud> {
-  const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+export async function estadoWebhook(linea?: string | null): Promise<WebhookSalud> {
+  const instance = await lineaEstricta(linea);
   const esperada = webhookUrl();
   if (!WEBHOOK_SECRET) return { estado: 'sin_secret', urlActual: null, urlEsperada: sinQuery(esperada) };
 
@@ -606,25 +791,34 @@ export async function estadoWebhook(): Promise<WebhookSalud> {
 }
 
 // (Re)registra el webhook y verifica que quedó. Lo usa el botón "Reparar espejo".
-export async function repararWebhook(): Promise<{ ok: boolean; estado: WebhookEstado; error?: string }> {
-  const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+export async function repararWebhook(linea?: string | null): Promise<{ ok: boolean; estado: WebhookEstado; error?: string }> {
+  const instance = await lineaEstricta(linea);
   if (!WEBHOOK_SECRET) return { ok: false, estado: 'sin_secret', error: 'Falta el secret del webhook de Evolution en la configuración de la plataforma — avisa al equipo técnico.' };
   const set = await setWebhook(instance);
   if (!set.ok) return { ok: false, estado: 'error', error: set.error };
-  const v = await estadoWebhook();
+  const v = await estadoWebhook(instance);
   return { ok: v.estado === 'ok', estado: v.estado, error: v.estado === 'ok' ? undefined : 'El webhook se registró pero la verificación no dio OK.' };
 }
 
 // ── Envío de texto (anti-ban: "escribiendo…" proporcional al texto) ──────────
-export type EnvioResult = { ok: true; id: string; chatJid: string } | { ok: false; error: string };
+// `instance`: por qué línea salió. El espejo la guarda en `wa_mensajes.instance_name`, que
+// es lo que la bandeja filtra al elegir una línea — con el nombre vacío (como se escribía
+// hasta el 06/10) un saliente no aparecería en el hilo de ninguna.
+export type EnvioResult = { ok: true; id: string; chatJid: string; instance: string } | { ok: false; error: string };
 
-// Envía un texto libre por el número no oficial del workspace. El `delay` hace
-// que Evolution muestre "escribiendo…" ese tiempo antes de soltar el mensaje
-// (nativo) — proporcional al largo + jitter, para no parecer un bot.
-export async function enviarTexto(telefono: string, texto: string): Promise<EnvioResult> {
-  const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+/** Elegir la línea de un envío sin tirar: el motivo vuelve como el error del envío. */
+async function lineaDeEnvio(linea?: string | null): Promise<{ ok: true; instance: string } | { ok: false; error: string }> {
+  try { return { ok: true, instance: await lineaEstricta(linea) }; }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'No pude elegir la línea de WhatsApp.' }; }
+}
+
+// Envía un texto libre por una línea no oficial del workspace (sin `linea`, la de por
+// default). El `delay` hace que Evolution muestre "escribiendo…" ese tiempo antes de soltar
+// el mensaje (nativo) — proporcional al largo + jitter, para no parecer un bot.
+export async function enviarTexto(telefono: string, texto: string, linea?: string | null): Promise<EnvioResult> {
+  const l = await lineaDeEnvio(linea);
+  if (!l.ok) return l;
+  const instance = l.instance;
   const num = (telefono || '').replace(/\D/g, '');
   if (!num) return { ok: false, error: 'teléfono inválido' };
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
@@ -635,7 +829,7 @@ export async function enviarTexto(telefono: string, texto: string): Promise<Envi
     { method: 'POST', body: JSON.stringify({ number: num, text: texto, delay }) },
   );
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net` };
+  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
 const soloB64 = (s: string): string => (s.includes(',') ? s.split(',').pop()! : s); // saca el prefijo data:*;base64,
@@ -646,9 +840,11 @@ export async function enviarMedia(
   telefono: string,
   media: { base64: string; mimetype: string; fileName?: string; tipo: 'image' | 'video' | 'document' },
   caption?: string,
+  linea?: string | null,
 ): Promise<EnvioResult> {
-  const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+  const l = await lineaDeEnvio(linea);
+  if (!l.ok) return l;
+  const instance = l.instance;
   const num = (telefono || '').replace(/\D/g, '');
   if (!num) return { ok: false, error: 'teléfono inválido' };
   const media64 = soloB64(media.base64);
@@ -662,14 +858,15 @@ export async function enviarMedia(
     { method: 'POST', body: JSON.stringify(body) },
   );
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net` };
+  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
 // Envía una NOTA DE VOZ (PTT) por el no oficial. sendWhatsAppAudio (no sendMedia)
 // para que salga como nota de voz; el delay muestra "grabando audio…" nativo.
-export async function enviarAudio(telefono: string, base64: string): Promise<EnvioResult> {
-  const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+export async function enviarAudio(telefono: string, base64: string, linea?: string | null): Promise<EnvioResult> {
+  const l = await lineaDeEnvio(linea);
+  if (!l.ok) return l;
+  const instance = l.instance;
   const num = (telefono || '').replace(/\D/g, '');
   if (!num) return { ok: false, error: 'teléfono inválido' };
   const audio64 = soloB64(base64);
@@ -680,7 +877,7 @@ export async function enviarAudio(telefono: string, base64: string): Promise<Env
     { method: 'POST', body: JSON.stringify({ number: num, audio: audio64, delay, encoding: true }) },
   );
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net` };
+  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
 // Foto de perfil de WhatsApp de un número (URL efímera del CDN, o null si no tiene
@@ -689,7 +886,7 @@ export async function fetchProfilePic(telefono: string): Promise<string | null> 
   const num = (telefono || '').replace(/\D/g, '');
   if (!num) return null;
   const ws = await wsEstricto();
-  const instance = instanceNameDeWs(ws);
+  const instance = (await lineaSuave()) ?? instanceNameDeWs(ws);
 
   // PRIMERO la que ya tenemos guardada. El importador la trae en lote junto con
   // la agenda, así que para el que la tiene está a una query de distancia.
@@ -719,7 +916,7 @@ export async function fetchContactoPicUrl(telefono: string): Promise<string | nu
   const num = (telefono || '').replace(/\D/g, '');
   const ws = await getWorkspaceActual();
   if (ws == null || !num || !evolutionConfigurado()) return null;
-  const instance = instanceNameDeWs(ws);
+  const instance = (await lineaSuave()) ?? instanceNameDeWs(ws);
   const r = await evFetch<Array<{ remoteJid?: string; profilePicUrl?: string | null }>>(
     `/chat/findContacts/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ where: { remoteJid: `${num}@s.whatsapp.net` } }) },
@@ -735,10 +932,11 @@ export async function fetchContactoPicUrl(telefono: string): Promise<string | nu
  * teléfono sincronizó, con el nombre que el dueño le puso a cada uno.
  * Best-effort: [] ante cualquier fallo.
  */
-export async function fetchContactosEvolution(): Promise<Array<{ remoteJid: string; nombre: string | null; fotoUrl: string | null }>> {
+export async function fetchContactosEvolution(linea?: string | null): Promise<Array<{ remoteJid: string; nombre: string | null; fotoUrl: string | null }>> {
   const ws = await getWorkspaceActual();
   if (ws == null || !evolutionConfigurado()) return [];
-  const instance = instanceNameDeWs(ws);
+  const instance = await lineaSuave(linea);
+  if (!instance) return [];
   const r = await evFetch<Array<{ remoteJid?: string; pushName?: string | null; name?: string | null; profilePicUrl?: string | null }>>(
     `/chat/findContacts/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({}) },
@@ -793,10 +991,12 @@ async function paginaMensajes(instance: string, chatJid: string, offset: number,
   };
 }
 
-export async function fetchMensajesEvolution(chatJid: string, limite = 300): Promise<EvRecord[]> {
+export async function fetchMensajesEvolution(chatJid: string, limite = 300, linea?: string | null): Promise<EvRecord[]> {
   const ws = await getWorkspaceActual();
   if (ws == null || !evolutionConfigurado() || !chatJid) return [];
-  const { records } = await paginaMensajes(instanceNameDeWs(ws), chatJid, limite, 1);
+  const instance = await lineaSuave(linea);
+  if (!instance) return [];
+  const { records } = await paginaMensajes(instance, chatJid, limite, 1);
   return records.slice().reverse(); // desc → asc
 }
 
@@ -815,11 +1015,12 @@ export async function fetchMensajesEvolution(chatJid: string, limite = 300): Pro
  */
 export async function fetchConversacionEvolution(
   chatJid: string,
-  { recientes = 300, arranque = 100 }: { recientes?: number; arranque?: number } = {},
+  { recientes = 300, arranque = 100, linea }: { recientes?: number; arranque?: number; linea?: string | null } = {},
 ): Promise<{ mensajes: EvRecord[]; total: number }> {
   const ws = await getWorkspaceActual();
   if (ws == null || !evolutionConfigurado() || !chatJid) return { mensajes: [], total: 0 };
-  const instance = instanceNameDeWs(ws);
+  const instance = await lineaSuave(linea);
+  if (!instance) return { mensajes: [], total: 0 };
 
   const p1 = await paginaMensajes(instance, chatJid, recientes, 1);
   const vistos = new Set<string>();
@@ -854,7 +1055,7 @@ export async function fetchLidDeNumero(telefono: string): Promise<string | null>
   const num = (telefono || '').replace(/\D/g, '');
   const ws = await getWorkspaceActual();
   if (ws == null || !num || !evolutionConfigurado()) return null;
-  const instance = instanceNameDeWs(ws);
+  const instance = (await lineaSuave()) ?? instanceNameDeWs(ws);
   const r = await evFetch<Array<{ jid?: string; lid?: string | null; exists?: boolean }>>(
     `/chat/whatsappNumbers/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ numbers: [num] }) },
@@ -872,7 +1073,7 @@ export type EvLabel = { id: string; name: string | null; color: number | null };
 export async function listarLabelsEvolution(): Promise<EvLabel[]> {
   const ws = await getWorkspaceActual();
   if (ws == null || !evolutionConfigurado()) return [];
-  const instance = instanceNameDeWs(ws);
+  const instance = (await lineaSuave()) ?? instanceNameDeWs(ws);
   const r = await evFetch<Array<{ id?: string; labelId?: string; name?: string; color?: number | string }>>(`/label/findLabels/${encodeURIComponent(instance)}`);
   if (!r.ok || !Array.isArray(r.data)) return [];
   return r.data.map((l) => ({ id: String(l.id ?? l.labelId ?? ''), name: l.name ?? null, color: l.color != null ? Number(l.color) : null })).filter((l) => l.id);
@@ -883,7 +1084,7 @@ export async function asignarLabel(telefono: string, labelId: string, action: 'a
   const num = (telefono || '').replace(/\D/g, '');
   const ws = await getWorkspaceActual();
   if (ws == null || !num || !labelId || !evolutionConfigurado()) return false;
-  const instance = instanceNameDeWs(ws);
+  const instance = (await lineaSuave()) ?? instanceNameDeWs(ws);
   const r = await evFetch(`/label/handleLabel/${encodeURIComponent(instance)}`, {
     method: 'POST', body: JSON.stringify({ number: num, labelId, action }),
   });
@@ -893,10 +1094,11 @@ export async function asignarLabel(telefono: string, labelId: string, action: 'a
 export type EvChat = { remoteJid?: string; pushName?: string; profilePicUrl?: string | null; unreadCount?: number; updatedAt?: string; lastMessage?: EvRecord };
 
 // Lista de chats del store de Evolution (los que tienen al menos un mensaje).
-export async function fetchChatsEvolution(): Promise<EvChat[]> {
+export async function fetchChatsEvolution(linea?: string | null): Promise<EvChat[]> {
   const ws = await getWorkspaceActual();
   if (ws == null || !evolutionConfigurado()) return [];
-  const instance = instanceNameDeWs(ws);
+  const instance = await lineaSuave(linea);
+  if (!instance) return [];
   const r = await evFetch<EvChat[] | { chats?: EvChat[] }>(
     `/chat/findChats/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({}) },
@@ -924,10 +1126,12 @@ export async function fetchMediaBase64EnInstancia(instance: string, chatJid: str
 
 // Bytes de la media de un mensaje (findMessages NO trae base64 → se pide aparte).
 // Usa la instancia del workspace actual. Best-effort: null si falla.
-export async function fetchMediaBase64(chatJid: string, waMessageId: string, fromMe: boolean): Promise<{ base64: string; mimetype: string } | null> {
+export async function fetchMediaBase64(chatJid: string, waMessageId: string, fromMe: boolean, linea?: string | null): Promise<{ base64: string; mimetype: string } | null> {
   const ws = await getWorkspaceActual();
   if (ws == null) return null;
-  return fetchMediaBase64EnInstancia(instanceNameDeWs(ws), chatJid, waMessageId, fromMe);
+  const instance = await lineaSuave(linea);
+  if (!instance) return null;
+  return fetchMediaBase64EnInstancia(instance, chatJid, waMessageId, fromMe);
 }
 
 // Muestra "escribiendo…"/"grabando…" en el chat mientras MaKo razona (feedback al

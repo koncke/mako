@@ -21,8 +21,9 @@ import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
-import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
-import { canalNoOficial, proveedorDelPaso } from '@/lib/nutricion-canal';
+import { listarLineas, sondearSocket, type LineaRow } from '@/lib/evolution';
+import { lineaPorDefault, elegirLinea } from '@/lib/lineas-whatsapp';
+import { canalNoOficial, proveedorDelPaso, type CanalNoOficial } from '@/lib/nutricion-canal';
 // Sólo el TIPO: el valor se importa dinámico adentro del motor (ciclo vía nutricion-generator).
 import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
@@ -128,6 +129,13 @@ export type Secuencia = {
    * que es lo que hacen hoy las 62 filas de la base. Ver lib/nutricion-agenda.ts.
    */
   cron: CronAviso | null;
+  /**
+   * Por qué línea de WhatsApp sale (mig 0198, `evolution_instancias.instance_name`). `null` =
+   * la de por default, que es lo que dicen todas las filas de antes del 06/10/2026. Lo
+   * resuelve `elegirLinea` (lib/lineas-whatsapp.ts): una línea que no es del negocio no
+   * manda nada.
+   */
+  instance_name: string | null;
   /** La próxima ocurrencia AGENDADA (mig 0192). El ancla, no «cuándo salió». */
   cron_proxima_at: string | null;
 };
@@ -168,7 +176,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name')
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
     .is('archivada_at', null);
@@ -176,7 +184,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
     trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
-    funnel_id: number | null; cron: unknown; cron_proxima_at: string | null;
+    funnel_id: number | null; cron: unknown; cron_proxima_at: string | null; instance_name: string | null;
   }>;
   return rows.map((r) => ({
     id: r.id,
@@ -196,6 +204,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     // qué es un horario válido vive en un lugar (lib/cron-aviso.ts).
     cron: sanearCron(r.cron),
     cron_proxima_at: r.cron_proxima_at ?? null,
+    instance_name: r.instance_name || null,
   }));
 }
 
@@ -208,7 +217,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name')
     // Las archivadas no se listan, no enrolan y no envían. No se borran porque
     // las inscripciones y los envíos las referencian: borrarlas se llevaría
     // puesto el historial de a quién se le escribió.
@@ -218,7 +227,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
     trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
-    funnel_id: number | null; cron: unknown; cron_proxima_at: string | null;
+    funnel_id: number | null; cron: unknown; cron_proxima_at: string | null; instance_name: string | null;
   }>;
 
   // Contados PÁGINA POR PÁGINA (se agrega al vuelo, no se materializa). Eran dos
@@ -263,6 +272,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     // qué es un horario válido vive en un lugar (lib/cron-aviso.ts).
     cron: sanearCron(r.cron),
     cron_proxima_at: r.cron_proxima_at ?? null,
+    instance_name: r.instance_name || null,
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -275,6 +285,32 @@ export async function setSecuenciaActiva(id: number, activa: boolean): Promise<v
     .update({ activa, updated_at: ahoraISO() })
     .eq('id', id);
   if (error) throw new Error(`setSecuenciaActiva: ${error.message}`);
+}
+
+/**
+ * De qué línea de WhatsApp sale una secuencia (pedido de Martín, 06/10/2026: «dentro del
+ * chatbot una opción para seleccionar de qué número sale esa automatización»). `null` = la
+ * de por default.
+ *
+ * ⚠️ SE VALIDA AL GUARDAR Y SE VUELVE A VALIDAR AL MANDAR. Acá, para que una línea ajena no
+ * llegue nunca a la fila (el valor viene del navegador); en el envío, porque entre los dos
+ * momentos la línea puede haberse desvinculado. Las dos con `elegirLinea`.
+ */
+export async function setSecuenciaLinea(id: number, linea: string | null): Promise<void> {
+  const supabase = (await getTenantDb());
+  let valor: string | null = null;
+  if (linea) {
+    const ws = await getWorkspaceActual();
+    if (ws == null) throw new Error('setSecuenciaLinea: sin workspace');
+    const e = elegirLinea(await listarLineas(), linea, ws);
+    if (!e.ok) throw new Error(e.motivo);
+    valor = e.instance;
+  }
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    .update({ instance_name: valor, updated_at: ahoraISO() })
+    .eq('id', id);
+  if (error) throw new Error(`setSecuenciaLinea: ${error.message}`);
 }
 
 /**
@@ -1379,12 +1415,13 @@ export type ResultadoProceso = {
 // Un 'fallo' NO avanza el paso (se reintenta), salvo condición terminal.
 export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number }): Promise<ResultadoProceso> {
   const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, detalle: [] };
-  const [waOn, emailOn, sandbox, remitente, instEvo] = await Promise.all([
+  const [waOn, emailOn, sandbox, remitente, lineasEvo] = await Promise.all([
     envioWhatsappHabilitado(),
     envioEmailHabilitado(),
     remitenteEsSandbox(),
     getEmailFrom(),
-    getInstanciaRow(),
+    // `null` = no se pudo leer: ninguna línea se da por lista, y el motivo lo dice.
+    listarLineas().catch((): LineaRow[] | null => null),
   ]);
   // Firma del footer de los emails = display name del remitente DEL WORKSPACE.
   const fromNameWs = displayNameDe(remitente);
@@ -1399,11 +1436,27 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   //
   // UNA sonda por corrida, no por envío (~250 ms). Con tope de 8 s: el cron no
   // puede quedar colgado de un Evolution que no responde.
-  const sondeoEvo = instEvo
-    ? await sondearSocket(instEvo.instance_name, 8000).catch(() => 'sin_respuesta' as const)
-    : null;
-  const canalEvo = canalNoOficial(sondeoEvo, instEvo?.estado);
-  const evoConectado = canalEvo.listo;
+  // ⚠️ Y CON VARIAS LÍNEAS ES UNA SONDA POR LÍNEA (06/10/2026). Cada secuencia sale por la
+  // suya, y la que está caída no puede decidir por las demás: con una sonda única —la de la
+  // línea por default— una secuencia de la línea 2 viva se frenaba porque la 1 estaba caída,
+  // o salía «lista» sobre una línea 2 muerta. Se memoiza por línea: la segunda secuencia de
+  // la misma línea no vuelve a sondear.
+  const canalPorLinea = new Map<string, Promise<CanalNoOficial>>();
+  const canalDeLinea = (pedida: string | null): Promise<CanalNoOficial> => {
+    const clave = pedida ?? '';
+    let p = canalPorLinea.get(clave);
+    if (!p) {
+      p = (async (): Promise<CanalNoOficial> => {
+        if (lineasEvo == null) return { listo: false, fuente: 'fila', motivo: 'No pude leer las líneas de WhatsApp de este negocio.' };
+        const fila = pedida ? lineasEvo.find((l) => l.instance_name === pedida) ?? null : lineaPorDefault(lineasEvo);
+        if (pedida && !fila) return { listo: false, fuente: 'fila', motivo: 'La línea de WhatsApp de esta secuencia ya no está vinculada.' };
+        const sondeo = fila ? await sondearSocket(fila.instance_name, 8000).catch(() => 'sin_respuesta' as const) : null;
+        return canalNoOficial(sondeo, fila?.estado);
+      })();
+      canalPorLinea.set(clave, p);
+    }
+    return p;
+  };
 
   if (!opts?.ignorarVentana && !dentroDeVentana()) {
     return { ...res, saltado: 'fuera-de-ventana-horaria' };
@@ -1646,6 +1699,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // a texto en silencio (mandaría un mensaje que nadie escribió): falla y
         // se reintenta al día siguiente.
         const esAudio = paso.tipo === 'audio' && Number(paso.audio_id) > 0;
+        // La línea de ESTA secuencia (`null` = la de por default) y si puede mandar ahora.
+        const lineaSec = sec.instance_name;
+        const canalEvo = await canalDeLinea(lineaSec);
+        const evoConectado = canalEvo.listo;
         if (!lead?.telefono) {
           estado = 'fallo'; nota = 'lead sin teléfono'; backoffHoras = 24;
         } else if (!evoConectado) {
@@ -1665,7 +1722,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             // el 8/09 y, con la línea conectada, habría dejado borradores que nadie
             // mira — 0 de sus 4 inscriptos tenían pago. La excepción la prende
             // quien decide que ESA secuencia sale sola (decisión del 17/09/2026).
-            const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId: lead.id });
+            const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId: lead.id, linea: lineaSec });
             estado = r.ok ? 'enviado' : 'fallo';
             if (!r.ok) nota = r.error;
             // PIE DEL AUDIO: el `cuerpo` de un paso de audio se descartaba, así
@@ -1674,7 +1731,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             // toque — no como paso aparte, que el guard anti-ban de 20h frenaría.
             if (r.ok && cuerpoNO.trim()) {
               textoEnviado = cuerpoNO; textoAutor = 'fijo';
-              await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id })
+              await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id, linea: lineaSec })
                 .catch(() => { /* el audio ya salió: el pie es un extra, no puede tumbar el envío */ });
             }
           } else if (await tieneBorradorNutriPendiente(lead.id)) {
@@ -1689,6 +1746,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               leadId: lead.id, telefono: lead.telefono,
               texto: `🎙 Nota de voz: «${audio.titulo}»${audio.transcript ? `\n\n${audio.transcript}` : ''}`,
               origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
+              linea: lineaSec,
             });
             estado = 'borrador';
           }
@@ -1699,7 +1757,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // El respaldo NO es silencioso: el motivo queda en la fila aunque el envío
           // salga bien. Un error del envío lo pisa abajo, que es lo más urgente de leer.
           if (t.motivo) nota = `IA no usada: ${t.motivo}`;
-          const r = await enviarYEspejar({ telefono: lead.telefono, texto: t.texto, leadId: lead.id });
+          const r = await enviarYEspejar({ telefono: lead.telefono, texto: t.texto, leadId: lead.id, linea: lineaSec });
           estado = r.ok ? 'enviado' : 'fallo';
           if (!r.ok) nota = r.error;
         } else if (await tieneBorradorNutriPendiente(lead.id)) {
@@ -1717,7 +1775,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           const t = await escribirTexto();
           textoEnviado = t.texto; textoAutor = t.autor;
           if (t.motivo) nota = `IA no usada: ${t.motivo}`;
-          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: t.texto, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id });
+          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: t.texto, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id, linea: lineaSec });
           estado = 'borrador';
         }
       } else if (waOn && paso.canal === 'whatsapp') {
@@ -1891,7 +1949,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // 'asistido', además de pausar se avisa al dueño y MaKo deja un BORRADOR con la
 // respuesta sugerida para aprobar con un clic. Es la fase 1 acordada: se
 // automatizan los primeros audios y la conversación la sigue un humano.
-export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string }): Promise<number> {
+// `opts.linea`: por qué línea de WhatsApp escribió el lead (la instancia del webhook). El borrador
+// del modo asistido le contesta por ESA: es el número con el que venía hablando.
+export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null }): Promise<number> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
@@ -1932,7 +1992,7 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
   if (pausadas.length) {
     // Best-effort y en segundo plano conceptual: que un fallo del asistido NUNCA
     // rompa el webhook (el lead ya quedó despausado, que es lo crítico).
-    try { await asistirRespuesta(leadId, pausadas.map((p) => p.secuencia_id), opts?.texto); }
+    try { await asistirRespuesta(leadId, pausadas.map((p) => p.secuencia_id), opts?.texto, opts?.linea ?? null); }
     catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   }
   return pausadas.length;
@@ -1943,7 +2003,7 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
  * respuesta que redactó MaKo con la secuencia de mensajes (mismo cerebro del simulador).
  * Silencioso si ninguna de las secuencias pausadas es 'asistido'.
  */
-async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string): Promise<void> {
+async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null): Promise<void> {
   const { parseEstrategia } = await import('@/lib/setting-estrategia');
   const secs = await getSecuenciasConStats();
   // La secuencia de mensajes asistida más específica que venía corriendo para este lead.
@@ -1992,6 +2052,9 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
     await crearBorrador({
       leadId, telefono: lead.telefono, texto: sugerida,
       origen: 'setter-asistido', secuenciaId: secuencia.id, paso: null, inscripcionId: null,
+      // Por la línea a la que escribió el lead; si no se sabe (vino por el oficial), la de la
+      // secuencia. Sin esto salía por la de por default: un número que ese lead no conoce.
+      linea: lineaEntrante ?? secuencia.instance_name,
     });
   }
 

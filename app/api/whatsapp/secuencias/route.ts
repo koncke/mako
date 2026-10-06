@@ -6,7 +6,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 
@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest) {
   if ((await getRolWsEfectivo()) !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar las secuencias.' }, { status: 403 });
   }
-  let body: { id?: unknown; activa?: unknown; pasos?: unknown };
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -51,6 +51,10 @@ export async function PATCH(req: NextRequest) {
     }
     if (typeof body.activa === 'boolean') {
       await setSecuenciaActiva(id, body.activa);
+    }
+    // De qué línea sale (`null` o "" = la de por default). La valida lib/nutricion.ts.
+    if ('linea' in body) {
+      await setSecuenciaLinea(id, typeof body.linea === 'string' && body.linea.trim() ? body.linea.trim() : null);
     }
     return Response.json({ ok: true });
   } catch (err) {

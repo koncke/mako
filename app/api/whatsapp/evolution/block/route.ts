@@ -14,14 +14,15 @@ export const dynamic = 'force-dynamic';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function POST(req: NextRequest) {
-  let body: { telefono?: string; action?: string; leadId?: number | null; motivo?: string; chat?: string };
+  let body: { telefono?: string; action?: string; leadId?: number | null; motivo?: string; chat?: string; linea?: string | null };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const telefono = String(body.telefono ?? '');
   if (!telefono.replace(/\D/g, '')) return Response.json({ ok: false, error: 'teléfono inválido' }, { status: 400 });
   const chatJid = String(body.chat ?? '') || `${telefono.replace(/\D/g, '')}@s.whatsapp.net`;
   try {
     if (body.action === 'sync-chat') {
-      const r = await sincronizarChat(chatJid);
+      // De la línea de la bandeja abierta (sin línea, la de por default).
+      const r = await sincronizarChat(chatJid, typeof body.linea === 'string' && body.linea ? body.linea : null);
       return Response.json({ ok: true, ...r });
     }
     if (body.action === 'clear-chat') {
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
       if (rol !== 'admin') {
         return Response.json({ ok: false, error: 'Solo el administrador puede borrar el historial de una conversación.' }, { status: 403 });
       }
-      const n = await borrarChat(chatJid);
+      const n = await borrarChat(chatJid, typeof body.linea === 'string' && body.linea ? body.linea : null);
       return Response.json({ ok: true, borrados: n });
     }
     if (body.action === 'block') {

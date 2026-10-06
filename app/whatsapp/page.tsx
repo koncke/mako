@@ -11,7 +11,7 @@ import { getRolWsEfectivo } from '@/lib/workspace';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import { OnboardingCanalWhatsApp } from './OnboardingCanalWhatsApp';
 import { integracionConectada } from '@/lib/credenciales';
-import { getInstanciaRow } from '@/lib/evolution';
+import { listarLineas } from '@/lib/evolution';
 import { PanelActivacion } from '../_components/PanelActivacion';
 import { tabActivacion } from '@/lib/tab-activacion';
 import { WhatsAppApp } from './WhatsAppApp';
@@ -29,7 +29,7 @@ export default async function WhatsAppPage() {
   const tabWa = tabActivacion('whatsapp');
   const [oficial, noOficial] = await Promise.all([
     integracionConectada('whatsapp'),
-    getInstanciaRow().then((r) => r?.estado === 'conectado').catch(() => false),
+    listarLineas().then((ls) => ls.some((l) => l.estado === 'conectado')).catch(() => false),
   ]);
   await guardOnboarding();
 
@@ -55,9 +55,11 @@ export default async function WhatsAppPage() {
   // pantalla donde estaba, con el chat abierto perdido.
   const rolWs = await getRolWsEfectivo();
   const puedeChatbot = rolWs == null || rolWs === 'admin' || rolWs === 'setter';
+  // Vincular un número es config sensible: lo mismo que pide /api/whatsapp/evolution.
+  const puedeAgregarLinea = rolWs == null || rolWs === 'admin';
   // El canal OFICIAL salió del producto (tarea #832): Meta cobra por mensaje y el no
   // oficial no tiene esa restricción. Se esconde para todos MENOS para quien ya lo tiene
   // conectado — ahí hay conversaciones reales, y sacarle la pestaña sería esconderle su
   // propio inbox. `oficial` ya está medido arriba con `integracionConectada('whatsapp')`.
-  return <WhatsAppApp puedeChatbot={puedeChatbot} mostrarOficial={oficial} />;
+  return <WhatsAppApp puedeChatbot={puedeChatbot} mostrarOficial={oficial} puedeAgregarLinea={puedeAgregarLinea} />;
 }

@@ -127,7 +127,7 @@ export async function leadsPorUltimos10(ult10: string): Promise<LeadTel[]> {
   return ((data ?? []) as LeadTel[]).filter((l) => ultimos10(l.telefono_normalizado) === ult10 || ultimos10(l.telefono) === ult10);
 }
 
-export type ChatEmpresa = { chatJid: string; telefonos: string[]; nombre: string | null; mensajes: number };
+export type ChatEmpresa = { chatJid: string; telefonos: string[]; nombre: string | null; mensajes: number; /** La línea del mensaje más reciente (mig 0198): por la que se le contesta. */ linea: string | null };
 
 /**
  * La conversación del espejo para esos 10 dígitos: el jid del mensaje más reciente
@@ -140,10 +140,10 @@ export type ChatEmpresa = { chatJid: string; telefonos: string[]; nombre: string
 export async function chatEmpresaPorUltimos10(ult10: string): Promise<ChatEmpresa | null> {
   if (ult10.length !== 10) return null;
   const db = await getTenantDb();
-  const { data, error } = await db.from('wa_mensajes').select('chat_jid, telefono, push_name, from_me')
+  const { data, error } = await db.from('wa_mensajes').select('chat_jid, telefono, push_name, from_me, instance_name')
     .like('telefono', `%${ult10}`).neq('tipo', 'evento').order('wa_timestamp', { ascending: false }).limit(200);
   if (error) throw new Error(`No pude leer el espejo: ${error.message}`);
-  const filas = ((data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; from_me: boolean }>)
+  const filas = ((data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; from_me: boolean; instance_name: string | null }>)
     .filter((r) => ultimos10(r.telefono) === ult10);
   if (!filas.length) return null;
   const { count } = await db.from('wa_mensajes').select('id', { count: 'exact', head: true }).like('telefono', `%${ult10}`);
@@ -152,6 +152,7 @@ export async function chatEmpresaPorUltimos10(ult10: string): Promise<ChatEmpres
     telefonos: [...new Set(filas.map((r) => (r.telefono ?? '').replace(/\D/g, '')).filter(Boolean))],
     nombre: filas.find((r) => !r.from_me && r.push_name && r.push_name !== 'Você')?.push_name ?? null,
     mensajes: count ?? filas.length,
+    linea: filas[0].instance_name || null,
   };
 }
 

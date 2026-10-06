@@ -8,7 +8,7 @@
 // pausar, abrir el wizard para que MaKo redacte, y probarla DE VERDAD (te llega
 // a tu teléfono/mail). Setter = solo lectura (sin botones de escritura).
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
@@ -354,6 +354,47 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
    * disparador equivocado. La pantalla sabe de qué SECCIÓN del desplegable salió, así
    * que lo dice.
    */
+  /**
+   * DE QUÉ NÚMERO SALE (pedido de Martín, 06/10/2026: «dentro del chatbot una opción para
+   * seleccionar de qué número sale esa automatización»). Se guarda al elegir, como el
+   * disparador: no es texto que se edita, es una decisión de un clic.
+   *
+   * El selector sólo se dibuja con DOS líneas o más: con una, no hay nada que elegir. La lista
+   * es la de la bandeja (`?lineas=1`, que puede leer cualquier miembro), y el server valida la
+   * línea al guardar y al mandar — una que no es del negocio no se guarda ni manda.
+   */
+  const [lineasWa, setLineasWa] = useState<Array<{ linea: string; rotulo: string; estado: string; esDefault: boolean }>>([]);
+  const [lineaSec, setLineaSec] = useState<string | null>(secuencia.instance_name ?? null);
+  useEffect(() => {
+    let vivo = true;
+    void (async () => {
+      try {
+        const j = await (await fetch('/api/whatsapp/evolution/mensajes?lineas=1', { cache: 'no-store' })).json();
+        if (vivo && j.ok) setLineasWa(j.lineas ?? []);
+      } catch { /* sin lista, no se ofrece elegir */ }
+    })();
+    return () => { vivo = false; };
+  }, []);
+  // ¿La línea por la que sale ESTA secuencia puede mandar? Con un solo número es la pregunta de
+  // siempre (`canalCaido`, sondeada). Con varios, la de la secuencia: mirar la de por default
+  // decía «Activada ✓» sobre una secuencia que sale por una línea caída.
+  const lineaDeLaSec = lineasWa.length > 1
+    ? (lineaSec ? lineasWa.find((l) => l.linea === lineaSec) ?? null : (lineasWa.find((l) => l.esDefault) ?? lineasWa[0]))
+    : null;
+  const caidaLaSec = lineasWa.length > 1
+    ? !lineaDeLaSec || (lineaDeLaSec.estado !== 'conectado' && lineaDeLaSec.estado !== 'conectando')
+    : canalCaido;
+  const guardarLinea = async (linea: string | null) => {
+    const antes = lineaSec;
+    setLineaSec(linea);
+    try {
+      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, linea }) })).json();
+      if (!r.ok) { setLineaSec(antes); setErr(r.error || 'No se pudo cambiar el número.'); return; }
+      setErr(null);
+      onCambio();
+    } catch { setLineaSec(antes); setErr('Sin conexión — prueba de nuevo.'); }
+  };
+
   const guardarDisparador = async (etapa: string, clase: 'venta' | 'entrega', ambito: number | null) => {
     const j = await api(clase === 'entrega'
       ? { action: 'disparador', secuenciaId: secuencia.id, etapa, clase, productoId: ambito }
@@ -377,7 +418,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         const soloWa = pasos.every((p) => p.canal === 'whatsapp');
         flashOk(
           !activa
-            ? (canalCaido && soloWa
+            ? (caidaLaSec && soloWa
               ? 'Activada ✓ — pero tu WhatsApp está desconectado, así que todavía no va a salir nada. Reconéctalo en la tab WhatsApp.'
               : 'Activada ✓')
             : 'Pausada ✓',
@@ -636,6 +677,34 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         ) : undefined}
         editorEntrada={(
           <div style={{ marginBottom: 12 }}>
+            {lineasWa.length > 1 && (() => {
+              // ⚠️ La línea guardada entra SIEMPRE a las opciones, aunque se haya ido: un
+              // `value` que no está entre sus opciones se dibuja como la primera y el primer
+              // clic lo pisa (AGENTS.md, el `<select>` que borra datos).
+              const porDefault = lineasWa.find((l) => l.esDefault) ?? lineasWa[0];
+              const opciones = [
+                { value: '', label: `${porDefault.rotulo} (por default)`, color: porDefault.estado === 'conectado' ? 'var(--good)' : 'var(--warn)' },
+                ...lineasWa.filter((l) => l.linea !== porDefault.linea).map((l) => ({ value: l.linea, label: l.rotulo, color: l.estado === 'conectado' ? 'var(--good)' : 'var(--warn)' })),
+                ...(lineaSec && !lineasWa.some((l) => l.linea === lineaSec) ? [{ value: lineaSec, label: 'Un número que ya no está vinculado' }] : []),
+              ];
+              return (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>Sale por</label>
+                  {rolAdmin ? (
+                    <Dropdown
+                      value={lineaSec && lineaSec !== porDefault.linea ? lineaSec : ''}
+                      options={opciones}
+                      onChange={(v) => void guardarLinea(v || null)}
+                      ariaLabel="Número de WhatsApp por el que sale esta secuencia"
+                      width="100%"
+                    />
+                  ) : (
+                    <div style={{ fontSize: 12.5, color: 'var(--ink)' }}>{opciones.find((o) => o.value === (lineaSec ?? ''))?.label ?? porDefault.rotulo}</div>
+                  )}
+                  {caidaLaSec && <div style={{ fontSize: 11.5, color: 'var(--warn)', marginTop: 5 }}>Ese número está desconectado</div>}
+                </div>
+              );
+            })()}
             <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>Cuándo se dispara</label>
             {rolAdmin && (
               <SelectorDisparo

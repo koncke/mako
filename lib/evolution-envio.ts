@@ -37,8 +37,11 @@ export async function tieneBorradorNutriPendiente(leadId: number): Promise<boole
 
 // Envía un texto por el no oficial y espeja el saliente en wa_mensajes (para que
 // aparezca en el hilo). Devuelve el id del mensaje o el error.
-export async function enviarYEspejar(params: { telefono: string; texto: string; leadId?: number | null; chatJid?: string | null }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
-  const r = await enviarTexto(params.telefono, params.texto);
+// `linea`: por qué número sale (`evolution_instancias.instance_name`). Sin ella, la de por
+// default — lo de siempre. Ver lib/lineas-whatsapp.ts: una línea que no es del negocio no
+// manda nada, y el motivo vuelve como el error de este envío.
+export async function enviarYEspejar(params: { telefono: string; texto: string; leadId?: number | null; chatJid?: string | null; linea?: string | null }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
+  const r = await enviarTexto(params.telefono, params.texto, params.linea);
   if (!r.ok) return { ok: false, error: r.error };
   // Espejo del saliente SOLO si Evolution devolvió el id real: así el eco del
   // webhook (mismo id) hace dedup por wa_message_id. Sin id real, dejamos que el
@@ -46,7 +49,7 @@ export async function enviarYEspejar(params: { telefono: string; texto: string; 
   if (r.id) {
     const supabase = await getTenantDb();
     await supabase.from('wa_mensajes').upsert({
-      instance_name: '',
+      instance_name: r.instance,
       chat_jid: r.chatJid,
       telefono: (params.telefono || '').replace(/\D/g, '') || null,
       wa_message_id: r.id,
@@ -65,15 +68,15 @@ export async function enviarYEspejar(params: { telefono: string; texto: string; 
 // wa_mensajes (sube el binario a wa-media). Mismo patrón de dedup por el eco del webhook.
 export async function enviarMediaYEspejar(params: {
   telefono: string; media: { base64: string; mimetype: string; fileName?: string; tipo: 'image' | 'video' | 'document' };
-  caption?: string; leadId?: number | null;
+  caption?: string; leadId?: number | null; linea?: string | null;
 }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
-  const r = await enviarMedia(params.telefono, params.media, params.caption);
+  const r = await enviarMedia(params.telefono, params.media, params.caption, params.linea);
   if (!r.ok) return { ok: false, error: r.error };
   if (r.id) {
     const path = await subirMediaSaliente(r.id, params.media.base64, params.media.mimetype, extDeMime(params.media.mimetype));
     const supabase = await getTenantDb();
     await supabase.from('wa_mensajes').upsert({
-      instance_name: '', chat_jid: r.chatJid, telefono: (params.telefono || '').replace(/\D/g, '') || null,
+      instance_name: r.instance, chat_jid: r.chatJid, telefono: (params.telefono || '').replace(/\D/g, '') || null,
       wa_message_id: r.id, from_me: true, tipo: params.media.tipo,
       texto: params.caption || null, media_path: path, media_mime: params.media.mimetype,
       lead_id: params.leadId ?? null, wa_timestamp: ahoraISO(), raw: { local: true },
@@ -86,15 +89,15 @@ export async function enviarMediaYEspejar(params: {
 }
 
 // Envía una nota de voz por el no oficial y la espeja como tipo='audio'.
-export async function enviarAudioYEspejar(params: { telefono: string; base64: string; mimetype?: string; leadId?: number | null }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
-  const r = await enviarAudio(params.telefono, params.base64);
+export async function enviarAudioYEspejar(params: { telefono: string; base64: string; mimetype?: string; leadId?: number | null; linea?: string | null }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
+  const r = await enviarAudio(params.telefono, params.base64, params.linea);
   if (!r.ok) return { ok: false, error: r.error };
   if (r.id) {
     const mime = params.mimetype || 'audio/ogg';
     const path = await subirMediaSaliente(r.id, params.base64, mime, extDeMime(mime));
     const supabase = await getTenantDb();
     await supabase.from('wa_mensajes').upsert({
-      instance_name: '', chat_jid: r.chatJid, telefono: (params.telefono || '').replace(/\D/g, '') || null,
+      instance_name: r.instance, chat_jid: r.chatJid, telefono: (params.telefono || '').replace(/\D/g, '') || null,
       wa_message_id: r.id, from_me: true, tipo: 'audio',
       texto: null, media_path: path, media_mime: mime,
       lead_id: params.leadId ?? null, wa_timestamp: ahoraISO(), raw: { local: true },
@@ -111,11 +114,15 @@ export type Borrador = {
   id: number; leadId: number | null; telefono: string; texto: string;
   origen: string; secuenciaId: number | null; paso: number | null;
   leadNombre: string | null; estado: string; createdAt: string;
+  /** Por qué línea sale (mig 0198). `null` = la de por default. */
+  linea: string | null;
 };
 
 export async function crearBorrador(input: {
   leadId?: number | null; telefono: string; texto: string; chatJid?: string | null;
   origen?: string; secuenciaId?: number | null; paso?: number | null; inscripcionId?: number | null;
+  /** Por qué línea sale cuando el setter lo mande (mig 0198). `null` = la de por default. */
+  linea?: string | null;
 }): Promise<void> {
   const supabase = await getTenantDb();
   // upsert anti-duplicado del toque (índice único parcial por inscripcion+paso).
@@ -128,6 +135,7 @@ export async function crearBorrador(input: {
     secuencia_id: input.secuenciaId ?? null,
     paso: input.paso ?? null,
     inscripcion_id: input.inscripcionId ?? null,
+    instance_name: input.linea ?? null,
     estado: 'pendiente',
   };
   if (input.inscripcionId != null && input.paso != null) {
@@ -147,7 +155,7 @@ export async function listBorradores(): Promise<Borrador[]> {
   const supabase = await getTenantDb();
   const { data } = await supabase
     .from('wa_borradores')
-    .select('id, lead_id, telefono, texto, origen, secuencia_id, paso, estado, created_at, leads(nombre)')
+    .select('id, lead_id, telefono, texto, origen, secuencia_id, paso, estado, created_at, instance_name, leads(nombre)')
     .eq('estado', 'pendiente')
     .order('created_at', { ascending: true })
     .limit(200);
@@ -162,6 +170,7 @@ export async function listBorradores(): Promise<Borrador[]> {
     leadNombre: ((r.leads as { nombre?: string } | null)?.nombre) ?? null,
     estado: (r.estado as string) ?? 'pendiente',
     createdAt: (r.created_at as string) ?? '',
+    linea: (r.instance_name as string | null) ?? null,
   }));
 }
 
@@ -173,11 +182,12 @@ export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok
   const { data: claimed } = await supabase.from('wa_borradores')
     .update({ estado: 'enviando' })
     .eq('id', id).eq('estado', 'pendiente')
-    .select('id, telefono, texto, lead_id, chat_jid');
-  const b = ((claimed ?? []) as Array<{ id: number; telefono: string; texto: string; lead_id: number | null; chat_jid: string | null }>)[0];
+    .select('id, telefono, texto, lead_id, chat_jid, instance_name');
+  const b = ((claimed ?? []) as Array<{ id: number; telefono: string; texto: string; lead_id: number | null; chat_jid: string | null; instance_name: string | null }>)[0];
   if (!b) return { ok: false, error: 'el borrador ya no está pendiente' };
 
-  const r = await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid });
+  // Por la línea con la que se creó: el lead venía hablando con ESE número.
+  const r = await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid, linea: b.instance_name });
   if (!r.ok) {
     // Falló el envío → devolvemos el borrador a 'pendiente' para reintentar.
     await supabase.from('wa_borradores').update({ estado: 'pendiente' }).eq('id', id);

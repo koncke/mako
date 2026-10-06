@@ -11,7 +11,7 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { OWNER_WS } from '@/lib/auth-session';
-import { jidToNumero, instanceNameDeWs, fetchMensajesEvolution,
+import { jidToNumero, lineaParaLeer, fetchMensajesEvolution,
   fetchConversacionEvolution, fetchChatsEvolution, fetchLidDeNumero, statusDeRecord, type EvRecord } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
@@ -199,7 +199,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
   // dependa de una implicación a tres saltos de distancia.)
   if (!esGrupo && !fromMe && leadId && tipo !== 'evento' && tipo !== 'otro') {
     // El texto va para el modo asistido: MaKo redacta el borrador de respuesta.
-    try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined }); } catch { /* no fatal */ }
+    try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined, linea: instance }); } catch { /* no fatal */ }
   }
 }
 
@@ -262,7 +262,11 @@ const TOPE_PAGINAS_ESPEJO = 20;
 
 // Conversaciones del canal no oficial: agrupa wa_mensajes por chat (en JS, como
 // el inbox de Chatwoot). Trae los últimos N y arma un hilo por contacto.
-export async function getConversacionesNoOficial(limite = 600, incluirOcultos = false): Promise<WaConversacion[]> {
+// `linea`: la bandeja de UN número (06/10/2026, varias líneas por negocio). Sin ella, todo el
+// espejo del workspace, como siempre. Se filtra en la BASE y no en memoria: un mismo contacto
+// que le escribió a las dos líneas tiene dos hilos, y fundirlos en uno es exactamente lo que
+// el desplegable viene a evitar.
+export async function getConversacionesNoOficial(limite = 600, incluirOcultos = false, linea?: string | null): Promise<WaConversacion[]> {
   const supabase = await getTenantDb();
   // `limite` es cuántas CONVERSACIONES devolver, no cuántos mensajes leer: un
   // `.limit(limite)` sobre wa_mensajes solo ve las últimas `limite` FILAS, y con
@@ -279,7 +283,7 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
     'chat_jid, telefono, push_name, texto, tipo, from_me, wa_timestamp, lead_id',
     (pagina, nro) => { rows.push(...pagina); return nro < TOPE_PAGINAS_ESPEJO; },
     // reacciones/protocolo no cuentan como "último mensaje"
-    { orden: ORDEN_ESPEJO, filtros: (q) => q.neq('tipo', 'evento') },
+    { orden: ORDEN_ESPEJO, filtros: (q) => (linea ? q.neq('tipo', 'evento').eq('instance_name', linea) : q.neq('tipo', 'evento')) },
   );
 
   // Agrupamos por TELÉFONO (últimos 10 dígitos), NO por chat_jid exacto: Evolution
@@ -411,16 +415,18 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
 // cada ~12s): solo lo mínimo para detectar mensajes nuevos entrantes y el badge —
 // una única query, SIN enriquecer con leads/etapas/bloqueos/placeholders. Para el
 // inbox completo (con toda esa info) está getConversacionesNoOficial().
-export type WaResumen = { chatJid: string; nombre: string; ultimaFecha: string | null; ultimoEntrante: boolean };
-export async function getResumenNoOficial(limite = 600): Promise<WaResumen[]> {
+export type WaResumen = { chatJid: string; nombre: string; ultimaFecha: string | null; ultimoEntrante: boolean; /** La línea del último mensaje: el aviso abre la bandeja de ESE número. */ linea: string | null };
+export async function getResumenNoOficial(limite = 600, linea?: string | null): Promise<WaResumen[]> {
   const supabase = await getTenantDb();
-  const { data } = await supabase
+  let q = supabase
     .from('wa_mensajes')
-    .select('chat_jid, telefono, push_name, from_me, wa_timestamp')
-    .neq('tipo', 'evento')
+    .select('chat_jid, telefono, push_name, from_me, wa_timestamp, instance_name')
+    .neq('tipo', 'evento');
+  if (linea) q = q.eq('instance_name', linea);
+  const { data } = await q
     .order('wa_timestamp', { ascending: false })
     .limit(limite);
-  const rows = (data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; from_me: boolean; wa_timestamp: string | null }>;
+  const rows = (data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; from_me: boolean; wa_timestamp: string | null; instance_name: string | null }>;
   const ocultos = await telefonosOcultos(); // los ocultos no notifican
   const porChat = new Map<string, WaResumen>();
   for (const r of rows) {
@@ -432,6 +438,7 @@ export async function getResumenNoOficial(limite = 600): Promise<WaResumen[]> {
       nombre: (!r.from_me && r.push_name && r.push_name !== 'Você') ? r.push_name : (r.telefono || r.chat_jid.replace(/@.*/, '')),
       ultimaFecha: r.wa_timestamp,
       ultimoEntrante: !r.from_me,
+      linea: r.instance_name || null,
     });
   }
   return [...porChat.values()];
@@ -483,12 +490,12 @@ export type WaMensaje = {
 // en un chat no sincronizado, el hilo muestra únicamente lo capturado por el
 // webhook / lo que sincronizaste — no vuelca todo el historial de Evolution.
 // Matchea por TELÉFONO (últimos 10 díg.) además del jid exacto (tolera 9/@lid).
-export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<WaMensaje[]> {
+export async function getMensajesDeChat(chatJid: string, limite = 300, linea?: string | null): Promise<WaMensaje[]> {
   const supabase = await getTenantDb();
   const last10 = (normalizarTelefono(jidToNumero(chatJid)) || '').replace(/\D/g, '').slice(-10);
   let sel = supabase
     .from('wa_mensajes')
-    .select('id, wa_message_id, chat_jid, from_me, tipo, texto, media_path, media_mime, wa_timestamp, status')
+    .select('id, wa_message_id, chat_jid, from_me, tipo, texto, media_path, media_mime, wa_timestamp, status, instance_name')
     .neq('tipo', 'evento')   // no ensuciamos el hilo con reacciones/protocolo
     // DESCENDENTE y después se reordena en memoria (el sort del final). Antes
     // ordenaba ascendente y cortaba en `limite`: un chat con más de 300 mensajes
@@ -503,8 +510,10 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
   if (last10.length >= 8 && jidSimple) sel = sel.or(`chat_jid.eq.${chatJid},telefono.like.%${last10}%`);
   else if (last10.length >= 8) sel = sel.like('telefono', `%${last10}%`);
   else sel = sel.eq('chat_jid', chatJid);
+  // El hilo de ESA línea: el mismo contacto en la otra es otra conversación.
+  if (linea) sel = sel.eq('instance_name', linea);
   const { data } = await sel;
-  const rows = (data ?? []) as Array<{ id: number; wa_message_id: string | null; chat_jid: string; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null }>;
+  const rows = (data ?? []) as Array<{ id: number; wa_message_id: string | null; chat_jid: string; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null; instance_name: string | null }>;
 
   // Firmar TODA la media del espejo en UN solo batch (createSignedUrls), con
   // timeout y fail-open (antes un loop secuencial colgaba el request → "Cargando…").
@@ -528,7 +537,7 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
   for (const r of rows) {
     const media = r.media_path
       ? (urlPorPath.get(r.media_path) ?? null)
-      : (esTipoMedia(r.tipo) ? proxyMedia(r.wa_message_id, r.chat_jid, r.from_me) : null);
+      : (esTipoMedia(r.tipo) ? proxyMedia(r.wa_message_id, r.chat_jid, r.from_me, r.instance_name) : null);
     const m: WaMensaje = {
       id: r.id, fromMe: r.from_me, tipo: r.tipo, texto: r.texto,
       mediaUrl: media, mediaMime: r.media_mime, fecha: r.wa_timestamp, status: r.status,
@@ -540,9 +549,11 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
 
 const esTipoMedia = (t: string | null): boolean => t === 'image' || t === 'audio' || t === 'video' || t === 'document' || t === 'sticker';
 // URL de nuestro proxy que baja el base64 de la media desde Evolution a pedido.
-function proxyMedia(waId: string | null, jid: string, fromMe: boolean): string | null {
+// `linea`: la de la FILA, no la de la bandeja — es la instancia de Evolution que tiene ese mensaje.
+// Sin ella el proxy le pedía el archivo a la línea por default, que contesta «no disponible».
+function proxyMedia(waId: string | null, jid: string, fromMe: boolean, linea?: string | null): string | null {
   if (!waId) return null;
-  return `/api/whatsapp/evolution/mensajes?media=${encodeURIComponent(waId)}&chat=${encodeURIComponent(jid)}&fromMe=${fromMe ? 1 : 0}`;
+  return `/api/whatsapp/evolution/mensajes?media=${encodeURIComponent(waId)}&chat=${encodeURIComponent(jid)}&fromMe=${fromMe ? 1 : 0}${linea ? `&linea=${encodeURIComponent(linea)}` : ''}`;
 }
 
 // Sincroniza a pedido ("Sincronizar todo"): trae los chats de Evolution al espejo
@@ -559,19 +570,22 @@ function proxyMedia(waId: string | null, jid: string, fromMe: boolean): string |
  */
 const MINIMO_COMPLETO = 120;
 
-export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mensajes: number }> {
+export async function sincronizarDesdeEvolution(linea?: string | null): Promise<{ chats: number; mensajes: number }> {
   const ws = await getWorkspaceActual();
   if (ws == null) return { chats: 0, mensajes: 0 };
-  const instance = instanceNameDeWs(ws);
+  // La línea de la que se trae, y la que se estampa en cada fila. Sin línea elegible no se
+  // trae nada: estampar el nombre de otra línea mezclaría las dos bandejas.
+  const instance = await lineaParaLeer(linea);
+  if (!instance) return { chats: 0, mensajes: 0 };
   const supabase = await getTenantDb();
   // La agenda primero, en UNA request: findChats casi no trae nombres (solo el
   // que el contacto se puso a sí mismo), y sin esto la lista queda llena de
   // números crudos. Best-effort — si falla, se sigue igual.
   try {
-    await upsertContactosLote(await fetchContactosEvolution());
+    await upsertContactosLote(await fetchContactosEvolution(instance));
   } catch { /* sin agenda */ }
 
-  const chats = await fetchChatsEvolution().catch(() => [] as Awaited<ReturnType<typeof fetchChatsEvolution>>);
+  const chats = await fetchChatsEvolution(instance).catch(() => [] as Awaited<ReturnType<typeof fetchChatsEvolution>>);
   let nChat = 0, nMsg = 0;
   // TODOS los chats, no los primeros 100: el número de prueba tenía 398 y se
   // miraban 100, así que las tres cuartas partes no existían para MaKo. Se
@@ -598,7 +612,7 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
         }
         return nro < TOPE_PAGINAS_ESPEJO;
       },
-      { orden: ORDEN_ESPEJO },
+      { orden: ORDEN_ESPEJO, filtros: (q) => q.eq('instance_name', instance) },
     );
   } catch { /* sin espejo previo, se recorre todo */ }
 
@@ -621,7 +635,7 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
     // 60 era el número que dejaba el espejo en nada: hay chats con más de 2.000
     // mensajes en Evolution. Se traen los 300 más recientes y los 100 del
     // arranque, que es lo que el paso "Tu forma de escribir" necesita leer.
-    const { mensajes: recs } = await fetchConversacionEvolution(rawJid, { recientes: 300, arranque: 100 })
+    const { mensajes: recs } = await fetchConversacionEvolution(rawJid, { recientes: 300, arranque: 100, linea: instance })
       .catch(() => ({ mensajes: [] as EvRecord[], total: 0 }));
     if (!recs.length) continue;
     // Canonical del chat: el número real de CUALQUIER mensaje (remoteJidAlt/senderPn).
@@ -663,26 +677,31 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
 }
 
 // Borra TODO el espejo de mensajes no oficial del workspace (empezar de 0). Scopeado.
-export async function borrarEspejoNoOficial(): Promise<number> {
+// Con varias líneas, «empezar de cero» sobre una NO puede borrar los chats de la otra: con
+// `linea` se borra sólo lo de esa. Sin línea, todo el espejo del negocio, como siempre.
+export async function borrarEspejoNoOficial(linea?: string | null): Promise<number> {
   const supabase = await getTenantDb();
-  const { count } = await supabase.from('wa_mensajes').delete({ count: 'exact' }).gte('id', 0);
+  let q = supabase.from('wa_mensajes').delete({ count: 'exact' }).gte('id', 0);
+  if (linea) q = q.eq('instance_name', linea);
+  const { count } = await q;
   return count ?? 0;
 }
 
 // ── Por-chat (sincronizar / borrar SOLO una conversación) ────────────────────
 // Sincroniza UN chat: trae su historial de Evolution (por el número y por su @lid)
 // al espejo, canonicalizado al número. Para "traer este chat" sin traer todos.
-export async function sincronizarChat(chatJid: string): Promise<{ mensajes: number }> {
+export async function sincronizarChat(chatJid: string, linea?: string | null): Promise<{ mensajes: number }> {
   const ws = await getWorkspaceActual();
   if (ws == null || !chatJid) return { mensajes: 0 };
-  const instance = instanceNameDeWs(ws);
+  const instance = await lineaParaLeer(linea);
+  if (!instance) return { mensajes: 0 };
   const supabase = await getTenantDb();
   const num = jidToNumero(chatJid) || '';
   const telefono = normalizarTelefono(num);
   const lid = await fetchLidDeNumero(telefono || num).catch(() => null);
   const jids = [...new Set([chatJid, lid].filter((x): x is string => !!x))];
   const recs: EvRecord[] = [];
-  for (const jid of jids) recs.push(...(await fetchMensajesEvolution(jid, 100).catch(() => [] as EvRecord[])));
+  for (const jid of jids) recs.push(...(await fetchMensajesEvolution(jid, 100, instance).catch(() => [] as EvRecord[])));
   if (!recs.length) return { mensajes: 0 };
   let canon = chatJid;
   for (const rec of recs) { const cj = jidCanonico(rec.key); if (cj && !cj.endsWith('@lid')) { canon = cj; break; } }
@@ -707,10 +726,12 @@ export async function sincronizarChat(chatJid: string): Promise<{ mensajes: numb
 }
 
 // Borra el espejo de UNA conversación (por teléfono últimos-10, o jid exacto).
-export async function borrarChat(chatJid: string): Promise<number> {
+// Con `linea`, sólo el hilo de ESA línea: el mismo contacto en la otra es otra conversación.
+export async function borrarChat(chatJid: string, linea?: string | null): Promise<number> {
   const supabase = await getTenantDb();
   const last10 = (normalizarTelefono(jidToNumero(chatJid)) || '').replace(/\D/g, '').slice(-10);
-  const del = supabase.from('wa_mensajes').delete({ count: 'exact' });
+  let del = supabase.from('wa_mensajes').delete({ count: 'exact' });
+  if (linea) del = del.eq('instance_name', linea);
   const { count } = await (last10.length >= 8 ? del.like('telefono', `%${last10}%`) : del.eq('chat_jid', chatJid));
   return count ?? 0;
 }

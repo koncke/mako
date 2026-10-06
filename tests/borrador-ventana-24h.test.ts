@@ -131,18 +131,22 @@ function cuerpo(src: string, firma: string): string {
 
 test('Fuera de la ventana, el camino es null: no se intenta mandar', () => {
   const b = cuerpo(LIB, 'export async function caminosDeEnvio');
-  assert.ok(b.length < 1800, `el recorte de caminosDeEnvio mide ${b.length}: está mirando otra cosa`);
+  // 06/10/2026: el tope pasó de 1800 a 2800 porque la función ahora decide POR LÍNEA (varios
+  // números por negocio) y trae su comentario; el recorte sigue terminando en su `}`.
+  assert.ok(b.length < 2800, `el recorte de caminosDeEnvio mide ${b.length}: está mirando otra cosa`);
   // La CONDICIÓN, no el objeto que cuelga de ella.
   assert.match(b, /v\?\.abierta \? \{ via: 'oficial'/, 'el camino oficial dejó de mirar si la ventana está abierta');
   assert.match(b, /: FUERA_DE_VENTANA/, 'la ventana cerrada dejó de devolver su motivo');
-  // El no oficial gana cuando está vivo (no se le cambia el número al lead).
-  assert.match(b, /estado === 'conectado' \|\| inst\.estado === 'conectando'/);
+  // El no oficial gana cuando está vivo (no se le cambia el número al lead): la de por default
+  // para un borrador sin línea, la SUYA para uno que la nombra.
+  assert.match(b, /estado === 'conectado' \|\| estado === 'conectando'/);
+  assert.match(b, /def && viva\(def\.estado\)/);
 });
 
 test('La ventana se vuelve a verificar al enviar, y sale por el canal que puede', () => {
   const b = cuerpo(LIB, 'export async function enviarBorradorPorSuCanal');
   assert.ok(b.length < 1200, `el recorte mide ${b.length}: está mirando otra cosa`);
-  assert.match(b, /caminosDeEnvio\(\[\{ id: b\.id, telefono: b\.telefono \}\]\)/, 'el envío dejó de recalcular el camino: confía en el botón');
+  assert.match(b, /caminosDeEnvio\(\[\{ id: b\.id, telefono: b\.telefono, linea: b\.instance_name \}\]\)/, 'el envío dejó de recalcular el camino (con la línea del borrador): confía en el botón');
   assert.match(b, /camino\?\.via === 'empresa'/);
   assert.match(b, /camino\?\.via === 'oficial'/);
   // Sin camino no se manda nada y se devuelve el motivo.

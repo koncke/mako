@@ -137,7 +137,7 @@ test('la IA se escribe DESPUÉS de cada guarda que corta el envío, y sólo en l
     'el texto del borrador se escribe antes de saber si hay otro pendiente',
   );
   // Y lo que sale es lo que se escribió, no `cuerpoNO`.
-  assert.match(RAMA_NO_OFICIAL, /enviarYEspejar\(\{ telefono: lead\.telefono, texto: t\.texto, leadId: lead\.id \}\)/);
+  assert.match(RAMA_NO_OFICIAL, /enviarYEspejar\(\{ telefono: lead\.telefono, texto: t\.texto, leadId: lead\.id, linea: lineaSec \}\)/);
   assert.match(RAMA_NO_OFICIAL, /crearBorrador\(\{ leadId: lead\.id, telefono: lead\.telefono, texto: t\.texto,/);
   assert.equal(cuenta(RAMA_NO_OFICIAL, 'if (t.motivo) nota ='), 2, 'el respaldo se registra con su motivo en las dos ramas');
 });

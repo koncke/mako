@@ -1,11 +1,17 @@
 // =============================================================================
 // API interna: conexión del WhatsApp NO oficial (Evolution) del workspace
 // =============================================================================
-// GET  → estado cacheado + config (para pintar el chip y decidir si mostrar QR).
-// POST → { action:'conectar' }    → crea/reusa la instancia y devuelve el QR.
-//        { action:'estado' }      → estado EN VIVO (para el polling del modal).
-//        { action:'refrescar' }   → QR nuevo sin recrear.
-//        { action:'desconectar' } → logout + delete.
+// GET  ?linea= → estado de UNA línea (sin `linea`, la de por default) + la lista de líneas
+//                del negocio, para el desplegable.
+// POST → { action:'conectar', linea? }        → crea/reusa la instancia y devuelve el QR.
+//        { action:'nueva-linea', etiqueta? }  → «Agregar otro número»: una línea nueva + su QR.
+//        { action:'estado', linea? }          → estado EN VIVO (para el polling del modal).
+//        { action:'refrescar', linea? }       → QR nuevo sin recrear.
+//        { action:'desconectar', linea? }     → logout + delete (una línea extra se va del negocio).
+//        { action:'renombrar-linea', linea, etiqueta } · { action:'predeterminar-linea', linea }
+//
+// ⚠️ `linea` viene del navegador y NO se confía: cada función de lib/evolution.ts la pasa por
+// `elegirLinea`, que exige que sea del workspace de la sesión. Una línea ajena no se toca.
 // Guard: solo el admin del workspace (conectar un número es config sensible).
 // =============================================================================
 
@@ -15,7 +21,9 @@ import {
   conectar, estadoEnVivo, refrescarQr, desconectar, getInstanciaRow, evolutionConfigurado,
   sondearSocket, motivoCaida,
   estadoWebhook, repararWebhook,
+  listarLineas, renombrarLinea, predeterminarLinea,
 } from '@/lib/evolution';
+import { rotuloLinea, sanearEtiqueta } from '@/lib/lineas-whatsapp';
 import { sincronizarDesdeEvolution, borrarEspejoNoOficial } from '@/lib/evolution-mensajes';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +40,10 @@ async function soloAdmin(): Promise<Response | null> {
   return null;
 }
 
-export async function GET() {
+/** La línea que nombra el pedido: un string no vacío, o nada (= la de por default). */
+const lineaDe = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+export async function GET(req: NextRequest) {
   const g = await soloAdmin();
   if (g) return g;
   try {
@@ -59,7 +70,9 @@ export async function GET() {
     //   no contesto a tiempo → NO se afirma nada: se cae a la fila y se marca
     //     `confirmado: false`, para que el chip diga que no pudo comprobarlo en
     //     vez de pintar un verde que no midio nadie.
-    const row = await getInstanciaRow();
+    const pedida = lineaDe(req.nextUrl.searchParams.get('linea'));
+    const lineas = await listarLineas();
+    const row = await getInstanciaRow(pedida);
     // Sin fila no hay instancia creada: nunca lo vinculo. No hay nada que
     // sondear, y sondear un nombre inventado gastaria 4s para contestar lo que
     // ya sabemos.
@@ -85,6 +98,13 @@ export async function GET() {
       numero: row?.numero ?? null,
       perfil: row?.perfil_nombre ?? null,
       caida: motivo,
+      // De qué línea habla este estado, y todas las del negocio para el desplegable. El
+      // rótulo se arma acá con la misma función que usa la pantalla: nunca el instance_name.
+      linea: row?.instance_name ?? null,
+      lineas: lineas.map((l, i) => ({
+        linea: l.instance_name, rotulo: rotuloLinea(l, i), etiqueta: l.etiqueta,
+        numero: l.numero, estado: l.estado, esDefault: l.es_default,
+      })),
     });
   } catch (e) {
     console.error(`[api:whatsapp/evolution GET] ${msg(e)}`);
@@ -99,46 +119,62 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: false, error: 'Evolution API no está configurado en el servidor.' }, { status: 400 });
   }
 
-  let body: { action?: string };
+  let body: { action?: string; linea?: unknown; etiqueta?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+  const linea = lineaDe(body.linea);
 
   try {
     if (body.action === 'conectar') {
-      const r = await conectar();
+      const r = await conectar({ linea });
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
-      return Response.json({ ok: true, estado: r.estado, qr: r.qr });
+      return Response.json({ ok: true, estado: r.estado, qr: r.qr, linea: r.linea });
+    }
+    if (body.action === 'nueva-linea') {
+      const r = await conectar({ nueva: true, etiqueta: sanearEtiqueta(body.etiqueta) });
+      if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
+      return Response.json({ ok: true, estado: r.estado, qr: r.qr, linea: r.linea });
+    }
+    if (body.action === 'renombrar-linea') {
+      if (!linea) return Response.json({ ok: false, error: 'falta la línea' }, { status: 400 });
+      await renombrarLinea(linea, sanearEtiqueta(body.etiqueta));
+      return Response.json({ ok: true });
+    }
+    if (body.action === 'predeterminar-linea') {
+      if (!linea) return Response.json({ ok: false, error: 'falta la línea' }, { status: 400 });
+      await predeterminarLinea(linea);
+      return Response.json({ ok: true });
     }
     if (body.action === 'estado') {
-      const s = await estadoEnVivo();
+      const s = await estadoEnVivo(linea);
       return Response.json({ ok: true, ...s });
     }
     if (body.action === 'refrescar') {
-      const r = await refrescarQr();
+      const r = await refrescarQr(linea);
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
       return Response.json({ ok: true, qr: r.qr });
     }
     if (body.action === 'desconectar') {
-      const r = await desconectar();
+      const r = await desconectar(linea);
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, movidas: r.movidas ?? 0 });
     }
     if (body.action === 'webhook-estado') {
       // Salud del espejo de mensajes (webhook Evolution → app).
-      const s = await estadoWebhook();
+      const s = await estadoWebhook(linea);
       return Response.json({ ok: true, ...s });
     }
     if (body.action === 'reparar-webhook') {
-      const r = await repararWebhook();
+      const r = await repararWebhook(linea);
       return Response.json({ ok: r.ok, estado: r.estado, error: r.error });
     }
     if (body.action === 'sincronizar') {
-      // "Sincronizar todo": trae los chats de Evolution al espejo a pedido.
-      const r = await sincronizarDesdeEvolution();
+      // "Sincronizar todo": trae los chats de Evolution al espejo a pedido, de ESA línea.
+      const r = await sincronizarDesdeEvolution(linea);
       return Response.json({ ok: true, ...r });
     }
     if (body.action === 'borrar-chats') {
-      // Empezar de 0: borra el espejo de mensajes no oficial del workspace.
-      const n = await borrarEspejoNoOficial();
+      // Empezar de 0: borra el espejo de mensajes de ESA línea (sin línea, el del negocio entero).
+      const n = await borrarEspejoNoOficial(linea);
       return Response.json({ ok: true, borrados: n });
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });

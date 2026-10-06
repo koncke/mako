@@ -72,6 +72,7 @@ test('la bandeja no oficial le pone el lead a la conversación en el acto', () =
   // escribirlo en el estado, el botón sigue ofreciendo el alta sobre un contacto que ya
   // está y el segundo clic choca con el duplicado.
   assert.match(cuerpo, /leadId: id/, 'no escribe el leadId en el estado local');
-  assert.match(cuerpo, /convsCache = upd\(convsCache\)/, 'no actualiza el cache del inbox');
+  // La caché es POR LÍNEA desde el 06/10/2026 (varios números por negocio).
+  assert.match(cuerpo, /convsCache\.set\(linea \?\? '', upd\(convsCache\.get\(linea \?\? ''\) \?\? \[\]\)\)/, 'no actualiza el cache del inbox');
   assert.match(cuerpo, /setDetalleLeadId\(id\)/, 'no abre la ficha editable del lead');
 });
