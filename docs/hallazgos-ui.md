@@ -69,6 +69,29 @@ parámetro se va, o el segundo uso del mismo link es un botón muerto.
 
 *2026-10-06*
 
+### ⚠️ Un aviso fijo que pinta en TODA la app tapa los controles de la esquina de cada pantalla
+
+**Vive en:** app/_components/EsquinaAvisos.tsx · app/globals.css (`:root:has([data-esquina-ocupada])`) ·
+app/_components/Lienzo.tsx · app/whatsapp/_shared/ChatHilo.tsx
+
+«A revisar» vivía sólo en /crm. «Actualiza el Pixel» sale en todas las pantallas, y la revisión
+del 06/10/2026 lo midió en Chrome. En /chatbot el lienzo llega al borde de la ventana y su
+«Publicar» está a 12 px del rincón. La pastilla, que no se cierra, le caía encima: un clic en
+«Publicar» abría /integraciones y dejaba la estrategia sin guardar. Lo mismo con el «Enviar» de
+cualquier chat. Encima, con z 65 la esquina quedaba sobre cinco modales de z 60.
+
+- **La pantalla declara su rincón ocupado, y la esquina sube.** `data-esquina-ocupada` en el
+  control. La regla vive en globals.css con `:root:has(...)`, porque la esquina está en el
+  layout y no puede saber qué pinta cada pantalla. Una pantalla que escribiera una variable en
+  el layout sería un global que alguien se olvida de limpiar. Medido: sin la marca, el centro de
+  «Publicar» era la pastilla; con la marca, la pastilla sube a 64 px y el centro vuelve a ser
+  «Publicar».
+- **Un aviso flotante va DEBAJO de los modales** (z 55). Un modal es una decisión que la persona
+  abrió, y un aviso no puede taparle el botón de cerrar. AlertaVozMaKo ya estaba en 55 por lo
+  mismo.
+
+*2026-10-06*
+
 ### ⚠️ Una barra de navegación con scroll horizontal esconde destinos, y la scrollbar oculta los borra
 
 **Síntoma:** en la ficha del lead, las últimas tabs no existen para el usuario. No hay

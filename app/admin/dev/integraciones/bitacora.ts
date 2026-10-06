@@ -513,4 +513,24 @@ export const BITACORA: Hito[] = [
       'lib/landing-analyst-auto.ts · lib/landing-url.ts · app/api/cron/landing-analyst-auto/route.ts',
     ],
   },
+  {
+    fecha: '6 oct', hora: '12:39', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La revisión de la tanda: la pastilla tapaba «Publicar», y seis arreglos más',
+    commits: [
+      { sha: '1120ba01', msg: 'Revisión de la tanda del Pixel y el mapa: la esquina no tapa «Publicar», y seis arreglos', lineas: 259, archivos: 17 },
+    ],
+    puntos: [
+      'Tres revisores adversariales sobre los cuatro commits del día dieron 16 hallazgos (1 alto, 8 medios, 7 bajos).',
+      '⚠️ El alto ya estaba en producción: «Actualiza el Pixel» —la que no se cierra— le caía encima al «Publicar» de /chatbot y al «Enviar» de los chats. Ahora la pantalla declara su rincón (`data-esquina-ocupada`) y la esquina sube, y el aviso va debajo de los modales. Medido en Chromium antes y después.',
+      'Los medios: el WhatsApp decía «no graban las visitas» de una página que graba; el mapa no medía el panel si la foto llegaba antes que los toques; el congelado de vh reescribía los selectores; la foto de fondo se buscaba entre las 200 sesiones del negocio y no las de la página; el selector sin ancla apuntaba al primer botón repetido; y «Buscar mis páginas» corría dos veces un análisis en curso.',
+      'SIN HACER, medido: el aviso fijo decide con el último evento (se prende y se apaga con dos páginas en versiones distintas), no mira si el Pixel sigue vivo, y quitar el diagnóstico de una página declarada no dura. Escrito en docs/hallazgos-landing.md.',
+    ],
+    archivos: [
+      'app/_components/EsquinaAvisos.tsx · app/globals.css · app/_components/Lienzo.tsx · app/whatsapp/_shared/ChatHilo.tsx',
+      'lib/replay-ficha.ts — `noGrabanTodas` · app/api/cron/tracking-vigilante/route.ts',
+      'app/landing-analyst/MapaDeCalor.tsx · lib/landing-mapa.ts · lib/landing-mapa-foto.ts · lib/landing-mapa-server.ts',
+      'lib/landing-analyst.ts · lib/landing-token.ts',
+    ],
+  },
 ];

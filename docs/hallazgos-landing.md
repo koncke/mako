@@ -3328,6 +3328,60 @@ sola (el grabador usa la misma cookie que el Pixel). Hoy no se ve nada por otras
 
 *2026-10-06*
 
+### La revisión adversarial de la tanda del 06/10: lo que el mapa y el aviso decían de más
+
+**Vive en:** `lib/replay-ficha.ts` (`noGrabanTodas`) · `app/api/cron/tracking-vigilante/route.ts` ·
+`app/landing-analyst/MapaDeCalor.tsx` · `lib/landing-mapa.ts` (`selAnclado`) ·
+`lib/landing-mapa-foto.ts` (`congelarVhEnHoja`) · `lib/landing-mapa-server.ts` (`fondoDelMapa`) ·
+`lib/landing-analyst.ts` (`syncLandings`) · `lib/landing-token.ts` (`selDe`)
+
+Tres revisores sobre los cuatro commits del día. Dieron 16 hallazgos: 1 alto (la pastilla tapaba
+«Publicar», ver hallazgos-ui.md), 8 medios y 7 bajos. Lo arreglado tiene su test y cada test se
+probó rompiéndolo (commit `1120ba01`):
+
+- **«Atrasada» y «no graba» son dos umbrales.** El WhatsApp de «quedó viejo» calculaba «por eso
+  no graban las visitas» con la versión MÁS BAJA de la lista y lo aplicaba a toda la lista: lo
+  decía de una página en la v21, que graba. Va a pasar en cada subida de versión. Se dice sólo si
+  es verdad para CADA página nombrada, y una versión desconocida no autoriza nada.
+- **Un efecto que mide un nodo depende de TODO lo que lo monta.** El marco del mapa espera a los
+  toques y la foto llega por otro pedido. Con el efecto colgado de `[fondo]`, si la foto llegaba
+  primero nadie medía el panel, y la computadora se dibujaba a tamaño real, cortada. Ahora se
+  mide con una ref de función. Es la regla del popover de AGENTS.md, en otra pantalla.
+- **Congelar `vh` sobre la hoja cruda reescribe los SELECTORES.** `.h-\[50vh\]` pasaba a
+  `.h-\[400px\]` y su regla desaparecía de la foto. Se tocan sólo los bloques de declaraciones.
+- **Filtrar después del tope es filtrar otra cosa.** El fondo traía las 200 sesiones más nuevas de
+  TODO el negocio y recién ahí buscaba la página, así que a una página con poco tráfico le decía
+  «no hay grabación». Ahora el `ilike` trae candidatos y `norm` decide.
+- **Un selector que no llega a un ancla no identifica nada.** A más de 8 niveles sin un id, el
+  Pixel mandaba el sufijo, y con el botón repetido de Elementor `querySelector` daba el primero:
+  todos los toques del segundo se dibujaban sobre el primero y el ranking los fundía. El snippet
+  dejó de mandarlo **sin subir la versión** (no cambia lo que mide) y `selAnclado` lo corta en el
+  server para las páginas que ya tienen pegada la v22.
+- **Una fila 'pendiente' reciente es un análisis EN CURSO.** «Buscar mis páginas» la tomaba como
+  un fallo y la misma página se analizaba dos veces, pagando dos veces la IA.
+
+⚠️ **SIN HACER (medidos por la revisión, no arreglados):**
+- **El aviso fijo decide con el setting donde gana el último evento** (`/api/integraciones/landing/version`).
+  Con dos páginas en versiones distintas se prende y se apaga según qué página recibió la
+  última visita. Arreglarlo es preguntar por página (como `atrasadas` en el vigilante) en cada
+  carga de la app. Es la misma decisión pendiente que el chip `snippetDesactualizado`.
+- **El aviso fijo no mira si el Pixel sigue vivo.** Una landing dada de baja con una v18 deja la
+  pastilla para siempre. El WhatsApp sí exige tracking de menos de 48 h.
+- **Quitar el diagnóstico de una página declarada no dura:** el cron horario lo rehace y gasta
+  otro análisis. Hace falta decidir qué significa «quitar» para una página que sigue en el Pixel.
+- Un clic sintético o de teclado con la página scrolleada SÍ manda ancla (en la esquina del
+  botón). Lo distinguen `ev.isTrusted` y `ev.detail === 0`.
+- El fondo prueba 12 grabaciones sin mirar el dispositivo, y en una página casi toda de celular
+  la computadora dice «no hay grabación». La versión del Pixel de la página sale de
+  `verificarPagina`, que compara CON el query. Un fallo de `/mapa/fondo` se muestra como «no hay
+  grabación».
+- `htmlDeFoto` se puede saltear con una grabación armada a mano. Lo frena sólo el `sandbox` del
+  iframe, que es el candado que importa.
+- La lista dice «REVISANDO» en un análisis cortado, y en un negocio pausado o sin token nada
+  barre la fila 'pendiente'.
+
+*2026-10-06*
+
 ### La grabación de una prueba se MIRA con un lead PRUEBA, no sacando el reproductor del CRM
 
 El commit anterior dejó esto escrito como lo que NO quedaba: la prueba del Pixel podía

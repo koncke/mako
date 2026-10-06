@@ -5439,26 +5439,58 @@ funcionando» se armó mirando nombres; la que habría servido es **«¿cuáles 
 una lectura del catálogo. Ver `hallazgos-landing.md` → «El WhatsApp de "tu Pixel quedó
 viejo"».
 
-### Un aviso AGENDADO de un evento manda el EJEMPLO de fábrica — con un lead real de otro cliente
+### Un aviso AGENDADO manda el texto TAL CUAL — y para un mensaje del catálogo eso es el EJEMPLO
 
-**Vive en:** `lib/avisos-programados.ts` (`drenarProgramados`) · `lib/avisos-catalogo.ts`
+**Vive en:** `lib/cron-aviso.ts` (`motivoNoAgendable`) · `lib/avisos-programados.ts`
+(`setProgramado`, `drenarProgramados`) · `app/agencia/FlujoAviso.tsx` (`SeccionCron`) ·
+`lib/avisos-catalogo.ts`
 
 **Síntoma (medido el 06/10/2026, de rebote):** el grupo de Leila recibía todos los días a las
 9:00 de Tijuana «En 30 min tienes la R2 con *Francisco Ramos* (Dental Ramos)… /crm/482/resumen»:
 un lead del ws1, de otro cliente. Salió cuatro veces (02 a 05/10).
 
-**Causa:** el agendado (`avisos_programados` id 15, ws11, `reunion-recordatorio`) manda
-`referenciaPlantilla`, que para un aviso de EVENTO —uno que necesita un lead, una reunión— es
-el `ejemplo` del catálogo. Y ese ejemplo tenía datos reales, que es justo lo que la regla de
-«un ejemplo de UI es ficticio» (AGENTS.md) prohíbe.
+**Causa, en tres eslabones que andan bien por separado:**
 
-**Lo hecho:** la fila se corrió al 01/01/2027 (reversible: volver a poner `proxima_at`).
+1. **Elegir «Por tiempo» YA agenda.** `SeccionCron` escribe `CRON_DEFAULT` (todos los días a
+   las 9) en el acto, a propósito: elegir un modo apaga el otro y es una escritura. O sea que
+   un click para MIRAR qué hace el botón deja un envío diario vivo. Las dos filas que había en
+   producción tenían exactamente ese cron.
+2. **El drenador manda el texto de referencia tal cual**, porque por tiempo no hay ningún evento
+   que lo complete. Para un aviso del catálogo que nadie reescribió, ese texto es el `ejemplo`
+   — datos de muestra, por definición del campo.
+3. **El ejemplo de `reunion-recordatorio` nombraba un lead REAL** (y el de
+   `reunion-tareas-al-plan` decía «Mau <> Martín»), que es lo que la regla de «un ejemplo de UI
+   es ficticio» prohíbe — y el guard de esa regla miraba el catálogo de VARIABLES, no el de
+   AVISOS.
 
-⚠️ **SIN HACER (quedó como tarea aparte):** que un aviso de evento no se pueda agendar por
-tiempo —no tiene de qué hablar sin el evento—, o que el drenador se niegue a mandar un texto
-de ejemplo; y que el `ejemplo` de `reunion-recordatorio` deje de nombrar a un lead real. La
-otra fila agendada (id 12, ws1, `reporte-semanal`) manda a diario un reporte semanal: puede
-estar bien, pero nadie lo eligió así a propósito que se sepa.
+**Lo hecho:**
+- `motivoNoAgendable(texto, ejemploDeFabrica)` (puro). Lo preguntan las DOS puntas: el agendado
+  se niega antes de escribir (`NoAgendable` → 400 con el motivo en las dos rutas) y el drenador
+  lo vuelve a mirar en cada tick, sobre la MISMA variable que manda. Se compara contra el
+  ejemplo de fábrica y no contra «¿hay override?»: lo que importa es qué texto sale.
+- Si el server se niega, «Por tiempo» vuelve atrás en la pantalla.
+- Los dos ejemplos pasaron a ser ficticios, con guard sobre los 65 ejemplos del catálogo.
+- En producción se borraron las dos filas (`avisos_programados` 12 y 15; la tabla quedó vacía).
+  La de Leila ya estaba corrida al 2027 desde la mañana.
+
+⚠️ **LA FILA DEL ws1 ERA UN RESTO DE VERIFICACIÓN, Y LLEVABA UNA SEMANA.** Id 12, `reporte-semanal`,
+creada el 30/09 a las 16:46 UTC, veinte minutos después del commit que armó la sección CRON
+(`ba165b67`). La entrada «Verificar un CRON MANDA UN MENSAJE DE VERDAD» de este mismo documento
+dice que la fila de la prueba «se borró» — se borró UNA, y quedó ésta. Le mandaba a Mauricio
+todos los días el reporte de la semana del 07/07 al 13/07 (el texto que su store tiene
+guardado), cinco veces, y la sexta salía a los 44 minutos. **Después de verificar algo que
+agenda, se cuentan las filas que quedaron — no las que uno se acuerda de haber creado.**
+
+⚠️ **SIN HACER:**
+- **Por tiempo, un mensaje del catálogo manda la FOTO, nunca el dato.** La guarda caza el
+  ejemplo; no caza un texto propio que es un reporte con números viejos (el caso del ws1). Para
+  los reportes, «Por tiempo» debería CORRER su generador a esa hora, no mandar el texto
+  guardado — eso es una feature, no un arreglo.
+- **Un click para mirar sigue agendando.** Que elegir «Por tiempo» abra el editor del horario
+  SIN guardar hasta confirmar es una decisión de producto (choca con «elegir uno apaga el otro
+  y es una escritura», que se pidió así).
+- Si el texto vuelve al de fábrica DESPUÉS de agendar, el drenador saltea en silencio (queda en
+  el log y en `saltados`): la pantalla no lo dice.
 
 *2026-10-06*
 

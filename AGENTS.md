@@ -3399,6 +3399,20 @@ con la versión en 21, contaba como al día para siempre.
   contra el número que anotó el beacon: un `curl` del HTML de la página principal de cada
   cliente lo contesta en un minuto.
 
+# Un control en el rincón de abajo a la derecha lleva `data-esquina-ocupada`
+
+La esquina de los avisos (`app/_components/EsquinaAvisos.tsx`) pinta en TODA la app desde el
+06/10/2026, y uno de sus avisos no se cierra. Medido ese día: tapaba el «Publicar» del lienzo
+de /chatbot y el «Enviar» de los chats. Un clic en «Publicar» llevaba a /integraciones y dejaba
+la estrategia sin guardar, y no había forma de destaparlo.
+
+- **Un botón nuevo pegado al rincón de abajo a la derecha de la ventana** (un pie flotante,
+  la acción de un lienzo, el composer de un chat) **lleva `data-esquina-ocupada`**, y la esquina
+  sube sola (`:root:has(...)` en globals.css). Sin la marca, el botón existe, está habilitado y
+  el clic no le llega nunca.
+- **Un aviso flotante nuevo va DEBAJO de los modales** (z < 60). Un modal es algo que la persona
+  abrió, y un aviso no puede taparle el cerrar.
+
 # Un alta que pasa a crear N filas choca con su propio chequeo de duplicados
 
 Cuando una función que creaba UNA fila pasa a crear varias de la misma entidad —el mismo

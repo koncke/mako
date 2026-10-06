@@ -567,4 +567,35 @@ Y también:
       "tests/cobranza.test.ts — 11 guards, las 12 roturas probadas",
     ],
   },
+  {
+    fecha: "6 oct", hora: "12:09", chat: "Integraciones", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Frenar el recordatorio de ejemplo que le llega a Leila",
+    pedido: "«Do this task here: “Frenar el recordatorio de ejemplo que le llega a Leila”»",
+    puntos: [
+      "La tarea salió del relevo del mismo día: el grupo de Leila recibía a las 9:00 el EJEMPLO de un recordatorio de reunión, con un lead real de otro cliente. La fila ya estaba corrida al 01/01/2027; faltaba la causa.",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "12:26", chat: "Integraciones", cuenta: "claude1",
+    actor: "claude", tipo: "correccion",
+    titulo: "Por tiempo, el texto de ejemplo no se agenda ni sale",
+    commits: [
+      { sha: "16c0d66c", msg: "Avisos por tiempo: el texto de ejemplo no se agenda ni sale", lineas: 207, archivos: 8 },
+    ],
+    puntos: [
+      "Tres eslabones que andan bien por separado: elegir «Por tiempo» YA agenda (todos los días a las 9), por tiempo sale el texto tal cual, y para un mensaje del catálogo que nadie reescribió ese texto es el `ejemplo` — que en `reunion-recordatorio` nombraba a un lead real.",
+      "`motivoNoAgendable` lo preguntan las dos puntas: el agendado se niega antes de escribir (400 con el motivo) y el drenador lo vuelve a mirar en cada tick, sobre la misma variable que manda. Los dos ejemplos con gente real pasaron a ser ficticios, con guard sobre los 65.",
+      "⚠️ En producción se borraron las dos filas agendadas. La del ws1 era un resto de verificar el CRON el 30/09 (creada 20 minutos después del commit): le mandaba a Mauricio todos los días el reporte de la semana del 07/07, y la sexta salida estaba a 44 minutos.",
+      "SIN HACER: por tiempo, un reporte manda la FOTO guardada y nunca el dato de hoy (haría falta correr su generador a esa hora), y un click para mirar «Por tiempo» sigue agendando. Las dos son decisiones; escritas en docs/hallazgos-comunicacion.md.",
+    ],
+    archivos: [
+      "lib/cron-aviso.ts — `motivoNoAgendable` y el texto corto de la negativa",
+      "lib/avisos-programados.ts — la negativa al agendar y el salteo al mandar",
+      "app/api/admin/plantillas/route.ts · app/api/perfil/plantillas/route.ts — la negativa como 400",
+      "app/agencia/FlujoAviso.tsx — «Por tiempo» vuelve atrás si el server se niega",
+      "lib/avisos-catalogo.ts — los ejemplos sin gente real",
+      "tests/cron-aviso.test.ts · tests/variables-aviso.test.ts — 8 roturas, cada una 1 falla",
+    ],
+  },
 ];
