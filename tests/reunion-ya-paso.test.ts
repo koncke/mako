@@ -22,6 +22,8 @@ import {
 //   · `preparaUnaReunion` devolviendo siempre false → cae el primer test (3 pasan / 1 falla).
 //   · sacando `|| preparaUnaReunion(sec.trigger_tipo)` del motor → caen los DOS del cableado
 //     (2 pasan / 2 fallan), porque el segundo se ancla en esa misma condición.
+//   · con el trozo por BLOQUE (06/10/2026, #789): las dos de arriba dan lo mismo (3/1 y 2/2), y
+//     dejando `proximo_envio_at: enHorasISO(24)` en el cierre cae el cuarto (3 pasan / 1 falla).
 // Como está: 4/4.
 
 test('preparaUnaReunion cubre las dos mitades de la post-agenda y la vieja', () => {
@@ -59,6 +61,16 @@ test('el motor pregunta por la reunión también cuando el paso NO está anclado
 test('y cerrar por reunión pasada NO deja la inscripción para mañana', () => {
   // Cerrar mal acá es peor que no cerrar: una inscripción con `proximo_envio_at` viva vuelve a
   // intentar mañana, y el reintento es justo lo que produjo el atraso.
-  const trozo = MOTOR.slice(MOTOR.indexOf("preparaUnaReunion(sec.trigger_tipo)"));
-  assert.match(trozo.slice(0, 700), /estado: 'completada', proximo_envio_at: null/);
+  //
+  // ⚠️ EL TROZO ES EL BLOQUE, desde la condición entera hasta el bloque que le sigue (el
+  // re-anclado). Se cortaba desde la PRIMERA aparición de `preparaUnaReunion(sec.trigger_tipo)`
+  // + 700 caracteres, y desde el 06/10/2026 (#789) esa cadena aparece antes en el archivo —el
+  // reuso de inscripciones también pregunta si la secuencia prepara una reunión—: el guard
+  // pasó a mirar otra función y falló sobre un motor sano.
+  const ini = MOTOR.indexOf("if (paso.ancla === 'reunion' || preparaUnaReunion(sec.trigger_tipo))");
+  const fin = MOTOR.indexOf("if (paso.ancla === 'reunion') {", ini);
+  assert.ok(ini >= 0 && fin > ini, 'no encontré el bloque de «la reunión ya pasó» en procesarEnvios');
+  const trozo = MOTOR.slice(ini, fin);
+  assert.ok(trozo.length < 1500, `el bloque mide ${trozo.length}: está mirando otra cosa`);
+  assert.match(trozo, /estado: 'completada', proximo_envio_at: null/);
 });

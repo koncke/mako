@@ -173,14 +173,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'plan_nutricion_hoy', area: 'chatbot', tipo: 'lectura',
     titulo: 'A quién le escribiría el chatbot',
-    descripcion: 'Simulación del motor sin escribir nada: qué leads entrarían hoy a cada secuencia activa (con el horario del primer paso) y qué envíos están vencidos para la próxima corrida (lead, secuencia, paso, canal). No aplica el tope diario configurado, la pausa de 20 horas por lead, la ventana de 9 a 21 ni si el envío del canal está habilitado: lo que de verdad sale puede ser menos. Úsala para «a quién le va a escribir el chatbot».',
+    descripcion: 'Simulación del motor sin escribir nada: qué leads entrarían hoy a cada secuencia activa (con el horario del primer paso) y qué envíos están vencidos para la próxima corrida (lead, secuencia, paso, canal). No aplica el tope diario configurado, la pausa de 20 horas por lead, la ventana de 9 a 21 ni si el envío del canal está habilitado: lo que de verdad sale puede ser menos. Una fila con reactiva: true no es un alta: es una inscripción que ya terminó y vuelve a correr porque el lead volvió a agendar. Úsala para «a quién le va a escribir el chatbot».',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'inscripciones_lead', area: 'chatbot', tipo: 'lectura',
     titulo: 'Secuencias en las que está un lead',
-    descripcion: 'Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». Pide antes el leadId (buscar_leads). Un lead no puede volver a entrar a una secuencia en la que ya estuvo.',
+    descripcion: 'Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva.',
     parametros: [{ nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },

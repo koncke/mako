@@ -24,6 +24,8 @@ import { parseEstrategia, hitoYaHecho, silencioCumplido, type Desenlace } from '
 import { leerTodo } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { enviosPorInscripcion } from './nutricion-envios-resumen';
+import { preparaUnaReunion } from './nutricion-familias';
+import { reunionFuturaMs, type JuntasLead } from './nutricion-reinscripcion';
 
 export type ResultadoDesenlaces = {
   logrados: number;
@@ -138,9 +140,9 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   // Todas las secuencias del workspace por CLAVE: el encadenamiento apunta a la
   // clave (estable y legible) y no al id (que cambia entre workspaces).
   const { data: todasSec } = await supabase
-    .from('nutricion_secuencias').select('id, clave, nombre, activa, archivada_at, estrategia, pasos')
+    .from('nutricion_secuencias').select('id, clave, nombre, activa, archivada_at, estrategia, pasos, trigger_tipo')
     .is('archivada_at', null);
-  const porClave = new Map(((todasSec ?? []) as Array<{ id: number; clave: string; nombre: string; activa: boolean; estrategia: unknown; pasos: unknown }>).map((x) => [x.clave, x]));
+  const porClave = new Map(((todasSec ?? []) as Array<{ id: number; clave: string; nombre: string; activa: boolean; estrategia: unknown; pasos: unknown; trigger_tipo: string }>).map((x) => [x.clave, x]));
 
   /**
    * Arranca la secuencia que sigue. Devuelve por qué NO arrancó, o null si sí.
@@ -161,14 +163,26 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     if (estSig && hitoYaHecho(estSig.objetivo, lead) === true) return `ya-hizo-${estSig.objetivo}`;
     // Un lead no se re-inscribe en la misma secuencia: hay un unique
     // (lead_id, secuencia_id) y además volver a empezar lo mismo es ruido.
+    //
+    // ⚠️ Y ACÁ NO SE REUSA LA FILA VIEJA (#789), a propósito. El reuso de una inscripción
+    // terminada vive en el cohorte y en el evento de agenda (lib/nutricion.ts), que son los
+    // que se enteran de que el lead tiene una reunión NUEVA; encadenar corre por el desenlace
+    // de OTRA secuencia, no porque haya vuelto a agendar. Y reusando acá, una secuencia cuyo
+    // desenlace encadena consigo misma —una clave mal puesta en el editor— volvería a arrancar
+    // en cada pasada del cron, para siempre. Si la siguiente prepara una reunión y el lead
+    // está en su cohorte con una reunión nueva, el cohorte la reusa en la corrida siguiente.
     const { data: ya } = await supabase
       .from('nutricion_inscripciones').select('id').eq('lead_id', leadId).eq('secuencia_id', sig.id).maybeSingle();
     if (ya) return 'ya-estuvo-en-la-siguiente';
     const pasos = Array.isArray(sig.pasos) ? (sig.pasos as Array<{ delay_horas?: number }>) : [];
     const delay = Number(pasos[0]?.delay_horas ?? 0) || 0;
+    // La reunión que esta inscripción prepara (mig 0205), igual que al inscribir por el
+    // cohorte: sin ella, el reuso de mañana no sabría si la próxima agenda es otra reunión.
+    const reunion = preparaUnaReunion(sig.trigger_tipo) ? reunionFuturaMs(lead as JuntasLead) : null;
     const { error } = await supabase.from('nutricion_inscripciones').insert({
       lead_id: leadId, secuencia_id: sig.id, paso_actual: 0, estado: 'activa',
       proximo_envio_at: new Date(Date.now() + delay * 3_600_000).toISOString(),
+      ...(preparaUnaReunion(sig.trigger_tipo) ? { reunion_at: reunion == null ? null : new Date(reunion).toISOString() } : {}),
     });
     if (error) { console.error(`[desenlace] encadenar ${clave}:`, error.message); return `error-${error.code ?? ""}`; }
     res.encadenados += 1;

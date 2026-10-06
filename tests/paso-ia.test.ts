@@ -35,6 +35,8 @@ import { pasoBloqueadoPor } from '../lib/onboarding-orden';
 //  (9) `contexto` sin `opcional` en el catálogo         → 1 rojo (el del catálogo)
 // (10) la casilla con su propia condición de canal      → 1 rojo (el de la casilla)
 // (11) el lienzo abriendo el tutorial sin preguntar     → 1 rojo (el de la primera vez)
+// (12) con el insert del envío elegido por `estado,` (06/10/2026, #789): la (6) sigue en
+//      1 rojo, y un segundo insert que también guarde `estado,` → 1 rojo (el de «UN insert»)
 // El resultado de cada una, en docs/hallazgos-comunicacion.md → «El paso en modo IA».
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
@@ -153,7 +155,14 @@ test('el modelo recibe el cuerpo CRUDO y las variables se aplican a lo que devue
 });
 
 test('cada envío registra QUÉ texto salió y QUIÉN lo escribió (mig 0197)', () => {
-  const ins = bloque(NUTRI, "await supabase.from('nutricion_envios').insert({", '});');
+  // ⚠️ EL INSERT DEL ENVÍO, no el primero del archivo. Desde el 06/10/2026 (#789) el motor
+  // tiene otro antes —el rastro de un cierre SIN envío, en estado 'omitido', que no lleva
+  // texto porque no salió nada— y este guard, que tomaba el primero, pasó a mirar ése.
+  // El del envío es el único que guarda el `estado` que decidieron las ramas (`estado,`).
+  const inserts = NUTRI.split("await supabase.from('nutricion_envios').insert({").slice(1).map((s) => s.slice(0, s.indexOf('});')));
+  const delEnvio = inserts.filter((b) => /\n\s+estado,\n/.test(b));
+  assert.equal(delEnvio.length, 1, `esperaba UN insert del envío (el que guarda \`estado,\`), hay ${delEnvio.length}`);
+  const ins = delEnvio[0];
   assert.match(ins, /texto_enviado: textoEnviado,/);
   assert.match(ins, /texto_autor: textoAutor,/);
   const mig = leer('supabase/migrations/0197_paso_ia.sql');

@@ -39,6 +39,10 @@ import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tien
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
+import {
+  TZ_OFFSET_MX, reunionFuturaMs, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion,
+  ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
+} from '@/lib/nutricion-reinscripcion';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -160,7 +164,8 @@ const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h 
 // de un lead con reunión próxima no es el de la prospección fría.
 const HS_MIN_PREPARACION = 3;
 const HS_REUNION_CERCA = 48;      // reunión dentro de este plazo → cadencia de preparación
-const TZ_OFFSET_MX = -6;          // ventana horaria evaluada en hora de México
+// La ventana horaria se evalúa en hora de México: `TZ_OFFSET_MX` vive en
+// lib/nutricion-reinscripcion.ts, junto con la hora por defecto de una reunión sin hora.
 const VENTANA_INICIO = 9;
 const VENTANA_FIN = 21;
 
@@ -619,7 +624,9 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambit
   //
   // Por eso la regla es de familia y no de secuencia: quien ya está inscripto
   // en CUALQUIERA de las dos queda fuera de las dos. Se decide una vez, al
-  // entrar, y ningún envío posterior la puede dar vuelta.
+  // entrar, y ningún envío posterior la puede dar vuelta. (La excepción es la
+  // fila que se puede REUSAR porque el lead volvió a agendar: #789, ver
+  // `leadsEnFamiliaPostAgenda`.)
   if (triggerTipo === TRIGGER_AGENDA_CONOCIDO || triggerTipo === TRIGGER_AGENDA_NUEVO) {
     const base = await cohorteDeTrigger('agendado_sin_confirmar', etapa, ambito);
     if (base.length === 0) return [];
@@ -725,26 +732,9 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambit
 }
 
 // ── Agenda de pasos ──────────────────────────────────────────────────────────
-type JuntasLead = { fecha_junta_1?: string | null; junta_1_at?: string | null; fecha_junta_2?: string | null; junta_2_at?: string | null };
-
-// Offset horario de México en formato ISO (derivado de TZ_OFFSET_MX).
-const OFFSET_MX = `${TZ_OFFSET_MX < 0 ? '-' : '+'}${String(Math.abs(TZ_OFFSET_MX)).padStart(2, '0')}:00`;
-
-// fecha_junta_* es DATE ('YYYY-MM-DD'): parsearla directo daría medianoche UTC
-// (= la TARDE del día anterior en MX) y una reunión de hoy contaría como pasada.
-// Sin hora exacta (junta_*_at, Calendly) asumimos mediodía MX como hora default.
-function parseFechaJunta(x: string): number {
-  return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(x) ? `${x}T12:00:00${OFFSET_MX}` : x);
-}
-
-/** Timestamp (ms) de la próxima reunión FUTURA del lead, o null si no tiene. */
-function reunionFuturaMs(juntas: JuntasLead | null | undefined): number | null {
-  const candidatos = [juntas?.junta_1_at ?? juntas?.fecha_junta_1, juntas?.junta_2_at ?? juntas?.fecha_junta_2]
-    .filter((x): x is string => Boolean(x))
-    .map(parseFechaJunta)
-    .filter((ms) => Number.isFinite(ms) && ms > Date.now());
-  return candidatos.length ? Math.min(...candidatos) : null;
-}
+// `JuntasLead`, `parseFechaJunta` y `reunionFuturaMs` viven en lib/nutricion-reinscripcion.ts
+// (sin `server-only`): el reuso de una inscripción (#789) y el evaluador de desenlaces
+// necesitan la MISMA reunión que mira el motor, y una copia es la que se queda vieja.
 
 /**
  * Cuándo toca un paso: delay relativo (default) o, si está anclado a la reunión
@@ -773,11 +763,18 @@ const pasoConRelleno = (p: PasoSecuencia): boolean =>
   RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? '');
 
 // ── Inscripción ──────────────────────────────────────────────────────────────
-export type PlanInscripcion = { secuencia: string; lead_id: number; proximo_envio_at: string };
+export type PlanInscripcion = {
+  secuencia: string; lead_id: number; proximo_envio_at: string;
+  /** No es una fila nueva: se REUSA una inscripción que ya terminó (#789). */
+  reactiva?: true;
+};
+
+/** Una inscripción que ya existe, con lo que decide si se puede reusar (#789). */
+type FilaInsc = { id: number; lead_id: number; secuencia_id: number } & FilaPrevia;
 
 /**
- * De `leadIds`, cuáles ya tienen una inscripción que cumpla `filtro`. En TANDAS de
- * 200 y cada tanda PAGINADA por `id`.
+ * Las inscripciones de `leadIds` que cumplan `filtro`. En TANDAS de 200 y cada tanda
+ * PAGINADA por `id`.
  *
  * Era `.in('lead_id', candidatos)` suelto, con dos formas de fallar en silencio:
  * con más de 1000 inscripciones que matchean, PostgREST cortaba y los que caían
@@ -786,22 +783,76 @@ export type PlanInscripcion = { secuencia: string; lead_id: number; proximo_envi
  * todas las secuencias que venían después). Y desde que `etapa_actual` pagina
  * (17/09), la lista de candidatos puede ser de ~1000 ids: una URL de ese tamaño
  * es la otra forma de romperse.
+ *
+ * ⚠️ `reunion_at` (mig 0205) SE PIDE SÓLO CUANDO HACE FALTA (`conReunion`): sólo lo lee el
+ * reuso de la familia que prepara una reunión. Un `select` con una columna que no existe
+ * rechaza la consulta ENTERA, así que pedirla siempre haría que un deploy adelantado a la
+ * migración frenara TODA la nutrición, y no sólo la post-agenda.
  */
-async function inscriptosDe(
+async function inscripcionesDe(
   db: Awaited<ReturnType<typeof getTenantDb>>,
   leadIds: readonly number[],
   filtro: (q: ConsultaPaginada) => unknown,
-): Promise<Set<number>> {
-  const out = new Set<number>();
+  conReunion: boolean,
+): Promise<FilaInsc[]> {
+  const out: FilaInsc[] = [];
+  const cols = `id, lead_id, secuencia_id, estado, desenlace${conReunion ? ', reunion_at' : ''}`;
   for (const tanda of enTandas([...new Set(leadIds)], 200)) {
-    const filas = await leerTodo<{ lead_id: number | null }>(db, 'nutricion_inscripciones', 'id, lead_id', {
+    const filas = await leerTodo<FilaInsc>(db, 'nutricion_inscripciones', cols, {
       orden: 'id',
       filtros: (q) => filtro(q.in('lead_id', tanda) as ConsultaPaginada) as ConsultaPaginada,
     });
-    for (const r of filas) if (r.lead_id != null) out.add(r.lead_id);
+    for (const f of filas) if (f.lead_id != null) out.push({ ...f, reunion_at: f.reunion_at ?? null });
   }
   return out;
 }
+
+/** La agenda de cada lead, en tandas y paginada: `ids` puede ser la cohorte entera. */
+async function juntasDe(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readonly number[]): Promise<Map<number, JuntasLead>> {
+  const out = new Map<number, JuntasLead>();
+  for (const tanda of enTandas([...new Set(ids)], 200)) {
+    const jl = await leerTodo<{ id: number } & JuntasLead>(db, 'leads', 'id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at', {
+      orden: 'id', filtros: (q) => q.in('id', tanda) as ConsultaPaginada,
+    });
+    for (const l of jl) out.set(l.id, l);
+  }
+  return out;
+}
+
+/**
+ * De estas filas, las que se pueden REUSAR (#789), con la reunión que van a preparar. La
+ * regla es `inscripcionReusable` (lib/nutricion-reinscripcion.ts); acá sólo se junta lo que
+ * pregunta.
+ *
+ * `prepara(secuenciaId)` dice qué filas entran a la pregunta: el reuso es sólo de las
+ * secuencias que preparan una reunión, y de una secuencia SIN PASOS tampoco — se cerraría en
+ * el acto y volvería a reusarse en cada corrida. Y sólo se lee algo para las filas que podrían
+ * serlo (las de una corrida terminada): para el resto no hay pregunta y no se gasta una
+ * consulta.
+ */
+async function reusablesDe(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  filas: readonly FilaInsc[],
+  prepara: (secuenciaId: number) => boolean,
+): Promise<Map<number, { fila: FilaInsc; reunionMs: number; porque: string }>> {
+  const out = new Map<number, { fila: FilaInsc; reunionMs: number; porque: string }>();
+  const posibles = filas.filter((f) => prepara(f.secuencia_id) && ESTADOS_TERMINADOS.includes(f.estado));
+  if (!posibles.length) return out;
+  const [marcas, juntas] = await Promise.all([
+    marcasPorInscripcion(db, posibles.map((f) => f.id)),
+    juntasDe(db, posibles.map((f) => f.lead_id)),
+  ]);
+  for (const fila of posibles) {
+    const reunionMs = reunionFuturaMs(juntas.get(fila.lead_id));
+    const v = inscripcionReusable({ fila, marcas: marcas.get(fila.id) ?? SIN_MARCAS, reunionNuevaMs: reunionMs });
+    if (v.reusable && reunionMs != null) out.set(fila.id, { fila, reunionMs, porque: v.porque });
+  }
+  return out;
+}
+
+/** ¿Esta secuencia puede reusar una inscripción vieja? Prepara una reunión y tiene algo que mandar. */
+const reusaInscripciones = (s: Pick<Secuencia, 'trigger_tipo' | 'pasos'>): boolean =>
+  preparaUnaReunion(s.trigger_tipo) && s.pasos.length > 0;
 
 /**
  * Leads que YA están inscriptos en alguna secuencia de la familia post-agenda.
@@ -813,20 +864,34 @@ async function inscriptosDe(
  * Mira TODAS las inscripciones, no solo las activas: una completada o
  * cancelada también significa que este lead ya pasó por acá, y volver a
  * meterlo por la otra mitad sería el mismo mensaje repetido.
+ *
+ * ⚠️ SALVO LA QUE SE PUEDE REUSAR (#789): una corrida terminada para OTRA reunión, o una que
+ * se quemó sin que le llegara nada, no bloquea a la familia. Si bloqueara, el reuso no
+ * alcanzaría nunca a la post-agenda, que es justo para lo que existe. Y no reabre el
+ * duplicado de arriba: la mitad que le toca se decide de nuevo con «¿ya le hablamos?», y
+ * apenas una de las dos arranca, esa fila (activa) vuelve a bloquear a la otra.
  */
 async function leadsEnFamiliaPostAgenda(leadIds: number[]): Promise<Set<number>> {
   const set = new Set<number>();
   if (leadIds.length === 0) return set;
   const supabase = await getTenantDb();
-  const { data: secs } = await supabase
-    .from('nutricion_secuencias').select('id')
+  // El error se LEE: una lectura caída dejaba a todos «fuera de la familia», que es la
+  // dirección que le manda los dos audios de apertura al mismo lead.
+  const { data: secs, error } = await supabase
+    .from('nutricion_secuencias').select('id, pasos')
     .in('trigger_tipo', FAMILIA_POST_AGENDA);
-  const ids = ((secs ?? []) as Array<{ id: number }>).map((r) => r.id);
+  if (error) throw new Error(`leadsEnFamiliaPostAgenda: ${error.message}`);
+  const familia = (secs ?? []) as Array<{ id: number; pasos: unknown }>;
+  const ids = familia.map((r) => r.id);
   if (ids.length === 0) return set;
-  // En tandas y paginado (ver `inscriptosDe`). Antes era un `.in()` suelto que
+  const conPasos = new Set(familia.filter((s) => Array.isArray(s.pasos) && s.pasos.length > 0).map((s) => s.id));
+  // En tandas y paginado (ver `inscripcionesDe`). Antes era un `.in()` suelto que
   // además IGNORABA el error: una lectura fallida dejaba a todos «fuera de la
   // familia» y el mismo lead entraba a las dos secuencias hermanas.
-  for (const id of await inscriptosDe(supabase, leadIds, (q) => q.in('secuencia_id', ids))) set.add(id);
+  const filas = await inscripcionesDe(supabase, leadIds, (q) => q.in('secuencia_id', ids), true);
+  // Toda la familia prepara una reunión (`FAMILIA_POST_AGENDA` ⊂ `preparaUnaReunion`).
+  const reusables = await reusablesDe(supabase, filas, (secId) => conPasos.has(secId));
+  for (const f of filas) if (!reusables.has(f.id)) set.add(f.lead_id);
   return set;
 }
 
@@ -872,53 +937,66 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
     if (!decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora).toca) continue;
     const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id));
     if (candidatos.length === 0) continue;
-    const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
+    const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
       .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
-    const pendientes = candidatos.filter((id) => !inscriptos.has(id));
-    const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes, sec);
-    for (const lead_id of pendientes) {
-      plan.push({ secuencia: sec.clave, lead_id, proximo_envio_at: horarios.get(lead_id) ?? enHorasISO(sec.pasos[0]?.delay_horas ?? 0) });
-    }
+    for (const n of nuevas) plan.push({ secuencia: sec.clave, lead_id: n.lead_id, proximo_envio_at: n.proximo_envio_at });
+    for (const r of reusar) plan.push({ secuencia: sec.clave, lead_id: r.lead_id, proximo_envio_at: r.proximo_envio_at, reactiva: true });
   }
   return plan;
 }
 
+type AltaInscripcion = { lead_id: number; proximo_envio_at: string; reunion_at: string | null };
+
 /**
- * Horario del primer paso para cada lead pendiente de inscribir. Con paso 0
- * anclado a la reunión (#18), trae la agenda de cada lead en una query batch;
- * sin ancla, delay relativo. Compartido por el dry-run y el commit para que el
- * preview no mienta sobre el horario.
+ * Qué pasa con los candidatos de UNA secuencia: a quiénes se inscribe de cero y qué filas
+ * viejas se REUSAN (#789). Compartido por el dry-run y el commit, para que el preview no
+ * mienta ni sobre a quién ni sobre el horario.
  *
- * ⚠️ EL RESIDUO SE ESCALONA (#790). Sus leads llegan de a decenas en la primera
- * corrida y la cola ordena por `proximo_envio_at`: todos juntos «ya» se ponían
- * delante de la post-agenda durante días. Con el escalonado salen
- * `RESIDUO_POR_DIA` mensajes por día, contando desde el último turno ya agendado.
+ * · Un candidato SIN fila se inscribe, como siempre.
+ * · Uno CON fila sale de acá, salvo que su fila se pueda reusar (`reusablesDe`): ésa no se
+ *   inserta —el unique no deja— sino que se reactiva.
+ * · `reunion_at` es la reunión que la inscripción prepara, y se escribe sólo en la familia que
+ *   prepara una (`preparaUnaReunion`). Una reunión que ya pasó queda en null, que la regla del
+ *   reuso lee como «no sé cuál era», no como otra.
+ * · El horario del primer paso: con paso 0 anclado a la reunión (#18), desde la agenda del
+ *   lead; sin ancla, el delay relativo de siempre.
+ * · ⚠️ EL RESIDUO SE ESCALONA (#790). Sus leads llegan de a decenas en la primera corrida y
+ *   la cola ordena por `proximo_envio_at`: todos juntos «ya» se ponían delante de la
+ *   post-agenda durante días. Con el escalonado salen `RESIDUO_POR_DIA` mensajes por día,
+ *   contando desde el último turno ya agendado. (Se injertó acá al integrar #789 y #790, que
+ *   tocaban la misma función en paralelo: #789 reemplazó `horariosDeInscripcion` por esto.)
  */
-async function horariosDeInscripcion(
-  paso0: PasoSecuencia | undefined,
-  pendientes: number[],
-  sec?: Pick<Secuencia, 'trigger_tipo' | 'pasos'>,
-): Promise<Map<number, string>> {
-  if (sec?.trigger_tipo === TRIGGER_RESIDUO) {
-    return horariosResiduo(await getTenantDb(), { pendientes, pasos: sec.pasos.length, delayHoras: paso0?.delay_horas ?? 0 });
-  }
-  let juntasMap = new Map<number, JuntasLead>();
-  if (paso0?.ancla === 'reunion' && pendientes.length) {
-    const supabase = (await getTenantDb());
-    // En tandas y paginado: `pendientes` puede ser la cohorte entera. Con el `.in()`
-    // suelto, un lead que caía del corte se quedaba sin su reunión y el paso
-    // anclado salía con delay relativo — un recordatorio a destiempo.
-    for (const tanda of enTandas(pendientes, 200)) {
-      const jl = await leerTodo<{ id: number } & JuntasLead>(supabase, 'leads', 'id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at', {
-        orden: 'id', filtros: (q) => q.in('id', tanda) as ConsultaPaginada,
-      });
-      for (const l of jl) juntasMap.set(l.id, l);
-    }
-  }
-  return new Map(pendientes.map((id) => [id, proximoEnvioDePaso(paso0, juntasMap.get(id))]));
+async function aInscribir(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  sec: Secuencia,
+  candidatos: number[],
+): Promise<{ nuevas: AltaInscripcion[]; reusar: Array<AltaInscripcion & { fila: FilaInsc; porque: string }> }> {
+  const prepara = preparaUnaReunion(sec.trigger_tipo);
+  const filas = await inscripcionesDe(db, candidatos, (q) => q.eq('secuencia_id', sec.id), prepara);
+  const conFila = new Set(filas.map((f) => f.lead_id));
+  const pendientes = candidatos.filter((id) => !conFila.has(id));
+  const reusables = reusaInscripciones(sec) ? [...(await reusablesDe(db, filas, () => true)).values()] : [];
+
+  const quienes = [...pendientes, ...reusables.map((r) => r.fila.lead_id)];
+  // En tandas y paginado: con el `.in()` suelto, un lead que caía del corte se quedaba sin su
+  // reunión y el paso anclado salía con delay relativo — un recordatorio a destiempo.
+  const juntas = (prepara || sec.pasos[0]?.ancla === 'reunion') && quienes.length ? await juntasDe(db, quienes) : new Map<number, JuntasLead>();
+  const escalonados = sec.trigger_tipo === TRIGGER_RESIDUO && pendientes.length
+    ? await horariosResiduo(db, { pendientes, pasos: sec.pasos.length, delayHoras: sec.pasos[0]?.delay_horas ?? 0 })
+    : null;
+  const alta = (lead_id: number, reunionMs: number | null): AltaInscripcion => ({
+    lead_id,
+    proximo_envio_at: escalonados?.get(lead_id) ?? proximoEnvioDePaso(sec.pasos[0], juntas.get(lead_id)),
+    reunion_at: prepara && reunionMs != null ? new Date(reunionMs).toISOString() : null,
+  });
+  return {
+    nuevas: pendientes.map((id) => alta(id, reunionFuturaMs(juntas.get(id)))),
+    reusar: reusables.map((r) => ({ ...alta(r.fila.lead_id, r.reunionMs), fila: r.fila, porque: r.porque })),
+  };
 }
 
-// Persiste las inscripciones nuevas. Devuelve cuántas creó.
+// Persiste las inscripciones nuevas y reactiva las que se reusan (#789). Devuelve cuántas
+// corridas ARRANCÓ: las dos cuentan, porque las dos son un lead que empieza la secuencia.
 export async function comprometerInscripciones(): Promise<number> {
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
@@ -956,23 +1034,47 @@ export async function comprometerInscripciones(): Promise<number> {
     // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y
     // el insert moría contra el unique — o sea que igual cortaba, pero con un
     // mensaje que culpaba al insert y no a la lectura.
-    const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
+    const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
       .catch((e: unknown) => { throw new Error(`comprometerInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
-    const pendientes = candidatos.filter((id) => !inscriptos.has(id));
-    const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes, sec);
-    const nuevas = pendientes.map((lead_id) => ({
-      lead_id,
-      secuencia_id: sec.id,
-      paso_actual: 0,
-      estado: 'activa',
-      proximo_envio_at: horarios.get(lead_id) ?? enHorasISO(sec.pasos[0]?.delay_horas ?? 0),
-    }));
-    if (nuevas.length === 0) continue;
-    const { error } = await supabase.from('nutricion_inscripciones').insert(nuevas);
-    if (error) throw new Error(`comprometerInscripciones: ${error.message}`);
-    creadas += nuevas.length;
+    if (nuevas.length) {
+      const { error } = await supabase.from('nutricion_inscripciones').insert(nuevas.map((n) => ({
+        lead_id: n.lead_id,
+        secuencia_id: sec.id,
+        paso_actual: 0,
+        estado: 'activa',
+        proximo_envio_at: n.proximo_envio_at,
+        // Sólo en la familia que prepara una reunión: fuera de ella la columna no dice nada,
+        // y no mandarla deja a las demás secuencias andando aunque la 0205 todavía no esté.
+        ...(preparaUnaReunion(sec.trigger_tipo) ? { reunion_at: n.reunion_at } : {}),
+      })));
+      if (error) throw new Error(`comprometerInscripciones: ${error.message}`);
+      creadas += nuevas.length;
+    }
+    creadas += await reactivarReusables(supabase, sec, reusar);
   }
   return creadas;
+}
+
+/**
+ * Reactiva las inscripciones que `aInscribir` decidió reusar (#789). Una por una y con
+ * compare-and-set: si otra corrida del mismo tick ya la reclamó, ésta toca 0 filas y no la
+ * cuenta. Devuelve cuántas reclamó.
+ */
+async function reactivarReusables(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  sec: Pick<Secuencia, 'clave'>,
+  reusar: ReadonlyArray<AltaInscripcion & { fila: FilaInsc; porque: string }>,
+): Promise<number> {
+  let n = 0;
+  for (const r of reusar) {
+    const reclamada = await reactivarInscripcion(db, {
+      id: r.fila.id, leido: r.fila, proximoEnvioAt: r.proximo_envio_at, reunionAt: r.reunion_at, ahora: ahoraISO(),
+    });
+    if (!reclamada) continue;
+    n += 1;
+    console.log(`[nutricion] lead ${r.lead_id}: la inscripción ${r.fila.id} (${sec.clave}) vuelve a correr (${r.porque})`);
+  }
+  return n;
 }
 
 // ── Enrolamiento por EVENTO (inmediatez — reunión 31/07) ─────────────────────
@@ -1165,35 +1267,64 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     for (const s of delEvento) {
       if ((await aTiempo(supabase, s, [leadId])).length) secuencias.push(s);
     }
-    if (!secuencias.length) return 0;
+    // ⚠️ LA EXCLUSIÓN DE FAMILIA TAMBIÉN VA ACÁ (#789). El cohorte la aplica
+    // (`leadsEnFamiliaPostAgenda`) y este camino no la miraba: sólo preguntaba por las
+    // secuencias que el evento elige, así que un lead con la mitad «primer contacto» todavía
+    // corriendo —y que por eso ya cuenta como contactado— entraba a la otra mitad al
+    // re-agendar, y recibía los dos audios de apertura. Con el reuso esa puerta además se
+    // ensancha, porque una fila reusable deja de bloquear: la pregunta va en un solo lugar.
+    let elegidas = secuencias;
+    if (elegidas.some((s) => FAMILIA_POST_AGENDA.includes(s.trigger_tipo)) && (await leadsEnFamiliaPostAgenda([leadId])).has(leadId)) {
+      elegidas = elegidas.filter((s) => !FAMILIA_POST_AGENDA.includes(s.trigger_tipo));
+    }
+    if (!elegidas.length) return 0;
 
-    const { data: yaInsc } = await supabase
-      .from('nutricion_inscripciones')
-      .select('secuencia_id')
-      .eq('lead_id', leadId)
-      .in('secuencia_id', secuencias.map((s) => s.id));
-    const inscripto = new Set(((yaInsc ?? []) as Array<{ secuencia_id: number }>).map((r) => r.secuencia_id));
+    const preparan = elegidas.some((s) => preparaUnaReunion(s.trigger_tipo));
+    const previas = await inscripcionesDe(supabase, [leadId], (q) => q.in('secuencia_id', elegidas.map((s) => s.id)), preparan);
+    const previaDe = new Map(previas.map((f) => [f.secuencia_id, f]));
+    const reusaSec = new Set(elegidas.filter(reusaInscripciones).map((s) => s.id));
+    const reusables = await reusablesDe(supabase, previas, (secId) => reusaSec.has(secId));
+    const juntas = (preparan || elegidas.some((s) => s.pasos[0]?.ancla === 'reunion')) ? (await juntasDe(supabase, [leadId])).get(leadId) ?? null : null;
 
-    const nuevas = secuencias
-      .filter((s) => !inscripto.has(s.id))
-      .map((s) => ({
+    // ⚠️ DE A UNA, NO POR LOTE (refutador del relevo #789, (3)). El insert por lote chocaba
+    // con el `unique (lead_id, secuencia_id)` apenas UNA fila ya existía —otra corrida, o el
+    // cron en el mismo segundo— y el `return 0` dejaba al lead sin NINGUNA de las secuencias
+    // del evento. Una fila que ya existe no se inserta: se reusa si se puede, y si no, se deja.
+    let arrancadas = 0;
+    for (const s of elegidas) {
+      // El primer paso de una secuencia disparada por evento sale YA: el delay configurado
+      // cuenta desde el evento, no desde el cron. Un paso anclado a la reunión, desde la agenda.
+      const proximo = proximoEnvioDePaso(s.pasos[0], juntas);
+      const previa = previaDe.get(s.id);
+      if (previa) {
+        const r = reusables.get(previa.id);
+        if (!r) continue;
+        const reclamada = await reactivarInscripcion(supabase, {
+          id: previa.id, leido: previa, proximoEnvioAt: proximo, reunionAt: new Date(r.reunionMs).toISOString(), ahora: ahoraISO(),
+        });
+        if (!reclamada) continue;
+        console.log(`[nutricion] lead ${leadId}: la inscripción ${previa.id} (${s.clave}) vuelve a correr (${r.porque})`);
+        arrancadas += 1;
+        continue;
+      }
+      const reunion = preparaUnaReunion(s.trigger_tipo) ? reunionFuturaMs(juntas) : null;
+      const { error } = await supabase.from('nutricion_inscripciones').insert({
         lead_id: leadId,
         secuencia_id: s.id,
         paso_actual: 0,
         estado: 'activa',
-        // El primer paso de una secuencia disparada por evento sale YA: el
-        // delay configurado cuenta desde el evento, no desde el cron.
-        proximo_envio_at: proximoEnvioDePaso(s.pasos[0], null),
-      }));
-    if (!nuevas.length) return 0;
-
-    const { error } = await supabase.from('nutricion_inscripciones').insert(nuevas);
-    if (error) { console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId}: ${error.message}`); return 0; }
+        proximo_envio_at: proximo,
+        ...(preparaUnaReunion(s.trigger_tipo) ? { reunion_at: reunion == null ? null : new Date(reunion).toISOString() } : {}),
+      });
+      if (error) { console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} en ${s.clave}: ${error.message}`); continue; }
+      arrancadas += 1;
+    }
+    if (!arrancadas) return 0;
 
     // Vía rápida: intentamos mandar el primer paso ahora mismo, solo de este lead.
     try { await procesarEnvios({ soloLeadId: leadId }); }
     catch (e) { console.error(`[nutricion] envío inmediato lead ${leadId} falló:`, e); }
-    return nuevas.length;
+    return arrancadas;
   } catch (e) {
     console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} falló:`, e);
     return 0;
@@ -1490,6 +1621,39 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // `valoresVariablesLead`.
   const negocio = await getWorkspace((await getWorkspaceActual()) ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
 
+  /**
+   * UN CIERRE SIN ENVÍO TAMBIÉN DEJA SU FILA (#789), en estado 'omitido' y con el motivo,
+   * igual que «canal apagado» y «contacto bloqueado».
+   *
+   * Antes «la reunión ya pasó» y el tope de antigüedad cerraban la inscripción sin escribir
+   * nada en nutricion_envios, así que desde afuera esa secuencia no le había hecho NADA al lead:
+   * ni un intento, ni un motivo. Medido el 06/10/2026 en el ws1: las inscripciones 186 y 187
+   * se cerraron así el 25/09 sin dejar una fila, y las 181-185 figuran como «no respondió» sin
+   * que se les haya mandado nada (el evaluador viejo); para saber qué les pasó hubo que cruzar
+   * fechas a mano. Un 'omitido' no cuenta como enviado para ningún lector (el anti-ban, el
+   * silencio del desenlace, «¿ya le hablamos?», el reuso): es el rastro, no un mensaje.
+   * Best-effort: el cierre ya se escribió, y un rastro que falla no puede reabrirlo.
+   */
+  const anotarCierreSinEnvio = async (
+    insc: { id: number; lead_id: number; secuencia_id: number; paso_actual: number },
+    paso: PasoSecuencia,
+    lead: { telefono: string | null; email: string | null } | undefined,
+    motivo: string,
+  ): Promise<void> => {
+    const { error } = await supabase.from('nutricion_envios').insert({
+      inscripcion_id: insc.id,
+      lead_id: insc.lead_id,
+      secuencia_id: insc.secuencia_id,
+      paso: insc.paso_actual + 1,
+      canal: paso.canal,
+      estado: 'omitido',
+      destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
+      asunto: paso.asunto,
+      error: motivo,
+    });
+    if (error) console.error(`[nutricion] rastro del cierre de la inscripción ${insc.id} (${motivo}): ${error.message}`);
+  };
+
   // Cola PAGINADA: los 'omitido'/'saltado' no consumen cupo, así que una sola
   // ventana de cupo*3 podía llenarse de filas sin envío real y postergar los
   // envíos de verdad. Iteramos lotes (dedup por id de inscripción) hasta llenar
@@ -1582,6 +1746,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
           await supabase.from('nutricion_inscripciones')
             .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
+          await anotarCierreSinEnvio(insc, paso, lead, 'la reunión ya pasó');
           continue;
         }
       }
@@ -1625,6 +1790,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: `llegó hace más de ${sec.antiguedad_max_horas} h` });
         await supabase.from('nutricion_inscripciones')
           .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
+        await anotarCierreSinEnvio(insc, paso, lead, `llegó hace más de ${sec.antiguedad_max_horas} h`);
         continue;
       }
 
@@ -1989,6 +2155,23 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           updated_at: ahoraISO(),
         })
         .eq('id', insc.id);
+      // LA REUNIÓN QUE PREPARA ES LA DEL ÚLTIMO PASO QUE SALIÓ (#789). Se anota al inscribir,
+      // y si el lead reprograma A MITAD de la corrida, los pasos que siguen ya hablan de la
+      // nueva. Sin re-anotarla, la fila terminaba diciendo la reunión VIEJA, y la corrida
+      // siguiente del cron leía «otra reunión» sobre la misma que acababa de preparar y le
+      // mandaba toda la post-agenda de nuevo. No puede ser null para esta familia: sin reunión
+      // futura, la guarda de arriba ya cerró la inscripción.
+      //
+      // ⚠️ VA APARTE DEL AVANCE, y no es prolijidad: el avance de un paso que YA SALIÓ no puede
+      // depender de una columna nueva. Metida en el mismo update, una 0205 sin aplicar haría que
+      // PostgREST rechazara el avance entero —un error que acá nadie lee— y el paso se volvería
+      // a mandar en la corrida siguiente.
+      const reunionDelPaso = preparaUnaReunion(sec.trigger_tipo) ? reunionFuturaMs(lead) : null;
+      if (reunionDelPaso != null) {
+        const { error: eReunion } = await supabase.from('nutricion_inscripciones')
+          .update({ reunion_at: new Date(reunionDelPaso).toISOString() }).eq('id', insc.id);
+        if (eReunion) console.error(`[nutricion] reunión del paso, inscripción ${insc.id}: ${eReunion.message}`);
+      }
 
       if (estado === 'enviado') res.enviados += 1;
       else if (estado === 'omitido') res.omitidos += 1;

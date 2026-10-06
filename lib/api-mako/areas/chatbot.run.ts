@@ -301,7 +301,7 @@ export const RUNNERS: Runners = {
           desenlace: f.desenlace, desenlace_at: f.desenlace_at, inscripto: f.inscripto_at,
         })),
         nota: filas.length
-          ? 'pasos_avanzados incluye pasos omitidos y los que quedaron como borrador para el setter: no son todos envíos. Un lead no puede volver a entrar a una secuencia en la que ya estuvo (completada, cancelada o fallida).'
+          ? 'pasos_avanzados incluye pasos omitidos y los que quedaron como borrador para el setter: no son todos envíos. Un lead no vuelve a entrar a una secuencia en la que ya estuvo (completada, cancelada o fallida), salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la misma inscripción vuelve a correr, con inscripto en la fecha nueva.'
           : 'Este lead no está ni estuvo en ninguna secuencia (o no existe en este negocio).',
       });
     },
