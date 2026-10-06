@@ -133,3 +133,22 @@ test('en la ruta, el bloque del nombre cede y la columna de producto/etapa queda
   assert.match(b, /flex: '1 1 320px'/);
   assert.match(b, /alignItems: 'flex-end', gap: 8, flex: 'none', marginLeft: 'auto'/);
 });
+
+// ── Sin emoji en la pantalla ───────────────────────────────────────────────────
+// «No pongas emoji, siempre iconos para que sea más profesional» (Martín, 06/10/2026, en
+// el chat de Ads Manager). Se mira el ARCHIVO entero sin comentarios —no un bloque—, que
+// es la lección de ese mismo chat: el guard que leía sólo el bloque conocido dejó pasar
+// cuatro. `✓` y `✕` quedan permitidos: son tipografía monocroma y los usa todo el repo.
+//
+// PROBADO ROMPIÉNDOLO: con la planta de vuelta en «Nutrición», cae.
+test('las pantallas de la ficha y de las campañas no tienen emoji (íconos o nada)', () => {
+  const PICTO = /[\u{1F300}-\u{1FAFF}\u{2460}-\u{24FF}\u{2B00}-\u{2BFF}\u{2600}-\u{26FF}]/u;
+  const archivos = [
+    'app/crm/LeadSheet.tsx', 'app/crm/[id]/page.tsx', 'app/crm/[id]/LeadDetailBody.tsx',
+    'app/crm/lead-view/InfoPrincipalCard.tsx', 'app/crm/lead-view/DatosSinMarcarCard.tsx',
+    'app/crm/lead-view/CaraDelLead.tsx', 'app/crm/CampanasModal.tsx', 'app/crm/CampanasDelProducto.tsx',
+  ];
+  const malos = archivos.flatMap((f) => sinComentarios(leer(f)).split('\n')
+    .map((l, i) => (PICTO.test(l) ? `${f}:${i + 1} ${l.trim().slice(0, 60)}` : null)).filter(Boolean));
+  assert.deepEqual(malos, []);
+});

@@ -79,7 +79,7 @@ function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre:
             </div>
             <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 12 }}>Para <b style={{ color: 'var(--ink)' }}>{nombre}</b> · {telefono}</div>
             <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 12.5, lineHeight: 1.45, marginBottom: 12 }}>
-              ⚠️ El número no oficial (por QR) tiene riesgo de baneo. Úsalo con criterio, nunca en masa. Sale como si lo escribieras tú, con demora anti-ban.
+              El número no oficial (por QR) tiene riesgo de baneo. Úsalo con criterio, nunca en masa. Sale como si lo escribieras tú, con demora anti-ban.
             </div>
             <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={4} placeholder="Escribe el mensaje…" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none', resize: 'vertical' }} />
             {msg && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 600, color: msg.t === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{msg.x}</div>}

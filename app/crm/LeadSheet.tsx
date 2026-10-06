@@ -184,7 +184,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     <>
       {nutriPos && (
         <section style={{ ...card, borderColor: '#BFE6CD', background: 'var(--good-bg)' }}>
-          <div style={{ ...sectLabel, color: 'var(--good)', marginBottom: 6 }}>🌱 Nutrición {nutriPos.tipo === 'post-agenda' ? 'Post Agenda' : 'Post Reunión R1'}</div>
+          <div style={{ ...sectLabel, color: 'var(--good)', marginBottom: 6 }}>Nutrición {nutriPos.tipo === 'post-agenda' ? 'Post Agenda' : 'Post Reunión R1'}</div>
           {/* ⚠️ SIN «ventana informativa», que es jerga NUESTRA. Es la fila del plan
               «un cartel que explica jerga nuestra», arreglada el 27/09 en la ruta
               /crm/[id] y no acá. El mismo copy en las dos, y dice lo único que la
