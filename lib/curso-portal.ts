@@ -1,0 +1,316 @@
+// =============================================================================
+// curso-portal — lo que arma la vista del ALUMNO (el portal de su link personal)
+// =============================================================================
+// «Quiero que los clientes de Mauricio puedan ingresar a MaKo con un nivel de acceso especial
+// que solo ellos tienen, donde solo ven las clases de Mauricio y las tareas» (Martín, 06/10/2026).
+// El portal vive en /compartido/curso/<token> y escribe por /api/compartido/curso/{progreso,tarea}
+// y sirve el video subido por /api/compartido/curso/video. El modelo y su porqué, en la cabecera
+// de supabase/migrations/0202_curso.sql; las reglas del curso, en lib/curso.ts.
+//
+// Dos mitades en el mismo archivo:
+//   · LO PURO (qué etapa está hecha / abierta / bloqueada, qué reproductor lleva cada clase, si
+//     una clase se le abre al alumno, el tope del cuerpo): lo EJECUTA tests/curso-portal.test.ts.
+//   · LO QUE LEE (armarVistaAlumno, claseDelAlumno): corre en el server, adentro de
+//     `runWithWorkspace(firma.ws, …)` con el workspace que sale de la FIRMA del link.
+//
+// ⚠️ SIN `import 'server-only'` ARRIBA, A PROPÓSITO, y las lecturas importan sus módulos con
+// `await import(...)`: así el test puede importar la mitad pura sin que `server-only` (que tira
+// fuera de la condición react-server) lo voltee. Lo que mantiene esto fuera del navegador sigue
+// siendo `server-only`: lib/curso-datos.ts y lib/workspace.ts lo llevan, y un componente cliente
+// que llamara a `armarVistaAlumno` arrastraría ese import y el build lo frenaría. Es el mismo
+// criterio que `productosDelAlumno` (lib/curso-datos.ts) usa para no traerse la pantalla entera.
+
+import {
+  tieneTarea, obligatoriasDe, reproductorDeClase,
+  type VideoVista, type Clase, type Progreso, type Campo, type Valores, type EstadoTarea,
+} from './curso';
+
+// ── Las etapas ────────────────────────────────────────────────────────────────
+
+/**
+ * `hecha` = una etapa anterior a la actual: se puede abrir y releer (y corregir sus tareas).
+ * `actual` = donde está HOY el cliente: abierta y destacada.
+ * `bloqueada` = una etapa que todavía no le toca: se VE (es el mapa del programa) pero no se abre.
+ */
+export type EstadoEtapa = 'hecha' | 'actual' | 'bloqueada';
+
+/**
+ * El estado de cada etapa por su POSICIÓN respecto de la actual, en el orden de la entrega.
+ *
+ * ⚠️ SIN ETAPA ACTUAL CONOCIDA, LA PRIMERA ES LA ACTUAL. Es la regla del kanban de la entrega
+ * (`repartirEnEtapas`) y la de `etapaActualDe`: un cliente sin fila en `cliente_entrega` está en
+ * la primera etapa, no «en ninguna». Si acá se tomara «ninguna» como «todo bloqueado», los 14
+ * clientes de Mauricio —que al arrancar no tienen fila— abrirían el link a un programa cerrado.
+ *
+ * ⚠️ «Hecha» es por posición, no por tareas: si Mauricio lo movió a mano, lo de atrás queda
+ * hecho aunque falte algo. La etapa la manda la entrega, no esta pantalla.
+ */
+export function estadosDeEtapas(claves: readonly string[], actual: string | null | undefined): Record<string, EstadoEtapa> {
+  const out: Record<string, EstadoEtapa> = {};
+  if (!claves.length) return out;
+  const i = actual ? claves.indexOf(actual) : -1;
+  const iActual = i >= 0 ? i : 0;
+  claves.forEach((k, j) => { out[k] = j < iActual ? 'hecha' : j === iActual ? 'actual' : 'bloqueada'; });
+  return out;
+}
+
+/** ¿El alumno puede abrir (ver el video, mandar la tarea) una clase de una etapa en este estado? */
+export const etapaAbierta = (e: EstadoEtapa | undefined): boolean => e === 'hecha' || e === 'actual';
+
+/**
+ * ¿Esta clase se le abre a ESTE alumno? Lo deciden las rutas públicas antes de leer o escribir
+ * nada de la clase.
+ *
+ *   · `no-existe` → 404. También cuando la clase existe pero es de un producto que el cliente no
+ *     compró: un link válido no abre el curso de otro producto, y contestar distinto («existe,
+ *     pero no es tuya») ayudaría a enumerar ids.
+ *   · `bloqueada` → la clase es de una etapa que todavía no le toca (o de una etapa que ya no
+ *     existe en la entrega: la pantalla no la muestra, así que tampoco se escribe).
+ *
+ * `estadoEtapa` sólo cuenta cuando `exigeEtapa`: el progreso del video no lo exige (ver la ruta).
+ */
+export type DecisionClase = 'ok' | 'no-existe' | 'bloqueada';
+export function decidirClase(
+  clase: Pick<Clase, 'productoId'> | null,
+  productosDelAlumno: readonly number[],
+  estadoEtapa: EstadoEtapa | undefined,
+  exigeEtapa: boolean,
+): DecisionClase {
+  if (!clase) return 'no-existe';
+  if (!productosDelAlumno.includes(clase.productoId)) return 'no-existe';
+  if (exigeEtapa && !etapaAbierta(estadoEtapa)) return 'bloqueada';
+  return 'ok';
+}
+
+// ── El video de una clase ─────────────────────────────────────────────────────
+
+// ⚠️ LA REGLA VIVE EN lib/curso.ts (`reproductorDeClase`) desde el 06/10/2026: la tab Curso, la
+// ficha y este portal decidían cada uno por su cuenta si un video «se mide», con dos funciones
+// del mismo nombre y formas distintas. Coincidían, y el primer tipo nuevo (o el arreglo del Vimeo
+// no listado) las habría separado: la tab diciendo «se mide» sobre un video que el portal no
+// puede medir. El nombre de acá se conserva porque lo usan la página y su test.
+export type { VideoVista } from './curso';
+export const videoDeClase = reproductorDeClase;
+
+// ── La vista ──────────────────────────────────────────────────────────────────
+
+export type ClaseVista = {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  minutos: number | null;
+  video: VideoVista | null;
+  /** % visto (0-100). `null` = este video NO se puede medir: la pantalla dice «sin medir», no 0%. */
+  pct: number | null;
+  tarea: string;
+  campos: Campo[];
+  tieneTarea: boolean;
+  obligatoria: boolean;
+  estado: EstadoTarea;
+  valores: Valores;
+};
+
+export type EtapaVista = {
+  key: string;
+  label: string;
+  estado: EstadoEtapa;
+  /** Vacío en una etapa bloqueada: lo que no se abre no viaja al navegador. */
+  clases: ClaseVista[];
+  /** Cuántas clases tiene, aunque esté bloqueada (para decir «3 clases» sin mandarlas). */
+  cuantas: number;
+  /** Tareas obligatorias de la etapa y cuántas ya envió (lo que la cierra, ver `etapaCompleta`). */
+  obligatorias: number;
+  enviadas: number;
+};
+
+export type ProductoVista = { productoId: number; nombre: string; etapas: EtapaVista[] };
+export type VistaAlumno = { nombre: string | null; productos: ProductoVista[] };
+
+const enviada = (e: EstadoTarea | undefined) => e === 'enviada' || e === 'aprobada';
+
+/** Una clase, como la ve el alumno: lo que se guarda en el bucket y el `origen` no viajan. */
+export function claseVista(c: Clase, p: Progreso | undefined): ClaseVista {
+  const { video, medible } = videoDeClase(c);
+  return {
+    id: c.id, titulo: c.titulo, descripcion: c.descripcion, minutos: c.minutos, video,
+    pct: medible ? Math.max(0, Math.min(100, p?.pct ?? 0)) : null,
+    tarea: c.tarea, campos: c.campos, tieneTarea: tieneTarea(c), obligatoria: c.obligatoria,
+    estado: p?.estado ?? 'pendiente', valores: p?.valores ?? {},
+  };
+}
+
+/**
+ * Las etapas de un producto con sus clases, en el orden de la entrega.
+ *
+ * ⚠️ UNA CLASE CUYA ETAPA YA NO EXISTE NO SE MUESTRA. Las etapas se editan desde la pantalla de
+ * la entrega y una clave borrada no se reusa (`nuevaClaveEtapa`): esa clase quedó huérfana, y
+ * dibujarla «en algún lado» la pondría en una etapa que no es la suya. Las rutas la tratan igual
+ * (`decidirClase` con etapa desconocida = bloqueada).
+ *
+ * ⚠️ LAS CLASES DE UNA ETAPA BLOQUEADA NO VIAJAN: se manda cuántas son, no su contenido. Lo que
+ * no se abre no tiene por qué estar en el HTML que recibe el navegador.
+ */
+export function armarEtapas(
+  etapas: readonly { key: string; label: string }[],
+  actual: string | null | undefined,
+  clases: readonly Clase[],
+  progreso: ReadonlyMap<number, Progreso>,
+): EtapaVista[] {
+  const estados = estadosDeEtapas(etapas.map((e) => e.key), actual);
+  const porEtapa = new Map<string, Clase[]>();
+  for (const c of clases) {
+    if (!(c.etapa in estados)) continue;
+    if (!porEtapa.has(c.etapa)) porEtapa.set(c.etapa, []);
+    porEtapa.get(c.etapa)!.push(c);
+  }
+  return etapas.map((e) => {
+    const deEtapa = (porEtapa.get(e.key) ?? []).slice().sort((a, b) => a.orden - b.orden || a.id - b.id);
+    const estado = estados[e.key];
+    const ob = obligatoriasDe(deEtapa);
+    return {
+      key: e.key, label: e.label, estado,
+      clases: etapaAbierta(estado) ? deEtapa.map((c) => claseVista(c, progreso.get(c.id))) : [],
+      cuantas: deEtapa.length,
+      obligatorias: ob.length,
+      enviadas: ob.filter((c) => enviada(progreso.get(c.id)?.estado)).length,
+    };
+  });
+}
+
+/** El primer nombre del cliente, para el saludo. `null` si no hay nada que decir. */
+export function primerNombre(nombre: string | null | undefined): string | null {
+  const n = (nombre ?? '').trim().split(/\s+/)[0] ?? '';
+  return n ? n.slice(0, 40) : null;
+}
+
+// ── El cuerpo de las rutas que escriben ───────────────────────────────────────
+
+/** Topes del cuerpo. La tarea más larga del programa viejo (18 tablas) no pasa de unas decenas de KB. */
+export const TOPE_TAREA = 200_000;
+export const TOPE_PROGRESO = 2_000;
+
+/**
+ * Lee un cuerpo JSON SIN pasarse del tope. `413` = demasiado grande, `400` = no es JSON.
+ *
+ * ⚠️ SE LEE EL CUERPO, NO SE CONFÍA EN `content-length`: el header se mira primero porque corta
+ * barato, pero puede faltar (chunked) o mentir. Lo que corta de verdad es contar los bytes a
+ * medida que llegan y cancelar al pasarse — un `req.json()` lo leería entero a memoria primero.
+ *
+ * ⚠️ NO MIRA EL `content-type`: el progreso llega también por `navigator.sendBeacon` al cerrar la
+ * pestaña, que va como `text/plain` (un Blob `application/json` en un beacon no es «simple» y
+ * hay navegadores que lo rechazan).
+ */
+export async function leerJsonTopeado(req: Request, tope: number): Promise<{ ok: true; valor: unknown } | { ok: false; status: 400 | 413 }> {
+  const declarado = Number(req.headers.get('content-length') ?? '');
+  if (Number.isFinite(declarado) && declarado > tope) return { ok: false, status: 413 };
+  if (!req.body) return { ok: false, status: 400 };
+  const lector = req.body.getReader();
+  const partes: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await lector.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > tope) {
+      await lector.cancel().catch(() => {});
+      return { ok: false, status: 413 };
+    }
+    partes.push(value);
+  }
+  const junto = new Uint8Array(total);
+  let i = 0;
+  for (const p of partes) { junto.set(p, i); i += p.byteLength; }
+  try {
+    return { ok: true, valor: JSON.parse(new TextDecoder().decode(junto)) };
+  } catch {
+    return { ok: false, status: 400 };
+  }
+}
+
+/** Un id de clase que llega del navegador: entero positivo o nada. */
+export function idDeClase(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d{1,12}$/.test(v) ? Number(v) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// ── Lo que lee (server) ───────────────────────────────────────────────────────
+
+/**
+ * La vista entera del alumno: su nombre y, por cada producto suyo QUE TENGA CLASES, sus etapas.
+ *
+ * ⚠️ Corre adentro de `runWithWorkspace(firma.ws, …)` y DESPUÉS de `resolverAcceso`: todo lo de
+ * acá usa `getTenantDb`, que sin ese contexto cae al workspace por defecto (el de Mauricio) — y
+ * en una prueba con un cliente de Mauricio se vería perfecto.
+ */
+export async function armarVistaAlumno(leadId: number): Promise<VistaAlumno> {
+  const [datos, { entregaDeProducto }, { getTenantDb }] = await Promise.all([
+    import('./curso-datos'),
+    import('./entrega-servicio'),
+    import('./workspace'),
+  ]);
+  const db = await getTenantDb();
+  const [productos, progreso, { data: lead }] = await Promise.all([
+    datos.productosDelAlumno(leadId),
+    datos.progresoDelCliente(leadId),
+    db.from('leads').select('nombre').eq('id', leadId).maybeSingle(),
+  ]);
+  const nombre = primerNombre((lead as { nombre: string | null } | null)?.nombre);
+  if (!productos.length) return { nombre, productos: [] };
+
+  const { data: filasProd, error } = await db.from('productos').select('id, nombre').in('id', productos);
+  if (error) throw new Error(error.message);
+  const nombreDe = new Map(((filasProd ?? []) as Array<{ id: number; nombre: string }>).map((p) => [Number(p.id), p.nombre]));
+
+  // En el orden de `productosDelAlumno` (el del catálogo), uno por uno: son uno o dos, y cada
+  // `etapaActualDe` ya consulta lo suyo.
+  const out: ProductoVista[] = [];
+  for (const productoId of productos) {
+    const clases = await datos.clasesDelProducto(productoId);
+    if (!clases.length) continue;
+    const [cfg, actual] = await Promise.all([entregaDeProducto(productoId), datos.etapaActualDe(leadId, productoId)]);
+    out.push({
+      productoId,
+      nombre: nombreDe.get(productoId) ?? 'Tu programa',
+      etapas: armarEtapas(cfg.etapas, actual, clases, progreso),
+    });
+  }
+  return { nombre, productos: out };
+}
+
+/**
+ * La clase `claseId`, si se le abre a este alumno. Lo usan las tres rutas públicas.
+ *
+ * Valida las DOS cosas que pide el portal: que la clase exista en el workspace de la firma
+ * (`claseDeId`, que filtra por inquilino) Y que su producto sea uno del alumno
+ * (`productosDelAlumno`). Con `exigeEtapa`, además, que su etapa esté abierta para él.
+ *
+ * ⚠️ Corre adentro de `runWithWorkspace(firma.ws, …)` y después de `resolverAcceso`.
+ */
+export async function claseDelAlumno(
+  leadId: number,
+  claseId: number,
+  opts: { exigeEtapa: boolean },
+): Promise<{ decision: Exclude<DecisionClase, 'ok'> } | { decision: 'ok'; clase: Clase; estadoEtapa: EstadoEtapa | undefined }> {
+  const datos = await import('./curso-datos');
+  const [clase, productos] = await Promise.all([datos.claseDeId(claseId), datos.productosDelAlumno(leadId)]);
+  let estadoEtapa: EstadoEtapa | undefined;
+  if (opts.exigeEtapa && clase && productos.includes(clase.productoId)) {
+    const { entregaDeProducto } = await import('./entrega-servicio');
+    const [cfg, actual] = await Promise.all([entregaDeProducto(clase.productoId), datos.etapaActualDe(leadId, clase.productoId)]);
+    estadoEtapa = estadosDeEtapas(cfg.etapas.map((e) => e.key), actual)[clase.etapa];
+  }
+  const decision = decidirClase(clase, productos, estadoEtapa, opts.exigeEtapa);
+  return decision === 'ok' && clase ? { decision, clase, estadoEtapa } : { decision: decision === 'ok' ? 'no-existe' : decision };
+}
+
+/**
+ * Cuánto vive la URL firmada de un video subido.
+ *
+ * ⚠️ NO SON LOS 120 s DE /api/compartido/archivo: aquello es una descarga, que arranca y
+ * termina. Un `<video>` pide RANGOS a medida que se reproduce y al adelantar, contra la URL a la
+ * que lo redirigieron — si vence a mitad de la clase, el próximo salto falla. Cuatro horas cubren
+ * una clase con pausas; si igual vence, el reproductor vuelve a pedir el endpoint (que revalida
+ * el link) y sigue desde donde estaba. El costo: la URL firmada sobrevive a revocar el acceso
+ * por ese rato, y es un video del curso, no un dato del cliente.
+ */
+export const VIDA_URL_VIDEO = 4 * 3600;

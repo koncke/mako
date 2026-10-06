@@ -1,8 +1,8 @@
 // =============================================================================
-// standard-webhooks — la firma que usan Fathom, Resend y Whop
+// standard-webhooks — la firma que usan Fathom y Resend
 // =============================================================================
-// Es el estándar de Svix (standardwebhooks.com), y tres proveedores del sistema
-// lo usan igual:
+// Es el estándar de Svix (standardwebhooks.com), y los proveedores del sistema que
+// lo usan lo usan igual:
 //
 //   headers  webhook-id · webhook-timestamp · webhook-signature
 //   firmado  `${id}.${timestamp}.${rawBody}`
@@ -11,9 +11,9 @@
 //   header   una o más firmas `v1,<sig>` separadas por ESPACIO
 //
 // ⚠️ POR QUÉ VIVE ACÁ Y NO EN CADA LIB. Estaba escrito DOS veces —`lib/fathom.ts`
-// y `lib/resend.ts`, el mismo algoritmo con dos redacciones— y agregar a Whop
-// habría sido la tercera. Es exactamente lo que AGENTS.md → «Una cosa, un lugar»
-// dice que se queda viejo: el día que uno se corrija, los otros dos no.
+// y `lib/resend.ts`, el mismo algoritmo con dos redacciones— y un tercer proveedor
+// habría sido la tercera copia. Es exactamente lo que AGENTS.md → «Una cosa, un
+// lugar» dice que se queda viejo: el día que uno se corrija, los otros no.
 //
 // TRES DETALLES QUE FALLAN SIEMPRE SI SE HACEN MAL, y ninguno da un síntoma que
 // apunte al lugar correcto (todos dan «firma no coincide»):
@@ -48,20 +48,21 @@ export const TOLERANCIA_SEG = 5 * 60; // ventana anti-replay
  *
  *   `whsec_…`  Fathom, Resend, y el resto del mundo Svix. Lo que sigue al
  *              prefijo es base64: se decodifica y ESO es la clave.
- *   `ws_…`     Whop. Su secreto NO es base64 (es `ws_` + 64 hex). Sus propios
- *              SDK piden que se lo pase base64-ENCODEADO al verificador, que
- *              después lo decodifica: o sea que la clave termina siendo el
- *              STRING ENTERO en UTF-8, prefijo incluido. Verificado contra su
- *              documentación y sus SDK (Python y Ruby hacen literalmente
- *              `base64encode(WHOP_WEBHOOK_SECRET)`).
  *   sin prefijo  Se asume base64, que es el default del estándar.
+ *
+ * ⚠️ HABÍA UNA TERCERA FILA, `ws_…`, y se fue el 06/10/2026 con la plataforma de
+ * cursos que la usaba (salió del producto: el curso vive en MaKo). Su secreto no
+ * era base64 y la clave era el string entero en UTF-8. Si un proveedor nuevo
+ * entrega el secreto con otro envoltorio, su fila va ACÁ, con su prefijo —
+ * `Buffer.from(x, 'base64')` no lanza sobre un texto que no es base64: descarta
+ * los caracteres inválidos y devuelve bytes, así que tratarlo mal falla callado
+ * con «firma no coincide». El caso medido está en docs/hallazgos-customer-success.md.
  *
  * Se deriva del propio secreto y no se pasa por parámetro a propósito: así el
  * que conecta una integración nueva no puede configurarlo mal, y la tabla vive
  * en UN lugar.
  */
 export function claveDelSecreto(secret: string): Buffer {
-  if (secret.startsWith('ws_')) return Buffer.from(secret, 'utf8');
   const b64 = secret.startsWith('whsec_') ? secret.slice('whsec_'.length) : secret;
   return Buffer.from(b64, 'base64');
 }

@@ -45,7 +45,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Detalle de una integración',
     descripcion: 'Para UNA integración: para qué sirve, si está conectada, qué campos pide (cuáles son obligatorios, cuáles ya están cargados, cuáles quedaron ilegibles y hay que volver a pegar, cuáles completa MaKo sola) y el paso que hay que hacer del otro lado (por ejemplo, la URL de webhook que se pega en Fathom). Nunca devuelve los valores. Úsala ante «¿qué me falta para conectar X?».',
     parametros: [
-      { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración (meta, whatsapp, email, zernio, gemini, groq, fathom, calendly, calcom, whop, panda, youtube, elevenlabs…), tal como sale en ver_integraciones.', ejemplo: 'fathom' },
+      { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración (meta, whatsapp, email, zernio, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones.', ejemplo: 'fathom' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_ADMIN,
   },

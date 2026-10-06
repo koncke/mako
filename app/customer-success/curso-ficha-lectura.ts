@@ -1,0 +1,388 @@
+// =============================================================================
+// curso-ficha-lectura — cómo se LEE el curso de un cliente adentro de su ficha (puro)
+// =============================================================================
+// Pedido de Martín (06/10/2026): «Dentro del Detail de los clientes de Mauricio se tiene que
+// ver este CURSO». Acá vive lo que decide QUÉ se muestra: las etapas en orden con la actual
+// marcada, cuánto vio de cada clase, en qué quedó su tarea y lo que contestó, formateado según
+// los campos del formulario.
+//
+// ⚠️ SIN 'use client' NI 'server-only', a propósito: lo arma la action (curso-ficha-actions.ts),
+// lo dibuja la pestaña (FichaCurso.tsx) y un test lo EJECUTA (tests/curso-ficha.test.ts). Acá
+// no se lee ni se escribe nada: entran clases y avance, sale lo que se dibuja. El nombre dice
+// «lectura» en el sentido de «cómo se lee», no de «va a la base»: eso es la action, que usa la
+// capa de datos de lib/curso-datos.ts y no escribe una consulta propia.
+//
+// ⚠️ Los TIPOS de lib/curso-datos.ts (que es `server-only`) entran con `import type`: se borran
+// al compilar, así que ni el navegador ni el test cargan ese módulo.
+
+import { PCT_VISTO, etapaCompleta, tieneTarea, type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores } from '@/lib/curso';
+import type { Sesion } from '@/lib/curso-datos';
+import { motivoDeFase } from '@/lib/curso-mensajes-texto';
+import { videoDeClase } from './curso/reglas';
+
+// ── El video: ¿se puede medir? ───────────────────────────────────────────────
+
+/**
+ * `medible` = hay un número que creerle (YouTube, Vimeo, archivo subido o directo).
+ * `sin-medir` = hay video y se ve, pero su reproductor no expone el tiempo (Drive, Loom, una
+ * página cualquiera). `sin-video` = la clase todavía no tiene video.
+ *
+ * ⚠️ «SIN MEDIR» NO ES «0%», y es la razón de que esto exista: un 0% al lado de una clase de
+ * Drive se lee como «no la vio» sobre algo que no hay forma de saber (lib/curso.ts, `medible`).
+ */
+export type Medicion = 'medible' | 'sin-medir' | 'sin-video';
+
+export function medicionDe(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'videoPath'>): Medicion {
+  // ⚠️ LA REGLA ES LA DE LA TAB CURSO (`videoDeClase`, ./curso/reglas.ts), no una copia: esa
+  // tabla promedia «cuánto vio» sobre los videos MEDIBLES, y si esta ficha decidiera «medible»
+  // por su cuenta, el mismo cliente tendría un % allá sobre videos que acá dicen «sin medir».
+  // Las dos preguntan al LINK (`videoDeLink`), no a la etiqueta guardada.
+  const v = videoDeClase(c);
+  if (!v.hay) return 'sin-video';
+  return v.medible ? 'medible' : 'sin-medir';
+}
+
+export type Tono = 'good' | 'dim' | 'faint';
+
+/**
+ * Lo que dice la columna «visto» de una clase.
+ *
+ * ⚠️ TRES «NO SÉ» DISTINTOS Y NINGUNO ES UN NÚMERO: sin video, sin medir (el reproductor no lo
+ * dice) y sin abrir (nunca le dio play). Y una fila con progreso pero SIN duración tampoco tiene
+ * %: `pctVisto` devuelve 0 en ese caso, y pintarlo sería el «0%» que `lib/curso.ts` prohíbe.
+ */
+export function rotuloVisto(m: Medicion, p: Progreso | null | undefined): { texto: string; tono: Tono } {
+  if (m === 'sin-video') return { texto: 'Sin video', tono: 'faint' };
+  if (m === 'sin-medir') return { texto: p?.vistoAt ? 'Abierta, sin medir' : 'Sin medir', tono: 'faint' };
+  if (!p || (!p.vistoAt && !(p.segundosMax > 0))) return { texto: 'Sin abrir', tono: 'faint' };
+  if (!p.duracionSeg || !(p.duracionSeg > 0)) return { texto: 'Sin medir', tono: 'faint' };
+  return { texto: `${p.pct}%`, tono: p.pct >= PCT_VISTO ? 'good' : 'dim' };
+}
+
+// ── La tarea ──────────────────────────────────────────────────────────────────
+
+/** En qué quedó su tarea. `null` = la clase no pide nada (no hay tarea que mirar). */
+export function estadoDeTarea(c: Pick<Clase, 'tarea' | 'campos'>, p: Progreso | null | undefined): EstadoTarea | null {
+  if (!tieneTarea(c)) return null;
+  return p?.estado ?? 'pendiente';
+}
+
+/** «Aprobada» se dibuja como «Revisada»: es lo que hace el botón que la pone así. */
+export const ROTULO_TAREA: Record<EstadoTarea, string> = { pendiente: 'Pendiente', enviada: 'Enviada', aprobada: 'Revisada' };
+
+// ── Lo que contestó ───────────────────────────────────────────────────────────
+
+/**
+ * Un campo contestado, ya con su forma de dibujarse. Las tablas salen COMO TABLA (columnas y
+ * filas), nunca aplanadas a texto: una tabla de cinco columnas en una línea no la lee nadie.
+ */
+export type BloqueRespuesta =
+  | { id: string; label: string; tipo: 'texto'; texto: string }
+  | { id: string; label: string; tipo: 'lista'; items: string[] }
+  | { id: string; label: string; tipo: 'tabla'; columnas: string[]; filas: string[][] }
+  | { id: string; label: string; tipo: 'vacio' };
+
+const celda = (x: unknown): string => (typeof x === 'string' ? x.trim() : x == null ? '' : String(x).trim());
+const esTabla = (v: unknown): v is unknown[][] => Array.isArray(v) && v.length > 0 && v.every(Array.isArray);
+
+/**
+ * La tabla de un campo, como se lee.
+ *
+ * ⚠️ LAS FILAS FIJAS MANDAN SU PRIMERA COLUMNA. Con `filasFijas` (la tabla de «las buenas, las
+ * medias, las que pierden»), la primera columna es la pregunta y no la escribe el cliente: se
+ * dibuja la etiqueta del formulario aunque lo guardado traiga otra cosa —o nada— en esa celda.
+ * Es el molde del formulario viejo (`tablaParaEditar` en 07d07139^:lib/cs-valores.ts). Las
+ * filas que alguien agregó de más debajo de las fijas se conservan.
+ */
+function tablaDe(c: Campo, v: unknown): { columnas: string[]; filas: string[][] } | null {
+  const columnas = c.columnas?.length ? [...c.columnas] : [''];
+  const n = columnas.length;
+  const guardadas = esTabla(v) ? v.map((f) => f.map(celda)) : [];
+  const ancho = (f: string[]) => Array.from({ length: n }, (_, j) => f[j] ?? '');
+  const llena = (f: string[], desde = 0) => f.slice(desde).some((x) => x.length > 0);
+
+  if (c.filasFijas?.length) {
+    const fijas = c.filasFijas.map((etiqueta, i) => { const f = ancho(guardadas[i] ?? []); f[0] = etiqueta; return f; });
+    const extra = guardadas.slice(c.filasFijas.length).map(ancho).filter((f) => llena(f));
+    // Sin una sola celda contestada (fuera de las etiquetas), la tabla está vacía: dibujar las
+    // preguntas con rayas afirmaría que contestó «nada» en cada una.
+    if (!fijas.some((f) => llena(f, 1)) && !extra.length) return null;
+    return { columnas, filas: [...fijas, ...extra] };
+  }
+  const filas = guardadas.map(ancho).filter((f) => llena(f));
+  return filas.length ? { columnas, filas } : null;
+}
+
+/** Un valor suelto, con la forma que tenga. Para lo que llega sin campo que lo describa. */
+function bloqueGenerico(id: string, label: string, v: unknown): BloqueRespuesta {
+  if (typeof v === 'string') return v.trim() ? { id, label, tipo: 'texto', texto: v.trim() } : { id, label, tipo: 'vacio' };
+  if (esTabla(v)) {
+    const filas = v.map((f) => f.map(celda)).filter((f) => f.some(Boolean));
+    if (!filas.length) return { id, label, tipo: 'vacio' };
+    const n = Math.max(...filas.map((f) => f.length));
+    return { id, label, tipo: 'tabla', columnas: Array.from({ length: n }, () => ''), filas: filas.map((f) => Array.from({ length: n }, (_, j) => f[j] ?? '')) };
+  }
+  if (Array.isArray(v)) {
+    const items = v.map(celda).filter(Boolean);
+    return items.length ? { id, label, tipo: 'lista', items } : { id, label, tipo: 'vacio' };
+  }
+  return { id, label, tipo: 'vacio' };
+}
+
+/**
+ * Lo que contestó en una clase, campo por campo y en el orden del formulario.
+ *
+ * Sin campos, la tarea es una respuesta libre (`{respuesta}`, ver `sanearValores`).
+ *
+ * ⚠️ LO QUE CONTESTÓ Y YA NO TIENE CAMPO SE MUESTRA IGUAL, al final y con su clave como rótulo.
+ * Si Mauricio edita el formulario después de que el cliente contestó, las claves viejas siguen
+ * en `valores`: esconderlas haría desaparecer trabajo del cliente sin que nadie lo decidiera.
+ *
+ * ⚠️ Y SE LEE A LA DEFENSIVA: `valores` es un jsonb que escribió un navegador sin sesión (lo
+ * sanea `sanearValores` al guardar, pero contra los campos de ESE momento). Un campo `checks`
+ * con un texto adentro se dibuja como texto, no revienta.
+ */
+export function respuestaDe(campos: readonly Campo[], valores: Valores | null | undefined): BloqueRespuesta[] {
+  const vs: Record<string, unknown> = valores && typeof valores === 'object' ? valores : {};
+  const out: BloqueRespuesta[] = [];
+  const conCampo = new Set<string>();
+
+  if (!campos.length) {
+    const r = vs.respuesta;
+    if (typeof r === 'string' && r.trim()) out.push({ id: 'respuesta', label: 'Respuesta', tipo: 'texto', texto: r.trim() });
+    conCampo.add('respuesta');
+  }
+  for (const c of campos) {
+    conCampo.add(c.id);
+    const v = vs[c.id];
+    if (c.tipo === 'tabla' && (esTabla(v) || v == null || (Array.isArray(v) && !v.length))) {
+      const t = tablaDe(c, v);
+      out.push(t ? { id: c.id, label: c.label, tipo: 'tabla', ...t } : { id: c.id, label: c.label, tipo: 'vacio' });
+    } else if (c.tipo === 'checks' && Array.isArray(v) && !esTabla(v)) {
+      const items = v.map(celda).filter(Boolean);
+      out.push(items.length ? { id: c.id, label: c.label, tipo: 'lista', items } : { id: c.id, label: c.label, tipo: 'vacio' });
+    } else if (Array.isArray(v) && !esTabla(v)) {
+      // Una lista donde se esperaba un texto (el campo cambió de tipo): se junta en una línea.
+      const items = v.map(celda).filter(Boolean);
+      out.push(items.length ? { id: c.id, label: c.label, tipo: 'texto', texto: items.join(', ') } : { id: c.id, label: c.label, tipo: 'vacio' });
+    } else {
+      out.push(bloqueGenerico(c.id, c.label, v));
+    }
+  }
+  for (const [k, v] of Object.entries(vs)) {
+    if (conCampo.has(k)) continue;
+    const b = bloqueGenerico(k, k, v);
+    if (b.tipo !== 'vacio') out.push(b);
+  }
+  return out;
+}
+
+/** ¿Contestó algo? Para decir «Sin contestar» en vez de una lista de rayas. */
+export const contestoAlgo = (bloques: readonly BloqueRespuesta[]): boolean => bloques.some((b) => b.tipo !== 'vacio');
+
+// ── Las etapas ────────────────────────────────────────────────────────────────
+
+/** Una clase, como la dibuja la ficha: lo que hace falta y nada del guion de grabación. */
+export type ClaseFicha = {
+  id: number;
+  etapa: string;
+  orden: number;
+  titulo: string;
+  tipo: TipoClase;
+  minutos: number | null;
+  tarea: string;
+  campos: Campo[];
+  obligatoria: boolean;
+  medicion: Medicion;
+  /** `null` = nunca la abrió ni contestó nada (no tiene fila en `curso_progreso`). */
+  progreso: Progreso | null;
+};
+
+export type ResumenEtapa = {
+  clases: number;
+  /** Las clases que piden algo. */
+  tareas: number;
+  /** Enviadas o revisadas: lo que cuenta para cerrar la etapa es ENVIAR. */
+  enviadas: number;
+  revisadas: number;
+  /** La regla del paso automático (`etapaCompleta`): envió TODAS las obligatorias. */
+  completa: boolean;
+};
+
+/**
+ * El resumen de una etapa: cuántas tareas envió y si con eso la etapa está completa.
+ *
+ * ⚠️ «COMPLETA» SALE DE `etapaCompleta`, LA MISMA REGLA QUE MUEVE AL CLIENTE, y no de contar
+ * acá «enviadas === tareas». Con dos reglas, la ficha diría «completa» sobre una etapa en la
+ * que el paso automático no lo movió (o al revés) — y una etapa sin obligatorias NO se completa
+ * sola, aunque haya enviado todo lo que tenía (lib/curso.ts explica por qué).
+ */
+export function resumenDeEtapa(clases: readonly ClaseFicha[]): ResumenEtapa {
+  const conTarea = clases.filter((c) => tieneTarea(c));
+  const estado = new Map(clases.map((c) => [c.id, c.progreso?.estado]));
+  const enviadas = conTarea.filter((c) => { const e = estado.get(c.id); return e === 'enviada' || e === 'aprobada'; }).length;
+  const revisadas = conTarea.filter((c) => estado.get(c.id) === 'aprobada').length;
+  return {
+    clases: clases.length,
+    tareas: conTarea.length,
+    enviadas,
+    revisadas,
+    completa: etapaCompleta(clases, (id) => estado.get(id)),
+  };
+}
+
+/** «2/3 tareas», o «Sin tareas». El «Completa» va aparte, como chip. */
+export function fraseResumen(r: ResumenEtapa): string {
+  return r.tareas ? `${r.enviadas}/${r.tareas} ${r.tareas === 1 ? 'tarea' : 'tareas'}` : 'Sin tareas';
+}
+
+export type EtapaFicha = {
+  key: string;
+  label: string;
+  /** Es la etapa en la que está hoy (`etapaActualDe`). */
+  actual: boolean;
+  /** Clases que apuntan a una etapa que la entrega ya no tiene. */
+  huerfana: boolean;
+  clases: ClaseFicha[];
+  resumen: ResumenEtapa;
+};
+
+export type ProductoFicha = {
+  productoId: number;
+  nombre: string;
+  etapaActual: string | null;
+  etapas: EtapaFicha[];
+};
+
+/** La clave del grupo de las clases cuya etapa ya no existe. No choca con una clave real:
+ *  `nuevaClaveEtapa` sólo arma claves de letras, números y guiones. */
+export const ETAPA_HUERFANA = '~sin-etapa';
+
+/**
+ * El curso de un producto, por etapas y EN EL ORDEN DE LA ENTREGA. `null` = el producto no
+ * tiene clases (la ficha no lo muestra: «por producto del cliente que tenga clases»).
+ *
+ * ⚠️ TODAS LAS ETAPAS, TAMBIÉN LAS QUE NO TIENEN CLASES: la etapa actual se marca sobre el
+ * recorrido entero, y saltear las vacías haría que «dónde está» se lea fuera de contexto.
+ *
+ * ⚠️ Y LAS CLASES DE UNA ETAPA BORRADA NO SE PIERDEN: van al final, en su propio grupo. Sacar
+ * una etapa de la entrega no borra sus clases (la FK es al producto, no a la etapa), y una
+ * ficha que no las dibujara escondería tareas que el cliente ya contestó.
+ */
+export function armarProducto(p: {
+  productoId: number;
+  nombre: string;
+  etapas: ReadonlyArray<{ key: string; label: string }>;
+  clases: readonly Clase[];
+  progreso: ReadonlyMap<number, Progreso>;
+  etapaActual: string | null;
+}): ProductoFicha | null {
+  if (!p.clases.length) return null;
+  const aFicha = (c: Clase): ClaseFicha => ({
+    id: c.id, etapa: c.etapa, orden: c.orden, titulo: c.titulo, tipo: c.tipo, minutos: c.minutos,
+    tarea: c.tarea, campos: c.campos, obligatoria: c.obligatoria,
+    medicion: medicionDe(c), progreso: p.progreso.get(c.id) ?? null,
+  });
+  const ordenar = (xs: ClaseFicha[]) => xs.sort((a, b) => a.orden - b.orden || a.id - b.id);
+  const porEtapa = new Map<string, ClaseFicha[]>();
+  for (const c of p.clases) {
+    const xs = porEtapa.get(c.etapa) ?? [];
+    xs.push(aFicha(c));
+    porEtapa.set(c.etapa, xs);
+  }
+  const conocidas = new Set(p.etapas.map((e) => e.key));
+  const etapas: EtapaFicha[] = p.etapas.map((e) => {
+    const clases = ordenar(porEtapa.get(e.key) ?? []);
+    return { key: e.key, label: e.label, actual: e.key === p.etapaActual, huerfana: false, clases, resumen: resumenDeEtapa(clases) };
+  });
+  const sueltas = ordenar([...porEtapa.entries()].filter(([k]) => !conocidas.has(k)).flatMap(([, xs]) => xs));
+  if (sueltas.length) {
+    etapas.push({ key: ETAPA_HUERFANA, label: 'Sin etapa', actual: false, huerfana: true, clases: sueltas, resumen: resumenDeEtapa(sueltas) });
+  }
+  return { productoId: p.productoId, nombre: p.nombre, etapaActual: p.etapaActual, etapas };
+}
+
+// ── El acceso y las llamadas ──────────────────────────────────────────────────
+
+/**
+ * Su acceso al portal. `link: null` con `revocado: false` = no hay secreto para firmar
+ * (AUTH_SECRET): se dice así, no como «cortado».
+ */
+export type AccesoFicha = {
+  link: string | null;
+  revocado: boolean;
+  ingresos: number;
+  ultimoIngresoAt: string | null;
+};
+
+/**
+ * Lo que lee la pestaña Curso, en UNA action al abrirse.
+ *
+ * ⚠️ CADA MITAD FALLA POR SU CUENTA, y «no pude leer» viaja como `null` + su error, nunca como
+ * un vacío: con un solo valor, una lectura caída de las llamadas diría «sin llamadas agendadas»
+ * y alguien agendaría otra encima. Es la regla de `FichaExtra` (./ficha-datos.ts).
+ *
+ * `acceso: null` sin error = no hay curso (ningún producto suyo tiene clases): no se le arma un
+ * link a un portal vacío.
+ */
+export type CursoDeCliente = {
+  productos: ProductoFicha[] | null;
+  errorProductos?: string;
+  acceso: AccesoFicha | null;
+  errorAcceso?: string;
+  sesiones: Sesion[] | null;
+  errorSesiones?: string;
+};
+
+/**
+ * Un `datetime-local` («2026-10-12T10:30») a ISO, en el NAVEGADOR.
+ *
+ * ⚠️ ES HORA LOCAL DE QUIEN LA ESCRIBE, y por eso la conversión va acá y no en el server: una
+ * fecha-hora sin zona, en `new Date()`, se interpreta en la zona del que la corre (ECMAScript,
+ * a diferencia de una fecha sola, que va en UTC). En el server sería la zona de Vercel, y la
+ * llamada de las 10 quedaría a las 4 o a las 17 según dónde corra la función.
+ * `null` = no es una fecha-hora válida.
+ */
+export function isoDeLocal(valor: string): string | null {
+  const v = (valor ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(v)) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Un instante, en la hora local de quien mira: «12 oct, 10:30». */
+export function fechaHoraLocal(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
+}
+
+export type AvisoSesion = { cual: 'previo' | 'posterior'; estado: 'enviado' | 'pendiente' | 'no-salio' };
+
+/**
+ * En qué quedaron los dos avisos de una llamada (los manda el cron: lib/curso-mensajes.ts).
+ *
+ * ⚠️ «NO SALIÓ» SÓLO PARA EL PREVIO DE UNA LLAMADA QUE YA PASÓ: su momento se fue. El posterior
+ * de una llamada pasada sigue «pendiente» — sale después, y el cron puede no haber corrido
+ * todavía. Afirmar «no salió» ahí sería adelantarse al cron.
+ *
+ * ⚠️ LA MARCA NO ES «LE LLEGÓ»: ES «SE PROCESÓ». El cron la escribe ANTES de mandar
+ * (compare-and-set, para no mandar dos veces) y no la deshace si el envío falló, si no había
+ * teléfono o si el cliente estaba al día. Lo que distingue es el motivo anotado de esa fase
+ * (`motivoDeFase`): con motivo, no salió. Leyendo sólo la marca, la ficha decía «enviado» con
+ * «Antes: sin teléfono» escrito justo debajo (revisión del 06/10/2026).
+ */
+export function avisosDeSesion(
+  s: Pick<Sesion, 'fecha' | 'avisoPrevioAt' | 'avisoPosteriorAt'> & { avisoMotivo?: string | null },
+  ahora: number = Date.now(),
+): AvisoSesion[] {
+  const t = Date.parse(s.fecha);
+  const paso = Number.isFinite(t) && t <= ahora;
+  const est = (marca: string | null, fase: 'previo' | 'posterior', vencido: boolean): AvisoSesion['estado'] =>
+    marca ? (motivoDeFase(s.avisoMotivo, fase) ? 'no-salio' : 'enviado') : vencido ? 'no-salio' : 'pendiente';
+  return [
+    { cual: 'previo', estado: est(s.avisoPrevioAt, 'previo', paso) },
+    { cual: 'posterior', estado: est(s.avisoPosteriorAt, 'posterior', false) },
+  ];
+}

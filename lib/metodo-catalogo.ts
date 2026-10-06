@@ -700,54 +700,6 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
-    key: 'whop',
-    nombre: 'Whop',
-    categoria: 'Contenido',
-    paraQue: 'Tus clientes ven ahí los videos del programa, y MaKo se entera solo de quién avanzó y quién se quedó.',
-    // UN SOLO CAMPO OBLIGATORIO, A PROPÓSITO. Casi todos los endpoints de Whop
-    // piden `company_id`, pero no se pregunta: sale de GET /accounts/me, que es
-    // lo único que la API key ya identifica sola (ver lib/whop.ts →
-    // whopCompanyId). Un campo menos que se pueda llenar mal.
-    campos: [
-      { env: 'WHOP_API_KEY', label: 'API key', secreto: true, placeholder: 'apik_…', nota: 'Sale del panel de tu negocio → "Developer" → bloque "Account API Keys" (algunas pantallas todavía dicen "Company API Keys") → "Create", con el rol "Admin". Con esto MaKo lee tu programa y sabe qué clase completó cada cliente.' },
-      { env: 'WHOP_WEBHOOK_SECRET', label: 'Contraseña del webhook', secreto: true, opcional: true, nota: 'Opcional. Sin esto el avance de tus alumnos entra en la próxima pasada automática y no al instante. Whop la muestra UNA sola vez, al guardar el webhook.' },
-    ],
-    pasoExterno: {
-      titulo: 'Pega esta dirección dentro de Whop',
-      porque: 'Es por donde Whop avisa en el instante en que un alumno termina una clase. Con eso MaKo le puede recordar al que se quedó el mismo día, y te arma el resumen antes de tu llamada.',
-      valor: '{{APP_URL}}/api/webhooks/whop',
-      donde: 'En whop.com: abre el panel de tu negocio (whop.com/dashboard) → "Developer" → "Webhooks" → "Create webhook", en el campo de la dirección de destino.',
-      ojo: [
-          'En la lista de eventos marca solo "course_lesson_interaction.completed": es el aviso de «un alumno terminó una clase» y con ese alcanza.',
-          'Deja la versión de la API en "v1", que es la que viene puesta. No la cambies.',
-          'Al guardar, Whop muestra una contraseña que se muestra UNA sola vez. Cópiala antes de cerrar la ventana y pégala en el campo "Contraseña del webhook".',
-        ],
-    },
-    tutorial: {
-      url: 'https://whop.com/dashboard/developer',
-      urlLabel: 'Whop → Developer',
-      pasos: [
-        'Para qué sirve: tus clientes miran los videos del programa en Whop, y MaKo se entera solo de quién terminó cada clase. Con eso te avisa quién se quedó atrás y te arma el resumen antes de la llamada.',
-        'Entra a whop.com con la cuenta de tu negocio: la que administra el programa, no la de un alumno.',
-        'Entra al panel de administración de tu negocio: es whop.com/dashboard, o el botón con el nombre de tu negocio arriba a la derecha. Es una pantalla distinta de la que ven tus alumnos.',
-        'Abre el menú del panel (en el celular es el botón de las tres rayitas, arriba) y entra a "Developer".',
-        'Busca el bloque de las claves de tu negocio: la documentación de Whop hoy lo llama "Account API Keys" y algunas pantallas todavía dicen "Company API Keys". Es ese. El otro bloque de la misma pantalla, "App API Keys", sirve para otra cosa.',
-        'Toca "Create" y ponle un nombre que reconozcas, por ejemplo MaKo.',
-        'Si te pide elegir un rol o unos permisos, elige el rol "Admin". Con menos permisos la key se crea igual, pero MaKo no puede leer tu programa y el error aparece recién al guardar.',
-        'Copia la key —esa cadena larga de letras y números que se pega una sola vez— y pégala en el campo "API key". No hace falta que le digas a MaKo cuál es tu negocio: lo detecta solo con esa key.',
-        'Lo que sigue es opcional, pero cambia mucho: hace que el avance de tus alumnos llegue en el momento. En el mismo menú de "Developer", entra a "Webhooks".',
-        'Toca "Create webhook".',
-        'Vuelve un momento a MaKo: más abajo en esta pantalla hay un recuadro que dice "Pega esta dirección dentro de Whop", con un botón "Copiar". Tócalo.',
-        'Vuelve a Whop y pega eso en el campo de la dirección de destino.',
-        'Deja la versión de la API en "v1", que es la que viene puesta. No la cambies.',
-        'En la lista de eventos marca solo "course_lesson_interaction.completed". Es el aviso de «un alumno terminó una clase» y es el único que hace falta.',
-        'Guarda el webhook. Whop te muestra una contraseña que se muestra UNA sola vez: cópiala antes de cerrar la ventana.',
-        'Pégala en el campo "Contraseña del webhook". Si cerraste la ventana sin copiarla, borra el webhook y créalo de nuevo.',
-        'Si te saltas la parte del webhook todo funciona igual, pero con demora: el avance de tus alumnos entra en la próxima pasada automática y no en el momento. Para recordarle a alguien el mismo día que se quedó, hace falta el webhook.',
-      ],
-    },
-  },
-  {
     key: 'youtube',
     nombre: 'YouTube',
     categoria: 'Datos',
@@ -1458,41 +1410,12 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // esto»; la del campo contesta «qué pongo ACÁ», que es la pregunta que se hace
   // quien tiene el cursor adentro del input.
   // ⚠️ SIN ENTRADA ACA, EL «?» DE CADA CAMPO ABRE EL MISMO TEXTO. En clarity
-  // (que salió del producto el 06/10/2026), whop y github los dos campos no
-  // tenian ayuda propia, asi que los dos abrian
+  // y en la plataforma de cursos (las dos salieron del producto el 06/10/2026) y
+  // en github, los campos no tenian ayuda propia, asi que abrian
   // el tutorial entero del servicio — el cliente lo reporto como «la guia de cada
   // cosa aparece siempre el mismo». La del servicio contesta «como conecto esto»;
   // la del campo, «que pongo ACA», que es la pregunta de quien tiene el cursor
   // adentro del input.
-  WHOP_API_KEY: {
-    pasos: [
-      'Para qué sirve: es lo que deja a MaKo ver quién compró, quién sigue pagando y quién se dio de baja, sin que entres a Whop.',
-      'Entra a whop.com/dashboard con la cuenta donde vendes.',
-      'Abre el menú (en el celular es el botón de las tres rayitas, arriba) y busca la sección "Developer".',
-      'Entra a "API keys".',
-      'Toca "Create API key".',
-      'Ponle un nombre para reconocerla después, por ejemplo MaKo.',
-      'Copia la key en ese momento: se muestra UNA sola vez.',
-      'Pégala en el campo "API key". Si la perdiste, bórrala de la lista en Whop y crea otra.',
-    ],
-    url: 'https://whop.com/dashboard',
-    urlLabel: 'Whop → Developer → API keys',
-  },
-  WHOP_WEBHOOK_SECRET: {
-    pasos: [
-      'Para qué sirve: es lo que hace que una compra entre AL INSTANTE y no varias horas después. Con la "API key" sola los datos igual llegan, pero tarde.',
-      'Un webhook es un aviso automático: hace que Whop le avise a MaKo apenas alguien compra, en vez de que MaKo tenga que salir a preguntar cada tanto.',
-      'Más abajo en esta pantalla hay un recuadro que dice "Pega esta dirección dentro de Whop", con un botón para copiarla. Tócalo.',
-      'Entra a whop.com/dashboard, abre el menú y busca "Developer".',
-      'Entra a "Webhooks" y toca "Create webhook".',
-      'Pega ahí la dirección que copiaste.',
-      'Marca los avisos de pago: los que hablan de "payment" y de "membership". Sin esos, la compra no llega.',
-      'Guarda. Whop te muestra entonces un código que empieza con ws_: ese es el secret.',
-      'Cópialo y pégalo en el campo "Secret del webhook".',
-    ],
-    url: 'https://whop.com/dashboard',
-    urlLabel: 'Whop → Developer → Webhooks',
-  },
   GITHUB_TOKEN: {
     pasos: [
       'Para qué sirve: MaKo lee los commits que entran a main y propone cerrar las tareas de desarrollo que ya están hechas.',

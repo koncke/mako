@@ -15,8 +15,8 @@ export class FathomSignatureError extends Error {}
 export type FathomSigHeaders = { id: string | null; timestamp: string | null; signature: string | null };
 
 export function verifyFathomSignature(rawBody: string, headers: FathomSigHeaders, secret: string, toleranceSec = 300): void {
-  // El algoritmo vive en lib/standard-webhooks.ts: Fathom, Resend y Whop firman
-  // igual (Svix), y estaba escrito dos veces. Acá queda solo la forma de fallar
+  // El algoritmo vive en lib/standard-webhooks.ts: Fathom y Resend firman igual
+  // (Svix), y estaba escrito dos veces. Acá queda solo la forma de fallar
   // que este receptor ya esperaba (throw), para no tocar sus call-sites.
   const fallo = verificarFirmaSvix(rawBody, headers, secret, toleranceSec);
   if (!fallo) return;

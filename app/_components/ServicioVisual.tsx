@@ -55,14 +55,11 @@ export const ICON: Record<string, IconDef> = {
   landing: { sym: 'ic-landing', bg: '#7C5CFF' },
   // Zernio no tenía entrada y caía en el fallback — que hasta hoy era el
   // logo de Supabase, o sea el de otra marca. No conseguimos sus vectores oficiales,
-  // así que van letter-mark sobre su color: la regla de arriba, la misma que Whop.
+  // así que van letter-mark sobre su color: la regla de arriba, una inicial honesta
+  // antes que un logo inventado.
   // Zernio: su producto acá es Instagram, pero la credencial es de Zernio y el
   // letter-mark tiene que decir de quién es la cuenta que se está conectando.
   zernio: { letter: 'Z', bg: '#6D4AFF' },
-  // Whop: no tenemos su vector oficial, así que va letter-mark sobre su naranja
-  // de marca (#FF6243). La regla de arriba: una inicial honesta antes que un
-  // logo inventado.
-  whop: { letter: 'W', bg: '#FF6243' },
   // ⚠️ CLAUDE Y ANTHROPIC SON DOS MARCAS Y LLEVAN DOS LOGOS DISTINTOS.
   // `anthropic` de más arriba es la API key que el cliente pega: ahí se está conectando
   // con la EMPRESA, y va su logotipo. `agente` es con lo que el cliente habla —Claude,

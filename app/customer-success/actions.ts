@@ -16,10 +16,12 @@
 // puede es dejarlo acá sin nadie que lo llame.
 //
 // ⚠️ SE FUERON TRES MÁS, Y EL PORQUÉ IMPORTA (26/09/2026). `emitirLinkAction`,
-// `revocarLinksAction`, `avanceDelClienteAction` y `sincronizarWhopAction` eran
-// del programa de 44 clases de UN cliente: el link abría SU cuestionario, el
-// avance leía `cs_respuestas` (0 filas en todo el producto) y el sync subía SU
-// temario a Whop. Nada de eso es de un workspace cualquiera.
+// `revocarLinksAction`, `avanceDelClienteAction` y la action que sincronizaba el
+// temario eran del programa de 44 clases de UN cliente: el link abría SU
+// cuestionario, el avance leía `cs_respuestas` (0 filas en todo el producto) y el
+// sync subía SU temario a la plataforma de cursos externa (que salió del producto
+// entera el 06/10/2026: el curso vive en MaKo). Nada de eso es de un workspace
+// cualquiera.
 // Los links ya emitidos se siguen operando desde MaKo
 // (`lib/api-mako/areas/cs.helpers.ts`), que es donde vive ese mecanismo ahora.
 //

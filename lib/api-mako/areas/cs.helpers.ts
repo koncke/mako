@@ -13,8 +13,8 @@
 //
 // ⚠️ SE FUERON SEIS EL 26/09/2026, con el programa de 44 clases: linksVivosDe
 // (los shares `tarea-cs`, que ya no abren nada), bloqueDe / bloquesDe (la tabla
-// cs_respuestas), mapaLeccionesEstricto (el mapa lección→clase de Whop),
-// ganadosPorEmail (cruzaba alumnos de Whop contra el CRM) y borradoresMakoDelLead
+// cs_respuestas), mapaLeccionesEstricto (el mapa lección→clase de la plataforma de
+// cursos externa), ganadosPorEmail (cruzaba sus alumnos contra el CRM) y borradoresMakoDelLead
 // (deduplicaba los avisos de la tarea). Ninguna tenía otro consumidor.
 //
 // Solo `marcarEstadoCliente` escribe, y la llama únicamente ejecutar().

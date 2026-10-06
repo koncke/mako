@@ -68,10 +68,14 @@ export const DEFS: Def[] = [
   // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL
   // (ver estadoGoogleCalendar), como la landing.
   { key: 'google', nombre: 'Google Calendar', categoria: 'Reuniones', descripcion: 'Cruza las reuniones de tu agenda para detectar juntas automáticamente.', envs: [] },
-  // Whop: la plataforma donde el cliente ve los videos del programa. De acá se
-  // lee el AVANCE, nunca las respuestas de la tarea — su API no tiene endpoint
-  // para leerlas (verificado 2026-08-11). Ver el comentario de lib/whop.ts.
-  { key: 'whop', nombre: 'Whop', categoria: 'Contenido', descripcion: 'El programa en video, y quién completó cada clase.', envs: ['WHOP_API_KEY'] },
+  // ⚠️ ACÁ ESTABA LA PLATAFORMA DE CURSOS DE TERCEROS, y se fue el 06/10/2026
+  // («que utilicemos directamente MaKo»). El curso vive en MaKo: las clases, los
+  // videos (link o subido al bucket `curso-videos`), cuánto vio cada cliente y sus
+  // tareas (mig 0202, lib/curso*.ts). No se vuelve a conectar una plataforma
+  // externa para eso: lo que su API no dejaba leer —las respuestas de la tarea—
+  // era justo lo que el avance de etapa necesita. El porqué completo, con el
+  // nombre del proveedor, en docs/hallazgos-customer-success.md. Con esto la
+  // categoría «Contenido» quedó sin tarjetas: el tablero no dibuja una vacía.
   { key: 'panda', nombre: 'Panda Video', categoria: 'Datos', descripcion: 'Métricas de reproducción del VSL.', envs: ['PANDA_API_KEY'] },
   { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_API_KEY'] },
   // Supabase NO va acá: es la infra de la plataforma, no una integración que el

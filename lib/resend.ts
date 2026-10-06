@@ -284,7 +284,7 @@ export async function listResendDomains(): Promise<{ ok: true; domains: Array<{ 
 
 // ── Verificación de firma del webhook ────────────────────────────────────────
 // Resend firma con Standard Webhooks (Svix). El algoritmo vive en
-// lib/standard-webhooks.ts, que es el mismo que usan Fathom y Whop: estaba
+// lib/standard-webhooks.ts, que es el mismo que usa Fathom: estaba
 // escrito dos veces con dos redacciones y agregar un tercer proveedor habría
 // sido la tercera copia. OJO: Resend manda los headers con prefijo `svix-`, no
 // `webhook-`, así que su ruta los lee a mano y arma el objeto (por eso acá no se

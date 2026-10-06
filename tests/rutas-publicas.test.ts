@@ -60,22 +60,41 @@ test('los públicos de solo lectura son un subconjunto de los públicos', () => 
   assert.equal(esPublicaSoloLectura('/api/agente/plan'), false, 'el agente hace POST: no puede ser solo-lectura');
 });
 
-test('la excepción de escritura abre UNA ruta, y solo esa', () => {
+test('la excepción de escritura abre las DOS rutas del portal del alumno, y solo esas', () => {
   // `/api/compartido` es solo-lectura porque el early-return del middleware se
-  // saltea el chequeo CSRF de Origin. La tarea del cliente necesita escribir, y
-  // puede: se autentica con el token del link, que viaja en el CUERPO y que el
-  // navegador no manda solo — no hay autoridad ambiente que abusar.
-  assert.equal(esPublicaDeEscritura('/api/compartido/tarea'), true);
-  assert.equal(esPublicaSoloLectura('/api/compartido/tarea'), false);
-  assert.equal(esPublica('/api/compartido/tarea'), true, 'sin esto el middleware pide sesión y el 405 ni se evalúa');
+  // saltea el chequeo CSRF de Origin. El portal del curso necesita escribir (el
+  // progreso del video y la tarea), y puede: se autentica con el token firmado
+  // del link, que viaja en el CUERPO y que el navegador no manda solo — no hay
+  // autoridad ambiente que abusar.
+  for (const r of ['/api/compartido/curso/progreso', '/api/compartido/curso/tarea']) {
+    assert.equal(esPublicaDeEscritura(r), true, r);
+    assert.equal(esPublicaSoloLectura(r), false, r);
+    assert.equal(esPublica(r), true, `${r}: sin esto el middleware pide sesión y el 405 ni se evalúa`);
+  }
+  // El video subido se SIRVE (GET): no escribe, así que no entra a la excepción.
+  assert.equal(esPublicaDeEscritura('/api/compartido/curso/video'), false);
+  assert.equal(esPublicaSoloLectura('/api/compartido/curso/video'), true);
+});
+
+test('la ruta de tarea del programa VIEJO ya no escribe: se borró el 26/09', () => {
+  // `/api/compartido/tarea` se fue con el programa viejo (07d07139) y su entrada
+  // quedó en la lista abriendo a POST una ruta que no existe. Una excepción sin
+  // dueño la hereda la próxima ruta que se cree con ese nombre.
+  //
+  // Probado rompiéndolo (06/10/2026): devolver la entrada vieja a
+  // PUBLICOS_ESCRITURA da 10 pass / 1 fail (cae éste), y sacar
+  // `/api/compartido/curso/progreso` da 10 / 1 (cae el de arriba). Restaurado: 11 / 0.
+  assert.equal(esPublicaDeEscritura('/api/compartido/tarea'), false);
+  assert.equal(esPublicaSoloLectura('/api/compartido/tarea'), true, 'un POST ahí tiene que dar 405');
 });
 
 test('la excepción NO se hereda: es match exacto, nunca prefijo', () => {
   // Un prefijo abriría a POST cualquier ruta futura colgada abajo. Es la misma
   // razón por la que `/api/agente/token` se dejó afuera una por una.
-  assert.equal(esPublicaDeEscritura('/api/compartido/tarea/borrar'), false);
-  assert.equal(esPublicaSoloLectura('/api/compartido/tarea/borrar'), true);
-  assert.equal(esPublicaDeEscritura('/api/compartido/tareas'), false);
+  assert.equal(esPublicaDeEscritura('/api/compartido/curso/tarea/borrar'), false);
+  assert.equal(esPublicaSoloLectura('/api/compartido/curso/tarea/borrar'), true);
+  assert.equal(esPublicaDeEscritura('/api/compartido/curso/tareas'), false);
+  assert.equal(esPublicaDeEscritura('/api/compartido/curso'), false, 'la carpeta no hereda lo de sus hijas');
   assert.equal(esPublicaDeEscritura('/api/compartido/archivo'), false);
   assert.equal(esPublicaSoloLectura('/api/compartido/archivo'), true, 'servir un archivo sigue siendo solo GET');
 });

@@ -244,6 +244,8 @@ principio de diseño: `[03:38:14]` ***«La inteligencia artificial no funciona p
 funciona por estándares.»***
 
 ### Frente 02 — Plataforma de contenido · **Whop**
+> ⚠️ **Superado el 06/10/2026: Whop salió del producto.** Pedido de Martín: «eliminar Whop de la ecuación, que utilicemos directamente MaKo». El curso —clases, videos por link o subidos, cuánto vio cada cliente y sus tareas— vive en MaKo (mig 0202, `lib/curso*.ts`). Lo de abajo es la decisión de agosto, no el estado de hoy.
+
 **Decidido el 11/8: Whop**, por ser la alternativa gratuita con API. Cierra el compromiso
 más viejo del sprint —la comparativa de 3-4 opciones se prometió el 8/7 `[01:16:16]` y
 llevaba cinco semanas sin entregarse—. Circle y Thinkific no volvieron a nombrarse después
@@ -386,6 +388,8 @@ entregables y mandárselos es lo primero**: están enterrados en un transcript d
 nadie volvió a abrir, y la prueba es que el 6/8 ninguno de los dos se acordaba de la lista.
 
 ### 2. Frente 02: **hecho — es Whop**
+> ⚠️ **Superado el 06/10/2026: Whop salió del producto.** Pedido de Martín: «eliminar Whop de la ecuación, que utilicemos directamente MaKo». El curso —clases, videos por link o subidos, cuánto vio cada cliente y sus tareas— vive en MaKo (mig 0202, `lib/curso*.ts`). Lo de abajo es la decisión de agosto, no el estado de hoy.
+
 El 6/8 Mauricio dio permiso y sacó trabajo de encima: SaaS existente *«que se adecúa más o
 menos»*. Ese «más o menos» era la licencia para no optimizar, y se usó: **Whop, elegida el
 11/8 por ser la gratuita con API.** Queda conectarla y montar el programa por bloques —lo

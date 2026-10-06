@@ -6,7 +6,7 @@
 // getTenantDb scopean solas. Nunca se escribe desde leer() ni desde preparar().
 //
 // ⚠️ QUEDARON TRES DE DIECISIETE (26/09/2026). Las otras catorce eran el programa
-// de 44 clases de un cliente —el temario, su cuestionario, su curso en Whop, los
+// de 44 clases de un cliente —el temario, su cuestionario, su curso en la plataforma externa, los
 // casos de otros clientes suyos y el banco de material— y se fueron con
 // `app/customer-success/programa/`. El porqué del gating está en cs.def.ts.
 //

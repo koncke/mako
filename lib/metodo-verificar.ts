@@ -379,34 +379,6 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida — llamadas accesibles.', facts };
   },
 
-  async whop(v) {
-    // /accounts/me es el único endpoint que la key identifica sola: todos los
-    // demás exigen company_id, que justamente sale de acá.
-    const { status, body } = await fetchJson('https://api.whop.com/api/v1/accounts/me', {
-      headers: { Authorization: `Bearer ${v.WHOP_API_KEY}`, accept: 'application/json' },
-    });
-    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida o sin permisos.' };
-    if (status >= 400) return { ok: false, error: `Whop respondió ${status}.` };
-    const biz = body as { id?: string; title?: string };
-    if (!biz.id) return { ok: false, error: 'Whop no devolvió a qué negocio pertenece la key.' };
-
-    // Mostrar el NOMBRE del negocio es lo único que delata al toque haber pegado
-    // la key de otra cuenta: un «válida» a secas se ve igual en los dos casos.
-    const facts: Fact[] = [{ k: 'Tu negocio en Whop', v: biz.title || biz.id, c: 'var(--good)' }];
-
-    // Cuántas clases hay cargadas. Una key válida sobre una cuenta vacía es el
-    // estado más confuso posible: todo verde y nada que mostrarle al cliente.
-    const cursos = await fetchJson(`https://api.whop.com/api/v1/courses?company_id=${encodeURIComponent(biz.id)}`, {
-      headers: { Authorization: `Bearer ${v.WHOP_API_KEY}`, accept: 'application/json' },
-    });
-    const lista = (cursos.body?.data as Array<{ title?: string }> | undefined) ?? [];
-    facts.push(lista.length
-      ? { k: 'Programas cargados', v: lista.map(c => c.title).filter(Boolean).join(' · ') || String(lista.length), c: 'var(--good)' }
-      : { k: 'Programas cargados', v: 'Ninguno todavía', c: 'var(--warn)' });
-
-    return { ok: true, detalle: 'Key válida — Whop accesible.', facts };
-  },
-
   async panda(v) {
     // OJO: Panda lleva la key PELADA en Authorization, sin "Bearer".
     const { status, body } = await fetchJson('https://api-v2.pandavideo.com/videos?limit=1', {

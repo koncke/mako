@@ -7243,7 +7243,7 @@ Para UNA integración: para qué sirve, si está conectada, qué campos pide (cu
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `servicio` | string | sí | key de la integración (meta, whatsapp, email, zernio, gemini, groq, fathom, calendly, calcom, whop, panda, youtube, elevenlabs…), tal como sale en ver_integraciones. |
+| `servicio` | string | sí | key de la integración (meta, whatsapp, email, zernio, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones. |
 
 ```bash
 curl -s "https://hola-mako.com/api/v1/integraciones/ver_integracion?servicio=fathom" -H "Authorization: Bearer $TOKEN"

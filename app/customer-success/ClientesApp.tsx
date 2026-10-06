@@ -384,6 +384,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   const [ordenMovs, setOrdenMovs] = useState<Record<string, number[]>>({});
   const listaManual = (prodId: number, etapa: string): number[] | undefined =>
     ordenMovs[`${prodId}:${etapa}`] ?? (entrega?.ok ? entrega.ordenPorServicio[prodId]?.[etapa] : undefined);
+  /** ¿Hay algún orden manual guardado (o arrastrado en esta sesión) en el servicio que se mira? */
+  const hayOrdenManual = Boolean(servicio) && (servicio?.etapas ?? []).some((e) => (listaManual(servicio!.productoId, e.key) ?? []).length > 0);
   /** Su etapa en el servicio que se mira, con la regla del reparto: sin fila, la primera. */
   const etapaEnServicio = (leadId: number): string =>
     (asigServicio[leadId]?.etapa ?? '').trim() || (servicio?.etapas[0]?.key ?? '');
@@ -780,6 +782,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
             /* «Manual» sólo con un servicio elegido: sin columnas no hay nada que arrastrar. Y con
                «Manual» no se ofrece el sentido: el orden es el que se armó, no tiene «al revés». */
             ordenes={servicio ? ORDEN_CS : ORDEN_LABEL}
+            /* ⚠️ CON UN ORDEN MANUAL GUARDADO, «MANUAL» ES LA BASE, no un filtro puesto. Martín
+               (06/10/2026): «para quitar eso y volver a antes, simplemente es volver a ordenar por
+               fecha… y si quiero volver a la posición que había dejado las tarjetas es
+               simplemente quitar filtros». Así «Limpiar filtros» vuelve a lo que arrastró, y el
+               número del botón no cuenta como filtro el orden que él mismo armó. */
+            ordenBase={hayOrdenManual ? 'manual' : 'nombre'}
             cuandos={CUANDO_LABEL} cuando={cuando} onCuando={setCuando} dir={dir} onDir={orden === 'manual' ? undefined : setDir}
             /* La FASE, como una sección más de «Filtrar» y sólo en el kanban: la tabla no
                esconde columnas, así que ahí la opción no cambiaría nada de lo que se ve. Sin

@@ -8,7 +8,7 @@
 //
 // ⚠️ EL ÁREA DEJÓ DE SER `soloWs1` EL 26/09/2026, Y ESE ES EL CAMBIO. Hasta ese día
 // las diecisiete operaciones eran el programa de 44 clases de UN cliente (el
-// temario, su cuestionario, su curso en Whop, los casos de otros clientes suyos),
+// temario, su cuestionario, su curso en la plataforma externa, los casos de otros clientes suyos),
 // así que estaban gateadas con `soloWs1` — que no es solo «el workspace 1»: en
 // `gatingOk` (lib/api-mako/registro.ts) significa `ws === 1 Y rol === admin`, o sea
 // que además exigía admin de rebote. Quedaron TRES, y las tres son de cualquier
@@ -36,7 +36,8 @@
 //
 // Qué NO está acá, a propósito:
 //   · Todo el programa de Mauricio: el temario, sus grabaciones, el cuestionario
-//     del cliente, el avance en Whop, los casos históricos y el banco de material.
+//     del cliente, el avance en la plataforma de cursos externa (que salió del
+//     producto el 06/10/2026), los casos históricos y el banco de material.
 //     Se fueron con `app/customer-success/programa/`, con `lib/programa-catalogo.ts`
 //     y con las rutas que servían el cuestionario. No eran un molde de nada: eran
 //     el curso de un cliente, con nombres de OTROS clientes suyos adentro.

@@ -1,9 +1,9 @@
 // =============================================================================
-// La firma que sostiene tres webhooks
+// La firma que sostiene dos webhooks
 // =============================================================================
-// Fathom, Resend y Whop firman igual (Standard Webhooks / Svix). El algoritmo
-// estaba escrito DOS veces con dos redacciones; ahora está una sola y estos
-// tests son lo que impide que se rompa para los tres a la vez.
+// Fathom y Resend firman igual (Standard Webhooks / Svix). El algoritmo estaba
+// escrito DOS veces con dos redacciones; ahora está una sola y estos tests son lo
+// que impide que se rompa para los dos a la vez.
 //
 // La firma es lo ÚNICO que protege estas rutas: `/api/webhooks` está en
 // PUBLICOS, así que el middleware hace early-return antes del login y antes del
@@ -24,7 +24,7 @@ import { verificarFirmaSvix, headersSvix, MOTIVO_FIRMA, claveDelSecreto } from '
 const SECRETO_B64 = Buffer.from('un-secreto-de-prueba-de-32-bytes').toString('base64');
 const SECRETO = `whsec_${SECRETO_B64}`;
 const ID = 'msg_2abcdef';
-const BODY = '{"event":"course_lesson_interaction.completed","data":{"id":"less_1"}}';
+const BODY = '{"type":"email.delivered","data":{"email_id":"em_1"}}';
 
 const ahora = () => Math.floor(Date.now() / 1000);
 
@@ -122,7 +122,7 @@ test('una firma de largo distinto no rompe timingSafeEqual', () => {
 });
 
 test('headersSvix lee los tres nombres del estándar', () => {
-  const req = new Request('https://x.test/api/webhooks/whop', {
+  const req = new Request('https://x.test/api/webhooks/fathom', {
     method: 'POST',
     headers: { 'webhook-id': ID, 'webhook-timestamp': '123', 'webhook-signature': 'v1,abc' },
   });
@@ -130,47 +130,24 @@ test('headersSvix lee los tres nombres del estándar', () => {
 });
 
 test('headersSvix devuelve nulls cuando no vienen, sin romper', () => {
-  const req = new Request('https://x.test/api/webhooks/whop', { method: 'POST' });
+  const req = new Request('https://x.test/api/webhooks/fathom', { method: 'POST' });
   assert.deepEqual(headersSvix(req), { id: null, timestamp: null, signature: null });
 });
 
 // ── El prefijo del secreto decide cómo se hace la clave ──────────────────────
-// Whop entrega `ws_` + 64 hex, que NO es base64. Sus SDK piden que se lo pase
-// base64-ENCODEADO al verificador estándar, que después lo decodifica: la clave
-// termina siendo el string entero en UTF-8. Elegir mal no da error, da «firma no
-// coincide» — y manda a revisar el secreto, o sea lo único que estaba bien.
-
-const WHOP_SECRET = 'ws_0200e3fbe32464d1702eadce97e50886a282e8dc93b527f06ecb21fd33680d95';
-
-/** Firma EXACTAMENTE como firma Whop, según su propia doc: el verificador
- *  estándar recibe base64(secreto) y lo decodifica, así que la clave son los
- *  bytes literales del secreto. */
-function firmarComoWhop(body: string, id: string, ts: number, secreto = WHOP_SECRET): string {
-  const claveDelSdk = Buffer.from(Buffer.from(secreto, 'utf8').toString('base64'), 'base64');
-  return crypto.createHmac('sha256', claveDelSdk).update(`${id}.${ts}.${body}`).digest('base64');
-}
-
-test('un secreto ws_ de Whop verifica: la clave es el string entero, no su base64-decode', () => {
-  const ts = ahora();
-  const sig = firmarComoWhop(BODY, ID, ts);
-  assert.equal(verificarFirmaSvix(BODY, cab(sig, ID, ts), WHOP_SECRET), null);
-});
-
-test('tratar el secreto de Whop como base64 (lo que hacía antes) NO verifica', () => {
-  // La regresión concreta: `Buffer.from('ws_0200…','base64')` no lanza —descarta
-  // los caracteres inválidos y devuelve bytes— así que fallaba en silencio.
-  const ts = ahora();
-  const claveVieja = Buffer.from(WHOP_SECRET, 'base64');
-  const sigVieja = crypto.createHmac('sha256', claveVieja).update(`${ID}.${ts}.${BODY}`).digest('base64');
-  assert.notEqual(sigVieja, firmarComoWhop(BODY, ID, ts), 'las dos claves tienen que dar firmas distintas');
-  assert.equal(verificarFirmaSvix(BODY, cab(sigVieja, ID, ts), WHOP_SECRET), 'no-coincide');
-});
+// Elegir mal no da error, da «firma no coincide» — y manda a revisar el secreto, o
+// sea lo único que estaba bien. Hubo una tercera fila (`ws_`, la plataforma de
+// cursos que salió del producto el 06/10/2026); su porqué está en
+// docs/hallazgos-customer-success.md por si un proveedor nuevo la necesita.
 
 test('claveDelSecreto: cada prefijo, su regla', () => {
   // whsec_ → base64-decode de lo que sigue (Fathom, Resend, el mundo Svix).
   assert.deepEqual(claveDelSecreto(`whsec_${Buffer.from('hola').toString('base64')}`), Buffer.from('hola'));
-  // ws_ → los bytes literales, prefijo incluido (Whop).
-  assert.deepEqual(claveDelSecreto('ws_abc'), Buffer.from('ws_abc', 'utf8'));
+  // Un prefijo que la tabla no conoce NO se pela: el secreto entero va por el
+  // default (base64). Lo que fija es que el único prefijo que se saca es whsec_.
+  // PROBADO ROMPIÉNDOLO (06/10/2026): con claveDelSecreto pelando cualquier
+  // prefijo (`secret.replace(/^[a-z]+_/, '')`) este test cae: 1 fallo, 15 pases.
+  assert.deepEqual(claveDelSecreto('abc_' + Buffer.from('hola').toString('base64')), Buffer.from('abc_' + Buffer.from('hola').toString('base64'), 'base64'));
   // sin prefijo → base64, el default del estándar.
   assert.deepEqual(claveDelSecreto(Buffer.from('hola').toString('base64')), Buffer.from('hola'));
 });

@@ -42,6 +42,11 @@
 // «⋮» («no cumple función allí»); Pagos e Historial son los del CRM («como está en el CRM»,
 // «es importante que se registre historial en los clientes de Customer Success»). Y la
 // etapa y el producto viven en la cabecera, como en el CRM (./FichaEntrega.tsx).
+//
+// ⚠️ Y EL MISMO DÍA ENTRÓ «Curso», después de Tareas: «Dentro del Detail de los clientes de
+// Mauricio se tiene que ver este CURSO». Su avance clase por clase, su link al portal y las
+// llamadas de la entrega (./FichaCurso.tsx). Como Equipo, NO se condiciona por lo que tenga
+// adentro: un cliente sin clases ve la pestaña con su vacío, que dice dónde está parado.
 
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
@@ -63,6 +68,7 @@ import { guardarDatosClienteAction, pagosDeClienteAction } from './actions';
 import { CuentaDeMaKo, type CuentasProp, type MiembroDeCliente, type AltaPedida } from './CuentaDeMaKo';
 import { ResumenCliente, LlamadasCliente, PagosCliente, HistorialCliente, type DatosCrm } from './FichaPestanas';
 import { FichaEntrega, type EntregaFicha } from './FichaEntrega';
+import { FichaCurso } from './FichaCurso';
 import { rutaPlanDeCliente } from './ficha-datos';
 import { useFotoCliente } from './foto-cliente';
 import { ROTULO_ALTA, ROTULO_ROL, ROLES_ALTA, emailUtilizable, type EstadoAlta, type RolAlta } from '@/lib/agencia-altas';
@@ -178,6 +184,7 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
     // ⚠️ EL ID SIGUE SIENDO `prioridades` aunque el rótulo diga «Tareas»: es la VISTA del
     // tablero que se monta adentro (`soloVista`), y `tabInicial` la puede pedir por id.
     { id: 'prioridades', label: 'Tareas' },
+    { id: 'curso', label: 'Curso' },
     { id: 'pagos', label: 'Pagos' },
     // El badge cuenta lo que hay sin tener que entrar. `undefined` (no se pudo leer) no
     // dibuja número: un 0 ahí afirmaría que nunca habló con su cliente.
@@ -441,6 +448,12 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
               soloVista="prioridades" accionEnLugarDelMenu={verEnPlan}
               onRecargar={() => router.refresh()} />
           )}
+        </Panel>
+
+        {/* EL CURSO lee lo suyo al abrirse (una action), y relee si lo mueven de etapa desde
+            la cabecera: por eso recibe la misma `entrega` que FichaEntrega. */}
+        <Panel id="curso" activa={activa} abiertas={abiertas}>
+          <FichaCurso leadId={c.leadId} entrega={entrega} />
         </Panel>
 
         <Panel id="pagos" activa={activa} abiertas={abiertas}>

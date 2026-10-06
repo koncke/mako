@@ -109,6 +109,10 @@ const TENANT_TABLES = new Set<string>([
   'producto_entrega', 'cliente_entrega',
   // Y las dos de la 0196: quién se sacó de su producto y el orden manual de cada columna.
   'cliente_entrega_fuera', 'cliente_entrega_orden',
+  // El CURSO de un servicio (mig 0202): las clases, el avance de cada cliente, su acceso y
+  // sus llamadas. Las cuatro tienen N filas por workspace: sin el `.eq`, la lectura devolvería
+  // el curso y las respuestas de los clientes de OTRO negocio.
+  'curso_clases', 'curso_progreso', 'curso_accesos', 'curso_sesiones',
   // El orden manual de las columnas del kanban del CRM (mig 0200), la gemela de `cliente_entrega_orden`.
   // Sin esta línea la lectura devolvería el orden de las columnas de CUALQUIER workspace.
   'lead_orden',

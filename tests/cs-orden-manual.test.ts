@@ -91,6 +91,9 @@ test('«Manual» ordena lo que se dibuja, sólo con un servicio y sin sentido «
   assert.match(APP, /orden === 'manual' && servicio\s*\? ordenarManual\(/);
   assert.match(APP, /ordenes=\{servicio \? ORDEN_CS : ORDEN_LABEL\}/);
   assert.match(APP, /onDir=\{orden === 'manual' \? undefined : setDir\}/);
+  // «Si quiero volver a la posición que había dejado las tarjetas es simplemente quitar filtros»
+  // (Martín, 06/10/2026): con algo guardado, «Manual» es la base y «Limpiar filtros» vuelve ahí.
+  assert.match(APP, /ordenBase=\{hayOrdenManual \? 'manual' : 'nombre'\}/);
   // Arranca en «Manual» si alguien ya ordenó: si no, cada F5 lo escondería.
   assert.match(APP, /useState<OrdenCS>\(\(\) =>\s*entrega\?\.ok && Object\.values\(entrega\.ordenPorServicio\)\.some/);
   // /admin monta la misma barra y no tiene nada que arrastrar: «Manual» no entra a ORDEN_LABEL.

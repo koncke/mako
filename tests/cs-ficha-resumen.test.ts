@@ -116,11 +116,12 @@ test('en la ficha, todo lo de equipo cuelga de UN flag, y es ése', () => {
   assert.ok(!/hayEquipo/.test(FICHA), 'volvió una condición por contenido');
 });
 
-test('las tabs: Resumen · Tareas · Pagos · Llamadas · Historial (y Equipo en una agencia)', () => {
+test('las tabs: Resumen · Tareas · Curso · Pagos · Llamadas · Historial (y Equipo en una agencia)', () => {
   // «Que la tab pase a llamarse "Tareas"», «traigas la tab de Pagos», «falta la tab de
   // Historial» (06/10/2026). El id de Tareas sigue siendo `prioridades`: es la vista del tablero.
+  // Y «Dentro del Detail de los clientes de Mauricio se tiene que ver este CURSO» (06/10/2026).
   const ids = [...FICHA.matchAll(/\{ id: '(\w+)', label: '([^']+)'/g)].map((m) => `${m[1]}:${m[2]}`);
-  assert.deepEqual(ids, ['resumen:Resumen', 'prioridades:Tareas', 'pagos:Pagos', 'llamadas:Llamadas', 'historial:Historial', 'equipo:Equipo']);
+  assert.deepEqual(ids, ['resumen:Resumen', 'prioridades:Tareas', 'curso:Curso', 'pagos:Pagos', 'llamadas:Llamadas', 'historial:Historial', 'equipo:Equipo']);
   assert.equal((FICHA.match(/<Tabs\b/g) ?? []).length, 1, 'la ficha dibuja UNA fila de tabs');
 });
 

@@ -11,6 +11,10 @@
 // sobre lo que hoy existe. La tab viva son la cartera, la señal de atención, el
 // contrato y el trabajo en el tablero (ver `app/admin/dev/areas.ts` → slug
 // `customer-success`). PENDIENTE: decidir si este panel se reescribe o se retira.
+// ⚠️ Y EL 06/10/2026 SE FUE LO QUE QUEDABA: la integración con Whop (tarjeta,
+// campos, ping, logo y `lib/whop.ts`) salió del producto. El curso, sus videos y
+// sus tareas viven en MaKo (mig 0202, `lib/curso*.ts`). Las PIEZAS de abajo que
+// nombran Whop describen agosto, no hoy.
 // =============================================================================
 
 // =============================================================================

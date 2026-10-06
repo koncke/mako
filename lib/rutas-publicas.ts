@@ -125,22 +125,33 @@ export const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'] as const
  * mano, que es lo que se quiere.
  *
  * QUÉ TIENE QUE CUMPLIR UNA RUTA PARA ENTRAR ACÁ: autenticarse con un secreto
- * que el navegador NO manda solo. `/api/compartido/tarea` se autentica con el
- * token del link, que viaja en el CUERPO del request: una página ajena puede
- * mandarle un POST, pero sin el token no escribe nada, y el token es la
- * credencial entera. No hay autoridad ambiente que abusar, que es exactamente
- * lo que el chequeo de Origin protege y acá no aplica.
+ * que el navegador NO manda solo. Las dos del portal del alumno
+ * (`/api/compartido/curso/progreso` y `/api/compartido/curso/tarea`) se
+ * autentican con el token firmado de su link (lib/curso-acceso.ts), que viaja
+ * en el CUERPO del request: una página ajena puede mandarles un POST, pero sin
+ * el token no escriben nada, y el token es la credencial entera. No hay
+ * autoridad ambiente que abusar, que es exactamente lo que el chequeo de
+ * Origin protege y acá no aplica. Y ninguna de las dos lee la cookie de sesión.
  *
  * Es lo mismo que hace `/api/agente/*` con su bearer, dicho arriba.
+ *
+ * ⚠️ `/api/compartido/tarea` SE FUE de esta lista el 06/10/2026: la ruta se
+ * borró el 26/09 con el programa viejo (07d07139) y la entrada había quedado
+ * abriendo a POST una ruta que no existe. Una excepción de escritura sin
+ * dueño es la que hereda la próxima ruta que alguien cree con ese nombre.
  */
-export const PUBLICOS_ESCRITURA = ['/api/compartido/tarea', '/api/agente/lead'] as const;
+export const PUBLICOS_ESCRITURA = [
+  '/api/compartido/curso/progreso',
+  '/api/compartido/curso/tarea',
+  '/api/agente/lead',
+] as const;
 
 const matchea = (lista: readonly string[], pathname: string) =>
   lista.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
 export const esPublica = (pathname: string) => matchea(PUBLICOS, pathname);
 
-/** Match EXACTO: `/api/compartido/tarea/loquesea` no hereda el permiso. */
+/** Match EXACTO: `/api/compartido/curso/tarea/loquesea` no hereda el permiso. */
 export const esPublicaDeEscritura = (pathname: string) =>
   (PUBLICOS_ESCRITURA as readonly string[]).includes(pathname);
 

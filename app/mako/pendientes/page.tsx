@@ -27,7 +27,7 @@ import { BandejaPendientes, type FilaPendiente } from './BandejaPendientes';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 // El techo de la PÁGINA gobierna sus server actions (docs/hallazgos-infra.md). Acá
-// se confirman acciones que corren IA, sincronizan Whop o analizan llamadas: sin
+// se confirman acciones que corren IA o analizan llamadas: sin
 // esto la plataforma corta a mitad de camino y la propuesta queda «aplicándose»
 // sin resultado, con la escritura hecha a medias.
 export const maxDuration = 300;

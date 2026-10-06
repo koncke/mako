@@ -50,7 +50,7 @@ el arranque.
 >
 > ⚠️ **Esta clase se llamaba 1.6 hasta que se agregó «Quién te compite de verdad».** El rótulo
 > sale de la POSICIÓN en el módulo, así que insertar una clase renumera a las de abajo — y ese
-> rótulo es el que viaja a Whop y a los mensajes de WhatsApp del cliente. Su id (`m1c6`) no
+> rótulo es el que viajaba a Whop (desde el 06/10/2026, al portal del curso en MaKo) y a los mensajes de WhatsApp del cliente. Su id (`m1c6`) no
 > cambió, que es lo que protege las respuestas ya guardadas.
 
 ---

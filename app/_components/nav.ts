@@ -144,24 +144,40 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
         { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', match: starts('/instagram') },
       ],
-      // Después de la venta. Va en Operate y no en Analyze porque contesta «¿qué
-      // tengo que hacer hoy con mis clientes?», no «¿qué pasó?».
-      //
-      // ⚠️ ERA UN DESPLEGABLE DE DOS Y AHORA ES UNA FILA. El segundo destino era
-      // `/customer-success/programa`, el temario de 44 clases de Mauricio, y se borró
-      // el 26/09/2026 al rearmar la tab para cualquier workspace. Con un solo item, el
-      // criterio escrito en `NavGrupo` dice que deja de justificar un desplegable — y
-      // dejar la fila apuntando a la carpeta borrada era un 404 en la barra.
-      //
-      // ⚠️ Y el `match` es IGUALDAD, no `starts`: `app/customer-success/` ya no tiene
-      // ninguna subruta, y la ficha de un cliente es un ESTADO adentro de la lista.
-      [
-        // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de la página
-        // (`requireCapa('customer-success')` → `tabEnCapa`, que lee KEYS DE NAV). Era la
-        // key del desplegable; al plegarlo se la queda la fila, o el guard preguntaría
-        // por una key que la barra ya no tiene.
-        { key: 'customer-success', label: 'Customer Success', href: '/customer-success', icon: 'cs', match: (p) => p === '/customer-success' },
-      ],
+    ],
+    grupos: [
+      {
+        // Después de la venta. Va en Operate y no en Analyze porque contesta «¿qué
+        // tengo que hacer hoy con mis clientes?», no «¿qué pasó?».
+        //
+        // ⚠️ VOLVIÓ A SER UN DESPLEGABLE DE DOS (06/10/2026). Del 26/09 al 06/10 fue una
+        // fila sola: el segundo destino era `/customer-success/programa`, el temario de 44
+        // clases de Mauricio escrito en código, y se borró al rearmar la tab para cualquier
+        // workspace. Volvió el curso —ahora en la base, colgado de las etapas de entrega de
+        // cada producto (mig 0202)— y con dos destinos que se consultan de a uno (la
+        // cartera es lo de todos los días, el curso se toca cuando se arma) el criterio de
+        // `NavGrupo` vuelve a pedir el desplegable.
+        //
+        // La key del GRUPO no es contrato (sólo identifica el desplegable); la de los
+        // ítems sí, y por eso el grupo NO se llama `customer-success`: ese nombre es de la
+        // fila de Clientes y dos cosas con la misma key en la barra son dos cosas que se
+        // pisan en cualquier mapa por key.
+        key: 'cs-grupo', label: 'Customer Success', icon: 'cs',
+        items: [
+          // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de las dos páginas
+          // (`requireCapa('customer-success')` → `tabEnCapa`) y la que nombran las capas en
+          // lib/capas.ts. Cambiarla acá deja a la barra preguntando por otra cosa que la
+          // página: la fila se esconde donde la página abre, o al revés.
+          //
+          // Y el `match` es IGUALDAD, no `starts`: con `starts` se encendería también
+          // estando en /customer-success/curso, y la barra marcaría dos destinos a la vez.
+          { key: 'customer-success', label: 'Clientes', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
+          // El curso: las clases de cada producto y el avance de cada cliente. Su página pide
+          // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
+          // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
+          { key: 'cs-curso', label: 'Curso', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
+        ],
+      },
     ],
   },
   {

@@ -152,6 +152,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'reunion-recordatorio': 'reunion', 'reunion-agenda-dia': 'reunion',
   'reunion-nuevo-agendado': 'reunion', 'reunion-cancelada': 'reunion',
   'reunion-ocurrio-fathom': 'reunion', 'reunion-no-show': 'reunion',
+  // Las llamadas de la ENTREGA del curso (lib/curso-mensajes.ts, cron curso-sesiones).
+  'curso-sesion-previa': 'reunion', 'curso-sesion-posterior': 'reunion',
   'reunion-compromisos-tareas': 'plan', 'reunion-tareas-al-plan': 'plan',
   'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
   'plan-proyecto-vence': 'plan',
@@ -591,6 +593,28 @@ Conviene que le marques tú: +52 55 4874 2149
 https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
+  },
+  // Las dos de las llamadas de la ENTREGA de un servicio (el curso, 06/10/2026): lo que Mauricio
+  // pidió el 8/9 — «un día antes de la siguiente, lo que no está concluido», también a él y sin
+  // aprobación. Las emite el cron curso-sesiones con `emitirAviso` (lib/curso-mensajes.ts); sin
+  // estas filas salían igual, con el rótulo «SISTEMA» y sin poder apagarse desde /mensajes.
+  // Ejemplos FICTICIOS por regla.
+  {
+    id: 'curso-sesion-previa', titulo: 'Sesión con un cliente', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cron curso-sesiones (cada hora): una llamada de la entrega (curso_sesiones) a menos de 24 h. Una marca por sesión: no se repite.',
+    ejemplo: `Mañana a las 10:00 a. m. tienes sesión con *Ana Ruiz*: 2 tareas pendientes de *Norte*:
+· Tu visión a 3 años
+· Tu meta del año
+Ya le mandé el recordatorio.`,
+  },
+  {
+    id: 'curso-sesion-posterior', titulo: 'Pendientes de un cliente', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cron curso-sesiones (cada hora): de 2 a 48 h después de una llamada de la entrega, si al cliente le quedan tareas de su etapa.',
+    ejemplo: `Después de la sesión con *Ana Ruiz*: 1 tarea pendiente de *Norte*:
+· Tu meta del año
+Ya le mandé sus pendientes.`,
   },
   {
     id: 'reunion-agenda-dia', titulo: 'Agenda del día (juntas de hoy)', categoria: 'aviso',
