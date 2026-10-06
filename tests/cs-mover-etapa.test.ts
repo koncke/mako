@@ -35,7 +35,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const SRC = readFileSync(new URL('../lib/cs-mover-etapa.ts', import.meta.url), 'utf8');
+const SRC = readFileSync(new URL('../lib/cs-mover-etapa.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 // El bloque es su CIERRE REAL: desde la firma hasta el comentario de la función
 // siguiente. Nunca un `slice(i, i + N)` elegido a ojo — ese universo se come la

@@ -186,7 +186,7 @@ test('la duración se escribe como un reloj', () => {
 
 // ── Los call sites: lo escrito no es lo enchufado ────────────────────────────
 
-const leer = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+const leer = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 /** La LÍNEA donde ese archivo monta la tarjeta. El universo es la invocación, no
  *  el archivo: `replay` aparece también en los comentarios y en el destructuring. */

@@ -225,7 +225,9 @@ const raiz = join(__dirname, '..');
 const sinComentarios = (src: string) => src
   .replace(/^[ \t]*\/\/.*$/gm, '')
   .replace(/\/\*[\s\S]*?\*\//g, '');
-const fuente = (p: string) => sinComentarios(readFileSync(join(raiz, p), 'utf8'));
+// El `\r` se saca ANTES de nada: en un worktree recién hecho los archivos llegan en CRLF
+// (core.autocrlf) y los recortes que buscan `\n}\n` no encontrarían el cierre (AGENTS.md).
+const fuente = (p: string) => sinComentarios(readFileSync(join(raiz, p), 'utf8').replace(/\r\n/g, '\n'));
 const bloque = (src: string, desde: string, hasta: string) => {
   const ini = src.indexOf(desde);
   assert.ok(ini >= 0, `no encontré «${desde}»`);
@@ -241,13 +243,17 @@ test('el motor resuelve el trigger del residuo con el ámbito del embudo', () =>
 });
 
 test('⚠️ los dos horarios (dry-run y commit) escalonan el residuo', () => {
+  // Al integrar #789 (la reagenda) con esto, el horario de los dos caminos pasó a salir de
+  // UNA función, `aInscribir`, que reemplazó a `horariosDeInscripcion`: el escalonado se
+  // injertó ahí. Probado rompiéndolo (06/10): sacar el `escalonados?.get(lead_id) ??` → 1 rojo.
   const src = fuente('lib/nutricion.ts');
-  const fn = bloque(src, 'async function horariosDeInscripcion(', 'let juntasMap');
-  assert.ok(fn.length < 800, `el recorte mide ${fn.length}: mira otra cosa`);
-  assert.match(fn, /if \(sec\?\.trigger_tipo === TRIGGER_RESIDUO\)\s*\{\s*return horariosResiduo\(/);
-  const llamadas = [...src.matchAll(/horariosDeInscripcion\(sec\.pasos\[0\], pendientes(, sec)?\)/g)];
-  assert.equal(llamadas.length, 2, 'son dos los que inscriben: el dry-run y el commit');
-  assert.ok(llamadas.every((m) => m[1] === ', sec'), 'uno de los dos no le pasa la secuencia: ese no escalona');
+  const fn = bloque(src, 'async function aInscribir(', '\n}\n');
+  assert.ok(fn.length < 3000, `el recorte mide ${fn.length}: mira otra cosa`);
+  assert.match(fn, /sec\.trigger_tipo === TRIGGER_RESIDUO && pendientes\.length\s*\?\s*await horariosResiduo\(db, \{ pendientes,/);
+  assert.match(fn, /proximo_envio_at: escalonados\?\.get\(lead_id\) \?\? proximoEnvioDePaso\(/);
+  assert.doesNotMatch(src, /horariosDeInscripcion\(/, 'volvió el segundo camino del horario');
+  const llamadas = [...src.matchAll(/await aInscribir\(supabase, sec, candidatos\)/g)];
+  assert.equal(llamadas.length, 2, 'son dos los que inscriben: el dry-run y el commit, y los dos por aInscribir');
 });
 
 test('⚠️ al MANDAR se vuelve a preguntar si sigue siendo residuo, y si no, se cierra sin mandar', () => {

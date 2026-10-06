@@ -114,7 +114,7 @@ test('una fecha ilegible se trata como «nunca se sembró», no como «ya toca»
 //
 // ⚠️ UN GUARD DE CABLEADO NO REEMPLAZA A LOS TESTS DE ARRIBA: contesta «¿está
 // enchufado?», nunca «¿hace lo que dice?». Van los dos.
-const MOTOR = readFileSync(new URL('../lib/nutricion.ts', import.meta.url), 'utf8');
+const MOTOR = readFileSync(new URL('../lib/nutricion.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 const bloque = (desde: string, hasta: string): string => {
   const i = MOTOR.indexOf(desde);

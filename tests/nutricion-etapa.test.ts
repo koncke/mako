@@ -110,7 +110,7 @@ test('un trigger que no es de etapa no entra aunque tenga la etapa puesta', () =
 // el evento. Sin esto, mover un lead seguiría esperando al barrido horario del cron.
 
 const bloqueDe = (archivo: string, abre: string, cierraCon: string): string => {
-  const src = readFileSync(new URL(`../${archivo}`, import.meta.url), 'utf8');
+  const src = readFileSync(new URL(`../${archivo}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const ini = src.indexOf(abre);
   assert.ok(ini > 0, `no encontré «${abre}» en ${archivo}`);
   // El cierre REAL del bloque, no un número de caracteres a ojo: un `slice(ini, ini+800)`
