@@ -3395,6 +3395,50 @@ Y había un segundo error encima: `agarrada` (estado de la tarjeta) y `oculta` (
 el Kanban) son lo mismo dicho dos veces, y sus opacidades se estaban multiplicando hasta
 0.28. Es el mismo olor que «dos campos para el mismo lugar»: uno de los dos sobra.
 
+### ⚠️ El punto medio es correcto y la tarjeta igual NO queda donde se soltó (06/10/2026)
+
+Llegó por la sesión de Customer Success, con dos puntos. Martín, textual sobre el segundo:
+*«en el plan funciona diferente, ya que la posición son PRIORIDADES, creo que el plan ya lo
+hace. Si lo hace bien, que no modifique nada»*.
+
+**1. El drop perdido sobre el hueco NO pasa en el Plan.** En el editor de etapas de CS,
+cuando el hueco aparece bajo el cursor quieto, Chromium manda `dragenter` y no `dragover`, y
+sin cancelarlo el drop no llega (medido ahí: 0 de 2). Arrastrado en el Plan con Playwright
+contra el dev server: **6 de 6 drops llegaron al pop-up**, 4 de ellos con el hueco debajo del
+cursor quieto. No se tocó nada. No se midió POR QUÉ el Plan no lo sufre; el diagnóstico de
+una pantalla no se trasladó a la otra, y por eso se arrastró antes de tocar.
+
+**2. El orden: el Plan NO lo hace bien, y leer `scoreEntre` no lo muestra.** El punto medio
+entre la de arriba y la de abajo es correcto. Lo que lo rompe son los DATOS: las tareas
+admiten empates a propósito (`fijarPrioridadAMano` no corre la cascada para tareas, ver
+`lib/plan-reprio.ts`), y el Kanban desempata por `num`. Medido contra el tablero real (GET de
+sólo lectura + réplica del orden, de `scoreEntre` y de la escritura sin cascada):
+
+| | |
+|---|---|
+| tareas abiertas que compiten | 208, en **85** números distintos |
+| lugares de soltar probados (tres tarjetas, num alto/medio/bajo) | 618 |
+| la tarjeta NO queda donde se soltó | **472 (76%)** — siempre corrida 1, 2 o 3 lugares |
+| lugares ENTRE dos tarjetas con el MISMO número | 367 — ahí no existe un entero que la deje en el medio |
+| los que se arreglan sólo eligiendo mejor el número | 99 de 472 (21%) |
+
+O sea que ahí adentro el lugar lo decide `num`, no la persona. Las dos curas de verdad
+chocan con decisiones anteriores, así que **no se implementó nada y lo decide Martín**:
+
+- **Correr a los vecinos** para hacerle lugar (cascada local): es lo que se descartó para
+  tareas el 23/09, porque fijar una reescribe números ajenos.
+- **Una posición manual** como desempate, como el CRM y Customer Success: es justo lo que
+  él dijo que el Plan no es.
+
+⚠️ **La trampa:** «¿soltar abajo de otra ya la deja ahí?» no se contesta leyendo el handler
+ni con un tablero de prueba de cinco tarjetas sin empates — ahí da 100%. Se contesta con los
+empates del tablero real. Los scripts (`simular-orden2.cjs`, `probar-drop.cjs`) quedaron en
+el scratchpad de la sesión; la réplica entra en 60 líneas y vuelve a correr contra
+`/api/plan-board`.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`scoreEntre`, el `onDrop` del Kanban) ·
+lib/plan-reprio.ts (`fijarPrioridadAMano`, rama de tareas) · *2026-10-06*
+
 ## Tres cosas que se sacaron porque no significaban nada
 
 - **El chip «5 · CONSTRUIR»** del escalón. No porque el concepto esté mal: para entender

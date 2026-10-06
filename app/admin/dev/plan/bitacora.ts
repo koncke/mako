@@ -19,6 +19,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Cargar tareas sin preguntas', detalle: 'Las reuniones, WhatsApp, Claude y el proyecto vacío cargan derecho: el borrador nace sin preguntas y la fecha y la prioridad las pone el Perro', estado: 'hecha' },
   { titulo: 'La casilla de selección animada', detalle: 'Tarjetas de tarea y de proyecto con la misma regla del CRM: de ancho 0 a 15 con el hover, y todas a la vista con algo elegido', estado: 'hecha' },
   { titulo: 'Borrar lo que quedó sin call site', detalle: '`PreguntaCampo` y cuatro exports de lib/preguntas-contrato.ts ya no los usa ninguna pantalla', estado: 'cola' },
+  { titulo: 'La tarjeta queda donde se soltó', detalle: 'Entre dos tareas con el mismo número no hay entero que la deje en el medio; decide Martín: correr a los vecinos o una posición a mano', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -73,6 +74,26 @@ export const BITACORA: Hito[] = [
       'app/plan/board/BoardShell.tsx — CardTile y ProyectoCardTile: casilla siempre montada, sin ancho ni margen lateral inline, cabecera con gap 8',
       'app/globals.css — `.mk-sel-tarjeta[data-seleccionando=\'1\']`',
       'tests/plan-casilla-tarjeta.test.ts — siete guards, ocho roturas probadas',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '—', chat: '—', cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Revisar el arrastre del Kanban: el drop sobre el hueco y el orden',
+    pedido: 'en el plan funciona diferente, ya que la posición son PRIORIDADES, creo que el plan ya lo hace. Si lo hace bien, que no modifique nada',
+    puntos: [
+      'Llegó por la sesión de Customer Success, que lo había arreglado en su tablero. El primer punto era de ella: un drop que no llega cuando el hueco aparece bajo el cursor quieto. La frase de arriba es de Martín sobre el segundo.',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '—', chat: '—', cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
+    titulo: 'El drop llega siempre; el orden falla entre tareas empatadas',
+    puntos: [
+      'Arrastrado en el navegador antes de tocar: 6 de 6 drops llegaron al pop-up, 4 con el hueco bajo el cursor quieto. Ese arreglo de Customer Success no hace falta en el Plan.',
+      'El orden, contra el tablero real: en 472 de 618 lugares (76%) la tarjeta queda corrida 1 a 3 lugares. 208 tareas abiertas comparten 85 números, y entre dos con el mismo no hay entero que la deje en el medio: decide `num`.',
+      'Elegir mejor el número arregla sólo el 21%. Las dos curas de verdad —correr a los vecinos, o una posición a mano— chocan con decisiones anteriores, así que no se tocó código: lo decide Martín.',
+    ],
+    archivos: [
+      'docs/hallazgos-plan.md — «El punto medio es correcto y la tarjeta igual NO queda donde se soltó»',
     ],
   },
 ];
