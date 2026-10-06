@@ -506,4 +506,28 @@ export const BITACORA: Hito[] = [
       "app/plan/board/BoardShell.tsx \u2014 accionEnLugarDelMenu: \u00abVer en el Plan\u00bb en lugar del \u22ee",
     ],
   },
+  {
+    fecha: "6 oct", hora: "03:42", chat: "Customer Success", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Quitar de un producto, el orden manual y el hueco que sigue al cursor",
+    pedido: "1. S\u00ed, agreg\u00e1 \u00abQuitar de este producto\u00bb, pero solo para los leads que est\u00e9n en m\u00e1s de 1 producto.\n2. Que el desplegable de etapas NO est\u00e9 dividido por las fases, que solo aparezcan las etapas.\n3. Que el apartado de NOTAS tenga el mismo tama\u00f1o que el recuadro de al lado.\n4. En el editor de etapas, al arrastrar, copia la misma animaci\u00f3n que tenemos en el CRM o ah\u00ed mismo en las tarjetas de clientes, ya que si lo estoy arrastrando se tiene que ver donde va a caer, eso lo tenemos en el CRM y en el PLAN. Tambi\u00e9n con las tarjetas, se ve al momento de pasar de una columna a otra, pero si a un cliente lo arrastro abajo de otro, no se ve esa animaci\u00f3n.",
+    puntos: [
+      "SACAR A UN CLIENTE DE SU CASA NO SE PUEDE HACER BORRANDO NADA: la casa (el embudo del CRM) se deriva. Va a una tabla aparte, `cliente_entrega_fuera` (mig 0196), y no a una columna de `cliente_entrega`, que cada lector entender\u00eda como \u00abest\u00e1 en esta etapa\u00bb. El server vuelve a contar los productos antes de quitar.",
+      "\u26a0\ufe0f EL HUECO NO SEGU\u00cdA AL CURSOR A PROP\u00d3SITO: la columna no ten\u00eda orden, y seguir al cursor era prometer \u00abac\u00e1\u00bb y dejarla \u00aball\u00e1\u00bb. Para cumplir el pedido hubo que GUARDAR el orden; se pregunt\u00f3 y Mart\u00edn eligi\u00f3 \u00abSe guarda + \"Manual\"\u00bb (`cliente_entrega_orden`). El CRM dibuja el mismo hueco y no guarda la posici\u00f3n.",
+      "SE GUARDA LA COLUMNA ENTERA CON UN VECINO (\u00abantes de Juan\u00bb), no un n\u00famero: con un buscador puesto, \u00abel tercero\u00bb de lo que se ve no es el tercero de la columna. Y \u00abManual\u00bb arranca solo si hay algo guardado, o el orden desaparec\u00eda en cada F5.",
+      "UN HUECO QUE APARECE DEBAJO DEL CURSOR QUIETO SE COME EL DROP: en esa vuelta Chromium manda `dragenter` y no `dragover`. Lo midi\u00f3 el agente del editor (0 de 2 drops sin cancelar el `dragenter`); se arregl\u00f3 en el editor y en el kanban. El CRM y el Plan quedan sin revisar.",
+      "Verificado el ciclo entero del orden en ws1 (soltar \u2192 queda \u2192 F5 \u2192 sigue, \u00abOrdenar: Manual\u00bb) y la fila de prueba se borr\u00f3 al terminar. \u00abQuitar\u00bb no se prob\u00f3 de punta a punta: el Cliente de Prueba no tiene clientes.",
+    ],
+    commits: [
+      { sha: "d9ee19cd", msg: "Customer Success: quitar de un producto, orden manual y el hueco que sigue al cursor", lineas: 1713, archivos: 22 },
+    ],
+    archivos: [
+      "supabase/migrations/0196_entrega_fuera_y_orden.sql \u2014 qui\u00e9n se sac\u00f3 de su producto y el orden de cada columna",
+      "app/customer-success/orden-manual.ts \u2014 d\u00f3nde cae una tarjeta y c\u00f3mo queda la columna",
+      "app/customer-success/KanbanEntrega.tsx \u2014 el hueco sigue al cursor y el dragenter aceptado",
+      "app/customer-success/EtapasEntregaModal.tsx \u2014 el hueco del alto de una fila en el editor",
+      "app/customer-success/FichaEntrega.tsx \u2014 \u00abQuitar de este producto\u00bb con dos o m\u00e1s",
+      "app/customer-success/LoteClientes.tsx \u2014 el men\u00fa de etapas sin t\u00edtulos de fase",
+    ],
+  },
 ];
