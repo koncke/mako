@@ -36,6 +36,7 @@ function norm(u: string | null | undefined): string | null {
   if (!u) return null;
   try {
     const n = normalizarUrl(u);
+    if (!n) return null;
     const i = n.indexOf('?');
     return i >= 0 ? n.slice(0, i) : n;
   } catch { return null; }
@@ -142,8 +143,9 @@ export type FondoDelMapa =
   | { ok: true; html: string; ancho: number; alto: number; grabada: string }
   | { ok: false; motivo: 'sin_grabaciones' | 'sin_foto' };
 
-/** Cuántas grabaciones se prueban antes de rendirse: cada una es una bajada. */
-const TOPE_INTENTOS = 8;
+/** Cuántas grabaciones se prueban antes de rendirse: cada una es una bajada.
+ *  Medido el 06/10/2026 en el ws1: de las 4 más nuevas, 3 no tenían foto. */
+const TOPE_INTENTOS = 12;
 
 /**
  * La foto de la página para el fondo: la grabación MÁS NUEVA de esa página y ese
@@ -162,7 +164,10 @@ export async function fondoDelMapa(urlCruda: string, disp: Dispositivo): Promise
     .select('id, landing_url, inicio')
     .not('storage_path', 'is', null)
     .is('descarte', null)
-    .is('prueba', null)
+    // ⚠️ LAS PRUEBAS SÍ SIRVEN DE FONDO (06/10/2026). Para contar toques no (es quien
+    // estaba probando el Pixel), pero la foto de la página es la misma: medido en el
+    // ws1, la ÚNICA grabación de computadora de su portada era la de la prueba, y
+    // sin ella el mapa de computadora no tenía fondo.
     .order('inicio', { ascending: false })
     .limit(200);
   if (error) throw new Error(error.message);

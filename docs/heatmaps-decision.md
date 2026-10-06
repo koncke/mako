@@ -1,5 +1,12 @@
 # ¿Conviene meter un heatmap en MaKo?
 
+> ⚠️ **Superado el 06/10/2026.** Clarity salió del producto y Martín pidió el mapa de calor
+> dentro de Landing Analyst. Está hecho: los toques se dibujan sobre la foto de la página que
+> guarda cada grabación (no hace falta enmarcar la página en vivo, que era la objeción de
+> abajo), y desde el Pixel v22 cada toque viaja anclado a su elemento. Lo de abajo queda como
+> contexto. Ver `docs/hallazgos-landing.md` → «El mapa de calor se dibuja sobre la FOTO de una
+> grabación».
+
 **Para:** Mauricio · **Fecha:** 15 de agosto de 2026
 **Pregunta:** ¿integramos una herramienta de mapas de calor? ¿Cuál? ¿Y qué agrega de verdad sobre lo que el Pixel ya mide?
 

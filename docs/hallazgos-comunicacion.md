@@ -5431,6 +5431,37 @@ meta-health sigue pendiente—, pero el día que se conecte hay que prenderlo o 
 
 *2026-09-29*
 
+⚠️ **Y se escapó uno: `tracking-desactualizado`** («tu Pixel quedó viejo»). Medido el
+06/10/2026: no salió a nadie desde el 28/09, mientras tres clientes tenían un código anterior
+a la grabación de visitas. Lo encontró Martín pidiendo usarlo. La lista de «lo que ya venía
+funcionando» se armó mirando nombres; la que habría servido es **«¿cuáles salieron en los
+últimos 30 días?»**, que es una consulta a las marcas de dedup (`mako.aviso.last.*`) y no
+una lectura del catálogo. Ver `hallazgos-landing.md` → «El WhatsApp de "tu Pixel quedó
+viejo"».
+
+### Un aviso AGENDADO de un evento manda el EJEMPLO de fábrica — con un lead real de otro cliente
+
+**Vive en:** `lib/avisos-programados.ts` (`drenarProgramados`) · `lib/avisos-catalogo.ts`
+
+**Síntoma (medido el 06/10/2026, de rebote):** el grupo de Leila recibía todos los días a las
+9:00 de Tijuana «En 30 min tienes la R2 con *Francisco Ramos* (Dental Ramos)… /crm/482/resumen»:
+un lead del ws1, de otro cliente. Salió cuatro veces (02 a 05/10).
+
+**Causa:** el agendado (`avisos_programados` id 15, ws11, `reunion-recordatorio`) manda
+`referenciaPlantilla`, que para un aviso de EVENTO —uno que necesita un lead, una reunión— es
+el `ejemplo` del catálogo. Y ese ejemplo tenía datos reales, que es justo lo que la regla de
+«un ejemplo de UI es ficticio» (AGENTS.md) prohíbe.
+
+**Lo hecho:** la fila se corrió al 01/01/2027 (reversible: volver a poner `proxima_at`).
+
+⚠️ **SIN HACER (quedó como tarea aparte):** que un aviso de evento no se pueda agendar por
+tiempo —no tiene de qué hablar sin el evento—, o que el drenador se niegue a mandar un texto
+de ejemplo; y que el `ejemplo` de `reunion-recordatorio` deje de nombrar a un lead real. La
+otra fila agendada (id 12, ws1, `reporte-semanal`) manda a diario un reporte semanal: puede
+estar bien, pero nadie lo eligió así a propósito que se sepa.
+
+*2026-10-06*
+
 ### El editable tipo chat estaba copiado a mano en dos lados, con un comentario pidiendo sincronizarlos
 
 **Vive en:** `app/whatsapp/_shared/BurbujaMaKo.tsx` (la forma, ahora una sola) ·

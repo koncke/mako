@@ -51,6 +51,24 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ## Primitives y sistema visual
 
+### La esquina de abajo a la derecha es UN contenedor, y un deep-link tiene que poder repetirse
+
+**Vive en:** app/_components/EsquinaAvisos.tsx · app/_components/AvisoPixelViejo.tsx ·
+app/_components/MakoConfirmGate.tsx · app/integraciones/IntegracionesBoard.tsx
+
+Al sumar el aviso fijo «Actualiza el Pixel» (06/10/2026), la esquina ya era de «A revisar»
+con su propio `position: fixed`, y el IaUsageToast ya se había ido el 27/09 por taparle la
+decisión. Dos piezas fijas en la misma esquina se pisan; en un contenedor en columna, cuando
+«A revisar» se abre, la de arriba sube con ella. El contenedor va con `pointerEvents: none`
+y cada hijo con `auto`, o la columna vacía se traga los clics de lo de abajo.
+
+⚠️ Y el link del aviso (`/integraciones?abrir=landing`) **no hacía nada estando ya en
+/integraciones**: la ref que evita reabrir el modal se ponía en true la primera vez y no
+volvía nunca. Un efecto que reacciona a un parámetro de la URL tiene que rearmarse cuando el
+parámetro se va, o el segundo uso del mismo link es un botón muerto.
+
+*2026-10-06*
+
 ### ⚠️ Una barra de navegación con scroll horizontal esconde destinos, y la scrollbar oculta los borra
 
 **Síntoma:** en la ficha del lead, las últimas tabs no existen para el usuario. No hay

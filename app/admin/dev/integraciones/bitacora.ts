@@ -34,7 +34,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Conectar tu Claude', detalle: 'Token del agente con la pantalla del trato + el tutorial de 4 pasos, el mismo que monta /second-brain', estado: 'hecha' },
   { titulo: 'El Pixel de MaKo', detalle: 'UN código que mide visita, video, clics, opt-in y agenda · elegir la página es el paso 1 y gobierna todo lo demás', estado: 'hecha' },
   { titulo: 'Probar el Pixel en vivo', detalle: 'Ventana de MaKo apoyada sobre la landing · chequeos que se adaptan a lo que la página tiene · marcador para ver SOLO tu prueba', estado: 'hecha' },
-  { titulo: 'Grabar las visitas', detalle: 'Clarity salió del producto el 6/10: graba MaKo, con el interruptor del Pixel · falta que los clientes repeguen el código, y decidir si hace falta el mapa de calor', estado: 'sigue' },
+  { titulo: 'Grabar las visitas y el mapa de calor', detalle: 'Clarity salió del producto el 6/10: graba MaKo, con el interruptor del Pixel, y el mapa de calor vive en Landing Analyst · falta que los clientes repeguen el código (Pixel v22): les llega el WhatsApp y un aviso fijo en la app', estado: 'sigue' },
   { titulo: 'Identificar tus videos', detalle: 'Nombre propio, título real de Panda y ocultar los ajenos · falta que la curva de retención se filtre por video: la capacidad existe hace meses y nadie se la pasa', estado: 'sigue' },
   { titulo: 'Dar de alta un servicio sin cuatro listas', detalle: 'Hoy una integración se declara en el catálogo, en CAT_ORDER, en capas.ts, en el de íconos y en el del método; olvidar una la deja invisible y sin error', estado: 'cola' },
 ];
@@ -450,6 +450,67 @@ export const BITACORA: Hito[] = [
       'app/integraciones/IntegracionesBoard.tsx — el interruptor «Grabar las visitas»',
       'lib/lead-de-prueba.ts · app/api/cron/prueba-grabacion/route.ts — el aviso cuando la grabación de la prueba quedó guardada',
       'tests/sin-clarity.test.ts — que no vuelva a cablearse',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '13:31', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que repeguen el Pixel, el mapa de calor, Clarity fuera del todo y los leads entrantes',
+    pedido: '«1. Si, los clientes lo tienen que pegar. Para eso sería bueno que utilices el mensaje de WhatsApp de notificación que la landing quedó vieja. Y dentro de MaKo que siempre aparezca una notificación que no se pueda cerrar, pero que sea sutil, como lo tenemos en el CRM de "Revisar" que aparece abajo a la derecha.\n2. Si, tienes que implementar el mapa de calor en Landing Analyst. Y es importante que si yo pongo una nueva landing en el pixel, automáticamente la tiene que analizar la funcion de Landing Analyst. Que eso corra por detrás claro...\n3. Si, borra todo lo de clarity.\n4. También te consulto si nos falta medir esto en "Leads entrantes" antes de que agenden llamada... Porque si ya tenemos el ID del usuario, y están cayendo al CRM, en la etapa de Leads entrantes podríamos ya visualizar la grabación con todo lo demás del tracking?»',
+    puntos: [
+      'Antes de tocar nada, un relevo de seis lectores en paralelo (sólo lectura, código y producción). De rebote encontró algo urgente fuera del pedido: el grupo de Leila recibía cada día el EJEMPLO de un recordatorio con un lead real de Mauricio. Se frenó corriendo esa fila agendada al 01/01/2027; la causa quedó como tarea aparte.',
+    ],
+    archivos: [],
+  },
+  {
+    fecha: '6 oct', hora: '13:54', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Clarity: lo que quedaba, fuera',
+    commits: [
+      { sha: '6cdb2501', msg: 'Clarity: lo que quedaba, fuera — los datos, la variable y los textos que lee MaKo', lineas: 29, archivos: 5 },
+    ],
+    puntos: [
+      'En producción: 10 credenciales (con su fila de auditoría), 9 settings y la propuesta del ws13 con el porqué falso. CLARITY_API_TOKEN fuera de .env.local; en Vercel no había ninguna (0 de 34), al revés de lo que decía la cosecha anterior.',
+      'Tres descripciones de herramientas de MaKo que seguían ofreciendo campos de Clarity, y el worktree viejo que guardaba todo el Clarity anterior.',
+    ],
+    archivos: ['lib/api-mako/areas/landing.def.ts', 'tests/sin-clarity.test.ts'],
+  },
+  {
+    fecha: '6 oct', hora: '14:09', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Pixel v22, el WhatsApp de «quedó viejo» prendido y el aviso fijo',
+    commits: [
+      { sha: '7a261399', msg: 'Pixel v22, el WhatsApp de «quedó viejo» prendido y un aviso fijo para repegar', lineas: 754, archivos: 15 },
+    ],
+    puntos: [
+      '⚠️ **Corrección de la cosecha de la mañana: subir la versión SÍ hacía falta.** La portada del ws1 se había repegado con la v21 cuatro horas antes del retiro y servía el tag de Microsoft; con la versión en 21 contaba como al día para siempre. La v22 saca Clarity y ancla cada clic a su elemento para el mapa de calor (mig 0201, aplicada antes del push).',
+      'El WhatsApp no salía a nadie desde el 28/09 (el cambio de default lo dejó apagado) y su texto mentía («llega APAGADA», la novedad más nueva al final). Ahora nace prendido, la razón va primero y sólo si es verdad, y sale una vez por semana.',
+      '«Actualiza el Pixel» abajo a la derecha en toda la app, sin forma de cerrarlo, apilado con «A revisar» en un contenedor de esquina. No le sale a quien nunca pegó el Pixel (cuatro negocios tienen el token sin haberlo pegado).',
+      'Los commits viajaron a producción adentro del push de la sesión del CRM (las sesiones comparten el .git).',
+    ],
+    archivos: [
+      'lib/landing-token.ts — v22: el ancla del clic, NOVEDADES y novedadesDesde',
+      'app/api/cron/tracking-vigilante/route.ts — el texto y el ritmo del aviso',
+      'lib/pixel-aviso.ts · app/_components/AvisoPixelViejo.tsx · app/_components/EsquinaAvisos.tsx',
+      'supabase/migrations/0201_clic_anclado.sql',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '14:53', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Landing Analyst: el mapa de calor y el análisis automático',
+    commits: [
+      { sha: '7e80682c', msg: 'Landing Analyst: el mapa de calor, y cada página del Pixel se analiza sola', lineas: 1576, archivos: 26 },
+    ],
+    puntos: [
+      'El mapa se dibuja sobre la FOTO de la página que guarda cada grabación, reconstruida sin scripts: un iframe con la página en vivo correría el Pixel y grabaría al que mira. Verificado en el navegador con la portada del ws1.',
+      '⚠️ La primera versión no encontraba ninguna foto: el cuerpo sellado guarda un LOTE por renglón y se leía como un evento. Lo encontró el navegador, no el test.',
+      'Cada página declarada en el Pixel se analiza sola, por detrás (after() al guardar y un cron cada hora de red). De 7 declaradas, 4 nunca se habían analizado.',
+      'La pregunta 4 se contestó sin código nuevo: la ficha ya muestra la grabación en cualquier etapa; lo que falta es que los clientes graben y que el opt-in que choca con un duplicado no pierda el visitor_id (quedó escrito, sin hacer).',
+    ],
+    archivos: [
+      'app/landing-analyst/MapaDeCalor.tsx · lib/landing-mapa.ts · lib/landing-mapa-foto.ts · lib/landing-mapa-server.ts',
+      'lib/landing-analyst-auto.ts · lib/landing-url.ts · app/api/cron/landing-analyst-auto/route.ts',
     ],
   },
 ];

@@ -3138,21 +3138,26 @@ existía; (2) la grabación prendida en los tres negocios que tenían Clarity (e
 decisión que tomaron al conectarlo, y se revierte con el interruptor); (3) recién ahí, Clarity
 fuera: los cuatro registros, el snippet, la ficha, los dos crons, el aviso, la API de MaKo.
 
-**Y la versión del Pixel NO se subió, medido:** los tres clientes ya están por debajo de la
-v21, así que ya les llega el aviso de repegar; cuando lo hagan reciben el código sin Clarity.
-Subirla le habría mandado a todos los negocios un aviso que no les cambia nada.
+**Y la versión del Pixel NO se subió** — ⚠️ y eso estuvo MAL, corregido el mismo día con la
+v22. El razonamiento («los tres clientes ya están por debajo de la v21») cubría a los
+clientes y no a una página ya repegada con la v21 ANTES del retiro: la portada del ws1 se
+repegó el 06/10 a las 03:48 UTC, el commit que sacó Clarity es de las 07:23, y esa página
+servía `SV = 21` con el tag de Microsoft adentro. Con la versión en 21 contaba como al día
+para siempre. Ver «Sacar algo del código pegado también es una versión nueva», abajo.
 
 **Lo que quedó SIN hacer:**
 - **Los clientes tienen que REPEGAR el código.** Hasta que lo hagan, su página sigue cargando
   el tag de Microsoft (el id viaja horneado en su HTML) y MaKo no los graba. El ws1 también:
   su landing principal corre la **v14** (7.793 visitas en 30 días contra 32 de la v21).
-- **El MAPA DE CALOR es lo único de Clarity sin reemplazo.** Los datos ya se capturan desde la
-  v20 (en qué punto toca cada persona); falta la vista. `docs/heatmaps-decision.md` (15/08)
-  había decidido que agrega poco — es una decisión de Martín, no un pendiente técnico.
-- **Restos en datos, inertes:** 10 credenciales `CLARITY_*` en 5 workspaces, los settings
-  `clarity.resumen` (5) y `mako.aviso.last.clarity-grabacion-por-vencer` (3), y el
-  `CLARITY_API_TOKEN` en `.env.local` y en Vercel. Ningún código los lee; ver
-  `hallazgos-integraciones.md` → por qué las credenciales ya no se pueden borrar desde la UI.
+- **El MAPA DE CALOR es lo único de Clarity sin reemplazo.** *Hecho el mismo día*: Martín lo
+  pidió en Landing Analyst (ver «El mapa de calor se dibuja sobre la FOTO de una grabación»).
+  Y «los datos ya se capturan desde la v20» era cierto en el código y falso en la práctica:
+  16 toques con punto en toda la historia, ninguno de un cliente.
+- **Restos en datos** — *borrados el mismo día*, a pedido de Martín («borra todo lo de
+  clarity»): 10 credenciales (con su fila de auditoría), 9 settings y la propuesta del ws13
+  con el porqué falso. Dos correcciones a lo que decía este punto: en **Vercel no había**
+  ninguna `CLARITY_*` (0 de 34), y «ningún código los lee» era falso para el ws1:
+  `hidratarCredenciales` descifra todas sus credenciales a `process.env` en cada arranque.
 - **`guardar_landing` de la API de MaKo no expone los productos** (`funnelIds`): la pantalla
   los asigna y MaKo no puede. Es un hueco del registro, no de Clarity.
 
@@ -3183,6 +3188,145 @@ navegador: el paso 2 aparece en el primer frame (1,2 s desde el click, con el mo
 
 **Vive en:** app/integraciones/page.tsx · lib/landing-config-leer.ts ·
 app/integraciones/AsignarProducto.tsx · app/components/Dropdown.tsx (`varios`) · *2026-10-06*
+
+### Sacar algo del código pegado también es una versión nueva
+
+**Síntoma.** Al retirar Clarity se decidió no subir `SNIPPET_VERSION` porque «los clientes
+ya están por debajo de la v21». La portada del ws1 —la de más tráfico del producto— se
+había repegado con la v21 cuatro horas antes del retiro y seguía sirviendo el tag de
+Microsoft. Con la versión en 21, el aviso de repegar no le iba a llegar nunca.
+
+**La regla, que quedó en AGENTS.md:** el código vive congelado en la página del cliente, así
+que lo que se SACA del snippet (un tercero, un comportamiento) sólo le llega a quien repega,
+igual que lo que se agrega. Se sube la versión, aunque no traiga nada «nuevo».
+
+La v22 sumó además el ancla del clic para el mapa de calor (el elemento tocado, sin texto,
+y dónde dentro de su caja), así que repegar una vez da las dos cosas.
+
+**Vive en:** lib/landing-token.ts (`SNIPPET_VERSION`, `NOVEDADES`) · *2026-10-06*
+
+### El WhatsApp de «tu Pixel quedó viejo» no le llegaba a nadie desde el 28/09
+
+**Síntoma:** Martín pidió usar ese aviso para que los clientes repeguen. Medido: la última vez
+que salió fue el 28/09, y ese día Leila y Código Inmobiliario estaban en la v18 y P2P en la 15.
+
+**Causas, cuatro:**
+- El 28/09 todo aviso sin `porDefecto` pasó a nacer apagado y éste no se rescató (ver
+  `hallazgos-comunicacion.md` → «Cambiar un default apaga cosas que nadie pidió apagar»).
+- El texto mentía: el renglón de la v21 decía «llega APAGADA» —falso en los cuatro negocios
+  con la grabación prendida— y hablaba de «otra herramienta» que ya no existía.
+- **`Object.entries` recorre las claves numéricas de MENOR a mayor** aunque el literal esté
+  escrito de la más nueva a la más vieja: la novedad que justificaba el aviso salía ÚLTIMA,
+  entre el 66% y el 84% de un WhatsApp de 1.042 a 2.240 caracteres.
+- Un dedup de 72 h exactas sobre un cron diario a la misma hora sale cada CUATRO días: el
+  tercero cae segundos antes del corte (ws1: 13, 17, 21 y 25/09).
+
+**Lo que quedó:** prendido (`'on'`, se puede apagar); la razón va primero y sólo si es verdad
+para ese negocio («no graba las visitas» con la grabación prendida y un código anterior al
+grabador); las novedades de la más nueva a la más vieja, tres y «y N más», contadas desde la
+página MÁS atrasada (en el ws11 el setting decía 18 y una página seguía en la 15); una vez
+por semana con 7 días menos una hora, y con la versión como `dedupKey`.
+
+**SIN HACER:** P2P (ws14) no tiene ningún canal —ni grupo, ni mail, ni destinatarios— y
+además lleva días sin visitas (cae en la rama de «tracking apagado»): este aviso no le llega.
+Lo único que le llega hoy es el aviso fijo dentro de MaKo.
+
+**Vive en:** app/api/cron/tracking-vigilante/route.ts · lib/landing-token.ts (`novedadesDesde`)
+· lib/avisos-catalogo.ts · *2026-10-06*
+
+### Token acuñado no es Pixel pegado, y la versión del workspace la bajaba el editor
+
+Dos trampas que encontró el aviso fijo «Actualiza el Pixel» (lib/pixel-aviso.ts):
+
+- **`snippetDesactualizado()` cuenta como v1 a quien no tiene versión anotada**, y el token se
+  acuña con sólo ABRIR Integraciones: los ws 9, 10, 15 y 17 tienen token, ninguna versión y cero
+  visitas en toda su historia. El aviso fijo pregunta por la FILA de versión (sin fila no hay
+  Pixel pegado). ⚠️ **SIN HACER:** el chip «Actualiza el Pixel» del modal (`landingVieja` en
+  app/integraciones/page.tsx) sigue usando `snippetDesactualizado()` y se lo muestra a esos
+  cuatro negocios. Unificar con `pixelParaActualizar` es una línea, pero la función la usan el
+  cron, landing.run y el pulso.
+- **La versión es del workspace y gana el último evento**, y la vista previa del constructor
+  corre el código viejo un rato más: en el ws1, v14 desde el preview a las 03:28 y v21 desde la
+  página a las 03:30. El beacon ya no deja que el editor ni localhost la anoten.
+
+**Vive en:** app/api/track/vsl/route.ts (`anotarVersionSnippet`) · lib/pixel-aviso.ts ·
+*2026-10-06*
+
+### El mapa de calor se dibuja sobre la FOTO de una grabación, no sobre la página en vivo
+
+Pedido de Martín (06/10/2026): el mapa de calor en Landing Analyst. Lo que costó:
+
+- **Un iframe con la página real corre el Pixel adentro**: cada vez que alguien abre el mapa se
+  registra una visita y —con la grabación prendida— se graba al que mira. Y de otro origen no se
+  puede leer ni su alto ni dónde está cada elemento. El fondo es la FOTO COMPLETA que guarda
+  cada grabación (rrweb, evento de tipo 2), reconstruida como HTML sin scripts en un iframe
+  propio (`lib/landing-mapa-foto.ts`).
+- ⚠️ **El cuerpo sellado guarda UN LOTE POR RENGLÓN, no un evento.** La primera versión leía
+  cada renglón como un evento suelto, no encontraba nunca el tamaño de la ventana y decía «no
+  hay una grabación de esta página» sobre diez que tenían foto. Lo encontró el navegador, no el
+  test — el test se había escrito con la forma que uno se imaginaba.
+- ⚠️ **En un iframe tan alto como la página, `100vh` vale la página entera**: una portada con
+  `min-height: 100vh` se estira y el documento crece solo. Las unidades de ventana se congelan a
+  píxeles con el alto de quien grabó.
+- **El alto del documento varía hasta un 32%** en la misma página al mismo ancho (3.518 a 4.650
+  px): un punto de página escalado cae cientos de píxeles corrido. Por eso la v22 ancla el clic
+  al ELEMENTO, y el punto queda de respaldo.
+- **La página del mapa es host + ruta sin query.** `normalizarUrl` de lib/landing-paginas.ts
+  conserva el query que no reconoce, y los anuncios de Meta suman `ai=…&ct=…` y WhatsApp
+  `sfnsn=wa`: la misma portada salía como tres páginas. ⚠️ **SIN HACER:** el pulso de Landing
+  Analyst y el resto de los lectores que usan esa normalización tienen el mismo problema;
+  sumar esos parámetros a los de medición es la cura, en otro cambio.
+- Medido el 06/10: 3 de 13 grabaciones selladas no tienen foto (se perdió el primer lote; la
+  causa no se midió). El lector prueba hasta 12 (también las de prueba: la única de computadora del ws1 era una) y, sin foto, la pantalla muestra «Lo más tocado».
+
+**Vive en:** app/landing-analyst/MapaDeCalor.tsx · lib/landing-mapa.ts ·
+lib/landing-mapa-foto.ts · lib/landing-mapa-server.ts · app/api/landing-analyst/mapa/ ·
+*2026-10-06*
+
+### Landing Analyst no se enteraba de las páginas del Pixel
+
+Medido el 06/10/2026: de 7 páginas declaradas en 4 negocios, 4 nunca se habían analizado.
+Nada conectaba los dos: una página entraba a Landing Analyst sólo si alguien la pegaba a mano.
+
+- **La decisión es un CÁLCULO** (las declaradas sin fila), no un disparo «cuando cambia algo»:
+  cubre la pantalla del Pixel, el formato viejo y la API de MaKo sin que ninguno avise. Corre
+  con `after()` al guardar y un cron cada hora hace de red y de backfill.
+- ⚠️ **Hay DOS normalizaciones de URL** y no dan lo mismo: la del Pixel conserva www y query, la
+  de Landing Analyst no. Cruzarlas sin pasar las dos por la de Landing Analyst muestra como
+  «nunca analizada» una página que se analiza todos los días. Esa normalización se mudó a
+  lib/landing-url.ts (sin `server-only`) para poder testearla.
+- ⚠️ **El `after()` de una server action vive dentro del `maxDuration` de la PÁGINA** que la
+  llama, y /integraciones no declaraba ninguno: el análisis habría muerto a mitad de camino.
+- **Reclamo atómico** contra el índice único: sólo quien inserta la fila `pendiente` analiza.
+- **Sólo las declaradas:** las URLs que vio el Pixel las escribe un endpoint público.
+
+**Vive en:** lib/landing-analyst-auto.ts · lib/landing-url.ts ·
+app/api/cron/landing-analyst-auto/route.ts · *2026-10-06*
+
+### «Leads entrantes» ya muestra la grabación: lo que falta es captura e identidad
+
+Pregunta de Martín (06/10/2026): «si ya tenemos el ID del usuario, y están cayendo al CRM, en
+la etapa de Leads entrantes podríamos ya visualizar la grabación con todo lo demás del
+tracking?». La pantalla ya existe: la pestaña Tracking de la ficha muestra la grabación de
+cualquier lead con `visitor_id`, en cualquier etapa, y una grabación anterior al opt-in se ata
+sola (el grabador usa la misma cookie que el Pixel). Hoy no se ve nada por otras razones:
+
+- **Captura:** los clientes no graban (Pixel v15-v18). El ws1 graba desde las 03:30 del 06/10.
+- **Identidad:** los 4 leads en la primera etapa de los cuatro negocios son de formularios de
+  Meta o sin origen: ninguno tiene `visitor_id`. Meta no da ninguna llave compartida con la
+  landing, y atar por cercanía de tiempo mostraría la grabación de otra persona.
+- ⚠️ **SIN HACER — el opt-in que choca con un duplicado PIERDE el `visitor_id`.** Va a una
+  propuesta con el dato adentro, y al confirmarla no lo copia nadie: `aFilas`
+  (app/crm/revisar/[id]/RevisarLead.tsx), `FilaImport` (app/crm/leads-importar.ts),
+  `importarLeadsRevisadosAction` (app/crm/actions.ts) ni `camposParaCompletar`
+  (lib/leads-duplicados.ts). Medido: el único lead del ws13 en la primera etapa tiene dos
+  propuestas con `visitor_id` que nunca llegaron a su ficha.
+- ⚠️ **SIN HACER — la cookie del visitante no lleva `domain=`** (lib/landing-token.ts), así que
+  `www` y el dominio sin `www` son dos visitantes distintos para la misma persona.
+- Arreglado de paso: las sesiones descartadas (`corta`/`vacia`) salían en la ficha como «Se
+  está guardando» para siempre (lib/replay-leer.ts).
+
+*2026-10-06*
 
 ### La grabación de una prueba se MIRA con un lead PRUEBA, no sacando el reproductor del CRM
 

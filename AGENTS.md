@@ -3381,6 +3381,24 @@ clientes.
 - **El olor:** dos lugares donde vive «el mismo» dato (por workspace y por página, el global y
   el override). Si medís uno, decí cuál.
 
+# Lo que se SACA del código pegado en la página de un cliente también sube la versión
+
+El snippet del Pixel vive congelado en el HTML del cliente: una mejora no le llega a quien ya
+lo tenía, y por eso existen `SNIPPET_VERSION` y el aviso de repegar. Lo que se SACA tampoco le
+llega — un tercero que el snippet inyectaba, un comportamiento que se retiró — y la tentación
+es no subir la versión porque «no trae nada nuevo».
+
+Medido el 06/10/2026 al retirar Microsoft Clarity: se razonó «los clientes ya están por debajo
+de la v21, el aviso ya les llega» y la portada del ws1 —la de más tráfico— se había repegado
+con la v21 cuatro horas ANTES del retiro: servía `SV = 21` con el tag de Microsoft adentro y,
+con la versión en 21, contaba como al día para siempre.
+
+- **Retirar algo del snippet es una versión nueva**, con su renglón en `NOVEDADES` aunque el
+  renglón diga lo que ya no hace.
+- **Y el razonamiento «ya les llega el aviso» se mide contra lo que SIRVEN las páginas**, no
+  contra el número que anotó el beacon: un `curl` del HTML de la página principal de cada
+  cliente lo contesta en un minuto.
+
 # Un alta que pasa a crear N filas choca con su propio chequeo de duplicados
 
 Cuando una función que creaba UNA fila pasa a crear varias de la misma entidad —el mismo

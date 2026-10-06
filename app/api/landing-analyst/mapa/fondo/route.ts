@@ -6,7 +6,7 @@
 // que mira. Devuelve el HTML ya reconstruido —sin scripts— y el tamaño de la
 // ventana de quien grabó.
 //
-// Aparte de los toques porque es lo más pesado (baja hasta 8 grabaciones) y la
+// Aparte de los toques porque es lo más pesado (baja hasta 12 grabaciones) y la
 // pantalla puede mostrar la tabla mientras tanto.
 //
 // Sólo para quien ve Landing Analyst: la foto es la vista de una visita real.
