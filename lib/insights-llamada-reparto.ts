@@ -57,6 +57,39 @@ export function etiquetaEsR2(label: string | null | undefined): boolean {
   return /r2|reuni[oó]n 2|junta 2/i.test(label ?? '');
 }
 
+/**
+ * ¿Esta grabación es una sesión de ENTREGA del servicio, y no una reunión de venta?
+ *
+ * Pedido de Martín (06/10/2026): «en el detalle del lead, en reuniones, se están marcando
+ * muchas como R2, cuando claramente son ya de entrega de servicio... Se tiene que poder
+ * diferenciar cuando pasan a ser reuniones de entrega de servicio, y esas reuniones se
+ * visualizan en Customer Success, no aquí».
+ *
+ * La regla, MEDIDA contra la categoría del Closing Analyst sobre producción:
+ *   · la categoría dice `entrega_servicio` (cuando existe es la más precisa), o
+ *   · el lead está GANADO, tiene `fecha_cierre`, y la grabación es ESTRICTAMENTE posterior.
+ *
+ * ⚠️ EL DIAGNÓSTICO OBVIO ESTABA MAL: «posterior al primer pago» NO marca la entrega. En el
+ * cliente más grande el apartado se cobra en la R1, así que la R2 de VENTA cae después del
+ * pago en 9 de 20 ventas — con esa regla, la R2 real de esos leads desaparecía de la ficha.
+ * Lo que separa es el cierre: 28 de 28 entregas y 19 de 19 ventas bien, 0 errores.
+ *
+ * ⚠️ Y LA COMPARACIÓN ES `>`, NO `>=`: con `>=` hay 3 falsos positivos medidos — R2 de
+ * venta que caen el MISMO día del cierre (se cierra en la llamada).
+ *
+ * Fechas como `YYYY-MM-DD` (se compara el texto; las dos vienen del mismo formato).
+ */
+export function esGrabacionDeEntrega(
+  grabacion: { fecha: string | null | undefined; categoria?: string | null },
+  lead: { estado_lead?: string | null; fecha_cierre?: string | null },
+): boolean {
+  if (grabacion.categoria === 'entrega_servicio') return true;
+  const fecha = (grabacion.fecha ?? '').slice(0, 10);
+  const cierre = (lead.fecha_cierre ?? '').slice(0, 10);
+  if (lead.estado_lead !== 'ganado' || !cierre || !fecha) return false;
+  return fecha > cierre;
+}
+
 /** Normaliza un link de grabación para comparar: sin querystring, sin barra final. */
 export function urlComparable(u: string | null | undefined): string {
   return (u ?? '').trim().replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase();

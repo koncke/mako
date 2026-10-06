@@ -104,11 +104,13 @@ test('el aviso es UN RENGLÓN, siempre — la garantía es nowrap, no una medici
   assert.ok(/\{faltantes\.length\} sin marcar/.test(card), 'sin la palabra «datos»: son 38 px que no dicen nada nuevo debajo de la etapa');
   assert.ok(!/datos sin marcar/.test(card), 'esa es la versión que se partía en dos');
 
-  // ⚠️ Y EN EL CASO IGNORADO, UNA SOLA ACCIÓN. Las dos juntas miden 312,5 px y no hay
-  // forma de que entren; el estado se dice con el color y con el `title`, que no
-  // ocupan ancho. Se elige «Reactivar», que es lo que se quiere en ese estado.
-  assert.ok(/const apagado = ignorado && !!onReactivar;/.test(card), 'el caso ignorado se decide una vez');
-  assert.ok(/apagado \? \(/.test(card), 'y elige UNA acción, no dibuja las dos');
+  // ⚠️ UNA SOLA ACCIÓN, Y ES SIEMPRE LA MISMA. Hasta el 06/10/2026, con los avisos
+  // ignorados en el worklist, la ficha apagaba el renglón y cambiaba «Solucionar» por
+  // «Reactivar». Martín: «Elimina lo de "Reactivar" en el detalle del lead, eso no tiene
+  // sentido, que siempre esté el mensaje sutil». Ignorar es una decisión sobre la LISTA
+  // del CRM, no sobre la ficha.
+  assert.ok(!/Reactivar|onReactivar|ignorado/.test(card), '«Reactivar» se fue de la ficha');
+  assert.equal((card.match(/<button /g) ?? []).length, 1, 'una sola acción: Solucionar');
 });
 test('el aviso vive EN EL HEADER, debajo del desplegable, en las DOS fichas', () => {
   // Estaba en su propia franja de ancho completo arriba de las tabs, empujando las

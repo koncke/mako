@@ -4,15 +4,26 @@
 // InfoPrincipalCard — información principal del lead (contacto accionable)
 // =============================================================================
 // Teléfono y email: click en el dato (o en el ícono de copiar) lo copia al
-// portapapeles; al lado, el ícono de WhatsApp abre la tab /whatsapp en el chat
-// del lead y el de Gmail abre un correo a ese lead.
+// portapapeles; al lado, el ícono de WhatsApp le escribe por la línea NO oficial y el de
+// Gmail abre un correo a ese lead.
+//
+// ⚠️ UN SOLO BOTÓN DE WHATSAPP (06/10/2026). Había dos: el link al chat del WhatsApp
+// OFICIAL (/whatsapp?lead=) y el envío por la línea no oficial. Martín: «Si eliminamos el
+// WhatsApp OFICIAL, solo debe quedar 1 botón de WhatsApp». Queda el no oficial, que es el
+// canal del producto (ver «El WhatsApp del chatbot es el NO OFICIAL» en AGENTS.md).
+//
+// ⚠️ Y SIN FOTO PROPIA. Acá vivía `LeadFoto` (la foto de WhatsApp en un círculo), y con la
+// foto en la cabecera de la ficha quedaban DOS caras del mismo lead en la misma pantalla.
+// La cara vive en la cabecera (app/_components/foto-contacto.ts); esta tarjeta son datos.
+//
+// La montan la ficha del CRM (pop-up y ruta) y la ficha de un cliente de Customer Success.
 
-import Link from '@/app/_ui/Link';
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { saveLeadMetaAction } from '../actions';
+import { hrefDeWeb } from '@/lib/contacto-lead';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -25,6 +36,10 @@ function IconCopy() {
 function IconWhatsApp() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.2 1.2-1.7 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5s.8 1.9.8 2c.1.1.1.3 0 .5l-.4.6c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.6-.1l.8-1c.2-.3.4-.2.6-.1l1.9.9c.3.1.5.2.5.3.1.1.1.7-.1 1.4Z" /></svg>;
 }
+function IconExterno() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M14 4h6v6" /><path d="M10 14 20 4" /><path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5" /></svg>;
+}
+
 function IconMail() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="m3.5 7 8.5 6 8.5-6" /></svg>;
 }
@@ -121,24 +136,11 @@ function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar }: {
   );
 }
 
-// Foto de perfil de WhatsApp del lead (proxy no oficial por teléfono) con
-// fallback a iniciales. Same-origin (no problema de Referer/CSP).
-function LeadFoto({ telefono, nombre }: { telefono: string | null; nombre: string }) {
-  const digits = (telefono || '').replace(/\D/g, '');
-  const [failed, setFailed] = useState(false);
-  const box: CSSProperties = { width: 46, height: 46, flex: 'none', borderRadius: '50%', background: 'var(--surface-2)', color: 'var(--ink)', border: '1px solid var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, overflow: 'hidden' };
-  const partes = (nombre || '?').trim().split(/\s+/).filter(Boolean);
-  const ini = (partes.length >= 2 ? `${partes[0][0]}${partes[1][0]}` : (nombre || '?').slice(0, 1)).toUpperCase();
-  if (digits && !failed) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={`/api/whatsapp/evolution/mensajes?avatarimg=${digits}`} alt="" onError={() => setFailed(true)} style={{ ...box, objectFit: 'cover' }} />;
-  }
-  return <div style={box}>{ini}</div>;
-}
-
-export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, direccion, cohorte }: {
+export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, web = null, cohorte }: {
   leadId: number; nombre: string; empresa: string | null; email: string | null; telefono: string | null;
-  direccion?: string | null;
+  /** La web del lead (`leads.web`, mig 0194). Reemplazó a «Dirección»: «Saca en el resumen
+   *  el dato de "Dirección" eso no importa. En su lugar, pon "Web"» (Martín, 06/10/2026). */
+  web?: string | null;
   /** Cohorte de madurez del lead — solo tiene sentido si hubo R1. */
   cohorte?: { label: string; color: string; texto: string | null } | null;
 }) {
@@ -168,7 +170,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
    * también — con CERO call sites, escrita y nunca enchufada— y el historial ya
    * registra estos campos y los sabe revertir.
    */
-  const guardar = (campo: 'nombre' | 'empresa' | 'email' | 'telefono', antes: string | null) => (v: string) => {
+  const guardar = (campo: 'nombre' | 'empresa' | 'email' | 'telefono' | 'web', antes: string | null) => (v: string) => {
     const nuevo = v.trim();
     startGuardar(async () => {
       try {
@@ -191,10 +193,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
   return (
     <>
     <section style={card}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <LeadFoto telefono={telefono} nombre={nombre} />
-        <div style={sectLabel}>Información principal</div>
-      </div>
+      <div style={{ ...sectLabel, marginBottom: 14 }}>Información principal</div>
       {/* 2×2 fijo (nombre|empresa / teléfono|email) — nunca 3 arriba y 1 abajo. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
         <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} onGuardar={guardar('nombre', nombre)} />
@@ -202,19 +201,22 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
         <Row
           label="Teléfono"
           onGuardar={guardar('telefono', telefono)} value={telefono && telefono !== '—' ? telefono : null} copyKey="tel" copied={copied} onCopy={copy}
-          extra={<span style={{ display: 'inline-flex', gap: 6 }}>
-            <Link href={`/whatsapp?lead=${leadId}`} aria-label="Abrir chat de WhatsApp oficial" title="Abrir chat de WhatsApp oficial" style={iconLink}><IconWhatsApp /></Link>
-            {telefono && telefono !== '—' && <EnviarNoOficial leadId={leadId} nombre={nombre} telefono={telefono} />}
-          </span>}
+          extra={telefono && telefono !== '—' ? <EnviarNoOficial leadId={leadId} nombre={nombre} telefono={telefono} /> : null}
         />
         <Row
           label="Email"
           onGuardar={guardar('email', email)} value={email} copyKey="email" copied={copied} onCopy={copy}
           extra={<a href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email ?? '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escribir por Gmail" title="Escribir por Gmail" style={iconLink}><IconMail /></a>}
         />
-        {/* Dirección + Cohorte en la MISMA fila (Dirección ocupa todo si no hay cohorte). */}
+        {/* Web + Cohorte en la MISMA fila (Web ocupa todo si no hay cohorte). */}
         <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: cohorte ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: '16px 24px' }}>
-          <Row label="Dirección" value={direccion ?? null} copyKey="dir" copied={copied} onCopy={copy} />
+          <Row
+            label="Web"
+            onGuardar={guardar('web', web)} value={web} copyKey="web" copied={copied} onCopy={copy}
+            extra={hrefDeWeb(web)
+              ? <a href={hrefDeWeb(web)!} target="_blank" rel="noopener noreferrer" aria-label="Abrir la web" title="Abrir la web" style={iconLink}><IconExterno /></a>
+              : null}
+          />
           {cohorte && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
               <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Cohorte</div>

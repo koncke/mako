@@ -23,6 +23,7 @@ import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { credWs, envCred } from '@/lib/credenciales';
 import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
 import { textoAvisoPostLlamada } from '@/lib/lead-resumen';
+import { esGrabacionDeEntrega } from '@/lib/insights-llamada-reparto';
 
 export const dynamic = 'force-dynamic';
 // El follow-up post-llamada (Closing Analyst + redacción con Claude) corre en
@@ -120,6 +121,19 @@ export async function POST(request: NextRequest) {
     // R1 vs R2: por la fecha de la grabación contra las fechas del lead.
     const startIso = body.recording_start_time || body.scheduled_start_time || null;
     const fecha = startIso ? isoToFechaTijuana(startIso) : null;
+
+    // ⚠️ UNA SESIÓN DE ENTREGA NO ES UNA R2 (06/10/2026). Este era el ÚNICO escritor de las
+    // «Reunión 2» de más: el fallback de abajo («R1 ya resuelta → es la R2») le ponía esa
+    // etiqueta a CADA reunión de un cliente que ya había tenido su R2 — 45 links en 6
+    // clientes del ws1, todos posteriores al cierre. Y por cada una, además, disparaba el
+    // evento de R2, pagaba un análisis del Closing Analyst y le avisaba al dueño «Terminó la
+    // R2». La grabación no se pierde: el sync del Closing Analyst la guarda en
+    // `closing_analyses` con el lead, y Customer Success la muestra desde ahí.
+    // La categoría todavía no existe acá (el análisis corre después), así que decide la fecha.
+    if (esGrabacionDeEntrega({ fecha }, lead)) {
+      console.log(`[webhook:fathom] lead id=${lead.id} sesión de ENTREGA (${fecha} > cierre ${lead.fecha_cierre}) — no es R2, no se engancha`);
+      return Response.json({ ok: true, ignored: true, reason: 'sesion de entrega' });
+    }
     let which: 'j1' | 'j2' = 'j1';
     if (fecha && lead.fecha_junta_2 && fecha === lead.fecha_junta_2) which = 'j2';
     else if (fecha && lead.fecha_junta_1 && fecha === lead.fecha_junta_1) which = 'j1';

@@ -6684,3 +6684,77 @@ propio botón— y recorre las dos ramas con datos reales: «Teresa De Jesus» (
 «Ver detalle» y «Ellie Burgueño» (sin lead) ofrece el alta. Las filas de la lista **no son
 `<button>`**, así que enumerarlas por `querySelectorAll('button')` devuelve 0 y se lee como
 «la bandeja está vacía»: se clickean por texto.
+
+## Las sesiones de ENTREGA quedaban como «Reunión 2», y la regla buena NO es el primer pago (06/10/2026)
+
+**Vive en:** `app/api/webhooks/fathom/route.ts` (el escritor) · `lib/insights-llamada-reparto.ts`
+(`esGrabacionDeEntrega`) · `app/crm/lead-view/ReunionesCard.tsx` (donde se veía)
+
+Síntoma (captura de Martín, lead #21 del cliente más grande): debajo de la R2 aparecían ocho, once
+filas «Reunión 2 (Fathom)», todas sesiones de entrega del servicio. «Esas reuniones se visualizan
+en Customer Success, no aquí.»
+
+- **El escritor era UNO, y no el que se sospecha por el nombre.** `fathom-auto` y `crm-auto`
+  están limpios (el primero saltea leads con 2+ links y mira ±3 días). El culpable es el
+  **webhook de Fathom**: si la fecha de la grabación no coincide con R1 ni con R2, cae al fallback
+  «R1 ya resuelta → es la R2», así que a un cliente que ya tuvo su R2 le etiquetaba como R2 CADA
+  reunión que grabara. 45 links en 6 clientes, todos posteriores al cierre. Y por cada una,
+  además, disparaba el evento de R2, **pagaba un análisis del Closing Analyst** (que recién
+  después descartaba por «no es venta») y le avisaba al dueño «Terminó la R2».
+- ⚠️ **EL DIAGNÓSTICO OBVIO ESTABA MAL: «posterior al primer pago» no marca la entrega.** El
+  apartado se cobra en la R1, así que la R2 de VENTA cae después del pago en 9 de 20 ventas (el
+  #21: pago 29/05, R2 01/06). Con esa regla se borraba la R2 real. Lo que separa es el
+  **cierre**: medido contra la categoría del Closing Analyst, 28 de 28 entregas y 19 de 19 ventas
+  bien. Y la comparación es **estricta**: con `>=` hay 3 falsos positivos (R2 que se cierran en la
+  misma llamada).
+- **El título no sirve** para separar: «Junta X y Y» y «X y Mauricio Bustos» se solapan (el
+  detector `RE_SERVICIO_EXPLICITO` caza 0 de 28 entregas). **La categoría del Closing Analyst es
+  la más precisa, pero llega DESPUÉS del webhook** (el análisis corre en el `after()`): al escribir
+  sólo hay fecha y lead.
+- **Lo que quedó:** `esGrabacionDeEntrega` (pura, con test) y el webhook sale ANTES de enganchar,
+  de disparar el evento y de pagar el análisis. La grabación no se pierde: el sync del Closing
+  Analyst la guarda en `closing_analyses` con su `lead_id`, y la pestaña «Llamadas» de Customer
+  Success la lee de ahí.
+- **Los 45 ya enganchados se SACARON de `fathom_links`** (no se re-etiquetaron: `FathomLink` no
+  tiene fecha, y clasificar al leer obligaba a cruzar `closing_analyses` en cada lector de R1/R2).
+  Respaldo previo, escritura con `sql.json`, una línea por lead en el historial, y verificado: cada
+  cliente quedó con sus 2 de venta y el jsonb como array. El primer R2 (el slot) no se tocó nunca.
+- ⚠️ **Trampa para el que venga:** hay DOS definiciones de «es R2»: `etiquetaEsR2` y `ES_R2` de
+  `lib/auto-reuniones.ts`, que además acepta «seguimiento». Y `docs/hallazgos-customer-success.md`
+  decía que `fathom_links` sólo tenía ventas: hasta hoy no era cierto.
+
+### Lo que quedó SIN hacer
+
+- **El webhook llama `dispararEvento` sin `ws`** y `lib/flujos.ts` cae a `OWNER_WS`: un webhook de
+  Fathom de otro workspace correría los flujos del ws1. Bug aparte, no tocado.
+- **Las entregas ANTERIORES a un cierre cargado tarde** (12 sesiones de un lead cuyo cierre se
+  cargó meses después) sólo las caza la categoría: la fecha no las ve.
+- **ws9 y ws11 tienen entregas sin `lead_id`** en `closing_analyses`; el día que matcheen por
+  email, la guarda del webhook ya los cubre.
+
+## La ficha del lead, 06/10/2026: producto en el pop-up, Web, un WhatsApp, la cara y sin «Reactivar»
+
+**Vive en:** `app/crm/LeadSheet.tsx` · `app/crm/[id]/LeadDetailBody.tsx` ·
+`app/crm/lead-view/InfoPrincipalCard.tsx` · `app/crm/lead-view/CaraDelLead.tsx` ·
+`app/_components/foto-contacto.ts` · `lib/contacto-lead.ts` · mig 0194
+
+- **El desplegable de producto decía «Funnel principal»** en la ruta, que es el nombre que puso la
+  migración y el mismo en todos los workspaces. Ahora las dos puertas muestran el producto
+  (`f.producto || f.nombre`), igual que el selector del tablero. El pop-up no lo tenía: es el
+  MISMO `ProductoDelLead`.
+- **«Dirección» era el domicilio FISCAL del deal**, no un dato de contacto. Se reemplazó por
+  `leads.web` (mig 0194, aplicada ANTES del push): se edita en el lugar, entra al historial y se
+  deshace como el resto. El link pone `https://` si falta y NO linkea otro esquema (un
+  `javascript:` en un campo libre es un link que ejecuta código).
+- **Los desplegables caían a la IZQUIERDA con un nombre largo**: `space-between` + `wrap` mandaba
+  la columna a otro renglón, pegada al borde izquierdo. El nombre cede (`flex: 1 1 320px`) y la
+  columna lleva `marginLeft: auto`: si no entra, baja pegada a la derecha.
+- **La foto: lo elegido → WhatsApp → Gravatar → iniciales**, una pieza para el CRM y Customer
+  Success (`foto-contacto.ts`, nació en `app/customer-success/foto-cliente.ts`). Se PRUEBA antes de
+  dibujar (un `onError` cae directo a las iniciales y nunca prueba la segunda), y el `?ws=` va en
+  la URL de WhatsApp (un `<img>` no pasa por el parche de fetch).
+  - ⚠️ **«La foto del email» es Gravatar.** La de Gmail no es pública: 550 de 1155 leads del
+    cliente más grande son de Gmail y la mayoría queda en iniciales. No es un bug.
+  - ⚠️ **La de WhatsApp vence a los 10 días** (`evolution_contactos.foto_url`, firmada con `oe`):
+    hoy están vencidas 1298 de 1807 en el ws1. Un cron que la refresque, o copiar los bytes a un
+    bucket propio, escriben datos personales: lo decide Martín.

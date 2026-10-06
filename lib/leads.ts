@@ -87,6 +87,12 @@ export type Lead = {
   email: string | null;
   telefono: string | null;
   empresa: string | null;
+  /** La web del lead (mig 0194). Reemplazó a «Dirección» en la ficha el 06/10/2026. */
+  web?: string | null;
+  /** La cara que ELIGIÓ una persona (mig 0173/0174), desde la ficha del cliente. Gana sobre
+   *  la foto automática (WhatsApp / Gravatar), que se calcula al leer y nunca se escribe acá. */
+  avatar_url?: string | null;
+  icono?: string | null;
 
   fecha_agenda: string | null;        // YYYY-MM-DD
   fecha_junta_1: string | null;
@@ -1433,6 +1439,7 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   { k: 'email', label: 'Email' },
   { k: 'telefono', label: 'Teléfono' },
   { k: 'empresa', label: 'Empresa' },
+  { k: 'web', label: 'Web' },
   { k: 'estado_lead', label: 'Estado' },
   { k: 'fecha_agenda', label: 'Fecha de agendamiento' },
   { k: 'asistio_j1', label: 'Asistió R1' },
@@ -2605,6 +2612,7 @@ export type LeadMetaInput = {
   email?: string | null;
   telefono?: string | null;
   empresa?: string | null;
+  web?: string | null;
 };
 
 /**
@@ -2684,6 +2692,7 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   if (meta.nombre !== undefined && meta.nombre) payload.nombre = meta.nombre;
   if (meta.email !== undefined) payload.email = meta.email;
   if (meta.empresa !== undefined) payload.empresa = meta.empresa;
+  if (meta.web !== undefined) payload.web = meta.web;
   if (meta.telefono !== undefined) { payload.telefono = meta.telefono; payload.telefono_normalizado = normalizarTelefono(meta.telefono); }
   if (Object.keys(payload).length === 0) return;
   const { error } = await supabase.from('leads').update(payload).eq('id', id);

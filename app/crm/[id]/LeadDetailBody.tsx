@@ -17,7 +17,7 @@
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { reactivarPendientesAction, deleteLeadAction } from '../actions';
+import { deleteLeadAction } from '../actions';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { deriveStageKey, stageMetaOpt, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
@@ -29,6 +29,7 @@ import { EditarDeal } from './EditarDeal';
 import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
 import { ProductoDelLead, type ProductoOpcion } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
+import { CaraDelLead } from '../lead-view/CaraDelLead';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { MoverEtapaConfirm } from '../MoverEtapaConfirm';
 import { pideWizardAlElegir } from '../mover-etapa';
@@ -59,10 +60,12 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [], equipo = [], productos = [] }: {
+export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [], equipo = [], productos = [], fotoEmail = null }: {
   lead: Lead;
   stages: Stage[];
   pagos: Pago[];
+  /** La foto del email (Gravatar, `d=404`), armada en el server. Ver CaraDelLead. */
+  fotoEmail?: string | null;
   initialTab?: string;
   initialEdit?: boolean;
   /** ?solucionar=1: abrir directo el asistente (o la edición si solo faltan datos estáticos). */
@@ -144,11 +147,6 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   // Ya no deriva a ninguna tab ni queda mudo.
   const solucionar = () => { setMoveTo(currentStage); };
 
-  // Avisos ignorados a mano (mig 0109): el aviso se muestra en tono suave y con
-  // opción de reactivar (vuelve a notificar en el worklist del CRM general).
-  const ignorado = !!lead.pendientes_ignorados;
-  const [, startReactivar] = useTransition();
-  const reactivar = () => { startReactivar(async () => { try { await reactivarPendientesAction(lead.id); router.refresh(); } catch { /* noop */ } }); };
 
   const borrar = () => {
     setConfirmDelete(false);
@@ -192,8 +190,17 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   // El dropdown de etapa queda inline con las tabs (acciones); "Editar" vive en
   // el header (arriba a la derecha, donde antes estaba la Cohorte).
   const header: ReactNode = (
+    // ⚠️ LOS DESPLEGABLES VAN A LA DERECHA AUNQUE EL NOMBRE SEA LARGO. Con
+    // `space-between` + `wrap`, un nombre largo empujaba la columna de la derecha a un
+    // segundo renglón y ahí caía pegada a la IZQUIERDA (captura de Martín, 06/10/2026:
+    // «los desplegables de productos y etapa están mal ubicados a la izquierda»). El bloque
+    // del nombre CEDE (`flex: 1 1 320px`, el nombre envuelve adentro) y la columna no: con
+    // `marginLeft: 'auto'`, si de verdad no entra —un celular— baja de renglón pegada a la
+    // derecha.
     <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: '1 1 320px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <CaraDelLead nombre={nombre} telefono={lead.telefono} fotoEmail={fotoEmail} icono={lead.icono} avatarUrl={lead.avatar_url} tam={56} color={chip.fg} />
+        <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
           <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{stageLabel}</span>
           {/* ⚠️ ACÁ ESTABA EL CHIP «N datos sin marcar», con su punto ROJO parpadeando
@@ -207,9 +214,10 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
               cosas que el chip no hacía — decir QUÉ falta y llevar a completarlo. */}        </div>
         <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{nombre}</h1>
         <p style={{ marginTop: 6, fontSize: 14, color: 'var(--dim)' }}>{empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(createdISO)}</p>
+        </div>
       </div>
-      {/* Dropdown de etapa + Editar, juntos arriba a la derecha. */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+      {/* Producto + etapa, juntos arriba a la derecha. */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flex: 'none', marginLeft: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {/* El producto va ANTES de la etapa: la etapa es una posición DENTRO de un
               embudo, así que leer «Mentoría · Agenda R1» en ese orden es leer la frase
@@ -231,7 +239,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
             un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
             en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
         {faltantes.length > 0 && (
-          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} />
+          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
         )}
       </div>
     </div>

@@ -114,6 +114,7 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
+import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
@@ -185,6 +186,12 @@ export type LeadFullData = {
   faltantes: Step[];
   equipo: MiembroEquipo[];
   closerDetectado: string | null;
+  /** Los productos, para el desplegable de la ficha (el mismo de la ruta /crm/[id]). */
+  productos: { id: number; nombre: string; esDefault: boolean }[];
+  /** La foto de su email (Gravatar, `d=404`), armada acá porque el hash usa `node:crypto`.
+   *  null sin email. La cadena WhatsApp → email → iniciales la arma el cliente
+   *  (app/_components/foto-contacto.ts). */
+  fotoEmail: string | null;
 };
 
 /**
@@ -232,7 +239,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // que se gatea el link de Clarity: así las dos tarjetas de la misma pantalla no
   // pueden contradecirse sobre cuándo fue la última vez que esta persona entró.
   // Nunca rompe la ficha: `replayDeLead` no tira y distingue «no pude leer».
-  const [respuestas, insightGen, equipo, grabable, replay] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad)]);
+  const [respuestas, insightGen, equipo, grabable, replay, funnels] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => [])]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
@@ -245,7 +252,11 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, videos, urlClarity: urlClarityVigente, urlMapaCalor, grabacionVencida, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
+  // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
+  // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
+  const productos = funnels.map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre, esDefault: f.esDefault }));
+  const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
+  return { lead, stages, pagos, vslEng, videos, urlClarity: urlClarityVigente, urlMapaCalor, grabacionVencida, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -2137,7 +2148,7 @@ const REVERTIBLES = new Set([
   'Etapa', 'Estado', 'Asistió R1', 'Asistió R2', 'Calificado', 'Fecha R1', 'Fecha R2',
   'Fecha de agendamiento', 'Closer', 'Setter', 'Monto de cierre', 'Motivo',
   'Confirmación de pago', 'Deadline de nutrición manual',
-  'Nombre', 'Email', 'Teléfono', 'Empresa',
+  'Nombre', 'Email', 'Teléfono', 'Empresa', 'Web',
 ]);
 
 /**
@@ -2251,6 +2262,7 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
     case 'Email': await saveLeadMeta(leadId, { email: v }); break;
     case 'Teléfono': await saveLeadMeta(leadId, { telefono: v }); break;
     case 'Empresa': await saveLeadMeta(leadId, { empresa: v }); break;
+    case 'Web': await saveLeadMeta(leadId, { web: v }); break;
     case 'Deadline de nutrición manual': {
       const { error } = await (await getTenantDb()).from('leads').update({ nutricion_manual_deadline: v }).eq('id', leadId);
       if (error) throw new Error(error.message);
@@ -2317,6 +2329,7 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
       case 'Email': meta.email = v; break;
       case 'Teléfono': meta.telefono = v; break;
       case 'Empresa': meta.empresa = v; break;
+      case 'Web': meta.web = v; break;
       case 'Deadline de nutrición manual': deadline = { set: true, value: v }; break;
     }
   }

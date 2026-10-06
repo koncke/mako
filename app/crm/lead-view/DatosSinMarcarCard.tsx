@@ -33,6 +33,13 @@
 // `title`, que no ocupan ancho.
 //
 // Lo que NO se puede volver a poner acá: la lista de nombres. Vive en el `title`.
+//
+// ⚠️ Y SE FUE «REACTIVAR» (06/10/2026). Con los avisos ignorados en el worklist, la ficha
+// apagaba el renglón y cambiaba «Solucionar» por «Reactivar». Martín: «Elimina lo de
+// "Reactivar" en el detalle del lead, eso no tiene sentido, que siempre esté el mensaje
+// sutil». Ignorar es una decisión sobre la LISTA del CRM (que ese lead no aparezca en
+// «datos sin marcar»), no sobre la ficha: acá el renglón es siempre el mismo, y completar
+// sigue estando a un clic. El estado ignorado se lee y se cambia desde el worklist.
 
 import type { CSSProperties } from 'react';
 import type { Step } from '@/lib/stage-requirements';
@@ -44,40 +51,26 @@ const accion: CSSProperties = {
   fontSize: 12.5, fontWeight: 650, fontFamily: SANS, whiteSpace: 'nowrap',
 };
 
-export function DatosSinMarcarCard({ faltantes, onSolucionar, label = 'Solucionar →', ignorado = false, onReactivar }: {
+export function DatosSinMarcarCard({ faltantes, onSolucionar, label = 'Solucionar →' }: {
   faltantes: Step[];
   onSolucionar: () => void;
   label?: string;
-  /** El lead tiene los avisos ignorados en el worklist del CRM general (mig 0109). */
-  ignorado?: boolean;
-  /** Reactivar los avisos (vuelve al worklist). Requerido si ignorado. */
-  onReactivar?: () => void;
 }) {
   if (!faltantes.length) return null;
   const nombres = faltantes.map((f) => f.label).join(' · ');
-  // Ignorado: apagado y con «Reactivar». Los dos botones juntos miden 312,5 px y
-  // no hay forma de que entren en un renglón — y en ese estado lo que se quiere
-  // es volver a verlos en el worklist, no completarlos de a uno.
-  const apagado = ignorado && !!onReactivar;
   return (
     <div
-      // La lista entera y el estado, a un hover y a cero píxeles de ancho.
-      title={ignorado ? `Ignorados en el CRM — ${nombres}` : nombres}
+      // La lista entera, a un hover y a cero píxeles de ancho.
+      title={nombres}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', fontFamily: SANS, fontSize: 12.5, lineHeight: 1.4 }}
     >
-      <span aria-hidden style={{ flex: 'none', width: 6, height: 6, borderRadius: 999, background: apagado ? 'var(--faint)' : 'var(--warn)' }} />
-      <span style={{ flex: 'none', color: apagado ? 'var(--faint)' : 'var(--ink)', fontWeight: 650, whiteSpace: 'nowrap' }}>
+      <span aria-hidden style={{ flex: 'none', width: 6, height: 6, borderRadius: 999, background: 'var(--warn)' }} />
+      <span style={{ flex: 'none', color: 'var(--ink)', fontWeight: 650, whiteSpace: 'nowrap' }}>
         {faltantes.length} sin marcar
       </span>
-      {apagado ? (
-        <button type="button" onClick={onReactivar} style={{ ...accion, color: 'var(--dim)', fontWeight: 600 }}>
-          Reactivar
-        </button>
-      ) : (
-        <button type="button" onClick={onSolucionar} style={{ ...accion, color: 'var(--primary)' }}>
-          {label}
-        </button>
-      )}
+      <button type="button" onClick={onSolucionar} style={{ ...accion, color: 'var(--primary)' }}>
+        {label}
+      </button>
     </div>
   );
 }

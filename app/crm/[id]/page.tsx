@@ -44,6 +44,7 @@ import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insi
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 import { faltantesDeLead } from '@/lib/leads';
 import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
+import { urlGravatar } from '@/lib/gravatar';
 import { getLeadInsights, getEquipoAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -104,7 +105,10 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // Los productos para el desplegable de la ficha. Sólo el id, el nombre y si es el del
   // negocio: lo demás no lo necesita la pantalla y bajaría la config entera de cada embudo
   // al navegador.
-  const productos = funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }));
+  // ⚠️ EL NOMBRE DEL PRODUCTO, no el del embudo: el desplegable decía «Funnel principal», que
+  // es el nombre que puso la migración y el mismo en todos los workspaces (captura de Martín,
+  // 06/10/2026). Mismo criterio que el selector del tablero.
+  const productos = funnels.map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre, esDefault: f.esDefault }));
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
@@ -175,6 +179,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           faltantes={faltantes}
           equipo={equipo}
           productos={productos}
+          fotoEmail={lead.email?.trim() ? urlGravatar(lead.email, 160) : null}
           tabs={[
             {
               // ⚠️ ESTA PANTALLA ES LA MISMA FICHA QUE EL MODAL, y hasta el 27/09/2026
@@ -202,7 +207,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                     empresa={lead.empresa}
                     email={lead.email}
                     telefono={lead.telefono}
-                    direccion={lead.deal_fiscal?.domicilio ?? null}
+                    web={lead.web ?? null}
                     cohorte={lead.fecha_junta_1 ? { label: cohorteLabel, color: cohorteColor, texto: textoJ1 } : null}
                   />
                   {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del

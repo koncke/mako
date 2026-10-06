@@ -16,7 +16,7 @@ import { CHIP, BAND_LABEL, deriveStageKey, stageMeta, nutricionPositivaDe, type 
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { deleteLeadInlineAction, reactivarPendientesAction, type LeadFullData } from './actions';
+import { deleteLeadInlineAction, type LeadFullData } from './actions';
 import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
 import { MoverEtapaConfirm } from './MoverEtapaConfirm';
 import { pideWizardAlElegir } from './mover-etapa';
@@ -25,6 +25,8 @@ import type { FathomLink } from '@/lib/leads';
 import { JourneyTimeline } from './JourneyTimeline';
 import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
+import { CaraDelLead } from './lead-view/CaraDelLead';
+import { ProductoDelLead } from './lead-view/ProductoDelLead';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
 // «¿Era calificado?» vive también acá, en Tracking: hay funnels sin reuniones y
@@ -45,22 +47,17 @@ const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
 function IconX() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 }
 
 export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
-  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, urlClarity, urlMapaCalor, grabacionVencida, replay } = data;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, urlClarity, urlMapaCalor, grabacionVencida, replay, productos, fotoEmail } = data;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
-  // Avisos ignorados a mano (mig 0109): tono suave + reactivar desde la ficha.
-  const ignorado = !!lead.pendientes_ignorados;
-  const [, startReactivar] = useTransition();
-  const reactivar = () => { startReactivar(async () => { try { await reactivarPendientesAction(lead.id); router.refresh(); } catch { /* noop */ } }); };
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -205,7 +202,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           modulo entero al navegador del cliente, que es la frontera que esta casa ya pago.
           Se calcula en el SERVER y baja por props, como hace la ruta. Queda anotado en
           docs/relevo/crm.md. */}
-      <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} direccion={lead.deal_fiscal?.domicilio ?? null} />
+      <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} web={lead.web ?? null} />
       {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del lead. Como
           pestaña propia se escribieron 4 en toda la base — no porque no sirvan,
           sino porque escribir una costaba un viaje a otro lado. Acá abajo del
@@ -240,7 +237,8 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         {/* header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, padding: 'clamp(18px,4vw,24px) clamp(16px,4vw,28px) 12px' }}>
           <div style={{ display: 'flex', gap: 14, minWidth: 0 }}>
-            <div aria-hidden style={{ flex: 'none', width: 46, height: 46, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SANS, fontSize: 17, fontWeight: 700, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{initials(lead.nombre)}</div>
+            {/* La cara: lo elegido → WhatsApp → Gravatar → iniciales (CaraDelLead). */}
+            <CaraDelLead nombre={lead.nombre} telefono={lead.telefono} fotoEmail={fotoEmail} icono={lead.icono} avatarUrl={lead.avatar_url} color={chip.fg} />
             <div style={{ minWidth: 0 }}>
               <div style={{ marginBottom: 5 }}><span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{sm?.label ?? lead.estado_lead}</span></div>
               <h2 id="leadsheet-title" style={{ fontWeight: 600, fontSize: 'clamp(20px,5vw,27px)', letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)', lineHeight: 1.1 }}>{lead.nombre}</h2>
@@ -250,6 +248,11 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           </div>
           <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             <button onClick={onClose} aria-label="Cerrar" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconX /></button>
+            {/* ⚠️ EL PRODUCTO, como en la ruta /crm/[id] y ANTES de la etapa (la etapa es una
+                posición DENTRO de un producto). Faltaba acá: «En el detalle del lead, en el
+                pop-up, falta el desplegable de productos, por si quiero poner a ese lead en
+                otros productos» (Martín, 06/10/2026). Es el MISMO componente. */}
+            <ProductoDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} productos={productos} />
             <Dropdown value={stageKey} options={stageOptions} onChange={pickStage} align="right" width={210} ariaLabel="Cambiar etapa" buttonStyle={{ fontSize: 13, fontWeight: 600 }} />
             {/* ⚠️ DEBAJO DEL DESPLEGABLE DE ETAPA, no en su propia franja. Ocupaba un renglón
                 de ancho completo arriba de las tabs para decir un número — y era el renglón
@@ -261,7 +264,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
                 un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
                 en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
             {faltantes.length > 0 && (
-              <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} />
+              <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
             )}
           </div>
         </div>
