@@ -1664,6 +1664,28 @@ al escribirlo — termina cuando comprobaste el CALL SITE.** Tres preguntas, y s
 treinta segundos:
 
 1. `grep` del nombre. Si aparece una sola vez, es la declaración: no lo lee nadie.
+
+   ⚠️ **Y SI APARECE DOS VECES, PREGUNTÁ QUÉ RAMA CORTA ANTES: un call site que EXISTE
+   puede no ejecutarse, y eso el grep no lo ve.** Medido el 06/10/2026 en el portal de
+   cursos. Martín reportó que faltaba el botón de compartir por curso; leer el camino
+   contestaba que ya estaba, y las tres piezas estaban bien —`Conocimientos.tsx` pasa
+   `compartir`, `CursoPortal` se lo pasa al `Hub`, el `Hub` lo dibuja en su hero—. Lo que
+   no nombra a `compartir` en ninguna línea es el `return` de 30 líneas más arriba:
+
+   ```tsx
+   if (curso.replica) return <CursoReplica curso={curso} onSalir={salir} />;   // ⛔
+   ```
+
+   Y `replica: true` **no es un flag por curso**: lo pone el catálogo para TODOS. O sea
+   que el hub no se alcanza nunca y su call site era **código muerto**: la capacidad
+   estaba escrita y adentro de un curso no había forma de usarla. El prop es opcional,
+   así que el compilador no dice nada y el grep lista dos usos perfectamente plausibles.
+
+   Lo encontró **abrir la pantalla y contar los nodos** (`.al-hero-top` → 0), no leer el
+   archivo. Dos cosas que lo cierran en segundos: el grep listando los números de línea
+   —si el único uso vive DESPUÉS de un `return` de la misma función, no corre— y, para
+   cualquier capacidad que se reporte como faltante y «esté escrita», contar los nodos en
+   el navegador **antes** de leer una línea.
 2. ¿La condición que activa a mi arreglo puede ser falsa **por culpa de lo que el
    arreglo viene a arreglar**? Ése es el caso más caro, porque parece desplegado.
 3. Si es texto que alguien tiene que ver: **miralo en la pantalla**, no en el
