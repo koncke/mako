@@ -140,6 +140,32 @@ export function leadsATraer(
   });
 }
 
+/**
+ * El plan de un LOTE: qué leads trae cada campaña o conjunto, con cada lead en UN solo
+ * grupo.
+ *
+ * ⚠️ Elegir una campaña y uno de sus conjuntos juntos hace que el mismo lead salga en los
+ * dos; contado dos veces, la pregunta diría «Traer 20» sobre 10 personas y el historial le
+ * pondría dos renglones. Gana el primero que lo reclama, y su nombre es el que queda en el
+ * historial de ese lead.
+ */
+export function repartirPorItem(
+  items: { tipo: 'campana' | 'conjunto'; id: string }[],
+  destino: number | null,
+  leads: LeadAtribuible[],
+  anuncios: Map<string, Anuncio>,
+  conjuntosDeOtro: ReadonlySet<string> = new Set(),
+): Map<string, LeadAtribuible[]> {
+  const vistos = new Set<number>();
+  const out = new Map<string, LeadAtribuible[]>();
+  for (const item of items) {
+    const suyos = leadsATraer(item, destino, leads, anuncios, conjuntosDeOtro).filter((l) => !vistos.has(l.id));
+    for (const l of suyos) vistos.add(l.id);
+    out.set(item.id, suyos);
+  }
+  return out;
+}
+
 /** Una fila de `marketing_metrics_daily` con los nombres. */
 export type FilaConNombre = FilaAnuncio & { campaign_name: string | null; adset_name: string | null };
 

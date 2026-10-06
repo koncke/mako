@@ -17,7 +17,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui';
 import {
@@ -31,7 +31,7 @@ export type ItemCampana = { tipo: 'campana' | 'conjunto'; id: string; nombre: st
 
 type Pide = { funnelId: number | null; producto: string; aTraer: number; desde: string | null; porProducto: PorProducto[] };
 
-export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignadas, show, disabled }: {
+export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignadas, show, disabled, buttonStyle }: {
   item: ItemCampana;
   productos: ProductoNombre[];
   /** La fila de este id en el mapa, si está asignada. */
@@ -49,6 +49,9 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
   onAsignadas: (asignadas: CampanaAsignada[]) => void;
   show: (msg: string, onUndo?: () => void, tono?: 'bad') => void;
   disabled?: boolean;
+  /** El estilo del botón. La tabla de campañas del CRM lo usa sin borde y más bajo: con un
+   *  desplegable con borde en cada fila, la fila mide 58 px y la tabla deja de ser densa. */
+  buttonStyle?: CSSProperties;
 }) {
   const [ocupada, setOcupada] = useState(false);
   const [pide, setPide] = useState<Pide | null>(null);
@@ -132,6 +135,7 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
         width={168}
         placeholder="Sin asignar"
         disabled={disabled || ocupada}
+        buttonStyle={buttonStyle}
       />
       {txt && pide && (
         <Confirm

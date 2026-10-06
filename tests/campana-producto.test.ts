@@ -16,7 +16,7 @@ import {
   type CampanaAsignada,
 } from '../lib/campana-config';
 import {
-  mapaDeAnuncios, campanaDeLead, leadsATraer, conteoPorCampana, campanasDeMetricas,
+  mapaDeAnuncios, campanaDeLead, leadsATraer, conteoPorCampana, campanasDeMetricas, repartirPorItem,
   type LeadAtribuible,
 } from '../lib/campana-atribucion';
 
@@ -235,10 +235,16 @@ test('las acciones que ESCRIBEN leen el setting en modo estricto', () => {
   // guardado BORRA todas las demás asignaciones del workspace.
   const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
   assert.doesNotMatch(acc, /leerCampanasAsignadas\(\)/, 'la lectura tolerante no puede alimentar una escritura');
-  for (const f of ['asignarCampanaAction', 'quitarCampanaAction', 'deshacerAsignacionAction']) {
+  // Las que escriben son las de LOTE; las de a una delegan en ellas (una sola
+  // implementación: la tabla de Ads Manager usa las de a una).
+  for (const f of ['asignarLoteAction', 'quitarLoteAction', 'deshacerLoteAction']) {
     const i = acc.indexOf(`export async function ${f}(`);
     const b = acc.slice(i, acc.indexOf('\nexport ', i + 1));
     assert.match(b, /await leerCampanasAsignadasEstricto\(\)/, `${f} no lee estricto`);
+  }
+  for (const [una, lote] of [['asignarCampanaAction', 'asignarLoteAction'], ['quitarCampanaAction', 'quitarLoteAction'], ['deshacerAsignacionAction', 'deshacerLoteAction'], ['previaCampanaAction', 'previaLoteAction']]) {
+    const i = acc.indexOf(`export async function ${una}(`);
+    assert.match(acc.slice(i, acc.indexOf('\nexport ', i + 1)), new RegExp(`(?:await|return) ${lote}\\(`), `${una} no delega en ${lote}`);
   }
   // Y la lista de Meta tiene tope: un Meta colgado no puede tumbar la acción entera.
   assert.match(acc, /Promise\.race\(\[\s*campanasYConjuntos\(\)/);
@@ -340,8 +346,8 @@ test('traer los leads de una campaña cambia el PRODUCTO, no la etapa', () => {
   assert.match(b, /\.update\(\{ funnel_id: a \}\)\.in\('id', tanda\)/, 'mueve en lote, sólo el funnel_id');
   assert.match(b, /from\('lead_audit'\)\.insert\(filas\)/, 'y deja el rastro en el historial');
   // Y la lista de qué mover la calcula el SERVER: la pantalla manda la campaña, no ids.
-  const asignar = acc.slice(acc.indexOf('export async function asignarCampanaAction('));
-  assert.match(asignar.slice(0, asignar.indexOf('\nexport ', 1)), /planDeTraida\(d\.id, item, nueva\)/,
+  const asignar = acc.slice(acc.indexOf('export async function asignarLoteAction('));
+  assert.match(asignar.slice(0, asignar.indexOf('\nexport ', 1)), /planDeTraidaLote\(d\.id, lote, nueva\)/,
     'se calcula con la configuración YA guardada (conjunto > campaña)');
 });
 
@@ -365,9 +371,40 @@ test('asignar PREGUNTA si va a mover leads o a sacarle la campaña a otro produc
   // Una campaña nueva (cero leads) se asigna con un clic; una de 896 leads no.
   const m = sinComentarios(leer('app/crm/CampanasModal.tsx'));
   // La regla vive en lib/campana-asignar.ts (la comparte la tabla de Ads Manager, y la
-  // ejecuta tests/campana-asignar.test.ts); acá se fija que el modal pase por ella.
-  assert.match(m, /if \(!hayQuePreguntar\(previa\.aTraer, otro\)\) \{ setOcupada\(null\); await asignar\(item, true\); return; \}/);
-  assert.match(m, /\.\.\.preguntaAsignar\(\{ producto: nombreProducto, aTraer: previa\.aTraer, desde: otro/);
+  // ejecuta tests/campana-asignar.test.ts); acá se fija que el LOTE pase por ella. La
+  // celda de cada fila es `ProductoCelda`, que la usa por su cuenta.
+  assert.match(m, /if \(!hayQuePreguntar\(previa\.aTraer, desde\)\) \{ await asignarLote\(fid, items\); return; \}/);
+  assert.match(m, /\.\.\.preguntaAsignar\(\{ producto: nombreDe\(fid\), aTraer: previa\.aTraer, desde,/);
+});
+
+// PROBADO ROMPIÉNDOLO: con la fila asignando al clic otra vez (`onClick={() => void
+// alternar(item)}`), sin la casilla de «todos», o con «Este» de vuelta en la columna, cae.
+test('la casilla SELECCIONA (como en todo MaKo), hay casilla de «todos», y se asigna en lote', () => {
+  // «El botón de checkbox no debería asignar, porque se entiende en todo MaKo que esa es
+  // la selección multiple... Y falta el checkbox más arriba para seleccionar a todo. Y luego
+  // una topbar aparece para poder asignar en lote» (Martín, 06/10/2026).
+  const m = sinComentarios(leer('app/crm/CampanasModal.tsx'));
+  assert.match(m, /onClick=\{\(\) => alternarSel\(f\.id\)\}/, 'el clic en la fila tilda');
+  assert.match(m, /onChange=\{alternarTodos\} aria-label="Seleccionar todas las que se ven"/, 'falta la casilla de todos');
+  assert.match(m, /el\.indeterminate = algunoTildado && !todosTildados/);
+  assert.match(m, /\{elegidos\.length > 0 && \(/, 'la barra aparece con lo tildado');
+  assert.match(m, /onChange=\{\(v\) => void elegirProductoLote\(v\)\}/);
+  // De a una se asigna desde la columna, con la MISMA pieza que Ads Manager, que dice el
+  // nombre del producto: «El producto no debe decir "Este"».
+  assert.match(m, /<ProductoCelda item=\{item\}/);
+  assert.doesNotMatch(m, />Este</);
+});
+
+test('el lote no cuenta dos veces al mismo lead: campaña y conjunto juntos traen a cada uno UNA vez', () => {
+  const leads = [L(1, null, { meta_ad_id: AD }), L(2, null, { meta_ad_id: AD2 })];
+  // La campaña reclama a los dos; el conjunto ADSET2, elegido después, ya no reclama al 2.
+  const r = repartirPorItem([{ tipo: 'campana', id: CAMP }, { tipo: 'conjunto', id: ADSET2 }], 9, leads, anuncios);
+  assert.deepEqual(r.get(CAMP)?.map((l) => l.id), [1, 2]);
+  assert.deepEqual(r.get(ADSET2)?.map((l) => l.id), []);
+  // En el otro orden, el conjunto se queda con el suyo y la campaña con el resto.
+  const r2 = repartirPorItem([{ tipo: 'conjunto', id: ADSET2 }, { tipo: 'campana', id: CAMP }], 9, leads, anuncios);
+  assert.deepEqual(r2.get(ADSET2)?.map((l) => l.id), [2]);
+  assert.deepEqual(r2.get(CAMP)?.map((l) => l.id), [1]);
 });
 
 test('el «⋯» de la columna de ENTRADA ofrece las campañas, y sólo esa columna', () => {

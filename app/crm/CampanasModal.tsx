@@ -12,16 +12,21 @@
 // Lo abren dos puertas y es el MISMO modal: el «⋯» de la columna de entrada del tablero
 // y el botón de la sección «Campañas de Meta» del pop-up del embudo.
 //
-// CADA FILA SE ASIGNA SOLA, sin «Guardar»: tildar es asignar. Y asignar TRAE LOS LEADS
-// que esa campaña ya tiene en el CRM («si selecciono una campaña, me traiga todos los
-// leads. No solo los futuros»).
+// ⚠️ LA CASILLA SELECCIONA, NO ASIGNA. La primera versión asignaba al tildar, y Martín
+// (06/10/2026): «El botón de checkbox no debería asignar, porque se entiende en todo MaKo
+// que esa es la selección multiple... Y falta el checkbox más arriba para seleccionar a
+// todo. Y luego una topbar aparece para poder asignar en lote». Es lo que hacen el tablero
+// del CRM y el del plan, y una casilla que hace otra cosa en una sola pantalla es una
+// trampa. Asignar es:
+//   · DE A UNA: el desplegable de la columna Producto (`ProductoCelda`, la MISMA pieza que
+//     la tabla de Ads Manager), que además dice el NOMBRE del producto — «El producto no
+//     debe decir "Este" eso es muy informal y no se entiende».
+//   · EN LOTE: la barra que aparece arriba con lo tildado.
 //
-// ⚠️ PREGUNTA SI VA A MOVER LEADS, Y SÓLO ENTONCES. Una campaña nueva no tiene ninguno y
-// se asigna con un clic —«no haya tanta fricción al asignar una nueva campaña, porque
-// podrían haber nuevas campañas todo el tiempo»—. Una vieja sí, y pueden ser muchos:
-// medido en el cliente más grande, una sola campaña tiene 896 leads. Pasar 896 personas de
-// tablero con un clic y un toast de siete segundos no es «sin fricción», es una sorpresa.
-// La pregunta lleva el número y de dónde salen; después queda el «Deshacer» igual.
+// Asignar TRAE LOS LEADS que esa campaña ya tiene en el CRM («si selecciono una campaña,
+// me traiga todos los leads. No solo los futuros»), y pregunta sólo si va a mover leads o
+// a sacársela a otro producto: la regla es UNA (lib/campana-asignar.ts) y la usan las tres
+// puertas (esta barra, la celda de cada fila y la tabla de Ads Manager).
 //
 // ⚠️ VA POR PORTAL AL `body`. Una de sus puertas es el pop-up del embudo, y montado
 // adentro de esa caja sería un DESCENDIENTE suyo en el DOM: la pila de modales apaga al
@@ -34,11 +39,12 @@ import { createPortal } from 'react-dom';
 import { Modal, Confirm, Spinner, Toast, useToast, SANS, MONO } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { ProductoCelda, type ItemCampana } from '@/app/ads-manager/ProductoCelda';
 import type { CampanaAsignada } from '@/lib/campana-config';
-import { hayQuePreguntar, preguntaAsignar } from '@/lib/campana-asignar';
+import { hayQuePreguntar, preguntaAsignar, valorDeProducto, funnelDeValor } from '@/lib/campana-asignar';
 import {
-  campanasDelProductoAction, previaCampanaAction, asignarCampanaAction, quitarCampanaAction,
-  deshacerAsignacionAction, type EstadoCampanas, type FilaCampana,
+  campanasDelProductoAction, previaLoteAction, asignarLoteAction, quitarLoteAction, deshacerLoteAction,
+  type EstadoCampanas, type FilaCampana,
 } from './campanas-actions';
 
 /** Lo que dice Meta de cada estado, en una palabra. Lo que no está acá se muestra
@@ -53,17 +59,25 @@ const MALO = new Set(['WITH_ISSUES', 'DISAPPROVED', 'PENDING_BILLING_INFO']);
 const tonoEstado = (e: string | null) =>
   e === 'ACTIVE' ? 'var(--good)' : e && MALO.has(e) ? 'var(--bad)' : 'var(--faint)';
 
-/** Las columnas, en UN lugar: la cabecera y las filas leen la misma plantilla. */
-const COLS = '30px minmax(0, 1fr) 128px 64px 150px';
+/** Las columnas, en UN lugar: la cabecera y las filas leen la misma plantilla. La última
+ *  mide lo que mide el desplegable de `ProductoCelda` (168) más su aire. */
+const COLS = '30px minmax(0, 1fr) 120px 56px 176px';
 const FILA: CSSProperties = { display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', columnGap: 10 };
 const TH: CSSProperties = {
   fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
   color: 'var(--faint)', fontWeight: 600, whiteSpace: 'nowrap',
 };
+/** El desplegable de la columna Producto, sin borde y bajo: se lee como el nombre del
+ *  producto con su flecha, y el velo de hover dice que se puede tocar. Con el borde por
+ *  defecto, cada fila medía 58 px. */
+const CELDA_PRODUCTO: CSSProperties = {
+  border: '1px solid transparent', background: 'transparent', padding: '4px 8px',
+  minHeight: 0, height: 30, fontSize: 13, fontWeight: 500,
+};
+const CASILLA: CSSProperties = { width: 16, height: 16, margin: 0, cursor: 'pointer', accentColor: 'var(--primary)' };
 
 type Orden = 'nombre' | 'estado' | 'leads';
-type Item = { tipo: 'campana' | 'conjunto'; id: string; nombre: string; campanaId?: string };
-type Pide = { item: Item } & ReturnType<typeof preguntaAsignar>;
+type Pide = { funnelId: number | null; items: ItemCampana[] } & ReturnType<typeof preguntaAsignar>;
 
 export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCerrar, onCambio }: {
   /** El producto. `null` = el del negocio — y quien monta normaliza el id numérico del
@@ -84,7 +98,8 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
   const [orden, setOrden] = useState<Orden | null>(null);
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
-  const [ocupada, setOcupada] = useState<string | null>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [trabajando, setTrabajando] = useState(false);
   const [pide, setPide] = useState<Pide | null>(null);
   const { toast, show, clear } = useToast(7000);
   const [montado, setMontado] = useState(false);
@@ -118,20 +133,19 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
 
   const pasaAsig = (id: string) => {
     if (!filtroAsig) return true;
-    const va = dondeVa.has(id) ? dondeVa.get(id)! : undefined;
-    if (filtroAsig === 'este') return dondeVa.has(id) && va === funnelId;
-    if (filtroAsig === 'otro') return dondeVa.has(id) && va !== funnelId;
+    if (filtroAsig === 'este') return esMia(id);
+    if (filtroAsig === 'otro') return dondeVa.has(id) && !esMia(id);
     return !dondeVa.has(id);
   };
   const pasaEstado = (e: string | null) =>
     !filtroEstado || (filtroEstado === 'ACTIVE' ? e === 'ACTIVE' : filtroEstado === 'otra' ? e !== 'ACTIVE' : true);
+  const texto = q.trim().toLowerCase();
+  const coincide = (f: FilaCampana) => !texto || f.nombre.toLowerCase().includes(texto) || f.id.includes(texto);
 
   // Sin `useMemo`: son decenas de filas, y memoizar con cinco funciones de cierre adentro
   // es la forma de que una dependencia olvidada deje la tabla vieja sin un error.
   const filas = (() => {
     if (!estado) return [];
-    const texto = q.trim().toLowerCase();
-    const coincide = (f: FilaCampana) => !texto || f.nombre.toLowerCase().includes(texto) || f.id.includes(texto);
     const out = estado.campanas.filter((c) => {
       const hijos = conjuntosDe.get(c.id) ?? [];
       // Una campaña entra si ELLA pasa los filtros, o si pasa alguno de sus conjuntos:
@@ -152,71 +166,103 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
     });
   })();
 
+  /** Los conjuntos que se ven de una campaña: los abiertos a mano, o los que la búsqueda
+   *  encontró adentro — si no, el resultado queda detrás de un chevrón y se lee como «no
+   *  lo encontró». */
+  const hijosVisibles = (c: FilaCampana): FilaCampana[] => {
+    const hijos = conjuntosDe.get(c.id) ?? [];
+    const porHijo = !!texto && !c.nombre.toLowerCase().includes(texto) && hijos.some((s) => s.nombre.toLowerCase().includes(texto));
+    if (!abiertas.has(c.id) && !porHijo) return [];
+    return [...hijos].sort((a, b) => b.leads - a.leads || a.nombre.localeCompare(b.nombre, 'es'));
+  };
+
   const ordenar = (o: Orden) => {
     if (orden === o) setDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setOrden(o); setDir(o === 'nombre' ? 'asc' : 'desc'); }
   };
 
-  // ── Asignar y quitar ─────────────────────────────────────────────────────
-  const asignar = async (item: Item, traer: boolean) => {
-    setOcupada(item.id);
+  // ── Selección ────────────────────────────────────────────────────────────
+  // Cada id visible con lo que hace falta para asignarlo. La casilla de «todos» tilda lo
+  // VISIBLE: con un filtro puesto, llevarse lo escondido sería asignar lo que nadie vio.
+  const visibles = new Map<string, ItemCampana>();
+  for (const c of filas) {
+    visibles.set(c.id, { tipo: 'campana', id: c.id, nombre: c.nombre });
+    for (const s of hijosVisibles(c)) visibles.set(s.id, { tipo: 'conjunto', id: s.id, nombre: s.nombre, campanaId: c.id });
+  }
+  const todosTildados = visibles.size > 0 && [...visibles.keys()].every((id) => sel.has(id));
+  const algunoTildado = [...visibles.keys()].some((id) => sel.has(id));
+  const alternarSel = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const alternarTodos = () => setSel((s) => {
+    const n = new Set(s);
+    if (todosTildados) for (const id of visibles.keys()) n.delete(id);
+    else for (const id of visibles.keys()) n.add(id);
+    return n;
+  });
+  // Lo tildado que se puede tocar: lo que SE VE. Si un filtro escondió algo tildado, la
+  // barra no lo cuenta ni lo asigna.
+  const elegidos = [...sel].map((id) => visibles.get(id)).filter((x): x is ItemCampana => !!x);
+
+  // ── El lote ──────────────────────────────────────────────────────────────
+  const asignarLote = async (fid: number | null, items: ItemCampana[]) => {
+    setTrabajando(true);
+    setPide(null);
     try {
-      const r = await asignarCampanaAction(funnelId, item, traer);
+      const r = await asignarLoteAction(fid, items, true);
       if (!r.ok) { show(r.error, undefined, 'bad'); return; }
       actualizar(r.asignadas);
+      setSel(new Set());
       const n = r.movidos.length;
       // El toast dice QUÉ pasó, en tres o cuatro palabras (AGENTS.md); el porqué vive acá.
-      show(n ? `${n} ${n === 1 ? 'lead traído' : 'leads traídos'}` : 'Asignada', async () => {
-        const d = await deshacerAsignacionAction(item.id, r.antes, r.movidos);
+      // UN deshacer para todo el lote: es la unidad en la que la persona decidió.
+      show(n ? `${n} ${n === 1 ? 'lead traído' : 'leads traídos'}` : `${items.length} ${items.length === 1 ? 'asignada' : 'asignadas'}`, async () => {
+        const d = await deshacerLoteAction(r.previos, r.movidos);
         if (d.ok) actualizar(d.asignadas); else show(d.error, undefined, 'bad');
       });
     } catch {
       show('No se pudo asignar', undefined, 'bad');
     } finally {
-      setOcupada(null);
+      setTrabajando(false);
     }
   };
 
-  const alternar = async (item: Item) => {
-    if (ocupada) return;
-    if (esMia(item.id)) {
-      // QUITAR NO PREGUNTA: no mueve a nadie. Los leads que ya trajo se quedan; lo único
-      // que cambia es dónde caen los nuevos — y eso se deshace con el toast.
-      const antes = asignadas.find((a) => a.id === item.id) ?? null;
-      setOcupada(item.id);
+  const elegirProductoLote = async (valor: string) => {
+    const items = elegidos;
+    if (!items.length || trabajando) return;
+    if (valor === '') {
+      // QUITAR NO PREGUNTA: no mueve a nadie. Los leads que ya trajeron se quedan; lo
+      // único que cambia es dónde caen los nuevos — y eso se deshace con el toast.
+      setTrabajando(true);
       try {
-        const r = await quitarCampanaAction(item.id);
+        const r = await quitarLoteAction(items.map((i) => i.id));
         if (!r.ok) { show(r.error, undefined, 'bad'); return; }
         actualizar(r.asignadas);
-        show('Quitada', async () => {
-          if (!antes) return;
-          const d = await asignarCampanaAction(antes.funnelId, antes, false);
+        setSel(new Set());
+        show(`${items.length} ${items.length === 1 ? 'quitada' : 'quitadas'}`, async () => {
+          const d = await deshacerLoteAction(r.previos, []);
           if (d.ok) actualizar(d.asignadas);
         });
+      } catch {
+        show('No se pudo quitar', undefined, 'bad');
       } finally {
-        setOcupada(null);
+        setTrabajando(false);
       }
       return;
     }
-    setOcupada(item.id);
-    let previa: Awaited<ReturnType<typeof previaCampanaAction>>;
+    const fid = funnelDeValor(valor);
+    setTrabajando(true);
+    let previa: Awaited<ReturnType<typeof previaLoteAction>>;
     try {
-      previa = await previaCampanaAction(funnelId, item);
+      previa = await previaLoteAction(fid, items);
     } catch {
-      setOcupada(null);
+      setTrabajando(false);
       show('No se pudo contar', undefined, 'bad');
       return;
     }
-    if (!previa.ok) { setOcupada(null); show(previa.error, undefined, 'bad'); return; }
-    const otro = dondeVa.has(item.id) ? nombreDe(dondeVa.get(item.id)!) : null;
-    // CUÁNDO se pregunta y QUÉ dice la pregunta salen de lib/campana-asignar.ts: la tabla de
-    // Ads Manager hace la misma, y dos copias de una regla de producto divergen.
-    if (!hayQuePreguntar(previa.aTraer, otro)) { setOcupada(null); await asignar(item, true); return; }
-    setOcupada(null);
-    setPide({
-      item,
-      ...preguntaAsignar({ producto: nombreProducto, aTraer: previa.aTraer, desde: otro, porProducto: previa.porProducto }),
-    });
+    setTrabajando(false);
+    if (!previa.ok) { show(previa.error, undefined, 'bad'); return; }
+    const desde = previa.desde.length ? previa.desde.join(', ') : null;
+    if (!hayQuePreguntar(previa.aTraer, desde)) { await asignarLote(fid, items); return; }
+    setPide({ funnelId: fid, items, ...preguntaAsignar({ producto: nombreDe(fid), aTraer: previa.aTraer, desde, porProducto: previa.porProducto }) });
   };
 
   // ── Dibujo ───────────────────────────────────────────────────────────────
@@ -226,19 +272,16 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
     { value: 'otra', label: 'No activas' },
   ];
   const opcionesAsig: DropdownOption[] = [
-    { value: '', label: 'Todas' },
-    { value: 'este', label: 'En este producto' },
+    { value: '', label: 'Todos los productos' },
+    { value: 'este', label: `En ${nombreProducto}` },
     { value: 'otro', label: 'En otro producto' },
     { value: 'sin', label: 'Sin asignar' },
   ];
+  const opcionesLote: DropdownOption[] = [
+    ...(estado?.productos ?? []).map((p) => ({ value: valorDeProducto(p.id), label: p.nombre })),
+    { value: '', label: 'Sin asignar' },
+  ];
   const mias = asignadas.filter((a) => a.funnelId === funnelId).length;
-
-  const celdaProducto = (id: string): ReactNode => {
-    if (!dondeVa.has(id)) return <span style={{ color: 'var(--faint)' }}>—</span>;
-    const va = dondeVa.get(id)!;
-    if (va === funnelId) return <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Este</span>;
-    return <span style={{ color: 'var(--dim)' }} title={`Hoy va a ${nombreDe(va)}`}>{nombreDe(va)}</span>;
-  };
 
   const celdaEstado = (e: string | null): ReactNode => {
     if (e == null) {
@@ -256,21 +299,24 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
     );
   };
 
-  const fila = (f: FilaCampana, item: Item, nivel: 0 | 1, hijos = 0) => {
-    const on = esMia(f.id);
+  const fila = (f: FilaCampana, item: ItemCampana, nivel: 0 | 1, hijos = 0) => {
+    const on = sel.has(f.id);
     const abierta = abiertas.has(f.id);
+    const asignada = asignadas.find((a) => a.id === f.id);
+    // Un conjunto sin asignación propia HEREDA la de su campaña (así rutea
+    // `funnelIdDeCampana`), y la celda lo dice en vez de «Sin asignar».
+    const heredadoDe = item.tipo === 'conjunto' && !asignada && item.campanaId && dondeVa.has(item.campanaId)
+      ? nombreDe(dondeVa.get(item.campanaId)!) : null;
     return (
-      <div key={f.id} role="row" className="mk-fila-campana" onClick={() => void alternar(item)}
+      <div key={f.id} role="row" className="mk-fila-campana" onClick={() => alternarSel(f.id)}
         style={{
-          ...FILA, padding: '9px 12px', borderTop: '1px solid var(--border)', cursor: ocupada ? 'progress' : 'pointer',
+          ...FILA, padding: '7px 12px', borderTop: '1px solid var(--border)', cursor: 'pointer',
           background: on ? 'var(--primary-weak)' : 'transparent', fontFamily: SANS, fontSize: 13.5, color: 'var(--ink)',
         }}>
         <span style={{ display: 'flex', alignItems: 'center' }}>
-          {ocupada === f.id ? <Spinner size={15} /> : (
-            <input type="checkbox" checked={on} readOnly tabIndex={-1}
-              aria-label={on ? `Quitar «${f.nombre}» de ${nombreProducto}` : `Asignar «${f.nombre}» a ${nombreProducto}`}
-              style={{ width: 16, height: 16, margin: 0, cursor: 'pointer', accentColor: 'var(--primary)', pointerEvents: 'none' }} />
-          )}
+          <input type="checkbox" checked={on} readOnly tabIndex={-1}
+            aria-label={`Seleccionar «${f.nombre || f.id}»`}
+            style={{ ...CASILLA, pointerEvents: 'none' }} />
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, paddingLeft: nivel ? 22 : 0 }}>
           {nivel === 0 && hijos > 0 && (
@@ -294,19 +340,26 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
         </span>
         <span style={{ fontSize: 13, color: 'var(--dim)', minWidth: 0 }}>{celdaEstado(f.estado)}</span>
         <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: f.leads ? 'var(--ink)' : 'var(--faint)' }}>{f.leads}</span>
-        <span style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{celdaProducto(f.id)}</span>
+        {/* El NOMBRE del producto, y desde acá se asigna de a una. `ProductoCelda` frena el
+            clic para que elegir un producto no tilde la fila. */}
+        <span style={{ minWidth: 0 }}>
+          {estado && (
+            <ProductoCelda item={item} productos={estado.productos} asignada={asignada} heredadoDe={heredadoDe}
+              onAsignadas={actualizar} show={show} disabled={trabajando} buttonStyle={CELDA_PRODUCTO} />
+          )}
+        </span>
       </div>
     );
   };
 
   const cuerpo = (
     <Modal titulo="Campañas de Meta" encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{nombreProducto}</span>}
-      onCerrar={onCerrar} ancho={860} alto="min(85vh, 720px)" anidada={anidada} sinFiletes>
+      onCerrar={onCerrar} ancho={900} alto="min(85vh, 720px)" anidada={anidada} sinFiletes>
       {/* `crm-hover`: el portal se escapa del `<main>` del CRM, que es donde vive el velo
           de hover de todos sus botones (app/_ui/ui.css). Sin esto, los de acá no reaccionan. */}
-      <div className="crm-hover" style={{ padding: 0, minWidth: 520 }}>
-        {/* La barra y la cabecera viajan juntas y quedan pegadas arriba: el cuerpo del
-            modal es el que scrollea, así que el sticky se posiciona contra él. */}
+      <div className="crm-hover" style={{ padding: 0, minWidth: 560 }}>
+        {/* La barra, la de lote y la cabecera viajan juntas y quedan pegadas arriba: el
+            cuerpo del modal es el que scrollea, así que el sticky se posiciona contra él. */}
         <div style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface)', paddingTop: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingBottom: 12 }}>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar campaña, conjunto o id"
@@ -317,8 +370,29 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
                 color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none',
               }} />
             <Dropdown value={filtroEstado} options={opcionesEstado} onChange={setFiltroEstado} ariaLabel="Filtrar por estado" width={170} />
-            <Dropdown value={filtroAsig} options={opcionesAsig} onChange={setFiltroAsig} ariaLabel="Filtrar por producto" width={170} />
+            <Dropdown value={filtroAsig} options={opcionesAsig} onChange={setFiltroAsig} ariaLabel="Filtrar por producto" width={190} />
           </div>
+
+          {/* LA BARRA DE LOTE aparece con lo tildado, arriba de la tabla — la misma forma que
+              la del tablero (app/crm/AccionesLoteLeads.tsx): la casilla marcada limpia, el
+              número, y lo que cambia. */}
+          {elegidos.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', marginBottom: 10,
+              background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12,
+            }}>
+              <input type="checkbox" checked readOnly onClick={() => setSel(new Set())}
+                title="Quitar la selección" aria-label={`${elegidos.length} seleccionadas. Quitar la selección`} style={CASILLA} />
+              <span role="status" style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', minWidth: 20 }}>{elegidos.length}</span>
+              <span style={{ flex: 1 }} />
+              {trabajando && <Spinner size={15} />}
+              <Dropdown value="" resetAfterSelect placeholder="Asignar a producto" disabled={trabajando}
+                ariaLabel={`Asignar ${elegidos.length} a un producto`}
+                icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
+                options={opcionesLote} onChange={(v) => void elegirProductoLote(v)} width={210} align="right" />
+            </div>
+          )}
+
           {/* Sin Meta, la tabla igual sirve: las campañas con datos guardados se pueden asignar
               y traen sus leads. Lo que no se ve son las de HOY, y eso se dice. */}
           {estado?.metaError && estado.campanas.length > 0 && (
@@ -329,7 +403,11 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
             </p>
           )}
           <div role="row" style={{ ...FILA, padding: '0 12px 8px' }}>
-            <span />
+            <span style={{ display: 'flex', alignItems: 'center' }}>
+              <input type="checkbox" checked={todosTildados} disabled={!visibles.size}
+                ref={(el) => { if (el) el.indeterminate = algunoTildado && !todosTildados; }}
+                onChange={alternarTodos} aria-label="Seleccionar todas las que se ven" style={CASILLA} />
+            </span>
             <Th activo={orden === 'nombre'} dir={dir} onSort={() => ordenar('nombre')}>Campaña</Th>
             <Th activo={orden === 'estado'} dir={dir} onSort={() => ordenar('estado')}>Estado</Th>
             <Th activo={orden === 'leads'} dir={dir} onSort={() => ordenar('leads')} derecha>Leads</Th>
@@ -338,21 +416,10 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
         </div>
 
         <div role="table" aria-label="Campañas de Meta" style={{ borderBottom: filas.length ? '1px solid var(--border)' : 'none' }}>
-          {filas.map((c) => {
-            const hijos = conjuntosDe.get(c.id) ?? [];
-            const texto = q.trim().toLowerCase();
-            // Con una búsqueda que matchea un CONJUNTO, la campaña se abre sola: si no, el
-            // resultado está escondido detrás de un chevrón y se lee como «no lo encontró».
-            const porHijo = !!texto && !c.nombre.toLowerCase().includes(texto) && hijos.some((s) => s.nombre.toLowerCase().includes(texto));
-            const abierta = abiertas.has(c.id) || porHijo;
-            return [
-              fila(c, { tipo: 'campana', id: c.id, nombre: c.nombre }, 0, hijos.length),
-              ...(abierta
-                ? [...hijos].sort((a, b) => b.leads - a.leads || a.nombre.localeCompare(b.nombre, 'es'))
-                  .map((s) => fila(s, { tipo: 'conjunto', id: s.id, nombre: s.nombre, campanaId: c.id }, 1))
-                : []),
-            ];
-          })}
+          {filas.map((c) => [
+            fila(c, { tipo: 'campana', id: c.id, nombre: c.nombre }, 0, (conjuntosDe.get(c.id) ?? []).length),
+            ...hijosVisibles(c).map((s) => fila(s, { tipo: 'conjunto', id: s.id, nombre: s.nombre, campanaId: c.id }, 1)),
+          ])}
         </div>
 
         {/* Los estados vacíos son DISTINTOS y se dicen distinto: todavía no llegó · no hay
@@ -380,7 +447,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
         <Confirm
           title={pide.titulo} message={pide.mensaje}
           confirmLabel={pide.confirmar} cancelLabel={pide.cancelar} tone="primary"
-          onConfirm={() => { const it = pide.item; setPide(null); void asignar(it, true); }}
+          onConfirm={() => { const { funnelId: fid, items } = pide; void asignarLote(fid, items); }}
           onCancel={() => setPide(null)} />
       )}
       <Toast state={toast} onClose={clear} />
@@ -394,6 +461,14 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
 const vacio = (color = 'var(--dim)'): CSSProperties => ({
   fontFamily: SANS, fontSize: 13.5, color, padding: '28px 12px', margin: 0, textAlign: 'center',
 });
+
+function IconoProducto() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20.6 7.8 12 3 3.4 7.8 12 12.6z" /><path d="M3.4 7.8v8.4L12 21v-8.4" /><path d="M20.6 7.8v8.4L12 21" />
+    </svg>
+  );
+}
 
 /** Un encabezado que ORDENA. Mismo molde que `ThCrm` del tablero: la flecha sólo en la
  *  activa, y `aria-sort` para quien no la ve. */

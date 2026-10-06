@@ -21,7 +21,7 @@ import { productosAsignables } from '@/lib/landing-funnel';
 import { leerCampanasAsignadasEstricto, guardarCampanasAsignadas } from '@/lib/campana-funnel';
 import { conCampana, sinCampana, esIdMeta, type CampanaAsignada } from '@/lib/campana-config';
 import { conteoPorCampana, campanasDeMetricas } from '@/lib/campana-atribucion';
-import { leadsYMetricas, planDeTraida, moverEnLote } from '@/lib/campana-traer';
+import { leadsYMetricas, planDeTraidaLote, moverEnLote } from '@/lib/campana-traer';
 import { TAG } from '@/lib/cache';
 
 export type ProductoNombre = { id: number | null; nombre: string };
@@ -162,57 +162,108 @@ export async function campanasDelProductoAction(): Promise<EstadoCampanas | { ok
 
 type Item = { tipo: 'campana' | 'conjunto'; id: string; nombre: string; campanaId?: string };
 
+/** Lo que había antes en el mapa para cada id que se tocó: lo que necesita el deshacer. */
+export type Previo = { id: string; antes: CampanaAsignada | null };
+
+/** Lo que se movió, para poder devolverlo. */
+export type Movido = { id: number; desde: number | null };
+
+type PorProducto = { id: number | null; nombre: string; n: number };
+
+/** Tope de un lote: el mismo del mapa, que no guarda más de eso. */
+const TOPE_LOTE = 200;
+
+/** Los ítems que se pueden tocar: id de Meta, sin repetir, y con tope. Lo que no pasa se
+ *  descarta acá y no llega a escribir nada. */
+function sanear(items: unknown): Item[] {
+  const out: Item[] = [];
+  for (const x of Array.isArray(items) ? items : []) {
+    const it = x as Partial<Item> | null;
+    if (!it || !esIdMeta(it.id) || out.some((o) => o.id === it.id)) continue;
+    out.push({
+      tipo: it.tipo === 'conjunto' ? 'conjunto' : 'campana',
+      id: it.id.trim(),
+      nombre: String(it.nombre ?? '').slice(0, 200),
+      ...(it.campanaId && esIdMeta(it.campanaId) ? { campanaId: it.campanaId.trim() } : {}),
+    });
+    if (out.length >= TOPE_LOTE) break;
+  }
+  return out;
+}
+
+/** El mapa como quedaría con `items` asignados a `dest`. */
+function conItems(actuales: CampanaAsignada[], items: Item[], dest: number | null): CampanaAsignada[] {
+  let lista = actuales;
+  for (const it of items) lista = conCampana(lista, { ...it, funnelId: dest }) ?? lista;
+  return lista;
+}
+
 /**
- * Cuántos leads traería asignar esta campaña, y de qué productos salen. Es lo que decide
- * si la pantalla pregunta (con cero no hay nada que decidir) y lo que dice la pregunta.
+ * Cuántos leads traería asignar estas campañas o conjuntos a un producto, de qué productos
+ * salen, y de qué productos se las saca. Es lo que decide si la pantalla pregunta (con cero
+ * no hay nada que decidir) y lo que dice la pregunta.
  */
-export async function previaCampanaAction(
+export async function previaLoteAction(
   funnelId: number | null,
-  item: Item,
-): Promise<{ ok: true; aTraer: number; porProducto: { id: number | null; nombre: string; n: number }[] } | { ok: false; error: string }> {
+  items: Item[],
+): Promise<{ ok: true; aTraer: number; porProducto: PorProducto[]; desde: string[] } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
-  if (!esIdMeta(item?.id)) return { ok: false, error: 'Ese id no es de Meta.' };
+  const lote = sanear(items);
+  if (!lote.length) return { ok: false, error: 'Ese id no es de Meta.' };
   try {
     const d = await destino(funnelId);
     if (!d.ok) return { ok: false, error: 'Ese producto ya no existe.' };
     const [asignadas, productos] = await Promise.all([leerCampanasAsignadasEstricto(), productosConNull()]);
-    const mover = await planDeTraida(d.id, item, asignadas);
+    // ⚠️ CON EL MAPA COMO QUEDARÍA, no con el de hoy: si en el mismo lote va una campaña y
+    // un conjunto suyo que hoy está en otro producto, el conjunto pasa a ser de éste y sus
+    // leads también vienen. Contar con el mapa de hoy diría un número menor que el real.
+    const plan = await planDeTraidaLote(d.id, lote, conItems(asignadas, lote, d.id));
     const cuenta = new Map<number | null, number>();
-    for (const l of mover) cuenta.set(l.funnel_id ?? null, (cuenta.get(l.funnel_id ?? null) ?? 0) + 1);
-    const porProducto = [...cuenta].map(([id, n]) => ({
-      id, n,
-      // Un `funnel_id` de un embudo archivado no está entre los vivos: se dice así y no
-      // se inventa un nombre.
-      nombre: productos.find((p) => p.id === id)?.nombre ?? 'un producto archivado',
-    })).sort((a, b) => b.n - a.n);
-    return { ok: true, aTraer: mover.length, porProducto };
+    let aTraer = 0;
+    for (const grupo of plan.values()) {
+      for (const l of grupo) { cuenta.set(l.funnel_id ?? null, (cuenta.get(l.funnel_id ?? null) ?? 0) + 1); aTraer += 1; }
+    }
+    // Un `funnel_id` de un embudo archivado no está entre los vivos: se dice así y no se
+    // inventa un nombre.
+    const nombreDe = (id: number | null) => productos.find((p) => p.id === id)?.nombre ?? 'un producto archivado';
+    const porProducto = [...cuenta].map(([id, n]) => ({ id, n, nombre: nombreDe(id) })).sort((a, b) => b.n - a.n);
+    const desde = [...new Set(lote
+      .map((it) => asignadas.find((a) => a.id === it.id))
+      .filter((a): a is CampanaAsignada => !!a && a.funnelId !== d.id)
+      .map((a) => nombreDe(a.funnelId)))];
+    return { ok: true, aTraer, porProducto, desde };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo contar' };
   }
 }
 
-/** Lo que se movió, para poder devolverlo. */
-export type Movido = { id: number; desde: number | null };
-
-/**
- * Asigna una campaña o un conjunto a un producto. Si estaba en otro, se MUEVE (la
- * clave es el id: no puede quedar en dos).
- *
- * Con `traer`, además trae TODOS sus leads que ya están en el CRM: «si selecciono una
- * campaña, me traiga todos los leads. No solo los futuros» (Martín, 05/10/2026). Sin
- * esto, asignar una campaña que lleva meses corriendo dejaba el producto nuevo vacío y
- * todo su historial en el principal.
- */
-export async function asignarCampanaAction(
+/** La de a una, para la celda de cada fila: es el lote de uno. */
+export async function previaCampanaAction(
   funnelId: number | null,
   item: Item,
+): Promise<{ ok: true; aTraer: number; porProducto: PorProducto[] } | { ok: false; error: string }> {
+  const r = await previaLoteAction(funnelId, [item]);
+  return r.ok ? { ok: true, aTraer: r.aTraer, porProducto: r.porProducto } : r;
+}
+
+/**
+ * Asigna campañas o conjuntos a un producto. Si alguno estaba en otro, se MUEVE (la clave
+ * es el id: no puede quedar en dos). El mapa se escribe UNA vez para todo el lote.
+ *
+ * Con `traer`, además trae TODOS sus leads que ya están en el CRM: «si selecciono una
+ * campaña, me traiga todos los leads. No solo los futuros» (Martín, 05/10/2026).
+ */
+export async function asignarLoteAction(
+  funnelId: number | null,
+  items: Item[],
   traer = false,
 ): Promise<
-  | { ok: true; asignadas: CampanaAsignada[]; antes: CampanaAsignada | null; movidos: Movido[]; fallaron: number }
+  | { ok: true; asignadas: CampanaAsignada[]; previos: Previo[]; movidos: Movido[]; fallaron: number }
   | { ok: false; error: string }
 > {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
-  if (!esIdMeta(item?.id)) return { ok: false, error: 'Ese id no es de Meta.' };
+  const lote = sanear(items);
+  if (!lote.length) return { ok: false, error: 'Ese id no es de Meta.' };
   try {
     // ⚠️ SE VALIDA EL DESTINO contra los productos VIVOS. Guardar un id de un embudo
     // archivado no rompería nada hoy —el ruteo lo descarta—, pero dejaría una fila que
@@ -222,71 +273,83 @@ export async function asignarCampanaAction(
     // Lectura ESTRICTA: con una tolerante, una lectura caída se leería como «no hay
     // ninguna» y este guardado borraría todas las demás (ver lib/campana-funnel.ts).
     const actuales = await leerCampanasAsignadasEstricto();
-    const antes = actuales.find((a) => a.id === item.id) ?? null;
-    const nueva = conCampana(actuales, {
-      tipo: item.tipo === 'conjunto' ? 'conjunto' : 'campana',
-      id: item.id,
-      nombre: String(item.nombre ?? '').slice(0, 200),
-      ...(item.campanaId && esIdMeta(item.campanaId) ? { campanaId: item.campanaId } : {}),
-      funnelId: d.id,
-    });
-    if (!nueva) return { ok: false, error: 'No se pudo guardar.' };
+    const previos = lote.map((it) => ({ id: it.id, antes: actuales.find((a) => a.id === it.id) ?? null }));
+    const nueva = conItems(actuales, lote, d.id);
     await guardarCampanasAsignadas(nueva);
 
     let movidos: Movido[] = [];
     let fallaron = 0;
     if (traer) {
-      // ⚠️ SE CALCULA CON LA CONFIGURACIÓN YA GUARDADA, no con la de antes: si esta campaña
-      // tenía un conjunto en otro producto, sus leads se quedan allá — igual que los que
-      // entren mañana.
-      const mover = await planDeTraida(d.id, item, nueva);
-      const desde = new Map(mover.map((l) => [l.id, l.funnel_id ?? null]));
-      const nombre = String(item.nombre || item.id).slice(0, 120);
-      const r = await moverEnLote(mover.map((l) => l.id), d.id, `Lo trajo la campaña «${nombre}»`);
-      movidos = r.movidos.map((id) => ({ id, desde: desde.get(id) ?? null }));
-      fallaron = r.fallaron;
-      if (r.movidos.length) { bust(); revalidatePath('/crm'); }
+      // ⚠️ SE CALCULA CON LA CONFIGURACIÓN YA GUARDADA: si una campaña tiene un conjunto en
+      // otro producto, sus leads se quedan allá — igual que los que entren mañana.
+      const plan = await planDeTraidaLote(d.id, lote, nueva);
+      for (const it of lote) {
+        const grupo = plan.get(it.id) ?? [];
+        if (!grupo.length) continue;
+        const desde = new Map(grupo.map((l) => [l.id, l.funnel_id ?? null]));
+        const nombre = String(it.nombre || it.id).slice(0, 120);
+        const r = await moverEnLote(grupo.map((l) => l.id), d.id, `Lo trajo ${it.tipo === 'conjunto' ? 'el conjunto' : 'la campaña'} «${nombre}»`);
+        movidos = movidos.concat(r.movidos.map((id) => ({ id, desde: desde.get(id) ?? null })));
+        fallaron += r.fallaron;
+      }
+      if (movidos.length) { bust(); revalidatePath('/crm'); }
     }
-    return { ok: true, asignadas: nueva, antes, movidos, fallaron };
+    return { ok: true, asignadas: nueva, previos, movidos, fallaron };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar' };
   }
 }
 
-/** Tope del deshacer. Una campaña grande del cliente más grande trae unos cientos. */
+/** La de a una. Mantiene su forma (`antes`) porque la usa la tabla de Ads Manager. */
+export async function asignarCampanaAction(
+  funnelId: number | null,
+  item: Item,
+  traer = false,
+): Promise<
+  | { ok: true; asignadas: CampanaAsignada[]; antes: CampanaAsignada | null; movidos: Movido[]; fallaron: number }
+  | { ok: false; error: string }
+> {
+  const r = await asignarLoteAction(funnelId, [item], traer);
+  return r.ok ? { ok: true, asignadas: r.asignadas, antes: r.previos[0]?.antes ?? null, movidos: r.movidos, fallaron: r.fallaron } : r;
+}
+
+/** Tope del deshacer. Un lote de campañas grandes del cliente más grande trae cientos. */
 const TOPE_DESHACER = 5000;
 
 /**
- * Deshace una asignación: devuelve la campaña a donde estaba (o la saca) y devuelve cada
- * lead que se trajo al producto de donde salió.
+ * Deshace una asignación (de una o de un lote): devuelve cada campaña a donde estaba (o la
+ * saca) y devuelve cada lead que se trajo al producto de donde salió. Con `movidos` vacío,
+ * es el deshacer de QUITAR.
  *
  * ⚠️ «DONDE ESTABA», NO «SIN ASIGNAR». Si la campaña venía de otro producto, deshacer
  * tiene que devolvérsela; sacarla la dejaría sin dueño y sus leads nuevos caerían al
  * principal, que es un estado que nadie eligió.
  */
-export async function deshacerAsignacionAction(
-  id: string,
-  antes: CampanaAsignada | null,
+export async function deshacerLoteAction(
+  previos: Previo[],
   movidos: Movido[],
 ): Promise<{ ok: true; asignadas: CampanaAsignada[] } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
-  if (!esIdMeta(id)) return { ok: false, error: 'Ese id no es de Meta.' };
+  const lista = (Array.isArray(previos) ? previos : []).filter((p) => esIdMeta(p?.id)).slice(0, TOPE_LOTE);
+  if (!lista.length) return { ok: false, error: 'Ese id no es de Meta.' };
   try {
-    const actuales = await leerCampanasAsignadasEstricto();
-    let nueva = sinCampana(actuales, id);
-    if (antes && antes.id === id) {
-      const d = await destino(antes.funnelId);
-      // Si el producto de antes se archivó en el medio, no se le devuelve: queda sin asignar.
-      if (d.ok) nueva = conCampana(nueva, { ...antes, funnelId: d.id }) ?? nueva;
+    let nueva = await leerCampanasAsignadasEstricto();
+    for (const p of lista) {
+      nueva = sinCampana(nueva, p.id);
+      if (p.antes && p.antes.id === p.id) {
+        const d = await destino(p.antes.funnelId);
+        // Si el producto de antes se archivó en el medio, no se le devuelve: queda sin asignar.
+        if (d.ok) nueva = conCampana(nueva, { ...p.antes, funnelId: d.id }) ?? nueva;
+      }
     }
     await guardarCampanasAsignadas(nueva);
 
     // Cada lead vuelve a SU producto. Se agrupan por destino para mover en lote, y un
     // destino que ya no existe se saltea: esos leads se quedan donde están.
-    const lista = (Array.isArray(movidos) ? movidos : []).slice(0, TOPE_DESHACER)
+    const mov = (Array.isArray(movidos) ? movidos : []).slice(0, TOPE_DESHACER)
       .filter((m) => Number.isInteger(m?.id) && m.id > 0);
     const porDestino = new Map<number | null, number[]>();
-    for (const m of lista) {
+    for (const m of mov) {
       const k = m.desde ?? null;
       porDestino.set(k, [...(porDestino.get(k) ?? []), m.id]);
     }
@@ -304,19 +367,40 @@ export async function deshacerAsignacionAction(
   }
 }
 
-/** Saca una campaña o un conjunto: sus leads nuevos vuelven a caer donde caían antes.
- *  Los que ya trajo se quedan donde están — sacar una campaña no reordena el CRM. */
-export async function quitarCampanaAction(
+/** La de a una. Mantiene su forma porque la usa la tabla de Ads Manager. */
+export async function deshacerAsignacionAction(
   id: string,
+  antes: CampanaAsignada | null,
+  movidos: Movido[],
 ): Promise<{ ok: true; asignadas: CampanaAsignada[] } | { ok: false; error: string }> {
+  return deshacerLoteAction([{ id, antes }], movidos);
+}
+
+/** Saca campañas o conjuntos: sus leads nuevos vuelven a caer donde caían antes. Los que
+ *  ya trajeron se quedan donde están — sacar una campaña no reordena el CRM. */
+export async function quitarLoteAction(
+  ids: string[],
+): Promise<{ ok: true; asignadas: CampanaAsignada[]; previos: Previo[] } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
   try {
     // Estricta por lo mismo que al asignar, y acá es peor: con `[]` por una lectura
     // caída se guardaría «[]» y se borraría la configuración ENTERA.
-    const nueva = sinCampana(await leerCampanasAsignadasEstricto(), id);
+    const actuales = await leerCampanasAsignadasEstricto();
+    const lista = [...new Set((Array.isArray(ids) ? ids : []).filter((x) => esIdMeta(x)))].slice(0, TOPE_LOTE);
+    const previos = lista.map((id) => ({ id, antes: actuales.find((a) => a.id === id) ?? null }));
+    let nueva = actuales;
+    for (const id of lista) nueva = sinCampana(nueva, id);
     await guardarCampanasAsignadas(nueva);
-    return { ok: true, asignadas: nueva };
+    return { ok: true, asignadas: nueva, previos };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo quitar' };
   }
+}
+
+/** La de a una. */
+export async function quitarCampanaAction(
+  id: string,
+): Promise<{ ok: true; asignadas: CampanaAsignada[] } | { ok: false; error: string }> {
+  const r = await quitarLoteAction([id]);
+  return r.ok ? { ok: true, asignadas: r.asignadas } : r;
 }

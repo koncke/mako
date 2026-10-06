@@ -13,7 +13,7 @@ import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import type { CampanaAsignada } from './campana-config';
 import {
-  mapaDeAnuncios, leadsATraer,
+  mapaDeAnuncios, repartirPorItem,
   type LeadAtribuible, type FilaConNombre, type Anuncio,
 } from './campana-atribucion';
 
@@ -37,11 +37,21 @@ export async function planDeTraida(
   item: { tipo: 'campana' | 'conjunto'; id: string },
   asignadas: CampanaAsignada[],
 ): Promise<LeadAtribuible[]> {
+  return (await planDeTraidaLote(destino, [item], asignadas)).get(item.id) ?? [];
+}
+
+/** El plan para VARIAS campañas o conjuntos a la vez (la barra de lote de la tabla), con
+ *  una sola lectura de leads y métricas. Cada lead queda en UN grupo: ver `repartirPorItem`. */
+export async function planDeTraidaLote(
+  destino: number | null,
+  items: { tipo: 'campana' | 'conjunto'; id: string }[],
+  asignadas: CampanaAsignada[],
+): Promise<Map<string, LeadAtribuible[]>> {
   const { leads, anuncios } = await leadsYMetricas();
   const conjuntosDeOtro = new Set(
     asignadas.filter((a) => a.tipo === 'conjunto' && a.funnelId !== destino).map((a) => a.id),
   );
-  return leadsATraer(item, destino, leads, anuncios, conjuntosDeOtro);
+  return repartirPorItem(items, destino, leads, anuncios, conjuntosDeOtro);
 }
 
 const LOTE = 200;
