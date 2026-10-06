@@ -18,11 +18,19 @@
 // se puede importar acá (arrastra server-only). El runner vuelve a validar con
 // esSegmentoValido(): si la lib suma un segmento, el enum lo rechaza hasta que se
 // agregue acá — falla cerrado, nunca manda a un segmento que no existe.
+//
+// ⚠️ Y FALLAR CERRADO NO ALCANZA SI `listar_segmentos_email` LO MUESTRA: ese listado
+// sale de SEGMENTOS entero, así que un segmento que falta acá aparece con sus leads y
+// después el enum lo rechaza en las cuatro que lo piden (contar, leads, crear y
+// editar un broadcast). Pasó con el residuo
+// (#790): MaKo listaba «Sin agenda, +45 días» con 884 leads y no podía armar el
+// borrador. tests/nutricion-residuo.test.ts cruza las dos listas.
 // =============================================================================
 
+import { SEGMENTO_RESIDUO } from '@/lib/nutricion-residuo';
 import type { OperacionDef, Parametro } from '../tipos';
 
-const SEGMENTOS_EMAIL = ['activos', 'no-agenda', 'no-paga', 'no-show', 'post-agenda', 'ganados'] as const;
+const SEGMENTOS_EMAIL = ['activos', 'no-agenda', 'no-paga', 'no-show', 'post-agenda', 'ganados', SEGMENTO_RESIDUO] as const;
 
 const TAB = { tab: 'email' } as const;
 const TAB_ADMIN = { tab: 'email', rolMinimo: 'admin' } as const;
@@ -34,7 +42,7 @@ const idSecuencia = (desc = 'id de la secuencia de email (de listar_secuencias_e
 const idBroadcast: Parametro = { nombre: 'id', tipo: 'number', descripcion: 'id del broadcast (de listar_broadcasts).', obligatorio: true, entero: true, minimo: 1 };
 const segmento = (obligatorio: boolean): Parametro => ({
   nombre: 'segmento', tipo: 'string', enum: SEGMENTOS_EMAIL, ...(obligatorio ? { obligatorio: true } : {}),
-  descripcion: 'Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1) o ganados. Siempre leads con email y sin baja.',
+  descripcion: 'Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1), ganados o residuo-formularios (abiertos que nunca agendaron, sin pago, de hace más de 45 días). Siempre leads con email y sin baja.',
 });
 
 export const DEFS: readonly OperacionDef[] = [

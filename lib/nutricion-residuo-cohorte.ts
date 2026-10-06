@@ -19,9 +19,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { leerTodo, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { enTandas } from '@/lib/ids-con-filas';
 import {
-  COLS_RESIDUO, ESTADOS_OCUPADO, TRIGGER_RESIDUO,
-  esResiduo, soloDigitos, turnosResiduo,
-  type CtxResiduo, type LeadResiduo,
+  COLS_RESIDUO, TRIGGER_RESIDUO,
+  clasificarInscripciones, esResiduo, soloDigitos, turnosResiduo,
+  type CtxResiduo, type InscResiduo, type LeadResiduo,
 } from '@/lib/nutricion-residuo';
 
 const TANDA = 200;
@@ -55,24 +55,20 @@ async function secuenciasDelResiduo(db: SupabaseClient): Promise<Set<number>> {
 async function contextoDe(db: SupabaseClient, leadIds: readonly number[], ahoraMs: number): Promise<{ ctx: CtxResiduo; yaEnResiduo: Set<number> }> {
   const delResiduo = await secuenciasDelResiduo(db);
   const pagados = new Set<number>();
-  const ocupados = new Set<number>();
-  const yaEnResiduo = new Set<number>();
+  const inscripciones: InscResiduo[] = [];
   for (const tanda of enTandas([...new Set(leadIds)], TANDA)) {
     const pagos = await leerTodo<{ lead_id: number | null }>(db, 'pagos', 'id, lead_id', {
       orden: 'id', eq: { pagado: true }, filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
     });
     for (const p of pagos) if (p.lead_id != null) pagados.add(Number(p.lead_id));
-    const insc = await leerTodo<{ lead_id: number | null; secuencia_id: number | null; estado: string | null }>(
+    inscripciones.push(...await leerTodo<InscResiduo>(
       db, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, estado',
       { orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada },
-    );
-    for (const i of insc) {
-      if (i.lead_id == null) continue;
-      const lead = Number(i.lead_id);
-      if (i.secuencia_id != null && delResiduo.has(Number(i.secuencia_id))) yaEnResiduo.add(lead);
-      else if (ESTADOS_OCUPADO.includes(i.estado ?? '')) ocupados.add(lead);
-    }
+    ));
   }
+  // La partición vive en el módulo puro y tiene test: de ella cuelga que la
+  // re-pregunta no cierre la inscripción que está por mandar.
+  const { ocupados, yaEnResiduo } = clasificarInscripciones(inscripciones, delResiduo);
   const bloq = await leerTodo<{ telefono: string | null }>(db, 'wa_bloqueados', 'id, telefono', { orden: 'id' });
   const bloqueados = new Set(bloq.map((b) => soloDigitos(b.telefono)).filter(Boolean));
   return { ctx: { ahoraMs, pagados, bloqueados, ocupados }, yaEnResiduo };

@@ -30,7 +30,7 @@ import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
 import { conversacionAbierta, atiendeAlResponder, type InscCharla } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
 import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
-import { TRIGGER_RESIDUO } from '@/lib/nutricion-residuo';
+import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA } from '@/lib/nutricion-residuo';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
@@ -1497,6 +1497,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   const LOTE = cupo * 3;
   const vistos = new Set<number>();
   let rondas = 0;
+  // Cuántas filas del residuo ya pasaron al envío en esta corrida (#790): ver
+  // `RESIDUO_POR_CORRIDA` y su uso más abajo.
+  let residuoEnCorrida = 0;
 
   while (res.enviados + res.simulados < cupo && rondas < 6) {
     rondas += 1;
@@ -1688,6 +1691,20 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (!canalApagado && conEnvioReciente.has(insc.lead_id)) {
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
         continue; // no avanzar; se reintenta en otra corrida
+      }
+
+      // ⚠️ EL RESIDUO SALE DE A UNO POR CORRIDA (#790), y es el techo que no depende de
+      // la agenda: el escalonado se deshace con cualquier reprogramación (una línea caída
+      // corre todas las filas vencidas al mismo minuto), y al volver saldrían juntas,
+      // delante de la post-agenda. Va acá, después de las guardas que no mandan, para que
+      // una fila frenada por «msg <20h» no le gaste el turno a la siguiente. La que no
+      // pasa se saltea sin tocarla: sigue vencida para la corrida que viene.
+      if (sec.trigger_tipo === TRIGGER_RESIDUO) {
+        if (residuoEnCorrida >= RESIDUO_POR_CORRIDA) {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'el residuo ya usó su turno de esta corrida' });
+          continue;
+        }
+        residuoEnCorrida += 1;
       }
 
       let estado: 'enviado' | 'simulado' | 'omitido' | 'borrador' | 'fallo' = 'simulado';

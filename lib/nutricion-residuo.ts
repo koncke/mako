@@ -55,8 +55,31 @@ export const RESIDUO_DIAS = 45;
  * turnos: la cola ordena por `proximo_envio_at`, así que 63 filas insertadas
  * juntas se ponían delante de la post-agenda durante días. Con 10 por día el
  * residuo usa, como mucho, la cuarta parte del cupo.
+ *
+ * ⚠️ Y EL ESCALONADO SOLO NO LO GARANTIZA: es una promesa al AGENDAR, y cualquier
+ * reprogramación del motor la deshace. Con la línea caída, cada fila vencida falla y
+ * se corre `enHorasISO(24)` desde la MISMA corrida, así que a los cinco días de caída
+ * hay decenas de filas del residuo con el mismo minuto; al volver la línea son las
+ * más viejas de la cola y salen todas juntas, delante de la post-agenda. El techo
+ * que no depende de la agenda es `RESIDUO_POR_CORRIDA`.
  */
 export const RESIDUO_POR_DIA = 10;
+
+/**
+ * Cuántas filas del residuo pueden pasar al envío en UNA corrida del motor (lo que
+ * pasa puede terminar en un envío, un borrador o un fallo: los tres cuentan, y
+ * contar de más sólo hace que el residuo salga más lento, que es la dirección buena).
+ *
+ * Con el cron de la nutrición en `0 15-23 * * *` son 9 corridas por día, así que el
+ * residuo no pasa de 9 por día aunque la cola se haya amontonado, y nunca ocupa más
+ * de UNO de los `MAX_POR_CORRIDA` lugares de una corrida: el resto es de la
+ * post-agenda. Las filas que no pasan se saltean SIN tocarlas y siguen vencidas para
+ * la corrida siguiente (`vistos` evita que trabe el resto de la cola).
+ *
+ * El test cruza este número con el cron de vercel.json: si el cron se vuelve más
+ * frecuente, este techo deja de valer y el test lo dice.
+ */
+export const RESIDUO_POR_CORRIDA = 1;
 
 /**
  * Los estados de una inscripción que dicen «a este lead ya le está hablando otra
@@ -64,6 +87,38 @@ export const RESIDUO_POR_DIA = 10;
  * la reactivación se le encimaría a una charla viva.
  */
 export const ESTADOS_OCUPADO: readonly string[] = ['activa', 'respondio', 'handoff'];
+
+/** Lo que `clasificarInscripciones` lee de cada fila de `nutricion_inscripciones`. */
+export type InscResiduo = { lead_id: number | null; secuencia_id: number | null; estado: string | null };
+
+/**
+ * Parte las inscripciones de unos leads en las dos preguntas que el residuo hace:
+ *
+ *   · `yaEnResiduo` → pasó alguna vez por una secuencia del residuo (archivadas
+ *     incluidas), en CUALQUIER estado. Es la regla de familia de la cohorte.
+ *   · `ocupados`    → tiene una inscripción viva (`ESTADOS_OCUPADO`) en una secuencia
+ *     que NO es del residuo.
+ *
+ * ⚠️ UNA INSCRIPCIÓN DEL RESIDUO NUNCA CUENTA COMO «OCUPADO», y es la línea de la que
+ * cuelga la re-pregunta al mandar: cuando el motor está por mandar el paso, el lead
+ * tiene SU inscripción del residuo en `activa`. Contada como «otra secuencia le
+ * habla», `residuoVigente` daría falso para todos y el motor cerraría cada
+ * inscripción sin mandar nada — sin un error, con la secuencia «funcionando».
+ */
+export function clasificarInscripciones(
+  insc: readonly InscResiduo[],
+  delResiduo: ReadonlySet<number>,
+): { ocupados: Set<number>; yaEnResiduo: Set<number> } {
+  const ocupados = new Set<number>();
+  const yaEnResiduo = new Set<number>();
+  for (const i of insc) {
+    if (i.lead_id == null) continue;
+    const lead = Number(i.lead_id);
+    if (i.secuencia_id != null && delResiduo.has(Number(i.secuencia_id))) yaEnResiduo.add(lead);
+    else if (ESTADOS_OCUPADO.includes(i.estado ?? '')) ocupados.add(lead);
+  }
+  return { ocupados, yaEnResiduo };
+}
 
 /** Las columnas de `leads` que las dos preguntas necesitan. */
 export const COLS_RESIDUO = 'id, estado_lead, telefono, email, email_opt_out, created_at, fecha_agenda, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, asistio_j1, asistio_j2, fecha_primer_pago, cerro';

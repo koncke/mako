@@ -3477,7 +3477,7 @@ El número exacto de destinatarios de UN segmento (leads con email, sin baja, qu
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `segmento` | string (activos \\| no-agenda \\| no-paga \\| no-show \\| post-agenda \\| ganados) | sí | Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1) o ganados. Siempre leads con email y sin baja. |
+| `segmento` | string (activos \\| no-agenda \\| no-paga \\| no-show \\| post-agenda \\| ganados \\| residuo-formularios) | sí | Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1), ganados o residuo-formularios (abiertos que nunca agendaron, sin pago, de hace más de 45 días). Siempre leads con email y sin baja. |
 
 ```bash
 curl -s "https://hola-mako.com/api/v1/email/contar_segmento_email?segmento=%E2%80%A6" -H "Authorization: Bearer $TOKEN"
@@ -3658,7 +3658,7 @@ Propone crear un broadcast en estado BORRADOR con asunto, preheader, cuerpo y se
 | `asunto` | string | sí | Asunto. Acepta {nombre}, {empresa}, {nombre_completo}, {apellido}. |
 | `preheader` | string | no | Texto de vista previa. |
 | `cuerpo` | string | sí | Cuerpo en texto plano, con las mismas variables que el asunto. |
-| `segmento` | string (activos \\| no-agenda \\| no-paga \\| no-show \\| post-agenda \\| ganados) | no | Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1) o ganados. Siempre leads con email y sin baja. |
+| `segmento` | string (activos \\| no-agenda \\| no-paga \\| no-show \\| post-agenda \\| ganados \\| residuo-formularios) | no | Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1), ganados o residuo-formularios (abiertos que nunca agendaron, sin pago, de hace más de 45 días). Siempre leads con email y sin baja. |
 
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/email/crear_broadcast" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -3682,7 +3682,7 @@ Propone cambiar asunto, preheader, cuerpo y/o segmento de un broadcast que todav
 | `asunto` | string | no | Asunto nuevo. |
 | `preheader` | string | no | Preheader nuevo. |
 | `cuerpo` | string | no | Cuerpo nuevo, en texto plano. |
-| `segmento` | string (activos \\| no-agenda \\| no-paga \\| no-show \\| post-agenda \\| ganados) | no | Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1) o ganados. Siempre leads con email y sin baja. |
+| `segmento` | string (activos \\| no-agenda \\| no-paga \\| no-show \\| post-agenda \\| ganados \\| residuo-formularios) | no | Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1), ganados o residuo-formularios (abiertos que nunca agendaron, sin pago, de hace más de 45 días). Siempre leads con email y sin baja. |
 
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/email/editar_broadcast" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
