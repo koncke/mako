@@ -156,8 +156,8 @@ function Etapa({ token, etapa, numero, abierta, onAlternar, onAvance }: {
 function metaDeEtapa(e: EtapaVista): string {
   if (e.estado === 'bloqueada') return 'Se abre al terminar la etapa anterior.';
   const clases = `${e.cuantas} ${e.cuantas === 1 ? 'clase' : 'clases'}`;
-  if (!e.obligatorias) return clases;
-  return `${clases} · ${e.enviadas} de ${e.obligatorias} ${e.obligatorias === 1 ? 'tarea enviada' : 'tareas enviadas'}`;
+  if (!e.tareas) return clases;
+  return `${clases} · ${e.tareasEnviadas} de ${e.tareas} ${e.tareas === 1 ? 'tarea enviada' : 'tareas enviadas'}`;
 }
 
 // ── Una clase ─────────────────────────────────────────────────────────────────

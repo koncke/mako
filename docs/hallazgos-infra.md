@@ -4259,3 +4259,19 @@ dos horas después la 0199 ya no conectaba: la red cambió, el código no.
 Y una menor del mismo rato: **`vercel ls` escribe la tabla de deploys en STDERR.** Un
 `npx vercel ls 2>/dev/null | grep …` contesta vacío sobre una lista llena, y un bucle que espera
 «Ready» así no termina nunca.
+
+## Un BORRADO sin stagear también rompe los guards que leen `git ls-files` (06/10/2026)
+
+**Vive en:** `tests/funnel-estructura.test.ts` (`archivosDeProducto`), `tests/sin-clarity.test.ts`,
+`tests/sin-whop.test.ts`.
+
+AGENTS.md ya dice la mitad: un archivo NUEVO sin `git add` es invisible para los guards que
+enumeran con `git ls-files`. La otra mitad muerde distinto: un archivo BORRADO sin stagear sigue en
+el índice, y un guard que hace `readFileSync` de cada ruta revienta con `ENOENT`. Al sacar Whop,
+`npm test` cayó en el guard de `/funnel` sobre `lib/whop-evento.ts`, y el diagnóstico obvio («el
+retiro rompió el test de /funnel») era falso: se arregla con el `git rm` del mismo commit, o
+filtrando con `existsSync` como ya hacen `sin-clarity` y `sin-whop`.
+
+Y un `sinComentarios` que borra los bloques `/* … */` enteros corre los números de línea: el guard
+nombra otra línea (medido: `:99` sobre la 128). Se vacía el bloque conservando sus saltos
+(`m.replace(/[^\n]/g, '')`); `sin-clarity` todavía tiene el corrimiento.

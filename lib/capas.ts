@@ -278,10 +278,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // afuera de la única capa que administra el producto era la última pieza del bug que
     // hacía que Customer Success fuera «la tab de Mauricio»: sin esto, el super-admin sólo
     // podía verla ENTRANDO al workspace de un cliente, o sea mirando la cartera de otro.
-    // Y `cs-curso` con ella (06/10/2026): la tab Curso es la segunda fila del desplegable de
-    // Customer Success, y el Sidebar filtra por la key de CADA fila — sin ésta, el desplegable
-    // quedaba de una sola fila en el workspace de la agencia.
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'cs-curso', 'productivity-analyst'],
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],

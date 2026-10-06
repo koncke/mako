@@ -121,6 +121,13 @@ export type EtapaVista = {
   /** Tareas obligatorias de la etapa y cuántas ya envió (lo que la cierra, ver `etapaCompleta`). */
   obligatorias: number;
   enviadas: number;
+  /**
+   * TODAS las tareas de la etapa y cuántas envió: lo que se le muestra al alumno. Con sólo las
+   * obligatorias la cabecera decía «0 de 1 tarea enviada» arriba de ocho clases marcadas «Tarea
+   * pendiente», y la ficha del equipo «0/9 tareas» sobre la misma etapa (06/10/2026).
+   */
+  tareas: number;
+  tareasEnviadas: number;
 };
 
 export type ProductoVista = { productoId: number; nombre: string; etapas: EtapaVista[] };
@@ -173,6 +180,8 @@ export function armarEtapas(
       cuantas: deEtapa.length,
       obligatorias: ob.length,
       enviadas: ob.filter((c) => enviada(progreso.get(c.id)?.estado)).length,
+      tareas: deEtapa.filter((c) => tieneTarea(c)).length,
+      tareasEnviadas: deEtapa.filter((c) => tieneTarea(c) && enviada(progreso.get(c.id)?.estado)).length,
     };
   });
 }
@@ -267,7 +276,7 @@ export async function armarVistaAlumno(leadId: number): Promise<VistaAlumno> {
   for (const productoId of productos) {
     const clases = await datos.clasesDelProducto(productoId);
     if (!clases.length) continue;
-    const [cfg, actual] = await Promise.all([entregaDeProducto(productoId), datos.etapaActualDe(leadId, productoId)]);
+    const [cfg, actual] = await Promise.all([entregaDeProducto(productoId), datos.etapaActualDe(leadId, productoId, productos)]);
     out.push({
       productoId,
       nombre: nombreDe.get(productoId) ?? 'Tu programa',

@@ -91,7 +91,7 @@ async function productosConCurso(leadId: number): Promise<ProductoFicha[]> {
   ]);
   const nombre = new Map(catalogo.map((p) => [Number(p.id), p.nombre]));
   const conClases = clases.filter(([, cs]) => cs.length > 0);
-  const actuales = await Promise.all(conClases.map(([id]) => etapaActualDe(leadId, id)));
+  const actuales = await Promise.all(conClases.map(([id]) => etapaActualDe(leadId, id, ids)));
   const out: ProductoFicha[] = [];
   conClases.forEach(([id, cs], i) => {
     const p = armarProducto({

@@ -530,4 +530,31 @@ export const BITACORA: Hito[] = [
       "app/customer-success/LoteClientes.tsx \u2014 el men\u00fa de etapas sin t\u00edtulos de fase",
     ],
   },
+  {
+    fecha: "6 oct", hora: "12:38", chat: "Customer Success", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "El curso de Mauricio adentro de MaKo: la tab, el portal, la ficha y el paso de etapa",
+    pedido: "1. Mandales mensajes al CRM y PLAN para que solucionen esto... Y cuando se hace esto, es como poner un \"ORDENAMIENTO\" dentro de filtros... Porque entiendo que normalmente se ordena por orden de llegada. Para quitar eso y volver a antes, simplemente es volver a ordenar por fecha y listo. Y luego si quiero volver a la posici\u00f3n que habia dejado las tarjetas es simplemente quitar filtros. Pero en el plan funciona diferente, ya que la posici\u00f3n son PRIORIDADES, creo que el plan ya lo hace. Si lo hace bien, que no modifique nada...\n2. Quiero que implementes la tab de \"CURSO\" que ya teniamos en el workspace de Mauricio, con todo su programa...\n3. Dentro del Detail de los clientes de Mauricio se tiene que ver este CURSO.\n4. Dentro de la tab de CURSOS quiero que implementes los formularios con las tareas para los clientes que Mauricio me habia pedido... Tienes m\u00e1s info en el plan seguramente. Tambi\u00e9n hay que implementar una automatizaci\u00f3n de env\u00edo de mensaje como lo quiere Mauricio, previo a la llamada y posterior.\n5. Quiero que implementes la automatizaci\u00f3n de pasar de etapas a los clientes de Mauricio seg\u00fan las tareas que vayan completando... Si se completa X cosa y ah\u00ed ya termina la etapa, deber\u00eda ir a la pr\u00f3xima etapa. Y si esa pr\u00f3xima etapa tiene un tutorial con sus tareas, se deber\u00eda enviarle un mensaje.\n6. Quiero eliminar Whop de la ecuaci\u00f3n, que utilicemos directamente MaKo... Quiero que se puedan cargar v\u00eddeos, ya sea con un link o subiendo el video del curso. Y claro, que tambi\u00e9n se mida cuanto del v\u00eddeo se vieron, cuales tareas completaron... Quiero que los clientes de Mauricio puedan ingresar a MaKo con un nivel de acceso especial que solo ellos tienen, donde solo ven las clases de Mauricio y las tareas.\n7. Implementa todo esto, no preguntes, ya tienes mucha informaci\u00f3n en el plan y en las llamadas que hemos tenido de lo que realmente quiere Mauricio... Si se me olvid\u00f3 algo en estos items que hay que implementar, dimelo.",
+    puntos: [
+      "EL CURSO CUELGA DE LAS ETAPAS DE LA ENTREGA (mig 0202): \u00abla pr\u00f3xima etapa tiene tutorial\u00bb es una consulta, y pasar de etapa usa el choke point que ya exist\u00eda, firmado por MaKo. El programa de Mauricio qued\u00f3 cargado en el ws1: 107 clases (63 videos de su planilla, 43 formularios del cat\u00e1logo viejo y la log\u00edstica), y cada etapa la cierra su \u00faltima Demostraci\u00f3n.",
+      "EL ACCESO ES UN LINK FIRMADO, NO UNA CUENTA: el login de MaKo es s\u00f3lo con Google y 10 de los 14 clientes no tienen Gmail. El portal muestra la etapa actual abierta y las siguientes bloqueadas; YouTube, Vimeo y los videos subidos se miden en el server, Drive y Loom dicen \u00absin medir\u00bb.",
+      "LOS MENSAJES RESPETAN envio_whatsapp_enabled, QUE EN EL WS1 EST\u00c1 APAGADO desde el 29/09: hasta que se prenda, a ning\u00fan cliente de Mauricio le llega el link, la etapa nueva ni los avisos de las llamadas. A Mauricio s\u00ed le llegan sus avisos.",
+      "Whop sali\u00f3 del producto entero (tarjeta, campos, ping, logo y su lib). Las credenciales guardadas se quedaron: son del cliente.",
+      "La revisi\u00f3n cruzada encontr\u00f3 y se arregl\u00f3: \u00abenviado\u00bb sobre avisos que no salieron, cualquier clase al 100% con un POST, una tabla de filas fijas vac\u00eda que contaba como respondida, el contador de ingresos inflado por la vista previa de WhatsApp, un borrador que pisaba una tarea ya revisada y el hash del Vimeo no listado.",
+      "CONTRADICCI\u00d3N ABIERTA: la planilla pone el PAS despu\u00e9s de Tablero y Ritmo y la etapa est\u00e1 tercera en el kanban. Lo decide Mart\u00edn.",
+    ],
+    commits: [
+      { sha: "eba4f12f", msg: "Curso del servicio en MaKo: tab Curso, portal del cliente, la ficha, el paso de etapa por tareas, los avisos de las llamadas, y Whop fuera", lineas: 10069, archivos: 76 },
+    ],
+    archivos: [
+      "supabase/migrations/0202_curso.sql \u2014 las clases, el avance, el acceso y las llamadas, y el bucket de videos",
+      "lib/curso.ts \u2014 las reglas puras: qu\u00e9 cierra una etapa, el % visto, el reproductor de una clase",
+      "app/customer-success/curso/ \u2014 la tab Curso: clases por etapa, el editor, la subida y el Avance",
+      "app/compartido/curso/ \u2014 el portal del alumno, con su link",
+      "app/customer-success/FichaCurso.tsx \u2014 la pesta\u00f1a Curso de la ficha",
+      "lib/curso-avance.ts \u2014 el paso autom\u00e1tico de etapa al enviar las obligatorias",
+      "lib/curso-mensajes.ts \u2014 el link, la etapa nueva y los avisos de antes y despu\u00e9s de cada llamada",
+      "scripts/curso-cargar-programa.ts \u2014 la carga idempotente del programa de Mauricio",
+    ],
+  },
 ];

@@ -3664,3 +3664,158 @@ handlers nuevos (`soltarEnColumna`, `quitarDeProducto`) lo atajan como un error 
 Con `align-items:stretch` en la grilla, la celda de las Notas se estiraba pero la caja de adentro
 (`NotasCard`, que trae su propio `section`) seguía del alto de su contenido: el envoltorio va en
 columna flex y la caja con `flex:1`. Medido: 310 px las dos.
+
+## El curso del servicio, adentro de MaKo (06/10/2026)
+
+**Vive en:** `lib/curso.ts` (reglas puras), `lib/curso-datos.ts`, `lib/curso-acceso.ts`,
+`lib/curso-portal.ts`, `lib/curso-avance.ts` + `lib/curso-avance-regla.ts`,
+`lib/curso-mensajes.ts` + `lib/curso-mensajes-texto.ts`, `lib/curso-admin.ts`,
+`app/customer-success/curso/`, `app/customer-success/FichaCurso.tsx`,
+`app/compartido/curso/`, `app/api/compartido/curso/`, `app/api/cron/curso-sesiones/`,
+`scripts/curso-cargar-programa.ts` + `lib/curso-programa-nqe.ts`,
+`supabase/migrations/0202_curso.sql`.
+
+Pedido de Martín: la tab CURSO con el programa de Mauricio, verla en el detalle de cada cliente,
+los formularios con sus tareas, mensajes antes y después de cada llamada, pasar de etapa según las
+tareas, sacar Whop, videos por link o subidos midiendo cuánto se vio, y un acceso especial donde el
+cliente sólo ve las clases y las tareas. Lo implementó una corrida de 6 agentes con 2 revisores
+(commit `eba4f12f`).
+
+**El modelo, en cuatro líneas.** Cada clase cuelga de una ETAPA de la entrega del producto
+(`producto_entrega`), así que «la próxima etapa tiene tutorial» es una consulta y pasar de etapa
+usa el choke point que ya existía (`moverClienteDeEtapa`, con `por: POR_MAKO`). Una etapa se
+completa cuando el cliente ENVIÓ todas sus obligatorias (`etapaCompleta`); una etapa sin
+obligatorias no se completa sola, a propósito. El % visto lo calcula el server con el máximo
+segundo alcanzado sobre la duración. El programa cargado en el ws1 son 107 clases: 63 videos de la
+planilla «Arquitectura_Tutoriales_NqE» de Mauricio, 43 formularios del catálogo borrado el 26/09 y
+la logística; cada etapa la cierra su última Demostración (la regla «Secuencia» de la planilla).
+
+### Decisiones tomadas sin preguntar (Martín dijo «no preguntes»), y dónde se cambian
+
+- **El acceso es un LINK FIRMADO, no una cuenta** (`c1.<ws>.<lead>.<version>.<hmac>`). El login de
+  MaKo es sólo con Google y 10 de los 14 clientes no tienen Gmail; además, una sesión de MaKo pasa
+  el proxy en todas las rutas que no son `/admin`, y el aislamiento dependería de que cada ruta
+  mirara el rol. Revocar = subir la versión (`curso_accesos`).
+- **La etapa cierra al ENVIAR, no al aprobar.** «Marcar revisada» es una marca del equipo; si
+  cerrara al aprobar, el cliente quedaría esperando a que alguien lo mire para seguir.
+- **El mensaje de etapa nueva sale sólo en el paso AUTOMÁTICO**, no cuando alguien mueve al cliente
+  en el kanban: el deshacer del kanban vuelve a pasar por el choke point y mandaría un mensaje por
+  cada arrepentimiento. Para un movimiento a mano está «Mandar por WhatsApp» en la ficha.
+- **La próxima llamada se anota a mano en la ficha** (`curso_sesiones`). No se lee de Calendly ni de
+  `leads.junta_*`: ésas son las R1/R2 de VENTA y una sesión de entrega ahí pisaría la venta.
+- **Todo lo que le escribe al cliente respeta `envio_whatsapp_enabled`**, que en el ws1 está en
+  `false` desde el 29/09. Mientras siga así, a ningún cliente de Mauricio le llega nada (el link,
+  la etapa nueva, el previo ni el posterior) y la ficha dice «envío de WhatsApp apagado».
+
+### Contradicciones que decide Martín (o Mauricio)
+
+- **El PAS va tercero en el kanban y la planilla lo pone DESPUÉS de Tablero y Ritmo**, a propósito
+  («Contexto en dos pasadas»; el video 9.1 se llama «Por qué el propósito va después del tablero»).
+  Hoy un cliente llega a esa tarea sin tener tablero. Se arregla moviendo la etapa `pas` entre
+  `ritmo` e `instalado` en el editor de etapas: las clases cuelgan de la CLAVE y viajan solas.
+- Falta `m0c2` («Estándar no es criterio») del catálogo viejo: el programa nuevo ya lo cubre con el
+  2.1 y la tabla D2. Y `m11c2` (Auditoría de vinculación) quedó en la última etapa por el reparto,
+  aunque su ayuda dice «se corren antes de programar nada»: encaja al cerrar Palancas.
+- Algunos textos de la planilla numeran fases («Qué se deja para la fase 9») y otros están escritos
+  para Mauricio en tercera persona («Que escriba su visión…»). Se cargaron textuales.
+- Los formularios de palancas, evidencia, umbrales y carta (`m6*`–`m9*`) eran UNO POR ÁREA y el m8
+  lo contestaba el líder de área. Hoy son uno por cliente.
+
+### Lo que encontró la revisión (y el diagnóstico que era falso)
+
+- **«Enviado» sobre un recordatorio que no salió.** El cron marca `aviso_previo_at` ANTES de mandar
+  (compare-and-set, para no mandar dos veces) y no la deshace si falló, no había teléfono o el
+  cliente estaba al día. La marca significa «se procesó», no «le llegó»: lo que distingue es el
+  motivo anotado de ESA fase (`motivoDeFase`). La ficha leía sólo la marca y pintaba «enviado» con
+  «Antes: sin teléfono» escrito abajo.
+- **Cualquier clase al 100% con un POST.** El server dividía `seg/dur`, pero los dos números venían
+  del navegador y `dur` pisaba al guardado: `{seg: 1, dur: 1}` era «visto». La duración ahora se
+  fija con la primera que llega y no puede ser menos del 80% de los minutos declarados.
+- **Una tabla de filas fijas vacía contaba como contestada**: el portal guarda la etiqueta de la fila
+  en la columna 0 y el server la contaba como respuesta, así que un pedido armado a mano cerraba la
+  etapa. La pantalla ya lo miraba bien: la misma regla estaba escrita dos veces y una sola estaba
+  bien. Ahora es `campoLleno`, en `lib/curso.ts`, y la pantalla la re-exporta.
+- **«Entró N veces» medía mensajes, no visitas.** La página del portal contaba un ingreso en cada
+  render: la vista previa que arma WhatsApp al mandar o pegar el link, y el `router.refresh()` que
+  sigue a un paso de etapa. Ahora sólo cuenta una navegación de documento (`sec-fetch-dest`), y sin
+  esos headers, ni un pedido RSC ni un agente de vista previa. Medido en el navegador: dos
+  navegaciones dieron `ingresos: 2`, el token torcido 0.
+- **Un borrador pisaba una tarea ya revisada** (una pestaña vieja con su beacon, o un POST a mano):
+  la ruta de la tarea contesta 409 a un borrador sobre una tarea que no está pendiente.
+- **Borrar o cambiar el video de una clase lo borraba del bucket aunque otra clase lo usara.**
+  `borrarArchivo` pregunta antes si alguna fila lo referencia, y ante la duda no borra.
+- **Un Vimeo no listado no reproducía**: el id solo no alcanza, el reproductor pide el hash
+  (`vimeo.com/<id>/<hash>` o `?h=`).
+- **Dos `videoDeClase` con formas distintas** (la tab y la ficha `{hay, rotulo, medible}`, el portal
+  `{video, medible}`) decidían cada una si un video «se mide». Ahora las dos derivan de
+  `reproductorDeClase` (`lib/curso.ts`). ⚠️ **Repartir trabajo por archivo DUPLICA las reglas
+  puras que necesitan dos pantallas**: dos agentes no pueden ver lo que escribe el otro. Esa regla
+  se decide en un módulo compartido ANTES del reparto.
+- ⚠️ **Diagnóstico falso, y lo cometió el orquestador:** «el desplegable de Customer Success queda
+  de una sola fila en la capa superadmin, porque sus `navKeys` no traen `cs-curso`». Se agregó la
+  key y se revirtió: `tabEnCapa` une `navKeys` con `userNavKeys`, y superadmin tiene `userNavKeys:
+  null`, o sea que contesta que sí a CUALQUIER key. **Antes de agregar una key a una capa (o de
+  creer que una lista la restringe), mirá su `userNavKeys`.** Lo había medido el agente de la tab.
+- ⚠️ **Diagnóstico falso: «los avisos a Mauricio necesitan su entrada de catálogo para salir».**
+  `emitirAviso` acepta un tipo que no está en el catálogo y lo manda igual, con el rótulo «SISTEMA»
+  y sin poder apagarse ni renombrarse. Las dos entradas (`curso-sesion-previa`,
+  `curso-sesion-posterior`) se agregaron para eso. Y esos avisos NO pasan por
+  `envio_whatsapp_enabled`, que gobierna sólo lo que se le escribe a un lead.
+
+### Trampas del entorno que costaron una vuelta
+
+- **PostgREST no puede hacer upsert contra un índice único PARCIAL** (`where origen is not null`):
+  un `ON CONFLICT` sin el predicado no lo infiere. El cargador lee los orígenes que ya están e
+  inserta lo que falta; un cruce de dos corridas lo frena el índice (falla el lote, no duplica).
+- **Subida a una URL firmada de Storage** (medido contra producción): el gateway NO exige `apikey`
+  (el comentario de `app/api/ads-manager/creative-signurl/route.ts` dice lo contrario). El filtro
+  de tipos del bucket mira el tipo de la PARTE multipart: con `application/octet-stream` contesta
+  400 `invalid_mime_type`, y hay navegadores que dejan `File.type` vacío en `.mov`/`.m4v`. El tipo
+  se corrige por la extensión antes de subir (`mimeDeArchivo`). Y `exists()` de algo que no está
+  devuelve `{data: false, error: 'Bad Request'}`, no un 404.
+- **Postgres reordena las claves de un `jsonb`**: comparar campos con `JSON.stringify` dio 43 de 107
+  «cambiados» que eran sólo orden. Se compara con un stringify de claves ordenadas.
+- **Un `<video>` emite `timeupdate` en 0 al cargar**: sin filtrarlo, `visto_at` («primer play»)
+  quedaba puesto en clases que sólo se abrieron. Nada sale hasta `currentTime > 0`.
+- **YouTube:** que cargue `iframe_api` no es que esté lista (avisa por
+  `window.onYouTubeIframeAPIReady`, que hay que encadenar con el que ya hubiera, con un tope), y
+  `YT.Player` REEMPLAZA el nodo que recibe: va un div creado a mano adentro de la caja de React.
+- **La URL firmada de un video subido vive 4 h**, no los 120 s de `/api/compartido/archivo`: un
+  `<video>` pide rangos contra la URL a la que lo redirigieron, y si vence a mitad de clase el
+  próximo salto falla. Costo aceptado: sobrevive a un «Cortar acceso» durante ese rato.
+- **`sendBeacon` con un Blob `text/plain`**, no JSON: un tipo no «simple» lo rechazan algunos
+  navegadores. La ruta lee el cuerpo crudo y topa por bytes leídos, no por `content-length`.
+- **Un test de hora local pasa VERDE sobre el bug en una máquina en UTC** (CI, Vercel): leer
+  `'2026-10-12T10:30'` como UTC da lo mismo que leerlo local. El test fija `process.env.TZ` adentro.
+- **TypeScript no estrecha una unión cuando un miembro tiene el discriminante como unión**
+  (`{decision: 'bloqueada'|'no-existe'} | {decision: 'ok', clase}`): con dos `===` seguidos
+  `r.clase` sigue sin existir. Va un solo `if (r.decision !== 'ok')`.
+- **Con seis `tsc --noEmit` a la vez sobre el clon, uno completo pasó los 10 minutos.** Un tsconfig
+  en el scratchpad con `extends` del repo y `files` con lo propio contesta lo tuyo en ~80 s.
+
+### Sin hacer
+
+- **Compare-and-set en `moverClienteDeEtapa`** (`lib/cs-mover-etapa.ts`): si el cliente manda las
+  dos últimas tareas en el mismo segundo (dos pestañas), los dos envíos ven la etapa completa y los
+  dos contestan `cambio: true` — sale dos veces el mensaje de la etapa nueva y dos líneas de
+  historial (la fila queda bien). Se dejó porque cuatro tests fijan la FORMA del upsert de ese
+  choke point y el caso es raro; el arreglo es `update … where etapa = desde` + `upsert` con
+  `ignoreDuplicates`.
+- **Con el envío apagado, Mauricio recibe igual el aviso** de cada llamada («No le escribí: envío de
+  WhatsApp apagado», con dedup de 72 h por sesión). Si después se prende, el dedup se come el aviso
+  corregido.
+- **Una sesión marcada que no salió por algo arreglable (sin teléfono, línea caída) no se
+  reintenta**: es a propósito, para no mandar dos veces; queda en `aviso_motivo`.
+- **Lo que Mauricio pidió el 8/9 después de cada junta («los compromisos de la junta» sacados del
+  Fathom) no está**: el posterior manda las tareas que le quedan en su etapa.
+- El onboarding de la tab Curso (regla de la casa), la limpieza de videos huérfanos del bucket
+  (subidas abandonadas cerrando la pestaña), y la sincronización de las llamadas con Calendly.
+- Las actions de `app/customer-success/actions.ts` preguntan el workspace del cliente pero no la
+  CAPA (el `requireCapa` vive en la página, y una server action es un POST que no pasa por ella).
+  Las del curso sí la preguntan.
+- Lo que MaKo puede leer del curso por WhatsApp o la API (el avance de un cliente) no está declarado
+  en el registro de `lib/api-mako/areas/`.
+- Whop: quedan en la base 4 credenciales (ws1 y ws4) y una fila de `webhook_routing` del ws1, y las
+  `WHOP_*` en `.env.local`, inertes. En el tablero del super admin, las #659 y #660 (Whop) siguen
+  abiertas: van por propuesta. Y el panel de `/admin/dev/customer-success` (roadmap-cs) todavía
+  dibuja Whop como pieza viva.

@@ -534,3 +534,23 @@ tutoriales y una nota que seguían describiendo el campo como opcional—, que e
 ningún compilador reclama.
 
 **Vive en:** `lib/metodo-catalogo.ts:828-861` · *2026-10-04 arreglar-crm*
+
+## Retirar el CONSUMIDOR de una integración no es retirar la integración: Whop (06/10/2026)
+
+**Vive en:** `lib/integraciones-catalogo.ts`, `lib/metodo-catalogo.ts`, `lib/metodo-verificar.ts`,
+`app/_components/ServicioVisual.tsx`, `tests/sin-whop.test.ts`.
+
+Diez días después de que el 26/09 (`07d07139`) saliera el programa de Mauricio con su webhook, su
+sync y su mapa de lecciones, la tarjeta de Whop seguía en `/integraciones` para TODOS los
+clientes: se podía conectar, el tilde se ponía verde con el nombre del negocio, y el tutorial
+mandaba pegar `{{APP_URL}}/api/webhooks/whop`, que daba 404. Se había ido lo que la USABA y había
+quedado la integración: los tres registros, el logo, sus `AYUDA_CAMPO` y una lib sin call sites.
+
+- **Retirar una integración son siete cosas**: la tarjeta, los campos, el ping, el logo, sus
+  `AYUDA_CAMPO`, su lib, y un guard `tests/sin-<x>.test.ts` que falle si vuelve.
+- **Lo que dejó escrito en la base no lo limpia ningún camino del producto**: `webhook_routing` se
+  borra sólo al borrar una credencial de `ROUTING_CREDS`, y Whop nunca estuvo ahí (el ruteo lo
+  escribía su lib al derivar el company id). Su fila del ws1 queda, inerte, hasta que alguien la
+  borre a mano. Las 4 credenciales (ws1 y ws4) también: son dato del cliente.
+- La categoría «Contenido» quedó sin tarjetas; se sigue nombrando en `CAT_ORDER` y en
+  `lib/capas.ts`, y es inofensivo porque el tablero filtra las categorías vacías.

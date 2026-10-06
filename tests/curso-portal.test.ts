@@ -88,6 +88,9 @@ test('armarEtapas: agrupa en el orden de la entrega, ordena por orden y cuenta l
   assert.deepEqual(vista[0].clases.map((c) => c.id), [1, 2, 3], 'orden, y a igual orden el id');
   assert.equal(vista[0].obligatorias, 2);
   assert.equal(vista[0].enviadas, 1);
+  // Lo que ve el alumno cuenta TODAS las tareas (aquí, las dos con tarea; la 2 no pide nada).
+  assert.equal(vista[0].tareas, 2);
+  assert.equal(vista[0].tareasEnviadas, 1);
   assert.equal(vista[0].clases.find((c) => c.id === 1)?.estado, 'enviada');
   assert.ok(!vista.flatMap((e) => e.clases).some((c) => c.id === 9), 'una clase huérfana no aparece');
 });

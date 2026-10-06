@@ -300,10 +300,12 @@ export async function productosDelAlumno(leadId: number): Promise<number[]> {
  * (`repartirEnEtapas`). Preguntarle sólo a `cliente_entrega` contestaría «ninguna» para los
  * clientes que nunca se movieron — que al arrancar son todos.
  */
-export async function etapaActualDe(leadId: number, productoId: number): Promise<string | null> {
+export async function etapaActualDe(leadId: number, productoId: number, productosYaLeidos?: readonly number[]): Promise<string | null> {
+  // `productosYaLeidos`: quien ya los tiene (la ficha, el portal) los pasa. Leerlos son dos
+  // rondas de consultas (catálogo, embudos, filas), y repetirlas por producto alargaba la ficha.
   const [{ entregaDeProducto, entregaDeCliente }, productos] = await Promise.all([
     import('./entrega-servicio'),
-    productosDelAlumno(leadId),
+    productosYaLeidos ?? productosDelAlumno(leadId),
   ]);
   if (!productos.includes(productoId)) return null;
   const [cfg, fila] = await Promise.all([entregaDeProducto(productoId), entregaDeCliente(leadId, productoId)]);
