@@ -30,13 +30,24 @@
 //     reunión, la reunión metida en el avance, encadenar, el orden de la 0205), cada uno
 //     roto por separado → 1 fallo cada uno (22 pasan)
 // Como está: 23/23.
+//
+// Revisión adversarial (06/10/2026), cinco tests más, rotos con el mismo arnés:
+//   · `reunionQuePreparaMs` devolviendo la más próxima (R1 o R2)     → 1 fallo  (27 pasan)
+//   · `reusablesDe` decidiendo con `reunionFuturaMs`                   → 1 fallo  (27 pasan)
+//   · el alta del cohorte / la del evento / encadenar / la re-anotación
+//     anotando `reunionFuturaMs`                                       → 1 fallo cada una
+//   · el commit o el evento reactivando con `ahoraISO()` del momento, o
+//     `aInscribir` fechando la decisión DESPUÉS de leer las filas      → 1 fallo cada una
+//   · `reactivarInscripcion` sin el corte al descartar los pendientes, o
+//     sin el corte al desligar los borradores                          → 1 fallo cada una
+// Como está: 28/28.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  inscripcionReusable, diaDeReunion, reunionFuturaMs, camposDeReactivacion, reactivarInscripcion,
+  inscripcionReusable, diaDeReunion, reunionFuturaMs, reunionQuePreparaMs, camposDeReactivacion, reactivarInscripcion,
   marcasPorInscripcion, SIN_MARCAS, type FilaPrevia,
 } from '../lib/nutricion-reinscripcion';
 
@@ -54,6 +65,25 @@ test('reunionFuturaMs: prefiere la hora exacta, una fecha sola es mediodía de M
   // La R1 pasó, la R2 no: cuenta la R2.
   assert.equal(reunionFuturaMs({ junta_1_at: '2026-10-09T18:00:00Z', junta_2_at: '2026-10-12T18:00:00Z' }, ahora), Date.parse('2026-10-12T18:00:00Z'));
   assert.equal(reunionFuturaMs(null, ahora), null);
+});
+
+test('reunionQuePreparaMs: la post-agenda prepara la R1; con la R1 pasada, la R2 NO es una reunión nueva', () => {
+  const ahora = Date.parse('2026-10-08T17:00:00Z'); // 11:00 del 8/10 en México
+  const r1Hoy = '2026-10-08T16:00:00Z';              // la R1 fue hoy a las 10:00
+  const r2Jueves = '2026-10-15T16:00:00Z';           // y en la llamada se agendó la R2
+  const lead = { fecha_junta_1: '2026-10-08', junta_1_at: r1Hoy, fecha_junta_2: '2026-10-15', junta_2_at: r2Jueves };
+  assert.equal(reunionQuePreparaMs(lead, ahora), null, 'con la R1 pasada no hay reunión que preparar, aunque haya R2');
+  // La trampa, tal cual: la otra función se queda con la R2, que es otro día que la R1.
+  assert.equal(reunionFuturaMs(lead, ahora), Date.parse(r2Jueves));
+  const fila = { estado: 'completada', desenlace: 'logrado', reunion_at: r1Hoy };
+  assert.deepEqual(inscripcionReusable({ fila, marcas: { enviados: 2, borradores: 0 }, reunionNuevaMs: reunionFuturaMs(lead, ahora) }), { reusable: true, porque: 'reunion_nueva' });
+  assert.deepEqual(inscripcionReusable({ fila, marcas: { enviados: 2, borradores: 0 }, reunionNuevaMs: reunionQuePreparaMs(lead, ahora) }), { reusable: false, porque: 'sin_reunion_futura' });
+  // La R1 por delante es la que cuenta, haya o no R2; una fecha sola es mediodía de México.
+  assert.equal(reunionQuePreparaMs({ junta_1_at: '2026-10-10T16:00:00Z', junta_2_at: '2026-10-09T16:00:00Z' }, ahora), Date.parse('2026-10-10T16:00:00Z'));
+  assert.equal(reunionQuePreparaMs({ fecha_junta_1: '2026-10-08' }, ahora), Date.parse('2026-10-08T18:00:00Z'));
+  // Sólo R2: nada que preparar.
+  assert.equal(reunionQuePreparaMs({ fecha_junta_2: '2026-10-15', junta_2_at: r2Jueves }, ahora), null);
+  assert.equal(reunionQuePreparaMs(null, ahora), null);
 });
 
 test('diaDeReunion: el día es el de México, no el de UTC', () => {
@@ -234,6 +264,18 @@ test('los envíos viejos se desligan (con su lead y su secuencia), y lo escrito 
   assert.equal(i.conversacion_cerrada_at, null);
 });
 
+test('el que PIERDE el reclamo no le toca nada a la corrida que ganó: ni su borrador pendiente ni su envío', async () => {
+  // Dos corridas leen la fila terminada a las 09:00:00. La ganadora la reclama y su primer paso
+  // sale a las 09:00:05 como borrador. La perdedora llega después: con el corte en el instante
+  // de la DECISIÓN (antes de leer), lo de la ganadora queda intacto y recién ahí pierde el CAS.
+  const t = base();
+  t.nutricion_inscripciones[0].estado = 'activa';
+  t.wa_borradores.push({ id: 4, inscripcion_id: 7, paso: 1, estado: 'pendiente', created_at: '2026-10-08T09:00:05.000Z' });
+  assert.equal(await reactivarInscripcion(fakeDb(t).db, reactivacion), false);
+  assert.deepEqual(t.wa_borradores.find((f) => f.id === 4), { id: 4, inscripcion_id: 7, paso: 1, estado: 'pendiente', created_at: '2026-10-08T09:00:05.000Z' });
+  assert.equal(t.nutricion_envios.find((f) => f.id === 12)?.inscripcion_id, 7);
+});
+
 test('compare-and-set: si otra corrida movió la fila entre medio, no se reclama ni se pisa', async () => {
   const t = base();
   t.nutricion_inscripciones[0].estado = 'activa'; // otra invocación del mismo tick ya la reclamó
@@ -368,7 +410,39 @@ test('cada paso que sale re-anota la reunión, en un update APARTE del avance', 
   assert.ok(trozo.length < 1500, `el avance mide ${trozo.length}: está mirando otra cosa`);
   const avance = trozo.slice(0, trozo.indexOf(".eq('id', insc.id);"));
   assert.doesNotMatch(avance, /reunion_at/, 'el avance de un paso que ya salió no puede depender de la columna nueva');
-  assert.match(trozo, /const reunionDelPaso = preparaUnaReunion\(sec\.trigger_tipo\) \? reunionFuturaMs\(lead\) : null;\s*if \(reunionDelPaso != null\) \{\s*const \{ error: eReunion \} = await supabase\.from\('nutricion_inscripciones'\)\s*\.update\(\{ reunion_at: /);
+  assert.match(trozo, /const reunionDelPaso = preparaUnaReunion\(sec\.trigger_tipo\) \? reunionQuePreparaMs\(lead\) : null;\s*if \(reunionDelPaso != null\) \{\s*const \{ error: eReunion \} = await supabase\.from\('nutricion_inscripciones'\)\s*\.update\(\{ reunion_at: /);
+});
+
+test('la reunión NUEVA del reuso es la R1 (`reunionQuePreparaMs`), nunca «la más próxima»', () => {
+  // Con `reunionFuturaMs`, la R2 agendada en la misma llamada de la R1 se leía como «otra
+  // reunión» y el cron de la hora siguiente le volvía a mandar la post-agenda.
+  const c = cuerpo(MOTOR, 'async function reusablesDe(');
+  assert.match(c, /const reunionMs = reunionQuePreparaMs\(juntas\.get\(fila\.lead_id\)\);/);
+  assert.doesNotMatch(c, /reunionFuturaMs/);
+});
+
+test('lo que se anota en `reunion_at` al inscribir también es la R1: el cohorte, el evento y encadenar', () => {
+  assert.match(cuerpo(MOTOR, 'async function aInscribir('), /nuevas: pendientes\.map\(\(id\) => alta\(id, reunionQuePreparaMs\(juntas\.get\(id\)\)\)\),/, 'el alta del cohorte');
+  assert.match(cuerpo(MOTOR, 'export async function enrolarPorEvento('), /const reunion = preparaUnaReunion\(s\.trigger_tipo\) \? reunionQuePreparaMs\(juntas\) : null;/, 'el alta por evento');
+  assert.match(DESENLACE, /const reunion = preparaUnaReunion\(sig\.trigger_tipo\) \? reunionQuePreparaMs\(lead as JuntasLead\) : null;/, 'encadenar');
+});
+
+test('el corte de lo que el reuso desliga es el instante de ANTES de leer la fila, no el de la llamada', () => {
+  // Con el de la llamada, la corrida que perdía el reclamo le descartaba a la que ganó el
+  // borrador que acababa de dejar (ver `Reactivacion.ahora`).
+  const ai = cuerpo(MOTOR, 'async function aInscribir(');
+  const decA = ai.indexOf('const decididoAt = ahoraISO();');
+  assert.ok(decA >= 0 && decA < ai.indexOf('await inscripcionesDe('), 'aInscribir: la decisión se fecha ANTES de leer las filas');
+  assert.match(ai, /porque: r\.porque, decididoAt \}/);
+  assert.match(cuerpo(MOTOR, 'async function reactivarReusables('), /ahora: r\.decididoAt,/, 'el commit reactiva con la hora de la decisión');
+  const ev = cuerpo(MOTOR, 'export async function enrolarPorEvento(');
+  const decE = ev.indexOf('const decididoAt = ahoraISO();');
+  assert.ok(decE >= 0 && decE < ev.indexOf('const previas = await inscripcionesDe('), 'el evento: la decisión se fecha ANTES de leer las filas');
+  assert.match(ev, /reunionAt: new Date\(r\.reunionMs\)\.toISOString\(\), ahora: decididoAt,/);
+  // Y ninguna llamada al reuso toma la hora del momento.
+  const llamadas = MOTOR.split('await reactivarInscripcion(').slice(1).map((s) => s.slice(0, s.indexOf('});')));
+  assert.equal(llamadas.length, 2, `esperaba dos llamadas al reuso, hay ${llamadas.length}`);
+  for (const l of llamadas) assert.doesNotMatch(l, /ahoraISO\(\)/);
 });
 
 test('encadenar NO reusa (lo escrito en su comentario) y sí escribe la reunión que prepara', () => {

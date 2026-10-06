@@ -25,7 +25,7 @@ import { leerTodo } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { enviosPorInscripcion } from './nutricion-envios-resumen';
 import { preparaUnaReunion } from './nutricion-familias';
-import { reunionFuturaMs, type JuntasLead } from './nutricion-reinscripcion';
+import { reunionQuePreparaMs, type JuntasLead } from './nutricion-reinscripcion';
 
 export type ResultadoDesenlaces = {
   logrados: number;
@@ -178,7 +178,7 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     const delay = Number(pasos[0]?.delay_horas ?? 0) || 0;
     // La reunión que esta inscripción prepara (mig 0205), igual que al inscribir por el
     // cohorte: sin ella, el reuso de mañana no sabría si la próxima agenda es otra reunión.
-    const reunion = preparaUnaReunion(sig.trigger_tipo) ? reunionFuturaMs(lead as JuntasLead) : null;
+    const reunion = preparaUnaReunion(sig.trigger_tipo) ? reunionQuePreparaMs(lead as JuntasLead) : null;
     const { error } = await supabase.from('nutricion_inscripciones').insert({
       lead_id: leadId, secuencia_id: sig.id, paso_actual: 0, estado: 'activa',
       proximo_envio_at: new Date(Date.now() + delay * 3_600_000).toISOString(),

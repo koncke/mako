@@ -55,6 +55,30 @@ export function reunionFuturaMs(juntas: JuntasLead | null | undefined, ahoraMs: 
 }
 
 /**
+ * La reunión que PREPARA la familia de la post-agenda: la R1 futura del lead, o null. Es la
+ * que se anota en `reunion_at` y la que decide si una agenda posterior es «otra reunión».
+ *
+ * ⚠️ NO ES `reunionFuturaMs`, que se queda con la más próxima entre la R1 y la R2. Las tres
+ * secuencias de `preparaUnaReunion` cuelgan de la R1 —su cohorte es `fecha_junta_1 >= hoy` y
+ * `asistio_j1` vacío (lib/nutricion.ts)— y la R2 no es «volver a agendar». Con la otra
+ * función, el caso típico se leía como una reunión nueva: la R1 fue hoy a las 10, en la misma
+ * llamada se agendó la R2 para el jueves (lib/leads.ts → `setFechaJunta2` no toca
+ * `asistio_j1`), y mientras nadie marque la asistencia el lead sigue en el cohorte hasta la
+ * medianoche. La R1 ya pasó, la más próxima es la R2, otro día → el cron de la hora siguiente
+ * reusaba la inscripción y le volvía a mandar el audio de la post-agenda («te dejo el video
+ * para que llegues con contexto») a quien acababa de salir de la reunión. Medido el
+ * 06/10/2026: de los 39 leads con R1 y R2 cargadas, 5 tienen la asistencia a la R1 vacía.
+ *
+ * Sin R1 futura devuelve null aunque haya R2: para el reuso es «sin reunión que preparar».
+ */
+export function reunionQuePreparaMs(juntas: JuntasLead | null | undefined, ahoraMs: number = Date.now()): number | null {
+  const r1 = juntas?.junta_1_at ?? juntas?.fecha_junta_1;
+  if (!r1) return null;
+  const ms = parseFechaJunta(r1);
+  return Number.isFinite(ms) && ms > ahoraMs ? ms : null;
+}
+
+/**
  * El día de una reunión (YYYY-MM-DD) en hora de México. Es la identidad de «una reunión».
  *
  * ⚠️ POR DÍA Y NO POR INSTANTE, y no es redondeo: la HORA de una reunión se refina sola. La
@@ -141,7 +165,7 @@ export type VeredictoReuso =
 export function inscripcionReusable(p: {
   fila: FilaPrevia;
   marcas: MarcasInscripcion;
-  /** La próxima reunión FUTURA del lead hoy (ms), o null si no tiene (`reunionFuturaMs`). */
+  /** La R1 FUTURA del lead hoy (ms), o null si no tiene (`reunionQuePreparaMs`, nunca la R2). */
   reunionNuevaMs: number | null;
 }): VeredictoReuso {
   if (p.reunionNuevaMs == null || !Number.isFinite(p.reunionNuevaMs)) return { reusable: false, porque: 'sin_reunion_futura' };
@@ -207,7 +231,18 @@ export type Reactivacion = {
   proximoEnvioAt: string;
   /** La reunión que va a preparar ahora. */
   reunionAt: string | null;
-  /** El instante de la decisión, en ISO. */
+  /**
+   * El instante de la decisión, en ISO: tomado ANTES de leer la fila que `leido` describe.
+   *
+   * ⚠️ NO el de la llamada. Es el corte de lo que se desliga (`created_at <= ahora`), y entre
+   * la lectura y esta llamada otra corrida pudo ganar el reclamo y ya haber mandado su primer
+   * paso. Con el instante de la llamada, el corte caía DESPUÉS de lo de la ganadora: el que
+   * perdía le descartaba el borrador pendiente recién creado —el motor ya había anotado
+   * 'borrador' y avanzado, o sea la corrida nueva quemada en silencio— y le desligaba su envío,
+   * y recién ahí perdía el compare-and-set. Con el instante de antes de leer no puede: si la
+   * otra reclamó antes de la lectura, ésta leyó 'activa' y ni lo intenta; si reclamó después,
+   * todo lo suyo es posterior al corte.
+   */
   ahora: string;
 };
 
@@ -257,8 +292,9 @@ export function camposDeReactivacion(r: Pick<Reactivacion, 'proximoEnvioAt' | 'r
  *      daría por lograda sin haber hecho nada) y `anotarPasoEnviado` (al mandar el borrador
  *      nuevo marcaría 'enviado' también el viejo de ese paso, que nunca salió). La historia no
  *      se pierde: cada fila conserva su `lead_id` y su `secuencia_id`.
- *    · Sólo lo creado HASTA la decisión (`created_at <= ahora`): si otra corrida ganó el
- *      reclamo y ya mandó algo, eso es suyo y no se toca.
+ *    · Sólo lo creado HASTA la decisión (`created_at <= ahora`, con `ahora` tomado antes de
+ *      LEER la fila: ver `Reactivacion.ahora`): si otra corrida ganó el reclamo y ya mandó
+ *      algo, eso es suyo y no se toca.
  *    Va ANTES del reclamo a propósito: si falla, tira y no se reactiva nada. Al revés, una
  *    falla dejaba la fila activa con lo viejo colgado, que es justo el bug de arriba.
  * 2. EL RECLAMO, con compare-and-set sobre lo leído (`estado` y `desenlace`): si dos corridas

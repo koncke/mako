@@ -40,7 +40,7 @@ import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
 import {
-  TZ_OFFSET_MX, reunionFuturaMs, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion,
+  TZ_OFFSET_MX, reunionFuturaMs, reunionQuePreparaMs, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion,
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 
@@ -843,7 +843,8 @@ async function reusablesDe(
     juntasDe(db, posibles.map((f) => f.lead_id)),
   ]);
   for (const fila of posibles) {
-    const reunionMs = reunionFuturaMs(juntas.get(fila.lead_id));
+    // La R1, no «la más próxima»: la R2 no es volver a agendar (ver `reunionQuePreparaMs`).
+    const reunionMs = reunionQuePreparaMs(juntas.get(fila.lead_id));
     const v = inscripcionReusable({ fila, marcas: marcas.get(fila.id) ?? SIN_MARCAS, reunionNuevaMs: reunionMs });
     if (v.reusable && reunionMs != null) out.set(fila.id, { fila, reunionMs, porque: v.porque });
   }
@@ -946,6 +947,8 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
 }
 
 type AltaInscripcion = { lead_id: number; proximo_envio_at: string; reunion_at: string | null };
+/** Una fila vieja que se va a reusar, con el instante en que se decidió (antes de leerla). */
+type Reuso = AltaInscripcion & { fila: FilaInsc; porque: string; decididoAt: string };
 
 /**
  * Qué pasa con los candidatos de UNA secuencia: a quiénes se inscribe de cero y qué filas
@@ -970,8 +973,12 @@ async function aInscribir(
   db: Awaited<ReturnType<typeof getTenantDb>>,
   sec: Secuencia,
   candidatos: number[],
-): Promise<{ nuevas: AltaInscripcion[]; reusar: Array<AltaInscripcion & { fila: FilaInsc; porque: string }> }> {
+): Promise<{ nuevas: AltaInscripcion[]; reusar: Reuso[] }> {
   const prepara = preparaUnaReunion(sec.trigger_tipo);
+  // El instante de la decisión va ANTES de leer las filas: es el corte de lo que el reuso
+  // desliga, y tomarlo al reactivar dejaba adentro lo que otra corrida mandó entre medio
+  // (ver `Reactivacion.ahora` en lib/nutricion-reinscripcion.ts).
+  const decididoAt = ahoraISO();
   const filas = await inscripcionesDe(db, candidatos, (q) => q.eq('secuencia_id', sec.id), prepara);
   const conFila = new Set(filas.map((f) => f.lead_id));
   const pendientes = candidatos.filter((id) => !conFila.has(id));
@@ -990,8 +997,8 @@ async function aInscribir(
     reunion_at: prepara && reunionMs != null ? new Date(reunionMs).toISOString() : null,
   });
   return {
-    nuevas: pendientes.map((id) => alta(id, reunionFuturaMs(juntas.get(id)))),
-    reusar: reusables.map((r) => ({ ...alta(r.fila.lead_id, r.reunionMs), fila: r.fila, porque: r.porque })),
+    nuevas: pendientes.map((id) => alta(id, reunionQuePreparaMs(juntas.get(id)))),
+    reusar: reusables.map((r) => ({ ...alta(r.fila.lead_id, r.reunionMs), fila: r.fila, porque: r.porque, decididoAt })),
   };
 }
 
@@ -1063,12 +1070,12 @@ export async function comprometerInscripciones(): Promise<number> {
 async function reactivarReusables(
   db: Awaited<ReturnType<typeof getTenantDb>>,
   sec: Pick<Secuencia, 'clave'>,
-  reusar: ReadonlyArray<AltaInscripcion & { fila: FilaInsc; porque: string }>,
+  reusar: ReadonlyArray<Reuso>,
 ): Promise<number> {
   let n = 0;
   for (const r of reusar) {
     const reclamada = await reactivarInscripcion(db, {
-      id: r.fila.id, leido: r.fila, proximoEnvioAt: r.proximo_envio_at, reunionAt: r.reunion_at, ahora: ahoraISO(),
+      id: r.fila.id, leido: r.fila, proximoEnvioAt: r.proximo_envio_at, reunionAt: r.reunion_at, ahora: r.decididoAt,
     });
     if (!reclamada) continue;
     n += 1;
@@ -1280,6 +1287,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     if (!elegidas.length) return 0;
 
     const preparan = elegidas.some((s) => preparaUnaReunion(s.trigger_tipo));
+    // Antes de LEER las filas, como en `aInscribir`: es el corte de lo que el reuso desliga.
+    const decididoAt = ahoraISO();
     const previas = await inscripcionesDe(supabase, [leadId], (q) => q.in('secuencia_id', elegidas.map((s) => s.id)), preparan);
     const previaDe = new Map(previas.map((f) => [f.secuencia_id, f]));
     const reusaSec = new Set(elegidas.filter(reusaInscripciones).map((s) => s.id));
@@ -1300,14 +1309,14 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
         const r = reusables.get(previa.id);
         if (!r) continue;
         const reclamada = await reactivarInscripcion(supabase, {
-          id: previa.id, leido: previa, proximoEnvioAt: proximo, reunionAt: new Date(r.reunionMs).toISOString(), ahora: ahoraISO(),
+          id: previa.id, leido: previa, proximoEnvioAt: proximo, reunionAt: new Date(r.reunionMs).toISOString(), ahora: decididoAt,
         });
         if (!reclamada) continue;
         console.log(`[nutricion] lead ${leadId}: la inscripción ${previa.id} (${s.clave}) vuelve a correr (${r.porque})`);
         arrancadas += 1;
         continue;
       }
-      const reunion = preparaUnaReunion(s.trigger_tipo) ? reunionFuturaMs(juntas) : null;
+      const reunion = preparaUnaReunion(s.trigger_tipo) ? reunionQuePreparaMs(juntas) : null;
       const { error } = await supabase.from('nutricion_inscripciones').insert({
         lead_id: leadId,
         secuencia_id: s.id,
@@ -2159,14 +2168,17 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // y si el lead reprograma A MITAD de la corrida, los pasos que siguen ya hablan de la
       // nueva. Sin re-anotarla, la fila terminaba diciendo la reunión VIEJA, y la corrida
       // siguiente del cron leía «otra reunión» sobre la misma que acababa de preparar y le
-      // mandaba toda la post-agenda de nuevo. No puede ser null para esta familia: sin reunión
-      // futura, la guarda de arriba ya cerró la inscripción.
+      // mandaba toda la post-agenda de nuevo.
       //
       // ⚠️ VA APARTE DEL AVANCE, y no es prolijidad: el avance de un paso que YA SALIÓ no puede
       // depender de una columna nueva. Metida en el mismo update, una 0205 sin aplicar haría que
       // PostgREST rechazara el avance entero —un error que acá nadie lee— y el paso se volvería
       // a mandar en la corrida siguiente.
-      const reunionDelPaso = preparaUnaReunion(sec.trigger_tipo) ? reunionFuturaMs(lead) : null;
+      //
+      // ⚠️ LA R1, NO LA MÁS PRÓXIMA (`reunionQuePreparaMs`). Si la R1 ya pasó y el paso salió
+      // porque hay una R2 por delante, anotar la R2 acá haría que una R2 cuente como «la reunión
+      // que preparó»; sin R1 futura no se re-anota y queda la que había.
+      const reunionDelPaso = preparaUnaReunion(sec.trigger_tipo) ? reunionQuePreparaMs(lead) : null;
       if (reunionDelPaso != null) {
         const { error: eReunion } = await supabase.from('nutricion_inscripciones')
           .update({ reunion_at: new Date(reunionDelPaso).toISOString() }).eq('id', insc.id);
