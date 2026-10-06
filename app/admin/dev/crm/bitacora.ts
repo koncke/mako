@@ -853,5 +853,115 @@ export const BITACORA: Hito[] = [
       "app/ads-manager/NuevaCampanaModal.tsx — el selector al crear",
       "lib/campana-asignar.ts — cuándo se pregunta y qué dice la pregunta (puro, con test)"
     ]
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "00:52",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "La ficha del lead: producto, Web, un WhatsApp, la cara, sin Reactivar, y las reuniones de entrega",
+    "pedido": "1. En el detalle del lead, en el pop-up, falta el desplegable de productos, por si quiero poner a ese lead en otros productos. 2. Saca en el resumen el dato de \"Dirección\" eso no importa. En su lugar, pon \"Web\" 3. Si eliminamos el WhatsApp OFICIAL, solo debe quedar 1 botón de WhatsApp. 4. Y sería bueno que siempre traigas la foto de perfil del lead, buscala en WhatsApp y sino tiene, la foto del email... 5. Elimina lo de \"Reactivar\" en el detalle del lead, eso no tiene sentido, que siempre esté el mensaje sutil. 6. Revisa que en el detalle del lead, en reuniones, se están marcando muchas como R2, cuando claramente son ya de entrega de servicio... Eso tienes que solucionarlo. Se tiene que poder diferenciar cuando pasan a ser reuniones de entrega de servicio, y esas reuniones se visualizan en Customer Success, no aquí. Y también fijate que los desplegables de productos y etapa están mal ubicados a la izquierda, deberían estar a la derecha.",
+    "puntos": [
+      "Seis puntos sobre la ficha del lead, con dos capturas (el pop-up y la ruta /crm/21)."
+    ]
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "00:55",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "La tabla de campañas: la casilla selecciona, «todos» y lote; el nombre del producto",
+    "pedido": "1. El botón de checkbox no debería asignar, porque se entiende en todo MaKo que esa es la selección multiple... Y falta el checkbox más arriba para seleccionar a todo. Y luego una topbar aparece para poder asignar en lote. 2. El producto no debe decir \"Este\" eso es muy informal y no se entiende, debe tener el nombre del producto o los productos.",
+    "puntos": [
+      "Lo pidió probando la tabla en producción."
+    ]
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "01:13",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "La casilla selecciona, «todos» arriba, asignar en lote, y la columna con el nombre del producto",
+    "puntos": [
+      "La columna Producto es `ProductoCelda`, la misma pieza que la tabla de Ads Manager: dice el nombre y asigna de a una.",
+      "Acciones en LOTE, con el mapa escrito una sola vez y un solo «Deshacer»; las de a una delegan en ellas.",
+      "Cada lead cuenta UNA vez aunque se elijan una campaña y su conjunto juntos (`repartirPorItem`, con test)."
+    ],
+    "commits": [
+      {
+        "sha": "721ad387",
+        "msg": "Campañas de Meta: la casilla selecciona, «todos» arriba, asignar en lote y el nombre del producto",
+        "lineas": 286,
+        "archivos": 6
+      }
+    ]
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "01:15",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Filtro del CRM por campaña o por creativo",
+    "pedido": "Por otro lado, en el CRM pon un filtro por creativo o por campaña, para ver de que ads vinieron los leads.",
+    "puntos": []
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "01:36",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Filtrar el CRM por campaña y por creativo",
+    "puntos": [
+      "La clave es el ID (`campanaDeLead` + `adIdDeLead`), así una campaña renombrada es una sola fila con su nombre de hoy.",
+      "Los leads del formulario traen el anuncio y no la campaña: su campaña sale de `getAnunciosMap`, una lectura cacheada nueva.",
+      "Las opciones cuentan sobre lo que dejan pasar los otros filtros: con una campaña elegida, Creativo muestra sólo sus anuncios."
+    ],
+    "commits": [
+      {
+        "sha": "117ea2bd",
+        "msg": "CRM: filtrar por campaña y por creativo, para ver de qué anuncios vinieron los leads",
+        "lineas": 262,
+        "archivos": 7
+      }
+    ]
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "02:02",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "La ficha: producto en el pop-up, Web, un WhatsApp, la cara, sin Reactivar, y la entrega no es R2",
+    "puntos": [
+      "⚠️ **El diagnóstico obvio era el equivocado**: «posterior al primer pago» borraba la R2 real en 9 de 20 ventas (el apartado se cobra en la R1). Lo que separa la entrega es el CIERRE, comparado estricto.",
+      "El escritor era el webhook de Fathom (no fathom-auto ni crm-auto): ahora corta antes de enganchar, de disparar el evento y de pagar el análisis.",
+      "Los 45 links de entrega de 6 clientes salieron de `fathom_links`, con respaldo; siguen en `closing_analyses` y Customer Success los muestra.",
+      "La foto: una pieza común con Customer Success (`foto-contacto.ts`). «La foto del email» es Gravatar: la de Gmail no es pública."
+    ],
+    "commits": [
+      {
+        "sha": "ee98547d",
+        "msg": "Ficha del lead: producto en el pop-up, Web, un WhatsApp, la cara, sin «Reactivar», y la entrega no es R2",
+        "lineas": 634,
+        "archivos": 16
+      }
+    ],
+    "archivos": [
+      "app/api/webhooks/fathom/route.ts — la guarda de la entrega",
+      "lib/insights-llamada-reparto.ts — esGrabacionDeEntrega (pura, con test)",
+      "app/_components/foto-contacto.ts — la cadena de la cara, compartida con Customer Success",
+      "supabase/migrations/0194_lead_web.sql — leads.web"
+    ]
   }
 ];
