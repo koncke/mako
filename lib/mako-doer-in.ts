@@ -333,7 +333,13 @@ export type ResultadoDoer = { engaged: boolean; reply?: string; skip?: string };
  * dueño ni los de otro cliente). Si es el grupo SuperAdmin o uno de prueba del dueño →
  * OWNER_WS. Cualquier otro → null (no contestamos: fail-closed).
  */
-async function wsDeGrupoJid(jid: string): Promise<number | null> {
+/**
+ * De quién es ESTE grupo. Exportada porque el acuse de recibo del webhook necesita
+ * exactamente la misma respuesta: resolver por la INSTANCIA le da el workspace de la
+ * línea, y la línea de voz de MaKo está mapeada al dueño — así que todo «ok» de todo
+ * grupo de todo cliente caía al ws1 (ver app/api/webhooks/evolution/route.ts).
+ */
+export async function wsDeGrupoJid(jid: string): Promise<number | null> {
   // 1) ¿Grupo MaKo de algún cliente? → ESE workspace. Va PRIMERO: aunque el dueño lo
   //    tenga en su allowlist, los datos se scopean al cliente dueño del grupo.
   const { data } = await getSupabaseServer()

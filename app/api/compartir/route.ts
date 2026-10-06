@@ -12,7 +12,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { hashGravatar } from '@/lib/gravatar';
-import { sendEmail, getEmailFrom, remitenteEsSandbox, resendConfigurado } from '@/lib/resend';
+import { sendEmail, remitenteEsSandbox, resendConfigurado } from '@/lib/resend';
+import { REMITENTE_MAKO, EMAIL_MAKO } from '@/lib/app-url';
+import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import {
   crearShare, listarShares, revocarShare, agregarInvitado, listarInvitados,
   revocarInvitado, marcarEnviado, getShare, parseDestinatarios, regenerarTokenInvitado, regenerarTokenShare,
@@ -71,8 +73,16 @@ export async function GET(req: NextRequest) {
     })));
     // Preflight del correo: que la UI AVISE antes de invitar, en vez de dejar
     // que la persona escriba tres mails y recién ahí ver el error de Resend.
-    const [hayKey, sandbox] = await Promise.all([resendConfigurado(), remitenteEsSandbox()]);
-    return NextResponse.json({ ok: true, shares: conInvitados, correo: { listo: hayKey && !sandbox, remitente: await getEmailFrom().catch(() => '') } });
+    // ⚠️ EL PREFLIGHT SE MIDE EN EL WORKSPACE QUE VA A FIRMAR, que es la PLATAFORMA y no
+    // el cliente que el admin tenga abierto en la pestaña. Antes preguntaba por el actual
+    // —`resendConfigurado()` y `remitenteEsSandbox()` resuelven el del contexto— así que
+    // contestaba por otra cuenta: es la regla de la casa de que el preflight tiene que
+    // mirar LO QUE SE VA A USAR.
+    const correo = await runWithWorkspace(await wsSuperAdmin(), async () => {
+      const [hayKey, sandbox] = await Promise.all([resendConfigurado(), remitenteEsSandbox()]);
+      return { listo: hayKey && !sandbox, remitente: EMAIL_MAKO };
+    });
+    return NextResponse.json({ ok: true, shares: conInvitados, correo });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 });
   }
@@ -118,8 +128,27 @@ function errorLegible(crudo: string): string {
   return crudo;
 }
 
+/**
+ * ⚠️ ESTE MAIL LO FIRMA MaKo, Y CORRE EN EL WORKSPACE DE LA PLATAFORMA.
+ *
+ * Antes resolvía el remitente con `getEmailFrom()`, que lee el `resend_from` del workspace
+ * EN CURSO — y acá el workspace en curso es el cliente que el super admin tiene abierto en
+ * la pestaña. Medido contra producción el 06/10/2026: el ws11 tiene cargadas su
+ * `RESEND_API_KEY` **y** su `RESEND_FROM`, así que un mail de la plataforma podía salir
+ * firmado por ese negocio y por SU cuenta de Resend. Sale un mail válido las dos veces, que
+ * es exactamente por qué nadie lo ve.
+ *
+ * Es la regla de `OWNER_WS` NO es la plataforma, y el molde ya estaba escrito en
+ * `lib/invitaciones.ts`: `runWithWorkspace(await wsSuperAdmin(), …)` + `from` EXPLÍCITO.
+ * Ese workspace no tiene credencial propia de Resend, así que la key cae en la del env, que
+ * es la de MaKo — justamente lo que se quiere.
+ */
 async function invitar(shareId: number, dests: Destinatario[], raiz: string, etiqueta: string | null): Promise<ResultadoInvitado[]> {
-  const from = await getEmailFrom().catch(() => '');
+  return runWithWorkspace(await wsSuperAdmin(), () => invitarComoMaKo(shareId, dests, raiz, etiqueta));
+}
+
+async function invitarComoMaKo(shareId: number, dests: Destinatario[], raiz: string, etiqueta: string | null): Promise<ResultadoInvitado[]> {
+  const from = REMITENTE_MAKO;
   const out: ResultadoInvitado[] = [];
   for (const { email, nombre } of dests) {
     try {

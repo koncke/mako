@@ -169,5 +169,9 @@ test('⚠️ el acuse del grupo marca la corrida, y NO la despierta', () => {
   assert.match(fn, /respondio_at/, 'dejo de estampar la senal');
   assert.ok(!/proxima_at/.test(fn), 'marcar la respuesta NO puede tocar cuando despierta');
   const hook = readFileSync(new URL('../app/api/webhooks/evolution/route.ts', import.meta.url), 'utf8');
-  assert.match(hook, /marcarRespondieron\(ws\)/, 'el acuse del grupo dejo de marcar las corridas');
+  // ⚠️ `wsGrupo` y no `ws`: desde el 06/10/2026 el acuse resuelve el workspace POR EL GRUPO
+  // (`wsDeGrupoJid`) y no por la instancia. Con el de la instancia, todo «ok» de todo grupo
+  // de todos los clientes marcaba las corridas del ws1 — los grupos entran por la línea de
+  // voz de MaKo, que está mapeada al dueño. Lo fija tests/cruce-notificaciones.test.ts.
+  assert.match(hook, /marcarRespondieron\(wsGrupo\)/, 'el acuse del grupo dejo de marcar las corridas');
 });

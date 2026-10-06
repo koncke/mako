@@ -14,7 +14,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { jidToNumero } from '@/lib/evolution';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
-import { manejarEntranteDoer } from '@/lib/mako-doer-in';
+import { manejarEntranteDoer, wsDeGrupoJid } from '@/lib/mako-doer-in';
 import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz } from '@/lib/mako-canal';
 import { instanciaVoz } from '@/lib/mako-grupo';
 import { upsertContacto } from '@/lib/evolution-contactos';
@@ -187,14 +187,37 @@ export async function POST(req: NextRequest) {
         // MaKo al grupo también llegan por acá, y con un «listo» suyo se acusaría a sí misma.
         after(async () => {
           try {
-            // Las palabras las elige el negocio; sin nada guardado son las de fábrica.
-            const palabras = await acusesDe(ws);
-            const texto = grupos
-              .filter((m) => !(m?.key as { fromMe?: boolean } | undefined)?.fromMe)
-              .map((m) => textoDeMensaje(m))
-              .find((t) => t && esAcuse(t, palabras));
-            if (texto) {
-              const n = await cerrarPorAcuse(ws);
+            // ⚠️ EL WORKSPACE DEL ACUSE SALE DEL GRUPO, NUNCA DE LA INSTANCIA. Y no es un
+            // caso de borde: `groupsIgnore: true` es el default de toda instancia de
+            // cliente (lib/evolution.ts), así que los grupos se habilitan SÓLO en la línea
+            // de voz de MaKo — y esa línea está mapeada al dueño. O sea que, con el `ws` de
+            // `wsDeInstancia`, TODO «ok» de TODO grupo de TODOS los workspaces cerraba las
+            // insistencias del ws1 y marcaba SUS corridas. El trabajo de un cliente apagaba
+            // el seguimiento de otro, sin un solo error. Lo encontró el relevo del
+            // 06/10/2026 de la capa de notificaciones.
+            //
+            // `wsDeGrupoJid` es la función de aislamiento que el doer ya usaba dos bloques
+            // más abajo para lo mismo: acá faltaba. Si devuelve null —un grupo que no es de
+            // nadie reconocido— NO se acusa nada: fail-closed, igual que el doer.
+            const porJid = new Map<string, typeof grupos>();
+            for (const m of grupos) {
+              if ((m?.key as { fromMe?: boolean } | undefined)?.fromMe) continue;
+              const jid = (m?.key as { remoteJid?: string } | undefined)?.remoteJid ?? '';
+              if (!jid) continue;
+              const previos = porJid.get(jid) ?? [];
+              previos.push(m);
+              porJid.set(jid, previos);
+            }
+            for (const [jid, delGrupo] of porJid) {
+              const wsGrupo = await wsDeGrupoJid(jid);
+              if (wsGrupo == null) continue;
+              // Las palabras las elige el negocio; sin nada guardado son las de fábrica.
+              const palabras = await acusesDe(wsGrupo);
+              const texto = delGrupo
+                .map((m) => textoDeMensaje(m))
+                .find((t) => t && esAcuse(t, palabras));
+              if (!texto) continue;
+              const n = await cerrarPorAcuse(wsGrupo);
               // ⚠️ EL MISMO ACUSE ES LA SEÑAL DEL CONDICIONAL. Un paso `condicional`
               // con `contestaron` pregunta por esto y por nada más: es la única
               // respuesta que el motor de flujos puede OBSERVAR, porque sus mensajes
@@ -206,8 +229,8 @@ export async function POST(req: NextRequest) {
               // Marca y NO despierta: adelantar un delay porque alguien escribió «ok»
               // manda el mensaje antes de tiempo. La condición se evalúa cuando a la
               // corrida le toca, con la marca ya puesta.
-              const m = await marcarRespondieron(ws);
-              if (n || m) console.log(`[webhook:evolution] acuse «${texto}» → ${n} insistencia(s) cerrada(s) y ${m} corrida(s) marcada(s) en ws${ws}`);
+              const m = await marcarRespondieron(wsGrupo);
+              if (n || m) console.log(`[webhook:evolution] acuse «${texto}» en ${jid} → ${n} insistencia(s) cerrada(s) y ${m} corrida(s) marcada(s) en ws${wsGrupo}`);
             }
           } catch (e) { console.error('[webhook:evolution] acuse:', e instanceof Error ? e.message : String(e)); }
         });
