@@ -30,6 +30,8 @@ import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
 import { conversacionAbierta, atiendeAlResponder, type InscCharla } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
 import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
+import { TRIGGER_RESIDUO } from '@/lib/nutricion-residuo';
+import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
 import { tzActual, TZ_DEFAULT } from '@/lib/timezone';
@@ -709,6 +711,15 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambit
       .gte('created_at', haceDiasISO(365)));
   }
 
+  if (triggerTipo === TRIGGER_RESIDUO) {
+    // El RESIDUO (#790): tuvieron reunión hace más de 45 días —asistieron sin comprar
+    // o faltaron a la R1—, abiertos y sin pago. Ningún disparador de arriba los
+    // alcanza: todos los de reunión miran 45 días. La decisión es pura y tiene test
+    // (lib/nutricion-residuo.ts); el ámbito del embudo entra en la consulta, no
+    // después, por el mismo techo de 1000 filas que el paginado vino a cerrar.
+    return cohorteResiduo(supabase, (q) => conAmbito(q, ambito));
+  }
+
   // trigger desconocido → sin cohorte (no rompe el cron)
   return [];
 }
@@ -864,7 +875,7 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
     const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
       .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
     const pendientes = candidatos.filter((id) => !inscriptos.has(id));
-    const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes);
+    const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes, sec);
     for (const lead_id of pendientes) {
       plan.push({ secuencia: sec.clave, lead_id, proximo_envio_at: horarios.get(lead_id) ?? enHorasISO(sec.pasos[0]?.delay_horas ?? 0) });
     }
@@ -877,8 +888,20 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
  * anclado a la reunión (#18), trae la agenda de cada lead en una query batch;
  * sin ancla, delay relativo. Compartido por el dry-run y el commit para que el
  * preview no mienta sobre el horario.
+ *
+ * ⚠️ EL RESIDUO SE ESCALONA (#790). Sus leads llegan de a decenas en la primera
+ * corrida y la cola ordena por `proximo_envio_at`: todos juntos «ya» se ponían
+ * delante de la post-agenda durante días. Con el escalonado salen
+ * `RESIDUO_POR_DIA` mensajes por día, contando desde el último turno ya agendado.
  */
-async function horariosDeInscripcion(paso0: PasoSecuencia | undefined, pendientes: number[]): Promise<Map<number, string>> {
+async function horariosDeInscripcion(
+  paso0: PasoSecuencia | undefined,
+  pendientes: number[],
+  sec?: Pick<Secuencia, 'trigger_tipo' | 'pasos'>,
+): Promise<Map<number, string>> {
+  if (sec?.trigger_tipo === TRIGGER_RESIDUO) {
+    return horariosResiduo(await getTenantDb(), { pendientes, pasos: sec.pasos.length, delayHoras: paso0?.delay_horas ?? 0 });
+  }
   let juntasMap = new Map<number, JuntasLead>();
   if (paso0?.ancla === 'reunion' && pendientes.length) {
     const supabase = (await getTenantDb());
@@ -936,7 +959,7 @@ export async function comprometerInscripciones(): Promise<number> {
     const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
       .catch((e: unknown) => { throw new Error(`comprometerInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
     const pendientes = candidatos.filter((id) => !inscriptos.has(id));
-    const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes);
+    const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes, sec);
     const nuevas = pendientes.map((lead_id) => ({
       lead_id,
       secuencia_id: sec.id,
@@ -1516,6 +1539,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Quién ya recibió algo alguna vez → decide cuál de los dos pasos de
     // apertura sale (presentarse o retomar). También en batch.
     const yaContactados = await leadsYaContactados(leadIds);
+    // Quién del lote SIGUE siendo residuo (#790): una lectura por lote, y sólo si el
+    // lote trae alguno. `null` = no se pudo leer, y entonces no sale ninguno.
+    const delResiduo = due.filter((d) => porId.get(d.secuencia_id)?.trigger_tipo === TRIGGER_RESIDUO).map((d) => d.lead_id);
+    const residuoDelLote: Set<number> | null = delResiduo.length
+      ? await residuoVigente(supabase, delResiduo).catch((e: unknown) => {
+        console.error('[nutricion] residuoVigente:', e instanceof Error ? e.message : String(e));
+        return null;
+      })
+      : new Set<number>();
 
     for (const insc of due) {
       if (res.enviados + res.simulados >= cupo) break;
@@ -1545,6 +1577,24 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (reunionFuturaMs(lead) == null) {
           res.omitidos += 1;
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
+          await supabase.from('nutricion_inscripciones')
+            .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
+          continue;
+        }
+      }
+      // ⚠️ EL RESIDUO SE VUELVE A PREGUNTAR AL MANDAR, en cada paso (#790). El
+      // escalonado reparte los turnos en días y el lead puede pagar o agendar
+      // mientras espera; si pagó, `esLeadCliente` haría que esto le saliera
+      // AUTOMÁTICO: una reactivación a un cliente recién pagado. Si no se pudo leer,
+      // no se avanza ni se cierra: se reintenta en la próxima corrida.
+      if (sec.trigger_tipo === TRIGGER_RESIDUO) {
+        if (residuoDelLote === null) {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'no pude confirmar que siga sin cerrar' });
+          continue;
+        }
+        if (!residuoDelLote.has(insc.lead_id)) {
+          res.omitidos += 1;
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'ya no está sin cerrar (pagó, agendó u otra secuencia le habla)' });
           await supabase.from('nutricion_inscripciones')
             .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
           continue;

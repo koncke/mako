@@ -16,6 +16,8 @@ import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
+import { enTandas } from '@/lib/ids-con-filas';
+import { COLS_RESIDUO, RESIDUO_DIAS, SEGMENTO_RESIDUO, esResiduoFormulario, type LeadResiduo } from '@/lib/nutricion-residuo';
 
 const ahoraISO = () => new Date().toISOString();
 const haceDiasISO = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString();
@@ -245,6 +247,9 @@ export const TRIGGERS: Opcion[] = [
   { value: 'post_pago', label: 'Post pago (bienvenida)' },
   { value: 'reactivacion_viejo', label: 'Reactivación de lead frío' },
   { value: 'ultimo_intento_antes_noresp', label: 'Último intento' },
+  // El residuo con reunión (#790, lib/nutricion-residuo.ts): pasados los 45 días ya
+  // no lo alcanza ningún disparador de reunión.
+  { value: 'residuo_sin_cierre', label: 'Tuvo reunión hace +45 días y no cerró' },
   { value: 'etapa_actual', label: 'Está en la etapa de la secuencia (funnel)' },
   // La ENTREGA del servicio (el kanban de Customer Success, mig 0188/0189). Trigger
   // propio y no un valor más de `etapa_actual`: las claves de las dos listas de etapas
@@ -261,6 +266,9 @@ export const SEGMENTOS: Segmento[] = [
   { value: 'no-show', label: 'No show', descripcion: 'No asistieron a la Reunión 1' },
   { value: 'post-agenda', label: 'Asistieron a R1', descripcion: 'Ya tuvieron la Reunión 1' },
   { value: 'ganados', label: 'Clientes (ganados)', descripcion: 'Leads ganados' },
+  // El residuo sin agenda (#790). La decisión es pura y tiene test
+  // (`esResiduoFormulario`, lib/nutricion-residuo.ts); acá sólo se la llama.
+  { value: SEGMENTO_RESIDUO, label: 'Sin agenda, +45 días', descripcion: 'Abiertos sin reunión ni pago, de hace más de 45 días' },
 ];
 const SEGMENTO_VALIDO = new Set(SEGMENTOS.map((s) => s.value));
 export const esSegmentoValido = (s: string): boolean => SEGMENTO_VALIDO.has(s);
@@ -275,6 +283,7 @@ type LeadFilter = {
   not(col: string, op: string, val: null): LeadFilter;
   eq(col: string, val: unknown): LeadFilter;
   neq(col: string, val: unknown): LeadFilter;
+  lt(col: string, val: unknown): LeadFilter;
   in(col: string, val: readonly unknown[]): LeadFilter;
 };
 function filtroSegmento<T extends LeadFilter>(q: T, segmento: string): T {
@@ -287,6 +296,11 @@ function filtroSegmento<T extends LeadFilter>(q: T, segmento: string): T {
     case 'no-show': out = out.eq('asistio_j1', false).eq('estado_lead', 'abierto') as T; break;
     case 'post-agenda': out = out.eq('asistio_j1', true) as T; break;
     case 'ganados': out = out.eq('estado_lead', 'ganado') as T; break;
+    // Sólo el PREFILTRO: la decisión la toma `esResiduoFormulario` en
+    // `leadsDeSegmento`, que además mira la tabla `pagos` (ver `contarSegmento`).
+    case SEGMENTO_RESIDUO: out = out.eq('estado_lead', 'abierto').is('fecha_agenda', null)
+      .is('fecha_junta_1', null).is('fecha_junta_2', null).is('fecha_primer_pago', null)
+      .lt('created_at', haceDiasISO(RESIDUO_DIAS)) as T; break;
     case 'activos':
     default: out = out.in('estado_lead', ['abierto', 'ganado']) as T; break;
   }
@@ -296,6 +310,7 @@ function filtroSegmento<T extends LeadFilter>(q: T, segmento: string): T {
 // Resuelve los leads de un segmento (siempre con email y sin opt-out).
 export async function leadsDeSegmento(segmento: string): Promise<LeadDestino[]> {
   const supabase = (await getTenantDb());
+  if (segmento === SEGMENTO_RESIDUO) return leadsDelResiduo(supabase);
   // Paginado por `id`. Es el destinatario de un envío: el segmento "activos" de
   // ws1 son 1044 leads, el `.select()` suelto devolvía 1000 y el broadcast le
   // llegaba a 1000 — mientras `contarSegmento` (count exact, que sí cuenta bien)
@@ -313,7 +328,39 @@ export async function leadsDeSegmento(segmento: string): Promise<LeadDestino[]> 
     .map((l) => ({ id: l.id, nombre: l.nombre, email: l.email as string, empresa: l.empresa }));
 }
 
+/**
+ * Los destinatarios del segmento del residuo: el prefiltro de `filtroSegmento` y,
+ * encima, la decisión pura, que además mira la tabla `pagos` (un lead puede tener un
+ * pago registrado y la columna `fecha_primer_pago` vacía, y a ése no se le manda).
+ * Lanza si no puede leer los pagos: «no pude leer» no es «nadie pagó».
+ */
+async function leadsDelResiduo(supabase: Awaited<ReturnType<typeof getTenantDb>>): Promise<LeadDestino[]> {
+  try {
+    const candidatos = await leerTodo<LeadResiduo & { nombre: string | null; empresa: string | null }>(
+      supabase, 'leads', `${COLS_RESIDUO}, nombre, empresa`,
+      { orden: 'id', filtros: (q) => filtroSegmento(q as unknown as LeadFilter, SEGMENTO_RESIDUO) as unknown as ConsultaPaginada },
+    );
+    const pagados = new Set<number>();
+    for (const tanda of enTandas(candidatos.map((l) => l.id), 200)) {
+      const pagos = await leerTodo<{ lead_id: number | null }>(supabase, 'pagos', 'id, lead_id', {
+        orden: 'id', eq: { pagado: true }, filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+      });
+      for (const p of pagos) if (p.lead_id != null) pagados.add(Number(p.lead_id));
+    }
+    const ahoraMs = Date.now();
+    return candidatos
+      .filter((l) => esResiduoFormulario(l, { ahoraMs, pagados }))
+      .map((l) => ({ id: l.id, nombre: l.nombre, email: (l.email ?? '').trim(), empresa: l.empresa }));
+  } catch (e) {
+    throw new Error(`leadsDeSegmento(${SEGMENTO_RESIDUO}): ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 export async function contarSegmento(segmento: string): Promise<number> {
+  // ⚠️ EL RESIDUO SE CUENTA CON LA MISMA FUNCIÓN QUE ARMA LOS DESTINATARIOS. Un
+  // `count` del prefiltro contaría también a quien tiene un pago en `pagos`: la
+  // pantalla prometería N y el broadcast le llegaría a menos, sin decir por qué.
+  if (segmento === SEGMENTO_RESIDUO) return (await leadsDeSegmento(segmento)).length;
   const supabase = (await getTenantDb());
   const q = supabase.from('leads').select('id', { count: 'exact', head: true });
   const { count, error } = await filtroSegmento(q as unknown as LeadFilter, segmento) as unknown as { count: number | null; error: { message: string } | null };

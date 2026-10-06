@@ -42,6 +42,8 @@ const LEGACY_TRIGGER_CUBRE: Record<string, string[]> = {
   post_j2_sin_cerrar: ['nocompro'],
   reactivacion_viejo: ['reactivacion'],
   ultimo_intento_antes_noresp: ['reactivacion'],
+  // El residuo con reunión (#790): es una reactivación, pasados los 45 días.
+  residuo_sin_cierre: ['reactivacion'],
 };
 
 export type HuecoSecuencia = {

@@ -203,6 +203,9 @@ export const COHORTE_GLOSS: Record<string, string> = {
   post_pago: 'Acaba de hacer su primer pago: darle la bienvenida y marcar los primeros pasos.',
   reactivacion_viejo: 'Mostró interés hace tiempo y se enfrió; hay que reabrir la conversación.',
   ultimo_intento_antes_noresp: 'Hace meses que no responde: un último intento honesto y con salida digna.',
+  // El residuo (#790). Junta a dos que no vivieron lo mismo, y la glosa lo dice: al
+  // que faltó no se le puede escribir como si hubieran hablado.
+  residuo_sin_cierre: 'Hace más de 45 días tuvo una reunión agendada contigo: o asistió y no compró, o no se presentó. No pagó ni tiene otra reunión. Se reabre la charla sin presión y con salida digna, sin dar por hecho que hablaron.',
 };
 
 // Extrae el primer objeto JSON balanceado (tolera prosa alrededor y llaves {{...}}
