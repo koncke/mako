@@ -19,6 +19,7 @@ import 'server-only';
 
 import { getTenantDb } from '@/lib/workspace';
 import { leerTodo } from '@/lib/supabase-paginado';
+import { analisisDeFila, type FilaAnalisisEntrega } from '@/lib/closing-entrega-contrato';
 import { llamadasDe, type ContactoFicha, type FilaGrabacion, type LlamadaCliente } from './ficha-datos';
 
 type FilaLead = {
@@ -31,7 +32,7 @@ type FilaLead = {
   fecha_junta_2: string | null;
 };
 
-type FilaClosing = FilaGrabacion & { recording_id: number; lead_id: number };
+type FilaClosing = Omit<FilaGrabacion, 'analisis'> & FilaAnalisisEntrega & { recording_id: number; lead_id: number };
 
 const tandas = <T,>(xs: readonly T[], n: number): T[][] => {
   const out: T[][] = [];
@@ -76,8 +77,14 @@ export async function lecturaDeFichas(leadIds: readonly number[]): Promise<Lectu
     //
     // De a TANDAS de ids: un `.in()` viaja en la URL, y una cartera grande la haría pasar
     // el tope del servidor — que contesta un error de la consulta entera, no la mitad.
+    //
+    // ⚠️ `summary`, `riesgos` y `proximos_pasos` son el análisis de las sesiones de ENTREGA
+    // (#107, mig 0209 — se aplica ANTES del deploy: con una columna que no existe PostgREST
+    // rechaza la consulta entera y la pestaña diría «No pude leer sus llamadas» a todos).
+    // Viajan con el HTML como el resto de la ficha; los topes del saneo acotan cuánto pesan.
     Promise.all(tandas(ids, 150).map((tanda) => leerTodo<FilaClosing>(db, 'closing_analyses',
-      'recording_id, lead_id, title, call_date, started_at, duration_min, share_url, call_url, category',
+      'recording_id, lead_id, title, call_date, started_at, duration_min, share_url, call_url, category, ' +
+      'status, analysis_version, summary, riesgos, proximos_pasos',
       { orden: 'recording_id', filtros: (q) => q.in('lead_id', tanda).neq('category', 'test') })))
       .then((xs) => xs.flat())
       .catch((e) => { console.error('[cs-ficha] no pude leer las grabaciones:', e instanceof Error ? e.message : e); return null; }),
@@ -104,7 +111,14 @@ export async function lecturaDeFichas(leadIds: readonly number[]): Promise<Lectu
     const porLead = new Map<number, FilaGrabacion[]>();
     for (const g of grabaciones) {
       const id = Number(g.lead_id);
-      (porLead.get(id) ?? porLead.set(id, []).get(id)!).push(g);
+      // El análisis sale SANEADO de acá (el `jsonb` se valida, no se confía en el tipo) y
+      // sólo para una sesión de entrega analizada: las tres condiciones del contrato.
+      const fila: FilaGrabacion = {
+        title: g.title, call_date: g.call_date, started_at: g.started_at, duration_min: g.duration_min,
+        share_url: g.share_url, call_url: g.call_url, category: g.category,
+        analisis: analisisDeFila(g),
+      };
+      (porLead.get(id) ?? porLead.set(id, []).get(id)!).push(fila);
     }
     llamadas = {};
     for (const id of ids) {

@@ -16,8 +16,13 @@
 
 export type Subida = { promesa: Promise<void>; cancelar: () => void };
 
-/** Sube `file` a la URL firmada, avisando el % que salió. `cancelar` corta la subida. */
-export function subirConProgreso(signedUrl: string, file: File, apikey: string | null, onProgreso: (pct: number) => void): Subida {
+/**
+ * Sube `file` a la URL firmada, avisando el % que salió. `cancelar` corta la subida.
+ *
+ * `formatos` es lo que dice el error cuando el bucket rechaza el tipo: la usan los videos y los
+ * adjuntos de las notas (`curso-notas`), y a quien sube un PDF no se le contesta «MP4, WEBM o MOV».
+ */
+export function subirConProgreso(signedUrl: string, file: File, apikey: string | null, onProgreso: (pct: number) => void, formatos = 'MP4, WEBM o MOV'): Subida {
   const xhr = new XMLHttpRequest();
   const promesa = new Promise<void>((resolve, reject) => {
     xhr.open('PUT', signedUrl);
@@ -32,7 +37,7 @@ export function subirConProgreso(signedUrl: string, file: File, apikey: string |
       let detalle = (xhr.responseText || '').replace(/\s+/g, ' ').slice(0, 160);
       try { const j = JSON.parse(xhr.responseText); detalle = String(j.message || j.error || detalle); } catch { /* texto plano */ }
       if (xhr.status === 413 || /too large|maximum allowed size|exceeded/i.test(detalle)) return reject(new Error('Pasa del tope de Storage.'));
-      if (/mime|content type|not supported/i.test(detalle)) return reject(new Error('Ese formato no va: MP4, WEBM o MOV.'));
+      if (/mime|content type|not supported/i.test(detalle)) return reject(new Error(`Ese formato no va: ${formatos}.`));
       reject(new Error(`No se pudo subir (HTTP ${xhr.status}).`));
     };
     xhr.onerror = () => reject(new Error('Se cortó la conexión.'));

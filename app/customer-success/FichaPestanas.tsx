@@ -24,8 +24,11 @@
 // que se reusan tal cual y traen su lectura (ver `pagosDeClienteAction`). El resto de la
 // ficha sigue llegando con el HTML.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Spinner } from '@/app/_ui';
+import { Icon } from '@/app/_components/icons';
+// ⚠️ SÓLO TIPOS: el contrato trae los prompts del análisis, y esto corre en el navegador.
+import type { AnalisisEntregaVista, GravedadRiesgo, QuienPaso } from '@/lib/closing-entrega-contrato';
 import { NotasCard } from '@/app/crm/lead-view/NotasCard';
 import { InfoPrincipalCard } from '@/app/crm/lead-view/InfoPrincipalCard';
 import { AuditHistory } from '@/app/crm/lead-view/AuditHistory';
@@ -87,8 +90,72 @@ export function HistorialCliente({ leadId, datos }: { leadId: number; datos: Dat
 }
 
 const TIPO: Record<NonNullable<LlamadaCliente['tipo']>, string> = { venta: 'Venta', entrega: 'Entrega' };
+const GRAVEDAD: Record<GravedadRiesgo, string> = { alta: 'Alta', media: 'Media', baja: 'Baja' };
+const QUIEN: Record<QuienPaso, string> = { cliente: 'Cliente', equipo: 'Equipo' };
+
+/** Segundos → «12:03». El segundo lo puso el código al encontrar la cita en la grabación. */
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+/**
+ * Lo que MaKo leyó de una sesión de entrega (#107): el resumen, los riesgos con su chip y
+ * su cita, y los próximos pasos. Pedido: «cada sesión de entrega analizada se despliega con
+ * resumen, riesgos (chip de gravedad + cita) y próximos pasos. Minimalismo».
+ *
+ * ⚠️ «Ninguno» NO es «no se pudo leer»: una lista vacía acá es un análisis que miró la
+ * sesión y no encontró riesgos —que es un dato, y bueno—. Lo no analizado no llega a esta
+ * pieza: la fila no se despliega.
+ */
+function AnalisisSesion({ a, url }: { a: AnalisisEntregaVista; url: string | null }) {
+  // El minuto de la cita abre la grabación en ESE segundo, con el mismo `?timestamp=` que ya
+  // arma la API de MaKo para las citas del Closing Analyst (`conSegundo`, closing.run.ts).
+  const enSegundo = (t: number) => (url ? `${url}${url.includes('?') ? '&' : '?'}timestamp=${Math.round(t)}` : null);
+  return (
+    <div className="fl-an">
+      {a.resumen && <p className="fl-res">{a.resumen}</p>}
+      <p className="fl-h">Riesgos</p>
+      {a.riesgos.length ? (
+        <ul className="fl-rs">
+          {a.riesgos.map((r, i) => (
+            <li key={i}>
+              <span className={`fl-g fl-g-${r.gravedad}`}>{GRAVEDAD[r.gravedad]}</span>
+              <span className="fl-rt">
+                {r.riesgo}
+                {/* Una cita vacía es una que el modelo dio y no está en la grabación: no se
+                    dibuja entre comillas, porque se leería como lo que dijo el cliente. */}
+                {r.cita && (
+                  <span className="fl-cita">
+                    «{r.cita}»
+                    {r.t_seconds != null && (enSegundo(r.t_seconds)
+                      ? <a className="fl-min" href={enSegundo(r.t_seconds)!} target="_blank" rel="noopener noreferrer">{mmss(r.t_seconds)}</a>
+                      : <span className="fl-min">{mmss(r.t_seconds)}</span>)}
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="fl-vacio">Ninguno.</p>}
+      <p className="fl-h">Próximos pasos</p>
+      {a.pasos.length ? (
+        <ul className="fl-ps">
+          {a.pasos.map((p, i) => (
+            <li key={i}><span className="fl-quien">{QUIEN[p.quien]}</span><span>{p.que}</span></li>
+          ))}
+        </ul>
+      ) : <p className="fl-vacio">Ninguno.</p>}
+    </div>
+  );
+}
 
 export function LlamadasCliente({ llamadas }: { llamadas: LlamadaCliente[] | null | undefined }) {
+  // Cuáles están desplegadas. Por posición: la lista es la misma mientras la ficha está
+  // abierta (viaja con el HTML), y dos sesiones pueden compartir título o no tener link.
+  const [abiertas, setAbiertas] = useState<ReadonlySet<number>>(() => new Set());
+  const alternar = (i: number) => setAbiertas((prev) => {
+    const s = new Set(prev);
+    if (s.has(i)) s.delete(i); else s.add(i);
+    return s;
+  });
   return (
     <>
       {/* `undefined` = la pantalla que montó la ficha no las trae; para quien mira es lo
@@ -100,19 +167,36 @@ export function LlamadasCliente({ llamadas }: { llamadas: LlamadaCliente[] | nul
         <p className="fl-nada">Todavía no hay llamadas grabadas con este cliente.</p>
       ) : (
         <ul className="fl">
-          {llamadas.map((l, i) => (
-            <li key={`${l.url ?? ''}-${i}`}>
-              <span className="fl-f">{dia(l.fecha) ?? 'Sin fecha'}</span>
-              <span className="fl-t">
-                <b>{l.titulo}</b>
-                {l.tipo && <span className="fl-tag">{TIPO[l.tipo]}</span>}
-              </span>
-              {l.duracionMin != null && <span className="fl-d">{l.duracionMin} min</span>}
-              {l.url
-                ? <a className="fl-a" href={l.url} target="_blank" rel="noopener noreferrer">Abrir →</a>
-                : <span className="fl-a fl-sin">Sin link</span>}
-            </li>
-          ))}
+          {llamadas.map((l, i) => {
+            const abierta = !!l.analisis && abiertas.has(i);
+            const alto = !!l.analisis?.riesgos.some((r) => r.gravedad === 'alta');
+            return (
+              <li key={`${l.url ?? ''}-${i}`}>
+                <div className="fl-fila">
+                  <span className="fl-f">{dia(l.fecha) ?? 'Sin fecha'}</span>
+                  <span className="fl-t">
+                    {/* Sólo una sesión ANALIZADA se despliega: el título es el botón, con
+                        el chevron que dice que hay algo adentro. Las demás no cambian. */}
+                    {l.analisis ? (
+                      <button type="button" className="fl-abrir" aria-expanded={abierta}
+                        aria-label={`${abierta ? 'Ocultar' : 'Ver'} el análisis de ${l.titulo}`}
+                        onClick={() => alternar(i)}>
+                        <span className={abierta ? 'fl-chev fl-chev-on' : 'fl-chev'}><Icon name="chevron" size={14} /></span>
+                        <b>{l.titulo}</b>
+                      </button>
+                    ) : <b>{l.titulo}</b>}
+                    {l.tipo && <span className="fl-tag">{TIPO[l.tipo]}</span>}
+                    {alto && <span className="fl-g fl-g-alta">Riesgo alto</span>}
+                  </span>
+                  {l.duracionMin != null && <span className="fl-d">{l.duracionMin} min</span>}
+                  {l.url
+                    ? <a className="fl-a" href={l.url} target="_blank" rel="noopener noreferrer">Abrir →</a>
+                    : <span className="fl-a fl-sin">Sin link</span>}
+                </div>
+                {abierta && l.analisis && <AnalisisSesion a={l.analisis} url={l.url} />}
+              </li>
+            );
+          })}
         </ul>
       )}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -137,8 +221,9 @@ const CSS = `
 /* Las llamadas: una lista, la fecha adelante para que se lea de arriba abajo como lo que es,
    un historial. */
 .fl{ list-style:none; margin:0; padding:0; }
-.fl li{ display:flex; align-items:baseline; gap:14px; padding:12px 2px; border-bottom:1px solid var(--border); }
-.fl li:last-child{ border-bottom:0; }
+.fl > li{ padding:12px 2px; border-bottom:1px solid var(--border); }
+.fl > li:last-child{ border-bottom:0; }
+.fl-fila{ display:flex; align-items:baseline; gap:14px; }
 .fl-f{ flex:0 0 110px; font-size:12.5px; color:var(--dim); font-variant-numeric:tabular-nums; }
 .fl-t{ flex:1; min-width:0; display:flex; align-items:baseline; gap:8px; }
 .fl-t b{ font-size:14px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -150,4 +235,31 @@ const CSS = `
 .fl-sin{ color:var(--faint); font-weight:500; }
 .fl-nada{ margin:16px 2px; font-size:13.5px; color:var(--faint); }
 .fl-cargando{ display:flex; align-items:center; gap:8px; }
+
+/* La sesion de entrega analizada: el titulo es el boton que la despliega. Sin caja: el
+   analisis cuelga debajo de su fila, con la sangria de la fecha, y se lee como parte de
+   ella. */
+.fl-abrir{ display:flex; align-items:baseline; gap:6px; min-width:0; padding:0; border:0; background:none;
+  font:inherit; color:inherit; text-align:left; cursor:pointer; }
+.fl-abrir:hover b{ color:var(--primary); }
+.fl-chev{ flex:none; display:inline-flex; align-self:center; color:var(--dim); transform:rotate(-90deg);
+  transition:transform .15s ease; }
+.fl-chev-on{ transform:none; }
+.fl-g{ flex:none; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; }
+.fl-g-alta{ background:var(--bad-bg); color:var(--bad); }
+.fl-g-media{ background:var(--warn-bg); color:var(--warn); }
+.fl-g-baja{ background:var(--surface-2); color:var(--dim); }
+.fl-an{ margin:10px 0 2px 124px; display:flex; flex-direction:column; gap:6px; }
+.fl-res{ margin:0 0 6px; font-size:13.5px; line-height:1.55; color:var(--ink); white-space:pre-line; }
+.fl-h{ margin:6px 0 0; font-size:11.5px; font-weight:600; letter-spacing:.02em; color:var(--dim); }
+.fl-rs, .fl-ps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.fl-rs li, .fl-ps li{ display:flex; align-items:baseline; gap:10px; font-size:13.5px; color:var(--ink); }
+.fl-rs .fl-g{ min-width:44px; text-align:center; }
+.fl-rt{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.fl-cita{ font-size:12.5px; color:var(--dim); font-style:italic; }
+.fl-min{ margin-left:6px; font-style:normal; font-variant-numeric:tabular-nums; color:var(--faint); text-decoration:none; }
+a.fl-min:hover{ color:var(--primary); text-decoration:underline; }
+.fl-quien{ flex:none; min-width:52px; font-size:12px; font-weight:600; color:var(--dim); }
+.fl-vacio{ margin:0; font-size:13px; color:var(--faint); }
+@media (max-width: 700px){ .fl-an{ margin-left:0; } }
 `;

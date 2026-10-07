@@ -4,7 +4,9 @@
 // Server actions de la tab Curso (/customer-success/curso)
 // =============================================================================
 // Crear, editar, borrar y ordenar las clases de un producto, y la subida de sus videos. Lo
-// que se escribe y cómo se valida vive en lib/curso-admin.ts; acá está la PUERTA.
+// que se escribe y cómo se valida vive en lib/curso-admin.ts; acá está la PUERTA. Desde la
+// mig 0208, también la marca de grabar (admin) y las notas del equipo (quien ve la tab, con la
+// lógica en lib/curso-notas.ts).
 //
 // ⚠️ CADA ACTION AUTORIZA SOLA, y no por prolijidad: una server action es un POST que se
 // puede invocar directo, sin pasar por la página (Next 16,
@@ -20,10 +22,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { getRolWsEfectivo, getCapaActual, adminDeWorkspaceActual } from '@/lib/workspace';
+import { getUsuarioActual } from '@/lib/auth';
 import { tabEnCapa } from '@/lib/capas';
-import { guardarClase, borrarClase, moverClase, urlSubida, urlLectura, descartarVideo } from '@/lib/curso-admin';
+import { guardarClase, borrarClase, moverClase, urlSubida, urlLectura, descartarVideo, marcarGrabar } from '@/lib/curso-admin';
+import { notasDe, agregarNota, borrarNota, urlSubidaNota, descartarAdjunto, urlAdjunto, type Quien } from '@/lib/curso-notas';
 import type { Clase } from '@/lib/curso';
-import type { EntradaClase } from './reglas';
+import type { EntradaClase, EntradaNota, DestinoNota, NotaVista } from './reglas';
+import { anotarVistaAbierta } from './onboarding-sync';
 
 const RUTA = '/customer-success/curso';
 
@@ -114,6 +119,26 @@ export async function descartarVideoAction(path: string): Promise<{ ok: true } |
   }
 }
 
+/**
+ * El ensayo del onboarding de la tab: alguien del equipo abrió la vista del alumno. Sólo anota
+ * el paso (`curso_vista`): la vista previa no crea accesos ni escribe progreso.
+ *
+ * ⚠️ DE UN ADMIN, como el resto del onboarding de una tab (`marcarPasoCopyAction`): lo que se
+ * anota es que el curso quedó revisado, y eso lo decide quien lo arma.
+ */
+export async function marcarVistaAlumnoAction(): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const no = await puedeEditar();
+    if (no) return { ok: false, error: no };
+    const steps = await anotarVistaAbierta();
+    if (!steps?.curso_vista?.done) return { ok: false, error: 'Antes falta tu programa.' };
+    revalidatePath(RUTA);
+    return { ok: true };
+  } catch (e) {
+    return fallo(e, 'No se pudo anotar.');
+  }
+}
+
 /** Un link de vida corta para ver un video subido. Alcanza con poder mirar la tab. */
 export async function urlVerVideoAction(path: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   try {
@@ -122,5 +147,111 @@ export async function urlVerVideoAction(path: string): Promise<{ ok: true; url: 
     return await urlLectura(String(path ?? ''));
   } catch (e) {
     return fallo(e, 'No pude abrir el video.');
+  }
+}
+
+// ── Grabar / no grabar (#693) ────────────────────────────────────────────────
+
+/**
+ * Marca una clase para grabar, para no grabar, o la deja sin decidir (`null`). Es de un ADMIN,
+ * como editar la clase; el resto ve la marca.
+ *
+ * ⚠️ SIN `revalidatePath`, como `moverClaseAction`: la pantalla ya cambió la marca en el acto, y
+ * releer la página entera por cada clic pone medio segundo detrás de un gesto que se repite
+ * clase tras clase.
+ */
+export async function marcarGrabarAction(claseId: number, valor: boolean | null): Promise<{ ok: true; grabar: boolean | null } | { ok: false; error: string }> {
+  try {
+    const no = await puedeEditar();
+    if (no) return { ok: false, error: no };
+    return await marcarGrabar(Number(claseId), valor);
+  } catch (e) {
+    return fallo(e, 'No se pudo marcar.');
+  }
+}
+
+// ── Las notas del equipo (#692) ──────────────────────────────────────────────
+// ⚠️ LA PUERTA ES `puedeVer` Y NO `puedeEditar`: comenta quien VE la tab (el equipo de Mauricio),
+// no sólo un admin. Borrar una nota lo decide lib/curso-notas.ts (la autora o un admin), y el
+// autor sale de la SESIÓN, nunca del pedido.
+
+/** Quién está mirando, armado desde la sesión. `null` = no hay sesión. */
+async function quienMira(): Promise<Quien | null> {
+  const s = await getUsuarioActual();
+  if (!s) return null;
+  return { email: s.email ?? '', nombre: s.nombre ?? '', admin: (await adminDeWorkspaceActual()) != null };
+}
+
+/** Las notas de una clase o de una etapa. */
+export async function notasAction(productoId: number, destino: DestinoNota): Promise<{ ok: true; notas: NotaVista[] } | { ok: false; error: string }> {
+  try {
+    const no = await puedeVer();
+    if (no) return { ok: false, error: no };
+    const quien = await quienMira();
+    if (!quien) return { ok: false, error: 'Tu sesión venció.' };
+    return await notasDe(Number(productoId), destino, quien);
+  } catch (e) {
+    return fallo(e, 'No pude leer las notas.');
+  }
+}
+
+/** Guarda una nota (con su adjunto ya subido, si trae). */
+export async function agregarNotaAction(entrada: EntradaNota): Promise<{ ok: true; nota: NotaVista } | { ok: false; error: string }> {
+  try {
+    const no = await puedeVer();
+    if (no) return { ok: false, error: no };
+    const quien = await quienMira();
+    if (!quien) return { ok: false, error: 'Tu sesión venció.' };
+    return await agregarNota(entrada, quien);
+  } catch (e) {
+    return fallo(e, 'No se pudo guardar la nota.');
+  }
+}
+
+/** Borra una nota: la autora o un admin (lo decide lib/curso-notas.ts). */
+export async function borrarNotaAction(notaId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const no = await puedeVer();
+    if (no) return { ok: false, error: no };
+    const quien = await quienMira();
+    if (!quien) return { ok: false, error: 'Tu sesión venció.' };
+    return await borrarNota(Number(notaId), quien);
+  } catch (e) {
+    return fallo(e, 'No se pudo borrar la nota.');
+  }
+}
+
+/** La URL firmada para que el navegador suba un adjunto directo al bucket `curso-notas`. */
+export async function urlSubidaNotaAction(productoId: number, mime: string, bytes: number): Promise<
+  { ok: true; path: string; signedUrl: string; apikey: string | null } | { ok: false; error: string }
+> {
+  try {
+    const no = await puedeVer();
+    if (no) return { ok: false, error: no };
+    return await urlSubidaNota(Number(productoId), String(mime ?? ''), Number(bytes));
+  } catch (e) {
+    return fallo(e, 'No pude preparar la subida.');
+  }
+}
+
+/** Borra un adjunto subido que no llegó a quedar en ninguna nota. */
+export async function descartarAdjuntoNotaAction(path: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const no = await puedeVer();
+    if (no) return { ok: false, error: no };
+    return await descartarAdjunto(String(path ?? ''));
+  } catch (e) {
+    return fallo(e, 'No se pudo descartar.');
+  }
+}
+
+/** Un link de vida corta para abrir el adjunto de una nota (por el id de la nota, no por la ruta). */
+export async function urlAdjuntoNotaAction(notaId: number): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  try {
+    const no = await puedeVer();
+    if (no) return { ok: false, error: no };
+    return await urlAdjunto(Number(notaId));
+  } catch (e) {
+    return fallo(e, 'No pude abrir el archivo.');
   }
 }

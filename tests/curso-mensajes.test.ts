@@ -31,10 +31,15 @@ import {
   textoPrevioDueno, textoPosteriorDueno, tituloAvisoDueno, listaPendientes, primerNombreDe,
   cuandoEs, horaDe, faseDeSesion, ventanaDeSesiones, enHorarioDeMensajes, TOPE_PENDIENTES,
   motivoDeFase, conMotivoDeFase,
+  claveAvisoSesion, grabacionesDeLaSesion, compromisosDeGrabaciones, pasosDeGrabacion, ventanaDeGrabacion,
+  TOPE_COMPROMISOS, NO_TENIA_PENDIENTES, type CompromisosJunta,
+  juntaPendiente, juntaResuelta, claveAvisoJunta, textoJuntaDueno, tituloAvisoJunta,
 } from '../lib/curso-mensajes-texto';
 
 const RAIZ = join(import.meta.dirname, '..');
-const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
+// ⚠️ Normaliza el fin de línea: en un worktree el fuente llega en CRLF y cortar con '\n}\n' no
+// encuentra nada (AGENTS.md, «vale igual para los tests que leen fuente»).
+const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const LINK = 'https://hola-mako.com/compartido/curso/c1.1.21.1.FIRMA_abc-123';
@@ -197,8 +202,11 @@ test('la lectura del cron cubre TODA sesión a la que le toca algo', () => {
   const { desde, hasta } = ventanaDeSesiones(AHORA);
   for (let h = -60; h <= 30; h += 0.25) {
     const fecha = new Date(AHORA.getTime() + h * H).toISOString();
-    if (!faseDeSesion({ fecha, avisoPrevioAt: null, avisoPosteriorAt: null }, AHORA)) continue;
-    assert.ok(fecha >= desde && fecha <= hasta, `la sesión a ${h} h tiene mensaje y la lectura no la trae`);
+    const toca = faseDeSesion({ fecha, avisoPrevioAt: null, avisoPosteriorAt: null }, AHORA)
+      // La junta abierta de una sesión ya avisada también es «le toca algo».
+      || juntaPendiente({ fecha, avisoPosteriorAt: 'x', avisoJuntaAt: null }, AHORA);
+    if (!toca) continue;
+    assert.ok(fecha >= desde && fecha <= hasta, `la sesión a ${h} h tiene algo pendiente y la lectura no la trae`);
   }
 });
 
@@ -233,7 +241,7 @@ test('el cron MARCA con compare-and-set ANTES de mandar, y con el envío apagado
   assert.match(marcar, /\.is\(columna, null\)/, 'sin `.is(columna, null)` dos corridas mandan dos veces');
   assert.match(marcar, /\.select\(/, 'sin `.select` no se sabe si la marca agarró la fila');
   // Se manda sólo si la marca devolvió fila, y DESPUÉS.
-  const iCas = cuerpo.indexOf('if (!(await marcar())) return;');
+  const iCas = cuerpo.indexOf('if (!(await marcar(juntaResuelta(compromisos)))) return;');
   const iMandar = cuerpo.indexOf('mandar(d, f.lead_id');
   assert.ok(iCas > 0 && iMandar > iCas, 'el envío al cliente tiene que ir después del compare-and-set');
   // Apagado: se anota y se avisa a Mauricio, pero la sesión NO se marca (no salió nada).
@@ -267,3 +275,323 @@ test('vercel.json corre el cron cada hora, y la ruta usa la auth de cron de la c
   assert.match(src, /checkCronAuth\(req\)/);
   assert.match(src, /correrAvisosDeSesiones\(/);
 });
+
+// ── El dedup del aviso al dueño depende del RESULTADO (06/10/2026) ───────────
+// Con la clave `sesion:<id>` a secas y 72 h de dedup, el «No le escribí: envío apagado» que se
+// repite cada hora mientras la sesión espera dejaba DEDUPLICADO el «Ya le mandé…» de cuando el
+// negocio prendía el envío: Mauricio daba por no recordado a alguien a quien sí se le escribió.
+
+/** El dedup de `emitirAviso` (lib/avisos.ts → `salioReciente`), reducido a lo que importa acá. */
+function despachador() {
+  const salieron = new Set<string>();
+  return (clave: string): boolean => { if (salieron.has(clave)) return false; salieron.add(clave); return true; };
+}
+
+test('el aviso «no le llegó (envío apagado)» no se come al corregido de la misma sesión', () => {
+  const sale = despachador();
+  assert.equal(sale(claveAvisoSesion(7, 'envío de WhatsApp apagado')), true, 'la primera hora sale');
+  assert.equal(sale(claveAvisoSesion(7, 'envío de WhatsApp apagado')), false, 'la hora siguiente, el mismo resultado no se repite');
+  assert.equal(sale(claveAvisoSesion(7, null)), true, 'cuando se prende y le llega, el aviso corregido SALE');
+  assert.equal(sale(claveAvisoSesion(7, null)), false);
+  // Y cada sesión tiene su clave: el aviso de un cliente no se come el de otro.
+  assert.equal(sale(claveAvisoSesion(8, null)), true);
+});
+
+test('«sin teléfono» espera sin repetirse cada hora, y el arreglo se avisa', () => {
+  const sale = despachador();
+  assert.equal(sale(claveAvisoSesion(7, 'sin teléfono')), true);
+  assert.equal(sale(claveAvisoSesion(7, 'sin teléfono')), false);
+  assert.equal(sale(claveAvisoSesion(7, null)), true, 'le cargaron el teléfono y ya le llegó');
+});
+
+test('los compromisos entran a la clave como «los tiene / no»: un error y un vacío no alternan', () => {
+  const leida: CompromisosJunta = { estado: 'leida', pasos: [{ que: 'Mandar el PAS', quien: 'cliente' }] };
+  const vacia: CompromisosJunta = { estado: 'leida', pasos: [] };
+  assert.equal(claveAvisoSesion(7, 'sin teléfono', { estado: 'error' }), claveAvisoSesion(7, 'sin teléfono', { estado: 'sin-grabacion' }));
+  assert.equal(claveAvisoSesion(7, 'sin teléfono', vacia), claveAvisoSesion(7, 'sin teléfono', { estado: 'sin-grabacion' }));
+  assert.notEqual(claveAvisoSesion(7, 'sin teléfono', leida), claveAvisoSesion(7, 'sin teléfono', { estado: 'sin-grabacion' }),
+    'si la grabación se analiza mientras la sesión espera, los compromisos le llegan una vez');
+});
+
+test('el aviso al dueño usa la clave POR RESULTADO, y no la vieja por sesión', () => {
+  const src = sinComentarios(leer('lib/curso-mensajes.ts'));
+  assert.match(src, /dedupKey: claveAvisoSesion\(f\.id, noLlego, compromisos\)/);
+  assert.doesNotMatch(src, /dedupKey: `sesion:\$\{f\.id\}`/);
+});
+
+// ── Lo que se sabe SIN mandar se mira ANTES de marcar (06/10/2026) ───────────
+// Sin teléfono, contacto bloqueado y acceso cortado los contesta `destinoDe`, que sólo lee. Se
+// miraban DESPUÉS de marcar: la sesión quedaba cerrada para siempre por algo que se arregla
+// cargando un dato, sin que hubiera existido ningún riesgo de mandar dos veces.
+
+test('el cron mira el destino ANTES del compare-and-set, y si no hay a quién, NO marca', () => {
+  const src = sinComentarios(leer('lib/curso-mensajes.ts'));
+  const cuerpo = src.slice(src.indexOf('async function procesarSesion'), src.indexOf('async function procesarWorkspace'));
+  const iDestino = cuerpo.indexOf('await destinoDe(f.lead_id, { envioOn: true })');
+  const iCas = cuerpo.indexOf('if (!(await marcar(juntaResuelta(compromisos)))) return;');
+  assert.ok(iDestino > 0 && iCas > iDestino, 'el destino se lee antes de marcar: si no, «sin teléfono» cierra la sesión para siempre');
+  const iNo = cuerpo.indexOf('if (!d.ok) {', iDestino);
+  assert.ok(iNo > iDestino && iNo < iCas, 'falta la rama de «no hay a quién» entre el destino y la marca');
+  const rama = cuerpo.slice(iNo, cuerpo.indexOf('return;', iNo));
+  assert.doesNotMatch(rama, /marcar\(/, 'sin teléfono no se marca: la sesión espera a que se arregle');
+  assert.match(rama, /anotar\(d\.motivo\)/, 'el motivo queda escrito para que la ficha lo diga');
+  assert.match(rama, /avisarAlDueno\(ctx, f, fase, c, d\.motivo/, 'a Mauricio se le avisa (una vez por motivo)');
+  // Y lo que falla DESPUÉS de marcar sigue sin reintentarse: no se manda dos veces.
+  const despues = cuerpo.slice(iCas);
+  assert.match(despues, /noLlego = 'falló el envío';/);
+  assert.doesNotMatch(despues, /\.update\(\{ \[columna\]: null/, 'nadie desmarca una sesión ya procesada');
+});
+
+// ── Los compromisos de la junta, en el aviso POSTERIOR AL DUEÑO (opción a, 06/10/2026) ──
+
+const H_ = 3_600_000;
+const SES_10 = { id: 1, fecha: '2026-10-07T16:00:00Z' };   // miércoles 10:00 CDMX
+const SES_15 = { id: 2, fecha: '2026-10-07T21:00:00Z' };   // el mismo día, 15:00
+const SES_LUNES = { id: 3, fecha: '2026-10-12T16:00:00Z' }; // otra semana
+const grab = (iso: string, que: string) => ({ startedAt: iso, pasos: [{ que, quien: 'cliente' }] });
+const G_10 = grab('2026-10-07T16:04:00Z', 'Mandar el PAS');
+const G_15 = grab('2026-10-07T21:10:00Z', 'Subir el tablero');
+
+test('dos sesiones del mismo lead: cada una se queda con SU grabación', () => {
+  const sesiones = [SES_10, SES_15, SES_LUNES];
+  const todas = [G_10, G_15];
+  assert.deepEqual(grabacionesDeLaSesion(SES_10, sesiones, todas), [G_10]);
+  assert.deepEqual(grabacionesDeLaSesion(SES_15, sesiones, todas), [G_15],
+    'la de las 15:10 también cae en la ventana de las 10 (+6 h): va a la más cercana');
+  assert.deepEqual(grabacionesDeLaSesion(SES_LUNES, sesiones, todas), [], 'la de otra semana no tiene grabación');
+});
+
+test('la sesión que no se grabó no se queda con los compromisos de la de al lado', () => {
+  // La de las 10 no se grabó: la grabación de las 15:10 está en su ventana, pero es de la de las 15.
+  assert.deepEqual(grabacionesDeLaSesion(SES_10, [SES_10, SES_15], [G_15]), []);
+  // Sin la sesión de las 15 anotada, la de las 10 sí la reclama: es la única que la tiene en su ventana.
+  assert.deepEqual(grabacionesDeLaSesion(SES_10, [SES_10], [G_15]), [G_15]);
+  // Fuera de la ventana (2 h antes, 6 h después) no es de nadie.
+  assert.deepEqual(grabacionesDeLaSesion(SES_10, [SES_10], [grab(new Date(Date.parse(SES_10.fecha) - 2.5 * H_).toISOString(), 'x')]), []);
+  assert.deepEqual(grabacionesDeLaSesion(SES_10, [SES_10], [grab(new Date(Date.parse(SES_10.fecha) + 6.5 * H_).toISOString(), 'x')]), []);
+});
+
+test('la ventana que se le pide a la base cubre toda grabación que el cruce puede aceptar', () => {
+  const v = ventanaDeGrabacion(SES_10.fecha)!;
+  for (let h = -3; h <= 7; h += 0.25) {
+    const iso = new Date(Date.parse(SES_10.fecha) + h * H_).toISOString();
+    if (!grabacionesDeLaSesion(SES_10, [SES_10], [grab(iso, 'x')]).length) continue;
+    assert.ok(iso >= v.desde && iso <= v.hasta, `la grabación a ${h} h la acepta el cruce y la consulta no la trae`);
+  }
+  assert.equal(ventanaDeGrabacion('no es fecha'), null);
+});
+
+test('los pasos se sanean contra el contrato, y se juntan sin repetirse', () => {
+  assert.deepEqual(pasosDeGrabacion([
+    { que: '  Mandar   el PAS ', quien: 'cliente' }, { que: '', quien: 'equipo' }, { quien: 'equipo' },
+    { que: 'Revisar su tablero', quien: 'equipo' }, { que: 'Algo', quien: 'mauricio' }, null, 'texto suelto',
+  ]), [
+    { que: 'Mandar el PAS', quien: 'cliente' }, { que: 'Revisar su tablero', quien: 'equipo' }, { que: 'Algo', quien: null },
+  ]);
+  assert.deepEqual(pasosDeGrabacion(null), []);
+  assert.deepEqual(pasosDeGrabacion({ que: 'no es lista' }), []);
+  // Dos grabaciones de la misma junta (se cortó la llamada): un paso repetido sale una vez.
+  const c = compromisosDeGrabaciones([grab('2026-10-07T16:40:00Z', 'Mandar el PAS'), G_10]);
+  assert.deepEqual(c, { estado: 'leida', pasos: [{ que: 'Mandar el PAS', quien: 'cliente' }] });
+  assert.deepEqual(compromisosDeGrabaciones([]), { estado: 'sin-grabacion' });
+});
+
+const C_LEIDA: CompromisosJunta = { estado: 'leida', pasos: [
+  { que: 'Mandar el PAS', quien: 'cliente' }, { que: 'Revisar su tablero', quien: 'equipo' }, { que: 'Agendar la próxima', quien: null },
+] };
+const TEXTOS_JUNTA = [
+  textoPosteriorDueno({ cliente: 'Ana Ruiz', etapa: 'Norte', pendientes: ['Tu meta'], noLlego: null, compromisos: C_LEIDA }),
+  textoPosteriorDueno({ cliente: 'Ana Ruiz', etapa: 'Norte', pendientes: [], noLlego: NO_TENIA_PENDIENTES, compromisos: C_LEIDA }),
+  textoPosteriorDueno({ cliente: 'Ana Ruiz', etapa: 'Norte', pendientes: ['Tu meta'], noLlego: null, compromisos: { estado: 'sin-grabacion' } }),
+  textoPosteriorDueno({ cliente: 'Ana Ruiz', etapa: 'Norte', pendientes: ['Tu meta'], noLlego: 'sin teléfono', compromisos: { estado: 'error' } }),
+  textoPosteriorDueno({ cliente: 'Ana Ruiz', etapa: 'Norte', pendientes: ['Tu meta'], noLlego: null, compromisos: { estado: 'leida', pasos: [] } }),
+];
+
+test('a Mauricio: los compromisos de la junta, con quién los tiene; y si no hay grabación, lo dice', () => {
+  assert.match(TEXTOS_JUNTA[0], /Ya le mandé sus pendientes\.\nDe la junta:\n· Cliente: Mandar el PAS\n· Equipo: Revisar su tablero\n· Agendar la próxima$/);
+  assert.match(TEXTOS_JUNTA[1], /va al día con \*Norte\*\.\nNo le escribí: no tenía pendientes\.\nDe la junta:\n/);
+  assert.match(TEXTOS_JUNTA[2], /\nSin grabación analizada todavía\.$/, 'sin grabación el aviso sale igual y lo dice en una frase');
+  assert.match(TEXTOS_JUNTA[3], /\nNo pude leer la grabación\.$/, '«no pude leer» y «no hay» se dicen distinto');
+  assert.match(TEXTOS_JUNTA[4], /\nLa grabación no dejó próximos pasos\.$/);
+  // Sin el dato (el previo, o un llamador viejo) no se agrega nada.
+  assert.doesNotMatch(textoPosteriorDueno({ cliente: 'Ana', etapa: 'Norte', pendientes: ['x'], noLlego: null }), /junta|grabación/);
+  // El tope: los que no entran van como «y N más».
+  const muchos = textoPosteriorDueno({ cliente: 'Ana', etapa: 'Norte', pendientes: ['x'], noLlego: null,
+    compromisos: { estado: 'leida', pasos: Array.from({ length: TOPE_COMPROMISOS + 2 }, (_, i) => ({ que: `Paso ${i}`, quien: 'equipo' as const })) } });
+  assert.match(muchos, /· y 2 más$/);
+  for (const t of TEXTOS_JUNTA) assert.deepEqual(voseo(t), [], `voseo en: ${t}`);
+});
+
+test('los compromisos NUNCA viajan al cliente', () => {
+  const src = sinComentarios(leer('lib/curso-mensajes.ts'));
+  const cuerpo = src.slice(src.indexOf('async function procesarSesion'), src.indexOf('async function procesarWorkspace'));
+  const iCli = cuerpo.indexOf('textoPosteriorCliente(');
+  const llamada = cuerpo.slice(iCli, cuerpo.indexOf(')', cuerpo.indexOf('}', iCli)));
+  assert.ok(iCli > 0, 'no encontré el texto al cliente');
+  assert.doesNotMatch(llamada, /compromisos/, 'los compromisos los redactó un modelo: van SÓLO al dueño');
+  const fn = leer('lib/curso-mensajes-texto.ts');
+  const firma = fn.slice(fn.indexOf('export function textoPosteriorCliente('), fn.indexOf('): string | null {', fn.indexOf('export function textoPosteriorCliente(')));
+  assert.doesNotMatch(firma, /compromisos/, 'el texto del cliente no tiene por dónde recibirlos');
+  // Y la lectura de la grabación es la del contrato: mismo lead, entrega, versión 3 en adelante.
+  assert.match(src, /\.eq\('lead_id', f\.lead_id\)\.eq\('category', 'entrega_servicio'\)\.gte\('analysis_version', 3\)/);
+  assert.match(src, /grabacionesDeLaSesion\(\{ id: f\.id, fecha: f\.fecha \}, sesiones, grabaciones\)/);
+});
+
+test('sin pendientes, el posterior le llega a Mauricio SÓLO si la junta dejó compromisos', () => {
+  const src = sinComentarios(leer('lib/curso-mensajes.ts'));
+  const ini = src.indexOf("if (fase === 'posterior' && !c.pendientes?.length) {");
+  const rama = src.slice(ini, src.indexOf('return;', ini));
+  assert.ok(ini > 0, 'falta la rama del posterior sin pendientes');
+  assert.match(rama, /if \(compromisos\?\.estado === 'leida' && compromisos\.pasos\.length\) await avisarAlDueno\(/);
+  // Y nunca al cliente: en esa rama no hay envío.
+  assert.doesNotMatch(rama, /mandar\(/);
+});
+
+// PROBADO ROMPIÉNDOLO (06/10/2026, la tanda del dedup, el reintento y la junta). Baseline del
+// archivo: 31 pass / 0 fail. Cada rotura de a una, restaurada de memoria en un `finally`:
+//   1. la `dedupKey` vieja (`sesion:<id>`) en el aviso → 30/1: «usa la clave POR RESULTADO».
+//   2. `claveAvisoSesion` sin el resultado → 29/2: el apagado que se come al corregido, y «sin teléfono».
+//   3. `claveAvisoSesion` sin los compromisos → 30/1.
+//   4. marcar ANTES de leer el destino (el orden viejo) → 30/1: «el cron mira el destino ANTES…».
+//   5. la rama de «sin teléfono» llamando a `marcar()` → 30/1: el mismo.
+//   6. cada grabación a TODAS las sesiones con ella en su ventana (sin «la más cercana») → 29/2:
+//      «dos sesiones del mismo lead» y «la sesión que no se grabó…».
+//   7. la ventana de después en 8 h → 30/1: «la sesión que no se grabó…» (la de +6,5 h entra).
+//   8. `quien` sin sanear → 30/1.   9. los pasos repetidos sin juntar → 30/1.
+//   10. los compromisos pasados al texto del CLIENTE → 30/1: «NUNCA viajan al cliente».
+//   11. «Sin grabación analizada» que no se dice → 30/1.
+//   12. el posterior sin pendientes avisando siempre → 30/1.
+//   13. la lectura con `analysis_version` 2 → 30/1: «NUNCA viajan al cliente» (fija también la consulta).
+
+// ── La JUNTA se marca APARTE: la grabación que llega TARDE (revisión del grupo, 06/10/2026) ──
+// Los compromisos se leían una sola vez, en la corrida que abre el posterior, y la sesión se
+// marcaba ahí mismo. La grabación de una sesión de entrega entra por closing-sync («30 14-23 * *
+// *» UTC) y después espera su análisis: una sesión de las 16:30 de CDMX terminaba después del
+// último sync del día, el posterior salía «sin grabación» y los compromisos no llegaban nunca.
+
+const FECHA_TARDE = '2026-10-06T22:30:00Z';   // 16:30 CDMX: termina después del último sync
+const SES_TARDE = { id: 40, fecha: FECHA_TARDE };
+const G_TARDE = grab('2026-10-06T22:33:00Z', 'Mandar el PAS');
+const en = (horas: number) => new Date(Date.parse(FECHA_TARDE) + horas * H);
+
+test('la junta sigue ABIERTA después del posterior, mientras dure la ventana, y sólo si el posterior ya salió', () => {
+  const s = (marcas: { q?: string | null; j?: string | null }) => ({ fecha: FECHA_TARDE, avisoPosteriorAt: marcas.q ?? null, avisoJuntaAt: marcas.j ?? null });
+  assert.equal(juntaPendiente(s({ q: 'x' }), en(3)), true, 'posterior avisado, junta abierta: se vuelve a mirar');
+  assert.equal(juntaPendiente(s({ q: 'x' }), en(47)), true);
+  assert.equal(juntaPendiente(s({ q: 'x' }), en(49)), false, 'pasada la ventana del posterior no se espera más');
+  assert.equal(juntaPendiente(s({ q: 'x', j: 'y' }), en(3)), false, 'la junta ya resuelta no se vuelve a avisar');
+  assert.equal(juntaPendiente(s({}), en(3)), false, 'mientras el posterior no sale, su propio aviso lleva la junta');
+  assert.equal(juntaPendiente({ fecha: 'no es fecha', avisoPosteriorAt: 'x', avisoJuntaAt: null }, en(3)), false);
+});
+
+test('sólo una grabación LEÍDA cierra la junta: «sin grabación» y «no pude leer» la dejan abierta', () => {
+  assert.equal(juntaResuelta({ estado: 'leida', pasos: [{ que: 'x', quien: null }] }), true);
+  assert.equal(juntaResuelta({ estado: 'leida', pasos: [] }), true, 'se analizó y no dejó pasos también es una respuesta');
+  assert.equal(juntaResuelta({ estado: 'sin-grabacion' }), false);
+  assert.equal(juntaResuelta({ estado: 'error' }), false);
+  assert.equal(juntaResuelta(null), false);
+});
+
+test('una grabación que aparece DESPUÉS de la primera corrida le llega a Mauricio en la siguiente', () => {
+  const sale = despachador();
+  let marcas = { avisoPosteriorAt: null as string | null, avisoJuntaAt: null as string | null };
+  // Corrida 1 (00:25 UTC, +2 h): toca el posterior, la grabación todavía no está.
+  assert.equal(faseDeSesion({ fecha: FECHA_TARDE, avisoPrevioAt: 'x', avisoPosteriorAt: null }, en(2.1)), 'posterior');
+  const c1 = compromisosDeGrabaciones(grabacionesDeLaSesion(SES_TARDE, [SES_TARDE], []));
+  assert.equal(sale(claveAvisoSesion(SES_TARDE.id, null, c1)), true, 'el posterior sale (sin junta)');
+  assert.match(textoPosteriorDueno({ cliente: 'Ana', etapa: 'Norte', pendientes: ['x'], noLlego: null, compromisos: c1 }), /Sin grabación analizada todavía\.$/);
+  marcas = { avisoPosteriorAt: 'marcado', avisoJuntaAt: juntaResuelta(c1) ? 'marcado' : null };
+  // Corrida 2 (14:25 UTC del día siguiente, +16 h): el sync ya la trajo y está analizada.
+  assert.equal(faseDeSesion({ fecha: FECHA_TARDE, avisoPrevioAt: 'x', avisoPosteriorAt: marcas.avisoPosteriorAt }, en(16)), null);
+  assert.equal(juntaPendiente({ fecha: FECHA_TARDE, ...marcas }, en(16)), true, 'la junta quedó abierta: esta corrida la vuelve a buscar');
+  const c2 = compromisosDeGrabaciones(grabacionesDeLaSesion(SES_TARDE, [SES_TARDE], [G_TARDE]));
+  assert.ok(juntaResuelta(c2) && c2.pasos.length === 1);
+  assert.equal(sale(claveAvisoJunta(SES_TARDE.id)), true, 'el posterior que salió sin junta no la deduplica');
+  assert.match(textoJuntaDueno({ cliente: 'Ana Ruiz', pasos: juntaResuelta(c2) ? c2.pasos : [] }), /^De la sesión con \*Ana Ruiz\*:\n· Cliente: Mandar el PAS$/);
+  marcas = { ...marcas, avisoJuntaAt: 'marcado' };
+  // Corrida 3: ya no hay nada que hacer con esta sesión.
+  assert.equal(juntaPendiente({ fecha: FECHA_TARDE, ...marcas }, en(17)), false);
+  assert.equal(sale(claveAvisoJunta(SES_TARDE.id)), false, 'y si dos corridas pisan, la red del dedup la frena');
+});
+
+test('la clave de la junta tardía no choca con ninguna del posterior', () => {
+  const leida: CompromisosJunta = { estado: 'leida', pasos: [{ que: 'x', quien: null }] };
+  for (const noLlego of [null, 'sin teléfono', 'envío de WhatsApp apagado', NO_TENIA_PENDIENTES]) {
+    for (const c of [null, leida, { estado: 'sin-grabacion' } as CompromisosJunta]) {
+      assert.notEqual(claveAvisoJunta(7), claveAvisoSesion(7, noLlego, c));
+    }
+  }
+  assert.notEqual(claveAvisoJunta(7), claveAvisoJunta(8));
+});
+
+test('el aviso de la junta tardía: corto, sin voseo, sin el link del cliente, con el tope de siempre', () => {
+  const t = textoJuntaDueno({ cliente: 'Ana Ruiz', pasos: C_LEIDA.estado === 'leida' ? C_LEIDA.pasos : [] });
+  assert.equal(t, 'De la sesión con *Ana Ruiz*:\n· Cliente: Mandar el PAS\n· Equipo: Revisar su tablero\n· Agendar la próxima');
+  assert.equal(tituloAvisoJunta('Ana Ruiz'), 'Junta con Ana Ruiz');
+  const muchos = textoJuntaDueno({ cliente: 'Ana', pasos: Array.from({ length: TOPE_COMPROMISOS + 1 }, (_, i) => ({ que: `Paso ${i}`, quien: 'equipo' as const })) });
+  assert.match(muchos, /· y 1 más$/);
+  for (const x of [t, tituloAvisoJunta('Ana Ruiz'), muchos]) {
+    assert.deepEqual(voseo(x), [], `voseo en: ${x}`);
+    assert.ok(!x.includes(LINK));
+  }
+});
+
+test('el cron: la marca del posterior cierra la junta SÓLO con la grabación leída, y la junta abierta se reintenta', () => {
+  const src = sinComentarios(leer('lib/curso-mensajes.ts'));
+  const cuerpo = src.slice(src.indexOf('async function procesarSesion'), src.indexOf('async function procesarWorkspace'));
+  const iMarcar = cuerpo.indexOf('const marcar');
+  const marcar = cuerpo.slice(iMarcar, cuerpo.indexOf('};', iMarcar));
+  assert.match(marcar, /cierraJunta && fase === 'posterior' && ctx\.conJunta \? \{ aviso_junta_at: ahora \} : \{\}/,
+    'la junta se escribe con el posterior sólo cuando el aviso de ahora la lleva');
+  // Las dos ramas que marcan el posterior le pasan si la junta quedó resuelta (no `true` a ciegas).
+  assert.match(cuerpo, /if \(await marcar\(juntaResuelta\(compromisos\)\)\) \{/, 'el posterior sin pendientes');
+  assert.match(cuerpo, /if \(!\(await marcar\(juntaResuelta\(compromisos\)\)\)\) return;/, 'el posterior con envío');
+  // El cron trae la junta abierta y la manda a procesarJunta.
+  const correr = src.slice(src.indexOf('export async function correrAvisosDeSesiones'));
+  assert.match(correr, /'aviso_previo_at\.is\.null,aviso_posterior_at\.is\.null,aviso_junta_at\.is\.null'/);
+  assert.match(correr, /juntaPendiente\(\{ fecha: f\.fecha, avisoPosteriorAt: f\.aviso_posterior_at, avisoJuntaAt: f\.aviso_junta_at \?\? null \}, ahora\)/);
+  assert.match(src, /if \(paso === 'junta'\) await procesarJunta\(ctx, f\);/);
+});
+
+test('sin la mig 0210 el cron NO se cae: lee con las columnas viejas y la junta no se escribe', () => {
+  const src = sinComentarios(leer('lib/curso-mensajes.ts'));
+  const correr = src.slice(src.indexOf('export async function correrAvisosDeSesiones'));
+  assert.match(correr, /if \(error && faltaLaMarcaDeJunta\(error\)\) \{[\s\S]*?leerSesiones\(COLS_SESION_SIN_JUNTA, 'aviso_previo_at\.is\.null,aviso_posterior_at\.is\.null'\)/,
+    'una columna que falta rechaza la consulta entera: sin respaldo, nadie recibe ni el previo ni el posterior');
+  assert.match(correr, /const conJunta = !res\.sinMarcaDeJunta;/);
+  assert.match(correr, /conJunta && juntaPendiente\(/, 'sin la columna no hay junta que reintentar');
+  const mig = leer('supabase/migrations/0210_curso_sesion_junta.sql');
+  assert.match(mig, /add column if not exists aviso_junta_at timestamptz;/);
+  assert.match(mig, /ORDEN DE DESPLIEGUE/);
+});
+
+test('la junta tardía: compare-and-set ANTES de avisar, sólo a Mauricio, y sin grabación NO marca', () => {
+  const src = sinComentarios(leer('lib/curso-mensajes.ts'));
+  const ini = src.indexOf('async function procesarJunta');
+  const cuerpo = src.slice(ini, src.indexOf('\n}\n', ini));
+  assert.ok(ini > 0, 'falta procesarJunta');
+  const iEspera = cuerpo.indexOf('if (!juntaResuelta(compromisos)) {');
+  const iCas = cuerpo.indexOf(".is('aviso_junta_at', null)");
+  const iAviso = cuerpo.indexOf('emitirAviso(');
+  assert.ok(iEspera > 0 && iCas > iEspera && iAviso > iCas, 'primero se mira la grabación, después se marca, después se avisa');
+  assert.doesNotMatch(cuerpo.slice(iEspera, cuerpo.indexOf('}', iEspera)), /update\(/, 'sin grabación no se marca: la próxima corrida vuelve a mirar');
+  assert.match(cuerpo, /dedupKey: claveAvisoJunta\(f\.id\)/);
+  assert.match(cuerpo, /tipo: TIPO_AVISO\.posterior/, 'el mismo interruptor que el posterior');
+  assert.doesNotMatch(cuerpo, /mandar\(|textoPosteriorCliente|destinoDe\(/, 'los compromisos NUNCA viajan al cliente');
+});
+
+// PROBADO ROMPIÉNDOLO (06/10/2026, la junta aparte). Baseline del archivo: 39 pass / 0 fail. Cada
+// rotura de a una, restaurada de memoria en un `finally` (md5 de los cuatro fuentes igual antes y
+// después):
+//   1. `juntaPendiente` sin mirar `avisoJuntaAt` → 37/2: «sigue ABIERTA…» y «aparece DESPUÉS…».
+//   2. `juntaPendiente` sin esperar al posterior → 38/1: «sigue ABIERTA…».
+//   3. la ventana de la junta 24 h más larga que la del posterior → 37/2: «la lectura del cron
+//      cubre TODA sesión…» (la lectura no la trae) y «sigue ABIERTA…».
+//   4. `juntaResuelta` con cualquier estado → 37/2: «sólo una grabación LEÍDA…» y «aparece DESPUÉS…».
+//   5. `claveAvisoJunta` igual a la del posterior sin junta → 37/2: el dedup se la come.
+//   6. «Sin grabación analizada.» sin «todavía» → 37/2.
+//   7. el posterior cerrando la junta SIEMPRE (`marcar(true)`, lo de antes) → 36/3.
+//   8. la lectura del cron sin `aviso_junta_at.is.null` → 38/1.
+//   9. sin el respaldo de la columna faltante → 38/1: «sin la mig 0210 el cron NO se cae».
+//   10. `procesarJunta` sin compare-and-set → 38/1.   11. `procesarJunta` leyendo el destino del
+//       cliente → 38/1.   12. el cron sin despachar `'junta'` → 38/1.

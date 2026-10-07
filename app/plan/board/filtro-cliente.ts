@@ -12,7 +12,7 @@
 // el TABLERO (navegador) aplica el predicado. Y el test lo puede importar.
 //
 // ⚠️ LA REGLA DE «QUÉ ES DE UN CLIENTE» ES LA DE SU FICHA, no una parecida. La ficha
-// (`filasDeCliente` / `filasDeTodos` en app/customer-success/trabajo.ts) muestra:
+// (`filasDeTodos` en app/customer-success/trabajo.ts) muestra:
 //   · los PROYECTOS que lo declaran (`cliente_lead_id`), y
 //   · las TAREAS que lo declaran MÁS las que viven en uno de esos proyectos.
 // Un proyecto NO es del cliente por tener una tarea suya adentro («una tarea asignada es de

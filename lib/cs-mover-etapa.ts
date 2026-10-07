@@ -49,7 +49,7 @@
 // ⚠️ Y EL GUARD DE ESTO SON DOS, de los dos lados, porque ninguno solo alcanza:
 // `tests/cs-mover-etapa.test.ts` fija que desde acá NO se llame con `'etapa'`, y
 // `tests/nutricion-etapa.test.ts` fija que la llamada EXISTA, lleve `productoId` y
-// `etapa`, y vaya después del upsert y del historial. «No uses el evento de venta»
+// `etapa`, y vaya después de fijar la columna y del historial. «No uses el evento de venta»
 // también se cumple cuando no hay ninguna llamada.
 //
 // ⚠️ EL DESHACER DEL KANBAN VUELVE A PASAR POR ACÁ. El toast de `/customer-success`
@@ -63,10 +63,17 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
-import { entregaDeProducto } from './entrega-servicio';
+import { entregaDeProductoEstricta } from './entrega-servicio';
 import { campoEntrega, etapaValida, etapaDe, etapaInicial, relojDeVuelta } from './servicio-etapas';
 
-/** Quién mueve, con el mismo vocabulario que `lead_audit.autor`. */
+/**
+ * Quién mueve, con el mismo vocabulario que `lead_audit.autor`.
+ *
+ * ⚠️ `POR_PERSONA` ES EL RESPALDO, NO LA FIRMA DE UNA PERSONA. Las actions de Customer
+ * Success pasan el email de quien está logueado (`autorActual`, como el CRM: el Historial
+ * lo resuelve a nombre y foto). Hasta el 06/10/2026 no lo pasaban, y en la misma ficha
+ * renombrar firmaba con el email y mover firmaba «CRM». El curso firma `POR_MAKO`.
+ */
 export const POR_PERSONA = 'CRM';
 export const POR_MAKO = 'MaKo';
 
@@ -104,7 +111,11 @@ export type Movimiento = {
   rotulo: string;
   /** Primera vez que este cliente entra a la entrega de este producto. */
   entro: boolean;
-  /** De verdad cambió de columna. `false` = ya estaba ahí y NO se escribió nada. */
+  /**
+   * De verdad cambió de columna POR ESTE pedido. `false` = ya estaba ahí, u otro movimiento
+   * escribió entre la lectura y la escritura (perdió el compare-and-set): en los dos casos
+   * NO se escribió nada, ni la fila, ni el historial, ni el enrolamiento.
+   */
   cambio: boolean;
   por: string;
 };
@@ -149,7 +160,13 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
   // ⚠️ Esto es lo que el guard protege: una clave que no está en el catálogo deja al
   // cliente en una columna que el kanban no dibuja. No es un error visible — es un
   // cliente que desaparece del tablero y sigue contando en la base.
-  const entrega = await entregaDeProducto(pedido.productoId);
+  //
+  // ⚠️ Y SIN CATÁLOGO NO SE VALIDA CONTRA EL DEFAULT. `entregaDeProducto` cae a las etapas
+  // de fábrica si la lectura falla —correcto para dibujar—, y validar contra eso deja pasar
+  // «onboarding» sobre un producto que declaró otras nueve: la escritura sale bien y el
+  // cliente queda huérfano. Por eso la lectura ESTRICTA, y si no se pudo leer, no se mueve.
+  const entrega = await entregaDeProductoEstricta(pedido.productoId);
+  if (!entrega) return fallo(pedido, 'No pude leer las etapas del servicio.', prod.nombre);
   const hacia = (pedido.etapa ?? '').trim() || etapaInicial(entrega.etapas) || '';
   if (!etapaValida(entrega.etapas, hacia)) {
     return fallo(pedido, `«${hacia || '—'}» no es una etapa de la entrega de ${prod.nombre}.`, prod.nombre);
@@ -199,18 +216,36 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
   // Este orden es el de lib/etapa-historial.ts y por la misma razón: si algo falla en
   // el medio, el peor caso es perder una línea del historial — nunca mover al cliente
   // dos veces ni dejar una línea de un movimiento que no ocurrió.
+  //
+  // ⚠️ Y SE ESCRIBE CON COMPARE-AND-SET SOBRE LO QUE SE LEYÓ EN EL PASO 3. Entre esa
+  // lectura y esta escritura puede pasar otro movimiento del mismo cliente: dos pestañas,
+  // un doble click, o —el caso caro— el alumno mandando las dos últimas tareas de la etapa
+  // en el mismo segundo (lib/curso-avance.ts). Con un upsert a ciegas los dos contestaban
+  // `cambio: true`: dos líneas de historial, dos enrolamientos y DOS WhatsApp de la etapa
+  // nueva, con el envío del ws1 prendido. Ahora la fila sólo se toca si sigue diciendo lo
+  // que se leyó, y el que pierde la carrera vuelve con `cambio: false` ANTES del historial
+  // y del enrolamiento — o sea que no deja rastro de un movimiento que no hizo él.
+  //   · Si ya había fila: `update … where id = <la leída> and etapa = <la leída>`.
+  //   · Si no había (ENTRA): `insert … on conflict do nothing`. Si otro la creó en el medio,
+  //     no vuelve ninguna fila.
+  // Las dos formas devuelven las filas TOCADAS (`.select('id')`), que es lo único que dice
+  // quién ganó: un error y «no toqué nada» son dos respuestas distintas.
   const ahora = new Date().toISOString();
-  const { error: errUp } = await db.from('cliente_entrega').upsert(
-    {
-      lead_id: pedido.leadId, producto_id: pedido.productoId,
-      etapa: hacia, etapa_desde: relojDeVuelta(pedido.relojPrevio) ?? ahora, por, updated_at: ahora,
-    },
-    { onConflict: 'workspace_id,lead_id,producto_id' },
-  );
+  const columna = { etapa: hacia, etapa_desde: relojDeVuelta(pedido.relojPrevio) ?? ahora, por, updated_at: ahora };
+  const { data: tocadas, error: errUp } = previa
+    ? await db.from('cliente_entrega').update(columna)
+      .eq('id', previa.id).eq('etapa', previa.etapa).select('id')
+    : await db.from('cliente_entrega').upsert(
+      { lead_id: pedido.leadId, producto_id: pedido.productoId, ...columna },
+      { onConflict: 'workspace_id,lead_id,producto_id', ignoreDuplicates: true },
+    ).select('id');
   if (errUp) {
     console.error(`[cs-mover-etapa] no pude mover el cliente ${pedido.leadId} a ${hacia}: ${errUp.message}`);
     return fallo(pedido, 'No pude guardar el movimiento.', prod.nombre);
   }
+  // Perdió la carrera: otro movimiento escribió entre la lectura y acá. No se movió nada
+  // POR ESTE pedido, así que no hay línea que escribir ni secuencia que disparar.
+  if (!((tocadas ?? []) as unknown[]).length) return { ...base, entro: false };
 
   // El historial no rompe el movimiento: ya está guardado. Mismo criterio que
   // `logLeadChanges`, y queda el log por si la línea no sale.
@@ -264,8 +299,11 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
  * sacamos». La primera es un hueco por llenar y la segunda una decisión, y seis meses
  * después nadie puede saber cuál fue — es la regla de la casa: una política puede
  * rechazar, no puede no dejar rastro.
+ *
+ * `por` firma esa línea igual que en `moverClienteDeEtapa`: las actions de Customer Success
+ * pasan el email de quien lo sacó, y sólo quien no sabe quién es cae a `POR_PERSONA`.
  */
-export async function sacarClienteDeEntrega(leadId: number, productoId: number): Promise<{ ok: boolean; etapa: string | null; motivo?: string }> {
+export async function sacarClienteDeEntrega(leadId: number, productoId: number, por: string = POR_PERSONA): Promise<{ ok: boolean; etapa: string | null; motivo?: string }> {
   const db = await getTenantDb();
   const { data, error } = await db
     .from('cliente_entrega').delete().eq('lead_id', leadId).eq('producto_id', productoId).select('etapa');
@@ -285,15 +323,17 @@ export async function sacarClienteDeEntrega(leadId: number, productoId: number):
     try {
       const { data: prods } = await db.from('productos').select('nombre').eq('id', productoId).limit(1);
       const nombre = ((prods ?? []) as Array<{ nombre: string }>)[0]?.nombre ?? '';
-      const entrega = await entregaDeProducto(productoId);
+      // La lectura ESTRICTA, para que «la línea sale con la CLAVE» sea cierto: la otra caería
+      // a las etapas default y le pondría un rótulo de fábrica a una clave del cliente.
+      const entrega = await entregaDeProductoEstricta(productoId);
       const { error: errAudit } = await db.from('lead_audit').insert([{
         lead_id: leadId,
         campo: campoEntrega(nombre),
-        valor_anterior: etapaDe(entrega.etapas, etapa)?.label ?? etapa,
+        valor_anterior: (entrega && etapaDe(entrega.etapas, etapa)?.label) || etapa,
         // ⚠️ `null` y no «Sin etapa»: es el mismo vacío con el que la ficha dibuja un
         // «—», y el texto de la pantalla no se inventa acá adentro.
         valor_nuevo: null,
-        autor: POR_PERSONA,
+        autor: por,
       }]);
       if (errAudit) console.error(`[cs-mover-etapa] salió de la entrega pero la línea de historial falló: ${errAudit.message}`);
     } catch (e) {

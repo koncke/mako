@@ -27,18 +27,21 @@ import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
 import { NuevoCliente } from './NuevoCliente';
-import { BarraClientes, FILTRO_LABEL, CUANDO_LABEL, ORDEN_LABEL, entraEnVentana, opcionesDeFase, faseVigente, columnasVisibles, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
+import { BarraClientes, FILTRO_LABEL, CUANDO_LABEL, ORDEN_LABEL, entraEnVentana, opcionesDeFase, faseVigente, clientesEnPantalla, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
 import { KanbanEntrega, type Asignacion } from './KanbanEntrega';
 import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { EtapasEntregaModal } from './EtapasEntregaModal';
 import { SelectorServicio } from './SelectorServicio';
 import type { CarteraEnEntrega } from './entrega';
-import { conteoDeEtapas, relojDeVuelta, repartirEnEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
+import { conteoDeEtapas, relojDeVuelta, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
 import { LoteClientes } from './LoteClientes';
 import { esDelProducto } from './pertenencia';
 import { ordenarManual, columnaConInsercion, mismaLista } from './orden-manual';
 import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction, quitarDeProductoAction, volverAProductoAction, ordenarEtapaAction } from './actions';
+import { atajar } from './sin-red';
+import { filasCSV, textoCSV } from './exportar';
+import { hrefConFicha } from './url-ficha';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
@@ -61,7 +64,7 @@ const FILTRO_SIN_CUENTAS = Object.fromEntries(
   Object.entries(FILTRO_LABEL).filter(([k]) => k !== 'con-cuenta' && k !== 'sin-cuenta'),
 ) as Partial<typeof FILTRO_LABEL>;
 
-export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false }: {
+export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false, clienteInicial = null }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
    *  cliente. Ese orden es el que numera («Cliente 1»); la grilla se ordena aparte. */
   clientes: ClienteCruce[];
@@ -87,6 +90,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   /** Renombrar o borrar una columna le cambia el tablero a todo el equipo: lo decide
    *  un admin del workspace. Mover un cliente lo hace cualquiera con la tab. */
   puedeEditarEtapas?: boolean;
+  /**
+   * La ficha que llega ABIERTA: el `?cliente=<leadId>` de la URL, leído en el SERVER
+   * (page.tsx). Viene con el HTML y no se corrige después de hidratar, por lo mismo que
+   * `?vista=` en el Plan: abrirla en un efecto sería un parpadeo de la cartera en cada F5.
+   * Un id que no es de un cliente de esta cartera no abre nada (`abierto` se busca en
+   * `lista`) y el efecto de la URL lo limpia.
+   */
+  clienteInicial?: number | null;
 }) {
   /**
    * El alta, y EN QUÉ ETAPA se apretó.
@@ -96,7 +107,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * «está abierto» no se confunda con «no hay etapa».
    */
   const [creando, setCreando] = useState<string | null>(null);
-  const [abiertoId, setAbiertoId] = useState<number | null>(null);
+  /**
+   * QUÉ FICHA ESTÁ ABIERTA, y viaja en la URL (`?cliente=`, ver el efecto de abajo).
+   *
+   * ⚠️ ES UN `useState` SEMBRADO DE UNA PROP, y está bien que lo sea: la pantalla no se
+   * remonta con un `router.refresh()`, así que la prop nueva que trae el server después de
+   * guardar algo NO reabre ni cierra nada — manda lo que la persona hizo en esta sesión.
+   */
+  const [abiertoId, setAbiertoId] = useState<number | null>(clienteInicial);
   /** Con qué tab abre la ficha. `null` = la que la ficha elija (el tablero). Existe
    *  para que «Ver su equipo» de la tarjeta caiga en Equipo y no en el tablero. */
   const [abrirEn, setAbrirEn] = useState<string | null>(null);
@@ -294,12 +312,42 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   // abierta la cerraría de golpe, que se lee como que la app se rompió.
   const abierto = abiertoId === null ? null : lista.find((c) => c.leadId === abiertoId) ?? null;
 
+  /**
+   * LA FICHA ABIERTA SE ESCRIBE EN LA URL (`?cliente=<leadId>`), y al cerrarla se borra. Así
+   * el link que se copia es la ficha que se está mirando, y un F5 —o el `reload()` de
+   * algún camino que todavía recarga— la vuelve a abrir en vez de cerrarla.
+   *
+   * ⚠️ `history.replaceState` Y NO `router.replace`, con el mismo porqué que el tablero del
+   * Plan (BoardShell.tsx, «LA URL ES EL ESTADO DE LA PANTALLA»): esta página es
+   * `force-dynamic` y `router.replace` sobre la misma ruta ES una navegación, o sea volver a
+   * pedir el RSC con el trabajo de toda la cartera por abrir una ficha. Acá la URL no es un
+   * destino: es un marcador para el próximo F5. Y replace, no push: el Atrás tiene que
+   * sacarte de Clientes, no recorrer las fichas que abriste.
+   *
+   * ⚠️ LA QUERY SE PARTE DE `window.location.search`, NUNCA SE ARMA DE CERO: ahí viene el
+   * `?ws=` del super admin o de la agencia, y perderlo es terminar mirando otra cuenta.
+   *
+   * ⚠️ SE ESCRIBE LO QUE SE VE (`abierto`), NO LO QUE SE PIDIÓ (`abiertoId`). Un
+   * `?cliente=` que no es de esta cartera no abre nada, y dejarlo en la URL haría que el link
+   * copiado prometa una ficha que no existe. Sólo se toca la URL si cambia.
+   */
+  const idEnUrl = abierto?.leadId ?? null;
+  useEffect(() => {
+    try {
+      const { pathname, search, hash } = window.location;
+      const destino = hrefConFicha({ pathname, search, hash }, idEnUrl);
+      if (destino !== pathname + search + hash) window.history.replaceState(null, '', destino);
+    } catch { /* sin URL no se pierde nada: la ficha vive en React igual */ }
+  }, [idEnUrl]);
+
   /** Guarda la foto o la portada. Lo que se pinta es lo que el server dijo que quedó
    *  guardado, no lo que se pidió: si el saneo descartó la URL, se tiene que ver. */
   function guardarImagen(leadId: number, cambio: Imagen) {
     setMal('');
     empezar(async () => {
-      const r = await guardarImagenClienteAction(leadId, cambio);
+      // ⚠️ TODA ACCIÓN DE ESTA PANTALLA PASA POR `atajar` (./sin-red.ts): sin red, la promesa
+      // rechaza y, adentro de una transición, eso tumba la pantalla entera.
+      const r = await atajar(guardarImagenClienteAction(leadId, cambio), 'No se pudo guardar la imagen.');
       if (!r.ok) { setMal(r.error); return; }
       // ⚠️ SE FIJA LO QUE QUEDÓ EN LA BASE, LOS CINCO CAMPOS. Copiar sólo los dos que
       // el gesto tocó deja los otros tres en `undefined`, y `conImagen` los mergea
@@ -409,20 +457,23 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    *
    * ⚠️ Y SE CUENTA CON LAS MISMAS DOS FUNCIONES QUE DIBUJAN: `repartirEnEtapas` (un
    * cliente sin fila está en la primera) y `columnasVisibles` (qué es «de la fase»). Con
-   * una cuenta propia, el contador diría un número y el riel mostraría otro.
+   * una cuenta propia, el contador diría un número y el riel mostraría otro. Las dos viven
+   * adentro de `clientesEnPantalla` (./BarraClientes), que además es lo que el test EJECUTA.
    *
-   * Sin fase elegida —o fuera del kanban, donde la tabla no filtra columnas— es `visibles`
-   * tal cual.
+   * ⚠️ DESDE EL 06/10/2026 LA FASE FILTRA TAMBIÉN LA TABLA. El porqué viejo —«la tabla no
+   * esconde columnas»— dejó de ser cierto el día que la tabla se agrupó por las etapas del
+   * servicio: ahora esconde GRUPOS con la misma función, y lo que se cuenta, se elige en
+   * lote y se exporta tiene que ser lo mismo en las dos vistas.
+   *
+   * ⚠️ Y LOS HUÉRFANOS (una etapa que el catálogo ya no tiene) CUENTAN SÓLO EN LA TABLA SIN
+   * FASE, que es la única vista que les dibuja una fila (el grupo «Etapa borrada»). El
+   * kanban no les dibuja tarjeta: los nombra en un aviso al pie, y «N de M» no puede contar
+   * a quien no se ve.
    */
-  const enPantalla = ((): ClienteCruce[] => {
-    if (!enKanban || !servicio || faseVista === null) return visiblesServ;
-    const { porEtapa } = repartirEnEtapas(servicio.etapas, visiblesServ, (c) => asigServicio[c.leadId]?.etapa);
-    const ids = new Set<number>();
-    for (const e of columnasVisibles(servicio.etapas, servicio.fases, faseVista)) {
-      for (const c of porEtapa[e.key] ?? []) ids.add(c.leadId);
-    }
-    return visiblesServ.filter((c) => ids.has(c.leadId));
-  })();
+  const enPantalla = servicio
+    ? clientesEnPantalla(servicio.etapas, servicio.fases, faseVista, visiblesServ,
+      (c) => asigServicio[c.leadId]?.etapa, !enKanban)
+    : visiblesServ;
   /** Los elegidos que la pantalla está mostrando, en el orden en que se ven. */
   const elegidosVisibles = enPantalla.filter((c) => sel.has(c.leadId)).map((c) => c.leadId);
 
@@ -452,7 +503,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     // la prop del render en curso; y el choke point es idempotente de todas formas.
     setMal('');
     empezar(async () => {
-      const r = await moverEntregaAction(leadId, prodId, etapa, relojPrevio);
+      const r = await atajar(moverEntregaAction(leadId, prodId, etapa, relojPrevio), 'No se pudo mover.');
       if (!r.ok) { setMal(r.error); return; }
       // Un movimiento que no movio nada no se anuncia ni se pinta.
       if (!r.cambio) return;
@@ -495,7 +546,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     if (!movs.length) return;
     setMal('');
     empezar(async () => {
-      const r = await moverEntregaLoteAction(prodId, movs);
+      const r = await atajar(moverEntregaLoteAction(prodId, movs), 'No se pudieron mover.');
       if (!r.ok) { setMal(r.error); return; }
       const movidos = r.resultados.filter((x) => x.ok && x.cambio);
       const fallaron = r.resultados.filter((x) => !x.ok);
@@ -521,7 +572,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
           return { leadId: x.leadId, etapa: p?.etapa ?? null, relojPrevio: p?.etapa_desde ?? null };
         });
         empezar(async () => {
-          const d = await moverEntregaLoteAction(prodId, volver);
+          const d = await atajar(moverEntregaLoteAction(prodId, volver), 'No se pudo deshacer.');
           if (!d.ok) { setMal(d.error); return; }
           setMovs((v) => {
             const n = { ...v };
@@ -560,7 +611,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   function sacarEntrega(leadId: number, prodId: number, conDeshacer = true) {
     setMal('');
     empezar(async () => {
-      const r = await sacarDeEntregaAction(leadId, prodId);
+      const r = await atajar(sacarDeEntregaAction(leadId, prodId), 'No se pudo deshacer.');
       if (!r.ok) { setMal(r.error); return; }
       setMovs((v) => ({ ...v, [claveMov(leadId, prodId)]: null }));
       // Sin etapa anterior no hay nada que reponer, y ofrecer un «Deshacer» que no
@@ -611,9 +662,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     empezar(async () => {
       // ⚠️ UNA ACCIÓN QUE NO LLEGA (sin red) RECHAZA LA PROMESA, y adentro de una transición eso
       // tumba la pantalla entera («Esta pantalla se rompió al dibujarse»). Medido en el arnés
-      // abortando el pedido (06/10/2026). Se ataja como un error más.
-      const r = await ordenarEtapaAction(prodId, etapa, nueva)
-        .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo guardar el orden.' }));
+      // abortando el pedido (06/10/2026). Se ataja como un error más (./sin-red.ts).
+      const r = await atajar(ordenarEtapaAction(prodId, etapa, nueva), 'No se pudo guardar el orden.');
       if (!r.ok) {
         setMal(r.error);
         setOrdenMovs((v) => ({ ...v, [clave]: previa ?? [] }));
@@ -625,8 +675,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
         setOrdenMovs((v) => ({ ...v, [clave]: previa ?? [] }));
         if (criterioAntes !== 'manual') setOrden(criterioAntes);
         empezar(async () => {
-          const d = await ordenarEtapaAction(prodId, etapa, previa ?? [])
-            .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo deshacer.' }));
+          const d = await atajar(ordenarEtapaAction(prodId, etapa, previa ?? []), 'No se pudo deshacer.');
           if (!d.ok) setMal(d.error);
         });
       });
@@ -641,16 +690,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   function quitarDeProducto(leadId: number, prodId: number) {
     setMal('');
     empezar(async () => {
-      const r = await quitarDeProductoAction(leadId, prodId)
-        .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo quitar.' }));
+      const r = await atajar(quitarDeProductoAction(leadId, prodId), 'No se pudo quitar.');
       if (!r.ok) { setMal(r.error); return; }
       if (r.eraCasa) setCasaMovs((v) => ({ ...v, [leadId]: null }));
       setMovs((v) => ({ ...v, [claveMov(leadId, prodId)]: null }));
       show('Quitado del producto', () => {
         clear();
         empezar(async () => {
-          const d = await volverAProductoAction(leadId, prodId, r.etapa, r.reloj)
-            .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo devolver.' }));
+          const d = await atajar(volverAProductoAction(leadId, prodId, r.etapa, r.reloj), 'No se pudo devolver.');
           if (!d.ok) { setMal(d.error); return; }
           if (r.eraCasa) setCasaMovs((v) => ({ ...v, [leadId]: prodId }));
           setMovs((v) => {
@@ -675,14 +722,16 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    */
   async function guardarEtapas(etapas: EtapaEntrega[], fases: FaseEntrega[]): Promise<string | null> {
     if (!servicio) return 'No hay ningun servicio elegido.';
-    const r = await guardarEtapasEntregaAction(servicio.productoId, etapas, fases);
+    const r = await atajar(guardarEtapasEntregaAction(servicio.productoId, etapas, fases), 'No se pudo guardar.');
     return r.ok ? null : r.error;
   }
 
   function correrMako() {
     setMako(null);
     empezar(async () => {
-      const r = await autoasignarAction();
+      // ⚠️ CORRE SOLA AL MONTAR, así que un rechazo sin red acá tumbaba la pantalla ANTES de
+      // que la persona tocara nada. Atajada, se calla como cualquier otro fallo de abajo.
+      const r = await atajar(autoasignarAction(), 'No se pudo asignar.');
       // ⚠️ CORRIENDO SOLA, UN ERROR NO INTERRUMPE. Nadie apretó nada, así que un banner
       // rojo al entrar acusaría de algo que la persona no hizo. Lo que falla en segundo
       // plano se calla y se reintenta en la próxima carga; se muestra lo que SÍ pasó.
@@ -769,7 +818,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
                    abre, en vez de editar a ciegas el de otra columna. */
                 onEditarEtapas={(id) => { setServicioId(id); setEditandoEtapas(true); }}
                 onNuevo={async (nombre) => {
-                  const r = await crearServicioAction(nombre);
+                  // Sin `atajar`, un rechazo dejaba el selector en «guardando» para siempre:
+                  // `SelectorServicio` espera un texto, no una excepción.
+                  const r = await atajar(crearServicioAction(nombre), 'No se pudo crear.');
                   if (!r.ok) return r.error;
                   // Se queda mirando el que acaba de crear: crear algo y no verlo se lee
                   // como que no pasó nada. El `revalidatePath` trae su tablero.
@@ -789,10 +840,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
                número del botón no cuenta como filtro el orden que él mismo armó. */
             ordenBase={hayOrdenManual ? 'manual' : 'nombre'}
             cuandos={CUANDO_LABEL} cuando={cuando} onCuando={setCuando} dir={dir} onDir={orden === 'manual' ? undefined : setDir}
-            /* La FASE, como una sección más de «Filtrar» y sólo en el kanban: la tabla no
-               esconde columnas, así que ahí la opción no cambiaría nada de lo que se ve. Sin
+            /* La FASE, como una sección más de «Filtrar», EN LAS DOS VISTAS. Hasta el 06/10/2026
+               era sólo del kanban, con el porqué de que «la tabla no esconde columnas»; dejó de
+               ser cierto cuando la tabla se agrupó por las etapas del servicio, y ahora esconde
+               grupos con la misma `columnasVisibles`. Sin servicio no hay etapas que filtrar; sin
                fases (o con una sola), `opcionesDeFase` devuelve vacío y la sección no está. */
-            fases={enKanban ? opcionesFase : undefined} fase={faseVista} onFase={setFasePedida}
+            fases={servicio ? opcionesFase : undefined} fase={faseVista} onFase={setFasePedida}
             /* ⚠️ `enPantalla` Y NO `visibles`: con una fase elegida, «N de M» tiene que
                contar lo que el riel dibuja. */
             nVisibles={enPantalla.length} nTotal={listaServ.length}
@@ -871,6 +924,10 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
                  entre ellas; sin servicio queda plana, como antes. */
               etapas={servicio ? servicio.etapas : null}
               fases={servicio ? servicio.fases : []}
+              /* Ya VIGENTE, igual que al kanban: la tabla esconde los grupos que no son de la
+                 fase con la MISMA `columnasVisibles`, y lo que cuenta «N de M» (`enPantalla`)
+                 sale de la misma regla. */
+              fase={faseVista}
               asignacion={asigServicio}
               onMover={(leadId, etapa) => { if (servicio) moverEntrega(leadId, etapa, servicio.productoId); }}
               onMoverLote={(leadIds, etapa) => { if (servicio) moverLote(leadIds, etapa, servicio.productoId); }}
@@ -964,14 +1021,18 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
              lados, en el CRM y aquí» (05/10/2026). El server escribe el MISMO campo que
              lee el CRM; el `revalidatePath` trae el nombre nuevo al selector. */
           onRenombrar={async (nombre) => {
-            const r = await renombrarServicioAction(servicio.productoId, nombre);
+            const r = await atajar(renombrarServicioAction(servicio.productoId, nombre), 'No se pudo renombrar.');
             return r.ok ? null : r.error;
           }}
+          /* ⚠️ Sólo un producto CON EMBUDO vuelve desde «Productos eliminados» del CRM (uno
+             sin embudo se da de baja con `activo = false`, ver `eliminarServicioAction`): la
+             confirmación lo dice sólo en ese caso. El dato sale de `productosOfrecibles`. */
+          conEmbudo={servicio.conEmbudo}
           /* El producto del embudo principal no se elimina (el server lo frena): sin
              botón, como en el CRM. Un botón cuya única respuesta es «no se puede» se
              lee como que la app está rota. */
           onEliminar={servicio.principal ? undefined : async () => {
-            const r = await eliminarServicioAction(servicio.productoId);
+            const r = await atajar(eliminarServicioAction(servicio.productoId), 'No se pudo eliminar.');
             if (!r.ok) return r.error;
             // Se cierra y se vuelve al primero: quedarse mirando un producto que ya no
             // está en el selector se lee como que no se borró.
@@ -1004,27 +1065,16 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
  * archivo se arma en el NAVEGADOR —sin ruta y sin server— porque el dato ya está acá:
  * pedirlo de nuevo sería una llamada para reordenar lo que ya tenemos.
  *
- * El separador es `;` y va con BOM. Sin las dos cosas, Excel en español abre el
- * archivo con todo en una columna y se come los acentos.
+ * QUÉ columnas salen (y el escape, el `;` y el BOM) vive en ./exportar.ts, que un test puede
+ * ejecutar; acá sólo se arma el archivo. Desde el 06/10/2026 lleva Email y Teléfono: es la
+ * forma en que «copiar los contactos de los elegidos» quedó resuelto sin un botón más.
  */
 function exportarCSV(
   filas: ClienteCruce[],
   numeroDe: Map<number, number>,
   resumenDe: (leadId: number) => ResumenTrabajo | null,
 ) {
-  // Una comilla adentro de un campo rompe la fila: se duplica, que es como la escapa
-  // el formato. Y los saltos de línea se aplanan, o parten la fila en dos.
-  const q = (v: string | number | null | undefined) =>
-    `"${String(v ?? '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"`;
-  // Los mismos rótulos que la tarjeta y la tabla: un CSV que nombra distinto las
-  // mismas columnas obliga a cruzarlo a mano con la pantalla de la que salió.
-  const cab = ['Cliente', 'Nombre', 'Empresa', 'Proyectos', 'Tareas', 'Recurrentes'];
-  const cuerpo = filas.map((c) => {
-    const r = resumenDe(c.leadId);
-    return [numeroDe.get(c.leadId) ?? 0, nombreDe(c), c.empresa ?? '', r?.proyectos ?? 0, r?.abiertas ?? 0, r?.recurrentes ?? 0]
-      .map(q).join(';');
-  });
-  const csv = '﻿' + [cab.map(q).join(';'), ...cuerpo].join('\r\n');
+  const csv = textoCSV(filasCSV(filas, numeroDe, resumenDe));
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a');
   a.href = url;

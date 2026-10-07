@@ -30,8 +30,18 @@
 // viera desde cualquier lado. Con eso, un admin parado en OTRO cliente escribía
 // el estado sobre la cartera de Mauricio. Es la misma pantalla para todos: el
 // inquilino lo resuelve `getTenantDb()`.
+//
+// ⚠️ LA PRIMERA LÍNEA DE CADA EXPORT ES LA PUERTA (`puedeUsarCs`, ./puerta.ts): sesión viva
+// y Customer Success en la capa de este workspace — lo que la página pregunta con
+// `requireCapa`, que una action no atraviesa (es un POST directo). Después de la puerta,
+// cada una vuelve a preguntar lo suyo: si el lead es un cliente de ESTE workspace
+// (`clienteDelWorkspace`) o si quien llama es admin. Lo fija tests/cs-acciones-puerta.test.ts.
+//
+// ⚠️ Y LOS MOVIMIENTOS DE ENTREGA FIRMAN CON QUIEN LOS HIZO (`autorActual`), igual que
+// renombrar: el choke point firmaba «CRM» si nadie le decía otra cosa.
 
 import { getTenantDb, adminDeWorkspaceActual, crearWorkspace } from '@/lib/workspace';
+import { puedeUsarCs } from './puerta';
 import { getSupabaseServer } from '@/lib/supabase';
 import { esAgencia } from '@/lib/agencia';
 import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
@@ -91,6 +101,7 @@ async function autorActual(): Promise<string> {
  * una, es pagar la lectura entera siempre.
  */
 export async function pagosDeClienteAction(leadId: number): Promise<{ ok: true; lead: Lead; pagos: Pago[]; etapas: Stage[] } | { ok: false; error: string }> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es de este workspace.' };
     const [lead, pagos] = await Promise.all([getLead(leadId), getPagosByLead(leadId)]);
@@ -133,6 +144,7 @@ export async function pagosDeClienteAction(leadId: number): Promise<{ ok: true; 
 export async function crearClienteAction(datos: {
   nombre: string; empresa?: string; email?: string; telefono?: string;
 }): Promise<{ ok: boolean; leadId?: number; error?: string }> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   const nombre = (datos.nombre ?? '').trim();
   if (nombre.length < 2) return { ok: false, error: 'Falta el nombre.' };
   const email = (datos.email ?? '').trim() || null;
@@ -178,6 +190,7 @@ export async function crearClienteAction(datos: {
 export async function autoasignarAction(): Promise<
   { ok: true; porNombre: number; porIA: number; consultadas: number; sinRespuesta: number } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     const r = await autoasignar();
     if (r.ok) revalidatePath('/customer-success');
@@ -210,6 +223,7 @@ export async function guardarImagenClienteAction(leadId: number, cambio: {
   /** `icon:<set>:<nombre>` o una URL. `null` = sin ícono propio (mig 0174). */
   icono?: string | null;
 }): Promise<{ ok: true; avatarUrl: string | null; portada: string | null; portadaY: number | null; avatarY: number | null; icono: string | null } | { ok: false; error: string }> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     // El mismo guard que el resto de la pantalla: sin esto, un POST con el id de un
     // lead ajeno escribiría sobre la ficha de otro inquilino.
@@ -266,6 +280,7 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
   nombre?: string;
   empresa?: string | null;
 }): Promise<{ ok: true; nombre: string; empresa: string | null } | { ok: false; error: string }> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     // El mismo guard que el resto de la pantalla: sin esto, un POST con el id de un
     // lead ajeno escribiría sobre la ficha de otro inquilino.
@@ -325,6 +340,7 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
 export async function crearCuentaMakoAction(leadId: number, email: string): Promise<
   { ok: true; clienteWs: number; estado: string } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     /**
      * ⚠️ EL EMAIL ES OBLIGATORIO, y eso es un cambio de producto del 28/09/2026: «que
@@ -436,10 +452,13 @@ export async function crearCuentaMakoAction(leadId: number, email: string): Prom
 export async function moverEntregaAction(leadId: number, productoId: number, etapa: string | null, relojPrevio?: string | null): Promise<
   { ok: true; desde: string | null; hacia: string; rotulo: string; producto: string; cambio: boolean } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
-    // `relojPrevio` sólo lo manda el DESHACER: el reloj que la fila tenía antes.
-    const m = await moverClienteDeEtapa({ leadId, productoId, etapa, relojPrevio });
+    // `relojPrevio` sólo lo manda el DESHACER: el reloj que la fila tenía antes. `por`
+    // firma la línea del Historial con quien lo movió (sin esto, el choke point firma «CRM»).
+    const por = await autorActual();
+    const m = await moverClienteDeEtapa({ leadId, productoId, etapa, relojPrevio, por });
     if (!m.ok) return { ok: false, error: m.motivo ?? 'No se pudo mover.' };
     // ⚠️ SÓLO SE REVALIDA SI ALGO CAMBIÓ. Un movimiento idempotente que igual
     // revalida tira las 78 KB del trabajo de la cartera por un gesto que no movió nada.
@@ -470,6 +489,7 @@ export async function moverEntregaAction(leadId: number, productoId: number, eta
 export async function moverEntregaLoteAction(productoId: number, movs: Array<{ leadId: number; etapa: string | null; relojPrevio?: string | null }>): Promise<
   { ok: true; resultados: Array<{ leadId: number; ok: boolean; desde: string | null; hacia: string | null; cambio: boolean; error?: string }> } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     const ids = [...new Set(movs.map((m) => Number(m.leadId)).filter((n) => Number.isFinite(n) && n > 0))];
     if (!ids.length) return { ok: true, resultados: [] };
@@ -481,17 +501,19 @@ export async function moverEntregaLoteAction(productoId: number, movs: Array<{ l
     const mios = new Set(((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)));
     const resultados: Array<{ leadId: number; ok: boolean; desde: string | null; hacia: string | null; cambio: boolean; error?: string }> = [];
     let alguno = false;
+    // Quién firma, UNA vez para todo el lote: es la misma persona en los doce movimientos.
+    const por = await autorActual();
     for (const m of movs) {
       const leadId = Number(m.leadId);
       if (!mios.has(leadId)) { resultados.push({ leadId, ok: false, desde: null, hacia: null, cambio: false, error: 'Ese cliente no es tuyo.' }); continue; }
       if (m.etapa === null) {
-        const r = await sacarClienteDeEntrega(leadId, productoId);
+        const r = await sacarClienteDeEntrega(leadId, productoId, por);
         if (!r.ok) { resultados.push({ leadId, ok: false, desde: null, hacia: null, cambio: false, error: r.motivo ?? 'No se pudo deshacer.' }); continue; }
         alguno = true;
         resultados.push({ leadId, ok: true, desde: r.etapa, hacia: null, cambio: true });
         continue;
       }
-      const r = await moverClienteDeEtapa({ leadId, productoId, etapa: m.etapa, relojPrevio: m.relojPrevio });
+      const r = await moverClienteDeEtapa({ leadId, productoId, etapa: m.etapa, relojPrevio: m.relojPrevio, por });
       if (!r.ok) { resultados.push({ leadId, ok: false, desde: null, hacia: null, cambio: false, error: r.motivo ?? 'No se pudo mover.' }); continue; }
       if (r.cambio) alguno = true;
       resultados.push({ leadId, ok: true, desde: r.desde, hacia: r.hacia, cambio: r.cambio });
@@ -508,9 +530,10 @@ export async function moverEntregaLoteAction(productoId: number, movs: Array<{ l
 export async function sacarDeEntregaAction(leadId: number, productoId: number): Promise<
   { ok: true; etapa: string | null } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
-    const r = await sacarClienteDeEntrega(leadId, productoId);
+    const r = await sacarClienteDeEntrega(leadId, productoId, await autorActual());
     if (!r.ok) return { ok: false, error: r.motivo ?? 'No se pudo sacar de la entrega.' };
     revalidatePath('/customer-success');
     return { ok: true, etapa: r.etapa };
@@ -538,6 +561,7 @@ export async function sacarDeEntregaAction(leadId: number, productoId: number): 
 export async function quitarDeProductoAction(leadId: number, productoId: number): Promise<
   { ok: true; eraCasa: boolean; etapa: string | null; reloj: string | null } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
     const { productos, casa } = await productosDelCliente(leadId);
@@ -550,17 +574,18 @@ export async function quitarDeProductoAction(leadId: number, productoId: number)
     if (errFila) return { ok: false, error: errFila.message };
     const previa = fila as { etapa: string; etapa_desde: string } | null;
     const eraCasa = casa === productoId;
+    const por = await autorActual();
 
     if (eraCasa) {
       const { error } = await db.from('cliente_entrega_fuera')
-        .upsert([{ lead_id: leadId, producto_id: productoId, por: await autorActual() }],
+        .upsert([{ lead_id: leadId, producto_id: productoId, por }],
           { onConflict: 'workspace_id,lead_id,producto_id', ignoreDuplicates: true });
       if (error) return { ok: false, error: error.message };
     }
     if (previa) {
       // El borrado de la fila deja SU línea de historial y cierra lo que esa etapa tenía
       // agendado: es el mismo camino que el deshacer del primer movimiento.
-      const r = await sacarClienteDeEntrega(leadId, productoId);
+      const r = await sacarClienteDeEntrega(leadId, productoId, por);
       if (!r.ok) return { ok: false, error: r.motivo ?? 'No se pudo quitar.' };
     } else {
       // Sin fila no hay nada que el choke point registre, y salir de un producto es un hecho:
@@ -581,13 +606,14 @@ export async function quitarDeProductoAction(leadId: number, productoId: number)
 export async function volverAProductoAction(leadId: number, productoId: number, etapa: string | null, reloj: string | null): Promise<
   { ok: true } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
     const db = await getTenantDb();
     const { error } = await db.from('cliente_entrega_fuera').delete().eq('lead_id', leadId).eq('producto_id', productoId);
     if (error) return { ok: false, error: error.message };
     if (etapa) {
-      const m = await moverClienteDeEtapa({ leadId, productoId, etapa, relojPrevio: reloj });
+      const m = await moverClienteDeEtapa({ leadId, productoId, etapa, relojPrevio: reloj, por: await autorActual() });
       if (!m.ok) return { ok: false, error: m.motivo ?? 'No se pudo devolver.' };
     } else {
       await historialDeProducto(leadId, productoId, 'volvio');
@@ -638,6 +664,7 @@ async function historialDeProducto(leadId: number, productoId: number, que: 'sal
 export async function ordenarEtapaAction(productoId: number, etapa: string, leadIds: number[]): Promise<
   { ok: true } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!Number.isFinite(productoId) || productoId <= 0 || typeof etapa !== 'string' || !etapa) return { ok: false, error: 'Falta la columna.' };
     const pedidos = [...new Set((Array.isArray(leadIds) ? leadIds : []).map(Number).filter((n) => Number.isFinite(n) && n > 0))].slice(0, 2000);
@@ -678,6 +705,11 @@ export async function ordenarEtapaAction(productoId: number, etapa: string, lead
  * ⚠️ Y SÓLO UN ADMIN DEL WORKSPACE. Mover un cliente de columna lo hace cualquiera que
  * tenga la tab —es el trabajo del día—, pero RENOMBRAR o BORRAR una columna le cambia
  * el tablero a todo el equipo y puede dejar clientes en una etapa que ya no existe.
+ *
+ * ⚠️ Y EL PRODUCTO TIENE QUE SER DE ESTE WORKSPACE, con la misma lectura que
+ * `ordenarEtapaAction`. `guardarEtapasEntrega` hace upsert con el workspace propio
+ * estampado, así que un `productoId` ajeno no cruzaba datos: dejaba una fila de catálogo
+ * basura colgando de un producto que no es suyo. Se rebota antes de escribir.
  */
 export async function guardarEtapasEntregaAction(
   productoId: number,
@@ -687,8 +719,14 @@ export async function guardarEtapasEntregaAction(
 ): Promise<
   { ok: true } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede cambiar las etapas de un servicio.' };
+    if (!Number.isFinite(productoId) || productoId <= 0) return { ok: false, error: 'Falta el producto.' };
+    const db = await getTenantDb();
+    const { data: prods, error: errProd } = await db.from('productos').select('id').eq('id', productoId).limit(1);
+    if (errProd) return { ok: false, error: errProd.message };
+    if (!(prods ?? []).length) return { ok: false, error: 'Ese producto no es tuyo.' };
     const ok = await guardarEtapasEntrega(productoId, etapas, fases);
     if (!ok) return { ok: false, error: 'Esas etapas no se pudieron guardar. Revisa que ninguna quede sin nombre.' };
     revalidatePath('/customer-success');
@@ -717,6 +755,7 @@ export async function guardarEtapasEntregaAction(
 export async function crearServicioAction(nombre: string): Promise<
   { ok: true; productoId: number } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede crear un producto.' };
     const { productoId } = await crearProductoConFunnel(nombre);
@@ -756,6 +795,7 @@ async function embudosDelProducto(productoId: number): Promise<Array<{ id: numbe
 export async function renombrarServicioAction(productoId: number, nombreCrudo: string): Promise<
   { ok: true; nombre: string } | { ok: false; error: string }
 > {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede renombrar un producto.' };
     const nombre = String(nombreCrudo ?? '').trim().replace(/\s+/g, ' ');
@@ -790,6 +830,7 @@ export async function renombrarServicioAction(productoId: number, nombreCrudo: s
  * Las filas de `cliente_entrega` NO se tocan: el histórico del cliente dice lo que pasó.
  */
 export async function eliminarServicioAction(productoId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede eliminar un producto.' };
     const embudos = await embudosDelProducto(productoId);

@@ -80,7 +80,8 @@ export type SecuenciaDto = {
 
 /** Un producto del CRM con las etapas que el dueño le configuró. */
 export type ProductoOpcion = {
-  funnelId: number; productoId: number | null; nombre: string; esDefault: boolean;
+  /** `null` = un servicio sin embudo propio: sólo trae etapas de ENTREGA (lib/setting-secuencias.ts). */
+  funnelId: number | null; productoId: number | null; nombre: string; esDefault: boolean;
   /** Las del EMBUDO: por dónde pasa el lead antes de comprar. */
   etapas: Array<{ value: string; label: string }>;
   /** Las de la ENTREGA del servicio: por dónde pasa el CLIENTE después de comprar. */

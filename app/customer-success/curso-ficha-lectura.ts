@@ -252,7 +252,13 @@ export type EtapaFicha = {
 export type ProductoFicha = {
   productoId: number;
   nombre: string;
+  /** `null` también cuando su etapa está BORRADA: la ficha no marca ninguna como «Actual». */
   etapaActual: string | null;
+  /**
+   * La clave de su fila cuando el catálogo ya no la tiene (`ubicacionEnEntregaDe`). Es lo que
+   * la cabecera de la ficha llama «Etapa borrada», y esta pestaña tiene que decir lo mismo.
+   */
+  etapaBorrada: string | null;
   etapas: EtapaFicha[];
   /**
    * La FILA de la tabla Avance de la tab Curso, para este cliente (pedido del 06/10/2026: «el
@@ -277,6 +283,12 @@ export const ETAPA_HUERFANA = '~sin-etapa';
  * ⚠️ Y LAS CLASES DE UNA ETAPA BORRADA NO SE PIERDEN: van al final, en su propio grupo. Sacar
  * una etapa de la entrega no borra sus clases (la FK es al producto, no a la etapa), y una
  * ficha que no las dibujara escondería tareas que el cliente ya contestó.
+ *
+ * ⚠️ Y SI EL CLIENTE ESTÁ EN UNA ETAPA BORRADA (`etapaBorrada`), NINGUNA ES LA «ACTUAL». El
+ * portal y el paso automático lo tratan como si estuviera en la primera (`etapaActualDe`), y la
+ * cabecera de la ficha dice «Etapa borrada»: si esta pestaña marcara la primera, la misma ficha
+ * diría dos etapas distintas del mismo cliente. Se dice el hecho —su etapa ya no existe— y se lo
+ * mueve desde la cabecera. La fila de Avance lo dice con `etapaBorrada`.
  */
 export function armarProducto(p: {
   productoId: number;
@@ -286,8 +298,12 @@ export function armarProducto(p: {
   clases: readonly Clase[];
   progreso: ReadonlyMap<number, Progreso>;
   etapaActual: string | null;
+  /** La clave de su fila si el catálogo ya no la tiene. Ausente o `null` = no es el caso. */
+  etapaBorrada?: string | null;
 }): ProductoFicha | null {
   if (!p.clases.length) return null;
+  const borrada = p.etapaBorrada || null;
+  const actual = borrada ? null : p.etapaActual;
   const aFicha = (c: Clase): ClaseFicha => ({
     id: c.id, etapa: c.etapa, orden: c.orden, titulo: c.titulo, tipo: c.tipo, minutos: c.minutos,
     tarea: c.tarea, campos: c.campos, obligatoria: c.obligatoria,
@@ -303,7 +319,7 @@ export function armarProducto(p: {
   const conocidas = new Set(p.etapas.map((e) => e.key));
   const etapas: EtapaFicha[] = p.etapas.map((e) => {
     const clases = ordenar(porEtapa.get(e.key) ?? []);
-    return { key: e.key, label: e.label, actual: e.key === p.etapaActual, huerfana: false, clases, resumen: resumenDeEtapa(clases) };
+    return { key: e.key, label: e.label, actual: e.key === actual, huerfana: false, clases, resumen: resumenDeEtapa(clases) };
   });
   const sueltas = ordenar([...porEtapa.entries()].filter(([k]) => !conocidas.has(k)).flatMap(([, xs]) => xs));
   if (sueltas.length) {
@@ -313,12 +329,12 @@ export function armarProducto(p: {
   // entradas — las clases del producto, las claves de la entrega, la etapa actual y el progreso.
   // Las huérfanas no entran (la tabla tampoco las cuenta: no tienen columna).
   const keys = p.etapas.map((e) => e.key);
-  const a = avanceDeCliente(p.clases, keys, p.etapaActual, p.progreso);
+  const a = avanceDeCliente(p.clases, keys, actual, p.progreso);
   const avance = {
     etapas: p.etapas.map((e) => ({ key: e.key, label: e.label, color: e.color ?? 'var(--faint)' })),
-    fila: { etapa: p.etapaActual, porEtapa: a.porEtapa, pctVisto: a.pctVisto, videosSinMedir: a.videosSinMedir },
+    fila: { etapa: actual, etapaBorrada: borrada != null, porEtapa: a.porEtapa, pctVisto: a.pctVisto, videosSinMedir: a.videosSinMedir },
   };
-  return { productoId: p.productoId, nombre: p.nombre, etapaActual: p.etapaActual, etapas, avance };
+  return { productoId: p.productoId, nombre: p.nombre, etapaActual: actual, etapaBorrada: borrada, etapas, avance };
 }
 
 // ── El acceso y las llamadas ──────────────────────────────────────────────────
@@ -483,8 +499,10 @@ export type AvisoSesion = { cual: 'previo' | 'posterior'; estado: 'enviado' | 'p
  * todavía. Afirmar «no salió» ahí sería adelantarse al cron.
  *
  * ⚠️ LA MARCA NO ES «LE LLEGÓ»: ES «SE PROCESÓ». El cron la escribe ANTES de mandar
- * (compare-and-set, para no mandar dos veces) y no la deshace si el envío falló, si no había
- * teléfono o si el cliente estaba al día. Lo que distingue es el motivo anotado de esa fase
+ * (compare-and-set, para no mandar dos veces) y no la deshace si el envío falló o si el cliente
+ * estaba al día. (Sin teléfono, contacto bloqueado y acceso cortado ya NO marcan desde el
+ * 06/10/2026: la sesión queda sin marca, con su motivo, esperando a que se arregle — o sea
+ * «pendiente» con el porqué debajo.) Lo que distingue es el motivo anotado de esa fase
  * (`motivoDeFase`): con motivo, no salió. Leyendo sólo la marca, la ficha decía «enviado» con
  * «Antes: sin teléfono» escrito justo debajo (revisión del 06/10/2026).
  */

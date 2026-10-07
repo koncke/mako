@@ -24,13 +24,13 @@ import 'server-only';
 // La DECISIÓN (en qué orden se pregunta qué) es pura y vive en lib/curso-avance-regla.ts, con
 // test que la ejecuta. Acá sólo se lee lo que la decisión necesita y se aplica lo que contesta.
 //
-// ⚠️ DOS ENVÍOS A LA VEZ PUEDEN AVISAR DOS VECES. Si el cliente manda las dos últimas tareas de
-// la etapa en el mismo segundo (dos pestañas), las dos lecturas ven la etapa completa, las dos
-// llaman a `moverClienteDeEtapa` y, como ese choke point lee «dónde estaba» antes de escribir,
-// las dos pueden contestar `cambio: true`. El movimiento queda bien (es la misma fila); lo que
-// se duplica es el mensaje de la etapa nueva y una línea del historial. No se blinda acá
-// porque el que puede hacerlo sin carreras es el choke point (un compare-and-set sobre
-// `cliente_entrega.etapa`), y ese archivo es de otro dueño: queda como pendiente de él.
+// ⚠️ DOS ENVÍOS A LA VEZ AVISAN UNA SOLA VEZ, y lo garantiza el choke point, no este archivo.
+// Si el cliente manda las dos últimas tareas de la etapa en el mismo segundo (dos pestañas),
+// las dos lecturas ven la etapa completa y las dos llaman a `moverClienteDeEtapa`. Hasta el
+// 06/10/2026 las dos podían contestar `cambio: true` (dos mensajes de la etapa nueva y dos
+// líneas de historial); desde ese día el choke point escribe con compare-and-set sobre la
+// etapa que leyó, y la que pierde vuelve con `cambio: false` — que acá abajo corta antes del
+// WhatsApp. Lo fija tests/cs-mover-etapa.test.ts.
 
 import { claseDeId, clasesDelProducto, progresoDelCliente, etapaActualDe } from './curso-datos';
 import { entregaDeProducto } from './entrega-servicio';
@@ -94,6 +94,13 @@ export async function alEnviarTarea(p: { leadId: number; claseId: number }): Pro
     // «Si esa próxima etapa tiene un tutorial con sus tareas, se debería enviarle un mensaje»: una
     // etapa sin clases cargadas no tiene nada que mostrarle, y un «ya tienes abierta X: 0 clases»
     // es un mensaje que sobra.
+    //
+    // ⚠️ ESTE MENSAJE NO MIRA LAS SECUENCIAS, Y UNA SECUENCIA EN ESA ETAPA SE LE SUMA. El
+    // `moverClienteDeEtapa` de arriba dispara el evento de entrega (`enrolarPorEvento`), así que
+    // una secuencia `entrega_actual` colgada de una etapa CON clases le manda su paso además de
+    // éste: al cliente le llegan dos. Una secuencia de entrega va en las etapas sin clases, o
+    // reemplaza a este mensaje — eso es una decisión, no se resuelve acá
+    // (docs/hallazgos-customer-success.md).
     if (!d.clasesEnHacia) return { movido: true, desde: d.desde, hacia: d.hacia, avisado: false, motivo: 'la etapa nueva no tiene clases' };
 
     // ⚠️ EL WHATSAPP VA POR DETRÁS (`after`): Evolution retiene el HTTP 7-10 s, y esto corre

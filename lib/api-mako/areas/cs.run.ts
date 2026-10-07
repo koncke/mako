@@ -8,7 +8,8 @@
 // ⚠️ QUEDARON TRES DE DIECISIETE (26/09/2026). Las otras catorce eran el programa
 // de 44 clases de un cliente —el temario, su cuestionario, su curso en la plataforma externa, los
 // casos de otros clientes suyos y el banco de material— y se fueron con
-// `app/customer-success/programa/`. El porqué del gating está en cs.def.ts.
+// `app/customer-success/programa/`. El porqué del gating está en cs.def.ts. El 06/10/2026
+// se sumó la cuarta, `ver_avance_curso_cs`: el curso que vive EN MaKo (mig 0202).
 //
 // ⚠️ LO QUE LA CARTERA NO SABE, Y EL MODELO TIENE QUE LEER:
 //   · `senal.nivel` puede ser **null**, y null es «no se puede saber» — no «está
@@ -17,18 +18,30 @@
 //     nunca se suma a `bien`.
 //   · «sesiones» cuenta TODAS las llamadas analizadas del lead, incluida la de venta.
 //   · Sin contrato legible el reloj viene null: se dice «sin dato», nunca se estima.
-//   · `tareas_abiertas` / `tareas_atrasadas` vienen en null cuando la cartera se lee
-//     por acá: el cruce con el tablero lo enchufa la PÁGINA (conTrabajo, lib/cs-senal.ts),
-//     porque necesita la lista de clientes que cartera() acaba de traer. DEUDA
-//     anotada: por la API, la señal nunca dispara «tareas atrasadas».
-//   · Cada lectura de la cartera (cobros, contacto) trae su propio flag `*_leidos`.
+//   · `tareas_abiertas` / `tareas_atrasadas` salen del TABLERO, enchufado acá con
+//     `conTrabajo` (lib/cs-senal.ts) después de `tableroDeLaCartera` — los dos pasos que
+//     describe la cabecera de lib/cs-cartera.ts. Hasta el 06/10/2026 esto decía que lo
+//     enchufaba «la PÁGINA», y era falso: la página no lee la cartera, así que por la API
+//     la señal no podía disparar «tareas atrasadas» NUNCA. Vienen en null SÓLO si el
+//     tablero no se pudo leer (`tablero_leido: false`).
+//   · Cada lectura de la cartera (cobros, contacto, tablero) trae su propio flag `*_leido(s)`.
 //     Un 0 con el flag en false es «no pude leer», no «no hay».
 // =============================================================================
 
 import 'server-only';
 import type { Ejecutado, Preparado, Runners } from '../tipos';
 import { cartera, type ClienteCartera, type EstadoCliente } from '@/lib/cs-cartera';
-import { claveNivel, type ClaveNivel } from '@/lib/cs-senal';
+import { claveNivel, conTrabajo, type ClaveNivel } from '@/lib/cs-senal';
+import { getWorkspace } from '@/lib/workspace';
+import { tableroDeCapa } from '@/lib/tablero-de-capa';
+import { clientesGanados } from '@/lib/clientes-ganados';
+import { tableroDeLaCartera } from '@/app/customer-success/trabajo';
+import { universoDeLaEntrega } from '@/app/customer-success/entrega';
+import { esDelProducto, salioDeLaEntrega } from '@/app/customer-success/pertenencia';
+import { clasesDelProducto, progresoDelCliente, progresoDeClientes, accesoDe } from '@/lib/curso-datos';
+import { accesosDeClientes } from '@/lib/curso-admin';
+import { avanceDeCurso, accesoParaMako, NOTAS_CURSO } from '@/lib/curso-resumen';
+import type { Progreso } from '@/lib/curso';
 import { clienteDelWorkspace, estadoGuardadoDe, marcarEstadoCliente } from './cs.helpers';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
@@ -53,7 +66,7 @@ const NOTAS_CARTERA = [
   'senal.nivel null NO es «está bien»: es «no se puede saber» (sin contrato cargado, sin datos, o una lectura que falló). Nunca lo reportes como un cliente al día.',
   'sesiones_analizadas cuenta TODAS las llamadas analizadas del lead, incluida la de venta: verifica antes de decir «hace N días de la última sesión de entrega».',
   'semana_del_contrato y semanas_del_contrato null = el contrato no lo dice: di «sin dato», no estimes. plazo_vencido no autoriza a marcarlo graduado.',
-  'tareas_abiertas y tareas_atrasadas null = el tablero no se pudo leer o el cliente no cruzó con ningún proyecto. No es cero.',
+  'tareas_abiertas y tareas_atrasadas null = el tablero no se pudo leer (tablero_leido false). No es cero. Un 0 con el tablero leído es que no tiene trabajo abierto con su nombre.',
   'Una cuota impaga SIN fecha esperada no está vencida: son dos cosas distintas (cuotas_impagas_sin_fecha).',
   'cuotas_vencidas y sesiones_analizadas en 0 pueden ser una lectura fallida: mira cobros_leidos y contacto_leido antes de afirmar un 0 importante (por ejemplo, «no debe nada»).',
 ];
@@ -77,17 +90,50 @@ function filaCartera(c: ClienteCartera) {
   };
 }
 
+/**
+ * La cartera CON el trabajo del tablero enchufado: `cartera()` → `tableroDeLaCartera` →
+ * `conTrabajo`, que recalcula la señal (ahí entra «tiene tareas atrasadas») y reordena.
+ *
+ * ⚠️ EL TABLERO SE ELIGE POR LA CAPA DEL WORKSPACE, NO POR LA SESIÓN. `tableroDeLaCartera`
+ * sin `forzado` pregunta a `tableroActual()`, que lee la cookie: por WhatsApp no hay, y el
+ * super-admin leería `experimento_tareas` —cero filas en su workspace— y MaKo le contestaría
+ * «0 atrasadas» para todos sus clientes. `tableroDeCapa` es el mismo criterio que usa el resto
+ * de la API (`usaPlanBoard`, plan.helpers.ts).
+ *
+ * ⚠️ SE CRUZA CONTRA `clientesGanados()`, la MISMA lista que usa la pantalla, y no contra la
+ * cartera: el cruce blando decide si una palabra distingue a alguien mirando a todos, y con
+ * otra lista MaKo y la pantalla atarían distinto el mismo proyecto.
+ *
+ * Si el tablero no se puede leer, la cartera vuelve igual, ordenada, con el trabajo en null
+ * («no lo sé») y `tableroLeido: false`. Nunca 0.
+ */
+async function carteraConTrabajo(ws: number): Promise<{ clientes: ClienteCartera[]; tableroLeido: boolean }> {
+  const base = await cartera();
+  if (!base.length) return { clientes: base, tableroLeido: true };
+  let porLead: Parameters<typeof conTrabajo>[1] = null;
+  try {
+    const [ganados, w] = await Promise.all([clientesGanados(), getWorkspace(ws)]);
+    const t = await tableroDeLaCartera(ganados, tableroDeCapa(w?.capa));
+    porLead = t.ok ? t.porLead : null;
+  } catch (e) {
+    console.warn(`[api-mako cs] ws${ws}: no pude leer el tablero de la cartera:`, e instanceof Error ? e.message : e);
+  }
+  return { clientes: conTrabajo(base, porLead), tableroLeido: porLead != null };
+}
+
 // ── los runners ──────────────────────────────────────────────────────────────
 
 export const RUNNERS: Runners = {
   // ── Lecturas ───────────────────────────────────────────────────────────────
   ver_cartera_cs: {
-    leer: async (input) => {
-      const todos = await cartera();
+    leer: async (input, ctx) => {
+      const { clientes: todos, tableroLeido } = await carteraConTrabajo(ctx.ws);
       const filtro = str(input, 'atencion') as ClaveNivel | '';
       const incluirCerrados = input.incluirCerrados === true;
-      const cerrados = todos.filter((c) => c.estado === 'graduado' || c.estado === 'baja');
-      const abiertos = incluirCerrados ? todos : todos.filter((c) => !(c.estado === 'graduado' || c.estado === 'baja'));
+      // «Cerrados» = los que salieron de la entrega: el MISMO par que deja a un cliente fuera de
+      // la cohorte de una secuencia de entrega (app/customer-success/pertenencia.ts).
+      const cerrados = todos.filter((c) => salioDeLaEntrega(c.estado));
+      const abiertos = incluirCerrados ? todos : todos.filter((c) => !salioDeLaEntrega(c.estado));
       const mostrados = filtro ? abiertos.filter((c) => claveNivel(c.senal.nivel) === filtro) : abiertos;
       // ⚠️ LOS TRES SE CUENTAN POR SEPARADO Y «sin-datos» NO SE SUMA A «bien». Es
       // toda la diferencia entre «tengo 9 clientes al día» y «tengo 4 al día y de 5
@@ -105,6 +151,7 @@ export const RUNNERS: Runners = {
           por_filtro_de_atencion: abiertos.length - mostrados.length,
         },
         por_nivel: porNivel(abiertos),
+        tablero_leido: tableroLeido,
         notas: NOTAS_CARTERA,
         clientes: mostrados.map(filaCartera),
       });
@@ -112,13 +159,15 @@ export const RUNNERS: Runners = {
   },
 
   ver_cliente_cs: {
-    leer: async (input) => {
+    leer: async (input, ctx) => {
       const leadId = num(input, 'leadId');
-      const c = (await cartera()).find((x) => x.leadId === leadId);
+      const { clientes, tableroLeido } = await carteraConTrabajo(ctx.ws);
+      const c = clientes.find((x) => x.leadId === leadId);
       if (!c) return fallo(NO_ES_CLIENTE(leadId));
       const guardado = await estadoGuardadoDe(c.leadId);
       return json({
         ...filaCartera(c),
+        tablero_leido: tableroLeido,
         contacto: { email: c.email, telefono: c.telefono },
         motivo_del_estado: guardado.motivo, estado_desde: guardado.estado_at,
         contrato: {
@@ -133,6 +182,84 @@ export const RUNNERS: Runners = {
           'La garantía puede cambiar qué significa que se pasó del plazo (por ejemplo, sesiones sin costo hasta terminar la instalación): no concluyas que terminó por el reloj.',
           'La historia de la venta vive en el CRM, no aquí.',
         ],
+      });
+    },
+  },
+
+  /**
+   * El avance del curso (mig 0202). LECTURA PURA: nunca `linkDeAcceso`, que CREA la fila del
+   * acceso del cliente —una lectura de MaKo no puede abrirle una puerta a nadie—, ni nada que
+   * mande. El acceso se lee con `accesoDe`, que no crea. Lo fija tests/api-mako-cs.test.ts
+   * sobre el código sin comentarios.
+   *
+   * ⚠️ LA ENTREGA SE LEE ESTRICTA (`universoDeLaEntrega`): con `cliente_entrega` caída, la
+   * versión de la pantalla pone a todos en la primera etapa, y MaKo contestaría «va por
+   * Bienvenida» sobre alguien que va por el hito tres. Mejor un error que un dato inventado.
+   * El acceso es lo único que puede faltar sin tumbar la respuesta: vuelve `null` y la nota
+   * lo dice (es lo mismo que hace la tab Curso).
+   */
+  ver_avance_curso_cs: {
+    leer: async (input) => {
+      const leadId = num(input, 'leadId');
+      const u = await universoDeLaEntrega();
+      const nombres = new Map(u.ganados.map((g) => [g.id, g.nombre]));
+      if (leadId != null && !nombres.has(leadId)) return fallo(NO_ES_CLIENTE(leadId));
+
+      // Los servicios con curso cargado. `clasesDelProducto` TIRA si no puede leer: una lista
+      // vacía sobre una consulta caída diría «su servicio no tiene curso».
+      const cursos = (await Promise.all(u.servicios.map(async (s) => ({ s, clases: await clasesDelProducto(s.productoId) }))))
+        .filter((x) => x.clases.length > 0);
+      const deCliente = (id: number) => cursos.filter(({ s }) => esDelProducto(id, s.productoId, u.casa, u.filas[s.productoId] ?? {}));
+      const avance = (id: number, x: (typeof cursos)[number], prog: ReadonlyMap<number, Pick<Progreso, 'estado' | 'pct'>> | undefined) =>
+        avanceDeCurso({
+          etapas: x.s.etapas, clases: x.clases,
+          etapaGuardada: u.filas[x.s.productoId]?.[id]?.etapa ?? null,
+          estadoDe: (claseId) => prog?.get(claseId)?.estado,
+          pctDe: (claseId) => prog?.get(claseId)?.pct,
+        });
+
+      if (leadId != null) {
+        const [progreso, acceso] = await Promise.all([
+          progresoDelCliente(leadId),
+          accesoDe(leadId).then((a) => ({ ok: true as const, a }), () => ({ ok: false as const })),
+        ]);
+        const suyos = deCliente(leadId);
+        return json({
+          leadId, nombre: nombres.get(leadId) || 'Sin nombre',
+          cursos: suyos.map((x) => ({ producto_id: x.s.productoId, producto: x.s.nombre, ...avance(leadId, x, progreso) })),
+          ...(suyos.length ? {} : { sin_curso: 'Ninguno de los servicios de este cliente tiene un curso cargado.' }),
+          acceso: acceso.ok ? accesoParaMako(acceso.a) : null,
+          notas: NOTAS_CURSO,
+        });
+      }
+
+      const ids = u.ganados.map((g) => g.id);
+      const [progresos, accesos] = await Promise.all([
+        progresoDeClientes(ids),
+        accesosDeClientes(ids).catch(() => null),
+      ]);
+      const filas = cursos.flatMap((x) => ids
+        .filter((id) => esDelProducto(id, x.s.productoId, u.casa, u.filas[x.s.productoId] ?? {}))
+        .map((id) => {
+          const a = avance(id, x, progresos.get(id));
+          const acc = accesos ? (accesos.get(id) ?? { estado: 'sin-link' as const, ingresos: 0, ultimoIngresoAt: null }) : null;
+          return {
+            leadId: id, nombre: nombres.get(id) || 'Sin nombre', producto: x.s.nombre,
+            etapa: a.etapa_actual?.nombre ?? null, etapa_huerfana: a.etapa_huerfana,
+            etapa_completa: a.etapa_completa,
+            tareas_enviadas: a.tareas_de_la_etapa?.enviadas ?? null, tareas: a.tareas_de_la_etapa?.total ?? null,
+            pendientes_total: a.pendientes_total,
+            pct_visto: a.videos_de_la_etapa?.pct_visto ?? null, videos_sin_medir: a.videos_de_la_etapa?.sin_medir ?? 0,
+            acceso: acc ? { estado: acc.estado, ingresos: acc.ingresos, ultimo_ingreso: acc.ultimoIngresoAt } : null,
+          };
+        }));
+      return json({
+        clientes_ganados: ids.length,
+        cursos: cursos.map((x) => ({ producto_id: x.s.productoId, producto: x.s.nombre, clases: x.clases.length })),
+        ...(cursos.length ? {} : { sin_curso: 'Ningún servicio de este negocio tiene un curso cargado todavía.' }),
+        accesos_leidos: accesos != null,
+        notas: [...NOTAS_CURSO, 'Para el detalle de un cliente (sus pendientes con nombre, todas las etapas), pide de nuevo con su leadId.'],
+        filas,
       });
     },
   },

@@ -489,28 +489,32 @@ export async function leadsDeCohorte(
    * cliente se queda sin la secuencia PARA SIEMPRE y en silencio— y (b) una secuencia
    * que se crea HOY tiene que alcanzar a los clientes que YA están parados en esa
    * etapa, que es exactamente lo que hace `etapa_actual` del lado de la venta.
+   *
+   * ⚠️ Y LA COHORTE ES LA DEL KANBAN, NO LA DE LAS FILAS. Un cliente sin fila está en la
+   * PRIMERA etapa (`repartirEnEtapas`): hasta el 06/10/2026 esto leía sólo `cliente_entrega`
+   * con esa etapa, así que a 13 de los 14 clientes del ws1 —los que nadie movió— no les
+   * llegaba nunca una secuencia de la primera etapa: sin movimiento no hay evento, y sin
+   * fila no estaban en la cohorte. La regla vive en UN lugar
+   * (`clientesEnEtapa`, app/customer-success/pertenencia.ts) y se le pasa el UNIVERSO de
+   * clientes, no las filas.
+   *
+   * Import diferido: app/customer-success/entrega.ts importa este módulo
+   * (`secuenciasPorEtapaDeEntrega`), y un import de arriba sería un ciclo. Es el mismo
+   * molde que `productosDelAlumno` (lib/curso-datos.ts).
+   *
+   * Y TIRA si no puede leer: un universo a medias le escribe a quien no corresponde.
    */
   if (triggerTipo === TRIGGER_ENTREGA) {
     const key = (etapa ?? '').trim();
     if (!key) return [];
-    const supabase = (await getTenantDb());
     try {
-      // Paginado por `id`: una fila por cliente y por producto cruza las 1000 con el
-      // uso, y un `.select()` suelto devuelve 1000 con un 200 — el cliente que cae del
-      // corte no se enrola NUNCA, en cada pasada, sin un log (AGENTS.md § el techo de
-      // 1000 filas).
-      const filas = await leerTodo<{ lead_id: number }>(
-        supabase, 'cliente_entrega', 'id, lead_id',
-        {
-          orden: 'id',
-          filtros: (q) => {
-            const conEtapa = q.eq('etapa', key);
-            // NULL = la entrega de cualquier producto (igual que `funnel_id` NULL).
-            return (productoId == null ? conEtapa : conEtapa.eq('producto_id', productoId)) as ConsultaPaginada;
-          },
-        },
-      );
-      return [...new Set(filas.map((f) => Number(f.lead_id)).filter((n) => Number.isFinite(n)))];
+      const { clientesEnEtapaDeEntrega } = await import('@/app/customer-success/entrega');
+      // NULL = la entrega de cualquier producto (igual que `funnel_id` NULL). Un bigint puede
+      // llegar como texto: se pasa a número. Y uno que no es número no cae a «cualquiera»:
+      // eso le mandaría la secuencia a la entrega de todos los servicios.
+      const prod = productoId == null ? null : Number(productoId);
+      if (prod != null && !Number.isFinite(prod)) return [];
+      return await clientesEnEtapaDeEntrega(prod, key);
     } catch (e) {
       throw new Error(`cohorte entrega_actual(${key}): ${e instanceof Error ? e.message : String(e)}`);
     }

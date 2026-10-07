@@ -120,11 +120,11 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
     setOcupado(true);
     const r = await crearCuentaMakoAction(c.leadId, correo);
     if (!r.ok) { onError(r.error); setOcupado(false); return; }
-    // ⚠️ `router.refresh()` Y NO `location.reload()`. Qué cliente está abierto es
-    // estado de React en ClientesApp y no viaja en la URL, así que recargar
-    // CIERRA la ficha: se leía como «le di a Abrir cuenta y me sacó». Es la misma
-    // trampa que FichaCliente documenta para el tablero, y por eso ahí ya se
-    // refresca en vez de recargar.
+    // ⚠️ `router.refresh()` Y NO `location.reload()`. Hasta el 06/10/2026 qué cliente
+    // está abierto no viajaba en la URL y recargar CERRABA la ficha: se leía como «le
+    // di a Abrir cuenta y me sacó». Ahora viaja en `?cliente=` y un reload la reabre,
+    // pero en Resumen y rearmada de cero; refrescar no desmonta nada. Es la misma
+    // trampa que FichaCliente documenta para el tablero.
     setPidiendoEmail(false);
     router.refresh();
     setOcupado(false);

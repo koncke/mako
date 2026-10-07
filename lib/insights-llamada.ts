@@ -104,6 +104,10 @@ export async function insightsDeLlamadaDeLead(leadId: number): Promise<InsightLl
     .select(COLS)
     .eq('lead_id', leadId)
     .eq('status', 'analizada')
+    // ⚠️ 'analizada' DEJÓ DE SIGNIFICAR «venta» el 06/10/2026: las sesiones de ENTREGA
+    // analizadas (lib/closing-entrega.ts, #107) también quedan así, sin score ni SPIN. Este
+    // apartado es el de las llamadas de venta, y sin la categoría las mostraría vacías.
+    .eq('category', 'venta')
     .order('started_at', { ascending: false });
   // ⚠️ EL ERROR NO SE TRAGA: un `?? []` acá hace que «no pude leer» se vea igual
   // que «esta llamada no se analizó», y el apartado mandaría a apretar un botón
@@ -219,7 +223,9 @@ export async function drenarInsightsDeLlamada(opts: { deadline: number; max?: nu
     // corta en silencio — los que caen del corte son los más viejos, justo los
     // que ya tuvieron sus reuniones.
     leerTodo<{ id: number; fathom_links: Array<{ url?: string }> | null }>(db, 'leads', 'id, fathom_links', { orden: 'id' }),
-    leerTodo<{ lead_id: number | null }>(db, 'closing_analyses', 'recording_id, lead_id', { orden: 'recording_id', eq: { status: 'analizada' } }),
+    // ⚠️ CON LA CATEGORÍA: una sesión de ENTREGA analizada (lib/closing-entrega.ts) también
+    // es 'analizada', y sin esto sacaría de la cola a un lead cuya VENTA nunca se analizó.
+    leerTodo<{ lead_id: number | null }>(db, 'closing_analyses', 'recording_id, lead_id', { orden: 'recording_id', eq: { status: 'analizada', category: 'venta' } }),
     leerTodo<{ lead_id: number }>(db, 'closing_jobs', 'lead_id', { orden: 'lead_id' }),
   ]);
 

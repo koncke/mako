@@ -49,10 +49,16 @@ import { esRecurrente } from '@/lib/plan-recurrentes';
 import { clienteDe } from '@/lib/plan-clientes';
 import { atar, type ClienteCruce, type ComoAto } from './cruce';
 
-export type { ComoAto };
+// ⚠️ ACÁ HUBO MÁS: `trabajoDeCliente`, `trabajoAsignado`, `filasDeCliente`, `catalogoAsignable`
+// y sus tipos (`ProyectoCS`, `TrabajoCliente`, `ResultadoTrabajo`, `Asignable`, `Catalogo`).
+// Quedaron sin un solo call site el 27/09/2026, al sacar el botón «Asignarle trabajo» y pasar la
+// ficha a leer las filas con el HTML (`filasDeTodos`), y se borraron el 06/10/2026. Lo que vive
+// es lo que usan la pantalla y MaKo: `tableroDeLaCartera` (la grilla), `filasDeTodos` (la
+// ficha), `autoasignar` + `asignarTrabajo` (el botón de MaKo) y `clientesGanados`. El
+// compilador es el guard: si algo de lo borrado volviera a hacer falta, `tsc` lo nombra.
 
-/** Una tarea del tablero, recortada a lo que la ficha muestra. Viaja al navegador:
- *  no lleva historial ni fuente (no se leen acá y son la mitad del peso). */
+/** Una tarea del tablero, recortada a lo que el CRUCE cuenta. No lleva historial ni fuente
+ *  (no se leen acá y son la mitad del peso). */
 export type TareaCS = {
   /** ⚠️ TEXTO, no número: los dos tableros numeran distinto (`experimento_tareas.id` es
    *  bigint, `plan_tareas.id` es texto). Un id de texto contiene a uno numérico; al revés
@@ -79,39 +85,8 @@ export type TareaCS = {
   actualizada: string;
 };
 
-export type ProyectoCS = {
-  id: string;
-  nombre: string;
-  emoji: string;
-  color: string;
-  detalle: string;
-  deadline: string | null;
-  quarter: string | null;
-  /** La prioridad del proyecto (1-100) y por qué. La escribe el Perro. */
-  score: number;
-  scoreRazon: string | null;
-  /** Cómo se ató a este cliente. La ficha lo dice: un parecido no es una clave. */
-  como: ComoAto;
-  abiertas: number;
-  hechas: number;
-  recurrentes: number;
-  atrasadas: number;
-};
-
 /** Un proyecto «Cliente: …» que no cruzó con nadie de la cartera. No se esconde. */
 export type ProyectoHuerfano = { id: string; nombre: string; abiertas: number; recurrentes: number; atrasadas: number };
-
-export type TrabajoCliente = {
-  proyectos: ProyectoCS[];
-  /** Las que tienen fin: abiertas y hechas, sin recurrentes. */
-  tareas: TareaCS[];
-  recurrentes: TareaCS[];
-  huerfanos: ProyectoHuerfano[];
-};
-
-export type ResultadoTrabajo =
-  | ({ ok: true } & TrabajoCliente)
-  | { ok: false; error: string };
 
 /** Lo que la GRILLA necesita de cada cliente: números, sin una sola tarea adentro.
  *  El detalle se pide al abrir la ficha; bajar las 158 tareas del ws1 en la cartera
@@ -232,10 +207,9 @@ const COLS_PROY_PLAN = 'id, pid, emoji, name, color, score, deadline, quarter, r
 const COLS_TAREA_CLIENTE = 'id, titulo, estado, prioridad, progreso, score, deadline, quarter, categorias, recurrente, recurrencia, cliente_lead_id, cliente_nombre, responsable, updated_at, created_at';
 const COLS_PROY_CLIENTE = 'id, emoji, nombre, color, prioridad, deadline, quarter, recurrente, recurrencia, cliente_lead_id, cliente_nombre, portada, created_at';
 
-// ⚠️ LAS CUATRO CONVERSIONES SON FUNCIONES Y NO LAMBDAS ADENTRO DE `leerTablero`, para
-// que las use también la lectura rápida (`trabajoAsignado`). Con una copia allá, cada
-// campo nuevo habría que acordarse de ponerlo en dos lugares — y el que se olvide no
-// falla: dibuja una tarjeta a la que le falta un dato, en la mitad de los casos.
+// Las cuatro conversiones, una por tabla. Eran funciones sueltas para que las compartiera
+// una segunda lectura (`trabajoAsignado`, borrada el 06/10/2026 por no tener call site); si
+// vuelve a hacer falta otra, usa éstas — una copia aparte es un campo nuevo que se olvida.
 const deBoardTask = (t: BoardTask): TareaTab => ({
   id: t.id, titulo: t.title, detalle: t.detalle ?? '',
   // El tablero del dueño no guarda un `estado` aparte: lo DERIVA del avance, igual que
@@ -316,7 +290,7 @@ function cruzar(clientes: ClienteCruce[], { tareas, proyectos, esDeCliente }: Le
   //
   // Una tarea asignada es de ese cliente; su proyecto NO lo es. Quien quiera el proyecto
   // entero lo asigna, que para eso está el selector. Las tareas sueltas entran igual:
-  // `trabajoDeCliente` las suma por `leadDeclarado` y `tableroDeLaCartera` las cuenta.
+  // `tableroDeLaCartera` las cuenta por `clienteLeadId`.
   const cruce = atar(clientes, proyectos.map((p) => ({ id: p.id, nombre: p.nombre, clienteLeadId: p.clienteLeadId })), { esDeCliente });
   const deCS = tareas.map((t) => aTareaCS(t));
   const porProyecto = new Map<string, TareaCS[]>();
@@ -332,10 +306,17 @@ const huerfanoDe = (p: ProyTab, tareas: TareaCS[], hoy: string): ProyectoHuerfan
 /**
  * El resumen de TODA la cartera, para la grilla. Una sola lectura del tablero para los
  * 14 clientes: hacerla por cliente sería 14 veces la misma consulta.
+ *
+ * ⚠️ `forzado` LO PASA MaKo (lib/api-mako/areas/cs.run.ts), no la pantalla. Por WhatsApp no
+ * hay sesión que preguntarle a `tableroActual()`: sin decir cuál, el super-admin leería
+ * `experimento_tareas` de su workspace —cero filas— y MaKo contestaría «0 atrasadas» para
+ * todos sus clientes. MaKo lo decide por la CAPA del workspace del canal
+ * (`tableroDeCapa`, lib/tablero-de-capa.ts), igual que el resto de la API; corre adentro de
+ * `runWithWorkspace(ctx.ws)`, así que no puede leer el tablero de otro inquilino.
  */
-export async function tableroDeLaCartera(clientes: ClienteCruce[]): Promise<TableroCartera> {
+export async function tableroDeLaCartera(clientes: ClienteCruce[], forzado?: QueTablero): Promise<TableroCartera> {
   let lectura: Lectura;
-  try { lectura = await leerTablero(); }
+  try { lectura = await leerTablero(forzado); }
   catch (e) { return { ok: false, error: mensaje(e) }; }
 
   const { cruce, porProyecto } = cruzar(clientes, lectura);
@@ -382,81 +363,6 @@ export async function tableroDeLaCartera(clientes: ClienteCruce[]): Promise<Tabl
 }
 
 /**
- * El trabajo de UN cliente, con el detalle adentro. Lo pide la ficha al abrirse.
- *
- * Cruza sobre la cartera ENTERA aunque devuelva uno solo: el cruce blando necesita
- * saber qué palabra comparten los demás para decidir si una es distintiva, y correrlo
- * con un solo cliente convertiría cualquier palabra suya en única.
- */
-export async function trabajoDeCliente(leadId: number, clientes: ClienteCruce[]): Promise<ResultadoTrabajo> {
-  let lectura: Lectura;
-  let dueno: boolean;
-  try {
-    dueno = (await tableroActual()) === 'dueno';
-    lectura = await leerTablero(dueno ? 'dueno' : 'cliente');
-  } catch (e) { return { ok: false, error: mensaje(e) }; }
-
-  const { cruce, deCS, porProyecto } = cruzar(clientes, lectura);
-  const porId = new Map(lectura.proyectos.map((p) => [p.id, p]));
-  const hoy = await hoyEnWorkspace();
-  const ataduras = cruce.porLead.get(leadId) ?? [];
-
-  const proyectos: ProyectoCS[] = [];
-  const vistas = new Set<string>();
-  const suyas: TareaCS[] = [];
-
-  for (const a of ataduras) {
-    const p = porId.get(a.proyectoId);
-    if (!p) continue;
-    const delProyecto = porProyecto.get(p.id) ?? [];
-    const n = contar(delProyecto, hoy);
-    proyectos.push({
-      id: p.id, nombre: p.nombre, emoji: p.emoji, color: p.color,
-      detalle: p.detalle, deadline: p.deadline, quarter: p.quarter,
-      score: p.score, scoreRazon: p.scoreRazon, como: a.como, ...n,
-    });
-    for (const t of delProyecto) {
-      if (vistas.has(t.id)) continue;
-      vistas.add(t.id);
-      suyas.push(t);
-    }
-  }
-
-  // La CLAVE alcanza sola: una tarea que declara este lead es suya aunque su proyecto
-  // no haya cruzado (o aunque no tenga proyecto). Es el único dato duro que hay, y
-  // marca la fila para que la ficha pueda decir por dónde entró.
-  const yaEn = new Map(suyas.map((t) => [t.id, t]));
-  for (const t of deCS) {
-    if (t.leadDeclarado !== leadId) continue;
-    const ya = yaEn.get(t.id);
-    if (ya) { ya.porClave = true; continue; }
-    vistas.add(t.id);
-    suyas.push({ ...t, porClave: true });
-  }
-
-  // El orden es el del tablero: primero lo que más mueve la aguja, y lo hecho al final.
-  const orden = (a: TareaCS, b: TareaCS) =>
-    Number(a.abierta === false) - Number(b.abierta === false) || b.score - a.score || a.titulo.localeCompare(b.titulo);
-
-  // ⚠️ EL `detalle` SE BUSCA ACÁ Y NO EN LA LECTURA. El cruce lee sin texto (ver
-  // `COLS_TAREA_PLAN`), así que estas tarjetas vienen con `detalle: ''` y la ficha
-  // mostraría «sin detalle cargado» sobre tareas que sí lo tienen — una mentira, y de las
-  // silenciosas. Son un puñado de ids, así que es una consulta chica.
-  await ponerleTexto(proyectos, suyas, dueno);
-
-  return {
-    ok: true,
-    proyectos,
-    tareas: suyas.filter((t) => !t.recurrente).sort(orden),
-    recurrentes: suyas.filter((t) => t.recurrente).sort((a, b) => a.titulo.localeCompare(b.titulo)),
-    huerfanos: cruce.huerfanos
-      .map((id) => porId.get(id))
-      .filter((p): p is ProyTab => !!p)
-      .map((p) => huerfanoDe(p, porProyecto.get(p.id) ?? [], hoy)),
-  };
-}
-
-/**
  * Los clientes contra los que se cruza: los leads GANADOS del workspace.
  *
  * ⚠️ SE RE-EXPORTA, NO SE REDEFINE. La consulta se mudó a `lib/clientes-ganados.ts` el
@@ -473,68 +379,6 @@ import { clientesGanados } from '@/lib/clientes-ganados';
 // ── ASIGNAR ──────────────────────────────────────────────────────────────────
 // «No tengo forma de asignar proyectos o tareas a clientes. Debería desde allí mismo,
 // buscando o filtrando y seleccionando los que quiera asignar» (26/09/2026).
-
-/** Una tarjeta del tablero, como la ve el selector: qué es y de quién es HOY. */
-export type Asignable = {
-  id: string;
-  tipo: 'proyecto' | 'tarea';
-  titulo: string;
-  /** El proyecto al que pertenece (una tarea) o cuántas tareas tiene (un proyecto). */
-  sub: string;
-  /** El lead que tiene hoy, si tiene. */
-  clienteLeadId: number | null;
-  clienteNombre: string | null;
-  /** Para ordenar: lo que más mueve la aguja primero. */
-  score: number;
-};
-
-export type Catalogo =
-  | { ok: true; items: Asignable[] }
-  | { ok: false; error: string };
-
-/**
- * TODO lo que se le puede asignar a un cliente: los proyectos y las tareas del tablero
- * que le toca a quien mira.
- *
- * ⚠️ NO SE FILTRA LO QUE YA TIENE DUEÑO, se MARCA. Esconder lo asignado haría imposible
- * ver que una tarea está en el cliente equivocado, que es justamente el error que hay que
- * poder arreglar — y dejaría la lista vacía apenas se asigna, sin forma de deshacerlo.
- *
- * ⚠️ Y LAS TERMINADAS NO ENTRAN. Asignar trabajo cerrado no cambia nada de lo que la
- * pantalla muestra y triplica la lista: en el ws9 son 396 tareas, de las cuales la mayoría
- * están hechas.
- */
-export async function catalogoAsignable(): Promise<Catalogo> {
-  let lectura: Lectura;
-  try { lectura = await leerTablero(); }
-  catch (e) { return { ok: false, error: mensaje(e) }; }
-
-  const nombrePorProyecto = new Map(lectura.proyectos.map((p) => [p.id, p.nombre]));
-  const tareasDe = new Map<string, number>();
-  for (const t of lectura.tareas) for (const p of t.proyectos) tareasDe.set(p, (tareasDe.get(p) ?? 0) + 1);
-
-  const items: Asignable[] = [
-    ...lectura.proyectos.map((p): Asignable => ({
-      id: p.id, tipo: 'proyecto', titulo: p.nombre,
-      sub: (() => { const n = tareasDe.get(p.id) ?? 0; return n === 1 ? '1 tarea' : `${n} tareas`; })(),
-      clienteLeadId: p.clienteLeadId, clienteNombre: null, score: p.score,
-    })),
-    ...lectura.tareas
-      .filter((t) => estaPendiente(t.estado))
-      .map((t): Asignable => ({
-        id: t.id, tipo: 'tarea', titulo: t.titulo,
-        sub: t.proyectos.map((p) => nombrePorProyecto.get(p)).filter(Boolean).join(' · ') || 'Sin proyecto',
-        clienteLeadId: t.clienteLeadId, clienteNombre: null, score: t.score,
-      })),
-  ];
-
-  // Proyectos primero —asignar uno ata todas sus tareas de una vez— y dentro de cada
-  // grupo, lo que más mueve la aguja arriba.
-  return { ok: true, items: items.sort((a, b) =>
-    (a.tipo === 'proyecto' ? 0 : 1) - (b.tipo === 'proyecto' ? 0 : 1)
-    || b.score - a.score
-    || a.titulo.localeCompare(b.titulo, 'es')) };
-}
 
 /**
  * Escribe de quién es cada tarjeta. `lead` en `null` la desasigna.
@@ -579,130 +423,6 @@ export async function asignarTrabajo(
     tareas = count ?? lista.length;
   }
   return { ok: true, proyectos, tareas };
-}
-
-// ── LA LECTURA RÁPIDA ────────────────────────────────────────────────────────
-// «Cada vez que abro la card de un cliente hace la búsqueda en el plan… eso no es
-// para nada eficiente» (26/09/2026). Y es literal: `leerTablero()` baja el tablero
-// ENTERO —396 tareas y 71 proyectos en el ws9— y corre el cruce blando sobre todo,
-// cada vez, para mostrar una o dos tarjetas. Medido: entre 0,5 y 9 segundos.
-//
-// ⚠️ LA CURA NO ES UN CACHÉ, ES LA CLAVE. Un caché del cruce guarda una RESPUESTA
-// derivada y hay que decidir cuándo se ensucia (¿al crear una tarea? ¿al renombrar
-// un proyecto? ¿al ganar un lead?), y el día que se ensucia sin que nadie lo note
-// la ficha muestra trabajo que ya no es de ese cliente. `cliente_lead_id` (mig
-// 0172) no es una respuesta guardada: es el DATO, y se consulta con un índice.
-//
-// Por eso la pantalla lee en dos tiempos, que es lo que se pidió:
-//   1. `trabajoAsignado` → lo que TIENE dueño escrito. Dos consultas filtradas.
-//   2. `trabajoDeCliente` → el cruce blando completo, que además propone lo que
-//      todavía no está asignado. Llega después y se agrega abajo.
-
-/** Lo que ya tiene dueño escrito, sin cruce y sin bajar el tablero entero. */
-/** Las FILAS crudas del trabajo de un cliente, sin mapear a nada. */
-export type FilasDeCliente = { dueno: boolean; proyectos: Record<string, unknown>[]; tareas: Record<string, unknown>[] };
-
-/**
- * Todo lo que tiene el cliente escrito, en filas.
- *
- * ⚠️ DEVUELVE FILAS Y NO EL MODELO DE CUSTOMER SUCCESS porque tiene DOS consumidores con
- * formas distintas: la ficha (que las quiere como `TareaCS`) y el TABLERO embebido en la
- * página del cliente (que las quiere como `BoardTask`/`Tarea`, o sea la forma del board).
- * Mapear acá obligaría a des-mapear allá, que es cómo se pierde un campo.
- */
-export async function filasDeCliente(leadId: number, forzado?: QueTablero): Promise<FilasDeCliente> {
-  const db = await getTenantDb();
-  const dueno = (forzado ?? await tableroActual()) === 'dueno';
-  const tablaProy = dueno ? 'plan_proyectos' : 'tarea_categorias';
-  const tablaTarea = dueno ? 'plan_tareas' : 'experimento_tareas';
-  const col = dueno ? 'labels' : 'categorias';
-
-  const { data: ps, error: e1 } = await db.from(tablaProy).select('*').eq('cliente_lead_id', leadId);
-  if (e1) throw new Error(e1.message);
-  const pids = (ps ?? []).map((p) => (dueno ? String((p as { id: unknown }).id) : Number((p as { id: unknown }).id)));
-
-  // Las tareas suyas son las que lo declaran MÁS las de sus proyectos. Se piden por
-  // separado y se funden por id: un `or` con `cs.` sobre jsonb se escribe mal una vez y
-  // devuelve de más para siempre, y de más acá es el trabajo de otro cliente.
-  const lotes = await Promise.all([
-    db.from(tablaTarea).select('*').eq('cliente_lead_id', leadId),
-    // JSON y no un array de JS: la columna es `jsonb` y el literal de Postgres la hace
-    // fallar entera. Ver la nota larga en `lib/plan-board.ts`.
-    ...pids.map((pid) => db.from(tablaTarea).select('*').contains(col, JSON.stringify([pid]))),
-  ]);
-  const filas = new Map<string, Record<string, unknown>>();
-  for (const l of lotes) {
-    if (l.error) throw new Error(l.error.message);
-    for (const f of l.data ?? []) filas.set(String((f as { id: unknown }).id), f as Record<string, unknown>);
-  }
-  return { dueno, proyectos: (ps ?? []) as Record<string, unknown>[], tareas: [...filas.values()] };
-}
-
-export async function trabajoAsignado(leadId: number): Promise<ResultadoTrabajo> {
-  try {
-    const hoy = await hoyEnWorkspace();
-    const { dueno, proyectos, tareas } = await filasDeCliente(leadId);
-    return dueno
-      ? armar(proyectos.map((p) => deBoardLabel(rowToLabel(p as Row))), tareas.map((f) => deBoardTask(rowToTask(f))), hoy)
-      : armar(proyectos.map((p) => deCategoria(catRow(p))), tareas.map((f) => deTarea(rowTo(f))), hoy);
-  } catch (e) {
-    return { ok: false, error: mensaje(e) };
-  }
-}
-
-/**
- * Le pone el `detalle` a un puñado de tarjetas, después de que el cruce decidió cuáles son.
- *
- * ⚠️ MUTA LOS OBJETOS QUE RECIBE, a propósito: ya están dentro de las listas que se van a
- * devolver y armar copias obligaría a rehacer los tres arrays y los dos índices que
- * apuntan a ellos. Es una función privada de este módulo y la mutación no sale de acá.
- */
-async function ponerleTexto(proyectos: ProyectoCS[], tareas: TareaCS[], dueno: boolean): Promise<void> {
-  if (!proyectos.length && !tareas.length) return;
-  const db = await getTenantDb();
-  const ids = (xs: Array<{ id: string }>) => (dueno ? xs.map((x) => x.id) : xs.map((x) => Number(x.id)));
-
-  const [p, t] = await Promise.all([
-    proyectos.length
-      ? db.from(dueno ? 'plan_proyectos' : 'tarea_categorias').select('id, detalle').in('id', ids(proyectos) as string[])
-      : Promise.resolve({ data: [], error: null }),
-    tareas.length
-      ? db.from(dueno ? 'plan_tareas' : 'experimento_tareas').select('id, detalle').in('id', ids(tareas) as string[])
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-  // Si falla, se sigue sin texto: la lista es correcta igual, y frenar la ficha entera
-  // por el cuerpo de una tarjeta sería cambiar un hueco por una pantalla vacía.
-  const mapa = (d: unknown) => new Map(((d ?? []) as Array<{ id: unknown; detalle: unknown }>)
-    .map((r) => [String(r.id), typeof r.detalle === 'string' ? r.detalle : '']));
-  const dp = mapa(p.data), dt = mapa(t.data);
-  for (const x of proyectos) x.detalle = dp.get(x.id) ?? x.detalle;
-  for (const x of tareas) x.detalle = dt.get(x.id) ?? x.detalle;
-}
-
-/** Arma el resultado con la MISMA forma que `trabajoDeCliente`, para que la pantalla
- *  no tenga que saber por cuál de los dos caminos llegó cada cosa. */
-function armar(proys: ProyTab[], tars: TareaTab[], hoy: string): ResultadoTrabajo {
-  const deCS = tars.map(aTareaCS);
-  const porProyecto = new Map<string, TareaCS[]>();
-  for (const t of deCS) for (const p of t.proyectos) porProyecto.set(p, [...(porProyecto.get(p) ?? []), t]);
-
-  const proyectos: ProyectoCS[] = proys.map((p) => {
-    const suyas = porProyecto.get(p.id) ?? [];
-    return {
-      id: p.id, nombre: p.nombre, emoji: p.emoji, color: p.color, detalle: p.detalle,
-      deadline: p.deadline, quarter: p.quarter, score: p.score, scoreRazon: p.scoreRazon,
-      como: 'clave' as const, ...contar(suyas, hoy),
-    };
-  });
-  const orden = (a: TareaCS, b: TareaCS) =>
-    Number(a.abierta === false) - Number(b.abierta === false) || b.score - a.score || a.titulo.localeCompare(b.titulo);
-  return {
-    ok: true,
-    proyectos,
-    tareas: deCS.filter((t) => !t.recurrente).sort(orden),
-    recurrentes: deCS.filter((t) => t.recurrente).sort((a, b) => a.titulo.localeCompare(b.titulo)),
-    huerfanos: [],
-  };
 }
 
 // ── AUTO-ASIGNAR ─────────────────────────────────────────────────────────────
@@ -788,24 +508,6 @@ export async function autoasignar(forzado?: QueTablero): Promise<
 }
 
 /**
- * EL TRABAJO DE TODOS LOS CLIENTES, EN UNA PASADA, para que la grilla lo baje con su HTML.
- *
- * ⚠️ EXISTE PARA QUE EL MODAL NO TENGA ESTADO DE CARGA. «Sigue diciendo Leyendo lo suyo»
- * se reportó dos veces, y las dos veces lo ataqué por el lado de la velocidad: primero
- * partiendo la lectura en dos (1.284 ms contra 13.604), después sacándole el texto largo
- * al cruce (54 KB contra 2.105). Las dos mejoras eran reales y el síntoma no se movió,
- * porque un modal que pide sus datos AL ABRIRSE tiene un estado de carga por más rápida
- * que sea la consulta. Lo único que lo saca es que los datos ya estén.
- *
- * ⚠️ Y ES UNA PASADA, NO UNA POR CLIENTE. Llamar `filasDeCliente` catorce veces son 22
- * consultas (una por cliente más una por proyecto suyo); acá son 2 + una por proyecto
- * ASIGNADO, que hoy son 8 en el workspace más grande. Medido el 26/09/2026: 515 KB y
- * ~1,8 s para los 14 clientes del ws1, 78 KB y ~0,6 s para los 3 del ws9.
- *
- * El costo se paga UNA vez al entrar a la grilla, en vez de cada vez que se abre una
- * tarjeta. Abrir un cliente es lo que se hace todo el tiempo; entrar, una sola.
- */
-/**
  * El trabajo de UN cliente, YA MAPEADO al modelo del tablero.
  *
  * ⚠️ MAPEADO ACÁ Y NO EN LA PANTALLA. `FichaCliente` es `'use client'`, y los mappers
@@ -820,6 +522,28 @@ export type TrabajoDeCliente =
   | { dueno: true; tareas: BoardTask[]; proyectos: Label[] }
   | { dueno: false; tareas: Tarea[]; categorias: Categoria[] };
 
+/** Las FILAS crudas de un cliente, antes de mapearlas al modelo del tablero. */
+type FilasCrudas = { proyectos: Record<string, unknown>[]; tareas: Record<string, unknown>[] };
+
+/**
+ * EL TRABAJO DE TODOS LOS CLIENTES, EN UNA PASADA, para que la grilla lo baje con su HTML.
+ *
+ * ⚠️ EXISTE PARA QUE EL MODAL NO TENGA ESTADO DE CARGA. «Sigue diciendo Leyendo lo suyo»
+ * se reportó dos veces, y las dos veces lo ataqué por el lado de la velocidad: primero
+ * partiendo la lectura en dos (1.284 ms contra 13.604), después sacándole el texto largo
+ * al cruce (54 KB contra 2.105). Las dos mejoras eran reales y el síntoma no se movió,
+ * porque un modal que pide sus datos AL ABRIRSE tiene un estado de carga por más rápida
+ * que sea la consulta. Lo único que lo saca es que los datos ya estén.
+ *
+ * ⚠️ Y ES UNA PASADA, NO UNA POR CLIENTE. Leer cliente por cliente (lo que hacía la
+ * `filasDeCliente` borrada) eran 22 consultas para 14 clientes (una por cliente más una por
+ * proyecto suyo); acá son 2 + una por proyecto
+ * ASIGNADO, que hoy son 8 en el workspace más grande. Medido el 26/09/2026: 515 KB y
+ * ~1,8 s para los 14 clientes del ws1, 78 KB y ~0,6 s para los 3 del ws9.
+ *
+ * El costo se paga UNA vez al entrar a la grilla, en vez de cada vez que se abre una
+ * tarjeta. Abrir un cliente es lo que se hace todo el tiempo; entrar, una sola.
+ */
 export async function filasDeTodos(): Promise<{ dueno: boolean; porCliente: Record<number, TrabajoDeCliente> }> {
   const db = await getTenantDb();
   const dueno = (await tableroActual()) === 'dueno';
@@ -835,8 +559,8 @@ export async function filasDeTodos(): Promise<{ dueno: boolean; porCliente: Reco
   if (ts.error) throw new Error(`${tablaTarea}: ${ts.error.message}`);
 
   const lead = (r: unknown) => Number((r as { cliente_lead_id: unknown }).cliente_lead_id);
-  const porCliente: Record<number, FilasDeCliente> = {};
-  const caja = (id: number) => (porCliente[id] ??= { dueno, proyectos: [], tareas: [] });
+  const porCliente: Record<number, FilasCrudas> = {};
+  const caja = (id: number) => (porCliente[id] ??= { proyectos: [], tareas: [] });
   // Por cliente y por id, para que una tarea que está en su proyecto Y declara al cliente
   // no entre dos veces.
   const vistas = new Map<number, Set<string>>();

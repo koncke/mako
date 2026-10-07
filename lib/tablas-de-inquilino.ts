@@ -47,7 +47,7 @@ export const TABLAS_DE_INQUILINO = [
   'avisos_cola', 'branding_assets', 'chart_chats', 'chart_sessions',
   'chat_agent_handoffs', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs',
   'contenido_posts', 'creative_transcripts', 'credenciales', 'credenciales_auditoria',
-  'cs_clientes', 'cs_respuestas', 'curso_accesos', 'curso_clases', 'curso_progreso', 'curso_sesiones', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos',
+  'cs_clientes', 'cs_respuestas', 'curso_accesos', 'curso_clase_notas', 'curso_clases', 'curso_progreso', 'curso_sesiones', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'formatos',
   'funnel_config', 'funnel_ofertas', 'funnels', 'identidades_fiscales',

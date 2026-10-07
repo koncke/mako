@@ -179,6 +179,37 @@ test('el curso de un producto: TODAS las etapas en el orden de la entrega, la ac
   assert.equal(armarProducto({ productoId: 2, nombre: 'x', etapas, clases: [], progreso: new Map(), etapaActual: null }), null);
 });
 
+test('un cliente en una etapa BORRADA: ninguna es la «Actual», y la fila de Avance lo dice', () => {
+  // El caso medido en el ws1 (06/10/2026): su fila dice «onboarding», el producto ya no la tiene.
+  // `etapaActualDe` contesta la PRIMERA (la regla del portal y del paso automático) y la ficha
+  // marcaba «Actual» Bienvenida, mientras la cabecera de la MISMA ficha decía «Etapa borrada».
+  const etapas = [{ key: 'bienvenida', label: 'Bienvenida' }, { key: 'contexto', label: 'Contexto' }];
+  const clases = [
+    clase(21, { etapa: 'bienvenida', videoTipo: 'youtube', videoUrl: 'https://youtu.be/a' }),
+    clase(22, { etapa: 'contexto' }),
+  ];
+  const progreso = new Map([[21, prog(21, { pct: 50, segundosMax: 50, duracionSeg: 100, vistoAt: 'x' })]]);
+  const base = { productoId: 1, nombre: 'NqE', etapas, clases, progreso, etapaActual: 'bienvenida' };
+
+  const p = armarProducto({ ...base, etapaBorrada: 'onboarding' });
+  assert.ok(p);
+  if (!p) return;
+  assert.deepEqual(p.etapas.map((e) => e.actual), [false, false], 'la ficha marca una etapa que la cabecera dice que no es la suya');
+  assert.equal(p.etapaActual, null);
+  assert.equal(p.etapaBorrada, 'onboarding');
+  assert.equal(p.avance.fila.etapa, null, 'la fila de Avance pintaba Bienvenida');
+  assert.equal(p.avance.fila.etapaBorrada, true, 'la celda tiene que poder decir «Etapa borrada», no «—»');
+  assert.equal(p.avance.fila.pctVisto, null, 'sin etapa no hay «cuánto vio de SU etapa»');
+
+  // Y sin etapa borrada, lo de siempre: la primera marcada y la celda sin el aviso.
+  const q = armarProducto({ ...base, etapaBorrada: null });
+  assert.ok(q);
+  if (!q) return;
+  assert.deepEqual(q.etapas.map((e) => e.actual), [true, false]);
+  assert.equal(q.avance.fila.etapaBorrada, false);
+  assert.equal(q.etapaBorrada, null);
+});
+
 // ── Las llamadas ──────────────────────────────────────────────────────────────
 
 test('el datetime-local se pasa a ISO como hora LOCAL de quien la escribe', () => {
@@ -262,10 +293,11 @@ test('cada action pasa por la PUERTA antes de hacer nada, y cada una tiene su ca
     // Una capacidad sin call site es una salida huérfana (AGENTS.md).
     assert.ok(new RegExp(`\\b${n}\\(`).test(CURSO + INVITAR), `${n} no la llama nadie en FichaCurso ni en InvitarAlCurso`);
   }
-  // La puerta: sesión, capa y cliente GANADO de este workspace, en positivo.
+  // La puerta: cliente GANADO de este workspace, en positivo. La sesión y la capa son la regla
+  // compartida (`puedeUsarCs`, app/customer-success/puerta.ts), y que la puerta abra con ella lo
+  // fija tests/cs-acciones-puerta.test.ts — no se repite acá (06/10/2026).
   const puertaSrc = ACC.slice(ACC.indexOf('async function puerta('), ACC.indexOf('async function accesoActual('));
-  assert.match(puertaSrc, /getRolWsEfectivo\(\)\) == null/);
-  assert.match(puertaSrc, /tabEnCapa\('customer-success', await getCapaActual\(\)\)/);
+  assert.match(puertaSrc, /await puedeUsarCs\(\)/);
   assert.match(puertaSrc, /\.eq\('id', leadId\)\.eq\('estado_lead', 'ganado'\)/);
 });
 
@@ -299,6 +331,25 @@ test('la ficha y la tabla dibujan la MISMA fila de Avance, y «listo» es `compl
   assert.match(TABLA, /<CeldaAcceso leadId=\{f\.leadId\}/);
 });
 
+test('la etapa BORRADA viaja de la base a la celda: la action la pide, la fila la pinta', () => {
+  // Tres piezas, y sin cualquiera la ficha vuelve a marcar la primera etapa sobre un huérfano:
+  // la action pide `ubicacionEnEntregaDe` (no `etapaActualDe`, que contesta «la primera»),
+  // le pasa `borrada` a `armarProducto`, y la celda dice «Etapa borrada».
+  const pc = ACC.slice(ACC.indexOf('async function productosConCurso('), ACC.indexOf('export async function cursoDeClienteAction('));
+  assert.ok(pc.length > 200 && pc.length < 2500, `el recorte mide ${pc.length}: está mirando otra cosa`);
+  assert.match(pc, /ubicacionEnEntregaDe\(leadId, c\.productoId, ids\)/);
+  assert.doesNotMatch(pc, /etapaActualDe\(/, 'la ficha volvió a la regla del portal: marca la primera etapa sobre un huérfano');
+  assert.match(pc, /etapaActual: actuales\[i\]\.etapa,\s*etapaBorrada: actuales\[i\]\.borrada,/);
+  assert.match(FILA, /fila\.etapaBorrada \? <span className="av-mal">Etapa borrada<\/span>/, 'la celda no dice «Etapa borrada»');
+  // Y UNA regla: `etapaActualDe` (portal, mensajes, paso automático) es `ubicacionEnEntregaDe`
+  // menos el dato de la etapa borrada. Si fueran dos implementaciones, divergirían.
+  const DATOS = sinComentarios(leer('lib/curso-datos.ts').replace(/\r\n/g, '\n'));
+  assert.match(DATOS, /export async function etapaActualDe\([^)]*\): Promise<string \| null> \{\s*return \(await ubicacionEnEntregaDe\(leadId, productoId, productosYaLeidos\)\)\.etapa;\s*\}/);
+  // «Borrada» sólo con el catálogo LEÍDO: con la lectura caída, cualquier clave declarada «no
+  // está» en las etapas de fábrica, y la ficha acusaría una etapa borrada que no lo está.
+  assert.match(DATOS, /borrada: fila && leida \? fila\.etapa : null/);
+});
+
 test('la fecha de la llamada sale del navegador YA en ISO, y vuelve a mostrarse en local', () => {
   assert.match(CURSO, /const iso = isoDeLocal\(cuando\);/);
   assert.match(CURSO, /agendarLlamadaCursoAction\(leadId, iso, /, 'se manda el ISO, nunca el valor crudo del input');
@@ -326,3 +377,12 @@ test('la fecha de la llamada sale del navegador YA en ISO, y vuelve a mostrarse 
 //  14. resumenDeEtapa con `completa: k.enviadas === k.tareas`         → 16/2 «"Completa" es la regla…» y «la fila de Avance…»
 //  15. armarProducto midiendo el visto de `keys[0]` y no de su etapa → 17/1 «la fila de Avance…» (con la etapa actual
 //      en la PRIMERA, esta rotura daba 18/0: por eso el test pone al cliente en la segunda)
+// Tercera tanda, la etapa BORRADA (06/10/2026). Corridos juntos con cs-mover-etapa, cs-acciones-puerta,
+// cs-deshacer-reloj y nutricion-etapa: baseline 61 pass / 0 fail.
+//  16. armarProducto con `const actual = p.etapaActual` (ignora la borrada) → 60/1 «un cliente en una etapa BORRADA…»
+//  17. la fila de Avance sin `etapaBorrada`                                → 60/1 el mismo
+//  18. productosConCurso con `etapaActualDe` y no `ubicacionEnEntregaDe`     → 60/1 «la etapa BORRADA viaja…»
+//  19. FilaAvance sin la rama «Etapa borrada» (vuelve a «—»)               → 60/1 el mismo
+//  20. `borrada: fila?.etapa ?? null` (acusa aunque el catálogo no se leyó) → 60/1 el mismo
+//  Y la puerta de la ficha con la sesión y la capa a mano (sin `puedeUsarCs`) → 59/2: el de «cada action pasa por la
+//  PUERTA…» de acá y el de tests/cs-acciones-puerta.test.ts.

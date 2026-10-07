@@ -65,6 +65,7 @@ import type { ClienteCruce } from './cruce';
 import type { TrabajoDeCliente } from './trabajo';
 import { colorDe } from './ClienteCard';
 import { guardarDatosClienteAction, pagosDeClienteAction } from './actions';
+import { atajar } from './sin-red';
 import { CuentaDeMaKo, type CuentasProp, type MiembroDeCliente, type AltaPedida } from './CuentaDeMaKo';
 import { ResumenCliente, LlamadasCliente, PagosCliente, HistorialCliente, type DatosCrm } from './FichaPestanas';
 import { FichaEntrega, type EntregaFicha } from './FichaEntrega';
@@ -227,16 +228,19 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
   useEffect(() => {
     if (!pideCrm || crm !== null) return;
     setCrm('cargando');
-    void pagosDeClienteAction(c.leadId)
-      .then(setCrm)
-      .catch((e) => setCrm({ ok: false, error: e instanceof Error ? e.message : 'No pude leer sus datos.' }));
+    // Por `atajar` (./sin-red.ts), como toda acción de esta ficha y de ClientesApp: un
+    // `.catch` a mano por llamada es la regla escrita en los call sites que existían.
+    void atajar(pagosDeClienteAction(c.leadId), 'No pude leer sus datos.').then(setCrm);
   }, [pideCrm, crm, c.leadId]);
 
   /** Renombrar al cliente o cambiarle la empresa. ⚠️ Escribe en `leads`, o sea en el
    *  CRM: no hay tabla de clientes, un cliente es un lead ganado. */
   function guardarDatos(cambio: { nombre?: string; empresa?: string | null }) {
     setMal('');
-    void guardarDatosClienteAction(c.leadId, cambio).then((r) => {
+    // ⚠️ SIN RED LA PROMESA RECHAZA, y sin `atajar` el `.then` no corría: el «no se guardó»
+    // de abajo nunca llegaba al banner. No tumbaba la pantalla (esto no va en una
+    // transición), pero era exactamente el silencio que este handler existe para evitar.
+    void atajar(guardarDatosClienteAction(c.leadId, cambio), 'No se pudo guardar.').then((r) => {
       // ⚠️ SE AVISA SI NO SE GUARDÓ. Un campo que se edita en el lugar y falla en
       // silencio es peor que uno que no se puede editar: quien lo escribió se va
       // creyendo que quedó, y lo descubre al recargar.
@@ -430,10 +434,11 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
             <p className="fc-mal">No pude leer su tablero. Vuelve a entrar a Clientes.</p>
           ) : trabajo.dueno ? (
             // ⚠️ `onRecargar` ES OBLIGATORIO ACÁ. El tablero recarga la página entera después
-            // de una cascada de prioridad y al aplicar un borrador de reunión — y eso, adentro
-            // de la ficha, la cierra: qué cliente está abierto es estado de React en
-            // `ClientesApp`, no viaja en la URL. `router.refresh()` revalida el render del
-            // server (de donde salen estas filas) sin desmontar el árbol del navegador.
+            // de una cascada de prioridad y al aplicar un borrador de reunión. Desde el
+            // 06/10/2026 la ficha abierta viaja en `?cliente=` y un reload la vuelve a abrir —
+            // pero en Resumen, con las tabs abiertas desmontadas y el tablero rearmado desde
+            // cero. `router.refresh()` revalida el render del server (de donde salen estas
+            // filas) sin desmontar el árbol del navegador.
             //
             // ⚠️ `soloVista="prioridades"`: sin su selector. Las otras tres vistas del
             // tablero se miran en el Plan («Ver en el Plan», donde el tablero tenía su «⋮»),
@@ -774,8 +779,8 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, puedeS
       })).json();
       if (!j?.ok) { onError(j?.error ?? (puedeSumar ? 'No se pudo sumar.' : 'No se pudo pedir.')); return; }
       setEmail(''); setNom(''); setPidiendo(false);
-      // `router.refresh()` y no un reload: qué cliente está abierto es estado de React
-      // en ClientesApp y no viaja en la URL, así que recargar CIERRA la ficha.
+      // `router.refresh()` y no un reload: la ficha abierta viaja en `?cliente=` y un
+      // reload la reabriría, pero en Resumen y no en esta tab — se leería como que te sacó.
       onPedido();
     } catch {
       onError('No se pudo pedir.');

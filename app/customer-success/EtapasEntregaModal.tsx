@@ -538,7 +538,7 @@ export function cambiaAlSoltar(
 }
 
 export function EtapasEntregaModal({
-  servicio, etapas, fases, conteo, secuencias, onGuardar, onRenombrar, onEliminar, onCerrar,
+  servicio, etapas, fases, conteo, secuencias, onGuardar, onRenombrar, onEliminar, conEmbudo, onCerrar,
 }: {
   /** El nombre actual del producto: es el título, y se edita ahí. */
   servicio: string;
@@ -568,6 +568,15 @@ export function EtapasEntregaModal({
    * `null` el editor se cierra; con un texto, lo muestra y se queda abierto.
    */
   onEliminar?: () => Promise<string | null>;
+  /**
+   * ¿El producto tiene un embudo vivo en el CRM? Sólo entonces eliminarlo lo ARCHIVA y vuelve
+   * desde «Productos eliminados»; sin embudo se da de baja (`eliminarServicioAction`).
+   *
+   * ⚠️ SIN DEFAULT: un `= false` deja que un llamador se lo olvide, y la confirmación dejaría
+   * de decir de dónde se recupera sin que nada avise. Con la lectura de embudos caída llega
+   * `false` (ver `productosOfrecibles`): no saberlo es no prometerlo.
+   */
+  conEmbudo: boolean;
   onCerrar: () => void;
 }) {
   const [lista, setLista] = useState<EtapaEntrega[]>(() => etapas.map((e) => ({ ...e })));
@@ -704,15 +713,19 @@ export function EtapasEntregaModal({
    * permite es el «Deshacer» del toast, que vuelve a activar el embudo; acá no hay con
    * qué deshacerlo desde esta pantalla, y sin deshacer la fricción es la red.
    *
-   * El texto dice sólo lo que vale en los dos caminos de `eliminarServicioAction`: un
+   * El texto base dice sólo lo que vale en los dos caminos de `eliminarServicioAction`: un
    * producto con embudo se archiva y otro sin embudo se da de baja, y sólo el primero
-   * aparece en «Productos eliminados». Prometer de dónde vuelve sería cierto a medias.
+   * aparece en «Productos eliminados». Por eso DE DÓNDE VUELVE se dice SÓLO con `conEmbudo`
+   * (06/10/2026: el dato viaja desde `productosOfrecibles`, que ya leía los embudos de cada
+   * producto). Prometerlo siempre sería cierto a medias; callarlo siempre dejaba a quien
+   * eliminó sin saber que lo puede deshacer.
    */
   const eliminar = () => {
     if (!onEliminar) return;
     setConfirmar({
       titulo: `Eliminar «${nombreOk}»`,
-      cuerpo: 'Deja de verse aquí y en el CRM. No se borra ningún cliente ni su historial.',
+      cuerpo: 'Deja de verse aquí y en el CRM. No se borra ningún cliente ni su historial.'
+        + (conEmbudo ? ' Lo recuperas en Productos eliminados del CRM.' : ''),
       boton: 'Eliminar el producto',
       cancelar: 'No, dejarlo',
       hacer: () => { void borrar(); },

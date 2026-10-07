@@ -46,7 +46,7 @@ import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
 const TABLAS_RESET = TABLAS_DE_INQUILINO;
 
 /** Buckets con binarios prefijados por `<ws>/`. `avatars` NO: es por usuario. */
-const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips'] as const;
+const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas'] as const;
 
 export type ResultadoReset = {
   borrado: Record<string, number>;

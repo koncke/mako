@@ -26,13 +26,23 @@ import { Pagina, Tabs, Status, EmptyState } from '@/app/_ui';
 import { useRouter } from '@/app/_ui/Link';
 import Reproductor from './Reproductor';
 import TareaAlumno from './TareaAlumno';
+import { VistaPreviaCtx } from './vista-previa';
 
-export default function PortalAlumno({ token, vista }: { token: string; vista: VistaAlumno }) {
+export default function PortalAlumno({ token, vista, vistaPrevia = false }: {
+  token: string;
+  vista: VistaAlumno;
+  /**
+   * La vista previa del EQUIPO (app/customer-success/curso/vista): sin alumno detrás, nada se
+   * escribe (./vista-previa.ts). Las puertas de un alumno real no lo pasan nunca.
+   */
+  vistaPrevia?: boolean;
+}) {
   const router = useRouter();
   const [productoId, setProductoId] = useState<number | null>(vista.productos[0]?.productoId ?? null);
   const producto = vista.productos.find((p) => p.productoId === productoId) ?? vista.productos[0] ?? null;
 
   return (
+    <VistaPreviaCtx.Provider value={vistaPrevia}>
     <div className="cp">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <header className="cp-top">
@@ -62,8 +72,9 @@ export default function PortalAlumno({ token, vista }: { token: string; vista: V
         </div>
       </Pagina>
 
-      <footer className="cp-pie">Este enlace es personal. No lo compartas.</footer>
+      <footer className="cp-pie">{vistaPrevia ? 'Vista previa. No se guarda nada.' : 'Este enlace es personal. No lo compartas.'}</footer>
     </div>
+    </VistaPreviaCtx.Provider>
   );
 }
 

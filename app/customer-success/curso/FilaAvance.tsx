@@ -35,6 +35,12 @@ export type EtapaVista = { key: string; label: string; color: string };
 /** Lo que una fila dice de UN cliente en UN producto. Lo arma `avanceDeCliente` (./reglas.ts). */
 export type DatosAvance = {
   etapa: string | null;
+  /**
+   * Su fila apunta a una etapa que el catálogo ya no tiene. Lo manda la ficha
+   * (`armarProducto`), con `etapa: null`: la celda dice «Etapa borrada», lo mismo que la
+   * cabecera, en vez de un «—» que se lee como «sin etapa». Ausente = no se sabe o no es el caso.
+   */
+  etapaBorrada?: boolean;
   porEtapa: Record<string, CeldaEtapa>;
   pctVisto: number | null;
   videosSinMedir: number;
@@ -63,7 +69,8 @@ export function CeldasAvance({ etapas, fila }: { etapas: readonly EtapaVista[]; 
   const etapa = etapas.find((e) => e.key === fila.etapa);
   return (
     <>
-      <td>{etapa ? <span className="av-etapa"><span className="av-dot" style={{ background: etapa.color }} aria-hidden />{etapa.label}</span> : '—'}</td>
+      <td>{etapa ? <span className="av-etapa"><span className="av-dot" style={{ background: etapa.color }} aria-hidden />{etapa.label}</span>
+        : fila.etapaBorrada ? <span className="av-mal">Etapa borrada</span> : '—'}</td>
       {etapas.map((e) => {
         const c = fila.porEtapa[e.key];
         const suya = e.key === fila.etapa;

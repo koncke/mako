@@ -641,6 +641,15 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dlLoaded, tasks.length]);
   const hayWelcome = welcomeTasks.length > 0;
+  // ⚠️ EMBEBIDO, LA BIENVENIDA NO EXISTE: ni el botón ✨ ni el modal. Apagar sólo el
+  // AUTO-open (más abajo) dejaba el ✨ dibujado en la ficha del super admin (AdminView monta
+  // el tablero `embebido` SIN `soloVista`, así que la barra se dibuja), y un clic abría
+  // `TareasCreadasModal` por portal encima de la ficha, fuera de la pila de modales: el Escape
+  // y el cierre de la ficha no la ven. Es la pantalla de «acabás de entrar a TU tablero», y
+  // adentro de la ficha de un cliente contesta otra pregunta. Se CALCULA una vez y la miran
+  // las dos puntas (la barra y el render), para que un camino nuevo que haga
+  // `setWelcomeVisible(true)` igual no pueda pintarla. Guard: tests/bienvenida-embebido.test.ts.
+  const bienvenidaPosible = hayWelcome && !embebido;
   // Los proyectos que tocan esas tareas nuevas (para la tab "Proyectos" del modal).
   const welcomeProjIds = new Set(welcomeTasks.flatMap((t) => t.labels));
   const welcomeProjects = labels.filter((l) => welcomeProjIds.has(l.id));
@@ -1476,7 +1485,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           </button>
           ), menu: { icono: <WarnMark title="" size={15} blink={false} />, label: 'Tareas sin fecha', badge: faltantes.length,
             desc: 'Las tareas a las que les falta la fecha', onClick: abrirDatosManual } }] : []),
-          ...(hayWelcome ? [{ key: 'welcome', nodo: (
+          ...(bienvenidaPosible ? [{ key: 'welcome', nodo: (
           <button type="button" onClick={() => setWelcomeVisible(true)} title={`${welcomeTasks.length} tarea${welcomeTasks.length === 1 ? '' : 's'} que cargó MaKo — ver`} aria-label="Tareas que cargó MaKo"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, borderRadius: 9, border: '1px solid var(--primary-weak)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: '0 11px' }}>
             <MakoStar size={15} color="var(--primary)" />
@@ -1831,7 +1840,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
         onClose={cerrarDatos} />}
       {/* Bienvenida "MaKo cargó tareas": se abre sola UNA vez al entrar (Datos ya no). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
-      {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects} proyNuevoIds={proyNuevoIds}
+      {welcomeVisible && bienvenidaPosible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects} proyNuevoIds={proyNuevoIds}
         renderTaskCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} onOpenProj={setOpenProj} />}
         renderProjCard={(l) => <ProyectoCardTile l={l} prog={projProgress(tasks, l.id)} isTop={l.id === topProjectId} onOpen={() => setOpenProj(l.id)} />}
         onClose={() => setWelcomeVisible(false)} />}

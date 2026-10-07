@@ -23,10 +23,11 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { entregaDeProducto } from './entrega-servicio';
 import { COLUMNAS_CLASE, aClase } from './curso-datos';
+import { leerTodo } from './supabase-paginado';
 import type { Clase } from './curso';
 import {
   validarClase, pathDeSubida, pathEsDelWorkspace, reordenar, clasesDeEtapa, siguienteOrden,
-  esMimeVideo, TOPE_VIDEO_BYTES, type AccesoFila,
+  esMimeVideo, TOPE_VIDEO_BYTES, valorGrabar, type AccesoFila,
 } from '@/app/customer-success/curso/reglas';
 
 /** El bucket privado de la mig 0202. */
@@ -47,8 +48,10 @@ const msg = (e: unknown, def: string) => (e instanceof Error && e.message ? e.me
  * ⚠️ NO MIRA `activo`: la tab ofrece sólo los productos vivos (la misma lista que el kanban),
  * pero una clase de un producto que se dio de baja se puede seguir borrando o moviendo —
  * negarlo dejaría su contenido trabado sin una pantalla que lo muestre.
+ *
+ * Exportada para las notas (lib/curso-notas.ts): la misma pregunta, en un solo lugar.
  */
-async function productoConEtapas(productoId: number): Promise<{ etapas: string[] } | null> {
+export async function productoConEtapas(productoId: number): Promise<{ etapas: string[] } | null> {
   if (!Number.isInteger(productoId) || productoId <= 0) return null;
   const db = await getTenantDb();
   const { data, error } = await db.from('productos').select('id').eq('id', productoId).limit(1);
@@ -273,6 +276,72 @@ export async function urlLectura(path: string): Promise<Resultado<{ url: string 
   } catch (e) {
     return { ok: false, error: msg(e, 'No pude abrir el video.') };
   }
+}
+
+/**
+ * Marca una clase para grabar (`true`), para no grabar (`false`) o la deja sin decidir (`null`).
+ *
+ * ⚠️ UNA ESCRITURA DE SÓLO ESA COLUMNA, y no por `guardarClase`: guardar la clase entera manda
+ * la fila que arma `validarClase`, que NO trae `grabar` — así que ninguno de los dos caminos
+ * puede pisar al otro. Si esto pasara por el guardado, abrir el editor en una pestaña vieja y
+ * guardar un título le devolvería a la clase la marca de hace una hora.
+ *
+ * ⚠️ NI SIQUIERA `updated_at`: la marca es una decisión de PRODUCCIÓN (qué falta grabar), no un
+ * cambio del contenido que ve el cliente.
+ */
+export async function marcarGrabar(claseId: number, raw: unknown): Promise<Resultado<{ grabar: boolean | null }>> {
+  try {
+    const valor = valorGrabar(raw);
+    if (valor === undefined) return { ok: false, error: 'Marca inválida.' };
+    if (!Number.isInteger(claseId) || claseId <= 0) return { ok: false, error: 'Esa clase ya no existe.' };
+    const db = await getTenantDb();
+    const { data, error } = await db.from('curso_clases').update({ grabar: valor }).eq('id', claseId).select('id, grabar').maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: 'Esa clase ya no existe.' };
+    const g = (data as { grabar: boolean | null }).grabar;
+    return { ok: true, grabar: g === true || g === false ? g : null };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo marcar.') };
+  }
+}
+
+/**
+ * La marca de grabar de las clases de varios productos: claseId → `true | false | null`.
+ *
+ * ⚠️ VA APARTE DE `COLUMNAS_CLASE`, a propósito: ésa la leen también el portal del alumno, la
+ * ficha y el cron. Con `grabar` adentro, una migración atrasada tumbaría el portal de cada
+ * cliente; así, lo único que depende de la 0208 es la tab del equipo.
+ *
+ * ⚠️ TIRA si no puede leer, y quien llama decide: leída como «nada marcado», una consulta caída
+ * le diría a Mauricio que no hay nada por grabar.
+ */
+export async function grabarDeProductos(productoIds: readonly number[]): Promise<Record<number, boolean | null>> {
+  const out: Record<number, boolean | null> = {};
+  if (!productoIds.length) return out;
+  const db = await getTenantDb();
+  const filas = await leerTodo<{ id: number; grabar: boolean | null }>(db, 'curso_clases', 'id, grabar',
+    { filtros: (q) => q.in('producto_id', [...productoIds]), orden: 'id' });
+  for (const f of filas) out[Number(f.id)] = f.grabar === true || f.grabar === false ? f.grabar : null;
+  return out;
+}
+
+/**
+ * Links de vida corta para los videos SUBIDOS de la vista previa del alumno
+ * (app/customer-success/curso/vista). Ahí no hay token de alumno, así que la ruta del portal
+ * (/api/compartido/curso/video, que valida el link) no sirve: se firma directo, como el editor.
+ *
+ * ⚠️ SÓLO PATHS DE ESTE WORKSPACE (el prefijo), por la misma razón que `urlLectura`. Lo que no se
+ * pudo firmar no está en el mapa: la clase se dibuja sin video y la pantalla no se cae por eso.
+ */
+export async function urlsDeVistaPrevia(paths: readonly string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ws = await getWorkspaceActual();
+  const propios = [...new Set(paths)].filter((p) => ws && pathEsDelWorkspace(p, ws));
+  if (!propios.length) return out;
+  const { data, error } = await getSupabaseServer().storage.from(BUCKET_CURSO).createSignedUrls(propios, VIDA_LECTURA_SEG);
+  if (error) { console.warn('[curso-admin] no pude firmar los videos de la vista previa:', error.message); return out; }
+  for (const f of data ?? []) if (f.path && f.signedUrl && !f.error) out.set(f.path, f.signedUrl);
+  return out;
 }
 
 /**

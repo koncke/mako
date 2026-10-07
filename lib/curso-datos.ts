@@ -328,14 +328,39 @@ export async function productosDelAlumno(leadId: number): Promise<number[]> {
  * clientes que nunca se movieron — que al arrancar son todos.
  */
 export async function etapaActualDe(leadId: number, productoId: number, productosYaLeidos?: readonly number[]): Promise<string | null> {
+  return (await ubicacionEnEntregaDe(leadId, productoId, productosYaLeidos)).etapa;
+}
+
+/**
+ * Lo mismo que `etapaActualDe`, y además si su fila apunta a una etapa BORRADA.
+ *
+ * `etapa` sigue la regla del curso y del portal: con la etapa borrada, la PRIMERA (el alumno
+ * tiene que poder ver algo, y el paso automático decide desde ahí). `borrada` es la CLAVE que
+ * dice su fila cuando el catálogo ya no la tiene; `null` si no es el caso.
+ *
+ * ⚠️ EXISTE PARA QUE LA FICHA NO SE CONTRADIGA. La cabecera de la ficha (FichaEntrega) dice
+ * «Etapa borrada» para ese cliente y la pestaña Curso, leyendo sólo `etapaActualDe`, marcaba
+ * «Actual» la primera etapa: la misma pantalla diciendo dos cosas del mismo cliente. El equipo
+ * necesita ver el hecho (está en una etapa que ya no existe: hay que moverlo); el alumno, no.
+ * Por eso son dos campos y no un cambio de la regla: la regla la usan el portal, los mensajes y
+ * el paso automático, y ésos siguen igual.
+ */
+export async function ubicacionEnEntregaDe(leadId: number, productoId: number, productosYaLeidos?: readonly number[]): Promise<{ etapa: string | null; borrada: string | null }> {
   // `productosYaLeidos`: quien ya los tiene (la ficha, el portal) los pasa. Leerlos son dos
   // rondas de consultas (catálogo, embudos, filas), y repetirlas por producto alargaba la ficha.
-  const [{ entregaDeProducto, entregaDeCliente }, productos] = await Promise.all([
+  const [{ entregaDeProductoEstricta, entregaDeCliente }, { entregaPorDefecto }, productos] = await Promise.all([
     import('./entrega-servicio'),
+    import('./servicio-etapas'),
     productosYaLeidos ?? productosDelAlumno(leadId),
   ]);
-  if (!productos.includes(productoId)) return null;
-  const [cfg, fila] = await Promise.all([entregaDeProducto(productoId), entregaDeCliente(leadId, productoId)]);
-  if (fila && cfg.etapas.some((e) => e.key === fila.etapa)) return fila.etapa;
-  return cfg.etapas[0]?.key ?? null;
+  if (!productos.includes(productoId)) return { etapa: null, borrada: null };
+  const [leida, fila] = await Promise.all([entregaDeProductoEstricta(productoId), entregaDeCliente(leadId, productoId)]);
+  // `leida ?? default` es EXACTAMENTE lo que contesta `entregaDeProducto`: la `etapa` sale igual
+  // que siempre. La lectura estricta es para `borrada`, de abajo.
+  const cfg = leida ?? entregaPorDefecto(productoId);
+  if (fila && cfg.etapas.some((e) => e.key === fila.etapa)) return { etapa: fila.etapa, borrada: null };
+  // ⚠️ «BORRADA» SÓLO CON EL CATÁLOGO LEÍDO. Con la lectura caída, `cfg` son las etapas de
+  // fábrica y CUALQUIER clave declarada «no está»: se afirmaría una etapa borrada sobre un
+  // cliente que está bien. No poder leer no es un valor del dato.
+  return { etapa: cfg.etapas[0]?.key ?? null, borrada: fila && leida ? fila.etapa : null };
 }

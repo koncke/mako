@@ -172,6 +172,18 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // `fallback: []` por lo mismo que la extracción: un juez peor no rompe, clasifica mal, y
   // una tarea mal descartada no se ve.
   { feature: 'plan-criterio', label: 'Juzgar las tareas de una reunión con el criterio del cliente', grupo: 'Análisis', def: GEMINI(), fallback: [], nota: 'Solo corre en los workspaces que tienen un criterio de compromisos cargado. Pone cada tarea extraída en su cubeta (compromiso, acuerdo interno, descartado) con la regla y la cita, que se verifica contra la transcripción. 1 vez por reunión.' },
+  // Las SESIONES DE ENTREGA (#107, lib/closing-entrega.ts): resumen, riesgos con su cita y
+  // próximos pasos de cada reunión con un cliente que ya compró. US$0 por pedido del dueño:
+  // Gemini, `fallback: []` y SIN fila en CLAUDE_PERMITIDO. Lo que se lee mal aquí no se nota
+  // (un riesgo que no se marcó no aparece en ninguna pantalla), así que no se degrada de
+  // modelo: si Gemini no contesta, la sesión queda en la cola y el cron horario la retoma.
+  // ⚠️ `fallback: []` sólo frena el eje PROVEEDOR: dentro de Gemini la cascada bajaba a
+  // flash-lite igual (lib/ai-cheap.ts, MODELOS_RESPALDO). Lo que hace verdad «no se degrada
+  // de modelo» es `sinRespaldoDeModelo: true` en la llamada de lib/closing-entrega.ts, y lo
+  // fija tests/closing-entrega.test.ts. (`plan-fathom` y `plan-criterio` dicen lo mismo y
+  // NO lo tienen: docs/hallazgos-ia.md, «Ese respaldo también degrada…».)
+  // ⚠️ Lleva PII del cliente a Google, igual que `plan-fathom` con la misma reunión.
+  { feature: 'cs-sesion', label: 'Analizar una sesión de entrega (Customer Success)', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: true, fallback: [], nota: 'Lee el transcript de cada sesión con un cliente que ya compró y deja resumen, riesgos (con la cita textual, verificada contra la grabación) y próximos pasos en su ficha. Corre sola, dos sesiones por hora y por negocio. NO se degrada de modelo ni se paga: si Gemini no contesta, la sesión se reintenta en la próxima hora.' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: GEMINI(), nota: 'Estrategia + voz de marca. Sonnet.' },

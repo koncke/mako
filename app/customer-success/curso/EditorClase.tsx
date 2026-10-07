@@ -4,7 +4,8 @@
 // EditorClase — crear o editar UNA clase del curso
 // =============================================================================
 // Título, etapa, tipo, minutos, lo que ve el cliente arriba del video, el video (un link o un
-// archivo subido), la tarea con su formulario, y si cierra la etapa.
+// archivo subido), la tarea con su formulario, y si cierra la etapa. Y debajo, las notas del
+// equipo sobre la clase (NotasClase, #692), que puede dejar cualquiera que vea la tab.
 //
 // ⚠️ «CIERRA LA ETAPA» ES LO QUE MUEVE AL CLIENTE. La etapa se completa cuando el cliente
 // ENVIÓ todas las tareas marcadas así (`etapaCompleta`, lib/curso.ts), y entonces el paso
@@ -22,12 +23,13 @@ import { TIPOS_CLASE, TOPE_TITULO, TOPE_VIDEO_BYTES, MIME_VIDEO, mimeDeArchivo, 
 import { guardarClaseAction, urlSubidaVideoAction, urlVerVideoAction, descartarVideoAction } from './actions';
 import { subirConProgreso, duracionDeArchivo, type Subida } from './subir-video';
 import { EditorCampos } from './EditorCampos';
+import { NotasClase } from './NotasClase';
 
 type ModoVideo = 'ninguno' | 'link' | 'archivo';
 
 export type EtapaOpcion = { key: string; label: string };
 
-export function EditorClase({ productoId, etapas, clase, etapaInicial, puedeEditar, avanceEnClase, onCerrar, onGuardada, onBorrar }: {
+export function EditorClase({ productoId, etapas, clase, etapaInicial, puedeEditar, avanceEnClase, onCerrar, onGuardada, onBorrar, onNotas }: {
   productoId: number;
   etapas: EtapaOpcion[];
   /** `null` = clase nueva. */
@@ -39,6 +41,8 @@ export function EditorClase({ productoId, etapas, clase, etapaInicial, puedeEdit
   onCerrar: () => void;
   onGuardada: (c: Clase) => void;
   onBorrar?: (c: Clase) => void;
+  /** Cuántas notas tiene la clase, cada vez que cambia (el «N notas» de la lista). */
+  onNotas?: (n: number) => void;
 }) {
   const [titulo, setTitulo] = useState(clase?.titulo ?? '');
   const [etapa, setEtapa] = useState(clase?.etapa ?? etapaInicial);
@@ -270,6 +274,16 @@ export function EditorClase({ productoId, etapas, clase, etapaInicial, puedeEdit
           persona para la que existe `urlVerVideoAction` (revisión del 06/10/2026). */}
       {soloVer && vistaPrevia}
 
+      {/* ⚠️ LAS NOTAS VAN AFUERA DEL FIELDSET, por la misma razón que «Ver»: comenta quien VE la
+          tab, no sólo un admin, y adentro de un `<fieldset disabled>` la caja y sus botones
+          quedaban muertos para todos los que no editan (#692). Sólo con la clase guardada: una
+          nota cuelga del id de la clase, y una clase nueva todavía no tiene. */}
+      {clase && (
+        <div className="edc-notas">
+          <NotasClase productoId={productoId} destino={{ claseId: clase.id }} puedeBorrarTodo={puedeEditar} onTotal={onNotas} />
+        </div>
+      )}
+
       {confirmNode}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </Modal>
@@ -293,4 +307,5 @@ const CSS = `
 .edc-archivo:hover{ border-color:var(--primary); color:var(--primary); }
 .edc-archivo input{ position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
 .edc-ver{ width:100%; aspect-ratio:16/9; border:0; border-radius:var(--r-md); background:#000; margin-top:8px; }
+.edc-notas{ margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
 `;

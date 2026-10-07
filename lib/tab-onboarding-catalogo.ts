@@ -305,6 +305,45 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     href: '/landing-generator',
   },
 
+  // ── Curso (Customer Success): el programa que ven los clientes en su portal ──
+  //
+  // ⚠️ LOS CUATRO PASOS SE DERIVAN DE LOS DATOS, no de un recorrido. El ws1 ya tenía 107
+  // clases cargadas por script cuando la tab estrenó su onboarding: un paso que exigiera
+  // «hacerlo acá» le habría pedido a Mauricio cargar lo que ya está. La página los marca
+  // sola al dibujarse (app/customer-success/curso/onboarding-sync.ts) y la regla de qué dato
+  // cierra cada paso vive en app/customer-success/curso/onboarding-curso.ts, con test.
+  //
+  // Y NO TAPA LA TAB: es una lista arriba de las clases (molde Reels/Landing Generator), no
+  // un wizard. El curso se arma usándolo.
+  //
+  //   curso_programa → hay al menos una clase EN EL WORKSPACE. ⚠️ Decisión, no descuido: ni una
+  //                    por etapa ni una por producto, porque las dos traban la tab para siempre.
+  //                    Las etapas default terminan en «Entregado», donde no va ninguna clase, y
+  //                    el ws1 tiene dos productos con el curso en uno solo. Lo que falta por
+  //                    etapa lo dice la tab («Sin clases.», «No avanza sola»), y la LISTA cuenta
+  //                    el producto elegido (`checklistCurso`). El porqué, en `pasosDeLosDatos`.
+  //   curso_videos   → alguna clase tiene video. Opcional: un curso de puros formularios existe.
+  //   curso_vista    → el ENSAYO: el equipo abrió la vista del alumno (una vista previa SIN
+  //                    lead, que no crea accesos de clientes reales), o un cliente ya entró.
+  //   curso_invitar  → ya se invitó a alguien. AL FINAL Y OPCIONAL: manda un email real por
+  //                    Resend, así que lo dispara una persona desde Avance, nunca la lista.
+  //
+  // ⚠️ Prefijo `curso_` por la colisión de KEY_PASOS_COMPARTIDOS (ver arriba). Y el ORDEN es
+  // una guarda (`marcarPasoTab` no marca un paso con uno obligatorio anterior pendiente), así
+  // que tiene que coincidir con PASOS_CURSO (el test lo compara).
+  'cs-curso': {
+    key: 'cs-curso',
+    titulo: 'Configuración del curso',
+    nombre: 'Curso',
+    pasos: [
+      { key: 'curso_programa', label: 'Tu programa' },
+      { key: 'curso_videos', label: 'Tus videos', opcional: true },
+      { key: 'curso_vista', label: 'Vista del alumno' },
+      { key: 'curso_invitar', label: 'Tu primer alumno', opcional: true },
+    ],
+    href: '/customer-success/curso',
+  },
+
   // ── Stories: el writer de secuencias de stories ──
   // Hasta el 06/10/2026 el primer paso era `conectar` («Tu cuenta de Instagram»,
   // opcional y compartido con la tab Instagram): salió con ella, porque ya no hay

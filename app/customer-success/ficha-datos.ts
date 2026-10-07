@@ -18,6 +18,10 @@
 
 import { etiquetaEsR2, urlComparable } from '@/lib/insights-llamada-reparto';
 import { hrefPlanDeCliente } from '@/app/plan/board/filtro-cliente';
+// ⚠️ SÓLO EL TIPO. Este módulo lo importa FichaCliente (`'use client'`), y el contrato trae
+// los prompts del análisis: un import de VALOR los bajaría al navegador. El saneo de lo que
+// se lee de la base lo corre el server (./ficha-lectura.ts → `analisisDeFila`).
+import type { AnalisisEntregaVista } from '@/lib/closing-entrega-contrato';
 
 // ⛔ ACÁ VIVÍAN `entregasDe` (la etapa de cada servicio, para el renglón «Entrega» del
 // Resumen) y `conteoDeTrabajo` / `fraseConteo` (el renglón «Trabajo»). Se fueron el 06/10/2026
@@ -48,6 +52,10 @@ export type LlamadaCliente = {
   /** De qué fue, cuando el Closing Analyst lo clasificó: una venta o una sesión de la
    *  entrega. `null` = no clasificada (un link pegado a mano no trae categoría). */
   tipo: 'venta' | 'entrega' | null;
+  /** El análisis de una sesión de ENTREGA (#107): resumen, riesgos y próximos pasos.
+   *  `null` = esta llamada no tiene uno (una venta, o una sesión que todavía no se leyó):
+   *  la fila se dibuja igual, sin nada que desplegar. */
+  analisis?: AnalisisEntregaVista | null;
 };
 
 /** Una fila de `closing_analyses` (mig 0037), ya filtrada a este lead. */
@@ -55,6 +63,9 @@ export type FilaGrabacion = {
   title: string | null; call_date: string | null; started_at: string | null;
   duration_min: number | null; share_url: string | null; call_url: string | null;
   category: string | null;
+  /** Lo que `analisisDeFila` (lib/closing-entrega-contrato.ts) sacó de la fila, ya saneado
+   *  en el server. Opcional: quien no lo lee (o una fila de venta) no lo trae. */
+  analisis?: AnalisisEntregaVista | null;
 };
 
 /**
@@ -97,6 +108,8 @@ export function llamadasDe(opts: {
       url,
       duracionMin: typeof g.duration_min === 'number' && g.duration_min > 0 ? Math.round(g.duration_min) : null,
       tipo: g.category === 'venta' ? 'venta' : g.category === 'entrega_servicio' ? 'entrega' : null,
+      // Sólo una sesión de entrega lleva análisis desplegable: el de una venta vive en el CRM.
+      analisis: g.category === 'entrega_servicio' ? g.analisis ?? null : null,
     });
   }
 

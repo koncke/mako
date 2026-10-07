@@ -13,6 +13,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA } from '../lib/nutricion-etapa';
 import { ambitoDeSecuencia, leadEnAmbito } from '../lib/nutricion-ambito';
+import { clientesEnEtapa } from '../app/customer-success/pertenencia';
+import type { EtapaEntrega } from '../lib/servicio-etapas';
 import { readFileSync } from 'node:fs';
 
 const TODOS = ambitoDeSecuencia(null, null);          // la secuencia no declara embudo
@@ -277,3 +279,137 @@ test('el conteo por etapa vive en la nutrición, y su `null` significa «no pude
 
 // Probado rompiéndolo (05/10/2026): devolviendo `{}` en vez de `null` en el `catch` y en
 // el `if (error)` → 1 fallo; sacando el `.eq('producto_id', …)` → 1 fallo.
+
+// ── La COHORTE de una secuencia de entrega es la del KANBAN ──────────────────
+// Hasta el 06/10/2026 el cron leía sólo las filas de `cliente_entrega` con esa etapa, y un
+// cliente sin fila —que el kanban dibuja en la PRIMERA columna— no estaba en ninguna: en el
+// ws1, 13 de 14. Nadie los había movido, así que tampoco había evento: una secuencia de
+// «Bienvenida» no le llegaba nunca a nadie. La regla vive en `clientesEnEtapa`
+// (app/customer-success/pertenencia.ts) y se ejecuta acá con el UNIVERSO de clientes.
+
+const ETAPAS_P1: EtapaEntrega[] = [
+  { key: 'bienvenida', label: 'Bienvenida', tone: 'info', dot: '#2F6DDB' },
+  { key: 'hito1', label: 'Hito 1', tone: 'teal', dot: '#0E8E7E' },
+  { key: 'hito2', label: 'Hito 2', tone: 'violet', dot: '#6A4BD8' },
+];
+// Los ganados del workspace (el UNIVERSO) y su casa: 1 y 2 son del producto 1 sin moverse,
+// 3 está en Hito 2, 4 es huérfano (su etapa se borró), 5 es del producto 7, y 6 está en el
+// producto 1 SÓLO por su fila. El 99 tiene fila pero ya no es cliente ganado.
+const UNIVERSO = [1, 2, 3, 4, 5, 6];
+const CASA: Record<number, number | null> = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 7, 6: 7 };
+const FILAS_P1: Record<number, { etapa: string }> = {
+  3: { etapa: 'hito2' }, 4: { etapa: 'cimientos' }, 6: { etapa: 'hito1' }, 99: { etapa: 'bienvenida' },
+};
+const cohorte = (
+  etapa: string, etapas: EtapaEntrega[] | null = ETAPAS_P1, productoId = 1, asignacion: Record<number, { etapa: string }> = FILAS_P1,
+  estadoCs: Record<number, string> = {},
+) => clientesEnEtapa({ productoId, etapa, etapas, clientes: UNIVERSO, casa: CASA, asignacion, estadoCs }).sort((a, b) => a - b);
+
+test('el cliente SIN fila está en la cohorte de la PRIMERA etapa, y en ninguna otra', () => {
+  assert.deepEqual(cohorte('bienvenida'), [1, 2], 'los que nadie movió están en la primera columna');
+  assert.deepEqual(cohorte('hito1'), [6]);
+  assert.deepEqual(cohorte('hito2'), [3], 'el que tiene fila está donde dice su fila, y sólo ahí');
+});
+
+test('el huérfano no cae en ninguna, y el que ya no es cliente tampoco', () => {
+  for (const e of ['bienvenida', 'hito1', 'hito2', 'cimientos']) {
+    assert.ok(!cohorte(e).includes(4), `el huérfano cayó en «${e}»: se le inventó una etapa`);
+    // Las FILAS no son el universo: una fila de alguien que ya no está ganado no lo enrola.
+    assert.ok(!cohorte(e).includes(99), `el 99 cayó en «${e}»: la cohorte se armó con las filas`);
+  }
+});
+
+test('el cliente de OTRO producto no entra, aunque esté sin moverse', () => {
+  assert.ok(!cohorte('bienvenida').includes(5), 'el 5 es del producto 7: su primera columna no es ésta');
+  // Y en SU producto sí está en la primera (sin fila allá).
+  assert.deepEqual(cohorte('bienvenida', ETAPAS_P1, 7, {}), [5, 6]);
+});
+
+// ── Y sin los que ya SALIERON de la entrega (revisión del grupo, 06/10/2026) ─────
+// Dar de baja o graduar a un cliente escribe SÓLO `cs_clientes` (marcar_estado_cliente_cs): el
+// lead sigue `ganado`. Sin moverlo, seguía en la primera etapa, y una secuencia nueva en
+// «Bienvenida» del ws1 (envío prendido) le habría mandado la bienvenida a los dados de baja.
+
+test('el dado de baja y el graduado NO entran a la cohorte, aunque nadie los haya movido', () => {
+  const ESTADOS = { 1: 'baja', 3: 'graduado' };
+  assert.deepEqual(cohorte('bienvenida', ETAPAS_P1, 1, FILAS_P1, ESTADOS), [2],
+    'el 1 está sin fila en la primera columna, y se fue: no se le escribe la bienvenida');
+  assert.deepEqual(cohorte('hito2', ETAPAS_P1, 1, FILAS_P1, ESTADOS), [],
+    'el 3 tiene fila en Hito 2 y está graduado: tampoco');
+  // Y en un producto sin tablero (sólo filas) vale lo mismo.
+  assert.deepEqual(cohorte('hito2', null, 1, FILAS_P1, ESTADOS), []);
+});
+
+test('el pausado y el activo SÍ entran (suspendido no es «se fue»), y sin fila es activo', () => {
+  assert.deepEqual(cohorte('bienvenida', ETAPAS_P1, 1, FILAS_P1, { 1: 'pausado', 2: 'activo' }), [1, 2]);
+  assert.deepEqual(cohorte('bienvenida', ETAPAS_P1, 1, FILAS_P1, {}), [1, 2]);
+  // Un estado con espacios (lo escribe una persona por MaKo) se lee igual.
+  assert.deepEqual(cohorte('bienvenida', ETAPAS_P1, 1, FILAS_P1, { 1: ' baja ' }), [2]);
+});
+
+test('un producto que no se ofrece (sin tablero) sólo junta las filas escritas con ESA etapa', () => {
+  // Sin tablero no hay «primera columna» que derivar: entra quien alguien puso ahí.
+  assert.deepEqual(cohorte('hito1', null), [6]);
+  assert.deepEqual(cohorte('bienvenida', null), [], 'el 99 tiene la fila pero no es cliente');
+  assert.deepEqual(cohorte('', ETAPAS_P1), [], 'sin etapa no hay cohorte');
+});
+
+const sinComentariosEtapa = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+test('el cron arma la cohorte de entrega con la regla del kanban, no leyendo las filas', () => {
+  const bloque = sinComentariosEtapa(bloqueDe('lib/nutricion.ts', '  if (triggerTipo === TRIGGER_ENTREGA) {', '\n  return cohorteDeTrigger('));
+  assert.ok(bloque.length < 1500, `el recorte mide ${bloque.length}: está mirando otra cosa`);
+  assert.match(bloque, /clientesEnEtapaDeEntrega\(/, 'la cohorte tiene que salir del universo de la entrega');
+  assert.doesNotMatch(bloque, /'cliente_entrega'/, 'leer las filas directo deja afuera a los que nunca se movieron');
+});
+
+test('el universo de la entrega es ESTRICTO y pasa por la misma regla', () => {
+  const ent = sinComentariosEtapa(bloqueDe('app/customer-success/entrega.ts', 'export async function universoDeLaEntrega(', '\n/**\n * Los clientes que HOY'));
+  // Con una lectura caída, la pantalla dibuja de menos; la cohorte NO puede: le escribiría a
+  // alguien que va por el hito tres un mensaje de bienvenida.
+  assert.match(ent, /productosOfrecibles\(\{ estricto: true \}\)/, 'sin el cruce con los embudos todos caen al primer producto');
+  assert.match(ent, /entregasDeProductos\(ids, \{ estricto: true \}\)/, 'con el catálogo caído la «primera etapa» sería la de fábrica');
+  assert.match(ent, /casasDeLosGanados\(/, 'la casa tiene que salir de la lectura que TIRA, no de la que devuelve {}');
+  assert.doesNotMatch(ent, /casaDeLaCartera\(/, 'casaDeLaCartera se come el error: es la de la pantalla');
+  const coh = sinComentariosEtapa(bloqueDe('app/customer-success/entrega.ts', 'export async function clientesEnEtapaDeEntrega(', '\n}\n'));
+  assert.match(coh, /clientesEnEtapa\(\{/, 'la regla del kanban vive en UN lugar');
+  assert.match(coh, /clientes,/, 'se le pasa el UNIVERSO (los ganados), no las filas');
+});
+
+test('la cohorte del cron lee el estado de Customer Success ESTRICTO y se lo pasa a la regla', () => {
+  const coh = sinComentariosEtapa(bloqueDe('app/customer-success/entrega.ts', 'export async function clientesEnEtapaDeEntrega(', '\n}\n'));
+  assert.match(coh, /estadosCsEstricto\(\)/, 'sin el estado de cs_clientes la cohorte incluye a los dados de baja');
+  assert.match(coh, /estadoCs,\n/, 'el estado tiene que llegar a clientesEnEtapa');
+  const est = sinComentariosEtapa(bloqueDe('app/customer-success/entrega.ts', 'async function estadosCsEstricto(', '\n}\n'));
+  assert.match(est, /leerTodo<[^>]+>\(\s*db, 'cs_clientes'/, 'paginado y con su error: leerTodo TIRA si la lectura falla');
+  assert.doesNotMatch(est, /catch|\?\? \{\}|error\)/, 'una lectura que se come el error contesta «nadie se fue»');
+});
+
+test('el editor de secuencias ofrece también los servicios SIN embudo', () => {
+  const src = sinComentariosEtapa(bloqueDe('lib/setting-secuencias.ts', 'export async function productosConEtapas(', '\n}\n'));
+  assert.match(src, /productosDeLaEntrega\(\)/, 'un servicio con kanban y sin embudo no se podía elegir como disparador');
+  assert.match(src, /funnelId: null, productoId: p\.id/);
+  // Y el selector de producto de la VENTA no los lista: no tienen etapas de venta.
+  const perfil = readFileSync(new URL('../app/chatbot/SecuenciaPerfil.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(perfil, /pr\.funnelId == null \? \[\] : \[\{ value: String\(pr\.funnelId\)/, 'un funnelId null sería la opción «null»');
+});
+
+// PROBADO ROMPIÉNDOLO (06/10/2026). Baseline del archivo: 24 pass / 0 fail. Cada rotura, de a una
+// y restaurada de memoria (el arnés restaura en un `finally`):
+//   1. la cohorte VIEJA (sólo las filas con esa etapa) → 21/3: «SIN fila… PRIMERA etapa», «el
+//      huérfano…» (se le inventa «cimientos») y «OTRO producto» (su tablero sin filas, vacío).
+//   2. sin `esDelProducto` (la cartera entera en todos) → 22/2: «SIN fila…» y «OTRO producto».
+//   3. el universo sacado de las FILAS y no de los ganados → 20/4.
+//   4. el cron leyendo `cliente_entrega` directo → 23/1: «el cron arma la cohorte…».
+//   5. `productosOfrecibles()` tolerante en el universo → 23/1: «ESTRICTO».
+//   6. la casa de `casaDeLaCartera` (se come el error) → 23/1: «ESTRICTO».
+//   7. el editor sin `productosDeLaEntrega` → 23/1: «servicios SIN embudo».
+//   8. el selector de venta listando el `funnelId` null → 23/1: el mismo.
+//
+// Y LOS QUE YA SALIERON (06/10/2026, la revisión del grupo). Baseline: 27 pass / 0 fail.
+//   9. `clientesEnEtapa` sin mirar `estadoCs` → 25/2: «el dado de baja y el graduado…» y «el
+//      pausado y el activo…» (el 1 con ' baja ' entraba).
+//   10. «graduado» fuera de la lista → 26/1.   11. «pausado» adentro → 26/1.
+//   12. el estado sin `trim` → 26/1.
+//   13. la cohorte del cron con `{}` en vez de `estadosCsEstricto()` → 26/1: «…lee el estado de
+//       Customer Success ESTRICTO».   14. la lectura de `cs_clientes` con `.catch(() => [])` → 26/1.

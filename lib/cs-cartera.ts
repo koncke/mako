@@ -18,7 +18,11 @@
 // quién es · hace cuánto es cliente · qué se le prometió · cuándo fue la última
 // conversación (sea sesión o WhatsApp, lo que haya) · qué le falta pagar. El
 // trabajo del tablero se le enchufa después (ver `conTrabajo`, lib/cs-senal.ts):
-// el cruce cliente ↔ proyecto necesita la lista que esta función acaba de traer.
+// el cruce cliente ↔ proyecto necesita la lista de clientes, así que son dos pasos.
+// ⚠️ QUIEN LO ENCHUFA ES MaKo (`carteraConTrabajo`, lib/api-mako/areas/cs.run.ts), que es
+// el ÚNICO lector de esta función: la pantalla de Customer Success no la usa desde la poda
+// del 26/09/2026. Hasta el 06/10/2026 este comentario decía que lo hacía la página, y no
+// lo hacía nadie — `tareasAtrasadas` era null para todos por la API.
 //
 // ⚠️ CADA LECTURA PUEDE FALLAR, Y ESO NO ES UN CERO. `pagos`, `closing_analyses`
 // y `wa_mensajes` vuelven con un `ok` propio: un error de consulta convertido en
@@ -218,8 +222,9 @@ export async function cartera(): Promise<ClienteCartera[]> {
       esperaRespuestaHace,
       tieneContrato,
       contratoTerminado: reloj.terminado,
-      // El tablero todavía no se leyó: lo enchufa `conTrabajo` desde la página.
-      // `null` es «no lo sé», que es exactamente lo que se sabe en este punto.
+      // El tablero todavía no se leyó: lo enchufa `conTrabajo` quien lee la cartera
+      // (MaKo, lib/api-mako/areas/cs.run.ts). `null` es «no lo sé», que es
+      // exactamente lo que se sabe en este punto.
       tareasAbiertas: null,
       tareasAtrasadas: null,
     };

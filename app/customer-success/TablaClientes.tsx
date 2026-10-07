@@ -42,6 +42,8 @@ import { Marca } from '@/app/_components/Marca';
 import { Dropdown } from '@/app/components/Dropdown';
 import { colorDe } from './ClienteCard';
 import { opcionesDeEtapas } from './LoteClientes';
+// La regla de «qué es de la fase» es UNA y la usan el kanban, la tabla y el contador.
+import { columnasVisibles } from './BarraClientes';
 import { useFotoCliente } from './foto-cliente';
 import { tiempoEnEtapa } from './en-etapa';
 import { repartirEnEtapas, colorDeEtapa, faseDe, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
@@ -173,7 +175,7 @@ type EnMano = {
 
 export function TablaClientes({
   filas, numeroDe, resumenDe, tableroOk,
-  etapas, fases, asignacion,
+  etapas, fases, fase, asignacion,
   onMover, onMoverLote,
   seleccion, onSeleccion,
   onAbrir, onNuevo,
@@ -189,6 +191,15 @@ export function TablaClientes({
   etapas: EtapaEntrega[] | null;
   /** Los tramos que le dan su color a las etapas (`colorDeEtapa`). Vacío es lo normal. */
   fases: FaseEntrega[];
+  /**
+   * La FASE que se mira, ya VIGENTE (`faseVigente`). `null` = todas.
+   *
+   * ⚠️ SIN DEFAULT, A PROPÓSITO: hasta el 06/10/2026 la tabla no la recibía y la sección
+   * «Fase» de Filtrar se escondía en esta vista. Con un `= null`, el día que alguien monte
+   * la tabla sin pasarla vuelve a mostrar todo con el filtro puesto — y «N de M» (que sale
+   * de la misma regla en ClientesApp) diría otra cosa que lo que se ve.
+   */
+  fase: string | null;
   /** leadId → su etapa en ESTE servicio. Sin fila = está en la PRIMERA (derivado). */
   asignacion: Record<number, Asignacion>;
   onMover: (leadId: number, etapa: string) => void;
@@ -287,7 +298,7 @@ export function TablaClientes({
     // Si la fila está seleccionada y hay más, se mueve la SELECCIÓN — pero sólo lo que se
     // VE: seleccionar lo que no está en pantalla es cómo se cambia de más (la misma cuenta
     // que hace el «todos» de la tabla del Plan).
-    const selVisibles = filas.filter((c) => seleccion.has(c.leadId)).map((c) => c.leadId);
+    const selVisibles = dibujadas.filter((c) => seleccion.has(c.leadId)).map((c) => c.leadId);
     const lote = seleccion.has(leadId) && selVisibles.length > 1;
     const ids = lote ? selVisibles : [leadId];
     const etapasDeIds = new Set(ids.map(etapaDe));
@@ -349,18 +360,34 @@ export function TablaClientes({
     onSeleccion(n);
   };
 
-  // Los grupos, en el orden del tablero, y al final los de una etapa borrada.
+  /**
+   * Los grupos, en el orden del tablero, y al final los de una etapa borrada.
+   *
+   * ⚠️ LA FASE ESCONDE GRUPOS CON LA MISMA `columnasVisibles` QUE EL KANBAN (06/10/2026). Es
+   * un filtro del RENDER, no del reparto: `repartirEnEtapas` sigue recibiendo las etapas
+   * ENTERAS, o los clientes de las etapas escondidas saldrían como huérfanos.
+   *
+   * ⚠️ Y «ETAPA BORRADA» SÓLO SIN FASE: un cliente en una etapa que ya no existe no es de
+   * ninguna fase, igual que en el kanban, que con una fase puesta no reparte huérfanos. La
+   * misma regla decide qué cuenta «N de M» (`clientesEnPantalla`, en ./BarraClientes).
+   */
   const grupos = reparto && etapas
     ? [
-      ...etapas.map((e) => ({
+      ...columnasVisibles(etapas, fases, fase).map((e) => ({
         key: e.key, label: e.label, color: colorDeEtapa(e, fases), fase: faseDe(fases, e.fase)?.label ?? null,
         clientes: reparto.porEtapa[e.key] ?? [], borrada: false,
       })),
-      ...(reparto.huerfanos.length
+      ...(reparto.huerfanos.length && fase === null
         ? [{ key: BORRADA, label: 'Etapa borrada', color: 'var(--bad)', fase: null, clientes: reparto.huerfanos, borrada: true }]
         : []),
     ]
     : [];
+  /**
+   * Las filas que la tabla DIBUJA. Con una fase puesta no son `filas`: los de los grupos
+   * escondidos están en la lista y no en pantalla, y arrastrar una selección los movería
+   * igual — es la regla de la barra de lote, «se actúa sobre los elegidos que se ven».
+   */
+  const dibujadas = agrupada ? grupos.flatMap((g) => g.clientes) : filas;
 
   /**
    * «Todos» es sobre lo VISIBLE: si un grupo está plegado, sus filas no se ven y no entran.

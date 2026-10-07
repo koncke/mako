@@ -318,10 +318,13 @@ export function ordenCartera(
  * señal y la vuelve a ordenar.
  *
  * Existe porque el trabajo no se puede leer dentro de `cartera()`: el cruce
- * cliente ↔ proyecto necesita la lista de clientes que `cartera()` acaba de
- * traer (app/customer-success/trabajo.ts), así que son dos pasos. La señal se
- * calcula igual en el primero —con el trabajo en `null`, o sea «no lo sé»— para
- * que un fallo del tablero nunca deje la cartera sin ordenar.
+ * cliente ↔ proyecto necesita la lista de clientes (app/customer-success/trabajo.ts,
+ * `tableroDeLaCartera`), así que son dos pasos. La señal se calcula igual en el
+ * primero —con el trabajo en `null`, o sea «no lo sé»— para que un fallo del tablero
+ * nunca deje la cartera sin ordenar.
+ *
+ * Lo llama MaKo (`carteraConTrabajo`, lib/api-mako/areas/cs.run.ts), que es quien lee
+ * la cartera. Hasta el 06/10/2026 no lo llamaba nadie fuera de su test.
  *
  * `porLead === null` = el tablero no se pudo leer. No es «no tiene trabajo».
  */

@@ -8,7 +8,7 @@
 //
 // Lo que se fija acá, y por qué cada cosa:
 //
-//  · LA REGLA de «qué es de un cliente» es la de su ficha (`filasDeCliente`): los proyectos
+//  · LA REGLA de «qué es de un cliente» es la de su ficha (`filasDeTodos`): los proyectos
 //    que lo declaran, y las tareas que lo declaran MÁS las de esos proyectos. Si el filtro
 //    contestara distinto, «Ver en el Plan» llevaría a otra lista que la que la ficha acaba
 //    de mostrar. Se prueba con DOS clientes: con uno solo, una regla que ignore el id pasa.

@@ -520,6 +520,13 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
      * falta elegirlo antes ni adivinarlo después: con los defaults, los dos productos
      * tienen las MISMAS cinco claves, así que deducirlo de la etapa sería elegir uno al
      * azar.
+     *
+     * ⚠️ UNA SECUENCIA EN UNA ETAPA CON CLASES SE SUMA AL MENSAJE DEL CURSO. Cuando el curso
+     * mueve solo a un cliente a una etapa con clases, ya le escribe «ya tienes abierta X»
+     * (lib/curso-avance.ts), y el mismo movimiento dispara el evento de entrega: con una
+     * secuencia colgada de esa etapa le llegan los dos. No se avisa en pantalla porque este
+     * selector no sabe qué etapas tienen clases; queda escrito acá y en
+     * docs/hallazgos-customer-success.md.
      */
     const deEntrega = prodSel ? [prodSel] : productos;
     const puesta = (secuencia.etapa ?? '').trim();
@@ -775,7 +782,10 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
                 />
                 <Dropdown
                   value={funnelSel == null ? '' : String(funnelSel)}
-                  options={[{ value: '', label: 'Todos los productos' }, ...productos.map((pr) => ({ value: String(pr.funnelId), label: pr.nombre }))]}
+                  // Sólo los que tienen EMBUDO: un servicio sin embudo no tiene etapas de venta,
+                  // y su `funnelId` null se volvería la opción «null». Sus etapas de entrega
+                  // salen igual en el desplegable de arriba, con «Todos los productos».
+                  options={[{ value: '', label: 'Todos los productos' }, ...productos.flatMap((pr) => (pr.funnelId == null ? [] : [{ value: String(pr.funnelId), label: pr.nombre }]))]}
                   onChange={(v) => {
                     const fid = v === '' ? null : Number(v);
                     setFunnelSel(fid);

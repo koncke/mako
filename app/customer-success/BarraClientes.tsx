@@ -30,7 +30,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
 import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
-import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
+import { repartirEnEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 
 /**
  * Las formas de mirar la misma lista. Es UN valor y no un booleano por vista: con
@@ -181,6 +181,42 @@ export function opcionesDeFase(etapas: readonly EtapaEntrega[], fases: readonly 
  */
 export function faseVigente(pedida: string | null, opciones: readonly OpcionFase[]): string | null {
   return pedida !== null && opciones.some((o) => o.valor === pedida) ? pedida : null;
+}
+
+/**
+ * LOS CLIENTES QUE LA VISTA DIBUJA, con `fase` elegida. De acá sale lo que la pantalla
+ * cuenta («N de M»), elige en lote («Seleccionar todos») y exporta.
+ *
+ * ⚠️ CON LAS MISMAS DOS FUNCIONES QUE DIBUJAN: `repartirEnEtapas` (un cliente sin fila está
+ * en la primera) y `columnasVisibles` (qué es «de la fase»). Con una cuenta propia, el
+ * contador diría un número y el riel —o la tabla— mostraría otro.
+ *
+ * ⚠️ LOS HUÉRFANOS (una fila con una etapa que el catálogo ya no tiene) CUENTAN SÓLO DONDE
+ * TIENEN UNA FILA DIBUJADA: en la TABLA y sin fase, que es donde sale el grupo «Etapa
+ * borrada». El kanban no les dibuja tarjeta —los nombra en un aviso al pie—, y con una fase
+ * puesta la tabla tampoco los muestra (no son de ninguna fase). Contarlos ahí es lo que
+ * encontró la auditoría del 06/10/2026 con la clienta del ws1 que quedó en «onboarding»:
+ * «N de M» la sumaba sin que el kanban tuviera su tarjeta, y «Seleccionar todos» la elegía
+ * sin que se viera. Por eso el flag lo pasa la VISTA (`conHuerfanos`): es una propiedad de
+ * qué se dibuja, no de la fase.
+ *
+ * Sin etapas (no hay servicio elegido) no hay columnas que esconder: van todos.
+ */
+export function clientesEnPantalla<C>(
+  etapas: readonly EtapaEntrega[],
+  fases: readonly FaseEntrega[],
+  fase: string | null,
+  clientes: readonly C[],
+  etapaDe: (c: C) => string | null | undefined,
+  conHuerfanos: boolean,
+): C[] {
+  if (!etapas.length) return [...clientes];
+  const { porEtapa, huerfanos } = repartirEnEtapas(etapas, clientes, etapaDe);
+  const se = new Set<C>();
+  for (const e of columnasVisibles(etapas, fases, fase)) for (const c of porEtapa[e.key] ?? []) se.add(c);
+  if (conHuerfanos && fase === null) for (const c of huerfanos) se.add(c);
+  // En el orden en que llegaron: el orden lo decidió «Ordenar», no el reparto.
+  return clientes.filter((c) => se.has(c));
 }
 
 export const FILTRO_LABEL: Record<FiltroClientes, string> = {

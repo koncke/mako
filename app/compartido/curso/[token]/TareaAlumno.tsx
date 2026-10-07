@@ -25,6 +25,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Campo, EstadoTarea, Valores, ValorCampo } from '@/lib/curso';
 import { Button, Input, Textarea, Radio, Checkbox } from '@/app/_ui';
 import { filasDeTabla, filaVacia, queFalta, fraseQueFalta } from './tarea-valores';
+import { useVistaPrevia } from './vista-previa';
 
 const URL_TAREA = '/api/compartido/curso/tarea';
 const RESPIRO_MS = 2500;
@@ -49,6 +50,7 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
   /** El envío completó la etapa y el cliente pasó a la siguiente. */
   onAvance: () => void;
 }) {
+  const previa = useVistaPrevia();
   const [valores, setValores] = useState<Valores>(valoresIniciales);
   const [estado, setEstado] = useState<EstadoTarea>(estadoInicial);
   const [editando, setEditando] = useState(estadoInicial === 'pendiente');
@@ -65,6 +67,10 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
   const autoguarda = estado === 'pendiente';
 
   const mandar = useCallback(async (v: Valores, enviar: boolean): Promise<Respuesta | null> => {
+    // ⚠️ VISTA PREVIA DEL EQUIPO: no hay alumno, así que no sale nada (./vista-previa.ts). Se
+    // contesta en local lo mismo que contestaría el server, para que el formulario se pueda
+    // probar entero; el pie del portal dice que no se guarda.
+    if (previa) return { ok: true, progreso: { estado: enviar ? 'enviada' : 'pendiente', valores: v }, faltaCompletar: false, avance: null };
     try {
       const r = await fetch(URL_TAREA, {
         method: 'POST',
@@ -76,7 +82,7 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
     } catch {
       return null;
     }
-  }, [token, claseId]);
+  }, [previa, token, claseId]);
 
   const guardarBorrador = useCallback(async (v: Valores) => {
     window.clearTimeout(timer.current);
@@ -103,7 +109,7 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
   // un `fetch` normal no. Sólo el borrador de una tarea pendiente (nunca un envío).
   useEffect(() => {
     const salir = () => {
-      if (!autoguarda || !sucio.current || typeof navigator.sendBeacon !== 'function') return;
+      if (previa || !autoguarda || !sucio.current || typeof navigator.sendBeacon !== 'function') return;
       const ok = navigator.sendBeacon(URL_TAREA, new Blob(
         [JSON.stringify({ t: token, c: claseId, valores: ultimo.current, enviar: false })],
         { type: 'text/plain' },
@@ -119,7 +125,7 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
       window.clearTimeout(timer.current);
       salir();
     };
-  }, [autoguarda, token, claseId]);
+  }, [previa, autoguarda, token, claseId]);
 
   async function enviar() {
     window.clearTimeout(timer.current);

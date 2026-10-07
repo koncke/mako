@@ -21,6 +21,11 @@
 //   · `/api/compartido/curso/tarea` fuera de PUBLICOS_ESCRITURA              → 20 / 1 «las que escriben…»
 //   · la página contando el ingreso DESPUÉS de armar la vista                → 20 / 1 «la página también…»
 //   · PortalAlumno importando un VALOR de lib/curso-portal                   → 20 / 1 «sólo importan TIPOS»
+// Y los dos de la mig 0208 (06/10/2026, scratchpad/curso-admin-roturas.mjs). Con todo en su lugar,
+// 23 pass / 0 fail; cada rotura da 22 / 1:
+//   · `armarVistaAlumno` nombrando `curso_clase_notas`                        → «no lee las notas»
+//   · app/mi-curso/portal-comun.tsx nombrando el bucket `curso-notas`         → «no lee las notas»
+//   · `claseVista` copiando `grabar` de la clase                              → «lista blanca»
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -289,4 +294,39 @@ test('los componentes del portal sólo importan TIPOS de lib/curso-portal (trae 
     const imports = [...src.matchAll(/import\s+(type\s+)?[^;]*?from\s+['"]@\/lib\/curso-portal['"]/g)];
     for (const m of imports) assert.ok(m[1], `${f}: importa un VALOR de lib/curso-portal`);
   }
+});
+
+// ── Lo del EQUIPO no viaja al alumno (mig 0208: las notas y la marca de grabar) ──────────────
+
+/** Todos los .ts/.tsx de una carpeta, recursivo. */
+const fuentesDe = (rel: string): string[] => {
+  const out: string[] = [];
+  const bajar = (d: string) => {
+    for (const e of readdirSync(join(RAIZ, d), { withFileTypes: true })) {
+      const r = `${d}/${e.name}`;
+      if (e.isDirectory()) bajar(r);
+      else if (/\.tsx?$/.test(e.name)) out.push(r);
+    }
+  };
+  bajar(rel);
+  return out;
+};
+
+// ⚠️ LAS NOTAS DEL EQUIPO JAMÁS LLEGAN AL PORTAL (#692): pueden nombrar a otros clientes de
+// Mauricio. Se mira el FUENTE del portal entero —lib/curso-portal.ts, la página, las rutas y
+// /mi-curso—, no sólo `claseVista`: una lectura nueva en cualquiera de ellos las filtraría.
+test('el portal del alumno no lee las notas del equipo ni su bucket', () => {
+  const archivos = ['lib/curso-portal.ts', ...fuentesDe('app/compartido/curso'), ...fuentesDe('app/api/compartido/curso'), ...fuentesDe('app/mi-curso')];
+  assert.ok(archivos.length >= 8, `barrí sólo ${archivos.length} archivos: la lista de carpetas quedó vieja`);
+  for (const f of archivos) {
+    assert.doesNotMatch(leer(f), /curso_clase_notas|curso-notas|NotasClase/, `${f} toca las notas del equipo`);
+  }
+});
+
+test('claseVista es una lista blanca: la marca de grabar (ni nada que no esté en ella) no viaja', () => {
+  const conMarca = { ...clase(1), grabar: true, notas: ['interna'] } as unknown as Clase;
+  const [e] = armarEtapas([{ key: 'e1', label: 'Uno' }], 'e1', [conMarca], new Map());
+  assert.deepEqual(Object.keys(e.clases[0]).sort(), [
+    'campos', 'descripcion', 'estado', 'id', 'minutos', 'obligatoria', 'pct', 'tarea', 'tieneTarea', 'titulo', 'valores', 'video',
+  ]);
 });

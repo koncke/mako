@@ -20,9 +20,10 @@
 //
 // ⚠️ LA PUERTA SE PREGUNTA EN CADA ACTION, no al abrir la pestaña: una server action es un POST
 // que cualquiera puede mandar con cualquier `leadId`. Las tres preguntas son las de la página y
-// las de ./actions.ts: hay sesión contra la base, el workspace tiene Customer Success en su capa
-// (`requireCapa('customer-success')` de page.tsx, sin el redirect: acá se contesta), y el lead
-// es un cliente GANADO de ESTE workspace (`clienteDelWorkspace` de ./actions.ts). Fail-closed.
+// las de ./actions.ts: hay sesión contra la base y el workspace tiene Customer Success en su capa
+// (`puedeUsarCs` de ./puerta.ts, que es `requireCapa('customer-success')` de page.tsx sin el
+// redirect), y el lead es un cliente GANADO de ESTE workspace. Fail-closed. La primera línea de
+// cada export es `puerta(leadId)`: lo fija tests/cs-acciones-puerta.test.ts.
 //
 // ⚠️ ABRIR LA PESTAÑA NO ESCRIBE NADA (06/10/2026). Hasta acá `cursoDeClienteAction` llamaba a
 // `linkDeAcceso`, que CREA la fila del acceso: mirar la ficha «le daba acceso» a alguien, y la
@@ -30,8 +31,8 @@
 // fila nace sólo en las tres acciones que la necesitan: invitar, copiar el link y mandarlo por
 // WhatsApp. Lo fija tests/curso-ficha.test.ts.
 
-import { getTenantDb, getWorkspaceActual, getCapaActual, getRolWsEfectivo, getWorkspace } from '@/lib/workspace';
-import { tabEnCapa } from '@/lib/capas';
+import { getTenantDb, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
+import { puedeUsarCs } from './puerta';
 import { getUsuarioActual } from '@/lib/auth';
 import { listProductos } from '@/lib/productos';
 import { entregasDeProductos } from '@/lib/entrega-servicio';
@@ -43,7 +44,7 @@ import { invitarAlCursoPorEmail } from '@/lib/invitaciones';
 import {
   clasesDelProducto, claseDeId, progresoDelCliente, accesoDe, linkDeAcceso, urlDeToken, marcarInvitacion,
   revocarAcceso, reactivarAcceso, sesionesDe, agendarSesion, borrarSesion, aprobarTarea, productosDelAlumno,
-  etapaActualDe, type EstadoAcceso, type Sesion,
+  ubicacionEnEntregaDe, type EstadoAcceso, type Sesion,
 } from '@/lib/curso-datos';
 import { mandarLinkDelCurso } from '@/lib/curso-mensajes';
 import type { Clase, EstadoTarea } from '@/lib/curso';
@@ -76,11 +77,15 @@ type LeadPuerta = { nombre: string; email: string | null };
  *
  * Devuelve el nombre y el email del lead porque ya los tiene en la mano: pedirlos aparte para el
  * modal de invitar sería una segunda lectura de la misma fila.
+ *
+ * ⚠️ LA SESIÓN Y LA CAPA SON `puedeUsarCs` (./puerta.ts), la MISMA que abre cada action de
+ * ./actions.ts, y van PRIMERO: no se le contesta nada sobre un cliente a quien no tiene la tab.
+ * Hasta el 06/10/2026 estas dos preguntas estaban escritas acá a mano, y las de ./actions.ts no
+ * existían: dos lugares para una regla, y uno vacío.
  */
 async function puerta(leadId: number): Promise<{ ok: true; lead: LeadPuerta } | Fallo> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   if (!Number.isInteger(leadId) || leadId <= 0) return { ok: false, error: 'Ese cliente no existe.' };
-  if ((await getRolWsEfectivo()) == null) return { ok: false, error: 'Tu sesión venció. Vuelve a entrar.' };
-  if (!tabEnCapa('customer-success', await getCapaActual())) return { ok: false, error: 'Esta cuenta no tiene Customer Success.' };
   const db = await getTenantDb();
   const { data, error } = await db.from('leads').select('id, nombre, email').eq('id', leadId).eq('estado_lead', 'ganado').maybeSingle();
   if (error) return { ok: false, error: `No pude verificar el cliente: ${error.message}` };
@@ -138,9 +143,14 @@ async function cursosDelCliente(leadId: number): Promise<{ ids: number[]; cursos
 /**
  * Sus productos CON CLASES, armados por etapa, con la actual marcada y la fila de Avance.
  *
- * ⚠️ `etapaActualDe` SÓLO PARA LOS QUE TIENEN CLASES. Cada llamada vuelve a resolver los productos
- * del alumno salvo que se le pasen (`ids`), así que pedirla para un producto sin curso es pagar
- * esa lectura para no dibujar nada.
+ * ⚠️ `ubicacionEnEntregaDe` SÓLO PARA LOS QUE TIENEN CLASES. Cada llamada vuelve a resolver los
+ * productos del alumno salvo que se le pasen (`ids`), así que pedirla para un producto sin curso
+ * es pagar esa lectura para no dibujar nada.
+ *
+ * ⚠️ Y ES `ubicacionEnEntregaDe`, NO `etapaActualDe`: con la etapa de su fila borrada, la otra
+ * contesta «la primera» (la regla del portal) y esta pestaña marcaba «Actual» una etapa mientras
+ * la cabecera de la misma ficha decía «Etapa borrada». `borrada` viaja a `armarProducto`, que no
+ * marca ninguna y lo dice en la fila de Avance.
  */
 async function productosConCurso(leadId: number): Promise<ProductoFicha[]> {
   const { ids, cursos } = await cursosDelCliente(leadId);
@@ -148,7 +158,7 @@ async function productosConCurso(leadId: number): Promise<ProductoFicha[]> {
   const [entregas, progreso, actuales] = await Promise.all([
     entregasDeProductos(cursos.map((c) => c.productoId)),
     progresoDelCliente(leadId),
-    Promise.all(cursos.map((c) => etapaActualDe(leadId, c.productoId, ids))),
+    Promise.all(cursos.map((c) => ubicacionEnEntregaDe(leadId, c.productoId, ids))),
   ]);
   const out: ProductoFicha[] = [];
   cursos.forEach((c, i) => {
@@ -160,7 +170,8 @@ async function productosConCurso(leadId: number): Promise<ProductoFicha[]> {
       etapas: (cfg?.etapas ?? []).map((e) => ({ key: e.key, label: e.label, color: colorDeEtapa(e, cfg?.fases ?? []) })),
       clases: c.clases,
       progreso,
-      etapaActual: actuales[i],
+      etapaActual: actuales[i].etapa,
+      etapaBorrada: actuales[i].borrada,
     });
     if (p) out.push(p);
   });

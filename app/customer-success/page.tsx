@@ -34,13 +34,14 @@ import { listarWorkspaces } from '@/lib/workspace';
 import { listarUsuarios } from '@/lib/usuarios';
 import { caraDeUsuario, urlGravatar } from '@/lib/gravatar';
 import { getSesionAdmin } from '@/lib/auth';
+import { PARAM_CLIENTE, leerClienteDeUrl } from '@/app/plan/board/filtro-cliente';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata = { title: 'Clientes · Customer Success' };
 
-export default async function CustomerSuccessPage() {
+export default async function CustomerSuccessPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireCapa('customer-success');
 
   // ⚠️ LA MISMA TAB CONTESTA DOS PREGUNTAS SEGUN QUIEN MIRE, y no es un atajo: es
@@ -235,6 +236,25 @@ export default async function CustomerSuccessPage() {
    * foto armada acá diría la etapa de antes de moverlo.
    */
   const fichas = await lecturaFichas;
+
+  /**
+   * LA FICHA QUE LLEGA ABIERTA: `?cliente=<leadId>`. Se lee ACÁ y no en el navegador, por
+   * lo mismo que `?vista=` en el Plan: viene con el primer HTML, así que un F5 o un link
+   * compartido abren la ficha sin un parpadeo de la cartera entera antes.
+   *
+   * ⚠️ EL PARSER ES EL DEL PLAN (`leerClienteDeUrl`, entero estricto): `parseInt('12abc')`
+   * es 12, y un parámetro a medio escribir que abre la ficha de OTRO cliente es peor que
+   * uno que no abre nada. Y el nombre del parámetro también es el suyo (`PARAM_CLIENTE`):
+   * es el mismo dato —«este cliente»— en dos pantallas, y dos strings a mano se separan.
+   *
+   * ⚠️ SÓLO EN ESTA RAMA, NO EN LA DEL SUPER ADMIN SIN IMPERSONAR: ahí la pantalla es la
+   * grilla de WORKSPACES (`AdminView`), y un leadId no nombra a ninguno.
+   *
+   * No autoriza nada: si el id no es de un cliente de esta cartera, `ClientesApp` no abre
+   * ninguna ficha (la busca en la lista que ya pasó por `getWorkspaceActual`).
+   */
+  const clienteInicial = leerClienteDeUrl((await searchParams)[PARAM_CLIENTE]);
+
   const clientesConFicha: ClienteCruce[] = clientes.map((c) => ({
     ...c,
     ficha: {
@@ -260,6 +280,7 @@ export default async function CustomerSuccessPage() {
          verdad lo vuelve a hacer el server action, porque esconder un botón no protege
          nada. */
       puedeEditarEtapas={(await adminDeWorkspaceActual()) != null}
+      clienteInicial={clienteInicial}
     />
   );
 }

@@ -59,7 +59,15 @@ export async function chatClaude(
   // feature: categoría del gasto (ej. 'ads-rename'). motivo: razón concreta y legible
   // (ej. 'Debate de prioridad') para el historial. onUsage: callback con los
   // tokens/costo de ESTA llamada (para mostrarlo al usuario).
-  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void } = {},
+  //
+  // ⏱ hastaMs: fecha ABSOLUTA (epoch ms) en la que la llamada ENTERA tiene que haber
+  // terminado —la cascada barata con sus reintentos, o el pedido a Claude—. Es para quien
+  // corre con un reloj ajeno (un cron con maxDuration): sin esto, `maxTokens × 12` acota UN
+  // intento y la cascada puede encadenar varios. Si el plazo no alcanza, FALLA: nunca paga
+  // Claude para ganar tiempo. Sin hastaMs no cambia nada.
+  // sinRespaldoDeModelo: la cascada no cae al modelo de respaldo del proveedor
+  // (flash-lite). Para las features que no se degradan de MODELO, no sólo de proveedor.
+  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean } = {},
 ): Promise<string> {
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), delegamos a la
@@ -118,6 +126,7 @@ export async function chatClaude(
         const salida = await chatCheapCascade({
           system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
           provs, modelos: { [ref.provider as ProvName]: ref.model }, timeoutMs, esfuerzo, erroresOut: errores,
+          hastaMs: opts.hastaMs, sinRespaldoDeModelo: opts.sinRespaldoDeModelo,
         });
         if (salida.trim()) return salida;
         // ⛔ `fallback: []` SIGNIFICA «NO DEGRADES», NO «PAGÁ CLAUDE».
@@ -136,6 +145,12 @@ export async function chatClaude(
         // repuesta. Cero degradación, cero pesos, y el trabajo se hace igual, más tarde.
         if (permitidos && permitidos.length === 0) {
           noSePuedeSeguir = `${opts.feature}: ${ref.provider} no contestó y esta feature no se degrada ni se paga (${errores.join(' · ').slice(0, 200) || 'sin respuesta'}). Se reintenta en la próxima corrida.`;
+          console.warn(`[anthropic] ${noSePuedeSeguir}`);
+        } else if (opts.hastaMs !== undefined && opts.hastaMs - Date.now() < 15_000) {
+          // ⏱ Se acabó el plazo del caller: se falla también en las features que SÍ pueden
+          // pagar. Un pedido a Claude con el reloj vencido no termina a tiempo, y cobrar
+          // una respuesta que nadie va a esperar es lo peor de los dos mundos.
+          noSePuedeSeguir = `${opts.feature}: ${ref.provider} no contestó antes del plazo (${errores.join(' · ').slice(0, 200) || 'sin respuesta'}). Se reintenta en la próxima corrida.`;
           console.warn(`[anthropic] ${noSePuedeSeguir}`);
         } else {
           // Para el resto: toda la cascada gratis falló y recién ACÁ se paga, con Sonnet
@@ -186,6 +201,11 @@ export async function chatClaude(
   // El antiguo { type: 'enabled', budget_tokens } ya no existe en este modelo.
   if (thinkingOn) payload.thinking = { type: 'adaptive' };
 
+  // ⏱ El plazo del caller vale también acá: sin él, este pedido no tiene timeout ninguno.
+  // Y con el reloj vencido no se arranca, por lo mismo que en la cascada.
+  if (opts.hastaMs !== undefined && opts.hastaMs - Date.now() < 15_000) {
+    throw new Error(`${opts.feature ?? 'chatClaude'}: no queda plazo para pedirle a Claude. Se reintenta en la próxima corrida.`);
+  }
   const res = await fetch(permiso.endpoint, {
     method: 'POST',
     headers: {
@@ -195,6 +215,7 @@ export async function chatClaude(
     },
     body: JSON.stringify(payload),
     cache: 'no-store',
+    ...(opts.hastaMs !== undefined ? { signal: AbortSignal.timeout(opts.hastaMs - Date.now()) } : {}),
   });
 
   const body = await res.json();

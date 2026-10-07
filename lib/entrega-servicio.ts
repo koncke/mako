@@ -73,27 +73,66 @@ function filaAEntrega(f: FilaCatalogo): EntregaConfig {
  * default. Es la forma que necesita el kanban: la barra lista todos los productos y
  * no puede quedarse sin columnas para el que nadie configuró todavía.
  */
-export async function entregasDeProductos(ids: readonly number[]): Promise<Map<number, EntregaConfig>> {
+export async function entregasDeProductos(
+  ids: readonly number[],
+  /**
+   * `estricto` TIRA en vez de caer a los defaults. Lo pide quien decide A QUIÉN se le
+   * escribe (la cohorte de una secuencia de entrega): con el catálogo caído, la «primera
+   * etapa» sería la de fábrica y no la que el negocio declaró, y un cliente sin fila caería
+   * en una columna que su tablero no tiene.
+   */
+  opts: { estricto?: boolean } = {},
+): Promise<Map<number, EntregaConfig>> {
   const pedidos = [...new Set(ids.filter((n) => Number.isFinite(n) && n > 0))];
   const out = new Map<number, EntregaConfig>(pedidos.map((id) => [id, entregaPorDefecto(id)]));
   if (!pedidos.length) return out;
 
-  const db = await getTenantDb();
-  const { data, error } = await db.from('producto_entrega').select(COLS_CATALOGO).in('producto_id', pedidos);
-  if (error) {
-    // Fail-closed RUIDOSO: se devuelven los defaults (el tablero se dibuja) y queda
-    // dicho que no se pudo leer, porque «no configuró» y «no pude leer» son dos cosas.
-    console.error(`[entrega-servicio] no pude leer el catálogo de ${pedidos.length} producto(s): ${error.message}`);
-    return out;
-  }
-  for (const f of (data ?? []) as FilaCatalogo[]) out.set(f.producto_id, filaAEntrega(f));
+  // Fail-closed RUIDOSO: si la lectura falla se devuelven los defaults (el tablero se
+  // dibuja) y queda dicho en el log, porque «no configuró» y «no pude leer» son dos cosas.
+  // ⚠️ Esto sirve para DIBUJAR. Para DECIDIR (validar una etapa antes de escribirla) va
+  // `entregaDeProductoEstricta`, que no cae al default: ver ahí por qué. Y quien decide A
+  // QUIÉN se le escribe (la cohorte de una secuencia) pide `estricto`, que tira.
+  const filas = await leerCatalogo(pedidos);
+  if (!filas && opts.estricto) throw new Error('producto_entrega: no pude leer el catálogo');
+  for (const f of filas ?? []) out.set(f.producto_id, filaAEntrega(f));
   return out;
+}
+
+/** Las filas del catálogo de esos productos, o `null` si la consulta falló (nunca `[]`). */
+async function leerCatalogo(pedidos: readonly number[]): Promise<FilaCatalogo[] | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('producto_entrega').select(COLS_CATALOGO).in('producto_id', [...pedidos]);
+  if (error) {
+    console.error(`[entrega-servicio] no pude leer el catálogo de ${pedidos.length} producto(s): ${error.message}`);
+    return null;
+  }
+  return (data ?? []) as FilaCatalogo[];
 }
 
 /** Las etapas de entrega de UN producto (su default si no declaró nada). */
 export async function entregaDeProducto(productoId: number): Promise<EntregaConfig> {
   const m = await entregasDeProductos([productoId]);
   return m.get(productoId) ?? entregaPorDefecto(productoId);
+}
+
+/**
+ * Las etapas de UN producto para DECIDIR algo con ellas. `null` = NO SE PUDIERON LEER.
+ *
+ * ⚠️ LA DIFERENCIA CON `entregaDeProducto` ES LO QUE PASA CUANDO LA CONSULTA FALLA. Aquélla
+ * cae a las etapas DEFAULT (onboarding, arranque, hito1…), que es lo correcto para dibujar un
+ * tablero y es un dato INVENTADO para validar: el choke point (lib/cs-mover-etapa.ts) daba
+ * por buena «onboarding» sobre un producto que ya tenía sus nueve etapas declaradas, la
+ * escribía, y el cliente quedaba en una columna que el kanban no dibuja — sin un error en
+ * pantalla. Es la causa probable de la clienta huérfana del ws1 (relevo del 06/10/2026).
+ *
+ * Sin fila SÍ es el default, y es legítimo: un producto que nadie configuró se dibuja con
+ * esas etapas, así que validar contra ellas es validar contra lo que la pantalla muestra.
+ */
+export async function entregaDeProductoEstricta(productoId: number): Promise<EntregaConfig | null> {
+  const filas = await leerCatalogo([productoId]);
+  if (!filas) return null;
+  const f = filas.find((x) => Number(x.producto_id) === productoId);
+  return f ? filaAEntrega(f) : entregaPorDefecto(productoId);
 }
 
 /**

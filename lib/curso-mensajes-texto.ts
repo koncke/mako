@@ -122,6 +122,38 @@ export function faseDeSesion(
   return null;
 }
 
+/**
+ * ¿Hay que volver a buscar la grabación de esta sesión? Es la JUNTA, que se marca aparte del
+ * mensaje de después (`curso_sesiones.aviso_junta_at`, mig 0210).
+ *
+ * ⚠️ POR QUÉ VA APARTE (06/10/2026, la revisión del grupo). Los compromisos se leían UNA vez,
+ * en la corrida que abre la ventana del posterior (2 h después de la hora anotada), y la sesión
+ * se marcaba en esa misma corrida. Pero la grabación de una sesión de entrega llega a
+ * `closing_analyses` sólo por el cron closing-sync («30 14-23 * * *» UTC: el webhook de Fathom
+ * ignora las sesiones de entrega) y después espera su análisis. Una sesión que empieza a las
+ * 16:30 de CDMX (22:30 UTC) termina después del último sync del día: el posterior salía con
+ * «sin grabación» y los compromisos no le llegaban NUNCA a Mauricio — y si el cliente iba al
+ * día, ni siquiera salía aviso.
+ *
+ * Ahora el posterior sale cuando le toca (al cliente no se lo hace esperar por una grabación) y
+ * la junta queda ABIERTA hasta que la grabación se lea: cada corrida vuelve a mirar, mientras
+ * dure la ventana del posterior (48 h). Pasado eso la sesión sale de la lectura del cron y la
+ * junta queda en NULL, que es lo cierto: nunca llegaron.
+ *
+ * Sólo DESPUÉS de procesado el posterior: mientras ése no sale, su propio aviso lleva los
+ * compromisos si ya están (y su dedup por resultado hace que lleguen una vez).
+ */
+export function juntaPendiente(
+  s: { fecha: string; avisoPosteriorAt: string | null; avisoJuntaAt: string | null },
+  ahora: Date,
+): boolean {
+  if (!s.avisoPosteriorAt || s.avisoJuntaAt) return false;
+  const t = Date.parse(s.fecha);
+  if (!Number.isFinite(t)) return false;
+  const pasaronH = (ahora.getTime() - t) / 3_600_000;
+  return pasaronH >= POSTERIOR_DESDE_HORAS && pasaronH <= POSTERIOR_HASTA_HORAS;
+}
+
 // ── El motivo de cada fase, en UNA columna ───────────────────────────────────
 // `curso_sesiones.aviso_motivo` es una sola columna y las fases son dos. Si cada una la pisara,
 // el «después» borraría por qué no salió el «antes», y la marca del antes (que dice «se
@@ -217,6 +249,189 @@ export function textoPosteriorCliente(p: { nombre: string | null; etapa: string;
   return `${saludo(p.nombre)} gracias por la sesión.${bloquePendientes(p.etapa, p.pendientes)}\n\nAvanza aquí: ${p.link}`;
 }
 
+// ── Los compromisos de la junta (SÓLO para Mauricio) ─────────────────────────
+// Lo que Mauricio pidió el 8/9: «después de cada junta… los compromisos». Decidido el
+// 06/10/2026 (opción a): van en el aviso POSTERIOR AL DUEÑO y nunca al cliente — un texto que
+// redactó un modelo no le sale solo a un cliente que paga; Mauricio decide qué reenvía.
+//
+// Salen de la GRABACIÓN de esa sesión: `closing_analyses` del mismo lead, categoría
+// `entrega_servicio`, analizada con la versión 3 en adelante (la que escribe `proximos_pasos`,
+// otro grupo de trabajo), con `started_at` adentro de una ventana alrededor de la hora de la
+// sesión. `curso_sesiones` no tiene `recording_id`: el cruce es lead + hora, y por eso vive
+// acá, puro y con test.
+
+/** Un próximo paso de la junta. Contrato de `closing_analyses.proximos_pasos`. */
+export type PasoJunta = { que: string; quien: 'cliente' | 'equipo' | null };
+
+/**
+ * Lo que se sabe de la junta de UNA sesión. Son tres estados y no dos: «no hay grabación
+ * analizada» y «no pude leerla» se dicen distinto, como todo en esta casa.
+ */
+export type CompromisosJunta =
+  | { estado: 'leida'; pasos: PasoJunta[] }
+  | { estado: 'sin-grabacion' }
+  | { estado: 'error' };
+
+/** La grabación puede arrancar antes de la hora anotada (como mucho esto)… */
+export const GRABACION_ANTES_HORAS = 2;
+/** …y después (una llamada que empezó tarde, o una segunda parte). */
+export const GRABACION_DESPUES_HORAS = 6;
+
+/** El rango de `started_at` que hay que leer para una sesión. */
+export function ventanaDeGrabacion(fechaSesion: string): { desde: string; hasta: string } | null {
+  const t = Date.parse(fechaSesion);
+  if (!Number.isFinite(t)) return null;
+  return {
+    desde: new Date(t - GRABACION_ANTES_HORAS * 3_600_000).toISOString(),
+    hasta: new Date(t + GRABACION_DESPUES_HORAS * 3_600_000).toISOString(),
+  };
+}
+
+/**
+ * Las sesiones del mismo lead que podrían reclamar una grabación de ESTA ventana: una
+ * grabación a la hora t entra en la ventana de las sesiones entre t − DESPUÉS y t + ANTES.
+ */
+export function ventanaDeSesionesVecinas(fechaSesion: string): { desde: string; hasta: string } | null {
+  const t = Date.parse(fechaSesion);
+  if (!Number.isFinite(t)) return null;
+  const ancho = (GRABACION_ANTES_HORAS + GRABACION_DESPUES_HORAS) * 3_600_000;
+  return { desde: new Date(t - ancho).toISOString(), hasta: new Date(t + ancho).toISOString() };
+}
+
+/**
+ * Los pasos de una grabación, saneados contra el contrato. Lo escribe un modelo en otro
+ * proceso: lo que no tenga `que` se descarta, y un `quien` fuera del contrato queda sin rótulo
+ * (no se le inventa uno).
+ */
+export function pasosDeGrabacion(raw: unknown): PasoJunta[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PasoJunta[] = [];
+  for (const p of raw) {
+    if (!p || typeof p !== 'object') continue;
+    const que = String((p as { que?: unknown }).que ?? '').replace(/\s+/g, ' ').trim();
+    if (!que) continue;
+    const q = (p as { quien?: unknown }).quien;
+    out.push({ que, quien: q === 'cliente' || q === 'equipo' ? q : null });
+  }
+  return out;
+}
+
+/**
+ * Qué grabaciones son de ESTA sesión.
+ *
+ * ⚠️ CADA GRABACIÓN VA A LA SESIÓN MÁS CERCANA de las que la tienen en su ventana, no a todas.
+ * Con dos sesiones del mismo lead el mismo día (una a las 10, otra a las 15), una grabación de
+ * las 15:05 está adentro de la ventana de las DOS: sin esto, el aviso de la de las 10 —si esa
+ * no se grabó— le adjudicaría los compromisos de la de las 15. En un empate gana la sesión que
+ * ya había empezado (una llamada arranca tarde más seguido que temprano).
+ *
+ * `sesiones` son las del lead (incluida ésta); `grabaciones` traen su `startedAt`.
+ */
+export function grabacionesDeLaSesion<G extends { startedAt: string }>(
+  sesion: { id: number; fecha: string },
+  sesiones: ReadonlyArray<{ id: number; fecha: string }>,
+  grabaciones: readonly G[],
+): G[] {
+  const todas = sesiones.some((s) => s.id === sesion.id) ? sesiones : [...sesiones, sesion];
+  const dentro = (g: number, s: number) => g >= s - GRABACION_ANTES_HORAS * 3_600_000 && g <= s + GRABACION_DESPUES_HORAS * 3_600_000;
+  return grabaciones.filter((gr) => {
+    const g = Date.parse(gr.startedAt);
+    if (!Number.isFinite(g)) return false;
+    let mejor: { id: number; dist: number; despues: boolean } | null = null;
+    for (const s of todas) {
+      const t = Date.parse(s.fecha);
+      if (!Number.isFinite(t) || !dentro(g, t)) continue;
+      const cand = { id: s.id, dist: Math.abs(g - t), despues: g >= t };
+      if (!mejor || cand.dist < mejor.dist || (cand.dist === mejor.dist && cand.despues && !mejor.despues)) mejor = cand;
+    }
+    return mejor?.id === sesion.id;
+  });
+}
+
+/** Los compromisos de una sesión, juntando los pasos de sus grabaciones sin repetir. */
+export function compromisosDeGrabaciones(grabaciones: ReadonlyArray<{ startedAt: string; pasos: unknown }>): CompromisosJunta {
+  if (!grabaciones.length) return { estado: 'sin-grabacion' };
+  const vistos = new Set<string>();
+  const pasos: PasoJunta[] = [];
+  for (const g of [...grabaciones].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))) {
+    for (const p of pasosDeGrabacion(g.pasos)) {
+      const k = `${p.quien ?? ''}|${p.que.toLowerCase()}`;
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      pasos.push(p);
+    }
+  }
+  return { estado: 'leida', pasos };
+}
+
+/**
+ * ¿La junta queda CERRADA con esto? Sólo con la grabación LEÍDA (con pasos o sin ellos: «se
+ * analizó y no dejó ninguno» también es una respuesta). «Sin grabación» y «no pude leerla»
+ * dejan la junta abierta y la corrida siguiente vuelve a mirar (`juntaPendiente`).
+ */
+export function juntaResuelta(c: CompromisosJunta | null | undefined): c is Extract<CompromisosJunta, { estado: 'leida' }> {
+  return c?.estado === 'leida';
+}
+
+/** Cuántos compromisos se nombran; el resto va como «y N más». */
+export const TOPE_COMPROMISOS = 6;
+
+const QUIEN: Record<'cliente' | 'equipo', string> = { cliente: 'Cliente', equipo: 'Equipo' };
+
+function lineasCompromisos(pasos: readonly PasoJunta[]): string {
+  const lineas = pasos.slice(0, TOPE_COMPROMISOS).map((p) => `· ${p.quien ? `${QUIEN[p.quien]}: ` : ''}${renglon(p.que, 100)}`);
+  const resto = pasos.length - TOPE_COMPROMISOS;
+  if (resto > 0) lineas.push(`· y ${resto} más`);
+  return lineas.join('\n');
+}
+
+/**
+ * El bloque de la junta en el aviso al dueño. Vacío = no aplica (no se pidió).
+ *
+ * «todavía»: desde el 06/10/2026 la junta sigue abierta después de este aviso y, si la
+ * grabación llega dentro de la ventana, los compromisos le llegan en uno aparte
+ * (`textoJuntaDueno`). Sin la palabra se leía como «esta junta no se grabó».
+ */
+function bloqueCompromisos(c: CompromisosJunta | null | undefined): string {
+  if (!c) return '';
+  if (c.estado === 'error') return '\nNo pude leer la grabación.';
+  if (c.estado === 'sin-grabacion') return '\nSin grabación analizada todavía.';
+  if (!c.pasos.length) return '\nLa grabación no dejó próximos pasos.';
+  return `\nDe la junta:\n${lineasCompromisos(c.pasos)}`;
+}
+
+/**
+ * La clave de dedup del aviso al dueño de UNA sesión.
+ *
+ * ⚠️ DEPENDE DEL RESULTADO, y es lo que arregla el aviso que se comía al corregido. Con la
+ * clave `sesion:<id>` a secas y 72 h de dedup, el aviso «No le escribí: envío de WhatsApp
+ * apagado» (que se repite cada hora mientras la sesión espera) dejaba deduplicado el «Ya le
+ * mandé el recordatorio» de cuando el negocio lo prendía. Ahora cada resultado tiene su
+ * clave: el mismo resultado no se repite cada hora, y un resultado NUEVO sale una vez.
+ *
+ * Los compromisos entran a la clave sólo como «los tiene / no los tiene»: si la grabación se
+ * analiza mientras la sesión espera, a Mauricio le llegan una vez; un «no pude leer» y un
+ * «sin grabación» no se alternan como dos avisos distintos.
+ */
+export function claveAvisoSesion(sesionId: number, noLlego: string | null, compromisos?: CompromisosJunta | null): string {
+  const resultado = noLlego ? `no:${noLlego}` : 'ok';
+  const junta = compromisos ? (compromisos.estado === 'leida' && compromisos.pasos.length ? ':junta' : ':sin-junta') : '';
+  return `sesion:${sesionId}:${resultado}${junta}`;
+}
+
+/**
+ * La clave del aviso de la junta que llega TARDE (la grabación se leyó después del posterior).
+ * Distinta de todas las de `claveAvisoSesion` —que siempre llevan el resultado del cliente en
+ * el medio—, así que el posterior que salió «sin grabación» no la deduplica. Lo que impide
+ * mandarla dos veces es la marca `aviso_junta_at` con compare-and-set; esto es la red.
+ */
+export function claveAvisoJunta(sesionId: number): string {
+  return `sesion:${sesionId}:junta-tarde`;
+}
+
+/** El motivo que va en el aviso al dueño cuando al cliente no se le escribió porque va al día. */
+export const NO_TENIA_PENDIENTES = 'no tenía pendientes';
+
 // ── Los avisos a MAURICIO (el dueño) ─────────────────────────────────────────
 // Van al grupo «MaKo <> cliente» del workspace por el choke point de avisos (lib/avisos.ts).
 // Llevan lo mismo que el cliente —la cuenta y los títulos— y si al cliente NO le llegó, el
@@ -241,14 +456,36 @@ export function textoPrevioDueno(p: {
   return `${mayuscula(p.cuando)} a las ${p.hora} tienes sesión con *${quien}*: ${resumenPendientes(p.etapa, p.pendientes)}${estadoDelCliente('previo', p.noLlego)}`;
 }
 
-/** Después de la llamada: el mismo resumen. Sólo se emite con pendientes (ver `textoPosteriorCliente`). */
-export function textoPosteriorDueno(p: { cliente: string; etapa: string; pendientes: readonly string[] | null; noLlego: string | null }): string {
+/**
+ * Después de la llamada: el mismo resumen y, si se leyeron, los compromisos de la junta. Sale
+ * con pendientes (ver `textoPosteriorCliente`) o, sin pendientes, sólo si la junta dejó
+ * compromisos — es lo único que Mauricio no tiene en otro lado.
+ */
+export function textoPosteriorDueno(p: {
+  cliente: string; etapa: string; pendientes: readonly string[] | null; noLlego: string | null;
+  compromisos?: CompromisosJunta | null;
+}): string {
   const quien = renglon(p.cliente, 60) || 'un cliente';
-  return `Después de la sesión con *${quien}*: ${resumenPendientes(p.etapa, p.pendientes)}${estadoDelCliente('posterior', p.noLlego)}`;
+  return `Después de la sesión con *${quien}*: ${resumenPendientes(p.etapa, p.pendientes)}${estadoDelCliente('posterior', p.noLlego)}${bloqueCompromisos(p.compromisos)}`;
 }
 
 /** El título del aviso en el feed. Corto: es el renglón de la lista. */
 export function tituloAvisoDueno(fase: FaseSesion, cliente: string): string {
   const quien = renglon(cliente, 40) || 'un cliente';
   return fase === 'previo' ? `Sesión con ${quien}` : `Pendientes de ${quien}`;
+}
+
+/**
+ * Los compromisos de una junta cuya grabación se leyó DESPUÉS del aviso posterior. Sólo con
+ * pasos: «la grabación no dejó próximos pasos» no se manda solo, sería un aviso que no pide
+ * nada. Y sólo a Mauricio, igual que en el posterior.
+ */
+export function textoJuntaDueno(p: { cliente: string; pasos: readonly PasoJunta[] }): string {
+  const quien = renglon(p.cliente, 60) || 'un cliente';
+  return `De la sesión con *${quien}*:\n${lineasCompromisos(p.pasos)}`;
+}
+
+/** El título del aviso de la junta tardía en el feed. */
+export function tituloAvisoJunta(cliente: string): string {
+  return `Junta con ${renglon(cliente, 40) || 'un cliente'}`;
 }

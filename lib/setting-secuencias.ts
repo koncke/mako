@@ -155,7 +155,12 @@ export async function renombrarSecuencia(secuenciaId: number, nombre: string): P
  * una secuencia de mensajes de «perdido» es escribirle a quien dijo que no.
  */
 export type ProductoConEtapas = {
-  funnelId: number;
+  /**
+   * El embudo. `null` = un producto que se ENTREGA (tiene kanban en Customer Success) y no es
+   * el principal de ningún embudo: sólo trae `etapasEntrega`, y el selector de producto de la
+   * VENTA no lo lista (no tiene etapas de venta que elegir).
+   */
+  funnelId: number | null;
   /** El id del PRODUCTO, que no es el del embudo. `null` = ese embudo no vende uno. */
   productoId: number | null;
   nombre: string;
@@ -200,6 +205,32 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
       etapasEntrega: (entrega?.etapas ?? []).map((et) => ({ value: et.key, label: et.label })),
       origenEntrega: entrega?.origen ?? null,
     });
+  }
+
+  /**
+   * ⚠️ LOS PRODUCTOS QUE SE ENTREGAN Y NO SON EL PRINCIPAL DE NINGÚN EMBUDO. Recorriendo sólo
+   * los embudos, un servicio sin embudo —medido: el ws13 tiene tres productos nacidos antes
+   * de la cadena producto → oferta → embudo, y una entrega real sobre uno— tenía kanban en
+   * Customer Success y no aparecía acá: no había forma de colgarle una secuencia. Salen de la
+   * MISMA lista que ofrece Customer Success (`productosDeLaEntrega`), así que el editor ofrece
+   * exactamente los tableros que existen. Si esa lectura falla, el editor queda como antes.
+   */
+  const cubiertos = new Set(out.map((x) => x.productoId).filter((n): n is number => n != null));
+  const sueltos = (await import('@/app/customer-success/entrega')
+    .then((m) => m.productosDeLaEntrega())
+    .catch(() => [] as Array<{ id: number; nombre: string }>))
+    .filter((p) => !cubiertos.has(p.id));
+  if (sueltos.length) {
+    const deSueltos = await entregasDeProductos(sueltos.map((p) => p.id))
+      .catch(() => new Map<number, EntregaConfig>());
+    for (const p of sueltos) {
+      const entrega = deSueltos.get(p.id) ?? null;
+      out.push({
+        funnelId: null, productoId: p.id, nombre: p.nombre, esDefault: false, etapas: [],
+        etapasEntrega: (entrega?.etapas ?? []).map((et) => ({ value: et.key, label: et.label })),
+        origenEntrega: entrega?.origen ?? null,
+      });
+    }
   }
   return out;
 }

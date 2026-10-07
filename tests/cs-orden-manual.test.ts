@@ -79,7 +79,8 @@ test('soltar guarda la columna ENTERA, y soltar donde ya estaba no hace nada', (
   // se dibujan: con `visiblesServ`, reordenar con una búsqueda puesta mandaba al final a los escondidos.
   assert.match(fnSoltar, /const columna = conManual\(porCriterio\(listaServ\)\)/);
   assert.match(fnSoltar, /if \(!mueven\.length && mismaLista\(nueva, columna\)\) return;/);
-  assert.match(fnSoltar, /await ordenarEtapaAction\(prodId, etapa, nueva\)/);
+  // Por `atajar` (06/10/2026): sin red la promesa rechaza y, en una transición, tumba la pantalla.
+  assert.match(fnSoltar, /await atajar\(ordenarEtapaAction\(prodId, etapa, nueva\)/);
   // Y pasa a «Manual» recordando el criterio de antes, que ordena a los que nadie arrastró.
   assert.match(fnSoltar, /if \(orden !== 'manual'\) \{ setOrdenPrevio\(orden\); setOrden\('manual'\); \}/);
   // Un lote es UN deshacer aunque al final cambie uno solo.

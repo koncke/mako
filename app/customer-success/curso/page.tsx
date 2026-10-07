@@ -19,7 +19,8 @@
 import { requireCapa } from '@/lib/tab-access';
 import { adminDeWorkspaceActual } from '@/lib/workspace';
 import { clasesDelProducto, progresoDeClientes } from '@/lib/curso-datos';
-import { accesosDeClientes } from '@/lib/curso-admin';
+import { accesosDeClientes, grabarDeProductos } from '@/lib/curso-admin';
+import { conteoDeNotas } from '@/lib/curso-notas';
 import { colorDeEtapa } from '@/lib/servicio-etapas';
 // ⚠️ DE lib/ Y NO DE ../trabajo: es la MISMA función (trabajo.ts la re-exporta), pero importarla
 // de allá arrastra el cruce, el ruteo y el Perro al grafo de una pantalla que sólo quiere los
@@ -30,6 +31,9 @@ import { carteraEnEntrega } from '../entrega';
 import { esDelProducto } from '../pertenencia';
 import { avanceDeCliente, etapaDelCliente, ordenarFilas, type FilaAvance } from './reglas';
 import { CursoApp, type ServicioCurso, type VistaCurso } from './CursoApp';
+import type { OnboardingCurso } from './ChecklistCurso';
+import { hechosDeClases } from './onboarding-curso';
+import { senalesDelPortal, sincronizarOnboardingCurso } from './onboarding-sync';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -66,10 +70,48 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
   // producto lo dice y los demás se dibujan: una lista vacía sobre una consulta caída le diría
   // a Mauricio que su curso no tiene clases.
   const errorClases: Record<number, string> = {};
-  const listas = await Promise.all(servicios.map(async (s) => {
-    try { return await clasesDelProducto(s.productoId); } catch (e) { errorClases[s.productoId] = mensaje(e, 'Error de lectura.'); return [] as Clase[]; }
-  }));
+  const [listas, senales, adminId] = await Promise.all([
+    Promise.all(servicios.map(async (s) => {
+      try { return await clasesDelProducto(s.productoId); } catch (e) { errorClases[s.productoId] = mensaje(e, 'Error de lectura.'); return [] as Clase[]; }
+    })),
+    senalesDelPortal(),
+    adminDeWorkspaceActual(),
+  ]);
   const clases = listas.flat();
+
+  // ── La marca de grabar y el conteo de notas (mig 0208) ──
+  // Las dos aparte de las clases, y cada una con su propio fallo: ninguna puede tumbar la lista.
+  // ⚠️ LA MARCA, SI FALLA, FALLA VISIBLE: leída como «nada marcado», la cabecera diría que no
+  // hay nada por grabar. El conteo de notas es una pista: si falla, la lista no dice nada y cada
+  // caja de notas lee las suyas al abrirse (y ahí sí dice si no pudo).
+  const productoIds = servicios.map((s) => s.productoId);
+  const [grabarLeido, notasLeidas] = await Promise.all([
+    grabarDeProductos(productoIds).then((m) => ({ ok: true as const, m }), (e) => ({ ok: false as const, error: mensaje(e, 'Error de lectura.') })),
+    conteoDeNotas(productoIds).catch((e) => { console.warn('[curso] no pude contar las notas:', mensaje(e, '')); return null; }),
+  ]);
+
+  // ── El onboarding de la tab (regla de la casa: toda tab tiene uno) ──
+  // Los pasos se DERIVAN de lo que hay y se anotan acá en cada carga (./onboarding-sync.ts), así
+  // el ws1 —con su programa ya cargado— entra con «Tu programa» hecho y nada le tapa la tab. Con
+  // una lectura de clases caída, un CERO no es un dato (puede ser el producto que falló): va
+  // `null` y el paso no se toca.
+  const hc = hechosDeClases(clases);
+  const falloAlguna = Object.keys(errorClases).length > 0;
+  const steps = await sincronizarOnboardingCurso({
+    clases: falloAlguna && hc.clases === 0 ? null : hc.clases,
+    conVideo: falloAlguna && hc.conVideo === 0 ? null : hc.conVideo,
+    ...senales,
+  });
+  /* Esto sólo decide si se DIBUJAN los botones de editar (y la lista del onboarding, que es
+     de quien arma el curso): el guard de verdad lo vuelve a hacer cada server action
+     (./actions.ts). Mismo criterio que las etapas de la entrega. */
+  const puedeEditar = adminId != null;
+  const onboarding: OnboardingCurso | null = puedeEditar && steps ? {
+    programa: !!steps.curso_programa?.done,
+    vista: !!steps.curso_vista?.done,
+    invitar: !!steps.curso_invitar?.done,
+    invitados: senales.invitados ?? 0,
+  } : null;
 
   // ── El avance ──
   // ⚠️ SI FALLA, FALLA VISIBLE: la vista dice «no pude leer» en vez de una tabla vacía, que se
@@ -119,10 +161,12 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
       avanceError={avanceError}
       conAvance={conAvance}
       errorClases={errorClases}
+      grabar={grabarLeido.ok ? grabarLeido.m : undefined}
+      grabarError={grabarLeido.ok ? null : grabarLeido.error}
+      notas={notasLeidas}
       inicial={inicial}
-      /* Esto sólo decide si se DIBUJAN los botones de editar: el guard de verdad lo vuelve a
-         hacer cada server action (./actions.ts). Mismo criterio que las etapas de la entrega. */
-      puedeEditar={(await adminDeWorkspaceActual()) != null}
+      puedeEditar={puedeEditar}
+      onboarding={onboarding}
     />
   );
 }

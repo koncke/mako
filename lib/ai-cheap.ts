@@ -286,11 +286,28 @@ const MODELOS_RESPALDO: Partial<Record<ProvName, string[]>> = {
   gemini: ['gemini-flash-lite-latest'],
 };
 
-/** El modelo pedido primero, y atrás los respaldos que no sean el mismo. */
-function modelosAProbar(prov: ProvName, pedido?: string): Array<string | undefined> {
+/**
+ * El modelo pedido primero, y atrás los respaldos que no sean el mismo.
+ *
+ * `conRespaldo: false` deja SÓLO el pedido. Es para las features que se declaran «no se
+ * degradan de modelo» (un juicio que nadie revisa después, una cola que puede esperar a la
+ * hora siguiente): `fallback: []` en el catálogo frena el eje PROVEEDOR y no el eje MODELO,
+ * así que sin esto caían a flash-lite igual (docs/hallazgos-ia.md, «Ese respaldo también
+ * degrada a las features que el catálogo jura que no se degradan»).
+ */
+function modelosAProbar(prov: ProvName, pedido?: string, conRespaldo = true): Array<string | undefined> {
+  if (!conRespaldo) return [pedido];
   const respaldos = (MODELOS_RESPALDO[prov] ?? []).filter((m) => m !== pedido);
   return [pedido, ...respaldos];
 }
+
+/**
+ * ⏱ Lo mínimo que tiene que quedar del plazo del caller (`hastaMs`) para ARRANCAR un intento.
+ * Menos que esto es un pedido que nace muerto: gasta un request de la cuota y vuelve con un
+ * timeout. Un 503 que rebota en un segundo sí deja reintentar, porque lo que se mide es lo
+ * que QUEDA, no cuántos intentos van.
+ */
+const MIN_INTENTO_MS = 15_000;
 
 /**
  * El modelo que lee DOCUMENTOS en cada proveedor.
@@ -451,7 +468,26 @@ const tokensAprox = (texto: string): number => Math.ceil(texto.length / 3.5);
 // hace eso: el ensayo del Chatbot, donde el modelo interpreta a un lead. Con
 // 0.2 se pegaba a la salida más probable y repetía la misma objeción turno tras
 // turno, hasta copiar literalmente las frases de ejemplo del prompt.
-export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato }): Promise<string> {
+//
+// ⏱ `hastaMs` es el PLAZO DEL CALLER, una fecha ABSOLUTA (epoch ms) en la que la cascada
+// entera —reintentos, esperas y modelos de respaldo incluidos— tiene que haber terminado.
+// Sin él no cambia nada. Existe porque `timeoutMs` acota UN intento, y con una sola key el
+// último recurso hace hasta 4 intentos por modelo con esperas de 1,5 + 6 + 13,5 s y después
+// prueba el respaldo: con 120 s por intento eso pasa los 16 minutos, y un cron con
+// `maxDuration` de 300 s se muere a la mitad sin escribir nada (medido en el análisis de
+// sesiones de entrega, lib/closing-entrega.ts). Con `hastaMs`, cada intento se acota a lo que
+// queda, no se arranca uno con menos de MIN_INTENTO_MS, y una espera que no entra no se
+// espera: se sigue rotando. Cuando se acaba, se anota «sin tiempo» en `erroresOut`.
+//
+// `sinRespaldoDeModelo` saca el tercer eje (ver `modelosAProbar`).
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato; hastaMs?: number; sinRespaldoDeModelo?: boolean }): Promise<string> {
+  const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
+  // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
+  const plazoDeIntento = (): number => Math.min(opts.timeoutMs ?? 30_000, quedan());
+  const sinTiempo = (): string => {
+    opts.erroresOut?.push(`sin tiempo: el plazo del pedido vence en ${Math.max(0, Math.round(quedan() / 1000))} s`);
+    return '';
+  };
   // ¿Cuánto pesa esto? La salida cuenta: el techo de Groq es de tokens por minuto, y
   // los que gasta contestando salen del mismo balde que los que gasta leyendo.
   const pesa = tokensAprox(opts.system) + tokensAprox(opts.user) + (opts.maxTokens ?? 1_000);
@@ -492,10 +528,10 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
      //   gemini-flash-lite-latest → 200, perfecto
      // O sea: Google tenía caído el alias que la app fija, y al lado había un modelo
      // sano de la MISMA cuenta. Sin este eje, el cliente no podía subir un documento.
-     for (const model of modelosAProbar(prov, opts.modelos?.[prov])) {
+     for (const model of modelosAProbar(prov, opts.modelos?.[prov], !opts.sinRespaldoDeModelo)) {
       // El ESFUERZO viaja por toda la cascada. Sin esto, una feature con effort alto
       // ruteada a la IA barata corría en 'minimal' apenas cambiaba de proveedor.
-      const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${rotulo(inst)}`, provider: prov, clave: inst.clave, model, timeoutMs: opts.timeoutMs, esfuerzo: opts.esfuerzo };
+      const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${rotulo(inst)}`, provider: prov, clave: inst.clave, model, esfuerzo: opts.esfuerzo };
       // Un reintento de la MISMA cuenta si el fallo parece transitorio (5xx/timeout):
       // clave para un workspace con UN solo proveedor y una sola key, donde no hay a
       // quién caer. Un 429 NO se reintenta si hay otra cuenta esperando: esperar
@@ -515,13 +551,16 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       const ultimoRecurso = !otraCuenta && prov === orden[orden.length - 1];
       const maxIntentos = ultimoRecurso ? 3 : 1;
       for (let intento = 0; intento <= maxIntentos; intento++) {
+        // ⏱ Sin plazo para un intento entero, no se arranca NINGUNO más: ni éste, ni otra
+        // cuenta, ni otro modelo. `return` sale de los tres bucles de una.
+        if (quedan() < MIN_INTENTO_MS) return sinTiempo();
         try {
-          let t = await chatCheap({ ...base, json: opts.json });
+          let t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: opts.json });
           // La capa OpenAI-compat de Gemini a veces devuelve contenido VACÍO con
           // response_format json_object (el modelo native anda; el /chat/completions no).
           // Reintentamos la MISMA cuenta SIN el flag: `validar`/parseJsonLoose de los
           // callers tolera fences/markdown igual, así que no perdemos nada.
-          if (!t.trim() && opts.json) t = await chatCheap({ ...base, json: false });
+          if (!t.trim() && opts.json && quedan() >= MIN_INTENTO_MS) t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: false });
           // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
           // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
           if (t.trim() && (!opts.validar || opts.validar(t))) return t;
@@ -543,9 +582,13 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // pasa derecho al modelo siguiente, que es justo para lo que existe la lista.
           if (/\b404\b|no longer available|not_found/i.test(m)) break;
           if (intento < maxIntentos && transitorio && !(esCuota && otraCuenta)) {
-            // Espera creciente: 1,5s · 4s · 9s. Un 503 de saturación no se arregla en el
+            // Espera creciente: 1,5s · 6s · 13,5s. Un 503 de saturación no se arregla en el
             // mismo segundo, y volver enseguida es gastar el intento sin darle tiempo.
-            await new Promise((r) => setTimeout(r, 1500 * (intento + 1) ** 2));
+            const espera = 1500 * (intento + 1) ** 2;
+            // ⏱ Si después de esperar no queda para un intento, no se espera: se sigue
+            // rotando, que otra cuenta u otro modelo pueden contestar ya.
+            if (quedan() - espera < MIN_INTENTO_MS) break;
+            await new Promise((r) => setTimeout(r, espera));
             continue;
           }
           break; // fallo no transitorio (o hay otra cuenta con cuota) → seguir rotando

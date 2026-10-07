@@ -49,6 +49,9 @@ import {
   textoLinkCurso, textoEntradaAEtapa, textoPrevioCliente, textoPosteriorCliente,
   textoPrevioDueno, textoPosteriorDueno, tituloAvisoDueno,
   faseDeSesion, ventanaDeSesiones, enHorarioDeMensajes, cuandoEs, horaDe, conMotivoDeFase, type FaseSesion,
+  claveAvisoSesion, ventanaDeGrabacion, ventanaDeSesionesVecinas, grabacionesDeLaSesion, compromisosDeGrabaciones,
+  NO_TENIA_PENDIENTES, type CompromisosJunta,
+  juntaPendiente, juntaResuelta, claveAvisoJunta, textoJuntaDueno, tituloAvisoJunta,
 } from './curso-mensajes-texto';
 
 export type ResultadoEnvio = { ok: boolean; motivo?: string };
@@ -184,6 +187,15 @@ export type ResultadoSesiones = {
   workspacesFallidos?: number[];
   /** No se pudo leer la tabla de sesiones (o la lista de workspaces): no se procesó nada. */
   lecturaFallida?: boolean;
+  /** Juntas cuya grabación se leyó DESPUÉS del posterior y cuyos compromisos se le avisaron a Mauricio. */
+  juntas?: number;
+  /** Juntas abiertas que siguen esperando su grabación (o que no se pudo leer): la próxima corrida vuelve a mirar. */
+  juntasEsperando?: number;
+  /**
+   * La base todavía no tiene `aviso_junta_at` (mig 0210 sin aplicar): se leyó con las columnas
+   * viejas y la junta se mira UNA vez, en el posterior, como antes del 06/10/2026.
+   */
+  sinMarcaDeJunta?: boolean;
 };
 
 /**
@@ -201,9 +213,22 @@ const TIPO_AVISO: Record<FaseSesion, string> = { previo: 'curso-sesion-previa', 
 type FilaSesion = {
   id: number; workspace_id: number; lead_id: number; producto_id: number | null; fecha: string;
   aviso_previo_at: string | null; aviso_posterior_at: string | null; aviso_motivo: string | null;
+  /** `undefined` = la base no tiene la columna todavía (mig 0210): ver `sinMarcaDeJunta`. */
+  aviso_junta_at?: string | null;
 };
 
-const COLS_SESION = 'id, workspace_id, lead_id, producto_id, fecha, aviso_previo_at, aviso_posterior_at, aviso_motivo';
+const COLS_SESION_SIN_JUNTA = 'id, workspace_id, lead_id, producto_id, fecha, aviso_previo_at, aviso_posterior_at, aviso_motivo';
+const COLS_SESION = `${COLS_SESION_SIN_JUNTA}, aviso_junta_at`;
+
+/**
+ * ¿El error de la lectura es que la base todavía no tiene `aviso_junta_at`? Un `select` de
+ * PostgREST con UNA columna que no existe rechaza la consulta ENTERA: sin este respaldo, un
+ * deploy que llegue antes que la mig 0210 dejaría a TODOS los clientes sin el previo ni el
+ * posterior, por una columna que sólo usa la junta.
+ */
+function faltaLaMarcaDeJunta(error: { code?: string; message?: string }): boolean {
+  return error.code === '42703' || /aviso_junta_at/.test(error.message ?? '');
+}
 
 /** Lo que dice cada mensaje de una llamada: el cliente, su etapa y lo que le falta de ella. */
 type Contenido =
@@ -243,14 +268,59 @@ async function contenidoDe(f: FilaSesion): Promise<Contenido> {
   };
 }
 
-type Ctx = { ws: number; tz: string; ahora: Date; envioOn: boolean; res: Required<ResultadoSesiones> };
+type Ctx = {
+  ws: number; tz: string; ahora: Date; envioOn: boolean; res: Required<ResultadoSesiones>;
+  /** ¿La base tiene `aviso_junta_at`? Sin ella no se escribe ni se reintenta la junta. */
+  conJunta: boolean;
+};
 
-/** El aviso a Mauricio. Nunca tira (`emitirAviso` tampoco). Uno por sesión y fase: el dedup es por sesión. */
-async function avisarAlDueno(ctx: Ctx, f: FilaSesion, fase: FaseSesion, c: Extract<Contenido, { ok: true }>, noLlego: string | null): Promise<void> {
+/**
+ * Los compromisos de la junta de UNA sesión, leídos de su grabación (ver la sección de
+ * lib/curso-mensajes-texto.ts). Nunca tira: lo que no se pudo leer vuelve como `error` y el
+ * aviso lo dice en una frase — el aviso sale igual.
+ *
+ * ⚠️ `proximos_pasos` LO AGREGA OTRO GRUPO DE TRABAJO (la versión 3 del análisis de llamadas).
+ * Mientras esa columna no exista en la base, PostgREST rechaza la consulta entera y esto
+ * contesta `error` («No pude leer la grabación»), que es lo cierto. No se traduce a «sin
+ * grabación»: con la columna faltando, las grabaciones existen igual.
+ */
+async function compromisosDeLaSesion(f: FilaSesion): Promise<CompromisosJunta> {
+  const vg = ventanaDeGrabacion(f.fecha);
+  const vs = ventanaDeSesionesVecinas(f.fecha);
+  if (!vg || !vs) return { estado: 'sin-grabacion' };
+  try {
+    const db = await getTenantDb();
+    const [g, s] = await Promise.all([
+      db.from('closing_analyses').select('recording_id, started_at, proximos_pasos')
+        .eq('lead_id', f.lead_id).eq('category', 'entrega_servicio').gte('analysis_version', 3)
+        .gte('started_at', vg.desde).lte('started_at', vg.hasta)
+        .order('started_at', { ascending: true }).limit(20),
+      // Las otras sesiones del mismo lead que podrían reclamar la misma grabación.
+      db.from('curso_sesiones').select('id, fecha')
+        .eq('lead_id', f.lead_id).gte('fecha', vs.desde).lte('fecha', vs.hasta).limit(50),
+    ]);
+    if (g.error) throw new Error(`closing_analyses: ${g.error.message}`);
+    if (s.error) throw new Error(`curso_sesiones: ${s.error.message}`);
+    const grabaciones = ((g.data ?? []) as Array<{ started_at: string | null; proximos_pasos: unknown }>)
+      .filter((x) => x.started_at)
+      .map((x) => ({ startedAt: String(x.started_at), pasos: x.proximos_pasos }));
+    const sesiones = ((s.data ?? []) as Array<{ id: number; fecha: string }>).map((x) => ({ id: Number(x.id), fecha: String(x.fecha) }));
+    return compromisosDeGrabaciones(grabacionesDeLaSesion({ id: f.id, fecha: f.fecha }, sesiones, grabaciones));
+  } catch (e) {
+    console.error(`[curso-mensajes] sesión ${f.id}: no pude leer la grabación:`, msg(e));
+    return { estado: 'error' };
+  }
+}
+
+/** El aviso a Mauricio. Nunca tira (`emitirAviso` tampoco). Uno por sesión, fase y RESULTADO (ver `claveAvisoSesion`). */
+async function avisarAlDueno(
+  ctx: Ctx, f: FilaSesion, fase: FaseSesion, c: Extract<Contenido, { ok: true }>, noLlego: string | null,
+  compromisos: CompromisosJunta | null = null,
+): Promise<void> {
   const fecha = new Date(f.fecha);
   const texto = fase === 'previo'
     ? textoPrevioDueno({ cliente: c.cliente, cuando: cuandoEs(fecha, ctx.ahora, ctx.tz), hora: horaDe(fecha, ctx.tz), etapa: c.etapa, pendientes: c.pendientes, noLlego })
-    : textoPosteriorDueno({ cliente: c.cliente, etapa: c.etapa, pendientes: c.pendientes, noLlego });
+    : textoPosteriorDueno({ cliente: c.cliente, etapa: c.etapa, pendientes: c.pendientes, noLlego, compromisos });
   const r = await emitirAviso({
     ws: ctx.ws,
     tipo: TIPO_AVISO[fase],
@@ -259,10 +329,12 @@ async function avisarAlDueno(ctx: Ctx, f: FilaSesion, fase: FaseSesion, c: Extra
     categoria: 'aviso',
     semaforo: c.pendientes == null ? 'na' : c.pendientes.length ? 'amarillo' : 'verde',
     link: '/customer-success',
-    // ⚠️ EL DEDUP ES LO QUE HACE SEGURO REPETIRLO: con el envío al cliente apagado, la sesión NO se
-    // marca (ver abajo) y el cron vuelve a pasar cada hora. La clave es la sesión, no el tipo: con
-    // sólo el tipo, el aviso de un cliente se comería el de otro durante la ventana.
-    dedupKey: `sesion:${f.id}`,
+    // ⚠️ EL DEDUP ES LO QUE HACE SEGURO REPETIRLO: con el envío apagado —o sin teléfono, o con el
+    // acceso cortado— la sesión NO se marca (ver abajo) y el cron vuelve a pasar cada hora. La
+    // clave es la sesión Y EL RESULTADO: con sólo la sesión, el «no le llegó» de una hora se comía
+    // el «ya le mandé» de cuando se arreglaba (72 h de dedup); con sólo el tipo, el aviso de un
+    // cliente se comería el de otro.
+    dedupKey: claveAvisoSesion(f.id, noLlego, compromisos),
     dedupTtlMin: 72 * 60,
   });
   if (r.deduped) return;
@@ -280,10 +352,22 @@ async function procesarSesion(ctx: Ctx, f: FilaSesion, fase: FaseSesion): Promis
    * columna ya escrita y no le toca. El costo es el opuesto y es el correcto: si el envío falla
    * después de marcar, ese mensaje no se reintenta — se anota el motivo. Un recordatorio que no
    * llegó se nota menos que dos iguales en el teléfono de un cliente.
+   *
+   * ⚠️ PERO ESA JUSTIFICACIÓN VALE SÓLO PARA LO QUE PASA DESPUÉS DE INTENTAR MANDAR. Lo que se
+   * sabe SIN mandar nada —sin teléfono, contacto bloqueado, acceso cortado: `destinoDe` lo lee—
+   * se mira ANTES de marcar (ver abajo). Hasta el 06/10/2026 se miraba después, así que una
+   * sesión quedaba cerrada para siempre por un teléfono que faltaba, sin que hubiera existido
+   * ningún riesgo de duplicado, y cargarle el teléfono no servía de nada.
+   *
+   * `cierraJunta`: en el posterior, la junta (`aviso_junta_at`) se cierra en la MISMA escritura
+   * cuando la grabación ya está leída — el aviso que sale ahora la lleva. Si no está, la junta
+   * queda abierta y `procesarJunta` vuelve a mirar en las corridas siguientes. En el previo no
+   * se toca: la junta todavía no pasó.
    */
-  const marcar = async (): Promise<boolean> => {
+  const marcar = async (cierraJunta = false): Promise<boolean> => {
+    const ahora = new Date().toISOString();
     const { data, error } = await db.from('curso_sesiones')
-      .update({ [columna]: new Date().toISOString() })
+      .update({ [columna]: ahora, ...(cierraJunta && fase === 'posterior' && ctx.conJunta ? { aviso_junta_at: ahora } : {}) })
       .eq('id', f.id).is(columna, null)
       .select('id');
     if (error) throw new Error(`no pude marcar la sesión: ${error.message}`);
@@ -304,16 +388,32 @@ async function procesarSesion(ctx: Ctx, f: FilaSesion, fase: FaseSesion): Promis
   const c = await contenidoDe(f);
   if (!c.ok) {
     // Nada que decirle a nadie (ya no es cliente, no tiene curso): se procesa UNA vez y se anota.
-    if (await marcar()) await anotar(c.motivo);
+    // La junta se cierra con él: sin contenido tampoco hay aviso posterior que la complete.
+    if (await marcar(true)) await anotar(c.motivo);
     ctx.res.omitidos += 1;
     return;
   }
 
-  // Después de la llamada SIN pendientes no se le escribe: no hay nada que pedirle, y un «gracias,
-  // no te falta nada» por cada llamada es un mensaje de más. A Mauricio tampoco: su resumen sería
-  // «al día», y eso ya se lo dijo el previo.
+  /**
+   * Los compromisos de la junta, de su grabación: sólo después de la llamada y sólo para el aviso
+   * a Mauricio. NUNCA viajan al texto del cliente (decidido el 06/10/2026: los redactó un modelo y
+   * nadie los revisó; Mauricio decide qué reenvía).
+   *
+   * ⚠️ Y SE LEEN AHORA PERO NO SÓLO AHORA: si la grabación todavía no llegó, la junta queda
+   * abierta al marcar (`marcar(juntaResuelta(…))`) y `procesarJunta` la vuelve a buscar en las
+   * corridas siguientes (ver `juntaPendiente`, lib/curso-mensajes-texto.ts).
+   */
+  const compromisos = fase === 'posterior' ? await compromisosDeLaSesion(f) : null;
+
+  // Después de la llamada SIN pendientes no se le escribe al cliente: no hay nada que pedirle, y un
+  // «gracias, no te falta nada» por cada llamada es un mensaje de más. A Mauricio tampoco, salvo
+  // que la junta haya dejado compromisos: ésos no se los dijo nadie todavía. Si la grabación no
+  // llegó, la junta queda abierta y le llegan cuando llegue.
   if (fase === 'posterior' && !c.pendientes?.length) {
-    if (await marcar()) await anotar(c.pendientes == null ? 'su etapa no tiene clases, no se le escribió' : 'al día, no se le escribió');
+    if (await marcar(juntaResuelta(compromisos))) {
+      await anotar(c.pendientes == null ? 'su etapa no tiene clases, no se le escribió' : 'al día, no se le escribió');
+      if (compromisos?.estado === 'leida' && compromisos.pasos.length) await avisarAlDueno(ctx, f, fase, c, NO_TENIA_PENDIENTES, compromisos);
+    }
     ctx.res.omitidos += 1;
     return;
   }
@@ -327,26 +427,41 @@ async function procesarSesion(ctx: Ctx, f: FilaSesion, fase: FaseSesion): Promis
    */
   if (!ctx.envioOn) {
     await anotar(MOTIVO_APAGADO);
-    await avisarAlDueno(ctx, f, fase, c, MOTIVO_APAGADO);
+    await avisarAlDueno(ctx, f, fase, c, MOTIVO_APAGADO, compromisos);
     ctx.res.omitidos += 1;
     return;
   }
 
-  if (!(await marcar())) return;   // otra corrida la tomó primero
+  /**
+   * ⚠️ LO QUE SE SABE SIN MANDAR NADA SE MIRA ANTES DE MARCAR: sin teléfono, contacto bloqueado,
+   * acceso cortado (`destinoDe` sólo lee). Igual que con el envío apagado, la sesión NO se marca y
+   * ESPERA: si alguien le carga el teléfono o le reactiva el acceso mientras la llamada sigue en
+   * ventana, la corrida siguiente le escribe. A Mauricio se le avisa UNA vez por motivo — la
+   * clave de dedup lleva el resultado (`claveAvisoSesion`), así que cada hora no le repite «sin
+   * teléfono» y el «ya le mandé» de cuando se arregla sí le llega.
+   *
+   * Si la LECTURA falla (la base, no el dato), `destinoDe` tira, la sesión tampoco se marca y la
+   * próxima corrida reintenta: un error de lectura no es un motivo para darla por procesada.
+   */
+  const d = await destinoDe(f.lead_id, { envioOn: true });
+  if (!d.ok) {
+    await anotar(d.motivo);
+    await avisarAlDueno(ctx, f, fase, c, d.motivo, compromisos);
+    ctx.res.omitidos += 1;
+    return;
+  }
+
+  if (!(await marcar(juntaResuelta(compromisos)))) return;   // otra corrida la tomó primero
 
   let noLlego: string | null = null;
   try {
-    const d = await destinoDe(f.lead_id, { envioOn: true });
-    if (!d.ok) noLlego = d.motivo;
-    else {
-      const fecha = new Date(f.fecha);
-      const texto = fase === 'previo'
-        ? textoPrevioCliente({ nombre: d.nombre, cuando: cuandoEs(fecha, ctx.ahora, ctx.tz), hora: horaDe(fecha, ctx.tz), etapa: c.etapa, pendientes: c.pendientes, link: d.link })
-        // No es null: arriba ya se descartó el posterior sin pendientes.
-        : textoPosteriorCliente({ nombre: d.nombre, etapa: c.etapa, pendientes: c.pendientes, link: d.link })!;
-      const r = await mandar(d, f.lead_id, texto);
-      if (!r.ok) noLlego = r.motivo ?? 'no salió';
-    }
+    const fecha = new Date(f.fecha);
+    const texto = fase === 'previo'
+      ? textoPrevioCliente({ nombre: d.nombre, cuando: cuandoEs(fecha, ctx.ahora, ctx.tz), hora: horaDe(fecha, ctx.tz), etapa: c.etapa, pendientes: c.pendientes, link: d.link })
+      // No es null: arriba ya se descartó el posterior sin pendientes.
+      : textoPosteriorCliente({ nombre: d.nombre, etapa: c.etapa, pendientes: c.pendientes, link: d.link })!;
+    const r = await mandar(d, f.lead_id, texto);
+    if (!r.ok) noLlego = r.motivo ?? 'no salió';
   } catch (e) {
     // Ya está marcada: no se reintenta. Lo que queda es el motivo, para que la ficha lo diga.
     noLlego = 'falló el envío';
@@ -357,26 +472,78 @@ async function procesarSesion(ctx: Ctx, f: FilaSesion, fase: FaseSesion): Promis
   if (noLlego) ctx.res.omitidos += 1;
   else if (fase === 'previo') ctx.res.previos += 1;
   else ctx.res.posteriores += 1;
-  await avisarAlDueno(ctx, f, fase, c, noLlego);
+  await avisarAlDueno(ctx, f, fase, c, noLlego, compromisos);
 }
 
+/** Lo que le toca a una sesión en esta corrida: un mensaje de la llamada, o volver a buscar su junta. */
+type Paso = FaseSesion | 'junta';
+
 /** Las sesiones de UN workspace. Corre adentro de `runWithWorkspace(ws, …)`. */
-async function procesarWorkspace(ws: number, items: Array<{ f: FilaSesion; fase: FaseSesion }>, ahora: Date, res: Required<ResultadoSesiones>): Promise<void> {
+async function procesarWorkspace(
+  ws: number, items: Array<{ f: FilaSesion; paso: Paso }>, ahora: Date, res: Required<ResultadoSesiones>, conJunta: boolean,
+): Promise<void> {
   // La hora del NEGOCIO, no la del server (UTC): «mañana a las 10» y el horario de 9 a 21 son de él.
   const tz = await tzDeWorkspace(ws);
   if (!enHorarioDeMensajes(ahora, tz)) {
     res.esperando += items.length;
     return;
   }
-  const ctx: Ctx = { ws, tz, ahora, envioOn: await envioWhatsappHabilitado(), res };
-  for (const { f, fase } of items) {
+  const ctx: Ctx = { ws, tz, ahora, envioOn: await envioWhatsappHabilitado(), res, conJunta };
+  for (const { f, paso } of items) {
     // Una sesión que falla no corta a las demás del mismo negocio.
-    try { await procesarSesion(ctx, f, fase); }
-    catch (e) {
+    try {
+      if (paso === 'junta') await procesarJunta(ctx, f);
+      else await procesarSesion(ctx, f, paso);
+    } catch (e) {
       res.errores.push(`ws${ws} sesión ${f.id}: ${msg(e)}`);
       console.error(`[curso-mensajes] ws${ws} sesión ${f.id}:`, msg(e));
     }
   }
+}
+
+/**
+ * La JUNTA de una sesión cuyo posterior ya salió sin la grabación (ver `juntaPendiente`): se
+ * vuelve a buscar y, si ya está leída, se le avisa a Mauricio en uno aparte. SÓLO a él: no
+ * toca al cliente por ningún camino.
+ *
+ * Mismo orden que el resto del cron: la marca con compare-and-set ANTES de avisar. Sin la
+ * grabación (o sin poder leerla) no se marca nada y la corrida siguiente vuelve a mirar; pasada
+ * la ventana del posterior la sesión sale de la lectura y la junta queda en NULL.
+ */
+async function procesarJunta(ctx: Ctx, f: FilaSesion): Promise<void> {
+  const compromisos = await compromisosDeLaSesion(f);
+  if (!juntaResuelta(compromisos)) {
+    ctx.res.juntasEsperando += 1;
+    return;
+  }
+  const db = await getTenantDb();
+  const { data, error } = await db.from('curso_sesiones')
+    .update({ aviso_junta_at: new Date().toISOString() })
+    .eq('id', f.id).is('aviso_junta_at', null)
+    .select('id');
+  if (error) throw new Error(`no pude marcar la junta: ${error.message}`);
+  if (!((data ?? []) as unknown[]).length) return;   // otra corrida la tomó primero
+  // Se analizó y no dejó pasos: queda cerrada sin avisar (sería un aviso que no pide nada).
+  if (!compromisos.pasos.length) return;
+  const lead = await leerLead(f.lead_id);
+  if (!lead) return;
+  const cliente = (lead.nombre ?? '').trim() || `cliente ${lead.id}`;
+  // El MISMO tipo que el posterior: si Mauricio apaga ese aviso, apaga también esto, que es
+  // su continuación.
+  const r = await emitirAviso({
+    ws: ctx.ws,
+    tipo: TIPO_AVISO.posterior,
+    titulo: tituloAvisoJunta(cliente),
+    texto: textoJuntaDueno({ cliente, pasos: compromisos.pasos }),
+    categoria: 'aviso',
+    semaforo: 'na',
+    link: '/customer-success',
+    dedupKey: claveAvisoJunta(f.id),
+    dedupTtlMin: 72 * 60,
+  });
+  if (r.deduped) return;
+  if (r.wa || r.email || r.agrupado) { ctx.res.avisosDueno += 1; ctx.res.juntas += 1; }
+  else ctx.res.avisosDuenoSinSalir += 1;
 }
 
 /**
@@ -391,33 +558,47 @@ export async function correrAvisosDeSesiones(ahora: Date = new Date()): Promise<
   const res: Required<ResultadoSesiones> = {
     previos: 0, posteriores: 0, omitidos: 0, errores: [], esperando: 0,
     avisosDueno: 0, avisosDuenoSinSalir: 0, workspaces: 0, workspacesFallidos: [], lecturaFallida: false,
+    juntas: 0, juntasEsperando: 0, sinMarcaDeJunta: false,
   };
 
   let filas: FilaSesion[];
   try {
     const { desde, hasta } = ventanaDeSesiones(ahora);
-    const { data, error } = await getSupabaseServer().from('curso_sesiones').select(COLS_SESION)
+    // La junta abierta también trae la sesión (`aviso_junta_at.is.null`): su posterior ya salió,
+    // pero la grabación puede llegar después (ver `juntaPendiente`).
+    const leerSesiones = (cols: string, marcas: string) => getSupabaseServer().from('curso_sesiones').select(cols)
       .gte('fecha', desde).lte('fecha', hasta)
-      .or('aviso_previo_at.is.null,aviso_posterior_at.is.null')
+      .or(marcas)
       .order('fecha', { ascending: true })
       .limit(1000);
+    let { data, error } = await leerSesiones(COLS_SESION, 'aviso_previo_at.is.null,aviso_posterior_at.is.null,aviso_junta_at.is.null');
+    if (error && faltaLaMarcaDeJunta(error)) {
+      // Sin la mig 0210 se lee como antes: los mensajes salen igual, y la junta se mira una vez.
+      console.warn('[curso-mensajes] curso_sesiones sin aviso_junta_at (mig 0210): la junta no se reintenta');
+      res.sinMarcaDeJunta = true;
+      ({ data, error } = await leerSesiones(COLS_SESION_SIN_JUNTA, 'aviso_previo_at.is.null,aviso_posterior_at.is.null'));
+    }
     if (error) throw new Error(error.message);
-    filas = (data ?? []) as FilaSesion[];
+    filas = (data ?? []) as unknown as FilaSesion[];
   } catch (e) {
     res.lecturaFallida = true;
     res.errores.push(`no pude leer las sesiones: ${msg(e)}`);
     return res;
   }
+  const conJunta = !res.sinMarcaDeJunta;
 
   // Qué le toca a cada una se decide ANTES de visitar a nadie (puro): una sesión en el rango de
   // fechas pero sin mensaje pendiente no despierta a su workspace.
-  const porWs = new Map<number, Array<{ f: FilaSesion; fase: FaseSesion }>>();
+  const porWs = new Map<number, Array<{ f: FilaSesion; paso: Paso }>>();
   for (const f of filas) {
     const fase = faseDeSesion({ fecha: f.fecha, avisoPrevioAt: f.aviso_previo_at, avisoPosteriorAt: f.aviso_posterior_at }, ahora);
-    if (!fase) continue;
+    const paso: Paso | null = fase
+      ?? (conJunta && juntaPendiente({ fecha: f.fecha, avisoPosteriorAt: f.aviso_posterior_at, avisoJuntaAt: f.aviso_junta_at ?? null }, ahora)
+        ? 'junta' : null);
+    if (!paso) continue;
     const ws = Number(f.workspace_id);
     if (!porWs.has(ws)) porWs.set(ws, []);
-    porWs.get(ws)!.push({ f, fase });
+    porWs.get(ws)!.push({ f, paso });
   }
   if (!porWs.size) return res;
 
@@ -436,7 +617,7 @@ export async function correrAvisosDeSesiones(ahora: Date = new Date()): Promise<
     if (!activos.has(ws)) continue;
     res.workspaces += 1;
     try {
-      await runWithWorkspace(ws, () => procesarWorkspace(ws, items, ahora, res));
+      await runWithWorkspace(ws, () => procesarWorkspace(ws, items, ahora, res, conJunta));
     } catch (e) {
       res.workspacesFallidos.push(ws);
       res.errores.push(`ws${ws}: ${msg(e)}`);

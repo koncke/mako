@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { VideoVista } from '@/lib/curso-portal';
 import { ButtonLink } from '@/app/_ui';
+import { useVistaPrevia } from './vista-previa';
 
 type YTPlayer = { getCurrentTime: () => number; getDuration: () => number; destroy: () => void };
 type YTApi = {
@@ -93,6 +94,8 @@ function cargarYouTube(): Promise<YTApi> {
  * primer play aunque cierre a los tres segundos.
  */
 function useReporte(token: string, claseId: number, onPct?: (pct: number) => void) {
+  // En la vista previa del equipo no hay alumno: el progreso no sale (./vista-previa.ts).
+  const previa = useVistaPrevia();
   const max = useRef(0);
   const dur = useRef<number | null>(null);
   const enviado = useRef<{ seg: number; dur: number | null; at: number }>({ seg: 0, dur: null, at: 0 });
@@ -111,7 +114,7 @@ function useReporte(token: string, claseId: number, onPct?: (pct: number) => voi
   );
 
   const enviar = useCallback(() => {
-    if (!pendiente()) return;
+    if (previa || !pendiente()) return;
     const antes = enviado.current;
     enviado.current = { seg: max.current, dur: dur.current, at: Date.now() };
     // `text/plain`: es lo mismo que manda el beacon, y la ruta lee el cuerpo sin mirar el tipo.
@@ -122,7 +125,7 @@ function useReporte(token: string, claseId: number, onPct?: (pct: number) => voi
       })
       // Sin red: se vuelve a la marca anterior para que el próximo intento lo lleve.
       .catch(() => { enviado.current = { ...antes, at: enviado.current.at }; });
-  }, [pendiente, cuerpo]);
+  }, [previa, pendiente, cuerpo]);
 
   const marcar = useCallback((seg: number, d: number | null | undefined) => {
     if (Number.isFinite(seg) && seg > max.current) max.current = seg;
@@ -132,7 +135,7 @@ function useReporte(token: string, claseId: number, onPct?: (pct: number) => voi
 
   useEffect(() => {
     const salir = () => {
-      if (!pendiente()) return;
+      if (previa || !pendiente()) return;
       const ok = typeof navigator.sendBeacon === 'function'
         && navigator.sendBeacon(URL_PROGRESO, new Blob([cuerpo()], { type: 'text/plain' }));
       if (ok) enviado.current = { seg: max.current, dur: dur.current, at: Date.now() };
@@ -146,7 +149,7 @@ function useReporte(token: string, claseId: number, onPct?: (pct: number) => voi
       document.removeEventListener('visibilitychange', alOcultar);
       salir();
     };
-  }, [pendiente, cuerpo, enviar]);
+  }, [previa, pendiente, cuerpo, enviar]);
 
   return { marcar, enviar };
 }

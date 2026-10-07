@@ -140,6 +140,14 @@
     {
       "path": "/api/cron/curso-sesiones",
       "schedule": "25 * * * *"
+    },
+    {
+      "path": "/api/cron/curso-purga",
+      "schedule": "35 10 * * *"
+    },
+    {
+      "path": "/api/cron/cs-sesiones-entrega",
+      "schedule": "52 * * * *"
     }
   ]
 }

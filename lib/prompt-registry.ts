@@ -32,6 +32,7 @@ import {
 
 // Defaults de prompts grandes (viven en su archivo de origen) ──────────────────
 import { SYSTEM_ANALISIS, CLOSING_USER_TEMPLATE } from './closing';
+import { ENTREGA_SYSTEM_TEMPLATE, ENTREGA_USER_TEMPLATE } from './closing-entrega-contrato';
 import {
   SCRIPT_ANALYSIS_SYSTEM_TEMPLATE,
   SCRIPT_ANALYSIS_USER_TEMPLATE,
@@ -474,6 +475,19 @@ export const REGISTRY: Group[] = [
         variables: [v('metadatos', 'título/fecha/duración/host'), v('leadCtx', 'contexto del lead en el CRM'), v('summary', 'resumen de Fathom'), v('actions', 'action items'), v('transcript', 'transcript con segundos'), v('feedbackBlock', 'revisión humana (si la hay)')], scope: 'full', sensitive: false,
         default: CLOSING_USER_TEMPLATE,
         context: 'Arma el pedido con todo lo de la llamada. Si alguien revisa la llamada y deja un comentario, se inyecta en {{feedbackBlock}} para que MaKo reanalice. Conserva los slots; sin ellos MaKo pierde el contexto.',
+      },
+      {
+        key: 'closing.entrega.system', source: 'override',
+        label: 'Sesiones de entrega — resumen, riesgos y próximos pasos (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: ENTREGA_SYSTEM_TEMPLATE,
+        context: 'Cómo MaKo lee una sesión con un cliente que YA compró (coaching, acompañamiento, seguimiento) y lo que deja en la pestaña Llamadas de su ficha. Conserva la forma EXACTA del JSON (resumen, riesgos con riesgo/cita/t_seconds/gravedad, proximos_pasos con que/quien) y los valores alta/media/baja y cliente/equipo: lo que no cumpla el contrato se descarta (lib/closing-entrega-contrato.ts). Y no le pongas el nombre de un negocio: corre para todos los clientes.',
+      },
+      {
+        key: 'closing.entrega.user', source: 'override',
+        label: 'Sesiones de entrega — datos de la sesión (user)', kind: 'user', dynamic: true,
+        variables: [v('metadatos', 'título/fecha/duración/quien dio la sesión'), v('cliente', 'nombre y empresa del cliente en el CRM, si se sabe'), v('resumenFathom', 'resumen de Fathom'), v('transcript', 'transcript con segundos')], scope: 'full', sensitive: false,
+        default: ENTREGA_USER_TEMPLATE,
+        context: 'Le pasa a MaKo la sesión entera. Conserva los slots: sin {{transcript}} no hay de dónde sacar las citas, y el código las verifica contra la grabación.',
       },
     ],
   },

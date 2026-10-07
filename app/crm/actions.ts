@@ -141,6 +141,8 @@ export async function getLeadInsights(leadId: number): Promise<LeadInsightRow[]>
       .select('recording_id, share_url, started_at, tipo, score, outcome, outcome_tone, summary, next_step, dims, objections, closer, duration_min')
       .eq('lead_id', leadId)
       .eq('status', 'analizada')
+      // Las de VENTA: desde #107 una sesión de entrega analizada también es 'analizada'.
+      .eq('category', 'venta')
       .order('started_at', { ascending: false })
       .limit(10);
     if (error) return [];

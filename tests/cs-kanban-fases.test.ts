@@ -1123,8 +1123,10 @@ test('la fase vive en la PANTALLA, entra por «Filtrar» y llega vigente al kanb
   const app = sinComentarios(leer('app/customer-success/ClientesApp.tsx'));
   assert.match(app, /const \[fasePedida, setFasePedida\] = useState<string \| null>\(null\);/);
   assert.match(app, /const faseVista = faseVigente\(fasePedida, opcionesFase\);/);
-  // La sección sólo en el kanban: la tabla no esconde columnas.
-  assert.match(app, /fases=\{enKanban \? opcionesFase : undefined\} fase=\{faseVista\} onFase=\{setFasePedida\}/);
+  // La sección en LAS DOS VISTAS desde el 06/10/2026: la tabla también esconde grupos por fase
+  // (tests/cs-kanban-ficha-ui.test.ts). Antes decía `enKanban ? … : undefined`, con el porqué
+  // de que «la tabla no esconde columnas», que dejó de ser cierto al agruparla por etapas.
+  assert.match(app, /fases=\{servicio \? opcionesFase : undefined\} fase=\{faseVista\} onFase=\{setFasePedida\}/);
   const kanban = bloque(app, '<KanbanEntrega', '/>');
   assert.match(kanban, /fase=\{faseVista\}/, 'lo que se pidió, NO: lo que este servicio ofrece');
   // Y lo que se cuenta, se exporta y se elige en lote es lo que el riel dibuja.

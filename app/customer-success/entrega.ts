@@ -17,7 +17,7 @@ import { secuenciasPorEtapaDeEntrega } from '@/lib/nutricion';
 import { entregasDeProductos, clientesEnEntrega, type ClienteEnEntrega } from '@/lib/entrega-servicio';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 import { leerTodo } from '@/lib/supabase-paginado';
-import { casaDeCliente } from './pertenencia';
+import { casaDeCliente, clientesEnEtapa } from './pertenencia';
 
 /** Un servicio que se puede entregar, con las columnas de SU entrega. */
 export type Servicio = {
@@ -37,6 +37,17 @@ export type Servicio = {
   origen: 'declarado' | 'default';
   /** Es el producto del embudo PRINCIPAL del CRM: no se puede eliminar (sí renombrar). */
   principal: boolean;
+  /**
+   * Tiene al menos un embudo VIVO en el CRM. Decide qué hace «Eliminar» con él
+   * (`eliminarServicioAction`): con embudo lo ARCHIVA y vuelve desde «Productos eliminados»;
+   * sin embudo lo da de baja con `activo = false`, y de ahí no vuelve desde ninguna pantalla.
+   * La confirmación del editor dice de dónde se recupera SÓLO en el primer caso.
+   *
+   * ⚠️ `false` TAMBIÉN CUANDO NO SE PUDO LEER (la vista de embudos cayó): no saberlo es no
+   * prometerlo. Al revés —prometer que vuelve sobre un producto que se da de baja— es mandar
+   * a alguien a buscar en una lista donde no va a estar.
+   */
+  conEmbudo: boolean;
 };
 
 export type CarteraEnEntrega =
@@ -99,6 +110,9 @@ export type CarteraEnEntrega =
 type Ofrecibles = {
   productos: Awaited<ReturnType<typeof listProductos>>;
   principales: Set<number>;
+  /** Los productos con al menos un embudo VIVO (ver `Servicio.conEmbudo`). Vacío si no se
+   *  pudo leer: no saberlo es no prometer que vuelve. */
+  conEmbudo: Set<number>;
   /** embudo → producto, para la CASA de cada cliente. El primero del catálogo si un
    *  embudo vende varios. */
   productoDeFunnel: Map<number, number>;
@@ -106,19 +120,20 @@ type Ofrecibles = {
   funnelDefault: number | null;
 };
 
-async function productosOfrecibles(): Promise<Ofrecibles> {
+async function productosOfrecibles(opts: { estricto?: boolean } = {}): Promise<Ofrecibles> {
   const productos = await listProductos(true);
   const principales = new Set<number>();
+  const conEmbudo = new Set<number>();
   const productoDeFunnel = new Map<number, number>();
   let funnelDefault: number | null = null;
-  if (!productos.length) return { productos, principales, productoDeFunnel, funnelDefault };
+  if (!productos.length) return { productos, principales, conEmbudo, productoDeFunnel, funnelDefault };
   try {
     const db = await getTenantDb();
     const ids = productos.map((p) => p.id);
     const { data: vp, error } = await db.from('v_funnel_productos').select('funnel_id, producto_id').in('producto_id', ids);
     if (error) throw new Error(error.message);
     const links = (vp ?? []) as Array<{ funnel_id: number; producto_id: number }>;
-    if (!links.length) return { productos, principales, productoDeFunnel, funnelDefault };
+    if (!links.length) return { productos, principales, conEmbudo, productoDeFunnel, funnelDefault };
     // En el orden del catálogo, para que un embudo que vende dos productos caiga siempre
     // en el mismo — y en el mismo que el selector muestra primero.
     const orden = new Map(productos.map((p, i) => [p.id, i]));
@@ -142,11 +157,32 @@ async function productosOfrecibles(): Promise<Ofrecibles> {
       const pid = Number(l.producto_id);
       algunoVivo.set(pid, (algunoVivo.get(pid) ?? false) || (vivo.get(Number(l.funnel_id)) ?? false));
     }
-    return { productos: productos.filter((p) => algunoVivo.get(p.id) !== false), principales, productoDeFunnel, funnelDefault };
+    // ⚠️ LA MISMA PREGUNTA QUE HACE `eliminarServicioAction` ANTES DE ELEGIR CAMINO («¿tiene
+    // algún embudo vivo?»): con embudo vivo archiva, sin ninguno da de baja. Un producto cuyos
+    // embudos están TODOS archivados no llega acá (no se ofrece), así que entre los ofrecidos
+    // `true` = archiva y vuelve, `false` = no tiene embudo.
+    for (const [pid, si] of algunoVivo) if (si) conEmbudo.add(pid);
+    return { productos: productos.filter((p) => algunoVivo.get(p.id) !== false), principales, conEmbudo, productoDeFunnel, funnelDefault };
   } catch (e) {
+    // ⚠️ `estricto` LO PIDE QUIEN DECIDE A QUIÉN SE LE ESCRIBE (la cohorte de una secuencia,
+    // `universoDeLaEntrega`). Sin el cruce con los embudos no hay CASA, y entonces cada cliente
+    // sin fila cae al primer producto ofrecido: para dibujar eso es recuperable, para una
+    // secuencia es mandarle a la cartera entera los mensajes del primer servicio.
+    if (opts.estricto) throw e;
     console.warn('[entrega] no pude cruzar productos con embudos; se ofrecen todos los activos:', e instanceof Error ? e.message : e);
-    return { productos, principales, productoDeFunnel, funnelDefault };
+    return { productos, principales, conEmbudo, productoDeFunnel, funnelDefault };
   }
+}
+
+/**
+ * Los productos que esta pantalla ofrece como servicio, con la MISMA regla que el selector del
+ * kanban. Lo usa el editor de secuencias (`productosConEtapas`, lib/setting-secuencias.ts) para
+ * ofrecer las etapas de entrega de un producto que no es el principal de ningún embudo: sin
+ * esto, un servicio con kanban no se podía elegir como disparador.
+ */
+export async function productosDeLaEntrega(): Promise<Array<{ id: number; nombre: string }>> {
+  const { productos } = await productosOfrecibles();
+  return productos.map((p) => ({ id: p.id, nombre: p.nombre }));
 }
 
 /**
@@ -166,25 +202,38 @@ async function casaDeLaCartera(
   porServicio: Readonly<Record<number, Readonly<Record<number, unknown>>>>,
 ): Promise<Record<number, number | null>> {
   try {
-    const db = await getTenantDb();
-    const [filas, fuera] = await Promise.all([
-      leerTodo<{ id: number; funnel_id: number | null }>(db, 'leads', 'id, funnel_id',
-        { orden: 'id', eq: { estado_lead: 'ganado' } }),
-      fueraDe(),
-    ]);
-    const out: Record<number, number | null> = {};
-    for (const l of filas) {
-      const tieneFilas = ofrecidos.some((p) => porServicio[p]?.[l.id] !== undefined);
-      out[l.id] = casaDeCliente({
-        funnelId: l.funnel_id == null ? null : Number(l.funnel_id),
-        funnelDefault, productoDeFunnel, ofrecidos, tieneFilas, fuera: fuera.get(l.id),
-      });
-    }
-    return out;
+    return (await casasDeLosGanados(ofrecidos, productoDeFunnel, funnelDefault, porServicio)).casa;
   } catch (e) {
     console.warn('[entrega] no pude leer el embudo de los clientes:', e instanceof Error ? e.message : e);
     return {};
   }
+}
+
+/**
+ * Los leads ganados y la casa de cada uno. TIRA si no puede leer: la versión que no tira es
+ * `casaDeLaCartera`, que es la de la pantalla.
+ */
+async function casasDeLosGanados(
+  ofrecidos: readonly number[],
+  productoDeFunnel: ReadonlyMap<number, number>,
+  funnelDefault: number | null,
+  porServicio: Readonly<Record<number, Readonly<Record<number, unknown>>>>,
+): Promise<{ casa: Record<number, number | null>; ganados: Array<{ id: number; nombre: string }> }> {
+  const db = await getTenantDb();
+  const [filas, fuera] = await Promise.all([
+    leerTodo<{ id: number; nombre: string | null; funnel_id: number | null }>(db, 'leads', 'id, nombre, funnel_id',
+      { orden: 'id', eq: { estado_lead: 'ganado' } }),
+    fueraDe(),
+  ]);
+  const out: Record<number, number | null> = {};
+  for (const l of filas) {
+    const tieneFilas = ofrecidos.some((p) => porServicio[p]?.[l.id] !== undefined);
+    out[l.id] = casaDeCliente({
+      funnelId: l.funnel_id == null ? null : Number(l.funnel_id),
+      funnelDefault, productoDeFunnel, ofrecidos, tieneFilas, fuera: fuera.get(l.id),
+    });
+  }
+  return { casa: out, ganados: filas.map((l) => ({ id: Number(l.id), nombre: (l.nombre ?? '').trim() })) };
 }
 
 /**
@@ -267,7 +316,7 @@ export async function productosDelCliente(leadId: number): Promise<{ productos: 
  */
 export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
   try {
-    const { productos, principales, productoDeFunnel, funnelDefault } = await productosOfrecibles();
+    const { productos, principales, conEmbudo, productoDeFunnel, funnelDefault } = await productosOfrecibles();
     if (!productos.length) return { ok: true, servicios: [], porServicio: {}, secuenciasPorServicio: {}, casaPorLead: {}, ordenPorServicio: {} };
 
     const ids = productos.map((p) => p.id);
@@ -298,6 +347,7 @@ export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
         fases: cat?.fases ?? [],
         origen: cat?.origen ?? 'default',
         principal: principales.has(p.id),
+        conEmbudo: conEmbudo.has(p.id),
       };
     });
     const [casaPorLead, ordenPorServicio] = await Promise.all([
@@ -308,4 +358,95 @@ export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer la entrega de tus servicios.' };
   }
+}
+
+/** Lo que `universoDeLaEntrega` devuelve. */
+export type UniversoEntrega = {
+  /** Los productos que Customer Success ofrece, con las etapas de su entrega. */
+  servicios: Array<{ productoId: number; nombre: string; etapas: EtapaEntrega[] }>;
+  /** producto → lead → la etapa que tiene ESCRITA (`cliente_entrega`). */
+  filas: Record<number, Record<number, { etapa: string }>>;
+  /** lead ganado → el producto de su casa (`casaDeCliente`), o null. */
+  casa: Record<number, number | null>;
+  /** El UNIVERSO: los leads ganados, por id. */
+  ganados: Array<{ id: number; nombre: string }>;
+};
+
+/**
+ * La entrega ENTERA del workspace, para quien DECIDE algo con ella (no para dibujarla):
+ * la cohorte de una secuencia de entrega y lo que MaKo cuenta del curso de un cliente.
+ *
+ * ⚠️ TIRA SI CUALQUIER LECTURA FALLA, y es lo opuesto de `carteraEnEntrega` a propósito. La
+ * pantalla prefiere dibujar de menos (defaults, todos en la primera columna) antes que no
+ * dibujar; quien decide a quién se le escribe no puede: con `cliente_entrega` caída, los
+ * catorce clientes «estarían» en la primera etapa y una secuencia de bienvenida le llegaría
+ * a alguien que va por el hito tres. Una cohorte que no se pudo leer corta la corrida y el
+ * cron vuelve en una hora (la política de `filasCohorte`, lib/nutricion.ts).
+ *
+ * Las filas se leen de TODOS los productos, ofrecidos o no: un producto dado de baja no tiene
+ * tablero, pero las filas que alguien escribió ahí siguen siendo hechos.
+ */
+export async function universoDeLaEntrega(): Promise<UniversoEntrega> {
+  const { productos, productoDeFunnel, funnelDefault } = await productosOfrecibles({ estricto: true });
+  const ids = productos.map((p) => p.id);
+  const db = await getTenantDb();
+  const [catalogos, todas] = await Promise.all([
+    entregasDeProductos(ids, { estricto: true }),
+    // Paginado por `id`: una fila por cliente y por producto cruza las 1000 con el uso, y
+    // el cliente que cae del corte no entraría a su secuencia NUNCA, sin un log.
+    leerTodo<{ id: number; lead_id: number; producto_id: number; etapa: string }>(
+      db, 'cliente_entrega', 'id, lead_id, producto_id, etapa', { orden: 'id' }),
+  ]);
+  const filas: Record<number, Record<number, { etapa: string }>> = {};
+  for (const f of todas) (filas[Number(f.producto_id)] ??= {})[Number(f.lead_id)] = { etapa: f.etapa };
+  const { casa, ganados } = await casasDeLosGanados(ids, productoDeFunnel, funnelDefault, filas);
+  return {
+    servicios: productos.map((p) => ({ productoId: p.id, nombre: p.nombre, etapas: catalogos.get(p.id)?.etapas ?? [] })),
+    filas, casa, ganados,
+  };
+}
+
+/**
+ * Los clientes que HOY están en una etapa de la entrega: la cohorte de `entrega_actual`
+ * (lib/nutricion.ts → `leadsDeCohorte`). La regla es `clientesEnEtapa` (./pertenencia.ts), la
+ * misma del kanban; acá sólo se le junta el universo.
+ *
+ * `productoId` null = la entrega de cualquier producto (una secuencia vieja sin producto): se
+ * pregunta producto por producto, con la regla de cada uno, y se juntan.
+ *
+ * ⚠️ Sin los dados de baja ni los graduados (`estadoCs`, ver `salioDeLaEntrega`), leídos
+ * ESTRICTO como el resto: con `cs_clientes` caída no se sabe quién se fue, y una cohorte que
+ * no se pudo leer corta la corrida en vez de escribirle a un cliente que ya no está.
+ */
+export async function clientesEnEtapaDeEntrega(productoId: number | null, etapa: string): Promise<number[]> {
+  const key = (etapa ?? '').trim();
+  if (!key) return [];
+  const [u, estadoCs] = await Promise.all([universoDeLaEntrega(), estadosCsEstricto()]);
+  const clientes = u.ganados.map((g) => g.id);
+  const productos = productoId != null
+    ? [productoId]
+    : [...new Set([...u.servicios.map((s) => s.productoId), ...Object.keys(u.filas).map(Number)])];
+  const out = new Set<number>();
+  for (const p of productos) {
+    const servicio = u.servicios.find((s) => s.productoId === p);
+    for (const id of clientesEnEtapa({
+      productoId: p, etapa: key, etapas: servicio ? servicio.etapas : null,
+      clientes, casa: u.casa, asignacion: u.filas[p] ?? {}, estadoCs,
+    })) out.add(id);
+  }
+  return [...out];
+}
+
+/**
+ * lead → su estado en Customer Success (`cs_clientes.estado`). Sin fila = activo, y por eso no
+ * entra al mapa. TIRA si no puede leer (`leerTodo` lanza con el error de PostgREST): es la
+ * lectura que decide a quién NO escribirle.
+ */
+async function estadosCsEstricto(): Promise<Record<number, string>> {
+  const db = await getTenantDb();
+  const filas = await leerTodo<{ id: number; lead_id: number; estado: string | null }>(
+    db, 'cs_clientes', 'id, lead_id, estado', { orden: 'id' });
+  const out: Record<number, string> = {};
+  for (const f of filas) if (f.estado) out[Number(f.lead_id)] = String(f.estado);
+  return out;
 }

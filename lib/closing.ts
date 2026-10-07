@@ -367,8 +367,14 @@ function normTone(t: unknown): Tone {
   return t === 'good' || t === 'bad' ? t : 'warn';
 }
 
-/** Transcript con segundos precomputados: "[123s · 2:03] Hablante: texto". */
-function transcriptWithSeconds(items: FathomMeeting['transcript'], maxChars = 60000): string {
+/**
+ * Transcript con segundos precomputados: "[123s · 2:03] Hablante: texto".
+ *
+ * Se exporta para el análisis de las sesiones de ENTREGA (lib/closing-entrega.ts), que lo
+ * pide con otro tope: una sesión de coaching dura 60-125 min y sus riesgos suelen estar al
+ * final, así que los 60.000 caracteres de una venta la cortarían a la mitad.
+ */
+export function transcriptWithSeconds(items: FathomMeeting['transcript'], maxChars = 60000): string {
   if (!items || !items.length) return '';
   const toSec = (ts?: string | null) => {
     if (!ts) return 0;

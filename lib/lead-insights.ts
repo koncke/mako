@@ -377,6 +377,9 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
         .select('tipo, started_at, score, outcome, summary, next_step, dims, objections')
         .eq('lead_id', lead.id)
         .eq('status', 'analizada')
+        // Las de VENTA: una sesión de entrega analizada (lib/closing-entrega.ts) también es
+        // 'analizada', y sin score ni objeciones habilitaría el gate de abajo sin sustancia.
+        .eq('category', 'venta')
         .order('started_at', { ascending: false })
         .limit(10)
         .then((r) => (r.data ?? []) as AnalisisRow[]),

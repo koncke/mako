@@ -113,6 +113,9 @@ const TENANT_TABLES = new Set<string>([
   // sus llamadas. Las cuatro tienen N filas por workspace: sin el `.eq`, la lectura devolvería
   // el curso y las respuestas de los clientes de OTRO negocio.
   'curso_clases', 'curso_progreso', 'curso_accesos', 'curso_sesiones',
+  // Las notas del equipo sobre una clase o una etapa (mig 0208). Sin esta línea las notas de
+  // OTRO negocio aparecerían debajo de una clase, con sus adjuntos.
+  'curso_clase_notas',
   // El orden manual de las columnas del kanban del CRM (mig 0200), la gemela de `cliente_entrega_orden`.
   // Sin esta línea la lectura devolvería el orden de las columnas de CUALQUIER workspace.
   'lead_orden',

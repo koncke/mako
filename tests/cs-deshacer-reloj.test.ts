@@ -21,6 +21,12 @@
 //   · el deshacer del LOTE con `relojPrevio: null` → «el deshacer del lote».
 //   · la action de lote sin `relojPrevio: m.relojPrevio` → «las dos actions».
 //   Restaurado: 7 pass / 0 fail.
+// El 06/10/2026 el choke point pasó a compare-and-set (dos escrituras en vez de un upsert) y las
+// actions a pasar `por`: el primer test ahora mira `const columna = {…}` y el de las actions
+// exige `por`. Re-probado rompiéndolo, corriendo juntos los cinco archivos que miran el choke
+// point (baseline 61 pass / 0 fail): `etapa_desde: ahora` en `columna` → 59/2 («la columna que
+// se escribe…» y, en tests/cs-mover-etapa.test.ts, «…el MISMO reloj»); la action de lote sin
+// `relojPrevio: m.relojPrevio` → 60/1 («las dos actions»). Restaurado: 61 / 0.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -57,19 +63,25 @@ test('una fecha del futuro no se escribe', () => {
   assert.equal(relojDeVuelta(new Date(AHORA).toISOString(), AHORA), new Date(AHORA).toISOString());
 });
 
-test('el upsert escribe el reloj validado, y «ahora» sólo si no hay uno', () => {
+// ⚠️ DESDE EL 06/10/2026 SON DOS ESCRITURAS, NO UN UPSERT: el compare-and-set del choke point
+// hace `update` si ya tenía fila e `insert … on conflict do nothing` si entra. El reloj se arma
+// UNA vez (`columna`) y viajan las dos con él; que las dos lo usen lo fija
+// tests/cs-mover-etapa.test.ts («las dos escrituras llevan el MISMO reloj»). Acá se fija el valor.
+test('la columna que se escribe lleva el reloj validado, y «ahora» sólo si no hay uno', () => {
   const src = leer('lib/cs-mover-etapa.ts');
-  const ini = src.indexOf(".from('cliente_entrega').upsert(");
-  assert.ok(ini > 0, 'no encontré el upsert de cliente_entrega');
-  const bloque = src.slice(ini, src.indexOf('onConflict', ini));
+  const ini = src.indexOf('const columna = {');
+  assert.ok(ini > 0, 'no encontré la columna que escribe el choke point');
+  const bloque = src.slice(ini, src.indexOf('};', ini));
   assert.ok(bloque.length < 400, `el recorte mide ${bloque.length}: está mirando otra cosa`);
   assert.match(bloque, /etapa_desde:\s*relojDeVuelta\(pedido\.relojPrevio\)\s*\?\?\s*ahora/);
 });
 
 test('las dos actions le pasan el reloj al choke point', () => {
+  // `por` (06/10/2026) es el autor del movimiento: viaja al lado del reloj, y su guard vive en
+  // tests/cs-acciones-puerta.test.ts.
   const src = leer('app/customer-success/actions.ts');
-  assert.match(src, /moverClienteDeEtapa\(\{\s*leadId,\s*productoId,\s*etapa,\s*relojPrevio\s*\}\)/);
-  assert.match(src, /moverClienteDeEtapa\(\{\s*leadId,\s*productoId,\s*etapa:\s*m\.etapa,\s*relojPrevio:\s*m\.relojPrevio\s*\}\)/);
+  assert.match(src, /moverClienteDeEtapa\(\{\s*leadId,\s*productoId,\s*etapa,\s*relojPrevio,\s*por\s*\}\)/);
+  assert.match(src, /moverClienteDeEtapa\(\{\s*leadId,\s*productoId,\s*etapa:\s*m\.etapa,\s*relojPrevio:\s*m\.relojPrevio,\s*por\s*\}\)/);
 });
 
 test('el deshacer de una tarjeta manda el reloj que tenía', () => {

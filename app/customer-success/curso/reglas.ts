@@ -6,7 +6,8 @@
 // (tests/curso-admin.test.ts). Las reglas del curso en sí —qué cierra una etapa, el % visto,
 // el saneo de un formulario— viven en lib/curso.ts; acá está lo que es de ESTA pantalla:
 // validar lo que guarda el editor, el orden de las clases, de dónde sale el path de un video
-// subido y la fila de «Avance».
+// subido y la fila de «Avance». Y desde la mig 0208: la marca de grabar, las notas del equipo
+// con su adjunto, y qué archivo de los buckets del curso es huérfano (el cron que los barre).
 //
 // Pedido de Martín (06/10/2026): «implementes la tab de "CURSO"… con todo su programa… los
 // formularios con las tareas… cargar vídeos, ya sea con un link o subiendo el video… que se
@@ -390,4 +391,307 @@ export type FilaAvance = {
 export function ordenarFilas(filas: readonly FilaAvance[], etapas: readonly string[]): FilaAvance[] {
   const pos = (e: string | null) => (e == null ? etapas.length : Math.max(0, etapas.indexOf(e)));
   return [...filas].sort((a, b) => pos(a.etapa) - pos(b.etapa) || a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+// ── Grabar / no grabar (#693, mig 0208) ──────────────────────────────────────
+
+/**
+ * Lo que puede valer la marca: `true` (grabar), `false` (no se graba) o `null` (sin decidir).
+ * `undefined` = el pedido trae otra cosa y no se escribe nada.
+ *
+ * ⚠️ `null` ES UN VALOR QUE SE GUARDA, no un «no llegó»: es como se des-marca una clase (tocar
+ * otra vez la opción elegida). Un string «true» o un 1 NO valen: la marca viaja desde el
+ * navegador y una coerción acá convertiría cualquier basura en una decisión.
+ */
+export function valorGrabar(raw: unknown): boolean | null | undefined {
+  if (raw === true || raw === false || raw === null) return raw;
+  return undefined;
+}
+
+/**
+ * Cuántas clases faltan GRABAR: las marcadas «Grabar» que todavía no tienen video.
+ *
+ * ⚠️ «POR GRABAR» Y NO «MARCADAS GRABAR»: cuando el video llega, la clase deja de faltar sola,
+ * sin que nadie tenga que volver a tocar la marca. Contando las marcadas, el número no bajaría
+ * nunca y la única forma de bajarlo sería mentir con «No grabar» sobre una clase ya grabada.
+ * Una clase sin decidir (`null`) no cuenta: nadie eligió grabarla.
+ */
+export function porGrabar(
+  clases: readonly Pick<Clase, 'id' | 'videoTipo'>[],
+  grabar: Readonly<Record<number, boolean | null>>,
+): number {
+  return clases.filter((c) => grabar[c.id] === true && c.videoTipo === 'ninguno').length;
+}
+
+// ── Las notas del equipo (#692, mig 0208) ────────────────────────────────────
+
+/**
+ * Los formatos que acepta el bucket `curso-notas` (mig 0208, `allowed_mime_types`): documentos,
+ * planillas e imágenes. ⚠️ LOS MISMOS QUE LOS DEL BUCKET, por la misma razón que `MIME_VIDEO`:
+ * Storage rechaza recién al terminar de subir. Un test compara esta lista con la migración.
+ */
+export const MIME_NOTA = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'text/csv',
+  'text/plain',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+] as const;
+export type MimeNota = (typeof MIME_NOTA)[number];
+
+/** El tope de un adjunto: 25 MiB, el `file_size_limit` del bucket (mig 0208). El del bucket, no uno mío. */
+export const TOPE_NOTA_BYTES = 25 * 1024 * 1024;
+/** El tope del texto de una nota. Es un comentario, no un documento: el documento se adjunta. */
+export const TOPE_NOTA_TEXTO = 5000;
+/** El tope del nombre original de un adjunto (se guarda aparte de la ruta). */
+export const TOPE_NOMBRE_ADJUNTO = 160;
+
+const EXT_DE_MIME_NOTA: Record<MimeNota, string> = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'application/vnd.oasis.opendocument.text': 'odt',
+  'application/vnd.oasis.opendocument.spreadsheet': 'ods',
+  'text/csv': 'csv',
+  'text/plain': 'txt',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+const MIME_NOTA_DE_EXT: Record<string, MimeNota> = {
+  ...Object.fromEntries(Object.entries(EXT_DE_MIME_NOTA).map(([m, e]) => [e, m as MimeNota])),
+  jpeg: 'image/jpeg',
+};
+const EXTS_NOTA = [...new Set(Object.values(EXT_DE_MIME_NOTA))].join('|');
+
+export const esMimeNota = (m: string | null | undefined): m is MimeNota => (MIME_NOTA as readonly string[]).includes(m ?? '');
+
+/** Lo que va en el `accept` del input de archivo: los tipos y las extensiones. */
+export const ACEPTA_NOTA = [...MIME_NOTA, ...Object.keys(MIME_NOTA_DE_EXT).map((e) => `.${e}`)].join(',');
+
+/**
+ * El tipo de un adjunto elegido. PRIMERO la extensión, después lo que diga el navegador.
+ *
+ * ⚠️ AL REVÉS QUE `mimeDeArchivo`, y es a propósito: con Excel instalado, Windows le pone
+ * `application/vnd.ms-excel` a un .csv, y hay navegadores que dejan vacío (o en
+ * `application/octet-stream`) un .docx. La extensión es lo único parejo entre máquinas. Y el
+ * tipo viaja en la parte del multipart: con el equivocado, el bucket rebota un archivo bueno.
+ */
+export function mimeDeNota(nombre: string, tipo: string | null | undefined): MimeNota | null {
+  const ext = (nombre.includes('.') ? nombre.split('.').pop() ?? '' : '').toLowerCase();
+  if (MIME_NOTA_DE_EXT[ext]) return MIME_NOTA_DE_EXT[ext];
+  return esMimeNota(tipo) ? tipo : null;
+}
+
+/**
+ * Dónde se guarda un adjunto: `<ws>/<producto>/<uuid>.<ext>` en `curso-notas`.
+ * ⚠️ El workspace primero y puesto por el server, como el video (`pathDeSubida`): es lo que deja
+ * preguntar «¿este archivo es de este negocio?» con un prefijo. El nombre original NO entra.
+ */
+export function pathDeNota(ws: number, productoId: number, mime: string, uuid: string): string | null {
+  if (!esMimeNota(mime) || !Number.isInteger(ws) || ws <= 0 || !Number.isInteger(productoId) || productoId <= 0) return null;
+  if (!new RegExp(`^${UUID}$`).test(uuid)) return null;
+  return `${ws}/${productoId}/${uuid}.${EXT_DE_MIME_NOTA[mime]}`;
+}
+
+/** ¿Este path es un adjunto subido para ESTE producto de ESTE workspace? (lo que guarda una nota) */
+export function pathEsNotaDelProducto(path: string | null | undefined, ws: number, productoId: number): boolean {
+  return typeof path === 'string' && new RegExp(`^${ws}/${productoId}/${UUID}\\.(${EXTS_NOTA})$`).test(path);
+}
+
+/** ¿Este path es un adjunto de ESTE workspace? (lo que se puede descartar) */
+export function pathEsNotaDelWorkspace(path: string | null | undefined, ws: number): boolean {
+  return typeof path === 'string' && new RegExp(`^${ws}/\\d{1,12}/${UUID}\\.(${EXTS_NOTA})$`).test(path);
+}
+
+/**
+ * El nombre original de un adjunto, para mostrarlo y para el «descargar como». Sin carpetas, sin
+ * caracteres de control, y con tope. Viaja desde el navegador: no se cree.
+ */
+export function nombreDeAdjunto(raw: unknown): string {
+  // Los caracteres de control van como escape (AGENTS.md: un byte NUL crudo hace que la búsqueda
+  // declare el archivo binario).
+  const s = typeof raw === 'string' ? raw.replace(/[\u0000-\u001f\u007f]/g, '').split(/[\\/]/).pop()!.trim() : '';
+  return (s || 'archivo').slice(0, TOPE_NOMBRE_ADJUNTO);
+}
+
+/**
+ * ¿El adjunto se abre en el navegador o se descarga? PDF, imágenes y texto se ven; una planilla o
+ * un Word no se pueden ver ahí, así que se bajan con su nombre original (la ruta es un uuid).
+ */
+export const adjuntoSeVe = (mime: string | null | undefined): boolean =>
+  mime === 'application/pdf' || mime === 'text/plain' || (typeof mime === 'string' && mime.startsWith('image/'));
+
+/** De qué cuelga una nota: UNA clase o UNA etapa (la clave de la entrega), nunca las dos. */
+export type DestinoNota = { claseId: number } | { etapa: string };
+
+/** Lo que manda el navegador al comentar. Viaja desde el navegador: se valida entero. */
+export type EntradaNota = {
+  productoId: number;
+  claseId?: number | null;
+  etapa?: string | null;
+  texto?: string;
+  archivo?: { path: string; nombre: string; mime: string; bytes: number } | null;
+};
+
+/** Las columnas de `curso_clase_notas` que escribe un comentario (sin id, workspace ni autor). */
+export type FilaNotaGuardar = {
+  producto_id: number;
+  clase_id: number | null;
+  etapa: string | null;
+  texto: string;
+  archivo_path: string | null;
+  archivo_nombre: string | null;
+  archivo_mime: string | null;
+  archivo_bytes: number | null;
+};
+
+/** Una nota como la dibuja la pantalla. ⚠️ SIN la ruta del adjunto: se abre por el id de la nota. */
+export type NotaVista = {
+  id: number;
+  autor: string;
+  texto: string;
+  archivo: { nombre: string; mime: string; bytes: number | null } | null;
+  createdAt: string;
+  /** La puede borrar quien mira: es suya, o es admin. Lo decide el server; el botón sólo se dibuja. */
+  borrable: boolean;
+};
+
+/**
+ * Valida un comentario. Errores CORTOS: se dibujan tal cual.
+ *
+ * ⚠️ QUE LA CLASE SEA DE ESTE NEGOCIO NO SE PUEDE SABER ACÁ (hace falta la base): lo mira
+ * `agregarNota` con `claseDeId`. Acá va lo que se sabe sin leer nada: que cuelgue de UNA cosa,
+ * que la etapa exista en la entrega, que el adjunto sea un archivo de este producto y de un tipo
+ * que el bucket acepta, y que haya algo que guardar.
+ */
+export function validarNota(
+  raw: unknown,
+  ctx: { ws: number; productoId: number; etapas: readonly string[] },
+): { ok: true; fila: FilaNotaGuardar } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object') return { ok: false, error: 'No llegó la nota.' };
+  const r = raw as Record<string, unknown>;
+  if (Number(r.productoId) !== ctx.productoId) return { ok: false, error: 'Ese producto no es este.' };
+
+  const claseId = r.claseId == null ? null : Number(r.claseId);
+  const etapa = typeof r.etapa === 'string' && r.etapa ? r.etapa : null;
+  if ((claseId == null) === (etapa == null)) return { ok: false, error: 'La nota no tiene dónde ir.' };
+  if (claseId != null && (!Number.isInteger(claseId) || claseId <= 0)) return { ok: false, error: 'Esa clase no existe.' };
+  if (etapa != null && !ctx.etapas.includes(etapa)) return { ok: false, error: 'Esa etapa no existe.' };
+
+  const texto = typeof r.texto === 'string' ? r.texto.trim() : '';
+  if (texto.length > TOPE_NOTA_TEXTO) return { ok: false, error: 'La nota es demasiado larga.' };
+
+  let archivo: Pick<FilaNotaGuardar, 'archivo_path' | 'archivo_nombre' | 'archivo_mime' | 'archivo_bytes'> =
+    { archivo_path: null, archivo_nombre: null, archivo_mime: null, archivo_bytes: null };
+  if (r.archivo != null) {
+    const a = r.archivo as Record<string, unknown>;
+    const path = typeof a.path === 'string' ? a.path : '';
+    if (!pathEsNotaDelProducto(path, ctx.ws, ctx.productoId)) return { ok: false, error: 'Ese archivo no es de este curso.' };
+    const mime = typeof a.mime === 'string' ? a.mime : '';
+    if (!esMimeNota(mime)) return { ok: false, error: 'Ese formato no va.' };
+    const bytes = Number(a.bytes);
+    if (!Number.isFinite(bytes) || bytes <= 0 || bytes > TOPE_NOTA_BYTES) return { ok: false, error: 'Pasa de 25 MB.' };
+    archivo = { archivo_path: path, archivo_nombre: nombreDeAdjunto(a.nombre), archivo_mime: mime, archivo_bytes: Math.round(bytes) };
+  }
+
+  if (!texto && !archivo.archivo_path) return { ok: false, error: 'La nota está vacía.' };
+  return { ok: true, fila: { producto_id: ctx.productoId, clase_id: claseId, etapa, texto, ...archivo } };
+}
+
+// ── Los archivos huérfanos de los buckets del curso ──────────────────────────
+
+/** Un objeto del bucket, como lo devuelve el listado de Storage. */
+export type ArchivoBucket = { path: string; createdAt: string | null };
+
+/**
+ * Cuánto tiene que tener un archivo para poder ser huérfano. La URL de subida vive 2 h
+ * (`urlSubida`) y el editor guarda en la misma sesión: con 24 h, un archivo sin clase no es una
+ * subida en curso, es una subida abandonada (la pestaña se cerró, se cayó la red).
+ */
+export const EDAD_MIN_HUERFANO_HORAS = 24;
+
+/** ¿Este path tiene la forma de un VIDEO que subió la tab, de cualquier workspace? */
+export const esVideoSubido = (p: string): boolean => new RegExp(`^\\d{1,12}/\\d{1,12}/${UUID}\\.(mp4|webm|mov|m4v)$`).test(p);
+/** ¿Este path tiene la forma de un ADJUNTO de nota, de cualquier workspace? */
+export const esAdjuntoSubido = (p: string): boolean => new RegExp(`^\\d{1,12}/\\d{1,12}/${UUID}\\.(${EXTS_NOTA})$`).test(p);
+
+/**
+ * Qué archivos se pueden borrar: los que tienen la forma de lo que sube la tab, que NINGUNA fila
+ * de NINGÚN workspace nombra, y que tienen más de 24 h.
+ *
+ * ⚠️ «NINGÚN WORKSPACE», no el del cron: el bucket es uno solo para toda la plataforma, y un
+ * cruce contra las clases de un inquilino declararía huérfanos los videos de todos los demás.
+ * ⚠️ SIN FECHA NO HAY EDAD: un objeto cuya fecha no se puede leer no se borra. Y un path con
+ * otra forma (un placeholder que crea el panel de Supabase, algo subido a mano) no se toca:
+ * esto limpia lo que la tab sube, no el bucket.
+ */
+export function huerfanosABorrar(
+  archivos: readonly ArchivoBucket[],
+  referenciados: ReadonlySet<string>,
+  ahoraMs: number,
+  esPropio: (path: string) => boolean,
+  edadMinHoras: number = EDAD_MIN_HUERFANO_HORAS,
+): string[] {
+  const limite = ahoraMs - edadMinHoras * 3_600_000;
+  return archivos
+    .filter((a) => {
+      if (!esPropio(a.path) || referenciados.has(a.path)) return false;
+      const t = a.createdAt ? Date.parse(a.createdAt) : NaN;
+      return Number.isFinite(t) && t < limite;
+    })
+    .map((a) => a.path);
+}
+
+/**
+ * La decisión entera de una purga, FAIL-CLOSED: ante la duda no se borra nada.
+ *
+ * ⚠️ «LAS CLASES VOLVIERON VACÍAS» CON ARCHIVOS EN EL BUCKET NO SE CREE. Una lectura que contesta
+ * cero filas sin error (un filtro roto, una tabla que se renombró, un permiso) es indistinguible
+ * de «nadie usa nada», y creerla borraría el video de cada clase de cada cliente. Es la misma
+ * regla que `borrarArchivo` (lib/curso-admin.ts): un huérfano cuesta disco, uno borrado de más
+ * cuesta la clase. El costo aceptado: si de verdad no queda ninguna clase con video, lo que
+ * quedó en el bucket se borra a mano.
+ */
+export function decidirPurga(p: {
+  archivos: readonly ArchivoBucket[];
+  referencias: { ok: true; paths: readonly string[] } | { ok: false; error: string };
+  ahoraMs: number;
+  esPropio: (path: string) => boolean;
+}): { borrar: string[]; motivo: string | null } {
+  if (!p.referencias.ok) return { borrar: [], motivo: `No pude leer qué se usa: ${p.referencias.error}` };
+  const propios = p.archivos.filter((a) => p.esPropio(a.path));
+  if (p.referencias.paths.length === 0 && propios.length > 0) {
+    return { borrar: [], motivo: `La lectura volvió sin ninguna referencia y el bucket tiene ${propios.length}: no borro nada.` };
+  }
+  return { borrar: huerfanosABorrar(propios, new Set(p.referencias.paths), p.ahoraMs, p.esPropio), motivo: null };
+}
+
+/**
+ * ¿Esta vuelta de la purga BORRA, o sólo cuenta? Borra únicamente con un `'1'` explícito: en la
+ * URL (`?borrar=1`, una corrida a mano después de leer la de prueba) o en el entorno
+ * (`CURSO_PURGA_BORRAR=1`, que es lo que prende el cron diario). Cualquier otra cosa —ausente,
+ * vacía, `'true'`, `'0'`— es modo PRUEBA.
+ *
+ * ⚠️ EL DEFAULT ES NO BORRAR, a propósito: el contenido de los buckets nunca se midió, y sin esto
+ * lo primero que hacía el cron en producción era un `remove` real. Primero se lee la salida en
+ * modo prueba (qué borraría y cuánto pesa), y recién ahí se prende.
+ */
+export function pideBorrarPurga(query: string | null | undefined, env: string | null | undefined): boolean {
+  return query === '1' || env === '1';
 }

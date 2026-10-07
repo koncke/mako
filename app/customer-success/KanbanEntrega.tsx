@@ -657,11 +657,28 @@ export function KanbanEntrega({
         })}
       </div>
 
-      {/* ⚠️ LOS HUÉRFANOS NO SE CALLAN: ver la nota de arriba. */}
+      {/* ⚠️ LOS HUÉRFANOS NO SE CALLAN: ver la nota de arriba.
+
+          ⚠️ Y CADA NOMBRE ABRE SU FICHA (06/10/2026). Antes el aviso era texto plano y decía
+          «Muévelos a una columna» sobre clientes que el kanban no deja mover: sin tarjeta no
+          hay nada que arrastrar, y desde acá no había ni un clic posible. La ficha tiene el
+          desplegable de etapa en la cabecera (FichaEntrega), que con una etapa borrada dice
+          «Etapa borrada» y mueve al elegir — con el mismo `moverEntrega` del tablero, o sea
+          con su deshacer y su línea en el historial. Abrir no mueve a nadie: lo decide quien
+          mira. */}
       {huerfanos.length > 0 && (
         <p className="ke-huerfanos">
           {huerfanos.length === 1 ? 'Un cliente está' : `${huerfanos.length} clientes están`} en una etapa
-          que ya no existe: {huerfanos.map((c) => c.nombre.trim() || 'Sin nombre').join(', ')}. Muévelos a una columna.
+          que ya no existe:{' '}
+          {huerfanos.map((c, i) => (
+            <Fragment key={c.leadId}>
+              {i > 0 && ', '}
+              <button type="button" className="ke-huerfano" onClick={() => onAbrir(c.leadId)}
+                title={`Abrir la ficha de «${c.nombre.trim() || 'Sin nombre'}»`}>
+                {c.nombre.trim() || 'Sin nombre'}
+              </button>
+            </Fragment>
+          ))}. {huerfanos.length === 1 ? 'Ábrelo para moverlo.' : 'Ábrelos para moverlos.'}
         </p>
       )}
 
@@ -801,6 +818,11 @@ const CSS = `
 .ke-chip-trabado { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
 
 .ke-huerfanos { margin: 0; font-size: 12.5px; color: var(--bad); }
+/* Cada nombre del aviso es un BOTON que abre su ficha: se ve como un link (subrayado, mismo
+   color del aviso) para que se lea como algo que se toca y no como un dato mas. */
+.ke-huerfano { background: none; border: 0; padding: 0; font: inherit; font-weight: 650;
+  color: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ke-huerfano:hover { color: var(--ink); }
 .ke-nada { margin: 10px 0 0; font-size: 13px; color: var(--dim); }
 
 .ke-sub { margin: 0 0 10px; font-size: 13px; color: var(--dim); }
