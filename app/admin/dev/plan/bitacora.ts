@@ -96,4 +96,28 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-plan.md — «El punto medio es correcto y la tarjeta igual NO queda donde se soltó»',
     ],
   },
+  {
+    fecha: '7 oct', hora: '—', chat: '—', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Unificar el tope de la prueba al cerrar una tarjeta',
+    pedido: 'Haz esta tarea aquí: “Unificar el tope de la prueba al cerrar una tarjeta”',
+    puntos: [
+      'Era el SIN HACER del cierre del tablero del Chatbot (06/10): el borrador aceptaba una prueba de 400 caracteres y el historial la cortaba en 219.',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '18:48', chat: '—', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'La prueba de un cierre tiene UN tope, y entra entera a la tarjeta',
+    puntos: [
+      '**Un tope, en un módulo puro** (`lib/cierre-tarjeta.ts`): lo usan el saneo del borrador, los dos escritores del renglón —super admin y cliente— y la API de MaKo, que tenía el 400 copiado a mano.',
+      '⚠️ **El 240 no protegía nada.** Ningún saneador del historial recorta el texto y la tarjeta lo dibuja entero: era un número que sólo cortaba la prueba. Por eso el tope único es el del borrador (400) y no el del renglón — bajarlo a 219 habría tirado evidencia por un límite que no existe.',
+      '**Y si una prueba pasa del tope, el corte se ve**: termina en «…» en el borrador, donde la persona la lee antes de confirmar.',
+    ],
+    commits: [
+      { sha: '6641b6d8', msg: 'Plan: la prueba de un cierre tiene UN tope, y lo que entró al borrador queda entero en la tarjeta', lineas: 129, archivos: 5 },
+    ],
+    archivos: [
+      'lib/cierre-tarjeta.ts — `TOPE_PRUEBA_CIERRE`, `recortarPrueba` y `renglonDeCierre`',
+      'tests/cierre-tarjeta.test.ts — 4 tests con los tres largos medidos, ocho roturas probadas',
+    ],
+  },
 ];

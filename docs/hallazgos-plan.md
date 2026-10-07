@@ -5409,8 +5409,19 @@ partida a la mitad en la tarjeta. En el borrador del Chatbot eran 3 de 16 (227, 
 caracteres); se acortaron antes de aplicar. Es «un tope se aplica ANTES de decidir, y lo que
 recorta queda escrito» (AGENTS.md), y acá no se cumple ninguna de las dos mitades.
 
-**SIN HACER:** un solo tope en una constante, que use el saneo del borrador y el renglón del
-historial. Hasta entonces, la prueba de un cierre se escribe en 219 caracteres o menos.
+~~**SIN HACER:** un solo tope en una constante, que use el saneo del borrador y el renglón del
+historial.~~ **Hecho el 07/10/2026** (`6641b6d8`), con el pedido «Unificar el tope de la prueba al
+cerrar una tarjeta». `TOPE_PRUEBA_CIERRE` (400) en `lib/cierre-tarjeta.ts`, sin `server-only`: lo
+usan el saneo del borrador, los DOS escritores del renglón (super admin y cliente) y la definición
+de la API de MaKo, que tenía el 400 copiado a mano. El prefijo ya no le come lugar a la prueba
+—se recorta la prueba, nunca el renglón—, y una prueba que pasa del tope termina en «…» en el
+borrador, que es donde la persona la lee antes de confirmar. Lo fija
+`tests/cierre-tarjeta.test.ts` (ocho roturas, todas cayeron).
+
+⚠️ **Lo que el diagnóstico no decía: el 240 no protegía NADA.** Ni `sanearHist` (super admin) ni
+`histOk` (cliente) recortan el texto de un renglón, y la tarjeta lo dibuja entero con salto de
+línea. Era un número que sólo cortaba la prueba. Por eso el tope único es el del borrador, y no
+el del renglón: bajarlo a 219 habría tirado evidencia para respetar un límite que no existe.
 
 ### Lo que quedó SIN hacer
 
