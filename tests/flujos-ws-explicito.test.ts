@@ -221,7 +221,9 @@ test('nadie importa dispararEvento con OTRO nombre (el barrido busca el nombre)'
 
 test('Fathom: el ws que viaja es el que resolvió recorded_by, y nadie lo pisa en el medio', () => {
   const src = sinComentarios(leer('app/api/webhooks/fathom/route.ts'));
-  assert.match(src, /const ws = await wsPorIdentificador\('fathom', hostEmail\);/);
+  // Desde el 07/10/2026 la lectura es la ESTRICTA (tests/webhooks-ruteo-estricto.test.ts) y va
+  // en un try: el `ws` se declara arriba y se asigna una sola vez, acá.
+  assert.match(src, /\bws = await wsPorIdentificadorEstricto\('fathom', hostEmail\);/);
   // Una sola asignación: la de la declaración. `(?![=>])` deja afuera `==`, `===` y `=>`.
   const asignaciones = [...src.matchAll(/(?<![.\w])ws\s*=(?![=>])/g)];
   assert.equal(asignaciones.length, 1, '`ws` se reasigna en algún lado');

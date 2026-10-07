@@ -27,8 +27,9 @@ import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 import { enrolarPorEvento } from '@/lib/nutricion';
-import { credWs } from '@/lib/credenciales';
-import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { credWsEstricta } from '@/lib/credenciales';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
+import { anotarFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -114,8 +115,11 @@ type GraphLeadResponse = {
 
 async function fetchLeadFromGraph(leadgenId: string, ws: number): Promise<GraphLeadResponse> {
   // Token de página POR WORKSPACE: el lead se lee con las credenciales del
-  // cliente dueño de la página. Para ws1 (dueño) credWs cae al env — mismo valor.
-  const token = await credWs('META_PAGE_ACCESS_TOKEN', ws);
+  // cliente dueño de la página. Para ws1 (dueño) cae al env — mismo valor.
+  //
+  // ESTRICTA (07/10/2026): con `credWs`, una base caída daba null y el lead quedaba anotado como
+  // «META_PAGE_ACCESS_TOKEN no configurado», que manda a revisar una conexión que está bien.
+  const token = await credWsEstricta('META_PAGE_ACCESS_TOKEN', ws);
   if (!token || token.startsWith('PENDING')) {
     throw new Error('META_PAGE_ACCESS_TOKEN no configurado (o placeholder)');
   }
@@ -207,11 +211,29 @@ export async function POST(request: NextRequest) {
   //    bloquea a los demás. Devolvemos 200 siempre que el request fue legítimo:
   //    si devolvemos error, Meta reintenta TODO el batch (duplicaría el trabajo).
   const results: Array<{ leadgen_id: string; status: string; lead_id?: number }> = [];
+  // ⚠️ LA EXCEPCIÓN AL «200 SIEMPRE»: no poder LEER de quién es la página (07/10/2026). Con
+  // `wsPorIdentificador`, que no lee el `error` de supabase-js, la base caída daba null y el lead
+  // caía en «sin workspace» → 200 y descartado, sin pasar por ningún reintento. Ahora la lectura
+  // es estricta y, si falló de forma TRANSITORIA, el lote entero se contesta 503 para que Meta
+  // lo reintente (lo hace ~36 h). Reprocesar los demás no duplica nada: `upsertLeadFromMeta`
+  // deduplica por `meta_lead_id`, el aviso, los flujos y la nutrición salen sólo al CREAR, y el
+  // `Lead` de CAPI lleva un event_id fijo. Lo que falla DESPUÉS del ruteo sigue yendo 200: ahí
+  // ya pudieron correr efectos, y un reintento los salta (el cron meta-leads-poll lo rescata).
+  let reintentar = false;
 
   for (const { leadgenId, pageId } of items) {
     // Fail-CLOSED: sin page_id mapeado a un workspace (webhook_routing), NO
     // ingerimos el lead. NUNCA cae al dueño (evita misrutear leads de un cliente).
-    const ws = await wsPorIdentificador('meta', pageId);
+    let ws: number | null;
+    try {
+      ws = await wsPorIdentificadorEstricto('meta', pageId);
+    } catch (err) {
+      const { transitorio, mensaje } = await anotarFalloDeRuteo('meta', err, pageId);
+      if (transitorio) reintentar = true;
+      console.error(`[webhook:meta-leads] no pude leer de quién es page_id=${pageId ?? '—'} leadgen=${leadgenId}${transitorio ? ' (transitorio: el lote va 503)' : ''}: ${mensaje}`);
+      results.push({ leadgen_id: leadgenId, status: `error: ruteo${transitorio ? ' (se reintenta)' : ''}` });
+      continue;
+    }
     if (ws == null) {
       console.warn(`[webhook:meta-leads] sin workspace para page_id=${pageId ?? '—'} leadgen=${leadgenId} — ignorado`);
       results.push({ leadgen_id: leadgenId, status: 'ignored: sin workspace' });
@@ -304,5 +326,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (reintentar) {
+    return Response.json({ ok: false, error: 'ruteo', reintentar: true, processed: results.length, results }, { status: 503 });
+  }
   return Response.json({ ok: true, processed: results.length, results });
 }

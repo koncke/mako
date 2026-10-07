@@ -17,7 +17,8 @@ import { pausarPorRespuesta } from '@/lib/nutricion';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 import { credWs } from '@/lib/credenciales';
-import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
+import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { esCanalWhatsapp } from '@/lib/chatwoot-canales';
 
 export const dynamic = 'force-dynamic';
@@ -139,8 +140,20 @@ export async function POST(req: NextRequest) {
   // Resolver el workspace por el account_id de Chatwoot (webhook_routing). Fail-
   // CLOSED: sin mapeo, NO tocamos datos (nunca cae al dueño) — un WhatsApp entrante
   // no debe poder tocar el lead de OTRO cliente con el mismo teléfono.
+  //
+  // ⚠️ «NO PUDE LEER» NO ES «NO ESTÁ MAPEADO» (07/10/2026, el molde es Calendly). Con
+  // `wsPorIdentificador`, que no lee el `error` de supabase-js, la base caída daba null y el
+  // mensaje de un lead caía en «sin workspace» → 200: su nutrición no se pausaba y al dueño no
+  // le avisaba nadie. Chatwoot NO reintenta nunca (`Webhooks::Trigger`), así que lo que cambia no
+  // es recuperarlo sino que quede ANOTADO (`webhooks.fallos_ruteo`) en vez de leerse «no es de
+  // nadie». Las credenciales del link del aviso, más abajo, siguen tolerantes: son best-effort.
   const accountId = body.account?.id != null ? String(body.account.id) : null;
-  const ws = await wsPorIdentificador('chatwoot', accountId);
+  let ws: number | null;
+  try {
+    ws = await wsPorIdentificadorEstricto('chatwoot', accountId);
+  } catch (err) {
+    return responderFalloDeRuteo('chatwoot', err, accountId);
+  }
   if (ws == null) {
     // Diagnóstico: si el account_id NO vino donde lo esperamos, logueamos las
     // claves del payload para ubicarlo sin adivinar (Chatwoot varía por evento).

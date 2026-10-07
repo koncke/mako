@@ -43,8 +43,9 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { linkResumenLead } from '@/lib/lead-resumen';
 import { dispararEvento } from '@/lib/flujos';
 import { runWithWorkspace } from '@/lib/workspace';
-import { credWs } from '@/lib/credenciales';
-import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { credWsEstricta } from '@/lib/credenciales';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
+import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,12 +80,24 @@ export async function POST(request: NextRequest) {
   //    —id, slug y nombre— porque en `webhook_routing` queda el que el dueño pegó
   //    en la configuración, y no siempre es el mismo. Fail-CLOSED: sin mapeo no se
   //    toca un solo dato, nunca cae al dueño.
+  //
+  //    ⚠️ «NO PUDE LEER» NO ES «NO ESTÁ MAPEADO» (07/10/2026, el molde es Calendly). Con
+  //    `wsPorIdentificador`, que no lee el `error` de supabase-js, la base caída daba null y la
+  //    reserva de un cliente caía en «sin workspace» → 200 y perdida. Cal.com NO reintenta nunca,
+  //    así que el código que se conteste no la recupera: lo que cambia es que queda ANOTADA
+  //    (`webhooks.fallos_ruteo`, ver lib/webhook-fallo-ruteo.ts) en vez de leerse como «no es de
+  //    nadie». Y el tope de largo, porque esto corre antes de la firma: un identificador de 20 KB
+  //    armaría una URL que falla siempre, una anotación por cada pedido sin firmar.
   const candidatos = [reserva?.eventType.id, reserva?.eventType.slug, reserva?.eventType.nombre]
-    .filter((c): c is string => !!c && c.trim() !== '');
+    .filter((c): c is string => !!c && c.trim() !== '' && c.length <= 300);
   let ws: number | null = null;
-  for (const c of candidatos) {
-    const r = await wsPorIdentificador('calcom', c);
-    if (r != null) { ws = r; break; }
+  try {
+    for (const c of candidatos) {
+      const r = await wsPorIdentificadorEstricto('calcom', c);
+      if (r != null) { ws = r; break; }
+    }
+  } catch (err) {
+    return responderFalloDeRuteo('calcom', err, candidatos[0]);
   }
 
   // 3) Verificar la firma con la key DE ESE workspace.
@@ -99,7 +112,16 @@ export async function POST(request: NextRequest) {
   //    falta de ruteo, el código de respuesta delataría qué event types están
   //    dados de alta (200 = no, 401 = sí) y se podría enumerar la cartera de
   //    clientes mandando payloads sin firmar.
-  const key = ws == null ? null : await credWs('CALCOM_WEBHOOK_SECRET', ws);
+  //
+  //    La key se lee ESTRICTA por lo mismo: con `credWs`, una base caída daba null y la firma de
+  //    un negocio con su key cargada daba 401 «firma rechazada», que manda a revisar un secreto
+  //    que está bien.
+  let key: string | null;
+  try {
+    key = ws == null ? null : await credWsEstricta('CALCOM_WEBHOOK_SECRET', ws);
+  } catch (err) {
+    return responderFalloDeRuteo('calcom', err, candidatos[0]);
+  }
   try {
     verifyCalcomSignature(rawBody, firma, key ?? '');
   } catch (err) {
@@ -126,15 +148,17 @@ export async function POST(request: NextRequest) {
   }
 
   return runWithWorkspace(ws, async () => {
-    const cfg = {
-      j1: await credWs('CALCOM_EVENT_TYPE_J1', ws),
-      j2: await credWs('CALCOM_EVENT_TYPE_J2', ws),
-    };
     const tz = await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
-    const tipo = clasificarJuntaCalcom(reserva.eventType, cfg);
     const ms = Date.now() - t0;
 
     try {
+      // ESTRICTAS y adentro del try: con `credWs` y la base caída, J1 y J2 daban null, una R2 se
+      // clasificaba como R1 y CREABA un lead —justo lo que «una R2 nunca crea un lead» prohíbe—.
+      const cfg = {
+        j1: await credWsEstricta('CALCOM_EVENT_TYPE_J1', ws),
+        j2: await credWsEstricta('CALCOM_EVENT_TYPE_J2', ws),
+      };
+      const tipo = clasificarJuntaCalcom(reserva.eventType, cfg);
       // ── CANCELACIÓN ───────────────────────────────────────────────────────
       if (accion === 'cancela') {
         const lead = await findLeadByContacto(reserva.email, reserva.telefono);

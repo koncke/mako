@@ -19,8 +19,9 @@ import { isoToFechaTijuana } from '@/lib/calendly';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 import { runWithWorkspace } from '@/lib/workspace';
-import { wsPorIdentificador } from '@/lib/webhook-routing';
-import { credWs, envCred } from '@/lib/credenciales';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
+import { credWsEstricta, envCred } from '@/lib/credenciales';
+import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
 import { textoAvisoPostLlamada } from '@/lib/lead-resumen';
 import { esGrabacionDeEntrega } from '@/lib/insights-llamada-reparto';
@@ -59,8 +60,20 @@ export async function POST(request: NextRequest) {
   // 2) Resolver el workspace por el email de la cuenta que grabó (recorded_by).
   //    Fail-CLOSED: sin mapeo (webhook_routing), NO tocamos datos — nunca cae al
   //    dueño (evita matchear la grabación de un cliente contra leads ajenos).
-  const hostEmail = body.recorded_by?.email ?? null;
-  const ws = await wsPorIdentificador('fathom', hostEmail);
+  //
+  //    ⚠️ «NO PUDE LEER» NO ES «NO ESTÁ MAPEADO» (07/10/2026, el molde es Calendly). Con
+  //    `wsPorIdentificador`, que no lee el `error` de supabase-js, la base caída daba null y la
+  //    grabación de un cliente caía en «sin workspace» → 200 y perdida. Fathom entrega por Svix,
+  //    que reintenta durante días y DESHABILITA el endpoint si falla 5 días seguidos: por eso el
+  //    fallo pasa por el clasificador —503 sólo si reintentar lo arregla— y queda anotado
+  //    (lib/webhook-fallo-ruteo.ts). Con el tope de largo: esto corre antes de la firma.
+  const hostEmail = body.recorded_by?.email && body.recorded_by.email.length <= 300 ? body.recorded_by.email : null;
+  let ws: number | null;
+  try {
+    ws = await wsPorIdentificadorEstricto('fathom', hostEmail);
+  } catch (err) {
+    return responderFalloDeRuteo('fathom', err, hostEmail);
+  }
 
   // 3) Verificar la firma con el secreto DE ESE workspace. Si el workspace no tiene
   //    el suyo cargado, se cae al de plataforma (compatibilidad: es lo que hacía
@@ -73,7 +86,16 @@ export async function POST(request: NextRequest) {
   //    401 = sí está) y cualquiera podría enumerar la cartera de clientes mandando
   //    payloads sin firmar. Verificando siempre, un request sin firma válida recibe
   //    401 sin importar a quién nombre.
-  const secretWs = ws == null ? null : await credWs('FATHOM_WEBHOOK_SECRET', ws);
+  //
+  //    El secreto se lee ESTRICTO por lo mismo: con `credWs`, una base caída daba null, se caía al
+  //    de plataforma y la firma de un negocio con secreto propio daba 401 — un no-2xx que Svix
+  //    cuenta, con un mensaje que culpa a la firma.
+  let secretWs: string | null;
+  try {
+    secretWs = ws == null ? null : await credWsEstricta('FATHOM_WEBHOOK_SECRET', ws);
+  } catch (err) {
+    return responderFalloDeRuteo('fathom', err, hostEmail);
+  }
   const secret = secretWs ?? (await envCred('FATHOM_WEBHOOK_SECRET'));
   if (ws != null && !secretWs) {
     console.warn(`[webhook:fathom] ws ${ws} sin FATHOM_WEBHOOK_SECRET propio — usando el de plataforma`);
