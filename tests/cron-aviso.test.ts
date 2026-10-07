@@ -237,8 +237,13 @@ test('⚠️ AVANZA EL HORARIO ANTES DE MANDAR, con compare-and-set', () => {
   const iUpdate = cuerpo.indexOf(".update({");
   const iEmitir = cuerpo.indexOf('emitirAviso(');
   assert.ok(iUpdate > 0 && iEmitir > iUpdate, 'el drenador manda antes de reclamar: dos ticks duplican');
-  assert.match(cuerpo, /\.eq\('proxima_at', f\.proxima_at\)/,
+  assert.match(cuerpo, /\.eq\('proxima_at', f\.proxima_at\)\.select\(/,
     'se fue el compare-and-set: sin él, dos ticks a la vez mandan los dos');
+  // Y se LEE lo que tocó: un update que perdió la carrera toca cero filas SIN error. Este assert
+  // faltaba y el de arriba daba verde sobre un compare-and-set decorativo (07/10/2026). Probado
+  // rompiéndolo: volver a `if (upErr)` solo → este test cae; restaurado → pasa.
+  assert.match(cuerpo, /if \(upErr \|\| !tocadas\?\.length\) \{ saltados\+\+; continue; \}/,
+    'el drenador no mira cuántas filas reclamó: con cero, manda igual');
 });
 
 test('⚠️ SALE POR `emitirAviso`, no por el grupo directo', () => {

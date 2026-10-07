@@ -152,13 +152,16 @@ export async function drenarProgramados(): Promise<{ enviados: number; saltados:
     // mantiene la grilla. Y `proximaOcurrencia` se saltea las perdidas, así que un
     // cron caído un día manda UNA vez y sigue en su horario.
     const proxima = proximaOcurrencia(cron, new Date(f.proxima_at), f.tz, ahora);
-    const { error: upErr } = await db.from('avisos_programados').update({
+    const { data: tocadas, error: upErr } = await db.from('avisos_programados').update({
       proxima_at: proxima.toISOString(),
       anterior_at: f.proxima_at,
       ultimo_envio_at: ahora.toISOString(),
       envios: f.envios + 1,
-    }).eq('aviso_id', f.aviso_id).eq('proxima_at', f.proxima_at);   // compare-and-set
-    if (upErr) { saltados++; continue; }
+    }).eq('aviso_id', f.aviso_id).eq('proxima_at', f.proxima_at).select('aviso_id');   // compare-and-set
+    // ⚠️ SIN LEER LAS FILAS TOCADAS NO HAY COMPARE-AND-SET: si otra invocación del mismo tick ya
+    // avanzó la fila, el update toca CERO filas sin error, y seguir de largo manda dos veces
+    // (medido en la revisión del 07/10/2026; el molde es `marcarRecordatorio` en lib/curso-mensajes.ts).
+    if (upErr || !tocadas?.length) { saltados++; continue; }
 
     // El interruptor se pregunta DESPUÉS de reclamar: si está apagado se avanza el
     // horario igual y no se manda. Al revés, un aviso apagado dejaría su fila vencida
