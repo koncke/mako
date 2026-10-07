@@ -197,6 +197,12 @@ limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, u
 `node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:main` desde ahí, y
 después `git worktree remove --force` + `git worktree prune`.
 
+⚠️ **Y en ese worktree `npm run build` NO corre**: con `node_modules` como junction, Turbopack
+aborta con «Symlink [project]/node_modules is invalid, it points out of the filesystem root»
+(`turbopack.root = __dirname`). El junction sirve para `tsc` y los tests; el build va en el
+clon. Y antes de `git worktree remove`, el junction se saca con `cmd /c rmdir`: un
+`Remove-Item -Recurse` de PowerShell 5.1 sobre él borra el `node_modules` del clon.
+
 ⚠️ **Lo que el hook NO hace es correr los tests** (`npm test`), y por eso hay que acordarse
 a mano. Un renombre pasa el typecheck perfecto y rompe una aserción sin que nada avise: al
 renombrar la tab «Guiones» a «Ads Writer» el push salió verde, se desplegó a producción, y
@@ -4487,6 +4493,28 @@ anuncia nada,** y la comparación es **asimétrica**:
 
 No es prolijidad: «te sacaron el video de tu landing» disparado por un chunk lento no es un
 aviso equivocado, es **el aviso que le enseña al cliente a ignorar todos los demás**.
+
+# Una lectura que cae al DEFAULT sirve para dibujar, nunca para DECIDIR
+
+Muchas lecturas de esta casa, cuando la consulta falla, devuelven el valor por defecto en vez
+de tirar — y está bien, porque la pantalla tiene que dibujarse igual. El problema aparece
+cuando la MISMA función la usa quien tiene que decidir algo: el default es un dato
+inventado y la decisión se toma sobre él sin un solo error.
+
+Medido el 06/10/2026 en Customer Success: `entregaDeProducto` devolvía las etapas de FÁBRICA
+(onboarding, arranque…) con la lectura caída, y el choke point que mueve clientes validaba
+la etapa destino contra eso. Una clienta del ws1 quedó en «onboarding», una etapa que su
+producto —con nueve etapas declaradas— no tiene: el kanban no la dibuja y nadie se enteró.
+El diagnóstico obvio («alguien borró la etapa en el editor») era el equivocado.
+
+- **Que no haya fila sí es el default legítimo; que la lectura falle no lo es.** Son dos
+  respuestas y la función tiene que poder darlas por separado (`null`, o tirar).
+- **Quien valida antes de escribir, o decide a quién se le escribe, usa la versión
+  ESTRICTA** (`entregaDeProductoEstricta`, `entregasDeProductos({ estricto: true })`). La
+  tolerante queda para dibujar.
+- **El olor:** una función de lectura con un `catch`/`if (error)` que devuelve un default, y
+  un call site que con ese resultado hace un `insert`, un `update` o un envío. Es la misma
+  familia que «No pude leer» es un tercer estado, del lado del que decide.
 
 # Dos escritores con dos ritmos son dos claves
 
