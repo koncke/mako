@@ -227,6 +227,14 @@ export function relojDeVuelta(iso: string | null | undefined, ahora: number = Da
 const CLAVE_OK = /^[a-z0-9_]+$/;
 
 /**
+ * El tope del NOMBRE de una etapa (o de una fase): es la cabecera de una columna del kanban, y más
+ * largo no entra. Uno solo para el editor de etapas (app/customer-success/EtapasEntregaModal.tsx)
+ * y para el clic en el nombre desde el curso (`renombrarEtapaCursoAction`): con dos, el curso dejaba
+ * escribir nombres que el editor de las mismas etapas no habría dejado (revisión del 07/10/2026).
+ */
+export const TOPE_NOMBRE_ETAPA = 40;
+
+/**
  * Una clave nueva a partir del rótulo que escribió la persona.
  *
  * ⚠️ NUNCA devuelve una clave que ya exista, ni siquiera una que haya existido y

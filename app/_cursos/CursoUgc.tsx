@@ -43,12 +43,13 @@
  * app/conocimientos/posicion.ts (`#curso=&mod=<key>&q=&v=recursos&clase=<id>&r=&x=<extra>`).
  */
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { usePosicion, type Posicion } from '@/app/conocimientos/posicion';
 import { Miniatura } from '@/app/conocimientos/Miniatura';
 import { PortadaModulo } from '@/app/conocimientos/PortadaModulo';
 import type { ClaseUgc, CursoUgcProps, EdicionUgc, LeccionUgc, ModuloUgc, PortadaUgc, TextosUgc, TonoChip } from './tipos';
 import { CSS_UGC } from './estilos';
+import { varsDeAcento } from '@/lib/curso-estilo';
 import {
   TEXTOS_DEFAULT, abrible, clasesVisibles, moduloMarcado, pctAvance, puedeMoverPorPosicion,
   rotuloGrilla, textoBarraModulo, textoTarjetaModulo, vecinas,
@@ -155,7 +156,7 @@ function BarraAvance({ p, className }: { p: { hechas: number; total: number }; c
 export default function CursoUgc(props: CursoUgcProps) {
   const {
     titulo, subtitulo, marca, modulos, clases, portada, leccion, recursos, entradasExtra,
-    edicion, arriba, pieBarra, onSalir, modo = 'pagina',
+    edicion, arriba, pieBarra, onSalir, modo = 'pagina', acento,
   } = props;
   const t: TextosUgc = useMemo(() => ({ ...TEXTOS_DEFAULT, ...props.textos }), [props.textos]);
   const cssListo = useCssUgc();
@@ -171,6 +172,10 @@ export default function CursoUgc(props: CursoUgcProps) {
   const { pos, ir: irPos } = usePosicion();
   /** El menú de módulos del TELÉFONO (en escritorio la barra está siempre a la vista). */
   const [menu, setMenu] = useState(false);
+  /** El desplegable de la MARCA (`marca.menu`): cambiar de producto, el color. */
+  const [marcaAbierta, setMarcaAbierta] = useState(false);
+  const marcaRef = useRef<HTMLButtonElement>(null);
+  const idMenuMarca = useId();
   const ir = (v: Posicion, o?: { reemplazar?: boolean }) => {
     setMenu(false);
     irPos({ curso: pos.curso, ...v }, o?.reemplazar ? 'reemplazar' : 'empujar');
@@ -231,14 +236,25 @@ export default function CursoUgc(props: CursoUgcProps) {
       <style dangerouslySetInnerHTML={{ __html: CSS_UGC }} />
       <div className="paper-bg" aria-hidden />
       <div className="grain" aria-hidden />
-      <div className="ugc">
+      {/* El acento va en `.ugc` y no acá: ver `varsDeAcento` (lib/curso-estilo.ts). */}
+      <div className="ugc" style={varsDeAcento(acento) as CSSProperties | undefined}>
         <div className="ugc-shell">
           <aside className={`ugc-side${menu ? ' ugc-side--abierta' : ''}`} aria-label="Navegacion del curso">
             {/* ⚠️ LA MARCA ES UN BOTÓN sólo si hay a dónde ir. Es donde todo el mundo hace
                 click para volver al principio; pero en un share de UN curso no hay nada
                 arriba, y un botón que no lleva a ningún lado promete una salida que no está.
                 Ahí queda como rótulo. El corte de color es el de la casa: `resaltado` en lima. */}
-            {marca.onClick ? (
+            {marca.menu ? (
+              // ⚠️ CON `menu` LA MARCA ES UN DESPLEGABLE (cambiar de producto, el color): pedido de
+              //    Martín al sacar la barra de arriba de la tab Curso, «el desplegable debería ser
+              //    "Negocio que Escala" de la sidebar, que tiene parte en verde» (07/10/2026).
+              <button ref={marcaRef} type="button" className="ugc-side-brand ugc-side-brand-btn ugc-side-brand--menu"
+                aria-expanded={marcaAbierta} aria-controls={idMenuMarca} onClick={() => setMarcaAbierta((v) => !v)}
+                aria-label={marca.ariaLabel ?? `${marca.texto}${marca.resaltado ?? ''}`}>
+                <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
+                <span className="ugc-side-brand-chev" aria-hidden>&#9662;</span>
+              </button>
+            ) : marca.onClick ? (
               <button type="button" className="ugc-side-brand ugc-side-brand-btn"
                 onClick={marca.onClick} aria-label={marca.ariaLabel ?? `${marca.texto}${marca.resaltado ?? ''}`}>
                 <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
@@ -340,12 +356,17 @@ export default function CursoUgc(props: CursoUgcProps) {
                 <Grilla clases={filtradas} total={clases.length} mod={mod} modulo={modulo(mod)} t={t}
                   abrirClase={abrirClase} edicion={edicion} puede={puede} />
               ) : (
-                <Indice portada={portada} clases={clases} modulos={modulos} t={t}
+                <Indice portada={portada} clases={clases} modulos={modulos} t={t} edicion={edicion}
                   onAbrir={abrirClase} onModulo={(m) => ir({ mod: m.key })} />
               )}
             </div>
           </div>
         </div>
+        {marcaAbierta && marca.menu && (
+          <MenuMarca id={idMenuMarca} etiqueta={`${marca.texto}${marca.resaltado ?? ''}`} ancla={marcaRef.current} onCerrar={() => setMarcaAbierta(false)}>
+            {marca.menu(() => setMarcaAbierta(false))}
+          </MenuMarca>
+        )}
       </div>
     </div>
   );
@@ -358,14 +379,20 @@ export default function CursoUgc(props: CursoUgcProps) {
  *    veían 3 módulos y abajo aparecían las 30 clases sueltas, así que el curso parecía tener
  *    dos organizaciones a la vez. Un módulo se abre y muestra LAS SUYAS.
  */
-function Indice({ portada, clases, modulos, t, onAbrir, onModulo }: {
-  portada?: PortadaUgc; clases: ClaseUgc[]; modulos: ModuloUgc[]; t: TextosUgc;
+function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo }: {
+  portada?: PortadaUgc; clases: ClaseUgc[]; modulos: ModuloUgc[]; t: TextosUgc; edicion?: EdicionUgc;
   onAbrir: (id: number) => void; onModulo: (m: ModuloUgc) => void;
 }) {
   const destino = portada ? (clases.find((c) => c.id === portada.claseId) ?? clases[0]) : undefined;
+  const editando = !!edicion && (!!edicion.onTexto || !!edicion.onPortada);
+  // La tapa: la foto le gana al degradado (un degradado no puede 404ear; una foto sí, y entonces
+  // `Miniatura` se retira y queda el fondo de la casa).
+  const tapa = portada && (portada.tapa
+    ? <Miniatura className="ugc-hero-img" src={portada.tapa} />
+    : portada.fondo ? <span className="ugc-hero-img ugc-fondo" style={{ background: portada.fondo }} aria-hidden /> : null);
   return (
     <>
-      {portada && destino && (
+      {portada && destino && !editando && (
         <button
           type="button"
           className="ugc-hero"
@@ -374,7 +401,7 @@ function Indice({ portada, clases, modulos, t, onAbrir, onModulo }: {
              sería el párrafo entero. */
           aria-label={`Abrir ${destino.titulo}`}
         >
-          {portada.tapa && <Miniatura className="ugc-hero-img" src={portada.tapa} />}
+          {tapa}
           <span className="ugc-hero-shade" aria-hidden />
           <span className="ugc-hero-body">
             {portada.eyebrow !== undefined && <span className="ugc-hero-eyebrow">{portada.eyebrow}</span>}
@@ -390,9 +417,53 @@ function Indice({ portada, clases, modulos, t, onAbrir, onModulo }: {
           </span>
         </button>
       )}
+      {portada && editando && (
+        // ⚠️ EDITANDO, LA PORTADA NO ES UN BOTÓN: adentro hay textos que se editan con un clic, y
+        //    un clic en un texto de un <button> abriría la clase. El único botón que lleva a la
+        //    clase es la pastilla de «Empezar».
+        <div className="ugc-hero ugc-hero--edicion">
+          {tapa}
+          <span className="ugc-hero-shade" aria-hidden />
+          <span className="ugc-hero-body">
+            {portada.eyebrow !== undefined && <span className="ugc-hero-eyebrow">{portada.eyebrow}</span>}
+            {edicion?.onTexto ? (
+              <TextoEditable className="ugc-hero-title" valor={portada.titulo} etiqueta="Nombre del curso"
+                onGuardar={(v) => edicion.onTexto!({ tipo: 'curso-titulo' }, v)} />
+            ) : <span className="ugc-hero-title">{portada.titulo}</span>}
+            {edicion?.onTexto ? (
+              <TextoEditable className="ugc-hero-resumen" valor={portada.resumen ?? ''} vacio={t.sinResumen} etiqueta="Descripción del curso"
+                onGuardar={(v) => edicion.onTexto!({ tipo: 'curso-resumen' }, v)} />
+            ) : portada.resumen && <span className="ugc-hero-resumen">{portada.resumen}</span>}
+            {destino && (
+              <button type="button" className="ugc-hero-arranque" onClick={() => onAbrir(destino.id)} aria-label={`Abrir ${destino.titulo}`}>
+                <span className="ugc-hero-cta">{t.empezar} <span aria-hidden>&rarr;</span></span>
+                <span className="ugc-hero-primera">{destino.titulo}</span>
+              </button>
+            )}
+            {portada.progreso && <BarraAvance p={portada.progreso} className="ugc-hero-prog" />}
+          </span>
+          {edicion?.onPortada && (
+            <button type="button" className="ugc-portada-btn" onClick={(e) => edicion.onPortada!({ tipo: 'curso' }, e.currentTarget)}>
+              <IconoImagen /> {t.portada}
+            </button>
+          )}
+        </div>
+      )}
       <div className="ugc-rail-head"><h2>{t.losModulos}</h2></div>
       <div className="ugc-rail">
-        {modulos.map((m) => <TarjetaModulo key={m.key} m={m} t={t} onAbrir={() => onModulo(m)} />)}
+        {modulos.map((m) => (edicion?.onPortada && !m.sinEdicion ? (
+          // La tarjeta es un <button>: el control de la portada va AL LADO (un botón adentro de
+          // otro no es HTML válido, y el clic abriría el módulo).
+          <div key={m.key} className="ugc-editable">
+            <TarjetaModulo m={m} t={t} onAbrir={() => onModulo(m)} />
+            <div className="ugc-editable-ctrls" role="group" aria-label={`Portada de ${m.nombre}`}>
+              <button type="button" className="ugc-editable-btn" title={t.portada} aria-label={`${t.portada} de ${m.nombre}`}
+                disabled={edicion.ocupado} onClick={(e) => edicion.onPortada!({ tipo: 'modulo', key: m.key }, e.currentTarget)}>
+                <IconoImagen />
+              </button>
+            </div>
+          </div>
+        ) : <TarjetaModulo key={m.key} m={m} t={t} onAbrir={() => onModulo(m)} />))}
       </div>
     </>
   );
@@ -412,6 +483,7 @@ function TarjetaModulo({ m, t, onAbrir }: { m: ModuloUgc; t: TextosUgc; onAbrir:
         {/* ⚠️ LA LÁMINA VA SIEMPRE Y VA PRIMERA: `portada` puede ser una ruta construida y no
             comprobada. Si carga, la tapa la cubre entera; si da 404, la lámina ya estaba. */}
         <PortadaModulo n={m.n} titulo={m.nombre} rotulo={t.modulo} />
+        {m.fondo && !m.portada && <span className="ugc-fondo" style={{ background: m.fondo }} aria-hidden />}
         {m.portada && <Miniatura src={m.portada} />}
         <span className="shade" aria-hidden />
         <span className="ugc-modcard-n" aria-hidden>{m.n}</span>
@@ -432,6 +504,7 @@ function TarjetaClase({ clase, onAbrir }: { clase: ClaseUgc; onAbrir: () => void
   return (
     <button type="button" className="ugc-modcard" onClick={onAbrir}>
       <span className="ugc-modcard-cover">
+        {clase.fondo && !clase.tapa && <span className="ugc-fondo" style={{ background: clase.fondo }} aria-hidden />}
         {clase.tapa && <Miniatura src={clase.tapa} />}
         <span className="shade" aria-hidden />
         {/* El número de la clase DENTRO de su módulo (`vn`): arranca en 1 en cada uno, que es
@@ -470,7 +543,15 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede }: {
     <>
       {/* Filtrando por módulo, el título dice DE QUÉ módulo: «12 de 404» no dice dónde estás. */}
       <div className="ugc-rail-head">
-        <h2>{rotuloGrilla(mod ? (modulo?.nombre ?? mod) : null, clases.length, total, t)}</h2>
+        {/* Editando, el NOMBRE del módulo se cambia con un clic acá, que es donde se lo lee
+            entero (la tarjeta es un botón: un clic en ella abre el módulo). */}
+        {edicion?.onTexto && modulo && !modulo.sinEdicion ? (
+          <h2>
+            <TextoEditable valor={modulo.nombre} etiqueta={`Nombre de ${modulo.nombre}`}
+              onGuardar={(v) => edicion.onTexto!({ tipo: 'modulo', key: modulo.key }, v)} />
+            {` · ${clases.length} ${clases.length === 1 ? t.leccion : t.lecciones}`}
+          </h2>
+        ) : <h2>{rotuloGrilla(mod ? (modulo?.nombre ?? mod) : null, clases.length, total, t)}</h2>}
         {modulo?.acciones != null && <div className="ugc-rail-acciones">{modulo.acciones}</div>}
       </div>
       <div className="ugc-rail">
@@ -482,6 +563,12 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede }: {
                 disabled={edicion!.ocupado || !puede(c.id, 'arriba')} onClick={() => edicion!.onMover(c.id, 'arriba')}>&uarr;</button>
               <button type="button" className="ugc-editable-btn" title="Bajar" aria-label="Bajar"
                 disabled={edicion!.ocupado || !puede(c.id, 'abajo')} onClick={() => edicion!.onMover(c.id, 'abajo')}>&darr;</button>
+              {edicion!.onPortada && (
+                <button type="button" className="ugc-editable-btn" title={t.portada} aria-label={`${t.portada} de ${c.titulo}`}
+                  disabled={edicion!.ocupado} onClick={(e) => edicion!.onPortada!({ tipo: 'clase', id: c.id }, e.currentTarget)}>
+                  <IconoImagen />
+                </button>
+              )}
               <button type="button" className="ugc-editable-btn ugc-editable-btn--borrar" title="Borrar" aria-label="Borrar"
                 disabled={edicion!.ocupado} onClick={() => edicion!.onBorrar(c.id)}>&times;</button>
             </div>
@@ -489,7 +576,7 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede }: {
         ) : (
           <TarjetaClase key={c.id} clase={c} onAbrir={() => abrirClase(c.id)} />
         )))}
-        {editando && (
+        {editando && !modulo?.sinEdicion && (
           <button type="button" className="ugc-modcard ugc-modcard--nueva" disabled={edicion!.ocupado}
             onClick={() => edicion!.onNueva(mod!)}>
             <span className="ugc-modcard-nueva-t">{t.nueva}</span>
@@ -527,7 +614,9 @@ function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edic
                   onClick={() => edicion.onEditar(clase.id)}>{t.editar}</button>
               </div>
             ) : pastilla}
-            <h1>{clase.titulo}</h1>
+            {edicion?.onTexto
+              ? <h1><TextoEditable valor={clase.titulo} etiqueta="Título de la clase" onGuardar={(v) => edicion.onTexto!({ tipo: 'clase', id: clase.id }, v)} /></h1>
+              : <h1>{clase.titulo}</h1>}
           </div>
           {l.video && (
             <div className="ugc-vcard">
@@ -558,4 +647,166 @@ function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edic
       {l.despues}
     </>
   );
+}
+
+const IconoImagen = () => (
+  <svg className="ugc-ico" width="13" height="13" viewBox="0 0 16 16" aria-hidden focusable="false">
+    <rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    <circle cx="5.6" cy="6.3" r="1.4" fill="currentColor" />
+    <path d="M2.5 12l3.6-3.6 2.6 2.4 2.2-2 2.6 2.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+  </svg>
+);
+
+/**
+ * Un texto que se edita CON UN CLIC, en el lugar (pedido de Martín: «los títulos solo con darle
+ * click»). Enter o salir guarda; Escape vuelve al de antes. Si quien guarda contesta `false`
+ * (el server no lo aceptó), también vuelve.
+ *
+ * ⚠️ `contentEditable` Y NO UN `<input>`: un input no mide su texto —su ancho sale de `size` y de
+ *    la fuente— y un título de 44 px adentro de la portada se cortaba o sobraba. Un span editable
+ *    ocupa exactamente lo que dice (AGENTS.md, «un ancho que sale de una métrica tipográfica»).
+ * ⚠️ SE LEE `textContent` Y SE PEGA SÓLO TEXTO: lo que se guarda es una línea; un pegado con
+ *    formato dejaría en pantalla negritas y saltos que no se guardaron.
+ * ⚠️ El `key` del valor rearma el span cuando el valor cambia de afuera (lo que contestó el
+ *    server): sin eso React no toca un nodo que la persona editó a mano, y quedaría lo tipeado.
+ */
+function TextoEditable({ valor, onGuardar, etiqueta, vacio, className }: {
+  valor: string;
+  onGuardar: (v: string) => Promise<boolean>;
+  /** Para el lector de pantalla: qué texto es. */
+  etiqueta: string;
+  /** Lo que se lee cuando está vacío (en gris). */
+  vacio?: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [guardando, setGuardando] = useState(false);
+  const volver = () => { if (ref.current) ref.current.textContent = valor; };
+  // ⚠️ SI LO GUARDADO ES IGUAL A LO QUE YA ESTABA, EL `key` NO CAMBIA y el span no se rearma: vaciar
+  //    el título de un curso que ya mostraba su nombre por default dejaba la portada EN BLANCO (lo
+  //    tipeado). Sin el foco, lo que se ve tiene que ser `valor` (revisión del 07/10/2026).
+  useEffect(() => {
+    const el = ref.current;
+    if (el && document.activeElement !== el && el.textContent !== valor) el.textContent = valor;
+  }, [valor, guardando]);
+  const confirmar = async () => {
+    const el = ref.current;
+    if (!el) return;
+    const nuevo = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+    if (nuevo === valor.trim()) { volver(); return; }
+    setGuardando(true);
+    let ok = false;
+    try { ok = await onGuardar(nuevo); } catch { ok = false; }
+    setGuardando(false);
+    if (!ok) volver();
+  };
+  return (
+    <span
+      key={valor}
+      ref={ref}
+      className={`ugc-texto-editable${guardando ? ' is-guardando' : ''}${className ? ` ${className}` : ''}`}
+      contentEditable={!guardando}
+      suppressContentEditableWarning
+      role="textbox"
+      aria-label={etiqueta}
+      data-vacio={vacio}
+      spellCheck
+      onKeyDown={(e) => {
+        // Nada de lo que se tipea acá sube: ni un Escape que cierre otra cosa, ni un Enter.
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); ref.current?.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); volver(); ref.current?.blur(); }
+      }}
+      onPaste={(e) => {
+        e.preventDefault();
+        const txt = e.clipboardData.getData('text/plain').replace(/\s+/g, ' ');
+        document.execCommand('insertText', false, txt);
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onBlur={() => { void confirmar(); }}
+    >
+      {valor}
+    </span>
+  );
+}
+
+/**
+ * El desplegable de la marca. Va FIJO debajo de ella y adentro de `.ugc` (lo viste la hoja del
+ * curso), no en un portal al `body`: ahí perdería el `.ahdoc .ugc` del que cuelgan sus estilos.
+ * `position: fixed` lo saca del `overflow` de la barra, que lo recortaría.
+ *
+ * Se cierra con Escape (frenando a los demás: AGENTS.md, «un popover anclado también es una
+ * capa») y con un clic afuera.
+ */
+function MenuMarca({ id, etiqueta, ancla, onCerrar, children }: {
+  id: string; etiqueta: string; ancla: HTMLElement | null; onCerrar: () => void; children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
+  // ⚠️ EL FOCO ENTRA AL ABRIR: el menú se dibuja al final del curso, y sin esto el Tab desde la
+  //    marca recorría la barra entera antes de llegar a él (revisión del 07/10/2026).
+  // ⚠️ Y RECIÉN CUANDO ESTÁ UBICADO: hasta medirse va con `visibility: hidden`, y un elemento oculto
+  //    no recibe el foco — la primera versión lo pedía al montar y el foco se quedaba en el body
+  //    (medido en el navegador, no en el código).
+  const enfocado = useRef(false);
+  useEffect(() => {
+    if (!pos || enfocado.current) return;
+    enfocado.current = true;
+    ref.current?.querySelector<HTMLElement>('button, a[href], input')?.focus();
+  }, [pos]);
+  useEffect(() => {
+    const medir = () => {
+      if (!ancla) return;
+      const r = ancla.getBoundingClientRect();
+      setPos({ left: Math.max(8, r.left + 12), top: r.bottom + 4, width: Math.max(260, r.width - 24) });
+    };
+    medir();
+    window.addEventListener('resize', medir);
+    window.addEventListener('scroll', medir, true);
+    return () => { window.removeEventListener('resize', medir); window.removeEventListener('scroll', medir, true); };
+  }, [ancla]);
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      onCerrar();
+      ancla?.focus();
+    };
+    const afuera = (e: MouseEvent) => {
+      const n = e.target as Node;
+      if (ref.current?.contains(n) || ancla?.contains(n)) return;
+      onCerrar();
+    };
+    document.addEventListener('keydown', tecla, true);
+    document.addEventListener('mousedown', afuera, true);
+    return () => { document.removeEventListener('keydown', tecla, true); document.removeEventListener('mousedown', afuera, true); };
+  }, [ancla, onCerrar]);
+  return (
+    // Sin `role="menu"`: ese rol promete las flechas del teclado, y esto se recorre con Tab.
+    <div ref={ref} id={id} className="ugc-menu" role="group" aria-label={etiqueta}
+      style={pos ? { left: pos.left, top: pos.top, width: pos.width } : { visibility: 'hidden' }}
+      onBlur={(e) => {
+        // Se cierra cuando el foco se va AFUERA (Tab). Sin destino (`null`) no: es el selector de
+        // color del sistema, que se abre encima y le saca el foco a la página.
+        const n = e.relatedTarget as Node | null;
+        if (n && !ref.current?.contains(n) && !ancla?.contains(n)) onCerrar();
+      }}>
+      {children}
+    </div>
+  );
+}
+
+/** Un renglón del menú de la marca. Con `activo` va marcado (el producto que se está viendo). */
+export function ItemMenuUgc({ activo, onClick, children, title }: { activo?: boolean; onClick: () => void; children: ReactNode; title?: string }) {
+  return (
+    <button type="button" className={`ugc-menu-item${activo ? ' on' : ''}`} aria-current={activo || undefined}
+      title={title} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+/** El rótulo de una sección del menú de la marca. */
+export function TituloMenuUgc({ children }: { children: ReactNode }) {
+  return <div className="ugc-menu-h">{children}</div>;
 }

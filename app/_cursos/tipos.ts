@@ -42,6 +42,11 @@ export type ModuloUgc = {
    * deja la lámina y no un hueco negro.
    */
   portada?: string | null;
+  /**
+   * Una tapa que NO es una foto (un degradado de lib/portadas.ts), como `background` CSS. Va en
+   * el mismo lugar que `portada` y le gana a la lámina. Con las dos, gana la foto.
+   */
+  fondo?: string | null;
   /** `bloqueada`: se dibuja con candado y no se puede abrir. */
   estado?: EstadoModulo;
   /**
@@ -65,6 +70,11 @@ export type ModuloUgc = {
    * avanza sola (quien dicta). Es un hueco: el dibujo no sabe qué es.
    */
   acciones?: ReactNode;
+  /**
+   * Un módulo que armó la PANTALLA y no existe como tal (las clases de una etapa borrada): con
+   * `edicion`, no se renombra ni se le agregan clases.
+   */
+  sinEdicion?: boolean;
 };
 
 export type ClaseUgc = {
@@ -79,6 +89,8 @@ export type ClaseUgc = {
   meta?: string;
   /** La tapa de la tarjeta. Sin tapa queda el degradé de la casa. */
   tapa?: string | null;
+  /** Una tapa que no es una foto (un degradado), como `background` CSS. Con las dos, gana la foto. */
+  fondo?: string | null;
   /** Dibuja el triángulo de play sobre la tapa. */
   conVideo?: boolean;
   /** Chips de la tarjeta (estado de la tarea, % visto). Van con `<ChipUgc>`. */
@@ -132,7 +144,28 @@ export type EdicionUgc = {
   puedeMover?: (claseId: number, dir: 'arriba' | 'abajo') => boolean;
   /** Mientras se guarda: los controles se APAGAN, no se desmontan (uno que desaparece bajo el dedo se lee como un clic perdido). */
   ocupado?: boolean;
+  /**
+   * El CLIC EN UN TEXTO lo edita en el lugar (el título y la descripción de la portada, el nombre
+   * de un módulo, el título de una clase). Devuelve si quedó: con `false` vuelve el de antes.
+   * Sin esto, los textos se leen y no se tocan.
+   */
+  onTexto?: (que: TextoUgc, valor: string) => Promise<boolean>;
+  /**
+   * «Portada» en la portada del curso, en cada tarjeta de módulo y en cada clase. La pantalla abre
+   * su selector colgado de `ancla` (el botón que se tocó).
+   */
+  onPortada?: (que: ObjetivoUgc, ancla: HTMLElement) => void;
 };
+
+/** De qué es una portada. */
+export type ObjetivoUgc = { tipo: 'curso' } | { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number };
+
+/** Qué texto se editó. */
+export type TextoUgc =
+  | { tipo: 'curso-titulo' }
+  | { tipo: 'curso-resumen' }
+  | { tipo: 'modulo'; key: string }
+  | { tipo: 'clase'; id: number };
 
 /** La lista de recursos de un curso. El dibujo lo trae la pantalla (hoy sólo Conocimientos). */
 export type RecursosUgc = {
@@ -143,6 +176,8 @@ export type RecursosUgc = {
 /** La portada del índice (el «hero»). Lleva a una clase. */
 export type PortadaUgc = {
   tapa?: string | null;
+  /** Una tapa que no es una foto (un degradado), como `background` CSS. Con las dos, gana la foto. */
+  fondo?: string | null;
   /** La cejilla, arriba del título (la categoría). */
   eyebrow?: string;
   titulo: string;
@@ -179,6 +214,10 @@ export type TextosUgc = {
   menu: string;
   nueva: string;
   editar: string;
+  /** Lo que se lee en la descripción vacía de la portada, mientras se edita. */
+  sinResumen: string;
+  /** El botón que cambia una portada. */
+  portada: string;
 };
 
 export type ModoUgc = 'pagina' | 'embebido';
@@ -189,7 +228,19 @@ export type CursoUgcProps = {
   /** Debajo del título. Default: «N clases» contando `clases`. */
   subtitulo?: string;
   /** Arriba de la barra. `resaltado` va en lima (el corte de color de la casa). Con `onClick` es un botón. */
-  marca: { texto: string; resaltado?: string; onClick?: () => void; ariaLabel?: string };
+  marca: {
+    texto: string; resaltado?: string; onClick?: () => void; ariaLabel?: string;
+    /**
+     * El menú que despliega la marca: cambiar de producto, el color, la vista del alumno. Con
+     * `menu`, la marca es un DESPLEGABLE (y `onClick` no se usa). Recibe con qué cerrarlo.
+     */
+    menu?: (cerrar: () => void) => ReactNode;
+  };
+  /**
+   * El color de acento del curso (el lima de la casa por default), en `#RRGGBB`. Lo pinta
+   * `varsDeAcento` (lib/curso-estilo.ts), que ya lo trae legible.
+   */
+  acento?: string | null;
   modulos: ModuloUgc[];
   /** Sólo las que se pueden abrir, en el orden del curso (Anterior/Siguiente siguen este orden). */
   clases: ClaseUgc[];

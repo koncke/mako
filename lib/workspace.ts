@@ -116,6 +116,9 @@ const TENANT_TABLES = new Set<string>([
   // Las notas del equipo sobre una clase o una etapa (mig 0208). Sin esta línea las notas de
   // OTRO negocio aparecerían debajo de una clase, con sus adjuntos.
   'curso_clase_notas',
+  // Cómo se ve el curso de cada producto: color, título y portadas (mig 0214). Sin esta línea el
+  // curso de un negocio se dibujaría con el color y las tapas que eligió OTRO.
+  'curso_estilo',
   // El orden manual de las columnas del kanban del CRM (mig 0200), la gemela de `cliente_entrega_orden`.
   // Sin esta línea la lectura devolvería el orden de las columnas de CUALQUIER workspace.
   'lead_orden',

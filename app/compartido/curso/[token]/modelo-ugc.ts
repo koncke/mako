@@ -11,6 +11,7 @@
 import type { ProductoVista, EtapaVista, ClaseVista } from '@/lib/curso-portal';
 import type { EstadoTarea } from '@/lib/curso';
 import { PCT_VISTO, ROTULO_TAREA, tapaDeVideo } from '@/lib/curso';
+import { portadaDeClase, portadaDeEtapa, tapaDe } from '@/lib/curso-estilo';
 import type { ChipDato, ClaseUgc, ModuloUgc, TextosUgc } from '@/app/_cursos/tipos';
 
 /** Lo del dibujo, en la voz del portal: español neutro con TÚ, y corto. */
@@ -78,15 +79,21 @@ export function chipsDeClase(c: ClaseVista, vivo: { pct: number | null; estado: 
  * es el mapa de lo que viene. Su `cuantas` sale del server, porque sus clases no viajan.
  */
 export function modulosDelPortal(p: ProductoVista): ModuloUgc[] {
-  return p.etapas.map((e, i) => ({
-    key: e.key,
-    nombre: e.label,
-    n: i + 1,
-    estado: e.estado,
-    cuantas: e.cuantas,
-    // La barra y la tarjeta cuentan TAREAS ENVIADAS: es lo que cierra la etapa (`etapaCompleta`).
-    progreso: e.tareas > 0 ? { hechas: e.tareasEnviadas, total: e.tareas } : undefined,
-  }));
+  return p.etapas.map((e, i) => {
+    // La portada que el equipo le eligió a la etapa (lib/curso-estilo.ts). Sin ninguna, la lámina.
+    const { tapa, fondo } = tapaDe(portadaDeEtapa(p.estilo, e.key));
+    return {
+      key: e.key,
+      nombre: e.label,
+      n: i + 1,
+      estado: e.estado,
+      cuantas: e.cuantas,
+      // La barra y la tarjeta cuentan TAREAS ENVIADAS: es lo que cierra la etapa (`etapaCompleta`).
+      progreso: e.tareas > 0 ? { hechas: e.tareasEnviadas, total: e.tareas } : undefined,
+      portada: tapa ?? null,
+      fondo: fondo ?? null,
+    };
+  });
 }
 
 /** El `cuerpo` de una clase del portal, por id: lo que la lección necesita y la tarjeta no. */
@@ -102,6 +109,8 @@ export function clasesDelPortal(p: ProductoVista): ClasePortal[] {
   for (const e of p.etapas) {
     if (e.estado === 'bloqueada') continue;
     e.clases.forEach((c, i) => {
+      // La tapa elegida por el equipo le gana a la miniatura del video.
+      const elegida = tapaDe(portadaDeClase(p.estilo, c.id));
       out.push({
         etapa: e,
         vista: c,
@@ -111,7 +120,8 @@ export function clasesDelPortal(p: ProductoVista): ClasePortal[] {
           vn: i + 1,
           titulo: c.titulo,
           meta: c.minutos ? `${c.minutos} min` : undefined,
-          tapa: tapaDeVideo(c.video),
+          tapa: elegida.tapa ?? (elegida.fondo ? null : tapaDeVideo(c.video)),
+          fondo: elegida.fondo ?? null,
           // Un link de afuera no se reproduce acá: se abre en otra pestaña. Sin triángulo.
           conVideo: !!c.video && c.video.tipo !== 'afuera',
         },

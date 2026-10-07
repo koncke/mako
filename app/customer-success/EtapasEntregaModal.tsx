@@ -164,7 +164,7 @@ import { Modal, Confirm, Toast, useToast } from '@/app/_ui';
 import { CerrarIcon } from '@/app/crm/iconos';
 import { NEW_STAGE_PALETTE } from '@/lib/pipeline';
 import {
-  nuevaClaveEtapa, nuevaClaveFase, colorNuevaEtapa, normalizarEtapas, colorDeEtapa, agendaValida, MAX_AGENDA,
+  nuevaClaveEtapa, nuevaClaveFase, colorNuevaEtapa, normalizarEtapas, colorDeEtapa, agendaValida, MAX_AGENDA, TOPE_NOMBRE_ETAPA,
   type EtapaEntrega, type FaseEntrega,
 } from '@/lib/servicio-etapas';
 
@@ -173,7 +173,8 @@ const SANS = "'Geist', sans-serif";
 const MINIMO = 2;
 /** Lo que se espera antes de escribir. Renombrar es una tecla por letra. */
 const RESPIRO_MS = 600;
-const MAX_LABEL = 40;
+/** El tope del nombre: uno solo con el del curso (lib/servicio-etapas.ts). */
+const MAX_LABEL = TOPE_NOMBRE_ETAPA;
 /** El mismo tope que el título del editor del CRM y que `renombrarServicioAction`. */
 const MAX_NOMBRE = 60;
 

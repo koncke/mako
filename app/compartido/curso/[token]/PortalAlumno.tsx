@@ -39,7 +39,8 @@ import type { EstadoTarea, Valores } from '@/lib/curso';
 import { estadoDeAreas } from '@/lib/curso';
 import { Pagina, EmptyState } from '@/app/_ui';
 import { useRouter } from '@/app/_ui/Link';
-import CursoUgc, { ChipUgc } from '@/app/_cursos/CursoUgc';
+import CursoUgc, { ChipUgc, ItemMenuUgc, TituloMenuUgc } from '@/app/_cursos/CursoUgc';
+import { tapaDe } from '@/lib/curso-estilo';
 import type { LeccionUgc } from '@/app/_cursos/tipos';
 import { navegar, sembrar } from '@/app/conocimientos/posicion';
 import Reproductor from './Reproductor';
@@ -183,37 +184,45 @@ function Producto({ token, vista, producto, vistaPrevia, onProducto, onAvance }:
     };
   };
 
-  const arriba: ReactNode = (vista.productos.length > 1 || agenda) ? (
+  const arriba: ReactNode = agenda ? (
     <>
-      {vista.productos.length > 1 && vista.productos.map((p) => (
-        <button key={p.productoId} type="button"
-          className={`ugc-btn${p.productoId === producto.productoId ? ' primary' : ''}`}
-          aria-pressed={p.productoId === producto.productoId}
-          onClick={() => p.productoId !== producto.productoId && onProducto(p.productoId)}>
-          {p.nombre}
-        </button>
+      <span style={{ flex: 1 }} />
+      <BotonAgenda href={agenda.agendaUrl!} etapa={agenda.label} />
+    </>
+  ) : undefined;
+
+  // Cómo se ve el curso: lo que eligió el equipo (mig 0214), o lo de siempre.
+  const estilo = producto.estilo;
+  const tituloDe = (p: ProductoVista) => p.estilo?.titulo ?? p.nombre;
+  // Con más de un producto, el nombre del curso de la barra es el desplegable para cambiar de uno
+  // a otro (antes eran botones arriba del curso): el mismo lugar que en la tab del equipo.
+  const menu = vista.productos.length > 1 ? (cerrar: () => void) => (
+    <>
+      <TituloMenuUgc>Tus programas</TituloMenuUgc>
+      {vista.productos.map((p) => (
+        <ItemMenuUgc key={p.productoId} activo={p.productoId === producto.productoId}
+          onClick={() => { cerrar(); if (p.productoId !== producto.productoId) onProducto(p.productoId); }}>
+          {tituloDe(p)}
+        </ItemMenuUgc>
       ))}
-      {agenda && (
-        <>
-          <span style={{ flex: 1 }} />
-          <BotonAgenda href={agenda.agendaUrl!} etapa={agenda.label} />
-        </>
-      )}
     </>
   ) : undefined;
 
   return (
     <CursoUgc
       modo={vistaPrevia ? 'embebido' : 'pagina'}
-      titulo={vista.nombre ? `Hola, ${vista.nombre}` : producto.nombre}
+      titulo={vista.nombre ? `Hola, ${vista.nombre}` : tituloDe(producto)}
       subtitulo={lider ? `Área: ${vista.area}` : `Etapa ${iActual + 1} de ${producto.etapas.length}`}
-      marca={marcaDelProducto(producto.nombre)}
+      marca={{ ...marcaDelProducto(tituloDe(producto)), menu }}
+      acento={estilo?.acento}
       modulos={modulosConAcciones}
       clases={clasesUgc}
       portada={{
         eyebrow: lider ? `Área: ${vista.area}` : actual ? `Etapa ${iActual + 1} · ${actual.label}` : undefined,
-        titulo: producto.nombre,
-        resumen: !lider && actual ? metaDeEtapa(actual) : undefined,
+        titulo: tituloDe(producto),
+        // La descripción que escribió el equipo le gana al avance; el avance sigue en la cejilla.
+        resumen: estilo?.resumen ?? (!lider && actual ? metaDeEtapa(actual) : undefined),
+        ...tapaDe(estilo?.portada),
         claseId: arranque,
         progreso: lider ? undefined : {
           hechas: producto.etapas.filter((e) => e.estado === 'hecha').length,

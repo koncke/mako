@@ -25,6 +25,8 @@ export const TEXTOS_DEFAULT: TextosUgc = {
   menu: 'Módulos',
   nueva: '+ Clase',
   editar: 'Editar',
+  sinResumen: 'Escribe una descripción',
+  portada: 'Portada',
 };
 
 /** Un módulo bloqueado se dibuja y no se abre: ni desde la barra, ni desde su tarjeta, ni por URL. */

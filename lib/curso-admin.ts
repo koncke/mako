@@ -27,7 +27,7 @@ import { leerTodo } from './supabase-paginado';
 import type { Clase } from './curso';
 import {
   validarClase, pathDeSubida, pathEsDelWorkspace, reordenar, clasesDeEtapa, siguienteOrden,
-  esMimeVideo, TOPE_VIDEO_BYTES, valorGrabar, type AccesoFila,
+  esMimeVideo, TOPE_VIDEO_BYTES, TOPE_TITULO, valorGrabar, type AccesoFila,
 } from '@/app/customer-success/curso/reglas';
 
 /** El bucket privado de la mig 0202. */
@@ -154,6 +154,11 @@ export async function borrarClase(claseId: number): Promise<Resultado> {
     const { error } = await db.from('curso_clases').delete().eq('id', c.id);
     if (error) return { ok: false, error: error.message };
     await borrarArchivo(c.videoPath);
+    // La portada que se le eligió (mig 0214) no tiene FK a la clase: sin esto su fila quedaba para
+    // siempre. Best-effort, como el archivo: lo que importa —la clase— ya se borró, y una fila de
+    // más no se dibuja (el portal sólo manda las portadas de las clases que viajan).
+    const { error: errEstilo } = await db.from('curso_estilo').delete().eq('clave', `portada:clase:${c.id}`);
+    if (errEstilo) console.warn(`[curso-admin] no pude borrar la portada de la clase ${c.id}: ${errEstilo.message}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo borrar la clase.') };
@@ -303,6 +308,41 @@ export async function marcarGrabar(claseId: number, raw: unknown): Promise<Resul
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo marcar.') };
   }
+}
+
+/**
+ * Cambia SÓLO el título de una clase (el clic en el título de la lección, 07/10/2026).
+ *
+ * ⚠️ UN `update` DEL TÍTULO, nunca `guardarClase` con la fila armada en el navegador: esa escribe
+ *    la clase ENTERA, y desde un clic en un título se mandaría el video, la tarea y los campos
+ *    que la pantalla tenía en memoria — si otra pestaña los cambió en el medio, se pisan.
+ *    `updated_at` va, como en cualquier edición de la clase.
+ */
+export async function renombrarClase(claseId: number, raw: unknown): Promise<Resultado<{ titulo: string }>> {
+  try {
+    const titulo = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim() : '';
+    if (!titulo) return { ok: false, error: 'Falta el título.' };
+    if (titulo.length > TOPE_TITULO) return { ok: false, error: `El título pasa de ${TOPE_TITULO} letras.` };
+    if (!Number.isInteger(claseId) || claseId <= 0) return { ok: false, error: 'Esa clase ya no existe.' };
+    const db = await getTenantDb();
+    const { data, error } = await db.from('curso_clases')
+      .update({ titulo, updated_at: new Date().toISOString() })
+      .eq('id', claseId).select('id, titulo').maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: 'Esa clase ya no existe.' };
+    return { ok: true, titulo: (data as { titulo: string }).titulo };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo renombrar.') };
+  }
+}
+
+/** ¿La clase es de ese producto (y de este workspace)? Para atar a ella una portada. */
+export async function claseEsDelProducto(claseId: number, productoId: number): Promise<boolean> {
+  if (!Number.isInteger(claseId) || claseId <= 0) return false;
+  const db = await getTenantDb();
+  const { data, error } = await db.from('curso_clases').select('id').eq('id', claseId).eq('producto_id', productoId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return !!data;
 }
 
 /**

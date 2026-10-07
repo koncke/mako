@@ -89,7 +89,7 @@ export function ubicarPanel(
   return { left, top };
 }
 
-export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onColor, onCerrar }: {
+export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onColor, onCerrar, sinAutomatico = false }: {
   /** Lo que hay puesto hoy, para marcarlo. */
   valor: string | null | undefined;
   /** El color derivado del nombre: el default, que también es una opción. */
@@ -120,6 +120,13 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
    */
   onColor?: (c: string) => void;
   onCerrar: () => void;
+  /**
+   * Sin la muestra «Automático». Es el color derivado del NOMBRE, que es el default de un cliente
+   * o un proyecto; en el curso (app/customer-success/curso/CursoApp.tsx) el default es la lámina
+   * de cada etapa o el fondo de la casa, y la muestra prometía un degradado que nunca se dibuja.
+   * «Sin portada» sigue volviendo al default.
+   */
+  sinAutomatico?: boolean;
 }) {
   const [pest, setPest] = useState<Pestana>('galeria');
   const [montado, setMontado] = useState(false);
@@ -264,11 +271,13 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
           <>
             <p className="pp-seccion">Color y degradado</p>
             <ul className="pp-grid">
-              <li>
-                <button type="button" className={`pp-op${!valor ? ' on' : ''}`} onClick={() => onElegir(null)}
-                  title="Automático — el color derivado del nombre" aria-label="Automático, el color derivado del nombre"
-                  style={{ background: fondoPortada(null, colorBase) }} />
-              </li>
+              {!sinAutomatico && (
+                <li>
+                  <button type="button" className={`pp-op${!valor ? ' on' : ''}`} onClick={() => onElegir(null)}
+                    title="Automático — el color derivado del nombre" aria-label="Automático, el color derivado del nombre"
+                    style={{ background: fondoPortada(null, colorBase) }} />
+                </li>
+              )}
               {GRADIENTES.map((g) => (
                 <li key={g.id}>
                   <button type="button" className={`pp-op${valor === valorGradiente(g) ? ' on' : ''}`}

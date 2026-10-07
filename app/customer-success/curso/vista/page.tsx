@@ -21,6 +21,8 @@ import { clasesDelProducto } from '@/lib/curso-datos';
 import { urlsDeVistaPrevia } from '@/lib/curso-admin';
 import { entregaDeProducto } from '@/lib/entrega-servicio';
 import { armarEtapas, type VistaAlumno } from '@/lib/curso-portal';
+import { estilosDeProductos } from '@/lib/curso-estilo-datos';
+import { estiloVacio, soloDeClases } from '@/lib/curso-estilo';
 import { Pagina, EmptyState } from '@/app/_ui';
 import PortalAlumno from '@/app/compartido/curso/[token]/PortalAlumno';
 import { BarraVistaPrevia } from './BarraVistaPrevia';
@@ -48,10 +50,12 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     );
   }
 
-  const [cfg, clases, adminId] = await Promise.all([
+  const [cfg, clases, adminId, estilos] = await Promise.all([
     entregaDeProducto(productoId),
     clasesDelProducto(productoId),
     adminDeWorkspaceActual(),
+    // Cómo se ve el curso: la vista previa es justamente para mirar eso.
+    estilosDeProductos([productoId]),
   ]);
   const etapa = cfg.etapas.some((e) => e.key === sp.etapa) ? sp.etapa! : cfg.etapas[0]?.key ?? null;
   const etapas = armarEtapas(cfg.etapas, etapa, clases, new Map());
@@ -77,7 +81,11 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     // link de agenda no aparece porque ninguna etapa está completa).
     area: null,
     // Un producto sin clases no se le muestra al alumno (`armarVistaAlumno`): acá tampoco.
-    productos: clases.length ? [{ productoId, nombre: (prod as { nombre: string }).nombre, etapas }] : [],
+    productos: clases.length ? [{
+      productoId, nombre: (prod as { nombre: string }).nombre, etapas,
+      // Lo mismo que le llega al alumno (`armarVistaAlumno`): las portadas de las clases que se ven.
+      estilo: soloDeClases(estilos.get(productoId) ?? estiloVacio(), new Set(etapas.flatMap((e) => e.clases.map((c) => c.id)))),
+    }] : [],
   };
 
   // El curso va EMBEBIDO (app/_cursos/CursoUgc.tsx): toma el alto que le dejan, así que la caja

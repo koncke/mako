@@ -21,10 +21,14 @@
 // pasa el typecheck y TIRA EL BUILD (AGENTS.md; guard en tests/campana-producto.test.ts).
 
 import { revalidatePath } from 'next/cache';
-import { getRolWsEfectivo, getCapaActual, adminDeWorkspaceActual } from '@/lib/workspace';
+import { getRolWsEfectivo, getCapaActual, adminDeWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { tabEnCapa } from '@/lib/capas';
-import { guardarClase, borrarClase, moverClase, urlSubida, urlLectura, descartarVideo, marcarGrabar } from '@/lib/curso-admin';
+import { guardarClase, borrarClase, moverClase, urlSubida, urlLectura, descartarVideo, marcarGrabar, renombrarClase, claseEsDelProducto } from '@/lib/curso-admin';
+import { guardarAjusteEstilo } from '@/lib/curso-estilo-datos';
+import { ajusteValido, type Ajuste } from '@/lib/curso-estilo';
+import { entregaDeProductoEstricta, guardarEtapasEntrega } from '@/lib/entrega-servicio';
+import { TOPE_NOMBRE_ETAPA } from '@/lib/servicio-etapas';
 import { notasDe, agregarNota, borrarNota, urlSubidaNota, descartarAdjunto, urlAdjunto, type Quien } from '@/lib/curso-notas';
 import type { Clase } from '@/lib/curso';
 import type { EntradaClase, EntradaNota, DestinoNota, NotaVista } from './reglas';
@@ -167,6 +171,93 @@ export async function marcarGrabarAction(claseId: number, valor: boolean | null)
     return await marcarGrabar(Number(claseId), valor);
   } catch (e) {
     return fallo(e, 'No se pudo marcar.');
+  }
+}
+
+// ── Cómo se ve el curso: color, títulos y portadas (mig 0214, 07/10/2026) ────────────────────
+// «Permite personalizar cosas, como colores (el verde), las portadas, los títulos solo con darle
+// click» (Martín). Es de un ADMIN, como editar las clases: lo que se cambia acá lo ve cada alumno.
+//
+// ⚠️ SIN `revalidatePath`, como `marcarGrabarAction`: la pantalla aplica el cambio en el acto, y
+//    probar tres colores o tres portadas son tres clics — releer la página entera por cada uno
+//    pondría medio segundo detrás de cada uno. El portal del alumno es dinámico: lee lo nuevo.
+
+/** ¿El producto es de ESTE workspace? `getTenantDb` acota; acá se rebota antes de escribir. */
+async function productoPropio(productoId: number): Promise<string | null> {
+  if (!Number.isInteger(productoId) || productoId <= 0) return 'Falta el producto.';
+  const db = await getTenantDb();
+  const { data, error } = await db.from('productos').select('id').eq('id', productoId).maybeSingle();
+  if (error) return error.message;
+  return data ? null : 'Ese producto no es tuyo.';
+}
+
+/**
+ * Guarda UN ajuste del estilo del curso (`valor: null` = volver al default). Devuelve lo que quedó,
+ * que puede no ser lo pedido: un color muy oscuro vuelve aclarado (lib/curso-estilo.ts,
+ * `acentoLegible`) y la pantalla tiene que dibujar ESE.
+ */
+export async function guardarEstiloCursoAction(productoId: number, ajuste: Ajuste, valor: string | null): Promise<
+  { ok: true; valor: string | null } | { ok: false; error: string }
+> {
+  try {
+    const no = await puedeEditar();
+    if (no) return { ok: false, error: no };
+    const a = ajusteValido(ajuste);
+    if (!a) return { ok: false, error: 'Ese ajuste no existe.' };
+    const ajeno = await productoPropio(Number(productoId));
+    if (ajeno) return { ok: false, error: ajeno };
+    // La portada de una clase se ata a una clase de ESE producto: un id ajeno dejaría una fila
+    // basura que nadie dibuja (y que nombra una clase de otro curso).
+    if (a.tipo === 'portada-clase' && !(await claseEsDelProducto(a.clase, Number(productoId)))) {
+      return { ok: false, error: 'Esa clase ya no existe.' };
+    }
+    const u = await getUsuarioActual();
+    const v = await guardarAjusteEstilo(Number(productoId), a, valor, u?.email ?? null);
+    return { ok: true, valor: v };
+  } catch (e) {
+    return fallo(e, 'No se pudo guardar.');
+  }
+}
+
+/** Cambia SÓLO el título de una clase (el clic en el título de la lección). */
+export async function renombrarClaseAction(claseId: number, titulo: string): Promise<{ ok: true; titulo: string } | { ok: false; error: string }> {
+  try {
+    const no = await puedeEditar();
+    if (no) return { ok: false, error: no };
+    return await renombrarClase(Number(claseId), titulo);
+  } catch (e) {
+    return fallo(e, 'No se pudo renombrar.');
+  }
+}
+
+/**
+ * Renombra una ETAPA desde el curso. ⚠️ Es la columna del kanban de la entrega (el curso cuelga de
+ * esas etapas, mig 0202): renombrarla acá la renombra allá, que es lo correcto — es la misma cosa.
+ *
+ * Pasa por `guardarEtapasEntrega`, el mismo camino del editor de etapas, con la lista leída
+ * ESTRICTA y las fases que ya tenía: la lista se escribe entera, así que leerla con el default de
+ * fábrica (una lectura caída) borraría las etapas reales, y mandarla sin las fases les borraría
+ * el color.
+ */
+export async function renombrarEtapaCursoAction(productoId: number, etapa: string, nombre: string): Promise<{ ok: true; nombre: string } | { ok: false; error: string }> {
+  try {
+    const no = await puedeEditar();
+    if (no) return { ok: false, error: no };
+    const limpio = typeof nombre === 'string' ? nombre.replace(/\s+/g, ' ').trim() : '';
+    if (!limpio) return { ok: false, error: 'Falta el nombre.' };
+    if (limpio.length > TOPE_NOMBRE_ETAPA) return { ok: false, error: `El nombre pasa de ${TOPE_NOMBRE_ETAPA} letras.` };
+    const ajeno = await productoPropio(Number(productoId));
+    if (ajeno) return { ok: false, error: ajeno };
+    const cfg = await entregaDeProductoEstricta(Number(productoId));
+    if (!cfg) return { ok: false, error: 'No pude leer las etapas. Intenta de nuevo.' };
+    if (!cfg.etapas.some((e) => e.key === etapa)) return { ok: false, error: 'Esa etapa ya no existe.' };
+    const etapas = cfg.etapas.map((e) => (e.key === etapa ? { ...e, label: limpio } : e));
+    if (!(await guardarEtapasEntrega(Number(productoId), etapas, cfg.fases))) return { ok: false, error: 'No se pudo guardar.' };
+    // El kanban la lee en su próxima carga; esta pantalla ya la cambió.
+    revalidatePath('/customer-success');
+    return { ok: true, nombre: limpio };
+  } catch (e) {
+    return fallo(e, 'No se pudo renombrar.');
   }
 }
 

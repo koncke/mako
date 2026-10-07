@@ -30,6 +30,7 @@ import {
   type VideoVista, type Clase, type Progreso, type Campo, type Valores, type EstadoTarea,
 } from './curso';
 import { agendaValida } from './servicio-etapas';
+import { estiloVacio, soloDeClases, type EstiloCurso } from './curso-estilo';
 
 // ── Las etapas ────────────────────────────────────────────────────────────────
 
@@ -202,7 +203,17 @@ export type EtapaVista = {
   tareasEnviadas: number;
 };
 
-export type ProductoVista = { productoId: number; nombre: string; etapas: EtapaVista[] };
+export type ProductoVista = {
+  productoId: number; nombre: string; etapas: EtapaVista[];
+  /**
+   * Cómo se ve el curso (mig 0214): el color, el título, la descripción y las portadas que eligió
+   * el equipo (`estiloVacio()` = el de siempre). Viaja al alumno a propósito: es lo que él tiene que
+   * ver, con las portadas de clase recortadas a las clases que viajan (`soloDeClases`).
+   * ⚠️ OBLIGATORIO a propósito: opcional, borrar la línea que lo llena en `armarVistaAlumno` o en la
+   *    vista previa compilaba y el alumno veía el lima de siempre sin que nada avisara.
+   */
+  estilo: EstiloCurso;
+};
 /**
  * `area`: el área del LÍDER que abrió el portal (#665); `null` = es el cliente. Con un líder,
  * `nombre` es `null`: el nombre del lead es el del CLIENTE, y saludar al líder con él sería
@@ -396,10 +407,11 @@ export function idDeClase(v: unknown): number | null {
  */
 export async function armarVistaAlumno(leadId: number, opts: { lider?: string | null } = {}): Promise<VistaAlumno> {
   const lider = opts.lider ?? null;
-  const [datos, { entregaDeProducto }, { getTenantDb }] = await Promise.all([
+  const [datos, { entregaDeProducto }, { getTenantDb }, { estilosDeProductos }] = await Promise.all([
     import('./curso-datos'),
     import('./entrega-servicio'),
     import('./workspace'),
+    import('./curso-estilo-datos'),
   ]);
   const db = await getTenantDb();
   const [productos, avance, { data: lead }] = await Promise.all([
@@ -413,6 +425,8 @@ export async function armarVistaAlumno(leadId: number, opts: { lider?: string | 
   const { data: filasProd, error } = await db.from('productos').select('id, nombre').in('id', productos);
   if (error) throw new Error(error.message);
   const nombreDe = new Map(((filasProd ?? []) as Array<{ id: number; nombre: string }>).map((p) => [Number(p.id), p.nombre]));
+  // Cómo se ve cada curso. Si la lectura falla vuelve el de siempre: es cosmético (ver ahí).
+  const estilos = await estilosDeProductos(productos);
 
   // En el orden de `productosDelAlumno` (el del catálogo), uno por uno: son uno o dos, y cada
   // `etapaActualDe` ya consulta lo suyo.
@@ -422,10 +436,13 @@ export async function armarVistaAlumno(leadId: number, opts: { lider?: string | 
     if (!clases.length) continue;
     if (lider != null && !clases.some((c) => c.porArea === true)) continue;
     const [cfg, actual] = await Promise.all([entregaDeProducto(productoId), datos.etapaActualDe(leadId, productoId, productos)]);
+    const etapas = armarEtapas(cfg.etapas, actual, clases, avance.progreso, { porArea: avance.porArea, areas: avance.areas, lider });
+    const viajan = new Set(etapas.flatMap((e) => e.clases.map((c) => c.id)));
     out.push({
       productoId,
       nombre: nombreDe.get(productoId) ?? 'Tu programa',
-      etapas: armarEtapas(cfg.etapas, actual, clases, avance.progreso, { porArea: avance.porArea, areas: avance.areas, lider }),
+      estilo: soloDeClases(estilos.get(productoId) ?? estiloVacio(), viajan),
+      etapas,
     });
   }
   return { nombre, area: lider, productos: out };

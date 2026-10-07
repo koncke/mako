@@ -35,14 +35,18 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Pagina, PageHeader, Select, ButtonLink, Status, EmptyState, ErrorState, Banner, Toast, Modal,
-  useToast, useConfirm,
+  Pagina, PageHeader, Status, EmptyState, ErrorState, Banner, Toast, Modal, useToast, useConfirm,
 } from '@/app/_ui';
+import Link from '@/app/_ui/Link';
+import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import type { Clase } from '@/lib/curso';
 import { reproductorDeClase, tieneTarea } from '@/lib/curso';
-import CursoUgc, { ChipUgc } from '@/app/_cursos/CursoUgc';
-import type { LeccionUgc } from '@/app/_cursos/tipos';
-import { navegar, sembrar } from '@/app/conocimientos/posicion';
+import CursoUgc, { ChipUgc, ItemMenuUgc, TituloMenuUgc } from '@/app/_cursos/CursoUgc';
+import type { LeccionUgc, ObjetivoUgc, TextoUgc } from '@/app/_cursos/tipos';
+import {
+  ACENTOS, ACENTO_DEFAULT, conAjuste, estiloVacio, tapaDe, valorDe, type Ajuste, type EstiloCurso,
+} from '@/lib/curso-estilo';
+import { navegar, sembrar, usePosicion } from '@/app/conocimientos/posicion';
 import Reproductor from '@/app/compartido/curso/[token]/Reproductor';
 import TareaAlumno from '@/app/compartido/curso/[token]/TareaAlumno';
 import { VistaPreviaCtx } from '@/app/compartido/curso/[token]/vista-previa';
@@ -52,7 +56,10 @@ import { porEtapas, porGrabar, reordenar, rotuloTipo, videoDeClase, type FilaAva
 import {
   SIN_ETAPA, TEXTOS_EDITOR, chipsDelEditor, cierraLaEtapa, clasesDelEditor, modulosDelEditor, puedeMoverEnEditor,
 } from './modelo-ugc';
-import { borrarClaseAction, moverClaseAction, marcarGrabarAction, urlVerVideoAction } from './actions';
+import {
+  borrarClaseAction, moverClaseAction, marcarGrabarAction, urlVerVideoAction, guardarEstiloCursoAction,
+  renombrarClaseAction, renombrarEtapaCursoAction,
+} from './actions';
 import { EditorClase } from './EditorClase';
 import { NotasClase } from './NotasClase';
 import { AvanceCurso, type EtapaVista } from './AvanceCurso';
@@ -72,6 +79,8 @@ type Grabar = boolean | null;
  * un setState durante el render que no termina nunca.
  */
 const SIN_MARCAS: Record<number, Grabar> = {};
+/** Por la misma razón que `SIN_MARCAS`: una constante, no un `{}` en los parámetros. */
+const SIN_ESTILOS: Record<number, EstiloCurso> = {};
 
 /** La entrada propia de la barra (`#x=avance`). */
 const AVANCE = 'avance';
@@ -82,6 +91,7 @@ const hrefVistaPrevia = (productoId: number) => `/customer-success/curso/vista?p
 export function CursoApp({
   servicios, clases: clasesProp, avance, avanceError, conAvance, puedeEditar, inicial, errorClases, errorEntrega,
   grabar: grabarProp = SIN_MARCAS, grabarError = null, notas: notasProp = null, onboarding = null,
+  estilos: estilosProp = SIN_ESTILOS, estiloError = null,
 }: {
   servicios: ServicioCurso[];
   /** No se pudieron leer los servicios. ⚠️ No es «no tienes servicios»: son dos pantallas. */
@@ -106,6 +116,13 @@ export function CursoApp({
   errorClases: Record<number, string>;
   /** El onboarding de la tab (sólo para quien arma el curso). `null` = no se dibuja. */
   onboarding?: OnboardingCurso | null;
+  /** productoId → cómo se ve su curso (mig 0214). Sin fila = el de siempre. */
+  estilos?: Record<number, EstiloCurso>;
+  /**
+   * No se pudo leer cómo se ven los cursos. ⚠️ No es «nadie eligió nada»: se dibuja el de siempre,
+   * se AVISA, y no se ofrece cambiar el estilo — se editaría encima de algo que no se ve.
+   */
+  estiloError?: string | null;
 }) {
   const [productoId, setProductoId] = useState<number | null>(
     servicios.some((s) => s.productoId === inicial.productoId) ? inicial.productoId : servicios[0]?.productoId ?? null,
@@ -127,6 +144,24 @@ export function CursoApp({
 
   const [editando, setEditando] = useState<{ clase: Clase | null; etapa: string } | null>(null);
   const [moviendo, setMoviendo] = useState<number | null>(null);
+  // El estilo de cada curso: el mismo patrón que las clases (se pisa cuando llega otro del server).
+  const [baseEstilos, setBaseEstilos] = useState(estilosProp);
+  const [estilos, setEstilos] = useState(estilosProp);
+  if (baseEstilos !== estilosProp) { setBaseEstilos(estilosProp); setEstilos(estilosProp); }
+  /**
+   * Lo último que el SERVER confirmó, por producto. Si un guardado falla, la pantalla vuelve ACÁ y
+   * no a lo que había en pantalla: con el color «otro» lo de pantalla es un tono a mitad de camino
+   * que nunca se guardó (revisión del 07/10/2026).
+   */
+  const confirmados = useRef<Record<number, EstiloCurso>>(estilosProp);
+  if (baseEstilos !== estilosProp) confirmados.current = estilosProp;
+  /** El selector de portadas abierto: qué portada cambia y de qué botón cuelga. */
+  const [picker, setPicker] = useState<{ ajuste: Ajuste; ancla: HTMLElement } | null>(null);
+  /** Los nombres de etapa cambiados acá (`<producto>:<key>` → nombre), hasta que la página los traiga. */
+  const [nombresEtapa, setNombresEtapa] = useState<Record<string, string>>({});
+  const timerAcento = useRef<number | undefined>(undefined);
+  // Dónde está parado: la lista del onboarding y los avisos de grabar van sólo en el índice.
+  const { pos } = usePosicion();
   const { toast, show, clear } = useToast();
   const { confirm, confirmNode } = useConfirm();
 
@@ -164,8 +199,15 @@ export function CursoApp({
     [delProducto, servicio],
   );
   const filas = productoId ? avance[productoId] ?? [] : [];
-  const etapasMin = useMemo(() => servicio?.etapas.map((e) => ({ key: e.key, label: e.label })) ?? [], [servicio]);
-  const clasesUgcBase = useMemo(() => clasesDelEditor(etapasMin, porEtapa, huerfanas), [etapasMin, porEtapa, huerfanas]);
+  const etapasMin = useMemo(
+    () => servicio?.etapas.map((e) => ({ key: e.key, label: nombresEtapa[`${servicio.productoId}:${e.key}`] ?? e.label })) ?? [],
+    [servicio, nombresEtapa],
+  );
+  const estiloActual = productoId != null ? estilos[productoId] : undefined;
+  const clasesUgcBase = useMemo(
+    () => clasesDelEditor(etapasMin, porEtapa, huerfanas, estiloActual),
+    [etapasMin, porEtapa, huerfanas, estiloActual],
+  );
   const porId = useMemo(() => new Map(delProducto.map((c) => [c.id, c])), [delProducto]);
 
   const mover = async (c: Clase, dir: 'arriba' | 'abajo') => {
@@ -274,14 +316,83 @@ export function CursoApp({
     setProductoId(id);
   };
 
-  const selector = (
-    <Select value={String(productoId ?? '')} width={240} ariaLabel="Producto"
-      options={servicios.map((s) => ({ value: String(s.productoId), label: s.nombre }))}
-      onChange={(v) => cambiarProducto(Number(v))} />
-  );
+  // ── Cómo se ve el curso (mig 0214): color, títulos y portadas ──
+  // Optimista, como `mover` y `marcar`: el cambio se ve en el acto y el server confirma detrás. Lo
+  // que el server contesta MANDA (un color muy oscuro vuelve aclarado, `acentoLegible`).
+  const estilo = (productoId != null ? estilos[productoId] : undefined) ?? estiloVacio();
+  const guardarAjuste = async (a: Ajuste, v: string | null): Promise<boolean> => {
+    if (productoId == null) return false;
+    const pid = productoId;
+    // ⚠️ Un color elegido de la paleta CANCELA el «otro» que esperaba guardarse: si no, a los 450 ms
+    //    el pendiente pisaba en la base la elección explícita (revisión del 07/10/2026).
+    if (a.tipo === 'acento') window.clearTimeout(timerAcento.current);
+    const poner = (x: string | null) => setEstilos((m) => ({ ...m, [pid]: conAjuste(m[pid] ?? estiloVacio(), a, x) }));
+    const antes = valorDe(confirmados.current[pid] ?? estiloVacio(), a);
+    poner(v);
+    try {
+      const r = await guardarEstiloCursoAction(pid, a, v);
+      if (!r.ok) { poner(antes); show(r.error, undefined, 'bad'); return false; }
+      confirmados.current = { ...confirmados.current, [pid]: conAjuste(confirmados.current[pid] ?? estiloVacio(), a, r.valor) };
+      poner(r.valor);
+      return true;
+    } catch {
+      poner(antes);
+      show('No se pudo guardar.', undefined, 'bad');
+      return false;
+    }
+  };
+
+  /** El color «otro»: el selector nativo dispara un cambio por cada movimiento; se guarda al quedarse quieto. */
+  const probarAcento = (hex: string) => {
+    if (productoId == null) return;
+    const pid = productoId;
+    setEstilos((m) => ({ ...m, [pid]: conAjuste(m[pid] ?? estiloVacio(), { tipo: 'acento' }, hex) }));
+    window.clearTimeout(timerAcento.current);
+    timerAcento.current = window.setTimeout(() => { void guardarAjuste({ tipo: 'acento' }, hex); }, 450);
+  };
+
+  /** El clic en un texto (ver `TextoEditable` en app/_cursos/CursoUgc.tsx). */
+  const guardarTexto = async (que: TextoUgc, valor: string): Promise<boolean> => {
+    if (productoId == null) return false;
+    const pid = productoId;
+    if ((que.tipo === 'curso-titulo' || que.tipo === 'curso-resumen') && estiloError) {
+      show('No pude leer cómo se ve el curso.', undefined, 'bad');
+      return false;
+    }
+    // Vacío = volver al default: el nombre del producto, o la descripción automática.
+    if (que.tipo === 'curso-titulo') return guardarAjuste({ tipo: 'titulo' }, valor || null);
+    if (que.tipo === 'curso-resumen') return guardarAjuste({ tipo: 'resumen' }, valor || null);
+    if (!valor) { show('El nombre no puede quedar vacío.', undefined, 'bad'); return false; }
+    try {
+      if (que.tipo === 'modulo') {
+        const r = await renombrarEtapaCursoAction(pid, que.key, valor);
+        if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
+        setNombresEtapa((m) => ({ ...m, [`${pid}:${que.key}`]: r.nombre }));
+        return true;
+      }
+      const r = await renombrarClaseAction(que.id, valor);
+      if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
+      setClases((cs) => cs.map((x) => (x.id === que.id ? { ...x, titulo: r.titulo } : x)));
+      return true;
+    } catch {
+      show('No se pudo guardar.', undefined, 'bad');
+      return false;
+    }
+  };
+
+  /** «Portada»: abre el selector de siempre (degradados, fotos, subir) colgado del botón tocado. */
+  const abrirPortada = (que: ObjetivoUgc, ancla: HTMLElement) => {
+    const ajuste: Ajuste = que.tipo === 'curso' ? { tipo: 'portada' }
+      : que.tipo === 'modulo' ? { tipo: 'portada-etapa', etapa: que.key }
+        : { tipo: 'portada-clase', clase: que.id };
+    setPicker({ ajuste, ancla });
+  };
+
+  /** El nombre de un curso: el que se le eligió, o el del producto. */
+  const tituloDe = (s: ServicioCurso) => estilos[s.productoId]?.titulo ?? s.nombre;
 
   // ── El curso, con el dibujo de Conocimientos ──
-  const modulos = servicio ? modulosDelEditor(etapasMin, porEtapa, huerfanas).map((m) => {
+  const modulos = servicio ? modulosDelEditor(etapasMin, porEtapa, huerfanas, estilo).map((m) => {
     if (m.key === SIN_ETAPA) {
       return { ...m, acciones: <span className="cu-aviso">Su etapa ya no existe</span> };
     }
@@ -368,24 +479,24 @@ export function CursoApp({
     };
   };
 
-  return (
-    <Pagina ancho="completo" densidad="compacta" style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <PageHeader
-        titulo="Curso"
-        estado={<>
-          <Status>{nClases} {nClases === 1 ? 'clase' : 'clases'}</Status>
-          {nPorGrabar > 0 && <Status tono="warn">{nPorGrabar} por grabar</Status>}
-        </>}
-        filtros={selector}
-        /* Lo que ve el cliente en su portal, sin ser cliente: una vista previa SIN lead
-           (./vista/page.tsx), que no crea accesos ni guarda avance. */
-        acciones={productoId ? <ButtonLink size="sm" variant="secondary" href={hrefVistaPrevia(productoId)}>Vista del alumno</ButtonLink> : undefined}
-      />
-
+  // Lo que en la pantalla vieja era la cabecera de la tab: los avisos de lectura y la lista del
+  // onboarding. Van ADENTRO del curso, debajo del buscador (`arriba`): Martín pidió sacar la barra
+  // de arriba entera, «que no aparezca absolutamente nada... ni el título» (07/10/2026).
+  //
+  // ⚠️ `arriba` queda FIJO en todas las vistas, así que lo largo va SÓLO en el índice: la lista del
+  //    onboarding en una lección se comía la pantalla, y en un teléfono el curso entero.
+  const enIndice = !pos.clase && !pos.extra && !pos.mod && !pos.q;
+  const conLista = enIndice && !!checklist && !!onboarding;
+  const avisos = (
+    (productoId && errorClases[productoId]) || grabarError || estiloError || conLista || (enIndice && nPorGrabar > 0)
+  ) ? (
+    <div className="cu-arriba">
       {productoId && errorClases[productoId] && <Banner tono="bad">No pude leer las clases. {errorClases[productoId]}</Banner>}
       {grabarError && <Banner tono="bad">No pude leer qué grabar. {grabarError}</Banner>}
-
-      {checklist && onboarding && (
+      {estiloError && <Banner tono="bad">No pude leer cómo se ve el curso. {estiloError}</Banner>}
+      {/* Era un chip de la cabecera que se sacó; arriba a la derecha se esconde en pantallas chicas. */}
+      {enIndice && nPorGrabar > 0 && <Status tono="warn">{nPorGrabar} por grabar</Status>}
+      {conLista && checklist && onboarding && (
         <ChecklistCurso
           clases={checklist.clases}
           conVideo={checklist.conVideo}
@@ -400,45 +511,118 @@ export function CursoApp({
           onIrAAvance={() => navegar({ extra: AVANCE })}
         />
       )}
+    </div>
+  ) : undefined;
 
-      {!servicio ? (
+  /**
+   * EL MENÚ DE LA MARCA. Lo que estaba en la barra de arriba que se sacó: el producto que se mira
+   * (era un desplegable aparte), la vista del alumno, y lo nuevo, el color. Es el lugar donde
+   * Martín lo pidió: «el desplegable debería ser "Negocio que Escala" de la sidebar».
+   */
+  const acentoActual = estilo.acento ?? ACENTO_DEFAULT;
+  const menuMarca = (cerrar: () => void) => (
+    <>
+      <TituloMenuUgc>Cursos</TituloMenuUgc>
+      {servicios.map((s) => (
+        <ItemMenuUgc key={s.productoId} activo={s.productoId === productoId}
+          onClick={() => { cerrar(); if (s.productoId !== productoId) cambiarProducto(s.productoId); }}>
+          {tituloDe(s)}
+        </ItemMenuUgc>
+      ))}
+      {puedeEditar && !estiloError && (
+        <>
+          <div className="ugc-menu-sep" />
+          <TituloMenuUgc>Color</TituloMenuUgc>
+          <div className="ugc-swatches">
+            {ACENTOS.map((a) => (
+              <button key={a.hex} type="button" className="ugc-swatch" style={{ background: a.hex }}
+                aria-pressed={acentoActual === a.hex} title={a.nombre} aria-label={a.nombre}
+                onClick={() => void guardarAjuste({ tipo: 'acento' }, a.hex === ACENTO_DEFAULT ? null : a.hex)} />
+            ))}
+            {/* Cualquier otro color. Uno muy oscuro vuelve aclarado: el acento es FONDO de texto
+                oscuro (lib/curso-estilo.ts, `acentoLegible`). */}
+            <label className={`ugc-swatch ugc-swatch--otro${ACENTOS.some((a) => a.hex === acentoActual) ? '' : ' on'}`} title="Otro color">
+              <input type="color" value={acentoActual} aria-label="Otro color" onChange={(e) => probarAcento(e.target.value)} />
+            </label>
+          </div>
+        </>
+      )}
+      {productoId != null && (
+        <>
+          <div className="ugc-menu-sep" />
+          <Link className="ugc-menu-item" href={hrefVistaPrevia(productoId)} onClick={cerrar}>Vista del alumno</Link>
+        </>
+      )}
+    </>
+  );
+
+  if (!servicio) {
+    return (
+      <Pagina>
         <ErrorState titulo="No encontré ese producto" />
-      ) : (
-        // EL CURSO EMBEBIDO: la página mide la ventana (un alto DEFINIDO, para que la cadena de
-        // flex de adentro tenga contra qué resolver) y el curso toma lo que queda debajo de la
-        // cabecera, con base 0 y nunca un porcentaje (app/_cursos/estilos.ts). El mínimo es para
-        // que se pueda usar aunque la lista del onboarding ocupe arriba: si no entra, se scrollea.
-        <div className="cu-curso">
-          <CursoUgc
-            key={servicio.productoId}
-            modo="embebido"
-            titulo="Curso"
-            subtitulo={`${nClases} ${nClases === 1 ? 'clase' : 'clases'}`}
-            marca={marcaDelProducto(servicio.nombre)}
-            modulos={modulos}
-            clases={clasesUgc}
-            portada={clasesUgc.length ? { eyebrow: 'Curso', titulo: servicio.nombre, resumen: `${servicio.etapas.length} etapas · ${nClases} clases` } : undefined}
-            leccion={(clase) => leccion(clase.id)}
-            entradasExtra={[{
-              key: AVANCE,
-              nombre: 'Avance de los clientes',
-              cuenta: filas.length,
-              cuerpo: <div className="cu-avance"><AvanceCurso etapas={servicio.etapas} filas={filas} error={avanceError} /></div>,
-            }]}
-            edicion={puedeEditar ? {
-              onNueva: (k) => setEditando({ clase: null, etapa: k === SIN_ETAPA ? primeraEtapa ?? k : k }),
-              onEditar: (id) => { const c = porId.get(id); if (c) setEditando({ clase: c, etapa: etapaParaEditar(c) }); },
-              onMover: (id, dir) => { const c = porId.get(id); if (c) void mover(c, dir); },
-              onBorrar: (id) => { const c = porId.get(id); if (c) void borrarDesdeLista(c); },
-              puedeMover: (id, dir) => puedeMoverEnEditor(clasesUgc, id, dir),
-              ocupado: moviendo !== null,
-            } : undefined}
-            textos={TEXTOS_EDITOR}
-          />
-        </div>
+      </Pagina>
+    );
+  }
+
+  return (
+    // ⚠️ SIN CABECERA: el curso ES la pantalla, como en Conocimientos. Lo que había arriba se mudó
+    //    al menú de la marca (el producto, la vista del alumno) y al pie del buscador (las clases y
+    //    cuántas faltan grabar).
+    <Pagina ancho="completo" style={{ padding: 0 }}>
+      <CursoUgc
+        key={servicio.productoId}
+        modo="pagina"
+        // Arriba a la derecha va el NOMBRE del curso, como en Conocimientos: «Curso» era el título
+        // de la barra que Martín pidió sacar («ni el título»).
+        titulo={tituloDe(servicio)}
+        subtitulo={`${nClases} ${nClases === 1 ? 'clase' : 'clases'}${nPorGrabar > 0 ? ` · ${nPorGrabar} por grabar` : ''}`}
+        marca={{ ...marcaDelProducto(tituloDe(servicio)), menu: menuMarca, ariaLabel: `${tituloDe(servicio)}: cambiar de curso` }}
+        acento={estilo.acento}
+        modulos={modulos}
+        clases={clasesUgc}
+        portada={{
+          eyebrow: 'Curso',
+          titulo: tituloDe(servicio),
+          // Editando, la descripción vacía muestra su invitación; el alumno ve su avance en su lugar.
+          resumen: puedeEditar ? (estilo.resumen ?? '') : (estilo.resumen ?? `${servicio.etapas.length} etapas · ${nClases} clases`),
+          ...tapaDe(estilo.portada),
+        }}
+        leccion={(clase) => leccion(clase.id)}
+        arriba={avisos}
+        entradasExtra={[{
+          key: AVANCE,
+          nombre: 'Avance de los clientes',
+          cuenta: filas.length,
+          cuerpo: <div className="cu-avance"><AvanceCurso etapas={servicio.etapas} filas={filas} error={avanceError} /></div>,
+        }]}
+        edicion={puedeEditar ? {
+          onNueva: (k) => setEditando({ clase: null, etapa: k === SIN_ETAPA ? primeraEtapa ?? k : k }),
+          onEditar: (id) => { const c = porId.get(id); if (c) setEditando({ clase: c, etapa: etapaParaEditar(c) }); },
+          onMover: (id, dir) => { const c = porId.get(id); if (c) void mover(c, dir); },
+          onBorrar: (id) => { const c = porId.get(id); if (c) void borrarDesdeLista(c); },
+          puedeMover: (id, dir) => puedeMoverEnEditor(clasesUgc, id, dir),
+          ocupado: moviendo !== null,
+          onTexto: guardarTexto,
+          onPortada: estiloError ? undefined : abrirPortada,
+        } : undefined}
+        textos={TEXTOS_EDITOR}
+      />
+
+      {picker && (
+        // El MISMO selector de las portadas del tablero y de la ficha del cliente: degradados,
+        // fotos y subir. Elegir no lo cierra (se prueba mirando), y lo que se elige se guarda.
+        <PortadaPicker
+          valor={valorDe(estilo, picker.ajuste)}
+          colorBase={acentoActual}
+          ancla={picker.ancla}
+          titulo="Portada"
+          sinAutomatico
+          onElegir={(v) => { void guardarAjuste(picker.ajuste, v); }}
+          onCerrar={() => setPicker(null)}
+        />
       )}
 
-      {editando && servicio && (
+      {editando && (
         <EditorClase
           key={editando.clase?.id ?? `nueva-${editando.etapa}`}
           productoId={servicio.productoId}
@@ -462,7 +646,7 @@ export function CursoApp({
         />
       )}
 
-      {notasEtapa && servicio && (
+      {notasEtapa && (
         // ALTO FIJO: la caja crece con cada nota, y un detalle que cambia de tamaño según lo que
         // tiene adentro es lo que la regla de la casa prohíbe (AGENTS.md, «una caja cuyo alto es
         // un TOPE»).

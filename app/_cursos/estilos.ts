@@ -118,6 +118,103 @@ export const CSS_UGC = `
 .ahdoc.ahdoc--ugc .ugc .ugc-ltitle-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .ahdoc.ahdoc--ugc .ugc .ugc-ltitle-editar:disabled { opacity: .5; cursor: default; }
 
+/* ── El acento elegido, donde la hoja del origen lo tiene FIJO ─────────────────
+ * La hoja pinta con var(--u-lime) casi todo, pero varios tintes llevan el lima escrito a mano
+ * (rgba 204,240,58): sin esto, con otro color quedarian manchas verdes sueltas.
+ * Los tintes son VARIABLES con el lima por default; con otro acento las calcula varsDeAcento
+ * (lib/curso-estilo.ts) y van en el style de .ugc. NO con color-mix: un color-mix con una
+ * variable adentro que el navegador no entiende no cae a la regla de antes, deja la propiedad
+ * en su valor inicial (sin fondo, sin anillo) en el telefono viejo de un alumno. */
+.ahdoc.ahdoc--ugc .ugc {
+  --u-lime-a12: rgba(205, 241, 59, .12); --u-lime-a18: rgba(205, 241, 59, .18); --u-lime-a22: rgba(205, 241, 59, .22);
+  --u-lime-a30: rgba(205, 241, 59, .3); --u-lime-a45: rgba(205, 241, 59, .45); --u-lime-a50: rgba(205, 241, 59, .5);
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-nav-item:hover { background: var(--u-lime-a12); }
+.ahdoc.ahdoc--ugc .ugc .ugc-search:focus-within { box-shadow: 0 0 0 3px var(--u-lime-a50); }
+.ahdoc.ahdoc--ugc .ugc .ugc-modcard-cover {
+  background: radial-gradient(110% 130% at 80% 15%, var(--u-lime-a22), transparent 50%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.03), rgba(255,255,255,.03) 12px, transparent 12px, transparent 24px), var(--u-night);
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-hero-cta { box-shadow: 0 2px 12px var(--u-lime-a18); }
+.ahdoc.ahdoc--ugc .ugc .ugc-hero:hover .ugc-hero-cta,
+.ahdoc.ahdoc--ugc .ugc .ugc-hero-arranque:hover .ugc-hero-cta { box-shadow: 0 3px 18px var(--u-lime-a30); }
+
+/* ── La marca como desplegable, y su menu ────────────────────────────────────── */
+.ahdoc.ahdoc--ugc .ugc .ugc-side-brand--menu { gap: 10px; }
+.ahdoc.ahdoc--ugc .ugc .ugc-side-brand-chev { flex: none; font-size: 13px; color: var(--u-night-mut); transition: transform .15s; }
+.ahdoc.ahdoc--ugc .ugc .ugc-side-brand--menu[aria-expanded="true"] .ugc-side-brand-chev { transform: rotate(180deg); color: var(--u-lime); }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu {
+  position: fixed; z-index: 70; max-height: 72vh; overflow-y: auto; padding: 8px;
+  background: var(--u-night); color: var(--u-night-ink); border: 1.5px solid var(--u-night-line);
+  border-radius: 14px; box-shadow: 0 22px 44px rgba(22, 21, 15, .45);
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-h {
+  padding: 10px 10px 6px; font: 600 9.5px/1 var(--font-jetbrains), monospace;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--u-night-mut);
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 38px; padding: 8px 10px;
+  border-radius: 9px; text-align: left; cursor: pointer; text-decoration: none;
+  font: 600 13px/1.25 var(--font-archivo), system-ui, sans-serif; color: var(--u-night-ink); background: transparent;
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-item:hover { background: var(--u-lime-a12); }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-item.on { background: var(--u-lime); color: var(--u-ink); font-weight: 800; }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-sep { height: 1.5px; margin: 8px 4px; background: var(--u-night-line); }
+.ahdoc.ahdoc--ugc .ugc .ugc-swatches { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 10px 8px; align-items: center; }
+.ahdoc.ahdoc--ugc .ugc .ugc-swatch {
+  width: 26px; height: 26px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--u-night-line); box-shadow: inset 0 0 0 2px var(--u-night);
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-swatch[aria-pressed="true"], .ahdoc.ahdoc--ugc .ugc .ugc-swatch.on { border-color: var(--u-night-ink); }
+.ahdoc.ahdoc--ugc .ugc .ugc-swatch--otro { position: relative; overflow: hidden; background: conic-gradient(#ff6b6b, #ffd43b, #69db7c, #4dabf7, #b197fc, #ff6b6b); }
+.ahdoc.ahdoc--ugc .ugc .ugc-swatch--otro input { position: absolute; inset: 0; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+
+/* ── Un texto que se edita con un clic ──────────────────────────────────────────── */
+.ahdoc.ahdoc--ugc .ugc .ugc-texto-editable {
+  outline: none; border-radius: 6px; cursor: text; min-width: 2ch;
+  box-shadow: 0 0 0 0 transparent; transition: box-shadow .12s, background .12s;
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-texto-editable:hover { box-shadow: 0 0 0 3px var(--u-lime-a45); }
+.ahdoc.ahdoc--ugc .ugc .ugc-texto-editable:focus { box-shadow: 0 0 0 3px var(--u-lime); }
+.ahdoc.ahdoc--ugc .ugc .ugc-texto-editable:empty::before { content: attr(data-vacio); opacity: .45; }
+.ahdoc.ahdoc--ugc .ugc .ugc-texto-editable.is-guardando { opacity: .6; cursor: progress; }
+.ahdoc.ahdoc--ugc .ugc .ugc-hero-title.ugc-texto-editable, .ahdoc.ahdoc--ugc .ugc .ugc-hero-resumen.ugc-texto-editable { display: block; }
+
+/* ── La portada editando: no es un boton; el que lleva a la clase es la pastilla ── */
+.ahdoc.ahdoc--ugc .ugc .ugc-hero--edicion { cursor: default; }
+.ahdoc.ahdoc--ugc .ugc .ugc-hero--edicion:hover { transform: none; }
+.ahdoc.ahdoc--ugc .ugc .ugc-hero--edicion .ugc-hero-arranque { padding: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.ahdoc.ahdoc--ugc .ugc .ugc-portada-btn {
+  position: absolute; top: 14px; right: 14px; z-index: 4; display: inline-flex; align-items: center; gap: 7px;
+  min-height: 32px; padding: 0 12px; border-radius: 9px; cursor: pointer;
+  font: 700 11px/1 var(--font-jetbrains), monospace; letter-spacing: .04em;
+  color: var(--u-night-ink); background: rgba(22, 21, 15, .62); border: 1.5px solid rgba(244, 241, 232, .35);
+  opacity: 0; transition: opacity .12s;
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-hero--edicion:hover .ugc-portada-btn,
+.ahdoc.ahdoc--ugc .ugc .ugc-hero--edicion:focus-within .ugc-portada-btn { opacity: 1; }
+@media (hover: none) { .ahdoc.ahdoc--ugc .ugc .ugc-portada-btn { opacity: 1; } }
+
+/* ── Una tapa que no es foto (un degradado del selector de portadas) ───────────── */
+.ahdoc.ahdoc--ugc .ugc .ugc-modcard-cover .ugc-fondo { position: absolute; inset: 0; }
+
+/* ── Pagina: el alto es la VENTANA menos la franja de la agencia ────────────────
+ * La cola mide 100vh y traba el scroll del documento. Con la barra de la agencia (o la alerta de
+ * voz) el body baja 50 a 114 px y el curso se salia por abajo ese mismo tanto: el pie de cada
+ * columna que scrollea quedaba fuera de alcance, sin forma de llegar (revision del 07/10/2026).
+ * Y 100dvh y no 100vh, que en el telefono es el alto con la barra del navegador escondida.
+ * El alto va en una variable con respaldo: dvh dentro de un calc con var() en un navegador que no
+ * lo entiende no cae a la regla de antes, deja el alto en su valor inicial. */
+.ahdoc.ahdoc--ugc { --alto-ventana: 100vh; }
+@supports (height: 100dvh) { .ahdoc.ahdoc--ugc { --alto-ventana: 100dvh; } }
+.ahdoc.ahdoc--ugc:not(.ahdoc--embebido),
+.ahdoc.ahdoc--ugc:not(.ahdoc--embebido) .ugc,
+.ahdoc.ahdoc--ugc:not(.ahdoc--embebido) .ugc .ugc-shell { height: calc(var(--alto-ventana) - var(--barra-agencia, 0px)) !important; }
+@media (min-width: 761px) {
+  .ahdoc.ahdoc--ugc:not(.ahdoc--embebido) .ugc .ugc-side,
+  .ahdoc.ahdoc--ugc:not(.ahdoc--embebido) .ugc .ugc-main { height: calc(var(--alto-ventana) - var(--barra-agencia, 0px)) !important; max-height: none !important; }
+}
+
 /* ── Embebido: el curso vive adentro de una pantalla de la app ─────────────────
  * La cola del origen lo arma como una app de 100vh y traba el scroll del documento
  * (html:has(.ahdoc)). Adentro de la app eso deja sin scroll a todo lo que esta arriba

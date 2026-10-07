@@ -138,7 +138,11 @@ test('la página anota los pasos en cada carga y NO tapa la tab', () => {
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   assert.match(app, /const\s+checklist\s*=\s*checklistCurso\(\{[^}]*\bproductoId\b[^}]*errorClases\[productoId\][^}]*\}\)/,
     'la tab dejó de pasarle a la lista el producto elegido (o su error de lectura)');
-  assert.match(app, /\{checklist\s*&&\s*onboarding\s*&&\s*\(\s*<ChecklistCurso/);
+  // Desde el 07/10/2026 la lista va adentro del curso (`arriba`, que queda FIJO), así que se dibuja
+  // sólo en el índice: en una lección se comía la pantalla.
+  assert.match(app, /\{conLista\s*&&\s*checklist\s*&&\s*onboarding\s*&&\s*\(\s*<ChecklistCurso/);
+  assert.match(app, /const conLista = enIndice && !!checklist && !!onboarding;/);
+  assert.match(app, /const enIndice = !pos\.clase && !pos\.extra && !pos\.mod && !pos\.q;/);
   assert.match(app, /clases=\{checklist\.clases\}/, 'la lista tiene que contar las clases del producto elegido');
   assert.match(app, /conVideo=\{checklist\.conVideo\}/, 'la lista tiene que contar los videos del producto elegido');
   assert.doesNotMatch(app, /hechosDeClases\(/, 'la tab volvió a contar el workspace entero para la lista');

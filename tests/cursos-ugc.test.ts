@@ -29,6 +29,7 @@ import type { ProductoVista, EtapaVista, ClaseVista } from '../lib/curso-portal'
 import type { Clase } from '../lib/curso';
 import { ROTULO_TAREA, tapaDeVideo } from '../lib/curso';
 import type { ClaseUgc, ModuloUgc } from '../app/_cursos/tipos';
+import { estiloVacio } from '../lib/curso-estilo';
 import { clasesVisibles, pctAvance, textoBarraModulo, vecinas, moduloMarcado } from '../app/_cursos/reglas';
 import { CSS_UGC } from '../app/_cursos/estilos';
 import {
@@ -53,7 +54,7 @@ const etapaV = (key: string, estado: EtapaVista['estado'], clases: ClaseVista[],
   key, label: key.toUpperCase(), estado, clases: estado === 'bloqueada' ? [] : clases, cuantas: clases.length,
   obligatorias: 0, enviadas: 0, tareas: 0, tareasEnviadas: 0, ...o,
 });
-const producto = (etapas: EtapaVista[]): ProductoVista => ({ productoId: 1, nombre: 'Negocio que Escala', etapas });
+const producto = (etapas: EtapaVista[]): ProductoVista => ({ productoId: 1, nombre: 'Negocio que Escala', etapas, estilo: estiloVacio() });
 
 const clase = (id: number, etapa: string, orden: number, o: Partial<Clase> = {}): Clase => ({
   id, productoId: 1, etapa, orden, titulo: `C${id}`, descripcion: '', tipo: 'video', minutos: null,
@@ -189,8 +190,11 @@ test('el CÓDIGO de CursoUgc no tiene caracteres de 3 bytes (van escapados): un 
 
 test('los estilos del dibujo van acotados a .ahdoc--ugc: no pueden tocar a Conocimientos, que no lo monta', () => {
   const css = CSS_UGC.replace(/\/\*[\s\S]*?\*\//g, '');
-  const selectores = css.split('}').map((b) => b.split('{')[0]).flatMap((s) => s.split(','))
-    .map((s) => s.replace(/@media[^{]*$/, '').trim()).filter(Boolean);
+  // Cada preludio antes de una llave: así entran también los selectores de ADENTRO de un @media o
+  // un @supports. La primera versión partía por '}' y se quedaba con el arranque del bloque, o sea
+  // `@media (...)`, y nunca miraba lo de adentro (revisión del 07/10/2026).
+  const selectores = [...css.matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim())
+    .filter((p) => p && !p.startsWith('@')).flatMap((p) => p.split(',')).map((p) => p.trim()).filter(Boolean);
   assert.ok(selectores.length > 40, `leí ${selectores.length} selectores: el parser quedó corto`);
   const sueltos = selectores.filter((s) => !s.startsWith('.ahdoc.ahdoc--ugc') && !/^(html|body):has\(\.ahdoc--embebido\)$/.test(s));
   assert.deepEqual(sueltos, []);
@@ -203,7 +207,12 @@ test('las dos pantallas montan el dibujo (y ninguna volvió a uno propio)', () =
   assert.match(portal, /modo=\{vistaPrevia \? 'embebido' : 'pagina'\}/, 'la vista previa va embebida debajo de su barra');
   assert.doesNotMatch(portal, /className="cp-etapa|className="cp-clase/, 'volvió el acordeón de etapas');
   const editor = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
-  assert.match(editor, /<CursoUgc\b[\s\S]*?modo="embebido"/);
+  // Desde el 07/10/2026 la tab Curso ES el curso, como Conocimientos: pantalla completa y sin la
+  // cabecera de la app («que no aparezca absolutamente nada... ni el título», Martín).
+  assert.match(editor, /<CursoUgc\b[\s\S]*?modo="pagina"/);
+  const principal = editor.slice(editor.indexOf('<Pagina ancho="completo"'));
+  assert.ok(principal.length > 500, 'no encontré la pantalla principal de la tab');
+  assert.doesNotMatch(principal, /<PageHeader/, 'volvió la barra de arriba de la tab Curso');
   assert.match(editor, /edicion=\{puedeEditar \? \{/, 'los controles de editar son sólo de un admin');
   assert.doesNotMatch(editor, /function ListaClases/, 'volvió la lista de filas');
 });

@@ -105,6 +105,14 @@ const ANILLO = '#2E2A1F';       // el 10% mas oscuro de la banda: rgb(39,30,18) 
 const ANILLO_LUZ = '#F2EEE2';
 const LIMA_BROCHA = '#DCF35F';  // promedio del brochazo: rgb(216,243,78)
 const LIMA_STICKER = '#D5F240'; // medido en m3: rgb(213,242,64)
+/**
+ * Los dos limas se pintan por VARIABLE CSS, con el lima de siempre como respaldo: el curso de un
+ * cliente (app/_cursos/CursoUgc.tsx) elige su color de acento y la lámina lo sigue
+ * (`varsDeAcento`, lib/curso-estilo.ts). Conocimientos no define las variables, así que no cambia.
+ * ⚠️ Van en `style` y no en el atributo `fill`: una variable en un atributo de presentación de SVG
+ *    no es confiable en todos los navegadores, y en `style` sí.
+ */
+const fillVar = (nombre: string, respaldo: string) => ({ fill: `var(${nombre}, ${respaldo})` });
 
 /**
  * ⚠️ El canto de la hoja es una ESCALERA DE CUATRO COLORES PLANOS, no un rectangulo
@@ -933,7 +941,7 @@ export function PortadaModulo({ n, titulo, className, rotulo = 'Módulo' }: {
               ⚠️ Si algun ancestro llegara a tener `isolation: isolate` o un `filter`, el
               multiply queda encerrado: el brochazo tapa la cuadricula en vez de dejarla
               ver. Degrada bien, pero no hay que ponerselo al padre a proposito. */}
-          <g fill={LIMA_BROCHA} opacity={0.92} style={{ mixBlendMode: 'multiply' }}>
+          <g opacity={0.92} style={{ mixBlendMode: 'multiply', ...fillVar('--lamina-brocha', LIMA_BROCHA) }}>
             {brochas.map((b, i) => (
               <path key={i} d={b.d} />
             ))}
@@ -957,7 +965,7 @@ export function PortadaModulo({ n, titulo, className, rotulo = 'Módulo' }: {
       {puesto && (
       <g transform={`translate(${sx},${sy}) rotate(${giro},${S / 2},${S / 2})`}>
         <path d={`M3.5,4.2 L${S + 3},3.5 L${S + 3.5},${S + 3} L4,${S + 3.5} Z`} fill={TINTA} />
-        <path d={`M0.6,0.8 L${S - 0.4},0 L${S},${S - 0.6} L0,${S} Z`} fill={LIMA_STICKER} />
+        <path d={`M0.6,0.8 L${S - 0.4},0 L${S},${S - 0.6} L0,${S} Z`} style={fillVar('--lamina-sticker', LIMA_STICKER)} />
         <path
           d={`M4.2,4.6 L${S - 4},3.8 L${S - 3.6},${S - 4.2} L3.6,${S - 3.8} Z`}
           fill="none"

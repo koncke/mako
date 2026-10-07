@@ -21,6 +21,8 @@ import { adminDeWorkspaceActual } from '@/lib/workspace';
 import { clasesDelProducto, progresoDeClientes } from '@/lib/curso-datos';
 import { accesosDeClientes, grabarDeProductos } from '@/lib/curso-admin';
 import { conteoDeNotas } from '@/lib/curso-notas';
+import { estilosLeidos } from '@/lib/curso-estilo-datos';
+import type { EstiloCurso } from '@/lib/curso-estilo';
 import { colorDeEtapa } from '@/lib/servicio-etapas';
 // ⚠️ DE lib/ Y NO DE ../trabajo: es la MISMA función (trabajo.ts la re-exporta), pero importarla
 // de allá arrastra el cruce, el ruteo y el Perro al grafo de una pantalla que sólo quiere los
@@ -85,10 +87,13 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
   // hay nada por grabar. El conteo de notas es una pista: si falla, la lista no dice nada y cada
   // caja de notas lee las suyas al abrirse (y ahí sí dice si no pudo).
   const productoIds = servicios.map((s) => s.productoId);
-  const [grabarLeido, notasLeidas] = await Promise.all([
+  const [grabarLeido, notasLeidas, estilosLeidosR] = await Promise.all([
     grabarDeProductos(productoIds).then((m) => ({ ok: true as const, m }), (e) => ({ ok: false as const, error: mensaje(e, 'Error de lectura.') })),
     conteoDeNotas(productoIds).catch((e) => { console.warn('[curso] no pude contar las notas:', mensaje(e, '')); return null; }),
+    // Cómo se ve cada curso (mig 0214). No tira: si no puede leer, vuelve el de siempre.
+    estilosLeidos(productoIds),
   ]);
+  const estilos: Record<number, EstiloCurso> = Object.fromEntries(estilosLeidosR.estilos);
 
   // ── El onboarding de la tab (regla de la casa: toda tab tiene uno) ──
   // Los pasos se DERIVAN de lo que hay y se anotan acá en cada carga (./onboarding-sync.ts), así
@@ -164,6 +169,8 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
       grabar={grabarLeido.ok ? grabarLeido.m : undefined}
       grabarError={grabarLeido.ok ? null : grabarLeido.error}
       notas={notasLeidas}
+      estilos={estilos}
+      estiloError={estilosLeidosR.error}
       inicial={inicial}
       puedeEditar={puedeEditar}
       onboarding={onboarding}

@@ -8,6 +8,7 @@
 
 import type { Clase } from '@/lib/curso';
 import { reproductorDeClase, tapaDeVideo, tieneTarea } from '@/lib/curso';
+import { portadaDeClase, portadaDeEtapa, tapaDe, type EstiloCurso } from '@/lib/curso-estilo';
 import type { ChipDato, ClaseUgc, ModuloUgc, TextosUgc } from '@/app/_cursos/tipos';
 import { puedeMoverPorPosicion } from '@/app/_cursos/reglas';
 import { rotuloTipo, videoDeClase } from './reglas';
@@ -43,16 +44,23 @@ export const cierraLaEtapa = (lista: readonly Clase[]) => lista.some((c) => c.ob
 type EtapaMin = { key: string; label: string };
 
 /** Las etapas como módulos, en el orden de la entrega; y «Sin etapa» al final si hay huérfanas. */
-export function modulosDelEditor(etapas: readonly EtapaMin[], porEtapa: Record<string, Clase[]>, huerfanas: readonly Clase[]): ModuloUgc[] {
-  const out: ModuloUgc[] = etapas.map((e, i) => ({
-    key: e.key,
-    nombre: e.label,
-    n: i + 1,
-    cuantas: (porEtapa[e.key] ?? []).length,
-    rotuloExtra: minutosDe(porEtapa[e.key] ?? []),
-  }));
+export function modulosDelEditor(etapas: readonly EtapaMin[], porEtapa: Record<string, Clase[]>, huerfanas: readonly Clase[], estilo?: EstiloCurso): ModuloUgc[] {
+  const out: ModuloUgc[] = etapas.map((e, i) => {
+    // La portada que se le eligió a la etapa (una foto o un degradado). Sin ninguna, la lámina.
+    const { tapa, fondo } = tapaDe(portadaDeEtapa(estilo, e.key));
+    return {
+      key: e.key,
+      nombre: e.label,
+      n: i + 1,
+      cuantas: (porEtapa[e.key] ?? []).length,
+      rotuloExtra: minutosDe(porEtapa[e.key] ?? []),
+      portada: tapa ?? null,
+      fondo: fondo ?? null,
+    };
+  });
   if (huerfanas.length) {
-    out.push({ key: SIN_ETAPA, nombre: 'Sin etapa', n: etapas.length + 1, cuantas: huerfanas.length });
+    // «Sin etapa» no existe como etapa: no se renombra, no se le agregan clases ni se le pone tapa.
+    out.push({ key: SIN_ETAPA, nombre: 'Sin etapa', n: etapas.length + 1, cuantas: huerfanas.length, sinEdicion: true });
   }
   return out;
 }
@@ -67,20 +75,23 @@ function minutosDe(lista: readonly Clase[]): string | undefined {
  * Las clases en el orden del curso (Anterior/Siguiente lo siguen): cada etapa en su orden y las
  * huérfanas al final. `vn` arranca en 1 en cada etapa, como en el portal.
  */
-export function clasesDelEditor(etapas: readonly EtapaMin[], porEtapa: Record<string, Clase[]>, huerfanas: readonly Clase[]): ClaseUgc[] {
+export function clasesDelEditor(etapas: readonly EtapaMin[], porEtapa: Record<string, Clase[]>, huerfanas: readonly Clase[], estilo?: EstiloCurso): ClaseUgc[] {
   const grupos: Array<[string, readonly Clase[]]> = [
     ...etapas.map((e): [string, readonly Clase[]] => [e.key, porEtapa[e.key] ?? []]),
     [SIN_ETAPA, huerfanas],
   ];
   return grupos.flatMap(([key, lista]) => lista.map((c, i) => {
     const { video } = reproductorDeClase(c);
+    // La tapa elegida le gana a la miniatura del video, que es lo que hay cuando nadie eligió.
+    const elegida = tapaDe(portadaDeClase(estilo, c.id));
     return {
       id: c.id,
       moduloKey: key,
       vn: i + 1,
       titulo: c.titulo,
       meta: [rotuloTipo(c.tipo), c.minutos != null ? `${c.minutos} min` : null].filter(Boolean).join(' · '),
-      tapa: tapaDeVideo(video),
+      tapa: elegida.tapa ?? (elegida.fondo ? null : tapaDeVideo(video)),
+      fondo: elegida.fondo ?? null,
       conVideo: video != null && video.tipo !== 'afuera',
     };
   }));
