@@ -8807,3 +8807,92 @@ recordatorio de clases, cuyo molde (`marcarRecordatorio`, `lib/curso-mensajes.ts
 
 **La regla:** un compare-and-set se escribe `update … .eq(<valor leído>) .select('id')` y se
 manda sólo si volvió al menos una fila. Sin leer las filas afectadas no hay compare-and-set.
+
+
+---
+
+## Cambiar el número de MaKo: vincular al lado y mudarse cuando quedó lista (07/10/2026)
+
+**Vive en:** `lib/mako-canal.ts` · `lib/mako-chat.ts` · `lib/participantes-grupo.ts` ·
+`app/agencia/CanalMaKoPanel.tsx` · `app/api/admin/mako-canal/route.ts`
+
+El pedido, textual: «Tengo un nuevo número que va a ser el número de MaKo, quiero: 1. Ya
+poder vincular 2 números mediante QR en SuperAdmin, así mantengo mi número personal, donde
+atenderé a los clientes ya cerrados, y el número de MaKo es para el resto. 2. Quiero que los
+grupos de WhatsApp actuales y futuros sean con el nuevo número de MaKo».
+
+**Medido antes de escribir (07/10, mediodía):** la voz y el canal eran
+`mako_superadmin_mtxclf3x`, cuyo número es el PERSONAL de Martín; la vieja `mako_superadmin`
+sigue abierta con el mismo número. Hay 7 grupos guardados (`mako.grupo_jid` de cada negocio +
+`mako.superadmin.grupo_jid`) y ese número es admin en los 7. El negocio del super admin (ws9)
+no tenía ninguna línea.
+
+### Lo que el camino viejo hacía, y por qué no servía para esto
+
+1. **«Conectar por QR» con la línea viva contesta «ya está conectada».** La única forma de que
+   MaKo hablara desde otro número era desconectar primero.
+2. ⚠️ **Y desconectar devolvía la voz a `mako_ws1`, la línea de Mauricio — un CLIENTE.** El
+   diagnóstico obvio era «MaKo queda muda un rato», y era peor: MaKo pasaba a hablar en todos
+   los grupos con el WhatsApp de un cliente, y la reconexión siguiente
+   (`usarCanalComoVoz` → `agregarNumeroATodosLosGrupos`) le pedía a ESA línea sumar el número
+   nuevo a los grupos de los demás clientes. Es la regla «OWNER_WS no es la plataforma» de
+   AGENTS.md con la peor cara posible: no un dato leído del lugar equivocado, sino MaKo con el
+   número de otro. Se sacó «dejar de usar»: sin línea, MaKo queda muda, que el vigilante avisa.
+3. ⚠️ **Cuarto lugar con el 200-con-el-fallo-adentro.** `accionParticipantes` devolvía
+   `{ ok: r != null }`. El detalle de un grupo en /agencia decía «Número agregado ✓» sobre un
+   número que no entró, y la rotación del canal contaba como hechos grupos donde la línea nueva
+   nunca quedó adentro. El lector por participante ya existía en `lib/mako-grupo.ts`, privado;
+   ahora vive en `lib/participantes-grupo.ts` (sin `server-only`) y lo usan las dos puntas.
+4. **Y la línea nueva entraba sin admin.** Hablaba, pero la voz de MaKo es la que suma al dueño
+   de un cliente a su grupo y la que lo renombra: el primer «agregá a mi socio» habría fallado.
+
+### Lo que quedó
+
+- **El número nuevo se vincula AL LADO** (`vincularNumeroNuevo`), reservado en
+  `mako.canal.pendiente` con compare-and-set (dos clics no abren dos líneas). No toca canal ni
+  voz.
+- **El webhook no la escucha mientras tanto**, sin código nuevo: `wsDeInstancia` sólo reconoce
+  las líneas VIGENTES (canal y voz). Eso es lo que permite tener las dos vinculadas, las dos
+  dentro de los mismos grupos, sin que el doer conteste dos veces. Tiene guard.
+- **La mudanza** (`pasarMaKoANumeroNuevo`): con la voz actual —la admin— suma el número nuevo a
+  cada grupo, lo PROMUEVE, y el veredicto sale de RELEER el grupo (`esAdminEn`), no del
+  `status` del pedido. Recién después: compare-and-set del canal, voz, y se suelta la reserva.
+  Si un grupo falla no se muda sola: vuelve con la lista y «Pasar igual» es la decisión.
+  Cero grupos leídos con siete guardados no es «listo»: la lectura es estricta.
+- **Los grupos FUTUROS no necesitaron nada**: se crean con `instanciaVoz()`.
+- **«Tu número» es una línea de TU negocio**, no de MaKo: corre `conectar()` dentro de
+  `runWithWorkspace(await wsSuperAdmin())`. Así aparece en /whatsapp, «Sale por» la puede
+  elegir, y como toda línea de negocio nace con `groupsIgnore`: los grupos de MaKo —donde ese
+  número también está— no le llegan al doer por segunda vez.
+
+### Trampas del entorno
+
+- ⚠️ **El panel vive en /agencia y el parche de fetch le pega el `?ws=` de la pestaña.** Si
+  «tu número» se conectaba con el workspace de la sesión, un super admin mirando a un cliente
+  vinculaba su WhatsApp personal en el negocio de ese cliente. Por eso el `wsSuperAdmin()`
+  explícito, con guard.
+- **`findGroupInfos` puede traer al participante como `…@lid`**, con el teléfono en otro campo.
+  `esAdminEn` mira `id`, `jid` y `phoneNumber`.
+- **Un `jid` puede traer el sufijo de dispositivo** (`…:12@s.whatsapp.net`): se corta antes de
+  comparar dígitos.
+
+### Lo que quedó SIN hacer
+
+- **La mudanza no se corrió**: espera que Martín escanee el número nuevo, y sumar un número a
+  los grupos de los clientes es algo que cada cliente ve.
+- **`acceptInviteCode` no está medido.** Es el plan B cuando WhatsApp no deja sumar la línea
+  nueva directo (403 por su privacidad); el número nuevo de MaKo no debería tenerla
+  restringida. Endpoint asumido: `GET /group/acceptInviteCode/{instancia}?inviteCode=`.
+- **Las líneas viejas con el número personal** (`mako_superadmin` y `mako_superadmin_mtxclf3x`)
+  siguen vinculadas después de la mudanza: el webhook las ignora, pero ocupan dispositivos de
+  ese WhatsApp (el tope es 4) y no hay botón para soltarlas. Se puede desde el teléfono, en
+  Dispositivos vinculados. Soltarlas además se lleva el historial de grupos que guardan.
+- **El número personal sigue en los 7 grupos** como participante y admin. Si sale o no lo
+  decide Martín.
+- **Los settings de la línea de MaKo viven en el ws1** (`mako.canal.*`, `mako.voz.instancia`),
+  que es la deuda de «OWNER_WS no es la plataforma». La reserva nueva se sumó al MISMO lugar a
+  propósito: partir la pregunta «¿cuál es la línea de MaKo?» en dos stores es peor que la deuda.
+- **El detalle de un grupo dice «No se pudo agregar» sin el motivo** (`GrupoDetalleModal.tsx`):
+  el motivo ya viaja en el JSON.
+
+*07/10/2026, cuenta 2, commit `3226b3f7`.*

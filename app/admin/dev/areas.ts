@@ -734,7 +734,7 @@ export const AREAS: AreaDev[] = [
     slug: 'whatsapp-de-mako', titulo: 'WhatsApp de MaKo', familia: 'MaKo',
     estado: 'listo', verEnApp: '/agencia',
     alcance: 'La tab del canal PROPIO de la agencia: la línea de MaKo por QR, sus grupos y sus plantillas. No es preview de ningún cliente ni el /whatsapp del producto.',
-    vive: ['app/agencia/page.tsx', 'app/agencia/AgenciaTabs.tsx'],
+    vive: ['app/agencia/page.tsx', 'app/agencia/AgenciaTabs.tsx', 'app/agencia/CanalMaKoPanel.tsx', 'app/api/admin/mako-canal/route.ts', 'lib/mako-canal.ts', 'lib/mako-chat.ts', 'lib/participantes-grupo.ts', 'tests/mako-numero-nuevo.test.ts'],
     proyectos: ['Feature: WhatsApp de MaKo'],
   },
   {

@@ -496,6 +496,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-self-healing-dev-agent', label: "Self-Healing Dev Agent", href: '/admin/dev/self-healing-dev-agent', icon: 'config', match: starts('/admin/dev/self-healing-dev-agent') },
           { key: 'dev-second-brain', label: 'Second Brain', href: '/admin/dev/second-brain', icon: 'cerebro', match: starts('/admin/dev/second-brain') },
           { key: 'dev-vsl-tracking', label: 'VSL Tracking', href: '/admin/dev/vsl-tracking', icon: 'graphics', match: starts('/admin/dev/vsl-tracking') },
+          { key: 'dev-whatsapp-de-mako', label: 'WhatsApp de MaKo', href: '/admin/dev/whatsapp-de-mako', icon: 'config', match: starts('/admin/dev/whatsapp-de-mako') },
           // Las dos capas del sistema visual, y van juntas y en este orden:
           // Design System son los tokens y la paleta (la capa de abajo), MaKo
           // UX/UI es el catálogo que los muestra montados (/admin/ui).

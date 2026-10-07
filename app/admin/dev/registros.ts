@@ -50,6 +50,7 @@ import { PARTES as METAPLATFORM_PARTES, BITACORA as METAPLATFORM_BITACORA } from
 import { PARTES as CONFIGURACIONES_PARTES, BITACORA as CONFIGURACIONES_BITACORA } from './configuraciones/bitacora';
 import { PARTES as PLAN_PARTES, BITACORA as PLAN_BITACORA } from './plan/bitacora';
 import { PARTES as ADSMANAGER_PARTES, BITACORA as ADSMANAGER_BITACORA } from './ads-manager/bitacora';
+import { PARTES as WAMAKO_PARTES, BITACORA as WAMAKO_BITACORA } from './whatsapp-de-mako/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
@@ -94,6 +95,7 @@ const REGISTROS: Record<string, Registro> = {
   'self-healing-dev-agent': { partes: SELFHEALINGDEV_PARTES, bitacora: SELFHEALINGDEV_BITACORA },
   'meta-platform': { partes: METAPLATFORM_PARTES, bitacora: METAPLATFORM_BITACORA },
   plan: { partes: PLAN_PARTES, bitacora: PLAN_BITACORA },
+  'whatsapp-de-mako': { partes: WAMAKO_PARTES, bitacora: WAMAKO_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */
