@@ -1165,13 +1165,28 @@ es de nadie», que es el único rastro posible.
 Lo fija `tests/webhooks-ruteo-estricto.test.ts` (9 tests, dieciséis roturas, todas cayeron), con
 un barrido de toda `app/api/webhooks/`.
 
-**SIN HACER — la misma lectura tolerante, fuera de los webhooks:** también deciden de quién es
-algo que entra sin sesión, y siguen con `wsPorIdentificador`:
-`app/api/track/optin/route.ts` (el formulario de una landing: un lead), `app/api/track/vsl/route.ts`,
-`app/api/track/replay/route.ts`, `lib/agente-token.ts` (el token de la skill de Claude),
-`lib/landing-token.ts` y `lib/chatwoot.ts:813`. En `optin` el costo es un lead perdido con la base
-caída; en los demás, eventos de medición o un 401 sobre un token bueno. No se midió cuál pasa.
-**Y `webhooks.fallos_ruteo` no lo dibuja ninguna pantalla**, igual que `calendly.fallos_proceso`.
+~~**SIN HACER — la misma lectura tolerante, fuera de los webhooks.**~~ **Hecho el 07/10/2026**
+(`dd58b168`), con el pedido «Ruteo estricto en /api/track y los tokens». Cada lugar contesta
+distinto, porque cuesta distinto:
+
+- **`/api/track/optin` (un lead):** el snippet lo manda UNA vez, con `keepalive` y sin mirar la
+  respuesta (`mandarOptin`, `lib/landing-token.ts`), así que ningún código de respuesta lo
+  recupera. Lo que sí sirve es **reintentar la lectura adentro del pedido**
+  (`conReintentoTransitorio`, `lib/webhook-ruteo-huella.ts`: sólo lo transitorio, dos esperas
+  cortas): un corte de la base suele durar segundos. Si igual no se puede: anotado sin datos de la
+  persona y 503.
+- **`/api/track/vsl` y `/replay` (medición):** estrictos y 503, **sin** reintento a propósito — en
+  un corte, reintentar cada beacon le suma carga a la base caída.
+- **El token del agente (8 rutas de `/api/agente` y `/api/v1`):** contestaba **401 «token inválido
+  o revocado» sobre un token bueno**, que manda a la persona a rotarlo. Ahora «no pude verificar»
+  va 503 (`wsDelBearer`). Y era DOBLE: también el setting del token vigente se leía tolerante.
+- **`lib/chatwoot.ts` (el chequeo de salud):** decía «sin ruteo» y ofrecía REPARAR un webhook sano.
+- **`lib/landing-token.ts` se queda tolerante, y es la única:** no decide de quién es nada; «no
+  pude leer» termina en un upsert idempotente. Está en `TOLERANTES_A_PROPOSITO` del test, que
+  ahora barre TODO `app/` y `lib/` y falla si una excepción ya no se usa.
+
+**SIN HACER:** `webhooks.fallos_ruteo` no lo dibuja ninguna pantalla, igual que
+`calendly.fallos_proceso`.
 
 **Vive en:** app/api/webhooks/calcom/route.ts · app/api/webhooks/chatwoot/route.ts ·
 app/api/webhooks/fathom/route.ts · app/api/webhooks/meta-leads/route.ts · lib/webhook-fallo-ruteo.ts ·

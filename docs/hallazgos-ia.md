@@ -3392,3 +3392,69 @@ Y el modo de falla de la ruta VIEJA, que es la regla del veto vista desde afuera
 `chatClaude` con una feature que no estaba en `CLAUDE_PERMITIDO`, el veto la cortaba, y su
 `catch {}` devolvía las viñetas como si fueran el guion. Cero llamadas desde el 05/08 y la
 pantalla mostrando un resultado.
+
+
+---
+
+## Una nota de voz perdida porque Google estaba saturado, y un mensaje que pedía la key equivocada (07/10/2026)
+
+**Vive en:** `lib/ai-cheap.ts` (`transcribirAudio`, `escucharCon`, `modelosSttGemini`) ·
+`lib/fallo-ia-texto.ts` (`esSaturacion`) · `lib/mako-doer-in.ts` (el aviso del audio) ·
+`tests/stt-red.test.ts`
+
+Lo que mandó Martín, con la captura del grupo de Código Inmobiliario: «Envié esto por el grupo y
+otra vez el problema de la API... Realmente tenemos que solucionarlo, no puede ser que sea tan
+limitado. Si hay que eliminar Gemini o hacer cambios radicales, dime, pero esto tiene que
+funcionar bien...». MaKo había contestado: «Me llegó tu audio pero no lo pude escuchar… Tienes
+*una sola* API key cargada… Carga una segunda (son gratis)».
+
+**Medido en los logs de Vercel (22:01:52 UTC):** `[stt] gemini falló: HTTP 503: This model is
+currently experiencing high demand`, dos veces seguidas, y el mismo 503 un minuto después en el
+chat. Y medido otra vez a las 22:2x con un pedido real a cada modelo, con la key de la agencia:
+
+| Modelo | Respuesta |
+|---|---|
+| `gemini-flash-latest` (el de siempre) | **503 «high demand»** |
+| `gemini-flash-lite-latest` | 200, 560 ms |
+| `gemini-3.5-flash-lite` | 200 |
+| `gemini-2.5-flash` / `-lite` | 404 «no longer available to new users» |
+
+⚠️ **El diagnóstico obvio —y el que daba el propio mensaje— era el equivocado.** «Una sola key»
+no era el problema: Google no tenía capacidad para ESE modelo, y una segunda key de Gemini le
+pega al mismo Google. `tests/fallo-ia-texto.test.ts` lo fijaba al revés desde el 25/8 (un 503
+«high demand» con una key → `sin_respaldo`, o sea «cargá otra»). Lo que faltaba era otra cosa —y
+**ya había pasado el 16/8 con los documentos**: el mismo 503 de `gemini-flash-latest` con
+`gemini-flash-lite-latest` sano al lado, que es de donde nació `MODELOS_RESPALDO`. La rotación por
+modelo existía desde entonces; el audio tiene SU PROPIO loop de proveedores y nunca la recibió.
+Una resiliencia escrita en un camino no protege a los caminos que no pasan por él:
+
+1. **El reintento era en el mismo segundo, contra el mismo modelo.** Ahora un modelo saturado
+   pasa al siguiente con la misma key (cada modelo tiene su capacidad y su cuota), y Whisper
+   reintenta con 1,5 s de respiro. Los modelos salen de `MODELOS_RESPALDO`, la lista que el
+   chat ya usaba: la primera versión del arreglo armó una propia con `gemini-3.5-flash-lite`,
+   un id con versión, y esa lista dice «sólo alias `-latest`» porque los con versión ya se
+   cayeron dos veces.
+2. **El audio no tenía red de plataforma.** El chat del doer la tiene desde el 25/8; la
+   transcripción usaba SÓLO las keys del negocio, así que ws13, ws15 y ws17 —sólo Gemini—
+   perdían cada nota de voz en cada bache de Google. Ahora, si las del negocio no pudieron,
+   escucha con las gratis de la agencia, **Groq primero** (otro servicio). Verificado de punta a
+   punta en el ws3 (sin keys de audio): «escuchó con la RED DE PLATAFORMA (groq)», 9 s.
+3. **El texto se elegía con todos los errores** y pedía una key que no arregla nada. Ahora
+   `SttSinEscucha` separa los errores del negocio de los de la red, y un saturado es «no es
+   nada tuyo», nunca «carga otra key».
+
+**Y la respuesta a «¿hay que eliminar Gemini?»:** no. Gemini es la key gratis y generosa que
+cada cliente carga; el problema era depender de UN modelo de UN proveedor sin red. Con los
+modelos de respaldo y Groq de la agencia, un bache de Google ya no deja a nadie sin audio.
+
+**SIN HACER:**
+- **La base de conocimiento de MaKo está caída para todos**: medido en los mismos logs, `[mako-
+  knowledge] RAG caído… embeddings: You have no credits remaining` — la cuenta de OpenAI DE LA
+  PLATAFORMA se quedó sin crédito. MaKo contesta, pero sin lo que aprendió de cada negocio. Se
+  arregla cargando crédito (decisión de plata) o pasando los embeddings a un proveedor gratis,
+  que es re-embeber todo con otra dimensión (una migración).
+- **Whisper alucina sobre un audio sin voz**: la prueba con un audio sin habla devolvió «¡Suscríbete
+  al canal!», la alucinación clásica. Ya pasaba para los negocios con Groq; con la red de
+  plataforma puede pasarle a cualquiera. Gemini contesta «(vacío)»; Whisper no tiene esa salida.
+
+*07/10/2026, cuenta 2, commit `c67ca07c`.*

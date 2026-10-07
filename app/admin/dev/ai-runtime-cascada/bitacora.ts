@@ -171,4 +171,34 @@ export const BITACORA: Hito[] = [
       'app/_components/ErrorIA.tsx — error y salida juntos; hay guarda que falla si alguna de las tres pantallas deja de importarla',
     ],
   },
+  {
+    fecha: '7 oct', hora: '—', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Otra nota de voz perdida: «esto tiene que funcionar bien»',
+    pedido: 'Envié esto por el grupo y otra vez el problema de la API... Realmente tenemos que solucionarlo, no puede ser que sea tan limitado. Si hay que eliminar Gemini o hacer cambios radicales, dime, pero esto tiene que funcionar bien...',
+    puntos: [
+      'Con la captura del grupo de Código Inmobiliario: «Me llegó tu audio pero no lo pude escuchar… Tienes una sola API key cargada… Carga una segunda (son gratis)».',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '19:26', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El audio no tenía el tercer eje ni la red: Google saturado era una nota de voz perdida',
+    puntos: [
+      '⚠️ **El diagnóstico que daba el propio mensaje era el equivocado.** No era «una sola key»: los logs dicen `HTTP 503: This model is currently experiencing high demand`, Google sin capacidad para `gemini-flash-latest`. Otra key de Gemini le pega al mismo Google; otro MODELO no — medido esa noche, `gemini-flash-lite-latest` contestaba en 560 ms.',
+      '⚠️ **Y ya había pasado el 16/8 con los documentos**, que es de donde nació `MODELOS_RESPALDO`. La rotación por modelo existía; el audio tiene su propio loop de proveedores y nunca la recibió. Una resiliencia escrita en un camino no protege a los que no pasan por él.',
+      '**La red de plataforma, también para el audio**: si las keys del negocio no pudieron, escucha con las gratis de la agencia, Groq primero (otro servicio). Verificado de punta a punta en el ws3: «escuchó con la RED DE PLATAFORMA (groq)».',
+      '**Y el mensaje ya no pide la key equivocada**: un proveedor saturado es «no es nada tuyo». Los errores de la red viajan separados de los del cliente.',
+      '**A «¿hay que eliminar Gemini?»: no.** Es la key gratis que carga cada cliente; el problema era depender de un modelo de un proveedor sin red.',
+    ],
+    commits: [
+      { sha: 'c67ca07c', msg: 'Notas de voz: si Gemini está saturado, otro modelo; si no alcanza, la red de la agencia', lineas: 271, archivos: 5 },
+      { sha: 'f082860e', msg: 'Notas de voz: los modelos de respaldo salen de MODELOS_RESPALDO, no de una lista propia', lineas: 24, archivos: 2 },
+    ],
+    archivos: [
+      'lib/ai-cheap.ts — `transcribirAudio` con las tres redes y `escucharCon`',
+      'lib/fallo-ia-texto.ts — `esSaturacion`: un saturado no pide otra key',
+      'tests/stt-red.test.ts — doce roturas probadas',
+    ],
+  },
 ];

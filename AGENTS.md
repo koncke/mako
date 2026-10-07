@@ -3131,6 +3131,22 @@ conectada pero no pudo». **Lo que tiene que andar con la key gratis del CLIENTE
 `CASCADA_DOCS`**, que es la misma lista con la que se juzga el error. El detalle, en
 `docs/hallazgos-ia.md`.
 
+⚠️ **Y TODO CAMINO DE IA QUE USE UN CLIENTE NECESITA SU RED DE PLATAFORMA.** Un cliente con
+una sola key no tiene cascada: cada bache de ese proveedor es MaKo muda para él. El chat del
+doer tenía la red desde el 25/8 y el AUDIO no: el 07/10/2026 Google saturó
+`gemini-flash-latest` («HTTP 503: high demand») y a Código Inmobiliario se le perdió una nota de
+voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un camino nuevo:
+
+- **Un «saturado» (503 / high demand / overloaded) se cubre con OTRO MODELO del mismo proveedor,
+  no con otra key.** La segunda key de Gemini le pega al mismo Google; otro modelo tiene su
+  propia capacidad. Medido esa noche: `gemini-flash-latest` 503 y `gemini-flash-lite-latest` 200
+  en 560 ms. Y el mensaje al cliente no le pide una key que no lo arregla (`esSaturacion`,
+  `lib/fallo-ia-texto.ts`).
+- **La red de plataforma va DESPUÉS de las keys del cliente, gratis, empezando por OTRO proveedor
+  que el que falló, y con el motivo «⚠ red de plataforma»** (`provsGratisDePlataforma`; el molde
+  es `transcribirAudio` en `lib/ai-cheap.ts`). Y los errores de la red viajan SEPARADOS de los
+  del cliente: con ellos se fabricaría el texto que lee él.
+
 # Un contrato de datos no es un layout
 
 `exige` en `lib/mako-gramatica.ts` dice qué tiene que **tener** un estado de MaKo para no
