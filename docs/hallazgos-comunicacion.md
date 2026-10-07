@@ -5286,6 +5286,51 @@ aviso que el dueño mejore después ya no le llegaría a ese cliente. `mutar` le
 
 *2026-09-28*
 
+### ⚠️ Y el `ws` que `dispararEvento` usaba no venía: las OCHO llamadas lo omitían (06/10/2026)
+
+**Vive en:** `lib/flujos.ts` (`dispararEvento`) · `app/api/webhooks/{calendly,calcom,chatwoot,meta-leads,fathom}/route.ts` ·
+`tests/flujos-ws-explicito.test.ts`
+
+**El síntoma, que nadie vio.** `dispararEvento` resolvía `ctx.ws ?? OWNER_WS`, y las ocho
+llamadas del repo —Calendly ×3 (agendó, R2, canceló), Cal.com ×2, Chatwoot (escribió), Meta
+(formulario) y Fathom (reunión)— lo llamaban sin `ws`. Así que el lead de CUALQUIER cliente que
+agendaba, cancelaba, escribía o dejaba un formulario corría los flujos del **ws1 —Mauricio, otro
+cliente—** en el grupo de WhatsApp de Mauricio, con el nombre de un lead que no es suyo. No era
+teórico: medido el 06/10, `webhook_routing` tiene esos webhooks ruteados a ws11, ws13 y ws15.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+
+1. **Las ocho llamadas estaban adentro de un `runWithWorkspace(ws)`** con el `ws` correcto, y eso
+   da toda la sensación de estar cubierto. No lo estaba: la función no LEE el workspace del
+   contexto, resuelve el suyo y vuelve a envolver con ése. Un wrapper alrededor de una función que
+   decide su propio workspace es decoración.
+2. **El arreglo de la tarde arregló UNA de ocho.** La sesión anterior encontró el caso en el
+   webhook de Fathom, le pasó `ws` y escribió un test que fijaba ESE archivo — y el test daba verde
+   con las otras siete rotas. Y la tarjeta del tablero «el bug del chatbot que cruza workspaces»
+   (#834) estaba propuesta para cerrar con la prueba «la revisión no encontró ningún camino que
+   caiga en el de Mauricio». Lo encontró `grep -rn "dispararEvento(" app lib` antes de commitear lo
+   ajeno: un comando, ocho resultados.
+
+**Y la entrada de arriba (28/09) es la otra mitad.** Ese día se arregló que el STORE de los flujos
+fuera por workspace; nadie miró si el workspace que le llega al motor era el del evento.
+
+**Cómo quedó, en DOS capas, y las dos tienen test** (`tests/flujos-ws-explicito.test.ts`, que
+BARRE `app/` y `lib/` del disco, no del índice):
+
+- **la firma:** `dispararEvento(evento, ctx: CtxFlujo & { ws: number })`, sin default. Una llamada
+  nueva sin `ws` no compila. Es la única guarda que cubre la llamada que todavía no existe.
+- **el cuerpo:** si igual llega sin `ws` numérico (un `as any`, un ctx armado de un jsonb), no
+  corre NADA y lo dice. Un flujo que no corre se nota; uno que corre en la cuenta de otro cliente,
+  nunca.
+
+Probado rompiéndolo con cinco roturas (sacar `ws, ` de una llamada, `ws: OWNER_WS`, devolver el
+`?? OWNER_WS`, sacar el `return` del corte, volver opcional el ctx): las cinco caen, una por una.
+
+**La regla que queda** está en AGENTS.md («Arreglar un bug de CONTEXTO en una función: contá
+cuántas veces esa función pregunta») y acá se pagó del lado de los LLAMADORES: el arreglo de un
+bug de contexto en una función con N llamadores no está hecho hasta que el test barre los N.
+
+
 ### El techo de una insistencia no puede ser configurable, y va en DOS lugares
 
 **Vive en:** `lib/flujos-tipos.ts` (INSISTIR_MAX_VECES, sanearInsistir, proximaSalida) ·

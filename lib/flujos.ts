@@ -24,7 +24,7 @@ import { generarMensajeAviso } from './plantillas';
 import { enviarAlGrupoMaKo, getGrupoJidMaKo } from './mako-grupo';
 import { crearPendiente } from './mako-pendientes';
 import { abrirInsistencia } from './insistencias';
-import { OWNER_WS, runWithWorkspace } from './workspace';
+import { runWithWorkspace } from './workspace';
 import type { EventoFlujo, Paso } from './flujos-tipos';
 import { decidir } from './flujo-pasos';
 import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
@@ -42,10 +42,39 @@ export type CtxFlujo = {
   datos?: Record<string, string>;
 };
 
-/** Dispara los flujos ACTIVOS que matchean un evento. Best-effort. */
-export async function dispararEvento(evento: EventoFlujo, ctx: CtxFlujo = {}): Promise<void> {
+/**
+ * Dispara los flujos ACTIVOS que matchean un evento. Best-effort.
+ *
+ * ⚠️⚠️ EL `ws` ES OBLIGATORIO, EN EL TIPO Y EN EL CUERPO (06/10/2026). Hasta ese día esto
+ * decía `ctx.ws ?? OWNER_WS`, y OCHO de las ocho llamadas del repo —los webhooks de Calendly
+ * (×3), Cal.com (×2), Chatwoot, Meta y Fathom— lo llamaban SIN `ws`, cada una adentro de un
+ * `runWithWorkspace(ws)` que daba la sensación de estar cubierta. No lo estaba: esta función
+ * no lee el workspace del contexto, resuelve el suyo. Así que el lead de CUALQUIER cliente
+ * que agendaba, cancelaba, escribía o dejaba un formulario corría los flujos del ws1 —que es
+ * Mauricio, OTRO cliente— en el grupo de MaKo de Mauricio, con el nombre de un lead que no es
+ * suyo. Y no era teórico: ws11, ws13 y ws15 tienen ruteados esos webhooks.
+ *
+ * Lo encontró a medias un arreglo que tapó UNA de las ocho (Fathom): la tarjeta «el bug del
+ * chatbot que cruza workspaces» se iba a cerrar con la prueba «la revisión no encontró ningún
+ * camino que caiga en el de Mauricio», y quedaban siete. Es la regla de la casa de «arreglar un
+ * bug de CONTEXTO: contá cuántas veces esa función pregunta».
+ *
+ * Por eso son DOS capas y no una:
+ *  · la FIRMA: `ctx` lleva `ws` obligatorio y sin default, así que una llamada nueva que lo
+ *    olvide no compila. Es la única guarda que cubre la llamada que todavía no existe;
+ *  · el CUERPO: si igual llega sin `ws` (un `as any`, un ctx armado de un jsonb), no corre
+ *    NADA y lo dice. Un flujo que no corre se nota y se arregla; uno que corre en la cuenta
+ *    de otro cliente no se nota nunca. `OWNER_WS` NO es la plataforma: es un cliente.
+ *
+ * Lo fija tests/flujos-ws-explicito.test.ts, que barre TODAS las llamadas del repo.
+ */
+export async function dispararEvento(evento: EventoFlujo, ctx: CtxFlujo & { ws: number }): Promise<void> {
   try {
-    const ws = ctx.ws ?? OWNER_WS;
+    const ws = ctx?.ws;
+    if (typeof ws !== 'number' || !Number.isFinite(ws)) {
+      console.error(`[flujos] el evento «${evento}» llegó SIN workspace: no corre ningún flujo. Fail-closed a propósito — antes caía al ws1, que es un cliente.`);
+      return;
+    }
     // ⚠️ Los flujos se leen DENTRO del workspace del evento, no del request.
     // Antes se leían sueltos y el store estaba clavado al dueño: los flujos de la
     // agencia se ejecutaban dentro del grupo de cada cliente. Hoy el store es por

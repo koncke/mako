@@ -152,7 +152,16 @@ export async function POST(request: NextRequest) {
       const dur = webhookDurationMin(body);
 
       // Flujos configurados por el dueño (editor de flujos): disparar 'reunion.ocurrio'.
-      await dispararEvento('reunion.ocurrio', { leadId: lead.id, leadNombre: nombre, reunion });
+      //
+      // ⚠️ EL `ws` VA EXPLÍCITO, Y NO ALCANZA CON ESTAR ADENTRO DEL runWithWorkspace (06/10/2026).
+      // `dispararEvento` NO lee el workspace del contexto: usa `ctx.ws` y vuelve a envolver con
+      // ESE. Hasta ese día resolvía `ctx.ws ?? OWNER_WS`, así que sin el campo la grabación de un
+      // cliente corría los flujos del ws1 —Mauricio, otro cliente— en SU grupo de MaKo, con el
+      // nombre de un lead que no es suyo; hoy el tipo lo exige y sin él no corre nada. `ws` es el
+      // que resolvió `recorded_by`, y es el mismo del lead: la búsqueda de arriba corre confinada
+      // a él (getTenantDb dentro del runWithWorkspace).
+      // Lo fija tests/flujos-ws-explicito.test.ts, que barre las ocho llamadas.
+      await dispararEvento('reunion.ocurrio', { ws, leadId: lead.id, leadNombre: nombre, reunion });
 
       // sc18_2 — Post-llamada: MaKo analiza la charla (Closing Analyst) y deja el
       // follow-up como BORRADOR de WhatsApp para el setter — nunca envío automático

@@ -6731,8 +6731,11 @@ en Customer Success, no aquí.»
 
 ### Lo que quedó SIN hacer
 
-- **El webhook llama `dispararEvento` sin `ws`** y `lib/flujos.ts` cae a `OWNER_WS`: un webhook de
-  Fathom de otro workspace correría los flujos del ws1. Bug aparte, no tocado.
+- ~~**El webhook llama `dispararEvento` sin `ws`** y `lib/flujos.ts` cae a `OWNER_WS`: un webhook de
+  Fathom de otro workspace correría los flujos del ws1. Bug aparte, no tocado.~~ **ARREGLADO el
+  06/10/2026, y no era uno: eran OCHO llamadas** (Calendly ×3, Cal.com ×2, Chatwoot, Meta y
+  Fathom). Ver `docs/hallazgos-comunicacion.md` → «Y el `ws` que `dispararEvento` usaba no
+  venía».
 - **Las entregas ANTERIORES a un cierre cargado tarde** (12 sesiones de un lead cuyo cierre se
   cargó meses después) sólo las caza la categoría: la fecha no las ve.
 - **ws9 y ws11 tienen entregas sin `lead_id`** en `closing_analyses`; el día que matcheen por

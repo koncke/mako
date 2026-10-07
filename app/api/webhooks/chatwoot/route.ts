@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
       console.error(`[webhook:chatwoot] pausa: ${err instanceof Error ? err.message : String(err)}`);
     }
     // Flujos configurados por el dueño: disparar 'lead.wa_entrante' (best-effort).
-    if (leadId) await dispararEvento('lead.wa_entrante', { leadId, leadNombre: nombre });
+    if (leadId) await dispararEvento('lead.wa_entrante', { ws, leadId, leadNombre: nombre });
 
     // 1.5) Si el lead respondió y todavía está EN FRÍO (abierto, sin agenda ni
     //      reuniones ni override de etapa), pasa a "Nutrición - Manual" para que un

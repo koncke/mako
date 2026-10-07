@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
           dedupTtlMin: 180, dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}`,
           texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(reserva.inicio, tz)}*.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
         });
-        await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2' });
+        await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2' });
         console.log(`[webhook:calcom] J2 → lead=${lead.id} fecha=${fechaReunion} ms=${ms}`);
         return Response.json({ ok: true, trigger: body.triggerEvent, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ms });
       }
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
         dedupTtlMin: 180, dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}`,
         texto: `🎯 *Nuevo agendado*: ${reserva.nombre ?? reserva.email} reservó una *R1 para el ${fmtFechaHoraLocal(reserva.inicio, tz)}*.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
       });
-      await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: reserva.nombre ?? reserva.email, reunion: 'R1' });
+      await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: reserva.nombre ?? reserva.email, reunion: 'R1' });
 
       console.log(`[webhook:calcom] R1 → lead=${lead.id} ${created ? 'creado' : 'actualizado'} fecha=${fechaReunion} ms=${ms}`);
       return Response.json({ ok: true, trigger: body.triggerEvent, tipo, action: created ? 'crear' : 'actualizar', lead_id: lead.id, ms });

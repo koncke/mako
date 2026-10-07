@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
             texto: `📥 Entró un lead por formulario de Meta: *${lead.nombre}*${campaña ? `, campaña "${campaña}"` : ''}. Todavía no agendó.\n\n¿Le disparo la nutrición de bienvenida por WhatsApp? — MaKo`,
           });
           // Flujos configurados por el dueño: disparar 'lead.form_meta'.
-          await dispararEvento('lead.form_meta', { leadId: lead.id, leadNombre: lead.nombre });
+          await dispararEvento('lead.form_meta', { ws, leadId: lead.id, leadNombre: lead.nombre });
           // Nutrición INMEDIATA (reunión 31/07): al que llena el formulario se
           // le escribe casi al instante, no en la próxima corrida del cron.
           await enrolarPorEvento(lead.id, 'lead_nuevo');
