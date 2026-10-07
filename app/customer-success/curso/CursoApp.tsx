@@ -3,33 +3,56 @@
 // =============================================================================
 // CursoApp — el curso de cada servicio, y cómo va cada cliente en él
 // =============================================================================
-// Dos vistas hermanas sobre el producto elegido:
-//   · Clases — las etapas de su entrega como secciones, cada una con sus clases en orden. Se
-//     crean, editan, borran y ordenan acá (sólo un admin: ver actions.ts).
-//   · Avance — clientes × etapas: lo que envió cada uno, cuánto vio y cuándo entró.
+// ⚠️ SE DIBUJA CON EL DISEÑO DE CONOCIMIENTOS (app/_cursos/CursoUgc.tsx), el MISMO que ve el
+//    alumno en su portal, con los controles de quien lo arma encima. Pedido de Martín el
+//    07/10/2026, mirando el portal al lado de /conocimientos: «No se ve para nada igual, COPIA lo
+//    que ya hicimos en CONOCIMIENTOS» y, en el mismo hilo, «No solo la vista de alumnos, la vista
+//    del editor también se tiene que ver tal cual». Las etapas de la entrega son los módulos de la
+//    barra y sus clases las lecciones; la traducción, pura y con test, está en ./modelo-ugc.ts.
 //
-// Y sobre las clases (mig 0208): la marca de GRABAR de cada una (#693, sólo un admin la cambia;
-// la cabecera cuenta las que faltan grabar) y las NOTAS del equipo, de cada clase (en su editor)
-// y de cada etapa (el botón «Notas» de la sección), que deja cualquiera que vea la tab (#692).
+// Lo que tiene la tab adentro del curso:
+//   · Una etapa abierta: sus clases como tarjetas, con «Editar», ↑ ↓ ✕ y «+ Clase» (sólo un admin:
+//     ver actions.ts), y en su cabecera las NOTAS de la etapa (cualquiera que vea la tab, #692) y el
+//     aviso de que no avanza sola.
+//   · Una clase abierta: el video, la ficha (tipo, minutos, si cierra la etapa y la marca de GRABAR,
+//     #693) y el papel con la tarea TAL COMO LA VE EL ALUMNO (en modo vista previa: no guarda
+//     nada), la descripción y las notas de la clase.
+//   · «Avance de los clientes», una entrada propia de la barra: clientes × etapas, lo que envió
+//     cada uno, cuánto vio y cuándo entró.
 //
 // ⚠️ EL CURSO CUELGA DE LAS ETAPAS DE LA ENTREGA, no tiene etapas propias (mig 0202). Las
-// columnas del kanban de Customer Success SON las secciones de acá: renombrar una allá la
-// renombra acá, y una clase de una etapa borrada aparece en «Sin etapa» para moverla.
+// columnas del kanban de Customer Success SON los módulos de acá: renombrar una allá la renombra
+// acá, y una clase de una etapa borrada aparece en «Sin etapa» para moverla.
 //
 // ⚠️ LAS CLASES VIVEN EN UN ESTADO LOCAL QUE SE RESINCRONIZA CON LAS PROPS. Guardar y borrar
 // revalidan la página (llega la lista nueva y pisa la local); mover NO revalida —la flecha
-// mueve la fila en el acto y la base confirma detrás—, así que la local es la que manda
+// mueve la tarjeta en el acto y la base confirma detrás—, así que la local es la que manda
 // hasta la próxima carga.
+//
+// ⚠️ LA POSICIÓN (etapa abierta, clase abierta, Avance) VIVE EN EL HASH y su dueño es
+// app/conocimientos/posicion.ts, como en Conocimientos. El producto va en `?producto=`; cambiar de
+// producto vacía el hash, porque las etapas de dos productos pueden llamarse igual.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Pagina, PageHeader, Section, Tabs, Select, Button, ButtonLink, IconButton, Status, Tag, Tooltip,
-  EmptyState, ErrorState, Banner, Toast, Modal, useToast, useConfirm,
+  Pagina, PageHeader, Select, ButtonLink, Status, EmptyState, ErrorState, Banner, Toast, Modal,
+  useToast, useConfirm,
 } from '@/app/_ui';
 import type { Clase } from '@/lib/curso';
-import { tieneTarea } from '@/lib/curso';
+import { reproductorDeClase, tieneTarea } from '@/lib/curso';
+import CursoUgc, { ChipUgc } from '@/app/_cursos/CursoUgc';
+import type { LeccionUgc } from '@/app/_cursos/tipos';
+import { navegar, sembrar } from '@/app/conocimientos/posicion';
+import Reproductor from '@/app/compartido/curso/[token]/Reproductor';
+import TareaAlumno from '@/app/compartido/curso/[token]/TareaAlumno';
+import { VistaPreviaCtx } from '@/app/compartido/curso/[token]/vista-previa';
+import { CSS_PORTAL } from '@/app/compartido/curso/[token]/estilos';
+import { marcaDelProducto } from '@/app/compartido/curso/[token]/modelo-ugc';
 import { porEtapas, porGrabar, reordenar, rotuloTipo, videoDeClase, type FilaAvance } from './reglas';
-import { borrarClaseAction, moverClaseAction, marcarGrabarAction } from './actions';
+import {
+  SIN_ETAPA, TEXTOS_EDITOR, chipsDelEditor, cierraLaEtapa, clasesDelEditor, modulosDelEditor, puedeMoverEnEditor,
+} from './modelo-ugc';
+import { borrarClaseAction, moverClaseAction, marcarGrabarAction, urlVerVideoAction } from './actions';
 import { EditorClase } from './EditorClase';
 import { NotasClase } from './NotasClase';
 import { AvanceCurso, type EtapaVista } from './AvanceCurso';
@@ -49,6 +72,9 @@ type Grabar = boolean | null;
  * un setState durante el render que no termina nunca.
  */
 const SIN_MARCAS: Record<number, Grabar> = {};
+
+/** La entrada propia de la barra (`#x=avance`). */
+const AVANCE = 'avance';
 
 /** La vista previa del alumno de un producto (./vista/page.tsx): sin lead, no crea accesos. */
 const hrefVistaPrevia = (productoId: number) => `/customer-success/curso/vista?producto=${productoId}`;
@@ -84,7 +110,6 @@ export function CursoApp({
   const [productoId, setProductoId] = useState<number | null>(
     servicios.some((s) => s.productoId === inicial.productoId) ? inicial.productoId : servicios[0]?.productoId ?? null,
   );
-  const [vista, setVista] = useState<VistaCurso>(inicial.vista);
   // Ver la cabecera: la lista local se pisa cuando llega otra desde el server.
   const [base, setBase] = useState(clasesProp);
   const [clases, setClases] = useState(clasesProp);
@@ -107,17 +132,31 @@ export function CursoApp({
 
   const servicio = servicios.find((s) => s.productoId === productoId) ?? null;
 
-  // El producto y la vista quedan en la URL, para que recargar (o un link desde la ficha del
-  // cliente) vuelva al mismo lugar. `replaceState` y no el router: el router volvería a pedir
-  // la página entera al server por un cambio que ya está en memoria.
+  // El producto queda en la URL, para que recargar (o un link desde la ficha del cliente) vuelva
+  // al mismo lugar. `replaceState` y no el router: el router volvería a pedir la página entera al
+  // server por un cambio que ya está en memoria. La posición adentro del curso va en el hash, que
+  // esto conserva (`u.href` lo trae).
   useEffect(() => {
     try {
       const u = new URL(window.location.href);
       if (productoId) u.searchParams.set('producto', String(productoId)); else u.searchParams.delete('producto');
-      if (vista === 'avance') u.searchParams.set('vista', 'avance'); else u.searchParams.delete('vista');
+      // `?vista=avance` era la pestaña de antes: hoy es una entrada de la barra (el efecto de abajo).
+      u.searchParams.delete('vista');
       if (u.href !== window.location.href) window.history.replaceState(window.history.state, '', u.href);
     } catch { /* sin URL no se pierde nada: es una comodidad */ }
-  }, [productoId, vista]);
+  }, [productoId]);
+
+  // Aterrizar adentro (un F5 en una clase, un link pegado) siembra el índice del curso debajo: sin
+  // esto la posición del hash no se lee hasta el primer Atrás (ver PortalAlumno, que hace lo mismo).
+  useEffect(() => { sembrar({}); }, []);
+
+  // Un link viejo (o de la ficha del cliente) con `?vista=avance` abre el Avance, una sola vez.
+  const abrioAvance = useRef(false);
+  useEffect(() => {
+    if (abrioAvance.current || inicial.vista !== 'avance') return;
+    abrioAvance.current = true;
+    navegar({ extra: AVANCE }, 'reemplazar');
+  }, [inicial.vista]);
 
   const delProducto = useMemo(() => clases.filter((c) => c.productoId === productoId), [clases, productoId]);
   const { porEtapa, huerfanas } = useMemo(
@@ -125,6 +164,9 @@ export function CursoApp({
     [delProducto, servicio],
   );
   const filas = productoId ? avance[productoId] ?? [] : [];
+  const etapasMin = useMemo(() => servicio?.etapas.map((e) => ({ key: e.key, label: e.label })) ?? [], [servicio]);
+  const clasesUgcBase = useMemo(() => clasesDelEditor(etapasMin, porEtapa, huerfanas), [etapasMin, porEtapa, huerfanas]);
+  const porId = useMemo(() => new Map(delProducto.map((c) => [c.id, c])), [delProducto]);
 
   const mover = async (c: Clase, dir: 'arriba' | 'abajo') => {
     const ids = (porEtapa[c.etapa] ?? []).map((x) => x.id);
@@ -223,15 +265,111 @@ export function CursoApp({
     errorDelProducto: productoId != null && !!errorClases[productoId],
   });
   const primeraEtapa = servicio?.etapas[0]?.key ?? null;
+  /** La etapa en la que se abre una clase: la suya, o la primera si la suya ya no existe. */
+  const etapaParaEditar = (c: Clase) => (servicio?.etapas.some((e) => e.key === c.etapa) ? c.etapa : primeraEtapa ?? c.etapa);
+
+  const cambiarProducto = (id: number) => {
+    // Las etapas de dos productos pueden llamarse igual: la posición es de otro curso.
+    navegar({}, 'reemplazar');
+    setProductoId(id);
+  };
 
   const selector = (
     <Select value={String(productoId ?? '')} width={240} ariaLabel="Producto"
       options={servicios.map((s) => ({ value: String(s.productoId), label: s.nombre }))}
-      onChange={(v) => setProductoId(Number(v))} />
+      onChange={(v) => cambiarProducto(Number(v))} />
   );
 
+  // ── El curso, con el dibujo de Conocimientos ──
+  const modulos = servicio ? modulosDelEditor(etapasMin, porEtapa, huerfanas).map((m) => {
+    if (m.key === SIN_ETAPA) {
+      return { ...m, acciones: <span className="cu-aviso">Su etapa ya no existe</span> };
+    }
+    const lista = porEtapa[m.key] ?? [];
+    // Las notas de la ETAPA (no de una clase): las ve y las escribe cualquiera que vea la tab, así
+    // que el botón no depende de `puedeEditar` (#692).
+    const nNotas = notas?.porEtapa[`${servicio.productoId}:${m.key}`] ?? 0;
+    return {
+      ...m,
+      acciones: (
+        <span className="cu-sec-acciones">
+          {lista.length > 0 && !cierraLaEtapa(lista) && (
+            <span className="cu-aviso" title="Ninguna clase cierra esta etapa: el cliente no avanza solo.">No avanza sola</span>
+          )}
+          <button type="button" className="ugc-btn" onClick={() => setNotasEtapa(m.key)}>{nNotas > 0 ? `Notas · ${nNotas}` : 'Notas'}</button>
+        </span>
+      ),
+    };
+  }) : [];
+
+  const clasesUgc = clasesUgcBase.map((u) => {
+    const c = porId.get(u.id)!;
+    return {
+      ...u,
+      chips: chipsDelEditor(c, { marca: marcas ? (marcas[c.id] ?? null) : undefined, notas: notas?.porClase[c.id] ?? 0 })
+        .map((ch) => <ChipUgc key={ch.texto} tono={ch.tono}>{ch.texto}</ChipUgc>),
+    };
+  });
+
+  const leccion = (id: number): LeccionUgc => {
+    const c = porId.get(id);
+    if (!c || !servicio) return {};
+    const { video } = reproductorDeClase(c);
+    const v = videoDeClase(c);
+    const conTarea = tieneTarea(c);
+    const marca = marcas ? (marcas[c.id] ?? null) : undefined;
+    const desc = c.descripcion.trim();
+    const pestanas = [
+      ...(conTarea ? [{
+        nombre: 'Tarea',
+        // La tarea TAL COMO LA VE EL ALUMNO, en vista previa: se puede llenar y no guarda nada.
+        cuerpo: (
+          <div className="ugc-paper">
+            <VistaPreviaCtx.Provider value>
+              <TareaAlumno token="" claseId={c.id} tarea={c.tarea} campos={c.campos}
+                valoresIniciales={{}} estadoInicial="pendiente" onEstado={() => {}} onAvance={() => {}} />
+            </VistaPreviaCtx.Provider>
+          </div>
+        ),
+      }] : []),
+      ...(desc ? [{ nombre: 'Descripción', cuerpo: <div className="ugc-paper">{parrafos(desc)}</div> }] : []),
+      {
+        nombre: (notas?.porClase[c.id] ?? 0) > 0 ? `Notas · ${notas!.porClase[c.id]}` : 'Notas',
+        cuerpo: (
+          <div className="ugc-paper">
+            <NotasClase key={c.id} productoId={servicio.productoId} destino={{ claseId: c.id }}
+              puedeBorrarTodo={puedeEditar} onTotal={(n) => contarNotasClase(c.id, n)} />
+          </div>
+        ),
+      },
+    ];
+    return {
+      video: video && video.tipo !== 'afuera' ? { cuerpo: <VideoDeClase clase={c} /> } : undefined,
+      debajoDelVideo: (
+        <div className="cu-ficha">
+          <span className="cu-ficha-meta">
+            <span>{rotuloTipo(c.tipo)}</span>
+            {c.minutos != null && <span>{c.minutos} min</span>}
+            {v.hay
+              ? <span className={v.medible ? '' : 'cu-tenue'}>{v.rotulo}{v.medible ? '' : ' · sin medir'}</span>
+              : <span className="cu-tenue">Sin video</span>}
+            {c.obligatoria && conTarea && <Status tono="good">Cierra la etapa</Status>}
+            {/* Quien no edita VE la marca (y nada mientras nadie decidió); quien edita, el control. */}
+            {!puedeEditar && marca === true && <Status tono="warn">Grabar</Status>}
+            {!puedeEditar && marca === false && <span className="cu-tenue">No grabar</span>}
+          </span>
+          {puedeEditar && marca !== undefined && (
+            <ControlGrabar valor={marca} ocupado={marcando === c.id} onCambio={(x) => void marcar(c, x)} />
+          )}
+          {video?.tipo === 'afuera' && <VideoDeClase clase={c} />}
+        </div>
+      ),
+      pestanas,
+    };
+  };
+
   return (
-    <Pagina>
+    <Pagina ancho="completo" densidad="compacta" style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <PageHeader
         titulo="Curso"
         estado={<>
@@ -242,12 +380,10 @@ export function CursoApp({
         /* Lo que ve el cliente en su portal, sin ser cliente: una vista previa SIN lead
            (./vista/page.tsx), que no crea accesos ni guarda avance. */
         acciones={productoId ? <ButtonLink size="sm" variant="secondary" href={hrefVistaPrevia(productoId)}>Vista del alumno</ButtonLink> : undefined}
-        tabs={<Tabs activa={vista} onCambio={(v) => setVista(v as VistaCurso)}
-          tabs={[{ id: 'clases', label: 'Clases', badge: nClases }, { id: 'avance', label: 'Avance', badge: filas.length }]} />}
       />
 
       {productoId && errorClases[productoId] && <Banner tono="bad">No pude leer las clases. {errorClases[productoId]}</Banner>}
-      {grabarError && vista === 'clases' && <Banner tono="bad">No pude leer qué grabar. {grabarError}</Banner>}
+      {grabarError && <Banner tono="bad">No pude leer qué grabar. {grabarError}</Banner>}
 
       {checklist && onboarding && (
         <ChecklistCurso
@@ -259,62 +395,47 @@ export function CursoApp({
              sigue es «Agregar clase» (el mismo orden que el catálogo). */
           hrefVista={productoId && checklist.clases > 0 ? hrefVistaPrevia(productoId) : null}
           onAgregarClase={puedeEditar && primeraEtapa
-            ? () => { setVista('clases'); setEditando({ clase: null, etapa: primeraEtapa }); }
+            ? () => setEditando({ clase: null, etapa: primeraEtapa })
             : undefined}
-          onIrAAvance={() => setVista('avance')}
+          onIrAAvance={() => navegar({ extra: AVANCE })}
         />
       )}
 
       {!servicio ? (
         <ErrorState titulo="No encontré ese producto" />
-      ) : vista === 'avance' ? (
-        <AvanceCurso etapas={servicio.etapas} filas={filas} error={avanceError} />
       ) : (
-        <>
-          {servicio.etapas.map((e) => {
-            const lista = porEtapa[e.key] ?? [];
-            // ⚠️ UNA ETAPA SIN NINGUNA CLASE QUE LA CIERRE NO AVANZA SOLA (`etapaCompleta` pide
-            // al menos una obligatoria con tarea, a propósito: «nada que hacer» no es «terminó»).
-            // Se dice acá, que es donde se arregla, y no en el kanban, donde sólo se ve que el
-            // cliente «no se mueve».
-            const cierra = lista.some((c) => c.obligatoria && tieneTarea(c));
-            // Las notas de la ETAPA (no de una clase): las ve y las escribe cualquiera que vea la
-            // tab, así que el botón no depende de `puedeEditar` (#692).
-            const nNotas = notas?.porEtapa[`${servicio.productoId}:${e.key}`] ?? 0;
-            return (
-              <Section key={e.key} titulo={e.label}
-                nota={lista.length > 0 && !cierra
-                  ? <Tooltip text="Ninguna clase cierra esta etapa: el cliente no avanza solo."><span className="cu-aviso">No avanza sola</span></Tooltip>
-                  : undefined}
-                accion={
-                  <span className="cu-sec-acciones">
-                    <Button size="sm" variant="tertiary" onClick={() => setNotasEtapa(e.key)}>{nNotas > 0 ? `Notas · ${nNotas}` : 'Notas'}</Button>
-                    {puedeEditar && <Button size="sm" variant="secondary" onClick={() => setEditando({ clase: null, etapa: e.key })}>+ Clase</Button>}
-                  </span>
-                }>
-                {lista.length === 0
-                  ? <p className="cu-vacio">Sin clases.</p>
-                  : <ListaClases lista={lista} puedeEditar={puedeEditar} moviendo={moviendo}
-                      marcas={marcas} marcando={marcando} notas={notas?.porClase ?? null}
-                      onAbrir={(c) => setEditando({ clase: c, etapa: c.etapa })}
-                      onMover={(c, d) => void mover(c, d)} onBorrar={(c) => void borrarDesdeLista(c)}
-                      onMarcar={(c, v) => void marcar(c, v)} />}
-              </Section>
-            );
-          })}
-
-          {huerfanas.length > 0 && (
-            // Su etapa se borró en el editor de etapas. Siguen en la base, con su avance: se
-            // muestran para que alguien las mueva a una etapa que exista (o las borre).
-            <Section titulo="Sin etapa" nota="Su etapa ya no existe.">
-              <ListaClases lista={huerfanas} puedeEditar={puedeEditar} moviendo={moviendo} sinOrden
-                marcas={marcas} marcando={marcando} notas={notas?.porClase ?? null}
-                onAbrir={(c) => setEditando({ clase: c, etapa: servicio.etapas[0]?.key ?? c.etapa })}
-                onMover={() => {}} onBorrar={(c) => void borrarDesdeLista(c)}
-                onMarcar={(c, v) => void marcar(c, v)} />
-            </Section>
-          )}
-        </>
+        // EL CURSO EMBEBIDO: la página mide la ventana (un alto DEFINIDO, para que la cadena de
+        // flex de adentro tenga contra qué resolver) y el curso toma lo que queda debajo de la
+        // cabecera, con base 0 y nunca un porcentaje (app/_cursos/estilos.ts). El mínimo es para
+        // que se pueda usar aunque la lista del onboarding ocupe arriba: si no entra, se scrollea.
+        <div className="cu-curso">
+          <CursoUgc
+            key={servicio.productoId}
+            modo="embebido"
+            titulo="Curso"
+            subtitulo={`${nClases} ${nClases === 1 ? 'clase' : 'clases'}`}
+            marca={marcaDelProducto(servicio.nombre)}
+            modulos={modulos}
+            clases={clasesUgc}
+            portada={clasesUgc.length ? { eyebrow: 'Curso', titulo: servicio.nombre, resumen: `${servicio.etapas.length} etapas · ${nClases} clases` } : undefined}
+            leccion={(clase) => leccion(clase.id)}
+            entradasExtra={[{
+              key: AVANCE,
+              nombre: 'Avance de los clientes',
+              cuenta: filas.length,
+              cuerpo: <div className="cu-avance"><AvanceCurso etapas={servicio.etapas} filas={filas} error={avanceError} /></div>,
+            }]}
+            edicion={puedeEditar ? {
+              onNueva: (k) => setEditando({ clase: null, etapa: k === SIN_ETAPA ? primeraEtapa ?? k : k }),
+              onEditar: (id) => { const c = porId.get(id); if (c) setEditando({ clase: c, etapa: etapaParaEditar(c) }); },
+              onMover: (id, dir) => { const c = porId.get(id); if (c) void mover(c, dir); },
+              onBorrar: (id) => { const c = porId.get(id); if (c) void borrarDesdeLista(c); },
+              puedeMover: (id, dir) => puedeMoverEnEditor(clasesUgc, id, dir),
+              ocupado: moviendo !== null,
+            } : undefined}
+            textos={TEXTOS_EDITOR}
+          />
+        </div>
       )}
 
       {editando && servicio && (
@@ -355,71 +476,48 @@ export function CursoApp({
 
       {confirmNode}
       <Toast state={toast} onClose={clear} />
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_PORTAL }} />
     </Pagina>
   );
 }
 
-function ListaClases({ lista, puedeEditar, moviendo, sinOrden, marcas, marcando, notas, onAbrir, onMover, onBorrar, onMarcar }: {
-  lista: Clase[];
-  puedeEditar: boolean;
-  moviendo: number | null;
-  sinOrden?: boolean;
-  /** claseId → la marca de grabar. `null` = no se pudo leer: ni control ni rótulo. */
-  marcas: Record<number, Grabar> | null;
-  /** La clase cuya marca se está guardando. */
-  marcando: number | null;
-  /** claseId → cuántas notas tiene. `null` = no se pudo leer: no se dice nada. */
-  notas: Record<number, number> | null;
-  onAbrir: (c: Clase) => void;
-  onMover: (c: Clase, dir: 'arriba' | 'abajo') => void;
-  onBorrar: (c: Clase) => void;
-  onMarcar: (c: Clase, v: Grabar) => void;
-}) {
+/** El texto de una descripción, en párrafos: una línea en blanco los separa. */
+function parrafos(texto: string) {
+  return texto.split(/\n{2,}/).map((p, i) => <p key={i} className="ugc-doc-p">{p}</p>);
+}
+
+/**
+ * El video de la clase, con el MISMO reproductor del portal en modo vista previa (no manda avance:
+ * no hay alumno). Un video SUBIDO no tiene link público: se pide uno firmado de vida corta, como
+ * «Ver» en el editor de la clase (`urlVerVideoAction`, que alcanza con poder mirar la tab).
+ */
+function VideoDeClase({ clase }: { clase: Clase }) {
+  const { video } = reproductorDeClase(clase);
+  const [firmada, setFirmada] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const path = video?.tipo === 'archivo' ? clase.videoPath : null;
+  useEffect(() => {
+    if (!path) return;
+    let vivo = true;
+    urlVerVideoAction(path)
+      .then((r) => { if (vivo) { if (r.ok) setFirmada(r.url); else setError(r.error); } })
+      .catch(() => { if (vivo) setError('No pude abrir el video.'); });
+    return () => { vivo = false; };
+  }, [path]);
+  if (!video) return null;
+  if (video.tipo === 'archivo') {
+    if (error) return <p className="cp-nota" style={{ padding: 16, color: '#fff' }}>{error}</p>;
+    if (!firmada) return null;
+    return (
+      <VistaPreviaCtx.Provider value>
+        <Reproductor token="" claseId={clase.id} video={{ tipo: 'directo', url: firmada }} titulo={clase.titulo} onPct={() => {}} />
+      </VistaPreviaCtx.Provider>
+    );
+  }
   return (
-    <ol className="cu-lista">
-      {lista.map((c, i) => {
-        const v = videoDeClase(c);
-        const conTarea = tieneTarea(c);
-        const marca = marcas ? (marcas[c.id] ?? null) : undefined;
-        const nNotas = notas?.[c.id] ?? 0;
-        return (
-          <li key={c.id} className="cu-fila">
-            <span className="cu-n">{i + 1}</span>
-            <button type="button" className="cu-cuerpo" onClick={() => onAbrir(c)}>
-              <span className="cu-titulo">{c.titulo}</span>
-              <span className="cu-meta">
-                <Tag>{rotuloTipo(c.tipo)}</Tag>
-                {c.minutos != null && <span>{c.minutos} min</span>}
-                {v.hay
-                  ? <span className={v.medible ? '' : 'cu-tenue'}>{v.rotulo}{v.medible ? '' : ' · sin medir'}</span>
-                  : <span className="cu-tenue">Sin video</span>}
-                {conTarea && <span>{c.campos.length ? `Formulario · ${c.campos.length}` : 'Tarea'}</span>}
-                {c.obligatoria && conTarea && <Status tono="good">Cierra la etapa</Status>}
-                {/* Quien no edita VE la marca (y nada mientras nadie decidió); quien edita, el control. */}
-                {!puedeEditar && marca === true && <Status tono="warn">Grabar</Status>}
-                {!puedeEditar && marca === false && <span className="cu-tenue">No grabar</span>}
-                {nNotas > 0 && <span>{nNotas} {nNotas === 1 ? 'nota' : 'notas'}</span>}
-              </span>
-            </button>
-            {puedeEditar && marca !== undefined && (
-              <ControlGrabar valor={marca} ocupado={marcando === c.id} onCambio={(x) => onMarcar(c, x)} />
-            )}
-            {puedeEditar && (
-              <span className="cu-acciones">
-                {!sinOrden && (
-                  <>
-                    <IconButton small title="Subir" disabled={i === 0 || moviendo !== null} onClick={() => onMover(c, 'arriba')}>↑</IconButton>
-                    <IconButton small title="Bajar" disabled={i === lista.length - 1 || moviendo !== null} onClick={() => onMover(c, 'abajo')}>↓</IconButton>
-                  </>
-                )}
-                <IconButton small danger title="Borrar clase" onClick={() => onBorrar(c)}>✕</IconButton>
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ol>
+    <VistaPreviaCtx.Provider value>
+      <Reproductor token="" claseId={clase.id} video={video} titulo={clase.titulo} onPct={() => {}} />
+    </VistaPreviaCtx.Provider>
   );
 }
 
@@ -445,22 +543,19 @@ function ControlGrabar({ valor, ocupado, onCambio }: { valor: Grabar; ocupado: b
 }
 
 const CSS = `
-.cu-sec-acciones{ display:inline-flex; align-items:center; gap:6px; }
-.cu-grabar{ flex:none; display:inline-flex; border:1px solid var(--border-strong); border-radius:var(--r-sm); overflow:hidden; }
-.cu-grabar button{ padding:4px 9px; border:0; background:var(--surface); color:var(--dim); font:inherit; font-size:var(--fs-meta); white-space:nowrap; cursor:pointer; min-height:28px; }
-.cu-grabar button + button{ border-left:1px solid var(--border-strong); }
-.cu-grabar button[data-on="true"]{ background:var(--primary-bg); color:var(--primary); font-weight:600; }
+.cu-curso{ flex: 1 1 0; min-height: 480px; display: flex; flex-direction: column; margin-top: 4px;
+  border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.cu-sec-acciones{ display:inline-flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.cu-aviso{ font-family: var(--font-jetbrains), monospace; font-size: 11px; font-weight: 700;
+  padding: 5px 10px; border-radius: 999px; background: #ffe2a3; border: 1.5px solid var(--u-ink, #16150f); }
+.cu-ficha{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; justify-content: space-between; }
+.cu-ficha-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; font-size: 12.5px; color: var(--u-ink-60, var(--dim)); }
+.cu-tenue{ opacity: .7; }
+.cu-grabar{ flex:none; display:inline-flex; border:2px solid var(--u-ink, #16150f); border-radius: 9px; overflow:hidden; }
+.cu-grabar button{ padding:6px 11px; border:0; background:var(--u-card-2, #f8f6ee); color: var(--u-ink, #16150f);
+  font: 600 11.5px/1 var(--font-jetbrains), monospace; white-space:nowrap; cursor:pointer; min-height:30px; }
+.cu-grabar button + button{ border-left:2px solid var(--u-ink, #16150f); }
+.cu-grabar button[data-on="true"]{ background: var(--u-lime, #cdf13b); font-weight: 800; }
 .cu-grabar button:disabled{ cursor:default; opacity:.6; }
-.cu-lista{ list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); overflow:hidden; }
-.cu-fila{ display:flex; align-items:center; gap:10px; padding:4px 10px 4px 12px; border-top:1px solid var(--border); }
-.cu-fila:first-child{ border-top:0; }
-.cu-fila:hover{ background:var(--surface-2); }
-.cu-n{ flex:none; width:22px; text-align:center; font-size:var(--fs-meta); color:var(--dim); font-variant-numeric:tabular-nums; }
-.cu-cuerpo{ flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; align-items:flex-start; text-align:left; padding:8px 0; border:0; background:transparent; cursor:pointer; font:inherit; color:inherit; }
-.cu-titulo{ font-size:var(--fs-md); font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
-.cu-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:var(--fs-meta); color:var(--dim); }
-.cu-tenue{ color:var(--faint); }
-.cu-acciones{ flex:none; display:flex; gap:2px; }
-.cu-vacio{ margin:0; font-size:var(--fs-sm); color:var(--dim); }
-.cu-aviso{ color:var(--warn); font-weight:600; }
+.cu-avance{ background: var(--surface); color: var(--ink); border-radius: 16px; padding: 16px; border: 1.5px solid var(--u-line, var(--border)); }
 `;

@@ -52,6 +52,14 @@ export type Posicion = {
   clase?: number;
   /** El recurso abierto, por slug. */
   r?: string;
+  /**
+   * Una entrada PROPIA de la barra, por su key (`#x=`): «Avance de los clientes» en la vista
+   * de quien dicta el curso (app/_cursos/CursoUgc.tsx, `entradasExtra`). Es una posición
+   * como cualquier otra, así que vive acá y el Atrás vuelve a ella.
+   * ⚠️ Va ÚLTIMA en `ORDEN`: los hashes que ya circulan no la traen, y agregarla al final
+   *    no cambia la firma de ninguno (la firma es la clave del scroll guardado).
+   */
+  extra?: string;
 };
 
 const VACIA: Posicion = {};
@@ -64,7 +72,7 @@ const VACIA: Posicion = {};
 //    es guardar el scroll en un lugar y buscarlo en otro.
 const ORDEN: Array<[keyof Posicion, string]> = [
   ['curso', 'curso'], ['mod', 'mod'], ['q', 'q'],
-  ['recursos', 'v'], ['clase', 'clase'], ['r', 'r'],
+  ['recursos', 'v'], ['clase', 'clase'], ['r', 'r'], ['extra', 'x'],
 ];
 
 export const aHash = (p: Posicion): string => {
@@ -87,6 +95,7 @@ export const deHash = (hash: string): Posicion => {
     recursos: h.get('v') === 'recursos' ? true : undefined,
     clase: Number.isFinite(n) && n > 0 ? n : undefined,
     r: h.get('r') ?? undefined,
+    extra: h.get('x') ?? undefined,
   };
 };
 

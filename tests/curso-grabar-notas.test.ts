@@ -339,10 +339,15 @@ test('CursoApp: el control de grabar sólo para quien edita, y las notas de cada
   assert.match(src, /await marcarGrabarAction\(c\.id, valor\)/);
   assert.match(src, /porGrabar\(delProducto, grabar\)/);
   assert.match(src, /<NotasClase[^>]*destino=\{\{ etapa: notasEtapa \}\}/);
-  // El botón «Notas» de la sección no cuelga de puedeEditar.
-  const accion = src.slice(src.indexOf('<span className="cu-sec-acciones">'), src.indexOf('</span>', src.indexOf('<span className="cu-sec-acciones">')));
-  assert.match(accion, /<Button size="sm" variant="tertiary" onClick=\{\(\) => setNotasEtapa\(e\.key\)\}>/);
-  assert.doesNotMatch(accion.split('\n').find((l) => l.includes('setNotasEtapa'))!, /puedeEditar/);
+  // El botón «Notas» de la etapa no cuelga de puedeEditar. Desde el 07/10/2026 vive en la cabecera
+  // del módulo abierto del curso (`acciones` de app/_cursos/CursoUgc.tsx), que arma `modulos`: ni
+  // el botón ni el bloque que lo arma pueden mirar `puedeEditar`.
+  const ini = src.indexOf('<span className="cu-sec-acciones">');
+  const accion = src.slice(ini, src.indexOf('</button>', ini));
+  assert.match(accion, /<button type="button" className="ugc-btn" onClick=\{\(\) => setNotasEtapa\(m\.key\)\}>/);
+  const bloque = src.slice(src.indexOf('const modulos = servicio'), src.indexOf('const clasesUgc = '));
+  assert.ok(bloque.length > 200 && bloque.includes('cu-sec-acciones'), 'no encontré el bloque que arma los módulos');
+  assert.doesNotMatch(bloque, /puedeEditar/);
 });
 
 test('NotasClase sube por URL firmada y abre por el id de la nota', () => {

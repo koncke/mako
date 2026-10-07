@@ -250,6 +250,23 @@ export function reproductorDeClase(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'vi
 }
 
 /**
+ * La TAPA de un video, para la tarjeta de la clase: la miniatura que la plataforma ya publica.
+ * YouTube la sirve por id; Drive, la del primer fotograma (la misma que usa Conocimientos). El
+ * resto —Vimeo, Loom, un archivo subido— no tiene una pública sin pedírsela a su API: va sin tapa
+ * y la tarjeta queda con el degradé de la casa. `Miniatura` se hace cargo del 404.
+ */
+export function tapaDeVideo(v: VideoVista | null | undefined): string | null {
+  if (!v) return null;
+  if (v.tipo === 'youtube') return `https://i.ytimg.com/vi/${encodeURIComponent(v.id)}/hqdefault.jpg`;
+  if (v.tipo === 'iframe') {
+    // El id ya viene escapado: lo escribió `embedDe`.
+    const drive = /^https:\/\/drive\.google\.com\/file\/d\/([^/]+)\/preview$/.exec(v.embed);
+    if (drive) return `https://drive.google.com/thumbnail?id=${drive[1]}&sz=w800`;
+  }
+  return null;
+}
+
+/**
  * Cuánto vio de los videos de UNA etapa: el promedio sobre los que se pueden MEDIR, y uno que no
  * abrió cuenta 0 («vio el 50%» quiere decir «de lo que le toca ver»). Los de Drive/Loom no entran
  * al promedio y se cuentan aparte, para que la pantalla diga «Sin medir» en vez de un número que

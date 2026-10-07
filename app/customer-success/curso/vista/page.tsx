@@ -80,15 +80,21 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     productos: clases.length ? [{ productoId, nombre: (prod as { nombre: string }).nombre, etapas }] : [],
   };
 
+  // El curso va EMBEBIDO (app/_cursos/CursoUgc.tsx): toma el alto que le dejan, así que la caja
+  // ocupa la ventana y lo reparte entre la barra y el curso con flex. Un `height: 100%` acá no
+  // resolvería: el padre no tiene alto definido (AGENTS.md, «una vista a pantalla completa ESTIRA
+  // con flex»).
   return (
-    <>
+    <div style={{ height: '100dvh', minHeight: 560, display: 'flex', flexDirection: 'column' }}>
       <BarraVistaPrevia
         productoId={productoId}
         etapa={etapa}
         etapas={cfg.etapas.map((e) => ({ key: e.key, label: e.label }))}
         anotar={adminId != null}
       />
-      <PortalAlumno token="" vista={vista} vistaPrevia />
-    </>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <PortalAlumno token="" vista={vista} vistaPrevia />
+      </div>
+    </div>
   );
 }

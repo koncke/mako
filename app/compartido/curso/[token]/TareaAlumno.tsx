@@ -51,7 +51,7 @@ type Respuesta = {
   avance?: { movido: boolean; hacia: string | null } | null;
 };
 
-export default function TareaAlumno({ token, claseId, area, tarea, campos, valoresIniciales, estadoInicial, propuesta, onEstado, onPropuesta, onAvance }: {
+export default function TareaAlumno({ token, claseId, area, tarea, campos, valoresIniciales, estadoInicial, propuesta, onEstado, onPropuesta, onAvance, onValores }: {
   token: string;
   claseId: number;
   /**
@@ -72,6 +72,17 @@ export default function TareaAlumno({ token, claseId, area, tarea, campos, valor
   onPropuesta?: () => void;
   /** El envío completó la etapa y el cliente pasó a la siguiente. */
   onAvance: () => void;
+  /**
+   * Lo último que quedó, AL DESMONTARSE: el borrador si sigue pendiente, lo enviado si no.
+   *
+   * ⚠️ Desde el 07/10/2026 la tarea vive en la LECCIÓN del curso (app/_cursos/CursoUgc.tsx), y
+   *    pasar a otra clase la desmonta. El borrador se salva solo (el `sendBeacon` de la limpieza),
+   *    pero `valoresIniciales` es lo que trajo la PÁGINA: al volver, la tarea se dibujaba con lo de
+   *    antes y parecía que lo escrito se había perdido. El portal guarda esto y lo devuelve como
+   *    `valoresIniciales` la próxima vez. Lo editado de una tarea enviada SIN reenviar no se
+   *    devuelve: no se guardó, y mostrarlo como su respuesta sería mentir.
+   */
+  onValores?: (v: Valores) => void;
 }) {
   const previa = useVistaPrevia();
   // ⚠️ Los ids de los campos llevan el de ESTA tarea: con una clase por área hay N formularios
@@ -94,6 +105,14 @@ export default function TareaAlumno({ token, claseId, area, tarea, campos, valor
   const sucio = useRef(false);
   // El autoguardado sólo corre en una tarea PENDIENTE (ver la cabecera).
   const autoguarda = estado === 'pendiente';
+
+  // `onValores`, al desmontarse (ver el prop). Las refs se ponen al día en un efecto, no en el render.
+  const alDesmontar = useRef({ estado, onValores });
+  useEffect(() => { alDesmontar.current = { estado, onValores }; });
+  useEffect(() => () => {
+    const { estado: e, onValores: f } = alDesmontar.current;
+    f?.(e === 'pendiente' ? ultimo.current : base.current);
+  }, []);
 
   const mandar = useCallback(async (v: Valores, enviar: boolean): Promise<Respuesta | null> => {
     // ⚠️ VISTA PREVIA DEL EQUIPO: no hay alumno, así que no sale nada (./vista-previa.ts). Se

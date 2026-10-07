@@ -567,7 +567,14 @@ const GLIFO_TOP = 12 - TRAZO_GORDO / 2;        // 1,5: donde arranca la tinta
 
 /* ─────────────────────────── el componente ─────────────────────────── */
 
-export function PortadaModulo({ n, titulo, className }: { n: number; titulo: string; className?: string }) {
+export function PortadaModulo({ n, titulo, className, rotulo = 'Módulo' }: {
+  n: number; titulo: string; className?: string;
+  /**
+   * La palabra de arriba del nombre. «Módulo» en Conocimientos; el curso de un cliente
+   * (app/_cursos/CursoUgc.tsx) dice «Etapa», porque sus módulos son las etapas de la entrega.
+   */
+  rotulo?: string;
+}) {
   const limpio = limpiarTitulo(titulo);
   const { lineas, fs, tituloTop, kickerBase, numeroPie } = componer(limpio);
   const L = lineas.length;
@@ -905,7 +912,7 @@ export function PortadaModulo({ n, titulo, className }: { n: number; titulo: str
           letterSpacing={1.5}
           fill={TINTA}
         >
-          MÓDULO
+          {rotulo.toUpperCase()}
         </text>
       )}
 
