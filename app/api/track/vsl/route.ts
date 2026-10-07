@@ -42,7 +42,8 @@
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
-import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
+import { mensajeDeError } from '@/lib/calendly-error';
 import { LANDING_SERVICIO, SNIPPET_VERSION_KEY } from '@/lib/landing-token';
 import { VERSIONES_POR_PAGINA_KEY, anotarVersionDePagina, clavePagina, parsearMapaVersiones } from '@/lib/pixel-aviso';
 import { REPLAY_CONFIG_KEY, REPLAY_LIB_VERSION, grabaA, parsearReplay } from '@/lib/replay-contrato';
@@ -225,9 +226,18 @@ export async function POST(request: NextRequest) {
     '';
   const token = crudo.trim();
 
+  // ⚠️ ESTRICTA (07/10/2026): con `wsPorIdentificador` la base caída daba null y el evento caía
+  // abajo con un log que manda a revisar el código de la landing. Sin reintento a propósito: es
+  // medición de alto volumen, y en un corte reintentar cada beacon es sumarle carga a la base.
+  // Se pierde el evento y el log dice por qué; el snippet no lee la respuesta.
   let ws: number | null = null;
   if (token && TOKEN_RE.test(token)) {
-    ws = await wsPorIdentificador(LANDING_SERVICIO, token);
+    try {
+      ws = await wsPorIdentificadorEstricto(LANDING_SERVICIO, token);
+    } catch (err) {
+      console.error(`[track:vsl] no pude leer de quién es el token (la base no contestó): evento perdido — ${mensajeDeError(err)}`);
+      return Response.json({ ok: false, error: 'ruteo' }, { status: 503, headers: CORS_HEADERS });
+    }
   }
 
   if (ws == null) {

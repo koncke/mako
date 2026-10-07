@@ -270,7 +270,15 @@ export async function getOrCreateLandingToken(ws: number): Promise<string> {
   });
 }
 
-/** Espeja token → ws en webhook_routing solo si el mapeo no está ya vivo. */
+/**
+ * Espeja token → ws en webhook_routing solo si el mapeo no está ya vivo.
+ *
+ * ⚠️ TOLERANTE A PROPÓSITO (07/10/2026), y es la única lectura del ruteo que lo es. No decide de
+ * quién es nada que entra: si «no pude leer» se lee como «no está», lo que pasa es un
+ * `upsertRouting` de más, que es idempotente (primer reclamante gana) y no lanza. La estricta
+ * acá rompería /integraciones por un pestañeo de la base. Lo fija la lista de excepciones de
+ * tests/webhooks-ruteo-estricto.test.ts.
+ */
 async function espejarSiHaceFalta(token: string, ws: number): Promise<void> {
   if ((await wsPorIdentificador(LANDING_SERVICIO, token)) !== ws) {
     await upsertRouting(LANDING_SERVICIO, token, ws);

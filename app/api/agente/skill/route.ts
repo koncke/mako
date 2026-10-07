@@ -22,7 +22,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { bearerDe, wsPorAgenteToken, getAgenteToken } from '@/lib/agente-token';
+import { bearerDe, wsDelBearer, getAgenteToken } from '@/lib/agente-token';
 import { agenteSkillMarkdown, AGENTE_SKILL_ARCHIVO } from '@/lib/agente-skill';
 import { APP_BASE_URL } from '@/lib/app-url';
 
@@ -31,7 +31,8 @@ export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   const token = bearerDe(req);
-  const ws = await wsPorAgenteToken(token);
+  const ws = await wsDelBearer(token);
+  if (ws instanceof Response) return ws;
   if (ws == null) {
     return NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
   }

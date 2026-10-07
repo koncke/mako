@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
+import { bearerDe, wsDelBearer } from '@/lib/agente-token';
 import { getSupabaseServer } from '@/lib/supabase';
 import { redactarTurnos } from '@/lib/agente-redaccion';
 
@@ -39,7 +39,8 @@ const DIAS_TURNOS = 90;
 const TOPE_BYTES = 512 * 1024;
 
 export async function POST(req: NextRequest) {
-  const ws = await wsPorAgenteToken(bearerDe(req));
+  const ws = await wsDelBearer(bearerDe(req));
+  if (ws instanceof Response) return ws;
   if (ws == null) return NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
 
   const largo = Number(req.headers.get('content-length') ?? 0);

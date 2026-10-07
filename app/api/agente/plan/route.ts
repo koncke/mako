@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
+import { bearerDe, wsDelBearer } from '@/lib/agente-token';
 import { wsEnContexto, runWithWorkspace, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { listPlanBoard } from '@/lib/plan-board';
@@ -44,13 +44,14 @@ async function usaPlanBoard(ws: number): Promise<boolean> {
   return tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
 }
 
-/** Resuelve el ws del bearer o devuelve null. */
-async function wsDeReq(req: NextRequest): Promise<number | null> {
-  return wsPorAgenteToken(bearerDe(req));
+/** Resuelve el ws del bearer, null (no autorizado), o el 503 de «no pude verificarlo». */
+async function wsDeReq(req: NextRequest): Promise<number | null | Response> {
+  return wsDelBearer(bearerDe(req));
 }
 
 export async function GET(req: NextRequest) {
   const ws = await wsDeReq(req);
+  if (ws instanceof Response) return ws;
   if (ws == null) return noAutorizado();
   try {
     return await runWithWorkspace(ws, async () => {
@@ -87,6 +88,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const ws = await wsDeReq(req);
+  if (ws instanceof Response) return ws;
   if (ws == null) return noAutorizado();
 
   let body: Record<string, unknown>;

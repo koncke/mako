@@ -49,7 +49,15 @@ export async function autenticar(req: Request): Promise<Autenticado | NextRespon
   if (!rateLimit(`api-v1:ip:${clientIp(req)}`, TOPE_POR_MINUTO_IP, 60_000)) {
     return NextResponse.json({ ok: false, error: 'demasiados pedidos; espera un minuto' }, { status: 429 });
   }
-  const auth = await wsDeHeaders(req.headers);
+  // «No pude verificar» no es «token inválido» (07/10/2026): con la base caída, el resolvedor
+  // TIRA en vez de devolver null, y eso va 503 — un 401 mandaba a rotar un token bueno.
+  let auth: Awaited<ReturnType<typeof wsDeHeaders>>;
+  try {
+    auth = await wsDeHeaders(req.headers);
+  } catch (e) {
+    console.error(`[api-v1] no pude verificar el token (la base no contestó): ${e instanceof Error ? e.message : String(e)}`);
+    return NextResponse.json({ ok: false, error: 'No pude verificar el token: la base de datos no contestó. Reintenta en un momento.', reintentar: true }, { status: 503 });
+  }
   if (!auth) return NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
   // Por workspace, nunca por el token: un secreto no es una clave de un Map.
   if (!rateLimit(`api-v1:ws:${auth.ws}`, TOPE_POR_MINUTO_WS, 60_000)) {

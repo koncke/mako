@@ -41,7 +41,9 @@ test('entra SOLO, y solo un duplicado queda para revisar', () => {
 
 test('el ruteo del workspace es fail-closed', () => {
   const src = RUTA();
-  assert.ok(/wsPorIdentificador\(/.test(src), 'el workspace sale del token, no del body');
+  // Desde el 07/10/2026 la lectura es la ESTRICTA: «no pude leer» no se contesta «token
+  // desconocido» (tests/webhooks-ruteo-estricto.test.ts).
+  assert.ok(/wsPorIdentificadorEstricto\(LANDING_SERVICIO, token\)/.test(src), 'el workspace sale del token, no del body');
   assert.ok(/ws == null/.test(src), 'un token sin mapeo tiene que cortar');
   assert.ok(
     !/OWNER_WS|\?\?\s*1\b/.test(src),

@@ -32,7 +32,7 @@
 import { NextResponse } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { agenteHookScript } from '@/lib/agente-plugin';
-import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
+import { bearerDe, wsDelBearer } from '@/lib/agente-token';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -41,7 +41,8 @@ export async function GET(req: Request) {
   // Dos puertas, las dos válidas: la persona logueada que lo baja desde la pantalla, y
   // el agente que lo instala solo con el token de su workspace.
   const sesion = await getUsuarioActual();
-  const ws = sesion ? 0 : await wsPorAgenteToken(bearerDe(req));
+  const ws = sesion ? 0 : await wsDelBearer(bearerDe(req));
+  if (ws instanceof Response) return ws;
   if (!sesion && ws == null) {
     return NextResponse.json({ ok: false, error: 'sin sesión ni token válido' }, { status: 401 });
   }

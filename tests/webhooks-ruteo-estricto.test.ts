@@ -23,7 +23,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { esErrorTransitorio } from '../lib/calendly-error';
-import { huellaRuteoPrevia, sumarFalloRuteo, TOPE_FALLOS_RUTEO, type FalloRuteo } from '../lib/webhook-ruteo-huella';
+import { huellaRuteoPrevia, sumarFalloRuteo, conReintentoTransitorio, TOPE_FALLOS_RUTEO, type FalloRuteo } from '../lib/webhook-ruteo-huella';
+import { execFileSync } from 'node:child_process';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas de comentario PRIMERO y los bloques después (ver AGENTS.md).
@@ -114,4 +115,86 @@ test('el fallo de ruteo contesta 503 SÓLO si reintentar lo arregla, y anota en 
   assert.match(src, /getSettingEstricto\(KEY_FALLOS_RUTEO\)/, 'con la lectura tolerante, un error de lectura PISA la huella');
   const resp = src.slice(src.indexOf('export async function responderFalloDeRuteo('));
   assert.match(resp, /if \(transitorio\) \{[\s\S]*?status: 503[\s\S]*?\}\s*\n[\s\S]*?status: 200/, 'un fallo que no se arregla reintentando no puede ir 5xx');
+});
+
+// ── Fuera de los webhooks: /api/track y los tokens (07/10/2026) ───────────────
+// El mismo null, en las otras puertas que deciden de quién es algo que entra SIN sesión: el
+// formulario de una landing (un lead), los beacons de medición, el bearer de la skill de Claude
+// y el chequeo de salud del webhook de Chatwoot.
+//
+// Probado rompiéndolo (07/10/2026), una por vez y restaurando desde memoria: optin sin reintento
+// (14 / 1), optin y vsl tolerantes (13 / 2 cada uno: el barrido y su guard), replay contestando
+// 200, el token con getSetting, una ruta del agente que se traga el 503, /api/v1 contestando
+// 401, Chatwoot tolerante, el reintento que reintenta lo roto, el reintento sin tope y un permiso
+// viejo en la lista de tolerantes (14 / 1 cada uno). Restaurado: 15 / 0.
+
+/** Las únicas lecturas TOLERANTES del ruteo que quedan, cada una con su porqué. */
+const TOLERANTES_A_PROPOSITO: Record<string, string> = {
+  'lib/webhook-routing.ts': 'es la definición',
+  'lib/landing-token.ts': 'espejarSiHaceFalta: «no pude leer» termina en un upsert idempotente; la estricta rompería /integraciones por un pestañeo',
+};
+
+test('NADIE en app/ ni lib/ decide de quién es algo con la lectura que traga el error', () => {
+  const archivos = execFileSync('git', ['ls-files', 'app', 'lib'], { encoding: 'utf8' })
+    .split(/\r?\n/).filter((f) => /\.tsx?$/.test(f));
+  const malos = archivos
+    .filter((f) => !(f in TOLERANTES_A_PROPOSITO))
+    .filter((f) => /\bwsPorIdentificador\(/.test(sinComentarios(leer(`../${f}`))));
+  assert.deepEqual(malos, [], 'leen el ruteo con wsPorIdentificador; si de verdad tiene que ser tolerante, va a TOLERANTES_A_PROPOSITO con su porqué');
+  // Y la lista no guarda permisos viejos: si ya no la usa, el permiso sobra.
+  for (const f of Object.keys(TOLERANTES_A_PROPOSITO)) {
+    assert.match(sinComentarios(leer(`../${f}`)), /\bwsPorIdentificador\(/, `${f} ya no lee tolerante: sacalo de la lista`);
+  }
+});
+
+test('el reintento en el server: sólo lo transitorio, con tope, y lo roto se tira en el acto', async () => {
+  const caida = Object.assign(new Error('webhook_routing (landing): TypeError: fetch failed'), { details: 'TypeError: fetch failed' });
+  const rota = Object.assign(new Error('webhook_routing (landing): column x does not exist'), { code: '42703' });
+  let n = 0;
+  assert.equal(await conReintentoTransitorio(async () => { n++; if (n < 3) throw caida; return 7; }, [0, 0]), 7);
+  assert.equal(n, 3, 'un corte de segundos se cubre reintentando');
+  n = 0;
+  await assert.rejects(conReintentoTransitorio(async () => { n++; throw caida; }, [0, 0]));
+  assert.equal(n, 3, 'el reintento no tiene tope');
+  n = 0;
+  await assert.rejects(conReintentoTransitorio(async () => { n++; throw rota; }, [0, 0]));
+  assert.equal(n, 1, 'una consulta rota se reintentó: sólo demora el error');
+});
+
+test('optin: reintenta, y si igual no puede, anota y va 503', () => {
+  const src = sinComentarios(leer('../app/api/track/optin/route.ts'));
+  assert.match(src, /ws = await conReintentoTransitorio\(\(\) => wsPorIdentificadorEstricto\(LANDING_SERVICIO, token\)\);/,
+    'el snippet manda el opt-in UNA vez: sin el reintento acá, un pestañeo de la base es un lead perdido');
+  assert.match(src, /anotarFalloDeRuteo\('landing', err, token\)/);
+  assert.match(src, /status: 503, headers: CORS/);
+});
+
+test('los beacons de medición: estrictos y 503, sin reintento', () => {
+  for (const r of ['vsl', 'replay']) {
+    const src = sinComentarios(leer(`../app/api/track/${r}/route.ts`));
+    assert.match(src, /ws = await wsPorIdentificadorEstricto\(LANDING_SERVICIO, token\);/, `${r} volvió a la lectura tolerante`);
+    assert.match(src, /\{ ok: false, error: 'ruteo' \}, \{ status: 503, headers: CORS_HEADERS \}/, `${r} contesta «sin workspace» sobre una lectura que falló`);
+    assert.ok(!/conReintentoTransitorio/.test(src), `${r}: reintentar cada beacon en un corte le suma carga a la base caída`);
+  }
+});
+
+test('el token del agente: «no pude verificar» es 503, nunca 401', () => {
+  const tok = sinComentarios(leer('../lib/agente-token.ts'));
+  assert.match(tok, /wsPorIdentificadorEstricto\(AGENTE_SERVICIO, t\)/);
+  assert.match(tok, /getSettingEstricto\(AGENTE_TOKEN_KEY\)/, 'con getSetting, la base caída da «revocado» sobre un token vigente');
+  assert.match(tok, /status: 503/);
+  for (const r of ['consultar', 'contexto', 'hook', 'lead', 'metricas', 'plan', 'skill', 'telemetria']) {
+    const src = sinComentarios(leer(`../app/api/agente/${r}/route.ts`));
+    assert.ok(!/wsPorAgenteToken\(/.test(src), `/api/agente/${r} volvió a llamar al resolvedor que tira sin contestar`);
+    assert.match(src, /if \(ws instanceof Response\) return ws;/, `/api/agente/${r} no devuelve el 503 y se lo traga como 401`);
+  }
+  const http = sinComentarios(leer('../lib/api-mako/http.ts'));
+  assert.match(http, /catch \(e\) \{[\s\S]{0,300}status: 503/, '/api/v1 contesta 401 «token inválido» cuando la base no dejó verificarlo');
+});
+
+test('el chequeo del webhook de Chatwoot: «no pude comprobar» no es «sin ruteo»', () => {
+  const src = sinComentarios(leer('../lib/chatwoot.ts'));
+  assert.match(src, /const account = await credWsEstricta\('CHATWOOT_ACCOUNT_ID', ws\);/);
+  assert.match(src, /const dueno = await wsPorIdentificadorEstricto\('chatwoot', account\);/,
+    'con la tolerante la pantalla ofrece REPARAR un webhook sano');
 });

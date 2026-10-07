@@ -9,7 +9,7 @@
 // AUTH: el mismo `landing_token` del beacon (`/api/track/vsl`), en el body. No es
 // un secreto —viaja en el HTML de una página pública, como cualquier pixel— y no
 // autoriza a leer nada: solo IDENTIFICA el workspace. El ruteo es fail-closed
-// (`wsPorIdentificador`): sin mapeo no se toca un dato.
+// (`wsPorIdentificadorEstricto`): sin mapeo no se toca un dato.
 //
 // ⚠️ NO CREA EL LEAD: DEJA UNA PROPUESTA. Es la regla del producto —un canal
 // PROPONE, una persona confirma— y acá cubre justo el riesgo de un endpoint
@@ -29,7 +29,9 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { crearPropuesta } from '@/lib/propuestas';
 import { LANDING_SERVICIO } from '@/lib/landing-token';
-import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
+import { anotarFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
+import { conReintentoTransitorio } from '@/lib/webhook-ruteo-huella';
 import { createLead, duplicadosDeLead } from '@/lib/leads';
 import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault, idDelFunnelDefault } from '@/lib/funnels';
@@ -95,7 +97,21 @@ export async function POST(req: NextRequest) {
   const token = txt(body.token) ?? txt(body.landing_token);
   if (!token) return NextResponse.json({ ok: false, error: 'falta el token de la landing' }, { status: 400, headers: CORS });
 
-  const ws = await wsPorIdentificador(LANDING_SERVICIO, token);
+  // ⚠️ «NO PUDE LEER» NO ES «TOKEN DESCONOCIDO» (07/10/2026). Con `wsPorIdentificador`, que no
+  // lee el `error` de supabase-js, la base caída daba null y el contacto de un visitante caía en
+  // «token desconocido» → 200 y perdido, con un log que culpaba a la configuración. Y nadie lo
+  // reintenta: el snippet lo manda UNA vez, con `keepalive` y sin mirar la respuesta (ver
+  // `mandarOptin` en lib/landing-token.ts). Por eso la lectura se reintenta ACÁ, adentro del
+  // pedido (un corte de la base suele durar segundos), y si igual no se puede, queda anotada en
+  // `webhooks.fallos_ruteo` —sin datos de la persona: el token y el motivo— y va 503.
+  let ws: number | null;
+  try {
+    ws = await conReintentoTransitorio(() => wsPorIdentificadorEstricto(LANDING_SERVICIO, token));
+  } catch (err) {
+    const { transitorio, mensaje } = await anotarFalloDeRuteo('landing', err, token);
+    console.error(`[track:optin] no pude leer de quién es el token (la base no contestó): el opt-in se perdió — ${mensaje}`);
+    return NextResponse.json({ ok: false, error: 'ruteo', reintentar: transitorio }, { status: 503, headers: CORS });
+  }
   // Fail-closed: un token que no mapea a nada no cae al dueño ni a ningún lado.
   if (ws == null) {
     console.warn(`[track:optin] token sin workspace — ignorado`);

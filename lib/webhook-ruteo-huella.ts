@@ -14,12 +14,15 @@
 // ⚠️ Y lo anotado es anterior a la firma en Cal.com y Fathom: es una PISTA para mirar en la
 // herramienta, nunca un dato para cargar.
 
+import { esErrorTransitorio } from './calendly-error';
+
 export const KEY_FALLOS_RUTEO = 'webhooks.fallos_ruteo';
 /** Una huella, no un log: las más recientes. */
 export const TOPE_FALLOS_RUTEO = 30;
 
-export type ServicioRuteo = 'calcom' | 'chatwoot' | 'fathom' | 'meta';
-const SERVICIOS: ReadonlySet<string> = new Set(['calcom', 'chatwoot', 'fathom', 'meta']);
+/** `landing`: el formulario de una landing (`/api/track/optin`), que tampoco se reintenta. */
+export type ServicioRuteo = 'calcom' | 'chatwoot' | 'fathom' | 'meta' | 'landing';
+const SERVICIOS: ReadonlySet<string> = new Set(['calcom', 'chatwoot', 'fathom', 'meta', 'landing']);
 
 export type FalloRuteo = {
   cuando: string;
@@ -59,4 +62,25 @@ export function huellaRuteoPrevia(crudo: string | null): FalloRuteo[] {
 export function sumarFalloRuteo(previa: FalloRuteo[], fallo: FalloRuteo): FalloRuteo[] {
   const nuevo = saneado(fallo);
   return (nuevo ? [nuevo, ...previa] : previa).slice(0, TOPE_FALLOS_RUTEO);
+}
+
+// SIN `server-only` como el resto del módulo: el test la EJECUTA con un fn que falla a propósito.
+/**
+ * Reintenta una lectura que falló de forma TRANSITORIA, adentro del mismo pedido.
+ *
+ * Es la única recuperación posible cuando quien manda NO reintenta: el snippet de una landing
+ * dispara el opt-in una sola vez (`fetch` con `keepalive`, sin mirar la respuesta), y un bearer
+ * que recibe un error se lo cuenta a una persona. Un corte de la base suele durar segundos:
+ * dos esperas cortas cubren el pestañeo sin colgar el pedido. Lo que NO es transitorio (una
+ * consulta rota) se tira en el acto: reintentarlo sólo lo demora.
+ */
+export async function conReintentoTransitorio<T>(fn: () => Promise<T>, esperasMs: readonly number[] = [250, 750]): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i >= esperasMs.length || !esErrorTransitorio(e)) throw e;
+      await new Promise((r) => setTimeout(r, esperasMs[i]));
+    }
+  }
 }

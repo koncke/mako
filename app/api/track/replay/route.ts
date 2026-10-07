@@ -40,7 +40,8 @@
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
-import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
+import { mensajeDeError } from '@/lib/calendly-error';
 import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { REPLAY_LOTE_EVENTOS, REPLAY_VERSION, sesionIdValido } from '@/lib/replay-contrato';
@@ -141,9 +142,16 @@ export async function POST(request: NextRequest) {
     '';
   const token = crudo.trim();
 
+  // ⚠️ ESTRICTA (07/10/2026), por lo mismo que el beacon de /api/track/vsl: «no pude leer» no es
+  // «sin workspace mapeado». Sin reintento: un lote perdido es un hueco en una grabación.
   let ws: number | null = null;
   if (token && TOKEN_RE.test(token)) {
-    ws = await wsPorIdentificador(LANDING_SERVICIO, token);
+    try {
+      ws = await wsPorIdentificadorEstricto(LANDING_SERVICIO, token);
+    } catch (err) {
+      console.error(`[track:replay] no pude leer de quién es el token (la base no contestó): lote perdido — ${mensajeDeError(err)}`);
+      return Response.json({ ok: false, error: 'ruteo' }, { status: 503, headers: CORS_HEADERS });
+    }
   }
   if (ws == null) {
     // Fail-CLOSED, sin excepciones. Lo que se descarta acá es la pantalla de una

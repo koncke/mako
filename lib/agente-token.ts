@@ -21,9 +21,11 @@
 
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import { getSetting, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace } from './workspace';
-import { upsertRouting, wsPorIdentificador } from './webhook-routing';
+import { upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
+import { conReintentoTransitorio } from './webhook-ruteo-huella';
+import { mensajeDeError } from './calendly-error';
 import { prefijoDeAlcance } from './api-mako/alcance';
 import type { Alcance as AlcanceToken } from './api-mako/tipos';
 export type { AlcanceToken };
@@ -64,10 +66,34 @@ export async function rotarAgenteToken(ws: number, alcance: AlcanceToken = 'prop
 export async function wsPorAgenteToken(token: string): Promise<number | null> {
   const t = (token ?? '').trim();
   if (!t) return null;
-  const ws = await wsPorIdentificador(AGENTE_SERVICIO, t);
-  if (ws == null) return null;
-  const vigente = await getAgenteToken(ws);
-  return vigente && vigente === t ? ws : null;
+  // ⚠️ ESTRICTAS LAS DOS, Y CON REINTENTO (07/10/2026). Con `wsPorIdentificador` y `getSetting`,
+  // que no leen el `error` de supabase-js, la base caída daba null y el pedido se contestaba 401
+  // «token inválido o revocado» sobre un token BUENO — lo que manda a la persona a rotarlo y a
+  // reconfigurar su skill por un corte de segundos. Ahora «no pude leer» TIRA, y quien llama lo
+  // contesta 503 (`wsDelBearer`). Rotar sigue revocando: el segundo chequeo es contra el setting.
+  return conReintentoTransitorio(async () => {
+    const ws = await wsPorIdentificadorEstricto(AGENTE_SERVICIO, t);
+    if (ws == null) return null;
+    const vigente = await runWithWorkspace(ws, () => getSettingEstricto(AGENTE_TOKEN_KEY));
+    return vigente && vigente === t ? ws : null;
+  });
+}
+
+/**
+ * `wsPorAgenteToken` para una ruta: el workspace, `null` (no autorizado → 401), o la respuesta
+ * 503 lista para devolver cuando la base no dejó verificar el token. Que no se pudo verificar no
+ * es que el token sea malo: decírselo así a un agente es mandarlo a rotar uno bueno.
+ */
+export async function wsDelBearer(token: string): Promise<number | null | Response> {
+  try {
+    return await wsPorAgenteToken(token);
+  } catch (e) {
+    console.error(`[agente-token] no pude verificar el token (la base no contestó): ${mensajeDeError(e)}`);
+    return Response.json(
+      { ok: false, error: 'No pude verificar el token: la base de datos no contestó. Reintenta en un momento.', reintentar: true },
+      { status: 503 },
+    );
+  }
 }
 
 /** Lee el bearer de un request. Acepta `Authorization: Bearer <token>`. */

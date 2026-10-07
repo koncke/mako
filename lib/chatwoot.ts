@@ -15,9 +15,9 @@
 // =============================================================================
 
 import 'server-only';
-import { credWs } from './credenciales';
+import { credWs, credWsEstricta } from './credenciales';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
-import { upsertRouting, wsPorIdentificador } from './webhook-routing';
+import { upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
 
 // `inbox` es `null` cuando el workspace no lo declaró. Antes caía a `3`, y ese número decide
@@ -809,8 +809,11 @@ export async function estadoWebhookChatwoot(): Promise<ChatwootWebhookSalud> {
     // 3) ¿El account_id rutea a ESTE workspace? Sin fila en webhook_routing el
     //    receiver descarta los eventos (fail-closed) aunque el webhook esté sano.
     const ws = (await getWorkspaceActual()) ?? OWNER_WS;
-    const account = await credWs('CHATWOOT_ACCOUNT_ID', ws);
-    const dueno = await wsPorIdentificador('chatwoot', account);
+    // ESTRICTAS (07/10/2026): con las tolerantes, la base caída daba null, el estado salía
+    // «sin_ruteo» y la pantalla ofrecía REPARAR un webhook sano. Ahora tiran, y el `catch` de
+    // abajo contesta `error` («no pude comprobarlo»), que es lo que pasó.
+    const account = await credWsEstricta('CHATWOOT_ACCOUNT_ID', ws);
+    const dueno = await wsPorIdentificadorEstricto('chatwoot', account);
     if (dueno == null) return { estado: 'sin_ruteo', urlActual, urlEsperada };
     if (dueno !== ws) return { estado: 'ruteo_ocupado', urlActual, urlEsperada };
 
