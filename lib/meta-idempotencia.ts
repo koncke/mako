@@ -29,6 +29,10 @@
 // en silencio anuncios que nunca se crearon. Por eso la clave sale de la FIRMA del payload:
 // mismo payload → misma clave (un reintento ciego se deduplica); payload distinto → clave
 // nueva (un recorte, una edición en la revisión o un «Regenerar» son otra publicación).
+//
+// ⚠️ SALVO QUE LA ANTERIOR HAYA QUEDADO SIN RESPUESTA: esa clave queda ABIERTA y manda
+// sobre la firma hasta que el server la cierre (claveAMandar / trasRespuesta, más abajo).
+// Sin eso, editar una palabra después de un 504 publicaba la campaña dos veces.
 // =============================================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -89,6 +93,69 @@ export function claveIdemGuardada(x: unknown): ClaveIdem | null {
   if (!x || typeof x !== 'object') return null;
   const { clave, firma } = x as { clave?: unknown; firma?: unknown };
   return typeof clave === 'string' && CLAVE_IDEM.test(clave) && typeof firma === 'string' && firma ? { clave, firma } : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La clave ABIERTA (navegador): la que el server todavía no cerró
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ⚠️ LA FIRMA SOLA DUPLICABA (revisión de la #59, 07/10/2026). Después de una respuesta
+// perdida la pantalla vuelve a «revisión» con el nombre y el copy editables, y dice
+// «Reintentar es seguro: no se duplica». Corregir una palabra cambiaba la firma, salía una
+// clave nueva, y el server —que no tiene fila para ella— creaba una SEGUNDA campaña con la
+// primera ya en Meta. Y en Agregar anuncio / Agregar conjunto la clave vivía en un ref:
+// cerrar y reabrir el modal la perdía, así que hasta el MISMO payload salía con otra.
+//
+// La regla: la clave de un pedido que quedó sin respuesta queda ABIERTA y se manda en el
+// próximo clic AUNQUE el payload haya cambiado. Es seguro mandarla con otro payload: el
+// server contesta desde la fila si algo se creó ('devolver', 'esperar', 'a-medias') y, si
+// nada se creó ('nueva', o una fila en 'error' que se puede reintentar), publica lo que
+// llega ahora. Recién cuando el server la CIERRA vuelve a mandar la firma.
+
+/** Lo que el navegador lee de una respuesta para decidir qué hacer con la clave. */
+export type RespuestaIdem = { ok?: boolean; estado?: string; repetida?: boolean; created?: number } | null;
+
+/**
+ * La clave que se manda: la abierta si la hay —aunque el payload sea otro—, si no la de la
+ * firma. `firma` es la de ESTE payload; `mandada.firma` la del payload con el que esa clave
+ * salió por primera vez (son distintas sólo cuando se manda una abierta después de editar).
+ */
+export function claveAMandar(
+  abierta: ClaveIdem | null | undefined, previa: ClaveIdem | null | undefined, payload: unknown, nueva: () => string = nuevaClaveIdem,
+): { mandada: ClaveIdem; firma: string } {
+  const firma = firmaDe(payload);
+  if (abierta && CLAVE_IDEM.test(abierta.clave)) return { mandada: abierta, firma };
+  return { mandada: claveParaPayload(previa, payload, nueva), firma };
+}
+
+export type TrasRespuesta = {
+  /** La clave que queda abierta para el próximo clic, o null si el server la cerró. */
+  abierta: ClaveIdem | null;
+  /** La «previa» de claveParaPayload para el próximo clic. */
+  previa: ClaveIdem;
+  /** La respuesta habla de lo que se mandó ANTES con esa clave, no de esto: no es el éxito
+   *  de lo que está en pantalla, y su `created` no se le recorta a esto. */
+  deAntes: boolean;
+};
+
+/**
+ * Qué queda después de una respuesta.
+ *
+ * - El server CIERRA la clave con un ok, un 'a-medias' o un parcial con `created`: ya
+ *   contestó por ella, y lo que sigue es otra publicación (después de un parcial el
+ *   cliente recorta, y con la misma clave contestaría «creados N» otra vez).
+ * - Todo lo demás la deja ABIERTA: sin respuesta, 'esperar', y cualquier error. Un error
+ *   puede ser un chequeo previo (409 de videos, 400, 403, 503) que ni miró la clave, y las
+ *   reglas del server cubren el resto: con la fila en 'error', la misma clave reintenta o
+ *   contesta «a medias» — nunca crea otra encima de lo que quedó en Meta.
+ */
+export function trasRespuesta(j: RespuestaIdem, mandada: ClaveIdem, firma: string): TrasRespuesta {
+  const cerro = !!j && (j.ok === true || j.estado === 'a-medias' || (typeof j.created === 'number' && j.created > 0));
+  if (!j || !cerro) return { abierta: mandada, previa: mandada, deAntes: false };
+  // 'devolver' y 'a-medias' contestan desde la FILA, o sea por lo que se mandó antes; un ok
+  // sin `repetida` (o un parcial) es lo que se acaba de publicar con lo que llegó ahora.
+  const deAntes = mandada.firma !== firma && (j.repetida === true || j.estado === 'a-medias');
+  return { abierta: null, previa: { clave: mandada.clave, firma: deAntes ? mandada.firma : firma }, deAntes };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -160,7 +227,10 @@ const REVERTIDO = /\(revertido\)\s*$/;
 export function decidirReintentoCampana(fila: FilaPublicacion, ahoraMs: number): Decision {
   const creados = fila.meta_ad_ids.length;
   switch (fila.status) {
-    case 'publicada': return { tipo: 'devolver' };
+    // ⚠️ 'publicada' SIN campaña no se devuelve (revisión de la #59): el update que anota la
+    // campaña traga su error, y la respuesta repetida decía `campaign_id: null` — el cliente
+    // pintaba el éxito con un id vacío y le asignaba el producto a la campaña «null».
+    case 'publicada': return fila.meta_campaign_id ? { tipo: 'devolver' } : { tipo: 'a-medias', creados };
     case 'creando': return enCurso(fila, ahoraMs) ? { tipo: 'esperar' } : { tipo: 'a-medias', creados };
     case 'error':
       if (!fila.meta_campaign_id || REVERTIDO.test(fila.error ?? '')) return { tipo: 'reintentar' };

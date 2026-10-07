@@ -1283,12 +1283,23 @@ export async function updateAdCopy(adId: string, edited: { primary_text?: string
  * Borra una entidad (campaña/conjunto/anuncio/creativo) en Meta. Best-effort, para
  * el rollback de un árbol a medio crear. Borrar la campaña cascadea a sus conjuntos
  * y anuncios; los creativos son a nivel cuenta y se borran aparte.
+ *
+ * Devuelve si Meta CONFIRMÓ el borrado (`{ success: true }`). ⚠️ Hasta la revisión de la
+ * #59 no se leía la respuesta: un DELETE que Meta rechazaba (con su error adentro, o con
+ * un 200 sin `success`) se contaba como hecho, y la fila del rollback decía «(revertido)»
+ * con la campaña todavía en Meta — que es lo que un reintento lee para crear otra.
  */
-export async function deleteEntity(id: string): Promise<void> {
+export async function deleteEntity(id: string): Promise<boolean> {
   // fetch crudo, y es el que BORRA: resuelve las credenciales DEL WORKSPACE.
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = `${GRAPH_BASE}/${apiVersion}/${id}?access_token=${encodeURIComponent(accessToken)}`;
-  await fetch(url, { method: 'DELETE', cache: 'no-store' });
+  try {
+    const r = await fetch(url, { method: 'DELETE', cache: 'no-store' });
+    const j = (await r.json().catch(() => null)) as { success?: unknown } | null;
+    return r.ok && j?.success === true;
+  } catch {
+    return false;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1379,11 +1390,19 @@ export async function addAdsetToCampaign(
   avance?: (p: { adset_id: string; ad_ids: string[]; creative_ids: string[] }) => Promise<void>,
 ): Promise<{ adset_id: string; ad_ids: string[]; creative_ids: string[] }> {
   const specLike = { name: '', objective, special_ad_categories: [], budget_level: budgetLevel, adsets: [adset] } as CampaignSpec;
+  // ⚠️ Las miniaturas, ANTES de crear el conjunto (revisión de la #59). Esta ruta no tiene
+  // rollback de lo que ya tiene anuncios: con la miniatura exigida recién en
+  // createAdCreative, «Meta todavía no generó la miniatura… vuelve a intentar» llegaba con
+  // el conjunto ya creado, la fila quedaba «a medias» y el reintento que el texto pedía
+  // contestaba «a medias» para siempre. Pedirla acá es el mismo fracaso sin crear nada; y
+  // createAdCreative la vuelve a pedir sin costo (ya trae la URL http, no consulta).
+  const ads: AdSetSpec['ads'] = [];
+  for (const ad of adset.ads) ads.push(ad.creative?.source === 'existing' ? ad : { ...ad, creative: await conMiniaturaParaPublicar(ad.creative) });
   const adsetId = await createAdSet(campaignId, specLike, adset);
   const ad_ids: string[] = [];
   const creative_ids: string[] = [];
   await avance?.({ adset_id: adsetId, ad_ids, creative_ids });
-  for (const ad of adset.ads) {
+  for (const ad of ads) {
     const creativeId = await createAdCreative(ad.creative, ad.name);
     creative_ids.push(creativeId);
     const adId = await createAd(adsetId, ad, creativeId);

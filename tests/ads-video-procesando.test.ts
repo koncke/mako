@@ -77,9 +77,83 @@ test('los publicar van con tope y sin r.json() pelado, y llevan la clave', () =>
     // 504 tiraba «Unexpected token» y el botón quedaba listo para crear OTRA campaña.
     assert.doesNotMatch(src, /fetch\('\/api\/ads-manager\/(campaign-create|ad-add|adset-add)'/, `${ruta}: publica sin tope`);
     assert.match(src, /postConTope\('\/api\/ads-manager\/(campaign-create|ad-add|adset-add)'/, `${ruta}: publica con postConTope`);
-    assert.match(src, /idem_key: k\.clave/, `${ruta}: manda la clave de idempotencia`);
+    assert.match(src, /idem_key: mandada\.clave/, `${ruta}: manda la clave de idempotencia`);
   }
   assert.match(SUBIDA, /signal: AbortSignal\.timeout\(TOPE_POST_MS\)/);
+});
+
+// La revisión de la #59: con la clave sacada de la firma sola, una edición después de una
+// respuesta perdida acuñaba otra y el server publicaba dos veces; y en los dos modales chicos
+// la clave vivía en un ref, así que cerrar y reabrir la perdía. Cada POST que publica arma su
+// clave con la ABIERTA (claveAMandar(claveAbierta(destino), …)) y la anota ANTES de tirar el
+// «sin respuesta»: si se anotara después, el throw se la saltearía.
+test('la clave que quedó sin respuesta manda en los tres modales, y se anota antes del SIN_RESPUESTA', () => {
+  for (const ruta of MODALES) {
+    const src = codigo(ruta);
+    assert.doesNotMatch(src, /claveParaPayload\(/, `${ruta}: la clave sale de claveAMandar, no de la firma sola`);
+    const posts = [...src.matchAll(/postConTope\('\/api\/ads-manager\/(campaign-create|ad-add|adset-add)'/g)];
+    assert.ok(posts.length > 0, `${ruta}: no encontré el POST que publica`);
+    for (const m of posts) {
+      const i = m.index ?? -1;
+      const iClave = src.lastIndexOf('claveAMandar(', i);
+      assert.ok(iClave >= 0, `${ruta}: la clave del POST no sale de claveAMandar`);
+      assert.match(src.slice(iClave, i), /^claveAMandar\(claveAbierta\(destino\), /, `${ruta}: claveAMandar sin la clave abierta`);
+      const iSin = src.indexOf('throw new Error(SIN_RESPUESTA)', i);
+      assert.ok(iSin > i, `${ruta}: sin el SIN_RESPUESTA después del POST`);
+      const despues = src.slice(i, iSin);
+      assert.match(despues, /const t = trasRespuesta\(j, mandada, firma\);/, `${ruta}: la respuesta no pasa por trasRespuesta`);
+      assert.match(despues, /anotarClaveAbierta\(destino, t\.abierta\)/, `${ruta}: la clave abierta se anota antes del throw`);
+      // Una respuesta que habla del payload de ANTES no se pinta como el éxito de éste.
+      const iOk = src.indexOf('if (!j.ok)', iSin);
+      assert.ok(iOk > iSin, `${ruta}: sin el if (!j.ok) del POST`);
+      assert.match(src.slice(iSin, iOk), /if \(t\.deAntes\)/, `${ruta}: «deAntes» se mira antes que el resultado`);
+    }
+  }
+  //   ROTO A PROPÓSITO (07/10/2026), de a una, restaurando de memoria:
+  //   · `claveAMandar(null, …)` en AgregarConjuntoModal → pass 9 / fail 1 (éste);
+  //   · sin anotarClaveAbierta en el lote de NuevaCampanaModal → pass 9 / fail 1 (éste).
+});
+
+test('esperarVideoListo: «no pude leer» no es «Meta sigue procesando»', async () => {
+  const { esperarVideoListo, motivoFinEspera } = await import('../app/ads-manager/creativeUpload');
+  const original = globalThis.fetch;
+  // Cada respuesta se usa una vez y la ÚLTIMA se repite hasta el tope.
+  const con = async (respuestas: unknown[]) => {
+    let i = 0;
+    globalThis.fetch = (async () => {
+      const r = respuestas[Math.min(i++, respuestas.length - 1)];
+      if (r instanceof Error) throw r;
+      return { json: async () => r } as unknown as Response;
+    }) as typeof fetch;
+    try { return await esperarVideoListo('123', null, { cadaMs: 1, topeMs: 40 }); }
+    finally { globalThis.fetch = original; }
+  };
+  const processing = { ok: true, estado: 'processing' };
+  assert.equal(await con([processing]), 'tope', 'Meta dijo processing hasta el final');
+  assert.equal(await con([{ ok: false, error: 'no autenticado' }]), 'sin_lectura', 'un 401 del guard no es un veredicto');
+  assert.equal(await con([{ ok: true, estado: null }]), 'sin_lectura', 'Meta no se pudo leer');
+  assert.equal(await con([new Error('red')]), 'sin_lectura');
+  assert.equal(await con([processing, { ok: false }]), 'sin_lectura', 'manda la ÚLTIMA lectura');
+  assert.equal(await con([{ ok: false }, processing]), 'tope');
+  assert.equal(await con([processing, { ok: true, estado: 'ready' }]), 'ready');
+  assert.doesNotMatch(motivoFinEspera('sin_lectura', 'x.mp4') ?? '', /Súbelo de nuevo/, 'no se pide subir de nuevo lo que no se pudo leer');
+  //   ROTO A PROPÓSITO (07/10/2026): con `return 'tope'` al final (lo de antes), pass 9 /
+  //   fail 1 — éste.
+});
+
+test('en los tres modales, «no pude leer» deja la tarjeta y sigue preguntando', () => {
+  const nueva = codigo('app/ads-manager/NuevaCampanaModal.tsx');
+  const seguir = nueva.slice(nueva.indexOf('function seguirProcesando('), nueva.indexOf('function agregarGanador('));
+  const iSin = seguir.indexOf("if (fin === 'sin_lectura') { setErr(sinLectura); seguirProcesando(id, videoId, path, nombre, CADA_MS_SIN_LECTURA); return; }");
+  const iFuera = seguir.indexOf('setTray((t) => t.filter((x) => x.id !== id));');
+  assert.ok(iSin > 0 && iFuera > iSin, 'NuevaCampanaModal: el «sin lectura» vuelve antes de sacar la tarjeta');
+  for (const ruta of ['app/ads-manager/AgregarConjuntoModal.tsx', 'app/ads-manager/AgregarAnuncioModal.tsx']) {
+    const src = codigo(ruta);
+    const iLoop = src.indexOf("while (fin === 'sin_lectura' && !ctl.signal.aborted) {");
+    const iFin = src.indexOf('setErr(motivoFinEspera(fin, file.name)); setTray(null);');
+    assert.ok(iLoop > 0 && iFin > iLoop, `${ruta}: el «sin lectura» se reintenta antes de sacar la tarjeta`);
+    assert.match(src.slice(iLoop, iFin), /esperarVideoListo\(r\.video_id, r\.path, \{ signal: ctl\.signal, cadaMs: CADA_MS_SIN_LECTURA \}\)/);
+  }
 });
 
 test('withVideoThumb NO tira (la previa se dibuja igual); el creativo de verdad SÍ exige la miniatura', () => {
@@ -99,31 +173,36 @@ test('withVideoThumb NO tira (la previa se dibuja igual); el creativo de verdad 
 });
 
 test('campaign-create, ad-add y adset-add preguntan por los videos ANTES de crear nada', () => {
-  const rutas: Array<[string, string[]]> = [
-    ['app/api/ads-manager/campaign-create/route.ts', ['createCampaign(spec)']],
-    ['app/api/ads-manager/ad-add/route.ts', ['addAdToAdset(adsetId, creative, name)', 'addAdToAdset(adsetId, ads[i].creative']],
-    ['app/api/ads-manager/adset-add/route.ts', ['addAdsetToCampaign(campaignId']],
+  // [ruta, dónde empieza SU modo, qué crea]. ⚠️ El tramo arranca en el modo de CADA
+  // creador, no en el POST (revisión de la #59): con el recorte desde el POST, el del lote
+  // de ad-add incluía al modo simple, que está arriba, y sin el chequeo del lote el
+  // `lastIndexOf` encontraba el del simple —antes del `abrirRegistro(` del lote— y daba
+  // verde. Medido sobre una copia de HEAD (código y tests): borrar el chequeo del lote daba
+  // pass 11 / fail 0 con este archivo y el del workspace.
+  const casos: Array<[string, string, string]> = [
+    ['app/api/ads-manager/campaign-create/route.ts', 'export async function POST(', 'createCampaign(spec)'],
+    ['app/api/ads-manager/ad-add/route.ts', 'if (!Array.isArray(body.ads)) {', 'addAdToAdset(adsetId, creative, name)'],
+    ['app/api/ads-manager/ad-add/route.ts', 'const ads = body.ads;', 'addAdToAdset(adsetId, ads[i].creative'],
+    ['app/api/ads-manager/adset-add/route.ts', 'export async function POST(', 'addAdsetToCampaign(campaignId'],
   ];
-  for (const [ruta, crean] of rutas) {
+  for (const [ruta, desde, crea] of casos) {
     const src = codigo(ruta);
-    // Sólo adentro del POST: un helper definido arriba haría pasar el orden de gratis.
-    const post = src.indexOf('export async function POST(');
-    for (const crea of crean) {
-      const iCrea = src.indexOf(crea);
-      assert.ok(iCrea > post && post > 0, `${ruta}: no encontré «${crea}» en el POST`);
-      const antes = src.slice(post, iCrea);
-      const iVideos = Math.max(antes.lastIndexOf('videosSinProcesar('), antes.lastIndexOf('await sinProcesar('));
-      const iRegistro = antes.lastIndexOf('abrirRegistro(');
-      assert.ok(iVideos >= 0, `${ruta}: «${crea}» sin preguntar antes por los videos`);
-      // Antes de abrir el registro: un 409 de videos no puede dejar una fila 'creando'
-      // que haga esperar 6 minutos al reintento.
-      assert.ok(iVideos < iRegistro, `${ruta}: los videos se preguntan antes de abrir el registro`);
-    }
+    const ini = src.indexOf(desde);
+    const iCrea = src.indexOf(crea, ini);
+    assert.ok(ini > 0 && iCrea > ini, `${ruta}: no encontré «${crea}» después de «${desde}»`);
+    const tramo = src.slice(ini, iCrea);
+    const iVideos = Math.max(tramo.lastIndexOf('videosSinProcesar('), tramo.lastIndexOf('await sinProcesar('));
+    const iRegistro = tramo.lastIndexOf('abrirRegistro(');
+    assert.ok(iVideos >= 0, `${ruta}: «${crea}» sin preguntar antes por los videos`);
+    assert.ok(iRegistro >= 0, `${ruta}: «${crea}» sin abrir su registro`);
+    // Antes de abrir el registro: un 409 de videos no puede dejar una fila 'creando'
+    // que haga esperar 6 minutos al reintento.
+    assert.ok(iVideos < iRegistro, `${ruta}: los videos se preguntan antes de abrir el registro`);
     assert.match(src, /\{ status: 409 \}/);
   }
-  //   ROTO A PROPÓSITO (07/10/2026): sacando el chequeo de videos del modo simple de
-  //   ad-add (`const motivo = null`), pass 6 / fail 1 — éste. Con el recorte desde el
-  //   principio del archivo pasaba de gratis: el helper `sinProcesar` está arriba del POST.
+  //   ROTO A PROPÓSITO (07/10/2026): sacando el chequeo del modo simple de ad-add
+  //   (`const motivo = null`), pass 9 / fail 1 — éste; y sacando el del LOTE —el que
+  //   antes pasaba de gratis—, pass 13 / fail 1 con este archivo y el del workspace — éste.
 });
 
 test('creative-upload: error es 422, la espera es corta, y el staging se borra sólo con veredicto', () => {
@@ -136,7 +215,9 @@ test('creative-upload: error es 422, la espera es corta, y el staging se borra s
   // GET: borra sólo con 'ready' o 'error', y sólo un path del staging.
   const get = src.slice(src.indexOf('export async function GET('));
   assert.match(get, /if \(\(estado === 'ready' \|\| estado === 'error'\) && pathDeStaging\(path\)\)/);
-  assert.match(src, /p\.startsWith\('nueva\/'\) && !p\.includes\('\.\.'\)/);
+  // El path que se acepta borrar vive en lib/ads-staging.ts (lo comparte con el barrido).
+  assert.match(src, /const pathDeStaging = esPathDeStaging;/);
+  assert.match(codigo('lib/ads-staging.ts'), /p\.startsWith\(`\$\{STAGING_CARPETA\}\/`\) && !p\.includes\('\.\.'\)/);
   //   ROTO A PROPÓSITO (07/10/2026): con `if (pathDeStaging(path))` (borrar sin mirar el
   //   estado: Meta todavía lo estaba bajando), pass 6 / fail 1 — éste.
 });

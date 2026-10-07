@@ -212,7 +212,9 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   const [editCopyAd, setEditCopyAd] = useState<{ id: string; name: string } | null>(null);
   const [problemaSel, setProblemaSel] = useState<{ titulo: string; ads: ProblemAd[] } | null>(null);
   const [editPublicoAdset, setEditPublicoAdset] = useState<{ id: string; name: string } | null>(null);
-  const [addAnuncioAdset, setAddAnuncioAdset] = useState<{ id: string; name: string } | null>(null);
+  // La campaña y su objetivo viajan con el anuncio: sin ellos el registro de la publicación
+  // nacía con el default de la tabla (Leads) y sin campaña (revisión de la #59).
+  const [addAnuncioAdset, setAddAnuncioAdset] = useState<{ id: string; name: string; campaignId: string | null; objective: string | null } | null>(null);
   const [addConjuntoCamp, setAddConjuntoCamp] = useState<{ id: string; name: string } | null>(null);
 
   const cargar = (silent = false) => {
@@ -812,7 +814,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
               onProducto={level === 'ad' || !asig ? undefined : bulkProducto}
               onRenombrar={() => setRenameOpen(true)}
               onAgregarConjunto={level === 'campaign' && unaSola ? () => setAddConjuntoCamp({ id: unaSola.node.id, name: nombreConjuntoNuevo(unaSola.node) }) : undefined}
-              onAgregarAnuncio={level === 'adset' && unaSola ? () => setAddAnuncioAdset({ id: unaSola.node.id, name: nombreAnuncioNuevo(unaSola.node) }) : undefined}
+              onAgregarAnuncio={level === 'adset' && unaSola ? () => setAddAnuncioAdset({ id: unaSola.node.id, name: nombreAnuncioNuevo(unaSola.node), campaignId: unaSola.node.parentId ?? null, objective: health.campaigns.find((c) => c.id === unaSola.node.parentId)?.objective ?? null }) : undefined}
               onEliminar={level === 'campaign' ? bulkDelete : undefined}
             />
           )}
@@ -893,7 +895,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
       {problemaSel && <ProblemaModal ads={problemaSel.ads} accountId={health?.account.accountId ?? null} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
       {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
-      {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
+      {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} campaignId={addAnuncioAdset.campaignId} campaignObjective={addAnuncioAdset.objective} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
       {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} monedaRespaldo={health?.account.currency ?? null} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
       {elegirCampana && (
         <Modal titulo="¿A qué campaña?" onCerrar={() => setElegirCampana(false)} ancho={480}>

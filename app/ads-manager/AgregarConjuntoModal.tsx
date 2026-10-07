@@ -12,9 +12,10 @@ import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import {
   subirCreativo, makeThumb, esperarVideoListo, motivoFinEspera, postConTope, esperandoAMeta,
-  SIN_RESPUESTA, AVISO_PROCESANDO_NO_CIERRES, type SubidoCreativo,
+  SIN_RESPUESTA, AVISO_PROCESANDO_NO_CIERRES, CADA_MS_SIN_LECTURA, ANTERIOR_PUBLICADA, ANTERIOR_A_MEDIAS,
+  claveAbierta, anotarClaveAbierta, type SubidoCreativo,
 } from './creativeUpload';
-import { claveParaPayload, type ClaveIdem } from '@/lib/meta-idempotencia';
+import { claveAMandar, trasRespuesta, type ClaveIdem } from '@/lib/meta-idempotencia';
 import { CTA_OPCIONES, type Creative, type AdSetSpec, type AudienceRef } from '@/lib/campaign-types';
 import type { SenalRecon } from '@/lib/queries';
 import { ganadoresParaReusar } from '@/lib/ganadores-reuso';
@@ -104,9 +105,14 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, mo
       // `processing` es lo que dijo Meta (tarea #59), y la tarjeta queda en 100 mientras procesa.
       setTray((t) => (t ? { ...t, media_type: r.media_type, image_hash: r.image_hash, video_id: r.video_id, thumbnail_url: t.thumbnail_url ?? r.thumbnail_url ?? null, processing: r.processing, progress: r.processing ? 100 : undefined } : t));
       if (!r.processing || !r.video_id) return;
-      const fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal });
+      let fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal });
+      // «No pude leer» no es un veredicto de Meta: la tarjeta se queda y se sigue preguntando.
+      while (fin === 'sin_lectura' && !ctl.signal.aborted) {
+        setErr(motivoFinEspera(fin, file.name));
+        fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal, cadaMs: CADA_MS_SIN_LECTURA });
+      }
       if (fin === 'cancelado' || ctl.signal.aborted) return;
-      if (fin === 'ready') { setTray((t) => (t ? { ...t, processing: false, progress: undefined } : t)); return; }
+      if (fin === 'ready') { setErr(null); setTray((t) => (t ? { ...t, processing: false, progress: undefined } : t)); return; }
       setErr(motivoFinEspera(fin, file.name)); setTray(null);
     } catch (e) {
       if (ctl.signal.aborted) return;
@@ -144,12 +150,18 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, mo
       conversion: b.needsConv ? b.conversion : undefined,
     };
     try {
-      const k = claveParaPayload(idemRef.current, { campaign_id: campaignId, adset });
-      idemRef.current = k;
-      // Con signal y sin `r.json()` pelado: adset-add no hace rollback, así que un corte y
-      // un segundo clic dejaban dos conjuntos en la campaña.
-      const j = await postConTope('/api/ads-manager/adset-add', { campaign_id: campaignId, adset, idem_key: k.clave });
+      // La clave que quedó sin respuesta manda aunque el conjunto haya cambiado, y vive FUERA
+      // del modal: con un ref, cerrar y reabrir la perdía y el mismo conjunto salía dos veces.
+      const destino = `adset-add:${campaignId}`;
+      const { mandada, firma } = claveAMandar(claveAbierta(destino), idemRef.current, { campaign_id: campaignId, adset });
+      // Con signal y sin `r.json()` pelado: un corte y un segundo clic dejaban dos conjuntos
+      // en la campaña.
+      const j = await postConTope('/api/ads-manager/adset-add', { campaign_id: campaignId, adset, idem_key: mandada.clave });
+      const t = trasRespuesta(j, mandada, firma);
+      anotarClaveAbierta(destino, t.abierta); idemRef.current = t.previa;
       if (!j) throw new Error(SIN_RESPUESTA);
+      // Lo que entró es el conjunto de ANTES: no se cierra como si fuera éste.
+      if (t.deAntes) throw new Error(j.ok ? ANTERIOR_PUBLICADA : ANTERIOR_A_MEDIAS);
       if (!j.ok) throw new Error(j.error || 'No se pudo agregar el conjunto');
       onSaved();
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }

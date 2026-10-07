@@ -15,6 +15,9 @@
 // lugares donde arreglar lo mismo; quedó una.
 // =============================================================================
 
+import { claveIdemGuardada, type ClaveIdem } from '@/lib/meta-idempotencia';
+import { wsDeBusqueda } from '@/lib/ws-tab';
+
 export type SubidoCreativo = {
   media_type: 'image' | 'video';
   image_hash: string | null;
@@ -140,7 +143,12 @@ export async function subirCreativo(file: File, onProgress: (pct: number) => voi
   };
 }
 
-export type FinEspera = 'ready' | 'error' | 'tope' | 'cancelado';
+/**
+ * 'tope' = Meta SIGUIÓ diciendo 'processing' hasta el final. 'sin_lectura' = no se le pudo
+ * preguntar (la sesión venció, la credencial de Meta se revocó, se cayó la red): eso no es
+ * un veredicto sobre el video, así que el ítem no se descarta.
+ */
+export type FinEspera = 'ready' | 'error' | 'tope' | 'sin_lectura' | 'cancelado';
 
 /** Cada cuánto se pregunta, y hasta cuándo. Meta suele tardar segundos; un video pesado,
  *  minutos. Pasado el tope no se da por bueno: se pide subirlo de nuevo. */
@@ -160,11 +168,19 @@ function dormir(ms: number, signal?: AbortSignal): Promise<void> {
  * 'ready' o 'error', o hasta el tope. 'cancelado' = el modal se cerró o el ítem se quitó.
  * Una respuesta que no se pudo leer NO es un veredicto: se vuelve a preguntar.
  * El server borra el staging cuando Meta contesta 'ready' o 'error'.
+ *
+ * ⚠️ Al tope, 'tope' SÓLO si la última lectura fue Meta diciendo 'processing'. Hasta la
+ * revisión de la #59 «no pude leer» —un 401 del guard, un ok:false, `estado: null`, la red—
+ * terminaba igual, y los tres modales descartaban el ítem con «Meta no terminó de procesar
+ * … Súbelo de nuevo»: un fallo nuestro de lectura contado como veredicto de Meta, y otro
+ * video subido a Meta sobre uno que quizás ya estaba listo.
  */
 export async function esperarVideoListo(videoId: string, path: string | null, opts: { signal?: AbortSignal; cadaMs?: number; topeMs?: number } = {}): Promise<FinEspera> {
   const cada = opts.cadaMs ?? CADA_MS;
   const hasta = Date.now() + (opts.topeMs ?? TOPE_ESPERA_MS);
   const qs = `video_id=${encodeURIComponent(videoId)}${path ? `&path=${encodeURIComponent(path)}` : ''}`;
+  // Lo que dijo la ÚLTIMA vuelta: Meta contestó 'processing', o no se pudo leer.
+  let ultima: 'processing' | 'sin_lectura' = 'sin_lectura';
   while (Date.now() < hasta) {
     await dormir(cada, opts.signal);
     if (opts.signal?.aborted) return 'cancelado';
@@ -173,13 +189,18 @@ export async function esperarVideoListo(videoId: string, path: string | null, op
       const j = await r.json().catch(() => null);
       if (j?.ok && j.estado === 'ready') return 'ready';
       if (j?.ok && j.estado === 'error') return 'error';
+      ultima = j?.ok && j.estado === 'processing' ? 'processing' : 'sin_lectura';
     } catch {
       if (opts.signal?.aborted) return 'cancelado';
-      /* un bache de red: se vuelve a preguntar */
+      ultima = 'sin_lectura'; /* un bache de red: se vuelve a preguntar */
     }
   }
-  return 'tope';
+  return ultima === 'processing' ? 'tope' : 'sin_lectura';
 }
+
+/** Después de un 'sin_lectura' se sigue preguntando, más espaciado: el ítem no se descarta
+ *  por algo que no es un veredicto, y cerrar el modal o quitar el ítem lo corta igual. */
+export const CADA_MS_SIN_LECTURA = 30_000;
 
 /**
  * POST de una publicación (campaign-create, ad-add, adset-add) con el tope de la ruta.
@@ -206,8 +227,55 @@ export type RespuestaPublicar = {
 };
 
 /** Sin respuesta, con la clave de idempotencia puesta, el server sabe qué pasó: el mismo
- *  clic contesta lo que ya se creó en vez de crearlo de nuevo. */
+ *  clic contesta lo que ya se creó en vez de crearlo de nuevo. «Es seguro» aunque se edite
+ *  algo en el medio: la clave sin respuesta queda ABIERTA y manda (claveAbierta, abajo). */
 export const SIN_RESPUESTA = 'El servidor no respondió. Reintentar es seguro: no se duplica.';
+
+/** La respuesta a una clave abierta habló de lo que se mandó ANTES (trasRespuesta →
+ *  `deAntes`): no es el éxito de lo que está en pantalla. El próximo clic publica esto. */
+export const ANTERIOR_PUBLICADA = 'La publicación anterior sí entró. Revísala en la tabla antes de publicar otra.';
+export const ANTERIOR_A_MEDIAS = 'La publicación anterior quedó a medias en Meta. Revísala en la tabla antes de publicar otra.';
+
+// ── la clave ABIERTA de cada destino (lib/meta-idempotencia.ts → claveAMandar) ──
+//
+// Vive FUERA del modal a propósito: en Agregar anuncio / Agregar conjunto la clave vivía en
+// un ref, y cerrar y reabrir el modal después de un corte la perdía — el mismo anuncio salía
+// con otra clave y se creaba dos veces. En localStorage sobrevive a cerrar y a recargar; si
+// el navegador no deja escribir (ventana privada), queda en memoria mientras la pestaña viva.
+// El destino lleva el `?ws=` de la pestaña: el super admin publica en varios clientes desde
+// el mismo navegador, y la clave del server es por workspace.
+const ABIERTAS_KEY = 'mako.ads.idem-abiertas.v1';
+const abiertasEnMemoria = new Map<string, ClaveIdem>();
+
+function claveDeDestino(destino: string): string {
+  const ws = typeof window === 'undefined' ? null : wsDeBusqueda(window.location.search);
+  return `${ws ?? '-'}:${destino}`;
+}
+
+function leerAbiertas(): Record<string, unknown> {
+  try {
+    const raw = window.localStorage.getItem(ABIERTAS_KEY);
+    const o = raw ? JSON.parse(raw) : null;
+    return o && typeof o === 'object' ? (o as Record<string, unknown>) : {};
+  } catch { return {}; }
+}
+
+/** La clave que quedó abierta para este destino ('campaign-create', `ad-add:<adset>`…). */
+export function claveAbierta(destino: string): ClaveIdem | null {
+  const k = claveDeDestino(destino);
+  return claveIdemGuardada(leerAbiertas()[k]) ?? abiertasEnMemoria.get(k) ?? null;
+}
+
+/** Anota (o suelta, con null) la clave abierta de un destino. */
+export function anotarClaveAbierta(destino: string, clave: ClaveIdem | null): void {
+  const k = claveDeDestino(destino);
+  if (clave) abiertasEnMemoria.set(k, clave); else abiertasEnMemoria.delete(k);
+  try {
+    const todas = leerAbiertas();
+    if (clave) todas[k] = clave; else delete todas[k];
+    window.localStorage.setItem(ABIERTAS_KEY, JSON.stringify(todas));
+  } catch { /* sin almacenamiento: queda la de memoria */ }
+}
 
 /**
  * La línea que acompaña a una tarjeta en «Procesando». La regla de la casa para un
@@ -227,5 +295,7 @@ export const esperandoAMeta = (t: { processing?: boolean; media_type?: string; p
 export function motivoFinEspera(fin: FinEspera, nombre: string): string | null {
   if (fin === 'error') return `Meta no pudo procesar «${nombre}». Prueba con otro archivo.`;
   if (fin === 'tope') return `Meta no terminó de procesar «${nombre}». Súbelo de nuevo.`;
+  // No es un veredicto de Meta: el ítem se queda y se sigue preguntando.
+  if (fin === 'sin_lectura') return `No pude consultar a Meta por «${nombre}». Sigo intentando.`;
   return null;
 }

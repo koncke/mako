@@ -29,6 +29,7 @@ import type { UploadResult } from '@/lib/campaign-types';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { guardAdsWs } from '@/lib/ads-guard';
 import { transcribeMediaBuffer, structureTranscript } from '@/lib/transcribe';
+import { esPathDeStaging, STAGING_CARPETA, stagingVencido } from '@/lib/ads-staging';
 
 export const dynamic = 'force-dynamic';
 // ⚠️ after() NO saca nada de estos 300 s: corre «por la duración máxima configurada de la
@@ -53,7 +54,27 @@ const MAX_TRANSCRIBIR = 25 * 1024 * 1024;
 const ESPERA_MS = 25_000;
 
 /** Un path de staging que esta ruta acepta borrar: los que firma /creative-signurl. */
-const pathDeStaging = (p: string | null): p is string => !!p && p.startsWith('nueva/') && !p.includes('..') && !p.includes('\\') && p.length < 300;
+const pathDeStaging = esPathDeStaging;
+
+/**
+ * Borra los archivos del staging que ya sobran (lib/ads-staging.ts → stagingVencido). Corre
+ * en after() de cada subida: así la limpieza no depende de que una pestaña siga abierta.
+ *
+ * ⚠️ Revisión de la #59: con la espera del POST en 25 s, un video casi nunca llega a 'ready'
+ * acá, y su staging lo borraba SÓLO el GET del navegador. Cerrar el modal o quitar la
+ * tarjeta cortaba ese sondeo y el archivo quedaba para siempre. Con la carpeta ordenada por
+ * nombre, los primeros son los más viejos (empiezan con la hora en ms): se barren de a 100,
+ * y lo que quede lo barre la próxima subida. Best-effort: nunca tira.
+ */
+async function barrerStagingViejo(supabase: SupabaseClient): Promise<void> {
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).list(STAGING_CARPETA, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
+    if (error || !Array.isArray(data)) return;
+    const ahora = Date.now();
+    const viejos = data.map((f) => f.name).filter((n) => stagingVencido(n, ahora)).map((n) => `${STAGING_CARPETA}/${n}`);
+    if (viejos.length) await supabase.storage.from(BUCKET).remove(viejos);
+  } catch { /* best-effort: lo barre la próxima subida */ }
+}
 
 /**
  * El tamaño del archivo en el staging, ANTES de bajarlo. La transcripción hacía
@@ -82,8 +103,8 @@ async function bajarStaging(supabase: SupabaseClient, path: string): Promise<Arr
 
 /**
  * ⚠️ El staging se borra SÓLO cuando Meta dijo 'ready' o 'error': Meta lo baja del
- * file_url firmado (1 h), y borrarlo antes deja el video en 'error'. Y nada más limpia
- * este bucket (lib/reset-workspace.ts sólo lo nombra), así que sin esto se acumula.
+ * file_url firmado (1 h), y borrarlo antes deja el video en 'error'. Lo que este borrado
+ * no alcanza —el modal se cerró antes del veredicto— lo barre barrerStagingViejo.
  */
 async function borrarStaging(supabase: SupabaseClient, path: string): Promise<void> {
   try { await supabase.storage.from(BUCKET).remove([path]); } catch { /* best-effort */ }
@@ -154,6 +175,8 @@ export async function POST(req: NextRequest) {
   let videoId: string | null = null;
   try {
     supabase = getSupabaseServer();
+    const limpiar = supabase;
+    after(() => barrerStagingViejo(limpiar));
     if (isImg) {
       const { data, error } = await supabase.storage.from(BUCKET).download(path);
       if (error || !data) throw new Error(error?.message ?? 'no se pudo leer el archivo subido');

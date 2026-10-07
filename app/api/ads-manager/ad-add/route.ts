@@ -2,7 +2,8 @@
 // /api/ads-manager/ad-add — agregar anuncios a un conjunto existente (PAUSA)
 // =============================================================================
 // GET  ?adset_id=<id>              → { name, optimization_goal, needsForm }
-// POST { adset_id, creative, name, idem_key? } → crea el creativo + el anuncio (PAUSED)
+// POST { adset_id, creative, name, campaign_id?, campaign_objective?, idem_key? }
+//   → crea el creativo + el anuncio (PAUSED)
 // POST { adset_id, ads: [{name, creative}], campaign_id?, campaign_name?,
 //        adset_name?, prompt?, uso?, idem_key? }
 //   → lote del wizard "Subir creativos a una campaña": crea los anuncios en orden
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
 type BatchAd = { name?: string; creative?: Creative };
 type Body = {
   adset_id?: string;
-  // modo simple (AgregarAnuncioModal): un anuncio
+  // modo simple (AgregarAnuncioModal): un anuncio (campaign_id y campaign_objective, compartidos)
   creative?: Creative; name?: string;
   // modo lote (wizard "Subir creativos a una campaña")
   ads?: BatchAd[]; campaign_id?: string | null; campaign_name?: string | null; campaign_objective?: string | null; adset_name?: string | null;
@@ -100,6 +101,18 @@ function responderLote(d: Decision, fila: FilaPublicacion): Salida {
 const sinProcesar = async (creativos: Array<Creative | undefined>): Promise<string | null> =>
   motivoVideos(await videosSinProcesar(videosDeCreativos(creativos)).catch(() => null));
 
+/**
+ * El objetivo de la campaña destino, como lo manda el navegador (sale del árbol de Meta que
+ * la tabla ya tiene). ⚠️ Si no vino, la fila lo DICE: la columna tiene default
+ * 'OUTCOME_LEADS' (mig 0157), y dejarlo caer ahí afirmaba «Leads» sobre una campaña de
+ * Tráfico — `listar_publicaciones_mako_meta` se lo leía así al dueño (revisión de la #59).
+ * Sin `export`: un route.ts sólo exporta sus métodos y su config.
+ */
+const OBJETIVO_DESCONOCIDO = 'DESCONOCIDO';
+function objetivoDelBody(x: unknown): string {
+  return typeof x === 'string' && /^[A-Z_]{3,40}$/.test(x) ? x : OBJETIVO_DESCONOCIDO;
+}
+
 export async function POST(req: NextRequest) {
   const no = await guardAdsWs(); if (no) return no;
   let body: Body;
@@ -134,7 +147,7 @@ export async function POST(req: NextRequest) {
       db: supabase, ws: wsDraft, clave: idem.clave, decidir: decidirReintentoLote, responder: responderSimple,
       insertar: (db, conClave) => db.from('meta_campaign_drafts').insert({
         workspace_id: wsDraft,
-        name: `${name} — +1 anuncio`, status: 'creando',
+        name: `${name} — +1 anuncio`, status: 'creando', objective: objetivoDelBody(body.campaign_objective),
         spec: { adsets: [{ ads: [{ name, creative }] }] },
         meta_campaign_id: campaignId, meta_adset_ids: [adsetId],
         ...(conClave ? { idem_key: idem.clave } : {}),
@@ -182,8 +195,9 @@ export async function POST(req: NextRequest) {
       workspace_id: wsDraft,
       name: nombreLote,
       status: 'creando',
-      // objective real de la campaña destino (si el cliente lo sabe); si no, el default de la tabla
-      ...(typeof body.campaign_objective === 'string' && body.campaign_objective ? { objective: body.campaign_objective.slice(0, 40) } : {}),
+      // El objetivo real de la campaña destino; si no vino, «DESCONOCIDO», nunca el default
+      // de la tabla (que afirmaba Leads).
+      objective: objetivoDelBody(body.campaign_objective),
       spec: specLote,
       prompt: body.prompt ?? null, uso: body.uso ?? null,
       meta_campaign_id: campaignId, meta_adset_ids: [adsetId],
@@ -209,12 +223,16 @@ export async function POST(req: NextRequest) {
       ad_ids.push(r.ad_id); creative_ids.push(r.creative_id);
       await persist({ meta_ad_ids: ad_ids, meta_creative_ids: creative_ids });
     }
-    await persist({ status: 'publicada', error: null });
+    // ⚠️ Los terminales reescriben TODOS los ids que hay en memoria (revisión de la #59): el
+    // persist de cada anuncio traga su error, y esta fila es lo único que lee un reintento.
+    // Con un intermedio perdido, la fila decía «creados 2» sobre 4 y el reintento recortaba
+    // 2 y volvía a crear el 3 y el 4.
+    await persist({ status: 'publicada', error: null, meta_ad_ids: ad_ids, meta_creative_ids: creative_ids });
     return Response.json({ ok: true, ad_ids, creative_ids });
   } catch (err) {
     const env = metaErrorEnvelope(err);
     const mensaje = await mensajeDe(env, ads.map((a) => a.creative as { source?: string } | undefined));
-    await persist({ status: 'error', error: `${mensaje} (creados ${ad_ids.length}/${ads.length})` });
+    await persist({ status: 'error', error: `${mensaje} (creados ${ad_ids.length}/${ads.length})`, meta_ad_ids: ad_ids, meta_creative_ids: creative_ids });
     console.error(`[ads-manager:ad-add POST lote] ${env.message} (creados ${ad_ids.length}/${ads.length})`);
     return Response.json(
       { ok: false, error: mensaje, code: env.code, error_subcode: env.error_subcode, created: ad_ids.length, ad_ids, creative_ids },

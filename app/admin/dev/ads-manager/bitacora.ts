@@ -139,4 +139,23 @@ export const BITACORA: Hito[] = [
       { sha: 'f6ed4c33', msg: 'Ads Manager: un video se usa cuando Meta lo procesó, y un reintento no publica dos veces (#59)', lineas: 2095, archivos: 22 },
     ],
   },
+  {
+    fecha: '7 oct', hora: '20:00', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La revisión de la #59: la firma sola duplicaba, y la fila decía menos de lo que había en Meta',
+    puntos: [
+      '**El «Reintentar es seguro» era falso apenas se tocaba algo.** Después de un 504 la revisión deja editar, y corregir una palabra cambiaba la firma: otra clave, y el server creaba una SEGUNDA campaña. Congelar la firma no era la cura —después de un parcial el cliente recorta y necesita otra clave—: lo que distingue los dos casos es si el server ya contestó. La clave sin respuesta queda ABIERTA y manda hasta que el server la cierre, y vive fuera del modal (en los dos chicos, cerrar y reabrir la perdía).',
+      'Una respuesta a la clave abierta puede hablar del payload de ANTES: no se pinta como el éxito de lo que está en pantalla ni se le recorta su `created` — un «a medias» de otro lote borraba anuncios que nunca se crearon.',
+      'La fila del registro decía menos de lo que había en Meta: los terminales no reescribían los ids en memoria (una campaña «publicada» sin campaña), el DELETE del rollback no se leía, y adset-add exigía la miniatura con el conjunto ya creado — «vuelve a intentar» sobre una clave que contestaba «a medias» para siempre. Ahora la miniatura va antes y un conjunto vacío se borra.',
+      '⚠️ **Dos guards en verde sobre lo que existían para cazar**, reproducido primero sobre HEAD: pass 11 / fail 0 con el chequeo de videos del lote borrado, y lo mismo sin el workspace del insert del lote. Uno recortaba desde el POST (y el modo simple está arriba), el otro leía sólo el primer insert.',
+      'Y tres más chicos: «no pude leer» descartaba la tarjeta como si Meta hubiera dicho algo, la fila nacía con el objetivo Leads por default, y el staging de un video dependía de que la pestaña siguiera abierta.',
+    ],
+    archivos: [
+      'lib/meta-idempotencia.ts — `claveAMandar` y `trasRespuesta`: la clave abierta y qué la cierra',
+      'app/ads-manager/creativeUpload.ts — dónde vive la clave abierta, y la espera que distingue «procesando» de «no pude leer»',
+      'app/api/ads-manager/adset-add/route.ts — la campaña antes del registro, lo creado en memoria, y el conjunto vacío que se borra',
+      'lib/ads-staging.ts — el nombre del staging y cuándo sobra; creative-upload lo barre en cada subida',
+      'tests/ads-publicar-registro.test.ts y tests/ads-staging.test.ts — nuevos; dieciocho roturas cazadas en total',
+    ],
+  },
 ];

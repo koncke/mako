@@ -14,8 +14,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  abrirRegistro, claveIdemDe, claveIdemGuardada, claveParaPayload, decidirReintentoCampana, decidirReintentoLote,
-  ESPERA_CREANDO_MS, faltaColumnaIdem, salidaEsperar, type Decision, type FilaPublicacion, type Salida,
+  abrirRegistro, claveAMandar, claveIdemDe, claveIdemGuardada, claveParaPayload, decidirReintentoCampana, decidirReintentoLote,
+  ESPERA_CREANDO_MS, faltaColumnaIdem, salidaEsperar, trasRespuesta, type Decision, type FilaPublicacion, type Salida,
 } from '../lib/meta-idempotencia';
 
 const AHORA = Date.parse('2026-10-07T20:00:00Z');
@@ -80,6 +80,80 @@ test('la clave: misma para el mismo payload, OTRA cuando el payload cambia', () 
   assert.notEqual(k2.clave, k1.clave, 'con la misma clave el server contestaría «creados 2» otra vez y se perderían anuncios');
   //   ROTO A PROPÓSITO (07/10/2026): devolviendo siempre `previa` si existe (sin comparar
   //   la firma), pass 12 / fail 1 — éste.
+});
+
+// ── la clave ABIERTA (revisión de la #59) ───────────────────────────────────
+// El caso de la revisión: «Publicar», la plataforma corta a los 300 s con la campaña ya
+// creada, la pantalla vuelve a «revisión» diciendo «Reintentar es seguro», la persona
+// corrige una palabra del título y vuelve a publicar. Con la firma sola salía otra clave y
+// el server creaba una SEGUNDA campaña.
+
+test('una respuesta perdida deja la clave ABIERTA, y el próximo clic la manda aunque se haya editado', () => {
+  let n = 0;
+  const nueva = () => `clave-${++n}-xxxxxxxx`;
+  const antes = { spec: { name: 'Campaña de prueba' } };
+  const editado = { spec: { name: 'Campaña de prueba corregida' } };
+  const p1 = claveAMandar(null, null, antes, nueva);
+  const t1 = trasRespuesta(null, p1.mandada, p1.firma); // el 504
+  assert.deepEqual(t1.abierta, p1.mandada);
+  const p2 = claveAMandar(t1.abierta, t1.previa, editado, nueva);
+  assert.equal(p2.mandada.clave, p1.mandada.clave, 'con la firma sola salía otra clave y el server creaba otra campaña');
+  // El server contesta desde la fila: la de antes sí entró. No es el éxito de lo editado.
+  const t2 = trasRespuesta({ ok: true, repetida: true }, p2.mandada, p2.firma);
+  assert.equal(t2.deAntes, true);
+  assert.equal(t2.abierta, null, 'el server ya contestó por esa clave');
+  // Avisado eso, lo editado es otra publicación (otra clave), y lo de antes, la misma.
+  assert.notEqual(claveAMandar(t2.abierta, t2.previa, editado, nueva).mandada.clave, p1.mandada.clave);
+  assert.equal(claveAMandar(null, t2.previa, antes, nueva).mandada.clave, p1.mandada.clave);
+  //   ROTO A PROPÓSITO (07/10/2026): con claveAMandar ignorando la abierta (siempre
+  //   claveParaPayload), pass 15 / fail 3 — éste (el clic editado salía con otra clave), el
+  //   de «publica lo NUEVO» y el del lote, que también mandan una abierta.
+});
+
+test('si antes no se creó nada, el server publica lo NUEVO con la clave abierta: eso sí es el éxito de esto', () => {
+  const p = claveAMandar({ clave: 'clave-abierta-0001', firma: 'firma-de-antes' }, null, { spec: { name: 'X' } });
+  assert.equal(p.mandada.clave, 'clave-abierta-0001');
+  // 'nueva' o una fila en 'error' reclamada: el server crea con lo que llega ahora (sin `repetida`).
+  const t = trasRespuesta({ ok: true }, p.mandada, p.firma);
+  assert.deepEqual([t.deAntes, t.abierta], [false, null]);
+});
+
+test('lote: un «a medias» sobre la clave abierta habla del lote de ANTES y no se recorta; con el mismo lote, sí', () => {
+  const abierta = { clave: 'clave-abierta-0002', firma: 'firma-del-lote-viejo' };
+  const otro = claveAMandar(abierta, null, { adset_id: '1', ads: [{ name: 'nuevo' }] });
+  assert.equal(trasRespuesta({ ok: false, estado: 'a-medias', created: 2 }, otro.mandada, otro.firma).deAntes, true,
+    'recortar 2 de ESTE lote borraba anuncios que nunca se crearon');
+  const mismo = claveAMandar(null, null, { adset_id: '1', ads: [{ name: 'a' }] });
+  assert.equal(trasRespuesta({ ok: false, estado: 'a-medias', created: 2 }, mismo.mandada, mismo.firma).deAntes, false);
+  // Un parcial FRESCO (sin estado: el server acaba de crear con este lote) es de éste, y cierra la clave.
+  const parcial = { ok: false, error: 'Meta rechazó', created: 2 };
+  const fresco = trasRespuesta(parcial, otro.mandada, otro.firma);
+  assert.deepEqual([fresco.deAntes, fresco.abierta], [false, null]);
+  //   ROTO A PROPÓSITO (07/10/2026): con `deAntes` sin comparar la firma (sólo repetida /
+  //   a-medias), pass 17 / fail 1 — éste: el «a medias» del mismo lote dejaba de recortarse.
+});
+
+test('la clave sigue abierta con esperar, con un chequeo previo y con cualquier error que no cierre', () => {
+  const p = claveAMandar(null, null, { spec: { name: 'X' } }, () => 'clave-fresca-0003');
+  for (const j of [
+    { ok: false, estado: 'esperar' },
+    { ok: false, estado: 'videos', error: 'Un video sigue procesándose' }, // 409 ANTES de abrir el registro
+    { ok: false, estado: 'sin-base' },                                      // 503: la base no contestó
+    { ok: false, error: 'no autenticado' },                                 // 401 del guard
+    { ok: false, error: 'Meta rechazó', created: 0 },                       // lote sin crear nada
+  ]) {
+    assert.deepEqual(trasRespuesta(j, p.mandada, p.firma).abierta, p.mandada, JSON.stringify(j));
+  }
+  //   ROTO A PROPÓSITO (07/10/2026): con `cerro = !!j` (cualquier respuesta cierra),
+  //   pass 17 / fail 1 — éste: un 409 de videos soltaba la clave de un pedido perdido.
+});
+
+test('campaña: una fila publicada SIN campaña no se devuelve: queda a medias', () => {
+  // El persist que anota la campaña traga su error; la respuesta repetida decía `campaign_id: null`.
+  assert.equal(decidirReintentoCampana(fila({ status: 'publicada', meta_campaign_id: null, meta_ad_ids: ['a'] }), AHORA).tipo, 'a-medias');
+  assert.equal(decidirReintentoCampana(fila({ status: 'publicada', meta_campaign_id: '9' }), AHORA).tipo, 'devolver');
+  //   ROTO A PROPÓSITO (07/10/2026): con `case 'publicada': return { tipo: 'devolver' }`,
+  //   pass 17 / fail 1 — éste.
 });
 
 test('la clave sobrevive al viaje por localStorage (los undefined se caen en las dos puntas)', () => {

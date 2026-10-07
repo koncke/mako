@@ -11,6 +11,7 @@ import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { ADS_CREATIVES_BUCKET as BUCKET } from '@/lib/meta-ads-create';
 import { guardAdsWs } from '@/lib/ads-guard';
+import { pathNuevoDeStaging } from '@/lib/ads-staging';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,8 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   const filename = safeName(String(body.filename ?? 'creativo'));
-  const path = `nueva/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${filename}`;
+  // El formato vive en lib/ads-staging.ts: el barrido de creative-upload lee la hora del nombre.
+  const path = pathNuevoDeStaging(filename);
 
   try {
     const supabase = getSupabaseServer();

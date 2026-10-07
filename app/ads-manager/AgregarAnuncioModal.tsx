@@ -13,9 +13,10 @@ import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import {
   subirCreativo, makeThumb, esperarVideoListo, motivoFinEspera, postConTope, esperandoAMeta,
-  SIN_RESPUESTA, AVISO_PROCESANDO_NO_CIERRES, type SubidoCreativo,
+  SIN_RESPUESTA, AVISO_PROCESANDO_NO_CIERRES, CADA_MS_SIN_LECTURA, ANTERIOR_PUBLICADA, ANTERIOR_A_MEDIAS,
+  claveAbierta, anotarClaveAbierta, type SubidoCreativo,
 } from './creativeUpload';
-import { claveParaPayload, type ClaveIdem } from '@/lib/meta-idempotencia';
+import { claveAMandar, trasRespuesta, type ClaveIdem } from '@/lib/meta-idempotencia';
 import { CTA_OPCIONES, type Creative } from '@/lib/campaign-types';
 import type { SenalRecon } from '@/lib/queries';
 import { ganadoresParaReusar } from '@/lib/ganadores-reuso';
@@ -30,7 +31,10 @@ const btnGhost: CSSProperties = { padding: '11px 18px', borderRadius: 12, border
 
 type Tray = { kind: 'upload' | 'existing'; media_type?: 'image' | 'video'; image_hash?: string | null; video_id?: string | null; thumbnail_url?: string | null; source_ad_id?: string | null; label: string; processing?: boolean; progress?: number };
 
-export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, onSaved }: { adsetId: string; defaultName: string; senales: SenalRecon[]; onClose: () => void; onSaved: () => void }) {
+// `campaignId` y `campaignObjective` salen del árbol de Meta que la tabla ya tiene: sin
+// ellos la fila del registro nacía con el objetivo por default de la tabla (Leads) y sin
+// campaña, y la API de MaKo se lo leía así al dueño (revisión de la #59).
+export function AgregarAnuncioModal({ adsetId, defaultName, campaignId = null, campaignObjective = null, senales, onClose, onSaved }: { adsetId: string; defaultName: string; campaignId?: string | null; campaignObjective?: string | null; senales: SenalRecon[]; onClose: () => void; onSaved: () => void }) {
   const [info, setInfo] = useState<{ needsForm: boolean } | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [tray, setTray] = useState<Tray | null>(null);
@@ -75,9 +79,14 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
       // procesar quedaba «listo». Mientras Meta procesa, la tarjeta queda en 100.
       setTray((t) => (t ? { ...t, media_type: r.media_type, image_hash: r.image_hash, video_id: r.video_id, thumbnail_url: t.thumbnail_url ?? r.thumbnail_url ?? null, processing: r.processing, progress: r.processing ? 100 : undefined } : t));
       if (!r.processing || !r.video_id) return;
-      const fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal });
+      let fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal });
+      // «No pude leer» no es un veredicto de Meta: la tarjeta se queda y se sigue preguntando.
+      while (fin === 'sin_lectura' && !ctl.signal.aborted) {
+        setErr(motivoFinEspera(fin, file.name));
+        fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal, cadaMs: CADA_MS_SIN_LECTURA });
+      }
       if (fin === 'cancelado' || ctl.signal.aborted) return;
-      if (fin === 'ready') { setTray((t) => (t ? { ...t, processing: false, progress: undefined } : t)); return; }
+      if (fin === 'ready') { setErr(null); setTray((t) => (t ? { ...t, processing: false, progress: undefined } : t)); return; }
       setErr(motivoFinEspera(fin, file.name)); setTray(null);
     } catch (e) {
       if (ctl.signal.aborted) return;
@@ -99,12 +108,18 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
           ...(info.needsForm ? { lead_form_id: leadFormId } : { destination_url: url }),
         };
     try {
-      const k = claveParaPayload(idemRef.current, { adset_id: adsetId, creative, name: defaultName });
-      idemRef.current = k;
+      // La clave que quedó sin respuesta manda aunque el anuncio haya cambiado, y vive FUERA
+      // del modal: con un ref, cerrar y reabrir la perdía y el mismo anuncio salía dos veces.
+      const destino = `ad-add:${adsetId}`;
+      const { mandada, firma } = claveAMandar(claveAbierta(destino), idemRef.current, { adset_id: adsetId, creative, name: defaultName });
       // Con signal y sin `r.json()` pelado: un corte de la plataforma tiraba «Unexpected
       // token» y el siguiente clic creaba el anuncio otra vez.
-      const j = await postConTope('/api/ads-manager/ad-add', { adset_id: adsetId, creative, name: defaultName, idem_key: k.clave });
+      const j = await postConTope('/api/ads-manager/ad-add', { adset_id: adsetId, campaign_id: campaignId, campaign_objective: campaignObjective, creative, name: defaultName, idem_key: mandada.clave });
+      const t = trasRespuesta(j, mandada, firma);
+      anotarClaveAbierta(destino, t.abierta); idemRef.current = t.previa;
       if (!j) throw new Error(SIN_RESPUESTA);
+      // Lo que entró es el anuncio de ANTES: no se cierra como si fuera éste.
+      if (t.deAntes) throw new Error(j.ok ? ANTERIOR_PUBLICADA : ANTERIOR_A_MEDIAS);
       if (!j.ok) throw new Error(j.error || 'No se pudo agregar el anuncio');
       onSaved();
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }

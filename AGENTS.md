@@ -4282,6 +4282,17 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   cliente RECORTA lo que ya entró y reintenta; con la misma clave, el server contestaría «creados
   N» desde la fila vieja y el cliente recortaría N más que nunca se crearon. Molde:
   `claveParaPayload` (lib/meta-idempotencia.ts), que compara la firma y no un evento de la pantalla.
+- ⚠️ **Salvo la clave que quedó SIN RESPUESTA: ésa queda ABIERTA y manda sobre la firma hasta
+  que el server la cierre** (un ok, un «a medias», un parcial). Después de un 504 la pantalla deja
+  editar, y corregir una palabra acuñaba otra clave: el server, sin fila para ella, creaba una
+  SEGUNDA campaña (revisión de la #59). Mandar la abierta con otro payload es seguro —el server
+  contesta desde la fila si algo se creó y publica lo nuevo si no—, pero esa respuesta puede hablar
+  del payload de ANTES: no se pinta como éxito de lo que está en pantalla ni se le recorta. Vive
+  FUERA del componente: en un ref, cerrar y reabrir el modal la perdía. Molde: `claveAMandar` /
+  `trasRespuesta` + `claveAbierta` (app/ads-manager/creativeUpload.ts).
+- **La fila es lo único que lee un reintento, así que los persist TERMINALES reescriben todo lo
+  que hay en memoria**: los intermedios tragan su error. Y un rollback cuenta sólo si el proveedor
+  CONFIRMÓ el borrado — «(revertido)» sin confirmar es lo que hace crear otra encima.
 - **La regla de reintento depende de quién escribió la fila**, y puede haber dos para la misma
   tabla: en una campaña `meta_campaign_id` es lo que ESE pedido creó; en un lote es la campaña que
   ya existía. Aplicar la de la campaña al lote deja trabado para siempre un lote que no creó nada.

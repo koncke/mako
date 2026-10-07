@@ -3135,7 +3135,8 @@ seguía en localStorage, se reabría en «revisión» y el segundo clic creaba O
   y el resto lo pregunta el navegador por GET, con un tope de 15 minutos.
 - **El staging no se puede borrar «después de transcribir»**: Meta lo baja del `file_url`
   firmado, y borrarlo antes deja el video en 'error'. Se borra sólo con 'ready' o 'error'. Y
-  nada más limpia ese bucket (`lib/reset-workspace.ts` sólo lo nombra).
+  nada más limpiaba ese bucket (`lib/reset-workspace.ts` sólo lo nombra) — desde la revisión,
+  cada subida barre lo que tiene más de 6 h (entrada siguiente).
 - **`withVideoThumb` la usa también la PREVIA** (`generatePreviews`): hacerla tirar rompía el
   paso de revisión de todo video sin miniatura todavía. La versión estricta va sólo en
   `createAdCreative`.
@@ -3151,7 +3152,8 @@ seguía en localStorage, se reabría en «revisión» y el segundo clic creaba O
   y el reintento legítimo esperaría 6 minutos.
 - **Un guard de orden («videos antes de crear») pasaba de gratis** mientras recortaba desde el
   principio del archivo: el helper `sinProcesar` está definido arriba del POST. Lo destapó
-  romperlo.
+  romperlo. ⚠️ **Y el arreglo cubrió sólo el modo simple**: recortando desde el POST, el lote
+  de ad-add siguió pasando de gratis hasta la revisión (ver la entrada siguiente).
 
 **Regla:** un creativo se usa cuando Meta dice 'ready', y lo que lo decide es lo que Meta
 contestó —nunca un `false` escrito a mano—; el server vuelve a preguntar antes de crear, y
@@ -3187,7 +3189,8 @@ revisión la cambia.
   tope de 15 minutos del navegador no está medido contra nada.
 - **Qué ve la persona cuando un reintento encuentra una publicación a medias** (decisión de
   Martín). Hoy: «Quedó a medias en Meta… revísalo en la tabla», y la misma clave sigue
-  contestando eso hasta que algo del spec cambie.
+  contestando eso hasta que algo del spec cambie. (Desde la revisión, un conjunto de
+  adset-add que quedó VACÍO se borra y no llega a «a medias».)
 - **Confirmar con una publicación real** que con el video 'ready' la miniatura de Meta siempre
   llega: si no, la versión estricta frena algo que antes Meta habría aceptado.
 - **after() en Vercel**: si no corriera, la transcripción gratuita se pierde y la paga el cron.
@@ -3217,3 +3220,101 @@ app/api/ads-manager/adset-add/route.ts · lib/meta-ads-create.ts (`estadoVideo`,
 lib/meta-idempotencia.ts · supabase/migrations/0215_meta_campaign_drafts_idem.sql ·
 tests/ads-video-procesando.test.ts · tests/campana-videos.test.ts ·
 tests/meta-idempotencia.test.ts · *2026-10-07 tarea #59*
+
+## La revisión de la #59: la firma sola duplicaba, y la fila decía menos de lo que había en Meta (07/10)
+
+**Síntoma (medido contra el código; nada de esto se vio en una cuenta):** ocho reportes de dos
+revisores sobre f6ed4c33. Los ocho eran reales. Los que importan:
+
+1. **«Reintentar es seguro: no se duplica» era falso apenas se tocaba algo.** Después de una
+   respuesta perdida la pantalla vuelve a «revisión» con el nombre y el copy editables. Corregir
+   una palabra cambiaba la firma, salía otra clave, el server no tenía fila para ella y creaba una
+   SEGUNDA campaña con la primera ya en Meta. Y en Agregar anuncio / Agregar conjunto la clave
+   vivía en un ref: cerrar y reabrir el modal la perdía, así que hasta el MISMO anuncio salía dos
+   veces.
+2. **La fila del registro —lo único que lee un reintento— decía menos de lo que existía.** Los
+   `persist` intermedios tragan su error y los terminales no reescribían lo que estaba en memoria:
+   en campaign-create el de éxito no llevaba `meta_campaign_id` (una fila 'publicada' sin campaña
+   devolvía `campaign_id: null`, y el cliente le asignaba el producto a la campaña «null»); en el
+   lote de ad-add un intermedio perdido dejaba «creados 2» sobre 4 y el reintento recortaba 2 y
+   volvía a crear el 3 y el 4; en adset-add el id del conjunto vivía sólo en el avance. Y
+   `deleteEntity` no leía la respuesta del DELETE: «(revertido)» sin que Meta lo confirmara.
+3. **adset-add quedaba «a medias» para siempre con un texto que mandaba a reintentar.** La
+   miniatura se exigía al crear el creativo, o sea con el conjunto ya creado: «Espera unos
+   minutos y vuelve a intentar», y el reintento contestaba 409 en cada clic. La única salida era
+   tocar un campo — otra clave, un SEGUNDO conjunto con presupuesto.
+4. **Dos guards en verde sobre lo que existían para cazar** (medido sobre una copia de HEAD,
+   código y tests: pass 11 / fail 0 en los tres casos). El de «videos antes de crear» recortaba
+   desde el POST, y en ad-add ese tramo incluye al modo simple: sin el chequeo del LOTE, el
+   `lastIndexOf` encontraba el del simple. El del workspace leía sólo el PRIMER insert del
+   archivo, y desde que el modo simple registra, ése es el del simple: el insert y el persist del
+   lote quedaron sin red (y sin el workspace, con la clave puesta, es un 503 a toda publicación
+   del lote).
+5. **«No pude leer» terminaba como un veredicto de Meta.** A los 15 minutos `esperarVideoListo`
+   devolvía 'tope' igual con Meta diciendo 'processing' que con un 401, un `ok:false` o la red
+   caída, y los tres modales descartaban la tarjeta con «Meta no terminó de procesar… Súbelo de
+   nuevo»: otro video en Meta y otro archivo en el staging.
+6. **Un default que afirma.** `objective` tiene default `'OUTCOME_LEADS'` (0157): el modo simple
+   de ad-add nunca lo escribía y adset-add lo corregía sólo si la lectura de la campaña contestaba.
+   `listar_publicaciones_mako_meta` le decía al dueño que publicó un anuncio de Leads en una
+   campaña de Tráfico.
+7. **El staging pasó a depender de la pestaña.** Con la espera del POST en 25 s, un video casi
+   nunca llega a 'ready' adentro del POST, y su archivo lo borraba sólo el GET del navegador:
+   cerrar el modal lo dejaba en el bucket para siempre.
+
+**El diagnóstico obvio era el equivocado en el 1:** «que la edición no cambie la clave» suena a
+congelar la firma, y eso reabre el bug que la firma vino a cerrar (después de un parcial conocido
+el cliente recorta y NECESITA otra clave). Lo que distingue los dos casos no es el payload: es si
+el server ya contestó por esa clave.
+
+**Regla:**
+
+- **La clave de un pedido sin respuesta queda ABIERTA y manda sobre la firma hasta que el server
+  la cierre** (un ok, un 'a-medias' o un parcial con `created`; todo lo demás la deja abierta,
+  incluido un 409 de videos, que ni miró la clave). Mandarla con otro payload es seguro: el server
+  contesta desde la fila si algo se creó, y publica lo que llega si no. Pero esa respuesta puede
+  hablar del payload de ANTES (`deAntes`): no se pinta como el éxito de lo que está en pantalla
+  ni se le recorta su `created`. Y vive fuera del componente (localStorage + memoria, por destino
+  y por `?ws=`).
+- **Los persist terminales reescriben todo lo que hay en memoria**, y un rollback cuenta sólo si
+  el proveedor CONFIRMÓ el borrado (`{ success: true }`).
+- **Lo que puede fallar sin crear nada va ANTES de crear** (la miniatura, la lectura de la
+  campaña), y un conjunto que quedó vacío se borra: un «a medias» que no tiene nada adentro no le
+  sirve a nadie y traba la clave.
+- **Un guard sobre una ruta con dos modos recorta desde el modo de CADA creador**, y uno que
+  revisa «el insert» los revisa TODOS (con la cantidad esperada, para que el próximo se note).
+- **«No pude leer» no descarta nada**: la tarjeta se queda y se sigue preguntando, más espaciado.
+
+**Cómo se verificó:** typecheck en 0; `npm test` 4538 de 4538; dieciocho roturas a propósito,
+todas cazadas, con el número en cada test (y las tres del lote, reproducidas primero en verde
+sobre una copia de HEAD). **No** se miró en el navegador ni se publicó nada: la clave abierta y
+el `deAntes` se probaron como funciones puras, la espera con un `fetch` simulado, y el resto con
+guards sobre el fuente.
+
+**Sin hacer:**
+
+- **El barrido del staging no está medido contra el storage real**: `list('nueva', …)` ordenado
+  por nombre (los primeros son los más viejos porque empiezan con la hora en ms) y de a 100 por
+  subida. Si la carpeta tiene miles de sobrantes, se limpian de a poco. Lo de antes de este
+  commit también lo barre, porque el formato del nombre no cambió.
+- **`deleteEntity` lee `{ success: true }` sin una medición propia**: es la respuesta documentada
+  del DELETE de la Graph API. Si Meta contestara otra forma, el rollback de campaign-create y el
+  borrado del conjunto vacío quedarían como «a medias» — el lado seguro, no un duplicado.
+- **Un `deAntes` no refresca la tabla en los dos modales chicos** (no tienen cómo sin cerrarse):
+  el texto manda a mirarla. En Nueva campaña sí refresca.
+- **El objetivo del modo simple sale del árbol de la tabla**: si la tabla no lo tiene (un árbol
+  sin la campaña), la fila dice 'DESCONOCIDO', no Leads.
+- **Una clave abierta de un destino al que no se vuelve** queda en localStorage para siempre. No
+  molesta: la próxima publicación a ese destino la resuelve.
+
+**Vive en:** lib/meta-idempotencia.ts (`claveAMandar`, `trasRespuesta`, `decidirReintentoCampana`)
+· app/ads-manager/creativeUpload.ts (`claveAbierta`, `anotarClaveAbierta`, `esperarVideoListo`,
+`ANTERIOR_PUBLICADA`) · app/ads-manager/NuevaCampanaModal.tsx (`publicar`, `seguirProcesando`) ·
+app/ads-manager/AgregarAnuncioModal.tsx · app/ads-manager/AgregarConjuntoModal.tsx ·
+app/ads-manager/CampanasBrowser.tsx (`addAnuncioAdset`) · app/api/ads-manager/campaign-create/route.ts
+· app/api/ads-manager/ad-add/route.ts (`objetivoDelBody`) · app/api/ads-manager/adset-add/route.ts
+· app/api/ads-manager/creative-upload/route.ts (`barrerStagingViejo`) ·
+app/api/ads-manager/creative-signurl/route.ts · lib/ads-staging.ts · lib/meta-ads-create.ts
+(`deleteEntity`, `addAdsetToCampaign`) · tests/meta-idempotencia.test.ts ·
+tests/ads-video-procesando.test.ts · tests/meta-campaign-drafts-workspace.test.ts ·
+tests/ads-publicar-registro.test.ts · tests/ads-staging.test.ts · *2026-10-07 revisión de la #59*

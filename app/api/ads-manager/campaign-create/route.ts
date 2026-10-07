@@ -138,7 +138,9 @@ export async function POST(req: NextRequest) {
       await persist({ meta_adset_ids, meta_ad_ids, meta_creative_ids });
     }
 
-    await persist({ status: 'publicada', meta_adset_ids, meta_ad_ids, meta_creative_ids, error: null });
+    // ⚠️ Con la campaña adentro (revisión de la #59): el persist que la anota arriba traga su
+    // error, y una fila 'publicada' sin campaña devolvía `campaign_id: null` al reintento.
+    await persist({ status: 'publicada', meta_campaign_id: campaignId, meta_adset_ids, meta_ad_ids, meta_creative_ids, error: null });
     return Response.json({ ok: true, campaign_id: campaignId, adset_ids: meta_adset_ids, ad_ids: meta_ad_ids, creative_ids: meta_creative_ids });
   } catch (err) {
     const env = metaErrorEnvelope(err);
@@ -151,10 +153,14 @@ export async function POST(req: NextRequest) {
     // Rollback best-effort: borrar lo creado (todo en PAUSA, no gastó) para no dejar
     // una campaña huérfana. Borrar la campaña cascadea a conjuntos/anuncios; los
     // creativos son a nivel cuenta, se borran aparte.
+    // ⚠️ «(revertido)» sólo si Meta CONFIRMÓ el borrado (deleteEntity → true): un reintento
+    // con la misma clave lee ese sufijo para crear otra. Hasta la revisión de la #59 no se
+    // leía la respuesta del DELETE, y un rollback que Meta rechazó quedaba como revertido.
     let rolledBack = false;
     if (campaignId) {
-      try { await deleteEntity(campaignId); for (const cid of meta_creative_ids) { await deleteEntity(cid).catch(() => { /* */ }); } rolledBack = true; }
+      try { rolledBack = await deleteEntity(campaignId); for (const cid of meta_creative_ids) { await deleteEntity(cid); } }
       catch (e) { console.error('[ads-manager:campaign-create] rollback falló', e); }
+      if (!rolledBack) console.error(`[ads-manager:campaign-create] Meta no confirmó el borrado de ${campaignId}: queda a medias`);
     }
     await persist({ status: 'error', error: mensaje + (rolledBack ? ' (revertido)' : ''), meta_campaign_id: campaignId, meta_adset_ids, meta_ad_ids, meta_creative_ids });
     console.error(`[ads-manager:campaign-create] ${env.message} (subcode ${env.error_subcode ?? '-'})`);

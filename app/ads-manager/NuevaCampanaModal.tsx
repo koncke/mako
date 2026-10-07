@@ -39,9 +39,10 @@ import {
 import { usdACuenta, esConvertible } from '@/lib/presupuesto-cambio';
 import {
   subirCreativo, makeThumb, limiteCreativo, esperarVideoListo, motivoFinEspera, postConTope, esperandoAMeta,
-  SIN_RESPUESTA, AVISO_PROCESANDO_RETOMA, AVISO_PROCESANDO_NO_CIERRES,
+  SIN_RESPUESTA, AVISO_PROCESANDO_RETOMA, AVISO_PROCESANDO_NO_CIERRES, CADA_MS_SIN_LECTURA,
+  ANTERIOR_PUBLICADA, ANTERIOR_A_MEDIAS, claveAbierta, anotarClaveAbierta,
 } from './creativeUpload';
-import { claveParaPayload, claveIdemGuardada, type ClaveIdem } from '@/lib/meta-idempotencia';
+import { claveAMandar, trasRespuesta, claveIdemGuardada, type ClaveIdem } from '@/lib/meta-idempotencia';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -227,6 +228,8 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // FIRMA de lo que se manda: el mismo payload reusa la clave —un reintento después de un
   // 504 no crea otra campaña— y uno distinto (recortado, editado, regenerado) trae otra.
   // En «Nueva campaña» viaja en el borrador; en el modo existente vive mientras el modal.
+  // La que quedó SIN RESPUESTA no vive acá: es la «abierta» de creativeUpload.ts, que
+  // sobrevive a cerrar el modal y manda sobre esta hasta que el server la cierre.
   const [idem, setIdem] = useState<ClaveIdem | null>(d0.idem ?? null);
   // Los videos que Meta todavía procesa: id del ítem → su espera. Quitar el ítem o cerrar
   // el modal la corta.
@@ -462,14 +465,21 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   }
   // Pregunta a Meta hasta que el video esté listo. Un video procesándose no es usable
   // (usables() lo deja afuera) y el paso de creativos no avanza mientras haya uno.
-  function seguirProcesando(id: string, videoId: string, path: string | null, nombre: string) {
+  function seguirProcesando(id: string, videoId: string, path: string | null, nombre: string, cadaMs?: number) {
     if (siguiendo.current.has(id)) return;
     const ctl = new AbortController();
     siguiendo.current.set(id, ctl);
-    esperarVideoListo(videoId, path, { signal: ctl.signal }).then((fin) => {
+    esperarVideoListo(videoId, path, { signal: ctl.signal, cadaMs }).then((fin) => {
       if (siguiendo.current.get(id) === ctl) siguiendo.current.delete(id);
       if (fin === 'cancelado' || quitados.current.has(id)) return;
-      if (fin === 'ready') { setTray((t) => t.map((x) => x.id === id ? { ...x, processing: false, progress: undefined, staging_path: null } : x)); return; }
+      const sinLectura = motivoFinEspera('sin_lectura', nombre);
+      if (fin === 'ready') {
+        setTray((t) => t.map((x) => x.id === id ? { ...x, processing: false, progress: undefined, staging_path: null } : x));
+        setErr((e) => (e === sinLectura ? null : e));
+        return;
+      }
+      // «No pude leer» no es un veredicto de Meta: el ítem se queda y se sigue preguntando.
+      if (fin === 'sin_lectura') { setErr(sinLectura); seguirProcesando(id, videoId, path, nombre, CADA_MS_SIN_LECTURA); return; }
       setTray((t) => t.filter((x) => x.id !== id));
       setErr(motivoFinEspera(fin, nombre));
     });
@@ -681,12 +691,19 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
         // La clave sale del lote que se manda: después de un parcial el spec se RECORTA
         // (más abajo) y el próximo clic trae otra clave. Con la misma, el server contestaría
         // «creados N» desde la fila vieja y se recortarían N anuncios que nunca se crearon.
-        const k = claveParaPayload(idem, { adset_id: adsetSel?.id ?? null, ads });
-        setIdem(k);
+        // ⚠️ Salvo que la anterior haya quedado sin respuesta: ésa queda ABIERTA y se manda
+        // aunque el lote haya cambiado (lib/meta-idempotencia.ts → claveAMandar). Vive fuera
+        // del modal porque este modo arranca limpio cada vez que se abre.
+        const destino = `ad-add-lote:${adsetSel?.id ?? ''}`;
+        const { mandada, firma } = claveAMandar(claveAbierta(destino), idem, { adset_id: adsetSel?.id ?? null, ads });
         // Sin JSON (timeout de la plataforma a mitad de lote): no sabemos cuántos entraron,
         // pero el server sí. El mismo clic con la misma clave contesta cuántos entraron.
-        const j = await postConTope('/api/ads-manager/ad-add', { adset_id: adsetSel?.id, campaign_id: campSel?.id ?? null, campaign_name: campSel?.name ?? null, campaign_objective: campSel?.objective ?? null, adset_name: adsetSel?.name ?? null, ads, prompt: promptExistente(analisis), uso, idem_key: k.clave });
+        const j = await postConTope('/api/ads-manager/ad-add', { adset_id: adsetSel?.id, campaign_id: campSel?.id ?? null, campaign_name: campSel?.name ?? null, campaign_objective: campSel?.objective ?? null, adset_name: adsetSel?.name ?? null, ads, prompt: promptExistente(analisis), uso, idem_key: mandada.clave });
+        const t = trasRespuesta(j, mandada, firma);
+        anotarClaveAbierta(destino, t.abierta); setIdem(t.previa);
         if (!j) throw new Error(SIN_RESPUESTA);
+        // La respuesta habla del lote de ANTES: su `created` no es de éste y no se recorta.
+        if (t.deAntes) { onPublished(); throw new Error(j.ok ? ANTERIOR_PUBLICADA : ANTERIOR_A_MEDIAS); }
         if (!j.ok) {
           const base = String(j.error || 'No se pudieron agregar los anuncios');
           const creados = Number(j.created ?? 0);
@@ -709,10 +726,18 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
       // La clave viaja en el borrador: si la respuesta se pierde (504, pestaña cerrada) y se
       // reabre en «revisión», el mismo spec trae la misma clave y el server contesta la
       // campaña que ya creó. Editar o regenerar el spec es otra publicación: otra clave.
-      const k = claveParaPayload(idem, { spec });
-      setIdem(k);
-      const j = await postConTope('/api/ads-manager/campaign-create', { spec, prompt: promptDeRespuestas(analisis), uso, idem_key: k.clave });
+      // ⚠️ Salvo después de una respuesta perdida: esa clave queda ABIERTA y se manda aunque
+      // se haya corregido una palabra (lib/meta-idempotencia.ts → claveAMandar). Antes la
+      // edición acuñaba otra y el server creaba una SEGUNDA campaña con la primera en Meta.
+      const destino = 'campaign-create';
+      const { mandada, firma } = claveAMandar(claveAbierta(destino), idem, { spec });
+      const j = await postConTope('/api/ads-manager/campaign-create', { spec, prompt: promptDeRespuestas(analisis), uso, idem_key: mandada.clave });
+      const t = trasRespuesta(j, mandada, firma);
+      anotarClaveAbierta(destino, t.abierta); setIdem(t.previa);
       if (!j) throw new Error(SIN_RESPUESTA);
+      // La campaña que el server devuelve es la de ANTES de la edición: no se pinta como el
+      // éxito de lo que está en pantalla. El borrador se queda, y el próximo clic lo publica.
+      if (t.deAntes) { onPublished(); throw new Error(j.ok ? ANTERIOR_PUBLICADA : ANTERIOR_A_MEDIAS); }
       if (!j.ok) throw new Error(j.error || 'No se pudo publicar');
       try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
       setResult({ campaign_id: String(j.campaign_id ?? ''), ads: (j.ad_ids ?? []).length });
