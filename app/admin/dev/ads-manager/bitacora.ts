@@ -117,7 +117,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '19:05', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '19:03', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Un video se usa cuando Meta lo procesó, y un reintento no publica dos veces (#59)',
     puntos: [
@@ -134,6 +134,9 @@ export const BITACORA: Hito[] = [
       'lib/meta-idempotencia.ts — la clave por firma, las dos reglas y el registro estricto',
       'lib/campana-videos.ts — qué videos lleva una publicación y qué cuenta como listo',
       'supabase/migrations/0215_meta_campaign_drafts_idem.sql — SIN aplicar; va antes del deploy',
+    ],
+    commits: [
+      { sha: 'f6ed4c33', msg: 'Ads Manager: un video se usa cuando Meta lo procesó, y un reintento no publica dos veces (#59)', lineas: 2095, archivos: 22 },
     ],
   },
 ];
