@@ -3957,3 +3957,186 @@ Ahora el aviso dice además POR QUÉ no salió (`inv.error`), y manda a reenviar
 equipo. Entró en `c0e2570b` junto con el curso, porque el test que lo cuida vive en el
 archivo de la invitación al curso: se separó mal al principio y lo delató el worktree
 limpio (ver «Invitar al cliente al curso», más arriba).
+
+---
+
+## El cierre del proyecto: 12 tareas auditadas contra HEAD y lo que salió (06/10/2026, noche)
+
+Pedido de Martín: «Revisa todo lo que falta en el proyecto de Customer Success y terminalo
+todo, cierra las tareas». Siete lectores, con refutación, contra HEAD (`d8f8ee81`): de las 12
+tareas abiertas **ninguna estaba hecha** y la única que un auditor dio por «sin objeto» la
+tumbó el refutador. Siete grupos implementaron en paralelo, cada uno con su revisor
+(`54e31272`, `ab81f03f`; migs 0208-0210 aplicadas antes del deploy).
+
+### Una lectura que cae al default sirve para DIBUJAR, nunca para DECIDIR
+
+**Síntoma:** una clienta del ws1 (lead 21) quedó en «onboarding», una etapa que su producto,
+con nueve etapas declaradas, no tiene. El kanban no la dibuja y no hubo ningún error.
+
+**El diagnóstico obvio era el equivocado:** «alguien borró la etapa en el editor». La causa
+probable es otra: `entregaDeProducto` devuelve las etapas de FÁBRICA (onboarding, arranque…)
+cuando la lectura de `producto_entrega` falla — correcto para que el tablero se dibuje — y
+`moverClienteDeEtapa` validaba la etapa destino contra ese default inventado y la escribía.
+
+**Vive en:** `lib/entrega-servicio.ts` (`entregaDeProductoEstricta`, `entregasDeProductos({ estricto })`) ·
+`lib/cs-mover-etapa.ts`.
+
+**La regla:** que no haya fila SÍ es el default legítimo; que la lectura falle NO lo es. Para
+validar antes de escribir, y para decidir a quién se le escribe (la cohorte de una secuencia),
+va la versión estricta, que devuelve `null` o tira — y entonces no se escribe. Y «etapa
+borrada» sólo se afirma con el catálogo LEÍDO: con la lectura caída, cualquier clave
+declarada parece ausente frente a las de fábrica. Lo que ve el alumno (la primera etapa) y lo
+que ve el equipo («Etapa borrada») son dos CAMPOS de una misma función, no dos reglas.
+
+### Un valor de estado que codificaba una categoría sin decirlo
+
+**Síntoma (evitado):** al dejar una sesión de entrega analizada con `status='analizada'`,
+cuatro lectores iban a cambiar de comportamiento sin fallar: la ficha del CRM y el resumen por
+WhatsApp habrían mostrado sesiones de entrega como llamadas de venta vacías, el Insight 360
+habría pasado su gate «al menos una analizada» sin sustancia, y la cola que PAGA el análisis
+de un lead lo habría sacado.
+
+**Causa:** hasta #107 sólo las ventas escribían `analizada`, así que esos lectores filtraban
+por status dando por hecho «venta».
+
+**Vive en:** `lib/insights-llamada.ts` · `lib/lead-insights.ts` · `app/crm/actions.ts` (ahora
+con `.eq('category','venta')`); el barrido en `tests/closing-entrega.test.ts`.
+
+**La regla:** antes de reusar un valor de un campo para un caso nuevo, grepeá quién lo lee y
+qué AFIRMA hoy ese valor.
+
+### Un fallo de un análisis GRATIS no puede ir a `status='error'`
+
+`syncClosingCalls` re-analiza las filas en `error` con Sonnet PAGO (`lib/closing.ts`), así que
+un 429 de Gemini en una sesión de entrega se convertía en una factura. El fallo va a la
+columna `error` y el status queda `descartada`. Y los fallos tienen dos dueños: los de la
+SESIÓN (404 = grabación borrada, transcript vacío, JSON imposible) gastan un intento y la
+corrida sigue; los del PROVEEDOR (cuota, key, red) no gastan intento y cortan la corrida — si
+no, el día que se cae Gemini la cartera entera queda afuera para siempre.
+**Vive en:** `lib/closing-entrega.ts` · `lib/closing-entrega-contrato.ts`.
+
+Y un trabajo gratis no se cuelga de un cron cuyo guard es la key de un proveedor pago:
+`closing-sync` saltea el workspace entero sin key de Anthropic. Va en su propio cron
+(`/api/cron/cs-sesiones-entrega`). La cita que devuelve el modelo se busca en el transcript
+(`verificarCitas`): si no está, `cita: ''` y el riesgo vale pero la cita NO se dibuja — un
+modelo parafrasea aunque se le pida la frase textual.
+
+Sin hacer: `closing_analyses.model` queda NULL en el camino barato porque `chatClaude` llama a
+`onUsage` sólo en el de Anthropic (`lib/anthropic.ts`); y `closing.ts` escribe la constante
+`claude-sonnet-5` aunque la feature esté ruteada a Gemini. No hay tope TOTAL por llamada en
+`chatCheapCascade` ni AbortSignal en `fathomGet` (`lib/fathom-api.ts`).
+
+### Una columna que sólo lee una pantalla interna se lee APARTE del select compartido
+
+`COLUMNAS_CLASE` (`lib/curso-datos.ts`) la leen el portal del alumno, la ficha, el cron y el
+paso automático. Con `grabar` adentro, una migración aplicada tarde tumbaba el portal de cada
+cliente de Mauricio con un 500 (una columna inexistente rechaza el select entero). Se lee
+aparte (`grabarDeProductos`) y un test fija que `COLUMNAS_CLASE` no la nombra.
+
+Y si un componente compara una prop por identidad para resincronizar
+(`if (base !== prop) setBase(prop)`), su default es una constante del módulo: un `= {}` en la
+firma es un objeto nuevo por render y el setState durante el render no termina nunca
+(`SIN_MARCAS` en `app/customer-success/curso/CursoApp.tsx`).
+
+### Purgar Storage: «fail-closed» no alcanza con mirar si la lectura falló
+
+Una lectura de referencias que vuelve VACÍA sin error (filtro roto, tabla renombrada) es
+indistinguible de «nadie usa nada». Las cinco reglas de `lib/curso-purga.ts`: lectura caída
+= no borrar; lectura vacía con archivos en el bucket = no borrar; listar el bucket ANTES de
+leer las filas; volver a preguntar por cada lote justo antes del `remove`; y leer las filas de
+TODOS los workspaces (el bucket es uno). Arranca en modo prueba y borra sólo con la variable
+prendida. Para documentos, el MIME sale primero de la EXTENSIÓN (Windows con Excel le pone
+`application/vnd.ms-excel` a un `.csv`), al revés que en los videos.
+
+### Una escritura decidida por una lectura previa va con compare-and-set
+
+Dos movimientos del mismo cliente casi a la vez (dos pestañas, o el alumno mandando las dos
+últimas tareas en el mismo segundo) contestaban los dos `cambio:true`: dos líneas de
+historial y **dos WhatsApp** de la etapa nueva. Ahora: con fila previa,
+`update().eq(id).eq('etapa', leida).select('id')`; sin fila, `upsert` con `ignoreDuplicates`
+y `.select('id')`. Cero filas = se perdió la carrera, y se sale ANTES del historial y de
+cualquier efecto. Las dos formas pasan por el proxy de `getTenantDb`. Y el choke point firma
+con la persona (`autorActual()`), no «CRM»; el curso sigue firmando MaKo.
+
+### `requireCapa` en la página no protege a las server actions
+
+Las 16 actions de `app/customer-success/actions.ts` sólo miraban que el lead fuera del
+workspace: un workspace con capa `pm` las usaba con un POST. Ahora la primera línea de cada
+export es `puedeUsarCs()` (`app/customer-success/puerta.ts`, server-only y SIN `'use server'`:
+con la directiva sería un endpoint más). El guard recorre los exports con el compilador, no
+con una lista a mano.
+
+### Las cohortes y MaKo: el UNIVERSO, y el tablero por CAPA
+
+- Una secuencia colgada de la primera etapa de entrega no le llegaba a 13 de los 14 clientes
+  del ws1: la cohorte leía FILAS de `cliente_entrega` y el kanban deriva «sin fila = primera
+  etapa». Toda pregunta «quién está en la etapa X» pasa por `clientesEnEtapa` con el universo
+  de ganados (`app/customer-success/pertenencia.ts`), y deja afuera a los dados de baja o
+  graduados (`cs_clientes.estado`): «ganado» habla de la VENTA y el estado del PROGRAMA.
+- `conTrabajo` no tenía call site y tres comentarios decían «lo enchufa la página»: la página
+  no lee `cartera()` desde el 26/09, el único lector es MaKo (`lib/api-mako/areas/cs.run.ts`).
+- Trampa evitada: `tableroDeLaCartera` sin `forzado` elige el tablero por SESIÓN; por WhatsApp
+  no hay sesión, cae a `experimento_tareas`, y el super-admin habría leído «0 atrasadas» para
+  todos. Desde la API de MaKo el tablero se elige por CAPA.
+
+### Los avisos de la sesión: el resultado en la clave, y lo que se sabe sin mandar, antes
+
+El aviso «no le llegó, envío apagado» se comía por 72 h al corregido (la `dedupKey` no llevaba
+el resultado), y una sesión «sin teléfono» quedaba cerrada para siempre: `destinoDe` se
+evaluaba DESPUÉS del compare-and-set. Lo que se sabe sin mandar se evalúa antes de marcar; lo
+que falla después de mandar no se reintenta. Y la junta se marca APARTE del posterior
+(`curso_sesiones.aviso_junta_at`, 0210): la grabación de una sesión llega a `closing_analyses`
+sólo por `closing-sync`, horas después, y leída una vez los compromisos no llegaban nunca.
+**Vive en:** `lib/curso-mensajes.ts`.
+
+### El ensayo del onboarding no puede escribir datos de un cliente
+
+«Ver el curso como el alumno» desde la ficha CREA la fila de `curso_accesos` y cuenta
+ingresos, y el reproductor y la tarea mandan progreso por `sendBeacon`. La vista previa del
+equipo (`/customer-success/curso/vista`) arma el portal con las funciones puras y un contexto
+que apaga TODA escritura (`app/compartido/curso/[token]/vista-previa.ts`). Un paso del
+onboarding derivado de datos se marca en el orden del catálogo y atrapando el error paso por
+paso: un dato puede volverse cierto antes que el paso que va antes.
+
+Sin hacer: `resumenOnboardingTabs` (`lib/tab-onboarding-state.ts`) recorre TODO el catálogo
+sin filtrar por capa, así que agregar una tab la mete en el system prompt de MaKo de todos los
+workspaces.
+
+### Trampas del entorno de esta corrida
+
+- **`next build` NO corre en un worktree con `node_modules` como junction**: Turbopack aborta
+  con «Symlink [project]/node_modules is invalid, it points out of the filesystem root»
+  (`turbopack.root = __dirname`). Sirve para `tsc` y los tests; el build va en el clon. Y si
+  se fuerza, deja OTRO junction en `.next/node_modules/sharp-<hash>`: se saca con
+  `cmd /c rmdir` antes de borrar el worktree.
+- **Git Bash convierte un argumento que empieza con `/` en una ruta de Windows**:
+  `node script.mjs /api/cron/x` llegó como `C:/Program Files/Git/api/cron/x` y el host salió
+  «hola-mako.comc». Va `MSYS_NO_PATHCONV=1`.
+- El `CRON_SECRET` de `.env.local` no es el de producción: un cron nuevo no se puede disparar
+  a mano desde acá; se verifica mirando la base después de su turno.
+- Integrando worktrees en un clon con `core.autocrlf`, el checkout es CRLF y un parser de
+  marcadores de conflicto que corte en `\n=======` deja un `\n` suelto: se cuenta con node
+  antes de commitear.
+
+### Lo que cerró esta tanda de los «Sin hacer» de arriba
+
+La ficha linkeable (`?cliente=`), `catalogoAsignable` muerto, el ✨ encima de la ficha, el CAS,
+la firma «CRM», los handlers sin red de `ClientesApp`, la fase en la tabla, el CSV con
+contactos, la línea de «Productos eliminados», las secuencias de entrega, el onboarding de la
+tab Curso, el avance del curso en la API de MaKo, Whop en el roadmap y los videos huérfanos.
+
+### Lo que quedó SIN hacer
+
+- Otras acciones sin atajar fuera de transición (dejan el botón trabado si no llegan):
+  `app/customer-success/NuevoCliente.tsx`, `CuentaDeMaKo.tsx`, `curso/CursoApp.tsx`,
+  `curso/EditorClase.tsx`.
+- El arrastre de una SELECCIÓN en el kanban con una fase puesta puede mover clientes de
+  columnas escondidas (`KanbanEntrega.tsx`, `quienesViajan` recibe la lista entera).
+- La tabla Avance de `/customer-success/curso` sigue mostrando la primera etapa para un
+  huérfano (`app/customer-success/curso/page.tsx`).
+- Notas de una etapa borrada quedan sin pantalla (`curso_clase_notas.etapa` es texto sin FK).
+- Una secuencia de entrega en una etapa CON clases le duplica al cliente el mensaje de etapa
+  nueva del curso (`lib/curso-avance.ts`): no crear secuencias de entrega en el ws1 sin
+  decidirlo.
+- Voseo que el guard no caza (homógrafo del pretérito): «Elegí una etapa…» en
+  `app/chatbot/SecuenciaPerfil.tsx` y `lib/setting-secuencias.ts`.

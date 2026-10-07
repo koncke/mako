@@ -19,8 +19,8 @@ import type { Hito, Parte } from '../_registro/tipos';
  * si no, el contador cuenta otra cosa que lo que la pantalla muestra.
  */
 export const PARTES: Parte[] = [
-  { titulo: 'El bucle de entrega', detalle: 'Whop conectado, el programa por bloques, lo que responde el cliente, la IA que lo mejora con la junta y su aprobación.', estado: 'sigue' },
-  { titulo: 'La cartera de Mauricio', detalle: 'Avisos de compromiso vencido y de cliente sin señales, la etapa de cada uno y verlos a todos en una pantalla.', estado: 'cola' },
+  { titulo: 'El bucle de entrega', detalle: 'El curso en MaKo por etapas, lo que responde el cliente, la IA que lo mejora con la junta y su aprobación.', estado: 'sigue' },
+  { titulo: 'La cartera de Mauricio', detalle: 'Avisos de compromiso vencido y de cliente sin señales, la etapa de cada uno y verlos a todos en una pantalla.', estado: 'sigue' },
   { titulo: 'Que armar un tablero cueste menos', detalle: 'Proponerle la evidencia y los umbrales desde los seis clientes anteriores, que es lo que ninguna de sus skills puede hacer.', estado: 'cola' },
 ];
 
@@ -583,6 +583,44 @@ export const BITACORA: Hito[] = [
       "app/api/compartido/curso/entrar/route.ts \u2014 el link del mail: deja la cookie y lleva a /mi-curso",
       "proxy.ts + lib/rutas-publicas.ts \u2014 `decidirRutaAlumno`: la \u00fanica ruta que esa cookie abre",
       "app/customer-success/curso/InvitarAlCurso.tsx \u2014 el bot\u00f3n de la ficha",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "—", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Terminar todo el proyecto de Customer Success y cerrar las tareas",
+    pedido: "Revisa todo lo que falta en el proyecto de Customer Success y terminalo todo, cierra las tareas",
+    puntos: [
+      "La auditoría de las 12 tareas abiertas contra HEAD, con refutación, dio CERO hechas. Lo que no necesitaba una decisión se hizo en una primera tanda de siete grupos.",
+      "Cuatro decisiones se le preguntaron y las contestó así: la tabla de Clientes suma «Último contacto» y «Vencidas» y se arma la alerta de baja AL DUEÑO (21 días sin contacto ni movimiento, sin IA); los becados son un tipo de venta «Sin cobro» en el CRM; el recordatorio de clases va por WhatsApp a los 3 días sin entrar; y de #665 van las TRES piezas (Calendly al completar la etapa, la IA que reescribe con la llamada y el cliente aprueba, y m6-m9 por área con link propio del líder).",
+      "Defaults tomados sin preguntar: los compromisos de la junta van sólo en el aviso al DUEÑO, nunca al cliente; el CSV de Exportar suma email y teléfono, sin botón nuevo.",
+      "Quedan de Martín: dónde va la clienta que quedó en «onboarding», el PAS fuera de orden, si las sesiones de entrega se agendan por Calendly, app/_cursos/, el arrastre con el dedo y si un cliente de baja sale del kanban.",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "23:40", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Las llamadas de entrega se analizan, el curso se anota y se limpia, y el choke point deja de mentir",
+    puntos: [
+      "#107: las 283 sesiones de entrega que se tiraban (129 del ws1) se analizan GRATIS con un contrato propio (resumen, riesgos con su cita verificada, próximos pasos) desde un cron aparte, que las drena de a dos por workspace por hora. ⚠️ Un fallo NUNCA deja status 'error': closing-sync re-analiza esos con Sonnet PAGO.",
+      "⚠️ LA CLIENTA EN «ONBOARDING»: el diagnóstico obvio («alguien borró la etapa») era el equivocado. El choke point validaba la etapa contra las de FÁBRICA cuando no podía leer el catálogo, y las escribía. Ahora falla; y la ficha dice «Etapa borrada» en las dos partes.",
+      "El choke point escribe con compare-and-set (dos movimientos simultáneos mandaban dos WhatsApp), firma con la persona y no «CRM»; las 16 actions de la tab preguntan la capa, que antes vivía sólo en la página.",
+      "El curso: grabar / no grabar por clase (#693), notas y adjuntos por clase y etapa que nunca llegan al portal (#692), una purga fail-closed de archivos huérfanos, el onboarding de la tab con una vista previa del alumno que no escribe nada, y los dos campos de #694 aplicados en la base del ws1 con un script seco por default.",
+      "MaKo ve las tareas vencidas de cada cliente (conTrabajo no tenía call site) y el avance del curso; las secuencias de entrega cuentan a los clientes sin fila; el aviso de la sesión al dueño suma los compromisos de su grabación.",
+    ],
+    commits: [
+      { sha: "54e31272", msg: "Customer Success: las llamadas de entrega se analizan, el curso se anota y se limpia, y el choke point deja de mentir", lineas: 8834, archivos: 94 },
+      { sha: "ab81f03f", msg: "Temario #694 en la semilla, borrador del protocolo de graduación, y Whop pasa a ser historia", lineas: 1089, archivos: 11 },
+    ],
+    archivos: [
+      "lib/closing-entrega.ts + lib/closing-entrega-contrato.ts — el análisis de una sesión de entrega y su saneo",
+      "app/api/cron/cs-sesiones-entrega/route.ts — el drenaje, horario",
+      "lib/cs-mover-etapa.ts — el choke point, ahora con compare-and-set",
+      "app/customer-success/puerta.ts — la pregunta de capa de cada action",
+      "lib/curso-notas.ts + lib/curso-purga.ts — las notas del equipo y la purga del bucket",
+      "app/customer-success/curso/onboarding-curso.ts — el onboarding derivado de los datos",
+      "scripts/curso-aplicar-694.mjs — lleva la semilla a lo ya cargado, seco por default",
+      "docs/protocolos/graduacion.md — el borrador para Mauricio (#667)",
     ],
   },
 ];
