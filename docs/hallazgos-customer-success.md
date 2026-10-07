@@ -4246,3 +4246,85 @@ y no gasta el intento de la sesión: entra cuando Google contesta.
   recordatorio hasta que reciba el link por mail o por MaKo.
 - Un cliente pausado SÍ recibe la alerta de baja y NO recibe el recordatorio: dos lecturas de
   «pausado» que decide Martín.
+
+## El portal del alumno y la tab Curso con el diseño de Conocimientos (07/10/2026)
+
+Pedido de Martín, mirando la vista del alumno al lado de un curso de /conocimientos: «No se ve
+para nada igual, COPIA lo que ya hicimos en CONOCIMIENTOS», y en el mismo hilo «No solo la vista
+de alumnos, la vista del editor también se tiene que ver tal cual». En `70a207df` las dos
+pantallas montan `app/_cursos/CursoUgc.tsx`: las ETAPAS son los módulos y las CLASES las
+lecciones. Lo que asumía la hoja de Conocimientos y no vale afuera está en
+[hallazgos-conocimiento.md](hallazgos-conocimiento.md) → «El dibujo de Conocimientos montado en
+OTRAS pantallas».
+
+### Una extracción con cero `import` no estaba hecha: estaba a medias, y su cabecera mentía
+
+`app/_cursos/` llevaba sin commitear desde el 06/10 16:46. Su cabecera decía que la montaban tres
+pantallas y no la montaba ninguna; violaba su propia regla (flechas y puntos suspensivos crudos en
+el código, cuando la cabecera exigía escaparlos); nombraba un test que no existía; y **11 de las
+clases que dibuja no tenían una sola regla en la hoja** (el candado, los controles de edición, el
+menú del teléfono, el modo embebido). Se habría visto como un curso «roto» el día que alguien la
+montara confiando en la cabecera.
+
+**La regla:** antes de montar una pieza que no escribiste, se cuenta lo que PROMETE contra lo que
+EXISTE: cada clase que usa, grepeada en la hoja; cada test que nombra; cada call site que dice
+tener. Son tres comandos, y acá dieron 11, 1 y 3 faltantes.
+
+**Vive en:** `app/_cursos/CursoUgc.tsx` · `app/_cursos/estilos.ts` (lo que faltaba) ·
+`tests/cursos-ugc.test.ts`.
+
+### Pasar de clase DESMONTA la tarea, y lo escrito volvía como estaba al cargar la página
+
+Encontrado al diseñar, antes de verlo en pantalla. `TareaAlumno` guarda lo escrito en su estado, y
+`valoresIniciales` es lo que trajo la PÁGINA. En el acordeón viejo eso ya pasaba al plegar una
+clase, pero era raro; en el dibujo nuevo cada clase es una lección y moverse entre ellas es el
+camino normal. El borrador SÍ se salvaba (el `sendBeacon` de la limpieza): lo que mentía era la
+pantalla al volver.
+
+**Vive en:** `TareaAlumno` → `onValores` (al desmontarse: el borrador si sigue pendiente, lo
+ENVIADO si no — lo editado de una tarea enviada sin reenviar no se guardó y no se muestra como su
+respuesta) · `PortalAlumno` guarda lo visto, lo mandado, lo escrito y las propuestas resueltas, y
+lo vacía cuando llega una vista nueva del server.
+
+**La regla:** cuando un componente pasa de «siempre montado» a «montado por posición», se lista su
+estado local y se decide quién lo guarda. El typecheck no ve nada de esto.
+
+### La vista previa va EMBEBIDA; el link del alumno, en modo PÁGINA
+
+El modo página traba el scroll del documento y mide 100vh: debajo de la barra de la vista previa
+se cortaba el pie. Embebido, el alto lo da el contenedor —un alto DEFINIDO (`100dvh`) y la cadena
+de flex con base 0—. En la tab Curso es igual: la `Pagina` mide la ventana y el curso toma lo que
+queda debajo de la cabecera, con un mínimo de 480 px.
+
+⚠️ **El link real del alumno no se abrió en el navegador**: cuenta un ingreso en la ficha de un
+cliente de Mauricio. El modo página se verificó forzándolo un momento sobre la vista previa (1440
+y 390 de ancho), y se volvió atrás comparando el archivo.
+
+### Dónde quedó cada cosa del portal viejo
+
+| Antes | Ahora |
+|---|---|
+| «Agenda tu sesión» debajo de cada etapa terminada | arriba del curso la de la ÚLTIMA terminada, y en la cabecera de cada etapa terminada la suya |
+| la barra «Etapa 2 de 9» | el pie del buscador (arriba a la derecha) y la cejilla de la portada |
+| «Este enlace es personal» al pie | el pie de la barra oscura (en el teléfono no va) |
+| la etapa actual abierta | el botón de la portada: la propuesta de la IA, o la tarea pendiente de la etapa actual |
+| la pestaña Avance de la tab | una entrada propia de la barra (`#x=avance`); los links con `?vista=avance` la siguen abriendo |
+| las notas de etapa en la sección | la cabecera del módulo abierto; las de una clase, una pestaña de la lección |
+
+### Un test de las huérfanas pasó en VERDE con la rotura puesta
+
+Con UNA sola clase huérfana, la primera tampoco sube por posición, así que sacar la regla «las
+huérfanas no se ordenan» no cambiaba la respuesta. El fixture lleva dos y se pregunta por la
+segunda. Es la regla de la casa (un test se prueba rompiéndolo) cazando su propio caso.
+
+### Lo que quedó SIN hacer
+
+- **Conocimientos sigue con SU copia del DOM** (`app/conocimientos/CursoReplica.tsx`). Mudarla a
+  `CursoUgc` cierra «dos componentes para la misma pantalla»; tiene alumnos y links compartidos,
+  así que el `key` de cada módulo va por NOMBRE (los `#mod=` que circulan lo llevan).
+- **Conocimientos en el teléfono**: la barra de 268 px al lado del contenido. El arreglo de
+  `app/_cursos/estilos.ts` sólo vale para `.ahdoc--ugc`.
+- «+ Clase» aparece también en «Sin etapa» y crea en la primera etapa: `CursoUgc` no tiene un flag
+  por módulo.
+- Las tapas: sólo YouTube y Drive (`tapaDeVideo`, lib/curso.ts). Las 107 clases del ws1 no tienen
+  video, así que hoy todas van con el degradé.

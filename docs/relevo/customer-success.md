@@ -19,7 +19,7 @@ falta en el proyecto de Customer Success y terminalo todo, cierra las tareas».
   «Último contacto» y «Vencidas» + alerta de baja al dueño (#109), «Sin cobro» en el CRM (#747),
   recordatorio de clases por WhatsApp a los 3 días (#780) y las tres piezas de #665.
 - **El borrador del Plan con los cierres está en https://hola-mako.com/plan/revisar/propavremjgpwd98**
-  (2 a medias, 3 enriquecidas y 6 tarjetas nuevas; las 7 hechas se cerraron el 07/10 por pedido de
+  (2 a medias, 3 enriquecidas y 7 tarjetas nuevas; las 7 hechas se cerraron el 07/10 por pedido de
   Martín, con su prueba en el historial). Y lo que se hizo, tarjeta por
   tarjeta, en `/admin/runway#customer-success`.
 - **El análisis de las llamadas de entrega (#107) no analizó ninguna todavía**: `gemini-flash-latest`
@@ -29,6 +29,10 @@ falta en el proyecto de Customer Success y terminalo todo, cierra las tareas».
 - **La clienta del ws1 en «onboarding»** (Teresa, lead 21) es una etapa que su producto no tiene;
   la causa probable era el choke point validando contra las etapas de FÁBRICA con el catálogo sin
   leer (ya arreglado). Dónde ponerla lo decide Martín: se mueve con un clic desde su ficha.
+- **El portal del alumno y la tab Curso se dibujan con el diseño de Conocimientos** (07/10,
+  `70a207df`, pedido de Martín): `app/_cursos/CursoUgc.tsx` ya está enchufado. Lo que aprendió y
+  lo que falta, en `docs/hallazgos-customer-success.md` → «El portal del alumno y la tab Curso con
+  el diseño de Conocimientos».
 
 ---
 
@@ -72,7 +76,8 @@ la invitación es la subsección «Invitar al cliente al curso: la cookie del al
    Tablero y Ritmo, a propósito. Se arregla moviendo la etapa en el editor (las clases viajan
    solas). Lo decide Martín.
 4. **Los 14 clientes de Mauricio están todos en Bienvenida**: falta ubicarlos en su etapa real.
-5. **`app/_cursos/` está SIN ENCHUFAR** (ver abajo). Termina de enchufarse o se borra.
+5. ~~`app/_cursos/` sin enchufar~~: **enchufado el 07/10** (`70a207df`), lo montan el portal y la
+   tab Curso. Falta que lo monte Conocimientos (`CursoReplica`, que sigue con su copia).
 6. Las secuencias de nutrición no se disparan por la etapa de entrega; la ficha no es linkeable;
    el onboarding de la tab Curso; lo que MaKo puede leer del curso por la API. El resto, en la
    memoria `cs-ficha-cliente`, sección «Lo que quedó SIN hacer».

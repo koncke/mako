@@ -647,4 +647,35 @@ export const BITACORA: Hito[] = [
       "tests/curso-accesos-area.test.ts — toda consulta a curso_accesos dice de quién es el acceso",
     ],
   },
+  {
+    fecha: "7 oct", hora: "—", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El portal del alumno y la tab Curso, con el diseño de Conocimientos",
+    pedido: "No se ve para nada igual, COPIA lo que ya hicimos en CONOCIMIENTOS · No solo la vista de alumnos, la vista del editor también se tiene que ver tal cual",
+    puntos: [
+      "Lo mandó con dos capturas: la vista del alumno (un «Hola.», las barras de etapas y un acordeón de clases) y un curso de /conocimientos (la barra oscura con los módulos, la portada y las tarjetas con su lámina).",
+    ],
+  },
+  {
+    fecha: "7 oct", hora: "16:30", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El curso se dibuja como Conocimientos: las etapas son los módulos y las clases las lecciones",
+    puntos: [
+      "Las dos pantallas montan app/_cursos/CursoUgc.tsx, el dibujo que otra sesión había extraído de Conocimientos y dejado sin enchufar. La traducción de cada una es pura y con test.",
+      "El alumno: la tarea y la descripción en el papel, «Agenda tu sesión» arriba y en la cabecera de cada etapa terminada, el candado en lo que todavía no se abre, y la portada lleva a lo que vino a hacer.",
+      "La tab Curso: el mismo dibujo con Editar, ordenar, borrar y «+ Clase», la marca de grabar, la tarea tal como la ve el alumno (sin guardar nada), las notas y el Avance como entrada de la barra.",
+      "⚠️ Pasar de clase desmontaba la tarea y la dibujaba como al cargar la página: ahora devuelve lo último que quedó. Y un link directo a una clase abría el índice: las dos pantallas siembran la posición al montar.",
+      "Queda: que Conocimientos monte el mismo dibujo (sigue con su copia, y en el teléfono con la barra al lado del contenido).",
+    ],
+    commits: [
+      { sha: "70a207df", msg: "Curso: el portal del alumno y la tab Curso con el diseño de Conocimientos", lineas: 2767, archivos: 16 },
+    ],
+    archivos: [
+      "app/_cursos/CursoUgc.tsx + app/_cursos/estilos.ts — el dibujo, y lo que la hoja de Conocimientos no traía",
+      "app/compartido/curso/[token]/PortalAlumno.tsx + modelo-ugc.ts — el portal del alumno",
+      "app/customer-success/curso/CursoApp.tsx + modelo-ugc.ts — la tab Curso",
+      "app/compartido/curso/[token]/TareaAlumno.tsx — onValores: lo escrito sobrevive a pasar de clase",
+      "tests/cursos-ugc.test.ts — las reglas, los dos adaptadores y que las dos pantallas lo monten",
+    ],
+  },
 ];

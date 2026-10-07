@@ -7340,3 +7340,47 @@ chico que la pregunta.**
 Y el backtick no es hipotético: **mordió escribiendo este mismo cambio**, con la regla ya en
 `AGENTS.md`. El síntoma es el documentado — `TS1381: Unexpected token` en líneas que no
 tienen nada que ver, no un error de CSS.
+
+## El dibujo de Conocimientos montado en OTRAS pantallas: lo que la hoja del origen asumía (07/10/2026)
+
+Desde `70a207df` el portal del alumno de Customer Success y la tab Curso montan
+`app/_cursos/CursoUgc.tsx` —el dibujo de la réplica, extraído— con la misma hoja
+(`public/cono-doc/ugc.css`) y la misma navegación (`app/conocimientos/posicion.ts`). Cinco cosas
+que la hoja y la navegación dan por sentadas y que sólo son ciertas adentro de /conocimientos. El
+lado de Customer Success, en [hallazgos-customer-success.md](hallazgos-customer-success.md).
+
+**1. La hoja resetea TODO `button` de `.ahdoc`, y le gana a un `Button` de la app.**
+`.ahdoc button { background: none; border: none; color: inherit }` tiene más especificidad que
+`.mk-btn`: el «Enviar» y el «Guardar» de una tarea salían como texto suelto, sin que nada lo
+dijera. Se ve sólo con una pieza de la app ADENTRO del curso, que en la réplica no hay.
+**Vive en:** `app/_cursos/estilos.ts` (`.ahdoc.ahdoc--ugc .mk-btn`, vestido como `.ugc-btn`).
+**La regla:** todo componente de la app que se meta adentro de `.ahdoc` hereda los resets del
+origen; se mira en pantalla, no en el código.
+
+**2. `usePosicion` NO lee el hash con que se aterriza: lo lee `sembrar`.** El store arranca en
+`''` y sólo se refresca con `popstate`, `hashchange` o una escritura; lo único que lo hace al
+montar es `sembrar()`, que la réplica llama en `Conocimientos.tsx`. Una pantalla nueva que no lo
+llame abre SIEMPRE el índice: un link directo a una clase, o un F5 en una lección, caía en la
+portada. ⚠️ El diagnóstico obvio —«el hash no se está escribiendo»— es el equivocado: se escribe
+bien, y `location.hash` lo muestra. **La regla:** toda pantalla que use `usePosicion` llama
+`sembrar(<su nivel de arriba>)` al montar (`PortalAlumno` y `CursoApp`, con `{}`).
+
+**3. La cola la arma como una app de 100vh y traba el scroll del documento**
+(`html:has(.ahdoc)`). Adentro de la app eso deja sin scroll a lo que está arriba del curso. El
+modo embebido lo destraba y el alto baja por FLEX con base 0 desde un contenedor de alto
+definido: un `height: 100%` contra el alto de un hijo de flex da cero en Safari, y con base
+`auto` el contenido entero del curso empuja la página. **Vive en:** `app/_cursos/estilos.ts`
+(`.ahdoc--embebido`).
+
+**4. En el teléfono la cola no se adapta, y apila mal.** Su `!important` le gana a la regla del
+origen para menos de 1000 px, así que la barra de 268 px queda AL LADO del contenido a 390 de ancho
+(el contenido se queda con ~120). Y le da `flex: 1 1 0` a las dos columnas de la lección: lado a
+lado las reparte, pero apiladas en un alto que sale del contenido las deja en CERO, y el papel se
+dibuja encima del título. Arreglado sólo para `.ahdoc--ugc` (una franja con un menú de módulos
+que se despliega); **la réplica de /conocimientos sigue así** hasta que monte `CursoUgc`.
+
+**5. La lámina de la tarjeta decía «MÓDULO» fijo.** Para el curso de un cliente son etapas:
+`PortadaModulo` acepta `rotulo` (default «Módulo», así la réplica no cambia).
+
+Y una que no es nueva pero se vio: la hoja pide tres `.woff2` en `/_next/static/media/` que dan
+404 (las fuentes del origen). Pasa igual en la réplica.
