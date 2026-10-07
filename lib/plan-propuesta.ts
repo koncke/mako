@@ -23,6 +23,7 @@ import type { Pregunta, TipoPregunta } from '@/lib/preguntas-contrato';
 import { corregirMarca } from '@/lib/mako-gramatica';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
 import { tableroDeCapa } from './tablero-de-capa';
+import { recortarPrueba, renglonDeCierre } from './cierre-tarjeta';
 
 type Row = Record<string, unknown>;
 const wsActual = async (): Promise<number> => (await getWorkspaceActual()) ?? OWNER_WS;
@@ -247,7 +248,9 @@ function limpiarCerrar(c: unknown): PropuestaCerrar | null {
   if (!c || typeof c !== 'object') return null;
   const o = c as Record<string, unknown>;
   const id = str(o.id).trim().slice(0, 80);
-  const evidencia = str(o.evidencia).trim().slice(0, 400);
+  // El MISMO tope que el renglón del historial (lib/cierre-tarjeta.ts): lo que la persona ve al
+  // confirmar es lo que queda en la tarjeta. Y si se corta, termina en «…».
+  const evidencia = recortarPrueba(str(o.evidencia));
   // SIN EVIDENCIA NO ENTRA. Un «ya está hecha» sin prueba no se puede confirmar ni
   // discutir: es exactamente lo que hace que el tablero deje de ser confiable.
   if (!id || evidencia.length < 10) return null;
@@ -729,7 +732,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
             await editarTarea(n, {
               progreso: c.parcial ? Math.max(50, actual?.progreso ?? 0) : 100,
               detalle: c.parcial ? fusionarDetalle(actual?.detalle ?? '', c.evidencia) : (actual?.detalle ?? null),
-              historial: [{ id: `cerr${Date.now()}${n}`, ts: Date.now(), actor: 'ia', text: (c.parcial ? `MaKo la dejó a medias: ${c.evidencia}` : `MaKo la marcó hecha: ${c.evidencia}`).slice(0, 240) }, ...(actual?.historial ?? [])],
+              historial: [{ id: `cerr${Date.now()}${n}`, ts: Date.now(), actor: 'ia', text: renglonDeCierre(c.evidencia, c.parcial) }, ...(actual?.historial ?? [])],
             });
             cerradas += 1;
           } catch (e) { console.error('[plan-propuesta] cerrar cliente:', e instanceof Error ? e.message : String(e)); }

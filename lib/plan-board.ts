@@ -466,6 +466,7 @@ function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
  */
 import { fusionarDetalle, pasosComoBullets } from './detalle-fusion';
 import { evaluarDetalle, TOPE_DETALLE } from './detalle-contrato';
+import { renglonDeCierre } from './cierre-tarjeta';
 export { fusionarDetalle };
 
 /**
@@ -485,7 +486,9 @@ export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcia
     const fila = (data ?? [])[0] as Row | undefined;
     if (!fila) { console.warn(`[plan-board] cerrar: no existe ${id}`); return false; }
     const t = rowToTask(fila);
-    const texto = (parcial ? `MaKo la dejó a medias: ${evidencia}` : `MaKo la marcó hecha: ${evidencia}`).slice(0, 240);
+    // Con `renglonDeCierre` (lib/cierre-tarjeta.ts): cortaba el renglón ENTERO en 240, o sea la
+    // prueba en 219, sobre una que el borrador había aceptado de 400.
+    const texto = renglonDeCierre(evidencia, parcial);
     const hist: Hist[] = [{ id: genId('h'), ts: Date.now(), actor: 'ia' as Actor, text: texto }, ...(t.historial ?? [])].slice(0, 40);
     const patch: Row = { historial: hist, updated_at: new Date().toISOString() };
     if (parcial) {

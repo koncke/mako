@@ -25,6 +25,7 @@ import type { OperacionDef } from '../tipos';
 // El tope del `detalle` es UNO: el mismo número que recorta el que escribe (plan-board) y
 // el que lo amplía. Declararlo a mano acá sería la segunda copia, y la que se queda vieja.
 import { TOPE_DETALLE } from '@/lib/detalle-contrato';
+import { TOPE_PRUEBA_CIERRE } from '@/lib/cierre-tarjeta';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -324,7 +325,7 @@ export const DEFS: readonly OperacionDef[] = [
         nombre: 'cerrar', tipo: 'object[]', descripcion: 'las tareas a cerrar.', obligatorio: true, max: 40,
         campos: [
           { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan).', obligatorio: true, max: 80 },
-          { nombre: 'evidencia', tipo: 'string', descripcion: 'por qué está hecha, con la prueba (mínimo 10 caracteres).', obligatorio: true, max: 400 },
+          { nombre: 'evidencia', tipo: 'string', descripcion: 'por qué está hecha, con la prueba (mínimo 10 caracteres).', obligatorio: true, max: TOPE_PRUEBA_CIERRE },
           { nombre: 'confianza', tipo: 'string', descripcion: 'alta = lo verificaste; media = lo deduces (default).', enum: ['alta', 'media'] },
         ],
       },
