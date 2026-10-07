@@ -1,6 +1,29 @@
 # Retomar: Customer Success
 
-**Dónde quedó:** 06/10, 18:30. Sesión `7a6bc4be` (cuenta `claude1`). Cerró el trabajo del
+**Dónde quedó:** 06/10, 23:45. Sesión `7a6bc4be` (cuenta `claude2`). Pedido: «Revisa todo lo que
+falta en el proyecto de Customer Success y terminalo todo, cierra las tareas».
+
+## ⚠️ Corrección medida el 06/10 21:40, gana sobre todo lo de abajo
+
+- **`envio_whatsapp_enabled` del ws1 está en TRUE.** Lo que dice más abajo («apagado desde el
+  29/09») quedó viejo. Mover a un cliente por el camino AUTOMÁTICO del curso le manda un WhatsApp
+  real: no se prueba nada sobre el ws1 que dispare mensajes.
+- La auditoría de las 12 tareas contra HEAD dio **cero hechas**. Primera tanda (`54e31272`,
+  `ab81f03f`, migs 0208-0210 APLICADAS): llamadas de entrega analizadas (#107), grabar/no grabar
+  (#693), notas y adjuntos por clase (#692), purga de huérfanos, onboarding de la tab Curso, CAS +
+  autor + puerta en el choke point, ficha linkeable, fase en la tabla, MaKo ve vencidas y avance
+  del curso, secuencias de entrega con los clientes sin fila, compromisos de la junta al DUEÑO,
+  #694 aplicado en la base del ws1, borrador de graduación (#667).
+- Segunda tanda, con las decisiones de Martín (memoria `cs-decisiones-cierre-0610`): cartera con
+  «Último contacto» y «Vencidas» + alerta de baja al dueño (#109), «Sin cobro» en el CRM (#747),
+  recordatorio de clases por WhatsApp a los 3 días (#780) y las tres piezas de #665.
+- **La clienta del ws1 en «onboarding»** (Teresa, lead 21) es una etapa que su producto no tiene;
+  la causa probable era el choke point validando contra las etapas de FÁBRICA con el catálogo sin
+  leer (ya arreglado). Dónde ponerla lo decide Martín: se mueve con un clic desde su ficha.
+
+---
+
+**Lo de abajo es del relevo anterior (06/10, 18:30, cuenta `claude1`).** Cerró el trabajo del
 **curso con invitación** que otra sesión dejó a medias, sin commitear, al quedarse sin cuota.
 
 ## ⚠️ Lo que cambió desde el relevo anterior, y lo cambia todo
