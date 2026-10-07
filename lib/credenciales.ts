@@ -120,6 +120,33 @@ async function credDeBase(ws: number, clave: string): Promise<string | null> {
 }
 
 /**
+ * Igual que `credWs` para un `ws` explícito, pero «NO PUDE LEER» NO ES «NO ESTÁ»: si la lectura
+ * de la base falla, TIRA.
+ *
+ * ⚠️ `credDeBase` no lee el `error` de supabase-js, así que una base caída le devuelve null a
+ * `credWs`, y null es un valor que decide: en el webhook de Calendly, sin el tipo de evento de
+ * la R2, una reunión R2 se graba como R1 (medido el 06/10/2026). Es una función APARTE porque
+ * `credWs` la usa medio producto y que empiece a tirar le cambiaría el comportamiento a todos.
+ * El error lleva `code`, `details` y `hint` del original, que es lo que lee el clasificador de
+ * lib/calendly-error.ts.
+ */
+export async function credWsEstricta(clave: string, ws: number): Promise<string | null> {
+  if (supabaseConfigurado()) {
+    const { data, error } = await getSupabaseServer()
+      .from('credenciales').select('valor_enc').eq('workspace_id', ws).eq('clave', clave).maybeSingle();
+    if (error) {
+      throw Object.assign(new Error(`credenciales (${clave}): ${error.message}`), {
+        code: error.code, details: error.details, hint: error.hint,
+      });
+    }
+    const v = data ? descifrar(data.valor_enc as string, ws, clave) : null;
+    if (esValorReal(v)) return v;
+  }
+  if (ws === OWNER_WS && esValorReal(process.env[clave])) return process.env[clave]!;
+  return null;
+}
+
+/**
  * Token efectivo de una clave para el workspace del request (o `ws` explícito).
  * La BASE manda; para el dueño el env queda como respaldo de arranque (hasta que
  * `migrarEnvACredenciales()` lo copie a la base). Cliente → solo su fila cifrada.

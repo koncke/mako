@@ -6,8 +6,11 @@
 //
 // Eventos manejados:
 //   - invitee.created   → upsert lead (decisión 2026-05-31)
-//   - invitee.canceled  → ignorado por ahora (MVP: marca manual)
+//   - invitee.canceled  → cancela la junta en el lead (`cancelarJuntaEnLead`)
 //   - cualquier otro    → 200 OK con `ignored: true`
+//
+// Un error de proceso contesta 503 SÓLO si reintentar lo arregla; si no, 200 y anotado en
+// `calendly.fallos_proceso` (ver `responderFalloDeProceso`). Un 5xx de más apaga la suscripción.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -19,7 +22,16 @@ import {
   clasificarJunta,
   CalendlySignatureError,
   type CalendlyWebhookPayload,
+  type CalendlyInviteePayload,
 } from '@/lib/calendly';
+import {
+  esErrorTransitorio,
+  mensajeDeError,
+  huellaFallosPrevia,
+  sumarFalloProceso,
+  uuidDeUri,
+  KEY_FALLOS_PROCESO,
+} from '@/lib/calendly-error';
 import {
   upsertLeadFromCalendly,
   findLeadByContacto,
@@ -40,9 +52,9 @@ import { linkResumenLead } from '@/lib/lead-resumen';
 import { dispararEvento } from '@/lib/flujos';
 import { enrolarPorEvento } from '@/lib/nutricion';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { getSetting, setSetting } from '@/lib/settings';
-import { credWs, envCred } from '@/lib/credenciales';
-import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
+import { credWsEstricta, envCred } from '@/lib/credenciales';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 
 const KEYWORDS_TEL = ['tel', 'phone', 'celular', 'móvil', 'movil'];
 
@@ -151,6 +163,93 @@ async function anotarReservaSinRuteo(identificador: string, evento: string): Pro
   }
 }
 
+// =============================================================================
+// Un error de PROCESO: 503 si se arregla reintentando, 200 y anotado si no
+// =============================================================================
+// ⚠️⚠️ Los tres catch de proceso contestaban 500 a TODO. Calendly, ante un no-2xx, reintenta un
+// par de días y después DESHABILITA LA SUSCRIPCIÓN ENTERA —sin avisar y sin dejar reactivarla—,
+// así que un solo evento que falla SIEMPRE (un dato que no cierra, una excepción del código)
+// apagaba la integración de todos. Pasó el 11/09 y otra vez el 21/09/2026: tres cancelaciones
+// del anfitrión en un minuto y 4 reservas perdidas hasta el 06/10 (docs/hallazgos-infra.md →
+// «Y se murió OTRA VEZ…»). Es la regla de AGENTS.md: UN WEBHOOK CONTESTA 5xx SÓLO A LO QUE SE
+// ARREGLA REINTENTANDO.
+//
+//   · Transitorio (red, timeout, 5xx de un proveedor, la base sin conexión) → 503: es justo lo
+//     que el reintento de Calendly viene a cubrir. Lo decide `esErrorTransitorio`
+//     (lib/calendly-error.ts), puro y con test sobre errores medidos; en la duda dice que NO.
+//   · Todo lo demás → 200, y anotado en `calendly.fallos_proceso` del workspace del evento con
+//     lo justo para recuperarlo. ⚠️ Recuperarlo tiene letra chica (medido el 06/10/2026):
+//     `scripts/backfill-calendly.ts --desde=<día>` trae de vuelta una reserva SÓLO del ws1 (corre
+//     con el token y la config del dueño), y la trae como lead con su reunión y su link pero SIN
+//     lo que dispara este webhook —la bienvenida, el aviso al dueño, el CAPI, los flujos—. La de
+//     otro negocio y una CANCELACIÓN (el backfill lista sólo `status=active`) se corrigen a mano
+//     en la ficha con lo anotado.
+//   · El RUTEO también pasa por acá (rama `ruteo`): falla ANTES de saber de quién es el evento,
+//     así que lo suyo se anota en el workspace del super admin, nunca en el de un cliente —y
+//     antes de la firma, menos que menos—.
+//
+// El 200 lleva `ok: false` y el porqué en el CUERPO, que es lo que Calendly muestra en su
+// registro de entregas: un 200 es un ACK, no un «salió bien».
+//
+// ⚠️ TODO catch del despacho pasa por acá, incluida la red de afuera de `runWithWorkspace`. Lo
+// fija tests/calendly-error.test.ts sobre el fuente SIN comentarios: ningún `status: 5xx` fuera
+// de esta función, y ningún catch del despacho que devuelva o relance sin pasar por ella.
+type ContextoFallo = {
+  evento: string;
+  rama: 'ruteo' | 'j1' | 'j2' | 'cancelacion' | 'despacho';
+  payload?: CalendlyInviteePayload;
+};
+
+/** Anota un fallo de proceso en el workspace EN CURSO (el del evento). Nunca lanza. */
+async function anotarFalloDeProceso(ctx: ContextoFallo, mensaje: string): Promise<void> {
+  try {
+    const anotar = async () => {
+      // `getSettingEstricto` y no `getSetting` (que es lo que usa el molde, `anotarReservaSinRuteo`):
+      // «no pude leer» no es «no hay nada». Con `getSetting` un error de lectura vuelve null, la
+      // huella arranca de cero y el upsert PISA los fallos anotados antes. Si no se puede leer, no
+      // se escribe: se pierde ESTA anotación —queda el console.error de abajo—, nunca las anteriores.
+      const previa = huellaFallosPrevia(await getSettingEstricto(KEY_FALLOS_PROCESO));
+      const huella = sumarFalloProceso(previa, {
+        cuando: new Date().toISOString(),
+        evento: ctx.evento,
+        rama: ctx.rama,
+        uuid: uuidDeUri(ctx.payload?.scheduled_event?.uri),
+        email: ctx.payload?.email?.trim() || null,
+        mensaje,
+      });
+      await setSetting(KEY_FALLOS_PROCESO, JSON.stringify(huella));
+    };
+    // ⚠️ La rama `ruteo` falla FUERA de todo `runWithWorkspace`: ahí `setSetting` resuelve el
+    // workspace por su cuenta y, en un webhook sin sesión, cae al ws1 —Mauricio, un cliente—. Va
+    // al del super admin, como la huella del «sin ruteo». Y es anterior a la firma: lo anotado ahí
+    // no está verificado, así que es una pista para mirar en Calendly, nunca un dato para cargar.
+    if (ctx.rama === 'ruteo') await runWithWorkspace(await wsSuperAdmin(), anotar);
+    else await anotar();
+  } catch (e) {
+    // Anotar NUNCA puede cambiar la respuesta: si esto tirara, el 200 se volvería un 500 y
+    // estaríamos otra vez en el agujero que esto viene a cerrar.
+    console.error(`[webhook:calendly] no se pudo anotar el fallo de proceso: ${mensajeDeError(e)}`);
+  }
+}
+
+/** La respuesta a un error de proceso: 503 si es transitorio, 200 y anotado si no (ver arriba). */
+async function responderFalloDeProceso(err: unknown, ctx: ContextoFallo): Promise<Response> {
+  const message = mensajeDeError(err).slice(0, 500);
+  if (esErrorTransitorio(err)) {
+    console.error(`[webhook:calendly] error TRANSITORIO en ${ctx.rama} (${ctx.evento}) → 503, Calendly reintenta: ${message}`);
+    return Response.json(
+      { ok: false, error: 'transitorio', reintentar: true, message, event: ctx.evento, rama: ctx.rama },
+      { status: 503 },
+    );
+  }
+  console.error(`[webhook:calendly] error de proceso en ${ctx.rama} (${ctx.evento}) → 200 y anotado, reintentar no lo arregla: ${message}`);
+  await anotarFalloDeProceso(ctx, message);
+  return Response.json(
+    { ok: false, error: 'processing', reintentar: false, message, event: ctx.evento, rama: ctx.rama, anotado: KEY_FALLOS_PROCESO },
+    { status: 200 },
+  );
+}
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
@@ -197,13 +296,28 @@ export async function POST(request: NextRequest) {
   //    Fail-CLOSED: sin mapeo, NO tocamos datos (nunca cae al dueño). Esto corta
   //    que el Schedule de un cliente vaya al píxel/CRM del dueño.
   const scheduled = body.payload?.scheduled_event;
+  //
+  //    ⚠️ «NO PUDE LEER» NO ES «NO ESTÁ MAPEADO» (06/10/2026). Con `wsPorIdentificador`, que no
+  //    lee el `error` de supabase-js, la base caída daba null y la reserva de un cliente caía en
+  //    la rama de abajo: 200, «ningún negocio tiene cargado este tipo de evento» y perdida, sin
+  //    pasar por el 503 que existe justo para eso. Ahora la lectura es estricta y su fallo va por
+  //    el clasificador (rama `ruteo`): transitorio → 503 y Calendly reintenta; si no, 200 y
+  //    anotado en el workspace del super admin.
+  //
+  //    Y por eso el TOPE de largo: esto corre antes de la firma, y un identificador de 20 KB armaría
+  //    una URL que falla SIEMPRE —un 200 anotado por cada pedido sin firmar—. Un tipo de evento de
+  //    Calendly mide ~80 caracteres; lo que pasa de 300 no puede estar en `webhook_routing`.
   const candidatosWs = [scheduled?.event_type, scheduled?.name, scheduled?.uri].filter(
-    (c): c is string => !!c && c.trim() !== '',
+    (c): c is string => !!c && c.trim() !== '' && c.length <= 300,
   );
   let ws: number | null = null;
-  for (const c of candidatosWs) {
-    const r = await wsPorIdentificador('calendly', c);
-    if (r != null) { ws = r; break; }
+  try {
+    for (const c of candidatosWs) {
+      const r = await wsPorIdentificadorEstricto('calendly', c);
+      if (r != null) { ws = r; break; }
+    }
+  } catch (err) {
+    return responderFalloDeProceso(err, { evento: body.event, rama: 'ruteo', payload: body.payload });
   }
 
   // 3) Verificar la firma con la key DE ESE workspace. Sin la suya cargada se cae a
@@ -215,7 +329,16 @@ export async function POST(request: NextRequest) {
   //    ignora: si acá se cortara antes de la firma, el código de respuesta delataría
   //    qué event types están dados de alta (200 = no, 401 = sí) y se podría enumerar
   //    la cartera de clientes con payloads sin firmar.
-  const keyWs = ws == null ? null : await credWs('CALENDLY_WEBHOOK_SIGNING_KEY', ws);
+  //
+  //    La key se lee ESTRICTA por la misma razón: con `credWs`, una base caída daba null, se caía a
+  //    la de plataforma y la firma de un negocio con key propia daba 401 — un no-2xx que Calendly
+  //    cuenta para deshabilitar, con un mensaje que culpa a la firma.
+  let keyWs: string | null;
+  try {
+    keyWs = ws == null ? null : await credWsEstricta('CALENDLY_WEBHOOK_SIGNING_KEY', ws);
+  } catch (err) {
+    return responderFalloDeProceso(err, { evento: body.event, rama: 'ruteo', payload: body.payload });
+  }
   const signingKey = keyWs ?? (await envCred('CALENDLY_WEBHOOK_SIGNING_KEY'));
   if (ws != null && !keyWs) {
     console.warn(`[webhook:calendly] ws ${ws} sin CALENDLY_WEBHOOK_SIGNING_KEY propia — usando la de plataforma`);
@@ -269,10 +392,17 @@ export async function POST(request: NextRequest) {
 
   // 4) Dispatch por tipo de evento — TODO confinado al workspace resuelto.
   return runWithWorkspace(ws, async () => {
+  // La red de AFUERA: lo que escape a los tres catch de proceso pasa por el mismo clasificador
+  // (`responderFalloDeProceso`) en vez de llegar a Next, que lo contesta con un 500 pelado.
+  // Y la lectura de la R1/R2, que es estricta a propósito y cae acá si la base no contesta.
+  try {
    // Config de clasificación R1/R2 POR WORKSPACE (dueño → env; cliente → su fila).
+   // ⚠️ ESTRICTA (06/10/2026): con `credWs`, una base caída daba null, y sin el tipo de evento
+   // de la R2 una reunión R2 se graba como R1 — sin error. Si no se puede leer, no se adivina:
+   // el error sale por la red de afuera (rama `despacho`), y siendo transitorio es un 503.
    const cfgJuntas = {
-     j1: await credWs('CALENDLY_EVENT_TYPE_J1', ws),
-     j2: await credWs('CALENDLY_EVENT_TYPE_J2', ws),
+     j1: await credWsEstricta('CALENDLY_EVENT_TYPE_J1', ws),
+     j2: await credWsEstricta('CALENDLY_EVENT_TYPE_J2', ws),
    };
    // Zona del inquilino, SOLO para el texto de los avisos. Nunca lanza: un
    // setting roto no puede tirar un webhook que ya validó firma.
@@ -336,9 +466,8 @@ export async function POST(request: NextRequest) {
           console.warn(`[webhook:calendly] J2 SIN MATCH → review_queue email=${emailJ2 ?? '—'} fecha_j2=${fechaJ2} ms=${ms}`);
           return Response.json({ ok: true, event: body.event, tipo: 'j2', action: 'review_queue', ms });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          console.error(`[webhook:calendly] error procesando J2: ${message}`);
-          return Response.json({ ok: false, error: 'processing', message, tipo: 'j2' }, { status: 500 });
+          // 503 sólo si reintentar lo arregla; si no, 200 y anotado (ver `responderFalloDeProceso`).
+          return responderFalloDeProceso(err, { evento: body.event, rama: 'j2', payload });
         }
       }
       // tipoJunta 'j1' o 'desconocido' → flujo actual sin cambios.
@@ -348,6 +477,12 @@ export async function POST(request: NextRequest) {
       const createdAtIso = payload.created_at;
       const startTimeIso = payload.scheduled_event?.start_time;
 
+      // ⚠️ Este 400 (y el `no_payload` y el de la R2, más arriba) también es un no-2xx: Calendly lo
+      // REINTENTA y, si se repite, apaga la suscripción igual que un 500. Quedó así a propósito el
+      // 06/10/2026: con un evento real es inalcanzable (Calendly siempre manda email, nombre y
+      // fechas), y `scripts/arreglar-webhook-calendly.ts` usa este 400 como la señal de «la firma
+      // del ws validó y no se tocó un dato». Pasarlo a 200 + anotado es una decisión, y ese script
+      // cambia en el mismo commit.
       if (!email || !nombre || !createdAtIso || !startTimeIso) {
         return Response.json(
           {
@@ -492,12 +627,8 @@ export async function POST(request: NextRequest) {
           ms,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[webhook:calendly] error procesando invitee.created: ${message}`);
-        return Response.json(
-          { ok: false, error: 'processing', message, event: body.event },
-          { status: 500 },
-        );
+        // 503 sólo si reintentar lo arregla; si no, 200 y anotado (ver `responderFalloDeProceso`).
+        return responderFalloDeProceso(err, { evento: body.event, rama: 'j1', payload });
       }
     }
 
@@ -543,9 +674,10 @@ export async function POST(request: NextRequest) {
         console.log(`[webhook:calendly] cancelación lead id=${lead.id} fecha=${fechaCancelada}: ${cambio} ms=${ms}`);
         return Response.json({ ok: true, event: body.event, lead_id: lead.id, cambio, ms });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[webhook:calendly] error procesando cancelación: ${message}`);
-        return Response.json({ ok: false, error: 'processing', message, event: body.event }, { status: 500 });
+        // La suscripción se apagó el 21/09 en el MISMO minuto de tres cancelaciones del anfitrión
+        // (qué falló adentro no se sabe: los logs ya vencieron). 503 sólo si reintentar lo arregla;
+        // si no, 200 y anotado — y entonces sí queda escrito qué falló.
+        return responderFalloDeProceso(err, { evento: body.event, rama: 'cancelacion', payload });
       }
     }
 
@@ -553,6 +685,9 @@ export async function POST(request: NextRequest) {
       console.log(`[webhook:calendly] evento no manejado: ${body.event}`);
       return Response.json({ ok: true, event: body.event, ignored: true });
    }
+  } catch (err) {
+    return responderFalloDeProceso(err, { evento: body.event, rama: 'despacho', payload: body.payload });
+  }
   });
 }
 

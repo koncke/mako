@@ -1843,6 +1843,12 @@ excepción del código— apaga así la integración de todos: pasó el 11/09 y 
 caída) va 5xx; lo que va a fallar igual en el próximo intento va **2xx y se registra** donde se
 pueda leer. Es la otra mitad de «un 200 es un ACK» (`docs/hallazgos-infra.md` → «Webhooks»).
 
+⚠️ **Y LA LECTURA QUE DECIDE DE QUIÉN ES EL EVENTO VA ESTRICTA** (`wsPorIdentificadorEstricto`,
+`credWsEstricta`). `wsPorIdentificador` y `credWs` no leen el `error` de supabase-js: con la base
+caída devuelven null, y un webhook lee ese null como «no es de ningún negocio» y lo contesta 200 —
+perdido, con un mensaje que culpa a la configuración y sin pasar por el 503 que existe para eso.
+Medido el 06/10/2026 en Calendly, cuyo clasificador ya estaba en verde: el ruteo no lo usaba.
+
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
 que **si un campo tiene ayuda propia, el tutorial del servicio no se ve nunca para ese

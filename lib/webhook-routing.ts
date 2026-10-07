@@ -72,6 +72,41 @@ export async function wsPorIdentificador(
 }
 
 /**
+ * Igual que `wsPorIdentificador`, pero «NO PUDE LEER» NO ES «NO ESTÁ MAPEADO»: si la consulta
+ * falla, TIRA.
+ *
+ * ⚠️ supabase-js NO tira ante un error de la base: devuelve `{ data: null, error }`. La versión
+ * de arriba no lee el `error`, así que con la base caída —o un 502, un 504, un socket cortado—
+ * contesta null, y un webhook lee null como «este evento no es de ningún cliente»: lo contesta
+ * 200 y lo descarta. Medido el 06/10/2026 en el de Calendly: una reserva de Mauricio se habría
+ * perdido con un mensaje que culpaba a la configuración, sin pasar por el 503 que existe para
+ * que Calendly reintente.
+ *
+ * Es una función APARTE y no un cambio de la de arriba a propósito: la usan todos los webhooks y
+ * que empiece a tirar le cambia el comportamiento a cada uno. El que la usa decide qué hace con
+ * el error — en Calendly lo clasifica `responderFalloDeProceso`. El error lleva `code`,
+ * `details` y `hint` del original, que es lo que lee el clasificador.
+ */
+export async function wsPorIdentificadorEstricto(
+  servicio: string,
+  id: string | null | undefined,
+): Promise<number | null> {
+  if (!id || !id.trim()) return null;
+  const { data, error } = await getSupabaseServer()
+    .from('webhook_routing')
+    .select('workspace_id')
+    .eq('servicio', servicio)
+    .eq('identificador', normalizar(id))
+    .maybeSingle();
+  if (error) {
+    throw Object.assign(new Error(`webhook_routing (${servicio}): ${error.message}`), {
+      code: error.code, details: error.details, hint: error.hint,
+    });
+  }
+  return (data as { workspace_id?: number } | null)?.workspace_id ?? null;
+}
+
+/**
  * Mapea (servicio, identificador) → ws (upsert). Best-effort (no lanza). Si el
  * identificador ya estaba mapeado a OTRO ws, loguea un warning antes de pisar.
  */

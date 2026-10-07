@@ -24,6 +24,8 @@
 //   - utm_term con formato UUID = visitor_id del beacon: se guarda solo si el
 //     lead no tiene uno (conecta retroactivamente lo que vio del VSL).
 //   - Idempotente: correrlo dos veces no duplica ni cambia nada.
+//   - El link para ENTRAR a la reunión (`junta_X_url`, mig 0204) se escribe como en el webhook,
+//     pero SÓLO en la fila cuya `junta_X_at` es esta reunión (ver `guardarLinkDelEvento`).
 // =============================================================================
 
 import { config } from 'dotenv';
@@ -31,8 +33,9 @@ import { resolve } from 'node:path';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-import { upsertLeadFromCalendly, saveLeadRespuestas, normalizarTelefono, findLeadByContacto, setFechaJunta2 } from '../lib/leads';
+import { upsertLeadFromCalendly, saveLeadRespuestas, normalizarTelefono, findLeadByContacto, setFechaJunta2, guardarLinkDeReunion } from '../lib/leads';
 import { isoToFechaTijuana, extractAnswer, extractRespuestaPorFrase, clasificarJunta } from '../lib/calendly';
+import { linkDeReunion } from '../lib/recordatorio-lead';
 import { runWithWorkspace, OWNER_WS, getTenantDb } from '../lib/workspace';
 import { credWs } from '../lib/credenciales';
 
@@ -85,7 +88,36 @@ type ScheduledEvent = {
   event_type?: string;
   start_time: string;
   status: string;
+  /** Dónde es la reunión: `join_url` es el link para ENTRAR (lo lee `linkDeReunion`). Presencial o por teléfono no lo trae. */
+  location?: { type?: string; join_url?: string; location?: string; status?: string } | null;
 };
+
+/** El mismo instante escrito de dos formas («…T17:00:00.000000Z» y «…T17:00:00+00:00»): se comparan los milisegundos. */
+const mismoInstante = (a: string | null | undefined, b: string): boolean =>
+  !!a && Number.isFinite(Date.parse(a)) && Date.parse(a) === Date.parse(b);
+
+/**
+ * El link para ENTRAR a la reunión (`junta_X_url`, mig 0204), como lo guarda el webhook en vivo
+ * (app/api/webhooks/calendly/route.ts: `guardarLinkDeReunion(lead.id, 'R1', linkDeReunion(…))`).
+ * Antes el backfill no lo escribía y un lead recuperado quedaba con los recordatorios de su reunión
+ * SIN el renglón del link: el 06/10/2026 hubo que completar dos a mano con el `join_url` de la API.
+ *
+ * ⚠️ CON `soloSiInicio`, que el webhook no necesita y acá sí: el webhook escribe el link de la
+ * reserva que ACABA de llegar, y el backfill recorre reservas viejas. Un lead con dos reservas
+ * activas (o una vieja y su R1 de hoy) recibiría el link de la que se lea última, que puede no ser
+ * la de su `junta_X_at`. Con el WHERE sobre el instante, el link sólo cae en la fila cuya reunión
+ * ES esta. Y se escribe también en null, como el webhook: una reunión por teléfono no puede
+ * heredar el link de otra. `guardarLinkDeReunion` no tira (si falla, lo loguea y sigue).
+ */
+async function guardarLinkDelEvento(leadId: number, cual: 'R1' | 'R2', ev: ScheduledEvent): Promise<void> {
+  await guardarLinkDeReunion(leadId, cual, linkDeReunion(ev.location), { soloSiInicio: ev.start_time });
+}
+
+/** Lo que el --dry dice del link: si la escritura caería en la fila, y con qué. */
+function textoDelLinkDry(cae: boolean, ev: ScheduledEvent): string {
+  if (!cae) return 'link=no-toca(la fila tiene otra reunión)';
+  return linkDeReunion(ev.location) ? 'link=sí' : 'link=null(sin join_url)';
+}
 
 type Invitee = {
   email?: string;
@@ -231,7 +263,9 @@ async function main() {
           const faltantes = [!lead.fecha_junta_2 && 'fecha_junta_2', !lead.junta_2_at && 'junta_2_at'].filter(Boolean);
           const falta = faltantes.length > 0;
           if (DRY) {
-            console.log(`  [dry] ${(falta ? `COMPLETA(${faltantes.join(',')})` : 'NADA').padEnd(46)} ${nombre} <${email}> R2=${fechaJ1} (lead #${lead.id})`);
+            // El link cae sólo si la R2 de la fila (después de completarla) ES esta reunión.
+            const link = textoDelLinkDry(mismoInstante(lead.junta_2_at ?? ev.start_time, ev.start_time), ev);
+            console.log(`  [dry] ${(falta ? `COMPLETA(${faltantes.join(',')})` : 'NADA').padEnd(46)} ${nombre} <${email}> R2=${fechaJ1} ${link} (lead #${lead.id})`);
             if (falta) completados++; else saltados++;
             continue;
           }
@@ -241,6 +275,8 @@ async function main() {
           } else {
             saltados++;
           }
+          // DESPUÉS de completar la fecha: si la R2 estaba vacía, recién ahora la fila es de esta reunión.
+          await guardarLinkDelEvento(lead.id, 'R2', ev);
           // Las respuestas del form de la R2 van con su propia etiqueta: el set de columnas
           // de `leads` es el de la R1 y pisarlo con las de la R2 sería contestar otra cosa.
           if (inv.questions_and_answers?.length) {
@@ -275,7 +311,10 @@ async function main() {
             ? [!existente.fecha_junta_1 && 'fecha_junta_1', !existente.junta_1_at && 'junta_1_at', !existente.respuesta_inversion && 'respuesta_inversion'].filter(Boolean)
             : [];
           const veredicto = !existente ? 'CREA' : faltantes.length ? `COMPLETA(${faltantes.join(',')})` : 'NADA';
-          console.log(`  [dry] ${veredicto.padEnd(46)} ${nombre} <${email}> J1=${fechaJ1} utm=${tk?.utm_campaign ?? '—'} vsl=${visitor_id ? 'sí' : 'no'}`);
+          // El link cae si el lead es nuevo, si su `junta_1_at` estaba vacía (el upsert la completa
+          // con esta) o si ya ES esta reunión: lo mismo que decide el `soloSiInicio` al escribir.
+          const link = textoDelLinkDry(!existente || mismoInstante(existente.junta_1_at ?? ev.start_time, ev.start_time), ev);
+          console.log(`  [dry] ${veredicto.padEnd(46)} ${nombre} <${email}> J1=${fechaJ1} utm=${tk?.utm_campaign ?? '—'} vsl=${visitor_id ? 'sí' : 'no'} ${link}`);
           if (veredicto === 'CREA') creados++; else if (veredicto.startsWith('COMPLETA')) completados++; else saltados++;
           continue;
         }
@@ -310,6 +349,8 @@ async function main() {
             fechaCreacion: inv.created_at ?? ev.start_time,
           },
         );
+        // El link para entrar a la R1, como el webhook (ver `guardarLinkDelEvento`).
+        await guardarLinkDelEvento(lead.id, 'R1', ev);
         // Guardar las respuestas EXACTAS del formulario de Calendly (preguntas
         // tal cual) en lead_respuestas — así la ficha no cae al fallback canónico.
         // Idempotente por (lead, reunión, evento).

@@ -1052,14 +1052,79 @@ firmada da 400 con la clave del ws y 401 con una inventada) y el backfill desde 
 leads nuevos y completó 1. El aviso `lead-fusionado` se apagó para la corrida y se devolvió
 exactamente como estaba (ya venía apagado por herencia).
 
-⚠️ **Y el backfill NO guarda el link de la reunión** (`junta_X_url`, mig 0204): sólo el webhook en
-vivo lo escribe. Las dos reservas recuperadas con reunión por delante se completaron a mano con el
-`join_url` de la API de Calendly; un backfill futuro deja a esos leads con recordatorios SIN el
-renglón del link. Va en `scripts/backfill-calendly.ts` con `guardarLinkDeReunion` y
-`linkDeReunion(event.location)`.
+~~⚠️ **Y el backfill NO guarda el link de la reunión** (`junta_X_url`, mig 0204): sólo el webhook en
+vivo lo escribe.~~ **ARREGLADO el mismo día:** el backfill escribe el link (`guardarLinkDeReunion` +
+`linkDeReunion(ev.location)`). Las dos reservas recuperadas con reunión por delante se habían
+completado a mano con el `join_url` de la API de Calendly.
 
-**SIN HACER:** cambiar la rama de proceso del route para que un error que no es transitorio no
-devuelva 5xx — si no, el próximo evento envenenado la vuelve a apagar.
+⚠️ **Y lo que el backfill NO recupera, que es la letra chica de «200 y anotado»:** corre SÓLO sobre
+el ws1 (token y config del dueño), y una reserva que trae vuelve como lead con su reunión y su link
+pero SIN lo que dispara el webhook —la bienvenida, el aviso al dueño, el CAPI, los flujos—. Una
+cancelación no la trae nunca (lista sólo `status=active`). Los comentarios del route y del
+clasificador decían «el backfill la vuelve a traer» a secas; se corrigieron.
+
+**HECHO el 06/10/2026 (tarjeta #20):** los tres catch de proceso del route, y una red de afuera para
+lo que escape, pasan por `responderFalloDeProceso`: **503 sólo si `esErrorTransitorio`**
+(`lib/calendly-error.ts`: red, timeout, 5xx/429 de un proveedor, la base sin conexión; en la duda,
+NO), y si no, **200 y anotado** en `calendly.fallos_proceso` del workspace del evento (evento, uuid
+de la reserva, email, mensaje, cuándo; tope 30). El clasificador lee TEXTO porque `lib/leads.ts`
+envuelve el error de Supabase y pierde el `code`; y nunca un número suelto, porque «Error
+actualizando lead 503: duplicate key…» lleva el id del lead. Lo fija `tests/calendly-error.test.ts`
+(errores medidos, en vivo contra un server local, y guard sobre el route sin comentarios), probado
+rompiéndolo: 19 roturas, todas cayeron. Y el backfill ya escribe el link (`guardarLinkDeReunion` +
+`linkDeReunion(ev.location)`, con `soloSiInicio` para no ponérselo a otra reunión del mismo lead).
+**Quedan afuera del route:** los 400 de `incomplete_payload` / `no_payload` siguen siendo no-2xx
+(inalcanzables con un evento real; `scripts/arreglar-webhook-calendly.ts` los usa de señal de que
+la firma pasó) — **lo decide Martín**, igual que si `calendly.fallos_proceso` se muestra en alguna
+pantalla (hoy sólo se lee con una consulta).
+
+### ⚠️ Y el clasificador en verde dejaba pasar a 200 tres fallos de RED, y el ruteo no lo usaba (06/10/2026, noche)
+
+**El diagnóstico obvio era el equivocado:** con 19 roturas cayendo y los errores medidos en vivo,
+el arreglo de la tarde se leía cerrado. Un refutador encontró, contra el mismo código, CINCO caminos
+por los que un fallo que se arregla reintentando se contestaba 200 y se perdía:
+
+1. **El cuerpo cortado a la mitad** (los headers ya salieron): el crudo de supabase-js trae «other
+   side closed» en `details`, pero `lib/leads.ts` envuelve sólo el `message`, que dice
+   **«TypeError: terminated»** — ninguna regla lo leía. Va `\bterminated\b` en `RED` (con borde:
+   «Unterminated» es un JSON roto).
+2. **El gateway que contesta SIN cuerpo:** postgrest-js deja `message: ''` y el status no viaja en
+   el error, así que el envoltorio queda **«Error buscando lead por email: »**, con la cola vacía.
+   Medido en vivo con un 502 vacío. Un error permanente de PostgREST siempre trae su JSON con
+   mensaje: la cola vacía se reintenta (`CUERPO_VACIO`, mirado sobre el mensaje de AFUERA).
+3. **nginx:** su página dice «503 Service **Temporarily** Unavailable», y la frase corta no la cubría.
+4. **El RUTEO** usaba `wsPorIdentificador`, que no lee el `error` de supabase-js y tiene un `catch`
+   que devuelve null: la base caída se leía «este evento no es de ningún negocio» → la rama del sin
+   ruteo → 200, con un mensaje que culpa a la configuración. Lo mismo la signing key (`credWs` →
+   null → la key de plataforma → 401, un no-2xx que suma para deshabilitar) y la R1/R2 (sin el tipo
+   de la R2, una R2 se graba como R1).
+5. **La firma:** comparaba el largo en CARACTERES antes de `timingSafeEqual`, que exige bytes: un
+   `v1` con 64 «ñ» tiraba `RangeError` → un 500 de Next sobre una firma mala.
+
+**Cómo quedó:** `wsPorIdentificadorEstricto` y `credWsEstricta` (funciones APARTE: las de siempre
+las usa medio producto y cambiarles el comportamiento es otro trabajo) tiran si la base no contesta,
+con `code/details/hint` del original. En el route, el ruteo y la key van en un `try` que contesta
+por `responderFalloDeProceso` con la rama nueva **`ruteo`**: transitorio → 503; si no, 200 y anotado
+**en el workspace del super admin** (fuera de `runWithWorkspace`, `setSetting` cae al ws1, que es un
+cliente). La R1/R2 estricta cae a la red de afuera. Y como todo eso corre ANTES de la firma, los
+candidatos de ruteo se topean en 300 caracteres: uno de 20 KB armaría una URL que falla siempre, un
+200 anotado por cada pedido sin firmar.
+
+Lo fija `tests/calendly-error.test.ts` (15 tests: los casos nuevos, un EN VIVO con el cuerpo
+cortado, el 502 vacío y nginx, la firma con «ñ», y un guard sobre el ruteo), probado rompiéndolo:
+12 roturas, las 12 cayeron.
+
+**La regla que queda** (va en AGENTS.md, en la de los webhooks): **la lectura que decide DE QUIÉN
+es un evento entrante se hace con la variante estricta.** Con la que traga el error, «no pude leer»
+y «no es de nadie» son el mismo null, y el segundo se contesta 2xx.
+
+**Vive en:** app/api/webhooks/calendly/route.ts · lib/calendly-error.ts · lib/webhook-routing.ts
+(`wsPorIdentificadorEstricto`) · lib/credenciales.ts (`credWsEstricta`) · lib/calendly.ts
+(`verifyCalendlySignature`) · tests/calendly-error.test.ts
+
+**SIN HACER:** los otros webhooks (Cal.com, Chatwoot, Meta, Fathom) siguen ruteando con
+`wsPorIdentificador`, o sea con «no pude leer» = «no es de nadie». En ellos el costo es otro —no
+todos deshabilitan la suscripción—, y no se midió cuál sí.
 
 **Vive en:** app/api/webhooks/calendly/route.ts (la rama `invitee.canceled` y el `catch` de proceso) · scripts/arreglar-webhook-calendly.ts · scripts/backfill-calendly.ts · *2026-10-06 wf_fe0d104c-25c, implementador y revisor de #17*
 

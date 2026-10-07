@@ -60,8 +60,11 @@ export function verifyCalendlySignature(
   const data = `${parts.t}.${rawBody}`;
   const expected = crypto.createHmac('sha256', signingKey).update(data).digest('hex');
 
-  // timingSafeEqual requiere mismo length
-  if (expected.length !== parts.v1.length) {
+  // timingSafeEqual requiere el mismo largo EN BYTES, no en caracteres: con 'ñ' repetida 64
+  // veces el string mide 64 y el Buffer 128, y timingSafeEqual tira RangeError → un 500 que se
+  // escapa del webhook (medido con node el 06/10/2026). Sólo lo alcanza una firma falsificada
+  // —Calendly manda hex—, pero un 500 no es la respuesta a una firma mala: es un 401.
+  if (Buffer.byteLength(expected) !== Buffer.byteLength(parts.v1)) {
     throw new CalendlySignatureError('Firma con length distinto a la esperada');
   }
   const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));
