@@ -387,7 +387,10 @@ scope. Es un registro global sin dueño y sin lector.
 
 **Vive en:** supabase/migrations/0045_meta_campaign_drafts.sql · app/api/ads-manager/campaign-create/route.ts:53,62 · app/api/ads-manager/ad-add/route.ts:98,112 · lib/workspace.ts:43-57 · *2026-08-06 senales-de-avance (lo levantó antes la revisión adversarial del 2026-06-30)*
 
-### ⚠️ El árbol de Meta que leen las guardas tiene hasta 2 minutos, y `metaWrite` no lo invalida NUNCA
+### ⚠️ El árbol de Meta que leen las guardas puede tener CUALQUIER edad, y `metaWrite` no lo invalida NUNCA
+
+(Hasta el 07/10/2026 este título decía «tiene hasta 2 minutos». Era falso: ver el
+párrafo fechado 07/10 de abajo, «El `revalidate: 120` no es un techo».)
 
 **Síntoma:** ninguno visible. Una guarda «solo se borra lo pausado» que decida con el árbol
 puede dejar pasar el borrado de algo que se activó hace un minuto, y lo mismo al
@@ -422,16 +425,49 @@ borra (antes usaba `envCred`, la cuenta del ws1, igual que `metaWrite`).
 y extenderlo a toda escritura, no solo al rename. Y exportar la lectura viva desde
 `lib/meta-write.ts`: hoy vive en un área.
 
+⚠️ **(07/10) Y no es una línea: `TAG.marketing` NO es por cliente.** La clave de la caché
+lleva el workspace (`lib/cache.ts`), el tag no. Invalidarlo al escribir un presupuesto
+expira el árbol de Meta **y las 12 lecturas de `lib/queries.ts` que lo llevan** (CAC,
+ingresos, embudo, tendencias, los mapas de nombres…) de TODOS los workspaces. Por eso la revisión
+de la #349 no lo hizo y arregló la tabla del lado de la pantalla. La cura limpia es un tag
+propio del árbol por workspace (`metaHealth:ws:N`) que una escritura pueda invalidar sola.
+Y aun invalidando queda una carrera: una lectura que arrancó antes de la escritura y
+termina después se guarda en la caché con la hora nueva y el monto viejo.
+
 **(07/10) Y en la tabla del Ads Manager SÍ había síntoma**, del lado del presupuesto: cada
 pausa, activación, renombre o borrado llama a `cargar()`, que soltaba TODOS los valores
-optimistas y pintaba el árbol cacheado. Cambiar un presupuesto y pausar algo en el mismo
-minuto devolvía la fila al monto VIEJO — se lee como «no se aplicó», y el «viejo» del
-próximo cartel salía vencido. Parche del lado de la pantalla, no la cura:
-`presupuestosVigentes` (lib/presupuesto-cambio.ts) conserva lo escrito desde la pestaña
-hasta que Meta devuelve ese monto o vencen los 120 s. La invalidación de fondo sigue sin hacer.
+optimistas y pintaba el árbol cacheado. Cambiar un presupuesto y pausar algo devolvía la
+fila al monto VIEJO — se lee como «no se aplicó», y el «viejo» del próximo cartel salía
+vencido. Parche del lado de la pantalla, no la cura: `presupuestosVigentes`
+(lib/presupuesto-cambio.ts) conserva lo escrito desde la pestaña hasta que llega una
+lectura que **empezó** después de la escritura (o que ya trae ese monto).
 
-**Vive en:** lib/meta-health.ts:492 · lib/meta-write.ts:95-97,137 ·
-lib/api-mako/areas/ads.helpers.ts (`estadoVivoMeta`) · *2026-09-16 api-mako-areas*
+⚠️ **(07/10, revisión de la #349) El `revalidate: 120` no es un techo.** La primera versión
+de ese parche soltaba lo escrito a los 120 s, suponiendo que la caché nunca sirve algo más
+viejo. `unstable_cache` es **stale-while-revalidate** (Next 16.2.6,
+`node_modules/next/dist/server/web/spec-extension/unstable-cache.js`, la rama `isStale`:
+«we're doing background revalidation - return stale immediately»): la primera lectura
+DESPUÉS de vencer devuelve la entrada vieja y recién ahí revalida de fondo. Si nadie pide el
+árbol durante diez minutos, lo que se sirve tiene diez minutos. Escenario medido sobre el
+código: caché en t0 con 500, escribir 1000 a los 10 s, pausar otra fila a los 3 min → la
+fila volvía a 500, el editor abría en 29 USD y el cartel siguiente calculaba el ×5 contra
+500. **La prueba del navegador dio verde porque su `/api/meta-health` simulado no tenía
+caché y la prueba entró en la ventana.** Ahora `_getMetaHealth` anota `inicioLecturaISO`
+ANTES del primer pedido a Meta, la escritura toma su hora del header `Date` de
+`/api/meta-write` (reloj del servidor contra reloj del servidor, con un segundo de grano
+porque `Date` trunca), y el optimista se suelta con la primera lectura posterior, traiga lo
+que traiga. Contra `fetchedAtISO` no sirve: se pone al FINAL, y una lectura que arrancó
+antes de la escritura y terminó después trae el monto viejo con una hora posterior.
+
+**Regla:** la edad de lo que sirve una caché no la acota su `revalidate`. Para decidir si
+una lectura ya ve una escritura, se compara la hora en que la lectura EMPEZÓ —escrita
+adentro del valor cacheado— contra la hora de la escritura, las dos del servidor. Un reloj
+del lado del cliente («pasaron N segundos») no contesta esa pregunta.
+
+**Vive en:** lib/meta-health.ts (`getMetaHealth`, `inicioLecturaISO` en `_getMetaHealth`) ·
+lib/meta-write.ts:154 (`propagarRename`) · lib/presupuesto-cambio.ts (`presupuestosVigentes`,
+`horaDeEscritura`) · lib/api-mako/areas/ads.helpers.ts (`estadoVivoMeta`) ·
+*2026-09-16 api-mako-areas · 2026-10-07 revisión de la #349*
 
 ### Meta contesta los errores con HTTP 200
 
@@ -1761,13 +1797,22 @@ devuelve `currency: 'USD'` cuando Meta no manda el campo (`lib/meta-ads-create.t
 Quien la lea no distingue «la cuenta cobra en dólares» de «no sé en qué cobra», y justo esa
 función existe para dejar de adivinar la moneda (su comentario, `:560-564`).
 
-⚠️ **(07/10) Y no eran dos lugares: eran CUATRO.** La celda de presupuesto de la tabla del
+⚠️ **(07/10) Y no eran dos lugares: eran TRES.** La celda de presupuesto de la tabla del
 Ads Manager (`BudgetEditor` en `app/ads-manager/CampanasBrowser.tsx`) multiplicaba SIEMPRE
-por `TIPO_DE_CAMBIO_USD_MXN`, y lo que MOSTRABA dividía siempre por 17,3; la barra de lote
-pedía el monto crudo en la moneda de la cuenta. La tercera y la cuarta vez del mismo bug no
-mordían a nadie mientras sólo el ws1 (MXN) podía escribir: `db7b7682` abrió la escritura a
+por `TIPO_DE_CAMBIO_USD_MXN`, y lo que MOSTRABA dividía siempre por 17,3. Esa tercera vez
+no mordía a nadie mientras sólo el ws1 (MXN) podía escribir: `db7b7682` abrió la escritura a
 todos los workspaces, y desde ese commit una cuenta en USD escribía 865 USD/día al tipear 50.
 Se cerró en la tarea #349 — ver «Cambiar un presupuesto pasa por un cartel» al final.
+
+**La barra de lote NO tenía este bug** (lo corrigió la revisión de la #349: la primera
+versión de este párrafo la contaba como «la cuarta vez»). Mandaba el número tipeado CRUDO
+en la moneda de la cuenta (`Number(monto.replace(',', '.'))`, sin tasa), que es correcto
+en cualquier moneda: no hay escrituras infladas hechas desde el lote que buscar. Su defecto
+era otro: tipeaba en una unidad distinta de la celda (el mismo «50» eran 50 MXN en la
+barra y 865 en la celda, en la misma pantalla) y leía «1.500» como 1,5. Desde la #349 el
+lote tipea en dólares como la celda, así que **para el ws1 el mismo número tipeado en el
+lote vale ahora 17,3 veces más que antes**: quien tipeaba pesos ahí ahora tipea dólares (el
+placeholder y el cartel lo dicen).
 
 **Regla que queda, y es la de las tres:** un campo con el nombre de una moneda o de un país
 adentro (`daily_budget_mxn`, `countries: ['MX']`) es una constante disfrazada de dato. Lo
@@ -2805,7 +2850,7 @@ que ninguna línea lo diga.
   El resumen ya dice «moneda de la cuenta»; el nombre del campo viaja en pendientes que
   ya están en la base, así que renombrarlo es una migración de contrato.
 - **`updateTag` en `propagarRename` sigue sin invalidar nada** fuera de una server action
-  (ver «El árbol de Meta que leen las guardas tiene hasta 2 minutos»).
+  (ver «El árbol de Meta que leen las guardas puede tener CUALQUIER edad»).
 - **Los controles del Ads Manager se dibujan igual que antes**: no hay que esconder nada,
   porque ahora funcionan. Lo que no se probó es un cliente real pausando una campaña real
   —no se escribió en la cuenta de nadie—; la primera vez conviene mirarla.
@@ -2951,7 +2996,68 @@ del sistema headless con `--mute-audio` por Playwright, `/api/meta-health` y
 → sin lápiz; cuenta en USD: 50 → `dailyBudgetMxn: 50`; ARS: 600 → 600 y «Va en ARS, sin
 convertir»; lote de tres con un total → un cartel, 2 POST, «1 queda afuera»; y después de
 una pausa (que recarga el árbol con el monto viejo, como la caché) la fila sigue mostrando
-el nuevo.
+el nuevo. ⚠️ Ese último verde **no probaba lo que parecía**: el `/api/meta-health` simulado
+no tenía caché y la prueba entró en los primeros 120 s. Ver la revisión, abajo.
+
+### La revisión del mismo día: cinco cosas que el commit afirmaba y no hacía (07/10)
+
+Dos revisores leyeron `025f44ec` contra el código. Todas se verificaron antes de tocarlas.
+
+**1. El optimista se soltaba por reloj, y la caché sirve lo vencido.** Síntoma (escenario
+sobre el código, no visto en una cuenta): escribir 500 → 1000, no mirar nada, pausar otra
+fila a los 3 minutos → la fila vuelve a 500 con Meta en 1000, y el cartel siguiente calcula
+el ×5 contra 500. Es el MISMO caso que el commit decía cerrar, pasados 2 minutos. Causa:
+`unstable_cache` es stale-while-revalidate; el detalle y la regla, en «El árbol de Meta que
+leen las guardas puede tener CUALQUIER edad». Y el test que lo «fijaba» comparaba
+`VENTANA_CACHE_HEALTH_MS` con el `revalidate` de la caché, **que es la propiedad
+equivocada**: los dos números eran iguales y el bug estaba en suponer que uno acota al
+otro. Se reemplazó por uno con una lectura vencida servida después de la ventana.
+
+**2. Un `cargar()` en el medio se llevaba el optimista de una escritura en vuelo.** `writeBudget`
+anotaba en `escritos` recién al volver OK, y `cargar()` reemplaza el mapa optimista entero
+con lo que hay en `escritos`. Pausar la fila B mientras viaja el presupuesto de A → la fila
+de A vuelve al viejo, el aviso dice «Presupuesto cambiado», y nadie repone el monto. Ahora se
+anota ANTES del POST (en vuelo, sin hora) y se repone al volver.
+
+**3. Un fallo borraba el optimista sin mirar lo escrito antes.** Con 1000 confirmado (y sin
+recarga, por diseño) y un 3000 rechazado, `clearOpt` dejaba la fila en el 500 del árbol
+cargado: un monto que Meta ya no tenía. Ahora vuelve a lo que la fila mostraba antes.
+
+**4. Agregar conjunto trataba «no pude leer la moneda» como «cobra en dólares».**
+`usdACuenta(budgetUsd, cuenta?.currency ?? 'USD')`, con la lectura de la cuenta en un
+`catch` mudo y sin el respaldo de la moneda del árbol que el wizard sí tiene. En el ws1 un
+error transitorio de Meta creaba el conjunto con 50 MXN/día sobre un «50» tipeado bajo el
+rótulo «USD»: 17,3 veces menos, sin aviso. Era previo a la #349, pero el commit afirmaba que
+los cuatro lugares convertían. Ahora toma la moneda del árbol de respaldo y, sin ninguna, no
+crea y lo dice. Y el rótulo decía «USD → ARS» sobre un monto que viajaba sin convertir.
+
+**5. Tres guards seguían verdes con lo que su nombre dice fijar, roto.** Medido con
+mutaciones: sacar el `return` de la rama de fallo del lote (el «Presupuesto cambiado en N»
+vuelve a tapar el error), dejar la guarda de `e.repeat` de `Confirm` sin su `return` (el
+Enter repetido sigue hasta `onConfirm()`) y mandar `onPresupuesto(Number(monto))` desde la
+barra (50 en vez de 865 en el ws1): las tres daban **13 / 0**. Los asserts buscaban que la
+llamada EXISTIERA —`avisarFallos(`, `e.preventDefault();`, `tipeadoACuenta(monto, moneda)`,
+que estaba en el `disabled`— y no la línea que decide.
+
+**Regla, y vale para cualquier guard sobre el fuente:** se fija la línea que DECIDE —la rama
+que corta con su `return`, el valor que se MANDA—, no que la llamada aparezca en el bloque.
+La pregunta antes de dar un guard por bueno: «¿qué mutación de una palabra deja esto verde
+con el bug adentro?». Y una prueba en el navegador con el backend simulado prueba el código
+de la pantalla, nunca la caché: si lo que se cuida ES la caché, el simulado tiene que
+servir una entrada vieja a propósito.
+
+Y la cosecha también tenía un error: contaba a la barra de lote como «la cuarta vez» del
+×17,3, y el lote nunca multiplicó (corregido en «Y de paso: el presupuesto se multiplicaba
+por 17,3»).
+
+**Sin hacer, de la revisión:**
+- **Invalidar el árbol al escribir**: `TAG.marketing` es global y lo comparten 12 lecturas de
+  `lib/queries.ts`; hace falta un tag propio por workspace (ver la entrada de la caché).
+- **`inicioLecturaISO` falta en las entradas de caché escritas antes del deploy**: sin él la
+  tabla mantiene lo escrito hasta la primera lectura nueva. Se va solo con la primera
+  revalidación.
+- **El rótulo de agregar conjunto no se miró en el navegador**: el cambio es de texto y de
+  `disabled`, verificado con typecheck y el guard.
 
 ### Lo que quedó SIN hacer
 
@@ -2973,11 +3079,14 @@ el nuevo.
 - **Lo que significa un número en la barra de lote CAMBIÓ:** quien tipeaba pesos ahí ahora
   tipea dólares. El placeholder («Diario, en USD») y el cartel lo dicen; Martín se entera.
 - **La invalidación de la caché** al escribir (ver «El árbol de Meta que leen las guardas
-  tiene hasta 2 minutos»): la tabla tiene un parche, no la cura.
+  puede tener CUALQUIER edad»): la tabla tiene un parche, no la cura.
 
-**Vive en:** lib/presupuesto-cambio.ts · app/ads-manager/CampanasBrowser.tsx (`pideBudget`,
-`pedirPresupuesto`, `bulkPresupuesto`, `aplicarPresupuesto`, `writeBudget`, `BudgetCell`,
-`BudgetEditor`, `MensajePresupuesto`) · app/ads-manager/BarraAcciones.tsx (`BarraLoteAds`) ·
+**Vive en:** lib/presupuesto-cambio.ts (`presupuestosVigentes`, `horaDeEscritura`) ·
+app/ads-manager/CampanasBrowser.tsx (`pideBudget`, `pedirPresupuesto`, `bulkPresupuesto`,
+`aplicarPresupuesto`, `writeBudget`, `optimistasQueSiguen`, `BudgetCell`, `BudgetEditor`,
+`MensajePresupuesto`) · app/ads-manager/BarraAcciones.tsx (`BarraLoteAds`) ·
 app/_ui/Confirm.tsx · app/ads-manager/NuevaCampanaModal.tsx ·
-app/ads-manager/AgregarConjuntoModal.tsx · lib/api-mako/areas/ads.run.ts (`saltoPresupuesto`) ·
-tests/ads-presupuesto-confirma.test.ts · *2026-10-07 tarea-349-cartel-presupuesto*
+app/ads-manager/AgregarConjuntoModal.tsx (`moneda`, `monedaRespaldo`) ·
+lib/meta-health.ts (`inicioLecturaISO`) · lib/meta-health-ui.ts (`MetaHealth`) ·
+lib/api-mako/areas/ads.run.ts (`saltoPresupuesto`) · tests/ads-presupuesto-confirma.test.ts ·
+*2026-10-07 tarea-349-cartel-presupuesto · 2026-10-07 revisión de la #349*

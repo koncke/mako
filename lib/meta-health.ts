@@ -531,6 +531,11 @@ function sugerenciasMako(
 export const getMetaHealth = cachedRead('metaHealth', _getMetaHealth, { tags: [TAG.marketing], revalidate: 120 });
 
 async function _getMetaHealth(): Promise<MetaHealth> {
+  // ANTES del primer pedido: la tabla del Ads Manager decide con esto si una lectura ya
+  // ve un presupuesto recién escrito (presupuestosVigentes). `fetchedAtISO`, que se pone
+  // al final, no sirve para eso: una lectura que arrancó antes de la escritura y terminó
+  // después trae el monto viejo con una hora posterior.
+  const inicioLecturaISO = new Date().toISOString();
   // La cuenta es obligatoria (sin ella no hay banner): si falla, propaga.
   const accountRaw = await fetchAccountRaw();
   const account = computeAccountHealth(accountRaw);
@@ -586,5 +591,6 @@ async function _getMetaHealth(): Promise<MetaHealth> {
     recosMetaDisponibles,
     parcial,
     fetchedAtISO: new Date().toISOString(),
+    inicioLecturaISO,
   };
 }

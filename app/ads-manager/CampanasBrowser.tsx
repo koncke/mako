@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar } from '../_components/MakoBrand';
-import { cifra, cuentaAUsd, editaPresupuestoAca, esConvertible, inicialTipeado, montoCuenta, presupuestosVigentes, saltoPresupuesto, tipeadoACuenta } from '@/lib/presupuesto-cambio';
+import { cifra, cuentaAUsd, editaPresupuestoAca, esConvertible, horaDeEscritura, inicialTipeado, montoCuenta, presupuestosVigentes, saltoPresupuesto, tipeadoACuenta, type EscritoPresupuesto } from '@/lib/presupuesto-cambio';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
   colorDeSemaforo, bgDeSemaforo, explicarIssueEs, esAprobacionPendiente, linkAprobarEnMeta,
@@ -198,8 +198,9 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   // onConfirm —el listener del documento y el click nativo del botón enfocado—; con el
   // mismo objeto en la mano, el segundo no escribe de nuevo.
   const aplicandoBudget = useRef<PideBudget | null>(null);
-  // Presupuestos escritos desde esta pestaña, con la hora: ver presupuestosVigentes.
-  const escritos = useRef<Map<string, { valor: number; en: number }>>(new Map());
+  // Presupuestos escritos desde esta pestaña, con la hora del servidor (null = en vuelo):
+  // ver presupuestosVigentes.
+  const escritos = useRef<Map<string, EscritoPresupuesto>>(new Map());
 
   // modales
   const [adSel, setAdSel] = useState<SenalRecon | null>(null);
@@ -222,14 +223,17 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       // el effectiveStatus real (ACTIVE / CAMPAIGN_PAUSED / IN_REVIEW / DISAPPROVED…)
       // reemplace a lo que pintamos al vuelo y la columna "entrega" no mienta.
       // ⚠️ Salvo los presupuestos recién escritos: esta lectura puede venir de una caché
-      // de 120 s que la escritura no invalida, y soltarlos pintaba el monto VIEJO en la
-      // fila (lib/presupuesto-cambio.ts → presupuestosVigentes).
+      // que la escritura no invalida —y que sirve vencido—, y soltarlos pintaba el monto
+      // VIEJO en la fila (lib/presupuesto-cambio.ts → presupuestosVigentes).
       .then((j) => { if (j.error) setError(j.error); else { setHealth(j); setOptimistic(optimistasQueSiguen(j)); } })
       .catch((e) => setError(String(e))).finally(() => { if (!silent) setLoading(false); });
   };
   const optimistasQueSiguen = (h: MetaHealth) => {
     const reales = new Map<string, number | null>([...h.campaigns, ...h.adsets].map((n) => [n.id, n.dailyBudgetMxn ?? null]));
-    const { mantener, soltar } = presupuestosVigentes(escritos.current, reales, Date.now());
+    // Cuándo EMPEZÓ esta lectura en el servidor, no cuándo llegó acá: de una caché puede
+    // llegar una lectura de hace diez minutos.
+    const leidaDesde = Date.parse(h.inicioLecturaISO ?? '');
+    const { mantener, soltar } = presupuestosVigentes(escritos.current, reales, Number.isFinite(leidaDesde) ? leidaDesde : null);
     for (const id of soltar) escritos.current.delete(id);
     return new Map([...mantener].map(([id, budget]) => [id, { budget }]));
   };
@@ -469,14 +473,33 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   // `dailyBudgetMxn` por historia y renombrarlo es una migración de contrato.
   async function writeBudget(lvl: 'campaign' | 'adset', id: string, monto: number): Promise<{ ok: boolean; msg?: string }> {
     setWriting((w) => new Set(w).add(id));
+    // ⚠️ Se anota ANTES del POST, en vuelo (`en: null`). Un cargar() que resuelva en el
+    // medio —la pausa de otra fila, el ↻— reemplaza el mapa optimista entero y deja sólo
+    // lo que está en `escritos`: anotado recién al volver OK, la fila perdía el monto
+    // nuevo y no lo recuperaba nunca, con el aviso «Presupuesto cambiado» encima.
+    const previo = escritos.current.get(id);
+    const mio: EscritoPresupuesto = { valor: monto, en: null };
+    escritos.current.set(id, mio);
     setOpt(id, { budget: monto });
+    // Si falla, la fila vuelve a lo que mostraba ANTES, no al árbol cargado: si hubo una
+    // escritura anterior confirmada, el árbol puede ser de antes de ella y pintaría un
+    // monto que Meta ya no tiene (y el próximo cartel compararía contra ése). Dos
+    // escrituras de la MISMA fila no se cruzan: la celda y el lote se apagan con `writing`.
+    const volver = () => {
+      if (escritos.current.get(id) !== mio) return;
+      if (previo) { escritos.current.set(id, previo); setOpt(id, { budget: previo.valor }); }
+      else { escritos.current.delete(id); clearOpt(id, 'budget'); }
+    };
     try {
       const r = await fetch('/api/meta-write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: lvl, id, op: 'budget', dailyBudgetMxn: monto }) });
       const j = await r.json();
-      if (!j.ok) { clearOpt(id, 'budget'); return { ok: false, msg: permMsg(j) }; }
-      escritos.current.set(id, { valor: monto, en: Date.now() });
+      if (!j.ok) { volver(); return { ok: false, msg: permMsg(j) }; }
+      mio.en = horaDeEscritura(r.headers.get('date'), Date.now());
+      // Y se repone: lo que haya pasado con el mapa mientras el POST viajaba, la fila
+      // termina mostrando lo que Meta acaba de aceptar.
+      if (escritos.current.get(id) === mio) setOpt(id, { budget: monto });
       return { ok: true };
-    } catch (e) { clearOpt(id, 'budget'); return { ok: false, msg: `Error de red: ${String(e)}` }; }
+    } catch (e) { volver(); return { ok: false, msg: `Error de red: ${String(e)}` }; }
     finally { setWriting((w) => { const n = new Set(w); n.delete(id); return n; }); }
   }
   // Cuenta los que NO salieron y arma un aviso. Sin esto una pausa en lote podía
@@ -531,8 +554,8 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   };
 
   // El «sí» del cartel. Todas en paralelo, como la pausa en lote, y el éxito se afirma
-  // sólo si salieron TODAS. Sin cargar() después: con la caché de 120 s la fila
-  // volvería al monto viejo (ver presupuestosVigentes).
+  // sólo si salieron TODAS. Sin cargar() después: la caché del árbol no se entera de la
+  // escritura y no traería nada nuevo (ver presupuestosVigentes).
   const aplicarPresupuesto = async (p: PideBudget) => {
     const results = await Promise.allSettled(p.filas.map((f) => writeBudget(f.lvl, f.id, p.nuevo)));
     if (results.some((res) => res.status === 'rejected' || !res.value.ok)) { avisarFallos(results, 'cambiar'); return; }
@@ -871,7 +894,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       {problemaSel && <ProblemaModal ads={problemaSel.ads} accountId={health?.account.accountId ?? null} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
       {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
       {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
-      {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
+      {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} monedaRespaldo={health?.account.currency ?? null} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
       {elegirCampana && (
         <Modal titulo="¿A qué campaña?" onCerrar={() => setElegirCampana(false)} ancho={480}>
           <Dropdown

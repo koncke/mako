@@ -123,7 +123,15 @@ export type MetaHealth = {
   recomendaciones: Reco[];
   recosMetaDisponibles: boolean;
   parcial: boolean;
+  /** Cuándo TERMINÓ la lectura a Meta. Es la hora que se le muestra a la persona. */
   fetchedAtISO: string;
+  /**
+   * Cuándo EMPEZÓ, antes del primer pedido a Meta. Lo que esta lectura trae puede ser de
+   * cualquier momento entre las dos horas, así que para saber si ya ve una escritura se
+   * mira ésta (lib/presupuesto-cambio.ts → presupuestosVigentes). Opcional: una entrada
+   * de caché escrita antes de que existiera no lo trae.
+   */
+  inicioLecturaISO?: string;
 };
 
 // effective_status de campaign/adset/ad

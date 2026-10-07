@@ -18,7 +18,7 @@ import { useGanadoresBloqueados } from './useGanadoresBloqueados';
 import { LugarPicker } from './LugarPicker';
 import { CrearFormulario } from './CrearFormulario';
 import { geoSpecDe, lugarPais, type LugarMeta } from '@/lib/meta-geo';
-import { usdACuenta } from '@/lib/presupuesto-cambio';
+import { esConvertible, usdACuenta } from '@/lib/presupuesto-cambio';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -37,7 +37,7 @@ type Basics = { objective: string; budgetLevel: 'campaign' | 'adset'; optimizati
 type Tray = { kind: 'upload' | 'existing'; media_type?: 'image' | 'video'; image_hash?: string | null; video_id?: string | null; thumbnail_url?: string | null; source_ad_id?: string | null; processing?: boolean; progress?: number };
 type AudItem = AudienceRef & { count?: number | null };
 
-export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, onClose, onSaved }: { campaignId: string; defaultAdsetName: string; senales: SenalRecon[]; onClose: () => void; onSaved: () => void }) {
+export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, monedaRespaldo = null, onClose, onSaved }: { campaignId: string; defaultAdsetName: string; senales: SenalRecon[]; monedaRespaldo?: string | null; onClose: () => void; onSaved: () => void }) {
   const [b, setB] = useState<Basics | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [audiencesAll, setAudiencesAll] = useState<AudItem[] | null>(null);
@@ -93,10 +93,19 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
   const convFaltante = !!b?.needsConv && !b.conversion;
   const creativoListo = !!tray && !tray.processing && (!!tray.image_hash || !!tray.video_id || !!tray.source_ad_id);
   const adOk = creativoListo && (tray!.kind === 'existing' || (b ? (b.needsForm ? !!leadFormId : !!url.trim()) : false));
-  const puede = !!b && !convFaltante && adOk && lugares.some((l) => !l.excluir) && lugarOk !== false && (b.budgetLevel === 'campaign' || (!!budgetUsd && budgetUsd > 0));
+  // La moneda en la que se escribe el presupuesto. ⚠️ Hasta el 07/10/2026 era
+  // `cuenta?.currency ?? 'USD'`: si la lectura de la cuenta fallaba (el catch mudo de
+  // arriba, o `j.ok` en false), «no pude leer la moneda» se escribía como «cobra en
+  // dólares». En el ws1 (MXN) tipear 50 creaba el conjunto con 50 MXN/día, 17,3 veces
+  // menos de lo que se vio, sin aviso. El respaldo es la moneda del árbol que la tabla
+  // ya tiene (la misma que usa el wizard); sin ninguna de las dos, no se crea.
+  const moneda = cuenta?.currency ?? monedaRespaldo ?? null;
+  const sinMoneda = b?.budgetLevel === 'adset' && moneda == null;
+  const puede = !!b && !convFaltante && adOk && lugares.some((l) => !l.excluir) && lugarOk !== false && (b.budgetLevel === 'campaign' || (!!budgetUsd && budgetUsd > 0 && moneda != null));
 
   const guardar = async () => {
     if (!b || !tray) return;
+    if (b.budgetLevel === 'adset' && moneda == null) return;
     setSaving(true); setErr(null);
     const code = defaultAdsetName.split(' ')[0];
     const creative: Creative = tray.kind === 'existing'
@@ -104,7 +113,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
       : { source: 'upload', media_type: tray.media_type, image_hash: tray.image_hash ?? null, video_id: tray.video_id ?? null, thumbnail_url: tray.thumbnail_url ?? null, primary_text: primary, headline, cta_type: (cta || (b.needsForm ? 'SIGN_UP' : 'LEARN_MORE')) as Creative['cta_type'], ...(b.needsForm ? { lead_form_id: leadFormId } : { destination_url: url }) };
     const adset: AdSetSpec = {
       name: defaultAdsetName,
-      daily_budget_mxn: b.budgetLevel === 'adset' ? usdACuenta(budgetUsd ?? 0, cuenta?.currency ?? 'USD') : null,
+      daily_budget_mxn: b.budgetLevel === 'adset' && moneda != null ? usdACuenta(budgetUsd ?? 0, moneda) : null,
       optimization_goal: b.optimization, billing_event: 'IMPRESSIONS', bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
       targeting: { ...geoSpecDe(lugares), custom_audiences: auds.length ? auds.map((a) => ({ id: a.id })) : undefined, publisher_platforms: placements && placements.length ? placements : undefined, advantage_audience: advantage },
       ads: [{ name: `${code}.a Anuncio 1`, creative }],
@@ -153,7 +162,11 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
                 {placements !== null && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{PLACEMENTS.map((p) => { const on = placements.includes(p.value); return <button key={p.value} type="button" onClick={() => setPlacements(on ? placements.filter((x) => x !== p.value) : [...placements, p.value])} style={chipS(on)}>{on ? '✓ ' : ''}{p.label}</button>; })}</div>}
               </div>
               {b.budgetLevel === 'adset' && (
-                <div><span style={lbl}>Presupuesto diario (USD{cuenta && cuenta.currency !== 'USD' ? ` → ${cuenta.currency}` : ''})</span><input value={budgetUsd ?? ''} inputMode="numeric" onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, '')); setBudgetUsd(n > 0 ? n : null); }} style={{ ...field, width: 120 }} /></div>
+                // La unidad del rótulo es la que de verdad se escribe: USD convertido a la
+                // moneda de la cuenta, o la moneda cruda si no tiene tasa (decía «USD → ARS»
+                // sobre un monto que viajaba sin convertir).
+                <div><span style={lbl}>Presupuesto diario{moneda == null ? '' : esConvertible(moneda) ? ` (USD${moneda !== 'USD' ? ` → ${moneda}` : ''})` : ` (${moneda}, sin convertir)`}</span><input value={budgetUsd ?? ''} inputMode="numeric" onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, '')); setBudgetUsd(n > 0 ? n : null); }} style={{ ...field, width: 120 }} />
+                  {sinMoneda && <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>No pude leer la moneda de tu cuenta.</div>}</div>
               )}
 
               <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 14 }}>

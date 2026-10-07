@@ -22,7 +22,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Ícono del catálogo, nunca un emoji', detalle: 'Los 💲🎯🗑 de la barra, el 👥 por fila, el segundo ✎ del presupuesto, el ⓘ del chip de problemas y el 📅/📝 del modal de renombrar · con guard sobre los cuatro .tsx del área', estado: 'hecha' },
   { titulo: 'Asignar a un producto del CRM', detalle: 'Celda por fila + lote, reusando las actions del CRM · el conjunto sin producto propio dice el de SU campaña · con un solo producto la columna no se dibuja', estado: 'hecha' },
   { titulo: 'Producto MÚLTIPLE por campaña', detalle: 'Choca con que un lead tiene un solo funnel_id (lib/campana-config.ts) · las tres salidas están medidas y la decisión es de Martín', estado: 'cola' },
-  { titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta', detalle: 'La celda y el lote preguntan «viejo → nuevo» antes de escribir · se tipea en USD y se convierte a la moneda de la cuenta (lib/presupuesto-cambio.ts) · el presupuesto total no se edita como diario · falta la primera prueba en una cuenta real', estado: 'hecha' },
+  { titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta', detalle: 'La celda y el lote preguntan «viejo → nuevo» antes de escribir · se tipea en USD y se convierte a la moneda de la cuenta (lib/presupuesto-cambio.ts) · el presupuesto total no se edita como diario · lo escrito sobrevive a la caché vencida del árbol · falta la primera prueba en una cuenta real', estado: 'hecha' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -91,6 +91,25 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: '025f44ec', msg: 'Ads Manager: el presupuesto pasa por un cartel, y en la moneda de la cuenta (#349)', lineas: 868, archivos: 12 },
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '18:25', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La revisión de la #349: lo que el commit afirmaba y no hacía',
+    puntos: [
+      '**El optimista del presupuesto se soltaba por reloj, a los 120 s, y la caché del árbol de Meta sirve lo VENCIDO.** `unstable_cache` es stale-while-revalidate: la primera lectura después de vencer devuelve la entrada vieja. Escribir, no mirar nada y pausar otra fila a los 3 minutos devolvía la fila al monto de antes — el mismo caso que el commit decía cerrar. Ahora el árbol anota cuándo EMPEZÓ a leerse y la escritura toma la hora del header `Date`: las dos del servidor.',
+      '⚠️ **La prueba del navegador había dado verde sobre eso** porque el `/api/meta-health` simulado no tenía caché. Y el test que lo «fijaba» comparaba la ventana con el `revalidate`: dos números iguales, sobre la suposición equivocada de que uno acota al otro.',
+      'Dos carreras más del mismo optimista: un `cargar()` en el medio se llevaba el monto de una escritura en vuelo (se anotaba recién al volver OK), y un fallo dejaba la fila en el árbol cargado aunque hubiera una escritura anterior confirmada.',
+      'Agregar conjunto escribía «no pude leer la moneda» como «cobra en dólares»: en el ws1, 50 tipeados bajo «USD» creaban 50 MXN/día. Ahora toma la moneda del árbol de respaldo, y sin ninguna no crea.',
+      'Tres guards seguían verdes con lo que fijaban roto (13 / 0 con cada mutación): buscaban que la llamada EXISTIERA y no la línea que decide. Reescritos, y cada uno probado rompiéndolo. Y la cosecha contaba a la barra de lote como «la cuarta vez» del ×17,3: el lote nunca multiplicó.',
+    ],
+    archivos: [
+      'lib/presupuesto-cambio.ts — `presupuestosVigentes` decide por cuándo empezó la lectura, y `horaDeEscritura`',
+      'lib/meta-health.ts — `inicioLecturaISO`, anotado antes del primer pedido a Meta',
+      'app/ads-manager/CampanasBrowser.tsx — `writeBudget` anota antes del POST y vuelve a lo de antes si falla',
+      'app/ads-manager/AgregarConjuntoModal.tsx — la moneda con respaldo, y el rótulo con la unidad que de verdad viaja',
+      'tests/ads-presupuesto-confirma.test.ts — 18 tests',
     ],
   },
 ];

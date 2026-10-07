@@ -138,36 +138,76 @@ export function editaPresupuestoAca(
 }
 
 /**
- * Cuánto dura la caché de /api/meta-health: `revalidate: 120` en `getMetaHealth`
- * (lib/meta-health.ts, `cachedRead`). No se puede importar de ahí (es `server-only`);
- * el test compara los dos números.
+ * Un presupuesto escrito desde la pestaña. `en` es la hora del SERVIDOR en que Meta lo
+ * aceptó (ver `horaDeEscritura`), y `null` mientras el POST sigue en vuelo.
  */
-export const VENTANA_CACHE_HEALTH_MS = 120_000;
+export type EscritoPresupuesto = { valor: number; en: number | null };
+
+/**
+ * El grano del header `Date`: segundos enteros, TRUNCADOS. Una hora sacada de ahí puede
+ * estar hasta 999 ms antes de la real, así que una lectura cuenta como posterior a la
+ * escritura sólo si arrancó un grano entero después.
+ */
+export const GRANO_HORA_SERVIDOR_MS = 1000;
+
+/**
+ * La hora de una escritura en el reloj del SERVIDOR: el header `Date` de la respuesta de
+ * /api/meta-write. Se compara contra `inicioLecturaISO` del árbol, que también sale del
+ * servidor; el reloj de la máquina de quien mira puede estar corrido minutos.
+ *
+ * Sin header (no pasa ni en Vercel ni en el dev server de Node) cae al reloj local
+ * (`respaldo`). Corrido hacia adelante, eso sólo hace durar más al optimista; corrido
+ * hacia atrás, reabre el caso que esto cierra. Es el único camino que lo usa.
+ */
+export function horaDeEscritura(date: string | null, respaldo: number): number {
+  const t = date ? Date.parse(date) : NaN;
+  return Number.isFinite(t) ? t : respaldo;
+}
 
 /**
  * Qué presupuestos escritos desde la pestaña siguen valiendo después de recargar.
  *
- * ⚠️ `metaWrite` no invalida la caché de 120 s del árbol de Meta (docs/hallazgos-ads.md,
- * «El árbol de Meta que leen las guardas tiene hasta 2 minutos»), y la tabla recarga
- * después de cada pausa, activación, renombre o borrado. Sin esto, cambiar un
- * presupuesto y pausar algo en el mismo minuto devolvía la fila al monto VIEJO — se lee
- * como «no se aplicó», y el próximo cartel tomaba ese viejo vencido como el actual.
+ * `metaWrite` no invalida la caché del árbol de Meta (docs/hallazgos-ads.md, «El árbol de
+ * Meta que leen las guardas puede tener CUALQUIER edad»), y la tabla recarga después de cada
+ * pausa, activación, renombre o borrado. Sin esto, cambiar un presupuesto y pausar algo
+ * devolvía la fila al monto VIEJO — se lee como «no se aplicó», y el próximo cartel
+ * tomaba ese viejo como el actual.
  *
- * Se suelta un escrito cuando Meta ya devuelve ese mismo monto, cuando la entidad ya no
- * está en el árbol, o cuando pasó la ventana (de ahí en más, lo que diga Meta manda).
+ * ⚠️ NO SE SUELTA POR RELOJ. La primera versión (07/10/2026) soltaba lo escrito a los
+ * 120 s, el `revalidate` de `getMetaHealth`, y suponía que /api/meta-health nunca sirve
+ * algo más viejo que eso. Es falso: `unstable_cache` es stale-while-revalidate (Next
+ * 16.2.6, unstable-cache.js: «we're doing background revalidation - return stale
+ * immediately»). La primera lectura DESPUÉS de vencer devuelve la entrada vieja y recién
+ * ahí revalida de fondo, así que la edad de lo que se sirve no tiene techo: escribir a
+ * los 10 s, no mirar nada, y pausar otra fila a los 3 min devolvía la fila al monto de
+ * antes. Lo encontró la revisión de la #349; la prueba del navegador había dado verde
+ * porque su /api/meta-health simulado no tenía caché.
+ *
+ * Lo que decide es CUÁNDO SE LEYÓ el árbol, no cuándo llegó a la pestaña:
+ * - en vuelo (`en` null) → se mantiene, pase lo que pase;
+ * - la lectura trae el mismo monto → se suelta (llegó);
+ * - la lectura EMPEZÓ un grano entero después de la escritura → se suelta, y manda lo
+ *   que diga Meta: otro monto, o que la entidad ya no esté;
+ * - si no, se mantiene. Y si no se sabe cuándo empezó (`leidaDesde` null: una entrada
+ *   de caché escrita antes de que existiera el campo), también: mostrar lo que Meta
+ *   ACEPTÓ es el error barato; mostrar el monto de antes es el que este cambio cierra.
+ *
+ * Se compara contra el INICIO de la lectura, no contra `fetchedAtISO`, que se pone al
+ * final: una lectura que arrancó antes de la escritura y terminó después trae el monto
+ * viejo con una hora posterior.
  */
 export function presupuestosVigentes(
-  escritos: ReadonlyMap<string, { valor: number; en: number }>,
+  escritos: ReadonlyMap<string, EscritoPresupuesto>,
   reales: ReadonlyMap<string, number | null>,
-  ahora: number,
-  ventanaMs: number = VENTANA_CACHE_HEALTH_MS,
+  leidaDesde: number | null,
 ): { mantener: Map<string, number>; soltar: string[] } {
   const mantener = new Map<string, number>();
   const soltar: string[] = [];
   for (const [id, e] of escritos) {
-    const vencido = ahora - e.en > ventanaMs;
+    if (e.en == null) { mantener.set(id, e.valor); continue; }
     const llego = reales.has(id) && reales.get(id) === e.valor;
-    if (vencido || llego || !reales.has(id)) soltar.push(id);
+    const posterior = leidaDesde != null && leidaDesde >= e.en + GRANO_HORA_SERVIDOR_MS;
+    if (llego || posterior) soltar.push(id);
     else mantener.set(id, e.valor);
   }
   return { mantener, soltar };
