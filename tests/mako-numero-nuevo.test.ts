@@ -17,11 +17,17 @@
 // fallados, la voz mudada antes que los grupos, tu número en el workspace de la pestaña y el
 // webhook escuchando la línea nueva. Las DIEZ dieron 7 pasan / 1 falla. Restaurado: 8 / 0.
 //
+// Y la segunda tanda (07/10/2026, tarde), después de la primera mudanza real, que dijo «0 de 6»:
+// sin la forma que deja Evolution, sin la fila única, la acción con números crudos, el alta de la
+// mudanza sin jid, el dueño con número crudo, el corte con la voz muerta y sin leer el grupo con
+// la línea nueva. Las SIETE dieron 10 / 1 (la primera, 11 / 0 hasta que se agregó el caso de dos
+// números: con uno solo la fila única la tapaba). Restaurado: 11 / 0.
+//
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { leerResultados, leerResultadoParticipante, esAdminEn } from '../lib/participantes-grupo';
+import { leerResultados, leerResultadoParticipante, esAdminEn, jidCanonico } from '../lib/participantes-grupo';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas de comentario PRIMERO y los bloques después (ver AGENTS.md): todo guard de «esto
@@ -58,6 +64,53 @@ test('200 y 409 son éxito; el número que no vino en la respuesta queda sin sab
   assert.deepEqual(r.map((x) => x.ok), [true, true, null]);
   // Sin lista no se afirma un fallo: Evolution contestó 200 (es el contrato del alta del dueño).
   assert.equal(leerResultadoParticipante({}).ok, true);
+});
+
+test('el 403 se encuentra aunque Evolution le haya borrado el 9 al número', () => {
+  // Medido el 07/10/2026 sumando la línea nueva de MaKo (549…2605) al grupo SuperAdmin: Evolution
+  // 2.3.7 la mandó como 541…2605 y contestó así. Con la búsqueda exacta este 403 quedaba «no se
+  // sabe», la acción lo contaba como éxito y la mudanza dijo «no quedó adentro» en los 6 grupos.
+  const ar = { updateParticipants: [{ status: '403', jid: '541125052605@s.whatsapp.net', content: { attrs: { addressable: 'false' } } }] };
+  const [r] = leerResultados(ar, ['5491125052605']);
+  assert.equal(r.ok, false, 'el 403 sobre el número sin el 9 volvió a quedar «sin saber»');
+  // Y lo mismo con el 1 de México, que es la otra mitad de la regla de Evolution.
+  const mx = { updateParticipants: [{ status: '403', jid: '525512345678@s.whatsapp.net' }] };
+  assert.equal(leerResultados(mx, ['5215512345678'])[0].ok, false);
+  // Con DOS números la fila única no aplica: cada una se tiene que encontrar por su forma.
+  const dos = { updateParticipants: [
+    { status: '200', jid: '525512345678@s.whatsapp.net' },
+    { status: '403', jid: '541125052605@s.whatsapp.net' },
+  ] };
+  assert.deepEqual(leerResultados(dos, ['5491125052605', '5215512345678']).map((x) => x.ok), [false, true],
+    'con dos números, el que Evolution reescribió no se encuentra');
+  // Con UN número y UNA fila, la fila es la suya aunque venga con otra cara.
+  const lid = { updateParticipants: [{ status: '200', jid: '104850000004969@lid' }] };
+  assert.equal(leerResultados(lid, ['5491125052605'])[0].ok, true);
+});
+
+test('el número que dio WhatsApp viaja como jid completo, que Evolution no toca', () => {
+  assert.equal(jidCanonico('+54 9 11 2505-2605'), '5491125052605@s.whatsapp.net');
+  const chat = sinComentarios(leer('../lib/mako-chat.ts'));
+  assert.match(bloque(chat, 'async function accionParticipantes('), /opts\.canonicos \? nums\.map\(jidCanonico\) : nums/,
+    'la acción volvió a mandar los números crudos: Evolution le borra el 9 a uno argentino');
+  const sumar = bloque(chat, 'export async function sumarComoAdmin(');
+  assert.match(sumar, /'add', desde, \{ canonicos: true \}/, 'la mudanza suma el número nuevo sin el jid completo');
+  assert.match(sumar, /'promote', desde, \{ canonicos: true \}/, 'la mudanza promueve el número nuevo sin el jid completo');
+  // Y el alta del dueño de un cliente, que pasa por el mismo filtro de Evolution.
+  const grupo = sinComentarios(leer('../lib/mako-grupo.ts'));
+  assert.match(grupo, /const destino = chequeo\.canonico \? jidCanonico\(chequeo\.canonico\) : num;/);
+  assert.match(grupo, /participants: \[destino\]/, 'el alta del dueño volvió a mandar el número crudo');
+  assert.match(grupo, /enviarInvitacionGrupo\(ws, destino\)/, 'la invitación del dueño volvió a mandar el número crudo');
+});
+
+test('con la línea vieja muerta, la mudanza COMPRUEBA con la nueva en vez de cortar', () => {
+  const canal = sinComentarios(leer('../lib/mako-canal.ts'));
+  const pasar = bloque(canal, 'export async function pasarMaKoANumeroNuevo(');
+  assert.match(pasar, /sumarATodosLosGrupos\(numero, \{ desde: vozViva \? voz : null, nueva \}\)/,
+    'con la voz muerta la mudanza no mira los grupos: no hay forma de saber cuáles ya sumaste a mano');
+  assert.ok(!/if \(!vozViva && !opts\.forzar\)/.test(pasar), 'volvió el corte que no dejaba hacer nada con la voz muerta');
+  const sumar = bloque(sinComentarios(leer('../lib/mako-chat.ts')), 'export async function sumarComoAdmin(');
+  assert.match(sumar, /await grupoDesde\(jid, nueva\)/, 'sin la línea vieja, el grupo ya no se lee con la nueva');
 });
 
 test('«es admin» se lee del grupo, también con el teléfono fuera del id', () => {

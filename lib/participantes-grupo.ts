@@ -50,15 +50,50 @@ export function leerResultadoParticipante(body: unknown): { ok: boolean; error?:
 }
 
 /**
+ * El número como jid COMPLETO (`…@s.whatsapp.net`), para que Evolution lo mande TAL CUAL.
+ *
+ * ⚠️ EVOLUTION LE BORRA UN DÍGITO A LOS NÚMEROS DE ARGENTINA Y MÉXICO. Su `createJid` (2.3.7,
+ * `formatMXOrARNumber`) agarra todo número de 13 dígitos que empiece con 52 o 54 y le saca el
+ * TERCERO: `5491125052605` sale como `541125052605`. WhatsApp conoce a ese número como `549…`
+ * (es el `ownerJid` de la propia línea), así que el pedido va a OTRO número. Medido el
+ * 07/10/2026 sumando la línea nueva de MaKo al grupo SuperAdmin: HTTP 201 con `status: "403"`
+ * y `jid: "541125052605@s.whatsapp.net"` — y la mudanza dijo «no quedó adentro» en los 6
+ * grupos sin que nadie entendiera por qué. Un número que ya trae `@s.whatsapp.net` Evolution
+ * lo devuelve sin tocar.
+ *
+ * ⚠️ SÓLO PARA UN NÚMERO QUE DIO WHATSAPP (el `ownerJid` de una línea, el jid que devuelve
+ * `whatsappNumbers`). Lo que tipeó una persona puede traer un 0 o un 15 de más: ése sigue
+ * yendo crudo, y lo normaliza quien corresponda.
+ */
+export function jidCanonico(numero: string): string {
+  return `${soloDigitos(numero)}@s.whatsapp.net`;
+}
+
+/** Las formas en que puede volver un número que se mandó: tal cual, y como lo deja Evolution. */
+function formasDe(numero: string): string[] {
+  const d = soloDigitos(numero);
+  const formas = [d];
+  if (d.length === 13 && (d.startsWith('52') || d.startsWith('54'))) formas.push(d.slice(0, 2) + d.slice(3));
+  return formas;
+}
+
+/**
  * El resultado de CADA número pedido, en el orden en que se pidieron. Un número que no
  * aparece en la respuesta queda `ok: null`: no se sabe, y no se inventa.
+ *
+ * La fila se busca por las DOS formas del número (ver `jidCanonico`): con la forma exacta
+ * sola, el 403 que contestó WhatsApp sobre `541…` no se encontraba, el resultado quedaba
+ * «no se sabe», y `accionParticipantes` lo contaba como éxito. Y con UN número pedido y UNA
+ * fila, la fila es la suya aunque venga con otra cara (un `…@lid`).
  */
 export function leerResultados(body: unknown, pedidos: string[]): Array<{ numero: string; ok: boolean | null; status?: string; error?: string }> {
   const filas = (body as { updateParticipants?: unknown })?.updateParticipants;
   const lista = Array.isArray(filas) ? (filas as Array<{ status?: unknown; jid?: unknown }>) : [];
   return pedidos.map((numero) => {
     const n = soloDigitos(numero);
-    const fila = lista.find((f) => soloDigitos(String(f?.jid ?? '').split('@')[0].split(':')[0]) === n);
+    const formas = formasDe(n);
+    const fila = lista.find((f) => formas.includes(soloDigitos(String(f?.jid ?? '').split('@')[0].split(':')[0])))
+      ?? (pedidos.length === 1 && lista.length === 1 ? lista[0] : undefined);
     if (!fila) return { numero: n, ok: null };
     const estado = String(fila.status ?? '200');
     const motivo = RESULTADO_PARTICIPANTE[estado];

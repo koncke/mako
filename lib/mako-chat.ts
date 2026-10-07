@@ -9,7 +9,7 @@
 import 'server-only';
 import { instanciaVoz, enviarAGrupoJid, KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID } from './mako-grupo';
 import { getSupabaseServer } from './supabase';
-import { leerResultados, esAdminEn, type ParticipanteCrudo } from './participantes-grupo';
+import { leerResultados, esAdminEn, jidCanonico, type ParticipanteCrudo } from './participantes-grupo';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -160,13 +160,15 @@ export async function infoGrupoMaKo(jid: string): Promise<GrupoInfo | null> {
   const inst = await instanciaVoz();
   const g = await ev<Record<string, unknown>>(`/group/findGroupInfos/${inst}?groupJid=${encodeURIComponent(jid)}`);
   if (!g || typeof g !== 'object') return null;
-  const parts = (g.participants as Array<{ id?: string; admin?: string | null }> | undefined) ?? [];
+  // ⚠️ Con la privacidad nueva de WhatsApp el `id` es un `…@lid`, que NO es un teléfono: el detalle
+  // mostraba ese número y «Quitar» lo mandaba como si lo fuera. El teléfono viene en `phoneNumber`.
+  const parts = (g.participants as Array<{ id?: string; phoneNumber?: string; admin?: string | null }> | undefined) ?? [];
   return {
     jid,
     subject: (g.subject as string) || '',
     descripcion: (g.desc as string) || (g.description as string) || '',
     foto: (g.pictureUrl as string) || (g.profilePicUrl as string) || null,
-    participantes: parts.map((p) => ({ numero: (p.id || '').replace(/@.*/, ''), admin: !!p.admin })).filter((p) => p.numero),
+    participantes: parts.map((p) => ({ numero: (p.phoneNumber || p.id || '').replace(/@.*/, '').replace(/:.*/, ''), admin: !!p.admin })).filter((p) => p.numero),
   };
 }
 
@@ -183,15 +185,21 @@ type ResultadoAccion = { ok: boolean; error?: string };
  *
  * `inst`: la línea que hace el pedido. Sin ella, la voz de MaKo. La mudanza a un número nuevo
  * la pasa explícita para no depender de un setting que ella misma está por cambiar.
+ *
+ * `canonicos`: los números los dio WhatsApp (el `ownerJid` de una línea), así que viajan como
+ * jid completo y Evolution no les borra el 9 de Argentina ni el 1 de México (`jidCanonico`).
+ * Lo que tipea una persona en el detalle de un grupo sigue yendo crudo.
  */
 async function accionParticipantes(
   jid: string, numeros: string[], action: 'add' | 'remove' | 'promote', inst?: string,
+  opts: { canonicos?: boolean } = {},
 ): Promise<ResultadoAccion> {
   const instancia = inst ?? (await instanciaVoz());
   const nums = numeros.map(soloDigitos).filter(Boolean);
   if (!nums.length) return { ok: false, error: 'Falta el número.' };
+  const participants = opts.canonicos ? nums.map(jidCanonico) : nums;
   const r = await ev(`/group/updateParticipant/${instancia}?groupJid=${encodeURIComponent(jid)}`, {
-    method: 'POST', body: JSON.stringify({ action, participants: nums }),
+    method: 'POST', body: JSON.stringify({ action, participants }),
   });
   if (r == null) return { ok: false, error: 'WhatsApp no contestó.' };
   const malo = leerResultados(r, nums).find((x) => x.ok === false);
@@ -212,6 +220,8 @@ const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * La línea NUEVA entra sola, con el link del grupo que saca la línea vieja. Es la salida
  * cuando WhatsApp no deja sumarla directo (403: su privacidad no permite que la agreguen).
+ * Medido el 07/10/2026: `GET /group/acceptInviteCode/{instancia}?inviteCode=` existe en
+ * Evolution 2.3.7 y llega a WhatsApp (con un código inválido contesta 404 «bad-request»).
  */
 async function entrarPorInvitacion(jid: string, desde: string, nueva: string): Promise<boolean> {
   const c = await ev<{ inviteCode?: string; inviteUrl?: string }>(`/group/inviteCode/${desde}?groupJid=${encodeURIComponent(jid)}`);
@@ -226,7 +236,9 @@ export type PasoGrupo = { jid: string; nombre: string; listo: boolean; motivo?: 
  * Deja a `numero` adentro del grupo y como ADMIN, y lo COMPRUEBA releyendo el grupo.
  *
  * `desde` es la línea que hoy es admin (la voz actual); `nueva`, la instancia del número que
- * entra, que sólo se usa si hay que aceptar una invitación.
+ * entra. Con `desde` en null —la línea vieja no contesta— no se puede sumar a nadie: sólo se
+ * COMPRUEBA, leyendo el grupo con la línea nueva, si alguien lo sumó como admin desde el
+ * teléfono. Es la salida cuando la única admin de los grupos es un teléfono.
  *
  * ⚠️ ADMIN, no sólo participante. La voz de MaKo es la que suma al dueño de un cliente a su
  * grupo (`agregarParticipanteGrupo`) y la que lo renombra: una línea que entra sin admin habla
@@ -236,25 +248,38 @@ export type PasoGrupo = { jid: string; nombre: string; listo: boolean; motivo?: 
  * cada pedido; lo que importa es cómo quedó el grupo. La relectura va con un respiro:
  * Evolution guarda la metadata del grupo y la actualiza con el evento que dispara el cambio.
  */
-export async function sumarComoAdmin(jid: string, numero: string, desde: string, nueva: string): Promise<PasoGrupo> {
-  const antes = await grupoDesde(jid, desde);
-  if (!antes) return { jid, nombre: jid, listo: false, motivo: 'No pude leer el grupo.' };
+export async function sumarComoAdmin(jid: string, numero: string, desde: string | null, nueva: string): Promise<PasoGrupo> {
+  const leer = async () => (desde ? await grupoDesde(jid, desde) : null) ?? (await grupoDesde(jid, nueva));
+  const antes = await leer();
+  if (!antes) {
+    return {
+      jid, nombre: jid, listo: false,
+      motivo: desde ? 'No pude leer el grupo.' : 'Tu línea no contesta y el número nuevo no está en el grupo: súmalo como admin desde tu teléfono.',
+    };
+  }
   const nombre = antes.subject || jid;
   if (esAdminEn(antes.participantes, numero).admin) return { jid, nombre, listo: true };
+  if (!desde) {
+    return {
+      jid, nombre, listo: false,
+      motivo: esAdminEn(antes.participantes, numero).esta ? 'Está en el grupo, pero falta hacerlo admin desde tu teléfono.' : 'Falta sumarlo como admin desde tu teléfono.',
+    };
+  }
 
   let motivoAlta: string | undefined;
   if (!esAdminEn(antes.participantes, numero).esta) {
-    const alta = await accionParticipantes(jid, [numero], 'add', desde);
+    const alta = await accionParticipantes(jid, [numero], 'add', desde, { canonicos: true });
     if (!alta.ok) {
       motivoAlta = alta.error;
       if (await entrarPorInvitacion(jid, desde, nueva)) { motivoAlta = undefined; await esperar(2500); }
+      else motivoAlta = `${alta.error ?? 'WhatsApp no lo dejó sumar.'} Y tampoco pudo entrar con el link del grupo.`;
     }
   }
-  await accionParticipantes(jid, [numero], 'promote', desde);
+  await accionParticipantes(jid, [numero], 'promote', desde, { canonicos: true });
 
   for (const espera of [1500, 3500]) {
     await esperar(espera);
-    const despues = await grupoDesde(jid, desde);
+    const despues = await leer();
     if (!despues) continue;
     const e = esAdminEn(despues.participantes, numero);
     if (e.admin) return { jid, nombre, listo: true };
@@ -282,11 +307,12 @@ export async function gruposDeMaKoEstricto(): Promise<string[]> {
 /**
  * Deja un número como admin en TODOS los grupos de MaKo (SuperAdmin + «MaKo <> cliente»).
  * Corre con la línea `desde` —la voz actual, que es la admin de los grupos—: se llama ANTES
- * de mudar la voz al número nuevo. De a un grupo y con un respiro entre uno y otro: son
- * pedidos al WhatsApp de MaKo, y una ráfaga es lo que hace que lo baneen.
+ * de mudar la voz al número nuevo. Con `desde` en null sólo comprueba (ver `sumarComoAdmin`).
+ * De a un grupo y con un respiro entre uno y otro: son pedidos al WhatsApp de MaKo, y una
+ * ráfaga es lo que hace que lo baneen.
  */
 export async function sumarATodosLosGrupos(
-  numero: string, lineas: { desde: string; nueva: string },
+  numero: string, lineas: { desde: string | null; nueva: string },
 ): Promise<{ grupos: number; ok: number; pasos: PasoGrupo[] }> {
   const jids = await gruposDeMaKoEstricto();
   const pasos: PasoGrupo[] = [];

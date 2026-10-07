@@ -17,7 +17,7 @@ import { esSesionCaida } from './evolution';
 import sharp from 'sharp';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
-import { leerResultadoParticipante } from './participantes-grupo';
+import { leerResultadoParticipante, jidCanonico } from './participantes-grupo';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -289,7 +289,8 @@ export async function linkInvitacionGrupo(ws: number): Promise<string | null> {
  * va a llegar.
  */
 export async function enviarInvitacionGrupo(ws: number, numero: string): Promise<{ ok: boolean; error?: string }> {
-  const num = soloDigitos(numero);
+  // Un jid completo viaja tal cual (ver `jidCanonico`); un número suelto, en dígitos.
+  const num = numero.includes('@') ? numero.trim() : soloDigitos(numero);
   const jid = await getGrupoJidMaKo(ws);
   if (!num || !jid) return { ok: false, error: 'sin número o sin grupo' };
   const r = await ev(`/group/sendInvite/${await instanciaVoz()}`, {
@@ -332,9 +333,12 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
   }
   // Se ACTÚA con la forma que WhatsApp reconoce, no con la que se tipeó.
   const num = chequeo.canonico ?? crudo;
+  const destino = chequeo.canonico ? jidCanonico(chequeo.canonico) : num;
 
   const r = await ev(`/group/updateParticipant/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
-    method: 'POST', body: JSON.stringify({ action: 'add', participants: [num] }),
+    // Como jid COMPLETO cuando lo dio WhatsApp: crudo, Evolution le borra el 9 de Argentina y el 1
+    // de México y el pedido va a otro número (`jidCanonico`, lib/participantes-grupo.ts).
+    method: 'POST', body: JSON.stringify({ action: 'add', participants: [destino] }),
   });
   if (!r.ok) return { ok: false, error: `No se pudo hablar con WhatsApp (Evolution ${r.status}).` };
 
@@ -344,7 +348,7 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
   // ── No se pudo agregar directo: entonces se INVITA de verdad ────────────────
   // Que WhatsApp no nos deje sumarlo no significa que no se pueda hacer nada; lo
   // que no se puede es hacerlo en silencio y contarlo como si hubiera pasado.
-  const envio = await enviarInvitacionGrupo(ws, num);
+  const envio = await enviarInvitacionGrupo(ws, destino);
   const link = await linkInvitacionGrupo(ws);
   return {
     ok: false,

@@ -543,22 +543,29 @@ export async function pasarMaKoANumeroNuevo(opts: { forzar?: boolean } = {}): Pr
   let pasos: PasoMudanza[] = [];
   const numeroVoz = await numeroDe(voz);
   if (numero !== numeroVoz) {
+    // ⚠️ CON LA VOZ MUERTA NO SE CORTA: SE COMPRUEBA. Pasó el 07/10/2026 en la primera mudanza: la
+    // línea vieja se desvinculó a mitad de camino (`device_removed`) y la única admin de los grupos
+    // pasó a ser un teléfono. Desde ahí nadie puede sumar a la línea nueva por la app, pero sí se
+    // puede LEER cada grupo con ella: si alguien la sumó como admin desde el teléfono, ese grupo
+    // está listo, y la lista dice cuáles faltan en vez de un «no contesta» que no deja hacer nada.
     const vozViva = (await sondearSocket(voz, 10000)) === 'vivo';
-    if (!vozViva && !opts.forzar) {
-      return { ok: false, error: 'La línea actual de MaKo no contesta, y es la que puede sumar al número nuevo a los grupos. Súmalo como admin desde tu teléfono y pasa igual.' };
+    const { sumarATodosLosGrupos } = await import('./mako-chat');
+    let r: Awaited<ReturnType<typeof sumarATodosLosGrupos>>;
+    try {
+      r = await sumarATodosLosGrupos(numero, { desde: vozViva ? voz : null, nueva });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'No pude leer los grupos de MaKo.' };
     }
-    if (vozViva) {
-      const { sumarATodosLosGrupos } = await import('./mako-chat');
-      let r: Awaited<ReturnType<typeof sumarATodosLosGrupos>>;
-      try {
-        r = await sumarATodosLosGrupos(numero, { desde: voz, nueva });
-      } catch (e) {
-        return { ok: false, error: e instanceof Error ? e.message : 'No pude leer los grupos de MaKo.' };
-      }
-      pasos = r.pasos;
-      // El universo: cero grupos con 7 guardados no es «listo», es una lectura que no vio nada.
-      if (r.grupos === 0 && !opts.forzar) return { ok: false, error: 'No encontré ningún grupo de MaKo, así que no cambié nada.', pasos };
-      if (r.ok < r.grupos && !opts.forzar) return { ok: false, error: `Quedó admin en ${r.ok} de ${r.grupos} grupos.`, pasos };
+    pasos = r.pasos;
+    // El universo: cero grupos con 7 guardados no es «listo», es una lectura que no vio nada.
+    if (r.grupos === 0 && !opts.forzar) return { ok: false, error: 'No encontré ningún grupo de MaKo, así que no cambié nada.', pasos };
+    if (r.ok < r.grupos && !opts.forzar) {
+      return {
+        ok: false, pasos,
+        error: vozViva
+          ? `Quedó admin en ${r.ok} de ${r.grupos} grupos.`
+          : `Tu línea actual no contesta y es la admin de los grupos: listo en ${r.ok} de ${r.grupos}. Vuelve a vincular tu número arriba, o súmalo como admin desde tu teléfono, y reintenta.`,
+      };
     }
   }
 
