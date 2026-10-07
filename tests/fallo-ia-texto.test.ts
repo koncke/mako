@@ -43,7 +43,12 @@ test('El 429 se busca con borde de palabra, no adentro de cualquier número', ()
 test('Una sola key es «no tenés respaldo», no «se cayó el proveedor»', () => {
   // El hecho técnico es el mismo —el proveedor tuvo un bache— y lo que el cliente
   // puede hacer NO. Es el caso exacto del ws13: una key, un bache, sin MaKo.
-  assert.equal(causaDelFallo(['HTTP 503 high demand'], 1), 'sin_respaldo');
+  assert.equal(causaDelFallo(['HTTP 500 internal'], 1), 'sin_respaldo');
+  // ⚠️ SALVO QUE EL PROVEEDOR ESTÉ SATURADO (07/10/2026). Este mismo test fijaba que «HTTP
+  // 503 high demand» con una key era `sin_respaldo`, o sea «carga una segunda (son gratis)».
+  // Es Google sin capacidad para ese modelo: otra key de Gemini le pega al mismo Google. Se lo
+  // mandó a un cliente esa noche, sobre una nota de voz perdida.
+  assert.equal(causaDelFallo(['gemini/gemini-flash-latest: HTTP 503: This model is currently experiencing high demand.'], 1), 'proveedor_caido');
   const t = textoFalloIA('sin_respaldo', LINK);
   assert.match(t, /una sola/i, 'no explica que el problema es tener una sola key');
   assert.ok(t.includes(LINK));
@@ -73,8 +78,12 @@ test('El audio ya no dice «se me cayó la transcripción» y a otra cosa', () =
   const codigo = doer.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.ok(!/se me cayó la transcripción/.test(codigo),
     'volvió el mensaje donde MaKo se come la culpa de la cuota del cliente');
-  assert.ok(/causaDelFallo\(\[detalle\]/.test(codigo),
+  // Desde el 07/10/2026 se clasifica con los errores de SUS keys: el audio tiene red de
+  // plataforma, y el error trae también los de la agencia (`SttSinEscucha`).
+  assert.ok(/causaDelFallo\(delNegocio, nKeysAudio\)/.test(codigo),
     'el fallo del audio dejó de clasificarse: vuelve a ser un mensaje genérico');
+  assert.ok(/const delNegocio = e instanceof SttSinEscucha \? e\.errores : \[detalle\];/.test(codigo),
+    'el texto del audio volvió a elegirse con los errores de las keys de la AGENCIA');
 });
 
 test('La causa se decide con TODOS los errores, no con el último', () => {
@@ -242,7 +251,8 @@ test('⚠️ CERO INSTANCIAS PROBADAS NO ES «SE CAYÓ TU PROVEEDOR»', () => {
   // `sin_respaldo`, que afirma una caída que nadie vio.
   assert.equal(causaDelFallo([], 2, { probadas: 0 }), 'sin_keys');
   // Y con instancias probadas de verdad, la clasificación de siempre no se mueve.
-  assert.equal(causaDelFallo(['HTTP 503'], 1, { probadas: 1, contestaron: 0 }), 'sin_respaldo');
+  // (Un 500 y no un 503: desde el 07/10/2026 el 503 es «saturado», que tiene su propia rama.)
+  assert.equal(causaDelFallo(['HTTP 500'], 1, { probadas: 1, contestaron: 0 }), 'sin_respaldo');
   assert.equal(causaDelFallo(['HTTP 429'], 3, { probadas: 3, contestaron: 0 }), 'sin_cuota');
 });
 

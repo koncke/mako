@@ -1136,9 +1136,10 @@ async function sttWhisper(p: Prov, buf: Buffer, mime: string, opts: SttOpts): Pr
  * generateContent con el audio inline. Por eso no entra por la ruta Whisper de arriba
  * y necesita su propia llamada. Gratis en su free tier.
  */
-async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opts: SttOpts): Promise<string> {
+async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opts: SttOpts, modelo?: string): Promise<string> {
   if (buf.length > MAX_INLINE_GEMINI) throw new Error('audio demasiado grande para mandarlo inline');
-  const model = process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  // `modelo` lo elige `escucharCon` (otro modelo si éste está saturado); sin él, el de siempre.
+  const model = modelo ?? (process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest');
   // p.base es el shim OpenAI-compatible (…/v1beta/openai); la API nativa cuelga del
   // mismo host sin ese sufijo.
   const base = p.base.replace(/\/openai\/?$/, '');
@@ -1195,13 +1196,93 @@ async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opt
 const esTransitorio = (msg: string): boolean => /HTTP (429|5\d\d)|timeout|aborted|fetch failed|ECONN/i.test(msg);
 
 /**
+ * «Este MODELO está saturado o sin cuota», que se arregla con OTRO modelo de la misma key: cada
+ * modelo de Gemini tiene su propia capacidad y su propia cuota gratis. Medido el 07/10/2026 a
+ * las 22:01 UTC en el ws13: `gemini-flash-latest` contestó dos veces seguidas «HTTP 503: This
+ * model is currently experiencing high demand», el cliente tenía esa sola key, y la nota de voz
+ * se perdió.
+ */
+const esSaturacion = (msg: string): boolean =>
+  /HTTP (429|503)|high demand|overloaded|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(msg);
+
+/**
+ * Los modelos de Gemini que escuchan audio, en orden. El primero es el de siempre; los otros
+ * son de otra «familia» de capacidad. Medido el 07/10/2026 a las 22:2x UTC con un pedido real:
+ * `gemini-flash-latest` 503 «high demand», `gemini-flash-lite-latest` 200 en 560 ms,
+ * `gemini-3.5-flash-lite` 200, y `gemini-2.5-flash` 404 «no longer available» — figurar en
+ * `GET /v1beta/models` no prueba que conteste (tests/ia-mensajes.test.ts lo tiene vetado).
+ */
+function modelosSttGemini(): string[] {
+  const base = process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  return [...new Set([base, 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite'])];
+}
+
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Una cuenta intenta escuchar el audio. `{ texto }` si contestó (vacío = no había voz), null si
+ * no pudo — y el porqué queda en `errores`.
+ *
+ * Gemini: si el modelo está saturado, prueba el SIGUIENTE modelo con la misma key. Cualquier otro
+ * error (key mala, audio demasiado grande, transcripción cortada) no cambia con otro modelo: va
+ * al próximo proveedor. Whisper: un reintento, con un respiro antes — reintentar en el mismo
+ * segundo contra un «alta demanda» es preguntarle lo mismo al mismo servidor saturado.
+ */
+async function escucharCon(
+  p: Prov, base64: string, buf: Buffer, mime: string, o: SttOpts, errores: string[],
+): Promise<{ texto: string } | null> {
+  if (p.nombre === 'gemini') {
+    for (const modelo of modelosSttGemini()) {
+      try {
+        return { texto: await sttGemini(p, base64, buf, mime, o, modelo) };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errores.push(`${rotulo(p)}/${modelo}: ${msg}`);
+        console.error(`[stt] ${rotulo(p)}/${modelo} falló: ${msg}`);
+        if (!esSaturacion(msg)) return null;
+      }
+    }
+    return null;
+  }
+  if (!p.sttModel) return null; // proveedor de chat sin Whisper
+  for (let intento = 0; intento <= 1; intento++) {
+    try {
+      return { texto: await sttWhisper(p, buf, mime, o) };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errores.push(`${rotulo(p)}: ${msg}`);
+      console.error(`[stt] ${rotulo(p)} falló: ${msg}`);
+      if (intento === 0 && esTransitorio(msg)) { await esperar(1500); continue; }
+      return null;
+    }
+  }
+  return null;
+}
+
+/** El error de un STT que no pudo con NADA. `errores` son sólo los de las keys del negocio. */
+export class SttSinEscucha extends Error {
+  constructor(public readonly errores: string[], public readonly erroresPlataforma: string[]) {
+    super(errores.length || erroresPlataforma.length
+      ? `transcribirAudio — ninguna IA pudo: ${[...errores, ...erroresPlataforma].join(' | ')}`
+      : 'Sin proveedor de STT (falta GEMINI_API_KEY, GROQ_API_KEY u OPENAI_API_KEY).');
+  }
+}
+
+/**
  * Transcribe audio (base64) a texto. Para notas de voz de WhatsApp (ogg/opus).
  * Fuerza español por default (evita auto-detección errónea en clips cortos).
  *
- * CASCADA REAL (Gemini → Groq → OpenAI): antes elegía UN proveedor por tener la key
- * cargada, y si ese fallaba —cuota agotada, 429— la nota de voz se perdía en silencio
- * aunque hubiera otro disponible. Ahora se prueba uno por uno, con un reintento si el
- * error parece pasajero, y solo lanza si NINGUNO pudo escuchar el audio.
+ * TRES REDES, en este orden, y cada una cubre lo que la anterior no:
+ *   1. Las keys DEL NEGOCIO, todas sus cuentas (Gemini → Groq → OpenAI). Gemini prueba otros
+ *      modelos si el suyo está saturado (`escucharCon`).
+ *   2. LA RED DE PLATAFORMA: las keys GRATIS de la agencia, Groq PRIMERO. Hasta el 07/10/2026 el
+ *      audio no la tenía —el chat sí, desde el 25/8—, así que un negocio con una sola key de
+ *      Gemini perdía cada nota de voz en cada bache de Google. Groq va primero porque escucha con
+ *      Whisper en OTRO servicio: si la Gemini del cliente está saturada, la de la agencia lo está
+ *      igual (es el mismo Google). Solo gratis y solo último recurso, como en el chat, y queda
+ *      VISIBLE: el `motivo` dice «⚠ red de plataforma» en el Saldo de IA.
+ *   3. Nada: tira `SttSinEscucha`, con los errores del negocio y los de la red POR SEPARADO —
+ *      el texto que lee el cliente se elige con los suyos (lib/fallo-ia-texto.ts).
  */
 export async function transcribirAudio(base64: string, mime: string, opts?: SttOpts): Promise<string> {
   const o = opts ?? {};
@@ -1212,35 +1293,40 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
 
   const errores: string[] = [];
   let alguienEscuchó = false; // respondió OK pero sin texto → el audio está vacío, no falló nada
+  // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper escucha "MaKo" y
+  // escribe «Maco», esa cadena termina siendo el TÍTULO de una tarea y desde ahí el Perro la
+  // repite en su razón y en el deadline. Ver `corregirMarca` en lib/mako-gramatica.ts.
   for (const nombre of orden as ProvName[]) {
-    // Igual que el chat: todas las CUENTAS de este proveedor antes de saltar al
-    // siguiente. Una nota de voz que rebota por cuota en la key 1 de Gemini la
-    // escucha la key 2, en vez de irse a Whisper (o de perderse).
+    // Igual que el chat: todas las CUENTAS de este proveedor antes de saltar al siguiente.
     for (const p of await provsDe(nombre)) {
-      if (nombre !== 'gemini' && !p.sttModel) continue; // proveedor de chat sin Whisper
-      for (let intento = 0; intento <= 1; intento++) {
-        try {
-          const texto = nombre === 'gemini'
-            ? await sttGemini(p, base64, buf, mime, o)
-            : await sttWhisper(p, buf, mime, o);
-          alguienEscuchó = true;
-          // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper
-          // escucha "MaKo" y escribe «Maco», esa cadena termina siendo el TÍTULO de una
-          // tarea y desde ahí el Perro la repite en su razón y en el deadline. Corregirlo
-          // después es perseguir el texto por diez lugares; en la puerta de entrada es
-          // una línea. Ver `corregirMarca` en lib/mako-gramatica.ts.
-          if (texto) return corregirMarca(texto);
-          break; // respondió vacío: no insistas con el mismo, probá el próximo
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          errores.push(`${rotulo(p)}: ${msg}`);
-          console.error(`[stt] ${rotulo(p)} falló: ${msg}`);
-          if (intento === 0 && esTransitorio(msg)) continue; // un reintento y listo
-          break;
-        }
-      }
+      const r = await escucharCon(p, base64, buf, mime, o, errores);
+      if (!r) continue;
+      alguienEscuchó = true;
+      if (r.texto) return corregirMarca(r.texto);
+      break; // respondió vacío: no insistas con el mismo proveedor, probá el próximo
     }
   }
   if (alguienEscuchó) return ''; // el audio no traía voz entendible
-  throw new Error(errores.length ? `transcribirAudio — ninguna IA pudo: ${errores.join(' | ')}` : 'Sin proveedor de STT (falta GEMINI_API_KEY, GROQ_API_KEY u OPENAI_API_KEY).');
+
+  // ── 2. La red de plataforma ──
+  const erroresPlataforma: string[] = [];
+  const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
+  const wsSA = await wsSuperAdmin().catch(() => null);
+  const wsActual = await getWorkspaceActual().catch(() => null);
+  // El super admin ya probó SUS keys en el paso 1: repetirlas es gastar tiempo en lo que ya falló.
+  if (wsSA != null && wsActual !== wsSA) {
+    const red = await provsGratisDePlataforma().catch(() => []);
+    const groqPrimero = [...red.filter((r) => r.provider !== 'gemini'), ...red.filter((r) => r.provider === 'gemini')];
+    for (const r of groqPrimero) {
+      const p = await provDe(r.provider, r.clave, wsSA).catch(() => null);
+      if (!p) continue;
+      const res = await escucharCon(p, base64, buf, mime, {
+        ...o, motivo: `⚠ red de plataforma (${r.provider}) — las keys del negocio no pudieron escuchar el audio · ${o.motivo ?? ''}`.trim(),
+      }, erroresPlataforma);
+      if (!res) continue;
+      console.error(`[stt] ws=${wsActual} escuchó con la RED DE PLATAFORMA (${r.provider}): sus propias keys no pudieron`);
+      return res.texto ? corregirMarca(res.texto) : '';
+    }
+  }
+  throw new SttSinEscucha(errores, erroresPlataforma);
 }

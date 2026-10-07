@@ -40,7 +40,7 @@ import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/li
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
-import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
@@ -752,8 +752,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // Las cuentas se cuentan UNA vez: el texto también las necesita, y con dos
         // llamadas el mensaje podía contradecir a la causa que lo eligió.
         const nKeysAudio = await contarKeysIA().catch(() => 1);
+        // ⚠️ El texto se elige con los errores de SUS keys (07/10/2026). Desde que el audio tiene
+        // red de plataforma, el error trae también los de la agencia, y con esos la causa la
+        // fabricarían nuestras keys (la regla de lib/fallo-ia-texto.ts).
+        const delNegocio = e instanceof SttSinEscucha ? e.errores : [detalle];
         const aviso = `Me llegó tu audio pero no lo pude escuchar.\n\n${textoFalloIA(
-          causaDelFallo([detalle], nKeysAudio),
+          causaDelFallo(delNegocio, nKeysAudio),
           linkKeysIA(APP_URL),
           'escuchar tu audio',
           nKeysAudio,

@@ -73,6 +73,16 @@ const SIN_CUOTA = /\b429\b|quota|rate.?limit|resource[_ ]?exhausted|exceeded|ins
  */
 const ES_TOPE_DE_TAMANO = /\b413\b|request too large|too large for model|reduce your message size|request_too_large|context length|maximum context|too many tokens/i;
 
+/**
+ * ⚠️ UN PROVEEDOR SATURADO NO SE ARREGLA CON OTRA KEY DEL MISMO. «HTTP 503: This model is
+ * currently experiencing high demand» es Google sin capacidad para ESE modelo: la segunda key
+ * de Gemini que el mensaje mandaba a cargar le pega al mismo Google. Medido el 07/10/2026 en el
+ * ws13: una nota de voz perdida y el texto «Tienes una sola API key… Carga una segunda (son
+ * gratis) y esto deja de frenarte», que era falso — no es nada del cliente ni de su key.
+ */
+const SATURADO = /\b503\b|high demand|overloaded|\bUNAVAILABLE\b|temporarily unavailable/i;
+export const esSaturacion = (error: string): boolean => SATURADO.test(error);
+
 /** true si ESE error es «no me entra», no «no me queda cuota». Exportada para que el
  *  call site pueda contar cuántas cuentas rebotaron de verdad por límite. */
 export const esTopeDeTamano = (error: string): boolean => ES_TOPE_DE_TAMANO.test(error);
@@ -116,6 +126,9 @@ export function causaDelFallo(errores: string[], keysDelCliente: number, ctx: Co
   if ((ctx.contestaron ?? 0) > 0) return 'fallo_nuestro';
   if (SIN_CUOTA.test(txt)) return 'sin_cuota';
   if (porTamano.length && !resto.length) return 'mensaje_muy_largo';
+  // Saturado de su lado: no es del cliente, y otra key del mismo proveedor no lo cubre (ver
+  // SATURADO). Va antes de «una sola key» porque esa rama le pide justo eso.
+  if (resto.length && resto.every(esSaturacion)) return 'proveedor_caido';
   // Con una sola key no hay cascada: cualquier bache de ese proveedor lo deja sin
   // MaKo. Es el caso del ws13 el 25/8 y la razón de que esto exista.
   if (keysDelCliente <= 1) return 'sin_respaldo';
