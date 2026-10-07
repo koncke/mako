@@ -31,6 +31,7 @@ import { LeadDetailBody, BackButton } from './LeadDetailBody';
 import { OrigenCard } from '../lead-view/OrigenCard';
 import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
 import { NotasCard } from '../lead-view/NotasCard';
+import { RespuestasFormulario } from '../lead-view/RespuestasFormulario';
 import { MotivoCard, PlazoNutricionCard, leadSalio } from '../lead-view/MotivoYPlazoCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
@@ -225,20 +226,11 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                       Sólo las preguntas PROPIAS del formulario: nombre, email, teléfono y
                       empresa ya están arriba con su rótulo. Y no se dibuja nada cuando no
                       hay — un bloque vacío diciendo «sin respuestas» sobre un lead que no
-                      vino de un formulario es ruido fijo. */}
-                  {respuestasForm.length > 0 && (
-                    <section style={card}>
-                      <div style={{ ...sectLabel, marginBottom: 10 }}>Respondió en el formulario</div>
-                      <dl style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
-                        {respuestasForm.map((r) => (
-                          <div key={r.pregunta}>
-                            <dt style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.35 }}>{r.pregunta}</dt>
-                            <dd style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>{r.respuesta}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </section>
-                  )}
+                      vino de un formulario es ruido fijo.
+
+                      La pieza es la MISMA que dibuja el pop-up del tablero (07/10/2026):
+                      lead-view/RespuestasFormulario.tsx. */}
+                  <RespuestasFormulario respuestas={respuestasForm} />
                   <NotasCard leadId={lead.id} />
                   {/* ⚠️ LAS MISMAS DOS TARJETAS QUE EL MODAL, y acá es la primera vez
                       que aparecen: el motivo de salida no se veía en esta ruta ni de

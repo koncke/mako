@@ -737,10 +737,23 @@ https://hola-mako.com/plan — MaKo`,
 
   // ── LEADS / WHATSAPP / NUTRICIÓN ───────────────────────────────────────────
   {
-    id: 'lead-formulario-meta', titulo: 'Lead entrante por formulario de Meta', categoria: 'pregunta',
-    prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'no',
-    disparador: 'Webhook meta-leads: lead de Lead Ads sin agendar.',
-    ejemplo: `📥 Entró un lead por formulario de Meta: *Carla Méndez*, campaña "Lead Magnet PDF". Todavía no agendó.\n\n¿Le disparo la nutrición de bienvenida por WhatsApp? — MaKo`,
+    // ⚠️ NACE APAGADO, Y ES UNA DECISIÓN: sin `porDefecto` no sale para nadie hasta que el
+    // negocio lo prenda en /chatbot. Martín, 07/10/2026: «el whatsapp dejalo como
+    // borrador, no activado en chatbot». Es el equivalente del aviso de la landing
+    // (`lead-de-landing`) para quien no tiene landing y corre anuncios a formulario —los
+    // clientes de Código Inmobiliario—, y prenderlo para todos le mandaría un WhatsApp por
+    // cada uno de los ~1.000 leads de Meta que entran al ws1.
+    //
+    // ⚠️ Y EL TEXTO SALE DE ACÁ, NO DEL WEBHOOK. Hasta el 07/10 el webhook le pasaba el
+    // texto armado en código, así que lo que el negocio escribiera en /chatbot no se mandaba
+    // nunca, y decía «¿Le disparo la nutrición de bienvenida?» sobre un lead al que la línea
+    // siguiente ya inscribía en la nutrición. Ahora manda los DATOS (`aporta: ['lead']` y
+    // los `datos` del webhook) y el texto es éste o el que el negocio escriba.
+    id: 'lead-formulario-meta', titulo: 'Lead entrante por formulario de Meta', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    aporta: ['lead'],
+    disparador: 'Webhook meta-leads: alguien completa un formulario de Meta y entra al CRM.',
+    ejemplo: `📥 *{{lead_nombre}}* completó tu formulario de Meta\n📱 {{lead_telefono}}\n\n{{lead_formulario}}\n\nSu ficha 👉 {{link_lead}}`,
   },
   {
     id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp entrante (al dueño)', categoria: 'aviso', porDefecto: 'on',

@@ -10,6 +10,8 @@
 // El `import type` del Lead se borra en compilación, así que no arrastra nada del server.
 
 import type { Lead } from './leads';
+// Puro y sin `server-only`, igual que este módulo: el test lo sigue pudiendo importar.
+import { resumenRespuestas } from './meta-leads-campos';
 
 /** `1500` → `US$ 1.500`. Sin decimales: un aviso no es un recibo. */
 export const plata = (n: number): string => `US$ ${Math.round(n).toLocaleString('es-AR')}`;
@@ -85,6 +87,7 @@ export function valoresDelLead(l: Lead): Record<string, string> {
   txt('lead_cuando_empezar', l.respuesta_cuando_empezar);
   txt('lead_inversion', l.respuesta_inversion);
   txt('lead_decisor', l.respuesta_decisor);
+  txt('lead_formulario', resumenRespuestas(l.meta_field_data));
 
   return out;
 }

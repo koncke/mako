@@ -24,6 +24,7 @@ import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { eventIdLeadCrudo } from '@/lib/meta-capi-payload';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
+import { resumenRespuestas } from '@/lib/meta-leads-campos';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 import { enrolarPorEvento } from '@/lib/nutricion';
@@ -308,9 +309,21 @@ export async function POST(request: NextRequest) {
         // Aviso al dueño del workspace: entró un lead nuevo por formulario de Meta
         // (solo en INSERT, para no re-avisar si Meta reenvía el batch). Best-effort.
         if (created) {
-          const campaña = graphLead.campaign_name ?? graphLead.ad_name ?? null;
+          // ⚠️ VAN LOS DATOS, NO EL TEXTO. Con `texto` armado acá, lo que el negocio
+          // escribiera en /chatbot no salía nunca: el texto es el de la plantilla
+          // (lib/avisos-catalogo.ts, que nace APAGADA) y esto le pone los valores. Los
+          // que ya están en la mano van en `datos`, que ganan sobre la lectura de la
+          // ficha. Y los dos que pueden faltar se dicen: un `{{lead_telefono}}` crudo en
+          // el WhatsApp de un cliente se lee como que el mensaje está roto.
+          const respuestasForm = resumenRespuestas(graphLead.field_data ?? null);
           await emitirDelCatalogo('lead-formulario-meta', {
-            texto: `📥 Entró un lead por formulario de Meta: *${lead.nombre}*${campaña ? `, campaña "${campaña}"` : ''}. Todavía no agendó.\n\n¿Le disparo la nutrición de bienvenida por WhatsApp? — MaKo`,
+            ws,
+            lead: { id: lead.id, nombre: lead.nombre },
+            datos: {
+              lead_telefono: lead.telefono?.trim() || 'sin teléfono',
+              lead_formulario: respuestasForm ?? 'Sin preguntas extra en el formulario.',
+              ...(graphLead.campaign_name ? { lead_campana: graphLead.campaign_name } : {}),
+            },
           });
           // Flujos configurados por el dueño: disparar 'lead.form_meta'.
           await dispararEvento('lead.form_meta', { ws, leadId: lead.id, leadNombre: lead.nombre });

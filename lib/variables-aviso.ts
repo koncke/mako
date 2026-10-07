@@ -176,6 +176,12 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'lead_cuando_empezar', label: 'Cuándo quiere empezar', ejemplo: 'este mes', alcance: 'lead', grupo: 'formulario' },
   { key: 'lead_inversion', label: 'Cuánto puede invertir', ejemplo: 'US$ 1k - 3k', alcance: 'lead', grupo: 'formulario' },
   { key: 'lead_decisor', label: '¿Decide él?', ejemplo: 'sí', alcance: 'lead', grupo: 'formulario' },
+  // Las preguntas PROPIAS de un formulario de Meta (las que no son nombre, email,
+  // teléfono ni empresa), una por renglón. Sale de `leads.meta_field_data` con
+  // `resumenRespuestas` (lib/meta-leads-campos.ts), el mismo parser que dibuja la ficha.
+  // Pedido de Martín (07/10/2026) para los clientes de Código Inmobiliario, que no tienen
+  // landing y corren anuncios a formulario.
+  { key: 'lead_formulario', label: 'Lo que contestó en el formulario de Meta', ejemplo: '• ¿Qué tipo de propiedad buscas vender?: Una casa\n• ¿En qué zona está?: Palermo', alcance: 'lead', grupo: 'formulario' },
 
   // ── La CUOTA de la que habla el aviso. Las trae el emisor en `datos`: el cron de
   //    cobranza ya leyó la fila de `pagos` para decidir que hay que avisar, así que

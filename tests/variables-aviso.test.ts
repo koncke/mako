@@ -368,6 +368,12 @@ function leadCompleto(over: Partial<Lead> = {}): Lead {
     origen_lead: 'instant_form', telefono_normalizado: '5215512345678',
     visitor_id: null, nutricion_realizada: false,
     closer: 'Mauricio', setter: 'Leila',
+    // Con la forma que manda Meta (medida el 07/10/2026): la pregunta como CLAVE y la
+    // opción como clave. `{{lead_formulario}}` sale de acá.
+    meta_field_data: [
+      { name: 'full_name', values: ['Sofía Contreras'] },
+      { name: '¿qué_tipo_de_propiedad_buscas_vender?', values: ['una_casa'] },
+    ],
     ...over,
   } as Lead;
 }

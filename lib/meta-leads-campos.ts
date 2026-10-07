@@ -142,9 +142,55 @@ export function respuestasPropias(fieldData: MetaFieldData | null | undefined): 
     // lado se lee como que el dato se perdió, cuando lo que pasó es que no contestó.
     if (!respuesta) continue;
     vistas.add(pregunta);
-    out.push({ pregunta, respuesta });
+    out.push({ pregunta: preguntaLegible(pregunta), respuesta: respuestaLegible(respuesta) });
   }
   return out;
+}
+
+/** La primera letra en mayúscula, saltando el «¿» o el «¡» de apertura. */
+const conMayuscula = (s: string): string => s.replace(/^([¿¡]?)(\p{Ll})/u, (_, a: string, b: string) => a + b.toUpperCase());
+
+/**
+ * La pregunta como la escribió el negocio, no como la guarda Meta.
+ *
+ * ⚠️ META MANDA LA CLAVE, NO EL TEXTO. El `name` de una pregunta propia es su texto
+ * pasado a minúsculas con guiones bajos: medido el 07/10/2026 en los formularios de
+ * una inmobiliaria, «¿qué_tipo_de_propiedad_buscas_vender?». Dibujado tal cual, la
+ * ficha mostraba el identificador y no la pregunta. Los acentos y los signos sí
+ * vienen, así que alcanza con devolver los espacios y la mayúscula.
+ */
+export function preguntaLegible(name: string): string {
+  return conMayuscula(name.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim());
+}
+
+/**
+ * La respuesta, legible SÓLO si es una opción del formulario.
+ *
+ * Las opciones de una pregunta de selección llegan como clave («una_casa», «un_ph»);
+ * lo que la persona tipeó llega como lo tipeó («san telmo», «Urquiza»). Lo que las
+ * distingue es el espacio: una clave no tiene, un texto libre de más de una palabra
+ * sí. ⚠️ Por eso un texto libre NO se toca —ni la mayúscula—: es lo que escribió esa
+ * persona, y corregírselo es afirmar algo que no dijo. El único caso que queda mal es
+ * una respuesta libre de UNA palabra en minúscula, que gana su mayúscula.
+ */
+export function respuestaLegible(valor: string): string {
+  const v = valor.trim();
+  if (/\s/.test(v)) return v;
+  return conMayuscula(v.replace(/_+/g, ' ').trim());
+}
+
+/**
+ * Lo que contestó, en renglones, para un mensaje (`{{lead_formulario}}`).
+ *
+ * Mismo tope que el resumen de la landing (app/api/track/optin/route.ts): seis
+ * preguntas y 120 caracteres cada una. Un WhatsApp no es un volcado, y un formulario
+ * de 40 campos no puede convertir el aviso en algo que nadie lee. Sin preguntas
+ * propias devuelve `null`: quien arma el mensaje decide qué decir en ese caso.
+ */
+export function resumenRespuestas(fieldData: MetaFieldData | null | undefined): string | null {
+  const filas = respuestasPropias(fieldData).slice(0, 6);
+  if (!filas.length) return null;
+  return filas.map((r) => `• ${r.pregunta.slice(0, 120)}: ${r.respuesta.slice(0, 120)}`).join('\n');
 }
 
 /** Un field_data con AL MENOS una respuesta. `undefined`, `null` y `[]` son lo mismo acá. */

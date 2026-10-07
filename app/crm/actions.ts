@@ -57,6 +57,7 @@ import { listLeadsDeFunnel, contarLeadsDeFunnel,
 } from '@/lib/leads';
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal } from '@/lib/lead-funnel-reglas';
+import { respuestasPropias } from '@/lib/meta-leads-campos';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
@@ -175,6 +176,11 @@ export type LeadFullData = {
   /** El Pixel de MaKo está midiendo. Gobierna el vacío de la tarjeta de tracking. */
   pixelPuesto: boolean;
   respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
+  /**
+   * Lo que contestó en el formulario de Meta (sólo las preguntas propias, ya legibles).
+   * Se resuelve acá y baja hecho, igual que en la ruta: el pop-up no lee el field_data.
+   */
+  respuestasForm: Array<{ pregunta: string; respuesta: string }>;
   insightGen: LeadInsightGen | null;
   faltantesInsight: Step[];
   /** Datos sin marcar de la etapa actual (completos: incluye tel/empresa/deal). */
@@ -243,7 +249,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre, esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

@@ -37,6 +37,7 @@ import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
 import { LeadTabs } from './lead-view/LeadTabs';
 import { NotasCard } from './lead-view/NotasCard';
+import { RespuestasFormulario } from './lead-view/RespuestasFormulario';
 import { MotivoCard, PlazoNutricionCard, leadSalio } from './lead-view/MotivoYPlazoCard';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -59,7 +60,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   // vale mientras sea el MISMO lead: si la ficha pasa a mostrar otro, mandan sus datos.
   const [fresca, setFresca] = useState<LeadFullData | null>(null);
   const vigente = fresca && fresca.lead.id === data.lead.id ? fresca : data;
-  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -218,6 +219,10 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           Se calcula en el SERVER y baja por props, como hace la ruta. Queda anotado en
           docs/relevo/crm.md. */}
       <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} web={lead.web ?? null} />
+      {/* Lo que contestó en el formulario de Meta. Hasta el 07/10/2026 sólo lo dibujaba la
+          ruta, y el tablero abre ESTE pop-up: en el uso diario no se veía. Las respuestas
+          llegan resueltas del server (`respuestasForm`, getLeadFullAction). */}
+      <RespuestasFormulario respuestas={respuestasForm ?? []} />
       {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del lead. Como
           pestaña propia se escribieron 4 en toda la base — no porque no sirvan,
           sino porque escribir una costaba un viaje a otro lado. Acá abajo del
