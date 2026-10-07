@@ -376,6 +376,67 @@ quita de a una dimensión, nunca de un saque.
 El detalle del caso, en [hallazgos-customer-success.md](hallazgos-customer-success.md) →
 «Sacar el programa de los SEIS lugares donde también vivía».
 
+## Una capacidad del registro que el mensaje no NOMBRA no llega al turno
+
+**Vive en:** `lib/mako-intencion.ts` (`AREA_KEYWORDS`) · `lib/api-mako/registro.ts`
+(`toolsDelRegistro`, `ordenarPorRelevancia`) · `lib/api-mako/areas/crm.def.ts` ·
+`lib/api-mako/areas/crm.run.ts` · `lib/google-calendar.ts` · `lib/mako-doer-in.ts` ·
+`tests/agenda-whatsapp.test.ts`
+
+Agendar y mover reuniones en Google Calendar desde el grupo de WhatsApp, pedido por un
+cliente inmobiliario (ws13) el 07/10/2026. Agendar ya existía, pero solo por Calendly, y
+escribir la capacidad nueva fue la parte fácil. Tres cosas decidían si le llegaba al
+modelo, y ninguna da error:
+
+1. **Las tools del registro entran al turno sólo si el mensaje NOMBRA el área**
+   (`areasDelMensaje`). El área es una regex de palabras, y las del vertical no estaban:
+   «pasá la visita de Juan al viernes» → cero áreas → cero tools de agenda. Un negocio
+   inmobiliario no agenda «reuniones»: agenda visitas y citas. Y `\bagend` no matchea
+   «reagendá», porque entre «re» y «agend» no hay borde de palabra.
+2. **Dentro del área, entra por relevancia hasta un presupuesto de 12.000 caracteres.**
+   La relevancia puntúa las raíces del mensaje contra id + título (doble) y contra la
+   descripción. La lectura que mover NECESITA —encontrar la reunión— no tenía «reage» en
+   el título, y con «reagendá a Juan» quedaba afuera mientras la acción de mover sí
+   entraba: **el modelo tenía la herramienta para mover y no la que le dice QUÉ mover.**
+   Lo cazó el test, que arma el turno con los mismos números que el doer.
+3. **El doer no le decía al modelo qué día es.** «El jueves» lo tenía que adivinar. La
+   confirmación del dueño lo ataja —el resumen dice el día de la semana—, pero esa red no
+   está para eso. Ahora va HOY, en la zona del negocio, en los turnos con herramientas.
+
+**La regla: una capacidad nueva del doer se prueba ARMANDO EL TURNO con los mensajes como
+los escribe la persona, no llamando al runner.** El molde es `tests/agenda-whatsapp.test.ts`:
+`areasDelMensaje` + `toolsDelRegistro` con el `maxChars` real, y cinco frases reales.
+Llamar al runner prueba que la operación funciona; armar el turno prueba que alguien la
+puede pedir.
+
+⚠️ **Y el gating `integracion` es INFORMATIVO: no filtra** (`lib/api-mako/tipos.ts`). El
+modelo ve las de Calendly y las de Google a la vez, así que cada descripción dice cuándo es
+la suya y el runner contesta un error legible si la integración falta. Leerlo como un
+filtro es asumir que el modelo no puede elegir mal.
+
+⚠️ **Y la referencia generada (`docs/api-mako.md`) documenta sólo lo que sale por HTTP.**
+Con tres operaciones nuevas sin HTTP, el generador contesta «ya estaba al día», y eso es
+correcto: no es que no las vio. Se distingue en un `grep` (`reuniones_lead`, que tampoco
+sale por HTTP, tampoco figura).
+
+### Lo que quedó sin hacer
+
+- **No se probó de punta a punta contra una agenda real.** El único workspace con Google
+  Calendar conectado es el ws1, que es un cliente: probar ahí es mandar una invitación real
+  desde su cuenta. La primera prueba es el primer uso del ws13, con su agenda conectada.
+- **Mover en Google no actualiza `fecha_junta_1/2` del lead.** `setMeetingManual` reabre el
+  lead y le borra la etapa manual —es para mover tarjetas, no horarios—, y no hay forma
+  determinística de saber si la reunión movida es la R1, la R2 o una visita. Queda anotado
+  en el historial del lead.
+- **Si la reunión entró por Cal.com (o Calendly) y se mueve en Google, el proveedor de
+  reservas no se entera.** El evento de Google se mueve; la reserva sigue con la hora vieja.
+- **El Uso Limitado de Google sigue abierto** (`docs/hallazgos-ia.md`): estas tools pasan
+  títulos de eventos por el modelo del doer. Es para la función que la persona pidió, pero
+  con una key gratis de Gemini el problema de fondo es el mismo.
+
+*07/10/2026 — sin subagentes; medido armando el turno y rompiendo el test cinco veces
+(2, 2, 1, 1 y 1 fallos). Commit `c3c2ef17`.*
+
 ## Lo que quedó sin hacer en el núcleo
 
 | Qué | Dónde | Por qué no se hizo |

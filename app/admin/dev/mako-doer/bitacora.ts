@@ -159,4 +159,37 @@ export const BITACORA: Hito[] = [
       'lib/propuestas.ts — la tabla única de propuestas (mig 0128), la misma que usa el agente de Claude',
     ],
   },
+  // ── 7 de octubre: agendar y mover en Google Calendar desde el grupo ──────────
+  {
+    fecha: '7 oct', hora: '20:54', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el cliente agende y mueva reuniones escribiéndole al grupo de MaKo',
+    pedido: 'Y ellos lo que quieren hacer es que si le escriben al grupo de WhatsApp de MaKo, y le dicen que agende X reunión con X cliente, o modifiquen, eso lo puedan hacer desde el WhatsApp de MaKo',
+    puntos: [
+      'Llegó junto con el error de Google Calendar del cliente inmobiliario (ws13): su documento de pedidos dice «Permitir conectar el Google Calendar de cada inmobiliaria con MaKo».',
+      'Eligió hacerlo **por Google Calendar** y no por Cal.com, que es lo que ese cliente usa para reservas.',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '20:54', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Agendar y mover en Google desde WhatsApp: la parte difícil no era escribirlo',
+    puntos: [
+      '**Agendar por WhatsApp ya existía, pero SOLO por Calendly** y atado a R1/R2. El ws13 usa Cal.com (medido en la base) y **mover no existía por ningún canal**. Se sumaron tres operaciones al registro: `reuniones_agenda_lead`, `proponer_agendar_agenda` y `proponer_mover_reunion`, con confirmación por chat.',
+      '**La fecha y la hora las pasa el modelo como las dijo la persona y el instante lo arma el código** (`instanteDeLocal`, la misma conversión de la grilla del CRM, con el horario de verano resuelto). Y **mover nunca crea una reunión nueva** si no encuentra la nombrada: crearla mandaría una invitación a algo que nadie pidió.',
+      '⚠️ **Lo que decidía si funcionaba era otra cosa: si la tool LLEGA al modelo.** Las del registro entran al turno sólo si el mensaje nombra el área, y «visita» y «cita» no estaban — «pasá la visita de Juan al viernes» llegaba sin ninguna. Y la lectura que mover necesita quedaba afuera del presupuesto de 12.000 caracteres con «reagendá», porque su título no tenía esa raíz: **la herramienta para mover entraba y la que dice QUÉ mover no.** Lo cazó el test, que arma el turno con los números reales.',
+      '⚠️ **El doer no le decía al modelo qué día es**: «el jueves» lo tenía que adivinar. Ahora va HOY, en la zona del negocio.',
+      '**No se probó contra una agenda real**: el único workspace con Google conectado es el ws1, un cliente, y probar ahí es mandarle una invitación real. La primera prueba es el primer uso del ws13.',
+    ],
+    commits: [
+      { sha: 'c3c2ef17', msg: 'Agendar y mover reuniones en Google Calendar desde el grupo de MaKo', lineas: 539, archivos: 6 },
+    ],
+    archivos: [
+      'lib/google-calendar.ts — `crearEventoDeReunion`, `proximasReunionesCon`, `choquesEnAgenda` y `crearSiNoExiste` en mover',
+      'lib/api-mako/areas/crm.def.ts + crm.run.ts — las tres operaciones del registro',
+      'lib/mako-intencion.ts — `visita`, `cita`, `calendario` y `reagend` activan el área CRM',
+      'lib/mako-doer-in.ts — HOY en la zona del negocio, en los turnos con herramientas',
+      'tests/agenda-whatsapp.test.ts — arma el turno con frases reales; probado rompiéndolo',
+    ],
+  },
 ];
