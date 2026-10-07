@@ -1,5 +1,7 @@
 # El programa de Mauricio, por bloques
 
+> ⚠️ **Superado el 26/09 y el 06/10/2026: este temario ya no es el programa.** El 26/09 se borró el catálogo de 44 clases (`lib/programa-catalogo.ts`), su cuestionario por link y la reescritura con IA (`07d07139`). El 06/10 el programa se cargó en MaKo desde la planilla de Mauricio «Arquitectura_Tutoriales_NqE» (tocada el 02/10): 63 videos, 43 formularios y la logística, repartidos en las 9 etapas de la entrega. La semilla es `lib/curso-programa-nqe.ts`; lo cargado vive en `curso_clases` del ws1 y se edita en **/customer-success/curso** (la tab Curso). Lo de abajo es el temario de agosto y el feedback del 12/08: un documento fechado, no el estado de hoy. Lo que dice algo que ya no es cierto está marcado **Historia** donde aparece.
+
 **Qué es esto.** El temario del programa «Sistema Negocio que Escala™» partido en módulos y
 clases, para cargarlo en la plataforma y que cada clase tenga su video y su tarea. **No son
 guiones**: cada clase trae UNA línea con lo que el cliente tiene que dejar contestado.
@@ -12,6 +14,8 @@ que el bucle de 5 pasos pueda correr.
 **El bucle:** cada clase = un video + una tarea. El cliente mira el video, deja la tarea
 contestada, y recién ahí se agenda la sesión. En la sesión se debate y se perfecciona; después
 la IA reescribe la respuesta con lo que se habló y el cliente la aprueba.
+
+> ⚠️ **Historia (26/09/2026).** La reescritura con IA y la aprobación del cliente se borraron con el programa viejo (`07d07139`). Hoy, en el curso de MaKo, el cliente manda su tarea y el equipo la marca «Revisada» (`lib/curso.ts`, `ROTULO_TAREA`): no hay reescritura, y la sesión no espera a que la tarea esté hecha.
 
 **Encaja con sus 14-18 sesiones** así: Norte 3-4 · PAS 3-4 · Palancas y umbrales 4-6 ·
 Build 2. Los módulos 1 a 4 son el Norte; el 5 es el PAS; el 6 al 10 son palancas; el 11 es
@@ -221,6 +225,7 @@ responder por ellos.*
   `lib/programa-catalogo.ts`, y **la lista de qué grabar se mira en la app**: Customer Success →
   Program → tab **Clases**. Cada clase sigue teniendo su tarea propia: lo que se juntó es el
   video, no el bloque.
+  > ⚠️ **Historia (26/09/2026).** `lib/programa-catalogo.ts`, `mismoVideoQue` y la tab Program se borraron. Hoy cada video es una fila de la planilla del 02/10 (63; al cargarse el 06/10 ninguno estaba grabado) y la lista se mira en **/customer-success/curso**. La semilla, con su reparto por etapa, es `lib/curso-programa-nqe.ts`.
 - **Si hay que priorizar, los que destraban de verdad son 1.7, 4.2, 7.1, 7.2 y 8.1**: son los
   cinco atoros medidos en sus cuatro clientes. Como 7.1 y 7.2 comparten grabación, son **cuatro
   videos**. Con esos grabados, el resto se puede sostener en sesión un ciclo más.
@@ -253,7 +258,24 @@ Grupo Esquer).*
 *«Mau <> Martin: CUSTOMER SUCCESS», 12/08/2026. Revisó la tab Program en vivo,
 módulo por módulo. Esto es lo que dictó.*
 
-⚠️ **NADA DE ESTO ESTÁ APLICADO AL CATÁLOGO TODAVÍA, Y HAY UN MOTIVO.** Se intentó
+> ⚠️ **Historia: el párrafo de abajo dejó de ser cierto.** El PDF que se esperaba para el 17/08
+> quedó superado por la planilla del 02/10 (`lib/curso-programa-nqe.ts`), que ya trae la
+> secuencia, y lo que sigue está cargado en el ws1:
+> el módulo 5 por stakeholder (los formularios «El origen», «El PAS y la narrativa», las tres
+> promesas, «Los valores en acción» y «Cómo se lo cuentas al equipo»); los umbrales en UN
+> formulario («Los umbrales de cada objetivo», detrás del 7.2 «Umbrales y semáforo»); las juntas
+> como fase 8 «Ritmo», con «Las ocho reglas del sistema de juntas» (8.2); el puente a palancas
+> (el 6.1 «Revalidar objetivos del trimestre»); «Los catálogos que faltan» fuera; el módulo de
+> Tableros como fase 7, con «Navegar y registrar en el tablero sin miedo» (7.5); y los umbrales
+> antes que la evidencia. Lo que faltaba en los formularios —a qué MCI sube cada objetivo y las
+> palancas candidatas por objetivo— se sumó el 06/10 (#694) **a la semilla, no a la base**: el
+> cargador saltea las clases que ya existen, así que en el ws1 falta llevarlo con
+> `scripts/curso-aplicar-694.mjs` (seco por default; `--commit` escribe). Dos diferencias con lo
+> dictado acá:
+> la planilla pide UN objetivo por área (no de uno a tres), y el propósito quedó tercero en las
+> etapas cuando la planilla lo pone después de Ritmo (lo decide Mauricio).
+
+~~⚠️ **NADA DE ESTO ESTÁ APLICADO AL CATÁLOGO TODAVÍA, Y HAY UN MOTIVO.**~~ Se intentó
 y los tests lo frenaron: las clases nuevas no tienen preguntas —salen de su
 Cuestionario Maestro, no se inventan— y las que reusan un id existente quedarían
 con **las preguntas viejas pegadas al contenido nuevo**. Medido: siete clases en

@@ -25,14 +25,17 @@
 // ⚠️ Y SE EXCEPTÚA POR NOMBRE, con su motivo, lo que es HISTORIA y no producto:
 //   · el registro de /admin/dev (bitácoras, áreas, historial generado de git): es
 //     lo que se pidió y lo que se hizo, y la historia de agosto nombra lo que había;
-//   · app/admin/dev/customer-success/roadmap-cs.ts: se declara a sí mismo «HISTORIA,
-//     NO UN PLAN» desde el 26/09, y sus pasos citan el webhook que existió.
+//   · app/admin/dev/customer-success/roadmap-cs.ts: desde el 06/10 separa lo VIVO de su
+//     grupo HISTORIA, y la historia (y sus comentarios) citan el webhook que existió. Lo
+//     vivo lo cuida el último test de este archivo, que lee los DATOS y no el fuente.
 // Mismo patrón que tests/sin-clarity.test.ts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PIEZAS, URGENTE, FUTURO, HISTORIA, TITULOS_EN_PLAN } from '../app/admin/dev/customer-success/roadmap-cs';
+import { PARTES } from '../app/admin/dev/customer-success/bitacora';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -102,4 +105,33 @@ test('Whop no está en ninguno de los cuatro registros de una integración', () 
   for (const f of ['lib/integraciones-catalogo.ts', 'lib/metodo-catalogo.ts', 'lib/metodo-verificar.ts', 'app/_components/ServicioVisual.tsx']) {
     assert.ok(!/\bwhop\b/i.test(sinComentarios(leer(f))), `${f} todavía declara Whop`);
   }
+});
+
+// El panel de /admin/dev/customer-success (roadmap-cs.ts) dibujó Whop como pieza viva del
+// 26/09 al 06/10, junto con la etapa por cliente «en cola» (existía desde la mig 0188) y la
+// cartera «en cola» (la pantalla existía desde el 11/08). Un panel así hace que el próximo
+// diagnóstico arranque de una premisa falsa. Se miran los DATOS que dibuja, no el fuente.
+//
+// PROBADO ROMPIÉNDOLO (06/10/2026), mutando roadmap-cs.ts de a una cosa y restaurándolo de
+// memoria. Sobre los 5 tests de este archivo:
+//   · una pieza { que: 'Whop', … } de vuelta en PIEZAS             → 4 / 1, cae «lo vivo…»
+//   · la etapa por cliente de vuelta a «cola»                      → 4 / 1, cae «lo vivo…»
+//   · la cartera de vuelta a «cola»                                → 4 / 1, cae «lo vivo…»
+//   · sin el `plan:` de «Montar el programa… en Whop» en HISTORIA  → 4 / 1, cae «lo vivo…»
+//   · un cuarto grupo en URGENTE                                   → 4 / 1, cae «los grupos…»
+test('lo vivo del roadmap de Customer Success no nombra Whop, y la historia sí', () => {
+  const vivo = JSON.stringify([PIEZAS, URGENTE, FUTURO]);
+  assert.doesNotMatch(vivo, /whop/i, 'Whop volvió a dibujarse como pieza o paso vivo del roadmap');
+  assert.match(JSON.stringify(HISTORIA), /whop/i, 'la historia de agosto se borró en vez de mudarse');
+  // La tarjeta de Whop que siga abierta se reclama desde la historia: se ve con su número y se
+  // cierra, en vez de caer en «Del plan, sin lugar en el roadmap» como trabajo pendiente.
+  assert.ok(TITULOS_EN_PLAN.includes('Montar el programa de Mauricio en Whop, por bloques'));
+
+  const paso = (titulo: string) => URGENTE.flatMap((g) => g.pasos).find((p) => p.titulo === titulo)?.estado;
+  assert.equal(paso('Guardar en qué etapa del programa va cada cliente'), 'hecha', 'la etapa por cliente existe (mig 0188)');
+  assert.equal(paso('Ver todos los clientes y su estado en una pantalla'), 'sigue', 'la pantalla existe; falta lo que muestra');
+});
+
+test('los grupos de URGENTE son espejo de las PARTES de la bitácora (el contador «N de M»)', () => {
+  assert.equal(URGENTE.length, PARTES.length, 'se agregó o sacó un grupo en roadmap-cs.ts sin su fila en bitacora.ts (o al revés)');
 });

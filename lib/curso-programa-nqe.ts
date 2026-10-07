@@ -460,7 +460,14 @@ const LOGISTICA = {
 // llena el mismo bloque. Los `label` son textuales de los Cuestionarios Maestros salvo los
 // marcados con «era …»: ahí se cambió sólo una referencia que en el curso nuevo queda colgando
 // (el «bloque B» o el «A5» del cuestionario viejo, que el cliente nunca ve). Ninguna pregunta es
-// nueva. Los títulos son los del catálogo, salvo donde contradecían a sus propios campos.
+// nueva, salvo las dos que dictó Mauricio el 12/08 y se sumaron el 06/10 (#694): la última columna
+// de m4c3 y el primer campo de m6c3, cada una con su porqué al lado. Los títulos son los del
+// catálogo, salvo donde contradecían a sus propios campos.
+//
+// ⚠️ #694 TOCÓ LA SEMILLA Y ESO NO CAMBIA LO YA CARGADO (ver la cabecera): las dos clases del ws1
+// se corrigen con `scripts/curso-aplicar-694.mjs` (seco por default; `--commit` escribe), que lee
+// los valores nuevos DE ESTA SEMILLA y se niega si ya hay respuestas guardadas. Al 06/10 NO se
+// había corrido: hasta que corra, la base del ws1 no tiene ninguno de los dos campos.
 //
 // ⚠️ m0c2 «Estándar no es criterio» (el ejemplo de UNA decisión de la tabla D2) NO se cargó: el
 // relevo no lo reparte, y en el programa nuevo su ejercicio ya lo hacen el 2.1 (una decisión que
@@ -612,7 +619,15 @@ const FORMULARIOS: readonly Formulario[] = [
   { id: 'm4c3', etapa: 'norte', despuesDe: '4.3', titulo: 'El objetivo de cada área',
     campos: [
       // era «Por cada área que listaste en A5…» (A5 = la tabla de áreas de m1c2, en la etapa Contexto).
-      { id: 'objetivo-por-area', tipo: 'tabla', origen: 'G6', label: 'Por cada área que ya listaste, llena esta tabla:', ayuda: 'La última columna importa. Si el área no lo calcula hoy, no se puede exigir la semana que entra.', columnas: ['Área', 'Qué sostiene para que el negocio gane', 'Su número', 'Base real hoy', 'Fuente', 'Quién rinde cuentas', '¿El área ya lo calcula hoy?'], obligatorio: true },
+      // ⚠️ LA ÚLTIMA COLUMNA NO ES DEL CUESTIONARIO: la dictó Mauricio el 12/08 («falta el árbol
+      // completo… MCI, objetivos por área, medidas de predicción», docs/programa-mauricio.md,
+      // «Módulo 4 · Las dos MCIs — insuficiente»). Tarea #694. Va AL FINAL y no al lado de «Su
+      // número» A PROPÓSITO: las respuestas de una tabla se guardan por POSICIÓN de columna
+      // (lib/curso.ts, `sanearValores`, `slice(0, ncol)`), así que una columna en el medio
+      // corre todo lo ya contestado una celda a la derecha, sin un error. Lo fija el test.
+      // ⚠️ Y la ayuda «La última columna importa» habla de «¿El área ya lo calcula hoy?», que
+      // dejó de ser la última: queda dicho por su nombre.
+      { id: 'objetivo-por-area', tipo: 'tabla', origen: 'G6 · la última columna, 12/08', label: 'Por cada área que ya listaste, llena esta tabla:', ayuda: 'La columna «¿El área ya lo calcula hoy?» importa. Si el área no lo calcula hoy, no se puede exigir la semana que entra.', columnas: ['Área', 'Qué sostiene para que el negocio gane', 'Su número', 'Base real hoy', 'Fuente', 'Quién rinde cuentas', '¿El área ya lo calcula hoy?', '¿A qué MCI sube? (1, 2 o las dos)'], obligatorio: true },
       { id: 'area-que-tumba-el-frente', tipo: 'texto', origen: 'G7', label: '¿Qué área, aunque no venda, puede hacer que el resultado del frente se caiga?', ayuda: 'Esas también necesitan número propio.' },
     ] },
   // ── criterio ──
@@ -669,6 +684,16 @@ const FORMULARIOS: readonly Formulario[] = [
     ] },
   { id: 'm6c3', etapa: 'palancas', despuesDe: '6.2', titulo: 'Elegir las palancas',
     campos: [
+      // ⚠️ EL PRIMER CAMPO NO ES DEL CUESTIONARIO: es el «puente» que Mauricio dictó el 12/08,
+      // textual: «los objetivos son el puente que no existe para las palancas… las palancas no
+      // tienen sentido si no las mezclo con los objetivos. Ahí es donde está roto»
+      // (docs/programa-mauricio.md, «Módulo 6 · Las palancas — falta el puente»). Tarea #694.
+      // Los videos ya lo decían (el cierre del 6.2: «Lista todas las palancas candidatas por
+      // objetivo»; el del 6.3: «máximo tres palancas por objetivo») y el formulario capturaba UNA
+      // palanca suelta, sin el objetivo del que cuelga. Va PRIMERO porque el resto del formulario
+      // (el filtro de cuatro) se le aplica a esas candidatas. Un campo nuevo no corre respuestas
+      // guardadas: los valores van por `id`, no por posición (lib/curso.ts, `sanearValores`).
+      { id: 'palancas-candidatas-por-objetivo', tipo: 'tabla', origen: 'NUEVO · dictado el 12/08 (#694)', label: 'Por cada objetivo del área, anota sus palancas candidatas y quién responde por cada una.', ayuda: 'Máximo tres por objetivo.', columnas: ['Objetivo del área', 'Palanca candidata (verbo y objeto)', 'Responsable'], obligatorio: true },
       { id: 'enunciado-de-la-palanca', tipo: 'linea', origen: '3.1', label: 'Enuncia la palanca con verbo y objeto.', ayuda: 'No una categoría, una conducta o un estándar concreto.', obligatorio: true },
       { id: 'filtro-de-cuatro', tipo: 'tabla', origen: '3.2', label: 'Filtro de cuatro. Si falla una sola, la palanca no entra', columnas: ['Pregunta', 'Sí / No'], filasFijas: ['¿Predice el resultado? Si se hace bien un mes, ¿el LAG se mueve?', '¿Lo controla el equipo? Prueba de la coartada: ¿puede culpar a un externo?', '¿Se puede medir al menos semanal?', '¿Es hoy un cuello de botella real, o ya lo hacen bien?'], obligatorio: true },
       { id: 'estandar-que-ya-opera', tipo: 'texto', origen: '3.3', label: 'Si la cuarta salió "ya lo hacen bien", la palanca no es palanca, es un estándar que ya opera. Anótalo como estándar y sácalo del tablero.' },

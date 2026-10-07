@@ -1,20 +1,28 @@
 // =============================================================================
-// ⚠️ ESTE ROADMAP ES HISTORIA, NO UN PLAN (desde el 26/09/2026).
+// ⚠️ LO VIVO Y LA HISTORIA ESTÁN SEPARADOS (desde el 06/10/2026).
 // =============================================================================
-// El grupo «El bucle de entrega» describe el programa de 44 clases de Mauricio:
-// el temario cargado en su Whop, el cuestionario que contestaba su cliente por un
-// link, y la reescritura con IA de esas respuestas. Todo eso SE BORRÓ ese día —
-// `app/customer-success/programa/`, `lib/programa-catalogo.ts`, `lib/cs-respuestas.ts`,
-// `lib/cs-reescritura.ts`, `lib/cs-avance.ts`, el webhook de Whop y las rutas del
-// cuestionario— porque la tab se reconstruyó para servir a CUALQUIER workspace.
-// Los pasos que dicen «hecha» ahí son ciertos sobre lo que se construyó y falsos
-// sobre lo que hoy existe. La tab viva son la cartera, la señal de atención, el
-// contrato y el trabajo en el tablero (ver `app/admin/dev/areas.ts` → slug
-// `customer-success`). PENDIENTE: decidir si este panel se reescribe o se retira.
-// ⚠️ Y EL 06/10/2026 SE FUE LO QUE QUEDABA: la integración con Whop (tarjeta,
-// campos, ping, logo y `lib/whop.ts`) salió del producto. El curso, sus videos y
-// sus tareas viven en MaKo (mig 0202, `lib/curso*.ts`). Las PIEZAS de abajo que
-// nombran Whop describen agosto, no hoy.
+// Del 26/09 al 06/10 este panel dibujaba como vivo un programa que ya no existía:
+// el temario de 44 clases cargado en el Whop de Mauricio, el cuestionario que su
+// cliente contestaba por un link y la reescritura con IA de esas respuestas. El
+// 26/09 se borró todo eso (`07d07139`: `app/customer-success/programa/`,
+// `lib/programa-catalogo.ts`, `lib/cs-respuestas.ts`, `lib/cs-reescritura.ts`, el
+// webhook de Whop y las rutas del cuestionario) y el 06/10 salió la integración
+// con Whop entera. Los pasos que decían «hecha» eran ciertos sobre lo que se
+// construyó y falsos sobre lo que hoy existe, y un panel así hace que el próximo
+// diagnóstico arranque de una premisa falsa.
+//
+// Desde el 06/10 (tarea interna «roadmap-cs-whop»):
+//   · PIEZAS, URGENTE y FUTURO describen HOY. El curso vive en MaKo (mig 0202,
+//     `lib/curso*.ts`, la tab /customer-success/curso), la etapa de cada cliente
+//     existe (mig 0188) y la cartera tiene pantalla.
+//   · HISTORIA guarda lo de agosto, con lo que pasó con cada cosa. Se dibuja aparte,
+//     sin estado, y sigue reclamando por título las tarjetas del plan que todavía
+//     estén abiertas (#659, #660): así se ven y se cierran, en vez de caer en «Del
+//     plan, sin lugar en el roadmap» como trabajo vivo.
+//   · ⚠️ Los TRES grupos de URGENTE son espejo de las PARTES de `bitacora.ts` (el
+//     contador «N de M» del encabezado). No se agrega ni se renombra un grupo de
+//     URGENTE sin tocar allá su fila.
+// Lo fija `tests/sin-whop.test.ts`: Whop no aparece en lo vivo.
 // =============================================================================
 
 // =============================================================================
@@ -26,16 +34,21 @@
 // de este roadmap lo planteaba así — con `lib/tablero-matriz.ts`, migraciones y
 // un validador de la matriz en MaKo. Todo eso estaba mal.
 //
-// LAS TRES PIEZAS, Y QUIÉN ENTRA A CADA UNA:
-//   · MaKo             → lo usa MAURICIO. Su cartera, su seguimiento, sus juntas.
+// LAS TRES PIEZAS, Y QUIÉN ENTRA A CADA UNA (al 06/10/2026):
+//   · MaKo             → lo usa MAURICIO. Su cartera, el kanban de la entrega, la
+//                        tab Curso, su seguimiento y sus juntas.
+//   · El curso         → el CLIENTE, por su link firmado o por `/mi-curso`, con su
+//                        propia cookie (`mako_alumno`), nunca con una sesión de MaKo
+//                        (c0e2570b). Ve las clases, manda sus tareas y pasa de etapa.
 //   · El tablero       → una app PROPIA por cliente, duplicada del repo privado
 //                        `plantilla-accountability` (Next + Supabase + Vercel, uno
 //                        por cliente). Ahí entra el EQUIPO del cliente a capturar
 //                        evidencia. No es MaKo y no va a serlo.
-//   · Whop             → ahí el cliente ve los videos, y ahí están su acceso y
-//                        su cobro. Pero la TAREA del bloque NO vive en Whop.
 //
-// POR QUÉ LA TAREA NO VIVE EN WHOP (verificado en su API, 2026-08-11). Su API
+// ── HISTORIA (agosto). Whop era la tercera pieza: ahí el cliente veía los videos
+// y ahí estaban su acceso y su cobro. Salió el 06/10. Lo de abajo se conserva
+// porque explica por qué la tarea vivió siempre en MaKo y no en el LMS. ──
+// POR QUÉ LA TAREA NO VIVÍA EN WHOP (verificado en su API, 2026-08-11). Su API
 // tiene cursos, capítulos, lecciones, alumnos y el webhook
 // `course_lesson_interaction.completed`, así que la SEÑAL de avance sí la da:
 // alcanza para recordar, para saber quién se quedó y para avisarle a Mauricio
@@ -82,84 +95,83 @@ export type Paso = {
 export type Grupo = { titulo: string; pasos: Paso[] };
 
 /** Las tres piezas y quién entra a cada una. Es lo primero que se lee, y contesta
- *  la pregunta que la pantalla no contestaba: ¿el cliente entra a MaKo o a Whop? */
+ *  la pregunta que la pantalla no contestaba: ¿a dónde entra el cliente?
+ *  ⚠️ HOY, no agosto: hasta el 06/10 acá había una fila «Whop» y otra con la tarea
+ *  que la IA reescribía, y las dos describían cosas que ya no existían. */
 export const PIEZAS: { que: string; quien: string; detalle: string }[] = [
-  { que: 'MaKo', quien: 'Mauricio', detalle: 'Su cartera de clientes, el seguimiento, las juntas y los compromisos.' },
-  { que: 'Whop', quien: 'El cliente', detalle: 'Ve los videos del programa. Ahí están su acceso y su cobro. Su API avisa a MaKo qué clase completó.' },
-  { que: 'La tarea del bloque', quien: 'El cliente, por link', detalle: 'La contesta antes de la junta, la IA la reescribe con lo que se habló y él la aprueba. Vive en MaKo: la API de Whop no deja leer respuestas.' },
+  { que: 'MaKo', quien: 'Mauricio', detalle: 'Su cartera, el kanban de la entrega por etapas, la tab Curso y el seguimiento de cada cliente.' },
+  { que: 'El curso', quien: 'El cliente, por su link', detalle: 'Ve las clases, manda sus tareas y pasa de etapa al terminarlas. Entra con su link o por `/mi-curso`, con su propia cookie: nunca con una cuenta de MaKo.' },
   { que: 'El tablero', quien: 'El equipo del cliente', detalle: 'Una app propia por cliente, del repo `plantilla-accountability`. Capturan evidencia y ven su semáforo. No es MaKo.' },
 ];
 
 export const URGENTE: Grupo[] = [
   {
+    // ⚠️ El título es espejo de la PARTE de `bitacora.ts`: no se renombra sin tocar allá.
+    // Hasta el 06/10 este grupo eran los pasos del programa borrado (Whop, el cuestionario,
+    // la reescritura con IA): se mudaron a HISTORIA, al final del archivo.
     titulo: 'El bucle de entrega',
     pasos: [
       {
-        titulo: 'Conectar Whop', estado: 'hecha', plan: 'Conectar Whop por API para la plataforma de contenido',
-        que: 'La key y el secreto andan, el webhook recibe firmado y el avance del cliente aterriza en su fila.',
+        titulo: 'El curso del servicio, adentro de MaKo', estado: 'hecha',
+        que: 'La tab Curso: las clases cuelgan de las etapas de la entrega, con su video (link o subido), su tarea y su formulario.',
         yaEsta: [
-          '`lib/whop.ts` + el alta en los dos catálogos + `PINGS.whop`, que muestra el NOMBRE del negocio: es lo único que delata al toque haber pegado la key de otra cuenta.',
-          '`app/api/webhooks/whop/route.ts`, verificado en vivo: GET 200, POST sin firma 401 con NUESTRO texto (no «no autenticado»), JSON roto 400.',
-          'El ruteo se registra solo desde `/accounts/me`: `whop / biz_1FDimrbhXluff7 → ws 1`, sin pedirle el company id a nadie.',
-          '⭐ Probado con un evento REAL firmado contra producción: devolvió `{clase: m7c1, lead: 91}` y dejó la fila. Y las dos credenciales están en la base para ws1, no en el env de Vercel.',
-        ],
-
-        ojo: 'De Whop se lee **el avance, nunca las respuestas**: su API no tiene endpoint para leerlas. Y firma con Standard Webhooks (Svix), igual que Fathom y Resend — el verificador quedó en uno solo, `lib/standard-webhooks.ts`.',
-      },
-      {
-        titulo: 'Cargar el programa de Mauricio en Whop, por bloques', quien: 'Los dos', estado: 'sigue',
-        // ⚠️ El conteo salía de `lib/programa-catalogo.ts` (TOTAL_MODULOS / TOTAL_CLASES),
-        // que se borró el 26/09/2026 con el programa. Queda fijo porque ya no es un
-        // dato vivo sino un HECHO fechado: eso fue lo que se cargó en su Whop.
-        que: '12 módulos y 44 clases, cargadas en su cuenta real. El curso está OCULTO hasta que haya videos.',
-        plan: 'Montar el programa de Mauricio en Whop, por bloques',
-        yaEsta: [
-          'El temario como DATO en `lib/programa-catalogo.ts`, que leen el cargador, el formulario y el prompt de reescritura.',
-          '`scripts/cargar-programa-whop.ts`, idempotente y con `--actualizar`. Verificado: volver a correrlo crea 0.',
-          'El mapa lección→clase (42 entradas), que es lo que le permite al webhook saber de qué clase habla un `less_…` pelado.',
-        ],
-        falta: ['Los videos. Si hay que priorizar, los cinco que destraban son `m1c6`, `m4c2`, `m7c1`, `m7c2` y `m8c1`.', 'Dar de alta a los clientes activos.'],
-        ojo: 'El cuerpo de una lección NO lleva link, y no es un olvido: Whop no lo personaliza, así que sería la misma URL para todos. El link personal lo manda MaKo.',
-      },
-      {
-        titulo: 'Guardar lo que el cliente responde en cada bloque', estado: 'hecha',
-        que: 'Una fila por cliente y bloque. Escriben tres manos y ninguna pisa a la anterior.',
-        yaEsta: [
-          '`cs_respuestas` (mig 0125 y 0127), dada de alta en `TENANT_TABLES` y `TABLAS_RESET`. `lib/cs-respuestas.ts` es su API.',
-          '`visto_at` separado de `contestada_at`: mirar la clase en Whop no es contestar la tarea, y «la vio y no la contestó» es justo el estado que dispara el recordatorio.',
-        ],
-        ojo: '**No como jsonb en `app_settings`**: es last-write-wins sin CAS y un formulario largo con guardado parcial se pisa solo.',
-      },
-      {
-        titulo: 'Que el cliente entre por un link, sin crearse cuenta', estado: 'sigue',
-        que: 'El link existe y anda. Lo emite un script; MANDARLO todavía es a mano.',
-        yaEsta: [
-          'El permiso de escritura: `shares.permiso` (mig 0126) con default `ver`, y `puedeEditar()` en POSITIVO con 8 tests que fijan que una fila vieja, un alcance amplio o un id distinto NO escriben.',
-          'La pantalla y su endpoint, probados contra un cliente real: el link de solo-lectura no escribe, y el link del lead 92 escribe en 92 y nunca en 91.',
-          '`scripts/link-tarea-cliente.ts` lista la cartera, emite y rota.',
+          'mig 0202 (`curso_clases`, `curso_progreso`, `curso_accesos`, `curso_sesiones`) y las reglas puras de `lib/curso.ts`, con test (eba4f12f).',
+          'El programa de Mauricio cargado en el ws1: 107 clases, 63 videos de su planilla del 02/10, 43 formularios y la logística. La semilla es `lib/curso-programa-nqe.ts`.',
+          'La tab `/customer-success/curso` y la pestaña Curso de la ficha del cliente (`app/customer-success/FichaCurso.tsx`).',
         ],
         falta: [
-          'Emitirlo desde la app: `/api/compartir` valida contra `RECURSOS = [curso, branding]` y además llama a `crearShare` SIN `permiso`, así que todo lo que emite nace `ver`. Son dos candados y hay que abrir los dos.',
-          '**Mandarlo solo.** Hoy Martín copia el token de la terminal y lo pega en el WhatsApp del cliente. `emitirAviso` va siempre al DUEÑO, nunca al lead.',
+          'Los videos: al cargarse el 06/10 no había ninguno grabado. Los graba y los sube Mauricio.',
+          'Llevar #694 a la base del ws1 (la columna de la MCI en «El objetivo de cada área» y el puente a las palancas en «Elegir las palancas»): está en la semilla, no en `curso_clases`. Se corre `node --import tsx scripts/curso-aplicar-694.mjs` (seco) y después con `--commit`.',
         ],
-        ojo: '⚠️ Esta tarjeta decía «MaKo le manda el link cuando toca el bloque» y eso NO EXISTE: el envío no está en ningún lado. Un renglón así hace que el próximo diagnóstico arranque de una premisa falsa. Lo que sí está: el permiso escrito en POSITIVO —este share puede escribir ESTE bloque, nunca «cualquiera menos»— y una pantalla sin login, que es la condición para que ande con «empresarios que todos tienen TDAH… no creas que le sabe la computadora».',
+        // ⚠️ Cuando `scripts/curso-aplicar-694.mjs --commit` corra contra el ws1, se saca la
+        // segunda fila de `falta` y el «falta la base» del `ojo`. Hasta entonces, decir que #694
+        // «se hizo» es afirmar algo que la base no tiene.
+        ojo: 'La semilla NO es la fuente de verdad: lo cargado se edita en la tab, y volver a correr `scripts/curso-cargar-programa.ts` saltea lo que ya está y revive lo borrado. **Un cambio del temario son dos cosas: la semilla y la base** (#694 tiene la semilla; le falta la base, con `scripts/curso-aplicar-694.mjs`).',
       },
       {
-        titulo: 'Que la IA mejore esas respuestas con lo hablado en la junta', estado: 'hecha',
-        plan: 'Configurar Fathom e IA para actualizar formularios post-reunión',
-        que: 'Después de la sesión, las respuestas del bloque quedan ampliadas con lo que se discutió.',
+        titulo: 'Que el cliente entre a su curso sin cuenta de MaKo', estado: 'hecha',
+        que: 'Su link firmado, o `/mi-curso` con su propia cookie, y la invitación por mail desde la ficha.',
         yaEsta: [
-          '`lib/cs-reescritura.ts`, enganchado en el cron de reuniones: solo juntas de entrega, con el cliente identificado, y en su propio try/catch para que un fallo no se coma el borrador de tareas.',
-          'Las tres reglas están en el prompt Y en el código: no pisa lo del cliente, no reescribe si la junta no habló del tema (`SIN_MATERIAL`), y no inventa sobre una respuesta vacía.',
-          'El prompt es editable desde /configuraciones.',
+          '`lib/curso-acceso.ts`: el link `c1.<ws>.<lead>.<version>.<hmac>`. Revocar es subir la versión.',
+          '`lib/alumno-sesion.ts` + `lib/alumno-acceso.ts`: la cookie `mako_alumno`, que el proxy no toma por sesión (c0e2570b). La invitación, mig 0206.',
         ],
-        ojo: '**La trampa era real y estaba anotada:** `ExtractOut` devolvía las TAREAS, no la conversación. Enganchado ahí sin más, habría reescrito el bloque a partir de una lista de títulos, con un resultado plausible. Ahora devuelve la `cabecera`, que ya estaba construida. Y corre GRATIS por la cascada completa: es una llamada por bloque abierto, por junta, por cliente.',
+        falta: ['Invitar a los clientes: al 06/10 había 0 invitaciones.', 'Probarlo de punta a punta con un email real.'],
+        ojo: '**Nunca `mako_session` ni una fila en `usuarios`**: con eso el alumno leía el CRM de Mauricio, porque un rol desconocido cae a admin.',
       },
       {
-        titulo: 'Que el cliente corrija y apruebe lo que escribió la IA', estado: 'hecha',
-        que: 'Ve los dos textos enteros, edita el que prefiere y le da el ok.',
-        yaEsta: ['`app/compartido/[token]/TareaCliente.tsx`. Muestra los DOS textos completos, no un resumen ni un link: aprobar lo que no se leyó es aprobar sin leer.'],
-        ojo: 'Los botones nombran su acción y su objeto — «Aprobar este texto» / «Dejar el mío» —, nunca «Aceptar» o «Cancelar» a secas.',
+        titulo: 'Pasar de etapa al terminar sus tareas', estado: 'hecha',
+        que: 'Al enviar la última obligatoria de su etapa, MaKo lo mueve a la siguiente y le avisa.',
+        yaEsta: ['`etapaCompleta` (`lib/curso.ts`) + `lib/curso-avance-regla.ts` + `lib/curso-avance.ts`, que mueve por el choke point `moverClienteDeEtapa` (`lib/cs-mover-etapa.ts`).'],
+        ojo: 'Cierra al ENVIAR, no al revisar: si cerrara al aprobar, el cliente quedaría esperando a que alguien lo mire. Y una etapa sin obligatorias no se completa sola, a propósito.',
+      },
+      {
+        titulo: 'Avisarle antes y después de cada llamada', estado: 'sigue',
+        que: 'El cron manda el previo y el posterior de cada llamada anotada, con lo que le falta de su etapa.',
+        yaEsta: ['`app/api/cron/curso-sesiones/` (cada hora) + `lib/curso-mensajes.ts`.'],
+        falta: ['Las llamadas se anotan a mano en la ficha: falta sincronizarlas con Calendly.', 'Lo que pidió Mauricio el 8/9: los compromisos de la junta, sacados del Fathom, en el aviso de después.'],
+      },
+      {
+        titulo: 'Recordarle las clases que tiene que ver', estado: 'cola',
+        plan: 'Recordatorio a los alumnos de Mauricio de las clases que tienen que ver (email o WhatsApp)',
+        que: 'Un recordatorio de los videos de su etapa que todavía no vio, aparte de las llamadas.',
+        yaEsta: ['El dato existe: `curso_progreso` guarda `pct` y `visto_at` por clase.', 'El cron de las llamadas corre cada hora: el recordatorio se puede colgar de ahí.'],
+        falta: ['Canal, texto, cadencia y dedup.', 'Que tenga qué recordar: los videos subidos y los clientes invitados.'],
+      },
+      {
+        titulo: 'El onboarding de la tab Curso', estado: 'cola',
+        que: 'La regla de la casa: toda tab tiene onboarding, y su estado alimenta a MaKo.',
+        falta: ['La entrada en `lib/tab-onboarding-catalogo.ts`, el recorrido y el gate en `app/customer-success/curso/page.tsx`.'],
+      },
+      {
+        titulo: 'Que MaKo vea el avance del curso', estado: 'cola',
+        que: 'Hoy MaKo no puede contestar por chat cómo va un cliente en su curso.',
+        yaEsta: ['Los lectores existen en `lib/curso-datos.ts` y las reglas en `lib/curso.ts`.'],
+        falta: ['Una operación de lectura en `lib/api-mako/areas/cs.def.ts` + `cs.run.ts`.'],
+      },
+      {
+        titulo: 'Limpiar los videos huérfanos del bucket', estado: 'cola',
+        que: 'Una subida abandonada (se cierra la pestaña a mitad) deja el archivo en `curso-videos` para siempre.',
+        falta: ['Un barrido que borre los objetos que ninguna clase nombra.'],
       },
       {
         titulo: 'Dejar de descartar las reuniones de entrega', estado: 'hecha',
@@ -204,24 +216,46 @@ export const URGENTE: Grupo[] = [
         titulo: 'Avisar cuando un cliente lleva días sin dar señales', estado: 'cola',
         que: 'Hoy un cliente ya ganado no dispara ninguna regla del motor.',
         yaEsta: ['El motor y sus reglas T1-T6 (`lib/crm-auto-plan.ts`), con umbral por workspace.'],
-        falta: ['`lib/crm-auto-plan.ts:82` abre con `estado_lead === \'abierto\'` y T6 (`:126`) exige `no_responde` o `perdido`: **un cliente ganado queda fuera de todo**.', 'Definir qué cuenta como señal: última junta, último WhatsApp, avance en Whop.'],
+        falta: ['`lib/crm-auto-plan.ts:82` abre con `estado_lead === \'abierto\'` y T6 (`:126`) exige `no_responde` o `perdido`: **un cliente ganado queda fuera de todo**.', 'Definir qué cuenta como señal: última junta, último WhatsApp, avance en el curso (`curso_progreso`).'],
         tocar: ['`lib/crm-auto-plan.ts`'],
       },
       {
-        titulo: 'Guardar en qué etapa del programa va cada cliente', estado: 'cola',
-        plan: 'Etapa del encargo, próximo hito y estado por cliente',
-        que: 'Venta, Norte, PAS, Palancas, Build. Más el próximo hito con fecha.',
-        yaEsta: ['Sus clientes YA son proyectos de su board (`PREFIJO_CLIENTE`, `lib/todo-proyectos-catalogo.ts:36`): la tabla cuelga de ahí.'],
-        falta: ['`plan_proyectos` (mig 0093) no tiene etapa ni hito.'],
-        ojo: 'No llamarla `FASES`: ya hay tres constantes con ese nombre. Las cinco fases del encargo salen de su propio documento, no se inventan.',
+        // ⚠️ Decía «cola» con «`plan_proyectos` no tiene etapa ni hito» hasta el 06/10, con la
+        // etapa existiendo desde la mig 0188 (05/10). El plan de la tarjeta (una tabla
+        // ETAPAS_ENCARGO, una ruta /clientes/[id]/etapas) quedó obsoleto: no se construye.
+        // `plan:` = el título de la tarjeta en el tablero según la auditoría del 06/10.
+        titulo: 'Guardar en qué etapa del programa va cada cliente', estado: 'hecha',
+        plan: 'Guardar la etapa del encargo y el próximo hito de cada cliente (el estado ya se guarda)',
+        que: 'Un kanban por producto con las etapas de su entrega. El cliente se mueve arrastrando, desde su ficha, en lote o solo al terminar sus tareas.',
+        yaEsta: [
+          'mig 0188: `producto_entrega` (las etapas, por producto) y `cliente_entrega` (en cuál está cada cliente, con la CLAVE de la etapa, nunca el rótulo).',
+          '`moverClienteDeEtapa` (`lib/cs-mover-etapa.ts`), el único que escribe: deja el historial y dispara las secuencias de entrega.',
+          'El kanban, la tabla, la ficha y el lote en `app/customer-success/`. El paso por tareas, en `lib/curso-avance.ts`.',
+        ],
+        falta: [
+          'La FECHA del próximo hito no existe en ningún lado: falta decidir si «Próxima llamada» (la pestaña Curso de la ficha) alcanza.',
+          'Ubicar a los 14 clientes del ws1 en su etapa real: al 06/10, 13 caían en Bienvenida por derivación y una fila apuntaba a una etapa que ya no existe. Es trabajo en la pantalla, no código.',
+        ],
+        ojo: 'La etapa de entrega NO es otro embudo del CRM: es SIMULTÁNEA con la venta (el mismo cliente es «ganado» en ventas y está en «hito 2» en la entrega). Por eso vive en su propia tabla.',
       },
       {
-        titulo: 'Ver todos los clientes y su estado en una pantalla', estado: 'cola',
-        plan: 'Vista de cartera + alertas de baja al dueño',
-        que: 'Una fila por cliente: etapa, último contacto, compromisos vencidos y próximo hito.',
-        yaEsta: ['El molde de pantalla cross-cliente, ya auditado: `app/admin/agente/page.tsx:49-66`.'],
-        falta: ['La vista. Hoy la única ruta del área es `app/cs-analyst/page.tsx`: 7 líneas que devuelven `<ComingSoon />`.'],
-        tocar: ['`lib/cs-cartera.ts` (nuevo)', '`app/cs-analyst/page.tsx`', '`app/_components/nav.ts:182`'],
+        // ⚠️ Decía «cola» con «hoy la única ruta del área es `app/cs-analyst/page.tsx`»: la
+        // pantalla existe desde el 11/08 y `lib/cs-cartera.ts` desde el 26/09. Lo que falta es
+        // lo que la tarjeta pedía mostrar. `plan:` según la auditoría del 06/10.
+        titulo: 'Ver todos los clientes y su estado en una pantalla', estado: 'sigue',
+        plan: 'Arreglar la cartera: compromisos vencidos siempre en 0 y avance mal; la alerta va después',
+        que: 'La pantalla existe (`/customer-success`: kanban y tabla por producto) y no muestra el último contacto ni qué compromiso está vencido.',
+        yaEsta: [
+          '`app/customer-success/` (kanban, tabla, ficha) y `lib/cs-cartera.ts` + `lib/cs-senal.ts`, que hoy lee MaKo por chat.',
+          'Las tareas vencidas de cada cliente ya se calculan (`atrasadas`, `app/customer-success/trabajo.ts`).',
+        ],
+        falta: [
+          'Dibujar el último contacto y los compromisos vencidos: los datos existen y ninguna pantalla los muestra desde la poda del 26/09.',
+          '`conTrabajo` (`lib/cs-senal.ts`) sin call site: MaKo nunca ve las tareas vencidas de un cliente.',
+          'La alerta de baja: sin umbral, sin cadencia, sin entrada en el catálogo de avisos y sin insumo (depende de analizar las llamadas de entrega).',
+          '`/cs-analyst` sigue en ComingSoon: darla de alta o borrarla.',
+          'El onboarding de la tab.',
+        ],
       },
       {
         titulo: 'Que la tarea no pierda a su cliente al confirmarla', estado: 'cola',
@@ -283,8 +317,13 @@ export const FUTURO: Grupo[] = [
         que: 'Combina el ánimo de la última sesión, la cuota impaga y las señales del CRM.',
         yaEsta: ['Dos de los tres insumos ya están: `lib/pagos.ts:495` y la clasificación de la reunión como entrega.'],
         falta: ['El ánimo se tira hoy: depende del paso anterior.'] },
-      { titulo: 'Poder marcar a un cliente como graduado o dado de baja', estado: 'cola',
-        que: 'Los cuatro desenlaces de `EstadoLead` son todos previos a la venta.',
+      { titulo: 'Poder marcar a un cliente como graduado o dado de baja', estado: 'sigue',
+        que: 'El estado existe (activo, graduado, baja, pausado) y hoy sólo se marca pidiéndoselo a MaKo por chat.',
+        yaEsta: ['`cs_clientes` (mig 0129) y la operación `marcar_estado_cliente_cs` (`lib/api-mako/areas/cs.def.ts`), con motivo obligatorio para una baja.'],
+        falta: [
+          'Que la pantalla de Clientes lo muestre y lo deje cambiar: el botón se fue el 26/09 y ningún archivo de `app/customer-success/` lee `cs_clientes`.',
+          'El protocolo de graduación: borrador en `docs/protocolos/graduacion.md` (#667), esperando las respuestas de Mauricio.',
+        ],
         ojo: 'Hoy la suscripción «activa» se deriva de fechas (`lib/queries.ts:765`): un cliente que se va antes de tiempo **sigue contando en el MRR** hasta que venza el plazo.' },
       { titulo: 'Que el embudo tenga una etapa después de la venta', estado: 'cola',
         que: 'El pipeline termina en la venta y no hay dónde vive un cliente en entrega.',
@@ -346,8 +385,53 @@ export const FUTURO: Grupo[] = [
   },
 ];
 
+/**
+ * Lo de agosto, que ya no existe. Se dibuja APARTE y SIN estado (`RoadmapCS.tsx`): un chip
+ * «Hecha» o «Sigue» al lado de algo borrado se lee como trabajo vivo, que es exactamente lo
+ * que este panel hizo del 26/09 al 06/10. El `estado` queda como registro de cómo estaba
+ * cuando murió; el `que` dice qué pasó con cada cosa. Cómo se construyó está en git
+ * (`07d07139` y el retiro de Whop en eba4f12f).
+ *
+ * Los `plan:` se quedan a propósito: si la tarjeta sigue abierta en el tablero (al 06/10, la
+ * #659 y la #660), se ve ACÁ con su número y se cierra, en vez de caer en «Del plan, sin
+ * lugar en el roadmap» como si fuera trabajo pendiente. Se cierran por propuesta, no desde acá.
+ */
+export const HISTORIA: Grupo[] = [
+  {
+    titulo: 'Agosto: Whop y el programa de 44 clases',
+    pasos: [
+      { titulo: 'Conectar Whop', estado: 'hecha', plan: 'Conectar Whop por API para la plataforma de contenido',
+        que: 'Se conectó en agosto (webhook firmado, avance por clase). Salió del producto el 06/10: el curso vive en MaKo.' },
+      { titulo: 'Cargar el programa de Mauricio en Whop, por bloques', estado: 'sigue', plan: 'Montar el programa de Mauricio en Whop, por bloques',
+        que: 'Quedaron 12 módulos y 44 clases ocultas en su Whop. Sin objeto desde el 06/10: el programa está cargado en MaKo, 107 clases en 9 etapas.' },
+      { titulo: 'Guardar lo que el cliente responde en cada bloque', estado: 'hecha',
+        que: '`cs_respuestas` y `lib/cs-respuestas.ts` se borraron el 26/09. Hoy las respuestas van a `curso_progreso`.' },
+      { titulo: 'Que el cliente entre por un link, sin crearse cuenta', estado: 'sigue',
+        que: 'Era el link de un cuestionario (`shares.permiso`) y se borró el 26/09. Hoy es el link del curso.' },
+      { titulo: 'Que la IA mejore esas respuestas con lo hablado en la junta', estado: 'hecha', plan: 'Configurar Fathom e IA para actualizar formularios post-reunión',
+        que: '`lib/cs-reescritura.ts` se borró el 26/09. Hoy no hay reescritura: volverla a tener es parte de #665.' },
+      { titulo: 'Que el cliente corrija y apruebe lo que escribió la IA', estado: 'hecha',
+        que: 'Se borró el 26/09 con lo anterior. Hoy el equipo marca la tarea «Revisada».' },
+    ],
+  },
+];
+
+/** Los títulos del plan que reclama este panel, incluida la HISTORIA (ver arriba). */
 export const TITULOS_EN_PLAN: string[] =
-  [...URGENTE, ...FUTURO].flatMap((g) => g.pasos.map((p) => p.plan).filter((t): t is string => !!t));
+  [...URGENTE, ...FUTURO, ...HISTORIA].flatMap((g) => g.pasos.map((p) => p.plan).filter((t): t is string => !!t));
+
+/**
+ * La tarjeta de un paso de HISTORIA, sólo si sigue ABIERTA; si no, `undefined`.
+ *
+ * «Abierta» es `progress < 100`, el MISMO criterio que `tareasAbiertas`
+ * (`app/admin/dev/roadmap.ts`, `.lt('progress', 100)`), que es lo que el resto del panel llama
+ * abierta. Hace falta porque `RoadmapCS` busca la tarjeta en `board.tasks`, que sale de
+ * `listPlanBoard()` (`lib/plan-board.ts`, `select('*')` sin filtro) y trae TAMBIÉN las
+ * cerradas: sin esto, la fila de Historia decía «#N abierta» y se dejaba abrir sobre una
+ * tarjeta ya cerrada (la #659 y la #660 cuando se cierren por propuesta), para siempre.
+ */
+export const tarjetaAbierta = <T extends { progress: number }>(t: T | undefined): T | undefined =>
+  t && t.progress < 100 ? t : undefined;
 
 export const cuantos = (gs: Grupo[]): number => gs.reduce((n, g) => n + g.pasos.length, 0);
 

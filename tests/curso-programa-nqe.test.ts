@@ -121,8 +121,8 @@ test('los campos se guardan tal cual: sanearCampos no les cambia nada', () => {
     assert.deepStrictEqual(sanearCampos(c.campos), c.campos, `${c.origen}: sanearCampos lo modifica`);
     for (const f of c.campos) assert.ok(!('origen' in f), `${c.origen}/${f.id}: el origen no va a la base`);
   }
-  // 114 del catálogo menos los 3 de m0c2.
-  assert.equal(total, 111);
+  // 114 del catálogo menos los 3 de m0c2, más el puente objetivo → palancas de m6c3 (#694).
+  assert.equal(total, 112);
 });
 
 test('nada del guion viejo ni de otros clientes en lo que lee el cliente', () => {
@@ -199,4 +199,41 @@ test('cada formulario va detrás del video que llena el mismo bloque, nunca abre
   assert.equal(antes('catalogo:m6c4'), 'planilla:6.3');
   assert.equal(antes('catalogo:m8c1'), 'planilla:7.2');
   assert.equal(antes('catalogo:m10c3'), 'planilla:8.7');
+});
+
+// #694 — lo que Mauricio dictó el 12/08 y no estaba en los formularios: el árbol MCI → objetivo
+// (m4c3) y el puente objetivo → palancas (m6c3). Ver los comentarios de esos dos formularios.
+//
+// PROBADO ROMPIÉNDOLO (06/10/2026), mutando lib/curso-programa-nqe.ts de a una cosa y
+// restaurándolo de memoria. Sobre los 12 tests del archivo:
+//   · la columna de la MCI en el MEDIO (después de «Su número»)    → 11 / 1, cae éste
+//   · la columna de la MCI sacada                                  → 11 / 1, cae éste
+//   · el campo del puente SEGUNDO en vez de primero                → 11 / 1, cae éste
+//   · el campo del puente sacado                                   → 10 / 2, caen éste y «los campos…» (111 ≠ 112)
+//   · la ayuda «Máximo tres por objetivo.» cambiada                → 11 / 1, cae éste
+test('#694: la columna de la MCI va AL FINAL de m4c3, y el puente a las palancas abre m6c3', () => {
+  const m4c3 = P.find((c) => c.origen === 'catalogo:m4c3');
+  const m6c3 = P.find((c) => c.origen === 'catalogo:m6c3');
+  assert.ok(m4c3 && m6c3, 'falta m4c3 o m6c3 en la semilla');
+
+  // AL FINAL y con las siete de antes intactas EN SU LUGAR: las respuestas de una tabla se
+  // guardan por posición (lib/curso.ts, `sanearValores`), así que una columna en el medio corre
+  // lo ya contestado. Por eso se compara la lista entera y no sólo «que esté».
+  const tabla = m4c3.campos.find((f) => f.id === 'objetivo-por-area');
+  assert.deepEqual(tabla?.columnas, [
+    'Área', 'Qué sostiene para que el negocio gane', 'Su número', 'Base real hoy', 'Fuente',
+    'Quién rinde cuentas', '¿El área ya lo calcula hoy?', '¿A qué MCI sube? (1, 2 o las dos)',
+  ]);
+
+  // PRIMERO: el filtro de cuatro de abajo se le aplica a estas candidatas.
+  const [puente, segundo] = m6c3.campos;
+  assert.deepEqual(
+    { id: puente.id, tipo: puente.tipo, columnas: puente.columnas, ayuda: puente.ayuda },
+    {
+      id: 'palancas-candidatas-por-objetivo', tipo: 'tabla',
+      columnas: ['Objetivo del área', 'Palanca candidata (verbo y objeto)', 'Responsable'],
+      ayuda: 'Máximo tres por objetivo.',
+    },
+  );
+  assert.equal(segundo.id, 'enunciado-de-la-palanca', 'lo que ya estaba sigue detrás, en su orden');
 });

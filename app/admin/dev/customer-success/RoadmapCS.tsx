@@ -21,7 +21,7 @@ import { useBoard } from '@/app/plan/board/useBoard';
 import { repoPlan } from '@/app/plan/board/repo-plan';
 import { TaskModal } from '@/app/plan/board/BoardShell';
 import type { BoardTask, Label, BoardUser } from '@/app/plan/board/types';
-import { PIEZAS, URGENTE, FUTURO, TITULOS_EN_PLAN, cuantos, conteo, type Grupo, type Paso } from './roadmap-cs';
+import { PIEZAS, URGENTE, FUTURO, HISTORIA, TITULOS_EN_PLAN, cuantos, conteo, tarjetaAbierta, type Grupo, type Paso } from './roadmap-cs';
 import type { TareaRoadmap } from '../roadmap';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, ' ').trim().toLowerCase();
@@ -122,8 +122,9 @@ export function RoadmapCS({ tareas, plan, user }: {
   return (
     <>
       {/* Las tres piezas y quién entra a cada una. NO es relleno: es lo que la
-          pantalla no contestaba —«¿el cliente entra a MaKo o a Whop?»— y sin eso
-          los pasos no se entienden. Tres líneas y se acabó. */}
+          pantalla no contestaba —«¿a dónde entra el cliente?»— y sin eso los pasos
+          no se entienden. Tres líneas y se acabó. Son las de HOY (MaKo, el curso,
+          el tablero): Whop salió el 06/10 y vive en la sección Historia. */}
       <ListaRoadmap>
         {PIEZAS.map((x) => (
           <li key={x.que} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,112px) minmax(0,168px) minmax(0,1fr)', gap: 14, alignItems: 'baseline', padding: '11px 16px', background: 'var(--surface)' }}>
@@ -141,6 +142,46 @@ export function RoadmapCS({ tareas, plan, user }: {
       <Section titulo="A futuro" nota={`${cuantos(FUTURO)} pasos · la propuesta original`}>
         {bloque(FUTURO)}
       </Section>
+
+      {/* Lo que ya NO existe. Sin número ni chip de estado, a propósito: un «Hecha» o un
+          «Sigue» al lado de algo borrado se lee como trabajo vivo, que es lo que este panel
+          hizo del 26/09 al 06/10. Sólo es clickeable la fila cuya tarjeta del plan sigue
+          ABIERTA: el número dice que falta cerrarla.
+          ⚠️ `board.tasks` trae TAMBIÉN las cerradas (`listPlanBoard` no filtra), así que la
+          tarjeta pasa por `tarjetaAbierta` (progress menor a 100, el criterio de
+          `tareasAbiertas`). Sin eso, una fila decía «#N abierta» sobre una tarjeta cerrada,
+          para siempre. Lo fija `tests/roadmap-cs-historia.test.ts`. */}
+      {HISTORIA.length > 0 && (
+        <Section titulo="Historia" nota="ya no existe">
+          {HISTORIA.map((g) => (
+            <div key={g.titulo}>
+              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, margin: '22px 0 8px' }}>{g.titulo}</div>
+              <ListaRoadmap>
+                {g.pasos.map((p) => {
+                  const abierta = tarjetaAbierta(tareaDe(p));
+                  const cuerpo = (
+                    <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--dim)', textAlign: 'left' }}>
+                      {p.titulo}
+                      {abierta && <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: 'var(--primary)', marginLeft: 9 }}>#{abierta.num} abierta</span>}
+                      <span style={{ display: 'block', fontWeight: 400, fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{texto(p.que)}</span>
+                    </span>
+                  );
+                  const fila = { display: 'block', padding: '11px 16px', background: 'var(--surface)' } as const;
+                  return abierta ? (
+                    <li key={p.titulo}>
+                      <button type="button" onClick={() => setAbierto({ paso: p, n: 0, id: abierta.id })} className="mk-fila-roadmap" style={{ ...fila, width: '100%', border: 0, font: 'inherit', cursor: 'pointer', textAlign: 'left' }}>
+                        {cuerpo}
+                      </button>
+                    </li>
+                  ) : (
+                    <li key={p.titulo} style={fila}>{cuerpo}</li>
+                  );
+                })}
+              </ListaRoadmap>
+            </div>
+          ))}
+        </Section>
+      )}
 
       {sueltas.length > 0 && (
         <Section titulo="Del plan, sin lugar en el roadmap" nota={`${sueltas.length}`}>
