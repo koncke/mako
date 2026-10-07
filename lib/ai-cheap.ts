@@ -1206,15 +1206,16 @@ const esSaturacion = (msg: string): boolean =>
   /HTTP (429|503)|high demand|overloaded|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(msg);
 
 /**
- * Los modelos de Gemini que escuchan audio, en orden. El primero es el de siempre; los otros
- * son de otra «familia» de capacidad. Medido el 07/10/2026 a las 22:2x UTC con un pedido real:
- * `gemini-flash-latest` 503 «high demand», `gemini-flash-lite-latest` 200 en 560 ms,
- * `gemini-3.5-flash-lite` 200, y `gemini-2.5-flash` 404 «no longer available» — figurar en
- * `GET /v1beta/models` no prueba que conteste (tests/ia-mensajes.test.ts lo tiene vetado).
+ * Los modelos de Gemini que escuchan audio, en orden: el de siempre y atrás los de
+ * `MODELOS_RESPALDO`, la MISMA lista que usa el chat (una cosa, un lugar). Sólo alias `-latest`:
+ * medido el 07/10/2026 a las 22:2x UTC con un pedido real, `gemini-flash-latest` daba 503
+ * «high demand» y `gemini-flash-lite-latest` contestaba en 560 ms, mientras `gemini-2.5-flash`
+ * —que figura en `GET /v1beta/models`— contestaba 404 «no longer available». Un id con versión
+ * envejece solo; un alias no.
  */
 function modelosSttGemini(): string[] {
   const base = process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
-  return [...new Set([base, 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite'])];
+  return modelosAProbar('gemini', base).filter((m): m is string => !!m);
 }
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));

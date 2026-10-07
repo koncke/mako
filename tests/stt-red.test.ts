@@ -17,8 +17,10 @@
 // la llamada, cambiar de modelo con cualquier error, el reintento sin espera, sin red de
 // plataforma, la red con Gemini primero, la red sin motivo y los errores mezclados (23 / 1 cada
 // una); el doer eligiendo el texto con los errores de la agencia y el saturado que pide otra key
-// (22 / 2 cada una). Restaurado: 24 / 0. Y verificado de punta a punta ese día: una transcripción
-// real en el ws3 (sin keys de audio) salió por la red, «escuchó con la RED DE PLATAFORMA (groq)».
+// (22 / 2 cada una). Restaurado: 24 / 0. Y al pasar a la lista de `MODELOS_RESPALDO`: sin
+// modelo de respaldo y con la lista propia otra vez, 4 / 1 cada una (este archivo solo).
+// Y verificado de punta a punta ese día: una transcripción real en el ws3 (sin keys de audio)
+// salió por la red, «escuchó con la RED DE PLATAFORMA (groq)».
 //
 // Correr: npm test
 import { test } from 'node:test';
@@ -42,8 +44,9 @@ const bloque = (firma: string) => {
 };
 
 test('Gemini saturado: se prueba OTRO modelo con la misma key, sólo si está saturado', () => {
-  const modelos = bloque('function modelosSttGemini(');
-  assert.match(modelos, /'gemini-flash-lite-latest'/, 'sin un segundo modelo, un Google saturado es una nota de voz perdida');
+  // La MISMA lista de respaldo que el chat, y con al menos un modelo detrás del de siempre.
+  assert.match(bloque('function modelosSttGemini('), /modelosAProbar\('gemini', base\)/, 'el audio volvió a tener su propia lista de modelos');
+  assert.match(AI, /gemini: \['gemini-flash-lite-latest'\]/, 'sin un segundo modelo, un Google saturado es una nota de voz perdida');
   const escuchar = bloque('async function escucharCon(');
   assert.match(escuchar, /for \(const modelo of modelosSttGemini\(\)\)/);
   assert.match(escuchar, /sttGemini\(p, base64, buf, mime, o, modelo\)/, 'el modelo elegido no le llega a la llamada');
