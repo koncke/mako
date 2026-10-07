@@ -396,7 +396,10 @@ export async function permisoCalendarioGoogle(): Promise<PermisoCalendario> {
 }
 
 /** Por qué salió como salió. La UI decide con esto si ofrece reconectar. */
-export type CodigoCalendario = 'ok' | 'sin-conexion' | 'sin-permiso' | 'sin-fecha' | 'no-organizador' | 'api';
+// 'no-encontrado' existe para quien pide MOVER sin permiso para crear
+// (`crearSiNoExiste: false`, el camino de WhatsApp): ahí no encontrar el evento es
+// un resultado, no una invitación a inventar uno nuevo.
+export type CodigoCalendario = 'ok' | 'sin-conexion' | 'sin-permiso' | 'sin-fecha' | 'no-organizador' | 'no-encontrado' | 'api';
 
 /**
  * Resultado SIEMPRE tipado, nunca una excepción: quien reagenda ya guardó la
@@ -441,6 +444,16 @@ export type PedidoMoverEvento = AnclaEvento & {
   tituloSiSeCrea?: string | null;
   /** Solo se usa si no se pudo deducir cuánto duraba el evento original. */
   duracionMin?: number;
+  /**
+   * Si no aparece el evento, ¿se crea uno? Default true: es lo que necesita el
+   * «Reagendar» del CRM, que ya guardó la fecha y quiere que la agenda la tenga.
+   *
+   * ⚠️ El que MUEVE una reunión que nombró la persona (MaKo por WhatsApp) pasa
+   * false. Ahí no encontrarla significa que la que se nombró no está, y crear una
+   * nueva mandaría una invitación a una reunión que nadie pidió, con el aviso de
+   * Google al lead incluido.
+   */
+  crearSiNoExiste?: boolean;
 };
 
 /**
@@ -632,27 +645,18 @@ export async function moverEventoDeReunion(p: PedidoMoverEvento): Promise<Result
       }
     }
 
-    const titulo = (p.tituloSiSeCrea ?? '').trim() || (p.titulo ?? '').trim() || 'Reunión';
-    const crear = await fetch(`${EVENTS_URL}${avisar}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tk.access}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        summary: titulo,
-        description: 'Creado desde el CRM al reagendar la reunión.',
-        start: { dateTime: desde },
-        end: { dateTime: new Date(t1 + (p.duracionMin ?? DURACION_DEFECTO_MIN) * 60 * 1000).toISOString() },
-        ...(invitado ? { attendees: [{ email: invitado }] } : {}),
-      }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!crear.ok) {
-      const f = await leerFallo(crear);
-      return nada(f.codigo, f.motivo);
+    if (p.crearSiNoExiste === false) {
+      return nada('no-encontrado', 'No encontré esa reunión en la agenda: puede que la hayan borrado o movido. No creé ninguna nueva.');
     }
-    const j = (await crear.json()) as { id?: string };
+
+    const titulo = (p.tituloSiSeCrea ?? '').trim() || (p.titulo ?? '').trim() || 'Reunión';
+    const r = await crearEnAgenda(tk.access, {
+      desdeMs: t1, duracionMin: p.duracionMin ?? DURACION_DEFECTO_MIN, titulo, invitado,
+      descripcion: 'Creado desde el CRM al reagendar la reunión.',
+    });
+    if (!r.ok) return { ...nada(r.codigo, r.motivo), eventoId: null };
     return {
-      ok: true, accion: 'creado', codigo: 'ok', eventoId: j.id ?? null, invitado,
+      ...r,
       motivo: invitado
         ? `No había evento en la agenda: se creó «${titulo}» y se invitó a ${invitado}.`
         : `No había evento en la agenda: se creó «${titulo}».`,
@@ -662,6 +666,170 @@ export async function moverEventoDeReunion(p: PedidoMoverEvento): Promise<Result
     const msg = e instanceof Error && e.name === 'TimeoutError' ? 'Google no respondió a tiempo.' : 'No se pudo contactar a Google Calendar.';
     console.error('[google-calendar] mover evento:', e);
     return nada('api', msg);
+  }
+}
+
+/**
+ * EL ÚNICO `POST` de eventos. Lo usan los dos que crean: «mover» cuando no
+ * encuentra nada y «agendar». Con dos copias, la próxima vez que haya que tocar
+ * el aviso a los invitados o el timeout queda aplicada en una sola.
+ *
+ * `?sendUpdates=all`: Google le manda la invitación al invitado. Es la mitad de lo
+ * que el dueño pide al agendar, no un efecto de costado.
+ */
+async function crearEnAgenda(at: string, p: {
+  desdeMs: number; duracionMin: number; titulo: string; invitado: string | null; descripcion?: string | null;
+}): Promise<ResultadoCalendario> {
+  const res = await fetch(`${EVENTS_URL}?sendUpdates=all`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${at}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      summary: p.titulo,
+      // La descripción la VE el invitado en su propia agenda: sólo va si quien llama
+      // la eligió. Un texto interno («creado por MaKo») ahí es contarle a un tercero
+      // cómo funciona la herramienta del negocio.
+      ...(p.descripcion ? { description: p.descripcion } : {}),
+      start: { dateTime: new Date(p.desdeMs).toISOString() },
+      end: { dateTime: new Date(p.desdeMs + p.duracionMin * 60 * 1000).toISOString() },
+      ...(p.invitado ? { attendees: [{ email: p.invitado }] } : {}),
+    }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    const f = await leerFallo(res);
+    return { ok: false, accion: 'nada', codigo: f.codigo, motivo: f.motivo, eventoId: null, invitado: p.invitado };
+  }
+  const j = (await res.json()) as { id?: string };
+  return {
+    ok: true, accion: 'creado', codigo: 'ok', eventoId: j.id ?? null, invitado: p.invitado,
+    motivo: p.invitado ? `Se creó «${p.titulo}» y se invitó a ${p.invitado}.` : `Se creó «${p.titulo}».`,
+  };
+}
+
+export type PedidoCrearEvento = {
+  /** Cuándo empieza (ISO con zona). Lo arma el código, nunca el modelo. */
+  inicioIso: string;
+  duracionMin?: number;
+  titulo: string;
+  /** A quién se invita. Google le manda el aviso. */
+  emailInvitado?: string | null;
+};
+
+/**
+ * AGENDA una reunión nueva en la agenda conectada del workspace e invita al
+ * contacto. Es lo que faltaba para que MaKo pueda agendar por WhatsApp sin
+ * Calendly: el CRM sólo sabía MOVER.
+ *
+ * Mismo contrato que moverEventoDeReunion: nunca lanza, devuelve un resultado
+ * tipado con el motivo listo para mostrar.
+ */
+export async function crearEventoDeReunion(p: PedidoCrearEvento): Promise<ResultadoCalendario> {
+  const invitado = (p.emailInvitado ?? '').trim().toLowerCase() || null;
+  const nada = (codigo: CodigoCalendario, motivo: string): ResultadoCalendario =>
+    ({ ok: false, accion: 'nada', codigo, motivo, eventoId: null, invitado });
+  const t1 = Date.parse(p.inicioIso ?? '');
+  if (!Number.isFinite(t1)) return nada('sin-fecha', 'La fecha no es una fecha válida.');
+  try {
+    const tk = await tokenGoogle();
+    if (!tk) return nada('sin-conexion', 'No hay una agenda de Google conectada a este espacio.');
+    if (!puedeEscribir(tk.scopes)) {
+      return nada('sin-permiso', 'El permiso de Google es de solo lectura: reconecta la agenda para poder agendar reuniones.');
+    }
+    return await crearEnAgenda(tk.access, {
+      desdeMs: t1, duracionMin: p.duracionMin ?? DURACION_DEFECTO_MIN,
+      titulo: p.titulo.trim() || 'Reunión', invitado,
+    });
+  } catch (e) {
+    const msg = e instanceof Error && e.name === 'TimeoutError' ? 'Google no respondió a tiempo.' : 'No se pudo contactar a Google Calendar.';
+    console.error('[google-calendar] crear evento:', e);
+    return nada('api', msg);
+  }
+}
+
+/** Una reunión de la agenda en la que participa un contacto. */
+export type ReunionAgenda = {
+  /** El instante EXACTO de inicio: es el ancla para moverla, se copia tal cual. */
+  inicioIso: string;
+  titulo: string;
+  duracionMin: number | null;
+  /** true si el evento lo organiza otra cuenta: Google no deja moverlo desde acá. */
+  organizaOtro: boolean;
+};
+
+/**
+ * LAS PRÓXIMAS reuniones de la agenda en las que `email` está INVITADO.
+ *
+ * Es el paso previo obligatorio para mover una: el `inicioIso` que devuelve es el
+ * que identifica el evento, y viaja tal cual (no lo reescribe el modelo: «un dato
+ * exacto que pasa por un modelo deja de ser exacto»).
+ *
+ * La búsqueda de Google (`q`) es de texto libre y matchea también la descripción,
+ * así que se filtra por invitado EXACTO: un evento que menciona el email en el
+ * cuerpo no es una reunión con esa persona. Vacío si no hay agenda o falla.
+ */
+export async function proximasReunionesCon(email: string, dias = 60): Promise<ReunionAgenda[]> {
+  const quien = (email ?? '').trim().toLowerCase();
+  if (!quien) return [];
+  const at = await accessTokenGoogle();
+  if (!at) return [];
+  try {
+    const ahora = Date.now();
+    const items = await listarEventos(at, {
+      timeMin: new Date(ahora).toISOString(),
+      timeMax: new Date(ahora + Math.max(1, Math.min(180, dias)) * 86_400_000).toISOString(),
+      q: quien,
+      max: 20,
+    });
+    return items
+      .filter((e) => (e.attendees ?? []).some((a) => (a.email ?? '').trim().toLowerCase() === quien))
+      .filter((e) => !!e.start?.dateTime) // las de día completo no tienen hora que mover
+      .map((e) => {
+        const d = duracionMs(e);
+        return {
+          inicioIso: new Date(Date.parse(e.start!.dateTime!)).toISOString(),
+          titulo: (e.summary ?? '').trim() || 'Reunión',
+          duracionMin: d == null ? null : Math.round(d / 60000),
+          organizaOtro: e.organizer?.self === false,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * QUÉ SE PISA con una reunión en [inicio, inicio + duración): los títulos de los
+ * eventos de la agenda que se solapan. Es un AVISO, no un bloqueo — la agenda es
+ * del dueño y puede querer dos cosas a la vez; lo que no puede es enterarse
+ * después.
+ *
+ * `excluirInicioIso` saca de la cuenta la reunión que se está moviendo: si no, mover
+ * una reunión 15 minutos «choca» consigo misma.
+ *
+ * Vacío si no hay agenda o la lectura falla: no poder leer no es «no hay nada».
+ * El caller ya chequeó la conexión antes de llegar acá.
+ */
+export async function choquesEnAgenda(inicioIso: string, duracionMin: number, excluirInicioIso?: string | null): Promise<string[]> {
+  const ini = Date.parse(inicioIso);
+  if (!Number.isFinite(ini)) return [];
+  const at = await accessTokenGoogle();
+  if (!at) return [];
+  const fin = ini + Math.max(1, duracionMin) * 60_000;
+  const excluir = excluirInicioIso ? Date.parse(excluirInicioIso) : NaN;
+  try {
+    const items = await listarEventos(at, { timeMin: new Date(ini).toISOString(), timeMax: new Date(fin).toISOString(), max: 20 });
+    return items
+      .filter((e) => {
+        const s = Date.parse(e.start?.dateTime ?? '');
+        const f = Date.parse(e.end?.dateTime ?? '');
+        if (!Number.isFinite(s) || !Number.isFinite(f)) return false;
+        if (Number.isFinite(excluir) && Math.abs(s - excluir) < 60_000) return false;
+        return s < fin && f > ini;
+      })
+      .map((e) => (e.summary ?? '').trim() || 'otro evento');
+  } catch {
+    return [];
   }
 }
 

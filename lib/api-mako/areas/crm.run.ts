@@ -42,7 +42,14 @@ import { getSetting } from '@/lib/settings';
 import { listPendientes, resolverConfirmacion } from '@/lib/mako-confirmaciones';
 import { evaluarAutoWorkspace } from '@/lib/crm-auto';
 import { crmAutoHabilitado, setCrmAuto, KEY_CRM_AUTO } from '@/lib/envio-flags';
-import { horariosLibresDeGoogle } from '@/lib/google-calendar';
+import {
+  horariosLibresDeGoogle, permisoCalendarioGoogle, crearEventoDeReunion, moverEventoDeReunion,
+  proximasReunionesCon, choquesEnAgenda,
+} from '@/lib/google-calendar';
+import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+// Puro (sin server-only): la misma conversión hora-de-pared → instante que usa la
+// grilla del CRM, con el salto de horario de verano resuelto. No se escribe otra.
+import { instanteDeLocal, DURACION_DEFECTO_MIN } from '@/app/crm/horarios-respuesta';
 import { eventTypeDeReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
@@ -84,6 +91,57 @@ const noExiste = (id: unknown) => `No existe el lead #${String(id)} en este work
 async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promise<string | { content: string; isError?: boolean }>) {
   const lead = await leadDe(input.leadId);
   return lead ? fn(lead) : fallo(noExiste(input.leadId));
+}
+
+// ── agenda de Google ──────────────────────────────────────────────────────────
+
+/** Fecha y hora para el chat, en la zona del NEGOCIO (no la de quien mira). */
+const cuando = (iso: string, tz: string): string => {
+  try {
+    return new Date(iso).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
+  } catch { return iso; }
+};
+
+/** «HH:MM» (24 h) → minutos desde medianoche, o null. */
+const minutosDe = (hora: unknown): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hora ?? '').trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mi = Number(m[2]);
+  return h <= 23 && mi <= 59 ? h * 60 + mi : null;
+};
+
+/**
+ * La fecha y la hora que dijo la persona → el instante EXACTO, en la zona del negocio.
+ *
+ * ⚠️ El modelo pasa «2026-10-09» y «10:30», nunca un ISO: la aritmética de husos no la
+ * hace un modelo («un dato exacto que pasa por un modelo deja de ser exacto»). Y se
+ * exige futuro con margen: agendar algo que empieza en dos minutos es mandar una
+ * invitación que llega tarde.
+ */
+async function instanteEnZona(ws: number, fecha: unknown, hora: unknown): Promise<{ iso: string; tz: string } | { error: string }> {
+  if (!esFechaIso(fecha)) return { error: '«fecha» tiene que ser una fecha YYYY-MM-DD.' };
+  const min = minutosDe(hora);
+  if (min == null) return { error: '«hora» tiene que ser HH:MM en 24 h (ej. 10:30).' };
+  const tz = await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
+  const iso = instanteDeLocal(fecha, min, tz);
+  if (!iso) return { error: 'No pude armar esa fecha y hora.' };
+  if (Date.parse(iso) < Date.now() + 5 * 60_000) return { error: `El ${cuando(iso, tz)} ya pasó o es en menos de 5 minutos.` };
+  return { iso, tz };
+}
+
+/** null si se puede escribir en la agenda; si no, el motivo para la persona. */
+async function agendaParaEscribir(): Promise<string | null> {
+  const p = await permisoCalendarioGoogle();
+  if (!p.conectado) return 'Este negocio no tiene una agenda de Google conectada. Se conecta en Integraciones → Google Calendar.';
+  if (!p.puedeMover) return 'La agenda de Google está conectada con permiso de solo lectura: hay que reconectarla en Integraciones para poder agendar o mover.';
+  return null;
+}
+
+/** Lo que pasó afuera ya pasó: si el historial falla, no se reporta como fallo de la acción. */
+async function anotar(leadId: number, titulo: string, texto: string, autor: string): Promise<void> {
+  try { await logLeadEvent(leadId, titulo, texto, autor); }
+  catch (e) { console.error(`[api-mako crm] historial del lead ${leadId}:`, e instanceof Error ? e.message : String(e)); }
 }
 
 /** ejecutar() NUNCA lanza: si algo falla, ok:false con el motivo (la pendiente se
@@ -359,6 +417,23 @@ export const RUNNERS: Runners = {
       });
     },
   },
+  reuniones_agenda_lead: {
+    leer: (input, ctx) => conLead(input, async (lead) => {
+      if (!lead.email) return fallo(`${lead.nombre} no tiene email cargado: sin email no se reconoce su reunión en la agenda.`);
+      const p = await permisoCalendarioGoogle();
+      if (!p.conectado) return fallo('Este negocio no tiene una agenda de Google conectada. Se conecta en Integraciones → Google Calendar.');
+      const tz = await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
+      const rs = await proximasReunionesCon(lead.email);
+      return json({
+        lead_id: lead.id, nombre: lead.nombre, zona: tz,
+        reuniones: rs.map((r) => ({
+          inicio: r.inicioIso, cuando: cuando(r.inicioIso, tz), titulo: r.titulo, duracion_min: r.duracionMin,
+          ...(r.organizaOtro ? { nota: 'la organiza otra cuenta de Google: no se puede mover desde aquí' } : {}),
+        })),
+        ...(rs.length ? {} : { nota: 'No encontré reuniones próximas con este lead en la agenda. Si la lectura de Google falló también da vacío: no garantiza que no tenga.' }),
+      });
+    }),
+  },
   link_agenda_calendly: {
     leer: async (input) => {
       const cual = input.cual === 'R2' ? 'R2' as const : 'R1' as const;
@@ -447,6 +522,87 @@ export const RUNNERS: Runners = {
   },
 
   // ── Acciones chat ───────────────────────────────────────────────────────────
+  // Agendar / mover en Google. Todo lo que se puede saber sin escribir se chequea en
+  // preparar() (la pendiente se RECLAMA antes de ejecutar: un rechazo en ejecutar()
+  // la consume igual). Lo único que se vuelve a mirar al confirmar es lo que el
+  // tiempo cambia: que la hora no haya pasado.
+  proponer_agendar_agenda: {
+    preparar: async (input, ctx) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      if (!lead.email) return { error: `${lead.nombre} no tiene email cargado, y la invitación de Google va al email. Pídeselo antes.` };
+      const sinAgenda = await agendaParaEscribir();
+      if (sinAgenda) return { error: sinAgenda };
+      const t = await instanteEnZona(ctx.ws, input.fecha, input.hora);
+      if ('error' in t) return { error: t.error };
+      const duracion = n(input.duracion_min) ?? DURACION_DEFECTO_MIN;
+      const titulo = s(input.titulo) ?? `Reunión con ${lead.nombre}`;
+      const choques = await choquesEnAgenda(t.iso, duracion);
+      const aviso = choques.length ? ` ⚠️ Se pisa con: ${choques.slice(0, 3).join(', ')}.` : '';
+      // El email va en el payload: se invita al que la persona VIO en el resumen,
+      // aunque la ficha cambie entre el «propongo» y el «sí».
+      return {
+        payload: { leadId: lead.id, inicioIso: t.iso, tz: t.tz, duracionMin: duracion, titulo, email: lead.email },
+        resumen: `Agendar «${titulo}» el ${cuando(t.iso, t.tz)} (${duracion} min) en tu Google Calendar e invitar a ${lead.email}.${aviso}`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('agendar la reunión', async () => {
+      const id = Number(payload.leadId);
+      const iso = String(payload.inicioIso);
+      const tz = String(payload.tz || TZ_DEFAULT);
+      if (Date.parse(iso) < Date.now()) return { ok: false, resumen: `No se agendó: el ${cuando(iso, tz)} ya pasó. Pídela de nuevo con otra hora.` };
+      const titulo = String(payload.titulo ?? '');
+      const email = String(payload.email ?? '');
+      const r = await crearEventoDeReunion({ inicioIso: iso, duracionMin: Number(payload.duracionMin) || undefined, titulo, emailInvitado: email });
+      if (!r.ok) return { ok: false, resumen: `No se agendó: ${r.motivo}` };
+      await anotar(id, 'Reunión agendada', `«${titulo}» para el ${cuando(iso, tz)}, en Google Calendar, desde ${canalTxt(ctx)}. Google le mandó la invitación a ${email}.`, autorDe(ctx));
+      return { ok: true, resumen: `Listo: «${titulo}» quedó el ${cuando(iso, tz)} en tu Google Calendar, y ${email} ya tiene la invitación.` };
+    }),
+  },
+  proponer_mover_reunion: {
+    preparar: async (input, ctx) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      if (!lead.email) return { error: `${lead.nombre} no tiene email cargado: sin email no se reconoce su reunión en la agenda.` };
+      const sinAgenda = await agendaParaEscribir();
+      if (sinAgenda) return { error: sinAgenda };
+      const tActual = Date.parse(String(input.inicio_actual ?? ''));
+      if (!Number.isFinite(tActual)) return { error: '«inicio_actual» tiene que ser el `inicio` de reuniones_agenda_lead, copiado tal cual.' };
+      // Se vuelve a leer la agenda: el `inicio` viajó por el modelo, y lo que manda es
+      // el evento REAL. Un minuto de tolerancia por los segundos del ISO.
+      const reunion = (await proximasReunionesCon(lead.email)).find((r) => Math.abs(Date.parse(r.inicioIso) - tActual) < 60_000);
+      if (!reunion) return { error: `No encontré una reunión de ${lead.nombre} que empiece en ese horario. Búscala con reuniones_agenda_lead y copia su inicio tal cual.` };
+      if (reunion.organizaOtro) return { error: `«${reunion.titulo}» la organiza otra cuenta de Google: hay que moverla desde esa agenda.` };
+      const t = await instanteEnZona(ctx.ws, input.fecha, input.hora);
+      if ('error' in t) return { error: t.error };
+      if (Math.abs(Date.parse(t.iso) - tActual) < 60_000) return { error: `«${reunion.titulo}» ya está el ${cuando(t.iso, t.tz)}.` };
+      const duracion = reunion.duracionMin ?? DURACION_DEFECTO_MIN;
+      const choques = await choquesEnAgenda(t.iso, duracion, reunion.inicioIso);
+      const aviso = choques.length ? ` ⚠️ Se pisa con: ${choques.slice(0, 3).join(', ')}.` : '';
+      return {
+        payload: { leadId: lead.id, inicioActualIso: reunion.inicioIso, nuevoIso: t.iso, tz: t.tz, titulo: reunion.titulo, email: lead.email, duracionMin: duracion },
+        resumen: `Mover «${reunion.titulo}» del ${cuando(reunion.inicioIso, t.tz)} al ${cuando(t.iso, t.tz)}. Google le avisa a ${lead.email}.${aviso}`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('mover la reunión', async () => {
+      const id = Number(payload.leadId);
+      const nuevo = String(payload.nuevoIso);
+      const antes = String(payload.inicioActualIso);
+      const tz = String(payload.tz || TZ_DEFAULT);
+      if (Date.parse(nuevo) < Date.now()) return { ok: false, resumen: `No se movió: el ${cuando(nuevo, tz)} ya pasó. Pídelo de nuevo con otra hora.` };
+      const titulo = String(payload.titulo ?? '');
+      const r = await moverEventoDeReunion({
+        inicioAnteriorIso: antes, emailInvitado: String(payload.email ?? ''), titulo,
+        nuevoInicioIso: nuevo, duracionMin: Number(payload.duracionMin) || undefined,
+        // Mover lo que se nombró, o nada: si no está, crear una nueva mandaría una
+        // invitación a una reunión que nadie pidió.
+        crearSiNoExiste: false,
+      });
+      if (!r.ok) return { ok: false, resumen: `No se movió: ${r.motivo}` };
+      await anotar(id, 'Reunión movida', `«${titulo}» pasó del ${cuando(antes, tz)} al ${cuando(nuevo, tz)}, en Google Calendar, desde ${canalTxt(ctx)}.`, autorDe(ctx));
+      return { ok: true, resumen: `Listo: «${titulo}» quedó el ${cuando(nuevo, tz)}, y Google ya les avisó a los invitados.` };
+    }),
+  },
   marcar_asistencia_reunion: {
     preparar: async (input) => {
       const lead = await leadDe(input.leadId);

@@ -31,6 +31,10 @@ import type { OperacionDef, Parametro } from '../tipos';
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
 const CALENDLY = { tab: 'crm', integracion: 'calendly' } as const;
+// ⚠️ `integracion` es INFORMATIVA (tipos.ts): no saca la tool del turno. El modelo ve
+// las de Calendly y las de Google a la vez, así que cada descripción dice cuándo es
+// la suya, y el runner contesta un error legible si la agenda no está conectada.
+const GOOGLE = { tab: 'crm', integracion: 'google-calendar' } as const;
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
 
@@ -242,6 +246,20 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'externo', gating: { tab: 'crm', integracion: 'google-calendar' },
   },
   {
+    id: 'reuniones_agenda_lead', area: 'crm', tipo: 'lectura',
+    // El título lleva las palabras con las que se PIDE mover («reagendá», «cambiá»,
+    // «mové»): la relevancia del turno puntúa id + título doble, y sin ellas esta
+    // lectura —sin la cual mover no puede funcionar— quedaba afuera del presupuesto de
+    // 12.000 caracteres frente al resto del CRM. Lo mide tests/agenda-whatsapp.test.ts.
+    titulo: 'Próximas reuniones para mover o reagendar',
+    descripcion: 'Las próximas reuniones (o visitas, o citas) de un lead en la agenda de Google del negocio, buscando las que lo tienen INVITADO por su email, en los próximos 60 días. Devuelve el `inicio` exacto de cada una, la hora legible en la zona del negocio, el título y la duración. Es el paso obligatorio antes de proponer_mover_reunion: ese `inicio` se copia TAL CUAL. Vacío también si la lectura falló: no garantiza que no tenga reuniones.',
+    parametros: [leadId('id del lead (con email cargado).')],
+    // SIN http: son los eventos de la agenda de Google del negocio, con el nombre de
+    // terceros en el título. Exponerlos a un bearer es decidirlo (snapshot), y además
+    // pasa por la Política de Uso Limitado de los datos de Google.
+    salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: GOOGLE,
+  },
+  {
     id: 'link_agenda_calendly', area: 'crm', tipo: 'lectura',
     titulo: 'Link de Calendly para agendar',
     descripcion: 'La página pública de Calendly del negocio para la R1 o la R2, opcionalmente con el nombre y el email de un lead ya completados. Es lo que se manda cuando la reserva directa no se puede hacer. No crea nada en Calendly. Sin Calendly configurado devuelve el motivo, nunca la agenda de otro. El link lo arma el código: se pasa tal cual.',
@@ -315,6 +333,39 @@ export const DEFS: readonly OperacionDef[] = [
   },
 
   // ── Acciones nuevas: chat ──────────────────────────────────────────────────────
+  // Agendar y mover en la agenda de GOOGLE. Las de Calendly (proponer_agendar_reunion)
+  // siguen: son otro proveedor y otra forma de reservar. Pedido por un cliente
+  // inmobiliario (ws13) que agenda VISITAS en Google y por Cal.com, no por Calendly,
+  // y que quería hacerlo escribiéndole al grupo de MaKo (07/10/2026).
+  {
+    id: 'proponer_agendar_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Agendar reunión, visita o cita',
+    descripcion: 'PROPONE agendar una reunión (o visita, o cita) con un lead en la agenda de Google del negocio e invitarlo por email (queda pendiente hasta el «sí»). Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento lo avisa en el resumen, pero no lo bloquea: la agenda es del negocio. El lead necesita email, porque es a donde Google manda la invitación.',
+    parametros: [
+      leadId('id del lead (con email cargado).'),
+      fechaIso('fecha', 'YYYY-MM-DD del día de la reunión.', true),
+      { nombre: 'hora', tipo: 'string', obligatorio: true, max: 5, descripcion: 'HH:MM de inicio, en 24 h y en la zona del negocio (ej. 10:30).' },
+      { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 240, descripcion: 'cuántos minutos dura (default 45).' },
+      { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'cómo se llama el evento (ej. «Visita al departamento de Palermo»). Si no lo dicen, se arma con el nombre del lead.' },
+    ],
+    // SIN http, por lo mismo que reuniones_agenda_lead y porque manda una invitación a
+    // un tercero desde la cuenta de Google del negocio.
+    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE,
+    reversible: false, escribe: 'crea un evento en la agenda de Google del negocio, Google le manda la invitación al lead, y queda en el historial del lead',
+  },
+  {
+    id: 'proponer_mover_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Reagendar reunión, visita o cita',
+    descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) de un lead que ya está en la agenda de Google del negocio (queda pendiente hasta el «sí»). Primero usa reuniones_agenda_lead y pasa el `inicio` de la que se mueve COPIADO TAL CUAL en inicio_actual. La fecha y la hora nuevas van como las dijo la persona: el código arma la hora exacta. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si la reunión la organiza otra cuenta, no se puede mover desde aquí. Si no encuentra la que se nombró, NO crea una nueva.',
+    parametros: [
+      leadId(),
+      { nombre: 'inicio_actual', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el `inicio` de la reunión COPIADO TAL CUAL de reuniones_agenda_lead: identifica cuál se mueve.' },
+      fechaIso('fecha', 'YYYY-MM-DD del día nuevo.', true),
+      { nombre: 'hora', tipo: 'string', obligatorio: true, max: 5, descripcion: 'HH:MM nueva, en 24 h y en la zona del negocio.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE,
+    reversible: false, escribe: 'cambia el horario del evento en la agenda de Google del negocio (Google les avisa a los invitados) y deja el cambio en el historial del lead',
+  },
   {
     id: 'marcar_asistencia_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Marcar asistencia a una reunión',

@@ -422,7 +422,11 @@ import type { Area } from './api-mako/tipos';
 
 export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   general: /\b(objetivos?|metas? del (mes|trimestre)|kpis?|sem[aá]foro|c[oó]mo (voy|vamos|va el negocio)|trimestre)/i,
-  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reuni[oó]n|r1|r2|juntas?|calific|pipeline|ficha)/i,
+  // `visita`, `cita` y `calendario`: un negocio inmobiliario no agenda «reuniones», agenda
+  // VISITAS, y sin esto «pasá la visita de Juan al viernes» no traía ni una tool de agenda
+  // (07/10/2026). Y `reagend` aparte porque `\bagend` NO matchea «reagendá»: entre «re» y
+  // «agend» no hay borde de palabra.
+  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|r1|r2|juntas?|calific|pipeline|ficha)/i,
   plan: /\b(tareas?|plan\b|tablero|proyectos?|checklist|deadline|perro guardi)/i,
   ads: /\b(campa[ñn]as?|anuncios?|ads\b|meta ads|presupuesto|adsets?|conjuntos?|creativos?|pauta|cpl|cpm|ctr|guion(es)? de anuncio)/i,
   whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,

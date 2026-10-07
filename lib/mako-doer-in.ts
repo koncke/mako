@@ -51,6 +51,7 @@ import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { encolar, reclamar, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS } from '@/lib/mako-doer-buffer';
+import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 
 // ── settings del doer ─────────────────────────────────────────────────────────
 const KEY_ACTIVO = 'mako.doer.activo';        // interruptor general (default: ON)
@@ -233,6 +234,15 @@ function saneaHistorial(turnos: Array<{ role: 'user' | 'assistant'; content: str
 /**
  * LA VOZ Y EL FORMATO. Va SIEMPRE, con tools y sin tools.
  */
+/** «martes, 7 de octubre de 2026, 20:45», en la zona que se pase. */
+function hoyLegible(tz: string): string {
+  try {
+    return new Date().toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
 SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.`;
@@ -912,7 +922,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     const bloqueTools = tools.length
       ? `\n\n${DOER_WA_TOOLS}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
       : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea («eso lo miro y te lo paso») y nada más.';
-    const system = `${base}\n\n${DOER_WA_VOZ}${bloqueTools}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+    // ⚠️ HOY, EN LA ZONA DEL NEGOCIO. Sin esto el modelo no sabe qué día es, y «agendá una
+    // visita el jueves» le pedía ADIVINAR la fecha: una fecha adivinada es una invitación
+    // real para el día equivocado (07/10/2026, al sumar agendar por WhatsApp). El resumen
+    // que confirma el dueño la ataja —dice el día de la semana—, pero esa red no es para
+    // esto. Sólo con herramientas: sin ellas no hay nada que agendar, y el bloque de arriba
+    // ya prohíbe inventar fechas.
+    const tzHoy = tools.length ? await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT) : null;
+    const ctxHoy = tzHoy
+      ? `\n\nHOY ES ${hoyLegible(tzHoy)} (zona ${tzHoy}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.`
+      : '';
+    const system = `${base}\n\n${DOER_WA_VOZ}${bloqueTools}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
