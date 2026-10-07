@@ -22,6 +22,9 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { getMetaAccountHealth, type NodoEstado } from '@/lib/meta-health';
+// El aviso «es N veces el actual» vive en UN lugar con la tabla del Ads Manager: era la
+// misma cuenta escrita dos veces acá y una tercera en el cartel de la pantalla.
+import { saltoPresupuesto } from '@/lib/presupuesto-cambio';
 import { explicarIssueEs, esAprobacionPendiente, linkAprobarEnMeta } from '@/lib/meta-health-ui';
 import {
   listCustomAudiences, searchInterests, listLeadForms, listPixels, listPixelEvents, listCustomConversions,
@@ -668,7 +671,8 @@ export const RUNNERS: Runners = {
       const mon = a.h.account.currency;
       const tope = topePresupuesto(monto, n.dailyBudgetMxn, mon, `La campaña «${n.name}»`);
       if (tope) return { error: tope };
-      const salto = monto >= n.dailyBudgetMxn * 5 ? ` ⚠ Es ${Math.round(monto / n.dailyBudgetMxn)} veces el actual.` : '';
+      const s = saltoPresupuesto(monto, n.dailyBudgetMxn);
+      const salto = s?.sube ? ` ⚠ Es ${s.veces} veces el actual.` : '';
       // `desdePantalla` lo pone SOLO este preparar(), y preparar() de una `pantalla`
       // corre únicamente al proponer y al confirmar en /mako/revisar. La pendiente de
       // CHAT que deja la tool vieja de lib/mako-doer-acciones.ts ({campaignId, montoMxn},
@@ -696,7 +700,8 @@ export const RUNNERS: Runners = {
       const mon = a.h.account.currency;
       const tope = topePresupuesto(monto, n.dailyBudgetMxn, mon, `El conjunto «${n.name}»`);
       if (tope) return { error: tope };
-      const salto = monto >= n.dailyBudgetMxn * 5 ? ` ⚠ Es ${Math.round(monto / n.dailyBudgetMxn)} veces el actual.` : '';
+      const s = saltoPresupuesto(monto, n.dailyBudgetMxn);
+      const salto = s?.sube ? ` ⚠ Es ${s.veces} veces el actual.` : '';
       return { payload: { adsetId, monto }, resumen: `Poner el presupuesto diario del conjunto «${n.name}» (${adsetId}) en ${monto} ${mon}/día (hoy: ${n.dailyBudgetMxn} ${mon}).${salto}` };
     },
     ejecutar: (p, ctx) => escribirMeta(ctx, { level: 'adset', id: String(p.adsetId), op: 'budget', dailyBudgetMxn: Number(p.monto) }, `Presupuesto del conjunto puesto en ${Number(p.monto)} por día (moneda de la cuenta).`),

@@ -28,6 +28,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { presetsDeFecha } from '../_components/FechaFiltroGlobal';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { esConvertible, tipeadoACuenta } from '@/lib/presupuesto-cambio';
 import { Icon } from '../_components/icons';
 
 const SANS = "'Geist', sans-serif";
@@ -288,15 +289,20 @@ function BotonLote({ icono, children, onClick, activo, tono, disabled }: {
   );
 }
 
-export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onPresupuesto, productos, onProducto, onRenombrar, onAgregarConjunto, onAgregarAnuncio, onEliminar }: {
+export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onPresupuesto, moneda, productos, onProducto, onRenombrar, onAgregarConjunto, onAgregarAnuncio, onEliminar }: {
   n: number;
   nivel: LoteNivel;
   /** Encendido = los N están activos. Con una mezcla va apagado. */
   todosActivos: boolean;
   trabajando?: boolean;
   onEstado: (next: 'ACTIVE' | 'PAUSED') => void;
-  /** Sólo donde el presupuesto se edita en ESTE nivel (CBO→campaña, ABO→conjunto). */
-  onPresupuesto?: (mxn: number) => void;
+  /**
+   * Sólo donde el presupuesto se edita en ESTE nivel (CBO→campaña, ABO→conjunto). Recibe
+   * el monto YA en la moneda de la cuenta, y NO escribe: arma el cartel de confirmación.
+   */
+  onPresupuesto?: (montoCuenta: number) => void;
+  /** La moneda de la cuenta de Meta (`health.account.currency`): decide en qué se tipea. */
+  moneda: string;
   productos?: Array<{ value: string; label: string }> | null;
   onProducto?: (valor: string) => void;
   /** La nomenclatura con MaKo, ahora sobre lo SELECCIONADO y no sobre toda la tab. */
@@ -366,12 +372,18 @@ export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onP
       {/* ⚠️ Lo desplegado va en su PROPIO renglón (`flexBasis: '100%'`), no adentro de una
           zona: metido en el medio, el input de 220 px corría los botones de los costados
           cada vez que alguien abría un panel, y la barra se leía como que se movió sola. */}
+      {/* ⚠️ La MISMA unidad que la celda de la tabla y que el wizard: se tipea en
+          dólares y se convierte a la moneda de la cuenta (sin tasa, en esa moneda). Hasta
+          el 07/10/2026 este campo pedía la moneda de la cuenta cruda mientras la celda
+          pedía dólares: el mismo «50» eran 50 MXN acá y 865 MXN en la celda, en la misma
+          pantalla. Y SÓLO dígitos: `Number(x.replace(',', '.'))` convertía «1.500» en 1,5.
+          «Aplicar» no escribe: abre el cartel con el viejo y el nuevo. */}
       {modo === 'presupuesto' && onPresupuesto && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexBasis: '100%' }}>
-          <input autoFocus inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.,]/g, ''))}
-            placeholder="Diario, en la moneda de la cuenta"
+          <input autoFocus inputMode="numeric" value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder={`Diario, en ${esConvertible(moneda) ? 'USD' : moneda}`}
             style={{ height: 34, width: 220, padding: '0 10px', borderRadius: 10, border: '1px solid rgba(243,245,248,.25)', background: 'rgba(243,245,248,.10)', color: 'var(--surface)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
-          <button type="button" disabled={!Number(monto.replace(',', '.'))} onClick={() => { onPresupuesto(Number(monto.replace(',', '.'))); setModo(null); setMonto(''); }}
+          <button type="button" disabled={tipeadoACuenta(monto, moneda) == null} onClick={() => { const m = tipeadoACuenta(monto, moneda); if (m == null) return; onPresupuesto(m); setModo(null); setMonto(''); }}
             style={{ ...chip, background: 'var(--primary)', borderColor: 'transparent' }}>Aplicar a {n}</button>
         </span>
       )}

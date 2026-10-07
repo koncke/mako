@@ -77,9 +77,18 @@ export function Confirm({
 
   // Escape cancela, Enter confirma. El foco arranca en el botón de acción, así
   // que quien navega por teclado no tiene que buscarlo.
+  //
+  // ⚠️ Una tecla MANTENIDA no confirma nada (`e.repeat`). Si el Enter que abrió el
+  // cartel —el de un campo que guarda con Enter, como el presupuesto del Ads Manager—
+  // se queda apretado, la autorrepetición llegaba acá y confirmaba sola: una pregunta
+  // contestada sin que nadie la leyera. El preventDefault corta además el camino
+  // nativo: con el foco en el botón de acción, el Enter repetido lo «clickea».
+  // Medido el 07/10/2026 en el Ads Manager, sin esta línea: Enter mantenido = 1 POST.
+  // Vale para todas las pantallas que usan este cartel, y en todas es lo correcto.
   useEffect(() => {
     okRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
+      if (e.repeat && e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); return; }
       if (e.key === 'Escape') { e.stopPropagation(); onCancel(); }
       if (e.key === 'Enter' && !loading) { e.stopPropagation(); onConfirm(); }
     };

@@ -36,6 +36,7 @@ import {
   type CampaignSpec, type AdSpec, type Creative, type Targeting, type Objective, type AudienceRef,
   objetivoDef, CTA_OPCIONES,
 } from '@/lib/campaign-types';
+import { usdACuenta, esConvertible } from '@/lib/presupuesto-cambio';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -55,10 +56,10 @@ const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -
 // cualquier otra moneda no hay con qué convertir, así que NO se convierte: el
 // monto se pide directo en esa moneda y la pantalla lo dice. Inventar una tasa
 // sería el mismo bug con otro número.
-const USD_MXN = 17.3; // espeja TIPO_DE_CAMBIO_USD_MXN
-const TASAS_DESDE_USD: Record<string, number> = { USD: 1, MXN: USD_MXN };
-/** Monto en la moneda de la cuenta. Sin tasa conocida, 1:1 (y la UI lo aclara). */
-const usdACuenta = (usd: number, currency: string) => Math.round(usd * (TASAS_DESDE_USD[currency] ?? 1));
+//
+// La tabla de tasas y `usdACuenta` viven en lib/presupuesto-cambio.ts desde el
+// 07/10/2026: eran tres copias (este modal, AgregarConjuntoModal y —sin copia, con el
+// ×17,30 escrito a mano— la celda de la tabla del Ads Manager).
 
 // ── estilos ──
 const btnDark: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 22px', borderRadius: 12, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 15, fontWeight: 600, cursor: 'pointer' };
@@ -1055,7 +1056,7 @@ function ListaEntidades({ items, sel, onPick, extra, cargando, vacio }: { items:
 
 // ── inversión (USD, convertida a la moneda de la cuenta) ──
 function Inversion({ value, onChange, currency }: { value: number | null; onChange: (v: number | null) => void; currency: string }) {
-  const convertible = currency in TASAS_DESDE_USD;
+  const convertible = esConvertible(currency);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1.5px solid var(--border-strong)', borderRadius: 16, padding: '14px 22px', background: 'var(--surface-2)' }}>

@@ -422,6 +422,14 @@ borra (antes usaba `envCred`, la cuenta del ws1, igual que `metaWrite`).
 y extenderlo a toda escritura, no solo al rename. Y exportar la lectura viva desde
 `lib/meta-write.ts`: hoy vive en un área.
 
+**(07/10) Y en la tabla del Ads Manager SÍ había síntoma**, del lado del presupuesto: cada
+pausa, activación, renombre o borrado llama a `cargar()`, que soltaba TODOS los valores
+optimistas y pintaba el árbol cacheado. Cambiar un presupuesto y pausar algo en el mismo
+minuto devolvía la fila al monto VIEJO — se lee como «no se aplicó», y el «viejo» del
+próximo cartel salía vencido. Parche del lado de la pantalla, no la cura:
+`presupuestosVigentes` (lib/presupuesto-cambio.ts) conserva lo escrito desde la pestaña
+hasta que Meta devuelve ese monto o vencen los 120 s. La invalidación de fondo sigue sin hacer.
+
 **Vive en:** lib/meta-health.ts:492 · lib/meta-write.ts:95-97,137 ·
 lib/api-mako/areas/ads.helpers.ts (`estadoVivoMeta`) · *2026-09-16 api-mako-areas*
 
@@ -1603,6 +1611,10 @@ que se intentaron falla **solo** en el test que le corresponde.
   centavos de la moneda DE LA CUENTA. Para un cliente que no factura en MXN eso ya está
   mal hoy en el camino de LECTURA (lib/meta-ads.ts y el cron ya corren por workspace).
   **Vive en:** lib/config.ts:19, app/ads-manager/NuevaCampanaModal.tsx:37, lib/ads-analyst.ts:634.
+  **(07/10) La mitad de ESCRITURA está hecha:** los cuatro lugares donde se tipea un
+  presupuesto (el wizard, «Agregar conjunto», la celda y la barra de lote de la tabla)
+  convierten con la moneda de la cuenta por `lib/presupuesto-cambio.ts`. La de LECTURA
+  (lib/ads-analyst.ts y lo que asume pesos al leer métricas) sigue igual.
 - **El geo default `'MX'`** (lib/meta-ads-create.ts) y las fechas en zona de Tijuana
   (app/ads-manager/AdsManagerView.tsx): un cliente colombiano publica segmentando
   México sin que nada se lo diga.
@@ -1748,6 +1760,14 @@ va tal cual y la pantalla lo dice.
 devuelve `currency: 'USD'` cuando Meta no manda el campo (`lib/meta-ads-create.ts:575`).
 Quien la lea no distingue «la cuenta cobra en dólares» de «no sé en qué cobra», y justo esa
 función existe para dejar de adivinar la moneda (su comentario, `:560-564`).
+
+⚠️ **(07/10) Y no eran dos lugares: eran CUATRO.** La celda de presupuesto de la tabla del
+Ads Manager (`BudgetEditor` en `app/ads-manager/CampanasBrowser.tsx`) multiplicaba SIEMPRE
+por `TIPO_DE_CAMBIO_USD_MXN`, y lo que MOSTRABA dividía siempre por 17,3; la barra de lote
+pedía el monto crudo en la moneda de la cuenta. La tercera y la cuarta vez del mismo bug no
+mordían a nadie mientras sólo el ws1 (MXN) podía escribir: `db7b7682` abrió la escritura a
+todos los workspaces, y desde ese commit una cuenta en USD escribía 865 USD/día al tipear 50.
+Se cerró en la tarea #349 — ver «Cambiar un presupuesto pasa por un cartel» al final.
 
 **Regla que queda, y es la de las tres:** un campo con el nombre de una moneda o de un país
 adentro (`daily_budget_mxn`, `countries: ['MX']`) es una constante disfrazada de dato. Lo
@@ -2789,6 +2809,9 @@ que ninguna línea lo diga.
 - **Los controles del Ads Manager se dibujan igual que antes**: no hay que esconder nada,
   porque ahora funcionan. Lo que no se probó es un cliente real pausando una campaña real
   —no se escribió en la cuenta de nadie—; la primera vez conviene mirarla.
+  **(07/10)** Abrir la escritura destapó que la celda de presupuesto convertía siempre a
+  pesos (una cuenta en USD escribía 17,3 veces lo tipeado). Arreglado el mismo día, con
+  cartel de confirmación: «Cambiar un presupuesto pasa por un cartel», al final.
 
 **Vive en:** lib/meta-write.ts · app/api/meta-write/route.ts · lib/ads-guard.ts
 (`wsDeAdsManager`) · lib/api-mako/areas/ads.def.ts (`G_META_ADMIN`) ·
@@ -2867,3 +2890,94 @@ lee como que MaKo está rota. Por eso `conectarMetaDisponible()` lo ofrece:
 app/api/integraciones/meta/callback/route.ts · app/api/integraciones/credencial/route.ts
 (`descubrir`, GET de `meta`) · app/integraciones/ServicioConfigForm.tsx ·
 app/privacidad/page.tsx (`#meta`) · tests/meta-login.test.ts · *2026-10-07 conectar-con-meta*
+
+---
+
+## Cambiar un presupuesto pasa por un cartel, y el cartel dice números de verdad (07/10)
+
+**Síntoma (la tarea #349):** el ✓ —o el Enter— de la celda de presupuesto de la tabla
+escribía en Meta sin ningún paso intermedio, y «Aplicar a N» de la barra de lote también.
+Un número mal tipeado ya era plata gastada.
+
+**Y el diagnóstico obvio era el equivocado: lo urgente no era el cartel, era la MONEDA.**
+La celda mostraba `fmtUSD(mxnAUsd(x))` y guardaba `usd × 17,30` sin mirar
+`health.account.currency`. Desde `db7b7682` (el mismo día) cada cliente escribe con SU
+cuenta, así que en una cuenta en dólares la celda mostraba la 17,3ava parte del presupuesto
+real y tipear 50 escribía **865 USD/día**. Un cartel armado encima de esos números habría
+dicho «$29 → $50» sobre esa escritura: no la habría frenado, la habría **avalado**. El orden
+fue primero la unidad y después el cartel.
+
+### Lo que había abajo, además de la moneda
+
+| Qué | Cómo fallaba |
+|---|---|
+| La unidad del lote | Pedía el monto crudo en la moneda de la cuenta y la celda pedía dólares: el mismo «50» eran 50 MXN en la barra y 865 MXN en la celda, en la misma pantalla. Y `Number(x.replace(',', '.'))` leía «1.500» como 1,5 |
+| El presupuesto TOTAL | `budgetLevel` se pone también con `lifetime_budget` (lib/meta-health.ts), así que la celda era editable, decía «—» con lápiz, y escribía un `daily_budget` sobre una entidad que no lo tiene. MaKo por chat ya lo rechazaba; la tabla no |
+| Guardar sin tocar | 500 MXN se mostraba 29 y volvía como 502: guardar sin cambiar nada reescribía el presupuesto. Comparado en la moneda de la cuenta, el cartel habría saltado con «500 → 502» |
+| El éxito del lote | `writeBudget` no devolvía si salió, y el lote pisaba el error con «Presupuesto cambiado en N» |
+| El molde que citaba la tarea | `confirmDel` era código muerto: declarado, reseteado en cuatro líneas, y leído por nadie (el borrado confirma en la barra de lote) |
+
+**Regla:** la unidad en la que se TIPEA un presupuesto es UNA en todo el producto —dólares,
+convertidos a la moneda de la cuenta; sin tasa, crudo en esa moneda y la pantalla lo dice—
+y la conversión vive en `lib/presupuesto-cambio.ts` (era una tabla de tasas copiada en dos
+modales y un ×17,30 a mano en la celda). Para el ws1 (MXN) el número que viaja a Meta es
+idéntico al de antes: lo fija el test sobre 1..5000 dólares.
+
+### Las dos trampas de teclado, medidas en el navegador
+
+1. **Un Enter abría el cartel y lo CONFIRMABA.** El cartel se monta durante el `keydown`
+   del editor y enfoca su botón de acción; el `keypress` que sigue —el que activa un botón
+   con Enter— le llega a ése. Medido sacando el `preventDefault` del editor: **1 POST y el
+   cartel no llegó a verse**. Regla: un campo que guarda con Enter y abre un diálogo que
+   enfoca un botón hace `preventDefault()` en ese keydown. Vale para cualquier editor inline
+   que desemboque en `Confirm`.
+2. **Un Enter MANTENIDO confirmaba solo.** La autorrepetición le llega al listener de
+   documento de `Confirm`. La guarda (`e.repeat` → preventDefault y salir) va en
+   `app/_ui/Confirm.tsx`, así que vale para todas las pantallas que lo usan; en ninguna una
+   tecla apretada es una respuesta. Medido sin la guarda: **1 POST**.
+
+Y Enter tiene dos caminos al mismo `onConfirm` (el listener y el click nativo del botón
+enfocado). Con la guarda de idempotencia puesta (`aplicandoBudget`) se midió **exactamente
+1 POST**; sin ella no se midió, y no se afirma que duplique.
+
+### Cómo se verificó sin tocar ninguna cuenta
+
+Chequeo de drift antes del boot (0 claves a migrar; el log dijo sólo «hidratadas»), Chrome
+del sistema headless con `--mute-audio` por Playwright, `/api/meta-health` y
+`/api/meta-write` simulados por `route`, y **todo otro POST y todo otro `/api/*` abortado**
+(37 pedidos que nunca llegaron al server). El ws3 rebota a `/onboarding`; se usó el ws9.
+30 de 30: cancelar con el botón, con Escape y con clic afuera → 0 POST; confirmar con clic
+→ 1; con Enter → exactamente 1; Enter mantenido → 0; guardar sin tocar → sin cartel; total
+→ sin lápiz; cuenta en USD: 50 → `dailyBudgetMxn: 50`; ARS: 600 → 600 y «Va en ARS, sin
+convertir»; lote de tres con un total → un cartel, 2 POST, «1 queda afuera»; y después de
+una pausa (que recarga el árbol con el monto viejo, como la caché) la fila sigue mostrando
+el nuevo.
+
+### Lo que quedó SIN hacer
+
+- **La primera prueba real** —escribir en una cuenta de verdad— no se hizo. Conviene una
+  campaña en pausa, mirando.
+- **El offset de centavos de Meta, NO verificado.** `lib/meta-write.ts` multiplica por 100 y
+  `lib/meta-health.ts` divide por 100. Por lo que se sabe de la tabla de monedas de Meta,
+  algunas (COP, CLP, JPY, KRW, TWD, entre otras) no usan centavos; si un cliente cobra en una
+  de ésas, la celda, el cartel y el wizard quedan 100× corridos. Comprobarlo contra la tabla
+  de Meta antes de afirmar montos fuera de MXN y USD.
+- **`app/ads-manager/EntityDetalle.tsx:87`** escribe «MXN» a mano junto a `presupuestoMxn` en
+  el resumen que se le pasa a MaKo, también en cuentas que cobran en dólares.
+- **Dos defaults para la misma moneda:** `computeAccountHealth` inventa `'MXN'` si Meta no
+  manda `currency`, y `HEALTH_SIN_CONEXION` también; el wizard cae a `'USD'`. Riesgo bajo
+  (el campo se pide explícito), pero el cartel no puede distinguir una moneda medida de un
+  default.
+- **El lote escribe en paralelo** (`Promise.allSettled`, como la pausa en lote). Con muchas
+  filas puede chocar con el rate limit de Meta; no se midió.
+- **Lo que significa un número en la barra de lote CAMBIÓ:** quien tipeaba pesos ahí ahora
+  tipea dólares. El placeholder («Diario, en USD») y el cartel lo dicen; Martín se entera.
+- **La invalidación de la caché** al escribir (ver «El árbol de Meta que leen las guardas
+  tiene hasta 2 minutos»): la tabla tiene un parche, no la cura.
+
+**Vive en:** lib/presupuesto-cambio.ts · app/ads-manager/CampanasBrowser.tsx (`pideBudget`,
+`pedirPresupuesto`, `bulkPresupuesto`, `aplicarPresupuesto`, `writeBudget`, `BudgetCell`,
+`BudgetEditor`, `MensajePresupuesto`) · app/ads-manager/BarraAcciones.tsx (`BarraLoteAds`) ·
+app/_ui/Confirm.tsx · app/ads-manager/NuevaCampanaModal.tsx ·
+app/ads-manager/AgregarConjuntoModal.tsx · lib/api-mako/areas/ads.run.ts (`saltoPresupuesto`) ·
+tests/ads-presupuesto-confirma.test.ts · *2026-10-07 tarea-349-cartel-presupuesto*

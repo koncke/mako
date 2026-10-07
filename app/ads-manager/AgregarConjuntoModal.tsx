@@ -18,15 +18,14 @@ import { useGanadoresBloqueados } from './useGanadoresBloqueados';
 import { LugarPicker } from './LugarPicker';
 import { CrearFormulario } from './CrearFormulario';
 import { geoSpecDe, lugarPais, type LugarMeta } from '@/lib/meta-geo';
+import { usdACuenta } from '@/lib/presupuesto-cambio';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 // Ver el comentario largo en NuevaCampanaModal: el monto viaja a `mxnACentavos`,
 // que hace centavos de la MONEDA DE LA CUENTA. Convertir siempre a pesos mexicanos
 // multiplicaba por 17.3 el presupuesto de toda cuenta que no cobrara en MXN.
-const USD_MXN = 17.3;
-const TASAS_DESDE_USD: Record<string, number> = { USD: 1, MXN: USD_MXN };
-const usdACuenta = (usd: number, currency: string) => Math.round(usd * (TASAS_DESDE_USD[currency] ?? 1));
+// `usdACuenta` vive en lib/presupuesto-cambio.ts (era una de tres copias).
 const field: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
 const lbl: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 const btnDark: CSSProperties = { padding: '11px 20px', borderRadius: 12, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer' };

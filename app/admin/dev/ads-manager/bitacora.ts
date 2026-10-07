@@ -22,6 +22,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Ícono del catálogo, nunca un emoji', detalle: 'Los 💲🎯🗑 de la barra, el 👥 por fila, el segundo ✎ del presupuesto, el ⓘ del chip de problemas y el 📅/📝 del modal de renombrar · con guard sobre los cuatro .tsx del área', estado: 'hecha' },
   { titulo: 'Asignar a un producto del CRM', detalle: 'Celda por fila + lote, reusando las actions del CRM · el conjunto sin producto propio dice el de SU campaña · con un solo producto la columna no se dibuja', estado: 'hecha' },
   { titulo: 'Producto MÚLTIPLE por campaña', detalle: 'Choca con que un lead tiene un solo funnel_id (lib/campana-config.ts) · las tres salidas están medidas y la decisión es de Martín', estado: 'cola' },
+  { titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta', detalle: 'La celda y el lote preguntan «viejo → nuevo» antes de escribir · se tipea en USD y se convierte a la moneda de la cuenta (lib/presupuesto-cambio.ts) · el presupuesto total no se edita como diario · falta la primera prueba en una cuenta real', estado: 'hecha' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -58,6 +59,35 @@ export const BITACORA: Hito[] = [
       'app/ads-manager/BarraAcciones.tsx — el botón «Filtrar» con el embudo, el ⋯ sin `sub`, y BotonLote (ícono + texto)',
       'app/ads-manager/CampanasBrowser.tsx — el botón de «Actualizar estado» al lado del filtro, rowActionsFor sin los de agregar, y los cinco glifos que pasaron a íconos',
       'tests/ads-barra.test.ts — los guards, cada uno con el resultado de romperlo anotado',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '17:50', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Cerrar las tareas abiertas del proyecto Ads Manager',
+    pedido: 'Revisa todas las tareas del proyecto Ads Manager y continua y cierra todas las que puedas',
+    puntos: [
+      'Es un pedido sobre el TABLERO, no sobre una pantalla: cada tarea se midió contra el código de hoy antes de tocarla, con su refutación, y el plan ajustado mandó sobre el detalle original. La primera fue la #349, el cartel del presupuesto.',
+      '**Y la #349 escondía algo más urgente que lo que pedía.** La tarea era un cartel; la medición encontró que la celda convertía siempre a pesos, y que desde el commit del mismo día que abrió la escritura a cada cliente, una cuenta en dólares escribía 17,3 veces lo tipeado. Un cartel encima de esos números lo habría avalado.',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '17:50', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta (#349)',
+    puntos: [
+      'Primero la unidad y después el cartel. Se tipea en dólares y se convierte a la moneda de la cuenta en los CUATRO lugares donde se tipea un presupuesto (wizard, agregar conjunto, la celda y la barra de lote), con una sola tabla de tasas. Para el ws1 el número que viaja a Meta es idéntico al de antes: el test lo compara contra la fórmula vieja en 5.000 montos.',
+      'Un solo cartel para una fila y para N, y un solo camino a `writeBudget`: el «sí» del cartel. Dice de qué a qué, en la moneda de la cuenta y en dólares, cuántas quedan afuera, y marca un salto de ×5 en las DOS direcciones — un cero de menos frena la campaña.',
+      '⚠️ **Dos trampas de teclado que no se ven leyendo el código, medidas en el navegador:** el Enter del editor llegaba al botón del cartel recién enfocado (un Enter = abrir y confirmar, 1 POST sin que el cartel se viera), y un Enter mantenido confirmaba solo. La segunda se cerró en `Confirm`, así que vale para todas las pantallas.',
+      'De paso, cuatro cosas que ya estaban rotas: el presupuesto total era editable como diario, guardar sin tocar reescribía 500 → 502 por el redondeo, el lote afirmaba «cambiado en N» con fallos, y una recarga dentro de los 2 minutos de la caché devolvía la fila al monto viejo.',
+      'Verificado con Playwright contra el dev server, con /api/meta-health y /api/meta-write simulados y todo otro POST abortado: 30 de 30, sin tocar ninguna cuenta. Lo que falta es la primera prueba REAL, mirando, en una campaña en pausa.',
+    ],
+    archivos: [
+      'lib/presupuesto-cambio.ts — la unidad que se tipea, la tabla de tasas, el salto ×5, qué fila se edita y qué optimista sobrevive a una recarga',
+      'app/ads-manager/CampanasBrowser.tsx — `pideBudget`, el cartel (`MensajePresupuesto`), la celda y el editor, y `writeBudget` que ahora dice si salió',
+      'app/ads-manager/BarraAcciones.tsx — el lote tipea en la misma unidad que la celda, sólo dígitos',
+      'app/_ui/Confirm.tsx — una tecla mantenida no confirma',
+      'tests/ads-presupuesto-confirma.test.ts — 13 tests, cada guard probado rompiendo lo que fija',
     ],
   },
 ];

@@ -212,7 +212,7 @@ export const AREAS: AreaDev[] = [
     slug: 'ads-manager', titulo: 'Ads Manager', familia: 'Operate', grupo: 'Ads Manager',
     estado: 'listo', verEnApp: '/ads-manager',
     alcance: 'La réplica del Ads Manager de Meta adentro de la app: estado en vivo + rendimiento cruzado con el CRM, y las escrituras a Meta.',
-    vive: ['app/ads-manager/', 'app/api/ads-manager/', 'app/api/meta-health/route.ts'],
+    vive: ['app/ads-manager/', 'app/api/ads-manager/', 'app/api/meta-health/route.ts', 'lib/presupuesto-cambio.ts'],
     proyectos: ['Feature: Ads Manager'],
   },
   {

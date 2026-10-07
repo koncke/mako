@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar } from '../_components/MakoBrand';
-import { TIPO_DE_CAMBIO_USD_MXN, mxnAUsd } from '@/lib/config';
+import { cifra, cuentaAUsd, editaPresupuestoAca, esConvertible, inicialTipeado, montoCuenta, presupuestosVigentes, saltoPresupuesto, tipeadoACuenta } from '@/lib/presupuesto-cambio';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
   colorDeSemaforo, bgDeSemaforo, explicarIssueEs, esAprobacionPendiente, linkAprobarEnMeta,
@@ -125,6 +125,20 @@ type Row = {
   adsetName: string | null;
 };
 
+/**
+ * Un cambio de presupuesto esperando el «sí» (tarea #349). Sirve igual para UNA fila
+ * (la celda) y para N (la barra de lote), así hay un solo cartel y un solo camino a
+ * `writeBudget`. Los montos van en la MONEDA DE LA CUENTA, y la moneda viaja acá
+ * adentro: el cartel y la escritura tienen que hablar de la misma.
+ */
+type PideBudget = {
+  filas: Array<{ lvl: 'campaign' | 'adset'; id: string; nombre: string; viejo: number | null }>;
+  nuevo: number;
+  /** Elegidas que no se pueden cambiar en este nivel (o que tienen presupuesto total). */
+  afuera: number;
+  moneda: string;
+};
+
 const th: CSSProperties = { padding: '9px 12px', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 3 };
 const td: CSSProperties = { padding: '7px 12px', fontSize: 13, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' };
 
@@ -169,13 +183,23 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   const [pideLote, setPideLote] = useState<{ valor: string; funnelId: number | null; nombre: string; aTraer: number; n: number } | null>(null);
 
   // escrituras
-  const [optimistic, setOptimistic] = useState<Map<string, { status?: 'ACTIVE' | 'PAUSED'; budgetMxn?: number; name?: string }>>(new Map());
+  // `budget` va en la MONEDA DE LA CUENTA (no en MXN: se llamaba `budgetMxn` por historia).
+  const [optimistic, setOptimistic] = useState<Map<string, { status?: 'ACTIVE' | 'PAUSED'; budget?: number; name?: string }>>(new Map());
   const [writing, setWriting] = useState<Set<string>>(new Set());
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [confirmDel, setConfirmDel] = useState(false);
+  // Ningún presupuesto se escribe sin pasar por acá: la celda y el lote arman esto, el
+  // cartel lo muestra, y sólo su «sí» llama a writeBudget. (El `confirmDel` que vivía en
+  // este lugar era código muerto: el borrado confirma en la barra de lote.)
+  const [pideBudget, setPideBudget] = useState<PideBudget | null>(null);
+  // El pedido que ya se está aplicando. Enter en el cartel tiene DOS caminos al mismo
+  // onConfirm —el listener del documento y el click nativo del botón enfocado—; con el
+  // mismo objeto en la mano, el segundo no escribe de nuevo.
+  const aplicandoBudget = useRef<PideBudget | null>(null);
+  // Presupuestos escritos desde esta pestaña, con la hora: ver presupuestosVigentes.
+  const escritos = useRef<Map<string, { valor: number; en: number }>>(new Map());
 
   // modales
   const [adSel, setAdSel] = useState<SenalRecon | null>(null);
@@ -197,15 +221,23 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       // Datos frescos de Meta = autoridad: soltamos los overrides optimistas para que
       // el effectiveStatus real (ACTIVE / CAMPAIGN_PAUSED / IN_REVIEW / DISAPPROVED…)
       // reemplace a lo que pintamos al vuelo y la columna "entrega" no mienta.
-      .then((j) => { if (j.error) setError(j.error); else { setHealth(j); setOptimistic(new Map()); } })
+      // ⚠️ Salvo los presupuestos recién escritos: esta lectura puede venir de una caché
+      // de 120 s que la escritura no invalida, y soltarlos pintaba el monto VIEJO en la
+      // fila (lib/presupuesto-cambio.ts → presupuestosVigentes).
+      .then((j) => { if (j.error) setError(j.error); else { setHealth(j); setOptimistic(optimistasQueSiguen(j)); } })
       .catch((e) => setError(String(e))).finally(() => { if (!silent) setLoading(false); });
+  };
+  const optimistasQueSiguen = (h: MetaHealth) => {
+    const reales = new Map<string, number | null>([...h.campaigns, ...h.adsets].map((n) => [n.id, n.dailyBudgetMxn ?? null]));
+    const { mantener, soltar } = presupuestosVigentes(escritos.current, reales, Date.now());
+    for (const id of soltar) escritos.current.delete(id);
+    return new Map([...mantener].map(([id, budget]) => [id, { budget }]));
   };
   useEffect(() => { cargar(); }, []);
   // al cambiar de sub-tab: recargar columnas y resetear orden/edición.
   useEffect(() => { setVisibleCols(loadCols(tab)); setSortKey('gastado'); setSortDir('desc'); setEditingBudgetId(null); }, [tab]);
   useEffect(() => { if (typeof window !== 'undefined') { try { window.localStorage.setItem(COLS_KEY(tab), JSON.stringify(visibleCols)); } catch { /* noop */ } } }, [visibleCols, tab]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 7000); return () => clearTimeout(t); }, [toast]);
-  useEffect(() => { setConfirmDel(false); }, [selCamp, selAdset, selAd, tab]);
 
   // ── merges senales → perf ──
   const { byAd, byCamp, byAdset } = useMemo(() => {
@@ -297,7 +329,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
 
   // overrides optimistas
   const effStatusOf = (node: NodoEstado) => optimistic.get(node.id)?.status ?? node.effectiveStatus;
-  const budgetOf = (node: NodoEstado) => optimistic.get(node.id)?.budgetMxn ?? node.dailyBudgetMxn ?? null;
+  const budgetOf = (node: NodoEstado) => optimistic.get(node.id)?.budget ?? node.dailyBudgetMxn ?? null;
   const nameOf = (node: NodoEstado) => optimistic.get(node.id)?.name ?? node.name;
 
   // ── filas por nivel (con scope de selección cruzado) ──
@@ -366,9 +398,9 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   const toggleAll = () => setSelSet(() => (allSelected ? new Set() : new Set(sorted.map((r) => r.node.id))));
 
   // ── escrituras ──
-  const setOpt = (id: string, patch: { status?: 'ACTIVE' | 'PAUSED'; budgetMxn?: number; name?: string }) =>
+  const setOpt = (id: string, patch: { status?: 'ACTIVE' | 'PAUSED'; budget?: number; name?: string }) =>
     setOptimistic((m) => { const n = new Map(m); n.set(id, { ...(n.get(id) ?? {}), ...patch }); return n; });
-  const clearOpt = (id: string, k: 'status' | 'budgetMxn' | 'name') =>
+  const clearOpt = (id: string, k: 'status' | 'budget' | 'name') =>
     setOptimistic((m) => { const n = new Map(m); const cur = { ...(n.get(id) ?? {}) }; delete cur[k]; if (Object.keys(cur).length === 0) n.delete(id); else n.set(id, cur); return n; });
   const permMsg = (j: { error_subcode?: number; message?: string; error?: string }) => {
     if (j.error_subcode === 4841013)
@@ -425,15 +457,26 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     if (fail) setToast(fail.value.msg ?? 'Meta rechazó activar parte del árbol');
     cargar(true); // reconciliar con el estado EFECTIVO real de Meta (sin spinner)
   }
-  async function writeBudget(lvl: Level, id: string, mxn: number) {
-    setEditingBudgetId(null);
+  // POST del presupuesto de UN id, con el molde de writeOneStatus: devuelve si salió,
+  // porque el lote lo necesita para no afirmar «cambiado en N» sobre fallos (antes no
+  // devolvía nada y el toast del lote pisaba el error con un éxito).
+  //
+  // ⚠️ La llama SÓLO aplicarPresupuesto, que la llama SÓLO el «sí» del cartel. La celda
+  // y la barra de lote arman `pideBudget` y nada más: lo fija
+  // tests/ads-presupuesto-confirma.test.ts.
+  //
+  // `monto` va en la MONEDA DE LA CUENTA; el campo del contrato se llama
+  // `dailyBudgetMxn` por historia y renombrarlo es una migración de contrato.
+  async function writeBudget(lvl: 'campaign' | 'adset', id: string, monto: number): Promise<{ ok: boolean; msg?: string }> {
     setWriting((w) => new Set(w).add(id));
-    setOpt(id, { budgetMxn: mxn });
+    setOpt(id, { budget: monto });
     try {
-      const r = await fetch('/api/meta-write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: lvl, id, op: 'budget', dailyBudgetMxn: mxn }) });
+      const r = await fetch('/api/meta-write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: lvl, id, op: 'budget', dailyBudgetMxn: monto }) });
       const j = await r.json();
-      if (!j.ok) { clearOpt(id, 'budgetMxn'); setToast(permMsg(j)); }
-    } catch (e) { clearOpt(id, 'budgetMxn'); setToast(`Error de red: ${String(e)}`); }
+      if (!j.ok) { clearOpt(id, 'budget'); return { ok: false, msg: permMsg(j) }; }
+      escritos.current.set(id, { valor: monto, en: Date.now() });
+      return { ok: true };
+    } catch (e) { clearOpt(id, 'budget'); return { ok: false, msg: `Error de red: ${String(e)}` }; }
     finally { setWriting((w) => { const n = new Set(w); n.delete(id); return n; }); }
   }
   // Cuenta los que NO salieron y arma un aviso. Sin esto una pausa en lote podía
@@ -462,18 +505,39 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     avisarFallos(results, 'activar');
     cargar(true); // reconciliar con el estado EFECTIVO real de Meta (sin spinner)
   };
-  // Presupuesto en lote. Sólo donde se edita en ESTE nivel (CBO→campaña, ABO→conjunto):
-  // postear el resto sería pedirle a Meta algo que va a rechazar, y el aviso dice cuántos
-  // quedaron afuera — un lote que hace menos de lo que se le pidió y no lo dice es el
-  // «éxito falso» de siempre.
-  const bulkPresupuesto = async (mxn: number) => {
+  // ── presupuesto: la celda y el lote PREGUNTAN; sólo el cartel escribe (tarea #349) ──
+  // El «viejo» sale de budgetOf, o sea de lo que la fila MUESTRA (con lo recién escrito),
+  // no del árbol cacheado: el cartel compara contra lo que la persona está viendo.
+  const filaBudget = (r: Row) => ({ lvl: r.level as 'campaign' | 'adset', id: r.node.id, nombre: nameOf(r.node), viejo: budgetOf(r.node) });
+
+  // La celda: cerrar el editor y armar la pregunta. Nada de esto escribe.
+  const pedirPresupuesto = (r: Row, nuevo: number) => {
+    setEditingBudgetId(null);
+    if (!health || !editaPresupuestoAca(r.node, r.level)) return;
+    setPideBudget({ filas: [filaBudget(r)], nuevo, afuera: 0, moneda: health.account.currency });
+  };
+
+  // Presupuesto en lote. Sólo donde el DIARIO se edita en ESTE nivel (CBO→campaña,
+  // ABO→conjunto, y nunca con presupuesto total): postear el resto sería pedirle a Meta
+  // algo que va a rechazar —o escribir un diario sobre un total—, y el cartel dice
+  // cuántos quedan afuera. Un lote que hace menos de lo que se le pidió y no lo dice es
+  // el «éxito falso» de siempre.
+  const bulkPresupuesto = (nuevo: number) => {
+    if (!health) return;
     const elegidas = sorted.filter((r) => selSet.has(r.node.id));
-    const puede = elegidas.filter((r) => r.node.budgetLevel === r.level);
-    for (const r of puede) await writeBudget(r.level as Level, r.node.id, mxn);
-    const afuera = elegidas.length - puede.length;
-    setToast(afuera > 0
-      ? `Presupuesto cambiado en ${puede.length}. ${afuera} quedaron afuera: su presupuesto se edita en el otro nivel.`
-      : `Presupuesto cambiado en ${puede.length}.`);
+    const puede = elegidas.filter((r) => editaPresupuestoAca(r.node, r.level));
+    if (!puede.length) { setToast('Sin presupuesto diario en este nivel.'); return; }
+    setPideBudget({ filas: puede.map(filaBudget), nuevo, afuera: elegidas.length - puede.length, moneda: health.account.currency });
+  };
+
+  // El «sí» del cartel. Todas en paralelo, como la pausa en lote, y el éxito se afirma
+  // sólo si salieron TODAS. Sin cargar() después: con la caché de 120 s la fila
+  // volvería al monto viejo (ver presupuestosVigentes).
+  const aplicarPresupuesto = async (p: PideBudget) => {
+    const results = await Promise.allSettled(p.filas.map((f) => writeBudget(f.lvl, f.id, p.nuevo)));
+    if (results.some((res) => res.status === 'rejected' || !res.value.ok)) { avisarFallos(results, 'cambiar'); return; }
+    const n = p.filas.length;
+    setToast(`${n === 1 ? 'Presupuesto cambiado' : `Presupuesto cambiado en ${n}`}${p.afuera ? ` · ${p.afuera} sin cambiar` : ''}`);
   };
 
   // Producto en lote. Pregunta UNA vez con el total —doce confirmaciones no son una
@@ -530,8 +594,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   const bulkDelete = async () => {
     const ids = [...selSet];
     const rowsSel = sorted.filter((r) => selSet.has(r.node.id));
-    if (rowsSel.some((r) => effStatusOf(r.node) === 'ACTIVE')) { setToast('Solo se pueden eliminar campañas pausadas. Pausa primero las activas seleccionadas.'); setConfirmDel(false); return; }
-    setConfirmDel(false);
+    if (rowsSel.some((r) => effStatusOf(r.node) === 'ACTIVE')) { setToast('Solo se pueden eliminar campañas pausadas. Pausa primero las activas seleccionadas.'); return; }
     let ok = 0; let lastErr = '';
     for (const id of ids) {
       setWriting((w) => new Set(w).add(id));
@@ -721,6 +784,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
               trabajando={writing.size > 0}
               onEstado={(next) => bulkStatus(next)}
               onPresupuesto={level === 'ad' ? undefined : bulkPresupuesto}
+              moneda={health.account.currency}
               productos={level === 'ad' || !asig || asig.productos.length <= 1 ? null : [{ value: '', label: 'Sin asignar' }, ...asig.productos.map((p) => ({ value: valorDeProducto(p.id), label: p.nombre }))]}
               onProducto={level === 'ad' || !asig ? undefined : bulkProducto}
               onRenombrar={() => setRenameOpen(true)}
@@ -756,7 +820,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
                     : ((r.level === 'campaign' ? rollup.adsByCamp.get(r.node.id) : rollup.adsByAdset.get(r.node.id)) ?? []);
                   return (
                   <RowView key={r.node.id} r={r} cols={cols} selected={selSet.has(r.node.id)} onSelect={() => toggleOne(r.node.id)} onOpen={() => abrir(r)}
-                    effStatus={effStatusOf(r.node)} budgetMxn={budgetOf(r.node)} name={nameOf(r.node)} accountFrozen={accountFrozen}
+                    effStatus={effStatusOf(r.node)} budget={budgetOf(r.node)} currency={health.account.currency} name={nameOf(r.node)} accountFrozen={accountFrozen}
                     childIssues={r.level === 'ad' ? 0 : problemaAds.length}
                     onShowProblema={problemaAds.length > 0 ? () => setProblemaSel({ titulo: nameOf(r.node), ads: problemaAds }) : undefined}
                     rowActions={rowActionsFor(r)}
@@ -774,7 +838,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
                     ) : undefined}
                     writing={writing.has(r.node.id)} editing={editingBudgetId === r.node.id} editingName={editingNameId === r.node.id}
                     onToggleStatus={(next) => writeStatus(r.level, r.node.id, next)}
-                    onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(mxn) => writeBudget(r.level as Level, r.node.id, mxn)}
+                    onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(monto) => pedirPresupuesto(r, monto)}
                     onStartName={() => setEditingNameId(r.node.id)} onCancelName={() => setEditingNameId(null)} onSaveName={(nm) => writeName(r.level, r.node.id, nm)} />
                   );
                 })}
@@ -827,6 +891,25 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
           />
         </Modal>
       )}
+      {/* El cartel del presupuesto (tarea #349): el único camino a writeBudget. Lo arman la
+          celda (una fila) y la barra de lote (N); lo que dice está en MensajePresupuesto. */}
+      {pideBudget && (
+        <Confirm
+          title="¿Cambiar el presupuesto?"
+          message={<MensajePresupuesto p={pideBudget} />}
+          confirmLabel={`Poner ${montoCuenta(pideBudget.nuevo, pideBudget.moneda)}/día`}
+          cancelLabel="No cambiar"
+          tone="primary"
+          onConfirm={() => {
+            const p = pideBudget;
+            if (aplicandoBudget.current === p) return;
+            aplicandoBudget.current = p;
+            setPideBudget(null);
+            void aplicarPresupuesto(p);
+          }}
+          onCancel={() => setPideBudget(null)}
+        />
+      )}
       {pideLote && (
         <Confirm
           title={pideLote.aTraer > 0 ? `¿Traer ${pideLote.aTraer} ${pideLote.aTraer === 1 ? 'lead' : 'leads'} a «${pideLote.nombre}»?` : `¿Mover ${pideLote.n} a «${pideLote.nombre}»?`}
@@ -856,6 +939,71 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
 
 type RenameEntity = { id: string; name: string; campName: string | null; adsetName: string | null; createdTime: string | null; parentId: string | null };
 
+/**
+ * Un monto de la cuenta como lo muestra la tabla: en dólares si hay tasa (como el resto
+ * de la tabla), y crudo en SU moneda si no la hay — sin inventar una conversión.
+ * Antes era `fmtUSD(mxnAUsd(x))` siempre: en una cuenta que cobra en dólares mostraba
+ * la 17,3ava parte del presupuesto real.
+ */
+function fmtPresupuesto(monto: number, currency: string): string {
+  const usd = cuentaAUsd(monto, currency);
+  if (usd != null) return fmtUSD(usd, 0);
+  try { return new Intl.NumberFormat('es-MX', { style: 'currency', currency, maximumFractionDigits: 0 }).format(monto); }
+  catch { return montoCuenta(Math.round(monto), currency); }
+}
+
+/**
+ * Lo que dice el cartel del presupuesto. Corto (AGENTS.md: la consecuencia, pegada al
+ * botón): QUÉ cambia, de cuánto a cuánto, y en qué moneda. Los montos van en la moneda
+ * de la CUENTA —que es lo que se escribe— y al lado su equivalente en dólares, que es la
+ * unidad en la que se tipeó. Sin tasa, se dice que va sin convertir.
+ *
+ * El salto ×5 en las DOS direcciones (saltoPresupuesto): un cero de más gasta plata y
+ * uno de menos frena la campaña. Sin el glifo de advertencia: lo caza el guard de emoji
+ * de tests/ads-barra.test.ts, y el color alcanza.
+ */
+function MensajePresupuesto({ p }: { p: PideBudget }) {
+  const { filas, nuevo, afuera, moneda } = p;
+  const conv = esConvertible(moneda);
+  const enUsd = (m: number) => `US$${Math.round(cuentaAUsd(m, moneda) ?? 0).toLocaleString('es-MX')}`;
+  const dolares = conv && moneda !== 'USD';
+  const viejos = filas.map((f) => f.viejo).filter((v): v is number => v != null);
+  const min = viejos.length ? Math.min(...viejos) : null;
+  const max = viejos.length ? Math.max(...viejos) : null;
+  const una = filas.length === 1 ? filas[0] : null;
+  const s = saltoPresupuesto(nuevo, min);
+  const salto = s?.sube ? s : (() => { const b = saltoPresupuesto(nuevo, max); return b && !b.sube ? b : null; })();
+  const fuerte: CSSProperties = { color: 'var(--ink)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
+  const nivel = (filas[0]?.lvl ?? 'campaign') === 'campaign' ? ['Campaña', 'campañas'] : ['Conjunto', 'conjuntos'];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {una ? (
+        <>
+          <span>{nivel[0]} «{una.nombre}»</span>
+          <span style={fuerte}>
+            {una.viejo != null ? cifra(una.viejo) : '—'} → {montoCuenta(nuevo, moneda)}/día
+          </span>
+          {dolares && <span>≈ {una.viejo != null ? enUsd(una.viejo) : '—'} → {enUsd(nuevo)}</span>}
+        </>
+      ) : (
+        <>
+          <span style={fuerte}>{filas.length} {nivel[1]} → {montoCuenta(nuevo, moneda)}/día{dolares ? ` (≈ ${enUsd(nuevo)})` : ''}</span>
+          {min != null && max != null && (
+            <span>Hoy: {min === max ? `${montoCuenta(min, moneda)}/día` : `entre ${cifra(min)} y ${montoCuenta(max, moneda)}/día`}</span>
+          )}
+        </>
+      )}
+      {salto && (
+        <span style={{ color: 'var(--warn)', fontWeight: 600 }}>
+          {una ? 'Es' : 'Hasta'} {salto.veces} veces {salto.sube ? 'el actual' : 'menos que el actual'}.
+        </span>
+      )}
+      {!conv && <span>Va en {moneda}, sin convertir.</span>}
+      {afuera > 0 && <span>{afuera} {afuera === 1 ? 'queda afuera: no tiene' : 'quedan afuera: no tienen'} presupuesto diario en este nivel.</span>}
+    </div>
+  );
+}
+
 const bulkBtn: CSSProperties = { padding: '7px 14px', borderRadius: 9, border: '1px solid rgba(243,245,248,.25)', background: 'rgba(243,245,248,.10)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 
 // ── header ordenable ──
@@ -869,10 +1017,11 @@ function SortLabel({ label, active, dir, onClick, align }: { label: string; acti
 }
 
 // ── fila ──
-function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, onShowProblema, rowActions, productoCell, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
+function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budget, currency, name, accountFrozen, childIssues, onShowProblema, rowActions, productoCell, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
   r: Row; cols: ColDef[]; selected: boolean; onSelect: () => void; onOpen: () => void;
-  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; rowActions?: Array<{ icono: string; label: string; title: string; onClick: () => void }>; productoCell?: ReactNode; writing: boolean; editing: boolean; editingName: boolean;
-  onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
+  /** En la MONEDA DE LA CUENTA (`currency`), que es lo que Meta guarda. */
+  effStatus: string; budget: number | null; currency: string; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; rowActions?: Array<{ icono: string; label: string; title: string; onClick: () => void }>; productoCell?: ReactNode; writing: boolean; editing: boolean; editingName: boolean;
+  onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (monto: number) => void;
   onStartName: () => void; onCancelName: () => void; onSaveName: (name: string) => void;
 }) {
   const active = effStatus === 'ACTIVE';
@@ -893,7 +1042,7 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
       case 'cierres': return r.perf.cierres > 0 ? fmtNum(r.perf.cierres) : '—';
       case 'cash': return r.perf.cash_usd > 0 ? fmtUSD(r.perf.cash_usd, 0) : '—';
       case 'aprendizaje': return r.node.learning ? <Pill semaforo={r.node.learning.semaforo} label={r.node.learning.label} /> : '—';
-      case 'presupuesto': return <BudgetCell r={r} budgetMxn={budgetMxn} editing={editing} writing={writing} onStart={onStartBudget} onCancel={onCancelBudget} onSave={onSaveBudget} />;
+      case 'presupuesto': return <BudgetCell r={r} budget={budget} currency={currency} editing={editing} writing={writing} onStart={onStartBudget} onCancel={onCancelBudget} onSave={onSaveBudget} />;
       case 'producto': return productoCell ?? <span style={{ color: 'var(--faint)' }}>—</span>;
     }
   };
@@ -934,41 +1083,67 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
   );
 }
 
-function BudgetCell({ r, budgetMxn, editing, writing, onStart, onCancel, onSave }: { r: Row; budgetMxn: number | null; editing: boolean; writing: boolean; onStart: () => void; onCancel: () => void; onSave: (mxn: number) => void }) {
+function BudgetCell({ r, budget, currency, editing, writing, onStart, onCancel, onSave }: { r: Row; budget: number | null; currency: string; editing: boolean; writing: boolean; onStart: () => void; onCancel: () => void; onSave: (monto: number) => void }) {
   const stop = (e: React.MouseEvent) => e.stopPropagation();
   // Ads no tienen presupuesto.
   if (r.level === 'ad') return <span style={{ color: 'var(--faint)' }}>—</span>;
-  const editable = r.node.budgetLevel === r.level; // CBO→campaña editable; ABO→conjunto editable
   // CBO: en la fila de conjunto el budget vive en la campaña.
-  if (!editable) {
+  if (r.node.budgetLevel !== r.level) {
     if (r.level === 'adset') return <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>Presupuesto de campaña</span>;
     return <span style={{ color: 'var(--faint)' }}>—</span>; // campaña ABO (budget en conjuntos)
   }
-  if (editing) return <span onClick={stop}><BudgetEditor mxn={budgetMxn} onSave={onSave} onCancel={onCancel} /></span>;
+  // Presupuesto TOTAL: se muestra y no se edita acá. Antes llevaba el lápiz, decía «—» y
+  // el editor escribía un `daily_budget` sobre una entidad que no lo tiene. Sin lápiz a
+  // propósito (tests/ads-barra.test.ts cuenta DOS por fila: nombre y presupuesto diario).
+  if (!editaPresupuestoAca(r.node, r.level)) {
+    const total = r.node.lifetimeBudgetMxn;
+    return <span title="Presupuesto total: se cambia en Meta" style={{ color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{total != null ? `${fmtPresupuesto(total, currency)} total` : '—'}</span>;
+  }
+  if (editing) return <span onClick={stop}><BudgetEditor budget={budget} currency={currency} onSave={onSave} onCancel={onCancel} /></span>;
   return (
     <button type="button" onClick={(e) => { stop(e); onStart(); }} disabled={writing} title="Editar presupuesto"
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid transparent', borderRadius: 8, padding: '4px 8px', cursor: writing ? 'default' : 'pointer', color: 'var(--ink)', font: 'inherit', fontVariantNumeric: 'tabular-nums' }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}>
-      {budgetMxn != null ? `${fmtUSD(mxnAUsd(budgetMxn), 0)}/día` : '—'}<span style={{ display: 'inline-flex', color: 'var(--faint)' }}><Icon name="pen" size={12} /></span>
+      {budget != null ? `${fmtPresupuesto(budget, currency)}/día` : '—'}<span style={{ display: 'inline-flex', color: 'var(--faint)' }}><Icon name="pen" size={12} /></span>
     </button>
   );
 }
 
-function BudgetEditor({ mxn, onSave, onCancel }: { mxn: number | null; onSave: (mxn: number) => void; onCancel: () => void }) {
-  // Se edita en USD; Meta espera MXN (moneda de la cuenta) → se convierte al guardar.
-  const [v, setV] = useState(mxn != null ? String(Math.round(mxnAUsd(mxn))) : '');
+/**
+ * El editor de la celda. NO escribe: devuelve el monto (en la moneda de la cuenta) y el
+ * padre arma el cartel.
+ *
+ * Se TIPEA en dólares, como en el wizard y en «Agregar conjunto», y se convierte a la
+ * moneda de la cuenta con `usdACuenta`; sin tasa para esa moneda, se tipea en ella. Antes
+ * multiplicaba SIEMPRE por 17,30: en una cuenta en dólares, tipear 50 escribía 865 USD/día.
+ */
+function BudgetEditor({ budget, currency, onSave, onCancel }: { budget: number | null; currency: string; onSave: (monto: number) => void; onCancel: () => void }) {
+  const inicial = inicialTipeado(budget, currency);
+  const [v, setV] = useState(inicial);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
-  const save = () => { const usd = Number(v); if (Number.isFinite(usd) && usd > 0) onSave(Math.round(usd * TIPO_DE_CAMBIO_USD_MXN)); };
+  const unidad = esConvertible(currency) ? 'USD' : currency;
+  // Sin cambio no hay cartel. Se compara lo TIPEADO contra lo que el editor mostró al
+  // abrirse, no los montos de la cuenta: con el redondeo, 500 MXN se muestra 29 y vuelve
+  // como 502, y guardar sin tocar reescribía 500 → 502 sin que nadie lo pidiera.
+  const save = () => {
+    if (v === inicial) { onCancel(); return; }
+    const monto = tipeadoACuenta(v, currency);
+    if (monto != null) onSave(monto);
+  };
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ color: 'var(--faint)', fontSize: 13 }}>$</span>
+      {unidad === 'USD' && <span style={{ color: 'var(--faint)', fontSize: 13 }}>$</span>}
       <input ref={ref} value={v} onChange={(e) => setV(e.target.value.replace(/[^\d]/g, ''))}
-        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
+        // ⚠️ preventDefault en el Enter: el cartel se monta en este mismo keydown y
+        // enfoca su botón de confirmar, y el `keypress` que sigue —el que activa un botón
+        // con Enter— le llega a ÉL. Medido el 07/10/2026 en el navegador, sacando esta
+        // línea: un Enter = 1 POST, y el cartel no llegó a verse.
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) save(); } if (e.key === 'Escape') onCancel(); }}
         inputMode="numeric" style={{ width: 78, padding: '5px 8px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none', textAlign: 'right' }} />
-      <span style={{ color: 'var(--faint)', fontSize: 12 }}>USD/día</span>
-      <button type="button" onClick={save} style={{ border: 'none', background: 'var(--good)', color: '#fff', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✓</button>
-      <button type="button" onClick={onCancel} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✕</button>
+      <span style={{ color: 'var(--faint)', fontSize: 12 }}>{unidad}/día</span>
+      <button type="button" onClick={save} title="Guardar" style={{ border: 'none', background: 'var(--good)', color: '#fff', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✓</button>
+      <button type="button" onClick={onCancel} title="No cambiar" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✕</button>
     </span>
   );
 }
