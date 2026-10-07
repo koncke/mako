@@ -1,6 +1,6 @@
 // =============================================================================
 // Las tareas de un proyecto del tablero para el runway — ABIERTAS Y CERRADAS
-// (hoy «Feature: CRM» y «Feature: Chatbot»)
+// (hoy «Feature: CRM», «Feature: Chatbot» y «Feature: Customer Success»)
 // =============================================================================
 // ⚠️ POR QUÉ NO USA `roadmapDe` (app/admin/dev/roadmap.ts). Ese lector filtra con
 // `.lt('progress', 100)` EN LA CONSULTA, así que una tarea cerrada deja de existir
@@ -27,6 +27,8 @@ export type TareaCrm = {
 export const PROYECTO_CRM = 'Feature: CRM';
 /** El del Chatbot: su apartado (06/10) lista lo que se hizo de cada tarjeta. */
 export const PROYECTO_CHATBOT = 'Feature: Chatbot';
+/** El de Customer Success: su apartado (07/10) lista el cierre del proyecto. */
+export const PROYECTO_CS = 'Feature: Customer Success';
 
 /**
  * Todas las tareas de un proyecto, ordenadas por prioridad como el tablero.

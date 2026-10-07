@@ -234,7 +234,13 @@ export const CHATBOT_CASOS = '/mako/revisar?ws=1';
 
 export type EstadoChatbot = 'lista' | 'falta';
 
-export const CHATBOT_TAREAS: Record<number, { estado: EstadoChatbot; hizo: string; falta?: string }> = {
+/** Lo que se hizo con UNA tarjeta de un apartado. «Cerrada» no va acá: la dice el tablero. */
+export type TareaApartado = { estado: EstadoChatbot; hizo: string; falta?: string };
+
+/** Algo que le toca a Martín. Si tiene adónde ir, lleva el link. */
+export type Pendiente = { t: string; href?: string; boton?: string };
+
+export const CHATBOT_TAREAS: Record<number, TareaApartado> = {
   // #834: la prueba del borrador decía «ningún camino cae en el de Mauricio» y quedaban SIETE
   // llamadas a los flujos que caían ahí (los webhooks de Calendly, Cal.com, Chatwoot y Meta).
   // Se cerró con el arreglo de esas siete, no con la prueba vieja.
@@ -281,7 +287,7 @@ export const CHATBOT_EN_PRODUCCION = [
 ];
 
 /** Lo que le queda a Martín. Lo que tiene link, lo lleva al lado. */
-export const CHATBOT_TE_TOCA: Array<{ t: string; href?: string; boton?: string }> = [
+export const CHATBOT_TE_TOCA: Pendiente[] = [
   { t: '**Confirma los 8 casos** de la post-agenda. Hasta entonces, un agendado que contesta va a una persona.', href: CHATBOT_CASOS, boton: 'Abrir las propuestas' },
   { t: '**Apaga el workflow de n8n** «WhatsApp Reminders for Calendly». Hoy no manda nada, pero duplicaría si alguien recrea su conexión.' },
   { t: '**Corrige el remitente de Mauricio** antes de mandar el mail del residuo: hoy dice «MaKo».' },
@@ -299,3 +305,59 @@ export const CHATBOT_TE_TOCA: Array<{ t: string; href?: string; boton?: string }
   { t: '**Dime en qué navegador** viste que un audio grabado no se volvía a reproducir: con el reproductor solo no pasa.' },
 ];
 
+// =============================================================================
+// Customer Success — el cierre del proyecto (06-07/10/2026)
+// =============================================================================
+// Pedido de Martín (06/10): «Revisa todo lo que falta en el proyecto de Customer Success y
+// terminalo todo, cierra las tareas», y al día siguiente: «Dejame aquí los avances que se
+// hicieron». Una auditoría de las 12 tarjetas contra el código dio CERO hechas; lo que no
+// necesitaba una decisión se hizo en una tanda, y lo que sí, en otra con sus respuestas.
+//
+// ⚠️ EL MISMO REPARTO QUE EL CHATBOT: título, prioridad y «Cerrada» salen del tablero en cada
+// carga. Acá vive sólo QUÉ SE HIZO y QUÉ FALTA. El detalle técnico, en
+// docs/hallazgos-customer-success.md → «El cierre del proyecto».
+
+export const CS_MEDIDO = '6 y el 7 de octubre de 2026';
+
+/** La ficha de la clienta que quedó en una etapa que su producto no tiene (ws1, lead 21). */
+export const CS_FICHA_HUERFANA = '/customer-success?ws=1&cliente=21';
+
+export const CS_TAREAS: Record<number, TareaApartado> = {
+  693: { estado: 'lista', hizo: 'Grabar / No grabar en cada clase, y cuántas faltan arriba' },
+  692: { estado: 'lista', hizo: 'Notas con archivos en cada clase y en cada etapa; el alumno no las ve' },
+  694: { estado: 'lista', hizo: 'Los dos campos que faltaban, en el curso de Mauricio y en la semilla' },
+  660: { estado: 'lista', hizo: 'Whop salió: el programa vive en MaKo, en 9 etapas y 107 clases' },
+  109: { estado: 'lista', hizo: 'La tabla suma «Último contacto» y «Vencidas», y te avisa de un cliente 21 días quieto' },
+  747: { estado: 'lista', hizo: 'Un cliente puede ser «Sin cobro»: el CRM no le pide monto y no baja tu ticket' },
+  780: { estado: 'lista', hizo: 'A los 3 días sin entrar, el alumno recibe por WhatsApp los videos que le faltan' },
+  666: { estado: 'falta', hizo: 'La etapa de cada cliente se guarda con su historial, y el estado lo marca MaKo', falta: 'Decidir si la «Próxima llamada» es el próximo hito' },
+  665: { estado: 'falta', hizo: 'La agenda aparece al completar la etapa, m6-m9 se contestan por área con su link, y la IA propone y el cliente aprueba', falta: 'Pegar el Calendly de cada etapa, y que un cliente real lo use' },
+  107: { estado: 'falta', hizo: 'Las llamadas de entrega se analizan gratis: resumen, riesgos con su cita y próximos pasos', falta: 'Que Gemini conteste: hoy está saturado y reintenta cada hora' },
+  667: { estado: 'falta', hizo: 'El borrador del protocolo, en tuteo y sin precios', falta: 'Que Mauricio decida la renovación y lo apruebe' },
+  663: { estado: 'falta', hizo: 'Nada todavía', falta: 'Espera a que los clientes carguen sus palancas por área' },
+};
+
+/** El borrador del Plan con los cierres de este apartado (07/10). */
+export const CS_BORRADOR = '/plan/revisar/propavremjgpwd98';
+
+/** Lo que se escribió en producción para que esto ande. Pasado, con su número. */
+export const CS_EN_PRODUCCION = [
+  '**Las llamadas de entrega se analizan** en vez de tirarse: hay 283 en cola (129 de Mauricio) y entran de a dos por hora, gratis, cuando Google contesta.',
+  '**Una clienta quedó en una etapa que su producto no tiene** porque el sistema validaba contra las etapas de fábrica cuando no podía leer las suyas. Ya no pasa.',
+  '**Mover a un cliente ya no puede mandar dos WhatsApp**, y el historial dice quién lo movió, no «CRM».',
+  '**La tabla de Clientes** suma «Último contacto» y «Vencidas», y cada mañana te avisa de quien lleva 21 días quieto. Al cliente no le llega nada.',
+  '**«Sin cobro»**: un becado es cliente sin que el CRM le pida monto ni te baje el ticket.',
+  '**El curso de Mauricio**: grabar / no grabar, notas con archivos, m6-m9 por área con el link de cada líder, la agenda al completar la etapa y la IA que propone la respuesta con lo hablado.',
+  '**El recordatorio de clases** sale por WhatsApp a los 3 días sin entrar, con copia a Mauricio. Hoy no hay a quién: 0 invitados.',
+  '**MaKo ve las tareas vencidas** de cada cliente y el avance de su curso.',
+];
+
+/** Lo que le queda a Martín. Lo que tiene link, lo lleva al lado. */
+export const CS_TE_TOCA: Pendiente[] = [
+  { t: '**Confirma los cierres** en el Plan: 7 hechas y 2 a medias, cada una con su prueba.', href: CS_BORRADOR, boton: 'Abrir el borrador' },
+  { t: '**Ubica a Teresa** (quedó en «onboarding», que ya no existe): se mueve desde su ficha y no le manda nada.', href: CS_FICHA_HUERFANA, boton: 'Abrir su ficha' },
+  { t: '**Ubica a los 14 clientes** en su etapa real, pega el Calendly de cada etapa y, con los videos grabados, invítalos.' },
+  { t: '**Mándale a Mauricio el borrador de graduación** (docs/protocolos/graduacion.md): la renovación primero, sus contratos vencen en octubre y noviembre.' },
+  { t: '**Prende la purga de archivos** con CURSO_PURGA_BORRAR=1 en Vercel, después de leer una corrida en modo prueba.' },
+  { t: '**Contesta las decisiones abiertas**: el PAS, el Calendly de las sesiones, la baja en el kanban, «pausado», el becado en el CAC y /cs-analyst. Están en una tarjeta del borrador.' },
+]
