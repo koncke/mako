@@ -226,7 +226,7 @@ adicional» y eso se lee como un problema de permisos cuando es de cuenta):
 
 | Qué | Estado |
 |---|---|
-| Publishing status | **Testing** (cap de 100 usuarios de por vida) |
+| Publishing status | **Testing** (cap de 100 usuarios de por vida) — **PUBLICADA el 07/10**, ver abajo |
 | Test users | **3**: martinkoncke@, mbustos@elevate.com.mx, tejadomartin@ — **el cliente NO está** |
 | Branding | **INCOMPLETO**: `App name` VACÍO, home page, privacy, terms y authorized domains vacíos |
 | Data Access | **CERO scopes registrados** — ni `calendar.readonly` ni `calendar.events`, en ninguna de las tres tablas |
@@ -242,6 +242,30 @@ configuration is incomplete… visit the Branding page». Con el `App name` vac�
 «Publish app» no procede. O sea que el pendiente escrito en agosto era más grande de lo que
 su redacción sugería — «sacar el aviso» suena a un toggle y son cuatro campos más una
 política de privacidad publicada.
+
+### 07/10/2026: publicada, sin verificar
+
+El cliente del ws13 chocó, un mes después, con exactamente lo que esta sección predecía:
+«Acceso bloqueado: hola-mako.com no ha completado el proceso de verificación de Google…
+Error 403: access_denied». **Que el error fuera de Google y no nuestro probó que el arreglo
+de código funcionaba**: el cliente pasó `adminDeWorkspaceActual()` y llegó al
+consentimiento. Seguía en Testing con los mismos 3 test users.
+
+Se completó Branding y se publicó («In production»). Tres cosas que no se ven desde afuera:
+
+- **«Publish app» no da error: está GRIS.** Con Branding incompleto el botón queda
+  deshabilitado con una línea chica que manda a Branding. Se lee como «no tengo permiso»
+  cuando es «falta un campo».
+- **El email de soporte había quedado VACÍO** (el 05/09 figuraba cargado). Es obligatorio
+  y es lo que destrabó el botón, junto con los tres enlaces a `/privacidad`, `/terminos`
+  y la home. Los dominios autorizados no hubo que tocarlos: se cargan solos desde las
+  redirect URIs del cliente OAuth.
+- **Sin logo, a propósito**: subir uno obliga a verificar aunque nada más cambie.
+
+Lo que ve un cliente ahora: «Google no verificó esta app» → *Avanzado → Ir a
+hola-mako.com*. Tope de **100 usuarios en toda la vida del proyecto**, que no se
+reinicia. Los refresh_token ya no caducan a los 7 días. **Verificar sigue bloqueado** por
+el Uso Limitado (`docs/hallazgos-ia.md`) y porque Data Access no declara ningún scope.
 
 Dos correcciones a lo que decía la doc vieja, las dos medidas:
 - **`localhost:3000` SÍ está registrada** para el callback de la agenda: `hallazgos-infra.md`
