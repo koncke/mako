@@ -22,6 +22,7 @@ import { hrefPlanDeCliente } from '@/app/plan/board/filtro-cliente';
 // los prompts del análisis: un import de VALOR los bajaría al navegador. El saneo de lo que
 // se lee de la base lo corre el server (./ficha-lectura.ts → `analisisDeFila`).
 import type { AnalisisEntregaVista } from '@/lib/closing-entrega-contrato';
+import type { ContactoCliente } from '@/lib/cs-contacto';
 
 // ⛔ ACÁ VIVÍAN `entregasDe` (la etapa de cada servicio, para el renglón «Entrega» del
 // Resumen) y `conteoDeTrabajo` / `fraseConteo` (el renglón «Trabajo»). Se fueron el 06/10/2026
@@ -178,4 +179,13 @@ export type FichaExtra = {
   /** Su Gravatar, armado en el server (`urlGravatar`, con `d=404`). Es la SEGUNDA cara que
    *  se prueba si nadie eligió una: primero va la de WhatsApp (./foto-cliente.ts). */
   fotoEmail?: string | null;
+  /**
+   * La última conversación (sesión o WhatsApp), para la columna «Último contacto» de la TABLA
+   * (#109). Viaja acá porque es un dato por cliente que arma el server, como el resto.
+   *
+   * ⚠️ TRES ESTADOS: `null` = no se pudo leer (la columna dice «—»); `{ fecha: null }` = se leyó y
+   * nunca hubo («Nunca»); con fecha = «hace N días». Ausente = la pantalla que lo montó no lo trae.
+   * La regla es UNA (`ultimoContacto`, lib/cs-contacto.ts) y la usa también la alerta al dueño.
+   */
+  contactoUltimo?: ContactoCliente | null;
 };

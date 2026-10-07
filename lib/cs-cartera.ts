@@ -36,8 +36,11 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { relojDe, promesaDe, type Reloj } from './cs-contrato';
-import { leerTodo } from './supabase-paginado';
+import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { senalDe, ordenCartera, type HechosCliente, type Senal } from './cs-senal';
+// La regla de «el último contacto» vive en un módulo PURO (lo usan además la tabla de Clientes y
+// el cron de la alerta al dueño): ver la cabecera de ./cs-contacto.ts.
+import { ultimoContacto, CATEGORIA_SIN_CONTACTO, type ContactoCliente } from './cs-contacto';
 
 /** Dónde está el cliente en la entrega. `graduado` y `baja` son DECISIONES de
  *  una persona, no cálculos: que el plazo del contrato se haya cumplido no dice
@@ -84,10 +87,6 @@ const dias = (iso: string | Date | null | undefined): number | null => {
   return Number.isFinite(t) ? Math.floor((Date.now() - t) / 86_400_000) : null;
 };
 
-/** El menor de dos «hace cuántos días», ignorando los que no existen. */
-const masReciente = (a: number | null, b: number | null): number | null =>
-  a === null ? b : b === null ? a : Math.min(a, b);
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 type LeadGanado = {
@@ -102,6 +101,8 @@ type Est = { lead_id: number; estado: EstadoCliente };
 
 /** Una lectura que sabe si pudo leer. `[]` y «falló» son dos respuestas. */
 type Leida<T> = { ok: boolean; filas: T[] };
+/** Un filtro más sobre la consulta paginada (el `.in(lead_id)` ya va puesto). */
+type Filtro = (q: ConsultaPaginada) => ConsultaPaginada;
 
 const porLead = <T extends { lead_id: number }>(xs: T[]) => {
   const m = new Map<number, T[]>();
@@ -134,9 +135,11 @@ export async function cartera(): Promise<ClienteCartera[]> {
   // Cada una pagina por su columna ÚNICA (recording_id / id), nunca por fecha:
   // un orden con empates reparte distinto entre páginas y saltea filas.
   const leer = async <T,>(tabla: string, cols: string, orden: string,
-    extra?: Parameters<typeof leerTodo>[3]): Promise<Leida<T>> => {
+    extra?: Parameters<typeof leerTodo>[3], filtro?: Filtro): Promise<Leida<T>> => {
     try {
-      const filas = await leerTodo<T>(db, tabla, cols, { orden, ...extra, filtros: (q) => q.in('lead_id', ids) });
+      const filas = await leerTodo<T>(db, tabla, cols, {
+        orden, ...extra, filtros: (q) => (filtro ? filtro(q.in('lead_id', ids)) : q.in('lead_id', ids)),
+      });
       return { ok: true, filas };
     } catch {
       return { ok: false, filas: [] };
@@ -144,7 +147,11 @@ export async function cartera(): Promise<ClienteCartera[]> {
   };
 
   const [sesiones, cuotas, mensajes, estados] = await Promise.all([
-    leer<Ses>('closing_analyses', 'recording_id, lead_id, call_date, title', 'recording_id'),
+    // ⚠️ SIN LAS LLAMADAS DE PRUEBA (06/10/2026): una `test` no es una conversación con el
+    // cliente, y es la misma exclusión que la pestaña Llamadas de la ficha y la columna «Último
+    // contacto» (`CATEGORIA_SIN_CONTACTO`, ./cs-contacto.ts). Antes la cartera de MaKo la contaba.
+    leer<Ses>('closing_analyses', 'recording_id, lead_id, call_date, title', 'recording_id', undefined,
+      (q) => q.neq('category', CATEGORIA_SIN_CONTACTO)),
     // ⚠️ `pagos` NO tiene `fecha_vencimiento`: la columna es `fecha_esperada`. Se
     // aliasa para no repetir el nombre en todo el cálculo. Pedir la inexistente
     // hacía fallar la consulta entera y la cartera juraba «0 vencidas».
@@ -157,14 +164,10 @@ export async function cartera(): Promise<ClienteCartera[]> {
     leer<Est>('cs_clientes', 'id, lead_id, estado', 'id'),
   ]);
 
-  // La última sesión va primero. Se ordena ACÁ y no en la consulta: `call_date`
-  // se repite y admite null, así que no sirve para paginar — y un `order(desc)`
-  // pone los null PRIMERO (default de Postgres), con lo que una grabación sin
-  // fecha pasaba por «última sesión».
-  sesiones.filas.sort((a, b) =>
-    (a.call_date == null ? 1 : 0) - (b.call_date == null ? 1 : 0) ||
-    (b.call_date ?? '').localeCompare(a.call_date ?? '') ||
-    b.recording_id - a.recording_id);
+  // ⛔ ACÁ SE ORDENABAN LAS SESIONES («la última va primero», con los null al final) y más abajo
+  // se elegía el WhatsApp más nuevo. Las dos cosas son ahora `ultimoContacto` (./cs-contacto.ts),
+  // con la misma regla y su porqué: la tabla de Clientes y el cron de la alerta la necesitan igual,
+  // y tres copias de «cuándo fue la última vez» terminan diciendo tres fechas.
 
   const sesionesDe = porLead(sesiones.filas);
   const cuotasDe = porLead(cuotas.filas);
@@ -182,18 +185,18 @@ export async function cartera(): Promise<ClienteCartera[]> {
     const vencidas = impagas.filter((p) => p.fecha_vencimiento && p.fecha_vencimiento <= hoy);
     const vencidaMasVieja = vencidas.map((p) => p.fecha_vencimiento!).sort()[0] ?? null;
 
-    // El último mensaje por FECHA, no por orden de inserción: un backfill mete
-    // mensajes viejos con id nuevo.
-    const wa = (mensajesDe.get(l.id) ?? [])
-      .filter((m) => m.wa_timestamp)
-      .sort((a, b) => (b.wa_timestamp ?? '').localeCompare(a.wa_timestamp ?? ''))[0] ?? null;
+    // La última sesión y el último WhatsApp, por FECHA (ver `ultimoContacto`).
+    const u = ultimoContacto(ses, mensajesDe.get(l.id) ?? []);
+    // ⚠️ `u.mensaje` es el más nuevo de CUALQUIER lado (lo que «espera respuesta» necesita: quién
+    // habló último). El contacto es otra cosa: `u.fecha` cuenta sólo lo que escribió el cliente,
+    // así un recordatorio automático no hace que MaKo diga «al día» de alguien que no contesta.
+    const wa = u.mensaje;
 
-    const ultimaSesionHace = dias(ses[0]?.call_date);
+    const ultimaSesionHace = dias(u.sesion?.call_date);
     const ultimoMensajeHace = dias(wa?.wa_timestamp);
-    const ultimoContactoHace = masReciente(ultimaSesionHace, ultimoMensajeHace);
-    const ultimoContactoFue: 'sesion' | 'whatsapp' | null =
-      ultimoContactoHace === null ? null
-        : ultimoContactoHace === ultimaSesionHace ? 'sesion' : 'whatsapp';
+    // `dias` es monótona: los días del contacto MÁS NUEVO son el menor de los dos.
+    const ultimoContactoHace = dias(u.fecha);
+    const ultimoContactoFue = u.via;
 
     // Espera respuesta sólo si el último mensaje lo mandó ÉL y no hubo una
     // sesión después: hablar por teléfono también es contestar.
@@ -243,10 +246,80 @@ export async function cartera(): Promise<ClienteCartera[]> {
       cierre: l.fecha_cierre,
       sesiones: ses.length,
       ultimaSesionHace,
-      ultimaSesionTitulo: ses[0]?.title ?? null,
+      ultimaSesionTitulo: u.sesion?.title ?? null,
       ultimoMensajeHace,
     };
   });
 
   return filas.sort(ordenCartera);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Un `.in()` viaja en la URL: de a tandas, para que una cartera grande no pase el tope del
+ *  servidor (que contesta un error de la consulta ENTERA, no la mitad). Mismo número que
+ *  app/customer-success/ficha-lectura.ts. */
+const TANDA_IDS = 150;
+
+const tandas = <T,>(xs: readonly T[], n: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n));
+  return out;
+};
+
+/**
+ * El último contacto de cada cliente: la columna «Último contacto» de la tabla de Clientes y el
+ * cron de la alerta al dueño (#109). Contacto = una sesión o un WhatsApp QUE ESCRIBIÓ ÉL; lo que
+ * le mandamos no cuenta (ver la cabecera de ./cs-contacto.ts). `null` = alguna de las dos fuentes
+ * no se pudo leer, y entonces no se afirma nada de NADIE (la tabla dice «—» y el cron no avisa).
+ * Nunca tira.
+ *
+ * ⚠️ UNA SOLA LECTURA PARA LAS DOS SUPERFICIES, y la regla es la de `cartera()`
+ * (`ultimoContacto`, ./cs-contacto.ts): si la columna y el aviso leyeran por caminos distintos,
+ * el aviso podría decir «23 días sin contacto» sobre una fila que dice «hace 2 días».
+ *
+ * ⚠️ PAGINADO, Y NO ES PRUDENCIA: `wa_mensajes` de los ganados del ws1 pasa las mil filas
+ * (2.235 medidas el 26/09) y un `.select()` suelto las corta en silencio — los clientes cuyos
+ * mensajes caen después de la fila 1000 aparecerían «sin contacto». Por `id` (columna única),
+ * nunca por fecha: un orden con empates reparte distinto entre páginas.
+ *
+ * Sólo se piden las columnas que la regla mira: con el historial entero de WhatsApp de la
+ * cartera en cada carga de la pantalla, cada columna de más se multiplica por miles de filas.
+ */
+export async function ultimoContactoDeClientes(leadIds: readonly number[]): Promise<Record<number, ContactoCliente> | null> {
+  const ids = [...new Set(leadIds.filter((x) => Number.isFinite(x) && x > 0))];
+  if (!ids.length) return {};
+  try {
+    const db = await getTenantDb();
+    const porTandas = <T,>(tabla: string, cols: string, orden: string, filtro: Filtro) =>
+      Promise.all(tandas(ids, TANDA_IDS).map((t) =>
+        leerTodo<T>(db, tabla, cols, { orden, filtros: (q) => filtro(q.in('lead_id', t)) })))
+        .then((xs) => xs.flat());
+
+    const [sesiones, mensajes] = await Promise.all([
+      porTandas<{ recording_id: number; lead_id: number; call_date: string | null }>(
+        'closing_analyses', 'recording_id, lead_id, call_date', 'recording_id',
+        (q) => q.neq('category', CATEGORIA_SIN_CONTACTO)),
+      // Sólo lo que escribió EL CLIENTE (`from_me = false`): un saliente no es contacto, y los
+      // automáticos del ws1 (curso, nutrición, recordatorios) reiniciaban el reloj de la alerta
+      // (ver la cabecera de ./cs-contacto.ts). La regla vuelve a mirar `from_me`, así que la
+      // columna viaja igual. Y sin fecha no hay «cuándo»: la regla los saltea, así que ni viajan.
+      // De paso es mucho menos: un solo lead del ws1 tiene más de mil mensajes NUESTROS.
+      porTandas<{ id: number; lead_id: number; from_me: boolean; wa_timestamp: string | null }>(
+        'wa_mensajes', 'id, lead_id, from_me, wa_timestamp', 'id',
+        (q) => q.eq('from_me', false).not('wa_timestamp', 'is', null)),
+    ]);
+
+    const sesionesDe = porLead(sesiones);
+    const mensajesDe = porLead(mensajes);
+    const out: Record<number, ContactoCliente> = {};
+    for (const id of ids) {
+      const u = ultimoContacto(sesionesDe.get(id) ?? [], mensajesDe.get(id) ?? []);
+      out[id] = { fecha: u.fecha, via: u.via };
+    }
+    return out;
+  } catch (e) {
+    console.error('[cs-cartera] no pude leer el último contacto:', e instanceof Error ? e.message : e);
+    return null;
+  }
 }

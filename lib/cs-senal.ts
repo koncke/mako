@@ -92,7 +92,8 @@ export type HechosCliente = {
 
   /** ¿Se pudieron leer sesiones Y WhatsApp? Si no, el silencio no se afirma. */
   contactoLeido: boolean;
-  /** Días desde la última conversación, sea sesión o WhatsApp: lo que haya. */
+  /** Días desde la última conversación, sea sesión o WhatsApp QUE ESCRIBIÓ ÉL: lo que le mandamos
+   *  (también lo automático) no cuenta. La regla es `ultimoContacto` (lib/cs-contacto.ts). */
   ultimoContactoHace: number | null;
   ultimoContactoFue: 'sesion' | 'whatsapp' | null;
   /** Días desde su último mensaje, si NADIE le contestó después. `null` = no

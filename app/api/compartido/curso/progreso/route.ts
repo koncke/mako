@@ -9,7 +9,7 @@
 // que llegó sobre lo que dura, sin retroceder). Un % armado en el navegador es el que el
 // navegador quiera.
 //
-// ⚠️ EL WORKSPACE SALE DE LA FIRMA DEL TOKEN, nunca de un parámetro: `leerAccesoCurso(t).ws`, y
+// ⚠️ EL WORKSPACE SALE DE LA FIRMA DEL TOKEN, nunca de un parámetro: `leerTokenPortal(t).ws`, y
 // todo adentro de `runWithWorkspace` (sin sesión, `getTenantDb` caería al workspace por defecto,
 // el de Mauricio — y en una prueba con un cliente de Mauricio se vería perfecto).
 //
@@ -23,10 +23,15 @@
 // podría grabar armando el pedido a mano es un número sobre una clase de SU producto. La
 // pertenencia al producto sí se valida siempre.
 
+//
+// ⚠️ EL TOKEN PUEDE SER EL DEL LÍDER DE UN ÁREA (#665, `c2.`): sólo abre clases POR ÁREA
+// (`claseDelAlumno` con `lider`), y lo que ve queda en la fila del CLIENTE (`guardarVisto` explica
+// por qué cuánto se vio un video no se parte por área).
+
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
-import { leerAccesoCurso } from '@/lib/curso-acceso';
-import { resolverAcceso, guardarVisto } from '@/lib/curso-datos';
+import { leerTokenPortal } from '@/lib/curso-acceso';
+import { resolverAccesoPortal, guardarVisto } from '@/lib/curso-datos';
 import { claseDelAlumno, leerJsonTopeado, idDeClase, TOPE_PROGRESO, videoDeClase } from '@/lib/curso-portal';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
@@ -52,16 +57,16 @@ export async function POST(req: NextRequest) {
   const dur = numero(b.dur);
   if (!claseId || !Number.isFinite(seg) || seg < 0) return NO();
 
-  const firma = leerAccesoCurso(token);
+  const firma = leerTokenPortal(token);
   if (!firma) return NO();
 
   return runWithWorkspace(firma.ws, async () => {
-    const acceso = await resolverAcceso(token);
+    const acceso = await resolverAccesoPortal(token);
     if (!acceso) return NO();
     // Por alumno: seis por minuto por video es lo normal; esto deja varias pestañas y pausas.
     if (!rateLimit(`curso-progreso:lead:${acceso.ws}:${acceso.leadId}`, 60, 60_000)) return MUCHO();
     try {
-      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: false });
+      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: false, lider: acceso.area });
       if (r.decision !== 'ok') return NO();
       // Un video que no se puede medir (Drive, Loom, sin video) no recibe progreso: crearle la fila
       // con `visto_at` lo contaría como «lo vio» sin que nadie lo haya medido.

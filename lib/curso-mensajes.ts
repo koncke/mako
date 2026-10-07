@@ -11,6 +11,9 @@ import 'server-only';
 //   3. Los de las LLAMADAS de la entrega: uno el día antes con lo que le falta, y uno después
 //      de la llamada con sus pendientes, al cliente y a Mauricio (pedido de Mauricio del 8/9:
 //      «después de cada junta… y un día antes de la siguiente, lo que no está concluido»).
+//   4. El RECORDATORIO DE CLASES (#780): a los 3 días sin entrar al portal, los videos sin ver
+//      de su etapa (decisión de Martín, 06/10/2026). Lo corre el mismo cron horario, después de
+//      las llamadas; ver la sección 4 de abajo.
 //
 // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO (`linkDeAcceso`), nunca un modelo: es una firma, y un
 // carácter cambiado es un link que no abre. Los textos son plantillas fijas
@@ -22,9 +25,10 @@ import 'server-only';
 // queda espejado en `wa_mensajes`, así que se ve en el hilo del lead como cualquier otro.
 //
 // ⚠️ RESPETA `envio_whatsapp_enabled` DEL WORKSPACE, también en el envío a mano. En el ws1
-// (Mauricio) está en 'false' desde el 29/09/2026: mientras siga así, NADA de esto le llega a un
-// cliente, y el motivo vuelve escrito («envío de WhatsApp apagado») para que la pantalla lo
-// diga en vez de mostrar un «enviado» que no pasó. Es el mismo interruptor que respeta el motor
+// (Mauricio) estuvo en 'false' del 29/09 al 06/10/2026, y desde el 06/10 está PRENDIDO (lo dice
+// el relevo de esa fecha; esta sesión no lo midió): lo de este archivo le llega de verdad a sus
+// clientes. Apagado, el motivo vuelve escrito («envío de WhatsApp apagado») para que la pantalla
+// lo diga en vez de mostrar un «enviado» que no pasó. Es el mismo interruptor que respeta el motor
 // de nutrición (lib/nutricion.ts → `procesarEnvios`): uno solo para todo lo que le escribe a un
 // lead, o el negocio lo apaga y algo le sigue escribiendo igual.
 //
@@ -42,9 +46,10 @@ import { normalizarTelefono } from './leads';
 import { tzDeWorkspace } from './timezone';
 import { entregaDeProducto } from './entrega-servicio';
 import { emitirAviso } from './avisos';
-import { linkDeAcceso, clasesDelProducto, progresoDelCliente, etapaActualDe, productosDelAlumno } from './curso-datos';
-import { etapaCompleta, pendientesDe, type Clase } from './curso';
+import { linkDeAcceso, linkDeAccesoExistente, clasesDelProducto, progresoDelCliente, etapaActualDe, productosDelAlumno } from './curso-datos';
+import { etapaCompleta, pendientesDe, videosSinVer, type Clase, type Progreso } from './curso';
 import { etapaAnterior } from './curso-avance-regla';
+import { leerTodo } from './supabase-paginado';
 import {
   textoLinkCurso, textoEntradaAEtapa, textoPrevioCliente, textoPosteriorCliente,
   textoPrevioDueno, textoPosteriorDueno, tituloAvisoDueno,
@@ -52,6 +57,9 @@ import {
   claveAvisoSesion, ventanaDeGrabacion, ventanaDeSesionesVecinas, grabacionesDeLaSesion, compromisosDeGrabaciones,
   NO_TENIA_PENDIENTES, type CompromisosJunta,
   juntaPendiente, juntaResuelta, claveAvisoJunta, textoJuntaDueno, tituloAvisoJunta,
+  tocaRecordatorio, sigueEnElPrograma, sesionCerca, ventanaDeSesionCerca,
+  textoRecordatorioClases, textoRecordatorioDueno, claveAvisoRecordatorio, TITULO_AVISO_RECORDATORIO,
+  type AccesoParaRecordar, type BloqueVideos, type RecordatorioHecho, type RecordatorioSinEscribir,
 } from './curso-mensajes-texto';
 
 export type ResultadoEnvio = { ok: boolean; motivo?: string };
@@ -88,7 +96,10 @@ type Destino = { ok: true; ws: number; nombre: string | null; telefono: string; 
  * ⚠️ SÓLO A UN CLIENTE GANADO: `resolverAcceso` (lib/curso-datos.ts) no abre el portal a un lead
  * que no lo sea, así que mandarle el link es mandarle una puerta cerrada.
  */
-async function destinoDe(leadId: number, opts: { porQuien?: string | null; envioOn?: boolean } = {}): Promise<Destino> {
+async function destinoDe(
+  leadId: number,
+  opts: { porQuien?: string | null; envioOn?: boolean; sinCrearAcceso?: boolean } = {},
+): Promise<Destino> {
   const ws = await getWorkspaceActual();
   if (ws == null) return { ok: false, motivo: 'sin negocio' };
   const on = opts.envioOn ?? (await envioWhatsappHabilitado());
@@ -102,14 +113,45 @@ async function destinoDe(leadId: number, opts: { porQuien?: string | null; envio
   if (!telefono) return { ok: false, motivo: 'sin teléfono' };
   if (await estaBloqueado(telefono)) return { ok: false, motivo: 'contacto bloqueado' };
   // `null` = acceso cortado (o sin secreto para firmar): no se manda un link que no abre.
-  const link = await linkDeAcceso(leadId, ws, opts.porQuien ?? null);
+  // ⚠️ `sinCrearAcceso`: el recordatorio de clases (sección 4) sólo le escribe a quien YA tiene
+  // su acceso, y un mensaje automático no le abre una puerta a nadie. Sin acceso es «acceso cortado».
+  const link = opts.sinCrearAcceso
+    ? await linkDeAccesoExistente(leadId, ws)
+    : await linkDeAcceso(leadId, ws, opts.porQuien ?? null);
   if (!link) return { ok: false, motivo: 'acceso cortado' };
   return { ok: true, ws, nombre: lead.nombre, telefono, link };
 }
 
 async function mandar(d: Extract<Destino, { ok: true }>, leadId: number, texto: string): Promise<ResultadoEnvio> {
   const r = await enviarYEspejar({ telefono: d.telefono, texto, leadId });
-  return r.ok ? { ok: true } : { ok: false, motivo: r.error?.trim() || 'no salió' };
+  if (!r.ok) return { ok: false, motivo: r.error?.trim() || 'no salió' };
+  // Le LLEGÓ su link: es contacto con su portal, y el recordatorio de clases cuenta sus 3 días
+  // desde acá (sección 4). Sólo si el texto lo lleva de verdad: un mensaje sin link no es eso.
+  if (texto.includes(d.link)) await anotarLinkEnviado(leadId);
+  return { ok: true };
+}
+
+/**
+ * Deja escrito que al cliente le llegó su link por WhatsApp (`curso_accesos.link_enviado_at`, mig
+ * 0211). Pasa por acá todo lo que el curso le manda con su link: «Mandar su link» de la ficha, la
+ * etapa nueva, el previo y el posterior de una llamada, y el propio recordatorio.
+ *
+ * POR QUÉ (revisión del 07/10/2026): sin esto, el recordatorio no veía al cliente al que Mauricio
+ * le mandó el link desde la ficha y nunca lo abrió —no tiene invitación por mail ni ingresos—, que
+ * es el caso más típico de «nunca entró». Y mandar el link a mano no contaba como contacto: a quien
+ * invitaron por mail hace 10 días le podía llegar el recordatorio una hora después del link.
+ *
+ * ⚠️ NUNCA TIRA, y va DESPUÉS del envío: el mensaje ya salió, y un error acá haría que alguien lo
+ * mande de nuevo. Sin la mig 0211 la columna no existe y sólo queda el aviso en el log.
+ */
+async function anotarLinkEnviado(leadId: number): Promise<void> {
+  try {
+    const db = await getTenantDb();
+    const { error } = await db.from('curso_accesos').update({ link_enviado_at: new Date().toISOString() }).eq('lead_id', leadId).is('area', null);
+    if (error) console.warn(`[curso-mensajes] link al lead ${leadId}: salió y no pude anotarlo: ${error.message}`);
+  } catch (e) {
+    console.warn(`[curso-mensajes] link al lead ${leadId}: salió y no pude anotarlo:`, msg(e));
+  }
 }
 
 // ── 1. El link, a mano ───────────────────────────────────────────────────────
@@ -622,6 +664,368 @@ export async function correrAvisosDeSesiones(ahora: Date = new Date()): Promise<
       res.workspacesFallidos.push(ws);
       res.errores.push(`ws${ws}: ${msg(e)}`);
       console.error(`[curso-mensajes] ws${ws}:`, msg(e));
+    }
+  }
+  return res;
+}
+
+// ── 4. El recordatorio de clases (el cron, #780) ─────────────────────────────
+// Decisión de Martín (06/10/2026): por WhatsApp, a los 3 días sin entrar al portal, sólo los
+// videos sin ver de su etapa. Lo puro (a quién, cuándo, qué dice) vive en
+// lib/curso-mensajes-texto.ts; qué video cuenta como «sin ver», en `videosSinVer` (lib/curso.ts).
+//
+// ⚠️ EL ENVÍO DEL WS1 ESTÁ PRENDIDO: esto le escribe de verdad a los clientes de Mauricio. Por eso
+// el orden es el de las llamadas, con las mismas cinco reglas:
+//   1. SÓLO DESDE EL CRON. Ninguna pantalla, deploy ni migración lo dispara.
+//   2. El interruptor del negocio (`envio_whatsapp_enabled`) y su horario (9 a 21, su zona) se
+//      miran ANTES de todo; apagado o fuera de horario no se marca nada y se espera.
+//   3. NUNCA CREA UN ACCESO: el universo es quien ya recibió su acceso (la invitación por mail o su
+//      link por WhatsApp, `link_enviado_at`) o ya entró, y el link se firma sobre el acceso que
+//      existe (`destinoDe` con `sinCrearAcceso`), nunca con `linkDeAcceso`.
+//   4. Lo que se sabe SIN mandar (no hay videos pendientes, sin teléfono, sesión cerca, dado de
+//      baja) se mira ANTES de marcar: no marca, así nada queda cerrado por un dato que se arregla.
+//   5. LA MARCA CON COMPARE-AND-SET ANTES DE MANDAR (`recordatorio_at`, mig 0211), contra el valor
+//      recién leído: dos corridas del mismo tick no le mandan dos veces. Si el envío falla después,
+//      no se reintenta hasta el próximo turno — un recordatorio de menos se nota menos que dos.
+
+const TIPO_AVISO_RECORDATORIO = 'curso-recordatorio-clases';
+
+/**
+ * Cuántos recordatorios, como mucho, salen en UNA corrida (todos los negocios juntos). No es por la
+ * cuota de nadie: es el RITMO de la línea no oficial, que es lo que la protege de un baneo
+ * (AGENTS.md, «el WhatsApp del chatbot es el NO OFICIAL»). Si el día que se invita a los 14
+ * clientes les toca a todos a la vez, salen como mucho de a ocho por hora, y el resto en la corrida
+ * siguiente. En la práctica corta antes el RELOJ (`ultimoInicioDeRecordatorio`): con 120 s de
+ * función y la copia a Mauricio reservada quedan ~40 s para empezar envíos, unos 3 o 4 por hora.
+ */
+const TOPE_RECORDATORIOS_POR_CORRIDA = 8;
+
+export type ResultadoRecordatorios = {
+  /** Recordatorios que le LLEGARON al cliente (el envío contestó ok). */
+  enviados: number;
+  /** Se marcaron y el envío falló: el motivo queda en `recordatorio_motivo` y no se reintenta hasta el próximo turno. */
+  noLlegaron: number;
+  /** Le tocaba y no tiene videos sin ver en su etapa (o su etapa no tiene videos medibles): no se le escribe. */
+  alDia: number;
+  /** Graduado, baja o pausado en `cs_clientes`: no recibe nada. */
+  fueraDelPrograma: number;
+  /** Tiene una sesión de la entrega a menos de 48 h (antes o después): ya le escriben por ella. */
+  conSesionCerca: number;
+  /** No es cliente ganado, sin teléfono, bloqueado o sin acceso: se anota el motivo y NO se marca. */
+  sinDestino: number;
+  /** Fuera del horario del negocio: los toma la corrida siguiente. */
+  esperando: number;
+  /** El negocio tiene apagado el envío de WhatsApp: no se marca ni se avisa. */
+  apagados: number;
+  /** La lectura fresca dijo que ya no toca (entró recién, lo revocaron, u otra corrida lo tomó). */
+  yaNoToca: number;
+  /** Se cortó por el tope de la corrida (cantidad o tiempo): el resto, la hora siguiente. */
+  topeAlcanzado: boolean;
+  /** Copias a Mauricio que salieron (WhatsApp, mail o su resumen), y las que no salieron por ningún lado. */
+  avisosDueno: number;
+  avisosDuenoSinSalir: number;
+  /** Workspaces visitados, y los que fallaron enteros (la hora siguiente reintenta). */
+  workspaces: number;
+  workspacesFallidos: number[];
+  /** No se pudo leer `curso_accesos` (o la lista de workspaces): no se procesó nada. */
+  lecturaFallida: boolean;
+  /** La base todavía no tiene `recordatorio_at` (mig 0211 sin aplicar): no se recuerda nada. */
+  sinColumna: boolean;
+  errores: string[];
+};
+
+/** La fila de `curso_accesos` que lee el cron SIN inquilino: sólo para saber a quién visitar. */
+type FilaAccesoCruzada = {
+  id: number; workspace_id: number; lead_id: number; revocado_at: string | null; ingresos: number | null;
+  ultimo_ingreso_at: string | null; invitacion_enviada_at: string | null; link_enviado_at: string | null;
+  recordatorio_at: string | null;
+};
+const COLS_ACCESO_CRUZADA = 'id, workspace_id, lead_id, revocado_at, ingresos, ultimo_ingreso_at, invitacion_enviada_at, link_enviado_at, recordatorio_at';
+
+/** La misma fila, releída ADENTRO del workspace: es la que decide y contra la que se hace el CAS. */
+type FilaAccesoFresca = Omit<FilaAccesoCruzada, 'id' | 'workspace_id'> & { recordatorio_motivo: string | null };
+const COLS_ACCESO_FRESCA = 'lead_id, revocado_at, ingresos, ultimo_ingreso_at, invitacion_enviada_at, link_enviado_at, recordatorio_at, recordatorio_motivo';
+
+const paraRecordar = (f: Omit<FilaAccesoCruzada, 'id' | 'workspace_id'>): AccesoParaRecordar => ({
+  revocado: f.revocado_at != null,
+  ingresos: Number(f.ingresos) || 0,
+  ultimoIngresoAt: f.ultimo_ingreso_at ?? null,
+  invitacionEnviadaAt: f.invitacion_enviada_at ?? null,
+  linkEnviadoAt: f.link_enviado_at ?? null,
+  recordatorioAt: f.recordatorio_at ?? null,
+});
+
+/**
+ * ¿El error es que la base todavía no tiene las columnas de la mig 0211? Un `select` con una
+ * columna que no existe rechaza la consulta ENTERA: se distingue para decirlo (`sinColumna`) en vez
+ * de leerlo como «la base se cayó». Incluye `link_enviado_at`: si se aplicó la 0211 de antes de la
+ * revisión del 07/10/2026 (dos columnas), reaplicarla agrega la tercera.
+ */
+function faltaLaMarcaDeRecordatorio(mensaje: string): boolean {
+  return /recordatorio_(at|motivo)|link_enviado_at/.test(mensaje) || /\b42703\b/.test(mensaje);
+}
+
+/** ¿Ya no queda tiempo para empezar otro recordatorio (y que entre la copia a Mauricio)? */
+const sinTiempo = (ctl: ControlCorrida): boolean => Date.now() > ctl.hastaMs;
+
+type ControlCorrida = { intentos: number; hastaMs: number };
+type CacheCursos = { clases: Map<number, Clase[]>; rotulos: Map<number, Map<string, string>> };
+
+/**
+ * Los videos sin ver de su etapa ACTUAL, en cada curso que tiene (un bloque por producto con
+ * algo pendiente). Vacío = no hay nada que recordarle.
+ *
+ * La etapa sale de `etapaActualDe`: la regla del kanban (sin fila = la primera), la misma del
+ * portal y de los mensajes de las llamadas. Las clases y los rótulos se leen una vez por producto
+ * y por corrida: son los mismos para todos los clientes del negocio.
+ */
+async function videosPendientesDe(leadId: number, cache: CacheCursos): Promise<BloqueVideos[]> {
+  const productos = await productosDelAlumno(leadId);
+  const bloques: BloqueVideos[] = [];
+  let progreso: Map<number, Progreso> | null = null;
+  for (const productoId of productos) {
+    let clases = cache.clases.get(productoId);
+    if (!clases) { clases = await clasesDelProducto(productoId); cache.clases.set(productoId, clases); }
+    if (!clases.length) continue;
+    const etapa = await etapaActualDe(leadId, productoId, productos);
+    if (!etapa) continue;
+    const deLaEtapa = clases.filter((c) => c.etapa === etapa);
+    if (!deLaEtapa.length) continue;
+    progreso ??= await progresoDelCliente(leadId);
+    const visto = progreso;
+    const videos = videosSinVer(deLaEtapa, (id) => visto.get(id)?.pct);
+    if (!videos.length) continue;
+    let rotulos = cache.rotulos.get(productoId);
+    if (!rotulos) {
+      rotulos = new Map((await entregaDeProducto(productoId)).etapas.map((e) => [e.key, e.label]));
+      cache.rotulos.set(productoId, rotulos);
+    }
+    bloques.push({ etapa: rotulos.get(etapa) ?? etapa, videos: videos.map((c) => c.titulo) });
+  }
+  return bloques;
+}
+
+/**
+ * LA MARCA, CON COMPARE-AND-SET, ANTES DE MANDAR. Se escribe sólo si `recordatorio_at` sigue siendo
+ * el que se acaba de leer (y el acceso no se revocó en el medio): la segunda corrida del mismo tick
+ * no encuentra fila y no manda. `false` = otra la tomó.
+ */
+async function marcarRecordatorio(leadId: number, leido: string | null): Promise<boolean> {
+  const db = await getTenantDb();
+  const base = db.from('curso_accesos').update({ recordatorio_at: new Date().toISOString() })
+    .eq('lead_id', leadId).is('area', null).is('revocado_at', null);
+  const { data, error } = await (leido == null ? base.is('recordatorio_at', null) : base.eq('recordatorio_at', leido))
+    .select('lead_id');
+  if (error) throw new Error(`no pude marcar el recordatorio: ${error.message}`);
+  return ((data ?? []) as unknown[]).length > 0;
+}
+
+/**
+ * Anota por qué no le llegó el ÚLTIMO recordatorio (`null` = le llegó). Escribe sólo si cambió, y
+ * devuelve si cambió: es lo que hace que «no le pude escribir» le llegue a Mauricio UNA vez por
+ * motivo y no cada hora. Nunca tira: un motivo que no se anota no puede tumbar el recordatorio.
+ */
+async function anotarRecordatorio(leadId: number, previo: string | null, motivo: string | null): Promise<boolean> {
+  const nuevo = motivo ? motivo.replace(/\s+/g, ' ').trim().slice(0, 200) : null;
+  if ((previo ?? null) === nuevo) return false;
+  try {
+    const db = await getTenantDb();
+    const { error } = await db.from('curso_accesos').update({ recordatorio_motivo: nuevo }).eq('lead_id', leadId).is('area', null);
+    if (error) { console.error(`[curso-mensajes] recordatorio del lead ${leadId}: no pude anotar el motivo: ${error.message}`); return false; }
+    return true;
+  } catch (e) {
+    console.error(`[curso-mensajes] recordatorio del lead ${leadId}: no pude anotar el motivo:`, msg(e));
+    return false;
+  }
+}
+
+type Corrida = {
+  ahora: Date; res: ResultadoRecordatorios; ctl: ControlCorrida; cache: CacheCursos;
+  hechos: Array<RecordatorioHecho & { leadId: number }>;
+  sinEscribir: Array<RecordatorioSinEscribir & { leadId: number }>;
+};
+
+/** UN cliente. El orden es el del encabezado de la sección: lo que se sabe sin mandar, primero. */
+async function recordarA(
+  c: Corrida, leadId: number, f: FilaAccesoFresca | undefined, estado: string | null, sesiones: readonly string[],
+): Promise<void> {
+  const { ahora, res, ctl } = c;
+  if (!f || !tocaRecordatorio(paraRecordar(f), ahora)) { res.yaNoToca += 1; return; }
+  if (!sigueEnElPrograma(estado)) { res.fueraDelPrograma += 1; return; }
+  if (sesionCerca(sesiones, ahora)) { res.conSesionCerca += 1; return; }
+
+  // «Si no hay videos pendientes, no manda nada»: ni se marca ni se anota.
+  const bloques = await videosPendientesDe(leadId, c.cache);
+  if (!bloques.length) { res.alDia += 1; return; }
+
+  const d = await destinoDe(leadId, { envioOn: true, sinCrearAcceso: true });
+  if (!d.ok) {
+    res.sinDestino += 1;
+    if (await anotarRecordatorio(leadId, f.recordatorio_motivo, d.motivo)) {
+      const lead = await leerLead(leadId).catch(() => null);
+      c.sinEscribir.push({ leadId, cliente: (lead?.nombre ?? '').trim() || `cliente ${leadId}`, motivo: d.motivo });
+    }
+    return;
+  }
+  const texto = textoRecordatorioClases({ nombre: d.nombre, bloques, link: d.link });
+  if (!texto) { res.alDia += 1; return; }
+
+  // El tope va ANTES de la marca: un cliente que no entra en esta corrida no queda marcado. Y el
+  // reloj se vuelve a mirar acá, no sólo al llegar a este cliente: sus lecturas también tardan.
+  if (ctl.intentos >= TOPE_RECORDATORIOS_POR_CORRIDA || sinTiempo(ctl)) { res.topeAlcanzado = true; return; }
+  if (!(await marcarRecordatorio(leadId, f.recordatorio_at))) { res.yaNoToca += 1; return; }   // otra corrida lo tomó
+  ctl.intentos += 1;
+
+  let noLlego: string | null = null;
+  try {
+    const r = await mandar(d, leadId, texto);
+    if (!r.ok) noLlego = r.motivo ?? 'no salió';
+  } catch (e) {
+    // Ya está marcado: no se reintenta. Lo que queda es el motivo.
+    noLlego = 'falló el envío';
+    console.error(`[curso-mensajes] recordatorio del lead ${leadId}:`, msg(e));
+  }
+  await anotarRecordatorio(leadId, f.recordatorio_motivo, noLlego);
+  if (noLlego) res.noLlegaron += 1; else res.enviados += 1;
+  c.hechos.push({ leadId, cliente: (d.nombre ?? '').trim() || `cliente ${leadId}`, bloques, noLlego });
+}
+
+/** Los clientes de UN workspace a los que, según la lectura cruzada, les toca. Corre adentro de `runWithWorkspace(ws, …)`. */
+async function recordarEnWorkspace(ws: number, leadIds: number[], ahora: Date, res: ResultadoRecordatorios, ctl: ControlCorrida): Promise<void> {
+  // La hora del NEGOCIO, no la del server (UTC).
+  const tz = await tzDeWorkspace(ws);
+  if (!enHorarioDeMensajes(ahora, tz)) { res.esperando += leadIds.length; return; }
+  if (!(await envioWhatsappHabilitado())) { res.apagados += leadIds.length; return; }
+
+  // Tres lecturas para todo el negocio, adentro del inquilino. Si alguna falla, el negocio entero
+  // espera a la hora siguiente: no se decide a quién escribirle con la mitad de los datos.
+  const db = await getTenantDb();
+  const v = ventanaDeSesionCerca(ahora);
+  const [acc, est, ses] = await Promise.all([
+    db.from('curso_accesos').select(COLS_ACCESO_FRESCA).in('lead_id', leadIds).is('area', null),
+    db.from('cs_clientes').select('lead_id, estado').in('lead_id', leadIds),
+    db.from('curso_sesiones').select('lead_id, fecha').in('lead_id', leadIds).gte('fecha', v.desde).lte('fecha', v.hasta),
+  ]);
+  if (acc.error) throw new Error(`curso_accesos: ${acc.error.message}`);
+  if (est.error) throw new Error(`cs_clientes: ${est.error.message}`);
+  if (ses.error) throw new Error(`curso_sesiones: ${ses.error.message}`);
+  const accesos = new Map(((acc.data ?? []) as unknown as FilaAccesoFresca[]).map((f) => [Number(f.lead_id), f]));
+  const estados = new Map(((est.data ?? []) as Array<{ lead_id: number; estado: string | null }>).map((f) => [Number(f.lead_id), f.estado]));
+  const sesiones = new Map<number, string[]>();
+  for (const s of (ses.data ?? []) as Array<{ lead_id: number; fecha: string }>) {
+    const k = Number(s.lead_id);
+    if (!sesiones.has(k)) sesiones.set(k, []);
+    sesiones.get(k)!.push(String(s.fecha));
+  }
+
+  const c: Corrida = { ahora, res, ctl, cache: { clases: new Map(), rotulos: new Map() }, hechos: [], sinEscribir: [] };
+  for (const leadId of leadIds) {
+    // El reloj ANTES de cada cliente (revisión del 07/10/2026): sin tiempo no se empiezan ni sus
+    // lecturas, y lo que queda es de la copia a Mauricio de abajo — que tiene su tiempo reservado
+    // en `ultimoInicioDeRecordatorio` (lib/curso-mensajes-texto.ts).
+    if (sinTiempo(ctl)) res.topeAlcanzado = true;
+    if (res.topeAlcanzado) break;
+    // Un cliente que falla no corta a los demás del mismo negocio.
+    try {
+      await recordarA(c, leadId, accesos.get(leadId), estados.get(leadId) ?? null, sesiones.get(leadId) ?? []);
+    } catch (e) {
+      res.errores.push(`ws${ws} recordatorio lead ${leadId}: ${msg(e)}`);
+      console.error(`[curso-mensajes] ws${ws} recordatorio lead ${leadId}:`, msg(e));
+    }
+  }
+
+  // UNA copia a Mauricio por corrida, con todos: a quién se le recordó qué.
+  const texto = textoRecordatorioDueno({ hechos: c.hechos, sinEscribir: c.sinEscribir });
+  if (!texto) return;
+  const r = await emitirAviso({
+    ws,
+    tipo: TIPO_AVISO_RECORDATORIO,
+    titulo: TITULO_AVISO_RECORDATORIO,
+    texto,
+    categoria: 'aviso',
+    semaforo: c.sinEscribir.length || c.hechos.some((h) => h.noLlego) ? 'amarillo' : 'na',
+    link: '/customer-success',
+    dedupKey: claveAvisoRecordatorio(ws, [...c.hechos, ...c.sinEscribir].map((x) => x.leadId), ahora),
+    dedupTtlMin: 60,
+  });
+  if (r.deduped) return;
+  if (r.wa || r.email || r.agrupado) res.avisosDueno += 1;
+  else res.avisosDuenoSinSalir += 1;
+}
+
+/**
+ * Lo corre el cron horario (app/api/cron/curso-sesiones), DESPUÉS de las llamadas. Nunca tira: lo
+ * que falla vuelve en `errores`. `hastaMs` es la hora (epoch) a partir de la cual no se empieza
+ * ningún envío más: la función de Vercel tiene un tope y un envío por WhatsApp retiene segundos.
+ *
+ * ⚠️ LA ÚNICA LECTURA SIN INQUILINO ES LA DE ARRIBA, y sólo sirve para saber a quién visitar: todo
+ * lo que decide, lee el detalle o escribe va adentro de `runWithWorkspace(ws, …)`, con el
+ * workspace que dice LA FILA.
+ */
+export async function correrRecordatoriosDeClases(ahora: Date = new Date(), opts: { hastaMs?: number } = {}): Promise<ResultadoRecordatorios> {
+  const res: ResultadoRecordatorios = {
+    enviados: 0, noLlegaron: 0, alDia: 0, fueraDelPrograma: 0, conSesionCerca: 0, sinDestino: 0,
+    esperando: 0, apagados: 0, yaNoToca: 0, topeAlcanzado: false,
+    avisosDueno: 0, avisosDuenoSinSalir: 0, workspaces: 0, workspacesFallidos: [],
+    lecturaFallida: false, sinColumna: false, errores: [],
+  };
+  const ctl: ControlCorrida = { intentos: 0, hastaMs: opts.hastaMs ?? Number.POSITIVE_INFINITY };
+  if (Date.now() > ctl.hastaMs) { res.topeAlcanzado = true; return res; }
+
+  let filas: FilaAccesoCruzada[];
+  try {
+    // El universo: NO revocados, y con su acceso dado (invitación por mail o link por WhatsApp) o
+    // que ya entraron — el mismo de `enUniversoDeRecordatorio`. Paginado: es una fila por cliente
+    // de todos los negocios, y PostgREST corta en 1000 sin avisar.
+    filas = await leerTodo<FilaAccesoCruzada>(getSupabaseServer(), 'curso_accesos', COLS_ACCESO_CRUZADA, {
+      filtros: (q) => q.is('area', null).is('revocado_at', null).or('invitacion_enviada_at.not.is.null,link_enviado_at.not.is.null,ingresos.gt.0'),
+      orden: 'id',
+    });
+  } catch (e) {
+    if (faltaLaMarcaDeRecordatorio(msg(e))) {
+      console.warn('[curso-mensajes] curso_accesos sin recordatorio_at (mig 0211): el recordatorio de clases no corre');
+      res.sinColumna = true;
+      return res;
+    }
+    res.lecturaFallida = true;
+    res.errores.push(`no pude leer los accesos: ${msg(e)}`);
+    return res;
+  }
+
+  // A quién le toca se decide ANTES de visitar a nadie (puro): un negocio sin nadie a quien
+  // recordarle no se despierta.
+  const porWs = new Map<number, number[]>();
+  for (const f of filas) {
+    if (!tocaRecordatorio(paraRecordar(f), ahora)) continue;
+    const ws = Number(f.workspace_id);
+    if (!porWs.has(ws)) porWs.set(ws, []);
+    porWs.get(ws)!.push(Number(f.lead_id));
+  }
+  if (!porWs.size) return res;
+
+  // SÓLO WORKSPACES ACTIVOS, y fail-closed: un negocio pausado no le escribe a sus clientes.
+  let activos: Set<number>;
+  try {
+    activos = new Set((await listarWorkspaces()).filter((w) => w.estado === 'activo').map((w) => w.id));
+  } catch (e) {
+    res.lecturaFallida = true;
+    res.errores.push(`no pude leer los workspaces: ${msg(e)}`);
+    return res;
+  }
+
+  for (const [ws, leadIds] of porWs) {
+    if (!activos.has(ws)) continue;
+    // Un negocio que arranca sin tiempo no lee nada: la copia del anterior ya salió (va al final
+    // de `recordarEnWorkspace`) y éste no tendría a quién contarle.
+    if (sinTiempo(ctl)) res.topeAlcanzado = true;
+    if (res.topeAlcanzado) break;
+    res.workspaces += 1;
+    try {
+      await runWithWorkspace(ws, () => recordarEnWorkspace(ws, leadIds, ahora, res, ctl));
+    } catch (e) {
+      res.workspacesFallidos.push(ws);
+      res.errores.push(`ws${ws} recordatorios: ${msg(e)}`);
+      console.error(`[curso-mensajes] ws${ws} recordatorios:`, msg(e));
     }
   }
   return res;

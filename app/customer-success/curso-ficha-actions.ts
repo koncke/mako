@@ -40,17 +40,18 @@ import { colorDeEtapa } from '@/lib/servicio-etapas';
 import { linkApp } from '@/lib/app-url';
 import { firmarAccesoCurso } from '@/lib/curso-acceso';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
-import { invitarAlCursoPorEmail } from '@/lib/invitaciones';
+import { invitarAlCursoPorEmail, invitarLiderPorEmail } from '@/lib/invitaciones';
 import {
-  clasesDelProducto, claseDeId, progresoDelCliente, accesoDe, linkDeAcceso, urlDeToken, marcarInvitacion,
+  clasesDelProducto, claseDeId, progresoDelCliente, avanceDelCliente, accesoDe, linkDeAcceso, urlDeToken, marcarInvitacion,
   revocarAcceso, reactivarAcceso, sesionesDe, agendarSesion, borrarSesion, aprobarTarea, productosDelAlumno,
-  ubicacionEnEntregaDe, type EstadoAcceso, type Sesion,
+  ubicacionEnEntregaDe, accesosDeLideres, linkDeAccesoLider, linkDeLiderLeido,
+  type EstadoAcceso, type EstadoAccesoLider, type Sesion,
 } from '@/lib/curso-datos';
 import { mandarLinkDelCurso } from '@/lib/curso-mensajes';
-import type { Clase, EstadoTarea } from '@/lib/curso';
+import { nombreDeArea, type Clase, type EstadoTarea } from '@/lib/curso';
 import {
   armarProducto, avisoInvitacionCurso,
-  type AccesoFicha, type AvisoInvitacionCurso, type CursoDeCliente, type ProductoFicha,
+  type AccesoFicha, type AccesoLiderFicha, type AvisoInvitacionCurso, type CursoDeCliente, type ProductoFicha,
 } from './curso-ficha-lectura';
 
 type Fallo = { ok: false; error: string };
@@ -152,12 +153,14 @@ async function cursosDelCliente(leadId: number): Promise<{ ids: number[]; cursos
  * la cabecera de la misma ficha decía «Etapa borrada». `borrada` viaja a `armarProducto`, que no
  * marca ninguna y lo dice en la fila de Avance.
  */
-async function productosConCurso(leadId: number): Promise<ProductoFicha[]> {
+async function productosConCurso(leadId: number): Promise<{ productos: ProductoFicha[]; areas: string[] }> {
   const { ids, cursos } = await cursosDelCliente(leadId);
-  if (!cursos.length) return [];
-  const [entregas, progreso, actuales] = await Promise.all([
+  if (!cursos.length) return { productos: [], areas: [] };
+  // `avanceDelCliente` y no `progresoDelCliente`: trae además lo que contestó cada área y las áreas
+  // que declaró (#665), en la MISMA lectura.
+  const [entregas, avance, actuales] = await Promise.all([
     entregasDeProductos(cursos.map((c) => c.productoId)),
-    progresoDelCliente(leadId),
+    avanceDelCliente(leadId),
     Promise.all(cursos.map((c) => ubicacionEnEntregaDe(leadId, c.productoId, ids))),
   ]);
   const out: ProductoFicha[] = [];
@@ -169,13 +172,47 @@ async function productosConCurso(leadId: number): Promise<ProductoFicha[]> {
       // El color es el del kanban (`colorDeEtapa`, con sus fases), el mismo que la tabla Avance.
       etapas: (cfg?.etapas ?? []).map((e) => ({ key: e.key, label: e.label, color: colorDeEtapa(e, cfg?.fases ?? []) })),
       clases: c.clases,
-      progreso,
+      progreso: avance.progreso,
+      porArea: avance.porArea,
+      areas: avance.areas,
       etapaActual: actuales[i].etapa,
       etapaBorrada: actuales[i].borrada,
     });
     if (p) out.push(p);
   });
-  return out;
+  // Las áreas sólo importan si hay a qué invitar a un líder: alguna clase por área en su curso.
+  const conPorArea = cursos.some((c) => c.clases.some((x) => x.porArea === true));
+  return { productos: out, areas: conPorArea ? avance.areas : [] };
+}
+
+/** Los accesos de sus líderes, como los dibuja la ficha: leídos y firmados, sin escribir nada. */
+async function lideresActuales(leadId: number, ws: number | null): Promise<AccesoLiderFicha[]> {
+  return (await accesosDeLideres(leadId)).map((l) => aFichaLider(l, leadId, ws));
+}
+
+function aFichaLider(l: EstadoAccesoLider, leadId: number, ws: number | null): AccesoLiderFicha {
+  return {
+    area: l.area,
+    existe: true,
+    link: ws ? linkDeLiderLeido(l, ws, leadId) : null,
+    revocado: l.revocado,
+    ingresos: l.ingresos,
+    ultimoIngresoAt: l.ultimoIngresoAt,
+    email: l.email,
+    invitacionEnviadaAt: l.invitacionEnviadaAt,
+  };
+}
+
+/**
+ * El área pedida, si es UNA DE LAS SUYAS y su curso tiene clases por área. Lo que llega del
+ * navegador no se cree: un nombre inventado crearía el acceso de un líder de un área que no existe.
+ */
+async function areaDelCliente(leadId: number, pedida: unknown): Promise<{ ok: true; area: string } | Fallo> {
+  const area = nombreDeArea(pedida);
+  if (!area) return { ok: false, error: 'Falta el área.' };
+  const { areas } = await productosConCurso(leadId);
+  if (!areas.includes(area)) return { ok: false, error: 'Esa área no es de este cliente.' };
+  return { ok: true, area };
 }
 
 /**
@@ -192,11 +229,13 @@ export async function cursoDeClienteAction(leadId: number): Promise<{ ok: true; 
     const curso: CursoDeCliente = { nombre: p.lead.nombre, emailCrm: p.lead.email, productos: null, acceso: null, sesiones: null };
 
     const ws = await getWorkspaceActual();
-    const [productos, sesiones, acceso] = await Promise.allSettled([
-      productosConCurso(leadId), sesionesDe(leadId), accesoActual(leadId, ws),
+    const [productos, sesiones, acceso, lideres] = await Promise.allSettled([
+      productosConCurso(leadId), sesionesDe(leadId), accesoActual(leadId, ws), lideresActuales(leadId, ws),
     ]);
-    if (productos.status === 'fulfilled') curso.productos = productos.value;
-    else curso.errorProductos = productos.reason instanceof Error ? productos.reason.message : 'No pude leer sus clases.';
+    if (productos.status === 'fulfilled') {
+      curso.productos = productos.value.productos;
+      curso.areas = productos.value.areas;
+    } else curso.errorProductos = productos.reason instanceof Error ? productos.reason.message : 'No pude leer sus clases.';
     if (sesiones.status === 'fulfilled') curso.sesiones = sesiones.value;
     else curso.errorSesiones = sesiones.reason instanceof Error ? sesiones.reason.message : 'No pude leer sus llamadas.';
 
@@ -204,6 +243,8 @@ export async function cursoDeClienteAction(leadId: number): Promise<{ ok: true; 
     if (curso.productos?.length) {
       if (acceso.status === 'fulfilled') curso.acceso = acceso.value;
       else curso.errorAcceso = acceso.reason instanceof Error ? acceso.reason.message : 'No pude leer su acceso.';
+      // Los líderes: si la lectura falla, la ficha no los lista (y no ofrece nada sobre ellos).
+      if (lideres.status === 'fulfilled') curso.lideres = lideres.value;
     }
     return { ok: true, curso };
   } catch (e) {
@@ -354,16 +395,20 @@ export async function invitarAlCursoAction(leadId: number, email: string): Promi
   }
 }
 
-/** Corta su acceso: sube la versión y todos los links ya mandados dejan de abrir. */
-export async function cortarAccesoCursoAction(leadId: number): Promise<{ ok: true; acceso: AccesoFicha } | Fallo> {
+/**
+ * Corta su acceso: sube la versión y todos los links ya mandados dejan de abrir — también los de
+ * sus LÍDERES de área (`revocarAcceso` explica por qué), que vuelven releídos.
+ */
+export async function cortarAccesoCursoAction(leadId: number): Promise<{ ok: true; acceso: AccesoFicha; lideres: AccesoLiderFicha[] | null } | Fallo> {
   try {
     const p = await puerta(leadId);
     if (!p.ok) return p;
     await revocarAcceso(leadId);
-    const acceso = await accesoActual(leadId, await getWorkspaceActual());
+    const ws = await getWorkspaceActual();
+    const acceso = await accesoActual(leadId, ws);
     // Lo que QUEDÓ: si la fila no existía (nunca se le dio), revocar no hace nada y se dice.
     if (!acceso.revocado) return { ok: false, error: 'No tenía acceso para cortar.' };
-    return { ok: true, acceso };
+    return { ok: true, acceso, lideres: await lideresActuales(leadId, ws).catch(() => null) };
   } catch (e) {
     return mal(e, 'No se pudo cortar.');
   }
@@ -385,6 +430,110 @@ export async function habilitarAccesoCursoAction(leadId: number): Promise<{ ok: 
     return { ok: true, acceso };
   } catch (e) {
     return mal(e, 'No se pudo habilitar.');
+  }
+}
+
+// ── Los LÍDERES de área (#665) ─────────────────────────────────────────────────
+// «m6-m9 por área con link propio del líder de área» (Martín, 06/10/2026). El líder recibe un link
+// (`c2.`) que abre SÓLO las clases por área de SU área. ⛔ NUNCA una cuenta: ni `mako_session`, ni
+// fila en `usuarios`, ni la cookie del alumno — nada de acá llama a `crearUsuario`, a `invitarPorEmail`
+// (que es el de las cuentas) ni a la entrada del mail del cliente.
+
+/**
+ * ¿El acceso DEL CLIENTE está cortado? Mientras lo esté, ningún líder suyo nace ni se habilita:
+ * cortar al cliente (porque dejó de pagar) corta a los líderes que existen en ese momento, y un
+ * «Copiar link» o un «Volver a habilitar» después le abriría el portal a su gente igual. El portal
+ * tampoco lo abre (`resolverAccesoPortal`); esto es para no darle un link que no abre.
+ * Cortar a un líder sí se puede siempre.
+ */
+const CLIENTE_CORTADO = 'El acceso del cliente está cortado.';
+async function clienteCortado(leadId: number): Promise<boolean> {
+  return (await accesoDe(leadId))?.revocado === true;
+}
+
+/**
+ * Invita al LÍDER de un área por mail. El mismo orden que `invitarAlCursoAction`: la puerta, un email
+ * que sirva, que el área sea SUYA (de las que declaró, y con clases por área en su curso), el acceso
+ * del líder —creándolo, y si está cortado no se invita—, el mail, y SÓLO SI SALIÓ se anota. Después
+ * del envío nada puede tirar: un error haría que alguien lo reenvíe.
+ */
+export async function invitarLiderAction(leadId: number, area: string, email: string): Promise<{ ok: true; enviado: boolean; lideres: AccesoLiderFicha[] | null; aviso: AvisoInvitacionCurso } | Fallo> {
+  try {
+    const p = await puerta(leadId);
+    if (!p.ok) return p;
+    const correo = emailNormalizado(typeof email === 'string' ? email : '');
+    if (!emailUtilizable(correo)) return { ok: false, error: 'Ese email no sirve.' };
+    const ws = await getWorkspaceActual();
+    if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
+    const a = await areaDelCliente(leadId, area);
+    if (!a.ok) return a;
+    if (await clienteCortado(leadId)) return { ok: false, error: CLIENTE_CORTADO };
+
+    const autor = await autorActual();
+    const enlace = await linkDeAccesoLider(leadId, ws, a.area, autor);
+    if (!enlace) {
+      const cortado = (await accesoDe(leadId, a.area))?.revocado;
+      return { ok: false, error: cortado ? 'Su acceso está cortado. Primero vuelve a habilitarlo.' : 'No pude armar su link.' };
+    }
+    const { cursos } = await cursosDelCliente(leadId);
+    const negocio = (await getWorkspace(ws).catch(() => null))?.nombre?.trim() || null;
+    const programa = new Intl.ListFormat('es', { style: 'long', type: 'conjunction' }).format(cursos.map((c) => c.nombre));
+
+    const inv = await invitarLiderPorEmail({ email: correo, area: a.area, programa, negocio, enlace });
+
+    let anotado = false;
+    if (inv.enviado) {
+      try {
+        await marcarInvitacion(leadId, correo, autor, a.area);
+        anotado = true;
+      } catch (e) {
+        console.error('[curso] la invitación del líder salió y no se pudo anotar:', e instanceof Error ? e.message : e);
+      }
+    }
+    const lideres = await lideresActuales(leadId, ws).catch(() => null);
+    return { ok: true, enviado: inv.enviado, lideres, aviso: avisoInvitacionCurso(inv, anotado) };
+  } catch (e) {
+    return mal(e, 'No se pudo invitar.');
+  }
+}
+
+/** El link del líder de un área, CREANDO su acceso si no lo tenía: copiar un link es dárselo. */
+export async function linkDeLiderAction(leadId: number, area: string): Promise<{ ok: true; lideres: AccesoLiderFicha[]; link: string } | Fallo> {
+  try {
+    const p = await puerta(leadId);
+    if (!p.ok) return p;
+    const ws = await getWorkspaceActual();
+    if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
+    const a = await areaDelCliente(leadId, area);
+    if (!a.ok) return a;
+    if (await clienteCortado(leadId)) return { ok: false, error: CLIENTE_CORTADO };
+    const link = await linkDeAccesoLider(leadId, ws, a.area, await autorActual());
+    if (!link) return { ok: false, error: (await accesoDe(leadId, a.area))?.revocado ? 'Su acceso está cortado.' : 'No pude armar su link.' };
+    return { ok: true, lideres: await lideresActuales(leadId, ws), link };
+  } catch (e) {
+    return mal(e, 'No pude armar su link.');
+  }
+}
+
+/**
+ * Corta (o vuelve a habilitar) el acceso del líder de UN área. Se busca por su fila y no por las
+ * áreas que el cliente declara hoy: si renombró el área, el acceso viejo se tiene que poder cortar.
+ * Habilitar da un link NUEVO (la versión subió al cortar).
+ */
+export async function cambiarLiderAction(leadId: number, area: string, cual: 'cortar' | 'habilitar'): Promise<{ ok: true; lideres: AccesoLiderFicha[] } | Fallo> {
+  try {
+    const p = await puerta(leadId);
+    if (!p.ok) return p;
+    const nombre = nombreDeArea(area);
+    if (!nombre || !(await accesoDe(leadId, nombre))) return { ok: false, error: 'Ese líder no tiene acceso.' };
+    if (cual === 'cortar') await revocarAcceso(leadId, nombre);
+    else {
+      if (await clienteCortado(leadId)) return { ok: false, error: CLIENTE_CORTADO };
+      await reactivarAcceso(leadId, nombre);
+    }
+    return { ok: true, lideres: await lideresActuales(leadId, await getWorkspaceActual()) };
+  } catch (e) {
+    return mal(e, 'No se pudo.');
   }
 }
 

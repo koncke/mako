@@ -79,6 +79,8 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
     fathom: (lead.fathom_links ?? []) as FathomLink[],
     monto: lead.monto_cierre_usd ?? null, motivo: lead.motivo_perdida, setter: lead.setter ?? null,
     tienePlan, sinR1: !!lead.sin_r1, sinR2: !!lead.sin_r2, fathomOmitido: !!lead.fathom_omitido,
+    // El tipo de venta guardado: sin él, a un becado (#747) el wizard le pedía el monto.
+    ventaTipo: lead.venta_tipo ?? null,
   };
 
   const generar = () => {

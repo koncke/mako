@@ -10,7 +10,7 @@
 // no es un CDN. El precio está escrito en `VIDA_URL_VIDEO` (lib/curso-portal.ts): la URL firmada
 // sobrevive a revocar el acceso por ese rato.
 //
-// ⚠️ EL WORKSPACE SALE DE LA FIRMA DEL TOKEN (`leerAccesoCurso(t).ws`), nunca de un parámetro, y
+// ⚠️ EL WORKSPACE SALE DE LA FIRMA DEL TOKEN (`leerTokenPortal(t).ws`), nunca de un parámetro, y
 // todo corre adentro de `runWithWorkspace`. Y la ruta del archivo tiene que ser de ESE workspace
 // y de ESE producto: el bucket es uno para todos y la ruta sale de una fila. La regla es la MISMA
 // que usa el editor de la tab Curso al guardar (`pathEsDelProducto`, sobre la forma
@@ -21,11 +21,14 @@
 //
 // Es GET: entra por el prefijo público de lectura `/api/compartido` y no necesita estar en
 // PUBLICOS_ESCRITURA.
+//
+// ⚠️ EL TOKEN PUEDE SER EL DEL LÍDER DE UN ÁREA (#665, `c2.`): sólo le sirve el video de una clase
+// POR ÁREA (`claseDelAlumno` con `lider`), con la misma etapa abierta que el cliente.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
-import { leerAccesoCurso } from '@/lib/curso-acceso';
-import { resolverAcceso } from '@/lib/curso-datos';
+import { leerTokenPortal } from '@/lib/curso-acceso';
+import { resolverAccesoPortal } from '@/lib/curso-datos';
 import { getSupabaseServer } from '@/lib/supabase';
 import { BUCKET_CURSO } from '@/lib/curso-admin';
 import { pathEsDelProducto } from '@/app/customer-success/curso/reglas';
@@ -46,14 +49,14 @@ export async function GET(req: NextRequest) {
   const claseId = idDeClase(req.nextUrl.searchParams.get('c'));
   if (!claseId) return NO();
 
-  const firma = leerAccesoCurso(token);
+  const firma = leerTokenPortal(token);
   if (!firma) return NO();
 
   return runWithWorkspace(firma.ws, async () => {
-    const acceso = await resolverAcceso(token);
+    const acceso = await resolverAccesoPortal(token);
     if (!acceso) return NO();
     try {
-      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: true });
+      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: true, lider: acceso.area });
       if (r.decision !== 'ok') return NO();
       if (r.clase.videoTipo !== 'archivo' || !pathEsDelProducto(r.clase.videoPath, acceso.ws, r.clase.productoId)) return NO();
       const { data } = await getSupabaseServer().storage.from(BUCKET_CURSO).createSignedUrl(r.clase.videoPath!, VIDA_URL_VIDEO);

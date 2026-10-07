@@ -33,8 +33,14 @@
 // ⚠️ NO REPITE LO QUE LA TARJETA YA DICE MEJOR. No lleva portada ni números grandes: lleva
 // las mismas tres cuentas en columnas alineadas, que es lo único que cambia el modo de
 // leerlas.
+//
+// Y DOS COLUMNAS QUE LA TARJETA NO TIENE (#109, decisión de Martín del 06/10/2026, «Columnas +
+// alerta»): «Último contacto» y «Vencidas». Son las dos señales de un cliente que se enfría, y es en
+// la tabla donde se COMPARAN. Las dos se ordenan desde la barra («Ordenar»), que es como ordena
+// esta tabla; la alerta al dueño (cron cs-sin-contacto) usa la misma regla del contacto.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as DragReact } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as DragReact, type ReactNode } from 'react';
+import { haceCuanto } from '@/lib/cs-contacto';
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
 import type { Asignacion } from './KanbanEntrega';
@@ -158,6 +164,38 @@ function montarCopiaFila(tr: HTMLTableRowElement, clientX: number, clientY: numb
   document.addEventListener('dragend', fin, true);
   document.addEventListener('drop', fin, true);
   return fin;
+}
+
+/**
+ * La celda «Último contacto» (#109). Tres respuestas distintas, y ninguna se disfraza de otra:
+ * «—» = no se pudo leer (o la pantalla no lo trae), «Nunca» = se leyó y no hubo una sola llamada ni
+ * WhatsApp SUYO, y «hoy» / «ayer» / «hace N días». La regla de cuál es «el último» no vive acá: es
+ * `ultimoContacto` (lib/cs-contacto.ts), la misma de la alerta al dueño.
+ *
+ * ⚠️ «SUYO» (07/10/2026): lo que le mandamos —a mano o solo, como los recordatorios del curso— no
+ * mueve esta columna. Con los automáticos contando, decía «hace 2 días» de un cliente con quien
+ * nadie habló (ver la cabecera de lib/cs-contacto.ts).
+ */
+function celdaContacto(c: ClienteCruce): ReactNode {
+  const u = c.ficha?.contactoUltimo;
+  if (!u) return <span className="tc-vacio">—</span>;
+  if (!u.fecha) return <span className="tc-vacio">Nunca</span>;
+  // El reloj lo pone `haceCuanto` (su default), como `tiempoEnEtapa` en la columna de al lado: un
+  // `Date.now()` en el cuerpo del componente lo rechaza la regla de pureza de React.
+  return haceCuanto(u.fecha)?.texto ?? <span className="tc-vacio">—</span>;
+}
+
+/**
+ * El `title` de esa celda: POR DÓNDE fue. Sin la fecha a propósito: la hora de un WhatsApp
+ * formateada en el server (UTC) y en el navegador (la zona de quien mira) da dos días distintos
+ * de noche, y el atributo no coincidiría al hidratar.
+ */
+function tituloContacto(c: ClienteCruce): string | undefined {
+  const u = c.ficha?.contactoUltimo;
+  if (u === undefined) return undefined;
+  if (u === null) return 'No pude leer sus llamadas ni su WhatsApp';
+  if (!u.fecha) return 'Sin llamadas ni mensajes suyos';
+  return u.via === 'sesion' ? 'Fue en una llamada' : 'Te escribió por WhatsApp';
 }
 
 /** Lo que se arrastra: el cliente agarrado, o todos los seleccionados si él es uno. */
@@ -403,8 +441,9 @@ export function TablaClientes({
   const menuEtapa = opcionesDeEtapas(etapas ?? [], fases);
 
   // Las columnas que se DIBUJAN: lo mira el `colSpan` de la cabecera de cada grupo. Un
-  // número suelto es lo que hacía desbordar la fila plegada del Plan.
-  const cols = agrupada ? 8 : 6;
+  // número suelto es lo que hacía desbordar la fila plegada del Plan. Desde #109 suman dos
+  // («Último contacto» y «Vencidas»), en las dos formas de la tabla.
+  const cols = agrupada ? 10 : 8;
 
   const fila = (c: ClienteCruce, linea: string | null) => {
     const nombre = c.nombre.trim() || 'Sin nombre';
@@ -475,8 +514,19 @@ export function TablaClientes({
             {t ? t.corto : <span className="tc-vacio">—</span>}
           </td>
         )}
+        {/* ÚLTIMO CONTACTO (#109): la sesión o el WhatsApp más reciente, con la MISMA regla que la
+            alerta al dueño (lib/cs-contacto.ts). Tres cosas distintas y cada una se dice: «—» no
+            se pudo leer, «Nunca» se leyó y no hubo, y «hace N días». */}
+        <td className="tc-contacto" style={td} title={tituloContacto(c)}>{celdaContacto(c)}</td>
         <td className="num" style={td}>{n(r?.proyectos)}</td>
         <td className="num" style={td}>{n(r?.abiertas)}</td>
+        {/* VENCIDAS (#109): las tareas del Plan de este cliente con fecha pasada, que el tablero
+            ya calcula (`atrasadas`). En rojo SÓLO si hay alguna: un cero en rojo es una alarma
+            sobre nada. Sin tablero, un guion, como las otras tres. */}
+        <td className={`num${tableroOk && (r?.atrasadas ?? 0) > 0 ? ' tc-vencidas' : ''}`} style={td}
+          title={tableroOk && (r?.atrasadas ?? 0) > 0 ? 'Tareas del Plan con fecha pasada' : undefined}>
+          {n(r?.atrasadas)}
+        </td>
         <td className="num" style={td}>{n(r?.recurrentes)}</td>
       </tr>
     );
@@ -509,8 +559,10 @@ export function TablaClientes({
               <th>Empresa</th>
               {agrupada && <th className="tc-c-etapa">Etapa</th>}
               {agrupada && <th className="tc-c-desde">En la etapa</th>}
+              <th className="tc-c-contacto">Último contacto</th>
               <th className="num">Proyectos</th>
               <th className="num">Tareas</th>
+              <th className="num">Vencidas</th>
               <th className="num">Recurrentes</th>
             </tr>
           </thead>
@@ -578,8 +630,8 @@ const CSS = `
 /* Las medidas son las de la tabla del Plan: encabezado en mono de 10 px en mayusculas,
    celdas con 10 px de costado. El piso de ancho es la suma de lo que las columnas piden,
    para que en angosto aparezca la barra de la caja y no se aplasten los nombres. */
-.tc{ width:100%; min-width:680px; border-collapse:collapse; font-family:'Geist', sans-serif; font-size:13.5px; }
-.tc-agrupada{ min-width:940px; }
+.tc{ width:100%; min-width:860px; border-collapse:collapse; font-family:'Geist', sans-serif; font-size:13.5px; }
+.tc-agrupada{ min-width:1100px; }
 .tc th{ text-align:left; font-family:'Geist Mono', monospace; font-size:10px; letter-spacing:.08em;
   text-transform:uppercase; color:var(--faint); font-weight:700; padding:9px 10px;
   border-bottom:1px solid var(--border); background:var(--surface-2); white-space:nowrap; }
@@ -600,6 +652,11 @@ const CSS = `
 /* Hace cuanto: en rojo pasado el umbral, el mismo que la tarjeta del kanban. */
 .tc-desde{ color:var(--dim); white-space:nowrap; font-variant-numeric:tabular-nums; }
 .tc-desde-trabado{ color:var(--bad); font-weight:650; }
+/* Ultimo contacto y Vencidas (#109). La segunda en rojo SOLO con algo vencido: la clase la pone
+   la fila cuando el numero es mayor que cero. */
+.tc .tc-c-contacto{ width:128px; }
+.tc-contacto{ color:var(--dim); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.tc-vencidas{ color:var(--bad); font-weight:700; }
 
 /* La cabecera de cada grupo: la FilaPlegada del Plan, con el punto de la etapa. */
 .tc-g > td{ background:var(--surface-2); padding:0; border-bottom:1px solid var(--border); }

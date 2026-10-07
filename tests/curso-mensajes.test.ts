@@ -254,7 +254,17 @@ test('el cron MARCA con compare-and-set ANTES de mandar, y con el envío apagado
 
 test('el cron lee sin inquilino SÓLO para saber a quién visitar, y procesa adentro del workspace', () => {
   const src = sinComentarios(leer('lib/curso-mensajes.ts'));
-  assert.equal((src.match(/getSupabaseServer\(\)/g) ?? []).length, 1, 'una sola lectura cruzada');
+  // Dos lecturas cruzadas, UNA POR CRON y cada una adentro del suyo: la de las llamadas y la del
+  // recordatorio de clases (#780, que tiene sus guards en tests/curso-recordatorio.test.ts).
+  // Cualquier otra lectura sin inquilino es un cliente leyendo filas de otro. Probado rompiéndolo
+  // (07/10/2026): una tercera `getSupabaseServer()` adentro del negocio → este test cae (59/1).
+  assert.equal((src.match(/getSupabaseServer\(\)/g) ?? []).length, 2, 'una lectura cruzada por cron, y ninguna más');
+  const iSesiones = src.indexOf('export async function correrAvisosDeSesiones');
+  const iRecordatorio = src.indexOf('export async function correrRecordatoriosDeClases');
+  const cruzadas = [...src.matchAll(/getSupabaseServer\(\)/g)].map((m) => m.index ?? -1);
+  assert.ok(iSesiones > 0 && iRecordatorio > 0, 'no encontré los dos crons');
+  assert.ok(cruzadas.every((i) => (i > iSesiones && i < src.indexOf('\n}\n', iSesiones)) || (i > iRecordatorio && i < src.indexOf('\n}\n', iRecordatorio))),
+    'una lectura sin inquilino fuera de las dos funciones del cron');
   assert.match(src, /runWithWorkspace\(ws, \(\) => procesarWorkspace\(/);
   // El interruptor del negocio se mira antes de crear el acceso del cliente.
   const ini = src.indexOf('async function destinoDe');

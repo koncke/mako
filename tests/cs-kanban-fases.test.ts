@@ -674,9 +674,10 @@ test('el Escape de un campo o de la pregunta no cierra el editor', () => {
   assert.match(tecla, /if \(hayPaleta\) \{ ev\.stopPropagation\(\); setColorDe\(null\); return; \}/);
   assert.match(tecla, /if \(agarrada\.current\) \{ ev\.stopPropagation\(\); return; \}/, 'a mitad de un arrastre, tampoco');
   assert.match(tecla, /el\.value = el\.dataset\.eeEsc;\s*el\.blur\(\);/);
-  // Los cuatro campos llevan la marca: el título, el nombre de una etapa, el de una fase y
-  // el renglón nuevo.
-  assert.equal((EDITOR_CODIGO.match(/data-ee-esc=/g) ?? []).length, 4);
+  // Los cinco campos llevan la marca: el título, el nombre de una etapa, el de una fase, el
+  // renglón nuevo y el link de agenda de una etapa (#665, 06/10/2026). ROTO (07/10): sin la marca
+  // en el campo de agenda → 43 pass / 1 fail.
+  assert.equal((EDITOR_CODIGO.match(/data-ee-esc=/g) ?? []).length, 5);
 });
 
 // ROTO: 11 de la lista de arriba.

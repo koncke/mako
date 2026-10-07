@@ -143,6 +143,18 @@
 // Alt+↑ / Alt+↓ sobre su nombre. El destino es el espacio entre dos cajas (`.ee-entre`), y
 // ahí se abre el hueco. Un grupo con etapas se mueve entre los que tienen etapas y nunca
 // antes del de la entrada; uno vacío, entre los vacíos.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// EL LINK DE AGENDA DE UNA ETAPA (#665, 06/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// «El link de Calendly de la sesión aparece en el portal recién con la etapa completa» (decisión
+// de Martín). Cada fila lleva un calendario CALLADO como la ✕ (aparece con el cursor), que queda a
+// la vista y en color cuando la etapa ya tiene su link: así se ve de un vistazo cuáles lo tienen.
+// Abre un campo DEBAJO de la fila, no una columna más — una fila de 38 px no tiene lugar para un
+// link. Se guarda al salir del campo con el mismo respiro que un nombre, y un link que no es https
+// NO se guarda: se dice «Usa un link https.» y el campo se queda abierto con lo escrito.
+// ⚠️ Vacío lo SACA: es la forma de quitarle la agenda a una etapa.
+// El porqué de la traba blanda está en lib/servicio-etapas.ts (`agendaUrl`).
 
 import {
   Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState,
@@ -152,7 +164,7 @@ import { Modal, Confirm, Toast, useToast } from '@/app/_ui';
 import { CerrarIcon } from '@/app/crm/iconos';
 import { NEW_STAGE_PALETTE } from '@/lib/pipeline';
 import {
-  nuevaClaveEtapa, nuevaClaveFase, colorNuevaEtapa, normalizarEtapas, colorDeEtapa,
+  nuevaClaveEtapa, nuevaClaveFase, colorNuevaEtapa, normalizarEtapas, colorDeEtapa, agendaValida, MAX_AGENDA,
   type EtapaEntrega, type FaseEntrega,
 } from '@/lib/servicio-etapas';
 
@@ -254,6 +266,10 @@ const CSS = [
   '.ee-punto{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;padding:0;border-radius:50%;cursor:pointer}',
   '.ee-punto:hover>span,.ee-punto:focus-visible>span{outline:2px solid var(--border-strong);outline-offset:2px}',
   '.ee-vacia{margin:0;padding:10px 8px;border-radius:9px;border:1px solid transparent;font:400 12.5px/1.3 ' + SANS + ';color:var(--faint);text-align:center}',
+  // El campo del link de agenda: debajo de su fila, alineado con el nombre. (Sin el número de la
+  // tarea acá: el guard de los colores lee esta hoja y un numeral de tres cifras parece un color.)
+  '.ee-agenda{display:flex;flex-direction:column;gap:4px;padding:2px 6px 6px 38px}',
+  '.ee-agenda-nota{font:400 12px/1.3 ' + SANS + ';color:var(--faint)}',
 ].join('\n');
 
 /** El botoncito de una acción por fila (el de app/crm/EtapasModal.tsx). Sin texto: el
@@ -271,6 +287,17 @@ function AccionFila({ etiqueta, onClick, disabled, className, children }: {
         color: disabled ? 'var(--faint)' : 'var(--dim)', cursor: disabled ? 'default' : 'pointer',
       }}
     >{children}</button>
+  );
+}
+
+/** Un calendario: el link de agenda de la etapa. En color cuando la etapa ya lo tiene. */
+function AgendaIcon({ activa }: { activa: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={activa ? 'var(--primary)' : 'currentColor'}
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M8 3v4M16 3v4M3 10h18" />
+    </svg>
   );
 }
 
@@ -601,6 +628,9 @@ export function EtapasEntregaModal({
   const [renombrando, setRenombrando] = useState<string | null>(null);
   /** La fase con la paleta de color abierta. */
   const [colorDe, setColorDe] = useState<string | null>(null);
+  /** La etapa con el campo del link de agenda abierto, y por qué no se guardó lo escrito. */
+  const [agendaDe, setAgendaDe] = useState<string | null>(null);
+  const [malAgenda, setMalAgenda] = useState('');
   const [confirmar, setConfirmar] = useState<Confirmar | null>(null);
   const [ocupado, setOcupado] = useState(false);
   /** Lo que dice el lector de pantalla después de un Alt+↑ / Alt+↓. */
@@ -753,6 +783,26 @@ export function EtapasEntregaModal({
     // Sin cambio no se toca: el blur también llega con Escape, ya con el valor devuelto.
     if (!limpio || limpio === e.label) return;
     setLista((v) => v.map((x) => (x.key === e.key ? { ...x, label: limpio } : x)));
+  };
+
+  /**
+   * El link de agenda de una etapa, al salir del campo. Vacío lo saca; uno que no es https no se
+   * guarda y el campo se queda abierto (ver el encabezado). Sin cambio no se toca: el blur también
+   * llega con Escape, ya con el valor devuelto.
+   */
+  const guardarAgenda = (e: EtapaEntrega, valor: string) => {
+    const escrito = valor.trim();
+    if (!escrito) {
+      setMalAgenda('');
+      setAgendaDe(null);
+      if (e.agendaUrl) setLista((v) => v.map((x) => (x.key === e.key ? { ...x, agendaUrl: undefined } : x)));
+      return;
+    }
+    const link = agendaValida(escrito);
+    if (!link) { setMalAgenda('Usa un link https.'); return; }
+    setMalAgenda('');
+    setAgendaDe(null);
+    if (link !== e.agendaUrl) setLista((v) => v.map((x) => (x.key === e.key ? { ...x, agendaUrl: link } : x)));
   };
 
   /** La saca y ofrece devolverla — la MISMA, con su clave, en su lugar. */
@@ -1376,6 +1426,12 @@ export function EtapasEntregaModal({
                             <span style={{ flex: 1 }} />
                           </>
                         )}
+                        {/* El link de agenda (#665): callado sin link, a la vista y en color con él. */}
+                        <AccionFila className={e.agendaUrl ? undefined : 'ee-oculto'}
+                          etiqueta={e.agendaUrl ? 'Cambiar el link de agenda' : 'Agregar link de agenda'}
+                          onClick={() => { setMalAgenda(''); setAgendaDe((k) => (k === e.key ? null : e.key)); }}>
+                          <AgendaIcon activa={!!e.agendaUrl} />
+                        </AccionFila>
                         <span title="Clientes en esta columna"
                           style={{ flex: 'none', minWidth: 22, textAlign: 'right', fontSize: 12.5, fontWeight: 500, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>
                           {conteo[e.key] ?? 0}
@@ -1391,6 +1447,21 @@ export function EtapasEntregaModal({
                             onClick={() => sacar(e)}><CerrarIcon /></AccionFila>
                         ) : <span style={{ width: 28, flex: 'none' }} aria-hidden />}
                       </div>
+                      {/* El campo del link de agenda, DEBAJO de su fila (ver el encabezado). Sin
+                          `data-slot`: no es un lugar donde soltar. */}
+                      {agendaDe === e.key && (
+                        <div className="ee-agenda" data-nodrag>
+                          <input
+                            autoFocus type="url" inputMode="url" defaultValue={e.agendaUrl ?? ''} maxLength={MAX_AGENDA}
+                            placeholder="https://calendly.com/…" data-ee-esc={e.agendaUrl ?? ''}
+                            aria-label={'Link para agendar la sesión de ' + e.label}
+                            onBlur={(ev) => guardarAgenda(e, ev.target.value)}
+                            onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
+                            style={{ ...INPUT, fontSize: 13, fontWeight: 400 }}
+                          />
+                          <span className="ee-agenda-nota">{malAgenda || 'Aparece cuando completa la etapa.'}</span>
+                        </div>
+                      )}
                       </Fragment>
                     );
                   })}

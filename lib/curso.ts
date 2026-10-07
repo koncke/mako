@@ -46,11 +46,50 @@ export type Clase = {
   tarea: string;
   campos: Campo[];
   obligatoria: boolean;
+  /**
+   * ¿Su tarea se contesta UNA VEZ POR ÁREA del cliente? (#665, mig 0212). Las áreas son las que el
+   * cliente declaró en su tabla de áreas y responsables (`areasDelCliente`); el líder de cada área
+   * la ve con su propio link. Ausente = false: es lo que había antes de la 0212, y así ningún
+   * literal de una clase (los tests, la vista previa) tiene que saber que existe.
+   */
+  porArea?: boolean;
 };
 
 /** Un valor de un campo: texto, varias opciones, o una tabla (filas x columnas). */
 export type ValorCampo = string | string[] | string[][];
 export type Valores = Record<string, ValorCampo>;
+
+// ── La propuesta de la IA (paso 5 de #665, mig 0213) ─────────────────────────
+// Vive ACÁ y no en lib/curso-propuesta.ts porque la dibujan pantallas del navegador (la ficha, el
+// portal), y aquel módulo trae los prompts: un import de valor desde un 'use client' los bajaría
+// en el bundle. Las reglas (qué se propone, qué valida) siguen allá.
+
+/**
+ * `pendiente` = la IA propuso y el cliente todavía no hizo nada. `aprobada` = la aprobó tal cual
+ * (su respuesta pasó a ser la de la IA). `corregida` = mandó SU versión después de verla (la
+ * corrigió, o se quedó con la suya). Sin propuesta, la fila no tiene estado (`null`).
+ */
+export type EstadoPropuesta = 'pendiente' | 'aprobada' | 'corregida';
+export const ESTADOS_PROPUESTA: readonly EstadoPropuesta[] = ['pendiente', 'aprobada', 'corregida'];
+
+/** Lo que el EQUIPO ve en la ficha. Corto: es un chip. */
+export const ROTULO_PROPUESTA: Record<EstadoPropuesta, string> = {
+  pendiente: 'IA por aprobar',
+  aprobada: 'IA aprobada',
+  corregida: 'IA corregida',
+};
+
+/** La propuesta de la IA sobre UNA respuesta (una fila de `curso_progreso`). */
+export type PropuestaIA = {
+  valores: Valores;
+  estado: EstadoPropuesta;
+  /** Cuándo se propuso. Es el TOKEN del compare-and-set al aprobar (`ia_propuesta_at`). */
+  desde: string;
+  /** De qué grabación salió (`closing_analyses.recording_id`). */
+  recordingId: number | null;
+  /** Cuándo la aprobó o la corrigió. */
+  resueltaAt: string | null;
+};
 
 export type Progreso = {
   claseId: number;
@@ -61,6 +100,12 @@ export type Progreso = {
   valores: Valores;
   estado: EstadoTarea;
   enviadaAt: string | null;
+  /**
+   * La propuesta de la IA sobre esta respuesta (paso 5 de #665, mig 0213). Ausente = esta lectura
+   * no la trae (la tabla Avance de la tab no la pide); `null` = no hay. Nunca es `valores`: la IA
+   * propone al lado y el cliente decide (lib/curso-propuesta.ts).
+   */
+  ia?: PropuestaIA | null;
 };
 
 // ── El video ──────────────────────────────────────────────────────────────────
@@ -220,6 +265,32 @@ export function vistoDeEtapa<T extends Pick<Clase, 'id' | 'videoTipo' | 'videoUr
   return { pct, sinMedir: conVideo.length - medibles.length, medibles: medibles.length };
 }
 
+/**
+ * Los videos de UNA etapa que el cliente todavía NO vio, en el orden de la etapa. Es lo que
+ * nombra el recordatorio de clases (#780, lib/curso-mensajes.ts → `correrRecordatoriosDeClases`).
+ *
+ *   · Sólo clases con un video que se DIBUJA (`reproductorDeClase`): una clase sin video —o con
+ *     un link que no se reconoce— no es un video que se pueda ver, y pedírselo es mandarlo a
+ *     buscar algo que no está.
+ *   · Medible (YouTube, Vimeo, archivo): no visto = por debajo del umbral. El umbral es
+ *     `PCT_VISTO`, el mismo con el que la tab y la ficha dicen «visto»: dos umbrales y el
+ *     recordatorio le pediría al cliente un video que su pantalla ya marca como visto.
+ *   · ⚠️ SIN MEDIR (Drive, Loom, un link que se abre afuera) NO CUENTA COMO NO VISTO. No se puede
+ *     saber si lo vio, y «te falta ver X» sobre algo que pudo haber visto entero es un mensaje
+ *     que afirma lo que no se midió — y le enseña al cliente a ignorar los demás. Es la misma
+ *     regla de `ROTULO_SIN_MEDIR`: nunca «0%», que se lee «no lo vio».
+ */
+export function videosSinVer<T extends Pick<Clase, 'id' | 'videoTipo' | 'videoUrl' | 'videoPath'>>(
+  clasesDeEtapa: readonly T[],
+  pctDe: (claseId: number) => number | undefined,
+  umbral: number = PCT_VISTO,
+): T[] {
+  return clasesDeEtapa.filter((c) => {
+    const r = reproductorDeClase(c);
+    return r.video != null && r.medible && (pctDe(c.id) ?? 0) < umbral;
+  });
+}
+
 // ── La tarea ──────────────────────────────────────────────────────────────────
 
 /** ¿La clase pide algo? Una instrucción de llenado o un formulario. */
@@ -278,6 +349,14 @@ export function conteoDeEtapa<T extends Pick<Clase, 'id' | 'obligatoria' | 'tare
  * terminó». Si se tomara como completa, un cliente que entra a una etapa sin tareas cargadas
  * saltaría a la siguiente en el acto, y de ahí a la otra, hasta la primera que tenga algo —
  * sin haber visto nada. Ahí lo mueve Mauricio a mano.
+ *
+ * ⚠️ UNA OBLIGATORIA POR ÁREA EXIGE TODAS LAS ÁREAS (#665), y eso NO se decide acá sino en el
+ * `estadoDe` que llega: el progreso de una clase por área sale de `progresoEfectivo`, que la da
+ * por enviada sólo cuando la enviaron TODAS las áreas del cliente. Así lo cumplen solos los seis
+ * que preguntan por una etapa (el paso automático, el portal, la ficha, la tab, el cron y la API)
+ * sin que ninguno tenga que saber que hay áreas: la capa de datos les da ese progreso
+ * (`progresoDelCliente`, lib/curso-datos.ts). Una segunda regla acá, con áreas, sería la copia que
+ * diverge.
  */
 export function etapaCompleta<T extends Pick<Clase, 'id' | 'obligatoria' | 'tarea' | 'campos'>>(
   clasesDeEtapa: readonly T[],
@@ -389,4 +468,115 @@ export function respuestaCompleta(c: Pick<Clase, 'tarea' | 'campos'>, valores: V
   return obligatorios.length
     ? obligatorios.every((x) => campoLleno(x, valores[x.id]))
     : c.campos.some((x) => campoLleno(x, valores[x.id]));
+}
+
+// ── Por área (#665, mig 0212) ─────────────────────────────────────────────────
+// Los formularios de palancas, evidencia, umbrales y carta (m6-m9 del programa de Mauricio) se
+// contestan UNA VEZ POR ÁREA del cliente, y el de umbrales lo contesta el LÍDER de cada área con su
+// propio link. Decisión de Martín del 06/10/2026 («m6-m9 por área con link propio del líder»).
+
+/**
+ * El campo donde el cliente lista sus áreas: la tabla «Lista las áreas o funciones que existen
+ * hoy… Al lado, quién responde» del formulario «Tus áreas y quién responde» (m1c2, etapa
+ * Contexto). La primera columna es el área.
+ *
+ * ⚠️ SE BUSCA POR EL ID DEL CAMPO, NO POR LA CLASE: `COLUMNAS_CLASE` no trae el `origen` y el id
+ * de un campo no cambia al editar la clase (el editor de la tab Curso lo conserva, ver
+ * app/customer-success/curso/reglas.ts). Si Mauricio le cambiara el id a ese campo, ningún
+ * cliente tendría áreas y todo volvería a contestarse una vez — lo fija el test de la semilla.
+ */
+export const CAMPO_AREAS = 'areas-y-responsables';
+/** Cuántas áreas se toman como mucho: la tabla no tiene tope y cada una es un formulario más. */
+export const MAX_AREAS = 20;
+/** El largo de un nombre de área. Lo mismo exige la base (mig 0212). */
+export const MAX_LARGO_AREA = 80;
+
+/**
+ * Un nombre de área como se guarda: sin espacios de más, en NFC y topeado. `''` = no es un área.
+ *
+ * ⚠️ ESTE STRING ES UNA CLAVE (`curso_progreso.area`, `curso_accesos.area`): un acento o un espacio
+ * doble lo parten en dos áreas (AGENTS.md, «Un nombre derivado de datos es una CLAVE»). Por eso se
+ * normaliza en UN lugar y todos los que comparan un área la pasan por acá.
+ */
+export function nombreDeArea(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  return raw.normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, MAX_LARGO_AREA).trim();
+}
+
+/** Para no repetir un área que se escribió dos veces con otra mayúscula o sin acento. */
+const comparable = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+/**
+ * Las áreas que contestó el cliente: la primera columna de cada fila de su tabla de áreas, en el
+ * orden en que las escribió, sin repetir (gana la primera forma escrita). Lo guardado como
+ * borrador también cuenta: las áreas son un dato del cliente, no una tarea que alguien revisa.
+ *
+ * Recibe las respuestas DEL CLIENTE (las filas con área `''`). Si dos clases tuvieran el campo,
+ * se juntan en el orden de las clases: elegir una sería tirar las áreas de la otra.
+ */
+export function areasDelCliente(respuestas: Iterable<{ claseId: number; valores: Valores }>): string[] {
+  const out: string[] = [];
+  const vistas = new Set<string>();
+  const filas = [...respuestas].filter((p) => Array.isArray(p.valores?.[CAMPO_AREAS])).sort((a, b) => a.claseId - b.claseId);
+  for (const p of filas) {
+    for (const fila of p.valores[CAMPO_AREAS] as unknown[]) {
+      const area = nombreDeArea(Array.isArray(fila) ? fila[0] : null);
+      const k = comparable(area);
+      if (!area || vistas.has(k)) continue;
+      vistas.add(k);
+      out.push(area);
+      if (out.length >= MAX_AREAS) return out;
+    }
+  }
+  return out;
+}
+
+/**
+ * El estado de una tarea por área, mirando TODAS las áreas del cliente: enviada sólo si la
+ * enviaron todas (revisada si además el equipo las revisó todas). Un área que no contestó deja la
+ * tarea pendiente: «falta Operación» no es «ya está».
+ */
+export function estadoDeAreas(estados: readonly (EstadoTarea | undefined)[]): EstadoTarea {
+  if (!estados.length || !estados.every((e) => enviada(e))) return 'pendiente';
+  return estados.every((e) => e === 'aprobada') ? 'aprobada' : 'enviada';
+}
+
+/**
+ * El progreso que CUENTA de cada clase, con las clases por área resueltas: lo que leen todos los
+ * que preguntan si una tarea está enviada o una etapa completa (`etapaCompleta`, `conteoDeEtapa`,
+ * `pendientesDe`, el paso automático).
+ *
+ *   · Una clase que no es por área: su fila de siempre (la del cliente, área `''`).
+ *   · Una clase por área, con el cliente SIN áreas declaradas: también su fila de siempre — se
+ *     contesta una vez, como antes de la 0212. Sin esto, un cliente que todavía no llenó su tabla
+ *     de áreas no podría cerrar nunca una etapa con una obligatoria por área.
+ *   · Una clase por área con áreas: el estado de TODAS (`estadoDeAreas`). Lo demás (cuánto vio
+ *     del video, que es del cliente y no de un área) sale de su fila de siempre.
+ *
+ * ⚠️ UN ÁREA QUE YA NO ESTÁ EN SU TABLA NO CUENTA, y una respuesta suya no se borra: si el cliente
+ * renombra «Ventas» a «Comercial», la etapa espera a «Comercial» (el nombre es la clave; ver
+ * `nombreDeArea`). Lo contestado como «Ventas» sigue en la base y la ficha lo muestra.
+ *
+ * ⚠️ `valores` ES EL DEL CLIENTE (área `''`), nunca el de un área: lo que contestó cada área viaja
+ * aparte (`porArea`) y sólo a quien le toca verlo.
+ */
+export function progresoEfectivo(
+  delCliente: ReadonlyMap<number, Progreso>,
+  porArea: ReadonlyMap<number, ReadonlyMap<string, Progreso>>,
+  clasesPorArea: ReadonlySet<number>,
+  areas: readonly string[],
+): Map<number, Progreso> {
+  const out = new Map(delCliente);
+  if (!areas.length) return out;
+  for (const id of clasesPorArea) {
+    const deAreas = porArea.get(id);
+    const propia = delCliente.get(id);
+    const filas = areas.map((a) => deAreas?.get(a));
+    if (!propia && !filas.some(Boolean)) { out.delete(id); continue; }
+    const estado = estadoDeAreas(filas.map((f) => f?.estado));
+    const fechas = filas.map((f) => f?.enviadaAt).filter((x): x is string => !!x).sort();
+    const base: Progreso = propia ?? { claseId: id, segundosMax: 0, duracionSeg: null, pct: 0, vistoAt: null, valores: {}, estado: 'pendiente', enviadaAt: null };
+    out.set(id, { ...base, estado, enviadaAt: estado === 'pendiente' ? null : fechas.at(-1) ?? null });
+  }
+  return out;
 }

@@ -38,10 +38,12 @@ import { TablaClientes } from './TablaClientes';
 import { LoteClientes } from './LoteClientes';
 import { esDelProducto } from './pertenencia';
 import { ordenarManual, columnaConInsercion, mismaLista } from './orden-manual';
-import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction, quitarDeProductoAction, volverAProductoAction, ordenarEtapaAction } from './actions';
+import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction, quitarDeProductoAction, volverAProductoAction, ordenarEtapaAction, anotarFichaAbiertaAction } from './actions';
 import { atajar } from './sin-red';
 import { filasCSV, textoCSV } from './exportar';
 import { hrefConFicha } from './url-ficha';
+import { ChecklistClientes } from './ChecklistClientes';
+import { listaVisible, type OnboardingClientes } from './onboarding-clientes';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
@@ -64,7 +66,7 @@ const FILTRO_SIN_CUENTAS = Object.fromEntries(
   Object.entries(FILTRO_LABEL).filter(([k]) => k !== 'con-cuenta' && k !== 'sin-cuenta'),
 ) as Partial<typeof FILTRO_LABEL>;
 
-export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false, clienteInicial = null }: {
+export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false, onboarding = null, clienteInicial = null }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
    *  cliente. Ese orden es el que numera («Cliente 1»); la grilla se ordena aparte. */
   clientes: ClienteCruce[];
@@ -98,6 +100,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * `lista`) y el efecto de la URL lo limpia.
    */
   clienteInicial?: number | null;
+  /**
+   * El onboarding de la tab (#109), como lo dejó anotado la página con lo que dicen los datos
+   * (./onboarding-clientes-sync.ts). `null` = no se pudo leer, y entonces no hay lista: pedirle al
+   * ws1 su catálogo y su cartera sobre una lectura caída sería taparle lo que ya tiene.
+   */
+  onboarding?: OnboardingClientes | null;
 }) {
   /**
    * El alta, y EN QUÉ ETAPA se apretó.
@@ -255,6 +263,18 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   const cmp = (a: ClienteCruce, b: ClienteCruce) => {
     if (criterio === 'abiertas') return (resumenDe(b.leadId)?.abiertas ?? 0) - (resumenDe(a.leadId)?.abiertas ?? 0);
     if (criterio === 'proyectos') return (resumenDe(b.leadId)?.proyectos ?? 0) - (resumenDe(a.leadId)?.proyectos ?? 0);
+    // Las dos columnas de la cartera (#109). «Mayor primero» es lo que pide atención: más tareas
+    // vencidas, y más tiempo sin hablar.
+    if (criterio === 'vencidas') return (resumenDe(b.leadId)?.atrasadas ?? 0) - (resumenDe(a.leadId)?.atrasadas ?? 0);
+    if (criterio === 'contacto') {
+      const ta = contactoMs(a);
+      const tb = contactoMs(b);
+      // «No pude leer» va al final en las DOS direcciones (por eso devuelve `signo`, que la
+      // dirección vuelve positivo): no es ni el más callado ni el más reciente.
+      if (ta === null || tb === null) return ta === tb ? 0 : ta === null ? signo : -signo;
+      // El más viejo primero; «nunca hubo» (−∞) antes que todos.
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
+    }
     // Antigüedad = el orden de alta, que es el que numera. Sale del `leadId`.
     // Cuándo se ganó, con la fecha REAL (`leads.fecha_cierre`). Antes salía del
     // número de cliente, que es el orden de CARGA al CRM: dos ganados el mismo mes
@@ -264,8 +284,11 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
       const fa = a.fechaCierre ? Date.parse(a.fechaCierre) : NaN;
       const fb = b.fechaCierre ? Date.parse(b.fechaCierre) : NaN;
       if (Number.isNaN(fa) && Number.isNaN(fb)) return 0;
-      if (Number.isNaN(fa)) return 1;
-      if (Number.isNaN(fb)) return -1;
+      // ⚠️ `signo` Y NO `1` (06/10/2026): el resultado se multiplica por la dirección más abajo, así
+      // que con un `1` fijo los sin fecha iban al final en «mayor primero» y AL PRINCIPIO en
+      // «menor primero» — lo contrario de lo que este comentario siempre prometió.
+      if (Number.isNaN(fa)) return signo;
+      if (Number.isNaN(fb)) return -signo;
       return fb - fa;
     }
     // El nombre es el único que se lee natural de la A a la Z, así que su «mayor
@@ -339,6 +362,32 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
       if (destino !== pathname + search + hash) window.history.replaceState(null, '', destino);
     } catch { /* sin URL no se pierde nada: la ficha vive en React igual */ }
   }, [idEnUrl]);
+
+  /**
+   * EL ENSAYO DEL ONBOARDING (#109): abrir una ficha. Es lo único de la lista que no se lee de la
+   * base, así que se anota la PRIMERA vez que pasa en la sesión y sólo si el paso no estaba hecho.
+   *
+   * ⚠️ SE ENGANCHA A LO QUE SE VE (`idEnUrl`), no a cada `setAbiertoId`: hay cuatro caminos que
+   * abren una ficha (la tabla, el kanban, «Ver su equipo» y el `?cliente=` de la URL) y un quinto
+   * mañana. Un efecto sobre el resultado no tiene caminos que olvidar.
+   */
+  const [fichaVista, setFichaVista] = useState(false);
+  const fichaAnotada = useRef(false);
+  useEffect(() => {
+    if (idEnUrl == null || !onboarding || onboarding.cs_ficha || fichaAnotada.current) return;
+    fichaAnotada.current = true;
+    empezar(async () => {
+      // Corre sola: si falla no se interrumpe a nadie, y la próxima carga lo vuelve a intentar.
+      const r = await atajar(anotarFichaAbiertaAction(), 'No se pudo anotar.');
+      if (r.ok) setFichaVista(true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idEnUrl]);
+  /** Lo anotado, con lo que pasó en esta sesión encima. `null` = no se dibuja nada. */
+  const pasosOnb: OnboardingClientes | null = onboarding
+    ? { ...onboarding, cs_ficha: onboarding.cs_ficha || fichaVista }
+    : null;
+  const conLista = listaVisible(pasosOnb);
 
   /** Guarda la foto o la portada. Lo que se pinta es lo que el server dijo que quedó
    *  guardado, no lo que se pidió: si el saneo descartó la URL, se tiene que ver. */
@@ -780,6 +829,16 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
       {!error && entrega && !entrega.ok && <Banner tono="bad">No pude leer la entrega de tus servicios. {entrega.error}</Banner>}
       {mal && <Banner tono="bad">{mal}</Banner>}
 
+      {/* EL ONBOARDING DE LA TAB (#109): una lista arriba de la cartera mientras falte algo, y se
+          va sola. No tapa nada — el ws1 entra con todo hecho y no la ve. */}
+      {!error && conLista && pasosOnb && (
+        <ChecklistClientes
+          estado={pasosOnb}
+          onCargar={() => setCreando('')}
+          onAbrirFicha={lista.length ? () => { setAbrirEn(null); setAbiertoId(lista[0].leadId); } : undefined}
+        />
+      )}
+
       {error ? (
         <ErrorState titulo="No pude leer tus clientes" detalle={error} detalleTecnico={error} />
       ) : lista.length === 0 ? (
@@ -867,7 +926,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               El kanban ni se ofrece en ese caso, así que sin este renglón la persona ve
               una tabla y no se entera de que la vista de etapas existe ni de qué le
               falta para tenerla — que es la única acción que hay acá. */}
-          {!hayKanban && entrega?.ok && (
+          {/* Con la lista del onboarding a la vista, ella ya lo dice («Tu servicio»): dos renglones
+              pidiendo lo mismo se leen como dos cosas que faltan. */}
+          {!hayKanban && entrega?.ok && !conLista && (
             <p className="cl-nada">
               Para ver la entrega en etapas, carga tus servicios en el catálogo de productos.
             </p>
@@ -1086,6 +1147,18 @@ function exportarCSV(
 
 /** Un lead ganado puede tener el nombre vacío: la tarjeta necesita algo que decir. */
 const nombreDe = (c: ClienteCruce): string => c.nombre.trim() || 'Sin nombre';
+
+/**
+ * Para ordenar por «Último contacto»: el instante de la última conversación. `-Infinity` = se leyó
+ * y nunca hubo (el más callado de todos); `null` = no se pudo leer, que no es ninguno de los dos.
+ */
+const contactoMs = (c: ClienteCruce): number | null => {
+  const u = c.ficha?.contactoUltimo;
+  if (!u) return null;
+  if (!u.fecha) return -Infinity;
+  const t = Date.parse(u.fecha);
+  return Number.isFinite(t) ? t : null;
+};
 
 const CSS = `
 /* ⛔ ACA vivian las reglas de la grilla de tarjetas y el porque de su tope de 1180

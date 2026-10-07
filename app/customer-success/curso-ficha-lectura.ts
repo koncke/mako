@@ -23,7 +23,7 @@
 
 import {
   PCT_VISTO, ROTULO_SIN_MEDIR, conteoDeEtapa, reproductorDeClase, tieneTarea,
-  type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores,
+  type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores, type EstadoPropuesta,
 } from '@/lib/curso';
 import type { Sesion } from '@/lib/curso-datos';
 import { motivoDeFase } from '@/lib/curso-mensajes-texto';
@@ -206,6 +206,12 @@ export type ClaseFicha = {
   medicion: Medicion;
   /** `null` = nunca la abrió ni contestó nada (no tiene fila en `curso_progreso`). */
   progreso: Progreso | null;
+  /**
+   * Una clase POR ÁREA (#665): lo que contestó cada área, una por una. Van las áreas que declaró
+   * HOY y además las que contestaron con un nombre que ya no está en su tabla (lo renombró): lo
+   * contestado no se esconde. Ausente = se contesta una vez.
+   */
+  porArea?: Array<{ area: string; progreso: Progreso | null; vigente: boolean }>;
 };
 
 export type ResumenEtapa = {
@@ -232,6 +238,26 @@ export function resumenDeEtapa(clases: readonly ClaseFicha[]): ResumenEtapa {
   const k = conteoDeEtapa(clases, (id) => estado.get(id));
   return { clases: clases.length, tareas: k.tareas, enviadas: k.enviadas, completa: k.completa };
 }
+
+// ── La propuesta de la IA (paso 5 de #665) ────────────────────────────────────
+
+/**
+ * En qué quedó la propuesta de la IA de UNA clase, para el chip de la ficha. `null` = no hay.
+ *
+ * En una clase POR ÁREA mira todas sus áreas (también las que ya no están en su lista: lo contestado
+ * no se esconde): alguna pendiente gana — es lo que el equipo tiene que saber primero —, después
+ * alguna aprobada, después corregida.
+ */
+export function propuestaDeClase(c: Pick<ClaseFicha, 'progreso' | 'porArea'>): EstadoPropuesta | null {
+  const estados = (c.porArea ? c.porArea.map((a) => a.progreso?.ia?.estado) : [c.progreso?.ia?.estado])
+    .filter((e): e is EstadoPropuesta => !!e);
+  for (const e of ['pendiente', 'aprobada', 'corregida'] as const) if (estados.includes(e)) return e;
+  return null;
+}
+
+/** Cuántas clases de una etapa tienen una propuesta de la IA esperando el ok del cliente. */
+export const propuestasPendientes = (clases: readonly ClaseFicha[]): number =>
+  clases.filter((c) => propuestaDeClase(c) === 'pendiente').length;
 
 /** «2/3 tareas», o «Sin tareas». El «Completa» va aparte, como chip. */
 export function fraseResumen(r: ResumenEtapa): string {
@@ -296,7 +322,12 @@ export function armarProducto(p: {
   /** `color` = el de la etapa en el kanban (`colorDeEtapa`, con sus fases). */
   etapas: ReadonlyArray<{ key: string; label: string; color?: string }>;
   clases: readonly Clase[];
+  /** El progreso EFECTIVO (`progresoEfectivo`): una clase por área cuenta con todas sus áreas. */
   progreso: ReadonlyMap<number, Progreso>;
+  /** Lo que contestó cada área en las clases por área (#665). Ausente = sin áreas. */
+  porArea?: ReadonlyMap<number, ReadonlyMap<string, Progreso>>;
+  /** Las áreas que declaró el cliente. */
+  areas?: readonly string[];
   etapaActual: string | null;
   /** La clave de su fila si el catálogo ya no la tiene. Ausente o `null` = no es el caso. */
   etapaBorrada?: string | null;
@@ -304,11 +335,26 @@ export function armarProducto(p: {
   if (!p.clases.length) return null;
   const borrada = p.etapaBorrada || null;
   const actual = borrada ? null : p.etapaActual;
-  const aFicha = (c: Clase): ClaseFicha => ({
-    id: c.id, etapa: c.etapa, orden: c.orden, titulo: c.titulo, tipo: c.tipo, minutos: c.minutos,
-    tarea: c.tarea, campos: c.campos, obligatoria: c.obligatoria,
-    medicion: medicionDe(c), progreso: p.progreso.get(c.id) ?? null,
-  });
+  const areas = p.areas ?? [];
+  const deAreas = (c: Clase): ClaseFicha['porArea'] => {
+    if (c.porArea !== true) return undefined;
+    const filas = p.porArea?.get(c.id);
+    const viejas = [...(filas?.keys() ?? [])].filter((a) => !areas.includes(a));
+    if (!areas.length && !viejas.length) return undefined;
+    return [
+      ...areas.map((a) => ({ area: a, progreso: filas?.get(a) ?? null, vigente: true })),
+      ...viejas.map((a) => ({ area: a, progreso: filas?.get(a) ?? null, vigente: false })),
+    ];
+  };
+  const aFicha = (c: Clase): ClaseFicha => {
+    const pa = deAreas(c);
+    return {
+      id: c.id, etapa: c.etapa, orden: c.orden, titulo: c.titulo, tipo: c.tipo, minutos: c.minutos,
+      tarea: c.tarea, campos: c.campos, obligatoria: c.obligatoria,
+      medicion: medicionDe(c), progreso: p.progreso.get(c.id) ?? null,
+      ...(pa ? { porArea: pa } : {}),
+    };
+  };
   const ordenar = (xs: ClaseFicha[]) => xs.sort((a, b) => a.orden - b.orden || a.id - b.id);
   const porEtapa = new Map<string, ClaseFicha[]>();
   for (const c of p.clases) {
@@ -463,7 +509,20 @@ export type CursoDeCliente = {
   errorAcceso?: string;
   sesiones: Sesion[] | null;
   errorSesiones?: string;
+  /**
+   * Las áreas que declaró en su tabla de áreas (#665), SÓLO si su curso tiene clases por área: sin
+   * ellas no hay a qué invitar a un líder, y la ficha no ofrece nada. `[]` = no aplica.
+   */
+  areas?: string[];
+  /** El acceso de cada LÍDER de área que ya tiene uno (invitado o con su link copiado). */
+  lideres?: AccesoLiderFicha[];
 };
+
+/**
+ * El acceso del LÍDER de un área, como lo dibuja la ficha (#665). Es el de un cliente más su área.
+ * `link`: el `c2.` de la versión vigente, firmado al leer (no escribe). `null` = cortado o sin secreto.
+ */
+export type AccesoLiderFicha = AccesoFicha & { area: string };
 
 /**
  * Un `datetime-local` («2026-10-12T10:30») a ISO, en el NAVEGADOR.

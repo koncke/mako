@@ -66,6 +66,9 @@ export type ClienteCruce = {
   /** Cuando se gano (`leads.fecha_cierre`). Es la unica fecha real que tiene un
    *  cliente: `created_at` es cuando entro como LEAD, que es otra cosa. */
   fechaCierre?: string | null;
+  /** Becado o bonificado (#747): su venta es «sin cobro». El cruce no lo mira; viaja
+   *  porque la ficha lo dice en una palabra, y sale de la misma lectura. */
+  sinCobro?: boolean;
   /**
    * Lo que dibujan el «Resumen» y las «Llamadas» de su ficha: contacto, plata, llamadas y
    * en qué etapa de cada servicio está. El cruce tampoco lo mira; viaja acá porque la

@@ -154,6 +154,8 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     dealPromesaOk: !!lead.deal_promesa?.resultado?.trim(),
     dealFiscalOk: !!lead.deal_fiscal?.razon?.trim(),
     dealObligacionesOk: (lead.deal_obligaciones?.cliente?.length ?? 0) > 0 || (lead.deal_obligaciones?.prestador?.length ?? 0) > 0,
+    // El tipo de venta guardado (un becado, #747, no vuelve a ver el paso del monto).
+    ventaTipo: lead.venta_tipo ?? null,
   };
   // Elegir otra etapa MUEVE, igual que soltar una card en el tablero (08-T22): se
   // confirma y se guarda, y lo que falta se avisa después sin frenar. Antes abría
@@ -231,7 +233,14 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
 
   const tabCobranza = isGanado || pagos.length > 0 ? (
     <>
-      <DealDetailsCard lead={lead} pagos={pagos} />
+      {/* ⚠️ `onCambio`: acá el lead es estado de cliente (getLeadFullAction), así que el
+          refresh de la tarjeta no lo alcanza. Se aplica lo que la action devolvió —el wizard
+          de «Completar datos» se arma con ESTE lead— y se relee el resto (los «Datos sin
+          marcar» cambian: sin «Sin cobro» vuelve a faltar el monto). */}
+      <DealDetailsCard lead={lead} pagos={pagos} onCambio={(patch) => {
+        setFresca({ ...vigente, lead: { ...vigente.lead, ...patch } });
+        void getLeadFullAction(lead.id).then((x) => { if (x) setFresca(x); }).catch(() => {});
+      }} />
       <Link href={`/crm/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar deal →</Link>
     </>
   ) : (

@@ -15,13 +15,17 @@
 //
 // Un link que no abre (firma mala, revocado, versión vieja, ya no es cliente) ve UNA sola
 // pantalla, sin decir por qué: distinguir los casos ayudaría a enumerar tokens.
+//
+// ⚠️ EL LINK PUEDE SER EL DEL LÍDER DE UN ÁREA (#665, `c2.`). `resolverAccesoPortal` lo resuelve y el
+// área SALE DE SU FILA en la base; con ella, `armarVistaAlumno` arma SÓLO las clases por área de esa
+// área y sin el nombre del cliente. El ingreso se le cuenta a SU acceso.
 
 import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
 import { runWithWorkspace } from '@/lib/workspace';
-import { leerAccesoCurso } from '@/lib/curso-acceso';
+import { leerTokenPortal } from '@/lib/curso-acceso';
 import { headers } from 'next/headers';
-import { resolverAcceso, contarIngreso } from '@/lib/curso-datos';
+import { resolverAccesoPortal, contarIngreso } from '@/lib/curso-datos';
 import { armarVistaAlumno, type VistaAlumno } from '@/lib/curso-portal';
 import { Pagina } from '@/app/_ui/Pagina';
 import PortalAlumno from './PortalAlumno';
@@ -46,11 +50,11 @@ export const metadata: Metadata = {
 
 export default async function PortalCursoPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const firma = leerAccesoCurso(token);
+  const firma = leerTokenPortal(token);
   if (!firma) return <Aviso titulo="Este link ya no está activo." />;
 
   const r = await runWithWorkspace(firma.ws, async (): Promise<{ vista: VistaAlumno } | 'inactivo' | 'fallo'> => {
-    const acceso = await resolverAcceso(token);
+    const acceso = await resolverAccesoPortal(token);
     if (!acceso) return 'inactivo';
     // El ingreso se cuenta ANTES de cualquier otra salida: si armar la vista falla, la persona
     // igual entró. Corre en paralelo y no tira (lib/curso-datos.ts).
@@ -63,9 +67,9 @@ export default async function PortalCursoPage({ params }: { params: Promise<{ to
     const dest = h.get('sec-fetch-dest');
     const esVistaPrevia = /whatsapp|facebookexternalhit|bot|crawler|preview/i.test(h.get('user-agent') ?? '');
     const navega = dest ? dest === 'document' : (!h.get('rsc') && !esVistaPrevia);
-    const conteo = navega ? contarIngreso(acceso.leadId) : Promise.resolve();
+    const conteo = navega ? contarIngreso(acceso.leadId, acceso.area) : Promise.resolve();
     try {
-      return { vista: await armarVistaAlumno(acceso.leadId) };
+      return { vista: await armarVistaAlumno(acceso.leadId, { lider: acceso.area }) };
     } catch (e) {
       console.error('[curso-portal] no pude armar la vista del alumno:', e instanceof Error ? e.message : e);
       return 'fallo';

@@ -22,18 +22,24 @@
 // con él. Y en la tabla vive adentro de una celda `sticky`/con scroll, que es un contexto de
 // apilamiento: el z-index del modal se resolvería contra ella (AGENTS.md, la regla del sticky).
 //
+// #665 (06/10/2026): «m6-m9 por área con link propio del líder de área». Si el curso del cliente
+// tiene clases por área y declaró sus áreas, el modal suma «Para»: el cliente, o el LÍDER de una de
+// sus áreas. Al líder le llega SU link (`c2.`, sólo las clases por área de esa área) por
+// `invitarLiderAction`; nunca una cuenta, ni la cookie del alumno, ni la línea de Google. El email de
+// un líder arranca vacío (o con el de su invitación anterior): el del cliente es otra persona.
+//
 // ⚠️ SI EL MAIL NO SALIÓ, EL MODAL NO SE CIERRA: se queda abierto con el motivo. Cerrarlo y
 // pintar «Invitado» sería el falso éxito de los avisos de aprobación de agencia; y cerrarlo con
 // un error abajo, en una celda de la tabla, es un error que nadie lee.
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Field, Input, Modal, useOkFlash, type ButtonVariant } from '@/app/_ui';
+import { Button, Field, Input, Modal, Select, useOkFlash, type ButtonVariant } from '@/app/_ui';
 import { emailUtilizable } from '@/lib/agencia-altas';
-import { habilitarAccesoCursoAction, invitarAlCursoAction } from '../curso-ficha-actions';
+import { habilitarAccesoCursoAction, invitarAlCursoAction, invitarLiderAction } from '../curso-ficha-actions';
 import {
   estadoDeInvitacion, fraseInvitacion,
-  type AccesoFicha, type AccesoInvitacion, type AvisoInvitacionCurso,
+  type AccesoFicha, type AccesoInvitacion, type AccesoLiderFicha, type AvisoInvitacionCurso,
 } from '../curso-ficha-lectura';
 
 const msg = (e: unknown, def: string) => (e instanceof Error ? e.message : def);
@@ -46,7 +52,7 @@ const msg = (e: unknown, def: string) => (e instanceof Error ? e.message : def);
  * modal se cerró con algo que decir (el mail salió pero no quedó anotado): si el mail no salió,
  * el motivo se dice adentro del modal, que se queda abierto.
  */
-export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, variant = 'secondary' }: {
+export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, variant = 'secondary', areas, lideres, onLideres }: {
   leadId: number;
   nombre: string;
   /** El email del CRM, con el que se prellena. Se pide IGUAL: puede ser el del contacto comercial. */
@@ -54,9 +60,21 @@ export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, varian
   acceso: AccesoInvitacion | null;
   onListo: (acceso: AccesoFicha | null, aviso: AvisoInvitacionCurso | null) => void;
   variant?: ButtonVariant;
+  /**
+   * Las áreas del cliente, si su curso tiene clases por área (#665): el modal suma «Para» y se puede
+   * invitar al LÍDER de un área a SUS tareas, con su propio link. Sin áreas (la tabla Avance, o un
+   * curso sin clases por área) el modal es el de siempre.
+   */
+  areas?: readonly string[];
+  /** Los accesos de los líderes: de acá sale con qué email se prellena el de un área ya invitada. */
+  lideres?: readonly AccesoLiderFicha[];
+  /** Los líderes como quedaron después de invitar a uno. */
+  onLideres?: (l: AccesoLiderFicha[]) => void;
 }) {
   const id = useId();
   const [abierto, setAbierto] = useState(false);
+  /** A quién: `''` = el cliente; un nombre = el líder de esa área. */
+  const [para, setPara] = useState('');
   const [correo, setCorreo] = useState('');
   const [mandando, setMandando] = useState(false);
   const mandandoRef = useRef(false);
@@ -82,9 +100,17 @@ export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, varian
   const quien = nombre || 'este cliente';
   const sirve = emailUtilizable(correo);
 
+  const conAreas = (areas?.length ?? 0) > 0;
+  /** Con qué email arranca cada destinatario: el cliente, con el de su invitación o el del CRM; un
+   *  líder, con el de su invitación si ya tenía una — nunca con el del cliente, que es otra persona. */
+  const emailDe = (area: string) => area
+    ? lideres?.find((l) => l.area === area)?.email ?? ''
+    : (estado.tipo === 'invitado' ? estado.email : null) ?? emailCrm ?? '';
+
   const abrir = () => {
     // Reenviar arranca con la dirección a la que ya se mandó; invitar, con la del CRM.
-    setCorreo((estado.tipo === 'invitado' ? estado.email : null) ?? emailCrm ?? '');
+    setPara('');
+    setCorreo(emailDe(''));
     setError('');
     setAbierto(true);
   };
@@ -95,17 +121,20 @@ export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, varian
     setMandando(true);
     setError('');
     try {
-      const r = await invitarAlCursoAction(leadId, correo);
+      // ⚠️ AL LÍDER VA SU PROPIA ACTION (`invitarLiderAction`): su link es otro (`c2.`, sólo sus
+      // clases) y su mail no ofrece entrar con Google. El acceso del cliente no se toca.
+      const r = para ? await invitarLiderAction(leadId, para, correo) : await invitarAlCursoAction(leadId, correo);
       if (!r.ok) { setError(r.error); return; }
+      if ('lideres' in r && r.lideres) onLideres?.(r.lideres);
       if (!r.enviado) {
         // El acceso pudo haber nacido igual (se crea antes de mandar): se pinta, sin aviso.
-        onListo(r.acceso, null);
+        if ('acceso' in r) onListo(r.acceso, null);
         setError(r.aviso.texto);
         return;
       }
       setAbierto(false);
       enviada.flash();
-      onListo(r.acceso, r.aviso.tono === 'warn' ? r.aviso : null);
+      onListo('acceso' in r ? r.acceso : null, r.aviso.tono === 'warn' ? r.aviso : null);
     } catch (e) {
       setError(msg(e, 'No se pudo invitar.'));
     } finally {
@@ -122,7 +151,7 @@ export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, varian
       </Button>
       {abierto && createPortal(
         <Modal
-          titulo={reenviar ? `Reenviar a ${quien}` : `Invitar a ${quien}`}
+          titulo={para ? `Invitar al líder de ${para}` : reenviar ? `Reenviar a ${quien}` : `Invitar a ${quien}`}
           encabezado="Acceso al curso"
           ancho={440}
           /* ⚠️ `anidada`: en la ficha se abre DESDE un control de la ficha y es parte de la misma
@@ -140,9 +169,17 @@ export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, varian
             </>
           }
         >
+          {/* A QUIÉN (#665): el cliente o el líder de una de sus áreas. Cambiar de destinatario
+              cambia el email con el que arranca: el del cliente no es el de su líder. */}
+          {conAreas && (
+            <Select label="Para" value={para} width="100%"
+              options={[{ value: '', label: nombre || 'El cliente' }, ...(areas ?? []).map((a) => ({ value: a, label: `Líder de ${a}` }))]}
+              onChange={(v) => { setPara(v); setCorreo(emailDe(v)); setError(''); }} />
+          )}
           {/* La consecuencia, pegada al campo y ANTES del click. Si algo falla, el motivo
               ocupa su lugar. */}
-          <Field label={`Email de ${nombre || 'el cliente'}`} htmlFor={id} hint="Le llega un correo con su acceso." error={error || undefined}>
+          <Field label={para ? `Email del líder de ${para}` : `Email de ${nombre || 'el cliente'}`} htmlFor={id}
+            hint={para ? 'Le llega el link de sus tareas.' : 'Le llega un correo con su acceso.'} error={error || undefined}>
             <Input id={id} type="email" value={correo} placeholder="persona@empresa.com"
               onChange={(e) => setCorreo(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void mandar(); }} />

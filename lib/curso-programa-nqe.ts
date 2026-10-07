@@ -72,6 +72,8 @@ export type ClaseSemilla = {
   tarea: string;
   campos: Campo[];
   obligatoria: boolean;
+  /** Se contesta una vez por área del cliente (mig 0212, #665). Ver `FORMULARIOS_POR_AREA`. */
+  por_area: boolean;
 };
 
 // ── Los 63 videos de la planilla, textuales ───────────────────────────────────
@@ -473,9 +475,13 @@ const LOGISTICA = {
 // relevo no lo reparte, y en el programa nuevo su ejercicio ya lo hacen el 2.1 (una decisión que
 // salió mal por falta de contexto) y la tabla D2 entera (m2c2, en criterio).
 //
-// ⚠️ Los formularios de palancas, evidencia y umbrales eran «uno por área» (porArea) y los
-// umbrales los contestaba el LÍDER de área. curso_clases no tiene esa repetición: hoy es un
-// formulario por cliente.
+// ⚠️ Los formularios de palancas, evidencia, umbrales y carta (módulos 6 a 9 del catálogo viejo,
+// `porArea: true` en 07d07139^:lib/programa-catalogo.ts) eran «uno por área», y los umbrales los
+// contestaba el LÍDER de área. Desde la mig 0212 (#665) se vuelven a contestar así:
+// `FORMULARIOS_POR_AREA`, abajo, va a `curso_clases.por_area`. Como todo lo de la semilla, NO cambia
+// lo ya cargado: las del ws1 las marca scripts/curso-marcar-por-area.mjs (seco por default).
+// Los VIDEOS de esos módulos no van por área: el video es el mismo para todas, lo que se repite es
+// el formulario.
 
 type CampoConOrigen = Campo & { origen: string };
 type Formulario = { id: string; etapa: EtapaNqe; despuesDe: string; titulo: string; campos: CampoConOrigen[] };
@@ -769,6 +775,20 @@ const FORMULARIOS: readonly Formulario[] = [
     ] },
 ];
 
+/**
+ * Los formularios que se contestan UNA VEZ POR ÁREA (#665): todos los de los módulos 6 a 9 del
+ * catálogo viejo (palancas, evidencia, umbrales y la carta de expectativas), que ahí tenían
+ * `porArea: true` a nivel de módulo. Escritos uno por uno y no con un patrón sobre el id: un
+ * formulario nuevo con un id parecido no se vuelve por área sin que alguien lo decida. El test de la
+ * semilla fija que esta lista y los ids `m6…`–`m9…` de FORMULARIOS sean lo mismo.
+ */
+export const FORMULARIOS_POR_AREA: ReadonlySet<string> = new Set([
+  'm6c1', 'm6c2', 'm6c3', 'm6c4', 'm6c5',
+  'm7c1', 'm7c2', 'm7c3',
+  'm8c1',
+  'm9c1', 'm9c2', 'm9c3', 'm9c4',
+]);
+
 /** El campo como lo guarda curso_clases (la forma de `Campo` en lib/curso.ts): sin `origen`. */
 const sinOrigen = (c: CampoConOrigen): Campo =>
   Object.fromEntries(Object.entries(c).filter(([k]) => k !== 'origen')) as Campo;
@@ -805,18 +825,19 @@ export function programaNqe(): ClaseSemilla[] {
     };
 
     if (etapa === 'bienvenida') {
-      sumar({ origen: LOGISTICA.origen, titulo: LOGISTICA.titulo, descripcion: LOGISTICA.descripcion, tipo: 'clase', minutos: null, tarea: '', campos: [], obligatoria: false });
+      sumar({ origen: LOGISTICA.origen, titulo: LOGISTICA.titulo, descripcion: LOGISTICA.descripcion, tipo: 'clase', minutos: null, tarea: '', campos: [], obligatoria: false, por_area: false });
     }
     for (const v of videos) {
       sumar({
         origen: `planilla:${v.n}`, titulo: v.titulo, descripcion: descripcionDe(v), tipo: TIPO[v.tipo],
-        minutos: v.min, tarea: v.cierre, campos: [], obligatoria: v === cierre,
+        minutos: v.min, tarea: v.cierre, campos: [], obligatoria: v === cierre, por_area: false,
       });
       for (const f of FORMULARIOS) {
         if (f.etapa !== etapa || f.despuesDe !== v.n) continue;
         sumar({
           origen: `catalogo:${f.id}`, titulo: f.titulo, descripcion: '', tipo: 'formulario',
           minutos: null, tarea: '', campos: f.campos.map(sinOrigen), obligatoria: false,
+          por_area: FORMULARIOS_POR_AREA.has(f.id),
         });
       }
     }

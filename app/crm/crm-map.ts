@@ -136,6 +136,9 @@ export function mapToCrmLead(
     created: fmtDay(l.created_at) ?? '—',
     monto: l.monto_cierre_usd ?? 0,
     totalCobrado: l.total_cobrado_usd ?? 0,
+    // El tipo de venta (LISTA_COLS ya baja `venta_tipo`). Sin esto el wizard del tablero
+    // le pedía el monto a un becado (#747): ver `CrmLead.ventaTipo`.
+    ventaTipo: l.venta_tipo ?? null,
     // Fecha de R1 canónica: misma prioridad que fechaJ1 y que el recorrido
     // (fecha_junta_1 gana; fecha_agenda es el fallback). Antes divergían y el
     // modal mostraba dos fechas distintas para la misma reunión.

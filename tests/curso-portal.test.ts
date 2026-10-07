@@ -26,6 +26,15 @@
 //   · `armarVistaAlumno` nombrando `curso_clase_notas`                        → «no lee las notas»
 //   · app/mi-curso/portal-comun.tsx nombrando el bucket `curso-notas`         → «no lee las notas»
 //   · `claseVista` copiando `grabar` de la clase                              → «lista blanca»
+// Y los del link del LÍDER de área (#665, 07/10/2026, scratchpad/b665-roturas.mjs). Con todo en su
+// lugar, 24 pass / 0 fail; cada rotura da 23 / 1:
+//   · la ruta de la tarea llamando a `claseDelAlumno` sin `lider: acceso.area` → «cada ruta…»
+//   · la ruta de video leyendo la base antes de `resolverAccesoPortal`          → «cada ruta…»
+//   · la entrada del mail importando `resolverAccesoPortal`                      → «la entrada del mail…»
+//   · la página armando la vista sin el área del líder                           → «la página también…»
+// ⚠️ El guard «nada lee la base antes del resolver» buscaba `resolverAcceso(`, que NO aparece adentro
+// de `resolverAccesoPortal(`: con el nombre viejo el índice daba -1 y aprobaba cualquier orden. Ahora
+// cada ruta declara SU resolver y se busca ése.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -227,7 +236,16 @@ const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8
 // Probado rompiéndolo (06/10/2026, scratchpad/u2/roturas-portal.cjs): sacar `entrar` de RUTAS,
 // sacar la exención, leer la base antes de resolverAcceso en `entrar` y leer el ws del pedido dan
 // 20 / 1 cada uno (cae SU test). Restaurado: 21 / 0.
-const RUTAS = { progreso: 'POST', tarea: 'POST', video: 'GET', entrar: 'GET' } as const;
+// #665 (mig 0212): las tres rutas de una CLASE abren también el link del LÍDER de un área (`c2.`),
+// así que leen el token con `leerTokenPortal` y lo resuelven con `resolverAccesoPortal`. `entrar`
+// NO: deja la cookie DEL CLIENTE, y con el resolver del portal un líder saldría con ella — por eso
+// se fija cuál usa cada una, y no «alguno de los dos».
+const RUTAS = {
+  progreso: { metodo: 'POST', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
+  tarea: { metodo: 'POST', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
+  video: { metodo: 'GET', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
+  entrar: { metodo: 'GET', lector: 'leerAccesoCurso', resolver: 'resolverAcceso' },
+} as const;
 const SIN_CLASE: ReadonlySet<string> = new Set(['entrar']);
 
 test('las rutas del portal son exactamente éstas', () => {
@@ -236,28 +254,42 @@ test('las rutas del portal son exactamente éstas', () => {
   for (const r of Object.keys(RUTAS)) assert.ok(existsSync(join(DIR_RUTAS, r, 'route.ts')), r);
 });
 
-test('cada ruta: el workspace sale de la firma y lo primero adentro de runWithWorkspace es resolverAcceso', () => {
-  for (const [r, metodo] of Object.entries(RUTAS)) {
+test('cada ruta: el workspace sale de la firma y lo primero adentro de runWithWorkspace es su resolver', () => {
+  for (const [r, { metodo, lector, resolver }] of Object.entries(RUTAS)) {
     const src = leer(`app/api/compartido/curso/${r}/route.ts`);
     const handlers = [...src.matchAll(/export\s+async\s+function\s+(GET|POST|PUT|PATCH|DELETE)\b/g)].map((m) => m[1]);
     assert.deepEqual(handlers, [metodo], `${r}: un solo handler, ${metodo}`);
 
-    const firma = src.match(/const\s+(\w+)\s*=\s*leerAccesoCurso\(/);
-    assert.ok(firma, `${r}: la firma sale de leerAccesoCurso`);
+    const firma = src.match(new RegExp(`const\\s+(\\w+)\\s*=\\s*${lector}\\(`));
+    assert.ok(firma, `${r}: la firma sale de ${lector}`);
     const v = firma![1];
-    const run = new RegExp(`runWithWorkspace\\(\\s*${v}\\.ws\\s*,\\s*async\\s*\\(\\)\\s*=>\\s*\\{\\s*const\\s+(\\w+)\\s*=\\s*await\\s+resolverAcceso\\(`);
+    const run = new RegExp(`runWithWorkspace\\(\\s*${v}\\.ws\\s*,\\s*async\\s*\\(\\)\\s*=>\\s*\\{\\s*const\\s+(\\w+)\\s*=\\s*await\\s+${resolver}\\(`);
     const m = src.match(run);
-    assert.ok(m, `${r}: runWithWorkspace(${v}.ws, …) tiene que arrancar con resolverAcceso`);
+    assert.ok(m, `${r}: runWithWorkspace(${v}.ws, …) tiene que arrancar con ${resolver}`);
 
-    // Nada que lea la base corre antes de resolverAcceso.
-    const iResolver = src.indexOf('resolverAcceso(');
-    for (const lectura of ['claseDelAlumno(', 'claseDeId(', 'productosDelAlumno(', 'guardarVisto(', 'guardarTarea(', 'alEnviarTarea(', 'getTenantDb(', 'getSupabaseServer(', 'createSignedUrl(']) {
+    // Nada que lea la base corre antes del resolver. (Se busca con el NOMBRE EXACTO y su paréntesis:
+    // «resolverAcceso(» no aparece adentro de «resolverAccesoPortal(», y con el nombre equivocado el
+    // índice daba -1 y este guard aprobaba cualquier orden.)
+    const iResolver = src.indexOf(`${resolver}(`);
+    assert.ok(iResolver > 0, `${r}: no encontré ${resolver}(`);
+    for (const lectura of ['claseDelAlumno(', 'claseDeId(', 'productosDelAlumno(', 'avanceDelCliente(', 'estadoDeTareaEnArea(', 'guardarVisto(', 'guardarTarea(', 'alEnviarTarea(', 'getTenantDb(', 'getSupabaseServer(', 'createSignedUrl(']) {
       const i = src.indexOf(lectura);
-      if (i >= 0) assert.ok(i > iResolver, `${r}: ${lectura} corre antes de resolverAcceso`);
+      if (i >= 0) assert.ok(i > iResolver, `${r}: ${lectura} corre antes de ${resolver}`);
     }
-    // Toda clase pedida pasa por claseDelAlumno (que valida existencia + producto del alumno).
-    if (!SIN_CLASE.has(r)) assert.ok(src.includes('claseDelAlumno('), `${r}: la clase se valida contra el alumno`);
+    // Toda clase pedida pasa por claseDelAlumno (que valida existencia + producto del alumno), y
+    // con el ÁREA del acceso: es lo que le cierra al líder lo que no es por área.
+    if (!SIN_CLASE.has(r)) {
+      assert.ok(src.includes('claseDelAlumno('), `${r}: la clase se valida contra el alumno`);
+      assert.match(src, /claseDelAlumno\([^)]*lider:\s*acceso\.area/, `${r}: claseDelAlumno sin el área del acceso: un líder abriría cualquier clase`);
+    }
   }
+});
+
+test('la entrada del mail NO abre el link de un líder: deja la cookie DEL CLIENTE', () => {
+  // Con el resolver del portal, un `c2.` saldría de acá con la cookie `mako_alumno` del cliente, y
+  // esa cookie abre /mi-curso entero.
+  const src = leer('app/api/compartido/curso/entrar/route.ts');
+  assert.doesNotMatch(src, /leerTokenPortal|resolverAccesoPortal|leerAccesoLider/);
 });
 
 test('el workspace sale de la firma: ninguna ruta lo lee del pedido', () => {
@@ -270,20 +302,23 @@ test('el workspace sale de la firma: ninguna ruta lo lee del pedido', () => {
 });
 
 test('las que escriben están en PUBLICOS_ESCRITURA; la que lee, no', () => {
-  for (const [r, metodo] of Object.entries(RUTAS)) {
+  for (const [r, { metodo }] of Object.entries(RUTAS)) {
     const ruta = `/api/compartido/curso/${r}`;
     assert.equal(esPublicaDeEscritura(ruta), metodo === 'POST', ruta);
   }
   assert.ok((PUBLICOS_ESCRITURA as readonly string[]).includes('/api/compartido/curso/tarea'));
 });
 
-test('la página también arranca por la firma y por resolverAcceso, y cuenta el ingreso', () => {
+test('la página también arranca por la firma y por su resolver, y cuenta el ingreso', () => {
   const src = leer('app/compartido/curso/[token]/page.tsx');
-  assert.match(src, /const\s+firma\s*=\s*leerAccesoCurso\(token\)/);
+  assert.match(src, /const\s+firma\s*=\s*leerTokenPortal\(token\)/);
   // El callback puede llevar su tipo de retorno (`async (): Promise<…> => {`).
-  assert.match(src, /runWithWorkspace\(\s*firma\.ws\s*,\s*async\s*\(\)\s*(?::[^=]+)?=>\s*\{\s*const\s+acceso\s*=\s*await\s+resolverAcceso\(token\)/);
-  assert.ok(src.indexOf('contarIngreso(') > src.indexOf('resolverAcceso('));
+  assert.match(src, /runWithWorkspace\(\s*firma\.ws\s*,\s*async\s*\(\)\s*(?::[^=]+)?=>\s*\{\s*const\s+acceso\s*=\s*await\s+resolverAccesoPortal\(token\)/);
+  assert.ok(src.indexOf('contarIngreso(') > src.indexOf('resolverAccesoPortal('));
   assert.ok(src.indexOf('contarIngreso(') < src.indexOf('armarVistaAlumno('), 'el ingreso se cuenta antes de armar la vista');
+  // El área del líder sale del ACCESO resuelto, y llega a la vista: sin esto, un link de líder
+  // armaría el portal entero del cliente.
+  assert.match(src, /armarVistaAlumno\(\s*acceso\.leadId\s*,\s*\{\s*lider:\s*acceso\.area\s*\}\s*\)/);
 });
 
 test('los componentes del portal sólo importan TIPOS de lib/curso-portal (trae la capa de datos)', () => {

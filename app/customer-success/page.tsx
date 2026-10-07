@@ -35,6 +35,9 @@ import { listarUsuarios } from '@/lib/usuarios';
 import { caraDeUsuario, urlGravatar } from '@/lib/gravatar';
 import { getSesionAdmin } from '@/lib/auth';
 import { PARAM_CLIENTE, leerClienteDeUrl } from '@/app/plan/board/filtro-cliente';
+import { ultimoContactoDeClientes } from '@/lib/cs-cartera';
+import { sincronizarOnboardingClientes } from './onboarding-clientes-sync';
+import { serviciosConEtapas, filasDeEntrega } from './onboarding-clientes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -116,6 +119,13 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
       console.error('[cs] no pude leer los datos de las fichas:', mensaje(e));
       return { contacto: null, llamadas: null };
     });
+  /**
+   * EL ÚLTIMO CONTACTO DE CADA UNO, para la columna de la tabla (#109). Arranca acá, en paralelo
+   * con lo de arriba, y por la MISMA lectura que usa la alerta al dueño (`ultimoContactoDeClientes`,
+   * lib/cs-cartera.ts): si la columna y el aviso leyeran por dos caminos, el aviso podría decir
+   * «23 días sin contacto» sobre una fila que dice «hace 2 días». Nunca tira: `null` es «no pude».
+   */
+  const lecturaContacto = ultimoContactoDeClientes(clientes.map((c) => c.leadId));
 
   const tablero = clientes.length
     ? await tableroDeLaCartera(clientes).catch((e) => ({ ok: false as const, error: mensaje(e) }))
@@ -146,6 +156,18 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
    * tablero vacío que afirmaría que nadie está en entrega.
    */
   const entrega = await carteraEnEntrega();
+
+  /**
+   * EL ONBOARDING DE LA TAB (#109; regla de la casa: toda tab tiene uno). Los pasos se DERIVAN de
+   * lo que ya se leyó y se anotan en cada carga (./onboarding-clientes-sync.ts), así el ws1 —con su
+   * catálogo, sus etapas y su cartera— entra con todo hecho y nada le tapa la pantalla. Con la
+   * entrega sin leer, sus dos hechos van `null`: un cero ahí no es un dato.
+   */
+  const onboarding = await sincronizarOnboardingClientes({
+    servicios: entrega.ok ? serviciosConEtapas(entrega.servicios) : null,
+    clientes: clientes.length,
+    movidos: entrega.ok ? filasDeEntrega(entrega.porServicio) : null,
+  });
 
   // ⚠️ LA CARTERA VIENE CON EL HTML, por lo mismo que el trabajo: la ficha es un
   // modal sin estado de carga, y pedirle esto al abrirse le devolvería el «Leyendo
@@ -236,6 +258,7 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
    * foto armada acá diría la etapa de antes de moverlo.
    */
   const fichas = await lecturaFichas;
+  const contactos = await lecturaContacto;
 
   /**
    * LA FICHA QUE LLEGA ABIERTA: `?cliente=<leadId>`. Se lee ACÁ y no en el navegador, por
@@ -262,6 +285,9 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
       llamadas: fichas.llamadas ? (fichas.llamadas[c.leadId] ?? []) : null,
       // La cara de su email, si nadie le eligió una (ver app/customer-success/foto-cliente.ts).
       fotoEmail: c.email?.trim() ? urlGravatar(c.email, 176) : null,
+      // Sin fila en el mapa con la lectura bien = nunca hubo contacto (`fecha: null`), que no es
+      // lo mismo que no haber podido leer (`null`).
+      contactoUltimo: contactos ? (contactos[c.leadId] ?? { fecha: null, via: null }) : null,
     },
   }));
 
@@ -281,6 +307,7 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
          nada. */
       puedeEditarEtapas={(await adminDeWorkspaceActual()) != null}
       clienteInicial={clienteInicial}
+      onboarding={onboarding}
     />
   );
 }

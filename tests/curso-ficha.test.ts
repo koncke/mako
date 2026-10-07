@@ -324,7 +324,10 @@ test('la ficha y la tabla dibujan la MISMA fila de Avance, y «listo» es `compl
   assert.doesNotMatch(FILA + TABLA, /enviadas >= c\.total/, 'volvió el «listo = envió todo»');
   // Los rótulos son los de lib/curso.ts, no una copia de la ficha.
   assert.doesNotMatch(LECTURA, /ROTULO_TAREA\s*[:=]/, 'la ficha volvió a tener su propio rótulo de tarea');
-  assert.match(CURSO, /import \{ ROTULO_TAREA, type EstadoTarea \} from '@\/lib\/curso';/);
+  // (Desde el paso 5 de #665 la misma línea trae también `ROTULO_PROPUESTA`: lo que se fija es que
+  // el rótulo SALGA de lib/curso, no la lista exacta de lo que se importa. Probado rompiéndolo el
+  // 07/10/2026: la ficha con su propio `const ROTULO_TAREA` y sin importarlo → 19 / 1; restaurado 20 / 0.)
+  assert.match(CURSO, /import \{[^}]*\bROTULO_TAREA\b[^}]*\} from '@\/lib\/curso';/);
   assert.doesNotMatch(LECTURA, /'Sin medir'/, '«Sin medir» se escribe con ROTULO_SIN_MEDIR');
   // La tabla tiene la columna «Acceso» con su celda.
   assert.match(TABLA, /<th>Acceso<\/th>/);

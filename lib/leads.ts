@@ -48,6 +48,7 @@ import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, derive
 import { getPipelineStagesDeLead, idDelFunnelDefault } from './funnels';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
 import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
+import type { VentaTipo } from './venta-tipo';
 // La etapa de ORIGEN de un movimiento se deriva con la MISMA función que usa la
 // ficha (override chequeado contra el funnel vigente): con el override crudo, el
 // validador y la pantalla discrepan justo en los leads con etapas huérfanas.
@@ -144,7 +145,8 @@ export type Lead = {
   dia_de_pago: number | null;     // 1..28
 
   // Venta recurrente / suscripción (#363, mig 0115). 'unico' = pago único (default).
-  venta_tipo?: 'unico' | 'suscripcion' | null;
+  // 'sin_cobro' = un becado (#747): la lista y lo que significa, en lib/venta-tipo.ts.
+  venta_tipo?: VentaTipo | null;
   suscripcion_monto_usd?: number | null;   // importe MENSUAL (MRR)
   suscripcion_meses?: number | null;        // plazo fijo en meses; null = indefinida
 
@@ -903,7 +905,8 @@ export async function updateLead(
   // (`setPipelineStage`) manda siempre `estado_lead`, así que ése sí la sigue
   // limpiando al pasar un Ganado a una etapa abierta. Puede tirar
   // («monto_cierre_usd debe ser positivo»), y tira ANTES de escribir nada.
-  Object.assign(merged, desenlaceAlGuardar(actual, input, new Date().toISOString().slice(0, 10)));
+  // El tipo de venta va aparte: con 'sin_cobro' (un becado) un monto 0 se guarda null.
+  Object.assign(merged, desenlaceAlGuardar(actual, input, new Date().toISOString().slice(0, 10), actual.venta_tipo));
 
   // Aplicar reglas de coherencia
   if (!merged.fecha_junta_1) {
@@ -2465,6 +2468,8 @@ export function faltantesParaMover(
     monto: aportado.monto ?? lead.monto_cierre_usd,
     // Venta recurrente: el importe vive en el MRR y `monto_cierre_usd` queda null.
     suscripcionMonto: lead.venta_tipo === 'suscripcion' ? (lead.suscripcion_monto_usd ?? null) : null,
+    // Un becado («sin cobro», #747): monto, plan y comprobante quedan contestados.
+    ventaTipo: lead.venta_tipo,
     // Partido en dos: el guardado puede ser de una pérdida ANTERIOR y no da por
     // contestada la de ahora. Quien decide es stepsForStage con `etapaActual`.
     motivo: lead.motivo_perdida,
@@ -2816,6 +2821,8 @@ export function faltantesDeLead(
     monto: lead.monto_cierre_usd,
     // Venta recurrente: el importe vive en el MRR y `monto_cierre_usd` queda null.
     suscripcionMonto: lead.venta_tipo === 'suscripcion' ? (lead.suscripcion_monto_usd ?? null) : null,
+    // Un becado («sin cobro», #747): sin esto quedaba para siempre en «Datos sin marcar».
+    ventaTipo: lead.venta_tipo,
     motivo: lead.motivo_perdida,
     setter: lead.setter,
     closer: lead.closer,

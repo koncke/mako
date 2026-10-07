@@ -19,10 +19,23 @@
 //   · ANTES DE ENVIAR SE MIRA QUÉ FALTA (`queFalta`, misma regla que el server pero sin contar
 //     la etiqueta de una fila fija como contestada) y se dice en una frase.
 //
+// EL PASO 5 DE #665 (07/10/2026): después de la llamada, la IA reescribe su respuesta con lo que se
+// habló (lib/curso-propuesta-ia.ts) y llega acá PENDIENTE (`propuesta`). Se dibujan «Tu respuesta» y
+// «Con lo que hablaron», una debajo de la otra (en el teléfono, lado a lado no se lee una tabla), y
+// dos salidas:
+//   · «Aprobar» manda `aprobar: desde` y el server copia la versión de la IA a su respuesta con
+//     compare-and-set (sólo si sigue pendiente y es la misma que vio). Un 409 = ya no está.
+//   · «Corregir» abre SU formulario con la versión de la IA cargada; al «Enviar de nuevo», el server
+//     marca la propuesta corregida (`guardarTarea`). «Descartar cambios» vuelve a la suya, y la
+//     propuesta sigue ahí.
+// Mientras hay una propuesta, «Editar» no se ofrece: «Corregir» es editar, partiendo de la de la IA.
+// Nada de esto manda mensajes ni mueve de etapa: la tarea ya estaba enviada.
+//
 // Texto de pantalla: español neutro con TÚ (los clientes de Mauricio son mexicanos), corto.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { Campo, EstadoTarea, Valores, ValorCampo } from '@/lib/curso';
+import type { PropuestaVista } from '@/lib/curso-portal';
 import { Button, Input, Textarea, Radio, Checkbox } from '@/app/_ui';
 import { filasDeTabla, filaVacia, queFalta, fraseQueFalta } from './tarea-valores';
 import { useVistaPrevia } from './vista-previa';
@@ -38,25 +51,41 @@ type Respuesta = {
   avance?: { movido: boolean; hacia: string | null } | null;
 };
 
-export default function TareaAlumno({ token, claseId, tarea, campos, valoresIniciales, estadoInicial, onEstado, onAvance }: {
+export default function TareaAlumno({ token, claseId, area, tarea, campos, valoresIniciales, estadoInicial, propuesta, onEstado, onPropuesta, onAvance }: {
   token: string;
   claseId: number;
+  /**
+   * De qué área es esta tarea, en una clase POR ÁREA (#665). Ausente = la del cliente. Viaja como
+   * `a` en cada guardado — también en el beacon — y el server decide si este link puede escribirla
+   * (`areaDeLaTarea`): con el link de un líder se ignora y manda su área.
+   */
+  area?: string;
   /** La instrucción de llenado que escribió Mauricio. */
   tarea: string;
   campos: Campo[];
   valoresIniciales: Valores;
   estadoInicial: EstadoTarea;
+  /** La versión de la IA, PENDIENTE de que la apruebe o la corrija (paso 5 de #665). */
+  propuesta?: PropuestaVista;
   onEstado: (e: EstadoTarea) => void;
+  /** Se resolvió la propuesta (la aprobó, la corrigió o ya no estaba): el chip de la clase se va. */
+  onPropuesta?: () => void;
   /** El envío completó la etapa y el cliente pasó a la siguiente. */
   onAvance: () => void;
 }) {
   const previa = useVistaPrevia();
+  // ⚠️ Los ids de los campos llevan el de ESTA tarea: con una clase por área hay N formularios
+  // iguales en la misma página, y un `<label htmlFor>` repetido enfoca el campo de otra área.
+  const idBase = useId();
   const [valores, setValores] = useState<Valores>(valoresIniciales);
   const [estado, setEstado] = useState<EstadoTarea>(estadoInicial);
   const [editando, setEditando] = useState(estadoInicial === 'pendiente');
   const [guardado, setGuardado] = useState<Guardado>('limpio');
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState<{ tono: 'falta' | 'ok' | 'error'; texto: string } | null>(null);
+  /** La propuesta de la IA que sigue pendiente en esta pantalla (paso 5 de #665). */
+  const [prop, setProp] = useState<PropuestaVista | null>(propuesta ?? null);
+  const [aprobando, setAprobando] = useState(false);
 
   const timer = useRef<number | undefined>(undefined);
   const ultimo = useRef<Valores>(valoresIniciales);
@@ -75,14 +104,14 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
       const r = await fetch(URL_TAREA, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ t: token, c: claseId, valores: v, enviar }),
+        body: JSON.stringify({ t: token, c: claseId, a: area, valores: v, enviar }),
       });
       if (!r.ok) return null;
       return (await r.json()) as Respuesta;
     } catch {
       return null;
     }
-  }, [previa, token, claseId]);
+  }, [previa, token, claseId, area]);
 
   const guardarBorrador = useCallback(async (v: Valores) => {
     window.clearTimeout(timer.current);
@@ -111,7 +140,7 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
     const salir = () => {
       if (previa || !autoguarda || !sucio.current || typeof navigator.sendBeacon !== 'function') return;
       const ok = navigator.sendBeacon(URL_TAREA, new Blob(
-        [JSON.stringify({ t: token, c: claseId, valores: ultimo.current, enviar: false })],
+        [JSON.stringify({ t: token, c: claseId, a: area, valores: ultimo.current, enviar: false })],
         { type: 'text/plain' },
       ));
       if (ok) sucio.current = false;
@@ -125,7 +154,7 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
       window.clearTimeout(timer.current);
       salir();
     };
-  }, [previa, autoguarda, token, claseId]);
+  }, [previa, autoguarda, token, claseId, area]);
 
   async function enviar() {
     window.clearTimeout(timer.current);
@@ -150,6 +179,8 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
     setEstado(j.progreso.estado);
     onEstado(j.progreso.estado);
     setEditando(false);
+    // Mandar su versión resolvió la propuesta de la IA en el server (`guardarTarea`): la «corrigió».
+    if (prop) sinPropuesta();
     if (j.avance?.movido) {
       setAviso({ tono: 'ok', texto: '¡Etapa completada!' });
       onAvance();
@@ -168,7 +199,88 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
     setEditando(false);
   }
 
+  /** Ya no hay propuesta que mostrar: la aprobó, la corrigió, o ya no estaba. */
+  function sinPropuesta() {
+    setProp(null);
+    onPropuesta?.();
+  }
+
+  /**
+   * «Aprobar»: el server copia la versión de la IA a su respuesta, con compare-and-set sobre el
+   * `desde` que se ve acá. En la vista previa del equipo no sale nada (se contesta en local).
+   */
+  async function aprobar() {
+    if (!prop) return;
+    window.clearTimeout(timer.current);
+    setAprobando(true);
+    setAviso(null);
+    let j: Respuesta | null = null;
+    let yaNoEsta = false;
+    if (previa) {
+      j = { ok: true, progreso: { estado: 'enviada', valores: prop.valores }, faltaCompletar: false, avance: null };
+    } else {
+      try {
+        const r = await fetch(URL_TAREA, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ t: token, c: claseId, a: area, aprobar: prop.desde }),
+        });
+        if (r.status === 409) yaNoEsta = true;
+        else if (r.ok) j = (await r.json()) as Respuesta;
+      } catch {
+        // Sin red: abajo se dice que no se pudo, y la propuesta sigue a la vista.
+      }
+    }
+    setAprobando(false);
+    if (yaNoEsta) {
+      sinPropuesta();
+      setAviso({ tono: 'error', texto: 'Esa versión ya no está.' });
+      return;
+    }
+    if (!j?.ok || !j.progreso) { setAviso({ tono: 'error', texto: 'No se pudo aprobar. Intenta de nuevo.' }); return; }
+    base.current = j.progreso.valores;
+    ultimo.current = j.progreso.valores;
+    sucio.current = false;
+    setValores(j.progreso.valores);
+    setGuardado('limpio');
+    setEstado(j.progreso.estado);
+    onEstado(j.progreso.estado);
+    sinPropuesta();
+    setAviso({ tono: 'ok', texto: 'Versión aprobada.' });
+  }
+
+  /** «Corregir»: SU formulario, con la versión de la IA cargada. Lo manda con «Enviar de nuevo». */
+  function corregir() {
+    if (!prop) return;
+    setValores(prop.valores);
+    ultimo.current = prop.valores;
+    sucio.current = true;
+    setAviso(null);
+    setEditando(true);
+  }
+
   const soloLectura = !editando;
+  const conPropuesta = prop != null && !editando;
+
+  /** Un formulario entero (o la respuesta libre), con sus valores. Lo usan su respuesta y la de la IA. */
+  const formulario = (v: Valores, ro: boolean, ids: string, rotulo: string) => campos.length ? (
+    <ol className="cp-campos">
+      {campos.map((c) => (
+        <li key={c.id} className="cp-campo">
+          <CampoAlumno idBase={ids} campo={c} valor={v[c.id]} soloLectura={ro} onCambio={(x) => cambiar(c.id, x)} />
+        </li>
+      ))}
+    </ol>
+  ) : (
+    <Textarea
+      aria-label={rotulo}
+      placeholder="Escribe tu respuesta"
+      value={typeof v.respuesta === 'string' ? v.respuesta : ''}
+      onChange={(e) => cambiar('respuesta', e.target.value)}
+      readOnly={ro}
+      rows={5}
+    />
+  );
 
   return (
     <section className="cp-tarea" aria-label="Tarea">
@@ -177,29 +289,27 @@ export default function TareaAlumno({ token, claseId, tarea, campos, valoresInic
       </div>
       {tarea.trim() && <p className="cp-tarea-instr">{tarea}</p>}
 
-      {campos.length ? (
-        <ol className="cp-campos">
-          {campos.map((c) => (
-            <li key={c.id} className="cp-campo">
-              <CampoAlumno campo={c} valor={valores[c.id]} soloLectura={soloLectura} onCambio={(v) => cambiar(c.id, v)} />
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <Textarea
-          aria-label="Tu respuesta"
-          placeholder="Escribe tu respuesta"
-          value={typeof valores.respuesta === 'string' ? valores.respuesta : ''}
-          onChange={(e) => cambiar('respuesta', e.target.value)}
-          readOnly={soloLectura}
-          rows={5}
-        />
+      {conPropuesta && <p className="cp-prop-tit">Tu respuesta</p>}
+      {formulario(valores, soloLectura, idBase, 'Tu respuesta')}
+
+      {/* La versión de la IA, de sólo lectura: se aprueba tal cual o se corrige en SU formulario.
+          Sus ids van aparte: dos formularios iguales en la misma tarea. */}
+      {conPropuesta && prop && (
+        <div className="cp-prop">
+          <p className="cp-prop-tit">Con lo que hablaron</p>
+          {formulario(prop.valores, true, `${idBase}ia`, 'Con lo que hablaron')}
+        </div>
       )}
 
       {aviso && <p className={`cp-aviso cp-aviso--${aviso.tono}`} role="status">{aviso.texto}</p>}
 
       <div className="cp-tarea-pie">
-        {editando ? (
+        {conPropuesta ? (
+          <>
+            <Button onClick={() => void aprobar()} loading={aprobando}>Aprobar</Button>
+            <Button variant="secondary" onClick={corregir} disabled={aprobando}>Corregir</Button>
+          </>
+        ) : editando ? (
           <>
             <Button onClick={() => void enviar()} loading={enviando}>
               {estado === 'pendiente' ? 'Enviar' : 'Enviar de nuevo'}
@@ -231,10 +341,10 @@ const TEXTO_GUARDADO: Record<Guardado, string> = {
 
 // ── Los seis tipos de campo ───────────────────────────────────────────────────
 
-function CampoAlumno({ campo, valor, soloLectura, onCambio }: {
-  campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; onCambio: (v: ValorCampo) => void;
+function CampoAlumno({ idBase, campo, valor, soloLectura, onCambio }: {
+  idBase: string; campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; onCambio: (v: ValorCampo) => void;
 }) {
-  const id = `cp-c-${campo.id}`;
+  const id = `cp-c-${idBase}-${campo.id}`;
   const rotulo = (
     <>
       {campo.label}

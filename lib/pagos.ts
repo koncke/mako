@@ -12,6 +12,7 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
+import { VENTA_SIN_COBRO } from './venta-tipo';
 
 export type Pago = {
   id: number;
@@ -370,7 +371,9 @@ export const getRevenueBreakdowns = cachedRead('getRevenueBreakdowns', _getReven
 async function _getRevenueBreakdowns(start: string, end: string): Promise<RevenueBreakdowns> {
   const supabase = (await getTenantDb());
   const [soldRes, cashRes, outRes] = await Promise.all([
-    supabase.from('leads').select('id, nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).gte('fecha_cierre', start).lte('fecha_cierre', end),
+    // Sin los «sin cobro» (#747): el desglose cuenta lo MISMO que el «N cierres» de
+    // getRevenuePeriod, o el pop-up lista un cierre más que el número de arriba.
+    supabase.from('leads').select('id, nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO).gte('fecha_cierre', start).lte('fecha_cierre', end),
     supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end),
     supabase.from('pagos').select('monto_usd, fecha_esperada, numero, lead_id, leads(nombre)').eq('pagado', false).gte('fecha_esperada', start),
   ]);

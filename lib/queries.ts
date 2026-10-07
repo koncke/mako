@@ -23,6 +23,8 @@ import {
 } from './leads';
 import { getPipelineStagesDefault } from './funnels';
 import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
+// Un becado (#747) es cliente y no es venta: las sumas de lo vendido lo excluyen.
+import { VENTA_SIN_COBRO } from './venta-tipo';
 import { encuentroGrabable } from './encuentro-ws';
 import { adjuntarFathomAutoThrottled } from './fathom-auto';
 import { registrarEtapasDerivadas } from './etapa-historial';
@@ -827,11 +829,13 @@ async function _getRevenuePeriod(
   //             período) — es lo que falta cobrar en todo el pipeline.
   const [soldRes, cash_collected_usd, outstanding_usd, spendRes, primerosPagosCountRes] =
     await Promise.all([
-      // Sold: cerros del período
+      // Sold: cerros del período. Sin los «sin cobro» (#747): un becado sería un cierre
+      // de US$0 en «N cierres». `venta_tipo` es NOT NULL (mig 0116): el neq no come nulls.
       supabase
         .from('leads')
         .select('monto_cierre_usd')
         .eq('cerro', true)
+        .neq('venta_tipo', VENTA_SIN_COBRO)
         .gte('fecha_cierre', start)
         .lte('fecha_cierre', end),
       getCashCollectedPeriodo(start, end),
@@ -1133,7 +1137,8 @@ async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<Revenue
   // pintando el spend de los meses que entraran en las primeras 1.000 filas — y
   // sin ORDER BY, cuáles entraban no estaba ni definido.
   const [soldRes, cashRes, spendRows, agendaRes] = await Promise.all([
-    supabase.from('leads').select('fecha_cierre, monto_cierre_usd').eq('cerro', true).gte('fecha_cierre', start),
+    // Sin los «sin cobro» (#747): igual que el Sold del período (getRevenuePeriod).
+    supabase.from('leads').select('fecha_cierre, monto_cierre_usd').eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO).gte('fecha_cierre', start),
     supabase.from('pagos').select('fecha_pago, monto_usd').eq('pagado', true).gte('fecha_pago', start),
     leerTodo<{ fecha: string | null; spend: number | null }>(
       supabase, T_METRICAS, 'id, fecha, ad_id, spend',
@@ -2812,11 +2817,13 @@ async function _getObjetivoProgreso(
   ]);
   const desde = desdeRaw && /^\d{4}-\d{2}-\d{2}$/.test(desdeRaw) ? desdeRaw : OBJETIVO_DESDE_DEFAULT;
 
-  // Cierres ganados desde `desde` (incluye ganados sin fecha_cierre cargada).
+  // Cierres ganados desde `desde` (incluye ganados sin fecha_cierre cargada). Un becado
+  // («sin cobro», #747) no es una venta: no suma al objetivo de cierres ni al Sold.
   const { data: ganados, error: gErr } = await supabase
     .from('leads')
     .select('fecha_cierre, monto_cierre_usd')
-    .eq('estado_lead', 'ganado');
+    .eq('estado_lead', 'ganado')
+    .neq('venta_tipo', VENTA_SIN_COBRO);
   if (gErr) throw new Error(`Query objetivo cierres falló: ${gErr.message}`);
   const ganadosRows = (ganados ?? []) as Array<{ fecha_cierre: string | null; monto_cierre_usd: number | null }>;
   const cuentan = ganadosRows.filter((g) => g.fecha_cierre === null || g.fecha_cierre >= desde);

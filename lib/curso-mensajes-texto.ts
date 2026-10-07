@@ -489,3 +489,235 @@ export function textoJuntaDueno(p: { cliente: string; pasos: readonly PasoJunta[
 export function tituloAvisoJunta(cliente: string): string {
   return `Junta con ${renglon(cliente, 40) || 'un cliente'}`;
 }
+
+// ── El RECORDATORIO de clases (#780) ─────────────────────────────────────────
+// Decisión de Martín (06/10/2026, memoria cs-decisiones-cierre-0610): «por WhatsApp, a los 3 días
+// sin entrar al portal, sólo videos sin ver de su etapa». Lo manda el cron horario
+// (`correrRecordatoriosDeClases`, lib/curso-mensajes.ts); acá vive lo puro: a quién le toca,
+// cuándo, y qué dice. Qué videos son «sin ver» lo decide `videosSinVer` (lib/curso.ts).
+//
+// ⚠️ NO ES EL PREVIO DE UNA LLAMADA. Ése nombra TAREAS sin enviar y sale el día antes de una
+// sesión; éste nombra VIDEOS sin ver y sale cuando el cliente se alejó del portal. Por eso quien
+// tiene una sesión cerca (antes O después: el previo y el posterior ya le escriben) se saltea.
+
+/**
+ * Días sin contacto con su portal para que le toque: desde su último ingreso, la invitación por
+ * mail o el último WhatsApp del curso que le llevó su link — el más reciente de los tres.
+ */
+export const DIAS_SIN_ENTRAR = 3;
+/** Y como mucho uno cada tantos días: si sigue sin entrar, le vuelve a tocar recién ahí. */
+export const DIAS_ENTRE_RECORDATORIOS = 3;
+/**
+ * Una sesión de la entrega a menos de esto —antes o después— lo saltea. Antes, porque el previo
+ * le va a escribir (sale hasta 24 h antes); después, porque el posterior sale de 2 a 48 h después
+ * de la llamada. Dos mensajes automáticos del mismo número en el mismo día no suman: restan.
+ */
+export const SESION_CERCA_HORAS = 48;
+
+const DIA_MS = 86_400_000;
+
+/** Lo que el cron lee de `curso_accesos` para decidir (mig 0202 + 0206 + 0211). */
+export type AccesoParaRecordar = {
+  revocado: boolean;
+  ingresos: number;
+  ultimoIngresoAt: string | null;
+  /** La invitación POR MAIL (`marcarInvitacion`). El link por WhatsApp NO la escribe: va abajo. */
+  invitacionEnviadaAt: string | null;
+  /**
+   * El último WhatsApp del curso que le LLEGÓ con su link (mig 0211): el «Mandar su link» de la
+   * ficha, la etapa nueva, el previo y el posterior de una llamada. Lo escribe `mandar`
+   * (lib/curso-mensajes.ts) sólo cuando el envío contestó ok.
+   */
+  linkEnviadoAt: string | null;
+  /** La marca del último recordatorio (mig 0211): «se procesó», no «le llegó». */
+  recordatorioAt: string | null;
+};
+
+const instante = (iso: string | null | undefined): number | null => {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : null;
+};
+
+/**
+ * ¿Es del universo del recordatorio? NO REVOCADO, y le dieron su acceso (invitación por mail o su
+ * link por WhatsApp) o ya ENTRÓ alguna vez.
+ *
+ * ⚠️ «TIENE FILA» NO ES «LO INVITARON» (mig 0206): hubo una época en que abrir la pestaña Curso de
+ * la ficha creaba la fila sola, y «Copiar link» la crea hoy sin que se sepa si alguien lo mandó.
+ * Un cliente al que nadie le dio el acceso no recibe un «te faltan videos» de un portal que no
+ * conoce.
+ *
+ * ⚠️ EL LINK POR WHATSAPP CUENTA (`linkEnviadoAt`, revisión del 07/10/2026). Sin él quedaba
+ * afuera el caso más típico de «nunca entró»: Mauricio le manda el link desde la ficha, el cliente
+ * no lo abre, y no tiene invitación por mail ni ingresos.
+ */
+export function enUniversoDeRecordatorio(a: Pick<AccesoParaRecordar, 'revocado' | 'ingresos' | 'invitacionEnviadaAt' | 'linkEnviadoAt'>): boolean {
+  return !a.revocado && (a.invitacionEnviadaAt != null || a.linkEnviadoAt != null || (Number(a.ingresos) || 0) > 0);
+}
+
+/**
+ * ¿Le toca HOY el recordatorio?
+ *
+ *   · El ANCLA es el contacto más reciente con su portal: su último ingreso, la invitación por mail
+ *     o el último WhatsApp del curso que le llevó su link. Gana la MÁS RECIENTE: quien entró hace
+ *     10 días y hoy recibió su link (por mail o por WhatsApp) tuvo contacto hoy, y un «tienes
+ *     videos pendientes» una hora después del link es un segundo mensaje que resta.
+ *   · Toca a los `DIAS_SIN_ENTRAR` del ancla, y no más de uno cada `DIAS_ENTRE_RECORDATORIOS`.
+ *   · ⚠️ FAIL-CLOSED: sin ancla, o con una marca que no se puede leer, NO toca. El default de lo
+ *     que le escribe a un cliente es no escribirle.
+ */
+export function tocaRecordatorio(a: AccesoParaRecordar, ahora: Date): boolean {
+  if (!enUniversoDeRecordatorio(a)) return false;
+  const anclas = [instante(a.ultimoIngresoAt), instante(a.invitacionEnviadaAt), instante(a.linkEnviadoAt)]
+    .filter((x): x is number => x != null);
+  if (!anclas.length) return false;
+  const t = ahora.getTime();
+  if (t - Math.max(...anclas) < DIAS_SIN_ENTRAR * DIA_MS) return false;
+  if (a.recordatorioAt != null) {
+    const r = instante(a.recordatorioAt);
+    if (r == null || t - r < DIAS_ENTRE_RECORDATORIOS * DIA_MS) return false;
+  }
+  return true;
+}
+
+/** El rango de fechas de sesión que hay que leer para saber si alguna está cerca. */
+export function ventanaDeSesionCerca(ahora: Date): { desde: string; hasta: string } {
+  const t = ahora.getTime();
+  return {
+    desde: new Date(t - SESION_CERCA_HORAS * 3_600_000).toISOString(),
+    hasta: new Date(t + SESION_CERCA_HORAS * 3_600_000).toISOString(),
+  };
+}
+
+/** ¿Alguna de sus sesiones de la entrega está a menos de `SESION_CERCA_HORAS`, antes o después? */
+export function sesionCerca(fechas: readonly string[], ahora: Date): boolean {
+  const t = ahora.getTime();
+  return fechas.some((f) => {
+    const x = instante(f);
+    return x != null && Math.abs(x - t) <= SESION_CERCA_HORAS * 3_600_000;
+  });
+}
+
+/**
+ * ¿Sigue en el programa? EN POSITIVO: sin fila en `cs_clientes` (el default: está activo) o con
+ * `estado = 'activo'`. Graduado y baja son decisiones de Mauricio (mig 0129) y no reciben nada;
+ * PAUSADO tampoco: está suspendido, y «te faltan videos» a quien frenó a propósito es presión que
+ * nadie pidió. Un estado nuevo que se agregue mañana queda AFUERA hasta que alguien lo sume acá.
+ */
+export function sigueEnElPrograma(estado: string | null | undefined): boolean {
+  return estado == null || estado === 'activo';
+}
+
+/** Los videos pendientes de una etapa: su rótulo y los títulos, en el orden de la etapa. */
+export type BloqueVideos = { etapa: string; videos: readonly string[] };
+
+/**
+ * El WhatsApp al cliente. `null` = no hay videos pendientes: NO SE MANDA NADA (un «vas al día»
+ * cada tres días es un mensaje de más). Con más de un curso (dos productos) va un bloque por etapa.
+ * El link es el de SU portal y entra como dato: lo firma el código, nunca un modelo.
+ */
+export function textoRecordatorioClases(p: { nombre: string | null; bloques: readonly BloqueVideos[]; link: string }): string | null {
+  const con = p.bloques.filter((b) => b.videos.length);
+  if (!con.length) return null;
+  const total = con.reduce((s, b) => s + b.videos.length, 0);
+  const cuantos = plural(total, 'video pendiente', 'videos pendientes');
+  const cuerpo = con.length === 1
+    ? `tienes ${cuantos} de *${con[0].etapa}*:\n${listaPendientes(con[0].videos)}`
+    : `tienes ${cuantos}:\n${con.map((b) => `De *${b.etapa}*:\n${listaPendientes(b.videos)}`).join('\n')}`;
+  return `${saludo(p.nombre)} ${cuerpo}\n\n${total === 1 ? 'Míralo' : 'Míralos'} aquí: ${p.link}`;
+}
+
+/** Lo que pasó con UN cliente en la corrida, para la copia a Mauricio. */
+export type RecordatorioHecho = { cliente: string; bloques: readonly BloqueVideos[]; noLlego: string | null };
+/** Un cliente al que le tocaba y no se le pudo escribir (sin teléfono, bloqueado…), con el porqué. */
+export type RecordatorioSinEscribir = { cliente: string; motivo: string };
+
+const quienEs = (cliente: string) => renglon(cliente, 60) || 'un cliente';
+
+/** Los títulos en una línea: hasta `TOPE_PENDIENTES` y «y N más». */
+function titulosEnLinea(titulos: readonly string[]): string {
+  const vis = titulos.slice(0, TOPE_PENDIENTES).map((t) => renglon(t, 50));
+  const resto = titulos.length - TOPE_PENDIENTES;
+  return resto > 0 ? `${vis.join(', ')} y ${resto} más` : vis.join(', ');
+}
+
+/**
+ * La copia CORTA a Mauricio: a quién se le recordó qué, en UN aviso por corrida (no uno por
+ * cliente: diez recordatorios a las 9:00 serían diez WhatsApps al grupo). Lleva también a quién
+ * no le llegó y a quién no se le pudo escribir — sin esa línea, Mauricio da por recordado a alguien
+ * a quien nadie le escribió. `null` = no hay nada que contarle.
+ *
+ * ⚠️ Nunca lleva el link del cliente: va a un grupo.
+ */
+export function textoRecordatorioDueno(p: { hechos: readonly RecordatorioHecho[]; sinEscribir?: readonly RecordatorioSinEscribir[] }): string | null {
+  const ok = p.hechos.filter((h) => !h.noLlego);
+  const mal = p.hechos.filter((h) => h.noLlego);
+  const sin = p.sinEscribir ?? [];
+  const partes: string[] = [];
+  if (ok.length) {
+    const lineas = ok.map((h) => {
+      const con = h.bloques.filter((b) => b.videos.length);
+      const etapas = con.map((b) => `*${b.etapa}*`).join(', ');
+      return `· *${quienEs(h.cliente)}* (${etapas}): ${titulosEnLinea(con.flatMap((b) => [...b.videos]))}`;
+    });
+    partes.push(`${ok.length === 1 ? 'Le' : 'Les'} recordé sus videos pendientes a ${plural(ok.length, 'cliente', 'clientes')} con ${DIAS_SIN_ENTRAR} días sin entrar:\n${lineas.join('\n')}`);
+  }
+  if (mal.length) partes.push(`No ${mal.length === 1 ? 'le' : 'les'} llegó el recordatorio:\n${mal.map((h) => `· *${quienEs(h.cliente)}*: ${h.noLlego}`).join('\n')}`);
+  if (sin.length) partes.push(`No ${sin.length === 1 ? 'le' : 'les'} pude escribir:\n${sin.map((s) => `· *${quienEs(s.cliente)}*: ${s.motivo}`).join('\n')}`);
+  return partes.length ? partes.join('\n') : null;
+}
+
+/** El título del aviso en el feed. */
+export const TITULO_AVISO_RECORDATORIO = 'Recordatorio de clases';
+
+/**
+ * La clave de dedup de la copia. Lo que impide recordarle dos veces a un cliente es la marca
+ * `recordatorio_at` con compare-and-set; esto es la red de la copia.
+ *
+ * ⚠️ LLEVA LOS CLIENTES, NO SÓLO LA HORA. Dos corridas del mismo tick (un reintento de Vercel) se
+ * reparten clientes DISTINTOS gracias al CAS: con una clave por hora, la copia de la segunda se
+ * deduplicaría y Mauricio no se enteraría de esos recordatorios, que sí salieron.
+ */
+export function claveAvisoRecordatorio(ws: number, leadIds: readonly number[], ahora: Date): string {
+  const ids = [...new Set(leadIds)].sort((a, b) => a - b).join('-');
+  return `recordatorio:${ws}:${ahora.toISOString().slice(0, 13)}:${ids}`;
+}
+
+// ── El reloj del cron (revisión del 07/10/2026) ──────────────────────────────
+// La función de Vercel muere a los `maxDuration` segundos, y lo que muere con ella es la COPIA a
+// Mauricio: los recordatorios ya salieron y quedaron marcados (la marca va antes del envío), pero
+// la copia se arma con lo que se hizo en ESTA corrida, que vive sólo en memoria. Si la función se
+// corta antes de mandarla, Mauricio no se entera nunca de lo que se le escribió a sus clientes —
+// que es justo lo que pidió ver. Antes había un presupuesto de 90 s sobre 120 sin nada reservado
+// para lo que viene DESPUÉS del último envío: un envío que arranca a los 89 s (hasta 30 s) más la
+// copia (otros 30 s de grupo, más el mail) pasaba los 120.
+//
+// Por eso el último recordatorio se EMPIEZA con tiempo para terminarlo entero y para la copia.
+
+/**
+ * Lo más que puede tardar UN pedido a Evolution: el tope de `evFetch` (lib/evolution.ts) y el de
+ * `ev` (lib/mako-grupo.ts), los dos 30 s. El `delay` de tipeo (hasta ~10,8 s) va adentro de ese
+ * tope: Evolution retiene el pedido mientras «escribe». tests/curso-recordatorio.test.ts lee los
+ * dos topes del fuente y falla si alguno crece por encima de éste.
+ */
+export const TOPE_PEDIDO_EVOLUTION_MS = 30_000;
+/** Un recordatorio desde la marca: la marca, la línea, el envío con su tope, el espejo en `wa_mensajes` y los motivos. */
+export const RESERVA_RECORDATORIO_MS = TOPE_PEDIDO_EVOLUTION_MS + 5_000;
+/**
+ * La copia a Mauricio (`emitirAviso`): el grupo de MaKo con su tope, el mail —Resend no tiene tope
+ * propio: se le dan unos segundos— y las escrituras del aviso (feed, dedup, turno del grupo).
+ */
+export const RESERVA_COPIA_MS = TOPE_PEDIDO_EVOLUTION_MS + 10_000;
+/** Lo que la función gastó antes de `inicio` (arranque, auth) y el cierre de la respuesta. */
+export const MARGEN_CIERRE_MS = 5_000;
+
+/**
+ * Hasta qué momento (epoch ms) se puede EMPEZAR un recordatorio sin poner en riesgo la copia a
+ * Mauricio. Con `maxDuration = 120`: 120 − 35 − 40 − 5 = 40 s desde que arrancó la corrida. Las
+ * llamadas de la entrega corren antes y se comen de ese mismo reloj; lo que no entra, sale la hora
+ * siguiente (la marca no se escribe sin mandar).
+ */
+export function ultimoInicioDeRecordatorio(inicioMs: number, maxDuracionS: number): number {
+  return inicioMs + maxDuracionS * 1000 - RESERVA_RECORDATORIO_MS - RESERVA_COPIA_MS - MARGEN_CIERRE_MS;
+}

@@ -122,7 +122,7 @@ export const EMOJI_CATEGORIA: Record<CategoriaAviso, string> = {
 // Se pinta en el choke point (`emitirAviso`), no en los call-sites: así lo toma
 // TODO mensaje, incluidos los que nadie tocó y los que se creen mañana.
 
-export type AreaAviso = 'reunion' | 'lead' | 'anuncios' | 'plata' | 'plan' | 'sistema' | 'reporte' | 'landing';
+export type AreaAviso = 'reunion' | 'lead' | 'anuncios' | 'plata' | 'plan' | 'sistema' | 'reporte' | 'landing' | 'cliente';
 
 /** Cómo se ve el rótulo de cada área. El emoji es el ancla visual; el texto, el desempate. */
 export const ROTULO_AREA: Record<AreaAviso, { emoji: string; texto: string }> = {
@@ -138,6 +138,10 @@ export const ROTULO_AREA: Record<AreaAviso, { emoji: string; texto: string }> = 
   // acción es ir a la landing y volver a pegar algo, y el rótulo tiene que
   // anunciarlo desde la primera línea.
   landing:  { emoji: '🌐', texto: 'TU LANDING' },
+  // Alguien que YA COMPRÓ (Customer Success). Área propia y no 'lead' a propósito: «👤 LEAD» le
+  // dice al dueño que es alguien a quien venderle, y lo que hay que hacer con un cliente que se
+  // enfría es otra cosa — atenderlo, no cerrarlo.
+  cliente:  { emoji: '🤝', texto: 'CLIENTE' },
 };
 
 /**
@@ -154,6 +158,11 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'reunion-ocurrio-fathom': 'reunion', 'reunion-no-show': 'reunion',
   // Las llamadas de la ENTREGA del curso (lib/curso-mensajes.ts, cron curso-sesiones).
   'curso-sesion-previa': 'reunion', 'curso-sesion-posterior': 'reunion',
+  // La alerta de baja de Customer Success (#109, cron cs-sin-contacto).
+  'cs-cliente-sin-contacto': 'cliente',
+  // El recordatorio de clases (#780) habla de CLIENTES que no entran al portal, no de una
+  // reunión: «👤 LEAD» le dice a Mauricio de qué le están hablando desde la primera línea.
+  'curso-recordatorio-clases': 'lead',
   'reunion-compromisos-tareas': 'plan', 'reunion-tareas-al-plan': 'plan',
   'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
   'plan-proyecto-vence': 'plan',
@@ -615,6 +624,35 @@ Ya le mandé el recordatorio.`,
     ejemplo: `Después de la sesión con *Ana Ruiz*: 1 tarea pendiente de *Norte*:
 · Tu meta del año
 Ya le mandé sus pendientes.`,
+  },
+  // La alerta de BAJA de Customer Success (#109). Decisión de Martín, 06/10/2026: «Columnas +
+  // alerta» — sin IA, al DUEÑO y nunca al cliente. La regla (pura y con test) vive en
+  // lib/cs-contacto.ts y el envío en lib/cs-sin-contacto.ts.
+  //
+  // ⚠️ PRENDIDO POR DEFECTO: sin `porDefecto` nace APAGADO, y una alerta que nadie prendió es una
+  // decisión del dueño que no se cumple. Es de las que EXIGEN hacer algo (escribirle a un cliente
+  // que se está yendo), que es el criterio de 'on'. Y no inunda: uno por cliente y por racha, tres
+  // por mañana como máximo (`TOPE_AVISOS_POR_CORRIDA`), y puede esperar al resumen de la mañana
+  // (lib/avisos-agrupables.ts). Ejemplo FICTICIO por regla.
+  {
+    id: 'cs-cliente-sin-contacto', titulo: 'Cliente sin contacto', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cron diario cs-sin-contacto: un cliente ganado que no está dado de baja ni graduado lleva 21 días sin llamada, sin escribir por WhatsApp y sin cambio de etapa. Lo que le manda el negocio (también lo automático) no cuenta. Uno por cliente y por racha: un contacto nuevo empieza otra.',
+    ejemplo: `*Ana Ruiz* lleva 23 días sin mensajes suyos ni sesión registrada, ni cambio de etapa.
+Escríbele hoy o agenda una sesión.`,
+  },
+  // La COPIA a Mauricio del recordatorio de clases (#780, decisión de Martín del 06/10/2026: por
+  // WhatsApp, a los 3 días sin entrar, sólo los videos sin ver de su etapa). La emite el mismo cron
+  // (`correrRecordatoriosDeClases`, lib/curso-mensajes.ts), UNA por corrida con todos los clientes.
+  // Nace PRENDIDO: es lo que le dice a Mauricio qué se le escribió a sus clientes, que él pidió ver
+  // («yo voy a ver qué le envió», 8/9). Ejemplo FICTICIO por regla.
+  {
+    id: 'curso-recordatorio-clases', titulo: 'Recordatorio de clases', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cron curso-sesiones (cada hora, de 9 a 21): a un cliente invitado al curso que lleva 3 días sin entrar al portal se le recuerdan los videos sin ver de su etapa, uno cada 3 días como mucho. Esta es la copia: a quién y qué.',
+    ejemplo: `Les recordé sus videos pendientes a 2 clientes con 3 días sin entrar:
+· *Ana Ruiz* (*Norte*): Cómo leer tu tablero, Tu primera meta
+· *Luis Paz* (*Contexto*): Bienvenida al programa`,
   },
   {
     id: 'reunion-agenda-dia', titulo: 'Agenda del día (juntas de hoy)', categoria: 'aviso',

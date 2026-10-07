@@ -39,6 +39,7 @@ import { tzActual } from './timezone';
 import { hoyEnTz, diasAntes } from './date-utils';
 import { integracionConectada } from './credenciales';
 import { esPreviewDeEditor } from './landing-paginas';
+import { cuentaComoVenta } from './venta-tipo';
 
 // ── El modelo ────────────────────────────────────────────────────────────────
 // Los tipos, la agrupación por período y las salidas (CSV/markdown) viven en
@@ -275,9 +276,10 @@ export async function reporteMetricas(opts: {
     fecha_junta_1: string | null; asistio_j1: boolean | null;
     fecha_junta_2: string | null; asistio_j2: boolean | null;
     cerro: boolean | null; fecha_cierre: string | null; monto_cierre_usd: number | null;
+    venta_tipo: string | null;
   }>(
     db, 'leads',
-    'id, created_at, fecha_agenda, fecha_junta_1, asistio_j1, fecha_junta_2, asistio_j2, cerro, fecha_cierre, monto_cierre_usd',
+    'id, created_at, fecha_agenda, fecha_junta_1, asistio_j1, fecha_junta_2, asistio_j2, cerro, fecha_cierre, monto_cierre_usd, venta_tipo',
     (filas) => {
       for (const r of filas) {
         filasLeads++;
@@ -309,8 +311,12 @@ export async function reporteMetricas(opts: {
         // Misma definición que `v_cohortes_mensuales` (mig 0084): `cerro = true`.
         // Se usa esa y no `estado_lead='ganado'` para que el número reconcilie con
         // lo que muestra /comercial en vez de discutir con ello.
+        //
+        // Y un becado («sin cobro», #747) no es una venta: contado acá sería un ganado de
+        // US$0, y `ingreso_usd / ganados` —el ticket que saca cualquiera que lea esto—
+        // bajaría por alguien que no pagó. Sigue siendo cliente en Customer Success.
         const ci = dentro(r.fecha_cierre);
-        if (ci && r.cerro === true) {
+        if (ci && r.cerro === true && cuentaComoVenta(r)) {
           const a = de(claveDe(ci, grano));
           a.ganados++;
           a.ingreso_usd += num(r.monto_cierre_usd);
@@ -420,6 +426,7 @@ export async function reporteMetricas(opts: {
     'El alcance (reach) y la frecuencia de Meta no están: no son aditivos —sumar el alcance de 90 días no da el alcance del trimestre—, así que un total sumado sería un número inventado. Se piden en vivo a Meta, por anuncio (`/api/ad-insights`) o por campaña (`/api/entity-insights`).',
     'Las visitas propias se agrupan por el día del CALENDARIO DEL WORKSPACE, igual que la fecha con la que Meta escribe su gasto. Es a propósito: cortar el `created_at` en UTC —lo que hace el resto del dashboard— corre al día siguiente todo lo que pasó después de las 16-17 h, y las dos series quedan desalineadas justo cuando se las compara.',
     'Los cierres se cuentan por `cerro = true` con fecha en el período, que es la misma definición de `v_cohortes_mensuales` y de /comercial. Conviven otras dos en el código (`estado_lead = ganado` y `fecha_cierre` a secas) y no siempre coinciden: si este número discute con otra pantalla, es por eso.',
+    'Los ganados con venta «Sin cobro» (becados) NO entran en `ganados` ni en `ingreso_usd`: son clientes, no ventas, y contados bajarían el ticket. Igual que el Sold de /comercial; las cohortes (`v_cohortes_mensuales`) sí los cuentan como cierre.',
   ];
   if (previewsDescartados > 0) {
     advertencias.push(

@@ -148,6 +148,10 @@
     {
       "path": "/api/cron/cs-sesiones-entrega",
       "schedule": "52 * * * *"
+    },
+    {
+      "path": "/api/cron/cs-sin-contacto",
+      "schedule": "3 14 * * *"
     }
   ]
 }

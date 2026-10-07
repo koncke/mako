@@ -33,6 +33,7 @@ import {
 // Defaults de prompts grandes (viven en su archivo de origen) ──────────────────
 import { SYSTEM_ANALISIS, CLOSING_USER_TEMPLATE } from './closing';
 import { ENTREGA_SYSTEM_TEMPLATE, ENTREGA_USER_TEMPLATE } from './closing-entrega-contrato';
+import { PROPUESTA_SYSTEM_TEMPLATE, PROPUESTA_USER_TEMPLATE } from './curso-propuesta';
 import {
   SCRIPT_ANALYSIS_SYSTEM_TEMPLATE,
   SCRIPT_ANALYSIS_USER_TEMPLATE,
@@ -488,6 +489,26 @@ export const REGISTRY: Group[] = [
         variables: [v('metadatos', 'título/fecha/duración/quien dio la sesión'), v('cliente', 'nombre y empresa del cliente en el CRM, si se sabe'), v('resumenFathom', 'resumen de Fathom'), v('transcript', 'transcript con segundos')], scope: 'full', sensitive: false,
         default: ENTREGA_USER_TEMPLATE,
         context: 'Le pasa a MaKo la sesión entera. Conserva los slots: sin {{transcript}} no hay de dónde sacar las citas, y el código las verifica contra la grabación.',
+      },
+    ],
+  },
+  {
+    group: 'Curso del servicio — la IA reescribe la tarea (Customer Success)',
+    icon: '📝',
+    blurb: 'Después de cada sesión de entrega, MaKo reescribe las respuestas del curso que el cliente ya mandó con lo que se habló en la llamada. Su versión queda AL LADO de la del cliente, que la aprueba o la corrige en su portal: nunca se pisa lo que él escribió.',
+    entries: [
+      {
+        key: 'curso.propuesta.system', source: 'override',
+        label: 'Reescribir la tarea con lo hablado (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: PROPUESTA_SYSTEM_TEMPLATE,
+        context: 'Cómo MaKo reescribe las respuestas del cliente con lo que se habló en la sesión. Conserva la forma EXACTA del JSON ({"propuestas": [{"clase", "area", "valores"}]}) y la regla de respetar la forma de cada campo: lo que no cumpla el formulario de su clase se descarta (lib/curso-propuesta.ts). Y no le pongas el nombre de un negocio: corre para todos los clientes.',
+      },
+      {
+        key: 'curso.propuesta.user', source: 'override',
+        label: 'Reescribir la tarea — datos de la sesión (user)', kind: 'user', dynamic: true,
+        variables: [v('metadatos', 'título/fecha/duración/quien dio la sesión'), v('resumen', 'resumen del análisis de la sesión y el de Fathom'), v('respuestas', 'las respuestas que el cliente mandó antes de la sesión, con su formulario'), v('transcript', 'transcript con segundos')], scope: 'full', sensitive: false,
+        default: PROPUESTA_USER_TEMPLATE,
+        context: 'Le pasa a MaKo la sesión y las respuestas a reescribir. Conserva los slots: sin {{respuestas}} no hay nada que reescribir, y sin {{transcript}} no hay de dónde sacar lo hablado.',
       },
     ],
   },

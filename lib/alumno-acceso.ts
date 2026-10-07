@@ -73,6 +73,10 @@ export async function hayAlumnoVigente(): Promise<boolean> {
  *
  * Si es alumno de dos negocios gana la invitación MÁS RECIENTE que siga abriendo: se prueban en ese
  * orden y la primera vigente entra (un lead que dejó de ser ganado no tapa al otro).
+ *
+ * ⚠️ SÓLO LA INVITACIÓN DEL CLIENTE (`area` null), nunca la de un LÍDER de área (#665, mig 0212): la
+ * cookie que sale de acá es la DEL CLIENTE, así que leer la fila de un líder le abriría al líder
+ * todo el curso del cliente. El líder entra sólo con su link (lib/curso-acceso.ts, `c2.`).
  */
 export async function accesoInvitadoPorEmail(email: string): Promise<AccesoCurso | null> {
   const e = email.trim().toLowerCase();
@@ -82,6 +86,7 @@ export async function accesoInvitadoPorEmail(email: string): Promise<AccesoCurso
     .from('curso_accesos')
     .select('workspace_id, lead_id, version')
     .eq('email', e)
+    .is('area', null)
     .not('invitacion_enviada_at', 'is', null)
     .is('revocado_at', null)
     .order('invitacion_enviada_at', { ascending: false })

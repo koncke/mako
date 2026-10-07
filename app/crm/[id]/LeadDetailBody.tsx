@@ -150,6 +150,9 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     dealPromesaOk: !!lead.deal_promesa?.resultado?.trim(),
     dealFiscalOk: !!lead.deal_fiscal?.razon?.trim(),
     dealObligacionesOk: (lead.deal_obligaciones?.cliente?.length ?? 0) > 0 || (lead.deal_obligaciones?.prestador?.length ?? 0) > 0,
+    // El tipo de venta guardado: sin esto el wizard abre en «Pago único» y a un becado
+    // (#747) le vuelve a pedir el monto.
+    ventaTipo: lead.venta_tipo ?? null,
   };
 
   // Solucionar (pasada única): SIEMPRE abre el wizard con TODO lo faltante

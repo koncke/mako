@@ -305,6 +305,38 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     href: '/landing-generator',
   },
 
+  // ── Clientes (Customer Success): la cartera y la entrega de cada servicio ──
+  //
+  // ⚠️ LOS TRES PASOS SE DERIVAN DE LOS DATOS, como los del Curso (#109, 06/10/2026). El ws1
+  // llegó a esta tab con sus productos, sus nueve etapas y catorce clientes: un paso que sólo se
+  // cerrara «haciéndolo acá» le taparía a Mauricio su propia cartera. La página los marca sola al
+  // dibujarse (app/customer-success/onboarding-clientes-sync.ts) y la regla de qué dato cierra
+  // cada uno vive en app/customer-success/onboarding-clientes.ts, con test.
+  //
+  // Y NO TAPA LA TAB: es una lista arriba de la cartera mientras falte algo, no un wizard.
+  //
+  //   cs_servicio → hay al menos un producto con etapas de entrega (el kanban se puede dibujar).
+  //                 Va primero porque es configuración del negocio y existe antes del primer
+  //                 cliente; sin él la tab es una lista plana.
+  //   cs_clientes → hay al menos un cliente ganado (del CRM, o cargado acá).
+  //   cs_ficha    → el ENSAYO: alguien abrió la ficha de un cliente, o ya movió a alguien de etapa
+  //                 (una fila en `cliente_entrega`, que es usar la tab más a fondo todavía).
+  //
+  // ⚠️ Prefijo `cs_` por la colisión de KEY_PASOS_COMPARTIDOS (ver arriba). Y el ORDEN es una
+  // guarda (`marcarPasoTab` no marca un paso con uno obligatorio anterior pendiente): tiene que
+  // coincidir con PASOS_CLIENTES (el test lo compara).
+  'customer-success': {
+    key: 'customer-success',
+    titulo: 'Configuración de Clientes',
+    nombre: 'Clientes',
+    pasos: [
+      { key: 'cs_servicio', label: 'Tu servicio' },
+      { key: 'cs_clientes', label: 'Tus clientes' },
+      { key: 'cs_ficha', label: 'Ficha de un cliente' },
+    ],
+    href: '/customer-success',
+  },
+
   // ── Curso (Customer Success): el programa que ven los clientes en su portal ──
   //
   // ⚠️ LOS CUATRO PASOS SE DERIVAN DE LOS DATOS, no de un recorrido. El ws1 ya tenía 107

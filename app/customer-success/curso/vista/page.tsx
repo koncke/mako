@@ -73,6 +73,9 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
 
   const vista: VistaAlumno = {
     nombre: null,
+    // La vista previa es la del CLIENTE (sin progreso: ninguna clase por área muestra áreas, y el
+    // link de agenda no aparece porque ninguna etapa está completa).
+    area: null,
     // Un producto sin clases no se le muestra al alumno (`armarVistaAlumno`): acá tampoco.
     productos: clases.length ? [{ productoId, nombre: (prod as { nombre: string }).nombre, etapas }] : [],
   };

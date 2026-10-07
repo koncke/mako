@@ -98,3 +98,35 @@ export function textoInvitacionCurso(p: {
   ].join('\n');
   return { asunto: `Tu acceso a ${programa}`, preheader: `Tu acceso a ${programa} ya está listo.`, cuerpo };
 }
+
+/**
+ * El mail al LÍDER de un área (#665): le llega el link de SUS tareas, las del área que le tocó.
+ *
+ * ⚠️ SIN LA LÍNEA DE GOOGLE, a propósito: el líder no tiene cuenta ni cookie de alumno — entra
+ * SÓLO con este link (lib/curso-acceso.ts). Ofrecerle «entra con Google» lo mandaría a un login que
+ * le contesta «no autorizado», o peor, si su correo fuera el del cliente, a la puerta del cliente.
+ * Por eso tampoco se ofrece reenviarlo «como si fuera» la invitación del cliente: es otro texto.
+ */
+export function textoInvitacionLider(p: {
+  /** El área, tal como la escribió el cliente en su tabla de áreas. */
+  area: string;
+  programa: string;
+  negocio?: string | null;
+  /** El link del portal de su área (el `c2.` firmado). */
+  enlace: string;
+}): { asunto: string; preheader: string; cuerpo: string } {
+  const area = p.area.trim() || 'tu área';
+  const programa = p.programa.trim() || 'el programa';
+  const de = p.negocio?.trim() ? ` de ${p.negocio.trim()}` : '';
+  const cuerpo = [
+    'Hola,',
+    '',
+    `Te toca contestar las tareas de ${area} en el programa ${programa}${de}.`,
+    '',
+    'Entra desde aquí:',
+    p.enlace,
+    '',
+    'Este enlace es personal. No lo compartas.',
+  ].join('\n');
+  return { asunto: `Tus tareas de ${area}`, preheader: `Tus tareas de ${area} en ${programa}.`, cuerpo };
+}

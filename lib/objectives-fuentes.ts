@@ -27,6 +27,7 @@ import { leerPorPaginas } from './supabase-paginado';
 import { mxnAUsd } from './config';
 import type { FuenteDef, FuenteId } from './objectives-modelo';
 import { FUENTES_KPI } from './objectives-modelo';
+import { VENTA_SIN_COBRO } from './venta-tipo';
 
 /** Lo que devuelve toda fuente. `valor: null` = no se pudo leer, con el motivo al lado. */
 export type LecturaFuente = { valor: number | null; error?: string };
@@ -43,7 +44,7 @@ const finDeDia = (hasta: string) => `${hasta}T23:59:59.999Z`;
  *
  * ⚠️ `count` puede venir `null` sin que haya error. Eso NO es cero: es no saber.
  */
-type Filtro = { col: string; op: 'eq' | 'gte' | 'lte' | 'noNull'; val?: string | boolean };
+type Filtro = { col: string; op: 'eq' | 'neq' | 'gte' | 'lte' | 'noNull'; val?: string | boolean };
 
 async function contar(tabla: string, filtros: Filtro[]): Promise<LecturaFuente> {
   try {
@@ -52,6 +53,8 @@ async function contar(tabla: string, filtros: Filtro[]): Promise<LecturaFuente> 
     for (const f of filtros) {
       if (f.op === 'noNull') q = q.not(f.col, 'is', null);
       else if (f.op === 'eq') q = q.eq(f.col, f.val);
+      // ⚠️ `neq` NO deja pasar los NULL: sólo sirve sobre una columna NOT NULL.
+      else if (f.op === 'neq') q = q.neq(f.col, f.val);
       else if (f.op === 'gte') q = q.gte(f.col, f.val as string);
       else q = q.lte(f.col, f.val as string);
     }
@@ -131,6 +134,8 @@ async function soldUsd(desde: string, hasta: string): Promise<LecturaFuente> {
       .from('leads')
       .select('monto_cierre_usd')
       .eq('cerro', true)
+      // Un becado (#747) no es venta: mismo universo que el KPI «Cierres» de abajo.
+      .neq('venta_tipo', VENTA_SIN_COBRO)
       .gte('fecha_cierre', desde)
       .lte('fecha_cierre', hasta);
     if (error) return { valor: null, error: error.message };
@@ -163,6 +168,8 @@ const LECTORES: Record<FuenteId, Lector> = {
   ]),
   cierres: (desde, hasta) => contar('leads', [
     { col: 'cerro', op: 'eq', val: true },
+    // Sin los «sin cobro» (#747): `venta_tipo` es NOT NULL (mig 0116).
+    { col: 'venta_tipo', op: 'neq', val: VENTA_SIN_COBRO },
     { col: 'fecha_cierre', op: 'gte', val: desde },
     { col: 'fecha_cierre', op: 'lte', val: hasta },
   ]),

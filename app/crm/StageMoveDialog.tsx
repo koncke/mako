@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { stageMeta, type Stage } from '@/lib/pipeline';
 import { stepsForStage, funnelReqInfo, unirPasos, type Step, type StepId } from '@/lib/stage-requirements';
+import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota } from './actions';
 import { autoReunionesAction } from './auto-actions';
@@ -92,13 +93,18 @@ export type MoveLeadInfo = {
   dealPromesaOk?: boolean;
   dealFiscalOk?: boolean;
   dealObligacionesOk?: boolean;
-  // Venta recurrente / suscripción (#363): para prefill al reabrir el wizard.
-  ventaTipo?: 'unico' | 'suscripcion' | null;
+  // Venta recurrente / suscripción (#363) o sin cobro (#747): para prefill al reabrir el wizard.
+  ventaTipo?: VentaTipo | null;
   suscripcionMeses?: number | null;
 };
 
+// ⚠️ SON CUATRO CONSTRUCTORES de `MoveLeadInfo` (éste, LeadSheet, LeadDetailBody y
+// GeneratedInsightCard), y `ventaTipo` va en los CUATRO. Éste es el del tablero: lo usan
+// «Completar ahora», el «¿Qué hacer ahora?» y Solucionar cuando el worklist no trae
+// faltantes. Sin el tipo, un becado (#747) volvía a ver el paso del monto con «Pago único»
+// elegido, y guardar le escribía `venta_tipo = 'unico'` (tests/venta-sin-cobro.test.ts).
 export function leadToMoveInfo(l: CrmLead): MoveLeadInfo {
-  return { id: l.id, name: l.name, fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2, asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado, fathom: l.fathom, monto: l.monto || null, motivo: l.motivo || null, setter: l.setter || null, closer: l.closer || null, empresa: l.company || null, telefono: l.phone || null };
+  return { id: l.id, name: l.name, fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2, asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado, fathom: l.fathom, monto: l.monto || null, motivo: l.motivo || null, setter: l.setter || null, closer: l.closer || null, empresa: l.company || null, telefono: l.phone || null, ventaTipo: l.ventaTipo };
 }
 
 type PasoId =
@@ -193,7 +199,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [reprogR2, setReprogR2] = useState('');
   const [monto, setMonto] = useState(lead.monto ? String(lead.monto) : '');
   // Venta recurrente (#363): tipo + plazo. El monto mensual reusa el campo `monto`.
-  const [ventaTipo, setVentaTipo] = useState<'unico' | 'suscripcion'>(lead.ventaTipo === 'suscripcion' ? 'suscripcion' : 'unico');
+  // + «Sin cobro» (#747): un becado. Saltea el monto y el plan, y viaja como venta_tipo.
+  const [ventaTipo, setVentaTipo] = useState<VentaTipo>(ventaTipoDe(lead.ventaTipo));
   const [susMeses, setSusMeses] = useState(lead.suscripcionMeses ? String(lead.suscripcionMeses) : '');
   // Motivo: categoría (chips) + detalle específico (texto libre), en UNA pantalla.
   // Son dos estados y un solo paso — eran dos pasos hasta el 27/09/2026.
@@ -288,6 +295,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       calificado: move.yaRespondido?.calificado ?? lead.calificado,
       hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
       monto: lead.monto,
+      // Sin esto, un becado abría pidiendo monto: `requeridos` es la UNIÓN con el server.
+      ventaTipo: lead.ventaTipo,
       // El motivo va PARTIDO, igual que en el server (valoresDeRequisitos). El
       // persistido solo cuenta en "Completar datos", donde el lead YA está en esa
       // etapa; MOVIENDO a perdido/descal se está entrando ahora y el motivo de la
@@ -380,12 +389,14 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 
     // Una pregunta por slide: primero el tipo de venta, después el monto, y solo
     // si es suscripción el plazo. El 'plan' (cuotas) queda solo para pago único.
+    // «Sin cobro» (#747) saltea el monto y el plan: no hay nada que cobrar. El paso del
+    // tipo SIGUE, para poder volver atrás y cambiarlo.
     if (requeridos.has('monto')) {
       p.push('ventaTipo');
-      p.push('monto');
+      if (ventaTipo !== 'sin_cobro') p.push('monto');
       if (ventaTipo === 'suscripcion') p.push('susPlazo');
     }
-    if (requeridos.has('plan') && ventaTipo !== 'suscripcion') p.push('plan');
+    if (requeridos.has('plan') && ventaTipo !== 'suscripcion' && ventaTipo !== 'sin_cobro') p.push('plan');
     // ⚠️ UNA SOLA PANTALLA PARA EL MOTIVO, desde el 27/09/2026. Eran DOS pasos seguidos
     // para UN dato: una con seis chips y otra con un textarea, y el propio relevamiento de
     // fricción lo dejó escrito como pendiente en la fila que dice que el motivo SE QUEDA
@@ -443,6 +454,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 
   const totalMonto = parseFloat(monto) || 0;
   const esSuscripcion = ventaTipo === 'suscripcion';
+  const sinCobro = ventaTipo === 'sin_cobro';
   const sumaCuotas = cuotas.reduce((s, c) => s + (parseFloat(c.monto) || 0), 0);
   // El plan debe cubrir el monto de cierre, pero se tolera una diferencia chica:
   // el deal se pacta en USD y los cobros suelen ser en MXN, así que al convertir
@@ -524,7 +536,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         // Suscripción a plazo fijo → N cuotas mensuales del monto mensual (dan cash
         // tracking). Indefinida → sin cuotas (se registran mes a mes desde el Deal).
         // Pago único → las cuotas cargadas a mano.
-        const cuotasPayload: StageMoveCuota[] = esSuscripcion
+        // Sin cobro → sin cuotas, aunque el contrato haya prellenado alguna.
+        const cuotasPayload: StageMoveCuota[] = sinCobro ? [] : esSuscripcion
           ? (meses > 0 ? Array.from({ length: meses }, (_, i) => ({ monto: totalMonto, fecha: sumarMesesISO(hoyISO, i + 1) })) : [])
           : requeridos.has('plan')
           ? cuotas.filter((c) => parseFloat(c.monto) > 0).map((c) => ({ monto: parseFloat(c.monto), fecha: c.fecha || null }))
@@ -545,8 +558,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
           // Suscripción: el monto NO va a monto_cierre_usd (no infla el revenue único);
           // va como suscripcion_monto_usd (MRR) + el tipo y el plazo.
-          ...(pide('monto') ? {
-            monto: esSuscripcion ? null : (totalMonto || null),
+          // Sin cobro (#747): no hay paso de monto, así que el tipo viaja por su propio
+          // paso, y el monto va null — el server lo limpia si quedaba uno viejo.
+          ...(pide('monto') || pide('ventaTipo') ? {
+            monto: esSuscripcion || sinCobro ? null : (totalMonto || null),
             ventaTipo,
             suscripcionMonto: esSuscripcion ? (totalMonto || null) : null,
             suscripcionMeses: esSuscripcion ? (meses || null) : null,
@@ -842,13 +857,18 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       sub = 'Elige el tipo de venta.';
       cuerpo = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360, margin: '0 auto' }}>
-          <button type="button" onClick={() => setVentaTipo('unico')} style={{ ...btnOpcion(!esSuscripcion), textAlign: 'left' }}>
+          <button type="button" onClick={() => setVentaTipo('unico')} style={{ ...btnOpcion(ventaTipo === 'unico'), textAlign: 'left' }}>
             <div style={{ fontSize: 15 }}>Pago único</div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: esSuscripcion ? 'var(--dim)' : 'rgba(255,255,255,.7)', marginTop: 2 }}>Un cierre high-ticket (con o sin cuotas).</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: ventaTipo === 'unico' ? 'rgba(255,255,255,.7)' : 'var(--dim)', marginTop: 2 }}>Un cierre high-ticket (con o sin cuotas).</div>
           </button>
           <button type="button" onClick={() => setVentaTipo('suscripcion')} style={{ ...btnOpcion(esSuscripcion), textAlign: 'left' }}>
             <div style={{ fontSize: 15 }}>🔁 Suscripción mensual</div>
             <div style={{ fontSize: 12, fontWeight: 500, color: esSuscripcion ? 'rgba(255,255,255,.7)' : 'var(--dim)', marginTop: 2 }}>Cliente recurrente que paga todos los meses.</div>
+          </button>
+          {/* #747: el becado. Cuenta como cliente, no como venta (lib/venta-tipo.ts). */}
+          <button type="button" onClick={() => setVentaTipo('sin_cobro')} style={{ ...btnOpcion(sinCobro), textAlign: 'left' }}>
+            <div style={{ fontSize: 15 }}>Sin cobro</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: sinCobro ? 'rgba(255,255,255,.7)' : 'var(--dim)', marginTop: 2 }}>Becado o bonificado.</div>
           </button>
         </div>
       );
@@ -1064,9 +1084,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         }
       }
       if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
+      if (pide('ventaTipo') && sinCobro) filas.push(['Venta', 'Sin cobro']);
       if (pide('monto') && esSuscripcion) filas.push(['Suscripción', totalMonto ? `$${totalMonto.toLocaleString('en-US')}/mes · ${susMeses ? `${susMeses} meses` : 'indefinida'}` : '—']);
-      if (pide('monto') && !esSuscripcion) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
-      if (pide('plan') && !esSuscripcion) filas.push(['Cuotas', `${cuotas.filter((c) => parseFloat(c.monto) > 0).length} (suman $${sumaCuotas.toLocaleString('en-US')})`]);
+      if (pide('monto') && !esSuscripcion && !sinCobro) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
+      if (pide('plan') && !esSuscripcion && !sinCobro) filas.push(['Cuotas', `${cuotas.filter((c) => parseFloat(c.monto) > 0).length} (suman $${sumaCuotas.toLocaleString('en-US')})`]);
       if (pide('motivo')) filas.push([esDescal ? 'Motivo de descalificación' : 'Motivo de pérdida', motivoFinal || '—']);
       if (pide('setter')) filas.push(['Setter', setter.trim() || '—']);
       if (pide('closer')) filas.push(['Closer', closer.trim() || '—']);

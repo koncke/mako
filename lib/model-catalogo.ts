@@ -183,6 +183,13 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // fija tests/closing-entrega.test.ts. (`plan-fathom` y `plan-criterio` dicen lo mismo y
   // NO lo tienen: docs/hallazgos-ia.md, «Ese respaldo también degrada…».)
   // ⚠️ Lleva PII del cliente a Google, igual que `plan-fathom` con la misma reunión.
+  // El PASO 5 del curso (#665, lib/curso-propuesta-ia.ts): con lo hablado en la sesión de entrega,
+  // la IA reescribe las respuestas que el cliente ya mandó y él las aprueba o las corrige en su
+  // portal. Mismo trato que `cs-sesion`: US$0, Gemini, `fallback: []`, `sinRespaldoDeModelo` en la
+  // llamada y SIN fila en CLAUDE_PERMITIDO. Una propuesta floja se ve igual que una buena (y el
+  // cliente la puede aprobar sin mirarla): no se degrada de modelo. Lleva PII: la sesión y lo que
+  // el cliente contestó.
+  { feature: 'cs-propuesta-curso', label: 'Reescribir la tarea del curso con lo hablado (Customer Success)', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: true, fallback: [], nota: 'Después de cada sesión de entrega, reescribe las respuestas del curso que el cliente ya mandó con lo que se habló. Queda al lado de la suya: el cliente la aprueba o la corrige en su portal. NO se degrada de modelo ni se paga: si Gemini no contesta, no hay propuesta.' },
   { feature: 'cs-sesion', label: 'Analizar una sesión de entrega (Customer Success)', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: true, fallback: [], nota: 'Lee el transcript de cada sesión con un cliente que ya compró y deja resumen, riesgos (con la cita textual, verificada contra la grabación) y próximos pasos en su ficha. Corre sola, dos sesiones por hora y por negocio. NO se degrada de modelo ni se paga: si Gemini no contesta, la sesión se reintenta en la próxima hora.' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────

@@ -38,6 +38,10 @@ export const AVISOS_AGRUPABLES: ReadonlySet<string> = new Set([
   // El motor ya movió los leads cuando esto se emite: no hay nada que hacer corriendo, y
   // llega junto en vez de nueve veces por día (el cron corre 9 veces: vercel.json).
   'crm-lead-estancado',
+  // 21 días sin hablarle a un cliente no se arreglan en las próximas 18 horas: llegar en el resumen
+  // de la mañana sirve igual, y la primera corrida puede encontrar a varios de una vez (#109). El
+  // cron corre ANTES del resumen (vercel.json), así que entra en el del mismo día.
+  'cs-cliente-sin-contacto',
 ]);
 
 /** Las categorías que NUNCA se posponen, aunque el tipo esté en la lista. */

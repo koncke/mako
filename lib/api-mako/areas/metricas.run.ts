@@ -37,6 +37,7 @@ import { hoyEnWorkspace } from '@/lib/timezone';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { diasAntes, esFechaValida, lunesDeFecha, ayerEnTijuana } from '@/lib/date-utils';
 import { contarFilas, avisoRecorte } from './metricas.helpers';
+import { VENTA_SIN_COBRO } from '@/lib/venta-tipo';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -481,7 +482,8 @@ export const RUNNERS: Runners = {
         contarFilas('marketing_metrics_daily', (q) => q.eq('plataforma', 'meta').gte('fecha', desde).lte('fecha', hasta)),
         contarFilas('pagos', (q) => q.eq('pagado', true).gte('fecha_pago', desde).lte('fecha_pago', hasta)),
         contarFilas('pagos', (q) => q.eq('pagado', false).gte('fecha_esperada', desde)),
-        contarFilas('leads', (q) => q.eq('cerro', true).gte('fecha_cierre', desde).lte('fecha_cierre', hasta)),
+        // El mismo universo que lee getRevenuePeriod: sin los «sin cobro» (#747).
+        contarFilas('leads', (q) => q.eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO).gte('fecha_cierre', desde).lte('fecha_cierre', hasta)),
       ]);
       const recortes = [
         avisoRecorte('meta_gasto_usd (y con él el CAC y los ROAS)', filasMeta, 'el gasto real es MAYOR, el CAC real es más alto y los ROAS reales más bajos'),
@@ -504,7 +506,7 @@ export const RUNNERS: Runners = {
         roas_sold: r2(r.roas_sold),
         notas: [
           ...recortes,
-          'sold = monto firmado de leads con cerro y fecha de cierre en la ventana. cash = cuotas pagadas con fecha de pago en la ventana (incluye clientes de meses anteriores): sold y cash del mismo período no tienen por qué parecerse.',
+          'sold = monto firmado de leads con cerro y fecha de cierre en la ventana; los «sin cobro» (becados) no cuentan como cierre. cash = cuotas pagadas con fecha de pago en la ventana (incluye clientes de meses anteriores): sold y cash del mismo período no tienen por qué parecerse.',
           'Las suscripciones no entran en sold ni en cash (ver ver_mrr_activo).',
           NOTA_USD,
         ],
@@ -521,7 +523,7 @@ export const RUNNERS: Runners = {
       const inicio = new Date(Date.UTC(y, m - meses, 1)).toISOString().slice(0, 10);
       const [puntos, filasSold, filasCash, filasR1] = await Promise.all([
         getRevenueMensual(h, meses),
-        contarFilas('leads', (q) => q.eq('cerro', true).gte('fecha_cierre', inicio)),
+        contarFilas('leads', (q) => q.eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO).gte('fecha_cierre', inicio)),
         contarFilas('pagos', (q) => q.eq('pagado', true).gte('fecha_pago', inicio)),
         contarFilas('leads', (q) => q.not('fecha_junta_1', 'is', null).gte('fecha_junta_1', inicio)),
       ]);
@@ -536,7 +538,7 @@ export const RUNNERS: Runners = {
         notas: [
           ...recortes,
           'Montos redondeados al dólar. Los meses iniciales sin ninguna actividad no aparecen; un mes intermedio en cero sí. El mes de `hasta` está incompleto si es el mes en curso.',
-          'cierres = leads con cerro por fecha de cierre; reuniones_1 = leads con fecha de reunión 1 en el mes.',
+          'cierres = leads con cerro por fecha de cierre, sin los «sin cobro» (becados); reuniones_1 = leads con fecha de reunión 1 en el mes.',
           NOTA_USD,
         ],
       });

@@ -17,6 +17,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { logLeadEvent, type Lead } from '@/lib/leads';
 import { saveLeadPlanManual, marcarPago, getPagosByLead } from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 
 // updateTag en try/catch: la mutación ya ocurrió; si la invalidación fallara,
 // la caché igual vence sola por su TTL — nunca debe romper el guardado.
@@ -150,6 +151,46 @@ export async function saveDealSectionsAction(leadId: number, patch: DealSections
   await logLeadEvent(leadId, 'Deal details', `Guardó: ${tocadas.join(', ')}`, await autorActual());
   bust(TAG.leads);
   revalidarLead(leadId);
+}
+
+/**
+ * Saca a un lead de «Sin cobro» (#747): vuelve a pago único, y el CRM le vuelve a pedir
+ * el monto en «Datos sin marcar».
+ *
+ * ⚠️ ES LA ÚNICA SALIDA de un becado marcado por error. El wizard ofrece el tipo de venta
+ * sólo cuando falta el monto, y a un «sin cobro» nunca le falta: sin esto, una casilla
+ * tildada de más en el alta de Customer Success no se podía deshacer desde ninguna
+ * pantalla. Compare-and-set sobre el tipo: un segundo clic no escribe ni deja otra línea
+ * en el historial.
+ *
+ * ⚠️ DEVUELVE EL TIPO QUE QUEDÓ, y si escribió (07/10/2026). La tarjeta del Deal se monta en
+ * tres lugares y en DOS el lead es estado de cliente leído por una action (la ficha en
+ * modal, `LeadSheet`, y la pestaña Pagos de Customer Success): ahí `router.refresh()` no lo
+ * alcanza. Sin el retorno, después de un clic que SÍ escribió la tarjeta seguía diciendo
+ * «Sin cobro»; el segundo clic chocaba con el compare-and-set (0 filas, sin error) y el
+ * botón parecía muerto. Y peor: «Completar datos» en esa ficha armaba el wizard con el
+ * `sin_cobro` viejo y, al guardar, lo volvía a escribir — deshacía el quitar en silencio.
+ * Con el tipo devuelto, la tarjeta se pinta con la verdad y el contenedor lo aplica.
+ *
+ * Si no escribió (0 filas), se LEE el tipo actual en vez de suponerlo: «ya no era sin cobro»
+ * puede ser otro tipo cualquiera, que alguien cambió desde otra pantalla.
+ */
+export async function quitarSinCobroAction(leadId: number): Promise<{ cambio: boolean; ventaTipo: VentaTipo | null }> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('leads')
+    .update({ venta_tipo: 'unico' }).eq('id', leadId).eq('venta_tipo', VENTA_SIN_COBRO).select('id');
+  if (error) throw new Error(`No se pudo cambiar el tipo de venta: ${error.message}`);
+  if (data?.length) {
+    await logLeadEvent(leadId, 'Tipo de venta', 'Con cobro', await autorActual());
+    bust(TAG.leads);
+    revalidarLead(leadId);
+    revalidatePath('/customer-success');
+    return { cambio: true, ventaTipo: 'unico' };
+  }
+  const { data: fila, error: errLeer } = await db.from('leads').select('venta_tipo').eq('id', leadId).maybeSingle();
+  if (errLeer) throw new Error(`No se pudo leer el tipo de venta: ${errLeer.message}`);
+  if (!fila) throw new Error('No encontré este lead.');
+  return { cambio: false, ventaTipo: ventaTipoDe((fila as { venta_tipo: string | null }).venta_tipo) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

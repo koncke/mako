@@ -25,9 +25,11 @@ type Steps = Record<string, { done: boolean; at?: string }>;
 export async function senalesDelPortal(): Promise<Pick<HechosCurso, 'entraron' | 'invitados'>> {
   try {
     const db = await getTenantDb();
+    // ⚠️ `area is null`: se cuentan CLIENTES. Un líder de área (#665, mig 0212) tiene su propia
+    // fila, y contado acá cada líder invitado sería un cliente más.
     const [e, i] = await Promise.all([
-      db.from('curso_accesos').select('lead_id', { count: 'exact', head: true }).gt('ingresos', 0),
-      db.from('curso_accesos').select('lead_id', { count: 'exact', head: true }).not('invitacion_enviada_at', 'is', null),
+      db.from('curso_accesos').select('lead_id', { count: 'exact', head: true }).is('area', null).gt('ingresos', 0),
+      db.from('curso_accesos').select('lead_id', { count: 'exact', head: true }).is('area', null).not('invitacion_enviada_at', 'is', null),
     ]);
     return {
       entraron: e.error || e.count == null ? null : e.count,

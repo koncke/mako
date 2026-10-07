@@ -78,7 +78,9 @@ export function ChecklistCurso({ clases, conVideo, vista, invitar, hrefVista, on
   );
 }
 
-function Paso({ hecho, titulo, opcional, accion, children }: {
+/** Un renglón de la lista de un onboarding. Lo reusa la de la tab Clientes (../ChecklistClientes):
+ *  dos listas hermanas con dos dibujos se separan en el primer retoque. */
+export function Paso({ hecho, titulo, opcional, accion, children }: {
   hecho: boolean; titulo: string; opcional?: boolean; accion?: ReactNode; children: ReactNode;
 }) {
   return (

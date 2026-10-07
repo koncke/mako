@@ -380,6 +380,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
                   className="fc-ed fc-ed-sub"
                   onGuardar={(v) => guardarDatos({ empresa: v })} />
                 <span className="id"> · Cliente {n}</span>
+                {/* Becado (#747): cliente, no venta. Una palabra, sin control: se cambia en el CRM. */}
+                {c.sinCobro && <span className="id"> · Sin cobro</span>}
               </span>
             </span>
             {/* ⛔ ACÁ ESTABA «Quitar la foto», y se fue (27/09/2026). Sacar la foto es una
@@ -462,7 +464,10 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
         </Panel>
 
         <Panel id="pagos" activa={activa} abiertas={abiertas}>
-          <PagosCliente datos={crm ?? 'cargando'} />
+          {/* Lo que la tarjeta del Deal ya escribió se aplica a `crm`, que se leyó una vez:
+              el refresh no lo vuelve a leer (ver `PagosCliente`). */}
+          <PagosCliente datos={crm ?? 'cargando'}
+            onCambio={(patch) => setCrm((d) => (d && d !== 'cargando' && d.ok ? { ...d, lead: { ...d.lead, ...patch } } : d))} />
         </Panel>
 
         <Panel id="llamadas" activa={activa} abiertas={abiertas}>

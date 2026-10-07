@@ -46,7 +46,10 @@ export async function GET(request: NextRequest) {
     console.log(
       `[cron:cs-sesiones-entrega] ws=${ws} pendientes=${r.pendientes} analizadas=${r.analizadas} ` +
       `fallidas=${r.fallidas} sin_reintento=${r.sinReintento} atadas=${r.atadas} sin_turno=${r.sinTurno} ` +
-      `corto_por=${r.corto_por}${r.motivo ? ` (${r.motivo})` : ''}`,
+      `corto_por=${r.corto_por}${r.motivo ? ` (${r.motivo})` : ''}` +
+      // El paso 5 del curso (#665): las propuestas que se armaron con lo hablado (lib/curso-propuesta-ia.ts).
+      ` propuestas=${r.propuestas?.propuestas ?? 0} miradas=${r.propuestas?.miradas ?? 0}` +
+      `${r.propuestas?.error ? ` propuestas_error=${r.propuestas.error}` : ''}`,
     );
     return r;
   }, { techoMs: TECHO_MS, minimoMs: MINIMO_UTIL_MS, rotacion: 'cs-sesiones-entrega' });

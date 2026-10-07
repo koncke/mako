@@ -20,6 +20,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import type { ClienteRef } from './plan-clientes';
+import { esSinCobro } from './venta-tipo';
 
 /**
  * Paginado por `id`, no un `.select()` suelto: PostgREST corta en 1000 filas sin un
@@ -27,11 +28,11 @@ import type { ClienteRef } from './plan-clientes';
  * es indistinguible de un cliente que no existe.
  */
 export async function clientesGanados(): Promise<ClienteRef[]> {
-  type Fila = { id: number; nombre: string | null; empresa: string | null; email: string | null; avatar_url: string | null; portada: string | null; portada_y: number | null; avatar_y: number | null; icono: string | null; cliente_ws: number | null; fecha_cierre: string | null };
+  type Fila = { id: number; nombre: string | null; empresa: string | null; email: string | null; avatar_url: string | null; portada: string | null; portada_y: number | null; avatar_y: number | null; icono: string | null; cliente_ws: number | null; fecha_cierre: string | null; venta_tipo: string | null };
   const db = await getTenantDb();
   // Las columnas se enumeran: un `*` sobre `leads` baja cuarenta campos —teléfono,
   // notas, historial— a una lista que sólo necesita el nombre para pintar un chip.
-  const filas = await leerTodo<Fila>(db, 'leads', 'id, nombre, empresa, email, avatar_url, portada, portada_y, avatar_y, icono, cliente_ws, fecha_cierre',
+  const filas = await leerTodo<Fila>(db, 'leads', 'id, nombre, empresa, email, avatar_url, portada, portada_y, avatar_y, icono, cliente_ws, fecha_cierre, venta_tipo',
     { orden: 'id', eq: { estado_lead: 'ganado' } });
   return filas.map((l) => ({
     leadId: l.id, nombre: (l.nombre ?? '').trim(), empresa: l.empresa,
@@ -53,6 +54,9 @@ export async function clientesGanados(): Promise<ClienteRef[]> {
     // cualquier ventana y el Resumen de la ficha decía «—». El typecheck no lo ve porque el
     // campo es opcional (05/10/2026).
     fechaCierre: l.fecha_cierre,
+    // Becado (#747): SIGUE en la cartera —es cliente—, y la ficha lo dice. Lo que lo saca
+    // es de las métricas de VENTA (lib/venta-tipo.ts), no de esta lista.
+    sinCobro: esSinCobro(l.venta_tipo),
   }));
 }
 

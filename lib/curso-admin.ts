@@ -355,8 +355,10 @@ export async function accesosDeClientes(leadIds: readonly number[]): Promise<Map
   const out = new Map<number, AccesoFila>();
   if (!leadIds.length) return out;
   const db = await getTenantDb();
+  // ⚠️ `area is null`: el acceso DEL CLIENTE. Desde la 0212 un cliente tiene además uno por cada
+  // líder de área, y sin el filtro la columna «Acceso» pintaba el del último líder (#665).
   const { data, error } = await db.from('curso_accesos')
-    .select('lead_id, revocado_at, ingresos, ultimo_ingreso_at').in('lead_id', [...leadIds]);
+    .select('lead_id, revocado_at, ingresos, ultimo_ingreso_at').in('lead_id', [...leadIds]).is('area', null);
   if (error) throw new Error(error.message);
   for (const f of (data ?? []) as Array<{ lead_id: number; revocado_at: string | null; ingresos: number | null; ultimo_ingreso_at: string | null }>) {
     out.set(Number(f.lead_id), {

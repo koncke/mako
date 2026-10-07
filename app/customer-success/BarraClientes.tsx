@@ -64,7 +64,7 @@ const ORDEN_VISTAS: readonly VistaClientes[] = ['kanban', 'tarjetas', 'tabla'];
  */
 const VISTA_META: Record<VistaClientes, { titulo: string; icono: ReactNode }> = ICONO_VISTA;
 
-export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad';
+export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad' | 'contacto' | 'vencidas';
 export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto' | 'con-cuenta' | 'sin-cuenta';
 
 export const ORDEN_LABEL: Record<OrdenClientes, string> = {
@@ -75,6 +75,11 @@ export const ORDEN_LABEL: Record<OrdenClientes, string> = {
   // el orden por id, o sea el de CARGA — dos clientes ganados el mismo mes podían
   // salir a diez lugares de distancia porque uno se había cargado antes al CRM.
   antiguedad: 'Cuándo se ganó',
+  // Las dos columnas de la cartera (#109). «Ordenables si la tabla ordena»: la tabla no ordena
+  // por su encabezado, ordena por esta barra — así que se ordenan desde acá. Sólo los monta
+  // Customer Success: /admin pasa sus propios criterios (`ORDEN_WS`) y nunca ve esta lista.
+  contacto: 'Último contacto',
+  vencidas: 'Tareas vencidas',
 };
 
 /**

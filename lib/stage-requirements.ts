@@ -16,6 +16,7 @@
 // Cuáles etapas son reuniones (y en qué orden) NO se decide acá: es la misma
 // pregunta que responden generateFunnel y el worklist, y vive en un solo módulo.
 import { reunionesDe, type EtapaLite } from './funnel-etapas';
+import { esSinCobro } from './venta-tipo';
 
 export type StepId =
   | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
@@ -43,6 +44,11 @@ export interface StageReqValues {
    *  cambia a pago único, va null (si no, el importe viejo daría por cargado un
    *  monto que ya no existe). */
   suscripcionMonto?: number | null;
+  /** El tipo de venta EFECTIVO (`leads.venta_tipo`, o lo que el wizard acaba de elegir).
+   *  Con 'sin_cobro' (un becado, lib/venta-tipo.ts) el monto, el plan y el comprobante
+   *  quedan CONTESTADOS: no hay nada que cobrar. undefined = el caller no lo sabe, y se
+   *  pide todo como siempre. */
+  ventaTipo?: string | null;
   /** Motivo YA persistido en el lead (`motivo_perdida`). Puede ser el de una
    *  pérdida ANTERIOR: ver `etapaActual` en el corte de perdido/descal. */
   motivo?: string | null;
@@ -229,14 +235,19 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
     // suscripción quedaba bloqueado con el importe cargado y A LA VISTA en el
     // resumen del wizard ("Suscripción · $40/mes"), sin ninguna salida: el paso
     // que lo pedía era el mismo que ya se había contestado.
-    if (!(Number(v.monto) > 0) && !(Number(v.suscripcionMonto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
-    if (v.tienePlan === false) steps.push({ id: 'plan', label: 'Plan de pagos' });
+    //
+    // Un BECADO (venta «sin cobro», #747) no tiene monto, plan ni comprobante, y eso es
+    // un HECHO declarado, no un dato que falta: sin este corte quedaba para siempre en
+    // «Datos sin marcar» y la única salida era «ignorar pendientes», que apaga todos.
+    const sinCobro = esSinCobro(v.ventaTipo);
+    if (!sinCobro && !(Number(v.monto) > 0) && !(Number(v.suscripcionMonto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
+    if (!sinCobro && v.tienePlan === false) steps.push({ id: 'plan', label: 'Plan de pagos' });
     if (v.dealServicioOk === false) steps.push({ id: 'dealServicio', label: 'Servicio del cierre' });
     if (v.dealPromesaOk === false) steps.push({ id: 'dealPromesa', label: 'Promesa del cierre' });
     if (v.dealFiscalOk === false) steps.push({ id: 'dealFiscal', label: 'Datos fiscales del cliente' });
     if (v.dealFiscalDocOk === false) steps.push({ id: 'dealFiscalDoc', label: 'Documento fiscal del cliente' });
     if (v.dealObligacionesOk === false) steps.push({ id: 'dealObligaciones', label: 'Obligaciones del cierre' });
-    if (v.comprobantesFaltantes && v.comprobantesFaltantes > 0) {
+    if (!sinCobro && v.comprobantesFaltantes && v.comprobantesFaltantes > 0) {
       steps.push({ id: 'comprobante', label: v.comprobantesFaltantes === 1 ? 'Comprobante de pago' : `Comprobantes de pago (${v.comprobantesFaltantes})` });
     }
   }

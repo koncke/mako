@@ -21,6 +21,7 @@ import { useState } from 'react';
 // `wizardInput` es el input de la pieza: un estilo propio acá sería el segundo lugar
 // donde vive la misma decisión, y el que se queda viejo.
 import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
+import { Checkbox } from '@/app/_ui';
 import { crearClienteAction } from './actions';
 
 type Paso = 0 | 1 | 2;
@@ -45,6 +46,9 @@ export function NuevoCliente({ onCerrar, onCreado }: {
   const [empresa, setEmpresa] = useState('');
   const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
+  // Un becado o bonificado (#747). Va en el paso de confirmar y no en uno propio: la
+  // mayoría paga, y una pantalla más para todos sería fricción para el caso raro.
+  const [sinCobro, setSinCobro] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +60,7 @@ export function NuevoCliente({ onCerrar, onCreado }: {
 
   async function confirmar() {
     setPending(true); setError(null);
-    const r = await crearClienteAction({ nombre, empresa, email, telefono });
+    const r = await crearClienteAction({ nombre, empresa, email, telefono, sinCobro });
     setPending(false);
     if (!r.ok) { setError(r.error ?? 'No se pudo cargar.'); return; }
     if (onCreado && r.leadId) { onCreado(r.leadId); onCerrar(); return; }
@@ -120,8 +124,9 @@ export function NuevoCliente({ onCerrar, onCreado }: {
           {empresa.trim() && <Fila k="Empresa" v={empresa.trim()} />}
           {email.trim() && <Fila k="Email" v={email.trim()} />}
           {telefono.trim() && <Fila k="Teléfono" v={telefono.trim()} />}
+          <Checkbox checked={sinCobro} onChange={setSinCobro} label="Sin cobro" hint="Becado o bonificado." />
           <p style={{ margin: '6px 0 0', fontSize: 13, lineHeight: 1.5, color: 'var(--dim)' }}>
-            Se carga también en el CRM, con la venta marcada como ganada.
+            Se carga también en el CRM, con la venta marcada como ganada{sinCobro ? ', sin cobro' : ''}.
           </p>
         </div>
       )}

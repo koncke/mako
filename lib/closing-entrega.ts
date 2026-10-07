@@ -35,6 +35,11 @@
 // el resto sin turno (lib/cron-workspaces.ts, `correrRonda`).
 //
 // Nada de esto le escribe a un cliente: lee Fathom, llama a la IA y escribe una fila.
+//
+// Y desde el 07/10/2026, el PASO 5 del curso (#665): con cada sesión analizada que tiene cliente, la
+// IA gratis propone sus respuestas del curso reescritas con lo hablado, AL LADO de las suyas, y el
+// cliente las aprueba o las corrige en su portal (lib/curso-propuesta-ia.ts, que corre en dos
+// pasadas alrededor del análisis: ver `drenarSesionesEntrega`). Tampoco le escribe a nadie.
 // =============================================================================
 
 import 'server-only';
@@ -67,6 +72,7 @@ import {
   type FilaColaEntrega,
   type AnalisisEntrega,
 } from './closing-entrega-contrato';
+import { proponerPendientes, type ResultadoPropuestas, type SesionEnMemoria } from './curso-propuesta-ia';
 
 /** El tag de gasto: el que está en `CATALOGO_MODELOS` (lib/model-catalogo.ts). */
 export const FEATURE_ENTREGA = 'cs-sesion';
@@ -165,12 +171,22 @@ export type DrenajeEntrega = {
   corto_por: 'cola' | 'max' | 'tiempo' | 'sin_ia' | 'proveedor';
   /** Por qué no hay IA, cuando `corto_por = 'sin_ia'`. */
   motivo?: string;
+  /**
+   * El paso 5 del curso (#665): las propuestas que se armaron con las sesiones analizadas
+   * (lib/curso-propuesta-ia.ts). `error` = la pasada no pudo ni leer su cola; el análisis no se
+   * entera.
+   */
+  propuestas?: ResultadoPropuestas & { error?: string };
 };
 
 type Desenlace = 'analizada' | 'ya' | 'fallo' | 'sin-reintento' | 'proveedor';
 
-/** Cómo terminó UNA sesión. `iaContesto` = la IA devolvió texto (sirviera o no). */
-type Resultado = { desenlace: Desenlace; atada: boolean; iaContesto: boolean };
+/**
+ * Cómo terminó UNA sesión. `iaContesto` = la IA devolvió texto (sirviera o no). `sesion` = el
+ * transcript que se bajó, cuando quedó analizada: las propuestas del curso lo reusan sin volver a
+ * pedírselo a Fathom.
+ */
+type Resultado = { desenlace: Desenlace; atada: boolean; iaContesto: boolean; sesion?: SesionEnMemoria };
 
 const msgDe = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -390,7 +406,8 @@ async function analizarUna(f: FilaCola, ctx: { deadline: number; testigo: boolea
     if (r.error) console.error(`[closing-entrega] no se pudo atar ${id} al lead ${cliente.id}: ${r.error.message}`);
     atada = !!r.data?.length;
   }
-  return { desenlace: 'analizada', atada, iaContesto: true };
+  const resumenFathom = m.default_summary?.markdown_formatted?.trim() || null;
+  return { desenlace: 'analizada', atada, iaContesto: true, sesion: { items, resumenFathom } };
 }
 
 /**
@@ -410,6 +427,51 @@ export async function drenarSesionesEntrega(opts: { deadline: number; max?: numb
   if (!(opts.deadline > 1_000_000_000_000)) {
     throw new Error(`closing-entrega: deadline ${opts.deadline} no es una fecha absoluta (Date.now() + ms)`);
   }
+  // ── El paso 5 del curso (#665): con cada sesión analizada que tiene cliente, la IA propone sus
+  // respuestas reescritas con lo hablado (lib/curso-propuesta-ia.ts). Dos pasadas:
+  //   1. ANTES del análisis, las sesiones analizadas en corridas anteriores que todavía no se
+  //      miraron (la que se analizó cuando ya no quedaba tiempo). Va primero a propósito: mientras
+  //      el análisis drena el histórico, se comería toda la corrida y la propuesta de una llamada de
+  //      ayer —la que el cliente está esperando— no tendría turno nunca. Sin nada que proponer, es
+  //      una consulta.
+  //   2. DESPUÉS, las que se analizaron ahora, con el transcript que ya está en memoria.
+  // ⚠️ NINGUNA TUMBA EL ANÁLISIS: un fallo de la pasada (la 0213 sin aplicar, la base caída) queda
+  // en `propuestas.error` y en el log, y la cola de sesiones se drena igual.
+  const enMemoria = new Map<number, SesionEnMemoria>();
+  const antes = await pasadaDePropuestas(opts.deadline);
+  const r = await drenarCola(opts, enMemoria);
+  const despues = enMemoria.size && r.corto_por !== 'proveedor' ? await pasadaDePropuestas(opts.deadline, enMemoria) : null;
+  r.propuestas = sumarPropuestas(antes, despues);
+  return r;
+}
+
+/** Una pasada de propuestas que nunca tira: lo que falla vuelve como `error`. */
+async function pasadaDePropuestas(deadline: number, cache?: ReadonlyMap<number, SesionEnMemoria>): Promise<ResultadoPropuestas & { error?: string }> {
+  try {
+    return await proponerPendientes({ deadline, cache });
+  } catch (e) {
+    const error = msgDe(e);
+    console.error(`[closing-entrega] la pasada de propuestas del curso no corrió: ${error}`);
+    return { miradas: 0, propuestas: 0, sinRespuestas: 0, fallidas: 0, error };
+  }
+}
+
+function sumarPropuestas(a: ResultadoPropuestas & { error?: string }, b: (ResultadoPropuestas & { error?: string }) | null): ResultadoPropuestas & { error?: string } {
+  if (!b) return a;
+  const error = [a.error, b.error].filter(Boolean).join(' · ') || undefined;
+  return {
+    miradas: a.miradas + b.miradas,
+    propuestas: a.propuestas + b.propuestas,
+    sinRespuestas: a.sinRespuestas + b.sinRespuestas,
+    fallidas: a.fallidas + b.fallidas,
+    ...(b.corto ?? a.corto ? { corto: b.corto ?? a.corto } : {}),
+    ...(b.motivo ?? a.motivo ? { motivo: b.motivo ?? a.motivo } : {}),
+    ...(error ? { error } : {}),
+  };
+}
+
+/** La cola del ANÁLISIS (lo que era el cuerpo entero de `drenarSesionesEntrega`). */
+async function drenarCola(opts: { deadline: number; max?: number }, enMemoria: Map<number, SesionEnMemoria>): Promise<DrenajeEntrega> {
   const max = opts.max ?? MAX_SESIONES_POR_CORRIDA;
   const db = await getTenantDb();
   // Paginado: la tabla pasa las 1000 filas por workspace en meses, y un corte en silencio
@@ -441,8 +503,9 @@ export async function drenarSesionesEntrega(opts: { deadline: number; max?: numb
     if (tomadas >= max) { r.corto_por = 'max'; break; }
     if (Date.now() + RESERVA_SESION_MS > opts.deadline) { r.corto_por = 'tiempo'; break; }
     tomadas++;
-    const { desenlace, atada, iaContesto } = await analizarUna(f, { deadline: opts.deadline, testigo: iaViva });
+    const { desenlace, atada, iaContesto, sesion } = await analizarUna(f, { deadline: opts.deadline, testigo: iaViva });
     if (iaContesto) iaViva = true;
+    if (sesion) enMemoria.set(f.recording_id, sesion);
     if (atada) r.atadas++;
     if (desenlace === 'analizada') r.analizadas++;
     else if (desenlace === 'sin-reintento') r.sinReintento++;

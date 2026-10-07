@@ -45,7 +45,8 @@ import { puedeUsarCs } from './puerta';
 import { getSupabaseServer } from '@/lib/supabase';
 import { esAgencia } from '@/lib/agencia';
 import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
-import { createLead, updateLead, getLead, logLeadChanges, type Lead } from '@/lib/leads';
+import { createLead, updateLead, getLead, logLeadChanges, logLeadEvent, type Lead } from '@/lib/leads';
+import { VENTA_SIN_COBRO } from '@/lib/venta-tipo';
 import { getPagosByLead, type Pago } from '@/lib/pagos';
 import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getUsuarioActual } from '@/lib/auth';
@@ -63,6 +64,7 @@ import { productosDelCliente } from './entrega';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { renombrarFunnel, archivarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
+import { anotarFichaAbierta } from './onboarding-clientes-sync';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
  *  con el id de un lead ajeno leería o escribiría datos de otro inquilino. */
@@ -143,6 +145,8 @@ export async function pagosDeClienteAction(leadId: number): Promise<{ ok: true; 
  */
 export async function crearClienteAction(datos: {
   nombre: string; empresa?: string; email?: string; telefono?: string;
+  /** Un becado o bonificado (#747): la venta se marca «sin cobro» (lib/venta-tipo.ts). */
+  sinCobro?: boolean;
 }): Promise<{ ok: boolean; leadId?: number; error?: string }> {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   const nombre = (datos.nombre ?? '').trim();
@@ -168,6 +172,19 @@ export async function crearClienteAction(datos: {
     // trabajo es dar de alta un lead, y `estado_lead` es del recorrido. `updateLead`
     // deriva `cerro` solo (lib/leads.ts), así que las dos columnas quedan de acuerdo.
     await updateLead(lead.id, { estado_lead: 'ganado' });
+    // «Sin cobro» (#747): el tipo de venta va directo porque `updateLead` no escribe
+    // `venta_tipo` —el wizard del CRM hace lo mismo—. Con eso el CRM le da el monto, el
+    // plan y el comprobante por contestados, y las métricas de venta no lo cuentan.
+    // ⚠️ El lead YA existe y ya es ganado: si esto falla, se dice — reintentar el alta
+    // chocaría con su propio duplicado.
+    if (datos.sinCobro === true) {
+      const { error } = await (await getTenantDb()).from('leads').update({ venta_tipo: VENTA_SIN_COBRO }).eq('id', lead.id);
+      if (error) {
+        revalidatePath('/customer-success');
+        return { ok: false, leadId: lead.id, error: 'Se cargó, pero sin marcar «Sin cobro». Márcalo en el CRM.' };
+      }
+      await logLeadEvent(lead.id, 'Tipo de venta', 'Sin cobro', await autorActual());
+    }
     revalidatePath('/customer-success');
     revalidatePath('/crm');
     return { ok: true, leadId: lead.id };
@@ -849,5 +866,29 @@ export async function eliminarServicioAction(productoId: number): Promise<{ ok: 
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo eliminar.' };
+  }
+}
+
+/**
+ * El ENSAYO del onboarding de la tab (#109): alguien abrió la ficha de un cliente. Es el único
+ * paso que no se puede leer de la base —abrir una ficha no escribe nada—, así que lo anota la
+ * pantalla la primera vez que pasa (ClientesApp, y sólo si el paso no estaba hecho).
+ *
+ * Cualquiera con la tab lo cierra, no sólo un admin: el onboarding prueba que la TAB funciona, y
+ * un closer abriendo la ficha de su cliente lo prueba igual. No revalida la página: la lista se
+ * actualiza en el navegador, y pedir el RSC de la cartera entera por un tilde sería el «Leyendo lo
+ * suyo» que esta pantalla ya se sacó de encima.
+ */
+export async function anotarFichaAbiertaAction(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    const o = await anotarFichaAbierta();
+    // `o` es lo que se DIBUJA (./onboarding-clientes-sync.ts): con el paso bloqueado por el orden
+    // (sin servicio todavía) igual vuelve `cs_ficha: true`, porque abrir la ficha ya pasó. `null` =
+    // no se pudo leer lo anotado. Antes esto devolvía «Antes falta tu servicio.» y la lista seguía
+    // pidiendo abrir una ficha que la persona tenía abierta en la cara.
+    return o ? { ok: true } : { ok: false, error: 'No se pudo anotar.' };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo anotar.' };
   }
 }

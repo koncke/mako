@@ -30,7 +30,7 @@ import { sendEmail, renderEmailHtml } from './resend';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getSupabaseServer } from './supabase';
 import type { RolWorkspace } from './auth-session';
-import { textoInvitacionCurso, type ResultadoInvitacion } from './invitacion-aviso';
+import { textoInvitacionCurso, textoInvitacionLider, type ResultadoInvitacion } from './invitacion-aviso';
 
 // El tipo y el texto que lee la persona viven en `invitacion-aviso` (sin `server-only`,
 // para que lo importen las pantallas y los tests). Acá se re-exporta para que quien manda
@@ -241,5 +241,26 @@ export async function invitarAlCursoPorEmail(p: {
   if (!destino) return { enviado: false, error: 'no hay email al que escribirle', enlace: p.enlace };
   const t = textoInvitacionCurso(p);
   const r = await enviarDePlataforma({ to: destino, asunto: t.asunto, preheader: t.preheader, cuerpo: t.cuerpo, tag: 'invitacion-curso' });
+  return r.enviado ? { enviado: true, enlace: p.enlace } : { enviado: false, error: r.error, enlace: p.enlace };
+}
+
+/**
+ * Invita al LÍDER de un área a sus tareas del curso (#665). El texto vive en `textoInvitacionLider`
+ * (lib/invitacion-aviso.ts, con test); el link es el `c2.` de su acceso, que arma quien llama.
+ *
+ * NUNCA tira, y NO ANOTA NADA, por la misma razón que la de arriba: el envío corre en el workspace
+ * de la plataforma y el acceso del líder vive en el del cliente. Quien llama anota DESPUÉS.
+ */
+export async function invitarLiderPorEmail(p: {
+  email: string;
+  area: string;
+  programa: string;
+  negocio?: string | null;
+  enlace: string;
+}): Promise<ResultadoInvitacion> {
+  const destino = (p.email ?? '').trim().toLowerCase();
+  if (!destino) return { enviado: false, error: 'no hay email al que escribirle', enlace: p.enlace };
+  const t = textoInvitacionLider(p);
+  const r = await enviarDePlataforma({ to: destino, asunto: t.asunto, preheader: t.preheader, cuerpo: t.cuerpo, tag: 'invitacion-curso-lider' });
   return r.enviado ? { enviado: true, enlace: p.enlace } : { enviado: false, error: r.error, enlace: p.enlace };
 }

@@ -25,8 +25,10 @@ import {
   saveDealSectionsAction,
   saveCuotasAction,
   marcarPagoManualAction,
+  quitarSinCobroAction,
   type IdentidadFiscal,
 } from './deal-actions';
+import { esSinCobro } from '@/lib/venta-tipo';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -189,12 +191,31 @@ function buildDraft(lead: Lead, pagos: Pago[]): Drafts {
 export type DealDetailsHandle = { save: () => Promise<void> };
 
 // =============================================================================
-export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos: Pago[]; editing?: boolean }>(
-  function DealDetailsCard({ lead, pagos, editing = false }, ref) {
+export const DealDetailsCard = forwardRef<DealDetailsHandle, {
+  lead: Lead; pagos: Pago[]; editing?: boolean;
+  /**
+   * Lo que cambió en el lead, YA escrito en la base. Lo pasa el contenedor que tiene el lead
+   * en estado de cliente leído por una action —la ficha en modal (`LeadSheet`) y la pestaña
+   * Pagos de Customer Success—, donde `router.refresh()` no llega. Sin aplicarlo, esa ficha
+   * sigue armando el wizard con el valor viejo (ver `quitarSinCobroAction`). La ruta
+   * /crm/[id] no lo pasa: ahí el lead viene del server y el refresh sí lo trae.
+   */
+  onCambio?: (patch: Pick<Lead, 'venta_tipo'>) => void;
+}>(
+  function DealDetailsCard({ lead, pagos, editing = false, onCambio }, ref) {
   const router = useRouter();
   const sp = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  /**
+   * El tipo de venta que devolvió la última action, y SOBRE QUÉ valor del prop se leyó.
+   * Vale mientras el prop siga diciendo lo mismo: cuando el contenedor (o el refresh) trae
+   * el dato nuevo, gana el prop. Se CALCULA, no se resetea con un efecto — así un segundo
+   * cambio que llegue por el prop (otro «Sin cobro» desde el wizard) se ve sin que nadie
+   * se acuerde de limpiar nada.
+   */
+  const [tipoLeido, setTipoLeido] = useState<{ sobre: string | null; es: string | null } | null>(null);
+  const ventaTipo = tipoLeido && tipoLeido.sobre === (lead.venta_tipo ?? null) ? tipoLeido.es : (lead.venta_tipo ?? null);
 
   // Draft: existe solo en modo edición (controlado por la ficha). En lectura = null.
   const [d, setD] = useState<Drafts | null>(() => (editing ? buildDraft(lead, pagos) : null));
@@ -367,6 +388,25 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
       catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
+  // Un becado marcado por error (#747): la única salida de «Sin cobro» (ver la action).
+  // ⚠️ La tarjeta se pinta con lo que DEVUELVE la action, no con el refresh: en dos de sus
+  // tres montajes el lead no viene del server y el refresh no lo cambia. Y si el clic no
+  // escribió nada (ya no era «Sin cobro»), se dice: un botón que no hace nada y calla se lee
+  // como roto.
+  const quitarSinCobro = () => {
+    setFeedback(null);
+    const sobre = lead.venta_tipo ?? null;
+    startTransition(async () => {
+      try {
+        const r = await quitarSinCobroAction(lead.id);
+        setTipoLeido({ sobre, es: r.ventaTipo });
+        if (!r.cambio) setFeedback({ kind: 'ok', msg: 'Ya no era «Sin cobro».' });
+        onCambio?.({ venta_tipo: r.ventaTipo });
+        router.refresh();
+      }
+      catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
+    });
+  };
   // Deshacer desde el toast: si se marcó → desmarcar; si se desmarcó → re-marcar
   // con la fecha/hora originales. No re-dispara otro toast.
   const undoPagoToast = (p: Pago, accion: 'marcada' | 'desmarcada') => {
@@ -432,9 +472,18 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
                 Monto de cierre <b style={{ color: 'var(--ink)' }}>USD {fmtUSD(montoCierre)}</b>{lead.fecha_cierre ? ` · fecha de cierre ${fmtDDMMYYYY(lead.fecha_cierre)}` : ''}
               </div>
             )}
-            {lead.venta_tipo === 'suscripcion' && (
+            {ventaTipo === 'suscripcion' && (
               <div style={{ marginTop: 6, fontSize: 13, color: 'var(--dim)' }}>
                 🔁 Suscripción <b style={{ color: 'var(--ink)' }}>USD {fmtUSD(lead.suscripcion_monto_usd ?? 0)}/mes</b> · {lead.suscripcion_meses ? `${lead.suscripcion_meses} meses` : 'mes a mes (indefinida)'}
+              </div>
+            )}
+            {esSinCobro(ventaTipo) && (
+              <div style={{ marginTop: 6, fontSize: 13, color: 'var(--dim)' }}>
+                <b style={{ color: 'var(--ink)' }}>Sin cobro</b> · becado o bonificado ·{' '}
+                <button type="button" disabled={pending} onClick={quitarSinCobro}
+                  style={{ background: 'none', border: 0, padding: 0, color: 'var(--primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: SANS }}>
+                  Quitar «Sin cobro»
+                </button>
               </div>
             )}
           </div>
@@ -529,7 +578,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
                 ))}
               </div>
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {lead.venta_tipo === 'suscripcion' && (
+                {ventaTipo === 'suscripcion' && (
                   <button type="button" style={dashedBtn} onClick={agregarMensualidad}>+ Registrar mensualidad cobrada ({fmtUSD(lead.suscripcion_monto_usd ?? 0)})</button>
                 )}
                 <button type="button" style={dashedBtn} onClick={agregarCuota}>+ Agregar cuota</button>

@@ -80,6 +80,7 @@ import { VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo
 import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
 import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
+import { esSinCobro, type VentaTipo } from '@/lib/venta-tipo';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
 import { parseEntradas, parseEvento, etapasVisibles, type EtapaVisible } from '@/lib/pipeline';
 import { canalEfectivo, type CanalId } from '@/lib/fase-diagnostico';
@@ -281,7 +282,7 @@ export type StageMoveData = {
   /** La R2 se agendó fuera de Calendly: motivo (satisface respuestas R2). */
   r2AgendaExternaMotivo?: string | null;
   // ── Venta recurrente / suscripción (#363) ──
-  ventaTipo?: 'unico' | 'suscripcion' | null;
+  ventaTipo?: VentaTipo | null;   // + 'sin_cobro' (#747): un becado, lib/venta-tipo.ts
   suscripcionMonto?: number | null;   // importe MENSUAL (MRR)
   suscripcionMeses?: number | null;    // plazo fijo en meses; null = indefinida
 };
@@ -326,6 +327,9 @@ function valoresDeRequisitos(
     suscripcionMonto: (d.ventaTipo ?? before?.venta_tipo) === 'suscripcion'
       ? (d.suscripcionMonto ?? before?.suscripcion_monto_usd ?? null)
       : null,
+    // Un becado («sin cobro», #747): monto, plan y comprobante quedan contestados. El
+    // tipo EFECTIVO, por lo mismo que arriba: volver a pago único vuelve a pedir monto.
+    ventaTipo: d.ventaTipo ?? before?.venta_tipo ?? null,
     // El motivo va PARTIDO en dos porque no valen lo mismo: al mover un lead a
     // perdido/descal, el `motivo_perdida` que ya trae es el de una pérdida
     // anterior y no puede dar por contestada la de ahora. Quien decide es
@@ -565,8 +569,16 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
       sub.suscripcion_monto_usd = null;
       sub.suscripcion_meses = null;
     }
+    // Sin cobro (#747): el monto no existe, y uno viejo de cuando era pago único no puede
+    // quedar colgado de un becado. NULL, nunca 0 (lib/lead-desenlace.ts).
+    if (esSinCobro(d.ventaTipo)) sub.monto_cierre_usd = null;
     const { error: subErr } = await (await getTenantDb()).from('leads').update(sub).eq('id', id);
     if (subErr) console.error(`[leads] guardar suscripción (¿falta migración 0115?): ${subErr.message}`);
+    // `venta_tipo` no está en AUDIT_FIELDS: sin esta línea, declarar un becado (o dejar
+    // de serlo) no deja rastro, y es lo que saca a alguien de las métricas de venta.
+    if (!subErr && esSinCobro(d.ventaTipo) !== esSinCobro(before?.venta_tipo)) {
+      await logLeadEvent(id, 'Tipo de venta', esSinCobro(d.ventaTipo) ? 'Sin cobro' : 'Con cobro', autor);
+    }
   }
 
   // 5) Mover (updateLead sincroniza estado primero; override solo si OK).

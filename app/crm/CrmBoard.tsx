@@ -43,6 +43,7 @@ import {
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { slotDeReunion } from '@/lib/funnel-etapas';
 import type { EstadoLead, FathomLink } from '@/lib/leads';
+import type { VentaTipo } from '@/lib/venta-tipo';
 import {
   setLeadStageAction,
   undoStageMoveAction,
@@ -158,6 +159,16 @@ export type CrmLead = {
   nutriManualDeadline: string | null;   // deadline de la nutrición manual (null si no aplica)
   monto: number;
   totalCobrado: number;
+  /**
+   * El tipo de venta guardado (`leads.venta_tipo`). Lo lee `leadToMoveInfo` para el wizard.
+   *
+   * ⚠️ OBLIGATORIO A PROPÓSITO. Faltaba (07/10/2026), y a un becado (#747) ya marcado el
+   * wizard del tablero le volvía a pedir el monto: `stepsForStage` sin el tipo no sabe que
+   * es «sin cobro», el placeholder entra en la UNIÓN con el server, y el paso del tipo
+   * abría en «Pago único». «Guardar y completar después» escribía `venta_tipo = 'unico'`
+   * y el becado volvía a contar como venta de US$0. Opcional, un mapper nuevo lo olvida.
+   */
+  ventaTipo: VentaTipo | null;
   agenda: string | null;
   j2: string | null;
   fechaJ1: string | null;   // fecha_junta_1 (o fecha_agenda) en ISO, para editar

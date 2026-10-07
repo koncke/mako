@@ -52,6 +52,7 @@
 // Sólo el TIPO: `import type` se borra al compilar, así que este módulo no arrastra
 // lib/leads.ts (server-only) y el test lo puede importar.
 import type { EstadoLead } from './leads';
+import { esSinCobro } from './venta-tipo';
 
 /** Los cinco campos del desenlace, como están guardados en `leads`. */
 export type Desenlace = {
@@ -91,8 +92,14 @@ export const tocaElMotivo = (cambio: CambioDeDesenlace): boolean => toca(cambio,
  *
  * `hoy` (YYYY-MM-DD) lo pasa el que llama: es la fecha de cierre por defecto, y puesta
  * acá adentro el test no la podría fijar.
+ *
+ * `ventaTipo` es el `venta_tipo` del lead (lib/venta-tipo.ts). Con 'sin_cobro' —un
+ * becado, #747— la venta no tiene monto: queda NULL, nunca 0, y un 0 que llegue (la
+ * ficha, MaKo) se guarda como null en vez de tirar. Un 0 escrito afirma «vendimos por
+ * cero dólares», que es otra cosa que «no se cobra». Sin el parámetro se comporta
+ * como siempre.
  */
-export function desenlaceAlGuardar(actual: Desenlace, cambio: CambioDeDesenlace, hoy: string): Desenlace {
+export function desenlaceAlGuardar(actual: Desenlace, cambio: CambioDeDesenlace, hoy: string, ventaTipo?: string | null): Desenlace {
   // El mismo merge que `updateLead` (`{ ...actual, ...input }`), acotado a estos cinco.
   const m: Desenlace = {
     estado_lead: actual.estado_lead,
@@ -130,6 +137,11 @@ export function desenlaceAlGuardar(actual: Desenlace, cambio: CambioDeDesenlace,
       m.monto_cierre_usd = null;
       m.fecha_cierre = null;
     } else {
+      // Sin cobro: un 0 no es un monto. Va ANTES del chequeo de positivo para que el 0
+      // de un becado no tire «debe ser positivo» sobre un hecho declarado. Un monto
+      // POSITIVO no se toca: lo tipeó alguien, y borrarlo en silencio sería un
+      // «guardado» que no guardó (las métricas igual excluyen la fila entera).
+      if (esSinCobro(ventaTipo) && m.monto_cierre_usd != null && m.monto_cierre_usd <= 0) m.monto_cierre_usd = null;
       // Monto OPCIONAL: mover una card a Ganado siempre sincroniza el estado; antes,
       // sin monto, lanzaba error y la card quedaba en Ganado con estado != ganado.
       if (m.monto_cierre_usd != null && m.monto_cierre_usd <= 0) {

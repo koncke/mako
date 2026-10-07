@@ -418,6 +418,8 @@ export const AREAS: AreaDev[] = [
     // La carpeta entera: el kanban, la tabla, el lote, el editor de etapas y las pestañas de
     // la ficha nacieron el 05/10 y la lista archivo por archivo no los veía.
     vive: ['app/customer-success/', 'lib/servicio-etapas.ts', 'lib/cs-mover-etapa.ts', 'lib/entrega-servicio.ts', 'lib/clientes-ganados.ts', 'app/plan/board/filtro-cliente.ts',
+      // La cartera (#109, 07/10/2026): el último contacto como UNA regla y la alerta de baja al dueño.
+      'lib/cs-contacto.ts', 'lib/cs-sin-contacto.ts', 'app/api/cron/cs-sin-contacto/',
       'app/customer-success/page.tsx', 'app/customer-success/ClientesApp.tsx', 'app/customer-success/FichaCliente.tsx', 'app/customer-success/ClienteCard.tsx', 'app/customer-success/NuevoCliente.tsx', 'lib/cs-autoasignar.ts', 'app/customer-success/actions.ts', 'app/customer-success/trabajo.ts', 'app/customer-success/cruce.ts', 'lib/cs-cartera.ts', 'lib/cs-senal.ts', 'lib/cs-contrato.ts', 'lib/plan-clientes.ts', 'app/plan/board/AsignarCliente.tsx', 'supabase/migrations/0172_trabajo_de_un_cliente.sql', 'lib/portadas.ts', 'app/_components/PortadaPicker.tsx', 'app/api/portadas/route.ts', 'supabase/migrations/0173_portadas_y_fotos.sql', 'lib/api-mako/areas/cs.def.ts', 'lib/api-mako/areas/cs.run.ts', 'lib/api-mako/areas/cs.helpers.ts', 'app/cs-analyst/page.tsx', 'app/_components/ComingSoon.tsx', 'app/admin/dev/customer-success/roadmap-cs.ts', 'docs/sprint-servicio-mauricio.md', 'public/vsl-assets/mako-cs.html',
       // El CURSO del servicio (06/10/2026): vive fuera de la carpeta de la tab — el portal del
       // alumno, sus rutas públicas, el cron de las llamadas y la carga del programa.

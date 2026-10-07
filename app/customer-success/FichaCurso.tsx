@@ -39,16 +39,17 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, Confirm, Input, Select, Spinner, useOkFlash } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import type { Sesion } from '@/lib/curso-datos';
-import { ROTULO_TAREA, type EstadoTarea } from '@/lib/curso';
+import { ROTULO_TAREA, ROTULO_PROPUESTA, type EstadoTarea, type EstadoPropuesta, type Progreso } from '@/lib/curso';
 import type { EntregaFicha } from './FichaEntrega';
 import {
   cursoDeClienteAction, aprobarTareaCursoAction, mandarLinkCursoAction, cortarAccesoCursoAction,
   habilitarAccesoCursoAction, agendarLlamadaCursoAction, borrarLlamadaCursoAction, linkDelCursoAction,
+  linkDeLiderAction, cambiarLiderAction,
 } from './curso-ficha-actions';
 import {
   avisosDeSesion, contestoAlgo, estadoDeInvitacion, estadoDeTarea, fechaHoraLocal, fraseIngresos, fraseInvitacion,
-  fraseResumen, isoDeLocal, respuestaDe, resumenDeEtapa, rotuloVisto,
-  type AccesoFicha, type AvisoInvitacionCurso, type BloqueRespuesta, type ClaseFicha, type CursoDeCliente,
+  fraseResumen, isoDeLocal, respuestaDe, resumenDeEtapa, rotuloVisto, propuestaDeClase, propuestasPendientes,
+  type AccesoFicha, type AccesoLiderFicha, type AvisoInvitacionCurso, type BloqueRespuesta, type ClaseFicha, type CursoDeCliente,
   type EtapaFicha, type ProductoFicha,
 } from './curso-ficha-lectura';
 import { CabezaAvance, CeldasAvance, EstiloAvance } from './curso/FilaAvance';
@@ -126,6 +127,8 @@ export function FichaCurso({ leadId, entrega }: {
         </div>
         <aside className="fcu-lado">
           {(curso.acceso || curso.errorAcceso) && <Acceso leadId={leadId} curso={curso} editar={editar} />}
+          {/* Los líderes de área (#665): sólo si su curso tiene clases por área Y declaró áreas. */}
+          {curso.acceso && (curso.areas?.length ?? 0) > 0 && <Lideres leadId={leadId} curso={curso} editar={editar} />}
           <Llamadas leadId={leadId} curso={curso} productoId={prod?.productoId ?? null} editar={editar} />
         </aside>
       </div>
@@ -218,6 +221,9 @@ function Avance({ leadId, curso, prod, editar }: {
         {prod.etapas.map((e) => {
           const vacia = e.clases.length === 0;
           const open = !vacia && abierta(e);
+          // Las propuestas de la IA que esperan el ok del cliente (paso 5 de #665). Casi siempre en
+          // la etapa ANTERIOR, que arranca plegada: por eso se cuentan en la cabecera.
+          const porAprobar = propuestasPendientes(e.clases);
           return (
             <li key={e.key} className={`fcu-etapa${vacia ? ' vacia' : ''}${e.actual ? ' actual' : ''}`}>
               <button type="button" className="fcu-eh" disabled={vacia} aria-expanded={vacia ? undefined : open}
@@ -226,6 +232,7 @@ function Avance({ leadId, curso, prod, editar }: {
                 <span className="fcu-en">{e.label}</span>
                 {e.actual && <span className="fcu-pill fcu-pill-actual">Actual</span>}
                 <span className="fcu-res">{vacia ? 'Sin clases' : fraseResumen(e.resumen)}</span>
+                {porAprobar > 0 && <span className="fcu-pill fcu-pill-ia" title="Versiones de la IA que el cliente no aprobó todavía">{ROTULO_PROPUESTA.pendiente}: {porAprobar}</span>}
                 {e.resumen.completa && <span className="fcu-pill fcu-pill-good">Completa</span>}
               </button>
               {open && (
@@ -246,12 +253,15 @@ function Avance({ leadId, curso, prod, editar }: {
 }
 
 const TONO_TAREA: Record<EstadoTarea, string> = { pendiente: '', enviada: 'fcu-pill-warn', aprobada: 'fcu-pill-good' };
+const TONO_PROPUESTA: Record<EstadoPropuesta, string> = { pendiente: 'fcu-pill-ia', aprobada: 'fcu-pill-good', corregida: '' };
 
 function FilaClase({ c, abierta, onAbrir, revisando, onRevisar }: {
   c: ClaseFicha; abierta: boolean; onAbrir: () => void; revisando: boolean; onRevisar: (aprobada: boolean) => void;
 }) {
   const visto = rotuloVisto(c.medicion, c.progreso);
   const estado = estadoDeTarea(c, c.progreso);
+  // La propuesta de la IA (paso 5 de #665): pendiente, aprobada o corregida por el cliente.
+  const ia = estado ? propuestaDeClase(c) : null;
   return (
     <li className="fcu-clase">
       <div className="fcu-ch">
@@ -261,6 +271,7 @@ function FilaClase({ c, abierta, onAbrir, revisando, onRevisar }: {
         <span className={`fcu-visto t-${visto.tono}`}>{visto.texto}</span>
         <span className="fcu-est">
           {estado ? <span className={`fcu-pill ${TONO_TAREA[estado]}`}>{ROTULO_TAREA[estado]}</span> : <span className="fcu-sin">Sin tarea</span>}
+          {ia && <span className={`fcu-pill ${TONO_PROPUESTA[ia]}`}>{ROTULO_PROPUESTA[ia]}</span>}
         </span>
         <span className="fcu-acc">
           {/* Sólo sobre lo que ya MANDÓ: revisar una pendiente no tiene qué revisar, y la
@@ -281,6 +292,15 @@ function FilaClase({ c, abierta, onAbrir, revisando, onRevisar }: {
 function DetalleClase({ c }: { c: ClaseFicha }) {
   const bloques = respuestaDe(c.campos, c.progreso?.valores);
   const enviada = fechaHoraLocal(c.progreso?.enviadaAt);
+  // Una clase POR ÁREA (#665): lo contestado vive en cada área, y se muestra área por área.
+  if (c.porArea) {
+    return (
+      <div className="fcu-det">
+        {c.tarea.trim() && <p className="fcu-instr">{c.tarea.trim()}</p>}
+        {c.porArea.map((a) => <RespuestaDeArea key={a.area} c={c} area={a.area} vigente={a.vigente} progreso={a.progreso} />)}
+      </div>
+    );
+  }
   return (
     <div className="fcu-det">
       {c.tarea.trim() && <p className="fcu-instr">{c.tarea.trim()}</p>}
@@ -290,6 +310,48 @@ function DetalleClase({ c }: { c: ClaseFicha }) {
         : !contestoAlgo(bloques)
           ? <p className="fcu-nada">Sin contestar.</p>
           : <dl className="fcu-resp">{bloques.map((b) => <Bloque key={b.id} b={b} />)}</dl>}
+      <VersionIA c={c} progreso={c.progreso} />
+    </div>
+  );
+}
+
+/**
+ * La versión de la IA de una respuesta (paso 5 de #665), como la ve el EQUIPO. Pendiente: se
+ * muestra entera (es lo que el cliente está por aprobar). Resuelta: una línea, cuándo — lo que quedó
+ * ya es su respuesta (aprobada) o la descartó (corregida).
+ */
+function VersionIA({ c, progreso }: { c: ClaseFicha; progreso: Progreso | null }) {
+  const ia = progreso?.ia;
+  if (!ia) return null;
+  if (ia.estado !== 'pendiente') {
+    const cuando = fechaHoraLocal(ia.resueltaAt);
+    return <p className="fcu-meta">{ia.estado === 'aprobada' ? 'Aprobó la versión de la IA' : 'Corrigió la versión de la IA'}{cuando ? ` · ${cuando}` : ''}</p>;
+  }
+  const bloques = respuestaDe(c.campos, ia.valores);
+  return (
+    <div className="fcu-ia">
+      <p className="fcu-area-nom">Versión de la IA · sin aprobar</p>
+      <dl className="fcu-resp">{bloques.map((b) => <Bloque key={b.id} b={b} />)}</dl>
+    </div>
+  );
+}
+
+/**
+ * Lo que contestó UNA área. `vigente: false` = el área ya no está en su tabla de áreas (la renombró
+ * o la sacó): se muestra igual —lo contestado no se esconde— y se dice, porque ya no cuenta para
+ * cerrar la etapa (lib/curso.ts, `progresoEfectivo`).
+ */
+function RespuestaDeArea({ c, area, vigente, progreso }: { c: ClaseFicha; area: string; vigente: boolean; progreso: ClaseFicha['progreso'] }) {
+  const bloques = respuestaDe(c.campos, progreso?.valores);
+  const enviada = fechaHoraLocal(progreso?.enviadaAt);
+  return (
+    <div className="fcu-area">
+      <p className="fcu-area-nom">{area}{!vigente && <span className="fcu-sin"> · ya no está en su lista</span>}</p>
+      {enviada && <p className="fcu-meta">Enviada el {enviada}</p>}
+      {!contestoAlgo(bloques)
+        ? <p className="fcu-nada">Sin contestar.</p>
+        : <dl className="fcu-resp">{bloques.map((b) => <Bloque key={b.id} b={b} />)}</dl>}
+      <VersionIA c={c} progreso={progreso} />
     </div>
   );
 }
@@ -391,9 +453,18 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
     setOcupado(cual);
     setError('');
     try {
-      const r = cual === 'cortar' ? await cortarAccesoCursoAction(leadId) : await habilitarAccesoCursoAction(leadId);
-      if (!r.ok) setError(r.error);
-      else poner(r.acceso);
+      if (cual === 'cortar') {
+        const r = await cortarAccesoCursoAction(leadId);
+        if (!r.ok) { setError(r.error); return; }
+        poner(r.acceso);
+        // Cortar al cliente corta también a sus líderes (lib/curso-datos.ts, `revocarAcceso`).
+        const lideres = r.lideres;
+        if (lideres) editar((c) => ({ ...c, lideres }));
+      } else {
+        const r = await habilitarAccesoCursoAction(leadId);
+        if (!r.ok) setError(r.error);
+        else poner(r.acceso);
+      }
     } catch (e) {
       setError(msg(e, 'No se pudo.'));
     } finally {
@@ -431,6 +502,8 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
                     habilitar, el que le llegó antes ya no abre. */}
                 <BotonInvitar leadId={leadId} nombre={curso.nombre} emailCrm={curso.emailCrm} acceso={a}
                   variant={invitacion.tipo === 'invitado' ? 'secondary' : 'primary'}
+                  areas={curso.areas} lideres={curso.lideres}
+                  onLideres={(l) => editar((c) => ({ ...c, lideres: l }))}
                   onListo={(acc, av) => { if (acc) poner(acc); setAviso(av); }} />
                 <Button size="sm" variant="secondary" ok={copiado.ok} okLabel="Copiado" loading={ocupado === 'copiar'}
                   onClick={() => void copiar()}>
@@ -454,10 +527,124 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
       {error && <p className="fcu-mal">{error}</p>}
 
       {preguntaCortar && (
-        <Confirm title="¿Cortar su acceso?" message="Los links que ya tiene dejan de abrir."
+        <Confirm title="¿Cortar su acceso?" message={(curso.lideres?.length ?? 0) > 0 ? 'Sus links y los de sus líderes dejan de abrir.' : 'Los links que ya tiene dejan de abrir.'}
           confirmLabel="Cortar acceso" cancelLabel="No cortar" tone="danger"
           onCancel={() => setPreguntaCortar(false)}
           onConfirm={() => { setPreguntaCortar(false); void cambiar('cortar'); }} />
+      )}
+    </section>
+  );
+}
+
+// ── Los líderes de área (#665) ────────────────────────────────────────────────
+
+/**
+ * Un renglón por área que declaró (y por cada líder que ya tenga acceso aunque su área ya no esté):
+ * en qué quedó su invitación, copiar su link y cortarlo o volver a habilitarlo. A un líder se lo
+ * INVITA desde «Invitar» de arriba, eligiendo su área (./curso/InvitarAlCurso.tsx).
+ *
+ * ⚠️ «COPIAR LINK» CREA SU ACCESO si no lo tenía, igual que el del cliente: copiar un link es
+ * dárselo. Y el link es el de SU área: abre sólo las clases por área de esa área.
+ */
+function Lideres({ leadId, curso, editar }: { leadId: number; curso: CursoDeCliente; editar: Editar }) {
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState<string | null>(null);
+  const [preguntaCortar, setPreguntaCortar] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const lideres = curso.lideres ?? [];
+  const declaradas = curso.areas ?? [];
+  const filas = [...declaradas, ...lideres.map((l) => l.area).filter((a) => !declaradas.includes(a))];
+  const poner = (l: AccesoLiderFicha[]) => editar((c) => ({ ...c, lideres: l }));
+  // ⚠️ CON EL CLIENTE CORTADO NO SE OFRECE DAR NI DEVOLVER UN ACCESO DE LÍDER: «Copiar link» crearía
+  // uno nuevo y «Volver a habilitar» reabriría uno cortado, para un cliente que ya no entra. El
+  // server los rechaza igual (`clienteCortado` en curso-ficha-actions.ts) y el portal no los abre;
+  // esto es para no dibujar dos botones cuya única respuesta es un error. Cortar sí queda.
+  const clienteCortado = curso.acceso?.revocado === true;
+
+  async function copiar(area: string) {
+    setError('');
+    let link = lideres.find((l) => l.area === area)?.link ?? null;
+    if (!link) {
+      setOcupado(`copiar:${area}`);
+      try {
+        const r = await linkDeLiderAction(leadId, area);
+        if (!r.ok) { setError(r.error); return; }
+        poner(r.lideres);
+        link = r.link;
+      } catch (e) {
+        setError(msg(e, 'No pude armar su link.'));
+        return;
+      } finally {
+        setOcupado(null);
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiado(area);
+      window.setTimeout(() => setCopiado((a) => (a === area ? null : a)), 1600);
+    } catch {
+      setError('No pude copiar el link.');
+    }
+  }
+  async function cambiar(area: string, cual: 'cortar' | 'habilitar') {
+    setOcupado(`${cual}:${area}`);
+    setError('');
+    try {
+      const r = await cambiarLiderAction(leadId, area, cual);
+      if (!r.ok) setError(r.error);
+      else poner(r.lideres);
+    } catch (e) {
+      setError(msg(e, 'No se pudo.'));
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  return (
+    <section className="fcu-sec">
+      <h4 className="fcu-tit">Líderes de área</h4>
+      {clienteCortado && <p className="fcu-meta">Primero habilita al cliente.</p>}
+      <ul className="fcu-lid">
+        {filas.map((area) => {
+          const l = lideres.find((x) => x.area === area);
+          const frase = l ? fraseInvitacion(estadoDeInvitacion(l)) : 'Sin invitar';
+          return (
+            <li key={area}>
+              <p className="fcu-estado" title={area}>{area}</p>
+              <p className={`fcu-meta${l?.revocado ? ' fcu-mal' : ''}`} suppressHydrationWarning>{frase}</p>
+              <div className="fcu-bots">
+                {l?.revocado ? (
+                  !clienteCortado && (
+                    <Button size="sm" variant="secondary" loading={ocupado === `habilitar:${area}`} onClick={() => void cambiar(area, 'habilitar')}>
+                      Volver a habilitar
+                    </Button>
+                  )
+                ) : (
+                  <>
+                    {!clienteCortado && (
+                      <Button size="sm" variant="secondary" ok={copiado === area} okLabel="Copiado" loading={ocupado === `copiar:${area}`}
+                        onClick={() => void copiar(area)}>
+                        Copiar link
+                      </Button>
+                    )}
+                    {l && (
+                      <Button size="sm" variant="tertiary" loading={ocupado === `cortar:${area}`} onClick={() => setPreguntaCortar(area)}>
+                        Cortar
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {error && <p className="fcu-mal">{error}</p>}
+      {preguntaCortar && (
+        <Confirm title={`¿Cortar a ${preguntaCortar}?`} message="Su link deja de abrir."
+          confirmLabel="Cortar acceso" cancelLabel="No cortar" tone="danger"
+          onCancel={() => setPreguntaCortar(null)}
+          onConfirm={() => { const a = preguntaCortar; setPreguntaCortar(null); void cambiar(a, 'cortar'); }} />
       )}
     </section>
   );
@@ -621,6 +808,7 @@ const CSS = `
 .fcu-pill-actual{ background:var(--primary-bg); color:var(--primary); }
 .fcu-pill-good{ background:var(--good-bg); color:var(--good); }
 .fcu-pill-warn{ background:var(--warn-bg); color:var(--warn); }
+.fcu-pill-ia{ background:var(--primary-bg); color:var(--primary); }
 .fcu-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
 
 /* Las clases de una etapa, sangradas bajo su chevron. */
@@ -635,7 +823,8 @@ const CSS = `
 .fcu-visto.t-good{ color:var(--good); font-weight:600; }
 .fcu-visto.t-dim{ color:var(--dim); }
 .fcu-visto.t-faint{ color:var(--faint); }
-.fcu-est{ flex:0 0 92px; }
+/* El estado de la tarea y, debajo, el de la version de la IA si la hay (paso 5). */
+.fcu-est{ flex:0 0 104px; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
 .fcu-acc{ flex:0 0 150px; display:flex; justify-content:flex-end; }
 
 /* Lo que contestó. */
@@ -664,6 +853,17 @@ const CSS = `
 .fcu-ses li{ padding:10px 0; border-top:1px solid var(--border); }
 .fcu-sh{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .fcu-sh b{ font-size:13.5px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+
+/* Por área: lo contestado de cada una, y los líderes con su link. */
+.fcu-area{ padding:10px 0 4px; border-top:1px solid var(--border); }
+.fcu-area:first-of-type{ border-top:0; }
+.fcu-area-nom{ margin:0; font-size:13px; font-weight:600; color:var(--ink); overflow-wrap:anywhere; }
+/* La version de la IA sin aprobar: debajo de la respuesta, en una caja tenue. */
+.fcu-ia{ margin-top:12px; padding:10px 12px; border-radius:10px; background:var(--primary-bg); }
+.fcu-lid{ list-style:none; margin:0; padding:0; }
+.fcu-lid li{ padding:10px 0; border-top:1px solid var(--border); }
+.fcu-lid li:first-child{ border-top:0; padding-top:0; }
+.fcu-lid .fcu-bots{ margin-top:6px; }
 
 @media(prefers-reduced-motion:reduce){ .fcu-chev{ transition:none; } }
 `;

@@ -78,7 +78,39 @@ export type EtapaEntrega = {
    * lo que permite que las dos cosas convivan sin que una destruya a la otra.
    */
   fase?: string;
+  /**
+   * El link para agendar la sesión de esta etapa (su Calendly), #665: el portal del alumno lo
+   * muestra —«Agenda tu sesión»— RECIÉN cuando el alumno completó la etapa (`etapaCompleta`), y
+   * antes ni siquiera viaja a su navegador (lib/curso-portal.ts, `armarEtapas`). Sólo https
+   * (`agendaValida`): termina en el `href` de un botón que ve el cliente de un cliente.
+   *
+   * ⚠️ ES UNA TRABA BLANDA y está dicho acá, no en la pantalla: el link existe afuera del portal,
+   * y quien lo tenga (se lo pasó otro cliente, lo encontró en el perfil público de Calendly) agenda
+   * sin haber terminado. Lo que la traba logra es que el camino normal pase por la tarea.
+   */
+  agendaUrl?: string;
 };
+
+/** El tope del link de agenda: un Calendly con sus parámetros entra de sobra. */
+export const MAX_AGENDA = 500;
+
+/**
+ * El link de agenda de una etapa, saneado. `null` = no sirve (no es https, no es un link, trae
+ * usuario y clave adentro, o es demasiado largo). Lo usan el saneo de las etapas, el editor (para
+ * decir «no sirve» ANTES de guardar) y el portal (otra vez, antes de pintarlo).
+ *
+ * ⚠️ SÓLO https, no http: es un botón que abre afuera desde el portal de un cliente, y un
+ * `javascript:` en ese `href` es un script corriendo en su navegador.
+ */
+export function agendaValida(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim();
+  if (!s || s.length > MAX_AGENDA) return null;
+  let u: URL;
+  try { u = new URL(s); } catch { return null; }
+  if (u.protocol !== 'https:' || !u.hostname || !u.hostname.includes('.') || u.username || u.password) return null;
+  return u.toString();
+}
 
 /**
  * La entrega de un producto: sus etapas y de dónde salieron.
@@ -451,6 +483,12 @@ export function normalizarEtapas(raw: unknown): EtapaEntrega[] | null {
       // catálogo al PINTAR (`colorDeEtapa` cae al color propio si la fase no existe), no
       // acá: este saneo no conoce las fases.
       ...(typeof o.fase === 'string' && CLAVE_FASE_OK.test(o.fase.trim()) ? { fase: o.fase.trim() } : {}),
+      // ⚠️ EL LINK DE AGENDA TAMBIÉN SOBREVIVE AL SANEO (#665), por la misma razón que la fase: el
+      // `data` se guarda ENTERO, y lo que este mapper no copie se borra en el próximo guardado de
+      // un nombre o un color. Uno que no sirve se tira acá en silencio: el editor ya dijo «no
+      // sirve» antes de mandarlo (`agendaValida`), así que lo único que llega roto es un pedido
+      // armado a mano.
+      ...(agendaValida(o.agendaUrl) ? { agendaUrl: agendaValida(o.agendaUrl)! } : {}),
     });
   }
   return out;

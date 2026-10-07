@@ -54,6 +54,9 @@ export type ClienteRef = {
   /** Su email. Viaja para PRELLENAR el alta de su cuenta de MaKo — que desde el
    *  28/09/2026 lo exige. Puede ser null: hay clientes cargados sólo con teléfono. */
   email?: string | null;
+  /** Becado o bonificado: su venta es «sin cobro» (#747, lib/venta-tipo.ts). Sigue
+   *  siendo cliente; la ficha lo dice en una palabra. */
+  sinCobro?: boolean;
 };
 
 /** Lo que una tarjeta (tarea o proyecto) guarda de su cliente. */

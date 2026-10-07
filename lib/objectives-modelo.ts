@@ -357,7 +357,7 @@ const FUENTES_DEF = [
   { id: 'inversion_usd', label: 'Inversión en anuncios', unidad: 'usd', que: 'Lo gastado en Meta en el período, convertido a USD.' },
   { id: 'agendas', label: 'Reuniones agendadas', unidad: 'cantidad', que: 'Leads con R1 en el período.' },
   { id: 'leads_nuevos', label: 'Leads nuevos', unidad: 'cantidad', que: 'Contactos que entraron al CRM en el período.' },
-  { id: 'cierres', label: 'Cierres', unidad: 'cantidad', que: 'Leads marcados como ganados en el período.' },
+  { id: 'cierres', label: 'Cierres', unidad: 'cantidad', que: 'Leads ganados en el período, sin los «Sin cobro».' },
   { id: 'cash_usd', label: 'Cobrado', unidad: 'usd', que: 'Pagos cobrados en el período.' },
   { id: 'sold_usd', label: 'Firmado', unidad: 'usd', que: 'Monto de los cierres del período. Comprometido, todavía no cobrado.' },
   { id: 'llamadas_analizadas', label: 'Llamadas analizadas', unidad: 'cantidad', que: 'Grabaciones que MaKo procesó en el período.' },

@@ -72,10 +72,16 @@ function Cargando({ children }: { children: ReactNode }) {
   return <p className="fl-nada fl-cargando"><Spinner size={14} /> {children}</p>;
 }
 
-export function PagosCliente({ datos }: { datos: DatosCrm }) {
+/**
+ * ⚠️ `onCambio` NO ES OPCIONAL ACÁ en la práctica: `datos` se lee UNA vez por ficha
+ * (`pagosDeClienteAction`), así que el `router.refresh()` de la tarjeta no la toca. Sin
+ * aplicarlo, «Quitar "Sin cobro"» escribía y la tarjeta seguía diciendo «Sin cobro» con la
+ * cabecera de la ficha (que sí viene del server) diciendo lo contrario.
+ */
+export function PagosCliente({ datos, onCambio }: { datos: DatosCrm; onCambio: (patch: Pick<Lead, 'venta_tipo'>) => void }) {
   if (datos === 'cargando') return <><Cargando>Leyendo sus pagos</Cargando><style dangerouslySetInnerHTML={{ __html: CSS }} /></>;
   if (!datos.ok) return <><p className="fl-nada">No pude leer sus pagos. {datos.error}</p><style dangerouslySetInnerHTML={{ __html: CSS }} /></>;
-  return <DealDetailsCard lead={datos.lead} pagos={datos.pagos} />;
+  return <DealDetailsCard lead={datos.lead} pagos={datos.pagos} onCambio={onCambio} />;
 }
 
 /**
