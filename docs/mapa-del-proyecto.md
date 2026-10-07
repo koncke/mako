@@ -40,7 +40,7 @@ Sin esto, media conversación no se entiende.
 
 | Término | Qué es |
 |---|---|
-| **workspace / ws** | El inquilino. Cada cliente es uno. `ws1` = Mauricio, `ws3` = «Cliente de Prueba» (donde se testea), `ws9` = Martín/super-admin, `ws10` = Leandro, `ws11` = Leila |
+| **workspace / ws** | El inquilino. Cada cliente es uno. `ws1` = Mauricio (un **cliente**: es `OWNER_WS` por historia, no el dueño de MaKo), `ws3` = «Cliente de Prueba» (donde se testea), `ws9` = Martín, el dueño (super-admin), `ws10` = Leandro, `ws11` = Leila |
 | **OWNER_WS** | Constante = 1. Herencia del arranque single-tenant. **Ya NO es «la agencia»**: el ws1 es un cliente. Para el super-admin se pregunta por `capa === 'superadmin'`, nunca por el número |
 | **capa** | Qué producto compró el cliente (`workspaces.capa`, mig 0092). `pm` = solo el board y el Perro · `completo` = todo (default) · `superadmin` = el espacio de la agencia. Fuente única: `lib/capas.ts` |
 | **El Perro Guardián** | La IA que prioriza y puntúa las tareas del board. En la UI nunca va solo: «Prioridades — El Perro Guardián» |

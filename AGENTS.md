@@ -4,6 +4,29 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# Quién es quién: MaKo es de Martín. Mauricio es un CLIENTE
+
+**«El dueño», en todo este repo, es Martín Koncke**: el que decide, el que reporta y el que
+le habla a Claude. Las ~30 veces que este archivo dice «el dueño reclamó», «el dueño lo
+rechazó», «la pantalla del dueño», es él.
+
+**Mauricio Bustos es un CLIENTE de MaKo. Nunca el dueño.** No se escribe «el dueño»
+refiriéndose a él, ni se le atribuye el producto, la marca ni la voz de MaKo.
+
+Se confunde porque todo lo histórico apunta a él, y ninguna de estas cosas lo hace dueño:
+
+- **ws1 es suyo y es `OWNER_WS`.** La constante se llama así porque MaKo nació como el
+  dashboard de su agencia: es el *primer* workspace, no el del dueño. Ver «`OWNER_WS` vale
+  1 y el 1 es Mauricio, un cliente», más abajo.
+- **Parte de la infraestructura está a su nombre**: el equipo de Vercel
+  (`mbustos-4239s-projects`) y varias credenciales del ws1.
+- **La cuenta 1 de Claude Code es suya** (ver «Hay dos cuentas de Claude»): paga esa cuenta,
+  no es dueño del producto.
+
+Ya se corrigió dos veces y volvió las dos, porque una memoria lo afirmaba y cada sesión lo
+repetía. La segunda vez (07/10/2026) costó una recomendación entera armada sobre la premisa
+falsa: proponer `mauricio@hola-mako.com` como remitente de MaKo.
+
 # LO PRIMERO AL ABRIR: si te preguntan «¿en qué quedamos?», leé `docs/relevo.md`
 
 Martín trabaja con **dos cuentas de Claude** y se pasa de una a la otra cuando se le acaban
