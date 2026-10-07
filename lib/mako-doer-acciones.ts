@@ -156,17 +156,19 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
       case 'meta_nombre':
       case 'meta_presupuesto':
       case 'meta_estado': {
-        // Escribir a Meta es acción de la cuenta global del dueño (Fase 1).
-        if (ws !== OWNER_WS) return { ok: false, resumen: 'Las campañas de Meta solo se editan desde el workspace principal por ahora.' };
+        // Con la cuenta de Meta de ESTE workspace (credWs adentro de metaWrite). Quién
+        // puede confirmarlo lo decide el gating de la def (rolMinimo admin), que
+        // gatingOk mira al proponer y al confirmar.
         const id = String(payload.campaignId);
         let body: MetaWriteBody;
         if (tipo === 'meta_nombre') body = { level: 'campaign', id, op: 'name', name: String(payload.nombre) };
         else if (tipo === 'meta_presupuesto') body = { level: 'campaign', id, op: 'budget', dailyBudgetMxn: Number(payload.montoMxn) };
         else body = { level: 'campaign', id, op: 'status', status: payload.estado === 'ACTIVE' ? 'ACTIVE' : 'PAUSED' };
-        const r = await metaWrite(body);
+        const r = await metaWrite(body, ws);
         if (!r.ok) return { ok: false, resumen: `Meta rechazó el cambio: ${r.message}` };
         if (tipo === 'meta_nombre') return { ok: true, resumen: `Campaña renombrada a "${payload.nombre}".` };
-        if (tipo === 'meta_presupuesto') return { ok: true, resumen: `Presupuesto de la campaña puesto en $${payload.montoMxn} MXN/día.` };
+        // El monto está en la moneda de LA CUENTA de este ws, que ya no es siempre MXN.
+        if (tipo === 'meta_presupuesto') return { ok: true, resumen: `Presupuesto de la campaña puesto en ${payload.montoMxn} por día (moneda de la cuenta).` };
         return { ok: true, resumen: `Campaña ${payload.estado === 'ACTIVE' ? 'activada' : 'pausada'}.` };
       }
       case 'tareas_plan': {

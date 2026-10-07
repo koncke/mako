@@ -2480,8 +2480,9 @@ PROPONE pausar o activar una campaña de Meta Ads; queda pendiente de confirmaci
 - **Escribe:** cambia el status de la campaña en Meta (POST /{id} status); nada en la base
 - **Reversible:** sí
 - **Costo:** externo
-- **Solo el workspace principal.**
+- **Solo el administrador del workspace.**
 - **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -2502,8 +2503,9 @@ PROPONE renombrar una campaña de Meta Ads; queda pendiente de confirmación y N
 - **Escribe:** cambia el nombre de la campaña en Meta y lo propaga a las métricas guardadas de esa campaña
 - **Reversible:** sí
 - **Costo:** externo
-- **Solo el workspace principal.**
+- **Solo el administrador del workspace.**
 - **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -2524,8 +2526,9 @@ PROPONE pausar o activar UN conjunto de anuncios de Meta; queda pendiente de con
 - **Escribe:** cambia el status del conjunto en Meta (POST /{id} status); nada en la base
 - **Reversible:** sí
 - **Costo:** externo
-- **Solo el workspace principal.**
+- **Solo el administrador del workspace.**
 - **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -2546,8 +2549,9 @@ PROPONE pausar o activar UN anuncio de Meta; queda pendiente de confirmación. A
 - **Escribe:** cambia el status del anuncio en Meta (POST /{id} status); nada en la base
 - **Reversible:** sí
 - **Costo:** externo
-- **Solo el workspace principal.**
+- **Solo el administrador del workspace.**
 - **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -2568,8 +2572,9 @@ PROPONE renombrar un conjunto o un anuncio de Meta; queda pendiente de confirmac
 - **Escribe:** cambia el nombre en Meta y lo propaga a las métricas guardadas de esa entidad
 - **Reversible:** sí
 - **Costo:** externo
-- **Solo el workspace principal.**
+- **Solo el administrador del workspace.**
 - **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -2591,9 +2596,9 @@ PROPONE cambiar el presupuesto DIARIO de una campaña de Meta Ads con presupuest
 - **Escribe:** cambia daily_budget de la campaña en Meta (monto × 100, en centavos de la moneda de la cuenta)
 - **Reversible:** sí
 - **Costo:** dinero
-- **Solo el workspace principal.**
 - **Solo el administrador del workspace.**
 - **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -2614,9 +2619,9 @@ PROPONE cambiar el presupuesto DIARIO de un conjunto de anuncios con presupuesto
 - **Escribe:** cambia daily_budget del conjunto en Meta (monto × 100, en centavos de la moneda de la cuenta)
 - **Reversible:** sí
 - **Costo:** dinero
-- **Solo el workspace principal.**
 - **Solo el administrador del workspace.**
 - **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -2637,9 +2642,9 @@ PROPONE eliminar en Meta una campaña, un conjunto o un anuncio que esté PAUSAD
 - **Escribe:** DELETE /{id} en Meta (en cascada); nada en la base
 - **Reversible:** no
 - **Costo:** externo
-- **Solo el workspace principal.**
 - **Solo el administrador del workspace.**
 - **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |

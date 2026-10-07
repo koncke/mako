@@ -33,8 +33,8 @@ test('credWs va SIEMPRE con los dos argumentos', () => {
 });
 
 test('no se usa envCred: resuelve siempre contra el dueño', () => {
-  // lib/meta-write.ts la usa y PARECE el precedente. No lo es: envCred resuelve
-  // siempre contra OWNER_WS. Copiarla acá compila y pasa todos los tests.
+  // lib/meta-write.ts la usó hasta el 07/10/2026 y PARECÍA el precedente. No lo es:
+  // envCred resuelve siempre contra OWNER_WS. Copiarla acá compila y pasa todos los tests.
   const codigo = CREATE.split('\n').filter((l) => !l.trim().startsWith('*') && !l.trim().startsWith('//'));
   assert.ok(
     !codigo.some((l) => l.includes('envCred')),
@@ -96,4 +96,86 @@ test('las 14 rutas de Ads Manager pasan por el MISMO guard', () => {
     if (!src.includes('guardAdsWs')) sinGuard.push(r);
   }
   assert.deepEqual(sinGuard, [], `rutas de ads-manager sin guard: ${sinGuard.join(', ')}`);
+});
+
+// =============================================================================
+// Y las escrituras por metaWrite (pausar, presupuesto, renombrar, borrar) — 07/10/2026
+// =============================================================================
+// Hasta esa fecha lib/meta-write.ts leía el token con envCred, o sea la cuenta de
+// Meta del ws1 para todos, y por eso estaba cerrada al ws1 en TRES puertas (el 403 de
+// /api/meta-write, `soloWs1` en la def del doer y un `ctx.ws !== OWNER_WS` en cada
+// runner). Abrir las puertas sin cambiar la credencial es el peor estado posible: un
+// cliente pausa «su» campaña con el token de otro. Estos asserts fijan las dos mitades
+// juntas: el ws viaja explícito Y es el mismo para el token y para el rename.
+//
+// Verificado rompiéndolo (07/10/2026), nueve roturas de a una, restaurando de memoria;
+// cada una dio 1 fallo y 11 pases:
+//   · volver a `envCred('META_ACCESS_TOKEN')` en meta-write
+//   · `runWithWorkspace(OWNER_WS, …)` en propagarRename
+//   · un call site `metaWrite(body)` sin el ws (ads.run)
+//   · un call site `metaWrite(body, OWNER_WS)` (mako-doer-acciones)
+//   · la ruta con `esDuenoAdmin()` en vez del guard
+//   · `rolMinimo: 'admin'` fuera de G_META_ADMIN
+//   · un `soloWs1` adentro de G_META_ADMIN
+//   · estadoVivoMeta con envCred
+//   · estadoVivoMeta llamado con OWNER_WS en vez de ctx.ws
+
+const sinComentarios = (src: string) => src
+  .replace(/\r\n/g, '\n')
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+
+const WRITE = sinComentarios(leer('lib/meta-write.ts'));
+
+test('meta-write: el token sale de credWs con el ws que le pasan, nunca de envCred', () => {
+  assert.ok(!WRITE.includes('envCred'), 'envCred resuelve siempre el ws1: un cliente escribiría en la cuenta de otro');
+  assert.match(WRITE, /credWs\('META_ACCESS_TOKEN', ws\)/, 'el token tiene que salir del ws explícito');
+  assert.match(WRITE, /export async function metaWrite\(body: MetaWriteBody, ws: number\)/, 'el ws es obligatorio en la firma');
+});
+
+test('meta-write: el rename se propaga en el MISMO ws del token', () => {
+  // Token de un cliente y rename propagado a otro es el bug con la mitad arreglada.
+  assert.ok(!/runWithWorkspace\(OWNER_WS/.test(WRITE), 'propagarRename no puede quedar clavado al ws1');
+  assert.match(WRITE, /runWithWorkspace\(ws,/);
+  assert.match(WRITE, /propagarRename\(ws,/);
+});
+
+test('todo call site de metaWrite pasa un ws, y nunca OWNER_WS a mano', () => {
+  const archivos = [
+    'app/api/meta-write/route.ts',
+    'lib/api-mako/areas/ads.run.ts',
+    'lib/mako-doer-acciones.ts',
+  ];
+  const malos: string[] = [];
+  let llamadas = 0;
+  for (const a of archivos) {
+    const src = sinComentarios(leer(a));
+    for (const m of src.matchAll(/(?<!function )metaWrite\(([^)]*)\)/g)) {
+      llamadas++;
+      const args = m[1].split(',').map((x) => x.trim()).filter(Boolean);
+      if (args.length !== 2 || args[1] === 'OWNER_WS') malos.push(`${a}: metaWrite(${m[1]})`);
+    }
+  }
+  assert.ok(llamadas >= 3, `esperaba al menos 3 llamadas, encontré ${llamadas}: ¿se mudó un call site?`);
+  assert.deepEqual(malos, []);
+});
+
+test('/api/meta-write pasa por el guard de Ads Manager, no por el del ws1', () => {
+  const RUTA = sinComentarios(leer('app/api/meta-write/route.ts'));
+  assert.ok(!RUTA.includes('esDuenoAdmin'), 'esDuenoAdmin cierra la ruta al ws1');
+  assert.match(RUTA, /wsDeAdsManager\(\)/, 'el ws sale del mismo guard que /api/ads-manager');
+  assert.match(RUTA, /metaWrite\(body, ws\)/);
+});
+
+test('el doer: ninguna escritura a Meta queda cerrada al ws1, y todas exigen admin', () => {
+  const DEF = sinComentarios(leer('lib/api-mako/areas/ads.def.ts'));
+  assert.ok(!DEF.includes('soloWs1'), 'soloWs1 cierra la escritura a los clientes');
+  // Sacar soloWs1 sacó también el chequeo de admin que traía: lo único que separa a un
+  // closer de pausar o borrar campañas con plata es este rolMinimo.
+  assert.match(DEF, /const G_META_ADMIN: Gating = \{[^}]*rolMinimo: 'admin'[^}]*\}/);
+  const RUN = sinComentarios(leer('lib/api-mako/areas/ads.run.ts'));
+  assert.ok(!RUN.includes('OWNER_WS'), 'un ctx.ws !== OWNER_WS en un runner vuelve a cerrar la escritura');
+  assert.match(RUN, /estadoVivoMeta\(String\(p\.id\), ctx\.ws\)/, 'el estado que decide un borrado se lee en la cuenta que borra');
+  const HELP = sinComentarios(leer('lib/api-mako/areas/ads.helpers.ts'));
+  assert.ok(!HELP.includes('envCred'), 'estadoVivoMeta con envCred lee la cuenta del ws1');
 });

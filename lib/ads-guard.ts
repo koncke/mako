@@ -20,8 +20,9 @@ import { adminDeWorkspaceActual, OWNER_WS } from './workspace';
  *
  * En POSITIVO: nombra lo que PASA, no lo que se excluye. Pasan dos, y nada más:
  *   · el admin DE ESTE workspace (adminDeWorkspaceActual, lib/workspace.ts:192);
- *   · el admin de AGENCIA sin workspace propio → la cuenta del dueño, que es el
- *     contrato de siempre y el único `null` que sigue pasando.
+ *   · el admin de AGENCIA sin workspace propio → OWNER_WS (el ws1, que es Mauricio,
+ *     un CLIENTE: el nombre de la constante es historia). Es el contrato de siempre
+ *     y el único `null` que sigue pasando.
  *
  * ⚠️ SIGUE EXIGIENDO ROL ADMIN, y eso no es un detalle heredado: con las
  * credenciales por workspace, el rol es LO ÚNICO que separa a un closer o un
@@ -37,20 +38,32 @@ async function wsQuePuedeOperar(): Promise<number | null> {
   if (admin != null) return admin;
   // adminDeWorkspaceActual devuelve null por DOS motivos distintos —no es admin, o
   // es admin y no resolvió workspace— y desde afuera no se distinguen. El de
-  // agencia sin workspace administra la cuenta del dueño, como siempre.
+  // agencia sin workspace opera el ws1, como siempre.
   return (await getSesionAdmin()) != null ? OWNER_WS : null;
 }
 
 /**
- * null = puede seguir. Response = el 403 ya armado.
- *
+ * El workspace con el que opera esta sesión, o el 403 ya armado. Para las rutas que
+ * además NECESITAN el número: /api/meta-write se lo pasa explícito a lib/meta-write,
+ * que no puede deducirlo solo (ver ahí por qué el de la sesión no alcanza).
+ */
+export async function wsDeAdsManager(): Promise<number | Response> {
+  const ws = await wsQuePuedeOperar();
+  return ws != null ? ws : sinPermiso();
+}
+
+/** null = puede seguir. Response = el 403 ya armado. */
+export async function guardAdsWs(): Promise<Response | null> {
+  return (await wsQuePuedeOperar()) != null ? null : sinPermiso();
+}
+
+/**
  * El texto dice QUÉ falta y descarta explícitamente la causa equivocada. Un 403 que
  * solo dice «no podés» sobre una pantalla de Ads Manager manda a revisar la cuenta
  * de Meta, que es el lugar donde el problema no está — eso ya costó una sesión
  * entera de diagnóstico el 05/09/2026.
  */
-export async function guardAdsWs(): Promise<Response | null> {
-  if ((await wsQuePuedeOperar()) != null) return null;
+function sinPermiso(): Response {
   return Response.json(
     {
       ok: false,

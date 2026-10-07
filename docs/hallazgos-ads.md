@@ -415,7 +415,8 @@ de una server action ya existe: `invalidar()` en `lib/api-mako/areas/crm.helpers
 **Regla:** lo que decide una escritura destructiva se lee EN VIVO justo antes
 (`cache: 'no-store'`, mirando `body.error`), nunca del árbol cacheado. Molde: `estadoVivoMeta`
 (`lib/api-mako/areas/ads.helpers.ts:147-164`), que corre antes del DELETE
-(`ads.run.ts:724-730`); usa `envCred`, o sea la cuenta del ws1, igual que `metaWrite`.
+(`ads.run.ts:724-730`). Desde el 07/10/2026 lee con `credWs(ws)` y recibe el MISMO `ctx.ws` que
+borra (antes usaba `envCred`, la cuenta del ws1, igual que `metaWrite`).
 
 **Sin hacer:** `updateTag` → `revalidateTag(tag, { expire: 0 })` en `lib/meta-write.ts:137`,
 y extenderlo a toda escritura, no solo al rename. Y exportar la lectura viva desde
@@ -1591,10 +1592,9 @@ que se intentaron falla **solo** en el test que le corresponde.
 
 ### Lo que quedó SIN hacer
 
-- **`lib/meta-write.ts` sigue en `envCred` y su ruta en `esDuenoAdmin`.** Es la tarea
-  GEMELA: encender, pausar, represupuestar, renombrar y BORRAR una campaña. Hoy el
-  cliente puede CREAR su campaña y no puede encenderla. **Vive en:** lib/meta-write.ts:37,
-  app/api/meta-write/route.ts.
+- ~~**`lib/meta-write.ts` sigue en `envCred` y su ruta en `esDuenoAdmin`.**~~ **HECHO el
+  07/10/2026** — ver «Pausar, represupuestar, renombrar y borrar: ahora con la cuenta de
+  cada cliente», al final de este documento.
 - **`deleteEntity` (lib/meta-ads-create.ts) no mira `body.error`**, y la cabecera del
   propio archivo documenta que Meta manda errores con HTTP 200. Con credenciales por
   workspace, el rollback de un árbol a medio crear va a reportar éxito y dejar campañas
@@ -2709,3 +2709,89 @@ todo el repo. Medido metiendo cada glifo en el botón del filtro: `⚠` → fail
 en los tres casos, es el guard del rótulo «Filtrar», que el glifo también rompe).
 
 **Vive en:** `tests/_emoji.ts`, `tests/ads-barra.test.ts`, `tests/ficha-lead-06-10.test.ts`.
+
+---
+
+## Pausar, represupuestar, renombrar y borrar: ahora con la cuenta de cada cliente (07/10)
+
+La tarea gemela de la #170. Hasta este día un cliente podía CREAR su campaña desde Ads
+Manager y no podía ni encenderla: `/api/meta-write` contestaba **403 «Esta acción solo
+está disponible en el workspace principal por ahora»**, y por MaKo («pausá la campaña X»)
+lo mismo con otro texto.
+
+**No era UN candado: eran tres, y abajo una credencial que hacía correctos a los tres.**
+`lib/meta-write.ts` leía el token con `envCred`, que resuelve siempre el ws1, así que
+cerrar la escritura a ese workspace era lo único que impedía que un cliente pausara «su»
+campaña con el token de Mauricio. Los tres candados:
+
+| Dónde | Qué decía |
+|---|---|
+| `app/api/meta-write/route.ts` | `esDuenoAdmin()` → 403 |
+| `lib/api-mako/areas/ads.def.ts` | `soloWs1` en las 8 operaciones de metaWrite |
+| `ads.run.ts` y `mako-doer-acciones.ts` | `if (ctx.ws !== OWNER_WS)` en cada runner |
+
+⚠️ **Sacar los candados sin cambiar la credencial era el peor estado posible**, y es lo
+primero que aparece al leer el pedido («dejá entrar a los clientes»). Por eso la ruta,
+la def y los runners se abrieron en el MISMO commit que el token pasó a
+`credWs('META_ACCESS_TOKEN', ws)`, y los tests fijan las dos mitades juntas.
+
+### El `ws` tenía que llegar a CUATRO lugares, y dos no se ven leyendo la ruta
+
+1. **El token** (`metaWrite(body, ws)`). El ws es obligatorio en la firma: borrar el
+   default y que el compilador reclame los call sites es lo que encontró el segundo.
+2. **El rename propagado** (`propagarRename`). Corría en `runWithWorkspace(OWNER_WS)`
+   —con un porqué correcto: la sesión de un super admin no dice a qué cliente le pega—, y
+   con el token arreglado habría escrito el nombre nuevo en las métricas del ws1 mientras
+   Meta renombraba la campaña de otro cliente. Ahora sale del MISMO `ws` que el token.
+3. **El estado vivo que decide un BORRADO** (`estadoVivoMeta`, en `ads.helpers.ts`). Era
+   un cuarto `envCred` escondido en un helper del área: el borrado de un cliente habría
+   preguntado «¿está pausada?» en la cuenta del ws1. Leer el estado en una cuenta y borrar
+   en otra es decidir con el dato de otro cliente.
+4. **El camino viejo del doer** (`mako-doer-acciones.ts`, tipos `meta_nombre` /
+   `meta_estado` / `meta_presupuesto`). Es una SEGUNDA implementación de las mismas
+   escrituras: el registro de la API la alcanza por `ejecutarAccion` desde tres runners de
+   `ads.run.ts`, y tenía su propio `ws !== OWNER_WS`. Arreglar sólo `escribirMeta` dejaba
+   abiertas cinco operaciones y cerradas tres, sin que nada lo dijera.
+
+### ⚠️ `soloWs1` traía DOS condiciones, y sacarlo se llevaba la segunda
+
+`gatingOk` (lib/api-mako/registro.ts) lee `soloWs1` como «ws principal **y rol admin**».
+Por eso `G_META_WS1` no declaraba `rolMinimo`: lo traía de regalo. Reemplazarlo por un
+gating sin `rolMinimo` le habría dejado a un closer o un setter pausar, represupuestar y
+BORRAR campañas con plata por un «sí» en WhatsApp — exactamente el bug que cerró la
+auditoría #167. Va `G_META_ADMIN` (`tab: 'ads-manager'`, `integracion: 'meta'`,
+`rolMinimo: 'admin'`), el mismo que ya usaban las escrituras de meta-ads-create.
+
+**Regla:** al sacar un flag de permisos, leé qué condiciones IMPLICA en el lector, no
+sólo las que nombra. Un flag que significa «A y B» y se reemplaza por «B'» pierde A sin
+que ninguna línea lo diga.
+
+### Lo que cambió para el que usa
+
+- El 403 de la ruta es el mismo de `/api/ads-manager/*` (`lib/ads-guard.ts`), que dice
+  qué falta y descarta la causa equivocada. `wsDeAdsManager()` devuelve el número porque
+  esta ruta, a diferencia de las otras, se lo tiene que pasar a la lib.
+- Un workspace sin Meta conectado recibe **409 «Este espacio de trabajo no tiene Meta
+  conectado»** en vez del 500 «Meta no configurado», que se leía como una caída nuestra.
+- En `docs/api-mako.md` las ocho operaciones pasaron de «Solo el workspace principal» a
+  «Solo el administrador del workspace» + «Requiere la tab: ads-manager».
+- ⚠️ **Para el ws1 agrega una condición que antes no tenía: la tab `ads-manager`** en su
+  capa. `soloWs1` no miraba la capa. Si el ws1 la tiene (es la pantalla que usa), no
+  cambia nada; si algún día se le saca, MaKo deja de poder pausar sus campañas por chat.
+
+### Lo que quedó SIN hacer
+
+- **El campo sigue llamándose `dailyBudgetMxn`** y el resumen del doer decía «MXN/día».
+  El resumen ya dice «moneda de la cuenta»; el nombre del campo viaja en pendientes que
+  ya están en la base, así que renombrarlo es una migración de contrato.
+- **`updateTag` en `propagarRename` sigue sin invalidar nada** fuera de una server action
+  (ver «El árbol de Meta que leen las guardas tiene hasta 2 minutos»).
+- **Los controles del Ads Manager se dibujan igual que antes**: no hay que esconder nada,
+  porque ahora funcionan. Lo que no se probó es un cliente real pausando una campaña real
+  —no se escribió en la cuenta de nadie—; la primera vez conviene mirarla.
+
+**Vive en:** lib/meta-write.ts · app/api/meta-write/route.ts · lib/ads-guard.ts
+(`wsDeAdsManager`) · lib/api-mako/areas/ads.def.ts (`G_META_ADMIN`) ·
+lib/api-mako/areas/ads.run.ts (`escribirMeta`, borrado) ·
+lib/api-mako/areas/ads.helpers.ts (`estadoVivoMeta`) · lib/mako-doer-acciones.ts
+(`meta_*`) · tests/ads-manager-credenciales.test.ts · *2026-10-07 meta-write-por-workspace*

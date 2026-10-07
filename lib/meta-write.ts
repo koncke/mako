@@ -2,17 +2,26 @@
 // meta-write — escrituras a Meta Ads (nombre / presupuesto / estado / borrar)
 // =============================================================================
 // La lógica de mutar una entidad de Meta vive acá para que la puedan usar TANTO
-// el route /api/meta-write (UI del Ads Manager) COMO el doer de MaKo (cuando el
-// dueño confirma "renombrá la campaña X"). El GATE de permisos (esWorkspaceDueno)
-// lo pone cada caller — esta función asume que ya se validó quién puede escribir.
+// el route /api/meta-write (UI del Ads Manager) COMO el doer de MaKo (cuando
+// alguien confirma "renombrá la campaña X"). El GATE de permisos lo pone cada
+// caller — esta función asume que ya se validó quién puede escribir.
+//
+// ⚠️ El `ws` es OBLIGATORIO y explícito, y de él salen las dos cosas: el token
+// (credWs) y el workspace donde se propaga un rename. Hasta el 07/10/2026 salía
+// todo de envCred, que resuelve SIEMPRE el ws1: un cliente que pausaba una campaña
+// suya le pegaba a la cuenta de Meta del ws1 con el id de la suya, y Meta contestaba
+// «no existe» o, peor, si el id coincidía, mutaba la de otro. Por eso esto estaba
+// cerrado al ws1 (403 en la ruta, soloWs1 en el doer). Las dos puntas tienen que
+// salir del MISMO número: un token de un cliente y un rename propagado a otro es
+// el bug de siempre con la mitad arreglada.
 //
 // CRÍTICO: Meta devuelve errores (p.ej. subcode 4841013 "Permissions") con HTTP
 // 200. Por eso SIEMPRE miramos body.error, nunca res.ok.
 
 import 'server-only';
 import { updateTag } from 'next/cache';
-import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
-import { envCred } from '@/lib/credenciales';
+import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
+import { credWs } from '@/lib/credenciales';
 import { TAG } from '@/lib/cache';
 
 const GRAPH = 'https://graph.facebook.com';
@@ -29,13 +38,18 @@ export type MetaWriteResult =
   | { ok: true; id: string; applied: { status?: string; dailyBudgetMxn?: number; name?: string; deleted?: boolean }; status: 200; propagadas?: number | null }
   | { ok: false; code?: number; error_subcode?: number; message: string; status: number };
 
-/** Muta una entidad de Meta. NO valida permisos (el caller ya gateó con esWorkspaceDueno). */
-export async function metaWrite(body: MetaWriteBody): Promise<MetaWriteResult> {
+/**
+ * Muta una entidad de Meta de la cuenta del workspace `ws`. NO valida permisos: el
+ * caller ya gateó (guardAdsWs en la ruta, gatingOk en el doer) y le pasa el ws que
+ * esa guarda resolvió — nunca uno que venga del body.
+ */
+export async function metaWrite(body: MetaWriteBody, ws: number): Promise<MetaWriteResult> {
   const ver = process.env.META_API_VERSION; // la fija instrumentation, no es secreto
-  // envCred, no process.env: espera la hidratación del boot y cae a la base si no
-  // dejó el valor (ver credencialesListas() en lib/credenciales.ts).
-  const token = await envCred('META_ACCESS_TOKEN');
-  if (!ver || !token) return { ok: false, message: 'Meta no configurado', status: 500 };
+  const token = await credWs('META_ACCESS_TOKEN', ws);
+  // 409 y no 500: no es una falla nuestra, es un workspace que todavía no conectó
+  // Meta. El texto dice dónde se arregla.
+  if (!ver) return { ok: false, message: 'Meta no configurado', status: 500 };
+  if (!token) return { ok: false, message: 'Este espacio de trabajo no tiene Meta conectado. Conéctalo en Integraciones.', status: 409 };
 
   if (!body || typeof body.id !== 'string' || !/^\d+$/.test(body.id)) {
     return { ok: false, message: 'id inválido (debe ser el id numérico de Meta)', status: 400 };
@@ -65,7 +79,9 @@ export async function metaWrite(body: MetaWriteBody): Promise<MetaWriteResult> {
     if ((body.level as string) === 'ad') return { ok: false, message: 'un anuncio no tiene presupuesto', status: 400 };
     const mxn = Number(body.dailyBudgetMxn);
     if (!Number.isFinite(mxn) || mxn <= 0) return { ok: false, message: 'presupuesto inválido', status: 400 };
-    // daily_budget va en centavos de la moneda de la cuenta (MXN).
+    // daily_budget va en centavos de la moneda de LA CUENTA del ws, que ya no es
+    // siempre MXN: el campo se llama `dailyBudgetMxn` por historia, y lo que se
+    // tipea se interpreta en la moneda de esa cuenta (pendiente en hallazgos-ads).
     params.set('daily_budget', String(Math.round(mxn * 100)));
     applied.dailyBudgetMxn = mxn;
   } else if (body.op === 'name') {
@@ -93,7 +109,7 @@ export async function metaWrite(body: MetaWriteBody): Promise<MetaWriteResult> {
     // mostrando el nombre viejo hasta la próxima sincronización de métricas).
     let propagadas: number | null = null;
     if (body.op === 'name' && applied.name) {
-      propagadas = await propagarRename(body.level, body.id, applied.name);
+      propagadas = await propagarRename(ws, body.level, body.id, applied.name);
     }
     return { ok: true, id: body.id, applied, status: 200, propagadas };
   } catch (err) {
@@ -106,20 +122,21 @@ export async function metaWrite(body: MetaWriteBody): Promise<MetaWriteResult> {
  * histórico queda partido en dos: la tabla de Ads Manager agrupa el gasto por
  * NOMBRE, así que una campaña renombrada aparece dos veces y el rollup miente.
  *
- * OJO — por qué runWithWorkspace(OWNER_WS) y no getTenantDb() a secas: la cuenta
- * de Meta es la GLOBAL del dueño, pero getTenantDb() resuelve el workspace de la
- * SESIÓN. Un super-admin que no está impersonando cae a su propio workspace (o a
- * null → wsId -1), el UPDATE no matchea ninguna fila y devuelve ok igual (0 filas
- * no es error de Postgres). Resultado: fallaba en silencio. Se comprobó en la
- * base: las únicas filas con updated_at > created_at son de un solo día, y hay 4
- * campañas con dos nombres históricos que esconden ~MX$32.500 del rollup.
+ * OJO — por qué runWithWorkspace(ws) y no getTenantDb() a secas: getTenantDb()
+ * resuelve el workspace de la SESIÓN, y un super-admin que no está impersonando
+ * cae a su propio workspace (o a null → wsId -1): el UPDATE no matchea ninguna
+ * fila y devuelve ok igual (0 filas no es error de Postgres). Resultado: fallaba en
+ * silencio. Se comprobó en la base: las únicas filas con updated_at > created_at
+ * eran de un solo día, y había 4 campañas con dos nombres históricos que escondían
+ * ~MX$32.500 del rollup. Hasta el 07/10/2026 el ws explícito era OWNER_WS, porque
+ * la cuenta de Meta era una sola; ahora es el MISMO ws del que salió el token.
  *
  * Devuelve cuántas filas de métricas se tocaron (null si ni se intentó), para que
  * la UI pueda avisar "se renombró en Meta pero no se propagó" en vez de callarse.
  */
-async function propagarRename(level: 'campaign' | 'adset' | 'ad', id: string, nombre: string): Promise<number | null> {
+async function propagarRename(ws: number, level: 'campaign' | 'adset' | 'ad', id: string, nombre: string): Promise<number | null> {
   try {
-    return await runWithWorkspace(OWNER_WS, async () => {
+    return await runWithWorkspace(ws, async () => {
       const db = await getTenantDb();
       let filas = 0;
       if (level === 'ad') {

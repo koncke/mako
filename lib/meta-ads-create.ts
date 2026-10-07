@@ -68,9 +68,10 @@ async function wsDeLaCuenta(): Promise<number> {
  * —un CLIENTE, no la plataforma—. Las hermanas la usan con uno porque solo LEEN;
  * acá se CREA y se BORRA con plata de por medio.
  *
- * ⚠️ Y NO se usa `envCred`. lib/meta-write.ts:37 la usa y parece el precedente, pero
- * resuelve SIEMPRE contra OWNER_WS: copiarla compila, pasa los tests y deja el
- * archivo cableado al dueño justo después de haberle sacado el candado.
+ * ⚠️ Y NO se usa `envCred`: resuelve SIEMPRE contra OWNER_WS. lib/meta-write.ts la
+ * usó hasta el 07/10/2026 y por eso parecía el precedente; copiarla compila, pasa
+ * los tests y deja el archivo cableado al ws1 justo después de haberle sacado el
+ * candado.
  */
 async function cred(name: string): Promise<string> {
   const ws = await wsDeLaCuenta();

@@ -7,9 +7,9 @@
 // getTenantDb / credWs scopean solas. Nunca se escribe desde leer() ni preparar().
 //
 // ⚠️ Tres cosas que un lector de estos cuerpos no ve en las libs:
-//  · metaWrite (lib/meta-write.ts) NO mira el workspace: usa envCred, o sea SIEMPRE
-//    la cuenta de Meta del ws 1. La def lo gatea con soloWs1 y ejecutar() lo vuelve a
-//    comprobar, porque es la única línea entre un «sí» y la cuenta de otro cliente.
+//  · metaWrite (lib/meta-write.ts) recibe el ws EXPLÍCITO y de ahí saca el token. Va
+//    SIEMPRE ctx.ws, nunca un número a mano: hasta el 07/10/2026 usaba envCred (la
+//    cuenta del ws 1 para todos) y por eso estas escrituras estaban cerradas al ws 1.
 //  · Meta devuelve «no pude leer» con la misma cara que «no hay»: listPixelEvents y
 //    getAdsAprobacionPendiente caen a vacío ante un error. Las salidas lo DICEN.
 //  · Los montos que en lib/ se llaman *Mxn están en la MONEDA DE LA CUENTA.
@@ -19,7 +19,7 @@ import 'server-only';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
-import { OWNER_WS, runWithWorkspace } from '@/lib/workspace';
+import { runWithWorkspace } from '@/lib/workspace';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { getMetaAccountHealth, type NodoEstado } from '@/lib/meta-health';
 import { explicarIssueEs, esAprobacionPendiente, linkAprobarEnMeta } from '@/lib/meta-health-ui';
@@ -88,10 +88,9 @@ const problemasDe = (n: NodoEstado, accountId: string | null) => (n.issues ?? []
   return { titulo: e.titulo, detalle: e.detalle, codigo: it.code ?? null, aprobacion_manual: aprob, ...(aprob ? { link_aprobar: linkAprobarEnMeta(accountId, n.id) } : {}) };
 });
 
-/** Escribir a Meta por metaWrite: solo desde el ws 1, que es de quien son las credenciales. */
+/** Escribir a Meta por metaWrite, con la cuenta del workspace de la pendiente. */
 async function escribirMeta(ctx: Ctx, body: MetaWriteBody, ok: string): Promise<Ejecutado> {
-  if (ctx.ws !== OWNER_WS) return { ok: false, resumen: 'Las campañas de Meta solo se editan desde el workspace principal por ahora.' };
-  const r = await metaWrite(body);
+  const r = await metaWrite(body, ctx.ws);
   if (!r.ok) return { ok: false, resumen: `Meta rechazó el cambio: ${r.message}` };
   return { ok: true, resumen: ok, datos: { id: r.id, ...(r.propagadas != null ? { propagadas: r.propagadas } : {}) } };
 }
@@ -720,11 +719,10 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (p, ctx) => {
       const level = p.nivel === 'campaign' ? 'campaign' : p.nivel === 'ad' ? 'ad' : 'adset';
-      if (ctx.ws !== OWNER_WS) return { ok: false, resumen: 'Las campañas de Meta solo se editan desde el workspace principal por ahora.' };
       // La guarda de preparar() sale de arbolMeta → getMetaHealth, una caché de 120 s
       // que metaWrite no invalida al cambiar un estado. Lo que decide un DELETE en
-      // cascada se lee EN VIVO, justo antes.
-      const vivo = await estadoVivoMeta(String(p.id));
+      // cascada se lee EN VIVO, justo antes, y en la MISMA cuenta que va a borrar.
+      const vivo = await estadoVivoMeta(String(p.id), ctx.ws);
       if ('error' in vivo) return { ok: false, resumen: `No borré nada: ${vivo.error}` };
       const estado = vivo.configurado ?? vivo.efectivo;
       if (estado !== 'PAUSED') return { ok: false, resumen: `No borré nada: en Meta ya no está pausada (estado actual: ${estado}). Pausa primero y vuelve a proponerlo.` };

@@ -24,6 +24,8 @@ export const PARTES: Parte[] = [
   { titulo: 'La conversión personalizada declarada por API', detalle: 'POST /act_{cuenta}/customconversions sobre QualifiedLead, listando antes porque el edge no tiene update ni delete · hoy no existe en ninguna parte del repo', estado: 'cola' },
   { titulo: 'El dataset de CRM', detalle: 'Es el destino obligatorio de «Clientes potenciales de conversión» y NO tiene endpoint: se crea a mano en Events Manager · lo decide Martín, porque es lo único que hay que pedirle al cliente', estado: 'cola' },
   { titulo: 'Idempotencia que dure meses', detalle: 'Hoy la dedup es el event_id de Meta, con la ventana de Meta · una garantía nuestra necesita una columna y no existe', estado: 'cola' },
+  { titulo: 'Pausar, presupuestar, renombrar y borrar por workspace', detalle: 'lib/meta-write.ts con credWs(ws) y el rename propagado en el mismo ws · antes envCred = la cuenta del ws1 para todos, y la ruta y el doer cerrados al ws1', estado: 'hecha' },
+  { titulo: 'Conectar con Meta en un clic (la app propia MaKo)', detalle: 'Facebook Login for Business con la app 2586146911825340 · reemplaza pegar el token a mano; hasta el App Review sólo la pueden usar quienes tengan un rol en la app', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -72,6 +74,35 @@ export const BITACORA: Hito[] = [
       'app/api/webhooks/meta-leads/route.ts — el Lead crudo, con la hora real del formulario',
       'app/api/webhooks/calendly/route.ts — Schedule, ahora con lead_id y con el rechazo visible',
       'tests/meta-capi-lead-id.test.ts — 8 tests, los 8 probados rompiéndolos',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '15:50', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Terminar las dos: escribir en Meta por cliente, y el botón de conectar',
+    pedido: 'Si, termina ambas. Te consulto, cuando la app esté, significa que los usuarios ya no tendrán que poner su token de Meta?',
+    puntos: [
+      '«Ambas» eran las dos piezas que quedaban para que la app propia sirva: que pausar, presupuestar, renombrar y borrar salgan con la cuenta de CADA cliente (hasta ese día cerradas al ws1), y el botón «Conectar con Meta» con la sección de Meta en la política de privacidad.',
+      'La pregunta se contestó en el chat: sí, el cliente deja de pegar el token — pero hasta el App Review el botón sólo funciona para quien tenga un rol en la app, y los tres clientes que hoy usan una app ajena reconectan UNA vez.',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '15:50', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las escrituras a Meta salen con la cuenta de cada cliente',
+    puntos: [
+      '**No era un candado: eran tres** —el 403 de `/api/meta-write`, `soloWs1` en las ocho operaciones del doer y un `OWNER_WS` en cada runner— y abajo un `envCred` que los hacía correctos. Abrirlos sin cambiar el token era el peor estado posible: un cliente pausando «su» campaña con el token del ws1. Salieron en el mismo cambio.',
+      'El `ws` tenía que llegar a **cuatro** lugares y dos no se ven leyendo la ruta: el rename que se propaga a leads y métricas (corría clavado al ws1) y el estado vivo que decide un borrado (un cuarto `envCred`, escondido en un helper del área).',
+      '⚠️ **`soloWs1` traía de regalo el rol admin** (`gatingOk` lo lee como «ws principal Y admin»). Reemplazarlo por un gating sin `rolMinimo` le dejaba a un closer borrar campañas por WhatsApp. Va `G_META_ADMIN`, el mismo de las otras escrituras.',
+      'Nueve roturas a propósito sobre los tests nuevos, una por pieza: las nueve dan 1 fallo.',
+    ],
+    archivos: [
+      'lib/meta-write.ts — metaWrite(body, ws): token y rename del mismo ws',
+      'app/api/meta-write/route.ts — wsDeAdsManager(), el guard de /api/ads-manager',
+      'lib/api-mako/areas/ads.def.ts — G_META_ADMIN en vez de soloWs1',
+      'lib/api-mako/areas/ads.run.ts · ads.helpers.ts · lib/mako-doer-acciones.ts — sin OWNER_WS, con ctx.ws',
+      'tests/ads-manager-credenciales.test.ts — 5 tests nuevos, probados rompiéndolos',
+      'docs/hallazgos-ads.md — «Pausar, represupuestar, renombrar y borrar…»',
     ],
   },
 ];

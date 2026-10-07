@@ -14,10 +14,11 @@
 // FIJO del código, un derivado. `montoMxn` conserva su nombre por contrato con las
 // pendientes que ya están en la base.
 //
-// ⚠️ Las escrituras a Meta por metaWrite (estado, nombre, presupuesto, borrar) salen
-// SIEMPRE con las credenciales del ws 1 (envCred): por eso `soloWs1`. Las de
-// lib/meta-ads-create.ts (anuncio, textos, público, formulario) sí resuelven las
-// credenciales del workspace en curso.
+// Las escrituras a Meta —por metaWrite (estado, nombre, presupuesto, borrar) y por
+// lib/meta-ads-create.ts (anuncio, textos, público, formulario)— salen con las
+// credenciales del workspace de la pendiente (ctx.ws). Hasta el 07/10/2026 las de
+// metaWrite usaban envCred, o sea la cuenta del ws 1 para todos, y por eso iban con
+// `soloWs1`; desde entonces van con G_META_ADMIN como el resto.
 //
 // ⚠️ proponer_presupuesto_campana es `pantalla`, pero la tool VIEJA del mismo nombre
 // sigue en MAKO_ACCION_TOOLS (lib/mako-doer-acciones.ts) y deja pendientes de chat
@@ -46,8 +47,6 @@ const SIN_HTTP = ['whatsapp', 'app'] as const;
 const G_MANAGER: Gating = { tab: 'ads-manager', integracion: 'meta', rolMinimo: 'admin' };
 /** Lecturas y escrituras de Ads Analyst (nav key `script`). */
 const G_ANALYST: Gating = { tab: 'script', rolMinimo: 'admin' };
-/** Escrituras por metaWrite: credenciales del ws 1, Fase 1. */
-const G_META_WS1: Gating = { soloWs1: true, integracion: 'meta' };
 /** Lo que mueve plata o crea en la cuenta de Meta. */
 const G_META_ADMIN: Gating = { tab: 'ads-manager', integracion: 'meta', rolMinimo: 'admin' };
 
@@ -376,7 +375,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE pausar o activar una campaña de Meta Ads; queda pendiente de confirmación y NO se ejecuta hasta el «sí». Activar enciende el gasto del presupuesto configurado, pero NO enciende los conjuntos ni los anuncios pausados por su cuenta: revísalos con listar_conjuntos_meta y listar_anuncios_meta. Consigue el campaignId con listar_campanas_meta o ver_estado_meta.',
     escribe: 'cambia el status de la campaña en Meta (POST /{id} status); nada en la base',
     parametros: [P_CAMPAIGN, P_ESTADO],
-    canales: TODOS, costo: 'externo', gating: G_META_WS1, tipoPendiente: 'meta_estado',
+    canales: TODOS, costo: 'externo', gating: G_META_ADMIN, tipoPendiente: 'meta_estado',
   },
   {
     id: 'proponer_renombrar_campana', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
@@ -384,7 +383,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE renombrar una campaña de Meta Ads; queda pendiente de confirmación y NO se ejecuta hasta el «sí». Si la campaña usa la nomenclatura con código (NNN.SS.x), conserva el código como primera parte del nombre: el Ads Manager lo lee de ahí. Consigue el campaignId con listar_campanas_meta.',
     escribe: 'cambia el nombre de la campaña en Meta y lo propaga a las métricas guardadas de esa campaña',
     parametros: [P_CAMPAIGN, { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 400, descripcion: 'nombre nuevo, no vacío.' }],
-    canales: TODOS, costo: 'externo', gating: G_META_WS1, tipoPendiente: 'meta_nombre',
+    canales: TODOS, costo: 'externo', gating: G_META_ADMIN, tipoPendiente: 'meta_nombre',
   },
   {
     id: 'proponer_estado_conjunto', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
@@ -392,7 +391,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE pausar o activar UN conjunto de anuncios de Meta; queda pendiente de confirmación. Activar enciende su gasto (o su parte del presupuesto de campaña). Activar un conjunto dentro de una campaña pausada no lo pone a entregar. Consigue el adsetId con listar_conjuntos_meta.',
     escribe: 'cambia el status del conjunto en Meta (POST /{id} status); nada en la base',
     parametros: [P_ADSET, P_ESTADO],
-    canales: TODOS, costo: 'externo', gating: G_META_WS1,
+    canales: TODOS, costo: 'externo', gating: G_META_ADMIN,
   },
   {
     id: 'proponer_estado_anuncio', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
@@ -400,7 +399,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE pausar o activar UN anuncio de Meta; queda pendiente de confirmación. Activarlo lo pone a competir por el presupuesto de su conjunto; si el conjunto o la campaña están pausados, no entrega. Consigue el adId con listar_anuncios_meta.',
     escribe: 'cambia el status del anuncio en Meta (POST /{id} status); nada en la base',
     parametros: [P_AD, P_ESTADO],
-    canales: TODOS, costo: 'externo', gating: G_META_WS1,
+    canales: TODOS, costo: 'externo', gating: G_META_ADMIN,
   },
   {
     id: 'proponer_renombrar_entidad_meta', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
@@ -412,7 +411,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'id', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id numérico del conjunto o del anuncio.' },
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 400, descripcion: 'nombre nuevo, no vacío.' },
     ],
-    canales: TODOS, costo: 'externo', gating: G_META_WS1,
+    canales: TODOS, costo: 'externo', gating: G_META_ADMIN,
   },
 
   // ═══════════════════════════ ACCIONES — Ads Manager (pantalla) ════════════════
@@ -426,7 +425,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'montoMxn', tipo: 'number', obligatorio: true, minimo: 1, descripcion: 'presupuesto diario nuevo en la moneda de la cuenta de Meta (el nombre dice MXN por compatibilidad; si la cuenta cobra en USD, el número es USD).' },
     ],
     canales: TODOS, costo: 'dinero',
-    gating: { soloWs1: true, rolMinimo: 'admin', integracion: 'meta' }, tipoPendiente: 'meta_presupuesto',
+    gating: G_META_ADMIN, tipoPendiente: 'meta_presupuesto',
   },
   {
     id: 'proponer_presupuesto_conjunto', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
@@ -437,7 +436,7 @@ export const DEFS: readonly OperacionDef[] = [
       P_ADSET,
       { nombre: 'montoMonedaCuenta', tipo: 'number', obligatorio: true, minimo: 1, descripcion: 'presupuesto diario nuevo en la moneda de la cuenta de Meta.' },
     ],
-    canales: TODOS, costo: 'dinero', gating: { soloWs1: true, rolMinimo: 'admin', integracion: 'meta' },
+    canales: TODOS, costo: 'dinero', gating: G_META_ADMIN,
   },
   {
     id: 'proponer_eliminar_entidad_meta', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
@@ -448,7 +447,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'nivel', tipo: 'string', obligatorio: true, enum: ['campaign', 'adset', 'ad'], descripcion: 'campaign = campaña, adset = conjunto, ad = anuncio.' },
       { nombre: 'id', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id numérico de la entidad; tiene que estar pausada.' },
     ],
-    canales: TODOS, costo: 'externo', gating: { soloWs1: true, rolMinimo: 'admin', integracion: 'meta' },
+    canales: TODOS, costo: 'externo', gating: G_META_ADMIN,
   },
   {
     id: 'proponer_agregar_anuncio', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,

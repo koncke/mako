@@ -18,7 +18,7 @@ import { getTenantDb } from '@/lib/workspace';
 import { getSettingEstricto } from '@/lib/settings';
 import { DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
 import { getMetaHealth, type NodoEstado, type MetaHealth } from '@/lib/meta-health';
-import { integracionConectada, envCred } from '@/lib/credenciales';
+import { integracionConectada, credWs } from '@/lib/credenciales';
 
 export const soloDigitos = (s: string): boolean => /^\d{1,30}$/.test(s);
 export const esFecha = (s: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
@@ -140,13 +140,14 @@ export async function vocabularioParaEscribir(cual: 'angulos' | 'avatares'): Pro
  * directo de la Graph API, con `cache: 'no-store'`. Existe porque la guarda que
  * decide un BORRADO no puede salir de getMetaHealth, que es cachedRead con
  * revalidate 120 y que metaWrite no invalida al cambiar un estado: una entidad
- * activada hace un minuto sigue figurando PAUSED. Mismas credenciales que metaWrite
- * (envCred → cuenta del ws 1), así que solo se llama detrás del chequeo de OWNER_WS.
+ * activada hace un minuto sigue figurando PAUSED. Mismas credenciales que metaWrite:
+ * las del `ws` que se le pasa, que tiene que ser el MISMO que después borra — leer el
+ * estado en una cuenta y borrar en otra es decidir con el dato de otro cliente.
  * Deuda: lib/meta-write.ts no exporta una lectura así.
  */
-export async function estadoVivoMeta(id: string): Promise<{ configurado: string | null; efectivo: string | null } | { error: string }> {
+export async function estadoVivoMeta(id: string, ws: number): Promise<{ configurado: string | null; efectivo: string | null } | { error: string }> {
   const ver = process.env.META_API_VERSION;
-  const token = await envCred('META_ACCESS_TOKEN');
+  const token = await credWs('META_ACCESS_TOKEN', ws);
   if (!ver || !token) return { error: 'Meta no está configurado: no pude leer el estado actual.' };
   if (!soloDigitos(id)) return { error: 'id inválido.' };
   try {

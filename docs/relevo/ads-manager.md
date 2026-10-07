@@ -52,6 +52,13 @@ sobre **lo elegido**, no sobre la tab entera.
 
 ## ⚠️ Lo más urgente: operar desde un cliente da 403
 
+> ✅ **RESUELTO el 07/10/2026 (claude2).** `/api/meta-write` pasa por `wsDeAdsManager()` (el mismo
+> guard que `/api/ads-manager/*`) y `lib/meta-write.ts` saca el token con
+> `credWs('META_ACCESS_TOKEN', ws)`. El doer de MaKo también: `soloWs1` → `G_META_ADMIN` (sigue
+> exigiendo admin) y sin el `OWNER_WS` de los runners. Lo de abajo queda como historia. El detalle
+> —incluidos los dos lugares que no se veían leyendo la ruta— en `docs/hallazgos-ads.md` →
+> «Pausar, represupuestar, renombrar y borrar: ahora con la cuenta de cada cliente».
+
 **Verificado leyendo el código el 06/10/2026, NO en el navegador.**
 
 - `app/api/meta-write/route.ts` corta con `esDuenoAdmin()` y contesta **403 «Esta acción solo está
@@ -92,7 +99,7 @@ mirar con qué workspace lo llama ese camino antes de tocar de dónde sale el to
 
 ## Lo que espera una DECISIÓN DE MARTÍN
 
-1. **Operar desde un cliente** (el punto de arriba): ¿`meta-write` por workspace ya, o esconder
+1. ~~**Operar desde un cliente**~~ **Resuelto el 07/10: por workspace.** (Era: ¿`meta-write` por workspace ya, o esconder
    los controles hasta entonces? Vive en `app/api/meta-write/route.ts` y `lib/meta-write.ts`.
 2. **Producto MÚLTIPLE por campaña** (punto 7 de su pedido del 05/10). Choca con que un lead
    tiene UN solo `funnel_id` (`lib/campana-config.ts`, `funnelIdDeCampana`). Las tres salidas:
@@ -106,7 +113,10 @@ mirar con qué workspace lo llama ese camino antes de tocar de dónde sale el to
    (`app/ads-manager/BarraAcciones.tsx`).
 4. **El `ⓘ` del chip «Con problemas» pasó a un ícono de ojo** y eso NO estaba en su lista: se
    cambió por consistencia con la regla de «no emoji». Si no le gusta, se revierte en una línea.
-5. **La app de Meta** (decidido el 11/09: se queda en la cuenta de Mauricio, #185 diferido). Lo
+5. ~~**La app de Meta**~~ **Decisión REVERTIDA el 28/09**: Martín creó una app propia, «MaKo»
+   (2586146911825340, portafolio MaKo), para que ningún cliente tenga que crear ni compartir la
+   suya. Al 07/10 la verificación del negocio está en revisión y falta el App Review. Lo de abajo
+   es historia. (Era: decidido el 11/09: se queda en la cuenta de Mauricio, #185 diferido.) Lo
    que sigue abierto ahí, en `docs/hallazgos-ads.md` → «Cómo llegó una app ajena a MaKo»: mirar
    en el panel de la app (Revisión → Permisos y funciones) si `ads_management`, `ads_read` y
    `leads_retrieval` están en acceso **avanzado** o **estándar** — decide si alcanza con que el
