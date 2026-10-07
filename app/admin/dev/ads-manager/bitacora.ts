@@ -163,7 +163,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '20:30', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '20:26', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Usar un video que MaKo ya generó, sin bajarlo y volverlo a subir (#797)',
     puntos: [
@@ -181,6 +181,9 @@ export const BITACORA: Hito[] = [
       'app/ads-manager/MisCreativosMako.tsx — el panel de los tres modales',
       'app/ads-manager/creativeUpload.ts — usarCreativoMako, makeThumbDeUrl y una sola lectura de la respuesta',
       'tests/creativo-mako.test.ts y tests/ads-creativo-mako.test.ts — 16 tests, cada guard probado rompiéndolo',
+    ],
+    commits: [
+      { sha: '772ae3ec', msg: 'Ads Manager: usar un video que MaKo ya generó, sin bajarlo y volverlo a subir (#797)', lineas: 1236, archivos: 15 },
     ],
   },
 ];
