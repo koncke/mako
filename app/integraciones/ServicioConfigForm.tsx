@@ -25,6 +25,8 @@ import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 // ⚠️ `next/dynamic` con ssr:false, NO un import normal: es lo que saca su código
 // del bundle de los demás servicios. Un import estático lo volvería a meter.
 const GithubRepoPicker = dynamic(() => import('./GithubRepoPicker').then((m) => m.GithubRepoPicker), { ssr: false });
@@ -79,6 +81,19 @@ type Servicio = {
   campos: Campo[];
 };
 type Msg = { ok: boolean; text: string };
+
+/**
+ * Cómo terminó el último «Conectar con Meta» (lo cuenta la ruta de credenciales,
+ * que lo lee de la cookie de un uso del callback). El `ok` no tiene texto acá:
+ * lo dice la búsqueda de datos que arranca sola. Texto corto: es lo que se dibuja.
+ */
+const RESULTADO_META: Record<string, string> = {
+  cancelado: 'Cancelaste la conexión en Meta.',
+  vencido: 'El intento venció. Vuelve a conectar.',
+  'no-permitido': 'Sólo un admin de este espacio puede conectar Meta.',
+  'no-disponible': 'Conectar con Meta todavía no está disponible.',
+  'meta-fallo': 'Meta no completó la conexión. Vuelve a intentarlo.',
+};
 
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
 
@@ -336,6 +351,11 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
   // la app. Cerrado por default — si estuviera abierto, volveríamos a la pantalla
   // de seis inputs que este rediseño vino a sacar.
   const [manual, setManual] = useState(false);
+  // «Conectar con Meta»: si el server lo ofrece a esta sesión (ver
+  // conectarMetaDisponible) y cómo terminó el último intento.
+  const [conectarMeta, setConectarMeta] = useState(false);
+  const [intentoMeta, setIntentoMeta] = useState<string | null>(null);
+  const wsPestana = useWs();
   // Cuentas EXTRA del mismo proveedor que el usuario pidió agregar en esta sesión.
   // Las ya cargadas se muestran siempre; las vacías, solo cuando las pide — si no,
   // conectar Gemini pasaba de un campo a tres y el segundo y el tercero no le
@@ -378,7 +398,16 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
     fetch(`/api/integraciones/credencial?servicio=${encodeURIComponent(servicioKey)}`)
       .then((r) => r.json())
       .then((j) => {
-        if (j.ok && j.servicio) aplicar(j.servicio as Servicio, n);
+        if (j.ok && j.servicio) {
+          aplicar(j.servicio as Servicio, n);
+          setConectarMeta(j.conectarMeta === true);
+          // Llega UNA vez (la cookie se consume): un `ok` arranca la búsqueda que
+          // muestra lo que hay que elegir; cualquier otro es el motivo, a la vista.
+          if (typeof j.ultimoIntento === 'string') {
+            setIntentoMeta(j.ultimoIntento);
+            if (j.ultimoIntento === 'ok') void descubrirMeta(undefined, true);
+          }
+        }
         else setErrorCarga(j.error === 'solo admin' ? 'Necesitas ser admin para configurar esta integración.' : (j.error ?? 'No se pudo cargar el estado.'));
       })
       .catch(() => setErrorCarga('No se pudo cargar. Revisa tu conexión y prueba de nuevo.'))
@@ -553,7 +582,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
    * Se llama solo (al guardar el token) y también a mano desde el botón. Nunca
    * rompe el flujo: si falla, el cliente sigue pudiendo cargar todo a mano.
    */
-  const descubrirMeta = async (mostrarMsgEn?: string) => {
+  const descubrirMeta = async (mostrarMsgEn?: string, porBoton = false) => {
     setDescubriendo(true);
     try {
       const n = ++seq.current;
@@ -571,7 +600,11 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       // Un permiso que falta es lo ÚNICO que el cliente tiene que ir a arreglar a
       // Meta, así que se nombra con su nombre exacto en vez de un error genérico.
       const faltan = Array.isArray(j.faltanScopes) ? (j.faltanScopes as string[]) : [];
-      if (faltan.length) avisos.unshift(`A tu token le faltan permisos (${faltan.join(', ')}). Vuelve a generarlo marcándolos y pégalo de nuevo.`);
+      // Con el botón, faltan porque se destildaron en el diálogo de Meta: la salida
+      // es reconectar, no generar un token.
+      if (faltan.length) avisos.unshift(porBoton || conectarMeta
+        ? `Faltan permisos (${faltan.join(', ')}). Vuelve a conectar con Meta dejándolos marcados.`
+        : `A tu token le faltan permisos (${faltan.join(', ')}). Vuelve a generarlo marcándolos y pégalo de nuevo.`);
       setAvisosMeta(avisos);
       if (mostrarMsgEn) {
         const guardadas = Array.isArray(j.guardadas) ? j.guardadas.length : 0;
@@ -643,6 +676,32 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* ── Meta: conectar con un botón, sin pegar nada ─────────────────────
+          Es el camino principal cuando el server lo ofrece; el token a mano queda
+          abajo como alternativa. Navegación de página entera (el OAuth es un
+          redirect), así que lleva el `?ws=` explícito y la pantalla a la que volver. */}
+      {servicio.key === 'meta' && conectarMeta && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+          <a
+            href={conWs('/api/integraciones/meta', wsPestana)}
+            onClick={(e) => {
+              e.preventDefault();
+              const volver = `${window.location.pathname}${window.location.search}`;
+              window.location.href = conWs(`/api/integraciones/meta?volver=${encodeURIComponent(volver)}`, wsPestana);
+            }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10,
+              background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 650, textDecoration: 'none',
+            }}
+          >
+            {servicio.campos.some((c) => c.env === 'META_ACCESS_TOKEN' && c.configurado) ? 'Reconectar con Meta' : 'Conectar con Meta'}
+          </a>
+          {intentoMeta === 'ok' && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>✓ Conectado con Meta.</div>}
+          {intentoMeta && RESULTADO_META[intentoMeta] && <div style={{ fontSize: 12.5, color: 'var(--bad)' }}>{RESULTADO_META[intentoMeta]}</div>}
+          <div style={{ fontSize: 12, color: 'var(--faint)' }}>O pega un token abajo.</div>
+        </div>
+      )}
+
       {/* Arriba de todo: qué pasa con lo que estás por pegar. */}
       <AvisoSeguridad abierto={segAbierto} onToggle={() => setSegAbierto((o) => !o)} />
 

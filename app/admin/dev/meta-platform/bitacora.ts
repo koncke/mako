@@ -25,7 +25,7 @@ export const PARTES: Parte[] = [
   { titulo: 'El dataset de CRM', detalle: 'Es el destino obligatorio de «Clientes potenciales de conversión» y NO tiene endpoint: se crea a mano en Events Manager · lo decide Martín, porque es lo único que hay que pedirle al cliente', estado: 'cola' },
   { titulo: 'Idempotencia que dure meses', detalle: 'Hoy la dedup es el event_id de Meta, con la ventana de Meta · una garantía nuestra necesita una columna y no existe', estado: 'cola' },
   { titulo: 'Pausar, presupuestar, renombrar y borrar por workspace', detalle: 'lib/meta-write.ts con credWs(ws) y el rename propagado en el mismo ws · antes envCred = la cuenta del ws1 para todos, y la ruta y el doer cerrados al ws1', estado: 'hecha' },
-  { titulo: 'Conectar con Meta en un clic (la app propia MaKo)', detalle: 'Facebook Login for Business con la app 2586146911825340 · reemplaza pegar el token a mano; hasta el App Review sólo la pueden usar quienes tengan un rol en la app', estado: 'cola' },
+  { titulo: 'Conectar con Meta en un clic (la app propia MaKo)', detalle: 'Facebook Login for Business con la app 2586146911825340 · escrito el 7/10; falta que Martín cargue MAKO_META_APP_SECRET y, después del App Review, abrirlo a todos con META_OAUTH_ABIERTO', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -77,7 +77,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '15:50', chat: '—', cuenta: 'claude2',
+    fecha: '7 oct', hora: '15:47', chat: '—', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Terminar las dos: escribir en Meta por cliente, y el botón de conectar',
     pedido: 'Si, termina ambas. Te consulto, cuando la app esté, significa que los usuarios ya no tendrán que poner su token de Meta?',
@@ -87,7 +87,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '15:50', chat: '—', cuenta: 'claude2',
+    fecha: '7 oct', hora: '15:47', chat: '—', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Las escrituras a Meta salen con la cuenta de cada cliente',
     puntos: [
@@ -103,6 +103,26 @@ export const BITACORA: Hito[] = [
       'lib/api-mako/areas/ads.run.ts · ads.helpers.ts · lib/mako-doer-acciones.ts — sin OWNER_WS, con ctx.ws',
       'tests/ads-manager-credenciales.test.ts — 5 tests nuevos, probados rompiéndolos',
       'docs/hallazgos-ads.md — «Pausar, represupuestar, renombrar y borrar…»',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '16:05', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El botón «Conectar con Meta» y la sección de Meta en la política de privacidad',
+    puntos: [
+      'Facebook Login for Business con la app MaKo: el diálogo devuelve un token de **usuario del sistema** que no vence, y el callback guarda por el MISMO camino que pegar un token (`lib/meta-conexion.ts`). El workspace viaja en cookie, como en Google Calendar.',
+      '⚠️ **El secreto de la app nueva no puede llamarse `META_APP_SECRET`**: ése es el de la app vieja y firma cada lead del webhook. Va en `MAKO_META_APP_SECRET`, con un test que lo fija.',
+      '⚠️ **Reconectar con VARIAS páginas dejaba el token de página viejo**: la regla de los dos tokens sólo se cumplía con UNA página. Ahora se re-deriva el de la página ya elegida.',
+      'Hasta el App Review, Meta sólo deja entrar a quien tenga rol en la app: el botón lo ve sólo el super admin, y se abre a todos con `META_OAUTH_ABIERTO=true` sin deploy.',
+      'Sin probar en un navegador: el botón sólo aparece con el secreto cargado, y lo carga Martín.',
+    ],
+    archivos: [
+      'lib/meta-login.ts — app id, config id, redirect y a dónde se vuelve (sin server-only, con test)',
+      'lib/meta-conexion.ts — lo que se guarda al conectar, para las dos puertas',
+      'app/api/integraciones/meta/route.ts · callback/route.ts — el OAuth',
+      'app/integraciones/ServicioConfigForm.tsx — el botón y el resultado',
+      'app/privacidad/page.tsx — la sección #meta, permiso por permiso',
+      'tests/meta-login.test.ts — 10 tests, probados rompiéndolos',
     ],
   },
 ];

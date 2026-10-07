@@ -2795,3 +2795,75 @@ que ninguna línea lo diga.
 lib/api-mako/areas/ads.run.ts (`escribirMeta`, borrado) ·
 lib/api-mako/areas/ads.helpers.ts (`estadoVivoMeta`) · lib/mako-doer-acciones.ts
 (`meta_*`) · tests/ads-manager-credenciales.test.ts · *2026-10-07 meta-write-por-workspace*
+
+---
+
+## «Conectar con Meta»: el botón de la app propia, y lo que no se ve desde la pantalla (07/10)
+
+El cliente deja de pegar un token: aprieta **Conectar con Meta**, elige en el diálogo de
+Meta qué páginas y cuentas publicitarias le da a MaKo, y vuelve con un token de **usuario
+del sistema** de la app MaKo (2586146911825340) que no vence. Es Facebook Login for
+Business con la configuración «MaKo - Conectar Meta» (config_id 1856482472307001).
+
+### Cuatro decisiones que no se ven en la pantalla
+
+1. **El secreto NO es `META_APP_SECRET`.** Esa variable ya existe y es el de la app VIEJA
+   (la del portafolio de Mauricio): con ella se verifica la firma de cada lead que entra por
+   el webhook. Reusar el nombre para la app nueva rompía la firma de todos los leads, sin
+   error visible (403 al webhook, y Meta reintenta hasta rendirse). El de la app MaKo va en
+   **`MAKO_META_APP_SECRET`**, y hay un test que lo fija.
+2. **`override_default_response_type=true` no es decorativo.** Sin él, Login for Business
+   devuelve un token de USUARIO de 60 días en vez del de sistema que no vence: la conexión
+   se caería sola a los dos meses, cliente por cliente, sin que nada lo avise.
+3. **El redirect sale del dominio público, no del origin del request.** Está registrado en
+   modo estricto; desde un preview de Vercel el origin es otro y Meta contesta «URL
+   bloqueada». Mismo criterio que `googleRedirectUri`.
+4. **El resultado vuelve en una cookie de un uso, no en la URL.** El formulario de Meta vive
+   en tres superficies (/integraciones, el onboarding, el panel de activación) y la vuelta
+   tiene que llegar a la que lo lanzó: un parámetro en la URL obligaba a cada pantalla a
+   leerlo y pasarlo, y el tablero de /integraciones limpia la URL (`router.replace`) en el
+   mismo efecto que abre el modal — una carrera que no hacía falta correr. La ruta de
+   credenciales lo lee y lo consume al cargar el formulario.
+
+### ⚠️ La conexión son DOS tokens, y la regla ya escrita no cubría el caso de VARIAS páginas
+
+`AGENTS.md` dice que cambiar la conexión es escribir el token de acceso y el de página en el
+mismo movimiento. El `descubrir` sólo guardaba el de página cuando había UNA página. Con
+varias, dejaba el de página VIEJO — y como el guardado le gana al derivado, reconectar a un
+cliente con la app MaKo habría dejado sus leads entrando con la app anterior. Ahora, si la
+página ya elegida está entre las del token nuevo, su token se re-deriva aunque haya que
+elegir. Vive en `lib/meta-conexion.ts`, que es por donde guardan las DOS puertas (pegar un
+token y el botón): eran dos copias de lo mismo en potencia, y se escribió una sola.
+
+### Por qué el botón no lo ve todavía ningún cliente
+
+Mientras la app no pase el App Review, Meta sólo deja entrar a quien tenga un ROL en la app;
+a cualquier otro le muestra una pantalla de error suya, sin salida. Un botón que lleva ahí se
+lee como que MaKo está rota. Por eso `conectarMetaDisponible()` lo ofrece:
+
+- a nadie, si `MAKO_META_APP_SECRET` no está cargado;
+- al super admin (que sí tiene rol y lo prueba con sus propios activos), hasta la aprobación;
+- a todos, con `META_OAUTH_ABIERTO=true` en Vercel — sin deploy, el día que Meta apruebe.
+
+### Lo que quedó SIN hacer
+
+- **Martín carga `MAKO_META_APP_SECRET` en Vercel** (el secreto no pasa por Claude) y lo
+  prueba con su cuenta en su propio workspace. Hasta entonces el botón no aparece.
+- **No se probó en un navegador**: el botón sólo se dibuja con el secreto cargado, y bootear
+  local escribe en producción. La primera prueba real es la de Martín.
+- **Webhook de leads con la app nueva.** Nadie llama a `subscribed_apps` y la app MaKo no
+  tiene el webhook configurado: los leads de un cliente conectado SÓLO por la app MaKo entran
+  por el polling, no en vivo. Para el webhook hace falta `pages_manage_metadata` (se dejó
+  afuera del App Review a propósito), suscribir la página, y que
+  `app/api/webhooks/meta-leads` acepte la firma de LAS DOS apps durante la migración.
+- **Bloquear tokens de apps ajenas** en `descubrirMeta` (mirar `app_id` en el `debug_token`)
+  y migrar ws11/13/14, que hoy conectan con apps de sus clientes. Recién después del App
+  Review: antes, bloquear dejaría a esos clientes sin forma de conectarse.
+- **El tutorial de Meta** (`lib/metodo-catalogo.ts`) todavía enseña a crear una app propia.
+- **La política de privacidad** ya tiene la sección `#meta`; en el panel de la app, la URL de
+  eliminación de datos apunta a `#derechos` y convendría moverla a `#meta`.
+
+**Vive en:** lib/meta-login.ts · lib/meta-conexion.ts · app/api/integraciones/meta/route.ts ·
+app/api/integraciones/meta/callback/route.ts · app/api/integraciones/credencial/route.ts
+(`descubrir`, GET de `meta`) · app/integraciones/ServicioConfigForm.tsx ·
+app/privacidad/page.tsx (`#meta`) · tests/meta-login.test.ts · *2026-10-07 conectar-con-meta*

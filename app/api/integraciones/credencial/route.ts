@@ -23,6 +23,8 @@ import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCred
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, wsSuperAdmin } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
+import { conectarMetaDisponible, guardarConexionMeta } from '@/lib/meta-conexion';
+import { leerResultadoMeta } from '@/lib/meta-login';
 import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioDeEnv, servicioMetodo } from '@/lib/metodo-catalogo';
 import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
@@ -217,7 +219,15 @@ export async function GET(req: NextRequest) {
   try {
     const servicio = await estadoServicio(servicioKey, ctx);
     if (!servicio) return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
-    return NextResponse.json({ ok: true, servicio });
+    if (servicio.key !== 'meta') return NextResponse.json({ ok: true, servicio });
+    // Meta: si se ofrece el botón, y cómo terminó el último intento. El resultado
+    // viaja en una cookie de UN uso que escribe el callback, y no en la URL: así lo
+    // lee el formulario donde sea que esté montado (/integraciones, el onboarding)
+    // sin que cada pantalla tenga que pasarle un parámetro.
+    const ultimoIntento = leerResultadoMeta(req.cookies.get('meta_resultado')?.value);
+    const res = NextResponse.json({ ok: true, servicio, conectarMeta: await conectarMetaDisponible(), ultimoIntento });
+    if (ultimoIntento) res.cookies.set({ name: 'meta_resultado', value: '', maxAge: 0, path: '/' });
+    return res;
   } catch (e) {
     return NextResponse.json({ ok: false, error: msg(e) }, { status: 500 });
   }
@@ -326,42 +336,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.action === 'descubrir') {
-      const token = (await credWs('META_ACCESS_TOKEN')) ?? '';
+      // `ctx.ws` explícito: credWs de un argumento cae a la sesión, y este token
+      // tiene que ser el del workspace que se está configurando.
+      const token = (await credWs('META_ACCESS_TOKEN', ctx.ws)) ?? '';
       const pegado = typeof body.valores?.META_ACCESS_TOKEN === 'string' ? body.valores.META_ACCESS_TOKEN.trim() : '';
       const usar = pegado || token;
       if (!usar || usar.startsWith('PENDING')) {
         return NextResponse.json({ ok: false, error: 'Pega primero tu access token de Meta.' }, { status: 400 });
       }
-      const d = await descubrirMeta(usar);
-      if (!d.ok) return NextResponse.json({ ok: false, error: d.error }, { status: 422 });
-
-      // Se guarda SOLO lo inequívoco (una sola opción). Con varias, decide el dueño.
-      const aGuardar: Record<string, string> = {};
-      if (d.cuentas.length === 1) aGuardar.META_AD_ACCOUNT_ID = d.cuentas[0].id;
-      if (d.paginas.length === 1) {
-        aGuardar.META_PAGE_ID = d.paginas[0].id;
-        if (d.paginas[0].token) aGuardar.META_PAGE_ACCESS_TOKEN = d.paginas[0].token;
-      }
-      if (d.pixeles.length === 1) aGuardar.META_PIXEL_ID = d.pixeles[0].id;
-
-      // Campo por campo: que un identificador ya reclamado por otro workspace
-      // (META_PAGE_ID rutea leads) no tumbe TODO el descubrimiento.
-      const guardadas: string[] = [];
-      const conflictos: string[] = [];
-      for (const [env, valor] of Object.entries(aGuardar)) {
-        try {
-          await guardarCredencial(ctx.ws, env, valor, 'meta', ctx.autor);
-          await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
-          guardadas.push(env);
-        } catch (e) {
-          if (e instanceof IdentificadorOcupadoError) {
-            await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor, { permitido: false, motivo: 'identificador ya reclamado por otro workspace' });
-            conflictos.push(e.message);
-            continue;
-          }
-          throw e;
-        }
-      }
+      // Lo que se guarda (y la regla de los dos tokens) vive en lib/meta-conexion:
+      // es lo mismo que guarda el botón «Conectar con Meta», y con dos copias la
+      // segunda se queda vieja.
+      const r = await guardarConexionMeta(ctx.ws, usar, ctx.autor, { guardarToken: false });
+      if ('error' in r) return NextResponse.json({ ok: false, error: r.error }, { status: 422 });
+      const { d, guardadas, conflictos } = r;
 
       const estado = await estadoServicio('meta', ctx);
       return NextResponse.json({
@@ -384,7 +372,7 @@ export async function POST(req: NextRequest) {
     // El cliente eligió entre varias opciones: guardar ESA. El token de la página
     // no viaja al browser — se vuelve a pedir a Meta acá y se guarda junto al id.
     if (body.action === 'elegir') {
-      const token = (await credWs('META_ACCESS_TOKEN')) ?? '';
+      const token = (await credWs('META_ACCESS_TOKEN', ctx.ws)) ?? '';
       if (!token || token.startsWith('PENDING')) return NextResponse.json({ ok: false, error: 'Falta el access token de Meta.' }, { status: 400 });
       const tipo = body.tipo ?? '';
       const id = typeof body.id === 'string' ? body.id.trim() : '';

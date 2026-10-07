@@ -4482,3 +4482,37 @@ Y dos trampas del mismo día:
 - **Git Bash convierte un argumento que empieza con `/` en una ruta de Windows**:
   `node script.mjs /api/cron/x` llega como `C:/Program Files/Git/api/cron/x`. Va
   `MSYS_NO_PATHCONV=1`.
+
+---
+
+## Un CR suelto apaga la normalización de git del archivo ENTERO (07/10/2026)
+
+**Síntoma:** un commit que agregaba 11 líneas a `AGENTS.md` salió con **13.911 líneas
+cambiadas** (`git show --stat HEAD`). El texto se veía perfecto en el disco, el typecheck,
+los tests y el build pasaban, y el commit estaba bien armado.
+
+**Causa:** el script que insertaba el párrafo convirtió el ancla a CRLF (el archivo en disco
+lo es) y DESPUÉS volvió a convertir el bloque entero —ancla incluida— de `\n` a `\r\n`. El
+`\r\n` del ancla quedó `\r\r\n`: **un CR suelto**. Y con un CR suelto, `core.autocrlf` deja
+de normalizar el archivo: git lo trata como no-texto para la conversión (`convert_is_binary`
+mira `lonecr`) y lo guarda TAL CUAL, en CRLF. Medido: el blob de `AGENTS.md` pasó de LF puro
+a 6.961 CRLF. Un solo byte de más reescribió el archivo entero en el repo, con el `git blame`
+de todo `AGENTS.md` apuntando a ese commit.
+
+**Por qué no lo ve nada:** el CR suelto está al final de una línea de prosa, no rompe ningún
+parser, y en el disco el archivo sigue siendo CRLF como siempre. Lo único que lo delata es
+el NÚMERO de líneas del commit.
+
+**Regla:**
+
+- **Se convierte al fin de línea del archivo UNA vez**, al final: se arma el texto en LF y se
+  pasa a `\r\n` recién al escribir. Convertir el ancla y después el bloque que la contiene es
+  convertir dos veces lo mismo.
+- **Antes de escribir, `(s.match(/\r(?!\n)/g) || []).length` tiene que dar 0.** Es la misma
+  guarda que `escribir()` de `scripts/curso-categoria-portada.mjs`, del otro lado: ahí el
+  peligro era un `\n` suelto, acá un `\r`.
+- **`git show --stat HEAD` antes de pushear**, mirando que el número de líneas se parezca al
+  cambio. Ya está pedido en `AGENTS.md` para ver QUÉ archivos salieron; vale igual para
+  CUÁNTO. Se arregló sacando el `\r` y con un `--amend` del commit propio, sin pushear.
+
+**Vive en:** cualquier script que edite un archivo CRLF del repo · *2026-10-07 conectar-con-meta*

@@ -2452,6 +2452,17 @@ movimiento** — el token de página nuevo también, derivado del de acceso nuev
 ella tiran «META_PAGE_ACCESS_TOKEN no configurado»: borrarla corta la entrada de leads. Y por lo
 mismo, código nuevo que necesite el token de página no agrega un cuarto lector de la fila.
 
+⚠️ **Y el que GUARDA una conexión es UNO: `guardarConexionMeta` (`lib/meta-conexion.ts`).** Por
+ahí pasan las dos puertas —pegar un token y el botón «Conectar con Meta»— y ahí vive la regla
+de arriba, incluido el caso que no cubría: con VARIAS páginas no se guardaba ningún token de
+página, así que reconectar dejaba el viejo. Una tercera puerta que escriba las filas a mano es
+la que se va a olvidar de esto. (07/10/2026)
+
+⚠️ **Y `META_APP_SECRET` es el secreto de la app VIEJA**, con el que se verifica la firma de
+cada lead del webhook. El de la app MaKo es `MAKO_META_APP_SECRET` (`lib/meta-login.ts`).
+Pisar el primero con el valor del segundo no da error al guardar: rechaza todos los leads
+entrantes.
+
 # Un umbral es un proxy, y el proxy hay que MEDIRLO contra los datos reales
 
 Un número en una condición (`>= 3 tareas`, `>= 2 destinos`, `>= 15 caracteres`) casi

@@ -3,7 +3,8 @@
 // =============================================================================
 // Distinta de /privacidad/extension, que cubre SOLO el puente a Google Flow.
 // Esta es la que Google exige para verificar la app OAuth que pide los scopes de
-// Calendar, y la que un revisor va a leer con el código al lado.
+// Calendar, la que Meta revisa para aprobar la app «MaKo» (sección #meta), y la
+// que un revisor va a leer con el código al lado.
 //
 // ⚠️ EL ESTÁNDAR ES EL MISMO QUE EL DE LA PÁGINA DE LA EXTENSIÓN, y está escrito
 // en su cabecera: se redacta CONTRA EL CÓDIGO. Si lo que dice acá no coincide con
@@ -30,7 +31,7 @@ export const metadata = {
   description: 'Qué datos usa MaKo, con quién se comparten y qué puedes hacer con ellos.',
 };
 
-const ACTUALIZADO = '5 de septiembre de 2026';
+const ACTUALIZADO = '7 de octubre de 2026';
 
 // ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Los tiene que confirmar el dueño y
 // hoy son el supuesto más razonable, no un hecho verificado. Una política con el
@@ -197,6 +198,71 @@ export default function Page() {
         </a>. Te recomendamos hacer las dos cosas.
       </Ojo>
 
+      <H id="meta">Meta: qué permisos pedimos y qué hacemos con ellos</H>
+      <p>
+        Conectar Meta es opcional. Se hace con el botón <em>Conectar con Meta</em> (o pegando un
+        token, si lo prefieres) y en la pantalla de Meta <strong>tú eliges</strong> qué páginas y
+        qué cuentas publicitarias le das a MaKo: no ve ninguna otra.
+      </p>
+      <ul>
+        <li>
+          <code>ads_read</code> — <strong>leer tus campañas</strong>: su estado, su presupuesto y
+          sus resultados (gasto, impresiones, clics, contactos). Con eso se arman tus tableros, el
+          aviso de que una campaña dejó de entregar y el análisis de qué anuncio funciona.
+        </li>
+        <li>
+          <code>ads_management</code> — <strong>crear y editar campañas</strong>: crear una campaña
+          con sus conjuntos y anuncios, pausarla o activarla, cambiar su presupuesto o su nombre,
+          crear públicos, y eliminar lo que esté pausado. <strong>Solo cuando tú lo pides</strong>{' '}
+          desde Ads Manager o confirmas una propuesta de MaKo; nada de esto pasa solo.
+        </li>
+        <li>
+          <code>business_management</code> — <strong>ver qué cuentas y páginas te pertenecen</strong>,
+          para mostrarte la lista y que elijas cuál usar.
+        </li>
+        <li>
+          <code>pages_show_list</code> y <code>pages_read_engagement</code> — <strong>listar tus
+          páginas</strong> y leer sus datos básicos y sus publicaciones, para que un anuncio salga a
+          nombre de tu página o reutilice una publicación tuya.
+        </li>
+        <li>
+          <code>pages_manage_ads</code> — <strong>publicar anuncios con tu página</strong> y crear
+          los formularios de contacto de tus anuncios.
+        </li>
+        <li>
+          <code>leads_retrieval</code> — <strong>traer los contactos</strong> que dejan sus datos en
+          los formularios de tus anuncios, para que entren a tu CRM.
+        </li>
+      </ul>
+      <p>
+        Lo que se guarda: el <strong>acceso que nos da Meta</strong> (cifrado, como el resto de tus
+        llaves), los identificadores de tu cuenta, tu página y tu píxel, los{' '}
+        <strong>resultados diarios de cada anuncio</strong> y <strong>los contactos</strong> que
+        llegan por tus formularios. Cuando un contacto avanza en tu CRM (por ejemplo, lo marcas
+        como calificado), MaKo se lo informa a Meta para que tus campañas aprendan a quién buscar;
+        el correo y el teléfono viajan <strong>cifrados de forma irreversible</strong>.
+      </p>
+
+      <H3>Uso de los datos de Meta</H3>
+      <p>
+        Los datos que MaKo recibe de Meta se usan <strong>únicamente</strong> para darte las
+        funciones descritas arriba, sobre <strong>tus</strong> cuentas.{' '}
+        <strong>No se venden</strong>, <strong>no se usan para publicidad de terceros</strong> ni
+        para armar perfiles de personas, y <strong>no se usan para entrenar modelos de inteligencia
+        artificial de uso general</strong>. Lo que sí ocurre, y es parte de la función: el texto de
+        tus anuncios, la transcripción de sus videos y sus resultados pueden ir dentro del pedido
+        que se le hace a un modelo de inteligencia artificial para analizarlos o proponerte un
+        anuncio nuevo.
+      </p>
+      <Ojo>
+        <strong>Quitar la conexión en MaKo no la revoca en Meta.</strong> Al quitarla en{' '}
+        <em>Integraciones</em>, MaKo borra el acceso guardado y no puede volver a leer ni tocar tus
+        campañas. Pero la integración sigue figurando en tu negocio de Meta hasta que la quites tú
+        desde la configuración del negocio, en <em>Integraciones comerciales</em>. Te recomendamos
+        hacer las dos cosas. Para que borremos también lo que ya trajimos de Meta (resultados y
+        contactos), escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>.
+      </Ojo>
+
       <H id="contactos">Los datos de tus contactos</H>
       <p>
         Esto es lo que MaKo procesa <strong>por encargo tuyo</strong>. Depende de qué conectes:
@@ -324,6 +390,7 @@ export default function Page() {
         <li><code>mako_email</code> — tu correo, para pintar tu nombre sin consultar al servidor.</li>
         <li><code>oauth_state</code> y <code>oauth_next</code> — protegen el ingreso con Google y recuerdan a dónde ibas. Duran 10 minutos.</li>
         <li><code>gcal_state</code> — lo mismo para conectar tu agenda. Dura 10 minutos.</li>
+        <li><code>meta_state</code> y <code>meta_volver</code> — lo mismo para conectar Meta, y la pantalla a la que vuelves. Duran 10 minutos; <code>meta_resultado</code> dice cómo terminó y dura 2.</li>
         <li><code>mako_ws</code> — solo si tu cuenta administra varios espacios de trabajo, para saber cuál estás mirando.</li>
       </ul>
 
