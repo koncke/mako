@@ -94,7 +94,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '18:25', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '18:21', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'La revisión de la #349: lo que el commit afirmaba y no hacía',
     puntos: [
@@ -110,6 +110,9 @@ export const BITACORA: Hito[] = [
       'app/ads-manager/CampanasBrowser.tsx — `writeBudget` anota antes del POST y vuelve a lo de antes si falla',
       'app/ads-manager/AgregarConjuntoModal.tsx — la moneda con respaldo, y el rótulo con la unidad que de verdad viaja',
       'tests/ads-presupuesto-confirma.test.ts — 18 tests',
+    ],
+    commits: [
+      { sha: '6f5c43fc', msg: 'Ads Manager: lo escrito sobrevive a la caché vencida, y la revisión de la #349', lineas: 491, archivos: 9 },
     ],
   },
 ];
