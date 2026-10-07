@@ -1877,6 +1877,11 @@ pueda leer. Es la otra mitad de «un 200 es un ACK» (`docs/hallazgos-infra.md` 
 caída devuelven null, y un webhook lee ese null como «no es de ningún negocio» y lo contesta 200 —
 perdido, con un mensaje que culpa a la configuración y sin pasar por el 503 que existe para eso.
 Medido el 06/10/2026 en Calendly, cuyo clasificador ya estaba en verde: el ruteo no lo usaba.
+Desde el 07/10/2026 vale para los CINCO webhooks que rutean, y `tests/webhooks-ruteo-estricto.test.ts`
+barre `app/api/webhooks/` entero: un webhook nuevo con la lectura tolerante no pasa. El fallo va por
+`responderFalloDeRuteo` (`lib/webhook-fallo-ruteo.ts`), que siempre lo anota — y qué conviene
+contestar depende del PROVEEDOR, que se mide antes de elegir: Calendly y Svix (Fathom) reintentan y
+**deshabilitan**, Meta reintenta ~36 h, Cal.com y Chatwoot **no reintentan nunca**.
 
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi

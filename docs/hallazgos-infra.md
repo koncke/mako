@@ -1122,11 +1122,60 @@ y «no es de nadie» son el mismo null, y el segundo se contesta 2xx.
 (`wsPorIdentificadorEstricto`) · lib/credenciales.ts (`credWsEstricta`) · lib/calendly.ts
 (`verifyCalendlySignature`) · tests/calendly-error.test.ts
 
-**SIN HACER:** los otros webhooks (Cal.com, Chatwoot, Meta, Fathom) siguen ruteando con
-`wsPorIdentificador`, o sea con «no pude leer» = «no es de nadie». En ellos el costo es otro —no
-todos deshabilitan la suscripción—, y no se midió cuál sí.
+~~**SIN HACER:** los otros webhooks (Cal.com, Chatwoot, Meta, Fathom) siguen ruteando con
+`wsPorIdentificador`.~~ **Hecho el 07/10/2026** (`3d11b05c`), ver la entrada siguiente.
 
 **Vive en:** app/api/webhooks/calendly/route.ts (la rama `invitee.canceled` y el `catch` de proceso) · scripts/arreglar-webhook-calendly.ts · scripts/backfill-calendly.ts · *2026-10-06 wf_fe0d104c-25c, implementador y revisor de #17*
+
+### Los otros cuatro webhooks, y qué hace cada proveedor con un 5xx (07/10/2026)
+
+El pedido, textual: «Haz esta tarea aquí: “Ruteo estricto en los otros cuatro webhooks”».
+
+**Lo que faltaba medir antes de escribir —y que decide qué contestar—** es qué hace cada uno
+con una respuesta que no es 2xx. Medido en su documentación y en su código ese día:
+
+| Proveedor | ¿Reintenta? | ¿Deshabilita? | Fuente |
+|---|---|---|---|
+| Calendly | sí, ~24 h | **sí**, la suscripción entera | ya medido el 06/10 |
+| Fathom (Svix) | sí: 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, 10 h | **sí**, el endpoint, si falla 5 días seguidos | docs.svix.com/retries |
+| Meta (leadgen) | sí, ~36 h con frecuencia decreciente | no | guía de Webhooks de Meta |
+| Cal.com | **no** | no | `packages/features/webhooks/lib/sendPayload.ts`: un intento y devuelve el status |
+| Chatwoot | **no** (sólo los agent bots, con 429/500) | no | `lib/webhooks/trigger.rb`, `app/jobs/webhook_job.rb` sin `retry_on` |
+
+**Cómo quedó:** los cuatro rutean con `wsPorIdentificadorEstricto`, y el fallo pasa por
+`responderFalloDeRuteo` (`lib/webhook-fallo-ruteo.ts`): el clasificador de Calendly decide 503 o
+200, y **siempre** se anota en `webhooks.fallos_ruteo` (workspace del super admin; la parte pura
+en `lib/webhook-ruteo-huella.ts`). Para Cal.com y Chatwoot el código de respuesta no recupera
+nada —no reintentan—: lo que cambia es que el evento perdido queda ANOTADO en vez de leerse «no
+es de nadie», que es el único rastro posible.
+
+- **Las keys que deciden la firma** (Cal.com, Fathom) se leen estrictas: con `credWs`, la base
+  caída daba **401 «firma rechazada»** sobre un secreto que estaba bien — y para Svix, un no-2xx
+  más hacia el apagado.
+- **Cal.com lee J1/J2 estricto, y era el peor de los cuatro:** con la base caída las dos daban
+  null, una R2 se clasificaba como R1 y **creaba un lead** — lo que «una R2 nunca crea un lead»
+  prohíbe. Era un dato inventado, no uno perdido.
+- **Meta tiene varios leads por pedido**: si el ruteo de alguno falló de forma transitoria, el
+  LOTE va 503. Es seguro porque reprocesar no duplica (dedup por `meta_lead_id`; aviso, flujos y
+  nutrición sólo al CREAR; CAPI con event_id fijo). Lo que falla DESPUÉS del ruteo sigue yendo
+  200 a propósito: ahí ya pudieron correr efectos y un reintento los saltearía; lo rescata el cron
+  `meta-leads-poll`. Y el token de página, estricto: con la base caída el lead se anotaba
+  «META_PAGE_ACCESS_TOKEN no configurado».
+
+Lo fija `tests/webhooks-ruteo-estricto.test.ts` (9 tests, dieciséis roturas, todas cayeron), con
+un barrido de toda `app/api/webhooks/`.
+
+**SIN HACER — la misma lectura tolerante, fuera de los webhooks:** también deciden de quién es
+algo que entra sin sesión, y siguen con `wsPorIdentificador`:
+`app/api/track/optin/route.ts` (el formulario de una landing: un lead), `app/api/track/vsl/route.ts`,
+`app/api/track/replay/route.ts`, `lib/agente-token.ts` (el token de la skill de Claude),
+`lib/landing-token.ts` y `lib/chatwoot.ts:813`. En `optin` el costo es un lead perdido con la base
+caída; en los demás, eventos de medición o un 401 sobre un token bueno. No se midió cuál pasa.
+**Y `webhooks.fallos_ruteo` no lo dibuja ninguna pantalla**, igual que `calendly.fallos_proceso`.
+
+**Vive en:** app/api/webhooks/calcom/route.ts · app/api/webhooks/chatwoot/route.ts ·
+app/api/webhooks/fathom/route.ts · app/api/webhooks/meta-leads/route.ts · lib/webhook-fallo-ruteo.ts ·
+lib/webhook-ruteo-huella.ts · tests/webhooks-ruteo-estricto.test.ts
 
 ---
 

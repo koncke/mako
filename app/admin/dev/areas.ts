@@ -1149,7 +1149,7 @@ export const AREAS: AreaDev[] = [
     slug: 'webhook-gateway', titulo: 'Webhook Gateway', familia: 'Infra', grupo: 'Runtime',
     estado: 'parcial',
     alcance: 'Fathom, Chatwoot, Meta, Evolution, Resend, Calendly: 6 puertas, un router.',
-    vive: ['app/api/webhooks/calendly/route.ts', 'app/api/webhooks/resend/route.ts', 'app/api/webhooks/fathom/route.ts', 'app/api/webhooks/evolution/route.ts', 'supabase/migrations/0090_webhook_routing.sql', '.claude/skills/add-webhook-receiver/'],
+    vive: ['app/api/webhooks/calendly/route.ts', 'app/api/webhooks/calcom/route.ts', 'app/api/webhooks/chatwoot/route.ts', 'app/api/webhooks/meta-leads/route.ts', 'app/api/webhooks/resend/route.ts', 'app/api/webhooks/fathom/route.ts', 'app/api/webhooks/evolution/route.ts', 'lib/webhook-routing.ts', 'lib/webhook-fallo-ruteo.ts', 'lib/webhook-ruteo-huella.ts', 'lib/calendly-error.ts', 'tests/webhooks-ruteo-estricto.test.ts', 'supabase/migrations/0090_webhook_routing.sql', '.claude/skills/add-webhook-receiver/'],
   },
   {
     slug: 'puente-flow', titulo: 'Puente a Google Flow', familia: 'Infra', grupo: 'Runtime',
