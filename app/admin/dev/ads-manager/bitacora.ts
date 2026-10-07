@@ -140,7 +140,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '20:00', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '19:47', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'La revisión de la #59: la firma sola duplicaba, y la fila decía menos de lo que había en Meta',
     puntos: [
@@ -156,6 +156,9 @@ export const BITACORA: Hito[] = [
       'app/api/ads-manager/adset-add/route.ts — la campaña antes del registro, lo creado en memoria, y el conjunto vacío que se borra',
       'lib/ads-staging.ts — el nombre del staging y cuándo sobra; creative-upload lo barre en cada subida',
       'tests/ads-publicar-registro.test.ts y tests/ads-staging.test.ts — nuevos; dieciocho roturas cazadas en total',
+    ],
+    commits: [
+      { sha: 'c5a5c933', msg: 'Ads Manager: la revisión de la #59 — la clave sin respuesta manda, y la fila dice todo lo que hay en Meta', lineas: 1019, archivos: 22 },
     ],
   },
 ];
