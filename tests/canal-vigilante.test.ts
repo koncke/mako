@@ -109,8 +109,15 @@ test('⚠️ El aviso le LLEGA a alguien, con remitente de plataforma, y se lee 
   // 11/09/2026: iba a los destinatarios del ws SuperAdmin (9), que eran
   // `{"telefonos":[],"emails":[]}`. La voz estuvo días caída sin un solo mail.
   const codigo = sinComentarios(leer('../lib/canal-vigilante.ts'));
-  assert.match(codigo, /EMAILS_ALERTA_VOZ = \['martinkoncke@gmail\.com'\]/,
-    'se perdió la dirección que pidió Martín');
+  // Desde el 07/10/2026 es el correo de MaKo (`EMAIL_MAKO`), no el Gmail de Martín: lo pidió
+  // él, después de que las dos alarmas de esa noche le llegaran a su cuenta personal. Y la
+  // dirección no se vuelve a escribir a mano: un literal acá es la copia que se queda vieja.
+  // Probado rompiéndolo: con el Gmail de vuelta y con `equipo@` escrito a mano, 8 / 1 cada
+  // uno. Restaurado: 9 / 0.
+  assert.match(codigo, /EMAILS_ALERTA_VOZ = \[EMAIL_MAKO\]/,
+    'la alarma de la línea dejó de ir al correo de MaKo');
+  assert.ok(!/EMAILS_ALERTA_VOZ = \[\s*'[^']*@/.test(codigo),
+    'volvió una dirección escrita a mano en la alarma de la línea');
   // Se USA la lista, no solo se declara: con `para = dest?.emails ?? []` el literal seguía
   // ahí, el mail no le llegaba a nadie y el test pasaba (revisión del 11/09/2026).
   const avisar = codigo.slice(codigo.indexOf('async function avisarPorEmail'));

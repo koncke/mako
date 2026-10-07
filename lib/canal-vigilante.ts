@@ -73,8 +73,16 @@ const TOPE_ENVIO_MS = 15_000;
  * `console.error` de «NO hay email de destino», y la marca de «ya avisé» se ponía ANTES de
  * mandar, así que ni siquiera reintentaba. La voz estuvo caída días sin un solo mail.
  * Martín pidió recibirlo, el 11/09.
+ *
+ * ⚠️ Y DESDE EL 07/10/2026 VA AL CORREO DE MaKo, no a uno personal. El pedido, textual: «todas
+ * las notificaciones me lleguen al email nuevo de MaKo, porque me llegaron al email de
+ * martinkoncke@gmail.com» — esa noche se desvinculó la línea y las dos alarmas («no puede
+ * hablar» y «volvió») salieron a su Gmail. Es `EMAIL_MAKO`, la misma dirección que firma, y
+ * NO una copia escrita acá: una dirección repetida a mano es la que se queda vieja.
+ * ⚠️ Que reciba se comprobó ese día, no se dedujo del MX (ver la nota de `EMAIL_MAKO` en
+ * lib/app-url.ts): un mail de prueba a `equipo@hola-mako.com` quedó `delivered` en Resend.
  */
-const EMAILS_ALERTA_VOZ = ['martinkoncke@gmail.com'];
+const EMAILS_ALERTA_VOZ = [EMAIL_MAKO];
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
