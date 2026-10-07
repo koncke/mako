@@ -19,7 +19,8 @@ falta en el proyecto de Customer Success y terminalo todo, cierra las tareas».
   «Último contacto» y «Vencidas» + alerta de baja al dueño (#109), «Sin cobro» en el CRM (#747),
   recordatorio de clases por WhatsApp a los 3 días (#780) y las tres piezas de #665.
 - **El borrador del Plan con los cierres está en https://hola-mako.com/plan/revisar/propavremjgpwd98**
-  (7 hechas, 2 a medias, 3 enriquecidas y 6 tarjetas nuevas). Y lo que se hizo, tarjeta por
+  (2 a medias, 3 enriquecidas y 6 tarjetas nuevas; las 7 hechas se cerraron el 07/10 por pedido de
+  Martín, con su prueba en el historial). Y lo que se hizo, tarjeta por
   tarjeta, en `/admin/runway#customer-success`.
 - **El análisis de las llamadas de entrega (#107) no analizó ninguna todavía**: `gemini-flash-latest`
   contesta 503 («high demand») desde el 07/10 a la madrugada. Reintenta cada hora sin gastar el

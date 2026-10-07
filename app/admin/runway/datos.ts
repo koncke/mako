@@ -354,7 +354,7 @@ export const CS_EN_PRODUCCION = [
 
 /** Lo que le queda a Martín. Lo que tiene link, lo lleva al lado. */
 export const CS_TE_TOCA: Pendiente[] = [
-  { t: '**Confirma los cierres** en el Plan: 7 hechas y 2 a medias, cada una con su prueba.', href: CS_BORRADOR, boton: 'Abrir el borrador' },
+  { t: '**Revisa el borrador del Plan**: las 2 a medias y las 6 tarjetas nuevas. Las 7 hechas ya se cerraron.', href: CS_BORRADOR, boton: 'Abrir el borrador' },
   { t: '**Ubica a Teresa** (quedó en «onboarding», que ya no existe): se mueve desde su ficha y no le manda nada.', href: CS_FICHA_HUERFANA, boton: 'Abrir su ficha' },
   { t: '**Ubica a los 14 clientes** en su etapa real, pega el Calendly de cada etapa y, con los videos grabados, invítalos.' },
   { t: '**Mándale a Mauricio el borrador de graduación** (docs/protocolos/graduacion.md): la renovación primero, sus contratos vencen en octubre y noviembre.' },
