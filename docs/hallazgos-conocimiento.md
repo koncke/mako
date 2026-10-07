@@ -7384,3 +7384,49 @@ que se despliega); **la réplica de /conocimientos sigue así** hasta que monte 
 
 Y una que no es nueva pero se vio: la hoja pide tres `.woff2` en `/_next/static/media/` que dan
 404 (las fuentes del origen). Pasa igual en la réplica.
+
+### Y al teñirlo y editarlo (07/10/2026, tarde)
+
+Desde `5cbaedbb` la tab Curso de Customer Success le cambia el color al dibujo, le pone portadas
+y edita los títulos con un clic. Cinco cosas más que el origen asumía. El lado de Customer
+Success, en [hallazgos-customer-success.md](hallazgos-customer-success.md) → «La tab Curso sin
+barra, el curso personalizable».
+
+**6. Una variable CSS declarada EN un elemento le gana a la heredada.** La hoja declara `--u-lime`
+y `--u-lime-soft` SOBRE `.ugc`: puestas en `.ahdoc` (el contenedor), el `.ugc` de adentro las
+volvía a pisar con el lima y el color elegido no aparecía en ningún lado, sin un solo error. Van
+en el `style` de `.ugc` (`varsDeAcento`, lib/curso-estilo.ts). **La regla:** antes de teñir desde
+afuera, se busca en la hoja DÓNDE se declara la variable, no sólo dónde se usa.
+
+**7. Cuatro reglas de la hoja llevan el lima escrito a mano** (`rgba(204,240,58,…)`: el hover de
+la barra, el foco del buscador, el fondo de las tarjetas sin tapa, el brillo del botón de la
+portada): con otro color quedaban manchas verdes. Son variables (`--u-lime-a12` … `--u-lime-a50`) con el lima por
+default, que `varsDeAcento` recalcula. La lámina de cada etapa tenía los dos limas fijos en el
+SVG: van por variable en `style` (en un atributo de presentación una variable no es confiable),
+con el lima como respaldo, así Conocimientos no cambia.
+
+⚠️ **Y NO con `color-mix`, que era la versión obvia.** Una declaración con `var()` adentro no se
+descarta al PARSEAR, así que la regla de respaldo de la línea de arriba no la salva: si el
+navegador no entiende la función, la propiedad queda en su valor INICIAL (sin fondo, sin anillo)
+— es «inválida en tiempo de valor computado». Le pasa al alumno con un teléfono viejo y no hay
+error que lo diga. Lo mismo con `100dvh` adentro de un `calc` con `var()`: por eso el alto va en
+una variable que un `@supports` cambia.
+
+**8. El modo página mide 100vh y traba el scroll del documento**, y adentro de la app arriba
+puede haber una barra (la de agencia, 50 px; la alerta de voz, 64; las dos, 114). Con ella, el pie
+del curso quedaba afuera de la ventana y sin forma de scrollear. Descuenta `--barra-agencia`
+(app/globals.css, 0 por default). Medido con 114 px: el curso arranca en 114 y el main termina en
+900, que es la ventana.
+
+**9. Editando, la portada no puede ser un `<button>`**: adentro hay textos que se editan con un
+clic (`contentEditable`), y el clic abría la clase. Editando es un `div` y el único botón es la
+pastilla «Empezar». En modo lectura sigue siendo el botón de siempre.
+
+**10. Un menú que se mide antes de mostrarse no recibe el foco al montar.** Va con
+`visibility: hidden` hasta tener posición, y `focus()` sobre un elemento oculto no falla: deja el
+foco en el body. Se enfoca en el efecto que depende de la posición, una sola vez. Lo encontró el
+navegador (el `document.activeElement` después de abrir), no el código.
+
+**Vive en:** `app/_cursos/estilos.ts` · `app/_cursos/CursoUgc.tsx` (`MenuMarca`, el hero de
+edición) · `app/conocimientos/PortadaModulo.tsx` (`rotulo`, los limas por variable) ·
+`lib/curso-estilo.ts` (`varsDeAcento`, `TINTES_ACENTO`).

@@ -1,7 +1,8 @@
 # Retomar: Customer Success
 
-**Dónde quedó:** 06/10, 23:45. Sesión `7a6bc4be` (cuenta `claude2`). Pedido: «Revisa todo lo que
-falta en el proyecto de Customer Success y terminalo todo, cierra las tareas».
+**Dónde quedó:** 07/10, 18:45. Sesión `7a6bc4be` (cuenta `claude2`). Último pedido: la tab Curso
+sin barra y personalizable (abajo). El de la tanda anterior: «Revisa todo lo que falta en el
+proyecto de Customer Success y terminalo todo, cierra las tareas».
 
 ## ⚠️ Corrección medida el 06/10 21:40, gana sobre todo lo de abajo
 
@@ -33,6 +34,11 @@ falta en el proyecto de Customer Success y terminalo todo, cierra las tareas».
   `70a207df`, pedido de Martín): `app/_cursos/CursoUgc.tsx` ya está enchufado. Lo que aprendió y
   lo que falta, en `docs/hallazgos-customer-success.md` → «El portal del alumno y la tab Curso con
   el diseño de Conocimientos».
+- **La tab Curso sin barra y personalizable** (07/10, `5cbaedbb`, mig 0214 APLICADA): la marca de
+  la barra oscura es el desplegable de cursos y color; color, portadas y títulos con un clic. El
+  título NO renombra el producto del CRM (a propósito); la etapa SÍ renombra la columna. **Espera
+  una decisión de Martín: ¿las clases van por link o se suben?** Lo medido y la recomendación, en
+  `docs/hallazgos-customer-success.md` → «La tab Curso sin barra, el curso personalizable».
 
 ---
 

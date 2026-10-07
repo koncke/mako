@@ -4324,7 +4324,122 @@ segunda. Es la regla de la casa (un test se prueba rompiéndolo) cazando su prop
   así que el `key` de cada módulo va por NOMBRE (los `#mod=` que circulan lo llevan).
 - **Conocimientos en el teléfono**: la barra de 268 px al lado del contenido. El arreglo de
   `app/_cursos/estilos.ts` sólo vale para `.ahdoc--ugc`.
-- «+ Clase» aparece también en «Sin etapa» y crea en la primera etapa: `CursoUgc` no tiene un flag
-  por módulo.
+- ~~«+ Clase» aparece también en «Sin etapa»~~ — resuelto en `5cbaedbb`: ese módulo va con
+  `sinEdicion` (sin «+ Clase», sin renombrar y sin portada).
 - Las tapas: sólo YouTube y Drive (`tapaDeVideo`, lib/curso.ts). Las 107 clases del ws1 no tienen
   video, así que hoy todas van con el degradé.
+
+## La tab Curso sin barra, el curso personalizable, y links o videos subidos (07/10/2026)
+
+Pedido de Martín, con una captura de la tab Curso ya con el diseño de Conocimientos:
+«1. Elimina la barra de arriba, que no aparezca absolutamente nada... Ni el titulo. Y si quiero
+cambiar, el desplegable debería ser "Negocio que Escala" de la sidebar, que tiene parte en verde.
+2. Permite personalizar cosas, como colores (el verde), las portadas, los titulos solo con darle
+click etc... 3. También te consulto si es mejor directamente aceptar links como clases, porque si
+debemos aceptar subir clases pesadas, no se que tanto afectaría al almacenamiento».
+
+Lo que gobierna el CSS y el DOM del dibujo (la variable que declara `.ugc`, los tintes con el lima
+escrito a mano, el alto con la barra de agencia, el foco de un menú oculto) está en
+[hallazgos-conocimiento.md](hallazgos-conocimiento.md) → «El dibujo de Conocimientos montado en
+OTRAS pantallas» → «Y al teñirlo y editarlo».
+
+### Lo que se decidió, y por qué no es lo obvio
+
+- **El estilo es clave/valor, una fila por ajuste** (`curso_estilo`, mig 0214). Con una fila por
+  producto y N columnas, dos personas cambiando dos portadas a la vez se pisaban: el guardado de
+  la segunda devolvía la portada vieja de la primera. Volver al default es BORRAR la fila.
+- **El título del curso NO renombra el producto del CRM.** El producto vive en ofertas, embudos y
+  el CRM; renombrarlo desde un clic en la portada del curso cambiaba cosas que esta pantalla no
+  muestra. Es un ajuste propio (`titulo`), con el nombre del producto como default.
+- **El nombre de una etapa SÍ renombra la columna del kanban**: es la misma cosa (el curso cuelga
+  de las etapas de la entrega). Va por `guardarEtapasEntrega` con la lectura ESTRICTA y las fases
+  que ya tenía: la lista se escribe entera, y con la lectura que cae al default se borrarían las
+  etapas reales; sin las fases, su color. Verificado contra el ws1: renombrar y volver dejó
+  `producto_entrega` idéntico byte a byte.
+- **El color es una regla, no un aviso**: el acento es FONDO de texto oscuro («Empezar», la etapa
+  marcada, el número de cada tarjeta). Uno que no llega a contraste 4.5 con la tinta se aclara
+  hacia el blanco hasta que llega (`acentoLegible`). Y lo que se LEE también se sanea: un color o
+  una portada guardados antes de la regla no llegan al navegador del alumno.
+- **Las portadas usan el selector que ya existía** (`PortadaPicker`: degradados, fotos, subir), con
+  el mismo formato de valor (`lib/portadas.ts`) y sin la muestra «Automático» (`sinAutomatico`),
+  que en el tablero significa «el color derivado del nombre» y acá no significaba nada. Un segundo
+  selector para lo mismo es el que se queda viejo.
+- **El selector de cursos es el desplegable de la marca**, como pidió: lista los cursos, el color y
+  «Vista del alumno». En el portal del alumno aparece sólo si tiene más de un curso.
+
+**Vive en:** `lib/curso-estilo.ts` (puro: saneo, contraste, tintes) · `lib/curso-estilo-datos.ts`
+(lectura y escritura) · `app/customer-success/curso/actions.ts` (`guardarEstiloCursoAction`,
+`renombrarClaseAction`, `renombrarEtapaCursoAction`) · `app/customer-success/curso/CursoApp.tsx`.
+
+### La revisión adversarial: 22 hallazgos, y los que enseñan
+
+1. **Una etapa que se llame «Constructor» tiraba el portal entero de ese producto.** Los mapas de
+   portadas son objetos comunes —tienen que serlo: RSC no serializa objetos sin prototipo— y
+   `mapa['constructor']` devuelve la función `Object`; el `startsWith` de la portada tiraba. Y
+   `__proto__` como key le cambiaba el prototipo al mapa en vez de guardar una portada. **La
+   regla:** un mapa keyeado por texto que escribe una persona se lee con `hasOwnProperty`, nunca
+   `mapa[key]`. **Vive en:** `lib/curso-estilo.ts` (`propia`, `KEY_ETAPA`).
+2. **Cinco guards de este mismo trabajo daban VERDE sobre su propio bug**: miraban la portada del
+   modo lectura (la que no se edita), un fixture sin el caso, el archivo con los comentarios que
+   nombran lo que se sacó, y el CSS sin las reglas de adentro de un `@media` (el parser sólo veía
+   el primer nivel). Cada uno, re-probado rompiéndolo: 32 / 1 sobre los dos archivos. La lista de
+   roturas está en la cabecera de `tests/curso-estilo.test.ts`.
+3. **El color volvía al de PANTALLA, no al confirmado.** Probar un color tiene un respiro de 450
+   ms; si el guardado fallaba, se volvía a lo que estaba dibujado —que podía ser otro color todavía
+   sin confirmar— y un color elegido justo después del respiro podía quedar pisado por el
+   pendiente. Ahora hay un registro de lo que el server confirmó y cada guardado cancela el
+   pendiente. **Vive en:** `CursoApp.tsx` (`confirmados`, `timerAcento`).
+4. **El portal le mandaba al alumno las portadas de TODAS las clases**, incluidas las que no ve
+   (`soloDeClases` deja sólo las de las clases que viajan). Y borrar una clase dejaba su portada
+   huérfana: `borrarClase` ahora la borra.
+5. **Dos topes para el mismo nombre**: el curso dejaba 60 caracteres en una etapa y el editor del
+   kanban 40. Ahora es `TOPE_NOMBRE_ETAPA` (`lib/servicio-etapas.ts`), uno.
+
+### Lo verificado, y cómo se dejó el ws1
+
+En el navegador sobre el ws1 (dev-login local): sin barra, el menú de la marca con el teclado, el
+color en todo (incluidas las láminas), la portada con degradado, título y descripción con un clic,
+la vista del alumno con el estilo, renombrar una etapa y una clase y volver, 390 de ancho, y la
+barra de agencia de 114 px. Al terminar, todo revertido POR LA PANTALLA y comparado con una foto
+previa: `producto_entrega` igual, las clases iguales y `curso_estilo` vacío. El link real del
+alumno sigue sin abrirse (cuenta un ingreso en la ficha de un cliente de Mauricio).
+
+### Links o videos subidos: lo medido (pregunta 3)
+
+Medido el 07/10/2026 en la base: **0 videos subidos** (`curso-videos` vacío), las 107 clases del
+ws1 sin video, y **2,28 GB** en todo Storage. O sea que la decisión se puede tomar sin migrar nada.
+
+Lo que encontró la investigación (fuentes oficiales consultadas el 07/10/2026):
+
+- **YouTube prohíbe, en sus políticas para desarrolladores (III.F.3, actualizadas el 14/09/2026),
+  cobrar por ver contenido en un reproductor embebido** — y el portal usa su IFrame API para medir
+  el % visto. Además puede poner publicidad y el link no listado se reenvía. ⚠️ Es el diagnóstico
+  obvio el equivocado: «YouTube no listado es gratis y se mide» es cierto técnicamente y es justo
+  lo que sus términos no permiten para un curso pago.
+- **Vimeo Starter (US$12/mes por asiento, pago anual)**: privacidad por dominio, sin publicidad,
+  2 TB de ancho de banda al mes, y `player.js` da `timeupdate` (se mide igual que hoy). El plan
+  gratis no deja embeber.
+- **Drive**: no se puede medir lo visto, ya se vio que sirve 1080p en 360p (memoria del 13/08) y
+  puede bloquear el archivo por «demasiadas vistas» sin umbral público.
+- **Subir a Supabase**: Pro trae 100 GB de Storage y 250 GB de egress sin caché por mes (después
+  US$0,0213/GB-mes y US$0,09/GB). No hay streaming adaptativo: se baja el archivo entero a una
+  calidad. Una clase real de este proyecto pesa ~26 MB/min (medido con ffprobe): el curso del ws1
+  (356 min) serían ~9 GB guardados y ~9 GB de egress POR ALUMNO que lo vea entero; 250 GB alcanzan
+  para unas 160 horas vistas por mes. ⚠️ **Dos trampas**: el tope de gasto viene prendido en Pro y,
+  pasada la cuota, el servicio se CORTA (los videos dejan de verse); y el CDN cachea por URL, así
+  que una URL firmada nueva en cada vista —lo que hace hoy `/api/compartido/curso/video`— nunca
+  acierta la caché y todo se cobra como egress sin caché.
+
+**La recomendación que se le hizo a Martín**: links como camino principal, con Vimeo como la
+plataforma sugerida para un curso pago; la subida queda como respaldo. Lo decide él.
+
+### Lo que quedó SIN hacer
+
+- La decisión de la pregunta 3 y lo que siga de ella en el editor de la clase
+  (app/customer-success/curso/EditorClase.tsx): hoy ofrece link y subida por igual.
+- Si la subida se queda: firmar UNA URL por video y por un rato largo (no una por vista), para
+  que el CDN la cachee (`app/api/compartido/curso/video/route.ts`).
+- `lib/reset-workspace.ts` no vacía el bucket `curso-videos` (sí `curso-notas`): resetear el
+  Cliente de Prueba dejaría sus videos. Hoy el bucket está vacío.
+- Si el título del curso tendría que renombrar también el producto: hoy NO, a propósito (arriba).
+  Si Martín lo quiere, es un cambio de una línea en `guardarTexto` y una pregunta de producto.

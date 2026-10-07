@@ -678,4 +678,36 @@ export const BITACORA: Hito[] = [
       "tests/cursos-ugc.test.ts — las reglas, los dos adaptadores y que las dos pantallas lo monten",
     ],
   },
+  {
+    fecha: "7 oct", hora: "—", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "La tab Curso sin barra, personalizable, y ¿links o videos subidos?",
+    pedido: "1. Elimina la barra de arriba, que no aparezca absolutamente nada... Ni el titulo. Y si quiero cambiar, el desplegable debería ser \"Negocio que Escala\" de la sidebar, que tiene parte en verde. 2. Permite personalizar cosas, como colores (el verde), las portadas, los titulos solo con darle click etc... 3. También te consulto si es mejor directamente aceptar links como clases, porque si debemos aceptar subir clases pesadas, no se que tanto afectaría al almacenamiento",
+    puntos: [
+      "Lo mandó con una captura de hola-mako.com/customer-success/curso: la cabecera «Curso · 107 clases» con el selector de producto y «Vista del alumno», arriba del dibujo de Conocimientos.",
+    ],
+  },
+  {
+    fecha: "7 oct", hora: "18:44", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La tab Curso sin barra, y el curso con su color, sus portadas y sus títulos",
+    puntos: [
+      "Sin barra: la marca de la barra oscura es el desplegable (los cursos, el color, «Vista del alumno»). Los avisos van arriba del curso y la lista del onboarding sólo en el índice.",
+      "El estilo de cada curso es clave/valor (curso_estilo, mig 0214): una fila por ajuste, y volver al default es borrarla. Un color que no llega a contraste 4.5 se aclara solo, y lo leído también se sanea.",
+      "Con un clic: título y descripción del curso, nombre de etapa y de clase. El título NO renombra el producto del CRM; la etapa SÍ renombra la columna del kanban (es la misma), con la lectura estricta y sus fases.",
+      "Portadas por curso, etapa y clase con el selector que ya existía. El alumno ve el estilo y sólo las portadas de las clases que le llegan.",
+      "⚠️ La revisión adversarial encontró 22 cosas: una etapa llamada «Constructor» tiraba el portal (mapa['constructor'] es la función Object), cinco guards daban verde sobre su propio bug, y el color volvía al de pantalla y no al confirmado.",
+      "Pregunta 3 (links o subir): YouTube prohíbe cobrar por ver lo embebido (III.F.3) y Supabase no cachea una URL firmada por vista (~9 GB de egress por alumno con el curso del ws1). Recomendado: links, con Vimeo para lo pago. Lo decide Martín.",
+    ],
+    commits: [
+      { sha: "5cbaedbb", msg: "Curso: la tab sin barra, y el curso personalizable (color, portadas y títulos con un clic)", lineas: 1834, archivos: 25 },
+    ],
+    archivos: [
+      "lib/curso-estilo.ts + lib/curso-estilo-datos.ts — el saneo, el contraste y los tintes; la lectura y la escritura",
+      "supabase/migrations/0214_curso_estilo.sql — una fila por ajuste, sin acceso para anon",
+      "app/customer-success/curso/CursoApp.tsx + actions.ts — el menú de la marca, el color, los textos y las portadas",
+      "app/_cursos/CursoUgc.tsx + estilos.ts — el desplegable, los textos editables y el acento en toda la hoja",
+      "tests/curso-estilo.test.ts — las reglas, cada guard probado rompiéndolo",
+    ],
+  },
 ];
