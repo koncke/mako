@@ -548,10 +548,18 @@ así que la data URL sobrevive hasta `video_data.image_url`. Meta no descarga da
 Threads valida el `image_url` más estricto que Feed/Reels, por eso ahí explota y en el resto
 pasa.
 
-**Regla:** setear `image_url` solo si es http(s) descargable; si no, omitirlo y dejar que
-Meta genere la miniatura automática, válida en todos los placements.
+**Regla:** setear `image_url` solo si es http(s) descargable. ⚠️ **Corregido el 07/10/2026
+(tarea #59):** esta regla seguía «si no, omitirlo y dejar que Meta genere la miniatura
+automática», y eso es FALSO para publicar: Meta EXIGE `image_hash` o `image_url` en
+`video_data` y sin ninguna rechaza el creativo con «Your ad needs a video thumbnail» — lo
+midió be1dc1ee el 30/06 a las 21:58. El comentario que decía lo contrario en
+`buildObjectStorySpec` llegó 39 minutos después (049e7e50, otra tarea), y esta regla se
+escribió en la cosecha retroactiva del 07/08 (f315269e) con la versión equivocada.
+Lo que hace el código hoy: `withVideoThumb` le pide a Meta la miniatura que generó del video
+(http, válida en todos los placements); si todavía no la generó, la PREVIA se dibuja igual y
+`createAdCreative` corta ANTES de crear el creativo (`conMiniaturaParaPublicar`).
 
-**Vive en:** lib/meta-ads-create.ts:189 (buildObjectStorySpec, rama video), app/ads-manager/NuevaCampanaModal.tsx:87-107 · *2026-06-30 nueva-campana-4fixes-investigate*
+**Vive en:** lib/meta-ads-create.ts (buildObjectStorySpec rama video, withVideoThumb, conMiniaturaParaPublicar), lib/campana-videos.ts (`faltaMiniatura`), app/ads-manager/creativeUpload.ts (`makeThumb`) · *2026-06-30 nueva-campana-4fixes-investigate · 2026-10-07 tarea #59*
 
 ### Sin la cuenta de Instagram en el creativo, las campañas nuevas corren solo en Facebook
 
@@ -3090,3 +3098,122 @@ app/ads-manager/AgregarConjuntoModal.tsx (`moneda`, `monedaRespaldo`) ·
 lib/meta-health.ts (`inicioLecturaISO`) · lib/meta-health-ui.ts (`MetaHealth`) ·
 lib/api-mako/areas/ads.run.ts (`saltoPresupuesto`) · tests/ads-presupuesto-confirma.test.ts ·
 *2026-10-07 tarea-349-cartel-presupuesto · 2026-10-07 revisión de la #349*
+
+## Un video se daba por listo antes de que Meta lo procesara, y un reintento publicaba dos veces (07/10, tarea #59)
+
+**Síntoma (medido contra el código; en una cuenta no se vio nunca):** un video que Meta
+tardaba en procesar entraba a la bandeja del wizard como LISTO; al publicar, Meta rechazaba el
+creativo con la campaña y el conjunto ya creados, y todo terminaba en rollback. Y si la
+respuesta de una publicación se perdía —504 a los 300 s, la pestaña cerrada—, el borrador
+seguía en localStorage, se reabría en «revisión» y el segundo clic creaba OTRA campaña.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+
+1. El bug del 25/09 se anotó como «candidato a ser la causa del A41» (el botón Publicar
+   trabado). No lo era: los 16 videos que ws1 publicó entre el 20 y el 30/09 llevaban un
+   `thumbnail_url` data: en el spec, pasaron por `withVideoThumb` y ninguno fue rechazado; los
+   14 fracasos de ws13 (11-17/09) son todos 1885183 —la app del cliente en modo desarrollo— en
+   el PRIMER creativo. El bug era real y latente: aparece sólo cuando Meta tarda más que la
+   espera del POST.
+2. La #797 decía que mandar el video por URL «destraba los videos pesados». creative-upload YA
+   lo mandaba por `file_url`; lo que frenaba eran los 150 s de espera adentro de la función y
+   una transcripción que bajaba el archivo ENTERO para descubrir que pesaba de más.
+
+**Causa, en cuatro lugares:**
+
+| Dónde | Qué pasaba |
+|---|---|
+| `SubidoCreativo` y los TRES modales | La ruta devolvía `processing` y `video_status`; el tipo no los declaraba y los modales escribían `processing: false`. El tercero (Agregar anuncio) no estaba en la medición del 25/09, y Nueva campaña tenía su PROPIA copia de la subida |
+| creative-upload, POST | `video_status: 'error'` contestaba `ok: true`. Y esperaba 150 s en un `Promise.all` con la transcripción, que no tiene tope, bajo `maxDuration = 300`: un 504 borraba el ítem de la bandeja con el video ya en Meta |
+| campaign-create, ad-add, adset-add | Ninguna preguntaba por los videos antes de crear |
+| La idempotencia | No existía (la nombraba un comentario). adset-add y el modo simple de ad-add ni siquiera dejaban registro, y adset-add no hace rollback |
+
+**Trampas que no se ven leyendo el código:**
+
+- **`after()` no saca nada de los 300 s** (la doc de Next: corre «por la duración máxima de
+  la ruta»). Lo único que gana es la respuesta temprana; por eso la espera del POST bajó a 25 s
+  y el resto lo pregunta el navegador por GET, con un tope de 15 minutos.
+- **El staging no se puede borrar «después de transcribir»**: Meta lo baja del `file_url`
+  firmado, y borrarlo antes deja el video en 'error'. Se borra sólo con 'ready' o 'error'. Y
+  nada más limpia ese bucket (`lib/reset-workspace.ts` sólo lo nombra).
+- **`withVideoThumb` la usa también la PREVIA** (`generatePreviews`): hacerla tirar rompía el
+  paso de revisión de todo video sin miniatura todavía. La versión estricta va sólo en
+  `createAdCreative`.
+- **La tarjeta dibuja `(progress ?? 0) < 100 ? 'N%' : 'Procesando'`**: con
+  `processing: r.processing` y `progress` en undefined, un video que Meta procesa decía «0%».
+- **ad-add escribe al insertar el `meta_campaign_id` de la campaña que YA existía.** Con la
+  regla de la campaña («error con campaña y sin revertir = a medias»), un lote que falló con 0
+  anuncios quedaba trabado para siempre. Son dos reglas (`lib/meta-idempotencia.ts`).
+- **La misma clave después de un parcial conocido pierde anuncios**: el cliente recorta los N
+  que entraron y reintenta; el server contestaría «creados N» desde la fila vieja y se
+  recortarían N más. La clave sale de la FIRMA del payload.
+- **El chequeo de videos va ANTES de abrir el registro**: un 409 dejaría una fila en 'creando'
+  y el reintento legítimo esperaría 6 minutos.
+- **Un guard de orden («videos antes de crear») pasaba de gratis** mientras recortaba desde el
+  principio del archivo: el helper `sinProcesar` está definido arriba del POST. Lo destapó
+  romperlo.
+
+**Regla:** un creativo se usa cuando Meta dice 'ready', y lo que lo decide es lo que Meta
+contestó —nunca un `false` escrito a mano—; el server vuelve a preguntar antes de crear, y
+«no pude leer» no bloquea. Y todo lo que crea afuera y puede perder su respuesta lleva una
+clave que sale de la firma de lo que se manda (la regla general quedó en AGENTS.md).
+
+**Una decisión distinta del plan, y por qué:** con la columna `idem_key` faltando, la ruta
+NO devuelve 503: publica por el camino viejo y lo loguea. En un clon compartido cualquier
+sesión puede pushear este commit antes de que alguien aplique la 0215, y un 503 a todas las
+publicaciones de todos los clientes es peor que una protección que hasta hoy no existía. El
+costo, dicho: mientras falte, el «Reintentar es seguro» que ve la persona es falso. Por eso la
+cabecera de la migración dice ANTES del deploy. La base que no contesta sí da 503.
+
+**Cómo se verificó:** typecheck en 0; `npm test` 4510 de 4510; diecisiete roturas a propósito,
+todas cazadas (los números van en cada test); y en el navegador —dev server con
+`ZERNIO_API_KEY= ELEVENLABS_API_KEY=`, el log dijo sólo «hidratadas», ws9, con la subida y
+campaign-create simulados y todo otro POST abortado: ninguno llegó a una ruta real— 20 de 20:
+la tarjeta dice «Procesando» y no «0%», Siguiente queda apagado hasta 'ready', el borrador
+retoma la espera de SU video y descarta el ítem cortado, un borrador viejo sin clave publica,
+el reintento después de una respuesta perdida manda la MISMA clave, y editar el nombre en la
+revisión la cambia.
+
+**Sin hacer:**
+
+- **Aplicar la 0215**, antes del deploy.
+- **Publicar de verdad** (lo hace Martín, mirando): ws1 es un cliente con plata real. Con la
+  app MaKo nueva (2586146911825340) Meta rechazaría todo creativo con 1885183 mientras esté en
+  modo desarrollo, y eso se destraba pasándola a «Publicada», no con el App Review. En qué modo
+  está hoy no está escrito en ningún lado.
+- **Crear un formulario desde cero** contra una página real: es irreversible (sólo se archiva).
+  Martín elige la página.
+- **Un video de 300-500 MB**: cuánto tarda Meta en procesarlo y si `file_url` lo acepta. El
+  tope de 15 minutos del navegador no está medido contra nada.
+- **Qué ve la persona cuando un reintento encuentra una publicación a medias** (decisión de
+  Martín). Hoy: «Quedó a medias en Meta… revísalo en la tabla», y la misma clave sigue
+  contestando eso hasta que algo del spec cambie.
+- **Confirmar con una publicación real** que con el video 'ready' la miniatura de Meta siempre
+  llega: si no, la versión estricta frena algo que antes Meta habría aceptado.
+- **after() en Vercel**: si no corriera, la transcripción gratuita se pierde y la paga el cron.
+  No medido.
+- **Una carrera chica**: el GET puede borrar el staging mientras la bajada para transcribir
+  todavía corre (arranca al principio del POST; la ventana es un video de hasta 25 MB que tarde
+  más de ~30 s en bajar).
+- **Un lote cortado entre crear un anuncio y anotarlo** deja uno sin contar: el «a medias»
+  dice N y eran N+1.
+- **La API de MaKo** (`proponer_agregar_anuncio`, lib/api-mako/areas/ads.run.ts) no pregunta
+  por el video antes de proponer; lo frena la miniatura estricta antes del creativo.
+- **campaign-create mira `process.env.META_PIXEL_ID`** (el del entorno) y no el pixel del
+  workspace (`pixelDelWs`). Casi sin efecto: el wizard exige `pixel_id`.
+- **`permMsg`** (app/ads-manager/CampanasBrowser.tsx:409) es un diagnóstico escrito a mano
+  —«el token ya es System User… 2FA»— que es falso para los clientes con otros tokens. No es de
+  la #59.
+- **Los dos modales chicos no se miraron en el navegador**: son el mismo molde y los fija
+  tests/ads-video-procesando.test.ts.
+
+**Vive en:** app/ads-manager/creativeUpload.ts (`subirCreativo`, `esperarVideoListo`,
+`postConTope`) · app/ads-manager/NuevaCampanaModal.tsx (`subir`, `seguirProcesando`,
+`loadDraft`, `publicar`) · app/ads-manager/AgregarAnuncioModal.tsx ·
+app/ads-manager/AgregarConjuntoModal.tsx · app/api/ads-manager/creative-upload/route.ts (POST
+y GET) · app/api/ads-manager/campaign-create/route.ts · app/api/ads-manager/ad-add/route.ts ·
+app/api/ads-manager/adset-add/route.ts · lib/meta-ads-create.ts (`estadoVideo`,
+`videosSinProcesar`, `conMiniaturaParaPublicar`, `addAdsetToCampaign`) · lib/campana-videos.ts ·
+lib/meta-idempotencia.ts · supabase/migrations/0215_meta_campaign_drafts_idem.sql ·
+tests/ads-video-procesando.test.ts · tests/campana-videos.test.ts ·
+tests/meta-idempotencia.test.ts · *2026-10-07 tarea #59*

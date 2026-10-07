@@ -23,6 +23,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Asignar a un producto del CRM', detalle: 'Celda por fila + lote, reusando las actions del CRM · el conjunto sin producto propio dice el de SU campaña · con un solo producto la columna no se dibuja', estado: 'hecha' },
   { titulo: 'Producto MÚLTIPLE por campaña', detalle: 'Choca con que un lead tiene un solo funnel_id (lib/campana-config.ts) · las tres salidas están medidas y la decisión es de Martín', estado: 'cola' },
   { titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta', detalle: 'La celda y el lote preguntan «viejo → nuevo» antes de escribir · se tipea en USD y se convierte a la moneda de la cuenta (lib/presupuesto-cambio.ts) · el presupuesto total no se edita como diario · lo escrito sobrevive a la caché vencida del árbol · falta la primera prueba en una cuenta real', estado: 'hecha' },
+  { titulo: 'Un video se usa cuando Meta lo procesó, y un reintento no publica dos veces', detalle: 'La tarjeta espera a Meta (los tres modales, una sola subida) · las rutas preguntan por los videos antes de crear · clave de idempotencia por payload en campaign-create, ad-add y adset-add · falta aplicar la 0215, publicar de verdad y medir un video pesado', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -113,6 +114,26 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: '6f5c43fc', msg: 'Ads Manager: lo escrito sobrevive a la caché vencida, y la revisión de la #349', lineas: 491, archivos: 9 },
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '19:05', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un video se usa cuando Meta lo procesó, y un reintento no publica dos veces (#59)',
+    puntos: [
+      '**El bug del 25/09 no era la causa del botón Publicar trabado**, como se había anotado. Los 16 videos que ws1 publicó llevaban miniatura y ninguno fue rechazado; los 14 fracasos de ws13 eran la app del cliente en modo desarrollo. Era real y latente: los TRES modales —no dos— escribían `processing: false` sobre lo que Meta todavía procesaba.',
+      'Una sola subida para los tres modales (Nueva campaña tenía su propia copia), la tarjeta en «Procesando» hasta que Meta dice listo, y un 422 si Meta no pudo. Las tres rutas que publican vuelven a preguntar antes de crear nada.',
+      'La idempotencia: el duplicado real no es el doble clic sino la respuesta perdida con el borrador intacto. La clave sale de la FIRMA de lo que se manda —después de un parcial, la misma clave haría recortar anuncios que nunca se crearon— y hay DOS reglas de reintento, porque en un lote la campaña de la fila es la que ya existía.',
+      '⚠️ Una decisión distinta del plan: con la migración 0215 sin aplicar se publica sin idempotencia en vez de dar 503 a todos, porque cualquier sesión puede pushear antes de que alguien la aplique. Mientras falte, «Reintentar es seguro» es falso.',
+      'Verificado: 4510 tests, diecisiete roturas cazadas, y 20 de 20 en el navegador con la subida y la publicación simuladas (ningún POST llegó a Meta ni a la base). Falta lo que hace Martín: aplicar la 0215, publicar mirando, crear un formulario en su página y medir un video pesado.',
+    ],
+    archivos: [
+      'app/ads-manager/creativeUpload.ts — la subida, la espera a Meta y el POST con tope',
+      'app/ads-manager/NuevaCampanaModal.tsx — la bandeja retoma la espera desde el borrador, y la clave viaja en él',
+      'app/api/ads-manager/creative-upload/route.ts — 422, espera de 25 s, GET de consulta que limpia el staging',
+      'lib/meta-idempotencia.ts — la clave por firma, las dos reglas y el registro estricto',
+      'lib/campana-videos.ts — qué videos lleva una publicación y qué cuenta como listo',
+      'supabase/migrations/0215_meta_campaign_drafts_idem.sql — SIN aplicar; va antes del deploy',
     ],
   },
 ];

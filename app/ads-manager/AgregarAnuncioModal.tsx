@@ -11,7 +11,11 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
-import { subirCreativo, makeThumb, type SubidoCreativo } from './creativeUpload';
+import {
+  subirCreativo, makeThumb, esperarVideoListo, motivoFinEspera, postConTope, esperandoAMeta,
+  SIN_RESPUESTA, AVISO_PROCESANDO_NO_CIERRES, type SubidoCreativo,
+} from './creativeUpload';
+import { claveParaPayload, type ClaveIdem } from '@/lib/meta-idempotencia';
 import { CTA_OPCIONES, type Creative } from '@/lib/campaign-types';
 import type { SenalRecon } from '@/lib/queries';
 import { ganadoresParaReusar } from '@/lib/ganadores-reuso';
@@ -38,6 +42,13 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
   const [saving, setSaving] = useState(false); const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const ganadoresBloqueados = useGanadoresBloqueados(senales);
+  // La subida en curso: una nueva (o elegir un ganador, o cerrar) corta la anterior, así
+  // su respuesta no pisa la tarjeta de otro archivo.
+  const subidaRef = useRef<AbortController | null>(null);
+  useEffect(() => () => subidaRef.current?.abort(), []);
+  // Clave de idempotencia: la misma mientras el anuncio que se manda sea el mismo
+  // (lib/meta-idempotencia.ts). Un reintento después de un corte no lo duplica.
+  const idemRef = useRef<ClaveIdem | null>(null);
 
   useEffect(() => {
     fetch(`/api/ads-manager/ad-add?adset_id=${encodeURIComponent(adsetId)}`, { cache: 'no-store' }).then((r) => r.json())
@@ -51,13 +62,27 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
   const ganadores = ganadoresParaReusar(senales, ganadoresBloqueados);
 
   async function subir(file: File) {
+    subidaRef.current?.abort();
+    const ctl = new AbortController();
+    subidaRef.current = ctl;
     setErr(null);
     setTray({ kind: 'upload', media_type: file.type.startsWith('video') ? 'video' : 'image', label: file.name, processing: true, progress: 0, thumbnail_url: null });
-    makeThumb(file).then((dt) => { if (dt) setTray((t) => (t ? { ...t, thumbnail_url: t.thumbnail_url ?? dt } : t)); });
+    makeThumb(file).then((dt) => { if (dt && !ctl.signal.aborted) setTray((t) => (t ? { ...t, thumbnail_url: t.thumbnail_url ?? dt } : t)); });
     try {
-      const r: SubidoCreativo = await subirCreativo(file, (pct) => setTray((t) => (t ? { ...t, progress: pct } : t)));
-      setTray((t) => (t ? { ...t, media_type: r.media_type, image_hash: r.image_hash, video_id: r.video_id, thumbnail_url: t.thumbnail_url ?? r.thumbnail_url ?? null, processing: false, progress: undefined } : t));
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setTray(null); }
+      const r: SubidoCreativo = await subirCreativo(file, (pct) => { if (!ctl.signal.aborted) setTray((t) => (t ? { ...t, progress: pct } : t)); });
+      if (ctl.signal.aborted) return;
+      // `processing` es lo que dijo Meta (tarea #59): escrito a mano en false, un video sin
+      // procesar quedaba «listo». Mientras Meta procesa, la tarjeta queda en 100.
+      setTray((t) => (t ? { ...t, media_type: r.media_type, image_hash: r.image_hash, video_id: r.video_id, thumbnail_url: t.thumbnail_url ?? r.thumbnail_url ?? null, processing: r.processing, progress: r.processing ? 100 : undefined } : t));
+      if (!r.processing || !r.video_id) return;
+      const fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal });
+      if (fin === 'cancelado' || ctl.signal.aborted) return;
+      if (fin === 'ready') { setTray((t) => (t ? { ...t, processing: false, progress: undefined } : t)); return; }
+      setErr(motivoFinEspera(fin, file.name)); setTray(null);
+    } catch (e) {
+      if (ctl.signal.aborted) return;
+      setErr(e instanceof Error ? e.message : String(e)); setTray(null);
+    }
   }
 
   const listo = !!tray && !tray.processing && (!!tray.image_hash || !!tray.video_id || !!tray.source_ad_id);
@@ -74,8 +99,12 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
           ...(info.needsForm ? { lead_form_id: leadFormId } : { destination_url: url }),
         };
     try {
-      const r = await fetch('/api/ads-manager/ad-add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adset_id: adsetId, creative, name: defaultName }) });
-      const j = await r.json();
+      const k = claveParaPayload(idemRef.current, { adset_id: adsetId, creative, name: defaultName });
+      idemRef.current = k;
+      // Con signal y sin `r.json()` pelado: un corte de la plataforma tiraba «Unexpected
+      // token» y el siguiente clic creaba el anuncio otra vez.
+      const j = await postConTope('/api/ads-manager/ad-add', { adset_id: adsetId, creative, name: defaultName, idem_key: k.clave });
+      if (!j) throw new Error(SIN_RESPUESTA);
       if (!j.ok) throw new Error(j.error || 'No se pudo agregar el anuncio');
       onSaved();
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
@@ -110,10 +139,11 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
                   <button type="button" onClick={() => setVerGanadores((v) => !v)} style={btnGhost}>★ Usar un ganador</button>
                 </div>
               </div>
+              {esperandoAMeta(tray) && <p style={{ fontSize: 12.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>{AVISO_PROCESANDO_NO_CIERRES}</p>}
               {verGanadores && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxHeight: 160, overflowY: 'auto' }}>
                   {ganadores.length === 0 ? <p style={{ fontSize: 13, color: 'var(--faint)' }}>Sin anuncios con creativo para reusar.</p> : ganadores.map((s) => (
-                    <button key={s.ad_id} type="button" disabled={!!ganadoresBloqueados?.[s.ad_id]} onClick={() => { if (ganadoresBloqueados?.[s.ad_id]) return; setTray({ kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url, label: s.ad_name }); setVerGanadores(false); }} title={ganadoresBloqueados?.[s.ad_id] ? `${s.ad_name} — ${ganadoresBloqueados[s.ad_id]}` : `${s.ad_name} · ${s.leads} leads`} style={{ width: 52, height: 68, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', cursor: ganadoresBloqueados?.[s.ad_id] ? 'not-allowed' : 'pointer', padding: 0, flex: 'none', opacity: ganadoresBloqueados?.[s.ad_id] ? 0.35 : 1 }}>
+                    <button key={s.ad_id} type="button" disabled={!!ganadoresBloqueados?.[s.ad_id]} onClick={() => { if (ganadoresBloqueados?.[s.ad_id]) return; subidaRef.current?.abort(); setTray({ kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url, label: s.ad_name }); setVerGanadores(false); }} title={ganadoresBloqueados?.[s.ad_id] ? `${s.ad_name} — ${ganadoresBloqueados[s.ad_id]}` : `${s.ad_name} · ${s.leads} leads`} style={{ width: 52, height: 68, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', cursor: ganadoresBloqueados?.[s.ad_id] ? 'not-allowed' : 'pointer', padding: 0, flex: 'none', opacity: ganadoresBloqueados?.[s.ad_id] ? 0.35 : 1 }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={s.ad_thumbnail_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </button>

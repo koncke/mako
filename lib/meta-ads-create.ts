@@ -26,6 +26,7 @@ import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type Formu
 import { getSetting } from './settings';
 import { hayQuePreguntar, identidadPorDefecto, type Identidad, type InstagramOpcion, type PaginaOpcion } from './meta-identidad';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { estadoDeVideoStatus, faltaMiniatura, type EstadoVideo, type VideosSinProcesar } from './campana-videos';
 import {
   type CampaignSpec,
   type AdSetSpec,
@@ -309,8 +310,11 @@ export async function buildObjectStorySpec(c: Creative, identidad?: Identidad | 
     if (c.description) video_data.link_description = c.description;
     // Miniatura del video: preferimos la CUSTOM (image_hash) para conservarla al
     // editar textos. Si no, image_url SOLO si es http(s) descargable por Meta (una
-    // data:image/… local causa #3858258 y Threads la valida estricto). Sin ninguna,
-    // la omitimos y Meta genera la miniatura automática del video (válida en todas).
+    // data:image/… local causa #3858258 y Threads la valida estricto).
+    // ⚠️ Esto decía «sin ninguna, la omitimos y Meta genera la miniatura sola», y es
+    // FALSO para publicar: Meta EXIGE una y rechaza el creativo con «Your ad needs a
+    // video thumbnail» (medido el 30/06, be1dc1ee; ver getVideoThumbnailUrl). Omitirla
+    // sólo vale para la PREVIA; createAdCreative corta antes con conMiniaturaParaPublicar.
     if (c.image_hash) video_data.image_hash = c.image_hash;
     else if (c.thumbnail_url && /^https?:\/\//i.test(c.thumbnail_url)) video_data.image_url = c.thumbnail_url;
     if (hasLeadForm) {
@@ -939,10 +943,59 @@ export async function uploadAdVideoByUrl(fileUrl: string, name: string): Promise
   return { video_id: String(data.id) };
 }
 
+/** Una lectura de `status.video_status`, con las credenciales ya resueltas. null = no se
+ *  pudo leer (lib/campana-videos.ts: «no pude leer» NO es «sin procesar»). */
+async function leerEstadoVideo(apiVersion: string, accessToken: string, videoId: string): Promise<EstadoVideo | null> {
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${videoId}`);
+  url.searchParams.set('fields', 'status');
+  url.searchParams.set('access_token', accessToken);
+  const data = await graphGet(url.toString()).catch(() => null);
+  if (!data) return null;
+  return estadoDeVideoStatus((data.status as { video_status?: unknown } | undefined)?.video_status);
+}
+
+/** Qué dice Meta HOY de un video: 'ready' | 'processing' | 'error', o null si no se pudo
+ *  leer. Lo consulta el navegador mientras espera (GET /api/ads-manager/creative-upload). */
+export async function estadoVideo(videoId: string): Promise<EstadoVideo | null> {
+  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  return leerEstadoVideo(apiVersion, accessToken, videoId);
+}
+
+/**
+ * Los videos que Meta todavía NO dejó listos, para cortar una publicación ANTES de crear
+ * nada (campaign-create, ad-add y adset-add). Sólo bloquean 'processing' y 'error'
+ * explícitos; lo que no se pudo leer no bloquea.
+ *
+ * Las credenciales se resuelven UNA vez (cred() hace un SELECT por llamada y no cachea) y
+ * Meta se consulta en lote (`GET /?ids=a,b,c&fields=status`). Si el lote entero falla
+ * —un id ajeno hace fallar a todos— cae a una lectura por video.
+ */
+export async function videosSinProcesar(videoIds: string[]): Promise<VideosSinProcesar> {
+  const out: VideosSinProcesar = { procesando: [], conError: [] };
+  const lista = [...new Set(videoIds.filter((x) => /^\d{1,30}$/.test(x)))];
+  if (!lista.length) return out;
+  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  for (let i = 0; i < lista.length; i += 50) {
+    const lote = lista.slice(i, i + 50);
+    const url = new URL(`${GRAPH_BASE}/${apiVersion}/`);
+    url.searchParams.set('ids', lote.join(','));
+    url.searchParams.set('fields', 'status');
+    url.searchParams.set('access_token', accessToken);
+    const data = await graphGet(url.toString()).catch(() => null);
+    for (const id of lote) {
+      const fila = data?.[id] as { status?: { video_status?: unknown } } | undefined;
+      const e = fila ? estadoDeVideoStatus(fila.status?.video_status) : await leerEstadoVideo(apiVersion, accessToken, id);
+      if (e === 'processing') out.procesando.push(id);
+      else if (e === 'error') out.conError.push(id);
+    }
+  }
+  return out;
+}
+
 /**
  * Espera a que Meta termine de PROCESAR el video antes de usarlo en un creativo.
- * Devuelve 'ready' | 'error' | 'processing' (este último = timeout: seguimos,
- * Meta suele terminar en segundo plano y el anuncio queda igual en PAUSA).
+ * Devuelve 'ready' | 'error' | 'processing' (este último = se acabó la espera, no un
+ * veredicto: Meta sigue en segundo plano y el navegador vuelve a preguntar).
  */
 export async function waitForVideoReady(videoId: string, opts: { timeoutMs?: number; intervalMs?: number } = {}): Promise<'ready' | 'error' | 'processing'> {
   const timeout = opts.timeoutMs ?? 150000;
@@ -952,13 +1005,11 @@ export async function waitForVideoReady(videoId: string, opts: { timeoutMs?: num
   // ~37 vueltas. Adentro serían ~74 consultas, y cada una una chance de abortar.
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   while (Date.now() - startedAt < timeout) {
-    const url = new URL(`${GRAPH_BASE}/${apiVersion}/${videoId}`);
-    url.searchParams.set('fields', 'status');
-    url.searchParams.set('access_token', accessToken);
-    const data = await graphGet(url.toString()).catch(() => ({} as Record<string, unknown>));
-    const vs = (data.status as { video_status?: string } | undefined)?.video_status;
-    if (vs === 'ready') return 'ready';
-    if (vs === 'error') return 'error';
+    // 'expired' y cualquier valor desconocido ya vuelven como 'error' (antes se seguía
+    // esperando hasta el timeout sobre un video que nunca iba a estar listo).
+    const e = await leerEstadoVideo(apiVersion, accessToken, videoId);
+    if (e === 'ready') return 'ready';
+    if (e === 'error') return 'error';
     await sleep(interval);
   }
   return 'processing';
@@ -990,14 +1041,33 @@ async function getVideoThumbnailUrl(videoId: string): Promise<string | null> {
 
 /** Devuelve el creativo con una miniatura de video VÁLIDA (URL http de Meta) para el
  * object_story_spec. Si ya trae una http la respeta; si trae una data:/blob: local o
- * nada, usa la que generó Meta del propio video. */
+ * nada, usa la que generó Meta del propio video.
+ *
+ * ⚠️ NO tira si Meta todavía no la generó: devuelve el creativo como vino. La usa también
+ * generatePreviews (la previa del paso de revisión, /api/ads-manager/campaign-preview), y
+ * la previa se tiene que poder dibujar igual. El que exige es conMiniaturaParaPublicar. */
 async function withVideoThumb(c: Creative): Promise<Creative> {
   // Si ya hay miniatura custom (image_hash) o una URL http válida, no la pisamos.
-  if (c.media_type === 'video' && c.video_id && !c.image_hash && !(c.thumbnail_url && /^https?:\/\//i.test(c.thumbnail_url))) {
+  if (faltaMiniatura(c) && c.video_id) {
     const uri = await getVideoThumbnailUrl(c.video_id);
     if (uri) return { ...c, thumbnail_url: uri };
   }
   return c;
+}
+
+/**
+ * La versión ESTRICTA, sólo para crear el creativo de verdad: si después de pedírsela a
+ * Meta sigue sin miniatura, corta ANTES del POST a adcreatives. Sin esto el creativo salía
+ * sin miniatura, Meta lo rechazaba con «Your ad needs a video thumbnail», y el rechazo
+ * llegaba con la campaña y el conjunto ya creados (tarea #59). Cortar acá es el mismo
+ * fracaso, un paso antes y con un motivo que dice qué hacer.
+ */
+async function conMiniaturaParaPublicar(c: Creative): Promise<Creative> {
+  const out = await withVideoThumb(c);
+  if (faltaMiniatura(out)) {
+    throw new MetaWriteError('Meta todavía no generó la miniatura del video. Espera unos minutos y vuelve a intentar.');
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1059,7 +1129,7 @@ export async function createAdCreative(creative: Creative, adName: string, ident
     const data = await graphPost(`${await cred('META_AD_ACCOUNT_ID')}/adcreatives`, { name: `${adName} — creativo`, object_story_id: storyId, url_tags: UTM_TAGS });
     return String(data.id);
   }
-  const oss = await buildObjectStorySpec(await withVideoThumb(creative), identidad);
+  const oss = await buildObjectStorySpec(await conMiniaturaParaPublicar(creative), identidad);
   // Adjuntamos la cuenta de Instagram conectada → el anuncio corre en IG/Threads.
   // Sin esto Meta solo entrega en Facebook y bloquea la publicación pidiendo IG.
   // graphPost ignora los valores undefined, así que si no hay IG no rompe nada.
@@ -1300,18 +1370,28 @@ export async function getCampaignBasics(campaignId: string): Promise<{ name: str
   return { name: String(data.name ?? ''), objective, budgetLevel: hasCampBudget ? 'campaign' : 'adset', optimization, needsForm: optimization === 'LEAD_GENERATION', needsConv: optimization === 'OFFSITE_CONVERSIONS', conversion };
 }
 
-/** Crea un conjunto (PAUSED) + sus anuncios dentro de una campaña existente. */
-export async function addAdsetToCampaign(campaignId: string, objective: Objective, budgetLevel: BudgetLevel, adset: AdSetSpec): Promise<{ adset_id: string; ad_ids: string[] }> {
+/** Crea un conjunto (PAUSED) + sus anuncios dentro de una campaña existente.
+ *  `avance` se llama con lo creado hasta ahí después de cada paso: la ruta lo anota en
+ *  meta_campaign_drafts, y es lo que permite saber —si el pedido muere en el medio— que el
+ *  conjunto ya existe en Meta (tarea #59: un reintento ciego lo duplicaba). */
+export async function addAdsetToCampaign(
+  campaignId: string, objective: Objective, budgetLevel: BudgetLevel, adset: AdSetSpec,
+  avance?: (p: { adset_id: string; ad_ids: string[]; creative_ids: string[] }) => Promise<void>,
+): Promise<{ adset_id: string; ad_ids: string[]; creative_ids: string[] }> {
   const specLike = { name: '', objective, special_ad_categories: [], budget_level: budgetLevel, adsets: [adset] } as CampaignSpec;
   const adsetId = await createAdSet(campaignId, specLike, adset);
   const ad_ids: string[] = [];
+  const creative_ids: string[] = [];
+  await avance?.({ adset_id: adsetId, ad_ids, creative_ids });
   for (const ad of adset.ads) {
     const creativeId = await createAdCreative(ad.creative, ad.name);
+    creative_ids.push(creativeId);
     const adId = await createAd(adsetId, ad, creativeId);
     await adoptarTranscripcionDelCreativo(adId, ad.creative.video_id);
     ad_ids.push(adId);
+    await avance?.({ adset_id: adsetId, ad_ids, creative_ids });
   }
-  return { adset_id: adsetId, ad_ids };
+  return { adset_id: adsetId, ad_ids, creative_ids };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

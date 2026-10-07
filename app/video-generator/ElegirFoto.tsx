@@ -28,7 +28,7 @@ export type FotoElegible = { id: string; url: string };
  * ⚠️ XHR y no `fetch`, y no es una preferencia: **`fetch` no expone el progreso
  * de SUBIDA**. Su `ReadableStream` sirve para la bajada; para saber cuántos bytes
  * salieron hace falta `xhr.upload.onprogress`, que es lo que ya usa el
- * ads-manager (`NuevaCampanaModal.tsx`, `putWithProgress`).
+ * ads-manager (`app/ads-manager/creativeUpload.ts`, `putWithProgress`).
  *
  * Una barra alimentada por un `fetch` sólo puede ir de 0 a 100 de un salto, que
  * es una barra que miente sobre lo único que promete.

@@ -37,6 +37,11 @@ import {
   objetivoDef, CTA_OPCIONES,
 } from '@/lib/campaign-types';
 import { usdACuenta, esConvertible } from '@/lib/presupuesto-cambio';
+import {
+  subirCreativo, makeThumb, limiteCreativo, esperarVideoListo, motivoFinEspera, postConTope, esperandoAMeta,
+  SIN_RESPUESTA, AVISO_PROCESANDO_RETOMA, AVISO_PROCESANDO_NO_CIERRES,
+} from './creativeUpload';
+import { claveParaPayload, claveIdemGuardada, type ClaveIdem } from '@/lib/meta-idempotencia';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -82,69 +87,21 @@ type TrayItem = {
   id: string; kind: 'upload' | 'existing'; media_type?: 'image' | 'video';
   image_hash?: string | null; video_id?: string | null; thumbnail_url?: string | null;
   source_ad_id?: string | null; label: string; processing?: boolean; progress?: number;
+  /** Mientras Meta procesa el video: el archivo en el staging, para que el server lo
+   *  borre cuando Meta dé su veredicto (GET /api/ads-manager/creative-upload). */
+  staging_path?: string | null;
 };
 
 const fmtUso = (u: Uso) => (!u ? '' : `✦ ${u.tokens >= 1000 ? `${(u.tokens / 1000).toFixed(1)}k` : u.tokens} tok · $${u.costUsd >= 1 ? u.costUsd.toFixed(2) : u.costUsd.toFixed(3)}`);
 
-// PUT del archivo a la URL firmada de Supabase con progreso (multipart + apikey).
-function putWithProgress(url: string, file: File, apikey: string | null, onProgress: (pct: number) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', url);
-    xhr.setRequestHeader('x-upsert', 'true');
-    if (apikey) { xhr.setRequestHeader('apikey', apikey); xhr.setRequestHeader('authorization', `Bearer ${apikey}`); }
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100))); };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) return resolve();
-      let detalle = (xhr.responseText || '').replace(/\s+/g, ' ').slice(0, 200);
-      try { const j = JSON.parse(xhr.responseText); detalle = String(j.message || j.error || detalle); } catch { /* texto plano */ }
-      if (xhr.status === 413 || /too large|maximum allowed size|exceeded/i.test(detalle)) {
-        return reject(new Error('El archivo supera el límite de Supabase Storage. Súbelo en Supabase → Storage → Settings → "Upload file size limit".'));
-      }
-      reject(new Error(`No se pudo subir el archivo (HTTP ${xhr.status})${detalle ? ` — ${detalle}` : ''}`));
-    };
-    xhr.onerror = () => reject(new Error('Error de red al subir el archivo.'));
-    const fd = new FormData();
-    fd.append('cacheControl', '3600');
-    fd.append('', file);
-    xhr.send(fd);
-  });
-}
-
-// Miniatura local (dataURL) de imagen o de un frame del video (para previa + MaKo visión + persistencia).
-function fitCanvas(w: number, h: number) {
-  const max = 240; const scale = Math.min(1, max / Math.max(w || max, h || max));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round((w || max) * scale));
-  canvas.height = Math.max(1, Math.round((h || max) * scale));
-  return { canvas, ctx: canvas.getContext('2d') };
-}
-function makeThumb(file: File): Promise<string | null> {
-  return new Promise((resolve) => {
-    try {
-      if (file.type.startsWith('image')) {
-        const url = URL.createObjectURL(file);
-        const img = new window.Image();
-        img.onload = () => { const { canvas, ctx } = fitCanvas(img.width, img.height); if (!ctx) { URL.revokeObjectURL(url); return resolve(null); } ctx.drawImage(img, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url); try { resolve(canvas.toDataURL('image/jpeg', 0.72)); } catch { resolve(null); } };
-        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
-        img.src = url;
-      } else if (file.type.startsWith('video')) {
-        const url = URL.createObjectURL(file);
-        const v = document.createElement('video');
-        v.muted = true; v.preload = 'metadata'; v.playsInline = true;
-        v.onloadeddata = () => { try { v.currentTime = Math.min(1, (v.duration || 2) / 2); } catch { /* */ } };
-        v.onseeked = () => { const { canvas, ctx } = fitCanvas(v.videoWidth, v.videoHeight); if (!ctx) { URL.revokeObjectURL(url); return resolve(null); } ctx.drawImage(v, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url); try { resolve(canvas.toDataURL('image/jpeg', 0.72)); } catch { resolve(null); } };
-        v.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
-        v.src = url;
-      } else resolve(null);
-    } catch { resolve(null); }
-  });
-}
+// La subida (putWithProgress, makeThumb y el POST a creative-upload) vive en
+// ./creativeUpload.ts. Hasta el 07/10/2026 este modal tenía su propia copia, idéntica
+// salvo un comentario, y las dos escribían `processing: false` sin mirar a Meta (#59).
 
 // ── Borrador local ──
 const DRAFT_KEY = 'mako.nuevaCampana.draft.v2';
-type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; lugares: LugarMeta[]; identidad: Identidad | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
-const draftVacio = (): Draft => ({ step: 'creativos', tray: [], budgetUsd: null, objKey: null, lugares: [], identidad: null, estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null });
+type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; lugares: LugarMeta[]; identidad: Identidad | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso; idem: ClaveIdem | null };
+const draftVacio = (): Draft => ({ step: 'creativos', tray: [], budgetUsd: null, objKey: null, lugares: [], identidad: null, estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null, idem: null });
 function loadDraft(): Draft {
   const vacio = draftVacio();
   if (typeof window === 'undefined') return vacio;
@@ -156,7 +113,15 @@ function loadDraft(): Draft {
     // `paises: ['AR']` es el borrador de antes de que se pudiera elegir cualquier
     // lugar: se convierte en vez de tirarlo, así nadie pierde lo que ya eligió.
     const lugares = lugaresDesdeDraft((d as { lugares?: unknown }).lugares ?? (d as { paises?: unknown }).paises);
-    return { ...vacio, ...d, lugares, step };
+    // Un ítem que quedó «procesando» al cerrar: si ya tiene su video en Meta, la espera se
+    // retoma al abrir (con la tarjeta en 100, no en «0%»); si se cortó antes —sin video_id—
+    // no hay nada que retomar y se descarta. Antes volvía tal cual y la tarjeta quedaba
+    // trabada en «N%» con el paso de creativos apagado hasta que alguien la quitara.
+    const tray = (Array.isArray(d.tray) ? d.tray : [])
+      .filter((t) => !t.processing || !!t.video_id)
+      .map((t) => (t.processing ? { ...t, progress: 100 } : t));
+    // Un borrador de antes de la clave no la trae: se genera al publicar.
+    return { ...vacio, ...d, lugares, step, tray, idem: claveIdemGuardada((d as { idem?: unknown }).idem) };
   } catch { return vacio; }
 }
 
@@ -258,6 +223,15 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   const adsetReqRef = useRef(0);
   const publishingRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // La clave de idempotencia de la publicación (lib/meta-idempotencia.ts). Sale de la
+  // FIRMA de lo que se manda: el mismo payload reusa la clave —un reintento después de un
+  // 504 no crea otra campaña— y uno distinto (recortado, editado, regenerado) trae otra.
+  // En «Nueva campaña» viaja en el borrador; en el modo existente vive mientras el modal.
+  const [idem, setIdem] = useState<ClaveIdem | null>(d0.idem ?? null);
+  // Los videos que Meta todavía procesa: id del ítem → su espera. Quitar el ítem o cerrar
+  // el modal la corta.
+  const siguiendo = useRef(new Map<string, AbortController>());
+  const quitados = useRef(new Set<string>());
 
   // públicos personalizados (retargeting) + formularios — carga perezosa.
   const [audiencesAll, setAudiencesAll] = useState<AudienceItem[] | null>(null);
@@ -384,9 +358,17 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   useEffect(() => {
     try {
       if (existente || step === 'listo') return;
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso }));
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso, idem }));
     } catch { /* quota */ }
-  }, [step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso]);
+  }, [step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso, idem]);
+
+  // Un video que quedó procesándose en el borrador retoma su espera al abrir; y cerrar el
+  // modal corta todas (el video sigue en Meta y se retoma la próxima vez).
+  useEffect(() => {
+    for (const t of d0.tray) if (t.processing && t.video_id) seguirProcesando(t.id, t.video_id, t.staging_path ?? null, t.label);
+    const esperas = siguiendo.current;
+    return () => { for (const c of esperas.values()) c.abort(); esperas.clear(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const usables = () => tray.filter((t) => !t.processing && (t.image_hash || t.video_id || t.source_ad_id));
 
@@ -457,31 +439,52 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
 
   // ── subir creativo ──
   async function subir(file: File) {
+    // El tope se mira ANTES de agregar la tarjeta: una que aparece y desaparece se lee
+    // como una subida que falló.
+    const tope = limiteCreativo(file);
+    if (tope) { setErr(tope); return; }
     const esVideo = file.type.startsWith('video');
-    const maxMb = esVideo ? 512 : 30;
-    if (file.size > maxMb * 1024 * 1024) { setErr(`"${file.name}" supera el máximo (${maxMb} MB).`); return; }
     const id = `up-${++trayCounter.current}`;
     const pend: TrayItem = { id, kind: 'upload', media_type: esVideo ? 'video' : 'image', label: file.name, processing: true, progress: 0, thumbnail_url: null };
     setTray((t) => [...t, pend]);
     makeThumb(file).then((dt) => { if (dt) setTray((t) => t.map((x) => x.id === id ? { ...x, thumbnail_url: x.thumbnail_url ?? dt } : x)); });
     try {
-      const s = await fetch('/api/ads-manager/creative-signurl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, content_type: file.type }) });
-      const sj = await s.json();
-      if (!sj.ok) throw new Error(sj.error || 'No se pudo preparar la subida');
-      await putWithProgress(sj.signedUrl, file, sj.apikey ?? null, (pct) => setTray((t) => t.map((x) => x.id === id ? { ...x, progress: pct } : x)));
-      setTray((t) => t.map((x) => x.id === id ? { ...x, progress: 100 } : x));
-      const r = await fetch('/api/ads-manager/creative-upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: sj.path, content_type: file.type, filename: file.name }) });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'No se pudo procesar el creativo');
-      setTray((t) => t.map((x) => x.id === id ? { ...x, media_type: j.media_type, image_hash: j.image_hash ?? null, video_id: j.video_id ?? null, thumbnail_url: x.thumbnail_url ?? j.thumbnail_url ?? null, processing: false, progress: undefined } : x));
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setTray((t) => t.filter((x) => x.id !== id)); }
+      const r = await subirCreativo(file, (pct) => setTray((t) => t.map((x) => x.id === id ? { ...x, progress: pct } : x)));
+      if (quitados.current.has(id)) return;
+      // `processing` es lo que dijo Meta, NUNCA un false escrito a mano (tarea #59). Y
+      // mientras Meta procesa, progress queda en 100: con undefined la tarjeta dice «0%».
+      setTray((t) => t.map((x) => x.id === id ? { ...x, media_type: r.media_type, image_hash: r.image_hash, video_id: r.video_id, thumbnail_url: x.thumbnail_url ?? r.thumbnail_url, processing: r.processing, progress: r.processing ? 100 : undefined, staging_path: r.processing ? r.path : null } : x));
+      if (r.processing && r.video_id) seguirProcesando(id, r.video_id, r.path, file.name);
+    } catch (e) {
+      if (quitados.current.has(id)) return;
+      setErr(e instanceof Error ? e.message : String(e)); setTray((t) => t.filter((x) => x.id !== id));
+    }
+  }
+  // Pregunta a Meta hasta que el video esté listo. Un video procesándose no es usable
+  // (usables() lo deja afuera) y el paso de creativos no avanza mientras haya uno.
+  function seguirProcesando(id: string, videoId: string, path: string | null, nombre: string) {
+    if (siguiendo.current.has(id)) return;
+    const ctl = new AbortController();
+    siguiendo.current.set(id, ctl);
+    esperarVideoListo(videoId, path, { signal: ctl.signal }).then((fin) => {
+      if (siguiendo.current.get(id) === ctl) siguiendo.current.delete(id);
+      if (fin === 'cancelado' || quitados.current.has(id)) return;
+      if (fin === 'ready') { setTray((t) => t.map((x) => x.id === id ? { ...x, processing: false, progress: undefined, staging_path: null } : x)); return; }
+      setTray((t) => t.filter((x) => x.id !== id));
+      setErr(motivoFinEspera(fin, nombre));
+    });
   }
   function agregarGanador(s: SenalRecon) {
     if (ganadoresBloqueados?.[s.ad_id]) return;
     if (tray.some((t) => t.source_ad_id === s.ad_id)) return;
     setTray((t) => [...t, { id: `win-${s.ad_id}`, kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url, label: s.ad_name }]);
   }
-  const quitar = (id: string) => setTray((t) => t.filter((x) => x.id !== id));
+  const quitar = (id: string) => {
+    quitados.current.add(id);
+    siguiendo.current.get(id)?.abort();
+    siguiendo.current.delete(id);
+    setTray((t) => t.filter((x) => x.id !== id));
+  };
 
   // ── crear un público personalizado sin salir de la app ──
   async function crearPublico(tipo: AudTipo, dias: number, evento?: string) {
@@ -675,15 +678,17 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
           // El ganador reusado viaja mínimo (source + source_ad_id), igual que el "+ anuncio" de la tabla.
           creative: ad.creative.source === 'existing' ? ({ source: 'existing', source_ad_id: ad.creative.source_ad_id ?? null } as Creative) : ad.creative,
         }));
-        const r = await fetch('/api/ads-manager/ad-add', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adset_id: adsetSel?.id, campaign_id: campSel?.id ?? null, campaign_name: campSel?.name ?? null, campaign_objective: campSel?.objective ?? null, adset_name: adsetSel?.name ?? null, ads, prompt: promptExistente(analisis), uso }),
-        });
-        // Sin JSON (timeout de la plataforma a mitad de lote): no sabemos cuántos entraron.
-        const j = await r.json().catch(() => null);
-        if (!j) throw new Error('El servidor no respondió (puede haberse cortado a mitad del lote). Mira en la tabla cuáles anuncios ya se crearon antes de reintentar, para no duplicarlos.');
+        // La clave sale del lote que se manda: después de un parcial el spec se RECORTA
+        // (más abajo) y el próximo clic trae otra clave. Con la misma, el server contestaría
+        // «creados N» desde la fila vieja y se recortarían N anuncios que nunca se crearon.
+        const k = claveParaPayload(idem, { adset_id: adsetSel?.id ?? null, ads });
+        setIdem(k);
+        // Sin JSON (timeout de la plataforma a mitad de lote): no sabemos cuántos entraron,
+        // pero el server sí. El mismo clic con la misma clave contesta cuántos entraron.
+        const j = await postConTope('/api/ads-manager/ad-add', { adset_id: adsetSel?.id, campaign_id: campSel?.id ?? null, campaign_name: campSel?.name ?? null, campaign_objective: campSel?.objective ?? null, adset_name: adsetSel?.name ?? null, ads, prompt: promptExistente(analisis), uso, idem_key: k.clave });
+        if (!j) throw new Error(SIN_RESPUESTA);
         if (!j.ok) {
-          const base = j.error || 'No se pudieron agregar los anuncios';
+          const base = String(j.error || 'No se pudieron agregar los anuncios');
           const creados = Number(j.created ?? 0);
           if (creados > 0) {
             // Sacamos del spec los que SÍ entraron: reintentar agrega solo los que faltan.
@@ -701,11 +706,16 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
         chequearAprobacion(j.ad_ids ?? [], campSel?.name ?? '');
         return;
       }
-      const r = await fetch('/api/ads-manager/campaign-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spec, prompt: promptDeRespuestas(analisis), uso }) });
-      const j = await r.json();
+      // La clave viaja en el borrador: si la respuesta se pierde (504, pestaña cerrada) y se
+      // reabre en «revisión», el mismo spec trae la misma clave y el server contesta la
+      // campaña que ya creó. Editar o regenerar el spec es otra publicación: otra clave.
+      const k = claveParaPayload(idem, { spec });
+      setIdem(k);
+      const j = await postConTope('/api/ads-manager/campaign-create', { spec, prompt: promptDeRespuestas(analisis), uso, idem_key: k.clave });
+      if (!j) throw new Error(SIN_RESPUESTA);
       if (!j.ok) throw new Error(j.error || 'No se pudo publicar');
       try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
-      setResult({ campaign_id: j.campaign_id, ads: (j.ad_ids ?? []).length });
+      setResult({ campaign_id: String(j.campaign_id ?? ''), ads: (j.ad_ids ?? []).length });
       if (producto) {
         const a = await asignarCampanaAction(funnelDeValor(producto), { tipo: 'campana', id: String(j.campaign_id), nombre: spec.name }, false).catch(() => null);
         if (!a?.ok) setAvisoProducto('No quedó asignada al producto: hazlo desde la tabla.');
@@ -778,7 +788,8 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
 
           {step === 'creativos' && (
             <Paso titulo="¿Qué vas a promocionar?" sub="Sube tus imágenes o videos, o reusa un anuncio que ya te funciona. Puedes cargar varios.">
-              <CreativosPicker tray={tray} onQuitar={quitar} senales={senales} onGanador={agregarGanador} fileRef={fileRef} bloqueados={ganadoresBloqueados ?? {}} />
+              <CreativosPicker tray={tray} onQuitar={quitar} senales={senales} onGanador={agregarGanador} fileRef={fileRef} bloqueados={ganadoresBloqueados ?? {}}
+                aviso={existente ? AVISO_PROCESANDO_NO_CIERRES : AVISO_PROCESANDO_RETOMA} />
             </Paso>
           )}
 
@@ -1082,7 +1093,7 @@ function Inversion({ value, onChange, currency }: { value: number | null; onChan
 }
 
 // ── creativos ──
-function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef, bloqueados }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; fileRef: React.RefObject<HTMLInputElement | null>; bloqueados: Record<string, string> }) {
+function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef, bloqueados, aviso }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; fileRef: React.RefObject<HTMLInputElement | null>; bloqueados: Record<string, string>; aviso: string }) {
   const [verGanadores, setVerGanadores] = useState(false);
   // Los que se pueden reusar van PRIMERO (lib/ganadores-reuso.ts): en ws13 los que más
   // gastaron son de otra página y tapaban a los únicos publicables.
@@ -1109,6 +1120,7 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef, bloquead
           ))}
         </div>
       )}
+      {tray.some(esperandoAMeta) && <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5, maxWidth: 420 }}>{aviso}</p>}
       <div style={{ display: 'flex', gap: 10 }}>
         <button type="button" onClick={() => fileRef.current?.click()} style={btnDark}>⬆ Subir creativo</button>
         <button type="button" onClick={() => setVerGanadores((v) => !v)} style={btnGhost}>★ Usar un ganador</button>

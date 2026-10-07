@@ -183,4 +183,11 @@ export type UploadResult = {
   width?: number | null;
   height?: number | null;
   filename?: string | null;
+  /**
+   * Sólo video: true mientras Meta lo procesa, y el creativo NO se puede usar todavía.
+   * La ruta lo devolvía desde siempre y el cliente lo descartaba (tarea #59): por eso un
+   * video sin procesar entraba a la bandeja como listo. Ver app/ads-manager/creativeUpload.ts.
+   */
+  processing?: boolean;
+  video_status?: 'ready' | 'processing' | 'error';
 };

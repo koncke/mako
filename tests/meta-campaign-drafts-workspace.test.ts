@@ -18,7 +18,13 @@ import { join } from 'node:path';
 
 const leer = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace(/\r/g, '');
 
-for (const ruta of ['app/api/ads-manager/campaign-create/route.ts', 'app/api/ads-manager/ad-add/route.ts']) {
+// adset-add se sumó el 07/10/2026 (tarea #59): hasta ahí no dejaba registro, y un corte
+// con un segundo clic dejaba dos conjuntos sin que nada lo supiera. El modo simple de
+// ad-add también registra desde ese día; su insert es el PRIMERO del archivo, así que es
+// el que este test lee de ad-add.
+//   ROTO A PROPÓSITO (07/10/2026): sacando `workspace_id: wsDraft,` del insert de
+//   adset-add, pass 3 / fail 1 — el de adset-add.
+for (const ruta of ['app/api/ads-manager/campaign-create/route.ts', 'app/api/ads-manager/ad-add/route.ts', 'app/api/ads-manager/adset-add/route.ts']) {
   test(`${ruta}: el registro de la campaña lleva el workspace, y el update filtra por él`, () => {
     const src = leer(ruta);
     const insert = src.slice(src.indexOf(".from('meta_campaign_drafts').insert("));

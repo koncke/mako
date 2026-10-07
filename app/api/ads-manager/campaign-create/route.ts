@@ -1,34 +1,53 @@
 // =============================================================================
 // POST /api/ads-manager/campaign-create — crea el árbol en Meta (TODO en PAUSA)
 // =============================================================================
-// { spec, prompt?, uso? } → crea campaña → conjuntos → creativos → anuncios, todo
-// con status PAUSED. Persiste un registro local (meta_campaign_drafts) y rellena
-// los ids de Meta a medida que avanza (idempotencia + para verlos sin esperar al
-// cron). Mismo manejo de errores que /api/meta-write: Meta manda errores con HTTP
-// 200, subcode 4841013 ("Permisos") → 403, y el envelope {ok,code,error_subcode}.
-// Activar la campaña se hace después con el toggle de la tabla (op:'status').
+// { spec, prompt?, uso?, idem_key? } → crea campaña → conjuntos → creativos →
+// anuncios, todo con status PAUSED. Persiste un registro local (meta_campaign_drafts)
+// y rellena los ids de Meta a medida que avanza (para verlos sin esperar al cron, y
+// para que un reintento sepa qué quedó). Mismo manejo de errores que /api/meta-write:
+// Meta manda errores con HTTP 200, subcode 4841013 ("Permisos") → 403, y el envelope
+// {ok,code,error_subcode}. Activar la campaña se hace después con el toggle de la
+// tabla (op:'status').
+//
+// IDEMPOTENCIA (tarea #59): con `idem_key` el registro se abre ESTRICTO antes de crear
+// nada, y un pedido con una clave que ya se usó contesta desde esa fila — la campaña que
+// ya se creó, «espera» o «quedó a medias» — en vez de crear otra. Las reglas, en
+// lib/meta-idempotencia.ts. Sin `idem_key`, el camino de siempre (best-effort).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, identidadesMeta } from '@/lib/meta-ads-create';
+import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, identidadesMeta, videosSinProcesar } from '@/lib/meta-ads-create';
 import { validarIdentidad } from '@/lib/meta-identidad';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { guardAdsWs } from '@/lib/ads-guard';
 import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { motivoVideos, videosDeCampana } from '@/lib/campana-videos';
+import { abrirRegistro, claveIdemDe, decidirReintentoCampana, salidaAMedias, salidaEsperar, type Decision, type FilaPublicacion, type Salida } from '@/lib/meta-idempotencia';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
+/** Qué se contesta cuando la clave ya se usó (y no se puede reintentar). */
+function responderCampana(d: Decision, fila: FilaPublicacion): Salida {
+  if (d.tipo === 'devolver') {
+    return { status: 200, cuerpo: { ok: true, repetida: true, campaign_id: fila.meta_campaign_id, adset_ids: fila.meta_adset_ids, ad_ids: fila.meta_ad_ids, creative_ids: fila.meta_creative_ids } };
+  }
+  if (d.tipo === 'a-medias') return salidaAMedias({ campaign_id: fila.meta_campaign_id });
+  return salidaEsperar();
+}
+
 export async function POST(req: NextRequest) {
-  // Fase 1: crear campañas escribe en la cuenta de Meta global del dueño.
-  // Mismo predicado que sus 10 hermanas, y ahora también el mismo TEXTO (lib/ads-guard.ts).
+  // Crea en la cuenta de Meta DEL workspace (lib/meta-ads-create.ts: cred() por workspace).
+  // Mismo predicado que sus hermanas, y el mismo TEXTO (lib/ads-guard.ts).
   const no = await guardAdsWs(); if (no) return no;
 
-  let body: { spec?: CampaignSpec; prompt?: string; uso?: unknown };
+  let body: { spec?: CampaignSpec; prompt?: string; uso?: unknown; idem_key?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+  const idem = claveIdemDe(body.idem_key);
+  if (!idem.ok) return Response.json({ ok: false, error: 'idem_key inválida' }, { status: 400 });
 
   const spec = body.spec;
   if (!spec || !Array.isArray(spec.adsets) || spec.adsets.length === 0) {
@@ -59,7 +78,14 @@ export async function POST(req: NextRequest) {
     if (needsPixel) return Response.json({ ok: false, error: 'Optimizar por una conversión web por EVENTO del pixel requiere META_PIXEL_ID configurado. Configúralo, elige una conversión personalizada, o usa Leads con formulario / Tráfico.' }, { status: 400 });
   }
 
-  // Registro local (best-effort): si la DB no está, igual creamos en Meta.
+  // Los videos, ANTES de crear nada (tarea #59): sin procesar, Meta rechaza el CREATIVO,
+  // o sea con la campaña y el conjunto ya creados, y todo termina en rollback. Sólo cortan
+  // 'processing' y 'error' explícitos; si Meta no contesta, se sigue (lib/campana-videos.ts).
+  const motivo = motivoVideos(await videosSinProcesar(videosDeCampana(spec)).catch(() => null));
+  if (motivo) return Response.json({ ok: false, estado: 'videos', error: motivo }, { status: 409 });
+
+  // Registro local. Sin clave, best-effort: si la DB no está, igual creamos en Meta. Con
+  // clave, estricto: sin registro no hay cómo deduplicar el reintento, así que no se crea.
   let supabase: SupabaseClient | null = null;
   try { supabase = getSupabaseServer(); } catch { supabase = null; }
 // ⚠️ meta_campaign_drafts es POR CLIENTE (mig 0157) y la columna no tiene default a
@@ -67,17 +93,22 @@ export async function POST(req: NextRequest) {
 // crea lib/meta-ads-create.ts (`getWorkspaceActual() ?? OWNER_WS`). Sin esto el insert
 // falla por not null — y como es best-effort, no quedaría ningún registro.
   const wsDraft = (await getWorkspaceActual()) ?? OWNER_WS;
-  let draftId: number | null = null;
-  if (supabase) {
-    try {
-      const { data } = await supabase.from('meta_campaign_drafts').insert({
-        workspace_id: wsDraft,
-        name: spec.name, objective: spec.objective, status: 'creando',
-        spec, rationale: spec.rationale ?? null, prompt: body.prompt ?? null, uso: body.uso ?? null,
-      }).select('id').single();
-      draftId = (data as { id?: number } | null)?.id ?? null;
-    } catch { /* noop */ }
-  }
+  const apertura = await abrirRegistro({
+    db: supabase, ws: wsDraft, clave: idem.clave, decidir: decidirReintentoCampana, responder: responderCampana,
+    insertar: (db, conClave) => db.from('meta_campaign_drafts').insert({
+      workspace_id: wsDraft,
+      name: spec.name, objective: spec.objective, status: 'creando',
+      spec, rationale: spec.rationale ?? null, prompt: body.prompt ?? null, uso: body.uso ?? null,
+      ...(conClave ? { idem_key: idem.clave } : {}),
+    }).select('id').single(),
+    // Reintentar una fila que terminó revertida: la misma fila, con lo que llega ahora.
+    reclamo: {
+      name: spec.name, objective: spec.objective, spec, rationale: spec.rationale ?? null, prompt: body.prompt ?? null, uso: body.uso ?? null,
+      meta_campaign_id: null, meta_adset_ids: [], meta_ad_ids: [], meta_creative_ids: [],
+    },
+  });
+  if ('salida' in apertura) return Response.json(apertura.salida.cuerpo, { status: apertura.salida.status });
+  const draftId = apertura.registro.draftId;
   const persist = async (patch: Record<string, unknown>) => {
     if (!supabase || draftId == null) return;
     try { await supabase.from('meta_campaign_drafts').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', draftId).eq('workspace_id', wsDraft); } catch { /* noop */ }

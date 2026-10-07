@@ -2,20 +2,32 @@
 // /api/ads-manager/ad-add — agregar anuncios a un conjunto existente (PAUSA)
 // =============================================================================
 // GET  ?adset_id=<id>              → { name, optimization_goal, needsForm }
-// POST { adset_id, creative, name} → crea el creativo + el anuncio (PAUSED)
+// POST { adset_id, creative, name, idem_key? } → crea el creativo + el anuncio (PAUSED)
 // POST { adset_id, ads: [{name, creative}], campaign_id?, campaign_name?,
-//        adset_name?, prompt?, uso? }
+//        adset_name?, prompt?, uso?, idem_key? }
 //   → lote del wizard "Subir creativos a una campaña": crea los anuncios en orden
 //     (PAUSED) y persiste el registro en meta_campaign_drafts vinculado a la
 //     campaña (meta_campaign_id). Si Meta rechaza a mitad de camino NO se revierte
 //     (los ya creados están en pausa y no gastan): se devuelve `created` con
 //     cuántos entraron para que la UI lo diga tal cual.
+//
+// IDEMPOTENCIA (tarea #59), en los DOS modos: con `idem_key`, una clave ya usada
+// contesta desde su fila en vez de volver a crear. La regla es la del LOTE
+// (lib/meta-idempotencia.ts): acá `meta_campaign_id` es la campaña que ya existía, así
+// que lo que cuenta es cuántos anuncios entraron. El modo simple no dejaba ningún
+// registro; ahora deja uno, como el lote.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getAdsetForAdd, addAdToAdset, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { getAdsetForAdd, addAdToAdset, metaErrorEnvelope, videosSinProcesar } from '@/lib/meta-ads-create';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
+import { guardAdsWs } from '@/lib/ads-guard';
+import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import type { Creative } from '@/lib/campaign-types';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { motivoVideos, videosDeCreativos } from '@/lib/campana-videos';
+import { abrirRegistro, claveIdemDe, decidirReintentoLote, salidaAMedias, salidaEsperar, type Decision, type FilaPublicacion, type Salida } from '@/lib/meta-idempotencia';
 
 /**
  * El rechazo de Meta explicado (lib/meta-publicar-errores.ts): la misma traducción que
@@ -26,10 +38,6 @@ async function mensajeDe(env: { message: string; error_subcode?: number }, creat
   const reusaGanador = creativos.some((c) => c?.source === 'existing');
   return explicarRechazoPublicacion(env.error_subcode, { reusaGanador }) ?? env.message;
 }
-import { guardAdsWs } from '@/lib/ads-guard';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
-import type { Creative } from '@/lib/campaign-types';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -55,6 +63,7 @@ type Body = {
   // modo lote (wizard "Subir creativos a una campaña")
   ads?: BatchAd[]; campaign_id?: string | null; campaign_name?: string | null; campaign_objective?: string | null; adset_name?: string | null;
   prompt?: string; uso?: unknown;
+  idem_key?: unknown;
 };
 
 // Un ganador reusado viaja con su ad id; validarlo acá evita que un id armado
@@ -66,26 +75,88 @@ function creativoInvalido(c: Creative): string | null {
   return null;
 }
 
+/** El modo simple es UN anuncio: si la fila ya tiene su anuncio, ése es el resultado
+ *  (aunque haya quedado en 'error' por un corte después de crearlo). */
+function responderSimple(d: Decision, fila: FilaPublicacion): Salida {
+  if (d.tipo === 'devolver' || (d.tipo === 'a-medias' && fila.meta_ad_ids.length > 0)) {
+    return { status: 200, cuerpo: { ok: true, repetida: true, ad_id: fila.meta_ad_ids[0] ?? null, creative_id: fila.meta_creative_ids[0] ?? null } };
+  }
+  if (d.tipo === 'a-medias') return salidaAMedias();
+  return salidaEsperar();
+}
+
+/** El lote: 'a-medias' con la misma forma que un parcial con respuesta (`created`), así el
+ *  cliente recorta los que entraron y reintenta sólo el resto — con otra clave. */
+function responderLote(d: Decision, fila: FilaPublicacion): Salida {
+  if (d.tipo === 'devolver') return { status: 200, cuerpo: { ok: true, repetida: true, ad_ids: fila.meta_ad_ids, creative_ids: fila.meta_creative_ids } };
+  if (d.tipo === 'a-medias') {
+    return d.creados > 0
+      ? salidaAMedias({ error: 'Se cortó a mitad del lote.', created: d.creados, ad_ids: fila.meta_ad_ids, creative_ids: fila.meta_creative_ids })
+      : salidaAMedias();
+  }
+  return salidaEsperar();
+}
+
+const sinProcesar = async (creativos: Array<Creative | undefined>): Promise<string | null> =>
+  motivoVideos(await videosSinProcesar(videosDeCreativos(creativos)).catch(() => null));
+
 export async function POST(req: NextRequest) {
   const no = await guardAdsWs(); if (no) return no;
   let body: Body;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const adsetId = String(body.adset_id ?? '');
   if (!/^\d+$/.test(adsetId)) return Response.json({ ok: false, error: 'adset_id inválido' }, { status: 400 });
+  const idem = claveIdemDe(body.idem_key);
+  if (!idem.ok) return Response.json({ ok: false, error: 'idem_key inválida' }, { status: 400 });
 
-  // ── modo simple (compatibilidad: un creativo, un anuncio) ──
+  // Registro local (best-effort sin clave, estricto con clave, como campaign-create): la
+  // campaña ya existe en Meta, acá solo se anota QUÉ anuncios le agregó MaKo.
+  let supabase: SupabaseClient | null = null;
+  try { supabase = getSupabaseServer(); } catch { supabase = null; }
+// ⚠️ meta_campaign_drafts es POR CLIENTE (mig 0157) y la columna no tiene default a
+// propósito: se escribe el workspace explícito, el MISMO sobre cuya cuenta de Meta
+// crea lib/meta-ads-create.ts (`getWorkspaceActual() ?? OWNER_WS`). Sin esto el insert
+// falla por not null — y como es best-effort, no quedaría ningún registro.
+  const wsDraft = (await getWorkspaceActual()) ?? OWNER_WS;
+  const campaignId = body.campaign_id && /^\d+$/.test(String(body.campaign_id)) ? String(body.campaign_id) : null;
+
+  // ── modo simple (AgregarAnuncioModal: un creativo, un anuncio) ──
   if (!Array.isArray(body.ads)) {
     if (!body.creative || typeof body.creative !== 'object') return Response.json({ ok: false, error: 'falta el creativo' }, { status: 400 });
-    const inv = creativoInvalido(body.creative);
+    const creative = body.creative;
+    const inv = creativoInvalido(creative);
     if (inv) return Response.json({ ok: false, error: inv }, { status: 400 });
     const name = (body.name ?? '').trim() || 'Anuncio nuevo';
+    // El video, ANTES de crear nada (tarea #59).
+    const motivo = await sinProcesar([creative]);
+    if (motivo) return Response.json({ ok: false, estado: 'videos', error: motivo }, { status: 409 });
+    const apertura = await abrirRegistro({
+      db: supabase, ws: wsDraft, clave: idem.clave, decidir: decidirReintentoLote, responder: responderSimple,
+      insertar: (db, conClave) => db.from('meta_campaign_drafts').insert({
+        workspace_id: wsDraft,
+        name: `${name} — +1 anuncio`, status: 'creando',
+        spec: { adsets: [{ ads: [{ name, creative }] }] },
+        meta_campaign_id: campaignId, meta_adset_ids: [adsetId],
+        ...(conClave ? { idem_key: idem.clave } : {}),
+      }).select('id').single(),
+      reclamo: { name: `${name} — +1 anuncio`, spec: { adsets: [{ ads: [{ name, creative }] }] }, meta_ad_ids: [], meta_creative_ids: [] },
+    });
+    if ('salida' in apertura) return Response.json(apertura.salida.cuerpo, { status: apertura.salida.status });
+    const draftId = apertura.registro.draftId;
+    const persist = async (patch: Record<string, unknown>) => {
+      if (!supabase || draftId == null) return;
+      try { await supabase.from('meta_campaign_drafts').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', draftId).eq('workspace_id', wsDraft); } catch { /* noop */ }
+    };
     try {
-      const r = await addAdToAdset(adsetId, body.creative, name);
+      const r = await addAdToAdset(adsetId, creative, name);
+      await persist({ status: 'publicada', error: null, meta_ad_ids: [r.ad_id], meta_creative_ids: [r.creative_id] });
       return Response.json({ ok: true, ...r });
     } catch (err) {
       const env = metaErrorEnvelope(err);
+      const mensaje = await mensajeDe(env, [creative]);
+      await persist({ status: 'error', error: mensaje });
       console.error(`[ads-manager:ad-add POST] ${env.message} (subcode ${env.error_subcode ?? '-'})`);
-      return Response.json({ ok: false, error: await mensajeDe(env, [body.creative]), code: env.code, error_subcode: env.error_subcode }, { status: env.status });
+      return Response.json({ ok: false, error: mensaje, code: env.code, error_subcode: env.error_subcode }, { status: env.status });
     }
   }
 
@@ -98,33 +169,30 @@ export async function POST(req: NextRequest) {
     const inv = creativoInvalido(a.creative as Creative);
     if (inv) return Response.json({ ok: false, error: inv }, { status: 400 });
   }
-  const campaignId = body.campaign_id && /^\d+$/.test(String(body.campaign_id)) ? String(body.campaign_id) : null;
+  // Los videos, ANTES de crear el primero (tarea #59): un lote no se revierte, así que un
+  // video sin procesar en el puesto 4 dejaba tres anuncios creados y el resto afuera.
+  const motivo = await sinProcesar(ads.map((a) => a.creative));
+  if (motivo) return Response.json({ ok: false, estado: 'videos', error: motivo }, { status: 409 });
 
-  // Registro local (best-effort, como campaign-create): la campaña ya existe en Meta,
-  // acá solo se anota QUÉ anuncios le agregó MaKo, vinculados por meta_campaign_id.
-  let supabase: SupabaseClient | null = null;
-  try { supabase = getSupabaseServer(); } catch { supabase = null; }
-// ⚠️ meta_campaign_drafts es POR CLIENTE (mig 0157) y la columna no tiene default a
-// propósito: se escribe el workspace explícito, el MISMO sobre cuya cuenta de Meta
-// crea lib/meta-ads-create.ts (`getWorkspaceActual() ?? OWNER_WS`). Sin esto el insert
-// falla por not null — y como es best-effort, no quedaría ningún registro.
-  const wsDraft = (await getWorkspaceActual()) ?? OWNER_WS;
-  let draftId: number | null = null;
-  if (supabase) {
-    try {
-      const { data } = await supabase.from('meta_campaign_drafts').insert({
-        workspace_id: wsDraft,
-        name: `${(body.campaign_name ?? '').trim() || 'Campaña existente'} — +${ads.length} anuncio${ads.length === 1 ? '' : 's'}`,
-        status: 'creando',
-        // objective real de la campaña destino (si el cliente lo sabe); si no, el default de la tabla
-        ...(typeof body.campaign_objective === 'string' && body.campaign_objective ? { objective: body.campaign_objective.slice(0, 40) } : {}),
-        spec: { name: body.campaign_name ?? null, adsets: [{ name: body.adset_name ?? null, ads }] },
-        prompt: body.prompt ?? null, uso: body.uso ?? null,
-        meta_campaign_id: campaignId, meta_adset_ids: [adsetId],
-      }).select('id').single();
-      draftId = (data as { id?: number } | null)?.id ?? null;
-    } catch { /* noop */ }
-  }
+  const nombreLote = `${(body.campaign_name ?? '').trim() || 'Campaña existente'} — +${ads.length} anuncio${ads.length === 1 ? '' : 's'}`;
+  const specLote = { name: body.campaign_name ?? null, adsets: [{ name: body.adset_name ?? null, ads }] };
+  const apertura = await abrirRegistro({
+    db: supabase, ws: wsDraft, clave: idem.clave, decidir: decidirReintentoLote, responder: responderLote,
+    insertar: (db, conClave) => db.from('meta_campaign_drafts').insert({
+      workspace_id: wsDraft,
+      name: nombreLote,
+      status: 'creando',
+      // objective real de la campaña destino (si el cliente lo sabe); si no, el default de la tabla
+      ...(typeof body.campaign_objective === 'string' && body.campaign_objective ? { objective: body.campaign_objective.slice(0, 40) } : {}),
+      spec: specLote,
+      prompt: body.prompt ?? null, uso: body.uso ?? null,
+      meta_campaign_id: campaignId, meta_adset_ids: [adsetId],
+      ...(conClave ? { idem_key: idem.clave } : {}),
+    }).select('id').single(),
+    reclamo: { name: nombreLote, spec: specLote, prompt: body.prompt ?? null, uso: body.uso ?? null, meta_ad_ids: [], meta_creative_ids: [] },
+  });
+  if ('salida' in apertura) return Response.json(apertura.salida.cuerpo, { status: apertura.salida.status });
+  const draftId = apertura.registro.draftId;
   const persist = async (patch: Record<string, unknown>) => {
     if (!supabase || draftId == null) return;
     try { await supabase.from('meta_campaign_drafts').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', draftId).eq('workspace_id', wsDraft); } catch { /* noop */ }
@@ -133,7 +201,8 @@ export async function POST(req: NextRequest) {
   const ad_ids: string[] = [];
   const creative_ids: string[] = [];
   try {
-    // Secuencial a propósito: no chocar con el rate-limit de escritura de Meta.
+    // Secuencial a propósito: no chocar con el rate-limit de escritura de Meta. Y cada
+    // anuncio se anota apenas entra: es lo que un reintento usa para saber cuántos hay.
     for (let i = 0; i < ads.length; i++) {
       const name = (ads[i].name ?? '').trim() || `Anuncio ${i + 1}`;
       const r = await addAdToAdset(adsetId, ads[i].creative as Creative, name);

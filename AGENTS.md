@@ -966,7 +966,7 @@ sobre un límite físico de 1.
 
 **2. `fetch` NO expone el progreso de SUBIDA.** Su `ReadableStream` sirve para la
 bajada. Para saber cuántos bytes salieron hace falta `xhr.upload.onprogress`
-(molde: `putWithProgress` en `app/ads-manager/NuevaCampanaModal.tsx`). Una barra
+(molde: `putWithProgress` en `app/ads-manager/creativeUpload.ts`). Una barra
 alimentada por un `fetch` sólo puede saltar de 0 a 100: miente sobre lo único que
 promete.
 
@@ -4254,6 +4254,24 @@ despedida— y el clic manda B. Es «un canal propone y una persona confirma» r
   `23505` de dos escrituras en paralelo se resuelve con una vuelta más, no pisando.
 - **La alternativa, si la fila tiene que conservar el id**: que el cliente mande lo que vio (el
   texto o su `updated_at`) y el claim lo exija en el `WHERE`.
+
+# Una clave de idempotencia sale de la FIRMA de lo que se manda, y cambia cuando eso cambia
+
+Lo que crea algo afuera y puede perder su respuesta —publicar en Meta, mandar, cobrar— lleva
+una clave que el server guarda ANTES de crear, y un pedido con una clave ya usada contesta desde
+esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (un 504 a los
+300 s, la pestaña cerrada) con el borrador intacto, que se vuelve a mandar igual.
+
+- **Mismo payload → misma clave; payload distinto → otra.** Después de un parcial conocido el
+  cliente RECORTA lo que ya entró y reintenta; con la misma clave, el server contestaría «creados
+  N» desde la fila vieja y el cliente recortaría N más que nunca se crearon. Molde:
+  `claveParaPayload` (lib/meta-idempotencia.ts), que compara la firma y no un evento de la pantalla.
+- **La regla de reintento depende de quién escribió la fila**, y puede haber dos para la misma
+  tabla: en una campaña `meta_campaign_id` es lo que ESE pedido creó; en un lote es la campaña que
+  ya existía. Aplicar la de la campaña al lote deja trabado para siempre un lote que no creó nada.
+- **Con clave, el registro es estricto** (sin base, no se crea nada: sin fila no hay cómo
+  deduplicar), **y se abre DESPUÉS de los chequeos que pueden cortar**: una fila en 'creando'
+  dejada por un 409 hace esperar al reintento legítimo.
 
 # La cosecha: lo que aprende un subagente no vuelve solo
 
