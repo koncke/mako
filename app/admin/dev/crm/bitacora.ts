@@ -1086,5 +1086,56 @@ export const BITACORA: Hito[] = [
       "app/crm/lead-view/ProductoDelLead.tsx — el desplegable de la ficha",
       "lib/lead-desenlace.ts — cuándo se toca la venta al guardar"
     ]
+  },
+  {
+    "fecha": "7 oct",
+    "hora": "20:19",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Las respuestas del formulario de Meta, para los clientes de Código Inmobiliario",
+    "pedido": "Ya está la implementación de \"Resumen de lo completado en el formulario.\"\nQue necesitan Codigo Inmobiliarios para sus clientes? Que NO tienen Landing, sino que corren ads a formulario de Meta... Poder visualizar las rptas de ese form en el detail del lead?",
+    "puntos": []
+  },
+  {
+    "fecha": "7 oct",
+    "hora": "20:23",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Hacer las tres, con el WhatsApp apagado",
+    "pedido": "Hacé las 3, el whatsapp dejalo como borrador, no activado en chatbot",
+    "puntos": []
+  },
+  {
+    "fecha": "7 oct",
+    "hora": "20:44",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Lo que contestó en el formulario de Meta: en el pop-up, legible, y su WhatsApp nace apagado",
+    "puntos": [
+      "Medido antes: los que corren formularios son los clientes de Código Inmobiliario (ws15), no el ws13; las respuestas ya se guardaban.",
+      "El pop-up del tablero ahora las muestra: una sola pieza en la ruta y en el pop-up, resueltas en el server.",
+      "Meta manda la clave y no el texto: la pregunta y las opciones se vuelven legibles; lo tipeado queda como se tipeó.",
+      "El WhatsApp sale de la plantilla con {{lead_formulario}} y nace apagado: se prende en /chatbot por cliente."
+    ],
+    "commits": [
+      {
+        "sha": "e21003d6",
+        "msg": "CRM: lo que contestó en el formulario de Meta se ve en el pop-up, legible, y su WhatsApp nace apagado",
+        "lineas": 294,
+        "archivos": 11
+      }
+    ],
+    "archivos": [
+      "lib/meta-leads-campos.ts — preguntaLegible, respuestaLegible, resumenRespuestas",
+      "app/crm/lead-view/RespuestasFormulario.tsx — la sección, en las dos puertas",
+      "lib/avisos-catalogo.ts — lead-formulario-meta: texto con variables, apagado",
+      "app/api/webhooks/meta-leads/route.ts — manda los datos, no el texto"
+    ]
   }
 ];

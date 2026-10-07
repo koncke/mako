@@ -7002,3 +7002,61 @@ promedio» es excluirlo del DENOMINADOR**; se busca por `monto_cierre_usd` + el 
   valor viejo.
 - `venta_tipo` no está en `AUDIT_FIELDS` (`lib/leads.ts`): para «Sin cobro» se agregó un
   `logLeadEvent` explícito; las transiciones único ↔ suscripción siguen sin rastro.
+
+## Lo que contestó en el formulario de Meta: legible, en el pop-up y en un WhatsApp que nace apagado (07/10/2026)
+
+**Vive en:** `lib/meta-leads-campos.ts` (`preguntaLegible`, `respuestaLegible`,
+`resumenRespuestas`) · `app/crm/lead-view/RespuestasFormulario.tsx` · `app/crm/LeadSheet.tsx` ·
+`app/crm/[id]/page.tsx` · `app/crm/actions.ts` (`respuestasForm`) · `lib/variables-aviso.ts` +
+`lib/variables-del-lead.ts` (`{{lead_formulario}}`) · `lib/avisos-catalogo.ts`
+(`lead-formulario-meta`) · `app/api/webhooks/meta-leads/route.ts`
+
+Pedido de Martín: «¿Qué necesitan Código Inmobiliario para sus clientes? Que NO tienen
+Landing, sino que corren ads a formulario de Meta… Poder visualizar las rptas de ese form en
+el detail del lead?».
+
+⚠️ **EL DIAGNÓSTICO OBVIO («a Código Inmobiliario le faltan las respuestas») NO ERA.** Medido:
+el ws13 tiene **cero** leads de formulario (47: 41 de landing y 4 de Cal.com). Los que corren
+formularios son SUS clientes (`agencia_clientes`: ws15 y ws17): el ws15 tenía 4 leads de
+`instant_form`, los 4 con dos preguntas propias. Y las respuestas ya se guardaban
+(`leads.meta_field_data`, mig 0187) y la ruta `/crm/[id]` ya las dibujaba. Lo que faltaba eran
+tres cosas, y ninguna era «guardarlas»:
+
+1. **El pop-up del tablero no las dibujaba.** Sólo la ruta, y el tablero abre el pop-up: en el
+   uso diario no se veían. Ahora es UNA pieza (`RespuestasFormulario`) en las dos puertas, y el
+   pop-up las recibe resueltas del server (`respuestasForm`, `getLeadFullAction`), no lee el
+   `field_data`.
+2. **Meta manda la CLAVE, no el texto.** El `name` de una pregunta propia es su texto en
+   minúsculas con guiones bajos («¿qué_tipo_de_propiedad_buscas_vender?») y una opción de
+   selección también («una_casa»). La pregunta se devuelve con espacios y mayúscula; la
+   respuesta, SÓLO si no tiene espacios (es una opción). ⚠️ **Lo que la persona tipeó queda
+   como lo tipeó** («san telmo»): corregirle la mayúscula es afirmar algo que no escribió.
+3. **El WhatsApp no podía salir bien de ninguna forma.** `lead-formulario-meta` no tenía
+   `porDefecto` (nadie lo recibía; el ws1 además lo apagó a mano), y el webhook le pasaba el
+   `texto` armado en código — así que lo que alguien escribiera en /chatbot **no se mandaba
+   nunca**, y el texto de fábrica preguntaba «¿Le disparo la nutrición de bienvenida?» sobre un
+   lead al que la línea siguiente ya inscribía. Ahora el webhook manda los DATOS (`lead` +
+   `datos`) y el texto sale de la plantilla; con `aporta: ['lead']` el editor ofrece las
+   variables del lead. **Nace apagado por decisión de Martín** («el whatsapp dejalo como
+   borrador, no activado en chatbot»): prenderlo para todos le mandaría al ws1 un WhatsApp por
+   cada uno de sus ~1.000 leads de Meta.
+
+⚠️ **Y UN TOKEN SIN VALOR SALE CRUDO, A PROPÓSITO.** Es la regla del resolvedor («crudo se
+nota»), y en un WhatsApp automático un `{{lead_telefono}}` crudo se lee como un mensaje roto.
+Por eso el webhook dice lo que falta: «sin teléfono» y «Sin preguntas extra en el formulario.».
+Verificado resolviendo el texto por el mismo camino que el motor (`getPlantilla` +
+`referenciaResuelta`) sobre el ws4: cero tokens sin resolver, link con su `?ws=`, y el aviso
+apagado.
+
+### Lo que quedó SIN hacer
+
+- **Prenderlo para los clientes que lo quieran** (ws15, ws17): desde /chatbot de cada uno.
+  Decisión de Martín o de la agencia.
+- **`lead-de-landing` tiene el MISMO defecto que tenía éste**: el opt-in le pasa el `texto`
+  armado (`app/api/track/optin/route.ts`, el `emitirDelCatalogo('lead-de-landing'`), así que su
+  texto tampoco se puede editar desde /chatbot.
+- **Las respuestas del formulario de la LANDING no se guardan en el lead**: `body.respuestas`
+  sólo arma el resumen del WhatsApp. La ficha de un lead de landing no las puede mostrar.
+
+_Hecho directo por la sesión de claude2 (`tests/meta-formulario-legible.test.ts`, probado
+rompiéndolo: seis roturas, las seis caen)._
