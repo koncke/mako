@@ -15,11 +15,14 @@
 // Quien necesite saber «¿esta instancia es el canal?» pregunta `instanciaCanal()`.
 
 import 'server-only';
-import { sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia } from './evolution';
+import {
+  sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia,
+  getInstanciaRow, conectar, estadoEnVivo,
+} from './evolution';
 import { mensajeEvolution } from './evolution-sonda';
-import { instanciaVoz, setInstanciaVoz, INSTANCIA_VOZ_DEFAULT } from './mako-grupo';
+import { instanciaVoz, setInstanciaVoz } from './mako-grupo';
 import { getSettingEstricto, cambiarSettingSi } from './settings';
-import { runWithWorkspace, OWNER_WS } from './workspace';
+import { runWithWorkspace, OWNER_WS, wsSuperAdmin } from './workspace';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -124,19 +127,26 @@ export async function estadoCanalMaKo(): Promise<CanalInfo> {
     // No saber cuál es la línea no es un estado de la línea.
     return { estado: 'sin_confirmar', numero: null, perfil: null, esVozActiva: null };
   }
-  const r = await ev(`/instance/connectionState/${inst}`);
   // La voz se lee ESTRICTA: con la tolerante, un 5xx de la base daba «la voz es mako_ws1»,
   // esVozActiva:false, y el panel disparaba solo el «usar» sobre la línea de un cliente
   // (segunda revisión adversarial del 11/09/2026).
-  const voz = await instanciaVoz({ estricto: true }).catch(() => null);
-  const vozActiva = voz === null ? null : voz === inst;
+  const [linea, voz] = await Promise.all([estadoDeLinea(inst), instanciaVoz({ estricto: true }).catch(() => null)]);
+  return { ...linea, esVozActiva: voz === null ? null : voz === inst };
+}
+
+/**
+ * Estado en vivo de UNA línea de MaKo, sondeada. La usan el canal vigente y la línea nueva que
+ * se está vinculando (`estadoNumeroNuevo`): las dos se miden igual.
+ */
+async function estadoDeLinea(inst: string): Promise<{ estado: EstadoCanal; numero: string | null; perfil: string | null }> {
+  const r = await ev(`/instance/connectionState/${inst}`);
   if (!r.ok) {
     // Misma regla que la sonda: el único error que es un DATO sobre la línea es «la instancia no
     // existe». Un 401 (key rotada), un 502 (Evolution reiniciando) o un 500 no dicen nada de la
     // línea, y pintarlos «con error» ofrecía re-escanear justo cuando la alerta ámbar dice que no
     // (segunda revisión del 11/09/2026).
     const noExiste = r.status === 404 && /does not exist/i.test(mensajeEvolution(r.body, r.status));
-    return { estado: noExiste ? 'desconectado' : 'sin_confirmar', numero: null, perfil: null, esVozActiva: vozActiva };
+    return { estado: noExiste ? 'desconectado' : 'sin_confirmar', numero: null, perfil: null };
   }
   // Igual que en estadoEnVivo: «open» es la fila en la base de Evolution, no la sesión.
   // Sin esta confirmación el panel dice «conectado» con el socket muerto — medido el 16/08.
@@ -155,7 +165,7 @@ export async function estadoCanalMaKo(): Promise<CanalInfo> {
       perfil = (it.profileName as string) || (it.profilePicName as string) || null;
     }
   }
-  return { estado, numero, perfil, esVozActiva: vozActiva };
+  return { estado, numero, perfil };
 }
 
 const sinQr = (b: unknown): boolean => {
@@ -332,14 +342,19 @@ async function crearInstanciaCanal(nombre: string): Promise<Conexion> {
     ?? { ok: false, error: `La línea nueva (${nombre}) ya existe pero Evolution todavía no armó el QR. Toca «Conectar por QR» otra vez en unos segundos.` };
 }
 
-/** Fija (o saca) una línea del canal como la voz activa de MaKo. `instancia`: la que ya se
- *  verificó (el webhook pasa la que acaba de abrir); sin ella, la vigente. Al fijarla, si es
- *  OTRO número, lo agrega a todos los grupos con la voz actual. */
-export async function usarCanalComoVoz(usar: boolean, instancia?: string): Promise<void> {
-  if (!usar) {
-    await setInstanciaVoz(INSTANCIA_VOZ_DEFAULT);
-    return;
-  }
+/**
+ * Fija una línea del canal como la voz activa de MaKo. `instancia`: la que ya se verificó (el
+ * webhook pasa la que acaba de abrir); sin ella, la vigente. Si es OTRO número, antes la deja
+ * como admin en todos los grupos, con la voz actual.
+ *
+ * ⚠️ YA NO EXISTE «DEJAR DE USARLA». Hasta el 07/10/2026 esta función tenía un `usar: false`
+ * que devolvía la voz a `mako_ws1` —la línea de Mauricio, un CLIENTE— y lo llamaba
+ * `desconectarCanalMaKo`. O sea: desconectar la línea de MaKo hacía que MaKo les hablara a
+ * todos los grupos desde el WhatsApp de un cliente, y que la reconexión siguiente le pidiera a
+ * ESA línea sumar números a los grupos de los demás. MaKo muda es un problema que el vigilante
+ * avisa; MaKo hablando con el número de un cliente no lo avisa nadie.
+ */
+export async function usarCanalComoVoz(instancia?: string): Promise<void> {
   const inst = instancia ?? (await instanciaCanal());
   // Red de seguridad: la línea que pasa a ser la voz se PREPARA (webhook + grupos; es
   // idempotente). Una línea conectada sin webhook habla pero no oye, y ningún otro camino la
@@ -357,12 +372,12 @@ export async function usarCanalComoVoz(usar: boolean, instancia?: string): Promi
     // está en todos los grupos. Pedirle a la voz vieja —muerta— que la agregue era una vuelta
     // de errores por grupo, y el resultado se tiraba (revisión del 11/09/2026).
     if (actual !== null && numero && numero !== numeroActual) {
-      const { agregarNumeroATodosLosGrupos } = await import('./mako-chat');
-      const r = await agregarNumeroATodosLosGrupos(numero);
+      const { sumarATodosLosGrupos } = await import('./mako-chat');
+      const r = await sumarATodosLosGrupos(numero, { desde: actual, nueva: inst });
       if (r.ok < r.grupos) {
         // Se muda igual: quedarse en una voz muerta es MaKo muda en TODOS los grupos. Pero
         // queda escrito dónde no va a poder hablar.
-        console.error(`[mako-canal] el número +${numero} de la línea ${inst} no quedó en ${r.grupos - r.ok} de ${r.grupos} grupos: hay que agregarlo desde el teléfono admin`);
+        console.error(`[mako-canal] el número +${numero} de la línea ${inst} no quedó admin en ${r.grupos - r.ok} de ${r.grupos} grupos: hay que sumarlo desde el teléfono admin`);
       }
     }
   } catch (e) {
@@ -371,11 +386,221 @@ export async function usarCanalComoVoz(usar: boolean, instancia?: string): Promi
   await setInstanciaVoz(inst);
 }
 
-/** Cierra sesión y elimina la instancia del canal. */
+/**
+ * Cierra sesión y elimina la instancia del canal. NO toca la voz: si era ésta, MaKo queda
+ * muda hasta que se vuelva a vincular (ver `usarCanalComoVoz`), y «Conectar por QR» recrea la
+ * misma línea, que vuelve a ser la voz sin que nadie la elija.
+ */
 export async function desconectarCanalMaKo(): Promise<{ ok: boolean }> {
   const inst = await instanciaCanal();
   await ev(`/instance/logout/${inst}`, { method: 'DELETE' });
   const d = await ev(`/instance/delete/${inst}`, { method: 'DELETE' });
-  await usarCanalComoVoz(false); // vuelve la voz al default
   return { ok: d.ok || d.status === 404 };
+}
+
+// ── Cambiar el número de MaKo ────────────────────────────────────────────────
+//
+// Pedido de Martín (07/10/2026): «Tengo un nuevo número que va a ser el número de MaKo …
+// Quiero que los grupos de WhatsApp actuales y futuros sean con el nuevo número de MaKo».
+//
+// Hasta acá la única forma de que MaKo hablara desde otro número era DESCONECTAR la línea
+// vigente y escanear otra — y con eso la voz quedaba un rato en ninguna parte (o, peor, en
+// `mako_ws1`), y el número nuevo entraba a los grupos sin admin. Ahora son dos pasos:
+//
+//   1. `vincularNumeroNuevo`: una línea NUEVA, reservada en `mako.canal.pendiente`. Se
+//      escanea con el teléfono del número nuevo y no toca nada: no es el canal ni la voz, así
+//      que el webhook no la escucha (`wsDeInstancia` sólo reconoce las vigentes) y MaKo
+//      sigue hablando por la de siempre.
+//   2. `pasarMaKoANumeroNuevo`: con la voz ACTUAL —la admin de los grupos— deja al número
+//      nuevo como admin en cada grupo, lo comprueba releyendo el grupo, y recién ahí muda el
+//      canal y la voz. Los grupos FUTUROS salen solos: se crean con `instanciaVoz()`.
+//
+// La línea vieja NO se borra: sigue vinculada, el webhook la ignora (ya no es vigente) y su
+// historial de los grupos queda. Soltarla es una decisión aparte.
+
+/** La línea NUEVA de MaKo mientras se vincula. Vacío = no hay ninguna en camino. */
+export const KEY_CANAL_PENDIENTE = 'mako.canal.pendiente';
+
+/** ESTRICTO, por lo mismo que `instanciaCanalCruda`. '' cuenta como «no hay». */
+async function pendienteCruda(): Promise<string | null> {
+  return runWithWorkspace(OWNER_WS, () => getSettingEstricto(KEY_CANAL_PENDIENTE));
+}
+
+/** Estado de la línea nueva (null = no hay ninguna en camino). Para el panel. */
+export async function estadoNumeroNuevo(): Promise<{ estado: EstadoCanal; numero: string | null; perfil: string | null } | null> {
+  let inst: string | null;
+  let canal: string;
+  try {
+    inst = await pendienteCruda();
+    canal = await instanciaCanal();
+  } catch {
+    return { estado: 'sin_confirmar', numero: null, perfil: null };
+  }
+  // Si ya es el canal, la mudanza terminó y sólo quedó la reserva sin soltar: no hay nada en camino.
+  if (!inst || inst === canal) return null;
+  return estadoDeLinea(inst);
+}
+
+const SIN_QR: QrCanal = { base64: null, code: null, pairingCode: null };
+
+/** El QR para vincular el número NUEVO de MaKo, sin tocar la línea que está hablando. */
+export async function vincularNumeroNuevo(): Promise<Conexion> {
+  if (!canalConfigurado()) return { ok: false, error: 'Evolution no configurado' };
+  let crudo: string | null;
+  let canal: string;
+  try {
+    crudo = await pendienteCruda();
+    canal = await instanciaCanal();
+  } catch {
+    return { ok: false, error: 'No pude leer cuál es la línea de MaKo (falló la base de datos), así que no toqué nada. Reintenta en unos segundos.' };
+  }
+
+  // Una línea en camino que todavía existe en Evolution se reusa: un segundo clic no puede
+  // abrir otra (y dejar huérfano el QR que la persona está por escanear).
+  const enCamino = crudo && crudo !== canal ? crudo : null;
+  if (enCamino && (await existeInstancia(enCamino))) {
+    const prep = await prepararInstancia(enCamino);
+    if (!prep.ok) return prep;
+    const c = await ev(`/instance/connect/${enCamino}`);
+    if (!c.ok) return { ok: false, error: `Evolution ${c.status}` };
+    if (!sinQr(c.body)) return conQr(c.body);
+    // Sin QR porque ya se escaneó: se dice, no se pide otro (pedir otro la tumba).
+    if ((c.body as { instance?: { state?: string } } | null)?.instance?.state === 'open'
+      && (await sondearSocket(enCamino, 8000)) === 'vivo') {
+      return { ok: true, estado: 'conectado', qr: SIN_QR };
+    }
+    return (await qrConEspera(enCamino, 4))
+      ?? { ok: false, error: 'Evolution todavía no armó el QR. Toca otra vez en unos segundos.' };
+  }
+
+  // Línea nueva: se RESERVA en la base ANTES de crearla, con compare-and-set (lo mismo que
+  // `rotarCanal`: dos clics a la vez no pueden abrir dos líneas).
+  const nueva = nombreInstanciaNueva();
+  let gane: boolean;
+  try {
+    gane = await runWithWorkspace(OWNER_WS, () => cambiarSettingSi(KEY_CANAL_PENDIENTE, crudo, nueva));
+  } catch (e) {
+    return { ok: false, error: `No pude reservar la línea nueva (${e instanceof Error ? e.message : String(e)}), así que no toqué nada.` };
+  }
+  if (!gane) return { ok: false, error: 'Otra pestaña ya está abriendo la línea nueva. Espera unos segundos y toca otra vez.' };
+  const creada = await crearInstanciaCanal(nueva);
+  if (!creada.ok && creada.sinCrear) {
+    await runWithWorkspace(OWNER_WS, () => cambiarSettingSi(KEY_CANAL_PENDIENTE, nueva, crudo ?? '')).catch(() => {});
+  }
+  return creada;
+}
+
+/** Suelta la línea nueva (se escaneó el teléfono equivocado). Nunca la que está hablando. */
+export async function descartarNumeroNuevo(): Promise<{ ok: boolean; error?: string }> {
+  let crudo: string | null;
+  let canal: string;
+  let voz: string;
+  try {
+    crudo = await pendienteCruda();
+    canal = await instanciaCanal();
+    voz = await instanciaVoz({ estricto: true });
+  } catch {
+    return { ok: false, error: 'No pude leer cuál es la línea de MaKo, así que no toqué nada.' };
+  }
+  if (!crudo) return { ok: true };
+  if (crudo !== canal && crudo !== voz) {
+    await ev(`/instance/logout/${crudo}`, { method: 'DELETE' });
+    await ev(`/instance/delete/${crudo}`, { method: 'DELETE' });
+  }
+  await runWithWorkspace(OWNER_WS, () => cambiarSettingSi(KEY_CANAL_PENDIENTE, crudo, '')).catch(() => {});
+  return { ok: true };
+}
+
+export type PasoMudanza = { jid: string; nombre: string; listo: boolean; motivo?: string };
+export type Mudanza =
+  | { ok: true; numero: string; pasos: PasoMudanza[] }
+  | { ok: false; error: string; pasos?: PasoMudanza[] };
+
+/**
+ * Muda MaKo al número nuevo: lo deja admin en cada grupo (con la voz actual) y recién
+ * después cambia el canal y la voz.
+ *
+ * ⚠️ SI UN GRUPO FALLA, NO SE MUDA SOLA. Mudarse igual es MaKo muda en ese grupo, y quien
+ * aprieta tiene que verlo antes: vuelve con la lista y `forzar` es la decisión de pasar igual.
+ * Y la lectura de los grupos es ESTRICTA: «no pude leerlos» no puede valer «no hay ninguno».
+ */
+export async function pasarMaKoANumeroNuevo(opts: { forzar?: boolean } = {}): Promise<Mudanza> {
+  let nueva: string | null;
+  let canalCrudo: string | null;
+  let voz: string;
+  try {
+    nueva = await pendienteCruda();
+    canalCrudo = await instanciaCanalCruda();
+    voz = await instanciaVoz({ estricto: true });
+  } catch {
+    return { ok: false, error: 'No pude leer cuál es la línea de MaKo (falló la base de datos), así que no toqué nada.' };
+  }
+  if (!nueva) return { ok: false, error: 'Primero vincula el número nuevo.' };
+  if ((await sondearSocket(nueva, 10000)) !== 'vivo') return { ok: false, error: 'El número nuevo todavía no está conectado.' };
+  const numero = await numeroDe(nueva);
+  if (!numero) return { ok: false, error: 'No pude leer el número de la línea nueva.' };
+
+  let pasos: PasoMudanza[] = [];
+  const numeroVoz = await numeroDe(voz);
+  if (numero !== numeroVoz) {
+    const vozViva = (await sondearSocket(voz, 10000)) === 'vivo';
+    if (!vozViva && !opts.forzar) {
+      return { ok: false, error: 'La línea actual de MaKo no contesta, y es la que puede sumar al número nuevo a los grupos. Súmalo como admin desde tu teléfono y pasa igual.' };
+    }
+    if (vozViva) {
+      const { sumarATodosLosGrupos } = await import('./mako-chat');
+      let r: Awaited<ReturnType<typeof sumarATodosLosGrupos>>;
+      try {
+        r = await sumarATodosLosGrupos(numero, { desde: voz, nueva });
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'No pude leer los grupos de MaKo.' };
+      }
+      pasos = r.pasos;
+      // El universo: cero grupos con 7 guardados no es «listo», es una lectura que no vio nada.
+      if (r.grupos === 0 && !opts.forzar) return { ok: false, error: 'No encontré ningún grupo de MaKo, así que no cambié nada.', pasos };
+      if (r.ok < r.grupos && !opts.forzar) return { ok: false, error: `Quedó admin en ${r.ok} de ${r.grupos} grupos.`, pasos };
+    }
+  }
+
+  // Se muda: primero el canal (compare-and-set contra el que se leyó), después la voz, y al
+  // final se suelta la reserva. Si el canal cambió en el medio, no se pisa.
+  const gane = await runWithWorkspace(OWNER_WS, () => cambiarSettingSi(KEY_CANAL_INSTANCIA, canalCrudo, nueva));
+  if (!gane) return { ok: false, error: 'La línea de MaKo cambió mientras tanto. Recarga y vuelve a intentar.', pasos };
+  await setInstanciaVoz(nueva);
+  await runWithWorkspace(OWNER_WS, () => cambiarSettingSi(KEY_CANAL_PENDIENTE, nueva, '')).catch(() => {});
+  console.log(`[mako-canal] MaKo pasó de ${voz} (+${numeroVoz ?? '?'}) a ${nueva} (+${numero}): admin en ${pasos.filter((p) => p.listo).length}/${pasos.length} grupos`);
+  return { ok: true, numero, pasos };
+}
+
+// ── Tu número (el personal, para tus clientes) ───────────────────────────────
+//
+// El otro número que se vincula desde el super admin. NO es una línea de MaKo: es una línea
+// del NEGOCIO del super admin (`wsSuperAdmin()`), igual a la que cualquier cliente conecta en
+// /whatsapp. Por eso aparece en su bandeja, «Sale por» la puede elegir en una secuencia, y el
+// webhook la trata como la de cualquier negocio (espeja los chats, ignora los grupos: es
+// `groupsIgnore` por default, así que los grupos de MaKo —donde este número también está—
+// no le llegan dos veces al doer).
+//
+// ⚠️ Corre con `runWithWorkspace(wsSuperAdmin())` explícito, nunca con el workspace de la
+// pestaña: el panel vive en /agencia y el parche de fetch le pega el `?ws=` del cliente que
+// se esté mirando. Con el de la pestaña, vincular «tu número» lo dejaba en el negocio de un
+// cliente.
+
+export type NumeroPersonal = { estado: string; numero: string | null; perfil: string | null; linea: string | null };
+
+export async function estadoNumeroPersonal(): Promise<NumeroPersonal> {
+  return runWithWorkspace(await wsSuperAdmin(), async () => {
+    const row = await getInstanciaRow();
+    if (!row) return { estado: 'desconectado', numero: null, perfil: null, linea: null };
+    const e = await estadoEnVivo(row.instance_name).catch(() => ({ estado: 'error' as const, numero: null, perfil: null }));
+    return { estado: e.estado, numero: e.numero ?? row.numero ?? null, perfil: e.perfil ?? row.perfil_nombre ?? null, linea: row.instance_name };
+  });
+}
+
+export async function vincularNumeroPersonal(): Promise<{ ok: true; qr: QrCanal } | { ok: false; error: string }> {
+  return runWithWorkspace(await wsSuperAdmin(), async () => {
+    const row = await getInstanciaRow();
+    const r = row ? await conectar({ linea: row.instance_name }) : await conectar({ nueva: true, etiqueta: 'Personal' });
+    return r.ok ? { ok: true, qr: r.qr } : r;
+  });
 }

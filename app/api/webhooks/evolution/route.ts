@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
           try {
             if (instance !== (await instanciaCanal())) return;
             if ((await instanciaVoz()) === instance) return;
-            await usarCanalComoVoz(true, instance);
+            await usarCanalComoVoz(instance);
           } catch (e) { console.error(`[webhook:evolution] voz del canal: ${e instanceof Error ? e.message : String(e)}`); }
         });
       }

@@ -24,7 +24,8 @@ export function AgenciaTabs() {
   const [canalOpen, setCanalOpen] = useState(false);
 
   const cargarCanal = useCallback(async () => {
-    try { const j = await (await fetch('/api/admin/mako-canal')).json(); if (j.ok) setCanal(j as Canal); } catch { /* noop */ }
+    // Sólo el canal: el chip no necesita sondear el número nuevo ni el tuyo.
+    try { const j = await (await fetch('/api/admin/mako-canal?parte=canal')).json(); if (j.ok) setCanal(j as Canal); } catch { /* noop */ }
   }, []);
   useEffect(() => { cargarCanal(); }, [cargarCanal]);
 

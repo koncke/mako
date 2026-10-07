@@ -199,7 +199,9 @@ test('⛔ Las líneas de MaKo no escriben contactos, etiquetas ni ticks en el ws
 test('La voz se muda en el servidor al conectar, con la línea que abrió', () => {
   const i = webhook.indexOf("evento === 'connection.update'");
   const bloque = webhook.slice(i, webhook.indexOf("evento === 'qrcode.updated'"));
-  assert.match(bloque, /usarCanalComoVoz\(true, instance\)/,
+  // Desde el 07/10/2026 la firma no lleva el `true`: «dejar de usarla» devolvía la voz a la
+  // línea de un cliente y se sacó (tests/mako-numero-nuevo.test.ts).
+  assert.match(bloque, /usarCanalComoVoz\(instance\)/,
     'la voz vuelve a depender de que alguien tenga /agencia abierto, o de una relectura del canal');
 });
 

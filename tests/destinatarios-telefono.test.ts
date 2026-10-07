@@ -86,7 +86,9 @@ test('El editor de destinatarios está MONTADO, y hay UNO solo', () => {
 
 test('Agregar al grupo mira el BODY, no el HTTP 200', () => {
   const src = leer('../lib/mako-grupo.ts');
-  assert.ok(src.includes('updateParticipants'),
+  // El lector se mudó el 07/10/2026 a lib/participantes-grupo.ts (sin server-only, para que
+  // lo compartan el alta del dueño y el detalle de un grupo): se mira AHÍ.
+  assert.ok(leer('../lib/participantes-grupo.ts').includes('updateParticipants'),
     'agregarParticipanteGrupo volvió a confiar en r.ok: Evolution contesta 200 con el fallo adentro');
   assert.ok(/leerResultadoParticipante\(r\.body\)/.test(src),
     'se perdió la lectura del resultado por participante');
@@ -179,7 +181,7 @@ test('No se afirma un envío que no ocurrió', () => {
   // envió nada».
   // Solo el VALOR del 403, no la prosa de alrededor (el comentario de al lado
   // explica justamente por qué ahí no se habla de invitaciones).
-  const msg403 = /^\s*'403':\s*'([^']*)'/m.exec(src)?.[1] ?? '';
+  const msg403 = /^\s*'403':\s*'([^']*)'/m.exec(leer('../lib/participantes-grupo.ts'))?.[1] ?? '';
   assert.ok(msg403, 'no se pudo leer el mensaje del estado 403');
   assert.ok(!/invitaci/i.test(msg403),
     `el 403 volvió a afirmar un envío que no hizo: «${msg403}»`);

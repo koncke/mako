@@ -119,7 +119,8 @@ test('los DOS indicadores de «conectado» confirman con el socket', () => {
   // `estadoCanalMaKo` dejaba este test en verde.
   for (const [nombre, src, firma] of [
     ['estadoEnVivo (lib/evolution.ts)', evolution, 'export async function estadoEnVivo('],
-    ['estadoCanalMaKo (lib/mako-canal.ts)', canal, 'export async function estadoCanalMaKo('],
+    // Desde el 07/10/2026 el canal y la línea NUEVA de MaKo se miden con la misma función.
+    ['estadoDeLinea (lib/mako-canal.ts)', canal, 'async function estadoDeLinea('],
   ] as const) {
     const c = cuerpoDe(src, firma);
     assert.ok(c.length > 0, `${nombre}: no encontré la función`);
@@ -129,6 +130,8 @@ test('los DOS indicadores de «conectado» confirman con el socket', () => {
     assert.ok(confirmaUnLado || confirmaLosDos,
       `${nombre}: volvió a pintar «conectado» con solo mirar connectionState`);
   }
+  assert.match(cuerpoDe(canal, 'export async function estadoCanalMaKo('), /estadoDeLinea\(inst\)/,
+    'estadoCanalMaKo dejó de medir con estadoDeLinea: el chip del canal vuelve a confiar en connectionState');
 });
 
 test('el error de MaKo no se le factura al número del cliente', () => {

@@ -9,6 +9,7 @@
 import 'server-only';
 import { instanciaVoz, enviarAGrupoJid, KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID } from './mako-grupo';
 import { getSupabaseServer } from './supabase';
+import { leerResultados, esAdminEn, type ParticipanteCrudo } from './participantes-grupo';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -169,29 +170,131 @@ export async function infoGrupoMaKo(jid: string): Promise<GrupoInfo | null> {
   };
 }
 
-async function accionParticipantes(jid: string, numeros: string[], action: 'add' | 'remove'): Promise<{ ok: boolean }> {
-  const inst = await instanciaVoz();
+type ResultadoAccion = { ok: boolean; error?: string };
+
+/**
+ * Agrega, quita o hace admin a números de un grupo, y DICE si salió.
+ *
+ * ⚠️ Hasta el 07/10/2026 devolvía `{ ok: r != null }`: «Evolution contestó». Evolution contesta
+ * HTTP 200 con el fallo de cada participante adentro, así que el detalle de un grupo decía
+ * «Número agregado ✓» sobre un número que no entró. Ahora se lee el `status` de cada uno
+ * (`leerResultados`, lib/participantes-grupo.ts). Un número que no vino en la respuesta no
+ * cuenta como fallo: no se sabe, y quien necesita SABER relee el grupo (`sumarComoAdmin`).
+ *
+ * `inst`: la línea que hace el pedido. Sin ella, la voz de MaKo. La mudanza a un número nuevo
+ * la pasa explícita para no depender de un setting que ella misma está por cambiar.
+ */
+async function accionParticipantes(
+  jid: string, numeros: string[], action: 'add' | 'remove' | 'promote', inst?: string,
+): Promise<ResultadoAccion> {
+  const instancia = inst ?? (await instanciaVoz());
   const nums = numeros.map(soloDigitos).filter(Boolean);
-  if (!nums.length) return { ok: false };
-  const r = await ev(`/group/updateParticipant/${inst}?groupJid=${encodeURIComponent(jid)}`, {
+  if (!nums.length) return { ok: false, error: 'Falta el número.' };
+  const r = await ev(`/group/updateParticipant/${instancia}?groupJid=${encodeURIComponent(jid)}`, {
     method: 'POST', body: JSON.stringify({ action, participants: nums }),
   });
-  return { ok: r != null };
+  if (r == null) return { ok: false, error: 'WhatsApp no contestó.' };
+  const malo = leerResultados(r, nums).find((x) => x.ok === false);
+  return malo ? { ok: false, error: malo.error } : { ok: true };
 }
 export const agregarParticipantesMaKo = (jid: string, numeros: string[]) => accionParticipantes(jid, numeros, 'add');
 export const quitarParticipantesMaKo = (jid: string, numeros: string[]) => accionParticipantes(jid, numeros, 'remove');
 
+/** Nombre y participantes de un grupo, leídos desde UNA línea. null si no se pudo leer. */
+async function grupoDesde(jid: string, inst: string): Promise<{ subject: string; participantes: ParticipanteCrudo[] } | null> {
+  const g = await ev<Record<string, unknown>>(`/group/findGroupInfos/${inst}?groupJid=${encodeURIComponent(jid)}`);
+  if (!g || typeof g !== 'object' || !Array.isArray(g.participants)) return null;
+  return { subject: (g.subject as string) || '', participantes: g.participants as ParticipanteCrudo[] };
+}
+
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
- * Agrega un número a TODOS los grupos de MaKo (SuperAdmin + "MaKo <> cliente").
- * Se usa al cambiar el WhatsApp Admin: la línea NUEVA tiene que estar en todos los
- * grupos para poder mandar. Corre con la voz ACTUAL (la vieja, que es admin de los
- * grupos) — llamarlo ANTES de switchear la voz a la línea nueva.
+ * La línea NUEVA entra sola, con el link del grupo que saca la línea vieja. Es la salida
+ * cuando WhatsApp no deja sumarla directo (403: su privacidad no permite que la agreguen).
  */
-export async function agregarNumeroATodosLosGrupos(numero: string): Promise<{ grupos: number; ok: number }> {
-  const jids = [...(await jidsGruposMaKo())];
-  let ok = 0;
-  for (const jid of jids) { const r = await agregarParticipantesMaKo(jid, [numero]); if (r.ok) ok++; }
-  return { grupos: jids.length, ok };
+async function entrarPorInvitacion(jid: string, desde: string, nueva: string): Promise<boolean> {
+  const c = await ev<{ inviteCode?: string; inviteUrl?: string }>(`/group/inviteCode/${desde}?groupJid=${encodeURIComponent(jid)}`);
+  const code = c?.inviteCode || (c?.inviteUrl ? c.inviteUrl.split('/').pop() : '') || '';
+  if (!code) return false;
+  return (await ev(`/group/acceptInviteCode/${nueva}?inviteCode=${encodeURIComponent(code)}`)) != null;
+}
+
+export type PasoGrupo = { jid: string; nombre: string; listo: boolean; motivo?: string };
+
+/**
+ * Deja a `numero` adentro del grupo y como ADMIN, y lo COMPRUEBA releyendo el grupo.
+ *
+ * `desde` es la línea que hoy es admin (la voz actual); `nueva`, la instancia del número que
+ * entra, que sólo se usa si hay que aceptar una invitación.
+ *
+ * ⚠️ ADMIN, no sólo participante. La voz de MaKo es la que suma al dueño de un cliente a su
+ * grupo (`agregarParticipanteGrupo`) y la que lo renombra: una línea que entra sin admin habla
+ * en el grupo pero no puede hacer nada de eso, y el primer «agregá a mi socio» falla.
+ *
+ * ⚠️ Y el veredicto sale del grupo, no del pedido. El `status` dice qué contestó WhatsApp a
+ * cada pedido; lo que importa es cómo quedó el grupo. La relectura va con un respiro:
+ * Evolution guarda la metadata del grupo y la actualiza con el evento que dispara el cambio.
+ */
+export async function sumarComoAdmin(jid: string, numero: string, desde: string, nueva: string): Promise<PasoGrupo> {
+  const antes = await grupoDesde(jid, desde);
+  if (!antes) return { jid, nombre: jid, listo: false, motivo: 'No pude leer el grupo.' };
+  const nombre = antes.subject || jid;
+  if (esAdminEn(antes.participantes, numero).admin) return { jid, nombre, listo: true };
+
+  let motivoAlta: string | undefined;
+  if (!esAdminEn(antes.participantes, numero).esta) {
+    const alta = await accionParticipantes(jid, [numero], 'add', desde);
+    if (!alta.ok) {
+      motivoAlta = alta.error;
+      if (await entrarPorInvitacion(jid, desde, nueva)) { motivoAlta = undefined; await esperar(2500); }
+    }
+  }
+  await accionParticipantes(jid, [numero], 'promote', desde);
+
+  for (const espera of [1500, 3500]) {
+    await esperar(espera);
+    const despues = await grupoDesde(jid, desde);
+    if (!despues) continue;
+    const e = esAdminEn(despues.participantes, numero);
+    if (e.admin) return { jid, nombre, listo: true };
+    if (espera === 3500) {
+      return { jid, nombre, listo: false, motivo: e.esta ? 'Entró, pero WhatsApp no lo dejó como admin.' : (motivoAlta ?? 'No quedó adentro del grupo.') };
+    }
+  }
+  return { jid, nombre, listo: false, motivo: 'Lo pedí, pero no pude volver a leer el grupo para comprobarlo.' };
+}
+
+/**
+ * Los grupos de MaKo, leídos ESTRICTO. Para listar alcanza la versión tolerante; para mudar
+ * la voz no: un error de lectura daría «cero grupos», la mudanza saldría «completa» sin tocar
+ * ninguno, y MaKo quedaría muda en todos.
+ */
+export async function gruposDeMaKoEstricto(): Promise<string[]> {
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings').select('value').in('key', [KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID]);
+  if (error) throw new Error(`No pude leer los grupos de MaKo: ${error.message}`);
+  return [...new Set(((data ?? []) as Array<{ value: unknown }>)
+    .map((r) => (typeof r.value === 'string' ? r.value : ''))
+    .filter((v) => esGrupo(v)))];
+}
+
+/**
+ * Deja un número como admin en TODOS los grupos de MaKo (SuperAdmin + «MaKo <> cliente»).
+ * Corre con la línea `desde` —la voz actual, que es la admin de los grupos—: se llama ANTES
+ * de mudar la voz al número nuevo. De a un grupo y con un respiro entre uno y otro: son
+ * pedidos al WhatsApp de MaKo, y una ráfaga es lo que hace que lo baneen.
+ */
+export async function sumarATodosLosGrupos(
+  numero: string, lineas: { desde: string; nueva: string },
+): Promise<{ grupos: number; ok: number; pasos: PasoGrupo[] }> {
+  const jids = await gruposDeMaKoEstricto();
+  const pasos: PasoGrupo[] = [];
+  for (const jid of jids) {
+    if (pasos.length) await esperar(800);
+    pasos.push(await sumarComoAdmin(jid, numero, lineas.desde, lineas.nueva));
+  }
+  return { grupos: jids.length, ok: pasos.filter((p) => p.listo).length, pasos };
 }
 
 /** Cambia el nombre del grupo. */

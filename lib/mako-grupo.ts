@@ -17,6 +17,7 @@ import { esSesionCaida } from './evolution';
 import sharp from 'sharp';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
+import { leerResultadoParticipante } from './participantes-grupo';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -302,49 +303,10 @@ export async function enviarInvitacionGrupo(ws: number, numero: string): Promise
   return r.ok ? { ok: true } : { ok: false, error: `Evolution ${r.status}` };
 }
 
-/**
- * Qué significa cada `status` de `updateParticipants`, en castellano de persona.
- * Cadena vacía = salió bien (no hay nada que contarle a nadie).
- */
-const RESULTADO_PARTICIPANTE: Record<string, string> = {
-  '200': '',
-  '409': '',  // ya estaba adentro: el pedido igual se cumplió
-  // ⚠️ El 403 (`addressable: false`) NO dice nada sobre invitaciones: dice que
-  // esa persona tiene en «Quién puede agregarme a grupos» algo que nos excluye.
-  // Lo que se haga con eso lo decide quien llama (hoy: mandarle el link con
-  // `enviarInvitacionGrupo`), y recién ahí se puede afirmar que se mandó algo.
-  '403': 'WhatsApp no deja agregarlo directo: tiene restringido quién puede sumarlo a grupos.',
-  '408': 'Ese número no está disponible en WhatsApp.',
-  '401': 'Ese número bloqueó al WhatsApp de MaKo.',
-  '404': 'Ese número no existe en WhatsApp.',
-};
-
-/**
- * Lee el resultado POR PARTICIPANTE de `updateParticipant`.
- *
- * ⚠️ ESTA ES LA PARTE QUE FALTABA. Evolution contesta **HTTP 200** con el fallo
- * adentro del body, igual que Meta (ver AGENTS.md). Medido el 21/8/2026 pidiendo
- * agregar un número inexistente:
- *
- *     HTTP 200
- *     { "updateParticipants": [ { "status": "403", "jid": "…", "content": {…} } ] }
- *
- * El código miraba `r.ok` y devolvía `{ ok: true }`. O sea, la función informaba
- * un éxito que no ocurrió: nadie entró al grupo y nada quedó registrado. Por eso
- * el cliente vio «no pasó nada, ni siquiera un mensaje de error» — no había
- * ningún error que mostrar, el sistema creía que había funcionado.
- */
-function leerResultadoParticipante(body: unknown): { ok: boolean; error?: string } {
-  const filas = (body as { updateParticipants?: unknown })?.updateParticipants;
-  // Sin la lista no se puede afirmar que salió bien, pero tampoco que falló:
-  // Evolution contestó 200. Se toma como éxito y el silencio queda del lado del
-  // proveedor, no nuestro.
-  if (!Array.isArray(filas) || filas.length === 0) return { ok: true };
-  const estado = String((filas[0] as { status?: unknown })?.status ?? '200');
-  const motivo = RESULTADO_PARTICIPANTE[estado];
-  if (motivo === '') return { ok: true };
-  return { ok: false, error: motivo ?? `WhatsApp lo rechazó (código ${estado}).` };
-}
+// El lector del resultado POR PARTICIPANTE vive en `lib/participantes-grupo.ts`, sin
+// `server-only`, para que tenga test y lo compartan las dos puntas que agregan gente a un
+// grupo (acá y `lib/mako-chat.ts`). Ahí está también el porqué: Evolution contesta HTTP 200
+// con el fallo adentro del body.
 
 export type AltaParticipante = {
   ok: boolean;
