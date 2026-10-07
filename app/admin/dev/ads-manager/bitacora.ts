@@ -62,7 +62,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '17:50', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '17:49', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Cerrar las tareas abiertas del proyecto Ads Manager',
     pedido: 'Revisa todas las tareas del proyecto Ads Manager y continua y cierra todas las que puedas',
@@ -72,7 +72,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '17:50', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '17:49', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta (#349)',
     puntos: [
@@ -88,6 +88,9 @@ export const BITACORA: Hito[] = [
       'app/ads-manager/BarraAcciones.tsx — el lote tipea en la misma unidad que la celda, sólo dígitos',
       'app/_ui/Confirm.tsx — una tecla mantenida no confirma',
       'tests/ads-presupuesto-confirma.test.ts — 13 tests, cada guard probado rompiendo lo que fija',
+    ],
+    commits: [
+      { sha: '025f44ec', msg: 'Ads Manager: el presupuesto pasa por un cartel, y en la moneda de la cuenta (#349)', lineas: 868, archivos: 12 },
     ],
   },
 ];
