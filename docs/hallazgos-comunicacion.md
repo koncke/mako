@@ -8895,4 +8895,46 @@ no tenía ninguna línea.
 - **El detalle de un grupo dice «No se pudo agregar» sin el motivo** (`GrupoDetalleModal.tsx`):
   el motivo ya viaja en el JSON.
 
+### ⚠️ La primera mudanza real dijo «0 de 6»: Evolution le borra el 9 al número (07/10/2026, tarde)
+
+**Síntoma:** Martín apretó «Pasar MaKo a este número» y el panel dijo «Quedó admin en 0 de 6
+grupos — No quedó adentro del grupo» en los seis.
+
+**El diagnóstico obvio era el equivocado.** Parecía la relectura: con la privacidad nueva los
+participantes vienen como `…@lid`, y un lector que mirara sólo el `id` no vería a nadie. Pero
+`esAdminEn` mira también `phoneNumber`, y medido en vivo el grupo «MaKo <> Mauricio Bustos»
+seguía con DOS participantes: el número nunca entró.
+
+**Causa, medida a mano en el grupo SuperAdmin (sólo Martín adentro):** Evolution 2.3.7 contestó
+`201` con `{ status: "403", jid: "541125052605@s.whatsapp.net", addressable: "false" }`. Su
+`createJid` (`formatMXOrARNumber`) le saca el TERCER dígito a todo número de 13 que empiece con
+52 o 54: el `549…` de la línea —su propio `ownerJid`— salió como `54…`, que para WhatsApp es otro
+número. Y `leerResultados` buscaba la fila por la forma EXACTA, así que el 403 quedaba «no se
+sabe», `accionParticipantes` lo contaba como éxito, el plan B (entrar con el link) no corría, y la
+relectura decía «no quedó adentro» sin que nada explicara por qué.
+
+**Arreglado (`d7f3e253`):** un número que dio WhatsApp viaja como jid completo (`jidCanonico`),
+que `createJid` devuelve intacto; el lector reconoce las dos formas, y con un pedido y una fila
+la fila es la suya. Lo mismo para el alta y la invitación del dueño de un cliente, que pasaban
+por el mismo filtro. La regla quedó en AGENTS.md.
+
+**Y en el medio se cayó la línea vieja:** `device_removed` a las 21:15:32 UTC, que es lo que
+WhatsApp manda cuando el dispositivo se quita desde el teléfono. La otra línea con el mismo
+número (`mako_superadmin`) dice `open` y contesta «Connection Closed»: zombi. Con eso la única
+admin de los grupos es un teléfono, y la mudanza ya no corta con «no contesta»: comprueba cada
+grupo LEYÉNDOLO con la línea nueva, y la lista dice cuáles faltan.
+
+**Medido para no adivinar:** `GET /group/acceptInviteCode/{instancia}?inviteCode=` existe y llega
+a WhatsApp (con un código inválido: 404 «Accept invite error: bad-request», distinto del «Cannot
+GET» de una ruta que no existe).
+
+**SIN HACER:**
+- **El plan B entero no se probó**: hace falta una línea admin viva para sacar el link. Lo prueba
+  la próxima mudanza.
+- **El envío de TEXTO a números argentinos de 13 dígitos** pasa por el mismo `createJid`. Para
+  México llegan (salieron mensajes del ws1 a números 521…); para Argentina no se midió.
+- **La creación del grupo de un cliente** (`/group/create`, `lib/mako-grupo.ts`) manda el número
+  como lo tipeó el dueño, sin canonizar: no se tocó, porque mandarlo como jid sin pasar por
+  `whatsappNumbers` arrastraría el 0 o el 15 que haya escrito.
+
 *07/10/2026, cuenta 2, commit `3226b3f7`.*

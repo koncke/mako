@@ -4187,6 +4187,29 @@ MaKo; `/instagram` redirige a `/chatbot` y el webhook de Zernio contesta 200 sin
 nada. Las tablas quedan. Sumarle un canal al Chatbot es una decisión del dueño, no un
 arreglo: `tests/sin-instagram.test.ts` falla si algo vuelve a cablear Instagram.
 
+# Evolution le BORRA un dígito a los números de Argentina y México: un número que dio WhatsApp viaja como jid
+
+Su `createJid` (2.3.7, `formatMXOrARNumber`) agarra todo número de 13 dígitos que empiece con
+52 o 54 y le saca el TERCERO: `5491125052605` sale como `541125052605`, `5215512345678` como
+`525512345678`. WhatsApp conoce a esos números con el dígito puesto (el `ownerJid` de una línea
+argentina es `549…`), así que el pedido va a OTRO número — y no da error: da un `403`
+(`addressable: false`) adentro de un 201, sobre un jid que no es el que mandaste.
+
+Medido el 07/10/2026 en la primera mudanza de MaKo a su número nuevo: «Quedó admin en 0 de 6
+grupos». El lector buscaba la fila por la forma exacta, no la encontraba, y el 403 se contaba
+como éxito.
+
+- **Un número que dio WhatsApp** (un `ownerJid`, el jid de `whatsappNumbers`) **se manda como
+  jid completo**: `jidCanonico` (`lib/participantes-grupo.ts`). Evolution devuelve intacto todo
+  lo que ya trae `@s.whatsapp.net`.
+- **Lo que tipeó una persona NO** (puede traer un 0 o un 15 de más): ése va crudo, o se
+  canoniza antes con `whatsappNumbers`.
+- **Y al leer la respuesta, la fila puede volver con la otra forma**: `leerResultados` busca
+  las dos.
+- ⚠️ **NO MEDIDO para el envío de texto** (`sendText` con el número crudo pasa por el mismo
+  `createJid`). Para México llegan (salieron mensajes del ws1 a números 521…); para Argentina
+  no se probó.
+
 # Un negocio tiene VARIAS líneas de WhatsApp: por cuál sale un mensaje lo decide `elegirLinea`
 
 Desde el 06/10/2026 (`0936f1da`, migs 0198+0199) `evolution_instancias` tiene N filas por

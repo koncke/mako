@@ -16,7 +16,7 @@ export const PARTES: Parte[] = [
   { titulo: 'La línea de MaKo por QR', detalle: 'Se conecta en /agencia y se fija como voz sola · si Evolution la deja trabada, rota a una línea nueva', estado: 'hecha' },
   { titulo: 'Cambiar el número sin dejarla muda', detalle: 'El número nuevo se vincula AL LADO, queda admin en cada grupo (comprobado releyéndolo) y recién ahí MaKo se muda', estado: 'hecha' },
   { titulo: 'Tu número, como línea de tu negocio', detalle: 'Tu WhatsApp personal para atender clientes: se ve en /whatsapp y «Sale por» lo puede elegir', estado: 'hecha' },
-  { titulo: 'Pasar MaKo al número nuevo', detalle: 'Espera el QR del número nuevo · sumarlo a los grupos lo ve cada cliente', estado: 'cola' },
+  { titulo: 'Pasar MaKo al número nuevo', detalle: 'El número nuevo ya está vinculado · la primera pasada dio 0 de 6 (Evolution le borraba el 9) · falta volver a vincular tu número, o sumarlo desde el teléfono, y reintentar', estado: 'sigue' },
   { titulo: 'Soltar las líneas viejas', detalle: 'Las dos líneas con tu número que fueron de MaKo siguen vinculadas y el webhook las ignora · ocupan dispositivos de tu WhatsApp', estado: 'cola' },
 ];
 
@@ -51,6 +51,32 @@ export const BITACORA: Hito[] = [
       'lib/participantes-grupo.ts — qué contestó WhatsApp por cada participante, y si quedó admin',
       'app/agencia/CanalMaKoPanel.tsx — los dos bloques del panel: MaKo y Tu número',
       'tests/mako-numero-nuevo.test.ts — 8 tests, probados con diez roturas',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '—', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La primera mudanza dijo «0 de 6»',
+    pedido: 'Soluciona esto',
+    puntos: [
+      'Con una captura del panel: «Quedó admin en 0 de 6 grupos» y «No quedó adentro del grupo» en los seis.',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '18:26', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Evolution le borraba el 9 al número nuevo, y el 403 se leía como éxito',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era el equivocado.** Parecía que la relectura no veía al número por los `@lid` de WhatsApp; no: el número nunca entró. Evolution 2.3.7 le saca el tercer dígito a todo número de 13 que empiece con 52 o 54 (`549…` → `54…`), WhatsApp contestó 403 sobre ESE otro número, y el lector, que buscaba la forma exacta, lo contó como éxito — así que tampoco corrió el plan B.',
+      '**Un número que dio WhatsApp viaja como jid completo** (`jidCanonico`), que Evolution no toca. Mismo arreglo en el alta y la invitación del dueño de un cliente, que pasaban por el mismo filtro. Quedó como regla en AGENTS.md.',
+      '**La línea vieja se desvinculó a mitad de camino** (`device_removed` a las 21:15 UTC, lo que WhatsApp manda al quitar el dispositivo desde el teléfono) y la otra con el mismo número está zombi. Con la voz muerta la mudanza ya no corta: comprueba cada grupo con la línea nueva y dice cuáles faltan.',
+    ],
+    commits: [
+      { sha: 'd7f3e253', msg: 'Mudanza de MaKo: Evolution le borraba el 9 al número nuevo, y el 403 se leía como éxito', lineas: 193, archivos: 5 },
+    ],
+    archivos: [
+      'lib/participantes-grupo.ts — `jidCanonico` y el lector que reconoce las dos formas del número',
+      'lib/mako-chat.ts — `sumarComoAdmin` con el jid completo, y comprobando con la línea nueva si la vieja no contesta',
     ],
   },
 ];
