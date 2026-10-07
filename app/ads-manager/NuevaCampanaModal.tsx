@@ -40,8 +40,11 @@ import { usdACuenta, esConvertible } from '@/lib/presupuesto-cambio';
 import {
   subirCreativo, makeThumb, limiteCreativo, esperarVideoListo, motivoFinEspera, postConTope, esperandoAMeta,
   SIN_RESPUESTA, AVISO_PROCESANDO_RETOMA, AVISO_PROCESANDO_NO_CIERRES, CADA_MS_SIN_LECTURA,
-  ANTERIOR_PUBLICADA, ANTERIOR_A_MEDIAS, claveAbierta, anotarClaveAbierta,
+  ANTERIOR_PUBLICADA, ANTERIOR_A_MEDIAS, claveAbierta, anotarClaveAbierta, usarCreativoMako, makeThumbDeUrl,
 } from './creativeUpload';
+import { MisCreativosMako } from './MisCreativosMako';
+import { Icon } from '../_components/icons';
+import type { CreativoMako } from '@/lib/creativo-mako';
 import { claveAMandar, trasRespuesta, claveIdemGuardada, type ClaveIdem } from '@/lib/meta-idempotencia';
 
 const MONO = "'Geist Mono', monospace";
@@ -91,6 +94,8 @@ type TrayItem = {
   /** Mientras Meta procesa el video: el archivo en el staging, para que el server lo
    *  borre cuando Meta dé su veredicto (GET /api/ads-manager/creative-upload). */
   staging_path?: string | null;
+  /** Si es un video que MaKo ya generó (#797): su `ref`, para no elegirlo dos veces. */
+  mako_ref?: string | null;
 };
 
 const fmtUso = (u: Uso) => (!u ? '' : `✦ ${u.tokens >= 1000 ? `${(u.tokens / 1000).toFixed(1)}k` : u.tokens} tok · $${u.costUsd >= 1 ? u.costUsd.toFixed(2) : u.costUsd.toFixed(3)}`);
@@ -441,23 +446,38 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   }
 
   // ── subir creativo ──
-  async function subir(file: File) {
+  // Dos puertas —un archivo del disco o un video que MaKo ya generó (tarea #797)— y la
+  // MISMA espera a Meta. El de MaKo nace en 100 (no hay subida que mostrar) y su miniatura
+  // es una data: hecha acá o ninguna, nunca la url del .mp4: ésa viajaría a Meta como
+  // image_url y rechazaría el creativo. El borrador lo guarda como a cualquier otro, y
+  // loadDraft descarta el que se cortó antes de tener video_id.
+  async function subir(f: { file: File } | { mako: CreativoMako }) {
     // El tope se mira ANTES de agregar la tarjeta: una que aparece y desaparece se lee
     // como una subida que falló.
-    const tope = limiteCreativo(file);
-    if (tope) { setErr(tope); return; }
-    const esVideo = file.type.startsWith('video');
+    if ('file' in f) {
+      const tope = limiteCreativo(f.file);
+      if (tope) { setErr(tope); return; }
+    }
+    // El mismo video dos veces son dos videos en la biblioteca de la cuenta (Meta no
+    // deduplica por url) y dos anuncios iguales. Igual que agregarGanador.
+    if ('mako' in f && tray.some((t) => t.mako_ref === f.mako.ref)) return;
+    const nombre = 'file' in f ? f.file.name : f.mako.titulo;
     const id = `up-${++trayCounter.current}`;
-    const pend: TrayItem = { id, kind: 'upload', media_type: esVideo ? 'video' : 'image', label: file.name, processing: true, progress: 0, thumbnail_url: null };
+    const pend: TrayItem = {
+      id, kind: 'upload', media_type: 'file' in f ? (f.file.type.startsWith('video') ? 'video' : 'image') : f.mako.media_type,
+      label: nombre, processing: true, progress: 'file' in f ? 0 : 100, thumbnail_url: null, mako_ref: 'mako' in f ? f.mako.ref : null,
+    };
     setTray((t) => [...t, pend]);
-    makeThumb(file).then((dt) => { if (dt) setTray((t) => t.map((x) => x.id === id ? { ...x, thumbnail_url: x.thumbnail_url ?? dt } : x)); });
+    ('file' in f ? makeThumb(f.file) : makeThumbDeUrl(f.mako.url)).then((dt) => { if (dt) setTray((t) => t.map((x) => x.id === id ? { ...x, thumbnail_url: x.thumbnail_url ?? dt } : x)); });
     try {
-      const r = await subirCreativo(file, (pct) => setTray((t) => t.map((x) => x.id === id ? { ...x, progress: pct } : x)));
+      const r = 'mako' in f
+        ? await usarCreativoMako(f.mako.ref)
+        : await subirCreativo(f.file, (pct) => setTray((t) => t.map((x) => x.id === id ? { ...x, progress: pct } : x)));
       if (quitados.current.has(id)) return;
       // `processing` es lo que dijo Meta, NUNCA un false escrito a mano (tarea #59). Y
       // mientras Meta procesa, progress queda en 100: con undefined la tarjeta dice «0%».
       setTray((t) => t.map((x) => x.id === id ? { ...x, media_type: r.media_type, image_hash: r.image_hash, video_id: r.video_id, thumbnail_url: x.thumbnail_url ?? r.thumbnail_url, processing: r.processing, progress: r.processing ? 100 : undefined, staging_path: r.processing ? r.path : null } : x));
-      if (r.processing && r.video_id) seguirProcesando(id, r.video_id, r.path, file.name);
+      if (r.processing && r.video_id) seguirProcesando(id, r.video_id, r.path, nombre);
     } catch (e) {
       if (quitados.current.has(id)) return;
       setErr(e instanceof Error ? e.message : String(e)); setTray((t) => t.filter((x) => x.id !== id));
@@ -542,11 +562,24 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setStep(flow[flow.length - 1]); }
   }
 
+  // `an[k]` está indexado por paraVer (sólo los que tienen miniatura data:, armar()), NO
+  // por usables(). ⚠️ promptDeRespuestas indexaba an[i] sobre usables(): un creativo sin
+  // miniatura data: —un ganador, o un video de MaKo cuyo frame no se pudo dibujar— corría
+  // todas las descripciones siguientes al anuncio equivocado. Cada creativo se mapea a SU
+  // análisis por posición en ese subconjunto. Un video de MaKo sin análisis se describe
+  // con el título de su anuncio, que es mejor que «sin descripción» (tarea #797).
+  function analisisDe(t: TrayItem, an: Analisis): { descripcion: string; angulo: string } {
+    const conVer = usables().filter((x) => x.thumbnail_url?.startsWith('data:'));
+    const k = conVer.indexOf(t);
+    const a = k >= 0 ? an[k] : undefined;
+    return { descripcion: a?.descripcion || (t.mako_ref ? `video hecho con MaKo, «${t.label}»` : '(sin descripción)'), angulo: a?.angulo ?? '' };
+  }
+
   function promptDeRespuestas(an: Analisis): string {
     const objLabel = OBJETIVO_UI.find((o) => o.value === objKey)?.label ?? objKey;
     const estrLabel = ESTRATEGIAS.find((e) => e.value === estrategia)?.label ?? estrategia;
     const u = usables();
-    const desc = u.map((t, i) => `Creativo ${i + 1} (${t.media_type ?? 'archivo'}${t.kind === 'existing' ? ', ganador' : ''}): ${an[i]?.descripcion || '(sin descripción)'}${an[i]?.angulo ? ` [ángulo: ${an[i].angulo}]` : ''}`).join('\n');
+    const desc = u.map((t, i) => { const a = analisisDe(t, an); return `Creativo ${i + 1} (${t.media_type ?? 'archivo'}${t.kind === 'existing' ? ', ganador' : ''}): ${a.descripcion}${a.angulo ? ` [ángulo: ${a.angulo}]` : ''}`; }).join('\n');
     return `El usuario ya decidió estos parámetros (NO los cambies, respétalos):
 - Objetivo: ${objLabel}
 - Estrategia/audiencia: ${estrLabel}
@@ -561,12 +594,10 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
   // Se describen ÚNICAMENTE los creativos subidos (los ganadores reusan su propio
   // post), así el orden de los copies devueltos calza 1 a 1 con los subidos.
   function promptExistente(an: Analisis): string {
-    // an[i] está indexado por paraVer (solo miniaturas data:) — mapeamos cada subido
-    // a SU análisis por posición en ese subconjunto, para no cruzar descripciones.
-    const conVer = usables().filter((t) => t.thumbnail_url?.startsWith('data:'));
-    const analisisDe = (t: TrayItem) => { const k = conVer.indexOf(t); return k >= 0 ? an[k] : undefined; };
+    // an[i] está indexado por paraVer (solo miniaturas data:): analisisDe mapea cada
+    // subido a SU análisis, para no cruzar descripciones.
     const u = usables().filter((t) => t.kind === 'upload');
-    const desc = u.map((t, i) => { const a = analisisDe(t); return `Creativo ${i + 1} (${t.media_type ?? 'archivo'}): ${a?.descripcion || '(sin descripción)'}${a?.angulo ? ` [ángulo: ${a.angulo}]` : ''}`; }).join('\n');
+    const desc = u.map((t, i) => { const a = analisisDe(t, an); return `Creativo ${i + 1} (${t.media_type ?? 'archivo'}): ${a.descripcion}${a.angulo ? ` [ángulo: ${a.angulo}]` : ''}`; }).join('\n');
     return `El usuario va a AGREGAR anuncios nuevos a una campaña que YA existe y corre en Meta. NO propongas cambios de campaña, conjunto, presupuesto ni público: todo eso ya está definido y no se toca.
 - Campaña: ${campSel?.name ?? '—'}
 - Conjunto destino: ${adsetSel?.name ?? '—'}${adsetInfo?.optimization_goal ? ` (optimiza por ${adsetInfo.optimization_goal})` : ''}
@@ -814,6 +845,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
           {step === 'creativos' && (
             <Paso titulo="¿Qué vas a promocionar?" sub="Sube tus imágenes o videos, o reusa un anuncio que ya te funciona. Puedes cargar varios.">
               <CreativosPicker tray={tray} onQuitar={quitar} senales={senales} onGanador={agregarGanador} fileRef={fileRef} bloqueados={ganadoresBloqueados ?? {}}
+                onMako={(c) => subir({ mako: c })}
                 aviso={existente ? AVISO_PROCESANDO_NO_CIERRES : AVISO_PROCESANDO_RETOMA} />
             </Paso>
           )}
@@ -1025,7 +1057,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
           </div>
         )}
         <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,video/mp4,video/quicktime" style={{ display: 'none' }}
-          onChange={(e) => { const files = e.target.files; if (files) Array.from(files).forEach((f) => subir(f)); e.target.value = ''; }} />
+          onChange={(e) => { const files = e.target.files; if (files) Array.from(files).forEach((f) => subir({ file: f })); e.target.value = ''; }} />
       </div>
     </div>
   );
@@ -1118,8 +1150,11 @@ function Inversion({ value, onChange, currency }: { value: number | null; onChan
 }
 
 // ── creativos ──
-function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef, bloqueados, aviso }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; fileRef: React.RefObject<HTMLInputElement | null>; bloqueados: Record<string, string>; aviso: string }) {
+function CreativosPicker({ tray, onQuitar, senales, onGanador, onMako, fileRef, bloqueados, aviso }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; onMako: (c: CreativoMako) => void; fileRef: React.RefObject<HTMLInputElement | null>; bloqueados: Record<string, string>; aviso: string }) {
   const [verGanadores, setVerGanadores] = useState(false);
+  // Los videos que MaKo ya generó (tarea #797). El panel queda abierto: acá entran varios.
+  const [verMako, setVerMako] = useState(false);
+  const makoElegidos = tray.map((t) => t.mako_ref).filter((r): r is string => !!r);
   // Los que se pueden reusar van PRIMERO (lib/ganadores-reuso.ts): en ws13 los que más
   // gastaron son de otra página y tapaban a los únicos publicables.
   const ganadores = ganadoresParaReusar(senales, bloqueados);
@@ -1146,10 +1181,16 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef, bloquead
         </div>
       )}
       {tray.some(esperandoAMeta) && <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5, maxWidth: 420 }}>{aviso}</p>}
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
         <button type="button" onClick={() => fileRef.current?.click()} style={btnDark}>⬆ Subir creativo</button>
-        <button type="button" onClick={() => setVerGanadores((v) => !v)} style={btnGhost}>★ Usar un ganador</button>
+        <button type="button" onClick={() => { setVerMako((v) => !v); setVerGanadores(false); }} style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="videogen" size={15} /> Mis creativos</button>
+        <button type="button" onClick={() => { setVerGanadores((v) => !v); setVerMako(false); }} style={btnGhost}>★ Usar un ganador</button>
       </div>
+      {verMako && (
+        <div style={{ width: '100%', borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <MisCreativosMako onElegir={onMako} elegidos={makoElegidos} />
+        </div>
+      )}
       {verGanadores && (
         <div style={{ width: '100%', borderTop: '1px solid var(--border)', paddingTop: 14 }}>
           {ganadores.length === 0 ? <p style={{ fontSize: 13, color: 'var(--faint)', textAlign: 'center', margin: 0 }}>Sin anuncios con creativo para reusar.</p> : (

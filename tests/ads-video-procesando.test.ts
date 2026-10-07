@@ -35,11 +35,21 @@ function cuerpo(src: string, firma: string): string {
 
 test('SubidoCreativo declara processing, y subirCreativo lo pasa desde el server', () => {
   assert.match(SUBIDA, /export type SubidoCreativo = \{[\s\S]*?\bprocessing: boolean;[\s\S]*?\bvideo_status:/);
-  const sub = cuerpo(SUBIDA, 'export async function subirCreativo(');
-  assert.match(sub, /processing: j\.media_type === 'video' && !!j\.video_id && j\.processing === true/, 'el processing sale de la respuesta');
-  assert.doesNotMatch(sub, /processing: false/);
+  // Desde la #797 hay DOS puertas (un archivo y un video que MaKo ya generó) y una sola
+  // lectura de la respuesta: subidoDeRespuesta. El processing se mira ahí, y las dos
+  // puertas tienen que pasar por ella —una copia del return es lo que la #59 sacó—.
+  const resp = cuerpo(SUBIDA, 'export function subidoDeRespuesta(');
+  assert.match(resp, /processing: j\.media_type === 'video' && !!j\.video_id && j\.processing === true/, 'el processing sale de la respuesta');
+  assert.doesNotMatch(resp, /processing: false/);
+  assert.match(cuerpo(SUBIDA, 'async function procesarEnMeta('), /return subidoDeRespuesta\(j, pathRespaldo\);/);
+  for (const puerta of ['export async function subirCreativo(', 'export async function usarCreativoMako(']) {
+    assert.match(cuerpo(SUBIDA, puerta), /return procesarEnMeta\(/, `${puerta}: lee la respuesta por procesarEnMeta`);
+  }
   //   ROTO A PROPÓSITO (07/10/2026): con el return viejo (sin processing), el typecheck
   //   ya lo frena; con `processing: false` escrito a mano, pass 6 / fail 1 — éste.
+  //   Y tras la #797 (10 tests en el archivo), de a una, restaurando de memoria:
+  //   `processing: false` en subidoDeRespuesta → pass 9 / fail 1 (éste); usarCreativoMako
+  //   con su propio fetch+return en vez de procesarEnMeta → pass 9 / fail 1 (éste).
 });
 
 test('en los tres modales, lo que vuelve de subirCreativo pasa TAL CUAL, con la tarjeta en 100', () => {
@@ -150,7 +160,8 @@ test('en los tres modales, «no pude leer» deja la tarjeta y sigue preguntando'
   for (const ruta of ['app/ads-manager/AgregarConjuntoModal.tsx', 'app/ads-manager/AgregarAnuncioModal.tsx']) {
     const src = codigo(ruta);
     const iLoop = src.indexOf("while (fin === 'sin_lectura' && !ctl.signal.aborted) {");
-    const iFin = src.indexOf('setErr(motivoFinEspera(fin, file.name)); setTray(null);');
+    // `nombre` y no `file.name` desde la #797: la misma espera sirve al video de MaKo.
+    const iFin = src.indexOf('setErr(motivoFinEspera(fin, nombre)); setTray(null);');
     assert.ok(iLoop > 0 && iFin > iLoop, `${ruta}: el «sin lectura» se reintenta antes de sacar la tarjeta`);
     assert.match(src.slice(iLoop, iFin), /esperarVideoListo\(r\.video_id, r\.path, \{ signal: ctl\.signal, cadaMs: CADA_MS_SIN_LECTURA \}\)/);
   }

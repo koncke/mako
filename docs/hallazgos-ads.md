@@ -3318,3 +3318,113 @@ app/api/ads-manager/creative-signurl/route.ts · lib/ads-staging.ts · lib/meta-
 (`deleteEntity`, `addAdsetToCampaign`) · tests/meta-idempotencia.test.ts ·
 tests/ads-video-procesando.test.ts · tests/meta-campaign-drafts-workspace.test.ts ·
 tests/ads-publicar-registro.test.ts · tests/ads-staging.test.ts · *2026-10-07 revisión de la #59*
+
+## Usar un video de MaKo al armar el anuncio, sin bajarlo y volverlo a subir (07/10, tarea #797)
+
+**Síntoma:** para publicar un anuncio hecho en /video-generator había que bajar el .mp4,
+buscarlo en el explorador y volver a subirlo. En `app/ads-manager` no había una sola referencia
+al bucket `video-clips` ni a `montaje_trabajos`.
+
+**Lo que se midió antes de escribir (SELECT de sólo lectura, 07/10):**
+
+- **En producción no hay NI UN montaje 'listo'.** `montaje_trabajos` tiene 2 filas, las dos
+  'pendiente' con `intentos` 0 (ws1 y ws11): el worker de montaje nunca tomó un trabajo
+  (docs/hallazgos-generativa.md: «El worker de montaje sigue sin contenedor»). Con el anuncio
+  montado como única fuente, el selector salía vacío para todos los clientes. Por eso van las
+  DOS fuentes: los montados primero y las tomas sueltas después, cada grupo rotulado.
+- **Las tomas sí existen: 31 con url** (14 en ws1, 17 en ws11), y las 31 son EXACTAMENTE
+  `getPublicUrl('video-generator/<plan>/toma-<n>-<mediaId>.mp4')` (en las 31, `mediaId` es igual
+  a `operacion`). ws9, el de Martín, no tiene historial del generador ni Meta conectada.
+- **El bucket contesta `Access-Control-Allow-Origin: *`** (un GET con Range y el preflight sobre
+  una toma real): un `<video crossOrigin="anonymous">` dibuja en un canvas sin «taint», así que
+  la miniatura se puede hacer en el navegador.
+
+**Las trampas, y cada una quedó con su guard:**
+
+1. **La url no puede viajar del navegador, ni validarse con un prefijo.** El bucket es público y
+   la ruta no lleva el workspace (docs/hallazgos-generativa.md: «`video-clips` es un bucket
+   PÚBLICO»): con la url en el body, un admin del ws A publicaría el video del ws B; y
+   `urlEsPropia` (`includes('/storage/v1/object/public/video-clips/')`) aceptaría cualquier toma
+   de cualquier cliente. El navegador manda sólo una `ref` (`montaje:<id>` / `toma:<plan>:<n>`);
+   el server la resuelve en el workspace de la sesión, ARMA la url con la misma ruta que la
+   escribió (el worker de montaje y `guardarClip`) y exige que lo guardado sea exactamente eso; y
+   antes de dársela a Meta mira el origen con `new URL`. Medido contra el server local: con la
+   sesión de ws9, la `ref` de una toma de ws1 contesta 404 sin tocar Meta.
+2. **La rama nueva no borra nada.** `creative-upload` borra el staging (`ads-creatives`) cuando
+   Meta da su veredicto; ese borrado sobre `video-clips` se lleva el anuncio montado, que es la
+   ÚNICA copia (el worker sube con upsert sobre la misma ruta). Tampoco se guarda el guion como
+   transcripción: una fila en `creative_transcripts` pasa a `ad_transcripts` y el cron
+   transcribe-ads se saltea ese anuncio para siempre — y el generador dice palabras distintas
+   del guion.
+3. **La miniatura es una data: o nada.** Una url http del .mp4 en `thumbnail_url` viaja como
+   `video_data.image_url` (`buildObjectStorySpec`), y `faltaMiniatura` la da por buena porque es
+   http, así que la de Meta no la reemplaza: Meta rechaza el creativo. La data: no viaja (sólo se
+   reenvía http), la miniatura de Meta llega al publicar, y es lo único que «MaKo mira los
+   creativos» sabe leer.
+4. **El workspace que lee tiene que ser el que escribe.** `getTenantDb()` con ws null lee con el
+   id imposible -1 y `cred()` cae a OWNER_WS. Sin `runWithWorkspace(wsDeAdsManager(), …)` en las
+   dos rutas, el admin de agencia sin workspace veía la lista vacía y subía al ws1.
+
+**El diagnóstico obvio era el equivocado, dos veces:**
+
+- El detalle de la tarea prometía un «regalo de arrastre» para la #59: que por url dejaba de
+  aplicar el límite de body y se destrababan los videos pesados. Falso: el video del disco YA
+  viajaba a Meta por `file_url` firmado (el navegador sube directo al storage y los bytes nunca
+  pasaron por la función). Lo que frena a un video pesado es la espera a Meta, no el body.
+- «¿Sólo el montado, o también las tomas?» se había anotado como una decisión de producto que no
+  bloquea. Con cero montajes listos, era la decisión de si la feature mostraba algo.
+
+**De paso, en Nueva campaña:** `promptDeRespuestas` indexaba el análisis de MaKo (`an[i]`) sobre
+todos los creativos, y el análisis viene indexado sólo por los que tienen miniatura data:. Un
+ganador —o un video de MaKo cuyo frame no se pudo dibujar— corría las descripciones al anuncio
+equivocado. Ahora se busca por SU miniatura (`analisisDe`, como ya hacía `promptExistente`) y un
+video de MaKo sin análisis se describe con el título de su anuncio.
+
+**Regla:**
+
+- **La url de un archivo de un bucket público cuya ruta no lleva el workspace se DERIVA en el
+  server desde ids del workspace; nunca se acepta del navegador ni se valida por prefijo.** Lo
+  que no coincide con la derivación no se ofrece.
+- **Una rama nueva sobre una ruta que limpia temporales no hereda la limpieza:** el que borra
+  tiene que saber que lo que borra es una copia.
+- **El video de MaKo entra por la MISMA subida y la MISMA espera** en los tres modales
+  (`subir({ file } | { mako })`, `procesarEnMeta` → `subidoDeRespuesta`): dos caminos para lo
+  mismo era justo lo que la #59 vino a sacar.
+
+**Cómo se verificó:** typecheck en 0; `npm test` 4554 de 4554 (16 nuevos); quince roturas a
+propósito, todas cazadas (pass 7 / fail 1 en cada archivo nuevo, pass 9 / fail 1 en el de la
+#59), restaurando de memoria. `npm run build` en 0, y el código del server no aparece en el
+bundle. En el navegador (Playwright, Chrome sin ventana y mudo; meta-health, creative-upload,
+ad-add, adset-add y targeting simulados; todo otro POST abortado): 17 de 17 — el vacío REAL de
+ws9 con su link a `/video-generator?ws=9`, montados antes que tomas, el POST con SÓLO
+`{ mako }` en los tres modales, «Procesando» y no «0%», la miniatura data: dibujada desde el
+bucket real, y el mismo video no entra dos veces. La ruta real, por GET, contesta 14 tomas en
+ws1 y 17 en ws11, 0 montados. **No** se creó ningún anuncio ni se llamó a Meta.
+
+**Sin hacer:**
+
+- **El «Listo cuando» de punta a punta** —crear el anuncio en pausa en una cuenta real— lo hace
+  Martín, mirando, porque deja un video en la biblioteca de la cuenta. Antes: conectar Meta en
+  ws9 (hoy no tiene token, ni cuenta, ni página), tener ahí un anuncio generado (gasta créditos de
+  Flow) y, para probar el montado, desplegar el contenedor del worker (`MONTAJE_WORKER_TOKEN`):
+  sin eso los dos montajes pendientes, que son de clientes, no se mueven.
+- **La imagen.** `CreativoMako.media_type` ya admite 'image' y la rama de creative-upload la
+  rechaza («Por ahora, sólo videos.»). No hay de dónde sacarla: /image-generator es ComingSoon
+  (#298) y las imágenes de escena del generador son urls de Flow que vencen a las ~6 h.
+- **Cada elección sube otro video a la biblioteca de la cuenta**: Meta no deduplica por url.
+  Nueva campaña no deja el mismo video dos veces en la bandeja; entre publicaciones no hay caché
+  `ref → video_id` por cuenta.
+- **Las tomas de un anuncio que el tope de 10 sacó del historial** siguen en el bucket y no se
+  ofrecen: no queda de dónde saber de quién son.
+- `motivoFinEspera` dice «Prueba con otro archivo» / «Súbelo de nuevo» también para un video de
+  MaKo.
+
+**Vive en:** lib/creativo-mako.ts (`creativosDeMontajes`, `creativosDeTomas`, `leerRefCreativo`,
+`mismoOrigen`) · lib/creativo-mako-fuentes.ts (`resolverCreativoMako`) ·
+app/api/ads-manager/mis-creativos/route.ts · app/api/ads-manager/creative-upload/route.ts
+(`subirCreativoMako`) · app/ads-manager/creativeUpload.ts (`usarCreativoMako`, `procesarEnMeta`,
+`subidoDeRespuesta`, `makeThumbDeUrl`, `listarCreativosMako`) · app/ads-manager/MisCreativosMako.tsx
+· app/ads-manager/AgregarAnuncioModal.tsx · app/ads-manager/AgregarConjuntoModal.tsx ·
+app/ads-manager/NuevaCampanaModal.tsx (`subir`, `CreativosPicker`, `analisisDe`) ·
+tests/creativo-mako.test.ts · tests/ads-creativo-mako.test.ts · tests/ads-video-procesando.test.ts
+· *2026-10-07 tarea #797*

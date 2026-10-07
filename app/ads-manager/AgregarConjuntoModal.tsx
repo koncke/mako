@@ -13,8 +13,11 @@ import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import {
   subirCreativo, makeThumb, esperarVideoListo, motivoFinEspera, postConTope, esperandoAMeta,
   SIN_RESPUESTA, AVISO_PROCESANDO_NO_CIERRES, CADA_MS_SIN_LECTURA, ANTERIOR_PUBLICADA, ANTERIOR_A_MEDIAS,
-  claveAbierta, anotarClaveAbierta, type SubidoCreativo,
+  claveAbierta, anotarClaveAbierta, usarCreativoMako, makeThumbDeUrl, type SubidoCreativo,
 } from './creativeUpload';
+import { MisCreativosMako } from './MisCreativosMako';
+import { Icon } from '../_components/icons';
+import type { CreativoMako } from '@/lib/creativo-mako';
 import { claveAMandar, trasRespuesta, type ClaveIdem } from '@/lib/meta-idempotencia';
 import { CTA_OPCIONES, type Creative, type AdSetSpec, type AudienceRef } from '@/lib/campaign-types';
 import type { SenalRecon } from '@/lib/queries';
@@ -61,6 +64,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, mo
   // anuncio
   const [tray, setTray] = useState<Tray | null>(null);
   const [verGan, setVerGan] = useState(false);
+  const [verMako, setVerMako] = useState(false);
   const [primary, setPrimary] = useState(''); const [headline, setHeadline] = useState('');
   const [cta, setCta] = useState('LEARN_MORE'); const [url, setUrl] = useState(''); const [leadFormId, setLeadFormId] = useState('');
   const [saving, setSaving] = useState(false); const [err, setErr] = useState<string | null>(null);
@@ -92,15 +96,21 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, mo
   const opts = (audiencesAll ?? []).filter((a) => !auds.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: `${a.name ?? a.id}${a.count != null ? ` · ~${a.count.toLocaleString('es-MX')}` : ''}` }));
   const ganadores = ganadoresParaReusar(senales, ganadoresBloqueados);
 
-  async function subir(file: File) {
+  // Dos puertas —un archivo del disco o un video que MaKo ya generó (tarea #797)— y la
+  // MISMA espera a Meta. El de MaKo nace en 100: no hay subida que mostrar.
+  async function subir(f: { file: File } | { mako: CreativoMako }) {
+    const nombre = 'file' in f ? f.file.name : f.mako.titulo;
     subidaRef.current?.abort();
     const ctl = new AbortController();
     subidaRef.current = ctl;
     setErr(null);
-    setTray({ kind: 'upload', media_type: file.type.startsWith('video') ? 'video' : 'image', processing: true, progress: 0, thumbnail_url: null });
-    makeThumb(file).then((dt) => { if (dt && !ctl.signal.aborted) setTray((t) => (t ? { ...t, thumbnail_url: t.thumbnail_url ?? dt } : t)); });
+    setTray({ kind: 'upload', media_type: 'file' in f ? (f.file.type.startsWith('video') ? 'video' : 'image') : f.mako.media_type, processing: true, progress: 'file' in f ? 0 : 100, thumbnail_url: null });
+    // La miniatura es SIEMPRE una data: hecha acá (o ninguna), nunca la url del .mp4.
+    ('file' in f ? makeThumb(f.file) : makeThumbDeUrl(f.mako.url)).then((dt) => { if (dt && !ctl.signal.aborted) setTray((t) => (t ? { ...t, thumbnail_url: t.thumbnail_url ?? dt } : t)); });
     try {
-      const r: SubidoCreativo = await subirCreativo(file, (pct) => { if (!ctl.signal.aborted) setTray((t) => (t ? { ...t, progress: pct } : t)); });
+      const r: SubidoCreativo = 'mako' in f
+        ? await usarCreativoMako(f.mako.ref)
+        : await subirCreativo(f.file, (pct) => { if (!ctl.signal.aborted) setTray((t) => (t ? { ...t, progress: pct } : t)); });
       if (ctl.signal.aborted) return;
       // `processing` es lo que dijo Meta (tarea #59), y la tarjeta queda en 100 mientras procesa.
       setTray((t) => (t ? { ...t, media_type: r.media_type, image_hash: r.image_hash, video_id: r.video_id, thumbnail_url: t.thumbnail_url ?? r.thumbnail_url ?? null, processing: r.processing, progress: r.processing ? 100 : undefined } : t));
@@ -108,12 +118,12 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, mo
       let fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal });
       // «No pude leer» no es un veredicto de Meta: la tarjeta se queda y se sigue preguntando.
       while (fin === 'sin_lectura' && !ctl.signal.aborted) {
-        setErr(motivoFinEspera(fin, file.name));
+        setErr(motivoFinEspera(fin, nombre));
         fin = await esperarVideoListo(r.video_id, r.path, { signal: ctl.signal, cadaMs: CADA_MS_SIN_LECTURA });
       }
       if (fin === 'cancelado' || ctl.signal.aborted) return;
       if (fin === 'ready') { setErr(null); setTray((t) => (t ? { ...t, processing: false, progress: undefined } : t)); return; }
-      setErr(motivoFinEspera(fin, file.name)); setTray(null);
+      setErr(motivoFinEspera(fin, nombre)); setTray(null);
     } catch (e) {
       if (ctl.signal.aborted) return;
       setErr(e instanceof Error ? e.message : String(e)); setTray(null);
@@ -221,10 +231,12 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, mo
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <button type="button" onClick={() => fileRef.current?.click()} style={btnDark}>⬆ Subir creativo</button>
-                    <button type="button" onClick={() => setVerGan((v) => !v)} style={btnGhost}>★ Usar un ganador</button>
+                    <button type="button" onClick={() => { setVerMako((v) => !v); setVerGan(false); }} style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="videogen" size={15} /> Mis creativos</button>
+                    <button type="button" onClick={() => { setVerGan((v) => !v); setVerMako(false); }} style={btnGhost}>★ Usar un ganador</button>
                   </div>
                 </div>
                 {esperandoAMeta(tray) && <p style={{ fontSize: 12.5, color: 'var(--dim)', margin: '10px 0 0', lineHeight: 1.5 }}>{AVISO_PROCESANDO_NO_CIERRES}</p>}
+                {verMako && <div style={{ marginTop: 10 }}><MisCreativosMako onElegir={(c) => { setVerMako(false); subir({ mako: c }); }} /></div>}
                 {verGan && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxHeight: 150, overflowY: 'auto', marginTop: 10 }}>
                     {ganadores.map((s) => (
@@ -263,7 +275,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, mo
             <button onClick={guardar} disabled={!puede || saving} style={{ ...btnDark, opacity: !puede || saving ? 0.5 : 1, cursor: !puede || saving ? 'default' : 'pointer' }}>{saving ? 'Creando…' : 'Agregar en pausa'}</button>
           </div>
         )}
-        <input ref={fileRef} type="file" accept="image/jpeg,image/png,video/mp4,video/quicktime" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = ''; }} />
+        <input ref={fileRef} type="file" accept="image/jpeg,image/png,video/mp4,video/quicktime" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subir({ file: f }); e.target.value = ''; }} />
       </div>
     </div>
   );

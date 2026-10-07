@@ -24,6 +24,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Producto MÚLTIPLE por campaña', detalle: 'Choca con que un lead tiene un solo funnel_id (lib/campana-config.ts) · las tres salidas están medidas y la decisión es de Martín', estado: 'cola' },
   { titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta', detalle: 'La celda y el lote preguntan «viejo → nuevo» antes de escribir · se tipea en USD y se convierte a la moneda de la cuenta (lib/presupuesto-cambio.ts) · el presupuesto total no se edita como diario · lo escrito sobrevive a la caché vencida del árbol · falta la primera prueba en una cuenta real', estado: 'hecha' },
   { titulo: 'Un video se usa cuando Meta lo procesó, y un reintento no publica dos veces', detalle: 'La tarjeta espera a Meta (los tres modales, una sola subida) · las rutas preguntan por los videos antes de crear · clave de idempotencia por payload en campaign-create, ad-add y adset-add · falta aplicar la 0215, publicar de verdad y medir un video pesado', estado: 'sigue' },
+  { titulo: 'Usar un video de MaKo sin bajarlo y volverlo a subir', detalle: '«Mis creativos» en los tres modales: los anuncios montados y las tomas sueltas del bucket propio, por file_url · la url se deriva en el server, nunca viaja del navegador · falta la primera prueba en una cuenta real (Meta en ws9) y el worker de montaje; la imagen no tiene de dónde salir (#298)', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -159,6 +160,27 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: 'c5a5c933', msg: 'Ads Manager: la revisión de la #59 — la clave sin respuesta manda, y la fila dice todo lo que hay en Meta', lineas: 1019, archivos: 22 },
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '20:30', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Usar un video que MaKo ya generó, sin bajarlo y volverlo a subir (#797)',
+    puntos: [
+      '**«¿Sólo el montado o también las tomas?» no era la decisión que no bloquea: era la que decidía si la feature mostraba algo.** En producción hay CERO montajes listos (dos pendientes, el worker nunca tomó uno) y 31 tomas filmadas. Van las dos: los montados primero y las tomas después, rotulados.',
+      'La url NUNCA viaja del navegador. El bucket es público y la ruta no lleva el workspace: el navegador manda una referencia, el server ARMA la url con la misma ruta que la escribió y exige que lo guardado sea exactamente eso. Con la sesión de ws9, la referencia de una toma de ws1 contesta 404 sin tocar Meta.',
+      'La rama nueva no borra (el montado es la única copia), no guarda el guion como transcripción (el cron se saltearía ese anuncio para siempre) y la miniatura es una data: hecha en el navegador o nada: la url del .mp4 viajaría a Meta como image_url y el creativo se rechaza.',
+      '⚠️ **El «regalo» para los videos pesados de la #59 era falso**: el video del disco ya iba a Meta por file_url firmado. Y de paso, Nueva campaña cruzaba las descripciones de MaKo cuando un creativo no tenía miniatura.',
+      'Verificado: 4554 tests, quince roturas cazadas, build en 0, y 17 de 17 en el navegador con Meta simulado. Falta lo que hace Martín: conectar Meta en su workspace, generar un anuncio ahí y crear uno en pausa mirando.',
+    ],
+    archivos: [
+      'lib/creativo-mako.ts — qué se ofrece y qué se acepta: la url derivada, la referencia, el origen',
+      'lib/creativo-mako-fuentes.ts — los montados, las tomas y resolver una referencia, en el workspace de la sesión',
+      'app/api/ads-manager/mis-creativos/route.ts — la lista; «no pude leer» es un 500, nunca []',
+      'app/api/ads-manager/creative-upload/route.ts — subirCreativoMako, antes de exigir path y sin borrar nada',
+      'app/ads-manager/MisCreativosMako.tsx — el panel de los tres modales',
+      'app/ads-manager/creativeUpload.ts — usarCreativoMako, makeThumbDeUrl y una sola lectura de la respuesta',
+      'tests/creativo-mako.test.ts y tests/ads-creativo-mako.test.ts — 16 tests, cada guard probado rompiéndolo',
     ],
   },
 ];

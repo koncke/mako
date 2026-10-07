@@ -17,6 +17,7 @@
 
 import { claveIdemGuardada, type ClaveIdem } from '@/lib/meta-idempotencia';
 import { wsDeBusqueda } from '@/lib/ws-tab';
+import type { CreativoMako } from '@/lib/creativo-mako';
 
 export type SubidoCreativo = {
   media_type: 'image' | 'video';
@@ -102,6 +103,46 @@ export function makeThumb(file: File): Promise<string | null> {
 }
 
 /**
+ * La miniatura de un video que ya vive en el bucket propio (tarea #797): un frame,
+ * dibujado en el navegador, como dataURL. null si no se pudo.
+ *
+ * ⚠️ NUNCA la url del .mp4 como miniatura: una url http en `thumbnail_url` viaja a Meta
+ * como video_data.image_url (lib/meta-ads-create.ts, buildObjectStorySpec) y Meta rechaza
+ * el creativo. Una data: no viaja (sólo se reenvía http) y la miniatura de Meta la
+ * reemplaza al publicar; y además es lo único que «MaKo mira los creativos» sabe leer.
+ *
+ * El canvas queda limpio porque el bucket contesta `Access-Control-Allow-Origin: *`
+ * (medido el 07/10/2026 sobre una toma real, GET con Range y el preflight). Si eso cambia,
+ * el canvas queda «tainted», toDataURL tira y esto devuelve null — que es seguro.
+ */
+export function makeThumbDeUrl(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    let hecho = false;
+    const v = document.createElement('video');
+    const fin = (dt: string | null) => {
+      if (hecho) return;
+      hecho = true;
+      clearTimeout(tope);
+      v.removeAttribute('src'); v.load();
+      resolve(dt && dt.startsWith('data:') ? dt : null);
+    };
+    // Un video que no carga no deja la tarjeta esperando: sin miniatura se dibuja el ícono.
+    const tope = setTimeout(() => fin(null), 15_000);
+    try {
+      v.crossOrigin = 'anonymous'; v.muted = true; v.preload = 'metadata'; v.playsInline = true;
+      v.onloadeddata = () => { try { v.currentTime = Math.min(1, (v.duration || 2) / 2); } catch { fin(null); } };
+      v.onseeked = () => {
+        const { canvas, ctx } = fitCanvas(v.videoWidth, v.videoHeight);
+        if (!ctx) return fin(null);
+        try { ctx.drawImage(v, 0, 0, canvas.width, canvas.height); fin(canvas.toDataURL('image/jpeg', 0.72)); } catch { fin(null); }
+      };
+      v.onerror = () => fin(null);
+      v.src = url;
+    } catch { fin(null); }
+  });
+}
+
+/**
  * Sube un archivo (imagen/video) y lo empuja a Meta. onProgress 0..100.
  *
  * ⚠️ Volver de acá NO quiere decir que el creativo esté listo: con un video, `processing`
@@ -116,31 +157,75 @@ export async function subirCreativo(file: File, onProgress: (pct: number) => voi
   if (!sj?.ok) throw new Error(sj?.error || 'No se pudo preparar la subida');
   await putWithProgress(sj.signedUrl, file, sj.apikey ?? null, onProgress);
   onProgress(100);
+  // `size` le ahorra al server bajar un video de 500 MB para descubrir que no se transcribe.
+  return procesarEnMeta(
+    { path: sj.path, content_type: file.type, filename: file.name, size: file.size },
+    'Vuelve a subirlo.',
+    typeof sj.path === 'string' ? sj.path : null,
+  );
+}
+
+/**
+ * Usa un video que MaKo ya generó (tarea #797): el server lo resuelve por `ref` y Meta lo
+ * baja de la url pública del bucket propio. Nada pasa por el disco de nadie.
+ *
+ * ⚠️ Viaja SÓLO `ref`, nunca la url: el server la vuelve a armar en el workspace de la
+ * sesión. Y vuelve igual que una subida —con `processing`— porque Meta lo procesa igual.
+ */
+export async function usarCreativoMako(ref: string): Promise<SubidoCreativo> {
+  return procesarEnMeta({ mako: ref }, 'Vuelve a elegirlo.', null);
+}
+
+/**
+ * El POST a creative-upload con el tope de la ruta, y lo que contestó pasado a
+ * SubidoCreativo. Lo comparten las dos puertas (archivo y video de MaKo): dos copias de
+ * esto eran justo lo que la #59 vino a sacar.
+ */
+async function procesarEnMeta(cuerpo: Record<string, unknown>, otraVez: string, pathRespaldo: string | null): Promise<SubidoCreativo> {
   const r = await fetch('/api/ads-manager/creative-upload', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    // `size` le ahorra al server bajar un video de 500 MB para descubrir que no se transcribe.
-    body: JSON.stringify({ path: sj.path, content_type: file.type, filename: file.name, size: file.size }),
+    body: JSON.stringify(cuerpo),
     signal: AbortSignal.timeout(TOPE_POST_MS),
   }).catch((e: unknown) => {
-    // El corte dice DÓNDE quedó el trabajo: el archivo ya está en el storage, pero Meta
-    // no contestó, así que no hay creativo que usar.
+    // El corte dice DÓNDE quedó el trabajo: Meta no contestó, así que no hay creativo
+    // que usar (en una subida, el archivo ya está en el storage).
     const corte = e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError');
-    throw new Error(corte ? 'Se cortó la espera al procesar el creativo. Vuelve a subirlo.' : 'Error de red al procesar el creativo. Vuelve a subirlo.');
+    throw new Error(corte ? `Se cortó la espera al procesar el creativo. ${otraVez}` : `Error de red al procesar el creativo. ${otraVez}`);
   });
   const j = await r.json().catch(() => null);
-  if (!j) throw new Error('El servidor no respondió al procesar el creativo. Vuelve a subirlo.');
+  if (!j) throw new Error(`El servidor no respondió al procesar el creativo. ${otraVez}`);
   if (!j.ok) throw new Error(j.error || 'No se pudo procesar el creativo');
+  return subidoDeRespuesta(j, pathRespaldo);
+}
+
+/** Lo que contestó creative-upload, como lo usa la bandeja. Exportada para el test. */
+export function subidoDeRespuesta(j: Record<string, unknown>, pathRespaldo: string | null): SubidoCreativo {
   const vs = j.video_status === 'ready' || j.video_status === 'processing' || j.video_status === 'error' ? j.video_status : null;
   return {
-    media_type: j.media_type,
-    image_hash: j.image_hash ?? null,
-    video_id: j.video_id ?? null,
-    thumbnail_url: j.thumbnail_url ?? null,
+    media_type: j.media_type === 'video' ? 'video' : 'image',
+    image_hash: typeof j.image_hash === 'string' ? j.image_hash : null,
+    video_id: typeof j.video_id === 'string' ? j.video_id : null,
+    thumbnail_url: typeof j.thumbnail_url === 'string' ? j.thumbnail_url : null,
     // Sólo un video puede estar procesándose; y sin video_id no hay a quién esperar.
     processing: j.media_type === 'video' && !!j.video_id && j.processing === true,
     video_status: vs,
-    path: typeof j.path === 'string' ? j.path : (typeof sj.path === 'string' ? sj.path : null),
+    path: typeof j.path === 'string' ? j.path : pathRespaldo,
   };
+}
+
+/** Lo que el modal ofrece además del disco: primero los montados, después las tomas. */
+export type MisCreativos = { montados: CreativoMako[]; tomas: CreativoMako[] };
+
+/**
+ * La lista de /api/ads-manager/mis-creativos. TIRA si el server no la pudo leer: «no
+ * pude leer» no se pinta como «todavía no hay videos».
+ */
+export async function listarCreativosMako(signal?: AbortSignal): Promise<MisCreativos> {
+  const r = await fetch('/api/ads-manager/mis-creativos', { cache: 'no-store', signal })
+    .catch(() => { throw new Error('Error de red al leer tus videos de MaKo.'); });
+  const j = await r.json().catch(() => null);
+  if (!j?.ok) throw new Error(j?.error || 'No pude leer tus videos de MaKo.');
+  return { montados: Array.isArray(j.montados) ? j.montados : [], tomas: Array.isArray(j.tomas) ? j.tomas : [] };
 }
 
 /**

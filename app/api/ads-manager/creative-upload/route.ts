@@ -7,6 +7,10 @@
 //   servidor y la sube a act_<id>/adimages (image_hash). Video → Meta lo descarga
 //   por file_url firmado (act_<id>/advideos), así los bytes NUNCA pasan por esta
 //   función.
+// POST { mako: 'montaje:<id>' | 'toma:<plan>:<n>' } → UploadResult   (tarea #797)
+//   Un video que MaKo ya generó: el anuncio montado o una toma del generador. Meta lo
+//   baja de la url pública del bucket propio. El navegador manda SÓLO la referencia;
+//   la url se resuelve acá, en el workspace de la sesión (subirCreativoMako).
 // GET ?video_id=<dígitos>&path=<nueva/…> → { estado }
 //   Lo que dice Meta HOY de un video que se está procesando. El navegador pregunta
 //   cada ~5 s hasta 'ready' o 'error' (app/ads-manager/creativeUpload.ts).
@@ -27,9 +31,11 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { uploadAdImage, uploadAdVideoByUrl, waitForVideoReady, estadoVideo, metaErrorEnvelope, ADS_CREATIVES_BUCKET as BUCKET } from '@/lib/meta-ads-create';
 import type { UploadResult } from '@/lib/campaign-types';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
-import { guardAdsWs } from '@/lib/ads-guard';
+import { guardAdsWs, wsDeAdsManager } from '@/lib/ads-guard';
 import { transcribeMediaBuffer, structureTranscript } from '@/lib/transcribe';
 import { esPathDeStaging, STAGING_CARPETA, stagingVencido } from '@/lib/ads-staging';
+import { leerRefCreativo, mismoOrigen, type CreativoMako } from '@/lib/creativo-mako';
+import { resolverCreativoMako } from '@/lib/creativo-mako-fuentes';
 
 export const dynamic = 'force-dynamic';
 // ⚠️ after() NO saca nada de estos 300 s: corre «por la duración máxima configurada de la
@@ -155,12 +161,82 @@ async function guardarTranscripcion(
   }
 }
 
+/** El nombre del video en la biblioteca de la cuenta de Meta: de qué anuncio sale. */
+function nombreEnMeta(c: CreativoMako): string {
+  return `${c.titulo}${c.toma != null ? ` · toma ${c.toma}` : ''}`.slice(0, 120);
+}
+
+/**
+ * Un video que MaKo ya generó → act_<id>/advideos por file_url (tarea #797).
+ *
+ * ⚠️ RECIBE SÓLO LA REFERENCIA. El bucket `video-clips` es público y su ruta no lleva el
+ * workspace: si la url viajara del navegador, un admin del ws A podría publicar el video
+ * del ws B. Se resuelve por id en el workspace de la sesión, con la url DERIVADA
+ * (lib/creativo-mako.ts), y el origen se vuelve a mirar con new URL antes de dársela a Meta.
+ *
+ * ⚠️ NINGÚN borrado y NINGUNA transcripción en esta rama. Los dos son del staging
+ * ('ads-creatives'), que es una copia temporal; acá el archivo es el ORIGINAL: el worker
+ * sube `montado-<id>.mp4` con upsert sobre la misma ruta y no queda otra copia. Y el guion
+ * del plan no se guarda como transcripción: el generador dice palabras distintas del
+ * guion, y una fila en creative_transcripts hace que el cron transcribe-ads se saltee ese
+ * anuncio para siempre. El audio real lo transcribe el cron, bajándolo de Meta.
+ *
+ * ⚠️ El workspace se FIJA (runWithWorkspace) para que la lectura y cred() —la cuenta de
+ * Meta que escribe— resuelvan el mismo. Sin contexto, getTenantDb lee con -1 y cred() cae
+ * a OWNER_WS: el admin de agencia sin workspace no encontraba nada y subía al ws1.
+ */
+async function subirCreativoMako(crudo: unknown): Promise<Response> {
+  const ref = leerRefCreativo(crudo);
+  if (!ref) return Response.json({ ok: false, error: 'Ese video no es válido.' }, { status: 400 });
+  const ws = await wsDeAdsManager();
+  if (ws instanceof Response) return ws;
+  return runWithWorkspace(ws, async () => {
+    let c: CreativoMako | null;
+    try {
+      c = await resolverCreativoMako(ref);
+    } catch (e) {
+      console.error('[ads-manager:creative-upload] no se pudo leer el video de MaKo', e instanceof Error ? e.message : e);
+      return Response.json({ ok: false, error: 'No pude leer ese video de MaKo. Vuelve a intentar.' }, { status: 500 });
+    }
+    if (!c) return Response.json({ ok: false, error: 'Ese video ya no está.' }, { status: 404 });
+    // La imagen todavía no tiene de dónde salir (lib/creativo-mako.ts): el tipo la admite
+    // y esta rama no, para que nadie la mande por `advideos`.
+    if (c.media_type !== 'video') return Response.json({ ok: false, error: 'Por ahora, sólo videos.' }, { status: 400 });
+    if (!mismoOrigen(c.url, process.env.NEXT_PUBLIC_SUPABASE_URL)) {
+      return Response.json({ ok: false, error: 'Ese video no es de MaKo.' }, { status: 400 });
+    }
+    const nombre = nombreEnMeta(c);
+    try {
+      const r = await uploadAdVideoByUrl(c.url, nombre);
+      // La misma espera corta que la subida de un archivo (#59): lo que falte lo pregunta
+      // el navegador por GET, sin `path` —no hay staging que borrar—.
+      const estado = await waitForVideoReady(r.video_id, { timeoutMs: ESPERA_MS });
+      if (estado === 'error') {
+        return Response.json({ ok: false, error: 'Meta no pudo procesar ese video. Prueba con otro.', video_id: r.video_id, video_status: 'error' }, { status: 422 });
+      }
+      // thumbnail_url null A PROPÓSITO: la url del .mp4 puesta ahí viaja como
+      // video_data.image_url y Meta rechaza el creativo. La miniatura la pone el
+      // navegador (una data:, que nunca va a Meta) y la de Meta llega al publicar.
+      const out: UploadResult = { media_type: 'video', video_id: r.video_id, thumbnail_url: null, filename: nombre, processing: estado !== 'ready', video_status: estado };
+      return Response.json({ ok: true, ...out, path: null });
+    } catch (err) {
+      const env = metaErrorEnvelope(err);
+      console.error(`[ads-manager:creative-upload] video de MaKo: ${env.message}`);
+      return Response.json({ ok: false, error: env.message, code: env.code, error_subcode: env.error_subcode }, { status: env.status });
+    }
+  });
+}
+
 export async function POST(req: NextRequest) {
   // Sube a la cuenta de Meta DEL workspace (lib/meta-ads-create.ts: cred() por workspace).
   const no = await guardAdsWs(); if (no) return no;
 
-  let body: { path?: string; content_type?: string; filename?: string; size?: number };
+  let body: { path?: string; content_type?: string; filename?: string; size?: number; mako?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+
+  // Un video que MaKo ya generó va por su propia rama, ANTES de exigir `path`: la subida
+  // de un archivo la comparten los tres modales y no se toca. Sólo viaja `mako`.
+  if (body.mako !== undefined) return subirCreativoMako(body.mako);
 
   const path = String(body.path ?? '');
   const ct = String(body.content_type ?? '');
