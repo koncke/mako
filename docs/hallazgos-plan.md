@@ -5400,6 +5400,18 @@ tarjeta y el del proyecto digan cosas distintas—.
 hay contexto de request, y en un script nunca lo hay: sin el envoltorio, un cierre del
 tablero del super admin se escribe en el de Mauricio.
 
+⚠️ **Y LA PRUEBA SE CORTA EN SILENCIO A LOS 219 CARACTERES (medido el 06/10/2026).** El
+borrador acepta una prueba de hasta 400 (`lib/plan-propuesta.ts:250`), pero el cierre la
+escribe en el historial como `MaKo la marcó hecha: <prueba>` y corta el renglón ENTERO en
+240 (`lib/plan-board.ts:488`, y el mismo `.slice(0, 240)` en `lib/plan-propuesta.ts:732`).
+O sea que una prueba de 220 a 400 caracteres pasa el saneo, se aplica sin error y queda
+partida a la mitad en la tarjeta. En el borrador del Chatbot eran 3 de 16 (227, 233 y 420
+caracteres); se acortaron antes de aplicar. Es «un tope se aplica ANTES de decidir, y lo que
+recorta queda escrito» (AGENTS.md), y acá no se cumple ninguna de las dos mitades.
+
+**SIN HACER:** un solo tope en una constante, que use el saneo del borrador y el renglón del
+historial. Hasta entonces, la prueba de un cierre se escribe en 219 caracteres o menos.
+
 ### Lo que quedó SIN hacer
 
 - **Las seis a medias siguen abiertas con el título nuevo.** Ninguna se cerró: cerrar algo

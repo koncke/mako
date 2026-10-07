@@ -8742,3 +8742,47 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   (90 s, 10 ítems, JPEG) son los de publicar por API y la publicación ahora es a mano.
 
 *Corrida wf_fe0d104c-25c (6 implementadores + 6 revisores), integrada en `79b4aa95` el 06/10/2026.*
+
+## Al cerrar el proyecto: dos tarjetas cuya premisa la medición desmintió (06/10/2026, noche)
+
+### La bienvenida (#786): `activa = true` no dice si una secuencia corre
+
+**Vive en:** `lib/nutricion.ts` (`getSecuenciasActivas`, `enrolarPorEvento`) · `nutricion_secuencias` del ws1, ids 1 y 198
+
+La tarjeta pedía, antes de prender la 198, resolver que «la sembrada #1 `form-sin-agenda` está
+ACTIVA con el MISMO trigger» y un lead nuevo recibiría las dos. Medido: la #1 tiene
+`activa: true` **y** `archivada_at: 2026-08-02`, y `getSecuenciasActivas` —el único lector del
+que enrolan `enrolarPorEvento` y el drenador— filtra `.is('archivada_at', null)`. Nunca enrola
+ni manda: sus 19 inscripciones están `cancelada` desde el 03/08. La 198 (tope de 72 h, prendida
+el 06/10) le escribió **una** vez a 4 leads nuevos (el más viejo, de 52 h) y a ninguno de los
+125 acumulados.
+
+**La regla que queda:** en esta tabla, «¿corre?» son DOS columnas. Quien mide una secuencia
+mira `activa` **y** `archivada_at`, o pregunta por `getSecuenciasActivas`, que ya las cruza.
+La tarjeta se escribió leyendo una sola y proponía un trabajo que ya no existía.
+
+### El reproductor (#350): la sospecha escrita en la tarjeta no reproduce
+
+**Vive en:** `app/whatsapp/_shared/AudioPlay.tsx` (el único reproductor, en seis pantallas)
+
+La tarjeta (de una reunión del 04/08) pedía que un audio grabado se pudiera volver a escuchar
+después de terminar, y apuntaba al truco de duración (`currentTime = 1e101`) con un MP3 sin
+header Xing. Medido con un audio codificado como lo codifica la app (lamejs, mono, 96 kbps,
+**sin** Xing ni Info) y la lógica de `AudioPlay` copiada tal cual: sonó desde 0 tres veces
+seguidas, sin tocar la barra, en **Chrome** —desde un servidor con Range como el storage, sin
+Range y desde un `blob:` recién grabado, con 2,5 s y con 40 s— y en **WebKit** desde el
+storage. La tarjeta queda abierta: no está probado que esté arreglada, falta saber en qué
+navegador se vio o probarlo en la pantalla real.
+
+Dos trampas del entorno, para el próximo que lo mida:
+
+- **El Chromium de Playwright (`ms-playwright/chromium-1243`) no arranca en esta máquina**:
+  `spawn UNKNOWN`, también sin sandbox. Con `chromium.launch({ channel: 'chrome' })` corre el
+  Chrome instalado y anda.
+- **El WebKit de Playwright para Windows no reproduce un MP3 desde un `blob:`**
+  (`NotSupportedError`) y sí desde una URL. Es del build de Windows, no de Safari: no sirve
+  para concluir nada sobre un Mac.
+- Y la medición se hace desde el evento `playing`, no desde `currentTime` antes del `play()`:
+  medido antes, la segunda vuelta «suena 0 s» porque el salto a 0 todavía no pasó.
+
+*06/10/2026, sesión del Chatbot (cuenta 2). El arnés vive en el scratchpad de esa sesión.*

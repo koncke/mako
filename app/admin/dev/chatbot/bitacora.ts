@@ -747,4 +747,51 @@ export const BITACORA: Hito[] = [
       "app/admin/runway/page.tsx — la sección del Chatbot",
     ],
   },
+  {
+    fecha: "6 oct", hora: "18:22", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Terminar todo, cerrar lo que ya esté en el tablero y dejarlo en Runway",
+    pedido: "Termina absolutamente todo. Y revisa el proyecto de Chatbot para marcar como completo lo que ya esté y dejame todo en el apartado de chatbot aqui https://hola-mako.com/admin/runway",
+    puntos: [
+      "Llegó como respuesta a una pregunta A/B: «todo» era commitear lo de Calendly que había quedado a medias, tapar el agujero de los flujos y recuperar las reservas. Las reservas ya se habían recuperado y la suscripción ya estaba activa (medido): no hizo falta tocar nada afuera.",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "21:10", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "correccion",
+    titulo: "Los flujos de un cliente corrían en la cuenta de Mauricio: eran ocho llamadas, no una",
+    puntos: [
+      "La tarjeta del bug que cruza negocios estaba por cerrarse con la prueba «ningún camino cae en el de Mauricio». Un grep de las llamadas encontró ocho, y siete seguían sin decir de qué negocio era el evento: el lead de cualquier cliente que agendaba, cancelaba, escribía o dejaba un formulario corría los flujos de Mauricio, en su grupo.",
+      "El diagnóstico obvio era el equivocado dos veces: estar adentro de un runWithWorkspace no alcanzaba (la función resolvía su propio negocio), y el arreglo de la tarde había tapado sólo la de Fathom con un test que miraba ese archivo.",
+      "Ahora el tipo exige el negocio y, si igual falta, no corre nada. El test barre todo el código y se probó con nueve roturas.",
+    ],
+    commits: [
+      { sha: "876e68d8", msg: "Los flujos de un cliente corrían en la cuenta de Mauricio: las OCHO llamadas, no una", lineas: 376, archivos: 9 },
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "21:10", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "correccion",
+    titulo: "Calendly ya no se apaga por un evento roto, y una base caída ya no pierde la reserva",
+    puntos: [
+      "Lo que falla siempre se contesta bien y se anota; sólo lo que se arregla reintentando le pide a Calendly que reintente.",
+      "Un refutador encontró cinco caminos que el clasificador en verde dejaba pasar: el cuerpo cortado a la mitad, el gateway que contesta vacío, la página de nginx, el ruteo que leía «no pude leer» como «no es de nadie», y una firma rara que tiraba un 500.",
+    ],
+    commits: [
+      { sha: "92932e5e", msg: "Calendly: un evento que falla siempre ya no apaga la suscripción, y «no pude leer» ya no es «no es de nadie»", lineas: 1163, archivos: 9 },
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "21:40", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El tablero del Chatbot: 15 tarjetas cerradas con su prueba, y la del reproductor abierta a propósito",
+    puntos: [
+      "14 por el borrador del Plan, con cuatro pruebas corregidas: la del bug que cruza negocios (la vieja era falsa), una que exageraba, y dos que el historial iba a cortar a la mitad (el cierre guarda 240 caracteres).",
+      "La de la bienvenida (#786) se cerró midiendo: su premisa —que la secuencia vieja pisaba a la nueva— ya no valía, porque la vieja está archivada desde el 02/08 y el motor no enrola archivadas. La nueva le escribió una vez a 4 leads nuevos y a ningún viejo.",
+      "La del reproductor (#350) queda abierta: con un audio codificado igual que la app, el reproductor volvió a sonar tres veces seguidas en Chrome y en WebKit. La sospecha escrita en la tarjeta no es la causa, y falta saber en qué navegador se vio.",
+    ],
+    archivos: [
+      "app/admin/runway/datos.ts — CHATBOT_TAREAS: #350 a «falta», #786 con lo medido, y las decisiones de Calendly",
+    ],
+  },
 ];
