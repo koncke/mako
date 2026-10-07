@@ -8937,4 +8937,31 @@ GET» de una ruta que no existe).
   como lo tipeó el dueño, sin canonizar: no se tocó, porque mandarlo como jid sin pasar por
   `whatsappNumbers` arrastraría el 0 o el 15 que haya escrito.
 
+### Las alarmas de la línea iban a un Gmail personal escrito a mano (07/10/2026, noche)
+
+El pedido: «todas las notificaciones me lleguen al email nuevo de MaKo, porque me llegaron al
+email de martinkoncke@gmail.com». Preguntado: el email es `equipo@hola-mako.com` y el Gmail deja
+de recibirlas.
+
+**Medido en Resend:** lo que le llegó fueron las dos alarmas de esa noche —«🚨 MaKo no puede
+hablar por WhatsApp» (21:30 UTC, cuando se desvinculó la línea vieja) y «MaKo volvió a WhatsApp»
+(22:00)—, con el destinatario escrito a mano en `EMAILS_ALERTA_VOZ` (`lib/canal-vigilante.ts`).
+Los avisos de su negocio (ws9) no salían por mail: no tenía ninguno cargado.
+
+**Cómo quedó (`c78a4551`):** la alarma usa `EMAIL_MAKO`, la misma constante que firma, y el ws9
+tiene `notif_emails = ["equipo@hola-mako.com"]`, así que todo aviso con canal de mail llega ahí.
+
+⚠️ **Antes de mandar ahí la alarma se comprobó que RECIBE, y no se dedujo.** La nota de
+`EMAIL_MAKO` (`lib/app-url.ts`) avisa que mandar desde el dominio no prueba recibir —el reenvío
+vive en Porkbun, alias por alias, y su API no lo expone— y en el registro de Resend no había UN
+solo mail enviado a `@hola-mako.com` en toda la historia. Un mail de prueba quedó `delivered` a
+los 10 s. Mandar la alarma de la línea a una casilla que no existe es la alarma que no suena.
+
+**SIN HACER:**
+- **`delivered` dice que el servidor del dominio lo aceptó, no a qué bandeja reenvía.** Eso se
+  ve en el panel de Porkbun; lo confirma Martín viendo el mail de prueba.
+- **Las tareas de una reunión que lo nombran a él** se las manda `lib/reunion-destinatarios.ts` al
+  email de SU persona (el de la reunión), no al de los avisos del negocio. No se tocó: es un
+  mensaje a una persona, no una notificación del negocio.
+
 *07/10/2026, cuenta 2, commit `3226b3f7`.*

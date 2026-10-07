@@ -79,4 +79,28 @@ export const BITACORA: Hito[] = [
       'lib/mako-chat.ts — `sumarComoAdmin` con el jid completo, y comprobando con la línea nueva si la vieja no contesta',
     ],
   },
+  {
+    fecha: '7 oct', hora: '—', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Las notificaciones, al correo de MaKo',
+    pedido: 'También tienes que hacer que todas las notificaciones me lleguen al email nuevo de MaKo, porque me llegaron al email de martinkoncke@gmail.com',
+    puntos: [
+      'Preguntado: el email es equipo@hola-mako.com, y su Gmail deja de recibirlas.',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '20:21', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La alarma de la línea tenía un Gmail escrito a mano',
+    puntos: [
+      '**Lo que le llegó**, medido en Resend: las dos alarmas de esa noche —«no puede hablar» y «volvió»—, con el destinatario escrito a mano en `EMAILS_ALERTA_VOZ`. Ahora es `EMAIL_MAKO`, la misma constante que firma, y el negocio del super admin tiene ese correo como destino de sus avisos.',
+      '⚠️ **Antes de mandar la alarma ahí se comprobó que la casilla recibe**: mandar desde el dominio no prueba recibir, y nunca se le había mandado nada. Un mail de prueba quedó `delivered`.',
+    ],
+    commits: [
+      { sha: 'c78a4551', msg: 'Las notificaciones del super admin van al correo de MaKo, no al Gmail personal de Martín', lineas: 21, archivos: 2 },
+    ],
+    archivos: [
+      'lib/canal-vigilante.ts — `EMAILS_ALERTA_VOZ = [EMAIL_MAKO]`',
+    ],
+  },
 ];
