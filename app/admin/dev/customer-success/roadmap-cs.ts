@@ -121,12 +121,10 @@ export const URGENTE: Grupo[] = [
         ],
         falta: [
           'Los videos: al cargarse el 06/10 no había ninguno grabado. Los graba y los sube Mauricio.',
-          'Llevar #694 a la base del ws1 (la columna de la MCI en «El objetivo de cada área» y el puente a las palancas en «Elegir las palancas»): está en la semilla, no en `curso_clases`. Se corre `node --import tsx scripts/curso-aplicar-694.mjs` (seco) y después con `--commit`.',
         ],
-        // ⚠️ Cuando `scripts/curso-aplicar-694.mjs --commit` corra contra el ws1, se saca la
-        // segunda fila de `falta` y el «falta la base» del `ojo`. Hasta entonces, decir que #694
-        // «se hizo» es afirmar algo que la base no tiene.
-        ojo: 'La semilla NO es la fuente de verdad: lo cargado se edita en la tab, y volver a correr `scripts/curso-cargar-programa.ts` saltea lo que ya está y revive lo borrado. **Un cambio del temario son dos cosas: la semilla y la base** (#694 tiene la semilla; le falta la base, con `scripts/curso-aplicar-694.mjs`).',
+        // #694 llegó a la base del ws1 el 07/10/2026 (`scripts/curso-aplicar-694.mjs --commit`:
+        // las dos clases, y re-correrlo dice «ya»).
+        ojo: 'La semilla NO es la fuente de verdad: lo cargado se edita en la tab, y volver a correr `scripts/curso-cargar-programa.ts` saltea lo que ya está y revive lo borrado. **Un cambio del temario son dos cosas: la semilla y la base** (#694 hizo las dos: la semilla y, con `scripts/curso-aplicar-694.mjs`, la base).',
       },
       {
         titulo: 'Que el cliente entre a su curso sin cuenta de MaKo', estado: 'hecha',

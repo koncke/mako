@@ -14,9 +14,17 @@ falta en el proyecto de Customer Success y terminalo todo, cierra las tareas».
   autor + puerta en el choke point, ficha linkeable, fase en la tabla, MaKo ve vencidas y avance
   del curso, secuencias de entrega con los clientes sin fila, compromisos de la junta al DUEÑO,
   #694 aplicado en la base del ws1, borrador de graduación (#667).
-- Segunda tanda, con las decisiones de Martín (memoria `cs-decisiones-cierre-0610`): cartera con
+- Segunda tanda, con las decisiones de Martín (memoria `cs-decisiones-cierre-0610`), en
+  `f6b33ed0` (migs 0211-0213 APLICADAS, 13 clases marcadas por área en el ws1): cartera con
   «Último contacto» y «Vencidas» + alerta de baja al dueño (#109), «Sin cobro» en el CRM (#747),
   recordatorio de clases por WhatsApp a los 3 días (#780) y las tres piezas de #665.
+- **El borrador del Plan con los cierres está en https://hola-mako.com/plan/revisar/propavremjgpwd98**
+  (7 hechas, 2 a medias, 3 enriquecidas y 6 tarjetas nuevas). Y lo que se hizo, tarjeta por
+  tarjeta, en `/admin/runway#customer-success`.
+- **El análisis de las llamadas de entrega (#107) no analizó ninguna todavía**: `gemini-flash-latest`
+  contesta 503 («high demand») desde el 07/10 a la madrugada. Reintenta cada hora sin gastar el
+  intento de la sesión y NO baja de modelo a propósito. Mirar `closing_analyses` con
+  `analysis_version = 3` antes de dar #107 por cerrada.
 - **La clienta del ws1 en «onboarding»** (Teresa, lead 21) es una etapa que su producto no tiene;
   la causa probable era el choke point validando contra las etapas de FÁBRICA con el catálogo sin
   leer (ya arreglado). Dónde ponerla lo decide Martín: se mueve con un clic desde su ficha.

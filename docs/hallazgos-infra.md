@@ -4461,3 +4461,24 @@ sesiones sobre el clon.
   encontró su `romper.mjs` pisado por el de otro agente; sin mirarlo, su arnés habría corrido el
   script ajeno sobre sus archivos. En una corrida multi-agente, cada agente trabaja en una
   SUBCARPETA con su nombre.
+
+
+---
+
+## Un cron sin su entrada en vercel.json no falla: no corre (07/10/2026)
+
+Dos corridas de agentes en paralelo agregaron tres crons (`/api/cron/curso-purga`,
+`cs-sesiones-entrega`, `cs-sin-contacto`) con una regla que les prohibía tocar `vercel.json` para
+no pisarse: la ruta existe, compila, tiene tests, y **no la llama nadie**. El que integra tiene
+que sumar cada entrada; desde el 07/10 `tests/cron-registrado.test.ts` falla si un
+`app/api/cron/*/route.ts` no está en `vercel.json`. Quedan **38 de 40** crons del plan.
+
+Y dos trampas del mismo día:
+
+- **El worktree de una corrida puede nacer en otro commit que el pedido.** Tres de cuatro
+  arrancaron en `d8f8ee81` cuando la corrida decía `ab81f03f` (dos commits atrás, sin la tanda
+  anterior). Antes de tocar nada: `git rev-parse HEAD` contra la base declarada; acá se resolvió
+  con `git merge --ff-only`.
+- **Git Bash convierte un argumento que empieza con `/` en una ruta de Windows**:
+  `node script.mjs /api/cron/x` llega como `C:/Program Files/Git/api/cron/x`. Va
+  `MSYS_NO_PATHCONV=1`.

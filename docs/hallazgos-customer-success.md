@@ -4140,3 +4140,109 @@ tab Curso, el avance del curso en la API de MaKo, Whop en el roadmap y los video
   decidirlo.
 - Voseo que el guard no caza (homógrafo del pretérito): «Elegí una etapa…» en
   `app/chatbot/SecuenciaPerfil.tsx` y `lib/setting-secuencias.ts`.
+
+### La segunda tanda: lo que encontró la INTEGRACIÓN, y lo que dejó cada pieza (07/10/2026)
+
+Las cuatro decisiones de Martín (memoria `cs-decisiones-cierre-0610`) en `f6b33ed0`, migs
+0211-0213 aplicadas antes del deploy.
+
+#### Dos worktrees correctos por separado, un WhatsApp equivocado juntos
+
+**Síntoma:** ninguno todavía; lo encontró la integración, no un test. El recordatorio de clases
+(#780) se escribió sobre un árbol SIN líderes de área, y el link del líder (#665) entró por otro
+worktree. Juntos, cinco consultas de `lib/curso-mensajes.ts` a `curso_accesos` filtraban sólo
+por `lead_id`: el mapa por cliente quedaba con la fila del LÍDER y «hace 3 días que no entra» se
+decidía con sus fechas — para mandarle el WhatsApp al CLIENTE.
+
+**Causa:** desde la 0212 `curso_accesos` tiene una fila del cliente (`area` NULL) y una por cada
+líder. La unicidad (ws, lead) era implícita en cada consulta.
+
+**Vive en:** `lib/curso-mensajes.ts` (las cinco, con `.is('area', null)`) · guard
+`tests/curso-accesos-area.test.ts`, que barre TODO `app/` y `lib/` y falla con archivo y línea.
+
+**La regla:** al agregar una dimensión al unique de una tabla, se grepean TODOS los
+`.from('<tabla>')` del repo, no los del archivo que uno toca. Y si dos worktrees tocan la misma
+tabla desde lados distintos, el chequeo que importa es el del conjunto: cada uno, solo, estaba
+verde.
+
+#### Cambiar un unique que es target de un `upsert` no deja convivir dos versiones del código
+
+El `onConflict` de la versión desplegada nombra el índice viejo; mantenerlo prohibiría justo las
+filas nuevas (una por área). La ventana va escrita en la cabecera de la 0212 y la migración se
+aplica pegada al push — acá con `curso_progreso` y `curso_accesos` en cero filas, medido antes.
+
+#### El paso 5 no podía colgar de «la etapa actual» (el diagnóstico obvio era el equivocado)
+
+El link de agenda aparece recién con la etapa COMPLETA, y completarla pasa al cliente a la
+siguiente en el acto. Cuando la llamada ocurre, su etapa actual es la NUEVA, vacía; lo que se
+habla son las respuestas de la que acaba de cerrar. `etapasDePropuesta` mira la anterior y la
+actual (`lib/curso-propuesta.ts`). **Antes de colgar algo de «la etapa actual», preguntá qué
+evento la cambia y si ocurre antes del momento que querés mirar.**
+
+Y una regla que cambia el SIGNIFICADO de un estado («la etapa se completa con TODAS las áreas»)
+va en la capa que entrega el estado (`progresoEfectivo`, `lib/curso.ts`), no en cada consumidor:
+eran seis.
+
+#### Un saliente no es contacto
+
+«Último contacto» y la alerta de baja contaban cualquier WhatsApp, también los AUTOMÁTICOS: con
+el envío del ws1 prendido, el recordatorio de clases reiniciaba el reloj del cliente que no
+contesta. `wa_mensajes` no distingue autor (y `raw.local` no sobrevive al eco del webhook), así
+que contacto = una sesión o un mensaje DEL cliente (`from_me = false`). El costo, declarado: un
+WhatsApp que el dueño manda A MANO tampoco cuenta. **Vive en:** `lib/cs-contacto.ts`.
+
+#### Avisos que recorren una lista
+
+- **Una vez por episodio** = la clave es la entidad + el instante que ABRE el episodio
+  (`claveRacha`, `lib/cs-contacto.ts`); un TTL corto repite y uno largo con la clave del cliente
+  no vuelve a avisar nunca.
+- **Con dedup + tope, el tope cuenta envíos**, no entidades miradas: si no, los primeros N ya
+  avisados ocupan los N lugares todos los días.
+- **Un emisor que itera corta en el primer `apagado`**: `emitirAviso` escribe el feed antes de
+  mirar el interruptor y, apagado, no marca el dedup — N filas de feed por corrida, cada día.
+- `correrPorWorkspace` es para INGESTA de una integración; un cron sobre datos propios del
+  producto recorre `listarWorkspaces` (Customer Success no tiene integración y no corría en
+  ningún workspace).
+
+#### Cortar al cliente corta a sus líderes… los que existen al cortar
+
+Lo que nazca o se habilite después necesita que la puerta de lectura vuelva a preguntar por el
+padre en cada pedido (`resolverAccesoPortal`, `lib/curso-datos.ts`). Y la separación de
+namespaces de un token se prueba contra la credencial con el MISMO número de campos firmados (el
+`c2.` comparte la forma con la cookie `al1.`, no con el `c1.`): la rotura contra la más parecida
+por nombre daba verde.
+
+#### Trampas chicas que costaron una vuelta
+
+- Un numeral de tarea («#665») adentro de una hoja de estilos en string es un COLOR para el guard
+  de `tests/cs-kanban-fases.test.ts`.
+- Abrir el link REAL de un cliente para probarlo le cuenta un ingreso y lo mete en el universo
+  del recordatorio: el equipo mira con la vista previa (`/customer-success/curso/vista`).
+- El encabezado de `lib/curso-mensajes.ts` decía «envío en false desde el 29/09»: un comentario
+  que afirma el estado de un interruptor de producción lleva fecha y fuente, y no se usa para
+  decidir riesgo — se mide.
+- `const ahora = Date.now()` en el cuerpo de un componente: tsc 0 y tests verdes, y error de
+  eslint (`react-hooks/purity`), que el pre-push no corre.
+
+#### El análisis de las llamadas de entrega espera a Google
+
+Las dos primeras corridas (02:52 y 03:52 UTC del 07/10) fallaron todas: `gemini-flash-latest`
+contesta 503 («high demand») en los tres workspaces y con todas las cuentas, y una sesión del ws1
+se cortó por el plazo de 120 s. `plan-fathom` sobrevive porque baja a `flash-lite`; `cs-sesion`
+NO baja de modelo a propósito (un modelo peor contesta peor sin que se note), así que espera.
+`gemini-2.5-flash` ya no está disponible para cuentas nuevas. El fallo cuenta como del PROVEEDOR
+y no gasta el intento de la sesión: entra cuando Google contesta.
+
+#### Lo que quedó SIN hacer
+
+- Marcar en `wa_mensajes` qué envío es automático (migración + los emisores de
+  `lib/evolution-envio.ts`): sin eso un WhatsApp manual del dueño no cuenta como contacto, y
+  `esperaRespuestaHace` de la cartera de MaKo se confunde con los recordatorios.
+- Renombrar un área no migra nada: lo contestado como «Ventas» queda huérfano si el cliente la
+  llama «Comercial» (`lib/curso.ts`, `nombreDeArea`). Hace falta un id estable por área.
+- `lideresActuales` / `linkDeLiderLeido` firman el link de un líder aunque el cliente esté
+  cortado (no abre: lo frena el portal).
+- «Copiar link» de la ficha crea el acceso sin dejar rastro: ese cliente queda fuera del
+  recordatorio hasta que reciba el link por mail o por MaKo.
+- Un cliente pausado SÍ recibe la alerta de baja y NO recibe el recordatorio: dos lecturas de
+  «pausado» que decide Martín.

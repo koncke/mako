@@ -8786,3 +8786,24 @@ Dos trampas del entorno, para el próximo que lo mida:
   medido antes, la segunda vuelta «suena 0 s» porque el salto a 0 todavía no pasó.
 
 *06/10/2026, sesión del Chatbot (cuenta 2). El arnés vive en el scratchpad de esa sesión.*
+
+
+---
+
+## Un compare-and-set que no lee las filas tocadas es decorativo (07/10/2026)
+
+**Síntoma (medido leyendo, no en producción):** `drenarProgramados` (`lib/avisos-programados.ts`)
+decía avanzar «con compare-and-set» para que dos invocaciones del mismo tick no manden dos veces,
+y las dos mandaban igual.
+
+**Causa:** el update llevaba `.eq('proxima_at', f.proxima_at)` pero ni `.select()` ni chequeo de
+filas: si otra invocación ya había avanzado la fila, el update tocaba CERO filas sin error y el
+código seguía hasta `emitirAviso`. Y su test (`tests/cron-aviso.test.ts`) fijaba la presencia del
+`.eq`, o sea el lado que estaba bien.
+
+**Arreglado:** `.select('aviso_id')` y `if (upErr || !tocadas?.length)`; el test ahora exige las
+dos mitades (probado rompiéndolo: 27/1, restaurado 28/0). Lo encontró el revisor del
+recordatorio de clases, cuyo molde (`marcarRecordatorio`, `lib/curso-mensajes.ts`) sí lee.
+
+**La regla:** un compare-and-set se escribe `update … .eq(<valor leído>) .select('id')` y se
+manda sólo si volvió al menos una fila. Sin leer las filas afectadas no hay compare-and-set.

@@ -468,8 +468,8 @@ const LOGISTICA = {
 //
 // ⚠️ #694 TOCÓ LA SEMILLA Y ESO NO CAMBIA LO YA CARGADO (ver la cabecera): las dos clases del ws1
 // se corrigen con `scripts/curso-aplicar-694.mjs` (seco por default; `--commit` escribe), que lee
-// los valores nuevos DE ESTA SEMILLA y se niega si ya hay respuestas guardadas. Al 06/10 NO se
-// había corrido: hasta que corra, la base del ws1 no tiene ninguno de los dos campos.
+// los valores nuevos DE ESTA SEMILLA y se niega si ya hay respuestas guardadas. Se corrió con
+// `--commit` el 07/10/2026: las dos clases del ws1 ya los tienen (re-correrlo dice «ya»).
 //
 // ⚠️ m0c2 «Estándar no es criterio» (el ejemplo de UNA decisión de la tabla D2) NO se cargó: el
 // relevo no lo reparte, y en el programa nuevo su ejercicio ya lo hacen el 2.1 (una decisión que

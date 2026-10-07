@@ -268,10 +268,9 @@ módulo por módulo. Esto es lo que dictó.*
 > (el 6.1 «Revalidar objetivos del trimestre»); «Los catálogos que faltan» fuera; el módulo de
 > Tableros como fase 7, con «Navegar y registrar en el tablero sin miedo» (7.5); y los umbrales
 > antes que la evidencia. Lo que faltaba en los formularios —a qué MCI sube cada objetivo y las
-> palancas candidatas por objetivo— se sumó el 06/10 (#694) **a la semilla, no a la base**: el
-> cargador saltea las clases que ya existen, así que en el ws1 falta llevarlo con
-> `scripts/curso-aplicar-694.mjs` (seco por default; `--commit` escribe). Dos diferencias con lo
-> dictado acá:
+> palancas candidatas por objetivo— se sumó el 06/10 (#694) a la semilla y el 07/10 a la base del
+> ws1, con `scripts/curso-aplicar-694.mjs` (el cargador saltea las clases que ya existen: un cambio
+> del temario son dos cosas). Dos diferencias con lo dictado acá:
 > la planilla pide UN objetivo por área (no de uno a tres), y el propósito quedó tercero en las
 > etapas cuando la planilla lo pone después de Ritmo (lo decide Mauricio).
 

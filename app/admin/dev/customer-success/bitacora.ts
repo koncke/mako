@@ -623,4 +623,28 @@ export const BITACORA: Hito[] = [
       "docs/protocolos/graduacion.md — el borrador para Mauricio (#667)",
     ],
   },
+  {
+    fecha: "7 oct", hora: "01:28", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La cartera con señal, «Sin cobro», el recordatorio de clases y el bucle de #665 entero",
+    puntos: [
+      "Las cuatro decisiones de Martín del 06/10. La tabla de Clientes suma «Último contacto» y «Vencidas» y hay una alerta de baja AL DUEÑO (21 días sin contacto ni movimiento, sin IA); «Sin cobro» es un tipo de venta del CRM que no baja el ticket; el alumno recibe por WhatsApp los videos que le faltan a los 3 días sin entrar; y #665 completo: el link de agenda al completar la etapa, m6-m9 por área con link propio del líder, y la IA gratis que propone la respuesta con lo hablado para que el cliente la apruebe.",
+      "⚠️ LO ENCONTRÓ LA INTEGRACIÓN, NO UN TEST: el recordatorio se escribió sobre un árbol sin líderes y cinco de sus consultas a curso_accesos filtraban sólo por lead. Juntos, «hace 3 días que no entra» se decidía con las fechas del LÍDER para mandarle el WhatsApp al cliente. Guard nuevo que barre todo el repo.",
+      "⚠️ El paso 5 no podía mirar «la etapa actual»: completarla pasa al cliente a la siguiente en el acto, así que cuando ocurre la llamada su etapa es la nueva y vacía. Mira la que acaba de cerrar.",
+      "Un saliente no es contacto: con el envío prendido, los recordatorios automáticos reiniciaban el reloj de la alerta. Contacto = una sesión o un mensaje DEL cliente; un WhatsApp manual del dueño tampoco cuenta hasta que la base distinga quién escribió.",
+      "De paso: el drenador de mensajes programados tenía un compare-and-set que no leía las filas tocadas (dos ticks mandaban dos veces). Arreglado con su test.",
+    ],
+    commits: [
+      { sha: "f6b33ed0", msg: "Customer Success, segunda tanda: la cartera con señal, «Sin cobro», el recordatorio de clases y el bucle de #665 entero", lineas: 8103, archivos: 94 },
+    ],
+    archivos: [
+      "lib/cs-contacto.ts + lib/cs-sin-contacto.ts — el último contacto (una regla) y la alerta de baja",
+      "app/api/cron/cs-sin-contacto/route.ts — la alerta, diaria",
+      "lib/stage-requirements.ts + app/crm/StageMoveDialog.tsx — «Sin cobro» en el wizard del CRM",
+      "lib/curso-mensajes.ts — el recordatorio de clases, adentro del cron curso-sesiones",
+      "lib/curso-acceso.ts + lib/curso-datos.ts — el link del líder (c2.) y las respuestas por área",
+      "lib/curso-propuesta.ts — el paso 5: la IA propone, el cliente aprueba",
+      "tests/curso-accesos-area.test.ts — toda consulta a curso_accesos dice de quién es el acceso",
+    ],
+  },
 ];

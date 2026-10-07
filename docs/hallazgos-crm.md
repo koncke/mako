@@ -6968,3 +6968,37 @@ con `workspace_id = 4`, el del cliente que se estaba mirando.
 _Corrida del 06/10/2026: el núcleo lo escribió la sesión de claude1 y nueve agentes las pantallas;
 la cuota se cortó a mitad de la verificación (4 de 9 devolvieron resultado). La integración, la
 prueba en el navegador, el commit (`f26c0a94`) y esta cosecha los hizo la sesión de claude2._
+
+
+---
+
+## «Sin cobro»: el ticket promedio no está calculado en ningún lado (07/10/2026)
+
+Pedido de Martín (06/10): los becados son un tipo de venta «Sin cobro» que da el monto por
+contestado y no baja el ticket (`f6b33ed0`, #747).
+
+**El diagnóstico obvio era el equivocado:** buscar «ticket promedio» para excluirlo encuentra un
+solo lugar (`lib/queries.ts`, cash ÷ nº de pagos), que un becado no toca. El ticket de VENTA es
+IMPLÍCITO: «Sold $X · N cierres» en /comercial y `ingreso_usd / ganados` en
+`lib/metricas-negocio.ts` (y el costo por cierre de `analisis-negocio`). Lo que lo baja es el
+CONTEO que viaja con la suma — un monto null suma 0, pero el cierre cuenta. **Excluir algo «del
+promedio» es excluirlo del DENOMINADOR**; se busca por `monto_cierre_usd` + el filtro de ganados
+(el barrido de `tests/venta-sin-cobro.test.ts`), nunca por la palabra.
+
+- **Las suscripciones YA entran como cierres de US$0** en el Sold (su importe vive en
+  `suscripcion_monto_usd`), contra lo que dicen las notas de la API de MaKo. Es la misma
+  distorsión, previa. Decisión de Martín si una suscripción es un «cierre».
+- **`.neq(col, x)` de PostgREST no devuelve las filas con `col` NULL** (NULL <> x es NULL). Sólo
+  es seguro sobre una columna NOT NULL (`venta_tipo` lo es, mig 0116); en una nullable va
+  `.or('col.is.null,col.neq.x')`.
+- **Un campo de prefill se graba en los CUATRO constructores de `MoveLeadInfo`**
+  (`app/crm/StageMoveDialog.tsx`): `ventaTipo` estaba declarado y ninguno lo llenaba, así que el
+  wizard reabría siempre en «Pago único». Y el `placeholder` local entra en la UNIÓN de
+  requeridos: una exención que sólo vive en `stepsForStage` no alcanza. Sigue sin llegar al
+  tablero (`CrmLead` no trae `venta_tipo`).
+- **Cuando una respuesta apaga la pregunta que la produce, la salida vive en otra pantalla**: con
+  «Sin cobro» el paso del tipo de venta deja de mostrarse (ya no falta el monto), así que la
+  respuesta era irreversible. Va «Quitar "Sin cobro"» en la ficha, con compare-and-set sobre el
+  valor viejo.
+- `venta_tipo` no está en `AUDIT_FIELDS` (`lib/leads.ts`): para «Sin cobro» se agregó un
+  `logLeadEvent` explícito; las transiciones único ↔ suscripción siguen sin rastro.
