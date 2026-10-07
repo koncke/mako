@@ -949,7 +949,8 @@ export const AREAS: AreaDev[] = [
       // Compartir del portal, la vista del link repartido y el guard del área. Es la
       // MISMA omisión, una vuelta después — un `vive` no se queja de lo que le falta.
       'app/conocimientos/Compartir.tsx', 'app/compartido/[token]/PortalCompartido.tsx',
-      'tests/conocimientos-compartir.test.ts',
+      'tests/conocimientos-compartir.test.ts', 'lib/share-nombre.ts',
+      'app/api/compartir/route.ts', 'lib/shares.ts',
       'app/compartido/[token]/CursoCompartido.tsx',
       'public/cono-tx', 'public/cono-doc', 'public/cono-ugc', 'public/cono-portadas',
       'scripts/curso-comun.mjs', 'scripts/curso-perfil.ps1', 'scripts/curso-sniff.mjs',

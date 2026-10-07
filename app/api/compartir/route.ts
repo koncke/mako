@@ -21,6 +21,8 @@ import {
   leerTokenShare, leerTokenInvitado,
   type ShareAlcance, type ShareModo, type Destinatario,
 } from '@/lib/shares';
+import { nombreDeShare } from '@/lib/share-nombre';
+import { buscarCurso } from '@/app/conocimientos/catalogo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -33,6 +35,27 @@ const ALCANCES: ShareAlcance[] = ['todo', 'seccion', 'grupo', 'item'];
 const MODOS: ShareModo[] = ['link', 'invitados'];
 
 const base = (req: NextRequest) => process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+
+/** El título de HOY de un curso, saltando los slugs reemplazados. Es el resolvedor que
+ *  `nombreDeShare` pide por parámetro, y el único lugar donde este archivo lo arma. */
+const tituloDeCurso = (slug: string) => buscarCurso(slug)?.titulo;
+
+/**
+ * El slug CANÓNICO de un curso: el que le quedó después de los reemplazos del catálogo.
+ *
+ * ⚠️ Sin esto, un share emitido con el slug viejo de un curso reemplazado NO LO LISTA
+ * NINGÚN MODAL, porque ninguna pantalla puede pasar ese id —ya no está en la grilla— y el
+ * filtro de abajo comparaba el string crudo. Medido en producción el 06/10/2026: el share
+ * id=4 (`recurso_id: 'avatarhype'`, modo invitados, 13 visitas) estaba VIVO, con su link
+ * funcionando, y no aparecía en ninguna lista de «quién tiene acceso»: no se podía ver ni
+ * revocar desde la app. `avatarhype` se reemplazó por `creativos-ugc-realistas`
+ * (REEMPLAZADOS en app/conocimientos/catalogo.ts).
+ *
+ * Se resuelve por los DOS lados —la fila y lo que pide la pantalla— porque el reemplazo
+ * puede ir en cualquier dirección según cuál de los dos slugs tenga guardado cada uno.
+ */
+const canonico = (recurso: string, id: string | null) =>
+  (recurso === 'curso' && id ? buscarCurso(id)?.slug ?? id : id);
 
 // Hash del email para pedirle el avatar a Gravatar desde el navegador (con
 // d=404: si la persona no tiene foto, la UI cae a sus iniciales). Se calcula acá
@@ -64,9 +87,15 @@ export async function GET(req: NextRequest) {
     if (!RECURSOS.includes(recurso)) return NextResponse.json({ ok: false, error: 'recurso inválido' }, { status: 400 });
 
     const todos = await listarShares(WS, recurso);
-    const filtrados = recursoId ? todos.filter((s) => s.recurso_id === recursoId) : todos;
+    const pedido = canonico(recurso, recursoId);
+    const filtrados = recursoId ? todos.filter((s) => canonico(recurso, s.recurso_id) === pedido) : todos;
     const conInvitados = await Promise.all(filtrados.map(async (s) => ({
       ...s,
+      // QUÉ comparte esta fila, con el nombre de hoy. Va del lado del server a propósito:
+      // resolverlo en el navegador obligaría a mandarle el catálogo de cursos (~5 MB) a
+      // quien abra el modal, y además el mail de más abajo necesita el MISMO nombre —
+      // con dos resolvedores, el modal y el mail dicen cosas distintas de la misma fila.
+      titulo: nombreDeShare(s, tituloDeCurso),
       invitados: s.modo === 'invitados'
         ? (await listarInvitados(s.id as number)).map((i) => ({ ...i, gravatar: gravatarDe(i.email) }))
         : [],
@@ -201,7 +230,11 @@ export async function POST(req: NextRequest) {
       if (share.revocado_at) return NextResponse.json({ ok: false, error: 'enlace revocado' }, { status: 400 });
       if (malos.length) return NextResponse.json({ ok: false, error: `email inválido: ${malos[0]}` }, { status: 400 });
       if (!dests.length) return NextResponse.json({ ok: false, error: 'agrega al menos un email' }, { status: 400 });
-      const invitados = await invitar(share.id, dests, raiz, share.etiqueta);
+      // ⚠️ EL NOMBRE DERIVADO, NO `share.etiqueta`. La etiqueta guardada es la foto del
+      // día en que se emitió el link, y acá sale POR MAIL a un tercero: sumar a alguien al
+      // share id=4 mandaba «Te compartieron: Curso AVATARHYPE», un curso que hoy se llama
+      // AvatarHype. Es el mismo nombre que ve el modal, por la misma función.
+      const invitados = await invitar(share.id, dests, raiz, nombreDeShare(share, tituloDeCurso));
       return NextResponse.json({ ok: true, id: share.id, enlace: null, invitados });
     }
 

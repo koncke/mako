@@ -7224,3 +7224,119 @@ de esta familia:
   el `Selector` y en el `Hub`, que están a 600 líneas, y un recorte generoso hace que el
   guard de la grilla pase leyendo **el call site muerto**. Y se afirma el largo del bloque:
   si mañana mide el doble, está mirando otra cosa.
+
+## Un enlace VIVO que ninguna pantalla listaba, y por qué el título de un share no es su etiqueta (06/10/2026)
+
+**Vive en:** `lib/share-nombre.ts` · `app/api/compartir/route.ts` ·
+`app/conocimientos/Compartir.tsx` · guards en `tests/conocimientos-compartir.test.ts`
+
+**El pedido.** Martín, sobre la lista «Quién tiene acceso»: *«Donde dice "Cualquiera con el
+enlace" debería decir también el título de lo que estoy compartiendo si es todos los cursos
+o uno en específico»*. Parecía copy. Midiéndolo salieron tres cosas, y dos no eran copy.
+
+### 1. La etiqueta guardada es una FOTO, y ya mentía en producción
+
+`shares.etiqueta` se escribe UNA vez, en el insert de `crearShare`, y ningún `update` del
+módulo la vuelve a tocar — los updates tocan `token_cifrado`, `revocado_at`, `visitas`,
+`token_hash` y `enviado_at`, nunca la etiqueta. O sea que guarda el título del día en que
+se emitió el link.
+
+Medido sobre las 40 filas de `shares` en producción: de las 5 vivas de `recurso='curso'`,
+**una ya divergió** — el share id=4 dice `«Curso AVATARHYPE»` y ese curso hoy se llama
+`«AvatarHype»`. Es el id, no el título, lo que sigue valiendo: **el id es una clave y el
+título es un parecido**, aplicado al nombre de lo compartido.
+
+Por eso el nombre se DERIVA (`nombreDeShare`, `lib/share-nombre.ts`) y la etiqueta queda de
+respaldo para lo que el id no sabe resolver.
+
+### 2. ⚠️ Y ESE MISMO SHARE ESTABA VIVO Y NO LO LISTABA NINGÚN MODAL
+
+El hallazgo caro, y no se pidió. El filtro del GET era:
+
+```ts
+const filtrados = recursoId ? todos.filter((s) => s.recurso_id === recursoId) : todos;
+```
+
+Comparación de strings. `avatarhype` se reemplazó por `creativos-ugc-realistas`
+(`REEMPLAZADOS` en `catalogo.ts`), así que **ninguna pantalla puede pasar ese id**: el slug
+viejo no está en la grilla y los call sites mandan `c.slug`. Resultado medido: tres filas
+con `recurso_id='avatarhype'`, **una VIVA, de invitados, con 13 visitas y su link
+funcionando**, invisible desde todos los modales — no se podía ver ni revocar desde la app.
+
+No hay error, no hay 404, no hay nada: la lista contesta con las filas que encuentra, y
+«no hay más enlaces» es indistinguible de «hay uno que no sé buscar». Es la familia de
+«un cero perfectamente correcto sobre la pregunta equivocada», sobre un dato de acceso.
+
+La cura es resolver el slug CANÓNICO por los dos lados —la fila y lo que pide la pantalla—
+porque el reemplazo puede estar guardado en cualquiera de los dos. Verificado en el
+navegador: pidiendo por el slug nuevo **y** por el viejo, las tres filas aparecen.
+
+⚠️ **La regla que queda, y vale para cualquier filtro por id de algo renombrable:** si el
+catálogo tiene un mapa de reemplazos, **todo filtro por ese id lo tiene que resolver**, no
+sólo el `buscarX` que resuelve la pantalla. Un `===` sobre un id que el producto sabe
+remapear es un registro que desaparece de su propia lista.
+
+### 3. El tercer lector de la etiqueta es un MAIL que sale a un tercero
+
+`route.ts` pasaba `share.etiqueta` a `invitar(...)` en el camino de «sumar gente a un
+enlace que ya existe», y esa cadena va al **asunto** y al **cuerpo** del correo
+(`Te compartieron: <etiqueta>`). O sea que invitar a alguien al share id=4 mandaba hoy
+«Te compartieron: Curso AVATARHYPE», un curso que no se llama más así.
+
+Arreglar sólo la pantalla habría dejado el modal y el mail diciendo cosas distintas de la
+MISMA fila, sin que nadie pueda ver por qué. Los dos leen ahora `nombreDeShare`.
+
+**Por eso el nombre se deriva en el SERVER y no en el navegador**, aunque el catálogo ya
+viaje al cliente en esta ruta: (a) `Compartir.tsx` también viaja en `/compartido/[token]`,
+así que atarlo al catálogo de cursos se lo mandaría a cualquier pantalla que lo monte; y
+(b) con dos resolvedores, el modal y el mail se desincronizan — que es exactamente lo que
+«una cosa, un lugar» viene a evitar.
+
+### Lo que NO se pudo derivar, y por qué
+
+`nombreDeShare` recibe el resolvedor por parámetro en vez de importar el catálogo: así el
+módulo se testea sin cargar 132 fichas y nadie se lo lleva al navegador por importarlo.
+
+Para `recurso='branding'` el nombre **sigue saliendo de la etiqueta guardada**: su
+`recurso_id` es `grupo || sec` —dos namespaces en un campo— y el mapa id→rótulo vive en
+`BrandingMaKo.tsx`, que a su vez importa `Compartir`, así que importarlo de vuelta es un
+ciclo; y los `grupo` ni siquiera están en ese mapa (salen de los assets). Queda anotado
+como lo que es, no tapado.
+
+### La fila: dónde va el título y quién cede
+
+Va en el SEGUNDO renglón, no arriba. El `h3` del modal ya dice ese mismo nombre y la API
+filtra la lista por `recurso_id`, así que **es idéntico en todas las filas**: en negrita y
+primero, la lista serían N copias del encabezado tapando lo único que distingue una fila de
+otra (el modo, el prefijo del token, las visitas).
+
+Medido en Chrome: el título más largo del catálogo son **82 caracteres y pide 431 px** sobre
+un renglón de 285. Así que se declara quién cede en vez de acertarle a una cuenta — el
+título con `flex: 0 1 auto` + `ellipsis` (y el nombre entero en el `title`), las visitas con
+`flex: none`. Verificado forzando ese título en una fila real: recorta, el renglón sigue en
+17 px (no envolvió), la fila no creció de alto y los botones no se movieron.
+
+⚠️ **Y apareció un efecto que no se había pedido y era un defecto:** `.cmp-item-in` no tenía
+`flex`, así que medía su CONTENIDO (225 px) y el `justify-content: space-between` del padre
+repartía los 114 px sobrantes en DOS huecos iguales — uno **entre los dos botones**, que se
+veían separados sin motivo (se ve en la captura que mandó Martín). Con `flex: 1` el sobrante
+se lo lleva el texto: hueco medido, 10 px, que es el `gap` declarado.
+
+### Dos guards que dieron VERDE sobre su propio bug
+
+Los dos del mismo archivo, y los dos de la misma familia: **el universo del assert era más
+chico que la pregunta.**
+
+1. El guard de «ningún backtick en la hoja de estilos» leía el fuente pasado por
+   `sinComentarios`. Y lo prohibido vive **justamente en los comentarios**: el stripper
+   borraba el backtick antes de que el assert lo mirara. Insertar uno real daba 12 pass / 0
+   fail. Es la excepción exacta a la regla de la casa de preguntar siempre sin comentarios —
+   cuando lo prohibido es un CARÁCTER, los comentarios son el sujeto.
+2. Arreglado eso, **seguía dando verde**: el archivo tiene DOS bloques `<style jsx>` (el del
+   avatar, de 324 caracteres, y el del modal) y el guard miraba el del `indexOf`, que es el
+   primero. El bug vivía en el segundo. Ahora recorre todos y afirma que encontró al menos
+   dos.
+
+Y el backtick no es hipotético: **mordió escribiendo este mismo cambio**, con la regla ya en
+`AGENTS.md`. El síntoma es el documentado — `TS1381: Unexpected token` en líneas que no
+tienen nada que ver, no un error de CSS.

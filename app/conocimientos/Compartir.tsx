@@ -25,6 +25,18 @@ type ShareRow = {
   id: number; recurso: string; alcance: string; recurso_id: string | null; modo: string;
   etiqueta: string | null; token_prefijo: string; revocado_at: string | null; visitas: number;
   ultima_visita: string | null; created_at: string; invitados: Invitado[];
+  /**
+   * QUÉ comparte esta fila, con el nombre de HOY. Lo deriva el server con
+   * `nombreDeShare` (lib/share-nombre.ts) y NO es `etiqueta`, que es el título del día
+   * en que se emitió el link y ya divergió en producción.
+   *
+   * ⚠️ No se resuelve acá aunque el catálogo esté a mano: este componente también viaja
+   * en /compartido/[token], y atarlo al catálogo de cursos le mandaría los 132 cursos al
+   * navegador de cualquier pantalla que lo monte. Y el mail de invitación necesita el
+   * MISMO nombre — con dos resolvedores, el modal y el mail dicen cosas distintas de la
+   * misma fila.
+   */
+  titulo: string;
 };
 /** Lo que devuelve el POST por cada persona: si el mail salió, y si no, su link. */
 type ResultadoInv = { email: string; nombre: string | null; enviado: boolean; error?: string; enlace?: string };
@@ -321,7 +333,19 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
                             {s.modo === 'link' ? 'Cualquiera con el enlace' : `${gente.length} ${gente.length === 1 ? 'persona invitada' : 'personas invitadas'}`}
                             <span className="cmp-pref"> · {s.token_prefijo}…</span>
                           </span>
-                          <span className="cmp-item-m">{visitasTxt(s.visitas)}</span>
+                          {/* QUÉ comparte, pedido de Martín el 06/10/2026: «debería decir
+                              también el título de lo que estoy comparto si es todos los
+                              cursos o uno en específico».
+                              Va en el SEGUNDO renglón y no arriba: el h3 del modal ya dice
+                              ese mismo nombre, y la API filtra la lista por recurso_id, así
+                              que es idéntico en todas las filas. En negrita y primero, la
+                              lista serían N copias del encabezado y taparían lo único que
+                              distingue una fila de otra — el modo, el prefijo y las visitas.
+                              El `title` lleva el nombre entero: el renglón recorta con «…». */}
+                          <span className="cmp-item-m">
+                            <span className="cmp-item-q" title={s.titulo}>{s.titulo}</span>
+                            <span className="cmp-item-v">· {visitasTxt(s.visitas)}</span>
+                          </span>
                         </div>
                         {/* Recuperar el link de un enlace público: sin esto, perderlo obligaba
                             a revocar y crear otro — lo mismo, con más pasos y perdiendo las visitas. */}
@@ -462,10 +486,28 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
         .cmp-grupo { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid rgba(24,26,22,.08); }
         .cmp-grupo:last-child { border-bottom: 0; margin-bottom: 0; }
         .cmp-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; }
-        .cmp-item-in { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        /* ⚠️ NADA DE BACKTICKS EN LOS COMENTARIOS DE ACÁ ABAJO: esta hoja entera es un
+           template literal y uno solo la cierra a la mitad. El síntoma no es un error de
+           CSS — es el typecheck quejándose de un token inesperado treinta líneas más
+           abajo. Se nombra una propiedad sin comillas de ningún tipo.
+
+           El flex de la columna va en 1, no sólo con min-width 0: sin él mide su
+           CONTENIDO (225 px medidos) y el justify-content space-between del padre reparte
+           los 114 px que sobran en DOS huecos iguales — uno de ellos ENTRE los dos
+           botones, que se ven separados sin que nadie lo haya pedido. Con flex 1 el
+           sobrante se lo lleva el texto, los botones quedan juntos, y recién ahí el
+           recorte de abajo tiene de qué recortar. */
+        .cmp-item-in { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
         .cmp-item-t { font-size: 13px; font-weight: 600; }
         .cmp-pref { font-family: ui-monospace, monospace; font-size: 11px; opacity: .5; font-weight: 400; }
-        .cmp-item-m { font-size: 11.5px; opacity: .55; }
+        /* El título más largo del catálogo son 82 caracteres y el renglón tiene ~330 px,
+           así que no entra con cualquier curso. Se declara QUIÉN CEDE en vez de acertarle
+           a una cuenta: cede el título (lo que se puede terminar de leer en el tooltip y
+           en el h3 de arriba) y las visitas van enteras, que son el dato. Es el mismo
+           arreglo que las dos clases de la fila de un invitado, treinta líneas más abajo. */
+        .cmp-item-m { font-size: 11.5px; opacity: .55; display: flex; gap: 5px; min-width: 0; }
+        .cmp-item-q { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cmp-item-v { flex: none; }
         .cmp-persona { padding: 7px 0 7px 6px; }
         .cmp-persona-fila { display: flex; align-items: center; gap: 8px; }
         .cmp-persona-in { display: flex; flex-direction: column; min-width: 0; flex: 1; }

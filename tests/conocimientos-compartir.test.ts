@@ -18,14 +18,30 @@
 // delató abrir un curso en el navegador y contar los botones, no leer el archivo.
 //
 // Probado ROMPIÉNDOLO (06/10/2026), una regla por vez y restaurando de MEMORIA (nunca con
-// git: el árbol es compartido). Con todo en su lugar: 6 pass / 0 fail. Cada rotura tumba
-// SU test y sólo el suyo:
-//   · `CursoPortal` montando `<CursoReplica>` sin `compartir`         → 5 / 1 «la rama que se dibuja»
-//   · `CursoReplica` sin el `{compartir}` de su barra                 → 5 / 1 «la barra del curso lo dibuja»
-//   · `Selector` montando la tarjeta pelada (sin `compartirDe`)       → 5 / 1 «la grilla ofrece uno por curso»
-//   · el control de la tarjeta metido ADENTRO del `<Card>`            → 5 / 1 «el control es HERMANO»
-//   · `PortalCompartido` pasando `compartir` al portal                → 5 / 1 «la vista pública no re-comparte»
-//   · el overlay devuelto inline en vez de por `createPortal`         → 5 / 1 «el modal cuelga del body»
+// git: el árbol es compartido). Con todo en su lugar: 12 pass / 0 fail. Cada rotura tumba
+// SU test y sólo el suyo (11 / 1 las catorce veces):
+//   · `CursoPortal` montando `<CursoReplica>` sin `compartir`         → «la rama que se dibuja»
+//   · `CursoReplica` sin el `{compartir}` de su barra                 → «la barra del curso lo dibuja»
+//   · `Selector` montando la tarjeta pelada (sin `compartirDe`)       → «la grilla ofrece uno por curso»
+//   · el control de la tarjeta metido ADENTRO del `<Card>`            → «el control es HERMANO»
+//   · `PortalCompartido` pasando `compartir` al portal                → «la vista pública no re-comparte»
+//   · el overlay devuelto inline en vez de por `createPortal`         → «el modal cuelga del body»
+//   · `nombreDeShare` leyendo la etiqueta en vez del id               → «la fila dice QUÉ comparte»
+//   · `nombreDeShare` pudiendo devolver cadena vacía                  → «la fila dice QUÉ comparte»
+//   · la tab dejando de decir «Todos los cursos»                      → «la fila dice QUÉ comparte»
+//   · el GET sin el `titulo` derivado por fila                        → «lo deriva el SERVER»
+//   · el mail volviendo a `share.etiqueta`                            → «lo deriva el SERVER»
+//   · el filtro volviendo a comparar el id crudo                      → «el filtro resuelve el slug canónico»
+//   · la fila dibujando `s.etiqueta`                                  → «la fila dibuja el nombre derivado»
+//   · el renglón sin ellipsis, o las visitas cediendo, o la columna sin `flex: 1`
+//                                                                      → «el renglón recorta el título»
+//   · un backtick (o un `${…}`) en CUALQUIERA de las dos hojas        → «NADA de backticks»
+//
+// ⚠️ DOS DE ESTOS GUARDS DIERON VERDE SOBRE SU PROPIO BUG antes de escribirse bien, y los
+// dos fallos son de la misma familia — el universo del assert era más chico que la
+// pregunta. El de los backticks miraba el fuente SIN comentarios (y lo prohibido vive
+// justo ahí) y después miraba UNA de las dos hojas del archivo. Un guard que no se rompió
+// a propósito es una afirmación.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -80,6 +96,10 @@ function bloque(src: string, desde: string, hasta: string, topeLargo: number): s
 const PORTAL = sinComentarios(leer('app/conocimientos/CursoPortal.tsx'));
 const REPLICA = sinComentarios(leer('app/conocimientos/CursoReplica.tsx'));
 const COMPARTIR = sinComentarios(leer('app/conocimientos/Compartir.tsx'));
+/** El fuente TAL CUAL, con sus comentarios. Lo usa un solo guard, y su porqué está escrito
+ *  al lado: cuando lo prohibido es un CARÁCTER, los comentarios son el sujeto de la
+ *  pregunta y despejarlos es mirar para otro lado. */
+const COMPARTIR_CRUDO = leer('app/conocimientos/Compartir.tsx');
 const PUBLICO = sinComentarios(leer('app/compartido/[token]/PortalCompartido.tsx'));
 
 // ── El cableado que faltaba ─────────────────────────────────────────────────────────
@@ -186,4 +206,171 @@ test('el disparador compacto es el MISMO componente, con otro tamaño', () => {
   // En la grilla el título del curso no está en el botón: lleva su `title` para que se
   // sepa QUÉ se comparte sin abrir el modal.
   assert.match(boton, /title=\{compacto \?/, 'el disparador compacto nombra el curso en su title');
+});
+
+// =============================================================================
+// QUÉ comparte cada fila de «quién tiene acceso» (06/10/2026)
+// =============================================================================
+// Pedido de Martín: «Donde dice "Cualquiera con el enlace" debería decir también el título
+// de lo que estoy compartiendo si es todos los cursos o uno en específico».
+//
+// Lo caro no fue el copy: fue de DÓNDE sale ese título. `shares.etiqueta` se escribe una
+// sola vez en el insert y ningún update la vuelve a tocar, así que es la foto del día en
+// que se emitió el link — y ya divergió en producción (el share id=4 dice «Curso
+// AVATARHYPE» y ese curso hoy se llama «AvatarHype»). Por eso el nombre se DERIVA de la
+// clave (recurso + recurso_id) y la etiqueta queda de respaldo.
+//
+// Y al medirlo apareció algo que no se había pedido: ese mismo share id=4 estaba VIVO, de
+// invitados, con 13 visitas y su link funcionando, y NO LO LISTABA NINGÚN MODAL — el filtro
+// comparaba el id crudo y `avatarhype` se había reemplazado por `creativos-ugc-realistas`,
+// así que ninguna pantalla podía pasar ese id. No se podía ver ni revocar.
+
+import { nombreDeShare, TODOS_LOS_CURSOS, SIN_NOMBRE } from '../lib/share-nombre';
+
+const RUTA_COMPARTIR = sinComentarios(leer('app/api/compartir/route.ts'));
+
+/** El resolvedor que la ruta le pasa en producción es `buscarCurso`. Acá va uno de
+ *  mentira para no cargar los 132 cursos en un test — y además deja declarar el caso que
+ *  importa: un slug REEMPLAZADO que resuelve al título del curso nuevo. */
+const CATALOGO: Record<string, string> = {
+  'claude-ai-rodrigo-rojo': 'Curso de Claude AI - Rodrigo Rojo',
+  // `avatarhype` ya no está en la grilla: buscarCurso lo salta por REEMPLAZADOS y
+  // devuelve el curso que lo absorbió, con su título de hoy.
+  avatarhype: 'AvatarHype',
+};
+const resolver = (slug: string) => CATALOGO[slug];
+
+test('nombreDeShare: la fila dice QUÉ comparte, con el nombre de hoy', () => {
+  // La tab entera: no apunta a ninguna cosa (recurso_id null en las 17 filas de prod).
+  assert.equal(
+    nombreDeShare({ recurso: 'conocimientos', recurso_id: null, etiqueta: 'lo que sea' }, resolver),
+    TODOS_LOS_CURSOS,
+  );
+
+  // Un curso: manda la CLAVE, no la foto. Este es el caso que ya divergió en producción.
+  assert.equal(
+    nombreDeShare({ recurso: 'curso', recurso_id: 'avatarhype', etiqueta: 'Curso AVATARHYPE' }, resolver),
+    'AvatarHype',
+    'el título sale del id resuelto, no de la etiqueta guardada',
+  );
+
+  // Y cuando coinciden, da lo mismo de dónde salga: tiene que seguir dando el título.
+  assert.equal(
+    nombreDeShare({ recurso: 'curso', recurso_id: 'claude-ai-rodrigo-rojo', etiqueta: 'viejo' }, resolver),
+    'Curso de Claude AI - Rodrigo Rojo',
+  );
+
+  // Un curso que el catálogo ya no resuelve: la etiqueta es lo mejor que queda.
+  assert.equal(
+    nombreDeShare({ recurso: 'curso', recurso_id: 'borrado', etiqueta: 'Curso que ya no está' }, resolver),
+    'Curso que ya no está',
+  );
+
+  // Branding: su id no lo resuelve ningún catálogo importable desde ahí.
+  assert.equal(
+    nombreDeShare({ recurso: 'branding', recurso_id: 'marca', etiqueta: 'Branding MaKo · La marca' }, resolver),
+    'Branding MaKo · La marca',
+  );
+
+  // NUNCA vacío: una fila sin nombre en una lista es una fila que no se puede decidir si
+  // revocar. Y una etiqueta de espacios no cuenta como nombre.
+  assert.equal(nombreDeShare({ recurso: 'branding', recurso_id: 'x', etiqueta: '   ' }, resolver), 'x');
+  assert.equal(nombreDeShare({ recurso: 'branding', recurso_id: null, etiqueta: null }, resolver), SIN_NOMBRE);
+  assert.equal(nombreDeShare({ recurso: 'curso', recurso_id: null, etiqueta: null }, resolver), SIN_NOMBRE);
+});
+
+test('el nombre lo deriva el SERVER, y el mail lee el mismo', () => {
+  // Del lado del server y no del navegador: resolverlo en el cliente obligaría a mandarle
+  // el catálogo de cursos a quien abra el modal, y Compartir también viaja en
+  // /compartido/[token]. Y sobre todo: con dos resolvedores, el modal y el mail dicen
+  // cosas distintas de la MISMA fila.
+  assert.match(RUTA_COMPARTIR, /titulo: nombreDeShare\(s, tituloDeCurso\)/,
+    'cada fila del GET tiene que viajar con su nombre derivado');
+
+  // ⚠️ El mail sale a un TERCERO. Pasarle `share.etiqueta` mandaba «Te compartieron: Curso
+  // AVATARHYPE», un curso que no se llama más así.
+  const sumar = bloque(RUTA_COMPARTIR, 'const invitados = await invitar(', ')', 200);
+  assert.doesNotMatch(sumar, /share\.etiqueta/, 'el mail no puede mandar la etiqueta guardada');
+  assert.match(sumar, /nombreDeShare\(share, tituloDeCurso\)/, 'el mail usa el mismo nombre que la fila');
+});
+
+test('el filtro resuelve el slug canónico: un share del slug viejo se puede ver y revocar', () => {
+  // El bug: `todos.filter((s) => s.recurso_id === recursoId)` compara el string crudo, y
+  // ninguna pantalla puede pasar el slug de un curso que ya no está en la grilla. Medido
+  // en producción: 3 filas con recurso_id='avatarhype', una VIVA con 13 visitas, invisible
+  // desde todos los modales.
+  const get = bloque(RUTA_COMPARTIR, 'const todos = await listarShares', 'const conInvitados', 500);
+  assert.doesNotMatch(get, /s\.recurso_id === recursoId/,
+    'comparar el id crudo esconde los shares de un slug reemplazado');
+  assert.match(get, /canonico\(recurso, s\.recurso_id\) === pedido/, 'el filtro compara slugs canónicos');
+
+  // Y por los DOS lados: el reemplazo puede estar guardado en la fila o venir en el pedido.
+  const can = bloque(RUTA_COMPARTIR, 'const canonico =', ';', 200);
+  assert.match(can, /buscarCurso\(id\)\?\.slug/, 'el canónico sale de buscarCurso, que ya salta REEMPLAZADOS');
+  assert.match(RUTA_COMPARTIR, /const pedido = canonico\(recurso, recursoId\)/, 'lo que pide la pantalla también se resuelve');
+});
+
+test('la fila dibuja el nombre derivado, nunca la etiqueta guardada', () => {
+  // `.cmp-item-in` sólo contiene spans, así que el primer `</div>` que sigue ES su cierre.
+  // Nada de anclas con sangría adentro: sacar los comentarios cambia los saltos, y entonces
+  // el ancla encuentra el archivo del disco y no el que este test está leyendo.
+  const fila = bloque(COMPARTIR, '<div className="cmp-item-in">', '</div>', 1800);
+  assert.match(fila, /className="cmp-item-q" title=\{s\.titulo\}>\{s\.titulo\}/,
+    'la fila nombra lo que comparte con el título derivado');
+  assert.doesNotMatch(fila, /\{s\.etiqueta\}/, 'la etiqueta guardada es la foto: no se dibuja');
+  // El nombre entero queda a mano aunque el renglón recorte.
+  assert.match(fila, /title=\{s\.titulo\}/, 'el nombre completo va en el title del renglón');
+});
+
+test('el renglón recorta el título y nunca las visitas', () => {
+  // El título más largo del catálogo son 82 caracteres y pide 431 px sobre un renglón de
+  // 285 (medido en Chrome). Se declara QUIÉN CEDE en vez de acertarle a una cuenta.
+  const css = bloque(COMPARTIR, '.cmp-item-m {', '.cmp-item-v {', 500);
+  assert.match(css, /\.cmp-item-m \{[^}]*display: flex/, 'el renglón es un flex o no hay quién ceda');
+  assert.match(css, /\.cmp-item-q \{[^}]*flex: 0 1 auto/, 'el que cede es el título');
+  assert.match(css, /\.cmp-item-q \{[^}]*text-overflow: ellipsis/, 'y cede recortando, no envolviendo');
+  assert.match(css, /\.cmp-item-q \{[^}]*white-space: nowrap/, 'sin nowrap el texto envuelve y la fila crece de alto');
+  assert.match(COMPARTIR, /\.cmp-item-v \{ flex: none; \}/, 'las visitas van enteras: son el dato');
+
+  // Sin `flex: 1` en la columna, el space-between del padre reparte el sobrante en DOS
+  // huecos y uno queda ENTRE los dos botones (59,5 px medidos antes; 10 después).
+  assert.match(COMPARTIR, /\.cmp-item-in \{[^}]*flex: 1/, 'la columna se lleva el sobrante o no hay qué recortar');
+});
+
+test('NADA de backticks adentro de la hoja de estilos', () => {
+  // Esta hoja es un template literal: un backtick en un comentario la cierra a la mitad.
+  // No es hipotético — pasó escribiendo el renglón de arriba, el 06/10/2026, con la regla
+  // ya escrita en AGENTS.md. El síntoma no es un error de CSS: es el typecheck quejándose
+  // de un token inesperado en una línea que no tiene nada que ver.
+  //
+  // ⚠️ ESTE GUARD ES EL ÚNICO QUE LEE EL FUENTE CRUDO, y la primera versión daba VERDE
+  // sobre un backtick de verdad. El motivo es que lo prohibido vive JUSTAMENTE en los
+  // comentarios, y `sinComentarios` los borra antes de que el assert los mire. Un
+  // `doesNotMatch` se pregunta sin comentarios; éste es la excepción exacta, porque la
+  // pregunta no es «¿qué hace este código?» sino «¿hay un carácter prohibido en el
+  // archivo?» — y ahí los comentarios SON el sujeto. Probado rompiéndolo: con el fuente
+  // despejado, insertar un backtick real daba 12 pass / 0 fail.
+  //
+  // ⚠️ Y LA SEGUNDA VERSIÓN TAMBIÉN DABA VERDE, por el otro lado: este archivo tiene DOS
+  // bloques `<style jsx>` —el del avatar, de 324 caracteres, y el del modal, que es el
+  // grande— y mirar `indexOf` era auditar el primero mientras el bug vivía en el segundo.
+  // Un guard que mira UNA instancia de algo que aparece N veces es un cero perfectamente
+  // correcto sobre la pregunta equivocada. Se recorren TODOS.
+  const ABRE = '<style jsx>{';
+  const hojas: string[] = [];
+  for (let i = COMPARTIR_CRUDO.indexOf(ABRE); i > -1; i = COMPARTIR_CRUDO.indexOf(ABRE, i + 1)) {
+    const desde = i + ABRE.length;
+    const fin = COMPARTIR_CRUDO.indexOf('}</style>', desde);
+    assert.ok(fin > -1, 'una hoja de estilos quedó sin cierre');
+    // El primer y el último carácter son los backticks del literal; adentro no va ninguno.
+    hojas.push(COMPARTIR_CRUDO.slice(desde, fin).replace(/^`/, '').replace(/`$/, ''));
+  }
+  assert.ok(hojas.length >= 2, `esperaba las dos hojas del archivo y encontré ${hojas.length}`);
+
+  for (const [n, hoja] of hojas.entries()) {
+    assert.equal((hoja.match(/`/g) || []).length, 0,
+      `hoja ${n + 1}: un backtick adentro la parte al medio y se lleva medio componente`);
+    assert.equal((hoja.match(/\$\{/g) || []).length, 0,
+      `hoja ${n + 1}: una interpolación adentro la convierte en código, no en CSS`);
+  }
 });

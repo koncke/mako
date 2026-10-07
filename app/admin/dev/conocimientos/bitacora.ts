@@ -413,4 +413,36 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-conocimiento.md — la entrada con las tres trampas y lo medido',
     ],
   },
+  {
+    fecha: '6 oct', hora: '22:10', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Cada fila de «quién tiene acceso» tiene que decir QUÉ comparte',
+    pedido: 'Donde dice "Cualquiera con el enlace" debería decir también el título de lo que estoy compartiendo si es todos los cursos o uno en específico',
+    puntos: [
+      'Mandó la captura del modal de un curso con DOS filas idénticas («Cualquiera con el enlace · <prefijo>» / «N visitas»): desde la pantalla no había forma de saber qué repartía cada una.',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '23:05', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La fila nombra lo que comparte — y apareció un enlace vivo que ninguna pantalla listaba',
+    puntos: [
+      'Cada fila dice ahora QUÉ comparte en su segundo renglón: «Todos los cursos · 673 visitas» en el modal de la tab, «Curso de Claude AI - Rodrigo Rojo · 15 visitas» en el de un curso. Va abajo y no arriba porque el h3 del modal ya dice ese mismo nombre y la API filtra la lista por recurso_id: en negrita y primero, la lista serían N copias del encabezado tapando lo único que distingue una fila de otra.',
+      '⚠️ **El nombre NO sale de `shares.etiqueta`.** Esa columna se escribe una sola vez en el insert y ningún update la vuelve a tocar: es la foto del día en que se emitió el link. Medido sobre las 40 filas de producción, **ya divergió**: el share id=4 dice «Curso AVATARHYPE» y ese curso hoy se llama «AvatarHype». El id es la clave, el título es el parecido — así que el nombre se DERIVA (`nombreDeShare`, lib/share-nombre.ts) y la etiqueta queda de respaldo.',
+      '⚠️ **Y ESE MISMO SHARE ESTABA VIVO Y NO LO LISTABA NINGÚN MODAL.** Esto no se pidió: salió de medir. El filtro del GET comparaba el id crudo (`s.recurso_id === recursoId`), y `avatarhype` se había reemplazado por `creativos-ugc-realistas`, así que ninguna pantalla podía pasar ese id. Resultado: tres filas con ese recurso_id, **una VIVA, de invitados, con 13 visitas y el link funcionando**, que no se podía ver ni revocar desde la app. No da error: la lista contesta con lo que encuentra, y «no hay más enlaces» es indistinguible de «hay uno que no sé buscar». Ahora el filtro resuelve el slug canónico por los DOS lados.',
+      '⚠️ **El tercer lector de la etiqueta es un MAIL que sale a un tercero.** «Sumar gente a un enlace que ya existe» le pasaba `share.etiqueta` a `invitar()`, que la interpola en el asunto y el cuerpo: invitar a alguien al share id=4 mandaba «Te compartieron: Curso AVATARHYPE». Arreglar sólo la pantalla habría dejado el modal y el mail diciendo cosas distintas de la MISMA fila. Los dos leen ahora la misma función.',
+      '**Por eso se deriva en el SERVER y no en el navegador**, aunque el catálogo ya viaje al cliente en esta ruta: Compartir.tsx también viaja en /compartido/[token] —atarlo al catálogo se lo mandaría a cualquier pantalla que lo monte— y con dos resolvedores el modal y el mail se desincronizan.',
+      '**El ancho, medido:** el título más largo del catálogo son 82 caracteres y pide 431 px sobre un renglón de 285. Cede el título (ellipsis, con el nombre entero en el tooltip) y las visitas van enteras. Verificado forzando ese título en una fila real: recorta, el renglón sigue en 17 px, la fila no creció y los botones no se movieron. De paso se arregló un defecto que se ve en la captura de Martín: `.cmp-item-in` no tenía `flex`, así que el space-between repartía 114 px sobrantes en dos huecos y uno quedaba ENTRE los dos botones. Ahora son los 10 px del gap.',
+      '**Cómo se midió:** una corrida de 10 agentes (5 lectores con su refutador) sobre de dónde sale el título, más una consulta propia de sólo lectura a las 40 filas de `shares` en producción para confirmar el enlace invisible antes de tocar el filtro.',
+      '⚠️ **Y dos guards dieron VERDE sobre su propio bug**, los dos porque el universo del assert era más chico que la pregunta: el de «ningún backtick en la hoja de estilos» leía el fuente SIN comentarios —y lo prohibido vive justo ahí—, y arreglado eso seguía mirando UNA de las dos hojas `<style jsx>` del archivo. El backtick no es hipotético: mordió escribiendo este mismo cambio, con la regla ya en AGENTS.md.',
+    ],
+    archivos: [
+      'lib/share-nombre.ts — cómo se nombra un share. Recibe el resolvedor por parámetro para poder testearse sin cargar 132 fichas, y sin server-only para que el test lo pueda importar',
+      'app/api/compartir/route.ts — el `titulo` derivado por fila, el filtro por slug canónico (`canonico`) y el mail leyendo la misma función',
+      'app/conocimientos/Compartir.tsx — el segundo renglón de la fila y quién cede en el ancho',
+      'tests/conocimientos-compartir.test.ts — 12 guards, probados rompiéndolos: cada rotura tumba SU test (11/1 las catorce veces)',
+      'docs/hallazgos-conocimiento.md — el enlace invisible, los tres lectores de la etiqueta y los dos guards que daban verde',
+      'ABIERTO: branding sigue nombrándose por la etiqueta guardada — su recurso_id es `grupo || sec` (dos namespaces en un campo) y el mapa id→rótulo vive en BrandingMaKo.tsx, que importa Compartir: importarlo de vuelta es un ciclo. Y su share vivo id=6 apunta a una sección con alcance de grupo, o sea un link que abre en 404',
+    ],
+  },
 ];
