@@ -24,6 +24,7 @@
 //   · `modo` de la estrategia          → qué pasa si el lead contesta
 //   · `desenlace.logradoSecuencia`     → el «Go To» de ManyChat, puerto ✅
 //   · `desenlace.falloSecuencia`       → el «Go To» de ManyChat, puerto 🏁
+//   · `accion` de un paso              → un nodo ⚡ en la cadena: corre, no manda
 //
 // Nadie tiene que conectar nada: si la secuencia encadena con otra, la flecha
 // aparece. Y al revés —y esto es lo que el dibujo de hoy no muestra— si NO
@@ -56,6 +57,8 @@ export type PasoParaGrafo = {
   asunto?: string | null;
   requiere?: 'respondio' | 'sin_respuesta' | 'ya_contactado' | 'primer_contacto';
   variantes?: string[];
+  /** El paso «⚡ Acción de MaKo»: con esto el nodo NO es un mensaje (lib/nutricion-paso-accion.ts). */
+  accion?: { operacion?: string; params?: Record<string, unknown> } | null;
 };
 
 export type EstrategiaParaGrafo = {
@@ -87,6 +90,9 @@ import {
   ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y, MARGEN, encerrar,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo, type TonoArista,
 } from './lienzo-grafo';
+// La MISMA pregunta que se hacen el motor y el saneo: un paso con `accion` corre una
+// acción, no manda un mensaje. Una copia acá sería la que se queda vieja.
+import { esPasoAccion } from './nutricion-paso-accion';
 export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo } from './lienzo-grafo';
 export { curvaEntre, medioDeCurva, ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y } from './lienzo-grafo';
 
@@ -171,6 +177,13 @@ export function grafoDeSecuencia(
   estrategia: EstrategiaParaGrafo,
   etiquetaEtapa: string,
   secuenciasDelWorkspace: ReadonlyArray<{ clave: string; nombre: string }> = [],
+  /**
+   * El título humano de una operación del registro («Mover un lead de etapa»). Viene de
+   * afuera porque el catálogo lo arma el server (GET /api/flujos/acciones) y este módulo
+   * es puro. Sin él —cargando, o quien mira no es admin— el nodo dice el id de la operación,
+   * que es feo y es verdad.
+   */
+  tituloAccion?: (operacion: string) => string | null | undefined,
 ): GrafoFlujo {
   const nodos: NodoFlujo[] = [];
   const aristas: AristaFlujo[] = [];
@@ -198,14 +211,29 @@ export function grafoDeSecuencia(
 
   const ordenados = [...pasos].sort((a, b) => a.orden - b.orden);
   ordenados.forEach((p, i) => {
-    const alto = altoDeMensaje(p);
     const id = `paso-${p.orden}`;
-    nodos.push({
-      id, tipo: 'mensaje', orden: p.orden,
-      titulo: p.canal === 'email' ? 'Email' : p.tipo === 'audio' ? 'Nota de voz' : 'WhatsApp',
-      icono: p.canal === 'email' ? '✉️' : p.tipo === 'audio' ? '🎙️' : '💬',
-      x, y: yFila, ancho: ANCHO_NODO, alto,
-    });
+    // ⚠️ UN PASO DE ACCIÓN ES OTRO NODO, NO UN MENSAJE VACÍO. Su `cuerpo` está vacío a
+    // propósito: dibujado como mensaje sería una burbuja de WhatsApp en blanco, que afirma
+    // que al lead le llega algo. Lo que dice adentro es QUÉ hace MaKo. Va en la misma
+    // cadena y con la misma flecha de tiempo, porque corre con la misma programación.
+    const accion = esPasoAccion(p);
+    const alto = accion ? ALTO_MIN + 14 : altoDeMensaje(p);
+    if (accion) {
+      const op = (p.accion?.operacion ?? '').trim();
+      nodos.push({
+        id, tipo: 'accion', orden: p.orden, titulo: 'Acción de MaKo', icono: '⚡',
+        detalle: op ? (tituloAccion?.(op) || op) : 'Sin elegir',
+        ...(op ? {} : { advertencia: 'Falta elegir la acción' }),
+        x, y: yFila, ancho: ANCHO_NODO, alto,
+      });
+    } else {
+      nodos.push({
+        id, tipo: 'mensaje', orden: p.orden,
+        titulo: p.canal === 'email' ? 'Email' : p.tipo === 'audio' ? 'Nota de voz' : 'WhatsApp',
+        icono: p.canal === 'email' ? '✉️' : p.tipo === 'audio' ? '🎙️' : '💬',
+        x, y: yFila, ancho: ANCHO_NODO, alto,
+      });
+    }
     const cond = p.requiere ? CONDICION_TXT[p.requiere] : null;
     const tiempo = cuandoSale(p.delay_horas, i === 0, p.ancla);
     aristas.push({
@@ -265,7 +293,10 @@ export function grafoDeSecuencia(
     // Colgaba de «Si contesta»; con ese nodo fuera, cuelga del último mensaje, que es
     // lo que de verdad lo precede: preguntar es algo que pasa cuando el lead contesta
     // ESE mensaje.
-    aristas.push({ desde: previo, hasta: 'cualifica', etiqueta: 'si contesta', tono: 'buena' });
+    // `sinMas`: el ＋ del medio de una flecha inserta DESPUÉS del nodo de origen, o sea en
+    // la cadena principal — no en esta rama. Un ＋ colgado de «si contesta» que agrega el
+    // paso en otro lado es peor que no tenerlo (`AristaFlujo.sinMas`).
+    aristas.push({ desde: previo, hasta: 'cualifica', etiqueta: 'si contesta', tono: 'buena', sinMas: true });
   }
 
   // ── El desenlace, con sus DOS puertos ──────────────────────────────────
@@ -294,7 +325,8 @@ export function grafoDeSecuencia(
       detalle: nombre ?? `«${s.clave}» ya no existe`,
       x: x + ANCHO_NODO + GAP_X, y: yGo, ancho: ANCHO_NODO, alto: ALTO_MIN,
     });
-    aristas.push({ desde: 'desenlace', hasta: s.id, etiqueta: s.etiqueta, tono: s.tono });
+    // Ni un paso entre el desenlace y la secuencia que sigue: la cadena ya terminó ahí.
+    aristas.push({ desde: 'desenlace', hasta: s.id, etiqueta: s.etiqueta, tono: s.tono, sinMas: true });
     yGo += ALTO_MIN + GAP_Y;
   }
 

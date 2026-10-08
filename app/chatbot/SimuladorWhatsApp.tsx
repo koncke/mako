@@ -17,6 +17,14 @@ import { SecuenciaPerfil } from './SecuenciaPerfil';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
+
+/**
+ * Lo que el simulador reproduce: los pasos de WhatsApp que le LLEGAN al lead. Un paso
+ * «⚡ Acción» no le llega a nadie —corre una acción de MaKo—, y dibujado como mensaje sería
+ * una burbuja vacía que afirma que al lead le escribieron.
+ */
+const pasosQueLlegan = (pasos: SecuenciaDto['pasos']) => pasos.filter((p) => p.canal === 'whatsapp' && !esPasoAccion(p));
 
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 // El objetivo puede ser uno del catálogo O uno que escribió el dueño: para esos
@@ -128,7 +136,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // secuencia) les cambia la identidad y volvería a reproducir el guion BORRANDO
   // la conversación que el dueño tenga en curso.
   const guionKey = useMemo(() => (sel
-    ? sel.pasos.filter((p) => p.canal === 'whatsapp').map((p) => `${p.orden}|${p.tipo ?? 'texto'}|${p.audio_id ?? ''}|${(p.cuerpo ?? '').length}`).join('~')
+    ? pasosQueLlegan(sel.pasos).map((p) => `${p.orden}|${p.tipo ?? 'texto'}|${p.audio_id ?? ''}|${(p.cuerpo ?? '').length}`).join('~')
     : ''), [sel]);
 
   useEffect(() => {
@@ -145,7 +153,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   function reproducirGuion() {
     if (!sel) return;
     timers.current.forEach(clearTimeout); timers.current = [];
-    const pasosWa = sel.pasos.filter((p) => p.canal === 'whatsapp');
+    const pasosWa = pasosQueLlegan(sel.pasos);
     const guion: Paso[] = [];
     for (const p of pasosWa) {
       guion.push({ t: 'typing' });
@@ -408,7 +416,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           {lista.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna secuencia coincide.</div>}
           {lista.map((j) => {
             const on = j.id === selId;
-            const texto = j.estrategia?.gancho ?? j.pasos.find((p) => p.canal === 'whatsapp')?.cuerpo ?? j.pasos[0]?.cuerpo ?? '';
+            const texto = j.estrategia?.gancho ?? pasosQueLlegan(j.pasos)[0]?.cuerpo ?? j.pasos[0]?.cuerpo ?? '';
             return (
               <button key={j.id} type="button" onClick={() => elegir(j.id)}
                 style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, opacity: j.activa ? 1 : 0.55, fontFamily: 'inherit' }}>

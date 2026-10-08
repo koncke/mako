@@ -44,6 +44,7 @@ import {
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
+import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -104,6 +105,14 @@ export type PasoSecuencia = {
   template_categoria?: 'marketing' | 'utility' | 'authentication';
   template_idioma?: string;                   // ej. 'es_MX'
   template_param?: string;                    // clave del body que recibe el nombre (default 'nombre')
+  /**
+   * EL PASO «⚡ ACCIÓN DE MAKO» (decisión de Martín, 08/10/2026: «que pueda hacer todo, sin
+   * limitaciones»). Con este campo el paso NO manda un mensaje: corre una acción del
+   * registro de la API por `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts), con la misma
+   * espera y programación que un mensaje. Ausente = mensaje, como siempre. Por qué es un
+   * sub-objeto y no un `tipo` más, en lib/nutricion-paso-accion.ts.
+   */
+  accion?: AccionDelPaso;
 };
 
 export type Secuencia = {
@@ -348,45 +357,75 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
     if (Array.isArray(p?.variantes) && p.variantes.length) variantesPrevias.set(Number(p.orden), p.variantes);
   }
 
+  // ⚠️ EL PASO «⚡ ACCIÓN» SE VALIDA ANTES DE ESCRIBIR NADA, y una acción inválida frena el
+  // guardado ENTERO con un error que la pantalla muestra. Esta función reconstruye cada
+  // paso campo por campo y borra lo que no conoce (AGENTS.md: la quinta puerta de un tipo
+  // de nodo nuevo), así que `accion` tiene que pasar por acá o se pierde en el primer
+  // guardado. Y no se descarta en silencio: un paso de acción sin elegir, o con una
+  // operación que el registro no tiene, guardado como mensaje vacío sería un WhatsApp en
+  // blanco al lead; guardado tal cual, un 'fallo' por corrida en un log que nadie lee.
+  // El filtro es el MISMO de abajo, para que `acciones[i]` sea el paso `i` del `.map`.
+  const esPaso = (p: PasoSecuencia): boolean => !!p && typeof p === 'object';
+  const acciones = pasos.filter(esPaso).map((p) => sanearAccion((p as { accion?: unknown }).accion));
+  const malas = acciones.flatMap((a, i) => (a && !a.ok ? [`el paso ${i + 1} ${a.motivo}`] : []));
+  if (malas.length) throw new Error(`No se guardó: ${malas.join('; ')}.`);
+  const operaciones = [...new Set(acciones.flatMap((a) => (a?.ok ? [a.accion.operacion] : [])))];
+  if (operaciones.length) {
+    // Import dinámico: el registro son ~500 definiciones y sólo hace falta si hay acciones.
+    const [{ porId }, { esAccion }] = await Promise.all([import('@/lib/api-mako/registro'), import('@/lib/api-mako/tipos')]);
+    const ajenas = operaciones.filter((op) => { const d = porId(op); return !d || !esAccion(d); });
+    if (ajenas.length) throw new Error(`No se guardó: ${ajenas.map((op) => `«${op}»`).join(', ')} no es una acción de MaKo.`);
+  }
+
   // Normaliza el orden (1..n) y descarta basura.
   const limpio = pasos
-    .filter((p) => p && typeof p === 'object')
-    .map((p, i) => ({
-      orden: i + 1,
-      // Un paso de audio es de WhatsApp por definición (no hay nota de voz por email).
-      canal: p.canal === 'email' && p.tipo !== 'audio' ? 'email' : 'whatsapp',
-      delay_horas: Math.max(0, Math.round(Number(p.delay_horas) || 0)),
-      ...(p.ancla === 'reunion' ? { ancla: 'reunion' as const } : {}),
-      // Paso de nota de voz: exige audio de la biblioteca (si no, degrada a texto).
-      // Paso en modo IA: sólo por WhatsApp no oficial. Por la vía oficial sale una
-      // plantilla que aprobó Meta, y reescribirla es mandar algo que nadie aprobó; por
-      // email no hay ruta en el motor. En esos casos se guarda como texto, que es lo
-      // que el motor iba a hacer igual — sin un `tipo` que prometa otra cosa.
-      ...(p.tipo === 'audio' && Number(p.audio_id)
-        ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) }
-        : p.tipo === 'ia' && p.canal !== 'email' && proveedorDelPaso(p) === 'no_oficial'
-          ? { tipo: 'ia' as const }
+    .filter(esPaso)
+    .map((p, i): PasoSecuencia => {
+      const comun = {
+        orden: i + 1,
+        // Un paso de audio es de WhatsApp por definición (no hay nota de voz por email).
+        canal: (p.canal === 'email' && p.tipo !== 'audio' ? 'email' : 'whatsapp') as CanalNutricion,
+        delay_horas: Math.max(0, Math.round(Number(p.delay_horas) || 0)),
+        ...(p.ancla === 'reunion' ? { ancla: 'reunion' as const } : {}),
+        ...(p.requiere === 'respondio' || p.requiere === 'sin_respuesta' || p.requiere === 'ya_contactado' || p.requiere === 'primer_contacto'
+          ? { requiere: p.requiere as PasoSecuencia['requiere'] }
           : {}),
-      ...(p.requiere === 'respondio' || p.requiere === 'sin_respuesta' || p.requiere === 'ya_contactado' || p.requiere === 'primer_contacto'
-        ? { requiere: p.requiere as PasoSecuencia['requiere'] }
-        : {}),
-      asunto: typeof p.asunto === 'string' ? p.asunto : null,
-      preheader: typeof p.preheader === 'string' ? p.preheader : null,
-      cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
-      // El oficial va DECLARADO; la ausencia del campo cae al no oficial, que es
-      // el canal real del chatbot. El porqué, en `proveedorDelPaso`.
-      proveedor: proveedorDelPaso(p),
-      template_wa: p.template_wa ?? null,
-      template_categoria: p.template_categoria,
-      template_idioma: p.template_idioma ?? 'es_MX',
-      template_param: p.template_param ?? 'nombre',
-      // Las variantes las manda el cliente solo si las está editando; si no,
-      // sobreviven las que ya había para ese orden.
-      ...(() => {
-        const vs = Array.isArray(p.variantes) && p.variantes.length ? p.variantes : variantesPrevias.get(i + 1);
-        return vs?.length ? { variantes: vs.filter((v) => typeof v === 'string' && v.trim()).slice(0, 8) } : {};
-      })(),
-    }));
+      };
+      // Un paso de ACCIÓN no lleva nada de un mensaje: ni tipo, ni audio, ni variantes, ni
+      // cuerpo. Las variantes, sobre todo: el merge es por `orden`, y una acción insertada
+      // en el lugar de un mensaje heredaría las suyas.
+      const a = acciones[i];
+      if (a?.ok) return { ...comun, asunto: null, preheader: null, cuerpo: '', template_wa: null, accion: a.accion };
+      return {
+        ...comun,
+        // Paso de nota de voz: exige audio de la biblioteca (si no, degrada a texto).
+        // Paso en modo IA: sólo por WhatsApp no oficial. Por la vía oficial sale una
+        // plantilla que aprobó Meta, y reescribirla es mandar algo que nadie aprobó; por
+        // email no hay ruta en el motor. En esos casos se guarda como texto, que es lo
+        // que el motor iba a hacer igual — sin un `tipo` que prometa otra cosa.
+        ...(p.tipo === 'audio' && Number(p.audio_id)
+          ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) }
+          : p.tipo === 'ia' && p.canal !== 'email' && proveedorDelPaso(p) === 'no_oficial'
+            ? { tipo: 'ia' as const }
+            : {}),
+        asunto: typeof p.asunto === 'string' ? p.asunto : null,
+        preheader: typeof p.preheader === 'string' ? p.preheader : null,
+        cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
+        // El oficial va DECLARADO; la ausencia del campo cae al no oficial, que es
+        // el canal real del chatbot. El porqué, en `proveedorDelPaso`.
+        proveedor: proveedorDelPaso(p),
+        template_wa: p.template_wa ?? null,
+        template_categoria: p.template_categoria,
+        template_idioma: p.template_idioma ?? 'es_MX',
+        template_param: p.template_param ?? 'nombre',
+        // Las variantes las manda el cliente solo si las está editando; si no,
+        // sobreviven las que ya había para ese orden.
+        ...(() => {
+          const vs = Array.isArray(p.variantes) && p.variantes.length ? p.variantes : variantesPrevias.get(i + 1);
+          return vs?.length ? { variantes: vs.filter((v) => typeof v === 'string' && v.trim()).slice(0, 8) } : {};
+        })(),
+      };
+    });
   const { error } = await supabase
     .from('nutricion_secuencias')
     .update({ pasos: limpio, updated_at: ahoraISO() })
@@ -1502,7 +1541,10 @@ export async function planificarEnvios(): Promise<PlanEnvio[]> {
       secuencia: sec?.clave ?? `#${insc.secuencia_id}`,
       paso: insc.paso_actual + 1,
       canal: paso?.canal ?? null,
-      detalle: paso ? `${paso.canal}: ${paso.asunto ?? paso.cuerpo.slice(0, 40)}` : 'sin paso → se completaría',
+      // Un paso de acción no tiene texto: decir su operación es lo único que describe qué corre.
+      detalle: !paso ? 'sin paso → se completaría'
+        : esPasoAccion(paso) ? `acción: ${paso.accion?.operacion || 'sin elegir'}`
+          : `${paso.canal}: ${paso.asunto ?? paso.cuerpo.slice(0, 40)}`,
     };
   });
 }
@@ -1672,7 +1714,10 @@ export type ResultadoProceso = {
   omitidos: number;
   esperando: number;
   borradores: number;
+  /** Mensajes Y acciones que fallaron. Una acción fallida queda en `nutricion_envios` con su motivo. */
   fallos: number;
+  /** Pasos «⚡ Acción» que corrieron bien. No son mensajes: no cuentan para ningún cupo. */
+  acciones: number;
   detalle: Array<{ lead_id: number; canal: string; estado: string; nota?: string }>;
 };
 
@@ -1688,7 +1733,7 @@ export type ResultadoProceso = {
 //     prueba de la máquina, el ?commit=1 histórico).
 // Un 'fallo' NO avanza el paso (se reintenta), salvo condición terminal.
 export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number }): Promise<ResultadoProceso> {
-  const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, detalle: [] };
+  const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, acciones: 0, detalle: [] };
   const [waOn, emailOn, sandbox, remitente, lineasEvo] = await Promise.all([
     envioWhatsappHabilitado(),
     envioEmailHabilitado(),
@@ -1732,20 +1777,63 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     return p;
   };
 
+  // ⚠️ LA VENTANA HORARIA VALE TAMBIÉN PARA LOS PASOS «⚡ ACCIÓN». Una acción puede mandar
+  // algo (un WhatsApp de empresa, un email): «que pueda hacer todo» incluye lo que suena en
+  // el teléfono de alguien a las 3 de la mañana, y la ventana existe para eso. Y no cuesta:
+  // el cron corre sólo de 15 a 23 UTC (vercel.json), dentro de la ventana; esto frena la vía
+  // rápida de un evento nocturno, que queda para la primera corrida de la mañana.
   if (!opts?.ignorarVentana && !dentroDeVentana()) {
     return { ...res, saltado: 'fuera-de-ventana-horaria' };
   }
   const presupuesto = MAX_POR_DIA - (await enviosUltimas24h());
-  if (presupuesto <= 0) return { ...res, saltado: 'tope-diario' };
-  const cupo = Math.min(MAX_POR_CORRIDA, presupuesto);
 
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   const porId = new Map(secuencias.map((s) => [s.id, s]));
+  /**
+   * LAS SECUENCIAS CON PASOS «⚡ ACCIÓN». El tope diario y el de la corrida son el
+   * presupuesto ANTI-BAN de la línea de WhatsApp: cuentan mensajes. Una acción no es un
+   * mensaje, así que no lo gasta ni lo respeta — con el tope cumplido, «mover al lead a
+   * Contactado» no puede quedar congelado hasta mañana por WhatsApps que no tienen nada
+   * que ver. Cuando el cupo de mensajes se acaba, el motor sigue mirando SÓLO estas.
+   * Sin ninguna, todo es exactamente como antes (incluido el corte por tope diario).
+   */
+  const conAcciones = secuencias.filter((s) => s.pasos.some(esPasoAccion)).map((s) => s.id);
+  if (presupuesto <= 0 && !conAcciones.length) return { ...res, saltado: 'tope-diario' };
+  const cupo = Math.max(0, Math.min(MAX_POR_CORRIDA, presupuesto));
+  const cupoLleno = (): boolean => res.enviados + res.simulados >= cupo;
+  // El workspace de la corrida, UNA vez: lo usan el nombre del negocio y cada acción.
+  const wsCorrida = await getWorkspaceActual();
   // El nombre del negocio, UNA vez por corrida y no por lead: es del workspace, no de
   // la fila. Si no se puede leer, `{{negocio}}` sale crudo (no vacío) — ver
   // `valoresVariablesLead`.
-  const negocio = await getWorkspace((await getWorkspaceActual()) ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
+  const negocio = await getWorkspace(wsCorrida ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
+
+  /**
+   * LA REUNIÓN QUE PREPARA ES LA DEL ÚLTIMO PASO QUE SALIÓ (#789). Se anota al inscribir,
+   * y si el lead reprograma A MITAD de la corrida, los pasos que siguen ya hablan de la
+   * nueva. Sin re-anotarla, la fila terminaba diciendo la reunión VIEJA, y la corrida
+   * siguiente del cron leía «otra reunión» sobre la misma que acababa de preparar y le
+   * mandaba toda la post-agenda de nuevo. La llaman los DOS avances: el de un mensaje y el
+   * de un paso «⚡ Acción» — una acción también hace avanzar la misma corrida.
+   *
+   * ⚠️ VA APARTE DEL AVANCE, y no es prolijidad: el avance de un paso que YA SALIÓ no puede
+   * depender de una columna nueva. Metida en el mismo update, una 0205 sin aplicar haría que
+   * PostgREST rechazara el avance entero —un error que acá nadie lee— y el paso se volvería
+   * a mandar en la corrida siguiente.
+   *
+   * ⚠️ LA R1, NO LA MÁS PRÓXIMA (`reunionQuePreparaMs`). Si la R1 ya pasó y el paso salió
+   * porque hay una R2 por delante, anotar la R2 acá haría que una R2 cuente como «la reunión
+   * que preparó»; sin R1 futura no se re-anota y queda la que había.
+   */
+  const anotarReunionDelPaso = async (inscId: number, sec: Secuencia, lead: JuntasLead | null | undefined): Promise<void> => {
+    const reunionDelPaso = preparaUnaReunion(sec.trigger_tipo) ? reunionQuePreparaMs(lead) : null;
+    if (reunionDelPaso != null) {
+      const { error: eReunion } = await supabase.from('nutricion_inscripciones')
+        .update({ reunion_at: new Date(reunionDelPaso).toISOString() }).eq('id', inscId);
+      if (eReunion) console.error(`[nutricion] reunión del paso, inscripción ${inscId}: ${eReunion.message}`);
+    }
+  };
 
   /**
    * UN CIERRE SIN ENVÍO TAMBIÉN DEJA SU FILA (#789), en estado 'omitido' y con el motivo,
@@ -1784,15 +1872,19 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // ventana de cupo*3 podía llenarse de filas sin envío real y postergar los
   // envíos de verdad. Iteramos lotes (dedup por id de inscripción) hasta llenar
   // el cupo o drenar la cola de vencidas.
-  const LOTE = cupo * 3;
+  // Con el cupo de mensajes ya en cero sólo quedan acciones por correr: el lote no puede
+  // ser `0 × 3`, o el `.limit(0)` no traería ninguna.
+  const LOTE = (cupo > 0 ? cupo : MAX_POR_CORRIDA) * 3;
   const vistos = new Set<number>();
   let rondas = 0;
   // Cuántas filas del residuo ya pasaron al envío en esta corrida (#790): ver
   // `RESIDUO_POR_CORRIDA` y su uso más abajo.
   let residuoEnCorrida = 0;
 
-  while (res.enviados + res.simulados < cupo && rondas < 6) {
+  while ((!cupoLleno() || conAcciones.length > 0) && rondas < 6) {
     rondas += 1;
+    // Una acción de esta vuelta dejó su inscripción con el paso siguiente ya vencido.
+    let otraVuelta = false;
     let q = supabase
       .from('nutricion_inscripciones')
       .select('id, lead_id, secuencia_id, paso_actual')
@@ -1801,6 +1893,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
     // (anti-ban, audio, borradores, gates) sin esperar la corrida del cron.
     if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
+    // Sin cupo de mensajes, lo único que puede correr es un paso de acción: no se leen
+    // las filas de las secuencias que no tienen ninguno.
+    if (cupoLleno()) q = q.in('secuencia_id', conAcciones);
     // LOS YA VISTOS SE EXCLUYEN EN EL SERVER, y el orden desempata por `id`. Antes se
     // filtraban en memoria después del `.limit(LOTE)`: las filas salteadas por «msg
     // <20h» no se actualizan, así que la vuelta siguiente releía LAS MISMAS LOTE
@@ -1843,10 +1938,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       : new Set<number>();
 
     for (const insc of due) {
-      if (res.enviados + res.simulados >= cupo) break;
-
       const sec = porId.get(insc.secuencia_id);
       const paso = sec?.pasos[insc.paso_actual];
+      // Con el cupo de mensajes lleno, un MENSAJE queda para la corrida que viene, sin
+      // tocarlo (era un `break`: lo mismo para los mensajes). Una ACCIÓN sigue: no gasta cupo.
+      if (cupoLleno() && !(paso && esPasoAccion(paso))) continue;
       if (!sec || !paso) {
         await supabase
           .from('nutricion_inscripciones')
@@ -1955,6 +2051,88 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         continue;
       }
 
+      // ── EL PASO «⚡ ACCIÓN DE MAKO» (decisión de Martín, 08/10/2026) ─────────────
+      // En vez de mandar, corre una acción del registro de la API por `ejecutarDesdeFlujo`
+      // (lib/api-mako/flujo.ts): la confirmó el dueño al CONFIGURAR el paso, así que acá se
+      // ejecuta sin pedir un «sí». Y avanza como si hubiera salido el mensaje.
+      //
+      // Qué reglas de los mensajes le aplican, decidido una por una:
+      //   · SÍ todo lo de arriba, que es de la INSCRIPCIÓN y no del mensaje: la reunión que
+      //     ya pasó cierra la secuencia entera, el residuo que pagó también, el tope de
+      //     antigüedad y las condiciones del paso (`requiere`) valen igual, y la espera
+      //     (`delay_horas`, `ancla`) es la misma programación que la de un mensaje.
+      //   · SÍ la PAUSA POR RESPUESTA: `pausarPorRespuesta` pausa la inscripción entera, y
+      //     con ella sus acciones. Lo que tiene que pasar cuando el lead contesta es del
+      //     desenlace (etapa y «sigue con»), no de un paso que corre a ciegas.
+      //   · SÍ la VENTANA HORARIA (ver el corte del principio).
+      //   · NO lo que es del MENSAJE, y por eso va ANTES de esas guardas: el [relleno] del
+      //     copy, el canal apagado y el anti-ban de 20 h. Este último es el que importa: un
+      //     paso «mover a Contactado» pegado a un mensaje quedaría frenado 20 horas por el
+      //     mensaje que acaba de salir. Tampoco gasta el cupo de la corrida ni el diario.
+      //
+      // ⚠️ «NO DOS VECES»: el paso se RECLAMA con compare-and-set antes de correr
+      // (`correrPasoAccion`, lib/nutricion-paso-accion.ts). Un mensaje se cuida con el
+      // anti-ban; una acción no lo tiene, y el cron y la vía rápida de un evento corren el
+      // mismo motor. Si falla, queda en `nutricion_envios` como 'fallo' con el motivo —
+      // donde queda un envío fallido— y la secuencia SIGUE: una acción que falla igual cada
+      // vez no se reintenta en bucle.
+      if (esPasoAccion(paso)) {
+        const n = insc.paso_actual + 1;
+        const siguientePaso = sec.pasos[n];
+        const proximo = siguientePaso ? proximoEnvioDePaso(siguientePaso, lead) : null;
+        const r = await correrPasoAccion(
+          {
+            accion: { operacion: String(paso.accion?.operacion ?? ''), params: paso.accion?.params },
+            ws: wsCorrida, secuenciaId: sec.id, nombre: sec.nombre, orden: n, leadId: insc.lead_id,
+          },
+          {
+            reclamar: async () => {
+              const { data, error } = await supabase.from('nutricion_inscripciones')
+                .update({
+                  paso_actual: n,
+                  proximo_envio_at: proximo,
+                  estado: siguientePaso ? 'activa' : 'completada',
+                  // Sin `ultimo_paso_at`: es «el último MENSAJE», y una acción no le habló a nadie.
+                  updated_at: ahoraISO(),
+                })
+                .eq('id', insc.id).eq('estado', 'activa').eq('paso_actual', insc.paso_actual)
+                .select('id');
+              if (error) throw new Error(error.message);
+              return ((data ?? []) as unknown[]).length > 0;
+            },
+            // Import dinámico: lib/api-mako/flujo → ejecutar → los runners → chatbot.run →
+            // este archivo es un ciclo (el mismo motivo que `escribirPasoIA`, más abajo).
+            ejecutar: async (operacion, params, o) => (await import('@/lib/api-mako/flujo')).ejecutarDesdeFlujo(operacion, params, o),
+            // ⚠️ ESTADO 'accion', NO 'enviado'. Todo lector de esta tabla cuenta mensajes por
+            // estado —el anti-ban, el tope diario, «¿ya le hablamos?», el silencio del
+            // desenlace, las métricas—: una acción como 'enviado' frenaría el próximo WhatsApp
+            // del lead 20 horas y le comería el cupo al negocio. La operación va en `asunto`.
+            registrar: async (x) => {
+              const { error } = await supabase.from('nutricion_envios').insert({
+                inscripcion_id: insc.id, lead_id: insc.lead_id, secuencia_id: insc.secuencia_id, paso: n,
+                canal: paso.canal, estado: x.estado, destino: null, asunto: x.operacion,
+                error: x.estado === 'fallo' ? x.resumen : null,
+              });
+              if (error) throw new Error(error.message);
+            },
+          },
+        );
+        if (r.estado !== 'saltado') await anotarReunionDelPaso(insc.id, sec, lead);
+        // ⚠️ SI LO QUE SIGUE YA TOCA, SE MIRA EN ESTA MISMA CORRIDA. El lienzo dice «Enseguida»
+        // sobre un paso a 0 h, y la fila ya está en `vistos`: sin esto, «mover de etapa» +
+        // «crear la tarea» + el mensaje de después saldrían de a uno por hora de cron. Se
+        // devuelve a la cola y el bucle da otra vuelta (con su tope de 6). Un mensaje que
+        // siga pasa igual por TODAS sus guardas, anti-ban incluido, leídas de nuevo.
+        if (r.estado !== 'saltado' && proximo != null && Date.parse(proximo) <= Date.now()) {
+          vistos.delete(insc.id);
+          otraVuelta = true;
+        }
+        if (r.estado === 'accion') res.acciones += 1;
+        else if (r.estado === 'fallo') res.fallos += 1;
+        res.detalle.push({ lead_id: insc.lead_id, canal: 'accion', estado: r.estado, nota: r.nota });
+        continue;
+      }
+
       // Copy que sigue con texto de relleno del seed → NUNCA sale automático:
       // espera (reintento 24h) a que MaKo lo escriba y alguien lo apruebe.
       if (!opts?.simularApagados && pasoConRelleno(paso)) {
@@ -1970,7 +2148,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // 'omitido' y la cadencia sigue (el cliente eligió no usar este canal). Si
       // no queda nada enviable, el paso ESPERA (reintento 24h): prender el canal
       // después retoma desde acá, sin quemar la cadencia (tarea #5).
-      const canalOn = (p: PasoSecuencia) => (p.canal === 'whatsapp' ? waOn : emailOn);
+      // Un paso de ACCIÓN no cuenta como «enviable por un canal prendido»: no es un mensaje,
+      // y contarlo haría que un WhatsApp con el canal apagado se omita (en vez de esperar)
+      // sólo porque más adelante hay una acción.
+      const canalOn = (p: PasoSecuencia) => !esPasoAccion(p) && (p.canal === 'whatsapp' ? waOn : emailOn);
       const canalApagado = !opts?.simularApagados && !canalOn(paso);
       if (canalApagado && !sec.pasos.slice(insc.paso_actual + 1).some(canalOn)) {
         res.esperando += 1;
@@ -2281,26 +2462,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           updated_at: ahoraISO(),
         })
         .eq('id', insc.id);
-      // LA REUNIÓN QUE PREPARA ES LA DEL ÚLTIMO PASO QUE SALIÓ (#789). Se anota al inscribir,
-      // y si el lead reprograma A MITAD de la corrida, los pasos que siguen ya hablan de la
-      // nueva. Sin re-anotarla, la fila terminaba diciendo la reunión VIEJA, y la corrida
-      // siguiente del cron leía «otra reunión» sobre la misma que acababa de preparar y le
-      // mandaba toda la post-agenda de nuevo.
-      //
-      // ⚠️ VA APARTE DEL AVANCE, y no es prolijidad: el avance de un paso que YA SALIÓ no puede
-      // depender de una columna nueva. Metida en el mismo update, una 0205 sin aplicar haría que
-      // PostgREST rechazara el avance entero —un error que acá nadie lee— y el paso se volvería
-      // a mandar en la corrida siguiente.
-      //
-      // ⚠️ LA R1, NO LA MÁS PRÓXIMA (`reunionQuePreparaMs`). Si la R1 ya pasó y el paso salió
-      // porque hay una R2 por delante, anotar la R2 acá haría que una R2 cuente como «la reunión
-      // que preparó»; sin R1 futura no se re-anota y queda la que había.
-      const reunionDelPaso = preparaUnaReunion(sec.trigger_tipo) ? reunionQuePreparaMs(lead) : null;
-      if (reunionDelPaso != null) {
-        const { error: eReunion } = await supabase.from('nutricion_inscripciones')
-          .update({ reunion_at: new Date(reunionDelPaso).toISOString() }).eq('id', insc.id);
-        if (eReunion) console.error(`[nutricion] reunión del paso, inscripción ${insc.id}: ${eReunion.message}`);
-      }
+      // La reunión que preparó este paso, en un update APARTE del avance (ver la función).
+      await anotarReunionDelPaso(insc.id, sec, lead);
 
       if (estado === 'enviado') res.enviados += 1;
       else if (estado === 'omitido') res.omitidos += 1;
@@ -2309,10 +2472,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
     }
 
-    if (fetched.length < LOTE) break; // cola drenada: no quedan más vencidas
+    if (fetched.length < LOTE && !otraVuelta) break; // cola drenada: no quedan más vencidas
   }
 
-  return res;
+  // Con el tope diario cumplido sólo corrieron acciones: el corte se sigue diciendo.
+  return presupuesto <= 0 ? { ...res, saltado: 'tope-diario' } : res;
 }
 
 // Pausa la nutrición de un lead cuando responde (webhook de Chatwoot y espejo

@@ -300,8 +300,13 @@ test('⚠️ el residuo pasa de a RESIDUO_POR_CORRIDA por corrida, después de l
     assert.ok(ini < fn.indexOf(sale), `el techo va después de ${sale}`);
   }
   // El contador nace una vez por corrida, afuera del bucle de lotes.
+  // (El bucle de lotes cambió de condición el 08/10/2026: sigue mientras haya cupo de
+  // mensajes O secuencias con pasos «⚡ Acción», que no gastan cupo. Con el ancla nueva,
+  // probado rompiéndolo: el contador declarado adentro del bucle → 29 pasan / 1 falla, éste.)
   const decl = fn.indexOf('let residuoEnCorrida = 0;');
-  assert.ok(decl >= 0 && decl < fn.indexOf('while (res.enviados + res.simulados < cupo'), 'el contador se reinicia por lote');
+  const bucle = fn.indexOf('while ((!cupoLleno() || conAcciones.length > 0) && rondas < 6)');
+  assert.ok(bucle > 0, 'no encontré el bucle de lotes');
+  assert.ok(decl >= 0 && decl < bucle, 'el contador se reinicia por lote');
 });
 
 test('RESIDUO_POR_CORRIDA por las corridas del cron no pasa de RESIDUO_POR_DIA', () => {

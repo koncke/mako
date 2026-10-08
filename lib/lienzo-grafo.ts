@@ -16,6 +16,9 @@
 
 export type TipoNodo =
   | 'entrada' | 'mensaje' | 'respuesta' | 'cualifica' | 'desenlace' | 'ir-a' | 'suelto'
+  // `accion` lo usan los DOS lienzos desde el 08/10/2026: el paso «⚡ Acción» de un aviso
+  // y el de una secuencia del chatbot (`grafoDeSecuencia`). Es un nodo y no un `tipo` del
+  // mensaje porque hace OTRA cosa que mandar un mensaje (AGENTS.md, las cinco puertas).
   | 'recordatorio' | 'accion' | 'mensaje-lead'
   // Los dos que el motor PASÓ A EJECUTAR el 04/10/2026 (mig 0186, `flujo_corridas`):
   // antes de eso `esperar` hacía `break` y no había condicional.

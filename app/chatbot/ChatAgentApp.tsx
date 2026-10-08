@@ -59,6 +59,12 @@ export type PasoSecuenciaDto = {
   requiere?: 'respondio' | 'sin_respuesta' | 'ya_contactado' | 'primer_contacto';
   /** Formas alternativas de decir lo mismo: el motor sortea una en cada envío. */
   variantes?: string[];
+  /**
+   * El paso «⚡ Acción de MaKo»: con esto el paso NO manda un mensaje, corre una acción del
+   * registro (lib/nutricion-paso-accion.ts). La forma es la del editor compartido
+   * (`EditorAccionMako`), así que viaja tal cual del panel a la fila.
+   */
+  accion?: { operacion?: string; params?: Record<string, unknown> } | null;
 };
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
