@@ -46,7 +46,7 @@ import { porId, gatingOk } from './registro';
 import { runnerDe } from './runners';
 import { validarInput } from './validar';
 import { vistaDe } from './vista';
-import { canalKeyDe, canalDeClave, etiquetaDeCanal, puedeConfirmar } from './canal';
+import { canalKeyDe, canalDeClave, etiquetaDeCanal, puedeConfirmar, PREFIJO_APP, PREFIJO_FLUJO } from './canal';
 import { esAccion, type AccionDef, type Ctx, type Ejecutado } from './tipos';
 
 /** Cuánto vive un «sí». Dos horas: alcanza para que el dueño conteste y no para que
@@ -75,7 +75,11 @@ const fmtFecha = (iso: string, tz: string): string => {
   try { return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: tz }); } catch { return iso; }
 };
 
-const origenDe = (ctx: Ctx): string => (ctx.canal === 'whatsapp' ? 'hola-mako' : ctx.canal === 'http' ? 'api' : 'app');
+// Un paso de un flujo (lib/api-mako/flujo.ts) deja la fila con el flujo como origen
+// (`flujo:<aviso o secuencia>…`): es el rastro de qué hizo una automatización.
+const origenDe = (ctx: Ctx): string => (ctx.canalKey.startsWith(PREFIJO_FLUJO)
+  ? ctx.canalKey.slice(PREFIJO_APP.length)
+  : ctx.canal === 'whatsapp' ? 'hola-mako' : ctx.canal === 'http' ? 'api' : 'app');
 
 // ── chat: dejar una pendiente ─────────────────────────────────────────────────
 

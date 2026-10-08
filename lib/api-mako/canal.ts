@@ -17,6 +17,9 @@ import type { Canal } from './tipos';
 
 export const PREFIJO_API = 'api:';
 export const PREFIJO_APP = 'app:';
+/** Un paso «⚡ Acción» de un flujo (lib/api-mako/flujo.ts). Es canal `app` —empieza con
+ *  `app:`— y se distingue sólo para decir de dónde vino la fila. */
+export const PREFIJO_FLUJO = 'app:flujo:';
 
 /** La clave de scope para un canal. HTTP: por workspace (hay UN token por ws; el
  *  día que haya tokens por usuario, la clave suma el id del token). */
@@ -37,6 +40,7 @@ export function canalDeClave(clave: string): Canal {
 
 /** Cómo se le dice a una persona de dónde vino. */
 export function etiquetaDeCanal(clave: string): string {
+  if (clave.startsWith(PREFIJO_FLUJO)) return 'vino de una automatización';
   switch (canalDeClave(clave)) {
     case 'http': return 'vino por la API';
     case 'app': return 'vino del chat de la app';
