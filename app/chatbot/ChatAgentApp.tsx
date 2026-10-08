@@ -24,8 +24,14 @@ import Link from '@/app/_ui/Link';
 import { SecuenciaWizard } from './SecuenciaWizard';
 import { SimuladorWhatsApp } from './SimuladorWhatsApp';
 import type { CronAviso } from '@/lib/cron-aviso';
-import { HandoffsPanel, type Handoff } from './HandoffsPanel';
-import { RecordatorioReunion } from './RecordatorioReunion';
+// ⚠️ ACÁ SE IMPORTABAN `HandoffsPanel` Y `RecordatorioReunion`, y se fueron el 08/10/2026 con
+// el pedido de Martín: «Elimina completamente lo de arriba ese form que ocupa toda la pantalla,
+// eso debería configurarse en las tarjetas» (punto 1) y «No entiendo por qué está el
+// "Recordatorio de la reunión" cuando eso debe configurarse en las tarjetas!!!» (punto 2).
+//   · Los casos que el formulario enseñaba son las ramas de la tarjeta «Si responde» del lienzo,
+//     y «Otra cosa» es el hand-off. `resolverHandoff` y su acción en /api/chat-agent/secuencias
+//     se quedan: los usa MaKo (`resolver_handoff`).
+//   · El recordatorio es un ítem más de la lista (RecordatorioFlujo), con sus tarjetas.
 // La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 import { abreEnQR, marcarWhatsappAlCargar, puertaAlRecargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
@@ -41,7 +47,7 @@ const marcarPasoWhatsapp = () => fetch('/api/chat-agent/onboarding', {
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
+import type { MetricasSecuencia } from '@/lib/setting-metricas';
 
 export type PasoSecuenciaDto = {
   orden: number; canal: 'email' | 'whatsapp'; delay_horas: number;
@@ -153,9 +159,6 @@ function ChatAgentInner() {
   const [huecos, setHuecos] = useState<Array<{ etapa: string; label: string }>>([]);
   /** La zona del negocio: la dice el texto del horario, no se adivina. */
   const [tz, setTz] = useState<string | null>(null);
-  // Leads que escribieron algo fuera del guion: MaKo no contestó y espera que le
-  // enseñen el caso.
-  const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [audios, setAudios] = useState<AudioSetting[]>([]);
@@ -209,7 +212,7 @@ function ChatAgentInner() {
       setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
       setProductos(j.productos ?? []); setDisparadores(j.disparadores ?? []);
-      setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []); setTz(j.tz ?? null);
+      setHuecos(j.huecos ?? []); setTz(j.tz ?? null);
       setNegocio(j.negocio ?? '');
       setCanal(j.canal ?? { estado: 'desconocido', desde: null });
       estadoCanal = typeof j.canal?.estado === 'string' ? j.canal.estado : 'desconocido';
@@ -482,10 +485,6 @@ function ChatAgentInner() {
           )}
         </div>
       )}
-
-      {rolAdmin && <HandoffsPanel handoffs={handoffs} onCambio={() => void load()} />}
-      {rolAdmin && <RecordatorioReunion />}
-
 
       {error && (
         <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>

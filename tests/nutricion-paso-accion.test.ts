@@ -14,6 +14,8 @@
 //
 // PROBADO ROMPIÉNDOLO (08/10/2026; con todo puesto: 15 pasan, 0 fallan). Cada rotura de a
 // una, restaurada de memoria (nunca con `git checkout`). Pasan / fallan:
+//   · (08/10/2026, el assert del simulador mudado a lib/simulador-grafo.ts) la acción
+//     devuelta como un evento de mensaje                                  -> 15 / 1
 //   · `correrPasoAccion` ejecuta ANTES de reclamar                        -> 14 / 1
 //   · `correrPasoAccion` ejecuta aunque otra corrida ya tomó el paso      -> 14 / 1
 //   · un fallo de la acción se registra como 'accion' (no como 'fallo')   -> 13 / 2
@@ -304,6 +306,9 @@ test('el lienzo ofrece «⚡ Acción de MaKo», la edita con el editor compartid
   assert.match(perfil, /const agregarTras = \(idNodo: string, que: 'mensaje' \| 'accion' = 'mensaje'\) => \{/);
   assert.match(perfil, /template_wa: null, accion: \{ operacion: '', params: \{\} \},/);
   assert.match(perfil, /onAccion=\{rolAdmin \? editarAccion : undefined\}/);
-  // El simulador muestra lo que le LLEGA al lead: una acción no le llega.
-  assert.match(sinComentarios(leer('app/chatbot/SimuladorWhatsApp.tsx')), /pasos\.filter\(\(p\) => p\.canal === 'whatsapp' && !esPasoAccion\(p\)\)/);
+  // El simulador muestra lo que le LLEGA al lead: una acción no le llega. ⚠️ MUDADO EL 08/10/2026:
+  // «Probar» recorre el flujo con lib/simulador-grafo.ts, y ahí una acción es una PÍLDORA que la
+  // nombra (no se ejecuta), nunca una burbuja. Antes era el filtro `pasosQueLlegan` de
+  // SimuladorWhatsApp.tsx; lo ejecuta tests/simulador-grafo.test.ts.
+  assert.match(sinComentarios(leer('lib/simulador-grafo.ts')), /case 'accion':\n(\s*\n)?\s+return \{ evento: \{ t: 'accion', nodo: id, texto: `⚡ \$\{nombreAccion\(p, nombres\)\}` \}/);
 });
