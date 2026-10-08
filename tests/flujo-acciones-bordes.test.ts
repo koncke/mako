@@ -19,6 +19,8 @@
 //   · el ejecutor de flujos vuelve a `ok: false` en un «ya está»: 1 fallo.
 //   · ejecutarOperacion deja de propagar `yaEstaba`: 1 fallo.
 //   · la herencia vuelve a copiar el flujo entero: 1 fallo.
+//   · (08/10/2026, flujo con ramas) la acción vuelve a esperar el borrador SÓLO si la secuencia no
+//     sale sola (`!sec.envio_automatico`): 1 fallo (15/1).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -41,7 +43,9 @@ const bloque = (src: string, ini: string, fin: string): string => {
 test('la prueba de una secuencia manda sólo los MENSAJES: una acción no se prueba', () => {
   const src = sinComentarios(leer('../lib/setting-secuencias.ts'));
   const prueba = bloque(src, 'export async function probarSecuencia', '\n}\n');
-  assert.match(prueba, /const mensajes = sec\.pasos\.filter\(\(p\) => !esPasoAccion\(p\)\)/);
+  // Desde el 08/10/2026 tampoco las tarjetas de CONTROL (condición, espera, «Si responde», «Ir a»):
+  // llevan `cuerpo: ''` de relleno y, sin el filtro, cada una era otro «[PRUEBA n/N] » en blanco.
+  assert.match(prueba, /const mensajes = sec\.pasos\.filter\(\(p\) => !esPasoAccion\(p\) && !esNodoDeControl\(p\)\)/);
   assert.match(prueba, /for \(const paso of mensajes\)/, 'el bucle vuelve a recorrer las acciones y manda un WhatsApp en blanco por cada una');
   assert.match(prueba, /mensajes\.every\(\(p\) => p\.canal === 'whatsapp'\)/);
 });
@@ -159,7 +163,11 @@ test('el editor del paso: «Otro lead» se puede elegir, y los campos guardan la
 test('secuencias: la acción espera si el mensaje anterior quedó como borrador sin mandar', () => {
   const src = sinComentarios(leer('../lib/nutricion.ts'));
   const rama = bloque(src, '      if (esPasoAccion(paso)) {', 'const r = await correrPasoAccion(');
-  assert.match(rama, /if \(lead && !sec\.envio_automatico && await tieneBorradorNutriPendiente\(lead\.id\) && !\(await esLeadCliente\(lead\.id\)\)\) \{/);
+  // Desde el 08/10/2026 sin `!sec.envio_automatico`: «sale sola» pasó a ser POR TARJETA
+  // (`revisar`), así que en una secuencia que sale sola el mensaje de antes igual pudo quedar
+  // como borrador. La pregunta es si HAY uno pendiente, no qué dice la secuencia.
+  assert.match(rama, /if \(lead && await tieneBorradorNutriPendiente\(lead\.id\) && !\(await esLeadCliente\(lead\.id\)\)\) \{/);
+  assert.doesNotMatch(rama, /!sec\.envio_automatico && await tieneBorradorNutriPendiente/);
   assert.match(rama, /continue;/);
 });
 
@@ -167,7 +175,8 @@ test('secuencias: «Publicar» no guarda un paso de acción al que le falta un d
   const src = sinComentarios(leer('../lib/nutricion.ts'));
   const guardar = bloque(src, 'export async function setSecuenciaPasos', '\n}\n');
   assert.match(guardar, /faltanEnPaso\(d\.parametros, a\.accion\.params, \{ leadId: 1 \}\)/);
-  assert.match(guardar, /if \(incompletas\.length\) throw new Error/);
+  // `PasosInvalidosError` (08/10/2026): la ruta lo contesta 400, no la pantalla genérica.
+  assert.match(guardar, /if \(incompletas\.length\) throw new PasosInvalidosError/);
 });
 
 test('secuencias: sin canales, el cron corre igual las acciones', () => {
@@ -177,8 +186,12 @@ test('secuencias: sin canales, el cron corre igual las acciones', () => {
 });
 
 test('las pantallas de /chatbot cuentan como WhatsApp sólo los MENSAJES', () => {
+  // Desde el 08/10/2026 (el flujo con ramas) «no es un mensaje» es más que una acción: una
+  // espera, una condición o un salto tampoco le mandan nada al lead. El perfil pregunta
+  // con `esNodoMensaje` (lib/flujo-grafo.ts), que es la clase del nodo y no una copia.
+  // Probado rompiéndolo: volver a `!esPasoAccion(p)` → 1 rojo.
   const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /const mensajes = pasos\.filter\(\(p\) => !esPasoAccion\(p\)\);\n\s+const soloWa = mensajes\.length > 0 && mensajes\.every/);
+  assert.match(perfil, /const mensajes = pasos\.filter\(\(p\) => esNodoMensaje\(p\)\);\n\s+const soloWa = mensajes\.length > 0 && mensajes\.every/);
   const app = sinComentarios(leer('../app/chatbot/ChatAgentApp.tsx'));
   assert.match(app, /p\.canal === 'whatsapp' && !esPasoAccion\(p\)/);
 });

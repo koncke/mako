@@ -1,213 +1,352 @@
 // =============================================================================
-// El flujo de conversación dibujado: que el grafo diga lo que el motor HACE
+// El flujo de conversación dibujado: un ÁRBOL con ramas, que dice lo que el motor HACE
 // =============================================================================
-// El pedido, textual: «Quiero que los editables del flujo de conversación sea
-// como el editable de Manychat, que tiene una pantalla tipo flujo, y ahí se edita
-// todo».
+// El pedido (Martín, 08/10/2026, puntos 4-7, 9 y 11): la tarjeta del disparador dice CRON
+// y el disparador real; ningún mensaje nace con espera; condicionales con ramas «arriba y
+// abajo», creadas desde el punto de cada salida (el molde de ManyChat); «Termina si
+// agenda» se va porque es una condición como cualquier otra.
 //
-// Un lienzo tiene una forma de fallar que una lista no tiene: **dibuja una
-// afirmación**. Una flecha que se bifurca dice «acá el motor decide», y si el
-// motor no decide, el dibujo miente con más autoridad que un campo en un
-// formulario — porque se lee sin abrir nada y parece la estructura del sistema.
-// De ahí la mitad de este archivo.
+// Un lienzo tiene una forma de fallar que una lista no tiene: **dibuja una afirmación**.
+// Una flecha que se bifurca dice «acá el motor decide», y si el motor no decide, el
+// dibujo miente con más autoridad que un campo en un formulario. De ahí el guard de
+// `CONDICIONES_VIVAS` contra el `switch` de `cumpleFila`.
 //
-// Correr: npm test
+// PROBADO ROMPIÉNDOLO (08/10/2026; con todo puesto: 13 pasan, 0 fallan). Cada rotura de a
+// una, aplicada y restaurada DE MEMORIA por un arnés (nunca con `git checkout`). Pasan / fallan:
+//   1. el título del CRON vuelve a 'Se dispara'                                  -> 12 / 1
+//   2. `detalleDisparador` dice la etapa aunque el trigger sea de formulario      -> 12 / 1
+//   3. el árbol mide el bloque de ramas sin lo que suben (`bloque` sin `sobre`)   -> 12 / 1
+//      ⚠️ La primera vez salió CIEGA (13 / 0): el apilado igual cuenta el `sobre`, así
+//      que las ramas no se pisaban; lo que se rompía era el CENTRADO. Ahora lo mide.
+//   4. el árbol no normaliza a ≥ 0 (sin `aOrigen`)                                -> 12 / 1
+//   5. las flechas salen sin su `puerto`                                          -> 12 / 1
+//   6. `insertarDesdeLienzo` ignora el puerto (inserta siempre en 'sig')          -> 12 / 1
+//   7. un mensaje nuevo nace con `delay_horas: 24`                                -> 12 / 1
+//   8. Publicar sin `validarGrafo` antes del PATCH                                -> 12 / 1
+//   9. vuelve el botón «Cambiar a una etapa» a SecuenciaPerfil                    -> 12 / 1
+//  10. `seccionesDisparo` ofrece `manual` (no inscribe a nadie)                   -> 12 / 1
+//  11. `CONDICIONES_VIVAS` pierde una condición que `cumpleFila` evalúa           -> 12 / 1
+//  12. «Esperar» ofrecido debajo de «Si responde»                                 -> 12 / 1
+//  13. SecuenciaPerfil convierte con `legadoAGrafo` también un flujo con ids      -> 12 / 1
+//  14. Publicar sin la LIMPIEZA de la estrategia al convertir                     -> 12 / 1
+//  15. `errorLegible` deja el id crudo                                            -> 12 / 1
+//  16. Publicar sin `faltaEscribir` (sale una tarjeta vacía)                      -> 12 / 1
+//  17. `faltaEscribir` da por escrita una nota de voz sin audio                   -> 12 / 1
+//
+// Correr: node --import tsx --test tests/flujo-conversacion.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  grafoDeSecuencia, cuandoSale, CONDICIONES_VIVAS, CONDICION_TXT,
-  type PasoParaGrafo,
+  grafoDeSecuencia, detalleDisparador, insertarDesdeLienzo, nodoNuevo, opcionesDelMas,
+  seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, faltaEscribir, crearRespuesta, agregarCaso, quitarRama,
+  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, ID_NUEVA_RESPUESTA,
+  type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
+import { MARGEN, centroDeFilas } from '../lib/lienzo-grafo';
+import { claseDe, nodoPorId, validarGrafo, raizRespuesta, escenariosDeRespuesta } from '../lib/flujo-grafo';
 
-const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
+const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+// Las líneas ANTES que los bloques: un `/*` adentro de un `//` se comería código (AGENTS.md).
+const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+const bloque = (src: string, abre: string, cierra: string, tope: number): string => {
+  const ini = src.indexOf(abre);
+  assert.ok(ini >= 0, `no encontré «${abre}»`);
+  const fin = src.indexOf(cierra, ini + abre.length);
+  assert.ok(fin > ini, `no encontré el cierre «${cierra}»`);
+  const b = src.slice(ini, fin);
+  assert.ok(b.length < tope, `el recorte mide ${b.length}: está mirando otra cosa`);
+  return b;
+};
+const PERFIL = '../app/chatbot/SecuenciaPerfil.tsx';
 
-const paso = (o: Partial<PasoParaGrafo> & { orden: number }): PasoParaGrafo => ({
-  canal: 'whatsapp', delay_horas: 0, cuerpo: 'hola', ...o,
+/** Un rnd determinista: los ids nuevos no dependen de la suerte. */
+const rndDe = (semilla = 1) => { let s = semilla; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
+const msg = (id: string, extra: Partial<PasoParaGrafo> = {}): PasoParaGrafo => ({ id, canal: 'whatsapp', delay_horas: 0, cuerpo: 'hola', siguiente: null, ...extra });
+const cond = (id: string, ramas: Array<[string, string | null]>, siNo: string | null): PasoParaGrafo => ({
+  id, canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: siNo,
+  ramas: ramas.map(([rid, sig]) => ({ id: rid, modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: sig })),
+});
+const nodo = (g: { nodos: NodoFlujo[] }, id: string): NodoFlujo => { const n = g.nodos.find((x) => x.id === id); assert.ok(n, `no está el nodo ${id}`); return n; };
+const centro = (n: NodoFlujo) => n.y + n.alto / 2;
+const sePisan = (a: NodoFlujo, b: NodoFlujo) => a.x < b.x + b.ancho && b.x < a.x + a.ancho && a.y < b.y + b.alto && b.y < a.y + a.alto;
+const sinPisarse = (g: { nodos: NodoFlujo[] }) => {
+  for (let i = 0; i < g.nodos.length; i++) for (let j = i + 1; j < g.nodos.length; j++) {
+    assert.ok(!sePisan(g.nodos[i], g.nodos[j]), `${g.nodos[i].id} y ${g.nodos[j].id} se pisan`);
+  }
+};
+
+// ── 4: la tarjeta del disparador ────────────────────────────────────────────
+
+test('⚠️ la tarjeta del disparador dice CRON y el disparador REAL, no la etapa de la fila', () => {
+  // La #198: trigger de formulario con `etapa: 'nutri'` en la fila. La tarjeta de antes
+  // afirmaba «El lead cae en «No Agenda»».
+  const texto = detalleDisparador({ trigger_tipo: 'instant_form_sin_agenda', etapa: 'nutri', etiquetaTrigger: 'Dejó el formulario sin agendar', nombreEtapa: 'No Agenda' });
+  assert.equal(texto, 'Dejó el formulario sin agendar');
+  const g = grafoDeSecuencia([msg('a')], { disparador: texto });
+  const e = nodo(g, ID_ENTRADA);
+  assert.equal(e.titulo, 'CRON');
+  assert.equal(e.detalle, 'Dejó el formulario sin agendar');
+  // La etapa sólo si el disparador ES de etapa; una etiqueta, si es de etiqueta; el horario manda.
+  assert.equal(detalleDisparador({ trigger_tipo: 'etapa_actual', etapa: 'agendado', nombreEtapa: 'Agendado' }), 'Llega a «Agendado»');
+  assert.equal(detalleDisparador({ trigger_tipo: 'entrega_actual', etapa: 'onb', nombreEtapa: 'Onboarding' }), 'Llega a «Onboarding»');
+  assert.equal(detalleDisparador({ trigger_tipo: 'etiqueta_puesta', nombreEtiqueta: 'Cualificado' }), 'Se le puso «Cualificado»');
+  assert.match(detalleDisparador({ trigger_tipo: 'etapa_actual', etapa: 'x', cron: { unidad: 'dia', cada: 1, hora: 9, minuto: 0 }, tz: 'America/Tijuana' }), /Todos los días a las 0?9:00 de America\/Tijuana/);
+  // Sin el catálogo, el id del trigger (feo y verdadero), nunca la etapa.
+  assert.equal(detalleDisparador({ trigger_tipo: 'no_show_j1', etapa: 'nutri' }), 'no_show_j1');
 });
 
-// ── La cadena ────────────────────────────────────────────────────────────────
+// ── 9: el árbol ─────────────────────────────────────────────────────────────
 
-test('El grafo arranca en la entrada y termina en el desenlace', () => {
-  const g = grafoDeSecuencia([paso({ orden: 1 }), paso({ orden: 2, delay_horas: 24 })], null, 'No Agenda');
-  const ids = g.nodos.map((n) => n.id);
-  assert.deepEqual(ids.slice(0, 3), ['entrada', 'paso-1', 'paso-2']);
-  assert.ok(ids.includes('desenlace'), 'sin desenlace, una secuencia no dice cuándo termina');
-  const cadena = g.aristas.filter((a) => a.desde === 'entrada' || a.desde === 'paso-1');
-  assert.ok(cadena.some((a) => a.desde === 'entrada' && a.hasta === 'paso-1'));
-  assert.ok(cadena.some((a) => a.desde === 'paso-1' && a.hasta === 'paso-2'));
+test('⚠️ el árbol: dos ramas no se pisan, se apilan ARRIBA y ABAJO del puerto, y todo queda en ≥ 0', () => {
+  // Una condición con dos ramas y su «si no»; la primera rama lleva un mensaje largo (alto)
+  // y la segunda OTRA condición con tres salidas: el subárbol grande no puede pisar al de al lado.
+  const pasos: PasoParaGrafo[] = [
+    cond('c', [['r1', 'm1'], ['r2', 'c2']], 'm3'),
+    msg('m1', { cuerpo: 'x'.repeat(300) }),
+    cond('c2', [['s1', 'k1'], ['s2', 'k2']], 'k3'),
+    msg('k1'), msg('k2'), msg('k3', { siguiente: 'k4' }), msg('k4'),
+    msg('m3'),
+  ];
+  assert.deepEqual(validarGrafo(pasos), [], 'el fixture tiene que ser un flujo válido');
+  const g = grafoDeSecuencia(pasos, { disparador: 'X' });
+  sinPisarse(g);
+  // Arriba y abajo del CENTRO DE LAS FILAS de la condición (de donde salen las flechas).
+  const c = nodo(g, 'c');
+  const yFilas = c.y + centroDeFilas(c.alto, c.puertos!.length);
+  assert.ok(centro(nodo(g, 'm1')) < yFilas, 'la primera rama tiene que quedar ARRIBA del puerto');
+  assert.ok(centro(nodo(g, 'm3')) > yFilas, 'el «si no» tiene que quedar ABAJO del puerto');
+  // Y el bloque de las ramas queda CENTRADO en las filas, contando lo que cada subárbol se
+  // extiende hacia arriba (la segunda condición abre sus ramas por encima de su tope). Sin
+  // ese alto, las ramas no se pisan igual —el apilado lo cuenta— pero el bloque se corre
+  // hacia abajo y las de arriba dejan de estar arriba (rotura 3, que salió CIEGA sin esto).
+  const debajo = g.nodos.filter((n) => n.id !== ID_ENTRADA && n.id !== 'c');
+  const banda = (Math.min(...debajo.map((n) => n.y)) + Math.max(...debajo.map((n) => n.y + n.alto))) / 2;
+  assert.ok(Math.abs(banda - yFilas) < 1, `el bloque de las ramas está centrado en ${banda} y las filas en ${yFilas}`);
+  // En el orden de las filas, y a la derecha de su padre.
+  assert.ok(nodo(g, 'm1').y < nodo(g, 'c2').y && nodo(g, 'c2').y < nodo(g, 'm3').y);
+  for (const [padre, hijo] of [['c', 'm1'], ['c', 'c2'], ['c2', 'k1'], ['k3', 'k4']] as const) {
+    assert.ok(nodo(g, hijo).x > nodo(g, padre).x + nodo(g, padre).ancho, `${hijo} no quedó a la derecha de ${padre}`);
+  }
+  // Normalizado: nada fuera de cuadro, y la esquina en el margen.
+  assert.equal(Math.min(...g.nodos.map((n) => n.y)), MARGEN);
+  assert.equal(Math.min(...g.nodos.map((n) => n.x)), MARGEN);
+  for (const n of g.nodos) {
+    assert.ok(n.x + n.ancho <= g.ancho && n.y + n.alto <= g.alto, `${n.id} se sale de la caja`);
+  }
 });
 
-test('Los pasos se ordenan por `orden`, no por el orden del array', () => {
-  // El array llega de la base y nadie garantiza el orden. Dibujarlo como viene
-  // haría que la flecha del primer mensaje apunte al tercero.
-  const g = grafoDeSecuencia([paso({ orden: 3 }), paso({ orden: 1 }), paso({ orden: 2 })], null, 'X');
-  assert.deepEqual(g.nodos.filter((n) => n.tipo === 'mensaje').map((n) => n.orden), [1, 2, 3]);
+test('«Si responde» va abajo, en la columna del CRON, sin pisar a la salida (y si no hay, su tarjeta fantasma)', () => {
+  const r = crearRespuesta([msg('a', { siguiente: 'b' }), msg('b')], rndDe());
+  const conCaso = agregarCaso(r.pasos, r.id, rndDe(7)).pasos;
+  const g = grafoDeSecuencia(conCaso, { disparador: 'X', editable: true });
+  sinPisarse(g);
+  const resp = nodo(g, r.id);
+  const e = nodo(g, ID_ENTRADA);
+  assert.equal(resp.titulo, 'Si responde');
+  assert.equal(resp.x, e.x, '«Si responde» va en la columna del CRON');
+  const salida = g.nodos.filter((n) => n.id === 'a' || n.id === 'b' || n.id === ID_ENTRADA);
+  assert.ok(resp.y > Math.max(...salida.map((n) => n.y + n.alto)), '«Si responde» va abajo de la salida');
+  assert.ok(!g.nodos.some((n) => n.id === ID_NUEVA_RESPUESTA), 'con «Si responde» no hay fantasma');
+  // Sus salidas son los casos y «Otra cosa», en ese orden; el caso nace con «MaKo contesta».
+  assert.deepEqual(resp.puertos!.map((p) => p.rotulo), ['Caso sin nombre', 'Otra cosa']);
+  const caso = nodoPorId(conCaso, r.id)!.casos![0];
+  const contesta = nodoPorId(conCaso, caso.siguiente)!;
+  assert.equal(contesta.tipo, 'ia');
+  assert.equal(nodo(g, contesta.id!).titulo, 'MaKo contesta');
+  // Y el motor lo lee como la guía del caso (`escenariosDeRespuesta`), con «Otra cosa» avisando.
+  assert.equal(escenariosDeRespuesta(conCaso).length, 1);
+  assert.equal((nodoPorId(conCaso, nodoPorId(conCaso, r.id)!.si_no)!.accion as { operacion: string }).operacion, 'avisar_al_equipo');
+  // Sin «Si responde» y editable: la tarjeta fantasma.
+  const sin = grafoDeSecuencia([msg('a')], { disparador: 'X', editable: true });
+  assert.ok(sin.nodos.some((n) => n.id === ID_NUEVA_RESPUESTA));
+  assert.ok(!grafoDeSecuencia([msg('a')], { disparador: 'X' }).nodos.some((n) => n.id === ID_NUEVA_RESPUESTA), 'quien no edita no ve el fantasma');
 });
 
-test('El tiempo viaja en la FLECHA, y se dice como lo diría una persona', () => {
-  const g = grafoDeSecuencia([paso({ orden: 1, delay_horas: 0 }), paso({ orden: 2, delay_horas: 24 })], null, 'X');
-  const a1 = g.aristas.find((a) => a.hasta === 'paso-1');
-  const a2 = g.aristas.find((a) => a.hasta === 'paso-2');
-  assert.equal(a1?.etiqueta, 'Al instante');
-  assert.equal(a2?.etiqueta, 'Al día siguiente');
+test('⚠️ cada flecha sale de SU puerto, y une nodos que existen', () => {
+  const pasos = [cond('c', [['r1', 'm1'], ['r2', 'm2']], 'm3'), msg('m1'), msg('m2'), msg('m3')];
+  const g = grafoDeSecuencia(pasos, { disparador: 'X' });
+  const a = (h: string) => g.aristas.find((x) => x.hasta === h);
+  assert.equal(a('c')?.desde, ID_ENTRADA);
+  assert.equal(a('c')?.puerto, 'sig');
+  assert.equal(a('m1')?.puerto, 'r1');
+  assert.equal(a('m2')?.puerto, 'r2');
+  assert.equal(a('m3')?.puerto, 'si_no');
+  const ids = new Set(g.nodos.map((n) => n.id));
+  for (const x of g.aristas) assert.ok(ids.has(x.desde) && ids.has(x.hasta), `${x.desde} → ${x.hasta}`);
+  // Una salida vacía se dice: su punto lleva el ＋.
+  assert.deepEqual(nodo(g, 'm1').puertos, [{ id: 'sig', vacio: true }]);
+  assert.equal(nodo(g, 'c').puertos!.find((p) => p.id === 'si_no')?.rotulo, 'Si no');
 });
 
-test('Un paso anclado a la reunión cuenta HACIA ATRÁS', () => {
-  // Es el caso de los recordatorios: `delay_horas` son horas ANTES de la reunión.
-  // Dicho como los demás («2 horas después») diría exactamente lo contrario.
-  assert.equal(cuandoSale(2, true, 'reunion'), '2 horas antes de la reunión');
-  assert.equal(cuandoSale(0, false, 'reunion'), 'Al empezar la reunión');
-  assert.equal(cuandoSale(1, true), '1 hora después');
-  assert.equal(cuandoSale(48, true), '2 días después');
+test('lo que se fue NO vuelve: ni «Termina si…», ni «Sigue con», ni el tiempo sobre la flecha', () => {
+  const g = grafoDeSecuencia([msg('a', { siguiente: 'b' }), msg('b')], { disparador: 'X' });
+  assert.ok(!g.nodos.some((n) => n.tipo === 'desenlace' || n.tipo === 'cualifica'), 'volvió el nodo del desenlace');
+  assert.ok(!g.aristas.some((x) => x.etiqueta), 'volvió un rótulo sobre la flecha: la espera es una tarjeta');
+  // Y lo de antes que haya quedado en un paso de un flujo ya convertido se MARCA, no se esconde.
+  const viejo = grafoDeSecuencia([msg('a', { delay_horas: 24 })], { disparador: 'X' });
+  assert.ok(nodo(viejo, 'a').advertencia, 'un delay de antes en un flujo convertido se veía igual que nada');
 });
 
-// ── Lo que ninguna pantalla mostraba: el encadenamiento ─────────────────────
+// ── el ＋ y lo que crea ──────────────────────────────────────────────────────
 
-test('El «Sigue con» se dibuja, y apunta a la secuencia que el desenlace nombra', () => {
-  const g = grafoDeSecuencia([paso({ orden: 1 })],
-    { desenlace: { logrado: 'agendo', logradoSecuencia: 'post-agenda' } },
-    'No Agenda',
-    [{ clave: 'post-agenda', nombre: 'Post-agenda' }]);
-  const ir = g.nodos.find((n) => n.tipo === 'ir-a');
-  assert.ok(ir, 'el encadenamiento no se dibujó: es la rama que ninguna pantalla mostraba');
-  assert.equal(ir?.destinoExiste, true);
-  assert.equal(ir?.detalle, 'Post-agenda');
-  assert.ok(g.aristas.some((a) => a.desde === 'desenlace' && a.hasta === ir!.id && a.tono === 'buena'));
+test('⚠️ el ＋ de un puerto inserta EN ese puerto, y lo que colgaba pasa a colgar de la tarjeta nueva', () => {
+  const pasos = [cond('c', [['r1', 'm1'], ['r2', 'm2']], 'm3'), msg('m1'), msg('m2'), msg('m3')];
+  const r = insertarDesdeLienzo(pasos, 'c', 'r2', 'mensaje', rndDe());
+  assert.ok(r.id);
+  const c = nodoPorId(r.pasos, 'c')!;
+  assert.equal(c.ramas![1].siguiente, r.id, 'no entró en la rama que se tocó');
+  assert.equal(nodoPorId(r.pasos, r.id)!.siguiente, 'm2', 'lo que colgaba de esa rama se perdió');
+  assert.equal(c.ramas![0].siguiente, 'm1', 'tocó la OTRA rama');
+  assert.equal(c.si_no, 'm3');
+  assert.deepEqual(validarGrafo(r.pasos), []);
+  // El «si no», y una salida vacía.
+  const s = insertarDesdeLienzo(pasos, 'c', 'si_no', 'esperar', rndDe(2));
+  assert.equal(nodoPorId(s.pasos, 'c')!.si_no, s.id);
+  assert.equal(nodoPorId(s.pasos, s.id)!.siguiente, 'm3');
+  const v = insertarDesdeLienzo(pasos, 'm1', 'sig', 'accion', rndDe(3));
+  assert.equal(nodoPorId(v.pasos, 'm1')!.siguiente, v.id);
+  // El CRON inserta al principio de la salida.
+  const ini = insertarDesdeLienzo([msg('a')], ID_ENTRADA, 'sig', 'condicion', rndDe(4));
+  const nueva = nodoPorId(ini.pasos, ini.id)!;
+  assert.equal(claseDe(nueva), 'condicion');
+  assert.equal(nueva.ramas![0].siguiente, 'a', 'la condición nueva se lleva lo que seguía en su primera rama');
+  // Un «Ir a» sólo en una salida VACÍA: en el medio, lo que seguía quedaría suelto.
+  assert.equal(insertarDesdeLienzo(pasos, 'c', 'r1', 'ir_a', rndDe(5)).id, null);
+  assert.ok(insertarDesdeLienzo(pasos, 'm1', 'sig', 'ir_a', rndDe(6)).id);
+  // El orden queda renumerado (lo lee `orden`, las métricas por paso).
+  assert.deepEqual(r.pasos.map((p) => p.orden), r.pasos.map((_, i) => i + 1));
 });
 
-test('Un «Sigue con» que apunta a la nada se dibuja ROTO, no se esconde', () => {
-  // Esconderlo deja al lead en el limbo sin que ninguna pantalla lo diga, que es
-  // exactamente el problema que el encadenamiento por etapa vino a resolver.
-  const g = grafoDeSecuencia([paso({ orden: 1 })],
-    { desenlace: { falloSecuencia: 'la-que-borraron' } }, 'X', [{ clave: 'otra', nombre: 'Otra' }]);
-  const ir = g.nodos.find((n) => n.tipo === 'ir-a');
-  assert.ok(ir, 'se escondió un encadenamiento roto');
-  assert.equal(ir?.destinoExiste, false);
-  assert.match(ir?.detalle ?? '', /ya no existe/);
+test('⚠️ ningún mensaje nace con espera: la espera es su propia tarjeta (punto 7)', () => {
+  const m = nodoNuevo('mensaje', [], rndDe());
+  assert.equal(m.delay_horas, 0);
+  assert.equal(m.espera, undefined);
+  assert.equal(claseDe(m), 'mensaje');
+  const r = insertarDesdeLienzo([msg('a')], ID_ENTRADA, 'sig', 'mensaje', rndDe());
+  assert.equal(r.pasos.filter((p) => claseDe(p) === 'esperar').length, 0, 'agregar un mensaje agregó una espera');
+  assert.ok(r.pasos.every((p) => !(Number(p.delay_horas) > 0)));
+  // La espera, cuando se pide, es una tarjeta con su valor (un día) y sin `delay_horas`.
+  const e = nodoNuevo('esperar', [], rndDe());
+  assert.deepEqual(e.espera, { modo: 'tiempo', minutos: 1440 });
+  assert.equal(e.delay_horas, 0);
+  // Y la pantalla no crea mensajes por su cuenta con un número fijo: eran DOS lugares.
+  assert.doesNotMatch(sinComentarios(leer(PERFIL)), /delay_horas:\s*[1-9]/);
 });
 
-test('Sin desenlace encadenado no hay nodos «Sigue con» colgando', () => {
-  const g = grafoDeSecuencia([paso({ orden: 1 })], { desenlace: {} }, 'X');
-  assert.equal(g.nodos.filter((n) => n.tipo === 'ir-a').length, 0);
+test('el menú del ＋: sin «Esperar» debajo de «Si responde», sin «Ir a» en el medio de una flecha', () => {
+  const r = crearRespuesta([msg('a')], rndDe());
+  const valores = (o: Array<{ value: string }>) => o.map((x) => x.value);
+  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'esperar', 'condicion', 'accion', 'ir_a']);
+  assert.ok(!valores(opcionesDelMas(r.pasos, r.id, false)).includes('esperar'), 'se ofreció esperar en «Si responde»');
+  const aviso = nodoPorId(r.pasos, r.id)!.si_no!;
+  assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('esperar'), 'se ofreció esperar debajo de «Si responde»');
+  assert.ok(!valores(opcionesDelMas(r.pasos, 'a', true)).includes('ir_a'), 'se ofreció «Ir a» en el medio');
+  assert.deepEqual(opcionesDelMas(r.pasos, 'a', false).map((x) => x.label), ['💬 Mensaje', '⏳ Esperar', '🔀 Condición', '⚡ Acción', '↪ Ir a']);
+});
+
+test('quitar una rama se lleva lo que colgaba de ella (y el flujo sigue válido)', () => {
+  const pasos = [cond('c', [['r1', 'm1'], ['r2', 'm2']], 'm3'), msg('m1', { siguiente: 'm4' }), msg('m4'), msg('m2'), msg('m3')];
+  const out = quitarRama(pasos, 'c', 'r1');
+  assert.deepEqual(out.map((p) => p.id), ['c', 'm2', 'm3']);
+  assert.deepEqual(validarGrafo(out), []);
+});
+
+// ── Publicar ────────────────────────────────────────────────────────────────
+
+test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como se ve', () => {
+  const perfil = sinComentarios(leer(PERFIL));
+  const pub = bloque(perfil, 'const publicar = async () => {', '\n  };', 2_400);
+  const valida = pub.indexOf('validarGrafo(pasos)');
+  assert.ok(valida >= 0 && valida < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda sin validar');
+  // Desde la revisión del 08/10 (lienzo-6) el error además ABRE la tarjeta (`frenar`, con su
+  // id): eso lo prueba tests/lienzo-revision.test.ts.
+  assert.match(pub, /if \(errores\.length\) \{ frenar\(errorLegible\(errores\[0\], pasos\), tarjetaDelError\(errores\[0\], pasos\)\); return; \}/);
+  // Convertida: los pasos Y la estrategia con la LIMPIEZA (el motor viejo no repite lo que hacen
+  // las tarjetas). Sin estrategia no se manda nada (lienzo-8, en tests/lienzo-revision.test.ts).
+  assert.match(pub, /if \(convertida\) \{\s*const limpia = estrategiaConLimpieza\(est\);\s*if \(limpia\) \{\s*const r = await api\(\{ action: 'guardar-estrategia', secuenciaId: secuencia\.id, estrategia: limpia \}\)/);
+  assert.ok(pub.indexOf("fetch('/api/whatsapp/secuencias'") < pub.indexOf('guardar-estrategia'), 'primero los pasos, después la limpieza');
+  // Una tarjeta VACÍA no se publica: `validarGrafo` mira la forma y no el contenido, y el
+  // «MaKo contesta» con el que nace cada caso de «Si responde» nace sin guía.
+  assert.match(pub, /const vacia = faltaEscribir\(pasos\);\s*if \(vacia\) \{ frenar\(vacia\.error, vacia\.id\); return; \}/);
+  assert.ok(pub.indexOf('faltaEscribir(pasos)') < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda antes de mirar si hay tarjetas vacías');
+  const r = crearRespuesta([msg('a')], rndDe());
+  const conCaso = agregarCaso(r.pasos, r.id, rndDe(3));
+  assert.deepEqual(faltaEscribir(conCaso.pasos), { id: conCaso.mensaje, error: 'Falta completar «MaKo contesta»' });
+  assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', audio_id: 4, cuerpo: '' })]), null, 'una nota de voz sin pie no está vacía');
+  assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', cuerpo: '' })])?.error, 'Falta completar «Nota de voz»', 'una nota de voz sin audio sí');
+  // El error, sin ids crudos, y sin «la condición «Condición»».
+  const malos: PasoParaGrafo[] = [{ id: 'n0abcde', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', ramas: [], si_no: null }];
+  const legible = errorLegible(validarGrafo(malos)[0], malos);
+  assert.doesNotMatch(legible, /n0abcde/);
+  assert.equal(legible, '«Condición» no tiene ninguna rama');
+});
+
+test('⚠️ al abrir, lo de antes se ve CONVERTIDO; un flujo de tarjetas no se vuelve a convertir ni pierde lo de su estrategia', () => {
+  const perfil = sinComentarios(leer(PERFIL));
+  const ini = bloque(perfil, 'const [inicial] = useState(() => {', '\n  });', 1_200);
+  // Tener ids NO es ser un flujo (una lista de antes que pasó por setSecuenciaPasos los tiene):
+  // lo decide `esFlujoExplicito`. Y un flujo no limpia su estrategia: el motor la sigue leyendo.
+  assert.match(ini, /const yaEsFlujo = esFlujoExplicito\(ordenados\);/);
+  assert.match(ini, /convertida: false \}/);
+  assert.match(ini, /: legadoAGrafo\(ordenados, est, \{ idDeClave: \(clave\) => secuencias\.find\(\(s\) => s\.clave === clave\)\?\.id \?\? null \}\)/);
+  assert.match(ini, /yaEsFlujo\s*\? \{ pasos: normalizar\(ordenados\)/, 'un flujo con ramas pasado por el conversor queda aplastado en una fila');
+});
+
+// ── 5: el desplegable del disparador ────────────────────────────────────────
+
+test('⚠️ el desplegable de disparadores reemplaza a «Cambiar a una etapa»', () => {
+  const secs = seccionesDisparo({
+    disparadores: [
+      { value: 'manual', label: 'Manual' }, { value: 'instant_form_sin_agenda', label: 'Dejó el formulario' },
+      { value: 'etapa_actual', label: 'Etapa' }, { value: 'entrega_actual', label: 'Entrega' },
+    ],
+    productos: [
+      { funnelId: 5, productoId: 9, nombre: 'Mentoría', etapas: [{ value: 'agendado', label: 'Agendado' }], etapasEntrega: [{ value: 'onb', label: 'Onboarding' }] },
+      { funnelId: null, productoId: 11, nombre: 'Servicio', etapas: [], etapasEntrega: [{ value: 'kick', label: 'Kickoff' }] },
+    ],
+    etiquetas: [{ id: 3, nombre: 'Cualificado' }, { id: 4, nombre: 'Vieja', archivada_at: '2026-01-01' }],
+    actual: { trigger_tipo: 'instant_form_sin_agenda' }, textoActual: 'x',
+  });
+  const por = (t: string) => secs.find((s) => s.title === t)?.options.map((o) => o.value);
+  assert.deepEqual(por('Eventos'), ['trigger:instant_form_sin_agenda'], '`manual` no inscribe a nadie, y etapa/entrega tienen su sección');
+  assert.deepEqual(por('Etapa · Mentoría'), ['venta:5:agendado']);
+  assert.equal(por('Etapa · Servicio'), undefined, 'un servicio sin embudo no tiene etapas de venta');
+  assert.deepEqual(por('Entrega · Servicio'), ['entrega:11:kick']);
+  assert.deepEqual(por('Etiquetas'), ['etiqueta:3'], 'una etiqueta archivada no se ofrece');
+  // Lo que está puesto y no está en la lista entra igual (el `<select>` que borra datos).
+  const conViejo = seccionesDisparo({ disparadores: [], productos: [], etiquetas: [], actual: { trigger_tipo: 'etapa_actual', etapa: 'nutri' }, textoActual: 'Llega a «No Agenda»' });
+  assert.deepEqual(conViejo[0], { title: 'La que tiene puesta', options: [{ value: 'venta::nutri', label: 'Llega a «No Agenda»' }] });
+  assert.equal(valorDisparo({ trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 }), 'etiqueta:3');
+  // Lo que se le manda al server (lo implementa la parte del motor).
+  assert.deepEqual(pedidoDisparo('venta:5:agendado', 7), { action: 'trigger', id: 7, trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 });
+  assert.deepEqual(pedidoDisparo('entrega:11:kick', 7), { action: 'trigger', id: 7, trigger_tipo: 'entrega_actual', etapa: 'kick', producto_id: 11 });
+  assert.deepEqual(pedidoDisparo('etiqueta:3', 7), { action: 'trigger', id: 7, trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 });
+  assert.deepEqual(pedidoDisparo('trigger:no_show_j1', 7), { action: 'trigger', id: 7, trigger_tipo: 'no_show_j1' });
+  assert.equal(pedidoDisparo('entrega::kick', 7), null, 'una entrega sin producto no se manda');
+  // Y la pantalla: un desplegable, sin el botón, sin los rótulos de antes.
+  const perfil = sinComentarios(leer(PERFIL));
+  assert.doesNotMatch(perfil, /Cambiar a una etapa|setCambiandoAEtapa|Cuándo se dispara|Qué lo dispara|Solo a leads recientes|Sale sola/);
+  assert.match(perfil, /const body = pedidoDisparo\(valor, secuencia\.id\);/);
+  assert.match(perfil, /<Dropdown\s+value=\{valorDisparo\(disparo\)\} secciones=\{secciones\}/);
 });
 
 // ── La honestidad del dibujo ────────────────────────────────────────────────
 
-test('⚠️ El dibujo sólo bifurca por las condiciones que el motor EVALÚA', () => {
-  // `sin_respuesta` está escrito en 7 pasos de producción y el motor no lo mira:
-  // cae de largo y el mensaje sale igual, haya contestado el lead o no. Una
-  // flecha punteada ahí afirmaría una decisión que no ocurre.
-  const viva = grafoDeSecuencia([paso({ orden: 1, requiere: 'respondio' })], null, 'X');
-  assert.equal(viva.aristas.find((a) => a.hasta === 'paso-1')?.tono, 'condicional');
-  assert.match(String(viva.aristas.find((a) => a.hasta === 'paso-1')?.etiqueta), /solo si contestó/);
-
-  const muerta = grafoDeSecuencia([paso({ orden: 1, requiere: 'sin_respuesta' })], null, 'X');
-  assert.equal(muerta.aristas.find((a) => a.hasta === 'paso-1')?.tono, 'normal',
-    'se dibujó una bifurcación que el motor no ejecuta');
-  assert.ok(!String(muerta.aristas.find((a) => a.hasta === 'paso-1')?.etiqueta).includes('solo si'),
-    'la flecha promete un filtro que no existe');
-  assert.equal(CONDICION_TXT.sin_respuesta, 'sale siempre');
-});
-
-test('⚠️ `CONDICIONES_VIVAS` dice lo mismo que el motor, medido en su fuente', () => {
-  // El guard que ata el dibujo al motor. Sin esto, el día que alguien cablee
-  // `sin_respuesta` en lib/nutricion.ts el lienzo sigue diciendo «sale siempre»
-  // — y al revés, si alguien saca una rama, el lienzo la sigue dibujando.
-  //
-  // Probado rompiéndolo de dos formas, 17 pases y 1 fallo cada vez: sacando
-  // 'primer_contacto' de CONDICIONES_VIVAS, y haciendo que el grafo vuelva a
-  // dibujar cualquier `requiere` como bifurcación.
-  // ⚠️ SE MIDEN LAS LÍNEAS QUE DECIDEN, NO TODAS LAS QUE NOMBRAN EL CAMPO. La
-  // primera versión de este test contaba también el SANEO —`...(p.requiere ===
-  // 'respondio' || … || p.requiere === 'sin_respuesta' ? …)`, que sólo dice qué
-  // valores se guardan— y concluía que el motor evalúa las cuatro. O sea: midió el
-  // universo equivocado y habría dado permiso para dibujar la bifurcación muerta.
-  // Lo que decide si un paso SALE es un `if` del despachador o el `findIndex` que
-  // salta al siguiente.
-  const motor = leer('../lib/nutricion.ts')
-    .replace(/^[ 	]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-  const chr10 = String.fromCharCode(10);
-  const evalua = new Set<string>();
-  for (const linea of motor.split(chr10)) {
-    if (!/^\s*if \(/.test(linea) && !linea.includes('findIndex(')) continue;
-    for (const m of linea.matchAll(/\w+\.requiere === '([a-z_]+)'/g)) evalua.add(m[1]!);
-  }
-  assert.ok(evalua.size > 0, 'no se encontró una sola condición en el motor: el guard se quedó ciego');
-  assert.deepEqual(
-    [...CONDICIONES_VIVAS].sort(),
-    [...evalua].sort(),
-    `el motor evalúa ${[...evalua].sort().join(', ')} y el lienzo cree que evalúa ${[...CONDICIONES_VIVAS].sort().join(', ')}`,
-  );
-});
-
-// ── El hueco, y la forma ────────────────────────────────────────────────────
-
-test('Una secuencia sin mensajes dibuja el HUECO, no un lienzo vacío', () => {
-  const g = grafoDeSecuencia([], null, 'No Agenda');
-  const hueco = g.nodos.find((n) => n.tipo === 'suelto');
-  assert.ok(hueco, 'una secuencia sin mensajes se dibujaba vacía: lo único accionable es el hueco');
-  assert.match(hueco?.detalle ?? '', /no le dice nada/i);
-});
-
-test('Las preguntas cuelgan del ÚLTIMO MENSAJE, con la arista «si contesta»', () => {
-  // Cualificar es algo que pasa cuando el lead contesta ESE mensaje. Hasta el
-  // 05/10/2026 colgaba de un nodo «Si contesta» que el dueño mandó sacar («sigue el
-  // "Si no contesta" cuando eso lo habíamos eliminado»); lo que ese nodo decía —el
-  // modo— es un CAMPO y se edita en la entrada, no un paso que ocurre.
-  const g = grafoDeSecuencia([paso({ orden: 1 })], { preguntas: ['¿Cuánto facturas?', ' '] }, 'X');
-  const q = g.nodos.find((n) => n.tipo === 'cualifica');
-  assert.ok(q);
-  assert.equal(q?.titulo, 'Pregunta 1', 'las preguntas vacías no cuentan');
-  assert.ok(!g.nodos.some((n) => n.tipo === 'respuesta'), 'volvió el nodo «Si contesta»');
-  assert.ok(g.aristas.some((a) => a.desde === 'paso-1' && a.hasta === 'cualifica' && a.etiqueta === 'si contesta'));
-});
-
-test('Ningún nodo se pisa con otro, y todos entran en la caja declarada', () => {
-  // El layout es determinista y no se guarda: si dos nodos se superponen, el
-  // dibujo es ilegible y no hay forma de arrastrarlos para arreglarlo.
-  const g = grafoDeSecuencia(
-    [paso({ orden: 1, cuerpo: 'x'.repeat(400) }), paso({ orden: 2 }), paso({ orden: 3 })],
-    { preguntas: ['a'], desenlace: { logradoSecuencia: 'a', falloSecuencia: 'b' } },
-    'Etapa', [{ clave: 'a', nombre: 'A' }, { clave: 'b', nombre: 'B' }],
-  );
-  for (const n of g.nodos) {
-    assert.ok(n.x >= 0 && n.y >= 0, `${n.id} fuera de la caja`);
-    assert.ok(n.x + n.ancho <= g.ancho, `${n.id} se sale a la derecha`);
-    assert.ok(n.y + n.alto <= g.alto, `${n.id} se sale abajo`);
-  }
-  for (let i = 0; i < g.nodos.length; i++) {
-    for (let j = i + 1; j < g.nodos.length; j++) {
-      const a = g.nodos[i]!, b = g.nodos[j]!;
-      const pisa = a.x < b.x + b.ancho && b.x < a.x + a.ancho && a.y < b.y + b.alto && b.y < a.y + a.alto;
-      assert.ok(!pisa, `${a.id} y ${b.id} se pisan`);
-    }
-  }
-});
-
-test('Toda arista une nodos que existen', () => {
-  const g = grafoDeSecuencia([paso({ orden: 1 }), paso({ orden: 2 })],
-    { preguntas: ['a'], desenlace: { logradoSecuencia: 'z' } }, 'X', [{ clave: 'z', nombre: 'Z' }]);
-  const ids = new Set(g.nodos.map((n) => n.id));
-  for (const a of g.aristas) {
-    assert.ok(ids.has(a.desde), `arista desde un nodo inexistente: ${a.desde}`);
-    assert.ok(ids.has(a.hasta), `arista hacia un nodo inexistente: ${a.hasta}`);
-  }
-});
-
-// ── Lo que este flujo NO puede volver a tener ──────────────────────────────
-//
-// ⚠️ Los guards del GESTO (pointer capture, el scroll fantasma, el encuadre) se
-// mudaron a `tests/lienzo.test.ts` el 30/09/2026, junto con la maquinaria que
-// persiguen: el lienzo pasó a `app/_components/Lienzo.tsx` cuando apareció el
-// segundo flujo. Se pusieron ROJOS al mudar la pieza, que es la suerte — la
-// versión silenciosa de este bug es un guard que sigue VERDE leyendo un archivo
-// que ya no manda.
-test('No vuelve un segundo editor de los mismos pasos', () => {
-  // `MensajesChat` se retiró al montar el lienzo: dos editores del mismo jsonb
-  // divergen, y el que se queda viejo es el que menos se abre. Es la lección del
-  // editor de diagramas del funnel, borrado dos días antes que éste.
-  const perfil = leer('../app/chatbot/SecuenciaPerfil.tsx');
-  assert.ok(!/MensajesChat/.test(perfil), 'volvió el segundo editor de los pasos');
-  assert.match(perfil, /<FlujoLienzo/, 'el perfil dejó de montar el lienzo');
+test('⚠️ `CONDICIONES_VIVAS` es lo que el motor EVALÚA, medido en el `switch` de `cumpleFila`', () => {
+  // `cumpleFila` (lib/flujo-grafo.ts) es la MISMA función que usan el motor y el simulador.
+  // Si alguien suma un campo allá, el lienzo lo tiene que ofrecer; si lo saca, dejar de
+  // ofrecerlo — una condición que se elige y nadie evalúa es una rama que miente.
+  const fuente = sinComentarios(leer('../lib/flujo-grafo.ts'));
+  const cuerpo = bloque(fuente, 'export function cumpleFila(', '\n}\n', 2_500);
+  const casos = new Set([...cuerpo.matchAll(/case '([a-z_]+)'/g)].map((m) => m[1]));
+  assert.ok(casos.size > 0, 'no encontré un solo `case`: el guard se quedó ciego');
+  assert.deepEqual([...CONDICIONES_VIVAS].sort(), [...casos].sort());
+  // Cada una se dice como frase, en positivo y negada, y el editor ofrece SÓLO éstas.
+  for (const c of CONDICIONES_VIVAS) assert.ok(FRASE_CONDICION[c]?.[0] && FRASE_CONDICION[c]?.[1], `${c} sin frase`);
+  assert.match(sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx')), /const OPCIONES_CAMPO: DropdownOption\[\] = \[\.\.\.CONDICIONES_VIVAS\]\.flatMap/);
+  // Y la tarjeta dice las ramas con el texto del modelo (`textoRama`), no uno propio.
+  const r = crearRespuesta([cond('c', [['r1', null]], null)], rndDe());
+  assert.ok(raizRespuesta(r.pasos));
+  assert.equal(nodo(grafoDeSecuencia(r.pasos, { disparador: 'X' }), 'c').puertos![0].rotulo, 'Agendó');
 });

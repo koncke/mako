@@ -31,6 +31,9 @@
 //   · el webhook sin `guardarLinkDeReunion` en la R1; `cancelarJuntaEnLead` poniendo `junta_1_at: null`.
 //   · el cron sacando los workspaces del lead de `correrPorWorkspace('calendly'`.
 //   · la tarjeta sin montar en ChatAgentApp; la ruta sin el guard de admin.
+//   ⚠️ MUDADO EL 08/10/2026 (el recordatorio pasó a ser un ítem de la lista, RecordatorioFlujo):
+//   tres roturas del guard nuevo, 30 / 1 cada una — el ítem también para el setter, visible para
+//   todos, y la pantalla escribiendo por otra ruta.
 //
 // REVISIÓN ADVERSARIAL (06/10/2026): cinco agujeros más, con su test. Sin romper: 31 pass / 0
 // fail. Las 15 roturas cayeron, cada una en el test que la persigue (30 / 1 todas):
@@ -437,10 +440,16 @@ test('la migración 0204 existe, agrega las dos columnas y dice su orden de desp
   assert.match(EMISOR, /junta_1_url, junta_2_url'/);
 });
 
-test('CABLEADO: la tarjeta de /chatbot está montada y guarda por una ruta con guard de admin', () => {
-  const app = sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
-  assert.match(app, /\{rolAdmin && <RecordatorioReunion \/>\}/);
-  const tarjeta = sinComentarios(leer('app/chatbot/RecordatorioReunion.tsx'));
+// ⚠️ MUDADO EL 08/10/2026: el renglón de arriba del lienzo (`RecordatorioReunion`) se fue —«No
+// entiendo por qué está el "Recordatorio de la reunión" cuando eso debe configurarse en las
+// tarjetas!!!»— y el recordatorio es un ítem de la lista que abre su lienzo (RecordatorioFlujo).
+// Lo que se cuida es lo mismo: que siga montado para el admin y que escriba por la MISMA ruta.
+test('CABLEADO: el recordatorio es un ítem de la lista de /chatbot y guarda por una ruta con guard de admin', () => {
+  const lista = sinComentarios(leer('app/chatbot/SimuladorWhatsApp.tsx'));
+  assert.match(lista, /\{selId === ID_RECORDATORIO && rolAdmin \? \(\r?\n\s+<RecordatorioFlujo /);
+  assert.match(lista, /const verRecordatorio = rolAdmin\r?\n/);
+  assert.doesNotMatch(sinComentarios(leer('app/chatbot/ChatAgentApp.tsx')), /RecordatorioReunion/);
+  const tarjeta = sinComentarios(leer('app/chatbot/RecordatorioFlujo.tsx'));
   assert.match(tarjeta, /'\/api\/chat-agent\/recordatorio-reunion'/);
   const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
   assert.match(api, /if \(ws == null \|\| rol !== 'admin'\)/);

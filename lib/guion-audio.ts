@@ -170,6 +170,17 @@ export function revisarGuion(guion: string, permitido: string): VeredictoGuion {
 // sorteaba una como pie. Lo corta `textoDelPaso` (lib/nutricion-canal.ts): un audio no
 // sortea.
 //
+// ⚠️ Y ADEMÁS EL PASO SUELTA SUS VARIANTES (`variantes: []`) al pasar a voz o a archivo
+// (revisión del 08/10/2026, costuras-1). Las variantes son otras formas de decir el TEXTO
+// que había; con un archivo, el motor las sorteaba como caption — tres de cada cuatro leads
+// recibían el PDF con el texto viejo debajo, y con el caption vacío, todos — y «Probar»
+// mostraba el bueno (`p.cuerpo`), así que la prueba no lo veía. Va EXPLÍCITO y no borrando
+// la clave: `cambiosDePaso` lo manda como `variantes: []`, que es lo que le dice al server
+// «ya no tiene» (el merge de `setSecuenciaPasos` tiene que respetar un `[]` explícito; sin
+// eso vuelve a poner las guardadas). Volver a texto NO las restaura: son del texto de antes
+// de pasarlo, y el caption pudo cambiar en el medio. Si fue un error, el Ctrl+Z del lienzo
+// (`usePilaDeshacer` en SecuenciaPerfil) devuelve el paso entero, variantes incluidas.
+//
 // ⚠️ Y LA VUELTA ES SIN PÉRDIDA, EN LAS DOS DIRECCIONES. Volver a texto junta el guion y
 // el pie en el cuerpo; si después se vuelve a voz sin haber tocado ese texto, cada cosa
 // regresa a su lugar (`vozPrevia`). Sin eso, voz → texto → voz metía el pie entero en el
@@ -178,10 +189,12 @@ export function revisarGuion(guion: string, permitido: string): VeredictoGuion {
 // paso a texto (`onElegir(null)`) y grabar lo vuelve a voz.
 
 export type PasoConVoz = {
-  tipo?: 'texto' | 'audio' | 'ia';
+  tipo?: 'texto' | 'audio' | 'ia' | 'media';
   audio_id?: number | null;
   cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial';
+  /** Otras formas de decir el TEXTO. Un audio o un archivo no las lleva: `[]` explícito. */
+  variantes?: string[] | null;
   /** Sólo en el borrador: el texto que había antes de pasarlo a voz. */
   guion?: string | null;
   /** Sólo en el borrador: cómo estaba partido el paso de voz cuando se volvió a texto. */
@@ -192,7 +205,8 @@ const juntar = (guion: string, pie: string): string => [guion.trim(), pie.trim()
 
 /** El paso pasa a nota de voz con `audioId`. Si ya era de voz, sólo cambia el audio: su cuerpo ES el pie. */
 export function pasoAVoz<P extends PasoConVoz>(p: P, audioId: number): P {
-  if (p.tipo === 'audio') return { ...p, audio_id: audioId };
+  // Un audio no lleva variantes (ver arriba): también el que ya era de voz y las arrastraba.
+  if (p.tipo === 'audio') return { ...p, audio_id: audioId, variantes: [] };
   // Si el texto es exactamente el que dejó `pasoATexto`, nadie lo tocó: vuelve partido
   // como estaba. Si lo editaron, el texto entero es lo que se lee y el pie arranca vacío.
   const previa = p.vozPrevia && p.cuerpo === juntar(p.vozPrevia.guion, p.vozPrevia.pie) ? p.vozPrevia : null;
@@ -204,6 +218,7 @@ export function pasoAVoz<P extends PasoConVoz>(p: P, audioId: number): P {
     cuerpo: previa ? previa.pie : '',
     guion: previa ? (previa.guion || null) : (p.cuerpo.trim() ? p.cuerpo : (p.guion ?? null)),
     vozPrevia: null,
+    variantes: [],
   };
 }
 
@@ -225,6 +240,54 @@ export const guionVigente = (ia: { texto: string; de: string } | null, base: str
 
 /** Lo que se lee al grabar: antes de pasarlo a voz es el texto del mensaje; después, el que se movió. */
 export const guionParaLeer = (p: PasoConVoz): string => (p.tipo === 'audio' ? (p.guion ?? '') : p.cuerpo);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Un ARCHIVO en vez del texto o el audio (el editor del mensaje, 08/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// `tipo: 'media'` + `media_id` (un archivo de la biblioteca, mig 0225) y el `cuerpo` es el
+// caption. Las dos vueltas cuidan lo mismo que las de la voz: no perder lo que se escribió.
+
+type PasoConMedia = PasoConVoz & { media_id?: number | null };
+
+/**
+ * El paso pasa a llevar el archivo `mediaId`. Desde un audio, el guion y el pie vuelven a ser el
+ * texto (el caption). Y suelta las variantes: el motor las sorteaba como CAPTION del archivo.
+ */
+export function pasoAMedia<P extends PasoConMedia>(p: P, mediaId: number): P {
+  const base = p.tipo === 'audio' ? pasoATexto(p) : p;
+  return { ...base, tipo: 'media' as const, media_id: mediaId, audio_id: null, proveedor: 'no_oficial' as const, variantes: [] };
+}
+
+/**
+ * La ✕ del chip: el paso vuelve a ser de TEXTO sin perder lo escrito. De un audio, el guion y el
+ * pie se juntan en el cuerpo (`pasoATexto`); de un archivo, el caption queda como el texto.
+ */
+export function pasoSinAdjunto<P extends PasoConMedia>(p: P): P {
+  if (p.tipo === 'audio') return { ...pasoATexto(p), media_id: null };
+  if (p.tipo === 'media') return { ...p, tipo: 'texto' as const, media_id: null };
+  return p;
+}
+
+/** El paso pasa a nota de voz: si llevaba un archivo, primero se lo saca (el caption pasa a ser el guion). */
+export function pasoAVozDesde<P extends PasoConMedia>(p: P, audioId: number): P {
+  return pasoAVoz(p.tipo === 'media' ? pasoSinAdjunto(p) : p, audioId);
+}
+
+/**
+ * Lo que cambió de `antes` a `despues`, como un patch: el editor no reemplaza el paso entero
+ * (`onChange` recibe un parcial). Un campo que pasa a `null` viaja como `null`, para borrarlo.
+ */
+export function cambiosDePaso<P extends object>(antes: P, despues: P): Partial<P> {
+  const out: Partial<P> = {};
+  const claves = new Set([...Object.keys(antes), ...Object.keys(despues)]) as Set<keyof P>;
+  for (const k of claves) {
+    const a = antes[k]; const d = despues[k];
+    if (a === d) continue;
+    if (JSON.stringify(a) === JSON.stringify(d)) continue;
+    out[k] = (d === undefined ? null : d) as P[keyof P];
+  }
+  return out;
+}
 
 /** El paso sin lo que vive sólo en el borrador, para guardarlo: el server no lo conoce. */
 export function sinGuion<P extends PasoConVoz>(p: P): Omit<P, 'guion' | 'vozPrevia'> {

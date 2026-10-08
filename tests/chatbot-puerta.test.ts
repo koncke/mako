@@ -84,15 +84,22 @@ test('la pantalla decide la puerta con abreEnQR y marca el paso al vincular desd
   assert.match(ruta, /def: tabOnboardingDef\(TAB\), guiaVoz \}/);
 });
 
-test('«Sale sola» se edita en la tarjeta de entrada y viaja al guardar (#786)', () => {
-  // Su único control vivía en un wizard que desde el 05/10 no abre nada.
+// ⚠️ REESCRITO EL 08/10/2026: «Sale sola» SALIÓ de la tarjeta de entrada (punto 6: «mucho
+// menos se entiende el checkbox de "Sale sola"») y pasó a CADA mensaje: «Revisar antes de
+// enviar» (`paso.revisar`). Ausente en el paso, manda la secuencia (`envio_automatico`), así
+// que el editor se pinta con el valor HEREDADO — si no, un mensaje de una secuencia que sale
+// sola se vería como «revisar» y viceversa. Probado rompiéndolo: el heredado sin negar
+// (`revisarHeredado={envioAutoSecuencia}`) → 1 fallo; el perfil sin pasar
+// `envio_automatico` → 1 fallo; volver a dibujar «Sale sola» en el CRON → 1 fallo.
+// Desde la revisión del 08/10 (costuras-3) el heredado sale de `revisarHeredado` (lib/
+// flujo-conversacion.ts), que además sabe que un «MaKo contesta» de «Si responde» sin
+// `revisar` deja borrador; lo que hace esa función lo prueba tests/lienzo-revision.test.ts.
+test('«Sale sola» es de cada mensaje («Revisar antes de enviar»), con el valor heredado de la secuencia', () => {
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-  assert.match(lienzo, /checked=\{estrategia\?\.envio_automatico === true\}/);
-  assert.match(lienzo, /onChange=\{\(v\) => onEnvioAuto\(v\)\}/);
-  assert.match(lienzo, /onAntiguedad=\{onAntiguedad\} onEnvioAuto=\{onEnvioAuto\}/, 'el lienzo no se lo pasa al editor del nodo');
+  assert.match(lienzo, /mostrarRevisar\s+revisarHeredado=\{revisarHeredado\(pasos, id, envioAutoSecuencia\)\}/);
+  assert.doesNotMatch(lienzo, /label="Sale sola"|onEnvioAuto/, 'volvió «Sale sola» a la tarjeta del disparador');
   const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /onEnvioAuto=\{rolAdmin \? setEnvioAuto : undefined\}/);
-  assert.match(perfil, /envio_automatico: envioAuto,/);
+  assert.match(perfil, /envioAutoSecuencia=\{est\?\.envio_automatico === true\}/);
 });
 
 test('el envío apagado viaja en el GET de secuencias y la pantalla lo avisa (#328)', () => {

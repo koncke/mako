@@ -51,11 +51,16 @@ const MOTOR = readFileSync(new URL('../lib/nutricion.ts', import.meta.url), 'utf
 test('el motor pregunta por la reunión también cuando el paso NO está anclado', () => {
   // El guard mira el fuente porque la decisión vive en una condición del loop de envío, que
   // no se puede importar: `procesarEnvios` arrastra todo el runtime de Next.
+  // Desde el 08/10/2026 «anclada» es el `ancla` de siempre O la espera «N antes de la reunión»
+  // del flujo con tarjetas: un recordatorio que cuelga de esa espera re-mira la agenda igual.
+  // Probado rompiéndolo (08/10/2026): `anclada` sin la espera del flujo → 1 falla (3/1).
   assert.match(
     MOTOR,
-    /if \(paso\.ancla === 'reunion' \|\| preparaUnaReunion\(sec\.trigger_tipo\)\) \{\s*if \(reunionFuturaMs\(lead\) == null\)/,
+    /if \(anclada \|\| preparaUnaReunion\(sec\.trigger_tipo\)\) \{\s*if \(reunionFuturaMs\(lead\) == null\)/,
     'procesarEnvios volvió a mirar solo `paso.ancla`: la post-agenda vuelve a mandar tarde',
   );
+  assert.match(MOTOR, /const anclada = paso\.ancla === 'reunion' \|\| minAntes != null;/);
+  assert.match(MOTOR, /const minAntes = minutosAntesDeReunion\(sec\.pasos, insc\.paso_actual\);/);
 });
 
 test('y cerrar por reunión pasada NO deja la inscripción para mañana', () => {
@@ -67,8 +72,8 @@ test('y cerrar por reunión pasada NO deja la inscripción para mañana', () => 
   // + 700 caracteres, y desde el 06/10/2026 (#789) esa cadena aparece antes en el archivo —el
   // reuso de inscripciones también pregunta si la secuencia prepara una reunión—: el guard
   // pasó a mirar otra función y falló sobre un motor sano.
-  const ini = MOTOR.indexOf("if (paso.ancla === 'reunion' || preparaUnaReunion(sec.trigger_tipo))");
-  const fin = MOTOR.indexOf("if (paso.ancla === 'reunion') {", ini);
+  const ini = MOTOR.indexOf('if (anclada || preparaUnaReunion(sec.trigger_tipo))');
+  const fin = MOTOR.indexOf('if (anclada) {', ini);
   assert.ok(ini >= 0 && fin > ini, 'no encontré el bloque de «la reunión ya pasó» en procesarEnvios');
   const trozo = MOTOR.slice(ini, fin);
   assert.ok(trozo.length < 1500, `el bloque mide ${trozo.length}: está mirando otra cosa`);

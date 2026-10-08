@@ -21,6 +21,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
+import { claveNombre, traducirEtiquetasEnSecuencia } from './etiquetas-reglas';
 
 /** Settings de contexto que se replican tal cual. */
 const KEYS_COPIABLES = [
@@ -43,6 +44,13 @@ const KEYS_COPIABLES = [
   'mako.plantillas.store', 'mako.timezone',
 ] as const;
 
+/** Lo que una tabla ya copiada le deja a las que vienen después (hoy: el mapa de etiquetas). */
+type CtxClon = {
+  /** id de una etiqueta del dueño → id de la del destino (por nombre). null = no se pudo armar. */
+  etiquetas: Map<number, number> | null;
+  avisos: string[];
+};
+
 /** Tablas de CONFIGURACIÓN que se clonan (no datos operativos). */
 type TablaClon = {
   tabla: string;
@@ -50,16 +58,44 @@ type TablaClon = {
   forzar?: Record<string, unknown>;
   /** Columna que hace de clave natural para no duplicar. Default: 'clave'. */
   clave?: string;
+  /** Cómo se compara la clave (default: el texto tal cual). */
+  normalizarClave?: (v: string) => string;
+  /** Arma la fila a insertar desde la del origen; `null` = no se copia. Default: tal cual. */
+  preparar?: (r: Record<string, unknown>, ctx: CtxClon) => Record<string, unknown> | null;
 };
+
+/**
+ * Los pasos de una secuencia del dueño, listos para OTRO workspace (revisión del 08/10/2026,
+ * datos-6). Viajaban tal cual, con ids que en el destino no significan nada o significan otra cosa:
+ *   · las ETIQUETAS (condiciones, pasos ⚡ y el disparador) se traducen con el mapa por nombre de
+ *     las que se acaban de copiar; lo que no está en el mapa queda vacío (`traducirEtiquetasEnSecuencia`);
+ *   · `audio_id` y `media_id` apuntan a la biblioteca del DUEÑO, que este clon no copia: quedan
+ *     vacíos. Un id del dueño que sobrevive no se reproduce en el destino (getAdjunto filtra por
+ *     workspace) y, por casualidad, podría ser el de OTRO archivo.
+ */
+function secuenciaParaElDestino(r: Record<string, unknown>, ctx: CtxClon): Record<string, unknown> {
+  const mapa = ctx.etiquetas;
+  const t = traducirEtiquetasEnSecuencia(r.pasos, r.etiqueta_id, (id) => mapa?.get(id) ?? null);
+  if (t.sinTraducir) ctx.avisos.push(`«${String(r.nombre ?? r.clave)}»: ${t.sinTraducir} ${t.sinTraducir === 1 ? 'etiqueta quedó' : 'etiquetas quedaron'} sin elegir (no hay una igual en este cliente).`);
+  let anulados = 0;
+  const pasos = Array.isArray(t.pasos)
+    ? t.pasos.map((p) => {
+      if (!p || typeof p !== 'object') return p;
+      const o = { ...(p as Record<string, unknown>) };
+      for (const k of ['audio_id', 'media_id']) if (o[k] != null) { o[k] = null; anulados++; }
+      return o;
+    })
+    : t.pasos;
+  if (anulados) ctx.avisos.push(`«${String(r.nombre ?? r.clave)}»: ${anulados} ${anulados === 1 ? 'audio o archivo quedó' : 'audios o archivos quedaron'} sin adjuntar (son de la biblioteca del dueño).`);
+  return { ...r, pasos, etiqueta_id: t.etiquetaId };
+}
+
 const TABLAS: TablaClon[] = [
   // El funnel del dueño: su FORMA, no sus hechos. Se clona sobre el funnel default
   // que el destino ya tiene (mig 0170), nunca insertando una fila nueva — un segundo
   // `es_default` lo rechaza el índice `funnels_ws_default_uk`, que es el guard de que
   // un ws tiene exactamente uno.
   { tabla: 'funnels', cols: ['data', 'es_default'] },
-  // Las secuencias llegan SIEMPRE pausadas: un workspace de prueba nunca debe
-  // empezar a mandar solo, ni siquiera si en el origen estaban activas.
-  { tabla: 'nutricion_secuencias', cols: ['clave', 'nombre', 'etapa', 'trigger_tipo', 'pasos', 'estrategia'], forzar: { activa: false } },
   // El catálogo comercial es contexto de negocio del mismo tipo que el brief: sin
   // él, el workspace de prueba no puede recorrer el cierre de un deal. Su clave
   // natural es el NOMBRE (no tiene columna 'clave').
@@ -68,7 +104,61 @@ const TABLAS: TablaClon[] = [
     cols: ['nombre', 'tipo', 'monto_usd', 'suscripcion_meses', 'promesa', 'incluye', 'garantia', 'descripcion', 'activo', 'orden'],
     clave: 'nombre',
   },
+  // El CATÁLOGO de etiquetas del CRM (mig 0224): sus nombres y colores son contexto del negocio
+  // igual que los productos — las automatizaciones y las condiciones las nombran. Lo que NO viaja:
+  //   · qué lead tiene cuál (`crm_lead_etiquetas`): es un dato operativo, no configuración;
+  //   · las ARCHIVADAS: no se ofrecen en ningún lado;
+  //   · el vínculo a una etapa de OTRO producto (`funnel_id` es un id del dueño, que en el destino
+  //     es otro embudo o ninguno). El de la etapa del producto del NEGOCIO (`funnel_id` NULL) sí:
+  //     el embudo default del destino se clona con la misma forma (arriba);
+  //   · el mapeo a WhatsApp y a Chatwoot: son las integraciones del dueño, y el destino arranca
+  //     sin ninguna (ver la cabecera: las pruebas no pueden etiquetar el celular de él).
+  //
+  // ⚠️ VA ANTES QUE LAS SECUENCIAS, a propósito (revisión del 08/10/2026, datos-6): de esta copia
+  // sale el mapa con el que se traducen las etiquetas que las secuencias nombran. Al revés, las
+  // secuencias llegaban con los ids del dueño y en el destino no se cumplía ninguna condición.
+  {
+    tabla: 'crm_etiquetas',
+    cols: ['nombre', 'color', 'emoji', 'orden', 'funnel_id', 'etapa_key', 'archivada_at'],
+    clave: 'nombre',
+    normalizarClave: claveNombre,
+    preparar: (r) => r.archivada_at ? null : {
+      nombre: r.nombre, color: r.color, emoji: r.emoji ?? null, orden: r.orden ?? 0,
+      funnel_id: null, etapa_key: r.funnel_id == null ? (r.etapa_key ?? null) : null,
+    },
+  },
+  // Las secuencias llegan SIEMPRE pausadas: un workspace de prueba nunca debe
+  // empezar a mandar solo, ni siquiera si en el origen estaban activas. Con sus
+  // etiquetas traducidas y sin los adjuntos del dueño (`secuenciaParaElDestino`).
+  {
+    tabla: 'nutricion_secuencias',
+    cols: ['clave', 'nombre', 'etapa', 'trigger_tipo', 'etiqueta_id', 'pasos', 'estrategia'],
+    forzar: { activa: false },
+    preparar: secuenciaParaElDestino,
+  },
 ];
+
+/**
+ * El mapa id del dueño → id del destino de las etiquetas VIVAS, por nombre (la misma clave que el
+ * índice único de la mig 0224). Se arma DESPUÉS de copiar el catálogo, así incluye las que el
+ * destino ya tenía con el mismo nombre. null = no se pudo leer (las secuencias quedan sin
+ * etiquetas, y se avisa).
+ */
+async function mapaDeEtiquetas(sb: ReturnType<typeof getSupabaseServer>, destino: number, avisos: string[]): Promise<Map<number, number> | null> {
+  const leer = (ws: number) => sb.from('crm_etiquetas').select('id, nombre').eq('workspace_id', ws).is('archivada_at', null);
+  const [o, d] = await Promise.all([leer(OWNER_WS), leer(destino)]);
+  if (o.error || d.error) {
+    avisos.push(`crm_etiquetas: no pude armar el mapa para traducir las secuencias (${(o.error ?? d.error)!.message}).`);
+    return null;
+  }
+  const delDestino = new Map(((d.data ?? []) as Array<{ id: number; nombre: string }>).map((e) => [claveNombre(e.nombre), Number(e.id)]));
+  const out = new Map<number, number>();
+  for (const e of (o.data ?? []) as Array<{ id: number; nombre: string }>) {
+    const nuevo = delDestino.get(claveNombre(e.nombre));
+    if (nuevo != null) out.set(Number(e.id), nuevo);
+  }
+  return out;
+}
 
 export type ResultadoClon = { settings: number; tablas: Record<string, number>; avisos: string[] };
 
@@ -104,9 +194,15 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
 
   // ── Tablas de configuración ──
   const tablas: Record<string, number> = {};
+  const ctx: CtxClon = { etiquetas: null, avisos };
   for (const t of TABLAS) {
     try {
-      const { data: src } = await sb.from(t.tabla).select(t.cols.join(', ')).eq('workspace_id', OWNER_WS);
+      // Las secuencias se traducen con el mapa de las etiquetas, que se arma recién ahora:
+      // después de copiar el catálogo (va antes en TABLAS), con lo que el destino ya tenía.
+      if (t.tabla === 'nutricion_secuencias') ctx.etiquetas = await mapaDeEtiquetas(sb, destino, avisos);
+      const { data: src, error: eSrc } = await sb.from(t.tabla).select(t.cols.join(', ')).eq('workspace_id', OWNER_WS);
+      // «No pude leer» no es «no hay»: se dice, en vez de contar 0 copiadas.
+      if (eSrc) { avisos.push(`${t.tabla}: ${eSrc.message}`); tablas[t.tabla] = 0; continue; }
       const origenFilas = (src ?? []) as unknown as Array<Record<string, unknown>>;
       if (!origenFilas.length) { tablas[t.tabla] = 0; continue; }
 
@@ -145,10 +241,13 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
 
       // Resto: insertar las que falten, comparando por la clave natural de la tabla.
       const clave = t.clave ?? 'clave';
+      const norm = t.normalizarClave ?? ((v: string) => v);
       const { data: yaHay } = await sb.from(t.tabla).select(clave).eq('workspace_id', destino);
-      const existentes = new Set(((yaHay ?? []) as unknown as Array<Record<string, unknown>>).map((r) => String(r[clave])));
+      const existentes = new Set(((yaHay ?? []) as unknown as Array<Record<string, unknown>>).map((r) => norm(String(r[clave]))));
       const nuevas = origenFilas
-        .filter((r) => !existentes.has(String(r[clave])))
+        .filter((r) => !existentes.has(norm(String(r[clave]))))
+        .map((r) => (t.preparar ? t.preparar(r, ctx) : r))
+        .filter((r): r is Record<string, unknown> => r != null)
         .map((r) => ({ ...r, ...(t.forzar ?? {}), workspace_id: destino }));
       if (!nuevas.length) { tablas[t.tabla] = 0; continue; }
       const { error } = await sb.from(t.tabla).insert(nuevas);

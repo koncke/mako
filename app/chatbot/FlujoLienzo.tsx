@@ -1,519 +1,681 @@
 'use client';
 
 // =============================================================================
-// FlujoLienzo — la CONVERSACION con un lead, dibujada
+// FlujoLienzo — una automatización del chatbot, dibujada como FLUJO CON RAMAS
 // =============================================================================
 // El pedido, textual: «Quiero que los editables del flujo de conversacion sea
 // como el editable de Manychat, que tiene una pantalla tipo flujo, y ahi se edita
-// todo», con la captura del Flow Builder al lado.
+// todo», con la captura del Flow Builder al lado. Y el 08/10/2026, doce puntos más; los
+// de esta pieza:
+//   · 4  «En el CRON sigue diciendo "Se dispara" como título» → la tarjeta dice CRON y
+//        su detalle es el disparador REAL (`detalleDisparador`).
+//   · 5  «Pon mucho menos títulos dentro del editable, todo debe entenderse por su propia
+//        cuenta» → ningún editor lleva rótulos de sección: cada uno es una FRASE con
+//        valores elegibles, el molde de ManyChat («Wait [15] [Minutes] and then continue»).
+//   · 6  «Solo a leads recientes» y «Sale sola» se van de la tarjeta CRON: el primero es
+//        una fila de una Condición («Llegó hace menos de [72] h»), el segundo es de cada
+//        mensaje («Revisar antes de enviar», en el editor del mensaje).
+//   · 7  ningún mensaje nace con espera; la espera es su propia tarjeta, editable y
+//        borrable.
+//   · 9  condiciones con ramas, creadas desde el punto de cada salida.
+//   · 11 «Termina si agenda» se va: es una Condición como cualquier otra.
 //
-// Aca vive lo PROPIO de una secuencia: como se ve un mensaje en su nodo y que se
-// edita al tocarlo. El gesto, el encuadre, las curvas y el panel son de
-// app/_components/Lienzo.tsx, que tambien dibuja el flujo de un aviso — copiar el
-// lienzo habria dejado dos que se separan en la primera edicion, que es la razon
-// escrita por la que se borro el editor de diagramas del funnel.
+// Acá vive lo PROPIO de una secuencia: qué muestra cada tarjeta y qué se edita al
+// tocarla. El gesto, el encuadre, las curvas, los puntos de las salidas y el panel son de
+// app/_components/Lienzo.tsx, que también dibuja el flujo de un aviso. El árbol (qué
+// tarjeta va dónde) es de lib/flujo-conversacion.ts, y el modelo (qué es una rama, qué es
+// válido) de lib/flujo-grafo.ts.
 //
-// ── QUE SE COPIA DE MANYCHAT Y QUE NO ──────────────────────────────────────
-// Lo que se copia, que es lo que hace que ese editor no se sienta una marana:
-//   · El nodo MUESTRA EL MENSAJE tal cual le llega a la persona — la misma
-//     burbuja de WhatsApp del resto del producto, no un resumen de campos. Sin
-//     esto el lienzo es un diagrama, no un editor.
-//   · Tocar un nodo abre su editor ENCIMA del lienzo, con los controles que ya
-//     existian. En ManyChat es literal: «When you click on a step, a window will
-//     pop up allowing you to edit it».
-//   · Las ramas se leen SIN abrir nada: cada salida lleva su nombre en la flecha.
-//
-// Lo que NO se copia, y es una decision: el drag-to-connect y mover los nodos a
-// mano. El porque —con la cita del dueno y los numeros— esta en
-// lib/flujo-conversacion.ts.
-//
-// ── LO QUE ESTE LIENZO REEMPLAZA ───────────────────────────────────────────
-// A las tres sub-tabs del perfil (Estrategia / Mensajes / Variantes), no se suma
-// a ellas: dos editores del mismo dato divergen, y el segundo se queda viejo.
+// ⚠️ ESTE ARCHIVO NO GUARDA NADA. Cada cambio es local y sube por `onPasos` a
+// SecuenciaPerfil, que es dueño del estado, de la pila de deshacer y de «Publicar»
+// (sólo Publicar publica). Una edición que escribiera por su cuenta sería un segundo
+// camino a la base que no pasa por `validarGrafo`.
 
-import { useEffect, useState, type ReactNode } from 'react';
-import { Dropdown } from '../components/Dropdown';
-import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/Lienzo';
+import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Dropdown, type DropdownOption } from '../components/Dropdown';
+import { Lienzo, TarjetaNodo, inpLienzo } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
+import { EditorMensajeWhatsApp, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
+import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
+import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
-import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
-import { PasoAudioControl } from './PasoAudioControl';
-import { Checkbox } from '@/app/_ui';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
+import { aplicarVariables } from '@/lib/template-vars';
+import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
-  grafoDeSecuencia, CONDICION_TXT, CONDICIONES_VIVAS,
-  type NodoFlujo, type PasoParaGrafo, type EstrategiaParaGrafo,
+  claseDe, idDe, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS,
+  type FilaCondicion, type RamaCondicion, type CampoCondicion, type Espera, type NombresParaTexto,
+} from '@/lib/flujo-grafo';
+import {
+  grafoDeSecuencia, opcionesDelMas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
+  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo,
+  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, ID_NUEVA_RESPUESTA,
+  type NodoFlujo, type QueAgregar,
 } from '@/lib/flujo-conversacion';
 import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
-import type { Desenlace, ModoRespuesta } from '@/lib/setting-estrategia';
 
 const SANS = "'Geist', sans-serif";
 
+/** Una etiqueta del CRM (GET /api/crm/etiquetas). */
+export type EtiquetaLienzo = { id: number; nombre: string; color?: string | null; archivada_at?: string | null };
+/** Las etapas de UN producto, para la fila «Está en la etapa». */
+export type SeccionEtapas = { title: string; funnelId: number; options: Array<{ value: string; label: string }> };
+
+/** Un cambio del flujo. Va como FUNCIÓN del estado anterior: dos cambios en el mismo
+ *  tick (el composer manda el texto y la IA juntos) se componen en vez de pisarse. */
+export type CambioPasos = (fn: (prev: PasoSecuenciaDto[]) => PasoSecuenciaDto[], apilar: boolean) => void;
+
+/** Lo que MaKo necesita para escribir el guion de una nota de voz: lo de la ESTRATEGIA. */
+export type ParaGuion = EditorMensajeWhatsAppProps['paraGuion'];
+
+/**
+ * La biblioteca de archivos, leída una vez para las tarjetas. «No pude leer» es un tercer
+ * estado y no una lista vacía: con una lista vacía la tarjeta afirmaría que el archivo ya no
+ * está (AGENTS.md, «No pude leer» es un tercer estado).
+ */
+type Biblioteca = { estado: 'ok'; lista: AdjuntoDto[] } | { estado: 'error' } | null;
+
 export function FlujoLienzo({
-  pasos, estrategia, etiquetaEtapa, secuencias, audios, negocio, rolAdmin, busy,
-  onEditarPaso, onAgregarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError,
-  onEditarVariante, onQuitarVariante, onModoIA, onAccion,
-  onModo, onDesenlace, onAntiguedad, onEnvioAuto, onAbrirSecuencia,
-  chrome, herramientas, pie, editorEntrada, onAgregarTras, insetIzq,
+  pasos, disparador, secuencias, audios, negocio, rolAdmin, busy, envioAutoSecuencia,
+  etiquetas, onCrearEtiqueta, etapas, paraGuion, foco, pendientesOtraCosa,
+  onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
+  chrome, herramientas, pie, editorEntrada, insetIzq, insetDer,
 }: {
+  /** El flujo, normalizado (ids y `siguiente` explícitos). */
   pasos: PasoSecuenciaDto[];
-  estrategia: EstrategiaParaGrafo;
-  etiquetaEtapa: string;
-  /** Las del workspace, para resolver a que apunta un «Sigue con». */
-  secuencias: ReadonlyArray<{ clave: string; nombre: string }>;
+  /** Lo que dice la tarjeta CRON: el disparador real (`detalleDisparador`). */
+  disparador: string;
+  /** Las OTRAS automatizaciones del workspace: a dónde puede ir un «Ir a». */
+  secuencias: ReadonlyArray<{ id: number; nombre: string }>;
   audios: AudioSetting[];
   negocio: string;
   rolAdmin: boolean;
   busy: boolean;
-  onEditarPaso: (orden: number, campo: 'cuerpo' | 'asunto' | 'delay_horas', val: string | number) => void;
-  onAgregarPaso: () => void;
-  onQuitarPaso: (orden: number) => void;
-  onAudio: (orden: number, audioId: number | null) => void;
+  /** Lo que la secuencia dice de sus mensajes (`envio_automatico`): un mensaje sin
+   *  `revisar` propio hace eso. */
+  envioAutoSecuencia: boolean;
+  etiquetas: EtiquetaLienzo[];
+  /** «+ Nueva» en el selector de etiqueta. Devuelve la creada, o null si no se pudo. */
+  onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>;
+  etapas: SeccionEtapas[];
+  /**
+   * El objetivo, el gancho y las preguntas de la estrategia, para «✦ guion» de una nota de voz
+   * (revisión, costuras-4: sin esto el guion salía sin el contexto de la secuencia, y un mensaje
+   * sin texto ni siquiera ofrecía el botón).
+   */
+  paraGuion?: ParaGuion;
+  /**
+   * La tarjeta que hay que ABRIR, la pide quien publica cuando un error la frena (revisión,
+   * lienzo-6). `vez` cambia en cada pedido: el mismo error dos veces la vuelve a abrir.
+   */
+  foco?: { id: string; vez: number } | null;
+  /** Cuántas respuestas de esta automatización esperan a una persona (ver `grafoDeSecuencia`). */
+  pendientesOtraCosa?: number;
+  onPasos: CambioPasos;
+  /** El ＋ de una salida (o del medio de una flecha). Devuelve el id de la tarjeta nueva. */
+  onAgregar?: (nodo: string, puerto: string | undefined, que: QueAgregar) => string | null;
+  /** La papelera de la cabecera del panel. */
+  onBorrar?: (id: string) => void;
+  /** La tarjeta fantasma «＋ Si responde». Devuelve el id de la tarjeta nueva. */
+  onCrearRespuesta?: () => string | null;
   onAudioNuevo: (a: AudioSetting) => void;
   onError: (m: string) => void;
-  onEditarVariante: (orden: number, i: number, val: string) => void;
-  onQuitarVariante: (orden: number, i: number) => void;
-  /** Prender o apagar «Lo adapta MaKo» en un paso. Sin esta prop la casilla no se dibuja. */
-  onModoIA?: (orden: number, on: boolean) => void;
-  /** Qué acción corre un paso «⚡ Acción» y con qué datos. Sin esta prop el editor queda apagado. */
-  onAccion?: (orden: number, v: ValorAccion) => void;
-  onModo: (m: ModoRespuesta) => void;
-  onDesenlace: (d: Desenlace) => void;
-  onAntiguedad: (h: number | null) => void;
-  /** Prender o apagar «Sale sola» (`envio_automatico`). Sin esta prop el interruptor no se dibuja. */
-  onEnvioAuto?: (on: boolean) => void;
-  /** Abrir OTRA secuencia: es el «Go To», y tiene que llevar de verdad. */
-  onAbrirSecuencia: (clave: string) => void;
-  /** El título, el interruptor y «Probar»: FLOTAN sobre el lienzo, arriba a la
-   *  izquierda. Mismo contrato que el editor de /mensajes. */
+  /** Se prendió (o apagó) «MaKo lo adapta» en un mensaje: la primera vez abre la guía de voz. */
+  onModoIA?: (on: boolean) => void;
+  /** El título, el interruptor y «Probar»: FLOTAN sobre el lienzo, arriba. */
   chrome?: ReactNode;
   /** Pegado al zoom, abajo a la izquierda: deshacer y rehacer. */
   herramientas?: ReactNode;
   /** Abajo a la derecha: «Publicar». */
   pie?: ReactNode;
-  /**
-   * El editor del nodo de ENTRADA (el disparador). Viene de afuera porque su estado
-   * —qué etapa, de qué producto— vive en quien monta el lienzo, igual que la pila de
-   * deshacer. Antes era una línea de prosa ARRIBA del lienzo, que es justo lo que el
-   * dueño sacó: «eso se configura con las tarjetas».
-   */
+  /** El editor de la tarjeta CRON. Viene de afuera porque su estado (el disparador, el
+   *  horario, la línea) vive en quien monta el lienzo, igual que la pila de deshacer. */
   editorEntrada?: ReactNode;
-  /** Cuánto se corre lo que FLOTA, porque la lista de secuencias se apoya sobre el
-   *  borde izquierdo del lienzo. No angosta el dibujo — ver `Lienzo.insetIzq`. */
+  /** Cuánto se corre lo que flota a la izquierda (la lista de secuencias) y a la derecha
+   *  (el panel de «Probar»). No angostan el dibujo — ver `Lienzo.insetIzq`. */
   insetIzq?: number;
-  /** Agregar un paso DESPUÉS de este nodo: el ＋ que aparece al pasar el cursor por la
-   *  tarjeta. Reemplaza al botón suelto «＋ Mensaje», que no decía DÓNDE entraba. Y
-   *  pregunta QUÉ: un mensaje, o una acción de MaKo. */
-  onAgregarTras?: (id: string, que: 'mensaje' | 'accion') => void;
+  insetDer?: number;
 }) {
   const [sel, setSel] = useState<string | null>(null);
+  // El foco que pide Publicar se aplica UNA vez por pedido (ajuste de estado en el render,
+  // no un efecto: la tarjeta se abre en el mismo pintado que el error).
+  const [focoVisto, setFocoVisto] = useState(0);
+  if (foco && foco.vez !== focoVisto) { setFocoVisto(foco.vez); setSel(foco.id); }
   const titulos = useTitulosAcciones(pasos.some(esPasoAccion));
-  const grafo = grafoDeSecuencia(pasos as PasoParaGrafo[], estrategia, etiquetaEtapa, secuencias, (op) => titulos?.get(op));
-  const pasoDe = (n: NodoFlujo) => (n.orden != null ? pasos.find((x) => x.orden === n.orden) ?? null : null);
+  const nombreEtapa = (key: string, funnelId: number | null) =>
+    etapas.filter((s) => funnelId == null || s.funnelId === funnelId).flatMap((s) => s.options).find((o) => o.value === key)?.label ?? null;
+  const editable = rolAdmin && !!onAgregar;
+
+  /**
+   * LA BIBLIOTECA DE ARCHIVOS, para que la tarjeta de un archivo diga CUÁL es (revisión,
+   * costuras-6). Hasta el 08/10 la tarjeta le pasaba a la burbuja un archivo con `url: null` y
+   * todas decían «(no disponible)», o «document (no disponible)» sin caption: afirmaban que un
+   * PDF bien subido estaba roto. Se pide sólo si hay un archivo y quien mira es admin (la ruta
+   * es de admin), y la misma lista le llega al editor, así no se pide dos veces.
+   */
+  const hayArchivos = pasos.some((p) => p.tipo === 'media');
+  const [biblioteca, setBiblioteca] = useState<Biblioteca>(null);
+  useEffect(() => {
+    if (!rolAdmin || !hayArchivos || biblioteca) return;
+    let vivo = true;
+    fetch('/api/chat-agent/adjuntos', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; adjuntos?: AdjuntoDto[] }) => {
+        if (vivo) setBiblioteca(j?.ok && Array.isArray(j.adjuntos) ? { estado: 'ok', lista: j.adjuntos } : { estado: 'error' });
+      })
+      .catch(() => { if (vivo) setBiblioteca({ estado: 'error' }); });
+    return () => { vivo = false; };
+  }, [rolAdmin, hayArchivos, biblioteca]);
+  const archivoNuevo = (a: AdjuntoDto) => setBiblioteca((b) => (b?.estado === 'ok' ? { estado: 'ok', lista: [a, ...b.lista.filter((x) => x.id !== a.id)] } : b));
+
+  // Los nombres de las etiquetas y las etapas: los mismos para la tarjeta y para el «Ir a».
+  const nombres: NombresParaTexto = { etiqueta: (id) => nombreEtiqueta(etiquetas, id), etapa: nombreEtapa };
+  const grafo = grafoDeSecuencia(pasos, {
+    disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
+    nombres, editable: rolAdmin && !!onCrearRespuesta,
+    audioDe: (id) => audios.find((a) => a.id === id) ?? null,
+    pendientesOtraCosa,
+  });
+  const pasoDe = (id: string) => pasos.find((p, i) => idDe(p, i) === id) ?? null;
 
   return (
     <Lienzo
-      grafo={grafo} seleccion={sel} onSeleccion={setSel}
-      sinMarco alto="100%" insetIzq={insetIzq}
-      chrome={chrome} herramientas={herramientas}
-      /* ⚠️ EL ＋ VA EN LA TARJETA, NO EN UNA ESQUINA. «El botón de "+mensaje" tampoco
-         tiene sentido... si para eso habíamos hecho el botón de ＋ al lado de cada
-         tarjeta... que hoy no está». Un botón suelto no dice dónde entra el paso; éste
-         aparece a la derecha de la tarjeta, que es donde va a aparecer lo que se agregue. */
-      onAgregarTras={rolAdmin && onAgregarTras ? ((id, que) => {
-        const q = que === 'accion' ? 'accion' : 'mensaje';
-        onAgregarTras(id, q);
-        // Una acción nace SIN ELEGIR y así no se puede publicar: se abre su panel, que es lo
-        // único que se puede hacer con ella. El paso entra justo después del nodo tocado
-        // (`entrada` → el primero), así que su id es ése.
-        if (q === 'accion') { const m = /^paso-(\d+)$/.exec(id); setSel(`paso-${m ? Number(m[1]) + 1 : 1}`); }
+      grafo={grafo} seleccion={sel}
+      onSeleccion={(id) => {
+        // La tarjeta fantasma no se abre: tocarla CREA «Si responde» y abre la de verdad.
+        if (id === ID_NUEVA_RESPUESTA) {
+          const nuevo = rolAdmin && onCrearRespuesta ? onCrearRespuesta() : null;
+          if (nuevo) setSel(nuevo);
+          return;
+        }
+        setSel(id);
+      }}
+      sinMarco alto="100%" insetIzq={insetIzq} insetDer={insetDer} panelAncho={392}
+      chrome={chrome} herramientas={herramientas} accion={pie}
+      /* ⚠️ EL ＋ ES EL DE CADA SALIDA (y el del medio de cada flecha), y la tarjeta nueva se
+         abre sola: casi todas nacen con algo que elegir (la acción, a dónde va el salto, la
+         condición). */
+      onAgregarTras={editable ? ((id, que, puerto) => {
+        const nuevo = onAgregar!(id, puerto, que as QueAgregar);
+        if (nuevo) setSel(nuevo);
       }) : undefined}
-      /* «⚡ Acción de MaKo» (decisión de Martín, 08/10/2026): el ＋ PREGUNTA qué agregar.
-         Lista plana con emoji y título, como la de /mensajes. El ＋ del medio de una flecha
-         ofrece sólo la acción (lo filtra el Lienzo): las flechas que no son la cadena
-         principal no lo dibujan (`sinMas` en el grafo). */
-      opcionesAgregar={[
-        { value: 'mensaje', label: '💬 Mensaje' },
-        { value: 'accion', label: '⚡ Acción de MaKo' },
-      ]}
-      /* Sólo donde el paso que se agregue cuelga de verdad de esa tarjeta: en la entrada
-         (sería el primer mensaje) y después de cada mensaje. En el desenlace o en un
-         «Sigue con» el ＋ señalaría un lugar y el paso caería en otro. */
-      puedeAgregarTras={(idNodo) => idNodo === 'entrada' || /^paso-\d+$/.test(idNodo)}
-      renderNodo={(n, activo) => (
-        <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && n.destinoExiste === false}>
-          {n.tipo === 'mensaje' && pasoDe(n)
-            ? <VistaMensaje paso={pasoDe(n)!} audios={audios} negocio={negocio} />
-            : n.tipo === 'accion'
-              // Sin burbuja: al lead no le llega nada. Lo que se lee es QUÉ hace MaKo.
-              ? <div style={{ fontSize: 12.5, fontWeight: 600, color: n.advertencia ? 'var(--faint)' : 'var(--ink)', lineHeight: 1.45 }}>{n.detalle}</div>
-              : <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.45 }}>{n.detalle}</div>}
-        </TarjetaNodo>
-      )}
+      opcionesEn={(nodo, _puerto, medio) => opcionesDelMas(pasos, nodo, medio)}
+      puedeAgregarTras={(id) => id !== ID_NUEVA_RESPUESTA}
+      onBorrar={rolAdmin && onBorrar ? onBorrar : undefined}
+      puedeBorrar={(id) => id !== ID_ENTRADA && id !== ID_NUEVA_RESPUESTA}
+      renderNodo={(n, activo) => {
+        if (n.id === ID_NUEVA_RESPUESTA) return <Fantasma key={n.id} nodo={n} />;
+        const paso = pasoDe(n.id);
+        return (
+          <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && Boolean(n.advertencia)}>
+            {n.tipo === 'mensaje' && paso
+              ? <VistaMensaje paso={paso} audios={audios} negocio={negocio} biblioteca={biblioteca} />
+              : n.detalle
+                ? <div style={{ fontSize: 12.5, fontWeight: n.tipo === 'accion' ? 600 : 400, color: n.advertencia ? 'var(--faint)' : 'var(--ink)', lineHeight: 1.45 }}>{n.detalle}</div>
+                : null}
+          </TarjetaNodo>
+        );
+      }}
       renderEditor={(n) => (
         <EditorDeNodo
-          nodo={n} paso={pasoDe(n)} estrategia={estrategia} secuencias={secuencias}
-          audios={audios} rolAdmin={rolAdmin} busy={busy}
-          onEditarPaso={onEditarPaso} onQuitarPaso={(o) => { onQuitarPaso(o); setSel(null); }}
-          onAudio={onAudio} onAudioNuevo={onAudioNuevo} onError={onError}
-          onEditarVariante={onEditarVariante} onQuitarVariante={onQuitarVariante}
-          onModoIA={onModoIA} onAccion={onAccion}
-          onModo={onModo} onDesenlace={onDesenlace} onAntiguedad={onAntiguedad} onEnvioAuto={onEnvioAuto}
-          onAbrirSecuencia={onAbrirSecuencia}
+          nodo={n} paso={pasoDe(n.id)} pasos={pasos} secuencias={secuencias}
+          audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy} envioAutoSecuencia={envioAutoSecuencia}
+          etiquetas={etiquetas} onCrearEtiqueta={onCrearEtiqueta} etapas={etapas}
+          nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
+          onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada}
+          onAbrir={(id) => setSel(id)}
         />
       )}
-      accion={pie}
     />
   );
 }
 
-/** El mensaje COMO LLEGA. Es la pieza que hace que esto sea un editor y no un
- *  diagrama: la misma burbuja que el resto del producto (`BURBUJA_SALIENTE`), no
- *  una tarjeta con el texto recortado. */
-function VistaMensaje({ paso, audios, negocio }: { paso: PasoSecuenciaDto; audios: AudioSetting[]; negocio: string }) {
-  if (paso.tipo === 'audio') {
-    const a = audios.find((x) => x.id === paso.audio_id);
-    return (
-      <div style={{ ...BURBUJA_SALIENTE, padding: '9px 11px', fontSize: 12.5, maxWidth: '100%', minWidth: 0, overflow: 'hidden' }}>
-        {a?.url
-          ? <AudioPlay src={a.url} style={{ maxWidth: '100%' }} />
-          : <span style={{ color: 'var(--faint)' }}>Sin audio elegido</span>}
-        {a?.titulo && <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 5 }}>{a.titulo}{a.duracion_s ? ` · ${Math.round(a.duracion_s)}s` : ''}</div>}
-      </div>
-    );
-  }
-  const texto = (paso.cuerpo || '').replace(/\{\{\s*negocio\s*\}\}/g, negocio);
+/** La tarjeta fantasma «＋ Si responde»: el lugar donde va, dicho por su forma. */
+function Fantasma({ nodo }: { nodo: NodoFlujo }) {
+  return (
+    <div data-nodo={nodo.id} role="button" tabIndex={0} aria-label="Agregar «Si responde»"
+      style={{
+        position: 'absolute', left: nodo.x, top: nodo.y, width: nodo.ancho, height: nodo.alto, boxSizing: 'border-box',
+        borderRadius: 13, border: '1.5px dashed var(--border-strong)', background: 'transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, fontFamily: SANS, cursor: 'pointer',
+      }}>＋ Si responde</div>
+  );
+}
+
+/**
+ * El mensaje COMO LLEGA: la burbuja de WhatsApp del resto del producto (`BurbujaHilo`),
+ * en su versión chica. Es la pieza que hace que esto sea un editor y no un diagrama.
+ *
+ * ⚠️ LAS VARIABLES SE RESUELVEN CON LA FUNCIÓN DEL MOTOR (`aplicarVariables`), no con un
+ * `replace` propio. Hasta el 05/10 la tarjeta resolvía `{{negocio}}` a mano y el envío no
+ * lo conocía: se veía perfecto acá y al lead le llegaban las llaves puestas. Con la misma
+ * función, lo que esta vista resuelve es por construcción lo que el motor resuelve. Sólo
+ * se le pasa el negocio: los datos del lead no se conocen acá, y quedan crudos, que es
+ * como se ve que son variables.
+ */
+function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenciaDto; audios: AudioSetting[]; negocio: string; biblioteca: Biblioteca }) {
+  const n = negocio.trim();
+  const texto = aplicarVariables(paso.cuerpo || '', n ? { negocio: n } : {});
+  const a = paso.tipo === 'audio' ? audios.find((x) => x.id === paso.audio_id) ?? null : null;
+  const vacio = paso.tipo === 'media' ? !paso.media_id : paso.tipo !== 'audio' && !texto.trim();
+  if (vacio) return <span style={{ fontSize: 12, color: 'var(--faint)' }}>Sin escribir</span>;
+  if (paso.tipo === 'media') return <VistaArchivo paso={paso} texto={texto} negocio={negocio} biblioteca={biblioteca} />;
   return (
     <>
-      {/* Sin esto, una tarjeta en modo IA y una fija se ven idénticas: la burbuja
-          muestra el texto BASE, y lo que le llega a cada lead es otra cosa. */}
-      {paso.tipo === 'ia' && (
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--mako-ink)', marginBottom: 5 }}>✦ Lo adapta MaKo</div>
-      )}
       {paso.canal === 'email' && paso.asunto && (
-        <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5 }}>Asunto: {paso.asunto}</div>
+        <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{paso.asunto}</div>
       )}
-      <div style={{ ...BURBUJA_SALIENTE, padding: '9px 11px', fontSize: 12.5, whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>
-        {texto.trim() || <span style={{ color: 'var(--faint)' }}>Sin escribir</span>}
-      </div>
+      <BurbujaHilo compacta saliente autor={negocio} contenido={{
+        texto,
+        audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: a?.transcript ?? null, duracion_s: a?.duracion_s ?? null } : null,
+        ia: paso.tipo === 'ia',
+      }} />
     </>
   );
 }
 
-// ── El editor del nodo tocado ───────────────────────────────────────────────
-
-function EditorDeNodo({
-  nodo, paso, estrategia, secuencias, audios, rolAdmin, busy,
-  onEditarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError, onEditarVariante, onQuitarVariante,
-  onModoIA, onAccion, onModo, onDesenlace, onAntiguedad, onEnvioAuto, onAbrirSecuencia, editorEntrada,
-}: {
-  nodo: NodoFlujo; paso: PasoSecuenciaDto | null; estrategia: EstrategiaParaGrafo;
-  secuencias: ReadonlyArray<{ clave: string; nombre: string }>;
-  audios: AudioSetting[]; rolAdmin: boolean; busy: boolean;
-  onEditarPaso: (orden: number, campo: 'cuerpo' | 'asunto' | 'delay_horas', val: string | number) => void;
-  onQuitarPaso: (orden: number) => void;
-  onAudio: (orden: number, audioId: number | null) => void;
-  onAudioNuevo: (a: AudioSetting) => void;
-  onError: (m: string) => void;
-  onEditarVariante: (orden: number, i: number, val: string) => void;
-  onQuitarVariante: (orden: number, i: number) => void;
-  onModoIA?: (orden: number, on: boolean) => void;
-  onAccion?: (orden: number, v: ValorAccion) => void;
-  onModo: (m: ModoRespuesta) => void;
-  onDesenlace: (d: Desenlace) => void;
-  onAntiguedad: (h: number | null) => void;
-  onEnvioAuto?: (on: boolean) => void;
-  onAbrirSecuencia: (clave: string) => void;
-  /** Lo que se edita en el nodo de ENTRADA: QUÉ dispara la secuencia. Ver FlujoLienzo. */
-  editorEntrada?: ReactNode;
-}) {
-  const des = (estrategia?.desenlace ?? {}) as Partial<Desenlace>;
-  const cambiarDes = (p: Partial<Desenlace>) => onDesenlace({
-    logrado: (des.logrado ?? 'respondio') as Desenlace['logrado'],
-    logradoEtapa: des.logradoEtapa ?? null,
-    logradoSecuencia: des.logradoSecuencia ?? null,
-    falloHoras: des.falloHoras ?? 0,
-    falloEtapa: des.falloEtapa ?? null,
-    falloSecuencia: des.falloSecuencia ?? null,
-    ...p,
-  });
-  const opcionesSecuencia = [{ value: '', label: 'Ninguna: termina aquí' },
-    ...secuencias.map((s) => ({ value: s.clave, label: s.nombre }))];
-
-  // ⚠️ UN SETTER NO EDITA, PERO TIENE QUE PODER LEER. Con `nodo.detalle` a secas,
-  // abrir un nodo de MENSAJE le mostraba una caja vacía: los nodos de mensaje no
-  // tienen `detalle` —su contenido es el mensaje— así que el panel salía en blanco
-  // justo en los nodos que más se abren.
-  if (!rolAdmin) {
-    return nodo.tipo === 'mensaje' && paso
-      ? <div style={{ fontSize: 12.5, color: 'var(--ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{paso.cuerpo || 'Sin escribir'}</div>
-      : <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{nodo.detalle}</div>;
+/**
+ * EL ARCHIVO EN LA TARJETA: su nombre y el caption, NUNCA «(no disponible)» sobre un archivo
+ * que existe (revisión, costuras-6). Qué se dibuja lo decide `vistaDeArchivo`
+ * (lib/flujo-conversacion.ts, con test): un documento con su nombre si la biblioteca lo tiene;
+ * «Archivo» si no se pudo saber; «Un archivo que ya no está» si se leyó y no está.
+ */
+function VistaArchivo({ paso, texto, negocio, biblioteca }: { paso: PasoSecuenciaDto; texto: string; negocio: string; biblioteca: Biblioteca }) {
+  const v = vistaDeArchivo(paso.media_id, biblioteca?.estado === 'ok' ? biblioteca.lista : biblioteca?.estado === 'error' ? 'error' : null);
+  if (v.modo === 'documento') {
+    return <BurbujaHilo compacta saliente autor={negocio} contenido={{ texto, media: { url: v.url, mime: v.mime, nombre: v.nombre, tipo: 'document' } }} />;
   }
-
-  if (nodo.tipo === 'entrada') {
-    const h = estrategia?.antiguedad_max_horas ?? null;
-    return (
-      <>
-        {/* ⚠️ EL DISPARADOR SE EDITA ACÁ, EN LA TARJETA. Era una línea de prosa arriba
-            del lienzo con dos desplegables sueltos, y el dueño la sacó con todas las
-            letras: «eso se configura con las tarjetas». El nodo de entrada ES la
-            pregunta «qué lo dispara», así que su editor es el lugar. */}
-        {editorEntrada ?? <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>{nodo.detalle}</div>}
-        <label style={rotuloLienzo}>Solo a leads recientes</label>
-        <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-          <input
-            type="number" min={1} step={1} value={h ?? ''} placeholder="sin límite" disabled={busy}
-            onChange={(e) => onAntiguedad(e.target.value.trim() === '' ? null : Math.max(1, Number(e.target.value)))}
-            style={{ ...inpLienzo, width: 96 }}
-          />
-          <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>horas</span>
-        </div>
-        <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 7, marginBottom: 0 }}>
-          Vacío: le escribe a cualquiera que esté en la etapa.
-        </p>
-        {/* «SALE SOLA» VOLVIÓ (#786). Su único control vivía en EstrategiaWizard, y desde el
-            05/10 nada abre ese wizard: el lienzo dejaba editar el tope y prender la secuencia,
-            pero no si los mensajes salen solos — y sin esto, a un lead que no pagó cada mensaje
-            le queda como BORRADOR (la regla dura de lib/evolution-envio.ts). Va en la tarjeta
-            de entrada porque es de la secuencia entera, no de un paso. Checkbox y no Switch:
-            se guarda con «Publicar», como «Lo adapta MaKo». */}
-        {onEnvioAuto && (
-          <div style={{ marginTop: 14 }}>
-            <Checkbox
-              checked={estrategia?.envio_automatico === true} disabled={busy}
-              onChange={(v) => onEnvioAuto(v)}
-              label="Sale sola"
-              hint={estrategia?.envio_automatico === true ? undefined : 'Apagado: cada mensaje queda como borrador.'}
-            />
-          </div>
-        )}
-      </>
-    );
-  }
-
-  /**
-   * EL PASO «⚡ ACCIÓN DE MAKO». El editor es el compartido (`EditorAccionMako`): qué
-   * acción y con qué datos. Lo que se configura acá CORRE SOLO cuando la secuencia llega a
-   * este paso, sin pedir un «sí» (decisión de Martín, 08/10/2026) — por eso no hay texto que
-   * lo explique: lo dice el propio editor, en una línea.
-   *
-   * ⚠️ LA `key` LLEVA LA OPERACIÓN. El editor siembra estado de sus props (el texto crudo de
-   * un campo JSON) y es UNO que se reusa al tocar otro nodo: sin la key, lo escrito para una
-   * acción se quedaba dibujado en la siguiente (AGENTS.md, el `useState` sembrado de props).
-   */
-  if (nodo.tipo === 'accion' && paso) {
-    return (
-      <>
-        <EditorAccionMako
-          key={`accion-${paso.orden}-${paso.accion?.operacion ?? ''}`}
-          valor={{ operacion: paso.accion?.operacion || undefined, params: paso.accion?.params ?? {} }}
-          onCambio={(v) => onAccion?.(paso.orden, v)}
-          disabled={busy || !onAccion}
-        />
-        <div style={{ marginTop: 12 }}>
-          <label style={rotuloLienzo}>Cuándo corre</label>
-          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-            <input type="number" min={0} step={1} value={paso.delay_horas} disabled={busy}
-              onChange={(e) => onEditarPaso(paso.orden, 'delay_horas', Math.max(0, Number(e.target.value)))}
-              style={{ ...inpLienzo, width: 90 }} />
-            <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-              {paso.ancla === 'reunion' ? 'horas antes de la reunión' : 'horas después'}
-            </span>
-          </div>
-        </div>
-        <AvisoCondicion requiere={paso.requiere} verbo="Corre" />
-        <button onClick={() => onQuitarPaso(paso.orden)} disabled={busy}
-          style={{ marginTop: 12, background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: SANS }}>
-          Quitar esta acción
-        </button>
-      </>
-    );
-  }
-
-  if (nodo.tipo === 'mensaje' && paso) {
-    return (
-      <>
-        {/* `key` por paso: el editor es UNO y se reusa al tocar otro nodo, y el guion que
-            escribió MaKo vive en el estado del control — sin la key, el de un mensaje se
-            quedaba dibujado en el siguiente. El cuerpo de un paso de audio es su PIE (lo
-            que va por escrito), así que MaKo lo recibe como tal y no como algo para leer. */}
-        {paso.tipo === 'audio' ? (
-          <PasoAudioControl
-            key={`audio-${paso.orden}`}
-            orden={paso.orden} audios={audios} audioId={paso.audio_id ?? null} disabled={busy}
-            onElegir={(id) => onAudio(paso.orden, id)} onGrabado={onAudioNuevo} onError={onError}
-            paraGuion={{ objetivo: estrategia?.objetivo, gancho: estrategia?.gancho, preguntas: estrategia?.preguntas, pie: paso.cuerpo }}
-          />
-        ) : (
-          <>
-            {paso.canal === 'email' && (
-              <>
-                <label style={rotuloLienzo}>Asunto</label>
-                <input value={paso.asunto ?? ''} disabled={busy}
-                  onChange={(e) => onEditarPaso(paso.orden, 'asunto', e.target.value)}
-                  style={{ ...inpLienzo, marginBottom: 10 }} />
-              </>
-            )}
-            {/* ⚠️ LA CASILLA SÓLO DONDE EL MOTOR LA HONRA: WhatsApp no oficial. Por la
-                vía oficial sale una plantilla que aprobó Meta, y por email no hay rama de
-                IA — y `setSecuenciaPasos` le saca el `tipo: 'ia'` a esos pasos al guardar,
-                así que dibujarla ahí sería un control que se des-tilda solo. Por eso la
-                condición es la MISMA función que usa el saneo, no una copia.
-                Checkbox y no Switch: se guarda con «Publicar», y un switch promete que
-                el cambio ya pasó (app/_ui/Toggle.tsx). */}
-            {onModoIA && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial' && (
-              <div style={{ marginBottom: 10 }}>
-                <Checkbox
-                  checked={paso.tipo === 'ia'} disabled={busy}
-                  onChange={(v) => onModoIA(paso.orden, v)}
-                  label="Lo adapta MaKo"
-                  hint={paso.tipo === 'ia' ? 'Si MaKo no puede, sale tu texto.' : undefined}
-                />
-              </div>
-            )}
-            <label style={rotuloLienzo}>{paso.tipo === 'ia' ? 'Qué tiene que decir' : 'El mensaje'}</label>
-            {/* Un textarea y no el `Autocrece` de la burbuja: aquél crece hasta el
-                alto del texto —correcto DENTRO de una burbuja, donde una barra de
-                scroll es un cuerpo extraño— y acá el editor tiene alto propio. */}
-            <textarea value={paso.cuerpo} disabled={busy} rows={5}
-              onChange={(e) => onEditarPaso(paso.orden, 'cuerpo', e.target.value)}
-              style={{ ...inpLienzo, minHeight: 92, lineHeight: 1.5, resize: 'vertical' }} />
-          </>
-        )}
-
-        <div style={{ marginTop: 10 }}>
-          <label style={rotuloLienzo}>Cuándo sale</label>
-          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-            <input type="number" min={0} step={1} value={paso.delay_horas} disabled={busy}
-              onChange={(e) => onEditarPaso(paso.orden, 'delay_horas', Math.max(0, Number(e.target.value)))}
-              style={{ ...inpLienzo, width: 90 }} />
-            <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-              {paso.ancla === 'reunion' ? 'horas antes de la reunión' : 'horas después'}
-            </span>
-          </div>
-        </div>
-
-        <AvisoCondicion requiere={paso.requiere} verbo="Sale" />
-
-        {paso.tipo !== 'audio' && (
-          <div style={{ marginTop: 12 }}>
-            <label style={rotuloLienzo}>Otras formas de decirlo</label>
-            {(paso.variantes ?? []).length === 0 ? (
-              <p style={{ fontSize: 11.5, color: 'var(--faint)', margin: 0, lineHeight: 1.45 }}>
-                Sale siempre igual. Mandar el mismo texto a cientos de personas es lo que WhatsApp busca para restringir un número.
-              </p>
-            ) : (paso.variantes ?? []).map((v, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 6 }}>
-                <textarea value={v} rows={2} disabled={busy}
-                  onChange={(e) => onEditarVariante(paso.orden, i, e.target.value)}
-                  style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45, flex: 1 }} />
-                <button onClick={() => onQuitarVariante(paso.orden, i)} title="Quitar variante"
-                  style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: '5px 2px' }}>✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <button onClick={() => onQuitarPaso(paso.orden)} disabled={busy}
-          style={{ marginTop: 12, background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: SANS }}>
-          Quitar este mensaje
-        </button>
-      </>
-    );
-  }
-
-  if (nodo.tipo === 'respuesta') {
-    const modo = (estrategia?.modo ?? 'asistido') as ModoRespuesta;
-    return (
-      <>
-        <label style={rotuloLienzo}>Si el lead contesta</label>
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-          {([['asistido', 'MaKo deja el borrador'], ['automatico', 'Se frena y sigues tú']] as const).map(([v, t]) => (
-            <button key={v} onClick={() => onModo(v)} disabled={busy} aria-pressed={modo === v}
-              style={{
-                padding: '6px 11px', borderRadius: 999, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: SANS,
-                border: `1px solid ${modo === v ? 'var(--primary)' : 'var(--border-strong)'}`,
-                background: modo === v ? 'var(--primary-bg)' : 'var(--surface)',
-                color: modo === v ? 'var(--primary)' : 'var(--dim)',
-              }}>{modo === v ? '✓ ' : ''}{t}</button>
-          ))}
-        </div>
-      </>
-    );
-  }
-
-  if (nodo.tipo === 'desenlace') {
-    return (
-      <>
-        <label style={rotuloLienzo}>Termina bien cuando</label>
-        <Dropdown
-          value={String(des.logrado ?? 'respondio')}
-          options={[
-            { value: 'respondio', label: 'El lead contesta' },
-            { value: 'agendo', label: 'El lead agenda' },
-            { value: 'pago', label: 'El lead paga' },
-            { value: 'ninguno', label: 'No cierra sola' },
-          ]}
-          onChange={(v) => cambiarDes({ logrado: v as Desenlace['logrado'] })}
-          width="100%" ariaLabel="Qué cuenta como objetivo cumplido"
-        />
-        <div style={{ marginTop: 10 }}>
-          <label style={rotuloLienzo}>Se da por perdida a las</label>
-          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-            <input type="number" min={0} step={1} value={des.falloHoras ?? 0} disabled={busy}
-              onChange={(e) => cambiarDes({ falloHoras: Math.max(0, Number(e.target.value)) })}
-              style={{ ...inpLienzo, width: 90 }} />
-            <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>horas sin respuesta</span>
-          </div>
-          <p style={{ fontSize: 11, color: 'var(--faint)', marginTop: 5, marginBottom: 0 }}>0: no se pierde nunca.</p>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <label style={rotuloLienzo}>✅ Si lo logra, sigue con</label>
-          <Dropdown value={des.logradoSecuencia ?? ''} options={opcionesSecuencia}
-            onChange={(v) => cambiarDes({ logradoSecuencia: v || null })} width="100%" ariaLabel="Secuencia que sigue si se logra" />
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <label style={rotuloLienzo}>🏁 Si se pierde, sigue con</label>
-          <Dropdown value={des.falloSecuencia ?? ''} options={opcionesSecuencia}
-            onChange={(v) => cambiarDes({ falloSecuencia: v || null })} width="100%" ariaLabel="Secuencia que sigue si se pierde" />
-        </div>
-      </>
-    );
-  }
-
-  if (nodo.tipo === 'ir-a' && nodo.claveDestino) {
-    return (
-      <>
-        <div style={{ fontSize: 12.5, color: nodo.destinoExiste ? 'var(--ink)' : 'var(--bad)', lineHeight: 1.5, marginBottom: 10 }}>
-          {nodo.destinoExiste
-            ? nodo.detalle
-            : 'Apunta a una secuencia que ya no existe: el lead se queda sin nada después.'}
-        </div>
-        {nodo.destinoExiste && (
-          <button onClick={() => onAbrirSecuencia(nodo.claveDestino!)}
-            style={{ padding: '8px 13px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-            Abrir esta secuencia
-          </button>
-        )}
-      </>
-    );
-  }
-
-  return <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{nodo.detalle}</div>;
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: texto.trim() ? 6 : 0, fontSize: 12, fontWeight: 600, color: v.falta ? 'var(--warn)' : 'var(--ink)', minWidth: 0 }}>
+        <span style={{ flex: 'none', color: 'var(--dim)', display: 'inline-flex' }}><IconDoc size={16} /></span>
+        <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.nombre}</span>
+      </div>
+      {texto.trim() && <BurbujaHilo compacta saliente autor={negocio} contenido={{ texto }} />}
+    </>
+  );
 }
 
-/** La condición de un paso, dicha con lo que el motor HACE. La comparten el mensaje y la
- *  acción: una condición vale igual para los dos, y dos copias del texto se separan. */
-function AvisoCondicion({ requiere, verbo }: { requiere: PasoSecuenciaDto['requiere']; verbo: 'Sale' | 'Corre' }) {
-  if (!requiere) return null;
+// ── El editor de la tarjeta tocada ──────────────────────────────────────────
+
+type PropsEditor = {
+  nodo: NodoFlujo; paso: PasoSecuenciaDto | null; pasos: PasoSecuenciaDto[];
+  secuencias: ReadonlyArray<{ id: number; nombre: string }>;
+  audios: AudioSetting[]; negocio: string; rolAdmin: boolean; busy: boolean; envioAutoSecuencia: boolean;
+  etiquetas: EtiquetaLienzo[]; onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>; etapas: SeccionEtapas[];
+  nombres: NombresParaTexto;
+  paraGuion?: ParaGuion;
+  /** La biblioteca de archivos ya leída (undefined = el editor la pide solo). */
+  adjuntos?: AdjuntoDto[]; onAdjuntoNuevo?: (a: AdjuntoDto) => void;
+  onPasos: CambioPasos;
+  onAudioNuevo: (a: AudioSetting) => void; onError: (m: string) => void; onModoIA?: (on: boolean) => void;
+  /** Lo que se edita en la tarjeta CRON. Ver FlujoLienzo. */
+  editorEntrada?: ReactNode;
+  onAbrir: (id: string) => void;
+};
+
+function EditorDeNodo(pr: PropsEditor) {
+  const { nodo, paso, rolAdmin } = pr;
+  // ⚠️ UN SETTER NO EDITA, PERO TIENE QUE PODER LEER. Un mensaje no tiene `detalle` —su
+  // contenido es el mensaje—, así que el panel salía en blanco justo en lo que más se abre.
+  if (!rolAdmin) return <SoloLectura nodo={nodo} paso={paso} />;
+  if (nodo.id === ID_ENTRADA) return <>{pr.editorEntrada ?? <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{nodo.detalle}</div>}</>;
+  if (!paso) return null;
+  const id = nodo.id;
+  /** Un cambio de ESTA tarjeta. `apilar`: entra a la pila de deshacer (lo que no es tipear). */
+  const cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => pr.onPasos((prev) => cambiarNodo(prev, id, patch), apilar);
+  switch (claseDe(paso)) {
+    case 'accion': return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
+    case 'esperar': return <EditorEspera espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
+    case 'condicion': return <EditorCondicion {...pr} paso={paso} id={id} cambiar={cambiar} />;
+    case 'respuesta': return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
+    case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
+    default: return <EditorMensaje {...pr} paso={paso} id={id} cambiar={cambiar} />;
+  }
+}
+
+type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
+
+function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto | null }) {
+  const txt: CSSProperties = { fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' };
+  if (paso && claseDe(paso) === 'mensaje') return <div style={txt}>{paso.cuerpo || 'Sin escribir'}</div>;
+  if (nodo.puertos?.some((p) => p.rotulo != null)) return <div style={txt}>{nodo.puertos.map((p) => p.rotulo).join('\n')}</div>;
+  return <div style={{ ...txt, color: 'var(--dim)' }}>{nodo.detalle}</div>;
+}
+
+/**
+ * EL MENSAJE: UN editor para todo lo que sale por WhatsApp (punto 8: «que todo lo que
+ * tenga que ver con WhatsApp tenga un mismo editable, ya sea audio, texto, archivos»).
+ * El editor es `EditorMensajeWhatsApp` (el composer); acá se le dice qué permite.
+ *
+ * ⚠️ LA IA SÓLO DONDE EL MOTOR LA HONRA: WhatsApp no oficial y un mensaje de texto. Por la
+ * vía oficial sale una plantilla que aprobó Meta, y `setSecuenciaPasos` le saca el
+ * `tipo: 'ia'` a esos pasos al guardar: ofrecerla ahí sería un control que se apaga solo.
+ * La condición es la MISMA función que usa el saneo (`proveedorDelPaso`), no una copia.
+ *
+ * ⚠️ Y LA `key` VA POR TARJETA: el editor es uno y se reusa al tocar otra; con estado
+ * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
+ * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
+ */
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, busy, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+  if (paso.canal === 'email') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <input value={paso.asunto ?? ''} disabled={busy} placeholder="Asunto"
+          onChange={(e) => cambiar({ asunto: e.target.value }, false)} style={inpLienzo} />
+        <textarea value={paso.cuerpo} disabled={busy} rows={6} placeholder="Escribe el mensaje"
+          onChange={(e) => cambiar({ cuerpo: e.target.value }, false)}
+          style={{ ...inpLienzo, minHeight: 110, lineHeight: 1.5, resize: 'vertical' }} />
+      </div>
+    );
+  }
+  const noOficial = proveedorDelPaso(paso) === 'no_oficial';
+  const modoIA = (on: boolean) => {
+    // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
+    // cosas idempotentes: el composer puede mandar también `{ tipo }` por `onChange`.
+    cambiar({ tipo: on ? 'ia' : 'texto' }, true);
+    onModoIA?.(on);
+  };
   return (
-    <p style={{ fontSize: 11, color: CONDICIONES_VIVAS.has(requiere) ? 'var(--faint)' : 'var(--warn)', lineHeight: 1.45, marginTop: 9, marginBottom: 0 }}>
-      {CONDICIONES_VIVAS.has(requiere)
-        ? `${verbo} ${CONDICION_TXT[requiere]}.`
-        : `Dice «solo si no contestó», pero hoy ${verbo.toLowerCase()} siempre: el motor todavía no mira esa condición.`}
-    </p>
+    <EditorMensajeWhatsApp
+      key={`msg-${id}`}
+      paso={paso}
+      onChange={(patch) => {
+        // Tipear no entra a la pila (el Ctrl+Z del texto es del navegador); cambiar de
+        // audio, de archivo, de tipo o de «Revisar», sí. Escribir en una variante también es
+        // tipear: la decide `cambioApila` (lib/flujo-conversacion.ts).
+        cambiar(patch, cambioApila(patch, paso));
+        if (patch.tipo === 'ia' && paso.tipo !== 'ia') onModoIA?.(true);
+      }}
+      audios={audios} onAudioNuevo={onAudioNuevo}
+      adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
+      paraGuion={paraGuion}
+      permiteIA={!!onModoIA && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial' && paso.tipo !== 'audio' && paso.tipo !== 'media'}
+      onModoIA={modoIA}
+      permiteAudio={noOficial}
+      permiteAdjuntos={noOficial}
+      // «Sale sola» pasó a cada mensaje (punto 6): ausente en el paso = lo que hace el MOTOR con
+      // él, así que el interruptor se pinta con ese valor (`revisarHeredado`: un «MaKo contesta»
+      // de «Si responde» sin `revisar` deja borrador, aunque la secuencia salga sola).
+      mostrarRevisar
+      revisarHeredado={revisarHeredado(pasos, id, envioAutoSecuencia)}
+      negocio={negocio}
+      placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}
+    />
+  );
+}
+
+/**
+ * EL PASO «⚡ ACCIÓN DE MAKO». El editor es el compartido (`EditorAccionMako`): qué acción
+ * y con qué datos. Corre SOLO cuando el flujo llega acá, sin pedir un «sí» (decisión de
+ * Martín, 08/10/2026). Ya no lleva «Cuándo corre»: el tiempo es su propia tarjeta.
+ *
+ * ⚠️ LA `key` LLEVA LA OPERACIÓN: el editor siembra estado de sus props (el texto crudo de
+ * un campo JSON) y es UNO que se reusa al tocar otro nodo.
+ */
+function EditorAccion({ paso, id, busy, cambiar }: { paso: PasoSecuenciaDto; id: string; busy: boolean; cambiar: Cambiar }) {
+  const previa = paso.accion?.operacion ?? '';
+  return (
+    <EditorAccionMako
+      key={`accion-${id}-${previa}`}
+      valor={{ operacion: paso.accion?.operacion || undefined, params: paso.accion?.params ?? {} }}
+      onCambio={(v: ValorAccion) => cambiar({ accion: { operacion: v.operacion ?? '', params: v.params ?? {} } }, (v.operacion ?? '') !== previa)}
+      disabled={busy}
+    />
+  );
+}
+
+type Unidad = 'min' | 'h' | 'dias';
+const MIN_DE: Record<Unidad, number> = { min: 1, h: 60, dias: 1440 };
+
+/**
+ * ESPERAR, COMO UNA FRASE: «Esperar [24] [h]» o «[1] [h] antes de la reunión».
+ *
+ * Horas y días, nada más: el motor corre una vez por hora, así que ofrecer minutos sería
+ * prometer una precisión que no existe. Los minutos quedan en el dato (el recordatorio
+ * los usa), y si una espera ya trae minutos sueltos, la unidad «min» aparece —el valor que
+ * está puesto entra SIEMPRE a las opciones, o el primer clic lo pisa (AGENTS.md).
+ */
+function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; busy: boolean; cambiar: Cambiar }) {
+  const e: Espera = espera ?? { modo: 'tiempo', minutos: 1440 };
+  const m = Math.max(1, Math.round(Number(e.minutos) || 0));
+  const unidad: Unidad = m % 1440 === 0 ? 'dias' : m % 60 === 0 ? 'h' : 'min';
+  const n = m / MIN_DE[unidad];
+  const poner = (modo: Espera['modo'], cuanto: number, u: Unidad, apilar: boolean) =>
+    cambiar({ espera: { modo, minutos: Math.max(1, Math.round(cuanto * MIN_DE[u])) } }, apilar);
+  const numero = (
+    <input type="number" min={1} step={1} value={n} disabled={busy} aria-label="Cuánto"
+      onChange={(ev) => { const v = Number(ev.target.value); if (v > 0) poner(e.modo, v, unidad, false); }}
+      style={{ ...inpLienzo, width: 64, flex: 'none' }} />
+  );
+  const unidades: DropdownOption[] = [
+    ...(unidad === 'min' ? [{ value: 'min', label: 'min' }] : []),
+    { value: 'h', label: 'h' },
+    { value: 'dias', label: n === 1 && unidad === 'dias' ? 'día' : 'días' },
+  ];
+  const selUnidad = <Dropdown value={unidad} options={unidades} width={84} ariaLabel="Unidad" onChange={(v) => poner(e.modo, n, v as Unidad, true)} />;
+  const selModo = (
+    <Dropdown value={e.modo} width={e.modo === 'tiempo' ? 104 : 168} ariaLabel="Cuándo"
+      options={[{ value: 'tiempo', label: 'Esperar' }, { value: 'antes_reunion', label: 'antes de la reunión' }]}
+      onChange={(v) => poner(v as Espera['modo'], n, unidad, true)} />
+  );
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      {e.modo === 'tiempo' ? <>{selModo}{numero}{selUnidad}</> : <>{numero}{selUnidad}{selModo}</>}
+    </div>
+  );
+}
+
+const OPCIONES_CAMPO: DropdownOption[] = [...CONDICIONES_VIVAS].flatMap((c) => [
+  { value: `${c}|0`, label: FRASE_CONDICION[c][0] },
+  { value: `${c}|1`, label: FRASE_CONDICION[c][1] },
+]);
+
+/**
+ * LA CONDICIÓN: las ramas de arriba hacia abajo, como se leen en la tarjeta. Gana la
+ * PRIMERA que se cumple (if / else-if / else, el molde de ManyChat), y «Si no» es la
+ * última salida, fija.
+ *
+ * Cada rama es una o varias FILAS-FRASE («[Tiene la etiqueta ▾] [Cualificado ▾]») unidas
+ * todas con «y» o todas con «o» (el modo de la rama). Sólo se ofrecen las condiciones que
+ * el motor evalúa (`CONDICIONES_VIVAS`).
+ */
+function EditorCondicion({ paso, id, cambiar, onPasos, etiquetas, onCrearEtiqueta, etapas, busy, onError }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+  const ramas = paso.ramas ?? [];
+  const setRama = (ri: number, r: RamaCondicion, apilar: boolean) => cambiar({ ramas: ramas.map((x, k) => (k === ri ? r : x)) }, apilar);
+  return (
+    <div>
+      {ramas.map((r, ri) => (
+        <div key={r.id} style={{ borderTop: ri ? '1px solid var(--border)' : 'none', paddingTop: ri ? 10 : 0, marginTop: ri ? 10 : 0 }}>
+          {r.filas.map((f, fi) => (
+            <Fragment key={fi}>
+              {fi > 0 && <div style={{ fontSize: 11, color: 'var(--faint)', margin: '5px 0 5px 2px' }}>{r.modo === 'cualquiera' ? 'o' : 'y'}</div>}
+              <FilaFrase
+                fila={f} etiquetas={etiquetas} onCrearEtiqueta={onCrearEtiqueta} etapas={etapas} busy={busy} onError={onError}
+                puedeQuitar={!(ramas.length === 1 && r.filas.length === 1)}
+                onCambiar={(nf, apilar) => setRama(ri, { ...r, filas: r.filas.map((x, k) => (k === fi ? nf : x)) }, apilar)}
+                onQuitar={() => (r.filas.length > 1
+                  ? setRama(ri, { ...r, filas: r.filas.filter((_, k) => k !== fi) }, true)
+                  // La última fila de una rama se lleva la rama (y lo que colgaba de ella).
+                  : onPasos((prev) => quitarRama(prev, id, r.id), true))}
+              />
+            </Fragment>
+          ))}
+          <div style={{ display: 'flex', gap: 10, marginTop: 7 }}>
+            <BotonTexto disabled={busy || r.filas.length >= TOPE_FILAS} onClick={() => setRama(ri, { ...r, modo: 'todas', filas: [...r.filas, { campo: 'agendo' }] }, true)}>+ y</BotonTexto>
+            <BotonTexto disabled={busy || r.filas.length >= TOPE_FILAS} onClick={() => setRama(ri, { ...r, modo: 'cualquiera', filas: [...r.filas, { campo: 'agendo' }] }, true)}>+ o</BotonTexto>
+          </div>
+        </div>
+      ))}
+      <div style={{ marginTop: 12 }}>
+        <BotonTexto disabled={busy || ramas.length >= TOPE_RAMAS} onClick={() => onPasos((prev) => agregarRama(prev, id), true)}>+ condición</BotonTexto>
+      </div>
+      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--dim)' }}>Si no</div>
+    </div>
+  );
+}
+
+/** Una fila de una rama: «[campo, en positivo o negado] [valor]» y su ✕. */
+function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etiquetas, onCrearEtiqueta, etapas, busy, onError }: {
+  fila: FilaCondicion; onCambiar: (f: FilaCondicion, apilar: boolean) => void; onQuitar: () => void; puedeQuitar: boolean;
+  etiquetas: EtiquetaLienzo[]; onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>; etapas: SeccionEtapas[];
+  busy: boolean; onError: (m: string) => void;
+}) {
+  const valorCampo = `${fila.campo}|${fila.no ? 1 : 0}`;
+  const elegirCampo = (v: string) => {
+    const [campo, no] = v.split('|') as [CampoCondicion, string];
+    const mismo = campo === fila.campo;
+    const valor = mismo ? fila.valor : campo === 'antiguedad' ? 72 : null;
+    onCambiar({ campo, ...(no === '1' ? { no: true } : {}), ...(valor != null ? { valor } : {}), ...(campo === 'etapa' && mismo ? { funnel_id: fila.funnel_id ?? null } : {}) }, true);
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <Dropdown value={valorCampo} options={OPCIONES_CAMPO} width={fila.campo === 'etiqueta' || fila.campo === 'etapa' || fila.campo === 'antiguedad' ? 168 : 230} ariaLabel="Condición" onChange={elegirCampo} disabled={busy} />
+      {fila.campo === 'etiqueta' && (
+        <SelectorEtiqueta valor={fila.valor == null ? null : Number(fila.valor)} etiquetas={etiquetas} onCrear={onCrearEtiqueta} busy={busy} onError={onError}
+          onElegir={(idEt) => onCambiar({ ...fila, valor: idEt }, true)} />
+      )}
+      {fila.campo === 'etapa' && <SelectorEtapa fila={fila} etapas={etapas} busy={busy} onElegir={(key, funnelId) => onCambiar({ ...fila, valor: key, funnel_id: funnelId }, true)} />}
+      {fila.campo === 'antiguedad' && (
+        <>
+          <input type="number" min={1} step={1} value={Number(fila.valor) || ''} disabled={busy} aria-label="Horas"
+            onChange={(e) => onCambiar({ ...fila, valor: Math.max(1, Math.round(Number(e.target.value) || 0)) }, false)}
+            style={{ ...inpLienzo, width: 64, flex: 'none' }} />
+          <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>h</span>
+        </>
+      )}
+      <button type="button" onClick={onQuitar} disabled={busy || !puedeQuitar} title="Quitar" aria-label="Quitar esta condición"
+        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', cursor: puedeQuitar ? 'pointer' : 'default', opacity: puedeQuitar ? 1 : 0.35, fontSize: 13, padding: '4px 2px' }}>✕</button>
+    </div>
+  );
+}
+
+/** El selector de etiqueta, con «+ Nueva» (POST /api/crm/etiquetas, lo hace la parte E). */
+function SelectorEtiqueta({ valor, etiquetas, onElegir, onCrear, busy, onError }: {
+  valor: number | null; etiquetas: EtiquetaLienzo[]; onElegir: (id: number) => void;
+  onCrear?: (nombre: string) => Promise<EtiquetaLienzo | null>; busy: boolean; onError: (m: string) => void;
+}) {
+  const [creando, setCreando] = useState(false);
+  const [nombre, setNombre] = useState('');
+  const crear = async () => {
+    const t = nombre.trim();
+    setCreando(false); setNombre('');
+    if (!t || !onCrear) return;
+    const nueva = await onCrear(t);
+    if (nueva) onElegir(nueva.id); else onError('No se pudo crear la etiqueta');
+  };
+  if (creando) {
+    return (
+      <input autoFocus value={nombre} maxLength={40} placeholder="Nombre" aria-label="Nombre de la etiqueta nueva"
+        onChange={(e) => setNombre(e.target.value)} onBlur={() => void crear()}
+        onKeyDown={(e) => { if (e.key === 'Enter') void crear(); if (e.key === 'Escape') { setCreando(false); setNombre(''); } }}
+        style={{ ...inpLienzo, flex: 1, minWidth: 120 }} />
+    );
+  }
+  const vivas = etiquetas.filter((t) => !t.archivada_at || t.id === valor);
+  const opciones: DropdownOption[] = [
+    ...vivas.map((t) => ({ value: String(t.id), label: nombreEtiqueta(etiquetas, t.id) ?? t.nombre, ...(t.color ? { color: t.color } : {}) })),
+    // ⚠️ La que está puesta entra SIEMPRE, aunque no esté en la lista (todavía cargando, o
+    // de otro lado): un valor que no está entre las opciones se dibuja como la primera.
+    ...(valor != null && !vivas.some((t) => t.id === valor) ? [{ value: String(valor), label: 'Una etiqueta que ya no está' }] : []),
+    ...(onCrear ? [{ value: '__nueva', label: 'Nueva', crear: true }] : []),
+  ];
+  return (
+    <Dropdown value={valor == null ? '' : String(valor)} options={opciones} placeholder="Elige" width={150} ariaLabel="Etiqueta" disabled={busy}
+      search={vivas.length > 8}
+      onChange={(v) => { if (v === '__nueva') { setCreando(true); return; } if (Number(v) > 0) onElegir(Number(v)); }} />
+  );
+}
+
+/** El selector de etapa: las de cada producto, en su sección. El producto viaja en el valor. */
+function SelectorEtapa({ fila, etapas, onElegir, busy }: {
+  fila: FilaCondicion; etapas: SeccionEtapas[]; onElegir: (key: string, funnelId: number | null) => void; busy: boolean;
+}) {
+  const valor = fila.valor != null && fila.valor !== '' ? `${fila.funnel_id ?? ''}:${fila.valor}` : '';
+  const secciones = etapas.map((s) => ({ title: s.title, options: s.options.map((o) => ({ value: `${s.funnelId}:${o.value}`, label: o.label })) }));
+  if (valor && !secciones.some((s) => s.options.some((o) => o.value === valor))) {
+    secciones.unshift({ title: 'La que tiene puesta', options: [{ value: valor, label: String(fila.valor) }] });
+  }
+  return (
+    <Dropdown value={valor} secciones={secciones} placeholder="Elige" width={150} ariaLabel="Etapa" disabled={busy}
+      onChange={(v) => { const [fid, ...k] = v.split(':'); onElegir(k.join(':'), fid ? Number(fid) : null); }} />
+  );
+}
+
+/**
+ * «SI RESPONDE»: los casos (nombre corto + cuándo aplica) con «+ caso». Es lo que antes eran
+ * los escenarios del modo asistido, editados en un formulario arriba de la pantalla
+ * (punto 1). Cada caso nuevo nace con su tarjeta «MaKo contesta» (`agregarCaso`), que es
+ * donde se escribe cómo responder. «Otra cosa» es la última salida, fija.
+ */
+function EditorRespuesta({ paso, id, cambiar, onPasos, busy, onAbrir }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+  const casos = paso.casos ?? [];
+  const setCaso = (k: number, p: Partial<(typeof casos)[number]>) => cambiar({ casos: casos.map((c, j) => (j === k ? { ...c, ...p } : c)) }, false);
+  return (
+    <div>
+      {casos.map((c, k) => (
+        <div key={c.id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 9 }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <input value={c.titulo} maxLength={40} placeholder="Nombre" disabled={busy} aria-label="Nombre del caso"
+              onChange={(e) => setCaso(k, { titulo: e.target.value })} style={{ ...inpLienzo, fontWeight: 600 }} />
+            <textarea value={c.cuando} rows={2} placeholder="Cuándo aplica" disabled={busy} aria-label="Cuándo aplica"
+              onChange={(e) => setCaso(k, { cuando: e.target.value })} style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45 }} />
+          </div>
+          <button type="button" onClick={() => onPasos((prev) => quitarCaso(prev, id, c.id), true)} disabled={busy} title="Quitar" aria-label="Quitar este caso"
+            style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: '8px 2px' }}>✕</button>
+        </div>
+      ))}
+      {/* El caso se nombra acá; cómo responder se escribe en su tarjeta «MaKo contesta»,
+          que no se abre sola para no sacar a la persona de la lista que está armando. */}
+      <BotonTexto disabled={busy || casos.length >= TOPE_CASOS} onClick={() => onPasos((prev) => agregarCaso(prev, id).pasos, true)}>+ caso</BotonTexto>
+      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 12, color: 'var(--dim)' }}>Otra cosa</span>
+        {paso.si_no && (
+          <button type="button" onClick={() => onAbrir(paso.si_no!)}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--primary)', cursor: 'pointer', fontFamily: SANS }}>Ver</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** «IR A»: otra automatización (se la inscribe) u otra tarjeta de este flujo (un salto). */
+function EditorIrA({ paso, id, cambiar, pasos, secuencias, nombres, busy }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+  const d = paso.destino ?? null;
+  const valor = !d ? '' : 'secuencia_id' in d ? `sec:${d.secuencia_id}` : `nodo:${d.nodo}`;
+  const tarjetas = pasos
+    .map((p, i) => ({ p, id: idDe(p, i) }))
+    .filter((x) => x.id !== id && claseDe(x.p) !== 'ir_a' && claseDe(x.p) !== 'respuesta');
+  const secciones = [
+    { title: 'Otra automatización', options: secuencias.map((s) => ({ value: `sec:${s.id}`, label: s.nombre })) },
+    {
+      title: 'Otra tarjeta de este flujo',
+      // El nombre ya trae lo que la tarjeta dice («Mensaje: Hola, te…»), como la tarjeta del «Ir a».
+      options: tarjetas.map((x) => ({ value: `nodo:${x.id}`, label: nombreDeTarjeta(pasos, x.id, nombres) })),
+    },
+  ].filter((s) => s.options.length > 0);
+  if (valor && !secciones.some((s) => s.options.some((o) => o.value === valor))) {
+    secciones.unshift({ title: 'La que tiene puesta', options: [{ value: valor, label: 'Algo que ya no existe' }] });
+  }
+  return (
+    <Dropdown value={valor} secciones={secciones} placeholder="Elige a dónde" width="100%" ariaLabel="A dónde va" disabled={busy} search
+      onChange={(v) => {
+        const [clase, ...resto] = v.split(':');
+        const x = resto.join(':');
+        if (clase === 'sec' && Number(x) > 0) cambiar({ destino: { secuencia_id: Number(x) } }, true);
+        if (clase === 'nodo' && x) cambiar({ destino: { nodo: x } }, true);
+      }} />
+  );
+}
+
+function BotonTexto({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      style={{ background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, fontFamily: SANS, color: disabled ? 'var(--faint)' : 'var(--primary)', cursor: disabled ? 'default' : 'pointer' }}>
+      {children}
+    </button>
   );
 }

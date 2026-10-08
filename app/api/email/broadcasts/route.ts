@@ -12,7 +12,7 @@
 import type { NextRequest } from 'next/server';
 import {
   getBroadcasts, crearBroadcast, actualizarBroadcast, eliminarBroadcast,
-  enviarBroadcast, enviarBroadcastPrueba, SEGMENTOS, contarTodosSegmentos, esSegmentoValido,
+  enviarBroadcast, enviarBroadcastPrueba, segmentosDisponibles, contarTodosSegmentos, esSegmentoValido,
 } from '@/lib/email-marketing';
 import { getRolWsEfectivo } from '@/lib/workspace';
 
@@ -31,8 +31,10 @@ async function soloAdmin(): Promise<Response | null> {
 
 export async function GET() {
   try {
-    const [broadcasts, segmentoCounts] = await Promise.all([getBroadcasts(), contarTodosSegmentos()]);
-    return Response.json({ ok: true, broadcasts, segmentos: SEGMENTOS, segmentoCounts });
+    // Los segmentos fijos más uno por etiqueta del CRM (mig 0224): el desplegable del editor sale de acá.
+    const segmentos = await segmentosDisponibles();
+    const [broadcasts, segmentoCounts] = await Promise.all([getBroadcasts(), contarTodosSegmentos(segmentos)]);
+    return Response.json({ ok: true, broadcasts, segmentos, segmentoCounts });
   } catch (e) {
     console.error(`[api:email/broadcasts GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });

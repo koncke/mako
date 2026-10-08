@@ -44,14 +44,15 @@ import { evaluarAutoWorkspace } from '@/lib/crm-auto';
 import { crmAutoHabilitado, setCrmAuto, KEY_CRM_AUTO } from '@/lib/envio-flags';
 import {
   horariosLibresDeGoogle, permisoCalendarioGoogle, crearEventoDeReunion, moverEventoDeReunion,
-  proximasReunionesCon, choquesEnAgenda,
+  proximasReunionesCon, choquesEnAgenda, eventosDelDia, cambiarEventoDeReunion, cancelarEventoDeReunion,
 } from '@/lib/google-calendar';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 // La agenda de Google no pasa por el modelo: lo que se lee va a la persona
 // (`paraLaPersona`) y el modelo recibe un estado o un resumen sin datos de la agenda.
 import {
-  cuandoLegible, minutosDeHora, salidaHorarios, salidaReunionesDeLead, propuestaAgendar, elegirParaMover, propuestaMover,
-  yaPaso, resultadoAgendar, resultadoMover, historialAgendar, historialMover,
+  cuandoLegible, minutosDeHora, salidaHorarios, salidaReunionesDeLead, salidaDelDia, propuestaAgendar, elegirReunion, propuestaMover,
+  propuestaCambiar, propuestaCancelar, noPudeLeerDia, yaPaso, resultadoAgendar, resultadoMover, resultadoCambiar, resultadoCancelar,
+  historialAgendar, historialMover, historialCambiar, historialCancelar, type EventoDia,
 } from '@/lib/agenda-sin-ia';
 // Puro (sin server-only): la misma conversión hora-de-pared → instante que usa la
 // grilla del CRM, con el salto de horario de verano resuelto. No se escribe otra.
@@ -61,6 +62,12 @@ import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
 import { productosDelLead, agregarAProducto, quitarDeProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
+import {
+  listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
+  archivarEtiqueta, usoDeEtiqueta, ponerEtiqueta, sacarEtiqueta, catalogoWhatsApp, esEtiquetaError,
+  type Etiqueta, type EntradaEtiqueta, type ResultadoPoner,
+} from '@/lib/etiquetas';
+import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, consecuenciaDeArchivar, autorPublico } from '@/lib/etiquetas-reglas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
@@ -135,10 +142,109 @@ async function agendaParaEscribir(): Promise<string | null> {
   return null;
 }
 
+/**
+ * Entre qué reuniones se elige la que nombró la persona, para mover, cambiar o cancelar:
+ * con un lead, las suyas; sin lead, las del día que dijo (`fecha_actual`). Los errores
+ * llevan sólo lo que dijo la persona o el CRM: la lectura de la agenda se queda adentro.
+ */
+async function reunionesAElegir(input: Record<string, unknown>, ctx: Ctx): Promise<
+  { lead: Lead | null; todas: EventoDia[]; fechaActual: string | null; horaActual: string | null; tz: string }
+  | { error: string; paraLaPersona?: string }
+> {
+  const fechaActual = input.fecha_actual === undefined || input.fecha_actual === null ? null : input.fecha_actual;
+  if (fechaActual != null && !esFechaIso(fechaActual)) return { error: '«fecha_actual» tiene que ser YYYY-MM-DD: el día que tiene la reunión, como lo dijo la persona.' };
+  const horaActual = s(input.hora_actual) ?? null;
+  if (horaActual != null && minutosDe(horaActual) == null) return { error: '«hora_actual» tiene que ser HH:MM en 24 h (ej. 10:30).' };
+  let lead: Lead | null = null;
+  if (input.leadId !== undefined && input.leadId !== null) {
+    lead = await leadDe(input.leadId);
+    if (!lead) return { error: noExiste(input.leadId) };
+    if (!lead.email) return { error: `${lead.nombre} no tiene email cargado: sin email no se reconoce su reunión en la agenda. Si es un evento sin invitados, búscalo por el día (fecha_actual) sin el lead.` };
+  } else if (!fechaActual) {
+    return { error: 'Sin lead, la reunión se busca por el día: pasa fecha_actual (el día que tiene, como lo dijo la persona) y, si la dijo, hora_actual.' };
+  }
+  const sinAgenda = await agendaParaEscribir();
+  if (sinAgenda) return { error: sinAgenda };
+  const tz = await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
+  if (lead?.email) return { lead, todas: await proximasReunionesCon(lead.email), fechaActual, horaActual, tz };
+  const dia = await eventosDelDia(fechaActual!, tz);
+  if (!dia.ok) return noPudeLeerDia({ fecha: fechaActual!, codigo: dia.codigo, motivo: dia.motivo });
+  return { lead: null, todas: dia.eventos, fechaActual, horaActual, tz };
+}
+
+/** Con quién era la reunión, para el resumen y el historial. Sin lead, vacío; una
+ *  pendiente de antes del 07/10 con lead y sin nombre, «el lead». */
+const conQuienDe = (payload: Record<string, unknown>): string =>
+  (payload.leadId == null ? '' : String(payload.leadNombre ?? '').trim() || 'el lead');
+const leadIdDe = (payload: Record<string, unknown>): number | null => (payload.leadId == null ? null : Number(payload.leadId));
+
 /** Lo que pasó afuera ya pasó: si el historial falla, no se reporta como fallo de la acción. */
 async function anotar(leadId: number, titulo: string, texto: string, autor: string): Promise<void> {
   try { await logLeadEvent(leadId, titulo, texto, autor); }
   catch (e) { console.error(`[api-mako crm] historial del lead ${leadId}:`, e instanceof Error ? e.message : String(e)); }
+}
+
+// ── etiquetas del CRM (mig 0224) ──────────────────────────────────────────────
+
+const noExisteEtiqueta = (id: unknown) => `No existe la etiqueta #${String(id)} en este negocio. Pide el etiquetaId con listar_etiquetas.`;
+const etiquetaDeInput = (id: unknown): Promise<Etiqueta | null> => (typeof id === 'number' ? etiquetaPorId(id).catch(() => null) : Promise.resolve(null));
+
+/** Lo que se ve de una etiqueta: el vínculo con su producto y su etapa por NOMBRE, no ids sueltos. */
+function vistaEtiqueta(e: Etiqueta, productos: ProductoCrm[] | null, leads?: number | null) {
+  const p = e.etapa_key ? (productos?.find((x) => (e.funnel_id == null ? x.esDefault : x.embudoId === e.funnel_id)) ?? null) : null;
+  return {
+    id: e.id, nombre: e.nombre, color: e.color, emoji: e.emoji,
+    etapa: e.etapa_key ? { key: e.etapa_key, label: p ? etiquetaDe(p, e.etapa_key) : e.etapa_key, embudoId: p?.embudoId ?? e.funnel_id, producto: p?.nombre ?? null } : null,
+    whatsapp: e.wa_label_id ? { labelId: e.wa_label_id, linea: e.wa_instance } : null,
+    archivada: Boolean(e.archivada_at),
+    ...(leads !== undefined ? { leads } : {}),
+  };
+}
+
+/**
+ * El vínculo a una etapa que pidió el input, contra las etapas REALES del producto. Sin `etapa`, no
+ * hay vínculo que cambiar (`{}`). Sin `embudoId`, el producto principal del negocio.
+ */
+async function vinculoDeInput(input: Record<string, unknown>): Promise<{ vinculo?: { funnelId: number | null; etapaKey: string }; texto?: string } | { error: string; disponibles?: unknown }> {
+  const etapa = s(input.etapa);
+  if (!etapa) return {};
+  const productos = await productosCrm();
+  if (!productos) return { error: NO_LEI_PRODUCTOS };
+  const emb = n(input.embudoId);
+  const p = emb != null ? productos.find((x) => x.embudoId === emb) : productos.find((x) => x.esDefault);
+  if (!p) return { error: emb != null ? `No existe el producto #${emb} en el CRM de este negocio.` : 'No encontré el producto principal del negocio.', disponibles: productos.map((x) => ({ embudoId: x.embudoId, nombre: x.nombre })) };
+  const st = p.etapas.find((x) => x.key === etapa);
+  if (!st) return { error: `«${etapa}» no es una etapa de «${p.nombre}».`, disponibles: p.etapas.map((x) => ({ key: x.key, label: x.label })) };
+  return { vinculo: { funnelId: p.esDefault ? null : p.embudoId, etapaKey: etapa }, texto: `vinculada a «${st.label}» de «${p.nombre}»` };
+}
+
+/** La etiqueta del celular que pidió el input, contra el catálogo guardado. */
+async function whatsappDeInput(input: Record<string, unknown>): Promise<{ labelId?: string; texto?: string } | { error: string; disponibles?: unknown }> {
+  const id = s(input.waLabelId);
+  if (!id) return {};
+  const cat = await catalogoWhatsApp().catch(() => null);
+  if (!cat) return { error: 'No se pudieron leer las etiquetas del WhatsApp del celular.' };
+  const l = cat.find((x) => x.labelId === id);
+  if (!l) return { error: `La etiqueta «${id}» no está en el WhatsApp del celular. Las de WhatsApp se crean en el celular.`, disponibles: cat.map((x) => ({ labelId: x.labelId, nombre: x.nombre })) };
+  return { labelId: id, texto: `en WhatsApp «${l.nombre}»` };
+}
+
+/** Lo que salió mal afuera, en una frase, para el resumen. */
+const fallosSync = (r: Extract<ResultadoPoner, { ok: true }>): string => {
+  const mal = r.sync.filter((x) => !x.ok);
+  return mal.length ? ` No se pudo en ${mal.map((x) => x.destino).join(' ni ')} (quedó en el historial).` : '';
+};
+
+/**
+ * La consecuencia de archivar, para el resumen de la propuesta: la MISMA frase que la confirmación
+ * del CRUD (`consecuenciaDeArchivar`, lib/etiquetas-reglas.ts). Revisión del 08/10/2026
+ * (etiquetas-6, datos-5): cada una tenía su redacción y la de acá prometía que las condiciones
+ * «dejan de cumplirse» cuando el motor todavía las cumplía. La decisión ahora es que archivar la
+ * APAGA (el motor la excluye) y la frase dice eso. Un número que no se pudo leer se dice.
+ */
+function usoTexto(u: Awaited<ReturnType<typeof usoDeEtiqueta>>): string {
+  const frase = consecuenciaDeArchivar(u);
+  return frase ? `. ${frase.replace(/\.$/, '')}` : '';
 }
 
 // ── un lead en varios productos (mig 0207) ────────────────────────────────────
@@ -458,6 +564,16 @@ export const RUNNERS: Runners = {
       return salidaReunionesDeLead({ nombre: lead.nombre, reuniones: await proximasReunionesCon(lead.email), tz });
     }),
   },
+  agenda_del_dia: {
+    leer: async (input, ctx) => {
+      if (!esFechaIso(input.fecha)) return fallo('«fecha» tiene que ser una fecha YYYY-MM-DD.');
+      const tz = await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
+      const r = await eventosDelDia(input.fecha, tz);
+      return salidaDelDia(r.ok
+        ? { fecha: input.fecha, ok: true, codigo: 'ok', motivo: '', eventos: r.eventos, tz }
+        : { fecha: input.fecha, ok: false, codigo: r.codigo, motivo: r.motivo, eventos: [], tz });
+    },
+  },
   link_agenda_calendly: {
     leer: async (input) => {
       const cual = input.cual === 'R2' ? 'R2' as const : 'R1' as const;
@@ -533,6 +649,33 @@ export const RUNNERS: Runners = {
     },
   },
 
+  listar_etiquetas: {
+    leer: async (input) => {
+      const [etiquetas, conteo, productos] = await Promise.all([
+        listarEtiquetas({ incluirArchivadas: input.incluirArchivadas === true }),
+        conteoPorEtiqueta().catch(() => null),
+        productosCrm().catch(() => null),
+      ]);
+      return json({
+        etiquetas: etiquetas.map((e) => vistaEtiqueta(e, productos, conteo ? (conteo.get(e.id) ?? 0) : null)),
+        nota: 'etiquetaId = id. Vinculada a una etapa: ponerla mueve al lead ahí, y entrar o salir de la etapa la pone o la saca.',
+      });
+    },
+  },
+  etiquetas_lead: {
+    // ⚠️ `puesta_por` guarda el EMAIL de quien la puso desde la ficha (autorDelMovimiento). Por
+    // HTTP no viajan datos del equipo —`historial_lead` y `notas_lead`, con el mismo autor, son
+    // SIN_HTTP—, así que ahí sale reducido a «una persona» / «MaKo» / la automatización
+    // (revisión del 08/10/2026, datos-7). En la app y en WhatsApp el que pregunta es del equipo.
+    leer: (input, ctx) => conLead(input, async (lead) => {
+      const [suyas, productos] = await Promise.all([etiquetasDeLead(lead.id), productosCrm().catch(() => null)]);
+      return json({
+        lead: { id: lead.id, nombre: lead.nombre },
+        etiquetas: suyas.map((e) => ({ ...vistaEtiqueta(e, productos), puesta_at: e.puesta_at, puesta_por: ctx.canal === 'http' ? autorPublico(e.puesta_por) : e.puesta_por })),
+      });
+    }),
+  },
+
   // ── Acciones heredadas ──────────────────────────────────────────────────────
   proponer_cambio_etapa: {
     proponerLegado: (input, ctx) => texto(legado(ctx)('proponer_cambio_etapa', input)),
@@ -575,9 +718,16 @@ export const RUNNERS: Runners = {
   // tiempo cambia: que la hora no haya pasado.
   proponer_agendar_agenda: {
     preparar: async (input, ctx) => {
-      const lead = await leadDe(input.leadId);
-      if (!lead) return { error: noExiste(input.leadId) };
-      if (!lead.email) return { error: `${lead.nombre} no tiene email cargado, y la invitación de Google va al email. Pídeselo antes.` };
+      // Con lead, se lo invita; sin lead es un evento del negocio («una reunión que se llame
+      // PRUEBA», 08/10/2026) y el título lo pone la persona.
+      let lead: Lead | null = null;
+      if (input.leadId !== undefined && input.leadId !== null) {
+        lead = await leadDe(input.leadId);
+        if (!lead) return { error: noExiste(input.leadId) };
+        if (!lead.email) return { error: `${lead.nombre} no tiene email cargado, y la invitación de Google va al email. Pídeselo, o agenda el evento sin el lead.` };
+      } else if (!s(input.titulo)) {
+        return { error: 'Sin lead, el evento necesita un título: pasa el que dijo la persona en «titulo».' };
+      }
       const sinAgenda = await agendaParaEscribir();
       if (sinAgenda) return { error: sinAgenda };
       const t = await instanteEnZona(ctx.ws, input.fecha, input.hora);
@@ -586,53 +736,46 @@ export const RUNNERS: Runners = {
       // El email va en el payload: se invita al que la persona VIO en el resumen,
       // aunque la ficha cambie entre el «propongo» y el «sí».
       return propuestaAgendar({
-        leadId: lead.id, email: lead.email, titulo: s(input.titulo) ?? `Reunión con ${lead.nombre}`,
+        leadId: lead?.id ?? null, email: lead?.email ?? null, titulo: s(input.titulo) ?? `Reunión con ${lead?.nombre ?? ''}`.trim(),
         inicioIso: t.iso, tz: t.tz, duracionMin: duracion, choques: await choquesEnAgenda(t.iso, duracion),
       });
     },
     ejecutar: (payload, ctx) => seguro('agendar la reunión', async () => {
-      const id = Number(payload.leadId);
+      const id = leadIdDe(payload);
       const iso = String(payload.inicioIso);
       const tz = String(payload.tz || TZ_DEFAULT);
       if (Date.parse(iso) < Date.now()) return yaPaso('agendó', iso, tz);
       const titulo = String(payload.titulo ?? '');
-      const email = String(payload.email ?? '');
+      const email = typeof payload.email === 'string' && payload.email.trim() ? payload.email.trim() : null;
       const r = await crearEventoDeReunion({ inicioIso: iso, duracionMin: Number(payload.duracionMin) || undefined, titulo, emailInvitado: email });
-      if (r.ok) await anotar(id, 'Reunión agendada', historialAgendar({ titulo, inicioIso: iso, tz, canal: canalTxt(ctx), email }), autorDe(ctx));
+      if (r.ok && id != null && email) await anotar(id, 'Reunión agendada', historialAgendar({ titulo, inicioIso: iso, tz, canal: canalTxt(ctx), email }), autorDe(ctx));
       return resultadoAgendar({ ok: r.ok, codigo: r.codigo, motivo: r.motivo, titulo, inicioIso: iso, tz, email });
     }),
   },
   proponer_mover_reunion: {
     preparar: async (input, ctx) => {
-      const lead = await leadDe(input.leadId);
-      if (!lead) return { error: noExiste(input.leadId) };
-      if (!lead.email) return { error: `${lead.nombre} no tiene email cargado: sin email no se reconoce su reunión en la agenda.` };
-      const sinAgenda = await agendaParaEscribir();
-      if (sinAgenda) return { error: sinAgenda };
       // Cuál reunión: con lo que DIJO la persona (el día y, si lo dijo, la hora). Antes el
       // modelo copiaba el `inicio` exacto de una lista de la agenda que tenía que leer —o
-      // sea que la agenda pasaba por él—; ahora la elige el código.
-      const fechaActual = input.fecha_actual === undefined || input.fecha_actual === null ? null : input.fecha_actual;
-      if (fechaActual != null && !esFechaIso(fechaActual)) return { error: '«fecha_actual» tiene que ser YYYY-MM-DD: el día que tiene HOY la reunión, como lo dijo la persona.' };
-      const horaActual = s(input.hora_actual) ?? null;
-      if (horaActual != null && minutosDe(horaActual) == null) return { error: '«hora_actual» tiene que ser HH:MM en 24 h (ej. 10:30).' };
+      // sea que la agenda pasaba por él—; ahora la elige el código. Con lead o sin lead.
+      const r = await reunionesAElegir(input, ctx);
+      if ('error' in r) return r;
       const t = await instanteEnZona(ctx.ws, input.fecha, input.hora);
       if ('error' in t) return { error: t.error };
-      const elegida = elegirParaMover({ nombre: lead.nombre, todas: await proximasReunionesCon(lead.email), fechaActual, horaActual, nuevoIso: t.iso, tz: t.tz });
+      const elegida = elegirReunion({ quien: r.lead?.nombre ?? null, accion: 'mover', todas: r.todas, fechaActual: r.fechaActual, horaActual: r.horaActual, tz: t.tz, nuevoIso: t.iso });
       if ('error' in elegida) return elegida;
       const duracion = elegida.reunion.duracionMin ?? DURACION_DEFECTO_MIN;
       return propuestaMover({
-        leadId: lead.id, nombre: lead.nombre, email: lead.email, reunion: elegida.reunion, nuevoIso: t.iso, tz: t.tz, fechaActual, horaActual,
+        leadId: r.lead?.id ?? null, nombre: r.lead?.nombre ?? null, email: r.lead?.email ?? null, reunion: elegida.reunion,
+        nuevoIso: t.iso, tz: t.tz, fechaActual: r.fechaActual, horaActual: r.horaActual,
         choques: await choquesEnAgenda(t.iso, duracion, elegida.reunion.inicioIso),
       });
     },
     ejecutar: (payload, ctx) => seguro('mover la reunión', async () => {
-      const id = Number(payload.leadId);
+      const id = leadIdDe(payload);
       const nuevo = String(payload.nuevoIso);
       const antes = String(payload.inicioActualIso);
       const tz = String(payload.tz || TZ_DEFAULT);
-      // Las pendientes de antes del 07/10 no traen el nombre: no se rompen.
-      const conQuien = String(payload.leadNombre ?? '').trim() || 'el lead';
+      const conQuien = conQuienDe(payload);
       if (Date.parse(nuevo) < Date.now()) return yaPaso('movió', nuevo, tz);
       const titulo = String(payload.titulo ?? '');
       const r = await moverEventoDeReunion({
@@ -642,8 +785,57 @@ export const RUNNERS: Runners = {
         // invitación a una reunión que nadie pidió.
         crearSiNoExiste: false,
       });
-      if (r.ok) await anotar(id, 'Reunión movida', historialMover({ conQuien, nuevoIso: nuevo, tz, canal: canalTxt(ctx) }), autorDe(ctx));
+      if (r.ok && id != null) await anotar(id, 'Reunión movida', historialMover({ conQuien, nuevoIso: nuevo, tz, canal: canalTxt(ctx) }), autorDe(ctx));
       return resultadoMover({ ok: r.ok, codigo: r.codigo, motivo: r.motivo, titulo, antesIso: antes, nuevoIso: nuevo, tz, conQuien });
+    }),
+  },
+  proponer_cambiar_reunion: {
+    preparar: async (input, ctx) => {
+      const tituloNuevo = s(input.titulo) ?? null;
+      const duracion = n(input.duracion_min) ?? null;
+      if (!tituloNuevo && duracion == null) return { error: 'Pasa qué cambia: el título nuevo (titulo), la duración nueva (duracion_min) o las dos. Para el día o la hora es proponer_mover_reunion.' };
+      const r = await reunionesAElegir(input, ctx);
+      if ('error' in r) return r;
+      const elegida = elegirReunion({ quien: r.lead?.nombre ?? null, accion: 'cambiar', todas: r.todas, fechaActual: r.fechaActual, horaActual: r.horaActual, tz: r.tz });
+      if ('error' in elegida) return elegida;
+      return propuestaCambiar({
+        leadId: r.lead?.id ?? null, nombre: r.lead?.nombre ?? null, email: r.lead?.email ?? null, reunion: elegida.reunion, tz: r.tz,
+        tituloNuevo, duracionMin: duracion, fechaActual: r.fechaActual, horaActual: r.horaActual,
+      });
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar la reunión', async () => {
+      const id = leadIdDe(payload);
+      const conQuien = conQuienDe(payload);
+      const tz = String(payload.tz || TZ_DEFAULT);
+      const inicio = String(payload.inicioIso);
+      const tituloAntes = String(payload.titulo ?? '');
+      const tituloNuevo = typeof payload.tituloNuevo === 'string' && payload.tituloNuevo.trim() ? payload.tituloNuevo.trim() : null;
+      const duracion = typeof payload.duracionMin === 'number' ? payload.duracionMin : null;
+      const r = await cambiarEventoDeReunion({ inicioIso: inicio, titulo: tituloAntes, emailInvitado: typeof payload.email === 'string' ? payload.email : null, tituloNuevo, duracionMin: duracion });
+      if (r.ok && id != null) await anotar(id, 'Reunión cambiada', historialCambiar({ conQuien, tituloNuevo, duracionMin: duracion, canal: canalTxt(ctx) }), autorDe(ctx));
+      return resultadoCambiar({ ok: r.ok, codigo: r.codigo, motivo: r.motivo, tituloAntes, inicioIso: inicio, tz, conQuien, tituloNuevo, duracionMin: duracion });
+    }),
+  },
+  proponer_cancelar_reunion: {
+    preparar: async (input, ctx) => {
+      const r = await reunionesAElegir(input, ctx);
+      if ('error' in r) return r;
+      const elegida = elegirReunion({ quien: r.lead?.nombre ?? null, accion: 'cancelar', todas: r.todas, fechaActual: r.fechaActual, horaActual: r.horaActual, tz: r.tz });
+      if ('error' in elegida) return elegida;
+      return propuestaCancelar({
+        leadId: r.lead?.id ?? null, nombre: r.lead?.nombre ?? null, email: r.lead?.email ?? null, reunion: elegida.reunion, tz: r.tz,
+        fechaActual: r.fechaActual, horaActual: r.horaActual,
+      });
+    },
+    ejecutar: (payload, ctx) => seguro('cancelar la reunión', async () => {
+      const id = leadIdDe(payload);
+      const conQuien = conQuienDe(payload);
+      const tz = String(payload.tz || TZ_DEFAULT);
+      const inicio = String(payload.inicioIso);
+      const titulo = String(payload.titulo ?? '');
+      const r = await cancelarEventoDeReunion({ inicioIso: inicio, titulo, emailInvitado: typeof payload.email === 'string' ? payload.email : null });
+      if (r.ok && id != null) await anotar(id, 'Reunión cancelada', historialCancelar({ conQuien, canal: canalTxt(ctx) }), autorDe(ctx));
+      return resultadoCancelar({ ok: r.ok, codigo: r.codigo, motivo: r.motivo, titulo, inicioIso: inicio, tz, conQuien });
     }),
   },
   marcar_asistencia_reunion: {
@@ -939,6 +1131,156 @@ export const RUNNERS: Runners = {
       if (r.antes === etapa) return { ok: false, resumen: `${n.lead} ya estaba en «${n.etapa(etapa)}» de «${n.producto}»: no se movió nada.` };
       invalidar('leads');
       return { ok: true, resumen: `Listo: ${n.lead} pasó de «${n.etapa(r.antes)}» a «${n.etapa(etapa)}» en «${n.producto}».` };
+    }),
+  },
+
+  // Las ETIQUETAS del CRM (mig 0224): todo por lib/etiquetas.ts, la única puerta de escritura.
+  crear_etiqueta: {
+    preparar: async (input) => {
+      const nombre = limpiarNombreEtiqueta(input.nombre);
+      if (!nombre) return { error: 'Falta el nombre de la etiqueta.', faltan: ['nombre'] };
+      const todas = await listarEtiquetas().catch(() => null);
+      if (!todas) return { error: 'No se pudieron leer las etiquetas del negocio.' };
+      const ya = todas.find((e) => claveNombre(e.nombre) === claveNombre(nombre));
+      if (ya) return { error: `Ya hay una etiqueta «${ya.nombre}» (id ${ya.id}).`, yaEstaba: true };
+      if (input.color !== undefined && !colorValido(input.color)) return { error: `«${String(input.color)}» no es un color #RRGGBB.` };
+      const v = await vinculoDeInput(input);
+      if ('error' in v) return v;
+      const w = await whatsappDeInput(input);
+      if ('error' in w) return w;
+      const extras = [v.texto, w.texto].filter(Boolean).join(', ');
+      return {
+        payload: { nombre, color: colorValido(input.color), emoji: emojiValido(input.emoji), vinculo: v.vinculo ?? null, waLabelId: w.labelId ?? null },
+        resumen: `Crear la etiqueta «${nombre}»${extras ? `, ${extras}` : ''}.`,
+      };
+    },
+    ejecutar: (payload) => seguro('crear la etiqueta', async () => {
+      try {
+        const { etiqueta, aviso } = await crearEtiqueta({
+          nombre: payload.nombre, color: payload.color ?? undefined, emoji: payload.emoji ?? undefined,
+          vinculo: (payload.vinculo as EntradaEtiqueta['vinculo']) ?? null, waLabelId: (payload.waLabelId as string | null) ?? null,
+        });
+        return { ok: true, resumen: `Listo: creada la etiqueta «${etiqueta.nombre}» (id ${etiqueta.id}).${aviso ? ` ${aviso}` : ''}`, datos: { etiquetaId: etiqueta.id } };
+      } catch (e) {
+        if (esEtiquetaError(e)) return { ok: false, resumen: e.message };
+        throw e;
+      }
+    }),
+  },
+  editar_etiqueta: {
+    preparar: async (input) => {
+      const e = await etiquetaDeInput(input.etiquetaId);
+      if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
+      const payload: Record<string, unknown> = { etiquetaId: e.id };
+      const cambios: string[] = [];
+      const nombre = input.nombre !== undefined ? limpiarNombreEtiqueta(input.nombre) : '';
+      if (input.nombre !== undefined && !nombre) return { error: 'El nombre no puede quedar vacío.' };
+      if (nombre && nombre !== e.nombre) {
+        if (claveNombre(nombre) !== claveNombre(e.nombre)) {
+          const otra = (await listarEtiquetas().catch(() => [])).find((x) => x.id !== e.id && claveNombre(x.nombre) === claveNombre(nombre));
+          if (otra) return { error: `Ya hay una etiqueta «${otra.nombre}» (id ${otra.id}).` };
+        }
+        payload.nombre = nombre; cambios.push(`nombre «${nombre}»`);
+      }
+      if (input.color !== undefined) {
+        const c = colorValido(input.color);
+        if (!c) return { error: `«${String(input.color)}» no es un color #RRGGBB.` };
+        if (c !== e.color.toUpperCase()) { payload.color = c; cambios.push(`color ${c}`); }
+      }
+      if (input.emoji !== undefined && emojiValido(input.emoji) !== e.emoji) { payload.emoji = emojiValido(input.emoji); cambios.push('emoji'); }
+      if (input.sinEtapa === true) {
+        if (e.etapa_key) { payload.vinculo = null; cambios.push('sin etapa vinculada'); }
+      } else {
+        const v = await vinculoDeInput(input);
+        if ('error' in v) return v;
+        if (v.vinculo && (v.vinculo.etapaKey !== e.etapa_key || v.vinculo.funnelId !== e.funnel_id)) { payload.vinculo = v.vinculo; cambios.push(v.texto ?? 'etapa'); }
+      }
+      if (input.sinWhatsApp === true) {
+        if (e.wa_label_id) { payload.waLabelId = null; cambios.push('sin etiqueta de WhatsApp'); }
+      } else {
+        const w = await whatsappDeInput(input);
+        if ('error' in w) return w;
+        if (w.labelId && w.labelId !== e.wa_label_id) { payload.waLabelId = w.labelId; cambios.push(w.texto ?? 'WhatsApp'); }
+      }
+      if (!cambios.length) return { error: `«${e.nombre}» ya está así: no cambia nada.`, yaEstaba: true };
+      return { payload, resumen: `Editar la etiqueta «${e.nombre}»: ${cambios.join(', ')}.` };
+    },
+    ejecutar: (payload) => seguro('editar la etiqueta', async () => {
+      const entrada: EntradaEtiqueta = {};
+      if ('nombre' in payload) entrada.nombre = payload.nombre;
+      if ('color' in payload) entrada.color = payload.color;
+      if ('emoji' in payload) entrada.emoji = payload.emoji;
+      if ('vinculo' in payload) entrada.vinculo = (payload.vinculo as EntradaEtiqueta['vinculo']) ?? null;
+      if ('waLabelId' in payload) entrada.waLabelId = (payload.waLabelId as string | null) ?? null;
+      try {
+        const e = await editarEtiqueta(Number(payload.etiquetaId), entrada);
+        return { ok: true, resumen: `Listo: la etiqueta «${e.nombre}» quedó guardada.` };
+      } catch (err) {
+        if (esEtiquetaError(err)) return { ok: false, resumen: err.message };
+        throw err;
+      }
+    }),
+  },
+  archivar_etiqueta: {
+    preparar: async (input) => {
+      const e = await etiquetaDeInput(input.etiquetaId);
+      if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
+      const archivar = input.archivar !== false;
+      if (Boolean(e.archivada_at) === archivar) return { error: `«${e.nombre}» ya está ${archivar ? 'archivada' : 'activa'}.`, yaEstaba: true };
+      if (!archivar) return { payload: { etiquetaId: e.id, archivar }, resumen: `Recuperar la etiqueta «${e.nombre}».` };
+      const uso = await usoDeEtiqueta(e.id);
+      return { payload: { etiquetaId: e.id, archivar }, resumen: `Archivar la etiqueta «${e.nombre}»${usoTexto(uso)}.` };
+    },
+    ejecutar: (payload) => seguro('archivar la etiqueta', async () => {
+      try {
+        const { etiqueta } = await archivarEtiqueta(Number(payload.etiquetaId), payload.archivar !== false);
+        return { ok: true, resumen: etiqueta.archivada_at ? `Listo: «${etiqueta.nombre}» quedó archivada.` : `Listo: «${etiqueta.nombre}» volvió a estar activa.` };
+      } catch (err) {
+        if (esEtiquetaError(err)) return { ok: false, resumen: err.message };
+        throw err;
+      }
+    }),
+  },
+  poner_etiqueta_lead: {
+    preparar: async (input) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      const e = await etiquetaDeInput(input.etiquetaId);
+      if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
+      if (e.archivada_at) return { error: `«${e.nombre}» está archivada: no se puede poner.` };
+      const suyas = await etiquetasDeLead(lead.id).catch(() => null);
+      if (!suyas) return { error: 'No se pudieron leer las etiquetas del lead.' };
+      if (suyas.some((x) => x.id === e.id)) return { error: `${lead.nombre} ya tiene «${e.nombre}».`, yaEstaba: true };
+      return {
+        payload: { leadId: lead.id, etiquetaId: e.id },
+        resumen: `Ponerle «${e.nombre}» a ${lead.nombre}${e.etapa_key ? ' (está vinculada a una etapa: lo pasa ahí)' : ''}.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('poner la etiqueta', async () => {
+      const r = await ponerEtiqueta(Number(payload.leadId), Number(payload.etiquetaId), { autor: autorDe(ctx) });
+      if (!r.ok) return { ok: false, resumen: `No se pudo poner la etiqueta: ${r.error}` };
+      if (r.yaEstaba) return { ok: true, resumen: 'Ya la tenía: no cambió nada.' };
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: etiqueta puesta${r.movio ? ', y pasó a la etapa vinculada' : ''}.${fallosSync(r)}` };
+    }),
+  },
+  sacar_etiqueta_lead: {
+    preparar: async (input) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      const e = await etiquetaDeInput(input.etiquetaId);
+      if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
+      const suyas = await etiquetasDeLead(lead.id).catch(() => null);
+      if (!suyas) return { error: 'No se pudieron leer las etiquetas del lead.' };
+      if (!suyas.some((x) => x.id === e.id)) return { error: `${lead.nombre} no tiene «${e.nombre}».`, yaEstaba: true };
+      return { payload: { leadId: lead.id, etiquetaId: e.id }, resumen: `Sacarle «${e.nombre}» a ${lead.nombre}.` };
+    },
+    ejecutar: (payload, ctx) => seguro('sacar la etiqueta', async () => {
+      const r = await sacarEtiqueta(Number(payload.leadId), Number(payload.etiquetaId), { autor: autorDe(ctx) });
+      if (!r.ok) return { ok: false, resumen: `No se pudo sacar la etiqueta: ${r.error}` };
+      if (r.yaEstaba) return { ok: true, resumen: 'Ya no la tenía: no cambió nada.' };
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: etiqueta sacada.${fallosSync(r)}` };
     }),
   },
 

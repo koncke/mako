@@ -16,6 +16,7 @@ export const ARTICULOS = {
   openapi: { titulo: 'Descripción OpenAPI', corto: 'Descripción OpenAPI', lead: 'La API entera descrita en OpenAPI 3.1, para importarla en n8n, Postman o un generador de SDK.' },
   'buenas-practicas': { titulo: 'Buenas prácticas para usar la API REST', corto: 'Buenas prácticas', lead: 'Cómo integrarte con la API de MaKo sin sorpresas.' },
   problemas: { titulo: 'Solución de problemas de la API REST', corto: 'Solución de problemas', lead: 'Qué significa cada error y cómo arreglarlo.' },
+  'migrar-curso': { titulo: 'Migrar un curso a MaKo con Claude', corto: 'Migrar un curso con Claude', lead: 'Pasa un curso entero (módulos, clases, videos y descripciones) pidiéndoselo a Claude, sin cargarlo a mano.' },
 } as const;
 
 export type SlugArticulo = keyof typeof ARTICULOS;
@@ -26,5 +27,6 @@ export const GRUPOS_ARTICULOS: { titulo: string; articulos: SlugArticulo[] }[] =
   { titulo: 'Acerca de la API', articulos: ['versiones', 'openapi'] },
   { titulo: 'Uso de la API', articulos: ['primeros-pasos', 'limites', 'buenas-practicas', 'problemas'] },
   { titulo: 'Autenticación', articulos: ['autenticacion', 'permisos'] },
+  { titulo: 'Guías', articulos: ['migrar-curso'] },
 ];
 

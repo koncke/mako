@@ -26,6 +26,9 @@ import { enTandas } from './ids-con-filas';
 import { enviosPorInscripcion } from './nutricion-envios-resumen';
 import { preparaUnaReunion } from './nutricion-familias';
 import { reunionQuePreparaMs, type JuntasLead } from './nutricion-reinscripcion';
+import { agendoLead, pagoLead, pasoDeEntrada, logroCierraLaInscripcion } from './nutricion-grafo-motor';
+import { esFlujoExplicito } from './flujo-legado';
+import type { PasoGrafo } from './flujo-grafo';
 
 export type ResultadoDesenlaces = {
   logrados: number;
@@ -55,19 +58,23 @@ function fechaReunion(lead: Record<string, unknown>): string {
     return d.toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
   } catch { return ''; }
 }
-/** ¿Se cumplió lo que la secuencia buscaba? */
+/**
+ * ¿Se cumplió lo que la secuencia buscaba?
+ *
+ * «Agendó» y «pagó» salen de lib/nutricion-grafo-motor.ts y no de una cuenta propia: son las
+ * MISMAS preguntas que la condición «Agendó» / «Pagó» de una tarjeta, y el conversor pasa
+ * «Termina si agenda» a esa condición. Con dos reglas, una secuencia convertida terminaría en
+ * otro momento que antes de convertirla.
+ */
 function seLogro(d: Desenlace, lead: Record<string, unknown>, estado: string): boolean {
   switch (d.logrado) {
     case 'respondio':
       return estado === 'respondio';
-    case 'agendo': {
+    case 'agendo':
       // Cualquier reunión agendada cuenta, sea la primera o la segunda.
-      const f = [lead.fecha_junta_1, lead.junta_1_at, lead.fecha_junta_2, lead.junta_2_at]
-        .find((x) => typeof x === 'string' && x);
-      return !!f;
-    }
+      return agendoLead(lead);
     case 'pago':
-      return Boolean(lead.fecha_primer_pago) || lead.cerro === true;
+      return pagoLead(lead);
     default:
       return false;
   }
@@ -98,9 +105,10 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   if (!inscs.length) return res;
 
   const secIds = [...new Set(inscs.map((i) => i.secuencia_id))];
+  // `pasos` para saber si es un flujo de TARJETAS (`logroCierraLaInscripcion`, más abajo).
   const { data: secData } = await supabase
-    .from('nutricion_secuencias').select('id, nombre, estrategia').in('id', secIds);
-  const secs = new Map(((secData ?? []) as Array<{ id: number; nombre: string; estrategia: unknown }>).map((s) => [s.id, s]));
+    .from('nutricion_secuencias').select('id, nombre, estrategia, pasos').in('id', secIds);
+  const secs = new Map(((secData ?? []) as Array<{ id: number; nombre: string; estrategia: unknown; pasos: unknown }>).map((s) => [s.id, s]));
 
   // Los leads, en tandas de 200 ids: una fila por id, así que cada tanda queda
   // lejos del techo de 1000 y la URL del `.in()` no crece con la cola.
@@ -174,8 +182,10 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     const { data: ya } = await supabase
       .from('nutricion_inscripciones').select('id').eq('lead_id', leadId).eq('secuencia_id', sig.id).maybeSingle();
     if (ya) return 'ya-estuvo-en-la-siguiente';
+    // El paso de ENTRADA, no el índice 0: con el flujo con ramas, «Si responde» puede estar
+    // primero en el array y la salida arrancar más abajo.
     const pasos = Array.isArray(sig.pasos) ? (sig.pasos as Array<{ delay_horas?: number }>) : [];
-    const delay = Number(pasos[0]?.delay_horas ?? 0) || 0;
+    const delay = Number(pasoDeEntrada(pasos)?.delay_horas ?? 0) || 0;
     // La reunión que esta inscripción prepara (mig 0205), igual que al inscribir por el
     // cohorte: sin ella, el reuso de mañana no sabría si la próxima agenda es otra reunión.
     const reunion = preparaUnaReunion(sig.trigger_tipo) ? reunionQuePreparaMs(lead as JuntasLead) : null;
@@ -210,7 +220,10 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     if (!lead) continue;
 
     // ── ¿Se logró? ──
-    if (d.logrado !== 'ninguno' && seLogro(d, lead, insc.estado)) {
+    // En un flujo de TARJETAS, «agendó» y «pagó» no cierran acá: lo hacen sus condiciones
+    // (decisión del 08/10/2026, `logroCierraLaInscripcion`). «Respondió» sí.
+    const flujo = esFlujoExplicito(Array.isArray(sec.pasos) ? (sec.pasos as PasoGrafo[]) : []);
+    if (logroCierraLaInscripcion(d.logrado, flujo) && seLogro(d, lead, insc.estado)) {
       await supabase.from('nutricion_inscripciones').update({
         desenlace: 'logrado', desenlace_at: ahora, proximo_envio_at: null,
         estado: 'completada', updated_at: ahora,

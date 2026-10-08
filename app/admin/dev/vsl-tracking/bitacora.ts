@@ -457,7 +457,7 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-landing.md — «El editor con IA del cliente TAPA el Pixel con ********»',
     ],
     commits: [
-      { sha: 'cc066887', msg: 'El Pixel se puede bajar como archivo: el editor con IA del cliente lo tapaba con asteriscos', lineas: 195, archivos: 7 },
+      { sha: '6a43d32e', msg: 'El Pixel se puede bajar como archivo: el editor con IA del cliente lo tapaba con asteriscos', lineas: 195, archivos: 7 },
     ],
   },
 ];

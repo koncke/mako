@@ -147,6 +147,38 @@ export function respuestasPropias(fieldData: MetaFieldData | null | undefined): 
   return out;
 }
 
+/**
+ * Lo que contestó en el formulario de Meta, como lo recibe MaKo (la herramienta `ficha_lead`).
+ *
+ * ⚠️ UNA HERRAMIENTA CON UNA LISTA CERRADA DE CAMPOS HACE QUE EL MODELO AFIRME «NO HAY» SOBRE
+ * UN DATO QUE ESTÁ GUARDADO (08/10/2026). Joan le preguntó a MaKo por WhatsApp qué propiedad
+ * quería vender Rosana (ws15) y contestó «en su ficha no hay detalles»: la respuesta («Casa»)
+ * estaba en `leads.meta_field_data` y la ficha de la app la mostraba, pero `ficha_lead`
+ * devolvía 20 campos fijos y las respuestas de R1/R2 (`lead_respuestas`), que un lead de
+ * formulario no tiene. El otro turno, «¿tenés acceso a lo que dijo en el formulario?», gastó
+ * seis pasos buscando con otras herramientas algo que ninguna devolvía hasta el 429 de cuota.
+ *
+ * `null` = no vino de un formulario de Meta, o entró antes del 04/10/2026, cuando las
+ * respuestas no se guardaban. NO es «no contestó»: eso lo dice la descripción de la
+ * herramienta, una vez, y no cada ficha. Los topes dejan el peor caso (12 × 500 caracteres)
+ * lejos del corte de esquema y resultados; lo medido el 08/10 son 2 preguntas, unos 200.
+ */
+export const TOPE_FORMULARIO_MODELO = { preguntas: 12, pregunta: 200, respuesta: 300 } as const;
+
+export function formularioParaModelo(fieldData: MetaFieldData | null | undefined): {
+  formulario_meta: Array<{ pregunta: string; respuesta: string }> | null;
+  formulario_meta_omitidas?: number;
+} {
+  if (fieldData == null) return { formulario_meta: null };
+  const T = TOPE_FORMULARIO_MODELO;
+  const todas = respuestasPropias(fieldData);
+  const filas = todas.slice(0, T.preguntas).map((r) => ({
+    pregunta: r.pregunta.slice(0, T.pregunta),
+    respuesta: r.respuesta.slice(0, T.respuesta),
+  }));
+  return { formulario_meta: filas, ...(todas.length > filas.length ? { formulario_meta_omitidas: todas.length - filas.length } : {}) };
+}
+
 /** La primera letra en mayúscula, saltando el «¿» o el «¡» de apertura. */
 const conMayuscula = (s: string): string => s.replace(/^([¿¡]?)(\p{Ll})/u, (_, a: string, b: string) => a + b.toUpperCase());
 

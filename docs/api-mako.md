@@ -29,11 +29,11 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_secuencia_mensajes` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
+- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_secuencia_mensajes` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
@@ -43,6 +43,7 @@
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
+- **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
 ## General — `general`
@@ -1184,7 +1185,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 23 lecturas · 22 acciones.
+Tab **CRM** (`/crm`). 25 lecturas · 27 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -1211,7 +1212,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}` — Ficha de un lead
 
-La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2. Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.
+La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2 y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y no significa que no contestó). Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.
 
 - **Ruta por operación:** `GET /api/v1/crm/ficha_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1719,6 +1720,52 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/productos"
 ```
 
+### `GET /api/v1/crm/etiquetas` — Etiquetas del CRM
+
+Las etiquetas del CRM del negocio (las que se le ponen a un lead: «Seguimiento», «Cualificado»…) con su id, nombre, color, la etapa del CRM a la que está vinculada (si la hay), a qué etiqueta del WhatsApp del celular corresponde y cuántos leads la tienen. De aquí sale el etiquetaId que piden poner_etiqueta_lead, sacar_etiqueta_lead, editar_etiqueta y archivar_etiqueta. Las archivadas no se pueden poner y solo vienen si se piden.
+
+- **Ruta por operación:** `GET /api/v1/crm/listar_etiquetas`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `incluirArchivadas` | boolean | no | true para ver también las archivadas (default false). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/etiquetas"
+```
+
+### `GET /api/v1/crm/leads/{leadId}/etiquetas` — Etiquetas de un lead
+
+Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización; por la API HTTP no se dice QUÉ persona: sale «una persona»). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Una archivada viene con archivada en true: ya no cuenta en las automatizaciones. Pide el leadId (de buscar_leads).
+
+- **Ruta por operación:** `GET /api/v1/crm/etiquetas_lead`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/leads/LEAD_ID/etiquetas"
+```
+
 ### `PUT /api/v1/crm/leads/{leadId}/etapa` — Mover un lead de etapa
 
 PROPONE mover un lead a otra etapa del funnel (queda pendiente hasta el «sí»; no lo ejecuta). Cubre cerrar como ganado (pasa el monto en USD), marcar perdido o descalificado (pasa el motivo), mandar a nutrición o reactivar. Consigue el leadId con buscar_leads y la key con ver_funnel. Si falta el monto o el motivo lo pide; lo que este canal no puede cargar (fecha de reunión, asistencia, Fathom) no bloquea y queda declarado en el historial.
@@ -2111,6 +2158,162 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/crm/entradas" \
   -d '{"entradas":["formulario_anuncio"]}'
+```
+
+### `POST /api/v1/crm/etiquetas` — Crear una etiqueta del CRM
+
+PROPONE crear una etiqueta del CRM con su nombre y, si se quiere, color, emoji, la etapa del CRM a la que se vincula y la etiqueta del WhatsApp del celular a la que corresponde (queda pendiente hasta el «sí»). Si ya hay una con ese nombre, lo dice. Si el negocio tiene Chatwoot, también la crea allá.
+
+- **Ruta por operación:** `POST /api/v1/crm/crear_etiqueta`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una fila en crm_etiquetas (y, si el negocio tiene Chatwoot, la etiqueta en esa cuenta)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `nombre` | string | sí | el nombre de la etiqueta, como se va a ver (hasta 40 caracteres). |
+| `color` | string | no | color en hex, #RRGGBB (por ejemplo #5E81AC). |
+| `emoji` | string | no | un emoji opcional que se muestra delante del nombre. |
+| `etapa` | string | no | key de la etapa del CRM a la que se vincula (de ver_funnel o productos_del_lead). Vinculada, ponerla mueve al lead a esa etapa, y entrar o salir de la etapa la pone o la saca. |
+| `embudoId` | number | no | el producto del CRM de esa etapa, por el id de su embudo (de productos_del_lead). Sin él, el producto principal del negocio. |
+| `waLabelId` | string | no | la etiqueta del WhatsApp del celular a la que corresponde (de listar_etiquetas_whatsapp). Las de WhatsApp no se crean por API: se elige una que ya existe en el celular. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/etiquetas" \
+  -d '{"nombre":"NOMBRE"}'
+```
+
+### `PATCH /api/v1/crm/etiquetas/{etiquetaId}` — Editar una etiqueta del CRM
+
+PROPONE cambiar el nombre, el color, el emoji, la etapa vinculada o la etiqueta del WhatsApp del celular de una etiqueta del CRM (queda pendiente hasta el «sí»). Cambiar la etapa vale desde ahora: no les pone ni les saca la etiqueta a los que ya están en esa etapa. Para desvincular, sinEtapa o sinWhatsApp en true. Si no cambia nada, lo dice.
+
+- **Ruta por operación:** `POST /api/v1/crm/editar_etiqueta`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la fila de la etiqueta en crm_etiquetas (nombre, color, emoji, etapa vinculada o etiqueta de WhatsApp)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `etiquetaId` | number | sí | id de la etiqueta (de listar_etiquetas). |
+| `nombre` | string | no | el nombre nuevo (hasta 40 caracteres). |
+| `color` | string | no | color en hex, #RRGGBB (por ejemplo #5E81AC). |
+| `emoji` | string | no | un emoji opcional que se muestra delante del nombre. |
+| `etapa` | string | no | key de la etapa del CRM a la que se vincula (de ver_funnel o productos_del_lead). Vinculada, ponerla mueve al lead a esa etapa, y entrar o salir de la etapa la pone o la saca. |
+| `embudoId` | number | no | el producto del CRM de esa etapa, por el id de su embudo (de productos_del_lead). Sin él, el producto principal del negocio. |
+| `waLabelId` | string | no | la etiqueta del WhatsApp del celular a la que corresponde (de listar_etiquetas_whatsapp). Las de WhatsApp no se crean por API: se elige una que ya existe en el celular. |
+| `sinEtapa` | boolean | no | true para desvincularla de su etapa. |
+| `sinWhatsApp` | boolean | no | true para que deje de ponerse en el WhatsApp del celular. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/etiquetas/ETIQUETA_ID"
+```
+
+### `PUT /api/v1/crm/etiquetas/{etiquetaId}/archivado` — Archivar una etiqueta del CRM
+
+PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»). Archivarla la APAGA: deja de ofrecerse y de poder ponerse, no dispara más las automatizaciones que arrancan con ella y las condiciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen conservan la fila como historia (su ficha la muestra «archivada»), y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.
+
+- **Ruta por operación:** `POST /api/v1/crm/archivar_etiqueta`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** archivada_at de la etiqueta en crm_etiquetas (no borra nada)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `etiquetaId` | number | sí | id de la etiqueta (de listar_etiquetas). |
+| `archivar` | boolean | no | false para recuperarla (default true, archivar). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/etiquetas/ETIQUETA_ID/archivado"
+```
+
+### `PUT /api/v1/crm/leads/{leadId}/etiquetas/{etiquetaId}` — Ponerle una etiqueta a un lead
+
+PROPONE ponerle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta y la pone también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).
+
+- **Ruta por operación:** `POST /api/v1/crm/poner_etiqueta_lead`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y ponerla en WhatsApp y Chatwoot
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
+| `etiquetaId` | number | sí | id de la etiqueta (de listar_etiquetas). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/leads/LEAD_ID/etiquetas/ETIQUETA_ID"
+```
+
+### `DELETE /api/v1/crm/leads/{leadId}/etiquetas/{etiquetaId}` — Sacarle una etiqueta a un lead
+
+PROPONE sacarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa ni dispara nada; la saca también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).
+
+- **Ruta por operación:** `POST /api/v1/crm/sacar_etiqueta_lead`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** borra la fila de crm_lead_etiquetas y deja una línea en el historial del lead; la saca de WhatsApp y Chatwoot
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
+| `etiquetaId` | number | sí | id de la etiqueta (de listar_etiquetas). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/leads/LEAD_ID/etiquetas/ETIQUETA_ID"
 ```
 
 ### `PATCH /api/v1/crm/leads/{leadId}` — Editar contacto de un lead
@@ -4755,6 +4958,7 @@ Propone crear una secuencia de email nueva, PAUSADA y con un paso vacío. No man
 | `nombre` | string | no | Nombre visible de la secuencia. Vacío: «Nueva secuencia de email». |
 | `etapa` | string | no | Etapa (value de listar_etapas_email, o clave de etapa del funnel si el trigger es etapa_actual). Vacío: nutri. |
 | `trigger` | string | no | Trigger (value de listar_triggers_email). Vacío: manual, que no inscribe a nadie solo. |
+| `etiquetaId` | number | no | Con el trigger etiqueta_puesta, OBLIGATORIO: la etiqueta del CRM que lo dispara (id de listar_etiquetas, área crm). Sin ella la secuencia no se dispararía nunca. |
 
 ```bash
 curl -L \
@@ -4785,6 +4989,7 @@ Propone cambiar el nombre, la etapa y/o el trigger de una secuencia de email ide
 | `nombre` | string | no | Nombre nuevo. |
 | `etapa` | string | no | Etapa nueva (value de listar_etapas_email, o clave de etapa del funnel si el trigger es etapa_actual). |
 | `trigger_tipo` | string | no | Trigger nuevo (value de listar_triggers_email). |
+| `etiquetaId` | number | no | Con el trigger etiqueta_puesta, OBLIGATORIO: la etiqueta del CRM que lo dispara (id de listar_etiquetas, área crm). Se puede mandar sola para cambiar la etiqueta de una secuencia que ya se dispara por etiqueta. |
 
 ```bash
 curl -L \
@@ -5100,7 +5305,7 @@ curl -L \
 
 ## Chatbot y secuencias — `chatbot`
 
-Tab **Chatbot** (`/chatbot`). 14 lecturas · 13 acciones.
+Tab **Chatbot** (`/chatbot`). 14 lecturas · 14 acciones.
 
 ### `GET /api/v1/chatbot/secuencias` — Listar las secuencias de mensajes
 
@@ -5125,7 +5330,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/secuencias/{secuenciaId}` — Ficha de una secuencia
 
-Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto o audio, condición, texto y cantidad de variantes), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
+Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/ficha_secuencia_mensajes`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
@@ -5462,7 +5667,7 @@ PROPONE crear una secuencia de mensajes nueva colgada de una etapa del funnel. N
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `etapa` | string | sí | clave de la etapa del funnel (de etapas_para_secuencia). |
-| `nombre` | string | sí | nombre de la secuencia, como lo va a ver el dueño. |
+| `nombre` | string | sí | nombre de la secuencia, como lo va a ver el dueño (hasta 40 caracteres). |
 
 ```bash
 curl -L \
@@ -5477,7 +5682,7 @@ curl -L \
 
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/pasos/{orden}` — Cambiar la espera de un paso
 
-PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.
+PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). Si el paso es una tarjeta «Esperar», cambia lo que espera esa tarjeta. No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_espera_paso`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -5595,6 +5800,38 @@ curl -L \
   -d '{"objetivo":"OBJETIVO"}'
 ```
 
+### `POST /api/v1/chatbot/avisos-equipo` — Avisar al equipo
+
+PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/avisar_al_equipo`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** manda un aviso al grupo de WhatsApp del negocio y deja una notificación en la app (no toca al lead)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | no | opcional: el lead del que se avisa (de buscar_leads). En una automatización, el del evento. |
+| `titulo` | string | no | opcional: el título corto del aviso. |
+| `mensaje` | string | sí | lo que tiene que saber el equipo, en una o dos frases. |
+| `respuesta` | string | no | opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/chatbot/avisos-equipo" \
+  -d '{"mensaje":"MENSAJE"}'
+```
+
 ### `POST /api/v1/chatbot/onboarding/reaperturas` — Reabrir el onboarding del chatbot
 
 PROPONE reabrir desde cero el onboarding del chatbot y devuelve un link para confirmarlo. La tab /chatbot vuelve a abrir en el recorrido, y los pasos que comparte con otras tabs (la conexión del número de WhatsApp, el email) se vuelven a pedir: no hay forma de volver a marcarlos sin rehacerlos. Úsala solo si el dueño pide rehacer la configuración del chatbot.
@@ -5623,7 +5860,7 @@ curl -L \
 
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/estrategia` — Guardar la estrategia de una secuencia
 
-PROPONE cambiar la estrategia de una secuencia y devuelve un link para revisarla: objetivo, gancho, preguntas de cualificación, criterio de calificación, desenlace (qué cuenta como logrado, a qué etapa y a qué secuencia pasa el lead) y modo. Solo cambian los campos que pases; el resto se conserva. Si la secuencia todavía no tiene estrategia, el objetivo es obligatorio. El desenlace mueve leads de etapa solo desde el motor. Los escenarios se agregan con agregar_escenario_secuencia.
+PROPONE cambiar la estrategia de una secuencia y devuelve un link para revisarla: objetivo, gancho, preguntas de cualificación, criterio de calificación, desenlace (qué cuenta como logrado, a qué etapa y a qué secuencia pasa el lead) y modo. Solo cambian los campos que pases; el resto se conserva. Si la secuencia todavía no tiene estrategia, el objetivo es obligatorio. El desenlace mueve leads de etapa solo desde el motor; en una secuencia armada con tarjetas (condiciones, esperas, «Si responde») el desenlace y el modo no se cambian por aquí: cuándo termina y qué pasa al responder son tarjetas del lienzo. Los escenarios se agregan con agregar_escenario_secuencia.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/guardar_estrategia_secuencia`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -5668,7 +5905,7 @@ curl -L \
 
 ### `PUT /api/v1/chatbot/secuencias/{secuenciaId}/pasos` — Editar los pasos de una secuencia
 
-PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, condición) y devuelve un link para revisarla. La lista que pases REEMPLAZA a la actual en ese orden: un paso que no esté se borra. Dentro de cada paso, un campo que omitas se conserva del paso que hoy ocupa esa posición, y las variantes ya generadas se mantienen. En un paso de WhatsApp oficial con plantilla aprobada, cambiar el texto NO cambia lo que recibe el lead: sigue saliendo la plantilla aprobada con el texto anterior. Un paso de audio a un lead que todavía no es cliente queda como borrador para que alguien lo mande. Un [corchete] distinto de [tu link …] deja el paso sin salir nunca. Lee antes ficha_secuencia_mensajes.
+PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, condición) y devuelve un link para revisarla. Sólo en una secuencia SIN ramas (sin condiciones, sin «Si responde», sin «Ir a»): una con ramas se edita en el lienzo de /chatbot, y por aquí contesta un error. La lista que pases REEMPLAZA a la actual en ese orden: un paso que no esté se borra. Dentro de cada paso, un campo que omitas se conserva del paso que hoy ocupa esa posición, y las variantes ya generadas se mantienen. En un paso de WhatsApp oficial con plantilla aprobada, cambiar el texto NO cambia lo que recibe el lead: sigue saliendo la plantilla aprobada con el texto anterior. Un paso de audio a un lead que todavía no es cliente queda como borrador para que alguien lo mande. Un [corchete] distinto de [tu link …] deja el paso sin salir nunca. Lee antes ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/editar_pasos_secuencia_mensajes`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -5690,8 +5927,9 @@ PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, con
 | `pasos.cuerpo` | string | no | el texto del mensaje; en un paso de audio, el pie que sale después. Admite {{nombre}} y {{empresa}}. |
 | `pasos.asunto` | string | no | asunto (solo email). |
 | `pasos.preheader` | string | no | texto de vista previa (solo email). |
-| `pasos.tipo` | string (texto \\| audio) | no | texto o nota de voz (audio exige audio_id). |
+| `pasos.tipo` | string (texto \\| audio \\| media) | no | texto, nota de voz (audio exige audio_id) o archivo (media exige media_id: foto, video o documento, sólo por WhatsApp no oficial; el texto es el pie). |
 | `pasos.audio_id` | number | no | id del audio (lo da la biblioteca de audios, solo por WhatsApp o en la app), solo si tipo es audio. |
+| `pasos.media_id` | number | no | id del archivo de la biblioteca de archivos del chatbot, solo si tipo es media. |
 | `pasos.requiere` | string (respondio \\| sin_respuesta \\| ya_contactado \\| primer_contacto \\| ninguno) | no | condición para que el paso salga; «ninguno» la quita. «sin_respuesta» hoy no la evalúa el motor. |
 | `pasos.proveedor` | string (oficial \\| no_oficial) | no | WhatsApp oficial (plantilla de Meta) o no oficial (el número vinculado). |
 | `pasos.ancla` | string (reunion \\| ninguno) | no | reunion: la espera cuenta como horas ANTES de la próxima reunión del lead; «ninguno» quita el ancla. |
@@ -5709,7 +5947,7 @@ curl -L \
 
 ### `POST /api/v1/chatbot/secuencias/{secuenciaId}/escenarios` — Agregar un caso previsto
 
-PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. La secuencia tiene que tener estrategia guardada; máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
+PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la secuencia tiene la tarjeta «Si responde», el caso entra ahí como una rama nueva con un «MaKo contesta» que usa tu guía; si no, la secuencia tiene que tener estrategia guardada. Máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
 
 - **Ruta por operación:** `POST /api/v1/chatbot/agregar_escenario_secuencia`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -9778,6 +10016,335 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/equipo/notificaciones/plantilla-reporte"
+```
+
+## Curso (módulos y clases) — `curso`
+
+Tab **Customer Success › Curso** (`/customer-success/curso`). 3 lecturas · 8 acciones.
+
+### `GET /api/v1/curso/cursos` — Listar los cursos
+
+Los productos de este negocio que pueden tener curso (los mismos que muestra Customer Success › Curso), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.
+
+- **Ruta por operación:** `GET /api/v1/curso/listar_cursos`
+- **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/cursos"
+```
+
+### `GET /api/v1/curso/cursos/{productoId}` — Ver un curso
+
+El curso de un producto: sus módulos en orden (clave, nombre, si es una etapa del kanban de clientes) y, adentro de cada uno, sus clases en orden (id, título, video, minutos, si tiene descripción y tarea). Las clases sin módulo vienen aparte. Para la descripción entera de una clase, ver_clase_curso.
+
+- **Ruta por operación:** `GET /api/v1/curso/ver_curso`
+- **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID"
+```
+
+### `GET /api/v1/curso/clases/{claseId}` — Ver una clase
+
+Una clase entera: módulo, título, video, minutos, la descripción (HTML y texto plano) y la tarea si tiene.
+
+- **Ruta por operación:** `GET /api/v1/curso/ver_clase_curso`
+- **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID"
+```
+
+### `POST /api/v1/curso/cursos/{productoId}/modulos` — Crear un módulo
+
+Crea un módulo en el curso de un producto, después del módulo `despuesDe` (sin él, al final). Nace SUELTO: una sección del curso que no toca el kanban de clientes. Con vinculado: true es además una etapa nueva del kanban de clientes (no mueve a nadie); úsalo sólo si te lo piden. Devuelve la clave del módulo nuevo en `datos.clave`.
+
+- **Ruta por operación:** `POST /api/v1/curso/crear_modulo_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un módulo al curso (curso_modulos; si es vinculado, una etapa a la entrega del producto)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `nombre` | string | sí | el nombre del módulo (hasta 40 letras). |
+| `despuesDe` | string | no | la clave del módulo después del cual va. Sin esto, al final del curso. |
+| `vinculado` | boolean | no | true = además es una etapa del kanban de clientes. Por default, false. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/modulos" \
+  -d '{"nombre":"Módulo 1: Fundamentos"}'
+```
+
+### `PATCH /api/v1/curso/cursos/{productoId}/modulos/{clave}` — Renombrar un módulo
+
+Le cambia el nombre a un módulo. Si el módulo es una etapa del kanban de clientes, la etapa también se renombra (es la misma cosa).
+
+- **Ruta por operación:** `POST /api/v1/curso/renombrar_modulo_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia el nombre del módulo (o de la etapa del kanban, si es vinculado)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `clave` | string | sí | la clave del módulo (de ver_curso). |
+| `nombre` | string | sí | el nombre nuevo (hasta 40 letras). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/modulos/CLAVE" \
+  -d '{"nombre":"NOMBRE"}'
+```
+
+### `PUT /api/v1/curso/cursos/{productoId}/modulos` — Ordenar los módulos
+
+Pone los módulos del curso en el orden que se pasa: la lista ENTERA de claves, en el orden nuevo. Los vinculados reordenan también el kanban de clientes (sin mover a nadie), y la primera etapa del kanban no se puede mover. Devuelve el orden como quedó.
+
+- **Ruta por operación:** `POST /api/v1/curso/ordenar_modulos_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** reordena los módulos del curso (y el kanban de clientes, si hay vinculados)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `claves` | string[] | sí | todas las claves de los módulos del curso, en el orden nuevo. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/modulos" \
+  -d '{"claves":[]}'
+```
+
+### `POST /api/v1/curso/cursos/{productoId}/clases` — Crear una clase
+
+Crea una clase AL FINAL de un módulo, con su título y, si los pasas, su video por link, su descripción y sus minutos. Todo se valida antes de crear: si algo no va, no se crea nada. Devuelve el id de la clase en `datos.claseId`. Para migrar un curso, crea las clases en el orden en que tienen que quedar.
+
+- **Ruta por operación:** `POST /api/v1/curso/crear_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega una clase al final del módulo (curso_clases) con su título, video, descripción y minutos
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `moduloClave` | string | sí | la clave del módulo (de ver_curso: `modulos[].clave`), no su nombre. |
+| `titulo` | string | sí | el título de la clase (hasta 200 letras). |
+| `videoUrl` | string | no | link del video: YouTube, Vimeo, Loom, Google Drive o un archivo .mp4/.webm directo. Un link de una página que no es de esos (por ejemplo, el de Panda) se guarda pero no se reproduce: el código embed llega pronto. Vacío ("") saca el video. |
+| `descripcionHtml` | string | no | la descripción en HTML (negrita, listas, links, títulos). Se sanea: lo que no es formato se descarta. Usa esto O `descripcion`, no los dos. |
+| `descripcion` | string | no | la descripción en texto plano: cada línea en blanco separa un párrafo. Usa esto O `descripcionHtml`, no los dos. |
+| `minutos` | number | no | cuánto dura la clase, en minutos (0 a 600). Si no lo pasas, lo mide el editor cuando alguien abre el video. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/clases" \
+  -d '{"moduloClave":"MODULO_CLAVE","titulo":"Clase 1: Bienvenida","videoUrl":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","descripcionHtml":"<p>En esta clase vas a ver <strong>cómo armar tu oferta</strong>.</p>"}'
+```
+
+### `PATCH /api/v1/curso/clases/{claseId}` — Editar una clase
+
+Cambia lo que se pase de una clase: título, video por link, descripción o minutos. Lo que no se pasa queda igual. Todo se valida antes de escribir.
+
+- **Ruta por operación:** `POST /api/v1/curso/editar_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia el título, el video, la descripción o los minutos de la clase (curso_clases)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+| `titulo` | string | no | el título nuevo (hasta 200 letras). |
+| `videoUrl` | string | no | link del video: YouTube, Vimeo, Loom, Google Drive o un archivo .mp4/.webm directo. Un link de una página que no es de esos (por ejemplo, el de Panda) se guarda pero no se reproduce: el código embed llega pronto. Vacío ("") saca el video. |
+| `descripcionHtml` | string | no | la descripción en HTML (negrita, listas, links, títulos). Se sanea: lo que no es formato se descarta. Usa esto O `descripcion`, no los dos. |
+| `descripcion` | string | no | la descripción en texto plano: cada línea en blanco separa un párrafo. Usa esto O `descripcionHtml`, no los dos. |
+| `minutos` | number | no | cuánto dura la clase, en minutos (0 a 600). Si no lo pasas, lo mide el editor cuando alguien abre el video. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID" \
+  -d '{"videoUrl":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","descripcionHtml":"<p>En esta clase vas a ver <strong>cómo armar tu oferta</strong>.</p>"}'
+```
+
+### `PUT /api/v1/curso/clases/{claseId}/lugar` — Mover una clase
+
+Lleva una clase a un módulo (el mismo u otro), antes de la clase `antesDe`; sin `antesDe`, al final. Devuelve el orden del módulo como quedó.
+
+- **Ruta por operación:** `POST /api/v1/curso/mover_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia el módulo y el orden de la clase y renumera su módulo (curso_clases)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+| `moduloClave` | string | sí | la clave del módulo (de ver_curso: `modulos[].clave`), no su nombre. |
+| `antesDe` | number | no | id de la clase antes de la cual va. Sin esto, al final del módulo. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/lugar" \
+  -d '{"moduloClave":"MODULO_CLAVE"}'
+```
+
+### `DELETE /api/v1/curso/clases/{claseId}` — Borrar una clase
+
+Manda una clase a la papelera: deja de verse en el curso y en el portal de los alumnos. A los 7 días se borra de verdad, con su avance; hasta entonces restaurar_clase_curso la devuelve como estaba.
+
+- **Ruta por operación:** `POST /api/v1/curso/borrar_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca la clase como borrada (curso_clases.borrada_at); la purga diaria la borra a los 7 días
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID"
+```
+
+### `PUT /api/v1/curso/clases/{claseId}/restauracion` — Restaurar una clase borrada
+
+Saca de la papelera una clase borrada (con borrar_clase_curso o desde MaKo) y la devuelve como estaba, con su video y su lugar. Sólo dentro de los 7 días.
+
+- **Ruta por operación:** `POST /api/v1/curso/restaurar_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** limpia curso_clases.borrada_at de la clase
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/restauracion"
 ```
 
 ## MaKo (pendientes, propuestas, chats) — `mako`

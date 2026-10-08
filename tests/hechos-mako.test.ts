@@ -77,12 +77,16 @@ test('Una intención DUDOSA no puede crear un borrador de plan', () => {
   // problema chiquito con el botón», «probá de vuelta, ya agregué otra api key»—
   // terminaron en tres «Listo, te armé el borrador» con un link a revisar un plan
   // que nunca pidió.
-  const src = leer('../lib/mako-doer-in.ts');
+  // La selección de herramientas se mudó a lib/doer-herramientas.ts el 08/10/2026 (la misma
+  // que usa el test de agenda): el corte vive ahí, y el doer le pasa el veredicto entero.
+  const src = leer('../lib/doer-herramientas.ts');
   assert.match(src, /if \(!dudosa\) return base;/, 'se perdió el corte por clasificación dudosa');
   assert.match(src, /t\.name !== 'proponer_tareas_plan'/,
     'la tool de crear tareas volvió a estar disponible en un turno que no se pudo clasificar');
-  assert.match(src, /toolsParaIntencion\(intencion\.intencion, \[[^\]]*\], intencion\.dudosa\)/,
+  assert.match(src, /toolsParaIntencion<[^>]*>\(v\.intencion, \[[^\]]*\], v\.dudosa\)/,
     'el flag `dudosa` dejó de llegar al selector de tools');
+  assert.match(leer('../lib/mako-doer-in.ts'), /herramientasDelTurno\(\{\s*veredicto: intencion,/,
+    'el doer dejó de pasarle el veredicto a la selección');
   // ⛔ Y el default del clasificador NO se toca: ante la duda, capturar sigue
   // siendo correcto para el dueño volcando ideas. Lo que se corrige es que la duda
   // no EJECUTE.

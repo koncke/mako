@@ -8,14 +8,16 @@
 // (imagen/audio/video/documento + lightbox) y el MISMO composer (emoji + adjuntar
 // + nota de voz). Es agnóstico de la fuente de datos: recibe `mensajes` y los
 // handlers de envío. readOnly (plantillas) esconde el composer.
+//
+// Desde el 08/10/2026 las dos mitades son piezas propias: la burbuja es `BurbujaHilo` (la misma
+// de la tarjeta del lienzo y de la vista previa del editor) y la barra es `ComposerWhatsApp` en
+// modo `enviar` (la misma del inbox y del editor). Lo que queda aquí es lo del HILO: el scroll,
+// los borradores por conversación, el lightbox y la entrada animada de lo nuevo.
 
-import { useEffect, useMemo, useRef, useState, Fragment, type CSSProperties, type ChangeEvent, type ReactNode } from 'react';
-import { EmojiPicker } from '../EmojiPicker';
-import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc, IconTrash } from './composer-icons';
-import { useVoiceRecorder, VoiceRecorderBar } from './VoiceRecorder';
+import { useEffect, useMemo, useRef, useState, Fragment, type ReactNode } from 'react';
 import { Ticks } from './Ticks';
-import { TextoMarcas } from '@/app/_components/TextoMarcas';
-import { AudioPlay } from './AudioPlay';
+import { BurbujaHilo, type ContenidoBurbuja } from './BurbujaHilo';
+import { ComposerWhatsApp } from './ComposerWhatsApp';
 
 export type HiloMsg = {
   id: string | number;
@@ -29,16 +31,59 @@ export type HiloMsg = {
   fecha?: string | null;
   status?: string | null;
   autor?: string | null; // nombre del remitente (para grupos, en burbujas ajenas)
+  /** Lo que dice un audio (la transcripción): sale como «Dice: …» debajo del reproductor. */
+  transcript?: string | null;
+  /**
+   * El nombre de un documento cuando `texto` es su caption. Sin esto, el `texto` de un documento
+   * ES su nombre (así lo guarda el espejo de WhatsApp).
+   */
+  nombreArchivo?: string | null;
+  /** Lo escribió MaKo para esta persona: la burbuja lleva la marca ✦. */
+  ia?: boolean;
 };
-
-const iconComposer: CSSProperties = { flex: 'none', width: 42, height: 42, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, lineHeight: 1 };
-const iconBtn: CSSProperties = { width: 28, height: 28, flex: 'none', borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 };
 
 function fmtHora(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso); if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
+
+/** Un mensaje del hilo, en la forma de la burbuja. */
+export function contenidoDeMensaje(m: HiloMsg): ContenidoBurbuja {
+  const t = m.tipo;
+  const texto = m.texto ?? undefined;
+  if (t === 'audio') return { audio: { url: m.mediaUrl ?? null, transcript: m.transcript ?? null }, texto, ia: m.ia };
+  if (t === 'document') {
+    return m.nombreArchivo
+      ? { media: { url: m.mediaUrl ?? null, mime: m.mediaMime ?? '', nombre: m.nombreArchivo, tipo: 'document' }, texto, ia: m.ia }
+      : { media: { url: m.mediaUrl ?? null, mime: m.mediaMime ?? '', nombre: m.texto ?? null, tipo: 'document' }, ia: m.ia };
+  }
+  if (t === 'image' || t === 'video' || t === 'sticker') return { media: { url: m.mediaUrl ?? null, mime: m.mediaMime ?? '', tipo: t }, texto, ia: m.ia };
+  return { texto, ia: m.ia };
+}
+
+// ── La entrada de lo NUEVO (opt-in) ─────────────────────────────────────────────────────────
+// Punto 10 del pedido: el «Probar» «no tiene la animación de entrada de los mensajes». Se anima
+// SÓLO la burbuja cuyo id no estaba en el render anterior, y la marca se queda puesta mientras el
+// mensaje siga en el hilo: sacarla a mitad de camino reiniciaría la animación en el próximo render.
+// Lo que ya estaba al montar no se anima (es historial). Puro, para que un test lo ejecute.
+
+export type VistosHilo = { firma: string; ids: ReadonlySet<string>; entrando: ReadonlySet<string> };
+
+const SEP = '\u0001';
+export const vistosIniciales = (ids: readonly string[]): VistosHilo => ({ firma: ids.join(SEP), ids: new Set(ids), entrando: new Set() });
+
+/** Los ids que entran en este render: los que estaban entrando y siguen, más los que no estaban. */
+export function seguirEntradas(prev: VistosHilo, ids: readonly string[]): VistosHilo {
+  const firma = ids.join(SEP);
+  if (firma === prev.firma) return prev;
+  const entrando = new Set<string>();
+  for (const id of ids) if (prev.entrando.has(id) || !prev.ids.has(id)) entrando.add(id);
+  return { firma, ids: new Set(ids), entrando };
+}
+
+// Corto y sólo transform + opacity (no mueve el layout). Con «reducir movimiento», sólo el fundido.
+const CSS_ENTRADA = '@keyframes mk-hilo-entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes mk-hilo-funde{from{opacity:0}to{opacity:1}}.mk-hilo-entra{animation:mk-hilo-entra .24s cubic-bezier(.2,.8,.2,1) both}@media (prefers-reduced-motion:reduce){.mk-hilo-entra{animation:mk-hilo-funde .18s ease-out both}}';
 
 export type ChatHiloProps = {
   mensajes: HiloMsg[];
@@ -60,6 +105,18 @@ export type ChatHiloProps = {
   draftKey?: string;
   /** avisa si esta conversación tiene borrador (texto/adjunto/audio) para ordenarla. */
   onDraftChange?: (key: string, hayBorrador: boolean) => void;
+  /**
+   * Anima la ENTRADA de las burbujas que no estaban en el render anterior (punto 10: el
+   * «Probar» no tenía animación). Opt-in: ChatHilo también pinta los grupos REALES de MaKo y
+   * el inbox, y ahí animar el historial en cada carga sería ruido.
+   */
+  animarNuevos?: boolean;
+  /**
+   * Lo que va pegado ARRIBA de la barra para escribir, adentro del chat: las respuestas
+   * rápidas. «Probar» pone ahí las ramas de una condición para que quien prueba elija. Afuera
+   * del chat, debajo de la barra, quedaban fuera de la vista en una ventana baja.
+   */
+  encimaDelComposer?: ReactNode;
 };
 
 // Borradores por conversación (sobreviven el salto entre chats, como el inbox real):
@@ -70,7 +127,7 @@ const audioStore = new Map<string, Blob>();
 
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
-  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange,
+  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange, animarNuevos, encimaDelComposer,
 }: ChatHiloProps) {
   const [draft, setDraftState] = useState<string>(() => (draftKey ? draftStore.get(draftKey) ?? '' : ''));
   const [adjunto, setAdjuntoState] = useState<File | null>(() => (draftKey ? adjuntoStore.get(draftKey) ?? null : null));
@@ -91,14 +148,20 @@ export function ChatHilo({
   };
   const setAdjunto = (f: File | null) => { setAdjuntoState(f); if (draftKey) { if (f) adjuntoStore.set(draftKey, f); else adjuntoStore.delete(draftKey); reportar(draftKey); } };
   const setAudioPend = (b: Blob | null) => { setAudioPendState(b); if (draftKey) { if (b) audioStore.set(draftKey, b); else audioStore.delete(draftKey); reportar(draftKey); } };
-  const [emojiOpen, setEmojiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
   const [audioFase, setAudioFase] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ tipo: 'image'; url: string } | null>(null);
-  const fileInput = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickRef = useRef(true);
+
+  // La entrada animada: se calcula en el render con lo que había en el anterior (el patrón de
+  // «ajustar el estado cuando cambia una prop»). Sin `animarNuevos` no se toca nada.
+  const idsHilo = mensajes.map((m) => String(m.id));
+  const [vistos, setVistos] = useState(() => vistosIniciales(idsHilo));
+  const siguientes = animarNuevos ? seguirEntradas(vistos, idsHilo) : vistos;
+  if (siguientes !== vistos) setVistos(siguientes);
+  const entrando = animarNuevos ? siguientes.entrando : null;
 
   const adjuntoPreview = useMemo(() => (adjunto && adjunto.type.startsWith('image/') ? URL.createObjectURL(adjunto) : null), [adjunto]);
   useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
@@ -113,7 +176,7 @@ export function ChatHilo({
     setDraftState(suyo);
     setAdjuntoState(draftKey ? adjuntoStore.get(draftKey) ?? null : null);
     setAudioPendState(draftKey ? audioStore.get(draftKey) ?? null : null);
-    setEmojiOpen(false); setSendErr(null);
+    setSendErr(null);
   }, [draftKey]);
   useEffect(() => { const el = scrollRef.current; if (el && stickRef.current) el.scrollTop = el.scrollHeight; }, [mensajes, typing]);
   const onScroll = () => { const el = scrollRef.current; if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; };
@@ -124,7 +187,7 @@ export function ChatHilo({
     setAdjunto(f);
   }
   async function enviarTexto() {
-    const texto = draft.trim();
+    const texto = draftRef.current.trim();
     // `sending` también corta acá: con Enter repetido se disparaban dos envíos
     // y, donde el handler es un turno de IA, las dos respuestas se pisaban.
     if (!onEnviarTexto || !texto || sending) return;
@@ -145,9 +208,9 @@ export function ChatHilo({
   async function enviarComposer() {
     if (sending) return;
     if (adjunto && onEnviarArchivo) {
-      const arch = adjunto; const cap = draft.trim();
+      const arch = adjunto; const cap = draftRef.current.trim();
       setSending(true); setSendErr(null); stickRef.current = true;
-      setAdjunto(null); setDraft(''); if (fileInput.current) fileInput.current.value = '';
+      setAdjunto(null); setDraft('');
       try {
         if (!(await onEnviarArchivo(arch, '', arch.name, cap || undefined))) {
           setAdjunto(arch); setDraft((d) => d || cap); setSendErr('No se pudo enviar el archivo.');
@@ -156,7 +219,7 @@ export function ChatHilo({
     } else await enviarTexto();
   }
   // Al terminar de grabar NO se manda: queda como borrador para escucharlo antes.
-  const enviarAudioBlob = async (blob: Blob) => { if (onEnviarArchivo) setAudioPend(blob); };
+  const guardarAudio = (blob: Blob) => { if (onEnviarArchivo) setAudioPend(blob); };
   const enviarAudioPend = async () => {
     const pend = audioPend;
     if (!pend || !onEnviarArchivo || sending) return;
@@ -173,7 +236,6 @@ export function ChatHilo({
     }
     setSending(false); setAudioFase(null);
   };
-  const voz = useVoiceRecorder(enviarAudioBlob, setSendErr);
   const puedeComponer = !readOnly && (!!onEnviarTexto || !!onEnviarArchivo);
 
   return (
@@ -181,6 +243,7 @@ export function ChatHilo({
     // derecha, y la esquina de los avisos (EsquinaAvisos) sube para no taparlo.
     <div data-esquina-ocupada={puedeComponer ? '' : undefined} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, borderTop: `3px solid ${accent}`, overflow: 'hidden' }}>
       {header && <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>{header}</div>}
+      {entrando && <style>{CSS_ENTRADA}</style>}
 
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface-2)' }}>
         {cargando && mensajes.length === 0 && (
@@ -191,6 +254,7 @@ export function ChatHilo({
         )}
         {!cargando && mensajes.length === 0 && (vacio ?? <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5 }}>Sin mensajes.</div>)}
         {mensajes.map((m) => {
+          const entra = entrando?.has(String(m.id)) ? 'mk-hilo-entra' : undefined;
           // Una línea de sistema NO es un mensaje de nadie: es lo que pasó en la
           // conversación ("pasaron 3 días", "la secuencia se pausó porque
           // respondió"). Va centrada y sin burbuja a propósito — si se pintara
@@ -206,54 +270,27 @@ export function ChatHilo({
                 ? { background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }
                 : { background: 'var(--surface)', border: '1px dashed var(--border-strong)', color: 'var(--faint)' };
             return (
-              <div key={m.id} style={{ display: 'flex', justifyContent: 'center' }}>
+              <div key={m.id} className={entra} style={{ display: 'flex', justifyContent: 'center' }}>
                 <div style={{ maxWidth: '86%', padding: '6px 13px', borderRadius: 999, ...t, fontSize: 11.5, lineHeight: 1.45, textAlign: 'center', fontWeight: m.tono ? 600 : 400 }}>{m.texto}</div>
               </div>
             );
           }
           const mine = m.fromMe;
-          const esMedia = m.tipo === 'image' || m.tipo === 'audio' || m.tipo === 'video' || m.tipo === 'document' || m.tipo === 'sticker';
-          const esPdf = (m.mediaMime || '').includes('pdf') || (m.texto || '').toLowerCase().endsWith('.pdf');
           return (
             <Fragment key={m.id}>
-              <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '78%', padding: '10px 13px', borderRadius: mine ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: mine ? accentBubble : 'var(--surface)', border: '1px solid ' + (mine ? 'rgba(91,107,214,.30)' : 'var(--border)'), boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
-                  {!mine && m.autor && <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--primary-strong)', marginBottom: 2 }}>{m.autor}</div>}
-                  {m.mediaUrl && m.tipo === 'image' && (
-                    <button onClick={() => setLightbox({ tipo: 'image', url: m.mediaUrl! })} title="Ver imagen" style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', display: 'block', marginBottom: m.texto ? 6 : 0 }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={m.mediaUrl} alt="adjunto" style={{ maxWidth: 240, maxHeight: 280, borderRadius: 10, display: 'block' }} />
-                    </button>
-                  )}
-                  {m.mediaUrl && m.tipo === 'audio' && <AudioPlay src={m.mediaUrl} style={{ width: 240, marginBottom: m.texto ? 6 : 0 }} />}
-                  {m.mediaUrl && m.tipo === 'video' && <video controls src={m.mediaUrl} style={{ maxWidth: 240, borderRadius: 10, marginBottom: m.texto ? 6 : 0, display: 'block' }} />}
-                  {m.mediaUrl && m.tipo === 'document' && (
-                    <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', textDecoration: 'none', maxWidth: 240, marginBottom: m.texto ? 6 : 0 }}>
-                      <span style={{ flex: 'none', color: 'var(--dim)' }}><IconDoc size={22} /></span>
-                      <span style={{ minWidth: 0, textAlign: 'left' }}>
-                        <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.texto || (esPdf ? 'Documento PDF' : 'Documento')}</span>
-                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--primary)' }}>Abrir en pestaña nueva</span>
-                      </span>
-                    </a>
-                  )}
-                  {!m.mediaUrl && esMedia && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', marginBottom: m.texto ? 6 : 0 }}><IconClip /> {m.texto || m.tipo} (no disponible)</span>}
-                  {/* ⚠️ EL TEXTO SE PINTA CON SUS MARCAS. Un mensaje de WhatsApp llega con
-                      `*negrita*`, `_itálica_` y `~tachado~` — esto dibuja un hilo de WhatsApp,
-                      así que mostrarlos crudos hace las dos cosas mal: no se ve cómo llega, y
-                      los asteriscos se leen como un error de tipeo del texto. Vale para los
-                      cuatro usos de este hilo, no sólo para la vista previa de un aviso. */}
-                  {m.texto && m.tipo !== 'document' && <div style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}><TextoMarcas texto={m.texto} /></div>}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: mine ? 'flex-end' : 'flex-start', gap: 5, marginTop: 3 }}>
-                    <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>{fmtHora(m.fecha)}</span>
-                    {mine && <Ticks status={m.status ?? null} />}
-                  </div>
-                </div>
+              <div className={entra} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
+                {/* ⚠️ EL TEXTO SE PINTA CON SUS MARCAS (BurbujaHilo → TextoMarcas): esto dibuja
+                    un hilo de WhatsApp, y los `*` crudos se leen como un error de tipeo. Vale
+                    para los cuatro usos de este hilo, no sólo para la vista previa de un aviso. */}
+                <BurbujaHilo contenido={contenidoDeMensaje(m)} saliente={mine} autor={m.autor ?? undefined}
+                  fondo={accentBubble} hora={fmtHora(m.fecha)} pie={mine ? <Ticks status={m.status ?? null} /> : undefined}
+                  onVerImagen={(url) => setLightbox({ tipo: 'image', url })} />
               </div>
             </Fragment>
           );
         })}
         {typing && (
-          <div style={{ display: 'flex', justifyContent: typing.lado === 'right' ? 'flex-end' : 'flex-start' }}>
+          <div className={entrando ? 'mk-hilo-entra' : undefined} style={{ display: 'flex', justifyContent: typing.lado === 'right' ? 'flex-end' : 'flex-start' }}>
             <div style={{ padding: '11px 14px', borderRadius: typing.lado === 'right' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: typing.lado === 'right' ? accentBubble : 'var(--surface)', border: '1px solid ' + (typing.lado === 'right' ? 'rgba(91,107,214,.30)' : 'var(--border)') }}>
               {typing.lado === 'left' && typing.autor && <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--primary-strong)', marginBottom: 3 }}>{typing.autor}</div>}
               <style>{'@keyframes mako-dot{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}'}</style>
@@ -274,61 +311,24 @@ export function ChatHilo({
       )}
       {sendErr && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: 12.5, borderTop: '1px solid var(--border)' }}>{sendErr}</div>}
 
-      {readOnly && (
-        <div style={{ borderTop: '1px solid var(--border)', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 4, opacity: 0.55, pointerEvents: 'none', userSelect: 'none' }}>
-          <span style={iconComposer}><IconSmiley /></span>
-          <span style={iconComposer}><IconClip /></span>
-          <div style={{ flex: 1, minHeight: 40, padding: '9px 16px', borderRadius: 21, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--faint)', fontSize: 14, display: 'flex', alignItems: 'center' }}>{placeholder ?? 'Escribe un mensaje…'}</div>
-          <span style={iconComposer}><IconMic /></span>
-        </div>
-      )}
-      {puedeComponer && voz.recording && (
-        <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px' }}>
-          <VoiceRecorderBar paused={voz.paused} secs={voz.secs} sending={sending} onCancel={() => voz.stop(true)} onTogglePause={voz.paused ? voz.resume : voz.pause} onSend={() => voz.stop(false)} />
-        </div>
-      )}
-      {/* Audio grabado SIN enviar: escuchalo antes de mandarlo (o descartalo). Queda en borrador. */}
-      {puedeComponer && !voz.recording && audioPend && (
-        <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => setAudioPend(null)} title="Descartar audio" aria-label="Descartar audio" style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--bad)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconTrash /></button>
-          {audioUrl && <AudioPlay src={audioUrl} style={{ flex: 1, height: 40 }} />}
-          <button onClick={() => void enviarAudioPend()} disabled={sending} title="Enviar audio" aria-label="Enviar audio" style={{ flex: 'none', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
-        </div>
-      )}
-      {puedeComponer && !voz.recording && !audioPend && (
-        <div style={{ borderTop: '1px solid var(--border)', position: 'relative' }}>
-          {emojiOpen && <div onClick={() => setEmojiOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 39 }} />}
-          {emojiOpen && <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 10, zIndex: 40 }}><EmojiPicker onPick={(em) => setDraft((d) => d + em)} onClose={() => setEmojiOpen(false)} /></div>}
-          {adjunto && (
-            <div style={{ padding: '10px 16px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
-              {adjuntoPreview ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={adjuntoPreview} alt={adjunto.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
-              ) : (
-                <div style={{ width: 48, height: 48, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)' }}><IconDoc size={22} /></div>
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adjunto.name}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{(adjunto.size / 1024).toFixed(0)} KB</div>
-              </div>
-              <button onClick={() => { setAdjunto(null); if (fileInput.current) fileInput.current.value = ''; }} title="Quitar adjunto" style={{ ...iconBtn, flex: 'none' }}>✕</button>
-            </div>
-          )}
-          <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'flex-end', gap: 4, position: 'relative', zIndex: 40 }}>
-            <input ref={fileInput} type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} onChange={(e: ChangeEvent<HTMLInputElement>) => { pickFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
-            <button onClick={() => setEmojiOpen((v) => !v)} title="Emojis" aria-label="Emojis" style={{ ...iconComposer, color: emojiOpen ? 'var(--primary)' : 'var(--dim)' }}><IconSmiley /></button>
-            {onEnviarArchivo && <button onClick={() => fileInput.current?.click()} disabled={sending} title="Adjuntar archivo" aria-label="Adjuntar archivo" style={iconComposer}><IconClip /></button>}
-            <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void enviarComposer(); } }}
-              placeholder={adjunto ? 'Agrega un texto (opcional)…' : (placeholder ?? 'Escribe un mensaje…')} rows={1}
-              style={{ flex: 1, minHeight: 40, maxHeight: 120, resize: 'none', padding: '9px 16px', borderRadius: 21, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, lineHeight: 1.35, outline: 'none' }} />
-            {(draft.trim() || adjunto) ? (
-              <button onClick={() => void enviarComposer()} disabled={sending} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: 42, height: 42, borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
-            ) : onEnviarArchivo ? (
-              <button onClick={() => void voz.start()} disabled={sending} title="Grabar nota de voz" aria-label="Grabar nota de voz" style={{ ...iconComposer, color: 'var(--dim)' }}><IconMic /></button>
-            ) : null}
-          </div>
-        </div>
+      {encimaDelComposer && <div style={{ flex: 'none', padding: '8px 12px 0', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>{encimaDelComposer}</div>}
+      {readOnly && <ComposerWhatsApp modo="enviar" soloLectura valor="" onValor={() => {}} placeholder={placeholder} />}
+      {/* Audio grabado SIN enviar: se escucha antes de mandarlo (o se descarta). Queda en borrador. */}
+      {puedeComponer && (
+        <ComposerWhatsApp
+          modo="enviar"
+          valor={draft}
+          onValor={setDraft}
+          onEnviar={() => void enviarComposer()}
+          ocupado={sending}
+          placeholder={adjunto ? 'Agrega un texto (opcional)…' : placeholder}
+          onArchivo={onEnviarArchivo ? pickFile : undefined}
+          acceptArchivo="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx"
+          onAudio={onEnviarArchivo ? guardarAudio : undefined}
+          onErrorAudio={setSendErr}
+          audioPendiente={audioPend ? { url: audioUrl, onDescartar: () => setAudioPend(null), onUsar: () => void enviarAudioPend() } : null}
+          chip={adjunto ? { imagen: adjuntoPreview, icono: 'doc', titulo: adjunto.name, detalle: `${(adjunto.size / 1024).toFixed(0)} KB`, onQuitar: () => setAdjunto(null) } : null}
+        />
       )}
 
       {lightbox && (

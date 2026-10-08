@@ -17,6 +17,12 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
 import { motivoNoInscribe } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
+import { claseDe, idDe, siguienteDe, raizRespuesta } from '@/lib/flujo-grafo';
+import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo, AVISO_REPETIDO } from '@/lib/nutricion-grafo-motor';
+import { getAdjunto } from '@/lib/setting-adjuntos';
+import { emitirAviso } from '@/lib/avisos';
+import { linkApp } from '@/lib/app-url';
+import { getTenantDb } from '@/lib/workspace';
 import { logLeadEvent } from '@/lib/leads';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { PREFIJO_FLUJO } from '../canal';
@@ -91,6 +97,15 @@ const historialDe = (input: Record<string, unknown>): TurnoSim[] =>
 const noSeInscribe = (v: Extract<InscripcionManual, { inscribe: false }>, leadId: number, secuenciaId: number): string =>
   motivoNoInscribe(v.porque, { secuenciaId, secuencia: v.secuencia?.nombre, leadId, lead: v.lead?.nombre });
 
+/** El lead de un aviso al equipo, de ESTE negocio (getTenantDb). Un error de lectura TIRA: «no pude leer» no es «no existe». */
+async function leadDelAviso(leadId: number): Promise<{ id: number; nombre: string; telefono: string | null } | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('leads').select('id, nombre, telefono').eq('id', leadId).maybeSingle();
+  if (error) throw new Error(`avisar_al_equipo (lead): ${error.message}`);
+  const l = data as { id: number; nombre: string | null; telefono: string | null } | null;
+  return l ? { id: Number(l.id), nombre: l.nombre?.trim() || `el lead #${l.id}`, telefono: l.telefono ?? null } : null;
+}
+
 /** ¿Lo pide un paso «⚡ Acción» de un flujo? La clave de scope lo dice (lib/api-mako/canal.ts). */
 const desdeUnFlujo = (ctx: Ctx): boolean => ctx.canalKey.startsWith(PREFIJO_FLUJO);
 
@@ -125,14 +140,21 @@ export const RUNNERS: Runners = {
       if (!s) return errorLectura(noExiste(id));
       return json({
         id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, activa: s.activa,
-        pasos: s.pasos.map((p) => esPasoAccion(p) ? ({
+        // Con ramas, «el paso 3» no es un lugar del flujo: cada tarjeta va con su `id` y a cuál sigue.
+        con_ramas: !esLineal(s.pasos),
+        pasos: s.pasos.map((p, i) => esNodoDeControl(p) ? ({
+          // Una tarjeta de CONTROL no manda nada: decide por dónde sigue el flujo.
+          orden: p.orden, id: idDe(p, i), tipo: p.nodo, siguiente: siguienteDe(s.pasos, i), espera: p.espera ?? null,
+          ramas: p.ramas ?? null, casos: p.casos ?? null, si_no: p.si_no ?? null, destino: p.destino ?? null,
+        }) : esPasoAccion(p) ? ({
           // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
-          orden: p.orden, tipo: 'accion', delay_horas: p.delay_horas, ancla: p.ancla ?? null, requiere: p.requiere ?? null,
-          accion: p.accion,
+          orden: p.orden, id: idDe(p, i), tipo: 'accion', delay_horas: p.delay_horas, ancla: p.ancla ?? null, requiere: p.requiere ?? null,
+          accion: p.accion, siguiente: siguienteDe(s.pasos, i),
         }) : ({
-          orden: p.orden, canal: p.canal, delay_horas: p.delay_horas, ancla: p.ancla ?? null, tipo: p.tipo ?? 'texto',
-          audio_id: p.audio_id ?? null, requiere: p.requiere ?? null, proveedor: p.canal === 'whatsapp' ? proveedorDelPaso(p) : null,
+          orden: p.orden, id: idDe(p, i), canal: p.canal, delay_horas: p.delay_horas, ancla: p.ancla ?? null, tipo: p.tipo ?? 'texto',
+          audio_id: p.audio_id ?? null, media_id: p.media_id ?? null, requiere: p.requiere ?? null, proveedor: p.canal === 'whatsapp' ? proveedorDelPaso(p) : null,
           asunto: p.asunto, cuerpo: p.cuerpo, variantes: (p.variantes ?? []).length, plantilla_meta: p.template_wa,
+          revisar: p.revisar ?? null, siguiente: siguienteDe(s.pasos, i),
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),
         estrategia: s.estrategia,
@@ -376,12 +398,23 @@ export const RUNNERS: Runners = {
       if (!s) return { error: noExiste(id) };
       const p = s.pasos.find((x) => x.orden === orden);
       if (!p) return { error: `La secuencia «${s.nombre}» no tiene paso ${orden} (tiene ${s.pasos.length}).` };
+      // Una tarjeta «Esperar» es la espera misma; una condición o un «Si responde» no esperan nada.
+      if (esNodoDeControl(p) && claseDe(p) !== 'esperar') return { error: `El paso ${orden} de «${s.nombre}» es una tarjeta de control, no un paso con espera.` };
+      if (claseDe(p) === 'esperar') {
+        if (!(horas > 0)) return { error: 'Una espera de 0 horas no espera nada: para sacarla, bórrala en el lienzo de /chatbot.' };
+        return { payload: { secuenciaId: id, orden, delayHoras: horas }, resumen: `La espera del paso ${orden} de «${s.nombre}»: de ${Math.round((p.espera?.minutos ?? 0) / 60)} h a ${horas} h` };
+      }
       return { payload: { secuenciaId: id, orden, delayHoras: horas }, resumen: `Paso ${orden} de «${s.nombre}»: espera de ${p.delay_horas} h a ${horas} h` };
     },
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId); const orden = Number(payload.orden); const horas = Number(payload.delayHoras);
       const s = await secuenciaVigente(id);
       if (!s || !s.pasos.some((p) => p.orden === orden)) return { ok: false, resumen: 'La secuencia o el paso ya no existen.' };
+      const esEspera = claseDe(s.pasos.find((p) => p.orden === orden)!) === 'esperar';
+      if (esEspera) {
+        await setSecuenciaPasos(id, s.pasos.map((p) => (p.orden === orden ? { ...p, espera: { modo: p.espera?.modo ?? 'tiempo', minutos: Math.round(horas * 60) } } : p)));
+        return { ok: true, resumen: `La espera del paso ${orden} de «${s.nombre}» ahora es de ${horas} h. Los envíos ya programados no se recalculan.` };
+      }
       await setSecuenciaPasos(id, s.pasos.map((p) => (p.orden === orden ? { ...p, delay_horas: horas } : p)));
       return { ok: true, resumen: `Paso ${orden} de «${s.nombre}» ahora espera ${horas} h. Los envíos ya programados no se recalculan.` };
     },
@@ -395,6 +428,7 @@ export const RUNNERS: Runners = {
       if (!s) return { error: noExiste(id) };
       if (!s.pasos.some((p) => p.orden === orden)) return { error: `La secuencia «${s.nombre}» no tiene paso ${orden}.` };
       if (esPasoAccion(s.pasos.find((p) => p.orden === orden))) return { error: `El paso ${orden} de «${s.nombre}» es una acción de MaKo, no un mensaje: no lleva audio.` };
+      if (esNodoDeControl(s.pasos.find((p) => p.orden === orden))) return { error: `El paso ${orden} de «${s.nombre}» es una tarjeta de control, no un mensaje: no lleva audio.` };
       if (audioId == null) return { payload: { secuenciaId: id, orden }, resumen: `Quitar el audio del paso ${orden} de «${s.nombre}» (vuelve a ser texto)` };
       const a = await getAudio(audioId);
       if (!a) return { error: `No existe el audio #${audioId} en este negocio. Pide el id con listar_audios.` };
@@ -516,6 +550,72 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // El «Otra cosa» de «Si responde»: avisa al grupo del negocio, nunca al lead. El molde es el aviso
+  // 'lead-no-confirmo' (lib/nutricion-desenlace.ts): `ws` EXPLÍCITO (sin él cae al grupo de la
+  // agencia), un tipo propio y el dedup POR LEAD (sin `dedupKey`, el primero se comería el aviso de
+  // todos los demás durante la ventana).
+  avisar_al_equipo: {
+    preparar: async (input) => {
+      const mensaje = str(input, 'mensaje');
+      if (!mensaje) return { error: 'Falta el mensaje del aviso.', faltan: ['mensaje'] };
+      const titulo = str(input, 'titulo');
+      const respuesta = str(input, 'respuesta');
+      const leadId = input.leadId != null ? num(input, 'leadId') : null;
+      let quien: string | null = null;
+      if (leadId != null) {
+        const l = await leadDelAviso(leadId);
+        if (!l) return { error: `No existe el lead #${leadId} en este negocio.` };
+        quien = l.nombre;
+      }
+      return {
+        payload: { ...(leadId != null ? { leadId } : {}), ...(titulo ? { titulo } : {}), mensaje, ...(respuesta ? { respuesta } : {}) },
+        resumen: `Avisar al equipo${quien ? ` sobre ${quien}` : ''}: «${mensaje.slice(0, 120)}»`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const leadId = payload.leadId != null ? Number(payload.leadId) : null;
+      const mensaje = String(payload.mensaje ?? '').trim();
+      if (!mensaje) return { ok: false, resumen: 'El aviso no tiene mensaje.' };
+      // Lo que escribió el lead, cuando el aviso sale de «Si responde» (lo pone el motor).
+      const respuesta = String(payload.respuesta ?? '').trim();
+      const lead = leadId != null ? await leadDelAviso(leadId) : null;
+      if (leadId != null && !lead) return { ok: false, resumen: `El lead #${leadId} ya no existe en este negocio.` };
+      const titulo = String(payload.titulo ?? '').trim() || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
+      const r = await emitirAviso({
+        ws: ctx.ws,
+        tipo: 'chatbot-aviso-equipo',
+        titulo: titulo.slice(0, 120),
+        categoria: 'accion',
+        semaforo: 'amarillo',
+        // POR LEAD y 12 h: dos automatizaciones avisando del mismo lead en la misma tarde son un
+        // aviso. Sin lead no hay entidad de qué deduplicar, y por tipo se comería los de todos.
+        // ⚠️ CON `respuesta`, POR RESPUESTA (revisión del 08/10/2026): por lead, el aviso de «Otra
+        // cosa» se lo comía el «no confirmó» de la misma tarde —el mismo tipo y la misma clave— y
+        // lo que escribió el lead no le llegaba a nadie. La clave se hashea (`keyEspaciado`).
+        ...(lead ? {
+          dedupKey: respuesta ? `lead:${lead.id}:resp:${respuesta}` : `lead:${lead.id}`, dedupTtlMin: 60 * 12,
+          lead: { id: lead.id, nombre: lead.nombre }, link: `/crm/${lead.id}`,
+        } : {}),
+        // El link que viaja en el WhatsApp va por `linkApp` (lleva el `?ws=`): abierto desde el
+        // teléfono, sin él abre la ficha en el negocio que esté mirando la pestaña.
+        texto: [
+          `🟡 *${titulo}*`,
+          '',
+          mensaje,
+          ...(respuesta ? ['', `_"${respuesta.slice(0, 400)}"_`] : []),
+          ...(lead ? ['', `${lead.nombre}${lead.telefono ? ` · ${lead.telefono}` : ''}`, `👉 ${linkApp(`/crm/${lead.id}`, ctx.ws)}`] : []),
+          '',
+          '— MaKo',
+        ].join('\n'),
+      });
+      // El resumen de un aviso deduplicado EMPIEZA con `AVISO_REPETIDO`: el motor lo lee
+      // (`avisoSalio`, lib/nutricion-grafo-motor.ts) para mandar el de respaldo.
+      if (r.deduped) return { ok: true, resumen: `${AVISO_REPETIDO}${lead ? ` de ${lead.nombre}` : ''} hace poco.` };
+      if (r.apagado) return { ok: true, resumen: 'El aviso está apagado en Configuraciones › Notificaciones: quedó sólo en la app.' };
+      return { ok: r.ok, resumen: r.ok ? 'Le avisé al equipo.' : 'No pude avisarle al equipo.' };
+    },
+  },
+
   // ═══ Acciones por pantalla (genérica /mako/revisar) ══════════════════════
   reabrir_onboarding_chatbot: {
     // Solo la tab del área (setting): los recorridos de whatsapp y email son de OTRAS áreas.
@@ -539,6 +639,14 @@ export const RUNNERS: Runners = {
       const id = num(input, 'secuenciaId');
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
+      // ⚠️ EN UNA SECUENCIA DE TARJETAS, EL DESENLACE Y EL MODO NO SE ESCRIBEN POR ACÁ. Cuándo
+      // termina es una condición del lienzo y qué pasa al responder es «Si responde»; el conversor
+      // dejó el desenlace inerte y el modo en 'automatico' (LIMPIEZA, lib/flujo-legado.ts) para que
+      // el motor viejo no repita lo que hacen las tarjetas. Escribirlos de nuevo lo reviviría al
+      // lado del flujo, con dos cosas decidiendo lo mismo.
+      if (tieneTarjetasDeControl(s.pasos) && (input.desenlace != null || str(input, 'modo'))) {
+        return { error: `«${s.nombre}» está armada con tarjetas: cuándo termina y qué pasa cuando el lead responde se cambian en el lienzo de /chatbot (una condición, «Si responde»), no en la estrategia.` };
+      }
       const actual = parseEstrategia(s.estrategia);
       const objetivo = str(input, 'objetivo');
       if (!actual && !objetivo) return { error: 'Esta secuencia todavía no tiene estrategia: el objetivo es obligatorio.', faltan: ['objetivo'] };
@@ -613,9 +721,16 @@ export const RUNNERS: Runners = {
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
       const entrada = (Array.isArray(input.pasos) ? input.pasos : []) as Array<Record<string, unknown>>;
-      const conAcciones = s.pasos.some(esPasoAccion);
+      // ⚠️ CON RAMAS, «EL PASO 3» NO ES UN LUGAR DEL FLUJO. Reescribir la lista por orden en una
+      // secuencia con condiciones, «Si responde» o saltos le movería a cada rama su siguiente: no se
+      // escribe nada y se dice dónde se edita.
+      if (!esLineal(s.pasos)) {
+        return { error: `«${s.nombre}» tiene ramas (condiciones, «Si responde» o «Ir a»): sus pasos no se reescriben por orden. Se editan en el lienzo de /chatbot.` };
+      }
+      // Una acción o una espera (tarjeta) se conservan en su lugar: el merge es posicional.
+      const conAcciones = s.pasos.some((p) => esPasoAccion(p) || esNodoDeControl(p));
       if (conAcciones && entrada.length !== s.pasos.length) {
-        return { error: `«${s.nombre}» tiene pasos «Acción de MaKo»: por aquí sólo se cambian sus mensajes, con los mismos ${s.pasos.length} pasos en el mismo orden. Para agregar o quitar pasos, el lienzo de /chatbot.` };
+        return { error: `«${s.nombre}» tiene pasos «Acción de MaKo» o esperas: por aquí sólo se cambian sus mensajes, con los mismos ${s.pasos.length} pasos en el mismo orden. Para agregar o quitar pasos, el lienzo de /chatbot.` };
       }
       const avisos: string[] = [];
       const cambiosDeTexto: string[] = [];
@@ -633,6 +748,11 @@ export const RUNNERS: Runners = {
           pasos.push({ ...previo, ...(e.delay_horas != null ? { delay_horas: Number(e.delay_horas) || 0 } : {}), orden: i + 1 });
           continue;
         }
+        // Una tarjeta «Esperar» queda como está: su espera se cambia con cambiar_espera_paso.
+        if (previo && esNodoDeControl(previo)) {
+          pasos.push({ ...previo, orden: i + 1 });
+          continue;
+        }
         const base: PasoSecuencia = previo ?? { orden: i + 1, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null };
         // null = «no lo pasaste» (la pantalla genérica manda null por cada campo vacío): se conserva el previo.
         const cambiosPaso = Object.fromEntries(Object.entries(e).filter(([, v]) => v != null));
@@ -640,9 +760,12 @@ export const RUNNERS: Runners = {
         // «ninguno» quita la condición o el ancla: sin esto no había forma de borrarlas.
         if (p.requiere === ('ninguno' as never)) delete p.requiere;
         if (p.ancla === ('ninguno' as never)) delete p.ancla;
-        if (p.tipo === 'texto') p.audio_id = null;
+        if (p.tipo === 'texto') { p.audio_id = null; p.media_id = null; }
         if (p.tipo === 'audio') {
           if (!p.audio_id || !(await getAudio(Number(p.audio_id)))) return { error: `El paso ${i + 1} es de audio y su audio_id no existe en este negocio.` };
+        }
+        if (p.tipo === 'media') {
+          if (!p.media_id || !(await getAdjunto(Number(p.media_id)))) return { error: `El paso ${i + 1} es un archivo y su media_id no existe en este negocio.` };
         }
         if (RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? '')) avisos.push(`el paso ${i + 1} tiene un [corchete] y no va a salir nunca`);
         const cambiaTexto = !!previo && e.cuerpo != null && e.cuerpo !== previo.cuerpo;
@@ -659,7 +782,10 @@ export const RUNNERS: Runners = {
       const borrados = s.pasos.length > pasos.length ? ` y borrar ${s.pasos.length - pasos.length}` : '';
       if (avisosAudio) avisos.push('los pasos de audio a leads que todavía no son clientes quedan como borrador para que alguien los mande');
       return {
-        payload: { secuenciaId: id, pasos },
+        // `relinear`: la cadena vuelve a seguir el orden de la lista nueva. Sin esto, un paso
+        // agregado al final quedaba suelto (el anterior decía «termina») y uno borrado del medio
+        // dejaba a su anterior apuntando a la nada: `validarGrafo` los rechazaba.
+        payload: { secuenciaId: id, pasos: relinear(pasos) },
         resumen: `Reescribir los pasos de «${s.nombre}»: quedan ${pasos.length}${borrados}`
           + `${cambiosDeTexto.length ? `. Textos que cambian: ${cambiosDeTexto.join(' · ')}` : ''}`
           + `${avisos.length ? `. Ojo: ${avisos.join('; ')}` : ''}`,
@@ -678,13 +804,20 @@ export const RUNNERS: Runners = {
       const id = num(input, 'secuenciaId');
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
-      const est = parseEstrategia(s.estrategia);
-      if (!est) return { error: `La secuencia «${s.nombre}» no tiene estrategia: guárdala primero con guardar_estrategia_secuencia.` };
       // `contestaSolo` sólo con un `true` literal (#787): el default es el borrador de siempre.
       const escenario: EscenarioSecuencia = {
         titulo: str(input, 'titulo'), cuando: str(input, 'cuando'), comoResponder: str(input, 'comoResponder'),
         ...(input.contestaSolo === true ? { contestaSolo: true } : {}),
       };
+      // ⚠️ CON «SI RESPONDE», EL CASO ES UNA RAMA DE LA TARJETA: en `estrategia.escenarios` ya no lo
+      // lee nadie (el clasificador de esa secuencia lee los casos de la tarjeta).
+      if (raizRespuesta(s.pasos) != null) {
+        const r = agregarCasoAlGrafo(s.pasos, escenario);
+        if ('error' in r) return { error: `No se puede agregar el caso en «${s.nombre}»: ${r.error}.` };
+        return { payload: { secuenciaId: id, escenario }, resumen: `Agregar el caso «${escenario.titulo}» como rama de «Si responde» en «${s.nombre}»${escenario.contestaSolo ? ' (MaKo contesta solo)' : ''}` };
+      }
+      const est = parseEstrategia(s.estrategia);
+      if (!est) return { error: `La secuencia «${s.nombre}» no tiene estrategia: guárdala primero con guardar_estrategia_secuencia.` };
       const reemplaza = est.escenarios.some((x) => x.titulo === escenario.titulo);
       if (!reemplaza && est.escenarios.length >= 30) return { error: `La secuencia «${s.nombre}» ya tiene 30 casos, el máximo.` };
       return { payload: { secuenciaId: id, escenario }, resumen: `${reemplaza ? 'Reemplazar' : 'Agregar'} el caso «${escenario.titulo}» en «${s.nombre}»${escenario.contestaSolo ? ' (MaKo contesta solo)' : ''}` };
@@ -692,6 +825,12 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId);
       const s = await secuenciaVigente(id);
+      if (s && raizRespuesta(s.pasos) != null) {
+        const r = agregarCasoAlGrafo(s.pasos, payload.escenario as EscenarioSecuencia);
+        if ('error' in r) return { ok: false, resumen: `No se agregó el caso: ${r.error}.` };
+        await setSecuenciaPasos(id, r.pasos);
+        return { ok: true, resumen: `Caso «${(payload.escenario as EscenarioSecuencia).titulo}» agregado a «Si responde» de «${s.nombre}».` };
+      }
       const est = s ? parseEstrategia(s.estrategia) : null;
       if (!s || !est) return { ok: false, resumen: 'La secuencia ya no existe o se quedó sin estrategia.' };
       const e = payload.escenario as EscenarioSecuencia;
@@ -711,6 +850,14 @@ export const RUNNERS: Runners = {
       const s = h.secuencia_id != null ? await secuenciaFila(h.secuencia_id) : null;
       const est = s ? parseEstrategia(s.estrategia) : null;
       const escenario = { titulo: str(input, 'titulo'), cuando: str(input, 'cuando'), comoResponder: str(input, 'comoResponder') };
+      // Con «Si responde» el caso entra como RAMA (resolverHandoff, lib/chat-agent-handoff.ts): el
+      // tope y lo que se dice salen de la tarjeta, no de la estrategia.
+      const pasos = s && Array.isArray(s.pasos) ? (s.pasos as PasoSecuencia[]) : [];
+      if (s && raizRespuesta(pasos) != null) {
+        const r = agregarCasoAlGrafo(pasos, escenario);
+        if ('error' in r) return { error: `No se puede enseñar el caso en «${s.nombre}»: ${r.error}.` };
+        return { payload: { handoffId: id, escenario }, resumen: `Resolver el hand-off #${id} con el caso «${escenario.titulo}» (se suma como rama de «Si responde» en «${s.nombre}») y reactivar al lead` };
+      }
       // resolverHandoff agrega al FINAL y escenariosDe recorta a 30 en la próxima lectura: el caso enseñado
       // desaparecería en silencio con el hand-off ya resuelto y la inscripción reactivada.
       if (s && est && est.escenarios.length >= 30 && !est.escenarios.some((x) => x.titulo === escenario.titulo)) {

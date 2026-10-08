@@ -30,6 +30,10 @@ import type { Ejecutado, Preparado, SalidaLectura } from './api-mako/tipos';
 
 /** Una reunión de la agenda, como la devuelve `proximasReunionesCon`. */
 export type ReunionAgenda = { inicioIso: string; titulo: string; duracionMin: number | null; organizaOtro: boolean };
+/** Un evento de un día, como lo devuelve `eventosDelDia`: con o sin invitados. */
+export type EventoDia = ReunionAgenda & { diaCompleto?: boolean; invitados?: number };
+/** Lo que se le puede hacer a una reunión que ya está en la agenda. */
+export type AccionSobreReunion = 'mover' | 'cambiar' | 'cancelar';
 /** Un horario de la grilla del día, como lo devuelve `horariosLibresDeGoogle`. */
 export type SlotDia = { hora: string; libre: boolean };
 
@@ -45,6 +49,8 @@ export const ESTADOS_AGENDA = {
   horarios_mostrados: 'El sistema ya le mostró a la persona lo que tiene libre ese día en su agenda (puede que no haya nada): tú NO lo ves, así que no digas qué horarios hay ni que no hay. Pregúntale a qué hora la quiere y, con la hora que diga, propón agendar.',
   horarios_sin_verificar: 'No se pudo leer la agenda de ese día y el sistema ya se lo dijo a la persona. Pregúntale a qué hora la quiere.',
   reuniones_mostradas: 'El sistema ya le mostró a la persona lo que tiene ese lead en la agenda (puede que no haya nada): tú NO lo ves, así que no digas qué reuniones hay ni que no hay. Si quiere mover una, que te diga el día y la hora que tiene hoy, y llama a proponer_mover_reunion con eso.',
+  eventos_mostrados: 'El sistema ya le mostró a la persona lo que tiene ese día en su agenda (puede que no haya nada): tú NO lo ves, así que no digas qué eventos hay, a qué hora ni que no hay. Si quiere mover, cambiar o cancelar uno, que te diga cuál con su hora, y llama a la herramienta que corresponda con fecha_actual y hora_actual.',
+  eventos_sin_verificar: 'No se pudo leer la agenda de ese día y el sistema ya se lo dijo a la persona: no afirmes qué tiene ni que no tiene nada.',
 } as const;
 export type EstadoAgenda = keyof typeof ESTADOS_AGENDA;
 
@@ -66,6 +72,21 @@ export const ERRORES_MOVER = {
   otraCuenta: 'Esa reunión la organiza otra cuenta de Google: hay que moverla desde esa agenda.',
   mismoHorario: 'Esa reunión ya está en ese horario: no hay nada que mover.',
 } as const;
+
+/** Los mismos errores para una reunión SIN lead, que se busca en el día que dijo la
+ *  persona. Llevan sólo el día (lo dijo ella), nunca lo que hay en la agenda. */
+export const ERRORES_DEL_DIA = {
+  varias: 'Ese día hay más de una reunión que coincide. El sistema ya le mostró la lista y le preguntó cuál (tú no la ves): no repitas la pregunta. Cuando diga la hora, vuelve a llamar con fecha_actual y hora_actual.',
+  ninguna: 'No hay reuniones con hora ese día en la agenda de Google del negocio. El sistema ya se lo dijo a la persona.',
+  ningunaQueCoincida: 'No encontré una reunión a esa hora ese día. El sistema ya le mostró las que hay (tú no las ves): pregúntale cuál es.',
+  sinLeer: 'No se pudo leer la agenda de ese día y el sistema ya se lo dijo a la persona: no se propuso nada.',
+} as const;
+
+const VERBO: Record<AccionSobreReunion, { inf: string; part: string }> = {
+  mover: { inf: 'mover', part: 'movemos' },
+  cambiar: { inf: 'cambiar', part: 'cambiamos' },
+  cancelar: { inf: 'cancelar', part: 'cancelamos' },
+};
 
 /** Por qué no salió una escritura en la agenda, en una frase fija por código. El
  *  `motivo` que arma lib/google-calendar.ts puede traer el título de un evento o el
@@ -211,60 +232,164 @@ export function salidaReunionesDeLead(p: { nombre: string; reuniones: readonly R
   };
 }
 
+/** «10:00» de un instante, en la zona del negocio. */
+function horaLocal(iso: string, tz: string): string {
+  const l = localDe(iso, tz);
+  return l ? hhmm(l.min) : iso;
+}
+
+/** Los eventos de UN día, para la persona: la hora (el día ya se dijo arriba), el título
+ *  y cuánto dura. Los de día completo, primero. */
+export function listaDelDia(es: readonly EventoDia[], tz: string): string {
+  const orden = [...es].sort((a, b) => Number(!!b.diaCompleto) - Number(!!a.diaCompleto) || Date.parse(a.inicioIso) - Date.parse(b.inicioIso));
+  return orden.map((e) => `• ${e.diaCompleto ? 'todo el día' : horaLocal(e.inicioIso, tz)} — «${e.titulo || 'sin título'}»${!e.diaCompleto && e.duracionMin ? ` (${e.duracionMin} min)` : ''}${e.organizaOtro ? ' (la organiza otra cuenta)' : ''}`).join('\n');
+}
+
+/** agenda_del_dia. El modelo sólo sabe que se mostró: ni qué hay, ni cuántos, ni si nada.
+ *  `motivo` es el del fallo de Google: va sólo a la persona. */
+export function salidaDelDia(p: {
+  fecha: string; ok: boolean; codigo: string; motivo: string; eventos: readonly EventoDia[]; tz: string;
+}): Exclude<SalidaLectura, string> {
+  const dia = diaLegible(p.fecha);
+  if (!p.ok) {
+    return { content: alModelo('eventos_sin_verificar'), paraLaPersona: `No pude leer tu agenda de Google del ${dia} (${p.motivo || motivoFijo(p.codigo)}), así que no sé qué tienes ese día.` };
+  }
+  return {
+    content: alModelo('eventos_mostrados'),
+    paraLaPersona: p.eventos.length
+      ? `🗓️ Tu agenda del ${dia}:\n${listaDelDia(p.eventos, p.tz)}`
+      : `🗓️ El ${dia} no tienes nada en tu agenda de Google.`,
+  };
+}
+
+/** Mover, cambiar o cancelar sin lead, cuando no se pudo leer el día: no se propone
+ *  nada. El motivo es de Google y va a la persona. */
+export function noPudeLeerDia(p: { fecha: string; codigo: string; motivo: string }): Extract<Preparado, { error: string }> {
+  return { error: ERRORES_DEL_DIA.sinLeer, paraLaPersona: `No pude leer tu agenda de Google del ${diaLegible(p.fecha)} (${p.motivo || motivoFijo(p.codigo)}), así que no sé qué reunión es.` };
+}
+
 /** proponer_agendar_agenda, preparar(). El título lo dijo la persona o sale del CRM;
- *  los choques son de la agenda y van a la persona. */
+ *  los choques son de la agenda y van a la persona. Sin lead (`email` null) no se invita
+ *  a nadie: es un evento del negocio («la reunión PRUEBA»). */
 export function propuestaAgendar(p: {
-  leadId: number; email: string; titulo: string; inicioIso: string; tz: string; duracionMin: number; choques: readonly string[];
+  leadId: number | null; email: string | null; titulo: string; inicioIso: string; tz: string; duracionMin: number; choques: readonly string[];
 }): Extract<Preparado, { payload: unknown }> {
   return {
     payload: { leadId: p.leadId, inicioIso: p.inicioIso, tz: p.tz, duracionMin: p.duracionMin, titulo: p.titulo, email: p.email },
-    resumen: `Agendar «${p.titulo}» el ${cuandoLegible(p.inicioIso, p.tz)} (${p.duracionMin} min) en tu Google Calendar e invitar a ${p.email}.`,
+    resumen: `Agendar «${p.titulo}» el ${cuandoLegible(p.inicioIso, p.tz)} (${p.duracionMin} min) en tu Google Calendar${p.email ? ` e invitar a ${p.email}` : ', sin invitados'}.`,
     ...(p.choques.length ? { paraLaPersona: `⚠️ Ese horario se pisa en tu agenda con: ${p.choques.slice(0, 3).map((c) => `«${c}»`).join(', ')}.` } : {}),
   };
 }
 
-/** proponer_mover_reunion, preparar(): cuál reunión. O la reunión, o el error que
- *  lee el modelo con lo que va a la persona. */
-export function elegirParaMover(p: {
-  nombre: string; todas: readonly ReunionAgenda[]; fechaActual: string | null; horaActual: string | null; nuevoIso: string; tz: string;
-}): { reunion: ReunionAgenda } | Extract<Preparado, { error: string }> {
-  if (!p.todas.length) return { error: ERRORES_MOVER.ninguna(p.nombre) };
-  const candidatas = filtrarReuniones(p.todas, { fecha: p.fechaActual, hora: p.horaActual }, p.tz);
+/**
+ * Cuál reunión nombró la persona, para moverla, cambiarla o cancelarla. Con un lead se
+ * busca entre las suyas (`quien` = su nombre); sin lead, entre las del día que dijo
+ * (`quien` = null). O la reunión, o el error que lee el modelo —sólo con lo que dijo la
+ * persona o el CRM— con lo que va a la persona. Los eventos de día completo no se eligen:
+ * no tienen una hora por la que nombrarlos ni por la que encontrarlos.
+ */
+export function elegirReunion(p: {
+  quien: string | null; accion: AccionSobreReunion; todas: readonly EventoDia[]; fechaActual: string | null; horaActual: string | null;
+  tz: string; nuevoIso?: string | null;
+}): { reunion: EventoDia } | Extract<Preparado, { error: string }> {
+  const v = VERBO[p.accion];
+  const conHora = p.todas.filter((e) => !e.diaCompleto);
+  const lista = (es: readonly EventoDia[]) => (p.quien ? listaDeReuniones(es, p.tz) : listaDelDia(es, p.tz));
+  if (!conHora.length) {
+    return p.quien
+      ? { error: ERRORES_MOVER.ninguna(p.quien) }
+      : { error: ERRORES_DEL_DIA.ninguna, paraLaPersona: `🗓️ El ${p.fechaActual ? diaLegible(p.fechaActual) : 'día'} no hay reuniones con hora en tu agenda de Google.` };
+  }
+  const candidatas = filtrarReuniones(conHora, { fecha: p.fechaActual, hora: p.horaActual }, p.tz);
   if (!candidatas.length) {
     return {
-      error: ERRORES_MOVER.ningunaQueCoincida(p.nombre), faltan: [...FALTA_CUAL],
-      paraLaPersona: `No encontré una reunión de ${p.nombre} ese día u hora. Las próximas que tiene en tu agenda:\n${listaDeReuniones(p.todas, p.tz)}\n¿Cuál movemos? Dime el día y la hora que tiene hoy.`,
+      error: p.quien ? ERRORES_MOVER.ningunaQueCoincida(p.quien) : ERRORES_DEL_DIA.ningunaQueCoincida, faltan: [...FALTA_CUAL],
+      paraLaPersona: p.quien
+        ? `No encontré una reunión de ${p.quien} ese día u hora. Las próximas que tiene en tu agenda:\n${lista(conHora)}\n¿Cuál ${v.part}? Dime el día y la hora que tiene hoy.`
+        : `No encontré una reunión a esa hora. Lo que tienes ese día:\n${lista(conHora)}\n¿Cuál ${v.part}? Dime la hora.`,
     };
   }
   if (candidatas.length > 1) {
     return {
-      error: ERRORES_MOVER.varias(p.nombre), faltan: [...FALTA_CUAL],
-      paraLaPersona: `${p.nombre} tiene varias reuniones en tu agenda:\n${listaDeReuniones(candidatas, p.tz)}\n¿Cuál movemos? Dime el día y la hora que tiene hoy.`,
+      error: p.quien ? ERRORES_MOVER.varias(p.quien) : ERRORES_DEL_DIA.varias, faltan: [...FALTA_CUAL],
+      paraLaPersona: p.quien
+        ? `${p.quien} tiene varias reuniones en tu agenda:\n${lista(candidatas)}\n¿Cuál ${v.part}? Dime el día y la hora que tiene hoy.`
+        : `Ese día hay varias:\n${lista(candidatas)}\n¿Cuál ${v.part}? Dime la hora.`,
     };
   }
   const reunion = candidatas[0];
   if (reunion.organizaOtro) {
-    return { error: ERRORES_MOVER.otraCuenta, paraLaPersona: `«${reunion.titulo}» (${cuandoLegible(reunion.inicioIso, p.tz)}) la organiza otra cuenta de Google: hay que moverla desde esa agenda.` };
+    return { error: `Esa reunión la organiza otra cuenta de Google: hay que ${v.inf}la desde esa agenda.`, paraLaPersona: `«${reunion.titulo}» (${cuandoLegible(reunion.inicioIso, p.tz)}) la organiza otra cuenta de Google: hay que ${v.inf}la desde esa agenda.` };
   }
-  if (Math.abs(Date.parse(p.nuevoIso) - Date.parse(reunion.inicioIso)) < 60_000) return { error: ERRORES_MOVER.mismoHorario };
+  if (p.accion === 'mover' && p.nuevoIso && Math.abs(Date.parse(p.nuevoIso) - Date.parse(reunion.inicioIso)) < 60_000) return { error: ERRORES_MOVER.mismoHorario };
   return { reunion };
 }
 
+/** proponer_mover_reunion, preparar(): cuál reunión. La forma de siempre (con lead). */
+export function elegirParaMover(p: {
+  nombre: string; todas: readonly ReunionAgenda[]; fechaActual: string | null; horaActual: string | null; nuevoIso: string; tz: string;
+}): { reunion: ReunionAgenda } | Extract<Preparado, { error: string }> {
+  return elegirReunion({ quien: p.nombre, accion: 'mover', todas: p.todas, fechaActual: p.fechaActual, horaActual: p.horaActual, tz: p.tz, nuevoIso: p.nuevoIso });
+}
+
+/** Cómo nombró la persona la reunión («del jueves 9 oct 10:30»): sólo lo que ella dijo. */
+function cualDijo(fechaActual: string | null, horaActual: string | null): string {
+  if (fechaActual) return ` del ${diaLegible(fechaActual)}${horaActual ? ` ${horaActual}` : ''}`;
+  return horaActual ? ` de las ${horaActual}` : '';
+}
+const conLead = (nombre: string | null) => (nombre ? ` con ${nombre}` : '');
+const pisa = (choques: readonly string[]) => (choques.length ? `\n⚠️ El horario nuevo se pisa con: ${choques.slice(0, 3).map((c) => `«${c}»`).join(', ')}.` : '');
+
 /** proponer_mover_reunion, preparar(): la propuesta. Lo que dijo la persona para
  *  nombrarla («la del jueves 10:30») sí puede ir al resumen; el título y la hora que
- *  tiene en la agenda, no. El payload lo lee sólo el código al confirmar. */
+ *  tiene en la agenda, no. El payload lo lee sólo el código al confirmar. Sin lead,
+ *  `nombre` y `email` vienen null. */
 export function propuestaMover(p: {
-  leadId: number; nombre: string; email: string; reunion: ReunionAgenda; nuevoIso: string; tz: string;
+  leadId: number | null; nombre: string | null; email: string | null; reunion: ReunionAgenda; nuevoIso: string; tz: string;
   fechaActual: string | null; horaActual: string | null; choques: readonly string[];
 }): Extract<Preparado, { payload: unknown }> {
-  const cual = p.fechaActual ? ` del ${p.fechaActual}${p.horaActual ? ` ${p.horaActual}` : ''}` : (p.horaActual ? ` de las ${p.horaActual}` : '');
   return {
     payload: {
       leadId: p.leadId, leadNombre: p.nombre, inicioActualIso: p.reunion.inicioIso, nuevoIso: p.nuevoIso, tz: p.tz,
       titulo: p.reunion.titulo, email: p.email, duracionMin: p.reunion.duracionMin ?? null,
     },
-    resumen: `Mover la reunión con ${p.nombre}${cual} al ${cuandoLegible(p.nuevoIso, p.tz)} en tu Google Calendar. Google le avisa a ${p.email}.`,
-    paraLaPersona: `La que se mueve: «${p.reunion.titulo}», hoy el ${cuandoLegible(p.reunion.inicioIso, p.tz)}.${p.choques.length ? `\n⚠️ El horario nuevo se pisa con: ${p.choques.slice(0, 3).map((c) => `«${c}»`).join(', ')}.` : ''}`,
+    resumen: `Mover la reunión${conLead(p.nombre)}${cualDijo(p.fechaActual, p.horaActual)} al ${cuandoLegible(p.nuevoIso, p.tz)} en tu Google Calendar. ${p.email ? `Google le avisa a ${p.email}.` : 'Si tiene invitados, Google les avisa.'}`,
+    paraLaPersona: `La que se mueve: «${p.reunion.titulo}», hoy el ${cuandoLegible(p.reunion.inicioIso, p.tz)}.${pisa(p.choques)}`,
+  };
+}
+
+/** proponer_cambiar_reunion, preparar(). Lo NUEVO (el título, la duración) lo dijo la
+ *  persona y puede ir al resumen; el título que tiene hoy es de la agenda: va a ella. */
+export function propuestaCambiar(p: {
+  leadId: number | null; nombre: string | null; email: string | null; reunion: ReunionAgenda; tz: string;
+  tituloNuevo: string | null; duracionMin: number | null; fechaActual: string | null; horaActual: string | null;
+}): Extract<Preparado, { payload: unknown }> {
+  const que = [p.tituloNuevo ? `se llame «${p.tituloNuevo}»` : '', p.duracionMin ? `dure ${p.duracionMin} min` : ''].filter(Boolean).join(' y ');
+  return {
+    payload: {
+      leadId: p.leadId, leadNombre: p.nombre, inicioIso: p.reunion.inicioIso, titulo: p.reunion.titulo, email: p.email, tz: p.tz,
+      tituloNuevo: p.tituloNuevo, duracionMin: p.duracionMin,
+    },
+    resumen: `Cambiar la reunión${conLead(p.nombre)}${cualDijo(p.fechaActual, p.horaActual)} en tu Google Calendar para que ${que}.`,
+    paraLaPersona: `La que se cambia: «${p.reunion.titulo}», el ${cuandoLegible(p.reunion.inicioIso, p.tz)}.`,
+  };
+}
+
+/** proponer_cancelar_reunion, preparar(). Cancelar le avisa a los invitados y no se
+ *  deshace: CUÁNTOS son lo dice la agenda, así que va a la persona, que es quien confirma. */
+export function propuestaCancelar(p: {
+  leadId: number | null; nombre: string | null; email: string | null; reunion: EventoDia; tz: string;
+  fechaActual: string | null; horaActual: string | null;
+}): Extract<Preparado, { payload: unknown }> {
+  const avisa = p.email
+    ? `Google le avisa a ${p.email}.`
+    : typeof p.reunion.invitados === 'number'
+      ? (p.reunion.invitados ? `Google les avisa a ${p.reunion.invitados === 1 ? 'su invitado' : `sus ${p.reunion.invitados} invitados`}.` : 'No tiene invitados.')
+      : 'Si tiene invitados, Google les avisa.';
+  return {
+    payload: { leadId: p.leadId, leadNombre: p.nombre, inicioIso: p.reunion.inicioIso, titulo: p.reunion.titulo, email: p.email, tz: p.tz },
+    resumen: `Cancelar la reunión${conLead(p.nombre)}${cualDijo(p.fechaActual, p.horaActual)} en tu Google Calendar. No se deshace.`,
+    paraLaPersona: `La que se cancela: «${p.reunion.titulo}», el ${cuandoLegible(p.reunion.inicioIso, p.tz)}. ${avisa}`,
   };
 }
 
@@ -274,24 +399,50 @@ export function yaPaso(que: 'agendó' | 'movió', iso: string, tz: string): Ejec
   return { ok: false, resumen: `No se ${que}: el ${cuandoLegible(iso, tz)} ya pasó. Pídelo de nuevo con otra hora.` };
 }
 
-/** proponer_agendar_agenda, ejecutar(). */
+/** proponer_agendar_agenda, ejecutar(). Sin `email`, sin invitación. */
 export function resultadoAgendar(p: {
-  ok: boolean; codigo: string; motivo: string; titulo: string; inicioIso: string; tz: string; email: string;
+  ok: boolean; codigo: string; motivo: string; titulo: string; inicioIso: string; tz: string; email: string | null;
 }): Ejecutado {
   if (!p.ok) return { ok: false, resumen: `No se agendó: ${motivoFijo(p.codigo)}.`, paraLaPersona: `No se agendó: ${p.motivo}` };
-  return { ok: true, resumen: `Listo: «${p.titulo}» quedó el ${cuandoLegible(p.inicioIso, p.tz)} en tu Google Calendar, y ${p.email} ya tiene la invitación.` };
+  return { ok: true, resumen: `Listo: «${p.titulo}» quedó el ${cuandoLegible(p.inicioIso, p.tz)} en tu Google Calendar${p.email ? `, y ${p.email} ya tiene la invitación` : ''}.` };
 }
 
 /** proponer_mover_reunion, ejecutar(). El título y la hora vieja salen del payload,
- *  o sea de la agenda: van a la persona. */
+ *  o sea de la agenda: van a la persona. Sin lead, `conQuien` vacío. */
 export function resultadoMover(p: {
   ok: boolean; codigo: string; motivo: string; titulo: string; antesIso: string; nuevoIso: string; tz: string; conQuien: string;
 }): Ejecutado {
   if (!p.ok) return { ok: false, resumen: `No se movió: ${motivoFijo(p.codigo)}.`, paraLaPersona: `No se movió: ${p.motivo}` };
   return {
     ok: true,
-    resumen: `Listo: la reunión con ${p.conQuien} quedó el ${cuandoLegible(p.nuevoIso, p.tz)}, y Google ya les avisó a los invitados.`,
+    resumen: `Listo: la reunión${conLead(p.conQuien || null)} quedó el ${cuandoLegible(p.nuevoIso, p.tz)}, y si tiene invitados Google ya les avisó.`,
     paraLaPersona: `Movida: «${p.titulo}», del ${cuandoLegible(p.antesIso, p.tz)} al ${cuandoLegible(p.nuevoIso, p.tz)}.`,
+  };
+}
+
+/** proponer_cambiar_reunion, ejecutar(). */
+export function resultadoCambiar(p: {
+  ok: boolean; codigo: string; motivo: string; tituloAntes: string; inicioIso: string; tz: string; conQuien: string;
+  tituloNuevo: string | null; duracionMin: number | null;
+}): Ejecutado {
+  if (!p.ok) return { ok: false, resumen: `No se cambió: ${motivoFijo(p.codigo)}.`, paraLaPersona: `No se cambió: ${p.motivo}` };
+  const que = [p.tituloNuevo ? `se llama «${p.tituloNuevo}»` : '', p.duracionMin ? `dura ${p.duracionMin} min` : ''].filter(Boolean).join(' y ');
+  return {
+    ok: true,
+    resumen: `Listo: la reunión${conLead(p.conQuien || null)} ahora ${que}.`,
+    paraLaPersona: `Cambiada: «${p.tituloAntes}», del ${cuandoLegible(p.inicioIso, p.tz)}.`,
+  };
+}
+
+/** proponer_cancelar_reunion, ejecutar(). */
+export function resultadoCancelar(p: {
+  ok: boolean; codigo: string; motivo: string; titulo: string; inicioIso: string; tz: string; conQuien: string;
+}): Ejecutado {
+  if (!p.ok) return { ok: false, resumen: `No se canceló: ${motivoFijo(p.codigo)}.`, paraLaPersona: `No se canceló: ${p.motivo}` };
+  return {
+    ok: true,
+    resumen: `Listo: la reunión${conLead(p.conQuien || null)} quedó cancelada en tu Google Calendar, y si tenía invitados Google ya les avisó.`,
+    paraLaPersona: `Cancelada: «${p.titulo}», que era el ${cuandoLegible(p.inicioIso, p.tz)}.`,
   };
 }
 
@@ -302,6 +453,13 @@ export function historialAgendar(p: { titulo: string; inicioIso: string; tz: str
 }
 export function historialMover(p: { conQuien: string; nuevoIso: string; tz: string; canal: string }): string {
   return `La reunión con ${p.conQuien} pasó al ${cuandoLegible(p.nuevoIso, p.tz)}, en Google Calendar, desde ${p.canal}.`;
+}
+export function historialCambiar(p: { conQuien: string; tituloNuevo: string | null; duracionMin: number | null; canal: string }): string {
+  const que = [p.tituloNuevo ? `se llama «${p.tituloNuevo}»` : '', p.duracionMin ? `dura ${p.duracionMin} min` : ''].filter(Boolean).join(' y ');
+  return `La reunión con ${p.conQuien} ahora ${que}, en Google Calendar, desde ${p.canal}.`;
+}
+export function historialCancelar(p: { conQuien: string; canal: string }): string {
+  return `Se canceló la reunión con ${p.conQuien} en Google Calendar, desde ${p.canal}.`;
 }
 
 // ── Lo que el system del doer dice de la agenda ──────────────────────────────
@@ -316,8 +474,13 @@ export function historialMover(p: { conQuien: string; nuevoIso: string; tz: stri
 export function bloqueAgendaGoogle(nombres: readonly string[]): string {
   const hay = (n: string) => nombres.includes(n);
   const lineas: string[] = [];
-  if (hay('proponer_agendar_agenda')) lineas.push(`- AGENDAR en su Google Calendar: proponer_agendar_agenda con la fecha y la hora que dijo la persona.${hay('horarios_libres_dia') ? ' Si no dijo la hora, usa horarios_libres_dia y pregúntale cuál quiere.' : ' Si no dijo la hora, pregúntasela.'}`);
-  if (hay('proponer_mover_reunion')) lineas.push('- MOVER o REAGENDAR una reunión que YA está en su Google Calendar: proponer_mover_reunion (nunca crea una nueva), con el día y la hora que tiene hoy si los dijo. Para esto NO uses la receta de Calendly.');
+  // «Con o sin lead» va escrito: la receta de Calendly empuja a buscar un lead y su email
+  // aunque la persona pida un evento suyo («una reunión que se llame PRUEBA»).
+  if (hay('proponer_agendar_agenda')) lineas.push(`- AGENDAR en su Google Calendar: proponer_agendar_agenda con la fecha y la hora que dijo la persona. Con un lead (lo invita por email) o SIN lead: un evento propio, con el título que dijo y sin invitados; no le pidas un lead ni un email si no habló de uno.${hay('horarios_libres_dia') ? ' Si no dijo la hora, usa horarios_libres_dia y pregúntale cuál quiere.' : ' Si no dijo la hora, pregúntasela.'} Para esto NO uses la receta de Calendly.`);
+  if (hay('proponer_mover_reunion')) lineas.push('- MOVER o REAGENDAR una reunión que YA está en su Google Calendar: proponer_mover_reunion (nunca crea una nueva), con el día y la hora que tiene hoy si los dijo. Sin lead, el día que tiene hoy (fecha_actual) es obligatorio. Para esto NO uses la receta de Calendly.');
+  if (hay('proponer_cambiar_reunion')) lineas.push('- CAMBIARLE EL NOMBRE o LA DURACIÓN a una reunión: proponer_cambiar_reunion, con el día y la hora que tiene hoy.');
+  if (hay('proponer_cancelar_reunion')) lineas.push('- CANCELAR o BORRAR una reunión: proponer_cancelar_reunion, con el día y la hora que tiene hoy. No se deshace: el sistema le muestra a la persona cuál es antes del «sí».');
+  if (hay('agenda_del_dia')) lineas.push('- «¿Qué tengo hoy / mañana / el jueves?» en su Google Calendar: agenda_del_dia.');
   if (hay('reuniones_agenda_lead')) lineas.push('- «¿Qué reuniones tiene X?» en su Google Calendar: reuniones_agenda_lead.');
   if (!lineas.length) return '';
   return `\n\nAGENDA DE GOOGLE: tú NO ves la agenda. El sistema le muestra a la persona, directo, los horarios, las reuniones y los choques. No escribas horarios ni títulos de la agenda, ni afirmes que un horario está libre o que no hay nada.\n${lineas.join('\n')}`;
@@ -332,8 +495,24 @@ export function bloqueAgendaGoogle(nombres: readonly string[]): string {
  * deja el pedido ABIERTO, y qué herramienta lo sigue. Lo que se guarda es lo que el
  * modelo mandó (ids del CRM, fecha y hora como las dijo la persona): nada de la agenda.
  */
-export type AgendaAbierta = { herramienta: 'proponer_mover_reunion' | 'proponer_agendar_agenda'; datos: Record<string, unknown>; desde: number };
+/** Las acciones de agenda: dejan una pendiente y cierran el pedido abierto. */
+export const ACCIONES_AGENDA = ['proponer_agendar_agenda', 'proponer_mover_reunion', 'proponer_cambiar_reunion', 'proponer_cancelar_reunion'] as const;
+type AccionAgenda = typeof ACCIONES_AGENDA[number];
+/** Las que eligen una reunión que YA está: comparten `fecha_actual`/`hora_actual`. */
+const SOBRE_UNA_REUNION: readonly string[] = ['proponer_mover_reunion', 'proponer_cambiar_reunion', 'proponer_cancelar_reunion'];
+
+/**
+ * `agenda_del_dia` abre un pedido sin herramienta fija: después de ver su día, la persona
+ * puede querer mover, cambiar o cancelar («cancelá la de las 12»), y la que sigue la elige
+ * el modelo con lo que diga.
+ */
+export type AgendaAbierta = { herramienta: AccionAgenda | 'agenda_del_dia'; datos: Record<string, unknown>; desde: number };
 export const AGENDA_ABIERTA_MIN = 30;
+
+/** Las herramientas que siguen un pedido abierto: el doer sólo cuenta el pedido si viaja alguna. */
+export function herramientasQueSiguen(a: AgendaAbierta): readonly string[] {
+  return a.herramienta === 'agenda_del_dia' ? SOBRE_UNA_REUNION : [a.herramienta];
+}
 
 export function agendaQueSigue(nombre: string, input: Record<string, unknown>, salida: unknown, ahora: number): AgendaAbierta | null {
   let j: Record<string, unknown> | null = null;
@@ -346,8 +525,14 @@ export function agendaQueSigue(nombre: string, input: Record<string, unknown>, s
   if (nombre === 'reuniones_agenda_lead' && j.estado === 'reuniones_mostradas') {
     return { herramienta: 'proponer_mover_reunion', datos: { leadId: input.leadId }, desde: ahora };
   }
-  if (nombre === 'proponer_mover_reunion' && j.ok === false && Array.isArray(j.faltan) && j.faltan.includes('fecha_actual')) {
-    return { herramienta: 'proponer_mover_reunion', datos: { leadId: input.leadId, fecha: input.fecha, hora: input.hora }, desde: ahora };
+  if (nombre === 'agenda_del_dia' && j.estado === 'eventos_mostrados') {
+    return { herramienta: 'agenda_del_dia', datos: { fecha: input.fecha }, desde: ahora };
+  }
+  if (SOBRE_UNA_REUNION.includes(nombre) && j.ok === false && Array.isArray(j.faltan) && j.faltan.includes('fecha_actual')) {
+    const datos: Record<string, unknown> = { leadId: input.leadId, fecha_actual: input.fecha_actual };
+    if (nombre === 'proponer_mover_reunion') Object.assign(datos, { fecha: input.fecha, hora: input.hora });
+    if (nombre === 'proponer_cambiar_reunion') Object.assign(datos, { titulo: input.titulo, duracion_min: input.duracion_min });
+    return { herramienta: nombre as AccionAgenda, datos, desde: ahora };
   }
   return null;
 }
@@ -355,7 +540,7 @@ export function agendaQueSigue(nombre: string, input: Record<string, unknown>, s
 /** El pedido se cierra cuando una acción de agenda dejó su pendiente: lo que sigue es
  *  el «sí», que tiene su propio camino. */
 export function agendaSeCierra(nombre: string, salida: unknown): boolean {
-  if (nombre !== 'proponer_mover_reunion' && nombre !== 'proponer_agendar_agenda') return false;
+  if (!(ACCIONES_AGENDA as readonly string[]).includes(nombre)) return false;
   if (typeof salida !== 'string') return false;
   try {
     const j = JSON.parse(salida) as Record<string, unknown>;
@@ -368,7 +553,7 @@ export function agendaVigente(guardado: string | null, ahora: number): AgendaAbi
   if (!guardado) return null;
   try {
     const a = JSON.parse(guardado) as AgendaAbierta;
-    if (!a || (a.herramienta !== 'proponer_mover_reunion' && a.herramienta !== 'proponer_agendar_agenda')) return null;
+    if (!a || !([...ACCIONES_AGENDA, 'agenda_del_dia'] as readonly string[]).includes(a.herramienta)) return null;
     if (typeof a.desde !== 'number' || ahora - a.desde > AGENDA_ABIERTA_MIN * 60_000) return null;
     return a;
   } catch { return null; }
@@ -377,5 +562,8 @@ export function agendaVigente(guardado: string | null, ahora: number): AgendaAbi
 /** La línea del system que le cuenta al modelo que hay un pedido de agenda en curso.
  *  Sólo lleva lo que mandó el modelo (ids y lo que dijo la persona). */
 export function contextoAgendaAbierta(a: AgendaAbierta): string {
-  return `\n\nPEDIDO DE AGENDA EN CURSO: hace un momento el sistema le mostró a la persona opciones de su agenda (tú no las ves) para ${a.herramienta}, con estos datos: ${JSON.stringify(a.datos)}. Si este mensaje elige una (un día, una hora), sigue ese pedido llamando ${a.herramienta} con esos datos y lo que eligió${a.herramienta === 'proponer_mover_reunion' ? ' (lo que dice de la reunión que se mueve va en fecha_actual y hora_actual)' : ''}. Si habla de otra cosa, ignora esto.`;
+  if (a.herramienta === 'agenda_del_dia') {
+    return `\n\nPEDIDO DE AGENDA EN CURSO: hace un momento el sistema le mostró a la persona su agenda del ${String(a.datos.fecha ?? 'día')} (tú no la ves). Si este mensaje pide mover, cambiar o cancelar uno de esos eventos, llama a la herramienta que corresponda con fecha_actual ${JSON.stringify(a.datos.fecha ?? null)} y la hora que diga en hora_actual. Si habla de otra cosa, ignora esto.`;
+  }
+  return `\n\nPEDIDO DE AGENDA EN CURSO: hace un momento el sistema le mostró a la persona opciones de su agenda (tú no las ves) para ${a.herramienta}, con estos datos: ${JSON.stringify(a.datos)}. Si este mensaje elige una (un día, una hora), sigue ese pedido llamando ${a.herramienta} con esos datos y lo que eligió${SOBRE_UNA_REUNION.includes(a.herramienta) ? ' (lo que dice de la reunión que ya está va en fecha_actual y hora_actual)' : ''}. Si habla de otra cosa, ignora esto.`;
 }

@@ -25,13 +25,14 @@ import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji'
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
-import { toolsDelRegistro, porId } from '@/lib/api-mako/registro';
+import { porId } from '@/lib/api-mako/registro';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
-import { areasDelMensaje } from '@/lib/mako-intencion';
+import { herramientasDelTurno } from '@/lib/doer-herramientas';
+import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
-import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, type Intencion } from '@/lib/mako-intencion';
+import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo } from '@/lib/mako-intencion';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
@@ -42,7 +43,7 @@ import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
-import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle } from '@/lib/agenda-sin-ia';
+import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones } from '@/lib/turno-sin-duplicar';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
@@ -278,17 +279,6 @@ const DOER_WA_TOOLS = `TUS HERRAMIENTAS (la lista exacta de este turno está al 
 SEGÚN DE QUÉ TE HABLEN, puedes tener herramientas de cada tab de MaKo (email, chatbot, landing, métricas, experimentos…). Úsalas igual que las demás: una lectura trae el dato; una acción NUNCA ejecuta directo — o deja una acción pendiente (pides el "sí") o te devuelve un LINK para revisar en MaKo (lo pasas tal cual y no pides confirmación por el chat).`;
 
 
-/**
- * ¿Esta herramienta ESCRIBE? Lo dice el registro (lib/api-mako): las 25 viejas tienen ahí
- * su gemela con el mismo id (medido el 08/10: 25 de 25). Sin def no se sabe, y se deja:
- * sacar una lectura deja a MaKo sin poder contestar, y una escritura en una pregunta sólo
- * puede PROPONER, nunca ejecutar.
- */
-function escribe(nombre: string): boolean {
-  const d = porId(nombre);
-  return !!d && d.tipo !== 'lectura';
-}
-
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
 const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, da el resumen corto y CIERRA con un link para verlo (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
@@ -352,41 +342,7 @@ export async function wsDeGrupoJid(jid: string): Promise<number | null> {
  * El control operativo (allowlist/modo/ventana) vive en la AGENCIA (OWNER_WS); los
  * DATOS y la memoria se scopean al workspace DUEÑO DEL GRUPO (aislamiento).
  */
-// Subset de tools por ruta (costo). Los turnos claros usan pocas; el resto, todas.
-/**
- * Qué tools ve el modelo en este turno. LO DECIDE LA INTENCIÓN, no el tier.
- *
- * Antes lo decidía el `motivo` del router, que contesta otra pregunta (cuánto
- * gastar). El resultado: todo lo que no caía en `(plan)` o `(confirmación)`
- * recibía las veinte tools y ninguna obligación — y el mismo mensaje terminaba
- * en un borrador o en un ensayo según el día. Ver lib/mako-intencion.ts.
- */
-function toolsParaIntencion<T extends { name: string }>(intencion: Intencion, todas: T[], dudosa = false): T[] {
-  const permitidas = CONTRATO[intencion].tools;
-  const base = permitidas === null ? todas : todas.filter((t) => permitidas.includes(t.name));
-
-  // ⚠️ UNA ADIVINANZA NO PUEDE CREAR NADA. `dudosa: true` significa, textual, «sin
-  // señal clara», y el default de ese caso es `capturar` — o sea que un mensaje que
-  // NO se pudo clasificar llegaba con `proponer_tareas_plan` sobre la mesa.
-  //
-  // EL CASO (2026-08-25). El cliente escribió tres cosas conversacionales —«ahí
-  // hice la prueba», «hay un problema chiquito, que cuando le das a prueba del
-  // pixel no se abre la landing», «probá de vuelta, ya agregué otra api key»— y
-  // recibió tres «Listo, te armé el borrador» con un link a revisar un plan que
-  // nunca pidió. El dueño: «¿qué sentido tiene?».
-  //
-  // Sacarle la tool NO pierde el material: el mensaje sigue en la conversación y
-  // el preámbulo le pide a MaKo que OFREZCA anotarlo. Es la diferencia entre
-  // preguntar y hacer, que es toda la doctrina de la casa: «un canal PROPONE, una
-  // persona confirma». Crear un borrador que nadie pidió es hacer.
-  //
-  // ⛔ Y no se toca el default del clasificador: ante la duda, seguir capturando es
-  // correcto para el dueño volcando ideas. Lo que se corrige es que la duda no
-  // EJECUTE.
-  if (!dudosa) return base;
-  return base.filter((t) => t.name !== 'proponer_tareas_plan');
-}
-
+// Qué tools ve el modelo en este turno: `herramientasDelTurno` (lib/doer-herramientas.ts).
 export async function manejarEntranteDoer(instance: string, data: MsgIn): Promise<ResultadoDoer> {
   const jid = data.key?.remoteJid;
   if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
@@ -836,6 +792,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     const intencion = clasificarIntencion(texto, {
       hayMedia: !!mediaBlocks,
       hayPendientes: vigentes.length > 0,
+      // «no, mejor a las 13» corrige una propuesta de agenda, no la contesta.
+      hayPendienteDeAgenda: vigentes.some((p) => (ACCIONES_AGENDA as readonly string[]).includes(p.tipo)),
       hayContacto: contactosDelMensaje(data.message).length > 0,
       hayAgendaAbierta: !!agendaAbierta,
       makoPregunto: makoPreguntoAlgo(typeof ultimoDeMako === 'string' ? ultimoDeMako : null),
@@ -891,34 +849,28 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       },
     };
     const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS];
-    const areasDelTexto = CONTRATO[intencion.intencion].tools === null && !intencion.dudosa ? areasDelMensaje(texto) : [];
-    // Con un pedido de agenda abierto, «la de las 16» no nombra ningún área: el CRM va igual.
-    const areasNombradas = agendaAbierta && intencion.intencion === 'actuar' && !areasDelTexto.includes('crm')
-      ? [...areasDelTexto, 'crm' as const]
-      : areasDelTexto;
-    const toolsDelTurno = areasNombradas.length
-      ? toolsDelRegistro({
-          vista: await vistaDe(ctxApi), areas: areasNombradas,
-          incluirAcciones: intencion.intencion === 'actuar',
-          excluir: new Set(toolsDeSiempre.map((t) => t.name)),
-          maxChars: 12_000,
-          relevanteA: texto,
-        })
-      : [];
-    /**
-     * ⚠️ EN UNA PREGUNTA NO VIAJAN LAS HERRAMIENTAS QUE ESCRIBEN: MaKo OFRECE la acción.
-     *
-     * Decisión de Martín del 08/10/2026 («la ofrece»). Las 7 `proponer_*` viejas más
-     * confirmar/cancelar viajaban en consultar y pensar —10.380 caracteres de esquema en CADA
-     * pedido del turno, que el loop re-manda entero— mientras el registro ya mandaba sus
-     * acciones sólo en `actuar`. El «sí» al ofrecimiento llega como `actuar`, con todo. Si hay
-     * algo pendiente de confirmar, confirmar/cancelar quedan (la persona puede contestarlo).
-     */
-    const ofrece = intencion.intencion === 'consultar' || intencion.intencion === 'pensar';
-    const conPendientes = vigentes.length > 0;
-    const tools = toolsParaIntencion(intencion.intencion, [...toolsDeSiempre, ...toolsDelTurno], intencion.dudosa)
-      .filter((t) => !ofrece || !escribe(t.name) || (conPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
-    if (toolsDelTurno.length) console.log(`[doer] ws=${wsData} +${toolsDelTurno.length} del registro (${areasNombradas.join(', ')})`);
+    // Las herramientas del turno salen de UNA función pura (lib/doer-herramientas.ts), la
+    // misma que usa tests/agenda-whatsapp.test.ts: el test armaba el turno a mano, sin el
+    // clasificador, y daba verde mientras el turno real llegaba sin la herramienta.
+    //
+    // ¿Tiene Calendly? Sin él, sus herramientas y su receta («buscá el lead, pedile el
+    // email») no viajan: le ganaban a la agenda de Google con un evento sin lead. Si la
+    // lectura falla, se deja todo como estaba: «no pude leer» no es «no tiene».
+    const sinCalendly = intencion.intencion === 'actuar'
+      ? (await credWs('CALENDLY_API_TOKEN', wsData).catch(() => 'no se pudo leer')) == null
+      : false;
+    // El «sí» a un ofrecimiento elige las herramientas por lo que se ofreció y por lo último
+    // que pidió la persona: «sí, dale» no nombra nada.
+    const ultimoPedido = historial.slice().reverse().find((r) => r.role === 'user')?.content;
+    const contextoDelSi = intencion.sigueOfrecimiento
+      ? [typeof ultimoPedido === 'string' ? ultimoPedido : '', typeof ultimoDeMako === 'string' ? ultimoDeMako : ''].filter(Boolean).join('\n')
+      : null;
+    const turno = herramientasDelTurno({
+      veredicto: intencion, texto, contextoDelSi, agendaAbierta: !!agendaAbierta, deSiempre: toolsDeSiempre,
+      vista: await vistaDe(ctxApi), hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
+    });
+    const { tools, ofrece } = turno;
+    if (turno.delRegistro.length) console.log(`[doer] ws=${wsData} +${turno.delRegistro.length} del registro (${turno.areas.join(', ')})${sinCalendly ? ' · sin Calendly' : ''}`);
 
     /**
      * ⚠️ EL SYSTEM SE ARMA DESPUÉS DE LAS TOOLS, PORQUE DEPENDE DE ELLAS.
@@ -961,7 +913,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       : '';
     // El pedido de agenda en curso, sólo si el turno trae la herramienta que lo sigue (un
     // prompt que nombra algo que no viajó es una trampa, ver DOER_WA_TOOLS).
-    const ctxAgenda = agendaAbierta && tools.some((t) => t.name === agendaAbierta.herramienta) ? contextoAgendaAbierta(agendaAbierta) : '';
+    const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
     const system = `${base}\n\n${DOER_WA_VOZ}${bloqueTools}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para

@@ -11,18 +11,20 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
-import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from './nutricion-etapa';
+import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
+import { esNodoDeControl, mediaDeAdjunto } from './nutricion-grafo-motor';
+import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
 import { sanearCron, proximaOcurrencia } from './cron-aviso';
 import { tzActual, TZ_DEFAULT } from './timezone';
 import { listarFunnels, getFunnelDe, getFunnelDefault, productoDeFunnel } from './funnels';
 import { nombreVisible } from './lead-funnel-reglas';
 import { entregasDeProductos } from './entrega-servicio';
 import type { EntregaConfig } from './servicio-etapas';
-import { parseEstrategia, type Estrategia } from './setting-estrategia';
+import { parseEstrategia, TOPE_NOMBRE_SECUENCIA, type Estrategia } from './setting-estrategia';
 import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasSecuencia, type PuntoSerie } from './setting-metricas';
 import { getContactoReportes } from './perfil';
 import { getInstanciaRow } from './evolution';
-import { enviarYEspejar, enviarAudioYEspejar } from './evolution-envio';
+import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evolution-envio';
 import { getAudio, audioBase64 } from './setting-audios';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { aplicarVariables, valoresVariablesLead } from './template-vars';
@@ -78,13 +80,16 @@ export async function guardarEstrategia(secuenciaId: number, estrategia: Estrate
 export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): Promise<number> {
   const supabase = await getTenantDb();
   const clave = `secuencia-${etapa}-${Date.now().toString(36)}`;
+  // ⚠️ EL PRIMERO SIN ESPERA (08/10/2026, punto 7: «Por defecto entre el CRON y la siguiente
+  // tarjeta ponés siempre un delay, cuando no debe ser así»). Una espera la pone quien arma el
+  // flujo, como tarjeta; el esqueleto no la inventa.
   const pasos = [
-    { orden: 1, canal: 'email', delay_horas: 24, asunto: '[MaKo lo escribe]', cuerpo: '[MaKo lo escribe en el paso de redacción]', template_wa: null },
+    { orden: 1, canal: 'email', delay_horas: 0, asunto: '[MaKo lo escribe]', cuerpo: '[MaKo lo escribe en el paso de redacción]', template_wa: null },
     { orden: 2, canal: 'whatsapp', delay_horas: 48, asunto: null, cuerpo: '[MaKo lo escribe en el paso de redacción]', proveedor: 'no_oficial', template_wa: null },
   ];
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .insert({ clave, nombre, etapa, trigger_tipo: 'etapa_actual', activa: false, pasos })
+    .insert({ clave, nombre: nombreDeSecuencia(nombre), etapa, trigger_tipo: 'etapa_actual', activa: false, pasos })
     .select('id')
     .single();
   if (error) throw new Error(`crearSecuenciaDesdeEtapa: ${error.message}`);
@@ -118,7 +123,7 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
  */
 export async function setCronSecuencia(secuenciaId: number, cron: unknown): Promise<void> {
   const c = cron == null ? null : sanearCron(cron);
-  if (cron != null && !c) throw new Error('Ese horario no se entiende: elegí la unidad de la lista.');
+  if (cron != null && !c) throw new Error('Ese horario no se entiende: elige la unidad de la lista.');
   const supabase = await getTenantDb();
   const ahora = new Date();
   const tz = c ? await tzActual().catch(() => TZ_DEFAULT) : TZ_DEFAULT;
@@ -133,13 +138,21 @@ export async function setCronSecuencia(secuenciaId: number, cron: unknown): Prom
   if (error) throw new Error(`setCronSecuencia: ${error.message}`);
 }
 
+/**
+ * El nombre como se guarda: sin espacios de más y con el tope de la lista (`TOPE_NOMBRE_SECUENCIA`,
+ * 40). Lo usan los dos que escriben un nombre acá; la API de MaKo lo declara en su `max`.
+ */
+export function nombreDeSecuencia(nombre: string): string {
+  return (nombre ?? '').trim().replace(/\s+/g, ' ').slice(0, TOPE_NOMBRE_SECUENCIA).trim();
+}
+
 export async function renombrarSecuencia(secuenciaId: number, nombre: string): Promise<void> {
-  const n = (nombre ?? '').trim();
+  const n = nombreDeSecuencia(nombre);
   if (!n) throw new Error('El nombre no puede quedar vacío.');
   const supabase = await getTenantDb();
   const { error } = await supabase
     .from('nutricion_secuencias')
-    .update({ nombre: n.slice(0, 120), updated_at: new Date().toISOString() })
+    .update({ nombre: n, updated_at: new Date().toISOString() })
     .eq('id', secuenciaId);
   if (error) throw new Error(`renombrarSecuencia: ${error.message}`);
 }
@@ -257,7 +270,7 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
  */
 export async function setDisparadorEtapa(secuenciaId: number, etapa: string, funnelId: number | null): Promise<void> {
   const key = (etapa ?? '').trim();
-  if (!key) throw new Error('Elegí la etapa que dispara la secuencia.');
+  if (!key) throw new Error('Elige la etapa que dispara la secuencia.');
 
   const productos = await productosConEtapas();
   if (funnelId == null) {
@@ -268,15 +281,16 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string, fun
     const pr = productos.find((x) => x.funnelId === funnelId);
     if (!pr) throw new Error('Ese producto no existe o está archivado.');
     if (!pr.etapas.some((e) => e.value === key)) {
-      throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elegí una de las suyas.`);
+      throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elige una de las suyas.`);
     }
   }
 
   const supabase = await getTenantDb();
   const { error } = await supabase
     .from('nutricion_secuencias')
-    // `producto_id` se limpia por lo mismo que allá se limpia `funnel_id`.
-    .update({ trigger_tipo: TRIGGER_ETAPA, etapa: key, funnel_id: funnelId, producto_id: null, updated_at: new Date().toISOString() })
+    // `producto_id` se limpia por lo mismo que allá se limpia `funnel_id`, y la etiqueta también:
+    // un disparador viejo escrito al lado del nuevo es un ámbito que nadie ve.
+    .update({ trigger_tipo: TRIGGER_ETAPA, etapa: key, funnel_id: funnelId, producto_id: null, etiqueta_id: null, updated_at: new Date().toISOString() })
     .eq('id', secuenciaId);
   if (error) throw new Error(`setDisparadorEtapa: ${error.message}`);
 }
@@ -297,13 +311,13 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string, fun
  */
 export async function setDisparadorEntrega(secuenciaId: number, etapa: string, productoId: number): Promise<void> {
   const key = (etapa ?? '').trim();
-  if (!key) throw new Error('Elegí la etapa de la entrega que dispara la secuencia.');
-  if (!Number.isFinite(productoId) || productoId <= 0) throw new Error('Elegí de qué producto es la entrega.');
+  if (!key) throw new Error('Elige la etapa de la entrega que dispara la secuencia.');
+  if (!Number.isFinite(productoId) || productoId <= 0) throw new Error('Elige de qué producto es la entrega.');
 
   const pr = (await productosConEtapas()).find((x) => x.productoId === productoId);
   if (!pr) throw new Error('Ese producto no existe o está archivado.');
   if (!pr.etapasEntrega.some((e) => e.value === key)) {
-    throw new Error(`«${key}» no es una etapa de la entrega de ${pr.nombre}: elegí una de las suyas.`);
+    throw new Error(`«${key}» no es una etapa de la entrega de ${pr.nombre}: elige una de las suyas.`);
   }
 
   const supabase = await getTenantDb();
@@ -311,9 +325,83 @@ export async function setDisparadorEntrega(secuenciaId: number, etapa: string, p
     .from('nutricion_secuencias')
     // `funnel_id` se LIMPIA: una secuencia es de venta o es de entrega, y dejar el
     // embudo puesto deja un ámbito viejo escrito al lado del nuevo.
-    .update({ trigger_tipo: TRIGGER_ENTREGA, etapa: key, producto_id: productoId, funnel_id: null, updated_at: new Date().toISOString() })
+    .update({ trigger_tipo: TRIGGER_ENTREGA, etapa: key, producto_id: productoId, funnel_id: null, etiqueta_id: null, updated_at: new Date().toISOString() })
     .eq('id', secuenciaId);
   if (error) throw new Error(`setDisparadorEntrega: ${error.message}`);
+}
+
+/** Lo que llega para cambiar el disparador de una secuencia (POST `{action:'trigger'}`). */
+export type CambioDeTrigger = {
+  trigger_tipo: string;
+  etapa?: string | null;
+  producto_id?: number | null;
+  /** AUSENTE = no se toca el embudo de la secuencia; `null` = «todos los embudos» (una elección). */
+  funnel_id?: number | null;
+  etiqueta_id?: number | null;
+};
+
+/** El disparador no se puede guardar así: un error del que guarda (la ruta lo contesta 400). */
+export class TriggerInvalidoError extends Error {
+  constructor(m: string) { super(m); this.name = 'TriggerInvalidoError'; }
+}
+
+/**
+ * «QUÉ LO DISPARA», elegido en el desplegable del CRON (08/10/2026, punto 5: «eso debe ser un
+ * desplegable para seleccionar las acciones que pueden disparar esa automatización»).
+ *
+ * Valida contra el catálogo (`TRIGGERS`, lib/email-marketing.ts) más los tres que traen un dato
+ * propio, y cada uno escribe SÓLO su ámbito y limpia los demás:
+ *   · `etapa_actual`   → `setDisparadorEtapa` (la etapa tiene que existir en ese producto);
+ *   · `entrega_actual` → `setDisparadorEntrega` (el producto no es opcional);
+ *   · `etiqueta_puesta` → la etiqueta tiene que ser de ESTE negocio y no estar archivada
+ *     (`crm_etiquetas`, mig 0224). `etiqueta_id` no tiene FK (mig 0223): esta es la puerta.
+ *   · el resto (las cohortes de siempre y `manual`) → el trigger y el embudo (null = todos).
+ *
+ * Una combinación imposible se ataja acá y no en el log de un cron (AGENTS.md): una secuencia
+ * colgada de una etiqueta que no existe no dispara NUNCA, sin un error.
+ */
+export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigger): Promise<void> {
+  const tipo = String(c.trigger_tipo ?? '').trim();
+  if (tipo === TRIGGER_ETAPA) {
+    const fid = c.funnel_id == null ? null : Number(c.funnel_id);
+    if (fid != null && !Number.isFinite(fid)) throw new TriggerInvalidoError('Ese producto no existe.');
+    try { return await setDisparadorEtapa(secuenciaId, String(c.etapa ?? ''), fid); }
+    catch (e) { throw new TriggerInvalidoError(e instanceof Error ? e.message : String(e)); }
+  }
+  if (tipo === TRIGGER_ENTREGA) {
+    const pid = Number(c.producto_id);
+    if (!Number.isFinite(pid) || pid <= 0) throw new TriggerInvalidoError('Elige de qué producto es la entrega.');
+    try { return await setDisparadorEntrega(secuenciaId, String(c.etapa ?? ''), pid); }
+    catch (e) { throw new TriggerInvalidoError(e instanceof Error ? e.message : String(e)); }
+  }
+  const { TRIGGERS } = await import('./email-marketing');
+  // La etiqueta la suma al catálogo la parte de etiquetas; hasta que esté, se acepta por su constante.
+  const valido = tipo === TRIGGER_ETIQUETA || TRIGGERS.some((t) => t.value === tipo);
+  if (!valido) throw new TriggerInvalidoError(`«${tipo || '(vacío)'}» no es un disparador de las secuencias.`);
+  // ⚠️ `funnel_id` AUSENTE NO ES `null` (revisión del 08/10/2026). El desplegable del CRON no
+  // ofrece producto para un evento ni para una etiqueta, y no lo manda: con `num(undefined)` →
+  // null se escribía «todos los embudos» y una secuencia del producto B pasaba a inscribir leads
+  // de todos los productos en la próxima corrida, sin que nadie lo eligiera. Ausente = no se toca;
+  // `null` explícito = «todos», que sí es una elección.
+  const tocaEmbudo = c.funnel_id !== undefined;
+  const funnelId = c.funnel_id == null ? null : Number(c.funnel_id);
+  if (funnelId != null && (!Number.isFinite(funnelId) || funnelId <= 0)) throw new TriggerInvalidoError('Ese producto no existe.');
+  const supabase = await getTenantDb();
+  let etiquetaId: number | null = null;
+  if (tipo === TRIGGER_ETIQUETA) {
+    etiquetaId = Number(c.etiqueta_id);
+    if (!Number.isInteger(etiquetaId) || etiquetaId <= 0) throw new TriggerInvalidoError('Elige la etiqueta que dispara la automatización.');
+    const { data, error } = await supabase.from('crm_etiquetas').select('id, archivada_at').eq('id', etiquetaId).maybeSingle();
+    if (error) throw new Error(`setTriggerSecuencia (etiqueta): ${error.message}`);
+    const et = data as { id: number; archivada_at: string | null } | null;
+    if (!et) throw new TriggerInvalidoError('Esa etiqueta no existe en este negocio.');
+    if (et.archivada_at) throw new TriggerInvalidoError('Esa etiqueta está archivada.');
+  }
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    .update({ trigger_tipo: tipo, etiqueta_id: etiquetaId, ...(tocaEmbudo ? { funnel_id: funnelId } : {}), producto_id: null, updated_at: new Date().toISOString() })
+    .eq('id', secuenciaId);
+  if (error) throw new Error(`setTriggerSecuencia: ${error.message}`);
 }
 
 // ── Prompts del wizard (editables en /configuraciones vía prompt-registry) ────
@@ -401,7 +489,8 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
   // Un paso «⚡ Acción de MaKo» no se prueba: correrlo ESCRIBE de verdad (mueve un lead, crea
   // una tarea) y la prueba manda los MENSAJES al admin, nada más. Sin este filtro salía un
   // WhatsApp «[PRUEBA n/N] » en blanco por cada acción, porque su cuerpo se guarda vacío.
-  const mensajes = sec.pasos.filter((p) => !esPasoAccion(p));
+  // Ni una tarjeta de CONTROL (condición, espera, «Si responde», «Ir a»): no manda nada.
+  const mensajes = sec.pasos.filter((p) => !esPasoAccion(p) && !esNodoDeControl(p));
   if (!mensajes.length) return { ok: false, error: 'Esta secuencia sólo tiene acciones: en una prueba no corren.' };
 
   const contacto = await getContactoReportes();
@@ -457,6 +546,15 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
         if (!audio || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el audio «${audio?.titulo ?? paso.audio_id}».`); continue; }
         const ra = await enviarAudioYEspejar({ telefono: contacto.telefono, base64: b64, mimetype: audio.media_mime, linea: lineaSec });
         if (ra.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (audio): ${ra.error ?? 'no salió'}`);
+        continue;
+      }
+      // Paso de ARCHIVO: te llega el archivo de verdad, con su pie.
+      if (paso.tipo === 'media' && Number(paso.media_id) > 0) {
+        const adj = await getAdjunto(Number(paso.media_id));
+        const b64 = adj ? await adjuntoBase64(adj) : null;
+        if (!adj || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el archivo «${adj?.titulo ?? paso.media_id}».`); continue; }
+        const rm = await enviarMediaYEspejar({ telefono: contacto.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: cuerpo, linea: lineaSec });
+        if (rm.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (archivo): ${rm.error ?? 'no salió'}`);
         continue;
       }
       const r = await enviarYEspejar({ telefono: contacto.telefono, texto: cuerpo, linea: lineaSec });

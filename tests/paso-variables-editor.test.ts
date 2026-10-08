@@ -35,18 +35,23 @@ test('`negocio` es una variable CONOCIDA: el validador de plantillas no la recha
   assert.ok(VARIABLES_NEGOCIO.length >= 1);
 });
 
+// ⚠️ REESCRITO EL 08/10/2026: la tarjeta del lienzo ya no resuelve `{{negocio}}` con un
+// `replace` propio, sino con LA función del motor (`aplicarVariables`). Es más fuerte que el
+// guard de antes: con la misma función, lo que la vista resuelve ES lo que el motor resuelve.
+// Lo que queda por cuidar es (a) que no vuelva un `replace` de tokens a mano y (b) que las
+// claves que la vista le pasa sean del catálogo. Probado rompiéndolo: un
+// `.replace(/\{\{\s*negocio\s*\}\}/g, …)` de vuelta → 1 rojo; la vista pasándole una clave
+// inventada (`{ marca: n }`) → 1 rojo.
 test('todo token que el lienzo resuelve está en el catálogo del motor', () => {
-  // El guard: busca en el componente los `{{algo}}` que la previsualización reemplaza
-  // y le pregunta al catálogo si el motor los conoce.
-  const src = readFileSync(new URL('../app/chatbot/FlujoLienzo.tsx', import.meta.url), 'utf8');
-  const tokens = [
-    // La forma de un regex literal en el fuente: `\{\{\s*negocio\s*\}\}`.
-    ...src.matchAll(/\\\{\\\{\\s\*([a-z_]+)\\s\*\\\}\\\}/g),
-    // Y la forma de una cadena, para cuando alguien lo escriba sin regex.
-    ...src.matchAll(/\{\{\s*([a-z_]+)\s*\}\}/g),
-  ].map((m) => m[1]);
-  assert.ok(tokens.length >= 1, 'no encontré ningún replace de token en el lienzo: ¿cambió la forma de escribirlo?');
-  for (const t of tokens) {
+  const src = readFileSync(new URL('../app/chatbot/FlujoLienzo.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+    .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(src, /\.replace\(\s*\/\\\{\\\{/, 'volvió un replace de tokens a mano: la vista y el motor pueden separarse');
+  assert.match(src, /import \{ aplicarVariables \} from '@\/lib\/template-vars';/);
+  const usos = [...src.matchAll(/aplicarVariables\([^,]+,\s*([^;]+?)\);/g)].map((m) => m[1]);
+  assert.ok(usos.length >= 1, 'el lienzo dejó de resolver la vista con la función del motor');
+  const claves = usos.flatMap((u) => [...u.matchAll(/\{\s*([a-z_]+)\s*:/g)].map((m) => m[1]));
+  assert.ok(claves.length >= 1, 'no encontré las claves que la vista resuelve: ¿cambió la forma de escribirlo?');
+  for (const t of claves) {
     assert.ok(esVariableConocida(t), `el lienzo resuelve {{${t}}} y el motor no lo conoce: al lead le llegaría literal`);
   }
 });

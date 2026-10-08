@@ -405,7 +405,8 @@ modelo, y ninguna da error:
 
 **La regla: una capacidad nueva del doer se prueba ARMANDO EL TURNO con los mensajes como
 los escribe la persona, no llamando al runner.** El molde es `tests/agenda-whatsapp.test.ts`:
-`areasDelMensaje` + `toolsDelRegistro` con el `maxChars` real, y cinco frases reales.
+desde el 08/10, `clasificarIntencion` + `herramientasDelTurno` (lo MISMO que corre el doer)
+—armarlo a mano, sin el clasificador, dio verde sobre el bug; ver abajo—.
 Llamar al runner prueba que la operación funciona; armar el turno prueba que alguien la
 puede pedir.
 
@@ -440,6 +441,108 @@ sale por HTTP, tampoco figura).
 
 *07/10/2026 — sin subagentes; medido armando el turno y rompiendo el test cinco veces
 (2, 2, 1, 1 y 1 fallos). Commit `c3c2ef17`.*
+
+### 08/10: el test armaba el turno SIN el clasificador, y daba verde sobre el bug
+
+**Vive en:** `lib/mako-intencion.ts` (`esPedidoAgenda`, `corrigeAgenda`, `sinPrefijoDeLote`,
+`RELEVANCIA_AGENDA`) · `lib/doer-herramientas.ts` (`herramientasDelTurno`, nuevo) ·
+`lib/mako-doer-in.ts` · `lib/agenda-sin-ia.ts` · `lib/google-calendar.ts` (`eventosDelDia`,
+`cancelarEventoDeReunion`, `cambiarEventoDeReunion`) · `lib/api-mako/areas/crm.{def,run}.ts` ·
+`tests/agenda-whatsapp.test.ts`
+
+Al día siguiente de conectar su Google, el cliente escribió «Mako, agenda me una reunión
+mañana 12hs de 1hs que se llame PRUEBA» y MaKo contestó «por aquí no puedo agendarte». La
+conexión tenía permiso de escritura; el pedido nunca llegó a una herramienta.
+
+⚠️ **La regla de arriba se cumplió a medias, y esa mitad era la que importaba.** El test
+armaba el turno con `areasDelMensaje` + `toolsDelRegistro` y `incluirAcciones: true` FIJO:
+se salteaba el clasificador y el filtro de «en una pregunta MaKo ofrece». Con el código de
+ese día, 3 de sus 5 frases de escritura llegaban al turno real sin la herramienta
+(«agendame…» y «pasá la visita…» caían en `pensar`, que sólo lleva lecturas; «moveme la
+cita…» en `capturar`), y la del cliente también: «agenda» sin tilde y el pronombre suelto no
+son ninguno de los imperativos, así que cayó al default, material para anotar. **Ahora la
+selección es una función pura que llaman el doer y el test** (`herramientasDelTurno`): un
+test que arma el turno a mano prueba otra cosa que lo que corre.
+
+Lo que destapó, y ninguna da error:
+
+1. **El clasificador no conocía el pedido de agenda.** Va una regla propia: un verbo de
+   agenda + una reunión + un día o una hora, en un mensaje corto (la tilde que exigen los
+   imperativos protege de la tercera persona de un volcado; acá protege el combo). Con las
+   formas con modal («me puedes agendar…»), que es como pide quien tutea.
+2. **Con una pendiente abierta, «cancelá la reunión…» y «no, movela al viernes» eran un
+   «sí» o un «no»**: `CONFIRMACION` arranca con «cancela» y «no». El turno llegaba con
+   confirmar/cancelar y nada más, y corregir la hora sólo cancelaba la propuesta.
+3. **El «sí» a un ofrecimiento llegaba como `actuar` pero sin herramientas de agenda**, y
+   no alcanzaba con calcular las áreas sobre el ofrecimiento: **el presupuesto ordena por
+   relevancia CONTRA EL TEXTO**, y contra «sí, dale» la acción quedaba afuera. Cambiar las
+   áreas sin cambiar la relevancia no trae la herramienta. Por la misma razón, «movela al
+   viernes» («movel» no es raíz de nada) quedaba afuera: un pedido de agenda suma
+   `RELEVANCIA_AGENDA` al presupuesto.
+4. **El encabezado de un lote es nuestro y sumaba áreas**: «[Te mandó 2 mensajes… carga
+   TODAS las tareas juntas…]» nombra plan, CRM y ads por sí solo, y gastaba el presupuesto.
+5. **Las de Calendly viajaban a un negocio sin Calendly**, y su receta («buscá el lead,
+   pedile el email») le ganaba a la de Google con un evento sin lead. `gating.integracion`
+   sigue siendo informativo en el registro; el doer las saca leyendo la credencial, y si la
+   lectura falla las deja (no pudo leer no es no tiene).
+6. **Faltaba capacidad**: crear SIN lead (un evento del negocio, sin invitados), ver el día
+   entero (`agenda_del_dia`), y cambiar el nombre o la duración, o cancelar, con o sin lead.
+   Sin lead se busca por el día y la hora que dijo la persona (`eventosDelDia`, estricta: un
+   fallo de Google no es «no tienes nada»). Para cancelar o cambiar se exige el MISMO
+   minuto y el mismo título: si alguien lo movió entre el «propongo» y el «sí», no se toca.
+   Todo por la regla del 07/10: la lista del día, los títulos y cuántos invitados hay van a
+   la persona; el resumen que vuelve al modelo sólo lleva lo que ella dijo.
+
+Aparte: el system de MaKo de TODO cliente decía «chat general del dashboard del negocio de
+Martín», y le contestó «Mira, Martín…» al cliente. Nadie lo tenía editado (medido): era el
+default del código (`lib/prompt-defaults.ts`, con su guard `tests/prompt-sin-dueno.test.ts`).
+
+**Lo que quedó sin hacer:**
+
+- **No se probó contra una agenda real.** El ws13 ya tiene Google conectado, pero es un
+  cliente: probar ahí es escribir en su agenda. La primera prueba es su próximo pedido.
+- **«movela al viernes» SIN pendiente ni agenda abierta** sigue sin llegar: no nombra la
+  reunión, y un verbo suelto como «movela» también se usa para una tarea del plan.
+- **Un «Agendar reunión con…» al principio de una línea** se lee como una tarea dictada si
+  el mensaje es una lista: decidir si es una orden o material es de Martín.
+
+*08/10/2026 — sin subagentes; el diagnóstico y su refutación los midió la sesión del CRM
+(solo lectura; `joan-0-diag.json` y `joan-3-refuta.json` en su scratchpad). 15 roturas entre `tests/agenda-whatsapp.test.ts` y
+`tests/agenda-sin-ia.test.ts`, todas con su fallo.*
+
+## ⚠️ Una herramienta con una lista cerrada de campos hace que el modelo afirme «no hay» sobre un dato guardado (08/10/2026)
+
+**Vive en:** `lib/mako-tools.ts` (`ficha_lead`, `resumenLead`) · `lib/meta-leads-campos.ts`
+(`formularioParaModelo`) · `lib/api-mako/areas/crm.def.ts` (`ficha_lead`)
+
+Joan le preguntó a MaKo por WhatsApp (ws15) qué propiedad quería vender Rosana, y MaKo
+contestó «en su ficha no hay detalles». La respuesta estaba en `leads.meta_field_data`, y la
+ficha de la app la mostraba desde el 07/10. `ficha_lead` devolvía `resumenLead`, que son 20
+campos fijos, más `getLeadRespuestas`, que son R1/R2 de `lead_respuestas`, y un lead de
+formulario no tiene nada ahí. **El modelo no dice «no me llegó ese campo»: dice «no hay».**
+El otro turno, «¿tenés acceso a lo que dijo en el formulario?», gastó 6 pasos buscando con
+otras herramientas algo que ninguna devolvía, hasta el 429. `historial_lead` le mostraba que
+las preguntas EXISTÍAN, pero sin las respuestas.
+
+- **El dato va APARTE de `respuestas`.** `getLeadRespuestas` lo leen los datos faltantes, el
+  chatbot y los insights, y mezclarlo ahí les cambia lo que leen.
+- **`null` ≠ `[]`.** `null` es que no vino de un formulario, o que entró antes del 04/10, cuando
+  las respuestas no se guardaban. `[]` es que el formulario no tenía preguntas propias. Lo
+  explica la descripción una vez, no cada ficha: la nota en la ficha pesaba ~170 caracteres y
+  viajaba en cada lead que no fuera de Meta.
+- ⚠️ **Hay DOS descripciones de la misma herramienta.** El modelo de WhatsApp y la ruta vieja
+  de la skill leen la de `MAKO_TOOLS`, y HTTP y la doc leen la del registro. Si se corrige una
+  sola, el que la lee de la otra no se entera.
+- **Sale por todos los canales, decidido.** Es dato del lead, como el teléfono y el email de
+  la misma ficha. Los dos caminos de afuera son el runner de HTTP y `/api/agente/consultar`,
+  que corre `runMakoTool` sin `ctx.canal`. Recortarlo en uno solo deja abierto el otro, y el
+  snapshot de HTTP fija ids, no campos.
+
+**Lo que quedó SIN hacer:** `reuniones_proximas`, `insight_lead`/`generar_insight` y el paso
+del chatbot (`lib/paso-ia.ts:96`) tampoco ven `meta_field_data`.
+
+*08/10/2026 — diagnóstico y refutación con subagentes, sólo lectura. Medido con la
+herramienta real: `#2594` pasó de 438 a 648 caracteres. Commit `ddfb07e8`.*
 
 ## Lo que quedó sin hacer en el núcleo
 
@@ -693,6 +796,69 @@ Los tokens de prueba se eliminaron.
 
 ---
 
+
+## El curso por la API: que un Claude migre un curso entero (08/10/2026)
+
+**Vive en:** `lib/api-mako/areas/curso.def.ts` · `lib/api-mako/areas/curso.run.ts` ·
+`lib/api-mako/areas/curso.helpers.ts` · `lib/api-mako/flujo.ts` (`ResultadoFlujo.datos`) ·
+`lib/api-mako/rutas-http.ts` · `app/api-mako/Articulos.tsx` (la guía) · `tests/api-mako-curso.test.ts`
+
+Pedido de Martín, en el audio de feedback del curso (minuto ~05:30): quien probaba, con su curso en
+Panda, preguntó «si esto lo puedo conectar por medio de API para que mi Claude lo pueda subir de forma
+automática»; Martín: «No están las acciones dentro de curso, como agregar nueva clase… tengo que agregar
+el tema de curso en la API», y «un pequeño tutorial de copia tu token de API, pásalo a Claude y dile que
+te haga tal». Lo pasó el chat de Customer Success. Quedó un área nueva, `curso` (11 operaciones, SÓLO
+por HTTP), y la guía «Migrar un curso con Claude» en la documentación de la tab API.
+
+**Lo que no se ve desde el pedido:**
+
+- **Una escritura que CREA algo no devolvía su id por la API.** `confirmarPendiente` sí devuelve
+  `Ejecutado.datos`, pero `aplicarEnElActo` lo tiraba y la escritura directa contestaba sólo `resumen`.
+  Quien crea una clase necesita su id para lo que sigue. Ahora viaja: `ResultadoFlujo.datos` → la
+  respuesta 200 lleva `datos` (y el OpenAPI lo describe). Una operación nueva que crea algo devuelve su
+  id en `datos`.
+- **La tab crea una clase AL PRINCIPIO de su módulo** (`crearClase`, a propósito: la abre para editarla).
+  Una migración crea en orden, así que quedaba al revés. `crear_clase_curso` la lleva al final con
+  `moverClaseA(id, modulo, null)`, que con el módulo ya numerado escribe UNA fila.
+- **Crear una clase son hasta seis escrituras** (crear, llevar al final, título, video, descripción,
+  minutos). Todo se valida en `preparar()`; si una escritura falla después de crear, la clase va a la
+  papelera, para que un reintento no deje dos «Nueva clase».
+- **`crearModulo` entiende `despuesDe: null` como «al principio»** y crea VINCULADO por default (una
+  columna más en el kanban de clientes). Por la API, sin `despuesDe` va al final, y nace SUELTO salvo que
+  se pida.
+- **Un producto sin entrega guardada ya tiene CINCO módulos**: las etapas de fábrica del kanban
+  (onboarding, arranque, hito 1, hito 2, entregado), todas vinculadas. Por eso `ordenar_modulos_curso`
+  pide la lista ENTERA de claves, y la guía le dice a Claude que lea el curso antes.
+- **No hay una pantalla de papelera**: lo borrado vuelve sólo con el «Deshacer» de 5 segundos de la tab.
+  La primera versión de la descripción de `borrar_clase_curso` prometía «se recupera desde la papelera
+  del curso en MaKo», que no existe. Por la API vuelve con `restaurar_clase_curso` (7 días, los de la
+  purga; el test los compara con `DIAS_PAPELERA`).
+- **Lo que NO se expone, a propósito**: vincular o borrar un módulo y mover clientes de etapa. Mueven
+  clientes en el kanban, y en el ws1 eso manda WhatsApp. El test lo frena por nombre de función.
+- **Lo que se crea se ve enseguida**: un módulo suelto nace `abierto` (`lib/curso-bloqueo.ts`). La guía lo
+  avisa.
+
+**Probado contra la base el 08/10** en el ws 9, con un producto de prueba creado y borrado por la misma API.
+Se probó todo esto: tres clases creadas en orden, video inválido (422 sin crear nada), editar con HTML
+saneado (el `<script>` no quedó), mover, reordenar (incompleto 422; completo 200; igual 200 `sinCambios`),
+renombrar, borrar dos veces (200 y 200 `sinCambios`), restaurar, y un token sin «Curso» (403). Al borrar
+el producto, su curso cayó en cascada.
+
+⚠️ **El Cliente de Prueba (ws 3) no sirve para probar una tab**: con el onboarding pendiente, cualquier
+pantalla rebota a `/onboarding`. El e2e corrió en el ws 9.
+
+### Lo que quedó sin hacer
+
+- **La tarea y el video por código embed** (el de Panda): el chat de Customer Success está cambiando ese
+  modelo en `lib/curso.ts` y `lib/curso-admin.ts`, y avisa con las firmas nuevas. Hasta entonces, un link
+  de una página de Panda se guarda pero no se reproduce, y la guía lo dice.
+- **Sin idempotencia por clave externa**: si un pedido se corta, el reintento puede duplicar una clase. La
+  guía le pide a Claude que mire el curso antes de reintentar. Una columna `ref` en `curso_clases` lo
+  cerraría.
+- **Los módulos no se pueden crear cerrados** por la API: el candado (`guardarBloqueo`) no está expuesto.
+  Para cargar un curso sin que los alumnos lo vean a medias, hoy hay que crearlo en módulos nuevos.
+
+*08/10/2026, cuenta 2, sin subagentes.*
 
 ## El canal de los flujos: un paso corre cualquier acción, por el mismo choke point (08/10/2026)
 

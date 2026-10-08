@@ -26,16 +26,17 @@ import { lineaPorDefault, elegirLinea } from '@/lib/lineas-whatsapp';
 import { canalNoOficial, proveedorDelPaso, textoDelPaso, type CanalNoOficial } from '@/lib/nutricion-canal';
 // Sólo el TIPO: el valor se importa dinámico adentro del motor (ciclo vía nutricion-generator).
 import type { AutorTexto } from '@/lib/paso-ia';
-import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
-import { conversacionAbierta, atiendeAlResponder, type InscCharla } from '@/lib/setter-conversacion';
+import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuencia } from '@/lib/setting-estrategia';
+import type { TurnoSim } from '@/lib/setting-simulador';
+import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, type InscCharla } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
-import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
+import { secuenciasDeEtapa, secuenciasDeEntrega, secuenciasDeEtiqueta, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from '@/lib/nutricion-etapa';
 import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA } from '@/lib/nutricion-residuo';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
 import { tzActual, TZ_DEFAULT } from '@/lib/timezone';
-import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
+import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
@@ -45,6 +46,19 @@ import {
 } from '@/lib/nutricion-reinscripcion';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
+import {
+  normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
+  escenariosDeRespuesta, nodoPorId, siguienteDe, TOPE_NODOS,
+  type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead,
+} from '@/lib/flujo-grafo';
+import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
+import {
+  indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
+  saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
+  esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
+  avisoSalio, type FilaHechos,
+} from '@/lib/nutricion-grafo-motor';
+import { getAdjunto, adjuntoBase64 } from '@/lib/setting-adjuntos';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -69,8 +83,13 @@ export type PasoSecuencia = {
   // si el modelo falla. Es un campo del paso y no un nodo nuevo, a propósito — ver
   // AGENTS.md, «Un TIPO DE NODO nuevo son CINCO puertas». Sólo vive en el canal no
   // oficial: una plantilla aprobada por Meta no se puede reescribir.
-  tipo?: 'texto' | 'audio' | 'ia';
+  // 'media' (08/10/2026, punto 8: «que se pueda adjuntar archivos»): una foto, un video o un
+  // documento de la biblioteca (`setting_adjuntos`, mig 0225), por REFERENCIA (`media_id`) y
+  // con el `cuerpo` como pie. Sólo por el no oficial: una plantilla de Meta no lleva un
+  // archivo arbitrario, y eso se rechaza al guardar, no se degrada a texto.
+  tipo?: 'texto' | 'audio' | 'ia' | 'media';
   audio_id?: number | null;
+  media_id?: number | null;
   // Condición para que el paso salga (reunión 31/07). 'respondio' = el lead ya
   // contestó al menos una vez: es la regla del lead magnet ("¿lo querés? es
   // gratis" y recién si contesta se manda). 'sin_respuesta' = el rezagado que
@@ -113,6 +132,22 @@ export type PasoSecuencia = {
    * sub-objeto y no un `tipo` más, en lib/nutricion-paso-accion.ts.
    */
   accion?: AccionDelPaso;
+  // ── EL FLUJO CON RAMAS (08/10/2026) ──────────────────────────────────────────
+  // Cada paso es un NODO de un grafo. Todos opcionales: una secuencia de antes, sin ninguno,
+  // ES un grafo lineal sin convertir nada. Qué significa cada uno, en lib/flujo-grafo.ts.
+  /** Identidad estable del nodo. Sin ella, `o<índice>` (lo mismo que leía `paso_actual`). */
+  id?: string;
+  /** A qué nodo sigue. Ausente = el elemento siguiente del array; null = termina. */
+  siguiente?: string | null;
+  /** La clase cuando no es un mensaje ni una acción. */
+  nodo?: 'esperar' | 'condicion' | 'respuesta' | 'ir_a';
+  espera?: Espera;
+  ramas?: RamaCondicion[];
+  casos?: CasoRespuesta[];
+  si_no?: string | null;
+  destino?: DestinoIrA | null;
+  /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
+  revisar?: boolean;
 };
 
 export type Secuencia = {
@@ -155,6 +190,18 @@ export type Secuencia = {
   instance_name: string | null;
   /** La próxima ocurrencia AGENDADA (mig 0192). El ancla, no «cuándo salió». */
   cron_proxima_at: string | null;
+  /**
+   * Con `trigger_tipo = 'etiqueta_puesta'`: la etiqueta (`crm_etiquetas.id`) que la dispara
+   * (mig 0223). `null` en todas las demás.
+   */
+  etiqueta_id: number | null;
+};
+
+/** Una fila de `nutricion_secuencias` como la leen las dos lecturas de abajo. */
+type FilaSecuencia = {
+  id: number; clave: string; nombre: string; etapa: string;
+  trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
+  funnel_id: number | null; cron: unknown; cron_proxima_at: string | null; instance_name: string | null; etiqueta_id: number | string | null;
 };
 
 // % de retención del VSL a partir del cual consideramos "lo vio en serio".
@@ -194,16 +241,12 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name, etiqueta_id')
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
     .is('archivada_at', null);
   if (error) throw new Error(`getSecuenciasActivas: ${error.message}`);
-  const rows = (data ?? []) as Array<{
-    id: number; clave: string; nombre: string; etapa: string;
-    trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
-    funnel_id: number | null; cron: unknown; cron_proxima_at: string | null; instance_name: string | null;
-  }>;
+  const rows = (data ?? []) as FilaSecuencia[];
   return rows.map((r) => ({
     id: r.id,
     clave: r.clave,
@@ -223,6 +266,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     cron: sanearCron(r.cron),
     cron_proxima_at: r.cron_proxima_at ?? null,
     instance_name: r.instance_name || null,
+    etiqueta_id: r.etiqueta_id == null ? null : Number(r.etiqueta_id),
   }));
 }
 
@@ -235,18 +279,14 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name, etiqueta_id')
     // Las archivadas no se listan, no enrolan y no envían. No se borran porque
     // las inscripciones y los envíos las referencian: borrarlas se llevaría
     // puesto el historial de a quién se le escribió.
     .is('archivada_at', null)
     .order('id', { ascending: true });
   if (error) throw new Error(`getSecuenciasConStats: ${error.message}`);
-  const rows = (data ?? []) as Array<{
-    id: number; clave: string; nombre: string; etapa: string;
-    trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
-    funnel_id: number | null; cron: unknown; cron_proxima_at: string | null; instance_name: string | null;
-  }>;
+  const rows = (data ?? []) as FilaSecuencia[];
 
   // Contados PÁGINA POR PÁGINA (se agrega al vuelo, no se materializa). Eran dos
   // `.select()` sueltos sobre las tablas enteras: nutricion_envios suma hasta 40
@@ -291,6 +331,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     cron: sanearCron(r.cron),
     cron_proxima_at: r.cron_proxima_at ?? null,
     instance_name: r.instance_name || null,
+    etiqueta_id: r.etiqueta_id == null ? null : Number(r.etiqueta_id),
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -337,6 +378,29 @@ export async function setSecuenciaLinea(id: number, linea: string | null): Promi
 // cuerpo es el pie, y sus variantes son las del texto que había antes (#748).
 export { textoDelPaso };
 
+/**
+ * Lo que se intentó guardar no es un flujo válido (una acción sin elegir, un archivo sin el
+ * archivo, una tarjeta suelta, un destino que no existe). Es un error del QUE GUARDA y no de la
+ * base: las rutas lo contestan 400 con el mensaje, que es lo que la pantalla muestra.
+ */
+export class PasosInvalidosError extends Error {
+  constructor(m: string) { super(m); this.name = 'PasosInvalidosError'; }
+}
+
+/**
+ * Por qué un paso de ARCHIVO no se puede guardar, o null si se puede. Una combinación imposible
+ * es una validación al guardar, no una degradación (AGENTS.md): un archivo por la vía oficial
+ * necesitaría una plantilla de Meta que no existe, y guardado como texto saldría un mensaje que
+ * nadie escribió.
+ */
+function problemaDeMedia(p: PasoSecuencia): string | null {
+  if (p.tipo !== 'media' || esNodoDeControl(camposDelFlujo(p))) return null;
+  if (!(Number(p.media_id) > 0)) return 'es un archivo y no tiene el archivo elegido';
+  if (p.canal === 'email') return 'es un archivo y los archivos sólo salen por WhatsApp';
+  if (proveedorDelPaso(p) !== 'no_oficial') return 'es un archivo y por el WhatsApp oficial no se manda un archivo suelto';
+  return null;
+}
+
 export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Promise<void> {
   const supabase = (await getTenantDb());
 
@@ -347,15 +411,20 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
   // secuencia y no viven en ningún formulario: sin este merge, guardar el copy
   // desde el wizard o desde el editor las borraba todas en silencio, y el motor
   // volvía a mandar el mismo texto a todo el mundo sin que nadie se enterara.
+  //
+  // ⚠️ EL MERGE ES POR EL ID DEL NODO, NO POR `orden`. Con el flujo con ramas el lienzo inserta
+  // tarjetas en el medio: por orden, la tarjeta nueva heredaba las variantes de la que estaba
+  // en su lugar. Un paso sin id es `o<índice>` de los dos lados, que es exactamente el merge por
+  // orden de siempre.
   const { data: previo } = await supabase
     .from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
   const antes = Array.isArray((previo as { pasos?: unknown } | null)?.pasos)
     ? ((previo as { pasos: PasoSecuencia[] }).pasos)
     : [];
-  const variantesPrevias = new Map<number, string[]>();
-  for (const p of antes) {
-    if (Array.isArray(p?.variantes) && p.variantes.length) variantesPrevias.set(Number(p.orden), p.variantes);
-  }
+  const variantesPrevias = new Map<string, string[]>();
+  antes.forEach((p, i) => {
+    if (p && Array.isArray(p.variantes) && p.variantes.length) variantesPrevias.set(idDe(p, i), p.variantes);
+  });
 
   // ⚠️ EL PASO «⚡ ACCIÓN» SE VALIDA ANTES DE ESCRIBIR NADA, y una acción inválida frena el
   // guardado ENTERO con un error que la pantalla muestra. Esta función reconstruye cada
@@ -366,15 +435,33 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
   // blanco al lead; guardado tal cual, un 'fallo' por corrida en un log que nadie lee.
   // El filtro es el MISMO de abajo, para que `acciones[i]` sea el paso `i` del `.map`.
   const esPaso = (p: PasoSecuencia): boolean => !!p && typeof p === 'object';
-  const acciones = pasos.filter(esPaso).map((p) => sanearAccion((p as { accion?: unknown }).accion));
+  // Un nodo de CONTROL (condición, espera, «Si responde», «Ir a») no corre una acción aunque
+  // traiga una pegada: `nodo` manda sobre `accion` (claseDe, lib/flujo-grafo.ts).
+  const acciones = pasos.filter(esPaso).map((p) => sanearAccion(esNodoDeControl(camposDelFlujo(p)) ? null : (p as { accion?: unknown }).accion));
   const malas = acciones.flatMap((a, i) => (a && !a.ok ? [`el paso ${i + 1} ${a.motivo}`] : []));
-  if (malas.length) throw new Error(`No se guardó: ${malas.join('; ')}.`);
+  if (malas.length) throw new PasosInvalidosError(`No se guardó: ${malas.join('; ')}.`);
+  const sinArchivo = pasos.filter(esPaso).flatMap((p, i) => { const m = problemaDeMedia(p); return m ? [`el paso ${i + 1} ${m}`] : []; });
+  if (sinArchivo.length) throw new PasosInvalidosError(`No se guardó: ${sinArchivo.join('; ')}.`);
+  // Un «Ir a» a ESTA MISMA automatización (un «Sigue con» con la clave mal puesta) es un bucle
+  // que le reenviaba la secuencia entera al lead en cada vuelta (revisión del 08/10/2026).
+  // `validarGrafo` no sabe qué id tiene la secuencia: lo dice esto. Con los campos del flujo ya
+  // saneados (`camposDelFlujo`: un id que llega como texto cuenta igual).
+  const aSiMisma = irAEstaMisma(pasos.filter(esPaso).map((p) => camposDelFlujo(p)), id);
+  if (aSiMisma.length) throw new PasosInvalidosError(`No se guardó: el «Ir a» del paso ${aSiMisma[0] + 1} apunta a esta misma automatización.`);
+  // ⚠️ UNA LISTA SIN IDS NO PISA UN FLUJO DE TARJETAS (08/10/2026). Hay escritores que arman los
+  // pasos de cero y no saben de ramas (el armado de las secuencias de audios del onboarding, la
+  // API por orden, /email). Sobre un flujo, eso borraba en silencio las condiciones, las esperas
+  // y «Si responde» con sus casos: guardar una lista válida no da error. El lienzo manda SIEMPRE
+  // los ids de sus tarjetas; quien manda una lista sin ninguno no está editando ESTE flujo.
+  if (puedePisarFlujo(antes, pasos) === false) {
+    throw new PasosInvalidosError('No se guardó: esta automatización tiene tarjetas (condiciones, esperas o «Si responde»). Se edita en /chatbot.');
+  }
   const operaciones = [...new Set(acciones.flatMap((a) => (a?.ok ? [a.accion.operacion] : [])))];
   if (operaciones.length) {
     // Import dinámico: el registro son ~500 definiciones y sólo hace falta si hay acciones.
     const [{ porId }, { esAccion }] = await Promise.all([import('@/lib/api-mako/registro'), import('@/lib/api-mako/tipos')]);
     const ajenas = operaciones.filter((op) => { const d = porId(op); return !d || !esAccion(d); });
-    if (ajenas.length) throw new Error(`No se guardó: ${ajenas.map((op) => `«${op}»`).join(', ')} no es una acción de MaKo.`);
+    if (ajenas.length) throw new PasosInvalidosError(`No se guardó: ${ajenas.map((op) => `«${op}»`).join(', ')} no es una acción de MaKo.`);
     // Y lo OBLIGATORIO de cada acción tiene que estar: sin esto «Publicar» guardaba un paso al
     // que le faltaba un dato, el lienzo lo dibujaba como configurado y cada lead que llegaba
     // dejaba un 'fallo' que nadie lee. El lead del evento cuenta como puesto (una secuencia
@@ -386,13 +473,20 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       const faltan = d ? faltanEnPaso(d.parametros, a.accion.params, { leadId: 1 }) : [];
       return faltan.length ? [`al paso ${i + 1} («${d!.titulo}») le falta ${faltan.map((f) => `«${f}»`).join(', ')}`] : [];
     });
-    if (incompletas.length) throw new Error(`No se guardó: ${incompletas.join('; ')}.`);
+    if (incompletas.length) throw new PasosInvalidosError(`No se guardó: ${incompletas.join('; ')}.`);
   }
 
-  // Normaliza el orden (1..n) y descarta basura.
+  // Normaliza el orden (1..n) y descarta basura. Los campos del FLUJO (id, siguiente, nodo,
+  // espera, ramas, casos, si_no, destino, revisar) salen de `camposDelFlujo`, saneados uno por
+  // uno: por acá pasan los diez escritores de `pasos`, y lo que no se reconstruye se borra.
   const limpio = pasos
     .filter(esPaso)
     .map((p, i): PasoSecuencia => {
+      const flujo = camposDelFlujo(p);
+      // Un nodo de CONTROL lleva sólo el relleno que todo paso tiene (canal, cuerpo vacío, sin
+      // espera propia): lo que decide es su `nodo`, y un `delay_horas` acá sería una espera
+      // que el lienzo no dibuja.
+      if (esNodoDeControl(flujo)) return { orden: i + 1, ...RELLENO_CONTROL, ...flujo } as PasoSecuencia;
       const comun = {
         orden: i + 1,
         // Un paso de audio es de WhatsApp por definición (no hay nota de voz por email).
@@ -402,10 +496,11 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
         ...(p.requiere === 'respondio' || p.requiere === 'sin_respuesta' || p.requiere === 'ya_contactado' || p.requiere === 'primer_contacto'
           ? { requiere: p.requiere as PasoSecuencia['requiere'] }
           : {}),
+        ...flujo,
       };
       // Un paso de ACCIÓN no lleva nada de un mensaje: ni tipo, ni audio, ni variantes, ni
-      // cuerpo. Las variantes, sobre todo: el merge es por `orden`, y una acción insertada
-      // en el lugar de un mensaje heredaría las suyas.
+      // cuerpo. Las variantes, sobre todo: el merge es por el id del nodo, y una acción que
+      // quedó con el id de un mensaje de antes (un paso sin id es `o<índice>`) heredaría las suyas.
       const a = acciones[i];
       if (a?.ok) return { ...comun, asunto: null, preheader: null, cuerpo: '', template_wa: null, accion: a.accion };
       return {
@@ -417,9 +512,11 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
         // que el motor iba a hacer igual — sin un `tipo` que prometa otra cosa.
         ...(p.tipo === 'audio' && Number(p.audio_id)
           ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) }
-          : p.tipo === 'ia' && p.canal !== 'email' && proveedorDelPaso(p) === 'no_oficial'
-            ? { tipo: 'ia' as const }
-            : {}),
+          : p.tipo === 'media'
+            ? { tipo: 'media' as const, media_id: Number(p.media_id) }
+            : p.tipo === 'ia' && p.canal !== 'email' && proveedorDelPaso(p) === 'no_oficial'
+              ? { tipo: 'ia' as const }
+              : {}),
         asunto: typeof p.asunto === 'string' ? p.asunto : null,
         preheader: typeof p.preheader === 'string' ? p.preheader : null,
         cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
@@ -431,16 +528,21 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
         template_idioma: p.template_idioma ?? 'es_MX',
         template_param: p.template_param ?? 'nombre',
         // Las variantes las manda el cliente solo si las está editando; si no,
-        // sobreviven las que ya había para ese orden.
+        // sobreviven las que ya había para ese nodo.
         ...(() => {
-          const vs = Array.isArray(p.variantes) && p.variantes.length ? p.variantes : variantesPrevias.get(i + 1);
+          const vs = Array.isArray(p.variantes) && p.variantes.length ? p.variantes : variantesPrevias.get(idDe(flujo, i));
           return vs?.length ? { variantes: vs.filter((v) => typeof v === 'string' && v.trim()).slice(0, 8) } : {};
         })(),
       };
     });
+  // Ids y `siguiente` EXPLÍCITOS en cada guardado (insertar o borrar un elemento del array ya no
+  // le cambia a nadie el paso siguiente), y lo que no es un flujo no se guarda.
+  const grafo = normalizar(limpio);
+  const errores = validarGrafo(grafo);
+  if (errores.length) throw new PasosInvalidosError(`No se guardó: ${errores[0]}.`);
   const { error } = await supabase
     .from('nutricion_secuencias')
-    .update({ pasos: limpio, updated_at: ahoraISO() })
+    .update({ pasos: grafo, updated_at: ahoraISO() })
     .eq('id', id);
   if (error) throw new Error(`setSecuenciaPasos: ${error.message}`);
 }
@@ -529,6 +631,7 @@ export async function leadsDeCohorte(
   etapa?: string | null,
   funnelId?: number | null,
   productoId?: number | null,
+  etiquetaId?: number | null,
 ): Promise<number[]> {
   /**
    * La ENTREGA no pasa por el ámbito de embudo ni por las columnas del funnel: su
@@ -571,15 +674,72 @@ export async function leadsDeCohorte(
       throw new Error(`cohorte entrega_actual(${key}): ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId));
+  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null);
+}
+
+/**
+ * Los leads que TIENEN HOY la etiqueta `etiquetaId` (`crm_lead_etiquetas`, mig 0224), dentro del
+ * ámbito de embudo de la secuencia. Es la red del evento «le pusieron la etiqueta» (que enrola
+ * en el acto, `enrolarPorEvento`) y lo que alcanza a quien YA la tenía cuando se creó la
+ * secuencia, igual que `etapa_actual` con la etapa.
+ *
+ * ⚠️ SIN FILTRO DE ESTADO NI DE ANTIGÜEDAD, a propósito: la etiqueta ES la decisión de alguien
+ * (una persona o un paso de un flujo), y «Reactivar» puesta a un perdido tiene que disparar.
+ * La inscripción única (lead, secuencia) hace que el barrido horario no repita a nadie.
+ *
+ * ⚠️ SÓLO CON HORARIO (revisión del 08/10/2026): sin horario el disparador es sólo el evento, y
+ * el barrido ni llega acá (`barridoInscribe`, en `comprometerInscripciones`). Si barriera, una
+ * etiqueta puesta en LOTE o por el espejo de una etapa —que a propósito no disparan— disparaba
+ * igual en la corrida siguiente.
+ *
+ * ⚠️ UNA ETIQUETA ARCHIVADA NO DISPARA (decisión del 08/10/2026: archivar la apaga), y una que no
+ * es de este negocio tampoco (`getTenantDb` la deja afuera): nadie.
+ *
+ * ⚠️ SI LA TABLA TODAVÍA NO EXISTE (la 0224 sin aplicar), NADIE: no se rompe la corrida de las
+ * demás secuencias, y queda un log. Cualquier otro error tira, como toda cohorte.
+ */
+async function leadsConEtiqueta(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  etiquetaId: number | null,
+  ambito: AmbitoFunnel,
+): Promise<number[]> {
+  if (etiquetaId == null || !Number.isInteger(etiquetaId) || etiquetaId <= 0) return [];
+  let conEtiqueta: number[];
+  try {
+    const { data: et, error: eEt } = await db.from('crm_etiquetas').select('id, archivada_at').eq('id', etiquetaId).maybeSingle();
+    if (eEt) throw new Error(eEt.message);
+    const etiqueta = et as { id: number; archivada_at: string | null } | null;
+    if (!etiqueta || etiqueta.archivada_at) return [];
+    const filas = await leerTodo<{ id: number; lead_id: number | string | null }>(db, 'crm_lead_etiquetas', 'id, lead_id', {
+      orden: 'id', filtros: (q) => q.eq('etiqueta_id', etiquetaId) as ConsultaPaginada,
+    });
+    conEtiqueta = [...new Set(filas.map((f) => Number(f.lead_id)).filter((n) => Number.isFinite(n) && n > 0))];
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (esTablaInexistente({ message: msg })) {
+      console.warn(`[nutricion] cohorte ${TRIGGER_ETIQUETA}: la tabla de etiquetas todavía no existe (${msg})`);
+      return [];
+    }
+    throw new Error(`cohorte ${TRIGGER_ETIQUETA}(${etiquetaId}): ${msg}`);
+  }
+  if (!conEtiqueta.length) return [];
+  // Sólo leads de ESTE negocio y de su embudo: la fila de la etiqueta apunta a un lead por id, y
+  // es la tabla de leads (con su ámbito) la que dice de quién es.
+  const out: number[] = [];
+  for (const tanda of enTandas(conEtiqueta, 200)) {
+    out.push(...await idsCohorte(db, `etiqueta-${etiquetaId}`, ambito, (q) => q.in('id', tanda)));
+  }
+  return out;
 }
 
 // El ámbito viaja YA RESUELTO para que la rama de la post-agenda —que se llama a
 // sí misma con otro trigger— no vuelva a consultar `funnels`, y sobre todo para
 // que no pueda perderlo en el camino: el trigger hermano juntaría los leads de
 // todos los embudos y la exclusión de familia no se enteraría.
-async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambito: AmbitoFunnel): Promise<number[]> {
+async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambito: AmbitoFunnel, etiquetaId: number | null = null): Promise<number[]> {
   const supabase = (await getTenantDb());
+
+  if (triggerTipo === TRIGGER_ETIQUETA) return leadsConEtiqueta(supabase, etiquetaId, ambito);
   const desde = haceDiasISO(VENTANA_DIAS);          // timestamp ISO, para created_at
   const hoy = ahoraISO().slice(0, 10);              // YYYY-MM-DD (UTC), para fechas futuras
   const fechaDesde45 = haceDiasISO(45).slice(0, 10); // YYYY-MM-DD, ventana de hitos recientes
@@ -960,13 +1120,24 @@ async function leadsEnFamiliaPostAgenda(leadIds: number[]): Promise<Set<number>>
  *
  * ⚠️ Va en el plan Y en el commit (y en `enrolarPorEvento`): si el dry-run no
  * filtrara, la vista previa prometería 126 inscripciones y la corrida haría 5.
+ *
+ * ⚠️ Y EL TOPE TAMBIÉN SALE DEL FLUJO (`antiguedadDeEntrada`). Una secuencia convertida a
+ * tarjetas ya no tiene `antiguedad_max_horas` (la LIMPIEZA lo pone en null): el tope pasó a ser
+ * su primera tarjeta, una condición «Llegó hace menos de N h». Mirarla sólo al correr dejaba
+ * entrar a toda la cohorte de 30 días —una fila trabada por el UNIQUE por cada lead viejo—,
+ * que es lo que este filtro vino a cerrar el 17/09.
  */
+function topeAntiguedad(sec: Pick<Secuencia, 'antiguedad_max_horas' | 'pasos'>): number | null {
+  return sec.antiguedad_max_horas ?? antiguedadDeEntrada(sec.pasos);
+}
+
 async function aTiempo(
   db: Awaited<ReturnType<typeof getTenantDb>>,
-  sec: Pick<Secuencia, 'antiguedad_max_horas'>,
+  sec: Pick<Secuencia, 'antiguedad_max_horas' | 'pasos'>,
   ids: number[],
 ): Promise<number[]> {
-  if (sec.antiguedad_max_horas == null || ids.length === 0) return ids;
+  const maxHoras = topeAntiguedad(sec);
+  if (maxHoras == null || ids.length === 0) return ids;
   const ahoraMs = Date.now();
   const creado = new Map<number, string | null>();
   // En tandas y paginado, como todo `.in()` sobre una cohorte (ver filasCohorte).
@@ -976,7 +1147,7 @@ async function aTiempo(
     });
     for (const f of filas) creado.set(f.id, f.created_at);
   }
-  return ids.filter((id) => dentroDeAntiguedad({ maxHoras: sec.antiguedad_max_horas, createdAt: creado.get(id) ?? null, ahoraMs }));
+  return ids.filter((id) => dentroDeAntiguedad({ maxHoras, createdAt: creado.get(id) ?? null, ahoraMs }));
 }
 
 export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
@@ -991,8 +1162,9 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
     // ⚠️ LA MISMA PUERTA QUE EL COMMIT, o el preview miente sobre a quién va a
     // inscribir. Acá NO se escribe `cron_proxima_at`: un dry-run que avanza el ancla
     // deja al commit de al lado sin su ocurrencia.
+    if (!barridoInscribe(sec)) continue;
     if (!decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora).toca) continue;
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id));
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id, sec.etiqueta_id));
     if (candidatos.length === 0) continue;
     const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
       .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
@@ -1043,13 +1215,14 @@ async function aInscribir(
   const quienes = [...pendientes, ...reusables.map((r) => r.fila.lead_id)];
   // En tandas y paginado: con el `.in()` suelto, un lead que caía del corte se quedaba sin su
   // reunión y el paso anclado salía con delay relativo — un recordatorio a destiempo.
-  const juntas = (prepara || sec.pasos[0]?.ancla === 'reunion') && quienes.length ? await juntasDe(db, quienes) : new Map<number, JuntasLead>();
+  const entrada = pasoDeEntrada(sec.pasos);
+  const juntas = (prepara || entrada?.ancla === 'reunion') && quienes.length ? await juntasDe(db, quienes) : new Map<number, JuntasLead>();
   const escalonados = sec.trigger_tipo === TRIGGER_RESIDUO && pendientes.length
-    ? await horariosResiduo(db, { pendientes, pasos: sec.pasos.length, delayHoras: sec.pasos[0]?.delay_horas ?? 0 })
+    ? await horariosResiduo(db, { pendientes, pasos: sec.pasos.length, delayHoras: entrada?.delay_horas ?? 0 })
     : null;
   const alta = (lead_id: number, reunionMs: number | null): AltaInscripcion => ({
     lead_id,
-    proximo_envio_at: escalonados?.get(lead_id) ?? proximoEnvioDePaso(sec.pasos[0], juntas.get(lead_id)),
+    proximo_envio_at: escalonados?.get(lead_id) ?? proximoEnvioDePaso(entrada, juntas.get(lead_id)),
     reunion_at: prepara && reunionMs != null ? new Date(reunionMs).toISOString() : null,
   });
   return {
@@ -1069,6 +1242,10 @@ export async function comprometerInscripciones(): Promise<number> {
   const ahora = new Date();
 
   for (const sec of secuencias) {
+    // «Se le puso una etiqueta» SIN horario es sólo el evento: el barrido no inscribe por
+    // etiqueta (decisión del 08/10/2026, `barridoInscribe`). Si barriera, el LOTE y el espejo de
+    // una etapa —que a propósito no disparan— disparaban igual en esta corrida.
+    if (!barridoInscribe(sec)) continue;
     /**
      * ⚠️ LA PUERTA DEL HORARIO, Y EL AVANCE VA ANTES DE INSCRIBIR.
      *
@@ -1092,7 +1269,7 @@ export async function comprometerInscripciones(): Promise<number> {
       if (agenda.toca && (reclamadas ?? []).length === 0) continue;
     }
     if (!agenda.toca) continue;
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id));
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id, sec.etiqueta_id));
     if (candidatos.length === 0) continue;
     // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y
     // el insert moría contra el unique — o sea que igual cortaba, pero con un
@@ -1149,7 +1326,7 @@ async function reactivarReusables(
 // evento cae fuera de 9-21 MX, la inscripción queda vencida y la levanta la
 // primera corrida del cron de la mañana.
 
-export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega';
+export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega' | 'etiqueta';
 
 /** Lo que el evento de ETAPA necesita saber, porque no se deduce del lead id. */
 export type CtxEvento = {
@@ -1165,6 +1342,8 @@ export type CtxEvento = {
   productoId?: number | string | null;
   /** De qué etapa SALIÓ. `null` = recién entra. Ver `cerrarEntregaDeEtapa`. */
   desde?: string | null;
+  /** La etiqueta (`crm_etiquetas.id`) que ACABAN de ponerle. Es la pregunta del evento `'etiqueta'`. */
+  etiquetaId?: number | string | null;
 };
 
 // Qué triggers responden a cada evento. Los cohortes siguen siendo la fuente de
@@ -1179,6 +1358,10 @@ const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
   // La ENTREGA de un servicio (el kanban de Customer Success). Trigger propio: ver
   // `secuenciasDeEntrega`.
   entrega: [TRIGGER_ENTREGA],
+  // Le PUSIERON una etiqueta (08/10/2026, punto 12: «debería también poder salir acciones y
+  // CRON desde etiquetas»). Lo dispara el choke point de las etiquetas (lib/etiquetas.ts). Como
+  // el de etapa, no alcanza solo: `secuenciasDeEtiqueta` filtra por CUÁL.
+  etiqueta: [TRIGGER_ETIQUETA],
 };
 
 /**
@@ -1369,6 +1552,9 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
       await cerrarEntregaDeEtapa(leadId, ctx?.desde, ctx?.productoId);
       delEvento = secuenciasDeEntrega(delEvento, ctx?.etapa, ctx?.productoId);
     }
+    // ⚠️ LA ETIQUETA TAMBIÉN PREGUNTA POR *CUÁL*, como la etapa: sin esto, ponerle «Cualificado»
+    // a un lead lo metía también en la secuencia de «Seguimiento».
+    if (evento === 'etiqueta') delEvento = secuenciasDeEtiqueta(delEvento, ctx?.etiquetaId);
     // El tope de antigüedad vale también acá: un evento de un lead viejo (una
     // agenda nueva, un lead re-importado) no lo mete a una secuencia que no le
     // escribe a leads de esa edad.
@@ -1395,7 +1581,7 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     const previaDe = new Map(previas.map((f) => [f.secuencia_id, f]));
     const reusaSec = new Set(elegidas.filter(reusaInscripciones).map((s) => s.id));
     const reusables = await reusablesDe(supabase, previas, (secId) => reusaSec.has(secId));
-    const juntas = (preparan || elegidas.some((s) => s.pasos[0]?.ancla === 'reunion')) ? (await juntasDe(supabase, [leadId])).get(leadId) ?? null : null;
+    const juntas = (preparan || elegidas.some((s) => pasoDeEntrada(s.pasos)?.ancla === 'reunion')) ? (await juntasDe(supabase, [leadId])).get(leadId) ?? null : null;
 
     // ⚠️ DE A UNA, NO POR LOTE (refutador del relevo #789, (3)). El insert por lote chocaba
     // con el `unique (lead_id, secuencia_id)` apenas UNA fila ya existía —otra corrida, o el
@@ -1405,7 +1591,7 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     for (const s of elegidas) {
       // El primer paso de una secuencia disparada por evento sale YA: el delay configurado
       // cuenta desde el evento, no desde el cron. Un paso anclado a la reunión, desde la agenda.
-      const proximo = proximoEnvioDePaso(s.pasos[0], juntas);
+      const proximo = proximoEnvioDePaso(pasoDeEntrada(s.pasos), juntas);
       const previa = previaDe.get(s.id);
       if (previa) {
         const r = reusables.get(previa.id);
@@ -1474,11 +1660,16 @@ export type InscripcionManual =
  * ⚠️ El lead se lee con `getTenantDb`: un lead de OTRO negocio no existe acá. Sin esa lectura, el
  * insert aceptaría su id (la FK es global) y le escribiría la secuencia de este negocio a una
  * persona de otro. Y una lectura que falla TIRA: «no pude leer» no es «no existe».
+ *
+ * `desdeFlujo`: lo pide un «Ir a otra automatización» (la salida o «Si responde»), no una persona.
+ * Ahí NO se reinicia lo terminado y no se entra si el trabajo de la otra ya está hecho (regla 6 de
+ * lib/nutricion-inscripcion-manual.ts): es lo que hacía `encadenar`, y sin eso el «Sigue con»
+ * convertido le reenviaba la secuencia entera a quien ya la había terminado.
  */
 export async function inscribirEnSecuencia(
   leadId: number,
   secuenciaId: number,
-  opts?: { soloVer?: boolean; sinEnvioInmediato?: boolean },
+  opts?: { soloVer?: boolean; sinEnvioInmediato?: boolean; desdeFlujo?: boolean },
 ): Promise<InscripcionManual> {
   const supabase = await getTenantDb();
   // El ámbito (funnel_id, producto_id) viaja aunque acá no filtre —la secuencia la eligió una
@@ -1487,10 +1678,11 @@ export async function inscribirEnSecuencia(
     .select('id, nombre, trigger_tipo, activa, archivada_at, pasos, estrategia, funnel_id, producto_id').eq('id', secuenciaId).maybeSingle();
   if (eSec) throw new Error(`inscribirEnSecuencia (secuencia): ${eSec.message}`);
   const s = filaSec as { id: number; nombre: string; trigger_tipo: string; activa: boolean; archivada_at: string | null; pasos: unknown; estrategia: unknown } | null;
+  // Lo de `hitoYaHecho` (calificado, agenda, pago) va en la misma lectura: lo pregunta un flujo.
   const { data: filaLead, error: eLead } = await supabase.from('leads')
-    .select('id, nombre, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at').eq('id', leadId).maybeSingle();
+    .select('id, nombre, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_agenda, calificado, fecha_primer_pago, cerro').eq('id', leadId).maybeSingle();
   if (eLead) throw new Error(`inscribirEnSecuencia (lead): ${eLead.message}`);
-  const lead = filaLead as ({ id: number; nombre: string | null } & JuntasLead) | null;
+  const lead = filaLead as ({ id: number; nombre: string | null } & JuntasLead & Record<string, unknown>) | null;
   const quien = lead ? { id: Number(lead.id), nombre: lead.nombre?.trim() || `el lead #${lead.id}` } : null;
   if (!s) return { inscribe: false, porque: 'secuencia_no_existe', secuencia: null, lead: quien };
   const ref = { id: Number(s.id), nombre: s.nombre };
@@ -1501,8 +1693,8 @@ export async function inscribirEnSecuencia(
   const decididoAt = ahoraISO();
   const previa = (await inscripcionesDe(supabase, [leadId], (q) => q.eq('secuencia_id', s.id), prepara))[0] ?? null;
 
-  const aTiempoOk = (await aTiempo(supabase, { antiguedad_max_horas: parseEstrategia(s.estrategia)?.antiguedad_max_horas ?? null }, [leadId])).length > 0;
-  const sinReunion = (pasos[0]?.ancla === 'reunion' || prepara) && reunionFuturaMs(lead) == null;
+  const aTiempoOk = (await aTiempo(supabase, { antiguedad_max_horas: parseEstrategia(s.estrategia)?.antiguedad_max_horas ?? null, pasos }, [leadId])).length > 0;
+  const sinReunion = (pasoDeEntrada(pasos)?.ancla === 'reunion' || prepara) && reunionFuturaMs(lead) == null;
   const fueraDelResiduo = s.trigger_tipo === TRIGGER_RESIDUO && !(await residuoVigente(supabase, [leadId])).has(leadId);
   let enLaOtraMitad = false;
   if (FAMILIA_POST_AGENDA.includes(s.trigger_tipo)) {
@@ -1516,14 +1708,17 @@ export async function inscribirEnSecuencia(
     }
   }
 
+  const objetivo = parseEstrategia(s.estrategia)?.objetivo ?? null;
   const v = decidirInscripcionManual({
     secuencia: { activa: s.activa === true, archivada: s.archivada_at != null, pasos: pasos.length },
     previa: previa ? { estado: previa.estado, desenlace: previa.desenlace } : null,
     motor: { aTiempo: aTiempoOk, sinReunion, fueraDelResiduo, enLaOtraMitad },
+    desdeFlujo: opts?.desdeFlujo === true,
+    objetivoHecho: opts?.desdeFlujo === true && objetivo != null && hitoYaHecho(objetivo, lead) === true,
   });
   if (!v.inscribe) return { inscribe: false, porque: v.porque, secuencia: ref, lead: quien };
 
-  const proximo = proximoEnvioDePaso(pasos[0], lead);
+  const proximo = proximoEnvioDePaso(pasoDeEntrada(pasos), lead);
   const reunion = prepara ? reunionQuePreparaMs(lead) : null;
   const reunionAt = reunion == null ? null : new Date(reunion).toISOString();
   const hecho = { inscribe: true as const, como: v.como, secuencia: ref, lead: quien, proximoEnvioAt: proximo };
@@ -1560,7 +1755,12 @@ type InscripcionVencida = {
   lead_id: number;
   secuencia_id: number;
   paso_actual: number;
+  /** El nodo en el que está (mig 0223). NULL = una fila de antes: manda `paso_actual`. */
+  nodo_actual: string | null;
 };
+
+/** Cómo se lee un nodo de control en el plan del dry-run y en el rastro del motor. */
+const NOMBRE_CONTROL: Record<string, string> = { condicion: 'condición', esperar: 'espera', ir_a: '«ir a»', respuesta: '«si responde»' };
 
 export type PlanEnvio = {
   inscripcion_id: number;
@@ -1577,7 +1777,7 @@ async function inscripcionesVencidas(): Promise<InscripcionVencida[]> {
   // mostraba 1000 y afirmaba que eso era todo lo que salía.
   const ahora = ahoraISO();
   try {
-    return await leerTodo<InscripcionVencida>(supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, paso_actual', {
+    return await leerTodo<InscripcionVencida>(supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, paso_actual, nodo_actual', {
       orden: 'id', eq: { estado: 'activa' }, filtros: (q) => q.lte('proximo_envio_at', ahora) as ConsultaPaginada,
     });
   } catch (e) {
@@ -1592,17 +1792,21 @@ export async function planificarEnvios(): Promise<PlanEnvio[]> {
   const due = await inscripcionesVencidas();
   return due.map((insc) => {
     const sec = porId.get(insc.secuencia_id);
-    const paso = sec?.pasos[insc.paso_actual];
+    // El nodo como lo busca el motor: por `nodo_actual`, y si no, por `paso_actual`.
+    const idx = sec ? indiceActual(sec.pasos, insc) : -1;
+    const paso = sec && idx >= 0 ? sec.pasos[idx] : undefined;
     return {
       inscripcion_id: insc.id,
       lead_id: insc.lead_id,
       secuencia: sec?.clave ?? `#${insc.secuencia_id}`,
-      paso: insc.paso_actual + 1,
+      paso: (idx >= 0 ? idx : insc.paso_actual) + 1,
       canal: paso?.canal ?? null,
       // Un paso de acción no tiene texto: decir su operación es lo único que describe qué corre.
+      // Un nodo de control no manda nada por sí mismo: se resuelve y sigue.
       detalle: !paso ? 'sin paso → se completaría'
-        : esPasoAccion(paso) ? `acción: ${paso.accion?.operacion || 'sin elegir'}`
-          : `${paso.canal}: ${paso.asunto ?? paso.cuerpo.slice(0, 40)}`,
+        : esNodoDeControl(paso) ? `${NOMBRE_CONTROL[claseDe(paso)] ?? claseDe(paso)}: se resuelve y sigue`
+          : esPasoAccion(paso) ? `acción: ${paso.accion?.operacion || 'sin elegir'}`
+            : `${paso.canal}: ${paso.asunto ?? paso.cuerpo.slice(0, 40)}`,
     };
   });
 }
@@ -1765,6 +1969,112 @@ async function leadIdsDe(
   return ((data ?? []) as Array<{ lead_id: number | null }>).map((r) => r.lead_id);
 }
 
+/**
+ * LOS HECHOS DEL LEAD con los que se evalúa una condición (`HechosLead`, lib/flujo-grafo.ts),
+ * leídos en BATCH para todos los leads del lote. Sólo se llama si algún lead del lote está por
+ * pasar por una condición (`necesitaHechos`): sin condiciones, el motor no lee nada de esto.
+ *
+ * Cada hecho sale de la MISMA fuente que ya lo decide en otro lado, nunca de una cuenta nueva:
+ *   · la etapa de la casa, con `pipelineStageOf` (el override manual o la derivada), y la de
+ *     cada producto, de `lead_funnel` (mig 0207) con la casa resuelta por `casaReal`;
+ *   · «agendó» y «pagó», con la regla del desenlace de antes (`agendoLead`, `pagoLead`);
+ *   · «ya le escribiste», con `leadsYaContactados` (lo que decide el par de apertura);
+ *   · «te escribió alguna vez»: un mensaje entrante suyo en el espejo de WhatsApp, o una
+ *     inscripción que pausó porque contestó (por el oficial, el entrante no se espeja);
+ *   · las etiquetas, de `crm_lead_etiquetas` (mig 0224), MENOS las archivadas
+ *     (`etiquetasQueCuentan`: archivar la apaga). ⚠️ Si esa tabla todavía no existe,
+ *     el conjunto vacío y un log: la condición «Tiene la etiqueta X» sale por «no», y la corrida
+ *     de los demás no se rompe por una migración de otra parte.
+ * Cualquier otro error TIRA: decidir una rama sin el dato es mandarle al lead lo que no le toca.
+ */
+async function hechosDeLeads(db: Awaited<ReturnType<typeof getTenantDb>>, leadIds: readonly number[]): Promise<Map<number, HechosLead>> {
+  const ids = [...new Set(leadIds)];
+  const out = new Map<number, HechosLead>();
+  if (!ids.length) return out;
+  type FilaLeadHechos = FilaHechos & {
+    estado_lead: 'abierto' | 'ganado' | 'perdido' | 'descalificado' | 'no_responde';
+    pipeline_stage: string | null; fecha_agenda: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null;
+    nutricion_realizada: boolean | null; funnel_id: number | string | null;
+  };
+  const filas: FilaLeadHechos[] = [];
+  const productos = new Map<number, Map<number, string>>();
+  const etiquetas = new Map<number, Set<number>>();
+  let sinTablaEtiquetas = false;
+  // Las ARCHIVADAS no cuentan (decisión del 08/10/2026: archivar una etiqueta la APAGA). El lead
+  // conserva la fila —es su historia—, pero «Tiene X» deja de cumplirse. Una lectura por lote.
+  let archivadas = new Set<number>();
+  try {
+    archivadas = new Set((await leerTodo<{ id: number | string }>(db, 'crm_etiquetas', 'id', {
+      orden: 'id', filtros: (q) => q.not('archivada_at', 'is', null),
+    })).map((f) => Number(f.id)));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!esTablaInexistente({ message: msg })) throw e;
+    sinTablaEtiquetas = true;
+    console.warn(`[nutricion] condición por etiqueta: la tabla de etiquetas todavía no existe, se evalúa sin etiquetas (${msg})`);
+  }
+  for (const tanda of enTandas(ids, 200)) {
+    filas.push(...await leerTodo<FilaLeadHechos>(db, 'leads',
+      'id, created_at, telefono, email, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_primer_pago, cerro, estado_lead, pipeline_stage, fecha_agenda, asistio_j1, asistio_j2, nutricion_realizada, funnel_id',
+      { orden: 'id', filtros: (q) => q.in('id', tanda) as ConsultaPaginada }));
+    for (const f of await leerTodo<{ id: number; lead_id: number; funnel_id: number | string; etapa: string | null }>(db, 'lead_funnel', 'id, lead_id, funnel_id, etapa', {
+      orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+    })) {
+      const fid = Number(f.funnel_id);
+      if (!Number.isFinite(fid) || !f.etapa) continue;
+      const m = productos.get(Number(f.lead_id)) ?? new Map<number, string>();
+      m.set(fid, f.etapa);
+      productos.set(Number(f.lead_id), m);
+    }
+    if (!sinTablaEtiquetas) {
+      try {
+        for (const f of await leerTodo<{ id: number; lead_id: number; etiqueta_id: number | string }>(db, 'crm_lead_etiquetas', 'id, lead_id, etiqueta_id', {
+          orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+        })) {
+          const s = etiquetas.get(Number(f.lead_id)) ?? new Set<number>();
+          s.add(Number(f.etiqueta_id));
+          etiquetas.set(Number(f.lead_id), s);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!esTablaInexistente({ message: msg })) throw e;
+        sinTablaEtiquetas = true;
+        console.warn(`[nutricion] condición por etiqueta: la tabla de etiquetas todavía no existe, se evalúa sin etiquetas (${msg})`);
+      }
+    }
+  }
+  const [{ idDelFunnelDefault }, { casaReal }] = await Promise.all([import('@/lib/funnels'), import('@/lib/lead-funnel-reglas')]);
+  const [defaultId, contactados, escribieron, pausaron] = await Promise.all([
+    idDelFunnelDefault(),
+    leadsYaContactados(ids),
+    // `evento` y `otro` son reacciones y protocolo, no un mensaje del lead (lib/setter-conversacion.ts).
+    // `tipo` admite NULL: un `not in` pelado lo dejaría afuera (NULL no es «distinto de»).
+    idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(db.from('wa_mensajes').select('lead_id')
+      .in('lead_id', pend).eq('from_me', false).or('tipo.is.null,tipo.not.in.(evento,otro)'), 'wa_mensajes')),
+    idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(db.from('nutricion_inscripciones').select('lead_id')
+      .in('lead_id', pend).eq('estado', 'respondio'), 'nutricion_inscripciones')),
+  ]);
+  const ahoraMs = Date.now();
+  for (const f of filas) {
+    const etapaCasa = pipelineStageOf({
+      estado_lead: f.estado_lead, pipeline_stage: f.pipeline_stage, fecha_agenda: f.fecha_agenda,
+      fecha_junta_1: f.fecha_junta_1 ?? null, fecha_junta_2: f.fecha_junta_2 ?? null,
+      asistio_j1: f.asistio_j1, asistio_j2: f.asistio_j2, nutricion_realizada: f.nutricion_realizada ?? undefined,
+    });
+    const porProducto = new Map(productos.get(f.id) ?? []);
+    const casa = casaReal(f.funnel_id == null ? null : Number(f.funnel_id), defaultId);
+    if (casa != null) porProducto.set(casa, etapaCasa);
+    out.set(f.id, hechosDeLead(f, {
+      etiquetas: etiquetasQueCuentan(etiquetas.get(f.id) ?? [], archivadas),
+      etapaCasa,
+      etapasPorProducto: porProducto,
+      yaContactado: contactados.has(f.id),
+      respondio: escribieron.has(f.id) || pausaron.has(f.id),
+    }, ahoraMs));
+  }
+  return out;
+}
+
 export type ResultadoProceso = {
   saltado?: string;
   enviados: number;
@@ -1917,6 +2227,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       lead_id: insc.lead_id,
       secuencia_id: insc.secuencia_id,
       paso: insc.paso_actual + 1,
+      // El nodo que lo dejó (mig 0223): `paso` es una posición y con ramas no dice cuál.
+      nodo_id: idDe(paso, insc.paso_actual),
       canal: paso.canal,
       estado: 'omitido',
       destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
@@ -1924,6 +2236,42 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       error: motivo,
     });
     if (error) console.error(`[nutricion] rastro del cierre de la inscripción ${insc.id} (${motivo}): ${error.message}`);
+  };
+
+  /**
+   * LA POSICIÓN SE ESCRIBE CON COMPARE-AND-SET contra lo que se LEYÓ de la fila: sigue activa,
+   * en el mismo `paso_actual` y el mismo `nodo_actual`. El cron y la vía rápida de un evento
+   * corren el mismo motor; sin esto, los dos resolvían la misma condición y avanzaban dos
+   * veces. `true` = la movió esta corrida.
+   */
+  const moverConCas = async (
+    insc: { id: number; paso_actual: number; nodo_actual?: string | null },
+    campos: Record<string, unknown>,
+  ): Promise<boolean> => {
+    const q = supabase.from('nutricion_inscripciones')
+      .update({ ...campos, updated_at: ahoraISO() })
+      .eq('id', insc.id).eq('estado', 'activa').eq('paso_actual', insc.paso_actual);
+    const { data, error } = await (insc.nodo_actual == null ? q.is('nodo_actual', null) : q.eq('nodo_actual', insc.nodo_actual)).select('id');
+    if (error) throw new Error(`procesarEnvios (posición de la inscripción ${insc.id}): ${error.message}`);
+    return ((data ?? []) as unknown[]).length > 0;
+  };
+
+  /**
+   * A dónde pasa la inscripción después de un nodo que salió (o se omitió): su `siguiente` por
+   * el grafo, no el índice + 1. Devuelve los campos del avance y si lo que sigue YA toca, para
+   * mirarlo en esta misma corrida (`otraVuelta`), como hace la acción.
+   */
+  const avanceDesde = (sec: Secuencia, idx: number, lead: JuntasLead | null | undefined): { campos: Record<string, unknown>; yaToca: boolean } => {
+    const j = siguienteIndice(sec.pasos, idx);
+    if (j < 0) return { campos: { paso_actual: idx + 1, nodo_actual: null, proximo_envio_at: null, estado: 'completada' }, yaToca: false };
+    const proximo = proximoEnvioDePaso(sec.pasos[j], lead);
+    return {
+      campos: { paso_actual: j, nodo_actual: idDe(sec.pasos[j], j), proximo_envio_at: proximo, estado: 'activa' },
+      // Sólo lo que NO es un mensaje se mira en la misma corrida (una condición, una espera, una
+      // acción): un segundo mensaje pegado al primero sale en la corrida que viene, como siempre
+      // —el anti-ban de 20 h lo frenaría igual, y así no deja un «msg <20h» por cada envío—.
+      yaToca: claseDe(sec.pasos[j]) !== 'mensaje' && Date.parse(proximo) <= Date.now(),
+    };
   };
 
   // Cola PAGINADA: los 'omitido'/'saltado' no consumen cupo, así que una sola
@@ -1945,7 +2293,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     let otraVuelta = false;
     let q = supabase
       .from('nutricion_inscripciones')
-      .select('id, lead_id, secuencia_id, paso_actual')
+      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual')
       .eq('estado', 'activa')
       .lte('proximo_envio_at', ahoraISO());
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
@@ -1967,10 +2315,29 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       .order('id', { ascending: true })
       .limit(LOTE);
     if (error) throw new Error(`procesarEnvios: ${error.message}`);
-    const fetched = (dueRaw ?? []) as Array<{ id: number; lead_id: number; secuencia_id: number; paso_actual: number }>;
+    const fetched = (dueRaw ?? []) as Array<{ id: number; lead_id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null }>;
     const due = fetched.filter((d) => !vistos.has(d.id));
     if (due.length === 0) break;
     for (const d of due) vistos.add(d.id);
+
+    // LOS HECHOS DEL LEAD, sólo si alguien del lote está por pasar por una condición, y en UNA
+    // lectura para todos (`hechosDeLeads`). Se piden la primera vez que hacen falta. `null` = la
+    // lectura falló: esa inscripción se saltea sin decidir nada y queda vencida para la próxima.
+    const leadsQueDeciden = [...new Set(due.filter((d) => {
+      const s = porId.get(d.secuencia_id);
+      if (!s) return false;
+      const i = indiceActual(s.pasos, d);
+      return i >= 0 && necesitaHechos(s.pasos, i);
+    }).map((d) => d.lead_id))];
+    let hechosLeidos: Promise<Map<number, HechosLead> | null> | null = null;
+    const hechosDe = (leadId: number): Promise<HechosLead | null> => {
+      if (!leadsQueDeciden.length) return Promise.resolve(null);
+      hechosLeidos ??= hechosDeLeads(supabase, leadsQueDeciden).catch((e: unknown) => {
+        console.error('[nutricion] hechos del lead para las condiciones:', e instanceof Error ? e.message : String(e));
+        return null;
+      });
+      return hechosLeidos.then((m) => m?.get(leadId) ?? null);
+    };
 
     const leadIds = [...new Set(due.map((d) => d.lead_id))];
     const { data: leadsData } = await supabase
@@ -1997,19 +2364,123 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 
     for (const insc of due) {
       const sec = porId.get(insc.secuencia_id);
-      const paso = sec?.pasos[insc.paso_actual];
+      // EL NODO ACTUAL (diseño §2): por `nodo_actual`, y si no hay o ya no existe,
+      // `pasos[paso_actual]`. Una fila que nunca avanzó está en la ENTRADA de la salida.
+      const idxLeido = sec ? indiceActual(sec.pasos, insc) : -1;
+      const pasoLeido = sec && idxLeido >= 0 ? sec.pasos[idxLeido] : undefined;
       // Con el cupo de mensajes lleno, un MENSAJE queda para la corrida que viene, sin
       // tocarlo (era un `break`: lo mismo para los mensajes). Una ACCIÓN sigue: no gasta cupo.
-      if (cupoLleno() && !(paso && esPasoAccion(paso))) continue;
-      if (!sec || !paso) {
+      if (cupoLleno() && !(pasoLeido && esPasoAccion(pasoLeido))) continue;
+      if (!sec || !pasoLeido) {
+        // Una automatización SIN salida (sólo «Si responde») no tiene nada que mandar por su
+        // cuenta: la inscripción queda ACTIVA y sin próximo envío, esperando que el lead
+        // escriba (`pausarPorRespuesta` la toma de ahí). Cerrarla la dejaría sorda.
+        if (sec && raizSalida(sec.pasos) == null && raizRespuesta(sec.pasos) != null) {
+          await supabase.from('nutricion_inscripciones')
+            .update({ proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id).eq('estado', 'activa');
+          continue;
+        }
         await supabase
           .from('nutricion_inscripciones')
           .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() })
           .eq('id', insc.id);
+        // La tarjeta en la que estaba se BORRÓ: no se cae a `pasos[paso_actual]`, que con ramas
+        // puede ser otra rama (`indiceActual`, revisión del 08/10/2026). Se cierra y se dice.
+        if (sec && insc.nodo_actual != null) {
+          res.omitidos += 1;
+          // Sin la tarjeta no hay canal que decir: no se inventa uno.
+          res.detalle.push({ lead_id: insc.lead_id, canal: '—', estado: 'omitido', nota: `la tarjeta en la que estaba (${insc.nodo_actual}) ya no existe` });
+        }
         continue;
       }
 
       const lead = leadMap.get(insc.lead_id);
+
+      // ── LOS NODOS DE CONTROL, ANTES DE LAS GUARDAS (diseño §2) ─────────────────────
+      // Una condición, una espera o un «Ir a» no mandan nada: se RESUELVEN (`resolverControl`,
+      // lib/nutricion-grafo-motor.ts), el resultado se escribe con compare-and-set y se sigue.
+      // Las guardas de abajo (reunión, residuo, antigüedad, anti-ban…) son del mensaje o la
+      // acción a la que se llega, no de la tarjeta que decide por dónde ir.
+      if (esNodoDeControl(pasoLeido)) {
+        const hechos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
+        const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead) });
+        const canalCtl = pasoLeido.canal;
+        const cerrar = async (motivo: string, rastro: boolean): Promise<void> => {
+          if (!(await moverConCas(insc, { estado: 'completada', proximo_envio_at: null }))) {
+            res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+            return;
+          }
+          if (rastro) { res.omitidos += 1; await anotarCierreSinEnvio(insc, pasoLeido, lead, motivo); }
+          res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: rastro ? 'omitido' : 'completada', nota: motivo });
+        };
+        if (r.tipo === 'faltan_hechos') {
+          res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'no pude leer lo que la condición necesita' });
+          continue;
+        }
+        if (r.tipo === 'fin') {
+          // Una condición que cierra ANTES de que salga nada (la «Llegó hace menos de N h» del
+          // conversor) deja su rastro, como lo dejaba el tope de antigüedad de antes (#789).
+          const porCondicion = r.via.some((id) => claseDe(sec.pasos[indicePorId(sec.pasos, id)] ?? {}) === 'condicion');
+          await cerrar(porCondicion ? 'la condición cerró el flujo sin mandar nada' : r.motivo, porCondicion && esPrimerPaso(sec.pasos, idxLeido));
+          continue;
+        }
+        if (r.tipo === 'sin_reunion') { await cerrar('la reunión ya pasó', true); continue; }
+        if (r.tipo === 'tope_saltos') { await cerrar(`el flujo da más de ${TOPE_SALTOS} saltos sin esperar: se cortó`, true); continue; }
+        if (r.tipo === 'ir_a_secuencia') {
+          // A ESTA MISMA automatización: un bucle (la cierra, la reinicia y al terminar vuelve a
+          // saltar). `setSecuenciaPasos` ya no lo deja guardar; si llega igual, se corta acá.
+          if (r.secuenciaId === sec.id) { await cerrar('el «Ir a» apunta a esta misma automatización', true); continue; }
+          // Se cierra PRIMERO (el reclamo) y recién ahí se inscribe en la otra: al revés, dos
+          // corridas del mismo minuto inscribían dos veces. La otra respeta el UNIQUE y la
+          // familia (`inscribirEnSecuencia`): si ya estaba, no pasa nada y esta igual termina.
+          // `desdeFlujo`: lo terminado NO se reinicia (era reenviarle la secuencia entera).
+          if (!(await moverConCas(insc, { estado: 'completada', proximo_envio_at: null }))) continue;
+          const v = await inscribirEnSecuencia(insc.lead_id, r.secuenciaId, { sinEnvioInmediato: true, desdeFlujo: true })
+            .catch((e: unknown) => ({ inscribe: false as const, error: e instanceof Error ? e.message : String(e) }));
+          res.detalle.push({
+            lead_id: insc.lead_id, canal: canalCtl, estado: 'completada',
+            nota: v.inscribe ? `sigue en la automatización #${r.secuenciaId}` : `no entró a la automatización #${r.secuenciaId} (${'porque' in v ? v.porque : v.error})`,
+          });
+          continue;
+        }
+        if (r.tipo === 'esperar') {
+          const ok = await moverConCas(insc, {
+            paso_actual: r.idx, nodo_actual: idDe(sec.pasos[r.idx], r.idx), proximo_envio_at: new Date(r.proximoMs).toISOString(),
+          });
+          res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: ok ? 'espera' : 'otra corrida ya movió esta inscripción' });
+          continue;
+        }
+        // Llegó a un mensaje o una acción. Si ESE nodo tiene su propia espera de antes
+        // (`delay_horas`, `ancla`), se programa y se sigue en su hora.
+        const destino = sec.pasos[r.idx];
+        const suHora = proximoEnvioDePaso(destino, lead);
+        const enSuHora = Date.parse(suHora) <= Date.now() + 60_000;
+        const ok = await moverConCas(insc, {
+          paso_actual: r.idx, nodo_actual: idDe(destino, r.idx), ...(enSuHora ? {} : { proximo_envio_at: suHora }),
+        });
+        if (!ok) { res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' }); continue; }
+        insc.paso_actual = r.idx;
+        insc.nodo_actual = idDe(destino, r.idx);
+        if (!enSuHora) { res.detalle.push({ lead_id: insc.lead_id, canal: destino.canal, estado: 'saltado', nota: 'espera su hora' }); continue; }
+        if (cupoLleno() && !esPasoAccion(destino)) continue;
+      } else if (idxLeido !== insc.paso_actual || (insc.nodo_actual != null && insc.nodo_actual !== idDe(pasoLeido, idxLeido))) {
+        // La fila decía otra posición que la del nodo (una fila que nunca avanzó, con la entrada
+        // más abajo en el array; o un array reordenado): se alinea ANTES de seguir, porque todo
+        // lo de abajo —el reclamo de una acción, el avance— compara contra `paso_actual`.
+        if (!(await moverConCas(insc, { paso_actual: idxLeido, nodo_actual: idDe(pasoLeido, idxLeido) }))) {
+          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+          continue;
+        }
+        insc.paso_actual = idxLeido;
+        insc.nodo_actual = idDe(pasoLeido, idxLeido);
+      }
+      // El nodo que se manda o se corre: el que se leyó, o al que llegó la resolución de arriba
+      // (las dos ramas dejaron `paso_actual` en su índice).
+      const paso = sec.pasos[insc.paso_actual];
+      // Si el nodo cuelga de una espera «N antes de la reunión», es un recordatorio: se trata como
+      // el paso anclado de siempre (sin reunión por delante se cierra; si se movió, se re-ancla).
+      const minAntes = minutosAntesDeReunion(sec.pasos, insc.paso_actual);
+      const anclada = paso.ancla === 'reunion' || minAntes != null;
 
       // Pasos ANCLADOS a la reunión (#18): la agenda se re-valida AL MOMENTO de
       // enviar, no solo al programar. (1) Sin reunión futura → la inscripción se
@@ -2020,7 +2491,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // toda la post-agenda, cuyos pasos NO están anclados (salen 1 h y 24 h después de
       // agendarse). Ver `preparaUnaReunion`: con la línea caída, el reintento diario empujó a
       // dos leads reales de Mauricio hasta DESPUÉS de su reunión.
-      if (paso.ancla === 'reunion' || preparaUnaReunion(sec.trigger_tipo)) {
+      if (anclada || preparaUnaReunion(sec.trigger_tipo)) {
         if (reunionFuturaMs(lead) == null) {
           res.omitidos += 1;
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
@@ -2048,8 +2519,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           continue;
         }
       }
-      if (paso.ancla === 'reunion') {
-        const objetivo = proximoEnvioDePaso(paso, lead);
+      if (anclada) {
+        // El objetivo de un paso anclado sale de su `delay_horas`; el de uno que cuelga de una
+        // espera «N antes de la reunión», de esos N minutos.
+        const objetivo = paso.ancla === 'reunion'
+          ? proximoEnvioDePaso(paso, lead)
+          : new Date(Math.max((reunionFuturaMs(lead) ?? Date.now()) - (minAntes ?? 0) * 60_000, Date.now())).toISOString();
         if (Date.parse(objetivo) > Date.now() + 5 * 60 * 1000) {
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 're-anclado a la reunión' });
           await supabase.from('nutricion_inscripciones')
@@ -2064,13 +2539,16 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // mensaje: una bienvenida tardía es peor que ninguna, como el
       // recordatorio de una reunión que ya pasó. Solo el primer paso: los
       // seguimientos de quien ya recibió la bienvenida siguen su curso.
-      if (insc.paso_actual === 0 && sec.antiguedad_max_horas != null
-          && !dentroDeAntiguedad({ maxHoras: sec.antiguedad_max_horas, createdAt: lead?.created_at ?? null, ahoraMs: Date.now() })) {
+      // «El primer paso» es el primero del FLUJO (`esPrimerPaso`: nada que mande o haga algo
+      // cuelga antes), no el índice 0; y el tope es el de la secuencia o el de su primera tarjeta.
+      const topeAntig = topeAntiguedad(sec);
+      if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null
+          && !dentroDeAntiguedad({ maxHoras: topeAntig, createdAt: lead?.created_at ?? null, ahoraMs: Date.now() })) {
         res.omitidos += 1;
-        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: `llegó hace más de ${sec.antiguedad_max_horas} h` });
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: `llegó hace más de ${topeAntig} h` });
         await supabase.from('nutricion_inscripciones')
           .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
-        await anotarCierreSinEnvio(insc, paso, lead, `llegó hace más de ${sec.antiguedad_max_horas} h`);
+        await anotarCierreSinEnvio(insc, paso, lead, `llegó hace más de ${topeAntig} h`);
         continue;
       }
 
@@ -2084,12 +2562,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const yaLeHablamos = yaContactados.has(insc.lead_id);
         const corresponde = paso.requiere === 'ya_contactado' ? yaLeHablamos : !yaLeHablamos;
         if (!corresponde) {
-          const siguiente = insc.paso_actual + 1;
-          await supabase.from('nutricion_inscripciones').update(
-            siguiente < sec.pasos.length
-              ? { paso_actual: siguiente, proximo_envio_at: proximoEnvioDePaso(sec.pasos[siguiente], lead), updated_at: ahoraISO() }
-              : { estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() },
-          ).eq('id', insc.id);
+          // Lo que sigue, por el grafo (`siguiente`), no el índice + 1.
+          const { campos, yaToca } = avanceDesde(sec, insc.paso_actual, lead);
+          const ok = await moverConCas(insc, campos);
+          if (ok && yaToca) { vistos.delete(insc.id); otraVuelta = true; }
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: paso.requiere === 'ya_contactado' ? 'es primer contacto' : 'ya le habíamos escrito' });
           continue;
         }
@@ -2099,12 +2575,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // saltea (la inscripción sigue activa; si el lead contesta, el destrabe de
       // pausarPorRespuesta lo trae de vuelta).
       if (paso.requiere === 'respondio') {
-        const siguienteLibre = sec.pasos.findIndex((p, i) => i > insc.paso_actual && p.requiere !== 'respondio');
-        await supabase.from('nutricion_inscripciones').update(
-          siguienteLibre >= 0
-            ? { paso_actual: siguienteLibre, proximo_envio_at: proximoEnvioDePaso(sec.pasos[siguienteLibre], lead), updated_at: ahoraISO() }
-            : { estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() },
-        ).eq('id', insc.id);
+        // El primero que NO espera respuesta, siguiendo la cadena del grafo desde el que sigue.
+        const siguienteLibre = siguienteSin(sec.pasos, siguienteIndice(sec.pasos, insc.paso_actual), 'respondio');
+        await moverConCas(insc, siguienteLibre >= 0
+          ? { paso_actual: siguienteLibre, nodo_actual: idDe(sec.pasos[siguienteLibre], siguienteLibre), proximo_envio_at: proximoEnvioDePaso(sec.pasos[siguienteLibre], lead) }
+          : { estado: 'completada', proximo_envio_at: null });
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'espera que el lead responda' });
         continue;
       }
@@ -2139,14 +2614,19 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // esperaría el mensaje siguiente (ver «borrador pendiente» más abajo). Sin esto, en el
         // modo por defecto «le escribe y lo mueve a Contactado» lo movía sin que nadie le hubiera
         // escrito; y si el setter descartaba el borrador, la acción ya estaba hecha.
-        if (lead && !sec.envio_automatico && await tieneBorradorNutriPendiente(lead.id) && !(await esLeadCliente(lead.id))) {
+        // ⚠️ SIN MIRAR `envio_automatico`: con «Sale sola» por MENSAJE (`revisar`), el anterior
+        // puede haber quedado como borrador aunque la secuencia diga que sale sola.
+        if (lead && await tieneBorradorNutriPendiente(lead.id) && !(await esLeadCliente(lead.id))) {
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
           await supabase.from('nutricion_inscripciones')
             .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
           continue;
         }
+        // `n` es el número de ESTE paso (contado desde 1, el de `nutricion_envios.paso` y el del
+        // origen); lo que sigue sale del grafo, no del índice + 1.
         const n = insc.paso_actual + 1;
-        const siguientePaso = sec.pasos[n];
+        const sigIdx = siguienteIndice(sec.pasos, insc.paso_actual);
+        const siguientePaso = sigIdx >= 0 ? sec.pasos[sigIdx] : undefined;
         const proximo = siguientePaso ? proximoEnvioDePaso(siguientePaso, lead) : null;
         const r = await correrPasoAccion(
           {
@@ -2155,16 +2635,17 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           },
           {
             reclamar: async () => {
-              const { data, error } = await supabase.from('nutricion_inscripciones')
+              const q = supabase.from('nutricion_inscripciones')
                 .update({
-                  paso_actual: n,
+                  paso_actual: siguientePaso ? sigIdx : n,
+                  nodo_actual: siguientePaso ? idDe(siguientePaso, sigIdx) : null,
                   proximo_envio_at: proximo,
                   estado: siguientePaso ? 'activa' : 'completada',
                   // Sin `ultimo_paso_at`: es «el último MENSAJE», y una acción no le habló a nadie.
                   updated_at: ahoraISO(),
                 })
-                .eq('id', insc.id).eq('estado', 'activa').eq('paso_actual', insc.paso_actual)
-                .select('id');
+                .eq('id', insc.id).eq('estado', 'activa').eq('paso_actual', insc.paso_actual);
+              const { data, error } = await (insc.nodo_actual == null ? q.is('nodo_actual', null) : q.eq('nodo_actual', insc.nodo_actual)).select('id');
               if (error) throw new Error(error.message);
               return ((data ?? []) as unknown[]).length > 0;
             },
@@ -2178,6 +2659,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             registrar: async (x) => {
               const { error } = await supabase.from('nutricion_envios').insert({
                 inscripcion_id: insc.id, lead_id: insc.lead_id, secuencia_id: insc.secuencia_id, paso: n,
+                nodo_id: idDe(paso, insc.paso_actual),
                 canal: paso.canal, estado: x.estado, destino: null, asunto: x.operacion,
                 error: x.estado === 'fallo' ? x.resumen : null,
               });
@@ -2218,10 +2700,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // después retoma desde acá, sin quemar la cadencia (tarea #5).
       // Un paso de ACCIÓN no cuenta como «enviable por un canal prendido»: no es un mensaje,
       // y contarlo haría que un WhatsApp con el canal apagado se omita (en vez de esperar)
-      // sólo porque más adelante hay una acción.
-      const canalOn = (p: PasoSecuencia) => !esPasoAccion(p) && (p.canal === 'whatsapp' ? waOn : emailOn);
+      // sólo porque más adelante hay una acción. Ni un nodo de control, que tampoco manda nada.
+      // ⚠️ «MÁS ADELANTE» ES LO ALCANZABLE POR EL GRAFO (`alcanzablesDesde`), no el resto del
+      // array: con ramas, lo que está más abajo puede ser otra rama que este lead no recorre.
+      const canalOn = (p: PasoSecuencia) => !esPasoAccion(p) && !esNodoDeControl(p) && (p.canal === 'whatsapp' ? waOn : emailOn);
       const canalApagado = !opts?.simularApagados && !canalOn(paso);
-      if (canalApagado && !sec.pasos.slice(insc.paso_actual + 1).some(canalOn)) {
+      if (canalApagado && !alcanzablesDesde(sec.pasos, insc.paso_actual).some((j) => canalOn(sec.pasos[j]))) {
         res.esperando += 1;
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: `canal ${paso.canal} apagado` });
         await supabase.from('nutricion_inscripciones')
@@ -2301,6 +2785,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // a texto en silencio (mandaría un mensaje que nadie escribió): falla y
         // se reintenta al día siguiente.
         const esAudio = paso.tipo === 'audio' && Number(paso.audio_id) > 0;
+        // Paso de ARCHIVO (08/10/2026): la foto, el video o el documento de la biblioteca, con el
+        // cuerpo como pie. Mismo criterio que el audio: si el archivo no está, falla y se
+        // reintenta en 24 h, nunca sale el pie solo como si fuera el mensaje.
+        const esMedia = paso.tipo === 'media' && Number(paso.media_id) > 0;
+        // «Sale sola» POR MENSAJE (`revisar`); sin el campo, lo de la secuencia, como siempre.
+        const saleSoloEste = saleSolo(paso, sec.envio_automatico);
         // La línea de ESTA secuencia (`null` = la de por default) y si puede mandar ahora.
         const lineaSec = sec.instance_name;
         const canalEvo = await canalDeLinea(lineaSec);
@@ -2318,7 +2808,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             estado = 'fallo';
             nota = audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe';
             backoffHoras = 24;
-          } else if (sec.envio_automatico || await esLeadCliente(lead.id)) {
+          } else if (saleSoloEste || await esLeadCliente(lead.id)) {
             // ⚠️ SIN `envio_automatico` A UN LEAD QUE NO PAGÓ NO LE SALÍA NADA SOLO:
             // la rama de abajo le deja un borrador. La post-agenda de ws1 se prendió
             // el 8/09 y, con la línea conectada, habría dejado borradores que nadie
@@ -2342,17 +2832,49 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
             continue;
           } else {
-            // Lead caliente → el audio también pasa por el setter: queda como
-            // borrador con la transcripción para que sepa qué se manda.
+            // Lead caliente → el audio también pasa por el setter: queda como borrador.
+            // ⚠️ EL BORRADOR LLEVA EL AUDIO (`audioId`, mig 0223) Y EL TEXTO ES EL PIE. Guardaba
+            // el texto «🎙 Nota de voz: …» y nada más, así que al aprobarlo al lead le llegaba ESE
+            // texto en vez del audio. `enviarBorrador` manda el audio y después el pie.
             await crearBorrador({
               leadId: lead.id, telefono: lead.telefono,
-              texto: `🎙 Nota de voz: «${audio.titulo}»${audio.transcript ? `\n\n${audio.transcript}` : ''}`,
+              texto: cuerpoNO, audioId: audio.id,
               origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
               linea: lineaSec,
             });
             estado = 'borrador';
           }
-        } else if (sec.envio_automatico || await esLeadCliente(lead.id)) {
+        } else if (esMedia) {
+          const adj = await getAdjunto(Number(paso.media_id));
+          const b64 = adj ? await adjuntoBase64(adj) : null;
+          if (!adj || !b64) {
+            estado = 'fallo';
+            nota = adj ? 'no pude bajar el archivo del paso' : 'el archivo del paso ya no existe';
+            backoffHoras = 24;
+          } else if (saleSoloEste || await esLeadCliente(lead.id)) {
+            textoEnviado = cuerpoNO.trim() ? cuerpoNO : null; textoAutor = cuerpoNO.trim() ? 'fijo' : null;
+            const r = await enviarMediaYEspejar({
+              telefono: lead.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 },
+              caption: cuerpoNO.trim() || undefined, leadId: lead.id, linea: lineaSec,
+            });
+            estado = r.ok ? 'enviado' : 'fallo';
+            if (!r.ok) { nota = r.error; backoffHoras = 24; }
+          } else if (await tieneBorradorNutriPendiente(lead.id)) {
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
+            await supabase.from('nutricion_inscripciones')
+              .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
+            continue;
+          } else {
+            // El borrador lleva el ARCHIVO por referencia y el pie como texto, como el audio.
+            await crearBorrador({
+              leadId: lead.id, telefono: lead.telefono,
+              texto: cuerpoNO, adjuntoId: adj.id,
+              origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
+              linea: lineaSec,
+            });
+            estado = 'borrador';
+          }
+        } else if (saleSoloEste || await esLeadCliente(lead.id)) {
           // Misma excepción que la rama del audio, de arriba.
           const t = await escribirTexto();
           textoEnviado = t.texto; textoAutor = t.autor;
@@ -2474,6 +2996,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         lead_id: insc.lead_id,
         secuencia_id: insc.secuencia_id,
         paso: insc.paso_actual + 1,
+        // El nodo que salió (mig 0223): con ramas, `paso` es una posición del array y no dice cuál.
+        nodo_id: idDe(paso, insc.paso_actual),
         canal: paso.canal,
         estado,
         destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
@@ -2516,13 +3040,13 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         continue;
       }
 
-      const siguiente = sec.pasos[insc.paso_actual + 1];
+      // Lo que sigue, POR EL GRAFO (`siguiente`), y no el índice + 1: con ramas, el elemento de
+      // abajo del array puede ser otra rama.
+      const { campos: avance, yaToca } = avanceDesde(sec, insc.paso_actual, lead);
       await supabase
         .from('nutricion_inscripciones')
         .update({
-          paso_actual: insc.paso_actual + 1,
-          proximo_envio_at: siguiente ? proximoEnvioDePaso(siguiente, lead) : null,
-          estado: siguiente ? 'activa' : 'completada',
+          ...avance,
           // El reloj del fallo por silencio se cuenta desde el ÚLTIMO mensaje,
           // no desde que el lead se inscribió: una secuencia con pasos a los 30
           // días se daría por fallida antes de terminar de mandarlos.
@@ -2532,6 +3056,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         .eq('id', insc.id);
       // La reunión que preparó este paso, en un update APARTE del avance (ver la función).
       await anotarReunionDelPaso(insc.id, sec, lead);
+      // ⚠️ SI LO QUE SIGUE YA TOCA, SE MIRA EN ESTA MISMA CORRIDA, como después de una acción:
+      // una condición, una espera o una acción detrás de un mensaje se resuelven ya, no a la hora
+      // siguiente. Otro mensaje, no (`avanceDesde`).
+      if (yaToca) { vistos.delete(insc.id); otraVuelta = true; }
 
       if (estado === 'enviado') res.enviados += 1;
       else if (estado === 'omitido') res.omitidos += 1;
@@ -2561,6 +3089,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // segundo aviso sería ruido; por el no oficial, ése es el único aviso que hay.
 export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' }): Promise<number> {
   const supabase = (await getTenantDb());
+  // ⚠️ LAS SECUENCIAS SE LEEN ANTES DE MARCAR 'respondio' (revisión del 08/10/2026). Con el deploy
+  // adelantado a una migración que agrega una columna que esta lectura pide (la 0223,
+  // `etiqueta_id`), PostgREST rechaza la consulta ENTERA. Leyéndolas después, la inscripción ya
+  // quedaba 'respondio', el catch de abajo se tragaba el error y la respuesta del lead se perdía
+  // sin borrador, sin hand-off y sin aviso — y aplicar la migración no la recuperaba. Así, falta
+  // una columna → no se toca nada y tira (los dos webhooks lo atrapan): el cron también falla
+  // cerrado, así que la secuencia no avanza sobre alguien que contestó. Cualquier OTRO error de
+  // lectura se pausa como siempre: no avanzarle la secuencia a quien contestó es lo crítico.
+  let secsActivas: Secuencia[] | null = null;
+  try {
+    secsActivas = await getSecuenciasActivas();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (esColumnaInexistente({ message: msg })) throw new Error(`pausarPorRespuesta: no toqué al lead ${leadId}, falta una migración (${msg})`);
+    console.error(`[nutricion] leer las secuencias antes de pausar al lead ${leadId}: ${msg}`);
+  }
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
     .update({ estado: 'respondio', proximo_envio_at: null, updated_at: ahoraISO() })
@@ -2609,19 +3153,23 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
   // siempre. Los demás pasos condicionales se saltean al llegar el turno.
   if (pausadas.length) {
     try {
-      const secs = await getSecuenciasActivas();
+      const secs = secsActivas ?? await getSecuenciasActivas();
       const { data: detalle } = await supabase
         .from('nutricion_inscripciones')
-        .select('id, secuencia_id, paso_actual')
+        .select('id, secuencia_id, paso_actual, nodo_actual')
         .in('id', pausadas.map((p) => p.id));
-      for (const insc of (detalle ?? []) as Array<{ id: number; secuencia_id: number; paso_actual: number }>) {
+      for (const insc of (detalle ?? []) as Array<{ id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null }>) {
         const sec = secs.find((s) => s.id === insc.secuencia_id);
         if (!sec) continue;
-        const idx = sec.pasos.findIndex((p, i) => i >= insc.paso_actual && p.requiere === 'respondio');
+        // El paso que espera la respuesta, siguiendo la cadena del GRAFO desde donde está (con
+        // ramas, «más abajo en el array» puede ser otra rama).
+        const desde = indiceActual(sec.pasos, insc);
+        const idx = desde >= 0 ? siguienteCon(sec.pasos, desde, 'respondio') : -1;
         if (idx < 0) continue;
         await supabase.from('nutricion_inscripciones').update({
           estado: 'activa',
           paso_actual: idx,
+          nodo_actual: idDe(sec.pasos[idx], idx),
           proximo_envio_at: proximoEnvioDePaso(sec.pasos[idx], null),
           updated_at: ahoraISO(),
         }).eq('id', insc.id);
@@ -2659,12 +3207,15 @@ async function charlaDelLead(leadId: number): Promise<{ inscs: InscCharla[]; nom
   const supabase = await getTenantDb();
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
-    .select('id, secuencia_id, estado, desenlace, updated_at, conversacion_ultima_at, conversacion_cerrada_at')
+    // `conversacion_cierre`: con la fecha puesta y sin motivo, la cerró el hand-off
+    // (`cerradaPorUnaPersona`, lib/setter-conversacion.ts).
+    .select('id, secuencia_id, estado, desenlace, updated_at, conversacion_ultima_at, conversacion_cerrada_at, conversacion_cierre')
     .eq('lead_id', leadId);
   if (error) throw new Error(`charlaDelLead: ${error.message}`);
   const filas = (data ?? []) as Array<{
     id: number; secuencia_id: number; estado: string; desenlace: string | null;
     updated_at: string | null; conversacion_ultima_at: string | null; conversacion_cerrada_at: string | null;
+    conversacion_cierre: string | null;
   }>;
   if (!filas.length) return { inscs: [], nombre: null };
 
@@ -2686,7 +3237,9 @@ async function charlaDelLead(leadId: number): Promise<{ inscs: InscCharla[]; nom
         ...f,
         tieneEnviado: salio.has(f.id),
         // Una archivada no está en `secs`: no es asistida de nadie.
-        asistida: !!sec && parse(sec.estrategia)?.modo === 'asistido',
+        // CONTESTA cuando el lead escribe: en modo asistido (lo de antes) o porque tiene la
+        // tarjeta «Si responde» (el flujo con ramas). Una con 'automatico' y sin la tarjeta sólo pausa.
+        asistida: !!sec && (parse(sec.estrategia)?.modo === 'asistido' || raizRespuesta(sec.pasos) != null),
         pausada: !sec || !sec.activa,
         reunionFutura: sec && preparaUnaReunion(sec.trigger_tipo) ? hayReunion : null,
       };
@@ -2729,20 +3282,29 @@ async function seguirCharla(
 }
 
 /**
- * Modo asistido: avisa al dueño que el lead respondió y le deja el borrador de
- * respuesta que redactó MaKo con la secuencia de mensajes (mismo cerebro del simulador).
- * Devuelve false (sin hacer nada) si ninguna de las secuencias es 'asistido'.
+ * Lo que comparten las dos formas de contestar (el modo asistido de antes y «Si responde» del
+ * flujo con ramas): el lead, la línea por la que se le contesta, la charla real y cuándo entró el
+ * mensaje que se contesta. Se lee UNA vez por respuesta.
  */
-async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null): Promise<boolean> {
-  const { parseEstrategia } = await import('@/lib/setting-estrategia');
-  const secs = await getSecuenciasConStats();
-  // La secuencia de mensajes asistida más específica que venía corriendo para este lead.
-  const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && parseEstrategia(s.estrategia)?.modo === 'asistido');
-  if (!secuencia) return false;
+type CtxRespuesta = {
+  leadId: number;
+  secuencia: SecuenciaConStats;
+  texto: string | undefined;
+  lineaEntrante: string | null;
+  supabase: Awaited<ReturnType<typeof getTenantDb>>;
+  lead: { id: number; nombre: string | null; telefono: string | null; calificado: boolean | null; empresa?: string | null } | null;
+  /** La línea a la que escribió el lead; si no se sabe (vino por el oficial), la de la secuencia. */
+  linea: string | null;
+  descartarViejo: () => Promise<number>;
+  historial: TurnoSim[];
+  /** Cuándo entró el mensaje que se contesta (ms). Si antes de guardar entró otro, éste ya no es lo último. */
+  respondeA: number | null;
+};
 
+async function contextoDeRespuesta(leadId: number, secuencia: SecuenciaConStats, texto: string | undefined, lineaEntrante: string | null): Promise<CtxRespuesta> {
   const supabase = await getTenantDb();
-  const { data: leadRow } = await supabase.from('leads').select('id, nombre, telefono, calificado').eq('id', leadId).maybeSingle();
-  const lead = leadRow as { id: number; nombre: string | null; telefono: string | null; calificado: boolean | null } | null;
+  const { data: leadRow } = await supabase.from('leads').select('id, nombre, telefono, calificado, empresa').eq('id', leadId).maybeSingle();
+  const lead = leadRow as CtxRespuesta['lead'];
   const linea = lineaEntrante ?? secuencia.instance_name;
   const { descartarBorradorSetter } = await import('@/lib/evolution-envio');
   const descartarViejo = () => descartarBorradorSetter(leadId).catch((e) => { console.error(`[nutricion] descartar el borrador del lead ${leadId}:`, e); return 0; });
@@ -2756,8 +3318,37 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
   const filas = await mensajesRecientesDelLead(leadId, { limite: TURNOS_DE_CONTEXTO + 5, linea: lineaEntrante });
   const historial = conTurnoActual(historialDeMensajes(filas ?? []), texto);
   // Cuándo entró el mensaje que se está contestando: si antes de guardar el borrador entró
-  // otro más nuevo, esta redacción ya no contesta lo último (ver abajo, paso 2).
+  // otro más nuevo, esta redacción ya no contesta lo último (ver `redactarRespuesta`, paso 2).
   const respondeA = ultimoEntranteMs(filas);
+  return { leadId, secuencia, texto, lineaEntrante, supabase, lead, linea, descartarViejo, historial, respondeA };
+}
+
+/** ¿Entró un mensaje del lead MÁS NUEVO que el que se está contestando? Lo atiende su propia corrida. */
+async function hayMensajeMasNuevo(c: CtxRespuesta): Promise<boolean> {
+  if (c.respondeA == null) return false;
+  const [{ mensajesRecientesDelLead }, { ultimoEntranteMs }] = await Promise.all([import('@/lib/wa-historial'), import('@/lib/setter-conversacion')]);
+  const masNuevo = ultimoEntranteMs(await mensajesRecientesDelLead(c.leadId, { limite: 3, linea: c.lineaEntrante }));
+  return masNuevo != null && masNuevo > c.respondeA;
+}
+
+/**
+ * El lead contestó: MaKo le prepara (o le manda) la respuesta y le avisa al dueño.
+ *
+ * Dos formas, y la secuencia dice cuál:
+ *   · con la tarjeta «Si responde» (el flujo con ramas, 08/10/2026) → `responderConGrafo`;
+ *   · en modo 'asistido' sin la tarjeta (lo de antes) → el clasificador contra
+ *     `estrategia.escenarios`, el hand-off si no encaja, y `redactarRespuesta` si encaja.
+ * Devuelve false (sin hacer nada) si ninguna de las secuencias contesta.
+ */
+async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null): Promise<boolean> {
+  const { parseEstrategia } = await import('@/lib/setting-estrategia');
+  const secs = await getSecuenciasConStats();
+  // La secuencia que contesta: la que tiene «Si responde» o, si no, la asistida de antes.
+  const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && (raizRespuesta(s.pasos) != null || parseEstrategia(s.estrategia)?.modo === 'asistido'));
+  if (!secuencia) return false;
+  const c = await contextoDeRespuesta(leadId, secuencia, texto, lineaEntrante);
+  if (raizRespuesta(secuencia.pasos) != null) return responderConGrafo(c);
+  const { supabase, lead, descartarViejo } = c;
 
   // 0) HAND-OFF, y va PRIMERO: antes de redactar nada hay que saber si esto es
   //    un caso que la secuencia sabe manejar. Si el lead planteó algo que no
@@ -2784,6 +3375,19 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
     });
     return true;
   }
+  return redactarRespuesta(c, clas);
+}
+
+/**
+ * MaKo REDACTA la respuesta al lead con un caso (el que encajó, o la guía de una tarjeta «MaKo
+ * contesta») y hace todo lo que viene con eso: el borrador (uno por lead), el cierre de la charla,
+ * la calificación, si sale solo (`puedeContestarSolo`) y el aviso al dueño.
+ *
+ * La comparten el modo asistido de antes y «Si responde» del flujo con ramas: el MISMO redactor
+ * (`responderSimulador`) y las MISMAS puertas, no una copia que se queda vieja.
+ */
+async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSecuencia }): Promise<boolean> {
+  const { leadId, secuencia, texto, supabase, lead, linea, descartarViejo, historial } = c;
 
   // El intercambio cuenta para la ventana de la charla (#788): siete días desde ACÁ.
   await supabase.from('nutricion_inscripciones')
@@ -2815,11 +3419,7 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
   // dos redacciones en paralelo, y la del primero podía guardar su borrador DESPUÉS de la del
   // segundo: quedaba la respuesta al mensaje viejo. Se relee antes de guardar, y si hay algo
   // más nuevo se sale sin tocar nada — la redacción de ese mensaje se encarga, y avisa ella.
-  if (sugerida && respondeA != null) {
-    const ahora = await mensajesRecientesDelLead(leadId, { limite: 3, linea: lineaEntrante });
-    const masNuevo = ultimoEntranteMs(ahora);
-    if (masNuevo != null && masNuevo > respondeA) return true;
-  }
+  if (sugerida && await hayMensajeMasNuevo(c)) return true;
 
   // 2) UN borrador por lead para aprobar con un clic (misma bandeja que el resto): si ya
   //    había uno pendiente, se reemplaza (#788).
@@ -2928,4 +3528,298 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
     texto: `💬 *${quien} respondió* a la secuencia de mensajes «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${alertaDescalifica}\n\n— MaKo`,
   });
   return true;
+}
+
+/**
+ * «SI RESPONDE»: el lead contestó una secuencia que tiene la tarjeta (el flujo con ramas, diseño
+ * §2). La salida ya quedó PAUSADA (`pausarPorRespuesta`, como siempre); esto decide qué rama
+ * corre y la recorre.
+ *
+ *   · El caso lo elige el MISMO clasificador de siempre (`clasificarEscenario`) con los casos de
+ *     la tarjeta (`escenariosDeRespuesta`). Si no encaja en ninguno, «Otra cosa» (`si_no`).
+ *   · «MaKo contesta» (`tipo: 'ia'`) redacta con el MISMO redactor y las MISMAS puertas
+ *     (`redactarRespuesta`): su `cuerpo` es la guía y `revisar === false` es «sale solo».
+ *   · Un texto, un audio o un archivo salen SIN el anti-ban de 20 h: son una respuesta, no una
+ *     prospección. «Sale sola» por mensaje, como en la salida.
+ *   · Una acción corre UNA vez por respuesta (`correrAccionDeRespuesta`, con su reclamo).
+ *   · Una condición se evalúa con los hechos del lead; «Ir a» una tarjeta RETOMA la salida ahí, y
+ *     a otra automatización lo inscribe en ésa.
+ *
+ * ⚠️ NO CONGELA LA INSCRIPCIÓN EN 'handoff'. El hand-off de antes («MaKo se calla y te avisa»)
+ * es ahora la rama «Otra cosa» con la acción `avisar_al_equipo`: una tarjeta más, no un estado
+ * del que sólo sacaba un formulario. Lo que sí hace, como antes, es CALLARSE: si la rama no
+ * produjo una respuesta de MaKo, cierra la CHARLA (`charlaPasaAUnaPersona`, revisión del
+ * 08/10/2026) y los mensajes siguientes los contesta una persona.
+ */
+async function responderConGrafo(c: CtxRespuesta): Promise<boolean> {
+  const { leadId, secuencia, texto, supabase, lead } = c;
+  const pasos = secuencia.pasos;
+  const escenarios = escenariosDeRespuesta(pasos);
+  const lista: EscenarioSecuencia[] = escenarios.map((e) => ({
+    titulo: e.titulo, cuando: e.cuando, comoResponder: e.comoResponder, ...(e.contestaSolo ? { contestaSolo: true } : {}),
+  }));
+  const { clasificarEscenario } = await import('@/lib/chat-agent-handoff');
+  const clas = await clasificarEscenario(texto ?? '', lista);
+  const k = clas.encaja ? lista.indexOf(clas.escenario) : -1;
+  const caso = k >= 0 ? escenarios[k] : null;
+  const desde = caso ? caso.siguiente : (nodoPorId(pasos, raizRespuesta(pasos))?.si_no ?? null);
+
+  // Si mientras se clasificaba entró otro mensaje, ése tiene su propia corrida: ésta no hace nada.
+  if (await hayMensajeMasNuevo(c)) return true;
+  // Sin caso, el borrador que había quedado de un mensaje anterior ya no contesta lo último (#788).
+  if (!caso) await c.descartarViejo();
+  // El intercambio cuenta para la ventana de la charla (#788), haga lo que haga la rama.
+  await supabase.from('nutricion_inscripciones')
+    .update({ conversacion_ultima_at: ahoraISO() })
+    .eq('lead_id', leadId).eq('secuencia_id', secuencia.id);
+  const { data: inscRow } = await supabase.from('nutricion_inscripciones').select('id')
+    .eq('lead_id', leadId).eq('secuencia_id', secuencia.id).maybeSingle();
+  const inscId = (inscRow as { id: number } | null)?.id ?? null;
+
+  const hecho: string[] = [];
+  let redacto = false;
+  // Sólo cuenta el aviso que SALIÓ (ni falló ni quedó deduplicado: `avisoSalio`). Se marcaba antes
+  // de correr la acción: con el «no confirmó» de las 12 h anteriores, el aviso de «Otra cosa» se
+  // deduplicaba, el de respaldo no salía y nadie se enteraba de lo que escribió el lead.
+  let avisoDelFlujo = false;
+  // Lo que decide si la charla PASA A UNA PERSONA (`charlaPasaAUnaPersona`).
+  let contesto = false;
+  let siguio = false;
+  let noPudoDecidir = false;
+  let hechos: HechosLead | null | undefined;
+  let id: string | null = desde;
+  for (let vuelta = 0; id && vuelta < TOPE_NODOS; vuelta++) {
+    const i = indicePorId(pasos, id);
+    if (i < 0) break;
+    const p = pasos[i];
+    const clase = claseDe(p);
+    if (clase === 'condicion') {
+      if (hechos === undefined) {
+        hechos = (await hechosDeLeads(supabase, [leadId]).catch((e: unknown) => {
+          console.error(`[nutricion] «Si responde», hechos del lead ${leadId}:`, e instanceof Error ? e.message : String(e));
+          return null;
+        }))?.get(leadId) ?? null;
+      }
+      if (!hechos) { hecho.push('No pude leer lo que la condición necesita: me detuve ahí.'); noPudoDecidir = true; break; }
+      id = elegirSalida(p, hechos).destino;
+      continue;
+    }
+    if (clase === 'ir_a') {
+      const d = p.destino;
+      if (d && 'nodo' in d) {
+        // RETOMA LA SALIDA en esa tarjeta: activa y para ya; la próxima vuelta del motor sigue.
+        const j = indicePorId(pasos, d.nodo);
+        if (j >= 0) {
+          const { error } = await supabase.from('nutricion_inscripciones')
+            .update({ estado: 'activa', paso_actual: j, nodo_actual: d.nodo, proximo_envio_at: ahoraISO(), updated_at: ahoraISO() })
+            .eq('lead_id', leadId).eq('secuencia_id', secuencia.id).in('estado', ['respondio', 'completada', 'activa']);
+          hecho.push(error ? `No pude retomar la secuencia (${error.message.slice(0, 120)}).` : 'Retomé la secuencia.');
+          if (!error) siguio = true;
+        }
+      } else if (d && 'secuencia_id' in d) {
+        if (Number(d.secuencia_id) === secuencia.id) {
+          // A ESTA MISMA: la previa está en 'respondio' y no entraría, pero no se intenta.
+          hecho.push('El «Ir a» apunta a esta misma automatización: no lo seguí.');
+        } else {
+          // `desdeFlujo`: lo terminado no se reinicia (le reenviaba la otra secuencia entera).
+          const v = await inscribirEnSecuencia(leadId, Number(d.secuencia_id), { sinEnvioInmediato: true, desdeFlujo: true })
+            .catch((e: unknown) => ({ inscribe: false as const, error: e instanceof Error ? e.message : String(e) }));
+          hecho.push(v.inscribe ? `Lo pasé a «${v.secuencia.nombre}».` : `No lo pude pasar a la automatización #${d.secuencia_id}.`);
+          if (v.inscribe) siguio = true;
+        }
+      }
+      break;
+    }
+    // `validarGrafo` no deja esperas en «Si responde» (se contesta en el momento): si llega una
+    // escrita por otro lado, se corta ahí.
+    if (clase === 'esperar' || clase === 'respuesta') break;
+    if (clase === 'accion') {
+      const r = await correrAccionDeRespuesta(c, p, i, inscId);
+      if (r.resumen) hecho.push(r.resumen);
+      if (r.avisoSalio) avisoDelFlujo = true;
+      id = siguienteDe(pasos, i);
+      continue;
+    }
+    if (p.tipo === 'ia') {
+      redacto = true;
+      contesto = true;
+      await redactarRespuesta(c, {
+        escenario: {
+          titulo: caso?.titulo ?? 'Otra cosa', cuando: caso?.cuando ?? 'no encajó en ningún caso',
+          comoResponder: p.cuerpo, ...(p.revisar === false ? { contestaSolo: true } : {}),
+        },
+      });
+    } else {
+      const m = await mandarMensajeDeRespuesta(c, p, i, inscId);
+      hecho.push(m.texto);
+      if (m.contesto) contesto = true;
+    }
+    id = siguienteDe(pasos, i);
+  }
+
+  // «OTRA COSA» ES EL HAND-OFF (decisión del 08/10/2026). Si la rama no produjo una respuesta de
+  // MaKo, la charla pasa a una persona: se CIERRA (fecha sin motivo: `cerradaPorUnaPersona`) y
+  // MaKo no contesta los mensajes que vengan —`conversacionAbierta` dice «la sigue una persona»—,
+  // como hacía la inscripción en 'handoff'. Sin esto la charla seguía abierta y el próximo
+  // mensaje que encajara en un caso «sale solo» lo contestaba MaKo encima de la persona.
+  // No toca el estado: congelarla en 'handoff' la dejaba sin salida (no hay pantalla que la
+  // resuelva) y fuera del reuso cuando el lead reagenda.
+  if (charlaPasaAUnaPersona({ contesto, siguio, noPudoDecidir })) {
+    const { error: eCierre } = await supabase.from('nutricion_inscripciones')
+      .update({ conversacion_cerrada_at: ahoraISO(), conversacion_cierre: null })
+      .eq('lead_id', leadId).eq('secuencia_id', secuencia.id);
+    if (eCierre) console.error(`[nutricion] hand-off del lead ${leadId}: ${eCierre.message}`);
+    // El borrador de un mensaje anterior ya no contesta lo último: ahora contesta una persona.
+    if (caso) await c.descartarViejo();
+    try {
+      const { logLeadEvent } = await import('@/lib/leads');
+      await logLeadEvent(leadId, 'Setting', `La charla pasó a una persona: MaKo no le contesta («${secuencia.nombre}»)`, 'MaKo');
+    } catch { /* el historial es un extra: el cierre ya quedó */ }
+    hecho.push('No le contesto más: la sigues tú.');
+  }
+
+  // EL AVISO AL DUEÑO («avisame si responden», el único que pidió Mauricio): lo da la redacción
+  // de MaKo o la acción de avisar de la rama; si no corrió ninguna de las dos, va uno corto con
+  // lo que se hizo. `ws` explícito: sin él cae al grupo de la agencia.
+  if (!redacto && !avisoDelFlujo) {
+    const { emitirDelCatalogo } = await import('@/lib/avisos');
+    const quien = lead?.nombre?.trim() || `lead ${leadId}`;
+    await emitirDelCatalogo('wa-mensaje-entrante', {
+      ws: (await getWorkspaceActual()) ?? undefined,
+      texto: `💬 *${quien} respondió* a «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\n${caso ? `Caso «${caso.titulo}».` : 'No encajó en ningún caso.'}${hecho.length ? `\n${hecho.join('\n')}` : ' No hice nada más.'}\n\n— MaKo`,
+    });
+  }
+  return true;
+}
+
+/**
+ * Un mensaje (texto, audio o archivo) de una rama de «Si responde». Sale SIN el anti-ban de 20 h
+ * —es la respuesta a algo que el lead acaba de escribir— y con todo lo demás de un envío: el
+ * interruptor del WhatsApp del negocio, el contacto bloqueado, la línea a la que escribió y
+ * «Sale sola» por mensaje. Queda en `nutricion_envios` como cualquier envío (cuenta para el
+ * anti-ban de lo que venga después). Devuelve lo que pasó, en una frase para el aviso, y si le
+ * CONTESTÓ (salió, quedó como borrador o ya le había salido: lo pregunta el hand-off).
+ *
+ * ⚠️ UNA VEZ CADA 20 H POR TARJETA (revisión del 08/10/2026). Sin anti-ban, un texto fijo de una
+ * rama —«¡Gracias! En un rato te respondo»— salía IGUAL con cada mensaje del lead durante los 7
+ * días de la charla, por la línea no oficial: el patrón que el anti-ban existe para evitar. Se
+ * reclama por (inscripción, nodo) con `reclamarEspaciado` justo antes de mandar o dejar el
+ * borrador; si ya salió, no se repite.
+ */
+async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: number, inscId: number | null): Promise<{ texto: string; contesto: boolean }> {
+  const { leadId, secuencia, supabase, lead, linea } = c;
+  const no = (texto: string) => ({ texto, contesto: false });
+  const si = (texto: string) => ({ texto, contesto: true });
+  // El reclamo de esta tarjeta para esta inscripción, JUSTO antes de mandar o dejar el borrador
+  // (antes de eso, un audio que no está consumiría la ventana sin que salga nada). Sin el reclamo
+  // no sale: un error del store no puede abrir la puerta al mensaje repetido.
+  const ws = await getWorkspaceActual();
+  const reclamar = async (): Promise<boolean> => {
+    if (ws == null) return true;
+    const { reclamarEspaciado } = await import('@/lib/espaciado');
+    return reclamarEspaciado(ws, `respuesta-mensaje:${secuencia.id}`, RECLAMO_MENSAJE_RESPUESTA_MIN, `${inscId ?? `lead${leadId}`}:${idDe(p, i)}`)
+      .catch(() => false);
+  };
+  // «O se intentó»: el reclamo va antes de mandar (la regla de la casa), así que un envío que falló
+  // también ocupa la ventana. No se afirma que salió.
+  const yaSalio = si('Ese mensaje ya salió (o se intentó) hace poco: no lo repetí.');
+  const registrar = async (estado: 'enviado' | 'borrador' | 'fallo' | 'omitido', nota: string | null, texto: string | null): Promise<void> => {
+    const { error } = await supabase.from('nutricion_envios').insert({
+      inscripcion_id: inscId, lead_id: leadId, secuencia_id: secuencia.id, paso: i + 1, nodo_id: idDe(p, i),
+      canal: 'whatsapp', estado, destino: lead?.telefono ?? null, asunto: null, error: nota,
+      texto_enviado: texto, texto_autor: texto ? 'fijo' : null,
+    });
+    if (error) console.error(`[nutricion] rastro de «Si responde», lead ${leadId}: ${error.message}`);
+  };
+  if (p.canal === 'email' || proveedorDelPaso(p) !== 'no_oficial') return no('Un mensaje de la rama no es de WhatsApp no oficial: no salió.');
+  if (!lead?.telefono) { await registrar('fallo', 'lead sin teléfono', null); return no('No le contesté: no tiene teléfono.'); }
+  if (!(await envioWhatsappHabilitado().catch(() => false))) { await registrar('fallo', 'el envío de WhatsApp está apagado', null); return no('No le contesté: el envío de WhatsApp está apagado.'); }
+  if (await estaBloqueado(lead.telefono).catch(() => true)) { await registrar('omitido', 'contacto bloqueado', null); return no('No le contesté: el contacto está bloqueado.'); }
+  const negocio = await getWorkspace(ws ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
+  const pie = aplicarVariables(textoDelPaso(p), valoresVariablesLead(lead, { negocio }));
+  const sale = saleSolo(p, secuencia.envio_automatico) || await esLeadCliente(leadId);
+
+  if (p.tipo === 'audio' && Number(p.audio_id) > 0) {
+    const audio = await getAudio(Number(p.audio_id));
+    const b64 = audio ? await audioBase64(audio) : null;
+    if (!audio || !b64) { await registrar('fallo', audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe', null); return no('No salió la nota de voz: el audio no está.'); }
+    if (!(await reclamar())) return yaSalio;
+    if (!sale) {
+      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea });
+      await registrar('borrador', null, pie || null);
+      return si(`Te dejé la nota de voz «${audio.titulo}» para aprobar.`);
+    }
+    const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId, linea });
+    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea }).catch(() => { /* el audio ya salió */ });
+    await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie.trim() || null);
+    return r.ok ? si(`Le mandé la nota de voz «${audio.titulo}».`) : no(`No salió la nota de voz (${(r.error ?? '').slice(0, 120)}).`);
+  }
+
+  if (p.tipo === 'media' && Number(p.media_id) > 0) {
+    const adj = await getAdjunto(Number(p.media_id));
+    const b64 = adj ? await adjuntoBase64(adj) : null;
+    if (!adj || !b64) { await registrar('fallo', adj ? 'no pude bajar el archivo del paso' : 'el archivo del paso ya no existe', null); return no('No salió el archivo: no está.'); }
+    if (!(await reclamar())) return yaSalio;
+    if (!sale) {
+      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, adjuntoId: adj.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea });
+      await registrar('borrador', null, pie || null);
+      return si(`Te dejé el archivo «${adj.titulo}» para aprobar.`);
+    }
+    const r = await enviarMediaYEspejar({ telefono: lead.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: pie.trim() || undefined, leadId, linea });
+    await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie.trim() || null);
+    return r.ok ? si(`Le mandé el archivo «${adj.titulo}».`) : no(`No salió el archivo (${(r.error ?? '').slice(0, 120)}).`);
+  }
+
+  if (!pie.trim()) return no('Un mensaje de la rama estaba vacío: no salió.');
+  if (!(await reclamar())) return yaSalio;
+  if (!sale) {
+    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea });
+    await registrar('borrador', null, pie);
+    return si(`Te dejé para aprobar: «${pie.slice(0, 120)}».`);
+  }
+  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea });
+  await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie);
+  return r.ok ? si(`Le contesté: «${pie.slice(0, 120)}».`) : no(`No salió la respuesta (${(r.error ?? '').slice(0, 120)}).`);
+}
+
+/** Ventana del reclamo de un mensaje fijo de «Si responde»: la misma del anti-ban de la salida. */
+const RECLAMO_MENSAJE_RESPUESTA_MIN = 20 * 60;
+
+/**
+ * Una acción de una rama de «Si responde», UNA vez por respuesta.
+ *
+ * ⚠️ EL RECLAMO VA ANTES (`reclamarEspaciado`, con una clave por inscripción + nodo + mensaje).
+ * La misma respuesta puede llegar dos veces —el webhook se reentrega, o el oficial y el espejo
+ * avisan del mismo mensaje— y sin el reclamo «crear la tarea» o «mover de etapa» corrían dos
+ * veces. Una respuesta NUEVA del lead es otra clave, y la acción vuelve a correr, que es lo que
+ * la rama dice. Corre por la puerta de siempre (`ejecutarDesdeFlujo`) y deja su fila en
+ * `nutricion_envios` con estado 'accion' o 'fallo', como el paso de la salida.
+ *
+ * ⚠️ EL AVISO AL EQUIPO LLEVA EL TEXTO DEL LEAD (`respuesta`, revisión del 08/10/2026). El de
+ * «Otra cosa» decía «Te escribió algo que no sé contestar» sin decir qué, y se deduplicaba por
+ * LEAD: con el «no confirmó» de las 12 h anteriores, no salía. Con `respuesta`, el aviso trae el
+ * mensaje y se deduplica por RESPUESTA. Y `avisoSalio` dice si salió de verdad (ni falló ni quedó
+ * deduplicado): si no, va el aviso de respaldo. Si ESTA respuesta ya corrió la acción (el
+ * reclamo), lo que había que avisar ya se decidió en esa corrida: no se manda otro.
+ */
+async function correrAccionDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: number, inscId: number | null): Promise<{ resumen: string | null; avisoSalio: boolean }> {
+  const { leadId, secuencia, supabase, texto, respondeA } = c;
+  const ws = await getWorkspaceActual();
+  const operacion = String(p.accion?.operacion ?? '');
+  const esAviso = operacion === OP_AVISAR;
+  if (ws == null || !operacion) return { resumen: null, avisoSalio: false };
+  const { reclamarEspaciado } = await import('@/lib/espaciado');
+  const clave = `${inscId ?? `lead${leadId}`}:${idDe(p, i)}:${respondeA ?? (texto ?? '').trim().slice(0, 300)}`;
+  if (!(await reclamarEspaciado(ws, `respuesta-accion:${secuencia.id}`, 7 * 24 * 60, clave).catch(() => false))) return { resumen: null, avisoSalio: esAviso };
+  const respuesta = (texto ?? '').trim().slice(0, 1000);
+  const params = esAviso && respuesta ? { ...(p.accion?.params ?? {}), respuesta } : p.accion?.params;
+  const r = await (await import('@/lib/api-mako/flujo')).ejecutarDesdeFlujo(operacion, params, {
+    ws, origen: `secuencia:${secuencia.id}:nodo:${idDe(p, i)}`, nombre: secuencia.nombre, leadId,
+  });
+  const { error } = await supabase.from('nutricion_envios').insert({
+    inscripcion_id: inscId, lead_id: leadId, secuencia_id: secuencia.id, paso: i + 1, nodo_id: idDe(p, i),
+    canal: p.canal, estado: r.ok ? 'accion' : 'fallo', destino: null, asunto: operacion, error: r.ok ? null : r.resumen,
+  });
+  if (error) console.error(`[nutricion] rastro de la acción de «Si responde» (${operacion}): ${error.message}`);
+  return { resumen: r.ok ? r.resumen : `Falló una acción: ${r.resumen}`, avisoSalio: esAviso && avisoSalio(r) };
 }

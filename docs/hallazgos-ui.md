@@ -3494,3 +3494,46 @@ con mouse por coordenadas y las dos esperas, Chromium y WebKit dieron idéntico 
 0 px de casilla y el título sin sangría; hover +23 px.
 
 **Vive en:** app/plan/board/BoardShell.tsx · app/globals.css · tests/plan-casilla-tarjeta.test.ts · *2026-10-05*
+
+## eslint-plugin-react-hooks 7: un `eslint-disable` de react-hooks apaga el compilador para TODO el componente (08/10/2026)
+
+**Síntoma:** en el rediseño de /chatbot, al sacar un `eslint-disable-next-line
+react-hooks/exhaustive-deps` de `app/chatbot/SimuladorWhatsApp.tsx`, eslint marcó como ERROR
+(`react-hooks/set-state-in-effect`) un `useEffect(() => setSelId(...))` que existía sin cambios desde
+antes y nunca había fallado. Y el patrón de la casa para montar un portal, `useEffect(() => {
+setMontado(true); }, [])`, hoy es un error: `app/_components/IdentidadPicker.tsx:84` ya lo tiene, y
+`app/crm/EtapasModal.tsx:142` cae por otra forma de lo mismo.
+
+**Causa:** `eslint-config-next` 16 trae `eslint-plugin-react-hooks` 7.0.1, que corre las reglas del
+React Compiler (`set-state-in-effect`, `refs`, `purity`), y el compilador SALTEA el componente entero
+si tiene una supresión de una regla de hooks. Un solo disable apagaba el análisis de todo
+`SimuladorWhatsApp`: al sacarlo aparecen errores en líneas que nadie tocó. No frena ningún push: el
+pre-push corre sólo `rules-of-hooks` (`scripts/hooks-en-orden.sh`).
+
+**Regla:**
+
+- **Un `eslint-disable` de react-hooks no silencia una línea: silencia el compilador para TODO el
+  componente.** Antes de sacarlo, o de poner uno, se corre eslint del archivo.
+  `app/chatbot/PanelProbar.tsx` conserva uno a propósito (el efecto de montaje): ese componente no lo
+  analiza el compilador.
+- **Corregir el estado en un efecto se reemplaza por CALCULARLO**:
+  `const selId = elegida === '' ? primera : elegida`. Si lo hallado depende de una clave, se guarda
+  junto con su clave (`{ id, e }`) y se DERIVA (`hallada.id === id`) en vez de resetear al principio
+  del efecto (`useEtiquetaFuera`, `app/_components/etiquetas-cliente.tsx`).
+- **«¿Ya está montado?»** va con `useSyncExternalStore(() => () => {}, () => true, () => false)`, no
+  con un `setMontado` en un efecto (`PopoverWA`, `app/whatsapp/_shared/ComposerWhatsApp.tsx`).
+- **La posición de un popover** se escribe en el NODO desde un `useLayoutEffect`, no en un estado.
+- **«¿Qué cambió desde el render anterior?»**, o un pedido que llega de afuera, va con el patrón de
+  ajustar el estado DURANTE el render (un `setState` condicional contra el valor previo); nunca
+  leyendo un ref en el render (`react-hooks/refs`). Molde: la prop `abrir` de
+  `app/chatbot/SimuladorWhatsApp.tsx`, y la animación de `app/whatsapp/_shared/ChatHilo.tsx`.
+- **`useEffect(() => { void cargar(); }, [cargar])` con un `cargar` que hace `setState` después de un
+  `await` también cae**: el compilador no ve el await. Se inlinea el fetch y el `setState` va en el
+  `.then`.
+- Y `const ahora = Date.now()` en el cuerpo de un componente es `react-hooks/purity` (ya anotado en
+  [hallazgos-customer-success.md](hallazgos-customer-success.md)).
+
+**Vive en:** `app/chatbot/SimuladorWhatsApp.tsx` · `app/chatbot/PanelProbar.tsx` ·
+`app/whatsapp/_shared/ComposerWhatsApp.tsx` · `app/whatsapp/_shared/ChatHilo.tsx` ·
+`app/_components/etiquetas-cliente.tsx` · `app/_components/IdentidadPicker.tsx` ·
+`app/crm/EtapasModal.tsx` · *2026-10-08 rediseño de /chatbot (partes P, C y E de `wf_8096a9d7-b3f`)*

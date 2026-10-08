@@ -282,4 +282,38 @@ export const BITACORA: Hito[] = [
       'tests/doer-recetas.test.ts — 5 tests, cinco roturas',
     ],
   },
+  // ── 8 de octubre: la agenda de Joan no llegaba a ninguna herramienta ──────────
+  {
+    fecha: '8 oct', hora: '14:44', chat: 'CRM', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Joan no puede crear ni editar su agenda por WhatsApp',
+    pedido: 'El calendar integrado bien, pero no me deja modificar la agenda (crear editar y esas cosas). Fijate que lo estuvo intentando en el WhatsApp de MaKo con Código Inmobiliario.',
+    puntos: [
+      'Lo pasó la sesión del CRM con el diagnóstico y la refutación ya medidos (solo lectura). Joan había escrito «Mako, agenda me una reunión mañana 12hs de 1hs que se llame PRUEBA» un minuto después de conectar su Google, y MaKo contestó «por aquí no puedo agendarte».',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '14:44', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La agenda por WhatsApp: crear, mover, cambiar y cancelar, con o sin lead',
+    puntos: [
+      '⚠️ **La conexión estaba bien; el pedido nunca llegó a una herramienta.** «agenda» sin tilde y el pronombre suelto no eran ningún imperativo, así que el mensaje se guardó como material para anotar. Ahora hay una regla de pedido de agenda: verbo + reunión + día u hora, con las formas «me puedes agendar…».',
+      '⚠️ **El test estaba verde sobre el bug**: armaba el turno a mano, sin el clasificador. 3 de sus 5 frases de escritura llegaban sin la herramienta en el turno real. La selección pasó a una función pura que llaman el doer y el test.',
+      '**El «sí» a un ofrecimiento, la corrección de una propuesta («no, mejor a las 13») y un lote de mensajes** tampoco traían la acción: el presupuesto ordena por relevancia contra el TEXTO, y «sí, dale» no nombra nada.',
+      '**Lo que faltaba de verdad:** crear un evento sin lead (sin invitados), ver el día entero, cambiar nombre o duración, y cancelar. Sin lead se busca por el día y la hora que dijo la persona; la agenda sigue sin pasar por la IA y cada escritura espera el «sí».',
+      '**Y a un negocio sin Calendly ya no le viaja Calendly**, cuya receta empujaba a pedir un lead y un email. Aparte, MaKo le decía «Martín» a Joan: los encuadres del system nombraban al dueño para todo cliente.',
+      '**No se probó contra una agenda real**: la del ws13 es de un cliente.',
+    ],
+    commits: [
+      { sha: '6d8655ca', msg: 'MaKo por WhatsApp agenda, mueve, cambia y cancela en Google Calendar, con o sin lead', lineas: 1456, archivos: 17 },
+    ],
+    archivos: [
+      'lib/mako-intencion.ts — `esPedidoAgenda`, `corrigeAgenda`, `sinPrefijoDeLote`, `RELEVANCIA_AGENDA`',
+      'lib/doer-herramientas.ts — la selección de herramientas del turno, pura (la usan el doer y el test)',
+      'lib/agenda-sin-ia.ts — ver el día, cambiar y cancelar, con centinelas',
+      'lib/google-calendar.ts — `eventosDelDia` (estricta), `cancelarEventoDeReunion`, `cambiarEventoDeReunion`',
+      'lib/api-mako/areas/crm.def.ts + crm.run.ts — agenda_del_dia, proponer_cambiar_reunion, proponer_cancelar_reunion, y agendar y mover sin lead',
+      'tests/agenda-whatsapp.test.ts — reescrito sobre el turno real; 15 roturas entre los dos tests',
+    ],
+  },
 ];

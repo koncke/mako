@@ -8,6 +8,8 @@
 //        { action:'sugerir-gancho'|'sugerir-preguntas', objetivo, etapa } → { sugerencias }
 //        { action:'guardar-estrategia', secuenciaId, estrategia }         → { ok }
 //        { action:'probar', secuenciaId }                 → prueba en vivo al admin
+//        { action:'trigger', id, trigger_tipo, etapa?, producto_id?, funnel_id?, etiqueta_id? }
+//                                                          → «qué lo dispara» (400 si no se puede)
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -15,6 +17,7 @@ import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/worksp
 import {
   getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia,
   muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega, renombrarSecuencia, setCronSecuencia,
+  setTriggerSecuencia, TriggerInvalidoError,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
@@ -142,10 +145,38 @@ export async function POST(req: NextRequest) {
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar secuencias.' }, { status: 403 });
   }
-  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown; handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown };
+  let body: {
+    action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown;
+    handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown;
+    id?: unknown; trigger_tipo?: unknown; producto_id?: unknown; funnel_id?: unknown; etiqueta_id?: unknown;
+  };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
+    /**
+     * «QUÉ LO DISPARA», el desplegable de la tarjeta del CRON (08/10/2026, punto 5). Uno solo
+     * para todos los disparadores, con el dato que trae cada uno (etapa, producto, etiqueta). La
+     * validación vive en `setTriggerSecuencia`; lo que no se puede guardar contesta 400.
+     */
+    if (body.action === 'trigger') {
+      const id = Number(body.id ?? body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
+      const num = (v: unknown): number | null => (v == null || v === '' ? null : Number(v));
+      try {
+        await setTriggerSecuencia(id, {
+          trigger_tipo: String(body.trigger_tipo ?? ''),
+          etapa: body.etapa == null ? null : String(body.etapa),
+          producto_id: num(body.producto_id), etiqueta_id: num(body.etiqueta_id),
+          // «No vino» no es «null» (= todos los embudos): sin la clave, el embudo no se toca.
+          ...('funnel_id' in body ? { funnel_id: num(body.funnel_id) } : {}),
+        });
+      } catch (e) {
+        if (e instanceof TriggerInvalidoError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+        throw e;
+      }
+      return Response.json({ ok: true });
+    }
+
     // El NOMBRE, que se edita tocándolo en el lienzo (mismo gesto que en /mensajes).
     if (body.action === 'nombre') {
       const id = Number(body.secuenciaId);

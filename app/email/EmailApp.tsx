@@ -16,6 +16,7 @@ import { Icon } from '../_components/icons';
 import { useConfirm } from '../_components/useConfirm';
 import { VozGuia } from '../_components/VozGuia';
 import { NutricionGenerar } from '../_components/NutricionGenerar';
+import { SelectorEtiqueta } from '../_components/etiquetas-cliente';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos (espejo de lib/email-marketing.ts)
@@ -28,8 +29,17 @@ type Paso = {
 };
 type Secuencia = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
+  /** La etiqueta del disparador «Se le puso una etiqueta». */
+  etiqueta_id: number | null;
   activa: boolean; pasos: Paso[]; inscriptos: number; statsPorPaso: StepStats[];
 };
+
+/**
+ * El disparador «Se le puso una etiqueta» NECESITA la etiqueta (revisión del 08/10/2026,
+ * etiquetas-2): sin ella la secuencia quedaba activa y muda. Por eso al elegirlo aparece al lado el
+ * selector de etiquetas del CRM, y el server rechaza guardar sin una (lib/email-marketing.ts).
+ */
+const TRIGGER_ETIQUETA = 'etiqueta_puesta';
 type Kpi = { label: string; value: string; delta: string; deltaColor: string };
 type Broadcast = {
   id: number; asunto: string; preheader: string | null; cuerpo: string; segmento: string;
@@ -253,7 +263,7 @@ function SequencesView(props: {
 }) {
   const { loading, secuencias, etapas, triggers, etapaColor, reload } = props;
   const [selId, setSelId] = useState<number | null>(null);
-  const [draft, setDraft] = useState<{ nombre: string; etapa: string; trigger: string; pasos: Paso[] } | null>(null);
+  const [draft, setDraft] = useState<{ nombre: string; etapa: string; trigger: string; etiquetaId: number | null; pasos: Paso[] } | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [creating, setCreating] = useState(false);
@@ -268,11 +278,11 @@ function SequencesView(props: {
   // carga el draft cuando cambia la secuencia seleccionada
   useEffect(() => {
     if (!sel) { setDraft(null); return; }
-    setDraft({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, pasos: sel.pasos.map((p) => ({ ...p })) });
+    setDraft({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, etiquetaId: sel.etiqueta_id ?? null, pasos: sel.pasos.map((p) => ({ ...p })) });
     setMsg(null);
   }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dirty = !!sel && !!draft && JSON.stringify({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, pasos: sel.pasos }) !== JSON.stringify(draft);
+  const dirty = !!sel && !!draft && JSON.stringify({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, etiquetaId: sel.etiqueta_id ?? null, pasos: sel.pasos }) !== JSON.stringify(draft);
 
   const patchPaso = (i: number, patch: Partial<Paso>) =>
     setDraft((d) => (d ? { ...d, pasos: d.pasos.map((p, j) => (j === i ? { ...p, ...patch } : p)) } : d));
@@ -295,7 +305,13 @@ function SequencesView(props: {
     setSaving(true); setMsg(null);
     try {
       const pasos = draft.pasos.map((p, i) => ({ ...p, orden: i + 1 }));
-      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/secuencias', 'PATCH', { id: sel.id, nombre: draft.nombre, etapa: draft.etapa, trigger: draft.trigger, pasos });
+      // El disparador viaja sólo si CAMBIÓ: volver a fijarlo en cada guardado de un paso lo
+      // revalidaría (y una etiqueta archivada en el medio frenaría guardar el texto).
+      const cambioDisparador = draft.trigger !== sel.trigger_tipo || (draft.trigger === TRIGGER_ETIQUETA && draft.etiquetaId !== (sel.etiqueta_id ?? null));
+      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/secuencias', 'PATCH', {
+        id: sel.id, nombre: draft.nombre, etapa: draft.etapa, pasos,
+        ...(cambioDisparador ? { trigger: draft.trigger, ...(draft.trigger === TRIGGER_ETIQUETA ? { etiquetaId: draft.etiquetaId } : {}) } : {}),
+      });
       if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
       await reload();
       setMsg({ type: 'ok', text: 'Cambios guardados.' });
@@ -373,11 +389,15 @@ function SequencesView(props: {
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
                   <Dropdown value={draft.etapa} onChange={(v) => setDraft((d) => (d ? { ...d, etapa: v } : d))} width={150} ariaLabel="Etapa" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }} options={etapas.map((e) => ({ value: e.value, label: e.label, color: e.color }))} />
                   <Dropdown value={draft.trigger} onChange={(v) => setDraft((d) => (d ? { ...d, trigger: v } : d))} width={230} ariaLabel="Trigger" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }} options={triggers.map((t) => ({ value: t.value, label: t.label }))} />
+                  {draft.trigger === TRIGGER_ETIQUETA && (
+                    <SelectorEtiqueta value={draft.etiquetaId} onElegir={(e) => setDraft((d) => (d ? { ...d, etiquetaId: e.id } : d))}
+                      placeholder="Elige la etiqueta" ariaLabel="Etiqueta que lo dispara" width={190} buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }} />
+                  )}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', flex: 'none' }}>
-                {dirty && <button onClick={() => setDraft({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, pasos: sel.pasos.map((p) => ({ ...p })) })} disabled={saving} style={btnGhost}>Descartar</button>}
-                {dirty && <button onClick={() => void guardar()} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Guardando…' : '✓ Guardar'}</button>}
+                {dirty && <button onClick={() => setDraft({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, etiquetaId: sel.etiqueta_id ?? null, pasos: sel.pasos.map((p) => ({ ...p })) })} disabled={saving} style={btnGhost}>Descartar</button>}
+                {dirty && <button onClick={() => void guardar()} disabled={saving || (draft.trigger === TRIGGER_ETIQUETA && draft.etiquetaId == null)} title={draft.trigger === TRIGGER_ETIQUETA && draft.etiquetaId == null ? 'Elige la etiqueta' : undefined} style={{ ...btnPrimary, opacity: saving || (draft.trigger === TRIGGER_ETIQUETA && draft.etiquetaId == null) ? 0.6 : 1 }}>{saving ? 'Guardando…' : '✓ Guardar'}</button>}
                 {!dirty && (
                   <button onClick={() => void toggle()} style={{ ...btnGhost, border: '1px solid ' + (sel.activa ? 'var(--border-strong)' : 'var(--good)'), background: sel.activa ? 'var(--surface)' : 'var(--good-bg)', color: sel.activa ? 'var(--dim)' : 'var(--good)' }}>{sel.activa ? '⏸ Pausar' : '▶ Activar'}</button>
                 )}
@@ -459,13 +479,18 @@ function CrearSecuenciaModal(props: { etapas: Opcion[]; triggers: Opcion[]; onCl
   const [nombre, setNombre] = useState('');
   const [etapa, setEtapa] = useState(etapas[0]?.value ?? 'nutri');
   const [trigger, setTrigger] = useState('manual');
+  const [etiquetaId, setEtiquetaId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const faltaEtiqueta = trigger === TRIGGER_ETIQUETA && etiquetaId == null;
 
   async function crear() {
     setBusy(true); setErr(null);
     try {
-      const j = await apiSend<{ ok: boolean; error?: string; id: number }>('/api/email/secuencias', 'PATCH', { action: 'crear', nombre: nombre || 'Nueva secuencia de email', etapa, trigger });
+      const j = await apiSend<{ ok: boolean; error?: string; id: number }>('/api/email/secuencias', 'PATCH', {
+        action: 'crear', nombre: nombre || 'Nueva secuencia de email', etapa, trigger,
+        ...(trigger === TRIGGER_ETIQUETA ? { etiquetaId } : {}),
+      });
       if (!j.ok) throw new Error(j.error || 'No se pudo crear');
       await onCreated(j.id);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
@@ -481,10 +506,15 @@ function CrearSecuenciaModal(props: { etapas: Opcion[]; triggers: Opcion[]; onCl
         <div style={{ marginBottom: '14px' }}><Dropdown value={etapa} onChange={setEtapa} width="100%" options={etapas.map((e) => ({ value: e.value, label: e.label, color: e.color }))} /></div>
         <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', marginBottom: '5px' }}>Trigger (cuándo se dispara)</label>
         <div style={{ marginBottom: '8px' }}><Dropdown value={trigger} onChange={setTrigger} width="100%" options={triggers.map((t) => ({ value: t.value, label: t.label }))} /></div>
+        {trigger === TRIGGER_ETIQUETA && (
+          <div style={{ marginBottom: '8px' }}>
+            <SelectorEtiqueta value={etiquetaId} onElegir={(e) => setEtiquetaId(e.id)} placeholder="Elige la etiqueta" ariaLabel="Etiqueta que lo dispara" width="100%" />
+          </div>
+        )}
         {err && <div style={{ marginTop: '8px', fontSize: '12.5px', color: 'var(--bad)' }}>{err}</div>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
           <button onClick={onClose} disabled={busy} style={btnGhost}>Cancelar</button>
-          <button onClick={() => void crear()} disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}>{busy ? 'Creando…' : 'Crear secuencia'}</button>
+          <button onClick={() => void crear()} disabled={busy || faltaEtiqueta} style={{ ...btnPrimary, opacity: busy || faltaEtiqueta ? 0.6 : 1 }}>{busy ? 'Creando…' : 'Crear secuencia'}</button>
         </div>
       </div>
     </div>

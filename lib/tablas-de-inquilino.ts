@@ -34,7 +34,8 @@
 // avisar de que la lista tiene un duplicado o perdió una tabla crítica.
 
 /**
- * Las tablas de inquilino (116 al 08/10/2026), en orden alfabético.
+ * Las tablas de inquilino (119 al 08/10/2026: las dos de etiquetas de la mig 0224 y la biblioteca
+ * de archivos de la mig 0225), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -49,7 +50,7 @@ export const TABLAS_DE_INQUILINO = [
   'comunidad_ajustes', 'comunidad_baneos', 'comunidad_categorias', 'comunidad_comentarios',
   'comunidad_evento_avisos', 'comunidad_eventos', 'comunidad_likes', 'comunidad_notificaciones',
   'comunidad_perfiles', 'comunidad_posts', 'comunidad_seguimientos', 'comunidad_votos',
-  'contenido_posts', 'creative_transcripts', 'credenciales', 'credenciales_auditoria',
+  'contenido_posts', 'creative_transcripts', 'credenciales', 'credenciales_auditoria', 'crm_etiquetas', 'crm_lead_etiquetas',
   'cs_clientes', 'cs_respuestas', 'curso_accesos', 'curso_adjuntos', 'curso_clase_notas', 'curso_clases', 'curso_desbloqueos', 'curso_estilo', 'curso_modulos', 'curso_progreso', 'curso_sesiones', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'formatos',
@@ -64,7 +65,7 @@ export const TABLAS_DE_INQUILINO = [
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
   'plan_reprios', 'plan_tareas', 'producto_entrega', 'productos',
   'propuestas', 'retros', 'review_queue', 'script_analyses',
-  'script_drafts', 'service_incidents', 'setting_audios', 'shares', 'tarea_categorias',
+  'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares', 'tarea_categorias',
   'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes',
   'wa_ocultos', 'webhook_routing', 'whatsapp_template_drafts', 'workspace_telefonos',
   'zernio_workspace',] as const;

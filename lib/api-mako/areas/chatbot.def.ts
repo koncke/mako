@@ -19,6 +19,9 @@
 import type { OperacionDef, Parametro } from '../tipos';
 // Catálogo PURO (sin server-only, ni él ni lo que importa): el enum sale de ahí para no desincronizarse.
 import { CLAVES_AUDIO } from '@/lib/audios-paso';
+// Puro también (lib/setting-estrategia.ts no importa nada): el tope del nombre es UNO para la
+// pantalla, el servidor y esto.
+import { TOPE_NOMBRE_SECUENCIA } from '@/lib/setting-estrategia';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -47,7 +50,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ficha_secuencia_mensajes', area: 'chatbot', tipo: 'lectura',
     titulo: 'Ficha de una secuencia',
-    descripcion: 'Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto o audio, condición, texto y cantidad de variantes), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -210,7 +213,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE crear una secuencia de mensajes nueva colgada de una etapa del funnel. Nace PAUSADA y con dos pasos de esqueleto sin texto: no le escribe a nadie hasta que se redacte y se active. Pide antes la clave de la etapa con etapas_para_secuencia (y revisa huecos_secuencias).',
     parametros: [
       { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 60, descripcion: 'clave de la etapa del funnel (de etapas_para_secuencia).' },
-      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'nombre de la secuencia, como lo va a ver el dueño.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: TOPE_NOMBRE_SECUENCIA, descripcion: `nombre de la secuencia, como lo va a ver el dueño (hasta ${TOPE_NOMBRE_SECUENCIA} caracteres).` },
     ],
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
@@ -218,7 +221,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cambiar_espera_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cambiar la espera de un paso',
-    descripcion: 'PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.',
+    descripcion: 'PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). Si el paso es una tarjeta «Esperar», cambia lo que espera esa tarjeta. No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.',
     parametros: [
       pSecuenciaId, pOrden,
       { nombre: 'delayHoras', tipo: 'number', obligatorio: true, entero: true, minimo: 0, maximo: 8760, descripcion: 'horas de espera del paso (0 a 8760).' },
@@ -289,6 +292,28 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'inserta una inscripción activa en nutricion_inscripciones (o reactiva desde el primer paso la que ya terminó), deja historial del lead y dispara el primer envío si ya toca (desde un flujo lo manda el cron)',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // El «Otra cosa» de «Si responde» (08/10/2026): lo que antes era el hand-off —«MaKo se calla y
+  // te avisa»— es ahora una tarjeta ⚡ Acción con esta operación, que el conversor de las
+  // secuencias de antes pone sola (lib/flujo-legado.ts → OP_AVISAR; el id es el MISMO literal,
+  // y tests/flujo-motor-grafo.test.ts lo fija). Avisa al grupo de WhatsApp del negocio (el de
+  // «MaKo <> cliente»), nunca al lead. Sale por HTTP: no lee nada de nadie, sólo deja un aviso en
+  // el grupo del propio negocio.
+  {
+    id: 'avisar_al_equipo', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Avisar al equipo',
+    descripcion: 'PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Úsala desde una automatización cuando el caso lo tiene que ver una persona.',
+    parametros: [
+      { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'opcional: el lead del que se avisa (de buscar_leads). En una automatización, el del evento.' },
+      { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'opcional: el título corto del aviso.' },
+      { nombre: 'mensaje', tipo: 'string', obligatorio: true, max: 1000, descripcion: 'lo que tiene que saber el equipo, en una o dos frases.' },
+      // La pone el MOTOR cuando el aviso sale de «Si responde» (lib/nutricion.ts →
+      // correrAccionDeRespuesta): el texto literal del lead. Sin ella, el aviso de «Otra cosa» no
+      // decía qué escribió y se deduplicaba por lead contra cualquier otro aviso de las 12 h.
+      { nombre: 'respuesta', tipo: 'string', max: 1000, descripcion: 'opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead).' },
+    ],
+    reversible: true, escribe: 'manda un aviso al grupo de WhatsApp del negocio y deja una notificación en la app (no toca al lead)',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB },
+  },
 
   // ── Acciones por pantalla ──────────────────────────────────────────────────
   {
@@ -302,7 +327,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_estrategia_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Guardar la estrategia de una secuencia',
-    descripcion: 'PROPONE cambiar la estrategia de una secuencia y devuelve un link para revisarla: objetivo, gancho, preguntas de cualificación, criterio de calificación, desenlace (qué cuenta como logrado, a qué etapa y a qué secuencia pasa el lead) y modo. Solo cambian los campos que pases; el resto se conserva. Si la secuencia todavía no tiene estrategia, el objetivo es obligatorio. El desenlace mueve leads de etapa solo desde el motor. Los escenarios se agregan con agregar_escenario_secuencia.',
+    descripcion: 'PROPONE cambiar la estrategia de una secuencia y devuelve un link para revisarla: objetivo, gancho, preguntas de cualificación, criterio de calificación, desenlace (qué cuenta como logrado, a qué etapa y a qué secuencia pasa el lead) y modo. Solo cambian los campos que pases; el resto se conserva. Si la secuencia todavía no tiene estrategia, el objetivo es obligatorio. El desenlace mueve leads de etapa solo desde el motor; en una secuencia armada con tarjetas (condiciones, esperas, «Si responde») el desenlace y el modo no se cambian por aquí: cuándo termina y qué pasa al responder son tarjetas del lienzo. Los escenarios se agregan con agregar_escenario_secuencia.',
     parametros: [
       pSecuenciaId,
       { nombre: 'objetivo', tipo: 'string', max: 120, descripcion: 'agendar, preparar, reactivar, cualificar, confirmar_pago o un objetivo propio (de listar_objetivos_secuencia).' },
@@ -337,7 +362,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'editar_pasos_secuencia_mensajes', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Editar los pasos de una secuencia',
-    descripcion: 'PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, condición) y devuelve un link para revisarla. La lista que pases REEMPLAZA a la actual en ese orden: un paso que no esté se borra. Dentro de cada paso, un campo que omitas se conserva del paso que hoy ocupa esa posición, y las variantes ya generadas se mantienen. En un paso de WhatsApp oficial con plantilla aprobada, cambiar el texto NO cambia lo que recibe el lead: sigue saliendo la plantilla aprobada con el texto anterior. Un paso de audio a un lead que todavía no es cliente queda como borrador para que alguien lo mande. Un [corchete] distinto de [tu link …] deja el paso sin salir nunca. Lee antes ficha_secuencia_mensajes.',
+    descripcion: 'PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, condición) y devuelve un link para revisarla. Sólo en una secuencia SIN ramas (sin condiciones, sin «Si responde», sin «Ir a»): una con ramas se edita en el lienzo de /chatbot, y por aquí contesta un error. La lista que pases REEMPLAZA a la actual en ese orden: un paso que no esté se borra. Dentro de cada paso, un campo que omitas se conserva del paso que hoy ocupa esa posición, y las variantes ya generadas se mantienen. En un paso de WhatsApp oficial con plantilla aprobada, cambiar el texto NO cambia lo que recibe el lead: sigue saliendo la plantilla aprobada con el texto anterior. Un paso de audio a un lead que todavía no es cliente queda como borrador para que alguien lo mande. Un [corchete] distinto de [tu link …] deja el paso sin salir nunca. Lee antes ficha_secuencia_mensajes.',
     parametros: [
       pSecuenciaId,
       {
@@ -348,8 +373,9 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'cuerpo', tipo: 'string', max: 4000, descripcion: 'el texto del mensaje; en un paso de audio, el pie que sale después. Admite {{nombre}} y {{empresa}}.' },
           { nombre: 'asunto', tipo: 'string', max: 200, descripcion: 'asunto (solo email).' },
           { nombre: 'preheader', tipo: 'string', max: 200, descripcion: 'texto de vista previa (solo email).' },
-          { nombre: 'tipo', tipo: 'string', enum: ['texto', 'audio'], descripcion: 'texto o nota de voz (audio exige audio_id).' },
+          { nombre: 'tipo', tipo: 'string', enum: ['texto', 'audio', 'media'], descripcion: 'texto, nota de voz (audio exige audio_id) o archivo (media exige media_id: foto, video o documento, sólo por WhatsApp no oficial; el texto es el pie).' },
           { nombre: 'audio_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del audio (lo da la biblioteca de audios, solo por WhatsApp o en la app), solo si tipo es audio.' },
+          { nombre: 'media_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del archivo de la biblioteca de archivos del chatbot, solo si tipo es media.' },
           { nombre: 'requiere', tipo: 'string', enum: ['respondio', 'sin_respuesta', 'ya_contactado', 'primer_contacto', 'ninguno'], descripcion: 'condición para que el paso salga; «ninguno» la quita. «sin_respuesta» hoy no la evalúa el motor.' },
           { nombre: 'proveedor', tipo: 'string', enum: ['oficial', 'no_oficial'], descripcion: 'WhatsApp oficial (plantilla de Meta) o no oficial (el número vinculado).' },
           { nombre: 'ancla', tipo: 'string', enum: ['reunion', 'ninguno'], descripcion: 'reunion: la espera cuenta como horas ANTES de la próxima reunión del lead; «ninguno» quita el ancla.' },
@@ -362,7 +388,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'agregar_escenario_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Agregar un caso previsto',
-    descripcion: 'PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. La secuencia tiene que tener estrategia guardada; máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).',
+    descripcion: 'PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la secuencia tiene la tarjeta «Si responde», el caso entra ahí como una rama nueva con un «MaKo contesta» que usa tu guía; si no, la secuencia tiene que tener estrategia guardada. Máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).',
     parametros: [
       pSecuenciaId,
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'cómo se llama el caso: «Pregunta el precio».' },
@@ -376,7 +402,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'resolver_handoff', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Enseñar el caso de un hand-off',
-    descripcion: 'PROPONE resolver un hand-off enseñándole a MaKo el caso (título, cuándo aplica y cómo responder) y devuelve un link para revisarlo. Al confirmar se suma el caso a la secuencia (aunque esté archivada), el hand-off queda resuelto y la inscripción del lead vuelve a correr. Si la secuencia no tiene estrategia, el caso no se guarda en ningún lado (solo se resuelve); si ya tiene 30 casos, no se propone. Pide antes el handoffId con listar_handoffs_pendientes.',
+    descripcion: 'PROPONE resolver un hand-off enseñándole a MaKo el caso (título, cuándo aplica y cómo responder) y devuelve un link para revisarlo. Al confirmar se suma el caso a la secuencia (aunque esté archivada; si tiene la tarjeta «Si responde», como una rama nueva), el hand-off queda resuelto y la inscripción del lead vuelve a correr. Si la secuencia no tiene estrategia, el caso no se guarda en ningún lado (solo se resuelve); si ya tiene 30 casos, no se propone. Pide antes el handoffId con listar_handoffs_pendientes.',
     parametros: [
       { nombre: 'handoffId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del hand-off (de listar_handoffs_pendientes).' },
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'cómo se llama el caso.' },

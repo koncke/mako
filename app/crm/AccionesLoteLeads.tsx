@@ -46,6 +46,12 @@
 //     nadie de ningun lado, actua AL TOQUE y deja UN Deshacer para el lote entero
 //     (el molde de Customer Success), que borra solo las filas que este lote creo.
 //
+//   · ETIQUETA (mig 0224, 08/10/2026). Pone una etiqueta del CRM a los tildados, AL TOQUE y
+//     con UN Deshacer para el lote (como producto: suma y se revierte). ⚠️ EN LOTE NO DISPARA
+//     LAS AUTOMATIZACIONES DE ESA ETIQUETA NI MUEVE DE ETAPA (lib/etiquetas-motor.ts, el molde
+//     de ManyChat): con una secuencia colgada de «Seguimiento», ponerla a 200 leads seria el
+//     envio masivo que el parrafo de abajo deja afuera, entrando por otra puerta.
+//
 // Y una que se dejo AFUERA a proposito: meter los seleccionados en una secuencia
 // de nutricion. Esa es la unica de la lista que MANDA MENSAJES, y la linea de
 // WhatsApp del chatbot es la NO OFICIAL: lo que la protege es el ritmo, no una
@@ -72,6 +78,7 @@ import {
   bulkFillLeadFieldAction,
 } from './actions';
 import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
+import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 
 /** Lo minimo que la barra necesita de un lead. No recibe el `CrmLead` entero a
  *  proposito: lo unico que mira es a quien va a escribirle y que tiene puesto. */
@@ -121,6 +128,19 @@ function IconoProducto() {
     </svg>
   );
 }
+function IconoEtiqueta() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1.5" />
+    </svg>
+  );
+}
+type LoteEtiqueta = { ok?: boolean; error?: string; cambiados?: number[]; yaEstaban?: number; sinSincronizar?: number };
+async function loteEtiqueta(action: 'poner_lote' | 'sacar_lote', leadIds: number[], etiquetaId: number): Promise<LoteEtiqueta> {
+  const r = await fetch('/api/crm/etiquetas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, leadIds, etiquetaId }) });
+  return r.json() as Promise<LoteEtiqueta>;
+}
+
 function IconoTacho() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -168,6 +188,38 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     .filter((p) => p.fid !== funnelActivo);
 
   const cerrar = () => setPide(null);
+
+  /**
+   * Poner una etiqueta a los tildados, AL TOQUE (se deshace desde el aviso). Los que ya la tenían
+   * se cuentan aparte, como en producto. Sin disparar nada: ver la cabecera.
+   */
+  const etiquetar = (e: Etiqueta) => {
+    start(async () => {
+      try {
+        const r = await loteEtiqueta('poner_lote', ids, e.id);
+        if (!r.ok) {
+          onListo({ texto: r.error || 'No se pudo', hubo: false });
+        } else {
+          const puestos = r.cambiados ?? [];
+          const ya = r.yaEstaban ? ` · ${r.yaEstaban} ya ${r.yaEstaban === 1 ? 'la tenía' : 'la tenían'}` : '';
+          const fuera = r.sinSincronizar ? ` · ${r.sinSincronizar} sin sincronizar` : '';
+          onListo({
+            texto: puestos.length ? `«${e.nombre}» a ${puestos.length}${ya}${fuera}` : `Ya la tenían${fuera}`,
+            hubo: puestos.length > 0,
+            deshacer: puestos.length
+              ? async () => {
+                const q = await loteEtiqueta('sacar_lote', puestos, e.id);
+                if (!q.ok) throw new Error(q.error || 'No se pudo deshacer');
+              }
+              : undefined,
+          });
+        }
+      } catch (err) {
+        onListo({ texto: err instanceof Error ? err.message : 'No se pudo', hubo: false });
+      }
+      onLimpiar();
+    });
+  };
 
   /**
    * Agregar los tildados a un producto, AL TOQUE. Los que ya estaban ahi (por casa o por
@@ -288,6 +340,12 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
                 agregarA(fid, destinos.find((p) => p.fid === fid)?.nombre ?? 'otro producto');
               }} />
           )}
+
+          {/* Poner una etiqueta: al toque, con Deshacer. «＋ Nueva» la crea de paso. */}
+          <SelectorEtiqueta value={null} accion placeholder="Etiqueta" ariaLabel={`Poner una etiqueta a ${cuantos}`}
+            icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoEtiqueta /></span>}
+            buttonStyle={estiloDrop} disabled={corriendo}
+            onElegir={(e) => { if (!corriendo) etiquetar(e); }} />
         </div>
 
         {/* ── DERECHA: lo irreversible, solo. ──────────────────────────────────── */}

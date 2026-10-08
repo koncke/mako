@@ -390,13 +390,18 @@ test('enrolarPorEvento: la exclusión de familia, el reuso con compare-and-set y
 
 test('los cierres SIN envío dejan su fila: «la reunión ya pasó» y el tope de antigüedad', () => {
   const proc = cuerpo(MOTOR, 'export async function procesarEnvios(');
-  const anotar = proc.slice(proc.indexOf('const anotarCierreSinEnvio'), proc.indexOf('const LOTE'));
+  // Hasta la PRÓXIMA declaración del motor (08/10/2026: detrás vienen `moverConCas` y
+  // `avanceDesde`, que no tienen nada que ver con esto y lo inflaban a 2.108).
+  const iniAnotar = proc.indexOf('const anotarCierreSinEnvio');
+  const anotar = proc.slice(iniAnotar, proc.indexOf('\n  const ', iniAnotar + 10));
   assert.ok(anotar.length > 100 && anotar.length < 1500, `anotarCierreSinEnvio mide ${anotar.length}`);
   assert.match(anotar, /from\('nutricion_envios'\)\.insert\(\{[\s\S]*estado: 'omitido',[\s\S]*error: motivo,/);
-  const reunion = proc.slice(proc.indexOf("if (paso.ancla === 'reunion' || preparaUnaReunion(sec.trigger_tipo))"), proc.indexOf("if (paso.ancla === 'reunion') {"));
+  // (08/10/2026: «anclada» = el `ancla` de siempre O la espera «antes de la reunión» del flujo;
+  // y «el primero» es `esPrimerPaso`, con el tope de la secuencia o el de su condición de entrada.)
+  const reunion = proc.slice(proc.indexOf('if (anclada || preparaUnaReunion(sec.trigger_tipo))'), proc.indexOf('if (anclada) {'));
   assert.match(reunion, /await anotarCierreSinEnvio\(insc, paso, lead, 'la reunión ya pasó'\);\s*continue;/);
-  const antig = proc.slice(proc.indexOf('if (insc.paso_actual === 0 && sec.antiguedad_max_horas != null'), proc.indexOf("if (paso.requiere === 'ya_contactado'"));
-  assert.match(antig, /await anotarCierreSinEnvio\(insc, paso, lead, `llegó hace más de \$\{sec\.antiguedad_max_horas\} h`\);\s*continue;/);
+  const antig = proc.slice(proc.indexOf('if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null'), proc.indexOf("if (paso.requiere === 'ya_contactado'"));
+  assert.match(antig, /await anotarCierreSinEnvio\(insc, paso, lead, `llegó hace más de \$\{topeAntig\} h`\);\s*continue;/);
 });
 
 test('cada paso que sale re-anota la reunión, en un update APARTE del avance', () => {
@@ -413,7 +418,8 @@ test('cada paso que sale re-anota la reunión, en un update APARTE del avance', 
   const helper = proc.slice(iniHelper, proc.indexOf('\n  };', iniHelper));
   assert.ok(helper.length > 0 && helper.length < 900, `la re-anotación mide ${helper.length}: está mirando otra cosa`);
   assert.match(helper, /const reunionDelPaso = preparaUnaReunion\(sec\.trigger_tipo\) \? reunionQuePreparaMs\(lead\) : null;\s*if \(reunionDelPaso != null\) \{\s*const \{ error: eReunion \} = await supabase\.from\('nutricion_inscripciones'\)\s*\.update\(\{ reunion_at: /);
-  const ini = proc.indexOf('const siguiente = sec.pasos[insc.paso_actual + 1];');
+  // (08/10/2026: lo que sigue sale del GRAFO, `avanceDesde`, no del índice + 1.)
+  const ini = proc.indexOf('const { campos: avance, yaToca } = avanceDesde(sec, insc.paso_actual, lead);');
   const fin = proc.indexOf("if (estado === 'enviado') res.enviados += 1;", ini);
   assert.ok(ini > 0 && fin > ini, 'no encontré el avance del paso');
   const trozo = proc.slice(ini, fin);
@@ -424,7 +430,9 @@ test('cada paso que sale re-anota la reunión, en un update APARTE del avance', 
   // Y el paso de acción, después del reclamo (si no corrió, no hay nada que anotar).
   const iniAccion = proc.indexOf('if (esPasoAccion(paso)) {');
   const accion = proc.slice(iniAccion, proc.indexOf('pasoConRelleno(paso)', iniAccion));
-  assert.ok(iniAccion > 0 && accion.length > 0 && accion.length < 3000, `la rama de la acción mide ${accion.length}`);
+  // 3.600 desde el 08/10/2026 (medía 3.041): el reclamo compara también `nodo_actual` y el avance
+  // sale del grafo. Sigue siendo la rama de la acción: la siguiente rama del motor mide el doble.
+  assert.ok(iniAccion > 0 && accion.length > 0 && accion.length < 3600, `la rama de la acción mide ${accion.length}`);
   assert.match(accion, /if \(r\.estado !== 'saltado'\) await anotarReunionDelPaso\(insc\.id, sec, lead\);/, 'la acción avanzó la post-agenda sin re-anotar la reunión');
 });
 

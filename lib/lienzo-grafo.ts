@@ -13,6 +13,18 @@
 //
 // Lo que NO vive acá es CÓMO se arma cada grafo: eso es propio de cada flujo, y
 // mezclarlo haría un constructor con banderas que no sabe de qué está hablando.
+//
+// ── LOS PUERTOS (08/10/2026) ──────────────────────────────────────────────────
+// Pedido de Martín, punto 9: «A raíz de cada condicional, debería poder crear tarjetas
+// arriba y abajo, no solo a la derecha». El molde es ManyChat, medido en su ayuda: TODAS
+// las salidas de un nodo son puntos en su borde DERECHO, una fila por salida, y los
+// destinos se abren a la derecha, apilados arriba y abajo. No hay conectores en el borde
+// de arriba ni en el de abajo: «arriba y abajo» es dónde caen las tarjetas, no de dónde
+// sale la flecha.
+//
+// Todo es OPCIONAL: un nodo sin `puertos` y una arista sin `puerto` se dibujan como
+// siempre (una sola salida, a la altura de la cabecera). Así el lienzo de /mensajes
+// (`lib/flujo-aviso.ts`) no cambia ni un píxel.
 
 export type TipoNodo =
   | 'entrada' | 'mensaje' | 'respuesta' | 'cualifica' | 'desenlace' | 'ir-a' | 'suelto'
@@ -25,6 +37,25 @@ export type TipoNodo =
   | 'espera' | 'condicion';
 
 export type TonoArista = 'normal' | 'buena' | 'mala' | 'condicional';
+
+/**
+ * UNA SALIDA DE UN NODO. Una fila por salida, con su punto en el borde derecho.
+ *
+ * Sin `rotulo` es la salida ÚNICA de un nodo simple (un mensaje, una espera): no se
+ * dibuja una fila, sólo el punto a la altura de la cabecera. Con `rotulo` es una de
+ * varias (una rama de una condición, un caso de «Si responde», el «Si no»), y cada una
+ * es una fila al pie de la tarjeta.
+ */
+export type PuertoNodo = {
+  id: string;
+  rotulo?: string;
+  /** El color del punto: verde para «se cumple», rojo para «si no». */
+  tono?: TonoArista;
+  /** No sale nada de acá todavía: el lienzo dibuja su ＋. */
+  vacio: boolean;
+  /** Una marca chica al final de la fila («2 sin caso»): algo que salió por aquí y espera. */
+  marca?: string;
+};
 
 export type NodoFlujo = {
   id: string;
@@ -42,12 +73,21 @@ export type NodoFlujo = {
   detalle?: string;
   /** Algo que este nodo declara y el motor no hace. Se dibuja con su marca. */
   advertencia?: string;
+  /**
+   * Las salidas, de arriba hacia abajo. Con esto la tarjeta tiene ALTO FIJO (`alto`): la
+   * posición de cada punto se calcula desde el pie de la tarjeta, y una tarjeta que crece
+   * con su contenido correría las filas lejos de sus flechas. Un `[]` es un nodo que
+   * termina (un «Ir a»): sin puntos y sin el ＋ de pasar el cursor.
+   */
+  puertos?: PuertoNodo[];
   x: number; y: number; ancho: number; alto: number;
 };
 
 export type AristaFlujo = {
   desde: string;
   hasta: string;
+  /** De qué salida de `desde` parte. Ausente = la única, a la altura de la cabecera. */
+  puerto?: string;
   /** Lo que se lee sobre la flecha: «Al instante», «2 h después», «si contesta». */
   etiqueta?: string;
   tono: TonoArista;
@@ -77,8 +117,13 @@ export const ALTO_MIN = 76;
 export const GAP_X = 118;
 export const GAP_Y = 34;
 export const MARGEN = 28;
+/** El alto de cada fila de salida (una rama, un caso, el «Si no»). */
+export const ALTO_PUERTO = 26;
+/** Lo que queda debajo de la última fila, adentro de la tarjeta (su padding de abajo). */
+export const PIE_PUERTOS = 8;
+/** El borde de la tarjeta (`TarjetaNodo`): las filas se cuentan desde adentro de él. */
+export const BORDE_NODO = 1.5;
 
-/** La caja que encierra a todos los nodos, con su margen. */
 /**
  * A la DERECHA de la última tarjeta cuelga el ＋ de «agregar un paso», y el encuadre
  * tiene que meterlo adentro o queda cortado contra el `overflow: hidden` de la caja.
@@ -91,12 +136,69 @@ export const MARGEN = 28;
  */
 export const HOLGURA_DERECHA = 42;
 
+/**
+ * La caja que encierra a todos los nodos, con su margen.
+ *
+ * ⚠️ ASUME COORDENADAS ≥ 0: el lienzo pone el dibujo con su esquina en (0, 0) y encuadra
+ * contra `ancho × alto`. Un layout que abre ramas hacia ARRIBA de su padre produce `y`
+ * negativas, y sin normalizar esa rama nace fuera de cuadro —arriba del borde, donde
+ * `overflow: hidden` la corta—. Por eso el árbol pasa por `aOrigen` antes de llegar acá.
+ */
 export function encerrar(nodos: NodoFlujo[]): { ancho: number; alto: number } {
   if (nodos.length === 0) return { ancho: ANCHO_NODO + MARGEN * 2, alto: ALTO_MIN + MARGEN * 2 };
   return {
     ancho: Math.max(...nodos.map((n) => n.x + n.ancho)) + HOLGURA_DERECHA,
     alto: Math.max(...nodos.map((n) => n.y + n.alto)) + MARGEN,
   };
+}
+
+/**
+ * Corre todo el dibujo para que su esquina de arriba a la izquierda quede en (margen,
+ * margen). Devuelve copias: el layout de quien llama no se toca.
+ *
+ * Es la otra mitad de `encerrar`: el árbol de una condición apila sus ramas arriba y
+ * abajo del puerto, así que la primera rama de la primera condición puede quedar con
+ * `y < 0`. Se calcula libre y se normaliza al final, en vez de reservar «por las dudas»
+ * un alto arriba que nadie sabe cuánto es.
+ */
+export function aOrigen(nodos: readonly NodoFlujo[], margen: number = MARGEN): NodoFlujo[] {
+  if (!nodos.length) return [];
+  const dx = margen - Math.min(...nodos.map((n) => n.x));
+  const dy = margen - Math.min(...nodos.map((n) => n.y));
+  return nodos.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
+}
+
+/** ¿El nodo dibuja FILAS de salida (varias, con rótulo), o una sola salida simple? */
+export function tieneFilas(n: Pick<NodoFlujo, 'puertos'>): boolean {
+  return (n.puertos ?? []).some((p) => p.rotulo != null);
+}
+
+/**
+ * La altura (en coordenadas del grafo) de donde sale la flecha de un puerto.
+ *
+ * · Sin puerto, o un nodo de salida simple: a la altura de la CABECERA, con el tope de
+ *   44 px — en un nodo alto la flecha que sale del medio cruza por encima del texto.
+ * · Una fila: el centro de su fila, contado desde el PIE de la tarjeta. Desde el pie y
+ *   no desde la cabecera porque lo de arriba (el contenido) es lo que varía; las filas
+ *   tienen alto fijo y van pegadas abajo (`TarjetaNodo`).
+ */
+export function yDePuerto(n: NodoFlujo, puerto?: string): number {
+  const cabecera = n.y + Math.min(n.alto / 2, 44);
+  if (!puerto || !tieneFilas(n)) return cabecera;
+  const filas = n.puertos ?? [];
+  const i = filas.findIndex((p) => p.id === puerto);
+  if (i < 0) return cabecera;
+  return n.y + n.alto - BORDE_NODO - PIE_PUERTOS - (filas.length - i - 0.5) * ALTO_PUERTO;
+}
+
+/**
+ * El centro de las filas de salida, relativo al TOPE del nodo. Es contra lo que el árbol
+ * apila las ramas («arriba y abajo del puerto»): centradas en las filas y no en la
+ * tarjeta, las flechas salen casi derechas.
+ */
+export function centroDeFilas(alto: number, filas: number): number {
+  if (filas <= 0) return Math.min(alto / 2, 44);
+  return alto - BORDE_NODO - PIE_PUERTOS - (filas * ALTO_PUERTO) / 2;
 }
 
 /**
@@ -108,16 +210,18 @@ export function encerrar(nodos: NodoFlujo[]): { ancho: number; alto: number } {
  * `package.json` — entra como dependencia TRANSITIVA de recharts, así que
  * importarlo funciona hoy y se rompe el día que recharts cambie de versión, con
  * un error que no nombra a este archivo.
+ *
+ * `puerto` es opcional: sin él, sale de la cabecera como siempre (el lienzo de avisos).
  */
-export function curvaEntre(a: NodoFlujo, b: NodoFlujo): string {
-  const { x1, y1, x2, y2 } = puntas(a, b);
+export function curvaEntre(a: NodoFlujo, b: NodoFlujo, puerto?: string): string {
+  const { x1, y1, x2, y2 } = puntas(a, b, puerto);
   const dx = Math.max(38, Math.abs(x2 - x1) * 0.5);
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
-/** El punto medio de esa misma curva, donde va la etiqueta. */
-export function medioDeCurva(a: NodoFlujo, b: NodoFlujo): { x: number; y: number } {
-  const { x1, y1, x2, y2 } = puntas(a, b);
+/** El punto medio de esa misma curva, donde va la etiqueta (y el ＋ del medio). */
+export function medioDeCurva(a: NodoFlujo, b: NodoFlujo, puerto?: string): { x: number; y: number } {
+  const { x1, y1, x2, y2 } = puntas(a, b, puerto);
   return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
 }
 
@@ -130,17 +234,72 @@ export type VistaLienzo = { k: number; tx: number; ty: number };
  * El panel está anclado abajo a la izquierda, así que un nodo de la primera columna
  * queda detrás y se escribiría a ciegas. Lo que se corre es el LIENZO —no el panel, que
  * iría a tapar otra cosa— y sólo cuando hace falta: devuelve `null` si el nodo ya se ve.
+ *
+ * `margenIzq` es dónde EMPIEZA el panel (su margen más lo que la pantalla apoya a la
+ * izquierda, `insetIzq`) y `separacion`, el aire entre el panel y el nodo. El borde libre es
+ * `margenIzq + panelAncho + separacion`.
+ *
+ * ⚠️ HASTA EL 08/10 ERA `panelAncho + margen × 2` CON `margen = 12 + insetIzq` (revisión,
+ * lienzo-4): el inset izquierdo entraba DOS veces. En /chatbot (lista de 304 px, panel de 392)
+ * el nodo se corría a x = 1024 en vez de 720, y con «Probar» abierto (el teléfono en
+ * [924, 1284] de un lienzo de 1300) quedaba DEBAJO del teléfono: se editaba a ciegas justo
+ * donde la pantalla promete «se prueba lo que se edita». Sin inset izquierdo (/mensajes) las
+ * dos cuentas dan lo mismo.
+ *
+ * Y con `tope` (lo que la pantalla deja ver a la derecha: el ancho menos `insetDer`) el nodo
+ * no se corre más allá de donde termina: si no entra entero al lado del panel, se corre hasta
+ * el tope, y si ni eso lo mejora, no se corre.
  */
+/** El zoom con el que una tarjeta se lee: el encuadre inicial no arranca por debajo. */
+export const ZOOM_LEGIBLE = 0.85;
+/** Lo que queda libre a la izquierda de la entrada cuando el flujo no entra entero. */
+export const MARGEN_ENCUADRE = 24;
+
+/**
+ * La vista con la que abre un lienzo.
+ *
+ * ⚠️ NUNCA ARRANCA ILEGIBLE (08/10/2026). Hasta acá era «que entre todo»: con las ramas, un
+ * flujo de antes convertido a tarjetas (esperas, condiciones, «Si responde») mide diez
+ * columnas y quedaba al 30 %. Martín abrió /chatbot y vio un dibujo de tarjetas de tres
+ * píxeles. Ahora el zoom tiene un piso legible y, si así no entra, se ancla en la ENTRADA (el
+ * CRON): se arranca por el principio, como en ManyChat, y lo demás se recorre arrastrando.
+ *
+ * El ancho que se usa es el ÚTIL: lo que tapan la lista (insetIzq) y el panel de «Probar»
+ * (insetDer) no cuenta, o la primera tarjeta nace debajo de la lista y no se puede tocar.
+ */
+export function encuadreInicial(
+  grafo: Pick<GrafoFlujo, 'nodos' | 'ancho' | 'alto'>,
+  caja: { w: number; h: number; insetIzq?: number; insetDer?: number },
+): VistaLienzo {
+  const izq = caja.insetIzq ?? 0;
+  const wUtil = Math.max(1, caja.w - izq - (caja.insetDer ?? 0));
+  const ajuste = Math.min(1, Math.min(wUtil / Math.max(1, grafo.ancho), caja.h / Math.max(1, grafo.alto)));
+  const k = Math.max(ajuste, ZOOM_LEGIBLE);
+  const ancla = grafo.nodos.find((n) => n.tipo === 'entrada') ?? grafo.nodos[0];
+  const tx = grafo.ancho * k <= wUtil || !ancla
+    ? izq + (wUtil - grafo.ancho * k) / 2
+    : izq + MARGEN_ENCUADRE - ancla.x * k;
+  const ty = grafo.alto * k <= caja.h || !ancla
+    ? (caja.h - grafo.alto * k) / 2
+    : caja.h / 2 - (ancla.y + ancla.alto / 2) * k;
+  return { k, tx, ty };
+}
+
 export function vistaConPanel(
   v: VistaLienzo,
   nodoX: number,
   panelAncho: number,
-  margen: number,
+  margenIzq: number,
+  op: { separacion?: number; nodoAncho?: number; tope?: number } = {},
 ): VistaLienzo | null {
-  const libre = panelAncho + margen * 2;
+  const libre = margenIzq + panelAncho + (op.separacion ?? 12);
   const izquierdaEnPantalla = v.tx + nodoX * v.k;
   if (izquierdaEnPantalla >= libre) return null;
-  return { ...v, tx: v.tx + (libre - izquierdaEnPantalla) };
+  const hasta = op.tope != null && op.nodoAncho != null
+    ? Math.min(libre, op.tope - op.nodoAncho * v.k)
+    : libre;
+  if (hasta <= izquierdaEnPantalla) return null;
+  return { ...v, tx: v.tx + (hasta - izquierdaEnPantalla) };
 }
 
 /**
@@ -175,13 +334,12 @@ export function vistaAlCerrarPanel(
   return antes;
 }
 
-/** De dónde sale y a dónde llega la flecha. El tope de 44 px hace que en un nodo
- *  alto la flecha salga a la altura de su CABECERA y no de su centro: apuntada al
- *  medio de una tarjeta de 300 px, la curva cruza por encima del texto. */
-function puntas(a: NodoFlujo, b: NodoFlujo) {
+/** De dónde sale y a dónde llega la flecha. La salida es la de su puerto (`yDePuerto`);
+ *  la llegada, a la altura de la cabecera del destino, con el mismo tope de 44 px. */
+function puntas(a: NodoFlujo, b: NodoFlujo, puerto?: string) {
   return {
     x1: a.x + a.ancho,
-    y1: a.y + Math.min(a.alto / 2, 44),
+    y1: yDePuerto(a, puerto),
     x2: b.x,
     y2: b.y + Math.min(b.alto / 2, 44),
   };

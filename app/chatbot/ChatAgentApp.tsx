@@ -22,10 +22,16 @@ import { Icon } from '@/app/_components/icons';
 // en vez del que está mirando.
 import Link from '@/app/_ui/Link';
 import { SecuenciaWizard } from './SecuenciaWizard';
-import { SimuladorWhatsApp } from './SimuladorWhatsApp';
+import { SimuladorWhatsApp, type AbrirSecuencia } from './SimuladorWhatsApp';
 import type { CronAviso } from '@/lib/cron-aviso';
-import { HandoffsPanel, type Handoff } from './HandoffsPanel';
-import { RecordatorioReunion } from './RecordatorioReunion';
+// ⚠️ ACÁ SE IMPORTABAN `HandoffsPanel` Y `RecordatorioReunion`, y se fueron el 08/10/2026 con
+// el pedido de Martín: «Elimina completamente lo de arriba ese form que ocupa toda la pantalla,
+// eso debería configurarse en las tarjetas» (punto 1) y «No entiendo por qué está el
+// "Recordatorio de la reunión" cuando eso debe configurarse en las tarjetas!!!» (punto 2).
+//   · Los casos que el formulario enseñaba son las ramas de la tarjeta «Si responde» del lienzo,
+//     y «Otra cosa» es el hand-off. `resolverHandoff` y su acción en /api/chat-agent/secuencias
+//     se quedan: los usa MaKo (`resolver_handoff`).
+//   · El recordatorio es un ítem más de la lista (RecordatorioFlujo), con sus tarjetas.
 // La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 import { abreEnQR, marcarWhatsappAlCargar, puertaAlRecargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
@@ -39,15 +45,16 @@ const marcarPasoWhatsapp = () => fetch('/api/chat-agent/onboarding', {
   body: JSON.stringify({ action: 'paso', paso: 'wa_no_oficial', tab: 'setting' }),
 });
 import type { Estrategia } from '@/lib/setting-estrategia';
+import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
+import type { MetricasSecuencia } from '@/lib/setting-metricas';
 
 export type PasoSecuenciaDto = {
   orden: number; canal: 'email' | 'whatsapp'; delay_horas: number;
   asunto: string | null; preheader?: string | null; cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
   /** 'ia' = MaKo reescribe el mensaje para cada lead (lib/paso-ia.ts); `cuerpo` es la base y el respaldo. */
-  tipo?: 'texto' | 'audio' | 'ia'; audio_id?: number | null;
+  tipo?: 'texto' | 'audio' | 'ia' | 'media'; audio_id?: number | null;
   /**
    * Condición para que el paso salga. La UI la NECESITA: los dos audios de
    * apertura de la post-agenda son mutuamente excluyentes y sin mostrarlo la
@@ -66,7 +73,13 @@ export type PasoSecuenciaDto = {
    * (`EditorAccionMako`), así que viaja tal cual del panel a la fila.
    */
   accion?: { operacion?: string; params?: Record<string, unknown> } | null;
-};
+} & CamposDelFlujo;
+/**
+ * Lo que un paso suma para ser un NODO de un flujo con ramas (lib/flujo-grafo.ts, pedido de
+ * Martín del 08/10/2026, punto 9). Todo opcional: una secuencia de antes no trae nada.
+ * `tipo: 'media'` es un archivo o una imagen de la biblioteca (`media_id`, por referencia).
+ */
+export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar' | 'media_id'>;
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
@@ -78,6 +91,8 @@ export type SecuenciaDto = {
   producto_id?: number | null;
   /** Por qué número de WhatsApp sale (mig 0198). `null`/ausente = la línea por default. */
   instance_name?: string | null;
+  /** La etiqueta que la dispara (`trigger_tipo: 'etiqueta_puesta'`, mig 0223). */
+  etiqueta_id?: number | null;
   /**
    * EL HORARIO con el que inscribe (mig 0192). `null`/ausente = se dispara por una
    * ACCIÓN, que es lo que hacen hoy todas las filas. Ver lib/nutricion-agenda.ts.
@@ -124,6 +139,12 @@ const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border:
 // El vocabulario (`?stab=`, y el id como parámetro) es el mismo de /whatsapp
 // —`?canal`, `?chat`, `?lead`, `?stab`— a propósito: un usuario que aprendió a
 // leer una URL de MaKo no tiene que volver a aprenderla en cada tab.
+//
+// ⚠️ `?sec=` ABRE EL LIENZO DE ESA AUTOMATIZACIÓN, NO EL WIZARD (revisión adversarial del
+// 08/10/2026, costuras-5). El aviso de una charla que pasó a una persona
+// (lib/chat-agent-handoff.ts) dice «súmalo como caso en «Si responde»» con este link, y el wizard
+// de 9 pasos no tiene «Si responde»: es la tarjeta del lienzo. Y el lienzo ES hoy el editor de
+// los mensajes, que es lo que el link de MaKo («Ver los 5 mensajes») prometía.
 export function ChatAgentApp() {
   // `useSearchParams` exige un boundary de Suspense, igual que en /whatsapp.
   return (
@@ -135,6 +156,8 @@ export function ChatAgentApp() {
 
 function ChatAgentInner() {
   const [secuencias, setSecuencias] = useState<SecuenciaDto[] | null>(null);
+  /** Respuestas que cayeron en «Otra cosa» sin resolver (ex banner del hand-off): las marca la tarjeta. */
+  const [sinCaso, setSinCaso] = useState<ReadonlyArray<{ secuenciaId: number | null }>>([]);
   const [rolAdmin, setRolAdmin] = useState(false);
   const [objetivos, setObjetivos] = useState<Opcion[]>([]);
   const [etapas, setEtapas] = useState<Opcion[]>([]);
@@ -146,14 +169,13 @@ function ChatAgentInner() {
   const [huecos, setHuecos] = useState<Array<{ etapa: string; label: string }>>([]);
   /** La zona del negocio: la dice el texto del horario, no se adivina. */
   const [tz, setTz] = useState<string | null>(null);
-  // Leads que escribieron algo fuera del guion: MaKo no contestó y espera que le
-  // enseñen el caso.
-  const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [audios, setAudios] = useState<AudioSetting[]>([]);
   // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
   const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
+  /** La automatización que pidió abrir el deep link `?sec=`: se abre en su LIENZO. */
+  const [abrirSec, setAbrirSec] = useState<AbrirSecuencia | null>(null);
   /**
    * El onboarding de esta tab es UNA pregunta: ¿hay un WhatsApp vinculado?
    *
@@ -200,9 +222,10 @@ function ChatAgentInner() {
       if (!j.ok) { errorCarga = j.error || 'No se pudieron cargar las secuencias de mensajes.'; throw new Error(errorCarga ?? ''); }
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
+      setSinCaso(Array.isArray(j.handoffs) ? (j.handoffs as Array<{ secuenciaId: number | null }>) : []);
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
       setProductos(j.productos ?? []); setDisparadores(j.disparadores ?? []);
-      setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []); setTz(j.tz ?? null);
+      setHuecos(j.huecos ?? []); setTz(j.tz ?? null);
       setNegocio(j.negocio ?? '');
       setCanal(j.canal ?? { estado: 'desconocido', desde: null });
       estadoCanal = typeof j.canal?.estado === 'string' ? j.canal.estado : 'desconocido';
@@ -293,8 +316,8 @@ function ChatAgentInner() {
     if (!sec) { anclaAplicada.current = true; return; }
     // Hay que esperar a que carguen: sin la lista no se puede resolver ni la
     // clave ni comprobar que el id exista. Y comprobar que exista importa —
-    // abrir el wizard con un id de otro workspace mostraría una secuencia vacía
-    // en vez de decir que no está.
+    // abrir un id de otro workspace mostraría una secuencia vacía en vez de
+    // decir que no está.
     if (secuencias === null) return;
     // Se acepta el id numérico Y la clave («noshow»): MaKo arma el link desde el
     // catálogo de capacidades, donde tiene el nombre de la secuencia y no
@@ -303,7 +326,8 @@ function ChatAgentInner() {
     const hallada = Number.isInteger(n) && n > 0
       ? secuencias.find((s) => s.id === n)
       : secuencias.find((s) => s.clave === sec);
-    if (hallada) setWizard(hallada.id);
+    // Un objeto NUEVO por pedido: el mismo id en un segundo aviso vuelve a abrirla.
+    if (hallada) setAbrirSec({ id: hallada.id });
     anclaAplicada.current = true;
   }, [params, secuencias]);
 
@@ -476,10 +500,6 @@ function ChatAgentInner() {
         </div>
       )}
 
-      {rolAdmin && <HandoffsPanel handoffs={handoffs} onCambio={() => void load()} />}
-      {rolAdmin && <RecordatorioReunion />}
-
-
       {error && (
         <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>
       )}
@@ -502,6 +522,8 @@ function ChatAgentInner() {
           secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onWizard={(id) => setWizard(id)} onReload={() => void load()}
+          abrir={abrirSec}
+          handoffs={sinCaso}
           /* ⚠️ QUÉ ETAPAS QUEDARON SIN SECUENCIA — ERA UNA FRANJA ARRIBA DEL LIENZO.
              Primero fue una banda ámbar con las seis etapas enumeradas y un botón negro
              («haz que sea mucho más sutil»), después un renglón gris, y las dos le

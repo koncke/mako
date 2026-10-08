@@ -116,6 +116,13 @@ export type Borrador = {
   leadNombre: string | null; estado: string; createdAt: string;
   /** Por qué línea sale (mig 0198). `null` = la de por default. */
   linea: string | null;
+  /**
+   * El borrador es una NOTA DE VOZ (`setting_audios.id`) o un ARCHIVO (`setting_adjuntos.id`) de
+   * la biblioteca (mig 0223). Con uno de los dos, `texto` es el PIE que sale después del audio o
+   * junto al archivo, y no lo que se manda solo. La pantalla lo tiene que dibujar como lo que es.
+   */
+  audioId: number | null;
+  adjuntoId: number | null;
 };
 
 export async function crearBorrador(input: {
@@ -123,6 +130,10 @@ export async function crearBorrador(input: {
   origen?: string; secuenciaId?: number | null; paso?: number | null; inscripcionId?: number | null;
   /** Por qué línea sale cuando el setter lo mande (mig 0198). `null` = la de por default. */
   linea?: string | null;
+  /** Un paso de NOTA DE VOZ: el audio de la biblioteca. `texto` pasa a ser el pie. */
+  audioId?: number | null;
+  /** Un paso de ARCHIVO: el archivo de la biblioteca. `texto` pasa a ser el pie. */
+  adjuntoId?: number | null;
 }): Promise<void> {
   const supabase = await getTenantDb();
   // upsert anti-duplicado del toque (índice único parcial por inscripcion+paso).
@@ -137,6 +148,9 @@ export async function crearBorrador(input: {
     inscripcion_id: input.inscripcionId ?? null,
     instance_name: input.linea ?? null,
     estado: 'pendiente',
+    // Sólo cuando hay: así un borrador de texto se sigue guardando igual (mig 0223).
+    ...(Number(input.audioId) > 0 ? { audio_id: Number(input.audioId) } : {}),
+    ...(Number(input.adjuntoId) > 0 ? { adjunto_id: Number(input.adjuntoId) } : {}),
   };
   if (input.inscripcionId != null && input.paso != null) {
     await supabase.from('wa_borradores').upsert(fila, { onConflict: 'workspace_id,inscripcion_id,paso', ignoreDuplicates: true });
@@ -237,11 +251,13 @@ export async function listBorradores(): Promise<Borrador[]> {
   const supabase = await getTenantDb();
   const { data } = await supabase
     .from('wa_borradores')
-    .select('id, lead_id, telefono, texto, origen, secuencia_id, paso, estado, created_at, instance_name, leads(nombre)')
+    .select('id, lead_id, telefono, texto, origen, secuencia_id, paso, estado, created_at, instance_name, audio_id, adjunto_id, leads(nombre)')
     .eq('estado', 'pendiente')
     .order('created_at', { ascending: true })
     .limit(200);
   return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    audioId: r.audio_id == null ? null : Number(r.audio_id),
+    adjuntoId: r.adjunto_id == null ? null : Number(r.adjunto_id),
     id: r.id as number,
     leadId: (r.lead_id as number | null) ?? null,
     telefono: (r.telefono as string) ?? '',
@@ -264,12 +280,18 @@ export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok
   const { data: claimed } = await supabase.from('wa_borradores')
     .update({ estado: 'enviando' })
     .eq('id', id).eq('estado', 'pendiente')
-    .select('id, telefono, texto, lead_id, chat_jid, instance_name');
-  const b = ((claimed ?? []) as Array<{ id: number; telefono: string; texto: string; lead_id: number | null; chat_jid: string | null; instance_name: string | null }>)[0];
+    .select('id, telefono, texto, lead_id, chat_jid, instance_name, audio_id, adjunto_id');
+  const b = ((claimed ?? []) as Array<{ id: number; telefono: string; texto: string; lead_id: number | null; chat_jid: string | null; instance_name: string | null; audio_id: number | null; adjunto_id: number | null }>)[0];
   if (!b) return { ok: false, error: 'el borrador ya no está pendiente' };
 
   // Por la línea con la que se creó: el lead venía hablando con ESE número.
-  const r = await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid, linea: b.instance_name });
+  // ⚠️ UN BORRADOR DE AUDIO O DE ARCHIVO SALE COMO LO QUE ES (mig 0223). El de audio guardaba el
+  // texto «🎙 Nota de voz: …» y al aprobarlo al lead le llegaba ESE texto en vez del audio.
+  // Si el audio o el archivo ya no están, NO sale el pie solo como si fuera el mensaje: falla y
+  // el borrador vuelve a quedar pendiente.
+  const r = b.audio_id != null || b.adjunto_id != null
+    ? await enviarMediaDelBorrador(b)
+    : await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid, linea: b.instance_name });
   if (!r.ok) {
     // Falló el envío → devolvemos el borrador a 'pendiente' para reintentar.
     await supabase.from('wa_borradores').update({ estado: 'pendiente' }).eq('id', id);
@@ -278,6 +300,27 @@ export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok
   await supabase.from('wa_borradores').update({ estado: 'enviado', enviado_at: ahoraISO(), enviado_por: porEmail }).eq('id', id);
   await anotarPasoEnviado(id);
   return { ok: true };
+}
+
+/** El audio (con su pie después) o el archivo (con el pie como caption) de un borrador. */
+async function enviarMediaDelBorrador(b: {
+  telefono: string; texto: string; lead_id: number | null; instance_name: string | null; audio_id: number | null; adjunto_id: number | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const pie = (b.texto ?? '').trim();
+  if (b.audio_id != null) {
+    const { getAudio, audioBase64 } = await import('@/lib/setting-audios');
+    const audio = await getAudio(Number(b.audio_id));
+    const b64 = audio ? await audioBase64(audio) : null;
+    if (!audio || !b64) return { ok: false, error: audio ? 'no pude bajar el audio' : 'el audio ya no existe' };
+    const r = await enviarAudioYEspejar({ telefono: b.telefono, base64: b64, mimetype: audio.media_mime, leadId: b.lead_id, linea: b.instance_name });
+    if (r.ok && pie) await enviarYEspejar({ telefono: b.telefono, texto: pie, leadId: b.lead_id, linea: b.instance_name }).catch(() => { /* el audio ya salió: el pie es un extra */ });
+    return r;
+  }
+  const [{ getAdjunto, adjuntoBase64 }, { mediaDeAdjunto }] = await Promise.all([import('@/lib/setting-adjuntos'), import('@/lib/nutricion-grafo-motor')]);
+  const adj = await getAdjunto(Number(b.adjunto_id));
+  const b64 = adj ? await adjuntoBase64(adj) : null;
+  if (!adj || !b64) return { ok: false, error: adj ? 'no pude bajar el archivo' : 'el archivo ya no existe' };
+  return enviarMediaYEspejar({ telefono: b.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: pie || undefined, leadId: b.lead_id, linea: b.instance_name });
 }
 
 export async function descartarBorrador(id: number): Promise<void> {

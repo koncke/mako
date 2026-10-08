@@ -67,6 +67,25 @@ const SIN_LECTURA: CaminoBorrador = { via: null, motivo: 'No se pudo leer el est
 const LINEA_CAIDA: CaminoBorrador = { via: null, motivo: 'El número de este borrador está desconectado.', venceAt: null };
 const LINEA_IDA: CaminoBorrador = { via: null, motivo: 'El número de este borrador ya no está vinculado.', venceAt: null };
 const FUERA_DE_VENTANA: CaminoBorrador = { via: null, motivo: MOTIVO_FUERA_DE_VENTANA, venceAt: null };
+const AUDIO_SOLO_EMPRESA: CaminoBorrador = { via: null, motivo: 'La nota de voz sale sólo por tu número de empresa.', venceAt: null };
+const ARCHIVO_SOLO_EMPRESA: CaminoBorrador = { via: null, motivo: 'El archivo sale sólo por tu número de empresa.', venceAt: null };
+
+/** Lo que el borrador lleva además del texto (mig 0223). Con algo de esto, el oficial no tiene camino. */
+type MediaDelBorrador = { audioId?: number | null; adjuntoId?: number | null };
+
+/**
+ * ⚠️ UN BORRADOR CON NOTA DE VOZ O CON ARCHIVO NO TIENE CAMINO OFICIAL (revisión del 08/10/2026).
+ * El oficial manda TEXTO (`sendToContact`), y el borrador de un paso de audio o de archivo guarda
+ * el PIE en `texto` y el audio o el archivo aparte: aprobado por el oficial, al lead le llegaba
+ * sólo el pie («te dejo el link abajo 👇»), el borrador quedaba 'enviado', el paso se anotaba
+ * como salido y el audio no salía nunca. Es lo que lib/evolution-envio.ts dice evitar («NO sale
+ * el pie solo como si fuera el mensaje»). `null` = no lleva nada aparte.
+ */
+function sinCaminoOficial(b: MediaDelBorrador): CaminoBorrador | null {
+  if (Number(b.audioId) > 0) return AUDIO_SOLO_EMPRESA;
+  if (Number(b.adjuntoId) > 0) return ARCHIVO_SOLO_EMPRESA;
+  return null;
+}
 
 type VentanaPersona = { abierta: boolean; venceAt: number | null };
 
@@ -101,7 +120,7 @@ async function ventanasOficiales(paginas = 12): Promise<Map<string, VentanaPerso
  * borrador.
  */
 export async function caminosDeEnvio(
-  borradores: Array<{ id: number; telefono: string | null; linea?: string | null }>,
+  borradores: Array<{ id: number; telefono: string | null; linea?: string | null } & MediaDelBorrador>,
 ): Promise<Map<number, CaminoBorrador>> {
   const out = new Map<number, CaminoBorrador>();
   if (!borradores.length) return out;
@@ -121,7 +140,10 @@ export async function caminosDeEnvio(
     } else if (def && viva(def.estado)) {
       out.set(b.id, POR_EMPRESA);
     } else {
-      sinLinea.push(b);
+      // Sin el número de empresa vivo, lo que queda es el OFICIAL: un audio o un archivo ahí no.
+      const sinOficial = sinCaminoOficial(b);
+      if (sinOficial) out.set(b.id, sinOficial);
+      else sinLinea.push(b);
     }
   }
   if (!sinLinea.length) return out;
@@ -151,11 +173,14 @@ export async function caminosDeEnvio(
   return out;
 }
 
-type BorradorFila = { id: number; telefono: string | null; texto: string | null; estado: string; instance_name: string | null };
+type BorradorFila = {
+  id: number; telefono: string | null; texto: string | null; estado: string; instance_name: string | null;
+  audio_id: number | null; adjunto_id: number | null;
+};
 
 async function leerBorrador(id: number): Promise<BorradorFila | null> {
   const db = await getTenantDb();
-  const { data } = await db.from('wa_borradores').select('id, telefono, texto, estado, instance_name').eq('id', id).maybeSingle();
+  const { data } = await db.from('wa_borradores').select('id, telefono, texto, estado, instance_name, audio_id, adjunto_id').eq('id', id).maybeSingle();
   return (data as BorradorFila | null) ?? null;
 }
 
@@ -165,6 +190,9 @@ async function leerBorrador(id: number): Promise<BorradorFila | null> {
  * vez por clic (cada cálculo es una lectura paginada de la bandeja).
  */
 async function mandarPorOficial(b: BorradorFila, porEmail: string): Promise<{ ok: boolean; error?: string }> {
+  // La segunda red (la primera es el camino): el oficial manda texto, y el pie solo NO es el mensaje.
+  const sinOficial = sinCaminoOficial({ audioId: b.audio_id, adjuntoId: b.adjunto_id });
+  if (sinOficial) return { ok: false, error: sinOficial.motivo ?? 'sale sólo por tu número de empresa' };
   const texto = (b.texto ?? '').trim();
   if (!texto) return { ok: false, error: 'el borrador no tiene texto' };
 
@@ -205,7 +233,7 @@ export async function enviarBorradorPorSuCanal(id: number, porEmail: string): Pr
   const b = await leerBorrador(id);
   if (!b || b.estado !== 'pendiente') return { ok: false, error: 'el borrador ya no está pendiente' };
 
-  const camino = (await caminosDeEnvio([{ id: b.id, telefono: b.telefono, linea: b.instance_name }])).get(b.id);
+  const camino = (await caminosDeEnvio([{ id: b.id, telefono: b.telefono, linea: b.instance_name, audioId: b.audio_id, adjuntoId: b.adjunto_id }])).get(b.id);
   if (camino?.via === 'empresa') return enviarBorrador(id, porEmail);
   if (camino?.via === 'oficial') return mandarPorOficial(b, porEmail);
   return { ok: false, error: camino?.motivo ?? SIN_CANAL.motivo ?? 'No hay por dónde mandarlo.' };

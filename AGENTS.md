@@ -679,7 +679,7 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   proveedores que no entrenan), le sacó Gemini a un cliente que sólo tiene Gemini y dejó
   abiertos el «sí», la pendiente y el historial. Ver `docs/hallazgos-ia.md`.
 
-Siete cosas que no se ven en el código y ya mordieron:
+Ocho cosas que no se ven en el código y ya mordieron:
 
 1. **Con el token CLÁSICO, por HTTP nadie confirma por su cuenta.** Un bearer que propone y
    confirma con un `sleep` en el medio es escribir directo con delay. Solo un clásico
@@ -722,6 +722,13 @@ Siete cosas que no se ven en el código y ya mordieron:
    camino de reintento nuevo que se olvide. Y quien propone desde el doer le pasa a
    `crearPendiente` el inicio del turno (`mismoTurnoDesde`): la misma pendiente no se guarda
    dos veces en un turno.
+8. **Una capacidad nueva del doer se prueba con el turno que CORRE, no con uno armado a
+   mano.** Qué herramientas viajan lo decide `herramientasDelTurno` (`lib/doer-herramientas.ts`)
+   sobre el veredicto de `clasificarIntencion`, y el test pasa por las dos con las frases como
+   las escribe la persona (molde: `tests/agenda-whatsapp.test.ts`). Armado con
+   `toolsDelRegistro` suelto, el test de agenda dio verde mientras 3 de sus 5 pedidos llegaban
+   sin la herramienta (08/10/2026). Y el presupuesto de 12.000 caracteres ordena por
+   relevancia CONTRA EL TEXTO: sumar un área sin sumar relevancia no trae la acción.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
@@ -748,6 +755,9 @@ skill a cualquier token del workspace y abría el reporte sin trato.
   que en la def). `tests/api-mako-rest.test.ts` falla hasta que alguien le diseña la URL.
 - **Ninguna operación del registro administra credenciales** (acuñar, editar, regenerar o revocar
   tokens): un token filtrado se perpetuaría. El mismo test lo frena.
+- **Una acción que CREA algo devuelve su id en `Ejecutado.datos`** (`{ claseId }`, `{ clave }`): viaja
+  hasta la respuesta 200 de la escritura directa (`ResultadoFlujo.datos`, lib/api-mako/flujo.ts). Sin el
+  id, quien crea por la API no puede seguir trabajando sobre lo que creó.
 - **«Ya está así» con `yaEstaba: true` también importa por HTTP:** con un detallado, una acción
   que no cambia nada devuelve 200 `sinCambios` (lo idempotente de un `PUT`); sin la marca es un
   422 que el integrador lee como falla.
@@ -6420,19 +6430,24 @@ De ahí las dos reglas de cualquier pantalla tipo flujo en este repo:
 2. **Sólo se dibuja la rama que el motor EJECUTA.** Se ata con un guard que lee las
    condiciones de la fuente del motor y falla si las dos listas se separan, en
    cualquiera de las dos direcciones (molde: `CONDICIONES_VIVAS` en
-   `lib/flujo-conversacion.ts` + `tests/flujo-conversacion.test.ts`).
+   `lib/flujo-conversacion.ts` + `tests/flujo-conversacion.test.ts`, que lo mide contra el
+   `switch` de `cumpleFila` en `lib/flujo-grafo.ts`: lo que evalúan el motor y «Probar»).
 
 ⚠️ **Y al medir qué ejecuta el motor, contá las líneas que DECIDEN, no las que nombran
 el campo.** La primera versión de ese guard sumaba el SANEO —que sólo dice qué valores
 se guardan— y concluía que el motor evalúa una condición que ignora: habría dado
-permiso para dibujar la bifurcación muerta. Lo que decide es un `if` del despachador o
-el `findIndex` que salta al paso siguiente.
+permiso para dibujar la bifurcación muerta. Lo que decidía era un `if` del despachador o
+el `findIndex` que salta al paso siguiente; desde el flujo con ramas (08/10/2026), el
+`switch` de `cumpleFila`.
 
-⚠️ **Y el layout no se guarda mientras el grafo sea chico.** Guardar posiciones es un
-campo nuevo, y en este repo los pasos pasan por un saneo que reconstruye cada uno CAMPO
-POR CAMPO y descarta lo que no conoce: el layout se perdería en silencio en el primer
-guardado hecho desde otra pantalla. Medido antes de decidirlo: la secuencia más grande
-de la base tiene TRES pasos.
+⚠️ **Y el layout de /chatbot no se guarda.** Guardar posiciones es un campo nuevo, y en
+este repo los pasos pasan por un saneo que reconstruye cada uno CAMPO POR CAMPO y descarta
+lo que no conoce: el layout se perdería en silencio en el primer guardado hecho desde otra
+pantalla. Cuando se decidió, la secuencia más grande de la base tenía TRES pasos; desde el
+08/10/2026 una convertida tiene hasta 12 tarjetas (el tope es 60) y la razón es otra: el
+flujo es un ÁRBOL (un padre por tarjeta, las ramas se juntan con «Ir a»), así que el layout
+se DERIVA del dato igual que las aristas (`lib/flujo-conversacion.ts`). Las posiciones
+guardadas son del lienzo de /mensajes (`app/agencia/FlujoAviso.tsx`).
 
 ## Y el gesto de un lienzo: pointer events, con tres trampas medidas
 
@@ -6493,13 +6508,16 @@ Si la afirmación es «esto no vuelve a aparecer», el universo es el archivo en
   WhatsApp» era un nodo y el dueño lo tumbó con la frase que lo resume: «es un paso
   que no hace nada». Por dónde sale un mensaje es una propiedad del mensaje. La
   prueba antes de agregar un nodo: **¿esto ocurre, o esto es un campo?** Si es un
-  campo, va adentro del nodo al que pertenece — incluida su advertencia.
+  campo, va adentro del nodo al que pertenece — incluida su advertencia. La espera de
+  /chatbot es la prueba al revés: era un campo (`delay_horas`, dibujado sobre la flecha y sin
+  forma de quitarla) y el 08/10/2026 pasó a ser la tarjeta «Esperar», porque ocurre.
 - **Todo lo que no es el dibujo FLOTA sobre el lienzo.** Con topbar, cabecera y pie
   en sus propios renglones se le comían ~180 px de 620 y el grafo entraba al 33%:
   tarjetas del tamaño de una uña. Y lo que estaba abajo queda DEBAJO, no al lado —
   el botón de guardar terminó pintado detrás del dibujo. La capa flotante va con
   `pointerEvents: none` y su contenido con `auto`, o la franja se traga el paneo.
-- **Al arrastrar un nodo, el delta del mouse se DIVIDE POR LA ESCALA.** Al 50%, mover
+- **Al arrastrar un nodo (en el lienzo de /mensajes: el de /chatbot no guarda posiciones),
+  el delta del mouse se DIVIDE POR LA ESCALA.** Al 50%, mover
   el cursor 100 px tiene que mover la tarjeta 200 en coordenadas del grafo. El
   guardado va al soltar y con un respiro (un POST por `pointermove` son sesenta por
   segundo), es optimista, y las posiciones se PODAN: la coordenada de un nodo que ya
@@ -7076,10 +7094,54 @@ es el camino que ya guarda el borrador al desmontar.
 `useState(props.…)`.** Pasar de «se abre» a «siempre visible» no toca una línea del
 componente y le cambia el ciclo de vida entero.
 
+# /chatbot es un FLUJO CON RAMAS: lo que gobierna el código nuevo
+
+Desde el 08/10/2026 una automatización del Chatbot es un grafo dentro de
+`nutricion_secuencias.pasos`: el modelo vive en `lib/flujo-grafo.ts`, el porqué en
+`docs/chatbot-flujo-ramas-diseno.md` y lo que costó en `docs/hallazgos-chatbot.md`. Lo leen cuatro
+lugares —el motor, el lienzo, «Probar» y el conversor de las secuencias de antes— y se separan en la
+primera edición si uno tiene su propia idea del orden.
+
+- **Un paso es un NODO con `id` estable y su `siguiente`**; el orden del array no es el orden del
+  flujo. Un escritor que inserta un paso le da `nuevoId`: uno sin id toma `o<índice>`, y al principio
+  de la lista le cambia el id al paso que ya estaba ahí.
+- **La entrada es `raizSalida(pasos)`, nunca `pasos[0]`**, y dónde está una inscripción lo traduce
+  UNA puerta, `indiceActual` (`lib/nutricion-grafo-motor.ts`): `paso_actual` es un índice y no se lee
+  directo.
+- **«Lo que viene después» sale de `puertosDe` y de los «Ir a»** (`alcanzablesDesde`), nunca de
+  `pasos.slice(i + 1)`: lo de abajo en el array puede ser otra rama.
+- **Tener ids no es ser un flujo.** La pregunta es `esFlujoExplicito` (`lib/flujo-legado.ts`), y un
+  flujo nunca pasa por `legadoAGrafo`, que lo aplasta en una fila. `esGrafo` no sirve para esto:
+  `setSecuenciaPasos` le pone ids `o<i>` a cualquier lista de antes.
+- **La limpieza de una secuencia convertida conserva el logro** (`limpiezaPara`), y sin estrategia no
+  se escribe ninguna. Se convierte lo que el motor LEE: la estrategia parseada. Y toda operación que
+  el conversor o el lienzo generan existe en el registro (`porId`).
+- **«Otra cosa» sin respuesta de MaKo cierra la CHARLA, no el estado**: `conversacion_cerrada_at`
+  puesto y `conversacion_cierre` null explícito (`cerradaPorUnaPersona`). Una inscripción congelada
+  en 'handoff' ya no tiene quién la suelte.
+- **Lo que la pantalla pinta como heredado sale de la misma función que usa el motor**
+  (`revisarHeredado` → `saleSolo`, `escenariosDeRespuesta`), y «Probar» corre el MISMO dato con las
+  MISMAS funciones (`lib/simulador-grafo.ts`): ninguno tiene su propio orden ni su propio reemplazo
+  de variables.
+- **Todo destino «a mi…» sale de la fila PROPIA de la sesión** (`destinoDelQueMira`), nunca de
+  `getPerfil` (que, viendo como cliente, devuelve al admin del cliente) ni del contacto de reportes
+  del workspace.
+- **Todo escritor de `pasos` pasa por `setSecuenciaPasos`**, que normaliza, valida con `validarGrafo`
+  y rechaza lo imposible: un archivo por el oficial o por email, un «Ir a» a la misma automatización,
+  una acción que no existe. Y una lista SIN IDS no pisa un flujo de tarjetas (`puedePisarFlujo`):
+  un escritor que arma `pasos` de cero se rechaza en vez de aplanar las ramas en silencio, porque
+  una lista lineal es un flujo válido. Re-grabar un audio del onboarding sobre un flujo sólo le
+  cambia el audio a su tarjeta (`audiosDeLaListaEnElFlujo`).
+- **Una migración con columnas que el código ya lee va ANTES del deploy** (la 0223, la 0224 y la
+  0225), y lo que tolera su ausencia distingue la tabla que falta (PGRST205 o 42P01) de la columna que
+  falta (42703 o PGRST204): sólo la tabla se tolera.
+- **Un guard con regex sobre un fuente tolera CRLF**: `\r?\n`, nunca `\n` solo. En el clon de
+  Windows los archivos llegan en CRLF.
+
 # Un TIPO DE NODO nuevo son CINCO puertas; un CAMPO del nodo es UNA rama
 
 Cuando a un paso del lienzo le falta una capacidad —que el mensaje lo escriba la IA, que
-lleve un archivo, que espere una respuesta— la salida que aparece primero es un tipo de
+lleve un archivo— la salida que aparece primero es un tipo de
 nodo nuevo. ManyChat eligió eso (su AI Step es un paso del lienzo) y acá se paga cinco
 veces: hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
 (`grafoDeSecuencia` en `lib/flujo-conversacion.ts`), al panel (`EditorDeNodo` en
@@ -7094,6 +7156,17 @@ adentro del paso y una rama en el motor.** Nodo nuevo sólo cuando el nodo hace 
 campo nuevo en la pantalla para quien sólo escribe texto, y las filas que ya están siguen
 válidas sin tocar una.
 
+**Y el 08/10/2026 SÍ nacieron cuatro clases de nodo** —`esperar`, `condicion`, `respuesta` («Si
+responde») e `ir_a`— porque cada una hace OTRA cosa que mandar un mensaje: esperar, bifurcar por el
+lead, bifurcar por lo que contesta y saltar. Van en un campo APARTE, `nodo`, y no en `tipo`: `tipo`
+dice de qué está hecho un mensaje y lo tocan `pasoAVoz`, `pasoATexto` y la API, así que con un solo
+campo «pasar a voz» convertía una condición en un audio. Y la clase la decide UNA función
+(`claseDe`, `lib/flujo-grafo.ts`) que leen el lienzo, el motor, «Probar» y el conversor: las puertas
+siguen siendo varias, pero ya ninguna adivina. La que sigue cobrando es la de siempre: todo lo que
+recorre `pasos` (la prueba, el generador, las tools de la API, `lib/secuencias-audios.ts`,
+`email.run`) tiene que saltear lo que no es un mensaje, y un campo nuevo del nodo pasa por
+`camposDelFlujo` en `setSecuenciaPasos` o se pierde en el primer guardado.
+
 Tres corolarios, los tres con precedente pagado:
 
 - **El campo de siempre no se mueve adentro de un sub-objeto.** `cuerpo` es obligatorio
@@ -7106,11 +7179,14 @@ Tres corolarios, los tres con precedente pagado:
   único compatible con un saneo que reconstruye campo por campo: un base64 metido en el
   jsonb del paso se pierde en el primer guardado hecho desde otra pantalla. Y de paso es
   mejor producto — el mismo PDF de precios se usa en diez secuencias y se cambia en un
-  lugar. El molde es `audio_id` (`lib/setting-audios.ts`).
+  lugar. El molde es `audio_id` (`lib/setting-audios.ts`), y desde el 08/10/2026 el archivo
+  también: `media_id` → `setting_adjuntos` (mig 0225).
 - **Una combinación IMPOSIBLE es una validación al guardar, no una nota en la
   documentación.** Un paso con adjunto por la vía oficial exige `template_wa`, y una
   plantilla aprobada por Meta no lleva un archivo arbitrario: media + oficial no se puede
-  guardar. Sin esa puerta, el dueño lo descubre en el log de un cron.
+  guardar. Sin esa puerta, el dueño lo descubre en el log de un cron. Desde el 08/10/2026 la
+  puerta existe: `problemaDeMedia` (en `setSecuenciaPasos`, `lib/nutricion.ts`) rechaza un archivo
+  sin elegir, uno por email y uno por el oficial.
 
 # La previsualización de un editor no puede resolver un token que el motor NO resuelve
 

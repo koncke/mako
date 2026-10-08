@@ -44,6 +44,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 
 import { profundidadModales } from '@/app/_components/pila-modales';
 import { FichaCambioProvider } from './lead-view/ficha-cambio';
+import { EtiquetasDelLead, versionDeEtiquetas } from './lead-view/EtiquetasDelLead';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -311,6 +312,12 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
             </span>
           )}
+        </div>
+
+        {/* Las ETIQUETAS del lead (mig 0224): chips con ×, y «＋ Etiqueta». Su renglón propio,
+            debajo de producto y etapa: son otra pregunta («qué es este lead»), no su posición. */}
+        <div style={{ padding: '0 clamp(16px,4vw,28px) 14px' }}>
+          <EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />
         </div>
 
         {/* tabs + cuerpo scrolleable */}

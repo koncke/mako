@@ -40,6 +40,11 @@ const SIN_HTTP = ['whatsapp', 'app'] as const;
 
 const leadId = (desc = 'id del lead (de buscar_leads o listar_leads).'): Parametro =>
   ({ nombre: 'leadId', tipo: 'number', descripcion: desc, obligatorio: true, entero: true, minimo: 1 });
+// En la agenda de Google una reunión NO siempre es con un lead: «agendame una reunión mañana
+// a las 12 que se llame PRUEBA» es un evento del negocio (pedido de un cliente inmobiliario,
+// 08/10/2026). Sin lead se la busca por el día y la hora que dijo la persona.
+const leadIdOpcional = (desc: string): Parametro =>
+  ({ nombre: 'leadId', tipo: 'number', descripcion: desc, entero: true, minimo: 1 });
 const fechaIso = (nombre: string, desc: string, obligatorio = false): Parametro =>
   ({ nombre, tipo: 'string', descripcion: desc, max: 10, ...(obligatorio ? { obligatorio: true } : {}) });
 const cualReunion: Parametro = { nombre: 'cual', tipo: 'string', enum: ['R1', 'R2'], obligatorio: true, descripcion: 'qué reunión: R1 (primera) o R2 (segunda).' };
@@ -48,6 +53,19 @@ const cualReunion: Parametro = { nombre: 'cual', tipo: 'string', enum: ['R1', 'R
 // producto al embudo hay dos saltos, y un id del otro catálogo que coincida con un embudo
 // movería al lead en el producto equivocado sin un solo error. Por eso se llama `embudoId`.
 const embudoId: Parametro = { nombre: 'embudoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el producto del CRM, por el id de su embudo (de productos_del_lead). NO es el id de listar_productos.' };
+// ⚠️ LAS ETIQUETAS DEL CRM VAN POR SU ID (mig 0224), nunca por el nombre: renombrar una etiqueta no
+// puede romper una automatización que la pone. Lo leen las siete operaciones de etiquetas y el
+// paso «⚡ Acción» de un flujo, que la elige de un desplegable (app/_components/EditorAccionMako.tsx).
+const etiquetaId = (desc = 'id de la etiqueta (de listar_etiquetas).'): Parametro =>
+  ({ nombre: 'etiquetaId', tipo: 'number', descripcion: desc, obligatorio: true, entero: true, minimo: 1 });
+// El vínculo a una etapa y la etiqueta del celular, que comparten crear y editar.
+const camposEtiqueta: readonly Parametro[] = [
+  { nombre: 'color', tipo: 'string', max: 7, descripcion: 'color en hex, #RRGGBB (por ejemplo #5E81AC).' },
+  { nombre: 'emoji', tipo: 'string', max: 16, descripcion: 'un emoji opcional que se muestra delante del nombre.' },
+  { nombre: 'etapa', tipo: 'string', max: 60, descripcion: 'key de la etapa del CRM a la que se vincula (de ver_funnel o productos_del_lead). Vinculada, ponerla mueve al lead a esa etapa, y entrar o salir de la etapa la pone o la saca.' },
+  { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el producto del CRM de esa etapa, por el id de su embudo (de productos_del_lead). Sin él, el producto principal del negocio.' },
+  { nombre: 'waLabelId', tipo: 'string', max: 60, descripcion: 'la etiqueta del WhatsApp del celular a la que corresponde (de listar_etiquetas_whatsapp). Las de WhatsApp no se crean por API: se elige una que ya existe en el celular.' },
+];
 
 export const DEFS: readonly OperacionDef[] = [
   // ── Lecturas heredadas (lib/mako-tools.ts y lib/mako-doer-acciones.ts) ─────────
@@ -61,8 +79,13 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ficha_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Ficha de un lead',
-    descripcion: 'La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2. Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.',
+    descripcion: 'La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2 y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y no significa que no contestó). Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.',
     parametros: [leadId()],
+    // ⚠️ formulario_meta sale por TODOS los canales, a propósito (08/10/2026): es dato del lead
+    // como el teléfono y el email, que esta misma ficha ya entrega. Los dos caminos de afuera
+    // son el runner de HTTP (crm.run.ts → runMakoTool) y la ruta vieja de la skill
+    // (app/api/agente/consultar, que corre runMakoTool directo, sin ctx.canal): recortarlo en
+    // uno solo deja el otro abierto. El snapshot de HTTP fija ids, no campos: esto no lo frena nada.
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
@@ -273,6 +296,17 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
   },
   {
+    id: 'agenda_del_dia', area: 'crm', tipo: 'lectura',
+    // «qué tengo» en el título: es como se pregunta, y la relevancia del turno puntúa id +
+    // título doble. Lo mide tests/agenda-whatsapp.test.ts.
+    titulo: 'Agenda del día: qué tengo',
+    descripcion: 'Le MUESTRA a la persona todo lo que tiene un día en la agenda de Google del negocio (con o sin invitados), en su zona horaria. Tú NO ves la agenda: el sistema se la muestra directo y tú recibes sólo que se mostró. Úsala cuando pregunten qué tienen hoy, mañana o un día, o a una hora. Para mover, cambiar o cancelar una no hace falta: esas herramientas la encuentran con el día y la hora que dijo la persona.',
+    parametros: [fechaIso('fecha', 'YYYY-MM-DD del día a mirar.', true)],
+    // SIN http: es la agenda de Google del negocio; por chat la ve la persona y nunca el
+    // modelo (lib/agenda-sin-ia.ts), y por HTTP no hay persona.
+    salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
+  },
+  {
     id: 'link_agenda_calendly', area: 'crm', tipo: 'lectura',
     titulo: 'Link de Calendly para agendar',
     descripcion: 'La página pública de Calendly del negocio para la R1 o la R2, opcionalmente con el nombre y el email de un lead ya completados. Es lo que se manda cuando la reserva directa no se puede hacer. No crea nada en Calendly. Sin Calendly configurado devuelve el motivo, nunca la agenda de otro. El link lo arma el código: se pasa tal cual.',
@@ -312,6 +346,23 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Los productos del CRM del negocio (cada uno con su propio tablero de etapas), con el embudoId y las keys de etapa que piden agregar_lead_a_producto, quitar_lead_de_producto y mover_lead_en_producto. Con leadId, además, en cuáles está ese lead, en qué etapa de cada uno, cuál es su producto principal y si se lo puede quitar de alguno (solo con dos o más). Un lead puede estar en varios productos a la vez. El embudoId NO es el id de listar_productos (el catálogo de ofertas).',
     parametros: [{ nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads). Sin él, solo la lista de productos con sus etapas.' }],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
+  },
+  // Las ETIQUETAS del CRM (mig 0224, punto 12 del rediseño de /chatbot). Salen por HTTP a
+  // propósito: la sesión de la API de MaKo las pidió con sus rutas REST (diseño §3), y no traen
+  // conversaciones, transcripts ni datos del equipo.
+  {
+    id: 'listar_etiquetas', area: 'crm', tipo: 'lectura',
+    titulo: 'Etiquetas del CRM',
+    descripcion: 'Las etiquetas del CRM del negocio (las que se le ponen a un lead: «Seguimiento», «Cualificado»…) con su id, nombre, color, la etapa del CRM a la que está vinculada (si la hay), a qué etiqueta del WhatsApp del celular corresponde y cuántos leads la tienen. De aquí sale el etiquetaId que piden poner_etiqueta_lead, sacar_etiqueta_lead, editar_etiqueta y archivar_etiqueta. Las archivadas no se pueden poner y solo vienen si se piden.',
+    parametros: [{ nombre: 'incluirArchivadas', tipo: 'boolean', descripcion: 'true para ver también las archivadas (default false).' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'etiquetas_lead', area: 'crm', tipo: 'lectura',
+    titulo: 'Etiquetas de un lead',
+    descripcion: 'Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización; por la API HTTP no se dice QUÉ persona: sale «una persona»). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Una archivada viene con archivada en true: ya no cuenta en las automatizaciones. Pide el leadId (de buscar_leads).',
+    parametros: [leadId()],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
@@ -363,32 +414,58 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_agendar_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Agendar reunión, visita o cita',
-    descripcion: 'PROPONE agendar una reunión (o visita, o cita) con un lead en la agenda de Google del negocio e invitarlo por email (queda pendiente hasta el «sí»). Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento, el sistema se lo avisa a la persona directo (tú no lo ves, así que no afirmes que está libre); no lo bloquea: la agenda es del negocio. El lead necesita email, porque es a donde Google manda la invitación.',
+    descripcion: 'PROPONE agendar una reunión (o visita, o cita) en la agenda de Google del negocio (queda pendiente hasta el «sí»). Con un lead, lo invita por email; SIN lead es un evento del negocio, sin invitados, y entonces el título es obligatorio. Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento, el sistema se lo avisa a la persona directo (tú no lo ves, así que no afirmes que está libre); no lo bloquea: la agenda es del negocio.',
     parametros: [
-      leadId('id del lead (con email cargado).'),
+      leadIdOpcional('id del lead a invitar (con email cargado). Sin él, el evento no invita a nadie.'),
       fechaIso('fecha', 'YYYY-MM-DD del día de la reunión.', true),
       { nombre: 'hora', tipo: 'string', obligatorio: true, max: 5, descripcion: 'HH:MM de inicio, en 24 h y en la zona del negocio (ej. 10:30).' },
-      { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 240, descripcion: 'cuántos minutos dura (default 45).' },
-      { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'cómo se llama el evento (ej. «Visita al departamento de Palermo»). Si no lo dicen, se arma con el nombre del lead.' },
+      { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 240, descripcion: 'cuántos minutos dura (default 45). «De 1 h» son 60.' },
+      { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'cómo se llama el evento, como lo dijo la persona (ej. «PRUEBA», «Visita al departamento de Palermo»). Obligatorio sin lead; con lead, si no lo dicen, se arma con su nombre.' },
     ],
     // SIN http, por lo mismo que reuniones_agenda_lead y porque manda una invitación a
     // un tercero desde la cuenta de Google del negocio.
     canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
-    reversible: false, escribe: 'crea un evento en la agenda de Google del negocio, Google le manda la invitación al lead, y queda en el historial del lead',
+    reversible: false, escribe: 'crea un evento en la agenda de Google del negocio; si es con un lead, Google le manda la invitación y queda en su historial',
   },
   {
     id: 'proponer_mover_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Reagendar reunión, visita o cita',
-    descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) de un lead que ya está en la agenda de Google del negocio (queda pendiente hasta el «sí»). El sistema busca la reunión en la agenda: tú pasas el día y la hora que tiene HOY (fecha_actual, hora_actual) sólo si la persona los dijo, y la fecha y la hora nuevas como las dijo; el código arma la hora exacta. Tú NO ves la agenda: si hay varias o ninguna que coincida, el sistema se las muestra a la persona y tú le pides el día y la hora de la que quiere mover. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si no encuentra la que se nombró, NO crea una nueva.',
+    titulo: 'Mover o reagendar reunión, visita o cita',
+    descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). El sistema busca la reunión en la agenda: tú pasas el día y la hora que tiene HOY (fecha_actual, hora_actual) como los dijo la persona —sin lead, fecha_actual es obligatorio—, y la fecha y la hora nuevas como las dijo; el código arma la hora exacta. Tú NO ves la agenda: si hay varias o ninguna que coincida, el sistema se las muestra a la persona y tú le pides el día y la hora de la que quiere mover. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si no encuentra la que se nombró, NO crea una nueva.',
     parametros: [
-      leadId(),
-      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene HOY la reunión que se mueve, como lo dijo la persona. Sin esto, la única que tenga.'),
+      leadIdOpcional('id del lead de la reunión, si es con uno. Sin él se busca en el día de fecha_actual.'),
+      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene HOY la reunión que se mueve, como lo dijo la persona. Con lead y sin esto, la única que tenga; sin lead, obligatorio.'),
       { nombre: 'hora_actual', tipo: 'string', max: 5, descripcion: 'HH:MM que tiene HOY esa reunión, en 24 h, sólo si la persona la dijo.' },
       fechaIso('fecha', 'YYYY-MM-DD del día nuevo.', true),
       { nombre: 'hora', tipo: 'string', obligatorio: true, max: 5, descripcion: 'HH:MM nueva, en 24 h y en la zona del negocio.' },
     ],
     canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
-    reversible: false, escribe: 'cambia el horario del evento en la agenda de Google del negocio (Google les avisa a los invitados) y deja el cambio en el historial del lead',
+    reversible: false, escribe: 'cambia el horario del evento en la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja el cambio en su historial',
+  },
+  {
+    id: 'proponer_cambiar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar nombre o duración de una reunión',
+    descripcion: 'PROPONE cambiarle el nombre (el título) o la duración a una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). Para cambiarle el día o la hora, la que corresponde es proponer_mover_reunion. Se la encuentra como en proponer_mover_reunion: el día y la hora que tiene HOY, como los dijo la persona. Pasa sólo lo que cambia: el título nuevo, la duración nueva, o las dos.',
+    parametros: [
+      leadIdOpcional('id del lead de la reunión, si es con uno. Sin él se busca en el día de fecha_actual.'),
+      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene la reunión, como lo dijo la persona. Sin lead, obligatorio.'),
+      { nombre: 'hora_actual', tipo: 'string', max: 5, descripcion: 'HH:MM que tiene esa reunión, en 24 h, si la persona la dijo.' },
+      { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'el nombre nuevo, como lo dijo la persona.' },
+      { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 480, descripcion: 'cuántos minutos pasa a durar. «De 1 h» son 60.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
+    reversible: false, escribe: 'cambia el título o el fin del evento en la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja el cambio en su historial',
+  },
+  {
+    id: 'proponer_cancelar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cancelar o borrar una reunión, visita o cita',
+    descripcion: 'PROPONE cancelar (borrar) una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). Se la encuentra con el día y la hora que tiene, como los dijo la persona. No se deshace y Google les avisa a los invitados: el sistema le muestra a la persona cuál es y a cuántos les avisa antes de que diga que sí.',
+    parametros: [
+      leadIdOpcional('id del lead de la reunión, si es con uno. Sin él se busca en el día de fecha_actual.'),
+      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene la reunión, como lo dijo la persona. Sin lead, obligatorio.'),
+      { nombre: 'hora_actual', tipo: 'string', max: 5, descripcion: 'HH:MM que tiene esa reunión, en 24 h, si la persona la dijo.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
+    reversible: false, escribe: 'borra el evento de la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja la cancelación en su historial',
   },
   {
     id: 'marcar_asistencia_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
@@ -536,6 +613,63 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: TAB,
     reversible: true, escribe: 'cambia la etapa del lead en lead_funnel (solo en ese producto) y deja historial; ganar ahí invita al curso de ese producto si ese embudo tiene prendida la invitación',
+  },
+
+  // ── Etiquetas del CRM (mig 0224) ──────────────────────────────────────────────
+  // El CRUD es del admin (la pantalla también lo es); poner y sacar, de cualquiera del CRM. Las
+  // dos de un lead contestan `yaEstaba` cuando no cambia nada: con un token de escritura corren en
+  // el acto, y un paso «⚡ Acción» de un flujo no puede alarmar al dueño cada vez que se repite.
+  {
+    id: 'crear_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una etiqueta del CRM',
+    descripcion: 'PROPONE crear una etiqueta del CRM con su nombre y, si se quiere, color, emoji, la etapa del CRM a la que se vincula y la etiqueta del WhatsApp del celular a la que corresponde (queda pendiente hasta el «sí»). Si ya hay una con ese nombre, lo dice. Si el negocio tiene Chatwoot, también la crea allá.',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el nombre de la etiqueta, como se va a ver (hasta 40 caracteres).' },
+      ...camposEtiqueta,
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'una fila en crm_etiquetas (y, si el negocio tiene Chatwoot, la etiqueta en esa cuenta)',
+  },
+  {
+    id: 'editar_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Editar una etiqueta del CRM',
+    descripcion: 'PROPONE cambiar el nombre, el color, el emoji, la etapa vinculada o la etiqueta del WhatsApp del celular de una etiqueta del CRM (queda pendiente hasta el «sí»). Cambiar la etapa vale desde ahora: no les pone ni les saca la etiqueta a los que ya están en esa etapa. Para desvincular, sinEtapa o sinWhatsApp en true. Si no cambia nada, lo dice.',
+    parametros: [
+      etiquetaId(),
+      { nombre: 'nombre', tipo: 'string', max: 40, descripcion: 'el nombre nuevo (hasta 40 caracteres).' },
+      ...camposEtiqueta,
+      { nombre: 'sinEtapa', tipo: 'boolean', descripcion: 'true para desvincularla de su etapa.' },
+      { nombre: 'sinWhatsApp', tipo: 'boolean', descripcion: 'true para que deje de ponerse en el WhatsApp del celular.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'la fila de la etiqueta en crm_etiquetas (nombre, color, emoji, etapa vinculada o etiqueta de WhatsApp)',
+  },
+  {
+    id: 'archivar_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Archivar una etiqueta del CRM',
+    descripcion: 'PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»). Archivarla la APAGA: deja de ofrecerse y de poder ponerse, no dispara más las automatizaciones que arrancan con ella y las condiciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen conservan la fila como historia (su ficha la muestra «archivada»), y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.',
+    parametros: [
+      etiquetaId(),
+      { nombre: 'archivar', tipo: 'boolean', descripcion: 'false para recuperarla (default true, archivar).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'archivada_at de la etiqueta en crm_etiquetas (no borra nada)',
+  },
+  {
+    id: 'poner_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Ponerle una etiqueta a un lead',
+    descripcion: 'PROPONE ponerle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta y la pone también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).',
+    parametros: [leadId(), etiquetaId()],
+    canales: TODOS, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y ponerla en WhatsApp y Chatwoot',
+  },
+  {
+    id: 'sacar_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Sacarle una etiqueta a un lead',
+    descripcion: 'PROPONE sacarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa ni dispara nada; la saca también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).',
+    parametros: [leadId(), etiquetaId()],
+    canales: TODOS, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'borra la fila de crm_lead_etiquetas y deja una línea en el historial del lead; la saca de WhatsApp y Chatwoot',
   },
 
   // ── Acciones nuevas: pantalla (genérica /mako/revisar) ────────────────────────

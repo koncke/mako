@@ -75,8 +75,12 @@ test('⚠️ EL «SÍ» A LO QUE MaKo OFRECIÓ ES `actuar`; un «no», charla', 
 
 test('⚠️ el doer saca las herramientas que ESCRIBEN en una pregunta, y arma las recetas con lo que viajó', () => {
   const src = sinComentarios(leer('../lib/mako-doer-in.ts'));
-  assert.match(src, /const ofrece = intencion\.intencion === 'consultar' \|\| intencion\.intencion === 'pensar'/);
-  assert.match(src, /\.filter\(\(t\) => !ofrece \|\| !escribe\(t\.name\)/, 'en una pregunta vuelven a viajar las escrituras');
+  // La selección vive en lib/doer-herramientas.ts desde el 08/10/2026 (la misma que usa el
+  // test de agenda); el doer la llama y arma las recetas con lo que devolvió.
+  const sel = sinComentarios(leer('../lib/doer-herramientas.ts'));
+  assert.match(sel, /const ofrece = v\.intencion === 'consultar' \|\| v\.intencion === 'pensar'/);
+  assert.match(sel, /\.filter\(\(t\) => !ofrece \|\| !escribe\(t\.name\)/, 'en una pregunta vuelven a viajar las escrituras');
+  assert.match(src, /const \{ tools, ofrece \} = turno;/, 'el doer dejó de usar lo que eligió la selección');
   assert.match(src, /recetasDelTurno\(permitidasDelTurno, ofrece\)/, 'las recetas dejaron de salir de lo que viajó');
   assert.match(src, /makoPregunto: makoPreguntoAlgo\(/, 'el clasificador no sabe si MaKo ofreció algo');
 });

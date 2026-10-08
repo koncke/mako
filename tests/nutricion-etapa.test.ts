@@ -15,6 +15,7 @@ import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA 
 import { ambitoDeSecuencia, leadEnAmbito } from '../lib/nutricion-ambito';
 import { clientesEnEtapa } from '../app/customer-success/pertenencia';
 import type { EtapaEntrega } from '../lib/servicio-etapas';
+import { seccionesDisparo } from '../lib/flujo-conversacion';
 import { readFileSync } from 'node:fs';
 
 const TODOS = ambitoDeSecuencia(null, null);          // la secuencia no declara embudo
@@ -393,9 +394,19 @@ test('el editor de secuencias ofrece también los servicios SIN embudo', () => {
   const src = sinComentariosEtapa(bloqueDe('lib/setting-secuencias.ts', 'export async function productosConEtapas(', '\n}\n'));
   assert.match(src, /productosDeLaEntrega\(\)/, 'un servicio con kanban y sin embudo no se podía elegir como disparador');
   assert.match(src, /funnelId: null, productoId: p\.id/);
-  // Y el selector de producto de la VENTA no los lista: no tienen etapas de venta.
+  // Y las etapas de VENTA no los listan: no tienen. Desde el 08/10/2026 el producto viaja en
+  // el valor de UN desplegable de disparadores (`seccionesDisparo`, lib/flujo-conversacion.ts)
+  // y no hay un segundo desplegable de producto; lo que se cuida es lo mismo: un servicio sin
+  // embudo ofrece su ENTREGA y ninguna etapa de venta (un `funnelId` null sería «venta:null:…»).
+  // Probado rompiéndolo: sacar el `pr.funnelId == null` del armado → 1 rojo.
+  const secs = seccionesDisparo({
+    disparadores: [], etiquetas: [], actual: { trigger_tipo: 'entrega_actual', etapa: 'kick', producto_id: 11 }, textoActual: 'x',
+    productos: [{ funnelId: null, productoId: 11, nombre: 'Servicio', etapas: [{ value: 'kick', label: 'Kickoff' }], etapasEntrega: [{ value: 'kick', label: 'Kickoff' }] }],
+  });
+  assert.ok(!secs.some((s) => s.options.some((o) => o.value.startsWith('venta:'))), 'un funnelId null sería la opción «null»');
+  assert.ok(secs.some((s) => s.options.some((o) => o.value === 'entrega:11:kick')));
   const perfil = readFileSync(new URL('../app/chatbot/SecuenciaPerfil.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(perfil, /pr\.funnelId == null \? \[\] : \[\{ value: String\(pr\.funnelId\)/, 'un funnelId null sería la opción «null»');
+  assert.match(perfil, /const etapasCond: SeccionEtapas\[\] = productos\.flatMap\(\(pr\) => \(pr\.funnelId == null \|\| !pr\.etapas\.length \? \[\] : \[\{/, 'la condición «Está en la etapa» listaría un producto sin embudo');
 });
 
 // PROBADO ROMPIÉNDOLO (06/10/2026). Baseline del archivo: 24 pass / 0 fail. Cada rotura, de a una
