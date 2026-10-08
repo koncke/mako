@@ -265,6 +265,18 @@ test('editor: los chips del equipo dicen qué le falta y qué pide la clase; ni 
   assert.equal(cierraLaEtapa([clase(2, 'a', 0, { obligatoria: true })]), false, 'obligatoria SIN tarea no cierra');
 });
 
+test('editor: el chip cuenta las TAREAS que ve el alumno — la principal vacía no es una (revisión final, 08/10/2026)', () => {
+  // `tareasDeClase` devuelve la principal aunque esté vacía cuando hay secciones (el editor la necesita);
+  // contada, una clase con UNA sección decía «2 tareas» sobre lo que el alumno ve como una.
+  // Probado rompiéndolo: contar `tareasDeClase(c).length` pelado → 24 / 1 (este test).
+  const seccion = { id: 's1', label: 'Tu web', tipo: 'seccion' as const };
+  const pregunta = { id: 'q1', label: '¿Qué vendes?', tipo: 'linea' as const };
+  const textos = (o: Partial<Clase>) => chipsDelEditor(clase(3, 'a', 0, o), false).map((x) => x.texto);
+  assert.deepEqual(textos({ campos: [seccion, pregunta] }), ['Sin video', 'Formulario · 1']);
+  assert.deepEqual(textos({ tarea: 'Lee esto', campos: [seccion, pregunta] }), ['Sin video', '2 tareas']);
+  assert.deepEqual(textos({ campos: [pregunta, seccion] }), ['Sin video', '2 tareas']);
+});
+
 // ── Lo que se lee del fuente ─────────────────────────────────────────────────
 
 test('el CÓDIGO de CursoUgc no tiene caracteres de 3 bytes (van escapados): un reemplazo los volvió rombos una vez', () => {

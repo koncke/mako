@@ -22,7 +22,7 @@
 // ⚠️ NINGÚN 'use client' IMPORTA UN VALOR DE ACÁ: trae los prompts. La pantalla importa TIPOS.
 
 import {
-  sanearValores, respuestaCompleta, campoLleno, tieneTarea, tareaEnviada, nombreDeArea, ESTADOS_PROPUESTA,
+  sanearValores, respuestaCompleta, campoLleno, camposConRespuesta, tieneTarea, tareaEnviada, nombreDeArea, ESTADOS_PROPUESTA,
   type Campo, type Clase, type EstadoTarea, type ValorCampo, type Valores, type EstadoPropuesta, type PropuestaIA,
 } from './curso';
 import { parseJsonObject } from './json-del-modelo';
@@ -170,7 +170,10 @@ const CAMPO_LIBRE: Campo = { id: 'respuesta', label: 'Respuesta', tipo: 'texto' 
  */
 export function validarPropuesta(campos: readonly Campo[], actuales: Valores, raw: unknown): ValidacionPropuesta {
   if (!esObjetoPlano(raw)) return { ok: false, motivo: 'forma', detalle: 'no es un objeto' };
-  const lista = campos.length ? campos : [CAMPO_LIBRE];
+  // Sin las `seccion` (más de una tarea, 08/10/2026): no se contestan, y una clase con secciones y sin
+  // campos que se contesten es de respuesta libre, como una sin campos (`sanearValores`).
+  const conRespuesta = camposConRespuesta(campos);
+  const lista = conRespuesta.length ? conRespuesta : [CAMPO_LIBRE];
   const porId = new Map(lista.map((c) => [c.id, c]));
   const ajena = Object.keys(raw).find((k) => !porId.has(k));
   if (ajena) return { ok: false, motivo: 'clave-ajena', detalle: ajena };
@@ -275,7 +278,7 @@ export function candidatasDePropuesta(p: {
   for (const c of p.clases) {
     if (!tieneTarea(c)) continue;
     // Una tarea hecha sólo de campos que la IA no reescribe (un quiz, un archivo) no tiene qué proponer.
-    if (c.campos.length && !c.campos.some(esProponible)) continue;
+    if (camposConRespuesta(c.campos).length && !c.campos.some(esProponible)) continue;
     const areas = c.porArea === true && p.areas.length ? p.areas : [''];
     for (const area of areas) {
       const f = fila.get(`${c.id}|${area}`);
@@ -295,7 +298,7 @@ export function candidatasDePropuesta(p: {
 
 /** El formulario de una clase, con lo que el modelo necesita para respetar su forma. */
 function formularioDe(c: Clase): unknown[] {
-  if (!c.campos.length) return [{ id: 'respuesta', tipo: 'texto', pregunta: c.tarea.trim() || c.titulo }];
+  if (!camposConRespuesta(c.campos).length) return [{ id: 'respuesta', tipo: 'texto', pregunta: c.tarea.trim() || c.titulo }];
   return c.campos.filter(esProponible).map((x) => ({
     id: x.id, pregunta: x.label, tipo: x.tipo,
     ...(x.opciones?.length ? { opciones: x.opciones } : {}),
@@ -306,7 +309,7 @@ function formularioDe(c: Clase): unknown[] {
 
 /** Lo contestado, sin los campos que la IA no reescribe (la nota de un quiz, los paths de un archivo). */
 function soloProponible(c: Clase, valores: Valores): Valores {
-  if (!c.campos.length) return valores;
+  if (!camposConRespuesta(c.campos).length) return valores;
   const ids = new Set(c.campos.filter(esProponible).map((x) => x.id));
   return Object.fromEntries(Object.entries(valores).filter(([k]) => ids.has(k))) as Valores;
 }

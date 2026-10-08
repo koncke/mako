@@ -16,7 +16,9 @@
 //   · Una clase abierta, que se EDITA EN SU LUGAR (./LeccionEditable.tsx, items 13 a 17 del
 //     07/10/2026): el título con un clic, el video (o el recuadro de «Agregar video»), la ficha (tipo y
 //     minutos), y en el papel la descripción con el editor rico y DEBAJO la tarea. Sin «Editar», sin
-//     notas, sin «Grabar / No grabar» y sin pestañas: Martín pidió sacar las cuatro.
+//     notas, sin «Grabar / No grabar» y sin pestañas: Martín pidió sacar las cuatro. Desde el audio del
+//     08/10/2026 NO SE GUARDA SOLA: un borrador con su botón «Guardar», y salir con cambios pregunta
+//     (`useLeccionAbierta`, la guarda de salida vive ahí).
 //   · La ESTRUCTURA, editable en su lugar (items 6, 7, 8 y 12 del 07/10/2026): «+ Nuevo módulo» y
 //     «+ Nueva clase» primero, el nombre de un módulo con un clic (renombra su etapa del kanban),
 //     módulos y clases que se ARRASTRAN (el gesto del Plan), y el menú «…» de cada uno
@@ -46,7 +48,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pagina, PageHeader, EmptyState, ErrorState, Banner, Toast, useToast, useConfirm,
 } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
+import Link, { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import type { Clase } from '@/lib/curso';
 import { CAMPO_AREAS } from '@/lib/curso';
@@ -69,7 +72,11 @@ import {
 import { crearClaseAction, renombrarModuloAction } from './modulos-actions';
 import type { ModuloCurso } from '@/lib/curso-modulos';
 import { TOPE_NOMBRE_ETAPA } from '@/lib/servicio-etapas';
-import { leccionDelEditor, type CtxLeccion } from './LeccionEditable';
+import { leccionDelEditor, precargarLeccion, useLeccionAbierta, type CtxLeccion } from './LeccionEditable';
+import { precargarEditorRico } from './editor-rico-perezoso';
+import { guardarCampoClaseAction } from './modulos-actions';
+import { tieneTarea } from '@/lib/curso';
+import { motivoObligatoria, ofreceObligatoria } from './leccion-reglas';
 import type { EtapaVista } from './AvanceCurso';
 import type { OnboardingCurso } from './ChecklistCurso';
 // ── El editor de la ESTRUCTURA (pedido del 07/10/2026, items 3 a 9, 11 y 12) ──
@@ -88,6 +95,12 @@ import {
   clasesConDevueltas, clasesConMovida, clasesReclaveadas, clavesConMovido, conOrdenDe, estiloReclaveado, lugarDe, modulosEnOrden,
 } from './estructura';
 import { ModalInvitarAlumnos } from './InvitarAlumnos';
+// ── Pista GENERAL, audio del 08/10/2026 (items 13 y 17 de docs/feedback-curso-08oct.md) ──
+// «+ Nuevo producto» en el menú de la marca, y los comentarios de cada clase debajo de la lección.
+import { NuevoProducto } from './NuevoProducto';
+import { ComentariosClase } from '@/app/_cursos/ComentariosClase';
+import { apiDelEquipo } from '../comunidad/api-equipo';
+import { comentariosPrendidos } from '@/lib/curso-estilo';
 import type { ClaseUgc, ControlMenuUgc, ModuloUgc } from '@/app/_cursos/tipos';
 // La fuente del curso, en el menú de la marca al lado del color (item 3 del 08/10/2026).
 import { SelectorFuente } from '@/app/_cursos/SelectorFuente';
@@ -183,6 +196,8 @@ export function CursoApp({
   if (baseServicios !== servicios) { setBaseServicios(servicios); setModulosLocal({}); }
   /** «Invitar alumnos»: UN modal, que abren el botón de la barra de arriba y el menú de la marca. */
   const [invitando, setInvitando] = useState(false);
+  /** «+ Nuevo producto» (item 17 del audio del 08/10/2026): el diálogo del nombre, afuera del curso. */
+  const [creandoProducto, setCreandoProducto] = useState(false);
   /** Un cambio de la ESTRUCTURA esperando al server: los controles se apagan, no desaparecen. */
   const [estructurando, setEstructurando] = useState(false);
   /** La pregunta de antes de quitar una etapa o eliminar un módulo (./QuitarEtapa.tsx), afuera del curso. */
@@ -214,6 +229,15 @@ export function CursoApp({
   const { confirm, confirmNode } = useConfirm();
 
   const servicio = servicios.find((s) => s.productoId === productoId) ?? null;
+  /**
+   * El camino de los comentarios de una clase (item 13, mig 0227): las server actions de la comunidad del
+   * producto, con la sesión del equipo. Una por producto (cambiar de curso es otra comunidad). ⚠️ ANTES de
+   * cualquier `return` de esta pantalla: es un hook (AGENTS.md, los hooks no van detrás de un return).
+   */
+  const productoDelServicio = servicio?.productoId ?? null;
+  const apiComunidad = useMemo(() => (productoDelServicio != null ? apiDelEquipo(productoDelServicio) : null), [productoDelServicio]);
+  /** El `?ws=` de la pestaña: el link «Ver en Comunidad» es un `<a>` (vive adentro del curso) y lo necesita. */
+  const wsPestana = useWs();
 
   // El producto queda en la URL, para que recargar (o un link desde la ficha del cliente) vuelva
   // al mismo lugar. `replaceState` y no el router: el router volvería a pedir la página entera al
@@ -265,6 +289,44 @@ export function CursoApp({
     [etapasMin, porEtapa, huerfanas, estiloActual],
   );
   const porId = useMemo(() => new Map(delProducto.map((c) => [c.id, c])), [delProducto]);
+
+  // ── LA LECCIÓN ABIERTA SE GUARDA A MANO (audio del 08/10/2026, items 1 a 4; pista EDITOR) ──
+  // «Prefiero que haya un botón que me obligue a guardar de forma manual» (14:30). Lo que se edita adentro
+  // de la clase vive en un BORRADOR acá (`useLeccionAbierta`, ./LeccionEditable.tsx) hasta «Guardar», y
+  // salir con cambios pregunta: volver al índice, otra clase, otro curso, la vista del alumno (item 3:
+  // «que no te permita entrar a la vista del alumno hasta que se actualice todo») o un link de la app.
+  // ⚠️ ANTES de cualquier `return` de esta pantalla: es un hook.
+  const guardarDisposicionRef = useRef<(d: 'costado' | 'abajo') => Promise<boolean>>(async () => false);
+  const leccionAbierta = useLeccionAbierta({
+    clases: delProducto,
+    abierta: enClase ? pos.clase ?? null : null,
+    disposicion: disposicionDe(estiloActual ?? estiloVacio()),
+    puedeEditar,
+    guardarDisposicion: (d) => guardarDisposicionRef.current(d),
+    onClase: (x) => setClases((cs) => cs.map((y) => (y.id === x.id ? x : y))),
+    avisar: (t) => show(t, undefined, 'bad'),
+  });
+
+  // ── Abrir una clase sin esperar (item 18, 10:40: «está tardando mucho en cargar una clase») ──
+  // El editor rico baja A DEMANDA (./editor-rico-perezoso.tsx): se pide al pasar el cursor por una tarjeta
+  // de clase —con las URLs de sus imágenes, que si no van en fila detrás de las otras actions de la
+  // lección— y, por las dudas, cuando el navegador queda libre. Sólo para quien edita: es su editor.
+  useEffect(() => {
+    if (!puedeEditar) return;
+    const alPasar = (e: PointerEvent) => {
+      const el = (e.target as Element | null)?.closest?.('.ugc-editable[data-arr]');
+      if (!el) return;
+      precargarEditorRico();
+      const c = porId.get(Number(el.getAttribute('data-arr')));
+      if (c) precargarLeccion(c);
+    };
+    document.addEventListener('pointerover', alPasar, { passive: true });
+    const libre = window.setTimeout(() => {
+      const ric = (window as unknown as { requestIdleCallback?: (f: () => void) => number }).requestIdleCallback;
+      if (ric) ric(precargarEditorRico); else precargarEditorRico();
+    }, 2500);
+    return () => { document.removeEventListener('pointerover', alPasar); window.clearTimeout(libre); };
+  }, [puedeEditar, porId]);
 
   // ── EL «DESHACER» DE LA ESTRUCTURA (08/10/2026, item 18: «te falta el botón de arrepentimiento para
   //    muchas acciones, el de 5 segundos de "Deshacer"») ──
@@ -332,6 +394,8 @@ export function CursoApp({
       return;
     }
     setClases((cs) => cs.filter((x) => x.id !== c.id));
+    // Si era la lección abierta, su borrador se va con ella: no hay dónde guardarlo, y salir no pregunta.
+    leccionAbierta.soltar(c.id);
     if (pos.clase === c.id) navegar({ mod: c.etapa }, 'reemplazar');
     show('Clase borrada', () => { void devolverClases(c.productoId, [c.id]); });
   };
@@ -384,9 +448,12 @@ export function CursoApp({
   const primeraEtapa = modulosActuales[0]?.clave ?? null;
 
   const cambiarProducto = (id: number) => {
-    // Las etapas de dos productos pueden llamarse igual: la posición es de otro curso.
-    navegar({}, 'reemplazar');
-    setProductoId(id);
+    // Las etapas de dos productos pueden llamarse igual: la posición es de otro curso. Con la lección a
+    // medio guardar, primero la pregunta (Guardar / Descartar / Seguir editando).
+    leccionAbierta.pedirSalida(() => {
+      navegar({}, 'reemplazar');
+      setProductoId(id);
+    });
   };
 
   // ── La ESTRUCTURA del curso: módulos y clases (items 6, 7, 8 y 12) ──
@@ -670,6 +737,10 @@ export function CursoApp({
     }
   };
 
+  // «Texto al costado / Texto abajo» se edita en el BORRADOR de la lección y se guarda con «Guardar» (audio
+  // del 08/10/2026, contrato (1)): es un ajuste del CURSO, así que va por su camino de siempre.
+  guardarDisposicionRef.current = (d) => guardarAjuste({ tipo: 'disposicion' }, d === 'abajo' ? 'abajo' : null);
+
   /** El color «otro»: el selector nativo dispara un cambio por cada movimiento; se guarda al quedarse quieto. */
   const probarAcento = (hex: string) => {
     if (productoId == null) return;
@@ -784,6 +855,8 @@ export function CursoApp({
     const vinculado = modulosActuales.find((m) => m.clave === c.etapa)?.vinculado ?? false;
     return {
       ...u,
+      // La lección abierta dibuja su título del BORRADOR (el clic en el título lo edita ahí, sin guardar).
+      ...(leccionAbierta.claseId === u.id && leccionAbierta.borrador ? { titulo: leccionAbierta.borrador.titulo } : {}),
       chips: [...chipsDelEditor(c, vinculado), ...(candadoChip ? [candadoChip] : [])]
         .map((ch) => <ChipUgc key={ch.texto} tono={ch.tono}>{ch.texto}</ChipUgc>),
     };
@@ -812,8 +885,25 @@ export function CursoApp({
       deshacer: (t, f) => show(t, f),
       // «Una respuesta por área» (items 9 y 15) se ofrece si el curso les pide a sus clientes sus áreas.
       cursoPideAreas: delProducto.some((x) => x.campos.some((f) => f.id === CAMPO_AREAS)),
+      // El borrador de la lección abierta y su barra de «Guardar» (audio del 08/10/2026, item 1).
+      leccion: leccionAbierta,
     };
-    return leccionDelEditor(c, ctx);
+    const l = leccionDelEditor(c, ctx);
+    // LOS COMENTARIOS DE LA CLASE (item 13 del audio del 08/10/2026, minuto 15:00: «un apartado de chat…
+    // para chatear acerca de esa clase»), en el hueco de abajo de la lección: el equipo los lee y contesta
+    // acá, y los ve también en la tab Comunidad («Ver en Comunidad», `?post=`). Sólo con el ajuste
+    // prendido en el menú de la marca. Lo que ya traiga la lección en ese hueco va primero.
+    if (!comentariosPrendidos(estiloActual) || !apiComunidad) return l;
+    return {
+      ...l,
+      despues: (
+        <>
+          {l.despues}
+          <ComentariosClase key={c.id} api={apiComunidad} claseId={c.id}
+            linkComunidad={(postId) => conWs(`/customer-success/comunidad?producto=${c.productoId}&post=${postId}`, wsPestana)} />
+        </>
+      ),
+    };
   };
 
   // Lo que en la pantalla vieja era la cabecera de la tab: los avisos de lectura. Van ADENTRO del
@@ -860,14 +950,45 @@ export function CursoApp({
     const c = porId.get(u.id);
     if (!c) return null;
     const mover1 = (dir: 'arriba' | 'abajo') => (puedeMoverEnEditor(clasesUgc, c.id, dir) ? () => { void mover(c, dir); } : null);
+    // «Obligatoria para avanzar» (audio del 08/10/2026, item 7): en una etapa del kanban, o prendida (para
+    // poder apagarla). Apagada sin tarea GUARDADA, con su motivo; si la tarea está en el borrador, otro.
+    const vinculado = modulosActuales.find((m) => m.clave === c.etapa)?.vinculado ?? false;
+    const enBorrador = leccionAbierta.claseId === c.id && leccionAbierta.borrador
+      ? tieneTarea({ tarea: '', tareaHtml: leccionAbierta.borrador.tareaHtml, campos: leccionAbierta.borrador.campos })
+      : false;
     return (
       <MenuClase clase={c} clases={clasesParaMenu} ctl={ctl} ocupado={estructurando}
         onPortada={estiloError ? undefined : (a) => abrirPortada({ tipo: 'clase', id: c.id }, a)}
         onRenombrar={async (t) => ((await guardarTexto({ tipo: 'clase', id: c.id }, t)) ? null : 'No se guardó.')}
         onMover={{ antes: mover1('arriba'), despues: mover1('abajo') }}
         onBloqueo={(b) => candado({ clase: c.id }, b)}
-        onEliminar={() => { void borrar(c); }} />
+        onEliminar={() => { void borrar(c); }}
+        obligatoria={ofreceObligatoria(vinculado, c.obligatoria) ? {
+          prendida: c.obligatoria,
+          motivo: motivoObligatoria({ prendida: c.obligatoria, tareaGuardada: tieneTarea(c), tareaEnBorrador: enBorrador }),
+          onCambiar: (v) => { void cambiarObligatoria(c, v); },
+        } : undefined} />
     );
+  };
+
+  /**
+   * «Obligatoria para avanzar» desde el menú «…» de la clase (audio del 08/10/2026, item 7, 13:00: «ese
+   * botón tal vez no se debería configurar ahí [en la tarea], sino… en el desplegable de cada clase»).
+   * INMEDIATO, como el resto del menú —es de la clase, no de la lección que se edita—, y con «Deshacer»
+   * por el MISMO camino (`guardarCampoClaseAction`): deshacer escribe en el server.
+   */
+  const cambiarObligatoria = async (c: Clase, v: boolean, conDeshacer = true) => {
+    setEstructurando(true);
+    try {
+      const r = await guardarCampoClaseAction(c.id, { obligatoria: v });
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      setClases((cs) => cs.map((x) => (x.id === r.clase.id ? r.clase : x)));
+      if (conDeshacer) show(v ? 'Obligatoria prendida' : 'Obligatoria apagada', () => { void cambiarObligatoria(r.clase, !v, false); });
+    } catch {
+      show('No se pudo guardar.', undefined, 'bad');
+    } finally {
+      setEstructurando(false);
+    }
   };
 
   /**
@@ -880,8 +1001,12 @@ export function CursoApp({
    */
   const barraDeArriba = (
     <>
+      {/* ⚠️ CON LA LECCIÓN SIN GUARDAR NO SE ENTRA (audio del 08/10/2026, item 3, 15:40: «que no te permita
+          entrar a la vista del alumno hasta que se actualice todo»): el link lo ataja `useLeccionAbierta` y
+          ofrece «Guardar y ver» (`data-guardar-y-ver`). Sin `prefetch`: una vista bajada antes de guardar
+          mostraría la clase de antes. */}
       {productoId != null && (
-        <Link className="ugc-btn" href={hrefVistaPrevia(productoId)} data-recorrido="vista-alumno">Vista del alumno</Link>
+        <Link className="ugc-btn" href={hrefVistaPrevia(productoId)} prefetch={false} data-recorrido="vista-alumno" data-guardar-y-ver>Vista del alumno</Link>
       )}
       <button type="button" className="ugc-btn" data-recorrido="invitar" onClick={() => setInvitando(true)}>Invitar alumnos</button>
       {/* El «?» abre el recorrido del LUGAR donde está: adentro de una clase, el de la clase (item 1). */}
@@ -925,6 +1050,17 @@ export function CursoApp({
           {tituloDe(s)}
         </ItemMenuUgc>
       ))}
+      {/* «+ Nuevo producto» (item 17 del audio del 08/10/2026, minuto 00:40: «hoy en día tenés que irte
+          al CRM y en el CRM pones nuevo producto… eso yo también lo voy a poner ahí en el mismo curso»).
+          Al final de la lista de cursos, como en el selector del CRM; el nombre se pide AFUERA del curso
+          (./NuevoProducto.tsx). Crear un producto es de un admin, como editar el curso.
+          ⚠️ Con la lección a medio guardar, PRIMERO la pregunta (revisión final del 08/10/2026), como al
+          cambiar de curso: crear navega DURO al curso nuevo, y sin esto la salida la atajaba el
+          `beforeunload` del navegador — con el producto ya creado y el diálogo clavado en «Creando…» si se
+          elegía quedarse. */}
+      {puedeEditar && (
+        <ItemMenuUgc onClick={() => { cerrar(); leccionAbierta.pedirSalida(() => setCreandoProducto(true)); }}>+ Nuevo producto</ItemMenuUgc>
+      )}
       {puedeEditar && !estiloError && (
         <>
           <div className="ugc-menu-sep" />
@@ -946,6 +1082,16 @@ export function CursoApp({
           {/* Cada fuente escrita con ella misma; cambia el curso entero, el del alumno también. No
               cierra el menú: se prueba mirando, como el color. */}
           <SelectorFuente actual={estilo.fuente} onElegir={(id) => void cambiarAspecto({ tipo: 'fuente' }, id, 'Fuente cambiada')} />
+          {/* «Comentarios en las clases» (item 13 del audio del 08/10/2026): un ajuste del CURSO, como el
+              color, APAGADO por default (lib/curso-estilo.ts). Prendido, cada clase tiene sus comentarios
+              debajo de la lección, en el portal y acá. Con su «Deshacer» por el mismo camino. */}
+          <div className="ugc-menu-sep" />
+          <TituloMenuUgc>Clases</TituloMenuUgc>
+          <button type="button" className="ugc-menu-item" role="switch" aria-checked={comentariosPrendidos(estilo)}
+            onClick={() => void cambiarAspecto({ tipo: 'comentarios' }, comentariosPrendidos(estilo) ? null : 'si',
+              comentariosPrendidos(estilo) ? 'Comentarios apagados' : 'Comentarios prendidos')}>
+            <span aria-hidden>{comentariosPrendidos(estilo) ? '☑' : '☐'}</span> Comentarios en las clases
+          </button>
         </>
       )}
     </>
@@ -970,8 +1116,9 @@ export function CursoApp({
         // `acciones` (item 14): el nombre ya está en la marca y en la portada.
         titulo={tituloDe(servicio)}
         subtitulo={`${nClases} ${nClases === 1 ? 'clase' : 'clases'}`}
-        // Dónde va el texto de la lección: lo mismo que ve el alumno (item 16).
-        disposicion={disposicionDe(estilo)}
+        // Dónde va el texto de la lección: lo mismo que ve el alumno (item 16). Con una lección abierta, la
+        // de su BORRADOR (se cambia en la lección y se guarda con «Guardar»).
+        disposicion={leccionAbierta.borrador?.disposicion ?? disposicionDe(estilo)}
         marca={{ ...marcaDelProducto(tituloDe(servicio)), menu: menuMarca, ariaLabel: `${tituloDe(servicio)}: cambiar de curso` }}
         acento={estilo.acento}
         // La fuente del curso (item 3): la misma que ve el alumno en su portal.
@@ -1006,11 +1153,18 @@ export function CursoApp({
           onBorrar: (id) => { const c = porId.get(id); if (c) void borrarDesdeLista(c); },
           puedeMover: (id, dir) => puedeMoverEnEditor(clasesUgc, id, dir),
           ocupado: moviendo !== null || creando || estructurando,
-          onTexto: guardarTexto,
+          // El clic en el título de la LECCIÓN ABIERTA escribe en su borrador (audio del 08/10/2026, item 1):
+          // se guarda con «Guardar». Lo demás (un módulo, el curso) sigue guardándose en el acto.
+          onTexto: (que, valor) => {
+            if (que.tipo !== 'clase' || leccionAbierta.claseId !== que.id) return guardarTexto(que, valor);
+            if (!valor) { show('El nombre no puede quedar vacío.', undefined, 'bad'); return Promise.resolve(false); }
+            leccionAbierta.cambiar({ titulo: valor });
+            return Promise.resolve(true);
+          },
           onPortada: estiloError ? undefined : abrirPortada,
-          // «Texto al costado / Texto abajo» (item 16): un ajuste del CURSO, como el color. Al costado
-          // es el default, y volver a él borra la fila (`sanearAjuste`).
-          onDisposicion: estiloError ? undefined : (d) => { void guardarAjuste({ tipo: 'disposicion' }, d === 'abajo' ? 'abajo' : null); },
+          // «Texto al costado / Texto abajo» (item 16): un ajuste del CURSO, como el color. Desde el audio
+          // del 08/10/2026 va al BORRADOR de la lección y se guarda con ella (`guardarDisposicionRef`).
+          onDisposicion: estiloError ? undefined : (d) => { leccionAbierta.cambiar({ disposicion: d === 'abajo' ? 'abajo' : 'costado' }); },
         } : undefined}
         textos={TEXTOS_EDITOR}
       />
@@ -1051,10 +1205,15 @@ export function CursoApp({
         <ModalInvitarAlumnos productoId={servicio.productoId} producto={tituloDe(servicio)} filas={filas}
           onCerrar={() => setInvitando(false)} />
       )}
+      {/* «+ Nuevo producto» (item 17): AFUERA del curso, como las preguntas de abajo. */}
+      {creandoProducto && <NuevoProducto onCerrar={() => setCreandoProducto(false)} />}
 
       {/* ⚠️ AFUERA DEL CURSO, a propósito: las preguntas de la lección («¿Quitar el video?») son un
           diálogo de la app, y adentro de la hoja del curso sus botones quedan sin fondo ni borde. */}
       {confirmNode}
+      {/* «Hay cambios sin guardar»: Guardar / Descartar / Seguir editando (audio del 08/10/2026, item 1).
+          AFUERA del curso, por lo mismo que las de arriba. */}
+      {leccionAbierta.dialogo}
       {/* La pregunta de antes de quitar una etapa o eliminar un módulo (items 15): también AFUERA del curso.
           `onCerrar` cierra SÓLO esta pregunta: si la respuesta trajo otra (el server volvió a preguntar
           porque cambió algo en el medio), ésa queda abierta. */}

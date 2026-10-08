@@ -19,6 +19,12 @@ import { portadaDeClase, portadaDeEtapa, tapaDe } from '@/lib/curso-estilo';
 import type { ChipDato, ClaseUgc, ModuloUgc, TextosUgc } from '@/app/_cursos/tipos';
 
 /**
+ * Lo que dice un módulo ABIERTO sin clases, en su tarjeta y adentro (`moduloVacio`). Corto. Va antes de
+ * `TEXTOS_PORTAL`, que lo usa al cargar el módulo.
+ */
+export const TEXTO_PROXIMAMENTE = 'Próximamente';
+
+/**
  * Lo del dibujo, en la voz del portal: español neutro con TÚ, y corto.
  *
  * ⚠️ «MÓDULOS» Y NO «ETAPAS» (item 11): el alumno ve el curso, y un módulo puede no ser una etapa del
@@ -36,6 +42,8 @@ export const TEXTOS_PORTAL: Partial<TextosUgc> = {
   clases: 'clases',
   bloqueada: 'Se abre más adelante',
   menu: 'Módulos',
+  // Item 16 del audio del 08/10/2026 (03:00): un módulo publicado y vacío aparece, «como en Skool».
+  moduloVacio: TEXTO_PROXIMAMENTE,
 };
 
 /**
@@ -116,6 +124,9 @@ export function modulosDelPortal(p: ProductoVista): ModuloUgc[] {
       ...(estado ? { estado } : {}),
       ...(!e.abierto && e.motivo ? { motivo: e.motivo } : {}),
       cuantas: e.cuantas,
+      // Abierto y VACÍO (item 16): «Próximamente» en la tarjeta, en vez de «0 clases», que se lee como
+      // un módulo roto. Con candado sigue diciendo su motivo y su cuenta.
+      ...(e.abierto && e.cuantas === 0 ? { textoTarjeta: TEXTO_PROXIMAMENTE } : {}),
       // La barra y la tarjeta cuentan TAREAS ENVIADAS: es lo que cierra la etapa (`etapaCompleta`).
       progreso: e.tareas > 0 ? { hechas: e.tareasEnviadas, total: e.tareas } : undefined,
       portada: tapa ?? null,

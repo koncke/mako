@@ -46,6 +46,10 @@
 // Y se volvieron a correr cuatro de las de arriba con el archivo nuevo: `camposParaAlumno` tal cual
 // → 24 / 3, `claseVista` con `c.campos`, la tarea sin `verificarEntregas` y `seApruebaSola` con un
 // archivo → 26 / 1 cada una. Restaurado: 27 / 0.
+// Pista TAREA (audio del 08/10/2026, el campo nace ABAJO y el arrastre entre tareas): los dos tests de
+// EditorCampos / arrastre-campos se reescribieron y se rompieron con scratchpad/tarea/romper.mjs — el
+// campo que vuelve a nacer arriba, el arrastre suelto sin avisar «movido» y la decisión del arrastre de
+// vuelta adentro del hook → 34 / 1 cada una sobre 35. Restaurado: 35 / 0.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -67,7 +71,7 @@ import {
   refDeComunidad, valorDeComunidad, conTextoDeEjemplo, esCampoDeComunidad, TOPE_TEXTO_EJEMPLO,
 } from '../lib/curso';
 import {
-  camposEnOrden, campoNuevoArriba, opcionesDeCategoria, opcionesDePost,
+  camposEnOrden, opcionesDeCategoria, opcionesDePost,
 } from '../app/customer-success/curso/leccion-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -536,40 +540,44 @@ test('la pregunta es el TÍTULO y el cuadro lleva sólo el texto de ejemplo: nun
   assert.match(ed, /\{conTextoDeEjemplo\(c\.tipo\) && \(/);
 });
 
-test('«+ Nuevo campo»: el recuadro grande PRIMERO, y el campo nace ARRIBA; reordenar no pierde ninguno', () => {
+// El audio de la tarde del 08/10/2026 (item 5, 21:00: «lo pondría abajo del campo que ya puse») dio vuelta
+// DÓNDE nace el campo: el recuadro grande sigue ARRIBA (lo pidió Martín esa mañana) y el campo, ABAJO del
+// último, con el foco y a la vista. El detalle, en tests/curso-tarea-editor.test.ts.
+test('«+ Nuevo campo»: el recuadro grande PRIMERO, y el campo nace ABAJO del último; reordenar no pierde ninguno', () => {
   const c = (id: string): Campo => ({ id, label: id, tipo: 'texto' });
-  const lista = campoNuevoArriba([c('a'), c('b')], 'n');
-  assert.deepEqual(lista.map((x) => x.id), ['n', 'a', 'b']);
-  assert.deepEqual(lista[0], { id: 'n', label: '', tipo: 'texto' });
   assert.deepEqual(camposEnOrden([c('a'), c('b'), c('c')], ['c', 'a', 'b']).map((x) => x.id), ['c', 'a', 'b']);
   // Un id de más se ignora; uno que falta queda al final (las respuestas cuelgan de su id).
   assert.deepEqual(camposEnOrden([c('a'), c('b'), c('c')], ['b', 'zz']).map((x) => x.id), ['b', 'a', 'c']);
   const ed = leer('app/customer-success/curso/EditorCampos.tsx');
-  const ini = ed.indexOf('<div className="ec" {...arr.zona}>');
-  assert.ok(ini > 0, 'la lista es la zona del arrastre');
+  const ini = ed.indexOf('<div className={`ec-lista');
+  assert.ok(ini > 0, 'la lista de los campos de una tarea');
+  assert.match(ed.slice(ini, ini + 200), /\{ \.\.\.arr\.zona, \.\.\.arr\.grupo\(0\) \}/, 'sola, la lista es su propia zona de arrastre');
   const nuevo = ed.indexOf('className="ec-nuevo"', ini);
   const primero = ed.indexOf('{campos.map(', ini);
   assert.ok(nuevo > ini && nuevo < primero, '«+ Nuevo campo» va ANTES de los campos');
   assert.match(ed, />\s*\+ Nuevo campo\s*</);
   assert.doesNotMatch(ed, />\s*\+ Campo\s*</, 'volvió el botón chico de abajo');
-  assert.match(ed, /const lista = campoNuevoArriba\(campos, nuevoIdCampo\(campos\)\);/);
+  assert.match(ed, /onCampos\(\[\.\.\.campos, campoNuevo\(id\)\], 'nuevo'\);/, 'el campo nace al FINAL');
 });
 
 test('el campo es una tarjeta que se ARRASTRA con las piezas del curso y del Plan (no una copia)', () => {
   const arr = leer('app/customer-success/curso/arrastre-campos.ts');
   assert.match(arr, /import \{ fotoVaciaDeArrastre, scrollerDe, useArrastreCopia \} from '@\/app\/plan\/board\/arrastre-copia';/);
-  assert.match(arr, /import \{ indiceEnLista, ordenAlSoltar \} from '@\/app\/_cursos\/orden';/);
+  // Desde el audio del 08/10/2026 (item 12, varias tareas) lo que decide vive puro en tarea-editor-reglas.ts,
+  // que usa las piezas del curso (`indiceEnLista`, `ordenAlSoltar`).
+  assert.match(arr, /import \{ cambiaAlSoltar, dondeCae, type TareaMedida \} from '\.\/tarea-editor-reglas';/);
+  assert.match(leer('app/customer-success/curso/tarea-editor-reglas.ts'), /import \{ indiceEnLista, ordenAlSoltar \} from '@\/app\/_cursos\/orden';/);
   assert.match(arr, /fotoVaciaDeArrastre\(e\.dataTransfer\);/, 'la foto del sistema operativo, vacía');
   // La copia cuelga de la LISTA (su hoja va acotada ahí), y la medición la saltea.
   assert.match(arr, /montarCopia\(nodo, e\.clientX - r\.left, e\.clientY - r\.top, nodo\.closest<HTMLElement>\('\[data-zona-campos\]'\) \?\? nodo\.closest<HTMLElement>\('\.ugc'\)\)/);
-  assert.match(arr, /\.filter\(\(n\) => n\.style\.position !== 'fixed'\)/);
+  assert.match(arr, /\.filter\(\(c\) => c\.style\.position !== 'fixed'\)/);
   assert.match(arr, /document\.addEventListener\('dragover', empuje, true\)/, 'el auto-scroll en el dragover de document, en captura');
   assert.match(arr, /const h = huecoRef\.current;[\s\S]{0,120}terminar\(\);/, 'el hueco se lee ANTES de terminar');
   assert.doesNotMatch(arr, /requestAnimationFrame|setInterval/, 'durante un arrastre nativo se congelan');
   const ed = leer('app/customer-success/curso/EditorCampos.tsx');
   assert.match(ed, /onDragStart=\{\(e\) => arr\.agarrar\(e, c\.id\)\}/);
   assert.match(ed, /onPointerDownCapture=\{arr\.marcarOrigen\}/, 'adentro de un campo de texto no arrastra');
-  assert.match(ed, /onOrden: \(ids\) => onCampos\(camposEnOrden\(campos, ids\), 'movido'\)/, 'mover avisa (para el Deshacer)');
+  assert.match(ed, /onSoltar: \(id, _g, i\) => \{ const l = conCampoMovido\(campos, id, 0, i\); if \(l\) onCampos\(l, 'movido'\); \}/, 'mover avisa (para el Deshacer)');
   assert.match(ed, /onCampos\(campos\.filter\(\(_, j\) => j !== i\), 'borrado'\)/, 'borrar avisa (para el Deshacer)');
 });
 

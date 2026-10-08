@@ -330,6 +330,12 @@ export type TextosUgc = {
   sinResumen: string;
   /** El botón que cambia una portada. */
   portada: string;
+  /**
+   * Lo que dice un módulo ABIERTO y VACÍO a quien no edita (item 16 del audio del 08/10/2026: el módulo
+   * publicado sin clases aparece «como en Skool», con un «coming soon»). Ausente = no se dice nada (el
+   * dibujo de Conocimientos no tiene módulos vacíos).
+   */
+  moduloVacio?: string;
 };
 
 export type ModoUgc = 'pagina' | 'embebido';

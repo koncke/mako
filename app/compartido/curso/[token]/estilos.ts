@@ -24,13 +24,38 @@ export const CSS_PORTAL = `
 .cp-area-nom{ margin: 0; padding-top: 12px; border-top: 1px solid var(--border); font-size: var(--fs-md); font-weight: 600; overflow-wrap: anywhere; }
 .cp-area:first-child .cp-area-nom{ padding-top: 0; border-top: 0; }
 
-.cp-campos{ list-style: none; margin: 0; padding: 0; }
 .cp-tarea{ border-top: 1px dashed var(--border-strong); padding-top: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 /* Arriba de todo en el papel, la linea punteada separaria la tarea de nada. */
 .ugc-paper > .cp-tarea:first-child, .cp-area > .cp-tarea{ border-top: 0; padding-top: 0; }
 .cp-tarea-instr{ margin: 0; font-size: var(--fs-md); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-.cp-campo{ padding: 14px 0; border-top: 1px solid var(--border); min-width: 0; }
-.cp-campo:first-child{ border-top: 0; padding-top: 0; }
+
+/* CADA TAREA EN SU CAJA (item 12 del audio del 08/10/2026), con la piel del curso: borde de tinta,
+   sombra dura y el acento en el numero. Adentro, cada campo es una tarjeta clara con su pregunta arriba
+   (item 8: «un poco mas esthetic»). Los colores son los del curso (--u-*) con el de la casa de respaldo:
+   la tarea tambien se dibuja afuera de la hoja del curso. Con .cp-tarea adelante: la hoja del origen
+   resetea margen, relleno, fondo y borde de todo lo de .ahdoc, y una clase sola pierde contra eso. */
+.cp-tarea .cp-tareas{ display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cp-tarea .cp-tcaja{ display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px;
+  border-radius: 16px; background: var(--u-card, var(--surface)); border: 2px solid var(--u-ink, var(--border-strong));
+  box-shadow: var(--u-sh-sm, none); }
+.cp-tarea .cp-tcaja--tenue{ background: transparent; border: 1.5px dashed var(--u-ink-40, var(--border)); box-shadow: none; padding: 14px; }
+.cp-tarea .cp-tcab{ display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cp-tarea .cp-tnum{ flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--u-lime, var(--primary-bg)); border: 2px solid var(--u-ink, var(--ink)); color: var(--u-ink, var(--ink));
+  font: 800 13px/1 var(--font-jetbrains, ui-monospace), monospace; }
+.cp-tarea .cp-ttit{ margin: 0; min-width: 0; font-family: var(--ugc-fuente, inherit); font-size: 18px; font-weight: 800;
+  line-height: 1.25; letter-spacing: -.01em; overflow-wrap: anywhere; color: var(--u-ink, var(--ink)); }
+.cp-tarea .cp-tconsigna{ font-family: var(--ugc-fuente, inherit); min-width: 0; }
+.cp-tarea .cp-campos{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cp-tarea .cp-campo{ min-width: 0; padding: 14px; border-radius: 12px; background: var(--u-card-2, var(--surface-2));
+  border: 1.5px solid var(--u-line, var(--border)); }
+.cp-tcaja--tenue .cp-campo{ background: transparent; }
+.cp-tarea .cp-preg{ display: block; margin: 0 0 8px; padding: 0; font-family: var(--ugc-fuente, inherit); font-size: var(--fs-md);
+  font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; color: var(--u-ink, var(--ink)); }
+@media (max-width: 480px){
+  .cp-tarea .cp-tcaja{ padding: 14px; border-radius: 14px; }
+  .cp-tarea .cp-campo{ padding: 12px; }
+}
 .cp-preg{ display: block; margin: 0 0 6px; padding: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
 .cp-req{ color: var(--bad); }
 .cp-ayuda{ margin: 0 0 8px; font-size: var(--fs-sm); line-height: 1.5; color: var(--dim); }

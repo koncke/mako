@@ -34,7 +34,21 @@ import { Button, Checkbox, Field, Input, Modal, Tabs, TextField } from '@/app/_u
 import { useRouter } from '@/app/_ui/Link';
 import { emailUtilizable } from '@/lib/agencia-altas';
 import { clientesSinInvitar, type AccesoDeFila, type ClienteSinInvitar } from '../curso-ficha-lectura';
-import { invitarClientesAction, invitarNuevoAlumnoAction } from './invitar-actions';
+import { invitarClientesAction, invitarNuevoAlumnoAction, opcionesDeInvitarAction } from './invitar-actions';
+import { ofreceWhatsapp, tieneTelefono, type CanalInvitacion } from '@/lib/curso-invitar-canales';
+
+// ── «TAMBIÉN POR WHATSAPP» (item 21 del audio del 08/10/2026, minuto 09:30) ───────────────────────
+// «Puedes conectar tu email, puedes conectar tu WhatsApp y a la persona le puede llegar por ambos lados».
+// Una casilla en las dos pestañas, APAGADA por default, que se DIBUJA sólo si el negocio tiene su línea
+// de WhatsApp conectada, el envío de WhatsApp prendido y el cliente tiene teléfono (`ofreceWhatsapp`,
+// lib/curso-invitar-canales.ts, con lo que contesta `opcionesDeInvitarAction` al abrir). Con la casilla
+// prendida, además del correo le llega el mismo link por la línea de por default del negocio
+// (lib/curso-invitar.ts). Si la lectura falla, no se ofrece: el correo sale igual.
+
+/** Lo que el modal sabe del WhatsApp del negocio. `null` = todavía no contestó (o no se pudo leer). */
+type OpcionesWhatsapp = { lineaConectada: boolean; envioPrendido: boolean; conTelefono: ReadonlySet<number> } | null;
+
+const canalesCon = (whatsapp: boolean): CanalInvitacion[] => (whatsapp ? ['email', 'whatsapp'] : ['email']);
 
 /** Una fila de Avance, en lo que esta pieza mira (es la forma de `FilaConAcceso`, ./AvanceCurso.tsx). */
 export type FilaParaInvitar = { leadId: number; nombre: string; empresa: string | null; email?: string | null; acceso: AccesoDeFila };
@@ -85,6 +99,17 @@ export function ModalInvitarAlumnos({ productoId, producto, filas, onListo, onCe
   /** Algo cambió en la base: se relee la página (la tabla Avance, la lista) y se avisa. */
   const hecho = () => { router.refresh(); onListo?.(); };
 
+  // El WhatsApp del negocio y quién tiene teléfono, UNA vez al abrir (ver la cabecera de la casilla).
+  const [wa, setWa] = useState<OpcionesWhatsapp>(null);
+  const idsSinInvitar = useMemo(() => sinInvitar.map((c) => c.leadId), [sinInvitar]);
+  useEffect(() => {
+    let vivo = true;
+    opcionesDeInvitarAction(idsSinInvitar)
+      .then((r) => { if (vivo && r.ok) setWa({ lineaConectada: r.lineaConectada, envioPrendido: r.envioPrendido, conTelefono: new Set(r.conTelefono) }); })
+      .catch(() => { /* sin la lectura no se ofrece la casilla: el correo sale igual */ });
+    return () => { vivo = false; };
+  }, [idsSinInvitar]);
+
   return createPortal(
     <Modal titulo={`Invitar a ${producto}`} encabezado="Alumnos" ancho={600} anidada onCerrar={cerrar}>
       <Tabs
@@ -93,8 +118,8 @@ export function ModalInvitarAlumnos({ productoId, producto, filas, onListo, onCe
         onCambio={(id) => { if (!ocupadoRef.current) setPestana(id === 'nuevo' ? 'nuevo' : 'clientes'); }}
       />
       {pestana === 'clientes'
-        ? <Clientes lista={sinInvitar} ocupado={ocupado} ocupar={ocupar} hecho={hecho} />
-        : <Nuevo productoId={productoId} ocupado={ocupado} ocupar={ocupar} hecho={hecho} />}
+        ? <Clientes lista={sinInvitar} ocupado={ocupado} ocupar={ocupar} hecho={hecho} wa={wa} />
+        : <Nuevo productoId={productoId} ocupado={ocupado} ocupar={ocupar} hecho={hecho} wa={wa} />}
     </Modal>,
     document.body,
   );
@@ -102,11 +127,13 @@ export function ModalInvitarAlumnos({ productoId, producto, filas, onListo, onCe
 
 // ── Clientes sin invitar ──────────────────────────────────────────────────────
 
-function Clientes({ lista, ocupado, ocupar, hecho }: {
-  lista: readonly ClienteSinInvitar[]; ocupado: boolean; ocupar: (v: boolean) => void; hecho: () => void;
+function Clientes({ lista, ocupado, ocupar, hecho, wa }: {
+  lista: readonly ClienteSinInvitar[]; ocupado: boolean; ocupar: (v: boolean) => void; hecho: () => void; wa: OpcionesWhatsapp;
 }) {
   const [q, setQ] = useState('');
   const [elegidos, setElegidos] = useState<Set<number>>(() => new Set());
+  /** «También por WhatsApp»: apagada por default (item 21). */
+  const [porWhatsapp, setPorWhatsapp] = useState(false);
   /** El email de cada uno, editable: arranca con el del CRM. */
   const [emails, setEmails] = useState<Record<number, string>>(() => Object.fromEntries(lista.map((c) => [c.leadId, c.email])));
   /** El resultado de cada uno después de mandar: una frase por fila. */
@@ -118,6 +145,11 @@ function Clientes({ lista, ocupado, ocupar, hecho }: {
   /** Los elegidos que todavía no salieron (uno que ya quedó invitado no se vuelve a mandar). */
   const aMandar = [...elegidos].filter((id) => !resultados[id]?.enviado);
   const malos = aMandar.filter((id) => !emailUtilizable((emails[id] ?? '').trim()));
+  // La casilla se dibuja si ALGUNO de los elegidos puede recibirlo; al que no tiene teléfono le llega
+  // sólo el correo, y su fila lo dice («WhatsApp: sin teléfono.»).
+  const ofreceWa = !!wa && aMandar.some((id) => ofreceWhatsapp({
+    lineaConectada: wa.lineaConectada, envioPrendido: wa.envioPrendido, conTelefono: wa.conTelefono.has(id),
+  }));
 
   const alternar = (id: number) => setElegidos((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -126,7 +158,10 @@ function Clientes({ lista, ocupado, ocupar, hecho }: {
     ocupar(true);
     setError('');
     try {
-      const r = await invitarClientesAction(aMandar.map((leadId) => ({ leadId, email: (emails[leadId] ?? '').trim() })));
+      const r = await invitarClientesAction(
+        aMandar.map((leadId) => ({ leadId, email: (emails[leadId] ?? '').trim() })),
+        { canales: canalesCon(ofreceWa && porWhatsapp) },
+      );
       if (!r.ok) { setError(r.error); return; }
       setResultados((m) => ({ ...m, ...Object.fromEntries(r.resultados.map((x) => [x.leadId, { enviado: x.enviado, texto: x.texto }])) }));
       if (r.resultados.some((x) => x.enviado)) hecho();
@@ -161,6 +196,10 @@ function Clientes({ lista, ocupado, ocupar, hecho }: {
         {!visibles.length && <li className="ina-nada">Nadie coincide.</li>}
       </ul>
       {malos.length > 0 && <p className="ina-mal">Falta un email válido.</p>}
+      {ofreceWa && (
+        <Checkbox checked={porWhatsapp} onChange={setPorWhatsapp} disabled={ocupado}
+          label="También por WhatsApp" hint="Por tu línea, a quien tiene teléfono." />
+      )}
       {error && <p className="ina-mal">{error}</p>}
       <div className="ina-pie">
         {/* El botón dice LO QUE PASA y a cuántos: se le escribe a gente, y eso no se deshace. */}
@@ -175,8 +214,8 @@ function Clientes({ lista, ocupado, ocupar, hecho }: {
 
 // ── Alguien nuevo ─────────────────────────────────────────────────────────────
 
-function Nuevo({ productoId, ocupado, ocupar, hecho }: {
-  productoId: number; ocupado: boolean; ocupar: (v: boolean) => void; hecho: () => void;
+function Nuevo({ productoId, ocupado, ocupar, hecho, wa }: {
+  productoId: number; ocupado: boolean; ocupar: (v: boolean) => void; hecho: () => void; wa: OpcionesWhatsapp;
 }) {
   const idNombre = useId();
   const [nombre, setNombre] = useState('');
@@ -184,6 +223,9 @@ function Nuevo({ productoId, ocupado, ocupar, hecho }: {
   const [telefono, setTelefono] = useState('');
   const [empresa, setEmpresa] = useState('');
   const [sinCobro, setSinCobro] = useState(false);
+  /** «También por WhatsApp»: apagada por default (item 21); se ofrece con un teléfono escrito. */
+  const [porWhatsapp, setPorWhatsapp] = useState(false);
+  const ofreceWa = !!wa && ofreceWhatsapp({ lineaConectada: wa.lineaConectada, envioPrendido: wa.envioPrendido, conTelefono: tieneTelefono(telefono) });
   const [error, setError] = useState('');
   /** Con quién choca, si choca: la pantalla ofrece usarlo en vez de fallar. */
   const [duplicados, setDuplicados] = useState<Duplicado[] | null>(null);
@@ -204,7 +246,9 @@ function Nuevo({ productoId, ocupado, ocupar, hecho }: {
     ocupar(true);
     setError('');
     try {
-      const r = await invitarNuevoAlumnoAction({ productoId, nombre, email, telefono, empresa, sinCobro, ...extra });
+      const r = await invitarNuevoAlumnoAction({
+        productoId, nombre, email, telefono, empresa, sinCobro, canales: canalesCon(ofreceWa && porWhatsapp), ...extra,
+      });
       if (!r.ok) {
         if (r.duplicados?.length) { setDuplicados(r.duplicados); return; }
         setError(r.error);
@@ -223,9 +267,10 @@ function Nuevo({ productoId, ocupado, ocupar, hecho }: {
   if (listo) {
     return (
       <div className="ina-col">
-        <p className={listo.enviado ? 'ina-ok' : 'ina-mal'}>{listo.enviado ? 'Cliente creado e invitado.' : listo.texto}</p>
+        {/* Con WhatsApp pedido, la frase del server dice además si salió por ahí (`fraseWhatsapp`). */}
+        <p className={listo.enviado ? 'ina-ok' : 'ina-mal'}>{listo.enviado ? (porWhatsapp ? listo.texto : 'Cliente creado e invitado.') : listo.texto}</p>
         <div className="ina-pie">
-          <Button variant="secondary" onClick={() => { setListo(null); setNombre(''); setEmail(''); setTelefono(''); setEmpresa(''); setSinCobro(false); }}>
+          <Button variant="secondary" onClick={() => { setListo(null); setNombre(''); setEmail(''); setTelefono(''); setEmpresa(''); setSinCobro(false); setPorWhatsapp(false); }}>
             Invitar a otro
           </Button>
         </div>
@@ -249,6 +294,10 @@ function Nuevo({ productoId, ocupado, ocupar, hecho }: {
         onChange={(e) => { setTelefono(e.target.value); setDuplicados(null); }} />
       <TextField label="Empresa" value={empresa} disabled={ocupado} onChange={(e) => setEmpresa(e.target.value)} />
       <Checkbox checked={sinCobro} onChange={setSinCobro} label="Sin cobro" hint="Becado o bonificado." disabled={ocupado} />
+      {ofreceWa && (
+        <Checkbox checked={porWhatsapp} onChange={setPorWhatsapp} disabled={ocupado}
+          label="También por WhatsApp" hint="Le llega el mismo link por tu línea." />
+      )}
 
       {/* EL DUPLICADO TIENE SALIDA: usar al que ya existe (el botón dice si además pasa a ser cliente)
           o crear otro igual. Un «ya existe» sin salida obliga a ir al CRM a buscarlo. */}

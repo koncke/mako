@@ -109,12 +109,22 @@ test('el del curso explica lo que hay: la marca, la barra de arriba, los módulo
 
 test('el de la clase explica la clase: título, video, disposición, descripción y su barra, la tarea y sus campos', () => {
   const o = PASOS_RECORRIDO_LECCION.map((p) => p.objetivo);
+  // `editor-insertar` (item 15, «Insertar» un video o una agenda): el botón ya estaba en la barra y el paso
+  // no; sacarlo dejaba este test en VERDE (revisión final del 08/10/2026: 9 / 0), porque el barrido de
+  // abajo mira que cada paso apunte a algo, no que cada botón tenga su paso. Ahora: 8 / 1.
   for (const x of ['leccion-titulo', 'leccion-video', 'leccion-disposicion', 'leccion-descripcion', 'editor-barra', 'editor-imagen',
-    'editor-tabla', 'editor-adjuntar', 'editor-mas', 'leccion-tarea', 'leccion-nuevo-campo', 'leccion-campo', 'leccion-obligatoria', 'menu-clase', 'ayuda']) {
+    'editor-tabla', 'editor-adjuntar', 'editor-insertar', 'editor-mas', 'leccion-tarea', 'leccion-nuevo-campo', 'leccion-campo', 'leccion-guardar', 'menu-clase', 'ayuda']) {
     assert.ok(o.includes(x), `al recorrido de la clase le falta «${x}»`);
   }
   // El orden de la pantalla, de arriba abajo: la descripción antes que la tarea, y su barra entre las dos.
   assert.ok(o.indexOf('leccion-descripcion') < o.indexOf('editor-barra') && o.indexOf('editor-barra') < o.indexOf('leccion-tarea'));
+  // Audio del 08/10/2026: la clase se GUARDA A MANO (item 1) y «Obligatoria» salió de la tarea al menú de la
+  // clase (item 7). El paso de «Guardar» va después de lo que guarda, y el del menú nombra la obligatoria.
+  assert.ok(!o.includes('leccion-obligatoria'), 'volvió el paso de «Obligatoria» en la tarea: vive en el menú de la clase');
+  assert.ok(o.indexOf('leccion-campo') < o.indexOf('leccion-guardar'), '«Guardar» va después de lo que guarda');
+  assert.match(PASOS_RECORRIDO_LECCION.find((p) => p.objetivo === 'menu-clase')!.texto, /obligatoria/);
+  // El botón lo pone la barra de la lección (no un paso que se saltee en silencio).
+  assert.match(sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx')), /data-recorrido="leccion-guardar"/);
 });
 
 test('textos de pantalla: cortos, de TÚ, sin pasos repetidos, y los dos terminan en el «?»', () => {

@@ -423,7 +423,8 @@ export default function CursoUgc(props: CursoUgcProps) {
             <div className="ugc-content">
               {clase ? (
                 <Leccion key={clase.id} clase={clase} l={leccion(clase)} nombreModulo={modulo(clase.moduloKey)?.nombre}
-                  {...vecinas(clases, clase.id)} abrirClase={abrirClase} edicion={edicion} disposicion={disposicion} />
+                  {...vecinas(clases, clase.id)} abrirClase={abrirClase} edicion={edicion} disposicion={disposicion} t={t}
+                  opciones={estructura.conMenuClase ? (a) => abrirOpciones({ tipo: 'clase', id: clase.id }, a) : undefined} />
               ) : extra ? (
                 <div className="ugc-extra">{extra.cuerpo}</div>
               ) : pos.recursos && recursos ? (
@@ -723,6 +724,11 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
         ) : <h2>{rotuloGrilla(mod ? (modulo?.nombre ?? mod) : null, clases.length, total, t)}</h2>}
         {modulo?.acciones != null && <div className="ugc-rail-acciones">{modulo.acciones}</div>}
       </div>
+      {/* Un módulo abierto y VACÍO, para quien no edita (item 16): un estado corto, como el «coming
+          soon» de Skool, en vez de un riel vacío que se lee como que no cargó. */}
+      {!edicion && mod && modulo && !clases.length && t.moduloVacio && (
+        <div className="ugc-soon ugc-vacio"><p>{t.moduloVacio}</p></div>
+      )}
       {/* La grilla de un módulo es una ZONA del arrastre: soltar una clase acá la reordena. */}
       <div className="ugc-rail" {...(editando ? arr.zona('grilla') : {})}>
         {/* «+ Nueva clase» PRIMERO (item 12). Sin `data-arr`: el hueco 0 es el de la primera CLASE. */}
@@ -799,11 +805,22 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
  *    arma ESTE dibujo (las opciones son suyas) y se lo pasa al papel (`LeccionUgc.papel` como función);
  *    un papel que no lo recibe (uno que es un nodo) lo lleva arriba suyo, así nunca se pierde.
  * ⚠️ `data-recorrido` en el título y en el video: son pasos del recorrido de la lección (app/_ui/Recorrido).
+ * ⚠️ EL TÍTULO VA ARRIBA DE LAS DOS COLUMNAS, no adentro de la del video (audio del 08/10/2026, item 19,
+ *    11:00: «el video y el párrafo del costado tienen que estar alineados, sí o sí… No puede estar el
+ *    párrafo de la descripción muy arriba»). Adentro, el video arrancaba debajo de la pastilla y del h1
+ *    —unos 110 px— y el papel de al lado arrancaba arriba de todo. Con el título afuera, los dos bordes
+ *    de arriba quedan a la misma altura con texto al costado; abajo y en el teléfono no cambia nada (el
+ *    título ya iba primero). Vale para el alumno también: es el mismo dibujo.
+ * ⚠️ EL MENÚ «…» DE LA CLASE, AL LADO DEL TÍTULO (quien edita): «Obligatoria para avanzar» vive ahí desde el
+ *    audio del 08/10/2026 (item 7), y sin el botón en la lección había que salir de la clase para tocarla.
  */
-function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edicion, disposicion }: {
+function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edicion, disposicion, t, opciones }: {
   clase: ClaseUgc; l: LeccionUgc; nombreModulo?: string;
   anterior: ClaseUgc | null; siguiente: ClaseUgc | null;
   abrirClase: (id: number) => void; edicion?: EdicionUgc; disposicion?: DisposicionUgc;
+  t: TextosUgc;
+  /** Abre el menú «…» de ESTA clase (el de su tarjeta). Ausente = sin menú (el alumno, o sin `menuClase`). */
+  opciones?: (ancla: HTMLElement) => void;
 }) {
   const pastilla = <span className="ugc-pill">{clase.pastilla ?? nombreModulo ?? ''}</span>;
   const actual: DisposicionUgc = disposicion === 'abajo' ? 'abajo' : 'costado';
@@ -822,14 +839,19 @@ function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edic
 
   return (
     <>
+      <div className="ugc-ltitle">
+        {pastilla}
+        {edicion?.onTexto
+          ? (
+            <h1 style={opciones ? { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } : undefined}>
+              <TextoEditable valor={clase.titulo} etiqueta="Título de la clase" recorrido="leccion-titulo" onGuardar={(v) => edicion.onTexto!({ tipo: 'clase', id: clase.id }, v)} />
+              {opciones && <BotonOpciones t={t} nombre={clase.titulo} recorrido="menu-clase" onAbrir={opciones} />}
+            </h1>
+          )
+          : <h1>{clase.titulo}</h1>}
+      </div>
       <div className={claseDelSplit(actual)}>
         <div className="ugc-vcol">
-          <div className="ugc-ltitle">
-            {pastilla}
-            {edicion?.onTexto
-              ? <h1><TextoEditable valor={clase.titulo} etiqueta="Título de la clase" recorrido="leccion-titulo" onGuardar={(v) => edicion.onTexto!({ tipo: 'clase', id: clase.id }, v)} /></h1>
-              : <h1>{clase.titulo}</h1>}
-          </div>
           {l.video ? (
             <div className="ugc-vcard" data-recorrido="leccion-video">
               <div className="ugc-vframe" style={{ aspectRatio: '16 / 9', width: '100%' }}>{l.video.cuerpo}</div>

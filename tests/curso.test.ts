@@ -78,7 +78,11 @@ test('etapaSiguiente', () => {
   assert.equal(etapaSiguiente(['a', 'b'], 'z'), null);
 });
 
-test('sanearCampos tira lo que no cierra y es idempotente', () => {
+// ⚠️ CAMBIÓ EL 08/10/2026 (audio de la prueba del curso, item 2: «volví para atrás y se me borraron todos
+//    los campos»): el saneo ya no tira un campo por no tener pregunta, ni el segundo de un id repetido —
+//    eso lo frena `erroresDeCampos` antes de guardar (tests/curso-tareas-secciones.test.ts). Sólo tira la
+//    basura (sin id, no es un objeto), y lo anota.
+test('sanearCampos tira sólo la basura (y la anota), renombra el repetido y es idempotente', () => {
   const crudo = [
     { id: 'a1', label: 'Nombre', tipo: 'linea' },
     { id: 'a1', label: 'Repetido', tipo: 'linea' },
@@ -86,9 +90,12 @@ test('sanearCampos tira lo que no cierra y es idempotente', () => {
     { id: 't', label: 'Tabla', tipo: 'tabla', columnas: ['X', 'Y'], filasMin: 3, opciones: ['no va'] },
     { id: 'e', label: 'Elige', tipo: 'eleccion', opciones: ['sí', 'no'], obligatorio: true },
   ];
-  const s = sanearCampos(crudo);
-  assert.deepEqual(s.map((c) => c.id), ['a1', 't', 'e']);
-  assert.equal(s[1].opciones, undefined);
+  const descartes: string[] = [];
+  const s = sanearCampos(crudo, { descartes });
+  assert.deepEqual(s.map((c) => c.id), ['a1', 'a1-2', 't', 'e']);
+  assert.equal(s[1].label, 'Repetido', 'el repetido se conserva, con otro id');
+  assert.equal(s[2].opciones, undefined);
+  assert.deepEqual(descartes, ['campo 3: sin id']);
   assert.deepEqual(sanearCampos(s), s);
 });
 

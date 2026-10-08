@@ -93,6 +93,25 @@ export type PostDetalle = PostVista & {
 
 export type FeedVista = { fijados: PostVista[]; posts: PostVista[]; hayMas: boolean; pagina: number };
 
+/**
+ * Los COMENTARIOS DE UNA CLASE (item 13 del audio del 08/10/2026, mig 0227): el hilo del post de la
+ * comunidad que cuelga de esa clase. `postId: null` = todavía nadie comentó (el post nace con el
+ * primer comentario). Lo dibuja app/_cursos/ComentariosClase.tsx, debajo de la lección.
+ */
+export type HiloClaseVista = {
+  claseId: number;
+  postId: number | null;
+  hilo: ComentarioVista[];
+  /** Comentarios cerrados por el equipo: se leen, no se agrega nada. */
+  cerrado: boolean;
+  /** ¿Quien mira sigue el hilo? (le avisan los comentarios nuevos en su campana). */
+  sigo: boolean;
+  /** Quien mira, para la cara del campo de escribir. */
+  yo: MiembroVista;
+  /** El equipo modera: cierra o abre los comentarios. */
+  puedoModerar: boolean;
+};
+
 /** Quien mira, con sus puntos. */
 export type YoVista = MiembroVista & { puntos: number; puntosParaSubir: number | null; nombreNivel: string };
 

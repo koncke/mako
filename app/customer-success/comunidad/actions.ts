@@ -23,7 +23,7 @@ import {
   comentar, editarComentario, borrarComentario, cambiarLike, votar, rankingComunidad, miembrosComunidad,
   perfilDe, guardarPerfil, urlSubidaAdjunto, descartarAdjunto, guardarCategoria, borrarCategoria,
   moverCategoria, guardarNombresNivel, seguirPost, aboutComunidad, guardarAbout, guardarAjustesComunidad,
-  buscarEnComunidad, type Actor,
+  buscarEnComunidad, hiloDeClase, comentarEnClase, type Actor,
 } from '@/lib/comunidad-datos';
 import { calendarioComunidad, icsComunidad, guardarEvento, borrarEvento, opcionesDeEvento } from '@/lib/comunidad-calendario';
 import { campanaComunidad, marcarLeidas } from '@/lib/comunidad-campana';
@@ -205,4 +205,17 @@ export async function sacadosAction(productoId: number) {
 
 export async function cerrarComentariosAction(productoId: number, postId: number, si: boolean) {
   return conActor(productoId, 'No se pudo guardar.', (a) => cerrarComentarios(a, postId, si === true));
+}
+
+// ── Los comentarios de una CLASE (item 13 del audio del 08/10/2026, mig 0227) ─────────────────────
+// Los lee y los contesta el equipo desde la lección del editor del curso (app/_cursos/ComentariosClase.tsx,
+// montado por la tab Curso). La MISMA puerta que el resto (`conActor`); que la clase sea de ESTE producto
+// lo vuelve a preguntar lib/comunidad-datos.ts (`claseParaComentar`).
+
+export async function hiloDeClaseAction(productoId: number, claseId: number) {
+  return conActor(productoId, 'No pude cargar los comentarios.', (a) => hiloDeClase(a, claseId));
+}
+
+export async function comentarEnClaseAction(productoId: number, claseId: number, entrada: unknown) {
+  return conActor(productoId, 'No se pudo comentar.', (a) => comentarEnClase(a, claseId, entrada));
 }

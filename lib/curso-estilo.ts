@@ -51,7 +51,19 @@ export type EstiloCurso = {
    * entero —la tab, el portal del alumno y la vista previa—, descripción y tarea incluidas.
    */
   fuente: string | null;
+  /**
+   * «Comentarios en las clases» (item 13 del audio del 08/10/2026, minuto 15:00: «agregar si el usuario
+   * quiere un apartado de chat, entonces vos puedes chatear acerca de esa clase»). `'si'` = cada clase
+   * tiene sus comentarios en el portal, debajo de la lección; `null` = APAGADO, que es el default: un
+   * negocio que no lo pidió no amanece con un chat abierto en cada clase. Se prende en el menú de la
+   * marca, al lado del color. Lo hace cumplir el SERVER (lib/comunidad-datos.ts, `claseParaComentar`):
+   * apagado, un alumno no lee ni escribe en el hilo aunque llame la ruta a mano.
+   */
+  comentarios: 'si' | null;
 };
+
+/** ¿El curso tiene los comentarios de las clases prendidos? Sin fila, no (ver `comentarios`). */
+export const comentariosPrendidos = (e: EstiloCurso | null | undefined): boolean => e?.comentarios === 'si';
 
 /**
  * Las dos disposiciones de la lección. Las define el DIBUJO (app/_cursos/tipos.ts, `DisposicionUgc`):
@@ -64,6 +76,7 @@ export const disposicionDe = (e: EstiloCurso | null | undefined): Disposicion =>
 
 export const estiloVacio = (): EstiloCurso => ({
   acento: null, titulo: null, resumen: null, portada: null, portadasEtapa: {}, portadasClase: {}, disposicion: null, fuente: null,
+  comentarios: null,
 });
 
 export const TOPE_TITULO_CURSO = 80;
@@ -78,7 +91,8 @@ export type Ajuste =
   | { tipo: 'portada-etapa'; etapa: string }
   | { tipo: 'portada-clase'; clase: number }
   | { tipo: 'disposicion' }
-  | { tipo: 'fuente' };
+  | { tipo: 'fuente' }
+  | { tipo: 'comentarios' };
 
 /**
  * La misma regla que las keys de la entrega (lib/servicio-etapas.ts, `CLAVE_OK`), menos las que
@@ -113,7 +127,7 @@ export function claveDe(a: Ajuste): string {
 /** El ajuste de una clave, o `null` si no es una que exista. Valida las dos mitades. */
 export function ajusteDe(clave: unknown): Ajuste | null {
   if (typeof clave !== 'string') return null;
-  if (clave === 'acento' || clave === 'titulo' || clave === 'resumen' || clave === 'portada' || clave === 'disposicion' || clave === 'fuente') return { tipo: clave };
+  if (clave === 'acento' || clave === 'titulo' || clave === 'resumen' || clave === 'portada' || clave === 'disposicion' || clave === 'fuente' || clave === 'comentarios') return { tipo: clave };
   const etapa = /^portada:etapa:(.+)$/.exec(clave);
   if (etapa) return KEY_ETAPA.test(etapa[1]) ? { tipo: 'portada-etapa', etapa: etapa[1] } : null;
   const clase = /^portada:clase:(\d{1,12})$/.exec(clave);
@@ -156,6 +170,9 @@ export function sanearAjuste(a: Ajuste, valor: unknown): string | null {
     // Un id del catálogo cerrado (app/_cursos/fuentes.ts), tal cual; la de siempre BORRA la fila. Nunca
     // un nombre de familia ni una pila CSS: el valor termina adentro del `style` del curso de cada alumno.
     case 'fuente': return fuenteGuardable(valor);
+    // Sólo «si» se guarda: apagado es el default, y apagarlo BORRA la fila (igual que la disposición).
+    // Cualquier otra cosa —un `true`, un «1»— cae a apagado: prender un chat no se deduce de un valor raro.
+    case 'comentarios': return valor === 'si' ? 'si' : null;
     default: return portadaConLamina(valor);
   }
 }
@@ -185,6 +202,7 @@ export function armarEstilo(filas: ReadonlyArray<{ clave: unknown; valor: unknow
     if (a.tipo === 'portada-etapa') e.portadasEtapa[a.etapa] = v;
     else if (a.tipo === 'portada-clase') e.portadasClase[a.clase] = v;
     else if (a.tipo === 'disposicion') e.disposicion = v === 'abajo' ? 'abajo' : null;
+    else if (a.tipo === 'comentarios') e.comentarios = v === 'si' ? 'si' : null;
     else e[a.tipo] = v;
   }
   return e;
@@ -224,6 +242,7 @@ export function conAjuste(e: EstiloCurso, a: Ajuste, v: string | null): EstiloCu
     return { ...e, portadasClase: m };
   }
   if (a.tipo === 'disposicion') return { ...e, disposicion: v === 'abajo' ? 'abajo' : null };
+  if (a.tipo === 'comentarios') return { ...e, comentarios: v === 'si' ? 'si' : null };
   return { ...e, [a.tipo]: v };
 }
 

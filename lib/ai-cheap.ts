@@ -31,6 +31,7 @@ import { clavesAProbar, clavesDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
+import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
@@ -1332,6 +1333,20 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
     for (const p of await provsDe(nombre)) {
       const r = await escucharCon(p, base64, buf, mime, o, errores);
       if (!r) continue;
+      // ⚠️ UN 200 CON UN BUCLE ADENTRO ES UN FALLO, NO UNA TRANSCRIPCIÓN (08/10/2026). Gemini
+      // contestó el tramo 0:00-7:00 de un audio con un minuto de habla y después «1 2 3 … 699»,
+      // `finishReason: STOP`, y salía de acá como el texto del audio; los seis minutos que
+      // seguían no estaban en ningún lado. Se anota con su motivo y se prueba la CUENTA que
+      // sigue (`continue`, no `break` como el vacío): por el orden de los intentos, el que contó
+      // fue el modelo de respaldo de esa cuenta, y la otra cuenta arranca por el de siempre.
+      // No se recorta lo de antes del bucle: media transcripción se lee igual que una completa
+      // (lib/stt-degenerado.ts, donde están los umbrales medidos).
+      const bucle = salidaDegenerada(r.texto);
+      if (bucle) {
+        errores.push(`${rotulo(p)}: ${bucle.motivo}`);
+        console.error(`[stt] ${rotulo(p)} devolvió ${bucle.detalle}: lo cuento como fallo y pruebo el que sigue`);
+        continue;
+      }
       alguienEscuchó = true;
       if (r.texto) return corregirMarca(r.texto);
       break; // respondió vacío: no insistas con el mismo proveedor, probá el próximo
@@ -1355,6 +1370,14 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
         ...o, motivo: `⚠ red de plataforma (${r.provider}) — las keys del negocio no pudieron escuchar el audio · ${o.motivo ?? ''}`.trim(),
       }, erroresPlataforma);
       if (!res) continue;
+      // El mismo corte que arriba: la red de la agencia también puede contestar un bucle, y ése
+      // es un error de NUESTRAS keys, así que va a su lista y no a la del cliente.
+      const bucleRed = salidaDegenerada(res.texto);
+      if (bucleRed) {
+        erroresPlataforma.push(`${rotulo(p)}: ${bucleRed.motivo}`);
+        console.error(`[stt] red de plataforma ${rotulo(p)} devolvió ${bucleRed.detalle}: pruebo el que sigue`);
+        continue;
+      }
       console.error(`[stt] ws=${wsActual} escuchó con la RED DE PLATAFORMA (${r.provider}): sus propias keys no pudieron`);
       return res.texto ? corregirMarca(res.texto) : '';
     }

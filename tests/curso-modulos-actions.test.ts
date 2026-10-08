@@ -64,7 +64,8 @@ test('modulos-actions: «use server», sólo funciones async exportadas, y las n
 });
 
 test('cada action ABRE con la puerta: por su producto (admin + propio) o por su clase (admin, y la clase se lee con el inquilino)', () => {
-  const porClase = new Set(['moverClaseAAction', 'guardarCampoClaseAction']);
+  // `guardarLeccionAction` (audio del 08/10/2026, el «Guardar» de la lección): por su clase, como guardar una parte.
+  const porClase = new Set(['moverClaseAAction', 'guardarCampoClaseAction', 'guardarLeccionAction']);
   const sinPuerta = exportadas(ACC).filter((f) => abre(f, ACC) !== (porClase.has(f.nombre) ? PUERTA_CLASE : PUERTA_PRODUCTO)).map((f) => f.nombre);
   assert.deepEqual(sinPuerta, [], `estas actions no abren con su puerta: ${sinPuerta.join(', ')}`);
   // La puerta del producto: admin PRIMERO, y después que el producto sea de este workspace.
@@ -80,6 +81,10 @@ test('cada action ABRE con la puerta: por su producto (admin + propio) o por su 
     assert.match(abre(f, ADMIN), /^(const presentes|if \(!cambio)|^const c = await claseCruda\(claseId\);/, nombre);
     assert.match(plano(f.nodo, ADMIN), /const c = await claseCruda\(claseId\); if \(!c\) return \{ ok: false, error: 'Esa clase ya no existe\.' \};/, nombre);
   }
+  // El «Guardar» de la lección lee la clase (con su versión) con el inquilino puesto, y sin ella no escribe.
+  const gl = plano(funciones(ADMIN).find((x) => x.nombre === 'guardarLeccion')!.nodo, ADMIN);
+  assert.match(gl, /const db = await getTenantDb\(\); const leer = async \(\) => \{/);
+  assert.match(gl, /const fila0 = await leer\(\); if \(!fila0\) return \{ ok: false, error: 'Esa clase ya no existe\.' \};/);
   const cruda = funciones(ADMIN).find((x) => x.nombre === 'claseCruda')!;
   assert.match(plano(cruda.nodo, ADMIN), /const db = await getTenantDb\(\);/);
   const mover = plano(funciones(ADMIN).find((x) => x.nombre === 'moverClaseA')!.nodo, ADMIN);
@@ -92,14 +97,18 @@ test('cada action ABRE con la puerta: por su producto (admin + propio) o por su 
     /if \(otra\.etapa === m\.clave\) return \{ ok: false, error: 'Un módulo no puede esperar a una clase suya\.' \};/);
 });
 
-test('revalidatePath sólo donde cambia el KANBAN (crear, renombrar, vincular, reordenar, y borrar/devolver uno vinculado)', () => {
+test('revalidatePath sólo donde cambia el KANBAN (crear, renombrar, vincular, reordenar, y borrar/devolver uno vinculado) y en el «Guardar» de la lección', () => {
   const con = exportadas(ACC).filter((f) => /alKanban\(\)|revalidatePath\(/.test(plano(f.nodo, ACC))).map((f) => f.nombre).sort();
   // 08/10/2026 (item 15): borrar un módulo vinculado QUITA su columna del kanban, y su «Deshacer» la devuelve.
-  assert.deepEqual(con, ['borrarModuloAction', 'crearModuloAction', 'renombrarModuloAction', 'reordenarModulosAction', 'restaurarModuloAction', 'vincularModuloAction']);
+  // Revisión final del 08/10/2026: «Guardar» de la lección revalida el curso — el Atrás del navegador reusa la
+  // página bajada y, sin esto, volver de la Vista del alumno dibujaba la clase de antes de guardar.
+  assert.deepEqual(con, ['borrarModuloAction', 'crearModuloAction', 'guardarLeccionAction', 'renombrarModuloAction', 'reordenarModulosAction', 'restaurarModuloAction', 'vincularModuloAction']);
   // Y en esas dos, SÓLO si se tocó una columna: un suelto no cambia el kanban.
   const cuerpo = (n: string) => plano(funciones(ACC).find((x) => x.nombre === n)!.nodo, ACC);
   assert.match(cuerpo('borrarModuloAction'), /if \(r\.ok && r\.quitada\) alKanban\(\);/);
   assert.match(cuerpo('restaurarModuloAction'), /if \(x\.ok && r\?\.quitada\) alKanban\(\);/);
+  // Y sólo si se GUARDÓ: un rechazo (algo en rojo, un choque) no cambió nada que releer.
+  assert.match(cuerpo('guardarLeccionAction'), /if \(r\.ok\) revalidatePath\('\/customer-success\/curso'\);/);
 });
 
 test('guardarCampoClase: UN cambio por vez, y cada uno escribe SÓLO sus columnas (nunca la fila entera)', () => {

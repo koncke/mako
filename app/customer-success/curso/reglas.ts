@@ -15,10 +15,11 @@
 // mida cuánto del vídeo se vieron, cuáles tareas completaron».
 
 import {
-  videoDeLink, sanearCampos, tieneTarea, reproductorDeClase, conteoDeEtapa, vistoDeEtapa, linkValido,
+  videoDeLink, sanearCampos, tieneTarea, reproductorDeClase, conteoDeEtapa, vistoDeEtapa, urlDeAgenda,
   MAX_PREGUNTAS, MAX_OPCIONES_QUIZ,
   type Campo, type Clase, type EstadoTarea, type TipoClase, type VideoTipo,
 } from '@/lib/curso';
+import { nombreDeProveedor } from '@/lib/embeds';
 
 // ── Catálogos de la pantalla ─────────────────────────────────────────────────
 
@@ -53,7 +54,9 @@ export const TIPOS_CAMPO: ReadonlyArray<{ value: Campo['tipo']; label: string }>
   { value: 'quiz', label: 'Quiz' },
   { value: 'checklist', label: 'Checklist' },
   { value: 'agenda', label: 'Agendar llamada' },
-  { value: 'confirmacion', label: 'Lo hice' },
+  // «Lo hice» no se entendía (audio del 08/10/2026, item 10, 17:30: «no entiendo el campo de lo hice»): se
+  // llama como el botón que ve el alumno (TareaAlumno, «Marcar como hecho»). El valor sigue siendo 'si'.
+  { value: 'confirmacion', label: 'Marcar como hecho' },
   // Item 17 del 08/10/2026: interactuar en la comunidad del producto (lib/curso-tarea-comunidad.ts).
   { value: 'publicar', label: 'Publicar en la comunidad' },
   { value: 'comentar', label: 'Comentar en la comunidad' },
@@ -80,7 +83,8 @@ export function faltaEnCampo(c: Record<string, unknown> | null | undefined): str
   if ((tipo === 'eleccion' || tipo === 'checks') && !lleno(c?.opciones)) return `Faltan las opciones de ${nom}.`;
   if (tipo === 'checklist' && !lleno(c?.opciones)) return `Faltan las acciones de ${nom}.`;
   if (tipo === 'tabla' && !lleno(c?.columnas)) return `Faltan las columnas de ${nom}.`;
-  if (tipo === 'agenda' && !linkValido(c?.url)) return `Falta el link para agendar de ${nom}.`;
+  // `urlDeAgenda` y no `linkValido`: el código `<iframe>` de una agenda conocida también vale (item 15).
+  if (tipo === 'agenda' && !urlDeAgenda(c?.url)) return `Falta el link para agendar de ${nom}.`;
   if (tipo === 'escala') {
     const e = (c?.escala ?? {}) as Record<string, unknown>;
     const punta = (x: unknown) => typeof x === 'string' && x.trim().length > 0;
@@ -197,7 +201,8 @@ export function videoDeClase(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'videoPat
   const { video, medible } = reproductorDeClase(c);
   if (c.videoTipo === 'archivo') return { hay: video != null, rotulo: ROTULO_VIDEO.archivo, medible };
   const v = videoDeLink(c.videoUrl);
-  return { hay: video != null, rotulo: ROTULO_VIDEO[v?.tipo ?? c.videoTipo], medible };
+  // Panda, Wistia y Bunny se guardan como 'url' (el CHECK de la mig 0202): el nombre sale del proveedor.
+  return { hay: video != null, rotulo: (v?.proveedor ? nombreDeProveedor(v.proveedor) : null) ?? ROTULO_VIDEO[v?.tipo ?? c.videoTipo], medible };
 }
 
 // ── El orden ─────────────────────────────────────────────────────────────────
@@ -376,13 +381,31 @@ export function validarCamposEntrada(raw: unknown): { ok: true; campos: Campo[] 
     const falta = faltaEnCampo(c);
     if (falta) return { ok: false, error: falta };
   }
-  const campos = sanearCampos(crudos);
-  if (campos.length !== crudos.length) return { ok: false, error: 'Hay campos repetidos.' };
+  // ⚠️ LOS REPETIDOS SE PREGUNTAN ACÁ, ANTES DE SANEAR (revisión del 08/10/2026). Hasta ese día
+  //    `sanearCampos` TIRABA el segundo id repetido y esto lo detectaba contando largos; desde el item 2
+  //    del audio («se me borraron todos los campos») lo RENOMBRA, así que el largo ya no cambia y la
+  //    cuenta daba «ok» sobre dos campos con el mismo id. Se compara el id como lo deja el saneo.
+  const ids = crudos.map((c) => (typeof c?.id === 'string' ? c.id.trim().slice(0, 80).replace(/[^\w-]/g, '-') : ''));
+  if (new Set(ids).size !== ids.length) return { ok: false, error: 'Hay campos repetidos.' };
+  // Y lo que el saneo DESCARTE (basura, o la consigna de una `seccion`, que acá no hay con qué sanear:
+  // va por `guardarLeccion`) rechaza en vez de guardar una lista con menos de lo que la persona ve.
+  const descartes: string[] = [];
+  const campos = sanearCampos(crudos, { descartes });
+  if (descartes.length || campos.length !== crudos.length) return { ok: false, error: 'Hay un campo que no se pudo leer.' };
   return { ok: true, campos };
 }
 
 /** El error de «Cierra la etapa» en un módulo SUELTO: no es una etapa, no cierra nada. */
 export const ERROR_OBLIGATORIA_SUELTO = 'Un módulo suelto no cierra etapas.';
+
+/**
+ * «Obligatoria para avanzar» sin nada que pedir. Lo dicen el server (`validarClase`, `guardarCampoClase`) y
+ * el motivo del interruptor del menú «…» (`motivoObligatoria`, ./leccion-reglas.ts): un texto, un lugar.
+ * Antes era «Para cerrar la etapa, agrega la tarea.», y pegado al interruptor se leyó como un bug (audio
+ * del 08/10/2026, 13:00: «Hay uno, un bug cuando dice obligatorio para avanzar que dice… Para cerrar la
+ * etapa, agrega la tarea»).
+ */
+export const ERROR_OBLIGATORIA_SIN_TAREA = 'Necesita una tarea.';
 
 /**
  * Valida y normaliza lo que guarda el editor. Los errores son CORTOS: se dibujan tal cual.
@@ -438,7 +461,7 @@ export function validarClase(
   // cuenta las que piden algo, así que la marca quedaría guardada y sin efecto — y la etapa no
   // avanzaría sola sin que nadie entienda por qué.
   const obligatoria = r.obligatoria === true;
-  if (obligatoria && !tieneTarea({ tarea, campos })) return { ok: false, error: 'Para cerrar la etapa, agrega la tarea.' };
+  if (obligatoria && !tieneTarea({ tarea, campos })) return { ok: false, error: ERROR_OBLIGATORIA_SIN_TAREA };
   if (obligatoria && ctx.sueltos?.includes(etapa)) return { ok: false, error: ERROR_OBLIGATORIA_SUELTO };
 
   return { ok: true, id: idCrudo, fila: { etapa, titulo, descripcion, tipo, minutos, ...video, tarea, campos, obligatoria } };

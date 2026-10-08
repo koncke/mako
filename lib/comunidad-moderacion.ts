@@ -47,7 +47,10 @@ export async function sacarAlumno(a: Actor, claveRaw: unknown, opts: { motivo?: 
     const borrados = { posts: 0, comentarios: 0 };
     if (borrar) {
       const desde = new Date(Date.now() - BORRAR_DIAS * 86_400_000).toISOString();
-      const p = await de(a.ws, 'comunidad_posts').delete().eq('producto_id', a.productoId).eq('miembro', c.clave).gte('created_at', desde).select('id, adjunto_path');
+      // ⚠️ SIN LOS HILOS DE LAS CLASES (mig 0227): el «autor» de un hilo es quien comentó primero, y
+      //    borrarlo se llevaría en cascada los comentarios de TODOS los demás. Lo suyo ahí son sus
+      //    comentarios, que se borran en la línea de abajo.
+      const p = await de(a.ws, 'comunidad_posts').delete().eq('producto_id', a.productoId).eq('miembro', c.clave).is('clase_id', null).gte('created_at', desde).select('id, adjunto_path');
       if (p.error) return { ok: false, error: `Quedó fuera, pero no pude borrar sus posts: ${p.error.message}` };
       const k = await de(a.ws, 'comunidad_comentarios').delete().eq('producto_id', a.productoId).eq('miembro', c.clave).gte('created_at', desde).select('id');
       if (k.error) return { ok: false, error: `Quedó fuera, pero no pude borrar sus comentarios: ${k.error.message}` };

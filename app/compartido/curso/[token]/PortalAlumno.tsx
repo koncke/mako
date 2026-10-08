@@ -50,11 +50,14 @@ import { Pagina, EmptyState } from '@/app/_ui';
 import { useRouter } from '@/app/_ui/Link';
 import { HtmlSeguro, idDeRef } from '@/app/_ui/HtmlSeguro';
 import CursoUgc, { ChipUgc, ItemMenuUgc, TituloMenuUgc } from '@/app/_cursos/CursoUgc';
-import { disposicionDe, tapaDe } from '@/lib/curso-estilo';
+import { comentariosPrendidos, disposicionDe, tapaDe } from '@/lib/curso-estilo';
 import { urlAdjuntoDelAlumno } from '@/lib/curso-adjuntos-reglas';
 import type { LeccionUgc } from '@/app/_cursos/tipos';
 import { navegar, sembrar, usePosicion } from '@/app/conocimientos/posicion';
 import { ComunidadAlumno } from '@/app/_comunidad/ComunidadAlumno';
+// Los comentarios de cada clase (item 13 del 08/10/2026): el hilo de la comunidad, debajo de la lección.
+import { ComentariosClase } from '@/app/_cursos/ComentariosClase';
+import { apiDelAlumno } from '@/app/_comunidad/api';
 import Reproductor from './Reproductor';
 import TareaAlumno from './TareaAlumno';
 import { VistaPreviaCtx, useVistaPrevia } from './vista-previa';
@@ -154,6 +157,14 @@ function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProduct
   const modulos = useMemo(() => modulosDelPortal(producto), [producto]);
   const clases = useMemo(() => clasesDelPortal(producto), [producto]);
   const porId = useMemo(() => new Map(clases.map((c) => [c.ugc.id, c])), [clases]);
+  // LOS COMENTARIOS DE CADA CLASE (item 13 del audio del 08/10/2026, mig 0227), si el equipo los prendió
+  // en el menú de la marca. NO al líder de un área: su link no abre la comunidad (`actorDelAlumno`), y
+  // los comentarios son de ella. La vista previa del equipo dibuja el recuadro sin pedir nada.
+  const conComentarios = comentariosPrendidos(producto.estilo) && !lider;
+  const apiComentarios = useMemo(
+    () => (conComentarios && !vistaPrevia ? apiDelAlumno(token, producto.productoId) : null),
+    [conComentarios, vistaPrevia, token, producto.productoId],
+  );
   const { etapa: actual, i: iActual } = etapaActual(producto);
   const agenda = lider ? null : agendaVigente(producto);
 
@@ -204,7 +215,7 @@ function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProduct
       <Reproductor token={token} claseId={c.id} video={c.video} titulo={c.titulo}
         onPct={(p) => setPcts((m) => ({ ...m, [c.id]: Math.max(m[c.id] ?? 0, p) }))} />
     );
-    const tarea = c.tieneTarea ? <Tarea token={token} c={c} estados={estados} valores={valores} resueltas={resueltas}
+    const tarea = c.tieneTarea ? <Tarea token={token} c={c} urlDeAdjunto={urlDeAdjunto(c.id)} estados={estados} valores={valores} resueltas={resueltas}
       onEstado={(k, e) => setEstados((m) => ({ ...m, [k]: e }))}
       onValores={(k, v) => setValores((m) => ({ ...m, [k]: v }))}
       onResuelta={(k) => setResueltas((s) => new Set(s).add(k))}
@@ -234,6 +245,10 @@ function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProduct
       video: reproductor && c.video?.tipo !== 'afuera' ? { cuerpo: reproductor } : undefined,
       debajoDelVideo: c.video?.tipo === 'afuera' ? reproductor : undefined,
       papel,
+      // Debajo de la lección, a lo ancho. Una clase CERRADA no llega acá (sale arriba, sin nada).
+      despues: conComentarios
+        ? <ComentariosClase key={c.id} api={apiComentarios} claseId={c.id} vistaPrevia={vistaPrevia} />
+        : undefined,
     };
   };
 
@@ -397,9 +412,11 @@ function BotonAgenda({ href, etapa }: { href: string; etapa?: string }) {
  * La tarea de la lección: una por área en una clase POR ÁREA (con el área ARRIBA: es lo único que
  * distingue una de la otra), o la del cliente. Lo que trae de la pantalla le gana a lo de la página.
  */
-function Tarea({ token, c, estados, valores, resueltas, onEstado, onValores, onResuelta, onAvance }: {
+function Tarea({ token, c, urlDeAdjunto, estados, valores, resueltas, onEstado, onValores, onResuelta, onAvance }: {
   token: string;
   c: ClaseVista;
+  /** Los adjuntos de la consigna de la tarea (una imagen pegada en ella), como los de la descripción. */
+  urlDeAdjunto: (ref: string) => string | null;
   estados: Record<string, EstadoTarea>;
   valores: Record<string, Valores>;
   resueltas: ReadonlySet<string>;
@@ -421,6 +438,8 @@ function Tarea({ token, c, estados, valores, resueltas, onEstado, onValores, onR
                 claseId={c.id}
                 area={a.area}
                 tarea={c.tarea}
+                tareaHtml={c.tareaHtml}
+                urlDeAdjunto={urlDeAdjunto}
                 campos={c.campos}
                 valoresIniciales={valores[k] ?? a.valores}
                 estadoInicial={estados[k] ?? a.estado}
@@ -443,6 +462,8 @@ function Tarea({ token, c, estados, valores, resueltas, onEstado, onValores, onR
       token={token}
       claseId={c.id}
       tarea={c.tarea}
+      tareaHtml={c.tareaHtml}
+      urlDeAdjunto={urlDeAdjunto}
       campos={c.campos}
       valoresIniciales={valores[k] ?? c.valores}
       estadoInicial={estados[k] ?? c.estado}

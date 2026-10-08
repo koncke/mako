@@ -19,7 +19,7 @@
 //
 // ⚠️ SIN `revalidatePath` SALVO DONDE CAMBIA EL KANBAN (crear, renombrar, vincular y reordenar
 // módulos, y desde el 08/10/2026 borrar uno vinculado y devolverlo con «Deshacer», que quitan y
-// devuelven su columna): la pantalla del curso ya tiene lo que vuelve, y releer la página entera por cada gesto
+// devuelven su columna) Y EN EL «GUARDAR» DE LA LECCIÓN (`guardarLeccionAction`: el Atrás, ver ahí): la pantalla del curso ya tiene lo que vuelve, y releer la página entera por cada gesto
 // pone medio segundo detrás de algo que se repite. El kanban de Clientes es otra página: ésa sí se
 // marca para que la próxima vez lea las etapas nuevas.
 //
@@ -33,7 +33,8 @@ import {
   crearModulo, renombrarModulo, vincularModulo, reordenarModulos, borrarModulo, restaurarModulo, previaDeQuitar, guardarBloqueo,
   type ObjetivoBloqueo, type EtapaQuitada,
 } from '@/lib/curso-modulos-datos';
-import { crearClase, moverClaseA, guardarCampoClase, restaurarClases, type CambioClase } from '@/lib/curso-admin';
+import { crearClase, moverClaseA, guardarCampoClase, guardarLeccion, restaurarClases, type CambioClase, type ResultadoLeccion } from '@/lib/curso-admin';
+import type { CambiosLeccion } from './leccion-reglas';
 import { getUsuarioActual } from '@/lib/auth';
 import type { ModuloCurso, PreguntaDestino } from '@/lib/curso-modulos';
 import type { EtapaEntrega } from '@/lib/servicio-etapas';
@@ -269,9 +270,37 @@ export async function moverClaseAAction(claseId: number, moduloClave: string, an
 }
 
 /**
- * Guarda UNA parte de la lección (D4): `{ titulo }`, `{ descripcionHtml }`, `{ video }`, `{ tarea }`,
- * `{ campos }`, `{ obligatoria }`, `{ porArea }`, `{ minutos }` o `{ tipo }`. Un `update` de sólo esas
- * columnas, nunca la fila entera. Devuelve la clase como quedó.
+ * «Guardar» de la lección (audio del 08/10/2026, item 1: «prefiero que haya un botón que me obligue a
+ * guardar de forma manual»): el BORRADOR de la clase de una vez, en UN `update` con compare-and-set
+ * (`guardarLeccion`, lib/curso-admin.ts). `cambios` trae SÓLO las partes que cambiaron y `antes` lo que la
+ * pantalla tenía de base en cada una: si otra pestaña la cambió, contesta `conflicto` con la clase como
+ * está. Si algo está incompleto, `errores` dice qué, por campo (lo que la pantalla pinta en rojo).
+ *
+ * ⚠️ CON `revalidatePath` DEL CURSO, a diferencia de los gestos de este archivo (revisión final del 08/10/2026).
+ *    El ATRÁS del navegador REUSA la página que ya bajó (node_modules/next/dist/docs, glosario «Client Cache»:
+ *    «Pages are not cached by default but are reused during browser back/forward navigation»): guardar, ir a
+ *    la Vista del alumno y volver con el Atrás redibujaba la clase de ANTES de guardar — la otra mitad del
+ *    «vuelvo para atrás, no me aparece la edición» (15:40) — y el próximo «Guardar» chocaba consigo mismo
+ *    («Cambió en otra pestaña»). Revalidar limpia esa caché del navegador. Cuesta releer la página en cada
+ *    «Guardar», que es UN clic a mano y no un gesto que se repite (el porqué de no revalidar los demás).
+ */
+export async function guardarLeccionAction(claseId: number, cambios: CambiosLeccion, antes: CambiosLeccion): Promise<ResultadoLeccion> {
+  try {
+    const no = await puedeEditar();
+    if (no) return { ok: false, error: no };
+    const r = await guardarLeccion(Number(claseId), cambios, antes);
+    if (r.ok) revalidatePath('/customer-success/curso');
+    return r;
+  } catch (e) {
+    return fallo(e, 'No se pudo guardar.');
+  }
+}
+
+/**
+ * Guarda UNA parte de la clase: `{ obligatoria }` (el interruptor del menú «…», inmediato), `{ minutos }`
+ * (los que dice solo el reproductor del video guardado) y las demás partes, que la lección ya no manda
+ * sueltas desde el audio del 08/10/2026 (van con «Guardar», `guardarLeccionAction`). Un `update` de sólo
+ * esas columnas, nunca la fila entera. Devuelve la clase como quedó.
  */
 export async function guardarCampoClaseAction(claseId: number, cambio: CambioClase): Promise<{ ok: true; clase: Clase } | Fallo> {
   try {

@@ -427,7 +427,11 @@ test('los permisos del alumno (mig 0219) entran por la única puerta, en las sei
   }
   assert.match(leer('app/mi-curso/portal-comun.tsx'), /armarVistaAlumno\(\s*acceso\.leadId\s*,\s*\{\s*alcance:\s*acceso\.alcance\s*\}\s*\)/);
   const portal = leer('lib/curso-portal.ts');
-  assert.match(portal, /permitido: \(clave\) => moduloPermitido\(alcance, productoId, clave\)/, 'armarVistaAlumno no filtra los módulos');
+  // Desde el 08/10/2026 (item 16) el filtro es UNO y lo usan las dos preguntas: si el curso se lista
+  // (`cursoSeLista`) y qué módulos viajan (`armarModulos`).
+  assert.match(portal, /const permitido = \(clave: string\) => moduloPermitido\(alcance, productoId, clave\);/, 'armarVistaAlumno no filtra los módulos');
+  assert.match(portal, /if \(!cursoSeLista\(cur\.modulos, clases, permitido\)\) continue;/, 'un curso escondido por los permisos se lista igual');
+  assert.match(portal, /progreso: avance\.progreso,\s*permitido,/, 'armarModulos no recibe los permisos');
   assert.match(portal, /!moduloPermitido\(alcance, clase\.productoId, clase\.etapa\)\) \{\s*return \{ decision: 'no-existe' \}/, 'claseDelAlumno no mira los permisos');
 });
 
@@ -529,6 +533,7 @@ test('claseVista es una lista blanca: la marca de grabar, el candado (ni nada qu
   const conMarca = { ...clase(1), grabar: true, notas: ['interna'], bloqueo: { tipo: 'abierto' } } as unknown as Clase;
   const [e] = armar([{ key: 'e1', label: 'Uno' }], 'e1', [conMarca], new Map());
   assert.deepEqual(Object.keys(e.clases[0]).sort(), [
-    'campos', 'completa', 'descripcion', 'descripcionHtml', 'estado', 'hecha', 'id', 'minutos', 'obligatoria', 'pct', 'tarea', 'tieneTarea', 'titulo', 'valores', 'video',
+    // `tareaHtml` (mig 0226, 08/10/2026): la consigna de la tarea con formato. Viaja re-saneada (`conHtmlSaneado`).
+    'campos', 'completa', 'descripcion', 'descripcionHtml', 'estado', 'hecha', 'id', 'minutos', 'obligatoria', 'pct', 'tarea', 'tareaHtml', 'tieneTarea', 'titulo', 'valores', 'video',
   ]);
 });

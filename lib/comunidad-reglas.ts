@@ -454,6 +454,38 @@ export const puedeEditarAbout = (a: ActorRegla): boolean => a.equipo;
 /** Crear, editar y borrar eventos del calendario: el equipo (en Skool, admins y moderadores). */
 export const puedeGestionarEventos = (a: ActorRegla): boolean => a.equipo;
 
+/**
+ * ¿Quien actúa ve —y comenta— el hilo de ESTA clase? (los comentarios de una clase, item 13 del audio
+ * del 08/10/2026, mig 0227). Pura, con lo que lib/comunidad-datos.ts (`leerClaseParaComentar`) leyó:
+ *
+ *   · la clase tiene que EXISTIR en el negocio del contexto, y el contexto ser el del actor
+ *     (`mismoWorkspace`): una clase de otro negocio no se lee (llega `null`) — el IDOR entre inquilinos;
+ *   · y ser del MISMO PRODUCTO que la comunidad del actor: una clase de otro producto del mismo negocio
+ *     se comentaría en la comunidad equivocada — el IDOR entre productos;
+ *   · el EQUIPO, con eso, la ve siempre (modera, con los comentarios prendidos o no);
+ *   · un ALUMNO, además, sólo si el curso tiene los comentarios PRENDIDOS y la clase SE LE ABRE (su
+ *     candado, el de su módulo y sus permisos: `claseDelAlumno` con `exigeAbierta`). Un alumno que no
+ *     puede ver la clase no ve ni comenta sus comentarios.
+ *
+ * Escrita en POSITIVO: cada «sí» se nombra; lo que no está nombrado es «no» (AGENTS.md).
+ */
+export function puedeComentarLaClase(p: {
+  equipo: boolean;
+  mismoWorkspace: boolean;
+  /** El producto de la clase, o `null` si no existe (borrada, en la papelera o de otro negocio). */
+  productoDeLaClase: number | null;
+  productoDelActor: number;
+  /** Sólo alumno: el ajuste «Comentarios en las clases» del curso (lib/curso-estilo.ts). */
+  comentariosPrendidos: boolean;
+  /** Sólo alumno: la clase se le ABRE (la decisión del portal fue `ok` y está abierta). */
+  abiertaParaElAlumno: boolean;
+}): boolean {
+  const suya = p.mismoWorkspace && p.productoDeLaClase != null && p.productoDeLaClase === p.productoDelActor;
+  if (!suya) return false;
+  if (p.equipo) return true;
+  return p.comentariosPrendidos === true && p.abiertaParaElAlumno === true;
+}
+
 // ── El About ──────────────────────────────────────────────────────────────────────
 
 /** La descripción corta de la columna lateral (Skool: hasta 150). La 0217 repite el tope. */

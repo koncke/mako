@@ -72,6 +72,18 @@
 //    la lección real, `outline: solid 3px` con foco. La regla del curso pesa 4 (dos clases, el
 //    atributo y la pseudoclase) y la hoja del curso carga DESPUÉS: con 4 contra 4 ganaba ella (medido).
 //    Por eso la clase del editor va DOBLE: 5 contra 4, sin depender del orden de las hojas.
+//
+// ── LO INSERTADO (08/10/2026, items 14 y 15 del audio) ─────────────────────
+// 12. «INSERTAR»: un video o una agenda adentro del texto (24:30: «que lo pueda embeber cosas como… el
+//    Calendar, que se puedan embeber ahí mismo»). Se pega un link o el código que da el proveedor, pasa
+//    por `embedDe` (lib/embeds.ts: https, un host de la lista, el `src` lo vuelve a armar ese módulo) y
+//    queda como un bloque `insertado` que se guarda como el MISMO `<iframe>` que escribe el saneo del
+//    server (`atributosDeIframe`): si el editor escribiera otra cosa, el server la devolvería distinta y
+//    el documento se recargaría con el cursor al principio (trampa 1). Pegar SÓLO un código lo inserta
+//    (`esCodigoParaInsertar`). Elegido, se quita con su «Deshacer» de 5 segundos, como una imagen.
+// 13. EN EL EDITOR, EL IFRAME NO RECIBE EL MOUSE HASTA QUE SE ELIGE EL BLOQUE: un clic adentro de un
+//    iframe se lo queda el iframe (es otra página), y el bloque no se podría elegir ni quitar. El primer
+//    clic lo elige; elegido, se puede usar (dar play, mirar la agenda).
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as EventoTecla, type ReactNode, type Ref, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
@@ -90,7 +102,8 @@ import { Placeholder } from '@tiptap/extensions';
 import { Dropdown } from '@/app/components/Dropdown';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { CSS_RICO, idDeRef, urlDibujable, anchoDeImagen, alineaDeImagen, type AlineaImagen } from './HtmlSeguro';
-import { repartoDeBarra, recortarSeparadores, anchoDeArrastre, anchoInicialDeImagen } from './editor-rico-reglas';
+import { repartoDeBarra, recortarSeparadores, anchoDeArrastre, anchoInicialDeImagen, esCodigoParaInsertar } from './editor-rico-reglas';
+import { embedDe, embedDeIframe, atributosDeIframe, altoDeEmbed, claseDeProveedor, porQueNoSeInserta, type Embed } from '@/lib/embeds';
 import { Toast, useToast } from './Toast';
 
 // ── El contrato ──────────────────────────────────────────────────────────────
@@ -364,6 +377,77 @@ const ChipAdjunto = NodoTiptap.create({
   },
 });
 
+/**
+ * El embed de un nodo `insertado`, o `null` si sus atributos no son uno que `embedDe` reconozca (un
+ * documento viejo o tocado a mano): ahí no se dibuja ni se escribe nada.
+ */
+function embedDelNodo(attrs: Record<string, unknown>): Embed | null {
+  const e = embedDe(String(attrs.src ?? ''));
+  if (!e || e.proveedor !== attrs.proveedor) return null;
+  return e.alto == null ? e : { ...e, alto: altoDeEmbed(attrs.alto) ?? e.alto };
+}
+
+/** Lo que el editor lee de un `<iframe>` (pegado o del HTML guardado): la regla del saneo, `embedDeIframe`. */
+const leerIframe = (el: HTMLElement): Embed | null =>
+  embedDeIframe({ src: el.getAttribute('src'), 'data-alto': el.getAttribute('data-alto'), height: el.getAttribute('height') });
+
+/**
+ * LO INSERTADO (item 15, ver la trampa 12 de la cabecera): un video o una agenda, como un bloque
+ * atómico. Cada atributo se LEE con `leerIframe` (TipTap mezcla lo que devuelve cada atributo por encima
+ * del `getAttrs` de la regla: sin su propio `parseHTML`, el `src` crudo del código pisaría el rearmado)
+ * y no se escribe solo (`renderHTML: () => ({})`): el `<iframe>` lo arma `atributosDeIframe`, completo.
+ */
+const Insertado = NodoTiptap.create({
+  name: 'insertado',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: null, parseHTML: (el: HTMLElement) => leerIframe(el)?.src ?? null, renderHTML: () => ({}) },
+      proveedor: { default: null, parseHTML: (el: HTMLElement) => leerIframe(el)?.proveedor ?? null, renderHTML: () => ({}) },
+      alto: { default: null, parseHTML: (el: HTMLElement) => leerIframe(el)?.alto ?? null, renderHTML: () => ({}) },
+    };
+  },
+  parseHTML() {
+    // Un iframe que no es de la lista no entra al documento (y al pegar, se va con lo demás que no entra).
+    return [{ tag: 'iframe[src]', getAttrs: (el) => (leerIframe(el as HTMLElement) ? null : false) }];
+  },
+  renderHTML({ node }) {
+    const e = embedDelNodo(node.attrs);
+    return e ? ['iframe', Object.fromEntries(atributosDeIframe(e))] : ['p'];
+  },
+  renderText({ node }) {
+    return String(node.attrs.src ?? '');
+  },
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('div');
+      dom.className = 'mk-er-insertado';
+      dom.contentEditable = 'false';
+      const iframe = document.createElement('iframe');
+      dom.appendChild(iframe);
+      let actual = node;
+      const pintar = () => {
+        const e = embedDelNodo(actual.attrs);
+        if (!e) { iframe.removeAttribute('src'); return; }
+        // El `sandbox` ANTES que el `src`: se aplica en la navegación que arranca con el `src`.
+        const attrs = atributosDeIframe(e);
+        for (const [k, v] of attrs) if (k !== 'src' && iframe.getAttribute(k) !== v) iframe.setAttribute(k, v);
+        if (iframe.getAttribute('src') !== e.src) iframe.setAttribute('src', e.src);
+      };
+      pintar();
+      return {
+        dom,
+        update: (n) => { if (n.type !== actual.type) return false; actual = n; pintar(); return true; },
+        // Lo que pase adentro del iframe (otra página) no es un cambio del documento.
+        ignoreMutation: () => true,
+      };
+    };
+  },
+});
+
 /** Los atajos que TipTap no trae: Ctrl/⌘+K abre el panel del enlace (el de Word y Docs). */
 const AtajosMako = Extension.create<{ abrirEnlace: () => void }>({
   name: 'atajosMako',
@@ -429,6 +513,7 @@ const I = {
   resaltar: <Ico d="m9 11-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />,
   cerrar: <Ico d="M18 6 6 18M6 6l12 12" />,
   tabla: <Ico><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 10v10M15 10v10" /></Ico>,
+  insertar: <Ico><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m10 9 5 3-5 3z" /></Ico>,
   mas: <Ico><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></Ico>,
   basura: <Ico d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" />,
   filaArriba: <Ico d="M4 14h16M4 20h16M12 11V3M8.5 6.5 12 3l3.5 3.5" />,
@@ -470,6 +555,10 @@ const CSS_EDITOR = `
 .mk-editor-rico .ProseMirror img { cursor: default; }
 .mk-editor-rico .ProseMirror img.ProseMirror-selectednode, .mk-editor-rico .ProseMirror .mk-adjunto.ProseMirror-selectednode { outline: 2px solid var(--primary, #2F6FED); outline-offset: 2px; }
 .mk-editor-rico .ProseMirror .mk-rico-img-pendiente { width: 100%; min-height: 96px; background: var(--surface-2, #F5F7FA); border: 1px dashed var(--border-strong, #DCE0E7); }
+.mk-editor-rico .ProseMirror .mk-er-insertado { position: relative; margin: .4em 0 .9em; border-radius: 8px; cursor: pointer; }
+.mk-editor-rico .ProseMirror .mk-er-insertado > iframe { margin: 0; pointer-events: none; }
+.mk-editor-rico .ProseMirror .mk-er-insertado.ProseMirror-selectednode { outline: 2px solid var(--primary, #2F6FED); outline-offset: 2px; cursor: default; }
+.mk-editor-rico .ProseMirror .mk-er-insertado.ProseMirror-selectednode > iframe { pointer-events: auto; }
 .mk-editor-rico .ProseMirror .selectedCell { position: relative; }
 .mk-editor-rico .ProseMirror .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgba(47, 111, 237, .14); pointer-events: none; }
 .mk-editor-rico .mk-er-img-barra { position: absolute; z-index: 1; display: flex; align-items: center; gap: 2px; padding: 3px; white-space: nowrap; border-radius: var(--r-sm, 8px); background: var(--surface, #FFFFFF); border: 1px solid var(--border-strong, #DCE0E7); box-shadow: 0 6px 18px rgba(18, 21, 27, .18); }
@@ -516,6 +605,8 @@ const CSS_EDITOR = `
 .mk-er-flota .mk-er-accion.es-primaria { background: var(--primary, #2F6FED); border-color: var(--primary, #2F6FED); color: var(--on-primary, #FFFFFF); }
 .mk-er-flota .mk-er-accion.es-primaria:hover { background: var(--primary-strong, #245FD6); }
 .mk-er-flota .mk-er-error { margin-top: 6px; color: var(--bad, #D0504A); font-size: var(--fs-meta, 12px); }
+.mk-er-flota .mk-er-codigo { height: auto; min-height: 66px; padding: 8px 10px; resize: vertical; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.45; }
+.mk-er-flota .mk-er-nota { margin-top: 6px; color: var(--faint, #66707F); font-size: var(--fs-meta, 12px); }
 .mk-er-flota .mk-er-menu { display: flex; flex-direction: column; gap: 1px; margin: -4px; max-height: min(70vh, 480px); overflow-y: auto; }
 .mk-er-flota .mk-er-fila { flex: none; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 0 8px; border: 0; border-radius: var(--r-sm, 8px); background: transparent; color: var(--ink, #12151B); font: inherit; text-align: left; cursor: pointer; }
 .mk-er-flota .mk-er-fila:hover:not(:disabled), .mk-er-flota .mk-er-fila:focus-visible { background: var(--velo-hover, rgba(18, 21, 27, .055)); outline: none; }
@@ -645,7 +736,7 @@ function posDeTabla(e: Editor): number | null {
   return null;
 }
 
-type TipoPanel = 'color' | 'resaltado' | 'enlace' | 'mas' | 'tabla';
+type TipoPanel = 'color' | 'resaltado' | 'enlace' | 'mas' | 'tabla' | 'insertar';
 
 /**
  * Una pieza de la barra. La barra y el menú «Más» dibujan la MISMA lista: lo que no entra en una
@@ -677,6 +768,12 @@ export function EditorRico({
   const imagenesFueraDelPegado = useRef(0);
   const abrirEnlaceRef = useRef<() => void>(() => {});
   const editorRef = useRef<Editor | null>(null);
+  /** Mete un video o una agenda donde está el cursor: el panel «Insertar» y el pegado de un código. */
+  const insertarEmbedRef = useRef((e: Embed) => {
+    const ed = editorRef.current;
+    if (!ed || ed.isDestroyed) return;
+    ed.chain().focus().insertContent({ type: 'insertado', attrs: { src: e.src, proveedor: e.proveedor, alto: e.alto ?? null } }).run();
+  });
   /**
    * Lo último que se sacó con un botón (una tabla, una imagen) y dónde estaba, con la posición
    * CORRIDA con cada cambio (como las subidas): es lo que vuelve a poner «Deshacer».
@@ -784,6 +881,7 @@ export function EditorRico({
     TaskItem.configure({ nested: true, a11y: { checkboxLabel: (n, hecho) => `${hecho ? 'Hecha' : 'Pendiente'}: ${n.textContent || 'tarea vacía'}` } }),
     ImagenAdjunto.configure({ ctx: ctx.current }),
     ChipAdjunto,
+    Insertado,
     // Las tablas (item 10). Sin columnas redimensionables: el ancho de cada columna en px no pasa el
     // saneo (no tiene sentido en un teléfono), y la tabla se reparte el ancho sola.
     Table.configure({ resizable: false }),
@@ -814,6 +912,13 @@ export function EditorRico({
         const files = Array.from(event.clipboardData?.files ?? []);
         const fuera = imagenesFueraDelPegado.current;
         imagenesFueraDelPegado.current = 0;
+        // Pegar SÓLO el código que da el proveedor (el `<iframe>` de YouTube, el `<div>` de Calendly) lo
+        // inserta (trampa 12). Lo que no es de la lista se pega como texto, como siempre.
+        const plano = event.clipboardData?.getData('text/plain') ?? '';
+        if (!files.length && esCodigoParaInsertar(plano)) {
+          const e = embedDe(plano);
+          if (e) { insertarEmbedRef.current(e); return true; }
+        }
         if (subirRef.current && pegadoEsDeArchivos(files.length, event.clipboardData?.getData('text/html'))) {
           subirArchivos(files, null);
           return true;
@@ -904,6 +1009,7 @@ export function EditorRico({
         rehacer: e.can().redo(),
         imagen: imagenElegida(e),
         tabla: tablaDelCursor(e),
+        insertado: insertadoElegido(e),
       };
     },
   });
@@ -1021,6 +1127,8 @@ export function EditorRico({
       tipo: 'boton', id: 'tabla', nombre: enTabla ? 'Filas y columnas' : 'Tabla', icono: I.tabla, activo: enTabla, abre: enTabla, recorrido: 'editor-tabla',
       accion: (el) => (enTabla ? alternarPanel('tabla', el) : cadena()?.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()),
     },
+    // Un video o una agenda (item 15, trampa 12): abre el panel donde se pega el link o el código.
+    { tipo: 'boton', id: 'insertar', nombre: 'Insertar video o agenda', icono: I.insertar, abre: true, recorrido: 'editor-insertar', accion: (el) => alternarPanel('insertar', el) },
     sep('s-listas'),
     { tipo: 'boton', id: 'lista', nombre: 'Lista', atajo: `${mod}+Shift+8`, icono: I.lista, activo: estado?.lista, accion: () => cadena()?.toggleBulletList().run() },
     { tipo: 'boton', id: 'numerada', nombre: 'Lista numerada', atajo: `${mod}+Shift+7`, icono: I.numerada, activo: estado?.numerada, accion: () => cadena()?.toggleOrderedList().run() },
@@ -1219,6 +1327,11 @@ export function EditorRico({
           />
         </Flotante>
       )}
+      {panel && editor && panel.tipo === 'insertar' && (
+        <Flotante ancla={panel.ancla} onCerrar={cerrarPanel} etiqueta="Insertar video o agenda" ancho={320}>
+          <PanelInsertar onInsertar={(e) => { insertarEmbedRef.current(e); cerrarPanel(); }} />
+        </Flotante>
+      )}
       {panel && editor && panel.tipo === 'mas' && (
         <Flotante ancla={panel.ancla} onCerrar={cerrarPanel} etiqueta="Más opciones" ancho={240}>
           <MenuMas piezas={enMas} ancla={panel.ancla} enfocar={masPorTeclado.current} bloque={estado?.bloque ?? 'p'}
@@ -1251,6 +1364,22 @@ export function EditorRico({
         <ControlesImagen editor={editor} raiz={raizRef} pos={estado.imagen.pos} ancho={estado.imagen.ancho} alinea={estado.imagen.alinea}
           onQuitar={() => { const pos = estado.imagen?.pos; if (pos != null) sacarConDeshacer(pos, 'Imagen quitada'); }} />
       )}
+      {/* ⚠️ «Quitar» de lo insertado NO depende del foco, a diferencia de la imagen y la tabla: dar play
+          es un clic ADENTRO de su iframe (otra página), y el foco se va del editor —o queda en el `body`
+          si el iframe todavía carga—. Medido en el banco de la pista VIDEO: el bloque seguía elegido, con
+          su borde, y «Quitar» desaparecía en 3 de 7 corridas (el foco en el iframe o en el `body`; mirar
+          `document.activeElement` un tick después tapó el primer caso y no el segundo). Va con el borde:
+          elegido, se ve. */}
+      {editor && !soloLectura && estado?.insertado && (
+        <ControlesInsertado editor={editor} raiz={raizRef} pos={estado.insertado.pos}
+          onQuitar={() => {
+            const pos = estado.insertado?.pos;
+            if (pos == null) return;
+            // Un aviso por clase de lo que se quitó (3-4 palabras, AGENTS.md): lo dice el toast.
+            if (estado.insertado?.agenda) sacarConDeshacer(pos, 'Agenda quitada');
+            else sacarConDeshacer(pos, 'Video quitado');
+          }} />
+      )}
       {editor && !soloLectura && enfocado && estado?.tabla && (
         <BotonTabla editor={editor} raiz={raizRef} pos={estado.tabla.pos} abierto={panel?.tipo === 'tabla'}
           onAbrir={(el) => alternarPanel('tabla', el)} />
@@ -1270,6 +1399,13 @@ function imagenElegida(e: Editor): { pos: number; ancho: number | null; alinea: 
   const sel = e.state.selection;
   if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'image') return null;
   return { pos: sel.from, ancho: anchoDeImagen(sel.node.attrs.ancho), alinea: alineaDeImagen(sel.node.attrs.alinea) };
+}
+
+/** Lo insertado que está elegido (un clic sobre él) y si es una agenda, o `null`. */
+function insertadoElegido(e: Editor): { pos: number; agenda: boolean } | null {
+  const sel = e.state.selection;
+  if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'insertado') return null;
+  return { pos: sel.from, agenda: claseDeProveedor(sel.node.attrs.proveedor) === 'agenda' };
 }
 
 /** La tabla donde está el cursor y lo que se puede hacer con ella, o `null`. */
@@ -1622,6 +1758,35 @@ function BotonTabla({ editor, raiz, pos, abierto, onAbrir }: {
   );
 }
 
+/**
+ * Lo que aparece sobre un video o una agenda elegidos: «Quitar» (con su «Deshacer» de 5 segundos), en
+ * la esquina de arriba a la derecha y AFUERA del bloque: adentro tapaba los controles del propio
+ * reproductor (medido en el banco: el engranaje de YouTube quedaba abajo del botón). Si el bloque es lo
+ * primero del texto y no hay lugar arriba, va adentro.
+ */
+function ControlesInsertado({ editor, raiz, pos, onQuitar }: {
+  editor: Editor;
+  raiz: RefObject<HTMLDivElement | null>;
+  pos: number;
+  onQuitar: () => void;
+}) {
+  const caja = useCajaDelNodo(editor, raiz, pos);
+  const barra = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const b = barra.current;
+    if (!b || !caja) return;
+    const w = b.getBoundingClientRect().width;
+    b.style.left = `${Math.max(4, Math.min(caja.left + caja.ancho - w - 8, caja.anchoRaiz - w - 4))}px`;
+  }, [caja]);
+  if (!caja) return null;
+  return (
+    <div ref={barra} className="mk-er-img-barra" role="toolbar" aria-label="Insertado" style={{ top: caja.top >= 40 ? caja.top - 38 : caja.top + 8 }}>
+      <button type="button" className="mk-er-img-op" title="Quitar" aria-label="Quitar"
+        onMouseDown={(e) => e.preventDefault()} onClick={onQuitar}>{I.basura}</button>
+    </div>
+  );
+}
+
 function Muestras({ colores, actual, onElegir }: {
   colores: ReadonlyArray<{ hex: string; nombre: string }>;
   actual: string | null;
@@ -1686,6 +1851,47 @@ function PanelEnlace({ actual, onAplicar, onQuitar }: {
         <button type="submit" className="mk-er-accion es-primaria">Aplicar</button>
         {onQuitar && <button type="button" className="mk-er-accion" onClick={onQuitar}>Quitar</button>}
         {abrible && <a className="mk-er-accion" href={actual} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Abrir</a>}
+      </div>
+    </form>
+  );
+}
+
+/**
+ * El panel «Insertar» (item 15): se pega un link o el código del proveedor, y `embedDe` (lib/embeds.ts)
+ * decide. Un cuadro de varias líneas y no un campo: un código de Vimeo son cuatro renglones. Enter
+ * inserta; Shift+Enter, salto de línea. Si no se puede, dice por qué en una frase (`porQueNoSeInserta`).
+ */
+function PanelInsertar({ onInsertar }: { onInsertar: (e: Embed) => void }) {
+  const [texto, setTexto] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const campo = useRef<HTMLTextAreaElement | null>(null);
+  // Un cuadro después del montaje, como el del enlace: el panel se ubica en el mismo commit.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => campo.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const aplicar = () => {
+    const e = embedDe(texto);
+    if (!e) { setError(porQueNoSeInserta(texto)); return; }
+    onInsertar(e);
+  };
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); aplicar(); }}>
+      <textarea
+        ref={campo}
+        className="mk-er-input mk-er-codigo"
+        rows={3}
+        spellCheck={false}
+        placeholder="Link o código para insertar"
+        aria-label="Link o código para insertar"
+        value={texto}
+        onChange={(e) => { setTexto(e.target.value); setError(null); }}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aplicar(); } }}
+      />
+      {error && <div className="mk-er-error" role="alert">{error}</div>}
+      <div className="mk-er-nota">YouTube, Vimeo, Panda, Calendly, Cal.com…</div>
+      <div className="mk-er-acciones">
+        <button type="submit" className="mk-er-accion es-primaria">Insertar</button>
       </div>
     </form>
   );

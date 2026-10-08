@@ -7,7 +7,7 @@
 // React, para que tenga test (tests/cursos-ugc.test.ts); los chips salen como DATOS.
 
 import type { Clase } from '@/lib/curso';
-import { reproductorDeClase, tapaDeVideo, tieneTarea } from '@/lib/curso';
+import { camposConRespuesta, reproductorDeClase, tapaDeVideo, tareasDeClase, tareaVacia, tieneTarea } from '@/lib/curso';
 import { portadaDeClase, portadaDeEtapa, tapaDe, type EstiloCurso } from '@/lib/curso-estilo';
 import type { ChipDato, ClaseUgc, ModuloUgc, TextosUgc } from '@/app/_cursos/tipos';
 import { puedeMoverPorPosicion } from '@/app/_cursos/reglas';
@@ -132,7 +132,16 @@ export function chipsDelEditor(c: Clase, vinculado: boolean): ChipDato[] {
   const v = videoDeClase(c);
   if (!v.hay) out.push({ tono: 'neutro', texto: 'Sin video' });
   else if (!v.medible) out.push({ tono: 'neutro', texto: 'Sin medir' });
-  if (tieneTarea(c)) out.push({ tono: 'neutro', texto: c.campos.length ? `Formulario · ${c.campos.length}` : 'Tarea' });
+  if (tieneTarea(c)) {
+    // Sin las `seccion` en la cuenta (más de una tarea, 08/10/2026): no se contestan. Con varias tareas,
+    // el chip dice cuántas: «Formulario · 5» sobre dos tareas no dice que son dos.
+    const n = camposConRespuesta(c.campos).length;
+    // ⚠️ Sin la principal VACÍA (revisión final del 08/10/2026): `tareasDeClase` la devuelve aunque no tenga
+    //    nada cuando hay secciones (el editor la necesita), y una clase con UNA sección y la principal vacía
+    //    decía «2 tareas» sobre lo que el alumno ve como una. La misma regla que su caja (`tareaVacia`).
+    const tareas = tareasDeClase(c).filter((t) => !tareaVacia(t, c.tarea)).length;
+    out.push({ tono: 'neutro', texto: tareas > 1 ? `${tareas} tareas` : n ? `Formulario · ${n}` : 'Tarea' });
+  }
   // «Obligatoria» (item 9 del 08/10/2026: «No se entiende el botón de "Cierra módulo"»): el MISMO nombre
   // que el interruptor de la lección, «Obligatoria para avanzar», corto para un chip.
   if (vinculado && c.obligatoria && tieneTarea(c)) out.push({ tono: 'lima', texto: 'Obligatoria' });

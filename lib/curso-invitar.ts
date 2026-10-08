@@ -54,8 +54,24 @@ import 'server-only';
 // (tests/curso-invitar.test.ts, en un proceso hijo con la condición `react-server`), y con los
 // imports estáticos de la base el grafo arrastraría Supabase y las credenciales.
 
+// ── «TAMBIÉN POR WHATSAPP» (item 21 del audio del 08/10/2026, minuto 09:30) ───────────────────────
+// «Puedes conectar tu email, puedes conectar tu WhatsApp y a la persona le puede llegar por ambos lados».
+// `canales` (default `['email']`, saneado por `canalesDeInvitacion`, lib/curso-invitar-canales.ts): con
+// 'whatsapp', DESPUÉS de que el correo salió y quedó anotado, el mismo link de entrada sale también por
+// la línea de WhatsApp de por default del negocio (`mandarWhatsapp`), con un texto corto
+// (`textoInvitacionWhatsapp`, lib/invitacion-aviso.ts).
+//
+// ⚠️ EL WHATSAPP ES ADICIONAL Y VA DESPUÉS DEL CORREO. Si el correo no sale, el WhatsApp tampoco: la
+//    invitación tiene UN estado y se lo da el correo (ver `canalesDeInvitacion`). Un WhatsApp que llega y
+//    una invitación que figura «sin mandar» se reenviaría en el próximo «Invitar»: un mensaje de más.
+// ⚠️ Y NO TIRA ABAJO NADA: el correo ya salió cuando se intenta. Lo que pasó viaja aparte (`whatsapp`)
+//    y la pantalla lo dice en la fila.
+// ⚠️ LA INVITACIÓN AUTOMÁTICA AL GANAR (lib/crm-curso-al-ganar.ts, del CRM) NO PASA `canales`: sigue
+//    siendo sólo correo. Su REMITENTE sí cambió con el de todos (lib/invitaciones.ts): es el mismo mail.
+
 import { emailNormalizado, emailUtilizable } from './agencia-altas';
 import type { ResultadoInvitacion } from './invitacion-aviso';
+import { canalesDeInvitacion } from './curso-invitar-canales';
 
 /** Por qué NO se mandó, cuando no mandar es lo correcto. */
 // `ya-entro` (08/10/2026, lo señaló el chat del CRM): tiene acceso, nunca se le mandó el mail y ya
@@ -85,6 +101,8 @@ export type IntentoInvitar =
     anotado: boolean;
     /** Por qué no salió (lo que dijo el envío). `null` si salió. */
     fallo: string | null;
+    /** El WhatsApp, SÓLO si se pidió (`canales`). `motivo` = por qué no salió, corto. */
+    whatsapp?: { enviado: boolean; motivo?: string };
   };
 
 /**
@@ -109,7 +127,8 @@ export type DepsInvitar = {
   enWorkspace<T>(ws: number, fn: () => Promise<T>): Promise<T>;
   /** ¿La capa de ESE workspace (su fila, no una sesión) incluye Customer Success? */
   capaConCs(ws: number): Promise<boolean>;
-  lead(leadId: number): Promise<{ nombre: string | null; email: string | null; ganado: boolean } | null>;
+  /** `telefono`: el del CRM, para «También por WhatsApp» (no se lee si no se pidió). */
+  lead(leadId: number): Promise<{ nombre: string | null; email: string | null; ganado: boolean; telefono?: string | null } | null>;
   /** El acceso del CLIENTE sin crearlo. `null` = nunca se le dio. */
   acceso(leadId: number): Promise<{ revocado: boolean; invitacionEnviadaAt: string | null; ingresos?: number } | null>;
   /** Los nombres de SUS productos que tienen clases (la regla del portal: `productosDelAlumno`). */
@@ -121,8 +140,16 @@ export type DepsInvitar = {
   negocio(ws: number): Promise<string | null>;
   /** El login, para la línea de «entra con Google». */
   entrarConGoogle(): string;
-  /** El mail. NUNCA tira por contrato (`invitarAlCursoPorEmail`); igual se ataja. */
-  mandar(m: { email: string; nombre: string | null; programa: string; negocio: string | null; enlace: string; entrarConGoogle: string }): Promise<ResultadoInvitacion>;
+  /**
+   * El mail. NUNCA tira por contrato (`invitarAlCursoPorEmail`); igual se ataja. `ws` es el del ALUMNO:
+   * decide el remitente (el del negocio si tiene su dominio conectado, si no el de MaKo).
+   */
+  mandar(m: { ws: number; email: string; nombre: string | null; programa: string; negocio: string | null; enlace: string; entrarConGoogle: string }): Promise<ResultadoInvitacion>;
+  /**
+   * El WhatsApp, por la línea de por default del negocio, con el mismo link de entrada. Se llama SÓLO con
+   * 'whatsapp' en `canales` y con el correo ya salido. NUNCA tira por contrato; igual se ataja.
+   */
+  mandarWhatsapp(m: { leadId: number; telefono: string | null; nombre: string | null; programa: string; negocio: string | null; enlace: string }): Promise<{ enviado: boolean; motivo?: string }>;
   marcar(leadId: number, email: string, autor: string): Promise<void>;
   guardarEmailDelLead(leadId: number, email: string): Promise<void>;
 };
@@ -137,12 +164,17 @@ const idValido = (n: unknown): n is number => Number.isInteger(n) && (n as numbe
  * Nunca tira: lo que falla vuelve como `{ tipo: 'error' }` (un webhook no puede caerse por esto).
  */
 export async function invitarAlCurso(
-  p: { ws: number; leadId: number; email?: string | null; autor: string; reenviar?: boolean },
+  p: {
+    ws: number; leadId: number; email?: string | null; autor: string; reenviar?: boolean;
+    /** Por dónde: `['email']` (default) o `['email', 'whatsapp']`. Lo sanea `canalesDeInvitacion`. */
+    canales?: unknown;
+  },
   deps?: DepsInvitar,
 ): Promise<IntentoInvitar> {
   if (!idValido(p.ws) || !idValido(p.leadId)) return { tipo: 'error', error: 'Faltan datos.' };
   const autor = (p.autor ?? '').trim() || 'MaKo';
   const reenviar = p.reenviar === true;
+  const conWhatsapp = canalesDeInvitacion(p.canales).includes('whatsapp');
   try {
     const d = deps ?? (await depsReales());
     return await d.enWorkspace(p.ws, async (): Promise<IntentoInvitar> => {
@@ -181,15 +213,19 @@ export async function invitarAlCurso(
       const programa = new Intl.ListFormat('es', { style: 'long', type: 'conjunction' }).format(cursos);
       let inv: ResultadoInvitacion;
       try {
-        inv = await d.mandar({ email: correo, nombre: lead.nombre, programa, negocio, enlace, entrarConGoogle: d.entrarConGoogle() });
+        inv = await d.mandar({ ws: p.ws, email: correo, nombre: lead.nombre, programa, negocio, enlace, entrarConGoogle: d.entrarConGoogle() });
       } catch (e) {
         inv = { enviado: false, error: texto(e, 'el envío falló'), enlace };
       }
 
       if (!inv.enviado) {
-        // No salió: se suelta el reclamo para que el próximo intento pueda mandarla. Nada anotado.
+        // No salió: se suelta el reclamo para que el próximo intento pueda mandarla. Nada anotado. Y el
+        // WhatsApp tampoco sale (ver la cabecera): la invitación no existe hasta que salga el correo.
         if (!reenviar) await d.soltar(p.leadId);
-        return { tipo: 'mandado', enviado: false, email: correo, anotado: false, fallo: inv.error || 'el envío falló' };
+        return {
+          tipo: 'mandado', enviado: false, email: correo, anotado: false, fallo: inv.error || 'el envío falló',
+          ...(conWhatsapp ? { whatsapp: { enviado: false, motivo: 'no salió el correo' } } : {}),
+        };
       }
 
       // ⚠️ DE ACÁ PARA ABAJO NADA TIRA: el mail ya salió.
@@ -205,7 +241,16 @@ export async function invitarAlCurso(
           console.error('[curso-invitar] no pude guardar el email del cliente:', texto(e, ''));
         }
       }
-      return { tipo: 'mandado', enviado: true, email: correo, anotado, fallo: null };
+      // «También por WhatsApp»: el MISMO link de entrada, después de que el correo salió y se anotó.
+      if (!conWhatsapp) return { tipo: 'mandado', enviado: true, email: correo, anotado, fallo: null };
+      let whatsapp: { enviado: boolean; motivo?: string };
+      try {
+        whatsapp = await d.mandarWhatsapp({ leadId: p.leadId, telefono: lead.telefono ?? null, nombre: lead.nombre, programa, negocio, enlace });
+      } catch (e) {
+        console.error('[curso-invitar] el WhatsApp de la invitación falló:', texto(e, ''));
+        whatsapp = { enviado: false, motivo: 'no salió' };
+      }
+      return { tipo: 'mandado', enviado: true, email: correo, anotado, fallo: null, whatsapp };
     });
   } catch (e) {
     return { tipo: 'error', error: texto(e, 'No se pudo invitar.') };
@@ -247,10 +292,13 @@ async function depsReales(): Promise<DepsInvitar> {
     },
     lead: async (leadId) => {
       const db = await workspace.getTenantDb();
-      const { data, error } = await db.from('leads').select('id, nombre, email, estado_lead').eq('id', leadId).maybeSingle();
+      const { data, error } = await db.from('leads').select('id, nombre, email, telefono, estado_lead').eq('id', leadId).maybeSingle();
       if (error) throw new Error(error.message);
-      const f = data as { nombre: string | null; email: string | null; estado_lead: string | null } | null;
-      return f ? { nombre: (f.nombre ?? '').trim() || null, email: f.email?.trim() || null, ganado: f.estado_lead === 'ganado' } : null;
+      const f = data as { nombre: string | null; email: string | null; telefono: string | null; estado_lead: string | null } | null;
+      return f ? {
+        nombre: (f.nombre ?? '').trim() || null, email: f.email?.trim() || null, ganado: f.estado_lead === 'ganado',
+        telefono: f.telefono?.trim() || null,
+      } : null;
     },
     acceso: async (leadId) => {
       const a = await datos.accesoDe(leadId);
@@ -273,6 +321,7 @@ async function depsReales(): Promise<DepsInvitar> {
     negocio: async (ws) => (await workspace.getWorkspace(ws))?.nombre?.trim() || null,
     entrarConGoogle: () => appUrl.linkApp('/login', null),
     mandar: (m) => invitaciones.invitarAlCursoPorEmail(m),
+    mandarWhatsapp: (m) => mandarInvitacionPorWhatsapp(m),
     marcar: (leadId, email, autor) => datos.marcarInvitacion(leadId, email, autor),
     guardarEmailDelLead: async (leadId, email) => {
       const db = await workspace.getTenantDb();
@@ -280,4 +329,41 @@ async function depsReales(): Promise<DepsInvitar> {
       if (error) throw new Error(error.message);
     },
   };
+}
+
+/**
+ * La invitación por WHATSAPP (la dependencia real de `mandarWhatsapp`). Corre ADENTRO del workspace del
+ * alumno (`enWorkspace`): la línea, el interruptor y el espejo son de ese negocio.
+ *
+ * Por dónde y cuándo NO sale, en el orden en que se pregunta — los mismos cortes que los mensajes del
+ * curso (lib/curso-mensajes.ts), que son los que el negocio ya conoce:
+ *   1. sin teléfono en el CRM → no hay a quién;
+ *   2. el envío de WhatsApp del negocio APAGADO (`envio_whatsapp_enabled`) → no sale nada que le escriba a
+ *      un lead, ni a mano (en el ws1 está PRENDIDO: esto le llega de verdad a sus clientes);
+ *   3. la línea de por default sin CONECTAR → mandar por un socket caído es un «no salió» seguro;
+ *   4. el contacto bloqueado;
+ *   5. se manda por la línea de POR DEFAULT (`enviarYEspejar` sin `linea` → `elegirLinea`,
+ *      lib/lineas-whatsapp.ts), que es el número que el cliente conoce, y queda espejado en su hilo.
+ *
+ * ⚠️ NO MARCA `link_enviado_at` (lib/curso-mensajes.ts): el contacto de esta invitación ya quedó anotado
+ *    con el correo (`invitacion_enviada_at`), que es lo que mira el recordatorio de clases.
+ */
+async function mandarInvitacionPorWhatsapp(m: {
+  leadId: number; telefono: string | null; nombre: string | null; programa: string; negocio: string | null; enlace: string;
+}): Promise<{ enviado: boolean; motivo?: string }> {
+  const [{ normalizarTelefono }, flags, evolution, bloqueos, envio, { textoInvitacionWhatsapp }] = await Promise.all([
+    import('./leads'), import('./envio-flags'), import('./evolution'), import('./evolution-block'),
+    import('./evolution-envio'), import('./invitacion-aviso'),
+  ]);
+  const telefono = normalizarTelefono(m.telefono);
+  if (!telefono) return { enviado: false, motivo: 'sin teléfono' };
+  if (!(await flags.envioWhatsappHabilitado())) return { enviado: false, motivo: 'envío de WhatsApp apagado' };
+  const linea = await evolution.getInstanciaRow();
+  if (linea?.estado !== 'conectado') return { enviado: false, motivo: 'WhatsApp sin conectar' };
+  if (await bloqueos.estaBloqueado(telefono)) return { enviado: false, motivo: 'contacto bloqueado' };
+  const r = await envio.enviarYEspejar({
+    telefono, leadId: m.leadId,
+    texto: textoInvitacionWhatsapp({ nombre: m.nombre, programa: m.programa, negocio: m.negocio, enlace: m.enlace }),
+  });
+  return r.ok ? { enviado: true } : { enviado: false, motivo: r.error?.trim() || 'no salió' };
 }

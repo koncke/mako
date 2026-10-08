@@ -28,7 +28,8 @@ import { urlsDeVistaPrevia } from '@/lib/curso-admin';
 import { urlsAdjuntosEquipo } from '@/lib/curso-adjuntos';
 import { refsEnHtml } from '@/lib/curso-adjuntos-reglas';
 import { modulosDelCurso } from '@/lib/curso-modulos-datos';
-import { armarModulos, conHtmlSaneado, estiloQueViaja, esClaseCerrada, type VistaAlumno } from '@/lib/curso-portal';
+import { armarModulos, conHtmlSaneado, cursoSeLista, estiloQueViaja, esClaseCerrada, type VistaAlumno } from '@/lib/curso-portal';
+import { htmlsDeTareas } from '@/lib/curso';
 import { estilosDeProductos } from '@/lib/curso-estilo-datos';
 import { estiloVacio } from '@/lib/curso-estilo';
 import { sanearHtml } from '@/lib/html-seguro';
@@ -38,6 +39,20 @@ import { Pagina, EmptyState } from '@/app/_ui';
 import PortalAlumno from '@/app/compartido/curso/[token]/PortalAlumno';
 import { BarraVistaPrevia } from './BarraVistaPrevia';
 
+// ⚠️ ITEM 3 DEL AUDIO DEL 08/10/2026 (02:40 y 15:40: «la vista del alumno no me aparece, tienes que
+//    esperar… que aparezca un loader o que no te permita entrar hasta que se actualice»). Medido contra
+//    Next 16.2.6 (node_modules/next/dist/docs, `staleTimes` y el glosario «Client Cache»): ESTA página
+//    no se cachea en ningún lado — `force-dynamic`, las lecturas van por supabase-js sin `unstable_cache`
+//    ni 'use cache', y el caché del router no guarda páginas dinámicas (`staleTimes.dynamic` = 0, que
+//    este repo no toca). Ir con el link «Vista del alumno» la pide entera al server cada vez.
+//    Lo que sí mostraba lo de antes eran DOS cosas de AFUERA de esta página:
+//      · el AUTOGUARDADO con respiro de la lección: el clic en «Vista del alumno» salía antes de que se
+//        escribiera lo último, y esta página leía la base sin eso. La cura es el guardado MANUAL
+//        (contrato 1, `guardarLeccionAction`): lo que se ve acá es lo GUARDADO, y nada más.
+//      · el ATRÁS del navegador: el glosario de Next dice que las páginas «are reused during browser
+//        back/forward navigation». Volver al editor con Atrás lo redibuja con lo que trajo la PRIMERA
+//        vez, y como las actions del curso no llaman a `revalidatePath` (modulos-actions.ts), nada lo
+//        invalida. Es la otra mitad de «volví para atrás y se me borraron todos los campos» (16:40).
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -98,8 +113,10 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
   // los pide con su token, y acá no hay ninguno — sin esto la vista previa salía sin imágenes y con los
   // archivos sin link, sin ningún error. Sólo los de lo que se ve (las clases abiertas). Si la firma
   // falla, el adjunto no se dibuja: la vista previa no se cae por eso.
+  // También los de la consigna de cada tarea (mig 0226 y las `seccion`): sin esto, una imagen en la
+  // tarea salía rota sólo en la vista previa.
   const refs = [...new Set(modulos.flatMap((e) => e.clases)
-    .flatMap((c) => (esClaseCerrada(c) ? [] : refsEnHtml(c.descripcionHtml))))];
+    .flatMap((c) => (esClaseCerrada(c) ? [] : [c.descripcionHtml, ...htmlsDeTareas(c)].flatMap((h) => refsEnHtml(h)))))];
   const urlsAdjuntos = refs.length
     ? await urlsAdjuntosEquipo(refs).catch((e) => { console.warn('[curso] no pude firmar los adjuntos de la vista previa:', e instanceof Error ? e.message : e); return {}; })
     : {};
@@ -109,8 +126,10 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     // La vista previa es la del CLIENTE (sin progreso: ninguna clase por área muestra áreas, y el
     // link de agenda no aparece porque ninguna etapa está completa).
     area: null,
-    // Un producto sin clases no se le muestra al alumno (`armarVistaAlumno`): acá tampoco.
-    productos: clases.length ? [{
+    // La MISMA regla que el alumno (`armarVistaAlumno`): sin clases, sólo si hay un módulo PÚBLICO
+    // (item 16 del audio del 08/10/2026, 03:00: el módulo publicado y vacío tiene que aparecer, como en
+    // Skool, con su «Próximamente»).
+    productos: cursoSeLista(cur.modulos, clases) ? [{
       productoId, nombre: (prod as { nombre: string }).nombre, modulos,
       // Lo mismo que le llega al alumno (`armarVistaAlumno`): las portadas de lo que se ve.
       estilo: estiloQueViaja(estilos.get(productoId) ?? estiloVacio(), modulos),

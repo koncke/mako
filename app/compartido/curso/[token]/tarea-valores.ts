@@ -9,7 +9,7 @@
 // ⚠️ NO SE IMPORTA NADA DE lib/curso-portal.ts: ese módulo trae, por `import()`, la capa de datos
 // con `server-only`, y un componente cliente que lo importara arrastraría ese grafo al navegador.
 
-import { campoLleno, campoCompleto, NOTA_MIN_DEFAULT, type Campo, type NotaQuiz, type Valores, type ValorCampo } from '@/lib/curso';
+import { camposConRespuesta, campoLleno, campoCompleto, NOTA_MIN_DEFAULT, type Campo, type NotaQuiz, type Valores, type ValorCampo } from '@/lib/curso';
 
 const esTabla = (v: ValorCampo | undefined): v is string[][] => Array.isArray(v) && v.length > 0 && Array.isArray(v[0]);
 const ncol = (c: Campo) => Math.max(1, c.columnas?.length ?? 1);
@@ -59,7 +59,10 @@ export type QueFalta =
  * (`respuestaCompleta`): sin campos, la respuesta libre; con campos, los obligatorios; sin
  * ninguno obligatorio, al menos uno contestado.
  */
-export function queFalta(campos: readonly Campo[], valores: Valores): QueFalta | null {
+export function queFalta(todos: readonly Campo[], valores: Valores): QueFalta | null {
+  // Sin las `seccion` (item 12 del 08/10/2026): una no se contesta, y contada como campo dejaba la tarea
+  // diciendo «contesta al menos una» para siempre. La misma puerta que el server (`respuestaCompleta`).
+  const campos = camposConRespuesta(todos);
   if (!campos.length) {
     const r = valores.respuesta;
     return typeof r === 'string' && r.trim() ? null : { tipo: 'respuesta' };

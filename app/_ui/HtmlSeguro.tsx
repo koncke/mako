@@ -31,6 +31,7 @@
 //    del curso: es del editor y de quien dibuja, y la comunidad (D8) lo va a usar igual.
 
 import type { CSSProperties, ReactNode } from 'react';
+import { embedDe, atributosDeIframe, altoDeEmbed, ALTOS_EMBED } from '@/lib/embeds';
 
 // ── La referencia a un adjunto ───────────────────────────────────────────────
 
@@ -118,6 +119,28 @@ export function refsEnHtml(html: string | null | undefined): string[] {
 
 // ── La alarma ────────────────────────────────────────────────────────────────
 
+/** Lo que el saneo escapa adentro de un atributo, de vuelta (sólo lo que puede aparecer). */
+const desescapar = (v: string) => v.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
+/**
+ * ¿Este `<iframe …>` es EXACTAMENTE el que escribe el saneo? Sus atributos, en orden y con sus
+ * valores, tienen que ser los de `atributosDeIframe` (lib/embeds.ts) para lo que `embedDe` reconoce
+ * en su `src` — y ese `src` tiene que ser, letra por letra, el que arma lib/embeds.ts. Es la misma
+ * lista que escriben el server y el editor: un tercer lector, no una tercera regla.
+ */
+export function iframeCanonico(tag: string): boolean {
+  const attrs = [...tag.matchAll(/\s([a-z][a-z0-9-]*)="([^"]*)"/gi)].map((m) => [m[1].toLowerCase(), desescapar(m[2])] as [string, string]);
+  // Todo lo que hay en la etiqueta tiene que ser un atributo con comillas dobles (la forma del saneo).
+  const resto = tag.replace(/^<\s*iframe\b/i, '').replace(/\s[a-z][a-z0-9-]*="[^"]*"/gi, '').replace(/\s*\/?>$/, '');
+  if (resto.trim()) return false;
+  const src = attrs.find(([n]) => n === 'src')?.[1] ?? '';
+  const e = embedDe(src);
+  if (!e || e.src !== src) return false;
+  const alto = altoDeEmbed(attrs.find(([n]) => n === 'data-alto')?.[1]);
+  const esperado = atributosDeIframe({ ...e, alto: alto ?? e.alto });
+  return attrs.length === esperado.length && attrs.every(([n, v], i) => esperado[i][0] === n && esperado[i][1] === v);
+}
+
 /**
  * ¿Tiene la forma de algo que salió de `sanearHtml`? Mira sólo adentro de las ETIQUETAS (sobre un
  * HTML saneado, el `<` del texto viene escapado): un párrafo que diga «usa onclick= en tu botón»
@@ -128,8 +151,13 @@ export function refsEnHtml(html: string | null | undefined): string[] {
  *    server; esto sólo se niega a dibujar lo que de seguro NO pasó por ahí.
  */
 export function pareceSaneado(html: string): boolean {
-  if (/<\s*\/?\s*(script|style|iframe|frame|object|embed|svg|math|form|input|button|textarea|select|base|meta|link|template|noscript)\b/i.test(html)) return false;
+  if (/<\s*\/?\s*(script|style|frame|object|embed|svg|math|form|input|button|textarea|select|base|meta|link|template|noscript)\b/i.test(html)) return false;
   if (/<!--/.test(html)) return false;
+  // Lo insertado (item 15 del 08/10/2026): un iframe SÓLO en la forma exacta que escribe el saneo, y
+  // vacío. Cualquier otro iframe —otro host, un `srcdoc`, un `sandbox` más flojo, algo adentro— es
+  // algo que no salió de `sanearHtml`.
+  if (/<\s*iframe\b(?![^>]*>\s*<\/iframe\s*>)/i.test(html)) return false;
+  for (const m of html.matchAll(/<\s*iframe\b[^>]*>/gi)) if (!iframeCanonico(m[0])) return false;
   for (const m of html.matchAll(/<[a-z][^>]*>/gi)) {
     const tag = m[0];
     // El `on…=` se busca con los VALORES vaciados: un `title="ve online=sí"` es texto, no un
@@ -228,6 +256,12 @@ export function envolverTablas(html: string): string {
  *    otra letra que la tarea de abajo, que es justo lo que se reportó.
  */
 const CSS_ANCHOS_IMAGEN = ANCHOS_IMAGEN.map((n) => '.mk-rico img[data-ancho="' + n + '"] { width: ' + n + '%; }').join('\n');
+/**
+ * Lo insertado (item 15): un VIDEO va al ancho del texto y a 16:9 (`aspect-ratio`, que en un iframe
+ * con `height: auto` manda: sin él, un iframe mide 150 px de alto); una AGENDA va al ancho del texto y
+ * al alto de la lista cerrada (`data-alto`, una regla por valor: nunca un `style`).
+ */
+const CSS_ALTOS_EMBED = ALTOS_EMBED.map((n) => '.mk-rico iframe[data-alto="' + n + '"] { height: ' + n + 'px; }').join('\n');
 
 export const CSS_RICO = `
 .mk-rico { font-family: var(--ugc-fuente, inherit); font-size: var(--fs-md, 14px); line-height: 1.65; color: inherit; overflow-wrap: anywhere; word-break: normal; }
@@ -268,7 +302,9 @@ export const CSS_RICO = `
 .mk-rico th { background: rgba(127, 127, 127, .09); font-weight: 700; }
 .mk-rico th > p, .mk-rico td > p { margin: 0 0 .4em; }
 .mk-rico th > :last-child, .mk-rico td > :last-child { margin-bottom: 0; }
-` + CSS_ANCHOS_IMAGEN + '\n';
+.mk-rico iframe { display: block; box-sizing: border-box; width: 100%; max-width: 100%; height: auto; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; margin: .4em 0 .9em; background: #0B0D12; }
+.mk-rico iframe[data-alto] { aspect-ratio: auto; background: transparent; border: 1px solid var(--border, #EAECF1); }
+` + CSS_ANCHOS_IMAGEN + '\n' + CSS_ALTOS_EMBED + '\n';
 
 /**
  * Dibuja el HTML. `vacio` es lo que se muestra si no hay nada (por default, nada).

@@ -38,6 +38,7 @@ import { updateLead } from '@/lib/leads';
 import { puedeUsarCs } from '../puerta';
 import { crearClienteAction, quitarDeProductoAction } from '../actions';
 import { avisoInvitacionCurso } from '../curso-ficha-lectura';
+import { canalesDeInvitacion, fraseWhatsapp, tieneTelefono } from '@/lib/curso-invitar-canales';
 
 /** Tope de una tanda: la lista del editor no tiene más clientes que esto, y cada uno es un mail. */
 const TOPE_TANDA = 50;
@@ -51,12 +52,20 @@ async function autorActual(): Promise<string> {
   }
 }
 
-/** El resultado de UN intento, en una frase para su fila. `enviado` sale de `enviado`, nunca de que haya resultado. */
+/**
+ * El resultado de UN intento, en una frase para su fila. `enviado` sale de `enviado`, nunca de que haya
+ * resultado. Con «También por WhatsApp» (item 21 del 08/10/2026) la frase suma lo que pasó con el
+ * WhatsApp, corto (`fraseWhatsapp`, lib/curso-invitar-canales.ts): el correo puede salir y el WhatsApp no.
+ */
 function fraseDe(r: IntentoInvitar): { enviado: boolean; texto: string } {
   if (r.tipo === 'error') return { enviado: false, texto: r.error };
   if (r.tipo === 'no') return { enviado: false, texto: TEXTO_NO_INVITA[r.motivo] };
-  return { enviado: r.enviado, texto: avisoInvitacionCurso({ enviado: r.enviado, error: r.fallo ?? undefined }, r.anotado).texto };
+  const base = avisoInvitacionCurso({ enviado: r.enviado, error: r.fallo ?? undefined }, r.anotado).texto;
+  return { enviado: r.enviado, texto: r.enviado && r.whatsapp ? `${base} ${fraseWhatsapp(r.whatsapp)}` : base };
 }
+
+/** Con «También por WhatsApp», a lo sumo esta cantidad por tanda: cada uno retiene el envío unos segundos («escribiendo…») y una ráfaga es lo que hace que bloqueen la línea. */
+const TOPE_TANDA_WHATSAPP = 10;
 
 /**
  * Invita a VARIOS clientes que ya existen (la lista «Clientes sin invitar» del editor), cada uno con
@@ -66,13 +75,18 @@ function fraseDe(r: IntentoInvitar): { enviado: boolean; texto: string } {
  * Uno por uno y en serie, no en paralelo: son mails de la plataforma por Resend, y una ráfaga de
  * cincuenta a la vez es la forma de que el proveedor empiece a contestar que no.
  */
-export async function invitarClientesAction(items: Array<{ leadId: number; email: string }>): Promise<
+export async function invitarClientesAction(items: Array<{ leadId: number; email: string }>, opts?: { canales?: string[] }): Promise<
   { ok: true; resultados: Array<{ leadId: number; enviado: boolean; texto: string }> } | { ok: false; error: string }
 > {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!Array.isArray(items) || !items.length) return { ok: false, error: 'No elegiste a nadie.' };
     if (items.length > TOPE_TANDA) return { ok: false, error: `Hasta ${TOPE_TANDA} por vez.` };
+    // Saneados en el server: lo que manda el navegador es una propuesta (`canalesDeInvitacion`).
+    const canales = canalesDeInvitacion(opts?.canales);
+    if (canales.includes('whatsapp') && items.length > TOPE_TANDA_WHATSAPP) {
+      return { ok: false, error: `Con WhatsApp, hasta ${TOPE_TANDA_WHATSAPP} por vez.` };
+    }
     const ws = await getWorkspaceActual();
     if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
     const autor = await autorActual();
@@ -84,7 +98,7 @@ export async function invitarClientesAction(items: Array<{ leadId: number; email
       vistos.add(leadId);
       const correo = emailNormalizado(typeof it.email === 'string' ? it.email : '');
       if (!emailUtilizable(correo)) { resultados.push({ leadId, enviado: false, texto: 'Ese email no sirve.' }); continue; }
-      const r = await invitarAlCurso({ ws, leadId, email: correo, autor, reenviar: false });
+      const r = await invitarAlCurso({ ws, leadId, email: correo, autor, reenviar: false, canales });
       resultados.push({ leadId, ...fraseDe(r) });
     }
     if (resultados.some((x) => x.enviado)) revalidatePath('/customer-success');
@@ -126,6 +140,8 @@ export async function invitarNuevoAlumnoAction(datos: {
   usarLeadId?: number | null;
   /** Crearlo aunque se parezca a otro: lo eligió la persona después del aviso. */
   crearIgual?: boolean;
+  /** «También por WhatsApp» (item 21 del 08/10/2026): `['email', 'whatsapp']`. Default, sólo correo. */
+  canales?: string[];
 }): Promise<
   | { ok: true; leadId: number; enviado: boolean; texto: string }
   | { ok: false; error: string; duplicados?: Array<{ leadId: number; nombre: string; texto: string; ganado: boolean }> }
@@ -201,13 +217,49 @@ export async function invitarNuevoAlumnoAction(datos: {
       ? { enviado: false, texto: 'Se cargó, pero no entró al kanban. Muévelo ahí e invítalo desde su ficha.' }
       : !soloAca
         ? { enviado: false, texto: 'Se cargó, pero quedó en otro producto. Sácalo de ahí e invítalo desde su ficha.' }
-        : fraseDe(await invitarAlCurso({ ws, leadId, email: correo, autor, reenviar: false }));
+        : fraseDe(await invitarAlCurso({ ws, leadId, email: correo, autor, reenviar: false, canales: canalesDeInvitacion(datos.canales) }));
     revalidatePath('/customer-success');
     revalidatePath('/customer-success/curso');
     revalidatePath('/crm');
     return { ok: true, leadId, ...r };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo invitar.' };
+  }
+}
+
+/**
+ * Lo que el modal necesita para ofrecer «También por WhatsApp» (item 21 del audio del 08/10/2026): si la
+ * línea de por default del negocio está CONECTADA, si el envío de WhatsApp está PRENDIDO, y cuáles de
+ * estos clientes tienen teléfono en el CRM. Lo decide `ofreceWhatsapp` (lib/curso-invitar-canales.ts).
+ *
+ * ⚠️ LA MISMA LÍNEA POR LA QUE SALE: `getInstanciaRow()` sin `linea` es la de por default
+ *    (`lineaPorDefault`), y el envío (`enviarYEspejar` sin `linea`) elige la misma (`elegirLinea`). Con
+ *    dos preguntas distintas, la casilla se ofrecería por una línea y el mensaje saldría por otra.
+ * ⚠️ «NO PUDE LEER» NO OFRECE NADA: sin la línea o sin el interruptor, la casilla no se dibuja (el
+ *    correo sale igual). Una casilla ofrecida sobre una lectura caída promete un mensaje que no sale.
+ */
+export async function opcionesDeInvitarAction(leadIds: number[]): Promise<
+  { ok: true; lineaConectada: boolean; envioPrendido: boolean; conTelefono: number[] } | { ok: false; error: string }
+> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    const ids = [...new Set((Array.isArray(leadIds) ? leadIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 1000);
+    const [{ getInstanciaRow }, { envioWhatsappHabilitado }] = await Promise.all([import('@/lib/evolution'), import('@/lib/envio-flags')]);
+    const [linea, envioPrendido] = await Promise.all([getInstanciaRow(), envioWhatsappHabilitado()]);
+    const conTelefono: number[] = [];
+    if (ids.length) {
+      const db = await getTenantDb();
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data, error } = await db.from('leads').select('id, telefono').in('id', ids.slice(i, i + 200));
+        if (error) throw new Error(error.message);
+        for (const f of (data ?? []) as Array<{ id: number; telefono: string | null }>) {
+          if (tieneTelefono(f.telefono)) conTelefono.push(Number(f.id));
+        }
+      }
+    }
+    return { ok: true, lineaConectada: linea?.estado === 'conectado', envioPrendido, conTelefono };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el WhatsApp.' };
   }
 }
 

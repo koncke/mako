@@ -16,6 +16,10 @@
 // que ya no tiene campo. Acá sólo se dibuja distinto lo que es de los tipos nuevos. Con dos lecturas,
 // la ficha y esto dirían cosas distintas de la misma respuesta.
 //
+// ⚠️ CON MÁS DE UNA TAREA (item 12 del audio del 08/10/2026), una lista por tarea con su título encima
+// (`gruposPorTarea`, en ../curso-ficha-lectura.ts para que tenga test): sin eso, las respuestas de las
+// dos tareas salían pegadas y no se sabía de cuál era cada pregunta — lo mismo que se reportó del editor.
+//
 // ⚠️ ABRIR UN ARCHIVO PIDE UN LINK FIRMADO AL SERVER (`abrirArchivo`, que la ficha conecta a una
 // action con su puerta: lib/curso-entregas.ts, `urlEntregaParaEquipo`). Sin esa prop se listan con su
 // nombre y su tamaño, sin abrir: un botón que no hace nada se lee como que la app está rota.
@@ -23,11 +27,11 @@
 import { useState, type ReactNode } from 'react';
 import {
   corregirQuiz, esCampoDeArchivo, esCampoDeComunidad, linkValido, refDeComunidad, NOTA_MIN_DEFAULT,
-  type ArchivoEntregado, type Calificacion, type Campo, type CampoTipo, type ValorCampo, type Valores,
+  type ArchivoEntregado, type Calificacion, type Campo, type CampoTipo, type Escala, type ValorCampo, type Valores,
 } from '@/lib/curso';
 import { Button } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
-import { respuestaDe, type BloqueRespuesta } from '../curso-ficha-lectura';
+import { gruposPorTarea, respuestaDe, type BloqueRespuesta } from '../curso-ficha-lectura';
 
 /** Los tipos que se dibujan con su propia forma; el resto, como la ficha (`respuestaDe`). */
 const PROPIOS: ReadonlySet<CampoTipo> = new Set<CampoTipo>(['archivo', 'audio', 'video', 'link', 'escala', 'quiz', 'checklist', 'agenda', 'confirmacion', 'publicar', 'comentar']);
@@ -51,19 +55,29 @@ export default function RespuestaTarea({ campos, valores, calificacion, abrirArc
   const porId = new Map(campos.map((c) => [c.id, c]));
   const vs: Valores = valores && typeof valores === 'object' ? valores : {};
   const bloques = respuestaDe(campos, vs);
+  const grupos = gruposPorTarea(campos, bloques);
+  const lista = (bs: BloqueRespuesta[]) => (
+    <dl className="rt">
+      {bs.map((b) => {
+        const c = porId.get(b.id);
+        const cuerpo = c && PROPIOS.has(c.tipo)
+          ? <Propio c={c} v={vs[c.id]} nota={calificacion?.[c.id]} abrirArchivo={abrirArchivo} onOtroIntento={onOtroIntento} />
+          : <Generico b={b} />;
+        return <div key={b.id} className="rt-b"><dt>{b.label}</dt><dd>{cuerpo}</dd></div>;
+      })}
+    </dl>
+  );
   // El `<style>` va AFUERA del `<dl>`: adentro de una lista de definiciones no es HTML válido, y React
-  // lo marca como un anidamiento inválido al hidratar.
+  // lo marca como un anidamiento inválido al hidratar. Y el título de cada tarea va afuera también, por
+  // lo mismo: un `<dl>` por tarea, con su título encima.
   return (
     <div className="rt-caja">
-      <dl className="rt">
-        {bloques.map((b) => {
-          const c = porId.get(b.id);
-          const cuerpo = c && PROPIOS.has(c.tipo)
-            ? <Propio c={c} v={vs[c.id]} nota={calificacion?.[c.id]} abrirArchivo={abrirArchivo} onOtroIntento={onOtroIntento} />
-            : <Generico b={b} />;
-          return <div key={b.id} className="rt-b"><dt>{b.label}</dt><dd>{cuerpo}</dd></div>;
-        })}
-      </dl>
+      {grupos.length === 1 && grupos[0].titulo == null ? lista(grupos[0].bloques) : grupos.map((g) => (
+        <div key={g.clave} className="rt-tarea">
+          {g.titulo != null && <p className="rt-tarea-t">{g.titulo}</p>}
+          {lista(g.bloques)}
+        </div>
+      ))}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </div>
   );
@@ -109,11 +123,11 @@ function Propio({ c, v, nota, abrirArchivo, onOtroIntento }: {
   }
 
   if (c.tipo === 'escala') {
-    const e = c.escala ?? { min: 1, max: 10, bajo: '', alto: '' };
+    const e: Escala = c.escala ?? { min: 1, max: 10, bajo: '', alto: '' };
     if (typeof v !== 'string' || !v) return sin;
     return (
       <span className="rt-col">
-        <span className="rt-grande">{v} <span className="rt-meta">de {e.max}</span></span>
+        <span className="rt-grande">{e.estilo === 'estrellas' ? '★ ' : ''}{v} <span className="rt-meta">de {e.max}</span></span>
         {(e.bajo || e.alto) && <span className="rt-meta">{e.min} = {e.bajo} · {e.max} = {e.alto}</span>}
       </span>
     );
@@ -277,4 +291,7 @@ const CSS = `
 .rt-quiz li{ display: flex; flex-direction: column; gap: 2px; }
 .rt-preg{ font-weight: 500; overflow-wrap: anywhere; }
 .rt-link{ overflow-wrap: anywhere; }
+.rt-caja{ display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.rt-tarea{ display: flex; flex-direction: column; gap: 10px; min-width: 0; padding-left: 12px; border-left: 3px solid var(--border-strong); }
+.rt-tarea-t{ margin: 0; font-size: var(--fs-md); font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
 `;

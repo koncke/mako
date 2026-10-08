@@ -72,6 +72,9 @@ test('validarClase: lo que no cierra se rechaza con un error corto', () => {
   assert.equal(err({ ...base, campos: [{ id: 'a', label: '', tipo: 'texto' }] }), 'Hay un campo sin pregunta.');
   assert.match(err({ ...base, campos: [{ id: 'a', label: 'Elige', tipo: 'eleccion', opciones: ['', ' '] }] }), /Faltan las opciones/);
   assert.match(err({ ...base, campos: [{ id: 'a', label: 'Tabla', tipo: 'tabla' }] }), /Faltan las columnas/);
+  // ⚠️ Revisión final del 08/10/2026: desde que `sanearCampos` RENOMBRA el id repetido (ya no lo tira),
+  //    contar largos no lo veía y esto daba «ok» — rojo en el árbol integrado. `validarCamposEntrada` lo
+  //    pregunta antes de sanear. Probado rompiéndolo (sin esa pregunta): 19 / 1, este test.
   assert.equal(err({ ...base, campos: [{ id: 'a', label: 'X', tipo: 'texto' }, { id: 'a', label: 'Y', tipo: 'texto' }] }), 'Hay campos repetidos.');
 });
 
@@ -89,7 +92,8 @@ test('validarClase: un video subido sólo vale si es de ESTE workspace y ESTE pr
 test('validarClase: «Cierra la etapa» sin tarea no se guarda (no cerraría nada)', () => {
   const r = validarClase({ ...base, obligatoria: true }, ctx);
   assert.equal(r.ok, false);
-  assert.equal((r as { error: string }).error, 'Para cerrar la etapa, agrega la tarea.');
+  // El texto corto del audio del 08/10/2026 (13:00): el viejo, pegado al interruptor, se leía como un bug.
+  assert.equal((r as { error: string }).error, 'Necesita una tarea.');
   assert.ok(validarClase({ ...base, obligatoria: true, tarea: 'Llena tu hoja' }, ctx).ok);
   assert.ok(validarClase({ ...base, obligatoria: true, campos: [{ id: 'c1', label: '¿Qué vendes?', tipo: 'linea' }] }, ctx).ok);
 });

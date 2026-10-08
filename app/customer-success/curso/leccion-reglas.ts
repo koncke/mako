@@ -11,14 +11,18 @@
 // el video sólo por link, los minutos solos, la pregunta como título del campo con su texto de ejemplo,
 // los campos que se arrastran, «Obligatoria para avanzar», la comunidad y el «Deshacer».
 //
+// Y el audio del 08/10/2026 (items 1 a 4 y 7): el BORRADOR de la lección con su botón «Guardar», lo que
+// impide guardar, el Ctrl+Z por gesto y «Obligatoria para avanzar» en el menú «…» de la clase (abajo).
+//
 // Sin 'use client' ni 'server-only' a propósito: lo usa la lección (./LeccionEditable.tsx, navegador)
-// y un test que lo EJECUTA (tests/curso-leccion.test.ts). Lo que se guarda lo vuelve a decidir el
-// server (`guardarCampoClase`, lib/curso-admin.ts): acá está lo que la pantalla necesita saber ANTES
-// de mandar, para no mandar algo que va a rebotar.
+// y un test que lo EJECUTA (tests/curso-leccion.test.ts, tests/curso-guardado-manual.test.ts). Lo que se
+// guarda lo vuelve a decidir el server (`guardarLeccion`, lib/curso-admin.ts): acá está lo que la
+// pantalla necesita saber ANTES de mandar, para no mandar algo que va a rebotar.
 
-import type { Campo, Clase } from '@/lib/curso';
-import { reproductorDeClase, tapaDeVideo, tieneTarea, videoDeLink } from '@/lib/curso';
-import { validarCamposEntrada } from './reglas';
+import type { Campo, Clase, VideoTipo } from '@/lib/curso';
+import { erroresDeCampos, reproductorDeClase, tapaDeVideo, tieneTarea, videoDeLink } from '@/lib/curso';
+import { porQueNoSeInserta } from '@/lib/embeds';
+import { ERROR_OBLIGATORIA_SIN_TAREA } from './reglas';
 
 // ── Lo que dicen los avisos de «Deshacer» (item 18 del 08/10/2026) ───────────
 // «Te falta el botón de arrepentimiento para muchas acciones, el de 5 segundos de "Deshacer"». Dos
@@ -98,12 +102,9 @@ export function camposEnOrden(campos: readonly Campo[], ids: readonly string[]):
   return [...out, ...porId.values()];
 }
 
-/**
- * «+ Nuevo campo» está ARRIBA de todo (item 8), así que el campo nace ARRIBA: donde se tocó y a la vista.
- * Con veinte campos, uno nuevo al final aparecía fuera de la pantalla (el «+ Campo» de antes estaba
- * abajo por eso). Después se arrastra a donde vaya.
- */
-export const campoNuevoArriba = (campos: readonly Campo[], id: string): Campo[] => [{ id, label: '', tipo: 'texto' }, ...campos];
+// ⚠️ `campoNuevoArriba` SE FUE (revisión final del 08/10/2026): desde el audio de ese día el campo nuevo nace
+//    ABAJO del último (item 5, 21:00: «lo pondría abajo de el campo que ya puse»), en ./EditorCampos.tsx con
+//    `campoNuevo` (./tarea-editor-reglas.ts). No la llamaba nadie.
 
 // ── La comunidad, para armar un campo «Publicar» o «Comentar» (item 17) ──────
 
@@ -157,13 +158,9 @@ export function oembedDeLoom(url: string | null | undefined): string | null {
   return `https://www.loom.com/v1/oembed?url=${encodeURIComponent(`https://www.loom.com/share/${v.id}`)}`;
 }
 
-/**
- * Cuánto se espera después de la última tecla para guardar. La descripción se escribe de corrido
- * (un guardado por tecla serían sesenta por segundo, y las server actions se ENCOLAN: AGENTS.md); la
- * tarea, un poco menos, porque es más corta y lo que se arma es un formulario.
- */
-export const RESPIRO_DESCRIPCION_MS = 1200;
-export const RESPIRO_TAREA_MS = 900;
+// ⚠️ SIN `RESPIRO_DESCRIPCION_MS` NI `RESPIRO_TAREA_MS` desde el audio del 08/10/2026 (item 1, 14:30):
+//    la lección ya no se guarda sola con un respiro después de la última tecla. Ver «El borrador de la
+//    lección», abajo.
 
 /**
  * Dónde va el video de una clase en la lección del equipo:
@@ -183,20 +180,22 @@ export function lugarDelVideo(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'videoPa
 }
 
 /** De qué plataforma es un link reconocido, como lo dice la pantalla. */
-const PLATAFORMA: Record<string, string> = { youtube: 'YouTube', vimeo: 'Vimeo', loom: 'Loom', drive: 'Drive', url: 'Link' };
+const PLATAFORMA: Record<string, string> = { youtube: 'YouTube', vimeo: 'Vimeo', loom: 'Loom', drive: 'Drive', panda: 'Panda', wistia: 'Wistia', bunny: 'Bunny', url: 'Link' };
 
 /**
  * El link que pega quien edita: el que se guarda y lo que se dice de él, o por qué no va. La regla de
  * qué es un link es la de `videoDeLink` (sólo http/https: termina en el `src` de un iframe que ve el
  * cliente), y el server la vuelve a aplicar al guardar (`validarVideoEntrada`).
  */
-export function linkDeVideo(raw: string): { ok: true; url: string; rotulo: string } | { ok: false; error: string } {
+export function linkDeVideo(raw: string): { ok: true; url: string; tipo: VideoTipo; rotulo: string } | { ok: false; error: string } {
   if (!raw.trim()) return { ok: false, error: 'Pega un link.' };
   const v = videoDeLink(raw);
-  if (!v) return { ok: false, error: 'Ese link no es válido.' };
+  // Por qué no (pista VIDEO, item 14): el panel de Panda pide su código, un código sin link lo dice.
+  if (!v) return { ok: false, error: porQueNoSeInserta(raw) };
   // «Sin medir»: Drive, Loom y un link cualquiera se ven, pero no avisan cuánto se vio (decisión del
-  // 06/10). Se dice al pegarlo, no después.
-  return { ok: true, url: v.url, rotulo: `${PLATAFORMA[v.tipo] ?? 'Link'}${v.medible ? '' : ' · sin medir'}` };
+  // 06/10). Se dice al pegarlo, no después. El `tipo` es lo que el borrador dibuja hasta «Guardar» (el
+  // server lo vuelve a decidir con la misma `videoDeLink`, `validarVideoEntrada`).
+  return { ok: true, url: v.url, tipo: v.tipo as VideoTipo, rotulo: `${PLATAFORMA[v.proveedor ?? v.tipo] ?? 'Link'}${v.medible ? '' : ' · sin medir'}` };
 }
 
 /**
@@ -210,25 +209,10 @@ export function minutosDeDuracion(seg: number | null | undefined): number | null
   return Math.min(600, Math.max(1, Math.round(seg / 60)));
 }
 
-/**
- * «Cierra el módulo» se ofrece SÓLO en un módulo vinculado (una etapa del kanban): completarlo es lo
- * que mueve al cliente de etapa. Un módulo suelto no es una etapa (D1) y no mueve a nadie, así que la
- * marca ahí no haría nada — y el server la rechaza nueva (`ERROR_OBLIGATORIA_SUELTO`).
- */
-export const ofreceCierraModulo = (vinculado: boolean): boolean => vinculado;
-
-/**
- * Lo que le falta al formulario de la tarea para poder guardarse, en una frase corta (la de
- * `validarCamposEntrada`, la MISMA que aplica el server). `null` = se puede guardar.
- *
- * ⚠️ SE PREGUNTA ANTES DE MANDAR, y no se manda lo incompleto: mientras alguien arma un quiz, cada
- *    tecla deja un formulario a medias (una pregunta sin correcta, un campo sin texto). Mandarlo sería
- *    un rebote por tecla; la pantalla dice qué falta y guarda cuando está completo.
- */
-export function faltaEnFormulario(campos: readonly Campo[]): string | null {
-  const v = validarCamposEntrada(campos);
-  return v.ok ? null : v.error;
-}
+// ⚠️ `ofreceCierraModulo` Y `faltaEnFormulario` SE FUERON con el autoguardado (audio del 08/10/2026):
+//    «Obligatoria para avanzar» vive en el menú «…» de la clase (`ofreceObligatoria`, abajo) y lo que
+//    impide guardar son los motivos POR CAMPO (`erroresDelBorrador`), no una frase para la lista entera.
+//    `faltaEnFormulario` fue la mitad del «se me borraron los campos» (ver «El borrador de la lección»).
 
 /** Un texto plano, escapado para ir adentro de un HTML. */
 const escapar = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -261,32 +245,241 @@ export function htmlInicialDeDescripcion(c: Pick<Clase, 'descripcion' | 'descrip
  */
 export const tareaAbierta = (c: Pick<Clase, 'tarea' | 'campos'>, tocada: boolean): boolean => tieneTarea(c) || tocada;
 
+// ⚠️ `cambiosParaQuitarTarea` SE FUE: quitar la tarea es un cambio más del borrador (la consigna vacía y
+//    sin campos), y se guarda con el resto. El server apaga «Obligatoria» en la misma escritura si la
+//    clase queda sin nada que pedir (`guardarLeccion`).
+
+/** Con qué arranca el editor de la consigna de la tarea: la rica si la hay; si no, `tarea` en párrafos. */
+export function htmlInicialDeTarea(c: Pick<Clase, 'tarea'> & { tareaHtml?: string | null }): string {
+  return c.tareaHtml?.trim() ? c.tareaHtml : htmlDeTexto(c.tarea ?? '');
+}
+
+// =============================================================================
+// EL BORRADOR DE LA LECCIÓN (audio del 08/10/2026, items 1, 2, 3 y 4)
+// =============================================================================
+// «Prefiero que haya un botón que me obligue a guardar de forma manual frente a que simplemente cambie y
+// que se guarde solo, porque siento que esto puede llegar a traer bugs» (14:30). Martín: «lo más fácil es
+// un botón de guardar y que diga guardando» (15:40).
+//
+// Todo lo que se edita ADENTRO de una clase vive en un borrador del navegador hasta «Guardar», que lo
+// escribe de una vez (`guardarLeccionAction`, ./modulos-actions.ts). Lo ESTRUCTURAL (el menú «…», crear y
+// borrar clases y módulos, el arrastre) sigue inmediato con su «Deshacer»: no es la lección.
+//
+// ⚠️ EL «SE ME BORRARON LOS CAMPOS» (15:30-16:40) NO ERA EL SANEO DEL SERVER: era la PANTALLA. Con el
+//    autoguardado, la lista de campos se mandaba ENTERA y sólo si estaba completa (`faltaEnFormulario`):
+//    con UN campo sin pregunta no se mandaba ninguno, y al salir de la clase el guardado de la salida
+//    volvía a preguntar, volvía a no mandar, y se desmontaba. Se perdían TODOS los campos de la tanda, no
+//    sólo el incompleto — que es literal lo que dijo: «se me borraron todos los campos de edición». El
+//    server ya rechazaba un campo sin pregunta (`validarCamposEntrada`); nunca llegaba a verlo. Ahora lo
+//    incompleto se queda en el borrador, se marca en rojo, y salir pregunta.
+
+/** El video del borrador: las tres columnas de la clase, como las dibuja `reproductorDeClase`. */
+export type VideoDelBorrador = Pick<Clase, 'videoTipo' | 'videoUrl' | 'videoPath'>;
+
+/** Dónde va el texto de la lección: un ajuste del CURSO (`curso_estilo`), editado desde la lección. */
+export type DisposicionBorrador = 'costado' | 'abajo';
+
+/** Lo que se edita adentro de una clase (contrato (1) del pedido del 08/10/2026). */
+export type BorradorLeccion = {
+  titulo: string;
+  video: VideoDelBorrador;
+  descripcionHtml: string;
+  disposicion: DisposicionBorrador;
+  tareaHtml: string;
+  campos: Campo[];
+  porArea: boolean;
+};
+
+export const PARTES_BORRADOR = ['titulo', 'video', 'descripcionHtml', 'disposicion', 'tareaHtml', 'campos', 'porArea'] as const;
+export type ParteBorrador = (typeof PARTES_BORRADOR)[number];
+
 /**
- * Los cambios para QUITAR la tarea, en orden y sólo los que hacen falta (una escritura por parte:
- * `guardarCampoClase` acepta un cambio por vez). Al quedar sin nada que pedir, el server apaga «Cierra
- * el módulo» en la misma escritura.
+ * El borrador con el que arranca una clase: lo guardado. La descripción y la consigna de una clase de
+ * antes del editor rico arrancan con su texto plano en párrafos (`htmlInicialDeDescripcion`): esa
+ * conversión es también la BASE, así que abrir la clase no la deja «Sin guardar».
  */
-export function cambiosParaQuitarTarea(c: Pick<Clase, 'tarea' | 'campos'>): Array<{ tarea: string } | { campos: Campo[] }> {
-  const out: Array<{ tarea: string } | { campos: Campo[] }> = [];
-  if (c.tarea.trim()) out.push({ tarea: '' });
-  if (c.campos.length) out.push({ campos: [] });
+export function borradorDe(c: Clase & { tareaHtml?: string | null }, disposicion: DisposicionBorrador): BorradorLeccion {
+  return {
+    titulo: c.titulo,
+    video: { videoTipo: c.videoTipo, videoUrl: c.videoUrl, videoPath: c.videoPath },
+    descripcionHtml: htmlInicialDeDescripcion(c),
+    disposicion: disposicion === 'abajo' ? 'abajo' : 'costado',
+    tareaHtml: htmlInicialDeTarea(c),
+    campos: c.campos,
+    porArea: c.porArea === true,
+  };
+}
+
+/**
+ * La clase como la DIBUJA la lección mientras se edita: lo guardado con el borrador encima. Lo que no se
+ * edita adentro (los minutos, «Obligatoria», el candado, la etapa) es lo guardado.
+ */
+export function claseDelBorrador<T extends Clase>(c: T, b: BorradorLeccion): T & { tareaHtml: string } {
+  return {
+    ...c, titulo: b.titulo, ...b.video, descripcionHtml: b.descripcionHtml, tareaHtml: b.tareaHtml, campos: b.campos, porArea: b.porArea,
+  };
+}
+
+/** ¿Dicen lo mismo? Por valor: los campos y el video son objetos que se reconstruyen en cada gesto. */
+export const igualParte = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a) === JSON.stringify(b);
+
+/** Las partes que el borrador cambió respecto de `base`, en el orden de `PARTES_BORRADOR`. */
+export const partesCambiadas = (base: BorradorLeccion, b: BorradorLeccion): ParteBorrador[] =>
+  PARTES_BORRADOR.filter((k) => !igualParte(base[k], b[k]));
+
+/**
+ * El borrador sobre una base NUEVA (otra pestaña guardó, un gesto del menú cambió la clase, el server
+ * devolvió lo guardado ya saneado): cada parte que la persona NO tocó (igual a la base vieja) toma la
+ * nueva; la que tocó se queda como la dejó. Es lo que deja guardar encima después de un choque, y lo que
+ * hace que el título renombrado desde el menú aparezca en una lección con la descripción a medio escribir.
+ */
+export function rebasar(baseVieja: BorradorLeccion, b: BorradorLeccion, baseNueva: BorradorLeccion): BorradorLeccion {
+  const out = { ...b };
+  for (const k of PARTES_BORRADOR) if (igualParte(b[k], baseVieja[k])) (out as Record<ParteBorrador, unknown>)[k] = baseNueva[k];
   return out;
 }
 
-/** En qué quedó lo último que se guardó de una parte de la lección. */
-export type EstadoGuardado = 'limpio' | 'sucio' | 'guardando' | 'guardado' | 'error' | { falta: string };
+/** El video del borrador como lo pide el server (`CambioVideo`): `null` = sin video. */
+export type VideoParaGuardar = { tipo: 'url'; url: string } | { tipo: 'archivo'; path: string } | null;
+export function videoParaGuardar(v: VideoDelBorrador): VideoParaGuardar {
+  if (v.videoTipo === 'archivo' && v.videoPath) return { tipo: 'archivo', path: v.videoPath };
+  if (v.videoTipo !== 'ninguno' && v.videoTipo !== 'archivo' && v.videoUrl) return { tipo: 'url', url: v.videoUrl };
+  return null;
+}
+
+/** La clave de un video (cambiarlo remonta sus controles y separa los minutos medidos de cada uno). */
+export const claveDeVideo = (v: VideoDelBorrador): string => `${v.videoTipo}:${v.videoUrl ?? v.videoPath ?? ''}`;
 
 /**
- * Lo que dice la pantalla de ese estado: dos o tres palabras (AGENTS.md, «el texto que se dibuja es
- * corto»). Lo que falta para guardar va entero: es lo único accionable.
+ * Lo que se le manda al server, SÓLO las partes que cambiaron de la CLASE (la disposición es del curso y
+ * va por su camino). `antes` lleva lo que la persona tenía como base de cada una: el server compara la
+ * fila contra eso y, si otra pestaña la cambió en el medio, no la pisa (`guardarLeccion`).
  */
-export function textoDeGuardado(e: EstadoGuardado): string {
-  if (typeof e === 'object') return e.falta;
+export type CambiosLeccion = {
+  titulo?: string;
+  video?: VideoParaGuardar;
+  descripcionHtml?: string;
+  tareaHtml?: string;
+  campos?: Campo[];
+  porArea?: boolean;
+  /** Los minutos del video NUEVO, si el reproductor ya los midió (van con el video, nunca solos). */
+  minutos?: number | null;
+};
+
+export function cambiosParaGuardar(
+  base: BorradorLeccion, b: BorradorLeccion, minutosDe: (clave: string) => number | null | undefined,
+): { cambios: CambiosLeccion | null; antes: CambiosLeccion; disposicion: DisposicionBorrador | null } {
+  const cambios: CambiosLeccion = {};
+  const antes: CambiosLeccion = {};
+  for (const k of partesCambiadas(base, b)) {
+    if (k === 'disposicion') continue;
+    if (k === 'video') {
+      cambios.video = videoParaGuardar(b.video);
+      antes.video = videoParaGuardar(base.video);
+      const m = minutosDe(claveDeVideo(b.video));
+      if (m != null) cambios.minutos = m;
+      continue;
+    }
+    (cambios as Record<string, unknown>)[k] = b[k];
+    (antes as Record<string, unknown>)[k] = base[k];
+  }
+  return {
+    cambios: Object.keys(cambios).length ? cambios : null,
+    antes,
+    disposicion: base.disposicion !== b.disposicion ? b.disposicion : null,
+  };
+}
+
+/**
+ * Lo que impide guardar, por parte: los motivos de cada campo (`erroresDeCampos`, lib/curso.ts, la MISMA
+ * regla con la que rechaza el server) y el título vacío. Es lo que se pinta en rojo (item 2: «un enmarcado
+ * rojo y que diga falta completar la pregunta»). `{}` = se puede guardar.
+ */
+export function erroresDelBorrador(b: Pick<BorradorLeccion, 'titulo' | 'campos'>): Record<string, string> {
+  const out = { ...erroresDeCampos(b.campos) };
+  if (!b.titulo.trim()) out.titulo = 'Falta el título';
+  return out;
+}
+
+// ── El Ctrl+Z del borrador (item 4, 20:50: «cuando aprieto control Z me deje deshacer») ──
+// Se apila UNA VEZ POR GESTO (AGENTS.md, «Una pila de deshacer se llena en el CHOKE POINT»): escribir un
+// párrafo es un gesto, no cuarenta. El gesto se reconoce por QUÉ cambió y por el HUECO desde el anterior.
+
+/** Cuánto tiene que pasar entre dos teclas para que la segunda empiece otro gesto. */
+export const GESTO_MS = 1000;
+
+/** La forma del formulario: qué campos hay, en qué orden y de qué tipo. Lo demás es texto adentro. */
+const formaDeCampos = (cs: readonly Campo[]) => cs.map((c) => `${c.id}:${c.tipo}`).join('|');
+
+/**
+ * Qué gesto es pasar de `antes` a `despues`. `continuo` = se escribe de corrido (un texto, la pregunta de
+ * UN campo): varios cambios seguidos de la misma clave son UN paso. Lo demás (el video, la disposición,
+ * agregar, borrar, mover o cambiar el tipo de un campo, «Una respuesta por área») es un paso por cambio.
+ * `null` = no cambió nada.
+ */
+export function gestoDe(antes: BorradorLeccion, despues: BorradorLeccion): { clave: string; continuo: boolean } | null {
+  const partes = partesCambiadas(antes, despues);
+  if (!partes.length) return null;
+  if (partes.length === 1) {
+    const k = partes[0];
+    if (k === 'titulo' || k === 'descripcionHtml' || k === 'tareaHtml') return { clave: k, continuo: true };
+    if (k === 'campos' && formaDeCampos(antes.campos) === formaDeCampos(despues.campos)) {
+      const tocados = despues.campos.filter((c, i) => !igualParte(c, antes.campos[i])).map((c) => c.id);
+      return { clave: `campos:${tocados.join(',')}`, continuo: tocados.length === 1 };
+    }
+  }
+  return { clave: partes.join(','), continuo: false };
+}
+
+/** ¿Este cambio empieza un paso nuevo de la pila? */
+export function esGestoNuevo(previo: { clave: string; en: number } | null, g: { clave: string; continuo: boolean }, ahora: number): boolean {
+  return !g.continuo || !previo || previo.clave !== g.clave || ahora - previo.en > GESTO_MS;
+}
+
+// ── La barra de guardar ───────────────────────────────────────────────────────
+
+/** En qué está la lección: lo que dice la barra. */
+export type EstadoBarra = 'limpio' | 'sucio' | 'guardando' | 'guardado' | 'falta' | 'conflicto' | 'error';
+
+/**
+ * Lo que dice la barra (AGENTS.md: el texto que se DIBUJA es corto, tres palabras como mucho). Lo que
+ * falta se marca en cada campo; acá sólo se dice que hay algo marcado.
+ */
+export function textoDeBarra(e: EstadoBarra): string {
   switch (e) {
     case 'sucio': return 'Sin guardar';
     case 'guardando': return 'Guardando…';
     case 'guardado': return 'Guardado';
+    case 'falta': return 'Completa lo marcado';
+    case 'conflicto': return 'Cambió en otra pestaña';
     case 'error': return 'No se guardó';
     default: return '';
   }
 }
+
+// ── «Obligatoria para avanzar», en el menú «…» de la clase (item 7, 13:00) ───────
+
+/**
+ * Sin tarea guardada no se prende. Es el MISMO texto con que rechaza el server (`ERROR_OBLIGATORIA_SIN_TAREA`,
+ * ./reglas.ts): antes decía «Para cerrar la etapa, agrega la tarea.», que al lado del interruptor se leía
+ * como un bug (13:00: «Hay uno, un bug cuando dice obligatorio para avanzar… Para cerrar la etapa, agrega
+ * la tarea»).
+ */
+export const MOTIVO_SIN_TAREA = ERROR_OBLIGATORIA_SIN_TAREA;
+/** La tarea está en el borrador y todavía no se guardó: la marca la valida el server contra lo guardado. */
+export const MOTIVO_TAREA_SIN_GUARDAR = 'Guarda la tarea primero.';
+
+/**
+ * Por qué «Obligatoria para avanzar» se ve apagada, o `null` si se puede tocar. Prendida, siempre se puede
+ * apagar. Apagada sin tarea GUARDADA, no se puede prender: el server la rechazaría.
+ */
+export function motivoObligatoria(o: { prendida: boolean; tareaGuardada: boolean; tareaEnBorrador: boolean }): string | null {
+  if (o.prendida || o.tareaGuardada) return null;
+  return o.tareaEnBorrador ? MOTIVO_TAREA_SIN_GUARDAR : MOTIVO_SIN_TAREA;
+}
+
+/**
+ * ¿Se ofrece en el menú? En un módulo VINCULADO (una etapa del kanban: completarlo es lo que mueve al
+ * cliente). En un suelto sólo si ya está prendida —llegó ahí arrastrada—, para poder apagarla.
+ */
+export const ofreceObligatoria = (vinculado: boolean, prendida: boolean): boolean => vinculado || prendida;

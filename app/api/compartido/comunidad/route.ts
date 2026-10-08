@@ -38,7 +38,7 @@ import {
   actorDelAlumno, inicioComunidad, feedComunidad, detallePost, publicarPost, editarPost, borrarPost,
   comentar, editarComentario, borrarComentario, cambiarLike, votar, rankingComunidad, miembrosComunidad,
   perfilDe, guardarPerfil, urlSubidaAdjunto, descartarAdjunto, marcarActividad, seguirPost, aboutComunidad,
-  buscarEnComunidad,
+  buscarEnComunidad, hiloDeClase, comentarEnClase,
 } from '@/lib/comunidad-datos';
 import { calendarioComunidad, icsComunidad } from '@/lib/comunidad-calendario';
 import { campanaComunidad, marcarLeidas } from '@/lib/comunidad-campana';
@@ -56,11 +56,21 @@ const OK = (cuerpo: object) => Response.json(cuerpo, { headers: SIN_CACHE });
 /** Un post entero (10.000 letras), su encuesta y un adjunto ya subido entran holgados. */
 const TOPE_PEDIDO = 64_000;
 
-/** Las acciones que LEEN y las que ESCRIBEN: tienen topes distintos por alumno. */
-const LECTURAS = new Set(['inicio', 'feed', 'post', 'ranking', 'miembros', 'perfil', 'latido', 'calendario', 'ics', 'campana', 'about', 'buscar']);
+/**
+ * Las acciones que LEEN y las que ESCRIBEN: tienen topes distintos por alumno.
+ *
+ * `clase` y `comentarClase` (item 13 del audio del 08/10/2026, mig 0227): los COMENTARIOS DE UNA CLASE,
+ * debajo de la lección del portal. Pasan por el MISMO portón (`actorDelAlumno`: token vigente, no un
+ * líder, el producto es suyo, no está sacado) y los mismos topes; y además lib/comunidad-datos.ts
+ * (`claseParaComentar`) pregunta que la clase sea de ESTE producto, que se le ABRA a este alumno (su
+ * candado y sus permisos) y que el curso tenga los comentarios prendidos. Responder, likear, editar,
+ * borrar y seguir un comentario de una clase son las acciones de siempre sobre el post del hilo, y
+ * `postDe` les hace la misma pregunta.
+ */
+const LECTURAS = new Set(['inicio', 'feed', 'post', 'ranking', 'miembros', 'perfil', 'latido', 'calendario', 'ics', 'campana', 'about', 'buscar', 'clase']);
 const ESCRITURAS = new Set([
   'publicar', 'editar', 'borrar', 'comentar', 'editarComentario', 'borrarComentario',
-  'like', 'votar', 'guardarPerfil', 'subida', 'descartar', 'leerCampana', 'seguir',
+  'like', 'votar', 'guardarPerfil', 'subida', 'descartar', 'leerCampana', 'seguir', 'comentarClase',
 ]);
 
 export async function POST(req: NextRequest) {
@@ -133,6 +143,8 @@ export async function POST(req: NextRequest) {
         case 'guardarPerfil': return OK(await guardarPerfil(actor, b.perfil));
         case 'subida': return OK(await urlSubidaAdjunto(actor, b.mime, b.bytes));
         case 'descartar': return OK(await descartarAdjunto(actor, b.path));
+        case 'clase': return OK(await hiloDeClase(actor, b.claseId));
+        case 'comentarClase': return OK(await comentarEnClase(actor, b.claseId, b.comentario));
       }
       return NO();
     } catch (e) {

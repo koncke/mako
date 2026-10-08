@@ -26,11 +26,14 @@
 
 import 'server-only';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { sendEmail, renderEmailHtml } from './resend';
+import { sendEmail, renderEmailHtml, displayNameDe } from './resend';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getSupabaseServer } from './supabase';
+import { getSettingEstricto } from './settings';
+import { credDelCliente } from './credenciales';
 import type { RolWorkspace } from './auth-session';
 import { textoInvitacionCurso, textoInvitacionLider, textoLinkAlumno, type ResultadoInvitacion } from './invitacion-aviso';
+import { remitenteDeLaInvitacion, type RemitenteInvitacion } from './curso-invitar-canales';
 
 // El tipo y el texto que lee la persona viven en `invitacion-aviso` (sin `server-only`,
 // para que lo importen las pantallas y los tests). Acá se re-exporta para que quien manda
@@ -214,20 +217,104 @@ export async function invitarPorEmail(u: {
   return r.enviado ? { enviado: true, enlace } : { enviado: false, error: r.error, enlace };
 }
 
+// ── La invitación al CURSO sale con el remitente del NEGOCIO (08/10/2026) ──────────
+// Item 21 del audio del 08/10/2026 (docs/feedback-curso-08oct.md, minuto 09:30): «¿Y el email de qué
+// va a ser? Mi email propio, tengo que conectar mi dominio» — «Sí, vas a tener que conectar, puedes
+// conectar tu email…». MEDIDO ANTES DE TOCAR: `invitarAlCursoPorEmail` iba por `enviarDePlataforma`,
+// o sea que la invitación al curso de CUALQUIER negocio salía firmada «MaKo <equipo@hola-mako.com>»,
+// tuviera o no su dominio verificado. Para el alumno, MaKo es una marca que no conoce.
+//
+// La regla de abajo —y su porqué— vive en `remitenteDeLaInvitacion` (lib/curso-invitar-canales.ts,
+// puro y con test). Acá se leen las tres cosas que la deciden, del workspace del ALUMNO.
+//
+// ⚠️ ESTO NO CONTRADICE A `REMITENTE_MAKO`: aquello es la identidad de la PLATAFORMA para lo que manda
+//    MaKo (el acceso de un cliente a MaKo, las alarmas). La invitación al curso la manda EL NEGOCIO a SUS
+//    alumnos, y cuando el negocio no tiene dominio, MaKo la firma en su nombre como siempre.
+
+/**
+ * El remitente de la invitación, leído del workspace `ws` (el del ALUMNO, nunca el del contexto).
+ *
+ * ⚠️ SI NO SE PUEDE LEER, VA EL DE MAKO, que es lo de siempre y siempre sale. No es «una lectura que cae
+ *    al default para decidir» en la dirección peligrosa: el default no afirma nada falso ni manda de
+ *    más — el mail llega igual, firmado por la plataforma — y queda el aviso en el log.
+ */
+async function remitenteDelNegocio(ws: number): Promise<RemitenteInvitacion> {
+  if (!Number.isInteger(ws) || ws <= 0) return { via: 'mako' };
+  try {
+    return await runWithWorkspace(ws, async () => {
+      const [resendFrom, resendDominio, credFrom, credKey] = await Promise.all([
+        getSettingEstricto('resend_from'),
+        getSettingEstricto('resend_domain'),
+        // Las del CLIENTE (`credDelCliente`), nunca `credWs`: ésa le daría al ws1 —un cliente— las de la
+        // plataforma (ver `remitenteDeLaInvitacion`).
+        credDelCliente('RESEND_FROM', ws),
+        credDelCliente('RESEND_API_KEY', ws),
+      ]);
+      return remitenteDeLaInvitacion({
+        resendFrom, resendDominio, credFrom, credKeyPropia: !!credKey,
+        dominioMako: EMAIL_MAKO.slice(EMAIL_MAKO.lastIndexOf('@') + 1),
+      });
+    });
+  } catch (e) {
+    console.warn(`[invitaciones] no pude leer el remitente del ws ${ws}; va el de MaKo:`, e instanceof Error ? e.message : e);
+    return { via: 'mako' };
+  }
+}
+
+/**
+ * Manda un mail CON EL REMITENTE DEL NEGOCIO, adentro de SU workspace: la key de Resend que se usa es la
+ * suya (Opción B) o la de MaKo, donde verificó su dominio (Opción A, lib/resend.ts). Nunca tira.
+ *
+ * ⚠️ SIN «SI FALLA, LO MANDA MaKo»: un error de Resend (el dominio dejó de verificar) se dice en la
+ *    pantalla y se arregla; reintentar por otra puerta escondería el problema y, con un corte de red a
+ *    mitad (que `sendEmail` no distingue de un rechazo), podría mandar el mail dos veces.
+ */
+async function enviarDelNegocio(
+  ws: number,
+  rem: Extract<RemitenteInvitacion, { via: 'negocio' }>,
+  m: MailDePlataforma,
+): Promise<{ enviado: true } | { enviado: false; error: string }> {
+  const r = await runWithWorkspace(ws, async () => {
+    const html = renderEmailHtml({
+      subject: m.asunto,
+      bodyText: m.cuerpo,
+      preheader: m.preheader,
+      // La firma del pie es la del negocio; sin la banda de MaKo (es opt-in, ver lib/email-html.ts).
+      fromName: displayNameDe(rem.from) || undefined,
+    });
+    return await sendEmail({
+      to: m.to,
+      // `from` y `replyTo` EXPLÍCITOS: `sendEmail` sin `from` resolvería el del contexto por su cuenta.
+      from: rem.from,
+      replyTo: rem.replyTo,
+      subject: m.asunto,
+      html,
+      text: m.cuerpo,
+      tags: [{ name: 'tipo', value: m.tag }],
+    });
+  });
+  return r.ok ? { enviado: true } : { enviado: false, error: r.error || 'Resend rechazó el envío' };
+}
+
 /**
  * Invita a un cliente al CURSO del servicio que compró (pedido del 06/10/2026). El acceso es
  * un link firmado, no una cuenta (lib/curso-acceso.ts): este mail le lleva el link de
  * ENTRADA de la versión vigente. El texto vive en `textoInvitacionCurso`
  * (lib/invitacion-aviso.ts), que tiene test.
  *
+ * Desde el 08/10/2026 sale con el remitente del NEGOCIO si tiene su dominio conectado, y si no con el
+ * de MaKo (`remitenteDelNegocio`, arriba). `remitente` dice cuál fue.
+ *
  * NUNCA tira, igual que la de arriba.
  *
  * ⚠️ NO ANOTA NADA. Quien la llama (la action de la ficha) escribe en `curso_accesos` DESPUÉS
  * de que esto vuelva con `enviado: true`, y lo hace AFUERA de acá a propósito: el envío corre
- * adentro del workspace de la plataforma, y esa tabla se escribe con el inquilino del cliente
- * puesto. Anotarlo acá adentro sería escribir en el workspace equivocado sin un error.
+ * adentro de un `runWithWorkspace` propio (el de la plataforma, o el del negocio), y anotarlo acá
+ * adentro sería escribir con el inquilino que no es sin un error.
  */
 export async function invitarAlCursoPorEmail(p: {
+  /** El workspace del ALUMNO: decide el remitente. */
+  ws: number;
   email: string;
   nombre?: string | null;
   programa: string;
@@ -236,12 +323,16 @@ export async function invitarAlCursoPorEmail(p: {
   enlace: string;
   /** El login de MaKo, para quien prefiera entrar con Google (con `linkApp('/login')`). */
   entrarConGoogle: string;
-}): Promise<ResultadoInvitacion> {
+}): Promise<ResultadoInvitacion & { remitente?: RemitenteInvitacion['via'] }> {
+  // ⚠️ EL REMITENTE SE RESUELVE PRIMERO, con el `ws` del parámetro (AGENTS.md: en una función que acepta
+  //    `ws`, resolverlo es la primera línea; cualquier lectura antes pregunta por el inquilino del contexto).
+  const rem = await remitenteDelNegocio(p.ws);
   const destino = (p.email ?? '').trim().toLowerCase();
   if (!destino) return { enviado: false, error: 'no hay email al que escribirle', enlace: p.enlace };
   const t = textoInvitacionCurso(p);
-  const r = await enviarDePlataforma({ to: destino, asunto: t.asunto, preheader: t.preheader, cuerpo: t.cuerpo, tag: 'invitacion-curso' });
-  return r.enviado ? { enviado: true, enlace: p.enlace } : { enviado: false, error: r.error, enlace: p.enlace };
+  const mail: MailDePlataforma = { to: destino, asunto: t.asunto, preheader: t.preheader, cuerpo: t.cuerpo, tag: 'invitacion-curso' };
+  const r = rem.via === 'negocio' ? await enviarDelNegocio(p.ws, rem, mail) : await enviarDePlataforma(mail);
+  return r.enviado ? { enviado: true, enlace: p.enlace, remitente: rem.via } : { enviado: false, error: r.error, enlace: p.enlace, remitente: rem.via };
 }
 
 /**

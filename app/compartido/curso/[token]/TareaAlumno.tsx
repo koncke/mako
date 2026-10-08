@@ -57,16 +57,34 @@
 //     tarea (`comunidad`, con su token y su candado) y lo que queda en la respuesta es QUÉ post o comentario
 //     (lib/curso-tarea-comunidad.ts), que la ruta verifica antes de guardar.
 //
+// EL AUDIO DEL 08/10/2026 (la prueba del curso con alguien que tiene el suyo, docs/feedback-curso-08oct.md):
+//   · MÁS DE UNA TAREA (item 12, 21:30: «sería bueno que se pueda agregar más de una tarea»): cada tarea va
+//     en SU caja, con su título, su consigna con formato y sus campos (`tareasDeClase`, lib/curso.ts). El
+//     envío sigue siendo UNO por clase: las tareas de una clase son partes de la misma entrega, y partir
+//     el estado en N rompería «Cierra la etapa», el paso automático y la IA, que preguntan por la clase.
+//   · LA CONSIGNA CON FORMATO (item 11, 18:00: «que tenga negrita»): `tareaHtml` por `HtmlSeguro`, y si es
+//     de antes de la 0226, `tarea` como texto.
+//   · LA ESCALA (item 9, 14:50: «una barra deslizable… o la típica de estrellas»): `Escala.estilo`. Las tres
+//     se manejan con el teclado (flechas, Inicio y Fin), y «sin contestar» se ve distinto de cualquier valor.
+//   · «LO HICE» (item 10, 17:30: «no entiendo el campo de lo hice… es como un checkbox»): un botón que dice
+//     lo que hace, «Marcar como hecho», y hecho dice «Hecho».
+//   · LA AGENDA EMBEBIDA (item 15, 24:30: «el Calendar para agendar la llamada directamente desde ahí»): si
+//     el link es de una agenda conocida (`embedDe`, lib/embeds.ts), se agenda AHÍ MISMO; si no, el botón.
+//   · «UN POCO MÁS ESTHETIC» (item 8, 14:00): tarjetas con la piel del curso (borde de tinta, sombra dura,
+//     el acento), los controles propios con la letra del curso, y nada con ancho fijo: a 390 px no salta.
+//
 // Texto de pantalla: español neutro con TÚ (los clientes de Mauricio son mexicanos), corto.
 
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import type { ArchivoEntregado, Calificacion, Campo, EstadoTarea, NotaQuiz, Valores, ValorCampo } from '@/lib/curso';
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import type { ArchivoEntregado, Calificacion, Campo, Escala, EstadoTarea, NotaQuiz, TareaDeClase, Valores, ValorCampo } from '@/lib/curso';
 import {
-  aceptaDeCampo, corregirEnvio, esCampoDeArchivo, esCampoDeComunidad, linkValido, mimeBase, mimeDeEntrega, mimesDeCampo, nombreDeEntrega,
-  pathsDeEntregas, sanearValores, seApruebaSola, MAX_SEG_DEFAULT, TOPE_ENTREGA_BYTES,
+  aceptaDeCampo, camposConRespuesta, corregirEnvio, esCampoDeArchivo, esCampoDeComunidad, linkValido, mimeBase, mimeDeEntrega, mimesDeCampo,
+  nombreDeEntrega, pathsDeEntregas, sanearValores, seApruebaSola, tareasDeClase, tareaVacia, MAX_SEG_DEFAULT, TOPE_ENTREGA_BYTES,
 } from '@/lib/curso';
+import { embedDe, claseDeProveedor, SANDBOX_EMBED, ALLOW_EMBED, REFERRER_EMBED, type Embed } from '@/lib/embeds';
 import type { PropuestaVista } from '@/lib/curso-portal';
 import { Button, Input, Textarea, Radio, Checkbox, Progress } from '@/app/_ui';
+import { HtmlSeguro } from '@/app/_ui/HtmlSeguro';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
 import { filasDeTabla, filaVacia, queFalta, fraseQueFalta, fraseDeBytes, reloj, estadoDeQuiz } from './tarea-valores';
 import { useVistaPrevia } from './vista-previa';
@@ -125,11 +143,14 @@ function respuestaDeVistaPrevia(campos: readonly Campo[], v: Valores, enviar: bo
   return { ok: true, progreso: { estado, valores: v }, faltaCompletar: false, avance: null, ...(calificacion ? { calificacion } : {}) };
 }
 
+/** Sin con qué pedir un adjunto (no llegó `urlDeAdjunto`): la consigna se dibuja sin él. */
+const sinAdjuntos = (): string | null => null;
+
 /** Los archivos de un valor, a la defensiva: un jsonb viejo o de otro tipo no revienta la pantalla. */
 const archivosDe = (v: ValorCampo | undefined): ArchivoEntregado[] =>
   Array.isArray(v) ? (v as unknown[]).filter((x): x is ArchivoEntregado => !!x && typeof x === 'object' && !Array.isArray(x) && typeof (x as ArchivoEntregado).path === 'string') : [];
 
-export default function TareaAlumno({ token, claseId, area, tarea, campos, valoresIniciales, estadoInicial, propuesta, calificacion, onEstado, onPropuesta, onAvance, onValores }: {
+export default function TareaAlumno({ token, claseId, area, tarea, tareaHtml, urlDeAdjunto, campos, valoresIniciales, estadoInicial, propuesta, calificacion, onEstado, onPropuesta, onAvance, onValores }: {
   token: string;
   claseId: number;
   /**
@@ -138,8 +159,19 @@ export default function TareaAlumno({ token, claseId, area, tarea, campos, valor
    * (`areaDeLaTarea`): con el link de un líder se ignora y manda su área.
    */
   area?: string;
-  /** La instrucción de llenado que escribió Mauricio. */
+  /** La instrucción de llenado que escribió Mauricio, en texto (la de antes de la 0226, o la derivada). */
   tarea: string;
+  /**
+   * La consigna con formato (mig 0226), YA SANEADA en el server. Le gana a `tarea`. Ausente o `null` =
+   * se dibuja `tarea` como texto.
+   */
+  tareaHtml?: string | null;
+  /**
+   * La URL con la que se dibuja un adjunto de una consigna (una imagen pegada en la tarea): el alumno lo
+   * pide con SU token, la vista previa del equipo con la URL firmada. Sin esto, un adjunto no se dibuja.
+   */
+  urlDeAdjunto?: (ref: string) => string | null;
+  /** Los campos de TODAS las tareas de la clase, con las `seccion` que abren cada una (lib/curso.ts). */
   campos: Campo[];
   valoresIniciales: Valores;
   estadoInicial: EstadoTarea;
@@ -540,16 +572,22 @@ export default function TareaAlumno({ token, claseId, area, tarea, campos, valor
   const soloLectura = !editando;
   const conPropuesta = prop != null && !editando;
 
-  /** Un formulario entero (o la respuesta libre), con sus valores. Lo usan su respuesta y la de la IA. */
-  const formulario = (v: Valores, ro: boolean, ids: string, rotulo: string) => campos.length ? (
-    <ol className="cp-campos">
-      {campos.map((c) => (
-        <li key={c.id} className="cp-campo">
-          <CampoAlumno idBase={ids} campo={c} valor={v[c.id]} soloLectura={ro} onCambio={(x) => cambiar(c.id, x)} h={herramientas} />
-        </li>
-      ))}
-    </ol>
-  ) : (
+  // ── Las tareas de la clase (item 12): la principal y una por `seccion`, cada una en su caja ──
+  // Una caja vacía (la principal sin consigna ni campos, cuando hay secciones) no se dibuja.
+  const tareas = tareasDeClase({ tarea, tareaHtml, campos }).filter((t) => !tareaVacia(t, tarea));
+  // Sin ningún campo que se conteste (sin campos, o sólo secciones), la tarea es de RESPUESTA LIBRE:
+  // la misma regla que el server (`sanearValores`, `respuestaCompleta`).
+  const libre = camposConRespuesta(campos).length === 0;
+  const varias = tareas.length > 1;
+  const adjunto = urlDeAdjunto ?? sinAdjuntos;
+
+  /** La consigna de una tarea: la rica si la tiene; la de texto de antes de la 0226 sólo en la principal. */
+  const consigna = (t: TareaDeClase) => (t.descripcionHtml
+    ? <HtmlSeguro className="cp-tconsigna" html={t.descripcionHtml} urlDeAdjunto={adjunto} />
+    : t.id == null && tarea.trim() ? <p className="cp-tarea-instr">{tarea}</p> : null);
+
+  /** La respuesta libre (una tarea sin campos que se contesten). */
+  const cuadroLibre = (v: Valores, ro: boolean, rotulo: string) => (
     <Textarea
       aria-label={rotulo}
       placeholder="Escribe tu respuesta"
@@ -560,22 +598,53 @@ export default function TareaAlumno({ token, claseId, area, tarea, campos, valor
     />
   );
 
+  /**
+   * Las tareas con sus campos y sus valores. Lo usan su respuesta y la versión de la IA (`conConsigna:
+   * false`: la consigna ya está arriba, y repetirla en la caja tenue sólo la alarga).
+   */
+  const formulario = (v: Valores, ro: boolean, ids: string, rotulo: string, conConsigna: boolean) => (
+    <div className="cp-tareas">
+      {tareas.map((t, i) => (
+        <div key={t.id ?? '·principal'} className={`cp-tcaja${conConsigna ? '' : ' cp-tcaja--tenue'}`}>
+          {(varias || t.titulo) && (
+            <div className="cp-tcab">
+              {varias && <span className="cp-tnum" aria-hidden>{i + 1}</span>}
+              <h3 className="cp-ttit">{t.titulo || 'Tarea'}</h3>
+            </div>
+          )}
+          {conConsigna && consigna(t)}
+          {t.campos.length > 0 && (
+            <ol className="cp-campos">
+              {t.campos.map((c) => (
+                <li key={c.id} className="cp-campo">
+                  <CampoAlumno idBase={ids} campo={c} valor={v[c.id]} soloLectura={ro} onCambio={(x) => cambiar(c.id, x)} h={herramientas} />
+                </li>
+              ))}
+            </ol>
+          )}
+          {/* La respuesta libre va en la ÚLTIMA caja: es la respuesta de toda la clase. */}
+          {libre && i === tareas.length - 1 && cuadroLibre(v, ro, rotulo)}
+        </div>
+      ))}
+      {libre && !tareas.length && cuadroLibre(v, ro, rotulo)}
+    </div>
+  );
+
   return (
-    <section className="cp-tarea" aria-label="Tarea">
+    <section className="cp-tarea" aria-label={varias ? 'Tareas' : 'Tarea'}>
       <div className="cp-tarea-cab">
-        <span className="cp-eyebrow">Tarea</span>
+        <span className="cp-eyebrow">{varias ? `${tareas.length} tareas` : 'Tarea'}</span>
       </div>
-      {tarea.trim() && <p className="cp-tarea-instr">{tarea}</p>}
 
       {conPropuesta && <p className="cp-prop-tit">Tu respuesta</p>}
-      {formulario(valores, soloLectura, idBase, 'Tu respuesta')}
+      {formulario(valores, soloLectura, idBase, 'Tu respuesta', true)}
 
       {/* La versión de la IA, de sólo lectura: se aprueba tal cual o se corrige en SU formulario.
           Sus ids van aparte: dos formularios iguales en la misma tarea. */}
       {conPropuesta && prop && (
         <div className="cp-prop">
           <p className="cp-prop-tit">Con lo que hablaron</p>
-          {formulario(prop.valores, true, `${idBase}ia`, 'Con lo que hablaron')}
+          {formulario(prop.valores, true, `${idBase}ia`, 'Con lo que hablaron', false)}
         </div>
       )}
 
@@ -684,25 +753,7 @@ function CampoAlumno({ idBase, campo, valor, soloLectura, onCambio, h }: {
   }
 
   if (campo.tipo === 'escala') {
-    const e = campo.escala ?? { min: 1, max: 10, bajo: '', alto: '' };
-    const actual = typeof valor === 'string' ? valor : '';
-    const nums = Array.from({ length: e.max - e.min + 1 }, (_, i) => e.min + i);
-    return grupo(
-      <>
-        <div className="cpt-escala" role="radiogroup" aria-label={campo.label}>
-          {nums.map((n) => (
-            <button key={n} type="button" role="radio" aria-checked={actual === String(n)} disabled={soloLectura}
-              className={`cpt-esc${actual === String(n) ? ' is-on' : ''}`} onClick={() => onCambio(String(n))}>
-              {n}
-            </button>
-          ))}
-        </div>
-        <div className="cpt-extremos" aria-hidden>
-          <span>{e.min} · {e.bajo}</span>
-          <span>{e.max} · {e.alto}</span>
-        </div>
-      </>,
-    );
+    return grupo(<CampoEscala id={id} campo={campo} valor={valor} soloLectura={soloLectura} onCambio={onCambio} />);
   }
 
   if (campo.tipo === 'quiz') {
@@ -710,18 +761,28 @@ function CampoAlumno({ idBase, campo, valor, soloLectura, onCambio, h }: {
   }
 
   if (campo.tipo === 'agenda') {
-    const url = linkValido(campo.url);
+    return grupo(<CampoAgenda campo={campo} valor={valor} soloLectura={soloLectura} onCambio={onCambio} />);
+  }
+
+  if (campo.tipo === 'confirmacion') {
+    // ⚠️ UN BOTÓN QUE DICE LO QUE HACE, no una casilla «Lo hice» (item 10 del audio, 17:30: «no entiendo
+    //    el campo de lo hice»). La pregunta del campo es la consigna («Publica tu primer anuncio»); el
+    //    botón confirma que se hizo, y apretado de nuevo lo deshace.
+    const hecho = valor === 'si';
     return grupo(
       <div className="cpt-fila">
-        {url && <a className="mk-btn mk-btn--primary mk-btn--md" href={url} target="_blank" rel="noopener noreferrer">Agendar</a>}
-        <Checkbox checked={valor === 'si'} disabled={soloLectura} label="Ya agendé" onChange={(on) => onCambio(on ? 'si' : '')} />
+        <button type="button" className={`cpt-hecho-btn${hecho ? ' is-on' : ''}`} aria-pressed={hecho} disabled={soloLectura}
+          onClick={() => onCambio(hecho ? '' : 'si')}>
+          <span className="cpt-hecho-ic" aria-hidden>{hecho ? '✓' : ''}</span>
+          {hecho ? 'Hecho' : 'Marcar como hecho'}
+        </button>
       </div>,
     );
   }
 
-  if (campo.tipo === 'confirmacion') {
-    return grupo(<Checkbox checked={valor === 'si'} disabled={soloLectura} label="Lo hice" onChange={(on) => onCambio(on ? 'si' : '')} />);
-  }
+  // Una `seccion` no es un campo que se conteste: la dibuja la caja de su tarea. No llega acá (la caja
+  // pasa sólo sus campos), y si llegara, no se dibuja un cuadro sin pregunta.
+  if (campo.tipo === 'seccion') return null;
 
   if (esCampoDeComunidad(campo.tipo)) {
     return grupo(<CampoComunidad idBase={id} campo={campo} valor={valor} soloLectura={soloLectura} onCambio={onCambio} h={h} />);
@@ -767,6 +828,154 @@ function CampoAlumno({ idBase, campo, valor, soloLectura, onCambio, h }: {
       <Textarea id={id} rows={4} placeholder={ejemplo} value={typeof valor === 'string' ? valor : ''} onChange={(e) => onCambio(e.target.value)} readOnly={soloLectura} />
     </div>
   );
+}
+
+// ── La escala (item 9 del audio del 08/10/2026) ───────────────────────────────
+
+/**
+ * Una escala en sus tres formas (`Escala.estilo`): botones con los números (la de siempre), un
+ * DESLIZADOR con el valor a la vista, o ESTRELLAS. Las tres van con el teclado: los números y las
+ * estrellas son un grupo de radios con UN solo punto de tabulación (flechas, Inicio y Fin), y el
+ * deslizador es un `<input type=range>`, que ya lo trae.
+ *
+ * ⚠️ «SIN CONTESTAR» NO ES UN VALOR. Un deslizador siempre está en algún lado: sin respuesta se dibuja
+ *    apagado y con «—», y recién al tocarlo (o al moverlo con el teclado) se guarda lo que marca. Un
+ *    deslizador que arranca en el medio y cuenta como contestado le pondría un 5 a quien no eligió nada.
+ */
+function CampoEscala({ id, campo, valor, soloLectura, onCambio }: {
+  id: string; campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; onCambio: (v: ValorCampo) => void;
+}) {
+  const e: Escala = campo.escala ?? { min: 1, max: 10, bajo: '', alto: '' };
+  const estilo = e.estilo ?? 'numeros';
+  const actual = typeof valor === 'string' && /^\d{1,2}$/.test(valor) ? Number(valor) : null;
+  const valido = actual != null && actual >= e.min && actual <= e.max ? actual : null;
+  const [encima, setEncima] = useState<number | null>(null);
+  const grupoRef = useRef<HTMLDivElement>(null);
+  const nums = Array.from({ length: e.max - e.min + 1 }, (_, i) => e.min + i);
+  const extremos = (
+    <div className="cpt-extremos" aria-hidden>
+      <span>{e.min} · {e.bajo}</span>
+      <span>{e.max} · {e.alto}</span>
+    </div>
+  );
+
+  /** Las flechas de un grupo de radios: cambian el valor y llevan el foco al nuevo. */
+  const teclas = (ev: KeyboardEvent<HTMLDivElement>) => {
+    if (soloLectura) return;
+    const base = valido ?? (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown' ? e.max + 1 : e.min - 1);
+    const nuevo = ev.key === 'ArrowRight' || ev.key === 'ArrowUp' ? Math.min(e.max, base + 1)
+      : ev.key === 'ArrowLeft' || ev.key === 'ArrowDown' ? Math.max(e.min, base - 1)
+        : ev.key === 'Home' ? e.min : ev.key === 'End' ? e.max : null;
+    if (nuevo == null) return;
+    ev.preventDefault();
+    onCambio(String(nuevo));
+    // El foco va con el valor: es un solo punto de tabulación (el marcado, o el primero).
+    requestAnimationFrame(() => grupoRef.current?.querySelector<HTMLElement>(`[data-n="${nuevo}"]`)?.focus());
+  };
+  /** El que recibe el Tab: el marcado, o el primero si no hay ninguno. */
+  const tabDe = (n: number) => (n === (valido ?? e.min) ? 0 : -1);
+
+  if (estilo === 'deslizador') {
+    const marca = valido ?? Math.round((e.min + e.max) / 2);
+    const fijar = (v: string) => { if (!soloLectura) onCambio(v); };
+    return (
+      <div className={`cpt-desl${valido == null ? ' is-vacio' : ''}`}>
+        <div className="cpt-desl-valor" aria-hidden>
+          <strong>{valido ?? '—'}</strong><span>de {e.max}</span>
+        </div>
+        <input id={id} type="range" className="cpt-desl-rango" min={e.min} max={e.max} step={1} value={marca}
+          disabled={soloLectura}
+          aria-label={campo.label}
+          aria-valuetext={valido == null ? 'Sin elegir' : `${valido} de ${e.max}`}
+          // Mover cambia el valor; TOCARLO sin mover (un clic donde ya estaba) también cuenta como elegir.
+          onChange={(ev) => fijar(ev.currentTarget.value)}
+          onPointerUp={(ev) => { if (valido == null) fijar(ev.currentTarget.value); }}
+          onKeyUp={(ev) => { if (valido == null && /^(Arrow|Home|End|Page)/.test(ev.key)) fijar(ev.currentTarget.value); }}
+          style={{ '--pct': `${((marca - e.min) / (e.max - e.min)) * 100}%` } as CSSProperties} />
+        {extremos}
+      </div>
+    );
+  }
+
+  if (estilo === 'estrellas') {
+    const pinta = encima ?? valido ?? 0;
+    return (
+      <div className="cpt-estrellas-caja">
+        <div ref={grupoRef} className="cpt-estrellas" role="radiogroup" aria-label={campo.label} onKeyDown={teclas}
+          onMouseLeave={() => setEncima(null)}>
+          {nums.map((n) => (
+            <button key={n} type="button" role="radio" data-n={n} aria-checked={valido === n} aria-label={`${n} de ${e.max}`}
+              tabIndex={tabDe(n)} disabled={soloLectura}
+              className={`cpt-estrella${n <= pinta ? ' is-on' : ''}`}
+              onMouseEnter={() => { if (!soloLectura) setEncima(n); }}
+              onClick={() => onCambio(String(n))}>
+              <span aria-hidden>★</span>
+            </button>
+          ))}
+          <span className="cpt-estrellas-n" aria-hidden>{valido ?? '—'}</span>
+        </div>
+        {extremos}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div ref={grupoRef} className="cpt-escala" role="radiogroup" aria-label={campo.label} onKeyDown={teclas}>
+        {nums.map((n) => (
+          <button key={n} type="button" role="radio" data-n={n} aria-checked={valido === n} tabIndex={tabDe(n)} disabled={soloLectura}
+            className={`cpt-esc${valido === n ? ' is-on' : ''}`} onClick={() => onCambio(String(n))}>
+            {n}
+          </button>
+        ))}
+      </div>
+      {extremos}
+    </>
+  );
+}
+
+// ── Agendar una llamada (item 15 del audio del 08/10/2026) ───────────────────
+
+/**
+ * Agendar: si el link es de una AGENDA conocida (Calendly, Cal.com, la de citas de Google, TidyCal,
+ * HubSpot: la lista blanca vive en lib/embeds.ts), se agenda ahí mismo, embebida — «el Calendar para
+ * agendar la llamada directamente desde ahí» (24:30). Si no, el botón que la abre en otra pestaña.
+ *
+ * ⚠️ «YA AGENDÉ» SIGUE SIENDO LO QUE LO COMPLETA: lo que pasa adentro del iframe es de otro sitio y no
+ *    nos llega (ni debe: es la agenda del alumno). Embebida o no, el alumno confirma.
+ * ⚠️ Sólo con la tarea abierta: una ya enviada no vuelve a cargar la agenda de otro sitio en cada visita.
+ */
+function CampoAgenda({ campo, valor, soloLectura, onCambio }: {
+  campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; onCambio: (v: ValorCampo) => void;
+}) {
+  const url = linkValido(campo.url);
+  const embebida: Embed | null = url && !soloLectura ? agendaEmbebible(url) : null;
+  return (
+    <div className="cpt-col">
+      {embebida ? (
+        <div className="cpt-agenda" style={{ height: embebida.alto ?? 700 }}>
+          {/* Los atributos FIJOS de todo lo que se inserta (lib/embeds.ts): el mismo `sandbox`, `allow` y
+              `referrerpolicy` que una agenda pegada en la descripción. */}
+          <iframe src={embebida.src} title={`Agendar: ${campo.label}`} loading="lazy"
+            sandbox={SANDBOX_EMBED} allow={ALLOW_EMBED} referrerPolicy={REFERRER_EMBED} />
+        </div>
+      ) : null}
+      <div className="cpt-fila">
+        {url && !embebida && <a className="mk-btn mk-btn--primary mk-btn--md" href={url} target="_blank" rel="noopener noreferrer">Agendar</a>}
+        <Checkbox checked={valor === 'si'} disabled={soloLectura} label="Ya agendé" onChange={(on) => onCambio(on ? 'si' : '')} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * El link de un campo «Agendar», si es una AGENDA de la lista blanca (`embedDe` + `claseDeProveedor`,
+ * lib/embeds.ts: la lista vive ahí y en ningún otro lado). Un VIDEO pegado en un campo «Agendar» no se
+ * embebe: se ofrece el botón, como con cualquier link que no se reconoce.
+ */
+function agendaEmbebible(url: string): Embed | null {
+  const e = embedDe(url);
+  return e && claseDeProveedor(e.proveedor) === 'agenda' ? e : null;
 }
 
 // ── La comunidad (item 17 del 08/10/2026) ─────────────────────────────────────
@@ -1293,14 +1502,74 @@ const CSS_TIPOS = `
 .cpt-video{ width: 100%; max-height: 360px; background: #000; border-radius: 10px; }
 .cpt-rec{ display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--bad); }
 .cpt-rec i{ width: 10px; height: 10px; border-radius: 50%; background: var(--bad); }
-.cpt-escala{ display: flex; flex-wrap: wrap; gap: 6px; }
-.cpt-esc{ min-width: var(--touch); min-height: var(--touch); border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface);
-  color: var(--ink); font: inherit; font-size: var(--fs-md); font-variant-numeric: tabular-nums; cursor: pointer; }
-.cpt-esc.is-on{ background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
-.cpt-esc:disabled{ cursor: default; }
-.cpt-esc:disabled:not(.is-on){ opacity: .6; }
-.cpt-extremos{ display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; font-size: var(--fs-meta); color: var(--dim); }
+.cpt-extremos{ display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; font-size: var(--fs-meta); color: var(--u-ink-60, var(--dim)); }
 .cpt-extremos span:last-child{ text-align: right; }
+
+/* Los controles PROPIOS de la tarea (items 8, 9 y 10 del audio del 08/10/2026), con la letra y la piel
+   del curso. Todos con .cp-tarea adelante: la hoja del origen deja sin fondo ni borde a todo button de
+   .ahdoc, y una clase sola pierde contra esa regla (la escala salia como numeros sueltos). El foco se
+   ve siempre con el teclado. */
+.cp-tarea .cpt-escala{ display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-tarea .cpt-esc{ flex: 1 0 40px; max-width: 64px; min-height: 44px; display: grid; place-items: center; padding: 0 6px;
+  border: 2px solid var(--u-ink, var(--border-strong)); border-radius: 10px; background: var(--u-card, var(--surface));
+  color: var(--u-ink, var(--ink)); font: 700 15px/1 var(--ugc-fuente, inherit); font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: transform .12s, box-shadow .12s, background-color .12s; }
+.cp-tarea .cpt-esc:hover:not(:disabled){ transform: translate(-1px, -1px); box-shadow: var(--u-sh-sm, 0 1px 3px rgba(0, 0, 0, .18)); }
+.cp-tarea .cpt-esc.is-on{ background: var(--u-lime, var(--primary)); color: var(--u-ink, #fff); font-weight: 800; box-shadow: var(--u-sh-sm, none); }
+.cp-tarea .cpt-esc:disabled{ cursor: default; transform: none; }
+.cp-tarea .cpt-esc:disabled:not(.is-on){ opacity: .55; }
+.cp-tarea .cpt-esc:focus-visible, .cp-tarea .cpt-estrella:focus-visible, .cp-tarea .cpt-hecho-btn:focus-visible{
+  outline: 3px solid var(--u-ink, var(--ink)); outline-offset: 2px; }
+
+.cp-tarea .cpt-desl{ display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cp-tarea .cpt-desl-valor{ display: flex; align-items: baseline; gap: 6px; }
+.cp-tarea .cpt-desl-valor strong{ font: 800 30px/1 var(--ugc-fuente, inherit); font-variant-numeric: tabular-nums; color: var(--u-ink, var(--ink)); }
+.cp-tarea .cpt-desl-valor span{ font-size: var(--fs-meta); color: var(--u-ink-60, var(--dim)); }
+.cp-tarea .cpt-desl-rango{ -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 30px; margin: 0; padding: 0;
+  background: transparent; cursor: pointer; }
+.cp-tarea .cpt-desl-rango:disabled{ cursor: default; }
+.cp-tarea .cpt-desl-rango::-webkit-slider-runnable-track{ height: 12px; border-radius: 999px; border: 2px solid var(--u-ink, var(--border-strong));
+  background: linear-gradient(to right, var(--u-lime, var(--primary)) var(--pct, 0%), var(--u-card, var(--surface)) var(--pct, 0%)); }
+.cp-tarea .cpt-desl-rango::-moz-range-track{ height: 8px; border-radius: 999px; border: 2px solid var(--u-ink, var(--border-strong));
+  background: linear-gradient(to right, var(--u-lime, var(--primary)) var(--pct, 0%), var(--u-card, var(--surface)) var(--pct, 0%)); }
+.cp-tarea .cpt-desl-rango::-webkit-slider-thumb{ -webkit-appearance: none; appearance: none; width: 26px; height: 26px; margin-top: -9px;
+  border-radius: 50%; background: var(--u-card, #fff); border: 2px solid var(--u-ink, var(--ink)); box-shadow: var(--u-sh-sm, 0 1px 3px rgba(0, 0, 0, .25)); }
+.cp-tarea .cpt-desl-rango::-moz-range-thumb{ width: 22px; height: 22px; border-radius: 50%; background: var(--u-card, #fff);
+  border: 2px solid var(--u-ink, var(--ink)); box-shadow: var(--u-sh-sm, 0 1px 3px rgba(0, 0, 0, .25)); }
+.cp-tarea .cpt-desl-rango:focus-visible{ outline: 3px solid var(--u-ink, var(--ink)); outline-offset: 3px; border-radius: 999px; }
+/* Sin elegir: la barra sin relleno, el pulgar apagado y un guion en vez del numero. */
+.cp-tarea .cpt-desl.is-vacio .cpt-desl-rango::-webkit-slider-runnable-track{ background: var(--u-card, var(--surface)); }
+.cp-tarea .cpt-desl.is-vacio .cpt-desl-rango::-moz-range-track{ background: var(--u-card, var(--surface)); }
+.cp-tarea .cpt-desl.is-vacio .cpt-desl-rango::-webkit-slider-thumb{ opacity: .55; }
+.cp-tarea .cpt-desl.is-vacio .cpt-desl-rango::-moz-range-thumb{ opacity: .55; }
+.cp-tarea .cpt-desl.is-vacio .cpt-desl-valor strong{ color: var(--u-ink-40, var(--faint)); }
+
+/* Estrellas: en UNA fila que se achica (diez entran en 390 px), nunca un scroll de costado. */
+.cp-tarea .cpt-estrellas{ display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; min-width: 0; }
+.cp-tarea .cpt-estrella{ flex: 0 1 44px; min-width: 26px; min-height: 44px; display: grid; place-items: center; padding: 0;
+  border: 0; background: none; cursor: pointer; line-height: 1; font-size: clamp(22px, 7vw, 32px);
+  color: var(--u-line, #ded9ca); -webkit-text-stroke: 1.5px var(--u-ink, var(--ink)); transition: transform .1s, color .1s; }
+.cp-tarea .cpt-estrella.is-on{ color: var(--u-lime, #f5b301); }
+.cp-tarea .cpt-estrella:hover:not(:disabled){ transform: scale(1.1); }
+.cp-tarea .cpt-estrella:disabled{ cursor: default; }
+.cp-tarea .cpt-estrellas-n{ flex: none; margin-left: 8px; font: 800 18px/1 var(--ugc-fuente, inherit); font-variant-numeric: tabular-nums;
+  color: var(--u-ink, var(--ink)); }
+
+/* «Marcar como hecho» (item 10): un boton que dice lo que hace, con su casilla adentro. */
+.cp-tarea .cpt-hecho-btn{ display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px; cursor: pointer;
+  border: 2px solid var(--u-ink, var(--border-strong)); border-radius: 10px; background: var(--u-card, var(--surface));
+  color: var(--u-ink, var(--ink)); font: 700 14px/1.2 var(--ugc-fuente, inherit); box-shadow: var(--u-sh-sm, none);
+  transition: transform .12s, box-shadow .12s, background-color .12s; }
+.cp-tarea .cpt-hecho-btn:hover:not(:disabled){ transform: translate(-1px, -1px); }
+.cp-tarea .cpt-hecho-btn.is-on{ background: var(--u-lime, var(--primary-bg)); }
+.cp-tarea .cpt-hecho-btn:disabled{ cursor: default; box-shadow: none; transform: none; }
+.cp-tarea .cpt-hecho-ic{ flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px;
+  border: 2px solid var(--u-ink, var(--ink)); background: var(--u-card, #fff); font-size: 13px; font-weight: 900; line-height: 1; }
+
+/* La agenda embebida (item 15): a lo ancho, con su alto, sin pasarse de la ventana. */
+.cp-tarea .cpt-agenda{ width: 100%; min-height: 420px; max-height: 85vh; overflow: hidden; border-radius: 14px;
+  border: 2px solid var(--u-ink, var(--border-strong)); background: #fff; }
+.cp-tarea .cpt-agenda iframe{ display: block; width: 100%; height: 100%; border: 0; }
 .cpt-quiz{ list-style: decimal; margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
 .cpt-preg{ display: flex; flex-direction: column; gap: 2px; }
 .cpt-preg-t{ margin: 0 0 4px; font-size: var(--fs-md); line-height: 1.45; overflow-wrap: anywhere; }

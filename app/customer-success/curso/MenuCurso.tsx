@@ -11,6 +11,7 @@
 //   Renombrar · Portada · Mover antes · Mover después
 //   ───
 //   Acceso: Público | Privado (y si es privado, cuándo se abre)
+//   (sólo una clase) Obligatoria para avanzar — un interruptor, en la misma sección (audio del 08/10/2026)
 //   ───
 //   (sólo un módulo) Etapa del kanban — un interruptor
 //   ───
@@ -42,6 +43,7 @@ import {
 } from './bloqueo-editor';
 import { seccionesDelMenu, type ItemMenuEstructura } from './estructura';
 import { TOPE_TITULO } from './reglas';
+import { AYUDA_OBLIGATORIA, ROTULO_OBLIGATORIA } from './leccion-reglas';
 
 /** Una clase, en lo que el menú necesita para elegirla (el candado `tarea`). */
 export type ClaseParaMenu = { id: number; etapa: string; titulo: string };
@@ -113,7 +115,13 @@ export function MenuModulo({ modulo, entrada, clases, ctl, ocupado, onPortada, o
   );
 }
 
-export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar, onMover, onBloqueo, onEliminar }: {
+/**
+ * «Obligatoria para avanzar» de una clase (audio del 08/10/2026, item 7): prendida o no, y por qué está
+ * apagada (`motivoObligatoria`, ./leccion-reglas.ts). Sin esto el menú no la dibuja (un módulo suelto).
+ */
+export type ObligatoriaMenu = { prendida: boolean; motivo: string | null; onCambiar: (v: boolean) => void };
+
+export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar, onMover, onBloqueo, onEliminar, obligatoria }: {
   clase: ClaseParaMenu & { bloqueo?: Bloqueo | null };
   clases: readonly ClaseParaMenu[];
   ctl: ControlMenuUgc;
@@ -124,6 +132,7 @@ export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar,
   onMover: Mover;
   onBloqueo: (b: Bloqueo | null) => Guardado;
   onEliminar: () => void;
+  obligatoria?: ObligatoriaMenu;
 }) {
   return (
     <Secciones tipo="clase" items={{
@@ -131,8 +140,31 @@ export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar,
       ...itemsDeArriba(ctl, ocupado, onPortada, onMover),
       acceso: <AccesoMenu objeto="clase" valor={clase.bloqueo ?? null} propia={clase.id} ocupado={ocupado} onGuardar={onBloqueo}
         clases={clasesParaTarea(clases, { clase: clase.id })} />,
+      obligatoria: obligatoria ? <InterruptorObligatoria o={obligatoria} ocupado={ocupado} /> : null,
       eliminar: <ItemMenuUgc peligro disabled={ocupado} onClick={() => { ctl.cerrar(); onEliminar(); }}>Eliminar clase</ItemMenuUgc>,
     }} />
+  );
+}
+
+/**
+ * «Obligatoria para avanzar», un interruptor como el del kanban, adentro de la sección del acceso. Va
+ * INMEDIATO y con «Deshacer» (lo resuelve la pantalla): es de la clase, no de la lección que se edita.
+ *
+ * ⚠️ SIN TAREA GUARDADA SE DIBUJA APAGADO CON SU MOTIVO, nunca escondido: un control que desaparece no
+ *    explica nada, y uno que se toca y rebota se lee como roto (que es lo que pasó en la tarea: 13:00,
+ *    «pongo esto… Para cerrar la etapa, agrega la tarea… no me deja modificarlo»).
+ * ⚠️ NO CIERRA EL MENÚ: no abre ninguna pregunta, y se ve prenderse ahí mismo.
+ */
+function InterruptorObligatoria({ o, ocupado }: { o: ObligatoriaMenu; ocupado: boolean }) {
+  return (
+    <div className="ugc-menu-bloque" data-menu-obligatoria>
+      <button type="button" role="switch" aria-checked={o.prendida} className="cu-menu-switch" disabled={ocupado || o.motivo != null}
+        title={o.motivo ?? undefined} onClick={() => o.onCambiar(!o.prendida)}>
+        <span className="cu-menu-switch-t">{ROTULO_OBLIGATORIA}</span>
+        <span className="cu-menu-switch-pista" aria-hidden><span className="cu-menu-switch-bola" /></span>
+      </button>
+      <p className="ugc-menu-nota">{o.motivo ?? AYUDA_OBLIGATORIA}</p>
+    </div>
   );
 }
 

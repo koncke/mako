@@ -246,7 +246,9 @@ test('la ruta del alumno: GET público de lectura, workspace de la FIRMA, y la �
   const lib = sinComentarios(leer('lib/curso-adjuntos.ts'));
   const para = bloque(lib, 'export async function urlAdjuntoParaAlumno(');
   assert.match(para, /decidirAdjuntoAlumno\(\{/);
-  assert.match(para, /select\('id, producto_id, descripcion_html'\)/, 'la descripción se lee aparte, no de COLUMNAS_CLASE');
+  assert.match(para, /select\('id, producto_id, descripcion_html, tarea_html, campos'\)/, 'la descripción y la tarea se leen aparte, no de COLUMNAS_CLASE');
+  // Lo publicado de la clase es también su TAREA (mig 0226 y las `seccion`): una imagen en la consigna.
+  assert.match(para, /htmlDeClase: \[c\.descripcion_html \?\? '', \.\.\.htmlsDeTareas\(\{ tareaHtml: c\.tarea_html,/);
   assert.match(para, /if \(decision !== 'ok' \|\| !f\) return null;/);
 });
 

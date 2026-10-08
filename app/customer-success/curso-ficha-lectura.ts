@@ -22,7 +22,7 @@
 // propio «medible», y la tab pintaba «lista» una etapa con otra regla que la de acá.
 
 import {
-  PCT_VISTO, ROTULO_SIN_MEDIR, conteoDeEtapa, reproductorDeClase, tieneTarea,
+  PCT_VISTO, ROTULO_SIN_MEDIR, camposConRespuesta, conteoDeEtapa, reproductorDeClase, tareasDeClase, tieneTarea,
   type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores, type EstadoPropuesta,
 } from '@/lib/curso';
 import type { Sesion } from '@/lib/curso-datos';
@@ -155,10 +155,14 @@ function bloqueGenerico(id: string, label: string, v: unknown): BloqueRespuesta 
  * sanea `sanearValores` al guardar, pero contra los campos de ESE momento). Un campo `checks`
  * con un texto adentro se dibuja como texto, no revienta.
  */
-export function respuestaDe(campos: readonly Campo[], valores: Valores | null | undefined): BloqueRespuesta[] {
+export function respuestaDe(todos: readonly Campo[], valores: Valores | null | undefined): BloqueRespuesta[] {
   const vs: Record<string, unknown> = valores && typeof valores === 'object' ? valores : {};
   const out: BloqueRespuesta[] = [];
   const conCampo = new Set<string>();
+  // Sin las `seccion` (item 12 del 08/10/2026, «más de una tarea»): abren otra tarea y no se contestan.
+  // Contadas, cada una salía como un renglón «—» con el título de la tarea. Los títulos los pone quien
+  // dibuja (RespuestaTarea, con `tareasDeClase`).
+  const campos = camposConRespuesta(todos);
 
   if (!campos.length) {
     const r = vs.respuesta;
@@ -188,6 +192,28 @@ export function respuestaDe(campos: readonly Campo[], valores: Valores | null | 
     if (b.tipo !== 'vacio') out.push(b);
   }
   return out;
+}
+
+/**
+ * Las respuestas de `respuestaDe` agrupadas por TAREA (item 12 del audio del 08/10/2026: más de una
+ * tarea por clase, `tareasDeClase`). Con una sola tarea, un grupo sin título (lo de siempre). Con
+ * varias, uno por tarea con su título —«1. Tarea», «2. <su título>»— sin las que no tienen nada, y al
+ * final, sin título, lo contestado que ya no tiene campo (`respuestaDe` no lo esconde: acá tampoco).
+ */
+export type GrupoRespuesta = { clave: string; titulo: string | null; bloques: BloqueRespuesta[] };
+export function gruposPorTarea(campos: readonly Campo[], bloques: readonly BloqueRespuesta[]): GrupoRespuesta[] {
+  const tareas = tareasDeClase({ tarea: '', campos: [...campos] });
+  if (tareas.length <= 1) return [{ clave: 'todo', titulo: null, bloques: [...bloques] }];
+  const deTarea = new Map<string, number>();
+  tareas.forEach((t, i) => { for (const c of t.campos) deTarea.set(c.id, i); });
+  const out: GrupoRespuesta[] = tareas.map((t, i) => ({ clave: t.id ?? '·principal', titulo: `${i + 1}. ${t.titulo || 'Tarea'}`, bloques: [] }));
+  const sueltos: BloqueRespuesta[] = [];
+  for (const b of bloques) {
+    const i = deTarea.get(b.id);
+    if (i == null) sueltos.push(b); else out[i].bloques.push(b);
+  }
+  const conAlgo = out.filter((g) => g.bloques.length);
+  return sueltos.length ? [...conAlgo, { clave: '·sueltos', titulo: null, bloques: sueltos }] : conAlgo;
 }
 
 /** ¿Contestó algo? Para decir «Sin contestar» en vez de una lista de rayas. */

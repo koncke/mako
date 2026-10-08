@@ -11,6 +11,10 @@
 // El modelo y su porqué están en la cabecera de supabase/migrations/0202_curso.sql.
 
 import type { Bloqueo } from './curso-bloqueo';
+// La lista blanca de lo que se inserta (contrato 4, pista VIDEO). Con otro nombre: acá `embedDe` es el
+// del video de la clase (una `VideoReconocido`), que es otra cosa.
+import { embedDe as embedDeTexto } from './embeds';
+import { direccionDeTexto, reconocerUrl, pideCodigo, claseDeProveedor } from './embeds';
 
 export type VideoTipo = 'ninguno' | 'archivo' | 'youtube' | 'vimeo' | 'loom' | 'drive' | 'url';
 export type TipoClase = 'concepto' | 'demostracion' | 'clinica' | 'clase' | 'formulario';
@@ -39,7 +43,14 @@ export type CampoTipo =
   // Item 17 del 08/10/2026 («faltan opciones en las tareas para interactuar en la comunidad que
   // hicimos»): el alumno PUBLICA un post o COMENTA uno desde la tarea, en la comunidad del producto
   // (D8, lib/comunidad-datos.ts). Ver `esCampoDeComunidad` y lib/curso-tarea-comunidad.ts.
-  | 'publicar' | 'comentar';
+  | 'publicar' | 'comentar'
+  // Item 12 del audio del 08/10/2026 (21:30, «sería bueno que se pueda agregar más de una tarea»): una
+  // `seccion` NO SE CONTESTA, ABRE OTRA TAREA. Su `label` es el título de esa tarea y su `descripcionHtml`
+  // la consigna con formato; los campos que la siguen son suyos, hasta la próxima (`tareasDeClase`). Es
+  // un tipo de campo y no una tabla ni una columna por lo mismo que los de la #18: viaja en el jsonb
+  // `campos`, que ya pasa por `sanearCampos`, y no pide migrar nada. ⚠️ El costo: TODO lector de
+  // `.campos` la tiene que saltear (`camposConRespuesta`), y lo fija tests/curso-tareas-secciones.test.ts.
+  | 'seccion';
 
 /**
  * Una pregunta de un quiz. Se contesta con UNA opción (radio) o, con `multiple`, con casillas.
@@ -66,7 +77,19 @@ export type PreguntaQuiz = {
  * escala sin extremos explicados es una pregunta muerta» (AGENTS.md, «Una regla en un prompt no es
  * una regla»): un 7 no dice nada si no se sabe qué es el 1 y qué es el 10.
  */
-export type Escala = { min: 0 | 1; max: 5 | 10; bajo: string; alto: string };
+export type Escala = {
+  min: 0 | 1; max: 5 | 10; bajo: string; alto: string;
+  /**
+   * Cómo se contesta (item 9 del audio del 08/10/2026, 14:50: «la escala lineal podría ser una barra
+   * deslizable, no simplemente números seleccionables. O si no, de última, la típica de estrellas»).
+   * Ausente = `numeros`, los botones de siempre: así una escala guardada antes sale idéntica del saneo.
+   * ⚠️ Con `estrellas` el mínimo es 1 (`sanearCampos` lo fuerza): «cero estrellas» no se puede marcar,
+   *    se lee igual que «no contestó».
+   */
+  estilo?: EstiloEscala;
+};
+export type EstiloEscala = 'numeros' | 'deslizador' | 'estrellas';
+export const ESTILOS_ESCALA: readonly EstiloEscala[] = ['numeros', 'deslizador', 'estrellas'];
 
 export type Campo = {
   id: string;
@@ -121,6 +144,14 @@ export type Campo = {
   postId?: number;
   /** comentar: el título de ese post cuando se eligió (lo que dibuja la vista previa del equipo). */
   postTitulo?: string;
+  /**
+   * seccion: la consigna de ESA tarea, con formato (item 11 del audio: «que tenga negrita… como la
+   * descripción»). HTML YA SANEADO EN EL SERVER (lib/html-seguro.ts, con `TOPE_HTML_SECCION`): lo
+   * escribe `sanearCampos` sólo si le pasan el saneador (`sanearCamposDelServidor`,
+   * lib/curso-tarea-html.ts); sin saneador lo descarta y lo anota. Los adjuntos van por referencia
+   * (`mako-adjunto:<id>`), como en la descripción de la clase.
+   */
+  descripcionHtml?: string;
 };
 
 export type Clase = {
@@ -156,6 +187,16 @@ export type Clase = {
    * búsqueda, la IA, los mensajes). Ausente/'' = no tiene (se dibuja el texto plano).
    */
   descripcionHtml?: string;
+  /**
+   * La consigna de la TAREA PRINCIPAL con formato (mig 0226, `curso_clases.tarea_html`; item 11 del
+   * audio del 08/10/2026, 18:00: «sería bueno que sea formateable la descripción de la tarea»). HTML
+   * ya saneado en el server, con los adjuntos por referencia. `tarea` sigue siendo su texto plano,
+   * DERIVADO al guardar (`tareaParaGuardar`, lib/curso-tarea-html.ts), porque lo leen la IA, los
+   * mensajes y `tieneTarea`.
+   * `null`/ausente = no tiene: se dibuja `tarea` como texto, que es lo de antes de la 0226. Ausente en
+   * los literales viejos, igual que `porArea`.
+   */
+  tareaHtml?: string | null;
 };
 
 /**
@@ -269,51 +310,57 @@ export type VideoReconocido = {
    * para Drive). La pantalla lo DICE en vez de mostrar un 0% que se lee como «no lo vio».
    */
   medible: boolean;
+  /**
+   * Un video de Panda, Wistia o Bunny (lib/embeds.ts): de quién es y el `src` de su reproductor, que
+   * arma lib/embeds.ts. Van con `tipo: 'url'` y su `url` ES ese `src` (la columna `video_tipo` tiene
+   * un CHECK con siete valores, mig 0202: un tipo nuevo rebotaría el guardado). Lo que decide cómo se
+   * dibuja es esto, no la columna.
+   */
+  proveedor?: 'panda' | 'wistia' | 'bunny';
+  embed?: string;
 };
 
 /**
- * Reconoce un link de video. `null` = no es un link (vacío o no es http/https).
+ * Reconoce un link de video, o el CÓDIGO para insertar que copia la persona (item 14 del 08/10/2026,
+ * 22:40: «tengo que hacer que funcione con URL y con objetos embed. Con HTML embed»). `null` = no es
+ * un link (vacío, no es http/https, o un código que no trae uno).
  *
+ * ⚠️ QUÉ host es de quién y cuál es el id lo decide lib/embeds.ts (`reconocerUrl`), el MISMO que usa
+ *    el bloque «Insertar» del editor: hasta el 08/10/2026 había un reconocedor acá y faltaban formas
+ *    reales. Medido con la tabla de tests/curso-video-embed.test.ts: `music.youtube.com`, `/e/<id>`,
+ *    el `attribution_link`, Drive con `/file/u/0/d/` (otra cuenta logueada) y `docs.google.com/file/d/`
+ *    caían en «afuera» (un botón que abre otra pestaña); `/embed/videoseries` (una lista) se tomaba por
+ *    el id «videoseries»; un showcase de Vimeo daba el número del showcase; y TODO código `<iframe>` y
+ *    todo link sin `https://` daban «no es válido».
  * ⚠️ SÓLO http/https: lo que se guarda acá termina en el `src` de un iframe que ve el cliente,
  * y un `javascript:` ahí es un script corriendo en su navegador.
  */
 export function videoDeLink(raw: string | null | undefined): VideoReconocido | null {
-  const s = (raw ?? '').trim();
-  if (!s) return null;
+  const dir = direccionDeTexto(raw);
+  if (!dir) return null;
   let u: URL;
-  try { u = new URL(s); } catch { return null; }
+  try { u = new URL(dir); } catch { return null; }
   if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
-  const host = u.hostname.replace(/^www\.|^m\./, '').toLowerCase();
   const limpia = u.toString();
-
-  if (host === 'youtu.be') {
-    const id = u.pathname.split('/').filter(Boolean)[0] ?? null;
-    return { tipo: 'youtube', id, url: limpia, medible: Boolean(id) };
+  const r = reconocerUrl(u);
+  if (r && claseDeProveedor(r.proveedor) === 'video') {
+    switch (r.proveedor) {
+      case 'youtube': return { tipo: 'youtube', id: r.id, url: limpia, medible: Boolean(r.id) };
+      case 'vimeo': return { tipo: 'vimeo', id: r.id, hash: r.hash, url: limpia, medible: Boolean(r.id) };
+      case 'loom': return { tipo: 'loom', id: r.id, url: limpia, medible: false };
+      case 'drive': return { tipo: 'drive', id: r.id, url: limpia, medible: false };
+      case 'panda': case 'wistia': case 'bunny':
+        // Sin `src` (un link del reproductor sin el `?v=`) no hay qué mostrar: no es un video.
+        // ⚠️ PANDA SE MIDE: su reproductor publica `panda_timeupdate` (los segundos) y `panda_allData`
+        //    (la duración) por postMessage — medido el 08/10/2026 en Chrome contra un video real
+        //    (Reproductor.tsx, `VideoPanda`). Wistia y Bunny van «sin medir», como Drive.
+        return r.src ? { tipo: 'url', id: null, url: r.src, medible: r.proveedor === 'panda', proveedor: r.proveedor, embed: r.src } : null;
+    }
   }
-  if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
-    const partes = u.pathname.split('/').filter(Boolean);
-    const id = u.searchParams.get('v')
-      ?? (['embed', 'shorts', 'live', 'v'].includes(partes[0] ?? '') ? partes[1] ?? null : null);
-    return { tipo: 'youtube', id, url: limpia, medible: Boolean(id) };
-  }
-  if (host === 'vimeo.com' || host === 'player.vimeo.com') {
-    const partes = u.pathname.split('/').filter(Boolean);
-    const i = partes.findIndex((p) => /^\d+$/.test(p));
-    const id = i >= 0 ? partes[i] : null;
-    const crudo = u.searchParams.get('h') ?? (i >= 0 ? partes[i + 1] ?? null : null);
-    const hash = crudo && /^[0-9a-f]{6,40}$/i.test(crudo) ? crudo : null;
-    return { tipo: 'vimeo', id, hash, url: limpia, medible: Boolean(id) };
-  }
-  if (host === 'loom.com') {
-    const partes = u.pathname.split('/').filter(Boolean);
-    const id = ['share', 'embed'].includes(partes[0] ?? '') ? partes[1] ?? null : null;
-    return { tipo: 'loom', id, url: limpia, medible: false };
-  }
-  if (host === 'drive.google.com') {
-    const m = u.pathname.match(/\/file\/d\/([^/]+)/);
-    const id = m?.[1] ?? u.searchParams.get('id');
-    return { tipo: 'drive', id, url: limpia, medible: false };
-  }
+  // El panel de Panda (`dashboard.pandavideo.com.br/…`) no trae la biblioteca del reproductor: no es
+  // un link que se pueda ver, ni adentro ni afuera (el alumno no tiene cuenta en Panda). Se pide el
+  // código (`porQueNoSeInserta`, lib/embeds.ts).
+  if (pideCodigo(u) === 'panda') return null;
   // Un archivo directo se reproduce con `<video>` y se mide como uno subido.
   const directo = /\.(mp4|webm|m4v|mov)$/i.test(u.pathname);
   return { tipo: 'url', id: null, url: limpia, medible: directo };
@@ -357,7 +404,8 @@ export const PCT_VISTO = 90;
  *   · `directo`  → `<video>` sobre un .mp4/.webm público. Se mide igual que uno subido.
  *   · `youtube`  → IFrame API. Se mide.
  *   · `vimeo`    → Player API. Se mide.
- *   · `iframe`   → Loom o Drive: se ve, pero no expone el tiempo. «Sin medir».
+ *   · `panda`    → el reproductor de Panda; se mide por sus mensajes (`panda_timeupdate`/`panda_allData`).
+ *   · `iframe`   → Loom, Drive, Wistia o Bunny: se ve, pero no expone el tiempo. «Sin medir».
  *   · `afuera`   → un link que no es ninguna de las anteriores: se abre en otra pestaña. «Sin medir».
  */
 export type VideoVista =
@@ -365,6 +413,7 @@ export type VideoVista =
   | { tipo: 'directo'; url: string }
   | { tipo: 'youtube'; id: string }
   | { tipo: 'vimeo'; embed: string }
+  | { tipo: 'panda'; embed: string }
   | { tipo: 'iframe'; embed: string }
   | { tipo: 'afuera'; url: string };
 
@@ -383,6 +432,8 @@ export function reproductorDeClase(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'vi
   const v = videoDeLink(c.videoUrl);
   if (!v) return { video: null, medible: false };
   if (v.tipo === 'youtube') return v.id ? { video: { tipo: 'youtube', id: v.id }, medible: true } : { video: { tipo: 'afuera', url: v.url }, medible: false };
+  // Panda, Wistia y Bunny (item 14): adentro, en su reproductor. Antes caían en «afuera».
+  if (v.tipo === 'url' && v.embed) return v.proveedor === 'panda' ? { video: { tipo: 'panda', embed: v.embed }, medible: true } : { video: { tipo: 'iframe', embed: v.embed }, medible: false };
   if (v.tipo === 'url') return v.medible ? { video: { tipo: 'directo', url: v.url }, medible: true } : { video: { tipo: 'afuera', url: v.url }, medible: false };
   const embed = embedDe(v);
   if (!embed) return { video: { tipo: 'afuera', url: v.url }, medible: false };
@@ -492,9 +543,146 @@ export function videosSinVer<T extends Pick<Clase, 'id' | 'videoTipo' | 'videoUr
 
 // ── La tarea ──────────────────────────────────────────────────────────────────
 
-/** ¿La clase pide algo? Una instrucción de llenado o un formulario. */
-export const tieneTarea = (c: Pick<Clase, 'tarea' | 'campos'>): boolean =>
-  c.tarea.trim().length > 0 || c.campos.length > 0;
+/**
+ * ¿La clase pide algo? Una instrucción de llenado (en texto o con formato) o un formulario.
+ *
+ * ⚠️ UNA `seccion` CUENTA, a propósito: es una tarea más (item 12), aunque todavía no tenga campos —
+ *    sin campos se contesta con la respuesta libre, como una tarea de las de antes. `tareaHtml` también
+ *    cuenta: una consigna que es sólo una imagen deriva un `tarea` vacío.
+ */
+export const tieneTarea = (c: Pick<Clase, 'tarea' | 'campos'> & { tareaHtml?: string | null }): boolean =>
+  c.tarea.trim().length > 0 || (c.tareaHtml ?? '').trim().length > 0 || c.campos.length > 0;
+
+/**
+ * Los campos que se CONTESTAN: todos menos las `seccion` (que abren otra tarea y no piden nada).
+ *
+ * ⚠️ ES LA PUERTA DE TODO LECTOR DE `.campos` que cuente, sanee, corrija o dibuje respuestas: una
+ *    `seccion` contada como campo deja una tarea sin enviar para siempre («contesta al menos una»
+ *    sobre algo que no se puede contestar), un rótulo «—» en la ficha y un campo vacío en el prompt
+ *    de la IA. Lo fija tests/curso-tareas-secciones.test.ts, que barre app/ y lib/.
+ */
+export const camposConRespuesta = (campos: readonly Campo[]): Campo[] => campos.filter((c) => c.tipo !== 'seccion');
+
+/** Una TAREA de la clase: la principal (`id: null`) o una `seccion`, con sus campos. */
+export type TareaDeClase = { id: string | null; titulo: string | null; descripcionHtml: string | null; campos: Campo[] };
+
+/**
+ * Las tareas de una clase, en orden (item 12 del audio del 08/10/2026). La PRINCIPAL va siempre
+ * primera (`id: null`, su consigna es `tareaHtml`, o `tarea` como texto si es de antes de la 0226) con
+ * los campos de ANTES de la primera `seccion`; cada `seccion` abre la suya, con los campos que la
+ * siguen hasta la próxima.
+ *
+ * `[]` = la clase no pide nada (`tieneTarea`). ⚠️ LA PRINCIPAL VA AUNQUE ESTÉ VACÍA cuando hay
+ * secciones: el editor la necesita para dibujar su consigna, y el que dibuja para el alumno la saltea
+ * con `tareaVacia`.
+ */
+export function tareasDeClase(c: Pick<Clase, 'tarea' | 'campos'> & { tareaHtml?: string | null }): TareaDeClase[] {
+  if (!tieneTarea(c)) return [];
+  const html = (c.tareaHtml ?? '').trim();
+  const out: TareaDeClase[] = [{ id: null, titulo: null, descripcionHtml: html || null, campos: [] }];
+  for (const x of c.campos) {
+    if (x.tipo === 'seccion') {
+      out.push({ id: x.id, titulo: x.label, descripcionHtml: (x.descripcionHtml ?? '').trim() || null, campos: [] });
+      continue;
+    }
+    out[out.length - 1].campos.push(x);
+  }
+  return out;
+}
+
+/**
+ * ¿Una tarea no tiene nada que mostrarle al alumno? (ni título, ni consigna, ni campos). Para la
+ * principal, `tareaTexto` es el `tarea` plano de la clase (la consigna de antes de la 0226).
+ */
+export const tareaVacia = (t: TareaDeClase, tareaTexto = ''): boolean =>
+  !t.titulo && !t.descripcionHtml && !t.campos.length && !(t.id == null && tareaTexto.trim());
+
+/**
+ * Todo el HTML de las consignas de una clase: la principal y la de cada `seccion`. Lo leen quien
+ * decide qué adjunto le sirve al alumno (lib/curso-adjuntos.ts: un adjunto se sirve sólo si lo nombra
+ * lo PUBLICADO de esa clase), quien los firma para la vista previa y quien los vincula al guardar.
+ */
+export function htmlsDeTareas(c: { tareaHtml?: string | null; campos: readonly Campo[] }): string[] {
+  return [c.tareaHtml ?? '', ...c.campos.filter((x) => x.tipo === 'seccion').map((x) => x.descripcionHtml ?? '')].filter((h) => h.trim());
+}
+
+// ── Lo que le falta a un campo para guardarse (item 2 del audio del 08/10/2026) ──
+
+/** Cuántas tareas puede tener una clase (la principal más las secciones): el cuerpo de una action topea en 1 MB. */
+export const MAX_TAREAS = 10;
+/** El largo del título de una tarea (`seccion.label`). */
+export const TOPE_TITULO_TAREA = 140;
+/** El largo de la pregunta de un campo (lo que corta `sanearCampos`). */
+export const TOPE_PREGUNTA = 400;
+/** El largo del HTML (saneado) de la consigna de una `seccion`. 10 tareas × esto entran holgadas en 1 MB. */
+export const TOPE_HTML_SECCION = 20_000;
+/** Cuántos campos (secciones incluidas) entran en una clase. Lo mismo corta `sanearCampos`. */
+export const TOPE_CAMPOS = 60;
+
+/**
+ * Lo que le falta a cada campo para poder guardarse: `id del campo → motivo CORTO`, o `{}`. Una clave
+ * `tarea` = algo de la lista entera (demasiados campos, uno roto).
+ *
+ * ⚠️ ES LA CURA DEL «SE ME BORRARON LOS CAMPOS» (item 2, 15:30-16:40: «volví para atrás y se me borraron
+ *    todos los campos de edición»): `sanearCampos` TIRABA en silencio un campo sin la pregunta escrita, así
+ *    que se guardaba sin él y al volver ya no estaba. Pidió «un enmarcado rojo y que diga falta completar la
+ *    pregunta». Ahora el editor pinta esto en rojo y el server (`guardarLeccion`) RECHAZA con esto ANTES de
+ *    sanear: al server no le llega un campo que el saneo vaya a perder.
+ *
+ * Los motivos son los de `faltaEnCampo` (app/customer-success/curso/reglas.ts) dichos cortos, porque se
+ * dibujan pegados al campo y ya se sabe de cuál se habla (AGENTS.md, «el texto que se DIBUJA es corto»).
+ *
+ * Recibe lo que manda el navegador (un borrador), no algo ya saneado: por eso lee todo a la defensiva.
+ */
+export function erroresDeCampos(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (raw == null) return out;
+  if (!Array.isArray(raw)) return { tarea: 'Los campos no llegaron.' };
+  if (raw.length > TOPE_CAMPOS) out.tarea = `Máximo ${TOPE_CAMPOS} campos.`;
+  if (raw.filter((x) => (x as { tipo?: unknown } | null)?.tipo === 'seccion').length > MAX_TAREAS - 1) out.tarea = `Máximo ${MAX_TAREAS} tareas.`;
+  const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const lleno = (x: unknown) => Array.isArray(x) && x.some((s) => typeof s === 'string' && s.trim());
+  for (const x of raw) {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) { out.tarea ??= 'Un campo llegó roto.'; continue; }
+    const c = x as Record<string, unknown>;
+    const id = texto(c.id);
+    if (!id) { out.tarea ??= 'Un campo llegó roto.'; continue; }
+    const label = texto(c.label);
+    const falta = (m: string) => { if (!out[id]) out[id] = m; };
+    if (c.tipo === 'seccion') {
+      if (!label) falta('Falta el título');
+      else if (label.length > TOPE_TITULO_TAREA) falta('Título muy largo');
+      if (typeof c.descripcionHtml === 'string' && c.descripcionHtml.length > TOPE_HTML_SECCION) falta('Texto muy largo');
+      continue;
+    }
+    if (!label) { falta('Falta la pregunta'); continue; }
+    if (label.length > TOPE_PREGUNTA) { falta('Pregunta muy larga'); continue; }
+    const tipo = c.tipo;
+    if ((tipo === 'eleccion' || tipo === 'checks') && !lleno(c.opciones)) falta('Faltan opciones');
+    else if (tipo === 'checklist' && !lleno(c.opciones)) falta('Faltan las acciones');
+    else if (tipo === 'tabla' && !lleno(c.columnas)) falta('Faltan las columnas');
+    else if (tipo === 'agenda' && !urlDeAgenda(c.url)) falta('Falta el link');
+    else if (tipo === 'escala') {
+      const e = (c.escala && typeof c.escala === 'object' ? c.escala : {}) as Record<string, unknown>;
+      if (!texto(e.bajo) || !texto(e.alto)) falta('Faltan los extremos');
+    } else if (tipo === 'quiz') {
+      const ps = Array.isArray(c.preguntas) ? (c.preguntas as unknown[]) : [];
+      if (!ps.length) { falta('Faltan las preguntas'); continue; }
+      if (ps.length > MAX_PREGUNTAS) { falta(`Máximo ${MAX_PREGUNTAS} preguntas`); continue; }
+      for (const p of ps) {
+        const q = (p && typeof p === 'object' ? p : {}) as Record<string, unknown>;
+        if (!texto(q.texto)) { falta('Falta una pregunta'); break; }
+        const opciones = [...new Set((Array.isArray(q.opciones) ? q.opciones : []).map(texto).filter(Boolean))];
+        if (opciones.length < 2) { falta('Faltan opciones'); break; }
+        if (opciones.length > MAX_OPCIONES_QUIZ) { falta(`Máximo ${MAX_OPCIONES_QUIZ} opciones`); break; }
+        const correctas = [...new Set((Array.isArray(q.correctas) ? q.correctas : []).map(texto).filter((s) => opciones.includes(s)))];
+        if (!correctas.length) { falta('Falta la respuesta correcta'); break; }
+        if (q.multiple !== true && correctas.length > 1) { falta('Hay dos correctas'); break; }
+      }
+    }
+  }
+  return out;
+}
 
 /** Las tareas que cuentan para cerrar la etapa: marcadas obligatorias Y que piden algo. */
 export const obligatoriasDe = <T extends Pick<Clase, 'obligatoria' | 'tarea' | 'campos'>>(clases: readonly T[]): T[] =>
@@ -584,7 +772,7 @@ export function etapaSiguiente(etapas: readonly string[], actual: string): strin
 const TIPOS_CAMPO: readonly CampoTipo[] = [
   'texto', 'linea', 'numero', 'eleccion', 'checks', 'tabla',
   'archivo', 'audio', 'video', 'link', 'escala', 'quiz', 'checklist', 'agenda', 'confirmacion',
-  'publicar', 'comentar',
+  'publicar', 'comentar', 'seccion',
 ];
 
 // ── El texto de ejemplo y la comunidad (items 5 y 17 del 08/10/2026) ─────────
@@ -673,6 +861,24 @@ export function linkValido(raw: unknown): string | null {
   return u.toString();
 }
 
+/**
+ * El link de un campo «Agendar»: un link (`linkValido`) o, si lo pegado es el CÓDIGO de una agenda de la
+ * lista blanca (el `<iframe>` de Calendly, el de citas de Google, que con el link solo no se inserta),
+ * su dirección. `null` = no hay con qué agendar.
+ *
+ * ⚠️ Item 15 del audio del 08/10/2026 (24:30: «el Calendar para agendar la llamada directamente desde
+ *    ahí»): el alumno la agenda EMBEBIDA si es una agenda conocida (`embedDe`, lib/embeds.ts, sin
+ *    `server-only`: la lista vive ahí). Sin esto, pegar el código lo tiraba el saneo y la tarea quedaba
+ *    con «Falta el link» sobre algo que el equipo sí puso.
+ */
+export function urlDeAgenda(raw: unknown): string | null {
+  const u = linkValido(raw);
+  if (u) return u;
+  if (typeof raw !== 'string' || !raw.includes('<')) return null;
+  const e = embedDeTexto(raw);
+  return e && claseDeProveedor(e.proveedor) === 'agenda' ? linkValido(e.src) : null;
+}
+
 /** Las preguntas de un quiz: lo que no cierra (sin texto, menos de dos opciones) se tira. */
 function sanearPreguntas(raw: unknown): PreguntaQuiz[] {
   if (!Array.isArray(raw)) return [];
@@ -707,19 +913,63 @@ function sanearPreguntas(raw: unknown): PreguntaQuiz[] {
  *
  * ⚠️ UN QUIZ ES SIEMPRE OBLIGATORIO: un quiz que se puede dejar en blanco no tiene nota que pedir, y
  * la regla «se aprueba con la nota mínima» no tendría a quién aplicarse.
+ *
+ * ⚠️ DESDE EL 08/10/2026 SÓLO SE DESCARTA LA BASURA, Y LO DESCARTADO SE ANOTA (`opts.descartes`). Antes
+ *    un campo sin la pregunta escrita se tiraba EN SILENCIO: se guardaba sin él y, al volver, «se me
+ *    borraron todos los campos» (item 2 del audio, 15:30). Ahora:
+ *      · Un campo sin pregunta (o una `seccion` sin título) SE CONSERVA con el rótulo vacío. Lo que
+ *        frena es `erroresDeCampos`, que el server mira ANTES de sanear (`guardarLeccion`) y el editor
+ *        pinta en rojo: una regla que decide y se ve, no un filtro que borra.
+ *      · Un id repetido NO SE TIRA: el segundo recibe uno nuevo (`<id>-2`), que no esté en la lista.
+ *        Las respuestas se guardan por id, así que el primero conserva las suyas y el segundo nace
+ *        sin ninguna, que es lo que es (una copia). Tirarlo era perder un campo que la persona ve.
+ *      · Se descarta y se ANOTA: lo que no es un objeto, lo que no tiene id, lo que pasa de
+ *        `TOPE_CAMPOS`, y la consigna de una `seccion` cuando no hay con qué sanearla (`opts.html`) o
+ *        saneada pasa de `TOPE_HTML_SECCION`.
+ *
+ * `opts.html`: el saneador del HTML de una `seccion` (`sanearHtml`, lib/html-seguro.ts, que es
+ * `server-only`: por eso se pasa y no se importa, como en `conHtmlSaneado`). Sin él, la consigna con
+ * formato NO se guarda: un HTML sin sanear no viaja a la base. El server lo pasa siempre
+ * (`sanearCamposDelServidor`, lib/curso-tarea-html.ts).
  */
-export function sanearCampos(raw: unknown): Campo[] {
+export function sanearCampos(raw: unknown, opts: { html?: (h: string) => string; descartes?: string[] } = {}): Campo[] {
   if (!Array.isArray(raw)) return [];
+  const anotar = (m: string) => { opts.descartes?.push(m); };
+  if (raw.length > TOPE_CAMPOS) anotar(`${raw.length - TOPE_CAMPOS} campos de más (tope ${TOPE_CAMPOS})`);
+  const limpiarId = (v: unknown) => corta(v, 80).replace(/[^\w-]/g, '-');
+  // Todos los ids que llegaron, para que el nuevo de un repetido no pise el de un campo que viene después.
+  const todos = new Set(raw.slice(0, TOPE_CAMPOS).map((x) => (x && typeof x === 'object' ? limpiarId((x as Record<string, unknown>).id) : '')));
   const vistos = new Set<string>();
   const out: Campo[] = [];
-  for (const x of raw.slice(0, 60)) {
-    if (!x || typeof x !== 'object') continue;
+  for (const [i, x] of raw.slice(0, TOPE_CAMPOS).entries()) {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) { anotar(`campo ${i + 1}: no es un campo`); continue; }
     const o = x as Record<string, unknown>;
-    const id = corta(o.id, 80).replace(/[^\w-]/g, '-');
-    const label = corta(o.label, 400);
+    let id = limpiarId(o.id);
     const tipo = TIPOS_CAMPO.includes(o.tipo as CampoTipo) ? (o.tipo as CampoTipo) : 'texto';
-    if (!id || !label || vistos.has(id)) continue;
+    if (!id) { anotar(`campo ${i + 1}: sin id`); continue; }
+    if (vistos.has(id)) {
+      const base = id.slice(0, 74);
+      let n = 2;
+      while (vistos.has(`${base}-${n}`) || todos.has(`${base}-${n}`)) n++;
+      id = `${base}-${n}`;
+    }
     vistos.add(id);
+    if (tipo === 'seccion') {
+      // Una tarea más: su título y su consigna. Nada de lo que es de un campo que se contesta.
+      const s: Campo = { id, label: corta(o.label, TOPE_TITULO_TAREA), tipo };
+      const crudo = typeof o.descripcionHtml === 'string' ? o.descripcionHtml.trim() : '';
+      if (crudo) {
+        if (!opts.html) anotar(`tarea «${s.label.slice(0, 40)}»: consigna sin sanear`);
+        else {
+          const h = opts.html(crudo).trim();
+          if (h.length > TOPE_HTML_SECCION) anotar(`tarea «${s.label.slice(0, 40)}»: consigna de ${h.length} caracteres (tope ${TOPE_HTML_SECCION})`);
+          else if (h) s.descripcionHtml = h;
+        }
+      }
+      out.push(s);
+      continue;
+    }
+    const label = corta(o.label, TOPE_PREGUNTA);
     const lista = (v: unknown, n: number) => (Array.isArray(v) ? v.map((s) => corta(s, 200)).filter(Boolean).slice(0, n) : undefined);
     const c: Campo = { id, label, tipo };
     const ayuda = corta(o.ayuda, 600); if (ayuda) c.ayuda = ayuda;
@@ -731,14 +981,17 @@ export function sanearCampos(raw: unknown): Campo[] {
     if (tipo === 'audio' || tipo === 'video') c.maxSeg = entero(o.maxSeg, MAX_SEG_MIN, MAX_SEG_MAX, MAX_SEG_DEFAULT);
     if (tipo === 'escala') {
       const e = (o.escala && typeof o.escala === 'object' ? o.escala : {}) as Record<string, unknown>;
-      c.escala = { min: e.min === 0 ? 0 : 1, max: e.max === 5 ? 5 : 10, bajo: corta(e.bajo, 60), alto: corta(e.alto, 60) };
+      // El estilo (item 9) sólo si no es el de siempre: una escala guardada antes sale idéntica.
+      const estilo = e.estilo === 'deslizador' || e.estilo === 'estrellas' ? e.estilo : null;
+      c.escala = { min: e.min === 0 && estilo !== 'estrellas' ? 0 : 1, max: e.max === 5 ? 5 : 10, bajo: corta(e.bajo, 60), alto: corta(e.alto, 60) };
+      if (estilo) c.escala.estilo = estilo;
     }
     if (tipo === 'quiz') {
       c.preguntas = sanearPreguntas(o.preguntas);
       c.notaMin = entero(o.notaMin, 0, 100, NOTA_MIN_DEFAULT);
       c.intentos = entero(o.intentos, 0, 20, 0);
     }
-    if (tipo === 'agenda') { const u = linkValido(o.url); if (u) c.url = u; }
+    if (tipo === 'agenda') { const u = urlDeAgenda(o.url); if (u) c.url = u; }
     // El texto de ejemplo, sólo donde hay un cuadro (item 5). Ausente en un campo que no lo tiene: los
     // programas cargados siguen saliendo idénticos (ver la cabecera).
     if (conTextoDeEjemplo(tipo)) { const p = corta(o.placeholder, TOPE_TEXTO_EJEMPLO).replace(/\s+/g, ' '); if (p) c.placeholder = p; }
@@ -765,6 +1018,8 @@ export function sanearCampos(raw: unknown): Campo[] {
  * leyendo el código de la página. No muta lo que recibe: la misma clase la usa el server para corregir.
  */
 export function camposParaAlumno(campos: readonly Campo[]): Campo[] {
+  // Las `seccion` viajan tal cual (título y consigna: es lo que el alumno tiene que leer); la consigna
+  // la vuelve a sanear `conHtmlSaneado` (lib/curso-portal.ts) antes de que salga del server.
   return campos.map((c) => (c.tipo === 'quiz' && c.preguntas
     ? { ...c, preguntas: c.preguntas.map(({ correctas: _fuera, ...p }) => p) }
     : c));
@@ -1020,8 +1275,11 @@ export function topeDeSubidasAlcanzado(subidas: readonly SubidaHecha[], ahora: n
  *
  * `dueno`: de quién son las entregas (ver `archivosDeValor`). Sin él, sólo la forma del path.
  */
-export function sanearValores(campos: readonly Campo[], raw: unknown, dueno?: DuenoEntrega): Valores {
+export function sanearValores(todos: readonly Campo[], raw: unknown, dueno?: DuenoEntrega): Valores {
   const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  // Las `seccion` no se contestan: un valor con su id es una clave que la clase no tiene. Y una clase
+  // con secciones y SIN campos que se contesten es de respuesta libre, como una sin ningún campo.
+  const campos = camposConRespuesta(todos);
   if (!campos.length) {
     const r = corta(o.respuesta, 20_000);
     return r ? { respuesta: r } : {};
@@ -1122,13 +1380,15 @@ export function campoCompleto(c: Pick<Campo, 'tipo' | 'filasFijas' | 'opciones' 
 
 /** ¿Lo que contestó alcanza para ENVIAR? Sin campos: la respuesta libre no vacía. Con campos: los obligatorios. */
 export function respuestaCompleta(c: Pick<Clase, 'tarea' | 'campos'>, valores: Valores): boolean {
-  if (!c.campos.length) return typeof valores.respuesta === 'string' && valores.respuesta.trim().length > 0;
-  const obligatorios = c.campos.filter((x) => x.obligatorio);
+  // Sin las `seccion`: una no se puede contestar, así que contada como campo la tarea no se enviaba nunca.
+  const campos = camposConRespuesta(c.campos);
+  if (!campos.length) return typeof valores.respuesta === 'string' && valores.respuesta.trim().length > 0;
+  const obligatorios = campos.filter((x) => x.obligatorio);
   // Sin ninguno marcado obligatorio, alcanza con que haya contestado ALGO: enviar un formulario
   // vacío no es haber hecho la tarea.
   return obligatorios.length
     ? obligatorios.every((x) => campoCompleto(x, valores[x.id]))
-    : c.campos.some((x) => campoLleno(x, valores[x.id]));
+    : campos.some((x) => campoLleno(x, valores[x.id]));
 }
 
 // ── El quiz: se corrige en el SERVER ──────────────────────────────────────────
@@ -1227,7 +1487,9 @@ const SIN_REVISION: ReadonlySet<CampoTipo> = new Set<CampoTipo>(['quiz', 'escala
  * y un entregable queda ENVIADA: el quiz la habilita, pero el entregable lo mira el equipo.
  */
 export function seApruebaSola(campos: readonly Campo[]): boolean {
-  return quizzesDe(campos).length > 0 && campos.every((c) => SIN_REVISION.has(c.tipo));
+  // Una `seccion` no pide revisión (no se contesta): sin saltearla, un quiz en la segunda tarea dejaba
+  // de aprobarse solo.
+  return quizzesDe(campos).length > 0 && camposConRespuesta(campos).every((c) => SIN_REVISION.has(c.tipo));
 }
 
 /** La calificación como se lee de la base (jsonb que escribió el server): lo que no cierra se tira. */

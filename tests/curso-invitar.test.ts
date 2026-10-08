@@ -603,9 +603,10 @@ test('invitar-actions: «use server», SÓLO funciones async, y cada una abre co
     const abre = (f.body?.statements.slice(0, 2) ?? []).map(plano).join(' ');
     assert.equal(abre, GATE, `${f.name?.text} no abre con la puerta`);
   }
-  // Las dos usan LA invitación (no una copia) y sin «reenviar»: idempotentes.
+  // Las dos usan LA invitación (no una copia) y sin «reenviar»: idempotentes. Desde el 08/10/2026 con
+  // sus `canales` («También por WhatsApp», item 21): el patrón los acepta al final, saneados en el server.
   const src = sinComentarios(leer(ruta));
-  assert.equal((src.match(/invitarAlCurso\(\{ ws, leadId, email: correo, autor, reenviar: false \}\)/g) ?? []).length, 2);
+  assert.equal((src.match(/invitarAlCurso\(\{ ws, leadId, email: correo, autor, reenviar: false(, canales(: canalesDeInvitacion\(datos\.canales\))?)? \}\)/g) ?? []).length, 2);
   assert.doesNotMatch(src, /invitarAlCursoPorEmail|marcarInvitacion|crearUsuario/);
   // El alta de cero pasa por la MISMA alta de la cartera, y entra al kanban por el choke point.
   assert.match(src, /crearClienteAction\(\{/);

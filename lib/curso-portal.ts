@@ -138,6 +138,12 @@ export type ClaseVista = {
   /** % visto (0-100). `null` = este video NO se puede medir: la pantalla dice «sin medir», no 0%. */
   pct: number | null;
   tarea: string;
+  /**
+   * La consigna de la tarea con formato (mig 0226), SANEADA OTRA VEZ antes de viajar
+   * (`conHtmlSaneado`). `null` = no tiene: se dibuja `tarea`. Las tareas de más viajan adentro de
+   * `campos` (las `seccion`, con su consigna también re-saneada): las agrupa `tareasDeClase`.
+   */
+  tareaHtml?: string | null;
   campos: Campo[];
   tieneTarea: boolean;
   obligatoria: boolean;
@@ -286,7 +292,8 @@ export function claseVista(c: Clase, p: Progreso | undefined, areas?: TareaDeAre
   return {
     id: c.id, titulo: c.titulo, descripcion: c.descripcion, descripcionHtml: c.descripcionHtml ?? '', minutos: c.minutos, video,
     pct: medible ? Math.max(0, Math.min(100, p?.pct ?? 0)) : null,
-    tarea: c.tarea, campos: camposParaAlumno(c.campos), tieneTarea: conTarea, obligatoria: c.obligatoria,
+    tarea: c.tarea, tareaHtml: c.tareaHtml ?? null,
+    campos: camposParaAlumno(c.campos), tieneTarea: conTarea, obligatoria: c.obligatoria,
     // Con áreas, lo contestado vive en cada área: el `valores` de la fila del cliente no viaja.
     estado: p?.estado ?? 'pendiente', valores: areas ? {} : p?.valores ?? {},
     hecha: !conTarea && !!p?.hechaAt,
@@ -446,10 +453,62 @@ export function armarModulos(p: EntradaModulos): ModuloVista[] {
  * importa un test.
  */
 export function conHtmlSaneado(modulos: readonly ModuloVista[], sanear: (html: string) => string): ModuloVista[] {
+  // ⚠️ TODO EL HTML QUE VIAJA, no sólo la descripción (08/10/2026): la consigna de la tarea (mig 0226)
+  //    y la de cada tarea de más (`seccion`). Una lista blanca que se achica después de guardar tiene
+  //    que valer también para lo que se escribió antes.
   return modulos.map((m) => ({
     ...m,
-    clases: m.clases.map((c) => (esClaseCerrada(c) || !c.descripcionHtml ? c : { ...c, descripcionHtml: sanear(c.descripcionHtml) })),
+    clases: m.clases.map((c) => {
+      if (esClaseCerrada(c)) return c;
+      const conSecciones = c.campos.some((x) => x.tipo === 'seccion' && x.descripcionHtml);
+      if (!c.descripcionHtml && !c.tareaHtml && !conSecciones) return c;
+      return {
+        ...c,
+        ...(c.descripcionHtml ? { descripcionHtml: sanear(c.descripcionHtml) } : {}),
+        ...(c.tareaHtml ? { tareaHtml: sanear(c.tareaHtml) || null } : {}),
+        ...(conSecciones ? {
+          campos: c.campos.map((x) => {
+            if (x.tipo !== 'seccion' || !x.descripcionHtml) return x;
+            const h = sanear(x.descripcionHtml);
+            if (h) return { ...x, descripcionHtml: h };
+            const { descripcionHtml: _fuera, ...sin } = x;
+            return sin;
+          }),
+        } : {}),
+      };
+    }),
   }));
+}
+
+/**
+ * ¿Un módulo VACÍO se le muestra igual al alumno? Sólo si el equipo lo dejó PÚBLICO: un vinculado con
+ * «Público» (`bloqueo: abierto`, `bloqueoPublico` en app/customer-success/curso/bloqueo-editor.ts) o un
+ * suelto que no se cerró (un suelto nace abierto y lo crea el equipo a mano en el curso).
+ */
+export const moduloPublico = (m: Pick<ModuloCurso, 'vinculado' | 'bloqueo'>): boolean =>
+  m.vinculado ? m.bloqueo?.tipo === 'abierto' : !m.bloqueo || m.bloqueo.tipo === 'abierto';
+
+/**
+ * ¿El curso de un producto se le LISTA al alumno? Con alguna clase en un módulo que puede ver, sí; sin
+ * ninguna, sólo si tiene un módulo PÚBLICO que puede ver (`moduloPublico`).
+ *
+ * ⚠️ ITEM 16 DEL AUDIO DEL 08/10/2026 (03:00): «si está público, que aparezca acá en la vista de alumno el
+ *    módulo… En Skool se pueden publicar módulos aunque no haya nada dentro». Hasta acá un producto SIN
+ *    CLASES no se listaba (`if (!clases.length) continue`), así que publicar el primer módulo vacío —un
+ *    «Lanzamiento (próximamente)»— dejaba al alumno en «Todavía no hay clases».
+ * ⚠️ Y NO ES «cualquier producto con módulos»: todo producto con kanban tiene módulos (sus etapas), y
+ *    entonces un cliente vería como curso vacío cada producto que compró y que no tiene curso. Lo que
+ *    distingue «un curso que arranca» de «no hay curso» es que alguien lo PUBLICÓ.
+ * `permitido`: los permisos del alumno (mig 0219). Con todo escondido por ellos, no se lista.
+ */
+export function cursoSeLista(
+  modulos: readonly Pick<ModuloCurso, 'clave' | 'vinculado' | 'bloqueo'>[],
+  clases: readonly Pick<Clase, 'etapa'>[],
+  permitido: (clave: string) => boolean = () => true,
+): boolean {
+  const visibles = modulos.filter((m) => permitido(m.clave));
+  const claves = new Set(visibles.map((m) => m.clave));
+  return clases.some((c) => claves.has(c.etapa)) || visibles.some(moduloPublico);
 }
 
 /**
@@ -579,22 +638,23 @@ export async function armarVistaAlumno(
   const out: ProductoVista[] = [];
   for (const productoId of productos) {
     const clases = await datos.clasesDelProducto(productoId);
-    if (!clases.length) continue;
     if (lider != null && !clases.some((c) => c.porArea === true)) continue;
     const [cur, actual] = await Promise.all([
       modulosDatos.modulosDelCurso(productoId, { estricta: true }),
       datos.etapaActualDe(leadId, productoId, productos),
     ]);
     if (!cur) throw new Error(`no pude leer los módulos del producto ${productoId}`);
+    const permitido = (clave: string) => moduloPermitido(alcance, productoId, clave);
+    // Sin clases, sólo si el equipo PUBLICÓ algún módulo (item 16, `cursoSeLista`); y con todo
+    // escondido por sus permisos, tampoco: un programa vacío que nadie publicó se lee como roto.
+    if (!cursoSeLista(cur.modulos, clases, permitido)) continue;
     const contexto = await modulosDatos.contextoDelAlumno({ leadId, productoId, casa, modulos: cur.modulos, clases });
     const modulos = conHtmlSaneado(armarModulos({
       modulos: cur.modulos, etapas: cur.entrega.etapas, actual, clases, progreso: avance.progreso,
-      permitido: (clave) => moduloPermitido(alcance, productoId, clave),
+      permitido,
       contexto,
       opts: { porArea: avance.porArea, areas: avance.areas, lider },
     }), sanearHtml);
-    // Con todo escondido por sus permisos, el producto no se lista: un programa vacío se lee como roto.
-    if (alcance != null && !modulos.some((m) => m.cuantas > 0)) continue;
     out.push({
       productoId,
       nombre: nombreDe.get(productoId) ?? 'Tu programa',

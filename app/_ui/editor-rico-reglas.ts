@@ -75,6 +75,22 @@ export function recortarSeparadores<T extends { sep?: boolean }>(lista: readonly
   return out;
 }
 
+// ── Lo insertado (item 15 del audio del 08/10/2026) ─────────────────────────
+// «que lo pueda embeber cosas como… el Calendar, que se puedan embeber ahí mismo» (24:30). Qué se puede
+// insertar y con qué `src` lo decide lib/embeds.ts; acá, cuándo un PEGADO es un código para insertar.
+
+/**
+ * ¿Lo que se pegó como texto es SÓLO un código para insertar (el `<iframe …>` de YouTube, el `<div>` de
+ * Calendly)? Entonces se inserta el bloque en vez de pegar el código como texto. Tiene que empezar con
+ * `<` y terminar con `>`: un párrafo que MENCIONA un iframe se pega como texto. Si además se puede
+ * insertar lo decide `embedDe` (lo que no es de la lista se pega como texto, como siempre).
+ */
+export function esCodigoParaInsertar(texto: string | null | undefined): boolean {
+  const t = (texto ?? '').trim();
+  if (t.length < 10 || t.length > 5000 || !t.startsWith('<') || !t.endsWith('>')) return false;
+  return /<iframe\b|\sdata-(?:url|src|path)\s*=|calLink\s*:/i.test(t);
+}
+
 // ── El ancho de una imagen ───────────────────────────────────────────────────
 // Pedido de Martín (08/10/2026, item 10): «Si subo una imagen en la descripción se ve enorme, no
 // tengo manera de editar el tamaño». Los anchos que valen, en app/_ui/HtmlSeguro.tsx.

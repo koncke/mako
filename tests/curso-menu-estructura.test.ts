@@ -17,6 +17,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { seccionesDelMenu } from '../app/customer-success/curso/estructura';
@@ -28,10 +30,13 @@ const ARRIBA = ['renombrar', 'portada', 'mover-antes', 'mover-despues'];
 
 test('el menú de un módulo y el de una clase tienen la MISMA forma: lo de arriba, el acceso, y abajo eliminar', () => {
   assert.deepEqual(seccionesDelMenu('modulo'), [ARRIBA, ['acceso'], ['kanban'], ['eliminar']]);
-  assert.deepEqual(seccionesDelMenu('clase'), [ARRIBA, ['acceso'], ['eliminar']]);
+  // «Obligatoria para avanzar» (audio del 08/10/2026, item 7) va ADENTRO de la sección del acceso de la clase:
+  // el orden de Martín sigue siendo arriba | acceso | eliminar.
+  assert.deepEqual(seccionesDelMenu('clase'), [ARRIBA, ['acceso', 'obligatoria'], ['eliminar']]);
   // Lo que no es del kanban es IGUAL en los dos, en el mismo orden: el de la clase es el del módulo
-  // sin la sección del kanban.
-  assert.deepEqual(seccionesDelMenu('modulo').filter((s) => !s.includes('kanban')), seccionesDelMenu('clase'));
+  // sin la sección del kanban (y con la obligatoria, que es sólo de una clase).
+  assert.deepEqual(seccionesDelMenu('modulo').filter((s) => !s.includes('kanban')),
+    seccionesDelMenu('clase').map((s) => s.filter((k) => k !== 'obligatoria')));
 });
 
 // ── Lo que se DIBUJA ─────────────────────────────────────────────────────────
@@ -72,6 +77,34 @@ test('el menú de un MÓDULO se dibuja en ese orden, con la línea entre seccion
 test('el menú de una CLASE se dibuja igual, sin la sección del kanban', () => {
   assert.deepEqual(renglones(dibujarClase()),
     ['Renombrar', 'Portada', 'Mover antes', 'Mover después', '|', 'Acceso', '|', 'Eliminar clase']);
+});
+
+// Audio del 08/10/2026, item 7 (13:00): «ese botón tal vez no se debería configurar ahí [en la tarea], sino
+// que se debería configurar en el desplegable de cada clase». Un interruptor como el del kanban, en la
+// sección del acceso, sin una línea propia.
+test('«Obligatoria para avanzar» en el menú de la clase: adentro del acceso, y apagada con su motivo sin tarea', () => {
+  const prender: boolean[] = [];
+  const o = (x: Partial<{ prendida: boolean; motivo: string | null }> = {}) => ({ prendida: false, motivo: null, onCambiar: (v: boolean) => { prender.push(v); }, ...x });
+  assert.deepEqual(renglones(dibujarClase({ obligatoria: o() })),
+    ['Renombrar', 'Portada', 'Mover antes', 'Mover después', '|', 'Acceso', 'Obligatoria para avanzar', '|', 'Eliminar clase']);
+  // Sin tarea: apagado (deshabilitado) y dice por qué, corto.
+  const sin = dibujarClase({ obligatoria: o({ motivo: 'Necesita una tarea.' }) });
+  assert.match(sin, /<button[^>]*role="switch"[^>]*aria-checked="false"[^>]*disabled=""[^>]*title="Necesita una tarea\."/);
+  assert.match(sin, /<p class="ugc-menu-nota">Necesita una tarea\.<\/p>/);
+  // Prendida: se ve prendida y se puede apagar.
+  const si = dibujarClase({ obligatoria: o({ prendida: true }) });
+  assert.match(si, /role="switch" aria-checked="true" class="cu-menu-switch"(?![^>]*disabled)/);
+  // En el menú del MÓDULO no está, y la tarea ya no la dibuja (vive acá).
+  assert.doesNotMatch(dibujarModulo(), /Obligatoria para avanzar/);
+  const le = readFileSync(join(__dirname, '..', 'app/customer-success/curso/LeccionEditable.tsx'), 'utf8').replace(/\r\n/g, '\n')
+    .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(le, /ROTULO_OBLIGATORIA|leccion-obligatoria/, 'volvió a la tarea');
+  // La tab: inmediato, por el MISMO camino, y con su «Deshacer» corto.
+  const app = readFileSync(join(__dirname, '..', 'app/customer-success/curso/CursoApp.tsx'), 'utf8').replace(/\r\n/g, '\n')
+    .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(app, /const r = await guardarCampoClaseAction\(c\.id, \{ obligatoria: v \}\);/);
+  assert.match(app, /show\(v \? 'Obligatoria prendida' : 'Obligatoria apagada', \(\) => \{ void cambiarObligatoria\(r\.clase, !v, false\); \}\)/);
+  assert.match(app, /obligatoria=\{ofreceObligatoria\(vinculado, c\.obligatoria\) \? \{/);
 });
 
 test('«Por área» salió del menú, y «Mover a» también (una clase se lleva arrastrándola a la barra)', () => {
@@ -182,3 +215,8 @@ test('cada gesto de la estructura ofrece «Deshacer», y deshacer vuelve a escri
 //   · una sección vacía deja su línea (`.filter((s) => s.length > 0)` fuera)    → 9 / 0, VERDE a
 //     propósito: hoy ninguna sección puede quedar vacía (arriba siempre están «Mover antes / después»);
 //     el filtro es la red para la próxima sección opcional, y no hay cómo dibujarla sin inventarla.
+//
+// Audio del 08/10/2026 (pista EDITOR, «Obligatoria para avanzar» en el menú de la clase), mismo método con
+// scratchpad/editor-leccion/romper.mjs. Base 10 / 0:
+//   · la obligatoria en una sección propia (rompe el orden de Martín)              → 8 / 2
+//   · el interruptor sin su motivo (se puede tocar sin tarea) · sin «Deshacer»     → 9 / 1 cada una

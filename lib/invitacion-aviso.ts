@@ -100,6 +100,32 @@ export function textoInvitacionCurso(p: {
 }
 
 /**
+ * La invitación al curso por WHATSAPP, además del correo (item 21 del audio del 08/10/2026: «puedes
+ * conectar tu WhatsApp y a la persona le puede llegar por ambos lados»). Sale por la línea de por
+ * default del negocio (lib/curso-invitar.ts), con el MISMO link de entrada que el correo.
+ *
+ * ⚠️ CORTO Y SIN LA LÍNEA DE GOOGLE: un WhatsApp se lee en el teléfono de una pasada, y lo que tiene que
+ *    hacer la persona es tocar el link. Neutro con TÚ (lo lee el cliente mexicano de otro negocio) y con
+ *    el negocio nombrado: es el número del negocio, pero el programa puede llamarse distinto.
+ * ⚠️ EL LINK VA SOLO EN SU RENGLÓN: WhatsApp lo vuelve tocable si no tiene nada pegado.
+ */
+export function textoInvitacionWhatsapp(p: {
+  nombre?: string | null;
+  programa: string;
+  negocio?: string | null;
+  enlace: string;
+}): string {
+  const primer = (p.nombre ?? '').trim().split(/\s+/)[0] ?? '';
+  const programa = p.programa.trim() || 'tu programa';
+  const de = p.negocio?.trim() ? ` de ${p.negocio.trim()}` : '';
+  return [
+    primer ? `Hola ${primer}, tu acceso a ${programa}${de} ya está listo.` : `Hola, tu acceso a ${programa}${de} ya está listo.`,
+    'Entra desde aquí:',
+    p.enlace,
+  ].join('\n');
+}
+
+/**
  * El mail al LÍDER de un área (#665): le llega el link de SUS tareas, las del área que le tocó.
  *
  * ⚠️ SIN LA LÍNEA DE GOOGLE, a propósito: el líder no tiene cuenta ni cookie de alumno — entra

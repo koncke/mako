@@ -30,6 +30,7 @@ import { randomUUID } from 'node:crypto';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { claseDeId } from './curso-datos';
+import { htmlsDeTareas, type Campo } from './curso';
 import {
   BUCKET_ADJUNTOS, TOPE_ADJUNTO_BYTES, esMimeAdjunto, pathDeAdjunto, pathEsAdjuntoDelProducto, uuidDePath,
   validarRegistroAdjunto, decidirAdjuntoAlumno, descargaComo, refDeId, refsEnHtml,
@@ -208,23 +209,28 @@ export async function urlAdjuntoEquipo(id: string): Promise<Resultado<{ url: str
  * ⚠️ `descripcion_html` SE LEE ACÁ Y NO DE `COLUMNAS_CLASE`: esa lista la leen el portal, la ficha
  *    y el cron, y con una columna nueva adentro una migración atrasada tumbaría el portal de cada
  *    cliente. Si la 0216 no está, esta consulta falla y la ruta contesta 404 (fail-closed).
+ *
+ * ⚠️ «LO PUBLICADO DE ESA CLASE» ES TAMBIÉN SU TAREA (08/10/2026): la consigna con formato de la tarea
+ *    (`tarea_html`, mig 0226) y la de cada tarea de más (las `seccion` de `campos`) llevan adjuntos
+ *    igual que la descripción (`htmlsDeTareas`, lib/curso.ts). Sin esto, una imagen pegada en la tarea
+ *    se veía en el editor y le daba 404 al alumno. Sin la 0226, la consulta falla: 404 (fail-closed).
  */
 export async function urlAdjuntoParaAlumno(clase: { id: number; productoId: number }, adjuntoId: string): Promise<string | null> {
   const ws = await getWorkspaceActual();
   if (!ws || !refDeId(adjuntoId)) return null;
   const db = await getTenantDb();
   const [{ data: filaClase, error: eClase }, filas] = await Promise.all([
-    db.from('curso_clases').select('id, producto_id, descripcion_html').eq('workspace_id', ws).eq('id', clase.id).is('borrada_at', null).maybeSingle(),
+    db.from('curso_clases').select('id, producto_id, descripcion_html, tarea_html, campos').eq('workspace_id', ws).eq('id', clase.id).is('borrada_at', null).maybeSingle(),
     adjuntosPorId(ws, [adjuntoId]),
   ]);
   if (eClase) throw new Error(eClase.message);
-  const c = filaClase as { id: number; producto_id: number | string; descripcion_html: string | null } | null;
+  const c = filaClase as { id: number; producto_id: number | string; descripcion_html: string | null; tarea_html: string | null; campos: unknown } | null;
   if (!c || Number(c.producto_id) !== clase.productoId) return null;
   const f = filas[0] ?? null;
   const decision = decidirAdjuntoAlumno({
     adjunto: f ? { id: f.id, productoId: Number(f.producto_id), path: f.path } : null,
     clase,
-    htmlDeClase: c.descripcion_html,
+    htmlDeClase: [c.descripcion_html ?? '', ...htmlsDeTareas({ tareaHtml: c.tarea_html, campos: Array.isArray(c.campos) ? (c.campos as Campo[]) : [] })].join(' '),
     ws,
   });
   if (decision !== 'ok' || !f) return null;

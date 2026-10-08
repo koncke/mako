@@ -43,10 +43,14 @@ export async function opcionesParaTareas(productoId: number): Promise<{
 }> {
   const ws = await getWorkspaceActual();
   if (!ws) throw new Error('No hay un negocio abierto.');
+  // ⚠️ SIN LOS HILOS DE LAS CLASES (mig 0227, revisión final del 08/10/2026): un hilo de clase es un post
+  //    con `clase_id`, su título es el de la clase, y no sale en el feed. Ofrecido acá, el equipo podía
+  //    elegir «comentar el hilo de la clase 7» como tarea de la clase 2, y el alumno que todavía no abrió
+  //    la 7 recibía una tarea imposible («Esa clase ya no está»). Lo mismo que el feed y la búsqueda.
   const [cats, fijados, recientes] = await Promise.all([
     categoriasDeLaComunidad(ws, productoId),
-    de(ws, 'comunidad_posts').select('id, titulo').eq('producto_id', productoId).not('fijado_at', 'is', null).order('fijado_at', { ascending: false }).limit(10),
-    de(ws, 'comunidad_posts').select('id, titulo').eq('producto_id', productoId).order('created_at', { ascending: false }).limit(30),
+    de(ws, 'comunidad_posts').select('id, titulo').eq('producto_id', productoId).is('clase_id', null).not('fijado_at', 'is', null).order('fijado_at', { ascending: false }).limit(10),
+    de(ws, 'comunidad_posts').select('id, titulo').eq('producto_id', productoId).is('clase_id', null).order('created_at', { ascending: false }).limit(30),
   ]);
   if (fijados.error) throw new Error(fijados.error.message);
   if (recientes.error) throw new Error(recientes.error.message);
@@ -153,8 +157,10 @@ export async function verificarComunidad(
     const ref = refDeComunidad(c.tipo, v);
     let suya = false;
     if (ref && ref.comentarioId == null) {
+      // ⚠️ Un post DEL FEED (`clase_id is null`, mig 0227): el «autor» del hilo de una clase es quien
+      //    comentó primero ahí, y sin este filtro su id completaba «Publicar en la comunidad» sin publicar.
       const { data, error } = await de(dueno.ws, 'comunidad_posts').select('id')
-        .eq('producto_id', dueno.productoId).eq('id', ref.postId).eq('miembro', miembro).maybeSingle();
+        .eq('producto_id', dueno.productoId).eq('id', ref.postId).eq('miembro', miembro).is('clase_id', null).maybeSingle();
       if (error) throw new Error(error.message);
       suya = !!data;
     } else if (ref) {

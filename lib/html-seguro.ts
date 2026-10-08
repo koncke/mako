@@ -46,12 +46,26 @@ import 'server-only';
 //     `scope`/`headers`/`background`/`bgcolor`. Un `caption` pierde la etiqueta y deja su texto,
 //     como toda etiqueta que no pasa.
 //
-// Lo que nunca pasa, aunque venga bien escrito: on*, style libre, iframe, svg, math, form, input,
-// base, meta, link, script, style, object, embed, comentarios, `javascript:` (con entidades,
-// mayúsculas, tabs o espacios en el medio), `data:`, `vbscript:`, `file:`, rutas relativas.
+//   · Lo INSERTADO (08/10/2026, item 15 del audio, 24:30: «que lo pueda embeber cosas como… el
+//     Calendar, que se puedan embeber ahí mismo»): un `<iframe>` y SÓLO así: su `src` pasa por
+//     `embedDe` (lib/embeds.ts: https, un host de la lista comparado exacto, y el `src` lo vuelve a
+//     armar ese módulo), y los demás atributos los pone el transform desde `atributosDeIframe` —
+//     `sandbox`, `allow`, `loading` y `referrerpolicy` fijos, el `title` y `data-proveedor` de una
+//     lista, `data-alto` (sólo una agenda) de la lista `ALTOS_EMBED`—. Ningún atributo del pedido se
+//     copia: un `srcdoc`, un `onload`, un `style` o un `sandbox` más flojo no tienen dónde entrar. Lo
+//     que traiga adentro no es texto de nadie (`textFilter`). Segunda capa: los hosts de los `src`
+//     que arma lib/embeds.ts (`allowedIframeHostnames`/`allowedIframeDomains`) y el esquema https.
+//
+// Lo que nunca pasa, aunque venga bien escrito: on*, style libre, un iframe que no sea lo de arriba,
+// svg, math, form, input, base, meta, link, script, style, object, embed, comentarios, `javascript:`
+// (con entidades, mayúsculas, tabs o espacios en el medio), `data:`, `vbscript:`, `file:`, rutas relativas.
 
 import sanitizeHtml from 'sanitize-html';
 import { idDeRef, anchoDeImagen, alineaDeImagen, ANCHOS_IMAGEN } from '@/app/_ui/HtmlSeguro';
+import {
+  embedDeIframe, atributosDeIframe, ALTOS_EMBED, PROVEEDORES_EMBED, SANDBOX_EMBED, ALLOW_EMBED,
+  REFERRER_EMBED, HOSTS_IFRAME, DOMINIOS_IFRAME,
+} from './embeds';
 import { APP_BASE_URL } from './app-url';
 
 /**
@@ -175,15 +189,36 @@ type Attrs = Record<string, string>;
 
 /** Sólo el `style` (que después filtra `allowedStyles`): lo demás de un título pegado no se copia. */
 const soloEstilo = (a: Attrs): Attrs => (a.style ? { style: a.style } : {});
+
+/**
+ * Un iframe: lo que arma `atributosDeIframe` desde lo que `embedDe` reconoce en su `src`, o NADA (sin
+ * `src`, `exclusiveFilter` lo saca entero). El alto de una agenda: el `data-alto` si es uno de la lista,
+ * si no el `height` que trajo pegado (llevado a la lista), si no el de su proveedor. Del pedido no se
+ * copia ningún otro atributo.
+ */
+function iframeSeguro(a: Attrs): Attrs {
+  const e = embedDeIframe(a);
+  return e ? Object.fromEntries(atributosDeIframe(e)) : {};
+}
+const NOMBRES_EMBED: string[] = Object.values(PROVEEDORES_EMBED).map((p) => p.nombre);
 type Frame = { tag: string; name?: string; attribs: Attrs; text: string; mediaChildren?: string[] };
 
 const OPCIONES: sanitizeHtml.IOptions = {
   allowedTags: [
     'p', 'h2', 'h3', 'blockquote', 'pre', 'hr', 'ul', 'ol', 'li', 'br',
     'strong', 'em', 'u', 's', 'code', 'mark', 'span', 'a', 'img',
-    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td', 'iframe',
   ],
   allowedAttributes: {
+    // Lo insertado: la segunda capa, con los VALORES exactos (la primera es `iframeSeguro`).
+    iframe: ['src',
+      { name: 'title', multiple: false, values: NOMBRES_EMBED },
+      { name: 'data-proveedor', multiple: false, values: Object.keys(PROVEEDORES_EMBED) },
+      { name: 'data-alto', multiple: false, values: ALTOS_EMBED.map(String) },
+      { name: 'sandbox', multiple: false, values: [SANDBOX_EMBED] },
+      { name: 'allow', multiple: false, values: [ALLOW_EMBED] },
+      { name: 'loading', multiple: false, values: ['lazy'] },
+      { name: 'referrerpolicy', multiple: false, values: [REFERRER_EMBED] }],
     a: ['href', 'target', 'rel', 'title'],
     // El ancho y la alineación: la segunda capa, con los VALORES exactos (la primera es el
     // transform). Si alguien afloja una de las dos, queda la otra.
@@ -215,9 +250,16 @@ const OPCIONES: sanitizeHtml.IOptions = {
   // La segunda capa, después de `hrefSeguro`/`srcSeguro` (que corren en el transform): la del
   // propio sanitize-html. Si un día alguien afloja una de las dos, queda la otra.
   allowedSchemes: ['http', 'https', 'mailto'],
-  allowedSchemesByTag: { a: ['http', 'https', 'mailto', 'mako-adjunto'], img: ['https', 'mako-adjunto'] },
+  allowedSchemesByTag: { a: ['http', 'https', 'mailto', 'mako-adjunto'], img: ['https', 'mako-adjunto'], iframe: ['https'] },
   allowedSchemesAppliedToAttributes: ['href', 'src', 'cite'],
   allowProtocolRelative: false,
+  // Los hosts de un iframe: los de los `src` que arma lib/embeds.ts. Sin rutas relativas.
+  allowedIframeHostnames: [...HOSTS_IFRAME],
+  allowedIframeDomains: [...DOMINIOS_IFRAME],
+  allowIframeRelativeUrls: false,
+  // Lo que un iframe traiga ADENTRO (el texto «tu navegador no muestra iframes», o lo que alguien
+  // escondió ahí) no es texto de nadie: el iframe se dibuja vacío.
+  textFilter: (texto, tag) => (tag === 'iframe' ? '' : texto),
   // (`alt=""` vacío pasa por el default de sanitize-html, `allowedEmptyAttributes: ['alt']`, que los
   // tipos de @types/sanitize-html no declaran: por eso no se escribe acá.)
   disallowedTagsMode: 'discard',
@@ -269,6 +311,7 @@ const OPCIONES: sanitizeHtml.IOptions = {
     },
     td: (_t, a) => celda('td', a),
     th: (_t, a) => celda('th', a),
+    iframe: (_t, a) => ({ tagName: 'iframe', attribs: iframeSeguro(a) }),
     ol: (_t, a) => {
       const s = (a.start ?? '').trim();
       const attribs: Attrs = /^\d{1,5}$/.test(s) && Number(s) !== 1 ? { start: String(Number(s)) } : {};
@@ -293,8 +336,9 @@ const OPCIONES: sanitizeHtml.IOptions = {
     // «Vacío» = sin texto Y sin una imagen adentro: un link o una negrita que envuelven sólo una
     // imagen no están vacíos, y sacarlos se llevaría la imagen.
     const vacio = !(f.text ?? '').trim() && !(f.mediaChildren ?? []).length;
-    // Una imagen sin un `src` que pasó: no hay nada que mostrar.
-    if (tag === 'img') return !f.attribs?.src;
+    // Una imagen sin un `src` que pasó: no hay nada que mostrar. Un iframe tampoco, y se va CON lo de
+    // adentro (`true`, no `'excludeTag'`).
+    if (tag === 'img' || tag === 'iframe') return !f.attribs?.src;
     // Un link sin destino es texto: se saca la etiqueta y queda lo de adentro.
     if (tag === 'a') return !f.attribs?.href ? 'excludeTag' : vacio;
     // Un span sin estilo es ruido de Word/Docs; uno vacío no dibuja nada.
@@ -304,9 +348,13 @@ const OPCIONES: sanitizeHtml.IOptions = {
   },
 };
 
-/** ¿Este HTML ya saneado no tiene NADA que mostrar? (sin texto, sin imagen, sin línea) */
+/**
+ * ¿Este HTML ya saneado no tiene NADA que mostrar? (sin texto, sin imagen, sin línea, sin nada
+ * insertado). ⚠️ Una tarea que es SÓLO una agenda insertada tiene contenido: sin el `iframe` acá, el
+ * saneo la vaciaba y la tarea quedaba sin descripción.
+ */
 function sinContenido(saneado: string): boolean {
-  if (/<(img|hr)\b/.test(saneado)) return false;
+  if (/<(img|hr|iframe)\b/.test(saneado)) return false;
   return !saneado.replace(/<[^>]*>/g, '').replace(/&nbsp;|\u00a0/g, ' ').trim();
 }
 
@@ -390,6 +438,17 @@ export function textoDeHtml(html: string | null | undefined): string {
     const attrs = m[3] ?? '';
     if (tag === 'br') { out += tablas.length ? ' ' : '\n'; continue; }
     if (tag === 'hr') { salto(2); continue; }
+    // Lo insertado deja su DIRECCIÓN: es lo único que le sirve a quien lee el texto plano (la IA, un
+    // mensaje), y una tarea que es sólo una agenda tiene que seguir teniendo texto (`tieneTarea`).
+    if (tag === 'iframe') {
+      const src = cierra ? null : /\ssrc="([^"]*)"/.exec(attrs);
+      if (src) {
+        if (tablas.length) out += (recienCelda ? '' : ' ') + decodificar(src[1]);
+        else { salto(listas.length ? 1 : 2); out += decodificar(src[1]); }
+        recienMarca = false; recienCelda = false;
+      }
+      continue;
+    }
     if (tag === 'table') {
       if (cierra) { tablas.pop(); if (!tablas.length) salto(2); continue; }
       if (tablas.length) { if (!recienCelda) out += ' '; } else salto(2);

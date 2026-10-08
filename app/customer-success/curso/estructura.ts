@@ -99,7 +99,7 @@ export function clasesConDevueltas(clases: readonly Clase[], vuelven: readonly C
 // ── El menú «…» (08/10/2026, item 15) ─────────────────────────────────────────
 
 /** Lo que puede tener el menú «…» de un módulo o de una clase. */
-export type ItemMenuEstructura = 'renombrar' | 'portada' | 'mover-antes' | 'mover-despues' | 'acceso' | 'kanban' | 'eliminar';
+export type ItemMenuEstructura = 'renombrar' | 'portada' | 'mover-antes' | 'mover-despues' | 'acceso' | 'obligatoria' | 'kanban' | 'eliminar';
 
 /**
  * EL MENÚ «…» ES UNO Y TIENE LA MISMA FORMA para un módulo y para una clase. Pedido de Martín
@@ -113,12 +113,17 @@ export type ItemMenuEstructura = 'renombrar' | 'portada' | 'mover-antes' | 'move
  * Cada lista es una SECCIÓN y entre dos secciones va una línea. ./MenuCurso.tsx dibuja ESTO, en este
  * orden, para los dos: el día que el de la clase gane un renglón que el del módulo no tiene, se escribe
  * acá, a la vista, y no en un segundo componente (que es como habían quedado distintos).
+ *
+ * ⚠️ «OBLIGATORIA PARA AVANZAR» VA ADENTRO DE LA SECCIÓN DEL ACCESO de la clase, sin una línea propia
+ *    (audio del 08/10/2026, 13:00: «ese botón tal vez no se debería configurar ahí [en la tarea], sino
+ *    que se debería configurar en el desplegable de cada clase»). Es de la misma familia —qué hace falta
+ *    para seguir— y una sección más rompía el orden que pidió Martín: arriba | acceso | eliminar.
  */
 export function seccionesDelMenu(tipo: 'modulo' | 'clase'): ItemMenuEstructura[][] {
   const arriba: ItemMenuEstructura[] = ['renombrar', 'portada', 'mover-antes', 'mover-despues'];
   return tipo === 'modulo'
     ? [arriba, ['acceso'], ['kanban'], ['eliminar']]
-    : [arriba, ['acceso'], ['eliminar']];
+    : [arriba, ['acceso', 'obligatoria'], ['eliminar']];
 }
 
 /** La portada elegida del módulo, mudada a su clave nueva (lo mismo que hizo el server). */

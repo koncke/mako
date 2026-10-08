@@ -64,6 +64,25 @@
 //   · una regla de la lectura con su propia letra             → 17 / 1 (la hoja de lectura: item 3)
 //   · `.mk-rico` sin `var(--ugc-fuente, inherit)`             → 17 / 1 (la hoja de lectura)
 //   · sin la regla del centrado                               → 17 / 1 (la hoja de lectura)
+//
+// LO INSERTADO (08/10/2026, item 15: «que lo pueda embeber cosas como… el Calendar»), con el mismo método
+// (scratchpad video/romper.mjs), corriendo juntos este archivo, tests/embeds.test.ts y
+// tests/curso-video-embed.test.ts: 38 tests, 38 / 0 con todo en su lugar.
+//   · sin `textFilter` (lo de adentro de un iframe pasa)                → 36 / 2 (lo que escribe el editor, idempotente)
+//   · la 1ª capa floja: el transform copia los atributos del pedido     → 35 / 3 (ataques: `calendly.com:8443` pasa la 2ª capa,
+//     que no mira el puerto; lo que escribe el editor; lo insertado)
+//   · la 2ª capa floja (sin `allowedIframeHostnames`/`Domains`)         → 38 / 0 — la 1ª la cubre, como con los href
+//   · las dos flojas                                                    → 33 / 5
+//   · sólo un iframe cuenta como «vacío» (`sinContenido`)              → 36 / 2
+//   · el texto plano sin la dirección de lo insertado                   → 37 / 1 (lo insertado)
+//   · la alarma sin mirar cada iframe (`iframeCanonico`)               → 37 / 1 (la alarma acepta un iframe SÓLO…)
+//   · la alarma vuelve a negar todo iframe                              → 37 / 1 (la misma: el componente no lo dibuja)
+//   · la alarma acepta un atributo sin comillas dobles                  → 37 / 1 — 38 / 0 la primera vez: el caso de
+//     comillas simples lo cazaba otra comparación. Se sumó `srcdoc=x` SIN comillas, que es el que importa: un
+//     `srcdoc` corre con NUESTRO origen, y con `allow-same-origin` es un script en la app.
+//   · la hoja de lectura sin el 16:9                                    → 37 / 1 (la hoja de lectura…)
+//   · el host de Calendly con `endsWith`, sin mirar usuario/puerto, o
+//     aceptando http (lib/embeds.ts)                                    → 35 / 3 cada una (y de este archivo: los ataques y lo insertado)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -72,7 +91,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { HtmlSeguro, idDeRef, refDeId, refsEnHtml, pareceSaneado, traducirAdjuntos, urlDibujable, anchoDeImagen, alineaDeImagen, ANCHOS_IMAGEN, envolverTablas, CSS_RICO } from '../app/_ui/HtmlSeguro';
+import { HtmlSeguro, idDeRef, refDeId, refsEnHtml, pareceSaneado, traducirAdjuntos, urlDibujable, anchoDeImagen, alineaDeImagen, ANCHOS_IMAGEN, envolverTablas, CSS_RICO, iframeCanonico } from '../app/_ui/HtmlSeguro';
+import { ALTOS_EMBED } from '../lib/embeds';
 
 const RAIZ = join(import.meta.dirname, '..');
 const U = '0f8fad5b-d9cb-469f-a165-70867728950e';
@@ -152,7 +172,28 @@ const ATAQUES: string[] = [
   '<table><caption><img src=x onerror=alert(1)>c</caption><colgroup><col span="2" style="width:9999px"></colgroup><thead><tr><th colspan="0">a</th><th colspan="-1">b</th><th colspan="1e3">c</th><th colspan=" 2">d</th><th colspan="21">e</th><th rowspan="02">f</th></tr></thead></table>',
   '<table><tbody><tr><td><iframe src="https://evil.example"></iframe><svg onload=alert(1)></svg>x</td></tr></tbody></table>',
   '<table><tr><td style="text-align:center;width:9999px;position:fixed">z</td><th style="text-align: inherit">w</th></tr></table>',
+  // Lo insertado (08/10/2026, item 15): un iframe que NO es de la lista no deja nada.
+  '<iframe src="https://calendly.com.evil.tld/juan/30min"></iframe>',
+  '<iframe src="https://evil.com.calendly.com/juan/30min"></iframe>',
+  '<iframe src="https://calendly.com@evil.tld/juan/30min"></iframe>',
+  '<iframe src="https://calendly.com:8443/juan/30min"></iframe>',
+  '<iframe src="http://calendly.com/juan/30min"></iframe>',
+  '<iframe src="javascript:alert(1)"></iframe>',
+  '<iframe src="JaVaScRiPt:alert(1)"></iframe>',
+  '<iframe src="data:text/html,&lt;script&gt;alert(1)&lt;/script&gt;"></iframe>',
+  '<iframe src="//calendly.com/juan/30min"></iframe>',
+  '<iframe src="/api/compartido/curso/entrar?t=abc"></iframe>',
+  '<iframe src="https://evil.tld/x" onload="alert(1)"></iframe>',
+  '<iframe src="https://www.youtube.com/watch?v=abc/../x"></iframe>',
+  '<iframe srcdoc="<img src=x onerror=alert(1)>" src="https://evil.tld/"></iframe>',
+  '<iframe src="https://evil.tld/"><img src=x onerror=alert(1)></iframe>',
 ];
+
+/** Un iframe de la lista tal cual lo escribe el saneo: el `src` rearmado y los atributos fijos. */
+const IFRAME = (src: string, titulo: string, proveedor: string, alto?: number) =>
+  `<iframe src="${src}" title="${titulo}" data-proveedor="${proveedor}"${alto ? ` data-alto="${alto}"` : ''} sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation" allow="autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+const YT_SANEADO = IFRAME('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0', 'YouTube', 'youtube');
+const CAL_SANEADO = (alto = 700) => IFRAME('https://calendly.com/juan/30min', 'Calendly', 'calendly', alto);
 
 /** Lo que SÍ pasa, y cómo sale (exacto): lo que escribe el editor y lo que se pega de Word o Docs. */
 const PASAN: Array<[string, string]> = [
@@ -189,6 +230,20 @@ const PASAN: Array<[string, string]> = [
   // Pegada de Excel: clases, estilos y atributos de Office afuera; queda la tabla.
   ['<table border=0 cellpadding=0 cellspacing=0 width=300 style="border-collapse:collapse"><col width=100 span=3><tr height=20><td class=xl65 height=20 width=100 style="height:15pt;width:75pt">12</td><td class=xl66 align=right>34</td></tr></table>',
     '<table><tr><td>12</td><td>34</td></tr></table>'],
+  // Lo insertado (08/10/2026, item 15). El código de YouTube TAL CUAL lo da «Compartir → Insertar»:
+  // sale con el `src` rearmado (sin cookies, sin el `si=`) y los atributos fijos; los suyos no.
+  ['<iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ?si=AbC" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>',
+    YT_SANEADO],
+  // Una agenda de la lista con TODO lo que no puede pasar: `srcdoc`, `onload`, un sandbox más flojo,
+  // permisos de cámara, un `style`, un `name`. Sale el iframe de siempre, con el alto pedido (de la lista).
+  ['<iframe src="https://calendly.com/juan/30min" srcdoc="<script>alert(1)</script>" onload="alert(1)" sandbox="allow-scripts allow-top-navigation" allow="camera; microphone" style="position:fixed;top:0" data-alto="900" name="x" referrerpolicy="unsafe-url"></iframe>',
+    CAL_SANEADO(900)],
+  // Lo de ADENTRO de un iframe no es texto de nadie; un alto fuera de la lista va al de su proveedor.
+  ['<iframe src="https://calendly.com/juan/30min" data-alto="333"><img src=x onerror=alert(1)>texto escondido</iframe>', CAL_SANEADO(700)],
+  // Como lo escribe el editor (el nodo «insertado»): igual, letra por letra.
+  [`<p>Agenda aquí:</p>${CAL_SANEADO(700)}<p>Después</p>`, `<p>Agenda aquí:</p>${CAL_SANEADO(700)}<p>Después</p>`],
+  // Sólo lo insertado, sin texto: NO es una descripción vacía.
+  [YT_SANEADO, YT_SANEADO],
 ];
 
 type Salida = {
@@ -228,6 +283,8 @@ function correr(): Salida {
       ataque: '<p>a<script>alert(1)</script>b</p>',
       vacio: '<p></p>',
       tabla: '<p>Antes</p><table><tbody><tr><th><p>Plan</p></th><th><p>Precio</p></th></tr><tr><td><p>Base</p><p>y más</p></td><td><p>US$10<br>al mes</p></td></tr></tbody></table><p>Después</p>',
+      insertado: `<p>Agenda tu llamada:</p>${CAL_SANEADO(700)}<p>Después</p>`,
+      soloInsertado: CAL_SANEADO(700),
     },
     hrefs: ['https://ej.com', 'http://ej.com/x y', 'mailto:hola@ej.com', `mako-adjunto:${U}`, `MAKO-ADJUNTO:${U}`, `mako-adjunto:${U}/x`,
       'javascript:alert(1)', ' JAVASCRIPT:alert(1)', 'java\tscript:alert(1)', 'data:text/html,x', '/relativa', '//evil.example', 'https://u:p@ej.com', 'ftp://ej.com', 'mailto:a b@c.d'],
@@ -235,7 +292,7 @@ function correr(): Salida {
       'https://hola-mako.com/cono-ugc/curso/tapa.webp', 'https://hola-mako.com/api/compartido/curso/entrar?t=abc', 'https://hola-mako.com/api/x.png',
       'https://hola-mako.com/API/x.png', 'https://hola-mako.com/%61pi/x.png', 'https://hola-mako.com//api/x.png', 'https://hola-mako.com/_next/image?url=x',
       'https://hola-mako.com/a.png?v=1', 'https://hola-mako.com/a.png#x', 'https://hola-mako.com/crm', 'https://hola-mako.com/a.svg'],
-    validar: { vacio: '', nulo: null, numero: 42, largo: '__LARGO__', bien: '<p>Hola <script>x</script><strong>che</strong></p>' },
+    validar: { vacio: '', nulo: null, numero: 42, largo: '__LARGO__', bien: '<p>Hola <script>x</script><strong>che</strong></p>', agenda: '<iframe src="https://calendly.com/juan/30min"></iframe>' },
   };
   const out = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', codigo], {
     cwd: RAIZ, encoding: 'utf8', timeout: 170_000, input: JSON.stringify(datos), stdio: ['pipe', 'pipe', 'pipe'],
@@ -441,6 +498,57 @@ test('validarHtmlRico: vacío vale, otra cosa que texto no, y pasarse se RECHAZA
   assert.equal(s.validar.numero.ok, false);
   assert.deepEqual(s.validar.largo, { ok: false, error: 'La descripción es demasiado larga.' });
   assert.deepEqual(s.validar.bien, { ok: true, html: '<p>Hola <strong>che</strong></p>', texto: 'Hola che' });
+});
+
+// ── Lo insertado (08/10/2026, item 15 del audio) ─────────────────────────────
+
+test('lo insertado: un iframe de la lista sale con SUS atributos fijos; uno que no es de la lista no deja nada', { timeout: 180_000 }, () => {
+  const s = correr();
+  // Los ataques de iframe quedan en NADA: ni la etiqueta ni lo de adentro.
+  const desde = ATAQUES.indexOf('<iframe src="https://calendly.com.evil.tld/juan/30min"></iframe>');
+  assert.ok(desde > 0);
+  for (let i = desde; i < ATAQUES.length; i++) assert.equal(s.sanear[i], '', `«${ATAQUES[i]}» → «${s.sanear[i]}»`);
+  assert.equal(s.sanear[ATAQUES.indexOf('<iframe src="https://evil.example"></iframe>')], '');
+  // Una descripción que es SÓLO una agenda tiene texto (la dirección): una tarea así sigue siendo una tarea.
+  assert.equal(s.texto.insertado, ['Agenda tu llamada:', '', 'https://calendly.com/juan/30min', '', 'Después'].join('\n'));
+  assert.equal(s.texto.soloInsertado, 'https://calendly.com/juan/30min');
+  assert.deepEqual(s.validar.agenda, { ok: true, html: CAL_SANEADO(700), texto: 'https://calendly.com/juan/30min' });
+});
+
+test('la alarma acepta un iframe SÓLO en la forma exacta del saneo, y el componente lo dibuja', () => {
+  assert.equal(pareceSaneado(YT_SANEADO), true);
+  assert.equal(pareceSaneado(`<p>a</p>${CAL_SANEADO(900)}<p>b</p>`), true);
+  const malos = [
+    YT_SANEADO.replace('youtube-nocookie.com', 'youtube-nocookie.com.evil.tld'),
+    YT_SANEADO.replace('?rel=0', '?rel=0&autoplay=1'),
+    YT_SANEADO.replace('<iframe ', '<iframe srcdoc="x" '),
+    // Sin comillas: no es un atributo de la forma del saneo, y un `srcdoc` corre con NUESTRO origen.
+    YT_SANEADO.replace('<iframe ', '<iframe srcdoc=x '),
+    YT_SANEADO.replace('></iframe>', ' allowfullscreen></iframe>'),
+    YT_SANEADO.replace(' allow-presentation', ' allow-presentation allow-top-navigation'),
+    YT_SANEADO.replace(/ sandbox="[^"]*"/, ''),
+    YT_SANEADO.replace('></iframe>', '>texto</iframe>'),
+    YT_SANEADO.replace('</iframe>', ''),
+    YT_SANEADO.replace('title="YouTube"', "title='YouTube'"),
+    YT_SANEADO.replace('data-proveedor="youtube"', 'data-proveedor="youtube" data-alto="700"'),
+    CAL_SANEADO(700).replace('data-alto="700"', 'data-alto="333"'),
+    CAL_SANEADO(700).replace('data-proveedor="calendly"', 'data-proveedor="youtube"'),
+    '<iframe src="https://evil.tld/"></iframe>',
+  ];
+  for (const m of malos) assert.equal(pareceSaneado(m), false, m.slice(0, 160));
+  assert.equal(iframeCanonico(YT_SANEADO.slice(0, YT_SANEADO.indexOf('>') + 1)), true);
+  // El COMPONENTE: lo dibuja (y uno armado a mano no).
+  const dibujar = (h: string) => renderToStaticMarkup(createElement(HtmlSeguro, { html: h, urlDeAdjunto: () => null }));
+  assert.match(dibujar(`<p>Hola</p>${CAL_SANEADO(700)}`), /<iframe src="https:\/\/calendly\.com\/juan\/30min" title="Calendly" data-proveedor="calendly" data-alto="700" sandbox="allow-scripts/);
+  const err = console.error;
+  console.error = () => {};
+  try { assert.doesNotMatch(dibujar(malos[0]), /<iframe/); } finally { console.error = err; }
+});
+
+test('la hoja de lectura: un video a 16:9 y al ancho del texto, una agenda a su alto (un valor por regla)', () => {
+  assert.match(CSS_RICO, /\.mk-rico iframe \{[^}]*width: 100%;[^}]*height: auto;[^}]*aspect-ratio: 16 \/ 9;/);
+  assert.match(CSS_RICO, /\.mk-rico iframe\[data-alto\] \{ aspect-ratio: auto;/);
+  for (const n of ALTOS_EMBED) assert.ok(CSS_RICO.includes(`.mk-rico iframe[data-alto="${n}"] { height: ${n}px; }`), `falta el alto ${n}`);
 });
 
 // ── HtmlSeguro: la referencia, la alarma y la traducción ─────────────────────

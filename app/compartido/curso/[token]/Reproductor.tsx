@@ -9,7 +9,9 @@
 //   · YouTube con su IFrame API: `onStateChange` + `getCurrentTime`/`getDuration` cada segundo
 //     mientras reproduce.
 //   · Vimeo con su Player API (`player.js`): el evento `timeupdate` trae segundos y duración.
-//   · Loom y Drive en un iframe: se ven, pero no exponen el tiempo. La pantalla dice «Sin medir».
+//   · Panda (item 14 del 08/10/2026, «el de Panda no me lo toma»): su reproductor publica por
+//     postMessage `panda_timeupdate` (los segundos) y `panda_allData` (la duración). Ver `VideoPanda`.
+//   · Loom, Drive, Wistia y Bunny en un iframe: se ven, pero no exponen el tiempo. «Sin medir».
 //
 // El progreso se manda a /api/compartido/curso/progreso {t, c, seg, dur}: cada ~10 s mientras
 // reproduce, en pausa, al terminar, al ocultar la pestaña y —con `navigator.sendBeacon`— al
@@ -18,6 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { VideoVista } from '@/lib/curso-portal';
+import { lecturaDePanda, srcDePandaParaClase } from '@/lib/embeds';
 import { ButtonLink } from '@/app/_ui';
 import { useVistaPrevia } from './vista-previa';
 
@@ -26,7 +29,7 @@ type YTApi = {
   Player: new (el: HTMLElement, opts: {
     videoId: string; host?: string; width?: string; height?: string;
     playerVars?: Record<string, string | number>;
-    events?: { onReady?: () => void; onStateChange?: (e: { data: number }) => void; onError?: () => void };
+    events?: { onReady?: () => void; onStateChange?: (e: { data: number }) => void; onError?: (e: { data: number }) => void };
   }) => YTPlayer;
 };
 type VimeoPlayer = {
@@ -184,6 +187,8 @@ export default function Reproductor({ token, claseId, video, titulo, onPct, onDu
       return <VideoYouTube token={token} claseId={claseId} id={video.id} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
     case 'vimeo':
       return <VideoVimeo token={token} claseId={claseId} embed={video.embed} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
+    case 'panda':
+      return <VideoPanda token={token} claseId={claseId} embed={video.embed} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
     case 'iframe':
       return (
         <div className="cp-video">
@@ -251,6 +256,18 @@ function VideoNativo({ token, claseId, src, reintenta = false, titulo, onPct, on
 }
 
 /**
+ * Por qué YouTube no lo reproduce acá, desde el código de su `onError` (documentado por la IFrame API):
+ * 100 = no existe o es privado; 101 y 150 = su dueño no deja verlo fuera de YouTube; 153 = YouTube no
+ * recibió de qué página viene (el Referer: va con `strict-origin-when-cross-origin`, next.config.ts);
+ * 2 y 5 = un pedido o un reproductor que falló. Lo que no se sabe, se dice sin inventar la causa.
+ */
+function motivoDeYouTube(codigo: number): string {
+  if (codigo === 101 || codigo === 150) return 'Su dueño no deja verlo fuera de YouTube.';
+  if (codigo === 100) return 'YouTube dice que no existe o es privado.';
+  return 'YouTube no lo dejó reproducir aquí.';
+}
+
+/**
  * YouTube. ⚠️ EL REPRODUCTOR SE MONTA EN UN NODO QUE REACT NO CONOCE: `YT.Player` reemplaza el
  * elemento que recibe por su iframe, y si ese elemento fuera de React, al desmontar React
  * intentaría sacar un nodo que ya no está. React maneja la caja; adentro manda YouTube.
@@ -261,6 +278,14 @@ function VideoYouTube({ token, claseId, id, titulo, onPct, onDuracion }: {
   const { marcar, enviar } = useReporte(token, claseId, onPct);
   const caja = useRef<HTMLDivElement>(null);
   const [sinApi, setSinApi] = useState(false);
+  /**
+   * El código con que YouTube se NEGÓ a reproducirlo acá (`onError`), o `null`. Item 14 del 08/10/2026
+   * (23:10): «el de YouTube me lo permite previsualizar, pero no puedo ver el video desde la
+   * aplicación… me redirige un link». Es lo que dibuja su reproductor cuando no lo deja: la miniatura
+   * y un «Ver en YouTube». Se dice POR QUÉ, nombrando a quien dijo que no (AGENTS.md, «un mensaje de
+   * error dice de quién fue»), con el mismo botón.
+   */
+  const [fallo, setFallo] = useState<number | null>(null);
   // Por un ref: si fuera dependencia del efecto, cada render del padre rearmaría el reproductor.
   const durRef = useRef(onDuracion);
   useEffect(() => { durRef.current = onDuracion; }, [onDuracion]);
@@ -289,6 +314,7 @@ function VideoYouTube({ token, claseId, id, titulo, onPct, onDuracion }: {
         playerVars: { rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.origin },
         events: {
           onReady: decirDuracion,
+          onError: ({ data }) => { if (vivo) setFallo(Number(data)); },
           // 1 = reproduciendo · 2 = pausa · 0 = terminó (los demás: cargando, en cola).
           onStateChange: ({ data }) => {
             decirDuracion();
@@ -311,6 +337,14 @@ function VideoYouTube({ token, claseId, id, titulo, onPct, onDuracion }: {
     };
   }, [id, marcar, enviar]);
 
+  if (fallo != null) {
+    return (
+      <div className="cp-afuera">
+        <p className="cp-nota">{motivoDeYouTube(fallo)}</p>
+        <ButtonLink href={`https://www.youtube.com/watch?v=${encodeURIComponent(id)}`} newTab variant="secondary">Ver en YouTube</ButtonLink>
+      </div>
+    );
+  }
   // Sin la API (un bloqueador la cortó): el video se ve igual, pero no se puede medir.
   if (sinApi) {
     return (
@@ -353,6 +387,57 @@ function VideoVimeo({ token, claseId, embed, titulo, onPct, onDuracion }: {
   return (
     <div className="cp-video">
       <iframe ref={ref} src={embed} title={titulo} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen loading="lazy" />
+    </div>
+  );
+}
+
+/**
+ * Panda (item 14 del 08/10/2026). Su reproductor no tiene una API que se cargue: publica sus eventos
+ * por postMessage, y los lee `lecturaDePanda` (lib/embeds.ts, con lo medido). La duración llega sola
+ * a ~1,5 s de cargar —así el EDITOR pone los minutos sin que nadie le dé play— y los segundos, con
+ * cada `panda_timeupdate`.
+ *
+ * ⚠️ SE ESCUCHA SÓLO A ESTE IFRAME: `e.source` es su ventana Y `e.origin` es el origen de su `src`
+ *    (AGENTS.md, «un guard de ORIGEN se escribe con origin»). Dos clases con Panda en la misma página
+ *    (el editor con la vista del alumno) no se cruzan los segundos, y otra ventana no puede mandar
+ *    «vio el 100 %».
+ * ⚠️ `autoplay=false` (`srcDePandaParaClase`): sin él, una cuenta con el autoplay prendido arranca el
+ *    video solo y mudo, y esos segundos no son de nadie mirando (igual se descartan: `isMutedIndicator`).
+ */
+function VideoPanda({ token, claseId, embed, titulo, onPct, onDuracion }: {
+  token: string; claseId: number; embed: string; titulo: string; onPct?: (pct: number) => void; onDuracion?: (seg: number) => void;
+}) {
+  const { marcar, enviar } = useReporte(token, claseId, onPct);
+  const ref = useRef<HTMLIFrameElement>(null);
+  const durRef = useRef(onDuracion);
+  useEffect(() => { durRef.current = onDuracion; }, [onDuracion]);
+  const src = srcDePandaParaClase(embed);
+
+  useEffect(() => {
+    let origen = '';
+    try { origen = new URL(embed).origin; } catch { return; }
+    let dur: number | null = null;
+    let dicha = false;
+    const alMensaje = (e: MessageEvent) => {
+      if (!ref.current || e.source !== ref.current.contentWindow || e.origin !== origen) return;
+      const l = lecturaDePanda(e.data);
+      if (!l) return;
+      if (l.tipo === 'duracion') {
+        dur = l.seg;
+        if (!dicha) { dicha = true; durRef.current?.(l.seg); }
+        return;
+      }
+      if (l.tipo === 'avance') { marcar(l.seg, dur); return; }
+      if (l.seg != null) marcar(l.seg, dur);
+      enviar();
+    };
+    window.addEventListener('message', alMensaje);
+    return () => { window.removeEventListener('message', alMensaje); enviar(); };
+  }, [embed, marcar, enviar]);
+
+  return (
+    <div className="cp-video">
+      <iframe ref={ref} src={src} title={titulo} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen loading="lazy" />
     </div>
   );
 }

@@ -31,6 +31,8 @@ type FilaClase = {
   tarea: string; campos: Campo[] | null; obligatoria: boolean; por_area?: boolean | null;
   /** La descripción rica (mig 0216) y el candado de la clase (mig 0220). */
   descripcion_html?: string | null; bloqueo?: unknown;
+  /** La consigna de la tarea con formato (mig 0226). `null` = no tiene: se dibuja `tarea`. */
+  tarea_html?: string | null;
 };
 type FilaProgreso = FilaPropuesta & {
   clase_id: number; segundos_max: number | string; duracion_seg: number | string | null; pct: number;
@@ -44,6 +46,10 @@ type FilaProgreso = FilaPropuesta & {
 };
 
 /**
+ * ⚠️ TRAE `tarea_html` (mig 0226, la consigna de la tarea con formato): la 0226 va ANTES del deploy,
+ * por lo mismo que las de abajo — sin la columna, PostgREST rechaza la consulta entera y se caen el
+ * portal de cada alumno, la ficha, la tab y el cron.
+ *
  * ⚠️ TRAE `descripcion_html` (mig 0216) Y `bloqueo` (mig 0220), así que las dos van ANTES del
  * deploy, por lo mismo que la 0212 de abajo: el portal necesita el candado de cada clase para decidir
  * qué viaja, y la lección dibuja la descripción rica.
@@ -53,7 +59,7 @@ type FilaProgreso = FilaPropuesta & {
  * `grabar` (mig 0208), que se dejó afuera a propósito porque el alumno no la necesita; ésta la
  * necesita justamente el alumno.
  */
-export const COLUMNAS_CLASE = 'id, producto_id, etapa, orden, titulo, descripcion, tipo, minutos, video_tipo, video_url, video_path, tarea, campos, obligatoria, por_area, descripcion_html, bloqueo';
+export const COLUMNAS_CLASE = 'id, producto_id, etapa, orden, titulo, descripcion, tipo, minutos, video_tipo, video_url, video_path, tarea, campos, obligatoria, por_area, descripcion_html, bloqueo, tarea_html';
 
 export const aClase = (f: FilaClase): Clase => ({
   id: Number(f.id), productoId: Number(f.producto_id), etapa: f.etapa, orden: f.orden ?? 0,
@@ -65,6 +71,8 @@ export const aClase = (f: FilaClase): Clase => ({
   // y un candado mal formado vuelve como «el default» — nunca como «abierto» (ver ahí).
   bloqueo: saneaBloqueo(f.bloqueo),
   descripcionHtml: typeof f.descripcion_html === 'string' ? f.descripcion_html : '',
+  // La consigna con formato (mig 0226). Vacía es «no tiene», igual que NULL: se dibuja `tarea`.
+  tareaHtml: typeof f.tarea_html === 'string' && f.tarea_html.trim() ? f.tarea_html : null,
 });
 
 const aProgreso = (f: FilaProgreso): Progreso => ({

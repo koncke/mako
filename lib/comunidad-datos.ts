@@ -43,6 +43,7 @@ import {
   consultaDeOrden, ordenarPorLikes, esOrden, puntosPorMiembro, tablaDeRanking, enLinea, fotoDeLead,
   sanearPerfil, linksGuardados, aperturasPorNivel, nombreCoincide, esMimeAdjunto, esImagen, pathDeAdjunto,
   pathEsDeLaComunidad, sanearTexto, puedeComentar, puedeModerar, puedeEditarAbout, puedeGestionarEventos, puedeSacar,
+  puedeComentarLaClase,
   sanearAbout, textoDeAbout, patronDeBusqueda, textoCoincide,
   BUCKET_COMUNIDAD, PAGINA_FEED, TOPE_ADJUNTO_BYTES, MAX_FIJADOS, MIN_BUSQUEDA,
   type ActorRegla, type CategoriaRegla, type OrdenFeed, type PermisoCategoria,
@@ -50,10 +51,12 @@ import {
 import { destinatarios, avisosDeComentario, type AvisoPendiente } from './comunidad-notificaciones';
 import { esZonaValida } from './comunidad-eventos';
 import { moduloPermitido, type AlcanceCurso } from './curso-alcance';
+// El ajuste «Comentarios en las clases» (mig 0227): su clave y su saneo son de lib/curso-estilo.ts, puro.
+import { claveDe, sanearAjuste, type Ajuste } from './curso-estilo';
 import type {
   MiembroVista, CategoriaVista, PostVista, PostDetalle, ComentarioVista, FeedVista, ComunidadVista,
   YoVista, FilaRanking, RankingVista, MiembroDirectorio, MiembrosVista, PerfilVista, FiltroMiembros,
-  Resultado, AdjuntoVista, AboutVista, BusquedaVista,
+  Resultado, AdjuntoVista, AboutVista, BusquedaVista, HiloClaseVista,
 } from './comunidad-tipos';
 
 // ── Quién actúa ───────────────────────────────────────────────────────────────────
@@ -131,7 +134,16 @@ export type FilaPost = {
   adjunto_path: string | null; adjunto_nombre: string | null; adjunto_mime: string | null; adjunto_bytes: number | null;
   encuesta: unknown; fijado_at: string | null; actividad_at: string; editado_at: string | null;
   comentarios_cerrados_at: string | null; created_at: string;
+  /** El hilo de una CLASE (mig 0227); `null` = un post del feed. Viene sólo con `COLS_POST_CLASE`. */
+  clase_id?: number | null;
 };
+
+/**
+ * Las columnas de un post MÁS su clase (mig 0227). Va aparte de `COLS_POST` y no adentro: la lista de
+ * `COLS_POST` la compara tests/comunidad-modelo.test.ts contra la 0217, y la columna nueva vive en la
+ * 0227. La pide `postDe`, que es la que decide si un alumno ve el hilo de una clase.
+ */
+const COLS_POST_CLASE = `${COLS_POST}, clase_id`;
 
 const COLS_COMENTARIO = 'id, post_id, padre_id, miembro, lead_id, autor_nombre, cuerpo, menciones, editado_at, created_at';
 type FilaComentario = {
@@ -197,8 +209,10 @@ export async function categoriasDeLaComunidad(ws: number, productoId: number): P
 
 /** El post fijado MÁS NUEVO de la comunidad (`null` = no hay ninguno): el default de «Comentar». */
 export async function ultimoPostFijado(ws: number, productoId: number): Promise<{ id: number; titulo: string } | null> {
+  // Sin los hilos de las clases (mig 0227): hoy no se pueden fijar (`fijarPost`), y si un día se pudiera,
+  // el default de «Comentar» no puede caer en el hilo de una clase que el alumno todavía no abrió.
   const { data, error } = await de(ws, 'comunidad_posts').select('id, titulo')
-    .eq('producto_id', productoId).not('fijado_at', 'is', null).order('fijado_at', { ascending: false }).limit(1).maybeSingle();
+    .eq('producto_id', productoId).is('clase_id', null).not('fijado_at', 'is', null).order('fijado_at', { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(error.message);
   const f = data as { id: number; titulo: string } | null;
   return f ? { id: Number(f.id), titulo: f.titulo } : null;
@@ -652,19 +666,33 @@ export async function tarjetas(a: Actor, filas: readonly FilaPost[]): Promise<Po
       video: video ? { proveedor: video.proveedor, embed: video.embed, url: video.url } : null,
       adjunto,
       encuesta: enc ? resultadosEncuesta(enc, votos.get(id) ?? [], a.clave) : null,
-      puedoEditar: puedeEditar(a, f.miembro),
-      puedoBorrar: puedeBorrar(a, f.miembro),
+      // El hilo de una clase (mig 0227) no se edita ni se borra entero (`editarPost`, `borrarPost`): abierto
+      // desde la campana o con `?post=`, el menú no lo ofrece. (Del feed llega sin `clase_id`: no es uno.)
+      puedoEditar: f.clase_id == null && puedeEditar(a, f.miembro),
+      puedoBorrar: f.clase_id == null && puedeBorrar(a, f.miembro),
       puedoLikear: puedeDarLike(a, f.miembro),
       cerrado: f.comentarios_cerrados_at != null,
     };
   });
 }
 
+/**
+ * Un post de ESTA comunidad, o `null`. Es la puerta de toda acción sobre un post (abrirlo, comentarlo,
+ * likearlo, seguirlo, editarlo, borrarlo, fijarlo, cerrarlo).
+ *
+ * ⚠️ EL HILO DE UNA CLASE (mig 0227) LO VE SÓLO QUIEN PUEDE VER LA CLASE: para un alumno, `null` si la
+ *    clase no se le abre (su candado, sus permisos) o si el curso tiene los comentarios apagados — la
+ *    misma respuesta que un post que no existe, así no cuenta que hay un hilo detrás. Va ACÁ y no en
+ *    cada acción porque todas pasan por acá: la que se agregue mañana lo hereda (AGENTS.md, «lo que vale
+ *    para TODOS los cambios se escribe donde pasan todos»).
+ */
 export async function postDe(a: Actor, postId: number): Promise<FilaPost | null> {
-  const { data, error } = await de(a.ws, 'comunidad_posts').select(COLS_POST)
+  const { data, error } = await de(a.ws, 'comunidad_posts').select(COLS_POST_CLASE)
     .eq('producto_id', a.productoId).eq('id', postId).maybeSingle();
   if (error) throw new Error(error.message);
-  return (data as FilaPost | null) ?? null;
+  const f = (data as FilaPost | null) ?? null;
+  if (f && f.clase_id != null && !(await veElHiloDeLaClase(a, Number(f.clase_id)))) return null;
+  return f;
 }
 
 // ── Lo que se ve al entrar: la cabecera y la columna lateral ─────────────────────
@@ -752,7 +780,9 @@ export async function feedComunidad(a: Actor, q: { categoriaId?: unknown; orden?
   const orden: OrdenFeed = esOrden(q.orden) ? q.orden : 'default';
   const { columna, desde, porLikes } = consultaDeOrden(orden, Date.now());
   const base = () => {
-    let x = de(a.ws, 'comunidad_posts').select(COLS_POST).eq('producto_id', a.productoId);
+    // ⚠️ SIN LOS HILOS DE LAS CLASES (mig 0227): son los comentarios de una lección, viven debajo de
+    //    ella, y en el feed le nombrarían a un alumno una clase que su candado todavía no le abre.
+    let x = de(a.ws, 'comunidad_posts').select(COLS_POST).eq('producto_id', a.productoId).is('clase_id', null);
     if (categoriaId) x = x.eq('categoria_id', categoriaId);
     return x;
   };
@@ -941,6 +971,8 @@ export async function editarPost(a: Actor, postIdRaw: unknown, raw: unknown): Pr
     const postId = idValido(postIdRaw);
     const f = postId ? await postDe(a, postId) : null;
     if (!f) return { ok: false, error: 'Ese post ya no está.' };
+    // El hilo de una clase no tiene texto propio: lo que se edita son sus comentarios (mig 0227).
+    if (f.clase_id != null) return { ok: false, error: 'Es el hilo de una clase.' };
     if (!puedeEditar(a, f.miembro)) return { ok: false, error: 'Solo quien lo escribió lo edita.' };
     const b = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     const [categorias, nombres] = await Promise.all([categoriasDe(a.ws, a.productoId), nombresMencionables(a, b.menciones)]);
@@ -967,6 +999,10 @@ export async function borrarPost(a: Actor, postIdRaw: unknown): Promise<Resultad
     const postId = idValido(postIdRaw);
     const f = postId ? await postDe(a, postId) : null;
     if (!f) return { ok: true };
+    // ⚠️ EL HILO DE UNA CLASE NO SE BORRA ENTERO (mig 0227): su «autor» es quien comentó primero, y
+    //    borrarlo se llevaría en cascada los comentarios de todos los demás. Se borra comentario por
+    //    comentario, o el equipo cierra los comentarios.
+    if (f.clase_id != null) return { ok: false, error: 'Es el hilo de una clase.' };
     if (!puedeBorrar(a, f.miembro)) return { ok: false, error: 'Solo quien lo escribió o el equipo lo borra.' };
     const { error } = await de(a.ws, 'comunidad_posts').delete().eq('producto_id', a.productoId).eq('id', f.id);
     if (error) return { ok: false, error: error.message };
@@ -984,6 +1020,8 @@ export async function fijarPost(a: Actor, postIdRaw: unknown, si: boolean): Prom
     const postId = idValido(postIdRaw);
     const f = postId ? await postDe(a, postId) : null;
     if (!f) return { ok: false, error: 'Ese post ya no está.' };
+    // Un hilo de clase no sale en el feed (mig 0227): fijarlo le comería uno de los 3 lugares a nada.
+    if (f.clase_id != null) return { ok: false, error: 'Es el hilo de una clase.' };
     if (si) {
       const { count, error } = await de(a.ws, 'comunidad_posts').select('id', { count: 'exact', head: true })
         .eq('producto_id', a.productoId).not('fijado_at', 'is', null);
@@ -1005,7 +1043,12 @@ async function comentarioDe(a: Actor, id: number): Promise<FilaComentario | null
   const { data, error } = await de(a.ws, 'comunidad_comentarios').select(COLS_COMENTARIO)
     .eq('producto_id', a.productoId).eq('id', id).maybeSingle();
   if (error) throw new Error(error.message);
-  return (data as FilaComentario | null) ?? null;
+  const c = (data as FilaComentario | null) ?? null;
+  // ⚠️ UN COMENTARIO SE VE SÓLO SI SU POST SE VE (mig 0227): el de un hilo de clase que el alumno no
+  //    puede abrir no se likea, no se responde, no se edita ni se borra. `postDe` lo decide; el equipo
+  //    no pasa por acá porque ve todos los hilos (y así no paga la lectura de más).
+  if (c && !a.equipo && !(await postDe(a, Number(c.post_id)))) return null;
+  return c;
 }
 
 /**
@@ -1113,6 +1156,181 @@ export async function borrarComentario(a: Actor, idRaw: unknown): Promise<Result
     return { ok: true };
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo borrar.') };
+  }
+}
+
+// ── Los comentarios de una CLASE (item 13 del audio del 08/10/2026, mig 0227) ──────────────────────
+// «Algo que falta dentro de las clases, tal vez estaría bueno, es agregar si el usuario quiere agregar un
+// apartado de chat, que a veces muchas plataformas tienen, entonces vos puedes chatear acerca de esa
+// clase» (minuto 15:00, docs/feedback-curso-08oct.md). Es un post de ESTA comunidad con `clase_id`,
+// creado con el PRIMER comentario: así hereda lo que la comunidad ya resuelve —comentar en dos niveles,
+// los likes (los puntos y el nivel), la moderación, la campana y seguir el hilo— sin una segunda copia.
+// Lo dibuja app/_cursos/ComentariosClase.tsx debajo de la lección, en el portal y en la tab Curso.
+//
+// ⚠️ LA MISMA PUERTA QUE EL CURSO: un ALUMNO ve y comenta el hilo de una clase SÓLO si esa clase se le
+//    abre (`claseDelAlumno` con `exigeAbierta`, lib/curso-portal.ts: su producto, sus permisos, su
+//    candado y el de su módulo) y si el curso tiene los comentarios PRENDIDOS (el ajuste del menú de la
+//    marca, lib/curso-estilo.ts). Se decide en el server en CADA pedido, y no sólo al dibujar: cualquier
+//    acción sobre el hilo pasa por `postDe`, que vuelve a preguntar acá.
+// ⚠️ IDOR: la clase sale de `claseDeId` (lib/curso-datos.ts), que lee con el inquilino del CONTEXTO —el
+//    de la firma del token o el de la sesión— y además tiene que ser del producto del actor. Una clase de
+//    otro producto o de otro negocio contesta igual que una que no existe.
+
+type ClaseComentable = { id: number; titulo: string };
+
+/** Lo que `claseParaComentar` ya decidió para ESTE actor: un pedido es un actor, y el candado se evalúa una vez. */
+const CLASES_DEL_ACTOR = new WeakMap<Actor, Map<number, Promise<ClaseComentable | null>>>();
+
+/**
+ * ¿El curso del producto tiene prendidos los comentarios de las clases? Sin fila, no (es el default).
+ * ⚠️ TIRA SI NO PUEDE LEER, y no devuelve «apagado»: esto DECIDE si un alumno lee el hilo (AGENTS.md,
+ *    «una lectura que cae al default sirve para dibujar, nunca para decidir»). Quien llama contesta su
+ *    error, que se reintenta; un hilo abierto de más no se cierra.
+ */
+async function comentariosDelCurso(ws: number, productoId: number): Promise<boolean> {
+  const ajuste: Ajuste = { tipo: 'comentarios' };
+  const { data, error } = await getSupabaseServer().from('curso_estilo').select('valor')
+    .eq('workspace_id', ws).eq('producto_id', productoId).eq('clave', claveDe(ajuste)).maybeSingle();
+  if (error) throw new Error(error.message);
+  return sanearAjuste(ajuste, (data as { valor: unknown } | null)?.valor) === 'si';
+}
+
+/**
+ * La clase, leída y DECIDIDA por `puedeComentarLaClase` (lib/comunidad-reglas.ts, pura y con test): acá
+ * sólo se lee lo que la regla pide, en el orden que ahorra lecturas. `null` = no comenta ahí.
+ */
+async function leerClaseParaComentar(a: Actor, claseId: number): Promise<ClaseComentable | null> {
+  // `claseDeId` y `claseDelAlumno` leen con `getTenantDb`: un contexto distinto del actor leería las
+  // clases de otro negocio (la misma guarda que `miembrosDeLaComunidad`).
+  const mismoWorkspace = (await getWorkspaceActual()) === a.ws;
+  if (!mismoWorkspace) return null;
+  if (a.equipo) {
+    // El equipo ve el hilo de cualquier clase de SU producto, prendido o no: es quien modera.
+    const { claseDeId } = await import('./curso-datos');
+    const c = await claseDeId(claseId);
+    const si = puedeComentarLaClase({
+      equipo: true, mismoWorkspace, productoDeLaClase: c?.productoId ?? null, productoDelActor: a.productoId,
+      comentariosPrendidos: false, abiertaParaElAlumno: false,
+    });
+    return si && c ? { id: c.id, titulo: c.titulo } : null;
+  }
+  // Apagados, no se evalúa el candado (la lectura más cara): la regla ya dice que no.
+  const prendidos = a.leadId != null && (await comentariosDelCurso(a.ws, a.productoId));
+  if (!prendidos || a.leadId == null) return null;
+  const { claseDelAlumno } = await import('./curso-portal');
+  const r = await claseDelAlumno(a.leadId, claseId, { exigeAbierta: true, alcance: a.alcance ?? null });
+  const ok = r.decision === 'ok' ? r : null;
+  const si = puedeComentarLaClase({
+    equipo: false, mismoWorkspace, productoDeLaClase: ok ? ok.clase.productoId : null, productoDelActor: a.productoId,
+    comentariosPrendidos: prendidos, abiertaParaElAlumno: ok != null && ok.abierta === true,
+  });
+  return si && ok ? { id: ok.clase.id, titulo: ok.clase.titulo } : null;
+}
+
+/** `leerClaseParaComentar`, una vez por actor y clase (`postDe` la pregunta en cada acción sobre el hilo). */
+function claseParaComentar(a: Actor, claseId: number): Promise<ClaseComentable | null> {
+  if (!Number.isInteger(claseId) || claseId <= 0) return Promise.resolve(null);
+  let m = CLASES_DEL_ACTOR.get(a);
+  if (!m) { m = new Map(); CLASES_DEL_ACTOR.set(a, m); }
+  const memo = m;
+  let p = memo.get(claseId);
+  if (!p) {
+    p = leerClaseParaComentar(a, claseId);
+    memo.set(claseId, p);
+    // Una lectura caída no queda guardada como respuesta: el próximo pregunta de nuevo.
+    p.catch(() => memo.delete(claseId));
+  }
+  return p;
+}
+
+/** ¿Este actor ve el hilo de esta clase? Es lo que `postDe` pregunta de un post con `clase_id`. */
+async function veElHiloDeLaClase(a: Actor, claseId: number): Promise<boolean> {
+  return (await claseParaComentar(a, claseId)) != null;
+}
+
+/** El post que es el hilo de la clase, o `null` (nadie comentó todavía). */
+async function postDeLaClase(a: Actor, claseId: number): Promise<FilaPost | null> {
+  const { data, error } = await de(a.ws, 'comunidad_posts').select(COLS_POST_CLASE)
+    .eq('producto_id', a.productoId).eq('clase_id', claseId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as FilaPost | null) ?? null;
+}
+
+/** El título del hilo: el de la clase, en una línea y con el tope de un post (CHECK de la 0217: 1 a 200). */
+const tituloDelHilo = (titulo: string): string => titulo.replace(/\s+/g, ' ').trim().slice(0, 200).trim() || 'Clase';
+
+/**
+ * Crea el hilo de la clase (el primer comentario lo pide). Quien lo abre lo SIGUE, como el autor de un
+ * post: le avisan las respuestas. Su «autor» es quien comentó primero, y por eso el hilo no se edita ni
+ * se borra entero (`editarPost`, `borrarPost`).
+ *
+ * ⚠️ DOS PRIMEROS COMENTARIOS A LA VEZ: el índice único de la 0227 deja pasar uno; el otro recibe 23505
+ *    y usa el hilo que ganó. Sin eso habría dos hilos y la mitad de los comentarios en cada uno.
+ */
+async function abrirHiloDeLaClase(a: Actor, clase: ClaseComentable): Promise<FilaPost> {
+  const ahora = new Date().toISOString();
+  const { data, error } = await de(a.ws, 'comunidad_posts').insert({
+    producto_id: a.productoId, categoria_id: null, miembro: a.clave, lead_id: a.leadId, autor_nombre: a.nombre,
+    titulo: tituloDelHilo(clase.titulo), cuerpo: '', menciones: [], clase_id: clase.id, actividad_at: ahora, created_at: ahora,
+  }).select(COLS_POST_CLASE).single();
+  if (error) {
+    if (error.code === '23505') {
+      const otro = await postDeLaClase(a, clase.id);
+      if (otro) return otro;
+    }
+    throw new Error(error.message);
+  }
+  const fila = data as FilaPost;
+  const { error: eSigue } = await de(a.ws, 'comunidad_seguimientos').upsert({
+    producto_id: a.productoId, miembro: a.clave, lead_id: a.leadId, objetivo: objetivoPost(Number(fila.id)), post_id: fila.id,
+  }, { onConflict: 'workspace_id,producto_id,objetivo,miembro', ignoreDuplicates: true });
+  if (eSigue) console.warn('[comunidad] no pude anotar que sigue el hilo de la clase:', eSigue.message);
+  return fila;
+}
+
+/**
+ * Los comentarios de una clase: el hilo entero (dos niveles), si quien mira lo sigue, si está cerrado y
+ * su cara. Sin hilo todavía, vacío (`postId: null`): no es un error, es una clase sin comentarios.
+ */
+export async function hiloDeClase(a: Actor, claseIdRaw: unknown): Promise<Resultado<{ hilo: HiloClaseVista }>> {
+  try {
+    const claseId = idValido(claseIdRaw);
+    const clase = claseId ? await claseParaComentar(a, claseId) : null;
+    if (!clase) return { ok: false, error: 'Esa clase ya no está.' };
+    const [fila, info, puntos] = await Promise.all([
+      postDeLaClase(a, clase.id),
+      infoDeMiembros(a.ws, [a.clave], new Map([[a.clave, a.nombre]])),
+      puntosDe(a.ws, a.productoId, [a.clave]),
+    ]);
+    const base = { claseId: clase.id, yo: miembroVista(a.clave, info, puntos), puedoModerar: puedeModerar(a) };
+    // `detallePost` vuelve a pasar por `postDe` (el candado, ya decidido para este actor: sin costo).
+    const d = fila ? await detallePost(a, fila.id) : null;
+    if (!d) return { ok: true, hilo: { ...base, postId: null, hilo: [], cerrado: false, sigo: false } };
+    return { ok: true, hilo: { ...base, postId: d.id, hilo: d.hilo, cerrado: d.cerrado, sigo: d.sigo } };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No pude cargar los comentarios.') };
+  }
+}
+
+/**
+ * Comenta una clase en el PRIMER nivel: crea el hilo si es el primero, y comenta con `comentar` (la de
+ * la comunidad, no una copia: sus avisos, su «cerrado», sus menciones). Responder a un comentario es
+ * `comentar` sobre el post del hilo, con su `responderA`, por la puerta de siempre.
+ */
+export async function comentarEnClase(a: Actor, claseIdRaw: unknown, raw: unknown): Promise<Resultado<{ comentario: ComentarioVista; postId: number }>> {
+  try {
+    const claseId = idValido(claseIdRaw);
+    const clase = claseId ? await claseParaComentar(a, claseId) : null;
+    if (!clase) return { ok: false, error: 'Esa clase ya no está.' };
+    const b = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    // ⚠️ EL TEXTO SE VALIDA ANTES DE CREAR EL HILO: un comentario vacío no deja un hilo vacío colgado.
+    const previa = validarComentario({ cuerpo: b.cuerpo }, () => undefined);
+    if (!previa.ok) return previa;
+    const post = (await postDeLaClase(a, clase.id)) ?? (await abrirHiloDeLaClase(a, clase));
+    const r = await comentar(a, post.id, { cuerpo: b.cuerpo, menciones: b.menciones, responderA: null });
+    return r.ok ? { ok: true, comentario: r.comentario, postId: Number(post.id) } : r;
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo comentar.') };
   }
 }
 
@@ -1541,7 +1759,8 @@ export async function buscarEnComunidad(a: Actor, qRaw: unknown): Promise<Busque
   if (q.length < MIN_BUSQUEDA) return { posts: [], miembros: [] };
   const patron = patronDeBusqueda(q);
   const candidatos = async (col: 'titulo' | 'cuerpo') => {
-    const { data, error } = await de(a.ws, 'comunidad_posts').select(COLS_POST).eq('producto_id', a.productoId)
+    // Sin los hilos de las clases (mig 0227), por lo mismo que el feed: el título de uno es el de su clase.
+    const { data, error } = await de(a.ws, 'comunidad_posts').select(COLS_POST).eq('producto_id', a.productoId).is('clase_id', null)
       .ilike(col, patron).order('created_at', { ascending: false }).limit(CANDIDATOS_BUSQUEDA);
     if (error) throw new Error(error.message);
     return (data ?? []) as FilaPost[];
@@ -1572,6 +1791,9 @@ export async function hechosDeLaComunidad(ws: number): Promise<{ categorias: num
     try {
       let q = de(ws, t).select('id', { count: 'exact', head: true });
       if (filtro === 'alumno') q = q.not('lead_id', 'is', null);
+      // «Tu primer post» es un post del FEED: el hilo de una clase (mig 0227) lo crea el primer comentario
+      // de un alumno, y no es algo que el equipo haya publicado. Su participación sí cuenta (sus comentarios).
+      if (t === 'comunidad_posts' && filtro !== 'alumno') q = q.is('clase_id', null);
       const { count, error } = await q;
       return error || count == null ? null : count;
     } catch {

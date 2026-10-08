@@ -24,11 +24,13 @@ import { getSupabaseServer } from './supabase';
 import { COLUMNAS_CLASE, aClase } from './curso-datos';
 import { modulosDelCurso } from './curso-modulos-datos';
 import type { ModuloCurso } from './curso-modulos';
-import { tieneTarea, type Clase, type TipoClase } from './curso';
+import { erroresDeCampos, tieneTarea, type Clase, type TipoClase } from './curso';
 import {
   validarClase, validarVideoEntrada, validarCamposEntrada, pathDeSubida, pathEsDelWorkspace, reordenar, clasesDeEtapa, siguienteOrden,
-  ordenConClaseEn, esMimeVideo, TOPE_VIDEO_BYTES, TOPE_TITULO, TOPE_TEXTO, ERROR_OBLIGATORIA_SUELTO, TIPOS_CLASE, type AccesoFila,
+  ordenConClaseEn, esMimeVideo, TOPE_VIDEO_BYTES, TOPE_TITULO, TOPE_TEXTO, ERROR_OBLIGATORIA_SUELTO, ERROR_OBLIGATORIA_SIN_TAREA, TIPOS_CLASE,
+  type AccesoFila,
 } from '@/app/customer-success/curso/reglas';
+import { borradorDe, igualParte, videoParaGuardar } from '@/app/customer-success/curso/leccion-reglas';
 
 /** El bucket privado de la mig 0202. */
 export const BUCKET_CURSO = 'curso-videos';
@@ -566,7 +568,7 @@ export async function guardarCampoClase(claseId: number, cambio: unknown): Promi
       case 'obligatoria': {
         if (typeof valor !== 'boolean') return { ok: false, error: 'Marca inválida.' };
         if (valor) {
-          if (!tieneTarea(c)) return { ok: false, error: 'Para cerrar la etapa, agrega la tarea.' };
+          if (!tieneTarea(c)) return { ok: false, error: ERROR_OBLIGATORIA_SIN_TAREA };
           const prod = await productoConModulos(c.productoId);
           if (!prod) return { ok: false, error: 'Ese producto no es de este negocio.' };
           if (!prod.modulos.find((m) => m.clave === c.etapa)?.vinculado) return { ok: false, error: ERROR_OBLIGATORIA_SUELTO };
@@ -601,6 +603,161 @@ export async function guardarCampoClase(claseId: number, cambio: unknown): Promi
     if (error) return { ok: false, error: error.message };
     if (!data) return { ok: false, error: 'Esa clase ya no existe.' };
     if (alFinal) await alFinal();
+    return { ok: true, clase: aClase(data as FilaDeClase) };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo guardar.') };
+  }
+}
+
+// ── La lección se GUARDA A MANO (audio del 08/10/2026, items 1 y 2) ──────────────
+// «Prefiero que haya un botón que me obligue a guardar de forma manual frente a que simplemente cambie y
+// que se guarde solo, porque siento que esto puede llegar a traer bugs» (14:30). La pantalla junta lo que
+// se edita adentro de una clase en un borrador (app/customer-success/curso/LeccionEditable.tsx) y lo
+// manda con «Guardar»: esto lo escribe DE UNA VEZ, en UN `update`.
+//
+// ⚠️ SÓLO LAS PARTES QUE CAMBIARON (`CambiosLeccion`): lo que la persona no tocó no viaja, así que no se
+//    reescribe con lo que la pantalla tenía en memoria (una pestaña vieja no pisa lo que otra guardó).
+// ⚠️ COMPARE-AND-SET EN DOS PISOS. (1) Cada parte que se escribe trae lo que la pantalla tenía de BASE
+//    (`antes`); si la fila ya dice otra cosa, otra pestaña la cambió y se contesta `conflicto` con la clase
+//    como está (la pantalla se pone al día y un segundo «Guardar» pisa a sabiendas). Se compara CONTENIDO y
+//    no `updated_at` a secas: los minutos que escribe solo el reproductor, el candado y «Obligatoria» del
+//    menú tocan `updated_at` sin tocar nada de la lección, y un `updated_at` viejo los tomaría por un choque
+//    con uno mismo. (2) El `update` va con `.eq('updated_at', lo leído)`: entre leer y escribir no se
+//    cuela nadie; si alguien se coló, es un choque igual.
+// ⚠️ LO INCOMPLETO SE RECHAZA, NUNCA SE DESCARTA (item 2: «se me borraron todos los campos»): con
+//    `erroresDeCampos` (lib/curso.ts) antes de sanear, por campo, y con lo que el saneo diga que tiró
+//    (`sanearCamposDelServidor`, lib/curso-tarea-html.ts). Es la segunda capa: la pantalla ya lo pinta en
+//    rojo y no lo manda. Al server no le llega un campo que se pierda en silencio.
+
+/** Lo que contesta `guardarLeccion`: la clase como quedó, o por qué no, con lo que se pinta en rojo. */
+export type ResultadoLeccion =
+  | { ok: true; clase: Clase }
+  | { ok: false; error: string; errores?: Record<string, string>; conflicto?: boolean; clase?: Clase };
+
+const PARTES_LECCION = ['titulo', 'video', 'descripcionHtml', 'tareaHtml', 'campos', 'porArea', 'minutos'] as const;
+
+export async function guardarLeccion(claseId: number, rawCambios: unknown, rawAntes: unknown): Promise<ResultadoLeccion> {
+  try {
+    const cambios = rawCambios && typeof rawCambios === 'object' && !Array.isArray(rawCambios) ? (rawCambios as Record<string, unknown>) : null;
+    if (!cambios) return { ok: false, error: 'No llegó el cambio.' };
+    const hay = (k: string) => Object.prototype.hasOwnProperty.call(cambios, k);
+    const ajenas = Object.keys(cambios).filter((k) => !(PARTES_LECCION as readonly string[]).includes(k));
+    if (ajenas.length || !PARTES_LECCION.some(hay)) return { ok: false, error: 'No llegó el cambio.' };
+    // Los minutos son del video: viajan con un video nuevo, nunca solos (solos van por `guardarCampoClase`).
+    if (hay('minutos') && !hay('video')) return { ok: false, error: 'No llegó el cambio.' };
+    const antes = rawAntes && typeof rawAntes === 'object' && !Array.isArray(rawAntes) ? (rawAntes as Record<string, unknown>) : {};
+    if (!Number.isInteger(claseId) || claseId <= 0) return { ok: false, error: 'Esa clase ya no existe.' };
+
+    const db = await getTenantDb();
+    const leer = async () => {
+      const { data, error } = await db.from('curso_clases').select(`${COLUMNAS_CLASE}, updated_at`).eq('id', claseId).is('borrada_at', null).maybeSingle();
+      if (error) throw new Error(error.message);
+      return data ? { clase: aClase(data as FilaDeClase), version: (data as { updated_at: string | null }).updated_at } : null;
+    };
+    const fila0 = await leer();
+    if (!fila0) return { ok: false, error: 'Esa clase ya no existe.' };
+    const c = fila0.clase;
+
+    // (1) ¿La fila sigue diciendo lo que la pantalla tenía de base, en cada parte que se va a escribir? La
+    //     base se deriva con la MISMA función que usa la pantalla (`borradorDe`): dos derivaciones de «lo que
+    //     dice la fila» darían un choque falso en cada guardado de una clase vieja (el texto plano en párrafos).
+    const actual = borradorDe(c, 'costado');
+    const enLaFila: Record<string, unknown> = { ...actual, video: videoParaGuardar(actual.video) };
+    const choca = PARTES_LECCION.filter((k) => k !== 'minutos' && hay(k)).some((k) => !igualParte(enLaFila[k], antes[k]));
+    if (choca) return { ok: false, error: 'Cambió en otra pestaña.', conflicto: true, clase: c };
+
+    // Lo que se escribe, parte por parte, con lo que se pinta en rojo.
+    const errores: Record<string, string> = {};
+    const fila: Record<string, unknown> = {};
+    const htmls: string[] = [];
+    let borrarDespues: string | null = null;
+
+    if (hay('titulo')) {
+      const titulo = typeof cambios.titulo === 'string' ? cambios.titulo.replace(/\s+/g, ' ').trim() : '';
+      if (!titulo) errores.titulo = 'Falta el título';
+      else if (titulo.length > TOPE_TITULO) errores.titulo = 'Título muy largo';
+      else fila.titulo = titulo;
+    }
+    if (hay('descripcionHtml')) {
+      const { validarHtmlRico } = await import('./html-seguro');
+      const v = validarHtmlRico(cambios.descripcionHtml);
+      if (!v.ok) errores.descripcion = v.error;
+      else { fila.descripcion_html = v.html; fila.descripcion = v.texto.slice(0, TOPE_TEXTO); htmls.push(v.html); }
+    }
+    let tareaFinal = c.tarea;
+    let tareaHtmlFinal: string | null = c.tareaHtml ?? null;
+    if (hay('tareaHtml')) {
+      const { tareaParaGuardar } = await import('./curso-tarea-html');
+      const v = tareaParaGuardar(cambios.tareaHtml);
+      if (!v.ok) errores.tarea = v.error;
+      else { fila.tarea_html = v.tareaHtml; fila.tarea = v.tarea; tareaFinal = v.tarea; tareaHtmlFinal = v.tareaHtml; if (v.tareaHtml) htmls.push(v.tareaHtml); }
+    }
+    let camposFinal = c.campos;
+    if (hay('campos')) {
+      const malos = erroresDeCampos(cambios.campos);
+      if (Object.keys(malos).length) Object.assign(errores, malos);
+      else {
+        const { sanearCamposDelServidor } = await import('./curso-tarea-html');
+        const s = sanearCamposDelServidor(cambios.campos);
+        // ⚠️ El saneo dice lo que tiró: con algo adentro NO se escribe una lista con menos campos de los
+        //    que la persona ve. Se rechaza y se anota (AGENTS.md: un saneador que descarta deja rastro).
+        if (s.descartes.length) {
+          console.warn(`[curso-admin] guardarLeccion(${claseId}) rechazó campos: ${s.descartes.join(' · ')}`);
+          errores.tarea = 'Hay un campo que no se pudo leer.';
+        } else {
+          fila.campos = s.campos;
+          camposFinal = s.campos;
+          for (const x of s.campos) if (x.tipo === 'seccion' && x.descripcionHtml) htmls.push(x.descripcionHtml);
+        }
+      }
+    }
+    if (hay('porArea')) {
+      if (typeof cambios.porArea !== 'boolean') return { ok: false, error: 'Marca inválida.' };
+      fila.por_area = cambios.porArea;
+    }
+    if (Object.keys(errores).length) return { ok: false, error: 'Completa lo marcado.', errores };
+
+    if (hay('video')) {
+      const ws = await getWorkspaceActual();
+      if (!ws) return { ok: false, error: 'No hay un negocio abierto.' };
+      const v = validarVideoEntrada(cambios.video, { ws, productoId: c.productoId });
+      if (!v.ok) return v;
+      if (v.video.video_tipo === 'archivo' && v.video.video_path !== c.videoPath) {
+        // ⚠️ Lo mismo que `guardarClase`: la subida la hace el navegador y puede cortarse.
+        const { data: esta } = await getSupabaseServer().storage.from(BUCKET_CURSO).exists(v.video.video_path!);
+        if (!esta) return { ok: false, error: 'El video no terminó de subir.' };
+      }
+      Object.assign(fila, v.video);
+      // OTRO VIDEO, OTROS MINUTOS (item 12 del 08/10/2026): los que midió el reproductor del video nuevo
+      // si los mandó la pantalla; si no, vacíos hasta que se mida (`useMinutosDelVideo`).
+      const mismo = v.video.video_tipo === c.videoTipo && v.video.video_url === c.videoUrl && v.video.video_path === c.videoPath;
+      if (!mismo) {
+        const m = hay('minutos') && cambios.minutos !== null ? Number(cambios.minutos) : null;
+        fila.minutos = m != null && Number.isFinite(m) && m >= 0 && m <= 600 ? Math.round(m) : null;
+      }
+      if (c.videoPath && c.videoPath !== v.video.video_path) borrarDespues = c.videoPath;
+    }
+
+    // Sin nada que pedir, «Obligatoria» se apaga EN LA MISMA ESCRITURA (como `guardarCampoClase`): quitar la
+    // tarea es un gesto de la lección y frenarlo por una marca del menú sería un candado sin llave.
+    if (c.obligatoria && !tieneTarea({ tarea: tareaFinal, tareaHtml: tareaHtmlFinal, campos: camposFinal })) fila.obligatoria = false;
+
+    // (2) El `update`, con la versión leída: si alguien escribió en el medio, no se pisa.
+    let q = db.from('curso_clases').update({ ...fila, updated_at: new Date().toISOString() })
+      .eq('id', c.id).eq('producto_id', c.productoId).is('borrada_at', null);
+    q = fila0.version == null ? q.is('updated_at', null) : q.eq('updated_at', fila0.version);
+    const { data, error } = await q.select(COLUMNAS_CLASE).maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) {
+      const otra = await leer();
+      if (!otra) return { ok: false, error: 'Esa clase ya no existe.' };
+      return { ok: false, error: 'Cambió en otra pestaña.', conflicto: true, clase: otra.clase };
+    }
+    if (borrarDespues) await borrarArchivo(borrarDespues);
+    if (htmls.length) {
+      const { vincularAdjuntos } = await import('./curso-adjuntos');
+      await vincularAdjuntos(c.productoId, c.id, htmls.join('\n'));
+    }
     return { ok: true, clase: aClase(data as FilaDeClase) };
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo guardar.') };

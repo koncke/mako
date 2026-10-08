@@ -12,7 +12,7 @@
 import type {
   CategoriaVista, ComentarioVista, ComunidadVista, EncuestaVista, FeedVista, FiltroMiembros, MiembrosVista,
   PerfilVista, PostDetalle, PostVista, RankingVista, Resultado, CalendarioVista, CampanaVista, AboutVista,
-  BusquedaVista, SacadoVista, OpcionesEvento,
+  BusquedaVista, SacadoVista, OpcionesEvento, HiloClaseVista,
 } from '@/lib/comunidad-tipos';
 import type { OrdenFeed, PermisoCategoria, Red, TokenTexto } from '@/lib/comunidad-reglas';
 import type { AccesoEvento, LugarTipo } from '@/lib/comunidad-eventos';
@@ -97,6 +97,12 @@ export type ApiComunidad = {
   seguirPost(id: number, si: boolean): Promise<Resultado<{ sigo: boolean }>>;
   about(): Promise<Resultado<{ about: AboutVista }>>;
   buscar(q: string): Promise<Resultado<{ busqueda: BusquedaVista }>>;
+  // ── Los comentarios de una CLASE (item 13 del 08/10/2026, mig 0227), para los dos ──
+  // Opcionales: la comunidad entera no los necesita, y lo que los dibuja (app/_cursos/ComentariosClase.tsx)
+  // no se monta si la API no los trae. Responder, likear, editar y borrar un comentario de una clase son
+  // las de arriba, sobre el post del hilo (`postId`).
+  hiloClase?(claseId: number): Promise<Resultado<{ hilo: HiloClaseVista }>>;
+  comentarClase?(claseId: number, e: EntradaComentario): Promise<Resultado<{ comentario: ComentarioVista; postId: number }>>;
   // ── Sólo el equipo (la pantalla no los ofrece si faltan; el server igual los rechaza) ──
   fijarPost?(id: number, si: boolean): Promise<Resultado<{ fijado: boolean }>>;
   guardarCategoria?(c: EntradaCategoria): Promise<Resultado<{ categorias: CategoriaVista[] }>>;
@@ -167,6 +173,8 @@ export function apiDelAlumno(token: string, productoId: number): ApiComunidad {
     seguirPost: (id, si) => pedir('seguir', { id, si }),
     about: () => pedir('about'),
     buscar: (q) => pedir('buscar', { q }),
+    hiloClase: (claseId) => pedir('clase', { claseId }),
+    comentarClase: (claseId, comentario) => pedir('comentarClase', { claseId, comentario }),
   };
 }
 

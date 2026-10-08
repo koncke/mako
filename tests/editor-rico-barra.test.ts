@@ -219,7 +219,8 @@ test('la imagen y la tabla, en el editor: lista blanca, un paso de deshacer, avi
   assert.match(ED, /Table\.configure\(\{ resizable: false \}\)/);
   // Borrar una tabla o una imagen con un botón deja «Deshacer», con un aviso de 3-4 palabras.
   const avisos = [...ED.matchAll(/sacarConDeshacer\(pos, '([^']+)'\)/g)].map((m) => m[1]);
-  assert.deepEqual(avisos.sort(), ['Imagen quitada', 'Tabla borrada']);
+  // (Y desde el 08/10/2026, lo insertado: un video o una agenda, cada uno con el suyo.)
+  assert.deepEqual(avisos.sort(), ['Agenda quitada', 'Imagen quitada', 'Tabla borrada', 'Video quitado']);
   for (const a of avisos) assert.ok(a.split(' ').length <= 4, `«${a}» es largo para un aviso`);
 });
 
