@@ -3455,6 +3455,49 @@ original en `~\crashes-gpu.csv.antes-de-reclasificar-20260828`.
 **Vive en:** `C:\Users\marti\diagnostico-gpu.ps1` → `RutasDeLog`, `EventosNuevos` ·
 *2026-08-28*
 
+### ⚠️ `.next/dev` llegó a 51 GB y trabó la máquina entera — Turbopack no poda su caché
+
+08/10/2026. Síntoma: la PC «trabada y lentísima». La medición:
+
+| | antes | después |
+|---|---|---|
+| Cola de disco | **26** | **1** |
+| Pages Input/sec | 126.765 | 13.676 |
+| Disco C: libre | 47,6 GB (10%) | 98,6 GB (22%) |
+
+**`.next/dev` pesaba 50,69 GB**, contra 0,53 GB de `.next/server` y centésimas el resto. Es
+la caché de desarrollo de **Turbopack, que no se poda sola**: cada `next dev` acumula, y con
+varias sesiones trabajando sobre el mismo clon durante semanas, crece sin techo.
+
+Lo que lo hace difícil de ver es que **el síntoma no se parece a la causa**. La RAM estaba al
+95% y había builds y typechecks de 2-3 GB a la vista: todo apuntaba a «falta memoria». Pero
+el disco al 10% libre es lo que ponía la cola en 26 — y con la cola saturada, *cualquier*
+cosa que toque disco se arrastra. Borrar la caché no liberó un byte de RAM y aun así la
+máquina volvió a responder.
+
+> **Con el disco casi lleno, Windows no puede sostener la caché de archivos: descarta
+> páginas y las relee a cada rato.** `Pages Input/sec` altísimo con `Pages Output/sec` en
+> **0** es la firma — no es swap (no escribe), es relectura forzada. Si `Pages Output` es 0,
+> no busques memoria: mirá el espacio libre.
+
+**Borrarlo es seguro** —es caché, se regenera— **pero sólo si no hay un `next dev` activo
+sobre ESE repo**. Se comprueba antes, y no alcanza con ver procesos `next dev`: puede haber
+uno de otro proyecto. La prueba buena es qué puerto escucha y de quién es:
+
+```powershell
+Get-NetTCPConnection -State Listen | Where-Object LocalPort -in 3000,3011
+cmd /c rd /s /q "<repo>\.next\dev"    # rd es mucho más rápido que Remove-Item
+```
+
+Mismo barrido, otros 5,7 GB: `npm cache clean --force` (estaba en 6,7 GB, quedó en 1).
+
+**Y lo que NO era el problema, aunque lo parecía:** los typechecks concurrentes. Con 4
+sesiones sobre el mismo clon, cada `git push` dispara su `npm run typecheck` de 1,5-2,5 GB y
+se superponen; uno que tarda 7 segundos puede quedar 20 minutos. Son síntoma de la
+saturación, no su causa — matarlos da aire un rato y vuelven.
+
+**Vive en:** `<repo>\.next\dev` · *2026-10-08*
+
 ## La integración con Claude nunca funcionó desde afuera
 
 **Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `tests/rutas-publicas.test.ts`

@@ -7474,3 +7474,39 @@ panel delante y que la entrada `crm` siga existiendo.
 conectado. Ahora entra a un tablero vacío, y ese tablero no dice qué conectar.
 
 _08/10/2026, cuenta 2, sin subagentes. Commit `713661d7`._
+
+## Migrar desde otro CRM: lo que esconde la doc de cada API, y lo que le falta a nuestro importador (08/10/2026)
+
+**Vive en:** `docs/migracion-crm.md` (la investigación completa, con las URLs) ·
+`app/crm/leads-importar.ts` · `app/crm/actions.ts` (`importarLeadsRevisadosAction`) ·
+`lib/leads.ts` (`createLead`)
+
+Lo pidió Martín en el audio del feedback del curso: «averiguar cuáles son esas plataformas… de CRM
+conocidas, averiguar si tienen API… con un botón podés empezar la migración en lote». Es sólo
+investigación, para que él decida antes de construir.
+
+- ⚠️ **«Tiene API» no quiere decir «trae las conversaciones».** De los 12 CRMs, sólo GoHighLevel
+  entrega por token los mensajes de WhatsApp, SMS, email e Instagram. Kommo, el más usado para
+  vender por WhatsApp en LatAm, **no entrega su historial de chats**: la Chats API sólo lee un
+  canal que registra su soporte, nunca el WhatsApp que el cliente ya tenía conectado.
+- ⚠️ **Varios conectan con un token pegado, pero el token sale de «crear una integración
+  privada»** (GHL, Kommo, HubSpot). Si eso choca o no con «el cliente nunca crea una app», lo
+  decide Martín. Sólo Pipedrive (app privada por link, sin revisión) y HubSpot (OAuth de MaKo,
+  hasta 25 cuentas) cumplen la regla al pie de la letra.
+- Trampas de la doc: Pipedrive devuelve los campos personalizados como hashes de 40
+  caracteres; RD Station corta cada consulta en 10.000 registros; monday deja 1.000 llamadas por
+  día en sus planes baratos; Zoho separa las cuentas por región y sólo un admin lee las notas;
+  la API de Clientify es un addon pago.
+- ⚠️ **Nuestro importador sirve para cargar una lista, no para migrar un CRM.** Medido en el
+  código: `createLead` no recibe la fecha de creación, así que 10.000 leads viejos entrarían
+  como «leads de hoy» en las métricas. Tampoco hay columna para el id del CRM de origen, y
+  ninguna automatización (`lib/nutricion*.ts`, `lib/crm-auto*.ts`) lee `origen_lead`, así que
+  nada impide que un lead importado reciba mensajes. Además, la action corre una fila por vez
+  con el tope de 60 s de `/crm`. La migración tiene que ir por tandas que se retoman solas (el
+  molde es `lib/onboarding-extract.ts`), no por esa action.
+
+**Lo que quedó SIN hacer:** todo lo de construir. Las cuatro decisiones de Martín están arriba de
+`docs/migracion-crm.md`: el token de una integración privada, si los leads entran quietos, las
+conversaciones y la fecha original. Tampoco se sabe qué CRM usan de verdad nuestros clientes.
+
+_08/10/2026, cuenta 2, con un subagente de investigación (sólo web y lectura del repo)._
