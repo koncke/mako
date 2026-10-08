@@ -375,6 +375,18 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
     const [{ porId }, { esAccion }] = await Promise.all([import('@/lib/api-mako/registro'), import('@/lib/api-mako/tipos')]);
     const ajenas = operaciones.filter((op) => { const d = porId(op); return !d || !esAccion(d); });
     if (ajenas.length) throw new Error(`No se guardó: ${ajenas.map((op) => `«${op}»`).join(', ')} no es una acción de MaKo.`);
+    // Y lo OBLIGATORIO de cada acción tiene que estar: sin esto «Publicar» guardaba un paso al
+    // que le faltaba un dato, el lienzo lo dibujaba como configurado y cada lead que llegaba
+    // dejaba un 'fallo' que nadie lee. El lead del evento cuenta como puesto (una secuencia
+    // siempre corre sobre un lead), y lo decide la MISMA función que usa el motor de avisos.
+    const { faltanEnPaso } = await import('@/lib/api-mako/flujo-params');
+    const incompletas = acciones.flatMap((a, i) => {
+      if (!a?.ok) return [];
+      const d = porId(a.accion.operacion);
+      const faltan = d ? faltanEnPaso(d.parametros, a.accion.params, { leadId: 1 }) : [];
+      return faltan.length ? [`al paso ${i + 1} («${d!.titulo}») le falta ${faltan.map((f) => `«${f}»`).join(', ')}`] : [];
+    });
+    if (incompletas.length) throw new Error(`No se guardó: ${incompletas.join('; ')}.`);
   }
 
   // Normaliza el orden (1..n) y descarta basura.
@@ -2077,6 +2089,16 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // donde queda un envío fallido— y la secuencia SIGUE: una acción que falla igual cada
       // vez no se reintenta en bucle.
       if (esPasoAccion(paso)) {
+        // ⚠️ SI EL MENSAJE ANTERIOR QUEDÓ COMO BORRADOR SIN MANDAR, LA ACCIÓN ESPERA, igual que
+        // esperaría el mensaje siguiente (ver «borrador pendiente» más abajo). Sin esto, en el
+        // modo por defecto «le escribe y lo mueve a Contactado» lo movía sin que nadie le hubiera
+        // escrito; y si el setter descartaba el borrador, la acción ya estaba hecha.
+        if (lead && !sec.envio_automatico && await tieneBorradorNutriPendiente(lead.id) && !(await esLeadCliente(lead.id))) {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
+          await supabase.from('nutricion_inscripciones')
+            .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
+          continue;
+        }
         const n = insc.paso_actual + 1;
         const siguientePaso = sec.pasos[n];
         const proximo = siguientePaso ? proximoEnvioDePaso(siguientePaso, lead) : null;

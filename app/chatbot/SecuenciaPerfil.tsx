@@ -20,6 +20,7 @@ import { FlujoLienzo } from './FlujoLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
 import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
@@ -448,7 +449,10 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         // sin que salga un solo mensaje: cada paso falla y se reprograma +24h,
         // para siempre y sin síntoma. Pasó cinco días en la cuenta del dueño.
         // El toggle SÍ hizo su trabajo, así que no se falla — se dice qué falta.
-        const soloWa = pasos.every((p) => p.canal === 'whatsapp');
+        // Cuentan los MENSAJES: un paso «⚡ Acción» corre con el número caído (no es un mensaje),
+        // y una secuencia de sólo acciones sí hace algo aunque WhatsApp esté desconectado.
+        const mensajes = pasos.filter((p) => !esPasoAccion(p));
+        const soloWa = mensajes.length > 0 && mensajes.every((p) => p.canal === 'whatsapp');
         flashOk(
           !activa
             ? (caidaLaSec && soloWa

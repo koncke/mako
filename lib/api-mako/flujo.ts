@@ -33,8 +33,8 @@ import { confirmarPendiente, aplicarPropuestaGenerica } from './acciones';
 import { PREFIJO_FLUJO } from './canal';
 import { paramsDelPaso, pideLead, filasDeLeads } from './flujo-params';
 import { AREA_INFO, esAccion, type AccionDef, type Ctx, type Parametro } from './tipos';
-import { getPropuesta, marcarAplicada } from '@/lib/propuestas';
-import { aplicarPropuesta } from '@/lib/plan-propuesta';
+import { getPropuesta, marcarAplicada, guardarResultadoPropuesta } from '@/lib/propuestas';
+import { aplicarPropuesta, getPropuesta as getBorradorPlan } from '@/lib/plan-propuesta';
 import { createLead } from '@/lib/leads';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { enviarBorrador } from '@/lib/evolution-envio';
@@ -99,7 +99,14 @@ async function correr(
     if (r.tipo === 'propuesta') {
       const id = r.propuesta.id;
       if (DEL_PLAN.has(def.id)) {
-        const a = await runWithWorkspace(opts.ws, () => aplicarPropuesta(id));
+        // ⚠️ UN BORRADOR DE CIERRES SE APLICA CON SUS IDS. `aplicarPropuesta` sólo cierra lo
+        // confirmado explícitamente (`cerrarIds`): sin ellos contestaba «No hay nada para crear,
+        // cerrar ni borrar», cada corrida dejaba otro borrador colgado y una alarma al dueño. El
+        // dueño confirmó los cierres al configurar el paso (decisión del 08/10).
+        const cerrarIds = def.id === 'proponer_cierre_tareas'
+          ? ((await runWithWorkspace(opts.ws, () => getBorradorPlan(id)))?.cerrar ?? []).map((c) => String(c.id))
+          : undefined;
+        const a = await runWithWorkspace(opts.ws, () => aplicarPropuesta(id, undefined, undefined, undefined, cerrarIds));
         if (!a) return { ok: false, resumen: 'El borrador del plan ya no existe.', via: 'propia' };
         return { ok: a.ok, resumen: a.ok ? `Plan: ${a.ids?.length ?? 0} tareas aplicadas.` : (a.error ?? 'No se pudo aplicar el borrador del plan.'), via: 'propia' };
       }
@@ -131,6 +138,13 @@ async function crearLeadsDePropuesta(ws: number, propuestaId: string, ctx: Ctx):
   return runWithWorkspace(ws, async () => {
     const prop = await getPropuesta(propuestaId);
     if (!prop || prop.estado !== 'pendiente') return { ok: false, resumen: 'La propuesta de leads ya no está pendiente.', via: 'propia' as const };
+    // ⚠️ SE RECLAMA ANTES DE CREAR (marcar va antes de mandar). Al revés, dos corridas con el
+    // mismo id —`crearPropuesta` deduplica por `ref` y devuelve la pendiente—, o una corrida y
+    // una persona en /crm/revisar, creaban los leads dos veces: el chequeo de duplicados de
+    // `createLead` lee y después inserta, sin atomicidad. El resultado se escribe al final.
+    if (!(await marcarAplicada(propuestaId, { en_curso: true, por: ctx.actor ?? null }))) {
+      return { ok: false, resumen: 'La propuesta de leads la está aplicando otro.', via: 'propia' as const };
+    }
     let creados = 0; let omitidos = 0; const errores: string[] = [];
     for (const f of filasDeLeads(prop.datos as Record<string, unknown>)) {
       try { await createLead({ nombre: f.nombre, email: f.email, telefono: f.telefono, empresa: f.empresa }); creados++; }
@@ -139,7 +153,7 @@ async function crearLeadsDePropuesta(ws: number, propuestaId: string, ctx: Ctx):
         else errores.push(`${f.nombre}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-    await marcarAplicada(propuestaId, { creados, omitidos, por: ctx.actor ?? null, ...(errores.length ? { errores } : {}) });
+    await guardarResultadoPropuesta(propuestaId, { creados, omitidos, por: ctx.actor ?? null, ...(errores.length ? { errores } : {}) });
     const ok = creados > 0 || (omitidos > 0 && !errores.length);
     return { ok, resumen: `Leads: ${creados} creados${omitidos ? `, ${omitidos} ya existían` : ''}${errores.length ? ` · ${errores.join(' · ')}` : ''}.`, via: 'propia' as const };
   });

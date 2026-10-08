@@ -562,7 +562,8 @@ export const RUNNERS: Runners = {
       }
       const j = JSON.parse(await texto(legado(ctx)('proponer_lead', input))) as Record<string, unknown>;
       if (j.ok !== true || typeof j.url !== 'string') return { error: String(j.error ?? 'no se pudo proponer') };
-      return { id: j.url.split('/').pop() ?? '', url: j.url, nueva: j.nueva !== false };
+      // Sin la query: el link lleva `?ws=N` (linkApp), y con él pegado el id no es el de la propuesta.
+      return { id: j.url.split(/[?#]/)[0].split('/').pop() ?? '', url: j.url, nueva: j.nueva !== false };
     },
     ejecutar: async () => ({ ok: false, resumen: 'Esta propuesta se confirma en su pantalla de revisión, no por aquí.' }),
   },

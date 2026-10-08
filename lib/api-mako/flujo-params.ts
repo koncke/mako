@@ -15,6 +15,12 @@ import type { Parametro } from './tipos';
 
 /** El valor que pone el editor para decir «el lead del evento», explícito. */
 export const LEAD_DEL_EVENTO = 'evento';
+/**
+ * «Otro lead», todavía sin el id. Es un valor y no la ausencia del campo a propósito: ausente,
+ * un `leadId` obligatorio se lee como «el del evento», y elegir «Otro» con el id vacío corría
+ * la acción sobre el lead del evento (medido en la revisión del 08/10).
+ */
+export const LEAD_A_ELEGIR = 'a_elegir';
 
 export type DatosDelEvento = { leadId?: number | null };
 
@@ -23,9 +29,20 @@ export function pideLead(parametros: readonly Parametro[]): boolean {
   return parametros.some((p) => p.nombre === 'leadId');
 }
 
+/** ¿El `leadId` de esta operación es obligatorio? Decide qué significa un paso que no lo fijó. */
+export function leadObligatorio(parametros: readonly Parametro[]): boolean {
+  return parametros.some((p) => p.nombre === 'leadId' && p.obligatorio === true);
+}
+
 /**
- * Los parámetros que viajan a la acción: los del paso (sin vacíos) y, si la operación pide
- * `leadId` y el paso no fijó uno (o pidió el del evento), el lead del evento.
+ * Los parámetros que viajan a la acción: los del paso (sin vacíos) y el lead del evento cuando
+ * corresponde.
+ *
+ * ⚠️ EL LEAD DEL EVENTO SE PONE SÓLO SI LA OPERACIÓN LO EXIGE, O SI EL PASO LO PIDIÓ CON
+ * `LEAD_DEL_EVENTO`. Un `leadId` OPCIONAL que el paso dejó vacío quiere decir «ninguno»: medido
+ * en la revisión del 08/10, un «Proponer un WhatsApp» a un teléfono fijo (avisarle a un socio)
+ * recibía además el lead del evento, y la operación contestaba «el teléfono no coincide» en cada
+ * corrida, con alarma al dueño.
  */
 export function paramsDelPaso(
   parametros: readonly Parametro[],
@@ -37,11 +54,38 @@ export function paramsDelPaso(
     if (v === undefined || v === null || (typeof v === 'string' && !v.trim())) continue;
     out[k] = v;
   }
-  if (pideLead(parametros) && (out.leadId === undefined || out.leadId === LEAD_DEL_EVENTO)) {
+  const crudo = out.leadId;
+  const pideElDelEvento = crudo === LEAD_DEL_EVENTO || (crudo === undefined && leadObligatorio(parametros));
+  if (pideLead(parametros) && pideElDelEvento) {
     if (evento.leadId != null) out.leadId = evento.leadId;
     else delete out.leadId;
+  } else if (pideLead(parametros) && crudo !== undefined) {
+    // «Otro lead» sin un id que sea un número NO es el del evento: no viaja, y si es
+    // obligatorio, `faltanEnPaso` lo dice.
+    const id = typeof crudo === 'number' ? crudo : typeof crudo === 'string' && /^\d+$/.test(crudo) ? Number(crudo) : NaN;
+    if (Number.isFinite(id) && id > 0) out.leadId = id; else delete out.leadId;
   }
   return out;
+}
+
+/**
+ * Los parámetros OBLIGATORIOS que le faltan a un paso, con el lead del evento ya puesto. Un paso
+ * a medio configurar ya está vivo (elegir la acción se guarda en el acto): con esto el motor de
+ * avisos no lo corre y el saneo de las secuencias no lo guarda, en vez de fallar en cada evento.
+ */
+export function faltanEnPaso(
+  parametros: readonly Parametro[],
+  params: Record<string, unknown> | null | undefined,
+  evento: DatosDelEvento,
+): string[] {
+  const input = paramsDelPaso(parametros, params, evento);
+  return parametros
+    .filter((p) => p.obligatorio === true)
+    .filter((p) => {
+      const v = input[p.nombre];
+      return v === undefined || v === null || (Array.isArray(v) && !v.length);
+    })
+    .map((p) => p.nombre);
 }
 
 export type FilaLead = { nombre: string; email: string | null; telefono: string | null; empresa: string | null };

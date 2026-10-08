@@ -29,6 +29,7 @@ import { CATALOGO_AVISOS } from './avisos-catalogo';
 import { operacionDelPaso, rotuloOperacion, type EventoFlujo, type Paso } from './flujos-tipos';
 import { decidir, lineaDeFalloAccion } from './flujo-pasos';
 import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
+import { reclamarEspaciado } from './espaciado';
 
 export type CtxFlujo = {
   ws?: number; leadId?: number; leadNombre?: string; reunion?: 'R1' | 'R2'; texto?: string;
@@ -41,6 +42,14 @@ export type CtxFlujo = {
    * mensaje que ya salió.
    */
   datos?: Record<string, string>;
+  /**
+   * La identidad del EVENTO (la reserva de Cal.com o de Calendly), la misma con la que el
+   * webhook ya deduplica su aviso. Con ella, una reentrega no vuelve a correr los pasos del
+   * flujo. Hasta el 08/10/2026 se duplicaba una línea al grupo; desde que un paso «⚡ Acción»
+   * corre solo, se duplica una escritura o un WhatsApp al lead (medido en el webhook de
+   * Cal.com: «salía 2 y 3 veces… 9 s, 25 s, 38 s y 41 s»).
+   */
+  dedupKey?: string;
 };
 
 /**
@@ -86,6 +95,9 @@ export async function dispararEvento(evento: EventoFlujo, ctx: CtxFlujo & { ws: 
       const d = flujo.disparador;
       if (d.tipo !== 'evento' || d.evento !== evento) continue;
       if (d.filtro?.reunion && ctx.reunion && d.filtro.reunion !== ctx.reunion) continue;
+      // Una reentrega del MISMO evento no corre el flujo otra vez: se reclama antes, con el
+      // compare-and-set de lib/espaciado.ts (dos entregas en paralelo, gana una).
+      if (ctx.dedupKey && !(await reclamarEspaciado(ws, `flujo:${id}`, 180, ctx.dedupKey))) continue;
       await runWithWorkspace(ws, () => ejecutarPasos(id, flujo.pasos, ws, ctx));
     }
   } catch (e) {
@@ -170,13 +182,16 @@ async function ejecutarPasos(
       continue;
     }
 
-    try { await ejecutarPaso(flujoId, d.paso, ws, ctx); }
-    catch (e) { console.error(`[flujos] paso de ${flujoId}:`, e instanceof Error ? e.message : String(e)); }
-
+    // ⚠️ CON CORRIDA, EL PASO SE RECLAMA ANTES DE EJECUTARLO. Al revés, una función cortada entre
+    // ejecutar y avanzar (o dos ticks del drenador que se pisan) dejaba la fila en el mismo paso
+    // y el tick siguiente lo volvía a correr: dos tareas, o dos WhatsApps al lead. El costo es el
+    // opuesto y es el correcto: si el paso falla, no se reintenta.
     if (corridaId) {
       const mio = await avanzar(ws, corridaId, i, d.siguiente, null);
       if (!mio) return;
     }
+    try { await ejecutarPaso(flujoId, d.paso, ws, ctx); }
+    catch (e) { console.error(`[flujos] paso de ${flujoId}:`, e instanceof Error ? e.message : String(e)); }
     i = d.siguiente;
     desde = new Date();
   }
@@ -230,8 +245,9 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       return;
     }
     // ⛔ wa_lead NO SE MANDA, Y LO DICE EN VEZ DE PROMETERLO. Decisión de Martín,
-    // 06/10/2026: «C: nada al cliente» — la cobranza (y cualquier flujo de un aviso) le
-    // avisa sólo al grupo del dueño. Hasta ese día esta rama dejaba en el grupo una
+    // 06/10/2026: «C: nada al cliente» — este paso no le escribe al lead. (Desde el 08/10 un
+    // paso «⚡ Acción» SÍ puede, si el dueño eligió una acción que manda: «que pueda hacer todo,
+    // sin limitaciones». Este paso viejo sigue sin mandar.) Hasta el 06/10 esta rama dejaba en el grupo una
     // pendiente «Mandarle un WhatsApp a …» que ninguna operación del registro sabía
     // ejecutar: el dueño contestaba «sí» y `confirmarPendiente` la cerraba como
     // «operación desconocida». Una pendiente que pide permiso para algo que no va a
@@ -266,6 +282,15 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
     // de la API (≈500 operaciones) sólo hace falta cuando un flujo llega a este paso.
     const [{ ejecutarDesdeFlujo }, { porId }] = await Promise.all([import('./api-mako/flujo'), import('./api-mako/registro')]);
     const nombre = nombreDelAviso(flujoId);
+    const def = porId(operacion);
+    const { faltanEnPaso } = await import('./api-mako/flujo-params');
+    const faltan = def ? faltanEnPaso(def.parametros, paso.params, { leadId: ctx.leadId ?? null }) : [];
+    if (faltan.length) {
+      // Un paso a medio configurar ya está vivo (elegir la acción se guarda en el acto): sin esto,
+      // cada evento le mandaba al dueño «no se pudo» mientras todavía llenaba el formulario.
+      console.warn(`[flujos] ${flujoId}: «${operacion}» sin ${faltan.join(', ')} — no corre`);
+      return;
+    }
     const r = await ejecutarDesdeFlujo(operacion, paso.params, { ws, origen: `aviso:${flujoId}`, nombre, leadId: ctx.leadId ?? null });
     if (r.ok) {
       console.log(`[flujos] ${flujoId}: «${operacion}» → ${r.resumen}`);
@@ -274,7 +299,10 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
     // Falló: el dueño se entera en SU grupo, en una línea. Un paso que corre solo y falla
     // callado se lee como una automatización que hizo su trabajo.
     console.warn(`[flujos] ${flujoId}: «${operacion}» no se pudo — ${r.resumen}`);
-    await enviarAlGrupoMaKo(ws, lineaDeFalloAccion(porId(operacion)?.titulo ?? rotuloOperacion(operacion), nombre, r.resumen));
+    // Espaciada: con «cuando un lead escribe», 40 mensajes eran 40 líneas iguales en el grupo.
+    if (await reclamarEspaciado(ws, `flujo-fallo:${flujoId}`, 60, operacion)) {
+      await enviarAlGrupoMaKo(ws, lineaDeFalloAccion(def?.titulo ?? rotuloOperacion(operacion), nombre, r.resumen));
+    }
   }
 }
 

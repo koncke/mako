@@ -66,6 +66,14 @@ const btnQuitarPaso = {
 // (la misma lectura y la misma caché que el desplegable del editor). Mientras no llega, o si
 // falla, la tarjeta dice el id legible: nunca queda en blanco.
 
+/**
+ * Lo que el panel de un «⚡ Acción» tiene escrito y todavía no guardó (el respiro de 700 ms),
+ * para que el tablero lo TOME antes de cambiar el flujo por otro camino. Sin esto, el guardado
+ * diferido salía DESPUÉS, armado sobre el flujo de antes: un deshacer quedaba pisado, y un paso
+ * insertado antes corría los índices y lo escrito para una acción caía en la de al lado.
+ */
+type PanelPendiente = { tomar: () => { original: Paso; nuevo: Paso } | null };
+
 const FLUJO_VACIO: Flujo = { version: 1, activo: true, disparador: { tipo: 'manual' }, pasos: [] };
 
 /** Lo que una pasada de deshacer restaura: el tablero entero, no un campo. */
@@ -109,6 +117,7 @@ export function FlujoAviso({
   pie?: React.ReactNode;
 }) {
   const [sel, setSel] = useState<string | null>(null);
+  const panelPendiente = useRef<PanelPendiente | null>(null);
   const [flujo, setFlujo] = useState<Flujo | null>(null);
   /** El agendado por TIEMPO vive en su TABLA, no en el store del mensaje: el store
    *  se hereda del dueño y lo reescribe el navegador entero (ver la mig 0183). */
@@ -206,6 +215,9 @@ export function FlujoAviso({
    */
   const aplicarFoto = (foto: FotoTablero): FotoTablero => {
     const antes: FotoTablero = { flujo, pos };
+    // Lo que el panel no alcanzó a guardar se DESCARTA: deshacer es volver atrás, y un guardado
+    // diferido que sale después del deshacer lo revierte.
+    panelPendiente.current?.tomar();
     setSel(null);
     setPos(foto.pos);
     void api({ action: 'posiciones', id, posiciones: foto.pos });
@@ -313,6 +325,10 @@ export function FlujoAviso({
    * el motor EJECUTA. Un botón que no hace nada se lee como que la app está rota.
    */
   async function agregarTras(nodoId: string, que: string) {
+    // Lo escrito en el panel abierto se TOMA y entra en el mismo guardado, y el panel se cierra:
+    // el paso nuevo corre los índices, y con el panel abierto lo de una acción caía en otra.
+    const pend = que === 'wa' || que === 'email' ? null : panelPendiente.current?.tomar() ?? null;
+    if (que !== 'wa' && que !== 'email') setSel(null);
     if (que === 'wa' || que === 'email') {
       if (!id) return;
       setBusy(true); setErr(null);
@@ -322,7 +338,8 @@ export function FlujoAviso({
       onCambio?.();
       return;
     }
-    const base = flujo ?? FLUJO_VACIO;
+    const sinPend = flujo ?? FLUJO_VACIO;
+    const base = pend ? { ...sinPend, pasos: sinPend.pasos.map((p) => (p === pend.original ? pend.nuevo : p)) } : sinPend;
     /**
      * ⚠️ LOS TRES SON PASOS DE VERDAD Y EL MOTOR LOS CORRE. El `esperar` existía en el
      * tipo desde el día uno y hacía `break`: con `flujo_corridas` (mig 0186) el motor
@@ -397,7 +414,7 @@ export function FlujoAviso({
             aporta={aporta}
             canales={canales} flujo={flujo} insistir={insistir} cron={cron} tz={tz} onCron={guardarCron}
             acusesTxt={acusesTxt} onAcuses={guardarAcuses}
-            onTexto={onTexto} onCambio={onCambio} onFlujo={guardarFlujo}
+            onTexto={onTexto} onCambio={onCambio} onFlujo={guardarFlujo} panelPendiente={panelPendiente}
             onQuitarPaso={(i) => {
               const base = flujo ?? FLUJO_VACIO;
               void guardarFlujo({ ...base, pasos: quitarPasoDibujado(base.pasos, i) });
@@ -421,6 +438,7 @@ function EditorDelAviso({
   nodo, id, disparador, frecuenciaMin, texto, endpoint, editable, guardando, canales,
   asunto, onAsunto, onAsuntoGuardar, aporta,
   flujo, insistir, cron, tz, onCron, acusesTxt, onAcuses, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
+  panelPendiente,
 }: {
   nodo: NodoFlujo; id: string; disparador: string; frecuenciaMin: number; texto: string;
   endpoint: string; editable: boolean; guardando: boolean; canales: { wa: boolean; email: boolean };
@@ -438,6 +456,7 @@ function EditorDelAviso({
   onFlujo: (f: Flujo | null) => void;
   onQuitarPaso: (i: number) => void;
   probando: boolean; prueba: string | null; onProbar: (contexto?: string) => void;
+  panelPendiente: React.MutableRefObject<PanelPendiente | null>;
 }) {
   const base = flujo ?? FLUJO_VACIO;
 
@@ -588,7 +607,8 @@ function EditorDelAviso({
       // no reusar el de la anterior (el editor siembra un `useState` de props).
       return (
         <EditorPasoAccion key={nodo.id} paso={paso} onGuardar={reemplazar}
-          onQuitar={() => onQuitarPaso(i)} guardando={guardando} advertencia={advertencia} />
+          onQuitar={() => onQuitarPaso(i)} guardando={guardando} advertencia={advertencia}
+          panelPendiente={panelPendiente} />
       );
     }
     return (
@@ -642,12 +662,13 @@ function EditorDelAviso({
  * ⚠️ Y LO PENDIENTE SE MANDA AL CERRAR EL PANEL, salvo que se haya QUITADO el paso: el
  * guardado diferido se arma con el flujo de antes de quitarlo, y lo devolvería.
  */
-function EditorPasoAccion({ paso, onGuardar, onQuitar, guardando, advertencia }: {
+function EditorPasoAccion({ paso, onGuardar, onQuitar, guardando, advertencia, panelPendiente }: {
   paso: PasoAccion;
   onGuardar: (nuevo: PasoAccion) => void;
   onQuitar: () => void;
   guardando: boolean;
   advertencia?: React.ReactNode;
+  panelPendiente: React.MutableRefObject<PanelPendiente | null>;
 }) {
   // Un paso VIEJO (sólo `accion`, sin `operacion`) se abre sin acción elegida: sus tres
   // valores no son ids del registro y el motor no lo corre.
@@ -669,6 +690,28 @@ function EditorPasoAccion({ paso, onGuardar, onQuitar, guardando, advertencia }:
     if (v) guardarRef.current(pasoDeAccion(v));
   }, []);
   useEffect(() => soltar, [soltar]);
+  // El paso de ESTE render: es el que está en el flujo de ahora, así que es contra el que el
+  // tablero reemplaza lo que toma.
+  const pasoRef = useRef(paso);
+  useEffect(() => { pasoRef.current = paso; });
+  useEffect(() => {
+    const yo: PanelPendiente = {
+      tomar: () => {
+        if (reloj.current) { clearTimeout(reloj.current); reloj.current = null; }
+        const v = pendiente.current;
+        pendiente.current = null;
+        return v ? { original: pasoRef.current, nuevo: pasoDeAccion(v) } : null;
+      },
+    };
+    panelPendiente.current = yo;
+    return () => { if (panelPendiente.current === yo) panelPendiente.current = null; };
+  }, [panelPendiente]);
+  // Y cambiar de pestaña o cerrar el navegador también es salir: ahí el desmonte no corre.
+  useEffect(() => {
+    const alOcultar = () => { if (document.visibilityState === 'hidden') soltar(); };
+    document.addEventListener('visibilitychange', alOcultar);
+    return () => document.removeEventListener('visibilitychange', alOcultar);
+  }, [soltar]);
 
   const cambiar = (v: ValorAccion) => {
     const otraAccion = (v.operacion ?? '') !== (valor.operacion ?? '');

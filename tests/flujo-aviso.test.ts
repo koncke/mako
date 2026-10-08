@@ -452,7 +452,8 @@ test('⚠️ El borrador NO se hereda del dueño', () => {
   // la pieza que vigila cambió de casa, que es para lo que está.
   const store = leer('../lib/plantillas.ts');
   const merge = store.slice(store.indexOf('async function leerPar('), store.indexOf('guardarStore(s: Store)'));
-  assert.ok(merge.length > 200 && merge.length < 3000, `el recorte del merge mide ${merge.length}: mira otra cosa`);
+  // 5000 desde el 08/10/2026: el merge ganó la otra excepción, la de los pasos «⚡ Acción».
+  assert.ok(merge.length > 200 && merge.length < 5000, `el recorte del merge mide ${merge.length}: mira otra cosa`);
   assert.match(merge, /borrador: \w+, \.\.\./, 'el merge volvió a heredar el borrador');
 });
 

@@ -39,6 +39,7 @@ const marcarPasoWhatsapp = () => fetch('/api/chat-agent/onboarding', {
   body: JSON.stringify({ action: 'paso', paso: 'wa_no_oficial', tab: 'setting' }),
 });
 import type { Estrategia } from '@/lib/setting-estrategia';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
 export type PasoSecuenciaDto = {
@@ -460,7 +461,7 @@ function ChatAgentInner() {
           dos secuencias activas. No se dice POR QUÉ se apagó: no queda registrado quién lo
           tocó, y una causa inventada es peor que ninguna. Con la línea caída no va: el aviso
           rojo de arriba ya dice que no sale nada. */}
-      {!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa && s.pasos.some((p) => p.canal === 'whatsapp')) && (
+      {!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa && s.pasos.some((p) => p.canal === 'whatsapp' && !esPasoAccion(p))) && (
         <div style={{ flex: 'none', background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ color: 'var(--warn)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
           <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>

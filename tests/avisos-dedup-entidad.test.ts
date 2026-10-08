@@ -113,7 +113,9 @@ test('Los CUATRO emisores de «nuevo agendado» dedupean por reserva', () => {
   for (const ruta of ['../app/api/webhooks/calcom/route.ts', '../app/api/webhooks/calendly/route.ts']) {
     const src = leer(ruta);
     const emisores = (src.match(/emitirDelCatalogo\('reunion-nuevo-agendado'/g) ?? []).length;
-    const conDedup = (src.match(/dedupKey: `(calcom|calendly):/g) ?? []).length;
+    // Los del AVISO llevan su ttl al lado; los de dispararEvento (la misma clave, para que una
+    // reentrega no repita los pasos de un flujo) no cuentan como emisores de este aviso.
+    const conDedup = (src.match(/dedupTtlMin: \d+, dedupKey: `(calcom|calendly):/g) ?? []).length;
     assert.equal(conDedup, emisores, `${ruta}: ${emisores} emisores y ${conDedup} con dedup`);
   }
 });
