@@ -24,13 +24,22 @@ export function ipRecortada(ip: string): string {
   return 'desconocida';
 }
 
-export function registrarLlamada(x: { ws: number; operacion: string; canal: Canal; ok: boolean; status: number; ms: number; req: Request }): void {
+export function registrarLlamada(x: { ws: number; operacion: string; canal: Canal; ok: boolean; status: number; ms: number; req: Request; token?: string }): void {
   // Se escribe con el cliente de servicio y `workspace_id` explícito: acá no hay
   // sesión que resuelva el workspace, lo resolvió el token.
-  void getSupabaseServer()
-    .from('api_llamadas')
-    .insert({ workspace_id: x.ws, operacion: x.operacion, canal: x.canal, ok: x.ok, status: x.status, ms: x.ms, ip: ipRecortada(clientIp(x.req)) })
-    .then(({ error }) => { if (error) console.error('[api-mako] bitácora:', error.message); });
+  const fila = { workspace_id: x.ws, operacion: x.operacion, canal: x.canal, ok: x.ok, status: x.status, ms: x.ms, ip: ipRecortada(clientIp(x.req)) };
+  // QUÉ TOKEN pidió (mig 0222, 08/10/2026: con tokens detallados que ESCRIBEN, «¿quién hizo
+  // esto?» es la pregunta). Si la columna todavía no existe —la migración se aplica aparte—,
+  // se reintenta sin ella: la bitácora no puede perder filas por un orden de despliegue.
+  const insertar = (f: Record<string, unknown>) => getSupabaseServer().from('api_llamadas').insert(f);
+  void insertar(x.token ? { ...fila, token_id: x.token } : fila)
+    .then(({ error }) => {
+      if (!error) return;
+      if (x.token && /token_id/.test(error.message)) {
+        return insertar(fila).then(({ error: e2 }) => { if (e2) console.error('[api-mako] bitácora:', e2.message); });
+      }
+      console.error('[api-mako] bitácora:', error.message);
+    });
 
   // RETENCIÓN. Con el tope de 120 pedidos por minuto son hasta ~170 mil filas por día
   // por workspace, y nada las borraba. Una de cada cien escrituras purga lo de ese

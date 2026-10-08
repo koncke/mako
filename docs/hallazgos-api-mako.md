@@ -524,7 +524,11 @@ que reagendar e importar no están, y ya existen `proponer_mover_reunion` y `pro
 
 *08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`.*
 
-## ⚠️ Un token con nombre vale SOLO para /api/v1: la ruta de la skill entrega el principal (08/10/2026)
+## ⚠️ Un token con nombre (hoy: detallado) vale SOLO para /api/v1: la ruta de la skill entrega el principal (08/10/2026)
+
+> A la tarde del mismo día los «tokens con nombre» pasaron a ser los **detallados** de GitHub
+> (`mako_pat_`, permisos por área, vencimiento): ver la entrada siguiente. La frontera de abajo
+> sigue igual, con `resolverTokenApi` en el lugar de `wsPorTokenApi`.
 
 **Vive en:** `lib/api-mako/tokens.ts` · `lib/api-mako/tokens-lista.ts` · `lib/api-mako/tokens-uso.ts` ·
 `lib/api-mako/http.ts` · `lib/agente-token.ts` · `app/api/agente/skill/route.ts` · `app/api-mako/`
@@ -579,10 +583,116 @@ Lo demás que no se ve desde la pantalla:
 - **`plugin/` se regeneró y no se publicó.** El repo público (`mbustos-digital/mako-plugin`) se
   publica a mano (`docs/hallazgos-infra.md`): hasta entonces, quien instaló el plugin sigue
   pidiendo el catálogo entero. La skill que sirve `/api/agente/skill` ya sale con lo nuevo.
-- **Qué token pidió cada llamada**, por fila: una columna en `api_llamadas` (migración,
-  `supabase/migrations/0158_api_llamadas.sql` + `lib/api-mako/bitacora.ts`).
+- ~~**Qué token pidió cada llamada**~~ — hecho a la tarde: `api_llamadas.token_id`
+  (migración 0222, aplicada el 08/10).
 
 *08/10/2026, cuenta 2, sin subagentes. Commit `f2c0a04b`.*
+
+---
+
+## La API copiada de GitHub: tokens detallados que escriben, permisos por área, rutas REST y su pantalla (08/10/2026)
+
+**Vive en:** `lib/api-mako/permisos.ts` · `lib/api-mako/tokens*.ts` · `lib/api-mako/http.ts` ·
+`lib/api-mako/rutas-http.ts` · `lib/api-mako/rest.ts` · `lib/api-mako/recursos.ts` ·
+`lib/api-mako/ejemplos.ts` · `lib/api-mako/openapi.ts` · `lib/api-mako/version.ts` ·
+`lib/api-mako/registro.ts` (`gatingOk`) · `lib/api-mako/flujo.ts` (`aplicarEnElActo`) ·
+`app/api/v1/**` · `app/api-mako/` · `tests/api-mako-rest.test.ts`
+
+Pedido de Martín: «Me gusta como hace la API GitHub, con su diseño, permisos, presentación,
+etc… Copialo todo, tal cual». Decidió: escribe directo (lo que gasta plata sigue en una
+pantalla), permisos por área con vencimiento, URLs REST como alias (las viejas no cambian) y
+que se vea igual a GitHub. El relevo de cómo lo hace GitHub (8 agentes, `wf_62c177ea-a1d`) y el
+diseño de las 379 rutas (`wf_f551abb8-91f`) quedaron en el transcript; lo que importa está acá.
+
+**Los permisos van en `gatingOk`, y el diagnóstico obvio era el equivocado.** Lo natural era
+filtrar en la ruta o en `visible()`. Pero `gatingOk` es TAMBIÉN la guarda que corre al
+confirmar una pendiente (`acciones.ts`): con el filtro en otro lado, un token con escritura sólo
+en «mako» confirmaba (por `confirmar_accion`) pendientes del CRM o de Ads. `Ctx.permisos` →
+`vistaDe` → `Vista.permisos` → `gatingOk`. `{}` es «nada», no «sin filtro»: el test lo fija.
+
+**Escribir directo NO es un segundo camino de escritura.** `correr()` en `rutas-http.ts` es el
+único lugar que decide: lectura → `ejecutarOperacion`; acción con el clásico o con
+`costo: 'dinero'` → propone (202); acción con un detallado → valida ANTES (para devolver el 400
+con `faltan`, que `aplicarEnElActo` resume en una frase) y llama a `aplicarEnElActo`, el mismo
+camino con que confirma un flujo. Probado contra la base el 08/10 con
+`PUT/DELETE /crm/leads/2472/faltantes/silencio` en el ws 9: 200 `hecho` las dos, y el lead
+quedó como estaba (`pendientes_ignorados` null).
+
+**Lo idempotente de GitHub choca con los runners.** El segundo `PUT` de lo mismo devolvió 422
+(«ya están ignorados desde…»): el runner rechaza sin `yaEstaba`. En GitHub ese `PUT` es un
+éxito. Con `yaEstaba: true` en `preparar()`, `aplicarEnElActo` lo contesta como éxito sin
+cambios y la API devuelve 200 `sinCambios`. Hoy lo marcan 6 runners (`grep yaEstaba`).
+
+**403 o 404, como GitHub.** Si lo ÚNICO que falta es el permiso del área de un detallado: 403
+«Recurso no accesible con un token de acceso personal detallado» y `X-Accepted-MaKo-Permissions`
+con lo que falta (`crm=write`). Si es la capa, el rol, el canal o el alcance del clásico: 404, sin
+confirmar que existe. Un verbo equivocado en una ruta REST también es 404 (GitHub tampoco dice
+qué existe); en la ruta vieja sigue el 405 con `Allow`.
+
+**Un token nunca administra tokens** (regla de GitHub que trajo el relevo): ninguna operación
+del registro acuña, edita ni revoca credenciales; `ver_estado_agente_claude` sólo LEE si existe
+el clásico. `tests/api-mako-rest.test.ts` lo frena.
+
+**Las rutas REST son una TABLA al costado del registro**, no una segunda declaración: una fila
+por operación HTTP, y el test falla si una op nueva no tiene la suya, si un parámetro de ruta no
+es de la op, si una ruta se repite o si una de dos tramos pisa una operación (el router viejo
+gana con `/{area}/{operacion}`). Un parámetro de ruta puede ser OPCIONAL en la op
+(`cancelar_accion` sin `id` cancela la última): la ruta lo trae siempre. El router prefiere lo
+literal a un parámetro (`/plan/proyectos/vacios` antes que `/plan/proyectos/{proyectoId}`).
+Probado rompiéndolo: sin la fila de `agregar_nota_lead`, fallan 2; con `{lead}`, falla 1.
+
+**La pantalla: dos trampas de Next que costaron una corrida cada una.**
+
+1. **El estado de un componente cliente NO sobrevive a cambiar `?v=` en la misma página.** El
+   token recién creado se perdía: los searchParams son parte de la clave del segmento de la
+   página, así que ir de `?tab=tokens&v=nuevo` a `?tab=tokens` MONTA DE NUEVO el componente. Y
+   `router.push` + `router.refresh()` juntos lo montaban dos veces. El token vive entre la acción
+   y la lista en una variable de MÓDULO (memoria de la pestaña, se pierde al recargar, como en
+   GitHub), y se navega con `push` a otra vista o con `refresh` a la misma, nunca las dos.
+2. **Una función de un módulo `'use client'` no se puede LLAMAR desde el server**:
+   «Attempted to call esArticulo() from the server». Lo que `page.tsx` necesita para leer la
+   URL (los artículos, sus slugs) vive en `app/api-mako/articulos-meta.ts`, sin `'use client'`.
+
+**Lo que «tal cual» quiso decir en el aspecto:** los valores de Primer (colores, tipografía,
+`Box`, `Label`, `Counter`, `UnderlineNav` con su línea coral, `Flash`, `Subhead`, el `Dialog`),
+los Octicons (MIT) y el modo oscuro de Primer bajo `data-tema="oscuro"`, todo limitado a `.gh`.
+El badge del verbo es del MISMO azul para todos los verbos (GitHub no pinta un color por verbo).
+El reset global de MaKo saca las viñetas: dentro de `.gh` vuelven en las listas sin clase.
+
+**Datos de prueba que quedaron:** ~33 filas de `api_llamadas` en el ws 9 (las del e2e de la
+mañana y de la tarde) y dos líneas de historial en el lead 2472 del ws 9 (ignorar y reactivar).
+Los tokens de prueba se eliminaron.
+
+### Lo que quedó sin hacer
+
+- **⚠️ Un token no se apaga cuando su creador pierde el acceso.** En GitHub, un token detallado
+  queda inactivo si el usuario pierde acceso al recurso. Acá `creadoPor` se guarda y no se
+  vuelve a mirar, y `autenticar()` fija `rol: 'admin'` para todo token: a un admin que sacan del
+  workspace le siguen andando sus tokens. Va en `resolverTokenApi` (`lib/api-mako/tokens.ts`):
+  revisar el rol actual de `creadoPor` (con caché) o revocar sus tokens al sacarlo.
+- **Sin «modo sudo»**: GitHub pide reautenticarse para generar o regenerar tokens; acá alcanza
+  la sesión del admin (`app/api-mako/actions.ts`).
+- **Las descripciones dicen «PROPONE… queda pendiente hasta el sí»**, que con un detallado es
+  falso: las comparte el doer, que sí propone. La documentación lo aclara en cada endpoint
+  («Con Lectura y escritura, el token detallado lo hace en el acto»), pero el texto de la def
+  sigue igual (`lib/api-mako/areas/*.def.ts`).
+- **Más runners con `yaEstaba`** para que los `PUT` repetidos sean 200 y no 422
+  (`lib/api-mako/areas/*.run.ts`, ver arriba).
+- **`documentation_url` apunta a una pantalla con login** (`/api-mako?tab=docs…`): GitHub apunta
+  a docs públicas. El integrador de un cliente sin cuenta en MaKo no la abre (`docsUrl` en
+  `lib/api-mako/http.ts`).
+- **Lo que GitHub tiene y acá no:** webhooks salientes (avisar cuando una pendiente se confirma
+  o vence, en vez de consultar en bucle), OAuth para integraciones de terceros, el receptor del
+  Secret scanning partner program (el prefijo `mako_pat_` ya es reconocible), paginación con
+  el header `Link`, `Location` en los 202, zona horaria declarada (`Time-Zone`), y fechas de
+  deprecación por operación en el OpenAPI.
+- **La skill (`lib/agente-skill.ts`) y `plugin/` no enseñan las rutas REST** ni los detallados:
+  siguen con la ruta por operación, que anda.
+
+*08/10/2026, cuenta 2, con subagentes (relevo de GitHub y diseño de rutas).*
+
+---
+
 
 ## El canal de los flujos: un paso corre cualquier acción, por el mismo choke point (08/10/2026)
 

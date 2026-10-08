@@ -28,6 +28,8 @@
 /** Las áreas son las TABS donde vive el código, no los temas. Cerrado a propósito.
  *  `instagram` salió el 06/10/2026 con su tab (decisión de Martín): sus 21 operaciones
  *  hablaban de una bandeja y un programador que ya no existen. */
+import type { Permisos } from './permisos';
+
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
@@ -274,6 +276,14 @@ export type Ctx = {
    *  WhatsApp lo junta y lo agrega a la respuesta. Sin esto (HTTP, la bandeja) el
    *  `paraLaPersona` de un runner no tiene a quién llegar y se descarta. */
   aPersona?: (texto: string) => void;
+  /** Sólo un token DETALLADO por /api/v1 (lib/api-mako/permisos.ts): qué nivel tiene en
+   *  cada área. Ausente = no hay restricción por área (los demás canales y el token
+   *  clásico, que se gobiernan con `alcance`). Lo mira `gatingOk` al proponer Y al
+   *  confirmar, así que una pendiente de un área sin escritura tampoco se confirma. */
+  permisos?: Permisos;
+  /** El token detallado que pidió (id y nombre), para el rastro: va en el `actor` de lo
+   *  que confirma y en `api_llamadas`. */
+  token?: { id: string; nombre: string };
 };
 
 // ── Lo que devuelven los runners ─────────────────────────────────────────────

@@ -29,6 +29,7 @@ import {
   type Alcance, type Area, type Canal, type OperacionDef,
 } from './tipos';
 import { permite } from './alcance';
+import { permitePorArea, type Permisos } from './permisos';
 import { tabEnCapa } from '@/lib/capas';
 import { esquemaJson } from './validar';
 
@@ -107,6 +108,9 @@ export type Vista = {
   rol: 'admin' | 'miembro';
   /** las keys de nav.ts que la capa del workspace incluye; `null` = todas */
   tabs: readonly string[] | null;
+  /** los permisos POR ÁREA de un token detallado (lib/api-mako/permisos.ts). Ausente =
+   *  sin restricción por área: los demás canales y el token clásico. */
+  permisos?: Permisos;
 };
 
 /** El workspace principal (Fase 1 de Meta). Vive acá y no importado de
@@ -119,11 +123,15 @@ export const WS_PRINCIPAL = 1;
  * CONFIRMAR: ahí el canal es el de quien confirma (la bandeja, un grupo) y no el de
  * quien propuso, y el alcance ya lo decidió `puedeConfirmar`.
  */
-export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs'>): boolean {
+export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs'> & { permisos?: Permisos }): boolean {
   const g = def.gating;
   if (g?.soloWs1 && !(v.ws === WS_PRINCIPAL && v.rol === 'admin')) return false;
   if (g?.rolMinimo === 'admin' && v.rol !== 'admin') return false;
   if (g?.tab && v.tabs && !v.tabs.includes(g.tab)) return false;
+  // Un token detallado: el nivel de SU área (08/10/2026, copiando GitHub). Va acá y no en
+  // `visible()` porque esta misma pregunta se repite al CONFIRMAR (acciones.ts): sin eso,
+  // un token con escritura sólo en «mako» confirmaba pendientes de cualquier área.
+  if (v.permisos && !permitePorArea(v.permisos, def)) return false;
   return true;
 }
 

@@ -1,77 +1,52 @@
 'use client';
 
 // =============================================================================
-// /api-mako — la pantalla de la API de MaKo: operaciones, tokens, uso y cómo se usa
+// /api-mako — la pantalla de la API de MaKo, con el aspecto de GitHub
 // =============================================================================
-// Cuatro vistas hermanas, cortadas por PREGUNTA: ¿qué se puede pedir? · ¿con qué
-// credencial? · ¿qué se pidió? · ¿cómo arranco? La vista viaja en `?tab=` (leída en
-// el server, page.tsx) y la operación abierta en `?op=`, escritas de vuelta con el
-// router de app/_ui/Link, que preserva el `?ws=`: el link que se copia es lo que se
-// está viendo.
+// Decisión de Martín (08/10/2026): «Me gusta como hace la API GitHub, con su diseño,
+// permisos, presentación, etc… Copialo todo, tal cual» y, de las opciones, «que se vea
+// igual a GitHub». Por eso esta tab NO usa el PageHeader ni los Tabs de app/_ui: usa el
+// encabezado y el UnderlineNav de GitHub, con su CSS (github.css), limitado a `.gh`. Lo que
+// no cambia son las reglas de la casa que no son de aspecto: la vista viaja en `?tab=`
+// (leída en el server), los links preservan el `?ws=` (app/_ui/Link) y el registro no
+// viaja al navegador.
+//
+// Tres vistas, como en GitHub viven en tres lugares: la Documentación (docs.github.com/en/
+// rest), los Tokens (Settings → Developer settings → Personal access tokens) y el Registro
+// (el Security log).
 // =============================================================================
 
-import { useState } from 'react';
-import { useRouter } from '@/app/_ui/Link';
-import { Button, PageHeader, Pagina, Status, Tabs, type Tab } from '@/app/_ui';
-import type { TokensDelWorkspace } from '@/lib/api-mako/tokens';
-import type { AreaIndice, OpIndice, UsoApi } from './datos';
-import { Operaciones } from './Operaciones';
-import { Tokens } from './Tokens';
-import { Uso } from './Uso';
-import { ComoSeUsa } from './ComoSeUsa';
+import type { ReactNode } from 'react';
+import Link from '@/app/_ui/Link';
+import { Icono, type NombreIcono } from './piezas';
+import './github.css';
 
-export type TabApi = 'operaciones' | 'tokens' | 'uso' | 'como';
+export type TabApi = 'docs' | 'tokens' | 'registro';
 
-export function ApiMako({ tabInicial, opInicial, areas, operaciones, tokens: tokensIniciales, uso, base }: {
-  tabInicial: TabApi;
-  opInicial?: string;
-  areas: AreaIndice[];
-  operaciones: OpIndice[];
-  tokens: TokensDelWorkspace | null;
-  uso: UsoApi | { error: string };
-  base: string;
-}) {
-  const router = useRouter();
-  const [tab, setTab] = useState<TabApi>(tabInicial);
-  const [tokens, setTokens] = useState(tokensIniciales);
-  const [formAbierto, setFormAbierto] = useState(false);
+const TABS: { id: TabApi; label: string; icono: NombreIcono }[] = [
+  { id: 'docs', label: 'Documentación', icono: 'book' },
+  { id: 'tokens', label: 'Tokens', icono: 'key' },
+  { id: 'registro', label: 'Registro', icono: 'pulse' },
+];
 
-  const activos = tokens ? tokens.tokens.length + (tokens.principal ? 1 : 0) : 0;
-
-  const TABS: Tab[] = [
-    { id: 'operaciones', label: 'Operaciones' },
-    { id: 'tokens', label: 'Tokens', badge: activos },
-    { id: 'uso', label: 'Uso' },
-    { id: 'como', label: 'Cómo se usa' },
-  ];
-
-  const irA = (id: string, op?: string | null) => {
-    setTab(id as TabApi);
-    const q = new URLSearchParams({ tab: id });
-    if (op) q.set('op', op);
-    router.replace(`/api-mako?${q}`, { scroll: false });
-  };
-
-  const nuevoToken = () => { setFormAbierto(true); irA('tokens'); };
-
+export function ApiMako({ tab, tokens, children }: { tab: TabApi; tokens: number; children: ReactNode }) {
   return (
-    <Pagina>
-      <PageHeader
-        titulo="API"
-        proposito="Lo que un agente o una integración puede leer y hacer en tu MaKo."
-        estado={<Status tono={activos ? 'good' : 'neutral'}>{activos ? `${activos} ${activos === 1 ? 'token' : 'tokens'}` : 'Sin tokens'}</Status>}
-        accion={<Button onClick={nuevoToken}>Nuevo token</Button>}
-        tabs={<Tabs tabs={TABS} activa={tab} onCambio={(id) => irA(id)} />}
-      />
-
-      {tab === 'operaciones' && (
-        <Operaciones areas={areas} operaciones={operaciones} opInicial={opInicial} onAbrir={(id) => irA('operaciones', id)} />
-      )}
-      {tab === 'tokens' && (
-        <Tokens tokens={tokens} onCambio={setTokens} formAbierto={formAbierto} setFormAbierto={setFormAbierto} />
-      )}
-      {tab === 'uso' && <Uso uso={uso} irATokens={() => irA('tokens')} />}
-      {tab === 'como' && <ComoSeUsa base={base} hayToken={activos > 0} irATokens={() => irA('tokens')} />}
-    </Pagina>
+    <div className="gh" style={{ minHeight: '100%' }}>
+      <div className="gh-encabezado" style={{ padding: '24px 24px 0' }}>
+        <div className="gh-titulo-app">
+          <Icono n="code" size={20} />
+          <span>MaKo</span><span style={{ color: 'var(--gh-fg-muted)' }}>/</span><strong>API</strong>
+        </div>
+        <nav className="gh-underline-nav" aria-label="API">
+          {TABS.map((t) => (
+            <Link key={t.id} href={`/api-mako?tab=${t.id}`} className="gh-underline-item" aria-current={tab === t.id ? 'page' : undefined}>
+              <Icono n={t.icono} />{t.label}
+              {t.id === 'tokens' && tokens > 0 && <span className="gh-counter">{tokens}</span>}
+            </Link>
+          ))}
+        </nav>
+      </div>
+      <div style={{ padding: tab === 'docs' ? 0 : '0 24px 48px' }}>{children}</div>
+    </div>
   );
 }
