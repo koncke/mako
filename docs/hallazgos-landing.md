@@ -3799,3 +3799,40 @@ ficha queda anotada. Todo limpio después.
 
 _Hecho directo por la sesión de claude2 (`tests/landing-gracias.test.ts`, probado rompiéndolo: siete
 roturas, las siete caen)._
+
+---
+
+## El píxel de Meta de MaKo en su propia landing (08/10/2026)
+
+Para empezar a pautar MaKo hacía falta que la landing de venta (la raíz de hola-mako.com,
+`app/vsl/Landing.tsx`) midiera: no tenía ningún píxel de Meta, así que un anuncio no podía
+optimizar hacia la reunión agendada ni armar audiencias de quien visitó. Se creó el conjunto de
+datos **«MaKo» (1869323014511830)** en el portafolio de Meta de MaKo y se instaló en la landing:
+`PageView` al cargar y **`Schedule`** cuando Calendly avisa que se agendó (es la conversión de esa
+página).
+
+**No confundir con el Pixel de MaKo que se le da a los clientes** (`lib/landing-token.ts`): éste
+es el de Meta, para los anuncios de MaKo mismo, y vive en `lib/meta-pixel-mako.ts`.
+
+Tres decisiones que no se ven leyendo el componente:
+
+- **Sólo mide en hola-mako.com** (`debeMedir`). En localhost y en los previews de Vercel cada
+  visita de prueba entraría a las audiencias y a la optimización como un visitante real, y no hay
+  forma de sacarla después.
+- **La agenda se cree sólo si el `message` viene de `https://calendly.com`, comparado exacto.** Un
+  `postMessage` lo puede mandar cualquier iframe; un `Schedule` falso le enseña a Meta a buscar a
+  quien no agendó. Y uno solo por carga: Calendly puede repetir el mensaje.
+- **El código base del píxel está escrito en TS**, no pegado como string: un snippet en un template
+  literal es la familia de bugs de «el fuente y lo que se sirve no son el mismo texto».
+
+La política de privacidad decía «no usamos Meta Pixel» y «MaKo no usa cookies de publicidad»: las
+dos eran sobre la app y seguían siéndolo, pero leídas sueltas pasaban a ser falsas para la página
+pública. Se corrigieron en el mismo commit.
+
+**Lo que quedó sin hacer:** la API de Conversiones (eventos desde el servidor) para la propia
+landing; las páginas de cada función (`/vsl/<slug>`) no cargan el píxel; y la opción de Meta
+«conectar a la API de conversiones con Meta» se dejó apagada al crear el conjunto de datos (comparte
+más datos y suma condiciones: se prende cuando haga falta).
+
+**Vive en:** lib/meta-pixel-mako.ts · app/vsl/Landing.tsx · app/privacidad/page.tsx ·
+tests/meta-pixel-mako.test.ts · *2026-10-08 publicitar-mako*

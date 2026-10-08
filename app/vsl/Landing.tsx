@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { debeMedir, esAgendaDeCalendly, PIXEL_META_MAKO } from '@/lib/meta-pixel-mako';
 
 import { LANDING_HTML } from './landing-html';
 import { SHOWCASE_BY_SLUG, INJECT_ORDER, OCULTAS } from './showcase';
@@ -19,7 +20,38 @@ declare global {
   interface Window {
     MakoAnim?: { draw: (ctx: CanvasRenderingContext2D, t: number, w: number, h: number) => void; DURATION: number };
     Calendly?: { initInlineWidget: (opts: { url: string; parentElement: Element }) => void };
+    fbq?: Fbq;
+    _fbq?: Fbq;
   }
+}
+
+/** La cola de comandos del píxel de Meta, con la forma que espera fbevents.js. */
+type Fbq = ((...args: unknown[]) => void) & {
+  callMethod?: (...args: unknown[]) => void;
+  queue: unknown[][];
+  push: Fbq;
+  loaded: boolean;
+  version: string;
+};
+
+/**
+ * El código base del píxel de Meta, escrito en TS en vez de pegado como string: es
+ * la misma cola que arma el snippet oficial (los comandos se encolan hasta que
+ * fbevents.js carga y los procesa). Idempotente: StrictMode re-ejecuta el efecto.
+ */
+function cargarPixelMeta(): Fbq {
+  if (window.fbq) return window.fbq;
+  const n = function (...args: unknown[]) {
+    if (n.callMethod) n.callMethod(...args);
+    else n.queue.push(args);
+  } as Fbq;
+  n.push = n; n.loaded = true; n.version = '2.0'; n.queue = [];
+  window.fbq = n;
+  if (!window._fbq) window._fbq = n;
+  const sc = document.createElement('script');
+  sc.id = 'vsl-meta-pixel'; sc.async = true; sc.src = 'https://connect.facebook.net/en_US/fbevents.js';
+  document.head.appendChild(sc);
+  return n;
 }
 
 const CALENDLY_CSS = 'https://assets.calendly.com/assets/external/widget.css';
@@ -364,6 +396,30 @@ export default function Landing() {
       document.body.appendChild(sc);
     } else {
       initCal();
+    }
+
+    // ── Píxel de Meta de MaKo: la visita y la agenda ─────────────────────────
+    // Para que los anuncios que venden MaKo midan y optimicen hacia la reunión
+    // agendada, que es la conversión de esta página. Sólo en el dominio de
+    // producción (ver debeMedir): un preview o localhost ensuciaría las audiencias.
+    // La agenda llega por postMessage desde el iframe de Calendly; el origen se
+    // valida exacto en esAgendaDeCalendly. Un solo Schedule por carga: Calendly
+    // puede repetir el mensaje y Meta lo contaría dos veces.
+    if (debeMedir(window.location.hostname)) {
+      const fbq = cargarPixelMeta();
+      if (!root.getAttribute('data-pixel-init')) {
+        root.setAttribute('data-pixel-init', '1');
+        fbq('init', PIXEL_META_MAKO);
+        fbq('track', 'PageView');
+      }
+      let agendo = false;
+      const onMensaje = (e: MessageEvent) => {
+        if (agendo || !esAgendaDeCalendly(e.origin, e.data)) return;
+        agendo = true;
+        fbq('track', 'Schedule');
+      };
+      window.addEventListener('message', onMensaje);
+      cleanup.push(() => window.removeEventListener('message', onMensaje));
     }
 
     return () => cleanup.forEach((fn) => fn());

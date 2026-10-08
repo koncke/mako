@@ -31,7 +31,7 @@ export const metadata = {
   description: 'Qué datos usa MaKo, con quién se comparten y qué puedes hacer con ellos.',
 };
 
-const ACTUALIZADO = '7 de octubre de 2026';
+const ACTUALIZADO = '8 de octubre de 2026';
 
 // ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Los tiene que confirmar el dueño y
 // hoy son el supuesto más razonable, no un hecho verificado. Una política con el
@@ -116,6 +116,12 @@ export default function Page() {
         página web — eso se explica más abajo, y es otra cosa.) Lo único que sale a un tercero
         en cada visita es tu dirección IP, porque las tipografías se piden a los servidores de
         Google.
+      </p>
+      <p>
+        <strong>La página pública de MaKo (hola-mako.com) sí lleva el píxel de Meta</strong>, para
+        medir los anuncios con los que vendemos MaKo: registra que la página se visitó y, si
+        agendas una reunión desde ahí, que la agendaste. Con eso Meta sabe a quién mostrarle
+        nuestros anuncios. Corre solo en esa página, no dentro de la aplicación.
       </p>
 
       <H3>Si conectas Claude Code</H3>
@@ -383,9 +389,9 @@ export default function Page() {
 
       <H id="cookies">Cookies</H>
       <p>
-        MaKo <strong>no usa cookies de publicidad ni de analítica</strong>, así que no hay banner
-        de consentimiento que aceptar: todas las que pone son necesarias para que la aplicación
-        funcione.
+        La aplicación <strong>no usa cookies de publicidad ni de analítica</strong>: todas las que
+        pone son necesarias para que funcione. La excepción es la página pública (hola-mako.com),
+        donde el píxel de Meta pone sus cookies (<code>_fbp</code>) para medir nuestros anuncios.
       </p>
       <ul>
         <li><code>mako_session</code> — tu sesión, firmada. Dura 30 días.</li>
