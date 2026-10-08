@@ -32,6 +32,8 @@ import {
   salidaHorarios, salidaReunionesDeLead, propuestaAgendar, elegirParaMover, propuestaMover, yaPaso, resultadoAgendar,
   resultadoMover, historialAgendar, historialMover, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta,
   bloqueAgendaGoogle, AGENDA_ABIERTA_MIN, type ReunionAgenda,
+  salidaDelDia, elegirReunion, propuestaCambiar, propuestaCancelar, resultadoCambiar, resultadoCancelar,
+  historialCambiar, historialCancelar, noPudeLeerDia, herramientasQueSiguen, type EventoDia,
 } from '../lib/agenda-sin-ia';
 
 const RAIZ = join(__dirname, '..');
@@ -133,6 +135,109 @@ test('mover: la propuesta, el resultado y el historial no llevan el título ni l
   sinCentinelas(JSON.stringify(yaPaso('movió', NUEVO, TZ)), 'ya pasó');
 });
 
+// --- 1-bis. Sin lead, ver el día, cambiar y cancelar (08/10/2026) ----------------------
+// El pedido de un cliente: «agenda me una reunión mañana 12hs de 1hs que se llame PRUEBA»,
+// y después editarla o borrarla. Un evento sin lead no tiene email por el que buscarlo:
+// se lo encuentra por el día y la hora que dijo la persona, y la lista del día —que es
+// agenda pura— la ve ella, nunca el modelo.
+
+const DEL_DIA: EventoDia = { ...REUNION, invitados: 3 };
+const DIA_COMPLETO: EventoDia = { inicioIso: '2026-10-09T03:00:00Z', titulo: `${TITULO}-dia`, duracionMin: null, organizaOtro: false, diaCompleto: true, invitados: 0 };
+
+test('agenda del día: el modelo no sabe qué hay, ni cuántos, ni si nada', () => {
+  const con = salidaDelDia({ fecha: '2026-10-09', ok: true, codigo: 'ok', motivo: '', eventos: [DEL_DIA, DIA_COMPLETO], tz: TZ });
+  const sin = salidaDelDia({ fecha: '2026-10-09', ok: true, codigo: 'ok', motivo: '', eventos: [], tz: TZ });
+  sinCentinelas(visibleParaElModelo(con), 'agenda del día');
+  assert.equal(con.content, sin.content, 'el modelo distingue «hay» de «no hay»');
+  assert.match(con.paraLaPersona ?? '', new RegExp(`${HORA_AGENDA} — «${TITULO}»`));
+  assert.match(con.paraLaPersona ?? '', /todo el día/);
+  const mal = salidaDelDia({ fecha: '2026-10-09', ok: false, codigo: 'api', motivo: MOTIVO, eventos: [], tz: TZ });
+  sinCentinelas(visibleParaElModelo(mal), 'agenda del día sin leer');
+  assert.match(mal.paraLaPersona ?? '', new RegExp(MOTIVO));
+  assert.doesNotMatch(mal.paraLaPersona ?? '', /no tienes nada/, '«no pude leer» no es «no hay nada»');
+  const noLeida = noPudeLeerDia({ fecha: '2026-10-09', codigo: 'api', motivo: MOTIVO });
+  sinCentinelas(visibleParaElModelo(noLeida), 'no pude leer el día');
+  assert.match(noLeida.paraLaPersona ?? '', new RegExp(MOTIVO));
+});
+
+test('agendar SIN lead: el título lo dijo la persona, sin invitados, y los choques a ella', () => {
+  const p = propuestaAgendar({ leadId: null, email: null, titulo: 'PRUEBA', inicioIso: NUEVO, tz: TZ, duracionMin: 60, choques: [CHOQUE] });
+  sinCentinelas(visibleParaElModelo(p), 'agendar sin lead');
+  assert.match(p.resumen, /«PRUEBA».*\(60 min\).*sin invitados/);
+  assert.equal(p.payload.email, null);
+  const ok = resultadoAgendar({ ok: true, codigo: 'ok', motivo: '', titulo: 'PRUEBA', inicioIso: NUEVO, tz: TZ, email: null });
+  assert.doesNotMatch(ok.resumen, /invitación/, 'sin lead no se invitó a nadie');
+});
+
+test('elegir sin lead: por el día y la hora que dijo la persona, sin mostrarle la agenda al modelo', () => {
+  const OTRA_DIA: EventoDia = { ...OTRA, invitados: 0 };
+  const varias = elegirReunion({ quien: null, accion: 'cancelar', todas: [DEL_DIA, OTRA_DIA], fechaActual: '2026-10-09', horaActual: null, tz: TZ });
+  assert.ok('error' in varias);
+  sinCentinelas(visibleParaElModelo(varias), 'cancelar con varias');
+  assert.deepEqual(varias.faltan, ['fecha_actual', 'hora_actual']);
+  assert.match(varias.paraLaPersona ?? '', new RegExp(TITULO));
+  assert.match(varias.paraLaPersona ?? '', /cancelamos/);
+
+  const ninguna = elegirReunion({ quien: null, accion: 'cambiar', todas: [DEL_DIA], fechaActual: '2026-10-09', horaActual: '18:00', tz: TZ });
+  assert.ok('error' in ninguna);
+  sinCentinelas(visibleParaElModelo(ninguna), 'cambiar sin coincidencia');
+
+  // Uno de día completo no se elige: no tiene una hora por la que nombrarlo ni encontrarlo.
+  const soloDiaCompleto = elegirReunion({ quien: null, accion: 'cancelar', todas: [DIA_COMPLETO], fechaActual: '2026-10-09', horaActual: null, tz: TZ });
+  assert.ok('error' in soloDiaCompleto);
+  sinCentinelas(visibleParaElModelo(soloDiaCompleto), 'sólo día completo');
+
+  const otraCuenta = elegirReunion({ quien: null, accion: 'cancelar', todas: [{ ...DEL_DIA, organizaOtro: true }], fechaActual: '2026-10-09', horaActual: null, tz: TZ });
+  assert.ok('error' in otraCuenta);
+  sinCentinelas(visibleParaElModelo(otraCuenta), 'cancelar de otra cuenta');
+
+  const una = elegirReunion({ quien: null, accion: 'cancelar', todas: [DEL_DIA, OTRA_DIA, DIA_COMPLETO], fechaActual: '2026-10-09', horaActual: '10:30', tz: TZ });
+  assert.ok('reunion' in una && una.reunion.titulo === TITULO);
+});
+
+test('cambiar: lo NUEVO lo dijo la persona y va al resumen; lo que tiene hoy, a ella', () => {
+  const p = propuestaCambiar({ leadId: null, nombre: null, email: null, reunion: DEL_DIA, tz: TZ, tituloNuevo: 'Firma', duracionMin: 60, fechaActual: '2026-10-09', horaActual: '10:30' });
+  sinCentinelas(visibleParaElModelo(p), 'propuesta de cambiar');
+  assert.match(p.resumen, /se llame «Firma» y dure 60 min/);
+  assert.equal(p.payload.titulo, TITULO, 'el payload SÍ lleva el título: lo usa el código para encontrar el evento');
+  assert.match(p.paraLaPersona ?? '', new RegExp(`${TITULO}[\\s\\S]*${HORA_AGENDA}`));
+  const ok = resultadoCambiar({ ok: true, codigo: 'ok', motivo: '', tituloAntes: TITULO, inicioIso: DEL_DIA.inicioIso, tz: TZ, conQuien: '', tituloNuevo: 'Firma', duracionMin: null });
+  sinCentinelas(visibleParaElModelo(ok), 'resultado de cambiar');
+  const mal = resultadoCambiar({ ok: false, codigo: 'no-encontrado', motivo: MOTIVO, tituloAntes: TITULO, inicioIso: DEL_DIA.inicioIso, tz: TZ, conQuien: '', tituloNuevo: 'Firma', duracionMin: null });
+  sinCentinelas(visibleParaElModelo(mal), 'fallo de cambiar');
+  assert.match(mal.paraLaPersona ?? '', new RegExp(MOTIVO));
+  sinCentinelas(historialCambiar({ conQuien: 'Juan', tituloNuevo: 'Firma', duracionMin: null, canal: 'WhatsApp' }), 'el historial de cambiar');
+});
+
+test('cancelar: no se deshace, y a cuántos les avisa lo ve la persona antes del «sí»', () => {
+  const p = propuestaCancelar({ leadId: null, nombre: null, email: null, reunion: DEL_DIA, tz: TZ, fechaActual: '2026-10-09', horaActual: '10:30' });
+  sinCentinelas(visibleParaElModelo(p), 'propuesta de cancelar');
+  assert.match(p.resumen, /No se deshace/);
+  assert.doesNotMatch(p.resumen, /invitad/, 'cuántos invitados tiene es de la agenda: va a la persona');
+  assert.match(p.paraLaPersona ?? '', /sus 3 invitados/);
+  assert.match(p.paraLaPersona ?? '', new RegExp(TITULO));
+  const ok = resultadoCancelar({ ok: true, codigo: 'ok', motivo: '', titulo: TITULO, inicioIso: DEL_DIA.inicioIso, tz: TZ, conQuien: '' });
+  sinCentinelas(visibleParaElModelo(ok), 'resultado de cancelar');
+  const mal = resultadoCancelar({ ok: false, codigo: 'api', motivo: MOTIVO, titulo: TITULO, inicioIso: DEL_DIA.inicioIso, tz: TZ, conQuien: '' });
+  sinCentinelas(visibleParaElModelo(mal), 'fallo de cancelar');
+  sinCentinelas(historialCancelar({ conQuien: 'Juan', canal: 'WhatsApp' }), 'el historial de cancelar');
+});
+
+test('después de ver el día, el pedido queda abierto para mover, cambiar o cancelar', () => {
+  const ahora = 1_000_000;
+  const visto = salidaDelDia({ fecha: '2026-10-09', ok: true, codigo: 'ok', motivo: '', eventos: [DEL_DIA], tz: TZ });
+  const abierta = agendaQueSigue('agenda_del_dia', { fecha: '2026-10-09' }, visto, ahora);
+  assert.deepEqual(abierta, { herramienta: 'agenda_del_dia', datos: { fecha: '2026-10-09' }, desde: ahora });
+  assert.deepEqual([...herramientasQueSiguen(abierta!)].sort(), ['proponer_cambiar_reunion', 'proponer_cancelar_reunion', 'proponer_mover_reunion']);
+  assert.ok(agendaVigente(JSON.stringify(abierta), ahora + 60_000), 'un pedido abierto por el día no se lee de vuelta');
+  sinCentinelas(contextoAgendaAbierta(abierta!), 'el contexto del día abierto');
+  assert.match(contextoAgendaAbierta(abierta!), /fecha_actual "2026-10-09"/);
+  // Leer el día SIN poder no deja nada abierto.
+  assert.equal(agendaQueSigue('agenda_del_dia', { fecha: '2026-10-09' }, salidaDelDia({ fecha: '2026-10-09', ok: false, codigo: 'api', motivo: MOTIVO, eventos: [], tz: TZ }), ahora), null);
+  // Y cancelar cierra el pedido cuando deja su pendiente.
+  assert.equal(agendaSeCierra('proponer_cancelar_reunion', JSON.stringify({ ok: true, pendiente_id: 9 })), true);
+});
+
 // --- Los auxiliares puros -------------------------------------------------------
 
 test('lo que ve el modelo después de una lectura es sólo el estado y su instrucción fija', () => {
@@ -221,7 +326,11 @@ function runners(src: string): Map<string, string> {
   return out;
 }
 
-const AGENDA = ['horarios_libres_dia', 'reuniones_agenda_lead', 'proponer_agendar_agenda', 'proponer_mover_reunion'];
+const AGENDA = [
+  'horarios_libres_dia', 'reuniones_agenda_lead', 'proponer_agendar_agenda', 'proponer_mover_reunion',
+  // 08/10/2026: ver el día, y cambiar o cancelar una reunión (con o sin lead).
+  'agenda_del_dia', 'proponer_cambiar_reunion', 'proponer_cancelar_reunion',
+];
 
 test('los runners de agenda no arman texto: sólo leen la agenda y llaman a los constructores', () => {
   const rs = runners(sinComentarios(leer('lib/api-mako/areas/crm.run.ts')));
@@ -253,6 +362,8 @@ const DEVUELVEN_DATOS = [
   'buscarEventosGoogle', 'invitadosDeReunionPorFecha', 'duracionDeReunionEnAgendaMin',
   'moverEventoDeReunion', 'crearEventoDeReunion', 'proximasReunionesCon', 'choquesEnAgenda',
   'horariosLibresDeGoogle',
+  // 08/10/2026: lo que hay un día (con o sin invitados), y cancelar o cambiar un evento.
+  'eventosDelDia', 'cancelarEventoDeReunion', 'cambiarEventoDeReunion',
 ];
 const NO_DEVUELVEN_DATOS = [
   'GCAL_SCOPE_LECTURA', 'GCAL_SCOPE_ESCRITURA', 'GCAL_SCOPE', 'googleRedirectUri',

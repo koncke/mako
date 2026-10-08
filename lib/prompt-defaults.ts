@@ -18,15 +18,18 @@ export const CHART_TITULO_DEFAULT =
   'Devuelve SOLO un título corto (3 a 6 palabras, en español, sin comillas ni punto final) que resuma de qué trata esto. Nada más que el título.';
 
 // ── Encuadres del system prompt de MaKo (lib/mako-context.ts) ────────────────
+// ⚠️ SIN NOMBRES PROPIOS. Estos textos los lee el MaKo de TODO cliente: decían «el negocio
+// de Martín», y el 08/10/2026 MaKo le contestó «Mira, Martín…» a un cliente inmobiliario
+// en su propio grupo. El negocio es de quien escribe.
 export const MAKO_CTX_GENERAL_DEFAULT =
-  'CONTEXTO: chat general del dashboard del negocio de Martín. Ayuda con lo que pregunte; si te pega datos, analízalos.';
+  'CONTEXTO: chat general del dashboard de este negocio. Ayuda con lo que pregunte; si te pega datos, analízalos.';
 
 // {{titulo}} = nombre del gráfico · {{contexto}} = datos del gráfico (recortados)
 export const MAKO_CTX_CHART_DEFAULT =
-  'CONTEXTO: estás mirando el gráfico "{{titulo}}" del PROPIO negocio de Martín. Ya tienes los datos abajo, analiza directo.\n\nDATOS DEL GRÁFICO:\n{{contexto}}';
+  'CONTEXTO: estás mirando el gráfico "{{titulo}}" del PROPIO negocio de quien te escribe. Ya tienes los datos abajo, analiza directo.\n\nDATOS DEL GRÁFICO:\n{{contexto}}';
 
 export const MAKO_CTX_WHATSAPP_DEFAULT =
-  'ERES CONSULTOR DE SECUENCIAS Y PLANTILLAS DE WHATSAPP. Cuando Martín te proponga una secuencia o un mensaje, evalúa si Meta lo aprobaría (cita la regla), sugiere mejoras concretas y piensa el timing/copy en función del funnel. Sé directo y accionable.';
+  'ERES CONSULTOR DE SECUENCIAS Y PLANTILLAS DE WHATSAPP. Cuando te propongan una secuencia o un mensaje, evalúa si Meta lo aprobaría (cita la regla), sugiere mejoras concretas y piensa el timing/copy en función del funnel. Sé directo y accionable.';
 
 // ── Extracción de un contrato: plan de pagos + Deal Details (app/api/extract-contract)
 export const CONTRACT_EXTRACT_DEFAULT =

@@ -44,14 +44,15 @@ import { evaluarAutoWorkspace } from '@/lib/crm-auto';
 import { crmAutoHabilitado, setCrmAuto, KEY_CRM_AUTO } from '@/lib/envio-flags';
 import {
   horariosLibresDeGoogle, permisoCalendarioGoogle, crearEventoDeReunion, moverEventoDeReunion,
-  proximasReunionesCon, choquesEnAgenda,
+  proximasReunionesCon, choquesEnAgenda, eventosDelDia, cambiarEventoDeReunion, cancelarEventoDeReunion,
 } from '@/lib/google-calendar';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 // La agenda de Google no pasa por el modelo: lo que se lee va a la persona
 // (`paraLaPersona`) y el modelo recibe un estado o un resumen sin datos de la agenda.
 import {
-  cuandoLegible, minutosDeHora, salidaHorarios, salidaReunionesDeLead, propuestaAgendar, elegirParaMover, propuestaMover,
-  yaPaso, resultadoAgendar, resultadoMover, historialAgendar, historialMover,
+  cuandoLegible, minutosDeHora, salidaHorarios, salidaReunionesDeLead, salidaDelDia, propuestaAgendar, elegirReunion, propuestaMover,
+  propuestaCambiar, propuestaCancelar, noPudeLeerDia, yaPaso, resultadoAgendar, resultadoMover, resultadoCambiar, resultadoCancelar,
+  historialAgendar, historialMover, historialCambiar, historialCancelar, type EventoDia,
 } from '@/lib/agenda-sin-ia';
 // Puro (sin server-only): la misma conversión hora-de-pared → instante que usa la
 // grilla del CRM, con el salto de horario de verano resuelto. No se escribe otra.
@@ -140,6 +141,42 @@ async function agendaParaEscribir(): Promise<string | null> {
   if (!p.puedeMover) return 'La agenda de Google está conectada con permiso de solo lectura: hay que reconectarla en Integraciones para poder agendar o mover.';
   return null;
 }
+
+/**
+ * Entre qué reuniones se elige la que nombró la persona, para mover, cambiar o cancelar:
+ * con un lead, las suyas; sin lead, las del día que dijo (`fecha_actual`). Los errores
+ * llevan sólo lo que dijo la persona o el CRM: la lectura de la agenda se queda adentro.
+ */
+async function reunionesAElegir(input: Record<string, unknown>, ctx: Ctx): Promise<
+  { lead: Lead | null; todas: EventoDia[]; fechaActual: string | null; horaActual: string | null; tz: string }
+  | { error: string; paraLaPersona?: string }
+> {
+  const fechaActual = input.fecha_actual === undefined || input.fecha_actual === null ? null : input.fecha_actual;
+  if (fechaActual != null && !esFechaIso(fechaActual)) return { error: '«fecha_actual» tiene que ser YYYY-MM-DD: el día que tiene la reunión, como lo dijo la persona.' };
+  const horaActual = s(input.hora_actual) ?? null;
+  if (horaActual != null && minutosDe(horaActual) == null) return { error: '«hora_actual» tiene que ser HH:MM en 24 h (ej. 10:30).' };
+  let lead: Lead | null = null;
+  if (input.leadId !== undefined && input.leadId !== null) {
+    lead = await leadDe(input.leadId);
+    if (!lead) return { error: noExiste(input.leadId) };
+    if (!lead.email) return { error: `${lead.nombre} no tiene email cargado: sin email no se reconoce su reunión en la agenda. Si es un evento sin invitados, búscalo por el día (fecha_actual) sin el lead.` };
+  } else if (!fechaActual) {
+    return { error: 'Sin lead, la reunión se busca por el día: pasa fecha_actual (el día que tiene, como lo dijo la persona) y, si la dijo, hora_actual.' };
+  }
+  const sinAgenda = await agendaParaEscribir();
+  if (sinAgenda) return { error: sinAgenda };
+  const tz = await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
+  if (lead?.email) return { lead, todas: await proximasReunionesCon(lead.email), fechaActual, horaActual, tz };
+  const dia = await eventosDelDia(fechaActual!, tz);
+  if (!dia.ok) return noPudeLeerDia({ fecha: fechaActual!, codigo: dia.codigo, motivo: dia.motivo });
+  return { lead: null, todas: dia.eventos, fechaActual, horaActual, tz };
+}
+
+/** Con quién era la reunión, para el resumen y el historial. Sin lead, vacío; una
+ *  pendiente de antes del 07/10 con lead y sin nombre, «el lead». */
+const conQuienDe = (payload: Record<string, unknown>): string =>
+  (payload.leadId == null ? '' : String(payload.leadNombre ?? '').trim() || 'el lead');
+const leadIdDe = (payload: Record<string, unknown>): number | null => (payload.leadId == null ? null : Number(payload.leadId));
 
 /** Lo que pasó afuera ya pasó: si el historial falla, no se reporta como fallo de la acción. */
 async function anotar(leadId: number, titulo: string, texto: string, autor: string): Promise<void> {
@@ -527,6 +564,16 @@ export const RUNNERS: Runners = {
       return salidaReunionesDeLead({ nombre: lead.nombre, reuniones: await proximasReunionesCon(lead.email), tz });
     }),
   },
+  agenda_del_dia: {
+    leer: async (input, ctx) => {
+      if (!esFechaIso(input.fecha)) return fallo('«fecha» tiene que ser una fecha YYYY-MM-DD.');
+      const tz = await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
+      const r = await eventosDelDia(input.fecha, tz);
+      return salidaDelDia(r.ok
+        ? { fecha: input.fecha, ok: true, codigo: 'ok', motivo: '', eventos: r.eventos, tz }
+        : { fecha: input.fecha, ok: false, codigo: r.codigo, motivo: r.motivo, eventos: [], tz });
+    },
+  },
   link_agenda_calendly: {
     leer: async (input) => {
       const cual = input.cual === 'R2' ? 'R2' as const : 'R1' as const;
@@ -671,9 +718,16 @@ export const RUNNERS: Runners = {
   // tiempo cambia: que la hora no haya pasado.
   proponer_agendar_agenda: {
     preparar: async (input, ctx) => {
-      const lead = await leadDe(input.leadId);
-      if (!lead) return { error: noExiste(input.leadId) };
-      if (!lead.email) return { error: `${lead.nombre} no tiene email cargado, y la invitación de Google va al email. Pídeselo antes.` };
+      // Con lead, se lo invita; sin lead es un evento del negocio («una reunión que se llame
+      // PRUEBA», 08/10/2026) y el título lo pone la persona.
+      let lead: Lead | null = null;
+      if (input.leadId !== undefined && input.leadId !== null) {
+        lead = await leadDe(input.leadId);
+        if (!lead) return { error: noExiste(input.leadId) };
+        if (!lead.email) return { error: `${lead.nombre} no tiene email cargado, y la invitación de Google va al email. Pídeselo, o agenda el evento sin el lead.` };
+      } else if (!s(input.titulo)) {
+        return { error: 'Sin lead, el evento necesita un título: pasa el que dijo la persona en «titulo».' };
+      }
       const sinAgenda = await agendaParaEscribir();
       if (sinAgenda) return { error: sinAgenda };
       const t = await instanteEnZona(ctx.ws, input.fecha, input.hora);
@@ -682,53 +736,46 @@ export const RUNNERS: Runners = {
       // El email va en el payload: se invita al que la persona VIO en el resumen,
       // aunque la ficha cambie entre el «propongo» y el «sí».
       return propuestaAgendar({
-        leadId: lead.id, email: lead.email, titulo: s(input.titulo) ?? `Reunión con ${lead.nombre}`,
+        leadId: lead?.id ?? null, email: lead?.email ?? null, titulo: s(input.titulo) ?? `Reunión con ${lead?.nombre ?? ''}`.trim(),
         inicioIso: t.iso, tz: t.tz, duracionMin: duracion, choques: await choquesEnAgenda(t.iso, duracion),
       });
     },
     ejecutar: (payload, ctx) => seguro('agendar la reunión', async () => {
-      const id = Number(payload.leadId);
+      const id = leadIdDe(payload);
       const iso = String(payload.inicioIso);
       const tz = String(payload.tz || TZ_DEFAULT);
       if (Date.parse(iso) < Date.now()) return yaPaso('agendó', iso, tz);
       const titulo = String(payload.titulo ?? '');
-      const email = String(payload.email ?? '');
+      const email = typeof payload.email === 'string' && payload.email.trim() ? payload.email.trim() : null;
       const r = await crearEventoDeReunion({ inicioIso: iso, duracionMin: Number(payload.duracionMin) || undefined, titulo, emailInvitado: email });
-      if (r.ok) await anotar(id, 'Reunión agendada', historialAgendar({ titulo, inicioIso: iso, tz, canal: canalTxt(ctx), email }), autorDe(ctx));
+      if (r.ok && id != null && email) await anotar(id, 'Reunión agendada', historialAgendar({ titulo, inicioIso: iso, tz, canal: canalTxt(ctx), email }), autorDe(ctx));
       return resultadoAgendar({ ok: r.ok, codigo: r.codigo, motivo: r.motivo, titulo, inicioIso: iso, tz, email });
     }),
   },
   proponer_mover_reunion: {
     preparar: async (input, ctx) => {
-      const lead = await leadDe(input.leadId);
-      if (!lead) return { error: noExiste(input.leadId) };
-      if (!lead.email) return { error: `${lead.nombre} no tiene email cargado: sin email no se reconoce su reunión en la agenda.` };
-      const sinAgenda = await agendaParaEscribir();
-      if (sinAgenda) return { error: sinAgenda };
       // Cuál reunión: con lo que DIJO la persona (el día y, si lo dijo, la hora). Antes el
       // modelo copiaba el `inicio` exacto de una lista de la agenda que tenía que leer —o
-      // sea que la agenda pasaba por él—; ahora la elige el código.
-      const fechaActual = input.fecha_actual === undefined || input.fecha_actual === null ? null : input.fecha_actual;
-      if (fechaActual != null && !esFechaIso(fechaActual)) return { error: '«fecha_actual» tiene que ser YYYY-MM-DD: el día que tiene HOY la reunión, como lo dijo la persona.' };
-      const horaActual = s(input.hora_actual) ?? null;
-      if (horaActual != null && minutosDe(horaActual) == null) return { error: '«hora_actual» tiene que ser HH:MM en 24 h (ej. 10:30).' };
+      // sea que la agenda pasaba por él—; ahora la elige el código. Con lead o sin lead.
+      const r = await reunionesAElegir(input, ctx);
+      if ('error' in r) return r;
       const t = await instanteEnZona(ctx.ws, input.fecha, input.hora);
       if ('error' in t) return { error: t.error };
-      const elegida = elegirParaMover({ nombre: lead.nombre, todas: await proximasReunionesCon(lead.email), fechaActual, horaActual, nuevoIso: t.iso, tz: t.tz });
+      const elegida = elegirReunion({ quien: r.lead?.nombre ?? null, accion: 'mover', todas: r.todas, fechaActual: r.fechaActual, horaActual: r.horaActual, tz: t.tz, nuevoIso: t.iso });
       if ('error' in elegida) return elegida;
       const duracion = elegida.reunion.duracionMin ?? DURACION_DEFECTO_MIN;
       return propuestaMover({
-        leadId: lead.id, nombre: lead.nombre, email: lead.email, reunion: elegida.reunion, nuevoIso: t.iso, tz: t.tz, fechaActual, horaActual,
+        leadId: r.lead?.id ?? null, nombre: r.lead?.nombre ?? null, email: r.lead?.email ?? null, reunion: elegida.reunion,
+        nuevoIso: t.iso, tz: t.tz, fechaActual: r.fechaActual, horaActual: r.horaActual,
         choques: await choquesEnAgenda(t.iso, duracion, elegida.reunion.inicioIso),
       });
     },
     ejecutar: (payload, ctx) => seguro('mover la reunión', async () => {
-      const id = Number(payload.leadId);
+      const id = leadIdDe(payload);
       const nuevo = String(payload.nuevoIso);
       const antes = String(payload.inicioActualIso);
       const tz = String(payload.tz || TZ_DEFAULT);
-      // Las pendientes de antes del 07/10 no traen el nombre: no se rompen.
-      const conQuien = String(payload.leadNombre ?? '').trim() || 'el lead';
+      const conQuien = conQuienDe(payload);
       if (Date.parse(nuevo) < Date.now()) return yaPaso('movió', nuevo, tz);
       const titulo = String(payload.titulo ?? '');
       const r = await moverEventoDeReunion({
@@ -738,8 +785,57 @@ export const RUNNERS: Runners = {
         // invitación a una reunión que nadie pidió.
         crearSiNoExiste: false,
       });
-      if (r.ok) await anotar(id, 'Reunión movida', historialMover({ conQuien, nuevoIso: nuevo, tz, canal: canalTxt(ctx) }), autorDe(ctx));
+      if (r.ok && id != null) await anotar(id, 'Reunión movida', historialMover({ conQuien, nuevoIso: nuevo, tz, canal: canalTxt(ctx) }), autorDe(ctx));
       return resultadoMover({ ok: r.ok, codigo: r.codigo, motivo: r.motivo, titulo, antesIso: antes, nuevoIso: nuevo, tz, conQuien });
+    }),
+  },
+  proponer_cambiar_reunion: {
+    preparar: async (input, ctx) => {
+      const tituloNuevo = s(input.titulo) ?? null;
+      const duracion = n(input.duracion_min) ?? null;
+      if (!tituloNuevo && duracion == null) return { error: 'Pasa qué cambia: el título nuevo (titulo), la duración nueva (duracion_min) o las dos. Para el día o la hora es proponer_mover_reunion.' };
+      const r = await reunionesAElegir(input, ctx);
+      if ('error' in r) return r;
+      const elegida = elegirReunion({ quien: r.lead?.nombre ?? null, accion: 'cambiar', todas: r.todas, fechaActual: r.fechaActual, horaActual: r.horaActual, tz: r.tz });
+      if ('error' in elegida) return elegida;
+      return propuestaCambiar({
+        leadId: r.lead?.id ?? null, nombre: r.lead?.nombre ?? null, email: r.lead?.email ?? null, reunion: elegida.reunion, tz: r.tz,
+        tituloNuevo, duracionMin: duracion, fechaActual: r.fechaActual, horaActual: r.horaActual,
+      });
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar la reunión', async () => {
+      const id = leadIdDe(payload);
+      const conQuien = conQuienDe(payload);
+      const tz = String(payload.tz || TZ_DEFAULT);
+      const inicio = String(payload.inicioIso);
+      const tituloAntes = String(payload.titulo ?? '');
+      const tituloNuevo = typeof payload.tituloNuevo === 'string' && payload.tituloNuevo.trim() ? payload.tituloNuevo.trim() : null;
+      const duracion = typeof payload.duracionMin === 'number' ? payload.duracionMin : null;
+      const r = await cambiarEventoDeReunion({ inicioIso: inicio, titulo: tituloAntes, emailInvitado: typeof payload.email === 'string' ? payload.email : null, tituloNuevo, duracionMin: duracion });
+      if (r.ok && id != null) await anotar(id, 'Reunión cambiada', historialCambiar({ conQuien, tituloNuevo, duracionMin: duracion, canal: canalTxt(ctx) }), autorDe(ctx));
+      return resultadoCambiar({ ok: r.ok, codigo: r.codigo, motivo: r.motivo, tituloAntes, inicioIso: inicio, tz, conQuien, tituloNuevo, duracionMin: duracion });
+    }),
+  },
+  proponer_cancelar_reunion: {
+    preparar: async (input, ctx) => {
+      const r = await reunionesAElegir(input, ctx);
+      if ('error' in r) return r;
+      const elegida = elegirReunion({ quien: r.lead?.nombre ?? null, accion: 'cancelar', todas: r.todas, fechaActual: r.fechaActual, horaActual: r.horaActual, tz: r.tz });
+      if ('error' in elegida) return elegida;
+      return propuestaCancelar({
+        leadId: r.lead?.id ?? null, nombre: r.lead?.nombre ?? null, email: r.lead?.email ?? null, reunion: elegida.reunion, tz: r.tz,
+        fechaActual: r.fechaActual, horaActual: r.horaActual,
+      });
+    },
+    ejecutar: (payload, ctx) => seguro('cancelar la reunión', async () => {
+      const id = leadIdDe(payload);
+      const conQuien = conQuienDe(payload);
+      const tz = String(payload.tz || TZ_DEFAULT);
+      const inicio = String(payload.inicioIso);
+      const titulo = String(payload.titulo ?? '');
+      const r = await cancelarEventoDeReunion({ inicioIso: inicio, titulo, emailInvitado: typeof payload.email === 'string' ? payload.email : null });
+      if (r.ok && id != null) await anotar(id, 'Reunión cancelada', historialCancelar({ conQuien, canal: canalTxt(ctx) }), autorDe(ctx));
+      return resultadoCancelar({ ok: r.ok, codigo: r.codigo, motivo: r.motivo, titulo, inicioIso: inicio, tz, conQuien });
     }),
   },
   marcar_asistencia_reunion: {

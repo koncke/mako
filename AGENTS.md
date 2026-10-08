@@ -679,7 +679,7 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   proveedores que no entrenan), le sacó Gemini a un cliente que sólo tiene Gemini y dejó
   abiertos el «sí», la pendiente y el historial. Ver `docs/hallazgos-ia.md`.
 
-Siete cosas que no se ven en el código y ya mordieron:
+Ocho cosas que no se ven en el código y ya mordieron:
 
 1. **Con el token CLÁSICO, por HTTP nadie confirma por su cuenta.** Un bearer que propone y
    confirma con un `sleep` en el medio es escribir directo con delay. Solo un clásico
@@ -722,6 +722,13 @@ Siete cosas que no se ven en el código y ya mordieron:
    camino de reintento nuevo que se olvide. Y quien propone desde el doer le pasa a
    `crearPendiente` el inicio del turno (`mismoTurnoDesde`): la misma pendiente no se guarda
    dos veces en un turno.
+8. **Una capacidad nueva del doer se prueba con el turno que CORRE, no con uno armado a
+   mano.** Qué herramientas viajan lo decide `herramientasDelTurno` (`lib/doer-herramientas.ts`)
+   sobre el veredicto de `clasificarIntencion`, y el test pasa por las dos con las frases como
+   las escribe la persona (molde: `tests/agenda-whatsapp.test.ts`). Armado con
+   `toolsDelRegistro` suelto, el test de agenda dio verde mientras 3 de sus 5 pedidos llegaban
+   sin la herramienta (08/10/2026). Y el presupuesto de 12.000 caracteres ordena por
+   relevancia CONTRA EL TEXTO: sumar un área sin sumar relevancia no trae la acción.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede

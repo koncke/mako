@@ -405,7 +405,8 @@ modelo, y ninguna da error:
 
 **La regla: una capacidad nueva del doer se prueba ARMANDO EL TURNO con los mensajes como
 los escribe la persona, no llamando al runner.** El molde es `tests/agenda-whatsapp.test.ts`:
-`areasDelMensaje` + `toolsDelRegistro` con el `maxChars` real, y cinco frases reales.
+desde el 08/10, `clasificarIntencion` + `herramientasDelTurno` (lo MISMO que corre el doer)
+—armarlo a mano, sin el clasificador, dio verde sobre el bug; ver abajo—.
 Llamar al runner prueba que la operación funciona; armar el turno prueba que alguien la
 puede pedir.
 
@@ -441,16 +442,73 @@ sale por HTTP, tampoco figura).
 *07/10/2026 — sin subagentes; medido armando el turno y rompiendo el test cinco veces
 (2, 2, 1, 1 y 1 fallos). Commit `c3c2ef17`.*
 
-⚠️ **08/10: el test de este molde estaba verde y el turno real NO traía la herramienta.**
-Joan escribió en ws13 «Mako, agenda me una reunión mañana 12hs de 1hs que se llame PRUEBA»,
-y el mensaje se clasificó `capturar` (dudosa). Viajaron 2 herramientas y MaKo contestó «por
-aquí no puedo agendarte». Lo mismo pasa con 3 de las 5 frases de escritura del test, que arma
-el turno con `incluirAcciones: true` y se saltea `clasificarIntencion` y el filtro `ofrece`. Y
-el «sí» a lo que MaKo ofreció llega como `actuar`, pero con las áreas Y la relevancia
-(`relevanteA`) calculadas sobre «sí, dale»: el presupuesto deja afuera las acciones de
-agenda. **La regla se corrige así: armar el turno es pasar por el CLASIFICADOR, no sólo por
-`toolsDelRegistro`.** Está en curso en Integraciones. El diagnóstico está en el scratchpad
-de la sesión CRM (`joan-0-diag.json` y `joan-3-refuta.json`).
+### 08/10: el test armaba el turno SIN el clasificador, y daba verde sobre el bug
+
+**Vive en:** `lib/mako-intencion.ts` (`esPedidoAgenda`, `corrigeAgenda`, `sinPrefijoDeLote`,
+`RELEVANCIA_AGENDA`) · `lib/doer-herramientas.ts` (`herramientasDelTurno`, nuevo) ·
+`lib/mako-doer-in.ts` · `lib/agenda-sin-ia.ts` · `lib/google-calendar.ts` (`eventosDelDia`,
+`cancelarEventoDeReunion`, `cambiarEventoDeReunion`) · `lib/api-mako/areas/crm.{def,run}.ts` ·
+`tests/agenda-whatsapp.test.ts`
+
+Al día siguiente de conectar su Google, el cliente escribió «Mako, agenda me una reunión
+mañana 12hs de 1hs que se llame PRUEBA» y MaKo contestó «por aquí no puedo agendarte». La
+conexión tenía permiso de escritura; el pedido nunca llegó a una herramienta.
+
+⚠️ **La regla de arriba se cumplió a medias, y esa mitad era la que importaba.** El test
+armaba el turno con `areasDelMensaje` + `toolsDelRegistro` y `incluirAcciones: true` FIJO:
+se salteaba el clasificador y el filtro de «en una pregunta MaKo ofrece». Con el código de
+ese día, 3 de sus 5 frases de escritura llegaban al turno real sin la herramienta
+(«agendame…» y «pasá la visita…» caían en `pensar`, que sólo lleva lecturas; «moveme la
+cita…» en `capturar`), y la del cliente también: «agenda» sin tilde y el pronombre suelto no
+son ninguno de los imperativos, así que cayó al default, material para anotar. **Ahora la
+selección es una función pura que llaman el doer y el test** (`herramientasDelTurno`): un
+test que arma el turno a mano prueba otra cosa que lo que corre.
+
+Lo que destapó, y ninguna da error:
+
+1. **El clasificador no conocía el pedido de agenda.** Va una regla propia: un verbo de
+   agenda + una reunión + un día o una hora, en un mensaje corto (la tilde que exigen los
+   imperativos protege de la tercera persona de un volcado; acá protege el combo). Con las
+   formas con modal («me puedes agendar…»), que es como pide quien tutea.
+2. **Con una pendiente abierta, «cancelá la reunión…» y «no, movela al viernes» eran un
+   «sí» o un «no»**: `CONFIRMACION` arranca con «cancela» y «no». El turno llegaba con
+   confirmar/cancelar y nada más, y corregir la hora sólo cancelaba la propuesta.
+3. **El «sí» a un ofrecimiento llegaba como `actuar` pero sin herramientas de agenda**, y
+   no alcanzaba con calcular las áreas sobre el ofrecimiento: **el presupuesto ordena por
+   relevancia CONTRA EL TEXTO**, y contra «sí, dale» la acción quedaba afuera. Cambiar las
+   áreas sin cambiar la relevancia no trae la herramienta. Por la misma razón, «movela al
+   viernes» («movel» no es raíz de nada) quedaba afuera: un pedido de agenda suma
+   `RELEVANCIA_AGENDA` al presupuesto.
+4. **El encabezado de un lote es nuestro y sumaba áreas**: «[Te mandó 2 mensajes… carga
+   TODAS las tareas juntas…]» nombra plan, CRM y ads por sí solo, y gastaba el presupuesto.
+5. **Las de Calendly viajaban a un negocio sin Calendly**, y su receta («buscá el lead,
+   pedile el email») le ganaba a la de Google con un evento sin lead. `gating.integracion`
+   sigue siendo informativo en el registro; el doer las saca leyendo la credencial, y si la
+   lectura falla las deja (no pudo leer no es no tiene).
+6. **Faltaba capacidad**: crear SIN lead (un evento del negocio, sin invitados), ver el día
+   entero (`agenda_del_dia`), y cambiar el nombre o la duración, o cancelar, con o sin lead.
+   Sin lead se busca por el día y la hora que dijo la persona (`eventosDelDia`, estricta: un
+   fallo de Google no es «no tienes nada»). Para cancelar o cambiar se exige el MISMO
+   minuto y el mismo título: si alguien lo movió entre el «propongo» y el «sí», no se toca.
+   Todo por la regla del 07/10: la lista del día, los títulos y cuántos invitados hay van a
+   la persona; el resumen que vuelve al modelo sólo lleva lo que ella dijo.
+
+Aparte: el system de MaKo de TODO cliente decía «chat general del dashboard del negocio de
+Martín», y le contestó «Mira, Martín…» al cliente. Nadie lo tenía editado (medido): era el
+default del código (`lib/prompt-defaults.ts`, con su guard `tests/prompt-sin-dueno.test.ts`).
+
+**Lo que quedó sin hacer:**
+
+- **No se probó contra una agenda real.** El ws13 ya tiene Google conectado, pero es un
+  cliente: probar ahí es escribir en su agenda. La primera prueba es su próximo pedido.
+- **«movela al viernes» SIN pendiente ni agenda abierta** sigue sin llegar: no nombra la
+  reunión, y un verbo suelto como «movela» también se usa para una tarea del plan.
+- **Un «Agendar reunión con…» al principio de una línea** se lee como una tarea dictada si
+  el mensaje es una lista: decidir si es una orden o material es de Martín.
+
+*08/10/2026 — sin subagentes; el diagnóstico y su refutación los midió la sesión del CRM
+(solo lectura; `joan-0-diag.json` y `joan-3-refuta.json` en su scratchpad). 15 roturas entre `tests/agenda-whatsapp.test.ts` y
+`tests/agenda-sin-ia.test.ts`, todas con su fallo.*
 
 ## ⚠️ Una herramienta con una lista cerrada de campos hace que el modelo afirme «no hay» sobre un dato guardado (08/10/2026)
 

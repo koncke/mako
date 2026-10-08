@@ -140,8 +140,12 @@ test('Toda intención tiene contrato: una capacidad nueva no puede entrar sin de
 test('CABLEADO: la INTENCIÓN manda sobre las tools, no el tier del router', () => {
   const src = readFileSync(new URL('../lib/mako-doer-in.ts', import.meta.url), 'utf8');
   assert.ok(src.includes('clasificarIntencion('), 'el doer dejó de clasificar la intención');
-  assert.ok(src.includes('toolsParaIntencion(intencion.intencion'),
+  // La selección vive en lib/doer-herramientas.ts desde el 08/10/2026; el doer le pasa el
+  // veredicto de la intención, y ella decide con CONTRATO[v.intencion].
+  assert.ok(/herramientasDelTurno\(\{\s*veredicto: intencion,/.test(src),
     'las tools volvieron a elegirse por el motivo del router, que contesta otra pregunta');
+  assert.ok(readFileSync(new URL('../lib/doer-herramientas.ts', import.meta.url), 'utf8').includes('toolsParaIntencion<T | ToolDef>(v.intencion'),
+    'la selección dejó de elegir por la intención');
   assert.ok(src.includes('CONTRATO[intencion.intencion].forzarTool'),
     'la obligación de llamar la tool dejó de salir del contrato');
 });

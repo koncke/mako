@@ -40,6 +40,11 @@ const SIN_HTTP = ['whatsapp', 'app'] as const;
 
 const leadId = (desc = 'id del lead (de buscar_leads o listar_leads).'): Parametro =>
   ({ nombre: 'leadId', tipo: 'number', descripcion: desc, obligatorio: true, entero: true, minimo: 1 });
+// En la agenda de Google una reunión NO siempre es con un lead: «agendame una reunión mañana
+// a las 12 que se llame PRUEBA» es un evento del negocio (pedido de un cliente inmobiliario,
+// 08/10/2026). Sin lead se la busca por el día y la hora que dijo la persona.
+const leadIdOpcional = (desc: string): Parametro =>
+  ({ nombre: 'leadId', tipo: 'number', descripcion: desc, entero: true, minimo: 1 });
 const fechaIso = (nombre: string, desc: string, obligatorio = false): Parametro =>
   ({ nombre, tipo: 'string', descripcion: desc, max: 10, ...(obligatorio ? { obligatorio: true } : {}) });
 const cualReunion: Parametro = { nombre: 'cual', tipo: 'string', enum: ['R1', 'R2'], obligatorio: true, descripcion: 'qué reunión: R1 (primera) o R2 (segunda).' };
@@ -291,6 +296,17 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
   },
   {
+    id: 'agenda_del_dia', area: 'crm', tipo: 'lectura',
+    // «qué tengo» en el título: es como se pregunta, y la relevancia del turno puntúa id +
+    // título doble. Lo mide tests/agenda-whatsapp.test.ts.
+    titulo: 'Agenda del día: qué tengo',
+    descripcion: 'Le MUESTRA a la persona todo lo que tiene un día en la agenda de Google del negocio (con o sin invitados), en su zona horaria. Tú NO ves la agenda: el sistema se la muestra directo y tú recibes sólo que se mostró. Úsala cuando pregunten qué tienen hoy, mañana o un día, o a una hora. Para mover, cambiar o cancelar una no hace falta: esas herramientas la encuentran con el día y la hora que dijo la persona.',
+    parametros: [fechaIso('fecha', 'YYYY-MM-DD del día a mirar.', true)],
+    // SIN http: es la agenda de Google del negocio; por chat la ve la persona y nunca el
+    // modelo (lib/agenda-sin-ia.ts), y por HTTP no hay persona.
+    salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
+  },
+  {
     id: 'link_agenda_calendly', area: 'crm', tipo: 'lectura',
     titulo: 'Link de Calendly para agendar',
     descripcion: 'La página pública de Calendly del negocio para la R1 o la R2, opcionalmente con el nombre y el email de un lead ya completados. Es lo que se manda cuando la reserva directa no se puede hacer. No crea nada en Calendly. Sin Calendly configurado devuelve el motivo, nunca la agenda de otro. El link lo arma el código: se pasa tal cual.',
@@ -398,32 +414,58 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_agendar_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Agendar reunión, visita o cita',
-    descripcion: 'PROPONE agendar una reunión (o visita, o cita) con un lead en la agenda de Google del negocio e invitarlo por email (queda pendiente hasta el «sí»). Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento, el sistema se lo avisa a la persona directo (tú no lo ves, así que no afirmes que está libre); no lo bloquea: la agenda es del negocio. El lead necesita email, porque es a donde Google manda la invitación.',
+    descripcion: 'PROPONE agendar una reunión (o visita, o cita) en la agenda de Google del negocio (queda pendiente hasta el «sí»). Con un lead, lo invita por email; SIN lead es un evento del negocio, sin invitados, y entonces el título es obligatorio. Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento, el sistema se lo avisa a la persona directo (tú no lo ves, así que no afirmes que está libre); no lo bloquea: la agenda es del negocio.',
     parametros: [
-      leadId('id del lead (con email cargado).'),
+      leadIdOpcional('id del lead a invitar (con email cargado). Sin él, el evento no invita a nadie.'),
       fechaIso('fecha', 'YYYY-MM-DD del día de la reunión.', true),
       { nombre: 'hora', tipo: 'string', obligatorio: true, max: 5, descripcion: 'HH:MM de inicio, en 24 h y en la zona del negocio (ej. 10:30).' },
-      { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 240, descripcion: 'cuántos minutos dura (default 45).' },
-      { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'cómo se llama el evento (ej. «Visita al departamento de Palermo»). Si no lo dicen, se arma con el nombre del lead.' },
+      { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 240, descripcion: 'cuántos minutos dura (default 45). «De 1 h» son 60.' },
+      { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'cómo se llama el evento, como lo dijo la persona (ej. «PRUEBA», «Visita al departamento de Palermo»). Obligatorio sin lead; con lead, si no lo dicen, se arma con su nombre.' },
     ],
     // SIN http, por lo mismo que reuniones_agenda_lead y porque manda una invitación a
     // un tercero desde la cuenta de Google del negocio.
     canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
-    reversible: false, escribe: 'crea un evento en la agenda de Google del negocio, Google le manda la invitación al lead, y queda en el historial del lead',
+    reversible: false, escribe: 'crea un evento en la agenda de Google del negocio; si es con un lead, Google le manda la invitación y queda en su historial',
   },
   {
     id: 'proponer_mover_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Reagendar reunión, visita o cita',
-    descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) de un lead que ya está en la agenda de Google del negocio (queda pendiente hasta el «sí»). El sistema busca la reunión en la agenda: tú pasas el día y la hora que tiene HOY (fecha_actual, hora_actual) sólo si la persona los dijo, y la fecha y la hora nuevas como las dijo; el código arma la hora exacta. Tú NO ves la agenda: si hay varias o ninguna que coincida, el sistema se las muestra a la persona y tú le pides el día y la hora de la que quiere mover. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si no encuentra la que se nombró, NO crea una nueva.',
+    titulo: 'Mover o reagendar reunión, visita o cita',
+    descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). El sistema busca la reunión en la agenda: tú pasas el día y la hora que tiene HOY (fecha_actual, hora_actual) como los dijo la persona —sin lead, fecha_actual es obligatorio—, y la fecha y la hora nuevas como las dijo; el código arma la hora exacta. Tú NO ves la agenda: si hay varias o ninguna que coincida, el sistema se las muestra a la persona y tú le pides el día y la hora de la que quiere mover. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si no encuentra la que se nombró, NO crea una nueva.',
     parametros: [
-      leadId(),
-      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene HOY la reunión que se mueve, como lo dijo la persona. Sin esto, la única que tenga.'),
+      leadIdOpcional('id del lead de la reunión, si es con uno. Sin él se busca en el día de fecha_actual.'),
+      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene HOY la reunión que se mueve, como lo dijo la persona. Con lead y sin esto, la única que tenga; sin lead, obligatorio.'),
       { nombre: 'hora_actual', tipo: 'string', max: 5, descripcion: 'HH:MM que tiene HOY esa reunión, en 24 h, sólo si la persona la dijo.' },
       fechaIso('fecha', 'YYYY-MM-DD del día nuevo.', true),
       { nombre: 'hora', tipo: 'string', obligatorio: true, max: 5, descripcion: 'HH:MM nueva, en 24 h y en la zona del negocio.' },
     ],
     canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
-    reversible: false, escribe: 'cambia el horario del evento en la agenda de Google del negocio (Google les avisa a los invitados) y deja el cambio en el historial del lead',
+    reversible: false, escribe: 'cambia el horario del evento en la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja el cambio en su historial',
+  },
+  {
+    id: 'proponer_cambiar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar nombre o duración de una reunión',
+    descripcion: 'PROPONE cambiarle el nombre (el título) o la duración a una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). Para cambiarle el día o la hora, la que corresponde es proponer_mover_reunion. Se la encuentra como en proponer_mover_reunion: el día y la hora que tiene HOY, como los dijo la persona. Pasa sólo lo que cambia: el título nuevo, la duración nueva, o las dos.',
+    parametros: [
+      leadIdOpcional('id del lead de la reunión, si es con uno. Sin él se busca en el día de fecha_actual.'),
+      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene la reunión, como lo dijo la persona. Sin lead, obligatorio.'),
+      { nombre: 'hora_actual', tipo: 'string', max: 5, descripcion: 'HH:MM que tiene esa reunión, en 24 h, si la persona la dijo.' },
+      { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'el nombre nuevo, como lo dijo la persona.' },
+      { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 480, descripcion: 'cuántos minutos pasa a durar. «De 1 h» son 60.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
+    reversible: false, escribe: 'cambia el título o el fin del evento en la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja el cambio en su historial',
+  },
+  {
+    id: 'proponer_cancelar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cancelar o borrar una reunión, visita o cita',
+    descripcion: 'PROPONE cancelar (borrar) una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). Se la encuentra con el día y la hora que tiene, como los dijo la persona. No se deshace y Google les avisa a los invitados: el sistema le muestra a la persona cuál es y a cuántos les avisa antes de que diga que sí.',
+    parametros: [
+      leadIdOpcional('id del lead de la reunión, si es con uno. Sin él se busca en el día de fecha_actual.'),
+      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene la reunión, como lo dijo la persona. Sin lead, obligatorio.'),
+      { nombre: 'hora_actual', tipo: 'string', max: 5, descripcion: 'HH:MM que tiene esa reunión, en 24 h, si la persona la dijo.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
+    reversible: false, escribe: 'borra el evento de la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja la cancelación en su historial',
   },
   {
     id: 'marcar_asistencia_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',

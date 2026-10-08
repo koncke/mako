@@ -76,7 +76,20 @@ export type VeredictoIntencion = {
   alternativa?: Intencion;
   /** Qué la disparó. Va al log y al `motivo` del gasto de IA, para auditar. */
   porque: string;
+  /** Es un «sí» a lo que MaKo acaba de ofrecer: las herramientas se eligen por el
+   *  ofrecimiento, no por «sí, dale», que no nombra nada (lib/doer-herramientas.ts). */
+  sigueOfrecimiento?: boolean;
+  /** De qué área habla, cuando la regla que la clasificó lo sabe (un pedido de agenda es
+   *  CRM aunque diga «movela al viernes»). Se suma a `areasDelMensaje`. */
+  areas?: Area[];
+  /** Palabras que se suman a la relevancia del presupuesto de herramientas. «movela al
+   *  viernes» no comparte ninguna raíz con el título de la herramienta de mover, y sin esto
+   *  quedaba afuera de los 12.000 caracteres frente al resto del CRM (08/10/2026). */
+  relevancia?: string;
 };
+
+/** Lo que dice un pedido de agenda para el presupuesto: pone primero las de agenda. */
+export const RELEVANCIA_AGENDA = 'agendar reagendar mover cambiar cancelar reunion visita cita agenda evento';
 
 // ── Señales ──────────────────────────────────────────────────────────────────
 
@@ -222,6 +235,78 @@ const PREGUNTA = /^[\s¡!¿?]*(qu[eé]|cu[aá]nt[oa]s?|cu[aá]l|qui[eé]n|cu[aá
  */
 const INTERROGATIVO = /\b(cu[aá]nt[oa]s?|qu[eé]|cu[aá]l(es)?|qui[eé]n(es)?|cu[aá]ndo|d[oó]nde)(?![a-záéíóúñ])/i;
 
+// ── EL PEDIDO DE AGENDA ──────────────────────────────────────────────────────
+// EL CASO (08/10/2026, ws13). «Mako, agenda me una reunión mañana 12hs de 1hs que se llame
+// PRUEBA» se clasificó `capturar` (dudosa): «agenda» sin tilde y el pronombre separado no
+// son ninguno de los imperativos de arriba, y no es una pregunta. El turno llegó con dos
+// herramientas del plan y MaKo contestó «por aquí no puedo agendarte». Medido con el código
+// de ese día: 3 de las 5 frases de escritura del test de agenda tampoco llegaban con la
+// herramienta («agendame…» y «pasá la visita…» caían en `pensar`, «moveme la cita…» en
+// `capturar`), y el test daba verde porque armaba el turno sin pasar por acá.
+//
+// Es una regla APARTE de los imperativos porque la tilde que ellos exigen protege de la
+// TERCERA persona dentro de un volcado de ideas («si el cliente cambia la reunión…»), y acá
+// la protección es otra: un verbo de agenda + una reunión + un día o una hora, en un mensaje
+// corto. Las tres juntas son un pedido; una idea dictada casi nunca trae día y hora. Y lo
+// peor que deja equivocarse es una propuesta de más, que no se escribe sin el «sí».
+//
+// Todo se prueba contra el texto SIN tildes.
+//
+// «agenda» suelta es también el sustantivo («mi agenda de mañana»): cuenta como verbo sólo
+// si no la precede un artículo o posesivo y la sigue un pronombre o un objeto.
+const VERBO_AGENDAR = /(?<!\b(?:mi|tu|su|la|de|en|mis|tus|sus|una|esta)\s)\bagenda\s+(?:me|le|les|nos|una?|la|el|a)\b|\b(?:re)?agend(?:ame|ale|ales|ala|alo|alas|alos|anos)\b|\breagenda\b|\bprograma(?:me|la|le)\b/;
+const VERBO_SOBRE_REUNION = /\b(?:crea(?:me|la|le)?|arma(?:me|la|le)?|pon(?:e|eme|ela|me|la|le)|mueve(?:la|lo|me)?|move(?:la|lo|me|las|los)|pasa(?:la|lo|me|las|los)?|cambia(?:la|lo|le|me|las|los)?|cancela(?:la|lo|me|las|los)?|borra(?:la|lo|me|las|los)?|elimina(?:la|lo|me|las|los)?|edita(?:la|lo|le)?|modifica(?:la|lo|le)?|suspende(?:la|lo)?|renombra(?:la|lo)?)\b/;
+// Las formas con modal: es como pide un cliente que tutea («me puedes agendar…»).
+const MODAL_AGENDA = /\b(?:puedes|podes|podrias|podras|puede|podria|quiero|queria|necesito|hay que|vamos a)\s+(?:me\s+|nos\s+|le\s+)?(?:re)?(agendar|crear|armar|poner|mover|pasar|cambiar|cancelar|borrar|eliminar|editar|modificar|programar|suspender|renombrar)(?:me|la|lo|le|nos|las|los)?\b/;
+const SUSTANTIVO_AGENDA = /\b(?:reunion(?:es)?|visitas?|citas?|evento|llamadas?|turnos?|juntas?|meetings?|zoom)\b/;
+const TIEMPO_AGENDA = /\b(?:hoy|manana|lunes|martes|miercoles|jueves|viernes|sabado|domingo|a las|a la una|semana que viene|proxima semana|esta (?:tarde|noche))\b|\b\d{1,2}(?::\d{2})?\s*(?:hs?|hrs?|horas?|am|pm)\b|\b\d{1,2}:\d{2}\b/;
+const ARRANCA_PREGUNTANDO = /^(?:que|cuant[oa]s?|cual(?:es)?|quien(?:es)?|cuando|donde|como|por ?que|hay|tengo|tenes|tienes)\b/;
+// Lo que se dice antes del pedido y no cambia nada: el nombre, un «che», un «porfa».
+const PRELUDIO = /^(?:[\s,.:;!¡¿?-]*(?:mako|che|porfa|por favor|oye|ey|hola|buenas)\b)*[\s,.:;!¡¿?-]*/;
+
+/**
+ * Lo que escribió la persona en un LOTE, sin el encabezado que le pone el doer
+ * (`unirMensajes`, lib/mako-doer-buffer.ts: «[Te mandó 2 mensajes seguidos… carga TODAS las
+ * tareas juntas…]» y los «(1) », «(2) »). Ese encabezado es nuestro: nombra «tareas»,
+ * «juntas» y «conjunto», así que por sí solo sumaba las áreas plan, CRM y ads a cada lote y
+ * gastaba el presupuesto de herramientas (medido el 08/10: con «(1) Mako (2) agendá una
+ * reunión…», proponer_mover_reunion quedaba afuera). Un mensaje suelto pasa intacto.
+ */
+export function sinPrefijoDeLote(texto: string): string {
+  const t = texto || '';
+  if (!/^\[Te mandó \d+ mensajes seguidos\./.test(t)) return t;
+  return t.replace(/^\[[^\]]*\]\s*/, '').replace(/(^|\n)\(\d+\) /g, '$1');
+}
+
+/** ¿Pide crear, mover, cambiar o cancelar una reunión? Recibe el texto sin tildes. */
+function esPedidoAgenda(n: string): boolean {
+  const t = n.replace(PRELUDIO, '').trim();
+  if (!t || t.length > 260 || ARRANCA_PREGUNTANDO.test(t)) return false;
+  const modal = MODAL_AGENDA.exec(t);
+  const agendar = VERBO_AGENDAR.test(t) || /agendar$/.test(modal?.[1] ?? '');
+  const sobre = VERBO_SOBRE_REUNION.test(t) || !!modal;
+  const tiempo = TIEMPO_AGENDA.test(t);
+  const reunion = SUSTANTIVO_AGENDA.test(t);
+  // «agendar» sólo quiere decir una cosa: con un día, una hora o una reunión alcanza.
+  if (agendar && (tiempo || reunion)) return true;
+  // «cambiá», «pasá», «cancelá» quieren decir muchas: hace falta la reunión, y además un
+  // día u hora, o que el mensaje ARRANQUE con el verbo (ahí es una orden, no una idea).
+  return sobre && reunion && (tiempo || VERBO_SOBRE_REUNION.test(t.slice(0, 14)) || /^(?:me |nos )?(?:puedes|podes|podrias)/.test(t));
+}
+
+/**
+ * ¿Es la corrección de una propuesta de agenda? «no, movela al viernes a las 10», «no, mejor
+ * a las 13», «sí, pero a las 11». Con una pendiente abierta la regla del «sí» se los quedaba
+ * como confirmación (medido el 08/10): el turno llegaba con confirmar/cancelar y nada más, y
+ * corregir la hora sólo cancelaba la propuesta.
+ */
+function corrigeAgenda(n: string, hayPendienteDeAgenda: boolean): boolean {
+  if (!CONFIRMACION.test(n)) return false;
+  const resto = n.replace(CONFIRMACION, '').replace(/^[\s,.:;!¡¿?-]+/, '');
+  if (!resto || !TIEMPO_AGENDA.test(resto)) return false;
+  return hayPendienteDeAgenda || VERBO_AGENDAR.test(resto) || VERBO_SOBRE_REUNION.test(resto);
+}
+
 
 // ── El clasificador ──────────────────────────────────────────────────────────
 
@@ -266,10 +351,14 @@ const NEGATIVA = /^[\s¡!¿?]*(no|nop|cancela|cancel[áa]|mejor no|dejalo|déjal
 
 export function clasificarIntencion(
   texto: string,
-  ctx: { hayPendientes?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean; makoPregunto?: boolean } = {},
+  ctx: { hayPendientes?: boolean; hayPendienteDeAgenda?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean; makoPregunto?: boolean } = {},
 ): VeredictoIntencion {
   const t = (texto || '').trim();
   const n = norm(t);
+  // Se calcula una vez: lo miran la regla del «sí» (para NO quedárselo) y la de agenda. Sobre
+  // lo que escribió la persona: el encabezado de un lote alarga el texto y no es de ella.
+  const nPersona = norm(sinPrefijoDeLote(t));
+  const pedidoAgenda = esPedidoAgenda(nPersona) || corrigeAgenda(nPersona, !!ctx.hayPendienteDeAgenda);
 
   // 0) COMPARTIÓ UN CONTACTO. Va antes que todo porque no admite lectura: nadie
   //    comparte una tarjeta de contacto para que quede anotada como una idea.
@@ -284,7 +373,12 @@ export function clasificarIntencion(
 
   // 1) Un «sí» pelado con algo esperando. Va PRIMERO: es el turno más corto y el
   //    más fácil de confundir con un saludo.
-  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60) {
+  //
+  //    ⚠️ Salvo que pida o corrija algo de la agenda: «cancelá la reunión de mañana a las 12»
+  //    y «no, movela al viernes a las 10» arrancan con una palabra de CONFIRMACION, y con
+  //    una pendiente abierta se leían como un «no» — el turno llegaba sin las herramientas
+  //    de agenda y corregir una propuesta sólo la cancelaba (08/10/2026).
+  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !pedidoAgenda) {
     return { intencion: 'confirmar', dudosa: false, porque: 'confirmación con pendiente vigente' };
   }
 
@@ -337,8 +431,12 @@ export function clasificarIntencion(
   //        hacerla, y tiene que llegar CON esas herramientas: `actuar`. Medido sobre HEAD
   //        antes de esto: «sí, hacelo» caía en `pensar` y «sí, movelo a agendado» en
   //        `charlar` (sin ninguna herramienta). Un «no» a lo ofrecido sigue siendo charla.
+  //
+  //        ⚠️ Y `sigueOfrecimiento`: «sí, dale» no nombra ningún área, así que las herramientas
+  //        se eligen por el OFRECIMIENTO (lib/doer-herramientas.ts). Con sólo `actuar`, el «sí»
+  //        a «¿te la agendo mañana a las 12?» llegaba sin ninguna herramienta de Google.
   if (ctx.makoPregunto && CONFIRMACION.test(t) && !NEGATIVA.test(t) && t.length <= 160 && !esLista(t)) {
-    return { intencion: 'actuar', dudosa: false, porque: 'dice que sí a lo que MaKo le acaba de ofrecer' };
+    return { intencion: 'actuar', dudosa: false, porque: 'dice que sí a lo que MaKo le acaba de ofrecer', sigueOfrecimiento: true };
   }
 
   // ── El cruce que importa: material dictado vs pedido a MaKo ────────────────
@@ -363,6 +461,15 @@ export function clasificarIntencion(
   //    pelado es guardarlo: si quisiera que MaKo lo mire, lo diría.
   if (links > 0 && !pedido && n.replace(/https?:\/\/\S+/g, '').trim().length < 60) {
     return { intencion: 'capturar', dudosa: false, porque: 'links sin instrucción: material para guardar' };
+  }
+
+  // 6-bis) Un pedido de agenda: crear, mover, cambiar o cancelar una reunión (ver
+  //        `esPedidoAgenda`). Va DESPUÉS del dictado —una lista o un «Idea:» siguen siendo
+  //        material— y ANTES de la pregunta y del imperativo: «¿me podés agendar…?» termina
+  //        en «?» y «agendame…» es un imperativo, y los dos se iban sin poder escribir.
+  //        Lleva el área: «movela al viernes» no nombra el CRM.
+  if (pedidoAgenda) {
+    return { intencion: 'actuar', dudosa: false, porque: 'pedido de agenda: crear, mover, cambiar o cancelar una reunión', areas: ['crm'], relevancia: RELEVANCIA_AGENDA };
   }
 
   // 7) Escritura sobre la cuenta.
@@ -463,7 +570,9 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // VISITAS, y sin esto «pasá la visita de Juan al viernes» no traía ni una tool de agenda
   // (07/10/2026). Y `reagend` aparte porque `\bagend` NO matchea «reagendá»: entre «re» y
   // «agend» no hay borde de palabra.
-  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|huecos?|horarios?\s+(?:\S+\s+){0,2}libres?|libres?\s+(?:el|la|este|esta|ma[ñn]ana|hoy|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b|disponibilidad|r1|r2|juntas?|calific|pipeline|ficha)/i,
+  // `evento` y «qué tengo hoy / a las 12»: es como se pregunta por el día en la agenda de
+  // Google («Y a las 12hs que tengo?», ws13, 08/10/2026), y sin esto no viajaba agenda_del_dia.
+  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|evento\b|qu[eé] tengo (?:hoy|ma[ñn]ana|el |esta|a las)|a las \d{1,2}\S* qu[eé] tengo|huecos?|horarios?\s+(?:\S+\s+){0,2}libres?|libres?\s+(?:el|la|este|esta|ma[ñn]ana|hoy|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b|disponibilidad|r1|r2|juntas?|calific|pipeline|ficha)/i,
   plan: /\b(tareas?|plan\b|tablero|proyectos?|checklist|deadline|perro guardi)/i,
   ads: /\b(campa[ñn]as?|anuncios?|ads\b|meta ads|presupuesto|adsets?|conjuntos?|creativos?|pauta|cpl|cpm|ctr|guion(es)? de anuncio)/i,
   whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,

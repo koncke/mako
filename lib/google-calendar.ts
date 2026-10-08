@@ -26,7 +26,7 @@ import { getWorkspaceActual } from './workspace';
 // cliente cuando la agenda no se pudo leer. Una cosa, un lugar.
 import {
   construirGrilla, esDiaValido, filtrarPasados, horaAMinutos, marcarOcupados,
-  motivoLegible, normalizarRango,
+  motivoLegible, normalizarRango, instanteDeLocal,
   DURACION_DEFECTO_MIN,
   type Ocupado, type RangoGrilla, type SlotAgenda,
 } from '../app/crm/horarios-respuesta';
@@ -257,6 +257,15 @@ const EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/eve
  * instancias con id propio, así el PATCH corre esa ocurrencia y no toda la serie.
  */
 async function listarEventos(at: string, p: { timeMin: string; timeMax: string; q?: string; max?: number }): Promise<EventoCrudo[]> {
+  return (await listarEventosEstricto(at, p)) ?? [];
+}
+
+/**
+ * El mismo lector, pero un fallo de Google es `null` y no `[]`. «No pude leer» y «no hay
+ * nada» se ven iguales en una lista vacía, y para contarle a alguien qué tiene un día la
+ * diferencia es todo: «no tienes nada agendado» sobre una lectura caída es mentirle.
+ */
+async function listarEventosEstricto(at: string, p: { timeMin: string; timeMax: string; q?: string; max?: number }): Promise<EventoCrudo[] | null> {
   const url = new URL(EVENTS_URL);
   url.searchParams.set('timeMin', p.timeMin);
   url.searchParams.set('timeMax', p.timeMax);
@@ -265,7 +274,7 @@ async function listarEventos(at: string, p: { timeMin: string; timeMax: string; 
   url.searchParams.set('maxResults', String(p.max ?? 50));
   if (p.q) url.searchParams.set('q', p.q);
   const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${at}` }, cache: 'no-store', signal: AbortSignal.timeout(10000) });
-  if (!res.ok) return [];
+  if (!res.ok) return null;
   const j = (await res.json()) as { items?: EventoCrudo[] };
   // Un evento cancelado sigue apareciendo en la lista: moverlo sería resucitar
   // algo que alguien canceló a propósito.
@@ -798,6 +807,160 @@ export async function proximasReunionesCon(email: string, dias = 60): Promise<Re
       });
   } catch {
     return [];
+  }
+}
+
+/** Un evento de un día de la agenda, con o sin invitados. */
+export type EventoDelDia = ReunionAgenda & { diaCompleto: boolean; invitados: number };
+export type ResultadoDelDia = { ok: true; eventos: EventoDelDia[] } | { ok: false; codigo: CodigoCalendario; motivo: string };
+
+/**
+ * TODO lo que hay un día en la agenda, en la zona del negocio: con o sin invitados.
+ *
+ * Existe porque un evento sin lead no tiene un email por el que buscarlo: «la reunión
+ * PRUEBA de mañana a las 12» sólo se encuentra por el día y la hora (pedido de un cliente
+ * inmobiliario, 08/10/2026). Y es ESTRICTA: un fallo de Google es `ok: false`, no una
+ * lista vacía, porque «no tienes nada ese día» sobre una lectura caída es mentirle.
+ */
+export async function eventosDelDia(fecha: string, tz: string): Promise<ResultadoDelDia> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { ok: false, codigo: 'sin-fecha', motivo: 'La fecha no es válida.' };
+  const desde = instanteDeLocal(fecha, 0, tz);
+  const manana = new Date(Date.parse(`${fecha}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  const hasta = instanteDeLocal(manana, 0, tz);
+  if (!desde || !hasta) return { ok: false, codigo: 'sin-fecha', motivo: 'La fecha no es válida.' };
+  const at = await accessTokenGoogle();
+  if (!at) return { ok: false, codigo: 'sin-conexion', motivo: 'No hay una agenda de Google conectada a este espacio.' };
+  try {
+    const items = await listarEventosEstricto(at, { timeMin: desde, timeMax: hasta, max: 100 });
+    if (!items) return { ok: false, codigo: 'api', motivo: 'Google no devolvió la agenda de ese día.' };
+    return {
+      ok: true,
+      eventos: items.map((e) => {
+        const d = duracionMs(e);
+        const diaCompleto = !e.start?.dateTime;
+        return {
+          // Uno de día completo no tiene hora: se ancla al inicio del día, y no se puede
+          // elegir por hora (ver lib/agenda-sin-ia.ts).
+          inicioIso: diaCompleto ? desde : new Date(Date.parse(e.start!.dateTime!)).toISOString(),
+          titulo: (e.summary ?? '').trim() || 'Sin título',
+          duracionMin: d == null ? null : Math.round(d / 60000),
+          organizaOtro: e.organizer?.self === false,
+          diaCompleto,
+          invitados: (e.attendees ?? []).filter((a) => !a.resource).length,
+        };
+      }),
+    };
+  } catch (e) {
+    const timeout = e instanceof Error && e.name === 'TimeoutError';
+    return { ok: false, codigo: 'api', motivo: timeout ? 'Google no respondió a tiempo.' : 'No se pudo contactar a Google Calendar.' };
+  }
+}
+
+export type ResultadoCambioEvento = Omit<ResultadoCalendario, 'accion'> & { accion: 'cancelado' | 'cambiado' | 'nada' };
+
+/** Cómo se nombra un evento que ya se eligió: el instante exacto y el título que tenía,
+ *  los dos sacados de la agenda por el código (nunca por el modelo). */
+export type EventoElegido = {
+  inicioIso: string;
+  titulo: string;
+  /** El email del lead, si la reunión es con uno: ayuda a reconocerla. */
+  emailInvitado?: string | null;
+};
+
+/**
+ * El evento EXACTO que se eligió, o null. Más exigente que `buscarEventoDeReunion`: para
+ * cancelar o cambiar, «arranca más o menos a esa hora» no alcanza. Tiene que empezar en el
+ * mismo minuto Y tener el mismo título (o el lead invitado). Si alguien lo movió o lo
+ * renombró entre el «propongo» y el «sí», no se toca: lo que la persona confirmó era otro.
+ */
+async function eventoExacto(at: string, p: EventoElegido): Promise<EventoCrudo | null> {
+  const t0 = Date.parse(p.inicioIso);
+  if (!Number.isFinite(t0)) return null;
+  const items = await listarEventosEstricto(at, { timeMin: new Date(t0 - 60_000).toISOString(), timeMax: new Date(t0 + 60_000).toISOString(), max: 20 });
+  const email = (p.emailInvitado ?? '').trim().toLowerCase();
+  const titulo = (p.titulo ?? '').trim();
+  return (items ?? []).find((e) => {
+    const st = Date.parse(e.start?.dateTime ?? '');
+    if (!Number.isFinite(st) || Math.abs(st - t0) >= 60_000) return false;
+    const mismoTitulo = !!titulo && (e.summary ?? '').trim() === titulo;
+    const conElLead = !!email && (e.attendees ?? []).some((a) => (a.email ?? '').trim().toLowerCase() === email);
+    return mismoTitulo || conElLead;
+  }) ?? null;
+}
+
+/**
+ * CANCELA un evento de la agenda. Con `sendUpdates=all`: Google les avisa a los invitados,
+ * que es la mitad de cancelar. No se deshace, así que llega acá sólo después del «sí».
+ * Nunca lanza.
+ */
+export async function cancelarEventoDeReunion(p: EventoElegido): Promise<ResultadoCambioEvento> {
+  const invitado = (p.emailInvitado ?? '').trim().toLowerCase() || null;
+  const nada = (codigo: CodigoCalendario, motivo: string, eventoId: string | null = null): ResultadoCambioEvento =>
+    ({ ok: false, accion: 'nada', codigo, motivo, eventoId, invitado });
+  try {
+    const tk = await tokenGoogle();
+    if (!tk) return nada('sin-conexion', 'No hay una agenda de Google conectada a este espacio.');
+    if (!puedeEscribir(tk.scopes)) return nada('sin-permiso', 'El permiso de Google es de solo lectura: reconecta la agenda para poder cancelar.');
+    const evento = await eventoExacto(tk.access, p);
+    if (!evento?.id) return nada('no-encontrado', 'No encontré ese evento en la agenda: puede que lo hayan movido, renombrado o borrado. No cancelé nada.');
+    if (evento.organizer?.self === false) return nada('no-organizador', 'Ese evento lo organiza otra cuenta de Google: hay que cancelarlo desde ahí.', evento.id);
+    const res = await fetch(`${EVENTS_URL}/${encodeURIComponent(evento.id)}?sendUpdates=all`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${tk.access}` }, cache: 'no-store', signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      // 410: ya estaba borrado. No lo canceló MaKo, y decir que sí sería atribuirse algo.
+      if (res.status === 404 || res.status === 410) return nada('no-encontrado', 'Ese evento ya no estaba en la agenda: no cancelé nada.', evento.id);
+      const f = await leerFallo(res);
+      return nada(f.codigo, f.motivo, evento.id);
+    }
+    return { ok: true, accion: 'cancelado', codigo: 'ok', eventoId: evento.id, invitado, motivo: 'Evento cancelado en Google Calendar.' };
+  } catch (e) {
+    const msg = e instanceof Error && e.name === 'TimeoutError' ? 'Google no respondió a tiempo.' : 'No se pudo contactar a Google Calendar.';
+    console.error('[google-calendar] cancelar evento:', e);
+    return nada('api', msg);
+  }
+}
+
+/**
+ * CAMBIA el título y/o la duración de un evento (la hora la cambia `moverEventoDeReunion`).
+ * Un PATCH sólo toca lo que se manda: los invitados, la descripción y el Meet quedan.
+ * Nunca lanza.
+ */
+export async function cambiarEventoDeReunion(p: EventoElegido & { tituloNuevo?: string | null; duracionMin?: number | null }): Promise<ResultadoCambioEvento> {
+  const invitado = (p.emailInvitado ?? '').trim().toLowerCase() || null;
+  const nada = (codigo: CodigoCalendario, motivo: string, eventoId: string | null = null): ResultadoCambioEvento =>
+    ({ ok: false, accion: 'nada', codigo, motivo, eventoId, invitado });
+  const titulo = (p.tituloNuevo ?? '').trim();
+  const dur = typeof p.duracionMin === 'number' && p.duracionMin >= 5 && p.duracionMin <= 8 * 60 ? p.duracionMin : null;
+  if (!titulo && dur == null) return nada('sin-fecha', 'No hay nada que cambiar.');
+  try {
+    const tk = await tokenGoogle();
+    if (!tk) return nada('sin-conexion', 'No hay una agenda de Google conectada a este espacio.');
+    if (!puedeEscribir(tk.scopes)) return nada('sin-permiso', 'El permiso de Google es de solo lectura: reconecta la agenda para poder cambiar eventos.');
+    const evento = await eventoExacto(tk.access, p);
+    if (!evento?.id) return nada('no-encontrado', 'No encontré ese evento en la agenda: puede que lo hayan movido, renombrado o borrado. No cambié nada.');
+    if (evento.organizer?.self === false) return nada('no-organizador', 'Ese evento lo organiza otra cuenta de Google: hay que cambiarlo desde ahí.', evento.id);
+    const inicio = Date.parse(evento.start!.dateTime!);
+    const res = await fetch(`${EVENTS_URL}/${encodeURIComponent(evento.id)}?sendUpdates=all`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${tk.access}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...(titulo ? { summary: titulo } : {}),
+        ...(dur != null ? { end: { dateTime: new Date(inicio + dur * 60_000).toISOString() } } : {}),
+      }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      if (res.status === 404 || res.status === 410) return nada('no-encontrado', 'Ese evento ya no estaba en la agenda: no cambié nada.', evento.id);
+      const f = await leerFallo(res);
+      return nada(f.codigo, f.motivo, evento.id);
+    }
+    return { ok: true, accion: 'cambiado', codigo: 'ok', eventoId: evento.id, invitado, motivo: 'Evento cambiado en Google Calendar.' };
+  } catch (e) {
+    const msg = e instanceof Error && e.name === 'TimeoutError' ? 'Google no respondió a tiempo.' : 'No se pudo contactar a Google Calendar.';
+    console.error('[google-calendar] cambiar evento:', e);
+    return nada('api', msg);
   }
 }
 
