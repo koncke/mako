@@ -26,6 +26,8 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { hoyEnTz, diasAntes } from '@/lib/date-utils';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
+import { monedaCuentaMeta } from '@/lib/moneda-meta';
+import { conversorDeGasto } from '@/lib/presupuesto-cambio';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
@@ -346,7 +348,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
   },
   {
     name: 'listar_campanas_meta',
-    description: 'Lista las campañas de Meta Ads con datos sincronizados en los ÚLTIMOS 30 DÍAS: id, nombre y gasto de ESE período — en MXN (la moneda de la cuenta publicitaria) y su equivalente en USD a un tipo de cambio fijo del código. La respuesta trae la ventana de fechas exacta que cubre: no es el gasto histórico de la campaña. Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
+    description: 'Lista las campañas de Meta Ads con datos sincronizados en los ÚLTIMOS 30 DÍAS: id, nombre y gasto de ESE período en la moneda de la cuenta publicitaria (el campo lleva su nombre: `gasto_usd`, `gasto_mxn`…) y, si la cuenta no cobra en dólares y hay tasa, su equivalente en USD a un tipo de cambio fijo del código. La respuesta trae la ventana de fechas exacta que cubre: no es el gasto histórico de la campaña. Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -591,6 +593,15 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const DIAS = 30;
         const hasta = hoyEnTz(await tzDeWorkspace(ws));
         const desde = diasAntes(hasta, DIAS - 1);
+        // ⚠️ LA MONEDA ES LA DE LA CUENTA, y el campo lleva su nombre. Hasta el 08/10/2026 esto
+        // devolvía `gasto_mxn` y `gasto_usd = spend / 17,3` para todos, y ws13, ws14 y ws15
+        // cobran en USD: MaKo decía «1.336 MXN ≈ 77 USD» sobre 1.336 dólares. Un modelo sólo
+        // ve este JSON, así que la unidad va en el NOMBRE (AGENTS.md, «Lo que le devuelve una
+        // tool a un modelo…»). Sin moneda conocida, `gasto_moneda_cuenta` y sin USD.
+        const moneda = await runWithWorkspace(ws, () => monedaCuentaMeta()).catch(() => null);
+        const conv = conversorDeGasto(moneda);
+        const campoGasto = moneda ? `gasto_${moneda.toLowerCase()}` : 'gasto_moneda_cuenta';
+        const conUsd = moneda !== 'USD';
         const { campanas, omitidas } = await runWithWorkspace(ws, async () => {
           const db = await getTenantDb();
           const map = new Map<string, { id: string; nombre: string; gasto: number }>();
@@ -609,12 +620,15 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
           );
           const todas = [...map.values()].sort((a, b) => b.gasto - a.gasto);
           return {
-            campanas: todas.slice(0, 40).map((c) => ({
-              id: c.id,
-              nombre: c.nombre,
-              gasto_mxn: Math.round(c.gasto),
-              gasto_usd: Math.round(c.gasto / TIPO_DE_CAMBIO_USD_MXN),
-            })),
+            campanas: todas.slice(0, 40).map((c) => {
+              const usd = conUsd ? conv.aUsd(c.gasto) : null;
+              return {
+                id: c.id,
+                nombre: c.nombre,
+                [campoGasto]: Math.round(c.gasto),
+                ...(usd != null ? { gasto_usd: Math.round(usd) } : {}),
+              };
+            }),
             omitidas: Math.max(0, todas.length - 40),
           };
         });
@@ -632,14 +646,18 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         }
         return JSON.stringify({
           ventana,
-          moneda: {
-            gasto: 'MXN — la moneda de la cuenta publicitaria de Meta',
-            tipo_cambio_usd_mxn: TIPO_DE_CAMBIO_USD_MXN,
-            nota: '`gasto_usd` es un DERIVADO con un tipo de cambio FIJO del código, no lo que cobró Meta. Si el monto en dólares importa de verdad, que lo verifiquen contra el resumen de facturación de Meta.',
-          },
+          moneda: moneda === 'USD'
+            ? { gasto: 'USD — la moneda de la cuenta publicitaria de Meta', nota: 'La cuenta cobra en dólares: `gasto_usd` es lo que cobró Meta.' }
+            : moneda === 'MXN'
+              ? {
+                  gasto: 'MXN — la moneda de la cuenta publicitaria de Meta',
+                  tipo_cambio_usd_mxn: TIPO_DE_CAMBIO_USD_MXN,
+                  nota: '`gasto_usd` es un DERIVADO con un tipo de cambio FIJO del código, no lo que cobró Meta. Si el monto en dólares importa de verdad, que lo verifiquen contra el resumen de facturación de Meta.',
+                }
+              : { gasto: moneda ? `${moneda} — la moneda de la cuenta publicitaria de Meta` : 'la moneda de la cuenta publicitaria (no se pudo saber cuál)', nota: 'No hay tipo de cambio para esta moneda: no conviertas el gasto por tu cuenta.' },
           campanas,
           ...(omitidas ? { campanas_omitidas: omitidas } : {}),
-          instruccion: `Cuando digas un gasto, di SIEMPRE la moneda y el período ("X MXN entre el ${desde} y el ${hasta}"). Es el gasto de ESA ventana, no el histórico de la campaña.`,
+          instruccion: `Cuando digas un gasto, di SIEMPRE la moneda y el período ("X ${moneda ?? '(la moneda de la cuenta)'} entre el ${desde} y el ${hasta}"). Es el gasto de ESA ventana, no el histórico de la campaña.`,
         });
       }
 

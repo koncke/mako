@@ -18,7 +18,8 @@
 // las señales que sí tenemos (status de cuenta, rechazos, aprendizaje, pausas).
 // =============================================================================
 
-import { mxnAUsd, META_BALANCE_ALERTA_MXN } from './config';
+import { META_BALANCE_ALERTA_MXN } from './config';
+import { conversorDeGasto, montoCuenta } from './presupuesto-cambio';
 import { parseRecosCuenta } from './meta-recos-cuenta';
 import { paisDeCuentaMeta } from './meta-pais';
 import { credWs } from './credenciales';
@@ -207,7 +208,9 @@ function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
     disableReason,
     disableReasonLabel: disableReasonLabel(disableReason),
     balanceMxn,
-    balanceUsd: mxnAUsd(balanceMxn),
+    // El saldo viene en la moneda de la CUENTA: dividirlo por 17,3 achicaba 17 veces el de
+    // una cuenta en dólares (ws13, ws14, ws15). Ver lib/moneda-meta.ts.
+    balanceUsd: conversorDeGasto(currency).aUsdNum(balanceMxn),
     amountSpentMxn,
     spendCapMxn,
     isPrepay: Boolean(raw.is_prepay_account),
@@ -449,7 +452,7 @@ function sugerenciasMako(
 
   // 1) Cuenta no entrega → la urgencia #1.
   if (account.entregaFrenada) {
-    const saldo = account.balanceMxn > 0 ? ` Saldo adeudado ~${account.balanceMxn.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN.` : '';
+    const saldo = account.balanceMxn > 0 ? ` Saldo adeudado ~${montoCuenta(account.balanceMxn, account.currency)}.` : '';
     const tarjeta = account.fundingCard ? ` Medio de pago: ${account.fundingCard}.` : '';
     out.push({
       fuente: 'mako',

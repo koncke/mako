@@ -7,7 +7,8 @@
 
 import { getTenantDb } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
-import { TIPO_DE_CAMBIO_USD_MXN, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
+import { RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
+import { conversorGastoMeta } from './moneda-meta';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
@@ -248,12 +249,12 @@ async function _getMarketingWindow(
   // etapas Click→Formulario y Formulario→Agenda (v3 Fase D).
   const leads_count = sum(metaRows.map((r) => r.leads_count));
   const reach = sum(metaRows.map((r) => r.reach));
-  // Meta devuelve spend en MXN (la cuenta está en MXN). Convertimos a USD
-  // ANTES de cualquier cálculo para que los ratios sean válidos contra el
-  // revenue en USD. spend_usd ahora es realmente USD (antes era un alias
-  // legacy que guardaba MXN).
-  const spend_mxn = sum(metaRows.map((r) => r.spend));
-  const spend_usd = spend_mxn / TIPO_DE_CAMBIO_USD_MXN;
+  // Meta devuelve `spend` en la MONEDA DE LA CUENTA, que no siempre es MXN: ws13, ws14 y
+  // ws15 cobran en USD, y dividirles por 17,3 les achicaba el gasto 17 veces (08/10/2026).
+  // Se pasa a USD ANTES de cualquier cálculo para que los ratios valgan contra el revenue
+  // en USD, con la moneda real (lib/moneda-meta.ts).
+  const spend_cuenta = sum(metaRows.map((r) => r.spend));
+  const spend_usd = (await conversorGastoMeta()).aUsdNum(spend_cuenta);
 
   // ── YouTube aggregates por tipo ──
   const vslRows = ytRows.filter((r) => r.youtube_video_type === 'vsl');
@@ -725,11 +726,12 @@ async function _getCACAcumulado(hastaFecha?: string): Promise<CACAcumulado> {
 
   if (cierresRes.error) throw new Error(`Query cierres acumulado falló: ${cierresRes.error.message}`);
 
-  const spend_total_mxn = spendRows.reduce(
+  // En la moneda de la cuenta; a USD con la moneda real (lib/moneda-meta.ts).
+  const spend_total_cuenta = spendRows.reduce(
     (acc, r) => acc + Number(r.spend ?? 0),
     0,
   );
-  const spend_total_usd = spend_total_mxn / TIPO_DE_CAMBIO_USD_MXN;
+  const spend_total_usd = (await conversorGastoMeta()).aUsdNum(spend_total_cuenta);
   const cierres_total = cierresRes.count ?? 0;
   const cac_usd = cierres_total > 0 ? spend_total_usd / cierres_total : null;
 
@@ -769,8 +771,8 @@ export type RevenuePeriod = {
   cierres_en_periodo: number;
   primeros_pagos_en_periodo: number;
 
-  // Eficiencia — TODO en USD post-Fase 1 (spend convertido vía
-  // TIPO_DE_CAMBIO_USD_MXN). Los ROAS ahora son matemáticamente válidos.
+  // Eficiencia — TODO en USD post-Fase 1 (spend convertido con la moneda
+  // de la cuenta, lib/moneda-meta.ts). Los ROAS ahora son matemáticamente válidos.
   meta_spend_usd: number;
   cac_usd: number | null;        // USD por cliente nuevo (con primer pago)
   roas_cash: number | null;      // Cash USD ÷ Spend USD — ratio válido
@@ -867,12 +869,13 @@ async function _getRevenuePeriod(
   );
   // outstanding_usd ya viene de getOutstandingTotal() arriba (Σ cuotas no pagadas)
 
-  const meta_spend_mxn = spendRes.reduce(
+  const meta_spend_cuenta = spendRes.reduce(
     (acc, r) => acc + Number(r.spend ?? 0),
     0,
   );
-  // Convertir a USD ANTES de cualquier ratio (Fase 1 del mentor)
-  const meta_spend_usd = meta_spend_mxn / TIPO_DE_CAMBIO_USD_MXN;
+  // Convertir a USD ANTES de cualquier ratio (Fase 1 del mentor), con la moneda real de
+  // la cuenta (lib/moneda-meta.ts): no siempre es MXN.
+  const meta_spend_usd = (await conversorGastoMeta()).aUsdNum(meta_spend_cuenta);
 
   const cierres_en_periodo = (soldRes.data ?? []).length;
   const primeros_pagos_en_periodo = primerosPagosCountRes.count ?? 0;
@@ -1032,7 +1035,7 @@ export async function getDistribucionPipeline(): Promise<DistribucionPipeline> {
 // CAC del mes = SUM(spend Meta del mes USD) / leads con fecha_primer_pago en
 // el mismo mes. USD/cliente. Solo retornamos meses con ≥1 primer pago.
 //
-// Post-Fase 1: spend convertido a USD vía TIPO_DE_CAMBIO_USD_MXN.
+// Post-Fase 1: spend convertido a USD con la moneda de la cuenta (lib/moneda-meta.ts).
 //
 // Se devuelve la lista ordenada cronológicamente (más viejo → más reciente),
 // limitada a últimos N meses con datos.
@@ -1085,10 +1088,10 @@ export async function listCACMensual(limit = 12): Promise<CACMensualEntry[]> {
 
   // Solo meses con ≥1 primer pago
   const entries: CACMensualEntry[] = [];
+  const { aUsdNum } = await conversorGastoMeta();
   for (const [mes, primeros_pagos] of pagosPorMes) {
     if (primeros_pagos <= 0) continue;
-    const spend_mxn = spendPorMes.get(mes) ?? 0;
-    const spend_usd = spend_mxn / TIPO_DE_CAMBIO_USD_MXN;
+    const spend_usd = aUsdNum(spendPorMes.get(mes) ?? 0);
     entries.push({
       mes,
       spend_usd,
@@ -1182,12 +1185,13 @@ async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<Revenue
     return new Intl.DateTimeFormat('es-MX', { month: 'short', year: '2-digit', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)));
   };
 
+  const { aUsdNum } = await conversorGastoMeta();
   const puntos = months.map((ym) => ({
     mes: ym,
     label: labelDe(ym),
     sold_usd: Math.round(sold.get(ym) ?? 0),
     cash_usd: Math.round(cash.get(ym) ?? 0),
-    spend_usd: Math.round((spendMxn.get(ym) ?? 0) / TIPO_DE_CAMBIO_USD_MXN),
+    spend_usd: Math.round(aUsdNum(spendMxn.get(ym) ?? 0)),
     cierres: cierres.get(ym) ?? 0,
     agendas: agendas.get(ym) ?? 0,
   }));
@@ -1760,8 +1764,10 @@ async function _getSenalesRecon(
   })();
 
   const señales: SenalRecon[] = [];
+  // El gasto y el presupuesto del conjunto vienen en la moneda de la cuenta.
+  const { aUsdNum } = await conversorGastoMeta();
   for (const [adId, a] of porAd) {
-    const spendUsd = a.spendMxn / TIPO_DE_CAMBIO_USD_MXN;
+    const spendUsd = aUsdNum(a.spendMxn);
     const down = downByAd.get(adId) ?? { agendas: 0, cierres: 0, cash: 0 };
     const diasCorriendo = a.diasSpend.size;
 
@@ -1777,7 +1783,7 @@ async function _getSenalesRecon(
           const spMxn = adsetDaySpendMxn.get(`${a.adset_id}|${f}`) ?? 0;
           const ok = budgetMxn > 0 && spMxn >= 0.99 * budgetMxn;
           if (!ok) todosOk = false;
-          ritmoDias.push({ fecha: f, spend_usd: spMxn / TIPO_DE_CAMBIO_USD_MXN, budget_usd: budgetMxn / TIPO_DE_CAMBIO_USD_MXN, ok });
+          ritmoDias.push({ fecha: f, spend_usd: aUsdNum(spMxn), budget_usd: aUsdNum(budgetMxn), ok });
         }
         ritmo = todosOk ? 'verde' : 'cruz';
       }
@@ -2906,10 +2912,11 @@ async function _getFatigaAdsets(
   }
 
   const out: AdsetFatiga[] = [];
+  const { aUsdNum } = await conversorGastoMeta();
   for (const rows of porAdset.values()) {
     const en7 = rows.filter((r) => r.fecha >= d7);
     const spend7Mxn = en7.reduce((s, r) => s + Number(r.spend ?? 0), 0);
-    const spend7Usd = spend7Mxn / TIPO_DE_CAMBIO_USD_MXN;
+    const spend7Usd = aUsdNum(spend7Mxn);
     if (spend7Usd <= 50) continue;
 
     const freqVals = en7.map((r) => Number(r.frequency ?? 0)).filter((v) => v > 0);
@@ -2920,8 +2927,8 @@ async function _getFatigaAdsets(
     const spend28Mxn = rows.reduce((s, r) => s + Number(r.spend ?? 0), 0);
     const leads28 = rows.reduce((s, r) => s + Number(r.leads_count ?? 0), 0);
     if (leads7 === 0 || leads28 === 0) continue;
-    const cpl7 = spend7Mxn / TIPO_DE_CAMBIO_USD_MXN / leads7;
-    const cpl28 = spend28Mxn / TIPO_DE_CAMBIO_USD_MXN / leads28;
+    const cpl7 = aUsdNum(spend7Mxn) / leads7;
+    const cpl28 = aUsdNum(spend28Mxn) / leads28;
     if (cpl7 <= 1.5 * cpl28) continue;
 
     out.push({
@@ -3126,7 +3133,8 @@ async function _getTendencias(
     if (!r.fecha_pago) continue; const i = idxDe(r.fecha_pago); if (i >= 0) { cash[i] += Number(r.monto_usd ?? 0); numPagos++; }
   }
 
-  const spendUsd = spendMxn.map((s) => s / TIPO_DE_CAMBIO_USD_MXN);
+  const { aUsdNum } = await conversorGastoMeta();
+  const spendUsd = spendMxn.map((s) => aUsdNum(s));
   const ratio = (num: number[], den: number[], k = 100): Array<number | null> => num.map((v, i) => (den[i] > 0 ? (v / den[i]) * k : null));
   const ctr = ratio(clk, imp);
   const cpl = spendUsd.map((s, i) => (leads[i] > 0 ? s / leads[i] : null));

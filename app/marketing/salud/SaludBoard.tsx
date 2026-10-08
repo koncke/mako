@@ -15,8 +15,14 @@ import { colorDeSemaforo, bgDeSemaforo, type MetaHealth, type Reco, type Semafor
 
 const MONO = "'Geist Mono', monospace";
 
-function fmtMXN(n: number): string {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 }).format(n);
+/** Un monto en la moneda de la CUENTA de Meta, que no siempre es MXN (ws13, ws14 y ws15
+ *  cobran en USD). Antes era `fmtMXN` y le ponía «MXN» al saldo de una cuenta en dólares. */
+function fmtCuenta(n: number, moneda: string): string {
+  try {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: moneda, currencyDisplay: 'code', maximumFractionDigits: 2 }).format(n);
+  } catch {
+    return `${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })} ${moneda}`;
+  }
 }
 function fmtUSD(n: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
@@ -32,7 +38,7 @@ export function SaludBoard({ health }: { health: MetaHealth }) {
   const ctxCuenta = [
     `Estado de la cuenta publicitaria de Meta. Estado: ${a.statusLabel} (severidad ${a.severidad}).`,
     a.entregaFrenada ? 'La entrega está FRENADA: las campañas figuran activas pero Meta no está entregando.' : '',
-    `Saldo adeudado ${a.balanceMxn.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN (~${fmtUSD(a.balanceUsd)}). Total gastado histórico ${fmtMXN(a.amountSpentMxn)}. Medio de pago: ${a.fundingCard ?? '—'}.`,
+    `Saldo adeudado ${fmtCuenta(a.balanceMxn, a.currency)}${a.currency === 'USD' ? '' : ` (~${fmtUSD(a.balanceUsd)})`}. Total gastado histórico ${fmtCuenta(a.amountSpentMxn, a.currency)}. Medio de pago: ${a.fundingCard ?? '—'}.`,
     `Entrega ahora: ${r.activos} anuncios activos, ${r.aprendizaje} conjuntos en aprendizaje, ${r.enRevision} anuncios en revisión, ${r.pausados} pausados, ${r.rechazados} rechazados/con problemas.`,
     health.recomendaciones.length
       ? `Recomendaciones (Meta primero + MaKo):\n${health.recomendaciones.map((x) => `- [${x.prioridad}/${x.fuente}] ${x.titulo}: ${x.detalle}`).join('\n')}`
@@ -68,10 +74,10 @@ function BannerCuenta({ account, fetchedAtISO, parcial }: { account: MetaHealth[
   const hora = (() => { try { return new Date(fetchedAtISO).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } })();
 
   const stats: Array<{ label: string; value: string; sub?: string; danger?: boolean }> = [
-    { label: 'Saldo adeudado', value: fmtMXN(account.balanceMxn), sub: account.balanceMxn > 0 ? `≈ ${fmtUSD(account.balanceUsd)}` : 'sin deuda', danger: account.balanceMxn > 0 && account.severidad !== 'verde' },
+    { label: 'Saldo adeudado', value: fmtCuenta(account.balanceMxn, account.currency), sub: account.balanceMxn > 0 ? (account.currency === 'USD' ? undefined : `≈ ${fmtUSD(account.balanceUsd)}`) : 'sin deuda', danger: account.balanceMxn > 0 && account.severidad !== 'verde' },
     { label: 'Medio de pago', value: account.fundingCard ?? (account.isPrepay ? 'Prepago' : '—'), sub: account.isPrepay ? 'cuenta prepago' : undefined },
-    { label: 'Total gastado', value: fmtMXN(account.amountSpentMxn), sub: 'histórico de la cuenta' },
-    { label: 'Tope de gasto', value: account.spendCapMxn ? fmtMXN(account.spendCapMxn) : 'sin tope', sub: account.currency },
+    { label: 'Total gastado', value: fmtCuenta(account.amountSpentMxn, account.currency), sub: 'histórico de la cuenta' },
+    { label: 'Tope de gasto', value: account.spendCapMxn ? fmtCuenta(account.spendCapMxn, account.currency) : 'sin tope', sub: account.currency },
   ];
 
   return (

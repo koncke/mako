@@ -7,7 +7,7 @@
 // plataforma, región). Mismo shape que /api/ad-insights pero sin video/transcript.
 
 import type { NextRequest } from 'next/server';
-import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
+import { conversorGastoMeta } from '@/lib/moneda-meta';
 import { credWs, integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
@@ -24,12 +24,14 @@ function actionVal(actions: Act | undefined, type: string): number {
   const f = actions.find((a) => a.action_type === type);
   return f ? num(f.value) : 0;
 }
-const usd = (mxn: number) => mxn / TIPO_DE_CAMBIO_USD_MXN;
 const isISO = (s: string | null): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const agendasDe = (a: Act | undefined) => actionVal(a, 'offsite_conversion.fb_pixel_custom');
 const leadsDe = (a: Act | undefined) => actionVal(a, 'lead') || actionVal(a, 'onsite_conversion.lead_grouped');
 
 export async function GET(req: NextRequest) {
+  // El `spend` de Meta viene en la moneda de la CUENTA, que no siempre es MXN (ws13, ws14
+  // y ws15 cobran en USD): dividirlo por 17,3 les achicaba el gasto 17 veces.
+  const { aUsdNum: usd } = await conversorGastoMeta();
   const id = req.nextUrl.searchParams.get('id');
   const desde = req.nextUrl.searchParams.get('desde');
   const hasta = req.nextUrl.searchParams.get('hasta');

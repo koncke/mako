@@ -13,6 +13,8 @@ import { getActivePersona, MAKO_NUCLEO } from './mako-prompts';
 import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { getSenalesRecon, getMarketingWindow, getRevenuePeriod } from './queries';
+import { monedaCuentaMeta } from './moneda-meta';
+import { usdACuenta, montoCuenta, esConvertible } from './presupuesto-cambio';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { ayerEnTijuana } from './date-utils';
 import {
@@ -127,8 +129,6 @@ function rangoUltimosDias(dias: number): { desde: string; hasta: string } {
 }
 
 const usd = (n: number | null | undefined, dec = 2) => (n == null || !Number.isFinite(n) ? '—' : `$${n.toFixed(dec)}`);
-const mxn0 = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? '—' : `$${Math.round(n).toLocaleString('es-MX')} MXN`);
-const TC = 17.3; // USD→MXN (espeja TIPO_DE_CAMBIO_USD_MXN de config)
 
 /**
  * Compone el contexto del negocio para el prompt: funnel + perfil + KPIs +
@@ -173,7 +173,11 @@ export async function buildCampaignBrief(prompt: string): Promise<string> {
         const w = await getMarketingWindow(desde, hasta);
         if (!w.dias_con_datos) return 'Sin histórico de gasto: sugerí un presupuesto conservador.';
         const diarioUsd = w.spend_usd / Math.max(1, w.dias_con_datos);
-        return `Gasto diario promedio reciente: ${usd(diarioUsd)} USD (~${mxn0(diarioUsd * TC)}). Úsalo como referencia para el presupuesto diario.`;
+        // El equivalente va en la moneda REAL de la cuenta (antes, siempre «~X MXN», también
+        // en las cuentas que cobran en USD). Sin tasa conocida, sólo los dólares.
+        const moneda = await monedaCuentaMeta().catch(() => null);
+        const enCuenta = moneda && moneda !== 'USD' && esConvertible(moneda) ? ` (~${montoCuenta(usdACuenta(diarioUsd, moneda), moneda)})` : '';
+        return `Gasto diario promedio reciente: ${usd(diarioUsd)} USD${enCuenta}. Úsalo como referencia para el presupuesto diario.`;
       } catch { return '—'; }
     })(),
     (async () => {

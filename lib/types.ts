@@ -79,6 +79,8 @@ export type MarketingMetricRow = {
  * action_type 'video_view'.
  */
 export type MetaInsightRaw = {
+  /** La moneda en la que viene `spend`: la de la cuenta (lib/moneda-meta.ts). */
+  account_currency?: string;
   adset_id?: string;
   adset_name?: string;
   campaign_id?: string;

@@ -375,7 +375,7 @@ export const RUNNERS: Runners = {
       if (!orden.length) return J({ ventana, anuncios: [], nota: `No hay anuncios con gasto sincronizado entre el ${desde} y el ${hasta}. Eso NO significa que no se invirtió: puede que no haya corrido nada o que la sincronización esté parada. No des un cero.` });
       return J({
         ventana,
-        moneda: { gasto: `USD DERIVADO: gasto de Meta ÷ ${TIPO_DE_CAMBIO_USD_MXN} fijo del código, no lo que cobró Meta`, porcentajes: 'hook_rate, hold_rate y ctr van en %' },
+        moneda: { gasto: `USD con la moneda REAL de la cuenta: lo que cobró Meta si la cuenta cobra en USD; un derivado con el tipo de cambio fijo del código (${TIPO_DE_CAMBIO_USD_MXN}) si cobra en MXN`, porcentajes: 'hook_rate, hold_rate y ctr van en %' },
         anuncios: orden.slice(0, limite).map((s) => ({
           ad_id: s.ad_id, anuncio: s.ad_name, campana: s.campana, conjunto: s.adset_name, gasto_usd: Math.round(s.spend_usd),
           leads_meta: s.meta_leads, leads_crm: s.leads, agendas: s.agendas, cierres: s.cierres, cash_usd: s.cash_usd,

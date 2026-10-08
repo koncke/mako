@@ -28,7 +28,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerPorPaginas, leerTodo, type OrdenPaginado } from './supabase-paginado';
 import { chatClaude } from './anthropic';
-import { TIPO_DE_CAMBIO_USD_MXN } from './config';
+import { conversorGastoMeta } from './moneda-meta';
 import { getAngles, type Angle } from './script-angles';
 import { getAvatares, type Avatar } from './script-avatares';
 import { renderPrompt } from './prompt-render';
@@ -615,6 +615,8 @@ async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string)
   const map = new Map<string, AdMetrics>();
   if (!adIds.length) return map;
   const supabase = (await getTenantDb());
+  // El gasto viene en la moneda de la CUENTA (lib/moneda-meta.ts): no siempre es MXN.
+  const { aUsdNum } = await conversorGastoMeta();
   const ids = new Set(adIds);
   for (let i = 0; i < adIds.length; i += 200) {
     const chunk = adIds.slice(i, i + 200);
@@ -629,8 +631,8 @@ async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string)
           const id = String(row.ad_id ?? '');
           if (!ids.has(id)) continue;
           const m = map.get(id) ?? { adName: null, lastFecha: null, thumbnail: null, permalink: null, creativeSinEnlace: false, campana: null, adset: null, spendUsd: 0, impressions: 0, leads: 0, agendas: 0, linkClicks: 0, v3s: 0, thru: 0, p25: 0, p50: 0, p75: 0, p100: 0, freqSum: 0, freqN: 0, dias: new Set<string>() };
-          const spendMxn = Number(row.spend ?? 0);
-          m.spendUsd += spendMxn / TIPO_DE_CAMBIO_USD_MXN;
+          const spendCuenta = Number(row.spend ?? 0);
+          m.spendUsd += aUsdNum(spendCuenta);
           m.impressions += Number(row.impressions ?? 0);
           m.leads += Number(row.leads_count ?? 0);
           m.agendas += Number(row.agendas_meta ?? 0);
@@ -644,7 +646,7 @@ async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string)
           const f = row.frequency == null ? null : Number(row.frequency);
           if (f != null && Number.isFinite(f) && f > 0) { m.freqSum += f; m.freqN++; } // paridad con getSenalesRecon: excluye 0/null
           const fecha = String(row.fecha ?? '');
-          if (spendMxn > 0 && fecha) m.dias.add(fecha);
+          if (spendCuenta > 0 && fecha) m.dias.add(fecha);
           if (fecha && (!m.lastFecha || fecha > m.lastFecha)) { m.lastFecha = fecha; if (row.ad_name) m.adName = String(row.ad_name); }
           // Creativo + campaña/adset: el valor no-nulo más reciente (rows ordenadas por fecha asc).
           if (row.ad_thumbnail_url != null) m.thumbnail = String(row.ad_thumbnail_url);

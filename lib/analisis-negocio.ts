@@ -33,7 +33,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerPorPaginas } from './supabase-paginado';
-import { TIPO_DE_CAMBIO_USD_MXN } from './config';
+import { cuentaAUsd } from './presupuesto-cambio';
 import { reporteMetricas, resolverRango, type ReporteMetricas } from './metricas-negocio';
 import {
   costoPor, tasa, cuadratura, planDesdeMeta, ordenarCreativos, creativosEscondidos,
@@ -107,9 +107,12 @@ export async function analisisNegocio(opts: {
 
   // ── La cascada ──────────────────────────────────────────────────────────────
   const inversion = t.meta_inversion;
-  /** El mismo costo, legible. Tipo de cambio FIJO de lib/config.ts: es derivado. */
-  const usd = (v: number | null): number | null =>
-    v == null ? null : redondo(v / TIPO_DE_CAMBIO_USD_MXN);
+  /** El mismo costo en USD, con la moneda REAL de la cuenta (la del reporte de métricas,
+   *  lib/moneda-meta.ts). Con una moneda sin tasa o desconocida, vacío: no se inventa. */
+  const usd = (v: number | null): number | null => {
+    const u = v == null || rep.moneda.meta === 'desconocida' ? null : cuentaAUsd(v, rep.moneda.meta);
+    return u == null ? null : redondo(u);
+  };
   const agendas = t.agendas_creadas;
   const asistencias = t.j1_realizadas;
   const cierres = t.ganados;
@@ -154,7 +157,7 @@ export async function analisisNegocio(opts: {
   ];
 
   const ingreso = t.ingreso_usd;
-  const inversionUsd = inversion != null ? inversion / TIPO_DE_CAMBIO_USD_MXN : null;
+  const inversionUsd = inversion != null && rep.moneda.meta !== 'desconocida' ? cuentaAUsd(inversion, rep.moneda.meta) : null;
   const roas = ingreso != null && inversionUsd != null && inversionUsd > 0
     ? redondo(ingreso / inversionUsd) : null;
 

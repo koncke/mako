@@ -62,6 +62,47 @@ export function cuentaAUsd(monto: number, currency: string): number | null {
 }
 
 /**
+ * Cómo pasar a dólares lo que GASTÓ una cuenta de Meta, sabiendo (o no) en qué moneda cobra.
+ *
+ * ⚠️ LA LECTURA DEL GASTO DIVIDÍA POR 17,30 PARA TODOS. Las escrituras se arreglaron con
+ * `usdACuenta`; lo que se MOSTRABA —el dashboard, el CAC, los experimentos, la tool del
+ * doer— seguía tratando el `spend` de Meta como pesos mexicanos. Medido el 08/10/2026: ws1,
+ * ws4 y ws11 cobran en MXN; ws13, ws14 y ws15 en USD, y para esos tres todo gasto en dólares
+ * salía 17,3 veces más chico. La moneda la resuelve `lib/moneda-meta.ts`; esto decide qué
+ * hacer con ella, y es puro para que tenga test.
+ *
+ * - `aUsd`: el monto en dólares, o `null` si la moneda no se conoce o no tiene tasa. Es la
+ *   que va donde la salida puede decir «no lo sé» (la tool del doer, las métricas de MaKo).
+ * - `aUsdNum`: siempre un número, para los tableros cuyos tipos no admiten un vacío. Con la
+ *   moneda DESCONOCIDA convierte como pesos —lo que hacía todo el código antes— y lo avisa:
+ *   decisión consciente para no romper una pantalla en un camino que sólo se da si nunca se
+ *   pudo leer la cuenta (la moneda se guarda al sincronizar). Con una moneda CONOCIDA sin
+ *   tasa (ARS, EUR…) devuelve el monto crudo, igual que `usdACuenta`: no se inventa una tasa.
+ */
+export type ConversorGasto = {
+  moneda: string | null;
+  aUsd: (monto: number) => number | null;
+  aUsdNum: (monto: number) => number;
+};
+export function conversorDeGasto(moneda: string | null, avisar: (m: string) => void = () => {}): ConversorGasto {
+  const m = moneda ? moneda.trim().toUpperCase() : null;
+  let avisado = false;
+  return {
+    moneda: m,
+    aUsd: (monto) => (m ? cuentaAUsd(monto, m) : null),
+    aUsdNum: (monto) => {
+      if (!m) {
+        // Sólo si hay algo que convertir: un negocio sin Meta pasa por acá con gasto 0 en
+        // cada pantalla, y ese aviso no dice nada (medido: el ws3 lo disparaba siempre).
+        if (monto !== 0 && !avisado) { avisado = true; avisar('moneda de la cuenta de Meta desconocida: el gasto se convierte como MXN'); }
+        return monto / TIPO_DE_CAMBIO_USD_MXN;
+      }
+      return cuentaAUsd(monto, m) ?? monto;
+    },
+  };
+}
+
+/**
  * Lo que el editor muestra al abrirse, en la unidad que se TIPEA.
  *
  * Es también contra lo que se decide si HUBO cambio, y por eso es un string: el

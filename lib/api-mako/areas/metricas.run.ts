@@ -80,7 +80,7 @@ function fechaOpcional(input: Record<string, unknown>, k: string): string | { er
   return esFechaValida(v) ? v : { error: `«${k}» no es una fecha válida (YYYY-MM-DD): ${v}` };
 }
 
-const NOTA_USD = `Todo monto de Meta en USD es un DERIVADO: el gasto llega en la moneda de la cuenta publicitaria y se divide por un tipo de cambio FIJO (${TIPO_DE_CAMBIO_USD_MXN}, escrito en el código) que asume una cuenta en MXN. Si la cuenta cobra en otra moneda, esos USD están mal; para auditar contra la factura usa metricas_negocio (trae el monto crudo).`;
+const NOTA_USD = `Todo monto de Meta en USD sale de la moneda REAL de la cuenta publicitaria: si la cuenta cobra en USD, es lo que cobró Meta; si cobra en MXN, es un DERIVADO con un tipo de cambio FIJO (${TIPO_DE_CAMBIO_USD_MXN}, escrito en el código). Para auditar contra la factura usa metricas_negocio, que trae el monto crudo y su moneda.`;
 
 const LIMITE_LEADS_POR_ETAPA = 100;
 const LIMITE_COBRANZA = 50;

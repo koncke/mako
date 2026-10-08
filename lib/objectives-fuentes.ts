@@ -24,7 +24,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerPorPaginas } from './supabase-paginado';
-import { mxnAUsd } from './config';
+import { conversorGastoMeta } from './moneda-meta';
 import type { FuenteDef, FuenteId } from './objectives-modelo';
 import { FUENTES_KPI } from './objectives-modelo';
 import { VENTA_SIN_COBRO } from './venta-tipo';
@@ -82,7 +82,7 @@ async function contar(tabla: string, filtros: Filtro[]): Promise<LecturaFuente> 
 export async function inversionUsd(desde: string, hasta: string): Promise<LecturaFuente> {
   try {
     const db = await getTenantDb();
-    let mxn = 0;
+    let enCuenta = 0; // en la moneda de la cuenta de Meta, que no siempre es MXN
     // ⚠️ El bucle `.range()` escrito a mano que había acá paginaba SIN `.order()`.
     // Sin ORDER BY, el OFFSET de la página 2 se aplica sobre otro orden y salen
     // filas repetidas y filas salteadas — y como esto es una SUMA, el error va
@@ -95,14 +95,16 @@ export async function inversionUsd(desde: string, hasta: string): Promise<Lectur
     // es mejor que una suma que sabemos incompleta.
     await leerPorPaginas<{ spend: number | null }>(
       db, 'marketing_metrics_daily', 'id, spend',
-      (filas) => { for (const f of filas) mxn += Number(f.spend ?? 0); },
+      (filas) => { for (const f of filas) enCuenta += Number(f.spend ?? 0); },
       {
         eq: { plataforma: 'meta' },
         filtros: (q) => q.gte('fecha', desde).lte('fecha', hasta),
         maxPaginas: 50,
       },
     );
-    return { valor: mxnAUsd(mxn) };
+    // Con la moneda REAL (lib/moneda-meta.ts). Sin tasa conocida, no se inventa un número.
+    const usd = (await conversorGastoMeta()).aUsd(enCuenta);
+    return usd == null ? { valor: null, error: 'no sé en qué moneda cobra la cuenta de Meta, o no tiene tipo de cambio' } : { valor: usd };
   } catch (e) {
     return fallo(e);
   }

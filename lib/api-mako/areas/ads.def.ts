@@ -66,7 +66,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_campanas_meta', area: 'ads', tipo: 'lectura',
     titulo: 'Campañas con gasto en 30 días',
-    descripcion: 'Lista las campañas de Meta Ads con datos sincronizados en los ÚLTIMOS 30 DÍAS: id, nombre y gasto de ese período en la moneda de la cuenta (`gasto_mxn`) y su equivalente en USD a un tipo de cambio fijo del código. Trae la ventana de fechas exacta: no es el gasto histórico ni el estado en vivo (una campaña pausada o creada hoy no aparece; para eso usa ver_estado_meta). Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
+    descripcion: 'Lista las campañas de Meta Ads con datos sincronizados en los ÚLTIMOS 30 DÍAS: id, nombre y gasto de ese período en la moneda de la cuenta (el campo lleva su nombre: `gasto_usd`, `gasto_mxn`…) y, si la cuenta no cobra en dólares y hay tasa, su equivalente en USD a un tipo de cambio fijo del código. Trae la ventana de fechas exacta: no es el gasto histórico ni el estado en vivo (una campaña pausada o creada hoy no aparece; para eso usa ver_estado_meta). Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis',
     gating: { tab: 'ads-manager', rolMinimo: 'admin' },

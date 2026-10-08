@@ -35,6 +35,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerPorPaginas } from './supabase-paginado';
 import { TIPO_DE_CAMBIO_USD_MXN } from './config';
+import { conversorGastoMeta } from './moneda-meta';
 import { tzActual } from './timezone';
 import { hoyEnTz, diasAntes } from './date-utils';
 import { integracionConectada } from './credenciales';
@@ -349,13 +350,21 @@ export async function reporteMetricas(opts: {
   // ── Salida ─────────────────────────────────────────────────────────────────
   const nulo = (v: number, hay: boolean): number | null => (hay ? v : null);
   const redondo = (v: number, d = 2): number => Math.round(v * 10 ** d) / 10 ** d;
+  // La inversión viene en la moneda de la CUENTA de Meta (lib/moneda-meta.ts). Hasta el
+  // 08/10/2026 se dividía por 17,30 para todos, y ws13, ws14 y ws15 cobran en USD. Con la
+  // moneda desconocida, el USD va vacío: este reporte sí puede decir «no lo sé».
+  const conv = await conversorGastoMeta();
+  const usdDe = (v: number, hay: boolean): number | null => {
+    const u = hay ? conv.aUsd(v) : null;
+    return u == null ? null : redondo(u);
+  };
 
   const filas: FilaMetricas[] = clavesDelRango(desde, hasta, grano).map((periodo) => {
     const a = buckets.get(periodo) ?? accVacio();
     return {
       periodo,
       meta_inversion: nulo(redondo(a.meta_inversion), cobertura.meta.hay_datos),
-      meta_inversion_usd: nulo(redondo(a.meta_inversion / TIPO_DE_CAMBIO_USD_MXN), cobertura.meta.hay_datos),
+      meta_inversion_usd: usdDe(a.meta_inversion, cobertura.meta.hay_datos),
       meta_impresiones: nulo(a.meta_impresiones, cobertura.meta.hay_datos),
       meta_clics: nulo(a.meta_clics, cobertura.meta.hay_datos),
       meta_clics_link: nulo(a.meta_clics_link, cobertura.meta.hay_datos),
@@ -394,7 +403,7 @@ export async function reporteMetricas(opts: {
 
   const totales: Omit<FilaMetricas, 'periodo'> = {
     meta_inversion: nulo(redondo(sumar((x) => x.meta_inversion)), cobertura.meta.hay_datos),
-    meta_inversion_usd: nulo(redondo(sumar((x) => x.meta_inversion) / TIPO_DE_CAMBIO_USD_MXN), cobertura.meta.hay_datos),
+    meta_inversion_usd: usdDe(sumar((x) => x.meta_inversion), cobertura.meta.hay_datos),
     meta_impresiones: nulo(sumar((x) => x.meta_impresiones), cobertura.meta.hay_datos),
     meta_clics: nulo(sumar((x) => x.meta_clics), cobertura.meta.hay_datos),
     meta_clics_link: nulo(sumar((x) => x.meta_clics_link), cobertura.meta.hay_datos),
@@ -440,7 +449,13 @@ export async function reporteMetricas(opts: {
   }
   if (cobertura.meta.hay_datos) {
     advertencias.push(
-      `La inversión sale en la moneda de la cuenta publicitaria. El USD es un derivado con un tipo de cambio FIJO (${TIPO_DE_CAMBIO_USD_MXN}) escrito a mano en lib/config.ts: para un trimestre pasado usa la tasa de hoy, no la de esos meses. Si el número importa en USD, verifícalo contra el resumen de facturación de Meta.`,
+      conv.moneda === 'USD'
+        ? 'La inversión sale en USD, que es la moneda en la que cobra la cuenta publicitaria: `meta_inversion` y `meta_inversion_usd` son el mismo número.'
+        : conv.moneda === 'MXN'
+          ? `La inversión sale en MXN, la moneda de la cuenta publicitaria. El USD es un derivado con un tipo de cambio FIJO (${TIPO_DE_CAMBIO_USD_MXN}) escrito a mano en lib/config.ts: para un trimestre pasado usa la tasa de hoy, no la de esos meses. Si el número importa en USD, verifícalo contra el resumen de facturación de Meta.`
+          : conv.moneda
+            ? `La inversión sale en ${conv.moneda}, la moneda de la cuenta publicitaria, y no hay tipo de cambio para esa moneda: \`meta_inversion_usd\` va vacío. No lo conviertas por tu cuenta.`
+            : 'No se pudo saber en qué moneda cobra la cuenta publicitaria: `meta_inversion` es el número de Meta en esa moneda y `meta_inversion_usd` va vacío. No lo conviertas por tu cuenta.',
     );
   }
   // ⚠️ EL CASO QUE HACE QUE ESTE REPORTE MIENTA FEO, y por eso se dice con nombre
@@ -470,9 +485,11 @@ export async function reporteMetricas(opts: {
   return {
     periodo: { desde, hasta, grano, zona },
     moneda: {
-      meta: 'moneda de la cuenta publicitaria (MXN en las cuentas configuradas así)',
+      meta: conv.moneda ?? 'desconocida',
       tipo_cambio_usd_mxn: TIPO_DE_CAMBIO_USD_MXN,
-      nota: '`meta_inversion` es el número real que cobró Meta. `meta_inversion_usd` es un derivado con tipo de cambio fijo.',
+      nota: conv.moneda === 'USD'
+        ? '`meta_inversion` es el número real que cobró Meta, en USD; `meta_inversion_usd` es el mismo.'
+        : '`meta_inversion` es el número real que cobró Meta, en la moneda de la cuenta. `meta_inversion_usd` es un derivado con tipo de cambio fijo (sólo para MXN), o vacío si la moneda no tiene tasa.',
     },
     filas,
     totales,

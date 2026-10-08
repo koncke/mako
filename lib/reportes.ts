@@ -8,6 +8,7 @@
 
 import 'server-only';
 import { getMetaAccountHealth } from './meta-health';
+import { montoCuenta } from './presupuesto-cambio';
 import { getMarketingWindow, getObjetivoProgreso, getPendientesDeMarcar, getFatigaAdsets } from './queries';
 import { getCashCollectedPeriodo, getCuotasPendientes } from './pagos';
 import {
@@ -27,7 +28,6 @@ export type Reporte = {
 };
 
 const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
-const fmtMxn = (n: number) => `$${Math.round(n).toLocaleString('en-US')} MXN`;
 
 function subir(sev: NotifSeveridad, a: NotifSeveridad): NotifSeveridad {
   const orden: NotifSeveridad[] = ['ok', 'info', 'warn', 'urgente'];
@@ -46,7 +46,8 @@ export async function buildReporteDiario(prefs: NotifPrefs): Promise<Reporte> {
       const s = await getMetaAccountHealth();
       const emoji = s.severidad === 'verde' ? '🟢' : s.severidad === 'ambar' ? '🟡' : '🔴';
       L.push('', `${emoji} *Cuenta Meta:* ${s.statusLabel}${s.entregaFrenada ? ' — ⚠️ entrega frenada' : ''}`);
-      L.push(`   Saldo ${fmtUsd(s.balanceUsd)} · gastado ${fmtMxn(s.amountSpentMxn)}`);
+      // Lo gastado va en la moneda de la CUENTA (no siempre MXN); el saldo, ya en USD.
+      L.push(`   Saldo ${fmtUsd(s.balanceUsd)} · gastado ${montoCuenta(Math.round(s.amountSpentMxn), s.currency)}`);
       if (s.severidad === 'rojo') sev = subir(sev, 'urgente');
       else if (s.severidad === 'ambar') sev = subir(sev, 'warn');
     } catch { L.push('', '🔻 Semáforo Meta: no disponible ahora.'); }

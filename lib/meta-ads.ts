@@ -15,6 +15,7 @@
 
 import { credWs } from './credenciales';
 import { getTenantDb } from './workspace';
+import { registrarMonedaMeta } from './moneda-meta';
 import type { MarketingMetricRow, MetaInsightRaw, MetaAdsetRaw } from './types';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
@@ -153,6 +154,10 @@ export async function fetchMetaInsights(
   const token = await getEnv('META_ACCESS_TOKEN');
 
   const fields = [
+    // En qué moneda viene `spend`: la de la CUENTA, que no siempre es MXN (ws13, ws14 y
+    // ws15 cobran en USD). Se guarda acá, en el mismo pedido de siempre, para que todo
+    // gasto en la base tenga su moneda conocida (lib/moneda-meta.ts).
+    'account_currency',
     'adset_id',
     'adset_name',
     'campaign_id',
@@ -205,6 +210,8 @@ export async function fetchMetaInsights(
     nextUrl = page.paging?.next ?? null;
   }
 
+  // Best-effort: si no se puede guardar, el lector se la pregunta a Meta después.
+  await registrarMonedaMeta(all.find((r) => r.account_currency)?.account_currency, adAccountId);
   return all;
 }
 
