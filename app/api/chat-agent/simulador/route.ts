@@ -1,8 +1,10 @@
 // =============================================================================
 // API: el «Probar» de /chatbot — el panel que recorre el flujo que se está editando
 // =============================================================================
-// GET  ?destino=1 → { telefono, email }: el destino PRECARGADO de «Enviar a mi WhatsApp / mi
-//      email» (el contacto de reportes del workspace). Sólo admin. No se escribe nunca desde acá.
+// GET  ?destino=1 → { telefono, email }: el destino PRECARGADO de «A mi WhatsApp / A mi email»:
+//      el de la PERSONA que mira (su fila de `usuarios`), o vacío. Sólo admin. No se escribe nunca.
+//      ⚠️ Antes era el contacto de reportes del WORKSPACE: con el super admin mirando a un cliente,
+//      la prueba le llegaba al cliente (revisión adversarial del 08/10/2026, lienzo-3).
 // POST { action: 'clasificar', pasos, mensaje? | audioBase64? } → { casoId, titulo, transcript? }
 //      Clasifica la respuesta del lead contra los casos de «Si responde» LOCALES (los que se ven
 //      en el lienzo, sin publicar), con el MISMO clasificador del motor (`clasificarEscenario`).
@@ -10,7 +12,8 @@
 //      Redacta un «MaKo contesta» con el redactor del motor (`responderSimulador`) y el caso
 //      LOCAL como guía.
 // POST { action: 'enviar-real', secuenciaId, destino, mensaje, primero } → { enviados }
-//      Manda DE VERDAD un mensaje que apareció en el panel (lib/prueba-paso.ts). Sólo admin.
+//      Manda DE VERDAD un mensaje que apareció en el panel (lib/prueba-paso.ts). Sólo admin, con
+//      tope por (workspace, destino): 10 mensajes cada 10 minutos.
 // POST { secuenciaId, historial, audioBase64? } (sin action) → { respuesta, desenlace }
 //      El setter libre de antes. Queda por compatibilidad; el panel nuevo no lo usa.
 //
@@ -23,9 +26,10 @@ import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { responderSimulador, type TurnoSim } from '@/lib/setting-simulador';
 import { transcribirAudio } from '@/lib/ai-cheap';
 import { clasificarEscenario } from '@/lib/chat-agent-handoff';
-import { getContactoReportes } from '@/lib/perfil';
+import { getUsuarioActual } from '@/lib/auth';
+import { buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { escenariosDeRespuesta, normalizar, TOPE_NODOS, type PasoGrafo } from '@/lib/flujo-grafo';
-import { sanearDestinoPrueba, sanearMensajePrueba } from '@/lib/simulador-grafo';
+import { destinoDelQueMira, sanearDestinoPrueba, sanearMensajePrueba } from '@/lib/simulador-grafo';
 import { enviarPasoDePrueba } from '@/lib/prueba-paso';
 import type { EscenarioSecuencia } from '@/lib/setting-estrategia';
 
@@ -72,8 +76,13 @@ export async function GET(req: NextRequest) {
   // «Mandar a mi WhatsApp» le escribe a un número real: el destino sólo lo ve el admin.
   if (a.rol !== 'admin') return json({ ok: false, error: 'Solo el admin prueba de verdad.' }, 403);
   try {
-    const c = await getContactoReportes();
-    return json({ ok: true, telefono: c.telefono || '', email: c.email || '' });
+    // La PERSONA, no el negocio: «A mi WhatsApp» tiene que ser de quien prueba. Ni siquiera el
+    // perfil «viendo como cliente» de lib/perfil.ts (`getPerfil`): ése devuelve el del admin del
+    // cliente, que es justo a quien no hay que escribirle. Sin fila propia, vacío.
+    const sesion = await getUsuarioActual();
+    const propia = sesion?.email ? await buscarUsuarioPorEmail(sesion.email) : null;
+    const d = destinoDelQueMira(propia);
+    return json({ ok: true, telefono: d.telefono, email: d.email });
   } catch (e) {
     console.error(`[api:chat-agent/simulador GET] ${msg(e)}`);
     return json({ ok: false, error: 'No pude leer tu contacto.' }, 500);
@@ -139,7 +148,7 @@ export async function POST(req: NextRequest) {
       if (!mensaje) return json({ ok: false, error: 'mensaje inválido' }, 400);
       // El destino es de ESTA prueba: se usa y se olvida (ver lib/prueba-paso.ts).
       const destino = sanearDestinoPrueba(body.destino);
-      const r = await enviarPasoDePrueba({ secuenciaId: id, destino, mensaje, primero: body.primero === true });
+      const r = await enviarPasoDePrueba({ ws: a.ws, secuenciaId: id, destino, mensaje, primero: body.primero === true });
       return r.ok ? json({ ok: true, enviados: r.enviados }) : json({ ok: false, error: r.error }, 400);
     }
 

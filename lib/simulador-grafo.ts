@@ -279,6 +279,112 @@ export type EnvioPrueba =
 export const AVISO_PRUEBA = '🧪 Prueba de MaKo';
 export const TOPE_TEXTO_PRUEBA = 4000;
 
+// ── El ritmo de la prueba real (revisión adversarial del 08/10/2026, datos-4) ─────────────────
+// Medido sobre el recorrido: un flujo mensaje → esperar → «Ir a» el mismo mensaje, con «A mi
+// WhatsApp» prendido, mandaba ~21 WhatsApp IDÉNTICOS en un par de minutos por la línea NO
+// oficial del cliente: el simulador no espera (`esperar` se dice y se sigue) y el «Ir a» vuelve
+// hasta `TOPE_SALTOS`. Lo que protege a una línea no oficial es el RITMO (AGENTS.md, «El WhatsApp
+// del chatbot es el NO OFICIAL»), así que van dos cortes, uno en cada punta:
+//   · el PANEL no repite el envío real de una tarjeta que ya salió en esta prueba
+//     (`debeSalirDeVerdad`); el teléfono la sigue DIBUJANDO, porque eso es lo que se prueba;
+//   · el SERVER pone un tope por (workspace, destino): `TOPE_PRUEBA_REAL` mensajes del panel
+//     cada `VENTANA_PRUEBA_MIN` minutos (`reclamarCupoPrueba`, con `reclamarEspaciado`). El
+//     panel corre en el navegador: sin el tope del server, un POST a mano no tiene freno.
+
+/** Cuántos mensajes del panel salen de verdad a UN destino por ventana. */
+export const TOPE_PRUEBA_REAL = 10;
+/** La ventana del tope, y la del aviso «🧪 Prueba de MaKo» que decide el server. */
+export const VENTANA_PRUEBA_MIN = 10;
+
+/**
+ * ¿Esta tarjeta sale DE VERDAD, o ya salió en esta prueba? Marca y contesta en un paso.
+ *
+ * En la SALIDA la clave es la tarjeta: un «Ir a» que vuelve sobre un mensaje ya mandado no lo
+ * reenvía (es el bucle de arriba). En «Si responde» la clave lleva además el TURNO del lead: cada
+ * vez que quien prueba escribe como el lead es un pedido nuevo, y la respuesta que aparece tiene
+ * que llegar —un «MaKo contesta» redacta otra cosa en cada turno—. Un bucle dentro del mismo
+ * turno tampoco repite.
+ *
+ * ↻ arranca con un `Set` vacío: es otra prueba.
+ */
+export function debeSalirDeVerdad(enviados: Set<string>, nodo: string, enRespuesta: boolean, turno: number): boolean {
+  const clave = enRespuesta ? `r${turno}:${nodo}` : `s:${nodo}`;
+  if (enviados.has(clave)) return false;
+  enviados.add(clave);
+  return true;
+}
+
+/**
+ * A quién se le cuenta el tope: el canal y el destino, normalizados. null = sin destino (no se
+ * manda nada, así que no hay nada que contar).
+ */
+export function claveDestinoPrueba(m: Pick<MensajePrueba, 'canal'>, d: DestinoPrueba): string | null {
+  if (m.canal === 'email') return d.email ? `email:${d.email.toLowerCase()}` : null;
+  return d.telefono ? `wa:${d.telefono}` : null;
+}
+
+/**
+ * Reclama UN lugar de los `tope` que tiene la ventana. Cada casillero guarda cuándo se usó por
+ * última vez (`reclamarEspaciado`, con su compare-and-set): uno libre es uno cuya marca ya salió
+ * de la ventana. Con los `tope` ocupados no queda lugar, así que en cualquier tramo de
+ * `VENTANA_PRUEBA_MIN` minutos salen como mucho `tope` mensajes.
+ *
+ * Recibe el reclamo inyectado para que el test lo EJECUTE (el real es `server-only`). Un error del
+ * reclamo sube: quien llama decide, y el server corta (sin poder contar, no se manda).
+ */
+export async function reclamarCupoPrueba(reclamar: (casillero: number) => Promise<boolean>, tope = TOPE_PRUEBA_REAL): Promise<boolean> {
+  for (let i = 0; i < tope; i++) if (await reclamar(i)) return true;
+  return false;
+}
+
+// ── Cómo se DIBUJA en el teléfono un archivo de la biblioteca (costuras-8) ──────────────────────
+
+/** image | video | document, como lo pide Evolution `sendMedia` y como lo dibuja la burbuja. */
+export const tipoDeMime = (mime: string): 'image' | 'video' | 'document' =>
+  mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : 'document';
+
+/**
+ * La burbuja de un paso «archivo», tal como le llega al lead: el documento con SU nombre
+ * (`catalogo.pdf`) y el caption como texto aparte.
+ *
+ * ⚠️ Antes el caption iba en `texto` y no había `nombreArchivo`: `ChatHilo` usa el `texto` de un
+ * documento sin `nombreArchivo` como su NOMBRE, así que «Probar» mostraba un documento llamado
+ * «Te dejo el catálogo» y ningún caption. La prueba no mostraba cómo llega.
+ */
+export function burbujaDeArchivo(
+  adj: { url: string | null; mime: string; nombre: string | null } | null,
+  caption: string,
+): { tipo: 'image' | 'video' | 'document'; mediaUrl: string | null; mediaMime: string | null; nombreArchivo: string | null; texto: string | null } {
+  const tipo = adj ? tipoDeMime(adj.mime) : 'document';
+  return {
+    tipo,
+    mediaUrl: adj?.url ?? null,
+    mediaMime: adj?.mime || null,
+    nombreArchivo: tipo === 'document' ? (adj?.nombre?.trim() || 'Archivo') : null,
+    texto: caption.trim() ? caption : null,
+  };
+}
+
+// ── El destino precargado: el de QUIEN PRUEBA (lienzo-3) ────────────────────────────────────────
+
+/**
+ * El teléfono y el email de la persona que está mirando, de SU fila de `usuarios` (el teléfono vive
+ * en el jsonb `perfil`). Sin fila, vacío: se escribe a mano.
+ *
+ * ⚠️ NUNCA el contacto de reportes del workspace (`user_telefono` / `user_email`). Ése es del
+ * NEGOCIO: con el super admin mirando a un cliente, «A mi WhatsApp» venía cargado con el número
+ * del cliente y cada mensaje de la prueba le llegaba a él. El rótulo dice «A mi…»: tiene que ser
+ * de quien prueba, o vacío.
+ */
+export function destinoDelQueMira(u: { email?: unknown; perfil?: unknown } | null | undefined): { telefono: string; email: string } {
+  if (!u) return { telefono: '', email: '' };
+  const perfil = u.perfil && typeof u.perfil === 'object' && !Array.isArray(u.perfil) ? (u.perfil as Record<string, unknown>) : {};
+  return {
+    telefono: typeof perfil.telefono === 'string' ? perfil.telefono.trim() : '',
+    email: typeof u.email === 'string' ? u.email.trim() : '',
+  };
+}
+
 const idPositivo = (v: unknown): number | null => {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 ? n : null;

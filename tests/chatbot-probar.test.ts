@@ -10,7 +10,11 @@
 //   · la lista muestra SÓLO el nombre, en dos renglones, y busca por nombre (punto 3);
 //   · el recordatorio es un ítem de la lista que lee y escribe EXACTAMENTE el mismo setting;
 //   · «Probar» es un panel acoplado a la derecha que NO reemplaza al lienzo, con ✕ y ↻, que
-//     prueba lo LOCAL, anima los mensajes y manda de verdad sin guardar el destino (punto 10).
+//     prueba lo LOCAL, anima los mensajes y manda de verdad sin guardar el destino (punto 10);
+//   · lo de la revisión adversarial del 08/10/2026: la prueba real no repite una tarjeta y el
+//     server topea por destino (datos-4), el archivo con su nombre (costuras-8), el destino de
+//     quien prueba (lienzo-3), el clic en la misma automatización (lienzo-5) y `?sec=` al lienzo
+//     (costuras-5).
 //
 // La lógica del recorrido la EJECUTA tests/simulador-grafo.test.ts.
 //
@@ -159,18 +163,88 @@ test('la prueba real: sólo el admin, por la línea de la secuencia, y el destin
   // El GET del destino precargado también es sólo del admin.
   const get = bloque(ruta, 'export async function GET(');
   assert.match(get, /if \(a\.rol !== 'admin'\) return json/);
-  assert.match(get, /const c = await getContactoReportes\(\);/);
   // NADIE escribe el contacto de reportes ni toca inscripciones o envíos del motor.
   for (const [nombre, src] of [['la ruta', ruta], ['prueba-paso', PRUEBA()], ['el panel', PANEL()]] as const) {
     assert.doesNotMatch(src, /setContactoReportes|setSetting|user_telefono|user_email|nutricion_envios|nutricion_inscripciones/, `${nombre} guarda o toca algo que no es suyo`);
   }
   const prueba = PRUEBA();
   assert.match(prueba, /\.from\('nutricion_secuencias'\)\.select\('id, instance_name'\)\.eq\('id', p\.secuenciaId\)\.maybeSingle\(\)/);
-  assert.match(prueba, /for \(const envio of planDePrueba\(mensaje, p\.primero\)\)/);
+  assert.match(prueba, /for \(const envio of planDePrueba\(mensaje, primero\)\)/);
   assert.match(prueba, /enviarYEspejar\(\{ telefono, texto: envio\.texto, linea \}\)/);
   assert.match(prueba, /enviarAudioYEspejar\(\{ telefono, base64: b64, mimetype: audio\.media_mime, linea \}\)/);
   assert.match(prueba, /const adj = await getAdjunto\(envio\.mediaId\);/);
   assert.match(prueba, /^import 'server-only';$/m);
+});
+
+// ── La revisión adversarial del 08/10/2026 (parte P) ───────────────────────────
+// La lógica la EJECUTA tests/simulador-grafo.test.ts (`debeSalirDeVerdad`, `reclamarCupoPrueba`,
+// `burbujaDeArchivo`, `destinoDelQueMira`). Acá se fija que esté ENCHUFADA donde corre.
+
+test('datos-4: el panel no reenvía una tarjeta que ya salió, y el server topea por destino', () => {
+  const panel = PANEL();
+  const mandar = panel.slice(panel.indexOf('const mandarReal = ('), panel.indexOf('const mostrarPaso = ('));
+  assert.ok(mandar.length > 0 && mandar.length < 1500, `el recorte de mandarReal mide ${mandar.length}`);
+  // El interruptor se mira PRIMERO y la tarjeta repetida corta ANTES del POST.
+  const iSwitch = mandar.indexOf('if (!vaWa && !vaEmail) return;');
+  const iCorte = mandar.indexOf('if (!debeSalirDeVerdad(enviadosReal.current, nodo, enRespuesta, turnoLead.current)) {');
+  const iPost = mandar.indexOf("postar({ action: 'enviar-real'");
+  assert.ok(iSwitch >= 0 && iCorte > iSwitch && iPost > iCorte, 'interruptor → no repetir → mandar, en ese orden');
+  // Cada mensaje que se dibuja pasa su TARJETA, y ↻ arranca con el registro vacío.
+  assert.equal((panel.match(/mostrarPaso\(paso, evento\.nodo,/g) ?? []).length, 2, 'las dos llamadas de avanzar() pasan la tarjeta');
+  assert.equal((panel.match(/mandarReal\(\{[^}]*\}, nodo, enRespuesta\)/g) ?? []).length, 4, 'email, audio, archivo y texto');
+  const arrancar = panel.slice(panel.indexOf('const arrancarRefs = () => {'), panel.indexOf('const reiniciar = () => {'));
+  assert.ok(arrancar.length > 0 && arrancar.length < 800, `el recorte de arrancarRefs mide ${arrancar.length}`);
+  assert.match(arrancar, /enviadosReal\.current = new Set\(\);\n\s+turnoLead\.current = 0;/);
+  const responder = panel.slice(panel.indexOf('const alResponder = async'), panel.indexOf('async function enviarTexto'));
+  assert.match(responder, /^[^\n]*\n\s+cortar\(\);\n\s+turnoLead\.current \+= 1;/, 'el turno del lead sube al escribir');
+  // El server: el tope se reclama DESPUÉS de los chequeos que cortan y ANTES de mandar.
+  const prueba = PRUEBA();
+  const iSandbox = prueba.indexOf('await remitenteEsSandbox()');
+  const iCupo = prueba.indexOf("hayLugar = await reclamarCupoPrueba((i) => reclamarEspaciado(p.ws, `prueba-real:${i}`, VENTANA_PRUEBA_MIN, clave));");
+  const iLoop = prueba.indexOf('for (const envio of planDePrueba(mensaje, primero))');
+  assert.ok(iSandbox >= 0 && iCupo > iSandbox && iLoop > iCupo, 'chequeos → tope → mandar');
+  assert.match(prueba, /if \(!hayLugar\) return \{ ok: false, error: /);
+  assert.match(prueba, /return \{ ok: false, error: 'No pude comprobar el tope' \};/, 'sin poder contar, no se manda');
+  // El aviso: el primero a ese destino en la ventana lo lleva, diga lo que diga el navegador.
+  assert.match(prueba, /const primero = p\.primero \|\| primeroEnVentana;/);
+  assert.match(RUTA(), /enviarPasoDePrueba\(\{ ws: a\.ws, secuenciaId: id,/);
+});
+
+test('costuras-8: «Probar» dibuja el documento con el nombre del archivo y el caption aparte', () => {
+  const panel = PANEL();
+  assert.match(panel, /poner\(\{ id: nuevoId\('md'\), fromMe: false, autor: firma\(\), \.\.\.burbujaDeArchivo\(adj, caption\), fecha: ahora \}\);/);
+  assert.doesNotMatch(panel, /texto: caption \|\| adj\?\.nombre/, 'volvió el caption como nombre del documento');
+});
+
+test('lienzo-3: «A mi WhatsApp» se precarga con lo de QUIEN PRUEBA, nunca con el contacto del negocio', () => {
+  const get = bloque(RUTA(), 'export async function GET(');
+  assert.match(get, /const sesion = await getUsuarioActual\(\);/);
+  assert.match(get, /const propia = sesion\?\.email \? await buscarUsuarioPorEmail\(sesion\.email\) : null;/);
+  assert.match(get, /const d = destinoDelQueMira\(propia\);/);
+  // Ni el contacto de reportes ni el perfil «viendo como cliente» (que es el del cliente).
+  assert.doesNotMatch(RUTA(), /getContactoReportes|getPerfil\(/);
+});
+
+test('lienzo-5: tocar la automatización ya elegida no suelta lo que se está probando', () => {
+  const lista = LISTA();
+  const elegirFn = lista.slice(lista.indexOf('const elegir = (id: number | typeof ID_RECORDATORIO) => {'), lista.indexOf('const recibirEdicion'));
+  assert.match(elegirFn, /=> \{\n\s+if \(id === selId\) return;\n\s+setSelId\(id\); setProbando\(false\); setEdicion\(null\);/);
+});
+
+test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el wizard', () => {
+  const app = APP();
+  const ancla = app.slice(app.indexOf("const sec = params.get('sec');"), app.indexOf('const etiquetaEtapa = useCallback('));
+  assert.match(ancla, /if \(hallada\) setAbrirSec\(\{ id: hallada\.id \}\);/);
+  assert.doesNotMatch(ancla, /setWizard\(/, 'el link volvió a abrir el wizard');
+  assert.match(app, /abrir=\{abrirSec\}/);
+  // La lista lo aplica eligiendo esa automatización (el lienzo se monta con su key).
+  const lista = LISTA();
+  assert.match(lista, /if \(abrir && abrir !== abrirVisto && secuencias\.some\(\(j\) => j\.id === abrir\.id\)\) \{\n\s+setAbrirVisto\(abrir\);\n\s+elegir\(abrir\.id\);/);
+  // El CONTRATO con quien arma el link (el aviso del hand-off): el parámetro es el que lee la página.
+  const aviso = sinComentarios(leer('lib/chat-agent-handoff.ts'));
+  const param = aviso.match(/linkApp\(`\/chatbot\?(\w+)=/)?.[1];
+  assert.ok(param, 'el aviso ya no arma un link a /chatbot');
+  assert.ok(app.includes(`params.get('${param}')`), `el aviso manda ?${param}= y la página no lo lee`);
 });
 
 // ROTURAS (08/10/2026), una por vez, restaurando de memoria (nunca con git checkout) y verificando
@@ -189,3 +263,17 @@ test('la prueba real: sólo el admin, por la línea de la secuencia, y el destin
 //     el GET del destino sin el guard de admin; guardando el destino (`setContactoReportes`).
 //   · prueba-paso: guardando el destino (`setSetting`); la línea de cualquier secuencia (sin el
 //     `.eq('id', …)`); mandando el texto crudo sin `planDePrueba`.
+//
+// ROTURAS de la revisión adversarial (08/10/2026, parte P), con un arnés que rompe, corre y
+// restaura DE MEMORIA verificando md5. Sin romper: 14 pass / 0 fail. Las 17 cayeron, cada una
+// con 13 pass / 1 fail en el test que la persigue:
+//   · datos-4, el panel: `mandarReal` sin el corte de lo ya mandado; ↻ sin vaciar el registro;
+//     escribir como el lead sin subir el turno; «MaKo contesta» con otra tarjeta que la del
+//     evento; el audio con una tarjeta fija; el server: sin el tope; mandando igual cuando no
+//     pudo contar; el aviso decidido sólo por el navegador; el tope contado en otro workspace.
+//   · costuras-8: el archivo dibujado como antes (el caption como nombre del documento).
+//   · lienzo-3: el destino con el contacto de reportes del negocio; con `getPerfil()` (el
+//     perfil «viendo como cliente», que es el del cliente).
+//   · lienzo-5: tocar la misma automatización vaciando la edición.
+//   · costuras-5: `?sec=` abriendo el wizard; la lista sin el pedido del link; el pedido sin
+//     elegir la automatización; la página leyendo otro parámetro que el que arma el aviso.

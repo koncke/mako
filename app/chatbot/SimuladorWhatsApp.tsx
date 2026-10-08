@@ -43,7 +43,14 @@ const ID_RECORDATORIO = 'recordatorio' as const;
 const emojiSecuencia = (j: SecuenciaDto): string =>
   (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores, pie, tz }: {
+/**
+ * Un pedido de abrir el LIENZO de una automatización desde afuera (el link del aviso,
+ * `/chatbot?sec=<id>`). Es un objeto y no un número a propósito: cada pedido es uno NUEVO, así
+ * que el mismo id dos veces seguidas (dos avisos de la misma secuencia) vuelve a abrirla.
+ */
+export type AbrirSecuencia = { id: number };
+
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores, pie, tz, abrir }: {
   productos: ProductoOpcion[];
   disparadores: Opcion[];
   secuencias: SecuenciaDto[];
@@ -62,6 +69,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   pie?: ReactNode;
   /** La zona del negocio, para el texto del horario. */
   tz: string | null;
+  /** Abrir esta automatización en su lienzo (el deep link `?sec=`). */
+  abrir?: AbrirSecuencia | null;
 }) {
   const [busq, setBusq] = useState('');
   const [filtro, setFiltro] = useState<'todas' | 'activas' | 'pausadas'>('todas');
@@ -100,8 +109,33 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     && (!q || NOMBRE_RECORDATORIO.toLowerCase().includes(q));
   const sel = typeof selId === 'number' ? secuencias.find((j) => j.id === selId) : undefined;
 
-  const elegir = (id: number | typeof ID_RECORDATORIO) => { setSelId(id); setProbando(false); setEdicion(null); };
+  /**
+   * Elegir OTRA automatización: cierra «Probar» y suelta la edición local de la anterior.
+   *
+   * ⚠️ TOCAR LA QUE YA ESTÁ ELEGIDA NO HACE NADA (revisión adversarial del 08/10/2026,
+   * lienzo-5). Antes vaciaba `edicion` igual: el lienzo no se remonta (misma `key`) y su efecto no
+   * vuelve a emitir hasta el próximo cambio, así que «Probar» caía a lo GUARDADO —el texto viejo,
+   * sin «Cambió · ↻» y, con «A mi WhatsApp» prendido, mandándolo—. Un clic sin efecto visible no
+   * puede cambiar qué se prueba.
+   */
+  const elegir = (id: number | typeof ID_RECORDATORIO) => {
+    if (id === selId) return;
+    setSelId(id); setProbando(false); setEdicion(null);
+  };
   const recibirEdicion = useCallback((v: EdicionLocal) => setEdicion(v), []);
+
+  /**
+   * EL LINK DEL AVISO ABRE EL LIENZO (revisión adversarial del 08/10/2026, costuras-5). El aviso
+   * de una charla que pasó a una persona dice «súmalo como caso en «Si responde»» con
+   * `/chatbot?sec=<id>`, y ese link abría el wizard de 9 pasos, donde «Si responde» no existe.
+   * Se aplica AL DIBUJAR y no en un efecto: un efecto pintaría primero la primera de la lista y
+   * después la del link.
+   */
+  const [abrirVisto, setAbrirVisto] = useState<AbrirSecuencia | null>(null);
+  if (abrir && abrir !== abrirVisto && secuencias.some((j) => j.id === abrir.id)) {
+    setAbrirVisto(abrir);
+    elegir(abrir.id);
+  }
 
   /**
    * LA TAB ES EL LIENZO, Y LA LISTA SE LE APOYA ENCIMA.
