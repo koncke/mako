@@ -496,10 +496,14 @@ test('guardar los permisos de UN producto no toca los de los otros (y nunca los 
   assert.deepEqual(cambiarModulos(antes, 3, null, []), { modulos: { 7: [] } }, '«Todos los módulos» saca SÓLO la entrada de ese producto');
   assert.deepEqual(cambiarModulos(antes, 3, [], ['a']), { modulos: { 3: [], 7: [] } }, 'cero tildados es «ninguno»');
   assert.deepEqual(cambiarModulos(null, 5, ['inventada'], ['x']), { modulos: { 5: [] } }, 'una clave que no existe no abre nada');
-  // La action guarda con esta función y lee las etapas ESTRICTAS (la lectura de la ficha cae a las de
-  // fábrica con el catálogo caído: sirve para dibujar, no para decidir qué claves existen).
+  // La action guarda con esta función y lee los MÓDULOS ESTRICTOS (la lectura de la ficha cae a las
+  // etapas de fábrica con el catálogo caído: sirve para dibujar, no para decidir qué claves existen).
+  // Desde el 08/10/2026 (D1) son los módulos del curso —las etapas que son módulo y los sueltos—, no
+  // las etapas del kanban: un suelto también se puede permitir o esconder.
   const accion = bloque(ACC, 'export async function guardarAlcanceCursoAction(', 'export async function');
-  assert.match(accion, /entregasDeProductos\(\[productoId\], \{ estricto: true \}\)/);
+  assert.match(accion, /const cur = await modulosDelCurso\(productoId, \{ estricta: true \}\);\s*if \(!cur\) return \{ ok: false/);
+  assert.match(accion, /existen = cur\.modulos\.map\(\(m\) => m\.clave\);/);
+  assert.doesNotMatch(accion, /entregasDeProductos\(|modulosDelCurso\(productoId\)/, 'la lectura que cae al default no decide qué claves existen');
   assert.match(accion, /guardarAlcance\(leadId, cambiarModulos\(actual, productoId, claves, existen\)/);
   assert.doesNotMatch(accion, /alcanceValido\(/, 'volvió a validar el alcance ENTERO');
 });

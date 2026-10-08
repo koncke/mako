@@ -15,8 +15,8 @@
 //   1. Rate limit por IP antes de leer nada, y por ALUMNO después de resolverlo.
 //   2. El WORKSPACE SALE DE LA FIRMA del token (`leerTokenPortal(t).ws`), nunca de un parámetro, y
 //      todo corre adentro de `runWithWorkspace`, empezando por `resolverAccesoPortal`.
-//   3. EL CANDADO: `claseDelAlumno` con `exigeEtapa: true` y el área del acceso. Una clase de una
-//      etapa bloqueada no se contesta (403), y una ajena o inexistente es 404 — igual que un token
+//   3. EL CANDADO: `claseDelAlumno` con `exigeAbierta: true` y el área del acceso. Una clase
+//      cerrada (su candado o el de su módulo) no se contesta (403), y una ajena o inexistente es 404 — igual que un token
 //      inválido, para no ayudar a enumerar ids. Al líder de un área sólo se le abren sus clases.
 //   4. El ÁREA: la que corresponde a este acceso (`areaDeLaTarea`). Un área que no le toca: 404.
 //   5. El campo tiene que ser de ESA clase y recibir archivos; el tipo, uno que ese campo acepta; el
@@ -84,10 +84,10 @@ export async function POST(req: NextRequest) {
     // los diez archivos de un campo de una vez (`MAX_ARCHIVOS`). Es por instancia (lib/rate-limit.ts).
     if (accion === 'subir' && !rateLimit(`curso-entrega:subir:${acceso.ws}:${acceso.leadId}`, 12, 60_000)) return MUCHO();
     try {
-      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: true, lider: acceso.area, alcance: acceso.alcance });
+      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeAbierta: true, lider: acceso.area, alcance: acceso.alcance });
       if (r.decision !== 'ok') {
         return r.decision === 'bloqueada'
-          ? Response.json({ ok: false, error: 'etapa bloqueada' }, { status: 403, headers: SIN_CACHE })
+          ? Response.json({ ok: false, error: 'clase cerrada' }, { status: 403, headers: SIN_CACHE })
           : NO();
       }
       if (!tieneTarea(r.clase)) return NO();

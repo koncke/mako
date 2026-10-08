@@ -19,8 +19,8 @@
 // campos de ESA clase (`sanearValores`, adentro de `guardarTarea`): las claves que la clase no
 // tiene se tiran.
 //
-// ⚠️ LA ETAPA TIENE QUE ESTAR ABIERTA para él (la actual o una anterior). Una clase de una etapa
-// bloqueada se ve en el mapa pero no se contesta: 403. Clase inexistente o de un producto que no
+// ⚠️ LA CLASE TIENE QUE ESTAR ABIERTA para él: su candado y el de su módulo (D2, lib/curso-bloqueo.ts;
+// el de siempre es la etapa del kanban). Una clase cerrada se ve en el mapa pero no se contesta: 403. Clase inexistente o de un producto que no
 // es suyo: 404, igual que un token inválido.
 //
 // ⚠️ EL TOKEN PUEDE SER EL DEL LÍDER DE UN ÁREA (#665, un `c2.`): `resolverAccesoPortal` lo resuelve
@@ -78,10 +78,10 @@ export async function POST(req: NextRequest) {
     // líderes no multiplican lo que un solo cliente puede escribir.
     if (!rateLimit(`curso-tarea:lead:${acceso.ws}:${acceso.leadId}`, 40, 60_000)) return MUCHO();
     try {
-      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: true, lider: acceso.area, alcance: acceso.alcance });
+      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeAbierta: true, lider: acceso.area, alcance: acceso.alcance });
       if (r.decision !== 'ok') {
         return r.decision === 'bloqueada'
-          ? Response.json({ ok: false, error: 'etapa bloqueada' }, { status: 403, headers: SIN_CACHE })
+          ? Response.json({ ok: false, error: 'clase cerrada' }, { status: 403, headers: SIN_CACHE })
           : NO();
       }
       // Una clase que no pide nada no tiene tarea que guardar: es un pedido armado a mano.

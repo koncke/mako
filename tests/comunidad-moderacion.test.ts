@@ -6,7 +6,9 @@
 // escribir, y que la ruta del alumno no tenga una puerta al costado del portón, se lee del fuente SIN
 // comentarios y por FUNCIÓN (un archivo entero encuentra cualquier palabra en algún lado).
 //
-// Verificado ROMPIÉNDOLO: ver el bloque «ROTURAS» al final (números medidos).
+// Verificado ROMPIÉNDOLO: ver el bloque «ROTURAS» al final (números medidos). Y el 08/10/2026 (los
+// módulos salen de `modulosDelCurso`): `modulosDelProducto` estricta devolviendo [] en vez de null
+// al no poder leer → 15 / 1 «el calendario…», sobre 16.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -132,7 +134,12 @@ test('el calendario: el rango del navegador pasa por `rangoDeCalendario`; un mó
   const g = cuerpo(CALENDARIO, 'guardarEvento');
   assert.match(g, /const mods = await modulosDelProducto\(a, \{ estricta: true \}\);\s*if \(!mods\) return /, 'validar un módulo con las etapas de fábrica');
   assert.match(g, /sanearEvento\(fila\.ocurrencia_fecha != null \? \{ \.\.\.b, recurrencia: null \} : b\)/, 'una ocurrencia movida guardada como serie');
-  assert.match(cuerpo(CALENDARIO, 'modulosDelProducto'), /opts\.estricta \? await entregaDeProductoEstricta\(a\.productoId\)/);
+  // Desde el 08/10/2026 los módulos salen de `modulosDelCurso` (lib/curso-modulos-datos.ts), la misma
+  // derivación que el curso y el portal: estricta = sin poder leer, `null` (nunca las etapas de fábrica).
+  const mp = cuerpo(CALENDARIO, 'modulosDelProducto');
+  assert.match(mp, /if \(opts\.estricta\) \{\s*const cur = await modulosDelCurso\(a\.productoId, \{ estricta: true \}\);\s*return cur \? /);
+  assert.match(mp, /catch \(e\) \{\s*if \(opts\.estricta\) return null;/);
+  assert.doesNotMatch(mp, /entregaDeProducto\(/, 'la lectura que cae al default no valida un módulo');
 });
 
 // ── Un alumno SACADO no entra (ni a leer) y no pierde el curso ───────────────────
@@ -173,6 +180,19 @@ test('los sacados no cuentan como miembros (ni para el ranking, ni para menciona
   assert.doesNotMatch(MODERACION, /curso_accesos|revocarAcceso/, 'sacar de la comunidad no puede cortar el curso');
 });
 
+test('el leaderboard («qué abre cada nivel»): los módulos del curso DERIVADOS, y al alumno sólo lo suyo (revisión 08/10)', () => {
+  // Leía `curso_modulos` a mano: el nivel de un módulo VINCULADO (su fila no tiene nombre, es el de su
+  // etapa) no salía nunca, y a un alumno le nombraba módulos y clases que sus permisos no le dan.
+  const ap = cuerpo(DATOS, 'aperturasDelCurso');
+  assert.match(ap, /const \{ modulosDelCurso \} = await import\('\.\/curso-modulos-datos'\);/);
+  assert.doesNotMatch(ap, /from\('curso_modulos'\)/, 'la lista de módulos se DERIVA, no se lee de la tabla');
+  assert.match(ap, /const ve = \(clave: string\) => a\.equipo \|\| moduloPermitido\(a\.alcance \?\? null, a\.productoId, clave\);/);
+  assert.match(ap, /if \(ve\(m\.clave\)\) items\.push/);
+  assert.match(ap, /if \(existen\.has\(f\.etapa\) && ve\(f\.etapa\)\) items\.push/);
+  assert.match(ap, /\.eq\('workspace_id', a\.ws\)\.eq\('producto_id', a\.productoId\)/);
+  assert.match(cuerpo(DATOS, 'rankingComunidad'), /aperturasDelCurso\(a\),/);
+});
+
 // ── ROTURAS ──────────────────────────────────────────────────────────────────────
 // Medido el 08/10/2026 (scratchpad/comunidad-2/romper.mjs, restaura de memoria), contra este archivo de
 // 15 tests. Cada rotura, sola, da 1 fallo y 14 pases (salvo la que se indica):
@@ -188,3 +208,6 @@ test('los sacados no cuentan como miembros (ni para el ranking, ni para menciona
 // el rango del calendario armado a mano otra vez · validar el módulo de un evento con la lectura
 // tolerante · una ocurrencia movida guardada como serie: 1 fallo y 15 pases cada una. Las dieciocho
 // de arriba, re-medidas: 1 / 15 (la de «sacar», 2 / 14).
+// La revisión del NÚCLEO (08/10/2026, scratchpad/rev-nucleo/romper-final.mjs), contra 17 tests: el
+// leaderboard nombrando módulos fuera de los permisos del alumno · leyendo `curso_modulos` a mano (lo
+// de antes: el nivel de un vinculado no salía) → 16 / 1 cada una, en «el leaderboard…».

@@ -12,8 +12,8 @@
 // ⚠️ EL WORKSPACE SALE DE LA FIRMA DEL TOKEN (`leerTokenPortal(t).ws`), nunca de un parámetro, y
 //    todo corre adentro de `runWithWorkspace`.
 //
-// ⚠️ LA ÚNICA PUERTA ES `claseDelAlumno` (lib/curso-portal.ts) CON `exigeEtapa: true`: el adjunto
-//    de una clase de una etapa bloqueada no se sirve, igual que su video. No se copia la regla: se
+// ⚠️ LA ÚNICA PUERTA ES `claseDelAlumno` (lib/curso-portal.ts) CON `exigeAbierta: true`: el adjunto
+//    de una clase cerrada (su candado o el de su módulo) no se sirve, igual que su video. No se copia la regla: se
 //    llama a la función. Y con el token de un LÍDER de área (`c2.`), sólo abre clases por área.
 //
 // ⚠️ Y DESPUÉS, QUE LA CLASE LO PUBLIQUE (`urlAdjuntoParaAlumno` → `decidirAdjuntoAlumno`): el
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     const acceso = await resolverAccesoPortal(token);
     if (!acceso) return NO();
     try {
-      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: true, lider: acceso.area, alcance: acceso.alcance });
+      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeAbierta: true, lider: acceso.area, alcance: acceso.alcance });
       if (r.decision !== 'ok') return NO();
       const url = await urlAdjuntoParaAlumno({ id: r.clase.id, productoId: r.clase.productoId }, adjuntoId);
       if (!url) return NO();

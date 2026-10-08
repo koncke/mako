@@ -16,6 +16,10 @@
 //   · el título sin tope · la portada sin `saneaPortada`                 → 19 / 1 · 18 / 2
 //   · `guardarEstiloCursoAction` sin `productoPropio`                    → 19 / 1
 //   · `renombrarEtapaCursoAction` con la lectura que cae al default      → 19 / 1
+//     (08/10/2026: se fue; lo mismo lo cuida `renombrarModulo`, lib/curso-modulos-datos.ts. Rotura:
+//     `modulosDelCurso(productoId)` sin `estricta` → 21 / 1 «las acciones de los módulos…»; y
+//     `estiloQueViaja` mandando la portada de una clase cerrada → 21 / 1 «sólo le viajan las
+//     portadas…». Sobre 22, scratchpad/nucleo/romper.mjs, restaurado de memoria.)
 //   · `renombrarClase` con un upsert de la fila                          → 19 / 1
 //   · la 0214 sin el `revoke`                                            → 19 / 1
 //   · el editor y el portal poniendo la miniatura encima del degradado   → 19 / 1 cada uno
@@ -29,19 +33,29 @@
 //   · `TENANT_TABLES` con la línea comentada · una regla sin acotar adentro de un @media
 //   · el color: sin cancelar el pendiente · volviendo a lo de pantalla y no a lo confirmado
 //   · un `color-mix` de vuelta · el tope de 60 en el curso contra el de 40 del kanban
+// 08/10/2026, el TURNO de cada ajuste (la respuesta vieja que pisaba lo tipeado en una lámina;
+// scratchpad/editor/roturas.mjs). Sin romper 24 / 0; cada rotura dio 23 / 1 en su test:
+//   · la respuesta del server pintada sin mirar el turno · volver a lo de PANTALLA y no a lo confirmado
+//   · un solo turno para todos los ajustes (el color esperaría al título)
+// 08/10/2026, la DISPOSICIÓN de la lección («Texto al costado / Texto abajo», paso LECCIÓN;
+// scratchpad/leccion/romper.mjs, restaurado de memoria con md5). Sin romper 24 / 0; cada rotura dio
+// 23 / 1 en «la disposición de la lección…»:
+//   · el saneo guardando «costado» (el default tiene que BORRAR la fila) · el saneo con `trim()` y
+//     minúsculas (« abajo» o «ABAJO» no son un valor de la pantalla) · `disposicionDe` fijo al costado
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ACENTO_DEFAULT, acentoLegible, ajusteDe, ajusteValido, armarEstilo, claveDe, contraste, estiloVacio,
+  ACENTO_DEFAULT, acentoLegible, ajusteDe, ajusteValido, armarEstilo, claveDe, conAjuste, contraste, disposicionDe, estiloVacio,
   portadaDeClase, portadaDeEtapa, sanearAjuste, soloDeClases, tapaDe, valorDe, varsDeAcento,
 } from '../lib/curso-estilo';
 import { nuevaClaveEtapa } from '../lib/servicio-etapas';
 import { CSS_UGC } from '../app/_cursos/estilos';
 import type { Clase } from '../lib/curso';
-import type { ProductoVista, EtapaVista, ClaseVista } from '../lib/curso-portal';
+import type { ProductoVista, ModuloVista, ClaseVista } from '../lib/curso-portal';
+import { estiloQueViaja } from '../lib/curso-portal';
 import { clasesDelEditor, modulosDelEditor, SIN_ETAPA } from '../app/customer-success/curso/modelo-ugc';
 import { clasesDelPortal, modulosDelPortal } from '../app/compartido/curso/[token]/modelo-ugc';
 
@@ -56,7 +70,7 @@ const PICSUM = 'https://picsum.photos/id/10/800/450';
 test('cada ajuste tiene UNA clave, y una clave inventada no es un ajuste', () => {
   for (const a of [
     { tipo: 'acento' }, { tipo: 'titulo' }, { tipo: 'resumen' }, { tipo: 'portada' },
-    { tipo: 'portada-etapa', etapa: 'bienvenida' }, { tipo: 'portada-clase', clase: 12 },
+    { tipo: 'portada-etapa', etapa: 'bienvenida' }, { tipo: 'portada-clase', clase: 12 }, { tipo: 'disposicion' },
   ] as const) {
     assert.deepEqual(ajusteDe(claveDe(a)), a);
   }
@@ -84,6 +98,25 @@ test('los textos: una línea, con tope, y vacío es volver al default', () => {
   assert.equal(sanearAjuste({ tipo: 'titulo' }, '   '), null);
   assert.equal(sanearAjuste({ tipo: 'titulo' }, 'x'.repeat(500))!.length, 80);
   assert.equal(sanearAjuste({ tipo: 'resumen' }, 'y'.repeat(900))!.length, 280);
+});
+
+test('la disposición de la lección (item 16): sólo «abajo» se guarda; al costado es el default y BORRA la fila', () => {
+  const d = { tipo: 'disposicion' } as const;
+  assert.equal(sanearAjuste(d, 'abajo'), 'abajo');
+  // Volver al costado no guarda «costado»: borra la fila, como todo default de la mig 0214.
+  for (const otro of ['costado', 'ABAJO', ' abajo', 'derecha', '', null, 1, {}]) {
+    assert.equal(sanearAjuste(d, otro), null, `guardó ${JSON.stringify(otro)}`);
+  }
+  // Lo que se LEE también se sanea: una fila rota vuelve al costado, y la pantalla dibuja eso.
+  assert.equal(armarEstilo([{ clave: 'disposicion', valor: 'abajo' }]).disposicion, 'abajo');
+  assert.equal(armarEstilo([{ clave: 'disposicion', valor: 'arriba' }]).disposicion, null);
+  assert.equal(disposicionDe(armarEstilo([{ clave: 'disposicion', valor: 'abajo' }])), 'abajo');
+  assert.equal(disposicionDe(estiloVacio()), 'costado');
+  assert.equal(disposicionDe(null), 'costado');
+  // La pantalla lo aplica antes de que conteste el server, y lo vuelve a sacar con `null`.
+  assert.equal(conAjuste(estiloVacio(), d, 'abajo').disposicion, 'abajo');
+  assert.equal(conAjuste({ ...estiloVacio(), disposicion: 'abajo' }, d, null).disposicion, null);
+  assert.equal(valorDe({ ...estiloVacio(), disposicion: 'abajo' }, d), 'abajo');
 });
 
 test('las portadas: un degradado del catálogo o una foto de un origen permitido; nada más', () => {
@@ -157,10 +190,14 @@ test('portal: el alumno ve las portadas que eligió el equipo', () => {
   const cv = (id: number): ClaseVista => ({
     id, titulo: `C${id}`, descripcion: '', minutos: null, video: { tipo: 'youtube', id: 'dQw4w9WgXcQ' }, pct: null,
     tarea: '', campos: [], tieneTarea: false, obligatoria: false, estado: 'pendiente', valores: {},
+    descripcionHtml: '', hecha: false, completa: false,
   });
-  const e: EtapaVista = { key: 'a', label: 'A', estado: 'actual', clases: [cv(1), cv(2)], cuantas: 2, obligatorias: 0, enviadas: 0, tareas: 0, tareasEnviadas: 0 };
+  const e: ModuloVista = {
+    key: 'a', label: 'A', vinculado: true, etapa: 'actual', abierto: true, clases: [cv(1), cv(2)],
+    cuantas: 2, obligatorias: 0, enviadas: 0, tareas: 0, tareasEnviadas: 0, completo: false,
+  };
   const p: ProductoVista = {
-    productoId: 1, nombre: 'P', etapas: [e],
+    productoId: 1, nombre: 'P', modulos: [e],
     estilo: { ...estiloVacio(), portadasEtapa: { a: PICSUM }, portadasClase: { 1: 'grad:menta' } },
   };
   assert.equal(modulosDelPortal(p)[0].portada, PICSUM);
@@ -187,9 +224,22 @@ test('una etapa llamada «Constructor» no tumba el portal: las portadas se leen
 test('al alumno sólo le viajan las portadas de las clases que ve (no las de una etapa con candado ni las de una clase borrada)', () => {
   const e = { ...estiloVacio(), portadasClase: { 1: PICSUM, 9: 'grad:menta' } };
   assert.deepEqual(soloDeClases(e, new Set([1, 2])).portadasClase, { 1: PICSUM });
+  // Desde el 08/10/2026 (D2) el recorte es `estiloQueViaja`: las clases ABIERTAS (una cerrada viaja
+  // con su título y nada más, tampoco su portada) y las portadas de los módulos que VIAJAN.
+  const mod = (key: string, clases: ModuloVista['clases']): ModuloVista => ({
+    key, label: key, vinculado: true, abierto: true, clases, cuantas: clases.length,
+    obligatorias: 0, enviadas: 0, tareas: 0, tareasEnviadas: 0, completo: false,
+  });
+  const abierta = { id: 1, titulo: 'C1' } as ClaseVista;
+  const viaja = estiloQueViaja(
+    { ...estiloVacio(), portadasClase: { 1: PICSUM, 2: 'grad:menta' }, portadasEtapa: { a: PICSUM, escondido: 'grad:menta' } },
+    [mod('a', [abierta, { id: 2, titulo: 'C2', cerrada: true, motivo: 'Lo abre tu equipo' }])],
+  );
+  assert.deepEqual(viaja.portadasClase, { 1: PICSUM }, 'la portada de una clase cerrada no viaja');
+  assert.deepEqual(viaja.portadasEtapa, { a: PICSUM }, 'la de un módulo que no viaja, tampoco');
   const portal = sinComentarios(leer('lib/curso-portal.ts'));
-  assert.match(portal, /estilo: soloDeClases\(estilos\.get\(productoId\) \?\? estiloVacio\(\), viajan\)/);
-  assert.match(sinComentarios(leer('app/customer-success/curso/vista/page.tsx')), /estilo: soloDeClases\(/);
+  assert.match(portal, /estilo: estiloQueViaja\(estilos\.get\(productoId\) \?\? estiloVacio\(\), modulos\)/);
+  assert.match(sinComentarios(leer('app/customer-success/curso/vista/page.tsx')), /estilo: estiloQueViaja\(/);
   assert.match(sinComentarios(leer('lib/curso-admin.ts')), /from\('curso_estilo'\)\.delete\(\)\.eq\('clave', `portada:clase:\$\{c\.id\}`\)/,
     'borrar una clase borra su portada');
 });
@@ -208,14 +258,36 @@ test('el color: un toque en la paleta cancela el «otro» pendiente, y un guarda
   const f = src.slice(i, src.indexOf('const probarAcento', i));
   assert.ok(f.length > 200, 'no encontré guardarAjuste');
   assert.match(f, /if \(a\.tipo === 'acento'\) window\.clearTimeout\(timerAcento\.current\)/);
-  assert.match(f, /const antes = valorDe\(confirmados\.current\[pid\]/);
-  assert.doesNotMatch(f, /const antes = valorDe\(estilos\[/);
+  // Lo que se vuelve es lo que el server CONFIRMÓ, nunca lo de pantalla (un tono a mitad de camino).
+  assert.match(f, /const volver = \(\) => \{ if \(vigente\(\)\) poner\(valorDe\(confirmados\.current\[pid\]/);
+  assert.doesNotMatch(f, /valorDe\(estilos\[/);
+  assert.equal((f.match(/\bvolver\(\);/g) ?? []).length, 2, 'los DOS caminos de error vuelven a lo confirmado');
+});
+
+test('una respuesta VIEJA no pisa lo que se está tipeando: cada ajuste lleva su turno (08/10/2026)', () => {
+  // La revisión de las láminas lo midió en un arnés: «Uno» y después «Uno dos» en el aire, la respuesta
+  // de «Uno» llegando última, y el campo quedaba en «Uno» con «Uno dos» guardado.
+  const src = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
+  const i = src.indexOf('const guardarAjuste = async');
+  const f = src.slice(i, src.indexOf('const probarAcento', i));
+  assert.match(f, /const clave = `\$\{pid\}:\$\{claveDe\(a\)\}`;/, 'el turno es POR AJUSTE: el color no espera al título');
+  assert.match(f, /const turno = \(turnos\.current\[clave\] \?\? 0\) \+ 1;\s*turnos\.current\[clave\] = turno;/);
+  assert.match(f, /const vigente = \(\) => turnos\.current\[clave\] === turno;/);
+  // Lo confirmado se anota SIEMPRE (es lo que hay en la base); la pantalla, sólo con el último pedido.
+  assert.match(f, /confirmados\.current = \{ \.\.\.confirmados\.current, \[pid\]: conAjuste\(/);
+  assert.match(f, /if \(vigente\(\)\) poner\(r\.valor\);/);
+  assert.doesNotMatch(f, /\n\s*poner\(r\.valor\);/, 'una respuesta sin turno pisa lo que se está tipeando');
 });
 
 test('el nombre de una etapa tiene UN tope, el del editor de etapas del kanban', () => {
-  const acc = sinComentarios(leer('app/customer-success/curso/actions.ts'));
-  assert.match(acc, /import \{ TOPE_NOMBRE_ETAPA \} from '@\/lib\/servicio-etapas'/);
-  assert.doesNotMatch(acc, /const TOPE_NOMBRE_ETAPA/);
+  // Desde el 08/10/2026 (D1) el nombre de un MÓDULO —vinculado o suelto— lo valida `nombreDeModulo`
+  // (lib/curso-modulos.ts), con el tope del kanban: un suelto que se vincula es una columna.
+  const mods = sinComentarios(leer('lib/curso-modulos.ts'));
+  assert.match(mods, /import \{[^}]*\bTOPE_NOMBRE_ETAPA\b[^}]*\} from '\.\/servicio-etapas'/);
+  assert.match(mods, /if \(nombre\.length > TOPE_NOMBRE_ETAPA\)/);
+  for (const r of ['lib/curso-modulos.ts', 'app/customer-success/curso/actions.ts', 'app/customer-success/curso/modulos-actions.ts']) {
+    assert.doesNotMatch(sinComentarios(leer(r)), /const TOPE_NOMBRE_ETAPA/, r);
+  }
   assert.match(sinComentarios(leer('app/customer-success/EtapasEntregaModal.tsx')), /const MAX_LABEL = TOPE_NOMBRE_ETAPA;/);
 });
 
@@ -238,11 +310,23 @@ test('las acciones del estilo son de un ADMIN y de un producto PROPIO', () => {
   assert.match(estilo, /await productoPropio\(/);
   assert.match(estilo, /claseEsDelProducto\(a\.clase/, 'la portada de una clase se ata a una clase de ESE producto');
   assert.match(cuerpo(src, 'renombrarClaseAction'), /await puedeEditar\(\)[\s\S]*renombrarClase\(/);
-  const etapa = cuerpo(src, 'renombrarEtapaCursoAction');
-  assert.match(etapa, /await puedeEditar\(\)/);
-  assert.match(etapa, /entregaDeProductoEstricta\(/, 'con la lectura que cae al default se borrarían las etapas reales');
-  assert.match(etapa, /guardarEtapasEntrega\(Number\(productoId\), etapas, cfg\.fases\)/, 'sin las fases, se les borra el color');
-  assert.doesNotMatch(etapa, /entregaDeProducto\(/);
+  // `renombrarEtapaCursoAction` se fue (08/10/2026): renombrar un módulo vinculado ES renombrar su
+  // etapa, y lo hace `renombrarModuloAction` → `renombrarModulo`. No puede volver una segunda puerta.
+  assert.doesNotMatch(src, /renombrarEtapaCursoAction/);
+});
+
+test('las acciones de los módulos: admin y producto propio ANTES de escribir; renombrar una etapa es estricto y guarda sus fases', () => {
+  const acc = sinComentarios(leer('app/customer-success/curso/modulos-actions.ts'));
+  const puerta = acc.slice(acc.indexOf('async function puertaProducto('), acc.indexOf('const alKanban'));
+  assert.ok(puerta.length > 60 && puerta.length < 400, `el recorte mide ${puerta.length}`);
+  assert.match(puerta, /await puedeEditar\(\)[\s\S]*return productoPropio\(Number\(productoId\)\)/);
+  const ren = cuerpo(acc, 'renombrarModuloAction');
+  assert.ok(ren.indexOf('await puertaProducto(') >= 0 && ren.indexOf('await puertaProducto(') < ren.indexOf('renombrarModulo('), 'el permiso se mira ANTES de escribir');
+  const datos = sinComentarios(leer('lib/curso-modulos-datos.ts'));
+  const f = cuerpo(datos, 'renombrarModulo');
+  assert.match(f, /modulosDelCurso\(productoId, \{ estricta: true \}\)/, 'con la lectura que cae al default se borrarían las etapas reales');
+  assert.match(f, /guardarEtapasEntrega\(productoId, etapas, cfg\.fases\)/, 'sin las fases, se les borra el color');
+  assert.doesNotMatch(f, /entregaDeProducto\(/);
 });
 
 test('renombrar una clase escribe SÓLO el título, nunca la fila entera', () => {

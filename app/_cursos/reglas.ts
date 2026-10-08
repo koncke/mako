@@ -6,7 +6,7 @@
  * React. No son reglas del CURSO —cuándo una tarea cuenta como enviada, cuándo una etapa
  * está completa—: ésas viven en lib/curso.ts y las trae cada adaptador ya resueltas.
  */
-import type { ClaseUgc, ModuloUgc, TextosUgc } from './tipos';
+import type { ClaseUgc, DisposicionUgc, ModuloUgc, TextosUgc } from './tipos';
 
 export const TEXTOS_DEFAULT: TextosUgc = {
   inicio: 'Inicio del curso',
@@ -21,10 +21,14 @@ export const TEXTOS_DEFAULT: TextosUgc = {
   leccion: 'lección',
   lecciones: 'lecciones',
   clases: 'clases',
-  bloqueada: 'Se abre al terminar la etapa anterior',
+  // El genérico, para cuando el server no manda su motivo (lib/curso-bloqueo.ts usa el mismo).
+  bloqueada: 'Se abre más adelante',
   menu: 'Módulos',
-  nueva: '+ Clase',
-  editar: 'Editar',
+  // Los dos «+» del pedido de Martín (item 12), con su nombre entero: «+ Clase» no decía qué agregaba.
+  nueva: '+ Nueva clase',
+  nuevoModulo: '+ Nuevo módulo',
+  nombreModulo: 'Nombre del módulo',
+  opciones: 'Opciones',
   sinResumen: 'Escribe una descripción',
   portada: 'Portada',
 };
@@ -96,11 +100,19 @@ export function textoTarjetaModulo(m: ModuloUgc, t: Pick<TextosUgc, 'leccion' | 
   return `${m.cuantas} ${plural(m.cuantas, t)}${m.rotuloExtra ? ` · ${m.rotuloExtra}` : ''}`;
 }
 
-/** El contador de un módulo en la barra. Con avance, el avance: es lo que cambia. */
+/**
+ * El contador de un módulo en la barra. Con avance, el avance: es lo que cambia. Sin avance, SÓLO la
+ * cantidad de clases.
+ *
+ * ⚠️ SIN EL TIEMPO (`rotuloExtra`), y en el dibujo y no en un adaptador: «elimina en la sidebar de los
+ *    módulos el tiempo. Si está bien que estén la cantidad de clases nada más» (Martín, 07/10/2026,
+ *    item 11), y el item 1 pide lo mismo para Conocimientos, que monta este dibujo. La tarjeta del
+ *    módulo sí lo sigue diciendo («16 lecciones · 71 min»): ahí hay lugar y se lee.
+ */
 export function textoBarraModulo(m: ModuloUgc): string {
   if (m.progreso) return `${m.progreso.hechas}/${m.progreso.total}`;
   if (m.textoBarra !== undefined) return m.textoBarra;
-  return m.rotuloExtra ? `${m.cuantas} · ${m.rotuloExtra}` : `${m.cuantas}`;
+  return `${m.cuantas}`;
 }
 
 /** El título de la grilla: el módulo abierto con su cuenta, o «N de M» en una búsqueda. */
@@ -115,3 +127,20 @@ export function pctAvance(p: { hechas: number; total: number } | undefined): num
   if (!p || !(p.total > 0)) return 0;
   return Math.max(0, Math.min(100, Math.round((p.hechas / p.total) * 100)));
 }
+
+/**
+ * El interruptor de la lección (item 16): las dos disposiciones, en su orden, con lo que dicen. Texto
+ * de pantalla: dos o tres palabras, la acción y su objeto.
+ */
+export const OPCIONES_DISPOSICION: ReadonlyArray<{ valor: DisposicionUgc; texto: string }> = [
+  { valor: 'costado', texto: 'Texto al costado' },
+  { valor: 'abajo', texto: 'Texto abajo' },
+];
+
+/**
+ * La clase del contenedor de la lección. «Abajo» lleva su modificador, y su regla vive en
+ * ./estilos.ts acotada a `.ahdoc--ugc`: la cola de la hoja del origen les da `flex: 1 1 0` a las dos
+ * columnas, y apiladas en un alto que sale del contenido eso las deja en CERO (el papel se dibujaba
+ * encima del título, ya pasó en el teléfono). Cualquier otro valor, al costado.
+ */
+export const claseDelSplit = (d: DisposicionUgc | null | undefined): string => (d === 'abajo' ? 'ugc-split ugc-split--abajo' : 'ugc-split');

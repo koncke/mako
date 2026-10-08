@@ -20,8 +20,9 @@ import { resolve } from 'node:path';
 import type { Clase, Campo, Progreso } from '../lib/curso';
 import {
   respuestaDe, contestoAlgo, medicionDe, rotuloVisto, estadoDeTarea, resumenDeEtapa, fraseResumen,
-  armarProducto, isoDeLocal, avisosDeSesion, ETAPA_HUERFANA, type ClaseFicha,
+  armarProducto, isoDeLocal, avisosDeSesion, ETAPA_HUERFANA, bloqueosDeFicha, modulosParaPermisos, type ClaseFicha,
 } from '../app/customer-success/curso-ficha-lectura';
+import type { Aperturas } from '../lib/curso-bloqueo';
 
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, '..', p), 'utf8');
 // Las líneas PRIMERO y los bloques después (AGENTS.md: un `/*` dentro de un `//` se come el
@@ -157,8 +158,8 @@ test('la fila de Avance de la ficha sale de avanceDeCliente: «listo» es la reg
   assert.deepEqual(p.avance.fila.porEtapa.e2, { total: 2, enviadas: 2, completa: false });
   assert.equal(p.avance.fila.pctVisto, 20, 'el % es de los medibles de SU etapa, y uno sin abrir cuenta 0');
   // El resumen de cada etapa de la lista de abajo dice lo mismo que la fila de arriba.
-  assert.equal(p.etapas[0].resumen.completa, p.avance.fila.porEtapa.e1.completa);
-  assert.equal(p.etapas[1].resumen.completa, p.avance.fila.porEtapa.e2.completa);
+  assert.equal(p.modulos[0].resumen.completa, p.avance.fila.porEtapa.e1.completa);
+  assert.equal(p.modulos[1].resumen.completa, p.avance.fila.porEtapa.e2.completa);
 });
 
 test('el curso de un producto: TODAS las etapas en el orden de la entrega, la actual marcada', () => {
@@ -170,13 +171,68 @@ test('el curso de un producto: TODAS las etapas en el orden de la entrega, la ac
   const p = armarProducto({ productoId: 1, nombre: 'NqE', etapas, clases, progreso: new Map([[11, prog(11, { estado: 'enviada' })]]), etapaActual: 'contexto' });
   assert.ok(p);
   if (!p) return;
-  assert.deepEqual(p.etapas.map((e) => e.key), ['bienvenida', 'contexto', 'norte', ETAPA_HUERFANA], 'en orden, con la vacía y las sueltas al final');
-  assert.deepEqual(p.etapas.map((e) => e.actual), [false, true, false, false]);
-  assert.deepEqual(p.etapas[2].clases.map((c) => c.id), [12, 10], 'las clases van por su orden');
-  assert.deepEqual(p.etapas[3].clases.map((c) => c.id), [13], 'las de una etapa borrada no se pierden');
-  assert.equal(p.etapas[0].clases[0].progreso?.estado, 'enviada');
+  assert.deepEqual(p.modulos.map((e) => e.key), ['bienvenida', 'contexto', 'norte', ETAPA_HUERFANA], 'en orden, con la vacía y las sueltas al final');
+  assert.deepEqual(p.modulos.map((e) => e.actual), [false, true, false, false]);
+  assert.deepEqual(p.modulos[2].clases.map((c) => c.id), [12, 10], 'las clases van por su orden');
+  assert.deepEqual(p.modulos[3].clases.map((c) => c.id), [13], 'las de una etapa borrada no se pierden');
+  assert.equal(p.modulos[0].clases[0].progreso?.estado, 'enviada');
   // Sin clases el producto no se muestra.
   assert.equal(armarProducto({ productoId: 2, nombre: 'x', etapas, clases: [], progreso: new Map(), etapaActual: null }), null);
+});
+
+// ── Los módulos SUELTOS y los candados (D1 y D2, 08/10/2026) ─────────────────
+
+test('un módulo SUELTO tiene su grupo con su nombre, en su lugar; no cae en «Sin módulo» ni es «Actual»', () => {
+  const etapas = [{ key: 'bienvenida', label: 'Bienvenida' }, { key: 'contexto', label: 'Contexto' }];
+  const modulos = [
+    { clave: 'bienvenida', nombre: 'Bienvenida', vinculado: true },
+    { clave: 'm_bonus', nombre: 'Bonus', vinculado: false },
+    { clave: 'contexto', nombre: 'Contexto', vinculado: true },
+  ];
+  const clases = [clase(1, { etapa: 'bienvenida' }), clase(2, { etapa: 'm_bonus' }), clase(3, { etapa: 'borrada' })];
+  const p = armarProducto({ productoId: 1, nombre: 'NqE', etapas, modulos, clases, progreso: new Map(), etapaActual: 'contexto' });
+  assert.ok(p);
+  if (!p) return;
+  assert.deepEqual(p.modulos.map((m) => [m.key, m.label, m.vinculado, m.actual]), [
+    ['bienvenida', 'Bienvenida', true, false], ['m_bonus', 'Bonus', false, false], ['contexto', 'Contexto', true, true],
+    [ETAPA_HUERFANA, 'Sin módulo', false, false],
+  ]);
+  assert.deepEqual(p.modulos[1].clases.map((c) => c.id), [2], 'la del suelto no se pierde en el grupo de huérfanas');
+  assert.deepEqual(p.modulos[3].clases.map((c) => c.id), [3]);
+  // La fila de Avance sigue siendo POR ETAPA del kanban: el suelto no tiene columna.
+  assert.deepEqual(p.avance.etapas.map((e) => e.key), ['bienvenida', 'contexto']);
+  // Y los permisos ofrecen los módulos DEL CURSO (también el suelto), nunca el grupo de huérfanas.
+  assert.deepEqual(modulosParaPermisos(p).map((m) => m.key), ['bienvenida', 'm_bonus', 'contexto']);
+});
+
+test('«Abrir a mano»: lo CERRADO con su motivo, lo abierto a mano para volver a cerrarlo, nada de lo que sus permisos no le dan', () => {
+  const modulos = [{ clave: 'a', nombre: 'Arranque' }, { clave: 'b', nombre: 'Bonus' }, { clave: 'z', nombre: 'Escondido' }];
+  const clases = [
+    { id: 1, etapa: 'a', orden: 2, titulo: 'Dos' }, { id: 2, etapa: 'a', orden: 1, titulo: 'Uno' },
+    { id: 3, etapa: 'b', orden: 1, titulo: 'Del cerrado' }, { id: 4, etapa: 'z', orden: 1, titulo: 'Oculta' },
+  ];
+  const ap: Aperturas = {
+    modulos: new Map([
+      ['a', { abierta: true, motivo: null, manual: true }],
+      ['b', { abierta: false, motivo: 'Se abre el 12 de octubre' }],
+      ['z', { abierta: false, motivo: 'Lo abre tu equipo' }],
+    ]),
+    clases: new Map([
+      [1, { abierta: false, motivo: 'Se abre al terminar «Uno»' }], [2, { abierta: true, motivo: null, manual: true }],
+      [3, { abierta: false, motivo: 'Se abre el 12 de octubre' }], [4, { abierta: false, motivo: 'Lo abre tu equipo' }],
+    ]),
+  };
+  const b = bloqueosDeFicha(modulos, clases, ap, (k) => k !== 'z');
+  assert.deepEqual(b.map((x) => [x.objeto, x.clave, x.nombre, x.motivo, x.manual]), [
+    ['modulo', 'a', 'Arranque', null, true],
+    ['clase', '2', 'Uno', null, true],
+    ['clase', '1', 'Dos', 'Se abre al terminar «Uno»', false],
+    ['modulo', 'b', 'Bonus', 'Se abre el 12 de octubre', false],
+  ]);
+  // Un módulo CERRADO se ofrece entero, no clase por clase: abrir sus clases sin el módulo no abre nada.
+  assert.ok(!b.some((x) => x.clave === '3'));
+  // Lo que no se evaluó no se ofrece: abrir a ciegas es afirmar un candado que nadie leyó.
+  assert.deepEqual(bloqueosDeFicha(modulos, clases, { modulos: new Map(), clases: new Map() }, () => true), []);
 });
 
 test('un cliente en una etapa BORRADA: ninguna es la «Actual», y la fila de Avance lo dice', () => {
@@ -194,7 +250,7 @@ test('un cliente en una etapa BORRADA: ninguna es la «Actual», y la fila de Av
   const p = armarProducto({ ...base, etapaBorrada: 'onboarding' });
   assert.ok(p);
   if (!p) return;
-  assert.deepEqual(p.etapas.map((e) => e.actual), [false, false], 'la ficha marca una etapa que la cabecera dice que no es la suya');
+  assert.deepEqual(p.modulos.map((e) => e.actual), [false, false], 'la ficha marca una etapa que la cabecera dice que no es la suya');
   assert.equal(p.etapaActual, null);
   assert.equal(p.etapaBorrada, 'onboarding');
   assert.equal(p.avance.fila.etapa, null, 'la fila de Avance pintaba Bienvenida');
@@ -205,7 +261,7 @@ test('un cliente en una etapa BORRADA: ninguna es la «Actual», y la fila de Av
   const q = armarProducto({ ...base, etapaBorrada: null });
   assert.ok(q);
   if (!q) return;
-  assert.deepEqual(q.etapas.map((e) => e.actual), [true, false]);
+  assert.deepEqual(q.modulos.map((e) => e.actual), [true, false]);
   assert.equal(q.avance.fila.etapaBorrada, false);
   assert.equal(q.etapaBorrada, null);
 });
@@ -344,7 +400,9 @@ test('la etapa BORRADA viaja de la base a la celda: la action la pide, la fila l
   // Tres piezas, y sin cualquiera la ficha vuelve a marcar la primera etapa sobre un huérfano:
   // la action pide `ubicacionEnEntregaDe` (no `etapaActualDe`, que contesta «la primera»),
   // le pasa `borrada` a `armarProducto`, y la celda dice «Etapa borrada».
-  const pc = ACC.slice(ACC.indexOf('async function productosConCurso('), ACC.indexOf('export async function cursoDeClienteAction('));
+  // El recorte termina en la declaración SIGUIENTE (08/10/2026: hasta `cursoDeClienteAction` se
+  // llevaba además los helpers de los líderes, y con los módulos y los candados pasó el tope).
+  const pc = ACC.slice(ACC.indexOf('async function productosConCurso('), ACC.indexOf('async function lideresActuales('));
   assert.ok(pc.length > 200 && pc.length < 2500, `el recorte mide ${pc.length}: está mirando otra cosa`);
   assert.match(pc, /ubicacionEnEntregaDe\(leadId, c\.productoId, ids\)/);
   assert.doesNotMatch(pc, /etapaActualDe\(/, 'la ficha volvió a la regla del portal: marca la primera etapa sobre un huérfano');
@@ -357,6 +415,18 @@ test('la etapa BORRADA viaja de la base a la celda: la action la pide, la fila l
   // «Borrada» sólo con el catálogo LEÍDO: con la lectura caída, cualquier clave declarada «no
   // está» en las etapas de fábrica, y la ficha acusaría una etapa borrada que no lo está.
   assert.match(DATOS, /borrada: fila && leida \? fila\.etapa : null/);
+});
+
+test('«Abrir a mano» valida contra la BASE lo que llega del navegador (revisión 08/10)', () => {
+  // Sin esto nada lo cuidaba: sacar cualquiera de las dos validaciones dejaba la suite en verde. Una
+  // clave inventada deja una fila que abre lo que se cree mañana con ese nombre; una clase de OTRO
+  // producto deja una fila que la evaluación de éste nunca mira (y la ficha diría «abierta»).
+  const d = cuerpoDe('desbloquearAction').replace(/\r\n/g, '\n');
+  assert.match(d, /if \(!productos\.some\(\(x\) => x\.productoId === productoId\)\) return \{ ok: false/);
+  assert.match(d, /const cur = await modulosDelCurso\(productoId, \{ estricta: true \}\);\s*if \(!cur\) return \{ ok: false/);
+  assert.match(d, /if \(!cur\.modulos\.some\(\(m\) => m\.clave === clave\)\) return \{ ok: false/);
+  assert.match(d, /if \(!c \|\| c\.productoId !== productoId \|\| String\(c\.id\) !== clave\) return \{ ok: false/);
+  assert.ok(d.indexOf('ponerDesbloqueo(') > d.indexOf("String(c.id) !== clave"), 'se escribe DESPUÉS de validar');
 });
 
 test('la fecha de la llamada sale del navegador YA en ISO, y vuelve a mostrarse en local', () => {
@@ -393,5 +463,14 @@ test('la fecha de la llamada sale del navegador YA en ISO, y vuelve a mostrarse 
 //  18. productosConCurso con `etapaActualDe` y no `ubicacionEnEntregaDe`     → 60/1 «la etapa BORRADA viaja…»
 //  19. FilaAvance sin la rama «Etapa borrada» (vuelve a «—»)               → 60/1 el mismo
 //  20. `borrada: fila?.etapa ?? null` (acusa aunque el catálogo no se leyó) → 60/1 el mismo
+//  21-24 (08/10/2026, D1 y D2; sobre 22, scratchpad/nucleo/romper.mjs, restaurado de memoria):
+//  21. `armarProducto` ignorando los módulos (los sueltos a «Sin módulo»)   → 21/1 «un módulo SUELTO…»
+//  22. `modulosParaPermisos` con el grupo de huérfanas                       → 21/1 el mismo
+//  23. «Abrir a mano» listando las clases de un módulo cerrado              → 21/1 «"Abrir a mano"…»
+//  24. «Abrir a mano» ofreciendo lo que sus permisos no le dan              → 21/1 el mismo
 //  Y la puerta de la ficha con la sesión y la capa a mano (sin `puedeUsarCs`) → 59/2: el de «cada action pasa por la
 //  PUERTA…» de acá y el de tests/cs-acciones-puerta.test.ts.
+//  25-26 (REVISIÓN del 08/10/2026, scratchpad/rev-nucleo/romper-final.mjs; sobre 23, restaurado de memoria):
+//  25. «Abrir a mano» sin validar que el módulo exista                      → 22/1 ««Abrir a mano» valida…»
+//  26. «Abrir a mano» aceptando una clase de OTRO producto                  → 22/1 el mismo
+//      (las dos daban 22/0 antes de la revisión: no las miraba nadie)

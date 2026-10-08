@@ -345,8 +345,10 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // sola al dibujarse (app/customer-success/curso/onboarding-sync.ts) y la regla de qué dato
   // cierra cada paso vive en app/customer-success/curso/onboarding-curso.ts, con test.
   //
-  // Y NO TAPA LA TAB: es una lista arriba de las clases (molde Reels/Landing Generator), no
-  // un wizard. El curso se arma usándolo.
+  // Y NO TAPA LA TAB: no es un wizard, el curso se arma usándolo. Desde el 08/10/2026 la tab no
+  // dibuja la lista de estos pasos sino un RECORRIDO (app/_ui/Recorrido.tsx, `cs-curso`): «Elimina
+  // el recuadro de "Configura tu curso"... haz el típico tutorial de app» (Martín, item 3). Los
+  // pasos siguen anotándose igual: los lee MaKo y la pantalla final del onboarding.
   //
   //   curso_programa → hay al menos una clase EN EL WORKSPACE. ⚠️ Decisión, no descuido: ni una
   //                    por etapa ni una por producto, porque las dos traban la tab para siempre.
@@ -358,7 +360,8 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   //   curso_vista    → el ENSAYO: el equipo abrió la vista del alumno (una vista previa SIN
   //                    lead, que no crea accesos de clientes reales), o un cliente ya entró.
   //   curso_invitar  → ya se invitó a alguien. AL FINAL Y OPCIONAL: manda un email real por
-  //                    Resend, así que lo dispara una persona desde Avance, nunca la lista.
+  //                    Resend, así que lo dispara una persona («Invitar alumnos» del editor, la
+  //                    ficha o la tarjeta del kanban), nunca el onboarding.
   //
   // ⚠️ Prefijo `curso_` por la colisión de KEY_PASOS_COMPARTIDOS (ver arriba). Y el ORDEN es
   // una guarda (`marcarPasoTab` no marca un paso con uno obligatorio anterior pendiente), así

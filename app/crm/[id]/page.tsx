@@ -44,6 +44,7 @@ import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insi
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 import { faltantesDeLead } from '@/lib/leads';
 import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { urlGravatar } from '@/lib/gravatar';
 import { getLeadInsights, getEquipoAction } from '../actions';
 
@@ -103,7 +104,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // ⚠️ EL NOMBRE DEL PRODUCTO, no el del embudo: el desplegable decía «Funnel principal», que
   // es el nombre que puso la migración y el mismo en todos los workspaces (captura de Martín,
   // 06/10/2026). Mismo criterio que el selector del tablero.
-  const productos = funnels.map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre, esDefault: f.esDefault }));
+  const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);

@@ -32,6 +32,7 @@ import 'server-only';
 import { getSetting } from './settings';
 import { runWithWorkspace } from './workspace';
 import { listarFunnels } from './funnels';
+import { nombreVisible } from './lead-funnel-reglas';
 import { CONFIG_KEY, funnelIdsDeLanding, parsearConfig } from './landing-config';
 
 /**
@@ -42,7 +43,7 @@ import { CONFIG_KEY, funnelIdsDeLanding, parsearConfig } from './landing-config'
  * la migracion 0170 y es el mismo en todos los workspaces, asi que no distingue
  * nada y encima obliga a pensar en la estructura en vez de en lo que se vende.
  * Cuando el embudo todavia no tiene producto, se cae a su nombre, que es lo que
- * hay. (Es la misma regla que ya aplica el desplegable del CRM.)
+ * hay. (Es la misma regla que el desplegable del CRM: `nombreVisible`, lib/lead-funnel-reglas.ts.)
  *
  * Solo los ACTIVOS: `listarFunnels` filtra por `activo`, y ofrecer uno archivado
  * seria ofrecer un tablero que la persona no ve.
@@ -53,7 +54,7 @@ export async function productosAsignables(): Promise<ProductoAsignable[]> {
   const funnels = await listarFunnels().catch(() => []);
   return funnels.map((f) => ({
     id: f.id,
-    nombre: f.producto ?? f.nombre,
+    nombre: nombreVisible(f),
     esDefault: f.esDefault,
   }));
 }

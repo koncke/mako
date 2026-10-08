@@ -16,8 +16,13 @@ import { resolverToken, filtrarPorShare, registrarVisita } from '@/lib/shares';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
 import AnalisisCompartido from './AnalisisCompartido';
-import PortalCompartido from './PortalCompartido';
-import { buscarCurso, VISTA_PROPIA } from '@/app/conocimientos/catalogo';
+// ⚠️ La tab va PEREZOSA (su propio chunk): importada directo, el catálogo entero viajaba a TODO
+//    link de esta ruta, también al de UN curso con lo que el super admin ocultó. Ver el archivo.
+import PortalCompartido from './PortalCompartidoPerezoso';
+import { buscarCurso, CURSOS_COMPARTIBLES, VISTA_PROPIA } from '@/app/conocimientos/catalogo';
+import { PortalShell } from '@/app/conocimientos/CursoPortal';
+import { ajustarFicha, aplicarAjustes, type FilaAjuste } from '@/lib/conocimiento-ajustes';
+import { leerAjustes } from '@/lib/conocimiento-ajustes-datos';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,6 +42,27 @@ const GENERICA: Metadata = {
  * de un link. `cache()` de React las une en una.
  */
 const resolver = cache(resolverToken);
+
+/**
+ * Lo que el super admin le cambió a esos cursos (mig 0221), memoizado POR REQUEST por la misma razón
+ * que `resolver`: la tarjeta del link y la página leen lo mismo. Va ESTRICTO (tira si la base no
+ * contesta): decide qué se OCULTA a un tercero, y una lectura caída que dijera «no hay ajustes» le
+ * mostraría lo que se escondió. La clave es el texto de los slugs (separados por coma: un slug no
+ * lleva) porque `cache` compara por identidad, y dos listas iguales armadas aparte son dos arrays.
+ */
+const ajustesDe = cache((slugs: string) => leerAjustes(slugs.split(',')));
+
+/**
+ * Lo que se ve si esa lectura falla: el curso no se abre, y se dice sin culpar a nadie. Es mejor que
+ * mostrarle a un tercero lo que el super admin ocultó.
+ */
+function NoAbrio() {
+  return (
+    <PortalShell marca={<span className="al-brand"><span className="b">Cono<span>cimientos</span></span><span className="sub">Formación</span></span>}>
+      <p className="al-sub">No pudimos abrir el curso. Prueba de nuevo en un rato.</p>
+    </PortalShell>
+  );
+}
 
 /**
  * La tarjeta que se ve al pegar el link en un chat.
@@ -65,8 +91,11 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   // Branding se sirve por su propio recurso; como curso da 404 (ver más abajo). Y el
   // Análisis de Negocio es material del método, no un curso que se nombre afuera.
   if (slug === VISTA_PROPIA.branding || slug === VISTA_PROPIA.analisis) return GENERICA;
-  const curso = buscarCurso(slug ?? undefined);
-  if (!curso) return GENERICA;
+  const base = buscarCurso(slug ?? undefined);
+  if (!base) return GENERICA;
+  // El título y la tapa de HOY, con lo que el super admin les cambió. Es una vista previa: si la
+  // lectura falla, la del catálogo (no decide nada).
+  const curso = ajustarFicha(base, await ajustesDe(base.slug).catch(() => []));
   return {
     ...GENERICA,
     title: curso.titulo,
@@ -93,7 +122,10 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
   // carga, así que un curso que se suma después aparece en los links ya dados.
   if (acceso.share.recurso === 'conocimientos') {
     await registrarVisita(acceso);
-    return <PortalCompartido invitado={acceso.invitado?.email ?? null} />;
+    // Lo que el super admin cambió, de los cursos que entran: se aplica allá, sin lo oculto.
+    let ajustes: FilaAjuste[];
+    try { ajustes = await ajustesDe(CURSOS_COMPARTIBLES.map((c) => c.slug).join(',')); } catch { return <NoAbrio />; }
+    return <PortalCompartido invitado={acceso.invitado?.email ?? null} ajustes={ajustes} />;
   }
 
   // ── Un curso compartido: el MISMO portal de /conocimientos ──
@@ -112,10 +144,14 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
     // Branding se comparte por su propio recurso ('branding' → Galeria), que es
     // el que sabe de secciones y piezas sueltas. Como curso no se sirve.
     if (slug === VISTA_PROPIA.branding) notFound();
-    const curso = buscarCurso(slug);
-    if (!curso) notFound();
+    const base = buscarCurso(slug);
+    if (!base) notFound();
     await registrarVisita(acceso);
-    return <CursoCompartido curso={curso} invitado={acceso.invitado?.email ?? null} />;
+    // ⚠️ EL CURSO SE AJUSTA ACÁ, EN EL SERVER, y SIN LO OCULTO (`aplicarAjustes` sin `conOcultos`): lo
+    //    que el super admin ocultó no viaja al navegador del invitado, ni en el HTML ni en las props.
+    let filas: FilaAjuste[];
+    try { filas = await ajustesDe(base.slug); } catch { return <NoAbrio />; }
+    return <CursoCompartido curso={aplicarAjustes(base, filas)} invitado={acceso.invitado?.email ?? null} />;
   }
 
   // ── El material de marca: la galería ──

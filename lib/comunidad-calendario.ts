@@ -85,8 +85,10 @@ async function quienMira(a: Actor): Promise<QuienMira> {
 
 /**
  * Los módulos del curso de este producto: las etapas del kanban que son módulo (`enCurso !== false`,
- * D1) y los sueltos (`curso_modulos`, mig 0220, de otra pista). BEST-EFFORT: lo suelto que todavía no
- * existe no falla; sin nada, el editor no ofrece «con un módulo».
+ * D1) y los sueltos (`curso_modulos`, mig 0220), EN SU ORDEN. Salen de `modulosDelCurso`
+ * (lib/curso-modulos-datos.ts), la misma derivación que usan el curso y el portal: hasta el 08/10/2026
+ * acá había una copia que leía la tabla a mano, y una fila que guarda sólo el candado de una etapa
+ * sacada del curso aparecía como un módulo «Módulo».
  *
  * ⚠️ PARA DECIDIR VA `{ estricta: true }`, y `null` = NO SE PUDIERON LEER. La lectura tolerante
  *    (`entregaDeProducto`) cae a las etapas DE FÁBRICA cuando la consulta falla: sirve para dibujar
@@ -95,29 +97,18 @@ async function quienMira(a: Actor): Promise<QuienMira> {
  *    caída rechazaba un módulo real o aceptaba el «onboarding» de fábrica.
  */
 async function modulosDelProducto(a: Actor, opts: { estricta?: boolean } = {}): Promise<Array<{ clave: string; nombre: string }> | null> {
-  const out: Array<{ clave: string; nombre: string }> = [];
   try {
-    const { entregaDeProducto, entregaDeProductoEstricta } = await import('./entrega-servicio');
-    const cfg = opts.estricta ? await entregaDeProductoEstricta(a.productoId) : await entregaDeProducto(a.productoId);
-    if (!cfg) return null;
-    for (const e of cfg.etapas) {
-      if ((e as { enCurso?: boolean }).enCurso === false) continue;
-      out.push({ clave: e.key, nombre: e.label });
+    const { modulosDelCurso } = await import('./curso-modulos-datos');
+    if (opts.estricta) {
+      const cur = await modulosDelCurso(a.productoId, { estricta: true });
+      return cur ? cur.modulos.map((m) => ({ clave: m.clave, nombre: m.nombre })) : null;
     }
+    return (await modulosDelCurso(a.productoId)).modulos.map((m) => ({ clave: m.clave, nombre: m.nombre }));
   } catch (e) {
     if (opts.estricta) return null;
-    console.warn('[comunidad] no pude leer las etapas del producto:', msg(e, ''));
+    console.warn('[comunidad] no pude leer los módulos del producto:', msg(e, ''));
+    return [];
   }
-  try {
-    const { data, error } = await getSupabaseServer().from('curso_modulos').select('clave, nombre')
-      .eq('workspace_id', a.ws).eq('producto_id', a.productoId);
-    if (!error) {
-      for (const f of (data ?? []) as Array<{ clave: string | null; nombre: string | null }>) {
-        if (f.clave && !out.some((m) => m.clave === f.clave)) out.push({ clave: f.clave, nombre: (f.nombre ?? '').trim() || 'Módulo' });
-      }
-    }
-  } catch { /* la tabla todavía no existe (mig 0220) */ }
-  return out;
 }
 
 // ── Lo que se ve ──────────────────────────────────────────────────────────────────

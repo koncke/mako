@@ -165,7 +165,8 @@ import { CerrarIcon } from '@/app/crm/iconos';
 import { NEW_STAGE_PALETTE } from '@/lib/pipeline';
 import {
   nuevaClaveEtapa, nuevaClaveFase, colorNuevaEtapa, normalizarEtapas, colorDeEtapa, agendaValida, MAX_AGENDA, TOPE_NOMBRE_ETAPA,
-  type EtapaEntrega, type FaseEntrega,
+  grupoDe, gruposDe, aplanar, enOrden, conFase, llevarEtapa,
+  type EtapaEntrega, type FaseEntrega, type GrupoEditor,
 } from '@/lib/servicio-etapas';
 
 const SANS = "'Geist', sans-serif";
@@ -317,95 +318,12 @@ function AsaIcon() {
 // EL MODELO DE LA LISTA (puro: lo ejecuta tests/cs-kanban-fases.test.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** A qué grupo se dibuja una etapa. `''` = sin fase (o con una fase que ya no existe,
- *  que es la misma regla que `colorDeEtapa`: cae a lo suyo). */
-function grupoDe(e: EtapaEntrega, fases: readonly FaseEntrega[]): string {
-  return e.fase && fases.some((f) => f.key === e.fase) ? e.fase : '';
-}
-
-/** Un grupo de la lista: una fase (o «Sin fase», `''`) con sus etapas en orden. */
-export type GrupoEditor = { clave: string; etapas: EtapaEntrega[] };
-
-/**
- * Los grupos en el orden en que se dibujan: los que tienen etapas, en el orden en que
- * aparecen en el tablero; después las fases vacías, en su orden.
- *
- * `conSueltas` agrega «Sin fase» VACÍO al final si hay fases y ninguna etapa está suelta:
- * es el destino de un arrastre o de un Alt+↓ que quiere sacar una etapa de su fase.
- */
-export function gruposDe(lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], conSueltas = false): GrupoEditor[] {
-  const orden: string[] = [];
-  const por = new Map<string, EtapaEntrega[]>();
-  for (const e of lista) {
-    const g = grupoDe(e, fases);
-    if (!por.has(g)) { por.set(g, []); orden.push(g); }
-    por.get(g)!.push(e);
-  }
-  for (const f of fases) if (!por.has(f.key)) { por.set(f.key, []); orden.push(f.key); }
-  if (conSueltas && fases.length > 0 && !por.has('')) { por.set('', []); orden.push(''); }
-  return orden.map((clave) => ({ clave, etapas: por.get(clave)! }));
-}
-
-/** Los grupos, uno detrás del otro: la lista del tablero que corresponde a lo que se ve. */
-function aplanar(grupos: readonly GrupoEditor[]): EtapaEntrega[] {
-  return grupos.flatMap((g) => g.etapas);
-}
-
-/**
- * Lo que se GUARDA: las etapas en el orden en que se dibujan y las fases en ese mismo
- * orden. Ver «LO QUE SE GUARDA ES EL ORDEN QUE SE VE» en el encabezado.
- */
-export function enOrden(lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[]): { etapas: EtapaEntrega[]; fases: FaseEntrega[] } {
-  const grupos = gruposDe(lista, fases);
-  const orden = grupos.map((g) => g.clave);
-  return {
-    etapas: aplanar(grupos),
-    fases: [...fases].sort((a, b) => orden.indexOf(a.key) - orden.indexOf(b.key)),
-  };
-}
-
-/** La etapa con la fase de su grupo nuevo. `''` le SACA la fase (no la deja en `undefined`). */
-function conFase(e: EtapaEntrega, grupo: string): EtapaEntrega {
-  const out: EtapaEntrega = { ...e };
-  if (grupo) out.fase = grupo; else delete out.fase;
-  return out;
-}
-
-/**
- * Llevar una etapa al lugar `slot` del grupo `grupo` — ordenar y cambiar de fase son esto.
- *
- * `slot` cuenta los lugares del grupo COMO SE VEN, con la etapa todavía adentro si es del
- * mismo grupo: soltar «antes de la fila 3» es `slot` 3 aunque la arrastrada sea la 1.
- *
- * ⚠️ NADA VA ANTES DE LA ENTRADA: en el grupo de la entrada el piso es 1. Y la entrada no
- * cambia de lugar: si va a otro grupo cae PRIMERA y ese grupo pasa a dibujarse primero.
- * Un grupo que no existe no se inventa: se devuelve la lista como estaba.
- */
-export function llevarEtapa(
-  lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], key: string, grupo: string, slot: number,
-): EtapaEntrega[] {
-  const i = lista.findIndex((e) => e.key === key);
-  if (i < 0) return [...lista];
-  const e = lista[i];
-  const grupos = gruposDe(lista, fases, true).map((g) => ({ clave: g.clave, etapas: [...g.etapas] }));
-  const destino = grupos.find((g) => g.clave === grupo);
-  const origen = grupos.find((g) => g.etapas.includes(e));
-  if (!destino || !origen) return [...lista];
-  const pos = origen.etapas.indexOf(e);
-  if (i === 0) {
-    if (destino === origen) return [...lista];
-    origen.etapas.splice(pos, 1);
-    destino.etapas.unshift(conFase(e, grupo));
-    return aplanar([destino, ...grupos.filter((g) => g !== destino)]);
-  }
-  // El índice se corre uno cuando la etapa venía de más arriba en el mismo grupo.
-  let at = destino === origen && slot > pos ? slot - 1 : slot;
-  origen.etapas.splice(pos, 1);
-  const piso = destino.etapas[0]?.key === lista[0]?.key ? 1 : 0;
-  at = Math.max(piso, Math.min(at, destino.etapas.length));
-  destino.etapas.splice(at, 0, destino === origen ? e : conFase(e, grupo));
-  return aplanar(grupos);
-}
+// ⚠️ LOS GRUPOS, EL ORDEN QUE SE GUARDA Y `llevarEtapa` VIVEN EN lib/servicio-etapas.ts desde el
+// 08/10/2026: el curso reordena las etapas desde el server al arrastrar un módulo, y un server action
+// no puede importar un valor de este archivo ('use client'). Se re-exportan para quien los importaba
+// de acá (tests/cs-kanban-fases.test.ts los ejecuta desde este módulo).
+export { gruposDe, enOrden, llevarEtapa };
+export type { GrupoEditor };
 
 /**
  * Alt+↑ / Alt+↓ sobre una etapa: un lugar por vez, y en el borde del grupo pasa al de al

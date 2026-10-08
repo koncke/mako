@@ -24,6 +24,7 @@ import { conWs } from '@/lib/ws-tab';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from '@/lib/pipeline';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 
 const MONO = "'Geist Mono', monospace";
 import { Modal } from '@/app/_ui/Modal';
@@ -686,7 +687,7 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // puso la migración y es el mismo en todos los workspaces: no le dice nada a
   // nadie y encima obliga a pensar en la estructura en vez de en lo que se vende.
   // Sin producto asociado se cae al nombre del funnel, que es lo que había.
-  const comoSeLlama = (f: { nombre: string; producto?: string | null }) => f.producto?.trim() || f.nombre;
+  const comoSeLlama = nombreVisible;
   // Sin `sub`: el nombre del producto ya dice qué es. «el de tu negocio» debajo del
   // único producto que hay era un renglón para no decir nada.
   // ⚠️ CADA FILA LLEVA SU LAPIZ, y es lo que pidio Martin: «al lado de cada uno debe

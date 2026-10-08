@@ -13,9 +13,10 @@
 // el bug medido el 27/09/2026 con el detalle de una tarea. Mismo molde que
 // `NombrarVideosModal`.
 //
-// ⚠️ Y EL REPRODUCTOR NO ES LA ÚNICA PUERTA. Tres cosas distintas pueden fallar
-// —la descarga del cuerpo, el archivo del reproductor, y que la grabación llegue
-// cortada— y cada una tiene su frase y su salida. Un pop-up que se queda girando
+// ⚠️ Y EL REPRODUCTOR NO ES LA ÚNICA PUERTA. Cuatro cosas distintas pueden fallar
+// —la descarga del cuerpo, el archivo del reproductor, que la grabación llegue
+// cortada, y que llegue sin la foto de la página— y cada una tiene su frase y su
+// salida. Un pop-up que se queda girando
 // es indistinguible de un producto roto, y «no se pudo» sin nada que apretar deja
 // un dato que existe del otro lado de una pared.
 // =============================================================================
@@ -23,7 +24,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Modal, Spinner } from '@/app/_ui';
-import { REPLAY_MINIMO_EVENTOS, duracionCorta, parsearCuerpo, textoDelCorte, type SesionDeLead } from '@/lib/replay-ficha';
+import { REPLAY_MINIMO_EVENTOS, duracionCorta, parsearCuerpo, textoDelCorte, tieneFoto, type SesionDeLead } from '@/lib/replay-ficha';
 import { cargarReproductor, type Reproductor } from '@/lib/replay-reproductor';
 import { useTzWorkspace } from './useTzWorkspace';
 
@@ -35,6 +36,7 @@ type Fase =
   | { k: 'listo'; ilegibles: number }
   | { k: 'sin_reproductor' }
   | { k: 'cortada' }
+  | { k: 'sin_foto' }
   | { k: 'no_existe' }
   | { k: 'sin_sellar' }
   | { k: 'sin_descarga' };
@@ -86,6 +88,10 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
 
       const { eventos, ilegibles } = parsearCuerpo(texto);
       if (eventos.length < REPLAY_MINIMO_EVENTOS) { setFase({ k: 'cortada' }); return; }
+      // ⚠️ SIN LA FOTO DE LA PÁGINA NO HAY QUÉ DIBUJAR, tenga los eventos que tenga
+      // (ver `tieneFoto`): se dice antes de bajar el reproductor, que montaría un
+      // cuadro negro. Medido el 08/10/2026: 9 sesiones selladas así, entre ws1 y ws11.
+      if (!tieneFoto(eventos)) { setFase({ k: 'sin_foto' }); return; }
 
       const r = await cargarReproductor();
       if (!vivo) return;
@@ -165,6 +171,7 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
       )}
 
       {fase.k === 'cortada' && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Llegó cortada y no alcanza para reproducirla.</p>}
+      {fase.k === 'sin_foto' && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Llegó sin la página y no se puede reproducir.</p>}
       {fase.k === 'no_existe' && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Esta grabación ya no está.</p>}
       {fase.k === 'sin_sellar' && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Todavía se está guardando. Se puede ver en unos minutos.</p>}
 

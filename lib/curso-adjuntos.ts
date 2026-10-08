@@ -200,7 +200,7 @@ export async function urlAdjuntoEquipo(id: string): Promise<Resultado<{ url: str
 /**
  * La URL firmada de un adjunto para el ALUMNO, o `null` (la ruta contesta 404).
  *
- * ⚠️ CORRE DESPUÉS DE `claseDelAlumno` con `exigeEtapa: true` (la ruta), adentro de
+ * ⚠️ CORRE DESPUÉS DE `claseDelAlumno` con `exigeAbierta: true` (la ruta), adentro de
  *    `runWithWorkspace(firma.ws, …)`: la clase que recibe ya está abierta para ESTE alumno. Acá se
  *    contesta lo que falta (`decidirAdjuntoAlumno`): que el adjunto sea de este negocio y de ese
  *    producto, y que la descripción PUBLICADA de esa clase lo nombre.

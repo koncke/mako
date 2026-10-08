@@ -23,6 +23,7 @@ import {
 } from '@/lib/shares';
 import { nombreDeShare } from '@/lib/share-nombre';
 import { buscarCurso } from '@/app/conocimientos/catalogo';
+import { titulosElegidos } from '@/lib/conocimiento-ajustes-datos';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,9 +37,22 @@ const MODOS: ShareModo[] = ['link', 'invitados'];
 
 const base = (req: NextRequest) => process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
-/** El título de HOY de un curso, saltando los slugs reemplazados. Es el resolvedor que
- *  `nombreDeShare` pide por parámetro, y el único lugar donde este archivo lo arma. */
-const tituloDeCurso = (slug: string) => buscarCurso(slug)?.titulo;
+/**
+ * El título de HOY de un curso, saltando los slugs reemplazados: el que le puso el super admin
+ * (lib/conocimiento-ajustes.ts, mig 0221) o el del catálogo. Es el resolvedor que `nombreDeShare` pide
+ * por parámetro, y el único lugar donde este archivo lo arma.
+ *
+ * ⚠️ Es ASYNC porque el título elegido vive en la base, y se lee UNA vez por pedido: sin esto el modal
+ *    de «quién tiene acceso» y el mail nombraban el curso con el título de la ficha, distinto del que
+ *    se ve en el portal. Si la lectura falla, el del catálogo: es un rótulo, no decide nada.
+ */
+async function resolvedorDeTitulos(): Promise<(slug: string) => string | undefined> {
+  const elegidos = await titulosElegidos();
+  return (slug: string) => {
+    const c = buscarCurso(slug);
+    return c ? elegidos.get(c.slug) ?? c.titulo : undefined;
+  };
+}
 
 /**
  * El slug CANÓNICO de un curso: el que le quedó después de los reemplazos del catálogo.
@@ -87,6 +101,7 @@ export async function GET(req: NextRequest) {
     if (!RECURSOS.includes(recurso)) return NextResponse.json({ ok: false, error: 'recurso inválido' }, { status: 400 });
 
     const todos = await listarShares(WS, recurso);
+    const tituloDeCurso = await resolvedorDeTitulos();
     const pedido = canonico(recurso, recursoId);
     const filtrados = recursoId ? todos.filter((s) => canonico(recurso, s.recurso_id) === pedido) : todos;
     const conInvitados = await Promise.all(filtrados.map(async (s) => ({
@@ -230,6 +245,7 @@ export async function POST(req: NextRequest) {
       if (share.revocado_at) return NextResponse.json({ ok: false, error: 'enlace revocado' }, { status: 400 });
       if (malos.length) return NextResponse.json({ ok: false, error: `email inválido: ${malos[0]}` }, { status: 400 });
       if (!dests.length) return NextResponse.json({ ok: false, error: 'agrega al menos un email' }, { status: 400 });
+      const tituloDeCurso = await resolvedorDeTitulos();
       // ⚠️ EL NOMBRE DERIVADO, NO `share.etiqueta`. La etiqueta guardada es la foto del
       // día en que se emitió el link, y acá sale POR MAIL a un tercero: sumar a alguien al
       // share id=4 mandaba «Te compartieron: Curso AVATARHYPE», un curso que hoy se llama

@@ -8,15 +8,25 @@
 // de supabase/migrations/0202_curso.sql; las reglas del curso, en lib/curso.ts.
 //
 // #665 (06/10/2026, mig 0212): el mismo portal abre el link del LÍDER de un área (`c2.`), que ve
-// SÓLO las clases por área de su área (`decidirClase` con `lider`, `armarEtapas` con `opts.lider`);
+// SÓLO las clases por área de su área (`decidirClase` con `lider`, `armarModulos` con `opts.lider`);
 // una clase por área se contesta una vez por área (`areaDeLaTarea`); y el link de agenda de una etapa
-// viaja recién con la etapa completa (`armarEtapas`).
+// viaja recién con la etapa completa (`armarModulos`).
+//
+// 08/10/2026 (D1 y D2 de docs/diseno-curso-skool.md): el portal arma MÓDULOS, no etapas. Un módulo
+// vinculado es una etapa del kanban y uno SUELTO no (lib/curso-modulos.ts); hasta acá las clases de
+// un módulo que no era una etapa se tiraban sin aviso. Y cada módulo y cada clase pasan por su
+// CANDADO (lib/curso-bloqueo.ts): el de siempre —la posición en el kanban— es ahora uno de ocho.
 //
 // Dos mitades en el mismo archivo:
-//   · LO PURO (qué etapa está hecha / abierta / bloqueada, qué reproductor lleva cada clase, si
-//     una clase se le abre al alumno, el tope del cuerpo): lo EJECUTA tests/curso-portal.test.ts.
+//   · LO PURO (qué módulo y qué clase se abren, qué reproductor lleva cada clase, si una clase se le
+//     abre al alumno, el tope del cuerpo): lo EJECUTA tests/curso-portal.test.ts.
 //   · LO QUE LEE (armarVistaAlumno, claseDelAlumno): corre en el server, adentro de
 //     `runWithWorkspace(firma.ws, …)` con el workspace que sale de la FIRMA del link.
+//
+// ⚠️ ES LA ÚNICA PUERTA. Lo que se dibuja (`armarVistaAlumno` → `armarModulos`) y lo que las rutas
+// dejan leer o escribir (`claseDelAlumno`) deciden con la MISMA evaluación (`aperturasDe`, que es
+// `evaluarBloqueos` con el curso armado una vez): con dos, el portal mostraría abierta una clase cuya
+// tarea la ruta rechaza, o al revés.
 //
 // ⚠️ SIN `import 'server-only'` ARRIBA, A PROPÓSITO, y las lecturas importan sus módulos con
 // `await import(...)`: así el test puede importar la mitad pura sin que `server-only` (que tira
@@ -32,37 +42,20 @@ import {
 import { agendaValida } from './servicio-etapas';
 import { estiloVacio, soloDeClases, type EstiloCurso } from './curso-estilo';
 import { moduloPermitido, type AlcanceCurso } from './curso-alcance';
+import {
+  estadosDeEtapas, aperturasDe, claseCompleta, MOTIVO_MANUAL,
+  type Aperturas, type ContextoBloqueo, type EstadoEtapa,
+} from './curso-bloqueo';
+import type { ModuloCurso } from './curso-modulos';
 
-// ── Las etapas ────────────────────────────────────────────────────────────────
+// ── Las etapas del kanban ─────────────────────────────────────────────────────
 
-/**
- * `hecha` = una etapa anterior a la actual: se puede abrir y releer (y corregir sus tareas).
- * `actual` = donde está HOY el cliente: abierta y destacada.
- * `bloqueada` = una etapa que todavía no le toca: se VE (es el mapa del programa) pero no se abre.
- */
-export type EstadoEtapa = 'hecha' | 'actual' | 'bloqueada';
+// `estadosDeEtapas` y `EstadoEtapa` viven en lib/curso-bloqueo.ts desde el 08/10/2026 (el bloqueo
+// `etapa` es uno de los ocho candados); se re-exportan para quien los importaba de acá.
+export { estadosDeEtapas };
+export type { EstadoEtapa };
 
-/**
- * El estado de cada etapa por su POSICIÓN respecto de la actual, en el orden de la entrega.
- *
- * ⚠️ SIN ETAPA ACTUAL CONOCIDA, LA PRIMERA ES LA ACTUAL. Es la regla del kanban de la entrega
- * (`repartirEnEtapas`) y la de `etapaActualDe`: un cliente sin fila en `cliente_entrega` está en
- * la primera etapa, no «en ninguna». Si acá se tomara «ninguna» como «todo bloqueado», los 14
- * clientes de Mauricio —que al arrancar no tienen fila— abrirían el link a un programa cerrado.
- *
- * ⚠️ «Hecha» es por posición, no por tareas: si Mauricio lo movió a mano, lo de atrás queda
- * hecho aunque falte algo. La etapa la manda la entrega, no esta pantalla.
- */
-export function estadosDeEtapas(claves: readonly string[], actual: string | null | undefined): Record<string, EstadoEtapa> {
-  const out: Record<string, EstadoEtapa> = {};
-  if (!claves.length) return out;
-  const i = actual ? claves.indexOf(actual) : -1;
-  const iActual = i >= 0 ? i : 0;
-  claves.forEach((k, j) => { out[k] = j < iActual ? 'hecha' : j === iActual ? 'actual' : 'bloqueada'; });
-  return out;
-}
-
-/** ¿El alumno puede abrir (ver el video, mandar la tarea) una clase de una etapa en este estado? */
+/** ¿El alumno puede abrir (ver el video, mandar la tarea) algo de una etapa en este estado? */
 export const etapaAbierta = (e: EstadoEtapa | undefined): boolean => e === 'hecha' || e === 'actual';
 
 /**
@@ -72,10 +65,10 @@ export const etapaAbierta = (e: EstadoEtapa | undefined): boolean => e === 'hech
  *   · `no-existe` → 404. También cuando la clase existe pero es de un producto que el cliente no
  *     compró: un link válido no abre el curso de otro producto, y contestar distinto («existe,
  *     pero no es tuya») ayudaría a enumerar ids.
- *   · `bloqueada` → la clase es de una etapa que todavía no le toca (o de una etapa que ya no
- *     existe en la entrega: la pantalla no la muestra, así que tampoco se escribe).
+ *   · `bloqueada` → la clase está CERRADA para él (su candado, o el de su módulo, o es de un módulo
+ *     que ya no existe: la pantalla no la muestra, así que tampoco se escribe).
  *
- * `estadoEtapa` sólo cuenta cuando `exigeEtapa`: el progreso del video no lo exige (ver la ruta).
+ * `abierta` (lo que contestó `aperturasDe` para ESTA clase) sólo cuenta cuando `exigeAbierta`.
  *
  * `lider`: el área del LÍDER que abrió el portal con su link (#665); `null`/ausente = el cliente.
  * ⚠️ AL LÍDER SÓLO SE LE ABREN LAS CLASES POR ÁREA, y una que no lo es contesta `no-existe`, igual
@@ -86,14 +79,14 @@ export type DecisionClase = 'ok' | 'no-existe' | 'bloqueada';
 export function decidirClase(
   clase: Pick<Clase, 'productoId' | 'porArea'> | null,
   productosDelAlumno: readonly number[],
-  estadoEtapa: EstadoEtapa | undefined,
-  exigeEtapa: boolean,
+  abierta: boolean | undefined,
+  exigeAbierta: boolean,
   lider: string | null = null,
 ): DecisionClase {
   if (!clase) return 'no-existe';
   if (!productosDelAlumno.includes(clase.productoId)) return 'no-existe';
   if (lider != null && clase.porArea !== true) return 'no-existe';
-  if (exigeEtapa && !etapaAbierta(estadoEtapa)) return 'bloqueada';
+  if (exigeAbierta && abierta !== true) return 'bloqueada';
   return 'ok';
 }
 
@@ -134,6 +127,12 @@ export type ClaseVista = {
   id: number;
   titulo: string;
   descripcion: string;
+  /**
+   * La descripción RICA (mig 0216), SANEADA EN EL SERVER otra vez antes de viajar (`armarVistaAlumno`
+   * la pasa por `sanearHtml`): `''` = no tiene, y se dibuja `descripcion`. Los adjuntos van por
+   * referencia (`mako-adjunto:<id>`) y los traduce quien dibuja, con el token del alumno.
+   */
+  descripcionHtml: string;
   minutos: number | null;
   video: VideoVista | null;
   /** % visto (0-100). `null` = este video NO se puede medir: la pantalla dice «sin medir», no 0%. */
@@ -144,6 +143,16 @@ export type ClaseVista = {
   obligatoria: boolean;
   estado: EstadoTarea;
   valores: Valores;
+  /**
+   * La marcó HECHA (mig 0220): el tilde de una clase SIN tarea. Siempre `false` en una con tarea
+   * (ésa se completa enviándola).
+   */
+  hecha: boolean;
+  /**
+   * ¿La completó? (lib/curso-bloqueo.ts, `claseCompleta`: envió la tarea, o la marcó hecha, o vio el
+   * video). Es lo que abre lo que espera a «la anterior».
+   */
+  completa: boolean;
   /**
    * Una clase POR ÁREA (#665): una tarea por área, cada una con lo suyo. AUSENTE en una clase que
    * se contesta una vez (y la lista blanca de tests/curso-portal.test.ts sigue valiendo para ésas).
@@ -165,6 +174,14 @@ export type ClaseVista = {
 };
 
 /**
+ * Una clase CERRADA adentro de un módulo abierto (D2): viaja SÓLO su título y el porqué. Ni el
+ * video, ni la descripción, ni la tarea, ni lo que contestó: lo que no se abre no viaja.
+ */
+export type ClaseCerrada = { id: number; titulo: string; cerrada: true; motivo: string };
+export type ClaseDelModulo = ClaseVista | ClaseCerrada;
+export const esClaseCerrada = (c: ClaseDelModulo): c is ClaseCerrada => (c as ClaseCerrada).cerrada === true;
+
+/**
  * Lo que viaja de una propuesta pendiente: la versión de la IA y su `desde`, que es el token con el
  * que se aprueba (compare-and-set). De qué grabación salió no viaja: es del equipo.
  */
@@ -184,37 +201,55 @@ export function propuestaVista(p: Progreso | undefined): PropuestaVista | undefi
   return p?.ia?.estado === 'pendiente' ? { valores: p.ia.valores, desde: p.ia.desde } : undefined;
 }
 
-export type EtapaVista = {
+/**
+ * Un MÓDULO del curso, como lo ve el alumno.
+ *
+ * ⚠️ UNO CERRADO SE VE Y NO SE ABRE: viajan su nombre, cuántas clases tiene, sus números y el porqué
+ * (`motivo`), nunca sus clases (`clases: []`). Es el mapa del programa: esconderlo haría que el curso
+ * pareciera más corto de lo que es. Un módulo que sus PERMISOS no le dan, en cambio, no viaja en
+ * absoluto (ni el nombre).
+ */
+export type ModuloVista = {
+  /** La clave del módulo (la de su etapa si es vinculado). */
   key: string;
+  /** Su nombre (el de su etapa si es vinculado). */
   label: string;
+  vinculado: boolean;
+  /** Sólo los vinculados: dónde está el alumno en el kanban respecto de esta etapa. */
+  etapa?: EstadoEtapa;
+  /** ¿Se le abre? (su candado y lo abierto a mano, ya evaluados en el server). */
+  abierto: boolean;
+  /** Cerrado: por qué, CORTO («Se abre al terminar «Arranque»»). Ausente si está abierto. */
+  motivo?: string;
   /**
-   * El link para agendar la sesión (su Calendly), SÓLO si el alumno completó esta etapa (#665).
-   * Ausente = no hay link, o todavía no la completó: en los dos casos el link no viaja.
+   * El link para agendar la sesión de su ETAPA (su Calendly), SÓLO si es vinculado, está abierto y el
+   * alumno la completó (#665). Ausente = no hay link, o todavía no: en los dos casos no viaja.
    */
   agendaUrl?: string;
-  estado: EstadoEtapa;
-  /** Vacío en una etapa bloqueada: lo que no se abre no viaja al navegador. */
-  clases: ClaseVista[];
-  /** Cuántas clases tiene, aunque esté bloqueada (para decir «3 clases» sin mandarlas). */
+  /** Vacío en un módulo cerrado: lo que no se abre no viaja al navegador. */
+  clases: ClaseDelModulo[];
+  /** Cuántas clases tiene, aunque esté cerrado (para decir «3 clases» sin mandarlas). */
   cuantas: number;
-  /** Tareas obligatorias de la etapa y cuántas ya envió (lo que la cierra, ver `etapaCompleta`). */
+  /** Tareas obligatorias del módulo y cuántas ya envió (lo que cierra la ETAPA, ver `etapaCompleta`). */
   obligatorias: number;
   enviadas: number;
   /**
-   * TODAS las tareas de la etapa y cuántas envió: lo que se le muestra al alumno. Con sólo las
+   * TODAS las tareas del módulo y cuántas envió: lo que se le muestra al alumno. Con sólo las
    * obligatorias la cabecera decía «0 de 1 tarea enviada» arriba de ocho clases marcadas «Tarea
    * pendiente», y la ficha del equipo «0/9 tareas» sobre la misma etapa (06/10/2026).
    */
   tareas: number;
   tareasEnviadas: number;
+  /** ¿Completó todas sus clases? (lo que abre al módulo que espera a «el anterior»). */
+  completo: boolean;
 };
 
 export type ProductoVista = {
-  productoId: number; nombre: string; etapas: EtapaVista[];
+  productoId: number; nombre: string; modulos: ModuloVista[];
   /**
    * Cómo se ve el curso (mig 0214): el color, el título, la descripción y las portadas que eligió
    * el equipo (`estiloVacio()` = el de siempre). Viaja al alumno a propósito: es lo que él tiene que
-   * ver, con las portadas de clase recortadas a las clases que viajan (`soloDeClases`).
+   * ver, con las portadas recortadas a las clases abiertas y a los módulos que viajan.
    * ⚠️ OBLIGATORIO a propósito: opcional, borrar la línea que lo llena en `armarVistaAlumno` o en la
    *    vista previa compilaba y el alumno veía el lima de siempre sin que nada avisara.
    */
@@ -230,7 +265,8 @@ export type VistaAlumno = { nombre: string | null; area: string | null; producto
 const enviada = (e: EstadoTarea | undefined) => e === 'enviada' || e === 'aprobada';
 
 /**
- * Una clase, como la ve el alumno: lo que se guarda en el bucket y el `origen` no viajan.
+ * Una clase ABIERTA, como la ve el alumno: lo que se guarda en el bucket, el `origen` y el candado no
+ * viajan.
  *
  * ⚠️ LOS CAMPOS VIAJAN SIN LAS RESPUESTAS CORRECTAS DE LOS QUIZZES (`camposParaAlumno`, #18): ésta es
  * la única puerta por la que llegan al navegador del alumno (el portal, /mi-curso y la vista previa
@@ -239,16 +275,22 @@ const enviada = (e: EstadoTarea | undefined) => e === 'enviada' || e === 'aproba
  *
  * `calificacion`: la nota de sus quizzes (mig 0218), para que vea en qué quedó y cuántos intentos le
  * quedan. AUSENTE si no hay (y la lista blanca de tests/curso-portal.test.ts sigue valiendo).
+ *
+ * ⚠️ `descripcionHtml` SALE COMO ESTÁ GUARDADA (ya saneada al guardar): quien la manda al navegador la
+ * vuelve a sanear (`conHtmlSaneado`), que es lo que hace `armarVistaAlumno`.
  */
 export function claseVista(c: Clase, p: Progreso | undefined, areas?: TareaDeArea[]): ClaseVista {
   const { video, medible } = videoDeClase(c);
   const calificacion = !areas && p?.calificacion && Object.keys(p.calificacion).length ? p.calificacion : null;
+  const conTarea = tieneTarea(c);
   return {
-    id: c.id, titulo: c.titulo, descripcion: c.descripcion, minutos: c.minutos, video,
+    id: c.id, titulo: c.titulo, descripcion: c.descripcion, descripcionHtml: c.descripcionHtml ?? '', minutos: c.minutos, video,
     pct: medible ? Math.max(0, Math.min(100, p?.pct ?? 0)) : null,
-    tarea: c.tarea, campos: camposParaAlumno(c.campos), tieneTarea: tieneTarea(c), obligatoria: c.obligatoria,
+    tarea: c.tarea, campos: camposParaAlumno(c.campos), tieneTarea: conTarea, obligatoria: c.obligatoria,
     // Con áreas, lo contestado vive en cada área: el `valores` de la fila del cliente no viaja.
     estado: p?.estado ?? 'pendiente', valores: areas ? {} : p?.valores ?? {},
+    hecha: !conTarea && !!p?.hechaAt,
+    completa: claseCompleta(c, p),
     ...(areas ? { areas } : {}),
     // Y su propuesta, igual: con áreas, la de cada área viaja en SU área (al líder, sólo la suya).
     ...(!areas && propuestaVista(p) ? { ia: propuestaVista(p) } : {}),
@@ -257,7 +299,7 @@ export function claseVista(c: Clase, p: Progreso | undefined, areas?: TareaDeAre
 }
 
 /**
- * Lo que `armarEtapas` necesita saber de las áreas (#665). Todo opcional: sin esto arma el portal
+ * Lo que `armarModulos` necesita saber de las áreas (#665). Todo opcional: sin esto arma el portal
  * de antes (lo usan así la vista previa del equipo y los tests de siempre).
  *   · `porArea`: lo que contestó cada área (claseId → área → progreso).
  *   · `areas`: las áreas que declaró el cliente.
@@ -269,50 +311,78 @@ export type OpcionesVista = {
   lider?: string | null;
 };
 
+/** Lo que entra a `armarModulos`. */
+export type EntradaModulos = {
+  /** Los módulos del curso, en su orden (`derivarModulos`). */
+  modulos: readonly ModuloCurso[];
+  /** El kanban de la entrega ENTERO (también las etapas que no son módulo), con su link de agenda. */
+  etapas: readonly { key: string; label: string; agendaUrl?: string }[];
+  /** La etapa en la que está HOY en el kanban (sin fila = la primera). */
+  actual: string | null | undefined;
+  clases: readonly Clase[];
+  /** El progreso EFECTIVO (`progresoEfectivo`). */
+  progreso: ReadonlyMap<number, Progreso>;
+  /** Los permisos (lib/curso-alcance.ts). Un módulo no permitido NO viaja. Default: todo. */
+  permitido?: (clave: string) => boolean;
+  /** Las fechas, su nivel y lo abierto a mano. Default: nada de eso (lo que depende queda cerrado). */
+  contexto?: ContextoBloqueo;
+  opts?: OpcionesVista;
+};
+
 /**
- * Las etapas de un producto con sus clases, en el orden de la entrega.
+ * Los módulos de un producto con sus clases, en el orden del curso, cada uno con su candado ya
+ * evaluado (`aperturasDe`).
  *
- * ⚠️ UNA CLASE CUYA ETAPA YA NO EXISTE NO SE MUESTRA. Las etapas se editan desde la pantalla de
- * la entrega y una clave borrada no se reusa (`nuevaClaveEtapa`): esa clase quedó huérfana, y
- * dibujarla «en algún lado» la pondría en una etapa que no es la suya. Las rutas la tratan igual
- * (`decidirClase` con etapa desconocida = bloqueada).
+ * ⚠️ UNA CLASE CUYO MÓDULO YA NO EXISTE NO SE MUESTRA. Su etapa se borró del kanban (o se sacó del
+ * curso con `enCurso: false` sin mudar sus clases): dibujarla «en algún lado» la pondría en un módulo
+ * que no es el suyo. Las rutas la tratan igual (`claseDelAlumno` → cerrada).
  *
- * ⚠️ LAS CLASES DE UNA ETAPA BLOQUEADA NO VIAJAN: se manda cuántas son, no su contenido. Lo que
- * no se abre no tiene por qué estar en el HTML que recibe el navegador.
+ * ⚠️ LO CERRADO NO VIAJA. De un módulo cerrado: su nombre, `cuantas`, sus números y el motivo. De una
+ * clase cerrada adentro de un módulo abierto: su título y el motivo (`ClaseCerrada`). De un módulo que
+ * sus permisos no le dan: nada.
  *
  * ⚠️ EL LINK DE AGENDA (`agendaUrl` de la etapa, #665) VIAJA SÓLO CON LA ETAPA COMPLETA
- * (`etapaCompleta`, la misma regla que mueve al cliente) y abierta, y nunca al líder de un área:
- * la sesión es del cliente con Mauricio. Antes de eso no está en el HTML: no se esconde al pintar,
- * no se manda. La traba es BLANDA (el link existe afuera, lib/servicio-etapas.ts lo dice).
+ * (`etapaCompleta`, la misma regla que mueve al cliente), el módulo abierto, y nunca al líder de un
+ * área: la sesión es del cliente con Mauricio. Antes de eso no está en el HTML: no se esconde al
+ * pintar, no se manda. La traba es BLANDA (el link existe afuera, lib/servicio-etapas.ts lo dice). Un
+ * módulo SUELTO no tiene etapa y por eso tampoco agenda.
  *
  * `progreso` es el EFECTIVO (`progresoEfectivo`): una clase por área cuenta enviada cuando la
  * enviaron todas sus áreas. Con `opts.lider`, el portal es el del líder: sólo las clases por área,
- * sólo las etapas que tienen alguna, y de cada una SÓLO lo que contestó su área.
+ * sólo los módulos que tienen alguna, y de cada una SÓLO lo que contestó su área.
  */
-export function armarEtapas(
-  etapas: readonly { key: string; label: string; agendaUrl?: string }[],
-  actual: string | null | undefined,
-  clases: readonly Clase[],
-  progreso: ReadonlyMap<number, Progreso>,
-  opts: OpcionesVista = {},
-): EtapaVista[] {
+export function armarModulos(p: EntradaModulos): ModuloVista[] {
+  const opts = p.opts ?? {};
   const lider = opts.lider ?? null;
   const areas = opts.areas ?? [];
-  const estados = estadosDeEtapas(etapas.map((e) => e.key), actual);
-  const porEtapa = new Map<string, Clase[]>();
-  for (const c of clases) {
-    if (!(c.etapa in estados)) continue;
-    if (!porEtapa.has(c.etapa)) porEtapa.set(c.etapa, []);
-    porEtapa.get(c.etapa)!.push(c);
+  const permitido = p.permitido ?? (() => true);
+  const estados = estadosDeEtapas(p.etapas.map((e) => e.key), p.actual);
+  const agendaDe = new Map(p.etapas.map((e) => [e.key, e.agendaUrl]));
+  const porModulo = new Map<string, Clase[]>();
+  for (const c of p.clases) {
+    if (!porModulo.has(c.etapa)) porModulo.set(c.etapa, []);
+    porModulo.get(c.etapa)!.push(c);
   }
+  // ⚠️ AL LÍDER no se le NOMBRA en un motivo lo que no ve (revisión del 08/10/2026): una clase que no
+  // es por área, o un módulo que no tiene ninguna. «Se abre al terminar «Tus números»» le contaría que
+  // existe el cuestionario del dueño, que es justo lo que #665 no le muestra.
+  const porAreaIds = new Set(p.clases.filter((c) => c.porArea === true).map((c) => c.id));
+  const nombrable = lider != null ? {
+    clase: (id: number) => porAreaIds.has(id),
+    modulo: (clave: string) => (porModulo.get(clave) ?? []).some((c) => porAreaIds.has(c.id)),
+  } : undefined;
+  const ap: Aperturas = aperturasDe({
+    modulos: p.modulos, etapas: p.etapas, actual: p.actual, clases: p.clases, progreso: p.progreso,
+    permitido, contexto: p.contexto, nombrable,
+  });
   /** Lo de UNA área, como lo guardó (o pendiente si nunca la tocó). */
   const tareaDe = (c: Clase, area: string): TareaDeArea => {
-    const p = opts.porArea?.get(c.id)?.get(area);
-    const ia = propuestaVista(p);
+    const pr = opts.porArea?.get(c.id)?.get(area);
+    const ia = propuestaVista(pr);
     // La nota de sus quizzes (mig 0218): sin esto, al recargar, el líder no ve en qué quedó.
-    const calificacion = p?.calificacion && Object.keys(p.calificacion).length ? p.calificacion : null;
+    const calificacion = pr?.calificacion && Object.keys(pr.calificacion).length ? pr.calificacion : null;
     return {
-      area, estado: p?.estado ?? 'pendiente', valores: p?.valores ?? {},
+      area, estado: pr?.estado ?? 'pendiente', valores: pr?.valores ?? {},
       ...(ia ? { ia } : {}), ...(calificacion ? { calificacion } : {}),
     };
   };
@@ -324,39 +394,76 @@ export function armarEtapas(
   };
   /** El estado que se le muestra: el efectivo al cliente; al líder, el de SU área. */
   const estadoDe = (id: number): EstadoTarea | undefined => {
-    if (lider == null) return progreso.get(id)?.estado;
+    if (lider == null) return p.progreso.get(id)?.estado;
     return opts.porArea?.get(id)?.get(lider)?.estado;
   };
-  const out: EtapaVista[] = [];
-  for (const e of etapas) {
-    const todas = (porEtapa.get(e.key) ?? []).slice().sort((a, b) => a.orden - b.orden || a.id - b.id);
-    const deEtapa = lider != null ? todas.filter((c) => c.porArea === true) : todas;
-    if (lider != null && !deEtapa.length) continue;
-    const estado = estados[e.key];
-    const ob = obligatoriasDe(deEtapa);
+  const out: ModuloVista[] = [];
+  for (const m of p.modulos) {
+    if (!permitido(m.clave)) continue;
+    const todas = (porModulo.get(m.clave) ?? []).slice().sort((a, b) => a.orden - b.orden || a.id - b.id);
+    const deModulo = lider != null ? todas.filter((c) => c.porArea === true) : todas;
+    if (lider != null && !deModulo.length) continue;
+    const a = ap.modulos.get(m.clave) ?? { abierta: false, motivo: MOTIVO_MANUAL };
+    const etapa = m.vinculado ? estados[m.clave] : undefined;
+    const ob = obligatoriasDe(deModulo);
     // ⚠️ LA AGENDA MIRA LA ETAPA ENTERA (`todas`), con la regla que mueve al cliente: no la del líder.
-    const agenda = lider == null && etapaAbierta(estado) && etapaCompleta(todas, (id) => progreso.get(id)?.estado)
-      ? agendaValida(e.agendaUrl)
+    const agenda = m.vinculado && lider == null && a.abierta && etapaAbierta(etapa)
+      && etapaCompleta(todas, (id) => p.progreso.get(id)?.estado)
+      ? agendaValida(agendaDe.get(m.clave))
       : null;
     out.push({
-      key: e.key, label: e.label, estado,
+      key: m.clave, label: m.nombre, vinculado: m.vinculado,
+      ...(etapa ? { etapa } : {}),
+      abierto: a.abierta,
+      ...(!a.abierta ? { motivo: a.motivo ?? MOTIVO_MANUAL } : {}),
       ...(agenda ? { agendaUrl: agenda } : {}),
-      clases: etapaAbierta(estado)
-        ? deEtapa.map((c) => {
+      clases: a.abierta
+        ? deModulo.map((c): ClaseDelModulo => {
+          const ac = ap.clases.get(c.id);
+          if (!ac?.abierta) return { id: c.id, titulo: c.titulo, cerrada: true, motivo: ac?.motivo ?? MOTIVO_MANUAL };
           const deAreas = areasDe(c);
-          const vista = claseVista(c, progreso.get(c.id), deAreas);
+          const vista = claseVista(c, p.progreso.get(c.id), deAreas);
           // Al líder, el chip de la clase dice en qué quedó SU área, no el de todas.
           return lider != null && deAreas ? { ...vista, estado: deAreas[0].estado } : vista;
         })
         : [],
-      cuantas: deEtapa.length,
+      cuantas: deModulo.length,
       obligatorias: ob.length,
       enviadas: ob.filter((c) => enviada(estadoDe(c.id))).length,
-      tareas: deEtapa.filter((c) => tieneTarea(c)).length,
-      tareasEnviadas: deEtapa.filter((c) => tieneTarea(c) && enviada(estadoDe(c.id))).length,
+      tareas: deModulo.filter((c) => tieneTarea(c)).length,
+      tareasEnviadas: deModulo.filter((c) => tieneTarea(c) && enviada(estadoDe(c.id))).length,
+      completo: todas.every((c) => claseCompleta(c, p.progreso.get(c.id))),
     });
   }
   return out;
+}
+
+/**
+ * Los módulos con la descripción rica pasada OTRA VEZ por el saneo del server, que es lo último que
+ * pasa antes de viajar. Se guardó saneada (lib/html-seguro.ts, `validarHtmlRico`), pero la lista
+ * blanca puede achicarse después de guardar, y lo que dibuja el navegador es lo que manda esta
+ * función. `sanear` se pasa desde afuera porque lib/html-seguro.ts es `server-only` y este módulo lo
+ * importa un test.
+ */
+export function conHtmlSaneado(modulos: readonly ModuloVista[], sanear: (html: string) => string): ModuloVista[] {
+  return modulos.map((m) => ({
+    ...m,
+    clases: m.clases.map((c) => (esClaseCerrada(c) || !c.descripcionHtml ? c : { ...c, descripcionHtml: sanear(c.descripcionHtml) })),
+  }));
+}
+
+/**
+ * El estilo que viaja: las portadas recortadas a las CLASES ABIERTAS y a los MÓDULOS que viajan. La
+ * portada de una clase cerrada o la clave de un módulo que sus permisos no le dan no tienen por qué
+ * estar en el HTML.
+ */
+export function estiloQueViaja(estilo: EstiloCurso, modulos: readonly ModuloVista[]): EstiloCurso {
+  const clases = new Set(modulos.flatMap((m) => m.clases.filter((c) => !esClaseCerrada(c)).map((c) => c.id)));
+  const mods = new Set(modulos.map((m) => m.key));
+  const conClases = soloDeClases(estilo, clases);
+  const portadasEtapa: Record<string, string> = {};
+  for (const [k, v] of Object.entries(conClases.portadasEtapa)) if (mods.has(k)) portadasEtapa[k] = v;
+  return { ...conClases, portadasEtapa };
 }
 
 /** El primer nombre del cliente, para el saludo. `null` si no hay nada que decir. */
@@ -418,7 +525,7 @@ export function idDeClase(v: unknown): number | null {
 // ── Lo que lee (server) ───────────────────────────────────────────────────────
 
 /**
- * La vista entera del alumno: su nombre y, por cada producto suyo QUE TENGA CLASES, sus etapas.
+ * La vista entera del alumno: su nombre y, por cada producto suyo QUE TENGA CLASES, sus módulos.
  *
  * ⚠️ Corre adentro de `runWithWorkspace(firma.ws, …)` y DESPUÉS de `resolverAcceso` (o de
  * `resolverAccesoPortal`): todo lo de acá usa `getTenantDb`, que sin ese contexto cae al workspace
@@ -426,13 +533,18 @@ export function idDeClase(v: unknown): number | null {
  *
  * `opts.lider`: el área del líder que abrió el portal (#665), y SALE DE SU FILA EN LA BASE
  * (`resolverAccesoPortal`), nunca del pedido. Con un líder: sin nombre, sólo los productos que
- * tienen clases por área y, adentro, sólo esas (`armarEtapas`).
+ * tienen clases por área y, adentro, sólo esas (`armarModulos`).
  *
  * `opts.alcance`: los PERMISOS del alumno (mig 0219, `curso_accesos.alcance`), que también salen de
  * su fila en la base. Un módulo que no le permiten NO VIAJA: ni su nombre ni sus clases (lo que no
- * se abre no viaja, la regla de siempre del portal). Se descarta DESPUÉS de armar las etapas con la
- * lista entera de la entrega, porque el estado de cada una (hecha / actual / bloqueada) sale de su
- * POSICIÓN en el kanban: filtrar antes correría las posiciones.
+ * se abre no viaja, la regla de siempre del portal). Se aplica en `armarModulos`, DESPUÉS de evaluar
+ * con el kanban entero: el estado de una etapa sale de su POSICIÓN, y filtrar antes correría las
+ * posiciones.
+ *
+ * ⚠️ LAS ETAPAS Y LOS MÓDULOS SE LEEN ESTRICTOS (`modulosDelCurso(…, { estricta: true })`): con la
+ * lectura caída, la tolerante devolvía las etapas DE FÁBRICA y el candado decidía sobre ellas qué
+ * contenido le llegaba a cada alumno (riesgo 12 del relevo del 07/10/2026). Sin poder leer, la página
+ * dice «No pudimos cargar tus clases»: un error se reintenta, un curso abierto de más no se cierra.
  */
 export async function armarVistaAlumno(
   leadId: number,
@@ -440,15 +552,16 @@ export async function armarVistaAlumno(
 ): Promise<VistaAlumno> {
   const lider = opts.lider ?? null;
   const alcance = opts.alcance ?? null;
-  const [datos, { entregaDeProducto }, { getTenantDb }, { estilosDeProductos }] = await Promise.all([
+  const [datos, modulosDatos, { getTenantDb }, { estilosDeProductos }, { sanearHtml }] = await Promise.all([
     import('./curso-datos'),
-    import('./entrega-servicio'),
+    import('./curso-modulos-datos'),
     import('./workspace'),
     import('./curso-estilo-datos'),
+    import('./html-seguro'),
   ]);
   const db = await getTenantDb();
-  const [productos, avance, { data: lead }] = await Promise.all([
-    datos.productosDelAlumno(leadId),
+  const [{ productos, casa }, avance, { data: lead }] = await Promise.all([
+    datos.productosConCasaDelAlumno(leadId),
     datos.avanceDelCliente(leadId),
     db.from('leads').select('nombre').eq('id', leadId).maybeSingle(),
   ]);
@@ -468,53 +581,105 @@ export async function armarVistaAlumno(
     const clases = await datos.clasesDelProducto(productoId);
     if (!clases.length) continue;
     if (lider != null && !clases.some((c) => c.porArea === true)) continue;
-    const [cfg, actual] = await Promise.all([entregaDeProducto(productoId), datos.etapaActualDe(leadId, productoId, productos)]);
-    const etapas = armarEtapas(cfg.etapas, actual, clases, avance.progreso, { porArea: avance.porArea, areas: avance.areas, lider })
-      .filter((e) => moduloPermitido(alcance, productoId, e.key));
+    const [cur, actual] = await Promise.all([
+      modulosDatos.modulosDelCurso(productoId, { estricta: true }),
+      datos.etapaActualDe(leadId, productoId, productos),
+    ]);
+    if (!cur) throw new Error(`no pude leer los módulos del producto ${productoId}`);
+    const contexto = await modulosDatos.contextoDelAlumno({ leadId, productoId, casa, modulos: cur.modulos, clases });
+    const modulos = conHtmlSaneado(armarModulos({
+      modulos: cur.modulos, etapas: cur.entrega.etapas, actual, clases, progreso: avance.progreso,
+      permitido: (clave) => moduloPermitido(alcance, productoId, clave),
+      contexto,
+      opts: { porArea: avance.porArea, areas: avance.areas, lider },
+    }), sanearHtml);
     // Con todo escondido por sus permisos, el producto no se lista: un programa vacío se lee como roto.
-    if (alcance != null && !etapas.some((e) => e.cuantas > 0)) continue;
-    const viajan = new Set(etapas.flatMap((e) => e.clases.map((c) => c.id)));
+    if (alcance != null && !modulos.some((m) => m.cuantas > 0)) continue;
     out.push({
       productoId,
       nombre: nombreDe.get(productoId) ?? 'Tu programa',
-      estilo: soloDeClases(estilos.get(productoId) ?? estiloVacio(), viajan),
-      etapas,
+      estilo: estiloQueViaja(estilos.get(productoId) ?? estiloVacio(), modulos),
+      modulos,
     });
   }
   return { nombre, area: lider, productos: out };
 }
 
 /**
- * La clase `claseId`, si se le abre a este alumno. Lo usan las tres rutas públicas.
+ * La clase `claseId`, si se le abre a este alumno. Lo usan las rutas públicas (tarea, video,
+ * progreso, adjunto, entrega).
  *
- * Valida las DOS cosas que pide el portal: que la clase exista en el workspace de la firma
- * (`claseDeId`, que filtra por inquilino) Y que su producto sea uno del alumno
- * (`productosDelAlumno`). Con `exigeEtapa`, además, que su etapa esté abierta para él. Con
- * `lider`, que sea una clase POR ÁREA (`decidirClase`): el líder no abre ninguna otra.
+ * Valida las cosas que pide el portal: que la clase exista en el workspace de la firma
+ * (`claseDeId`, que filtra por inquilino), que su producto sea uno del alumno
+ * (`productosDelAlumno`), que su módulo esté en sus permisos (`alcance`, mig 0219: si no, el mismo
+ * 404 que una clase de otro producto, así la respuesta no cuenta que existe) y, con `exigeAbierta`,
+ * que esté ABIERTA para él: su candado y el de su módulo, con la MISMA evaluación que el dibujo
+ * (`aperturasDe`). Con `lider`, que sea una clase POR ÁREA (`decidirClase`).
  *
- * Con `alcance` (sus permisos, mig 0219), una clase de un módulo que no le permiten es
- * `'no-existe'`: el mismo 404 que una clase de otro producto, así la respuesta no cuenta que existe.
+ * `abierta` vuelve en el resultado (o `undefined` si no se pidió).
  *
- * ⚠️ Corre adentro de `runWithWorkspace(firma.ws, …)` y después de `resolverAccesoPortal`.
+ * ⚠️ Corre adentro de `runWithWorkspace(firma.ws, …)` y después de `resolverAccesoPortal`. Y TIRA si
+ * no puede leer lo que decide (las etapas, los módulos): la ruta contesta su error, no una clase
+ * abierta por una lectura caída.
  */
 export async function claseDelAlumno(
   leadId: number,
   claseId: number,
-  opts: { exigeEtapa: boolean; lider?: string | null; alcance?: AlcanceCurso },
-): Promise<{ decision: Exclude<DecisionClase, 'ok'> } | { decision: 'ok'; clase: Clase; estadoEtapa: EstadoEtapa | undefined }> {
+  opts: { exigeAbierta: boolean; lider?: string | null; alcance?: AlcanceCurso },
+): Promise<{ decision: Exclude<DecisionClase, 'ok'> } | { decision: 'ok'; clase: Clase; abierta: boolean | undefined }> {
   const datos = await import('./curso-datos');
-  const [clase, productos] = await Promise.all([datos.claseDeId(claseId), datos.productosDelAlumno(leadId)]);
-  let estadoEtapa: EstadoEtapa | undefined;
-  if (opts.exigeEtapa && clase && productos.includes(clase.productoId)) {
-    const { entregaDeProducto } = await import('./entrega-servicio');
-    const [cfg, actual] = await Promise.all([entregaDeProducto(clase.productoId), datos.etapaActualDe(leadId, clase.productoId)]);
-    estadoEtapa = estadosDeEtapas(cfg.etapas.map((e) => e.key), actual)[clase.etapa];
-  }
-  const decision = decidirClase(clase, productos, estadoEtapa, opts.exigeEtapa, opts.lider ?? null);
-  if (decision === 'ok' && clase && !moduloPermitido(opts.alcance ?? null, clase.productoId, clase.etapa)) {
+  const [clase, { productos, casa }] = await Promise.all([datos.claseDeId(claseId), datos.productosConCasaDelAlumno(leadId)]);
+  const alcance = opts.alcance ?? null;
+  if (clase && productos.includes(clase.productoId) && !moduloPermitido(alcance, clase.productoId, clase.etapa)) {
     return { decision: 'no-existe' };
   }
-  return decision === 'ok' && clase ? { decision, clase, estadoEtapa } : { decision: decision === 'ok' ? 'no-existe' : decision };
+  let abierta: boolean | undefined;
+  if (opts.exigeAbierta && clase && productos.includes(clase.productoId)) {
+    abierta = (await aperturasDelAlumno({ leadId, productoId: clase.productoId, productos, casa, alcance }))
+      .clases.get(clase.id)?.abierta === true;
+  }
+  const decision = decidirClase(clase, productos, abierta, opts.exigeAbierta, opts.lider ?? null);
+  return decision === 'ok' && clase ? { decision, clase, abierta } : { decision: decision === 'ok' ? 'no-existe' : decision };
+}
+
+/**
+ * Lo que se le abre a UN alumno en UN producto, leído y evaluado: sus módulos ESTRICTOS, su etapa,
+ * sus permisos y su contexto (fechas, nivel, lo abierto a mano), con la MISMA evaluación que dibuja
+ * el portal (`aperturasDe`). La usan las rutas (`claseDelAlumno`) y los mensajes que NOMBRAN clases
+ * (lib/curso-mensajes.ts: el recordatorio de videos y lo pendiente de una llamada).
+ *
+ * ⚠️ UN MENSAJE TAMBIÉN ES UNA PUERTA (revisión del 08/10/2026). El recordatorio listaba los videos sin
+ * ver de su etapa sin mirar candados ni permisos: le pedía por WhatsApp ver una clase que no puede
+ * abrir, o le nombraba una de un módulo que sus permisos no le dan (que en el portal no viaja «ni el
+ * nombre»). Con un armado propio en cada lugar, «abierta» querría decir dos cosas.
+ *
+ * TIRA si no puede leer lo que decide. `clases` y `progreso` los pasa quien ya los tiene (el cron los
+ * lee una vez) y si no se leen acá, en la MISMA ronda que los módulos (la ruta del progreso pega cada
+ * ~10 s: una ronda de más es medio pulso). `progreso` es el EFECTIVO (`progresoDelCliente`).
+ */
+export async function aperturasDelAlumno(p: {
+  leadId: number;
+  productoId: number;
+  productos: readonly number[];
+  casa: number | null;
+  alcance: AlcanceCurso;
+  clases?: readonly Clase[];
+  progreso?: ReadonlyMap<number, Progreso>;
+}): Promise<Aperturas> {
+  const [datos, modulosDatos] = await Promise.all([import('./curso-datos'), import('./curso-modulos-datos')]);
+  const [cur, actual, clases, progreso] = await Promise.all([
+    modulosDatos.modulosDelCurso(p.productoId, { estricta: true }),
+    datos.etapaActualDe(p.leadId, p.productoId, p.productos),
+    p.clases ?? datos.clasesDelProducto(p.productoId),
+    p.progreso ?? datos.progresoDelCliente(p.leadId),
+  ]);
+  if (!cur) throw new Error(`no pude leer los módulos del producto ${p.productoId}`);
+  const contexto = await modulosDatos.contextoDelAlumno({ leadId: p.leadId, productoId: p.productoId, casa: p.casa, modulos: cur.modulos, clases });
+  return aperturasDe({
+    modulos: cur.modulos, etapas: cur.entrega.etapas, actual, clases, progreso,
+    permitido: (clave) => moduloPermitido(p.alcance, p.productoId, clave),
+    contexto,
+  });
 }
 
 /**

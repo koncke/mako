@@ -6,8 +6,9 @@
 // (tests/curso-admin.test.ts). Las reglas del curso en sí —qué cierra una etapa, el % visto,
 // el saneo de un formulario— viven en lib/curso.ts; acá está lo que es de ESTA pantalla:
 // validar lo que guarda el editor, el orden de las clases, de dónde sale el path de un video
-// subido y la fila de «Avance». Y desde la mig 0208: la marca de grabar, las notas del equipo
-// con su adjunto, y qué archivo de los buckets del curso es huérfano (el cron que los barre).
+// subido y la fila de «Avance». Y desde la mig 0208: las notas del equipo con su adjunto (sin
+// pantalla desde el 08/10, las lee lib/curso-notas.ts) y qué archivo de los buckets del curso es
+// huérfano (el cron que los barre).
 //
 // Pedido de Martín (06/10/2026): «implementes la tab de "CURSO"… con todo su programa… los
 // formularios con las tareas… cargar vídeos, ya sea con un link o subiendo el video… que se
@@ -229,6 +230,21 @@ export function reordenar(ids: readonly number[], id: number, dir: 'arriba' | 'a
   return out;
 }
 
+/**
+ * El orden de un módulo con `claseId` metida ANTES de `antesDe` (`null` = al final): la lista
+ * entera de ids, que quien escribe renumera 0..n-1 (el mismo criterio que `reordenar`). Sirve para
+ * mover dentro del mismo módulo y para traerla de otro. `null` = `antesDe` no es de ese módulo, o
+ * es la misma clase.
+ */
+export function ordenConClaseEn(idsDelModulo: readonly number[], claseId: number, antesDe: number | null): number[] | null {
+  if (antesDe === claseId) return null;
+  const resto = idsDelModulo.filter((id) => id !== claseId);
+  if (antesDe == null) return [...resto, claseId];
+  const i = resto.indexOf(antesDe);
+  if (i < 0) return null;
+  return [...resto.slice(0, i), claseId, ...resto.slice(i)];
+}
+
 /** Mueve un elemento de una lista un lugar (los campos de un formulario). La misma lista si no se puede. */
 export function moverEnLista<T>(lista: readonly T[], i: number, dir: 'arriba' | 'abajo'): T[] {
   const j = dir === 'arriba' ? i - 1 : i + 1;
@@ -317,15 +333,68 @@ export const TOPE_TEXTO = 20_000;
 const TIPOS_OK = new Set<string>(TIPOS_CLASE.map((t) => t.value));
 
 /**
+ * El video que llega del editor, validado: uno de tres, y el link sólo si es http/https (va al `src`
+ * de un iframe que ve el cliente: `videoDeLink` es el que lo garantiza). Un archivo subido, sólo si es
+ * de ESTE producto de ESTE workspace. Lo usan el guardado entero (`validarClase`) y el del video solo
+ * (`guardarCampoClase`, lib/curso-admin.ts): una regla, no dos que divergen.
+ *
+ * Acepta `{ tipo: 'link', url }` (el del editor de siempre) y `{ tipo: 'url', url }` (el contrato
+ * de la lección editable). `null` o `{ tipo: 'ninguno' }` = sin video.
+ */
+export function validarVideoEntrada(
+  raw: unknown,
+  ctx: { ws: number; productoId: number },
+): { ok: true; video: Pick<FilaClaseGuardar, 'video_tipo' | 'video_url' | 'video_path'> } | { ok: false; error: string } {
+  const v = (raw ?? { tipo: 'ninguno' }) as { tipo?: unknown; url?: unknown; path?: unknown };
+  if (v.tipo === 'link' || v.tipo === 'url') {
+    const rec = videoDeLink(typeof v.url === 'string' ? v.url : '');
+    if (!rec) return { ok: false, error: 'Ese link no es válido.' };
+    return { ok: true, video: { video_tipo: rec.tipo, video_url: rec.url, video_path: null } };
+  }
+  if (v.tipo === 'archivo') {
+    const path = typeof v.path === 'string' ? v.path : '';
+    if (!pathEsDelProducto(path, ctx.ws, ctx.productoId)) return { ok: false, error: 'Ese video no es de este curso.' };
+    return { ok: true, video: { video_tipo: 'archivo', video_url: null, video_path: path } };
+  }
+  if (v.tipo != null && v.tipo !== 'ninguno') return { ok: false, error: 'Ese video no se entiende.' };
+  return { ok: true, video: { video_tipo: 'ninguno', video_url: null, video_path: null } };
+}
+
+/**
+ * Los campos del formulario que llegan del editor, revisados uno por uno ANTES de sanear (ver
+ * `validarClase`) y saneados. La misma pieza para el guardado entero y para el de los campos solos.
+ */
+export function validarCamposEntrada(raw: unknown): { ok: true; campos: Campo[] } | { ok: false; error: string } {
+  const crudos = Array.isArray(raw) ? (raw as Array<Record<string, unknown> | null>) : [];
+  if (crudos.length > 60) return { ok: false, error: 'Son más de 60 campos.' };
+  for (const c of crudos) {
+    const label = typeof c?.label === 'string' ? c.label.trim() : '';
+    if (!label) return { ok: false, error: 'Hay un campo sin pregunta.' };
+    const falta = faltaEnCampo(c);
+    if (falta) return { ok: false, error: falta };
+  }
+  const campos = sanearCampos(crudos);
+  if (campos.length !== crudos.length) return { ok: false, error: 'Hay campos repetidos.' };
+  return { ok: true, campos };
+}
+
+/** El error de «Cierra la etapa» en un módulo SUELTO: no es una etapa, no cierra nada. */
+export const ERROR_OBLIGATORIA_SUELTO = 'Un módulo suelto no cierra etapas.';
+
+/**
  * Valida y normaliza lo que guarda el editor. Los errores son CORTOS: se dibujan tal cual.
  *
  * ⚠️ LOS CAMPOS SE REVISAN ANTES DE SANEAR, y es a propósito: `sanearCampos` TIRA en silencio
  * un campo sin pregunta. Para la base eso está bien, pero en el editor sería que Mauricio
  * agrega un campo, lo deja a medias, guarda, y el campo desaparece sin que nada se lo diga.
+ *
+ * `ctx.modulos`: las claves de los MÓDULOS del curso (D1: las etapas que son módulo y los sueltos).
+ * `ctx.sueltos`: cuáles de ésos son sueltos — ahí «Cierra la etapa» no tiene etapa que cerrar (el
+ * paso automático es sólo de los vinculados) y se rechaza en vez de guardarse sin efecto.
  */
 export function validarClase(
   raw: unknown,
-  ctx: { ws: number; productoId: number; etapas: readonly string[] },
+  ctx: { ws: number; productoId: number; modulos: readonly string[]; sueltos?: readonly string[] },
 ): { ok: true; id: number | null; fila: FilaClaseGuardar } | { ok: false; error: string } {
   if (!raw || typeof raw !== 'object') return { ok: false, error: 'No llegó la clase.' };
   const r = raw as Record<string, unknown>;
@@ -338,7 +407,7 @@ export function validarClase(
   if (titulo.length > TOPE_TITULO) return { ok: false, error: `El título pasa de ${TOPE_TITULO} letras.` };
 
   const etapa = typeof r.etapa === 'string' ? r.etapa : '';
-  if (!ctx.etapas.includes(etapa)) return { ok: false, error: 'Esa etapa no existe.' };
+  if (!ctx.modulos.includes(etapa)) return { ok: false, error: 'Ese módulo no existe.' };
 
   const tipo = (typeof r.tipo === 'string' && TIPOS_OK.has(r.tipo) ? r.tipo : 'clase') as TipoClase;
 
@@ -353,39 +422,21 @@ export function validarClase(
   const tarea = typeof r.tarea === 'string' ? r.tarea.trim() : '';
   if (descripcion.length > TOPE_TEXTO || tarea.length > TOPE_TEXTO) return { ok: false, error: 'El texto es demasiado largo.' };
 
-  // El video: uno de tres, y el link sólo si es http/https (va al `src` de un iframe que ve el
-  // cliente: `videoDeLink` es el que lo garantiza).
-  const v = (r.video ?? { tipo: 'ninguno' }) as Partial<VideoEntrada> & { url?: unknown; path?: unknown };
-  let video: Pick<FilaClaseGuardar, 'video_tipo' | 'video_url' | 'video_path'>;
-  if (v.tipo === 'link') {
-    const rec = videoDeLink(typeof v.url === 'string' ? v.url : '');
-    if (!rec) return { ok: false, error: 'Ese link no es válido.' };
-    video = { video_tipo: rec.tipo, video_url: rec.url, video_path: null };
-  } else if (v.tipo === 'archivo') {
-    const path = typeof v.path === 'string' ? v.path : '';
-    if (!pathEsDelProducto(path, ctx.ws, ctx.productoId)) return { ok: false, error: 'Ese video no es de este curso.' };
-    video = { video_tipo: 'archivo', video_url: null, video_path: path };
-  } else {
-    video = { video_tipo: 'ninguno', video_url: null, video_path: null };
-  }
+  const vv = validarVideoEntrada(r.video, ctx);
+  if (!vv.ok) return vv;
+  const video = vv.video;
 
   // Los campos, revisados uno por uno antes del saneo (ver arriba).
-  const crudos = Array.isArray(r.campos) ? (r.campos as Array<Record<string, unknown> | null>) : [];
-  if (crudos.length > 60) return { ok: false, error: 'Son más de 60 campos.' };
-  for (const c of crudos) {
-    const label = typeof c?.label === 'string' ? c.label.trim() : '';
-    if (!label) return { ok: false, error: 'Hay un campo sin pregunta.' };
-    const falta = faltaEnCampo(c);
-    if (falta) return { ok: false, error: falta };
-  }
-  const campos = sanearCampos(crudos);
-  if (campos.length !== crudos.length) return { ok: false, error: 'Hay campos repetidos.' };
+  const vc = validarCamposEntrada(r.campos);
+  if (!vc.ok) return vc;
+  const campos = vc.campos;
 
   // «Cierra la etapa» sin nada que hacer no cierra nada: `obligatoriasDe` (lib/curso.ts) sólo
   // cuenta las que piden algo, así que la marca quedaría guardada y sin efecto — y la etapa no
   // avanzaría sola sin que nadie entienda por qué.
   const obligatoria = r.obligatoria === true;
   if (obligatoria && !tieneTarea({ tarea, campos })) return { ok: false, error: 'Para cerrar la etapa, agrega la tarea.' };
+  if (obligatoria && ctx.sueltos?.includes(etapa)) return { ok: false, error: ERROR_OBLIGATORIA_SUELTO };
 
   return { ok: true, id: idCrudo, fila: { etapa, titulo, descripcion, tipo, minutos, ...video, tarea, campos, obligatoria } };
 }
@@ -446,6 +497,8 @@ export type FilaAvance = {
   videosSinMedir: number;
   /** `null` = no se pudo leer (no «nunca entró»). */
   acceso: AccesoFila | null;
+  /** Su email en el CRM: lo prellena «Invitar alumnos» del editor. Ausente = no se leyó. */
+  email?: string | null;
 };
 
 /** Las filas en el orden del recorrido: por etapa (la primera arriba) y por nombre adentro. */
@@ -454,37 +507,14 @@ export function ordenarFilas(filas: readonly FilaAvance[], etapas: readonly stri
   return [...filas].sort((a, b) => pos(a.etapa) - pos(b.etapa) || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
-// ── Grabar / no grabar (#693, mig 0208) ──────────────────────────────────────
-
-/**
- * Lo que puede valer la marca: `true` (grabar), `false` (no se graba) o `null` (sin decidir).
- * `undefined` = el pedido trae otra cosa y no se escribe nada.
- *
- * ⚠️ `null` ES UN VALOR QUE SE GUARDA, no un «no llegó»: es como se des-marca una clase (tocar
- * otra vez la opción elegida). Un string «true» o un 1 NO valen: la marca viaja desde el
- * navegador y una coerción acá convertiría cualquier basura en una decisión.
- */
-export function valorGrabar(raw: unknown): boolean | null | undefined {
-  if (raw === true || raw === false || raw === null) return raw;
-  return undefined;
-}
-
-/**
- * Cuántas clases faltan GRABAR: las marcadas «Grabar» que todavía no tienen video.
- *
- * ⚠️ «POR GRABAR» Y NO «MARCADAS GRABAR»: cuando el video llega, la clase deja de faltar sola,
- * sin que nadie tenga que volver a tocar la marca. Contando las marcadas, el número no bajaría
- * nunca y la única forma de bajarlo sería mentir con «No grabar» sobre una clase ya grabada.
- * Una clase sin decidir (`null`) no cuenta: nadie eligió grabarla.
- */
-export function porGrabar(
-  clases: readonly Pick<Clase, 'id' | 'videoTipo'>[],
-  grabar: Readonly<Record<number, boolean | null>>,
-): number {
-  return clases.filter((c) => grabar[c.id] === true && c.videoTipo === 'ninguno').length;
-}
+// ⚠️ «GRABAR / NO GRABAR» (#693) SE FUE el 08/10/2026 (item 15 de Martín: «Elimina el botón de
+// "grabar/no grabar"»), con su regla (`valorGrabar`) y su conteo («N por grabar», `porGrabar`). La
+// columna `curso_clases.grabar` (mig 0208) queda con lo que tenía y nadie la lee.
 
 // ── Las notas del equipo (#692, mig 0208) ────────────────────────────────────
+// ⚠️ La pantalla de las notas se fue el 08/10/2026 (item 13: «Elimina la sección de "Notas" en todos
+// lados»). Quedan la tabla, el bucket, lib/curso-notas.ts y estas reglas: las usa la purga de los
+// archivos huérfanos (lib/curso-purga.ts), que sigue barriendo el bucket.
 
 /**
  * Los formatos que acepta el bucket `curso-notas` (mig 0208, `allowed_mime_types`): documentos,

@@ -7,9 +7,13 @@
 //
 // ⚠️ SIN LEAD Y SIN TOKEN, A PROPÓSITO. Abrir el portal de un cliente real para esto le CREA su
 // fila de `curso_accesos` y le suma un ingreso a «Entró N veces» (docs/relevo/customer-success.md,
-// trampa 5). Acá se arma la MISMA vista con las funciones puras del portal (`armarEtapas`, sin
+// trampa 5). Acá se arma la MISMA vista con las funciones puras del portal (`armarModulos`, sin
 // progreso) y se dibuja el MISMO `PortalAlumno` con `vistaPrevia`, que apaga todo lo que escribe
 // (app/compartido/curso/[token]/vista-previa.ts). No se toca ninguna tabla del alumno.
+//
+// Los candados (D2, lib/curso-bloqueo.ts) se evalúan como el DÍA UNO de un alumno: hoy es el día en
+// que se le abrió el curso, está en el nivel 1 y nadie le abrió nada a mano. Así lo que se abre «a los
+// 7 días» o «en el nivel 3» se ve cerrado, con su motivo, que es lo que ve un alumno que recién entra.
 //
 // La etapa se elige (`?etapa=`): por defecto la primera, que es como lo ve un cliente el día uno
 // —lo de adelante, cerrado—. Los videos SUBIDOS van con un link firmado de vida corta: la ruta del
@@ -19,10 +23,15 @@ import { requireCapa } from '@/lib/tab-access';
 import { getTenantDb, adminDeWorkspaceActual } from '@/lib/workspace';
 import { clasesDelProducto } from '@/lib/curso-datos';
 import { urlsDeVistaPrevia } from '@/lib/curso-admin';
-import { entregaDeProducto } from '@/lib/entrega-servicio';
-import { armarEtapas, type VistaAlumno } from '@/lib/curso-portal';
+import { urlsAdjuntosEquipo } from '@/lib/curso-adjuntos';
+import { refsEnHtml } from '@/lib/curso-adjuntos-reglas';
+import { modulosDelCurso } from '@/lib/curso-modulos-datos';
+import { armarModulos, conHtmlSaneado, estiloQueViaja, esClaseCerrada, type VistaAlumno } from '@/lib/curso-portal';
 import { estilosDeProductos } from '@/lib/curso-estilo-datos';
-import { estiloVacio, soloDeClases } from '@/lib/curso-estilo';
+import { estiloVacio } from '@/lib/curso-estilo';
+import { sanearHtml } from '@/lib/html-seguro';
+import { tzActual } from '@/lib/timezone';
+import { hoyEnTz } from '@/lib/date-utils';
 import { Pagina, EmptyState } from '@/app/_ui';
 import PortalAlumno from '@/app/compartido/curso/[token]/PortalAlumno';
 import { BarraVistaPrevia } from './BarraVistaPrevia';
@@ -50,30 +59,47 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     );
   }
 
-  const [cfg, clases, adminId, estilos] = await Promise.all([
-    entregaDeProducto(productoId),
+  // Para DIBUJAR (la tolerante): una vista previa con las etapas de fábrica por una lectura caída es
+  // un susto, no una decisión — nada de acá le abre ni le cierra nada a un alumno.
+  const [cur, clases, adminId, estilos, tz] = await Promise.all([
+    modulosDelCurso(productoId),
     clasesDelProducto(productoId),
     adminDeWorkspaceActual(),
     // Cómo se ve el curso: la vista previa es justamente para mirar eso.
     estilosDeProductos([productoId]),
+    tzActual(),
   ]);
+  const cfg = cur.entrega;
   const etapa = cfg.etapas.some((e) => e.key === sp.etapa) ? sp.etapa! : cfg.etapas[0]?.key ?? null;
-  const etapas = armarEtapas(cfg.etapas, etapa, clases, new Map());
+  const hoy = hoyEnTz(tz);
+  const modulos = conHtmlSaneado(armarModulos({
+    modulos: cur.modulos, etapas: cfg.etapas, actual: etapa, clases, progreso: new Map(),
+    contexto: { fechas: { hoy, inicio: hoy }, nivel: 1, desbloqueos: [] },
+  }), sanearHtml);
 
-  // Los videos subidos de lo que se ve (las etapas abiertas): un link firmado por cada uno.
+  // Los videos subidos de lo que se ve (las clases abiertas): un link firmado por cada uno.
   const pathDe = new Map(clases.map((c) => [c.id, c.videoPath]));
-  const paths = etapas.flatMap((e) => e.clases)
-    .filter((c) => c.video?.tipo === 'archivo')
-    .map((c) => pathDe.get(c.id))
+  const paths = modulos.flatMap((e) => e.clases)
+    .flatMap((c) => (esClaseCerrada(c) || c.video?.tipo !== 'archivo' ? [] : [pathDe.get(c.id)]))
     .filter((p): p is string => !!p);
   const firmados = paths.length ? await urlsDeVistaPrevia(paths) : new Map<string, string>();
-  for (const e of etapas) {
+  for (const e of modulos) {
     e.clases = e.clases.map((c) => {
-      if (c.video?.tipo !== 'archivo') return c;
+      if (esClaseCerrada(c) || c.video?.tipo !== 'archivo') return c;
       const url = firmados.get(pathDe.get(c.id) ?? '');
       return { ...c, video: url ? { tipo: 'directo' as const, url } : null };
     });
   }
+
+  // ⚠️ LOS ADJUNTOS DE LAS DESCRIPCIONES (imágenes, PDF, archivos), firmados para el EQUIPO: el alumno
+  // los pide con su token, y acá no hay ninguno — sin esto la vista previa salía sin imágenes y con los
+  // archivos sin link, sin ningún error. Sólo los de lo que se ve (las clases abiertas). Si la firma
+  // falla, el adjunto no se dibuja: la vista previa no se cae por eso.
+  const refs = [...new Set(modulos.flatMap((e) => e.clases)
+    .flatMap((c) => (esClaseCerrada(c) ? [] : refsEnHtml(c.descripcionHtml))))];
+  const urlsAdjuntos = refs.length
+    ? await urlsAdjuntosEquipo(refs).catch((e) => { console.warn('[curso] no pude firmar los adjuntos de la vista previa:', e instanceof Error ? e.message : e); return {}; })
+    : {};
 
   const vista: VistaAlumno = {
     nombre: null,
@@ -82,9 +108,9 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     area: null,
     // Un producto sin clases no se le muestra al alumno (`armarVistaAlumno`): acá tampoco.
     productos: clases.length ? [{
-      productoId, nombre: (prod as { nombre: string }).nombre, etapas,
-      // Lo mismo que le llega al alumno (`armarVistaAlumno`): las portadas de las clases que se ven.
-      estilo: soloDeClases(estilos.get(productoId) ?? estiloVacio(), new Set(etapas.flatMap((e) => e.clases.map((c) => c.id)))),
+      productoId, nombre: (prod as { nombre: string }).nombre, modulos,
+      // Lo mismo que le llega al alumno (`armarVistaAlumno`): las portadas de lo que se ve.
+      estilo: estiloQueViaja(estilos.get(productoId) ?? estiloVacio(), modulos),
     }] : [],
   };
 
@@ -101,7 +127,7 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
         anotar={adminId != null}
       />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <PortalAlumno token="" vista={vista} vistaPrevia />
+        <PortalAlumno token="" vista={vista} vistaPrevia urlsAdjuntos={urlsAdjuntos} />
       </div>
     </div>
   );

@@ -7430,3 +7430,59 @@ navegador (el `document.activeElement` después de abrir), no el código.
 **Vive en:** `app/_cursos/estilos.ts` · `app/_cursos/CursoUgc.tsx` (`MenuMarca`, el hero de
 edición) · `app/conocimientos/PortadaModulo.tsx` (`rotulo`, los limas por variable) ·
 `lib/curso-estilo.ts` (`varsDeAcento`, `TINTES_ACENTO`).
+
+### Y la sidebar de MaKo corrida 50 px (07-08/10/2026)
+
+**11. Con el `html` en `overflow: hidden`, un `overflow` en el `body` NO pasa a la ventana: vuelve
+al body un contenedor de scroll, y todo `sticky` de adentro se mide contra él.** Pedido de Martín
+(item 2 de la tanda del curso tipo Skool): «se bugeo la sidebar principal de MaKo, hay un espacio
+en blanco arriba... No se si solo ocurren en la vista de inspección o siempre». Era sólo con una
+barra arriba (la de agencia al inspeccionar a un cliente; la alerta de voz baja el body con la
+misma regla de `app/globals.css`, no medido) y sólo en las pantallas que montan `.ahdoc` (la tab
+Curso, el portal del alumno, /conocimientos).
+
+La cola de la hoja hacía `html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden }`. El
+`overflow` del body se propaga a la ventana sólo si el del `html` es `visible`; con el del `html`
+en `hidden`, se queda en el body y lo vuelve contenedor de scroll. La sidebar es `sticky`: pasó a
+pegarse contra el body, que la barra ya había bajado con su `padding-top`, y su `top` (que ya vale
+la barra) se contaba desde adentro de ese padding — la barra sumada dos veces, 50 px de blanco
+arriba del logo.
+
+⚠️ El diagnóstico obvio es mirar la sidebar o la barra de agencia, y ninguna de las dos cambió:
+cambió QUIÉN es el ancestro que scrollea. Es la misma familia que «Cuando la pagina deja de
+scrollear» (arriba) y que la regla de AGENTS.md del eje en `hidden`: **un `overflow` en un
+ancestro de algo `sticky` cambia contra qué se pega, aunque ese ancestro no scrollee nunca.**
+
+Se sacó el `overflow` del body: la página igual no scrollea, la recorta el `html`. **Vive en:**
+`public/cono-doc/ugc.css` y su generador `scripts/avatarhype-css.mjs` (la cola escrita a mano):
+editar sólo el `.css` se pierde en la próxima regeneración.
+
+## Conocimientos editable por el super admin: el link de UN curso bajaba el catálogo entero (08/10/2026)
+
+En `bccbebae`. Conocimientos dejó `CursoReplica` y monta `CursoUgc` (app/conocimientos/modelo-ugc.ts,
+puro y con test); lo que edita el super admin vive en `conocimiento_ajustes` (mig 0221, sin
+`workspace_id`: es de la plataforma) y se aplica encima del catálogo del código en el SERVER
+(lib/conocimiento-ajustes.ts). Sólo `getSesionAdmin()` escribe; un link compartido ve los ajustes y
+no edita.
+
+**Lo que encontró la revisión final, y es el diagnóstico obvio equivocado:** el informe del paso
+decía «en el link de UN curso, lo oculto no viaja», y era cierto sobre las PROPS. Pero Turbopack arma
+un solo juego de chunks para todos los componentes cliente de una página: `CursoCompartido`,
+`Galeria`, `AnalisisCompartido` y `PortalCompartido` colgaban de los mismos 8 chunks (4,79 MB), y uno
+de 3,9 MB traía el catálogo entero —los 132 cursos, lo oculto incluido—. Lo bajaba cualquiera que
+abriera el link de un curso o la galería de marca de un cliente.
+
+- **Se mide en `.next/server/app/<ruta>/page_client-reference-manifest.js`**, no leyendo las props.
+- **Se corta con `next/dynamic` adentro de un componente cliente**
+  (`app/compartido/[token]/PortalCompartidoPerezoso.tsx`): desde un server component no divide el
+  chunk. Medido después: el de la página bajó a 1,04 MB y ninguno de sus archivos trae el catálogo.
+- Lo fija `tests/conocimiento-ajustes.test.ts`, que recorre los imports estáticos de cada componente
+  cliente de la página.
+
+**Otras dos:** `guardarAjustes` tiene que filtrar por la clave ENTERA (curso, objeto, id y campo):
+sin `curso_slug`, «Nombre original» borraba esa fila en los 132 cursos. Y `cache()` de React compara
+por identidad: la clave tiene que ser un string, no un array armado aparte.
+
+**Sin hacer:** la tab compartida entera (`PortalCompartido`) sigue bajando el catálogo completo, lo
+oculto incluido (ya era así); el chip «Oculto» usa el ícono del candado y se puede leer como
+«bloqueado»; `getSesionAdmin` mira el rol global, así que edita cualquier usuario con `rol='admin'`.

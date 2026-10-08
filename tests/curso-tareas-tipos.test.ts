@@ -24,6 +24,7 @@
 //   · `campoCompleto` de checklist con «alguna» en vez de «todas»            → 21 / 1 «una checklist entera»
 //   · `linkValido` aceptando cualquier esquema                               → 21 / 1 «sólo http/https»
 //   · la ruta de entregas con `exigeEtapa: false`                            → 21 / 1 «el candado»
+//     (08/10/2026: el candado se llama `exigeAbierta` — la clase abierta, D2 — y la rotura es la misma)
 //   · la ruta de entregas sin `areaDeLaTarea`                                → 21 / 1 «el candado»
 //   · la ruta de la tarea guardando sin `verificarEntregas`                  → 21 / 1 «verifica antes de guardar»
 //   · la ruta de la tarea pasando `enviar` (y no `enviar && !desaprobo`)     → 21 / 1 «un quiz desaprobado…»
@@ -58,7 +59,7 @@ import {
   TOPE_SUBIDAS_DIA, TOPE_BYTES_SUBIDAS_DIA, VENTANA_SUBIDAS_MS, MAX_OPCIONES_QUIZ, MAX_PREGUNTAS,
   type Campo, type Clase, type Progreso, type DuenoEntrega,
 } from '../lib/curso';
-import { armarEtapas } from '../lib/curso-portal';
+import { armarModulos, esClaseCerrada, type ClaseVista } from '../lib/curso-portal';
 import { queFalta, estadoDeQuiz } from '../app/compartido/curso/[token]/tarea-valores';
 import { validarClase, faltaEnCampo } from '../app/customer-success/curso/reglas';
 
@@ -73,6 +74,18 @@ const clase = (id: number, o: Partial<Clase> = {}): Clase => ({
   id, productoId: 7, etapa: 'e1', orden: id, titulo: `C${id}`, descripcion: '', tipo: 'clase',
   minutos: null, videoTipo: 'ninguno', videoUrl: null, videoPath: null, tarea: '', campos: [], obligatoria: false, ...o,
 });
+/**
+ * El portal de UNA etapa (un módulo vinculado, sin candados propios): la forma de `armarEtapas`, que
+ * se fue el 08/10/2026 (D1). Exige que ninguna clase haya viajado cerrada.
+ */
+const armarEtapas = (etapas: Array<{ key: string; label: string }>, actual: string, clases: Clase[], progreso: Map<number, Progreso>) =>
+  armarModulos({
+    modulos: etapas.map((e, i) => ({ clave: e.key, nombre: e.label, vinculado: true, n: i + 1, bloqueo: null })),
+    etapas, actual, clases, progreso,
+  }).map((m) => {
+    assert.ok(!m.clases.some(esClaseCerrada), `el módulo ${m.key} trajo una clase cerrada sin candados`);
+    return { ...m, clases: m.clases as ClaseVista[] };
+  });
 const prog = (claseId: number, o: Partial<Progreso> = {}): Progreso => ({
   claseId, segundosMax: 0, duracionSeg: null, pct: 0, vistoAt: null, valores: {}, estado: 'pendiente', enviadaAt: null, ...o,
 });
@@ -315,7 +328,7 @@ test('la vista del alumno (armarEtapas → claseVista) no lleva las correctas en
 // ── El editor no deja guardar un tipo que no cierra ──────────────────────────
 
 test('validarClase: un quiz sin correcta, una escala sin extremos o una agenda sin link no se guardan', () => {
-  const ctx = { ws: 3, productoId: 7, etapas: ['e1'] };
+  const ctx = { ws: 3, productoId: 7, modulos: ['e1'] };
   const base = { productoId: 7, etapa: 'e1', titulo: 'Clase' };
   const con = (campos: unknown[]) => validarClase({ ...base, campos }, ctx);
   assert.deepEqual(con([{ id: 'q', label: 'Repaso', tipo: 'quiz', preguntas: [{ id: 'p', texto: '¿?', opciones: ['a', 'b'], correctas: [] }] }]),
@@ -347,13 +360,13 @@ test('la mig 0218: el bucket acepta exactamente MIME_ENTREGA y topea en TOPE_ENT
 
 // ── La ruta de las entregas: el mismo candado que la tarea ───────────────────
 
-test('la ruta de entregas: firma → resolver → candado (exigeEtapa) → área → y recién ahí firma la subida', () => {
+test('la ruta de entregas: firma → resolver → candado (exigeAbierta) → área → y recién ahí firma la subida', () => {
   const src = leer('app/api/compartido/curso/entrega/route.ts');
   const handlers = [...src.matchAll(/export\s+async\s+function\s+(GET|POST|PUT|PATCH|DELETE)\b/g)].map((m) => m[1]);
   assert.deepEqual(handlers, ['POST']);
   assert.match(src, /const\s+firma\s*=\s*leerTokenPortal\(token\)/);
   assert.match(src, /runWithWorkspace\(\s*firma\.ws\s*,\s*async\s*\(\)\s*=>\s*\{\s*const\s+acceso\s*=\s*await\s+resolverAccesoPortal\(token\)/);
-  assert.match(src, /claseDelAlumno\([^)]*exigeEtapa:\s*true[^)]*lider:\s*acceso\.area/, 'el candado de la etapa y el área del acceso');
+  assert.match(src, /claseDelAlumno\([^)]*exigeAbierta:\s*true[^)]*lider:\s*acceso\.area/, 'el candado de la clase y el área del acceso');
   const i = (s: string) => src.indexOf(s);
   assert.ok(i('rateLimit(`curso-entrega:ip') >= 0 && i('rateLimit(`curso-entrega:ip') < i('leerJsonTopeado('), 'el tope por IP antes de leer nada');
   assert.ok(i('resolverAccesoPortal(') < i('claseDelAlumno('));

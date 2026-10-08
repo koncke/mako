@@ -12,12 +12,13 @@
  *   · app/compartido/curso/[token]/PortalAlumno.tsx   el portal del alumno: el reproductor
  *                                                      medido y la tarea (07/10/2026)
  *   · app/customer-success/curso/CursoApp.tsx         la tab Curso: lo mismo + `edicion`
+ *   · app/conocimientos/CursoConocimientos.tsx        los cursos de Conocimientos (el super admin
+ *                                                      con `edicion`, y los links compartidos), con
+ *                                                      el `key` de cada módulo por NOMBRE: los `#mod=`
+ *                                                      que ya circulan lo llevan (08/10/2026)
  *
- * ⚠️ Y UNA QUE TODAVÍA NO: app/conocimientos/CursoReplica.tsx, de donde salió este dibujo, sigue
- *    con SU copia del DOM. Mudarla es el paso que falta para que haya un solo dibujo — tiene
- *    alumnos y links compartidos, así que se hace aparte y con el `key` de cada módulo por NOMBRE
- *    (los `#mod=` que ya circulan lo llevan). Hasta entonces, lo que se le cambie a una se mira
- *    en la otra.
+ * (Hasta el 08/10/2026 Conocimientos tenía SU copia de este DOM, app/conocimientos/CursoReplica.tsx,
+ * de donde salió este dibujo. Se borró al mudarse acá.)
  *
  * ⚠️ «Dos componentes para la misma pantalla» es el error que esto viene a cerrar: pasó con
  *    CursoPortal y CursoReplica, y lo que se agregaba a uno no aparecía en el otro. Si una
@@ -43,15 +44,19 @@
  * app/conocimientos/posicion.ts (`#curso=&mod=<key>&q=&v=recursos&clase=<id>&r=&x=<extra>`).
  */
 
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { usePosicion, type Posicion } from '@/app/conocimientos/posicion';
 import { Miniatura } from '@/app/conocimientos/Miniatura';
 import { PortadaModulo } from '@/app/conocimientos/PortadaModulo';
-import type { ClaseUgc, CursoUgcProps, EdicionUgc, LeccionUgc, ModuloUgc, PortadaUgc, TextosUgc, TonoChip } from './tipos';
+// Las láminas diseñadas (item 5) y el arrastre (item 7): ver sus cabeceras.
+import { Lamina, conChipDeNumero } from './laminas';
+import { useArrastreCurso, type ArrastreCurso } from './arrastre-curso';
+import type { ControlMenuUgc } from './tipos';
+import type { ClaseUgc, CursoUgcProps, DisposicionUgc, EdicionUgc, LeccionUgc, ModuloUgc, PortadaUgc, TextosUgc, TonoChip } from './tipos';
 import { CSS_UGC } from './estilos';
 import { varsDeAcento } from '@/lib/curso-estilo';
 import {
-  TEXTOS_DEFAULT, abrible, clasesVisibles, moduloMarcado, pctAvance, puedeMoverPorPosicion,
+  OPCIONES_DISPOSICION, TEXTOS_DEFAULT, abrible, claseDelSplit, clasesVisibles, moduloMarcado, pctAvance, puedeMoverPorPosicion,
   rotuloGrilla, textoBarraModulo, textoTarjetaModulo, vecinas,
 } from './reglas';
 
@@ -102,10 +107,13 @@ export function ChipUgc({ tono = 'neutro', title, children }: { tono?: TonoChip;
 }
 
 /**
- * La cabecera de pestañas del papel. Controlada: quien la usa decide cuál está abierta.
- * La usa CursoUgc para `leccion().pestanas`, y la usa CursoReplica para las suyas, que
- * llegan de a una por fetch. Una sola pieza: las dos pantallas no pueden dibujar pestañas
- * distintas.
+ * La cabecera de pestañas de un papel con VARIAS hojas. Controlada: quien la usa decide cuál está
+ * abierta. La usa CursoReplica para las suyas, que llegan de a una por fetch, y la va a usar el papel
+ * de Conocimientos cuando monte este dibujo. Una sola pieza: dos pantallas no pueden dibujar
+ * pestañas distintas.
+ *
+ * ⚠️ La lección de un curso del equipo (portal y tab Curso) NO tiene pestañas desde el 08/10/2026
+ *    (item 14): la descripción y la tarea van juntas en un papel (ver `LeccionUgc`).
  */
 export function CabeceraPestanas({ nombres, activa, onCambiar, extra }: {
   nombres: string[];
@@ -139,8 +147,11 @@ const IconoCheck = () => (
   </svg>
 );
 
-/** La clase de estado de un módulo, para la barra y la tarjeta. Vacía sin estado (Conocimientos). */
-const claseEstado = (m: ModuloUgc) => (m.estado ? ` is-${m.estado}` : '');
+/**
+ * La clase de estado de un módulo, para la barra y la tarjeta. Vacía sin estado (Conocimientos). Lleva
+ * también `is-atenuado`: lo oculto que sólo ve el super admin (`ModuloUgc.atenuado`).
+ */
+const claseEstado = (m: ModuloUgc) => `${m.estado ? ` is-${m.estado}` : ''}${m.atenuado ? ' is-atenuado' : ''}`;
 
 function BarraAvance({ p, className }: { p: { hechas: number; total: number }; className: string }) {
   return (
@@ -156,7 +167,7 @@ function BarraAvance({ p, className }: { p: { hechas: number; total: number }; c
 export default function CursoUgc(props: CursoUgcProps) {
   const {
     titulo, subtitulo, marca, modulos, clases, portada, leccion, recursos, entradasExtra,
-    edicion, arriba, pieBarra, onSalir, modo = 'pagina', acento,
+    edicion, arriba, pieBarra, onSalir, modo = 'pagina', acento, disposicion,
   } = props;
   const t: TextosUgc = useMemo(() => ({ ...TEXTOS_DEFAULT, ...props.textos }), [props.textos]);
   const cssListo = useCssUgc();
@@ -192,6 +203,22 @@ export default function CursoUgc(props: CursoUgcProps) {
   // Sale de la URL, no de `useState`: es una POSICIÓN, y tiene que sobrevivir al Atrás.
   const mod = pos.mod ?? null;
   const filtradas = useMemo(() => clasesVisibles(clases, modulos, mod, q), [clases, modulos, mod, q]);
+
+  // ── El editor de la ESTRUCTURA (items 6, 7 y 12): el menú «…» y el arrastre ──
+  /** El desplegable «…» abierto: de qué módulo o clase, y de qué botón cuelga. */
+  const [opciones, setOpciones] = useState<
+    { tipo: 'modulo'; key: string; ancla: HTMLElement } | { tipo: 'clase'; id: number; ancla: HTMLElement } | null
+  >(null);
+  const idOpciones = useId();
+  /** Los módulos que se pueden mover, en el orden en que se dibujan: los que no armó la pantalla. */
+  const movibles = useMemo(() => modulos.filter((m) => !m.sinEdicion).map((m) => m.key), [modulos]);
+  const arr = useArrastreCurso({
+    modulos: movibles,
+    clasesDe: (k) => clases.filter((c) => c.moduloKey === k).map((c) => c.id),
+    recibeClases: (k) => modulos.some((m) => m.key === k && !m.sinEdicion),
+    onOrdenarModulos: edicion?.onOrdenarModulos,
+    onLlevarClase: edicion?.onLlevarClase,
+  });
 
   // El menú del teléfono se cierra con Escape: es un desplegable, y uno que sólo se cierra
   // tocando el botón que lo abrió es una trampa para el teclado.
@@ -229,6 +256,24 @@ export default function CursoUgc(props: CursoUgcProps) {
   const puede = (id: number, dir: 'arriba' | 'abajo') =>
     (edicion?.puedeMover ? edicion.puedeMover(id, dir) : puedeMoverPorPosicion(clases, id, dir));
 
+  // El menú «…»: el botón y el desplegable son del dibujo; lo de adentro lo arma la pantalla.
+  const abrirOpciones = (o: { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number }, ancla: HTMLElement) =>
+    setOpciones((a) => (a && a.ancla === ancla ? null : { ...o, ancla }));
+  const cerrarOpciones = () => setOpciones(null);
+  const mOpc = opciones?.tipo === 'modulo' ? modulo(opciones.key) : undefined;
+  const cOpc = opciones?.tipo === 'clase' ? clases.find((c) => c.id === opciones.id) : undefined;
+  const ctlOpc: ControlMenuUgc = {
+    cerrar: cerrarOpciones,
+    ancla: opciones?.ancla ?? null,
+    // Renombrar desde el menú pone a editar el MISMO texto que se edita con un clic (en la tarjeta del
+    // índice o en la cabecera del módulo abierto: nunca están los dos a la vez).
+    renombrar: mOpc && edicion?.onTexto && !mOpc.sinEdicion ? () => { cerrarOpciones(); enfocarTexto(`modulo:${mOpc.key}`); } : undefined,
+  };
+  const contenidoOpciones = mOpc && edicion?.menuModulo ? edicion.menuModulo(mOpc, ctlOpc)
+    : cOpc && edicion?.menuClase ? edicion.menuClase(cOpc, ctlOpc) : null;
+  /** Lo que el índice y la grilla necesitan del editor de la estructura. */
+  const estructura: Estructura = { arr, abrirOpciones, conMenuModulo: !!edicion?.menuModulo, conMenuClase: !!edicion?.menuClase };
+
   return (
     // `ahdoc--ugc` acota lo propio de este dibujo (./estilos.ts): CursoReplica comparte la hoja
     // del origen y no tiene, por ejemplo, el menú del teléfono.
@@ -248,19 +293,19 @@ export default function CursoUgc(props: CursoUgcProps) {
               // ⚠️ CON `menu` LA MARCA ES UN DESPLEGABLE (cambiar de producto, el color): pedido de
               //    Martín al sacar la barra de arriba de la tab Curso, «el desplegable debería ser
               //    "Negocio que Escala" de la sidebar, que tiene parte en verde» (07/10/2026).
-              <button ref={marcaRef} type="button" className="ugc-side-brand ugc-side-brand-btn ugc-side-brand--menu"
+              <button ref={marcaRef} type="button" className="ugc-side-brand ugc-side-brand-btn ugc-side-brand--menu" data-recorrido="marca"
                 aria-expanded={marcaAbierta} aria-controls={idMenuMarca} onClick={() => setMarcaAbierta((v) => !v)}
                 aria-label={marca.ariaLabel ?? `${marca.texto}${marca.resaltado ?? ''}`}>
                 <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
                 <span className="ugc-side-brand-chev" aria-hidden>&#9662;</span>
               </button>
             ) : marca.onClick ? (
-              <button type="button" className="ugc-side-brand ugc-side-brand-btn"
+              <button type="button" className="ugc-side-brand ugc-side-brand-btn" data-recorrido="marca"
                 onClick={marca.onClick} aria-label={marca.ariaLabel ?? `${marca.texto}${marca.resaltado ?? ''}`}>
                 <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
               </button>
             ) : (
-              <div className="ugc-side-brand">
+              <div className="ugc-side-brand" data-recorrido="marca">
                 <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
               </div>
             )}
@@ -285,7 +330,9 @@ export default function CursoUgc(props: CursoUgcProps) {
                 <span className="ugc-side-exit-label">{FLECHA_IZQ} {t.salir}</span>
               </button>
             )}
-            <nav className="ugc-nav" id={idNav}>
+            {/* La barra es una ZONA del arrastre (./arrastre-curso.ts): un módulo se reordena acá
+                también, y una clase soltada sobre un módulo se muda a ése. */}
+            <nav className="ugc-nav" id={idNav} {...arr.zona('barra')}>
               {/* El `!q` no sobra: sin él, «Inicio» seguía marcado mientras un módulo
                   filtraba, y quedaban DOS renglones en lima. Una barra que marca dos lugares
                   a la vez dice menos que ninguna. */}
@@ -310,18 +357,32 @@ export default function CursoUgc(props: CursoUgcProps) {
               <div className="ugc-nav-h">{t.modulos}</div>
               {modulos.map((m) => {
                 const bloqueado = !abrible(m);
+                // Se arrastra sólo con `onOrdenarModulos` (quien edita) y si existe como módulo.
+                const movible = !!edicion?.onOrdenarModulos && !m.sinEdicion && !bloqueado;
+                const iMov = movibles.indexOf(m.key);
                 return (
-                  <button key={m.key} type="button"
-                    className={`ugc-nav-item${marcado === m.key ? ' on' : ''}${claseEstado(m)}`}
-                    onClick={bloqueado ? undefined : () => ir({ mod: m.key })}
-                    disabled={bloqueado || undefined}
-                    title={bloqueado ? `${m.nombre}. ${t.bloqueada}` : m.nombre}>
-                    <span className="ugc-nav-num">{m.n}</span>
-                    <span className="ugc-nav-label">{m.nombre}</span>
-                    {bloqueado
-                      ? <span className="ugc-nav-count ugc-nav-candado"><IconoCandado /></span>
-                      : <span className="ugc-nav-count">{textoBarraModulo(m)}</span>}
-                  </button>
+                  <Fragment key={m.key}>
+                    {iMov >= 0 && arr.huecoEn('barra', iMov) && <div className="ugc-hueco ugc-hueco--fila" aria-hidden />}
+                    <button type="button"
+                      className={`ugc-nav-item${marcado === m.key ? ' on' : ''}${claseEstado(m)}${movible ? ' ugc-arrastrable' : ''}${arr.esDestino(m.key) ? ' is-destino' : ''}`}
+                      onClick={bloqueado ? undefined : () => ir({ mod: m.key })}
+                      disabled={bloqueado || undefined}
+                      title={bloqueado ? `${m.nombre}. ${m.motivo ?? t.bloqueada}` : m.nombre}
+                      data-arr={movible ? m.key : undefined}
+                      data-arr-modulo={m.key}
+                      draggable={movible || undefined}
+                      onPointerDownCapture={movible ? arr.marcarOrigen : undefined}
+                      onDragStart={movible ? (e) => arr.agarrar(e, { tipo: 'modulo', key: m.key }) : undefined}
+                      onDragEnd={movible ? arr.terminar : undefined}>
+                      <span className="ugc-nav-num">{m.n}</span>
+                      <span className="ugc-nav-label">{m.nombre}</span>
+                      {bloqueado
+                        ? <span className="ugc-nav-count ugc-nav-candado"><IconoCandado /></span>
+                        : <span className="ugc-nav-count">{textoBarraModulo(m)}</span>}
+                    </button>
+                    {/* «Al final» es después del último que se mueve, no después de «Sin módulo». */}
+                    {iMov >= 0 && iMov === movibles.length - 1 && arr.huecoEn('barra', movibles.length) && <div className="ugc-hueco ugc-hueco--fila" aria-hidden />}
+                  </Fragment>
                 );
               })}
             </nav>
@@ -335,6 +396,7 @@ export default function CursoUgc(props: CursoUgcProps) {
                 <input value={q} onChange={(e) => { setQ(e.target.value); ir({ q: e.target.value || undefined }, { reemplazar: true }); }}
                   placeholder={t.buscar} aria-label="Buscar en el curso" />
               </div>
+              {props.topbarExtra != null && <div className="ugc-topbar-extra">{props.topbarExtra}</div>}
               {/* De QUÉ curso es esta pantalla: al otro extremo de la marca, donde se lee como
                   contexto y no como identidad. Pedido de Martín. */}
               <div className="ugc-topbar-curso">
@@ -347,17 +409,17 @@ export default function CursoUgc(props: CursoUgcProps) {
             <div className="ugc-content">
               {clase ? (
                 <Leccion key={clase.id} clase={clase} l={leccion(clase)} nombreModulo={modulo(clase.moduloKey)?.nombre}
-                  {...vecinas(clases, clase.id)} abrirClase={abrirClase} edicion={edicion} t={t} />
+                  {...vecinas(clases, clase.id)} abrirClase={abrirClase} edicion={edicion} disposicion={disposicion} />
               ) : extra ? (
                 <div className="ugc-extra">{extra.cuerpo}</div>
               ) : pos.recursos && recursos ? (
                 recursos.render({ abierto: pos.r, abrir: (slug) => ir({ recursos: true, r: slug }), cerrar: () => ir({ recursos: true }) })
               ) : filtradas ? (
                 <Grilla clases={filtradas} total={clases.length} mod={mod} modulo={modulo(mod)} t={t}
-                  abrirClase={abrirClase} edicion={edicion} puede={puede} />
+                  abrirClase={abrirClase} edicion={edicion} puede={puede} estructura={estructura} />
               ) : (
                 <Indice portada={portada} clases={clases} modulos={modulos} t={t} edicion={edicion}
-                  onAbrir={abrirClase} onModulo={(m) => ir({ mod: m.key })} />
+                  onAbrir={abrirClase} onModulo={(m) => ir({ mod: m.key })} estructura={estructura} />
               )}
             </div>
           </div>
@@ -365,6 +427,12 @@ export default function CursoUgc(props: CursoUgcProps) {
         {marcaAbierta && marca.menu && (
           <MenuMarca id={idMenuMarca} etiqueta={`${marca.texto}${marca.resaltado ?? ''}`} ancla={marcaRef.current} onCerrar={() => setMarcaAbierta(false)}>
             {marca.menu(() => setMarcaAbierta(false))}
+          </MenuMarca>
+        )}
+        {opciones && contenidoOpciones != null && (
+          <MenuMarca id={idOpciones} ancla={opciones.ancla} onCerrar={cerrarOpciones}
+            etiqueta={`${t.opciones}: ${mOpc?.nombre ?? cOpc?.titulo ?? ''}`}>
+            {contenidoOpciones}
           </MenuMarca>
         )}
       </div>
@@ -379,10 +447,14 @@ export default function CursoUgc(props: CursoUgcProps) {
  *    veían 3 módulos y abajo aparecían las 30 clases sueltas, así que el curso parecía tener
  *    dos organizaciones a la vez. Un módulo se abre y muestra LAS SUYAS.
  */
-function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo }: {
+function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo, estructura }: {
   portada?: PortadaUgc; clases: ClaseUgc[]; modulos: ModuloUgc[]; t: TextosUgc; edicion?: EdicionUgc;
-  onAbrir: (id: number) => void; onModulo: (m: ModuloUgc) => void;
+  onAbrir: (id: number) => void; onModulo: (m: ModuloUgc) => void; estructura: Estructura;
 }) {
+  const { arr } = estructura;
+  /** Los que se mueven, en orden: el índice del hueco se cuenta sobre ésos (ver ./arrastre-curso.ts). */
+  const movibles = modulos.filter((m) => !m.sinEdicion);
+  const arrastra = !!edicion?.onOrdenarModulos;
   const destino = portada ? (clases.find((c) => c.id === portada.claseId) ?? clases[0]) : undefined;
   const editando = !!edicion && (!!edicion.onTexto || !!edicion.onPortada);
   // La tapa: la foto le gana al degradado (un degradado no puede 404ear; una foto sí, y entonces
@@ -421,13 +493,14 @@ function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo }: {
         // ⚠️ EDITANDO, LA PORTADA NO ES UN BOTÓN: adentro hay textos que se editan con un clic, y
         //    un clic en un texto de un <button> abriría la clase. El único botón que lleva a la
         //    clase es la pastilla de «Empezar».
-        <div className="ugc-hero ugc-hero--edicion">
+        // `data-recorrido`: los puntos que señala el recorrido de la pantalla (app/_ui/Recorrido.tsx).
+        <div className="ugc-hero ugc-hero--edicion" data-recorrido="portada">
           {tapa}
           <span className="ugc-hero-shade" aria-hidden />
           <span className="ugc-hero-body">
             {portada.eyebrow !== undefined && <span className="ugc-hero-eyebrow">{portada.eyebrow}</span>}
             {edicion?.onTexto ? (
-              <TextoEditable className="ugc-hero-title" valor={portada.titulo} etiqueta="Nombre del curso"
+              <TextoEditable className="ugc-hero-title" valor={portada.titulo} etiqueta="Nombre del curso" recorrido="titulo"
                 onGuardar={(v) => edicion.onTexto!({ tipo: 'curso-titulo' }, v)} />
             ) : <span className="ugc-hero-title">{portada.titulo}</span>}
             {edicion?.onTexto ? (
@@ -450,20 +523,53 @@ function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo }: {
         </div>
       )}
       <div className="ugc-rail-head"><h2>{t.losModulos}</h2></div>
-      <div className="ugc-rail">
-        {modulos.map((m) => (edicion?.onPortada && !m.sinEdicion ? (
-          // La tarjeta es un <button>: el control de la portada va AL LADO (un botón adentro de
-          // otro no es HTML válido, y el clic abriría el módulo).
-          <div key={m.key} className="ugc-editable">
-            <TarjetaModulo m={m} t={t} onAbrir={() => onModulo(m)} />
-            <div className="ugc-editable-ctrls" role="group" aria-label={`Portada de ${m.nombre}`}>
-              <button type="button" className="ugc-editable-btn" title={t.portada} aria-label={`${t.portada} de ${m.nombre}`}
-                disabled={edicion.ocupado} onClick={(e) => edicion.onPortada!({ tipo: 'modulo', key: m.key }, e.currentTarget)}>
-                <IconoImagen />
-              </button>
-            </div>
-          </div>
-        ) : <TarjetaModulo key={m.key} m={m} t={t} onAbrir={() => onModulo(m)} />))}
+      {/* El riel es una ZONA del arrastre (./arrastre-curso.ts): soltar un módulo acá lo reordena. */}
+      <div className="ugc-rail" {...arr.zona('rail')}>
+        {/* «+ Nuevo módulo» PRIMERO (item 12, «que aparezcan primero, no por último»). No entra en
+            las medidas del arrastre (no lleva `data-arr`): el hueco 0 es el del primer MÓDULO. */}
+        {edicion?.onNuevoModulo && (
+          <NuevoModulo t={t} opcion={edicion.opcionNuevoModulo} tope={edicion.topeNombreModulo} ocupado={edicion.ocupado} onCrear={edicion.onNuevoModulo} />
+        )}
+        {modulos.map((m) => {
+          const iMov = movibles.indexOf(m);
+          const editable = !!edicion && !m.sinEdicion;
+          const renombrar = edicion?.onTexto && !m.sinEdicion ? (v: string) => edicion.onTexto!({ tipo: 'modulo', key: m.key }, v) : undefined;
+          return (
+            <Fragment key={m.key}>
+              {iMov >= 0 && arr.huecoEn('rail', iMov) && <Hueco alto={arr.alto} />}
+              {editable ? (
+                // ⚠️ LO QUE SE ARRASTRA ES EL ENVOLTORIO y la copia que sigue al cursor es la tarjeta
+                //    (`data-arr-copia`): con el envoltorio, que no tiene fondo, la copia salía con un
+                //    rectángulo gris detrás de las esquinas redondeadas.
+                <div className={`ugc-editable${arrastra ? ' ugc-arrastrable' : ''}`}
+                  data-arr={arrastra ? m.key : undefined} data-recorrido={iMov === 0 ? 'modulo' : undefined}
+                  draggable={arrastra || undefined}
+                  onPointerDownCapture={arrastra ? arr.marcarOrigen : undefined}
+                  onDragStart={arrastra ? (e) => arr.agarrar(e, { tipo: 'modulo', key: m.key }) : undefined}
+                  onDragEnd={arrastra ? arr.terminar : undefined}>
+                  <TarjetaModulo m={m} t={t} onAbrir={() => onModulo(m)} renombrar={renombrar} />
+                  {/* Los controles van AL LADO de la tarjeta (un botón adentro de otro no es HTML
+                      válido) y no arrastran (`data-nodrag`). */}
+                  {(edicion.onPortada || estructura.conMenuModulo) && (
+                    <div className="ugc-editable-ctrls" role="group" aria-label={`${t.opciones} de ${m.nombre}`} data-nodrag>
+                      {edicion.onPortada && (
+                        <button type="button" className="ugc-editable-btn" title={t.portada} aria-label={`${t.portada} de ${m.nombre}`}
+                          disabled={edicion.ocupado} onClick={(e) => edicion.onPortada!({ tipo: 'modulo', key: m.key }, e.currentTarget)}>
+                          <IconoImagen />
+                        </button>
+                      )}
+                      {estructura.conMenuModulo && (
+                        <BotonOpciones t={t} nombre={m.nombre} onAbrir={(a) => estructura.abrirOpciones({ tipo: 'modulo', key: m.key }, a)} />
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : <TarjetaModulo m={m} t={t} onAbrir={() => onModulo(m)} />}
+              {/* «Al final» es después del último que se mueve (no después de «Sin módulo»). */}
+              {iMov >= 0 && iMov === movibles.length - 1 && arr.huecoEn('rail', movibles.length) && <Hueco alto={arr.alto} />}
+            </Fragment>
+          );
+        })}
       </div>
     </>
   );
@@ -474,27 +580,62 @@ function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo }: {
  * abre. Esconderlo haría que el curso pareciera más corto de lo que es, y la persona no
  * sabría que falta algo por delante.
  */
-function TarjetaModulo({ m, t, onAbrir }: { m: ModuloUgc; t: TextosUgc; onAbrir: () => void }) {
+function TarjetaModulo({ m, t, onAbrir, renombrar }: {
+  m: ModuloUgc; t: TextosUgc; onAbrir: () => void;
+  /** Editando: el NOMBRE se cambia con un clic en la tarjeta (item 6), y entonces la tarjeta no es un botón. */
+  renombrar?: (v: string) => Promise<boolean>;
+}) {
   const bloqueado = !abrible(m);
+  const tapa = (
+    <span className="ugc-modcard-cover">
+      {/* ⚠️ LA LÁMINA VA SIEMPRE Y VA PRIMERA: `portada` puede ser una ruta construida y no
+          comprobada. Si carga, la tapa la cubre entera; si da 404, la lámina ya estaba. La
+          diseñada (`lamina`, item 5) va en el lugar del cuaderno de siempre. */}
+      {m.lamina
+        ? <Lamina diseno={m.lamina.diseno} n={m.n} rotulo={t.modulo} texto={m.lamina.texto} nombre={m.nombre} a={m.lamina.a} b={m.lamina.b} />
+        : <PortadaModulo n={m.n} titulo={m.nombre} rotulo={t.modulo} />}
+      {m.fondo && !m.portada && <span className="ugc-fondo" style={{ background: m.fondo }} aria-hidden />}
+      {m.portada && <Miniatura src={m.portada} />}
+      <span className="shade" aria-hidden />
+      {/* ⚠️ El chip del número tapa la esquina de cinco de los siete diseños (los que ya dibujan el
+          número grande): va sólo con los que la dejan libre (`conChipDeNumero`). */}
+      {conChipDeNumero(m.portada || m.fondo ? null : m.lamina) && <span className="ugc-modcard-n" aria-hidden>{m.n}</span>}
+      {bloqueado && <span className="ugc-modcard-candado" aria-hidden><IconoCandado /></span>}
+      {m.estado === 'hecha' && <span className="ugc-modcard-ok" aria-hidden><IconoCheck /></span>}
+      {m.aviso && <span className="ugc-modcard-aviso" title={m.aviso}><IconoCandado /> {m.aviso}</span>}
+    </span>
+  );
+  const resto = (
+    <>
+      <span className="ugc-modcard-meta">{textoTarjetaModulo(m, t)}</span>
+      {bloqueado && <span className="ugc-modcard-lock"><IconoCandado /> {m.motivo ?? t.bloqueada}</span>}
+      {!bloqueado && m.progreso && <BarraAvance p={m.progreso} className="ugc-modcard-prog" />}
+    </>
+  );
+  if (renombrar) {
+    // ⚠️ EDITANDO, LA TARJETA ES UN DIV: adentro va el nombre que se edita con un clic, y un clic en
+    //    un texto de un <button> abriría el módulo (la misma regla que la portada del curso). El botón
+    //    que lo abre es la TAPA; un clic en el resto de la tarjeta también lo abre.
+    return (
+      <div className={`ugc-modcard ugc-modcard--edicion${claseEstado(m)}`} data-arr-copia
+        onClick={(e) => { if ((e.target as Element).closest('button, [data-nodrag]')) return; onAbrir(); }}>
+        <button type="button" className="ugc-modcard-abrir" onClick={onAbrir} aria-label={`Abrir ${m.nombre}`}>{tapa}</button>
+        <span className="ugc-modcard-body">
+          <span className="ugc-modcard-t" data-nodrag>
+            <TextoEditable valor={m.nombre} etiqueta={`Nombre de ${m.nombre}`} marca={`modulo:${m.key}`} onGuardar={renombrar} />
+          </span>
+          {resto}
+        </span>
+      </div>
+    );
+  }
   return (
-    <button type="button" className={`ugc-modcard${claseEstado(m)}`}
+    <button type="button" className={`ugc-modcard${claseEstado(m)}`} data-arr-copia
       onClick={bloqueado ? undefined : onAbrir} disabled={bloqueado || undefined}>
-      <span className="ugc-modcard-cover">
-        {/* ⚠️ LA LÁMINA VA SIEMPRE Y VA PRIMERA: `portada` puede ser una ruta construida y no
-            comprobada. Si carga, la tapa la cubre entera; si da 404, la lámina ya estaba. */}
-        <PortadaModulo n={m.n} titulo={m.nombre} rotulo={t.modulo} />
-        {m.fondo && !m.portada && <span className="ugc-fondo" style={{ background: m.fondo }} aria-hidden />}
-        {m.portada && <Miniatura src={m.portada} />}
-        <span className="shade" aria-hidden />
-        <span className="ugc-modcard-n" aria-hidden>{m.n}</span>
-        {bloqueado && <span className="ugc-modcard-candado" aria-hidden><IconoCandado /></span>}
-        {m.estado === 'hecha' && <span className="ugc-modcard-ok" aria-hidden><IconoCheck /></span>}
-      </span>
+      {tapa}
       <span className="ugc-modcard-body">
         <span className="ugc-modcard-t">{m.nombre}</span>
-        <span className="ugc-modcard-meta">{textoTarjetaModulo(m, t)}</span>
-        {bloqueado && <span className="ugc-modcard-lock"><IconoCandado /> {t.bloqueada}</span>}
-        {!bloqueado && m.progreso && <BarraAvance p={m.progreso} className="ugc-modcard-prog" />}
+        {resto}
       </span>
     </button>
   );
@@ -502,14 +643,20 @@ function TarjetaModulo({ m, t, onAbrir }: { m: ModuloUgc; t: TextosUgc; onAbrir:
 
 function TarjetaClase({ clase, onAbrir }: { clase: ClaseUgc; onAbrir: () => void }) {
   return (
-    <button type="button" className="ugc-modcard" onClick={onAbrir}>
+    <button type="button" className={`ugc-modcard${clase.atenuado ? ' is-atenuado' : ''}`} onClick={onAbrir} data-arr-copia>
       <span className="ugc-modcard-cover">
+        {/* Una lámina diseñada (item 5) sólo sin tapa: el adaptador no pone la miniatura del video
+            cuando se eligió una. Su número es el de la clase en su módulo, el mismo del chip. */}
+        {clase.lamina && !clase.tapa && !clase.fondo && (
+          <Lamina diseno={clase.lamina.diseno} n={Number(clase.vn ?? 1) || 1} rotulo="Clase" texto={clase.lamina.texto}
+            nombre={clase.titulo} a={clase.lamina.a} b={clase.lamina.b} />
+        )}
         {clase.fondo && !clase.tapa && <span className="ugc-fondo" style={{ background: clase.fondo }} aria-hidden />}
         {clase.tapa && <Miniatura src={clase.tapa} />}
         <span className="shade" aria-hidden />
         {/* El número de la clase DENTRO de su módulo (`vn`): arranca en 1 en cada uno, que es
             la única numeración que le sirve a quien estudia. */}
-        <span className="ugc-modcard-n" aria-hidden>{clase.vn ?? clase.id}</span>
+        {conChipDeNumero(clase.tapa || clase.fondo ? null : clase.lamina) && <span className="ugc-modcard-n" aria-hidden>{clase.vn ?? clase.id}</span>}
         {/* El triángulo dice que es un VIDEO: sin él, una tapa se lee como una imagen suelta. */}
         {clase.conVideo && <span className="ugc-modcard-play" aria-hidden>{'\u25b6'}</span>}
       </span>
@@ -523,17 +670,19 @@ function TarjetaClase({ clase, onAbrir }: { clase: ClaseUgc; onAbrir: () => void
 }
 
 /** Las clases de un módulo, o el resultado de una búsqueda. */
-function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede }: {
+function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, estructura }: {
   clases: ClaseUgc[]; total: number; mod: string | null; modulo?: ModuloUgc; t: TextosUgc;
   abrirClase: (id: number) => void; edicion?: EdicionUgc;
   puede: (id: number, dir: 'arriba' | 'abajo') => boolean;
+  estructura: Estructura;
 }) {
+  const { arr } = estructura;
   // Un módulo con candado que llega por URL no se abre: se dice por qué.
   if (modulo && !abrible(modulo)) {
     return (
       <>
         <div className="ugc-rail-head"><h2>{modulo.nombre}</h2></div>
-        <div className="ugc-soon ugc-bloqueado"><IconoCandado /><p>{t.bloqueada}</p></div>
+        <div className="ugc-soon ugc-bloqueado"><IconoCandado /><p>{modulo.motivo ?? t.bloqueada}</p></div>
       </>
     );
   }
@@ -547,82 +696,125 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede }: {
             entero (la tarjeta es un botón: un clic en ella abre el módulo). */}
         {edicion?.onTexto && modulo && !modulo.sinEdicion ? (
           <h2>
-            <TextoEditable valor={modulo.nombre} etiqueta={`Nombre de ${modulo.nombre}`}
+            <TextoEditable valor={modulo.nombre} etiqueta={`Nombre de ${modulo.nombre}`} marca={`modulo:${modulo.key}`}
               onGuardar={(v) => edicion.onTexto!({ tipo: 'modulo', key: modulo.key }, v)} />
             {` · ${clases.length} ${clases.length === 1 ? t.leccion : t.lecciones}`}
+            {/* El mismo menú «…» que en su tarjeta del índice: adentro del módulo es donde se lo mira. */}
+            {estructura.conMenuModulo && (
+              <BotonOpciones t={t} nombre={modulo.nombre} onAbrir={(a) => estructura.abrirOpciones({ tipo: 'modulo', key: modulo.key }, a)} />
+            )}
           </h2>
         ) : <h2>{rotuloGrilla(mod ? (modulo?.nombre ?? mod) : null, clases.length, total, t)}</h2>}
         {modulo?.acciones != null && <div className="ugc-rail-acciones">{modulo.acciones}</div>}
       </div>
-      <div className="ugc-rail">
-        {clases.map((c) => (editando ? (
-          <div key={c.id} className="ugc-editable">
-            <TarjetaClase clase={c} onAbrir={() => abrirClase(c.id)} />
-            <div className="ugc-editable-ctrls" role="group" aria-label={`Ordenar ${c.titulo}`}>
-              <button type="button" className="ugc-editable-btn" title="Subir" aria-label="Subir"
-                disabled={edicion!.ocupado || !puede(c.id, 'arriba')} onClick={() => edicion!.onMover(c.id, 'arriba')}>&uarr;</button>
-              <button type="button" className="ugc-editable-btn" title="Bajar" aria-label="Bajar"
-                disabled={edicion!.ocupado || !puede(c.id, 'abajo')} onClick={() => edicion!.onMover(c.id, 'abajo')}>&darr;</button>
-              {edicion!.onPortada && (
-                <button type="button" className="ugc-editable-btn" title={t.portada} aria-label={`${t.portada} de ${c.titulo}`}
-                  disabled={edicion!.ocupado} onClick={(e) => edicion!.onPortada!({ tipo: 'clase', id: c.id }, e.currentTarget)}>
-                  <IconoImagen />
-                </button>
-              )}
-              <button type="button" className="ugc-editable-btn ugc-editable-btn--borrar" title="Borrar" aria-label="Borrar"
-                disabled={edicion!.ocupado} onClick={() => edicion!.onBorrar(c.id)}>&times;</button>
-            </div>
-          </div>
-        ) : (
-          <TarjetaClase key={c.id} clase={c} onAbrir={() => abrirClase(c.id)} />
-        )))}
-        {editando && !modulo?.sinEdicion && (
+      {/* La grilla de un módulo es una ZONA del arrastre: soltar una clase acá la reordena. */}
+      <div className="ugc-rail" {...(editando ? arr.zona('grilla') : {})}>
+        {/* «+ Nueva clase» PRIMERO (item 12). Sin `data-arr`: el hueco 0 es el de la primera CLASE. */}
+        {editando && !modulo?.sinEdicion && edicion!.onNueva && (
           <button type="button" className="ugc-modcard ugc-modcard--nueva" disabled={edicion!.ocupado}
-            onClick={() => edicion!.onNueva(mod!)}>
+            onClick={() => edicion!.onNueva?.(mod!)}>
             <span className="ugc-modcard-nueva-t">{t.nueva}</span>
           </button>
         )}
+        {clases.map((c, i) => {
+          // Una clase de «Sin módulo» se arrastra igual: soltada sobre un módulo de la barra, se muda
+          // ahí (es la salida de una huérfana). Lo que no hace es reordenarse entre las suyas.
+          const arrastra = editando && !!edicion!.onLlevarClase;
+          return (
+            <Fragment key={c.id}>
+              {arr.huecoEn('grilla', i) && <Hueco alto={arr.alto} />}
+              {editando ? (
+                <div className={`ugc-editable${arrastra ? ' ugc-arrastrable' : ''}`} data-arr={arrastra ? String(c.id) : undefined}
+                  draggable={arrastra || undefined}
+                  onPointerDownCapture={arrastra ? arr.marcarOrigen : undefined}
+                  onDragStart={arrastra ? (e) => arr.agarrar(e, { tipo: 'clase', id: c.id, moduloKey: c.moduloKey }) : undefined}
+                  onDragEnd={arrastra ? arr.terminar : undefined}>
+                  <TarjetaClase clase={c} onAbrir={() => abrirClase(c.id)} />
+                  <div className="ugc-editable-ctrls" role="group" aria-label={`Ordenar ${c.titulo}`} data-nodrag>
+                    <button type="button" className="ugc-editable-btn" title="Subir" aria-label="Subir"
+                      disabled={edicion!.ocupado || !puede(c.id, 'arriba')} onClick={() => edicion!.onMover(c.id, 'arriba')}>&uarr;</button>
+                    <button type="button" className="ugc-editable-btn" title="Bajar" aria-label="Bajar"
+                      disabled={edicion!.ocupado || !puede(c.id, 'abajo')} onClick={() => edicion!.onMover(c.id, 'abajo')}>&darr;</button>
+                    {edicion!.onPortada && (
+                      <button type="button" className="ugc-editable-btn" title={t.portada} aria-label={`${t.portada} de ${c.titulo}`}
+                        disabled={edicion!.ocupado} onClick={(e) => edicion!.onPortada!({ tipo: 'clase', id: c.id }, e.currentTarget)}>
+                        <IconoImagen />
+                      </button>
+                    )}
+                    {/* Con el menú «…», borrar vive adentro (con el candado, por área y mover a otro
+                        módulo): una × suelta al lado de tres controles se tocaba sin querer. */}
+                    {estructura.conMenuClase ? (
+                      <BotonOpciones t={t} nombre={c.titulo} onAbrir={(a) => estructura.abrirOpciones({ tipo: 'clase', id: c.id }, a)} />
+                    ) : (
+                      <button type="button" className="ugc-editable-btn ugc-editable-btn--borrar" title="Borrar" aria-label="Borrar"
+                        disabled={edicion!.ocupado} onClick={() => edicion!.onBorrar(c.id)}>&times;</button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <TarjetaClase clase={c} onAbrir={() => abrirClase(c.id)} />
+              )}
+            </Fragment>
+          );
+        })}
+        {arr.huecoEn('grilla', clases.length) && <Hueco alto={arr.alto} />}
       </div>
     </>
   );
 }
 
 /**
- * La lección: video a la izquierda, papel a la derecha, y lo que la pantalla quiera abajo.
- * Se monta con `key` = la clase, así que cambiar de clase vuelve todo a cero (la pestaña
- * abierta, lo que el hueco tenga en estado).
+ * La lección: el video y el papel (la descripción y debajo la tarea), y lo que la pantalla quiera
+ * abajo. Se monta con `key` = la clase, así que cambiar de clase vuelve todo a cero (lo que los
+ * huecos tengan en estado).
+ *
+ * ⚠️ DOS DISPOSICIONES (item 16, `disposicion`): al costado (video a la izquierda, papel a la
+ *    derecha) o abajo (el video y, debajo, el papel, todo a lo ancho). Las dos con el MISMO DOM y
+ *    otra clase en el contenedor (`claseDelSplit`): una pantalla distinta para «abajo» sería el
+ *    segundo dibujo de lo mismo.
+ * ⚠️ SIN «Editar» Y SIN PESTAÑAS desde el 08/10/2026 (items 14 y 16): cada parte se edita en su
+ *    lugar (el título acá, el resto en lo que trae la pantalla) y el papel es uno solo.
+ * ⚠️ SIN VIDEO, QUIEN EDITA VE UN RECUADRO PUNTEADO (`sinVideo`), nunca un marco negro vacío: se
+ *    leería como un reproductor roto. El alumno no recibe nada en ese lugar.
  */
-function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edicion, t }: {
+function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edicion, disposicion }: {
   clase: ClaseUgc; l: LeccionUgc; nombreModulo?: string;
   anterior: ClaseUgc | null; siguiente: ClaseUgc | null;
-  abrirClase: (id: number) => void; edicion?: EdicionUgc; t: TextosUgc;
+  abrirClase: (id: number) => void; edicion?: EdicionUgc; disposicion?: DisposicionUgc;
 }) {
-  const [tab, setTab] = useState<string | null>(null);
-  const nombres = (l.pestanas ?? []).map((p) => p.nombre);
-  const activa = tab && nombres.includes(tab) ? tab : nombres[0] ?? null;
   const pastilla = <span className="ugc-pill">{clase.pastilla ?? nombreModulo ?? ''}</span>;
+  const actual: DisposicionUgc = disposicion === 'abajo' ? 'abajo' : 'costado';
 
   return (
     <>
-      <div className="ugc-split">
+      <div className={claseDelSplit(actual)}>
         <div className="ugc-vcol">
           <div className="ugc-ltitle">
-            {edicion ? (
+            {edicion?.onDisposicion ? (
               <div className="ugc-ltitle-fila">
                 {pastilla}
-                <button type="button" className="ugc-btn ugc-ltitle-editar" disabled={edicion.ocupado}
-                  onClick={() => edicion.onEditar(clase.id)}>{t.editar}</button>
+                {/* El interruptor cambia el ajuste del CURSO: lo dice su rótulo de accesibilidad. */}
+                <div className="ugc-dispo" role="group" aria-label="Dónde va el texto, en todo el curso">
+                  {OPCIONES_DISPOSICION.map((o) => (
+                    <button key={o.valor} type="button" className="ugc-dispo-op" aria-pressed={actual === o.valor}
+                      disabled={edicion.ocupado} onClick={() => { if (actual !== o.valor) edicion.onDisposicion!(o.valor); }}>
+                      {o.texto}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : pastilla}
             {edicion?.onTexto
               ? <h1><TextoEditable valor={clase.titulo} etiqueta="Título de la clase" onGuardar={(v) => edicion.onTexto!({ tipo: 'clase', id: clase.id }, v)} /></h1>
               : <h1>{clase.titulo}</h1>}
           </div>
-          {l.video && (
+          {l.video ? (
             <div className="ugc-vcard">
               <div className="ugc-vframe" style={{ aspectRatio: '16 / 9', width: '100%' }}>{l.video.cuerpo}</div>
               {l.video.barra != null && <div className="ugc-vbar">{l.video.barra}</div>}
             </div>
+          ) : l.sinVideo != null && (
+            <div className="ugc-vvacio">{l.sinVideo}</div>
           )}
           {l.debajoDelVideo != null && <div className="ugc-debajo">{l.debajoDelVideo}</div>}
           {/* ⚠️ ANTERIOR / SIGUIENTE VAN DEBAJO DEL VIDEO, no arriba: son lo que se usa
@@ -635,14 +827,7 @@ function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edic
           )}
         </div>
 
-        <div className="ugc-pcol">
-          {l.pestanas && l.pestanas.length > 0 ? (
-            <>
-              <CabeceraPestanas nombres={nombres} activa={activa} onCambiar={setTab} />
-              {l.pestanas.find((p) => p.nombre === activa)?.cuerpo}
-            </>
-          ) : l.papel}
-        </div>
+        <div className="ugc-pcol">{l.papel}</div>
       </div>
       {l.despues}
     </>
@@ -670,7 +855,7 @@ const IconoImagen = () => (
  * ⚠️ El `key` del valor rearma el span cuando el valor cambia de afuera (lo que contestó el
  *    server): sin eso React no toca un nodo que la persona editó a mano, y quedaría lo tipeado.
  */
-function TextoEditable({ valor, onGuardar, etiqueta, vacio, className }: {
+function TextoEditable({ valor, onGuardar, etiqueta, vacio, className, marca, recorrido }: {
   valor: string;
   onGuardar: (v: string) => Promise<boolean>;
   /** Para el lector de pantalla: qué texto es. */
@@ -678,6 +863,10 @@ function TextoEditable({ valor, onGuardar, etiqueta, vacio, className }: {
   /** Lo que se lee cuando está vacío (en gris). */
   vacio?: string;
   className?: string;
+  /** Con qué se lo encuentra para ponerlo a editar desde afuera («Renombrar» del menú «…»). */
+  marca?: string;
+  /** El punto del recorrido de la pantalla que es este texto (`data-recorrido`). */
+  recorrido?: string;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [guardando, setGuardando] = useState(false);
@@ -710,6 +899,8 @@ function TextoEditable({ valor, onGuardar, etiqueta, vacio, className }: {
       role="textbox"
       aria-label={etiqueta}
       data-vacio={vacio}
+      data-texto={marca}
+      data-recorrido={recorrido}
       spellCheck
       onKeyDown={(e) => {
         // Nada de lo que se tipea acá sube: ni un Escape que cierre otra cosa, ni un Enter.
@@ -758,7 +949,14 @@ function MenuMarca({ id, etiqueta, ancla, onCerrar, children }: {
     const medir = () => {
       if (!ancla) return;
       const r = ancla.getBoundingClientRect();
-      setPos({ left: Math.max(8, r.left + 12), top: r.bottom + 4, width: Math.max(260, r.width - 24) });
+      const width = Math.max(260, r.width - 24);
+      // ⚠️ ENCAJADO EN LA VENTANA: colgado del «…» de una tarjeta del borde derecho (08/10/2026) el
+      //    menú salía 230 px afuera de la pantalla, con sus últimas opciones fuera de alcance. Y si
+      //    abajo del botón no entra y arriba sí, va arriba (una tarjeta de la última fila).
+      const left = Math.max(8, Math.min(r.left + 12, window.innerWidth - width - 8));
+      const alto = ref.current?.offsetHeight ?? 0;
+      const top = alto && r.bottom + 4 + alto > window.innerHeight - 8 && r.top - 4 - alto >= 8 ? r.top - 4 - alto : r.bottom + 4;
+      setPos({ left, top, width });
     };
     medir();
     window.addEventListener('resize', medir);
@@ -797,10 +995,16 @@ function MenuMarca({ id, etiqueta, ancla, onCerrar, children }: {
 }
 
 /** Un renglón del menú de la marca. Con `activo` va marcado (el producto que se está viendo). */
-export function ItemMenuUgc({ activo, onClick, children, title }: { activo?: boolean; onClick: () => void; children: ReactNode; title?: string }) {
+export function ItemMenuUgc({ activo, onClick, children, title, disabled, peligro }: {
+  activo?: boolean; onClick: () => void; children: ReactNode; title?: string;
+  /** Apagado se DIBUJA igual (con su `title` diciendo por qué): uno que desaparece no explica nada. */
+  disabled?: boolean;
+  /** Borrar: se tiñe al pasar el cursor. */
+  peligro?: boolean;
+}) {
   return (
-    <button type="button" className={`ugc-menu-item${activo ? ' on' : ''}`} aria-current={activo || undefined}
-      title={title} onClick={onClick}>
+    <button type="button" className={`ugc-menu-item${activo ? ' on' : ''}${peligro ? ' ugc-menu-item--peligro' : ''}`} aria-current={activo || undefined}
+      title={title} onClick={onClick} disabled={disabled || undefined}>
       {children}
     </button>
   );
@@ -809,4 +1013,113 @@ export function ItemMenuUgc({ activo, onClick, children, title }: { activo?: boo
 /** El rótulo de una sección del menú de la marca. */
 export function TituloMenuUgc({ children }: { children: ReactNode }) {
   return <div className="ugc-menu-h">{children}</div>;
+}
+
+// ── El editor de la ESTRUCTURA (items 6, 7 y 12) ─────────────────────────────────
+
+/** Lo que el índice y la grilla reciben del editor de la estructura. */
+type Estructura = {
+  arr: ArrastreCurso;
+  abrirOpciones: (o: { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number }, ancla: HTMLElement) => void;
+  conMenuModulo: boolean;
+  conMenuClase: boolean;
+};
+
+/**
+ * EL HUECO: donde cae lo que se arrastra, del alto de la tarjeta que se agarró (el molde del Plan:
+ * una celda de la grilla con el borde punteado). Con un piso, por si la medida llegó en cero.
+ */
+function Hueco({ alto }: { alto: number }) {
+  return <div className="ugc-hueco" style={{ minHeight: Math.max(120, alto) }} aria-hidden />;
+}
+
+/** El «…» de un módulo o una clase. Va con los controles de la tarjeta y no arrastra. */
+function BotonOpciones({ t, nombre, onAbrir }: { t: TextosUgc; nombre: string; onAbrir: (ancla: HTMLElement) => void }) {
+  return (
+    <button type="button" className="ugc-editable-btn ugc-editable-btn--menu" data-nodrag
+      title={t.opciones} aria-label={`${t.opciones} de ${nombre}`} aria-haspopup="true"
+      onClick={(e) => { e.stopPropagation(); onAbrir(e.currentTarget); }}>
+      &hellip;
+    </button>
+  );
+}
+
+/** Pone a editar un `TextoEditable` desde afuera (por su `marca`), con el texto entero seleccionado. */
+function enfocarTexto(marca: string) {
+  const el = [...document.querySelectorAll<HTMLElement>('[data-texto]')].find((n) => n.dataset.texto === marca);
+  if (!el) return;
+  el.focus();
+  try {
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(r);
+  } catch { /* sin selección queda el foco, que alcanza para escribir */ }
+}
+
+/**
+ * «+ Nuevo módulo» (item 12): la primera tarjeta del índice, y al tocarla SE VUELVE UN CAMPO — el
+ * nombre se pide en su lugar, no en un modal. Enter crea; Escape (o salir con el campo vacío) vuelve
+ * a la tarjeta. Salir con algo escrito NO crea: crear un módulo puede crear una etapa del kanban, y
+ * eso no puede pasar por un clic que se fue a otro lado.
+ */
+function NuevoModulo({ t, opcion, tope = 80, ocupado, onCrear }: {
+  t: TextosUgc;
+  opcion?: string;
+  /** El tope del server (`EdicionUgc.topeNombreModulo`): el campo no deja escribir más. */
+  tope?: number;
+  ocupado?: boolean;
+  onCrear: (nombre: string, conOpcion: boolean) => Promise<boolean>;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [nombre, setNombre] = useState('');
+  const [conOpcion, setConOpcion] = useState(true);
+  const [creando, setCreando] = useState(false);
+  const caja = useRef<HTMLDivElement>(null);
+  const cerrar = () => { setAbierto(false); setNombre(''); setConOpcion(true); };
+  const crear = async () => {
+    const n = nombre.replace(/\s+/g, ' ').trim();
+    if (!n || creando) return;
+    setCreando(true);
+    let ok = false;
+    try { ok = await onCrear(n, conOpcion); } catch { ok = false; }
+    setCreando(false);
+    if (ok) cerrar();
+  };
+  if (!abierto) {
+    return (
+      <button type="button" className="ugc-modcard ugc-modcard--nueva" data-recorrido="nuevo-modulo"
+        disabled={ocupado} onClick={() => setAbierto(true)}>
+        <span className="ugc-modcard-nueva-t">{t.nuevoModulo}</span>
+      </button>
+    );
+  }
+  return (
+    <div ref={caja} className="ugc-nuevo-modulo" data-recorrido="nuevo-modulo"
+      onBlur={(e) => {
+        const n = e.relatedTarget as Node | null;
+        if (!creando && !nombre.trim() && !(n && caja.current?.contains(n))) cerrar();
+      }}>
+      <input type="text" autoFocus value={nombre} maxLength={tope} placeholder={t.nombreModulo} aria-label={t.nombreModulo}
+        disabled={creando}
+        onChange={(e) => setNombre(e.target.value)}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') { e.preventDefault(); void crear(); }
+          if (e.key === 'Escape') { e.preventDefault(); cerrar(); }
+        }} />
+      <div className="ugc-nuevo-pie">
+        {opcion && (
+          <label className="ugc-nuevo-check">
+            <input type="checkbox" checked={conOpcion} disabled={creando} onChange={(e) => setConOpcion(e.target.checked)} />
+            {opcion}
+          </label>
+        )}
+        <button type="button" className="ugc-btn" disabled={creando || !nombre.trim()} onClick={() => void crear()}>
+          {creando ? 'Creando\u2026' : 'Crear'}
+        </button>
+      </div>
+    </div>
+  );
 }

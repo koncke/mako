@@ -11,14 +11,18 @@
 //    barra y sus clases las lecciones; la traducción, pura y con test, está en ./modelo-ugc.ts.
 //
 // Lo que tiene la tab adentro del curso:
-//   · Una etapa abierta: sus clases como tarjetas, con «Editar», ↑ ↓ ✕ y «+ Clase» (sólo un admin:
-//     ver actions.ts), y en su cabecera las NOTAS de la etapa (cualquiera que vea la tab, #692) y el
-//     aviso de que no avanza sola.
-//   · Una clase abierta: el video, la ficha (tipo, minutos, si cierra la etapa y la marca de GRABAR,
-//     #693) y el papel con la tarea TAL COMO LA VE EL ALUMNO (en modo vista previa: no guarda
-//     nada), la descripción y las notas de la clase.
-//   · «Avance de los clientes», una entrada propia de la barra: clientes × etapas, lo que envió
-//     cada uno, cuánto vio y cuándo entró.
+//   · Una etapa abierta: sus clases como tarjetas, con ↑ ↓ ✕ y «+ Clase» (sólo un admin: ver
+//     actions.ts), y en su cabecera el aviso de que no avanza sola.
+//   · Una clase abierta, que se EDITA EN SU LUGAR (./LeccionEditable.tsx, items 13 a 17 del
+//     07/10/2026): el título con un clic, el video (o el recuadro de «Agregar video»), la ficha (tipo y
+//     minutos), y en el papel la descripción con el editor rico y DEBAJO la tarea. Sin «Editar», sin
+//     notas, sin «Grabar / No grabar» y sin pestañas: Martín pidió sacar las cuatro.
+//   · La ESTRUCTURA, editable en su lugar (items 6, 7, 8 y 12 del 07/10/2026): «+ Nuevo módulo» y
+//     «+ Nueva clase» primero, el nombre de un módulo con un clic (renombra su etapa del kanban),
+//     módulos y clases que se ARRASTRAN (el gesto del Plan), y el menú «…» de cada uno
+//     (./MenuCurso.tsx): la portada, «Es una etapa del kanban», cuándo se abre, borrar.
+//   · «Invitar alumnos» y «Vista del alumno» en la barra de arriba, y el RECORRIDO de la tab.
+//   · ⚠️ SIN «Avance de los clientes» desde el 08/10/2026 (item 4): es una vista de /customer-success.
 //
 // ⚠️ EL CURSO CUELGA DE LAS ETAPAS DE LA ENTREGA, no tiene etapas propias (mig 0202). Las
 // columnas del kanban de Customer Success SON los módulos de acá: renombrar una allá la renombra
@@ -35,75 +39,92 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Pagina, PageHeader, Status, EmptyState, ErrorState, Banner, Toast, Modal, useToast, useConfirm,
+  Pagina, PageHeader, EmptyState, ErrorState, Banner, Toast, useToast, useConfirm,
 } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import type { Clase } from '@/lib/curso';
-import { reproductorDeClase, tieneTarea } from '@/lib/curso';
 import CursoUgc, { ChipUgc, ItemMenuUgc, TituloMenuUgc } from '@/app/_cursos/CursoUgc';
 import type { LeccionUgc, ObjetivoUgc, TextoUgc } from '@/app/_cursos/tipos';
 import {
-  ACENTOS, ACENTO_DEFAULT, conAjuste, estiloVacio, tapaDe, valorDe, type Ajuste, type EstiloCurso,
+  ACENTOS, ACENTO_DEFAULT, conAjuste, disposicionDe, estiloVacio, tapaDe, valorDe, type Ajuste, type EstiloCurso,
 } from '@/lib/curso-estilo';
 import { navegar, sembrar, usePosicion } from '@/app/conocimientos/posicion';
-import Reproductor from '@/app/compartido/curso/[token]/Reproductor';
-import TareaAlumno from '@/app/compartido/curso/[token]/TareaAlumno';
-import { VistaPreviaCtx } from '@/app/compartido/curso/[token]/vista-previa';
 import { CSS_PORTAL } from '@/app/compartido/curso/[token]/estilos';
 import { marcaDelProducto } from '@/app/compartido/curso/[token]/modelo-ugc';
-import { porEtapas, porGrabar, reordenar, rotuloTipo, videoDeClase, type FilaAvance } from './reglas';
+import { porEtapas, reordenar, type FilaAvance } from './reglas';
 import {
   SIN_ETAPA, TEXTOS_EDITOR, chipsDelEditor, cierraLaEtapa, clasesDelEditor, modulosDelEditor, puedeMoverEnEditor,
 } from './modelo-ugc';
 import {
-  borrarClaseAction, moverClaseAction, marcarGrabarAction, urlVerVideoAction, guardarEstiloCursoAction,
-  renombrarClaseAction, renombrarEtapaCursoAction,
+  borrarClaseAction, moverClaseAction, guardarEstiloCursoAction, renombrarClaseAction,
 } from './actions';
-import { EditorClase } from './EditorClase';
-import { NotasClase } from './NotasClase';
-import { AvanceCurso, type EtapaVista } from './AvanceCurso';
-import { ChecklistCurso, type OnboardingCurso } from './ChecklistCurso';
-import { checklistCurso } from './onboarding-curso';
+import { crearClaseAction, renombrarModuloAction } from './modulos-actions';
+import type { ModuloCurso } from '@/lib/curso-modulos';
+import { TOPE_NOMBRE_ETAPA } from '@/lib/servicio-etapas';
+import { leccionDelEditor, type CtxLeccion } from './LeccionEditable';
+import type { EtapaVista } from './AvanceCurso';
+import type { OnboardingCurso } from './ChecklistCurso';
+// ── El editor de la ESTRUCTURA (pedido del 07/10/2026, items 3 a 9, 11 y 12) ──
+import { Recorrido, BotonRecorrido, useRecorrido, type PasoRecorrido } from '@/app/_ui/Recorrido';
+import { claveDe } from '@/lib/curso-estilo';
+import type { Bloqueo } from '@/lib/curso-bloqueo';
+import {
+  borrarModuloAction, crearModuloAction, guardarBloqueoAction, guardarCampoClaseAction, moverClaseAAction,
+  reordenarModulosAction, vincularModuloAction,
+} from './modulos-actions';
+import { MenuClase, MenuModulo } from './MenuCurso';
+import { avisoDeBloqueo, chipDeBloqueo } from './bloqueo-editor';
+import { clasesConMovida, clasesReclaveadas, clavesConMovido, conOrdenDe, estiloReclaveado, modulosEnOrden } from './estructura';
+import { ModalInvitarAlumnos } from './InvitarAlumnos';
+import type { ClaseUgc, ControlMenuUgc, ModuloUgc } from '@/app/_cursos/tipos';
 
-export type ServicioCurso = { productoId: number; nombre: string; etapas: EtapaVista[] };
-export type VistaCurso = 'clases' | 'avance';
-/** Cuántas notas tiene cada clase y cada etapa (`<producto>:<etapa>`). `null` = no se pudo leer. */
-export type ConteoNotas = { porClase: Record<number, number>; porEtapa: Record<string, number> };
-
-/** Las tres posiciones de la marca de grabar (mig 0208). */
-type Grabar = boolean | null;
 /**
- * ⚠️ UNA CONSTANTE Y NO `= {}` EN LOS PARÁMETROS: la marca se resincroniza comparando la prop por
- * identidad (como las clases), y un `{}` nuevo en cada render sería «llegó otra» en cada render —
- * un setState durante el render que no termina nunca.
+ * Un servicio con su curso. `etapas` = las columnas del KANBAN (las de la tabla Avance, con su color);
+ * `modulos` = los MÓDULOS del curso (D1, lib/curso-modulos.ts: las etapas que son módulo y los
+ * sueltos, en orden), que es lo que dibuja el editor. No son lo mismo desde el 08/10/2026: una etapa
+ * puede no ser módulo (`enCurso: false`) y un módulo suelto no es una etapa.
  */
-const SIN_MARCAS: Record<number, Grabar> = {};
-/** Por la misma razón que `SIN_MARCAS`: una constante, no un `{}` en los parámetros. */
+export type ServicioCurso = { productoId: number; nombre: string; etapas: EtapaVista[]; modulos: ModuloCurso[] };
+export type VistaCurso = 'clases' | 'avance';
+
+/**
+ * ⚠️ UNA CONSTANTE Y NO `= {}` EN LOS PARÁMETROS: los estilos se resincronizan comparando la prop por
+ * identidad (como las clases), y un `{}` nuevo en cada render sería «llegó otra» en cada render — un
+ * setState durante el render que no termina nunca.
+ */
 const SIN_ESTILOS: Record<number, EstiloCurso> = {};
 
-/** La entrada propia de la barra (`#x=avance`). */
-const AVANCE = 'avance';
+/**
+ * EL RECORRIDO DE LA TAB (item 3, Martín, 07/10/2026): «Elimina el recuadro de "Configura tu curso"…
+ * haz el típico tutorial de app, donde se pone todo medio oscuro y salen flechas apuntándote a las
+ * acciones disponibles». Cada paso señala un `data-recorrido` de la pantalla (los del dibujo están en
+ * app/_cursos/CursoUgc.tsx; «Invitar» y «Vista del alumno», en la barra de arriba de acá). Un paso
+ * cuyo objetivo no está en pantalla se saltea solo (app/_ui/Recorrido.tsx): sin módulos no hay
+ * «Tus módulos».
+ *
+ * ⚠️ TEXTOS CORTOS (una frase): es texto de pantalla. El porqué de cada cosa va en el código.
+ */
+const PASOS_RECORRIDO: PasoRecorrido[] = [
+  { objetivo: 'marca', titulo: 'Tu programa', texto: 'Elige qué curso editas, su color y la vista del alumno.', lado: 'derecha' },
+  { objetivo: 'titulo', titulo: 'El nombre del curso', texto: 'Haz clic para cambiarlo.' },
+  { objetivo: 'portada', titulo: 'La portada', texto: 'Pasa el cursor y elige su imagen.' },
+  { objetivo: 'nuevo-modulo', titulo: 'Nuevo módulo', texto: 'Escribe su nombre: crea su etapa en el kanban.' },
+  { objetivo: 'modulo', titulo: 'Tus módulos', texto: 'Arrástralos para ordenarlos. Clic en el nombre para cambiarlo.', lado: 'derecha' },
+  { objetivo: 'invitar', titulo: 'Invita alumnos', texto: 'Tus clientes o alguien nuevo.' },
+  { objetivo: 'vista-alumno', titulo: 'Vista del alumno', texto: 'Mira el curso como lo ve tu cliente.' },
+];
 
 /** La vista previa del alumno de un producto (./vista/page.tsx): sin lead, no crea accesos. */
 const hrefVistaPrevia = (productoId: number) => `/customer-success/curso/vista?producto=${productoId}`;
 
 export function CursoApp({
   servicios, clases: clasesProp, avance, avanceError, conAvance, puedeEditar, inicial, errorClases, errorEntrega,
-  grabar: grabarProp = SIN_MARCAS, grabarError = null, notas: notasProp = null, onboarding = null,
   estilos: estilosProp = SIN_ESTILOS, estiloError = null,
 }: {
   servicios: ServicioCurso[];
   /** No se pudieron leer los servicios. ⚠️ No es «no tienes servicios»: son dos pantallas. */
   errorEntrega?: string | null;
-  /**
-   * claseId → la marca de grabar. ⚠️ Aparte de `Clase` a propósito (ver `grabarDeProductos`,
-   * lib/curso-admin.ts): el portal del alumno no la lee ni depende de la migración que la trae.
-   */
-  grabar?: Record<number, Grabar>;
-  /** No se pudo leer la marca. ⚠️ No es «nada marcado»: sin leerla no se dibuja ni el control. */
-  grabarError?: string | null;
-  notas?: ConteoNotas | null;
   clases: Clase[];
   /** productoId → filas de la tabla de Avance, ya ordenadas. */
   avance: Record<number, FilaAvance[]>;
@@ -114,7 +135,12 @@ export function CursoApp({
   inicial: { productoId: number | null; vista: VistaCurso };
   /** productoId → por qué no se pudieron leer sus clases. */
   errorClases: Record<number, string>;
-  /** El onboarding de la tab (sólo para quien arma el curso). `null` = no se dibuja. */
+  /**
+   * Los pasos del onboarding de la tab, como los anotó la página (sólo para quien arma el curso).
+   * ⚠️ DESDE EL 08/10/2026 LA TAB NO DIBUJA LA LISTA (item 3): la reemplazó el recorrido
+   * (`PASOS_RECORRIDO`). Los pasos se siguen anotando (los leen MaKo y la pantalla final del
+   * onboarding), y la prop queda para quien quiera mostrarlos.
+   */
   onboarding?: OnboardingCurso | null;
   /** productoId → cómo se ve su curso (mig 0214). Sin fila = el de siempre. */
   estilos?: Record<number, EstiloCurso>;
@@ -131,19 +157,10 @@ export function CursoApp({
   const [base, setBase] = useState(clasesProp);
   const [clases, setClases] = useState(clasesProp);
   if (base !== clasesProp) { setBase(clasesProp); setClases(clasesProp); }
-  // La marca de grabar y el conteo de notas: el mismo patrón, por la misma razón. Marcar no
-  // revalida (la pantalla cambia en el acto) y una nota nueva suma acá sin recargar.
-  const [baseGrabar, setBaseGrabar] = useState(grabarProp);
-  const [grabar, setGrabar] = useState(grabarProp);
-  if (baseGrabar !== grabarProp) { setBaseGrabar(grabarProp); setGrabar(grabarProp); }
-  const [baseNotas, setBaseNotas] = useState(notasProp);
-  const [notas, setNotas] = useState<ConteoNotas | null>(notasProp);
-  if (baseNotas !== notasProp) { setBaseNotas(notasProp); setNotas(notasProp); }
-  const [marcando, setMarcando] = useState<number | null>(null);
-  const [notasEtapa, setNotasEtapa] = useState<string | null>(null);
 
-  const [editando, setEditando] = useState<{ clase: Clase | null; etapa: string } | null>(null);
   const [moviendo, setMoviendo] = useState<number | null>(null);
+  /** «+ Clase» esperando al server: la clase nace ahí y recién después se abre. */
+  const [creando, setCreando] = useState(false);
   // El estilo de cada curso: el mismo patrón que las clases (se pisa cuando llega otro del server).
   const [baseEstilos, setBaseEstilos] = useState(estilosProp);
   const [estilos, setEstilos] = useState(estilosProp);
@@ -157,10 +174,25 @@ export function CursoApp({
   if (baseEstilos !== estilosProp) confirmados.current = estilosProp;
   /** El selector de portadas abierto: qué portada cambia y de qué botón cuelga. */
   const [picker, setPicker] = useState<{ ajuste: Ajuste; ancla: HTMLElement } | null>(null);
-  /** Los nombres de etapa cambiados acá (`<producto>:<key>` → nombre), hasta que la página los traiga. */
-  const [nombresEtapa, setNombresEtapa] = useState<Record<string, string>>({});
+  /**
+   * LOS MÓDULOS DE CADA CURSO COMO QUEDARON ACÁ (renombrar, arrastrar, crear, desvincular, el
+   * candado), por producto, hasta que la página traiga otros. Cada action de los módulos devuelve la
+   * lista como QUEDÓ en la base (./modulos-actions.ts) y eso pisa lo de acá: un arrastre puede terminar
+   * distinto de lo pedido si el kanban agrupa por fases. Mismo patrón que las clases.
+   */
+  const [baseServicios, setBaseServicios] = useState(servicios);
+  const [modulosLocal, setModulosLocal] = useState<Record<number, ModuloCurso[]>>({});
+  if (baseServicios !== servicios) { setBaseServicios(servicios); setModulosLocal({}); }
+  /** «Invitar alumnos»: UN modal, que abren el botón de la barra de arriba y el menú de la marca. */
+  const [invitando, setInvitando] = useState(false);
+  /** Un cambio de la ESTRUCTURA esperando al server: los controles se apagan, no desaparecen. */
+  const [estructurando, setEstructurando] = useState(false);
   const timerAcento = useRef<number | undefined>(undefined);
-  // Dónde está parado: la lista del onboarding y los avisos de grabar van sólo en el índice.
+  /** El turno de cada ajuste del estilo (ver `guardarAjuste`): una respuesta vieja no pisa una más nueva. */
+  const turnos = useRef<Record<string, number>>({});
+  // El recorrido de la tab (item 3): se abre solo la primera vez, para quien arma el curso.
+  const recorrido = useRecorrido('cs-curso', { autoabrir: puedeEditar });
+  // Dónde está parado: la lista del onboarding va sólo en el índice.
   const { pos } = usePosicion();
   const { toast, show, clear } = useToast();
   const { confirm, confirmNode } = useConfirm();
@@ -175,7 +207,7 @@ export function CursoApp({
     try {
       const u = new URL(window.location.href);
       if (productoId) u.searchParams.set('producto', String(productoId)); else u.searchParams.delete('producto');
-      // `?vista=avance` era la pestaña de antes: hoy es una entrada de la barra (el efecto de abajo).
+      // `?vista=avance` era la pestaña de antes: hoy es una vista de Clientes (la página redirige).
       u.searchParams.delete('vista');
       if (u.href !== window.location.href) window.history.replaceState(window.history.state, '', u.href);
     } catch { /* sin URL no se pierde nada: es una comodidad */ }
@@ -185,23 +217,31 @@ export function CursoApp({
   // esto la posición del hash no se lee hasta el primer Atrás (ver PortalAlumno, que hace lo mismo).
   useEffect(() => { sembrar({}); }, []);
 
-  // Un link viejo (o de la ficha del cliente) con `?vista=avance` abre el Avance, una sola vez.
-  const abrioAvance = useRef(false);
-  useEffect(() => {
-    if (abrioAvance.current || inicial.vista !== 'avance') return;
-    abrioAvance.current = true;
-    navegar({ extra: AVANCE }, 'reemplazar');
-  }, [inicial.vista]);
+  // ⚠️ EL AVANCE DE LOS CLIENTES YA NO ESTÁ ACÁ (item 4): es una vista de /customer-success, y un
+  //    `?vista=avance` viejo lo redirige la página (./page.tsx). Las filas siguen llegando: son la
+  //    lista de «Invitar alumnos» y el aviso de borrar una clase.
 
+  /** Los módulos del curso elegido: los que dejó un cambio de acá, o los que trajo la página. */
+  const modulosActuales = useMemo<ModuloCurso[]>(
+    () => (servicio ? (modulosLocal[servicio.productoId] ?? servicio.modulos) : []),
+    [servicio, modulosLocal],
+  );
   const delProducto = useMemo(() => clases.filter((c) => c.productoId === productoId), [clases, productoId]);
   const { porEtapa, huerfanas } = useMemo(
-    () => porEtapas(delProducto, servicio?.etapas.map((e) => e.key) ?? []),
-    [delProducto, servicio],
+    () => porEtapas(delProducto, modulosActuales.map((m) => m.clave)),
+    [delProducto, modulosActuales],
   );
   const filas = productoId ? avance[productoId] ?? [] : [];
+  /** El título de una clase del producto, para decir en palabras un candado «Al terminar «X»». */
+  const tituloDeClase = (id: number) => delProducto.find((c) => c.id === id)?.titulo ?? null;
   const etapasMin = useMemo(
-    () => servicio?.etapas.map((e) => ({ key: e.key, label: nombresEtapa[`${servicio.productoId}:${e.key}`] ?? e.label })) ?? [],
-    [servicio, nombresEtapa],
+    () => modulosActuales.map((m) => ({
+      key: m.clave,
+      label: m.nombre,
+      // El candado que le puso el equipo, sobre la tarjeta (lo de siempre no se avisa).
+      aviso: avisoDeBloqueo(m.vinculado ? 'vinculado' : 'suelto', m.bloqueo, (id) => delProducto.find((c) => c.id === id)?.titulo ?? null),
+    })),
+    [modulosActuales, delProducto],
   );
   const estiloActual = productoId != null ? estilos[productoId] : undefined;
   const clasesUgcBase = useMemo(
@@ -228,40 +268,31 @@ export function CursoApp({
     ordenar(r.ids);
   };
 
-  /**
-   * Marca (o des-marca) una clase para grabar. Optimista, como `mover`: la marca cambia en el
-   * acto y la base confirma detrás; si no, vuelve a la de antes y lo dice.
-   */
-  const marcar = async (c: Clase, valor: Grabar) => {
-    const antes = grabar[c.id] ?? null;
-    const poner = (v: Grabar) => setGrabar((g) => ({ ...g, [c.id]: v }));
-    poner(valor);
-    setMarcando(c.id);
-    try {
-      const r = await marcarGrabarAction(c.id, valor);
-      if (!r.ok) { poner(antes); show(r.error, undefined, 'bad'); return; }
-      poner(r.grabar);
-    } catch {
-      // Una action sin red RECHAZA: sin este catch, la marca quedaba puesta sobre algo que no se
-      // guardó (hallazgos-customer-success, «Una acción que no llega tumba la pantalla entera»).
-      poner(antes);
-      show('No se pudo marcar.', undefined, 'bad');
-    } finally {
-      setMarcando(null);
-    }
-  };
-
-  const contarNotasClase = (id: number, n: number) =>
-    setNotas((x) => (x && x.porClase[id] !== n ? { ...x, porClase: { ...x.porClase, [id]: n } } : x));
-  const contarNotasEtapa = (k: string, n: number) =>
-    setNotas((x) => (x && x.porEtapa[k] !== n ? { ...x, porEtapa: { ...x.porEtapa, [k]: n } } : x));
-
   const borrar = async (c: Clase) => {
     const r = await borrarClaseAction(c.id);
     if (!r.ok) { show(r.error, undefined, 'bad'); return; }
     setClases((cs) => cs.filter((x) => x.id !== c.id));
-    setEditando(null);
     show('Clase borrada');
+  };
+
+  /**
+   * «+ Clase»: la clase NACE en el server (`crearClaseAction`, primera de su módulo) y se abre para
+   * editarla en su lugar (item 16). Antes abría el editor de la clase, un modal que se fue con
+   * «Editar»: ya no hay un formulario que llenar antes de que la clase exista.
+   */
+  const nuevaClase = async (moduloKey: string) => {
+    if (!servicio || creando) return;
+    setCreando(true);
+    try {
+      const r = await crearClaseAction(servicio.productoId, moduloKey);
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      setClases((cs) => [...cs, r.clase]);
+      navegar({ mod: moduloKey, clase: r.clase.id });
+    } catch {
+      show('No se pudo crear la clase.', undefined, 'bad');
+    } finally {
+      setCreando(false);
+    }
   };
 
   const borrarDesdeLista = async (c: Clase) => {
@@ -294,26 +325,163 @@ export function CursoApp({
   }
 
   const nClases = delProducto.length;
-  // Sin poder leer la marca, el número sería un 0 inventado: no se dibuja (el banner lo dice).
-  const nPorGrabar = grabarError ? 0 : porGrabar(delProducto, grabar);
-  const marcas = grabarError ? null : grabar;
 
-  // ── El onboarding de la tab ──
-  // Si se dibuja lo decide el WORKSPACE (lo mismo que lee MaKo) y lo que cuenta es el PRODUCTO
-  // elegido, como la cabecera: las dos reglas y el porqué, en `checklistCurso`. Se calcula de
-  // la lista local, así agregar o borrar una clase lo mueve en el acto.
-  const checklist = checklistCurso({
-    clases, productoId, anotado: onboarding,
-    errorDelProducto: productoId != null && !!errorClases[productoId],
-  });
-  const primeraEtapa = servicio?.etapas[0]?.key ?? null;
-  /** La etapa en la que se abre una clase: la suya, o la primera si la suya ya no existe. */
-  const etapaParaEditar = (c: Clase) => (servicio?.etapas.some((e) => e.key === c.etapa) ? c.etapa : primeraEtapa ?? c.etapa);
+  const primeraEtapa = modulosActuales[0]?.clave ?? null;
 
   const cambiarProducto = (id: number) => {
     // Las etapas de dos productos pueden llamarse igual: la posición es de otro curso.
     navegar({}, 'reemplazar');
     setProductoId(id);
+  };
+
+  // ── La ESTRUCTURA del curso: módulos y clases (items 6, 7, 8 y 12) ──
+  // Todo optimista, como `mover`: se ve en el acto y el server confirma detrás. Lo que el server
+  // contesta MANDA (los módulos como quedaron, la clase como quedó); si rechaza, vuelve a lo de antes
+  // con su aviso corto («La primera etapa no se mueve.»). Una action sin red RECHAZA: cada una lleva su
+  // catch, o el cambio quedaba en pantalla sobre algo que no se guardó.
+  const ponerModulos = (pid: number, ms: ModuloCurso[]) => setModulosLocal((m) => ({ ...m, [pid]: ms }));
+
+  /**
+   * «+ Nuevo módulo» (item 12): vinculado por default, o sea que CREA SU ETAPA en el kanban.
+   * ⚠️ VA AL FINAL DEL CURSO aunque el botón esté primero: el botón va primero para que se vea (con
+   *    treinta módulos, el del final había que ir a buscarlo), y «al principio» un vinculado no puede
+   *    ir (la primera etapa es la entrada del kanban: `ERROR_PRIMERA`). Después se arrastra. Y se
+   *    ABRE: lo que sigue con un módulo nuevo es su primera clase.
+   */
+  const nuevoModulo = async (nombre: string, vinculado: boolean): Promise<boolean> => {
+    if (!servicio) return false;
+    const pid = servicio.productoId;
+    setEstructurando(true);
+    try {
+      const r = await crearModuloAction(pid, { nombre, vinculado, despuesDe: modulosActuales.at(-1)?.clave ?? null });
+      if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
+      ponerModulos(pid, r.modulos);
+      navegar({ mod: r.clave });
+      return true;
+    } catch {
+      show('No se pudo crear el módulo.', undefined, 'bad');
+      return false;
+    } finally {
+      setEstructurando(false);
+    }
+  };
+
+  /** Arrastrar un módulo (item 7): reordena las ETAPAS del kanban (sin mover la primera) y los sueltos. */
+  const ordenarModulos = async (claves: string[]) => {
+    if (!servicio) return;
+    const pid = servicio.productoId;
+    const antes = modulosActuales;
+    ponerModulos(pid, modulosEnOrden(antes, claves));
+    setEstructurando(true);
+    try {
+      const r = await reordenarModulosAction(pid, claves);
+      if (!r.ok) { ponerModulos(pid, antes); show(r.error, undefined, 'bad'); return; }
+      ponerModulos(pid, r.modulos);
+    } catch {
+      ponerModulos(pid, antes);
+      show('No se pudo ordenar.', undefined, 'bad');
+    } finally {
+      setEstructurando(false);
+    }
+  };
+
+  /** Arrastrar una clase (en su módulo, o soltada sobre otro de la barra) y «Mover a» del menú. */
+  const llevarClase = async (claseId: number, clave: string, antesDe: number | null) => {
+    const c = porId.get(claseId);
+    if (!c) return;
+    const antes = clases;
+    setClases((cs) => clasesConMovida(cs, claseId, clave, antesDe));
+    setEstructurando(true);
+    try {
+      const r = await moverClaseAAction(claseId, clave, antesDe);
+      if (!r.ok) { setClases(antes); show(r.error, undefined, 'bad'); return; }
+      setClases((cs) => conOrdenDe(cs.map((x) => (x.id === r.clase.id ? r.clase : x)), r.clase.productoId, r.clase.etapa, r.ids));
+      // A otro módulo, la tarjeta se va de la vista: se dice a dónde fue.
+      if (clave !== c.etapa) show('Clase movida');
+    } catch {
+      setClases(antes);
+      show('No se pudo mover la clase.', undefined, 'bad');
+    } finally {
+      setEstructurando(false);
+    }
+  };
+
+  /**
+   * «Es una etapa del kanban» (item 12). La clave del módulo CAMBIA (lib/curso-modulos-datos.ts,
+   * `reclavear`): el server ya mudó sus clases y su portada, y acá se hace lo mismo con lo que hay en
+   * memoria — si no, sus clases caerían en «Sin módulo» hasta recargar.
+   */
+  const vincular = async (m: ModuloCurso, v: boolean): Promise<string | null> => {
+    if (!servicio) return null;
+    const pid = servicio.productoId;
+    setEstructurando(true);
+    try {
+      const r = await vincularModuloAction(pid, m.clave, v);
+      if (!r.ok) return r.error;
+      const nueva = r.clave;
+      if (nueva !== m.clave) {
+        setClases((cs) => clasesReclaveadas(cs, pid, m.clave, nueva));
+        setEstilos((e) => (e[pid] ? { ...e, [pid]: estiloReclaveado(e[pid], m.clave, nueva) } : e));
+        const conf = confirmados.current[pid];
+        if (conf) confirmados.current = { ...confirmados.current, [pid]: estiloReclaveado(conf, m.clave, nueva) };
+        if (pos.mod === m.clave) navegar({ mod: nueva, clase: pos.clase }, 'reemplazar');
+      }
+      ponerModulos(pid, r.modulos);
+      return null;
+    } catch {
+      return v ? 'No se pudo vincular.' : 'No se pudo desvincular.';
+    } finally {
+      setEstructurando(false);
+    }
+  };
+
+  /** El candado de un módulo o de una clase (item 8, D2). Devuelve por qué no, o `null` si quedó. */
+  const candado = async (objetivo: { modulo: string } | { clase: number }, b: Bloqueo | null): Promise<string | null> => {
+    if (!servicio) return null;
+    const pid = servicio.productoId;
+    setEstructurando(true);
+    try {
+      const r = await guardarBloqueoAction(pid, objetivo, b);
+      if (!r.ok) return r.error;
+      ponerModulos(pid, r.modulos);
+      const x = r.clase;
+      if (x) setClases((cs) => cs.map((y) => (y.id === x.id ? x : y)));
+      return null;
+    } catch {
+      return 'No se pudo guardar el candado.';
+    } finally {
+      setEstructurando(false);
+    }
+  };
+
+  /** «Por área» de una clase (#665): cada área del cliente contesta su tarea. */
+  const porArea = async (c: Clase, v: boolean): Promise<string | null> => {
+    try {
+      const r = await guardarCampoClaseAction(c.id, { porArea: v });
+      if (!r.ok) return r.error;
+      setClases((cs) => cs.map((y) => (y.id === r.clase.id ? r.clase : y)));
+      return null;
+    } catch {
+      return 'No se pudo guardar.';
+    }
+  };
+
+  /** Borrar un módulo SUELTO y VACÍO (el menú no lo ofrece para otro: ver ./MenuCurso.tsx). */
+  const borrarModulo = async (m: ModuloCurso) => {
+    if (!servicio) return;
+    const pid = servicio.productoId;
+    setEstructurando(true);
+    try {
+      const r = await borrarModuloAction(pid, m.clave);
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      ponerModulos(pid, r.modulos);
+      if (pos.mod === m.clave) navegar({}, 'reemplazar');
+      show('Módulo borrado');
+    } catch {
+      show('No se pudo borrar el módulo.', undefined, 'bad');
+    } finally {
+      setEstructurando(false);
+    }
   };
 
   // ── Cómo se ve el curso (mig 0214): color, títulos y portadas ──
@@ -327,16 +495,26 @@ export function CursoApp({
     //    el pendiente pisaba en la base la elección explícita (revisión del 07/10/2026).
     if (a.tipo === 'acento') window.clearTimeout(timerAcento.current);
     const poner = (x: string | null) => setEstilos((m) => ({ ...m, [pid]: conAjuste(m[pid] ?? estiloVacio(), a, x) }));
-    const antes = valorDe(confirmados.current[pid] ?? estiloVacio(), a);
+    // ⚠️ UNA RESPUESTA VIEJA NO PISA A UNA MÁS NUEVA (revisión de las láminas, 08/10/2026). El texto de
+    //    una lámina se manda mientras se tipea: con «Uno» y después «Uno dos» en el aire, si la de «Uno»
+    //    llegaba última, el campo volvía a «Uno» con «Uno dos» guardado (medido en un arnés). Cada
+    //    ajuste lleva su TURNO, y sólo la respuesta del último pedido toca la pantalla; lo CONFIRMADO se
+    //    anota siempre (es lo que hay en la base).
+    const clave = `${pid}:${claveDe(a)}`;
+    const turno = (turnos.current[clave] ?? 0) + 1;
+    turnos.current[clave] = turno;
+    const vigente = () => turnos.current[clave] === turno;
+    /** Vuelve a lo que el server CONFIRMÓ (no a lo de pantalla), si ésta es la respuesta del último pedido. */
+    const volver = () => { if (vigente()) poner(valorDe(confirmados.current[pid] ?? estiloVacio(), a)); };
     poner(v);
     try {
       const r = await guardarEstiloCursoAction(pid, a, v);
-      if (!r.ok) { poner(antes); show(r.error, undefined, 'bad'); return false; }
+      if (!r.ok) { volver(); show(r.error, undefined, 'bad'); return false; }
       confirmados.current = { ...confirmados.current, [pid]: conAjuste(confirmados.current[pid] ?? estiloVacio(), a, r.valor) };
-      poner(r.valor);
+      if (vigente()) poner(r.valor);
       return true;
     } catch {
-      poner(antes);
+      volver();
       show('No se pudo guardar.', undefined, 'bad');
       return false;
     }
@@ -365,9 +543,10 @@ export function CursoApp({
     if (!valor) { show('El nombre no puede quedar vacío.', undefined, 'bad'); return false; }
     try {
       if (que.tipo === 'modulo') {
-        const r = await renombrarEtapaCursoAction(pid, que.key, valor);
+        // Un vinculado renombra su ETAPA del kanban (item 6: «que se editen en las etapas del kanban»).
+        const r = await renombrarModuloAction(pid, que.key, valor);
         if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
-        setNombresEtapa((m) => ({ ...m, [`${pid}:${que.key}`]: r.nombre }));
+        ponerModulos(pid, r.modulos);
         return true;
       }
       const r = await renombrarClaseAction(que.id, valor);
@@ -391,23 +570,32 @@ export function CursoApp({
   /** El nombre de un curso: el que se le eligió, o el del producto. */
   const tituloDe = (s: ServicioCurso) => estilos[s.productoId]?.titulo ?? s.nombre;
 
+  /** Con qué número, rótulo y nombre dibuja las láminas la pestaña «Diseños» del selector de portadas. */
+  const disenosDe = (a: Ajuste): { n: number; rotulo: string; titulo: string } | undefined => {
+    if (a.tipo === 'portada-etapa') {
+      const m = modulosActuales.find((x) => x.clave === a.etapa);
+      return m ? { n: m.n, rotulo: TEXTOS_EDITOR.modulo ?? 'Módulo', titulo: m.nombre } : undefined;
+    }
+    if (a.tipo === 'portada-clase') {
+      const c = clasesUgcBase.find((x) => x.id === a.clase);
+      return c ? { n: Number(c.vn ?? 1) || 1, rotulo: 'Clase', titulo: c.titulo } : undefined;
+    }
+    return undefined;
+  };
+
   // ── El curso, con el dibujo de Conocimientos ──
   const modulos = servicio ? modulosDelEditor(etapasMin, porEtapa, huerfanas, estilo).map((m) => {
     if (m.key === SIN_ETAPA) {
-      return { ...m, acciones: <span className="cu-aviso">Su etapa ya no existe</span> };
+      return { ...m, acciones: <span className="cu-aviso">Su módulo ya no existe</span> };
     }
     const lista = porEtapa[m.key] ?? [];
-    // Las notas de la ETAPA (no de una clase): las ve y las escribe cualquiera que vea la tab, así
-    // que el botón no depende de `puedeEditar` (#692).
-    const nNotas = notas?.porEtapa[`${servicio.productoId}:${m.key}`] ?? 0;
     return {
       ...m,
       acciones: (
         <span className="cu-sec-acciones">
-          {lista.length > 0 && !cierraLaEtapa(lista) && (
+          {lista.length > 0 && !cierraLaEtapa(lista) && modulosActuales.find((x) => x.clave === m.key)?.vinculado && (
             <span className="cu-aviso" title="Ninguna clase cierra esta etapa: el cliente no avanza solo.">No avanza sola</span>
           )}
-          <button type="button" className="ugc-btn" onClick={() => setNotasEtapa(m.key)}>{nNotas > 0 ? `Notas · ${nNotas}` : 'Notas'}</button>
         </span>
       ),
     };
@@ -415,104 +603,102 @@ export function CursoApp({
 
   const clasesUgc = clasesUgcBase.map((u) => {
     const c = porId.get(u.id)!;
+    // El candado propio de la clase (item 8), dicho para quien la arma: va con los demás chips.
+    const candadoChip = chipDeBloqueo(c.bloqueo, tituloDeClase);
+    // «Cierra el módulo» sólo donde cierra algo: en un módulo que es una etapa del kanban (lo mismo que
+    // mira la lección para ofrecer el interruptor, `ctx.vinculado` más abajo).
+    const vinculado = modulosActuales.find((m) => m.clave === c.etapa)?.vinculado ?? false;
     return {
       ...u,
-      chips: chipsDelEditor(c, { marca: marcas ? (marcas[c.id] ?? null) : undefined, notas: notas?.porClase[c.id] ?? 0 })
+      chips: [...chipsDelEditor(c, vinculado), ...(candadoChip ? [candadoChip] : [])]
         .map((ch) => <ChipUgc key={ch.texto} tono={ch.tono}>{ch.texto}</ChipUgc>),
     };
   });
 
+  /**
+   * La lección: se edita EN SU LUGAR (./LeccionEditable.tsx). Lo que guarda cada parte vuelve acá
+   * (`onClase`), así las tarjetas y la vista del alumno dicen lo mismo sin recargar. Las preguntas
+   * («¿Quitar el video?») las dibuja ESTA pantalla, afuera del curso: adentro, la hoja del curso le
+   * saca el fondo y el borde a los botones de un diálogo.
+   */
   const leccion = (id: number): LeccionUgc => {
     const c = porId.get(id);
     if (!c || !servicio) return {};
-    const { video } = reproductorDeClase(c);
-    const v = videoDeClase(c);
-    const conTarea = tieneTarea(c);
-    const marca = marcas ? (marcas[c.id] ?? null) : undefined;
-    const desc = c.descripcion.trim();
-    const pestanas = [
-      ...(conTarea ? [{
-        nombre: 'Tarea',
-        // La tarea TAL COMO LA VE EL ALUMNO, en vista previa: se puede llenar y no guarda nada.
-        cuerpo: (
-          <div className="ugc-paper">
-            <VistaPreviaCtx.Provider value>
-              <TareaAlumno token="" claseId={c.id} tarea={c.tarea} campos={c.campos}
-                valoresIniciales={{}} estadoInicial="pendiente" onEstado={() => {}} onAvance={() => {}} />
-            </VistaPreviaCtx.Provider>
-          </div>
-        ),
-      }] : []),
-      ...(desc ? [{ nombre: 'Descripción', cuerpo: <div className="ugc-paper">{parrafos(desc)}</div> }] : []),
-      {
-        nombre: (notas?.porClase[c.id] ?? 0) > 0 ? `Notas · ${notas!.porClase[c.id]}` : 'Notas',
-        cuerpo: (
-          <div className="ugc-paper">
-            <NotasClase key={c.id} productoId={servicio.productoId} destino={{ claseId: c.id }}
-              puedeBorrarTodo={puedeEditar} onTotal={(n) => contarNotasClase(c.id, n)} />
-          </div>
-        ),
-      },
-    ];
-    return {
-      video: video && video.tipo !== 'afuera' ? { cuerpo: <VideoDeClase clase={c} /> } : undefined,
-      debajoDelVideo: (
-        <div className="cu-ficha">
-          <span className="cu-ficha-meta">
-            <span>{rotuloTipo(c.tipo)}</span>
-            {c.minutos != null && <span>{c.minutos} min</span>}
-            {v.hay
-              ? <span className={v.medible ? '' : 'cu-tenue'}>{v.rotulo}{v.medible ? '' : ' · sin medir'}</span>
-              : <span className="cu-tenue">Sin video</span>}
-            {c.obligatoria && conTarea && <Status tono="good">Cierra la etapa</Status>}
-            {/* Quien no edita VE la marca (y nada mientras nadie decidió); quien edita, el control. */}
-            {!puedeEditar && marca === true && <Status tono="warn">Grabar</Status>}
-            {!puedeEditar && marca === false && <span className="cu-tenue">No grabar</span>}
-          </span>
-          {puedeEditar && marca !== undefined && (
-            <ControlGrabar valor={marca} ocupado={marcando === c.id} onCambio={(x) => void marcar(c, x)} />
-          )}
-          {video?.tipo === 'afuera' && <VideoDeClase clase={c} />}
-        </div>
-      ),
-      pestanas,
+    const ctx: CtxLeccion = {
+      productoId: servicio.productoId,
+      puedeEditar,
+      // De los módulos COMO QUEDARON acá: desvincular uno cambia si sus clases pueden cerrar la etapa.
+      vinculado: modulosActuales.find((m) => m.clave === c.etapa)?.vinculado ?? false,
+      conAvance: conAvance[c.id] ?? 0,
+      onClase: (x) => setClases((cs) => cs.map((y) => (y.id === x.id ? x : y))),
+      avisar: (t) => show(t, undefined, 'bad'),
+      confirmar: (mensaje, o) => confirm(mensaje, { title: o.titulo, confirmLabel: o.boton }),
     };
+    return leccionDelEditor(c, ctx);
   };
 
-  // Lo que en la pantalla vieja era la cabecera de la tab: los avisos de lectura y la lista del
-  // onboarding. Van ADENTRO del curso, debajo del buscador (`arriba`): Martín pidió sacar la barra
-  // de arriba entera, «que no aparezca absolutamente nada... ni el título» (07/10/2026).
+  // Lo que en la pantalla vieja era la cabecera de la tab: los avisos de lectura. Van ADENTRO del
+  // curso, debajo del buscador (`arriba`): Martín pidió sacar la barra de arriba entera, «que no
+  // aparezca absolutamente nada... ni el título» (07/10/2026).
   //
-  // ⚠️ `arriba` queda FIJO en todas las vistas, así que lo largo va SÓLO en el índice: la lista del
-  //    onboarding en una lección se comía la pantalla, y en un teléfono el curso entero.
-  const enIndice = !pos.clase && !pos.extra && !pos.mod && !pos.q;
-  const conLista = enIndice && !!checklist && !!onboarding;
+  // ⚠️ SIN EL RECUADRO «Configura tu curso» (item 3): lo reemplazó el RECORRIDO (`PASOS_RECORRIDO`,
+  //    abajo). ./ChecklistCurso.tsx queda: lo importan la cartera de Clientes (`Paso`) y la página
+  //    (el tipo de los pasos).
+  // ⚠️ «NO PUDE LEER TUS CLIENTES» SE DICE: sin ellos «Invitar alumnos» abriría una lista vacía, que
+  //    se leería como que no hay a quién invitar.
   const avisos = (
-    (productoId && errorClases[productoId]) || grabarError || estiloError || conLista || (enIndice && nPorGrabar > 0)
+    (productoId && errorClases[productoId]) || estiloError || avanceError
   ) ? (
     <div className="cu-arriba">
       {productoId && errorClases[productoId] && <Banner tono="bad">No pude leer las clases. {errorClases[productoId]}</Banner>}
-      {grabarError && <Banner tono="bad">No pude leer qué grabar. {grabarError}</Banner>}
       {estiloError && <Banner tono="bad">No pude leer cómo se ve el curso. {estiloError}</Banner>}
-      {/* Era un chip de la cabecera que se sacó; arriba a la derecha se esconde en pantallas chicas. */}
-      {enIndice && nPorGrabar > 0 && <Status tono="warn">{nPorGrabar} por grabar</Status>}
-      {conLista && checklist && onboarding && (
-        <ChecklistCurso
-          clases={checklist.clases}
-          conVideo={checklist.conVideo}
-          vista={onboarding.vista}
-          invitar={{ hecho: onboarding.invitar || onboarding.invitados > 0, n: onboarding.invitados }}
-          /* El ensayo mira un curso: sobre un producto sin clases no hay nada que ver, y lo que
-             sigue es «Agregar clase» (el mismo orden que el catálogo). */
-          hrefVista={productoId && checklist.clases > 0 ? hrefVistaPrevia(productoId) : null}
-          onAgregarClase={puedeEditar && primeraEtapa
-            ? () => setEditando({ clase: null, etapa: primeraEtapa })
-            : undefined}
-          onIrAAvance={() => navegar({ extra: AVANCE })}
-        />
-      )}
+      {avanceError && <Banner tono="bad">No pude leer tus clientes. {avanceError}</Banner>}
     </div>
   ) : undefined;
+
+  // ── Los menús «…» de un módulo y de una clase (item 12): los arma esta pantalla ──
+  const clasesParaMenu = delProducto.map((c) => ({ id: c.id, etapa: c.etapa, titulo: c.titulo }));
+  const menuModulo = (m: ModuloUgc, ctl: ControlMenuUgc) => {
+    const mc = modulosActuales.find((x) => x.clave === m.key);
+    if (!mc) return null;
+    const claves = modulosActuales.map((x) => x.clave);
+    const mover = (dir: -1 | 1) => { const n = clavesConMovido(claves, mc.clave, dir); return n ? () => { void ordenarModulos(n); } : null; };
+    return (
+      <MenuModulo modulo={mc} conClases={(porEtapa[mc.clave] ?? []).length} clases={clasesParaMenu} ctl={ctl} ocupado={estructurando}
+        onMover={{ antes: mover(-1), despues: mover(1) }}
+        onPortada={estiloError ? undefined : (a) => abrirPortada({ tipo: 'modulo', key: mc.clave }, a)}
+        onVincular={(v) => vincular(mc, v)}
+        onBloqueo={(b) => candado({ modulo: mc.clave }, b)}
+        onBorrar={() => void borrarModulo(mc)} />
+    );
+  };
+  const menuClase = (u: ClaseUgc, ctl: ControlMenuUgc) => {
+    const c = porId.get(u.id);
+    if (!c) return null;
+    return (
+      <MenuClase clase={c} modulos={modulosActuales} clases={clasesParaMenu} ctl={ctl} ocupado={estructurando}
+        onPortada={estiloError ? undefined : (a) => abrirPortada({ tipo: 'clase', id: c.id }, a)}
+        onBloqueo={(b) => candado({ clase: c.id }, b)}
+        onPorArea={(v) => porArea(c, v)}
+        onMover={(k) => void llevarClase(c.id, k, null)}
+        onBorrar={() => void borrarDesdeLista(c)} />
+    );
+  };
+
+  /**
+   * La barra de arriba (item 9 y el recorrido del item 3): lo que se hace con el curso ENTERO, a la
+   * vista. «Invitar alumnos» abre el modal de ./InvitarAlumnos.tsx (tus clientes sin invitar, o
+   * alguien nuevo que entra como cliente al kanban); «Vista del alumno» abre el ensayo sin lead.
+   */
+  const barraDeArriba = (
+    <>
+      {productoId != null && (
+        <Link className="ugc-btn" href={hrefVistaPrevia(productoId)} data-recorrido="vista-alumno">Vista del alumno</Link>
+      )}
+      <button type="button" className="ugc-btn" data-recorrido="invitar" onClick={() => setInvitando(true)}>Invitar alumnos</button>
+      {puedeEditar && <BotonRecorrido onClick={recorrido.reabrir} />}
+    </>
+  );
 
   /**
    * EL MENÚ DE LA MARCA. Lo que estaba en la barra de arriba que se sacó: el producto que se mira
@@ -553,6 +739,8 @@ export function CursoApp({
           <Link className="ugc-menu-item" href={hrefVistaPrevia(productoId)} onClick={cerrar}>Vista del alumno</Link>
         </>
       )}
+      {/* El mismo modal que el botón de la barra de arriba (item 9): uno solo, con un solo estado. */}
+      <ItemMenuUgc onClick={() => { cerrar(); setInvitando(true); }}>Invitar alumnos</ItemMenuUgc>
     </>
   );
 
@@ -566,8 +754,7 @@ export function CursoApp({
 
   return (
     // ⚠️ SIN CABECERA: el curso ES la pantalla, como en Conocimientos. Lo que había arriba se mudó
-    //    al menú de la marca (el producto, la vista del alumno) y al pie del buscador (las clases y
-    //    cuántas faltan grabar).
+    //    al menú de la marca (el producto, la vista del alumno) y al pie del buscador (las clases).
     <Pagina ancho="completo" style={{ padding: 0 }}>
       <CursoUgc
         key={servicio.productoId}
@@ -575,7 +762,9 @@ export function CursoApp({
         // Arriba a la derecha va el NOMBRE del curso, como en Conocimientos: «Curso» era el título
         // de la barra que Martín pidió sacar («ni el título»).
         titulo={tituloDe(servicio)}
-        subtitulo={`${nClases} ${nClases === 1 ? 'clase' : 'clases'}${nPorGrabar > 0 ? ` · ${nPorGrabar} por grabar` : ''}`}
+        subtitulo={`${nClases} ${nClases === 1 ? 'clase' : 'clases'}`}
+        // Dónde va el texto de la lección: lo mismo que ve el alumno (item 16).
+        disposicion={disposicionDe(estilo)}
         marca={{ ...marcaDelProducto(tituloDe(servicio)), menu: menuMarca, ariaLabel: `${tituloDe(servicio)}: cambiar de curso` }}
         acento={estilo.acento}
         modulos={modulos}
@@ -584,26 +773,34 @@ export function CursoApp({
           eyebrow: 'Curso',
           titulo: tituloDe(servicio),
           // Editando, la descripción vacía muestra su invitación; el alumno ve su avance en su lugar.
-          resumen: puedeEditar ? (estilo.resumen ?? '') : (estilo.resumen ?? `${servicio.etapas.length} etapas · ${nClases} clases`),
+          resumen: puedeEditar ? (estilo.resumen ?? '') : (estilo.resumen ?? `${modulosActuales.length} ${modulosActuales.length === 1 ? 'módulo' : 'módulos'} · ${nClases} clases`),
           ...tapaDe(estilo.portada),
         }}
         leccion={(clase) => leccion(clase.id)}
         arriba={avisos}
-        entradasExtra={[{
-          key: AVANCE,
-          nombre: 'Avance de los clientes',
-          cuenta: filas.length,
-          cuerpo: <div className="cu-avance"><AvanceCurso etapas={servicio.etapas} filas={filas} error={avanceError} /></div>,
-        }]}
+        topbarExtra={barraDeArriba}
+        // ⚠️ SIN «Avance de los clientes» (item 4): es una vista de /customer-success.
         edicion={puedeEditar ? {
-          onNueva: (k) => setEditando({ clase: null, etapa: k === SIN_ETAPA ? primeraEtapa ?? k : k }),
-          onEditar: (id) => { const c = porId.get(id); if (c) setEditando({ clase: c, etapa: etapaParaEditar(c) }); },
+          // ── La estructura (items 6, 7, 8 y 12): ver las funciones de arriba ──
+          onNuevoModulo: nuevoModulo,
+          opcionNuevoModulo: 'Etapa del kanban',
+          // El tope del nombre de una etapa, que es el de todo módulo (`nombreDeModulo`, lib/curso-modulos.ts):
+          // el campo dejaba escribir 80 y el server rebotaba a partir de 40.
+          topeNombreModulo: TOPE_NOMBRE_ETAPA,
+          onOrdenarModulos: (claves) => { void ordenarModulos(claves); },
+          onLlevarClase: (id, clave, antesDe) => { void llevarClase(id, clave, antesDe); },
+          menuModulo,
+          menuClase,
+          onNueva: (k) => { const m = k === SIN_ETAPA ? primeraEtapa : k; if (m) void nuevaClase(m); },
           onMover: (id, dir) => { const c = porId.get(id); if (c) void mover(c, dir); },
           onBorrar: (id) => { const c = porId.get(id); if (c) void borrarDesdeLista(c); },
           puedeMover: (id, dir) => puedeMoverEnEditor(clasesUgc, id, dir),
-          ocupado: moviendo !== null,
+          ocupado: moviendo !== null || creando || estructurando,
           onTexto: guardarTexto,
           onPortada: estiloError ? undefined : abrirPortada,
+          // «Texto al costado / Texto abajo» (item 16): un ajuste del CURSO, como el color. Al costado
+          // es el default, y volver a él borra la fila (`sanearAjuste`).
+          onDisposicion: estiloError ? undefined : (d) => { void guardarAjuste({ tipo: 'disposicion' }, d === 'abajo' ? 'abajo' : null); },
         } : undefined}
         textos={TEXTOS_EDITOR}
       />
@@ -617,47 +814,25 @@ export function CursoApp({
           ancla={picker.ancla}
           titulo="Portada"
           sinAutomatico
+          // LAS LÁMINAS DISEÑADAS (item 5): la pestaña «Diseños», con el cuaderno de siempre adentro
+          // («cambio la portada de 1, y luego ya no aparecen»). Sólo para un módulo o una clase: la
+          // portada del curso no tiene número, y nada la dibujaría.
+          disenos={disenosDe(picker.ajuste)}
           onElegir={(v) => { void guardarAjuste(picker.ajuste, v); }}
           onCerrar={() => setPicker(null)}
         />
       )}
 
-      {editando && (
-        <EditorClase
-          key={editando.clase?.id ?? `nueva-${editando.etapa}`}
-          productoId={servicio.productoId}
-          etapas={servicio.etapas.map((e) => ({ key: e.key, label: e.label }))}
-          clase={editando.clase && servicio.etapas.some((e) => e.key === editando.clase!.etapa)
-            ? editando.clase
-            // Una huérfana se abre ya parada en una etapa que existe: guardarla tal cual
-            // rebotaría con «esa etapa no existe».
-            : editando.clase ? { ...editando.clase, etapa: editando.etapa } : null}
-          etapaInicial={editando.etapa}
-          puedeEditar={puedeEditar}
-          avanceEnClase={editando.clase ? conAvance[editando.clase.id] ?? 0 : 0}
-          onCerrar={() => setEditando(null)}
-          onGuardada={(c) => {
-            setClases((cs) => (cs.some((x) => x.id === c.id) ? cs.map((x) => (x.id === c.id ? c : x)) : [...cs, c]));
-            setEditando(null);
-            show('Clase guardada');
-          }}
-          onBorrar={(c) => void borrar(c)}
-          onNotas={editando.clase ? (n) => contarNotasClase(editando.clase!.id, n) : undefined}
-        />
+      {/* El recorrido (item 3): sólo para quien arma el curso, que es a quien le señala las acciones. */}
+      {puedeEditar && <Recorrido id="cs-curso" pasos={PASOS_RECORRIDO} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />}
+
+      {invitando && (
+        <ModalInvitarAlumnos productoId={servicio.productoId} producto={tituloDe(servicio)} filas={filas}
+          onCerrar={() => setInvitando(false)} />
       )}
 
-      {notasEtapa && (
-        // ALTO FIJO: la caja crece con cada nota, y un detalle que cambia de tamaño según lo que
-        // tiene adentro es lo que la regla de la casa prohíbe (AGENTS.md, «una caja cuyo alto es
-        // un TOPE»).
-        <Modal titulo={`Notas · ${servicio.etapas.find((x) => x.key === notasEtapa)?.label ?? notasEtapa}`}
-          ancho={600} alto="min(80vh, 640px)" onCerrar={() => setNotasEtapa(null)}>
-          <NotasClase key={`${servicio.productoId}:${notasEtapa}`} productoId={servicio.productoId}
-            destino={{ etapa: notasEtapa }} puedeBorrarTodo={puedeEditar}
-            onTotal={(n) => contarNotasEtapa(`${servicio.productoId}:${notasEtapa}`, n)} />
-        </Modal>
-      )}
-
+      {/* ⚠️ AFUERA DEL CURSO, a propósito: las preguntas de la lección («¿Quitar el video?») son un
+          diálogo de la app, y adentro de la hoja del curso sus botones quedan sin fondo ni borde. */}
       {confirmNode}
       <Toast state={toast} onClose={clear} />
       <style dangerouslySetInnerHTML={{ __html: CSS + CSS_PORTAL }} />
@@ -665,81 +840,12 @@ export function CursoApp({
   );
 }
 
-/** El texto de una descripción, en párrafos: una línea en blanco los separa. */
-function parrafos(texto: string) {
-  return texto.split(/\n{2,}/).map((p, i) => <p key={i} className="ugc-doc-p">{p}</p>);
-}
-
-/**
- * El video de la clase, con el MISMO reproductor del portal en modo vista previa (no manda avance:
- * no hay alumno). Un video SUBIDO no tiene link público: se pide uno firmado de vida corta, como
- * «Ver» en el editor de la clase (`urlVerVideoAction`, que alcanza con poder mirar la tab).
- */
-function VideoDeClase({ clase }: { clase: Clase }) {
-  const { video } = reproductorDeClase(clase);
-  const [firmada, setFirmada] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const path = video?.tipo === 'archivo' ? clase.videoPath : null;
-  useEffect(() => {
-    if (!path) return;
-    let vivo = true;
-    urlVerVideoAction(path)
-      .then((r) => { if (vivo) { if (r.ok) setFirmada(r.url); else setError(r.error); } })
-      .catch(() => { if (vivo) setError('No pude abrir el video.'); });
-    return () => { vivo = false; };
-  }, [path]);
-  if (!video) return null;
-  if (video.tipo === 'archivo') {
-    if (error) return <p className="cp-nota" style={{ padding: 16, color: '#fff' }}>{error}</p>;
-    if (!firmada) return null;
-    return (
-      <VistaPreviaCtx.Provider value>
-        <Reproductor token="" claseId={clase.id} video={{ tipo: 'directo', url: firmada }} titulo={clase.titulo} onPct={() => {}} />
-      </VistaPreviaCtx.Provider>
-    );
-  }
-  return (
-    <VistaPreviaCtx.Provider value>
-      <Reproductor token="" claseId={clase.id} video={video} titulo={clase.titulo} onPct={() => {}} />
-    </VistaPreviaCtx.Provider>
-  );
-}
-
-/**
- * Grabar / No grabar (#693): dos posiciones, y la tercera —«sin decidir»— es ninguna elegida.
- * Tocar la que ya está elegida la des-marca: equivocarse de botón no deja una decisión que nadie
- * tomó. Mientras se guarda queda apagado, sin desmontarse (un control que desaparece bajo el dedo
- * se lee como un clic que no registró).
- */
-function ControlGrabar({ valor, ocupado, onCambio }: { valor: Grabar; ocupado: boolean; onCambio: (v: Grabar) => void }) {
-  const opcion = (v: boolean, rotulo: string, titulo: string) => (
-    <button type="button" aria-pressed={valor === v} data-on={valor === v} disabled={ocupado}
-      title={valor === v ? 'Quitar la marca' : titulo} onClick={() => onCambio(valor === v ? null : v)}>
-      {rotulo}
-    </button>
-  );
-  return (
-    <span className="cu-grabar" role="group" aria-label="Grabar la clase">
-      {opcion(true, 'Grabar', 'Hay que grabarla')}
-      {opcion(false, 'No grabar', 'No se graba')}
-    </span>
-  );
-}
-
+// ⚠️ El video de la clase, la ficha y el papel (descripción y tarea) viven en ./LeccionEditable.tsx
+// desde el 08/10/2026, con sus estilos. Acá queda lo de la pantalla de la tab.
+// (Revisión final del 08/10/2026: se fueron `.cu-curso` y `.cu-avance`, que no los usaba nadie desde que
+// el curso se dibuja con CursoUgc y el Avance se mudó a Clientes.)
 const CSS = `
-.cu-curso{ flex: 1 1 0; min-height: 480px; display: flex; flex-direction: column; margin-top: 4px;
-  border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
 .cu-sec-acciones{ display:inline-flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .cu-aviso{ font-family: var(--font-jetbrains), monospace; font-size: 11px; font-weight: 700;
   padding: 5px 10px; border-radius: 999px; background: #ffe2a3; border: 1.5px solid var(--u-ink, #16150f); }
-.cu-ficha{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; justify-content: space-between; }
-.cu-ficha-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; font-size: 12.5px; color: var(--u-ink-60, var(--dim)); }
-.cu-tenue{ opacity: .7; }
-.cu-grabar{ flex:none; display:inline-flex; border:2px solid var(--u-ink, #16150f); border-radius: 9px; overflow:hidden; }
-.cu-grabar button{ padding:6px 11px; border:0; background:var(--u-card-2, #f8f6ee); color: var(--u-ink, #16150f);
-  font: 600 11.5px/1 var(--font-jetbrains), monospace; white-space:nowrap; cursor:pointer; min-height:30px; }
-.cu-grabar button + button{ border-left:2px solid var(--u-ink, #16150f); }
-.cu-grabar button[data-on="true"]{ background: var(--u-lime, #cdf13b); font-weight: 800; }
-.cu-grabar button:disabled{ cursor:default; opacity:.6; }
-.cu-avance{ background: var(--surface); color: var(--ink); border-radius: 16px; padding: 16px; border: 1.5px solid var(--u-line, var(--border)); }
 `;

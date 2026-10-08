@@ -10,7 +10,7 @@
 // datos usan su propio pop-up chico (StageMoveDialog), no esta ficha.
 
 import Link from '@/app/_ui/Link';
-import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { CHIP, BAND_LABEL, deriveStageKey, stageMeta, nutricionPositivaDe, type Stage, type StageBand } from '@/lib/pipeline';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
@@ -22,6 +22,7 @@ import { MoverEtapaConfirm } from './MoverEtapaConfirm';
 import { pideWizardAlElegir } from './mover-etapa';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { FathomLink } from '@/lib/leads';
+import { suscripcionDeFila } from '@/lib/venta-tipo';
 import { JourneyTimeline } from './JourneyTimeline';
 import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
@@ -42,6 +43,7 @@ import { MotivoCard, PlazoNutricionCard, leadSalio } from './lead-view/MotivoYPl
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 import { profundidadModales } from '@/app/_components/pila-modales';
+import { FichaCambioProvider } from './lead-view/ficha-cambio';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -67,9 +69,17 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   const [delErr, setDelErr] = useState<string | null>(null);
   // En qué productos está y cuál se mira (ver lead-view/ProductoDelLead.tsx). La etapa de la fila
   // de controles es la del producto EN VISTA: la de la casa, o la de su fila en un producto agregado.
+  // ⚠️ Y SE RELEE DESPUÉS DE CADA COSA QUE ESCRIBE, no sólo al cambiar la casa (08/10/2026). Con la
+  // foto vieja, «Solucionar» abría «Completar datos» con la etapa de ANTES de moverlo, y su Guardar
+  // devolvía al lead a esa etapa: en el CRM de Leila (ws11) el #2608 volvió tres veces de
+  // «Conversación abierta» a «Contacto nuevo», y el #2605 perdió el Ganado 25 minutos. Las tarjetas
+  // avisan por `useRefrescarFicha` (lead-view/ficha-cambio.tsx); los botones de mover, acá abajo.
+  const releer = useCallback(() => {
+    void getLeadFullAction(lead.id).then((x) => { if (x) setFresca(x); }).catch(() => {});
+  }, [lead.id]);
   const fichaProd = useProductosDeLaFicha({
     leadId: lead.id, casa: lead.funnel_id, foto: productos,
-    onCasaCambiada: () => { void getLeadFullAction(lead.id).then((x) => { if (x) setFresca(x); }).catch(() => {}); },
+    onCasaCambiada: releer,
   });
   const agregado = fichaProd.vista && !fichaProd.vista.esCasa ? fichaProd.vista : null;
 
@@ -157,6 +167,9 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     dealObligacionesOk: (lead.deal_obligaciones?.cliente?.length ?? 0) > 0 || (lead.deal_obligaciones?.prestador?.length ?? 0) > 0,
     // El tipo de venta guardado (un becado, #747, no vuelve a ver el paso del monto).
     ventaTipo: lead.venta_tipo ?? null,
+    // La mensualidad y el plazo de una suscripción: sin ellos reabrirla pedía el monto
+    // vacío, y guardar escribía NULL encima (lib/venta-tipo.ts).
+    ...suscripcionDeFila(lead),
   };
   // Elegir otra etapa MUEVE, igual que soltar una card en el tablero (08-T22): se
   // confirma y se guarda, y lo que falta se avisa después sin frenar. Antes abría
@@ -256,6 +269,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   );
 
   return (
+    <FichaCambioProvider value={releer}>
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px,4vw,48px) clamp(10px,3vw,20px)' }}>
       <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="leadsheet-title" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, maxHeight: 'calc(100dvh - clamp(32px,8vw,96px))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden', outline: 'none' }}>
 
@@ -407,7 +421,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             // cerrarla sería la redirección que este cambio vino a sacar. Mover de
             // etapa sí la cierra — la tarjeta ya no vive en la columna que se estaba
             // mirando.
-            onDone={() => { const quedarse = completandoDatos; setMoveTo(null); router.refresh(); if (!quedarse) onClose(); }}
+            onDone={() => { const quedarse = completandoDatos; setMoveTo(null); router.refresh(); if (quedarse) releer(); else onClose(); }}
           />
         </div>
       )}
@@ -419,10 +433,12 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           destino={{ key: moverDirecto, label: stageMeta(stages, moverDirecto)?.label ?? moverDirecto }}
           zIndex={120}
           onCancel={() => setMoverDirecto(null)}
-          onHecho={() => { setMoverDirecto(null); router.refresh(); }}
+          // ⚠️ La etapa nueva se pinta YA (el parche) y se confirma releyendo: sin el parche,
+          // `completandoDatos` compara contra la etapa vieja y «Solucionar» abre «Mover a…».
+          onHecho={() => { const k = moverDirecto; setMoverDirecto(null); router.refresh(); if (k) setFresca({ ...vigente, lead: { ...vigente.lead, pipeline_stage: k } }); releer(); }}
           // «Completar ahora»: el lead YA está en la etapa nueva, así que el wizard
           // abre sobre ella, a completar — no a mover de nuevo.
-          onCompletar={() => { const k = moverDirecto; setMoverDirecto(null); router.refresh(); setMoveTo(k); }}
+          onCompletar={() => { const k = moverDirecto; setMoverDirecto(null); router.refresh(); if (k) setFresca({ ...vigente, lead: { ...vigente.lead, pipeline_stage: k } }); releer(); setMoveTo(k); }}
         />
       )}
 
@@ -437,5 +453,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         />
       )}
     </div>
+    </FichaCambioProvider>
   );
 }

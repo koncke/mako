@@ -95,7 +95,15 @@ export function useArrastreCopia() {
   const soltarCopia = useCallback(() => { copia.current?.remove(); copia.current = null; }, []);
   useEffect(() => soltarCopia, [soltarCopia]);
 
-  const montarCopia = useCallback((origen: HTMLElement, dx: number, dy: number) => {
+  /**
+   * `dentroDe`: DÓNDE se cuelga la copia. Default el `body`, que es lo de siempre (el Plan, el
+   * kanban de la entrega, el CRM: sus tarjetas se visten con estilos de la app, que valen en
+   * cualquier lado). El curso (app/_cursos/arrastre-curso.ts) pasa su `.ugc`: la hoja del origen
+   * viste TODO bajo `.ahdoc .ugc`, así que un clon colgado del `body` salía como texto suelto sin
+   * tarjeta. La copia es `position: fixed` igual: mientras ningún ancestro tenga `transform`, se
+   * ubica contra la ventana como siempre.
+   */
+  const montarCopia = useCallback((origen: HTMLElement, dx: number, dy: number, dentroDe?: HTMLElement | null) => {
     soltarCopia();
     // Quién scrollea se decide acá, en el `dragstart`, y vale para todo el gesto.
     scroller.current = scrollerDe(origen);
@@ -112,7 +120,7 @@ export function useArrastreCopia() {
       boxShadow: '0 18px 40px rgba(18,21,27,.34)', transform: `translate3d(${r.left}px, ${r.top}px, 0) rotate(1.5deg)`,
       transition: 'none', cursor: 'grabbing',
     });
-    document.body.appendChild(nodo);
+    (dentroDe ?? document.body).appendChild(nodo);
     copia.current = nodo;
     const mover = (e: DragEvent) => {
       if (!copia.current) { document.removeEventListener('dragover', mover, true); return; }

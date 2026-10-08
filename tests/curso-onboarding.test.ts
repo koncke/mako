@@ -37,6 +37,12 @@
 //   5. CursoApp: `errorDelProducto: false`                          → «la página anota los pasos…»
 //   6. ChecklistCurso: `const programa = true`                      → «la lista dibuja "Tu programa"…»
 // Restaurado: 14 / 0.
+//
+// ⚠️ 08/10/2026: LA TAB YA NO DIBUJA LA LISTA, la reemplazó el RECORRIDO (item 3). Las roturas 4 y 5
+// de arriba miraban la lista en CursoApp y ya no aplican; `checklistCurso` sigue con sus tests (los
+// pasos se siguen derivando). Las nuevas (scratchpad/editor/roturas.mjs), base 14 / 0, cada una 13 / 1
+// en «la página anota los pasos…»: sin el «?» del recorrido · un paso cuyo objetivo nadie marca
+// (la portada sin `data-recorrido`) · la lista de vuelta en la tab.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -131,21 +137,31 @@ test('la página anota los pasos en cada carga y NO tapa la tab', () => {
   const page = sinComentarios(leer('app/customer-success/curso/page.tsx'));
   assert.match(page, /sincronizarOnboardingCurso\(/, 'la página dejó de anotar los pasos derivados');
   assert.match(page, /onboarding=\{onboarding\}/, 'la lista del onboarding no le llega a la tab');
-  // Ni wizard ni redirect: la tab se abre siempre en sus clases.
-  assert.doesNotMatch(page, /onboardingTabPendiente|onboardingRequeridoPara|redirect\(/);
-  // Si se dibuja y qué cuenta lo decide `checklistCurso` (sus tests, abajo); acá, que la tab lo
-  // llame con el producto elegido y su error de lectura, y que la lista reciba SUS números.
+  // Ni wizard ni redirect AL ONBOARDING: la tab se abre siempre en su curso. El ÚNICO redirect es el
+  // del Avance de los clientes, que se mudó a Clientes (item 4, 08/10/2026), y se fija su DESTINO:
+  // otro redirect (el de un onboarding pendiente) no puede entrar por la misma puerta.
+  assert.doesNotMatch(page, /onboardingTabPendiente|onboardingRequeridoPara/);
+  const redirects = [...page.matchAll(/\bredirect\(([^;]*)\);/g)].map((m) => m[1]);
+  assert.equal(redirects.length, 1, `la página redirige ${redirects.length} veces`);
+  assert.match(redirects[0], /^await rutaConWs\(`\/customer-success\?vista=avance/, `redirige a otro lado: ${redirects[0]}`);
+  // ⚠️ DESDE EL 08/10/2026 LA TAB NO DIBUJA LA LISTA «Configura tu curso» (item 3, Martín: «Elimina el
+  //    recuadro… En su lugar haz el típico tutorial de app»). La reemplazó el RECORRIDO, que se ve una
+  //    vez por PERSONA (D7) y se puede volver a ver con el «?». Los pasos de arriba se siguen anotando.
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
-  assert.match(app, /const\s+checklist\s*=\s*checklistCurso\(\{[^}]*\bproductoId\b[^}]*errorClases\[productoId\][^}]*\}\)/,
-    'la tab dejó de pasarle a la lista el producto elegido (o su error de lectura)');
-  // Desde el 07/10/2026 la lista va adentro del curso (`arriba`, que queda FIJO), así que se dibuja
-  // sólo en el índice: en una lección se comía la pantalla.
-  assert.match(app, /\{conLista\s*&&\s*checklist\s*&&\s*onboarding\s*&&\s*\(\s*<ChecklistCurso/);
-  assert.match(app, /const conLista = enIndice && !!checklist && !!onboarding;/);
-  assert.match(app, /const enIndice = !pos\.clase && !pos\.extra && !pos\.mod && !pos\.q;/);
-  assert.match(app, /clases=\{checklist\.clases\}/, 'la lista tiene que contar las clases del producto elegido');
-  assert.match(app, /conVideo=\{checklist\.conVideo\}/, 'la lista tiene que contar los videos del producto elegido');
-  assert.doesNotMatch(app, /hechosDeClases\(/, 'la tab volvió a contar el workspace entero para la lista');
+  assert.doesNotMatch(app, /<ChecklistCurso\b|checklistCurso\(/, 'volvió el recuadro «Configura tu curso»');
+  assert.match(app, /const recorrido = useRecorrido\('cs-curso', \{ autoabrir: puedeEditar \}\);/);
+  assert.match(app, /<Recorrido id="cs-curso" pasos=\{PASOS_RECORRIDO\} abierto=\{recorrido\.abierto\} onCerrar=\{recorrido\.onCerrar\} \/>/);
+  assert.match(app, /<BotonRecorrido onClick=\{recorrido\.reabrir\} \/>/, 'sin el «?» el recorrido no se puede volver a ver');
+  assert.doesNotMatch(app, /hechosDeClases\(/, 'la tab volvió a contar el workspace entero');
+  // Y CADA PASO SEÑALA ALGO QUE EXISTE: un objetivo que ninguna pantalla marca se saltea en silencio
+  // (app/_ui/Recorrido.tsx), y el recorrido quedaría más corto sin que nada lo diga.
+  const pasos = [...bloque(app, 'const PASOS_RECORRIDO', '];').matchAll(/objetivo: '([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(pasos, ['marca', 'titulo', 'portada', 'nuevo-modulo', 'modulo', 'invitar', 'vista-alumno']);
+  const ugc = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
+  for (const p of pasos) {
+    const marcado = new RegExp(`data-recorrido=(\\{[^}]*)?["']${p}["']|recorrido="${p}"`);
+    assert.ok(marcado.test(app) || marcado.test(ugc), `el paso «${p}» no señala nada: nadie tiene data-recorrido="${p}"`);
+  }
 });
 
 // ── La lista: si se dibuja lo dice el WORKSPACE; lo que cuenta, el PRODUCTO elegido ──
@@ -200,7 +216,9 @@ test('la lista no manda nada: invitar lleva a Avance, donde una persona elige', 
 
 test('la vista previa no crea accesos ni cuenta ingresos: sin lead, sin token y con vistaPrevia', () => {
   const vista = sinComentarios(leer('app/customer-success/curso/vista/page.tsx'));
-  assert.match(vista, /<PortalAlumno\s+token=""\s+vista=\{vista\}\s+vistaPrevia\s*\/>/, 'la vista previa tiene que dibujar el portal en modo previa');
+  // Desde el 08/10/2026 lleva además las URLs firmadas de los adjuntos de las descripciones (la vista
+  // previa no tiene token para pedirlos como el alumno).
+  assert.match(vista, /<PortalAlumno\s+token=""\s+vista=\{vista\}\s+vistaPrevia(?:\s+urlsAdjuntos=\{urlsAdjuntos\})?\s*\/>/, 'la vista previa tiene que dibujar el portal en modo previa');
   assert.doesNotMatch(vista, /@\/lib\/curso-acceso|@\/lib\/alumno-acceso/, 'la vista previa no firma ni lee accesos');
   for (const f of ['linkDeAcceso', 'accesoDe', 'contarIngreso', 'resolverAcceso', 'marcarInvitacion', 'firmarAccesoCurso', 'linkDeEntradaAlumno', 'armarVistaAlumno', 'progresoDelCliente']) {
     assert.ok(!vista.includes(`${f}(`), `la vista previa llama a ${f}: toca el acceso o el avance de un cliente real`);

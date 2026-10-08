@@ -14,8 +14,9 @@ import 'server-only';
 //
 // ⚠️ ES UNA SOLA INVITACIÓN Y TIENE DOS PUERTAS. La lógica vivía adentro de `invitarAlCursoAction`
 // (app/customer-success/curso-ficha-actions.ts), que pregunta por la SESIÓN: un webhook o un cron no
-// la pueden llamar. El CRM la copió pieza por pieza (su primera versión, lib/curso-invitar-auto.ts;
-// hoy lib/crm-curso-al-ganar.ts, que ya llama a ésta) y con eso había dos invitaciones que divergen. Acá queda UNA (`invitarAlCurso`), y las dos puertas la envuelven: la
+// la pueden llamar. La primera versión del CRM la copió pieza por pieza, y con eso había dos
+// invitaciones que divergen; hoy el CRM (lib/crm-curso-al-ganar.ts) llama a ésta. Acá queda UNA
+// (`invitarAlCurso`), y las dos puertas la envuelven: la
 // action con su `puerta()` (sesión, capa y lead ganado) y `invitarAlCursoSinSesion` con lo que un
 // llamador sin sesión no puede saber — la capa DEL WORKSPACE (no la de una sesión que no hay) y que
 // el lead siga ganado.

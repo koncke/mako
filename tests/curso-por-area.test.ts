@@ -18,7 +18,10 @@ import {
   areasDelCliente, estadoDeAreas, progresoEfectivo, etapaCompleta, nombreDeArea, CAMPO_AREAS,
   type Clase, type Progreso,
 } from '../lib/curso';
-import { decidirClase, areaDeLaTarea, armarEtapas } from '../lib/curso-portal';
+import {
+  decidirClase, areaDeLaTarea, armarModulos, esClaseCerrada,
+  type ClaseVista, type OpcionesVista, type ModuloVista,
+} from '../lib/curso-portal';
 import { firmarAccesoCurso, leerAccesoCurso, firmarAccesoLider, leerAccesoLider, leerTokenPortal } from '../lib/curso-acceso';
 import { firmarSesionAlumno, leerSesionAlumno } from '../lib/alumno-sesion';
 import { agendaValida, normalizarEtapas } from '../lib/servicio-etapas';
@@ -45,6 +48,21 @@ const clase = (id: number, o: Partial<Clase> = {}): Clase => ({
 });
 const prog = (claseId: number, o: Partial<Progreso> = {}): Progreso => ({
   claseId, segundosMax: 0, duracionSeg: null, pct: 0, vistoAt: null, valores: {}, estado: 'pendiente', enviadaAt: null, ...o,
+});
+/**
+ * `armarModulos` con cada etapa como módulo VINCULADO (un curso sin sueltos ni candados propios):
+ * la forma de `armarEtapas`, que se fue el 08/10/2026 (D1). Exige que ninguna clase haya viajado
+ * CERRADA: estos tests no ponen candados, así que una cerrada sería un bug del evaluador.
+ */
+const armarEtapas = (
+  etapas: ReadonlyArray<{ key: string; label: string; agendaUrl?: string }>, actual: string | null, clases: Clase[],
+  progreso: Map<number, Progreso>, opts?: OpcionesVista,
+): Array<Omit<ModuloVista, 'clases'> & { clases: ClaseVista[] }> => armarModulos({
+  modulos: etapas.map((e, i) => ({ clave: e.key, nombre: e.label, vinculado: true, n: i + 1, bloqueo: null })),
+  etapas, actual, clases, progreso, opts,
+}).map((m) => {
+  assert.ok(!m.clases.some(esClaseCerrada), `el módulo ${m.key} trajo una clase cerrada sin candados`);
+  return { ...m, clases: m.clases as ClaseVista[] };
 });
 const porArea = (filas: Array<[number, string, Partial<Progreso>]>) => {
   const m = new Map<number, Map<string, Progreso>>();
@@ -126,13 +144,13 @@ test('etapaCompleta con el progreso efectivo: una obligatoria por área exige TO
 test('el líder sólo abre clases POR ÁREA: cualquier otra es un 404, igual que una ajena', () => {
   const comun = clase(5, { productoId: 7 });
   const deArea = clase(6, { productoId: 7, porArea: true });
-  assert.equal(decidirClase(comun, [7], 'actual', true, 'Ventas'), 'no-existe');
-  assert.equal(decidirClase(deArea, [7], 'actual', true, 'Ventas'), 'ok');
-  assert.equal(decidirClase(deArea, [7], 'bloqueada', true, 'Ventas'), 'bloqueada', 'la etapa manda igual');
-  assert.equal(decidirClase(deArea, [8], 'actual', true, 'Ventas'), 'no-existe', 'de otro producto');
+  assert.equal(decidirClase(comun, [7], true, true, 'Ventas'), 'no-existe');
+  assert.equal(decidirClase(deArea, [7], true, true, 'Ventas'), 'ok');
+  assert.equal(decidirClase(deArea, [7], false, true, 'Ventas'), 'bloqueada', 'el candado manda igual');
+  assert.equal(decidirClase(deArea, [8], true, true, 'Ventas'), 'no-existe', 'de otro producto');
   // El cliente abre las dos.
-  assert.equal(decidirClase(comun, [7], 'actual', true), 'ok');
-  assert.equal(decidirClase(deArea, [7], 'actual', true, null), 'ok');
+  assert.equal(decidirClase(comun, [7], true, true), 'ok');
+  assert.equal(decidirClase(deArea, [7], true, true, null), 'ok');
 });
 
 test('de qué área es la tarea: el líder escribe SIEMPRE la suya; el cliente, una de las que declaró', () => {
@@ -285,7 +303,15 @@ test('los targets de los upsert son los índices COMPLETOS de la 0212, letra por
   assert.match(DATOS, /const CONFLICTO_ACCESO = 'workspace_id,lead_id,area';/);
   const targets = [...DATOS.matchAll(/onConflict:\s*([^,}\s]+)/g)].map((m) => m[1]);
   assert.ok(targets.length >= 3, `encontré ${targets.length} upsert`);
-  for (const t of targets) assert.ok(t === 'CONFLICTO_PROGRESO' || t === 'CONFLICTO_ACCESO', `un upsert con target ${t}`);
+  for (const t of targets) {
+    assert.ok(t === 'CONFLICTO_PROGRESO' || t === 'CONFLICTO_ACCESO' || t === 'CONFLICTO_DESBLOQUEO', `un upsert con target ${t}`);
+  }
+  // El de los desbloqueos a mano (D2, 08/10/2026) es el índice de la 0220, igual de completo.
+  // Rotura: el target sin `producto_id` → 22 / 1 este test, sobre 23 (restaurado de memoria).
+  const mig0220 = sinComentarios(readFileSync(join(RAIZ, 'supabase/migrations/0220_curso_modulos_bloqueos.sql'), 'utf8')).replace(/^\s*--.*$/gm, '');
+  assert.match(mig0220, /create unique index if not exists curso_desbloqueos_uk on curso_desbloqueos \(workspace_id, lead_id, producto_id, objeto, clave\);/);
+  for (const l of mig0220.split('\n').filter((x) => /create unique index/i.test(x))) assert.doesNotMatch(l, /\bwhere\b/i, l);
+  assert.match(DATOS, /const CONFLICTO_DESBLOQUEO = 'workspace_id,lead_id,producto_id,objeto,clave';/);
 });
 
 test('lo que da el acceso DEL CLIENTE filtra `area is null`: un líder nunca sale con su cookie', () => {
@@ -376,6 +402,8 @@ test('el mail del líder: su área, su link, y SIN la línea de Google', () => {
 });
 
 // ── Probado ROMPIÉNDOLO (07/10/2026) ──────────────────────────────────────────
+// (08/10/2026: `armarEtapas` se fue y estos tests corren por `armarModulos` con el shim de arriba;
+// las roturas que la nombran valen para el mismo cuerpo, que se mudó entero.)
 // Arnés que rompe UNA regla por vez y restaura de MEMORIA (nunca con git), corriendo este archivo
 // entero (20 tests). Restaurado: 20 pass / 0 fail. Cada rotura, y lo que cae:
 //   · `progresoEfectivo` ignora las áreas                      → 17 / 3 (enviada con TODAS, el área

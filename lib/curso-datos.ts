@@ -18,8 +18,9 @@ import { leerTodo } from './supabase-paginado';
 import { linkApp } from './app-url';
 import { firmarAccesoCurso, leerAccesoCurso, firmarAccesoLider, leerAccesoLider, type AccesoCurso } from './curso-acceso';
 import { saneaAlcance, type AlcanceCurso } from './curso-alcance';
+import { saneaBloqueo, type Desbloqueo } from './curso-bloqueo';
 import {
-  pctVisto, sanearValores, respuestaCompleta, progresoEfectivo, areasDelCliente, nombreDeArea, leerCalificacion,
+  pctVisto, sanearValores, respuestaCompleta, progresoEfectivo, areasDelCliente, nombreDeArea, leerCalificacion, tieneTarea,
   type Clase, type Progreso, type Campo, type Valores, type EstadoTarea, type TipoClase, type VideoTipo,
 } from './curso';
 import { propuestaDeFila, valoresAprobables, mismoInstante, type FilaPropuesta, type FilaRespuesta } from './curso-propuesta';
@@ -28,6 +29,8 @@ type FilaClase = {
   id: number; producto_id: number; etapa: string; orden: number; titulo: string; descripcion: string;
   tipo: TipoClase; minutos: number | null; video_tipo: VideoTipo; video_url: string | null; video_path: string | null;
   tarea: string; campos: Campo[] | null; obligatoria: boolean; por_area?: boolean | null;
+  /** La descripción rica (mig 0216) y el candado de la clase (mig 0220). */
+  descripcion_html?: string | null; bloqueo?: unknown;
 };
 type FilaProgreso = FilaPropuesta & {
   clase_id: number; segundos_max: number | string; duracion_seg: number | string | null; pct: number;
@@ -36,15 +39,21 @@ type FilaProgreso = FilaPropuesta & {
   area?: string | null;
   /** La nota de sus quizzes (mig 0218). La corrige el SERVER: no vive en `valores`, que pisa cada autoguardado. */
   calificacion?: unknown;
+  /** Cuándo la marcó HECHA (mig 0220): el tilde de una clase sin tarea. */
+  hecha_at?: string | null;
 };
 
 /**
+ * ⚠️ TRAE `descripcion_html` (mig 0216) Y `bloqueo` (mig 0220), así que las dos van ANTES del
+ * deploy, por lo mismo que la 0212 de abajo: el portal necesita el candado de cada clase para decidir
+ * qué viaja, y la lección dibuja la descripción rica.
+ *
  * ⚠️ TRAE `por_area` (mig 0212), así que la 0212 va ANTES del deploy: sin la columna, PostgREST
  * rechaza la consulta entera y se caen el portal, la ficha, la tab y el cron. Es la diferencia con
  * `grabar` (mig 0208), que se dejó afuera a propósito porque el alumno no la necesita; ésta la
  * necesita justamente el alumno.
  */
-export const COLUMNAS_CLASE = 'id, producto_id, etapa, orden, titulo, descripcion, tipo, minutos, video_tipo, video_url, video_path, tarea, campos, obligatoria, por_area';
+export const COLUMNAS_CLASE = 'id, producto_id, etapa, orden, titulo, descripcion, tipo, minutos, video_tipo, video_url, video_path, tarea, campos, obligatoria, por_area, descripcion_html, bloqueo';
 
 export const aClase = (f: FilaClase): Clase => ({
   id: Number(f.id), productoId: Number(f.producto_id), etapa: f.etapa, orden: f.orden ?? 0,
@@ -52,6 +61,10 @@ export const aClase = (f: FilaClase): Clase => ({
   videoTipo: f.video_tipo, videoUrl: f.video_url ?? null, videoPath: f.video_path ?? null,
   tarea: f.tarea ?? '', campos: Array.isArray(f.campos) ? f.campos : [], obligatoria: f.obligatoria === true,
   porArea: f.por_area === true,
+  // Se sanea al LEER (`saneaBloqueo`): el jsonb lo escribió una action con lo que mandó un navegador,
+  // y un candado mal formado vuelve como «el default» — nunca como «abierto» (ver ahí).
+  bloqueo: saneaBloqueo(f.bloqueo),
+  descripcionHtml: typeof f.descripcion_html === 'string' ? f.descripcion_html : '',
 });
 
 const aProgreso = (f: FilaProgreso): Progreso => ({
@@ -62,9 +75,12 @@ const aProgreso = (f: FilaProgreso): Progreso => ({
   ...('ia_estado' in f ? { ia: propuestaDeFila(f) } : {}),
   // Igual: sólo si la lectura trajo la columna de la 0218.
   ...('calificacion' in f ? { calificacion: leerCalificacion(f.calificacion) } : {}),
+  // Igual: sólo si la lectura trajo la columna de la 0220.
+  ...('hecha_at' in f ? { hechaAt: f.hecha_at ?? null } : {}),
 });
 
-const COLS_PROGRESO = 'clase_id, segundos_max, duracion_seg, pct, visto_at, valores, estado, enviada_at, area';
+/** ⚠️ Con `hecha_at` (mig 0220): va ANTES del deploy, como todas las de esta lectura. */
+const COLS_PROGRESO = 'clase_id, segundos_max, duracion_seg, pct, visto_at, valores, estado, enviada_at, area, hecha_at';
 /**
  * Lo mismo, con la PROPUESTA de la IA (mig 0213). Lo leen el portal del alumno y la ficha
  * (`avanceDelCliente`); la tabla Avance de la tab no lo necesita y sigue con `COLS_PROGRESO`.
@@ -77,10 +93,12 @@ const COLS_PROGRESO_IA = `${COLS_PROGRESO}, valores_ia, ia_estado, ia_recording_
  * ⚠️ LOS TARGETS DE LOS UPSERT SON LOS ÍNDICES DE LA 0212, letra por letra: un `onConflict` que no
  * coincide con un índice único COMPLETO falla entero («there is no unique or exclusion constraint
  * matching the ON CONFLICT specification»), y uno parcial no sirve. Lo fija
- * tests/curso-por-area.test.ts contra el `.sql`.
+ * tests/curso-por-area.test.ts contra el `.sql`. El de los desbloqueos a mano es el índice de la 0220
+ * (`curso_desbloqueos_uk`), con la misma regla.
  */
 const CONFLICTO_PROGRESO = 'workspace_id,lead_id,clase_id,area';
 const CONFLICTO_ACCESO = 'workspace_id,lead_id,area';
+const CONFLICTO_DESBLOQUEO = 'workspace_id,lead_id,producto_id,objeto,clave';
 
 /** Las clases de un producto, en el orden de cada etapa. Tira si no puede leer. */
 export async function clasesDelProducto(productoId: number): Promise<Clase[]> {
@@ -228,6 +246,96 @@ export async function guardarVisto(leadId: number, clase: Clase, segundos: numbe
     .select('clase_id, segundos_max, duracion_seg, pct, visto_at, valores, estado, enviada_at').single();
   if (error) throw new Error(error.message);
   return aProgreso(data as FilaProgreso);
+}
+
+/**
+ * El alumno marca como HECHA (o deshace la marca de) una clase SIN tarea: el tilde de Skool (D2).
+ * Completarla abre lo que espera a «la anterior» (lib/curso-bloqueo.ts, `claseCompleta`).
+ *
+ * ⚠️ UNA CLASE CON TAREA NO SE MARCA: se completa ENVIANDO la tarea. Si se pudiera marcar, el tilde
+ * sería un atajo para saltear una entrega que el equipo espera revisar. Lo mira la ruta y lo vuelve
+ * a mirar acá (una función exportada la puede llamar el próximo sin pasar por la ruta).
+ *
+ * ⚠️ VA A LA FILA DEL CLIENTE (área `''`), como el video: «lo hice» de una clase sin tarea es del
+ * cliente, no de un área. Escribe SÓLO `hecha_at` y `updated_at`: un upsert con la fila entera
+ * pisaría lo que vio y lo que contestó.
+ */
+export async function marcarHecha(leadId: number, clase: Clase, hecha: boolean): Promise<Progreso> {
+  if (tieneTarea(clase)) throw new Error('una clase con tarea se completa enviándola');
+  const db = await getTenantDb();
+  const ahora = new Date().toISOString();
+  const { data, error } = await db.from('curso_progreso')
+    .upsert([{ lead_id: leadId, clase_id: clase.id, area: '', hecha_at: hecha ? ahora : null, updated_at: ahora }], { onConflict: CONFLICTO_PROGRESO })
+    .select('clase_id, segundos_max, duracion_seg, pct, visto_at, valores, estado, enviada_at, hecha_at').single();
+  if (error) throw new Error(error.message);
+  return aProgreso(data as FilaProgreso);
+}
+
+/**
+ * Desde cuándo tiene ESTE curso abierto el alumno: el «día cero» del bloqueo `dias` (D2).
+ *
+ * ⚠️ NO ES «DESDE QUE ENTRÓ AL GRUPO», que es lo que hace Skool y rompe los cursos que se abren
+ * después: quien entró a la comunidad en enero y compra el curso en marzo tendría abiertas de golpe
+ * todas las clases «a los 7 días». Se cuenta desde que se le abrió el curso a ESE alumno:
+ *
+ *   · `curso_accesos.created_at` (la fila del CLIENTE): cuándo se le dio acceso al portal. NO la
+ *     invitación (`invitacion_enviada_at`): reenviar el mail la PISA, y el goteo volvería a cero en
+ *     cada reenvío. `created_at` no lo reescribe nadie, y existe para todo el que puede abrir el
+ *     portal (`resolverAcceso` exige la fila). Nace al invitar, al copiar el link, al mandarlo por
+ *     WhatsApp o al guardarle permisos: nunca DESPUÉS de que pudo entrar.
+ *   · Y si el producto NO es su casa (lo tiene por una fila de `cliente_entrega`: un segundo producto
+ *     que compró después), el MÁS TARDE de los dos: un curso no puede gotear desde antes de que el
+ *     producto fuera suyo. Para su CASA no se mira esa fila, a propósito: la de la casa nace cuando
+ *     alguien lo MUEVE de la primera columna (antes no tiene fila), y contar desde ahí le volvería a
+ *     cerrar lo que ya tenía abierto.
+ *
+ * `null` = no tiene acceso (no hay de dónde contar). Tira si no puede leer: quien decide la deja
+ * cerrada esa vez (lib/curso-bloqueo.ts).
+ */
+export async function abiertoDesdeDe(leadId: number, productoId: number, casa: number | null): Promise<string | null> {
+  const db = await getTenantDb();
+  const [acc, fila] = await Promise.all([
+    db.from('curso_accesos').select('created_at').eq('lead_id', leadId).is('area', null).maybeSingle(),
+    productoId === casa
+      ? Promise.resolve({ data: [] as Array<{ created_at: string }>, error: null })
+      : db.from('cliente_entrega').select('created_at').eq('lead_id', leadId).eq('producto_id', productoId).order('id', { ascending: true }).limit(1),
+  ]);
+  if (acc.error) throw new Error(acc.error.message);
+  if (fila.error) throw new Error(fila.error.message);
+  const desdeAcceso = (acc.data as { created_at: string } | null)?.created_at ?? null;
+  if (!desdeAcceso) return null;
+  const desdeProducto = ((fila.data ?? []) as Array<{ created_at: string }>)[0]?.created_at ?? null;
+  return desdeProducto && Date.parse(desdeProducto) > Date.parse(desdeAcceso) ? desdeProducto : desdeAcceso;
+}
+
+/**
+ * Lo que el equipo le abrió A MANO a un alumno en un producto (`curso_desbloqueos`, mig 0220).
+ * Tira si no puede leer: «no pude leer» no es «no le abrieron nada» (y al revés tampoco se inventa).
+ */
+export async function desbloqueosDe(leadId: number, productoId: number): Promise<Desbloqueo[]> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('curso_desbloqueos').select('objeto, clave').eq('lead_id', leadId).eq('producto_id', productoId);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{ objeto: string; clave: string }>)
+    .filter((f) => f.objeto === 'modulo' || f.objeto === 'clase')
+    .map((f) => ({ objeto: f.objeto as Desbloqueo['objeto'], clave: f.clave }));
+}
+
+/**
+ * Abre (guarda) o vuelve a cerrar (borra) un desbloqueo a mano. Idempotente: abrir lo abierto no duplica (índice
+ * único de la 0220), cerrar lo cerrado no hace nada.
+ */
+export async function ponerDesbloqueo(leadId: number, productoId: number, objeto: Desbloqueo['objeto'], clave: string, abrir: boolean, porQuien: string | null): Promise<void> {
+  const db = await getTenantDb();
+  if (abrir) {
+    const { error } = await db.from('curso_desbloqueos')
+      .upsert([{ lead_id: leadId, producto_id: productoId, objeto, clave, creado_por: porQuien }], { onConflict: CONFLICTO_DESBLOQUEO, ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const { error } = await db.from('curso_desbloqueos').delete()
+    .eq('lead_id', leadId).eq('producto_id', productoId).eq('objeto', objeto).eq('clave', clave);
+  if (error) throw new Error(error.message);
 }
 
 /**
@@ -797,8 +905,16 @@ export async function aprobarTarea(leadId: number, claseId: number, aprobada = t
  * válido no abre el curso de un producto que el cliente no compró.
  */
 export async function productosDelAlumno(leadId: number): Promise<number[]> {
+  return (await productosConCasaDelAlumno(leadId)).productos;
+}
+
+/**
+ * Lo mismo, y cuál es su CASA (el producto de su embudo en el CRM). Lo necesita el goteo del curso:
+ * desde cuándo cuenta depende de si el producto es su casa o una fila aparte (`abiertoDesdeDe`).
+ */
+export async function productosConCasaDelAlumno(leadId: number): Promise<{ productos: number[]; casa: number | null }> {
   const { productosDelCliente } = await import('@/app/customer-success/entrega');
-  return (await productosDelCliente(leadId)).productos;
+  return productosDelCliente(leadId);
 }
 
 /**

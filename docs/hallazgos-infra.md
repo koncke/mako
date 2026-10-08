@@ -4580,3 +4580,99 @@ el NÚMERO de líneas del commit.
   CUÁNTO. Se arregló sacando el `\r` y con un `--amend` del commit propio, sin pushear.
 
 **Vive en:** cualquier script que edite un archivo CRLF del repo · *2026-10-07 conectar-con-meta*
+
+## El typecheck SIN MEMORIA: un `select` genérico sobre una unión de tablas (08/10/2026)
+
+**Síntoma:** `npm run typecheck` —el del pre-push— se quedaba sin memoria a 4, 8 y 14 GB, y con
+eso **el pre-push de TODAS las sesiones del clon quedaba bloqueado**. La pista que lo había escrito
+(la comunidad del curso tipo Skool) lo vio morir y anotó «no parece de esta pista»: su typecheck
+ACOTADO (43 archivos más sus dependencias, con 2 GB) daba 0 errores. Era de esa pista.
+
+**Causa:** el wrapper de la comunidad declaraba `select: <Q extends string>(cols: Q, …)`. Con un
+literal, supabase-js corre su parser de TIPOS sobre la cadena de columnas (40 llamadas, hasta 20
+columnas) contra el tipo de la tabla, y la tabla `t` era la UNIÓN de las 11 de la comunidad.
+
+⚠️ **El consejo que lo causó estaba escrito como hallazgo.** El informe de la primera mitad pedía
+cosechar «el wrapper tiene que ser genérico `<Q extends string>`», con un porqué cierto: con un
+`string` suelto, supabase-js tipa cada fila como un error de parseo y ningún cast lo arregla. La
+salida no es el genérico: es `cols as '*'` —el parser ve un asterisco y deja las filas en `any`— y
+el cast a la `Fila…` en cada llamada.
+
+**Regla:**
+
+- Un wrapper sobre `.select()` de supabase-js no lleva el genérico de columnas, y menos sobre una
+  unión de tablas.
+- **Un typecheck acotado no prueba que el del repo entre en memoria.** Se corre el del repo; y
+  subirle la memoria no es el arreglo (a 14 GB también moría).
+- Tiempos de referencia, para no confundir el síntoma: sin el genérico, 0 errores y ~20 s con la
+  caché incremental. La primera corrida SIN caché tarda ~2 min, y eso no es el bug.
+
+**Vive en:** `lib/comunidad-datos.ts` (`de`) · `tests/comunidad-modelo.test.ts` (devolver el
+genérico tumba el test) · *2026-10-08 Customer Success*
+
+## Dos tests de fuente que se rompen por la FORMA del código (08/10/2026)
+
+**Un guard que corta la sentencia en el primer `;` se corta adentro de un tipo en línea.**
+`tests/curso-accesos-area.test.ts` toma cada consulta a `curso_accesos` desde el `from` (o el
+`leerTodo<…>(…, 'curso_accesos'`) hasta el primer `;` y exige que nombre el área. Un tipo en línea
+en el genérico —`leerTodo<{ a: number; b: string }>(…)`— trae su propio `;`, así que la sentencia
+se cortaba ADENTRO del tipo, antes del `.is('area', null)`, y el guard acusaba una consulta que
+estaba bien. Se resolvió con un alias de tipo (`FilaAccesoCruzada`, `lib/curso-mensajes.ts`). Un
+corte por `;` corta también adentro de un tipo, de un string y de un template: el código que ese
+guard lee va con alias.
+
+**Un comentario con backticks adentro del script de un test lo tira ENTERO.** Los tests que corren
+código en un proceso hijo arman el script como template literal; un comentario que nombre algo
+entre backticks lo cierra a la mitad, el archivo no parsea y no corre ninguno de sus tests. Es la
+regla de AGENTS.md («adentro de un template literal no va NINGÚN backtick») en el lugar donde menos
+se la busca. *2026-10-08 Customer Success*
+
+## `git merge` con archivos de OTRA sesión en intent-to-add: «not uptodate. Cannot merge» (08/10/2026)
+
+**Síntoma:** integrando la tanda del curso tipo Skool, `git merge` contestó `Entry '<archivo>' not
+uptodate. Cannot merge.` sobre archivos que esta sesión no había tocado, y el `--autostash` falló
+igual.
+
+**Causa:** eran archivos nuevos de OTRA sesión marcados con `git add -N` (intent-to-add), que es
+justo lo que AGENTS.md manda para poder commitear por ruta un archivo nuevo. La marca vive en el
+índice compartido, así que la regla de una sesión le arma la trampa a la vecina. En
+`git status --short` se reconocen por la `A` en la SEGUNDA columna (` A`).
+
+**Salida:** `git rm --cached <esas rutas>` (saca la marca y no toca el disco), el merge, y
+`git add -N <esas rutas>` de vuelta: la marca es de la otra sesión y es lo que le deja commitear
+por ruta. Nunca un `git add` de esos archivos: los stagearía con el contenido a medio escribir del
+vecino.
+
+**Vive en:** el índice del clon compartido · *2026-10-08 Customer Success*
+
+## Escribir una barra invertida a un archivo: ningún camino es transparente (08/10/2026)
+
+**Síntoma:** en la misma corrida, cuatro pistas lo pagaron por separado.
+
+- **El Bash se come las barras**, también en un heredoc entre comillas: `\\` llegó como `\`; un
+  `node -e` perdió otra; y un escape de NUL (barra, `u` y cuatro ceros) pasado por un script de
+  python llegó como el byte crudo, con lo que el reemplazo no encontró nada, sin error.
+- **Las herramientas Write y Edit convierten ALGUNOS escapes `\uXXXX` en el carácter crudo**:
+  pasó con U+00AD, U+200D, U+FE0F, U+2013, U+2014, U+2026, U+00BA y U+FF0B, y no con el NUL ni con
+  la forma con llaves. Dejaron un guion blando invisible en `app/_cursos/laminas/comun.tsx` y un
+  ZWJ en `lib/laminas.ts`.
+- **Y Edit hace también lo CONTRARIO**: con un `old_string` que traía los escapes de U+FE0F y
+  U+200D, convirtió en texto de escape todas las letras con tilde de un comentario nuevo.
+
+**Por qué no lo ve nada:** un guion blando o un ZWJ no se ven en ningún listado y compilan igual;
+una tilde escrita como escape, también.
+
+**Regla:**
+
+- Un archivo que tiene que llevar un escape se escribe con un SCRIPT que lo ARMA
+  (`String.fromCharCode`), nunca con el escape tipeado en un texto que pasa por la herramienta, y
+  se verifica CONTANDO escapes e invisibles antes y después.
+- En prosa (comentarios, docs) se nombra el código —U+00AD— en vez de escribir el escape.
+- El texto con barras no va por la línea de comandos (va por Write a un archivo); y para un
+  escape, Write tampoco alcanza: va el script.
+- `tests/laminas.test.ts` falla si aparecen caracteres de tres bytes o invisibles crudos en sus
+  archivos: es el molde para otros. La cara de la búsqueda (el `Grep` que devuelve `/` como `\`)
+  ya está en AGENTS.md.
+
+**Vive en:** cualquier edición de fuente desde el harness · `tests/laminas.test.ts` ·
+*2026-10-08 Customer Success*
