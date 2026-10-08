@@ -3641,3 +3641,43 @@ el navegador ni se llamó a Meta.
 app/api/ads-manager/creative-upload/route.ts (`subirCreativoMako`, el 409) ·
 app/ads-manager/NuevaCampanaModal.tsx (`subir`, `CreativosPicker`, `vueltaMako`) ·
 tests/creativo-mako.test.ts · tests/ads-creativo-mako.test.ts · *2026-10-07 revisión de la #797*
+
+---
+
+## Varias cuentas publicitarias en un workspace (#799): medido, y por qué espera una decisión (07/10/2026)
+
+**La pregunta previa no es técnica.** La tarea nació de «hoy cada cuenta de cada cliente de
+una agencia necesitaría un workspace entero». Desde el 28/09 esa es justamente la salida
+diseñada: la **cartera de agencia** (migs 0175-0178, `lib/agencia-cartera.ts`,
+`lib/agencia-altas.ts`), donde cada cliente de la agencia es su propio workspace con su propia
+cuenta. Varias cuentas DENTRO de un workspace compite con ese modelo, es prioridad baja y no
+cierra la fase: lo decide Martín antes de escribir una línea. Si la respuesta es «alcanza con
+la cartera», la tarea se cierra con esta nota.
+
+**Si se hace, son cinco cosas que no se ven en el pedido, y cuatro tocan plata o datos:**
+
+- **El modo de falla es crear en la cuenta equivocada sin un error.** `META_AD_ACCOUNT_ID` se
+  resuelve solo en ~18 lugares de `lib/meta-ads-create.ts` (vía `cred()`). Si una ruta se
+  olvida de pasar la cuenta elegida y cae a la de por defecto, la persona eligió B y gasta en A.
+  La cuenta tiene que ir EXPLÍCITA en las funciones que crean (tipando `cred` sin esa clave
+  para que el compilador marque cada lugar), y una cuenta pedida que no es del workspace NO cae
+  a la de por defecto — el molde es `elegirLinea` de las líneas de WhatsApp.
+- **`upsertMetrics` borra TODAS las filas de Meta de la fecha** (`lib/meta-ads.ts`, el borrado
+  previo al insert). Sincronizar una segunda cuenta sin acotar ese borrado por cuenta se lleva
+  puesto el rendimiento de la primera, y se lee como «no gastó». Además las métricas se juntan
+  por NOMBRE de campaña y mezclarían dos cuentas.
+- **Las alertas miran una cuenta**: el índice único de `service_incidents` y la deduplicación de
+  `lib/alerta-critica.ts` quedarían ciegos a la segunda, y cambiarlos es una migración de ORDEN
+  (columna e índice antes del deploy) con tres escritores que reconcilian incidentes.
+- **La salud de Meta está cacheada** (`getMetaHealth`, 120 s): si la cuenta no entra como
+  argumento de la función cacheada, se sirve la de otra cuenta.
+- **Dos monedas en un workspace**: hoy todo el tablero supone una sola.
+
+Lo que SÍ está bien y no hay que tocar: el token ya es por workspace, y la normalización del id
+(`normalizarCuentaMeta`) está resuelta.
+
+Probarlo exige un token que alcance DOS cuentas reales en el workspace de Martín: ni ws1
+(Mauricio, un cliente) ni ws3 (que apunta a la cuenta de Mauricio).
+
+**Vive en:** lib/meta-ads-create.ts (`cred`) · lib/meta-ads.ts (`upsertMetrics`) ·
+lib/alerta-critica.ts · lib/meta-health.ts · lib/agencia-cartera.ts · *2026-10-07 tareas-ads-manager*

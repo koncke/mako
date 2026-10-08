@@ -8965,3 +8965,65 @@ los 10 s. Mandar la alarma de la línea a una casilla que no existe es la alarma
   mensaje a una persona, no una notificación del negocio.
 
 *07/10/2026, cuenta 2, commit `3226b3f7`.*
+
+---
+
+## Atribuir un chat al anuncio que lo trajo (#187): medido, y por qué todavía no se construye (07/10/2026)
+
+La tarea pedía que un lead que escribe por WhatsApp desde un anuncio llegue al CRM con su
+campaña, y seguirlo hasta la entrega del lead magnet. Se midió contra el código y contra la
+base (sólo lectura) antes de escribir una línea, y la conclusión es que **hoy no hay nada que
+atribuir**:
+
+- **0 de 25.254 mensajes entrantes** del espejo traen `externalAdReply` ni `conversionSource`
+  de anuncio. Los `entryPointConversionSource` que aparecen son búsqueda, estado, link wa.me,
+  perfil del negocio y grupos. Las ~330 apariciones de «ctwa» en `raw` son ruido del base64 de
+  la multimedia, no una clave. `contextInfo` viaja ARRIBA del payload (17.775 casos), no adentro
+  de `message.extendedTextMessage`.
+- **Quien sí corre campañas de mensajes es Código Inmobiliario** (~1.256 conversaciones
+  iniciadas en un mes, según `marketing_metrics_daily`), y su línea en MaKo está
+  **desconectada**: 0 leads de chat. ws15 también (23 conversaciones, sin línea).
+- **Y probarlo desde el super admin no ejercita este camino**: la línea de MaKo no se espeja
+  (`app/api/webhooks/evolution/route.ts` exige `!esNombreDeCanal(instance)` en el 1-a-1), y el
+  Cliente de Prueba no tiene línea.
+
+### Lo que no se ve leyendo el pedido
+
+- **El diagnóstico obvio («falta leer el referral») es la mitad.** Ningún mensaje entrante CREA
+  un lead: los dos webhooks sólo matchean por teléfono. Y `createLead` acepta `meta_ad_id`,
+  `meta_ad_name`, `meta_campaign_name` y `meta_adset_name` en su tipo y **los tira en el insert**
+  (`lib/leads.ts`, la lista de columnas del insert), junto con `meta_lead_id` y los `respuesta_*`.
+  Un alta por anuncio que pase por `createLead` pierde el anuncio sin un error.
+- **La ficha no muestra la campaña a partir del id del anuncio.** `OrigenCard` arma la campaña
+  con `meta_campaign_name` o `utm_campaign`, nunca con `campanaDeLead`: los NOMBRES se escriben
+  al atribuir, o la ficha queda con «Anuncio» y nada más.
+- **El lead magnet no puede entregarse hoy**: los 13 entregables cargados (5 workspaces) tienen
+  0 `enlace`, hay 0 secuencias con `usa_lead_magnet`, y la tabla `lead_magnets` (mig 0169) está
+  vacía y en paralelo al setting `mako.entregable`. El motor de nutrición no lee
+  `lead_magnet_id`: un `[tu link]` sale literal al lead.
+- **Crear leads solos desde un chat es el riesgo grande.** Evolution re-entrega historial por
+  `messages.upsert`, y después de «Empezar de 0» los mensajes viejos vuelven como inserts nuevos:
+  sin una guarda de frescura, crearían leads y les dispararían secuencias desde la línea NO
+  oficial a contactos viejos (riesgo de baneo). Y `matchLeadPorTelefono` es un `like` sobre los
+  últimos 10 dígitos: sirve para enlazar un mensaje, no para ESCRIBIR atribución.
+- **Con la línea no oficial no hay `business_messaging` ni `ctwa_clid`** para la API de
+  Conversiones: eso exige WABA.
+- El Ads Manager ya recibe `onsite_conversion.messaging_conversation_started_7d` en
+  `marketing_metrics_daily.raw_payload.actions` y nadie lo lee: `parseInsightsToMetrics` sólo
+  extrae `lead` y `lead_grouped`.
+
+### Qué destraba la tarea (orden)
+
+1. Conectar la línea de WhatsApp a la que apuntan las campañas de un cliente que las corre, y
+   mirar UN payload real: el issue evolution-api#2645 dice que Evolution descarta el
+   `externalAdReply`, y eso decide si el camino existe con la línea no oficial.
+2. Decisiones de Martín: si un mensaje desde un anuncio CREA el lead o deja una propuesta (la
+   recomendación medida: crearlo sólo si el producto declaró la entrada «Te escriben»), y si se
+   manda algún evento a Meta al entregar el lead magnet.
+3. Recién ahí: leer el referral con guarda de frescura y de primer mensaje, atribuir por
+   `primerLeadPorTelefono`, escribir los nombres, y la variable del lead magnet escrita por el
+   código.
+
+**Vive en:** lib/evolution-mensajes.ts · app/api/webhooks/chatwoot/route.ts ·
+lib/leads.ts (`createLead`, `upsertLeadFromMeta`) · app/crm/lead-view/OrigenCard.tsx ·
+lib/nutricion.ts · lib/meta-ads.ts (`parseInsightsToMetrics`) · *2026-10-07 tareas-ads-manager*
