@@ -7,6 +7,8 @@
 //     ejecutando lib/setting-adjuntos-reglas.ts;
 //   · la guarda del path: sólo se borra el binario de la biblioteca de ESTE workspace — nunca el
 //     del dueño (una copia de «Completar con los datos de Mau») ni el del espejo;
+//   · que lo subido y no registrado no quede huérfano en el bucket, sin borrar nunca un archivo
+//     que tenga fila (costuras-10);
 //   · que `extDeMime` conozca docx y xlsx (el espejo los guardaba como `.bin`);
 //   · el cableado que el compilador no ve: TENANT_TABLES, TABLAS_DE_INQUILINO, la migración, el
 //     remap de `media_id` en datos-mau, y que la lib filtre por workspace A MANO.
@@ -22,13 +24,30 @@
 //   7. la migración con `default 1` en `workspace_id` → 1.
 //   8. datos-mau sin el remap de `media_id` → 1.
 //   9. `extDeMime` volviendo a la versión por pedazos (sin la tabla exacta) → 1.
+//
+// costuras-10 (revisión del 08/10/2026), mismo arnés: 8 roturas, 8 cazadas (17 tests):
+//  10. `info()` caído sin `await soltar()` → 1 fallo.
+//  11. el insert que rebota sin `await soltar()` → 1.
+//  12. el `catch` sin soltar → 1.
+//  13. `sinFilaConfirmada` devolviendo true con la lectura caída → 1.
+//  14. `tablaNoExiste` sin `PGRST205` (lo que contesta prod hoy) → 1.
+//  15. `soltarSiNoQuedo` sin la guarda del path → 1.
+//  16. un error cualquiera de la lectura previa soltando el archivo → 1.
+//  17. `soltar` armado antes de la lectura previa (borraría un archivo ya registrado) → 1.
+//
+// El barrido de la pestaña cerrada, mismo arnés: 9 roturas, 9 cazadas (20 tests):
+//  18. `huerfanosDelBucket` sin mirar las filas → 1.   19. sin la guarda del path → 1.
+//  20. sin la edad → 1.   21. sin fecha contando como viejo → 1.   22. sin el tope → 1.
+//  23. un listado caído leído como carpeta vacía (`break` en vez de `return null`) → 1.
+//  24. la lectura de filas tragada con `.catch(() => [])` → 1.
+//  25. la subida sin disparar el barrido → 1.   26. la subida ESPERANDO el barrido → 1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   MIME_ADJUNTO_WA, esMimeAdjuntoWA, mimeDeArchivoWA, validarArchivoWA, pathDeAdjuntoWA, pathEsAdjuntoDe,
   tipoEnvioDeMime, topeDe, extDeMime, pasosUsanAdjunto, tituloDeArchivo, pesoLegible, ACEPTA_FOTO_VIDEO, ACEPTA_DOCUMENTO,
-  TOPE_IMAGEN_BYTES, TOPE_VIDEO_BYTES,
+  TOPE_IMAGEN_BYTES, TOPE_VIDEO_BYTES, sinFilaConfirmada, tablaNoExiste, huerfanosDelBucket, EDAD_HUERFANO_MS, TOPE_BARRIDO,
 } from '../lib/setting-adjuntos-reglas';
 import { TABLAS_DE_INQUILINO } from '../lib/tablas-de-inquilino';
 
@@ -125,6 +144,102 @@ test('registrar le pregunta a Storage QUÉ se guardó y borra lo que no entra', 
   assert.match(reg, /!esMimeAdjuntoWA\(mime\)/);
   assert.match(reg, /tamano > topeDe\(mime\)/);
   assert.match(reg, /await bucket\.remove\(\[path\]\)/);
+});
+
+// ── Lo que se subió y no se registró no se queda en el bucket (costuras-10) ──────────────────
+// Antes, un `info()` caído, un insert que rebotaba o la tabla de la 0225 sin aplicar dejaban el
+// binario en `wa-media` para siempre (nadie limpia `<ws>/setting-adjuntos/`), y cada reintento
+// subía otra copia con otro uuid. Ahora se borra, pero SÓLO con la fila confirmada ausente.
+
+test('borrar lo subido sólo si la lectura CONFIRMA que no hay fila (se EJECUTA)', () => {
+  assert.equal(sinFilaConfirmada({ data: null, error: null }), true);
+  assert.equal(sinFilaConfirmada({ data: { id: 4 }, error: null }), false, 'con fila, borrar el binario la deja apuntando a la nada');
+  // «No pude leer» no es «no hay»: un insert que falló por la red pudo haber escrito igual.
+  assert.equal(sinFilaConfirmada({ data: null, error: { code: '08006' } }), false);
+  assert.equal(sinFilaConfirmada({ data: null, error: {} }), false);
+  // La tabla que no existe (la 0225 sin aplicar): sin tabla no puede haber fila. Medido en prod.
+  assert.equal(sinFilaConfirmada({ data: null, error: { code: 'PGRST205' } }), true);
+  assert.equal(sinFilaConfirmada({ data: null, error: { code: '42P01' } }), true);
+  assert.equal(tablaNoExiste({ code: 'PGRST205' }), true);
+  assert.equal(tablaNoExiste({ code: '23505' }), false);
+  assert.equal(tablaNoExiste(null), false);
+});
+
+test('registrar suelta lo subido en TODA salida con error, y sólo después de saber que no hay fila', () => {
+  const lib = sinComentarios(leer('lib/setting-adjuntos.ts'));
+  // El que borra: cuelga de la guarda del path y de la lectura que confirma que no hay fila.
+  const soltar = lib.slice(lib.indexOf('async function soltarSiNoQuedo('), lib.indexOf('export async function registrarAdjunto('));
+  assert.ok(soltar.length > 150 && soltar.length < 900, `no encontré soltarSiNoQuedo (${soltar.length})`);
+  const iGuarda = soltar.indexOf('if (!pathEsAdjuntoDe(path, ws)) return;');
+  const iConfirma = soltar.indexOf('if (!sinFilaConfirmada(lectura)) return;');
+  const iRemove = soltar.indexOf('.remove([path])');
+  assert.ok(iGuarda > 0 && iConfirma > iGuarda && iRemove > iConfirma, 'el remove cuelga de la guarda del path y de la fila ausente');
+
+  const reg = lib.slice(lib.indexOf('export async function registrarAdjunto('), lib.indexOf('export async function usosDeAdjunto('));
+  // Se arma DESPUÉS de saber que no hay fila (con fila, el archivo es de alguien).
+  const iArma = reg.indexOf('soltar = () => soltarSiNoQuedo(db, ws, path);');
+  assert.ok(iArma > reg.indexOf('if (previa.data)'), 'armado antes de la lectura previa, un error borraría un archivo ya registrado');
+  // Las tres salidas con error de ahí en más.
+  assert.match(reg, /if \(info\.error \|\| !info\.data\) \{ await soltar\(\); return \{ ok: false/, 'info() caído');
+  const insert = reg.slice(reg.indexOf('.insert(fila)'), reg.indexOf('soltar = null;'));
+  assert.match(insert, /await soltar\(\);\s*return \{ ok: false, error: error\.message \};/, 'el insert que rebota');
+  assert.match(reg, /\} catch \(e\) \{\s*if \(soltar\) await soltar\(\);/, 'la excepción');
+  // Con la lectura previa caída no se sabe si hay fila: sólo la tabla inexistente suelta.
+  const previa = reg.slice(reg.indexOf('if (previa.error) {'), reg.indexOf('if (previa.data)'));
+  assert.equal(previa.split('soltarSiNoQuedo(').length - 1, 1, 'un error de lectura cualquiera no autoriza a borrar');
+  assert.match(previa, /if \(tablaNoExiste\(previa\.error\)\) \{\s*await soltarSiNoQuedo\(db, ws, path\);/);
+});
+
+// La pestaña cerrada entre la subida y el registro no corre nada del server: lo levanta un barrido
+// de `<ws>/setting-adjuntos/` que dispara la subida siguiente.
+test('el barrido borra SÓLO lo de esta biblioteca, sin fila y con más de una hora (se EJECUTA)', () => {
+  const ahora = Date.parse('2026-10-08T12:00:00Z');
+  const hace = (min: number) => new Date(ahora - min * 60_000).toISOString();
+  const p = (u: string, ws = 11, ext = 'pdf') => `${ws}/setting-adjuntos/${u}.${ext}`;
+  const U2 = '1a2b3c4d-5e6f-4a1b-9c8d-7e6f5a4b3c2d';
+  const U3 = '2b3c4d5e-6f7a-4b1c-8d9e-0f1a2b3c4d5e';
+  const objetos = [
+    { path: p(UUID), creado: hace(120) },              // huérfano viejo → se borra
+    { path: p(U2), creado: hace(120) },                // tiene fila → se queda
+    { path: p(U3), creado: hace(10) },                 // recién subido: puede estar registrándose
+    { path: p(UUID, 11, 'mp4'), creado: null },        // sin fecha: no se sabe
+    { path: p(UUID, 11, 'jpg'), creado: hace(60) },    // justo una hora → se borra
+    { path: `11/mako_ws11/${UUID}.pdf`, creado: hace(600) },  // el espejo: no es de la biblioteca
+    { path: p(UUID, 1), creado: hace(600) },           // la carpeta de OTRO negocio
+    { path: '11/setting-adjuntos/precios.pdf', creado: hace(600) },  // no es un nombre que la biblioteca ponga
+  ];
+  assert.deepEqual(huerfanosDelBucket(objetos, new Set([p(U2)]), 11, ahora), [p(UUID), p(UUID, 11, 'jpg')]);
+  assert.equal(EDAD_HUERFANO_MS, 60 * 60_000);
+  // Y acotado: miles de huérfanos no son miles de borrados en una sola vuelta.
+  const muchos = Array.from({ length: TOPE_BARRIDO + 50 }, (_, i) => ({
+    path: p(`${String(i).padStart(8, '0')}-5e6f-4a1b-9c8d-7e6f5a4b3c2d`), creado: hace(120),
+  }));
+  assert.equal(huerfanosDelBucket(muchos, new Set(), 11, ahora).length, TOPE_BARRIDO);
+});
+
+test('el barrido no decide nada si no pudo mirar, y lee las filas DESPUÉS de listar', () => {
+  const lib = sinComentarios(leer('lib/setting-adjuntos.ts'));
+  const barrer = lib.slice(lib.indexOf('export async function barrerAdjuntosHuerfanos('));
+  assert.ok(barrer.length > 400, `no encontré el barrido (${barrer.length})`);
+  const iListar = barrer.indexOf('await bucket.list(carpeta');
+  const iFilas = barrer.indexOf('await leerTodo<');
+  const iDecide = barrer.indexOf('huerfanosDelBucket(objetos, registrados, ws, Date.now())');
+  const iBorra = barrer.indexOf('await bucket.remove(huerfanos)');
+  assert.ok(iListar > 0 && iFilas > iListar && iDecide > iFilas && iBorra > iDecide,
+    'filas antes de listar: lo registrado en el medio parecería huérfano');
+  assert.match(barrer.slice(iListar, iFilas), /if \(error\) return null;/, 'un listado caído no es una carpeta vacía');
+  // Una lectura de filas que falla TIRA (leerTodo) y el catch no borra: tragarla con un `[]` sería
+  // «no hay filas» y se llevaría la biblioteca entera.
+  assert.doesNotMatch(barrer.slice(iFilas, iDecide), /\.catch\(/);
+  assert.match(barrer.slice(iFilas, iDecide), /\{ eq: \{ workspace_id: ws \} \}/);
+  assert.doesNotMatch(barrer.slice(barrer.indexOf('} catch (e) {')), /remove\(/);
+});
+
+test('la subida dispara el barrido DESPUÉS de contestar, con el workspace de esa subida', () => {
+  const ruta = sinComentarios(leer('app/api/chat-agent/adjuntos/route.ts'));
+  const subir = ruta.slice(ruta.indexOf("if (body.action === 'subir')"), ruta.indexOf("if (body.action === 'registrar')"));
+  assert.match(subir, /if \(r\.ok\) \{\s*const ws = await getWorkspaceActual\(\);\s*if \(ws\) after\(\(\) => runWithWorkspace\(ws, \(\) => barrerAdjuntosHuerfanos\(\)\)\);/);
+  assert.doesNotMatch(subir, /await barrerAdjuntosHuerfanos\(/, 'esperarlo demoraría la subida');
 });
 
 test('la lib filtra por workspace A MANO (por si TENANT_TABLES pierde la línea al juntar)', () => {

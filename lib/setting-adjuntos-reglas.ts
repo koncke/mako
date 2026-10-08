@@ -185,6 +185,65 @@ export function pesoLegible(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
 }
 
+/**
+ * ¿El error dice que la TABLA no existe? Es la 0225 sin aplicar con el código ya desplegado.
+ * Medido el 08/10/2026 contra prod: PostgREST contesta `PGRST205` («Could not find the table … in
+ * the schema cache», HTTP 404); `42P01` es el mismo hecho dicho por Postgres.
+ */
+export function tablaNoExiste(e: { code?: string } | null | undefined): boolean {
+  return e?.code === 'PGRST205' || e?.code === '42P01';
+}
+
+/**
+ * ¿La lectura de `setting_adjuntos` por path CONFIRMA que no hay fila? Es lo que decide si un
+ * archivo subido que no se pudo registrar se borra del bucket (`soltarSiNoQuedo`, costuras-10).
+ *
+ * ⚠️ «NO PUDE LEER» NO ES «NO HAY»: con un error cualquiera la fila puede existir (un insert que
+ *    «falló» por la red y escribió igual, otro registro que ganó), y borrar ahí deja una fila sin
+ *    binario. La única excepción es la tabla que no existe: sin tabla no puede haber fila.
+ */
+export function sinFilaConfirmada(lectura: { data: unknown; error: { code?: string } | null }): boolean {
+  if (lectura.data) return false;
+  return !lectura.error || tablaNoExiste(lectura.error);
+}
+
+/**
+ * Cuánto tiene que tener un archivo de la biblioteca SIN fila para darlo por huérfano. El navegador
+ * registra apenas termina de subir (segundos); una hora deja afuera cualquier subida en curso.
+ */
+export const EDAD_HUERFANO_MS = 60 * 60_000;
+/** Cuántos huérfanos borra un barrido como mucho: el trabajo queda acotado aunque haya miles. */
+export const TOPE_BARRIDO = 200;
+
+/**
+ * Los archivos del bucket que el barrido borra (`barrerAdjuntosHuerfanos`, costuras-10): lo que
+ * `soltarSiNoQuedo` no alcanza a cubrir, la PESTAÑA CERRADA entre la subida y el registro (o la
+ * función cortada por su `maxDuration` a mitad de registrar).
+ *
+ * Cuatro condiciones, las cuatro en positivo:
+ *   · el path es de la biblioteca de ESTE workspace (`pathEsAdjuntoDe`): ni el espejo, ni otro
+ *     negocio, ni un nombre que no sea `<uuid>.<ext>`;
+ *   · no tiene fila en `setting_adjuntos` de este workspace;
+ *   · tiene fecha de creación legible (sin fecha no se sabe si está subiendo ahora);
+ *   · y tiene más de `edadMinMs`.
+ */
+export function huerfanosDelBucket(
+  objetos: ReadonlyArray<{ path: string; creado: string | null }>,
+  registrados: ReadonlySet<string>,
+  ws: number,
+  ahoraMs: number,
+  edadMinMs: number = EDAD_HUERFANO_MS,
+): string[] {
+  return objetos
+    .filter((o) => {
+      if (!pathEsAdjuntoDe(o.path, ws) || registrados.has(o.path)) return false;
+      const t = o.creado ? Date.parse(o.creado) : Number.NaN;
+      return Number.isFinite(t) && ahoraMs - t >= edadMinMs;
+    })
+    .map((o) => o.path)
+    .slice(0, TOPE_BARRIDO);
+}
+
 /** ¿Algún paso de esta secuencia nombra este archivo? (para no dejar un `media_id` colgado al borrar) */
 export function pasosUsanAdjunto(pasos: unknown, id: number): boolean {
   if (!Array.isArray(pasos)) return false;

@@ -22,6 +22,13 @@
 //   6. «Revisar antes de enviar» leyendo `paso.revisar ?? false` (sin lo heredado) → 1.
 //   7. la vista previa con un replace propio de `{{negocio}}` en vez de `aplicarVariables` → 1.
 //   8. `mismoPaso` comparando sólo `orden` → 1.
+//
+// costuras-1 (revisión del 08/10/2026), mismo arnés: 5 roturas, 5 cazadas (15 tests):
+//   9. `pasoAMedia` sin `variantes: []` → 1 fallo.
+//  10. `pasoAVoz` desde un texto sin `variantes: []` → 1.
+//  11. `pasoAVoz` sobre un paso que ya era audio sin `variantes: []` → 1.
+//  12. el editor leyendo `paso.variantes ?? []` en cualquier tipo («↻ N» en audio y archivo) → 1.
+//  13. `pasoSinAdjunto` de un archivo devolviendo variantes viejas → 2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -106,6 +113,23 @@ test('a voz desde un archivo: el archivo se suelta y el caption pasa a ser el gu
   assert.equal((voz as { guion?: string }).guion, 'Mira el catálogo');
 });
 
+// costuras-1 (revisión del 08/10/2026): un texto con variantes al que se le adjuntaba un PDF las
+// conservaba, y el motor las sorteaba como CAPTION: 3 de cada 4 leads recibían el archivo con el
+// texto viejo debajo (y con el caption vacío, todos). «Probar» mostraba el bueno.
+test('un paso que pasa a audio o a archivo SUELTA sus variantes, y el patch lo dice explícito', () => {
+  const conVar = paso({ cuerpo: 'Te paso los precios', variantes: ['Mira los precios', 'Aquí van los precios'] });
+  assert.deepEqual(pasoAMedia(conVar, 3).variantes, [], 'el motor sortearía una variante del texto como caption');
+  assert.deepEqual(pasoAVoz(conVar, 7).variantes, []);
+  assert.deepEqual(pasoAVozDesde(pasoAMedia(conVar, 3), 7).variantes, []);
+  // Un audio que ya las arrastraba también las suelta al cambiarle el audio.
+  assert.deepEqual(pasoAVoz(paso({ tipo: 'audio', audio_id: 7, cuerpo: '', variantes: ['x'] }), 9).variantes, []);
+  // Viajan EXPLÍCITAS (`[]`, no ausentes): es lo que le dice al server «ya no tiene».
+  assert.deepEqual(cambiosDePaso(conVar, pasoAMedia(conVar, 3)).variantes, []);
+  // Y volver a texto no las resucita: eran del texto de antes, y el caption pudo cambiar.
+  assert.deepEqual(pasoSinAdjunto(pasoAMedia(conVar, 3)).variantes, []);
+  assert.equal(pasoSinAdjunto(pasoAMedia(conVar, 3)).cuerpo, 'Te paso los precios', 'lo escrito sí vuelve');
+});
+
 test('el patch lleva sólo lo que cambió, y lo que se va viaja como null', () => {
   const antes = paso({ tipo: 'media', media_id: 3, cuerpo: 'x' });
   assert.deepEqual(cambiosDePaso(antes, pasoSinAdjunto(antes)), { tipo: 'texto', media_id: null });
@@ -136,6 +160,15 @@ test('✦ sólo en texto y si se permite; «↻ N» con variantes; mic y clip se
   assert.ok(!sinNada.includes('Adjuntar archivo'));
   const conTodo = dibujar({});
   assert.ok(conTodo.includes('Grabar nota de voz') && conTodo.includes('Adjuntar archivo'));
+});
+
+test('«↻ N» sólo en un mensaje de texto: ni en un audio ni en un archivo (costuras-1)', () => {
+  const vs = ['Mira los precios', 'Aquí van los precios'];
+  assert.ok(dibujar({ paso: paso({ variantes: vs }) }).includes('↻ 2'), 'el texto sigue mostrándolas');
+  assert.ok(!dibujar({ paso: paso({ tipo: 'audio', audio_id: 7, cuerpo: '', variantes: vs }) }).includes('↻'),
+    'en un audio el campo es el pie: no hay texto que variar');
+  assert.ok(!dibujar({ paso: paso({ tipo: 'media', media_id: 3, cuerpo: 'Te dejo la info', variantes: vs }) }).includes('↻'),
+    'en un archivo el campo es el caption: mostrarlas invita a editar lo que el motor sorteaba debajo del PDF');
 });
 
 test('«Revisar antes de enviar»: ausente en el paso = lo que hereda de la secuencia', () => {

@@ -31,8 +31,8 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import {
-  BUCKET_ADJUNTOS_WA, esMimeAdjuntoWA, pathDeAdjuntoWA, pathEsAdjuntoDe, pasosUsanAdjunto,
-  topeDe, tituloDeArchivo, validarArchivoWA, type AdjuntoDto,
+  BUCKET_ADJUNTOS_WA, CARPETA_ADJUNTOS, esMimeAdjuntoWA, pathDeAdjuntoWA, pathEsAdjuntoDe, pasosUsanAdjunto,
+  topeDe, tituloDeArchivo, validarArchivoWA, sinFilaConfirmada, tablaNoExiste, huerfanosDelBucket, type AdjuntoDto,
 } from './setting-adjuntos-reglas';
 
 export type AdjuntoSetting = {
@@ -152,14 +152,45 @@ export async function urlSubidaAdjunto(input: { nombre: string; mime: string; ta
 }
 
 /**
+ * Borra del bucket un archivo que se SUBIÓ y NO quedó registrado (revisión del 08/10/2026,
+ * costuras-10). Sin esto, cada registro fallido —`info()` caído, un insert que rebota, la tabla de
+ * la 0225 todavía sin aplicar— dejaba el binario en `wa-media` para siempre: nadie lista ni limpia
+ * `<ws>/setting-adjuntos/` (no es el prefijo del espejo), y cada reintento sube otra copia con otro
+ * uuid. Best-effort: si algo falla aquí, el huérfano queda como antes, nunca un error nuevo.
+ *
+ * ⚠️ SE BORRA SÓLO SI SE CONFIRMA QUE NO HAY FILA. Un insert que «falló» por la red pudo haber
+ *    escrito igual, y un 23505 dice que OTRO registro del mismo path ganó: borrar ahí dejaría una
+ *    fila sin binario, que el motor manda como «el archivo ya no existe». Con la lectura caída
+ *    (`error`) no se sabe, y no se borra — salvo que el error diga que la TABLA no existe: sin
+ *    tabla no puede haber fila.
+ * ⚠️ Y LA GUARDA DEL PATH SE VUELVE A PREGUNTAR AQUÍ ADENTRO: el `remove` cuelga de ella siempre,
+ *    no de que el que llama se haya acordado.
+ */
+async function soltarSiNoQuedo(db: Awaited<ReturnType<typeof getTenantDb>>, ws: number, path: string): Promise<void> {
+  if (!pathEsAdjuntoDe(path, ws)) return;
+  try {
+    const lectura = await db.from(TABLA).select('id').eq('workspace_id', ws).eq('media_path', path).maybeSingle();
+    if (!sinFilaConfirmada(lectura)) return;
+    await getSupabaseServer().storage.from(BUCKET_ADJUNTOS_WA).remove([path]);
+  } catch { /* best-effort: queda huérfano, como antes */ }
+}
+
+/**
  * Registra un archivo YA SUBIDO. Registrar dos veces el mismo path devuelve la misma fila.
  *
  * ⚠️ SE LE PREGUNTA A STORAGE QUÉ SE GUARDÓ (`info()`), no se le cree al navegador: el bucket no
  *    filtra tipos ni tamaños, y la URL firmada acepta cualquier cosa en ese path. Lo que no pasa la
  *    lista blanca o el tope se BORRA del bucket y no se registra. Si `info()` no contesta, no se
  *    registra (fail-closed): «el archivo no terminó de subir».
+ * ⚠️ Y LO QUE NO SE REGISTRA NO SE QUEDA EN EL BUCKET (`soltarSiNoQuedo`): desde que la lectura
+ *    previa dijo que no hay fila, toda salida con error borra lo subido. Lo que esto no cubre —la
+ *    pestaña cerrada entre la subida y el registro, donde no corre nada del server— lo levanta
+ *    `barrerAdjuntosHuerfanos` en la subida siguiente.
  */
 export async function registrarAdjunto(input: { path: string; titulo?: string | null; nombre?: string | null }): Promise<Resultado<{ adjunto: AdjuntoDto }>> {
+  // Se arma recién cuando la guarda del path pasó y se sabe que no hay fila: antes de eso, un
+  // error no autoriza a borrar nada (el path puede no ser de este negocio, o ya estar registrado).
+  let soltar: (() => Promise<void>) | null = null;
   try {
     const ws = await getWorkspaceActual();
     if (!ws) return { ok: false, error: 'No hay un negocio abierto.' };
@@ -168,15 +199,25 @@ export async function registrarAdjunto(input: { path: string; titulo?: string | 
     const db = await getTenantDb();
 
     const previa = await db.from(TABLA).select(COLS).eq('workspace_id', ws).eq('media_path', path).maybeSingle();
-    if (previa.error) return { ok: false, error: previa.error.message };
+    if (previa.error) {
+      // Sin la tabla (la 0225 sin aplicar y el código ya desplegado) no hay dónde registrar lo que
+      // se acaba de subir, y tampoco puede haber una fila: se suelta. Con cualquier otro error de
+      // lectura no se sabe si la fila existe, y no se toca nada.
+      if (tablaNoExiste(previa.error)) {
+        await soltarSiNoQuedo(db, ws, path);
+        return { ok: false, error: 'La biblioteca de archivos no está lista.' };
+      }
+      return { ok: false, error: previa.error.message };
+    }
     if (previa.data) {
       const a = normalizar(previa.data as Record<string, unknown>);
       return { ok: true, adjunto: aDto(a, (await urlsDeAdjuntos([a]))[a.id] ?? null) };
     }
+    soltar = () => soltarSiNoQuedo(db, ws, path);
 
     const bucket = getSupabaseServer().storage.from(BUCKET_ADJUNTOS_WA);
     const info = await bucket.info(path);
-    if (info.error || !info.data) return { ok: false, error: 'El archivo no terminó de subir.' };
+    if (info.error || !info.data) { await soltar(); return { ok: false, error: 'El archivo no terminó de subir.' }; }
     const mime = String(info.data.contentType ?? '').toLowerCase().split(';')[0]!.trim();
     const tamano = Number(info.data.size ?? 0);
     const rechazo = !esMimeAdjuntoWA(mime) ? 'Ese formato no va.'
@@ -202,11 +243,16 @@ export async function registrarAdjunto(input: { path: string; titulo?: string | 
           return { ok: true, adjunto: aDto(a, (await urlsDeAdjuntos([a]))[a.id] ?? null) };
         }
       }
+      // Un error de la base (o la tabla que todavía no existe): lo subido no queda colgado.
+      // `soltarSiNoQuedo` vuelve a mirar: si la fila sí se escribió, no borra.
+      await soltar();
       return { ok: false, error: error.message };
     }
+    soltar = null;
     const a = normalizar(data as Record<string, unknown>);
     return { ok: true, adjunto: aDto(a, (await urlsDeAdjuntos([a]))[a.id] ?? null) };
   } catch (e) {
+    if (soltar) await soltar();
     return { ok: false, error: msg(e, 'No se pudo guardar el archivo.') };
   }
 }
@@ -253,5 +299,59 @@ export async function borrarAdjunto(id: number): Promise<{ ok: true } | { ok: fa
     return { ok: true };
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo borrar el archivo.') };
+  }
+}
+
+/** Cuántos objetos se piden por página al listar la carpeta, y el tope de lo que se revisa. */
+const PAGINA_BUCKET = 500;
+const TOPE_LISTADO = 5000;
+
+/**
+ * Barre `<ws>/setting-adjuntos/` y borra lo que no tiene fila y tiene más de una hora (revisión del
+ * 08/10/2026, costuras-10). Es lo que `soltarSiNoQuedo` no puede cubrir: la pestaña cerrada entre
+ * la subida y el registro, o la función cortada por su `maxDuration` a mitad de registrar. Ahí no
+ * corre nada del server, y el binario quedaba para siempre.
+ *
+ * Lo dispara la ruta al firmar una subida nueva, con `after()` (no demora la respuesta): quien deja
+ * huérfanos es quien sube, y así la limpieza no depende de un cron más.
+ *
+ * ⚠️ «NO PUDE MIRAR» NO DECIDE NADA: si el listado del bucket o la lectura de las filas fallan —la
+ *    tabla sin aplicar incluida—, no se borra nada. Un error de lectura leído como «no hay filas»
+ *    borraría la biblioteca entera de un negocio.
+ * ⚠️ QUÉ ES HUÉRFANO LO DECIDE `huerfanosDelBucket` (pura, con test): sólo paths de la biblioteca de
+ *    ESTE workspace, sin fila, con fecha y con más de una hora. Y como mucho `TOPE_BARRIDO` por vez.
+ * ⚠️ LAS FILAS SE LEEN DESPUÉS DE LISTAR: un archivo registrado entre las dos lecturas aparece en
+ *    las filas y se queda. Al revés (filas primero), lo registrado en el medio parecería huérfano.
+ *
+ * Devuelve qué hizo, o null si no pudo mirar.
+ */
+export async function barrerAdjuntosHuerfanos(): Promise<{ revisados: number; borrados: number } | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (!ws) return null;
+    const bucket = getSupabaseServer().storage.from(BUCKET_ADJUNTOS_WA);
+    const carpeta = `${ws}/${CARPETA_ADJUNTOS}`;
+    const objetos: Array<{ path: string; creado: string | null }> = [];
+    for (let offset = 0; offset < TOPE_LISTADO; offset += PAGINA_BUCKET) {
+      const { data, error } = await bucket.list(carpeta, { limit: PAGINA_BUCKET, offset, sortBy: { column: 'name', order: 'asc' } });
+      if (error) return null;
+      for (const o of data ?? []) objetos.push({ path: `${carpeta}/${o.name}`, creado: o.created_at ?? null });
+      if (!data || data.length < PAGINA_BUCKET) break;
+    }
+    if (!objetos.length) return { revisados: 0, borrados: 0 };
+    const db = await getTenantDb();
+    // `leerTodo` tira si la lectura falla: el catch de abajo devuelve null y no se borra nada.
+    const filas = await leerTodo<{ media_path: string | null }>(db, TABLA, 'media_path', { eq: { workspace_id: ws } });
+    const registrados = new Set(filas.map((f) => String(f.media_path ?? '')));
+    const huerfanos = huerfanosDelBucket(objetos, registrados, ws, Date.now());
+    if (huerfanos.length) {
+      const { error } = await bucket.remove(huerfanos);
+      if (error) { console.warn('[setting-adjuntos] el barrido no pudo borrar:', error.message); return null; }
+      console.log(`[setting-adjuntos] barrido ws ${ws}: ${huerfanos.length} huérfanos borrados de ${objetos.length}`);
+    }
+    return { revisados: objetos.length, borrados: huerfanos.length };
+  } catch (e) {
+    console.warn('[setting-adjuntos] el barrido no pudo mirar:', msg(e, String(e)));
+    return null;
   }
 }
