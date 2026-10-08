@@ -18,8 +18,8 @@ import { Field } from './Field';
 export type { DropdownOption as SelectOption, DropdownGroup as SelectGroup };
 
 export function Select({
-  label, hint, error, required, options, columns, value, onChange, placeholder,
-  width, disabled, search, style, ariaLabel, varios, minimo,
+  label, hint, error, required, options, columns, secciones, value, onChange, placeholder,
+  width, disabled, search, style, ariaLabel, varios, minimo, menuAncho, menuAlto,
 }: {
   label?: string;
   hint?: ReactNode;
@@ -28,6 +28,16 @@ export function Select({
   options?: DropdownOption[];
   /** Menú en columnas para listas largas con grupos (evita el scroll infinito). */
   columns?: DropdownGroup[][];
+  /**
+   * Menú POR SECCIONES (el patrón del filtro del Plan): primero la categoría, adentro la opción, y
+   * buscar aplana. Ver la prop del mismo nombre en app/components/Dropdown.tsx. El Dropdown la tenía
+   * desde el 05/10/2026 y este envoltorio no la pasaba: por eso el selector del paso «⚡ Acción»
+   * seguía plano con ~190 acciones (08/10/2026).
+   */
+  secciones?: DropdownGroup[];
+  /** Topes del menú de lista o de secciones (default 360 × 340). Ver Dropdown. */
+  menuAncho?: number;
+  menuAlto?: number;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -49,6 +59,9 @@ export function Select({
         value={value}
         options={options}
         columns={columns}
+        secciones={secciones}
+        menuAncho={menuAncho}
+        menuAlto={menuAlto}
         onChange={onChange}
         placeholder={placeholder}
         width={width ?? '100%'}
