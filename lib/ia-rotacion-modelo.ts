@@ -73,8 +73,11 @@ export function leerErrorProveedor(data: unknown, status: number): ErrorProveedo
     .map((v) => [v?.quotaId, v?.quotaMetric].filter((x) => typeof x === 'string').join(' '))
     .filter(Boolean)
     .join(' · ');
+  // Qué cuota fue va ADELANTE: la marca del rebote (`anotarRebote429`) guarda los primeros
+  // 300 caracteres y el log los primeros 240, y el texto de Google ya ocupa ~250. Puesto
+  // al final, justo el dato que decide «minuto o día, pedidos o tokens» se cortaba.
   let mensaje = (texto || `HTTP ${status}`).trim();
-  if (cuotas && !mensaje.includes(cuotas)) mensaje = `${mensaje} [${cuotas}]`;
+  if (cuotas && !mensaje.includes(cuotas)) mensaje = `[${cuotas}] ${mensaje}`;
 
   // Cuánto esperar: el `RetryInfo` estructurado primero, y si no, la frase del mensaje.
   let esperaMs: number | null = null;

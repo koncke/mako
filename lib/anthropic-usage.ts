@@ -154,13 +154,22 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
   const output = Math.max(outputVisible + reasoning, total > input ? total - input : 0);
   const cacheCreation = Number(u.cache_creation_input_tokens ?? 0) || 0;
   const cacheRead = Number(u.cache_read_input_tokens ?? 0) || 0;
+  // ⚠️ LO CACHEADO DE LOS COMPATIBLES CON OPENAI (Gemini, Groq, OpenAI) VIENE ADENTRO de
+  // `prompt_tokens`, en `prompt_tokens_details.cached_tokens`, y acá no se leía: la tabla
+  // decía 0 en todas las filas de Gemini. Medido el 08/10/2026 contra el endpoint que usa
+  // el doer: con el mismo system y las mismas tools, el 2º pedido vino con el 86% del
+  // prefijo cacheado. Se ANOTA para poder medirlo, y nada más: no entra al costo ni se
+  // descuenta de `input`, porque el medidor de cuota suma input+output y Google no
+  // documenta si lo cacheado cuenta para el tope por minuto. Para Claude la columna sigue
+  // siendo lo de siempre (lo cacheado va APARTE de input_tokens).
+  const cacheadoCompat = Number((u.prompt_tokens_details as Record<string, unknown> | undefined)?.cached_tokens ?? 0) || 0;
   const costUsd = costFor(model, { input, output, cacheCreation, cacheRead }, provider);
   await insertUsage({
     feature: feature || 'otros', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
     // CUÁL de las keys del proveedor atendió (mig 0132). Sin esto la cuota solo se
     // puede medir sumada, y esa suma miente cuando el uso se apila en una cuenta.
     cuenta: cuenta && cuenta > 1 ? cuenta : 1,
-    input_tokens: input, output_tokens: output, cache_creation_tokens: cacheCreation, cache_read_tokens: cacheRead, cost_usd: costUsd,
+    input_tokens: input, output_tokens: output, cache_creation_tokens: cacheCreation, cache_read_tokens: cacheRead || cacheadoCompat, cost_usd: costUsd,
   });
   return { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model };
 }
