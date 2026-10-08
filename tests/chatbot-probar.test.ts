@@ -277,3 +277,17 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
 //   · lienzo-5: tocar la misma automatización vaciando la edición.
 //   · costuras-5: `?sec=` abriendo el wizard; la lista sin el pedido del link; el pedido sin
 //     elegir la automatización; la página leyendo otro parámetro que el que arma el aviso.
+
+// ⚠️ Visto en producción el 08/10/2026: las ramas para elegir iban DEBAJO de la barra para
+// escribir, afuera del chat, y en una ventana baja quedaban fuera de la vista (medido: los
+// botones a y=557 con la ventana de 566). Van adentro del chat, arriba de la barra, como las
+// respuestas rápidas. Probado rompiéndolo: devolver el bloque `{opciones && (` afuera de
+// ChatHilo pone rojo este test (1 de 1).
+test('las ramas de una condición se eligen ADENTRO del chat, arriba de la barra', () => {
+  const panel = PANEL();
+  assert.match(panel, /encimaDelComposer=\{opciones \? \(/);
+  assert.doesNotMatch(panel, /\{opciones && \(\s*<div style=\{\{ flex: 'none'/);
+  const hilo = sinComentarios(leer('app/whatsapp/_shared/ChatHilo.tsx'));
+  // Lo que va encima de la barra se dibuja ANTES del composer.
+  assert.ok(hilo.indexOf('{encimaDelComposer &&') > 0 && hilo.indexOf('{encimaDelComposer &&') < hilo.indexOf('{puedeComponer && ('));
+});

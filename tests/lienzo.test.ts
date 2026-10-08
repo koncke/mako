@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { vistaConPanel, vistaAlCerrarPanel } from '../lib/lienzo-grafo';
+import { vistaConPanel, vistaAlCerrarPanel, encuadreInicial, ZOOM_LEGIBLE } from '../lib/lienzo-grafo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 /** ⚠️ Un guard que busca el nombre de lo que NO tiene que estar se acusa a sí mismo
@@ -204,3 +204,32 @@ test('⚠️ el ＋ del medio respeta `sinMas`, y mide en píxeles de PANTALLA',
   assert.match(bloque, /scale\(\$\{100 \/ zoomTxt\}\)/, 'la zona volvió a medirse en unidades del grafo');
 });
 
+
+// ── El encuadre inicial: legible y desde el principio (08/10/2026) ───────────────────
+// ⚠️ PROBADO ROMPIÉNDOLO: sin el piso (`k = ajuste`) cae el primero (k = 0,3); anclando en
+// el nodo 0 en vez de la entrada cae el segundo; sin descontar el inset de la lista cae el
+// tercero. 3 roturas, 3 cazadas.
+
+
+const nodoDe = (id: string, tipo: string, x: number, y: number) =>
+  ({ id, tipo, titulo: id, icono: '', x, y, ancho: 252, alto: 76 }) as never;
+
+test('un flujo ancho NO abre al 30 %: abre legible y con la entrada a la vista', () => {
+  // Diez columnas de 370 px (el árbol de una secuencia de antes convertida), en una ventana chica.
+  // El primer nodo del ARRAY está arriba de todo (y=0) y la entrada abajo (y=1200): anclar en el
+  // nodo 0 dejaría la entrada fuera de la vista.
+  const nodos = [nodoDe('m', 'mensaje', 28, 0), nodoDe('e', 'entrada', 28, 1200), ...Array.from({ length: 9 }, (_, i) => nodoDe(`n${i}`, 'mensaje', 398 + i * 370, 1200))];
+  const v = encuadreInicial({ nodos, ancho: 3700, alto: 1300 }, { w: 1100, h: 500, insetIzq: 304 });
+  assert.ok(v.k >= ZOOM_LEGIBLE, `abrió al ${Math.round(v.k * 100)} %`);
+  // La ENTRADA (no el primer nodo del array) queda adentro del ancho útil y del alto.
+  const xE = 28 * v.k + v.tx, yE = (1200 + 38) * v.k + v.ty;
+  assert.ok(xE >= 304 && xE <= 1100 - 252 * v.k, `la entrada queda en x=${xE}`);
+  assert.ok(yE >= 0 && yE <= 500, `la entrada queda en y=${yE}`);
+});
+
+test('un flujo que entra a un zoom legible se sigue centrando entero', () => {
+  const nodos = [nodoDe('e', 'entrada', 28, 28), nodoDe('a', 'mensaje', 398, 28)];
+  const v = encuadreInicial({ nodos, ancho: 700, alto: 140 }, { w: 1200, h: 600, insetIzq: 304 });
+  assert.equal(v.k, 1);
+  assert.equal(v.tx, 304 + (1200 - 304 - 700) / 2);
+});

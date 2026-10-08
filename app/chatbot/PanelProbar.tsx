@@ -453,21 +453,22 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             /* Vacío a propósito: arranca solo y en 150 ms ya está el «escribiendo…». Un «Sin
                mensajes» que aparece y se va se lee como un parpadeo. */
             vacio={<></>}
+            /* Una condición: quien prueba elige por dónde sigue (molde de ManyChat), adentro del
+               chat y arriba de la barra, como las respuestas rápidas. */
+            encimaDelComposer={opciones ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {opciones.map((o) => (
+                  <button key={o.puerto} type="button" onClick={() => elegirRama(o)} title={o.texto}
+                    style={{ maxWidth: '100%', padding: '6px 11px', borderRadius: 999, border: `1px solid ${o.puerto === 'si_no' ? 'var(--border-strong)' : 'var(--primary)'}`, background: 'var(--surface)', color: o.puerto === 'si_no' ? 'var(--dim)' : 'var(--primary)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {o.texto}
+                  </button>
+                ))}
+              </div>
+            ) : undefined}
           />
         </div>
       </div>
 
-      {/* Una condición: quien prueba elige por dónde sigue (molde de ManyChat). */}
-      {opciones && (
-        <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', gap: 6, padding: '2px 2px 0' }}>
-          {opciones.map((o) => (
-            <button key={o.puerto} type="button" onClick={() => elegirRama(o)} title={o.texto}
-              style={{ maxWidth: '100%', padding: '6px 11px', borderRadius: 999, border: `1px solid ${o.puerto === 'si_no' ? 'var(--border-strong)' : 'var(--primary)'}`, background: 'var(--surface)', color: o.puerto === 'si_no' ? 'var(--dim)' : 'var(--primary)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {o.texto}
-            </button>
-          ))}
-        </div>
-      )}
     </section>
   );
 }

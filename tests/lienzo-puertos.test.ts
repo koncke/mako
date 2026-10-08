@@ -105,7 +105,10 @@ test('⚠️ el ＋ de una salida vacía y el ＋ del medio de una flecha insert
 test('⚠️ `insetDer`: lo que flota a la derecha se corre, en los CUATRO lugares', () => {
   // Es la regla de AGENTS.md del inset izquierdo, contra el otro borde (el panel de «Probar»).
   const enc = tramo('const encuadrar = useCallback(', '}, [grafo.ancho', 3_000);
-  assert.match(enc, /const wUtil = Math\.max\(1, w - insetIzq - insetDer\);/, 'el encuadre mete la última columna debajo del panel');
+  // El cálculo vive en `encuadreInicial` (lib/lienzo-grafo.ts, con test en tests/lienzo.test.ts):
+  // el lienzo le tiene que pasar los DOS insets, y la función los descuenta.
+  assert.match(enc, /encuadreInicial\(grafo, \{ w, h, insetIzq, insetDer \}\)/, 'el encuadre mete la última columna debajo del panel');
+  assert.match(sinComentarios(leer('../lib/lienzo-grafo.ts')), /const wUtil = Math\.max\(1, caja\.w - izq - \(caja\.insetDer \?\? 0\)\);/);
   assert.match(enc, /\+\$\{insetIzq\}\+\$\{insetDer\}`/, 'la firma del encuadre no cambia al abrir el panel: no reencuadra');
   assert.match(LIENZO, /left: insetIzq, right: insetDer, top: 0, padding: 14/, 'el chrome');
   assert.match(LIENZO, /data-esquina-ocupada style=\{\{ position: 'absolute', right: 12 \+ insetDer, bottom: 12 \}\}/, '«Publicar»');

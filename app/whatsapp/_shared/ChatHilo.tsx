@@ -111,6 +111,12 @@ export type ChatHiloProps = {
    * el inbox, y ahí animar el historial en cada carga sería ruido.
    */
   animarNuevos?: boolean;
+  /**
+   * Lo que va pegado ARRIBA de la barra para escribir, adentro del chat: las respuestas
+   * rápidas. «Probar» pone ahí las ramas de una condición para que quien prueba elija. Afuera
+   * del chat, debajo de la barra, quedaban fuera de la vista en una ventana baja.
+   */
+  encimaDelComposer?: ReactNode;
 };
 
 // Borradores por conversación (sobreviven el salto entre chats, como el inbox real):
@@ -121,7 +127,7 @@ const audioStore = new Map<string, Blob>();
 
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
-  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange, animarNuevos,
+  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange, animarNuevos, encimaDelComposer,
 }: ChatHiloProps) {
   const [draft, setDraftState] = useState<string>(() => (draftKey ? draftStore.get(draftKey) ?? '' : ''));
   const [adjunto, setAdjuntoState] = useState<File | null>(() => (draftKey ? adjuntoStore.get(draftKey) ?? null : null));
@@ -305,6 +311,7 @@ export function ChatHilo({
       )}
       {sendErr && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: 12.5, borderTop: '1px solid var(--border)' }}>{sendErr}</div>}
 
+      {encimaDelComposer && <div style={{ flex: 'none', padding: '8px 12px 0', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>{encimaDelComposer}</div>}
       {readOnly && <ComposerWhatsApp modo="enviar" soloLectura valor="" onValor={() => {}} placeholder={placeholder} />}
       {/* Audio grabado SIN enviar: se escucha antes de mandarlo (o se descarta). Queda en borrador. */}
       {puedeComponer && (

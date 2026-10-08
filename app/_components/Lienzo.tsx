@@ -42,7 +42,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
-  curvaEntre, medioDeCurva, vistaConPanel, vistaAlCerrarPanel, yDePuerto, tieneFilas,
+  curvaEntre, medioDeCurva, vistaConPanel, vistaAlCerrarPanel, yDePuerto, tieneFilas, encuadreInicial,
   ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, type VistaLienzo,
   type GrafoFlujo, type NodoFlujo, type TonoArista,
 } from '@/lib/lienzo-grafo';
@@ -219,7 +219,7 @@ export function Lienzo({
     if (capa.current) capa.current.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.k})`;
   }, []);
 
-  /** Encuadra el grafo entero en la caja. */
+  /** Encuadra el grafo en la caja: entero si se lee, y si no, desde la entrada. */
   const encuadrar = useCallback((forzar = false) => {
     const c = caja.current;
     if (!c) return;
@@ -250,9 +250,16 @@ export function Lienzo({
      * ahí— y nada del grafo nace abajo. El inset derecho (el panel de «Probar») se
      * descuenta igual: es el mismo problema contra el otro borde.
      */
-    const wUtil = Math.max(1, w - insetIzq - insetDer);
-    const k = Math.min(1, Math.min(wUtil / grafo.ancho, h / grafo.alto));
-    vista.current = { k, tx: insetIzq + (wUtil - grafo.ancho * k) / 2, ty: (h - grafo.alto * k) / 2 };
+    /**
+     * ⚠️ EL ENCUADRE NUNCA ARRANCA ILEGIBLE (08/10/2026). Con las ramas, un flujo de antes
+     * convertido a tarjetas (esperas, condiciones, «Si responde») mide diez columnas, y
+     * «que entre todo» lo dejaba al 30 %: Martín abrió /chatbot y vio un dibujo de
+     * tarjetas de tres píxeles. El zoom inicial tiene un piso legible y, si así no entra,
+     * se ancla en la ENTRADA (el CRON): se arranca por el principio, como en ManyChat, y
+     * el resto se recorre arrastrando. «Centrar» vuelve a esta misma vista.
+     */
+    vista.current = encuadreInicial(grafo, { w, h, insetIzq, insetDer });
+    const k = vista.current.k;
     setZoomTxt(Math.round(k * 100));
     pintar();
   }, [grafo.ancho, grafo.alto, insetIzq, insetDer, pintar]);

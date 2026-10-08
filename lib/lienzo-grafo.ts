@@ -250,6 +250,41 @@ export type VistaLienzo = { k: number; tx: number; ty: number };
  * no se corre más allá de donde termina: si no entra entero al lado del panel, se corre hasta
  * el tope, y si ni eso lo mejora, no se corre.
  */
+/** El zoom con el que una tarjeta se lee: el encuadre inicial no arranca por debajo. */
+export const ZOOM_LEGIBLE = 0.85;
+/** Lo que queda libre a la izquierda de la entrada cuando el flujo no entra entero. */
+export const MARGEN_ENCUADRE = 24;
+
+/**
+ * La vista con la que abre un lienzo.
+ *
+ * ⚠️ NUNCA ARRANCA ILEGIBLE (08/10/2026). Hasta acá era «que entre todo»: con las ramas, un
+ * flujo de antes convertido a tarjetas (esperas, condiciones, «Si responde») mide diez
+ * columnas y quedaba al 30 %. Martín abrió /chatbot y vio un dibujo de tarjetas de tres
+ * píxeles. Ahora el zoom tiene un piso legible y, si así no entra, se ancla en la ENTRADA (el
+ * CRON): se arranca por el principio, como en ManyChat, y lo demás se recorre arrastrando.
+ *
+ * El ancho que se usa es el ÚTIL: lo que tapan la lista (insetIzq) y el panel de «Probar»
+ * (insetDer) no cuenta, o la primera tarjeta nace debajo de la lista y no se puede tocar.
+ */
+export function encuadreInicial(
+  grafo: Pick<GrafoFlujo, 'nodos' | 'ancho' | 'alto'>,
+  caja: { w: number; h: number; insetIzq?: number; insetDer?: number },
+): VistaLienzo {
+  const izq = caja.insetIzq ?? 0;
+  const wUtil = Math.max(1, caja.w - izq - (caja.insetDer ?? 0));
+  const ajuste = Math.min(1, Math.min(wUtil / Math.max(1, grafo.ancho), caja.h / Math.max(1, grafo.alto)));
+  const k = Math.max(ajuste, ZOOM_LEGIBLE);
+  const ancla = grafo.nodos.find((n) => n.tipo === 'entrada') ?? grafo.nodos[0];
+  const tx = grafo.ancho * k <= wUtil || !ancla
+    ? izq + (wUtil - grafo.ancho * k) / 2
+    : izq + MARGEN_ENCUADRE - ancla.x * k;
+  const ty = grafo.alto * k <= caja.h || !ancla
+    ? (caja.h - grafo.alto * k) / 2
+    : caja.h / 2 - (ancla.y + ancla.alto / 2) * k;
+  return { k, tx, ty };
+}
+
 export function vistaConPanel(
   v: VistaLienzo,
   nodoX: number,
