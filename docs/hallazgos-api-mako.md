@@ -455,3 +455,72 @@ sale por HTTP, tampoco figura).
 | Que la bandeja deje confirmar a un no-admin lo que no lleva `rolMinimo` | `app/mako/ctx-bandeja.ts` | Por eso `editar_perfil` y `configurar_notificaciones_inapp` salieron del registro |
 | Mover `listar_productos`/`guardar_producto` a negocio y `adjuntar_grabaciones_fathom` a crm | `lib/api-mako/areas/*` | Decisión de registro, sin urgencia |
 | `/whatsapp?chat=` escrito por código | `lib/mako-doer-in.ts` | Falta resolver el jid contra el espejo en cada área |
+
+## La API existe, pero los que más la usan todavía no pasan por ella (08/10/2026)
+
+**Vive en:** `lib/api-mako/registro.ts` · `lib/mako-tools.ts` · `lib/mako-doer-acciones.ts` ·
+`lib/mako-doer-in.ts` · `app/api/mako-doer/route.ts` · `app/api/agente/*` · `lib/flujos.ts`
+
+Martín pidió «que MaKo tenga una API propia, con todas las acciones bien documentadas... como un
+CRUD» para ahorrar tokens y para configurar acciones en el chatbot. **La API es esta**: 498
+operaciones en 18 áreas (316 lecturas, 180 acciones, 2 controles), 379 por HTTP. El «~379» que
+circulaba es sólo lo que sale por HTTP. Lo que se midió (corrida de 8 agentes, 4 lectores, un
+diseñador y 3 refutadores, sobre HEAD):
+
+⚠️ **Las 25 herramientas más usadas están declaradas DOS veces, y ya divergieron.** Las 12 de
+`MAKO_TOOLS` y las 13 de `MAKO_ACCION_TOOLS` tienen gemela con el MISMO id en el registro (0
+exclusivas). El doer de WhatsApp (las 25, siempre) y el chat de la app (las 12) mandan el ToolDef
+VIEJO; HTTP y la skill, la def nueva. Las 25 descripciones difieren, y ya hay tres arreglos que
+corrieron en una copia y no en la otra:
+
+- el tope de salida de `metricas_negocio` (`if (ctx.canal !== 'http')` en metricas.run.ts) corre
+  sólo por HTTP, donde no hace falta: WhatsApp y la app usan el cuerpo viejo;
+- `proponer_tareas_plan` vieja declara `eliminar` («el dueño confirma cada baja») y
+  `/plan/revisar` ya no tiene paso de bajas;
+- `listar_campanas_meta` rotula el gasto como MXN: el ws13 cobra en USD (ver más abajo).
+
+19 son una envoltura del cuerpo viejo; 6 tienen dos cuerpos (`metricas_negocio`,
+`analisis_negocio`, `listar_pendientes`, `confirmar_accion`, `cancelar_accion`, `proponer_lead`).
+**Y «proponer alta de lead» tiene TRES cuerpos**: la tool vieja, `crm.run.ts` y
+`/api/agente/lead`.
+
+⚠️ **La def del registro de `proponer_tareas_plan` no sostiene capturar** (refutado al plan que
+quería mudar las 25 de una): no declara `recurrente` —`validarInput` copia sólo lo declarado, así
+que una tarea recurrente saldría única—, pierde `MOLDE_DETALLE` y `MOLDE_PROYECTO`, y manda a usar
+`listar_tareas_plan`, que capturar no ve (la guarda de fantasmas corta al segundo rechazo). Antes
+de mudar el despacho de las 25 hay que arreglar esa def. Y pasar por el registro mete el gating
+de `visible()`: con la capa `pm` (ws5) 17 de las 25 dejarían de existir.
+
+**`/api/agente/*` duplica 6 de 9 rutas** (consultar = 10 lecturas, contexto, metricas, plan GET
+—un TERCER cuerpo de «ver el plan»—, plan POST todavía con `eliminar`, lead POST). La skill
+instalada nombra `/api/agente/` 20 veces contra 7 `/api/v1`. Uso medido: 0 filas en
+`api_llamadas`; 3 tokens (ws1, ws9, ws11), los tres `proponer`.
+
+**Ninguna automatización pasa por el registro.** `ejecutarOperacion` lo llaman sólo el doer, el
+chat, `/api/v1` y la bandeja. El CRM automático, la nutrición, los desenlaces, los flujos de
+avisos, la página de gracias y el curso al ganar escriben directo. La base para un canal `flujo`
+ya está —168 de las 180 acciones separan `preparar` de `ejecutar`—; falta el canal, poner el lead
+del evento en los parámetros, una llave contra la ejecución doble y el panel. La tensión «el canal
+propone» ya se resolvió de cuatro formas en el código (propone · aplica y deja deshacer · actúa
+porque alguien prendió el interruptor · borrador de un clic) y el registro conoce una sola.
+
+**Los huecos que un flujo necesita** (mapeo a mano sobre crm, chatbot, plan, ads y equipo: 175
+cambios de pantalla, 81 con gemela, 33 afuera con motivo escrito, 61 huecos): ninguna operación
+conoce `lead_funnel` (un lead en varios productos, mig 0207) ni inscribe a UN lead en una
+secuencia, y Customer Success tiene ~31-34 escrituras sin operación (el curso y los movimientos de
+la entrega; el refutador corrigió el «37 contra 1»: guardar datos del cliente, servicios y alta ya
+tienen gemela en crm y negocio). La lista de exclusiones de `crm.def.ts:15-25` quedó vieja: dice
+que reagendar e importar no están, y ya existen `proponer_mover_reunion` y `proponer_leads`.
+
+⚠️ **El registro no está declarado en ningún área de `/admin/dev`**: `grep lib/api-mako` en
+`app/admin/dev/areas.ts` sólo encuentra los tres archivos de cs. Su historial no lo ve nadie.
+
+**SIN HACER** (el plan, en `docs/api-mako-diseno.md` § 10):
+- La def de `proponer_tareas_plan` (`lib/api-mako/areas/plan.def.ts`) con `recurrente` y los
+  moldes, y después el despacho de las 25 por el registro (`lib/mako-doer-in.ts`).
+- El canal `flujo` (`lib/api-mako/tipos.ts` CANALES, `canal.ts`, `ejecutar.ts`), bloqueado por
+  la decisión de qué corre solo.
+- `lead_funnel` e inscribir un lead en una secuencia, en el registro.
+- Declarar `lib/api-mako/` en un área de `app/admin/dev/areas.ts`.
+
+*08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`.*

@@ -1828,6 +1828,18 @@ lote tipea en dólares como la celda, así que **para el ws1 el mismo número ti
 lote vale ahora 17,3 veces más que antes**: quien tipeaba pesos ahí ahora tipea dólares (el
 placeholder y el cartel lo dicen).
 
+⚠️ **(08/10) Y la LECTURA nunca se arregló: el gasto de Meta se pasa a dólares como si toda cuenta
+cobrara en pesos.** Las tres veces de arriba eran escrituras y se cerraron con `cuentaAUsd` /
+`usdACuenta` (`lib/presupuesto-cambio.ts`). Lo que se MUESTRA sigue dividiendo por
+`TIPO_DE_CAMBIO_USD_MXN` para todos: 44 usos en 13 archivos, empezando por `lib/queries.ts:251-256`
+(«Meta devuelve spend en MXN (la cuenta está en MXN)»), que alimenta el dashboard, el CAC, los
+experimentos y el estructurador de campañas. Para el ws13, que cobra en USD, todo gasto en dólares
+sale 17,3 veces más chico: en 30 días son 1.336 de gasto que se leerían como ≈77 USD. La misma
+tool del doer (`listar_campanas_meta`, `lib/mako-doer-acciones.ts:615-616`) lo rotula «MXN».
+**SIN HACER**: una sola función «el gasto de este workspace en dólares» que lea la moneda de la
+cuenta (guardada, no pedida a Meta en cada request) y la usen todos los lectores; arreglar un
+lector solo deja al chat contradiciendo al dashboard. Medido en la corrida `wf_88a97c1e-c89`.
+
 **Regla que queda, y es la de las tres:** un campo con el nombre de una moneda o de un país
 adentro (`daily_budget_mxn`, `countries: ['MX']`) es una constante disfrazada de dato. Lo
 que decide la moneda y el país es **la cuenta publicitaria**, y hay que ir a preguntárselo:
