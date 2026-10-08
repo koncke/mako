@@ -458,7 +458,7 @@ export const RUNNERS: Runners = {
       if (!crudos.length) return { error: 'Faltan los pasos.', faltan: ['pasos'] };
       // Esta tool arma los pasos de cero, como emails: una acción de MaKo que tuviera la
       // secuencia se perdería sin aviso. Se edita en el lienzo, que sí las conoce.
-      if (s.pasos.some(esPasoAccion)) return { error: `«${s.nombre}» tiene pasos «Acción de MaKo»: reescribirla por acá los borraría. Edítala en el lienzo de /chatbot.` };
+      if (s.pasos.some(esPasoAccion)) return { error: `«${s.nombre}» tiene pasos «Acción de MaKo»: reescribirla por aquí los borraría. Edítala en el lienzo de /chatbot.` };
       const pasos: PasoSecuencia[] = crudos.map((p, i) => ({
         orden: i + 1, canal: 'email', delay_horas: Number(p.delay_horas) || 0,
         ...(p.ancla === 'reunion' ? { ancla: 'reunion' as const } : {}),

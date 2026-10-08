@@ -615,7 +615,7 @@ export const RUNNERS: Runners = {
       const entrada = (Array.isArray(input.pasos) ? input.pasos : []) as Array<Record<string, unknown>>;
       const conAcciones = s.pasos.some(esPasoAccion);
       if (conAcciones && entrada.length !== s.pasos.length) {
-        return { error: `«${s.nombre}» tiene pasos «Acción de MaKo»: por acá sólo se cambian sus mensajes, con los mismos ${s.pasos.length} pasos en el mismo orden. Para agregar o quitar pasos, el lienzo de /chatbot.` };
+        return { error: `«${s.nombre}» tiene pasos «Acción de MaKo»: por aquí sólo se cambian sus mensajes, con los mismos ${s.pasos.length} pasos en el mismo orden. Para agregar o quitar pasos, el lienzo de /chatbot.` };
       }
       const avisos: string[] = [];
       const cambiosDeTexto: string[] = [];
