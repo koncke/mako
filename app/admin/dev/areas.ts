@@ -501,6 +501,9 @@ export const AREAS: AreaDev[] = [
       'lib/replay-contrato.ts', 'lib/replay-ingesta.ts', 'lib/replay-sellado.ts', 'lib/replay-ficha.ts',
       'app/api/track/replay/route.ts', 'app/api/cron/replay-purga/route.ts', 'app/api/cron/prueba-grabacion/route.ts',
       'supabase/migrations/0191_replay_de_sesion.sql', 'scripts/replay-libs.mjs',
+      // El grabador v2 (08/10/2026): lo que r.js agrega sobre rrweb, y el reproductor
+      // que hasta ese día no estaba en esta lista y no montaba ninguna grabación.
+      'scripts/replay-envoltorio.js', 'lib/replay-reproductor.ts', 'tests/replay-envoltorio.test.ts',
       'app/crm/lead-view/GrabacionCard.tsx', 'app/crm/lead-view/GrabacionModal.tsx',
       'lib/lead-de-prueba.ts', 'lib/landing-config-leer.ts',
       // El aviso fijo «Actualiza el Pixel» y el ancla del clic (Pixel v22), 06/10/2026.
