@@ -510,7 +510,9 @@ export function mediaDeAdjunto(a: { media_mime: string; nombre_archivo?: string 
 const RX_ID = /^[A-Za-z0-9_-]{1,60}$/;
 const idValido = (x: unknown): x is string => typeof x === 'string' && RX_ID.test(x);
 const destinoId = (x: unknown): string | null | undefined => (x === null ? null : idValido(x) ? x : undefined);
-const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a']);
+// 'inicio' (segunda tanda, 08/10/2026): el CRON con flechas en paralelo. Sin él acá, el primer
+// guardado lo volvía un mensaje vacío y las flechas del CRON se perdían en silencio.
+const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a', 'inicio']);
 /** Un año de espera, en minutos. Una espera más larga es un dato roto, no una decisión. */
 const TOPE_ESPERA_MIN = 366 * 24 * 60;
 
@@ -570,7 +572,19 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar'>;
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar'>;
+
+/**
+ * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
+ * admiten (mensaje, acción, espera, inicio): en una condición no significan nada y `normalizar`
+ * las tiraría igual. Vacío = sin el campo.
+ */
+function sanearParalelos(x: unknown): string[] | undefined {
+  if (!Array.isArray(x)) return undefined;
+  const out: string[] = [];
+  for (const d of x) if (idValido(d) && !out.includes(d)) out.push(d);
+  return out.length ? out : undefined;
+}
 
 /**
  * Los campos del FLUJO de un paso, saneados uno por uno. Lo que no se reconoce no viaja: un
@@ -596,6 +610,9 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   }
   if (nodo === 'ir_a') out.destino = sanearDestino(o.destino);
   if (!nodo && typeof o.revisar === 'boolean') out.revisar = o.revisar;
+  // ⚠️ LA QUINTA PUERTA (AGENTS.md): `setSecuenciaPasos` reconstruye cada paso campo por campo, y
+  // sin esta línea BORRABA las flechas en paralelo en el primer guardado, sin error.
+  if (!nodo || nodo === 'esperar' || nodo === 'inicio') { const par = sanearParalelos(o.paralelos); if (par) out.paralelos = par; }
   return out;
 }
 
@@ -618,6 +635,9 @@ export function esLineal(pasos: readonly PasoGrafo[]): boolean {
   for (let i = 0; i < pasos.length; i++) {
     const c = claseDe(pasos[i]);
     if (c === 'condicion' || c === 'respuesta' || c === 'ir_a') return false;
+    // El inicio y las flechas en paralelo: «el paso 3» ya no es UN lugar (puede haber dos
+    // caminos corriendo a la vez), así que una edición «por orden» no tiene a qué referirse.
+    if (c === 'inicio' || (Array.isArray(pasos[i].paralelos) && pasos[i].paralelos!.length > 0)) return false;
     const esperado = pasos[i + 1] ? idDe(pasos[i + 1], i + 1) : null;
     if (siguienteDe(pasos, i) !== esperado) return false;
   }
