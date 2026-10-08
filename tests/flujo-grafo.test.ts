@@ -7,6 +7,10 @@
 // condición sin sacar un salto que le apuntaba DESDE OTRA RAMA (el salto quedaba colgando),
 // y el par de apertura de #210 armado como dos condiciones sueltas (hacía lo mismo, pero el
 // lienzo dibujaba dos tarjetas donde había una decisión).
+// Después de juntar las partes, 4 roturas más sobre lo que encontraron ellas y la revisión
+// adversarial, las 4 cazadas: «Ir a» la primera tarjeta dejaba la salida sin raíz (2 fallos), un
+// flujo se reconvertía (1), la operación de mover de etapa no existía (1), la limpieza pisaba el
+// logro (2).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,7 +20,8 @@ import {
   elegirSalida, cumpleFila, antiguedadDeEntrada, escenariosDeRespuesta, insertarNodo, borrarNodo,
   nodoPorId, claseDe, textoFila, textoEspera, padreDe,
 } from '../lib/flujo-grafo';
-import { legadoAGrafo, tieneLegado, esFlujoExplicito, OP_AVISAR, LIMPIEZA } from '../lib/flujo-legado';
+import { legadoAGrafo, tieneLegado, esFlujoExplicito, OP_AVISAR, OP_MOVER_ETAPA, limpiezaPara } from '../lib/flujo-legado';
+import { porId } from '../lib/api-mako/registro';
 
 // Un generador determinista: los ids de los tests no dependen del azar.
 const rndDe = () => { let k = 0; return () => ((k++ * 7919) % 100_000) / 100_000 + 0.00001; };
@@ -230,7 +235,11 @@ test('#198 pasa a tarjetas y hace LO MISMO: tope 72 h, espera 1 h, si ya agendó
   assert.deepEqual(resp.casos, []);
   const otra = nodoPorId(r.pasos, resp.si_no)!;
   assert.equal((otra.accion as { operacion: string }).operacion, OP_AVISAR);
-  assert.deepEqual(r.limpieza, LIMPIEZA);
+  // La limpieza CONSERVA el logro («agendo»): lo leen el cierre de lo logrado y el redactor.
+  assert.deepEqual(r.limpieza, limpiezaPara(E198));
+  assert.equal(r.limpieza.desenlace.logrado, 'agendo');
+  assert.equal(r.limpieza.desenlace.falloHoras, 0);
+  assert.equal(r.limpieza.desenlace.logradoSecuencia, null);
 });
 
 // #212/#213 post-agenda: [audio a 1 h + pie, IA a 24 h «si no contestó»], 4 casos (2 salen
@@ -359,4 +368,25 @@ test('un flujo de tarjetas NO se vuelve a convertir (aplastaría sus ramas), per
   const lista = normalizar(P212);
   assert.equal(esFlujoExplicito(lista), false);
   assert.equal(legadoAGrafo(lista, E212, { rnd: rndDe() }).convertida, true);
+});
+
+test('las acciones que genera el conversor EXISTEN en el registro de la API (si no, la secuencia no se puede publicar)', () => {
+  // «Termina si agenda → mover a etapa X» se convierte en una acción: con un nombre que no existe
+  // (era 'mover_lead_etapa'), Publicar rechazaba la secuencia entera.
+  for (const op of [OP_AVISAR, OP_MOVER_ETAPA]) {
+    const def = porId(op);
+    assert.ok(def, `no existe la operación ${op}`);
+    assert.equal(def!.tipo, 'accion');
+  }
+  const conEtapa = legadoAGrafo(P198, { ...E198, desenlace: { ...E198.desenlace, logradoEtapa: 'agenda' } }, { rnd: rndDe(), idDeClave: () => 212 });
+  const ops = conEtapa.pasos.filter((p) => claseDe(p) === 'accion').map((p) => (p.accion as { operacion: string }).operacion);
+  assert.ok(ops.includes(OP_MOVER_ETAPA));
+  for (const op of ops) assert.ok(porId(op), `el conversor generó ${op}, que no existe`);
+});
+
+test('la limpieza conserva lo que la secuencia daba por logrado (cierra al que contestó y lo lee el redactor)', () => {
+  assert.equal(limpiezaPara(E212).desenlace.logrado, 'respondio');
+  assert.equal(limpiezaPara(E212).desenlace.falloHoras, 0);
+  assert.equal(limpiezaPara(null).desenlace.logrado, 'ninguno');
+  assert.equal(limpiezaPara({ desenlace: { logrado: 'inventado' } }).desenlace.logrado, 'ninguno');
 });

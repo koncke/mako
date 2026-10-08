@@ -41,7 +41,7 @@ const aplicar = process.argv.includes('--aplicar');
 config({ path: arg('env') ?? '.env.local' });
 const soloWs = arg('ws') != null ? Number(arg('ws')) : null;
 
-const { legadoAGrafo, tieneLegado, LIMPIEZA } = await import('../lib/flujo-legado');
+const { legadoAGrafo, tieneLegado, limpiezaPara } = await import('../lib/flujo-legado');
 const { validarGrafo, claseDe, idDe, siguienteDe, textoRama, textoEspera, indicePorId } = await import('../lib/flujo-grafo');
 const { parseEstrategia } = await import('../lib/setting-estrategia');
 const { createClient } = await import('@supabase/supabase-js');
@@ -175,7 +175,7 @@ for (const [ws, delWs] of porWs) {
     if (!aplicar) { console.log(''); continue; }
 
     // ── Escribir ────────────────────────────────────────────────────────────────────
-    const estrategiaNueva = est ? { ...est, ...LIMPIEZA } : null;
+    const estrategiaNueva = est ? { ...est, ...limpiezaPara(est) } : null;
     const { error: eU } = await db.from('nutricion_secuencias')
       .update({ pasos: nuevos, ...(estrategiaNueva ? { estrategia: estrategiaNueva } : {}), updated_at: new Date().toISOString() })
       .eq('id', s.id).eq('workspace_id', ws);

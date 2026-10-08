@@ -50,7 +50,7 @@ import {
   CAMPOS_CONDICION, claseDe, idDe, normalizar, puertosDe, raizSalida, raizRespuesta, descendientes,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, textoRama, textoEspera,
 } from './flujo-grafo';
-import { LIMPIEZA, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
+import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
 export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo, PuertoNodo } from './lienzo-grafo';
 export { curvaEntre, medioDeCurva, ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y } from './lienzo-grafo';
@@ -591,7 +591,7 @@ export function crearRespuesta<P extends PasoGrafo>(pasos: readonly P[], rnd: ()
  * que se guarda ENTERO), así que se manda todo lo que había.
  */
 export function estrategiaConLimpieza<E extends EstrategiaLegada>(est: E): Record<string, unknown> {
-  return { objetivo: 'agendar', ...(est ?? {}), ...LIMPIEZA };
+  return { objetivo: 'agendar', ...(est ?? {}), ...limpiezaPara(est) };
 }
 
 // ── El desplegable del disparador ─────────────────────────────────────────────────

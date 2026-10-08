@@ -46,24 +46,54 @@ export type EstrategiaLegada = {
 /** Lo que hay que cambiar en la estrategia para que el motor viejo no repita lo que ahora hacen las tarjetas. */
 export type LimpiezaEstrategia = {
   antiguedad_max_horas: null;
-  /** inerte: `logrado: 'ninguno'` y `falloHoras: 0` — `evaluarDesenlaces` no hace nada con eso. */
-  desenlace: { logrado: 'ninguno'; logradoEtapa: null; logradoSecuencia: null; falloHoras: 0; falloEtapa: null; falloSecuencia: null };
+  /**
+   * Sin cadena: la etapa, el «sigue con» y el fallo por silencio ya son tarjetas. `logrado` se
+   * CONSERVA (ver `limpiezaPara`).
+   */
+  desenlace: { logrado: 'respondio' | 'agendo' | 'pago' | 'ninguno'; logradoEtapa: null; logradoSecuencia: null; falloHoras: 0; falloEtapa: null; falloSecuencia: null };
   escenarios: [];
   /** 'automatico' = una respuesta sólo pausa: lo demás lo hace la tarjeta «Si responde». */
   modo: 'automatico';
 };
 
-export const LIMPIEZA: LimpiezaEstrategia = {
-  antiguedad_max_horas: null,
-  desenlace: { logrado: 'ninguno', logradoEtapa: null, logradoSecuencia: null, falloHoras: 0, falloEtapa: null, falloSecuencia: null },
-  escenarios: [],
-  modo: 'automatico',
-};
+/**
+ * La limpieza de UNA estrategia.
+ *
+ * ⚠️ `logrado` NO SE PISA CON 'ninguno' (revisión adversarial del 08/10/2026, dos hallazgos
+ * confirmados). Parecía inerte y no lo era:
+ *   · con `logrado: 'respondio'`, `evaluarDesenlaces` cierra como lograda la inscripción del
+ *     lead que contestó. Sin eso queda en 'respondio' para siempre, `inscripcionReusable` no la
+ *     reusa, y cuando el lead REAGENDA no le sale la post-agenda de la reunión nueva (decisión del
+ *     06/10: «también con reunión nueva»), y encima lo deja dentro de la familia;
+ *   · el redactor de «MaKo contesta» (`responderSimulador`) le dice al modelo cuándo se cumplió
+ *     el objetivo con ese mismo campo: con 'ninguno' le decía «esta secuencia no cierra sola», y
+ *     al mismo lead, para el mismo caso, le escribía otra cosa que antes de convertir.
+ * Lo que sí se apaga es lo que ahora hacen las tarjetas: mover de etapa, «sigue con» y el fallo
+ * por silencio. Y con `agendo`/`pago` en un flujo de tarjetas el motor NO interrumpe (lo hacen las
+ * condiciones): `evaluarDesenlaces` lo saltea (lib/nutricion-desenlace.ts).
+ */
+export function limpiezaPara(est: EstrategiaLegada): LimpiezaEstrategia {
+  const l = est?.desenlace?.logrado;
+  const logrado = l === 'respondio' || l === 'agendo' || l === 'pago' ? l : 'ninguno';
+  return {
+    antiguedad_max_horas: null,
+    desenlace: { logrado, logradoEtapa: null, logradoSecuencia: null, falloHoras: 0, falloEtapa: null, falloSecuencia: null },
+    escenarios: [],
+    modo: 'automatico',
+  };
+}
+
+/** La limpieza de una estrategia sin desenlace. Para una de verdad, `limpiezaPara(est)` o `r.limpieza`. */
+export const LIMPIEZA: LimpiezaEstrategia = limpiezaPara(null);
 
 /** La operación del registro de la API que avisa al equipo (lib/api-mako/areas/chatbot.def.ts). */
 export const OP_AVISAR = 'avisar_al_equipo';
-/** La que mueve de etapa en la casa (lib/api-mako/areas/crm.def.ts). */
-export const OP_MOVER_ETAPA = 'mover_lead_etapa';
+/**
+ * La que mueve de etapa en la casa (lib/api-mako/areas/crm.def.ts). Desde un flujo corre sin
+ * pedir el «sí» (decisión A del 08/10). Hasta la revisión decía 'mover_lead_etapa', que NO
+ * EXISTE: una secuencia convertida con «Termina si… → etapa» no se podía publicar.
+ */
+export const OP_MOVER_ETAPA = 'proponer_cambio_etapa';
 
 export type ResultadoLegado<P> = {
   pasos: P[];
@@ -120,7 +150,7 @@ export function tieneLegado(pasos: readonly PasoGrafo[], est: EstrategiaLegada):
  */
 export function legadoAGrafo<P extends PasoGrafo>(pasosIn: readonly P[], est: EstrategiaLegada, op: Opciones = {}): ResultadoLegado<P> {
   const notas: string[] = [];
-  if (!tieneLegado(pasosIn, est)) return { pasos: normalizar(pasosIn), limpieza: LIMPIEZA, notas, convertida: false };
+  if (!tieneLegado(pasosIn, est)) return { pasos: normalizar(pasosIn), limpieza: limpiezaPara(est), notas, convertida: false };
 
   const rnd = op.rnd ?? Math.random;
   const viejos = normalizar(pasosIn);   // ids estables de lo que ya había
@@ -345,5 +375,5 @@ export function legadoAGrafo<P extends PasoGrafo>(pasosIn: readonly P[], est: Es
   for (const n of todos) poner(n.id);   // nada debería quedar afuera; por las dudas
 
   if (est?.envio_automatico === true) notas.push('«Sale sola» pasó a cada mensaje');
-  return { pasos: normalizar(orden), limpieza: LIMPIEZA, notas, convertida: true };
+  return { pasos: normalizar(orden), limpieza: limpiezaPara(est), notas, convertida: true };
 }
