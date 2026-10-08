@@ -25,8 +25,12 @@ import { getTenantDb } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { getSetting } from './settings';
 import { REPLAY_BUCKET, REPLAY_CONFIG_KEY, parsearReplay, sesionIdValido } from './replay-contrato';
-import { motivoDelVacio, type ReplayEnLaFicha, type SesionDeLead } from './replay-ficha';
+import {
+  motivoDelVacio, paginaGrabaHoy, ultimaVisita, visitaSinGrabador,
+  type ReplayEnLaFicha, type SesionDeLead, type VisitaDelLead,
+} from './replay-ficha';
 import { SNIPPET_VERSION_KEY } from './landing-token';
+import { VERSIONES_POR_PAGINA_KEY, parsearMapaVersiones } from './pixel-aviso';
 
 // ⚠️ LOS TIPOS QUE SALEN DE ACÁ (`ReplayEnLaFicha`, `SesionDeLead`) VIVEN EN
 // `replay-ficha.ts`, que no tiene `server-only`, y NO se re-exportan desde acá a
@@ -35,6 +39,12 @@ import { SNIPPET_VERSION_KEY } from './landing-token';
 
 /** Tope de sesiones que se listan. Lo que se mira es lo último, no el historial. */
 const TOPE_SESIONES = 20;
+
+/**
+ * Cuántas visitas suyas se leen para el vacío. Son las más NUEVAS: si alguna pudo
+ * grabarse, es una de ésas (el grabador es del 05/10/2026 y las versiones suben).
+ */
+const TOPE_VISITAS = 10;
 
 type FilaSesion = {
   id: string;
@@ -81,7 +91,8 @@ export async function replayDeLead(
     visitorId,
     leyoTodo,
     hayGrabaciones: false,
-    snippetDelLead: null as number | null,
+    visitas: null as VisitaDelLead[] | null,
+    suPaginaGrabaHoy: null as boolean | null,
     ultimaActividadISO,
     ahoraISO: new Date().toISOString(),
     retencionDias: cfg.retencionDias,
@@ -90,12 +101,12 @@ export async function replayDeLead(
   // Sin identificador no hay a quién buscar: dos consultas que no pueden devolver
   // nada y una frase que ya está decidida.
   if (!visitorId) {
-    return { sesiones: [], vacio: motivoDelVacio(senales), retencionDias: cfg.retencionDias };
+    return { sesiones: [], vacio: motivoDelVacio(senales), retencionDias: cfg.retencionDias, visita: null };
   }
 
   const db = await getTenantDb();
 
-  const [idx, sv] = await Promise.all([
+  const [idx, vis] = await Promise.all([
     // ⚠️ SIN LAS DESCARTADAS (06/10/2026). Una sesión `corta` o `vacia` no se sella
     // nunca (storage_path null), así que la ficha la dibujaba «Se está guardando»
     // PARA SIEMPRE, sin botón, y contaba como grabación: un lead con una sola sesión
@@ -106,33 +117,56 @@ export async function replayDeLead(
       .is('descarte', null)
       .order('inicio', { ascending: false })
       .limit(TOPE_SESIONES),
-    // La versión del snippet con la que midió ESTE lead. `landing_visits.sv` existe
-    // desde la mig 0135; las visitas anteriores lo traen en null, y null es «no se
-    // sabe» —no «versión 0»—, así que no acusa a nadie.
+    // Las visitas de ESTE lead: con qué versión del Pixel entró cada una (`sv`,
+    // desde la mig 0135; antes, null), cuándo, y a qué página.
     db.from('landing_visits')
-      .select('sv')
+      .select('sv, created_at, landing_url')
       .eq('visitor_id', visitorId)
       .order('created_at', { ascending: false })
-      .limit(5),
+      .limit(TOPE_VISITAS),
   ]);
 
   if (idx.error) leyoTodo = false;
   const filas = ((idx.data ?? []) as FilaSesion[]);
 
-  // ⚠️ EL MÁXIMO DE LAS DOS FUENTES, nunca sólo la del lead: el setting del
-  // workspace puede estar más adelantado si acaban de repegar el código y la visita
-  // con la versión nueva todavía no llegó. Un «tenés el código viejo» sobre una
-  // página recién actualizada es el mismo falso positivo, al revés.
-  const svLead = sv.error
+  // ⚠️ EL VEREDICTO ES DE LA VISITA, Y NO SE MEZCLA CON EL WORKSPACE (08/10/2026).
+  // Hasta acá se comparaba `Math.max(versión del lead, landing.snippet_version)`, y
+  // el setting del negocio —el ÚLTIMO evento que llegó, venga de la página que
+  // venga— tapaba el código viejo de la visita: el #2593 de ws1 entró el 30/09 con
+  // la v14, el negocio ya estaba en la 22, max = 22 ≥ 21, y la ficha le dijo a
+  // Martín «duró menos de 10 segundos» de una visita de 4 minutos. Pasaba lo mismo
+  // en ws11: el #2598 entró con la v15 a una página que sigue en la v15.
+  //
+  // (El máximo existía para no acusar a una página recién repegada cuya visita nueva
+  // todavía no llegó. Eso es otra pregunta —¿graba HOY?— y se contesta aparte,
+  // abajo, sin tocar lo que trajo la visita.)
+  //
+  // Y un `sv` null NO es 0: es «no se sabe» (visitas anteriores a la mig 0135). El
+  // mapeo a 0 hacía que un lead sin ninguna visita también terminara en la 22.
+  // Sin visitas es su propio caso; qué hacer con un null lo decide `visitaSinGrabador`
+  // (por la fecha, que sí se sabe).
+  const visitas: VisitaDelLead[] | null = vis.error
     ? null
-    : ((sv.data ?? []) as Array<{ sv: number | null }>)
-        .map((r) => (typeof r.sv === 'number' ? r.sv : 0))
-        .reduce((a, b) => Math.max(a, b), 0);
-  let svWs = 0;
-  if (svLead != null) {
-    try { svWs = Number(await getSetting(SNIPPET_VERSION_KEY)) || 0; } catch { svWs = 0; }
+    : ((vis.data ?? []) as Array<{ sv: unknown; created_at: unknown; landing_url: unknown }>).map((r) => ({
+        iso: typeof r.created_at === 'string' ? r.created_at : null,
+        sv: typeof r.sv === 'number' && Number.isFinite(r.sv) ? r.sv : null,
+        url: typeof r.landing_url === 'string' ? r.landing_url : null,
+      }));
+  const ultima = visitas ? ultimaVisita(visitas) : null;
+
+  // ¿Su página graba HOY? Sólo importa cuando ninguna de sus visitas pudo grabarse
+  // —elige entre «es de antes» y «actualiza el código»—, así que sólo entonces se
+  // leen los dos settings. Por PÁGINA, con el mapa del beacon (`paginaGrabaHoy`);
+  // la versión del negocio queda de respaldo para una página que no está en el mapa,
+  // y ahí sólo decide si sale el link, nunca el veredicto de la visita.
+  let suPaginaGrabaHoy: boolean | null = null;
+  if (filas.length === 0 && visitas && visitas.length > 0 && visitas.every(visitaSinGrabador)) {
+    const [mapa, negocio] = await Promise.all([
+      getSetting(VERSIONES_POR_PAGINA_KEY).catch(() => null),
+      getSetting(SNIPPET_VERSION_KEY).catch(() => null),
+    ]);
+    suPaginaGrabaHoy = paginaGrabaHoy(parsearMapaVersiones(mapa), ultima?.url ?? null, negocio);
   }
-  const instalada = svLead == null ? null : Math.max(svLead, svWs);
 
   const sesiones: SesionDeLead[] = filas.map((f) => ({
     id: f.id,
@@ -147,11 +181,12 @@ export async function replayDeLead(
     ...senales,
     leyoTodo,
     hayGrabaciones: sesiones.length > 0,
-    // 0 no es una versión: nadie midió nunca con la 0. Vuelve a ser «no se sabe».
-    snippetDelLead: instalada && instalada > 0 ? instalada : null,
+    visitas,
+    suPaginaGrabaHoy,
   });
 
-  return { sesiones, vacio, retencionDias: cfg.retencionDias };
+  const visita = ultima?.iso ? { iso: ultima.iso, varias: (visitas?.length ?? 0) > 1 } : null;
+  return { sesiones, vacio, retencionDias: cfg.retencionDias, visita };
 }
 
 /**

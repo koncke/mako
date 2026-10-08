@@ -10,7 +10,7 @@
 // ⚠️ EL VACÍO NO ACUSA A NADIE, y es la mitad del trabajo de esta tarjeta. Durante
 // semanas el estado normal va a ser «no hay», y «sin grabación» a secas se lee como
 // que el producto no mide — igual que el botón de Clarity sobre un lead de hace tres
-// meses, que ya se pagó una vez. Las seis causas y su frase viven en
+// meses, que ya se pagó una vez. Las siete causas y su frase viven en
 // `lib/replay-ficha.ts`, puras y con test; acá sólo se dibujan.
 //
 // ⚠️ Y LA PANTALLA NO INVENTA DÓNDE SE ARREGLA. Cada frase lleva link sólo si hay
@@ -88,7 +88,8 @@ export function GrabacionCard({ replay }: { replay: ReplayEnLaFicha }) {
   // que no se arregla en ningún lado.
   if (replay.vacio === 'sin_visitor') return null;
 
-  const vacio = replay.vacio ? textoDelVacio(replay.vacio, replay.retencionDias) : null;
+  // La fecha de su visita va en la zona del negocio, la misma de las otras tarjetas.
+  const vacio = replay.vacio ? textoDelVacio(replay.vacio, replay.retencionDias, replay.visita, tz) : null;
 
   return (
     <>
