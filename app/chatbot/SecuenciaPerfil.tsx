@@ -30,7 +30,7 @@ import type { Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, validarGrafo, borrarNodo, esNodoMensaje, esGrafo } from '@/lib/flujo-grafo';
 import { legadoAGrafo, tieneLegado } from '@/lib/flujo-legado';
 import {
-  insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, estrategiaConLimpieza,
+  insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, faltaEscribir, estrategiaConLimpieza,
   detalleDisparador, seccionesDisparo, valorDisparo, pedidoDisparo, disparoDeValor,
   type QueAgregar, type DisparoActual,
 } from '@/lib/flujo-conversacion';
@@ -299,6 +299,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setErr(null);
     const errores = validarGrafo(pasos);
     if (errores.length) { setErr(errorLegible(errores[0], pasos)); return; }
+    const vacia = faltaEscribir(pasos);
+    if (vacia) { setErr(vacia); return; }
     setBusy('save');
     try {
       const rp = await (await fetch('/api/whatsapp/secuencias', {

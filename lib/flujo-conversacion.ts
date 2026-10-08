@@ -167,6 +167,25 @@ export function nombreDeTarjeta(pasos: readonly PasoGrafo[], id: string): string
   return `${NOMBRE_CLASE[c]} ${n}`;
 }
 
+/**
+ * LA PRIMERA TARJETA DE MENSAJE QUE NO DICE NADA, o null.
+ *
+ * `validarGrafo` mira la FORMA (ramas, destinos, topes) y no el contenido, así que una
+ * tarjeta recién agregada —un «Mensaje», o el «MaKo contesta» con el que nace cada caso de
+ * «Si responde»— pasa vacía y se publicaría: un WhatsApp en blanco, o un caso sin guía de
+ * cómo responder. Va acá y no en el modelo (sólo lectura para esta parte); la tarjeta ya lo
+ * marca con «Sin escribir», y esto lo frena antes de Publicar.
+ */
+export function faltaEscribir(pasos: readonly PasoGrafo[]): string | null {
+  for (let i = 0; i < pasos.length; i++) {
+    const p = pasos[i];
+    if (claseDe(p) !== 'mensaje') continue;
+    const vacio = p.tipo === 'audio' ? !p.audio_id : p.tipo === 'media' ? !p.media_id : !(p.cuerpo ?? '').trim();
+    if (vacio) return `Falta completar «${nombreDeTarjeta(pasos, idDe(p, i))}»`;
+  }
+  return null;
+}
+
 /** Un error de `validarGrafo` con las tarjetas nombradas como se ven, no por su id. */
 export function errorLegible(err: string, pasos: readonly PasoGrafo[]): string {
   const ids = pasos.map((p, i) => idDe(p, i)).sort((a, b) => b.length - a.length);

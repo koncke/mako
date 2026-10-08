@@ -30,6 +30,8 @@
 //  13. SecuenciaPerfil convierte con `legadoAGrafo` también un flujo con ids      -> 12 / 1
 //  14. Publicar sin la LIMPIEZA de la estrategia al convertir                     -> 12 / 1
 //  15. `errorLegible` deja el id crudo                                            -> 12 / 1
+//  16. Publicar sin `faltaEscribir` (sale una tarjeta vacía)                      -> 12 / 1
+//  17. `faltaEscribir` da por escrita una nota de voz sin audio                   -> 12 / 1
 //
 // Correr: node --import tsx --test tests/flujo-conversacion.test.ts
 import { test } from 'node:test';
@@ -37,7 +39,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   grafoDeSecuencia, detalleDisparador, insertarDesdeLienzo, nodoNuevo, opcionesDelMas,
-  seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, crearRespuesta, agregarCaso, quitarRama,
+  seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, faltaEscribir, crearRespuesta, agregarCaso, quitarRama,
   CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, ID_NUEVA_RESPUESTA,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
@@ -261,6 +263,14 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   // Convertida: los pasos Y la estrategia con la LIMPIEZA (el motor viejo no repite lo que hacen las tarjetas).
   assert.match(pub, /if \(convertida\) \{\s*const r = await api\(\{ action: 'guardar-estrategia', secuenciaId: secuencia\.id, estrategia: estrategiaConLimpieza\(est\) \}\)/);
   assert.ok(pub.indexOf("fetch('/api/whatsapp/secuencias'") < pub.indexOf('guardar-estrategia'), 'primero los pasos, después la limpieza');
+  // Una tarjeta VACÍA no se publica: `validarGrafo` mira la forma y no el contenido, y el
+  // «MaKo contesta» con el que nace cada caso de «Si responde» nace sin guía.
+  assert.match(pub, /const vacia = faltaEscribir\(pasos\);\s*if \(vacia\) \{ setErr\(vacia\); return; \}/);
+  assert.ok(pub.indexOf('faltaEscribir(pasos)') < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda antes de mirar si hay tarjetas vacías');
+  const r = crearRespuesta([msg('a')], rndDe());
+  assert.equal(faltaEscribir(agregarCaso(r.pasos, r.id, rndDe(3)).pasos), 'Falta completar «Mensaje 2»');
+  assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', audio_id: 4, cuerpo: '' })]), null, 'una nota de voz sin pie no está vacía');
+  assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', cuerpo: '' })]), 'Falta completar «Mensaje 2»', 'una nota de voz sin audio sí');
   // El error, sin ids crudos.
   const malos: PasoParaGrafo[] = [{ id: 'n0abcde', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', ramas: [], si_no: null }];
   const legible = errorLegible(validarGrafo(malos)[0], malos);
