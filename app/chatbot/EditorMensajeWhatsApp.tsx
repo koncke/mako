@@ -363,8 +363,14 @@ export function EditorMensajeWhatsApp({
   }
 
   const vars = variables ?? [...VARIABLES_LEAD, ...VARIABLES_NEGOCIO].map((v) => ({ key: v.key, label: v.label, ejemplo: v.ejemplo }));
-  const variantes = paso.variantes ?? [];
   const esTexto = !paso.tipo || paso.tipo === 'texto' || paso.tipo === 'ia';
+  // «↻ N» sólo en un mensaje de TEXTO. Las variantes son otras formas de decir el texto; en un
+  // audio o un archivo no hay texto que variar (el campo es el pie o el caption), y mostrarlas
+  // invitaba a editar algo que el motor sorteaba como caption del archivo (costuras-1). Al pasar
+  // a voz o a archivo, `pasoAVoz`/`pasoAMedia` las sueltan. Esconderlas no deja nada colgado sin
+  // salida: medido en prod el 08/10/2026, de 142 pasos, ningún audio tiene variantes y no hay
+  // ningún paso de archivo (el tipo nace con este rediseño).
+  const variantes = esTexto ? (paso.variantes ?? []) : [];
   const revisar = paso.revisar ?? !!revisarHeredado;
   const ocupado = !!deshabilitado || !!fase || !!subida;
 
