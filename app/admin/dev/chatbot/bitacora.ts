@@ -878,4 +878,14 @@ export const BITACORA: Hito[] = [
       "app/chatbot/FlujoLienzo.tsx, SecuenciaPerfil.tsx, PanelProbar.tsx, RecordatorioFlujo.tsx, EditorMensajeWhatsApp.tsx",
     ],
   },
+  {
+    fecha: "8 oct", hora: "—", chat: "—", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Un solo CRON, flechas en paralelo, editor de email tipo Gmail, la tarjeta de etiqueta, crear con IA y las secuencias de los clientes",
+    pedido: "1. No pueden haber 2 flujos por separado. Solo 1 CRON y de ahí desprende todo.\n2. Del CRON inicial debería poder sacar varias flechas... En realidad de varias tarjetas debería poder sacar varias flechas, para que se pueda personalizar. Por ejemplo, de un mismo cron puedo sacar todo una secuencia para WhatsApp y toda otra secuencia de email.\n3. El editor de WhatsApp debes hacerlo más ancho que largo, sino, se amontona todo.\n4. De la misma manera que creaste el editor de WhatsApp, crea el editor de Email, con la interfaz de Gmail, que se parezca.\n5. Las tarjetas de condición, esperar y etiqueta, deberían tener un diseño diferente a las de mensaje y CRON.\n6. Falta la tarjeta de etiqueta, para poder colocar una etiqueta al lead.\n7. El editor de Acción esta muy complejo, simplificalo, hazlo entendible de la mejor manera que te parezca... Y sobre todo el desplegable de acciones, como son tantas, tantas, debe estar muy bien diseñado. Tener barra de busuqeda y también que sea modular, como tenemos el desplegable de Plan, de una sección se abren opciones.\n8. El \"Probar\" debe ser más ancho también, no tan largo, sino, se rompe el diseño.\n9. Quiero que audites, como ya hiciste en el pasado, o si te quedó contexto, todo lo que hace Manychat, si nosotros lo estamos haciendo \"mal\" o \"poco eficiente\" y revises lo que nos falta y podriamos mejorar.\n10. Quiero que crees las secuencias que necesita Mauricio por sobre todo y la que quería Código Inmobiliario.\n11. Quiero que implementes la funcionalidad de crear un secuencia con IA, mendiente un \"prompt\", y que ahí se vayan creando...",
+    puntos: [
+      "Vino con tres capturas del rediseño ya publicado: el lienzo de la Bienvenida (con «Si responde» como una segunda fila suelta), el editor de la nota de voz (alto y angosto) y el editor de la acción «Avisar al equipo» (con campos como «Lead» y «Respuesta» a la vista).",
+      "Los puntos 1 y 2 cambian el modelo: «Si responde» deja de ser una segunda raíz y cuelga del CRON, y una tarjeta puede sacar varias flechas que corren EN PARALELO. El motor hasta hoy lleva un solo cursor por inscripción.",
+    ],
+  },
 ];
