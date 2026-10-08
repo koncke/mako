@@ -18,6 +18,7 @@ import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, ge
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { enTandas } from '@/lib/ids-con-filas';
 import { COLS_RESIDUO, RESIDUO_DIAS, SEGMENTO_RESIDUO, esResiduoFormulario, type LeadResiduo } from '@/lib/nutricion-residuo';
+import { etiquetaDeSegmento, PREFIJO_SEGMENTO_ETIQUETA } from '@/lib/etiquetas-reglas';
 
 const ahoraISO = () => new Date().toISOString();
 const haceDiasISO = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString();
@@ -255,6 +256,11 @@ export const TRIGGERS: Opcion[] = [
   // propio y no un valor más de `etapa_actual`: las claves de las dos listas de etapas
   // las edita el cliente y podrían chocar — ver lib/nutricion-etapa.ts.
   { value: 'entrega_actual', label: 'Llegó a una etapa de la ENTREGA del servicio' },
+  // Las ETIQUETAS del CRM (mig 0224, punto 12 del rediseño de /chatbot). El cohorte lo resuelve el
+  // motor (parte M: `nutricion_secuencias.etiqueta_id` + `enrolarPorEvento(…, 'etiqueta')`); este
+  // renglón es sólo el nombre en el selector. Literal y no la constante TRIGGER_ETIQUETA: el guard
+  // de los tres registros (tests/nutricion-triggers-registros.test.ts) lee el fuente.
+  { value: 'etiqueta_puesta', label: 'Se le puso una etiqueta' },
 ];
 
 // ── Segmentos para broadcasts ─────────────────────────────────────────────────
@@ -271,7 +277,54 @@ export const SEGMENTOS: Segmento[] = [
   { value: SEGMENTO_RESIDUO, label: 'Sin agenda, +45 días', descripcion: 'Abiertos sin reunión ni pago, de hace más de 45 días' },
 ];
 const SEGMENTO_VALIDO = new Set(SEGMENTOS.map((s) => s.value));
-export const esSegmentoValido = (s: string): boolean => SEGMENTO_VALIDO.has(s);
+/**
+ * ¿Es un segmento que se sabe resolver? Los fijos de arriba y `etiqueta:<id>` (mig 0224). La FORMA:
+ * que la etiqueta exista en este negocio lo mira `validarSegmento`, que lee la base.
+ */
+export const esSegmentoValido = (s: string): boolean => SEGMENTO_VALIDO.has(s) || etiquetaDeSegmento(s) != null;
+
+/**
+ * El segmento, validado CONTRA LA BASE, o un error que lo dice.
+ *
+ * ⚠️ HASTA EL 08/10/2026 UN SEGMENTO QUE NO SE CONOCÍA SE GUARDABA COMO «activos»: `crearBroadcast`
+ * hacía `esSegmentoValido(x) ? x : 'activos'`, `actualizarBroadcast` lo ignoraba en silencio y
+ * `filtroSegmento` caía a «activos» en su `default`. Con las etiquetas eso pasa de molesto a grave:
+ * un envío a «etiqueta Cualificado» con el validador viejo le escribía a TODOS los activos (1.044 en
+ * ws1), sin un error. Ahora un segmento que no existe NO SE GUARDA ni se manda: tira.
+ */
+export async function validarSegmento(segmento: unknown): Promise<string> {
+  const s = typeof segmento === 'string' ? segmento.trim() : '';
+  if (!esSegmentoValido(s)) throw new Error(`El segmento «${s}» no existe.`);
+  const etiquetaId = etiquetaDeSegmento(s);
+  if (etiquetaId != null) {
+    const { data, error } = await (await getTenantDb()).from('crm_etiquetas').select('id, archivada_at').eq('id', etiquetaId).limit(1);
+    if (error) throw new Error(`No pude leer la etiqueta del segmento: ${error.message}`);
+    const e = ((data ?? []) as Array<{ id: number; archivada_at: string | null }>)[0];
+    if (!e) throw new Error('Esa etiqueta no existe en este negocio.');
+    if (e.archivada_at) throw new Error('Esa etiqueta está archivada.');
+  }
+  return s;
+}
+
+/**
+ * Los segmentos que se ofrecen en la pantalla de broadcasts: los fijos y uno por etiqueta viva del
+ * negocio. Si las etiquetas no se pueden leer, quedan los fijos (y el error en el log): la pantalla
+ * de broadcasts no se cae por una tabla de otra feature.
+ */
+export async function segmentosDisponibles(): Promise<Segmento[]> {
+  try {
+    const { data, error } = await (await getTenantDb()).from('crm_etiquetas').select('id, nombre').is('archivada_at', null)
+      .order('orden', { ascending: true }).order('id', { ascending: true });
+    if (error) throw new Error(error.message);
+    const deEtiquetas = ((data ?? []) as Array<{ id: number; nombre: string }>).map((e) => ({
+      value: `${PREFIJO_SEGMENTO_ETIQUETA}${Number(e.id)}`, label: `Etiqueta «${e.nombre}»`, descripcion: 'Leads con esa etiqueta',
+    }));
+    return [...SEGMENTOS, ...deEtiquetas];
+  } catch (e) {
+    console.error(`[email] segmentos de etiquetas: ${e instanceof Error ? e.message : String(e)}`);
+    return SEGMENTOS;
+  }
+}
 
 type LeadDestino = { id: number; nombre: string | null; email: string; empresa: string | null };
 
@@ -301,8 +354,10 @@ function filtroSegmento<T extends LeadFilter>(q: T, segmento: string): T {
     case SEGMENTO_RESIDUO: out = out.eq('estado_lead', 'abierto').is('fecha_agenda', null)
       .is('fecha_junta_1', null).is('fecha_junta_2', null).is('fecha_primer_pago', null)
       .lt('created_at', haceDiasISO(RESIDUO_DIAS)) as T; break;
-    case 'activos':
-    default: out = out.in('estado_lead', ['abierto', 'ganado']) as T; break;
+    case 'activos': out = out.in('estado_lead', ['abierto', 'ganado']) as T; break;
+    // ⚠️ SIN DEFAULT A «activos» (08/10/2026): un segmento que no se conoce le escribía a todos los
+    // activos. Las etiquetas se resuelven antes, en `leadsDeSegmento` (no son un filtro de `leads`).
+    default: throw new Error(`El segmento «${segmento}» no existe.`);
   }
   return out;
 }
@@ -311,6 +366,8 @@ function filtroSegmento<T extends LeadFilter>(q: T, segmento: string): T {
 export async function leadsDeSegmento(segmento: string): Promise<LeadDestino[]> {
   const supabase = (await getTenantDb());
   if (segmento === SEGMENTO_RESIDUO) return leadsDelResiduo(supabase);
+  const etiquetaId = etiquetaDeSegmento(segmento);
+  if (etiquetaId != null) return leadsDeEtiqueta(supabase, etiquetaId);
   // Paginado por `id`. Es el destinatario de un envío: el segmento "activos" de
   // ws1 son 1044 leads, el `.select()` suelto devolvía 1000 y el broadcast le
   // llegaba a 1000 — mientras `contarSegmento` (count exact, que sí cuenta bien)
@@ -356,11 +413,38 @@ async function leadsDelResiduo(supabase: Awaited<ReturnType<typeof getTenantDb>>
   }
 }
 
+/**
+ * Los destinatarios de un segmento de ETIQUETA (`etiqueta:<id>`): los leads que la tienen, con el
+ * mismo piso que todos los segmentos (email no vacío y sin baja). Sin filtro de estado: la etiqueta
+ * es la decisión de a quién, y la puso una persona o una automatización a propósito.
+ * Paginado por las dos puntas: la tabla de etiquetas crece con el uso.
+ */
+async function leadsDeEtiqueta(supabase: Awaited<ReturnType<typeof getTenantDb>>, etiquetaId: number): Promise<LeadDestino[]> {
+  try {
+    const filas = await leerTodo<{ id: number; lead_id: number }>(supabase, 'crm_lead_etiquetas', 'id, lead_id', { orden: 'id', eq: { etiqueta_id: etiquetaId } });
+    const ids = [...new Set(filas.map((f) => Number(f.lead_id)))];
+    const out: LeadDestino[] = [];
+    for (let i = 0; i < ids.length; i += 200) {
+      const tanda = ids.slice(i, i + 200);
+      const leads = await leerTodo<{ id: number; nombre: string | null; email: string | null; empresa: string | null }>(
+        supabase, 'leads', 'id, nombre, email, empresa',
+        { orden: 'id', filtros: (q) => (q as unknown as LeadFilter).in('id', tanda).not('email', 'is', null).neq('email', '').eq('email_opt_out', false) as unknown as ConsultaPaginada },
+      );
+      for (const l of leads) if (l.email) out.push({ id: l.id, nombre: l.nombre, email: l.email, empresa: l.empresa });
+    }
+    return out.sort((a, b) => a.id - b.id);
+  } catch (e) {
+    throw new Error(`leadsDeSegmento(etiqueta ${etiquetaId}): ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 export async function contarSegmento(segmento: string): Promise<number> {
   // ⚠️ EL RESIDUO SE CUENTA CON LA MISMA FUNCIÓN QUE ARMA LOS DESTINATARIOS. Un
   // `count` del prefiltro contaría también a quien tiene un pago en `pagos`: la
   // pantalla prometería N y el broadcast le llegaría a menos, sin decir por qué.
   if (segmento === SEGMENTO_RESIDUO) return (await leadsDeSegmento(segmento)).length;
+  // Lo mismo una etiqueta: el conteo es el largo de los destinatarios.
+  if (etiquetaDeSegmento(segmento) != null) return (await leadsDeSegmento(segmento)).length;
   const supabase = (await getTenantDb());
   const q = supabase.from('leads').select('id', { count: 'exact', head: true });
   const { count, error } = await filtroSegmento(q as unknown as LeadFilter, segmento) as unknown as { count: number | null; error: { message: string } | null };
@@ -368,8 +452,9 @@ export async function contarSegmento(segmento: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function contarTodosSegmentos(): Promise<Record<string, number>> {
-  const entries = await Promise.all(SEGMENTOS.map(async (s) => [s.value, await contarSegmento(s.value)] as const));
+export async function contarTodosSegmentos(segmentos?: readonly Segmento[]): Promise<Record<string, number>> {
+  const lista = segmentos ?? SEGMENTOS;
+  const entries = await Promise.all(lista.map(async (s) => [s.value, await contarSegmento(s.value)] as const));
   return Object.fromEntries(entries);
 }
 
@@ -418,6 +503,9 @@ export async function getBroadcasts(): Promise<Broadcast[]> {
 }
 
 export async function crearBroadcast(input: { asunto?: string; preheader?: string; cuerpo?: string; segmento?: string }): Promise<number> {
+  // Sin segmento, el borrador nace en «activos» (se elige después en el editor). Con uno que no
+  // existe, NO nace: ver `validarSegmento`.
+  const segmento = input.segmento ? await validarSegmento(input.segmento) : 'activos';
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('email_broadcasts')
@@ -425,7 +513,7 @@ export async function crearBroadcast(input: { asunto?: string; preheader?: strin
       asunto: input.asunto ?? 'Nuevo broadcast',
       preheader: input.preheader ?? null,
       cuerpo: input.cuerpo ?? '',
-      segmento: input.segmento && esSegmentoValido(input.segmento) ? input.segmento : 'activos',
+      segmento,
       estado: 'borrador',
     })
     .select('id')
@@ -440,7 +528,7 @@ export async function actualizarBroadcast(id: number, patch: { asunto?: string; 
   if (patch.asunto !== undefined) upd.asunto = patch.asunto;
   if (patch.preheader !== undefined) upd.preheader = patch.preheader;
   if (patch.cuerpo !== undefined) upd.cuerpo = patch.cuerpo;
-  if (patch.segmento !== undefined && esSegmentoValido(patch.segmento)) upd.segmento = patch.segmento;
+  if (patch.segmento !== undefined) upd.segmento = await validarSegmento(patch.segmento);
   if (patch.programado_at !== undefined) upd.programado_at = patch.programado_at;
   if (patch.estado !== undefined && ['borrador', 'programado', 'cancelado'].includes(patch.estado)) upd.estado = patch.estado;
   const { error } = await supabase.from('email_broadcasts').update(upd).eq('id', id);

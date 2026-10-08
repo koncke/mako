@@ -15,12 +15,17 @@
 // El lead: si la acción pide `leadId`, el default es «el lead del evento» (el que entró, el
 // que agendó, el de la inscripción) y se guarda como LEAD_DEL_EVENTO o sin el campo; elegir
 // uno a mano es la excepción.
+//
+// La etiqueta: un `etiquetaId` (poner_etiqueta_lead, sacar_etiqueta_lead, editar y archivar) se
+// ELIGE de un desplegable con las etiquetas del CRM y «＋ Nueva», nunca se tipea como número: el
+// id es lo que se guarda (renombrar la etiqueta no rompe el paso) y el nombre es lo que se ve.
 // =============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
 import { Select, Input, Textarea, Checkbox, Field } from '@/app/_ui';
 import type { AccionEditor, ParametroEditor } from '@/lib/api-mako/flujo';
 import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR } from '@/lib/api-mako/flujo-params';
+import { SelectorEtiqueta } from './etiquetas-cliente';
 
 export type ValorAccion = { operacion?: string; params?: Record<string, unknown> };
 
@@ -161,6 +166,14 @@ function CampoParametro({ p, valor, onCambio, pideLead, disabled }: {
   }
   if (p.tipo === 'boolean') {
     return <Checkbox checked={valor === true} onChange={(v) => onCambio(v)} label={label} disabled={disabled} />;
+  }
+  if (p.nombre === 'etiquetaId' && p.tipo === 'number') {
+    return (
+      <Field label="Etiqueta" required={p.obligatorio}>
+        <SelectorEtiqueta value={typeof valor === 'number' ? valor : null} onElegir={(e) => onCambio(e.id)}
+          placeholder="Elige una etiqueta" ariaLabel="Etiqueta" width="100%" disabled={disabled} />
+      </Field>
+    );
   }
   if (p.tipo === 'number') {
     return (

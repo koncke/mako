@@ -21,6 +21,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
+import { claveNombre } from './etiquetas-reglas';
 
 /** Settings de contexto que se replican tal cual. */
 const KEYS_COPIABLES = [
@@ -50,6 +51,10 @@ type TablaClon = {
   forzar?: Record<string, unknown>;
   /** Columna que hace de clave natural para no duplicar. Default: 'clave'. */
   clave?: string;
+  /** Cómo se compara la clave (default: el texto tal cual). */
+  normalizarClave?: (v: string) => string;
+  /** Arma la fila a insertar desde la del origen; `null` = no se copia. Default: tal cual. */
+  preparar?: (r: Record<string, unknown>) => Record<string, unknown> | null;
 };
 const TABLAS: TablaClon[] = [
   // El funnel del dueño: su FORMA, no sus hechos. Se clona sobre el funnel default
@@ -67,6 +72,25 @@ const TABLAS: TablaClon[] = [
     tabla: 'productos',
     cols: ['nombre', 'tipo', 'monto_usd', 'suscripcion_meses', 'promesa', 'incluye', 'garantia', 'descripcion', 'activo', 'orden'],
     clave: 'nombre',
+  },
+  // El CATÁLOGO de etiquetas del CRM (mig 0224): sus nombres y colores son contexto del negocio
+  // igual que los productos — las automatizaciones y las condiciones las nombran. Lo que NO viaja:
+  //   · qué lead tiene cuál (`crm_lead_etiquetas`): es un dato operativo, no configuración;
+  //   · las ARCHIVADAS: no se ofrecen en ningún lado;
+  //   · el vínculo a una etapa de OTRO producto (`funnel_id` es un id del dueño, que en el destino
+  //     es otro embudo o ninguno). El de la etapa del producto del NEGOCIO (`funnel_id` NULL) sí:
+  //     el embudo default del destino se clona con la misma forma (arriba);
+  //   · el mapeo a WhatsApp y a Chatwoot: son las integraciones del dueño, y el destino arranca
+  //     sin ninguna (ver la cabecera: las pruebas no pueden etiquetar el celular de él).
+  {
+    tabla: 'crm_etiquetas',
+    cols: ['nombre', 'color', 'emoji', 'orden', 'funnel_id', 'etapa_key', 'archivada_at'],
+    clave: 'nombre',
+    normalizarClave: claveNombre,
+    preparar: (r) => r.archivada_at ? null : {
+      nombre: r.nombre, color: r.color, emoji: r.emoji ?? null, orden: r.orden ?? 0,
+      funnel_id: null, etapa_key: r.funnel_id == null ? (r.etapa_key ?? null) : null,
+    },
   },
 ];
 
@@ -145,10 +169,13 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
 
       // Resto: insertar las que falten, comparando por la clave natural de la tabla.
       const clave = t.clave ?? 'clave';
+      const norm = t.normalizarClave ?? ((v: string) => v);
       const { data: yaHay } = await sb.from(t.tabla).select(clave).eq('workspace_id', destino);
-      const existentes = new Set(((yaHay ?? []) as unknown as Array<Record<string, unknown>>).map((r) => String(r[clave])));
+      const existentes = new Set(((yaHay ?? []) as unknown as Array<Record<string, unknown>>).map((r) => norm(String(r[clave]))));
       const nuevas = origenFilas
-        .filter((r) => !existentes.has(String(r[clave])))
+        .filter((r) => !existentes.has(norm(String(r[clave]))))
+        .map((r) => (t.preparar ? t.preparar(r) : r))
+        .filter((r): r is Record<string, unknown> => r != null)
         .map((r) => ({ ...r, ...(t.forzar ?? {}), workspace_id: destino }));
       if (!nuevas.length) { tablas[t.tabla] = 0; continue; }
       const { error } = await sb.from(t.tabla).insert(nuevas);

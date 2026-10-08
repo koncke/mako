@@ -1068,27 +1068,67 @@ export async function fetchLidDeNumero(telefono: string): Promise<string | null>
 
 // ── Etiquetas (labels) de WhatsApp Business ──────────────────────────────────
 // No se pueden CREAR por API (se crean en el celular y llegan por labels.edit);
-// sólo se listan y se asignan/quitan a un número. Best-effort.
+// sólo se listan y se asignan/quitan a un chat. Evolution 2.3.7 expone dos rutas:
+// GET /label/findLabels y POST /label/handleLabel {number, labelId, action}.
+//
+// ⚠️ `findLabels` DEVUELVE LOS NOMBRES SIN ACENTOS NI EMOJIS (Evolution los guarda con
+// `name.replace(/[^\x20-\x7E]/g,'')`; medido el 08/10/2026: «Hablar en cmara »). Sirve
+// para saber QUÉ IDS SIGUEN VIVOS, nunca para el nombre: el bueno llega por el webhook
+// `labels.edit`. Ver `planSincronizarCatalogo` (lib/etiquetas-reglas.ts).
 export type EvLabel = { id: string; name: string | null; color: number | null };
 export async function listarLabelsEvolution(): Promise<EvLabel[]> {
-  const ws = await getWorkspaceActual();
-  if (ws == null || !evolutionConfigurado()) return [];
-  const instance = (await lineaSuave()) ?? instanceNameDeWs(ws);
+  try { return await listarLabelsEvolutionEstricto(); } catch { return []; }
+}
+
+/**
+ * Lo mismo, pero «no pude leer» TIRA en vez de devolver `[]`: la sincronización del catálogo
+ * PODA lo que no vino, y podar sobre una lectura caída borraría el catálogo entero.
+ */
+export async function listarLabelsEvolutionEstricto(linea?: string | null): Promise<EvLabel[]> {
+  const instance = await lineaEstricta(linea);
   const r = await evFetch<Array<{ id?: string; labelId?: string; name?: string; color?: number | string }>>(`/label/findLabels/${encodeURIComponent(instance)}`);
-  if (!r.ok || !Array.isArray(r.data)) return [];
+  if (!r.ok) throw new Error(`No pude leer las etiquetas del celular: ${r.detalle ?? r.error}`);
+  if (!Array.isArray(r.data)) throw new Error('Evolution contestó algo que no es una lista de etiquetas.');
   return r.data.map((l) => ({ id: String(l.id ?? l.labelId ?? ''), name: l.name ?? null, color: l.color != null ? Number(l.color) : null })).filter((l) => l.id);
 }
 
-// Asigna/quita una etiqueta a un número. action: 'add' | 'remove'. Best-effort.
-export async function asignarLabel(telefono: string, labelId: string, action: 'add' | 'remove'): Promise<boolean> {
-  const num = (telefono || '').replace(/\D/g, '');
-  const ws = await getWorkspaceActual();
-  if (ws == null || !num || !labelId || !evolutionConfigurado()) return false;
-  const instance = (await lineaSuave()) ?? instanceNameDeWs(ws);
-  const r = await evFetch(`/label/handleLabel/${encodeURIComponent(instance)}`, {
-    method: 'POST', body: JSON.stringify({ number: num, labelId, action }),
+/**
+ * Pone o saca UNA etiqueta del celular en el chat de un contacto, POR LA LÍNEA donde existe
+ * esa etiqueta (el id de una etiqueta es de UN número: en otra línea es otra, o ninguna).
+ *
+ * ⚠️ EL DESTINO VA COMO JID CUANDO SE TIENE. `handleLabel` busca el número con
+ * `whatsappNumber`, que pasa por `createJid`: a un número de 13 dígitos de AR/MX le BORRA
+ * el tercer dígito (`5491125052605` → `541125052605`, ver AGENTS.md), así que mandar los
+ * dígitos de un argentino etiqueta a OTRO número o a ninguno. Un jid completo
+ * (`…@s.whatsapp.net`) vuelve intacto. El jid bueno es el que dio WhatsApp: el del espejo
+ * (`wa_mensajes.chat_jid`); lib/etiquetas.ts lo busca antes de llamar acá.
+ *
+ * ⚠️ Y `res.ok` NO ES «SE PUSO» (AGENTS.md): se exige el `add: true` / `remove: true` que
+ * devuelve handleLabel. NO MEDIDO contra una línea real (escribe en el celular del
+ * cliente): si la forma de la respuesta fuera otra, esto lo dice como fallo en el
+ * historial del lead en vez de afirmarlo como hecho.
+ */
+export async function etiquetarChatWhatsApp(destino: string, labelId: string, action: 'add' | 'remove', linea?: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const d = (destino || '').trim();
+  const number = d.includes('@') ? d : d.replace(/\D/g, '');
+  if (!number || !labelId) return { ok: false, error: 'falta el número o la etiqueta' };
+  if (!evolutionConfigurado()) return { ok: false, error: 'WhatsApp no oficial no configurado' };
+  let instance: string;
+  try { instance = await lineaEstricta(linea); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+  const r = await evFetch<Record<string, unknown>>(`/label/handleLabel/${encodeURIComponent(instance)}`, {
+    method: 'POST', body: JSON.stringify({ number, labelId, action }),
   });
-  return r.ok;
+  if (!r.ok) return { ok: false, error: (r.detalle ?? r.error ?? 'sin respuesta').slice(0, 200) };
+  if (r.data?.[action] !== true) return { ok: false, error: 'WhatsApp no confirmó el cambio' };
+  return { ok: true };
+}
+
+// Asigna/quita una etiqueta a un número. action: 'add' | 'remove'. Best-effort: devuelve
+// sólo si salió. `linea` = la línea donde vive la etiqueta (sin ella, la de por default).
+export async function asignarLabel(telefono: string, labelId: string, action: 'add' | 'remove', linea?: string | null): Promise<boolean> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) return false;
+  return (await etiquetarChatWhatsApp(telefono, labelId, action, linea)).ok;
 }
 
 export type EvChat = { remoteJid?: string; pushName?: string; profilePicUrl?: string | null; unreadCount?: number; updatedAt?: string; lastMessage?: EvRecord };

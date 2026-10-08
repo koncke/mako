@@ -48,6 +48,19 @@ const cualReunion: Parametro = { nombre: 'cual', tipo: 'string', enum: ['R1', 'R
 // producto al embudo hay dos saltos, y un id del otro catálogo que coincida con un embudo
 // movería al lead en el producto equivocado sin un solo error. Por eso se llama `embudoId`.
 const embudoId: Parametro = { nombre: 'embudoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el producto del CRM, por el id de su embudo (de productos_del_lead). NO es el id de listar_productos.' };
+// ⚠️ LAS ETIQUETAS DEL CRM VAN POR SU ID (mig 0224), nunca por el nombre: renombrar una etiqueta no
+// puede romper una automatización que la pone. Lo leen las siete operaciones de etiquetas y el
+// paso «⚡ Acción» de un flujo, que la elige de un desplegable (app/_components/EditorAccionMako.tsx).
+const etiquetaId = (desc = 'id de la etiqueta (de listar_etiquetas).'): Parametro =>
+  ({ nombre: 'etiquetaId', tipo: 'number', descripcion: desc, obligatorio: true, entero: true, minimo: 1 });
+// El vínculo a una etapa y la etiqueta del celular, que comparten crear y editar.
+const camposEtiqueta: readonly Parametro[] = [
+  { nombre: 'color', tipo: 'string', max: 7, descripcion: 'color en hex, #RRGGBB (por ejemplo #5E81AC).' },
+  { nombre: 'emoji', tipo: 'string', max: 16, descripcion: 'un emoji opcional que se muestra delante del nombre.' },
+  { nombre: 'etapa', tipo: 'string', max: 60, descripcion: 'key de la etapa del CRM a la que se vincula (de ver_funnel o productos_del_lead). Vinculada, ponerla mueve al lead a esa etapa, y entrar o salir de la etapa la pone o la saca.' },
+  { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el producto del CRM de esa etapa, por el id de su embudo (de productos_del_lead). Sin él, el producto principal del negocio.' },
+  { nombre: 'waLabelId', tipo: 'string', max: 60, descripcion: 'la etiqueta del WhatsApp del celular a la que corresponde (de listar_etiquetas_whatsapp). Las de WhatsApp no se crean por API: se elige una que ya existe en el celular.' },
+];
 
 export const DEFS: readonly OperacionDef[] = [
   // ── Lecturas heredadas (lib/mako-tools.ts y lib/mako-doer-acciones.ts) ─────────
@@ -313,6 +326,23 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads). Sin él, solo la lista de productos con sus etapas.' }],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
   },
+  // Las ETIQUETAS del CRM (mig 0224, punto 12 del rediseño de /chatbot). Salen por HTTP a
+  // propósito: la sesión de la API de MaKo las pidió con sus rutas REST (diseño §3), y no traen
+  // conversaciones, transcripts ni datos del equipo.
+  {
+    id: 'listar_etiquetas', area: 'crm', tipo: 'lectura',
+    titulo: 'Etiquetas del CRM',
+    descripcion: 'Las etiquetas del CRM del negocio (las que se le ponen a un lead: «Seguimiento», «Cualificado»…) con su id, nombre, color, la etapa del CRM a la que está vinculada (si la hay), a qué etiqueta del WhatsApp del celular corresponde y cuántos leads la tienen. De aquí sale el etiquetaId que piden poner_etiqueta_lead, sacar_etiqueta_lead, editar_etiqueta y archivar_etiqueta. Las archivadas no se pueden poner y solo vienen si se piden.',
+    parametros: [{ nombre: 'incluirArchivadas', tipo: 'boolean', descripcion: 'true para ver también las archivadas (default false).' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'etiquetas_lead', area: 'crm', tipo: 'lectura',
+    titulo: 'Etiquetas de un lead',
+    descripcion: 'Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Pide el leadId (de buscar_leads).',
+    parametros: [leadId()],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
@@ -536,6 +566,63 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: TAB,
     reversible: true, escribe: 'cambia la etapa del lead en lead_funnel (solo en ese producto) y deja historial; ganar ahí invita al curso de ese producto si ese embudo tiene prendida la invitación',
+  },
+
+  // ── Etiquetas del CRM (mig 0224) ──────────────────────────────────────────────
+  // El CRUD es del admin (la pantalla también lo es); poner y sacar, de cualquiera del CRM. Las
+  // dos de un lead contestan `yaEstaba` cuando no cambia nada: con un token de escritura corren en
+  // el acto, y un paso «⚡ Acción» de un flujo no puede alarmar al dueño cada vez que se repite.
+  {
+    id: 'crear_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una etiqueta del CRM',
+    descripcion: 'PROPONE crear una etiqueta del CRM con su nombre y, si se quiere, color, emoji, la etapa del CRM a la que se vincula y la etiqueta del WhatsApp del celular a la que corresponde (queda pendiente hasta el «sí»). Si ya hay una con ese nombre, lo dice. Si el negocio tiene Chatwoot, también la crea allá.',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el nombre de la etiqueta, como se va a ver (hasta 40 caracteres).' },
+      ...camposEtiqueta,
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'una fila en crm_etiquetas (y, si el negocio tiene Chatwoot, la etiqueta en esa cuenta)',
+  },
+  {
+    id: 'editar_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Editar una etiqueta del CRM',
+    descripcion: 'PROPONE cambiar el nombre, el color, el emoji, la etapa vinculada o la etiqueta del WhatsApp del celular de una etiqueta del CRM (queda pendiente hasta el «sí»). Cambiar la etapa vale desde ahora: no les pone ni les saca la etiqueta a los que ya están en esa etapa. Para desvincular, sinEtapa o sinWhatsApp en true. Si no cambia nada, lo dice.',
+    parametros: [
+      etiquetaId(),
+      { nombre: 'nombre', tipo: 'string', max: 40, descripcion: 'el nombre nuevo (hasta 40 caracteres).' },
+      ...camposEtiqueta,
+      { nombre: 'sinEtapa', tipo: 'boolean', descripcion: 'true para desvincularla de su etapa.' },
+      { nombre: 'sinWhatsApp', tipo: 'boolean', descripcion: 'true para que deje de ponerse en el WhatsApp del celular.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'la fila de la etiqueta en crm_etiquetas (nombre, color, emoji, etapa vinculada o etiqueta de WhatsApp)',
+  },
+  {
+    id: 'archivar_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Archivar una etiqueta del CRM',
+    descripcion: 'PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»): deja de ofrecerse y de poder ponerse, y las condiciones de las automatizaciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen la conservan, y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.',
+    parametros: [
+      etiquetaId(),
+      { nombre: 'archivar', tipo: 'boolean', descripcion: 'false para recuperarla (default true, archivar).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'archivada_at de la etiqueta en crm_etiquetas (no borra nada)',
+  },
+  {
+    id: 'poner_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Ponerle una etiqueta a un lead',
+    descripcion: 'PROPONE ponerle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta y la pone también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).',
+    parametros: [leadId(), etiquetaId()],
+    canales: TODOS, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y ponerla en WhatsApp y Chatwoot',
+  },
+  {
+    id: 'sacar_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Sacarle una etiqueta a un lead',
+    descripcion: 'PROPONE sacarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa ni dispara nada; la saca también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).',
+    parametros: [leadId(), etiquetaId()],
+    canales: TODOS, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'borra la fila de crm_lead_etiquetas y deja una línea en el historial del lead; la saca de WhatsApp y Chatwoot',
   },
 
   // ── Acciones nuevas: pantalla (genérica /mako/revisar) ────────────────────────

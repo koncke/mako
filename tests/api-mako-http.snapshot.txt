@@ -12,6 +12,7 @@ agregar_objetivo_custom
 analisis_negocio
 analizar_llamadas_lead
 apagar_kpi
+archivar_etiqueta
 archivar_secuencia
 asegurar_plantilla_reporte
 asignar_closer_setter
@@ -60,6 +61,7 @@ contexto_negocio
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_contacto_chatwoot_lead
+crear_etiqueta
 crear_experimento
 crear_lead_magnet
 crear_secuencia_email
@@ -78,6 +80,7 @@ duplicados_lead
 editar_avatar_negocio
 editar_broadcast
 editar_contacto_lead
+editar_etiqueta
 editar_lead_magnet
 editar_meta_secuencia_email
 editar_pasos_secuencia_email
@@ -108,6 +111,7 @@ estado_onboarding_video
 estado_plantillas_meta
 etapa_inbox_de_lead
 etapas_para_secuencia
+etiquetas_lead
 evaluar_crm_automatico
 factores_cierre
 faltantes_del_lead
@@ -172,6 +176,7 @@ listar_conjuntos_meta
 listar_conversiones_meta
 listar_dependencias_plan
 listar_etapas_email
+listar_etiquetas
 listar_etiquetas_whatsapp
 listar_eventos_pixel_meta
 listar_experimentos
@@ -241,6 +246,7 @@ opciones_siguiente_paso_guion
 panorama_closing
 plan_retro
 plantillas_meta_de_secuencia
+poner_etiqueta_lead
 posponer_item_plan_retro
 probar_conexion_integracion
 programar_broadcast
@@ -292,6 +298,7 @@ resumen_bandejas_confirmacion
 resumir_marketing_periodo
 reuniones_proximas
 reuniones_recientes
+sacar_etiqueta_lead
 seguimiento_ultima_retro
 sembrar_kpis_sugeridos
 snapshot_funnel_experimentos

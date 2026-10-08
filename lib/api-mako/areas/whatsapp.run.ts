@@ -37,7 +37,7 @@ import { evolutionConfigurado, getInstanciaRow, estadoWebhook, repararWebhook } 
 import { getConversacionesNoOficial, buscarLeadsComoPlaceholders, sincronizarChat, borrarChat } from '@/lib/evolution-mensajes';
 import { listBorradores, contarBorradores, crearBorrador, descartarBorrador } from '@/lib/evolution-envio';
 import { bloquearContacto, desbloquearContacto, ocultarContacto, mostrarContacto } from '@/lib/evolution-block';
-import { getCatalogoLabels, getMapeoEtapaLabels, setMapeoEtapaLabel, sincronizarCatalogoLabels, actualizarEtiquetaLead } from '@/lib/evolution-labels';
+import { getCatalogoLabels, getMapeoEtapaLabels, setMapeoEtapaLabel, sincronizarCatalogoEstricto, actualizarEtiquetaLead } from '@/lib/evolution-labels';
 import { ETAPAS_FUNNEL } from '@/lib/wa-etapas';
 import { insisteConLoMismo } from '@/lib/conversacion-repeticion';
 import { listSessions, getSessionMessages } from '@/lib/chart-chats';
@@ -599,11 +599,17 @@ export const RUNNERS: Runners = {
       if (!(await empresaVinculada())) return { error: NO_EMPRESA };
       return { payload: {}, resumen: 'Refrescar el catálogo de etiquetas desde el celular del número de empresa.' };
     },
+    // ⚠️ HASTA EL 08/10/2026 ESTO PISABA LOS NOMBRES BUENOS con los de `findLabels`, que vienen sin
+    // acentos ni emojis (Evolution los guarda así): «Huayacán» volvía «Huayacn». Ahora de findLabels
+    // sólo se toma qué ids siguen vivos — ver `sincronizarCatalogoEstricto` (lib/evolution-labels.ts).
     ejecutar: async (): Promise<Ejecutado> => {
-      const labels = await sincronizarCatalogoLabels();
-      return labels.length
-        ? { ok: true, resumen: `Catálogo actualizado: ${labels.length} etiquetas.` }
-        : { ok: false, resumen: 'No llegó ninguna etiqueta: o el celular no tiene, o Evolution no respondió (la lectura no distingue).' };
+      try {
+        const r = await sincronizarCatalogoEstricto();
+        const cambios = [r.nuevas ? `${r.nuevas} nuevas` : '', r.podadas ? `${r.podadas} que ya no están en el celular, fuera` : ''].filter(Boolean).join(', ');
+        return { ok: true, resumen: `Catálogo al día: ${r.total} etiquetas en el celular${cambios ? ` (${cambios})` : ''}. Los nombres que ya estaban no se tocan.` };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo leer el celular: ${e instanceof Error ? e.message : String(e)}` };
+      }
     },
   },
 

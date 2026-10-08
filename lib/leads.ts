@@ -41,7 +41,7 @@ import { desenlaceAlGuardar } from './lead-desenlace';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 // Qué reunión anula una cancelación: puro y con test (tests/recordatorio-lead.test.ts).
 import { juntaACancelar } from './recordatorio-lead';
-import type { Stage } from './pipeline';
+import type { Stage, StageDerivable } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
 // El funnel vive en lib/funnels.ts desde la mig 0170. Acá se usa el lector DEL
 // LEAD (no el del negocio): lo que valida un movimiento son los requisitos del
@@ -1022,8 +1022,9 @@ export async function updateLead(
   }
 
   // Auto-etiqueta de WhatsApp: si cambió la etapa derivada del lead, ajustamos la
-  // etiqueta en el número (best-effort, no bloquea). Solo si hay mapeo configurado.
-  void actualizarEtiquetaLead(id).catch(() => {});
+  // etiqueta en el número. Sólo si hay mapeo configurado. Se ESPERA (nunca tira): lanzada con
+  // `void`, la función serverless puede cortarse al responder y el pedido no sale, sin rastro.
+  await actualizarEtiquetaLead(id);
 
   // ───────────────────────────────────────────────────────────────────
   // Al GANAR: la invitación al curso, si su embudo la tiene prendida
@@ -2654,7 +2655,15 @@ export async function setPipelineStage(
     await logLeadEvent(id, 'Etapa sin validar', `Movido a "${stageKey}" sin validar los requisitos: ${omitido}`, autor);
   }
 
-  void actualizarEtiquetaLead(id).catch(() => {}); // etiqueta WA por etapa (best-effort; cubre 'manual')
+  // La etiqueta de WhatsApp por etapa del INBOX (evolution_stage_labels, 0 filas al 08/10/2026). Se
+  // ESPERA: lanzada con `void`, una función serverless puede cortarse al responder y el pedido a
+  // Evolution no sale nunca, sin rastro. Nunca tira (su try es interno).
+  await actualizarEtiquetaLead(id);
+  // Y el espejo de las etiquetas del CRM vinculadas a una etapa (mig 0224, lib/etiquetas.ts). Contra
+  // la etapa que SE VEÍA antes del movimiento, como el resto de esta función.
+  if (antes && pipelineStageOf(antes) !== stageKey) {
+    await espejarEtiquetasDeEtapa(id, antes.funnel_id ?? null, pipelineStageOf(antes), stageKey, autor);
+  }
 }
 
 /**
@@ -2729,6 +2738,28 @@ export type LeadMetaInput = {
   web?: string | null;
 };
 
+/** Lo que `setBoardStageOverride` lee del lead ANTES de escribir: su etapa y su producto, y lo que
+ *  hace falta para la etapa DERIVADA (la que se veía en el tablero si no había override). */
+const COLS_ETAPA_PREVIA = 'pipeline_stage, funnel_id, estado_lead, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada';
+
+/**
+ * El gancho de las etiquetas vinculadas a una etapa (lib/etiquetas.ts, `espejarEtapa`): sale de
+ * la que deja, entra a la que llega (mig 0224). En `setBoardStageOverride` corre con la misma regla
+ * que el disparo de la secuencia de etapa —sólo un movimiento explícito, nunca «volver a la
+ * derivación», que no afirma ninguna etapa—, comparando contra la etapa que SE VEÍA. Va por
+ * import dinámico por la misma razón que `enrolarPorEvento`: lib/etiquetas.ts importa este módulo.
+ * Nunca tira, y se ESPERA: en una función serverless, lo que se lanza sin esperar puede cortarse
+ * al responder (el patrón del `void actualizarEtiquetaLead` que esto reemplaza).
+ */
+async function espejarEtiquetasDeEtapa(leadId: number, funnelId: number | null, desde: string | null, hacia: string, autor?: string): Promise<void> {
+  try {
+    const { espejarEtapa } = await import('./etiquetas');
+    await espejarEtapa(leadId, funnelId, desde, hacia, { autor });
+  } catch (e) {
+    console.error(`[leads] el espejo de etiquetas del lead ${leadId} falló:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
 /**
  * Persiste SOLO el override de la columna del tablero (pipeline_stage) y el
  * deadline de nutrición manual, sin tocar estado_lead (el editor ya lo sincroniza
@@ -2740,8 +2771,9 @@ export async function setBoardStageOverride(id: number, stageKey: string | null,
   // La etapa ANTERIOR y el embudo del lead, antes de escribir. Las dos cosas son para el
   // disparo de abajo: una secuencia de etapa se dispara cuando el lead CAE en la etapa,
   // no cada vez que alguien guarda la ficha con la misma etapa puesta.
-  const { data: previo } = await supabase.from('leads').select('pipeline_stage, funnel_id').eq('id', id).limit(1);
-  const antes = ((previo ?? []) as Array<{ pipeline_stage: string | null; funnel_id: number | null }>)[0];
+  // (+ los campos de la etapa DERIVADA, para el espejo de etiquetas de abajo)
+  const { data: previo } = await supabase.from('leads').select(COLS_ETAPA_PREVIA).eq('id', id).limit(1);
+  const antes = ((previo ?? []) as Array<{ pipeline_stage: string | null; funnel_id: number | null } & StageDerivable>)[0];
 
   const patch: Record<string, unknown> = {
     pipeline_stage: stageKey,
@@ -2791,6 +2823,9 @@ export async function setBoardStageOverride(id: number, stageKey: string | null,
       console.error(`[leads] no pude enrolar al lead ${id} por caer en «${stageKey}»:`, e instanceof Error ? e.message : String(e));
     }
   }
+
+  // Las etiquetas vinculadas a la etapa (ver `espejarEtiquetasDeEtapa`), contra la que SE VEÍA.
+  if (stageKey && antes && pipelineStageOf(antes) !== stageKey) await espejarEtiquetasDeEtapa(id, antes.funnel_id ?? null, pipelineStageOf(antes), stageKey);
 }
 
 export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<void> {
