@@ -84,8 +84,11 @@ type TablaClon = {
    * y la rotura es muda. En el mejor caso el motor falla («el audio del paso ya
    * no existe») y reintenta para siempre; en el peor, ese id existe por
    * casualidad en el destino y sale el audio EQUIVOCADO con la voz del dueño.
+   *
+   * Una LISTA desde la mig 0225: un paso puede nombrar un audio (`audio_id`) o un archivo de la
+   * biblioteca (`media_id`), y los dos ids viven en el mismo jsonb.
    */
-  remapJson?: { campo: string; clave: string; desde: string };
+  remapJson?: Array<{ campo: string; clave: string; desde: string }>;
   /** Tablas que apuntan a esta por FK: se copian remapeando el id nuevo. */
   hijos?: Array<{ tabla: string; fk: string; omitir?: string[]; limite?: number }>;
 };
@@ -231,6 +234,10 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
       // audios más y el mapa de claves apuntaba a la última tanda mientras las
       // secuencias seguían en la primera.
       { tabla: 'setting_audios', omitir: ['id'], limite: 40, ordenar: { col: 'created_at' }, dedupPor: 'media_path' },
+      // LOS ARCHIVOS TAMBIÉN, y por lo mismo: los pasos `tipo: 'media'` nombran su `media_id`
+      // (mig 0225). El path viaja verbatim y apunta al archivo del DUEÑO: lo protege
+      // `pathEsAdjuntoDe` al borrar (lib/setting-adjuntos.ts), igual que a los audios.
+      { tabla: 'setting_adjuntos', omitir: ['id'], limite: 40, ordenar: { col: 'created_at' }, dedupPor: 'media_path' },
       // Pausadas SIEMPRE: un workspace de prueba no arranca mandando solo.
       // Los PASOS viajan con la fila (son la columna jsonb `pasos`, no una
       // tabla hija), así que la secuencia no llega vacía — lo único que hay que
@@ -241,10 +248,13 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
         forzar: { activa: false },
         dedupPor: 'clave',
         soloNulo: 'archivada_at',
-        remapJson: { campo: 'pasos', clave: 'audio_id', desde: 'setting_audios' },
+        remapJson: [
+          { campo: 'pasos', clave: 'audio_id', desde: 'setting_audios' },
+          { campo: 'pasos', clave: 'media_id', desde: 'setting_adjuntos' },
+        ],
       },
     ],
-    nota: 'Los audios se escuchan desde el archivo del dueño. Si borras uno aquí, se borra para él: para probar, graba los tuyos.',
+    nota: 'Los audios y archivos se leen desde los del dueño. Para probar, sube los tuyos.',
   },
   crm: {
     titulo: 'Leads del CRM',
@@ -501,7 +511,7 @@ type Mapas = Record<string, Map<string, string | number>>;
  * no encuentra en el mapa se pone en null: un id del dueño que sobrevive es
  * peor que un hueco, porque el destino cree que tiene un audio y manda otro.
  */
-function remapearJson(fila: Record<string, unknown>, r: NonNullable<TablaClon['remapJson']>, mapa: Map<string, string | number> | undefined): void {
+function remapearJson(fila: Record<string, unknown>, r: NonNullable<TablaClon['remapJson']>[number], mapa: Map<string, string | number> | undefined): void {
   const arr = fila[r.campo];
   if (!Array.isArray(arr)) return;
   fila[r.campo] = arr.map((it) => {
@@ -590,10 +600,13 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
   }
 
   const nuevas = origen.map((f, i) => prepararFila(f, t, destino, i));
-  if (t.remapJson) {
-    const mapa = mapas[t.remapJson.desde];
-    if (!mapa) avisos.push(`${t.tabla}: no había mapa de ${t.remapJson.desde}, los ${t.remapJson.clave} quedan vacíos.`);
-    for (const f of nuevas) remapearJson(f, t.remapJson, mapa);
+  for (const r of t.remapJson ?? []) {
+    const mapa = mapas[r.desde];
+    // Sin mapa avisa sólo si algún paso nombra un id de esa tabla: un dueño sin archivos en la
+    // biblioteca no tiene nada que traducir, y el aviso diría que se perdió algo que no existía.
+    const nombra = nuevas.some((f) => Array.isArray(f[r.campo]) && (f[r.campo] as Array<Record<string, unknown> | null>).some((it) => it?.[r.clave] != null));
+    if (!mapa && nombra) avisos.push(`${t.tabla}: no había mapa de ${r.desde}, los ${r.clave} quedan vacíos.`);
+    for (const f of nuevas) remapearJson(f, r, mapa);
   }
   const { data: ins, error } = await sb.from(t.tabla).insert(nuevas).select('id');
   if (error) { avisos.push(`${t.tabla}: ${error.message}`); return 0; }

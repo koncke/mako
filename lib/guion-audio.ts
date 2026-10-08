@@ -226,6 +226,51 @@ export const guionVigente = (ia: { texto: string; de: string } | null, base: str
 /** Lo que se lee al grabar: antes de pasarlo a voz es el texto del mensaje; después, el que se movió. */
 export const guionParaLeer = (p: PasoConVoz): string => (p.tipo === 'audio' ? (p.guion ?? '') : p.cuerpo);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Un ARCHIVO en vez del texto o el audio (el editor del mensaje, 08/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// `tipo: 'media'` + `media_id` (un archivo de la biblioteca, mig 0225) y el `cuerpo` es el
+// caption. Las dos vueltas cuidan lo mismo que las de la voz: no perder lo que se escribió.
+
+type PasoConMedia = PasoConVoz & { media_id?: number | null };
+
+/** El paso pasa a llevar el archivo `mediaId`. Desde un audio, el guion y el pie vuelven a ser el texto (el caption). */
+export function pasoAMedia<P extends PasoConMedia>(p: P, mediaId: number): P {
+  const base = p.tipo === 'audio' ? pasoATexto(p) : p;
+  return { ...base, tipo: 'media' as const, media_id: mediaId, audio_id: null, proveedor: 'no_oficial' as const };
+}
+
+/**
+ * La ✕ del chip: el paso vuelve a ser de TEXTO sin perder lo escrito. De un audio, el guion y el
+ * pie se juntan en el cuerpo (`pasoATexto`); de un archivo, el caption queda como el texto.
+ */
+export function pasoSinAdjunto<P extends PasoConMedia>(p: P): P {
+  if (p.tipo === 'audio') return { ...pasoATexto(p), media_id: null };
+  if (p.tipo === 'media') return { ...p, tipo: 'texto' as const, media_id: null };
+  return p;
+}
+
+/** El paso pasa a nota de voz: si llevaba un archivo, primero se lo saca (el caption pasa a ser el guion). */
+export function pasoAVozDesde<P extends PasoConMedia>(p: P, audioId: number): P {
+  return pasoAVoz(p.tipo === 'media' ? pasoSinAdjunto(p) : p, audioId);
+}
+
+/**
+ * Lo que cambió de `antes` a `despues`, como un patch: el editor no reemplaza el paso entero
+ * (`onChange` recibe un parcial). Un campo que pasa a `null` viaja como `null`, para borrarlo.
+ */
+export function cambiosDePaso<P extends object>(antes: P, despues: P): Partial<P> {
+  const out: Partial<P> = {};
+  const claves = new Set([...Object.keys(antes), ...Object.keys(despues)]) as Set<keyof P>;
+  for (const k of claves) {
+    const a = antes[k]; const d = despues[k];
+    if (a === d) continue;
+    if (JSON.stringify(a) === JSON.stringify(d)) continue;
+    out[k] = (d === undefined ? null : d) as P[keyof P];
+  }
+  return out;
+}
+
 /** El paso sin lo que vive sólo en el borrador, para guardarlo: el server no lo conoce. */
 export function sinGuion<P extends PasoConVoz>(p: P): Omit<P, 'guion' | 'vozPrevia'> {
   const { guion: _guion, vozPrevia: _previa, ...resto } = p;
