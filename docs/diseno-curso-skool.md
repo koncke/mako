@@ -33,6 +33,11 @@ cuando se coseche.
   aviso.
 - **Nuevo módulo** (item 12): por default vinculado → agrega una etapa al kanban (después de la
   etapa del módulo vinculado anterior). Se puede crear suelto.
+- ⚠️ **CAMBIÓ el 08/10 (los 20 ajustes, item 15):** el interruptor «Etapa del kanban» apagado ya
+  NO deja la etapa con `enCurso: false`: la QUITA del kanban. Si tiene clientes, se pregunta a
+  dónde van y se mueven en silencio (`silencioso` en `moverClienteDeEtapa`, con el bloqueo de
+  secuencias ANTES de mover). La entrada no se quita. `enCurso: false` sólo queda en etapas viejas.
+  Lo de abajo describe la versión de la tanda 2.
 - **Desvincular** un vinculado: nace un suelto con clave nueva en el mismo lugar, se re-clavean
   sus clases (`update curso_clases set etapa = <nueva>`) y su portada, y la etapa queda en el
   kanban con `enCurso: false` (los clientes que están ahí no se mueven). **Vincular** un suelto:
@@ -180,7 +185,8 @@ type Bloqueo = { tipo: 'abierto' } | { tipo: 'etapa' } | { tipo: 'anterior' } | 
 | 0219 | `curso_accesos.alcance` |
 | 0220 | `curso_modulos`, `curso_clases.bloqueo`, `curso_desbloqueos` |
 | 0221 | `conocimiento_ajustes` |
-| 0222 | reserva |
+| 0222 | (la tomó la API de MaKo: `api_llamadas_token`) |
+| 0223 | la papelera: `curso_clases.borrada_at`, `curso_modulos.borrado_at` (APLICADA el 08/10) |
 
 Toda tabla con `workspace_id` va a `TENANT_TABLES` (lib/workspace.ts) Y a `TABLAS_DE_INQUILINO`
 (lib/tablas-de-inquilino.ts), con RLS prendido y `revoke all … from anon, authenticated`.

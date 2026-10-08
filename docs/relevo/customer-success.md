@@ -6,6 +6,10 @@ proyecto de Customer Success y terminalo todo, cierra las tareas».
 
 ## ⚠️ Corrección medida el 06/10 21:40, gana sobre todo lo de abajo
 
+- **08/10, 10:24: los 20 AJUSTES de Martín sobre el curso publicado están en `main`** (`d188f3a8`,
+  mig 0223 APLICADA). Ojo: apagar «Etapa del kanban» ahora QUITA la etapa y mueve a sus clientes en
+  silencio; nada de eso se probó en la app real (en el ws3, nunca en el ws1). Lo aprendido y lo que
+  espera a Martín, en docs/hallazgos-customer-success.md → «El curso tipo Skool, los 20 ajustes».
 - **08/10, 07:55: la TANDA 2 también está en `main`** (`bccbebae`, migs 0220 y 0221 APLICADAS): módulos que
   pueden no ser etapas, candados, arrastre, la lección editable, el portal del alumno con su comunidad y
   Conocimientos editable por el super admin. Lo que quedó sin hacer y las decisiones de Martín, en

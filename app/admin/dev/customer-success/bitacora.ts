@@ -768,4 +768,37 @@ export const BITACORA: Hito[] = [
       "app/conocimientos/modelo-ugc.ts + lib/conocimiento-ajustes.ts — Conocimientos editable (mig 0221)",
     ],
   },
+  {
+    fecha: "8 oct", hora: "—", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Los 20 ajustes del curso publicado: tutorial de la clase, la tarea, el editor, los menús y Deshacer",
+    pedido: "1. El tutorial también debe estar al ingresar a editar una clase, allí, al ingresar debería saltar otro tutorial.\n2. Si estoy en la vista de alumno, no entiendo por qué el desplegable de \"Bienvenida\" de los modulos... Eso no tiene mucho sentido, quitalo. Allí mueve el texto \"Vista de alumno\". Y en lugar que el botón diga \"Volver al curso\" que diga \"<- Volver a editar\".\n3. Los textos de la descripción y tarea deben seguir la misma tipografía... Las tipografías se deberían editar en el mismo lugar que se editan los colores, y que cambie todo cuando se elige esa tipografía.\n4. Intenta que las opciones en la barra de edición no se salten de línea... Que si tiene mucho zoom que haya un desplegable.\n5. No podes poner la pregunta dentro del cuadro de texto donde va a completar el alumno como si fuera un placeholder, eso confunde... Tenés que poner arriba del cuadro del texto como título... Y también agregar la opción de placeholder.\n6. Una pregunta debería tener un contenedor y ese contenedor se debe poder arrastrar de la misma manera que se arrastran las clases o los cursos, para cambiar de posición las preguntan a voluntad.\n7. Revisa que el desplegable de las opciones del tipo de pregunta se corta a la mitad... Si no hay espacio debería abrirse para arriba.\n8. En lugar de un pequeño botón de \"nuebo campo\" como siempre, arriba del todo, un placeholder grande que diga \"Nuevo campo\".\n9. No se entiende el botón de \"Cierra módulo\".\n10. Si subo una imágen en la descripción se ve enorme, no tengo manera de editar el tamaño... Y también falta una opción en la descripción de agregar tabla.\n11. Elimina la opción de \"Subir vídeo\", solo mediante link. Y por lo tanto elimina el botón, todo el placeholder de \"Agregar vídeo\" debería ser el botón que me abra la opción de colocar el link.\n12. Elimina lo de \"Concepto\" etc... Y los minutos, eso debería tomarlo automáticamente el tiempo del vídeo.\n13. Lo de \"Texto al costado / Texto abajo\" debería estar dentro del recuadro de la descripción y la tarea, arriba de todo, arriba de la descripción.\n14. Vista de alumnos, invitar a alumno y ? deberían estar donde hoy está \"Negocio que escala\" 106 clases... En la vista de alumnos, si ven ese texto del título del curso, pero el editor ve esos 3 botones.\n15. Revisa que los tres puntos al editar un modulo o clase, el desplegable es diferente. Debería ser igual. Primero Renombrar, Portada, Mover Antes, Mover Después y ahí un divider. Luego la sección de \"Público o Privado\"... Si es público cualquiera puede entrar, si es privado ahí viene el condicional, divider. Abajo en el caso de los modulos, ahí la sección del kanban, y que sea como el típico desplazable de activo o no activo. Y si se desactiva se elimina esa etapa del kanban, y si hay leads debería preguntar a donde los mueve, divider. Y abajo en módulo falta la opción de eliminar módulo, si se elimina, se elimina también la etapa. En el desplegable de las clases, las primeras opciones como ya mencione, y luego nuevamente la opción de publico o privado. No entiendo eso de \"Por area\".\n16. Si arrastro una clase a la sidebar de la derecha de modulos, debería la clase moverse a ese módulo, no transformarse en un nuevo módulo. Ahora si arrastro un módulo ahí si es para ordenar nada más.\n17. Faltan opciones en las tareas para interactuar en la comunidad que hicimos.\n18. Te falta el botón de arrepentimiento para muchas acciones, el de 5 segundos de \"Deshacer\".\n19. Revisa que los tutoriales faltó explicar muchas cosas...\n20. En la miniatura de la clase, falta una opción para sacar la miniatura del vídeo. Que por defecto esté esa siempre que haya vídeo.",
+    puntos: [
+      "Lo mandó con cinco capturas de hola-mako.com: la vista del alumno con el desplegable «Bienvenida» y «Volver al curso», la lección con «Agregar video», «Concepto» y «5 min», la barra del editor en dos renglones con una imagen enorme, el selector del tipo de campo cortado abajo, y el menú «…» de un módulo.",
+    ],
+  },
+  {
+    fecha: "8 oct", hora: "10:24", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Curso tipo Skool, los 20 ajustes: la lección, la tarea, el editor, el menú único, la papelera y dos tutoriales",
+    puntos: [
+      "La lección y la tarea: video sólo por link, los minutos salen solos del reproductor, la pregunta como título con su texto de ejemplo, campos que se arrastran, «Obligatoria para avanzar», y dos tipos que publican y comentan en la comunidad.",
+      "Un solo menú «…» para módulo y clase con Público/Privado. ⚠️ El interruptor del kanban ahora QUITA la etapa y mueve a sus clientes en silencio: la primera versión bloqueaba las secuencias DESPUÉS de mover, y la red del cron les habría mandado el WhatsApp.",
+      "Deshacer de 5 s en casi todo: borrar clases y módulos va a una papelera (mig 0223, aplicada; era la 0222 y la tomó la API en paralelo) que todas las lecturas filtran y una purga borra a los 7 días.",
+      "El editor rico en un renglón con «Más», imágenes con ancho y alineación, tablas; la fuente del curso al lado del color; los tres botones arriba a la derecha; y un tutorial nuevo al entrar a editar una clase.",
+      "Cuatro pistas en paralelo y dos revisiones sobre el árbol integrado: typecheck en 0, 5310 tests, build verde. Todo en bancos de Chromium: nada se vio todavía en la app real.",
+    ],
+    commits: [
+      { sha: "d188f3a8", msg: "Curso tipo Skool, los 20 ajustes de Martín: la lección, la tarea, el editor, los menús, la papelera con Deshacer y dos tutoriales", lineas: 7859, archivos: 76 },
+    ],
+    archivos: [
+      "app/customer-success/curso/LeccionEditable.tsx + EditorCampos.tsx + lib/curso-tarea-comunidad.ts — la lección y la tarea",
+      "app/customer-success/curso/MenuCurso.tsx + QuitarEtapa.tsx + lib/curso-modulos-datos.ts — el menú único y quitar la etapa",
+      "lib/cs-mover-etapa.ts + lib/nutricion.ts — el movimiento silencioso, con el bloqueo antes de mover",
+      "lib/curso-papelera.ts + supabase/migrations/0223_curso_papelera.sql — la papelera y su purga",
+      "app/_ui/EditorRico.tsx + app/_ui/editor-rico-reglas.ts + lib/html-seguro.ts — la barra, las imágenes y las tablas",
+      "app/_cursos/fuentes.ts + app/customer-success/curso/recorridos-curso.ts — la fuente y los dos tutoriales",
+      "app/components/dropdown-lugar.ts — el desplegable que abre para arriba (toda la app)",
+    ],
+  },
 ];
