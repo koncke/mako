@@ -178,7 +178,7 @@ export function revisarGuion(guion: string, permitido: string): VeredictoGuion {
 // paso a texto (`onElegir(null)`) y grabar lo vuelve a voz.
 
 export type PasoConVoz = {
-  tipo?: 'texto' | 'audio' | 'ia';
+  tipo?: 'texto' | 'audio' | 'ia' | 'media';
   audio_id?: number | null;
   cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial';

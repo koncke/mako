@@ -62,7 +62,17 @@ const tarjetaChrome: CSSProperties = {
  */
 const guiaOfrecida = { enLaVisita: false };
 
-export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onElegir, onNueva, onProbar, onClose, onCambio, onWizard }: {
+/** La edición en curso de una automatización, tal como la ve el lienzo. */
+export type EdicionLocal = {
+  secuenciaId: number;
+  pasos: PasoSecuenciaDto[];
+  estrategia: SecuenciaDto['estrategia'];
+  nombre: string;
+  trigger_tipo: string;
+  instance_name: string | null;
+};
+
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onElegir, onNueva, onProbar, onClose, onCambio, onWizard, onCambioLocal, insetDer }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver el «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -95,6 +105,14 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   onClose?: () => void;
   onCambio: () => void;
   onWizard: () => void;
+  /**
+   * Lo que se está editando, SIN publicar, cada vez que cambia. Lo lee el panel de
+   * «Probar» (punto 10: «no puedo interactuar, para probarlo de verdad»): tiene que probar
+   * lo que se VE en el lienzo, no lo último guardado.
+   */
+  onCambioLocal?: (v: EdicionLocal) => void;
+  /** Cuánto se corre lo que flota a la DERECHA (el panel de «Probar» abierto ocupa ese lado). */
+  insetDer?: number;
 }) {
   const est = secuencia.estrategia;
   /**

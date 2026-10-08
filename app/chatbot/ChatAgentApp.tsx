@@ -39,6 +39,7 @@ const marcarPasoWhatsapp = () => fetch('/api/chat-agent/onboarding', {
   body: JSON.stringify({ action: 'paso', paso: 'wa_no_oficial', tab: 'setting' }),
 });
 import type { Estrategia } from '@/lib/setting-estrategia';
+import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -47,7 +48,7 @@ export type PasoSecuenciaDto = {
   asunto: string | null; preheader?: string | null; cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
   /** 'ia' = MaKo reescribe el mensaje para cada lead (lib/paso-ia.ts); `cuerpo` es la base y el respaldo. */
-  tipo?: 'texto' | 'audio' | 'ia'; audio_id?: number | null;
+  tipo?: 'texto' | 'audio' | 'ia' | 'media'; audio_id?: number | null;
   /**
    * Condición para que el paso salga. La UI la NECESITA: los dos audios de
    * apertura de la post-agenda son mutuamente excluyentes y sin mostrarlo la
@@ -66,7 +67,13 @@ export type PasoSecuenciaDto = {
    * (`EditorAccionMako`), así que viaja tal cual del panel a la fila.
    */
   accion?: { operacion?: string; params?: Record<string, unknown> } | null;
-};
+} & CamposDelFlujo;
+/**
+ * Lo que un paso suma para ser un NODO de un flujo con ramas (lib/flujo-grafo.ts, pedido de
+ * Martín del 08/10/2026, punto 9). Todo opcional: una secuencia de antes no trae nada.
+ * `tipo: 'media'` es un archivo o una imagen de la biblioteca (`media_id`, por referencia).
+ */
+export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar' | 'media_id'>;
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;

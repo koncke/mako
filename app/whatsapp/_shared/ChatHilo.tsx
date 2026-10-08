@@ -60,6 +60,12 @@ export type ChatHiloProps = {
   draftKey?: string;
   /** avisa si esta conversación tiene borrador (texto/adjunto/audio) para ordenarla. */
   onDraftChange?: (key: string, hayBorrador: boolean) => void;
+  /**
+   * Anima la ENTRADA de las burbujas que no estaban en el render anterior (punto 10: el
+   * «Probar» no tenía animación). Opt-in: ChatHilo también pinta los grupos REALES de MaKo y
+   * el inbox, y ahí animar el historial en cada carga sería ruido.
+   */
+  animarNuevos?: boolean;
 };
 
 // Borradores por conversación (sobreviven el salto entre chats, como el inbox real):
