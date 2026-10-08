@@ -101,8 +101,9 @@ export const DEFS: Def[] = [
  * seguidas, así que tiene su test (tests/integraciones-visibles.test.ts).
  *
  * OJO CON EL ORDEN. Las de PLATAFORMA NO pasan por el filtro de la capa. La capa
- * responde «¿qué tipo de negocio corre este workspace?» —por eso al super-admin le
- * esconde Publicidad y Mensajería— y esa pregunta no aplica al token del repo.
+ * responde «¿qué tipo de negocio corre este workspace?» —hasta el 08/10/2026 le
+ * escondía Publicidad y Mensajería al super-admin— y esa pregunta no aplica al token
+ * del repo.
  *
  * Los dos errores, para que no vuelvan:
  *  1. Sin `soloPlataforma`, GitHub le aparecía a Mauricio: su capa es `completo` y ahí

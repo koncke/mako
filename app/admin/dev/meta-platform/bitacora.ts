@@ -274,4 +274,26 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ads.md — «La verificación del negocio de MaKo…»',
     ],
   },
+  {
+    fecha: '8 oct', hora: '04:35', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Probar «Conectar con Meta» en la cuenta de Admin, con todas las integraciones',
+    pedido: 'Si, a la cuenta de Admin... En su momento habiamos quitado muchas conexiones, vuelvelas a poner todo, y de paso ya puedes ver si se conecta realmente todo.',
+    puntos: [
+      'La tarjeta de Meta no aparecía en el workspace del súper admin: su capa estaba armada «sin ads, sin CRM, sin VSL» y escondía Publicidad, Mensajería y las de agenda. Probar el botón adentro de un cliente le pisaría su conexión.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '04:45', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El súper admin vuelve a ver todas las integraciones',
+    puntos: [
+      'La capa SuperAdmin pasa a `categoriasIntegraciones: null` y sin ocultas: Meta, Calendly, Google y YouTube vuelven a aparecer en su /integraciones. Las tabs no cambian.',
+      'Un test lee la capa de verdad (no una lista copiada) y exige que el súper admin vea Meta y las que antes escondía. Rompiéndolo con la lista vieja: 1 fallo.',
+    ],
+    archivos: [
+      'lib/capas.ts — la capa superadmin, con el porqué',
+      'tests/integraciones-visibles.test.ts — el test nuevo',
+    ],
+  },
 ];
