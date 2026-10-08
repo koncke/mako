@@ -11,6 +11,7 @@ import { origenLista, SIN_ORIGEN_LISTA } from './origen-lead';
 import type { CrmLead } from './CrmBoard';
 import { origenAds, type Anuncio } from '@/lib/campana-atribucion';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
+import { suscripcionDeFila } from '@/lib/venta-tipo';
 
 export type VisitasMap = Map<string, { total_visitas: number; dias_distintos: number }>;
 
@@ -139,6 +140,11 @@ export function mapToCrmLead(
     // El tipo de venta (LISTA_COLS ya baja `venta_tipo`). Sin esto el wizard del tablero
     // le pedía el monto a un becado (#747): ver `CrmLead.ventaTipo`.
     ventaTipo: l.venta_tipo ?? null,
+    // ⚠️ La plata de una SUSCRIPCIÓN no está en `monto_cierre_usd` (queda NULL a propósito):
+    // está en `suscripcion_monto_usd`. Sin estas dos, la tarjeta de Ganado de una suscripción
+    // decía «$0» con la mensualidad guardada (Fabi, ws11: 444/mes, 08/10/2026), y el wizard
+    // del tablero la reabría vacía. LISTA_COLS ya baja las dos columnas. Ver lib/venta-tipo.ts.
+    ...suscripcionDeFila(l),
     // Fecha de R1 canónica: misma prioridad que fechaJ1 y que el recorrido
     // (fecha_junta_1 gana; fecha_agenda es el fallback). Antes divergían y el
     // modal mostraba dos fechas distintas para la misma reunión.

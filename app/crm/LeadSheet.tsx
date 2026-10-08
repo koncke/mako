@@ -22,6 +22,7 @@ import { MoverEtapaConfirm } from './MoverEtapaConfirm';
 import { pideWizardAlElegir } from './mover-etapa';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { FathomLink } from '@/lib/leads';
+import { suscripcionDeFila } from '@/lib/venta-tipo';
 import { JourneyTimeline } from './JourneyTimeline';
 import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
@@ -166,6 +167,9 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     dealObligacionesOk: (lead.deal_obligaciones?.cliente?.length ?? 0) > 0 || (lead.deal_obligaciones?.prestador?.length ?? 0) > 0,
     // El tipo de venta guardado (un becado, #747, no vuelve a ver el paso del monto).
     ventaTipo: lead.venta_tipo ?? null,
+    // La mensualidad y el plazo de una suscripción: sin ellos reabrirla pedía el monto
+    // vacío, y guardar escribía NULL encima (lib/venta-tipo.ts).
+    ...suscripcionDeFila(lead),
   };
   // Elegir otra etapa MUEVE, igual que soltar una card en el tablero (08-T22): se
   // confirma y se guarda, y lo que falta se avisa después sin frenar. Antes abría

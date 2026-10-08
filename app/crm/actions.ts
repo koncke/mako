@@ -2236,13 +2236,31 @@ export type LeadAuditRowFull = LeadAuditRow & {
   revertible: boolean;           // si la fila se puede deshacer desde el historial
 };
 
+/** Las etiquetas del historial de la suscripción. Son las de AUDIT_FIELDS (lib/leads.ts):
+ *  si cambian allá sin cambiar acá, la fila deja de ser revertible y nadie se entera — lo
+ *  fija tests/ganado-monto.test.ts. ⚠️ Antes de REVERTIBLES: es un `const` y el Set se arma
+ *  al cargar el módulo. */
+const CAMPO_SUS_MONTO = 'Suscripción (USD/mes)';
+const CAMPO_SUS_MESES = 'Plazo de la suscripción';
+
 /** Campos del historial que se pueden revertir (mapean 1:1 a una columna). */
 const REVERTIBLES = new Set([
   'Etapa', 'Estado', 'Asistió R1', 'Asistió R2', 'Calificado', 'Fecha R1', 'Fecha R2',
   'Fecha de agendamiento', 'Closer', 'Setter', 'Monto de cierre', 'Motivo',
   'Confirmación de pago', 'Deadline de nutrición manual',
   'Nombre', 'Email', 'Teléfono', 'Empresa', 'Web',
+  // La plata de una suscripción (AUDIT_FIELDS, lib/leads.ts). Se revierten con un update
+  // directo de su columna en los DOS switch de abajo, como el deadline: `updateLead` no las
+  // conoce. ⚠️ Revierten el importe, no el tipo de venta, igual que «Monto de cierre».
+  CAMPO_SUS_MONTO, CAMPO_SUS_MESES,
 ]);
+
+/** El valor del historial (texto de `auditVal`) de vuelta a la columna de la suscripción. */
+function columnaSuscripcion(campo: string, v: string | null): Record<string, number | null> {
+  const n = v == null ? NaN : campo === CAMPO_SUS_MESES ? parseInt(v, 10) : parseFloat(v);
+  const valor = Number.isFinite(n) ? n : null;
+  return campo === CAMPO_SUS_MESES ? { suscripcion_meses: valor } : { suscripcion_monto_usd: valor };
+}
 
 /**
  * Deshace un movimiento de etapa RECIÉN hecho (toast de 5s del tablero): revierte
@@ -2361,6 +2379,12 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
       if (error) throw new Error(error.message);
       break;
     }
+    case CAMPO_SUS_MONTO:
+    case CAMPO_SUS_MESES: {
+      const { error } = await (await getTenantDb()).from('leads').update(columnaSuscripcion(row.campo, v)).eq('id', leadId);
+      if (error) throw new Error(error.message);
+      break;
+    }
     default: throw new Error(`"${row.campo}" no se puede deshacer automáticamente.`);
   }
 
@@ -2401,6 +2425,8 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   const meta: LeadMetaInput = {};
   let etapa: { set: boolean; value: string | null } = { set: false, value: null };
   let deadline: { set: boolean; value: string | null } = { set: false, value: null };
+  // La suscripción va por su propio update (como el deadline): `updateLead` no la conoce.
+  let suscripcion: Record<string, number | null> = {};
 
   for (const r of grupo) {
     const v = r.valor_anterior;
@@ -2424,6 +2450,7 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
       case 'Empresa': meta.empresa = v; break;
       case 'Web': meta.web = v; break;
       case 'Deadline de nutrición manual': deadline = { set: true, value: v }; break;
+      case CAMPO_SUS_MONTO: case CAMPO_SUS_MESES: suscripcion = { ...suscripcion, ...columnaSuscripcion(r.campo, v) }; break;
     }
   }
 
@@ -2431,6 +2458,11 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   if (Object.keys(upd).length) await updateLead(leadId, upd);
   // 2) Meta (closer/setter/contacto).
   if (Object.keys(meta).length) await saveLeadMeta(leadId, meta);
+  // 2b) La mensualidad / el plazo de una suscripción.
+  if (Object.keys(suscripcion).length) {
+    const { error } = await (await getTenantDb()).from('leads').update(suscripcion).eq('id', leadId);
+    if (error) throw new Error(error.message);
+  }
   // 3) Override de la columna del tablero (o null = volver a derivación).
   if (etapa.set) await setBoardStageOverride(leadId, etapa.value, deadline.set ? deadline.value : null);
   else if (deadline.set) {

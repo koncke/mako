@@ -12,6 +12,7 @@ import { useState, useTransition, type CSSProperties } from 'react';
 import { useRefrescarFicha } from './ficha-cambio';
 import { deriveStageKey, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
+import { suscripcionDeFila } from '@/lib/venta-tipo';
 import type { LeadInsightGen } from '@/lib/lead-insights';
 import type { Step } from '@/lib/stage-requirements';
 import { generateLeadInsightAction, analizarLlamadaLeadAction, leadTieneLlamadaAction } from '../insights-actions';
@@ -81,6 +82,9 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
     tienePlan, sinR1: !!lead.sin_r1, sinR2: !!lead.sin_r2, fathomOmitido: !!lead.fathom_omitido,
     // El tipo de venta guardado: sin él, a un becado (#747) el wizard le pedía el monto.
     ventaTipo: lead.venta_tipo ?? null,
+    // La mensualidad y el plazo de una suscripción: este wizard abre SIN `faltantes`, así
+    // que sin ellos pedía el monto vacío y guardar escribía NULL encima (lib/venta-tipo.ts).
+    ...suscripcionDeFila(lead),
   };
 
   const generar = () => {

@@ -95,7 +95,13 @@ export type MoveLeadInfo = {
   dealObligacionesOk?: boolean;
   // Venta recurrente / suscripción (#363) o sin cobro (#747): para prefill al reabrir el wizard.
   ventaTipo?: VentaTipo | null;
-  suscripcionMeses?: number | null;
+  // ⚠️ La mensualidad y el plazo de una SUSCRIPCIÓN ya guardada (`suscripcionDeFila`, null si
+  // no lo es). OBLIGATORIOS a propósito: una suscripción deja `monto` (= monto_cierre_usd) en
+  // null, y sin éstos reabrirla pedía el monto VACÍO y el plazo en «Indefinida» — y
+  // «Guardar y completar después» escribía NULL encima de los dos (08/10/2026). Opcional, un
+  // quinto constructor lo olvida y el typecheck no dice nada.
+  suscripcionMonto: number | null;
+  suscripcionMeses: number | null;
 };
 
 // ⚠️ SON CUATRO CONSTRUCTORES de `MoveLeadInfo` (éste, LeadSheet, LeadDetailBody y
@@ -103,8 +109,9 @@ export type MoveLeadInfo = {
 // «Completar ahora», el «¿Qué hacer ahora?» y Solucionar cuando el worklist no trae
 // faltantes. Sin el tipo, un becado (#747) volvía a ver el paso del monto con «Pago único»
 // elegido, y guardar le escribía `venta_tipo = 'unico'` (tests/venta-sin-cobro.test.ts).
+// Y por lo mismo van la mensualidad y el plazo de una suscripción (tests/ganado-monto.test.ts).
 export function leadToMoveInfo(l: CrmLead): MoveLeadInfo {
-  return { id: l.id, name: l.name, fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2, asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado, fathom: l.fathom, monto: l.monto || null, motivo: l.motivo || null, setter: l.setter || null, closer: l.closer || null, empresa: l.company || null, telefono: l.phone || null, ventaTipo: l.ventaTipo };
+  return { id: l.id, name: l.name, fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2, asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado, fathom: l.fathom, monto: l.monto || null, motivo: l.motivo || null, setter: l.setter || null, closer: l.closer || null, empresa: l.company || null, telefono: l.phone || null, ventaTipo: l.ventaTipo, suscripcionMonto: l.suscripcionMonto, suscripcionMeses: l.suscripcionMeses };
 }
 
 type PasoId =
@@ -197,7 +204,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // Reprogramar: la tercera salida del paso de asistencia. Vacío = no se reprograma.
   const [reprogR1, setReprogR1] = useState('');
   const [reprogR2, setReprogR2] = useState('');
-  const [monto, setMonto] = useState(lead.monto ? String(lead.monto) : '');
+  // El campo del paso del monto: el de cierre, o la MENSUALIDAD si lo guardado es una
+  // suscripción. ⚠️ Arrancaba siempre de `lead.monto` (= monto_cierre_usd), que en una
+  // suscripción es null a propósito: reabrirla mostraba el paso vacío (08/10/2026).
+  const [monto, setMonto] = useState(() => {
+    const m = ventaTipoDe(lead.ventaTipo) === 'suscripcion' ? lead.suscripcionMonto : lead.monto;
+    return m ? String(m) : '';
+  });
+  // Lo que dijo el CONTRATO sobre la plata, para mostrarlo en el paso del monto (null =
+  // no se leyó, o no traía total). Ver `buscarDealAuto`.
+  const [delContrato, setDelContrato] = useState<{ total: number; meses: number | null; nota: string | null } | null>(null);
   // Venta recurrente (#363): tipo + plazo. El monto mensual reusa el campo `monto`.
   // + «Sin cobro» (#747): un becado. Saltea el monto y el plan, y viaja como venta_tipo.
   const [ventaTipo, setVentaTipo] = useState<VentaTipo>(ventaTipoDe(lead.ventaTipo));
@@ -295,6 +311,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       calificado: move.yaRespondido?.calificado ?? lead.calificado,
       hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
       monto: lead.monto,
+      // ⚠️ La mensualidad, IGUAL QUE EL SERVER (`valoresDeRequisitos`, app/crm/actions.ts):
+      // sólo cuando lo guardado es una suscripción. Faltaba (08/10/2026), y este placeholder
+      // entra SIEMPRE en la unión de `requeridos`: abrir el wizard sin `faltantes` sobre una
+      // suscripción ya cargada volvía a pedir el monto con el campo vacío, y «Guardar y
+      // completar después» mandaba `suscripcionMonto: null` — el server escribía NULL encima.
+      suscripcionMonto: ventaTipoDe(lead.ventaTipo) === 'suscripcion' ? lead.suscripcionMonto : null,
       // Sin esto, un becado abría pidiendo monto: `requeridos` es la UNIÓN con el server.
       ventaTipo: lead.ventaTipo,
       // El motivo va PARTIDO, igual que en el server (valoresDeRequisitos). El
@@ -614,6 +636,15 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     <BigChoice value={value == null ? null : String(value)} onPick={(v) => set(v === 'true')} options={[{ v: 'true', label: si }, { v: 'false', label: no }]} />
   );
 
+  /** Elegir el tipo de venta con un total del contrato en juego (el porqué, en el paso 'ventaTipo'). */
+  const elegirTipoConContrato = (t: VentaTipo) => {
+    setVentaTipo(t);
+    if (!delContrato) return;
+    const total = String(delContrato.total);
+    if (t === 'suscripcion' && monto.trim() === total) setMonto('');
+    else if (t !== 'suscripcion' && !monto.trim()) setMonto(total);
+  };
+
   // Deal auto: lee el contrato (el ya cargado o uno que se suba) y completa las
   // secciones vacías. Reusa /api/extract-contract (el mismo de Deal Details).
   const buscarDealAuto = async (file?: File) => {
@@ -627,6 +658,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (j.error) { setErr(j.error); return; }
       const ok = new Set(resueltos);
       const rell: string[] = [];
+      const aRevisar: string[] = [];
       if (j.servicio?.que_es && !dealServicio.trim()) { setDealServicio(j.servicio.que_es); ok.add('dealServicio'); rell.push('servicio'); }
       if (j.promesa?.resultado && !dealPromesa.trim()) { setDealPromesa(j.promesa.resultado); ok.add('dealPromesa'); rell.push('promesa'); }
       if (j.fiscal?.razon && !dealFiscalRazon.trim()) {
@@ -641,16 +673,46 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         setObPrestador((j.obligaciones.prestador ?? []).join('\n'));
         ok.add('dealObligaciones'); rell.push('obligaciones');
       }
-      // PLAN DE PAGOS del contrato — lo más importante del cierre. El extractor
-      // devuelve total_usd + cuotas [{monto, fecha dd/mm/aaaa}]; los cargamos si el
-      // usuario no puso nada a mano, y marcamos monto/plan resueltos.
-      if (j.total_usd != null && !monto.trim()) { setMonto(String(j.total_usd)); ok.add('monto'); rell.push('monto de cierre'); }
-      if (Array.isArray(j.cuotas) && j.cuotas.length && cuotas.every((c) => !c.monto.trim())) {
+      // PLAN DE PAGOS del contrato. El extractor devuelve total_usd + duracion_meses + nota
+      // (la conversión de moneda) + cuotas [{monto, fecha dd/mm/aaaa}].
+      //
+      // ⚠️ EL MONTO SE PRECARGA, NO SE DA POR CONTESTADO (08/10/2026). Acá había un
+      // `ok.add('monto')` que sacaba el paso del monto de la lista: el wizard nunca lo
+      // preguntaba. Y el número que trae el contrato es el TOTAL (72.000 MXN / 17 =
+      // 4.235,29), mientras que el tipo de venta se elige DESPUÉS: Leila (ws11) eligió
+      // «Suscripción» y el total quedó guardado como MENSUALIDAD, con 12 cuotas de 4.235,29
+      // (US$50.823) — «aquí no me preguntó cuánto es, puso el monto que se le cantó». Ahora
+      // el paso queda a la vista con el número cargado y lo que dijo el contrato al lado:
+      // es un clic en «Siguiente», no un freno (guardar NUNCA se bloquea, 17/09).
+      //
+      // ⚠️ Y SÓLO SI EL MONTO SE PIDE. Leer el contrato sobre una suscripción YA cargada
+      // (el deal incompleto hace aparecer este paso aunque el monto no falte) le pisaba la
+      // mensualidad con el total: `ok.add` ponía `pide('monto')` en true sin mostrar nada.
+      // `requeridos` y no `pide()`: el tipo de venta todavía no se eligió.
+      const pideMonto = requeridos.has('monto');
+      const total = Number(j.total_usd);
+      if (pideMonto && j.total_usd != null && total > 0) {
+        const meses = Number(j.duracion_meses);
+        setDelContrato({ total, meses: meses > 0 ? Math.round(meses) : null, nota: typeof j.nota === 'string' && j.nota.trim() ? j.nota.trim() : null });
+        // El reporte no dice «Se completó»: el monto no queda resuelto, se revisa en su paso.
+        // ⚠️ El total va al campo sólo si NO es una suscripción: en una suscripción ese número
+        // no es la mensualidad, y «Guardar y completar después» lo guardaría como tal sin que
+        // nadie viera el paso. Ahí el paso arranca vacío, con el total y la sugerencia al lado.
+        if (!monto.trim() && ventaTipo !== 'suscripcion') setMonto(String(total));
+        if (!monto.trim()) aRevisar.push(`A revisar: monto (US$${total.toLocaleString('en-US')} en total)`);
+      }
+      // Las cuotas SÍ se dan por resueltas (`ok.add('plan')`), y a propósito: el paso del
+      // plan exige que cuadren con el monto (`cuotasCuadran`, tolerancia del 0,5%) y las que
+      // convierte la IA una por una pueden no sumar su propio total — mostrarlo trababa
+      // «Siguiente». También sólo si el plan se pide: si no, las cuotas no viajan
+      // (`cuotasPayload`) y el reporte decía «Se completó» de algo que no se guardaba.
+      if (requeridos.has('plan') && Array.isArray(j.cuotas) && j.cuotas.length && cuotas.every((c) => !c.monto.trim())) {
         setCuotas(j.cuotas.map((c: { monto?: number | string | null; fecha?: string | null }) => ({ monto: c.monto != null ? String(c.monto) : '', fecha: dmyaIso(c.fecha ?? '') })));
         ok.add('plan'); rell.push('plan de cuotas');
       }
       setResueltos(ok);
-      setDealReporte(rell.length ? rell.map((x) => `Se completó: ${x}`) : ['El contrato no aportó datos nuevos para completar. Carga a mano.']);
+      const reporte = [...rell.map((x) => `Se completó: ${x}`), ...aRevisar];
+      setDealReporte(reporte.length ? reporte : ['El contrato no aportó datos nuevos para completar. Carga a mano.']);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally { setDealBusy(false); }
@@ -857,15 +919,20 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       );
       break;
     case 'ventaTipo':
+      // ⚠️ El contrato se lee ANTES de este paso, con el tipo todavía en «Pago único», y lo
+      // que trae es el TOTAL. Elegir «Suscripción» con ese total intacto en el campo era
+      // exactamente cómo 4.235,29 quedó como mensualidad (Leila, 08/10/2026): se vacía, y el
+      // paso del monto lo muestra «en total» con la mensualidad sugerida al lado. Volver a
+      // «Pago único» con el campo vacío lo repone. Lo que la persona TIPEÓ no se toca.
       pregunta = '¿Cómo se cobra este cliente?';
       sub = 'Elige el tipo de venta.';
       cuerpo = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360, margin: '0 auto' }}>
-          <button type="button" onClick={() => setVentaTipo('unico')} style={{ ...btnOpcion(ventaTipo === 'unico'), textAlign: 'left' }}>
+          <button type="button" onClick={() => elegirTipoConContrato('unico')} style={{ ...btnOpcion(ventaTipo === 'unico'), textAlign: 'left' }}>
             <div style={{ fontSize: 15 }}>Pago único</div>
             <div style={{ fontSize: 12, fontWeight: 500, color: ventaTipo === 'unico' ? 'rgba(255,255,255,.7)' : 'var(--dim)', marginTop: 2 }}>Un cierre high-ticket (con o sin cuotas).</div>
           </button>
-          <button type="button" onClick={() => setVentaTipo('suscripcion')} style={{ ...btnOpcion(esSuscripcion), textAlign: 'left' }}>
+          <button type="button" onClick={() => elegirTipoConContrato('suscripcion')} style={{ ...btnOpcion(esSuscripcion), textAlign: 'left' }}>
             <div style={{ fontSize: 15 }}>🔁 Suscripción mensual</div>
             <div style={{ fontSize: 12, fontWeight: 500, color: esSuscripcion ? 'rgba(255,255,255,.7)' : 'var(--dim)', marginTop: 2 }}>Cliente recurrente que paga todos los meses.</div>
           </button>
@@ -877,11 +944,37 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         </div>
       );
       break;
-    case 'monto':
+    case 'monto': {
       pregunta = esSuscripcion ? '¿De cuánto es la suscripción?' : '¿De cuánto fue el cierre?';
       sub = esSuscripcion ? 'Importe MENSUAL, en USD.' : 'En USD.';
-      cuerpo = <input inputMode="numeric" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" autoFocus style={{ ...compInput, maxWidth: 220, margin: '0 auto', display: 'block', fontSize: 22, fontWeight: 700 }} />;
+      // ⚠️ Lo que dijo el contrato, AL LADO del número precargado. El contrato trae el TOTAL;
+      // en una suscripción eso no es la mensualidad, y sin esta línea no había cómo darse
+      // cuenta (el caso de Leila, 08/10/2026: 4.235,29 «al mes» que eran el total).
+      //
+      // La mensualidad sugerida (total / meses) es un BOTÓN, no un default: el número del
+      // campo lo decide la persona. Y los meses del contrato NO se precargan como plazo de
+      // la suscripción: en ese mismo contrato «6 meses» era la implementación y seguía a
+      // $10.000 MXN/mes desde el mes 7 — un plazo fijo de 6 la sacaba del MRR a los 6 meses
+      // (lib/queries.ts) y generaba sólo 6 cuotas.
+      const sugerida = esSuscripcion && delContrato?.meses ? Math.round((delContrato.total / delContrato.meses) * 100) / 100 : null;
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+          <input inputMode="numeric" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" autoFocus style={{ ...compInput, maxWidth: 220, margin: '0 auto', display: 'block', fontSize: 22, fontWeight: 700 }} />
+          {delContrato && (
+            <div style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', lineHeight: 1.5 }}>
+              Del contrato: US${delContrato.total.toLocaleString('en-US')} en total{delContrato.meses ? ` · ${delContrato.meses} meses` : ''}
+              {delContrato.nota && <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{delContrato.nota}</div>}
+            </div>
+          )}
+          {sugerida != null && sugerida > 0 && (
+            <button type="button" onClick={() => setMonto(String(sugerida))} style={{ ...btnOpcion(totalMonto === sugerida), padding: '9px 16px', fontSize: 13.5 }}>
+              Usar ${sugerida.toLocaleString('en-US')}/mes
+            </button>
+          )}
+        </div>
+      );
       break;
+    }
     case 'susPlazo':
       pregunta = '¿Qué duración tiene la suscripción?';
       sub = 'A plazo fijo (una cantidad de meses) o indefinida (mes a mes).';
@@ -970,7 +1063,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       cuerpo = dealReporte ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
           {dealReporte.map((l, i) => (
-            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'baseline', fontSize: 13.5, padding: '9px 13px', background: 'var(--surface-2)', borderRadius: 10 }}><span>✓</span><span style={{ color: 'var(--ink)' }}>{l}</span></div>
+            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'baseline', fontSize: 13.5, padding: '9px 13px', background: 'var(--surface-2)', borderRadius: 10 }}><span>{l.startsWith('A revisar:') ? '✎' : '✓'}</span><span style={{ color: 'var(--ink)' }}>{l}</span></div>
           ))}
           <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>Sigue con «Siguiente»: solo se pregunta lo que faltó.</div>
         </div>
