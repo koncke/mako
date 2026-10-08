@@ -22,7 +22,7 @@ import { Icon } from '@/app/_components/icons';
 // en vez del que está mirando.
 import Link from '@/app/_ui/Link';
 import { SecuenciaWizard } from './SecuenciaWizard';
-import { SimuladorWhatsApp } from './SimuladorWhatsApp';
+import { SimuladorWhatsApp, type AbrirSecuencia } from './SimuladorWhatsApp';
 import type { CronAviso } from '@/lib/cron-aviso';
 // ⚠️ ACÁ SE IMPORTABAN `HandoffsPanel` Y `RecordatorioReunion`, y se fueron el 08/10/2026 con
 // el pedido de Martín: «Elimina completamente lo de arriba ese form que ocupa toda la pantalla,
@@ -139,6 +139,12 @@ const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border:
 // El vocabulario (`?stab=`, y el id como parámetro) es el mismo de /whatsapp
 // —`?canal`, `?chat`, `?lead`, `?stab`— a propósito: un usuario que aprendió a
 // leer una URL de MaKo no tiene que volver a aprenderla en cada tab.
+//
+// ⚠️ `?sec=` ABRE EL LIENZO DE ESA AUTOMATIZACIÓN, NO EL WIZARD (revisión adversarial del
+// 08/10/2026, costuras-5). El aviso de una charla que pasó a una persona
+// (lib/chat-agent-handoff.ts) dice «súmalo como caso en «Si responde»» con este link, y el wizard
+// de 9 pasos no tiene «Si responde»: es la tarjeta del lienzo. Y el lienzo ES hoy el editor de
+// los mensajes, que es lo que el link de MaKo («Ver los 5 mensajes») prometía.
 export function ChatAgentApp() {
   // `useSearchParams` exige un boundary de Suspense, igual que en /whatsapp.
   return (
@@ -166,6 +172,8 @@ function ChatAgentInner() {
   const [audios, setAudios] = useState<AudioSetting[]>([]);
   // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
   const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
+  /** La automatización que pidió abrir el deep link `?sec=`: se abre en su LIENZO. */
+  const [abrirSec, setAbrirSec] = useState<AbrirSecuencia | null>(null);
   /**
    * El onboarding de esta tab es UNA pregunta: ¿hay un WhatsApp vinculado?
    *
@@ -305,8 +313,8 @@ function ChatAgentInner() {
     if (!sec) { anclaAplicada.current = true; return; }
     // Hay que esperar a que carguen: sin la lista no se puede resolver ni la
     // clave ni comprobar que el id exista. Y comprobar que exista importa —
-    // abrir el wizard con un id de otro workspace mostraría una secuencia vacía
-    // en vez de decir que no está.
+    // abrir un id de otro workspace mostraría una secuencia vacía en vez de
+    // decir que no está.
     if (secuencias === null) return;
     // Se acepta el id numérico Y la clave («noshow»): MaKo arma el link desde el
     // catálogo de capacidades, donde tiene el nombre de la secuencia y no
@@ -315,7 +323,8 @@ function ChatAgentInner() {
     const hallada = Number.isInteger(n) && n > 0
       ? secuencias.find((s) => s.id === n)
       : secuencias.find((s) => s.clave === sec);
-    if (hallada) setWizard(hallada.id);
+    // Un objeto NUEVO por pedido: el mismo id en un segundo aviso vuelve a abrirla.
+    if (hallada) setAbrirSec({ id: hallada.id });
     anclaAplicada.current = true;
   }, [params, secuencias]);
 
@@ -510,6 +519,7 @@ function ChatAgentInner() {
           secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onWizard={(id) => setWizard(id)} onReload={() => void load()}
+          abrir={abrirSec}
           /* ⚠️ QUÉ ETAPAS QUEDARON SIN SECUENCIA — ERA UNA FRANJA ARRIBA DEL LIENZO.
              Primero fue una banda ámbar con las seis etapas enumeradas y un botón negro
              («haz que sea mucho más sutil»), después un renglón gris, y las dos le

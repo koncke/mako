@@ -25,7 +25,13 @@
 //   · ↻ REINICIA TODO. Antes un cierre dejaba el chat en `readOnly` y ↻ no lo destrababa.
 //   · «A MI WHATSAPP / A MI EMAIL»: prendido, cada mensaje que aparece sale DE VERDAD al destino
 //     escrito, por la línea de la secuencia (lib/prueba-paso.ts). El destino viene precargado con
-//     el contacto del negocio y NO se guarda: ése es el destino de los reportes.
+//     el teléfono y el email de QUIEN PRUEBA (su perfil), o vacío, y NO se guarda. ⚠️ Antes venía
+//     con el contacto de reportes del NEGOCIO: el super admin probando el flujo de un cliente le
+//     mandaba la prueba al cliente (revisión adversarial del 08/10/2026, lienzo-3).
+//   · UNA TARJETA SALE DE VERDAD UNA VEZ POR PRUEBA (`debeSalirDeVerdad`). El teléfono la dibuja
+//     cada vez que el recorrido pasa por ella, pero un «Ir a» que vuelve sobre un mensaje ya
+//     mandado no lo reenvía: el simulador no espera las esperas, y ese bucle eran ~21 WhatsApp
+//     iguales en segundos por la línea NO oficial (datos-4). El server además topea por destino.
 //
 // ⚠️ EL TEXTO DE ESTA PIEZA ES CORTO A PROPÓSITO (AGENTS.md, «el texto que se DIBUJA»): una
 // píldora son 1-4 palabras. El porqué de cada cosa vive acá, no en la pantalla.
@@ -39,7 +45,7 @@ import type { EdicionLocal } from './SecuenciaPerfil';
 import { raizRespuesta } from '@/lib/flujo-grafo';
 import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, elegir, pausarPorRespuesta, entrarEnRespuesta,
-  escenarioParaRedactar, textoDeEjemplo,
+  escenarioParaRedactar, textoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba,
 } from '@/lib/simulador-grafo';
 
@@ -80,9 +86,6 @@ async function blobABase64(b: Blob): Promise<string> {
   for (let i = 0; i < buf.length; i += CH) bin += String.fromCharCode(...buf.subarray(i, i + CH));
   return btoa(bin);
 }
-
-const tipoDeMime = (mime: string): 'image' | 'video' | 'document' =>
-  mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : 'document';
 
 export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, rolAdmin, etiquetaEtapa, onCerrar, style }: {
   /** La automatización GUARDADA: su id, su línea y, si el lienzo todavía no mandó nada, sus pasos. */
@@ -153,7 +156,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     return () => { vivo = false; };
   }, [usaMedia]);
 
-  // El destino precargado: el contacto del negocio (sólo admin, que es el único que manda).
+  // El destino precargado: el de QUIEN PRUEBA, no el del negocio (sólo admin, que es el único
+  // que manda). Lo que ya se escribió a mano no se pisa.
   useEffect(() => {
     if (!rolAdmin) return;
     let vivo = true;
@@ -183,6 +187,12 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const seq = useRef(0);
   const colaReal = useRef<Promise<void>>(Promise.resolve());
   const yaSalioUno = useRef(false);
+  /** Las tarjetas que ya salieron DE VERDAD en esta prueba (`debeSalirDeVerdad`). ↻ lo vacía. */
+  const enviadosReal = useRef(new Set<string>());
+  /** Cuántas veces escribió el lead en esta prueba: en «Si responde» cada turno sale de nuevo. */
+  const turnoLead = useRef(0);
+  /** El «no se reenvía» se dice UNA vez por prueba: en un bucle serían veinte píldoras. */
+  const dijoRepetido = useRef(false);
   const ctx = useRef({ nombres, negocio, audios, adjuntos, realWa, realEmail, telefono, email, secuenciaId: secuencia.id });
   useEffect(() => {
     ctx.current = { nombres, negocio, audios, adjuntos, realWa, realEmail, telefono, email, secuenciaId: secuencia.id };
@@ -204,12 +214,20 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     .filter((m) => m.tipo !== 'sistema')
     .map((m) => ({ de: m.fromMe ? 'lead' as const : 'negocio' as const, texto: m.texto || (m.tipo === 'audio' ? '(nota de voz)' : '(un archivo)') }));
 
-  /** Manda DE VERDAD lo que apareció, en orden, si el interruptor de ese canal está prendido. */
-  const mandarReal = (m: MensajePrueba) => {
+  /**
+   * Manda DE VERDAD lo que apareció, en orden, si el interruptor de ese canal está prendido y
+   * esa tarjeta todavía no salió en esta prueba. El interruptor se mira PRIMERO: una tarjeta que
+   * pasó con el interruptor apagado no cuenta como mandada.
+   */
+  const mandarReal = (m: MensajePrueba, nodo: string, enRespuesta: boolean) => {
     const c = ctx.current;
     const vaWa = m.canal === 'whatsapp' && c.realWa;
     const vaEmail = m.canal === 'email' && c.realEmail;
     if (!vaWa && !vaEmail) return;
+    if (!debeSalirDeVerdad(enviadosReal.current, nodo, enRespuesta, turnoLead.current)) {
+      if (!dijoRepetido.current) { dijoRepetido.current = true; sistema('Ya salió · no se reenvía'); }
+      return;
+    }
     const destino = { telefono: c.telefono, email: c.email };
     const r0 = run.current;
     colaReal.current = colaReal.current.then(async () => {
@@ -224,14 +242,14 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   };
 
   /** Dibuja un mensaje del flujo como le llega al lead, y lo manda si hay prueba real. */
-  const mostrarPaso = (p: PasoSecuenciaDto, redactado?: string, enRespuesta = false) => {
+  const mostrarPaso = (p: PasoSecuenciaDto, nodo: string, redactado?: string, enRespuesta = false) => {
     const c = ctx.current;
     const ahora = new Date().toISOString();
     if (p.canal === 'email') {
       const asunto = textoDeEjemplo(p.asunto ?? '', c.negocio);
       const texto = textoDeEjemplo(p.cuerpo, c.negocio);
       poner({ id: nuevoId('em'), fromMe: false, autor: `✉️ ${asunto || 'Email'}`, texto, fecha: ahora });
-      mandarReal({ canal: 'email', tipo: 'texto', texto, asunto });
+      mandarReal({ canal: 'email', tipo: 'texto', texto, asunto }, nodo, enRespuesta);
       return;
     }
     if (p.tipo === 'audio') {
@@ -242,24 +260,22 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       // El pie sale como SEGUNDO mensaje, que es como le llega al lead.
       const pie = textoDeEjemplo(p.cuerpo, c.negocio).trim();
       if (pie) poner({ id: nuevoId('pie'), fromMe: false, autor: firma(), texto: pie, fecha: ahora });
-      if (p.audio_id) mandarReal({ canal: 'whatsapp', tipo: 'audio', audio_id: p.audio_id, texto: pie });
+      if (p.audio_id) mandarReal({ canal: 'whatsapp', tipo: 'audio', audio_id: p.audio_id, texto: pie }, nodo, enRespuesta);
       return;
     }
     if (p.tipo === 'media') {
       const adj = c.adjuntos.find((x) => x.id === p.media_id) ?? null;
       const caption = textoDeEjemplo(p.cuerpo, c.negocio);
-      poner({
-        id: nuevoId('md'), fromMe: false, autor: firma(), tipo: adj ? tipoDeMime(adj.mime) : 'document',
-        mediaUrl: adj?.url ?? null, mediaMime: adj?.mime ?? null, texto: caption || adj?.nombre || 'Archivo', fecha: ahora,
-      });
-      if (p.media_id) mandarReal({ canal: 'whatsapp', tipo: 'media', media_id: p.media_id, texto: caption });
+      // El documento con SU nombre y el caption aparte, como le llega al lead (costuras-8).
+      poner({ id: nuevoId('md'), fromMe: false, autor: firma(), ...burbujaDeArchivo(adj, caption), fecha: ahora });
+      if (p.media_id) mandarReal({ canal: 'whatsapp', tipo: 'media', media_id: p.media_id, texto: caption }, nodo, enRespuesta);
       return;
     }
     const texto = redactado ?? textoDeEjemplo(p.cuerpo, c.negocio);
     // En la salida, un «Lo adapta MaKo» muestra el texto BASE: a cada lead le llega otro.
     const marca = p.tipo === 'ia' && !enRespuesta ? ' · ✦' : '';
     poner({ id: nuevoId('tx'), fromMe: false, autor: `${firma()}${marca}`, texto: texto.trim() || 'Sin escribir', fecha: ahora });
-    if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto });
+    if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto }, nodo, enRespuesta);
   };
 
   /** Corre UN evento del flujo y agenda el que sigue. */
@@ -280,13 +296,13 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           }).then((j) => {
             if (run.current !== r0) return;
             setTyping(null);
-            if (j.ok && typeof j.respuesta === 'string') mostrarPaso(paso, j.respuesta, true);
+            if (j.ok && typeof j.respuesta === 'string') mostrarPaso(paso, evento.nodo, j.respuesta, true);
             else sistema(`⚠ ${j.error ?? 'MaKo no pudo responder'}`, 'bad');
             luego(ENTRE_MS, avanzar);
           });
           return;
         }
-        luego(ESCRIBIENDO_MS, () => { setTyping(null); mostrarPaso(paso, undefined, evento.enRespuesta); luego(ENTRE_MS, avanzar); });
+        luego(ESCRIBIENDO_MS, () => { setTyping(null); mostrarPaso(paso, evento.nodo, undefined, evento.enRespuesta); luego(ENTRE_MS, avanzar); });
         return;
       }
       case 'espera':
@@ -311,6 +327,9 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     simRef.current = iniciar(flujoVivo);
     msgsRef.current = [];
     yaSalioUno.current = false;
+    enviadosReal.current = new Set();
+    turnoLead.current = 0;
+    dijoRepetido.current = false;
     luego(150, avanzar);
   };
 
@@ -342,6 +361,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
    */
   const alResponder = async (cuerpo: { mensaje?: string; audioBase64?: string; audioMime?: string }): Promise<string | null> => {
     cortar();
+    // Un turno nuevo del lead: lo que «Si responde» conteste ahora sale de verdad otra vez.
+    turnoLead.current += 1;
     setTyping(null); setOpciones(null);
     const p = pausarPorRespuesta(simRef.current);
     simRef.current = p.estado;

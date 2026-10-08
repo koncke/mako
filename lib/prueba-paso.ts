@@ -10,9 +10,9 @@
 // `probarSecuencia`—: texto, audio de la biblioteca (+ su pie como segundo mensaje), archivo de la
 // biblioteca con su caption, y email.
 //
-// ⚠️ EL DESTINO NO SE GUARDA. `user_telefono` / `user_email` son el destino de los REPORTES del
-// workspace (lib/notif-destinatarios.ts): precargan el campo, pero lo que se escribe en el panel
-// es de esta prueba. Guardarlo cambiaría a dónde le llegan los reportes al dueño.
+// ⚠️ EL DESTINO NO SE GUARDA. Lo que se escribe en el panel es de esta prueba. El campo viene
+// precargado con el teléfono y el email de QUIEN PRUEBA (su fila de `usuarios`), nunca con el
+// contacto de reportes del workspace (lib/simulador-grafo.ts, `destinoDelQueMira`).
 //
 // ⚠️ NO TOCA INSCRIPCIONES NI `nutricion_envios`: cero contaminación de las métricas y del freno
 // anti-ban, igual que `probarSecuencia`. Lo único que queda es el espejo del saliente en
@@ -20,6 +20,16 @@
 //
 // ⚠️ SALE POR LA LÍNEA DE LA SECUENCIA (`instance_name`): probarla por otra sería probar otra
 // cosa. Se lee de la fila guardada (la línea se guarda al elegirla, no con «Publicar»).
+//
+// ⚠️ Y CON TOPE POR DESTINO (revisión adversarial del 08/10/2026, datos-4). El panel corre en el
+// navegador y no espera las esperas: un «Ir a» que vuelve sobre un mensaje mandaba ~21 WhatsApp
+// iguales en segundos por la línea NO oficial. El panel ya no repite una tarjeta, pero el freno
+// que no depende del navegador es éste: `TOPE_PRUEBA_REAL` mensajes del panel cada
+// `VENTANA_PRUEBA_MIN` minutos por (workspace, destino). Se reclama DESPUÉS de los chequeos que
+// pueden cortar —un pedido rechazado no gasta un lugar— y ANTES de mandar.
+//
+// ⚠️ EL AVISO «🧪 Prueba de MaKo» LO DECIDE TAMBIÉN EL SERVER: el primero a ese destino en la
+// ventana lo lleva siempre, diga lo que diga el navegador (`primero` lo sigue pidiendo ↻).
 // =============================================================================
 
 import 'server-only';
@@ -28,15 +38,17 @@ import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evol
 import { getAudio, audioBase64 } from './setting-audios';
 import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
-import { planDePrueba, type DestinoPrueba, type MensajePrueba } from './simulador-grafo';
+import { reclamarEspaciado } from './espaciado';
+import {
+  planDePrueba, claveDestinoPrueba, reclamarCupoPrueba, tipoDeMime, VENTANA_PRUEBA_MIN,
+  type DestinoPrueba, type MensajePrueba,
+} from './simulador-grafo';
 
 export type ResultadoPruebaPaso = { ok: true; enviados: number } | { ok: false; error: string };
 
-/** image | video | document, como lo pide Evolution `sendMedia`. */
-const tipoDeMime = (mime: string): 'image' | 'video' | 'document' =>
-  mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : 'document';
-
 export async function enviarPasoDePrueba(p: {
+  /** El workspace del request: el tope se cuenta por (workspace, destino). */
+  ws: number;
   secuenciaId: number;
   destino: DestinoPrueba;
   mensaje: MensajePrueba;
@@ -46,6 +58,8 @@ export async function enviarPasoDePrueba(p: {
   const { mensaje, destino } = p;
   if (mensaje.canal === 'whatsapp' && !destino.telefono) return { ok: false, error: 'Falta tu número' };
   if (mensaje.canal === 'email' && !destino.email) return { ok: false, error: 'Falta tu email' };
+  const clave = claveDestinoPrueba(mensaje, destino);
+  if (!clave) return { ok: false, error: 'Falta el destino' };
 
   // La secuencia tiene que ser de ESTE workspace (getTenantDb filtra): un id ajeno no manda nada.
   const { data: sec, error } = await (await getTenantDb())
@@ -58,8 +72,22 @@ export async function enviarPasoDePrueba(p: {
     return { ok: false, error: 'Verifica tu dominio para mandar emails' };
   }
 
+  // El tope. Sin poder contar, no se manda: es la línea no oficial del cliente.
+  let hayLugar: boolean;
+  try {
+    hayLugar = await reclamarCupoPrueba((i) => reclamarEspaciado(p.ws, `prueba-real:${i}`, VENTANA_PRUEBA_MIN, clave));
+  } catch (e) {
+    console.error(`[prueba-paso] no pude contar el tope: ${e instanceof Error ? e.message : String(e)}`);
+    return { ok: false, error: 'No pude comprobar el tope' };
+  }
+  if (!hayLugar) return { ok: false, error: 'Muchas pruebas: espera unos minutos' };
+
+  // El aviso: si no se puede saber si ya salió uno, va (un aviso de más no daña a nadie).
+  const primeroEnVentana = await reclamarEspaciado(p.ws, 'prueba-aviso', VENTANA_PRUEBA_MIN, clave).catch(() => true);
+  const primero = p.primero || primeroEnVentana;
+
   let enviados = 0;
-  for (const envio of planDePrueba(mensaje, p.primero)) {
+  for (const envio of planDePrueba(mensaje, primero)) {
     if (envio.via === 'email') {
       const r = await sendEmail({
         to: destino.email!, subject: envio.asunto,

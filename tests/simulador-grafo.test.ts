@@ -18,8 +18,11 @@ import type { PasoGrafo } from '../lib/flujo-grafo';
 import {
   flujoParaProbar, iniciar, siguiente, elegir, pausarPorRespuesta, entrarEnRespuesta, escenarioParaRedactar,
   textoDeEjemplo, firmaFlujo, sanearMensajePrueba, sanearDestinoPrueba, planDePrueba, AVISO_PRUEBA, TOPE_SALTOS,
+  debeSalirDeVerdad, claveDestinoPrueba, reclamarCupoPrueba, TOPE_PRUEBA_REAL, VENTANA_PRUEBA_MIN,
+  burbujaDeArchivo, destinoDelQueMira,
   type EstadoSim, type EventoSim,
 } from '../lib/simulador-grafo';
+import { contenidoDeMensaje } from '../app/whatsapp/_shared/ChatHilo';
 
 const msg = (o: Partial<PasoGrafo> = {}): PasoGrafo => ({ canal: 'whatsapp', proveedor: 'no_oficial', delay_horas: 0, asunto: null, cuerpo: 'hola', template_wa: null, ...o });
 
@@ -209,6 +212,113 @@ test('lo que llega del navegador se sanea: sin audio no hay audio, sin texto no 
   assert.deepEqual(sanearDestinoPrueba({ telefono: '123', email: 'no-es-mail' }), { telefono: null, email: null });
 });
 
+// ── La prueba real NO repite y tiene TOPE (revisión adversarial del 08/10/2026, datos-4) ─────────
+
+/**
+ * Lo que hace el panel con cada mensaje que aparece: lo dibuja SIEMPRE, y lo manda de verdad sólo
+ * si `debeSalirDeVerdad` dice que sí. Devuelve cuántos se dibujaron y cuántos salieron.
+ */
+function correrConEnvioReal(pasos: PasoGrafo[], estado: EstadoSim, enviados: Set<string>, turno: number) {
+  let dibujados = 0;
+  let salieron = 0;
+  let e = estado;
+  for (let k = 0; k < 500; k++) {
+    const r = siguiente(pasos, e);
+    e = r.estado;
+    if (!r.evento) break;
+    if (r.evento.t === 'mensaje') {
+      dibujados += 1;
+      if (debeSalirDeVerdad(enviados, r.evento.nodo, r.evento.enRespuesta, turno)) salieron += 1;
+    }
+    if (r.evento.t === 'condicion' || r.evento.t === 'fin') break;
+  }
+  return { dibujados, salieron, estado: e };
+}
+
+test('el bucle mensaje → esperar → «Ir a» se DIBUJA entero pero sale de verdad una vez por tarjeta', () => {
+  // El caso medido por la revisión: ~21 WhatsApp idénticos en segundos por la línea no oficial.
+  const bucle: PasoGrafo[] = [
+    msg({ id: 'ini', cuerpo: 'hola', siguiente: 'a' }),
+    msg({ id: 'a', cuerpo: 'otra vez', siguiente: 'w' }),
+    { id: 'w', nodo: 'esperar', espera: { modo: 'tiempo', minutos: 60 }, siguiente: 'j', canal: 'whatsapp', cuerpo: '' },
+    { id: 'j', nodo: 'ir_a', destino: { nodo: 'a' }, canal: 'whatsapp', cuerpo: '' },
+  ];
+  const r = correrConEnvioReal(bucle, iniciar(bucle), new Set(), 0);
+  assert.equal(r.dibujados, TOPE_SALTOS + 2, 'el teléfono lo sigue mostrando: eso es lo que se prueba');
+  assert.equal(r.salieron, 2, 'cada tarjeta sale de verdad UNA vez: «ini» y «a»');
+});
+
+test('en «Si responde» cada turno del lead vuelve a salir; dentro del mismo turno, no', () => {
+  const enviados = new Set<string>();
+  const parado = siguiente(FLUJO, iniciar(FLUJO)); // sale «m1»
+  assert.equal(debeSalirDeVerdad(enviados, 'm1', false, 0), true);
+  // Turno 1: el lead pregunta el precio → «MaKo contesta» (ia1) → «Ir a» m3, que retoma la salida.
+  const t1 = entrarEnRespuesta(FLUJO, pausarPorRespuesta(parado.estado).estado, 'k1');
+  const r1 = correrConEnvioReal(FLUJO, t1.estado, enviados, 1);
+  assert.deepEqual([r1.dibujados, r1.salieron], [2, 2], 'ia1 y m3 salen');
+  // Turno 2: lo mismo. La respuesta del caso es un pedido NUEVO y sale; m3 (de la salida) ya salió.
+  const t2 = entrarEnRespuesta(FLUJO, pausarPorRespuesta(r1.estado).estado, 'k1');
+  const r2 = correrConEnvioReal(FLUJO, t2.estado, enviados, 2);
+  assert.deepEqual([r2.dibujados, r2.salieron], [2, 1], 'ia1 sale de nuevo; m3 no se reenvía');
+  // El mismo turno dos veces no repite.
+  assert.equal(debeSalirDeVerdad(enviados, 'ia1', true, 2), false);
+});
+
+test('el tope del server: 10 mensajes por destino cada 10 minutos, y la ventana se libera', async () => {
+  // Un `reclamarEspaciado` de mentira con la MISMA regla: un casillero está libre si su marca
+  // salió de la ventana, y reclamarlo lo marca con «ahora».
+  let ahora = Date.parse('2026-10-08T12:00:00Z');
+  const marcas = new Map<number, number>();
+  const reclamar = async (i: number) => {
+    const t = marcas.get(i);
+    if (t != null && ahora - t < VENTANA_PRUEBA_MIN * 60_000) return false;
+    marcas.set(i, ahora);
+    return true;
+  };
+  const resultados: boolean[] = [];
+  for (let k = 0; k < TOPE_PRUEBA_REAL + 3; k++) { resultados.push(await reclamarCupoPrueba(reclamar)); ahora += 5_000; }
+  assert.equal(TOPE_PRUEBA_REAL, 10);
+  assert.equal(resultados.filter(Boolean).length, 10, 'en un tramo de la ventana salen como mucho 10');
+  assert.deepEqual(resultados.slice(10), [false, false, false]);
+  // Pasada la ventana desde el primero, vuelve a haber lugar.
+  ahora = Date.parse('2026-10-08T12:10:00Z');
+  assert.equal(await reclamarCupoPrueba(reclamar), true);
+  // Un error al contar SUBE: quien llama corta (sin poder contar, no se manda).
+  await assert.rejects(reclamarCupoPrueba(async () => { throw new Error('base caída'); }));
+});
+
+test('el tope se cuenta por canal y destino normalizados', () => {
+  assert.equal(claveDestinoPrueba({ canal: 'whatsapp' }, { telefono: '5215512345678', email: 'x@y.mx' }), 'wa:5215512345678');
+  assert.equal(claveDestinoPrueba({ canal: 'email' }, { telefono: '5215512345678', email: 'Yo@Negocio.MX' }), 'email:yo@negocio.mx');
+  assert.equal(claveDestinoPrueba({ canal: 'whatsapp' }, { telefono: null, email: 'x@y.mx' }), null);
+});
+
+// ── «Probar» dibuja el archivo como le llega al lead (costuras-8) ──────────────────────────────
+
+test('un documento se llama como el ARCHIVO y el caption sale aparte', () => {
+  const b = burbujaDeArchivo({ url: 'https://x/c.pdf', mime: 'application/pdf', nombre: 'catalogo.pdf' }, 'Te dejo el catálogo');
+  assert.deepEqual(b, { tipo: 'document', mediaUrl: 'https://x/c.pdf', mediaMime: 'application/pdf', nombreArchivo: 'catalogo.pdf', texto: 'Te dejo el catálogo' });
+  // Y la burbuja de verdad (la de ChatHilo) lo dibuja así: el nombre es el del archivo.
+  const c = contenidoDeMensaje({ id: 1, fromMe: false, ...b });
+  assert.equal(c.media?.nombre, 'catalogo.pdf');
+  assert.equal(c.texto, 'Te dejo el catálogo');
+  // Sin caption no se inventa uno; sin la biblioteca, «Archivo».
+  assert.equal(burbujaDeArchivo({ url: null, mime: 'application/pdf', nombre: 'a.pdf' }, '  ').texto, null);
+  assert.equal(burbujaDeArchivo(null, 'hola').nombreArchivo, 'Archivo');
+  // Una imagen no lleva nombre de archivo: el caption va debajo.
+  assert.deepEqual(burbujaDeArchivo({ url: 'u', mime: 'image/png', nombre: 'foto.png' }, 'Mira'), { tipo: 'image', mediaUrl: 'u', mediaMime: 'image/png', nombreArchivo: null, texto: 'Mira' });
+});
+
+// ── El destino precargado es el de QUIEN PRUEBA (lienzo-3) ──────────────────────────────────────
+
+test('«A mi WhatsApp» se precarga con el teléfono y el email de la persona, o vacío', () => {
+  assert.deepEqual(destinoDelQueMira({ email: 'martin@hola-mako.com', perfil: { telefono: ' +54 9 11 2505 2605 ' } }), { telefono: '+54 9 11 2505 2605', email: 'martin@hola-mako.com' });
+  // Sin fila propia (sesión sin usuario), vacío: se escribe a mano. Nunca el contacto del negocio.
+  assert.deepEqual(destinoDelQueMira(null), { telefono: '', email: '' });
+  assert.deepEqual(destinoDelQueMira({ email: 'a@b.mx', perfil: null }), { telefono: '', email: 'a@b.mx' });
+  assert.deepEqual(destinoDelQueMira({ email: 'a@b.mx', perfil: ['x'] }), { telefono: '', email: 'a@b.mx' });
+});
+
 // ROTURAS (08/10/2026), una por vez, restaurando de memoria y verificando con md5 que cada
 // archivo volviera idéntico. Sin romper: 16 pass / 0 fail. Pasan / fallan con cada una:
 //   1. `siguiente`, caso 'condicion', sin `eligiendo` en el estado            → 12 / 4
@@ -228,3 +338,14 @@ test('lo que llega del navegador se sanea: sin audio no hay audio, sin texto no 
 //  15. la condición sin la opción «Si no»                                         → 13 / 3
 // 15 roturas, 15 cazadas. (Antes de eso, el test del bucle daba 0 saltos sobre un flujo cuya
 // raíz era el destino del salto: `raizSalida` no la toma, y el test se corrigió, no el módulo.)
+//
+// ROTURAS de la revisión adversarial (08/10/2026, parte P), con el mismo arnés. Sin romper:
+// 22 pass / 0 fail. Pasan / fallan con cada una:
+//  16. `debeSalirDeVerdad` sin mirar lo ya mandado (el bucle de ~21 WhatsApp)   → 20 / 2
+//  17. la clave de «Si responde» sin el turno del lead                          → 21 / 1
+//  18. `reclamarCupoPrueba` con un lugar de más (`i <= tope`)                    → 21 / 1
+//  19. `claveDestinoPrueba` sin normalizar el email                              → 21 / 1
+//  20. `burbujaDeArchivo` sin `nombreArchivo` (el documento con el caption de nombre) → 21 / 1
+//  21. `burbujaDeArchivo` con el caption como nombre, como antes                 → 21 / 1
+//  22. `destinoDelQueMira` leyendo el teléfono de otro lado que el perfil        → 21 / 1
+// 7 roturas, 7 cazadas.
