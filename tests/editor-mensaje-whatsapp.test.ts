@@ -192,11 +192,12 @@ test('sin rótulos encima del campo: el placeholder alcanza (punto 5 del pedido)
 });
 
 // ── La `fila` (segunda tanda, 08/10/2026, punto 3: «más ancho que largo, sino, se amontona todo») ──
-// Roturas (08/10/2026, mismo arnés, una por vez, restaurada de memoria; base 18 / 18):
-//  14. `fila` dibujando la columna de siempre (el render del WIP) → 2 fallos.
-//  15. la burbuja DESPUÉS de la barra en la fila (chat a la derecha) → 1.
-//  16. la consulta del contenedor con otro ancho que `ANCHO_MIN_FILA` → 1.
-//  17. «Revisar antes de enviar» fuera de la columna de la derecha → 1.
+// Roturas (08/10/2026, arnés del scratchpad E-v2-romper.mjs: una por vez, restaurada de memoria;
+// base 17 / 17): 5 roturas, 5 cazadas.
+//  14. `fila` dibujando la columna de siempre (el render que dejó el WIP) → 1 fallo.
+//  15. la barra metida adentro del chat → 1.
+//  16. la consulta del contenedor con otro ancho que `ANCHO_MIN_FILA` (619 en vez de 559) → 1.
+//  17. el chat de la fila con el tope de 260 de la columna → 1.
 //  18. la `columna` con el grid de la fila (lo de antes cambiado) → 1.
 
 test('`fila`: el chat a la izquierda a todo el alto; la barra y las herramientas a la derecha', () => {

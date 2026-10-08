@@ -61,3 +61,8 @@ test('el SelectorEtiqueta llena el ancho que le dan (con un porcentaje, el envol
 
 // ── Roturas (08/10/2026) ─────────────────────────────────────────────────────────────────────
 // Arnés en el scratchpad (E-v2-romper.mjs): UNA rotura por vez, restaurada de memoria. Base: 4 / 4.
+// 4 roturas, 4 cazadas (fallos de 4):
+//   C1. el envoltorio del selector sin el ancho                      → 1
+//   C2. la tarjeta guarda otra cosa que el id                        → 1
+//   C3. el verbo con otro texto («Agregar»)                          → 1
+//   C4. cambiar de verbo pierde la etiqueta                          → 1

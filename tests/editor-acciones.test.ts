@@ -167,4 +167,16 @@ test('el formulario de «Avisar al equipo»: el lead es una línea, «Respuesta�
 
 // ── Roturas (08/10/2026) ─────────────────────────────────────────────────────────────────────
 // Arnés en el scratchpad (E-v2-romper.mjs): UNA rotura por vez, corre este archivo y restaura de
-// memoria. Base: 12 / 12. Resultado de cada rotura en el comentario de la corrida (ver abajo).
+// memoria. Base: 10 / 10. 12 roturas, 12 cazadas (fallos de 10):
+//   A1. el resumen sin sacar los paréntesis                           → 2
+//   A2. «titulo» sin su tilde en el diccionario de palabras           → 3
+//   A3. las acciones de JSON también en su área (no sólo «Avanzado»)  → 1
+//   A4. «Más usadas» sin la marca de atajo                            → 1
+//   A5. un id de «Más usadas» que no existe en el registro            → 2
+//   A6. el reparto sin sacar lo que llena el flujo («Respuesta»)      → 1
+//   A7. el lead del evento como formulario, sin la línea             → 1
+//   A8. el lead del evento por default aunque haya un teléfono       → 1
+//   A9. Select sin pasarle `secciones` al Dropdown                    → 1
+//   A10. el Dropdown sin saltear los atajos al buscar                 → 1
+//   A11. el selector de vuelta a la lista plana                       → 1
+//   A12. lo opcional siempre a la vista (sin «Más opciones»)          → 1

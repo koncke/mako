@@ -94,7 +94,8 @@ test('el De es del workspace y de sólo lectura; el mail abierto va aislado', ()
   const iframe = GMAIL.slice(GMAIL.indexOf('<iframe'), GMAIL.indexOf('/>', GMAIL.indexOf('<iframe')));
   assert.match(iframe, /sandbox="allow-popups allow-popups-to-escape-sandbox"/);
   assert.doesNotMatch(iframe, /allow-scripts|allow-same-origin/);
-  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: true }), 'No sale · dominio sin verificar', 'el sandbox gana: con él no sale aunque esté prendido');
+  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: true }), 'No sale · dominio sin verificar', 'con el sandbox no sale aunque esté prendido');
+  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: false }), 'No sale · dominio sin verificar', 'el sandbox gana: prenderlo no lo arregla');
   assert.equal(avisoDelRemitente({ sandbox: false, envioHabilitado: false }), 'Email apagado');
   assert.equal(avisoDelRemitente({ sandbox: false, envioHabilitado: true }), null);
   assert.equal(avisoDelRemitente(null), null, 'sin leer el remitente no se inventa un aviso');
@@ -115,4 +116,15 @@ test('el EditorMensaje que se reusa no cambió para /mensajes (sus defaults)', (
 
 // ── Roturas (08/10/2026) ─────────────────────────────────────────────────────────────────────
 // Arnés en el scratchpad (E-v2-romper.mjs): UNA rotura por vez, corre este archivo y restaura de
-// memoria. Base: 8 / 8. Ver el resultado de cada una abajo.
+// memoria. Base: 7 / 7. 9 roturas, 9 cazadas (fallos de 7):
+//   B1. el asunto vacío sin «(sin asunto)»                           → 1
+//   B2. el preheader vacío viaja como ''                             → 1
+//   B3. la firma con otra regex que la del motor                     → 1
+//   B4. el iframe con allow-scripts                                  → 1
+//   B5. «Email apagado» antes que el sandbox                         → 0 la primera vez: el único caso
+//       probado tenía el envío prendido, donde el orden no cambia nada. Con el caso «sandbox y
+//       apagado» agregado → 1.
+//   B6. la vista previa inventa el nombre del lead                   → 2
+//   B7. el 🔗 sin esquema                                             → 1
+//   B8. EditorMensaje cambia su default para /mensajes               → 1
+//   B9. el iframe con otro render que el del envío (la banda de MaKo)→ 1
