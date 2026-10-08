@@ -25,6 +25,9 @@ import { Ticks } from './_shared/Ticks';
 import { Dropdown } from '../components/Dropdown';
 import { ETAPA_COLOR, etapaChip } from '@/lib/wa-etapas';
 import { crearLeadDesdeWhatsappAction } from '../crm/actions';
+import { BotonAgregarAlCrm } from './_shared/BotonAgregarAlCrm';
+import { Toast, useToast } from '@/app/_ui/Toast';
+import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { useNotifications } from '../_components/NotificationsProvider';
 import { useConfirm } from '../_components/useConfirm';
 import { AudioPlay } from './_shared/AudioPlay';
@@ -100,8 +103,11 @@ function leerLeido(): Record<string, number> { try { const raw = localStorage.ge
  * `linea`: la bandeja de UN número (06/10/2026). `null` = todo el espejo del negocio, que con
  * una sola línea es lo mismo. Quien la monta le pone `key` con la línea: cambiar de número es
  * otra bandeja, sin el chat abierto ni el borrador de la anterior.
+ *
+ * `productos`: los del «+ Agregar al CRM» (`null` = no se pudieron leer). Obligatorio: sin él
+ * el alta volvía al clic único y el lead nacía en el principal (pedido de Leila, 08/10/2026).
  */
-export function EmpresaInbox({ puedeChatbot = true, linea = null }: { puedeChatbot?: boolean; linea?: string | null } = {}) {
+export function EmpresaInbox({ puedeChatbot = true, linea = null, productos }: { puedeChatbot?: boolean; linea?: string | null; productos: ProductoParaAlta[] | null }) {
   // El sufijo de la línea para los GET de la bandeja, y el campo para los POST.
   const qLinea = linea ? `linea=${encodeURIComponent(linea)}` : '';
   // ⚠️ La caché de hilos es de MÓDULO: sobrevive al cambio de línea y al de cliente en la misma
@@ -142,6 +148,10 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null }: { puedeChatb
   const [hiding, setHiding] = useState(false);
   const [chatBusy, setChatBusy] = useState<'sync' | 'clear' | null>(null); // sync/borrar por-chat
   const [creandoLead, setCreandoLead] = useState(false); // alta del contacto en el CRM (#830)
+  // Los productos del alta: arrancan con los del server y el server los puede corregir (si
+  // hay 2+ y no se eligió, el alta no crea y devuelve la lista en `elegir`).
+  const [productosAlta, setProductosAlta] = useState(productos);
+  const { toast: avisoAlta, show: mostrarAvisoAlta, clear: limpiarAvisoAlta } = useToast();
   const [ocultarConfirm, setOcultarConfirm] = useState(false); // modal de confirmación de ocultar
   const [verOcultos, setVerOcultos] = useState(false); // vista "ver ocultos" para desocultar
   const [search, setSearch] = useState('');
@@ -409,15 +419,19 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null }: { puedeChatb
    * ⚠️ El `leadId` se escribe en el estado EN EL ACTO. La conversación se enlaza sola al
    * lead por teléfono, pero en la PRÓXIMA carga: sin esto el botón sigue diciendo «Agregar
    * al CRM» sobre un contacto que ya está, y el segundo clic choca con el duplicado.
+   *
+   * ⚠️ `funnelId` ES EL PRODUCTO DONDE NACE (pedido de Leila, 08/10/2026: todo nacía en el
+   * principal y lo movía a mano). `null` = no se eligió —0-1 producto, o la lista no se leyó—
+   * y decide el server: con 2+ no crea y devuelve la lista (`elegir`) para preguntar.
    */
-  async function agregarAlCrm() {
+  async function agregarAlCrm(funnelId: number | null) {
     const sc = findConv(sel);
     if (!sc?.telefono) return;
     setCreandoLead(true); setSendErr(null);
     try {
       // El nombre es el que WhatsApp da (y si no dio ninguno, el teléfono): se abre la
       // ficha editable al toque, que es donde se corrige sin dar una vuelta más.
-      const r = await crearLeadDesdeWhatsappAction(sc.nombre || sc.telefono, sc.telefono);
+      const r = await crearLeadDesdeWhatsappAction(sc.nombre || sc.telefono, sc.telefono, funnelId);
       // Si ya estaba, con UN solo candidato ése ES el lead de este teléfono (la misma
       // llave con la que la conversación lo busca). Con varios no se elige el primero.
       // Escrito con `else` y no con un ternario a propósito: ahí la respuesta queda
@@ -425,7 +439,14 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null }: { puedeChatb
       // el tipo del éxito no tiene (el typecheck lo marcó con el ternario puesto).
       let id: number | null = null;
       if ('id' in r) id = r.id;
-      else if (r.coincidencias.length === 1) id = r.coincidencias[0].id;
+      else if (r.elegir) { setProductosAlta(r.elegir); mostrarAvisoAlta('Elige el producto'); return; }
+      else if (r.coincidencias.length === 1) {
+        id = r.coincidencias[0].id;
+        // Ya estaba y el server la AGREGÓ al elegido (se agrega, nunca se mueve): se dice,
+        // porque si no la ficha que se abre parece la de un lead recién creado.
+        if (r.agregadoA) mostrarAvisoAlta(`Ya estaba · ahora en ${r.agregadoA}`);
+        else if (r.errorAlAgregar) setSendErr(r.errorAlAgregar);
+      }
       else { setSendErr(r.error); return; }
       const upd = (arr: Conv[]) => arr.map((c) => (c.chatJid === sc.chatJid ? { ...c, leadId: id } : c));
       setConvs((prev) => upd(prev)); setBusqLeads((prev) => upd(prev)); convsCache.set(linea ?? '', upd(convsCache.get(linea ?? '') ?? []));
@@ -718,10 +739,9 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null }: { puedeChatb
             {selConv.leadId ? (
               <button onClick={() => setDetalleLeadId(selConv.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
             ) : selConv.telefono ? (
-              /* #830: el contacto no está en el CRM → alta directa con nombre + teléfono. */
-              <button type="button" disabled={creandoLead} onClick={() => void agregarAlCrm()}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: creandoLead ? 'default' : 'pointer' }}
-              >{creandoLead ? 'Agregando…' : '+ Agregar al CRM'}</button>
+              /* #830: el contacto no está en el CRM → alta directa con nombre + teléfono, y
+                 con 2+ productos el mismo clic pregunta en cuál (pedido de Leila, 08/10/2026). */
+              <BotonAgregarAlCrm productos={productosAlta} creando={creandoLead} onAgregar={(fid) => void agregarAlCrm(fid)} />
             ) : (
               <Link href="/crm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
             )}
@@ -759,6 +779,8 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null }: { puedeChatb
       </div>
 
       {detalleLeadId != null && <LeadEditModal leadId={detalleLeadId} onClose={() => setDetalleLeadId(null)} />}
+      {/* El acuse del alta («Ya estaba · ahora en X»): va por ENCIMA de la ficha (z 600 contra 80). */}
+      <Toast state={avisoAlta} onClose={limpiarAvisoAlta} />
 
       {/* Lightbox de imagen (los PDF/documentos se abren en pestaña nueva: los
           iframes están bloqueados por X-Frame-Options del sitio). */}

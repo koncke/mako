@@ -239,7 +239,8 @@ test('la bandeja filtra por línea en la base, y la pantalla siempre le pasa una
   const app = sinComentarios(leer('app/whatsapp/WhatsAppApp.tsx'));
   // La key lleva prefijo: el panel de conexión es su hermano y comparten la línea (medido en el
   // navegador el 06/10: con la misma key React avisaba «two children with the same key»).
-  assert.match(app, /<EmpresaInbox key=\{`bandeja-\$\{lineaActiva\?\.linea \?\? 'default'\}`\} puedeChatbot=\{puedeChatbot\} linea=\{lineaActiva\?\.linea \?\? null\} \/>/);
+  // (Y desde el 08/10/2026 lleva los productos del «+ Agregar al CRM»: tests/inbox-agregar-al-crm.test.ts.)
+  assert.match(app, /<EmpresaInbox key=\{`bandeja-\$\{lineaActiva\?\.linea \?\? 'default'\}`\} puedeChatbot=\{puedeChatbot\} linea=\{lineaActiva\?\.linea \?\? null\} productos=\{productos\} \/>/);
   // Sin la lista —o con la lista caída— la bandeja leería el espejo entero: dos números mezclados.
   assert.match(app, /canal === 'empresa' && lineasCargadas && !\(lineasError && !lineas\.length\) && !agregando/);
 });

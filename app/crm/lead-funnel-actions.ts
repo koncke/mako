@@ -16,7 +16,7 @@ import {
   productosDelLead, agregarAProducto, quitarDeProducto, deshacerQuitar, moverEtapaEnProducto,
   agregarLoteAProducto, quitarLoteDeProducto, etapasDeProducto, type DeshacerQuitar,
 } from '@/lib/lead-funnel';
-import { puedeQuitar } from '@/lib/lead-funnel-reglas';
+import { puedeQuitar, nombreVisible } from '@/lib/lead-funnel-reglas';
 
 type Res<T> = ({ ok: true } & T) | { ok: false; error: string };
 const mal = (e: unknown, def: string) => ({ ok: false as const, error: e instanceof Error ? e.message : def });
@@ -66,7 +66,7 @@ export async function productosDeLaFichaAction(leadId: number): Promise<Res<{ pr
       const p = deEl.get(f.id);
       out.push({
         id: f.id,
-        nombre: f.producto?.trim() || f.nombre,
+        nombre: nombreVisible(f),
         esDefault: f.esDefault,
         esta: !!p,
         esCasa: !!p?.esCasa,
@@ -138,7 +138,7 @@ export async function agregarLoteAProductoAction(leadIds: number[], funnelId: nu
     if (!ids.length) return { ok: true, agregados: [], fallaron: 0 };
     const destino = await resolverProducto(funnelId);
     const nombre = (await listarFunnels()).find((f) => f.id === destino);
-    const r = await agregarLoteAProducto(ids, destino, porQue?.trim() || `Agregado a «${nombre?.producto?.trim() || nombre?.nombre || 'otro producto'}»`);
+    const r = await agregarLoteAProducto(ids, destino, porQue?.trim() || `Agregado a «${(nombre ? nombreVisible(nombre) : '') || 'otro producto'}»`);
     bust();
     return { ok: true, ...r };
   } catch (e) {

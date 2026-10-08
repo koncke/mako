@@ -56,13 +56,14 @@ import { listLeadsDeFunnel, contarLeadsDeFunnel,
   enriquecerLead,
 } from '@/lib/leads';
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
-import { casaReal } from '@/lib/lead-funnel-reglas';
+import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
+import { agregarAProducto } from '@/lib/lead-funnel';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
   renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo,
-  productosPorFunnel, idDelFunnelDefault } from '@/lib/funnels';
+  productosPorFunnel, idDelFunnelDefault, leerFunnels } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
   conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
@@ -248,7 +249,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
-  const productos = funnels.map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre, esDefault: f.esDefault }));
+  const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
   return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
 }
@@ -781,6 +782,16 @@ export type ChoqueDeLead = {
   }>;
 };
 
+/** Lo que vuelve del alta desde WhatsApp: el lead nuevo, o el choque con tres datos más. */
+export type AltaDesdeWhatsapp = { id: number } | (ChoqueDeLead & {
+  /** No se eligió producto y hay dos o más: la lista, para que la pantalla pregunte. */
+  elegir?: ProductoParaAlta[];
+  /** La persona ya estaba y se la AGREGÓ al producto elegido: su nombre visible. */
+  agregadoA?: string;
+  /** La persona ya estaba, se intentó agregarla al elegido y falló: por qué. */
+  errorAlAgregar?: string;
+});
+
 /** Un lead de otro producto, como lo dibuja la tabla de «traer». */
 export type LeadParaTraer = {
   id: number;
@@ -999,26 +1010,53 @@ export async function createLeadAction(formData: FormData): Promise<void> {
  * `LeadDuplicadoError` trae adentro justamente para poder ofrecer «abre el que ya tienes»
  * se perdían en el camino y lo único que la pantalla podía hacer era un cartel. Es el
  * mismo contrato que el alta del tablero (`ChoqueDeLead`), que ya lo resolvió así.
+ *
+ * ⚠️ NACE EN EL PRODUCTO ELEGIDO (`funnelId`). Pedido de Leila (ws11, 08/10/2026): «ella está
+ * en marca personal. Primero de por sí me entra al funnel principal, o sea que la tengo que
+ * eliminar de funnel principal». Antes la action no recibía el dato y todo nacía en el
+ * principal: medido ese día, 6 de 6 agregados a mano a otro producto y 4 sacados del principal
+ * después. Quién decide qué con cada combinación (0-1 producto, 2+, la lista caída, un id que
+ * no está) es `destinoDelAlta`, puro y ejecutado por tests/inbox-agregar-al-crm.test.ts; acá
+ * se lee `leerFunnels` y NO `listarFunnels`, porque ésa devuelve `[]` cuando falla y «no pude
+ * leer» terminaba siendo «hay uno» o «no existe».
+ *
+ * ⚠️ SI LA PERSONA YA ESTABA (una sola coincidencia, que no está en el elegido), SE LA AGREGA
+ * a ese producto: «se agrega, nunca se mueve» (mig 0207), una fila más y su casa intacta. Con
+ * varias coincidencias no se elige ninguna: se devuelve el choque, como siempre.
  */
-export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: string): Promise<{ id: number } | ChoqueDeLead> {
+export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: string, funnelId?: number | null): Promise<AltaDesdeWhatsapp> {
   const n = (nombre ?? '').trim();
   const t = (telefono ?? '').trim();
   if (!n) return { error: 'Falta el nombre del contacto.', coincidencias: [] };
   if (!t) return { error: 'Falta el teléfono del contacto.', coincidencias: [] };
+  const destino = destinoDelAlta(await leerFunnels(), funnelId);
+  if ('error' in destino) return { error: destino.error, coincidencias: [], elegir: destino.elegir };
   // De dónde vino: de una conversación del inbox, o sea que ya hay un hilo abierto
   // con esta persona. No dice QUIÉN escribió primero —desde acá no se puede saber, y
   // un dato que se afirma sin medirlo es peor que la columna vacía—: dice por qué
   // puerta entró, que es lo que separa a este lead de los 1.000 de una lista en frío.
   try {
-    const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id });
+    // ⚠️ `destino.casa` ya pasó por `casaParaEscribir`: el default va NULL. createLead escribe
+    // lo que le llega, y con el id del default escrito el lead no sale en NINGÚN tablero.
+    const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
     if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono).catch(() => {});
     bust(TAG.leads);
     revalidatePath('/crm');
     revalidatePath('/whatsapp');
     return { id: created.id };
   } catch (e) {
-    // `null`: el alta desde WhatsApp nace en el producto del negocio (no pasa `funnel_id`).
-    return await choqueDeLead(e, null);
+    // `estaAca` se mide contra el producto ELEGIDO, no contra el del negocio.
+    const choque = await choqueDeLead(e, destino.casa);
+    const una = choque.coincidencias.length === 1 ? choque.coincidencias[0] : null;
+    if (!una || una.estaAca || destino.real == null) return choque;
+    try {
+      await agregarAProducto(una.id, destino.real);
+      bust(TAG.leads);
+      revalidatePath('/crm');
+      return { ...choque, agregadoA: destino.nombre ?? undefined };
+    } catch (err) {
+      return { ...choque, errorAlAgregar: err instanceof Error ? err.message : 'No pude agregarlo al producto.' };
+    }
   }
 }
 
@@ -2942,7 +2980,7 @@ export async function embudosArchivadosAction(): Promise<Array<{ id: number; nom
   const filas = await listarFunnelsArchivados();
   return Promise.all(filas.map(async (f) => ({
     id: f.id,
-    nombre: f.producto?.trim() || f.nombre,
+    nombre: nombreVisible(f),
     leads: await contarLeadsDeFunnel(f.id).catch(() => -1),
   })));
 }

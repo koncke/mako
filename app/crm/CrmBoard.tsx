@@ -116,6 +116,7 @@ import { moverEtapaEnProductoAction } from './lead-funnel-actions';
 import { cambiarCursoAlGanarAction } from './curso-al-ganar-actions';
 
 import { Toast, useToast } from '@/app/_ui/Toast';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
 import { Modal } from '@/app/_ui/Modal';
 import { NewLeadForm } from './new/NewLeadForm';
@@ -1780,7 +1781,7 @@ export function CrmBoard({
   // pop-up tiene que decir CUÁL embudo se está tocando, y para eso ese nombre no sirve.
   const nombreDeFunnel = (id: number | null) => {
     const f = funnels.find((x) => x.id === id) ?? funnels.find((x) => x.esDefault);
-    return f?.producto?.trim() || f?.nombre || 'Tu embudo';
+    return (f ? nombreVisible(f) : '') || 'Tu embudo';
   };
   // Cerrar el aviso de error es SÓLO de esta vista: al recargar vuelve a calcularse.
   const [errorCerrado, setErrorCerrado] = useState(false);

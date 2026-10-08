@@ -16,7 +16,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { getLead, logLeadEvent, autorDelMovimiento, updateLead } from './leads';
 import { getFunnelDe, getFunnelDefault, idDelFunnelDefault, listarFunnels } from './funnels';
-import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscribir, casaReal, type ProductoDelLead, type FilaLeadFunnel } from './lead-funnel-reglas';
+import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscribir, casaReal, nombreVisible, type ProductoDelLead, type FilaLeadFunnel } from './lead-funnel-reglas';
 import { terminalEstadoFor } from './pipeline';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 
@@ -30,7 +30,7 @@ export async function etapasDeProducto(funnelId: number): Promise<Array<{ key: s
 /** El nombre que ve la persona: el del producto si lo hay, si no el del embudo. */
 async function nombreDeProducto(funnelId: number): Promise<string> {
   const f = (await listarFunnels()).find((x) => x.id === funnelId);
-  return f?.producto?.trim() || f?.nombre || 'otro producto';
+  return (f ? nombreVisible(f) : '') || 'otro producto';
 }
 
 async function filasDe(leadId: number): Promise<FilaLeadFunnel[]> {
