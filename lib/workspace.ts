@@ -122,6 +122,10 @@ const TENANT_TABLES = new Set<string>([
   // Los adjuntos de la descripción de una clase (mig 0216). Sin esta línea, la lista de adjuntos de
   // una clase traería los de OTRO negocio.
   'curso_adjuntos',
+  // Los módulos SUELTOS del curso y el candado de los vinculados, y lo que el equipo le abre a mano a
+  // cada alumno (mig 0220). Sin estas líneas, un curso dibujaría los módulos de OTRO negocio y el
+  // portal le abriría a un alumno lo que se le abrió a otro.
+  'curso_modulos', 'curso_desbloqueos',
   // La COMUNIDAD de cada producto (mig 0217, la tab Comunidad y la pestaña del alumno). Las doce
   // tienen N filas por workspace: sin estas líneas, el feed, los likes, el ranking y la campana de un
   // negocio mostrarían los de TODOS. (El código de la comunidad igual escribe el workspace a mano en

@@ -2,9 +2,15 @@
 // conocimientos-compartir — el botón de compartir POR CURSO del portal de cursos
 // =============================================================================
 // Lo que se LEE como fuente (sin comentarios): app/conocimientos/{Compartir,CursoPortal,
-// CursoReplica}.tsx y app/compartido/[token]/PortalCompartido.tsx. No hay nada puro que
-// ejecutar acá: lo que falló son CABLEADOS y una regla de apilamiento, y las dos viven en
-// JSX. Por eso los asserts se escriben sobre el BLOQUE que importa y nunca sobre el
+// Conocimientos,EditorConocimientos,CursoConocimientos}.tsx, app/_cursos/CursoUgc.tsx y los dos
+// componentes de app/compartido/[token]/. No hay nada puro que ejecutar acá: lo que falló son
+// CABLEADOS y una regla de apilamiento, y las dos viven en JSX.
+//
+// ⚠️ 08/10/2026: CursoReplica.tsx se BORRÓ (Conocimientos monta el dibujo de los cursos,
+// app/_cursos/CursoUgc.tsx, a través de app/conocimientos/CursoConocimientos.tsx) y los dos primeros
+// tests se MUDARON con él: ahora siguen el botón por el camino nuevo, desde la pantalla del admin
+// hasta la barra de arriba del dibujo. Un test que leyera el archivo viejo por su ruta daría verde
+// sobre un archivo que ya no manda (AGENTS.md). Por eso los asserts se escriben sobre el BLOQUE que importa y nunca sobre el
 // archivo entero — un `cmp-ov` o un `compartir` suelto aparece en media docena de lugares
 // y un guard que mire el archivo completo da verde sobre los cinco bugs de abajo.
 //
@@ -36,6 +42,15 @@
 //   · el renglón sin ellipsis, o las visitas cediendo, o la columna sin `flex: 1`
 //                                                                      → «el renglón recorta el título»
 //   · un backtick (o un `${…}`) en CUALQUIERA de las dos hojas        → «NADA de backticks»
+//
+// 08/10/2026, al mudarse a CursoUgc (scratchpad/cono/romper.mjs, que deshace el reemplazo sobre el
+// disco): sin romper 12 / 0, y cada rotura 11 / 1 en su test. Las dos primeras de la lista de arriba
+// ya no existen (CursoReplica se borró); las reemplazan:
+//   · Conocimientos montando el editor SIN `compartir`                → «la pantalla del admin arma el botón»
+//   · el editor sin pasarle `topbarExtra` al curso                    → «la barra del curso lo dibuja»
+//   · CursoCompartido llenando `topbarExtra`                          → «la vista pública no re-comparte»
+// ⚠️ La primera versión del guard del admin buscaba con `[^>]*` y dio ROJO sobre el cableado sano:
+//    `onFilas={(nuevas) => …}` tiene un `>` adentro y la clase se cortaba ahí. Va por `bloque`.
 //
 // ⚠️ DOS DE ESTOS GUARDS DIERON VERDE SOBRE SU PROPIO BUG antes de escribirse bien, y los
 // dos fallos son de la misma familia — el universo del assert era más chico que la
@@ -94,43 +109,51 @@ function bloque(src: string, desde: string, hasta: string, topeLargo: number): s
 }
 
 const PORTAL = sinComentarios(leer('app/conocimientos/CursoPortal.tsx'));
-const REPLICA = sinComentarios(leer('app/conocimientos/CursoReplica.tsx'));
+const ADMIN = sinComentarios(leer('app/conocimientos/Conocimientos.tsx'));
+const EDITOR = sinComentarios(leer('app/conocimientos/EditorConocimientos.tsx'));
+const CURSO = sinComentarios(leer('app/conocimientos/CursoConocimientos.tsx'));
+const DIBUJO = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
 const COMPARTIR = sinComentarios(leer('app/conocimientos/Compartir.tsx'));
 /** El fuente TAL CUAL, con sus comentarios. Lo usa un solo guard, y su porqué está escrito
  *  al lado: cuando lo prohibido es un CARÁCTER, los comentarios son el sujeto de la
  *  pregunta y despejarlos es mirar para otro lado. */
 const COMPARTIR_CRUDO = leer('app/conocimientos/Compartir.tsx');
 const PUBLICO = sinComentarios(leer('app/compartido/[token]/PortalCompartido.tsx'));
+const UNO = sinComentarios(leer('app/compartido/[token]/CursoCompartido.tsx'));
 
 // ── El cableado que faltaba ─────────────────────────────────────────────────────────
-test('la rama que se dibuja de verdad recibe el botón: CursoReplica lleva `compartir`', () => {
-  // `replica: true` está en el catálogo para TODOS los cursos (no curso por curso), así
-  // que este return es el ÚNICO camino de un curso abierto y el `Hub` de abajo nunca
-  // corre. Si el prop no baja por acá, no hay botón de compartir adentro de ningún curso.
-  assert.match(
-    bloque(PORTAL, 'if (curso.replica)', '/>', 400),
-    /<CursoReplica[^>]*\scompartir=\{compartir\}/,
-    'CursoPortal corta en CursoReplica antes del Hub: si no le pasa `compartir`, la capacidad queda en código muerto',
-  );
-
-  // Y el flag es del catálogo entero, no de un curso: el día que deje de serlo, el Hub
-  // vuelve a ser alcanzable y este test deja de ser el único que cubre el caso.
-  const cat = sinComentarios(leer('app/conocimientos/catalogo.ts'));
-  assert.match(cat, /\breplica:\s*true/, 'si `replica` dejó de estar en el catálogo, revisá qué rama dibuja un curso');
+// (Mudado el 08/10/2026: antes seguía `compartir` por CursoPortal → CursoReplica, y el caso que lo
+// originó —el `Hub` que lo dibujaba y no se alcanzaba nunca— se fue con esas dos.)
+test('la pantalla del admin arma el botón de ESTE curso y se lo pasa al curso, edite o no', () => {
+  // El botón comparte el curso ABIERTO: su slug, y su título de hoy (con lo que el super admin le cambió).
+  assert.match(ADMIN, /const compartir = <Compartir recurso="curso" recursoId=\{base\.slug\} etiqueta=\{curso\.titulo\} \/>;/,
+    'el botón de compartir del curso abierto no se arma');
+  // Las DOS ramas lo reciben: la del editor (el super admin) y la de sólo lectura (si no se pudieron
+  // leer los ajustes). Si una no lo pasa, ahí no hay forma de compartir el curso desde adentro.
+  // El BLOQUE de cada elemento hasta su cierre, no un `[^>]*`: una flecha (`=>`) adentro de un prop
+  // corta esa clase en el primer `>` y el guard daría rojo sobre un cableado sano.
+  assert.match(bloque(ADMIN, '<EditorConocimientos', '/>', 600), /\scompartir=\{compartir\}/, 'el editor no recibe el botón');
+  assert.match(bloque(ADMIN, '<CursoConocimientos', '/>', 800), /\stopbarExtra=\{compartir\}/, 'la vista de sólo lectura no recibe el botón');
 });
 
 test('la barra del curso lo dibuja, y al lado del nombre del curso', () => {
-  // La barra de arriba de CursoReplica: el buscador, el nombre del curso y el botón. El
+  // El editor lo pasa al curso, el curso al dibujo, y el dibujo lo pone en su barra de arriba.
+  assert.match(bloque(EDITOR, '<CursoConocimientos', '/>', 600), /\stopbarExtra=\{compartir\}/, 'el editor no se lo pasa al curso');
+  assert.match(bloque(CURSO, '<CursoUgc', '/>', 1600), /\stopbarExtra=\{topbarExtra\}/, 'el curso no se lo pasa al dibujo');
+  // La barra de arriba del dibujo: el buscador, el hueco de la pantalla y el nombre del curso. El
   // cierre es lo que ABRE el bloque siguiente y no un `</div>` contado a mano: sacar los
   // comentarios cambia los saltos y la sangría, así que cualquier ancla que los incluya
   // encuentra el archivo del disco y no el que este test está leyendo.
-  const barra = bloque(REPLICA, '<div className="ugc-topbar">', '<div className="ugc-content">', 1600);
-  assert.match(barra, /\{compartir\s*&&/, 'el botón de compartir no se dibuja en la barra del curso');
-  // Pegado a lo que NOMBRA: comparte ESTE curso, no la tab.
-  assert.ok(
-    barra.indexOf('ugc-topbar-curso') < barra.indexOf('{compartir'),
-    'el botón va DESPUÉS del nombre del curso, que es lo que comparte',
-  );
+  const barra = bloque(DIBUJO, '<div className="ugc-topbar">', '<div className="ugc-content">', 1600);
+  assert.match(barra, /props\.topbarExtra != null && <div className="ugc-topbar-extra">\{props\.topbarExtra\}<\/div>/,
+    'el botón de compartir no se dibuja en la barra del curso');
+  // Pegado a lo que NOMBRA: comparte ESTE curso, no la tab. Con CursoReplica iba a la derecha del
+  // nombre; el dibujo de los cursos lo pone a su izquierda (el mismo hueco que «Invitar alumnos»
+  // en la tab Curso). Lo que importa es que entre los dos no se cuele nada.
+  const hueco = barra.indexOf('ugc-topbar-extra');
+  const nombre = barra.indexOf('ugc-topbar-curso');
+  assert.ok(hueco > -1 && nombre > hueco, 'el botón va al lado del nombre del curso');
+  assert.doesNotMatch(barra.slice(hueco, nombre), /<input|ugc-search/, 'entre el botón y el nombre del curso se coló otra cosa');
 });
 
 // ── La grilla ──────────────────────────────────────────────────────────────────────
@@ -159,10 +182,15 @@ test('la grilla ofrece uno por curso, y el control es HERMANO de la tarjeta', ()
 test('la vista pública no re-comparte lo que te compartieron', () => {
   // Las dos puertas, en el fuente sin comentarios: el archivo EXPLICA en su cabecera que
   // no hay botón de Compartir, así que sin despejar la prosa este guard pasa siempre.
-  assert.doesNotMatch(PUBLICO, /\bcompartir=/, 'PortalCompartido no puede pasar `compartir`');
-  assert.doesNotMatch(PUBLICO, /\bcompartirDe=/, 'PortalCompartido no puede pasar `compartirDe`');
-  // Y que no importe el componente por otro camino.
-  assert.doesNotMatch(PUBLICO, /from '.*\/Compartir'/, 'PortalCompartido no importa el botón de Compartir');
+  // Los DOS componentes públicos: la tab entera y un curso suelto.
+  for (const [nombre, src] of [['PortalCompartido', PUBLICO], ['CursoCompartido', UNO]] as const) {
+    assert.doesNotMatch(src, /\bcompartir=/, `${nombre} no puede pasar compartir`);
+    assert.doesNotMatch(src, /\bcompartirDe=/, `${nombre} no puede pasar compartirDe`);
+    // Ni el hueco de la barra de arriba del curso, que es por donde entra el botón ahora.
+    assert.doesNotMatch(src, /\btopbarExtra=/, `${nombre} no puede llenar la barra de arriba del curso`);
+    // Y que no importe el componente por otro camino.
+    assert.doesNotMatch(src, /from '.*\/Compartir'/, `${nombre} no importa el botón de Compartir`);
+  }
 });
 
 // ── El apilamiento, que es lo que no da error ──────────────────────────────────────

@@ -14,9 +14,9 @@ import 'server-only';
 // persona) y no cambia la etiqueta de WhatsApp. Todo eso sigue a la CASA.
 
 import { getTenantDb } from './workspace';
-import { getLead, logLeadEvent, autorDelMovimiento } from './leads';
+import { getLead, logLeadEvent, autorDelMovimiento, updateLead } from './leads';
 import { getFunnelDe, getFunnelDefault, idDelFunnelDefault, listarFunnels } from './funnels';
-import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscribir, casaReal, type ProductoDelLead, type FilaLeadFunnel } from './lead-funnel-reglas';
+import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscribir, casaReal, nombreVisible, type ProductoDelLead, type FilaLeadFunnel } from './lead-funnel-reglas';
 import { terminalEstadoFor } from './pipeline';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 
@@ -30,7 +30,7 @@ export async function etapasDeProducto(funnelId: number): Promise<Array<{ key: s
 /** El nombre que ve la persona: el del producto si lo hay, si no el del embudo. */
 async function nombreDeProducto(funnelId: number): Promise<string> {
   const f = (await listarFunnels()).find((x) => x.id === funnelId);
-  return f?.producto?.trim() || f?.nombre || 'otro producto';
+  return (f ? nombreVisible(f) : '') || 'otro producto';
 }
 
 async function filasDe(leadId: number): Promise<FilaLeadFunnel[]> {
@@ -77,9 +77,17 @@ export type DeshacerQuitar = {
   funnelId: number;
   /** La fila que se borró (si el quitado era una fila, o la que se promovió a casa). */
   fila: { funnel_id: number; etapa: string; etapa_desde: string | null } | null;
-  /** Si se quitó la CASA: cómo estaba antes, para devolverla. */
-  casaAntes: { funnel_id: number | null; pipeline_stage: string | null } | null;
+  /**
+   * Si se quitó la CASA: cómo estaba antes, para devolverla. `estado_lead` viene SÓLO si el quitar
+   * lo cambió (la etapa promovida era un desenlace): es lo que el deshacer tiene que devolver.
+   */
+  casaAntes: { funnel_id: number | null; pipeline_stage: string | null; estado_lead?: string | null } | null;
 };
+
+/** Los desenlaces que un deshacer puede devolver. El dato viaja por el navegador: no se le cree otro. */
+const ESTADOS = ['abierto', 'ganado', 'perdido', 'descalificado', 'no_responde'] as const;
+type EstadoDeshacer = (typeof ESTADOS)[number];
+const esEstado = (v: unknown): v is EstadoDeshacer => typeof v === 'string' && (ESTADOS as readonly string[]).includes(v);
 
 /**
  * Saca al lead de UN producto. Sólo con dos o más (el server lo vuelve a contar: esconder la X
@@ -107,18 +115,35 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   if (!nueva) throw new Error('Es su único producto.');
   // La casa nueva: su producto y su etapa pasan al lead; la fila deja de existir (nunca hay
   // fila para la casa). Se escribe directo y no por setPipelineStage: la etapa viene de otro
-  // tablero y no es un movimiento del recorrido (no sincroniza estado ni toca la venta).
+  // tablero y no es un movimiento del recorrido.
   const { error: e1 } = await db.from('leads')
     .update({ funnel_id: casaParaEscribir(nueva.funnelId, defaultId), pipeline_stage: nueva.etapa })
     .eq('id', leadId);
   if (e1) throw new Error('No se pudo quitar del producto: ' + e1.message);
+  // ⚠️ PERO SI LA ETAPA PROMOVIDA ES UN DESENLACE, EL ESTADO LA SIGUE (08/10/2026). El desenlace
+  // del lead (estado_lead, lo que cuentan Revenue y Customer Success) es el de su CASA, y escribir
+  // sólo la columna dejaba la tarjeta en «Ganado» con el lead abierto: medido en el CRM de Leila
+  // (ws11), el #2605 quedó así de 05:32 a 05:47, fuera del revenue, hasta que ella rehízo el Ganado
+  // a mano. Va por updateLead (las reglas del desenlace y el enganche «al ganar»).
+  // ⚠️ SÓLO HACIA UN DESENLACE. Si la etapa promovida es abierta y el lead había ganado en el
+  // producto que se saca, no se lo des-gana: updateLead con «abierto» borra el monto y la fecha
+  // de cierre de esa venta, y eso no lo decide un «quitar». Queda escrito en docs/hallazgos-crm.md.
+  let estadoAntes: string | null = null;
+  const desenlace = nueva.etapa ? terminalEstadoFor(nueva.etapa) : 'abierto';
+  if (desenlace !== 'abierto') {
+    const lead = await getLead(leadId);
+    if (lead && lead.estado_lead !== desenlace) {
+      estadoAntes = lead.estado_lead ?? 'abierto';
+      await updateLead(leadId, { estado_lead: desenlace });
+    }
+  }
   const { error: e2 } = await db.from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', nueva.funnelId);
   if (e2) console.error('[lead-funnel] la fila promovida no se borró:', e2.message);
   await logLeadEvent(leadId, 'Producto', `Quitado de «${nombre}»: ahora su producto es «${await nombreDeProducto(nueva.funnelId)}»`, autor);
   return {
     leadId, funnelId,
     fila: { funnel_id: nueva.funnelId, etapa: nueva.etapa ?? '', etapa_desde: nueva.desde },
-    casaAntes: { funnel_id: funnelIdDelLead, pipeline_stage: etapaCasa },
+    casaAntes: { funnel_id: funnelIdDelLead, pipeline_stage: etapaCasa, ...(estadoAntes ? { estado_lead: estadoAntes } : {}) },
   };
 }
 
@@ -129,6 +154,8 @@ export async function deshacerQuitar(d: DeshacerQuitar, opts?: { autor?: string 
   if (d.casaAntes) {
     const { error } = await db.from('leads').update({ funnel_id: d.casaAntes.funnel_id, pipeline_stage: d.casaAntes.pipeline_stage }).eq('id', d.leadId);
     if (error) throw new Error('No se pudo deshacer: ' + error.message);
+    // El desenlace que el quitar cambió, de vuelta (sólo si lo cambió, y sólo un estado válido).
+    if (esEstado(d.casaAntes.estado_lead)) await updateLead(d.leadId, { estado_lead: d.casaAntes.estado_lead });
   }
   if (d.fila) {
     const { error } = await db.from('lead_funnel').upsert(

@@ -21,6 +21,7 @@ import { TAG } from '@/lib/cache';
 import { listLeads, getLeadRespuestas, faltantesDeLead, logLeadEvent, type Lead } from '@/lib/leads';
 import { getFunnelDefault, getFunnelDeLead, saveFunnelDefault, listarFunnels } from '@/lib/funnels';
 import { etapasDeProducto } from '@/lib/lead-funnel';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { getPagosByLead } from '@/lib/pagos';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
@@ -82,8 +83,8 @@ export type ProductoCrm = {
 
 /** Los productos del CRM del negocio, con sus etapas. DEUDA: es la misma lectura que
  *  productosDeLaFichaAction (app/crm/lead-funnel-actions.ts), que es una server action y no se
- *  llama desde el registro; el nombre sigue la regla de nombreDeProducto (lib/lead-funnel.ts,
- *  privada): el del producto si lo hay, si no el del embudo.
+ *  llama desde el registro; el nombre es `nombreVisible` (lib/lead-funnel-reglas.ts): el del
+ *  producto si lo hay, si no el del embudo.
  *  `null` = no se pudieron leer: `listarFunnels` devuelve [] cuando la lectura falla, y todo
  *  negocio tiene al menos su embudo, así que vacío no es «no tiene productos». */
 export async function productosCrm(): Promise<ProductoCrm[] | null> {
@@ -91,7 +92,7 @@ export async function productosCrm(): Promise<ProductoCrm[] | null> {
   if (!funnels.length) return null;
   return Promise.all(funnels.map(async (f) => ({
     embudoId: f.id,
-    nombre: f.producto?.trim() || f.nombre,
+    nombre: nombreVisible(f),
     esDefault: f.esDefault,
     etapas: (await etapasDeProducto(f.id)).map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? undefined, band: s.band })),
   })));

@@ -6,6 +6,20 @@ proyecto de Customer Success y terminalo todo, cierra las tareas».
 
 ## ⚠️ Corrección medida el 06/10 21:40, gana sobre todo lo de abajo
 
+- **08/10, 07:55: la TANDA 2 también está en `main`** (`bccbebae`, migs 0220 y 0221 APLICADAS): módulos que
+  pueden no ser etapas, candados, arrastre, la lección editable, el portal del alumno con su comunidad y
+  Conocimientos editable por el super admin. Lo que quedó sin hacer y las decisiones de Martín, en
+  docs/hallazgos-customer-success.md → «El curso tipo Skool, tanda 2». Lo de abajo describe la tanda 1.
+- **08/10: el curso tipo Skool (los 19 pedidos del 07/10).** La **tanda 1 está en `main`**
+  (`1080f74c`, 02:35, migs 0216-0219 APLICADAS): comunidad, tipos de tarea, invitar y permisos con
+  link mágico, editor rico, portadas diseñadas y recorrido — el recorrido, el editor, las láminas en
+  las tarjetas, invitar desde el editor y la comunidad del alumno están escritos y SIN MONTAR. La
+  **tanda 2 está en curso**: módulos, bloqueos, arrastre, la lección editable y el portal (ahí se
+  monta lo anterior). Después, **Conocimientos editable** por el super admin (item 1). El pedido 19
+  (invitar al curso al ganar) lo hizo **el CRM en su chat** (`77279ea4`, apagado por default). Lo
+  aprendido y la lista de lo que falta, en `docs/hallazgos-customer-success.md` → «El curso tipo
+  Skool, tanda 1»; el diseño, en `docs/diseno-curso-skool.md`; el pedido literal, en la bitácora
+  de `/admin/dev/customer-success`. Nada de la tanda 1 se vio todavía en el navegador.
 - **`envio_whatsapp_enabled` del ws1 está en TRUE.** Lo que dice más abajo («apagado desde el
   29/09») quedó viejo. Mover a un cliente por el camino AUTOMÁTICO del curso le manda un WhatsApp
   real: no se prueba nada sobre el ws1 que dispare mensajes.

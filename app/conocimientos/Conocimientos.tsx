@@ -8,21 +8,30 @@
 // params (?curso=…&clase=N) que se sigue LEYENDO para no romper links viejos,
 // pero ya no se escribe. Sin tapar el sidebar de admin. Contenido en ./curso.
 //
-// Vistas: selector de cursos → hub del curso → detalle de clase / de recurso.
+// Vistas: selector de cursos → el curso (índice, módulo, clase, recursos).
 //
-// El portal de un curso (hub/clase/recurso + todo el diseño) y el SELECTOR viven
-// en ./CursoPortal porque los comparte con /compartido/<token>: el invitado ve
-// EXACTAMENTE esta pantalla, no un resumen. Acá queda lo que es solo del admin:
-// la navegación por URL, los dos cursos que no son de texto, y los botones de
-// Compartir (que se inyectan por prop, así ese código no llega al invitado).
+// El SELECTOR vive en ./CursoPortal y el curso en ./CursoConocimientos (el dibujo
+// de los cursos, app/_cursos/CursoUgc.tsx) porque los comparte con
+// /compartido/<token>: el invitado ve EXACTAMENTE esta pantalla, no un resumen.
+// Acá queda lo que es solo del admin: la navegación por URL, los dos cursos que no
+// son de texto, los botones de Compartir (que se inyectan por prop, así ese código
+// no llega al invitado) y EDITAR el curso (item 1 del 07/10/2026: ./EditorConocimientos).
+//
+// ⚠️ QUIÉN EDITA LO DECIDE EL SERVER (`puedeEditar`, ./page.tsx), no esta pantalla: acá no se
+//    vuelve a preguntar. Y lo que se edita se APLICA ENCIMA del catálogo (lib/conocimiento-ajustes.ts):
+//    las filas llegan de la página y se aplican acá porque el catálogo ya viaja entero a este bundle.
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Banner } from '@/app/_ui';
 import { navegar, sembrar, usePosicion } from './posicion';
 import { CURSOS_TODOS as TODOS, CURSOS_COMPARTIBLES, CATEGORIA_PROPIA, buscarCurso, VISTA_PROPIA } from './catalogo';
+import { ajustarFicha, aplicarAjustes, type FilaAjuste } from '@/lib/conocimiento-ajustes';
 import AnalisisNegocio from './AnalisisNegocio';
 import BrandingMaKo from './BrandingMaKo';
 import Compartir from './Compartir';
-import CursoPortal, { PortalShell, Selector } from './CursoPortal';
+import { PortalShell, Selector } from './CursoPortal';
+import CursoConocimientos from './CursoConocimientos';
+import EditorConocimientos from './EditorConocimientos';
 
 // La letra chica del link de la TAB: cuántos cursos entran y qué queda afuera.
 // «Compartir "Conocimientos"» no dice ninguna de las dos cosas, y sin decirlas
@@ -31,7 +40,14 @@ const NOTA_TAB = `El link abre el portal con ${CURSOS_COMPARTIBLES.length} curso
   + `Los cursos que se sumen después también aparecen. La sección «${CATEGORIA_PROPIA}» NO entra: `
   + 'para compartir uno de ésos, se comparte ese curso desde adentro.';
 
-export default function Conocimientos() {
+export default function Conocimientos({ ajustes, errorAjustes, puedeEditar }: {
+  /** Lo que el super admin le cambió a cada curso (mig 0221), leído en el server. */
+  ajustes: FilaAjuste[];
+  /** La lectura falló: se ve el catálogo tal cual y NO se ofrece editar (se editaría encima de algo que no se ve). */
+  errorAjustes: string | null;
+  /** Lo decidió el server (`getSesionAdmin`). */
+  puedeEditar: boolean;
+}) {
   /**
    * TODA la navegacion sale de `usePosicion`, igual que el portal compartido.
    *
@@ -41,7 +57,17 @@ export default function Conocimientos() {
    * `pushState` no dispara ningun evento. El porque completo esta en posicion.ts.
    */
   const { pos, ir } = usePosicion();
-  const curso = buscarCurso(pos.curso);
+  const base = buscarCurso(pos.curso);
+
+  /**
+   * Las filas de TODOS los cursos. El editor avisa las de su curso cada vez que el server confirma, así
+   * la grilla dice el título y la portada nuevos al volver, sin recargar.
+   */
+  const [filas, setFilas] = useState<FilaAjuste[]>(ajustes);
+  const ponerFilas = (slug: string, nuevas: FilaAjuste[]) =>
+    setFilas((todas) => [...todas.filter((f) => f.curso_slug !== slug), ...nuevas]);
+  const cursos = useMemo(() => TODOS.map((c) => ajustarFicha(c, filas)), [filas]);
+  const curso = base ? ajustarFicha(base, filas) : undefined;
 
   /**
    * ⚠️ LOS LINKS VIEJOS SIGUEN ANDANDO. Esta pantalla vivio meses en `?curso=X&clase=N`,
@@ -68,9 +94,9 @@ export default function Conocimientos() {
   }, []);
 
   let body: ReactNode;
-  if (!curso) body = (
+  if (!base || !curso) body = (
     <Selector
-      cursos={TODOS}
+      cursos={cursos}
       enter={(slug) => ir({ curso: slug })}
       compartir={<Compartir recurso="conocimientos" etiqueta="Conocimientos — todos los cursos" nota={NOTA_TAB} />}
       // Compartir UN curso sin tener que entrar. El mismo recurso y el mismo
@@ -81,22 +107,24 @@ export default function Conocimientos() {
   );
   // "Análisis de Negocio" es una vista INTERACTIVA (form + modales de fases), no
   // un curso de texto: se renderiza aparte del portal genérico.
-  else if (curso.slug === VISTA_PROPIA.analisis) body = <AnalisisNegocio back={() => ir({})} />;
+  else if (base.slug === VISTA_PROPIA.analisis) body = <AnalisisNegocio back={() => ir({})} />;
   // "Branding MaKo" es una GALERÍA de archivos (no un curso de texto): el
   // material vive en Storage y se pide por API, así que también va aparte.
-  else if (curso.slug === VISTA_PROPIA.branding) body = <BrandingMaKo back={() => ir({})} />;
-  else body = (
-    <CursoPortal
-      curso={curso}
-      vista={{ clase: pos.clase ?? null, r: pos.r ?? null, de: null }}
-      nav={(v, o) => ir(
-        { curso: curso.slug, clase: v.clase ?? undefined, r: v.r ?? undefined },
-        o?.reemplazar ? 'reemplazar' : 'empujar',
-      )}
-      salir={() => ir({})}
-      compartir={<Compartir recurso="curso" recursoId={curso.slug} etiqueta={curso.titulo} />}
-    />
-  );
+  else if (base.slug === VISTA_PROPIA.branding) body = <BrandingMaKo back={() => ir({})} />;
+  else {
+    // El botón de compartir ESTE curso va en la barra de arriba del curso, al lado de su nombre. Se
+    // inyecta desde acá, como el de la grilla: la vista pública no lo pasa, así que no se re-comparte
+    // lo que te compartieron y ese código no llega al invitado.
+    const compartir = <Compartir recurso="curso" recursoId={base.slug} etiqueta={curso.titulo} />;
+    body = puedeEditar && !errorAjustes ? (
+      <EditorConocimientos key={base.slug} curso={base} filas={filas.filter((f) => f.curso_slug === base.slug)}
+        onFilas={(nuevas) => ponerFilas(base.slug, nuevas)} onSalir={() => ir({})} compartir={compartir} />
+    ) : (
+      <CursoConocimientos key={base.slug} curso={aplicarAjustes(base, filas, { conOcultos: puedeEditar })}
+        onSalir={() => ir({})} topbarExtra={compartir}
+        arriba={errorAjustes ? <Banner tono="bad">No pude leer los cambios de los cursos: se ve el original y no se puede editar.</Banner> : undefined} />
+    );
+  }
 
   return (
     <PortalShell

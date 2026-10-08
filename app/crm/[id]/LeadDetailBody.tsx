@@ -24,6 +24,7 @@ import { deleteLeadAction } from '../actions';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { deriveStageKey, stageMetaOpt, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
+import { suscripcionDeFila } from '@/lib/venta-tipo';
 import type { Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
 import type { MiembroEquipo } from '../actions';
@@ -153,6 +154,9 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     // El tipo de venta guardado: sin esto el wizard abre en «Pago único» y a un becado
     // (#747) le vuelve a pedir el monto.
     ventaTipo: lead.venta_tipo ?? null,
+    // La mensualidad y el plazo de una suscripción: sin ellos reabrirla pedía el monto
+    // vacío, y guardar escribía NULL encima (lib/venta-tipo.ts).
+    ...suscripcionDeFila(lead),
   };
 
   // Solucionar (pasada única): SIEMPRE abre el wizard con TODO lo faltante

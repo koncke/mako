@@ -30,7 +30,7 @@
 // ⚠️ SIN `server-only` NI `'use client'`, a propósito: lo usan la capa de datos (lib/curso-datos.ts,
 // que lo lee en cada pedido del portal), la ficha (FichaCurso, para dibujar las casillas) y el test.
 //
-// QUIÉN LO APLICA: el portal, en la MISMA puerta que los bloqueos (`decidirClase` / `armarEtapas`
+// QUIÉN LO APLICA: el portal, en la MISMA puerta que los bloqueos (`decidirClase` / `armarModulos`
 // de lib/curso-portal.ts) — lo bloqueado NO viaja al navegador. `resolverAcceso` y
 // `resolverAccesoPortal` (lib/curso-datos.ts) devuelven el alcance para que esa puerta lo tenga.
 

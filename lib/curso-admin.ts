@@ -10,8 +10,8 @@ import 'server-only';
 //
 // ⚠️ NADA DE ACÁ PREGUNTA QUIÉN LLAMA: eso lo hacen las server actions
 // (app/customer-success/curso/actions.ts), que es la puerta. Acá se valida LO QUE SE ESCRIBE:
-// que el producto sea de este workspace, que la etapa exista en SU entrega, que el video sea
-// de este curso. Todo contra `getTenantDb()`, que pone el `.eq` del inquilino.
+// que el producto sea de este workspace, que el MÓDULO exista en su curso (una etapa del kanban o
+// un módulo suelto, lib/curso-modulos.ts), que el video sea de este curso. Todo contra `getTenantDb()`, que pone el `.eq` del inquilino.
 //
 // ⚠️ EL VIDEO NO PASA POR ACÁ. Una server action topa el cuerpo en 1 MB y una función de
 // Vercel en ~4,5 MB (AGENTS.md, «tres topes del entorno»): el navegador lo sube DIRECTO al
@@ -21,13 +21,13 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
-import { entregaDeProducto } from './entrega-servicio';
 import { COLUMNAS_CLASE, aClase } from './curso-datos';
-import { leerTodo } from './supabase-paginado';
-import type { Clase } from './curso';
+import { modulosDelCurso } from './curso-modulos-datos';
+import type { ModuloCurso } from './curso-modulos';
+import { tieneTarea, type Clase, type TipoClase } from './curso';
 import {
-  validarClase, pathDeSubida, pathEsDelWorkspace, reordenar, clasesDeEtapa, siguienteOrden,
-  esMimeVideo, TOPE_VIDEO_BYTES, TOPE_TITULO, valorGrabar, type AccesoFila,
+  validarClase, validarVideoEntrada, validarCamposEntrada, pathDeSubida, pathEsDelWorkspace, reordenar, clasesDeEtapa, siguienteOrden,
+  ordenConClaseEn, esMimeVideo, TOPE_VIDEO_BYTES, TOPE_TITULO, TOPE_TEXTO, ERROR_OBLIGATORIA_SUELTO, TIPOS_CLASE, type AccesoFila,
 } from '@/app/customer-success/curso/reglas';
 
 /** El bucket privado de la mig 0202. */
@@ -42,23 +42,44 @@ type FilaDeClase = Parameters<typeof aClase>[0];
 
 const msg = (e: unknown, def: string) => (e instanceof Error && e.message ? e.message : def);
 
+/** ¿El producto es de ESTE workspace? (sin leer su curso: lo que pide la subida de un video). */
+async function productoDelNegocio(productoId: number): Promise<boolean> {
+  if (!Number.isInteger(productoId) || productoId <= 0) return false;
+  const db = await getTenantDb();
+  const { data, error } = await db.from('productos').select('id').eq('id', productoId).limit(1);
+  if (error) throw new Error(error.message);
+  return (data ?? []).length > 0;
+}
+
 /**
- * ¿El producto es de ESTE workspace? Y sus etapas de entrega (las CLAVES, en orden).
+ * ¿El producto es de ESTE workspace? Y los MÓDULOS de su curso (D1, lib/curso-modulos.ts): las
+ * etapas del kanban que son módulo y los sueltos, en orden.
  *
  * ⚠️ NO MIRA `activo`: la tab ofrece sólo los productos vivos (la misma lista que el kanban),
  * pero una clase de un producto que se dio de baja se puede seguir borrando o moviendo —
  * negarlo dejaría su contenido trabado sin una pantalla que lo muestre.
  *
- * Exportada para las notas (lib/curso-notas.ts): la misma pregunta, en un solo lugar.
+ * ⚠️ LEE ESTRICTO, Y TIRA SI NO PUEDE (riesgo 12 del relevo del 07/10/2026). Hasta el 08/10/2026
+ * validaba contra `entregaDeProducto`, que con la lectura caída devuelve las etapas DE FÁBRICA:
+ * «onboarding» pasaba por una etapa válida sobre un producto que tenía nueve propias, y la clase
+ * quedaba colgando de un módulo que no existe. Una lectura que cae al default sirve para dibujar,
+ * nunca para decidir.
+ */
+export async function productoConModulos(productoId: number): Promise<{ modulos: ModuloCurso[]; claves: string[] } | null> {
+  if (!(await productoDelNegocio(productoId))) return null;
+  const cur = await modulosDelCurso(productoId, { estricta: true });
+  if (!cur) throw new Error('No pude leer los módulos. Intenta de nuevo.');
+  return { modulos: cur.modulos, claves: cur.modulos.map((m) => m.clave) };
+}
+
+/**
+ * Lo mismo con el nombre de antes, para las notas (lib/curso-notas.ts): una nota «de etapa» cuelga
+ * de la clave de un MÓDULO desde el 08/10/2026 (desvincular le muda la clave junto con sus clases,
+ * lib/curso-modulos-datos.ts). La misma pregunta, en un solo lugar.
  */
 export async function productoConEtapas(productoId: number): Promise<{ etapas: string[] } | null> {
-  if (!Number.isInteger(productoId) || productoId <= 0) return null;
-  const db = await getTenantDb();
-  const { data, error } = await db.from('productos').select('id').eq('id', productoId).limit(1);
-  if (error) throw new Error(error.message);
-  if (!(data ?? []).length) return null;
-  const cfg = await entregaDeProducto(productoId);
-  return { etapas: cfg.etapas.map((e) => e.key) };
+  const p = await productoConModulos(productoId);
+  return p ? { etapas: p.claves } : null;
 }
 
 async function claseCruda(claseId: number): Promise<Clase | null> {
@@ -91,7 +112,14 @@ async function borrarArchivo(path: string | null | undefined): Promise<void> {
 }
 
 /**
- * Crea o edita una clase. Una clase nueva (o que cambia de etapa) entra AL FINAL de su etapa.
+ * Crea o edita una clase entera (el editor de la clase). Una clase nueva (o que cambia de módulo)
+ * entra AL FINAL de su módulo.
+ *
+ * ⚠️ SI CAMBIA EL TEXTO PLANO, LA DESCRIPCIÓN RICA SE VACÍA en la misma escritura. Este camino escribe
+ * `descripcion` desde un textarea y no conoce `descripcion_html` (mig 0216): sin esto, el portal
+ * seguiría dibujando el HTML viejo debajo de un texto que alguien acaba de cambiar — dos versiones
+ * que dicen cosas distintas, y gana la que nadie editó. Lo que se edita en el lugar va por
+ * `guardarCampoClase`, que escribe las dos juntas.
  *
  * ⚠️ UN VIDEO SUBIDO SE VERIFICA ANTES DE GUARDAR (`exists`): la subida la hace el navegador y
  * puede cortarse (pestaña cerrada, red), y una clase que apunta a un archivo que no está es un
@@ -103,12 +131,20 @@ export async function guardarClase(raw: unknown): Promise<Resultado<{ clase: Cla
     const ws = await getWorkspaceActual();
     if (!ws) return { ok: false, error: 'No hay un negocio abierto.' };
     const productoId = Number((raw as { productoId?: unknown } | null)?.productoId);
-    const prod = await productoConEtapas(productoId);
+    const prod = await productoConModulos(productoId);
     if (!prod) return { ok: false, error: 'Ese producto no es de este negocio.' };
-    const v = validarClase(raw, { ws, productoId, etapas: prod.etapas });
+    // ⚠️ «CIERRA LA ETAPA» QUE LA CLASE YA TENÍA EN UN SUELTO SE CONSERVA (revisión del 08/10/2026): llegó
+    // ahí al desvincular su módulo o al arrastrarla, y no se borra (`moverClaseA`). Rechazarla acá
+    // obligaba a destildarla para guardar CUALQUIER otra cosa de la clase —un candado sin llave sobre el
+    // título—. Lo que se rechaza es ponerla NUEVA en un suelto.
+    const idPedido = Number((raw as { id?: unknown } | null)?.id);
+    const antes = Number.isInteger(idPedido) && idPedido > 0 ? await claseCruda(idPedido) : null;
+    const yaLaTenia = antes?.obligatoria && antes.productoId === productoId ? antes.etapa : null;
+    const sueltos = prod.modulos.filter((m) => !m.vinculado && m.clave !== yaLaTenia).map((m) => m.clave);
+    const v = validarClase(raw, { ws, productoId, modulos: prod.claves, sueltos });
     if (!v.ok) return v;
 
-    const previa = v.id ? await claseCruda(v.id) : null;
+    const previa = v.id ? (antes?.id === v.id ? antes : await claseCruda(v.id)) : null;
     if (v.id && (!previa || previa.productoId !== productoId)) return { ok: false, error: 'Esa clase ya no existe.' };
 
     if (v.fila.video_tipo === 'archivo' && v.fila.video_path !== previa?.videoPath) {
@@ -129,7 +165,7 @@ export async function guardarClase(raw: unknown): Promise<Resultado<{ clase: Cla
     }
 
     const ahora = new Date().toISOString();
-    const fila = { ...v.fila, orden, updated_at: ahora };
+    const fila = { ...v.fila, orden, updated_at: ahora, ...(previa && previa.descripcion !== v.fila.descripcion ? { descripcion_html: '' } : {}) };
     const { data, error } = previa
       ? await db.from('curso_clases').update(fila).eq('id', previa.id).select(COLUMNAS_CLASE).single()
       : await db.from('curso_clases').insert([{ ...fila, producto_id: productoId }]).select(COLUMNAS_CLASE).single();
@@ -154,6 +190,10 @@ export async function borrarClase(claseId: number): Promise<Resultado> {
     const { error } = await db.from('curso_clases').delete().eq('id', c.id);
     if (error) return { ok: false, error: error.message };
     await borrarArchivo(c.videoPath);
+    // Lo que se le abrió a mano a algún alumno (mig 0220) nombra la clase por su id como texto, sin
+    // FK: se limpia acá. Best-effort, como la portada: una fila de más no abre nada.
+    const { error: errAbierta } = await db.from('curso_desbloqueos').delete().eq('producto_id', c.productoId).eq('objeto', 'clase').eq('clave', String(c.id));
+    if (errAbierta) console.warn(`[curso-admin] no pude limpiar lo abierto a mano de la clase ${c.id}: ${errAbierta.message}`);
     // La portada que se le eligió (mig 0214) no tiene FK a la clase: sin esto su fila quedaba para
     // siempre. Best-effort, como el archivo: lo que importa —la clase— ya se borró, y una fila de
     // más no se dibuja (el portal sólo manda las portadas de las clases que viajan).
@@ -174,11 +214,11 @@ export async function moverClase(claseId: number, dir: 'arriba' | 'abajo'): Prom
     if (dir !== 'arriba' && dir !== 'abajo') return { ok: false, error: 'Dirección inválida.' };
     const c = await claseCruda(claseId);
     if (!c) return { ok: false, error: 'Esa clase ya no existe.' };
-    // El orden sólo tiene sentido adentro de una etapa que existe: una huérfana se MUEVE de
-    // etapa desde el editor, no se ordena entre otras huérfanas.
-    const prod = await productoConEtapas(c.productoId);
+    // El orden sólo tiene sentido adentro de un módulo que existe: una huérfana se MUEVE de
+    // módulo, no se ordena entre otras huérfanas.
+    const prod = await productoConModulos(c.productoId);
     if (!prod) return { ok: false, error: 'Ese producto no es de este negocio.' };
-    if (!prod.etapas.includes(c.etapa)) return { ok: false, error: 'Su etapa ya no existe.' };
+    if (!prod.claves.includes(c.etapa)) return { ok: false, error: 'Su módulo ya no existe.' };
     const db = await getTenantDb();
     const { data, error } = await db.from('curso_clases').select('id, etapa, orden')
       .eq('producto_id', c.productoId).eq('etapa', c.etapa);
@@ -225,7 +265,7 @@ export async function urlSubida(productoId: number, mime: string, bytes: number)
   try {
     const ws = await getWorkspaceActual();
     if (!ws) return { ok: false, error: 'No hay un negocio abierto.' };
-    if (!(await productoConEtapas(productoId))) return { ok: false, error: 'Ese producto no es de este negocio.' };
+    if (!(await productoDelNegocio(productoId))) return { ok: false, error: 'Ese producto no es de este negocio.' };
     if (!esMimeVideo(mime)) return { ok: false, error: 'Ese formato no va: MP4, WEBM o MOV.' };
     if (!Number.isFinite(bytes) || bytes <= 0) return { ok: false, error: 'El archivo está vacío.' };
     if (bytes > TOPE_VIDEO_BYTES) return { ok: false, error: 'Pasa de 2 GB.' };
@@ -283,32 +323,9 @@ export async function urlLectura(path: string): Promise<Resultado<{ url: string 
   }
 }
 
-/**
- * Marca una clase para grabar (`true`), para no grabar (`false`) o la deja sin decidir (`null`).
- *
- * ⚠️ UNA ESCRITURA DE SÓLO ESA COLUMNA, y no por `guardarClase`: guardar la clase entera manda
- * la fila que arma `validarClase`, que NO trae `grabar` — así que ninguno de los dos caminos
- * puede pisar al otro. Si esto pasara por el guardado, abrir el editor en una pestaña vieja y
- * guardar un título le devolvería a la clase la marca de hace una hora.
- *
- * ⚠️ NI SIQUIERA `updated_at`: la marca es una decisión de PRODUCCIÓN (qué falta grabar), no un
- * cambio del contenido que ve el cliente.
- */
-export async function marcarGrabar(claseId: number, raw: unknown): Promise<Resultado<{ grabar: boolean | null }>> {
-  try {
-    const valor = valorGrabar(raw);
-    if (valor === undefined) return { ok: false, error: 'Marca inválida.' };
-    if (!Number.isInteger(claseId) || claseId <= 0) return { ok: false, error: 'Esa clase ya no existe.' };
-    const db = await getTenantDb();
-    const { data, error } = await db.from('curso_clases').update({ grabar: valor }).eq('id', claseId).select('id, grabar').maybeSingle();
-    if (error) return { ok: false, error: error.message };
-    if (!data) return { ok: false, error: 'Esa clase ya no existe.' };
-    const g = (data as { grabar: boolean | null }).grabar;
-    return { ok: true, grabar: g === true || g === false ? g : null };
-  } catch (e) {
-    return { ok: false, error: msg(e, 'No se pudo marcar.') };
-  }
-}
+// ⚠️ LA MARCA DE GRABAR (#693, «Grabar / No grabar») SE FUE el 08/10/2026 (item 15: «Elimina el botón
+// de "grabar/no grabar"»): su escritura, su lectura y su conteo. La COLUMNA `curso_clases.grabar`
+// (mig 0208) queda, con lo que tenía: sacarla es una migración que nadie pidió, y nada la lee.
 
 /**
  * Cambia SÓLO el título de una clase (el clic en el título de la lección, 07/10/2026).
@@ -336,6 +353,230 @@ export async function renombrarClase(claseId: number, raw: unknown): Promise<Res
   }
 }
 
+// ── La lección que se edita en su lugar (D4, 08/10/2026) ─────────────────────────
+// «Si quiero editar el título, le doy click, como la descripción… Si quiero agregar un vídeo… debe
+// siempre estar un placeholder… Lo mismo con el botón de "Agregar tarea"» (Martín, items 12-16).
+//
+// ⚠️ CADA PIEZA ES UN `update` DE SÓLO SUS COLUMNAS, el molde de `renombrarClase`, nunca la fila
+// entera: cada parte de la lección se guarda por su lado (el título al salir del campo, la
+// descripción con un respiro, la tarea al tocarla), y un guardado de la fila armada en el navegador
+// pisaría lo que otra parte guardó un segundo antes.
+
+/**
+ * Crea una clase «Nueva clase» AL PRINCIPIO del módulo y la devuelve: la pantalla la abre para
+ * editarla en su lugar (item 12: «nueva clase, que aparezca primero, no por último»).
+ *
+ * ⚠️ AL PRINCIPIO CON `orden` = el más chico − 1, sin renumerar a las demás: una sola escritura. Los
+ * huecos y los negativos no molestan (el orden se compara, no se cuenta), y el próximo arrastre
+ * renumera el módulo entero.
+ */
+export async function crearClase(productoId: number, moduloClave: string): Promise<Resultado<{ clase: Clase }>> {
+  try {
+    const prod = await productoConModulos(productoId);
+    if (!prod) return { ok: false, error: 'Ese producto no es de este negocio.' };
+    if (!prod.claves.includes(moduloClave)) return { ok: false, error: 'Ese módulo no existe.' };
+    const db = await getTenantDb();
+    const { data: hermanas, error: e1 } = await db.from('curso_clases').select('id, orden').eq('producto_id', productoId).eq('etapa', moduloClave);
+    if (e1) return { ok: false, error: e1.message };
+    const ordenes = ((hermanas ?? []) as Array<{ orden: number }>).map((h) => h.orden ?? 0);
+    const orden = ordenes.length ? Math.min(...ordenes) - 1 : 0;
+    const { data, error } = await db.from('curso_clases')
+      .insert([{ producto_id: productoId, etapa: moduloClave, orden, titulo: 'Nueva clase', tipo: 'clase', updated_at: new Date().toISOString() }])
+      .select(COLUMNAS_CLASE).single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, clase: aClase(data as FilaDeClase) };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo crear la clase.') };
+  }
+}
+
+/**
+ * Lleva una clase al módulo `moduloClave`, ANTES de la clase `antesDe` (`null` = al final): el
+ * arrastre, entre módulos y adentro del mismo. Renumera el módulo de destino entero 0..n-1 (el
+ * criterio de `moverClase`: con huecos o empates, un número suelto puede no mover nada) y devuelve
+ * la clase como quedó y el orden del módulo, para que la pantalla corrija si su versión optimista no
+ * coincide.
+ *
+ * ⚠️ «Cierra la etapa» VIAJA CON LA CLASE y no se borra al llevarla a un suelto: ahí no cuenta (un
+ * suelto no mueve a nadie en el kanban) y vuelve a contar si la traen de vuelta. Borrarla sería
+ * perder una decisión del equipo por un arrastre.
+ */
+export async function moverClaseA(claseId: number, moduloClave: string, antesDe: number | null): Promise<Resultado<{ clase: Clase; ids: number[] }>> {
+  try {
+    const c = await claseCruda(claseId);
+    if (!c) return { ok: false, error: 'Esa clase ya no existe.' };
+    const prod = await productoConModulos(c.productoId);
+    if (!prod) return { ok: false, error: 'Ese producto no es de este negocio.' };
+    if (!prod.claves.includes(moduloClave)) return { ok: false, error: 'Ese módulo no existe.' };
+    // ⚠️ Un módulo que se abre con la tarea de ESTA clase no la puede recibir (revisión del 08/10/2026):
+    // cerrado, no deja completar sus clases, y no se abriría nunca. `guardarBloqueo` lo rechaza al
+    // poner el candado; el arrastre era la otra puerta para llegar al mismo lugar.
+    const destino = prod.modulos.find((m) => m.clave === moduloClave);
+    if (destino?.bloqueo?.tipo === 'tarea' && destino.bloqueo.claseId === c.id) return { ok: false, error: 'Ese módulo se abre con esta clase.' };
+    const db = await getTenantDb();
+    const { data, error } = await db.from('curso_clases').select('id, etapa, orden').eq('producto_id', c.productoId).eq('etapa', moduloClave);
+    if (error) return { ok: false, error: error.message };
+    const actuales = clasesDeEtapa((data ?? []) as Array<{ id: number; etapa: string; orden: number }>, moduloClave);
+    const ids = ordenConClaseEn(actuales.map((x) => Number(x.id)), c.id, antesDe == null ? null : Number(antesDe));
+    if (!ids) return { ok: false, error: 'Ese lugar ya no existe.' };
+    const ahora = new Date().toISOString();
+    const antes = new Map(actuales.map((x) => [Number(x.id), x.orden]));
+    for (const [orden, id] of ids.entries()) {
+      const cambiaModulo = id === c.id && c.etapa !== moduloClave;
+      if (!cambiaModulo && antes.get(id) === orden) continue;
+      const { error: e2 } = await db.from('curso_clases')
+        .update(cambiaModulo ? { etapa: moduloClave, orden, updated_at: ahora } : { orden, updated_at: ahora })
+        .eq('id', id).eq('producto_id', c.productoId);
+      if (e2) return { ok: false, error: e2.message };
+    }
+    const quedo = await claseCruda(c.id);
+    if (!quedo) return { ok: false, error: 'Esa clase ya no existe.' };
+    return { ok: true, clase: quedo, ids };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo mover la clase.') };
+  }
+}
+
+/**
+ * Lo que se guarda de UNA parte de la lección. Un objeto con UNA de estas claves.
+ *
+ * `minutos` y `tipo` (08/10/2026, paso LECCIÓN): eran campos del editor de la clase, el modal que se
+ * fue con el botón «Editar» (item 16). Ahora viven en la ficha de la lección, y los minutos se llenan
+ * solos con la duración del video que se sube.
+ */
+export type CambioClase =
+  | { titulo: string }
+  | { descripcionHtml: string }
+  | { video: { tipo: 'url'; url: string } | { tipo: 'archivo'; path: string } | null }
+  | { tarea: string }
+  | { campos: unknown }
+  | { obligatoria: boolean }
+  | { porArea: boolean }
+  | { minutos: number | null }
+  | { tipo: TipoClase };
+
+const CLAVES_CAMBIO = ['titulo', 'descripcionHtml', 'video', 'tarea', 'campos', 'obligatoria', 'porArea', 'minutos', 'tipo'] as const;
+
+/**
+ * Guarda UNA parte de una clase (D4): el título, la descripción rica, el video, la tarea, los campos
+ * del formulario, «Cierra la etapa» o «Por área». Devuelve la clase como quedó.
+ *
+ *   · `descripcionHtml`: se SANEA en el server con la lista blanca (`validarHtmlRico`,
+ *     lib/html-seguro.ts) y se guarda con su texto plano al lado (`descripcion`: la búsqueda, la IA y
+ *     los mensajes leen ése), recortado a `TOPE_TEXTO`. Después se atan a la clase los adjuntos que
+ *     nombra (`vincularAdjuntos`), que es lo que deja servírselos al alumno.
+ *   · `video`: el mismo validador que el guardado entero (`validarVideoEntrada`); un archivo subido se
+ *     verifica en el bucket antes de guardar, y el que tenía se borra si ya nadie lo usa.
+ *   · `tarea` / `campos`: si la clase queda SIN nada que pedir, «Cierra la etapa» se apaga EN LA MISMA
+ *     ESCRITURA. No se rechaza: borrar la tarea es un gesto de la lección y frenarlo por una marca de
+ *     otra parte de la pantalla sería un candado sin llave. Sin tarea, la marca no cerraría nada
+ *     (`obligatoriasDe` sólo cuenta las que piden algo), y quedaría guardada sin efecto.
+ *   · `obligatoria: true`: sólo con tarea, y sólo en un módulo VINCULADO (un suelto no cierra etapas).
+ *   · `minutos` (0 a 600, o `null`) y `tipo` (uno de `TIPOS_CLASE`): la ficha de la lección. Las mismas
+ *     reglas que el guardado entero (`validarClase`), escritas para UN campo.
+ */
+export async function guardarCampoClase(claseId: number, cambio: unknown): Promise<Resultado<{ clase: Clase }>> {
+  try {
+    if (!cambio || typeof cambio !== 'object' || Array.isArray(cambio)) return { ok: false, error: 'No llegó el cambio.' };
+    const presentes = CLAVES_CAMBIO.filter((k) => Object.prototype.hasOwnProperty.call(cambio, k));
+    if (presentes.length !== 1) return { ok: false, error: 'Un cambio por vez.' };
+    const clave = presentes[0];
+    const valor = (cambio as Record<string, unknown>)[clave];
+    const c = await claseCruda(claseId);
+    if (!c) return { ok: false, error: 'Esa clase ya no existe.' };
+    const ahora = new Date().toISOString();
+    let fila: Record<string, unknown>;
+    let alFinal: (() => Promise<void>) | null = null;
+
+    switch (clave) {
+      case 'titulo': {
+        const titulo = typeof valor === 'string' ? valor.replace(/\s+/g, ' ').trim() : '';
+        if (!titulo) return { ok: false, error: 'Falta el título.' };
+        if (titulo.length > TOPE_TITULO) return { ok: false, error: `El título pasa de ${TOPE_TITULO} letras.` };
+        fila = { titulo };
+        break;
+      }
+      case 'descripcionHtml': {
+        const { validarHtmlRico } = await import('./html-seguro');
+        const v = validarHtmlRico(valor);
+        if (!v.ok) return v;
+        fila = { descripcion_html: v.html, descripcion: v.texto.slice(0, TOPE_TEXTO) };
+        alFinal = async () => {
+          const { vincularAdjuntos } = await import('./curso-adjuntos');
+          await vincularAdjuntos(c.productoId, c.id, v.html);
+        };
+        break;
+      }
+      case 'video': {
+        const ws = await getWorkspaceActual();
+        if (!ws) return { ok: false, error: 'No hay un negocio abierto.' };
+        const v = validarVideoEntrada(valor, { ws, productoId: c.productoId });
+        if (!v.ok) return v;
+        if (v.video.video_tipo === 'archivo' && v.video.video_path !== c.videoPath) {
+          // ⚠️ Lo mismo que `guardarClase`: la subida la hace el navegador y puede cortarse.
+          const { data: hay } = await getSupabaseServer().storage.from(BUCKET_CURSO).exists(v.video.video_path!);
+          if (!hay) return { ok: false, error: 'El video no terminó de subir.' };
+        }
+        fila = { ...v.video };
+        if (c.videoPath && c.videoPath !== v.video.video_path) alFinal = () => borrarArchivo(c.videoPath);
+        break;
+      }
+      case 'tarea': {
+        const tarea = typeof valor === 'string' ? valor.trim() : '';
+        if (tarea.length > TOPE_TEXTO) return { ok: false, error: 'El texto es demasiado largo.' };
+        fila = { tarea, ...(c.obligatoria && !tieneTarea({ tarea, campos: c.campos }) ? { obligatoria: false } : {}) };
+        break;
+      }
+      case 'campos': {
+        const v = validarCamposEntrada(valor);
+        if (!v.ok) return v;
+        fila = { campos: v.campos, ...(c.obligatoria && !tieneTarea({ tarea: c.tarea, campos: v.campos }) ? { obligatoria: false } : {}) };
+        break;
+      }
+      case 'obligatoria': {
+        if (typeof valor !== 'boolean') return { ok: false, error: 'Marca inválida.' };
+        if (valor) {
+          if (!tieneTarea(c)) return { ok: false, error: 'Para cerrar la etapa, agrega la tarea.' };
+          const prod = await productoConModulos(c.productoId);
+          if (!prod) return { ok: false, error: 'Ese producto no es de este negocio.' };
+          if (!prod.modulos.find((m) => m.clave === c.etapa)?.vinculado) return { ok: false, error: ERROR_OBLIGATORIA_SUELTO };
+        }
+        fila = { obligatoria: valor };
+        break;
+      }
+      case 'porArea': {
+        if (typeof valor !== 'boolean') return { ok: false, error: 'Marca inválida.' };
+        fila = { por_area: valor };
+        break;
+      }
+      case 'minutos': {
+        // El mismo tope que el guardado entero (`validarClase`): 0 a 600, entero. `null` = sin minutos.
+        const m = valor === null ? null : Number(valor);
+        if (m !== null && (typeof valor !== 'number' || !Number.isFinite(m) || m < 0 || m > 600)) return { ok: false, error: 'Los minutos no cierran.' };
+        fila = { minutos: m === null ? null : Math.round(m) };
+        break;
+      }
+      case 'tipo': {
+        if (typeof valor !== 'string' || !TIPOS_CLASE.some((t) => t.value === valor)) return { ok: false, error: 'Ese tipo no existe.' };
+        fila = { tipo: valor };
+        break;
+      }
+      default:
+        return { ok: false, error: 'No llegó el cambio.' };
+    }
+
+    const db = await getTenantDb();
+    const { data, error } = await db.from('curso_clases').update({ ...fila, updated_at: ahora })
+      .eq('id', c.id).eq('producto_id', c.productoId).select(COLUMNAS_CLASE).maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: 'Esa clase ya no existe.' };
+    if (alFinal) await alFinal();
+    return { ok: true, clase: aClase(data as FilaDeClase) };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo guardar.') };
+  }
+}
+
 /** ¿La clase es de ese producto (y de este workspace)? Para atar a ella una portada. */
 export async function claseEsDelProducto(claseId: number, productoId: number): Promise<boolean> {
   if (!Number.isInteger(claseId) || claseId <= 0) return false;
@@ -345,25 +586,6 @@ export async function claseEsDelProducto(claseId: number, productoId: number): P
   return !!data;
 }
 
-/**
- * La marca de grabar de las clases de varios productos: claseId → `true | false | null`.
- *
- * ⚠️ VA APARTE DE `COLUMNAS_CLASE`, a propósito: ésa la leen también el portal del alumno, la
- * ficha y el cron. Con `grabar` adentro, una migración atrasada tumbaría el portal de cada
- * cliente; así, lo único que depende de la 0208 es la tab del equipo.
- *
- * ⚠️ TIRA si no puede leer, y quien llama decide: leída como «nada marcado», una consulta caída
- * le diría a Mauricio que no hay nada por grabar.
- */
-export async function grabarDeProductos(productoIds: readonly number[]): Promise<Record<number, boolean | null>> {
-  const out: Record<number, boolean | null> = {};
-  if (!productoIds.length) return out;
-  const db = await getTenantDb();
-  const filas = await leerTodo<{ id: number; grabar: boolean | null }>(db, 'curso_clases', 'id, grabar',
-    { filtros: (q) => q.in('producto_id', [...productoIds]), orden: 'id' });
-  for (const f of filas) out[Number(f.id)] = f.grabar === true || f.grabar === false ? f.grabar : null;
-  return out;
-}
 
 /**
  * Links de vida corta para los videos SUBIDOS de la vista previa del alumno

@@ -16,14 +16,16 @@
 // sobre lo que ya llegó, sin estado de carga. Son pocas lecturas (las clases de cada producto,
 // el avance de los clientes ganados) y todas indexadas por workspace.
 
+import { redirect } from 'next/navigation';
 import { requireCapa } from '@/lib/tab-access';
-import { adminDeWorkspaceActual } from '@/lib/workspace';
+import { adminDeWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { clasesDelProducto, progresoDeClientes } from '@/lib/curso-datos';
-import { accesosDeClientes, grabarDeProductos } from '@/lib/curso-admin';
-import { conteoDeNotas } from '@/lib/curso-notas';
+import { accesosDeClientes } from '@/lib/curso-admin';
 import { estilosLeidos } from '@/lib/curso-estilo-datos';
 import type { EstiloCurso } from '@/lib/curso-estilo';
 import { colorDeEtapa } from '@/lib/servicio-etapas';
+import { filasDeModulos } from '@/lib/curso-modulos-datos';
+import { derivarModulos, type FilaModulo } from '@/lib/curso-modulos';
 // ⚠️ DE lib/ Y NO DE ../trabajo: es la MISMA función (trabajo.ts la re-exporta), pero importarla
 // de allá arrastra el cruce, el ruteo y el Perro al grafo de una pantalla que sólo quiere los
 // nombres de los clientes (ver la cabecera de lib/clientes-ganados.ts).
@@ -47,10 +49,17 @@ const mensaje = (e: unknown, def: string) => (e instanceof Error && e.message ? 
 export default async function CursoPage({ searchParams }: { searchParams: Promise<{ producto?: string; vista?: string }> }) {
   await requireCapa('customer-success');
   const sp = await searchParams;
-  const inicial: { productoId: number | null; vista: VistaCurso } = {
-    productoId: Number(sp.producto) > 0 ? Number(sp.producto) : null,
-    vista: sp.vista === 'avance' ? 'avance' : 'clases',
-  };
+  const productoId = Number(sp.producto) > 0 ? Number(sp.producto) : null;
+  // ⚠️ EL AVANCE DE LOS CLIENTES SE FUE DEL CURSO (item 4, Martín, 07/10/2026: «Elimina la tab de
+  //    "Avance de clientes" en este lugar solo se va a editar el curso. Que esa tab esté en la ruta de
+  //    clientes»). Hoy es una vista de /customer-success (Kanban · Tabla · Avance). Un link viejo
+  //    (`?vista=avance`, de un marcador, de un aviso ya mandado) se REDIRIGE y no da 404, con el
+  //    producto y la pestaña del cliente que se estaba mirando (`rutaConWs`: sin el `?ws=`, el super
+  //    admin terminaría mirando su propio workspace).
+  if (sp.vista === 'avance') {
+    redirect(await rutaConWs(`/customer-success?vista=avance${productoId ? `&producto=${productoId}` : ''}`));
+  }
+  const inicial: { productoId: number | null; vista: VistaCurso } = { productoId, vista: 'clases' };
 
   // Los servicios y sus etapas: la MISMA lectura que el kanban de Customer Success, para que
   // las secciones de acá sean exactamente sus columnas y los clientes de cada producto los
@@ -62,10 +71,18 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
     );
   }
 
+  // Los MÓDULOS de cada curso (D1, lib/curso-modulos.ts): las etapas que son módulo y los sueltos.
+  // Para DIBUJAR: si los sueltos no se pueden leer, se dibuja sin ellos (sus clases caen en «Sin
+  // etapa», que es un aviso visible) y queda en el log. Lo que ESCRIBE vuelve a leer estricto.
+  const filasModulos = await filasDeModulos(entrega.servicios.map((s) => s.productoId)).catch((e) => {
+    console.warn('[curso] no pude leer los módulos sueltos:', mensaje(e, ''));
+    return new Map<number, FilaModulo[]>();
+  });
   const servicios: ServicioCurso[] = entrega.servicios.map((s) => ({
     productoId: s.productoId,
     nombre: s.nombre,
     etapas: s.etapas.map((e) => ({ key: e.key, label: e.label, color: colorDeEtapa(e, s.fases) })),
+    modulos: derivarModulos(s.etapas, filasModulos.get(s.productoId) ?? []),
   }));
 
   // Las clases de cada producto, en paralelo (uno a un puñado). Si una lectura falla, ESE
@@ -81,18 +98,11 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
   ]);
   const clases = listas.flat();
 
-  // ── La marca de grabar y el conteo de notas (mig 0208) ──
-  // Las dos aparte de las clases, y cada una con su propio fallo: ninguna puede tumbar la lista.
-  // ⚠️ LA MARCA, SI FALLA, FALLA VISIBLE: leída como «nada marcado», la cabecera diría que no
-  // hay nada por grabar. El conteo de notas es una pista: si falla, la lista no dice nada y cada
-  // caja de notas lee las suyas al abrirse (y ahí sí dice si no pudo).
+  // ⚠️ SIN LA MARCA DE GRABAR NI EL CONTEO DE NOTAS desde el 08/10/2026 (items 13 y 15 de Martín: se
+  // fueron de la tab). Las columnas y la tabla de la mig 0208 quedan; esta página ya no las lee.
   const productoIds = servicios.map((s) => s.productoId);
-  const [grabarLeido, notasLeidas, estilosLeidosR] = await Promise.all([
-    grabarDeProductos(productoIds).then((m) => ({ ok: true as const, m }), (e) => ({ ok: false as const, error: mensaje(e, 'Error de lectura.') })),
-    conteoDeNotas(productoIds).catch((e) => { console.warn('[curso] no pude contar las notas:', mensaje(e, '')); return null; }),
-    // Cómo se ve cada curso (mig 0214). No tira: si no puede leer, vuelve el de siempre.
-    estilosLeidos(productoIds),
-  ]);
+  // Cómo se ve cada curso (mig 0214). No tira: si no puede leer, vuelve el de siempre.
+  const estilosLeidosR = await estilosLeidos(productoIds);
   const estilos: Record<number, EstiloCurso> = Object.fromEntries(estilosLeidosR.estilos);
 
   // ── El onboarding de la tab (regla de la casa: toda tab tiene uno) ──
@@ -149,6 +159,8 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
           const a = avanceDeCliente(listas[i], keys, etapa, progreso.get(c.leadId));
           return {
             leadId: c.leadId, nombre: c.nombre, empresa: c.empresa ?? null, etapa, ...a,
+            // El email del CRM: «Invitar alumnos» del editor (./InvitarAlumnos.tsx) lo prellena.
+            email: c.email ?? null,
             acceso: accesos ? (accesos.get(c.leadId) ?? { estado: 'sin-link', ingresos: 0, ultimoIngresoAt: null }) : null,
           };
         });
@@ -166,9 +178,6 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
       avanceError={avanceError}
       conAvance={conAvance}
       errorClases={errorClases}
-      grabar={grabarLeido.ok ? grabarLeido.m : undefined}
-      grabarError={grabarLeido.ok ? null : grabarLeido.error}
-      notas={notasLeidas}
       estilos={estilos}
       estiloError={estilosLeidosR.error}
       inicial={inicial}

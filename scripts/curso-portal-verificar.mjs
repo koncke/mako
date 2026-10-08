@@ -23,7 +23,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 //    lee «c:» como un esquema de URL y tira ERR_UNSUPPORTED_ESM_URL_SCHEME.
 // `CURSOS_TODOS` es exactamente lo que dibuja la grilla: `Conocimientos.tsx` lo importa
 // como `TODOS`. Ya trae los REEMPLAZADOS afuera, asi que revisar esto es revisar lo que se ve.
-const { CURSOS_TODOS: CURSOS } = await import(pathToFileURL(join(REPO, 'app/conocimientos/catalogo.ts')).href);
+const { CURSOS_TODOS: CURSOS, VISTA_PROPIA } = await import(pathToFileURL(join(REPO, 'app/conocimientos/catalogo.ts')).href);
 
 const problemas = [];
 const avisa = (curso, gravedad, que) => problemas.push({ curso: curso.slug, gravedad, que });
@@ -103,7 +103,10 @@ for (const c of CURSOS) {
     //    —«Analisis de Negocio», «Branding MaKo»— son documentos y se dibujan por otro
     //    lado. Distinguirlos es la diferencia entre un informe util y uno que hay que
     //    aprender a ignorar.
-    const esDoc = Boolean(c.replica) || (c.recursos?.length ?? 0) > 0;
+    //    (Antes miraba `c.replica`, que el catálogo ponía en TODOS los cursos: con eso todo curso sin
+    //    clases salía «BAJO», también uno vaciado de verdad. El flag se fue el 08/10/2026; lo que dice
+    //    que es una ficha de documento es tener VISTA PROPIA o recursos.)
+    const esDoc = Object.values(VISTA_PROPIA).includes(c.slug) || (c.recursos?.length ?? 0) > 0;
     avisa(c, esDoc ? 'BAJO' : 'ALTO',
       esDoc ? 'sin clases (es una ficha de documento, no un curso de video)'
         : 'CERO clases: la ficha existe y el curso esta vacio');

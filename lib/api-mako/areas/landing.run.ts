@@ -35,6 +35,7 @@ import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { replayDePrueba, replayDeLead } from '@/lib/replay-leer';
 import { textoDelVacio } from '@/lib/replay-ficha';
+import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
 import { catalogoPanda, fetchPandaDailyStat, fetchPandaRangeStats } from '@/lib/panda';
 import { urlsDescubiertas, getComportamiento, analizarLanding, borrarAnalisis } from '@/lib/landing-analyst';
@@ -283,8 +284,9 @@ export const RUNNERS: Runners = {
       const ficha = linkApp(`/crm/${leadId}`, ctx.ws);
       if (!r.sesiones.length) {
         // El POR QUÉ no hay ninguna sale del MISMO texto que la ficha: con dos
-        // redacciones, MaKo y la pantalla le darían dos explicaciones distintas.
-        const vacio = r.vacio ? textoDelVacio(r.vacio, r.retencionDias) : null;
+        // redacciones, MaKo y la pantalla le darían dos explicaciones distintas. La
+        // fecha de su visita, en la zona del negocio: la misma que escribe la ficha.
+        const vacio = r.vacio ? textoDelVacio(r.vacio, r.retencionDias, r.visita, r.visita ? await tzActual() : undefined) : null;
         return json({ leadId, grabaciones: 0, motivo: vacio?.que ?? 'No hay grabaciones de esta persona.', ficha });
       }
       return json({

@@ -39,8 +39,13 @@ export type AvanceDeCurso = {
   videos_de_la_etapa: { pct_visto: number | null; medibles: number; sin_medir: number } | null;
   /** Una fila por etapa de la entrega, en su orden. */
   etapas: Array<{ clave: string; nombre: string; tareas_enviadas: number; tareas: number; completa: boolean }>;
+  /**
+   * Los módulos SUELTOS del curso (D1, 08/10/2026): no son etapas del kanban y no mueven a nadie, pero
+   * el alumno los ve y los cursa. Sin esto MaKo los contaba en `clases_sin_etapa` («no las ve nadie»).
+   */
+  modulos_sueltos: Array<{ clave: string; nombre: string; tareas_enviadas: number; tareas: number }>;
   clases: number;
-  /** Clases que cuelgan de una etapa que la entrega ya no tiene (no las ve nadie). */
+  /** Clases que cuelgan de una etapa (o un módulo) que ya no existe (no las ve nadie). */
   clases_sin_etapa: number;
 };
 
@@ -56,6 +61,8 @@ export function avanceDeCurso(p: {
   etapaGuardada: string | null;
   estadoDe: (claseId: number) => EstadoTarea | undefined;
   pctDe: (claseId: number) => number | undefined;
+  /** Los módulos sueltos del curso (`derivarModulos`, los no vinculados). Ausente = no tiene. */
+  sueltos?: readonly EtapaRef[];
 }): AvanceDeCurso {
   const claves = p.etapas.map((e) => e.key);
   const guardada = (p.etapaGuardada ?? '').trim();
@@ -83,8 +90,12 @@ export function avanceDeCurso(p: {
       const k = conteoDeEtapa(deEtapa(e.key), p.estadoDe);
       return { clave: e.key, nombre: e.label, tareas_enviadas: k.enviadas, tareas: k.tareas, completa: k.completa };
     }),
+    modulos_sueltos: (p.sueltos ?? []).map((m) => {
+      const k = conteoDeEtapa(deEtapa(m.key), p.estadoDe);
+      return { clave: m.key, nombre: m.label, tareas_enviadas: k.enviadas, tareas: k.tareas };
+    }),
     clases: p.clases.length,
-    clases_sin_etapa: p.clases.filter((c) => !claves.includes(c.etapa)).length,
+    clases_sin_etapa: p.clases.filter((c) => !claves.includes(c.etapa) && !(p.sueltos ?? []).some((m) => m.key === c.etapa)).length,
   };
 }
 
@@ -126,5 +137,6 @@ export const NOTAS_CURSO: readonly string[] = [
   'acceso.estado «sin-link» = todavía no se le generó el acceso al portal. invitado_por_mail false no quiere decir que no tenga el link: se le puede haber mandado por WhatsApp.',
   'acceso null = no se pudo leer. No es «nunca entró».',
   'etapa_huerfana = la etapa guardada del cliente ya no existe en la entrega (alguien borró esa columna): hay que moverlo a mano.',
+  'modulos_sueltos = módulos del curso que NO son etapas del kanban: el alumno los ve y los cursa, pero completarlos no lo mueve de etapa.',
   'Esta lectura no crea el acceso ni le manda nada al cliente. El link se manda desde su ficha en Customer Success.',
 ];

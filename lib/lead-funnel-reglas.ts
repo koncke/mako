@@ -7,7 +7,8 @@
 // para que un test las EJECUTE (tests/lead-funnel.test.ts). La escritura vive en
 // lib/lead-funnel.ts.
 //
-// Sin 'use client' ni 'server-only': lo leen el server, el tablero y la ficha.
+// Sin 'use client' ni 'server-only': lo leen el server, el tablero, la ficha y la bandeja de
+// WhatsApp (el producto del «+ Agregar al CRM», `destinoDelAlta`).
 
 /** Un producto donde está el lead. `funnelId` es SIEMPRE un id real (la casa NULL ya resuelta al del negocio). */
 export type ProductoDelLead = {
@@ -77,4 +78,76 @@ export function aQuienPromover(productos: readonly ProductoDelLead[]): ProductoD
 /** La etapa por la que se entra a un producto: la declarada como entrada, o la primera. */
 export function etapaDeEntrada(stages: readonly { key: string; kind?: string | null }[]): string | null {
   return (stages.find((s) => s.kind === 'entrada') ?? stages[0])?.key ?? null;
+}
+
+/**
+ * El nombre que ve la persona: el del PRODUCTO si lo hay, si no el del embudo.
+ *
+ * ⚠️ UNA REGLA, UN LUGAR. Estaba copiada en 11 lugares (el selector del tablero, la ficha, el
+ * registro de la API, el Pixel, las secuencias…), dos de ellos sin el `trim` —un producto con
+ * nombre en blanco salía en blanco—. «Funnel principal» es el nombre que puso la migración 0170
+ * y es el MISMO en todos los workspaces: no le dice nada a nadie, por eso manda el producto.
+ */
+export function nombreVisible(f: { nombre: string; producto?: string | null }): string {
+  return f.producto?.trim() || f.nombre;
+}
+
+/** Un producto tal como lo ofrece el alta desde una conversación de WhatsApp. */
+export type ProductoParaAlta = { id: number; nombre: string; esDefault: boolean };
+
+/** Lo mínimo de un embudo que hace falta para decidir el alta (`FunnelResumen` lo cumple). */
+type EmbudoDelAlta = { id: number; nombre: string; producto?: string | null; esDefault: boolean };
+
+/** La lista del «+ Agregar al CRM». `null` entra y `null` sale: «no pude leer» no es «no hay». */
+export function productosParaAlta(funnels: readonly EmbudoDelAlta[] | null): ProductoParaAlta[] | null {
+  return funnels ? funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault })) : null;
+}
+
+/** ¿El alta tiene que preguntar el producto? Sólo con DOS o más: con uno no hay nada que elegir. */
+export function pideProducto(productos: readonly unknown[]): boolean {
+  return productos.length >= 2;
+}
+
+/** Dónde nace un lead del alta desde WhatsApp. */
+export type DestinoDelAlta = {
+  /** Lo que se escribe en `leads.funnel_id`: ya pasado por `casaParaEscribir` (el default va NULL). */
+  casa: number | null;
+  /** El id real del elegido, para AGREGAR a una persona que ya existía. `null` = no se eligió. */
+  real: number | null;
+  /** Su nombre visible, para decirlo en la pantalla. */
+  nombre: string | null;
+};
+
+/**
+ * El producto del alta desde una conversación (pedido de Leila, ws11, 08/10/2026: «Primero de
+ * por sí me entra al funnel principal, o sea que la tengo que eliminar de funnel principal»).
+ *
+ * `funnels` es la lectura del workspace —`null` si FALLÓ— y `funnelId` lo que eligió la
+ * pantalla —`null` si no eligió—. Decide el SERVER, no la pantalla:
+ *   · la lectura falló             → error, y no se crea. «No pude leer» no es «no existe»: un
+ *                                    id válido con la base caída no merece un «no existe».
+ *   · no eligió y hay 2+ productos → error con la lista para preguntar. Nunca se crea a ciegas
+ *                                    en el principal: es el bug, y pasaría con una pantalla vieja
+ *                                    o con una que no pudo leer la lista al cargar.
+ *   · no eligió y hay 0-1          → el del negocio (casa NULL), sin preguntar nada.
+ *   · eligió uno que no está       → error (un id ajeno, archivado o inventado).
+ *   · eligió uno de la lista       → ése, con la casa por `casaParaEscribir`.
+ *
+ * ⚠️ EL DEFAULT SALE DE LA MISMA LISTA, no de `idDelFunnelDefault()`. Si esa otra lectura
+ * fallara devolvería `null`, `casaParaEscribir(idDelDefault, null)` escribiría el id del
+ * default, y el lead quedaría invisible en TODOS los tableros (ver `casaParaEscribir`).
+ */
+export function destinoDelAlta(
+  funnels: readonly EmbudoDelAlta[] | null,
+  funnelId: number | null | undefined,
+): DestinoDelAlta | { error: string; elegir?: ProductoParaAlta[] } {
+  if (!funnels) return { error: 'No pude leer tus productos.' };
+  if (funnelId == null) {
+    if (pideProducto(funnels)) return { error: 'Elige el producto.', elegir: productosParaAlta(funnels) ?? [] };
+    return { casa: null, real: null, nombre: null };
+  }
+  const f = funnels.find((x) => x.id === funnelId);
+  if (!f) return { error: 'Ese producto no existe.' };
+  const def = funnels.find((x) => x.esDefault)?.id ?? null;
+  return { casa: casaParaEscribir(f.id, def), real: f.id, nombre: nombreVisible(f) };
 }

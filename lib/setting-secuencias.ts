@@ -15,6 +15,7 @@ import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from './nutricion-etapa';
 import { sanearCron, proximaOcurrencia } from './cron-aviso';
 import { tzActual, TZ_DEFAULT } from './timezone';
 import { listarFunnels, getFunnelDe, getFunnelDefault, productoDeFunnel } from './funnels';
+import { nombreVisible } from './lead-funnel-reglas';
 import { entregasDeProductos } from './entrega-servicio';
 import type { EntregaConfig } from './servicio-etapas';
 import { parseEstrategia, type Estrategia } from './setting-estrategia';
@@ -198,7 +199,7 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
     out.push({
       funnelId: f.id,
       productoId: prod?.id ?? null,
-      nombre: f.producto ?? f.nombre,
+      nombre: nombreVisible(f),
       esDefault: f.esDefault,
       etapas: (cfg?.stages ?? [])
         .filter((st) => (st.band ?? 'pipeline') !== 'salidas')

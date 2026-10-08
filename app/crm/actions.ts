@@ -56,13 +56,14 @@ import { listLeadsDeFunnel, contarLeadsDeFunnel,
   enriquecerLead,
 } from '@/lib/leads';
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
-import { casaReal } from '@/lib/lead-funnel-reglas';
+import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
+import { agregarAProducto } from '@/lib/lead-funnel';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
   renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo,
-  productosPorFunnel, idDelFunnelDefault } from '@/lib/funnels';
+  productosPorFunnel, idDelFunnelDefault, leerFunnels } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
   conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
@@ -248,7 +249,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
-  const productos = funnels.map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre, esDefault: f.esDefault }));
+  const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
   return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
 }
@@ -292,6 +293,11 @@ export type StageMoveData = {
   ventaTipo?: VentaTipo | null;   // + 'sin_cobro' (#747): un becado, lib/venta-tipo.ts
   suscripcionMonto?: number | null;   // importe MENSUAL (MRR)
   suscripcionMeses?: number | null;    // plazo fijo en meses; null = indefinida
+  /**
+   * «Completar datos» (el «Solucionar» del aviso): guarda lo que falta y NO mueve la etapa.
+   * Ver el paso 5 de `completeStageMoveAction`.
+   */
+  soloCompletar?: boolean;
 };
 
 /**
@@ -589,13 +595,35 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   }
 
   // 5) Mover (updateLead sincroniza estado primero; override solo si OK).
-  await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
+  //
+  // ⚠️ «COMPLETAR DATOS» NO MUEVE (08/10/2026). El `to` lo manda el navegador, y la ficha del
+  // tablero es una FOTO: con ella vieja, «Solucionar» abría el wizard con la etapa de ANTES de
+  // moverlo y este Guardar devolvía al lead ahí. Medido en el CRM de Leila (ws11): el #2608 volvió
+  // tres veces de «Conversación abierta» a «Contacto nuevo» (la firma en el historial: «Etapa
+  // nueva → vieja» y, 1 s después, «Empresa null → X», del mismo autor), y el #2605 perdió el
+  // Ganado 25 minutos. Completar no es una decisión sobre la etapa: escribe los datos y deja al
+  // lead donde la BASE dice que está, venga de la pantalla que venga (una pestaña vieja incluida).
+  //
+  // ⚠️ Y NO PASA POR setPipelineStage CON LA ETAPA ACTUAL: «la etapa actual» sale de las etapas
+  // del funnel por defecto (getFunnelDeLead), que en un embudo con claves propias deriva otra
+  // etapa y movería al lead; y sin `deadline` le borraría el plazo a uno en nutrición manual. Lo
+  // único que el movimiento sincronizaba y no se guarda por otro lado es el monto de un Ganado.
+  const etapaReal = (l: Lead | null): string =>
+    (l?.pipeline_stage && stagesMove.some((s) => s.key === l.pipeline_stage) ? l.pipeline_stage : l ? deriveStageKey(l as unknown as StageDerivable) : to);
+  if (d.soloCompletar && before) {
+    if (before.estado_lead === 'ganado' && d.monto != null && d.monto !== before.monto_cierre_usd) {
+      await updateLead(id, { monto_cierre_usd: d.monto });
+    }
+  } else {
+    await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
+  }
 
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, autor);
-  // Lo que todavía falta, medido sobre el lead guardado.
-  const pagosDespues = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const pendientes = after ? stepsForStage(to, valoresDeRequisitos(to, after, pagosDespues, stagesMove, {}, grabable)) : [];
+  // Lo que todavía falta, medido sobre el lead guardado — en la etapa donde QUEDÓ.
+  const etapaFinal = d.soloCompletar && after ? etapaReal(after) : to;
+  const pagosDespues = etapaFinal === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
+  const pendientes = after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, {}, grabable)) : [];
   await registrarPendientes(id, pendientes, autor);
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
@@ -753,6 +781,16 @@ export type ChoqueDeLead = {
     estaAca: boolean;
   }>;
 };
+
+/** Lo que vuelve del alta desde WhatsApp: el lead nuevo, o el choque con tres datos más. */
+export type AltaDesdeWhatsapp = { id: number } | (ChoqueDeLead & {
+  /** No se eligió producto y hay dos o más: la lista, para que la pantalla pregunte. */
+  elegir?: ProductoParaAlta[];
+  /** La persona ya estaba y se la AGREGÓ al producto elegido: su nombre visible. */
+  agregadoA?: string;
+  /** La persona ya estaba, se intentó agregarla al elegido y falló: por qué. */
+  errorAlAgregar?: string;
+});
 
 /** Un lead de otro producto, como lo dibuja la tabla de «traer». */
 export type LeadParaTraer = {
@@ -972,26 +1010,53 @@ export async function createLeadAction(formData: FormData): Promise<void> {
  * `LeadDuplicadoError` trae adentro justamente para poder ofrecer «abre el que ya tienes»
  * se perdían en el camino y lo único que la pantalla podía hacer era un cartel. Es el
  * mismo contrato que el alta del tablero (`ChoqueDeLead`), que ya lo resolvió así.
+ *
+ * ⚠️ NACE EN EL PRODUCTO ELEGIDO (`funnelId`). Pedido de Leila (ws11, 08/10/2026): «ella está
+ * en marca personal. Primero de por sí me entra al funnel principal, o sea que la tengo que
+ * eliminar de funnel principal». Antes la action no recibía el dato y todo nacía en el
+ * principal: medido ese día, 6 de 6 agregados a mano a otro producto y 4 sacados del principal
+ * después. Quién decide qué con cada combinación (0-1 producto, 2+, la lista caída, un id que
+ * no está) es `destinoDelAlta`, puro y ejecutado por tests/inbox-agregar-al-crm.test.ts; acá
+ * se lee `leerFunnels` y NO `listarFunnels`, porque ésa devuelve `[]` cuando falla y «no pude
+ * leer» terminaba siendo «hay uno» o «no existe».
+ *
+ * ⚠️ SI LA PERSONA YA ESTABA (una sola coincidencia, que no está en el elegido), SE LA AGREGA
+ * a ese producto: «se agrega, nunca se mueve» (mig 0207), una fila más y su casa intacta. Con
+ * varias coincidencias no se elige ninguna: se devuelve el choque, como siempre.
  */
-export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: string): Promise<{ id: number } | ChoqueDeLead> {
+export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: string, funnelId?: number | null): Promise<AltaDesdeWhatsapp> {
   const n = (nombre ?? '').trim();
   const t = (telefono ?? '').trim();
   if (!n) return { error: 'Falta el nombre del contacto.', coincidencias: [] };
   if (!t) return { error: 'Falta el teléfono del contacto.', coincidencias: [] };
+  const destino = destinoDelAlta(await leerFunnels(), funnelId);
+  if ('error' in destino) return { error: destino.error, coincidencias: [], elegir: destino.elegir };
   // De dónde vino: de una conversación del inbox, o sea que ya hay un hilo abierto
   // con esta persona. No dice QUIÉN escribió primero —desde acá no se puede saber, y
   // un dato que se afirma sin medirlo es peor que la columna vacía—: dice por qué
   // puerta entró, que es lo que separa a este lead de los 1.000 de una lista en frío.
   try {
-    const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id });
+    // ⚠️ `destino.casa` ya pasó por `casaParaEscribir`: el default va NULL. createLead escribe
+    // lo que le llega, y con el id del default escrito el lead no sale en NINGÚN tablero.
+    const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
     if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono).catch(() => {});
     bust(TAG.leads);
     revalidatePath('/crm');
     revalidatePath('/whatsapp');
     return { id: created.id };
   } catch (e) {
-    // `null`: el alta desde WhatsApp nace en el producto del negocio (no pasa `funnel_id`).
-    return await choqueDeLead(e, null);
+    // `estaAca` se mide contra el producto ELEGIDO, no contra el del negocio.
+    const choque = await choqueDeLead(e, destino.casa);
+    const una = choque.coincidencias.length === 1 ? choque.coincidencias[0] : null;
+    if (!una || una.estaAca || destino.real == null) return choque;
+    try {
+      await agregarAProducto(una.id, destino.real);
+      bust(TAG.leads);
+      revalidatePath('/crm');
+      return { ...choque, agregadoA: destino.nombre ?? undefined };
+    } catch (err) {
+      return { ...choque, errorAlAgregar: err instanceof Error ? err.message : 'No pude agregarlo al producto.' };
+    }
   }
 }
 
@@ -2209,13 +2274,31 @@ export type LeadAuditRowFull = LeadAuditRow & {
   revertible: boolean;           // si la fila se puede deshacer desde el historial
 };
 
+/** Las etiquetas del historial de la suscripción. Son las de AUDIT_FIELDS (lib/leads.ts):
+ *  si cambian allá sin cambiar acá, la fila deja de ser revertible y nadie se entera — lo
+ *  fija tests/ganado-monto.test.ts. ⚠️ Antes de REVERTIBLES: es un `const` y el Set se arma
+ *  al cargar el módulo. */
+const CAMPO_SUS_MONTO = 'Suscripción (USD/mes)';
+const CAMPO_SUS_MESES = 'Plazo de la suscripción';
+
 /** Campos del historial que se pueden revertir (mapean 1:1 a una columna). */
 const REVERTIBLES = new Set([
   'Etapa', 'Estado', 'Asistió R1', 'Asistió R2', 'Calificado', 'Fecha R1', 'Fecha R2',
   'Fecha de agendamiento', 'Closer', 'Setter', 'Monto de cierre', 'Motivo',
   'Confirmación de pago', 'Deadline de nutrición manual',
   'Nombre', 'Email', 'Teléfono', 'Empresa', 'Web',
+  // La plata de una suscripción (AUDIT_FIELDS, lib/leads.ts). Se revierten con un update
+  // directo de su columna en los DOS switch de abajo, como el deadline: `updateLead` no las
+  // conoce. ⚠️ Revierten el importe, no el tipo de venta, igual que «Monto de cierre».
+  CAMPO_SUS_MONTO, CAMPO_SUS_MESES,
 ]);
+
+/** El valor del historial (texto de `auditVal`) de vuelta a la columna de la suscripción. */
+function columnaSuscripcion(campo: string, v: string | null): Record<string, number | null> {
+  const n = v == null ? NaN : campo === CAMPO_SUS_MESES ? parseInt(v, 10) : parseFloat(v);
+  const valor = Number.isFinite(n) ? n : null;
+  return campo === CAMPO_SUS_MESES ? { suscripcion_meses: valor } : { suscripcion_monto_usd: valor };
+}
 
 /**
  * Deshace un movimiento de etapa RECIÉN hecho (toast de 5s del tablero): revierte
@@ -2334,6 +2417,12 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
       if (error) throw new Error(error.message);
       break;
     }
+    case CAMPO_SUS_MONTO:
+    case CAMPO_SUS_MESES: {
+      const { error } = await (await getTenantDb()).from('leads').update(columnaSuscripcion(row.campo, v)).eq('id', leadId);
+      if (error) throw new Error(error.message);
+      break;
+    }
     default: throw new Error(`"${row.campo}" no se puede deshacer automáticamente.`);
   }
 
@@ -2374,6 +2463,8 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   const meta: LeadMetaInput = {};
   let etapa: { set: boolean; value: string | null } = { set: false, value: null };
   let deadline: { set: boolean; value: string | null } = { set: false, value: null };
+  // La suscripción va por su propio update (como el deadline): `updateLead` no la conoce.
+  let suscripcion: Record<string, number | null> = {};
 
   for (const r of grupo) {
     const v = r.valor_anterior;
@@ -2397,6 +2488,7 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
       case 'Empresa': meta.empresa = v; break;
       case 'Web': meta.web = v; break;
       case 'Deadline de nutrición manual': deadline = { set: true, value: v }; break;
+      case CAMPO_SUS_MONTO: case CAMPO_SUS_MESES: suscripcion = { ...suscripcion, ...columnaSuscripcion(r.campo, v) }; break;
     }
   }
 
@@ -2404,6 +2496,11 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   if (Object.keys(upd).length) await updateLead(leadId, upd);
   // 2) Meta (closer/setter/contacto).
   if (Object.keys(meta).length) await saveLeadMeta(leadId, meta);
+  // 2b) La mensualidad / el plazo de una suscripción.
+  if (Object.keys(suscripcion).length) {
+    const { error } = await (await getTenantDb()).from('leads').update(suscripcion).eq('id', leadId);
+    if (error) throw new Error(error.message);
+  }
   // 3) Override de la columna del tablero (o null = volver a derivación).
   if (etapa.set) await setBoardStageOverride(leadId, etapa.value, deadline.set ? deadline.value : null);
   else if (deadline.set) {
@@ -2883,7 +2980,7 @@ export async function embudosArchivadosAction(): Promise<Array<{ id: number; nom
   const filas = await listarFunnelsArchivados();
   return Promise.all(filas.map(async (f) => ({
     id: f.id,
-    nombre: f.producto?.trim() || f.nombre,
+    nombre: nombreVisible(f),
     leads: await contarLeadsDeFunnel(f.id).catch(() => -1),
   })));
 }

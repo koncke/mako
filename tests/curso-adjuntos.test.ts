@@ -18,6 +18,9 @@
 //   · la ruta con `exigeEtapa: false`                                    → la ruta
 //   · `urlsAdjuntosAction` con `puedeEditar` en vez de `puedeVer`         → las puertas
 //   · `puedeEditar` de adjuntos-actions sin el chequeo de admin           → la copia de la puerta
+//     (08/10/2026: ya no hay copia — las tres actions importan de ./puerta-curso. La rotura es ahora
+//     `puedeEditar` de puerta-curso.ts sin el chequeo de admin → 16 / 1 «la puerta es UNA», sobre 17;
+//     y la ruta con `exigeAbierta: false` → 16 / 1 «la ruta del alumno».)
 //   · una lectura de `curso_adjuntos` sin su `workspace_id` a mano        → el workspace a mano
 //   · `image/svg+xml` sumado a la lista del bucket en la migración        → la migración
 // ⚠️ Y UNA QUE NO TUMBÓ NADA (15 / 1), y está bien: sacar SÓLO la comparación de producto de
@@ -235,7 +238,7 @@ test('la ruta del alumno: GET público de lectura, workspace de la FIRMA, y la �
   assert.match(src, /return runWithWorkspace\(firma\.ws, async \(\) => \{/, 'el workspace sale de la firma, nunca de un parámetro');
   assert.match(src, /await resolverAccesoPortal\(token\)/);
   // Con los PERMISOS del alumno (mig 0219): un adjunto de un módulo que no le permiten es el mismo 404.
-  assert.match(src, /claseDelAlumno\(acceso\.leadId, claseId, \{ exigeEtapa: true, lider: acceso\.area, alcance: acceso\.alcance \}\)/, 'el candado de la etapa y los permisos, por la ÚNICA puerta');
+  assert.match(src, /claseDelAlumno\(acceso\.leadId, claseId, \{ exigeAbierta: true, lider: acceso\.area, alcance: acceso\.alcance \}\)/, 'el candado de la clase y los permisos, por la ÚNICA puerta');
   assert.match(src, /if \(r\.decision !== 'ok'\) return NO\(\);/);
   assert.match(src, /urlAdjuntoParaAlumno\(\{ id: r\.clase\.id, productoId: r\.clase\.productoId \}, adjuntoId\)/);
   assert.match(src, /if \(!claseId \|\| !refDeId\(adjuntoId\)\) return NO\(\);/);
@@ -270,13 +273,24 @@ test('las actions: subir y registrar son de un ADMIN con su producto; ver, de qu
   assert.match(bloque(src, 'export async function registrarAdjuntoAction('), /registrarAdjunto\(entrada, u\?\.email \?\? null\)/, 'el autor sale de la SESIÓN');
 });
 
-test('la puerta copiada es IGUAL a la de actions.ts (hasta que se mude a un módulo compartido)', () => {
-  const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
-  const nuestra = sinComentarios(leer(ACC));
-  const original = sinComentarios(leer('app/customer-success/curso/actions.ts'));
-  for (const f of ['async function puedeVer(', 'async function puedeEditar(', 'async function productoPropio(']) {
-    assert.equal(norm(bloque(nuestra, f)), norm(bloque(original, f)), `${f} se separó de la de actions.ts`);
+test('la puerta es UNA: las tres actions de la tab Curso la importan de ./puerta-curso y ninguna tiene su copia', () => {
+  // Hasta el 08/10/2026 vivía en actions.ts y COPIADA acá, con un test que comparaba los cuerpos. La
+  // tercera copia (los módulos) era la que iba a quedar vieja: se mudó a un módulo y las copias se van.
+  for (const r of [ACC, 'app/customer-success/curso/actions.ts', 'app/customer-success/curso/modulos-actions.ts']) {
+    const src = sinComentarios(leer(r));
+    assert.match(src, /import \{[^}]*\bpuedeEditar\b[^}]*\} from '\.\/puerta-curso';/, `${r} no importa la puerta`);
+    for (const f of ['function puedeVer(', 'function puedeEditar(', 'function productoPropio(']) {
+      assert.ok(!src.includes(f), `${r} volvió a tener su copia de ${f}`);
+    }
   }
+  const puerta = sinComentarios(leer('app/customer-success/curso/puerta-curso.ts'));
+  assert.match(puerta, /^import 'server-only';/m);
+  assert.doesNotMatch(puerta, /'use server'/, 'con use server cada helper sería un endpoint más');
+  assert.match(bloque(puerta, 'export async function puedeVer('), /tabEnCapa\('customer-success', await getCapaActual\(\)\)/);
+  const editar = bloque(puerta, 'export async function puedeEditar(');
+  assert.match(editar, /const no = await puedeVer\(\);\s*if \(no\) return no;/);
+  assert.match(editar, /if \(!\(await adminDeWorkspaceActual\(\)\)\) return/);
+  assert.match(bloque(puerta, 'export async function productoPropio('), /from\('productos'\)\.select\('id'\)\.eq\('id', productoId\)/);
 });
 
 test('lib/curso-adjuntos: cada consulta a curso_adjuntos lleva su workspace_id A MANO', () => {

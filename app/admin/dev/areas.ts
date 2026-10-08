@@ -501,6 +501,9 @@ export const AREAS: AreaDev[] = [
       'lib/replay-contrato.ts', 'lib/replay-ingesta.ts', 'lib/replay-sellado.ts', 'lib/replay-ficha.ts',
       'app/api/track/replay/route.ts', 'app/api/cron/replay-purga/route.ts', 'app/api/cron/prueba-grabacion/route.ts',
       'supabase/migrations/0191_replay_de_sesion.sql', 'scripts/replay-libs.mjs',
+      // El grabador v2 (08/10/2026): lo que r.js agrega sobre rrweb, y el reproductor
+      // que hasta ese día no estaba en esta lista y no montaba ninguna grabación.
+      'scripts/replay-envoltorio.js', 'lib/replay-reproductor.ts', 'tests/replay-envoltorio.test.ts',
       'app/crm/lead-view/GrabacionCard.tsx', 'app/crm/lead-view/GrabacionModal.tsx',
       'lib/lead-de-prueba.ts', 'lib/landing-config-leer.ts',
       // El aviso fijo «Actualiza el Pixel» y el ancla del clic (Pixel v22), 06/10/2026.
@@ -962,7 +965,15 @@ export const AREAS: AreaDev[] = [
     // movida del mes. Es el caso testigo de «Una ruta que apunta a la nada» en AGENTS.md.
     vive: [
       'app/conocimientos/page.tsx', 'app/conocimientos/Conocimientos.tsx',
-      'app/conocimientos/CursoPortal.tsx', 'app/conocimientos/CursoReplica.tsx',
+      'app/conocimientos/CursoPortal.tsx',
+      // CursoReplica.tsx se fue el 08/10/2026: el curso lo dibuja CursoUgc a través de estos, y lo que
+      // el super admin edita vive en la capa de ajustes (mig 0221). Sin estas rutas, el panel no vería
+      // el área que más cambió esa semana — la misma omisión de arriba, otra vuelta.
+      'app/conocimientos/CursoConocimientos.tsx', 'app/conocimientos/EditorConocimientos.tsx',
+      'app/conocimientos/modelo-ugc.ts', 'app/conocimientos/ajustes-actions.ts',
+      'lib/conocimiento-ajustes.ts', 'lib/conocimiento-ajustes-datos.ts',
+      'supabase/migrations/0221_conocimiento_ajustes.sql',
+      'tests/conocimiento-ajustes.test.ts', 'tests/conocimientos-modelo-ugc.test.ts',
       'app/conocimientos/catalogo.ts', 'app/conocimientos/curso.ts',
       'app/conocimientos/curso-vsl.ts', 'app/conocimientos/curso-producto-app.ts',
       // Faltaban las tres el 06/10/2026, con el aviso de arriba ya escrito: el botón de
@@ -972,6 +983,9 @@ export const AREAS: AreaDev[] = [
       'tests/conocimientos-compartir.test.ts', 'lib/share-nombre.ts',
       'app/api/compartir/route.ts', 'lib/shares.ts',
       'app/compartido/[token]/CursoCompartido.tsx',
+      // La tab compartida entra PEREZOSA (08/10/2026): importada directo, el catálogo viajaba en el
+      // chunk de todo link de /compartido, también en el de UN curso con lo oculto adentro.
+      'app/compartido/[token]/PortalCompartidoPerezoso.tsx',
       'public/cono-tx', 'public/cono-doc', 'public/cono-ugc', 'public/cono-portadas',
       'scripts/curso-comun.mjs', 'scripts/curso-perfil.ps1', 'scripts/curso-sniff.mjs',
       'scripts/curso-abrir.mjs', 'scripts/curso-plan.mjs', 'scripts/curso-plan-vip.mjs',

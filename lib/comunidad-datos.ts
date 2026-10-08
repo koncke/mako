@@ -49,7 +49,7 @@ import {
 } from './comunidad-reglas';
 import { destinatarios, avisosDeComentario, type AvisoPendiente } from './comunidad-notificaciones';
 import { esZonaValida } from './comunidad-eventos';
-import type { AlcanceCurso } from './curso-alcance';
+import { moduloPermitido, type AlcanceCurso } from './curso-alcance';
 import type {
   MiembroVista, CategoriaVista, PostVista, PostDetalle, ComentarioVista, FeedVista, ComunidadVista,
   YoVista, FilaRanking, RankingVista, MiembroDirectorio, MiembrosVista, PerfilVista, FiltroMiembros,
@@ -1166,22 +1166,32 @@ export async function votar(a: Actor, postIdRaw: unknown, opcionRaw: unknown): P
 /**
  * Lo que abre cada nivel: los módulos y las clases del curso de ESTE producto con bloqueo por nivel.
  *
- * ⚠️ BEST-EFFORT Y TOLERANTE A QUE NO EXISTA: el bloqueo (`curso_clases.bloqueo`, `curso_modulos`) es
- *    de la mig 0220, de otra pista. Cada lectura va SOLA (una columna que no existe rechaza la consulta
- *    entera en PostgREST) y su fallo vuelve vacío: «no abre nada» es lo que hoy es cierto.
- *    PENDIENTE: el bloqueo de un módulo VINCULADO (una etapa del kanban) vive en la entrega.
+ * ⚠️ LOS MÓDULOS SALEN DE `modulosDelCurso` (lib/curso-modulos-datos.ts), la derivación del curso y
+ *    del portal (revisión del 08/10/2026). Leyendo `curso_modulos` a mano, el nivel de un módulo
+ *    VINCULADO no salía nunca: su fila guarda sólo el candado (el nombre es el de su etapa) y llegaba
+ *    sin nombre. Y una fila de una etapa sacada del curso no es un módulo.
+ * ⚠️ A UN ALUMNO SE LE RECORTA A SUS PERMISOS (mig 0219): el leaderboard no le nombra un módulo, ni una
+ *    clase de uno, que en el portal no le viaja «ni el nombre». Tampoco una clase de un módulo que ya
+ *    no existe.
+ * ⚠️ BEST-EFFORT: lo que no se puede leer vuelve vacío («no abre nada»), con un aviso en el log.
  */
-async function aperturasDelCurso(ws: number, productoId: number): Promise<Record<number, string[]>> {
-  const sb = getSupabaseServer();
+async function aperturasDelCurso(a: Actor): Promise<Record<number, string[]>> {
+  const ve = (clave: string) => a.equipo || moduloPermitido(a.alcance ?? null, a.productoId, clave);
   const items: Array<{ nombre: string; bloqueo: unknown }> = [];
   try {
-    const { data, error } = await sb.from('curso_modulos').select('nombre, bloqueo').eq('workspace_id', ws).eq('producto_id', productoId);
-    if (!error) for (const f of (data ?? []) as Array<{ nombre: string; bloqueo: unknown }>) items.push({ nombre: f.nombre, bloqueo: f.bloqueo });
-  } catch { /* la tabla todavía no existe */ }
-  try {
-    const { data, error } = await sb.from('curso_clases').select('titulo, bloqueo').eq('workspace_id', ws).eq('producto_id', productoId);
-    if (!error) for (const f of (data ?? []) as Array<{ titulo: string; bloqueo: unknown }>) items.push({ nombre: f.titulo, bloqueo: f.bloqueo });
-  } catch { /* la columna todavía no existe */ }
+    const { modulosDelCurso } = await import('./curso-modulos-datos');
+    const cur = await modulosDelCurso(a.productoId);
+    for (const m of cur.modulos) if (ve(m.clave)) items.push({ nombre: m.nombre, bloqueo: m.bloqueo });
+    const existen = new Set(cur.modulos.map((m) => m.clave));
+    const { data, error } = await getSupabaseServer().from('curso_clases').select('titulo, etapa, bloqueo')
+      .eq('workspace_id', a.ws).eq('producto_id', a.productoId);
+    if (error) throw new Error(error.message);
+    for (const f of (data ?? []) as Array<{ titulo: string; etapa: string; bloqueo: unknown }>) {
+      if (existen.has(f.etapa) && ve(f.etapa)) items.push({ nombre: f.titulo, bloqueo: f.bloqueo });
+    }
+  } catch (e) {
+    console.warn('[comunidad] no pude leer lo que abre cada nivel:', msg(e, ''));
+  }
   return aperturasPorNivel(items);
 }
 
@@ -1192,7 +1202,7 @@ export async function rankingComunidad(a: Actor): Promise<RankingVista> {
     miembrosDeLaComunidad(a.ws, a.productoId),
     likesDelProducto(a.ws, a.productoId),
     leerAjustes(a.ws, a.productoId),
-    aperturasDelCurso(a.ws, a.productoId),
+    aperturasDelCurso(a),
   ]);
   const esMiembro = esMiembroDe(comunidad);
   const totales = puntosPorMiembro(likes);

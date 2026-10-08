@@ -1,7 +1,7 @@
 ﻿'use client';
 
 // =============================================================================
-// CursoPortal — el portal de UN curso (hub + clase + recurso) y su diseño
+// CursoPortal — el SELECTOR de cursos y el SHELL del portal (el papel, la barra de arriba)
 // =============================================================================
 // Vive acá y no dentro de Conocimientos.tsx porque lo usan DOS lugares:
 //   • /conocimientos            → el admin, con navegación por URL y Compartir.
@@ -14,10 +14,16 @@
 // ni siquiera lo incluye).
 //
 // Estética "área de alumnos" de AvatarHype (scope .ahc, papel + lima).
+//
+// ⚠️ DESDE EL 08/10/2026 ACÁ QUEDAN SÓLO EL SELECTOR Y EL SHELL. El portal de un curso (hub, clase,
+// recurso) se fue: el catálogo marcaba `replica: true` en TODOS los cursos, así que este archivo cortaba
+// en CursoReplica antes de llegar al hub, y el Hub, ClaseDetail y RecursoDetail eran código muerto
+// (lo que se les agregaba no se veía en ninguna parte). El curso lo dibuja ./CursoConocimientos.tsx,
+// con el dibujo de los cursos (app/_cursos/CursoUgc.tsx). La hoja `CSS` de abajo todavía trae reglas
+// de esas vistas (`.al-hub`, `.al-det`, `.al-doc`…): no rompen nada y se podan en una pasada aparte.
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Curso, Clase, Recurso } from './curso';
-import CursoReplica from './CursoReplica';
+import type { Curso, Recurso } from './curso';
 // El desplegable de la casa, y no uno propio: ya resuelve portal (para que no lo
 // recorte ningún overflow), click afuera, Escape, cierre al scrollear y foco. Sus
 // tokens viven en `:root` de globals.css, que carga el layout raíz — o sea que
@@ -25,114 +31,35 @@ import CursoReplica from './CursoReplica';
 import { Dropdown } from '../components/Dropdown';
 import { Miniatura } from './Miniatura';
 
-export const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${id}/preview`;
-export const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}/view`;
-export const DRIVE_THUMB = (id: string) => `https://drive.google.com/thumbnail?id=${id}&sz=w480`;
-export const nn = (n: number) => String(n).padStart(2, '0');
 export const TIPO_BADGE: Record<Recurso['tipo'], string> = { gpt: 'Agente', notion: 'Prompts', pdf: 'Catálogo', bank: 'Recursos', file: 'Descarga' };
-// ⚠️ Con pocos números se listan; pasando de 3 se CUENTAN. Listarlos siempre rompía
-// la tarjeta: un recurso de un módulo de 12 clases producía
-// «CLASES 10·11·12·13·14·15·16·17·18·19·20·21» y desbordaba el ancho. El dato útil
-// ahí es «a cuántas pertenece», y el detalle ya está adentro del recurso.
-export const claseTag = (clases?: number[]) => {
-  if (!clases || !clases.length) return undefined;
-  if (clases.length === 1) return `Clase ${clases[0]}`;
-  if (clases.length <= 3) return `Clases ${clases.join('·')}`;
-  return `${clases.length} clases`;
-};
-
-// ⚠️ El badge NO lleva número cuando el título ya trae el suyo. Muchos creadores
-// numeran sus lecciones («5.3 ROBA COMO ARTISTA», «11. Temazos») y esa numeración no
-// tiene por qué coincidir con la posición real: en «Jaque Blue» la plataforma no
-// tiene las lecciones 9, 12, 13 y 14, así que la 5.3 del autor es la 9ª del curso y
-// la tarjeta decía «CLASE 09 · 5.3 ROBA COMO ARTISTA». Dos números distintos para la
-// misma clase se leen como un error, y el que manda es el del autor: es el que él
-// menciona hablando y el que está en sus materiales.
-//
-// Se mira el TÍTULO, no el curso entero: en un mismo curso conviven clases numeradas
-// y sin numerar, y a las segundas el número sí les sirve.
-export const seNumeraSola = (titulo: string) => /^\s*\d{1,3}(?:[.\-)]|\s|$)/.test(String(titulo ?? ''));
-export const badgeClase = (c: Clase) => (seNumeraSola(c.titulo) ? 'Clase' : `Clase ${nn(c.vn ?? c.n)}`);
-
-const EXT_MSG = 'Alojado por un TERCERO (Notion del creador / Drive de otra cuenta), no en tu dominio. Si su dueño lo elimina, se pierde. Conviene respaldarlo.';
-// Marca de advertencia: dato de un tercero (fuera de tu control).
-function Ext({ badge }: { badge?: boolean }) {
-  return <span className={badge ? 'al-ext al-ext-badge' : 'al-ext'} title={EXT_MSG}>⚠{badge ? '' : ' De un tercero'}</span>;
-}
-
-// Póster vertical del video de ejemplo. Drive dibuja su player en horizontal
-// (estilo YouTube) y recorta el 9:16 → usamos la miniatura vertical + play, y el
-// click abre el clip completo en Drive.
-function VidPoster({ id, label }: { id: string; label: string }) {
-  return (
-    <a href={DRIVE_VIEW(id)} target="_blank" rel="noopener noreferrer" className="al-vid" title="Ver el video de ejemplo (Drive)">
-      {/* eslint-disable-next-line @next/next/no-img-element -- miniatura de Drive (archivo público), URL externa */}
-      <img src={DRIVE_THUMB(id)} alt={`${label} — video de ejemplo`} loading="lazy" className="al-vid-img" />
-      <span className="al-vid-play" aria-hidden>▶</span>
-      <span className="al-vid-tag">Ver ejemplo</span>
-      <Ext badge />
-    </a>
-  );
-}
-
-export function CopyBtn({ text }: { text: string }) {
-  const [ok, setOk] = useState(false);
-  return (
-    <button type="button" className="al-copy" onClick={async () => {
-      try { await navigator.clipboard.writeText(text); setOk(true); setTimeout(() => setOk(false), 1600); } catch { /* seleccionar a mano */ }
-    }}>{ok ? '✓ Copiado' : 'Copiar'}</button>
-  );
-}
-
-// Parseo inline de **negrita** y __subrayado__.
-function inline(text: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+?\*\*|__[^_]+?__)/g).map((p, i) => {
-    if (p.length > 4 && p.startsWith('**') && p.endsWith('**')) return <strong key={i}>{p.slice(2, -2)}</strong>;
-    if (p.length > 4 && p.startsWith('__') && p.endsWith('__')) return <u key={i}>{p.slice(2, -2)}</u>;
-    return p;
-  });
-}
-
-// Formatea texto de forma NATIVA (títulos MAYÚS / ━━━, ⭐ subtítulos,
-// listas 1./-/•, **negrita**, párrafos). No es un volcado monoespaciado.
-export function DocContent({ text }: { text: string }) {
-  const lines = text.replace(/\r/g, '').split('\n');
-  const out: ReactNode[] = [];
-  let para: string[] = [];
-  let list: string[] = [];
-  let k = 0;
-  const flushPara = () => { if (para.length) { out.push(<p key={k++} className="al-doc-p">{inline(para.join('\n'))}</p>); para = []; } };
-  const flushList = () => { if (list.length) { const items = list.slice(); out.push(<ul key={k++} className="al-doc-ul">{items.map((li, i) => <li key={i}>{inline(li)}</li>)}</ul>); list = []; } };
-  const flush = () => { flushList(); flushPara(); };
-  const isSep = (l: string) => /[━─—=_]/.test(l) && /^[\s━─—=_.·*-]{4,}$/.test(l);
-  const isHeading = (l: string) => l.length <= 62 && /[A-ZÁÉÍÓÚÑ]/.test(l) && l === l.toUpperCase() && !/[a-záéíóúñ]/.test(l);
-  for (const raw of lines) {
-    const l = raw.trim();
-    if (l === '' || isSep(l)) { flush(); continue; }
-    if (l.startsWith('⭐')) { flush(); out.push(<h5 key={k++} className="al-doc-h5">{l.replace(/^⭐\s*/, '')}</h5>); continue; }
-    if (isHeading(l)) { flush(); out.push(<h4 key={k++} className="al-doc-h4">{l}</h4>); continue; }
-    const m = l.match(/^(?:\d+[.)]|[-•▪·*])\s+(.*)$/);
-    if (m) { flushPara(); list.push(m[1]); continue; }
-    flushList(); para.push(l);
-  }
-  flush();
-  return <div className="al-doc">{out}</div>;
-}
 
 // `img` es opcional a propósito: la tarjeta de un curso con portada la muestra, y la
 // de una clase o un recurso sigue siendo la misma tarjeta sin imagen. Un componente
 // por caso los haría divergir en tres números, que es lo que ya pasó con `.mk-fila`.
-export function Card({ badge, nota, titulo, desc, resumen, onClick, ariaLabel, img }: { badge: string; nota?: string; titulo: string; desc: string; resumen?: string; onClick: () => void; ariaLabel: string; img?: string }) {
+export function Card({ badge, nota, titulo, desc, resumen, onClick, ariaLabel, img, fondo }: {
+  badge: string; nota?: string; titulo: string; desc: string; resumen?: string; onClick: () => void; ariaLabel: string; img?: string;
+  /**
+   * Una tapa que NO es foto: el degradado que el super admin le eligió al curso (lib/conocimiento-ajustes.ts),
+   * como `background` CSS. Va en el mismo marco que la foto; con las dos, gana la foto.
+   */
+  fondo?: string;
+}) {
   // Si la miniatura da 404, la tarjeta vuelve a la variante SIN imagen — no se queda con
   // el marco vacío. Por eso el estado vive acá y no adentro de `Miniatura`: el que decide
   // el `className` es este componente.
   const [sinImg, setSinImg] = useState(false);
   const conImg = !!img && !sinImg;
+  const conFondo = !conImg && !!fondo;
   return (
-    <button type="button" className={conImg ? 'al-rescard al-rescard-img' : 'al-rescard'} onClick={onClick} aria-label={ariaLabel}>
+    <button type="button" className={conImg || conFondo ? 'al-rescard al-rescard-img' : 'al-rescard'} onClick={onClick} aria-label={ariaLabel}>
       {conImg && (
         <span className="al-rescard-thumb">
           <Miniatura src={img!} onFalta={() => setSinImg(true)} />
+        </span>
+      )}
+      {conFondo && (
+        <span className="al-rescard-thumb" aria-hidden>
+          <span className="al-rescard-fondo" style={{ background: fondo }} />
         </span>
       )}
       <span className="al-rescard-top">
@@ -149,14 +76,14 @@ export function Card({ badge, nota, titulo, desc, resumen, onClick, ariaLabel, i
     </button>
   );
 }
-
 // ── Selector de cursos (la portada de la tab) ────────────────────────────────
 // Vive acá por la MISMA razón que el hub: lo usan el admin (`/conocimientos`) y
 // el link compartido de la tab entera (`/compartido/<token>`). La lista llega
 // por prop porque no es la misma en los dos lados — Branding no se puede servir
 // sin login (ver `CURSOS_COMPARTIBLES` en catalogo.ts).
 export function Selector({ cursos, enter, compartir, compartirDe, sinMarca, foco }: {
-  cursos: Curso[];
+  /** Con lo que el super admin les cambió aplicado (`ajustarFicha`): el título, el resumen y la tapa. */
+  cursos: Array<Curso & { fondo?: string }>;
   enter: (slug: string) => void;
   compartir?: ReactNode;
   /**
@@ -170,7 +97,7 @@ export function Selector({ cursos, enter, compartir, compartirDe, sinMarca, foco
    * un botón adentro de otro no es HTML válido — el navegador reparenta y el de
    * adentro deja de recibir clicks.
    */
-  compartirDe?: (c: Curso) => ReactNode;
+  compartirDe?: (c: Curso & { fondo?: string }) => ReactNode;
   /** Un link repartido afuera no lleva el nombre de la casa. Es un booleano y no
    *  el texto del rótulo a propósito: así los dos rótulos viven en ESTE archivo y
    *  no se puede escribir un tercero desde otra pantalla. */
@@ -238,7 +165,7 @@ export function Selector({ cursos, enter, compartir, compartirDe, sinMarca, foco
   );
 
   const cats = useMemo(() => {
-    const m: Record<string, Curso[]> = {};
+    const m: Record<string, Array<Curso & { fondo?: string }>> = {};
     for (const c of filtrados) (m[c.categoria] = m[c.categoria] || []).push(c);
     return m;
   }, [filtrados]);
@@ -322,7 +249,7 @@ export function Selector({ cursos, enter, compartir, compartirDe, sinMarca, foco
           <div className="al-grid">
             {list.map((c) => {
               const tarjeta = (
-                <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc} resumen={c.resumen} img={c.portada}
+                <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc} resumen={c.resumen} img={c.portada} fondo={c.fondo}
                   ariaLabel={`Entrar a ${c.titulo}`} onClick={() => enter(c.slug)} />
               );
               // Sin `compartirDe` la tarjeta va PELADA, sin el envoltorio: la vista
@@ -340,558 +267,6 @@ export function Selector({ cursos, enter, compartir, compartirDe, sinMarca, foco
         </section>
       ))}
     </>
-  );
-}
-
-// ── Hub del curso ────────────────────────────────────────────────────────────
-// `compartir` es el botón de Compartir del admin, inyectado desde afuera: la
-// vista pública no lo pasa y así ese código no llega al invitado.
-// `back` es el MISMO de ClaseDetail y RecursoDetail, no uno nuevo: ya venía cableado
-// desde los dos lados (el portal del admin y el link compartido) y el hub era la única
-// vista de las tres que no lo dibujaba — se entraba a un curso y no había salida.
-// `backLabel`: a dónde vuelve, cuando no es obvio. En el admin el destino es la
-// pantalla anterior y «← Volver» alcanza; en un link que comparte la TAB entera
-// el destino es el listado de cursos, y un «Volver» pelado no lo dice — el dueño
-// leyó la pantalla como que no había salida, con el botón puesto.
-export function Hub({ curso, goClase, goRecurso, compartir, back, backLabel }: { curso: Curso; goClase: (n: number) => void; goRecurso: (slug: string) => void; compartir?: ReactNode; back?: () => void; backLabel?: string }) {
-  // Si la portada da 404 se saca el MARCO entero, no solo la imagen: `.al-portada` tiene
-  // borde, sombra y fondo propios, así que dejarlo vacío pinta una caja de 22 px de nada
-  // arriba del título.
-  const [portadaRota, setPortadaRota] = useState(false);
-  // DOS niveles: módulo (`grupo`) → sección (`subgrupo`). Antes se agrupaba solo por
-  // módulo y las 24 clases de uno caían en una lista plana, aunque la plataforma sí
-  // las divide en secciones. El orden se toma del ORDEN DE LAS CLASES, no de un sort
-  // alfabético: el módulo 10 tiene que ir después del 9, y «10» < «9» en texto.
-  const modulos = useMemo(() => {
-    const m = new Map<string, Map<string, Clase[]>>();
-    for (const c of curso.clases) {
-      const g = c.grupo || '';
-      const s = c.subgrupo || '';
-      if (!m.has(g)) m.set(g, new Map());
-      const sub = m.get(g)!;
-      if (!sub.has(s)) sub.set(s, []);
-      sub.get(s)!.push(c);
-    }
-    return [...m.entries()].map(([g, sub]) => ({
-      grupo: g,
-      total: [...sub.values()].reduce((a, x) => a + x.length, 0),
-      secciones: [...sub.entries()].map(([s, cs]) => ({ nombre: s, clases: cs })),
-    }));
-  }, [curso]);
-  const conModulos = curso.clases.some((c) => c.grupo);
-  const claseCard = (c: Clase) => (
-    <Card key={c.n} badge={badgeClase(c)} titulo={c.titulo} desc={c.cardDesc}
-      ariaLabel={`Abrir ${c.titulo}`} onClick={() => goClase(c.n)} />
-  );
-  return (
-    <>
-      {back && <button type="button" className="al-back" onClick={back}>← {backLabel ?? 'Volver'}</button>}
-      <section className="al-hero">
-        <div className="al-hero-top">
-          <span className="al-eyebrow"><span className="d" /> {curso.eyebrow}</span>
-          {compartir}
-        </div>
-        {/* La portada arriba de todo, antes del título: es la identidad del curso. */}
-        {curso.portada && !portadaRota && (
-          <div className="al-portada">
-            <Miniatura src={curso.portada} alt={`Portada de ${curso.titulo}`} onFalta={() => setPortadaRota(true)} />
-          </div>
-        )}
-        {/* El título del CURSO, no un rótulo genérico: «Tus recursos» estaba hardcodeado
-            acá y salía igual en los ocho cursos. */}
-        <h1 className="al-h1">{curso.titulo}</h1>
-        <p className="al-sub">{curso.subtitulo}</p>
-      </section>
-      <section className="al-sec">
-        {/* ⚠️ El «·» va solo si hay DOS cosas que separar. `volumen` es un rótulo libre
-            («Vol. 1–3») que no todos los cursos tienen, y los del pipeline lo emitían
-            como «30 clases» — que con el conteo de al lado daba «30 CLASES · 30 CLASES».
-            Se arregló en las dos puntas: acá el separador es condicional, y el pipeline
-            dejó de emitir un volumen que repite lo que ya dice el conteo. */}
-        <div className="al-seclabel"><span>El curso</span><span className="al-vol">
-          {curso.clases.length} clases{curso.volumen ? ` · ${curso.volumen}` : ''}
-        </span></div>
-        {conModulos ? (
-          <div className="al-modstack">
-            {modulos.map((mod, i) => (
-              // <details> nativo: plegable sin estado propio, y el navegador se
-              // encarga del teclado y del foco. `open` en el primero para que el hub
-              // no arranque como una lista de títulos cerrados.
-              <details key={mod.grupo} className="al-modgroup" open={i === 0}>
-                <summary className="al-modtitle">
-                  <span className="al-modtitle-t">{mod.grupo}</span>
-                  <span className="al-modtitle-n">{mod.total} clase{mod.total === 1 ? '' : 's'}</span>
-                </summary>
-                {/* Si el módulo NO tiene secciones (una sola, sin nombre), no se
-                    inventa un segundo nivel: va la grilla directa. */}
-                {mod.secciones.length === 1 && !mod.secciones[0].nombre ? (
-                  <div className="al-grid">{mod.secciones[0].clases.map(claseCard)}</div>
-                ) : (
-                  mod.secciones.map((sec, j) => (
-                    <details key={sec.nombre || j} className="al-subgroup" open={j === 0}>
-                      <summary className="al-subtitle">
-                        <span className="al-subtitle-t">{sec.nombre || 'Sin sección'}</span>
-                        <span className="al-modtitle-n">{sec.clases.length}</span>
-                      </summary>
-                      <div className="al-grid">{sec.clases.map(claseCard)}</div>
-                    </details>
-                  ))
-                )}
-              </details>
-            ))}
-          </div>
-        ) : (
-          <div className="al-grid">{curso.clases.map(claseCard)}</div>
-        )}
-      </section>
-      {curso.recursos.length > 0 && (
-        // Plegable igual que los módulos. Arranca CERRADO cuando son muchos: 71
-        // tarjetas de recursos empujan las clases fuera de la pantalla y el hub deja
-        // de servir para lo que es. Con pocos, abierto — esconderlos sería peor.
-        <details className="al-sec al-secfold" open={curso.recursos.length <= 12}>
-          <summary className="al-seclabel al-seclabel-fold">
-            <span>Recursos</span>
-            <span className="al-vol">{curso.recursos.length} archivo{curso.recursos.length === 1 ? '' : 's'} y enlace{curso.recursos.length === 1 ? '' : 's'}</span>
-          </summary>
-          <div className="al-grid">
-            {curso.recursos.map((r) => (
-              <Card key={r.slug} badge={r.badge ?? TIPO_BADGE[r.tipo]} nota={claseTag(r.clases)} titulo={r.label} desc={r.cardDesc}
-                ariaLabel={`Abrir ${r.label}`} onClick={() => goRecurso(r.slug)} />
-            ))}
-          </div>
-        </details>
-      )}
-    </>
-  );
-}
-
-// Transcripción diferida: puede ser enorme (+130k chars), así que NO viaja en el
-// bundle. Se sirve estática en /cono-tx/<videoId>.json y se baja al abrir el
-// <details>, una sola vez. Es un archivo público: funciona igual sin sesión.
-// Íconos de línea, inline y sin dependencias: son dos, y una librería de íconos por
-// dos glifos es peso que viaja en el bundle público de /compartido.
-const IcoCopiar = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-  </svg>
-);
-const IcoOk = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-const IcoBajar = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-);
-
-// Nombre de archivo seguro en Windows y macOS, que es donde se van a guardar.
-const archivoSeguro = (s: string) => String(s)
-  .replace(/[<>:"/\\|?*]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'transcripcion';
-
-/**
- * El MATERIAL de la clase tal como está en la plataforma de origen: el documento con
- * sus secciones, los bloques de prompt con su etiqueta y su botón de copiar, las
- * imágenes de referencia y los links a las herramientas.
- *
- * ── Por qué se carga aparte, y por qué es HTML ──────────────────────────────
- * Son ~350 KB entre las 27 lecciones: adentro de la ficha viajarían en el bundle de
- * TODA la grilla para leer una sola clase. Mismo motivo y mismo mecanismo que
- * `TranscriptLazy` — un json público en `/cono-doc/<slug>.json`.
- *
- * Y va como HTML porque la ESTRUCTURA es contenido: qué parte de un prompt es la
- * cámara y cuál el guion está en las clases del marcado (`.ugc-clip-part.camara`,
- * `.guion`, `.voz`…), y eso es la mitad de lo que el curso enseña. Aplanarlo a texto
- * lo perdería.
- *
- * ⚠️ El HTML se sanea al CAPTURARLO (`scripts/avatarhype-doc-portal.mjs`: fuera
- * `<script>`, `on*=` y `javascript:`), no acá: el saneo va donde el dato entra, una
- * sola vez, y no en cada render.
- */
-function DocumentoLazy({ slug }: { slug: string }) {
-  const [doc, setDoc] = useState<{ tituloDocumento?: string | null; paneles: Record<string, string> } | null>(null);
-  const [estado, setEstado] = useState<'idle' | 'cargando' | 'error'>('idle');
-  const [tab, setTab] = useState<string | null>(null);
-  const [copiado, setCopiado] = useState<string | null>(null);
-
-  const abrir = () => {
-    if (doc || estado === 'cargando') return;
-    // La hoja del origen (~75 KB) se carga acá y una sola vez para toda la app: sin
-    // ella el documento se ve como texto plano —las etiquetas de color de cada parte
-    // del prompt SON el contenido—, y en el bundle serían 75 KB para todo el que
-    // entra a la grilla y no abre ningún material.
-    if (!document.getElementById('ahdoc-css')) {
-      const l = document.createElement('link');
-      l.id = 'ahdoc-css';
-      l.rel = 'stylesheet';
-      l.href = '/cono-doc/ugc.css';
-      document.head.appendChild(l);
-    }
-    setEstado('cargando');
-    fetch(`/cono-doc/${slug}.json`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => { setDoc(d); setTab(Object.keys(d.paneles ?? {})[0] ?? null); setEstado('idle'); })
-      .catch(() => setEstado('error'));
-  };
-
-  // El botón «copiar» de cada bloque es del origen y su JS no viaja: se reimplementa
-  // por delegación. El texto sale del `.ugc-pre` del MISMO bloque —no del más cercano
-  // en el documento—, porque una lección tiene hasta 14 botones y equivocarse de
-  // bloque copia un prompt que no es el que se pidió, sin que se note.
-  const alClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const btn = (e.target as HTMLElement).closest('.ugc-copy');
-    if (!btn) return;
-    const bloque = btn.closest('.ugc-card') ?? btn.parentElement;
-    const pre = bloque?.querySelector('.ugc-pre');
-    const texto = (pre?.textContent ?? '').trim();
-    if (!texto) return;
-    navigator.clipboard.writeText(texto).then(() => {
-      setCopiado(texto.slice(0, 24));
-      setTimeout(() => setCopiado(null), 1600);
-    });
-  };
-
-  return (
-    <details className="al-secfold" onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && abrir()}>
-      <summary className="al-seclabel al-seclabel-fold">
-        <span>Material de la clase</span>
-        <span className="al-vol">{doc ? Object.keys(doc.paneles).join(' · ') : 'documento, prompts e imágenes'}</span>
-      </summary>
-      {estado === 'cargando' && <div className="al-nota">Cargando el material…</div>}
-      {estado === 'error' && <div className="al-nota">No pude cargar el material de esta clase.</div>}
-      {doc && (
-        <div className="ahdoc">
-          {Object.keys(doc.paneles).length > 1 && (
-            <div className="ahdoc-tabs" role="tablist" aria-label="Material de la clase">
-              {Object.keys(doc.paneles).map((n) => (
-                <button key={n} type="button" role="tab" aria-selected={tab === n}
-                  className={`ahdoc-tab${tab === n ? ' on' : ''}`} onClick={() => setTab(n)}>{n}</button>
-              ))}
-            </div>
-          )}
-          {copiado && <div className="ahdoc-copiado" role="status">Copiado: «{copiado}…»</div>}
-          <div className="ahdoc-cuerpo" onClick={alClick}
-            dangerouslySetInnerHTML={{ __html: (tab && doc.paneles[tab]) || '' }} />
-        </div>
-      )}
-    </details>
-  );
-}
-
-function TranscriptLazy({ videoId, titulo }: { videoId: string; titulo: string }) {
-  const [paras, setParas] = useState<string[] | null>(null);
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [copiado, setCopiado] = useState(false);
-  const load = () => {
-    if (paras || state === 'loading') return;
-    setState('loading');
-    fetch(`/cono-tx/${videoId}.json`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: string[]) => { setParas(d); setState('idle'); })
-      .catch(() => setState('error'));
-  };
-
-  // El texto se arma UNA vez y lo usan copiar y descargar. Con el título arriba,
-  // porque una transcripción suelta en la carpeta de descargas no dice de qué clase es.
-  const texto = () => `${titulo}\n\n${(paras ?? []).join('\n\n')}\n`;
-
-  const copiar = async () => {
-    try { await navigator.clipboard.writeText(texto()); setCopiado(true); setTimeout(() => setCopiado(false), 1600); }
-    catch { /* sin permiso de portapapeles: queda el texto a la vista para seleccionar */ }
-  };
-  const bajar = () => {
-    const url = URL.createObjectURL(new Blob([texto()], { type: 'text/plain;charset=utf-8' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${archivoSeguro(titulo)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    // Sin esto el Blob queda en memoria toda la sesión; una transcripción larga son
-    // cientos de KB y el portal se navega clase por clase.
-    setTimeout(() => URL.revokeObjectURL(url), 0);
-  };
-
-  return (
-    <details className="al-det" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) load(); }}>
-      <summary>
-        <span className="al-det-t">Ver transcripción</span>
-        {/* Las acciones viven EN la línea del rótulo, a la derecha. Aparecen solo con el
-            texto ya cargado: un botón de copiar que copia una cadena vacía es peor que
-            no tener botón.
-            ⚠️ Van adentro del <summary>, así que cada click tiene que frenarse o abre y
-            cierra el desplegable — `preventDefault` corta el toggle nativo y
-            `stopPropagation` evita que el evento llegue al details. */}
-        {paras && paras.length > 0 && (
-          <span className="al-tx-acc">
-            <button type="button" className="al-tx-btn" title={copiado ? 'Copiado' : 'Copiar la transcripción'}
-              aria-label={copiado ? 'Copiado' : 'Copiar la transcripción'}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); copiar(); }}>
-              {copiado ? <IcoOk /> : <IcoCopiar />}
-            </button>
-            <button type="button" className="al-tx-btn" title="Descargar la transcripción (.txt)"
-              aria-label="Descargar la transcripción en .txt"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); bajar(); }}>
-              <IcoBajar />
-            </button>
-          </span>
-        )}
-      </summary>
-      <div className="al-transcript">
-        {state === 'loading' && <p>Cargando transcripción…</p>}
-        {state === 'error' && <p>No se pudo cargar la transcripción.</p>}
-        {paras && paras.map((p, i) => <p key={i}>{p}</p>)}
-      </div>
-    </details>
-  );
-}
-
-// ── Detalle de clase ─────────────────────────────────────────────────────────
-export function ClaseDetail({ curso, c, goRecurso, goClase, back }: {
-  curso: Curso; c: Clase; goRecurso: (slug: string) => void;
-  /** Ir a otra clase. Opcional: el link compartido puede no querer navegación. */
-  goClase?: (n: number) => void;
-  back: () => void;
-}) {
-  const bySlug = useMemo(() => Object.fromEntries(curso.recursos.map((r) => [r.slug, r])), [curso]);
-  // ⚠️ Anterior/siguiente salen de la POSICIÓN en el array, no de `n ± 1`. El `n` es
-  // el número de la clase y puede no ser contiguo; el orden real del curso es el del
-  // array, que ya viene ordenado por módulo y por orden dentro del módulo.
-  const idx = curso.clases.findIndex((x) => x.n === c.n);
-  const prev = idx > 0 ? curso.clases[idx - 1] : null;
-  const next = idx >= 0 && idx < curso.clases.length - 1 ? curso.clases[idx + 1] : null;
-  return (
-    <div className="al-detail">
-      <button type="button" className="al-back" onClick={back}>← Volver</button>
-      <div className="al-detail-hd">
-        <span className="al-rescard-badge">{badgeClase(c)}</span>
-        <h1 className="al-h1 al-h1-sm">{c.titulo}</h1>
-      </div>
-
-      {/* El recuadro "Video no disponible" solo tiene sentido en una clase que SÍ
-          es de video (tiene transcripción) y quedó sin el archivo. En un módulo
-          escrito, ese hueco enorme es ruido. */}
-      {c.videoId ? (
-        <div className="al-video"><iframe src={DRIVE_PREVIEW(c.videoId)} title={`Clase ${c.n}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" /></div>
-      ) : c.hasTx || c.transcripcionNota ? (
-        <div className="al-video al-video-x"><span>Video no disponible</span></div>
-      ) : null}
-
-      {/* Anterior / Siguiente, PEGADOS al video: es donde uno termina de mirar y decide
-          seguir. Abajo de todo quedaban después del resumen, la transcripción y los
-          recursos — o sea, invisibles en una clase larga.
-          Si no hay anterior (o no hay siguiente) el botón NO se dibuja, ni siquiera
-          deshabilitado: uno apagado ocupa lugar y hace dudar de si está roto. */}
-      {goClase && (prev || next) && (
-        <nav className="al-nav" aria-label="Navegación entre clases">
-          {prev ? (
-            <button type="button" className="al-nav-b al-nav-prev" onClick={() => goClase(prev.n)}>
-              <span className="al-nav-l">← Anterior</span>
-              <span className="al-nav-t">{prev.titulo}</span>
-            </button>
-          ) : <span />}
-          {next && (
-            <button type="button" className="al-nav-b al-nav-next" onClick={() => goClase(next.n)}>
-              <span className="al-nav-l">Siguiente →</span>
-              <span className="al-nav-t">{next.titulo}</span>
-            </button>
-          )}
-        </nav>
-      )}
-
-      {c.resumen && (
-        <div className="al-block">
-          <span className="al-block-l">Resumen</span>
-          <div className="al-docbox al-docbox-tall"><DocContent text={c.resumen} /></div>
-        </div>
-      )}
-
-      {c.hasDoc && c.docSlug && <DocumentoLazy slug={c.docSlug} />}
-
-      {c.hasTx && c.videoId ? (
-        <TranscriptLazy videoId={c.videoId} titulo={c.titulo} />
-      ) : c.transcripcionNota ? <div className="al-nota">{c.transcripcionNota}</div> : null}
-
-      {c.recursoSlugs.length > 0 && (
-        <div className="al-block">
-          <span className="al-block-l">Recursos de esta clase</span>
-          <div className="al-grid">
-            {c.recursoSlugs.map((s) => bySlug[s] ? (
-              <Card key={s} badge={TIPO_BADGE[bySlug[s].tipo]} titulo={bySlug[s].label} desc={bySlug[s].cardDesc}
-                ariaLabel={`Abrir ${bySlug[s].label}`} onClick={() => goRecurso(s)} />
-            ) : null)}
-          </div>
-        </div>
-      )}
-      {c.herramientas.length > 0 && (
-        <div className="al-block">
-          <span className="al-block-l">Herramientas</span>
-          <div className="al-chips">
-            {c.herramientas.map((h, i) => (
-              <a key={i} href={h.url} target="_blank" rel="noopener noreferrer" className="al-chip al-chip-tool">
-                {h.nombre}{h.nota ? <span className="al-chip-note"> · {h.nota}</span> : null}
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-// Agrupa los bloques en SECCIONES (una por head). Cada sección es una tarjeta:
-// título + explicación ADENTRO, y debajo las filas (media | prompt). `x` = la
-// explicación "qué hace", pegada a su head/label.
-type Bloque = { t: string; v: string; x?: string };
-type Row = { img?: string; vids?: string[]; items?: Bloque[] };
-type Section = { head?: string; headX?: string; rows: Row[] };
-function groupSections(bloques: Bloque[]): Section[] {
-  const sections: Section[] = [];
-  let sec: Section = { rows: [] };
-  let cur: Row | null = null;
-  const hasMedia = (r: Row | null) => !!(r && (r.img || (r.vids && r.vids.length)));
-  const flushRow = () => { if (cur && (hasMedia(cur) || (cur.items && cur.items.length))) sec.rows.push(cur); cur = null; };
-  const pushSec = () => { if (sec.head || sec.rows.length) sections.push(sec); };
-  for (const b of bloques) {
-    if (b.t === 'head') { flushRow(); pushSec(); sec = { head: b.v, headX: b.x, rows: [] }; continue; }
-    if (b.t === 'img') {
-      if (cur && cur.img) flushRow();
-      if (!cur) cur = { items: [] };
-      cur.img = b.v;
-    } else if (b.t === 'vid') {
-      if (!cur) cur = { items: [] };
-      (cur.vids = cur.vids || []).push(b.v);
-    } else {
-      if (hasMedia(cur)) flushRow();
-      if (!cur) cur = { items: [] };
-      cur.items!.push(b);
-    }
-  }
-  flushRow();
-  pushSec();
-  return sections;
-}
-
-// ── Detalle de recurso ───────────────────────────────────────────────────────
-export function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
-  const sections = r.bloques ? groupSections(r.bloques) : null;
-  const copyable = r.texto && (r.tipo === 'gpt' || (r.tipo === 'notion' && !sections));
-  return (
-    <div className="al-detail">
-      <button type="button" className="al-back" onClick={back}>← Volver</button>
-      <div className="al-detail-hd">
-        <div className="al-detail-badges">
-          <span className="al-rescard-badge">{TIPO_BADGE[r.tipo]}</span>
-          {claseTag(r.clases) && <span className="al-rescard-nota">{claseTag(r.clases)}</span>}
-        </div>
-        <div className="al-detail-titlerow">
-          <h1 className="al-h1 al-h1-sm">{r.label}</h1>
-          {r.notionUrl && (
-            <a href={r.notionUrl} target="_blank" rel="noopener noreferrer" className="al-notion al-notion-title">
-              Ver en Notion <span className="al-arr">↗</span> <Ext />
-            </a>
-          )}
-        </div>
-      </div>
-
-      {r.intro
-        ? <div className="al-intro"><DocContent text={r.intro} /></div>
-        : <p className="al-sub al-sub-sm">{r.cardDesc}</p>}
-
-      {copyable && <div className="al-content-act al-content-act-top"><CopyBtn text={r.texto!} /></div>}
-
-      {/* Notion con ejemplos → una TARJETA por sección (título + explicación + filas) */}
-      {sections ? (
-        <div className="al-cards">
-          {sections.map((sec, i) => (
-            <div key={i} className="al-card">
-              {sec.head && (
-                <div className="al-card-hd">
-                  <h3 className="al-card-title">{sec.head}</h3>
-                  {sec.headX && <div className="al-card-x"><DocContent text={sec.headX} /></div>}
-                </div>
-              )}
-              <div className="al-card-body">
-                {sec.rows.map((row, j) => {
-                  const conMedia = row.img || (row.vids && row.vids.length);
-                  return (
-                    <div key={j} className={`al-row ${conMedia ? '' : 'al-row-textonly'}`}>
-                      {conMedia && (
-                        <div className="al-row-media">
-                          {row.img && (
-                            <a href={row.img} target="_blank" rel="noopener noreferrer" className="al-step-media">
-                              {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
-                              <img src={row.img} alt={`${r.label} — ejemplo`} loading="lazy" />
-                              <Ext badge />
-                            </a>
-                          )}
-                          {row.vids && row.vids.map((id, vi) => <VidPoster key={vi} id={id} label={r.label} />)}
-                        </div>
-                      )}
-                      {row.items && row.items.length > 0 && (
-                        <div className="al-row-text">
-                          {row.items.map((b, k) => b.t === 'label'
-                            ? <div key={k} className="al-blabel-wrap"><span className="al-blabel">{b.v}</span>{b.x && <div className="al-blabel-x"><DocContent text={b.x} /></div>}</div>
-                            : <div key={k} className="al-bprompt"><CopyBtn text={b.v} /><pre className="al-bprompt-pre">{b.v}</pre></div>)}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {/* Agente (gpt) o Notion sin ejemplos → contenido formateado */}
-      {!sections && r.texto && (r.tipo === 'gpt' || r.tipo === 'notion') && (
-        <div className="al-docbox"><DocContent text={r.texto} /></div>
-      )}
-
-      {/* Notion sin bloques pero con capturas → visor (capturas = PDF en TU Drive) */}
-      {r.tipo === 'notion' && !sections && r.capturasDriveId && (
-        <div className="al-block">
-          <span className="al-block-l">Ejemplos visuales</span>
-          <div className="al-pdf"><iframe src={DRIVE_PREVIEW(r.capturasDriveId)} title={`${r.label} — ejemplos`} loading="lazy" allowFullScreen /></div>
-        </div>
-      )}
-
-      {r.tipo === 'pdf' && r.driveId && (
-        <div className="al-block">
-          <span className="al-block-l">Catálogo en PDF</span>
-          <div className="al-pdf al-pdf-tall"><iframe src={DRIVE_PREVIEW(r.driveId)} title={r.label} loading="lazy" allowFullScreen /></div>
-        </div>
-      )}
-
-      {/* Descargable que Drive no previsualiza (zip, rar…). Se dibuja como lo que
-          es —un archivo para bajar— en vez de un iframe con «sin vista previa». */}
-      {r.tipo === 'file' && r.driveId && (
-        <div className="al-block">
-          <span className="al-block-l">Archivo del curso</span>
-          <a href={DRIVE_VIEW(r.driveId)} target="_blank" rel="noopener noreferrer" className="al-file">
-            <span className="al-file-ext">{(r.ext ?? 'zip').toUpperCase()}</span>
-            <span className="al-file-t">
-              <span className="al-file-n">{r.label}</span>
-              <span className="al-file-d">Se abre en Drive para descargar</span>
-            </span>
-            <span className="al-arr">↗</span>
-          </a>
-        </div>
-      )}
-
-      {r.tipo === 'bank' && r.items && (
-        <div className="al-list">
-          {r.items.map((it, i) => (
-            <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
-              <span>{it.label}</span><span className="al-list-r"><span className="al-arr">↗</span></span>
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -919,75 +294,6 @@ export function PortalShell({ marca, tag, children }: { marca: ReactNode; tag?: 
       </div>
     </div>
   );
-}
-
-// ── El portal de un curso: elige qué vista mostrar ───────────────────────────
-/** `de`: la clase desde la que se abrió un recurso. Es lo que hace que «Volver»
- *  devuelva a ESA clase y no al índice — ver el porqué abajo, en CursoPortal. */
-export type Vista = { clase?: number | null; r?: string | null; de?: number | null };
-/** `reemplazar`: pisa la vista actual en vez de apilarla. Lo usa Anterior/Siguiente,
- *  para que el historial no se llene de una entrada por clase leída. */
-export type NavOpts = { reemplazar?: boolean };
-
-export default function CursoPortal({ curso, vista, nav, salir, backLabel, compartir }: {
-  curso: Curso;
-  vista: Vista;
-  nav: (v: Vista, o?: NavOpts) => void;
-  /** Salir del curso: el nivel de arriba del hub. Opcional porque no siempre existe
-   *  —en un share de UN curso no hay «todos los cursos»— y ahí el hub va sin Volver:
-   *  un botón que no lleva a ningún lado es peor que no tenerlo. */
-  salir?: () => void;
-  /** Solo para el HUB: a dónde vuelve, cuando el destino no es obvio. */
-  backLabel?: string;
-  compartir?: ReactNode;
-}) {
-  const clase = vista.clase != null ? curso.clases.find((c) => c.n === vista.clase) : undefined;
-  const recurso = vista.r ? curso.recursos.find((r) => r.slug === vista.r) : undefined;
-
-  // ⚠️ UN CURSO PUEDE PEDIR SU PROPIA PANTALLA. Los 17 cursos del portal son «video +
-  // transcripción» y la grilla les queda bien. El de Avatar Hype no lo es: su valor
-  // está en el DOCUMENTO de cada lección —los prompts con sus partes etiquetadas, las
-  // imágenes, los clips— y en cómo está organizado, con el video y el papel lado a
-  // lado. Metido en la grilla, ese material queda detrás de dos clicks.
-  // Por eso `replica`: la vista reproduce la pantalla del origen. Es un atributo del
-  // CURSO y no un caso especial escrito acá — el día que haya un segundo curso así,
-  // se marca y ya está.
-  if (curso.replica) {
-    // ⚠️ `compartir` VIAJA ACÁ, y es el único lugar donde se ve. El catálogo pone
-    // `replica: true` en TODOS los cursos, así que este return corta antes del `Hub`
-    // —que también lo dibuja— y ese call site es código muerto. Mientras el prop no
-    // bajaba por esta rama, adentro de un curso no había botón de compartir en
-    // ninguna parte: la capacidad existía y nadie la podía usar.
-    return <CursoReplica curso={curso} onSalir={salir} compartir={compartir} />;
-  }
-
-  // ⚠️ NINGÚN «Volver» de este portal usa el Atrás del navegador. Los tres navegan
-  // EXPLÍCITAMENTE al nivel de arriba, y no es purismo: cada intento de apoyarse en el
-  // historial se rompió por un camino distinto. Primero Anterior/Siguiente apilaba una
-  // entrada por clase (se arregló con `replace`, y el Volver de la clase SEGUÍA
-  // devolviendo a la anterior); después, ya con la clase explícita, el rótulo del curso
-  // de arriba —que apila un hub encima de la clase— hacía que el Volver del HUB
-  // devolviera a la clase, que es exactamente lo que el usuario reportó.
-  //
-  // La regla que queda: **el destino de «Volver» es una propiedad de la PANTALLA, no
-  // del camino que hiciste para llegar.** Desde una clase es el índice; desde el hub,
-  // los cursos. El único que sí depende de dónde veniste es el RECURSO —se abre desde
-  // el índice o desde una clase—, y por eso el origen viaja en la vista (`de`) en vez
-  // de deducirse del historial: así sobrevive a un reload y a un link copiado.
-  if (clase) {
-    return (
-      <ClaseDetail
-        curso={curso} c={clase}
-        goRecurso={(s) => nav({ r: s, de: clase.n })}
-        goClase={(n) => nav({ clase: n }, { reemplazar: true })}
-        back={() => nav({}, { reemplazar: true })}
-      />
-    );
-  }
-  if (recurso) {
-    return <RecursoDetail r={recurso} back={() => nav(vista.de != null ? { clase: vista.de } : {}, { reemplazar: true })} />;
-  }
-  return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} back={salir} backLabel={backLabel} />;
 }
 
 export const CSS = `
@@ -1152,6 +458,7 @@ export const CSS = `
    Va sin object-position a propósito: el centro es lo que conserva un logo, y en las
    16:9 no cambia nada porque no hay nada que recortar. */
 .cono .al-rescard-thumb img{ display:block; width:100%; aspect-ratio:16/9; object-fit:cover; }
+.cono .al-rescard-fondo{ display:block; width:100%; aspect-ratio:16/9; }
 .cono .al-rescard-go{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--lime-ink); display:inline-flex; align-items:center; gap:6px; margin-top:4px; }
 .cono .al-rescard:hover .al-arr{ transform:translateX(3px); }
 

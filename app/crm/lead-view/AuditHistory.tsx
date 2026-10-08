@@ -9,7 +9,7 @@
 // mapeo directo, un botón "Deshacer" que revierte ese cambio puntual.
 
 import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
-import { useRouter } from '@/app/_ui/Link';
+import { useRefrescarFicha } from './ficha-cambio';
 import { stageMetaOpt, type Stage } from '@/lib/pipeline';
 import { normalizar as normTxt } from '@/lib/buscar-texto';
 import { getLeadAuditAction, revertMoveAction, type LeadAuditRowFull } from '../actions';
@@ -71,7 +71,7 @@ function Autor({ row }: { row: LeadAuditRowFull }) {
 }
 
 export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stage[] }) {
-  const router = useRouter();
+  const refrescarFicha = useRefrescarFicha();
   const tz = useTzWorkspace();
 
   // Resuelve el valor guardado de una etapa. Acepta la KEY (lo correcto) y también
@@ -180,7 +180,7 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
       try {
         await revertMoveAction(leadId, createdAt);
         cargar();
-        router.refresh();
+        refrescarFicha();
       } catch (e) {
         setRevertErr(e instanceof Error ? e.message : String(e));
       }

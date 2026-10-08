@@ -17,7 +17,8 @@
 //   · Las LLAMADAS de la entrega: de cada una salen el aviso del día antes y el de después
 //     (lo manda el cron, lib/curso-mensajes.ts). Acá se anotan y se ve si salieron.
 //   · Sus PERMISOS (07/10/2026, item 9): qué módulos de cada producto ve (lib/curso-alcance.ts).
-//     La tarjeta del kanban abre la ficha acá con «Permisos del curso».
+//     La tarjeta del kanban abre la ficha acá con «Permisos del curso». Y desde el 08/10/2026 (D2),
+//     en la misma caja, «abrir a mano» lo que sus candados le tienen cerrado (lib/curso-bloqueo.ts).
 //
 // ⚠️ ABRIR ESTA PESTAÑA NO LE DA ACCESO A NADIE: sólo lee (ver ./curso-ficha-actions.ts). El
 // acceso nace al invitar, copiar el link o mandarlo por WhatsApp.
@@ -47,13 +48,14 @@ import {
   cursoDeClienteAction, aprobarTareaCursoAction, mandarLinkCursoAction, cortarAccesoCursoAction,
   habilitarAccesoCursoAction, agendarLlamadaCursoAction, borrarLlamadaCursoAction, linkDelCursoAction,
   linkDeLiderAction, cambiarLiderAction, guardarAlcanceCursoAction, urlEntregaCursoAction, otroIntentoQuizAction,
+  desbloquearAction,
 } from './curso-ficha-actions';
 import {
   avisosDeSesion, contestoAlgo, estadoDeInvitacion, estadoDeTarea, fechaHoraLocal, fraseIngresos, fraseInvitacion,
   fraseResumen, isoDeLocal, respuestaDe, resumenDeEtapa, rotuloVisto, propuestaDeClase, propuestasPendientes,
   modulosParaPermisos, modulosElegidos,
   type AccesoFicha, type AccesoLiderFicha, type AvisoInvitacionCurso, type BloqueRespuesta, type ClaseFicha, type CursoDeCliente,
-  type EtapaFicha, type ProductoFicha,
+  type ModuloFicha, type ProductoFicha, type BloqueoFicha,
 } from './curso-ficha-lectura';
 import { CabezaAvance, CeldasAvance, EstiloAvance } from './curso/FilaAvance';
 import { BotonInvitar } from './curso/InvitarAlCurso';
@@ -177,7 +179,7 @@ function conEstado(c: CursoDeCliente, claseId: number, estado: EstadoTarea): Cur
     ...c,
     productos: c.productos.map((p) => ({
       ...p,
-      etapas: p.etapas.map((e) => {
+      modulos: p.modulos.map((e) => {
         if (!e.clases.some((x) => x.id === claseId)) return e;
         const clases = e.clases.map((x) => (x.id === claseId && x.progreso ? { ...x, progreso: { ...x.progreso, estado } } : x));
         // El resumen se RECALCULA con la misma función que lo armó: con una cuenta a mano
@@ -218,14 +220,14 @@ function Avance({ leadId, curso, prod, editar }: {
     }
   }
 
-  const abierta = (e: EtapaFicha) => abiertas[`${prod.productoId}:${e.key}`] ?? (e.actual && e.clases.length > 0);
+  const abierta = (e: ModuloFicha) => abiertas[`${prod.productoId}:${e.key}`] ?? (e.actual && e.clases.length > 0);
 
   return (
     <>
       {error && <p className="fcu-mal">No se guardó. {error}</p>}
 
       <ol className="fcu-etapas">
-        {prod.etapas.map((e) => {
+        {prod.modulos.map((e) => {
           const vacia = e.clases.length === 0;
           const open = !vacia && abierta(e);
           // Las propuestas de la IA que esperan el ok del cliente (paso 5 de #665). Casi siempre en
@@ -594,6 +596,24 @@ function Permisos({ leadId, curso, editar }: { leadId: number; curso: CursoDeCli
   const productos = curso.productos ?? [];
   const alcance = curso.acceso?.alcance ?? null;
 
+  /**
+   * «Abrir a mano» (D2): le abre a ESTE alumno un módulo o una clase que su candado tiene cerrado, o se
+   * lo vuelve a cerrar. Se pinta lo que vuelve (su producto releído), no lo que se tocó.
+   */
+  async function abrir(productoId: number, b: BloqueoFicha) {
+    setOcupado(productoId);
+    setError('');
+    try {
+      const r = await desbloquearAction(leadId, productoId, b.objeto, b.clave, !b.manual);
+      if (!r.ok) { setError(r.error); return; }
+      editar((c) => ({ ...c, productos: c.productos?.map((x) => (x.productoId === productoId ? r.producto : x)) ?? null }));
+    } catch (e) {
+      setError(msg(e, 'No se guardó.'));
+    } finally {
+      setOcupado(null);
+    }
+  }
+
   async function guardar(productoId: number, claves: string[] | null) {
     setOcupado(productoId);
     setError('');
@@ -630,6 +650,21 @@ function Permisos({ leadId, curso, editar }: { leadId: number; curso: CursoDeCli
                 {/* Cero tildados es una decisión (esconderle el producto), no un error: se dice. */}
                 {!elegidos.length && <p className="fcu-meta">No ve este producto.</p>}
               </div>
+            )}
+            {/* Lo cerrado por un candado (y lo que ya se le abrió a mano): un renglón cada uno, con el
+                motivo en el title — el mismo que lee el alumno. Ausente = no se pudo evaluar: no se
+                ofrece abrir nada a ciegas. */}
+            {(p.bloqueos?.length ?? 0) > 0 && (
+              <ul className="fcu-abrir">
+                {p.bloqueos!.map((b) => (
+                  <li key={`${b.objeto}:${b.clave}`}>
+                    <span className="fcu-abrir-nom" title={b.motivo ?? 'Abierto a mano'}>{b.nombre}</span>
+                    <Button size="sm" variant="tertiary" disabled={ocupado != null} onClick={() => void abrir(p.productoId, b)}>
+                      {b.manual ? 'Cerrar' : 'Abrir'}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         );
@@ -972,6 +1007,11 @@ const CSS = `
 .fcu-perm{ padding:8px 0; border-top:1px solid var(--border); }
 .fcu-perm:first-of-type{ border-top:0; padding-top:0; }
 .fcu-mods{ display:flex; flex-direction:column; gap:2px; margin:6px 0 0 22px; }
+/* Abrir a mano: un renglón por lo cerrado, el nombre cede y el botón no. */
+.fcu-abrir{ list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:2px; }
+.fcu-abrir li{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; }
+.fcu-abrir-nom{ flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--dim); }
+.fcu-abrir li > :last-child{ flex:none; margin-left:auto; }
 
 @media(prefers-reduced-motion:reduce){ .fcu-chev{ transition:none; } }
 `;

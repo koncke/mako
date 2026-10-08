@@ -200,15 +200,32 @@ export async function productosPorFunnel(ids?: number[]): Promise<Map<number, st
   return out;
 }
 
-/** Los funnels del workspace, para el desplegable. El default primero. */
+/** Los funnels del workspace, para el desplegable. El default primero. Nunca tira: si falla, `[]`. */
 export async function listarFunnels(): Promise<FunnelResumen[]> {
+  return (await leerFunnels()) ?? [];
+}
+
+/**
+ * Lo mismo que `listarFunnels`, pero con la lectura FALLIDA como `null`.
+ *
+ * ⚠️ «NO PUDE LEER» NO ES «NO HAY» NI «HAY UNO». `listarFunnels` devuelve `[]` ante un error,
+ * y para una pantalla que pregunta el producto sólo con dos o más, `[]` se lee como «hay uno»:
+ * el alta desde WhatsApp volvía a crear en el principal sin preguntar —el bug que reportó
+ * Leila el 08/10/2026— justo el día que la base tosiera. Y del lado del server, validar un id
+ * contra `[]` contesta «Ese producto no existe.» sobre un id válido. Quien tenga que distinguir
+ * los dos casos usa ésta (`destinoDelAlta` en lib/lead-funnel-reglas.ts, /whatsapp).
+ *
+ * El nombre del producto (`productosPorFunnel`) sigue sin tirar: si ESA lectura falla, cada
+ * embudo sale con su nombre propio, que es un rótulo peor pero no un dato falso.
+ */
+export async function leerFunnels(): Promise<FunnelResumen[] | null> {
   try {
     const supabase = await getTenantDb();
     const { data, error } = await supabase
       .from('funnels').select('id, nombre, canal, es_default, declarado, activo')
       .eq('activo', true)
       .order('es_default', { ascending: false }).order('orden', { ascending: true }).order('id');
-    if (error) { console.error(`[funnels] listarFunnels: ${error.message}`); return []; }
+    if (error) { console.error(`[funnels] listarFunnels: ${error.message}`); return null; }
     const filas = (data ?? []) as unknown as FilaFunnel[];
 
     const productos = await productosPorFunnel();
@@ -221,7 +238,7 @@ export async function listarFunnels(): Promise<FunnelResumen[]> {
     }));
   } catch (e) {
     console.error(`[funnels] listarFunnels: ${e instanceof Error ? e.message : String(e)}`);
-    return [];
+    return null;
   }
 }
 

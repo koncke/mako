@@ -58,12 +58,17 @@ export function InvitarAlumnos({ productoId, producto, filas, onListo }: {
       <Button size="sm" variant="secondary" onClick={() => setAbierto(true)} title={`Invitar alumnos a ${producto}`}>
         Invitar alumnos
       </Button>
-      {abierto && <ModalAlumnos productoId={productoId} producto={producto} filas={filas} onListo={onListo} onCerrar={() => setAbierto(false)} />}
+      {abierto && <ModalInvitarAlumnos productoId={productoId} producto={producto} filas={filas} onListo={onListo} onCerrar={() => setAbierto(false)} />}
     </>
   );
 }
 
-function ModalAlumnos({ productoId, producto, filas, onListo, onCerrar }: {
+/**
+ * El modal SOLO, para quien lo abre desde más de un lugar: el editor del curso lo abre con su botón
+ * de la barra de arriba y con «Invitar alumnos» del menú de la marca (./CursoApp.tsx), con un solo
+ * estado para los dos.
+ */
+export function ModalInvitarAlumnos({ productoId, producto, filas, onListo, onCerrar }: {
   productoId: number; producto: string; filas: readonly FilaParaInvitar[]; onListo?: () => void; onCerrar: () => void;
 }) {
   const sinInvitar = useMemo(() => clientesSinInvitar(filas), [filas]);

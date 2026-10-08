@@ -22,13 +22,19 @@
 //      (`npm ls rrweb` no devuelve nada), y un import literal de un paquete que no
 //      existe tira el build entero — no esta pantalla.
 //
-// ⚠️ FALTA EL ARCHIVO. `public/replay/1/player.js` todavía no está en el repo: es
-// el bundle UMD de `rrweb-player` (hoy 2.1.7), que expone `window.rrwebPlayer`.
-// Mientras no esté, `cargarReproductor()` devuelve `{ ok: false }` y el pop-up LO
-// DICE y ofrece bajarse los eventos — una pantalla que se queda girando para
-// siempre sería peor que la que dice que falta algo. Si en vez del archivo se
-// prefiere la dependencia, lo único que cambia es `cargar()`, acá abajo.
+// El archivo es el bundle UMD de `rrweb-player` (hoy 2.1.7), que genera
+// `scripts/replay-libs.mjs`. Si no carga, `cargarReproductor()` devuelve
+// `{ ok: false }` y el pop-up LO DICE y ofrece bajarse los eventos — una pantalla
+// que se queda girando para siempre sería peor que la que dice que falta algo.
+//
+// ⚠️ `window.rrwebPlayer` NO ES LA CLASE: es un OBJETO `{ Player, default }`.
+// Medido el 08/10/2026 en Chromium cargando `public/replay/1/player.js`: `typeof`
+// da 'object'. Hasta ese día este archivo pedía `typeof === 'function'`, así que
+// el pop-up decía «sin reproductor» con CADA grabación — ninguna se pudo mirar
+// nunca, y ningún test lo veía porque ninguno cargaba el bundle.
 // =============================================================================
+
+import { REPLAY_LATIDO } from './replay-contrato';
 
 /** Versión del reproductor que servimos. Parte de la URL, inmutable. */
 export const REPLAY_PLAYER_VERSION = 1;
@@ -50,6 +56,66 @@ type ConstructorPlayer = new (opts: {
   props: Record<string, unknown>;
 }) => { $destroy?: () => void };
 
+/**
+ * El constructor del reproductor, venga como venga el global.
+ *
+ * ⚠️ El UMD de rrweb-player 2.x deja en `window.rrwebPlayer` el objeto del módulo
+ * (`{ Player, default }`), no la clase: ver el encabezado. Se acepta también la
+ * clase pelada, que es lo que dejaría otro bundle o una versión vieja.
+ */
+export function constructorDelGlobal(g: unknown): ConstructorPlayer | null {
+  if (typeof g === 'function') return g as ConstructorPlayer;
+  if (g && typeof g === 'object') {
+    const m = g as Record<string, unknown>;
+    if (typeof m.default === 'function') return m.default as ConstructorPlayer;
+    if (typeof m.Player === 'function') return m.Player as ConstructorPlayer;
+  }
+  return null;
+}
+
+/**
+ * Le saca `crossorigin` (e `integrity`) a las hojas de estilo enlazadas de la
+ * grabación, para que el reproductor las pueda cargar. Cambia los eventos EN EL
+ * LUGAR y los devuelve: son la copia recién parseada de este pop-up.
+ *
+ * ⚠️ SIN ESTO, UNA GRABACIÓN DEL GRABADOR v2 SE VE SIN ESTILO. La v2 graba la hoja
+ * como un `<link>` y no adentro (ver `scripts/replay-envoltorio.js`), así que el
+ * reproductor la baja de la página del cliente. Vite —y por lo tanto Lovable— lo
+ * escribe `<link rel="stylesheet" crossorigin href="/assets/…">`, y el servidor del
+ * cliente no manda `Access-Control-Allow-Origin` (medido el 08/10/2026 con
+ * multiplicatusresultados.com). Con el `crossorigin` puesto, el navegador pide la
+ * hoja en modo CORS desde NUESTRO origen y la bloquea; sin él la pide como
+ * cualquier hoja de otro sitio, que el navegador aplica igual. Medido en Chromium:
+ * con el atributo, el fondo del encabezado de la página de prueba da
+ * `rgba(0, 0, 0, 0)` y la consola dice «blocked by CORS policy»; sin él,
+ * `rgb(12, 34, 56)`, el de la hoja. `integrity` sale por lo mismo: el chequeo de
+ * integridad exige CORS y fallaría igual.
+ *
+ * Mira la foto entera (type 2) y los nodos que agrega una mutación (type 3,
+ * source 0): una página de una sola pantalla agrega hojas al cambiar de ruta.
+ */
+export function hojasSinCors<T>(eventos: T[]): T[] {
+  const limpiar = (n: unknown, prof: number): void => {
+    if (!n || typeof n !== 'object' || prof > 400) return;
+    const nodo = n as { type?: unknown; tagName?: unknown; attributes?: Record<string, unknown>; childNodes?: unknown };
+    const a = nodo.attributes;
+    if (nodo.type === 2 && nodo.tagName === 'link' && a && typeof a.rel === 'string' && /(^|\s)stylesheet(\s|$)/i.test(a.rel)) {
+      delete a.crossorigin;
+      delete a.integrity;
+    }
+    if (Array.isArray(nodo.childNodes)) for (const c of nodo.childNodes) limpiar(c, prof + 1);
+  };
+  for (const e of eventos) {
+    const ev = e as { type?: unknown; data?: { node?: unknown; source?: unknown; adds?: unknown } } | null;
+    if (!ev || typeof ev !== 'object' || !ev.data || typeof ev.data !== 'object') continue;
+    if (ev.type === 2) limpiar(ev.data.node, 0);
+    else if (ev.type === 3 && ev.data.source === 0 && Array.isArray(ev.data.adds)) {
+      for (const add of ev.data.adds) limpiar((add as { node?: unknown } | null)?.node, 0);
+    }
+  }
+  return eventos;
+}
+
 /** Una sola carga por pestaña, aunque se abran diez grabaciones. */
 let enVuelo: Promise<ConstructorPlayer | null> | null = null;
 
@@ -57,17 +123,16 @@ function cargar(): Promise<ConstructorPlayer | null> {
   if (enVuelo) return enVuelo;
   enVuelo = new Promise<ConstructorPlayer | null>((resolve) => {
     if (typeof document === 'undefined') { resolve(null); return; }
-    const ya = (window as unknown as Record<string, unknown>).rrwebPlayer;
-    if (typeof ya === 'function') { resolve(ya as ConstructorPlayer); return; }
+    const ya = constructorDelGlobal((window as unknown as Record<string, unknown>).rrwebPlayer);
+    if (ya) { resolve(ya); return; }
     const s = document.createElement('script');
     s.src = rutaDelReproductor();
     s.async = true;
     s.onload = () => {
-      const g = (window as unknown as Record<string, unknown>).rrwebPlayer;
       // Que el script cargue no es que el reproductor esté: un 404 servido como
       // HTML por el router carga perfecto y no define nada. Se pregunta por el
       // global, nunca por el `onload`.
-      resolve(typeof g === 'function' ? (g as ConstructorPlayer) : null);
+      resolve(constructorDelGlobal((window as unknown as Record<string, unknown>).rrwebPlayer));
     };
     // Un fallo NO se memoiza: la próxima vez se vuelve a intentar, porque la causa
     // más probable es la red de quien está mirando.
@@ -92,7 +157,7 @@ export async function cargarReproductor(): Promise<CargaDelReproductor> {
       const inst = new Player({
         target: nodo,
         props: {
-          events: eventos,
+          events: hojasSinCors(eventos),
           width: Math.max(320, Math.trunc(ancho)),
           // 16:10 sobre el ancho disponible: una grabación de una landing es
           // vertical larga, y el reproductor la escala sola.
@@ -106,6 +171,12 @@ export async function cargarReproductor(): Promise<CargaDelReproductor> {
           // archivo. Una opción de máscara acá daría la idea contraria.
           mouseTail: false,
           speedOption: [1, 2, 4],
+          // ⚠️ El latido del grabador v2 es un evento Custom, y rrweb-player dibuja
+          // CADA evento Custom como una marca azul en la barra de tiempo: medido el
+          // 08/10/2026, una visita de 40 s mostraba 33 marcas que no significan nada
+          // (las primeras 30, pegadas, se leían como una barra gruesa). Transparente,
+          // la marca no se ve; el evento sigue y la duración no cambia.
+          tags: { [REPLAY_LATIDO]: 'transparent' },
         },
       });
       return { destruir: () => { try { inst.$destroy?.(); } catch { /* ya no está en el DOM */ } } };

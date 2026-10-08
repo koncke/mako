@@ -14,44 +14,18 @@
 // ⚠️ SUBIR Y REGISTRAR SON DE UN ADMIN, como editar la clase (`puedeEditar`): lo que se adjunta lo
 //    ve cada alumno. VER es de quien ve la tab (`puedeVer`): el equipo revisa el curso.
 //
-// ⚠️ LA PUERTA ES LA MISMA QUE LA DE app/customer-success/curso/actions.ts, COPIADA: `puedeVer`,
-//    `puedeEditar` y `productoPropio` son privadas ahí y este archivo no puede tocar aquél (una
-//    pista por archivo). Un test compara los cuerpos (tests/curso-adjuntos.test.ts) y falla si se
-//    separan. Lo correcto es mudarlas a un módulo compartido y que las dos importen de ahí: queda
-//    anotado como pendiente.
+// ⚠️ LA PUERTA ES LA MISMA QUE LA DE app/customer-success/curso/actions.ts, IMPORTADA de
+//    ./puerta-curso.ts (08/10/2026). Hasta acá era una copia con un test que comparaba los cuerpos;
+//    ahora no hay copia (tests/curso-adjuntos.test.ts fija que no vuelva).
 //
 // ⚠️ SÓLO SE EXPORTAN FUNCIONES ASYNC: en un archivo 'use server' un `export const` tipa, pasa el
 //    typecheck y TIRA EL BUILD (AGENTS.md; guard en tests/campana-producto.test.ts).
 
-import { getRolWsEfectivo, getCapaActual, adminDeWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { tabEnCapa } from '@/lib/capas';
+import { puedeVer, puedeEditar, productoPropio } from './puerta-curso';
 import { urlSubidaAdjunto, registrarAdjunto, urlAdjuntoEquipo, urlsAdjuntosEquipo } from '@/lib/curso-adjuntos';
 import type { EntradaRegistroAdjunto } from '@/lib/curso-adjuntos-reglas';
 
-/** ¿Puede MIRAR la tab? La misma pregunta que `requireCapa('customer-success')`, sin redirect. */
-async function puedeVer(): Promise<string | null> {
-  if (!(await getRolWsEfectivo())) return 'Tu sesión venció.';
-  if (!tabEnCapa('customer-success', await getCapaActual())) return 'Tu plan no incluye Customer Success.';
-  return null;
-}
-
-/** ¿Puede EDITAR el curso? Ver la tab, y además ser admin de este workspace. */
-async function puedeEditar(): Promise<string | null> {
-  const no = await puedeVer();
-  if (no) return no;
-  if (!(await adminDeWorkspaceActual())) return 'Solo un administrador edita el curso.';
-  return null;
-}
-
-/** ¿El producto es de ESTE workspace? `getTenantDb` acota; acá se rebota antes de escribir. */
-async function productoPropio(productoId: number): Promise<string | null> {
-  if (!Number.isInteger(productoId) || productoId <= 0) return 'Falta el producto.';
-  const db = await getTenantDb();
-  const { data, error } = await db.from('productos').select('id').eq('id', productoId).maybeSingle();
-  if (error) return error.message;
-  return data ? null : 'Ese producto no es tuyo.';
-}
 
 const fallo = (e: unknown, def: string) => ({ ok: false as const, error: e instanceof Error && e.message ? e.message : def });
 

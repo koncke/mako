@@ -14,6 +14,8 @@ import { integracionConectada } from '@/lib/credenciales';
 import { listarLineas } from '@/lib/evolution';
 import { PanelActivacion } from '../_components/PanelActivacion';
 import { tabActivacion } from '@/lib/tab-activacion';
+import { leerFunnels } from '@/lib/funnels';
+import { productosParaAlta } from '@/lib/lead-funnel-reglas';
 import { WhatsAppApp } from './WhatsAppApp';
 
 export const dynamic = 'force-dynamic';
@@ -27,10 +29,17 @@ export default async function WhatsAppPage() {
   // credencial: pedir Chatwoot para entrar dejaba fuera de la tab a un cliente
   // que acababa de vincular su número y ya tenía sus conversaciones adentro.
   const tabWa = tabActivacion('whatsapp');
-  const [oficial, noOficial] = await Promise.all([
+  //
+  // Y los PRODUCTOS del «+ Agregar al CRM» (pedido de Leila, 08/10/2026: todo nacía en el
+  // principal y lo movía a mano). Van en el mismo `Promise.all` para no sumar un viaje en
+  // serie, y con `leerFunnels`: `null` = no se pudieron leer, que la bandeja NO confunde con
+  // «hay uno» (ahí el botón queda de un clic y decide el server).
+  const [oficial, noOficial, funnels] = await Promise.all([
     integracionConectada('whatsapp'),
     listarLineas().then((ls) => ls.some((l) => l.estado === 'conectado')).catch(() => false),
+    leerFunnels(),
   ]);
+  const productos = productosParaAlta(funnels);
   await guardOnboarding();
 
   // WhatsApp tiene onboarding PROPIO (conectar y probar los dos métodos), y se
@@ -42,13 +51,13 @@ export default async function WhatsAppPage() {
   // donde vive el QR para re-vincular. Antes ganaba el PanelActivacion, que es
   // un formulario de credenciales de Chatwoot: un cliente que desvinculaba su
   // número quedaba sin ninguna forma de volver a escanear desde esta tab.
-  if (faltaOnboarding && !oficial && !noOficial) return <OnboardingCanalWhatsApp />;
+  if (faltaOnboarding && !oficial && !noOficial) return <OnboardingCanalWhatsApp productos={productos} />;
   if (tabWa && !oficial && !noOficial) return <PanelActivacion tab={tabWa} />;
 
   // Con algún canal vivo, la tab se sirve igual aunque el onboarding se haya
   // reabierto: reemplazarla entera dejaría al cliente sin su inbox oficial —
   // que no tiene nada que ver con el número que desvinculó— y sin salida.
-  if (faltaOnboarding && !noOficial && !oficial) return <OnboardingCanalWhatsApp />;
+  if (faltaOnboarding && !noOficial && !oficial) return <OnboardingCanalWhatsApp productos={productos} />;
   // ¿Este usuario puede ABRIR /chatbot? Ahí viven ahora las plantillas de Meta, y /chatbot
   // es setter+admin (app/chatbot/page.tsx). Un closer entra a /whatsapp pero rebota de
   // /chatbot a /crm: ofrecerle «redactar plantilla» sería un botón que lo expulsa de la
@@ -61,5 +70,5 @@ export default async function WhatsAppPage() {
   // oficial no tiene esa restricción. Se esconde para todos MENOS para quien ya lo tiene
   // conectado — ahí hay conversaciones reales, y sacarle la pestaña sería esconderle su
   // propio inbox. `oficial` ya está medido arriba con `integracionConectada('whatsapp')`.
-  return <WhatsAppApp puedeChatbot={puedeChatbot} mostrarOficial={oficial} puedeAgregarLinea={puedeAgregarLinea} />;
+  return <WhatsAppApp puedeChatbot={puedeChatbot} mostrarOficial={oficial} puedeAgregarLinea={puedeAgregarLinea} productos={productos} />;
 }

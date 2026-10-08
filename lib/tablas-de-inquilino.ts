@@ -34,7 +34,7 @@
 // avisar de que la lista tiene un duplicado o perdió una tabla crítica.
 
 /**
- * Las 93 tablas de inquilino, en orden alfabético.
+ * Las tablas de inquilino (116 al 08/10/2026), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -50,7 +50,7 @@ export const TABLAS_DE_INQUILINO = [
   'comunidad_evento_avisos', 'comunidad_eventos', 'comunidad_likes', 'comunidad_notificaciones',
   'comunidad_perfiles', 'comunidad_posts', 'comunidad_seguimientos', 'comunidad_votos',
   'contenido_posts', 'creative_transcripts', 'credenciales', 'credenciales_auditoria',
-  'cs_clientes', 'cs_respuestas', 'curso_accesos', 'curso_adjuntos', 'curso_clase_notas', 'curso_clases', 'curso_estilo', 'curso_progreso', 'curso_sesiones', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos',
+  'cs_clientes', 'cs_respuestas', 'curso_accesos', 'curso_adjuntos', 'curso_clase_notas', 'curso_clases', 'curso_desbloqueos', 'curso_estilo', 'curso_modulos', 'curso_progreso', 'curso_sesiones', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'formatos',
   'funnel_config', 'funnel_ofertas', 'funnels', 'identidades_fiscales',

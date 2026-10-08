@@ -3912,3 +3912,68 @@ completo (`tests/portada-vista-previa.test.ts`).
 **Vive en:** app/page.tsx · app/vsl/PortadaSinJs.tsx · app/vsl/Landing.tsx (`PieLegal`) ·
 app/layout.tsx (el Suspense) · app/robots.ts · public/og-landing.jpg ·
 tests/razon-social-sitio.test.ts · tests/portada-vista-previa.test.ts · *2026-10-08 publicitar-mako*
+
+## La grabación de sesiones no grababa casi nada, ninguna se podía mirar, y la ficha inventaba el porqué (08/10/2026)
+
+**Vive en:** `lib/replay-leer.ts` (`replayDeLead`) · `lib/replay-ficha.ts` (`motivoDelVacio`,
+`textoDelVacio`, `tieneFoto`) · `app/crm/lead-view/GrabacionModal.tsx` + `GrabacionCard.tsx` ·
+`public/replay/2/r.js` + `scripts/replay-envoltorio.js` + `scripts/replay-libs.mjs` ·
+`lib/replay-contrato.ts` (`REPLAY_LIB_VERSION`) · `lib/replay-reproductor.ts`
+
+Pedido de Martín, sobre la ficha del lead #2593 (ws1): «Porque esto aún no funciona... Si
+literalmente dice en el historial que estuvo más de 10 segundos... Revisalo bien y hazlo funcionar.»
+La ficha decía «No hay grabación suya: no volvió a entrar, o su visita duró menos de 10 segundos» sobre
+una visita de 4 minutos.
+
+⚠️ **ERAN TRES FALLAS CON EL MISMO SÍNTOMA, y la del caso que se veía no era el grabador.**
+
+1. **La ficha mentía sobre ESE lead.** Su única visita (30/09) traía el Pixel v14, cinco días antes de
+   que la página grabara. `replayDeLead` comparaba con `Math.max(versión de la visita, versión del
+   negocio)` = 22, así que caía en «duró menos de 10 s». Regla: la versión del negocio (el último
+   evento, de cualquier página) nunca entra en el veredicto de UNA visita: «¿qué trajo esa visita?» y
+   «¿qué tiene hoy su página?» se contestan por separado, la segunda con `landing.snippet_versiones` y
+   `clavePagina`. Ahora dice «Su visita es del 30/09, antes de que MaKo grabara tu página.», y ninguna
+   frase afirma una duración que no se midió. Un `sv` null no es una versión, pero la FECHA contesta:
+   nada antes del commit del grabador (05/10) pudo grabarse.
+2. **El grabador perdía la foto.** Medido en ws1: de 150 visitantes con un Pixel que graba, 32 tenían
+   sesión, y 0 de 35 que estuvieron 10-30 s. La foto inicial de la página (FullSnapshot) pesaba
+   ~115 KB crudos —70 KB eran CSS inlineado—; si la persona se iba antes del primer lote periódico, el
+   beacon la mandaba SIN comprimir, superaba los 64 KiB de `RBEACON_MAX` y se tiraba en silencio. Y
+   quien mira el VSL (un iframe que no genera eventos) no llegaba a los 20 eventos del piso. La v2 del
+   r.js envuelve `window.rrwebRecord`: hojas como link (`inlineStylesheet:false`, la foto baja a ~45 KB y
+   entra en el beacon), un latido mientras la pestaña está visible, y una foto nueva al volver. Medido
+   con el snippet v22 real en un navegador: con v1 ningún escenario dejaba fila; con v2, todos los de 10
+   s o más. Y con la página real de ws1, la foto bajó de 116.400 B a 45.117 B.
+3. **Ninguna grabación se pudo mirar nunca.** El UMD de rrweb-player 2.1.7 deja
+   `window.rrwebPlayer = {Player, default}` (un objeto) y el cargador pedía una función: el pop-up decía
+   «sin reproductor» siempre. Regla: un global de un UMD se verifica CARGANDO el bundle, no por el
+   nombre. Y con la hoja como link, el reproductor tiene que sacar `crossorigin`/`integrity` de los
+   `<link>` de Vite, o el CSS de los clientes de Lovable se bloquea por CORS.
+
+⚠️ **«ARREGLAR EL GRABADOR ES SUBIR UN NÚMERO, SIN REPEGAR» ERA FALSO.** El lote, el piso, el beacon y
+la cola viven en el snippet pegado en la página (`lib/landing-token.ts`); r.js sólo traía rrweb. Sin
+repegar, sólo se puede tocar lo que el snippet llama: `rrwebRecord(opciones)` y el stop que devuelve.
+Corregido en `lib/replay-contrato.ts`. Y una versión publicada del r.js es inmutable sólo si algo lo
+hace cumplir: ahora cada una lleva su huella y el generador se niega a reescribirla.
+
+- Una sesión sin foto (sin evento type 2) ya no abre un reproductor negro: dice que llegó sin la página.
+- rrweb-player dibuja cada evento Custom como una marca en la barra: el latido va transparente.
+- ⚠️ `addCustomEvent` TIRA después del stop: el envoltorio envuelve el stop y corta el latido.
+
+### Lo que quedó SIN hacer
+
+- **/lidermente (ws11) sigue sin foto**: pesa 630 KB crudos y 420 KB comprimida (418 KB son imágenes
+  base64 en el HTML), más que los 256 KiB por lote. O la clienta sube las imágenes como archivos, o una
+  v3 del envoltorio cambia los `data:` grandes por un hueco.
+- **Las grabaciones v2 dependen del CSS vivo del cliente**: si redespliega en Lovable y desaparece el
+  `/assets/index-*.css` viejo, la grabación vieja se ve sin estilo. Lo robusto es que el sellado
+  (`lib/replay-ingesta.ts`) baje e incruste la hoja.
+- **Sin verificar**: Safari de iOS y el navegador interno de Facebook/Instagram; la medición de
+  regresión en producción (el tramo de 10-30 s tiene que salir del 0/35).
+- **El snippet v23** (hay que repegar): el piso en tiempo visible, que esconder la pestaña no vacíe la
+  cola, y la lógica del grabador adentro de r.js.
+- ws13 (v18) y ws14 (v15) no graban hasta repegar; la ficha ahora lo dice con el link.
+
+_Hecho por dos agentes en worktrees propios sobre un diagnóstico y una refutación medidos
+(`tests/replay-ficha.test.ts`, diecisiete roturas; `tests/replay-envoltorio.test.ts`, trece; todas
+caen)._

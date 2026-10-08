@@ -20,6 +20,9 @@ export type DecisionAvance =
  * Decide si el cliente pasa de etapa después de ENVIAR la tarea de una clase.
  *
  * El orden de las preguntas es el contrato:
+ *   0. ¿La clase es de un módulo VINCULADO? (D1, 08/10/2026). Un módulo SUELTO no es una etapa del
+ *      kanban: completarlo no mueve a nadie. Sin `vinculados` (quien llama no los pasó), cuenta como
+ *      vinculada toda clave que sea una etapa del kanban — que es lo de antes de los sueltos.
  *   1. ¿Está en la entrega de ese producto? (`etapaActual` null = no).
  *   2. ¿La tarea es de la etapa en la que está HOY? Si no, no se mueve.
  *   3. ¿La etapa tiene obligatorias? Sin ninguna NO se completa sola (lib/curso.ts lo explica).
@@ -40,11 +43,17 @@ export function decidirAvance(p: {
   etapaActual: string | null;
   /** Las CLAVES de las etapas de la entrega, en orden (`entregaDeProducto(id).etapas`). */
   etapas: readonly string[];
+  /**
+   * Las claves de los módulos VINCULADOS (las etapas con `enCurso !== false`). Una clase de un módulo
+   * suelto —o de una etapa que se sacó del curso— no mueve a nadie.
+   */
+  vinculados?: readonly string[];
   /** Todas las clases del producto (se filtran acá por etapa). */
   clases: readonly ClaseMin[];
   estadoDe: (claseId: number) => EstadoTarea | undefined;
 }): DecisionAvance {
   const desde = p.etapaActual;
+  if (!(p.vinculados ?? p.etapas).includes(p.etapaDeLaClase)) return { mover: false, desde: desde ?? null, motivo: 'la clase no es de una etapa del kanban' };
   if (!desde) return { mover: false, desde: null, motivo: 'no está en la entrega de ese producto' };
   if (p.etapaDeLaClase !== desde) return { mover: false, desde, motivo: 'la tarea es de otra etapa' };
   const deLaEtapa = p.clases.filter((c) => c.etapa === desde);

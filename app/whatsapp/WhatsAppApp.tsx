@@ -24,6 +24,9 @@ import { EvolutionConnect } from './EvolutionConnect';
 import { ChatwootWebhookChip } from './ChatwootWebhookChip';
 import { EmpresaInbox } from './EmpresaInbox';
 import { crearLeadDesdeWhatsappAction } from '../crm/actions';
+import { BotonAgregarAlCrm } from './_shared/BotonAgregarAlCrm';
+import { Toast, useToast } from '@/app/_ui/Toast';
+import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
 import { AudioPlay } from './_shared/AudioPlay';
 import { PanelBorradores } from './_shared/PanelBorradores';
@@ -210,11 +213,17 @@ function etapaChip(key: string | null, label: string | null): { style: CSSProper
 // Componente
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function WhatsAppApp({ puedeChatbot = true, mostrarOficial = true, puedeAgregarLinea = false }: { puedeChatbot?: boolean; mostrarOficial?: boolean; puedeAgregarLinea?: boolean }) {
+/**
+ * ⚠️ `productos` ES OBLIGATORIO, y no por prolijidad: son los productos del «+ Agregar al CRM»
+ * (`null` = no se pudieron leer). La bandeja se monta desde DOS lugares —page.tsx y el cierre
+ * del wizard, OnboardingCanalWhatsApp.tsx— y con la prop opcional el segundo la dejaba caer
+ * sin que nada fallara: el botón volvía al clic único y el lead nacía en el principal.
+ */
+export function WhatsAppApp({ puedeChatbot = true, mostrarOficial = true, puedeAgregarLinea = false, productos }: { puedeChatbot?: boolean; mostrarOficial?: boolean; puedeAgregarLinea?: boolean; productos: ProductoParaAlta[] | null }) {
   // useSearchParams (deep-link ?chat=) exige un boundary de Suspense en la página.
   return (
     <Suspense fallback={null}>
-      <WhatsAppInner puedeChatbot={puedeChatbot} mostrarOficial={mostrarOficial} puedeAgregarLinea={puedeAgregarLinea} />
+      <WhatsAppInner puedeChatbot={puedeChatbot} mostrarOficial={mostrarOficial} puedeAgregarLinea={puedeAgregarLinea} productos={productos} />
     </Suspense>
   );
 }
@@ -223,7 +232,7 @@ export function WhatsAppApp({ puedeChatbot = true, mostrarOficial = true, puedeA
 type LineaWa = { linea: string; rotulo: string; estado: string; esDefault: boolean };
 const AGREGAR_LINEA = '__agregar_linea__';
 
-function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea }: { puedeChatbot: boolean; mostrarOficial: boolean; puedeAgregarLinea: boolean }) {
+function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea, productos }: { puedeChatbot: boolean; mostrarOficial: boolean; puedeAgregarLinea: boolean; productos: ProductoParaAlta[] | null }) {
   // La tab es SOLO conversaciones: las secuencias viven en /chatbot, que lee las mismas
   // filas de `nutricion_secuencias`. Tener el mismo tablero en dos pantallas era la
   // forma mas facil de que una quedara vieja.
@@ -352,6 +361,11 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea }: { pu
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null);
   // Plan #381: crear el lead en el CRM desde una conversación sin lead vinculado.
   const [creandoLead, setCreandoLead] = useState(false);
+  // Los productos del alta. Arranca con los del server y el server los puede CORREGIR: si la
+  // pantalla no los pudo leer (o quedó vieja) y hay dos o más, el alta no crea y devuelve la
+  // lista (`elegir`), y desde ahí el botón pregunta.
+  const [productosAlta, setProductosAlta] = useState(productos);
+  const { toast: avisoAlta, show: mostrarAvisoAlta, clear: limpiarAvisoAlta } = useToast();
 
   // Borrador y adjunto POR conversación: cambiar de chat conserva lo que no se
   // envió (y un adjunto queda atado a SU chat, nunca se manda al equivocado).
@@ -915,6 +929,31 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea }: { pu
       return b.ultimaActividad - a.ultimaActividad;
     });
   const sel = contactos.find((c) => c.id === selId) ?? null;
+  /**
+   * El alta de la bandeja OFICIAL, con el producto (`null` = no se eligió: decide el server).
+   * Es la misma respuesta que en la no oficial (EmpresaInbox.tsx, `agregarAlCrm`).
+   */
+  async function agregarAlCrmOficial(funnelId: number | null) {
+    if (!sel?.telefono) return;
+    setCreandoLead(true);
+    try {
+      const r = await crearLeadDesdeWhatsappAction(sel.contacto || 'Contacto', sel.telefono, funnelId);
+      // Ya estaba en el CRM: con UN solo candidato se abre ÉSE —lo identifica
+      // el teléfono, la misma llave con la que la conversación busca su lead—.
+      // Con varios no se elige el primero: se dice con quién choca.
+      if ('id' in r) { setDetalleLeadId(r.id); return; }
+      if (r.elegir) { setProductosAlta(r.elegir); mostrarAvisoAlta('Elige el producto'); return; }
+      const ya = r.coincidencias.length === 1 ? r.coincidencias[0] : null;
+      if (!ya) { alert(r.error); return; }
+      if (r.agregadoA) mostrarAvisoAlta(`Ya estaba · ahora en ${r.agregadoA}`);
+      else if (r.errorAlAgregar) alert(r.errorAlAgregar);
+      setDetalleLeadId(ya.id);
+    } catch (e) {
+      alert(`No se pudo agregar al CRM: ${e instanceof Error ? e.message : 'error'}`);
+    } finally {
+      setCreandoLead(false);
+    }
+  }
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
   // Vencimiento de la ventana del chat abierto: 24h tras el último mensaje ENTRANTE
   // del hilo (exacto, aun si respondimos último); si no hay hilo, el del provider.
@@ -1054,7 +1093,7 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea }: { pu
         </div>
       )}
       {canal === 'empresa' && lineasCargadas && !(lineasError && !lineas.length) && !agregando && (canalNoOficial == null || canalNoOficial === 'conectado') && (
-        <EmpresaInbox key={`bandeja-${lineaActiva?.linea ?? 'default'}`} puedeChatbot={puedeChatbot} linea={lineaActiva?.linea ?? null} />
+        <EmpresaInbox key={`bandeja-${lineaActiva?.linea ?? 'default'}`} puedeChatbot={puedeChatbot} linea={lineaActiva?.linea ?? null} productos={productos} />
       )}
 
       {/* ============= CONVERSACIONES — BOT OFICIAL (Chatwoot) ============= */}
@@ -1298,30 +1337,9 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea }: { pu
             {sel?.leadId ? (
               <button onClick={() => setDetalleLeadId(sel.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
             ) : sel?.telefono ? (
-              // Plan #381: el contacto no está en el CRM → alta directa con nombre + teléfono.
-              <button
-                type="button"
-                disabled={creandoLead}
-                onClick={async () => {
-                  if (!sel?.telefono) return;
-                  setCreandoLead(true);
-                  try {
-                    const r = await crearLeadDesdeWhatsappAction(sel.contacto || 'Contacto', sel.telefono);
-                    // Ya estaba en el CRM: con UN solo candidato se abre ÉSE —lo identifica
-                    // el teléfono, la misma llave con la que la conversación busca su lead—.
-                    // Con varios no se elige el primero: se dice con quién choca.
-                    const ya = 'id' in r ? null : r.coincidencias.length === 1 ? r.coincidencias[0] : null;
-                    if ('id' in r) setDetalleLeadId(r.id);
-                    else if (ya) setDetalleLeadId(ya.id);
-                    else alert(r.error);
-                  } catch (e) {
-                    alert(`No se pudo agregar al CRM: ${e instanceof Error ? e.message : 'error'}`);
-                  } finally {
-                    setCreandoLead(false);
-                  }
-                }}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: creandoLead ? 'default' : 'pointer' }}
-              >{creandoLead ? 'Agregando…' : '+ Agregar al CRM'}</button>
+              // Plan #381: el contacto no está en el CRM → alta directa con nombre + teléfono,
+              // y con 2+ productos el mismo clic pregunta en cuál (pedido de Leila, 08/10/2026).
+              <BotonAgregarAlCrm productos={productosAlta} creando={creandoLead} onAgregar={(fid) => void agregarAlCrmOficial(fid)} />
             ) : (
               <Link href="/crm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
             )}
@@ -1356,6 +1374,8 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea }: { pu
       {detalleLeadId != null && (
         <LeadEditModal leadId={detalleLeadId} onClose={() => setDetalleLeadId(null)} />
       )}
+      {/* El acuse del alta («Ya estaba · ahora en X»): va por ENCIMA de la ficha (z 600 contra 80). */}
+      <Toast state={avisoAlta} onClose={limpiarAvisoAlta} />
 
       {/* CONFIRMAR BLOQUEO — pide motivo (se guarda en el lead como descalificado) */}
       {blockModalOpen && blockTarget && (

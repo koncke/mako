@@ -44,7 +44,7 @@ import {
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { slotDeReunion } from '@/lib/funnel-etapas';
 import type { EstadoLead, FathomLink } from '@/lib/leads';
-import type { VentaTipo } from '@/lib/venta-tipo';
+import { montoDeTarjeta, type VentaTipo } from '@/lib/venta-tipo';
 import {
   setLeadStageAction,
   undoStageMoveAction,
@@ -116,6 +116,7 @@ import { moverEtapaEnProductoAction } from './lead-funnel-actions';
 import { cambiarCursoAlGanarAction } from './curso-al-ganar-actions';
 
 import { Toast, useToast } from '@/app/_ui/Toast';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
 import { Modal } from '@/app/_ui/Modal';
 import { NewLeadForm } from './new/NewLeadForm';
@@ -171,6 +172,16 @@ export type CrmLead = {
    * y el becado volvía a contar como venta de US$0. Opcional, un mapper nuevo lo olvida.
    */
   ventaTipo: VentaTipo | null;
+  /**
+   * La mensualidad y el plazo de una SUSCRIPCIÓN (null si no lo es), de `suscripcionDeFila`.
+   *
+   * ⚠️ OBLIGATORIOS por lo mismo que `ventaTipo`. Una suscripción guarda su plata acá y deja
+   * `monto` (= monto_cierre_usd) en 0: sin estos dos la tarjeta de Ganado decía «$0» con 444
+   * guardados (08/10/2026), y `leadToMoveInfo` reabría el wizard con el monto vacío, que al
+   * guardar escribía NULL encima de la mensualidad.
+   */
+  suscripcionMonto: number | null;
+  suscripcionMeses: number | null;
   agenda: string | null;
   j2: string | null;
   fechaJ1: string | null;   // fecha_junta_1 (o fecha_agenda) en ISO, para editar
@@ -226,7 +237,8 @@ export type CrmMarcar = {
   etapa?: string;
 };
 
-const fmt = (n: number) => '$' + n.toLocaleString('en-US');
+// La plata de la tarjeta y de la lista ya no se formatea acá: la dibuja `montoDeTarjeta`
+// (lib/venta-tipo.ts), que sabe que una suscripción es «$X/mes» y un becado «Sin cobro».
 
 /** Los rotulos de los controles de una fila. Viven en una funcion y no inline porque
  *  cada uno sale DOS veces (el `title` que se ve al pasar el cursor y el `aria-label`
@@ -1639,7 +1651,9 @@ export function CrmBoard({
         case 'origen':  return porTexto(txt(a.origin), txt(b.origin));
         case 'etapa':   return porTexto(etiqueta(a), etiqueta(b));
         case 'agenda':  return porTexto(txt(a.agendaISO ?? ''), txt(b.agendaISO ?? ''));
-        case 'monto':   return signo * ((a.monto || 0) - (b.monto || 0));
+        // Por lo que se DIBUJA (montoDeTarjeta): una suscripción ordena por su mensualidad,
+        // no por el 0 de su monto de cierre.
+        case 'monto':   return signo * (montoDeTarjeta(a).valor - montoDeTarjeta(b).valor);
         // Por el ISO y no por lo que se DIBUJA: «04/10/2026» ordenado como texto pone
         // noviembre antes que octubre, y el error no se ve hasta que cambia el mes.
         default:        return porTexto(txt(a.createdISO), txt(b.createdISO));
@@ -1767,7 +1781,7 @@ export function CrmBoard({
   // pop-up tiene que decir CUÁL embudo se está tocando, y para eso ese nombre no sirve.
   const nombreDeFunnel = (id: number | null) => {
     const f = funnels.find((x) => x.id === id) ?? funnels.find((x) => x.esDefault);
-    return f?.producto?.trim() || f?.nombre || 'Tu embudo';
+    return (f ? nombreVisible(f) : '') || 'Tu embudo';
   };
   // Cerrar el aviso de error es SÓLO de esta vista: al recargar vuelve a calcularse.
   const [errorCerrado, setErrorCerrado] = useState(false);
@@ -2487,7 +2501,7 @@ export function CrmBoard({
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 12, color: 'var(--dim)' }}>{isGanado ? 'Ganado' : isManual ? (overdueManual ? 'Venció' : 'Vence') : l.agenda ? 'Agenda' : l.created}</span>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : overdueManual ? 'var(--bad)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : isManual ? (dlFmt ?? 'sin fecha') : l.agenda || '—'}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : overdueManual ? 'var(--bad)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? montoDeTarjeta(l).texto : isManual ? (dlFmt ?? 'sin fecha') : l.agenda || '—'}</span>
                 </div>
               </div>
               </Fragment>
@@ -2841,7 +2855,7 @@ export function CrmBoard({
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
                 <div style={{ minWidth: 0 }}><span style={chipStyle(m.tone)}>{m.label}</span></div>
                 <div style={{ fontSize: 13, color: 'var(--dim)' }}>{l.agenda ?? '—'}</div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : '—'}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? montoDeTarjeta(l).texto : '—'}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'right', whiteSpace: 'nowrap' }}>{l.created}</div>
                 {/* ── LAS ACCIONES DE LA FILA. «Con acciones utiles» (05/10/2026). Son las dos
                     que hoy obligan a abrir la ficha para nada: escribirle, y sacarlo. Las dos

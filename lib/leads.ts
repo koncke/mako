@@ -1504,6 +1504,19 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   { k: 'closer', label: 'Closer' },
   { k: 'setter', label: 'Setter' },
   { k: 'monto_cierre_usd', label: 'Monto de cierre' },
+  // ⚠️ La plata de una SUSCRIPCIÓN vive en estas dos, no en el monto de cierre (que queda
+  // NULL a propósito). Faltaban (08/10/2026): cargar o corregir una mensualidad no dejaba
+  // NINGUNA línea, y la última del historial de plata seguía diciendo «Datos pendientes: …
+  // Monto de cierre» con el monto ya guardado. Las dos son revertibles (app/crm/actions.ts,
+  // REVERTIBLES y los dos switch de revertir).
+  //
+  // `venta_tipo` NO entra, a sabiendas: pasar a/desde «sin cobro» ya escribe su propio
+  // evento («Tipo de venta», completeStageMoveAction y quitarSinCobroAction) y acá saldría
+  // DOS veces; y pasar de pago único a suscripción ya se lee en estas líneas («Suscripción
+  // (USD/mes): — → 444», y el monto de cierre que se va). Lo único que queda mudo es
+  // cambiar el tipo sin ningún importe cargado.
+  { k: 'suscripcion_monto_usd', label: 'Suscripción (USD/mes)' },
+  { k: 'suscripcion_meses', label: 'Plazo de la suscripción' },
   { k: 'motivo_perdida', label: 'Motivo' },
   { k: 'fecha_confirmacion', label: 'Confirmación de pago' },
   { k: 'nutricion_manual_deadline', label: 'Deadline de nutrición manual' },
