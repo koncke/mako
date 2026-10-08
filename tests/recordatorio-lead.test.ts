@@ -446,8 +446,8 @@ test('la migración 0204 existe, agrega las dos columnas y dice su orden de desp
 // Lo que se cuida es lo mismo: que siga montado para el admin y que escriba por la MISMA ruta.
 test('CABLEADO: el recordatorio es un ítem de la lista de /chatbot y guarda por una ruta con guard de admin', () => {
   const lista = sinComentarios(leer('app/chatbot/SimuladorWhatsApp.tsx'));
-  assert.match(lista, /\{selId === ID_RECORDATORIO && rolAdmin \? \(\n\s+<RecordatorioFlujo /);
-  assert.match(lista, /const verRecordatorio = rolAdmin\n/);
+  assert.match(lista, /\{selId === ID_RECORDATORIO && rolAdmin \? \(\r?\n\s+<RecordatorioFlujo /);
+  assert.match(lista, /const verRecordatorio = rolAdmin\r?\n/);
   assert.doesNotMatch(sinComentarios(leer('app/chatbot/ChatAgentApp.tsx')), /RecordatorioReunion/);
   const tarjeta = sinComentarios(leer('app/chatbot/RecordatorioFlujo.tsx'));
   assert.match(tarjeta, /'\/api\/chat-agent\/recordatorio-reunion'/);
