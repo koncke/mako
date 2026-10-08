@@ -240,6 +240,12 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // el modal la corta.
   const siguiendo = useRef(new Map<string, AbortController>());
   const quitados = useRef(new Set<string>());
+  // Sube cada vez que un video de MaKo falla, y es la `key` del panel: lo vuelve a montar
+  // y la lista se pide de nuevo. Acá el panel queda ABIERTO (entran varios), así que sin
+  // esto «Esa toma cambió. Vuelve a elegirla.» no tenía salida: la tarjeta seguía con la
+  // ref del clip viejo y elegirla otra vez daba el mismo 409 (en los dos modales chicos
+  // el panel se cierra al elegir y reabrirlo ya pide la lista).
+  const [vueltaMako, setVueltaMako] = useState(0);
 
   // públicos personalizados (retargeting) + formularios — carga perezosa.
   const [audiencesAll, setAudiencesAll] = useState<AudienceItem[] | null>(null);
@@ -481,6 +487,7 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
     } catch (e) {
       if (quitados.current.has(id)) return;
       setErr(e instanceof Error ? e.message : String(e)); setTray((t) => t.filter((x) => x.id !== id));
+      if ('mako' in f) setVueltaMako((n) => n + 1);
     }
   }
   // Pregunta a Meta hasta que el video esté listo. Un video procesándose no es usable
@@ -845,7 +852,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
           {step === 'creativos' && (
             <Paso titulo="¿Qué vas a promocionar?" sub="Sube tus imágenes o videos, o reusa un anuncio que ya te funciona. Puedes cargar varios.">
               <CreativosPicker tray={tray} onQuitar={quitar} senales={senales} onGanador={agregarGanador} fileRef={fileRef} bloqueados={ganadoresBloqueados ?? {}}
-                onMako={(c) => subir({ mako: c })}
+                onMako={(c) => subir({ mako: c })} vueltaMako={vueltaMako}
                 aviso={existente ? AVISO_PROCESANDO_NO_CIERRES : AVISO_PROCESANDO_RETOMA} />
             </Paso>
           )}
@@ -1150,7 +1157,7 @@ function Inversion({ value, onChange, currency }: { value: number | null; onChan
 }
 
 // ── creativos ──
-function CreativosPicker({ tray, onQuitar, senales, onGanador, onMako, fileRef, bloqueados, aviso }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; onMako: (c: CreativoMako) => void; fileRef: React.RefObject<HTMLInputElement | null>; bloqueados: Record<string, string>; aviso: string }) {
+function CreativosPicker({ tray, onQuitar, senales, onGanador, onMako, vueltaMako, fileRef, bloqueados, aviso }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; onMako: (c: CreativoMako) => void; vueltaMako: number; fileRef: React.RefObject<HTMLInputElement | null>; bloqueados: Record<string, string>; aviso: string }) {
   const [verGanadores, setVerGanadores] = useState(false);
   // Los videos que MaKo ya generó (tarea #797). El panel queda abierto: acá entran varios.
   const [verMako, setVerMako] = useState(false);
@@ -1188,7 +1195,7 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, onMako, fileRef, 
       </div>
       {verMako && (
         <div style={{ width: '100%', borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-          <MisCreativosMako onElegir={onMako} elegidos={makoElegidos} />
+          <MisCreativosMako key={vueltaMako} onElegir={onMako} elegidos={makoElegidos} />
         </div>
       )}
       {verGanadores && (

@@ -4270,6 +4270,12 @@ despedida— y el clic manda B. Es «un canal propone y una persona confirma» r
   `23505` de dos escrituras en paralelo se resuelve con una vuelta más, no pisando.
 - **La alternativa, si la fila tiene que conservar el id**: que el cliente mande lo que vio (el
   texto o su `updated_at`) y el claim lo exija en el `WHERE`.
+- ⚠️ **Y vale para un ARCHIVO: la ref nombra lo que se VIO, no el casillero donde estaba.** Medido
+  en la revisión de la #797 (07/10/2026): «Mis creativos» mandaba `toma:<plan>:<n>` y el server
+  subía lo que esa toma guardara al hacer clic; si se volvía a filmar en el medio, a Meta iba otro
+  video que el de la miniatura. La ref lleva el clip (`toma:<plan>:<n>:<op>`) y si cambió es un 409
+  — con la lista vuelta a pedir, o «vuelve a elegirla» no tiene salida. Molde: `tomaPedida`
+  (lib/creativo-mako.ts).
 
 # Una clave de idempotencia sale de la FIRMA de lo que se manda, y cambia cuando eso cambia
 

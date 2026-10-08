@@ -191,7 +191,7 @@ async function subirCreativoMako(crudo: unknown): Promise<Response> {
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return ws;
   return runWithWorkspace(ws, async () => {
-    let c: CreativoMako | null;
+    let c: CreativoMako | 'cambio' | null;
     try {
       c = await resolverCreativoMako(ref);
     } catch (e) {
@@ -199,6 +199,9 @@ async function subirCreativoMako(crudo: unknown): Promise<Response> {
       return Response.json({ ok: false, error: 'No pude leer ese video de MaKo. Vuelve a intentar.' }, { status: 500 });
     }
     if (!c) return Response.json({ ok: false, error: 'Ese video ya no está.' }, { status: 404 });
+    // La toma se volvió a filmar después de abrir la lista: el clip de hoy NO es el que la
+    // persona vio (ni el que MaKo describió). No se sube otro en su lugar.
+    if (c === 'cambio') return Response.json({ ok: false, error: 'Esa toma cambió. Vuelve a elegirla.' }, { status: 409 });
     // La imagen todavía no tiene de dónde salir (lib/creativo-mako.ts): el tipo la admite
     // y esta rama no, para que nadie la mande por `advideos`.
     if (c.media_type !== 'video') return Response.json({ ok: false, error: 'Por ahora, sólo videos.' }, { status: 400 });

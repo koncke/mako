@@ -33,7 +33,7 @@ export type OrigenCreativoMako = 'montaje' | 'toma';
 
 export type CreativoMako = {
   /**
-   * Lo ÚNICO que vuelve del navegador al server: `montaje:<id>` o `toma:<plan>:<n>`.
+   * Lo ÚNICO que vuelve del navegador al server: `montaje:<id>` o `toma:<plan>:<n>:<op>`.
    * Con eso el server vuelve a buscar el archivo en el workspace de la sesión.
    */
   ref: string;
@@ -58,9 +58,20 @@ export type CreativoMako = {
   fecha: string | null;
 };
 
+// ⚠️ LA REF DE UNA TOMA NOMBRA EL CLIP, NO SÓLO EL NÚMERO DE TOMA (revisión del 07/10).
+// Con `toma:<plan>:<n>` el server resolvía lo que esa toma tuviera guardado AL HACER
+// CLIC, mientras la miniatura de la bandeja, el análisis de MaKo y la vista previa
+// salían de la url que vino en la lista. Si la toma se volvía a filmar en el medio
+// (/video-generator guarda `toma-<n>-<op nueva>.mp4` y mueve `video[n]` a ella), a Meta
+// subía un video distinto del que la persona vio y aprobó, sin que nada fallara.
+// La `op` es la operación de Flow de ESE archivo (la misma con la que se arma su ruta):
+// identifica el clip sin que la url viaje, y si hoy la toma guarda otra, no resuelve.
+// El montado no la necesita: cada montaje es una fila nueva con su id.
 export type RefCreativoMako =
   | { origen: 'montaje'; id: number }
-  | { origen: 'toma'; plan_id: string; toma: number };
+  | { origen: 'toma'; plan_id: string; toma: number; op: string };
+
+type RefToma = Extract<RefCreativoMako, { origen: 'toma' }>;
 
 // El plan es un uuid y la operación de Flow también. Medido el 07/10/2026 con un SELECT
 // de sólo lectura: las 31 tomas con url de ws1 y ws11 tienen esa forma, y las 31 son
@@ -78,16 +89,24 @@ const entero = (v: unknown): number | null => {
 };
 
 export function refDeCreativo(r: RefCreativoMako): string {
-  return r.origen === 'montaje' ? `montaje:${r.id}` : `toma:${r.plan_id}:${r.toma}`;
+  return r.origen === 'montaje' ? `montaje:${r.id}` : `toma:${r.plan_id}:${r.toma}:${r.op}`;
 }
 
-/** Lee la referencia que mandó el navegador. null = no tiene la forma de ninguna. */
+/**
+ * Lee la referencia que mandó el navegador. null = no tiene la forma de ninguna.
+ * La forma vieja de la toma (`toma:<plan>:<n>`, sin el clip) no se acepta: es justo la
+ * que dejaba subir otro video que el que se vio.
+ */
 export function leerRefCreativo(v: unknown): RefCreativoMako | null {
-  if (typeof v !== 'string' || v.length > 200) return null;
+  // 5 + 64 + 1 + 3 + 1 + 128 = 202 caracteres para la toma más larga posible.
+  if (typeof v !== 'string' || v.length > 256) return null;
   const m = /^montaje:(\d{1,12})$/.exec(v);
   if (m) { const id = entero(m[1]); return id ? { origen: 'montaje', id } : null; }
-  const t = /^toma:([A-Za-z0-9-]{1,64}):(\d{1,3})$/.exec(v);
-  if (t) { const toma = entero(t[2]); return toma && toma <= TOMA_MAX ? { origen: 'toma', plan_id: t[1], toma } : null; }
+  const t = /^toma:([A-Za-z0-9-]{1,64}):(\d{1,3}):([^:]+)$/.exec(v);
+  if (t) {
+    const toma = entero(t[2]);
+    return toma && toma <= TOMA_MAX && OP_OK.test(t[3]) ? { origen: 'toma', plan_id: t[1], toma, op: t[3] } : null;
+  }
   return null;
 }
 
@@ -154,16 +173,33 @@ export function creativosDeTomas(planes: ReadonlyArray<PlanConTomas>, urlDe: (ru
       const n = entero(k);
       const url = str(m?.url);
       if (!n || n > TOMA_MAX || !url) continue;
-      const ops = [str(m?.mediaId), str(m?.operacion)].filter((o) => OP_OK.test(o));
-      if (!ops.some((op) => url === urlDe(rutaDeToma(p.id, n, op)))) continue;
+      // La op que va en la ref es la que ARMA esta url: mientras se vuelve a filmar,
+      // `operacion` ya es la nueva y `url`/`mediaId` siguen siendo del clip anterior.
+      const op = [str(m?.mediaId), str(m?.operacion)].filter((o) => OP_OK.test(o))
+        .find((o) => url === urlDe(rutaDeToma(p.id, n, o)));
+      if (!op) continue;
       tomas.push({
-        ref: refDeCreativo({ origen: 'toma', plan_id: p.id, toma: n }), origen: 'toma', plan_id: p.id,
+        ref: refDeCreativo({ origen: 'toma', plan_id: p.id, toma: n, op }), origen: 'toma', plan_id: p.id,
         titulo, toma: n, url, media_type: 'video', fecha: str(p.at) || null,
       });
     }
     out.push(...tomas.sort((a, b) => (a.toma ?? 0) - (b.toma ?? 0)));
   }
   return out;
+}
+
+/**
+ * La toma que pidió el navegador, contra lo que se ofrece HOY para ese plan (la salida
+ * de creativosDeTomas, o sea la MISMA función que armó la lista).
+ *   · null      → esa toma ya no se ofrece (no está filmada, o su archivo no coincide);
+ *   · 'cambio'  → se ofrece OTRO clip: se volvió a filmar después de abrir la lista, y
+ *                 subir el de hoy sería publicar un video que la persona no vio;
+ *   · el creativo, si es exactamente el que se mostró.
+ */
+export function tomaPedida(ofrecidas: ReadonlyArray<CreativoMako>, ref: RefToma): CreativoMako | 'cambio' | null {
+  const hoy = ofrecidas.find((c) => c.origen === 'toma' && c.plan_id === ref.plan_id && c.toma === ref.toma);
+  if (!hoy) return null;
+  return hoy.ref === refDeCreativo(ref) ? hoy : 'cambio';
 }
 
 /**

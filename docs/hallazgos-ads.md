@@ -3345,7 +3345,8 @@ al bucket `video-clips` ni a `montaje_trabajos`.
    la ruta no lleva el workspace (docs/hallazgos-generativa.md: «`video-clips` es un bucket
    PÚBLICO»): con la url en el body, un admin del ws A publicaría el video del ws B; y
    `urlEsPropia` (`includes('/storage/v1/object/public/video-clips/')`) aceptaría cualquier toma
-   de cualquier cliente. El navegador manda sólo una `ref` (`montaje:<id>` / `toma:<plan>:<n>`);
+   de cualquier cliente. El navegador manda sólo una `ref` (`montaje:<id>` / `toma:<plan>:<n>:<op>`,
+   con el clip desde la revisión de abajo);
    el server la resuelve en el workspace de la sesión, ARMA la url con la misma ruta que la
    escribió (el worker de montaje y `guardarClip`) y exige que lo guardado sea exactamente eso; y
    antes de dársela a Meta mira el origen con `new URL`. Medido contra el server local: con la
@@ -3428,3 +3429,71 @@ app/api/ads-manager/mis-creativos/route.ts · app/api/ads-manager/creative-uploa
 app/ads-manager/NuevaCampanaModal.tsx (`subir`, `CreativosPicker`, `analisisDe`) ·
 tests/creativo-mako.test.ts · tests/ads-creativo-mako.test.ts · tests/ads-video-procesando.test.ts
 · *2026-10-07 tarea #797*
+
+## La revisión de la #797: la ref de una toma nombraba el casillero y no el clip, y dos guards daban verde sobre lo que cazaban (07/10)
+
+**Síntoma (lo encontró la revisión, no un cliente):** con «Mis creativos» abierto, si la toma 3
+se volvía a filmar en otra pestaña, el clic en la tarjeta «Toma 3» —que seguía mostrando el clip
+A— subía a Meta el clip B. La miniatura de la bandeja, el texto que escribe MaKo (analyze-creatives
+mira esa miniatura) y la vista previa eran de A; el anuncio salía con el `video_id` de B. Nada
+fallaba ni avisaba. Y el filtro de duplicados por `mako_ref` de Nueva campaña no dejaba elegir la
+versión nueva mientras la vieja siguiera en la bandeja: tenían la misma ref.
+
+**Causa:** la ref `toma:<plan>:<n>` nombraba el NÚMERO de toma. El server la resolvía con lo que
+esa toma tuviera guardado AL HACER CLIC —`guardarClip` sube `toma-<n>-<op nueva>.mp4` y
+`guardarMarca` mueve `video[n]` a él (app/video-generator/video-action.ts)—, mientras todo lo que
+la persona vio salía de la url que vino en la lista. El mismo dato leído en dos momentos.
+
+**Arreglo:** la ref lleva el clip: `toma:<plan>:<n>:<op>`, con la op que ARMA la url y no la
+primera con forma válida (mientras se filma, `operacion` ya es la nueva y `url`/`mediaId` siguen
+siendo del clip anterior). `tomaPedida` compara contra lo que se ofrece HOY con la MISMA
+`creativosDeTomas` que armó la lista: si la toma guarda otro clip, **409 «Esa toma cambió. Vuelve
+a elegirla.»**; si ya no se ofrece, 404. La forma vieja (sin el clip) no se acepta. El montado no
+lo necesita: cada montaje es una fila nueva con su id.
+
+⚠️ **Y un 409 que dice «vuelve a elegirla» necesita que se PUEDA.** En Nueva campaña el panel
+queda abierto (entran varios) y la lista se pedía una sola vez, al montarlo: la tarjeta seguía con
+la ref del clip viejo y elegirla de nuevo daba el mismo 409 para siempre. Ahora cada fallo de un
+video de MaKo vuelve a montar el panel (`key={vueltaMako}`) y la lista se pide de nuevo. En los dos
+modales chicos el panel se cierra al elegir, y reabrirlo ya la pide.
+
+**Dos guards daban verde sobre lo que existían para cazar** (medido corriendo el test de HEAD sobre
+cada rotura: 1 pass / 0 fail en los dos):
+
+- «El workspace que LEE es el que ESCRIBE» miraba el ORDEN —`wsDeAdsManager()` antes de
+  `runWithWorkspace`— y no que la lectura CORRIERA adentro. Un `Promise.all([montados…(),
+  tomas…()])` armado antes del wrapper y esperado adentro lee con el id -1 (lista vacía) mientras
+  `cred()` escribe en OWNER_WS: el bug exacto que el guard nombra. Ahora se corta el callback hasta
+  SU llave de cierre y la lectura tiene que estar adentro y no afuera, en las dos rutas.
+- «No pude leer no es no tienes videos» contaba los `if (error) throw` y exigía el literal
+  `leerHistorialEstricto()`: un `try { … } catch { return []; }` alrededor deja las dos cosas en
+  pie. Ahora lib/creativo-mako-fuentes.ts no puede tener `catch`, `allSettled` ni `.then(` —no
+  tiene ninguno legítimo—.
+
+**Regla:**
+
+- **Lo que una persona aprueba mirando se identifica por lo que VIO, no por el casillero donde
+  estaba.** Una ref que nombra un lugar (la toma 3) se resuelve con lo que haya en ese lugar al
+  hacer clic. Es «lo que una persona aprueba por id no cambia bajo ese id» (AGENTS.md) del lado de
+  un archivo, y la prueba es la misma: ¿qué pasa si el lugar cambia entre el render y el clic?
+- **Un guard sobre un contexto fija dónde CORRE la llamada, no dónde aparece el wrapper.** Y uno
+  de «no se traga el error» prohíbe la FORMA de tragarlo; exigir el literal estricto no alcanza.
+
+**Cómo se verificó:** typecheck en 0, `npm test` en verde, y diecisiete roturas cazadas
+(restaurando de memoria, con el md5 de cada archivo comparado al final): las cuatro de la ref en
+tests/creativo-mako.test.ts, las seis nuevas y las siete viejas re-contadas en
+tests/ads-creativo-mako.test.ts — cada una con su número en el comentario del test. **No** se abrió
+el navegador ni se llamó a Meta.
+
+**Sin hacer:**
+
+- Una pestaña con «Mis creativos» abierto desde ANTES del deploy manda la ref vieja y recibe 400
+  «Ese video no es válido.»; se arregla reabriendo el panel.
+- Lo de la entrada anterior sigue igual: la prueba de punta a punta en una cuenta real la hace
+  Martín, y el montado espera el contenedor del worker.
+
+**Vive en:** lib/creativo-mako.ts (`refDeCreativo`, `leerRefCreativo`, `creativosDeTomas`,
+`tomaPedida`) · lib/creativo-mako-fuentes.ts (`resolverCreativoMako`) ·
+app/api/ads-manager/creative-upload/route.ts (`subirCreativoMako`, el 409) ·
+app/ads-manager/NuevaCampanaModal.tsx (`subir`, `CreativosPicker`, `vueltaMako`) ·
+tests/creativo-mako.test.ts · tests/ads-creativo-mako.test.ts · *2026-10-07 revisión de la #797*

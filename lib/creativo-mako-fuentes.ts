@@ -20,7 +20,7 @@ import { getTenantDb } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { leerHistorialEstricto } from './api-mako/areas/video.helpers';
 import {
-  BUCKET_CLIPS_MAKO, creativosDeMontajes, creativosDeTomas,
+  BUCKET_CLIPS_MAKO, creativosDeMontajes, creativosDeTomas, tomaPedida,
   type CreativoMako, type FilaMontajeListo, type RefCreativoMako,
 } from './creativo-mako';
 
@@ -57,8 +57,9 @@ export async function tomasDelWorkspace(): Promise<CreativoMako[]> {
 /**
  * La referencia que mandó el navegador, resuelta en el workspace en curso. null = no
  * existe acá (otro workspace, un montaje que no terminó, una toma que ya no está).
+ * 'cambio' = la toma existe y hoy guarda OTRO clip que el que se mostró (tomaPedida).
  */
-export async function resolverCreativoMako(ref: RefCreativoMako): Promise<CreativoMako | null> {
+export async function resolverCreativoMako(ref: RefCreativoMako): Promise<CreativoMako | 'cambio' | null> {
   if (ref.origen === 'montaje') {
     const db = await getTenantDb();
     const { data, error } = await db
@@ -73,5 +74,5 @@ export async function resolverCreativoMako(ref: RefCreativoMako): Promise<Creati
   }
   const plan = (await leerHistorialEstricto()).find((p) => p.id === ref.plan_id);
   if (!plan) return null;
-  return creativosDeTomas([plan], urlPublica).find((c) => c.toma === ref.toma) ?? null;
+  return tomaPedida(creativosDeTomas([plan], urlPublica), ref);
 }

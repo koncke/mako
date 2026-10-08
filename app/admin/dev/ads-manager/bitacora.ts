@@ -186,4 +186,22 @@ export const BITACORA: Hito[] = [
       { sha: '772ae3ec', msg: 'Ads Manager: usar un video que MaKo ya generó, sin bajarlo y volverlo a subir (#797)', lineas: 1236, archivos: 15 },
     ],
   },
+  {
+    fecha: '7 oct', hora: '21:00', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La revisión de la #797: la ref de una toma nombraba el casillero y no el clip',
+    puntos: [
+      '**Se podía publicar un video distinto del que se vio.** La ref `toma:<plan>:<n>` nombraba el número de toma y el server subía lo que esa toma guardara al hacer clic: si se volvía a filmar entre abrir la lista y elegir, a Meta iba el clip nuevo con la miniatura y la descripción de MaKo del viejo. Ahora la ref lleva el clip y una toma que cambió contesta 409 «Esa toma cambió. Vuelve a elegirla.».',
+      'Y el 409 tiene salida: en Nueva campaña el panel queda abierto y la lista se pedía una sola vez, así que elegir otra vez daba el mismo 409. Cada fallo de un video de MaKo vuelve a montar el panel.',
+      '⚠️ **Dos guards en verde sobre lo que existían para cazar**, medido corriendo el test de HEAD sobre cada rotura: uno miraba el ORDEN del wrapper y no que la lectura corriera adentro (leer antes de fijar el workspace pasaba), el otro exigía el literal estricto y no prohibía el `catch` que lo traga.',
+      'Diecisiete roturas cazadas, cada una con su número en el comentario del test. No se abrió el navegador ni se llamó a Meta.',
+    ],
+    archivos: [
+      'lib/creativo-mako.ts — la ref con el clip (`refDeCreativo`, `leerRefCreativo`, `creativosDeTomas`) y `tomaPedida`',
+      'lib/creativo-mako-fuentes.ts — `resolverCreativoMako` distingue «ya no está» de «cambió»',
+      'app/api/ads-manager/creative-upload/route.ts — el 409, antes de llamar a Meta',
+      'app/ads-manager/NuevaCampanaModal.tsx — `vueltaMako`: el panel vuelve a pedir la lista tras un fallo',
+      'tests/creativo-mako.test.ts y tests/ads-creativo-mako.test.ts — los guards que ahora cazan su bug',
+    ],
+  },
 ];

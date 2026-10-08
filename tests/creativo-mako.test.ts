@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  creativosDeMontajes, creativosDeTomas, leerRefCreativo, refDeCreativo, mismoOrigen,
+  creativosDeMontajes, creativosDeTomas, leerRefCreativo, refDeCreativo, mismoOrigen, tomaPedida,
   rutaDelMontado, rutaDeToma, type FilaMontajeListo, type PlanConTomas,
 } from '../lib/creativo-mako';
 
@@ -83,11 +83,18 @@ test('tomas: la url se arma con la operación de la marca y tiene que coincidir'
       // Sin url: no está filmada.
       '8': { mediaId: OP },
       'x': { url: urlDe(rutaDeToma(PLAN_A, 9, OP)), mediaId: OP },
+      // Volviéndose a filmar: `operacion` ya es la nueva y url/mediaId siguen siendo del
+      // clip anterior. La ref nombra el que ARMA la url, no el primero de la lista.
+      '9': { url: urlDe(rutaDeToma(PLAN_A, 9, OP)), mediaId: OP, operacion: 'op-nueva' },
+      // Y al revés: un mediaId con forma válida que no arma la url.
+      '10': { url: urlDe(rutaDeToma(PLAN_A, 10, 'op-10')), mediaId: 'otro-id', operacion: 'op-10' },
     },
   });
   const out = creativosDeTomas([p], urlDe);
-  assert.deepEqual(out.map((c) => c.ref), [`toma:${PLAN_A}:1`, `toma:${PLAN_A}:2`], 'en orden de toma');
-  assert.deepEqual(out.map((c) => c.toma), [1, 2]);
+  assert.deepEqual(out.map((c) => c.ref), [
+    `toma:${PLAN_A}:1:op-1`, `toma:${PLAN_A}:2:${OP}`, `toma:${PLAN_A}:9:${OP}`, `toma:${PLAN_A}:10:op-10`,
+  ], 'en orden de toma, y cada ref con el clip que se ve');
+  assert.deepEqual(out.map((c) => c.toma), [1, 2, 9, 10]);
   assert.equal(out[0].titulo, 'El anuncio');
 });
 
@@ -103,16 +110,65 @@ test('tomas: el anuncio más nuevo primero, y el título cae al pedido', () => {
 
 test('la referencia: lo único que vuelve del navegador, con forma cerrada', () => {
   assert.deepEqual(leerRefCreativo('montaje:42'), { origen: 'montaje', id: 42 });
-  assert.deepEqual(leerRefCreativo(`toma:${PLAN_A}:3`), { origen: 'toma', plan_id: PLAN_A, toma: 3 });
+  assert.deepEqual(leerRefCreativo(`toma:${PLAN_A}:3:${OP}`), { origen: 'toma', plan_id: PLAN_A, toma: 3, op: OP });
   for (const malo of [
-    'montaje:0', 'montaje:-1', 'montaje:4x', `toma:${PLAN_A}:0`, `toma:${PLAN_A}:1000`, 'toma:../x:1', 'toma:a/b:1',
+    'montaje:0', 'montaje:-1', 'montaje:4x', `toma:${PLAN_A}:0:${OP}`, `toma:${PLAN_A}:1000:${OP}`, `toma:../x:1:${OP}`, `toma:a/b:1:${OP}`,
+    // La forma vieja, sin el clip: es la que dejaba subir otro video que el que se vio.
+    `toma:${PLAN_A}:3`,
+    // Un clip con forma de ruta, vacío, con otro separador o más largo que una operación.
+    `toma:${PLAN_A}:3:`, `toma:${PLAN_A}:3:a/../b`, `toma:${PLAN_A}:3:a.b`, `toma:${PLAN_A}:3:${OP}:x`, `toma:${PLAN_A}:3:${'x'.repeat(129)}`,
     `https://abc123.supabase.co/storage/v1/object/public/video-clips/${rutaDelMontado(PLAN_A, 1)}`,
     42, null, undefined, { origen: 'montaje', id: 1 }, '',
   ]) assert.equal(leerRefCreativo(malo), null, `aceptó ${JSON.stringify(malo)}`);
-  // Ida y vuelta.
-  for (const r of [{ origen: 'montaje' as const, id: 9 }, { origen: 'toma' as const, plan_id: PLAN_B, toma: 12 }]) {
+  // Ida y vuelta, incluida la toma más larga que se puede ofrecer (202 caracteres).
+  for (const r of [
+    { origen: 'montaje' as const, id: 9 },
+    { origen: 'toma' as const, plan_id: PLAN_B, toma: 12, op: OP },
+    { origen: 'toma' as const, plan_id: 'a'.repeat(64), toma: 999, op: 'b'.repeat(128) },
+  ]) {
     assert.deepEqual(leerRefCreativo(refDeCreativo(r)), r);
   }
+});
+
+/** La ref que viaja, leída como la lee el server. */
+function refToma(s: string) {
+  const r = leerRefCreativo(s);
+  if (!r || r.origen !== 'toma') throw new Error(`no es la ref de una toma: ${s}`);
+  return r;
+}
+
+test('tomaPedida: sube el clip que se MOSTRÓ, nunca el que la toma guarde al hacer clic', () => {
+  const OP_B = '5d0c3a8e-1f2b-4c6d-9e7f-0a1b2c3d4e5f';
+  const tomaCon = (op: string, operacion = op) => plan({ id: PLAN_A, video: { '3': { url: urlDe(rutaDeToma(PLAN_A, 3, op)), mediaId: op, operacion } } });
+
+  // Se abre «Mis creativos»: la lista trae la toma 3 con el clip A, y su ref nombra A.
+  const [mostrada] = creativosDeTomas([tomaCon(OP)], urlDe);
+  const ref = refToma(mostrada.ref);
+  const hoy = (p: PlanConTomas) => tomaPedida(creativosDeTomas([p], urlDe), ref);
+
+  // Nadie la tocó: resuelve al mismo archivo que se vio.
+  const igual = hoy(tomaCon(OP));
+  assert.ok(igual && igual !== 'cambio');
+  assert.equal(igual.url, mostrada.url);
+
+  // Mientras /video-generator la vuelve a filmar, lo guardado sigue siendo A.
+  const filmando = hoy(tomaCon(OP, OP_B));
+  assert.ok(filmando && filmando !== 'cambio');
+  assert.equal(filmando.url, mostrada.url);
+
+  // Se volvió a filmar (guardarClip sube toma-3-<B>.mp4 y guardarMarca mueve video['3']):
+  // la ref de A NO sube B.
+  assert.equal(hoy(tomaCon(OP_B)), 'cambio');
+
+  // Con la lista pedida de nuevo, la ref nueva sí, y es B.
+  const [nueva] = creativosDeTomas([tomaCon(OP_B)], urlDe);
+  const deB = tomaPedida(creativosDeTomas([tomaCon(OP_B)], urlDe), refToma(nueva.ref));
+  assert.ok(deB && deB !== 'cambio');
+  assert.equal(deB.url, urlDe(rutaDeToma(PLAN_A, 3, OP_B)));
+
+  // La toma que ya no se ofrece no es un «cambio»: no está (404, no 409).
+  assert.equal(hoy(plan({ id: PLAN_A, video: {} })), null);
+  assert.equal(hoy(plan({ id: PLAN_A, video: { '4': { url: urlDe(rutaDeToma(PLAN_A, 4, OP)), mediaId: OP } } })), null, 'otra toma del plan no la reemplaza');
 });
 
 test('mismoOrigen: con new URL, y los cuatro parecidos que un prefijo deja pasar', () => {
@@ -150,11 +206,11 @@ test('usarCreativoMako manda SÓLO la referencia; listarCreativosMako no convier
       enviados.push({ url, body: init?.body ? JSON.parse(String(init.body)) : null });
       return { json: async () => ({ ok: true, media_type: 'video', video_id: '77', thumbnail_url: null, processing: true, video_status: 'processing', path: null }) } as unknown as Response;
     }) as typeof fetch;
-    const r = await usarCreativoMako(`toma:${PLAN_A}:2`);
+    const r = await usarCreativoMako(`toma:${PLAN_A}:2:${OP}`);
     assert.equal(r.video_id, '77');
     assert.equal(r.processing, true);
     assert.equal(enviados[0].url, '/api/ads-manager/creative-upload');
-    assert.deepEqual(enviados[0].body, { mako: `toma:${PLAN_A}:2` }, 'ni url, ni file_url, ni path');
+    assert.deepEqual(enviados[0].body, { mako: `toma:${PLAN_A}:2:${OP}` }, 'ni url, ni file_url, ni path');
 
     globalThis.fetch = (async () => ({ json: async () => ({ ok: false, error: 'No pude leer tus videos de MaKo. Vuelve a intentar.' }) }) as unknown as Response) as typeof fetch;
     await assert.rejects(listarCreativosMako(), /No pude leer tus videos de MaKo/);
@@ -168,10 +224,19 @@ test('usarCreativoMako manda SÓLO la referencia; listarCreativosMako no convier
 });
 
 //   ROTO A PROPÓSITO (07/10/2026), de a una y restaurando de memoria; cada una da
-//   pass 7 / fail 1 en este archivo, y el que cae es el que la nombra:
+//   pass 7 / fail 1 en este archivo (que entonces tenía 8), y el que cae es el que la nombra:
 //   · creativosDeMontajes sin el `url !== urlDe(...)` → «sólo los que dejaron…»;
 //   · creativosDeTomas con `url.includes('/storage/v1/object/public/video-clips/')` (un
 //     prefijo, la regla vieja de urlEsPropia) → «la url se arma con la operación…»;
 //   · mismoOrigen con `url.startsWith(base)` → «los cuatro parecidos»;
 //   · usarCreativoMako mandando también una url → «manda SÓLO la referencia»;
 //   · la ref de toma aceptando cualquier plan (`[^:]`) → «la referencia…».
+//   Y las de la revisión (07/10/2026, la ref de la toma con el clip), con 9 tests:
+//   · tomaPedida devolviendo la toma de hoy sin comparar la ref → pass 8 / fail 1,
+//     «tomaPedida: sube el clip que se MOSTRÓ…» (es el bug de la revisión);
+//   · refDeCreativo sin el `:${r.op}` → pass 6 / fail 3 («tomas: la url se arma…», «la
+//     referencia…» y «tomaPedida…»);
+//   · el tope de largo de vuelta en 200 → pass 8 / fail 1, «la referencia…» (la toma más
+//     larga posible mide 202);
+//   · la primera op con forma en vez de la que ARMA la url → pass 8 / fail 1, «tomas: la
+//     url se arma…» (la toma 10, con un mediaId que no es su archivo).
