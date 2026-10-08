@@ -7060,3 +7060,68 @@ apagado.
 
 _Hecho directo por la sesión de claude2 (`tests/meta-formulario-legible.test.ts`, probado
 rompiéndolo: seis roturas, las seis caen)._
+
+## La invitación al curso AL GANAR: el CRM decide cuándo, Customer Success invita (07/10/2026)
+
+**Vive en:** `lib/crm-curso-al-ganar.ts` (`alGanarInvitarAlCurso`, el interruptor) ·
+`lib/crm-curso-al-ganar-reglas.ts` (con test) · `app/crm/curso-al-ganar-actions.ts` ·
+`app/crm/CrmBoard.tsx` (el «⋯» de la columna Ganado) · los tres enganches: `updateLead`
+(`lib/leads.ts`), `saveLeadPlanManual` (`lib/pagos.ts`) y `moverEtapaEnProducto`
+(`lib/lead-funnel.ts`) · la invitación misma: `invitarAlCursoSinSesion` (`lib/curso-invitar.ts`,
+de Customer Success)
+
+Pedido de Martín, por el chat de Customer Success: «poder automatizar la invitación al curso cuando
+un lead cae a Ganado, así no se tiene que estar invitando manualmente... Pero que sea opcional».
+
+⚠️ **«CAER A GANADO» NO ES UN SOLO CAMINO: SON TRES, y el obvio cubre uno.** `setPipelineStage`
+termina en `updateLead`, y por ahí pasan el tablero, el wizard, MaKo, Customer Success y la página
+de gracias. Pero `saveLeadPlanManual` escribe `estado_lead: 'ganado'` con un update directo (guardar
+cuotas CIERRA el lead), y un producto agregado gana en `lead_funnel` sin tocar `estado_lead`. Los
+tres llaman al mismo enganche, y los tres preguntan por la TRANSICIÓN (`pasaAGanado`): re-guardar un
+ganado no es una venta nueva. Lo que se dejó afuera a propósito: el `revert` de una confirmación de
+MaKo (`lib/mako-confirmaciones.ts`), que devuelve un estado y no vende nada, y `setBoardStageOverride`,
+que escribe la columna y no el desenlace.
+
+⚠️ **LA PRIMERA VERSIÓN COPIABA LA INVITACIÓN, Y ERA LA EQUIVOCADA.** Se armó con las piezas de
+Customer Success (`linkDeAcceso`, `firmarAccesoCurso`, `invitarAlCursoPorEmail`, `marcarInvitacion`)
+porque su única puerta era una action con sesión. En paralelo, Customer Success escribió la
+invitación ÚNICA sin sesión, con lo que la copia no tenía: **el reclamo** (`reclamarInvitacion`,
+compare-and-set, mig 0219). Sin él, dos de los tres caminos disparando en el mismo segundo —el wizard
+gana y guarda las cuotas— leían «sin invitar» y mandaban dos mails. Ahora el CRM decide CUÁNDO y la
+invitación es de ellos; `tests/crm-curso-al-ganar.test.ts` falla si vuelve a aparecer una pieza de
+la invitación en el CRM.
+
+- **El interruptor es por EMBUDO, nace apagado** (`crm.curso_al_ganar`, una lista de prendidos: lo
+  que no está, no invita) y se lee **estricto al escribir**: con la base caída, `getSetting` da null y
+  guardar «vacío + éste» apagaba en silencio los otros embudos. Se ofrece sólo en la columna Ganado y
+  sólo si el producto tiene clases; prender lo exige el server también.
+- **No es un `useState` sembrado de la prop**: el tablero no se desmonta al cambiar de embudo, así
+  que se guarda lo que esta pestaña cambió CON su embudo y gana sólo sobre ése.
+- **Apagado cuesta una lectura de un setting** y sale; prendido, va por detrás (`after`) y deja SIEMPRE
+  una línea en el historial con actor MaKo (`lineaDelCurso`): «ya estaba invitado» y «no corrió» no
+  pueden verse iguales en la ficha.
+
+⚠️ **UN TEST QUE RECORTA EL FUENTE ENTRE DOS ANCLAS DECIDE DÓNDE SE PUEDE ESCRIBIR.** El enganche se
+puso primero entre el bloque del CAPI de calificado y la etiqueta de WhatsApp, y
+`tests/meta-capi-lead-id.test.ts` (que recorta exactamente ese tramo y exige que mida < 2.500) cayó.
+No era un bug del test: es su forma de decir «esto es el CAPI y nada más». El bloque se mudó después
+de la etiqueta.
+
+### Lo que quedó SIN hacer
+
+- **No se mandó un mail de verdad**: ningún workspace de prueba tiene curso (ws3 y ws4 sin producto
+  con clases). La cadena se verificó en el ws4 con la invitación real de Customer Success
+  (1080f74c): página de gracias → Ganado → enganche → «No lo invité al curso: sus productos no tienen
+  clases» en el historial. El primer mail real sale el día que alguien lo prenda en un cliente.
+- **Las pantallas no se miraron en el navegador** (el interruptor del «⋯» de Ganado): un servidor
+  local con la máquina al 96% de CPU no contestó, y el CRM del ws1 tardó 7 minutos contra la base de
+  producción. Cubierto por typecheck y tests.
+- **Hubo una ventana con dependencia cruzada**: este commit importa `lib/curso-invitar.ts`, y se
+  retuvo hasta que Customer Success lo publicó. Lo que lo ordenó fue avisarse por mensaje entre
+  sesiones; nada del repo lo habría frenado antes del build.
+- **Un lead que gana en un producto AGREGADO no se invita**: Customer Success contesta `no-ganado`
+  porque su cartera sale de `estado_lead`, que en un agregado no cambia. Es coherente con la ficha de
+  CS (no lo ve como cliente), y queda en el historial.
+
+_Hecho directo por la sesión de claude2 (`tests/crm-curso-al-ganar.test.ts`, probado rompiéndolo:
+diez roturas, las diez caen)._

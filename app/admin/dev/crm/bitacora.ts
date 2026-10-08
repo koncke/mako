@@ -1177,5 +1177,34 @@ export const BITACORA: Hito[] = [
       "app/api/track/vsl/route.ts — el pageview pregunta después de guardar la visita",
       "app/integraciones/AsignarProducto.tsx — el interruptor en el paso 2"
     ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "02:46",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Invitar al curso al pasar a Ganado, por embudo y apagado por default",
+    "puntos": [
+      "El interruptor está en el «⋯» de la columna Ganado; sólo admin y sólo si el producto tiene clases.",
+      "Los tres caminos que pasan un lead a Ganado llaman al mismo enganche, sólo en la transición.",
+      "La invitación es la de Customer Success, con su reclamo: dos disparos no mandan dos mails.",
+      "Cada intento deja una línea en el historial con actor MaKo, salga o no."
+    ],
+    "commits": [
+      {
+        "sha": "77279ea4",
+        "msg": "CRM: invitar al curso al pasar a Ganado, por embudo y apagado por default",
+        "lineas": 491,
+        "archivos": 10
+      }
+    ],
+    "archivos": [
+      "lib/crm-curso-al-ganar.ts — el interruptor y el enganche",
+      "lib/crm-curso-al-ganar-reglas.ts — la transición y la línea del historial",
+      "app/crm/CrmBoard.tsx — la opción en el «⋯» de Ganado",
+      "lib/leads.ts · lib/pagos.ts · lib/lead-funnel.ts — los tres caminos a Ganado"
+    ]
   }
 ];

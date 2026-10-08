@@ -1,5 +1,26 @@
 # Relevo — CRM
 
+## ⚡ Actualización del 08/10/2026, 02:50 — sesión CRM, cuenta claude2
+
+Tres cosas salieron y están desplegadas, las tres APAGADAS para todos hasta que alguien las prenda:
+
+- **Lo que contestó en el formulario de Meta** (`e21003d6`): en el pop-up y en la ruta de la ficha,
+  legible, y su WhatsApp nace apagado en /chatbot. → `docs/hallazgos-crm.md` → «Lo que contestó en
+  el formulario de Meta».
+- **La página de gracias pasa a Ganado** (`76cfa80f` + `ec90fddc`): interruptor «Es la página de
+  gracias» en el paso 2 del Pixel. ⚠️ La visita no prueba la compra: quien tenga la URL la abre sin
+  pagar. → `docs/hallazgos-landing.md` → «La página de GRACIAS pasa a Ganado».
+- **Invitar al curso al ganar** (`77279ea4`): «Invitar al curso al ganar» en el «⋯» de la columna
+  Ganado, por embudo. La invitación es la de Customer Success (`invitarAlCursoSinSesion`); el CRM
+  decide cuándo, en los TRES caminos a Ganado. → `docs/hallazgos-crm.md` → «La invitación al curso
+  AL GANAR».
+
+**Lo que espera a Martín:** prender cada cosa en el cliente que la quiera (nada nace prendido), y
+decidir si la página de gracias necesita la verificación de la compra (el webhook de la plataforma de
+pago, que no existe). **Sin hacer:** el aviso `lead-de-landing` tiene su texto armado en código
+(`app/api/track/optin/route.ts`), y las respuestas del formulario de la LANDING no se guardan en el
+lead. Ninguna de las dos pantallas nuevas se miró en el navegador (la máquina no daba).
+
 ## ⚡ Actualización del 06/10/2026, 19:00 — sesión CRM, cuenta claude2
 
 **Lo que hay que saber primero:** `lead_funnel` (un lead en VARIOS productos, mig 0207) está
