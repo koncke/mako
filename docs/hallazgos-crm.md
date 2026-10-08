@@ -6683,6 +6683,9 @@ producto, el lead no aparece en ese tablero. Es la misma decisión pendiente que
 fuera del embudo, no un bug nuevo — pero conviene saberlo antes de reportarlo como «lo
 agregué y no está».
 
+> **Resuelto el 08/10/2026**: el alta elige el producto. Ver «"+ Agregar al CRM" desde WhatsApp metía a
+> todos en el embudo principal», más abajo.
+
 **Cómo se verificó, sin apretarlo:** el botón crea un lead de verdad en el CRM de un cliente
 real (el entorno local apunta a producción), así que el arnés mide que el control EXISTA,
 esté habilitado y que **el clic en su centro LLEGUE a él** —`elementFromPoint` devuelve el
@@ -7125,3 +7128,141 @@ de la etiqueta.
 
 _Hecho directo por la sesión de claude2 (`tests/crm-curso-al-ganar.test.ts`, probado rompiéndolo:
 diez roturas, las diez caen)._
+
+## «Completar datos» devolvía al lead a la etapa de antes: la ficha del tablero es una FOTO (08/10/2026)
+
+**Vive en:** `app/crm/LeadSheet.tsx` (`releer`, `FichaCambioProvider`) · `app/crm/lead-view/ficha-cambio.tsx`
+(`useRefrescarFicha`) · `app/crm/actions.ts` (`completeStageMoveAction`, paso 5, `soloCompletar`) ·
+`app/crm/StageMoveDialog.tsx` · `lib/lead-funnel.ts` (`quitarDeProducto`, `deshacerQuitar`)
+
+Feedback de Leila (ws11): «3 veces lo moví a conversación abierta y hace loop, además lo moví al
+embudo de empresa y le cargué el nombre de la empresa», y en un audio: «Guardar. Ya estoy guardando. Y
+me dice sin empresa… si cierro la conversación… ahora sí me dejó».
+
+⚠️ **EL DIAGNÓSTICO OBVIO («no guarda la empresa» / «la etapa pide la empresa y frena») NO ERA.** La
+empresa se guardó bien, en la misma columna que se valida, y «Conversación abierta» no tiene ningún
+requisito que frene (la empresa es higiene: se pide y nunca bloquea). Lo que pasó lo dice el
+historial: el #2608 tiene tres «Etapa conversando → lead» de Leila, la primera seguida 1 s después
+por «Empresa null → Celis…». Ésa es la firma de `completeStageMoveAction` con `to = 'lead'`:
+`saveLeadMeta` guarda la empresa sin auditar, `setPipelineStage` mueve a la etapa VIEJA y audita la
+Etapa, y recién al final `logLeadChanges` audita la Empresa.
+
+- **La causa: el pop-up de la ficha es una foto.** `getLeadFullAction` la trae al abrir y el
+  `router.refresh()` de cada tarjeta refresca el tablero de atrás, no el estado de cliente del pop-up.
+  Con la foto vieja, la cabecera sigue diciendo «Sin empresa» y «1 sin marcar», y «Solucionar» abre
+  «Completar datos» con `to` = la etapa de ANTES de moverlo. Empezó con a000a28f (05/10), cuando
+  «Solucionar» pasó a resolverse dentro del pop-up en vez de navegar a la ruta, que sí se refresca.
+- ⚠️ **Y no era sólo un loop: des-ganaba.** El #2605 perdió el Ganado 25 minutos por el mismo camino
+  (movido a Ganado desde el desplegable, después «Solucionar» → Guardar con la etapa vieja).
+- **El arreglo va en las dos capas.** El server: «Completar datos» manda `soloCompletar` y NO llama a
+  `setPipelineStage` (sólo sincroniza el monto de un Ganado); lo pendiente se mide en la etapa donde
+  quedó. Así ninguna pantalla vieja —una pestaña olvidada incluida— puede mover un lead al
+  completar. La pantalla: la ficha se relee después de cada escritura; las tarjetas que guardan avisan
+  por `useRefrescarFicha`, que es el choke point de «la ficha cambió» (un contexto, porque las mismas
+  tarjetas viven en la ruta, donde no hace falta). `tests/ficha-se-relee.test.ts` falla si una tarjeta
+  vuelve a llamar `router.refresh()` suelto.
+- ⚠️ **NO SE RESOLVIÓ «MOVIENDO A LA ETAPA ACTUAL».** Era la salida que aparecía primero y la
+  refutación la tumbó: «la etapa actual» sale de las etapas del funnel por defecto (`getFunnelDeLead`
+  ignora `lead.funnel_id`), y en un embudo con claves propias deriva otra y movería al lead; además,
+  sin `deadline`, `setPipelineStage` le borra el plazo a uno en nutrición manual.
+
+⚠️ **QUITAR LA CASA NO SINCRONIZABA EL DESENLACE.** `quitarDeProducto` promovía la fila escribiendo sólo
+`funnel_id` + `pipeline_stage`: con la fila en «Ganado», la tarjeta quedaba en Ganado con
+`estado_lead = abierto`, fuera del revenue (el #2605, de 05:32 a 05:47). Ahora, si la etapa promovida
+es un desenlace, el estado la sigue por `updateLead` y el deshacer lo devuelve.
+
+### Lo que quedó SIN hacer
+
+- **Quitar el producto donde GANÓ**, con la otra fila abierta: el estado no se toca a propósito
+  (updateLead con «abierto» borra el monto y la fecha de cierre de esa venta). Queda una tarjeta en una
+  etapa abierta con el lead ganado. Es una decisión de Martín: ¿sacar el producto donde se vendió
+  des-gana al lead?
+- **`getFunnelDeLead` devuelve siempre el embudo DEFAULT** (`lib/funnels.ts`), aunque el lead viva en
+  otro: la ficha evalúa y muestra las etapas del principal. En ws11 las claves coinciden y no rompe;
+  en un embudo con claves o reuniones distintas, los requisitos y el selector de la ficha estarían mal.
+- **El tablero también guarda una foto** (`localStage` en `CrmBoard.tsx`, que no se limpia al
+  refrescar). El server ya no deja que eso mueva a nadie al completar, pero lo que se ve puede quedar
+  viejo.
+- **La pantalla no se miró en el navegador** (la máquina no daba). Cubierto por el guard y por la
+  prueba de `quitarDeProducto` contra la base en el ws4.
+
+_Hecho directo por la sesión de claude2 sobre el diagnóstico de un workflow de 4 lectores + 4
+refutadores (`tests/ficha-se-relee.test.ts`, nueve roturas, las nueve caen)._
+
+## Ganado: el wizard «puso el monto que se le cantó» y la tarjeta decía $0 — sí lo había guardado (08/10/2026)
+
+**Vive en:** `app/crm/StageMoveDialog.tsx` (lectura del contrato, paso del monto, placeholder de
+requisitos) · `lib/venta-tipo.ts` (`montoDeTarjeta`, `suscripcionDeFila`) · `app/crm/crm-map.ts` ·
+`app/crm/CrmBoard.tsx` · `lib/leads.ts` (`AUDIT_FIELDS`) · `app/crm/[id]/deal-actions.ts` +
+`DealDetailsCard.tsx`
+
+Feedback de Leila (ws11), sobre «Revisa y confirma» con «Suscripción: $4,235.29/mes · 12 meses»:
+«aquí no me preguntó cuánto es, puso el monto que se le cantó jaja», y con la tarjeta en $0: «y ni
+siquiera lo guardó».
+
+⚠️ **EL DIAGNÓSTICO OBVIO («no lo guardó») ERA EL EQUIVOCADO.** Se guardó, en `suscripcion_monto_usd`
+(Nadia 4.235,29, Fabi 444), y la tarjeta leía `monto_cierre_usd ?? 0`, que en una suscripción queda
+NULL a propósito. Regla: la plata de un cierre se lee con `montoDeTarjeta` / `suscripcionDeFila`,
+nunca con el monto de cierre pelado. Medido: en ws11, 5 de las 9 suscripciones ganadas dibujaban $0.
+
+- **De dónde salió el número:** el lector de contratos devolvió el TOTAL (12.000 MXN/mes × 6 =
+  72.000 MXN / 17 = 4.235,29) y `ok.add('monto')` sacó el paso de la lista: nunca se preguntó. Al
+  elegir suscripción, ese total pasó a ser la MENSUALIDAD.
+- ⚠️ **`ok.add(paso)` hace dos cosas: esconde la pregunta Y manda el valor aunque el server no lo
+  pida.** Así una lectura del contrato pisaba una mensualidad ya cargada. Lo que viene de una IA o de
+  un documento se PRECARGA, sin `ok.add`, y sólo si el paso se pide. (Excepción a propósito: el plan
+  de cuotas, que mostrado traba «Siguiente» por `cuotasCuadran`.)
+- **Los meses del contrato no son el plazo de la suscripción**: en el de Nadia eran la implementación y
+  seguía a 10.000 MXN/mes. La mensualidad se SUGIERE (total/meses, un botón), nunca se precarga, y el
+  plazo tampoco.
+- ⚠️ **El placeholder de requisitos del wizard es la 4ª copia de `valoresDeRequisitos`**, y entra
+  siempre en la unión de lo que se pide: sin `suscripcionMonto`, reabrir una suscripción pedía el monto
+  vacío y «Guardar y completar después» escribía NULL encima de la mensualidad.
+- El historial no registraba la suscripción (`AUDIT_FIELDS`), y Deal Details no la dejaba editar:
+  ahora sí, con su línea «de cuánto a cuánto».
+
+### Lo que quedó SIN hacer
+
+- **Los datos de ws11 los corrige Leila** (ficha → Pagos → «Editar deal»): Nadia dice 4.235,29/mes
+  (lo real ≈ US$705,88) con 12 cuotas de 4.235,29 (US$50.823) pendientes, que hoy inflan el MRR de
+  ws11 un 85%; Fabi, ¿444 USD o pesos? Y #1791, #1850, #2344 y las de monto viejo de 40.
+- `undoStageMoveAction` repone el monto de cierre pero no la suscripción. Siguen dando $0 para una
+  suscripción: el subtítulo del recorrido (`lib/journey.ts`), `lib/objectives-fuentes.ts`,
+  `lib/metricas-negocio.ts`, `lib/lead-insights.ts` y el Sold de /comercial (ya anotado).
+- El prompt del lector (`CONTRACT_EXTRACT_DEFAULT`) sigue devolviendo el total convertido a ~17.
+
+_Hecho por un agente en worktree propio sobre el diagnóstico refutado (`tests/ganado-monto.test.ts`,
+trece roturas, las trece caen); probado en el ws4 con un lead de prueba borrado después._
+
+## «+ Agregar al CRM» desde WhatsApp metía a todos en el embudo principal (08/10/2026)
+
+**Vive en:** `app/whatsapp/_shared/BotonAgregarAlCrm.tsx` · `app/whatsapp/page.tsx` ·
+`WhatsAppApp.tsx` · `EmpresaInbox.tsx` · `OnboardingCanalWhatsApp.tsx` · `app/crm/actions.ts`
+(`crearLeadDesdeWhatsappAction`) · `lib/lead-funnel-reglas.ts` (`nombreVisible`) · `lib/funnels.ts`
+(`leerFunnels`)
+
+Feedback de Leila (ws11): «ella está en marca personal. Primero de por sí me entra al funnel
+principal, o sea que la tengo que eliminar de funnel principal». Medido: los 6 leads que nacieron por
+ahí (todos ese día) nacieron en el principal, y a los 6 los agregó a mano a otro producto entre 12 y
+16 s después; a 4 los sacó del principal. Ahora, con 2 o más productos, el clic abre la lista y el
+lead nace en el elegido; si ya existía, se lo AGREGA a ese producto.
+
+- ⚠️ **«No pude leer» se volvía «hay uno».** `listarFunnels` devuelve `[]` ante un error: una pantalla
+  que pregunta sólo con 2+ productos volvía al bug justo cuando la base fallaba, y el server decía «Ese
+  producto no existe.» sobre un id válido. Quien tiene que distinguir el fallo usa `leerFunnels`
+  (null = falló). La red de verdad es el server: sin producto elegido, relee y con 2+ no crea.
+- ⚠️ **El segundo montaje**: `OnboardingCanalWhatsApp` monta `<WhatsAppApp />` sin props. Con la prop
+  opcional ese camino la perdía en silencio: una prop que cambia qué se escribe en la base va
+  OBLIGATORIA, y el compilador encuentra los montajes.
+- **La regla del nombre de un producto estaba copiada en 11 lugares** (dos sin el trim). Ahora es
+  `nombreVisible`, y un test barre app/ y lib/. Candidata a la tabla «Una cosa, un lugar» de AGENTS.md.
+
+### Lo que quedó SIN hacer
+
+- `agregarAProducto` y `productosCrm` siguen validando con `listarFunnels` (con la lectura caída dicen
+  «no existe»). `OnboardingCanalWhatsApp` tampoco pasa `puedeChatbot`/`mostrarOficial`/
+  `puedeAgregarLinea` (ya pasaba antes). Nora (#2610) y Fabi (#2606) siguen en los dos productos: lo
+  decide Leila. No se miró en un navegador.
+
+_Hecho por un agente en worktree propio (`tests/inbox-agregar-al-crm.test.ts`, doce roturas, las doce
+caen); la escritura, probada en ws3 con un embudo temporal borrado después._
