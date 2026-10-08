@@ -24,7 +24,7 @@
 
 import {
   type PasoGrafo, type RamaCondicion, type CasoRespuesta,
-  claseDe, normalizar, nuevoId,
+  claseDe, idDe, normalizar, nuevoId,
 } from './flujo-grafo';
 
 export type EstrategiaLegada = {
@@ -80,8 +80,30 @@ type Opciones = {
   rnd?: () => number;
 };
 
-/** ¿Tiene algo de lo de antes que haya que pasar a tarjetas? */
+/**
+ * ¿Ya es un flujo de tarjetas? Tiene una tarjeta de control, o algún `siguiente` que no es el
+ * elemento siguiente del array (una rama). Una secuencia de antes que pasó por
+ * `setSecuenciaPasos` también tiene ids (`o<i>`) y `siguiente` explícito, pero LINEAL: ésa sigue
+ * siendo una lista y se puede convertir.
+ *
+ * ⚠️ UN FLUJO NO SE VUELVE A CONVERTIR. `legadoAGrafo` arma la salida recorriendo el ARRAY en
+ * fila: sobre un flujo con ramas las aplasta en una sola fila. Lo encontraron el lienzo y
+ * «Probar»: un flujo con un `delay_horas` que volvió a poner la API, o con la estrategia todavía
+ * sin limpiar, se habría convertido de nuevo y salía con dos «Si responde».
+ */
+export function esFlujoExplicito(pasos: readonly PasoGrafo[]): boolean {
+  return pasos.some((p, i) => {
+    const c = claseDe(p);
+    if (c === 'esperar' || c === 'condicion' || c === 'respuesta' || c === 'ir_a') return true;
+    if (p.siguiente === undefined) return false;
+    const lineal = pasos[i + 1] ? idDe(pasos[i + 1], i + 1) : null;
+    return (p.siguiente ?? null) !== lineal;
+  });
+}
+
+/** ¿Tiene algo de lo de antes que haya que pasar a tarjetas? Un flujo explícito, nunca. */
 export function tieneLegado(pasos: readonly PasoGrafo[], est: EstrategiaLegada): boolean {
+  if (esFlujoExplicito(pasos)) return false;
   if (pasos.some((p) => claseDe(p) === 'mensaje' || claseDe(p) === 'accion' ? (Number(p.delay_horas) > 0 || p.ancla === 'reunion' || !!p.requiere) : false)) return true;
   if (!est) return false;
   if (est.antiguedad_max_horas != null) return true;

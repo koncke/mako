@@ -27,8 +27,8 @@ import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpci
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
 import type { Objetivo } from '@/lib/setting-estrategia';
-import { normalizar, validarGrafo, borrarNodo, esNodoMensaje, esGrafo } from '@/lib/flujo-grafo';
-import { legadoAGrafo, tieneLegado } from '@/lib/flujo-legado';
+import { normalizar, validarGrafo, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
+import { legadoAGrafo, esFlujoExplicito } from '@/lib/flujo-legado';
 import {
   insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, faltaEscribir, estrategiaConLimpieza,
   detalleDisparador, seccionesDisparo, valorDisparo, pedidoDisparo, disparoDeValor,
@@ -134,17 +134,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * Se calcula UNA vez (al montar): el `key` por secuencia del caller lo vuelve a sembrar al
    * cambiar de secuencia.
    *
-   * ⚠️ UN FLUJO QUE YA TIENE IDS NO SE CONVIERTE NUNCA. `legadoAGrafo` arma la salida
-   * LINEAL desde el orden del array: pasado sobre un flujo con ramas (uno al que, por
-   * ejemplo, la API de MaKo le volvió a poner un `delay_horas`), le aplasta las ramas en una
-   * fila. Ahí lo de antes que quede en un paso se dibuja con su marca y el motor lo sigue
-   * haciendo; lo que quede en la ESTRATEGIA (una limpieza que falló) se limpia al publicar.
+   * ⚠️ UN FLUJO DE TARJETAS NO SE CONVIERTE NUNCA (`esFlujoExplicito`). `legadoAGrafo` arma
+   * la salida LINEAL desde el orden del array: pasado sobre un flujo con ramas (uno al que,
+   * por ejemplo, la API de MaKo le volvió a poner un `delay_horas`), le aplasta las ramas en
+   * una fila. Ahí lo de antes que quede en un paso se dibuja con su marca y el motor lo sigue
+   * haciendo, y lo que quede en la ESTRATEGIA NO se limpia: el motor lo sigue haciendo
+   * (el tope de antigüedad al inscribir, por ejemplo), y limpiarlo lo apagaría en silencio.
+   * Tener ids NO es ser un flujo: una lista de antes que pasó por `setSecuenciaPasos` los
+   * tiene (`o<i>`) y sigue siendo una lista que se convierte.
    */
   const [inicial] = useState(() => {
     const ordenados = [...secuencia.pasos].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-    const yaEsFlujo = esGrafo(ordenados);
+    const yaEsFlujo = esFlujoExplicito(ordenados);
     const r = yaEsFlujo
-      ? { pasos: normalizar(ordenados), notas: [] as string[], convertida: tieneLegado([], est) }
+      ? { pasos: normalizar(ordenados), notas: [] as string[], convertida: false }
       : legadoAGrafo(ordenados, est, { idDeClave: (clave) => secuencias.find((s) => s.clave === clave)?.id ?? null });
     return { ...r, pasos: renumerar(r.pasos), publicado: JSON.stringify(renumerar(normalizar(ordenados))) };
   });

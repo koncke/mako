@@ -278,10 +278,13 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   assert.match(legible, /«Condición 1»/);
 });
 
-test('⚠️ al abrir, lo de antes se ve CONVERTIDO; un flujo que ya tiene ids no se vuelve a convertir', () => {
+test('⚠️ al abrir, lo de antes se ve CONVERTIDO; un flujo de tarjetas no se vuelve a convertir ni pierde lo de su estrategia', () => {
   const perfil = sinComentarios(leer(PERFIL));
   const ini = bloque(perfil, 'const [inicial] = useState(() => {', '\n  });', 1_200);
-  assert.match(ini, /const yaEsFlujo = esGrafo\(ordenados\);/);
+  // Tener ids NO es ser un flujo (una lista de antes que pasó por setSecuenciaPasos los tiene):
+  // lo decide `esFlujoExplicito`. Y un flujo no limpia su estrategia: el motor la sigue leyendo.
+  assert.match(ini, /const yaEsFlujo = esFlujoExplicito\(ordenados\);/);
+  assert.match(ini, /convertida: false \}/);
   assert.match(ini, /: legadoAGrafo\(ordenados, est, \{ idDeClave: \(clave\) => secuencias\.find\(\(s\) => s\.clave === clave\)\?\.id \?\? null \}\)/);
   assert.match(ini, /yaEsFlujo\s*\? \{ pasos: normalizar\(ordenados\)/, 'un flujo con ramas pasado por el conversor queda aplastado en una fila');
 });

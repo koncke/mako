@@ -222,13 +222,20 @@ function apuntados(pasos: readonly PasoGrafo[]): Set<string> {
   return s;
 }
 
-/** Dónde arranca la SALIDA: el primer nodo que nadie apunta y que no es «Si responde». */
+/**
+ * Dónde arranca la SALIDA: el primer nodo que ningún PUERTO apunta y que no es «Si responde».
+ *
+ * ⚠️ SER DESTINO DE UN «IR A» NO LO DESCARTA. Un salto no es un padre, y el caso más natural de
+ * un salto hacia atrás es «volver al principio» (ManyChat lo hace: espera y vuelve a la primera
+ * tarjeta). Hasta el 08/10/2026 se descartaban los destinos de salto, y [m1 → esperar → ir a m1]
+ * se quedaba SIN raíz: la salida no arrancaba nunca y `validarGrafo` no decía nada, porque
+ * contaba los destinos de salto como alcanzables. Lo encontró la parte de «Probar».
+ */
 export function raizSalida(pasos: readonly PasoGrafo[]): string | null {
   const ap = apuntados(pasos);
-  const destinosDeSalto = new Set(pasos.flatMap((p) => (p.nodo === 'ir_a' && p.destino && 'nodo' in p.destino ? [p.destino.nodo] : [])));
   for (let i = 0; i < pasos.length; i++) {
     const id = idDe(pasos[i], i);
-    if (claseDe(pasos[i]) === 'respuesta' || ap.has(id) || destinosDeSalto.has(id)) continue;
+    if (claseDe(pasos[i]) === 'respuesta' || ap.has(id)) continue;
     return id;
   }
   return null;
@@ -408,9 +415,10 @@ export function validarGrafo(pasos: readonly PasoGrafo[]): string[] {
     if (claseDe(pasos[indicePorId(pasos, destino)] ?? {}) === 'esperar') conEspera = true;
     if (!conEspera) err.push(`el «Ir a» ${ids[i]} vuelve atrás sin ninguna espera en el medio`);
   });
-  // Lo que no se alcanza desde ninguna raíz ni desde un salto es una tarjeta suelta.
+  // Lo que no cuelga de ninguna de las dos raíces es una tarjeta suelta. Un salto NO la salva:
+  // una tarjeta a la que sólo se llega saltando es una segunda salida que nadie dibuja ni arranca.
   const alcanzable = new Set<string>();
-  const raices = [raizSalida(pasos), r, ...pasos.flatMap((p) => (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino ? [p.destino.nodo] : []))].filter(Boolean) as string[];
+  const raices = [raizSalida(pasos), r].filter(Boolean) as string[];
   for (const x of raices) { alcanzable.add(x); for (const d of descendientes(pasos, x)) alcanzable.add(d); }
   const sueltas = ids.filter((id) => !alcanzable.has(id));
   if (sueltas.length) err.push(`tarjetas sueltas: ${sueltas.join(', ')}`);

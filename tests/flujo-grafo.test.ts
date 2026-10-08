@@ -16,7 +16,7 @@ import {
   elegirSalida, cumpleFila, antiguedadDeEntrada, escenariosDeRespuesta, insertarNodo, borrarNodo,
   nodoPorId, claseDe, textoFila, textoEspera, padreDe,
 } from '../lib/flujo-grafo';
-import { legadoAGrafo, tieneLegado, OP_AVISAR, LIMPIEZA } from '../lib/flujo-legado';
+import { legadoAGrafo, tieneLegado, esFlujoExplicito, OP_AVISAR, LIMPIEZA } from '../lib/flujo-legado';
 
 // Un generador determinista: los ids de los tests no dependen del azar.
 const rndDe = () => { let k = 0; return () => ((k++ * 7919) % 100_000) / 100_000 + 0.00001; };
@@ -323,4 +323,40 @@ test('los textos de la tarjeta son cortos y dicen la condición, no un rótulo',
   assert.equal(textoEspera({ modo: 'tiempo', minutos: 1440 }), 'Esperar 1 día');
   assert.equal(textoEspera({ modo: 'tiempo', minutos: 90 }), 'Esperar 90 min');
   assert.equal(textoEspera({ modo: 'antes_reunion', minutos: 15 }), '15 min antes de la reunión');
+});
+
+// ── Lo que encontraron las partes al construir encima (08/10/2026) ──────────────────
+
+test('«volver al principio»: un «Ir a» a la PRIMERA tarjeta no deja la salida sin raíz', () => {
+  const pasos: PasoGrafo[] = [
+    msg({ id: 'm1', cuerpo: 'a', siguiente: 'w' }),
+    { id: 'w', nodo: 'esperar', espera: { modo: 'tiempo', minutos: 1440 }, siguiente: 'j' },
+    { id: 'j', nodo: 'ir_a', destino: { nodo: 'm1' } },
+  ];
+  assert.equal(raizSalida(pasos), 'm1');
+  assert.deepEqual(validarGrafo(pasos), []);
+});
+
+test('una tarjeta a la que sólo se llega con un «Ir a» es una tarjeta suelta', () => {
+  const pasos: PasoGrafo[] = [
+    msg({ id: 'a', cuerpo: 'a', siguiente: 'j' }),
+    { id: 'j', nodo: 'ir_a', destino: { nodo: 'b' } },
+    msg({ id: 'b', cuerpo: 'b', siguiente: null }),
+  ];
+  assert.ok(validarGrafo(pasos).some((e) => e.includes('sueltas: b')));
+});
+
+test('un flujo de tarjetas NO se vuelve a convertir (aplastaría sus ramas), pero una lista con ids sí', () => {
+  const conv = legadoAGrafo(P212, E212, { rnd: rndDe() });
+  assert.equal(esFlujoExplicito(conv.pasos), true);
+  // La API le volvió a poner una espera a un mensaje: sigue siendo un flujo.
+  const tocado = conv.pasos.map((p) => (p.id === 'o0' ? { ...p, delay_horas: 2 } : p));
+  assert.equal(tieneLegado(tocado, E212), false);
+  const again = legadoAGrafo(tocado, E212, { rnd: rndDe() });
+  assert.equal(again.convertida, false);
+  assert.equal(again.pasos.filter((p) => claseDe(p) === 'respuesta').length, 1);
+  // Una lista de antes que ya pasó por normalizar (ids o<i>, `siguiente` lineal) se convierte.
+  const lista = normalizar(P212);
+  assert.equal(esFlujoExplicito(lista), false);
+  assert.equal(legadoAGrafo(lista, E212, { rnd: rndDe() }).convertida, true);
 });
