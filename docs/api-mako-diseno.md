@@ -342,3 +342,21 @@ Lo que la primera versión del plan afirmaba y **no se sostuvo** (refutado el 08
   `api_llamadas`).
 - **E. El paso «⚡ Acción» del lienzo de avisos** promete «se hace con tu sí» y no hace nada (1
   guardado, 0 corridas): esconderlo hasta la fase 6, o dejarlo.
+
+### La tab `/api-mako` y los tokens con nombre (08/10/2026)
+
+Hecho del plan de arriba: la fase **5** a medias — el catálogo HTTP filtrable (`?compacto=1`,
+`?area=`, `?operacion=<id>`), sin la etiqueta `recurso` (va con la decisión C, que pide no
+renombrar). Y dos cosas que el plan no tenía, decididas por Martín al pedir la tab:
+
+- **Tokens VARIOS y con nombre** (antes: uno por workspace, y rotar reemplazaba). Cada uno con
+  su alcance, guardado por hash, revocable de a uno. **Valen sólo en `/api/v1`**; `/api/agente/*`
+  sigue aceptando únicamente el principal de la skill. El porqué, en
+  `docs/hallazgos-api-mako.md` («Un token con nombre vale SOLO para /api/v1»).
+- **La tab la ve todo admin de workspace**, en el menú de la foto al lado de Integraciones:
+  catálogo con detalle y «Probar» (lecturas que no gastan), tokens, uso de `api_llamadas` y cómo
+  se usa. El registro no viaja al navegador: índice armado en el server, detalle al abrir.
+
+La skill (`lib/agente-skill.ts` → `plugin/`) pasó a enseñar el índice compacto y el detalle por
+operación en vez del catálogo entero. `plugin/` está regenerado; publicarlo en el repo público
+es aparte.

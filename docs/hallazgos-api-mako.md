@@ -524,3 +524,63 @@ que reagendar e importar no están, y ya existen `proponer_mover_reunion` y `pro
 - Declarar `lib/api-mako/` en un área de `app/admin/dev/areas.ts`.
 
 *08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`.*
+
+## ⚠️ Un token con nombre vale SOLO para /api/v1: la ruta de la skill entrega el principal (08/10/2026)
+
+**Vive en:** `lib/api-mako/tokens.ts` · `lib/api-mako/tokens-lista.ts` · `lib/api-mako/tokens-uso.ts` ·
+`lib/api-mako/http.ts` · `lib/agente-token.ts` · `app/api/agente/skill/route.ts` · `app/api-mako/`
+
+Martín decidió (08/10) **varios tokens, con nombre**: hasta acá había UNO por workspace
+(`agente_token`) y rotarlo lo reemplazaba, así que darle a un n8n un token de solo lectura le
+apagaba las propuestas a la skill de Claude. La tab `/api-mako` los crea y los revoca de a uno.
+
+**El diagnóstico obvio era el equivocado:** «que el resolvedor de siempre (`wsPorAgenteToken`)
+acepte también los nuevos, y valen en todas las rutas». Dos cosas lo hacían un agujero:
+
+1. `/api/agente/skill` arma el archivo de la skill con `(await getAgenteToken(ws)) ?? token`:
+   **siempre el PRINCIPAL**, no el que pidió. Con cualquier token válido del workspace se bajaba
+   la skill con el principal adentro — un token «Solo leer» se llevaba el de la skill, que
+   propone (o ejecuta).
+2. `/hook` y `/telemetria` son el reporte del plugin, y su consentimiento está atado al
+   principal: `/api/agente/token` no acuña sin el trato aceptado. Un token con nombre abría esa
+   puerta sin trato.
+
+**La regla:** los tokens con nombre resuelven en `wsPorTokenApi` (el resolvedor de `/api/v1`,
+que si no es uno de ellos cae al principal); `/api/agente/*` sigue con `wsPorAgenteToken`, que no
+los conoce. `tests/api-mako-tokens.test.ts` lo fija leyendo el FUENTE (probado rompiéndolo:
+cambiar el resolvedor de `http.ts` y meter el módulo en `/api/agente/skill` hacen fallar 2 de 10).
+
+Lo demás que no se ve desde la pantalla:
+
+- **El índice token → workspace es append-only** (`webhook_routing`, servicio `api_token`, por
+  hash): revocar NO borra la fila. Lo que decide si un token vale es la LISTA del workspace
+  (setting `api_tokens`), igual que el setting en el principal — y se lee con
+  `getSettingEstricto`, porque con `getSetting` la base caída da «revocado» sobre uno vigente.
+- **Del token nuevo se guarda el hash**, nunca el valor: se muestra una vez. El principal sigue
+  en claro (setting e índice) porque la skill y el tutorial de Integraciones lo releen.
+- **`api_llamadas` no sabe QUÉ token pidió.** El «último uso» de cada token se anota al
+  autenticar (`tokens-uso.ts`), con freno de 10 min por token e instancia, y en un setting
+  APARTE de la lista (`api_tokens_uso`): una escritura de uso contra la lista, leída antes de
+  una revocación, podía revivir el token recién revocado.
+- **El catálogo entero son ~360 mil caracteres (~90k tokens)**, y la skill enseñaba a pedirlo
+  entero «SIEMPRE» antes de empezar. `GET /api/v1` suma tres filtros aditivos —`?compacto=1`
+  (~23 mil), `?area=` y `?operacion=<id>`— y la skill pasó a enseñar «el índice, y después el
+  detalle de la que vas a usar».
+- **La pantalla no importa el registro**: el índice se arma en el server (`app/api-mako/datos.ts`)
+  y el detalle de una operación se pide al abrirla. «Probar» corre sólo lecturas que salen por
+  HTTP y no gastan (`gratis` o `externo`), con el mismo canal y gating que un token `lectura`, y
+  no deja fila en `api_llamadas` (esa bitácora contesta qué pidió un TOKEN).
+
+### Lo que quedó sin hacer
+
+- **`/api/agente/plan` y `/lead` (POST) no miran el alcance.** Un principal acuñado como
+  `lectura` (sólo se puede por `POST /api/agente/token`, la pantalla no lo ofrece) igual deja
+  propuestas por ahí. No se tocó por la decisión D de Martín (`/api/agente` se mantiene tal
+  cual): son dos líneas en `app/api/agente/plan/route.ts` y `app/api/agente/lead/route.ts`.
+- **`plugin/` se regeneró y no se publicó.** El repo público (`mbustos-digital/mako-plugin`) se
+  publica a mano (`docs/hallazgos-infra.md`): hasta entonces, quien instaló el plugin sigue
+  pidiendo el catálogo entero. La skill que sirve `/api/agente/skill` ya sale con lo nuevo.
+- **Qué token pidió cada llamada**, por fila: una columna en `api_llamadas` (migración,
+  `supabase/migrations/0158_api_llamadas.sql` + `lib/api-mako/bitacora.ts`).
+
+*08/10/2026, cuenta 2, sin subagentes. Commit `f2c0a04b`.*

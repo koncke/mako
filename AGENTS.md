@@ -716,6 +716,15 @@ Siete cosas que no se ven en el código y ya mordieron:
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
 tener. Una ruta nueva ahí falla ese test hasta que alguien decide que también es bearer.
 
+**Y los tokens son dos clases, con dos puertas.** El PRINCIPAL (`agente_token`, el de la skill,
+se acuña en Integraciones → Claude con su trato de consentimiento) vale en `/api/agente/*` y en
+`/api/v1`. Los CON NOMBRE (la tab `/api-mako`, guardados por hash) valen **sólo en `/api/v1`**:
+resuelven en `wsPorTokenApi` (`lib/api-mako/tokens.ts`), y `/api/agente/*` sigue con
+`wsPorAgenteToken`, que no los conoce. No es prolijidad: `/api/agente/skill` mete el token
+PRINCIPAL en el archivo que entrega, y `/hook` y `/telemetria` tienen el consentimiento atado a
+él — aceptar ahí un token con nombre le daba el de la skill a cualquier token del workspace y
+abría el reporte sin trato. `tests/api-mako-tokens.test.ts` lo fija leyendo el fuente.
+
 # Un permiso de UN inquilino sobre OTRO son DOS decisiones, y ninguna se deriva de la otra
 
 Cuando alguien tiene que poder ver los datos de otro workspace —la vista de agencia es

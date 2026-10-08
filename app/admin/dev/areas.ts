@@ -1084,6 +1084,17 @@ export const AREAS: AreaDev[] = [
     vive: ['app/api/agente/plan/route.ts', 'app/api/agente/token/route.ts', 'lib/plan-propuesta.ts'],
   },
   {
+    // Hasta el 08/10/2026 el registro no estaba declarado en NINGÚN área: `grep lib/api-mako`
+    // en este archivo sólo encontraba los tres de cs, así que el historial de la pieza por la
+    // que pasa todo lo que MaKo sabe hacer no lo veía nadie.
+    slug: 'api-mako', titulo: 'API de MaKo', familia: 'Platform', grupo: 'Dev',
+    estado: 'parcial', verEnApp: '/api-mako',
+    alcance: 'El REGISTRO de todo lo que un agente puede leer o hacer en MaKo (lib/api-mako/areas/*.def.ts) y lo que sale de él: /api/v1, la referencia generada, las tools del doer y la tab /api-mako (catálogo, tokens con nombre, uso). La puerta vieja del Claude Code del cliente (/api/agente) es «Agent Gateway».',
+    vive: ['lib/api-mako/registro.ts', 'lib/api-mako/tipos.ts', 'lib/api-mako/ejecutar.ts', 'lib/api-mako/acciones.ts', 'lib/api-mako/validar.ts', 'lib/api-mako/http.ts', 'lib/api-mako/docs.ts', 'lib/api-mako/bitacora.ts', 'lib/api-mako/alcance.ts', 'lib/api-mako/tokens.ts', 'lib/api-mako/tokens-lista.ts', 'lib/api-mako/tokens-uso.ts', 'app/api/v1/route.ts', 'app/api/v1/[area]/[operacion]/route.ts', 'app/api/v1/docs/route.ts', 'app/api-mako/page.tsx', 'app/api-mako/ApiMako.tsx', 'app/api-mako/Operaciones.tsx', 'app/api-mako/Tokens.tsx', 'app/api-mako/Uso.tsx', 'app/api-mako/datos.ts', 'app/api-mako/actions.ts', 'scripts/generar-api-doc.mjs', 'docs/api-mako.md', 'docs/api-mako-diseno.md', 'tests/api-mako-registro.test.ts', 'tests/api-mako-tokens.test.ts', 'tests/api-mako-http.snapshot.txt', 'supabase/migrations/0158_api_llamadas.sql'],
+    hallazgos: 'hallazgos-api-mako',
+    nota: 'Un token con nombre (la tab) vale SOLO para /api/v1; /api/agente acepta únicamente el principal de la skill. Si eso se cruza, /api/agente/skill le entrega el token principal a quien pida con cualquier otro (tests/api-mako-tokens.test.ts lo fija). Y /api/agente/plan y /lead (POST) NO miran el alcance: un PRINCIPAL acuñado como `lectura` (sólo se puede por POST /api/agente/token, la pantalla no lo ofrece) igual deja propuestas por ahí — no se tocó por la decisión D de Martín (08/10: /api/agente se mantiene tal cual).',
+  },
+  {
     slug: 'self-healing-dev-agent', titulo: 'Self-Healing Dev Agent', familia: 'Platform', grupo: 'Dev',
     estado: 'por-construir', agente: true,
     alcance: 'JUSTAMENTE el agente que esta sección viene a alimentar. Todavía no existe.',
