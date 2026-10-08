@@ -282,7 +282,9 @@ test('«Solucionar» abre el wizard en la ficha, no una navegación', () => {
 
   // Y al terminar, la ficha SE QUEDA: cerrarla sería la redirección que esto vino a
   // sacar. Mover de etapa sí la cierra — la tarjeta ya no vive en esa columna.
-  assert.ok(/if \(!quedarse\) onClose\(\)/.test(sheet), 'completar datos no puede cerrar la ficha');
+  // (Y desde el 08/10/2026, si se queda, se RELEE: con la foto vieja, el próximo «Solucionar» abría
+  // el wizard con la etapa de antes — tests/ficha-se-relee.test.ts.)
+  assert.ok(/if \(quedarse\) releer\(\); else onClose\(\)/.test(sheet), 'completar datos no puede cerrar la ficha');
 
   // ⚠️ Y el click del fondo del wizard no puede cerrar la ficha de atrás. El wizard se
   // monta DENTRO del overlay, que tiene `onClick={onClose}`, y en React los eventos

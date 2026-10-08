@@ -292,6 +292,11 @@ export type StageMoveData = {
   ventaTipo?: VentaTipo | null;   // + 'sin_cobro' (#747): un becado, lib/venta-tipo.ts
   suscripcionMonto?: number | null;   // importe MENSUAL (MRR)
   suscripcionMeses?: number | null;    // plazo fijo en meses; null = indefinida
+  /**
+   * «Completar datos» (el «Solucionar» del aviso): guarda lo que falta y NO mueve la etapa.
+   * Ver el paso 5 de `completeStageMoveAction`.
+   */
+  soloCompletar?: boolean;
 };
 
 /**
@@ -589,13 +594,35 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   }
 
   // 5) Mover (updateLead sincroniza estado primero; override solo si OK).
-  await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
+  //
+  // ⚠️ «COMPLETAR DATOS» NO MUEVE (08/10/2026). El `to` lo manda el navegador, y la ficha del
+  // tablero es una FOTO: con ella vieja, «Solucionar» abría el wizard con la etapa de ANTES de
+  // moverlo y este Guardar devolvía al lead ahí. Medido en el CRM de Leila (ws11): el #2608 volvió
+  // tres veces de «Conversación abierta» a «Contacto nuevo» (la firma en el historial: «Etapa
+  // nueva → vieja» y, 1 s después, «Empresa null → X», del mismo autor), y el #2605 perdió el
+  // Ganado 25 minutos. Completar no es una decisión sobre la etapa: escribe los datos y deja al
+  // lead donde la BASE dice que está, venga de la pantalla que venga (una pestaña vieja incluida).
+  //
+  // ⚠️ Y NO PASA POR setPipelineStage CON LA ETAPA ACTUAL: «la etapa actual» sale de las etapas
+  // del funnel por defecto (getFunnelDeLead), que en un embudo con claves propias deriva otra
+  // etapa y movería al lead; y sin `deadline` le borraría el plazo a uno en nutrición manual. Lo
+  // único que el movimiento sincronizaba y no se guarda por otro lado es el monto de un Ganado.
+  const etapaReal = (l: Lead | null): string =>
+    (l?.pipeline_stage && stagesMove.some((s) => s.key === l.pipeline_stage) ? l.pipeline_stage : l ? deriveStageKey(l as unknown as StageDerivable) : to);
+  if (d.soloCompletar && before) {
+    if (before.estado_lead === 'ganado' && d.monto != null && d.monto !== before.monto_cierre_usd) {
+      await updateLead(id, { monto_cierre_usd: d.monto });
+    }
+  } else {
+    await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
+  }
 
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, autor);
-  // Lo que todavía falta, medido sobre el lead guardado.
-  const pagosDespues = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const pendientes = after ? stepsForStage(to, valoresDeRequisitos(to, after, pagosDespues, stagesMove, {}, grabable)) : [];
+  // Lo que todavía falta, medido sobre el lead guardado — en la etapa donde QUEDÓ.
+  const etapaFinal = d.soloCompletar && after ? etapaReal(after) : to;
+  const pagosDespues = etapaFinal === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
+  const pendientes = after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, {}, grabable)) : [];
   await registrarPendientes(id, pendientes, autor);
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');

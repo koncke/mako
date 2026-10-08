@@ -543,6 +543,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           ? cuotas.filter((c) => parseFloat(c.monto) > 0).map((c) => ({ monto: parseFloat(c.monto), fecha: c.fecha || null }))
           : [];
         const r = await completeStageMoveAction(lead.id, to, {
+          // «Completar datos» guarda y NO mueve: el server deja al lead en la etapa que tiene en
+          // la base, aunque este wizard se haya abierto con una etapa vieja (ver el paso 5 de
+          // `completeStageMoveAction`).
+          ...(completarDatos ? { soloCompletar: true } : {}),
           // Reprogramar gana sobre todo lo demás de esa reunión: mueve la fecha y
           // deja la asistencia SIN marcar (todavía no pasó), así el lead vuelve a
           // quedar pendiente recién para la fecha nueva.

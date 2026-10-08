@@ -31,7 +31,7 @@
 // =============================================================================
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useRouter } from '@/app/_ui/Link';
+import { useRefrescarFicha } from './ficha-cambio';
 import { Button } from '@/app/_ui';
 import { SelectorHora } from '../SelectorHora';
 import { labelDeDia, slotsDelDia, startIsoDe, type DiaConHuecos } from '../agendar-r2';
@@ -57,7 +57,7 @@ type Hecho =
   | { modo: 'link'; url: string };
 
 export function AgendarR2({ leadId, email }: { leadId: number; email: string | null }) {
-  const router = useRouter();
+  const refrescarFicha = useRefrescarFicha();
   const tieneEmail = !!email?.trim();
 
   // null = todavía no se sabe. Mientras no se sepa no se dibuja nada: aparecer y
@@ -117,7 +117,7 @@ export function AgendarR2({ leadId, email }: { leadId: number; email: string | n
         // La vista de atrás se sincroniza sola (el rastro nuevo del historial, y
         // la fecha de la R2 cuando entre por el webhook de Calendly). No es un
         // reload: re-renderiza los server components y deja la ficha abierta.
-        router.refresh();
+        refrescarFicha();
       })
       .catch((e: unknown) => { setError(e instanceof Error ? e.message : 'No se pudo reservar.'); })
       .finally(() => { setGuardando(false); });

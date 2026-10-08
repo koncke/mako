@@ -14,7 +14,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { useSearchParams } from 'next/navigation';
-import { useRouter } from '@/app/_ui/Link';
+import { useRefrescarFicha } from '../lead-view/ficha-cambio';
 import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead } from '@/lib/leads';
@@ -203,7 +203,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
   onCambio?: (patch: Pick<Lead, 'venta_tipo'>) => void;
 }>(
   function DealDetailsCard({ lead, pagos, editing = false, onCambio }, ref) {
-  const router = useRouter();
+  const refrescarFicha = useRefrescarFicha();
   const sp = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
@@ -384,7 +384,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
   const desmarcarPago = (p: Pago) => {
     setFeedback(null);
     startTransition(async () => {
-      try { await marcarPagoAction(p.id, lead.id, false, null); setPagoToast({ pago: p, accion: 'desmarcada' }); router.refresh(); }
+      try { await marcarPagoAction(p.id, lead.id, false, null); setPagoToast({ pago: p, accion: 'desmarcada' }); refrescarFicha(); }
       catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
@@ -402,7 +402,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
         setTipoLeido({ sobre, es: r.ventaTipo });
         if (!r.cambio) setFeedback({ kind: 'ok', msg: 'Ya no era «Sin cobro».' });
         onCambio?.({ venta_tipo: r.ventaTipo });
-        router.refresh();
+        refrescarFicha();
       }
       catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
@@ -416,7 +416,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       try {
         if (accion === 'marcada') await marcarPagoAction(p.id, lead.id, false, null);
         else await marcarPagoManualAction(p.id, lead.id, { fecha: p.fecha_pago ?? new Date().toISOString().slice(0, 10), hora: p.pago_hora ?? null });
-        router.refresh();
+        refrescarFicha();
       } catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
@@ -722,7 +722,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       </section>
 
       {modal?.tipo === 'pagar' && (
-        <PayModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} onDone={(msg) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); setPagoToast({ pago: p, accion: 'marcada' }); router.refresh(); }} />
+        <PayModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} onDone={(msg) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); setPagoToast({ pago: p, accion: 'marcada' }); refrescarFicha(); }} />
       )}
       {modal?.tipo === 'comprobante' && <ComprobanteModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} />}
 

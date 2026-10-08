@@ -9,7 +9,7 @@
 // en el historial del lead (evento 'Nota').
 
 import { useEffect, useState, useTransition, type CSSProperties } from 'react';
-import { useRouter } from '@/app/_ui/Link';
+import { useRefrescarFicha } from './ficha-cambio';
 import { addLeadNoteAction, getLeadNotasAction, type LeadAuditRowFull } from '../actions';
 import { useTzWorkspace } from './useTzWorkspace';
 
@@ -25,7 +25,7 @@ const fmtFecha = (iso: string, tz: string) => {
 };
 
 export function NotasCard({ leadId }: { leadId: number }) {
-  const router = useRouter();
+  const refrescarFicha = useRefrescarFicha();
   const tz = useTzWorkspace();
   const [notas, setNotas] = useState<LeadAuditRowFull[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -50,7 +50,7 @@ export function NotasCard({ leadId }: { leadId: number }) {
         await addLeadNoteAction(leadId, t);
         const r = await getLeadNotasAction(leadId);
         setNotas(r);
-        router.refresh();
+        refrescarFicha();
       } catch { setTexto(t); }
     });
   };
