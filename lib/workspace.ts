@@ -139,6 +139,10 @@ const TENANT_TABLES = new Set<string>([
   // Los productos de un lead ADEMÁS de su casa (mig 0207). Sin esta línea getTenantDb no acota
   // por cliente y el tablero de un producto dibujaría los agregados de TODOS los workspaces.
   'lead_funnel',
+  // Las ETIQUETAS del CRM (mig 0224): el catálogo de cada negocio y qué lead tiene cuál. Sin estas
+  // líneas `getTenantDb()` es PASSTHROUGH: el CRUD listaría las etiquetas de TODOS los negocios y
+  // «¿este lead ya la tiene?» contestaría con filas de otro cliente.
+  'crm_etiquetas', 'crm_lead_etiquetas',
   // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
   // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
   // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.

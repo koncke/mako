@@ -502,6 +502,65 @@ export async function contactoIdPorTelefono(telefono: string): Promise<number | 
   }
 }
 
+// ── Etiquetas (labels) — el espejo de las etiquetas del CRM (mig 0224) ───────
+// Lo llama lib/etiquetas.ts al poner o sacar una etiqueta a un lead, SÓLO si el workspace
+// tiene sus credenciales de Chatwoot (medido el 08/10/2026: completas sólo en ws1).
+// API: developers.chatwoot.com/api-reference/labels y /contact-labels.
+//
+// ⚠️ EL POST DE LAS ETIQUETAS DE UN CONTACTO PISA LA LISTA ENTERA («this API would overwrite
+// the existing list of labels»). Se LEE, se fusiona y se escribe: mandar sólo la nueva le
+// borraría al contacto las que puso el equipo a mano en Chatwoot.
+//
+// ⚠️ Y EL TÍTULO NO ES EL NOMBRE: Chatwoot lo pasa a minúscula y sólo admite letras,
+// números, guion y guion bajo. El slug lo arma `slugChatwoot` (lib/etiquetas-reglas.ts) y se
+// GUARDA en `crm_etiquetas.chatwoot_label`; nunca se recalcula.
+//
+// A diferencia del resto de este archivo, estas funciones TIRAN: quien llama deja el fallo en
+// el historial del lead, y un `null` por un error de red se leería como «no hay contacto».
+
+type CwLabel = { id?: number; title?: string };
+
+/** Crea la etiqueta en la cuenta si no está. Devuelve el título con el que quedó. */
+export async function asegurarEtiquetaChatwoot(slug: string, color: string, descripcion: string): Promise<string> {
+  const c = await cfg();
+  const r = await cwFetch<{ payload?: CwLabel[] }>(`${c.apiBase}/labels`, { method: 'GET' }, c.token);
+  const lista = Array.isArray(r.payload) ? r.payload : [];
+  if (lista.some((l) => (l.title ?? '').toLowerCase() === slug.toLowerCase())) return slug;
+  await cwFetch<unknown>(`${c.apiBase}/labels`, {
+    method: 'POST',
+    body: JSON.stringify({ title: slug, description: descripcion.slice(0, 200), color, show_on_sidebar: true }),
+  }, c.token);
+  return slug;
+}
+
+/** El contacto de un teléfono (últimos 10 dígitos), o null si no hay. TIRA si Chatwoot no contesta. */
+export async function contactoChatwootEstricto(telefono: string): Promise<number | null> {
+  const digits = (telefono || '').replace(/\D/g, '');
+  if (digits.length < 8) return null;
+  const q = digits.slice(-10);
+  const c = await cfg();
+  const r = await cwFetch<ContactsResp>(`${c.apiBase}/contacts/search?q=${encodeURIComponent(q)}`, { method: 'GET' }, c.token);
+  const p = r.payload;
+  const list: Contacto[] = Array.isArray(p) ? p : (p?.contacts ?? p?.results ?? []);
+  return list.find((x) => (x.phone_number ?? '').replace(/\D/g, '').slice(-10) === q)?.id ?? null;
+}
+
+/**
+ * Pone o saca UNA etiqueta en un contacto, conservando las demás. Devuelve si cambió algo
+ * (poner una que ya tenía, o sacar una que no tenía, no escribe).
+ */
+export async function etiquetarContactoChatwoot(contactId: number, slug: string, accion: 'poner' | 'sacar'): Promise<boolean> {
+  const c = await cfg();
+  const url = `${c.apiBase}/contacts/${contactId}/labels`;
+  const r = await cwFetch<{ payload?: unknown }>(url, { method: 'GET' }, c.token);
+  const actuales = Array.isArray(r.payload) ? (r.payload as unknown[]).map((x) => String(x)) : [];
+  const tiene = actuales.some((x) => x.toLowerCase() === slug.toLowerCase());
+  if (accion === 'poner' ? tiene : !tiene) return false;
+  const labels = accion === 'poner' ? [...actuales, slug] : actuales.filter((x) => x.toLowerCase() !== slug.toLowerCase());
+  await cwFetch<unknown>(url, { method: 'POST', body: JSON.stringify({ labels }) }, c.token);
+  return true;
+}
+
 // Envía texto LIBRE a un teléfono (crea/reusa contacto + conversación). Solo llega
 // dentro de la ventana de 24h; fuera de ella Chatwoot/Meta lo rechaza y devuelve
 // { ok: false } (el caller lo trata como "ventana cerrada"). Se usa para mandarle

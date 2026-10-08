@@ -348,8 +348,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'sincronizar_etiquetas_whatsapp', area: 'whatsapp', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Refrescar etiquetas del celular',
-    descripcion: 'Trae las etiquetas actuales del celular del número de empresa al catálogo de MaKo. Úsala antes de mapear_etapa_etiqueta_whatsapp si falta una etiqueta recién creada.',
-    escribe: 'el catálogo de etiquetas en evolution_labels',
+    descripcion: 'Pone al día el catálogo de MaKo con las etiquetas que hay hoy en el celular del número de empresa: agrega las nuevas y saca las que ya no existen. Los nombres que ya estaban no se tocan (el celular los devuelve sin acentos ni emojis). Úsala si falta una etiqueta recién creada en el celular.',
+    escribe: 'el catálogo de etiquetas en evolution_labels: agrega las nuevas y saca las que ya no están en el celular, sin renombrar ninguna',
     parametros: [],
     canales: APP, costo: 'externo',
     gating: { tab: 'whatsapp', integracion: 'evolution', rolMinimo: 'admin' },

@@ -61,6 +61,12 @@ import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
 import { productosDelLead, agregarAProducto, quitarDeProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
+import {
+  listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
+  archivarEtiqueta, usoDeEtiqueta, ponerEtiqueta, sacarEtiqueta, catalogoWhatsApp, esEtiquetaError,
+  type Etiqueta, type EntradaEtiqueta, type ResultadoPoner,
+} from '@/lib/etiquetas';
+import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido } from '@/lib/etiquetas-reglas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
@@ -139,6 +145,67 @@ async function agendaParaEscribir(): Promise<string | null> {
 async function anotar(leadId: number, titulo: string, texto: string, autor: string): Promise<void> {
   try { await logLeadEvent(leadId, titulo, texto, autor); }
   catch (e) { console.error(`[api-mako crm] historial del lead ${leadId}:`, e instanceof Error ? e.message : String(e)); }
+}
+
+// ── etiquetas del CRM (mig 0224) ──────────────────────────────────────────────
+
+const noExisteEtiqueta = (id: unknown) => `No existe la etiqueta #${String(id)} en este negocio. Pide el etiquetaId con listar_etiquetas.`;
+const etiquetaDeInput = (id: unknown): Promise<Etiqueta | null> => (typeof id === 'number' ? etiquetaPorId(id).catch(() => null) : Promise.resolve(null));
+
+/** Lo que se ve de una etiqueta: el vínculo con su producto y su etapa por NOMBRE, no ids sueltos. */
+function vistaEtiqueta(e: Etiqueta, productos: ProductoCrm[] | null, leads?: number | null) {
+  const p = e.etapa_key ? (productos?.find((x) => (e.funnel_id == null ? x.esDefault : x.embudoId === e.funnel_id)) ?? null) : null;
+  return {
+    id: e.id, nombre: e.nombre, color: e.color, emoji: e.emoji,
+    etapa: e.etapa_key ? { key: e.etapa_key, label: p ? etiquetaDe(p, e.etapa_key) : e.etapa_key, embudoId: p?.embudoId ?? e.funnel_id, producto: p?.nombre ?? null } : null,
+    whatsapp: e.wa_label_id ? { labelId: e.wa_label_id, linea: e.wa_instance } : null,
+    archivada: Boolean(e.archivada_at),
+    ...(leads !== undefined ? { leads } : {}),
+  };
+}
+
+/**
+ * El vínculo a una etapa que pidió el input, contra las etapas REALES del producto. Sin `etapa`, no
+ * hay vínculo que cambiar (`{}`). Sin `embudoId`, el producto principal del negocio.
+ */
+async function vinculoDeInput(input: Record<string, unknown>): Promise<{ vinculo?: { funnelId: number | null; etapaKey: string }; texto?: string } | { error: string; disponibles?: unknown }> {
+  const etapa = s(input.etapa);
+  if (!etapa) return {};
+  const productos = await productosCrm();
+  if (!productos) return { error: NO_LEI_PRODUCTOS };
+  const emb = n(input.embudoId);
+  const p = emb != null ? productos.find((x) => x.embudoId === emb) : productos.find((x) => x.esDefault);
+  if (!p) return { error: emb != null ? `No existe el producto #${emb} en el CRM de este negocio.` : 'No encontré el producto principal del negocio.', disponibles: productos.map((x) => ({ embudoId: x.embudoId, nombre: x.nombre })) };
+  const st = p.etapas.find((x) => x.key === etapa);
+  if (!st) return { error: `«${etapa}» no es una etapa de «${p.nombre}».`, disponibles: p.etapas.map((x) => ({ key: x.key, label: x.label })) };
+  return { vinculo: { funnelId: p.esDefault ? null : p.embudoId, etapaKey: etapa }, texto: `vinculada a «${st.label}» de «${p.nombre}»` };
+}
+
+/** La etiqueta del celular que pidió el input, contra el catálogo guardado. */
+async function whatsappDeInput(input: Record<string, unknown>): Promise<{ labelId?: string; texto?: string } | { error: string; disponibles?: unknown }> {
+  const id = s(input.waLabelId);
+  if (!id) return {};
+  const cat = await catalogoWhatsApp().catch(() => null);
+  if (!cat) return { error: 'No se pudieron leer las etiquetas del WhatsApp del celular.' };
+  const l = cat.find((x) => x.labelId === id);
+  if (!l) return { error: `La etiqueta «${id}» no está en el WhatsApp del celular. Las de WhatsApp se crean en el celular.`, disponibles: cat.map((x) => ({ labelId: x.labelId, nombre: x.nombre })) };
+  return { labelId: id, texto: `en WhatsApp «${l.nombre}»` };
+}
+
+/** Lo que salió mal afuera, en una frase, para el resumen. */
+const fallosSync = (r: Extract<ResultadoPoner, { ok: true }>): string => {
+  const mal = r.sync.filter((x) => !x.ok);
+  return mal.length ? ` No se pudo en ${mal.map((x) => x.destino).join(' ni ')} (quedó en el historial).` : '';
+};
+
+/** El uso de una etiqueta en una frase. Un número que no se pudo leer se dice, no se inventa. */
+function usoTexto(u: Awaited<ReturnType<typeof usoDeEtiqueta>>): string {
+  const partes: string[] = [];
+  const autom = (u.disparadores ?? 0) + (u.condiciones ?? 0) + (u.acciones ?? 0);
+  if (u.condiciones == null) partes.push('no se pudo contar qué automatizaciones la usan');
+  else if (autom) partes.push(`la nombran ${autom} ${autom === 1 ? 'paso o disparador' : 'pasos o disparadores'} de las automatizaciones${u.condiciones ? ` (${u.condiciones} ${u.condiciones === 1 ? 'condición deja' : 'condiciones dejan'} de cumplirse)` : ''}`);
+  if (u.leads != null && u.leads > 0) partes.push(`la tienen ${u.leads} leads, que la conservan`);
+  return partes.length ? `: ${partes.join('; ')}` : '';
 }
 
 // ── un lead en varios productos (mig 0207) ────────────────────────────────────
@@ -531,6 +598,29 @@ export const RUNNERS: Runners = {
         });
       });
     },
+  },
+
+  listar_etiquetas: {
+    leer: async (input) => {
+      const [etiquetas, conteo, productos] = await Promise.all([
+        listarEtiquetas({ incluirArchivadas: input.incluirArchivadas === true }),
+        conteoPorEtiqueta().catch(() => null),
+        productosCrm().catch(() => null),
+      ]);
+      return json({
+        etiquetas: etiquetas.map((e) => vistaEtiqueta(e, productos, conteo ? (conteo.get(e.id) ?? 0) : null)),
+        nota: 'etiquetaId = id. Vinculada a una etapa: ponerla mueve al lead ahí, y entrar o salir de la etapa la pone o la saca.',
+      });
+    },
+  },
+  etiquetas_lead: {
+    leer: (input) => conLead(input, async (lead) => {
+      const [suyas, productos] = await Promise.all([etiquetasDeLead(lead.id), productosCrm().catch(() => null)]);
+      return json({
+        lead: { id: lead.id, nombre: lead.nombre },
+        etiquetas: suyas.map((e) => ({ ...vistaEtiqueta(e, productos), puesta_at: e.puesta_at, puesta_por: e.puesta_por })),
+      });
+    }),
   },
 
   // ── Acciones heredadas ──────────────────────────────────────────────────────
@@ -939,6 +1029,156 @@ export const RUNNERS: Runners = {
       if (r.antes === etapa) return { ok: false, resumen: `${n.lead} ya estaba en «${n.etapa(etapa)}» de «${n.producto}»: no se movió nada.` };
       invalidar('leads');
       return { ok: true, resumen: `Listo: ${n.lead} pasó de «${n.etapa(r.antes)}» a «${n.etapa(etapa)}» en «${n.producto}».` };
+    }),
+  },
+
+  // Las ETIQUETAS del CRM (mig 0224): todo por lib/etiquetas.ts, la única puerta de escritura.
+  crear_etiqueta: {
+    preparar: async (input) => {
+      const nombre = limpiarNombreEtiqueta(input.nombre);
+      if (!nombre) return { error: 'Falta el nombre de la etiqueta.', faltan: ['nombre'] };
+      const todas = await listarEtiquetas().catch(() => null);
+      if (!todas) return { error: 'No se pudieron leer las etiquetas del negocio.' };
+      const ya = todas.find((e) => claveNombre(e.nombre) === claveNombre(nombre));
+      if (ya) return { error: `Ya hay una etiqueta «${ya.nombre}» (id ${ya.id}).`, yaEstaba: true };
+      if (input.color !== undefined && !colorValido(input.color)) return { error: `«${String(input.color)}» no es un color #RRGGBB.` };
+      const v = await vinculoDeInput(input);
+      if ('error' in v) return v;
+      const w = await whatsappDeInput(input);
+      if ('error' in w) return w;
+      const extras = [v.texto, w.texto].filter(Boolean).join(', ');
+      return {
+        payload: { nombre, color: colorValido(input.color), emoji: emojiValido(input.emoji), vinculo: v.vinculo ?? null, waLabelId: w.labelId ?? null },
+        resumen: `Crear la etiqueta «${nombre}»${extras ? `, ${extras}` : ''}.`,
+      };
+    },
+    ejecutar: (payload) => seguro('crear la etiqueta', async () => {
+      try {
+        const { etiqueta, aviso } = await crearEtiqueta({
+          nombre: payload.nombre, color: payload.color ?? undefined, emoji: payload.emoji ?? undefined,
+          vinculo: (payload.vinculo as EntradaEtiqueta['vinculo']) ?? null, waLabelId: (payload.waLabelId as string | null) ?? null,
+        });
+        return { ok: true, resumen: `Listo: creada la etiqueta «${etiqueta.nombre}» (id ${etiqueta.id}).${aviso ? ` ${aviso}` : ''}`, datos: { etiquetaId: etiqueta.id } };
+      } catch (e) {
+        if (esEtiquetaError(e)) return { ok: false, resumen: e.message };
+        throw e;
+      }
+    }),
+  },
+  editar_etiqueta: {
+    preparar: async (input) => {
+      const e = await etiquetaDeInput(input.etiquetaId);
+      if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
+      const payload: Record<string, unknown> = { etiquetaId: e.id };
+      const cambios: string[] = [];
+      const nombre = input.nombre !== undefined ? limpiarNombreEtiqueta(input.nombre) : '';
+      if (input.nombre !== undefined && !nombre) return { error: 'El nombre no puede quedar vacío.' };
+      if (nombre && nombre !== e.nombre) {
+        if (claveNombre(nombre) !== claveNombre(e.nombre)) {
+          const otra = (await listarEtiquetas().catch(() => [])).find((x) => x.id !== e.id && claveNombre(x.nombre) === claveNombre(nombre));
+          if (otra) return { error: `Ya hay una etiqueta «${otra.nombre}» (id ${otra.id}).` };
+        }
+        payload.nombre = nombre; cambios.push(`nombre «${nombre}»`);
+      }
+      if (input.color !== undefined) {
+        const c = colorValido(input.color);
+        if (!c) return { error: `«${String(input.color)}» no es un color #RRGGBB.` };
+        if (c !== e.color.toUpperCase()) { payload.color = c; cambios.push(`color ${c}`); }
+      }
+      if (input.emoji !== undefined && emojiValido(input.emoji) !== e.emoji) { payload.emoji = emojiValido(input.emoji); cambios.push('emoji'); }
+      if (input.sinEtapa === true) {
+        if (e.etapa_key) { payload.vinculo = null; cambios.push('sin etapa vinculada'); }
+      } else {
+        const v = await vinculoDeInput(input);
+        if ('error' in v) return v;
+        if (v.vinculo && (v.vinculo.etapaKey !== e.etapa_key || v.vinculo.funnelId !== e.funnel_id)) { payload.vinculo = v.vinculo; cambios.push(v.texto ?? 'etapa'); }
+      }
+      if (input.sinWhatsApp === true) {
+        if (e.wa_label_id) { payload.waLabelId = null; cambios.push('sin etiqueta de WhatsApp'); }
+      } else {
+        const w = await whatsappDeInput(input);
+        if ('error' in w) return w;
+        if (w.labelId && w.labelId !== e.wa_label_id) { payload.waLabelId = w.labelId; cambios.push(w.texto ?? 'WhatsApp'); }
+      }
+      if (!cambios.length) return { error: `«${e.nombre}» ya está así: no cambia nada.`, yaEstaba: true };
+      return { payload, resumen: `Editar la etiqueta «${e.nombre}»: ${cambios.join(', ')}.` };
+    },
+    ejecutar: (payload) => seguro('editar la etiqueta', async () => {
+      const entrada: EntradaEtiqueta = {};
+      if ('nombre' in payload) entrada.nombre = payload.nombre;
+      if ('color' in payload) entrada.color = payload.color;
+      if ('emoji' in payload) entrada.emoji = payload.emoji;
+      if ('vinculo' in payload) entrada.vinculo = (payload.vinculo as EntradaEtiqueta['vinculo']) ?? null;
+      if ('waLabelId' in payload) entrada.waLabelId = (payload.waLabelId as string | null) ?? null;
+      try {
+        const e = await editarEtiqueta(Number(payload.etiquetaId), entrada);
+        return { ok: true, resumen: `Listo: la etiqueta «${e.nombre}» quedó guardada.` };
+      } catch (err) {
+        if (esEtiquetaError(err)) return { ok: false, resumen: err.message };
+        throw err;
+      }
+    }),
+  },
+  archivar_etiqueta: {
+    preparar: async (input) => {
+      const e = await etiquetaDeInput(input.etiquetaId);
+      if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
+      const archivar = input.archivar !== false;
+      if (Boolean(e.archivada_at) === archivar) return { error: `«${e.nombre}» ya está ${archivar ? 'archivada' : 'activa'}.`, yaEstaba: true };
+      if (!archivar) return { payload: { etiquetaId: e.id, archivar }, resumen: `Recuperar la etiqueta «${e.nombre}».` };
+      const uso = await usoDeEtiqueta(e.id);
+      return { payload: { etiquetaId: e.id, archivar }, resumen: `Archivar la etiqueta «${e.nombre}»${usoTexto(uso)}.` };
+    },
+    ejecutar: (payload) => seguro('archivar la etiqueta', async () => {
+      try {
+        const { etiqueta } = await archivarEtiqueta(Number(payload.etiquetaId), payload.archivar !== false);
+        return { ok: true, resumen: etiqueta.archivada_at ? `Listo: «${etiqueta.nombre}» quedó archivada.` : `Listo: «${etiqueta.nombre}» volvió a estar activa.` };
+      } catch (err) {
+        if (esEtiquetaError(err)) return { ok: false, resumen: err.message };
+        throw err;
+      }
+    }),
+  },
+  poner_etiqueta_lead: {
+    preparar: async (input) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      const e = await etiquetaDeInput(input.etiquetaId);
+      if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
+      if (e.archivada_at) return { error: `«${e.nombre}» está archivada: no se puede poner.` };
+      const suyas = await etiquetasDeLead(lead.id).catch(() => null);
+      if (!suyas) return { error: 'No se pudieron leer las etiquetas del lead.' };
+      if (suyas.some((x) => x.id === e.id)) return { error: `${lead.nombre} ya tiene «${e.nombre}».`, yaEstaba: true };
+      return {
+        payload: { leadId: lead.id, etiquetaId: e.id },
+        resumen: `Ponerle «${e.nombre}» a ${lead.nombre}${e.etapa_key ? ' (está vinculada a una etapa: lo pasa ahí)' : ''}.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('poner la etiqueta', async () => {
+      const r = await ponerEtiqueta(Number(payload.leadId), Number(payload.etiquetaId), { autor: autorDe(ctx) });
+      if (!r.ok) return { ok: false, resumen: `No se pudo poner la etiqueta: ${r.error}` };
+      if (r.yaEstaba) return { ok: true, resumen: 'Ya la tenía: no cambió nada.' };
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: etiqueta puesta${r.movio ? ', y pasó a la etapa vinculada' : ''}.${fallosSync(r)}` };
+    }),
+  },
+  sacar_etiqueta_lead: {
+    preparar: async (input) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      const e = await etiquetaDeInput(input.etiquetaId);
+      if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
+      const suyas = await etiquetasDeLead(lead.id).catch(() => null);
+      if (!suyas) return { error: 'No se pudieron leer las etiquetas del lead.' };
+      if (!suyas.some((x) => x.id === e.id)) return { error: `${lead.nombre} no tiene «${e.nombre}».`, yaEstaba: true };
+      return { payload: { leadId: lead.id, etiquetaId: e.id }, resumen: `Sacarle «${e.nombre}» a ${lead.nombre}.` };
+    },
+    ejecutar: (payload, ctx) => seguro('sacar la etiqueta', async () => {
+      const r = await sacarEtiqueta(Number(payload.leadId), Number(payload.etiquetaId), { autor: autorDe(ctx) });
+      if (!r.ok) return { ok: false, resumen: `No se pudo sacar la etiqueta: ${r.error}` };
+      if (r.yaEstaba) return { ok: true, resumen: 'Ya no la tenía: no cambió nada.' };
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: etiqueta sacada.${fallosSync(r)}` };
     }),
   },
 

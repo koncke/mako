@@ -11,7 +11,9 @@ import 'server-only';
 // ni a updateLead (no toca estado_lead, monto, fecha_cierre ni el CAPI de calificado), no
 // inscribe en secuencias de nutrición (las 62 secuencias de la base aplican a todos los
 // productos: inscribir por la etapa del segundo producto le escribiría dos veces a la misma
-// persona) y no cambia la etiqueta de WhatsApp. Todo eso sigue a la CASA.
+// persona) y no cambia la etiqueta de WhatsApp. Todo eso sigue a la CASA. Las excepciones, en
+// `moverEtapaEnProducto`: el enganche «al ganar» y las etiquetas del CRM vinculadas a una etapa
+// de ESE producto (mig 0224).
 
 import { getTenantDb } from './workspace';
 import { getLead, logLeadEvent, autorDelMovimiento, updateLead } from './leads';
@@ -196,6 +198,17 @@ export async function moverEtapaEnProducto(leadId: number, funnelId: number, eta
     } catch (e) {
       console.error(`[lead-funnel] lead ${leadId}: el enganche al ganar falló:`, e instanceof Error ? e.message : e);
     }
+  }
+  // ⚠️ Y LAS ETIQUETAS VINCULADAS A UNA ETAPA DE ESTE PRODUCTO (mig 0224), al lado del enganche
+  // «al ganar»: salir de la etapa saca la suya y entrar pone la de la nueva. Es la segunda
+  // excepción a la cabecera y no toca la casa: la etiqueta que pone una etapa nunca vuelve a
+  // mover (`origen: 'etapa'`) ni dispara automatizaciones (lib/etiquetas-motor.ts). Import
+  // dinámico: lib/etiquetas.ts importa este módulo. Nunca tira.
+  try {
+    const { espejarEtapa } = await import('./etiquetas');
+    await espejarEtapa(leadId, funnelId, fila.etapa, etapa, { autor });
+  } catch (e) {
+    console.error(`[lead-funnel] lead ${leadId}: el espejo de etiquetas falló:`, e instanceof Error ? e.message : e);
   }
   return { antes: fila.etapa };
 }

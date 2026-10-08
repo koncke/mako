@@ -22,7 +22,7 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
@@ -878,7 +878,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/plan/proponer_ampliar_tareas" -H "
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 23 lecturas · 22 acciones.
+Tab **CRM** (`/crm`). 25 lecturas · 27 acciones.
 
 ### `GET /api/v1/crm/buscar_leads` — Buscar leads por texto
 
@@ -1275,6 +1275,40 @@ Los productos u ofertas del negocio con id, tipo (pago único o suscripción), p
 curl -s "https://hola-mako.com/api/v1/crm/listar_productos" -H "Authorization: Bearer $TOKEN"
 ```
 
+### `GET /api/v1/crm/listar_etiquetas` — Etiquetas del CRM
+
+Las etiquetas del CRM del negocio (las que se le ponen a un lead: «Seguimiento», «Cualificado»…) con su id, nombre, color, la etapa del CRM a la que está vinculada (si la hay), a qué etiqueta del WhatsApp del celular corresponde y cuántos leads la tienen. De aquí sale el etiquetaId que piden poner_etiqueta_lead, sacar_etiqueta_lead, editar_etiqueta y archivar_etiqueta. Las archivadas no se pueden poner y solo vienen si se piden.
+
+- **Alcance mínimo del token:** lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `incluirArchivadas` | boolean | no | true para ver también las archivadas (default false). |
+
+```bash
+curl -s "https://hola-mako.com/api/v1/crm/listar_etiquetas" -H "Authorization: Bearer $TOKEN"
+```
+
+### `GET /api/v1/crm/etiquetas_lead` — Etiquetas de un lead
+
+Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Pide el leadId (de buscar_leads).
+
+- **Alcance mínimo del token:** lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
+
+```bash
+curl -s "https://hola-mako.com/api/v1/crm/etiquetas_lead?leadId=%E2%80%A6" -H "Authorization: Bearer $TOKEN"
+```
+
 ### `POST /api/v1/crm/proponer_cambio_etapa` — Mover un lead de etapa
 
 PROPONE mover un lead a otra etapa del funnel (queda pendiente hasta el «sí»; no lo ejecuta). Cubre cerrar como ganado (pasa el monto en USD), marcar perdido o descalificado (pasa el motivo), mandar a nutrición o reactivar. Consigue el leadId con buscar_leads y la key con ver_funnel. Si falta el monto o el motivo lo pide; lo que este canal no puede cargar (fecha de reunión, asistencia, Fathom) no bloquea y queda declarado en el historial.
@@ -1556,6 +1590,125 @@ PROPONE declarar por qué caminos llega la gente al negocio (hasta 3): formulari
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/crm/declarar_entradas_funnel" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   --data-binary '{"entradas":[]}'
+```
+
+### `POST /api/v1/crm/crear_etiqueta` — Crear una etiqueta del CRM
+
+PROPONE crear una etiqueta del CRM con su nombre y, si se quiere, color, emoji, la etapa del CRM a la que se vincula y la etiqueta del WhatsApp del celular a la que corresponde (queda pendiente hasta el «sí»). Si ya hay una con ese nombre, lo dice. Si el negocio tiene Chatwoot, también la crea allá.
+
+- **Alcance mínimo del token:** proponer
+- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una fila en crm_etiquetas (y, si el negocio tiene Chatwoot, la etiqueta en esa cuenta)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `nombre` | string | sí | el nombre de la etiqueta, como se va a ver (hasta 40 caracteres). |
+| `color` | string | no | color en hex, #RRGGBB (por ejemplo #5E81AC). |
+| `emoji` | string | no | un emoji opcional que se muestra delante del nombre. |
+| `etapa` | string | no | key de la etapa del CRM a la que se vincula (de ver_funnel o productos_del_lead). Vinculada, ponerla mueve al lead a esa etapa, y entrar o salir de la etapa la pone o la saca. |
+| `embudoId` | number | no | el producto del CRM de esa etapa, por el id de su embudo (de productos_del_lead). Sin él, el producto principal del negocio. |
+| `waLabelId` | string | no | la etiqueta del WhatsApp del celular a la que corresponde (de listar_etiquetas_whatsapp). Las de WhatsApp no se crean por API: se elige una que ya existe en el celular. |
+
+```bash
+curl -s -X POST "https://hola-mako.com/api/v1/crm/crear_etiqueta" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data-binary '{"nombre":"…"}'
+```
+
+### `POST /api/v1/crm/editar_etiqueta` — Editar una etiqueta del CRM
+
+PROPONE cambiar el nombre, el color, el emoji, la etapa vinculada o la etiqueta del WhatsApp del celular de una etiqueta del CRM (queda pendiente hasta el «sí»). Cambiar la etapa vale desde ahora: no les pone ni les saca la etiqueta a los que ya están en esa etapa. Para desvincular, sinEtapa o sinWhatsApp en true. Si no cambia nada, lo dice.
+
+- **Alcance mínimo del token:** proponer
+- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la fila de la etiqueta en crm_etiquetas (nombre, color, emoji, etapa vinculada o etiqueta de WhatsApp)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `etiquetaId` | number | sí | id de la etiqueta (de listar_etiquetas). |
+| `nombre` | string | no | el nombre nuevo (hasta 40 caracteres). |
+| `color` | string | no | color en hex, #RRGGBB (por ejemplo #5E81AC). |
+| `emoji` | string | no | un emoji opcional que se muestra delante del nombre. |
+| `etapa` | string | no | key de la etapa del CRM a la que se vincula (de ver_funnel o productos_del_lead). Vinculada, ponerla mueve al lead a esa etapa, y entrar o salir de la etapa la pone o la saca. |
+| `embudoId` | number | no | el producto del CRM de esa etapa, por el id de su embudo (de productos_del_lead). Sin él, el producto principal del negocio. |
+| `waLabelId` | string | no | la etiqueta del WhatsApp del celular a la que corresponde (de listar_etiquetas_whatsapp). Las de WhatsApp no se crean por API: se elige una que ya existe en el celular. |
+| `sinEtapa` | boolean | no | true para desvincularla de su etapa. |
+| `sinWhatsApp` | boolean | no | true para que deje de ponerse en el WhatsApp del celular. |
+
+```bash
+curl -s -X POST "https://hola-mako.com/api/v1/crm/editar_etiqueta" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data-binary '{"etiquetaId":0}'
+```
+
+### `POST /api/v1/crm/archivar_etiqueta` — Archivar una etiqueta del CRM
+
+PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»): deja de ofrecerse y de poder ponerse, y las condiciones de las automatizaciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen la conservan, y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.
+
+- **Alcance mínimo del token:** proponer
+- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** archivada_at de la etiqueta en crm_etiquetas (no borra nada)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `etiquetaId` | number | sí | id de la etiqueta (de listar_etiquetas). |
+| `archivar` | boolean | no | false para recuperarla (default true, archivar). |
+
+```bash
+curl -s -X POST "https://hola-mako.com/api/v1/crm/archivar_etiqueta" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data-binary '{"etiquetaId":0}'
+```
+
+### `POST /api/v1/crm/poner_etiqueta_lead` — Ponerle una etiqueta a un lead
+
+PROPONE ponerle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta y la pone también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).
+
+- **Alcance mínimo del token:** proponer
+- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y ponerla en WhatsApp y Chatwoot
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
+| `etiquetaId` | number | sí | id de la etiqueta (de listar_etiquetas). |
+
+```bash
+curl -s -X POST "https://hola-mako.com/api/v1/crm/poner_etiqueta_lead" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data-binary '{"leadId":0,"etiquetaId":0}'
+```
+
+### `POST /api/v1/crm/sacar_etiqueta_lead` — Sacarle una etiqueta a un lead
+
+PROPONE sacarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa ni dispara nada; la saca también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).
+
+- **Alcance mínimo del token:** proponer
+- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** borra la fila de crm_lead_etiquetas y deja una línea en el historial del lead; la saca de WhatsApp y Chatwoot
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
+| `etiquetaId` | number | sí | id de la etiqueta (de listar_etiquetas). |
+
+```bash
+curl -s -X POST "https://hola-mako.com/api/v1/crm/sacar_etiqueta_lead" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data-binary '{"leadId":0,"etiquetaId":0}'
 ```
 
 ### `POST /api/v1/crm/editar_contacto_lead` — Editar contacto de un lead

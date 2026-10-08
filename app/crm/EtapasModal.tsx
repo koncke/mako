@@ -45,6 +45,7 @@ import { EmbudoEntradas } from './EmbudoEntradas';
 import { CampanasDelProducto } from './CampanasDelProducto';
 import { CerrarIcon, LapizIcon } from './iconos';
 import { MoverPartido } from './MoverPartido';
+import { EditorEtiquetas } from './EditorEtiquetas';
 
 const SANS = "'Geist', sans-serif";
 
@@ -83,7 +84,10 @@ function Cargando() {
   );
 }
 
-type Sub = 'etapas' | 'nutricion';
+// La tercera, Etiquetas (mig 0224): el CRUD de las etiquetas del CRM vive acá, donde el CRM edita
+// sus etapas, porque una etiqueta se VINCULA a una etapa. Son del negocio, no del producto: la
+// misma lista desde cualquier producto (app/crm/EditorEtiquetas.tsx).
+type Sub = 'etapas' | 'nutricion' | 'etiquetas';
 
 export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar }: {
   /** El embudo que se edita. `null`/`undefined` = el del negocio. */
@@ -436,7 +440,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
         {/* Las dos subtabs. Cortadas por PREGUNTA: por dónde pasa un lead, y qué se le
             manda cuando se enfría. */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', borderRadius: 999, padding: 3, marginBottom: 18 }}>
-          {([['etapas', 'Etapas'], ['nutricion', 'Nutrición']] as Array<[Sub, string]>).map(([k, txt]) => (
+          {([['etapas', 'Etapas'], ['nutricion', 'Nutrición'], ['etiquetas', 'Etiquetas']] as Array<[Sub, string]>).map(([k, txt]) => (
             <button key={k} type="button" onClick={() => setSub(k)}
               style={{
                 border: 'none', background: sub === k ? 'var(--surface)' : 'transparent',
@@ -447,7 +451,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
           ))}
         </div>
 
-        {!hayLista && !error && <Cargando />}
+        {!hayLista && !error && sub !== 'etiquetas' && <Cargando />}
 
         {hayLista && sub === 'etapas' && (
           <>
@@ -659,6 +663,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
             />
           </div>
         )}
+        {sub === 'etiquetas' && <EditorEtiquetas />}
         {error && (
           <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{error}</div>
         )}

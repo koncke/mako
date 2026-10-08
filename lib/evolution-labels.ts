@@ -3,26 +3,84 @@
 // El catálogo de etiquetas se sincroniza desde Evolution (findLabels) y por el
 // webhook labels.edit. El mapeo etapa→etiqueta se configura en /configuraciones.
 // Al cambiar de etapa un lead, se le pone/saca la etiqueta en WhatsApp.
+//
+// ⚠️ DESDE LA MIG 0224 HAY OTRO CAMINO, Y ES EL QUE VALE PARA LO NUEVO: las etiquetas
+// del CRM (`crm_etiquetas`, lib/etiquetas.ts) se mapean UNA A UNA a una etiqueta del
+// celular (`wa_instance` + `wa_label_id`) y se ponen en el chat al ponerlas en MaKo. El
+// mapeo de abajo (`evolution_stage_labels`) habla de las 9 etapas FIJAS del inbox
+// (`derivarEtapa`), no de las etapas del CRM, y tiene 0 filas en todos los workspaces
+// (medido el 08/10/2026): queda por compatibilidad hasta que alguien lo retire.
 // =============================================================================
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
-import { listarLabelsEvolution, asignarLabel } from '@/lib/evolution';
+import { listarLabelsEvolutionEstricto, asignarLabel } from '@/lib/evolution';
 import { derivarEtapa, type LeadEtapaFields } from '@/lib/wa-etapas';
+import { planSincronizarCatalogo, catalogoCelular, type LabelCelular } from '@/lib/etiquetas-reglas';
 
 export type LabelCat = { labelId: string; name: string | null; color: number | null };
 
-// Sincroniza el catálogo de labels de Evolution → evolution_labels. Best-effort.
-export async function sincronizarCatalogoLabels(): Promise<LabelCat[]> {
-  const labels = await listarLabelsEvolution().catch(() => []);
+export type ResultadoSyncCatalogo = { total: number; nuevas: number; podadas: number };
+
+/**
+ * Sincroniza el catálogo de labels de Evolution → evolution_labels SIN PISAR NOMBRES.
+ *
+ * ⚠️ HASTA EL 08/10/2026 ESTO ERA UN UPSERT POR label_id, y destruía: `findLabels` devuelve
+ * los nombres sin acentos ni emojis (Evolution los guarda así), así que «Huayacán», «Lac
+ * interés» o «Hablar en cámara 📷» —que llegaron bien por el webhook `labels.edit`— volvían
+ * «Huayacn», «Lac inters», «Hablar en cmara ». Ahora `findLabels` sólo dice qué ids siguen
+ * vivos: agrega los nuevos, actualiza el color y PODA los que ya no están (ws1 arrastraba 7
+ * del 11/09 que no existen en el celular). La decisión es pura y tiene test
+ * (`planSincronizarCatalogo`).
+ *
+ * TIRA si no pudo leer el celular o escribir la base: podar sobre una lectura caída
+ * borraría el catálogo entero.
+ */
+export async function sincronizarCatalogoEstricto(): Promise<ResultadoSyncCatalogo> {
+  const vivas = await listarLabelsEvolutionEstricto();
   const supabase = await getTenantDb();
-  if (labels.length) {
-    await supabase.from('evolution_labels').upsert(
-      labels.map((l) => ({ label_id: l.id, name: l.name, color: l.color, updated_at: new Date().toISOString() })),
-      { onConflict: 'workspace_id,label_id' },
+  const { data, error } = await supabase.from('evolution_labels').select('label_id, name, color');
+  if (error) throw new Error(`No pude leer el catálogo guardado: ${error.message}`);
+  const guardadas = (data ?? []) as Array<{ label_id: string; name: string | null; color: number | null }>;
+  const plan = planSincronizarCatalogo(guardadas, vivas);
+  const ahora = new Date().toISOString();
+  if (plan.nuevas.length) {
+    const { error: e1 } = await supabase.from('evolution_labels').upsert(
+      plan.nuevas.map((l) => ({ ...l, updated_at: ahora })),
+      { onConflict: 'workspace_id,label_id', ignoreDuplicates: true },
     );
+    if (e1) throw new Error(`No pude agregar las etiquetas nuevas: ${e1.message}`);
   }
-  return labels.map((l) => ({ labelId: l.id, name: l.name, color: l.color }));
+  for (const c of plan.colores) {
+    const { error: e2 } = await supabase.from('evolution_labels').update({ color: c.color, updated_at: ahora }).eq('label_id', c.label_id);
+    if (e2) throw new Error(`No pude actualizar el color de una etiqueta: ${e2.message}`);
+  }
+  if (plan.podar.length) {
+    const { error: e3 } = await supabase.from('evolution_labels').delete().in('label_id', plan.podar);
+    if (e3) throw new Error(`No pude sacar las etiquetas que ya no están en el celular: ${e3.message}`);
+  }
+  return { total: vivas.length, nuevas: plan.nuevas.length, podadas: plan.podar.length };
+}
+
+// Lo mismo, best-effort (lo usa el panel viejo de /configuraciones): nunca tira y devuelve el
+// catálogo guardado después de sincronizar, como antes.
+export async function sincronizarCatalogoLabels(): Promise<LabelCat[]> {
+  try { await sincronizarCatalogoEstricto(); } catch (e) {
+    console.error('[evolution-labels] sincronizar:', e instanceof Error ? e.message : String(e));
+  }
+  return getCatalogoLabels().catch(() => []);
+}
+
+/**
+ * Las etiquetas del celular que se pueden MAPEAR a una etiqueta del CRM: sin las listas del
+ * sistema (Favoritos, Grupos, No leídos, que llegan por el mismo evento y a veces con un
+ * U+200E delante), con el nombre limpio. Del catálogo guardado: no le pega a Evolution.
+ */
+export async function catalogoParaMapear(): Promise<LabelCelular[]> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('evolution_labels').select('label_id, name, color');
+  if (error) throw new Error(`No pude leer las etiquetas de WhatsApp: ${error.message}`);
+  return catalogoCelular((data ?? []) as Array<{ label_id: string; name: string | null; color: number | null }>);
 }
 
 // Catálogo cacheado (evolution_labels), sin llamar a Evolution.
