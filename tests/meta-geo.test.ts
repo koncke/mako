@@ -9,7 +9,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { agregarLugar, contiene, explicarErrorGeo, geoSpecDe, lugarDesdeBusqueda, lugarDireccion, lugarPais, lugaresDesdeDraft, ordenarLugares, type LugarMeta } from '../lib/meta-geo';
+import {
+  TIPOS_BUSCABLES, agregarLugar, aplicarLugares, contiene, explicarErrorGeo, geoSpecDe, lugarDesdeBusqueda, lugarDireccion, lugarPais, lugarPin,
+  lugaresCambiaron, lugaresDesdeDraft, lugaresDesdeMeta, ordenarLugares, rotuloRadio, type LugarMeta,
+} from '../lib/meta-geo';
 
 // Filas reales (Graph v25.0, locale es_LA).
 const CORDOBA_CIUDAD = lugarDesdeBusqueda({ key: '84740', name: 'Ciudad de Córdoba', type: 'city', country_code: 'AR', region: 'Córdoba', region_id: 101 })!;
@@ -147,4 +150,179 @@ test('los rechazos de Meta por subcode tienen texto; lo demás no se disfraza de
   // Un 403 de permisos NO es un rechazo de segmentación: no puede bloquear el paso.
   assert.equal(explicarErrorGeo(4841013), null);
   assert.equal(explicarErrorGeo(undefined), null);
+});
+
+// =============================================================================
+// Los lugares de un conjunto QUE YA CORRE (tarea #715)
+// =============================================================================
+// Las tres formas de abajo son copias de GET /{adset}?fields=targeting (Graph v25.0,
+// 07/10/2026) sobre tres conjuntos de tres cuentas conectadas, con el token de cada
+// workspace dueño — la misma lectura que hace EditarPublicoModal al abrirse. Recortadas
+// (menos filas) y con las COORDENADAS CORRIDAS a propósito: lo que se mide es la forma,
+// no dónde pauta cada cliente. Los ids de lugares de Meta son públicos y quedan.
+
+// Cuenta A: los pines que se arman en el Ads Manager de Meta. SIN address_string ni name,
+// con radios que nuestra lista no ofrece, y con `frequently_in` en location_types.
+const GEO_PINES = {
+  custom_locations: [
+    { distance_unit: 'kilometer', latitude: -31.61, longitude: -60.71, radius: 12, primary_city_id: 90205, region_id: 117, country: 'AR' },
+    { distance_unit: 'kilometer', latitude: -34.43, longitude: -58.63, radius: 8, primary_city_id: 86073, region_id: 97, country: 'AR' },
+    { distance_unit: 'kilometer', latitude: -34.6, longitude: -58.45, radius: 16, primary_city_id: 83693, region_id: 103, country: 'AR' },
+  ],
+  location_types: ['frequently_in', 'home', 'recent'],
+};
+// Cuenta B: dos países pelados.
+const GEO_PAISES = { countries: ['US', 'MX'], location_types: ['home', 'recent'] };
+// Cuenta C: pines incluidos y provincias EXCLUIDAS, con location_types en los DOS lados.
+const GEO_C = {
+  custom_locations: [
+    { distance_unit: 'kilometer', latitude: -34.5, longitude: -58.5, radius: 5, primary_city_id: 88527, region_id: 97, country: 'AR' },
+    { distance_unit: 'kilometer', latitude: -34.55, longitude: -58.56, radius: 1, primary_city_id: 91038, region_id: 97, country: 'AR' },
+  ],
+  location_types: ['home', 'recent'],
+};
+const EXC_C = {
+  regions: [
+    { key: '100', name: 'Chubut', country: 'AR' },
+    { key: '101', name: 'Córdoba', country: 'AR' },
+    { key: '117', name: 'Santa Fe', country: 'AR' },
+  ],
+  location_types: ['home', 'recent'],
+};
+// Lo que se manda de vuelta es lo que se sabe escribir: sin los campos informativos ni
+// location_types (que se conserva aparte).
+const sinInfo = (g: Record<string, unknown>) => {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(g)) {
+    if (k === 'location_types') continue;
+    out[k] = Array.isArray(v) ? v.map((f) => {
+      if (typeof f !== 'object' || !f) return f;
+      const { primary_city_id: _a, region_id: _b, country: _c, name: _d, ...resto } = f as Record<string, unknown>;
+      return resto;
+    }) : v;
+  }
+  return out;
+};
+const conjunto = (geo: unknown, exc?: unknown) => ({ age_min: 25, geo_locations: geo, ...(exc ? { excluded_geo_locations: exc } : {}), targeting_automation: { advantage_audience: 1 } });
+
+test('el geo de un conjunto que ya corre se lee con la forma que Meta devuelve', () => {
+  const a = lugaresDesdeMeta(GEO_PINES, undefined);
+  assert.deepEqual(a.noEntiendo, []);
+  assert.deepEqual(a.lugares.map((l) => [l.tipo, l.radioKm, l.pais]), [['pin', 12, 'AR'], ['pin', 8, 'AR'], ['pin', 16, 'AR']]);
+  assert.deepEqual(a.conservar.geo, { location_types: ['frequently_in', 'home', 'recent'] });
+  // El país del crudo va a `pais`, así contiene() ve el choque país+pin (medido ✖ 1487756).
+  assert.equal(contiene(lugarPais('AR'), a.lugares[0]), true);
+
+  const b = lugaresDesdeMeta(GEO_PAISES, null);
+  assert.deepEqual(b.lugares.map((l) => [l.tipo, l.key]), [['country', 'US'], ['country', 'MX']]);
+
+  const c = lugaresDesdeMeta(GEO_C, EXC_C);
+  assert.deepEqual(c.noEntiendo, []);
+  assert.deepEqual(c.lugares.filter((l) => l.excluir).map((l) => [l.tipo, l.key, l.nombre]), [['region', '100', 'Chubut'], ['region', '101', 'Córdoba'], ['region', '117', 'Santa Fe']]);
+  assert.deepEqual(c.conservar.excluidos, { location_types: ['home', 'recent'] });
+  //   ROTO A PROPÓSITO: sin pasar `country` a `pais` → 12 / 1 (éste): los pines salen con
+  //   pais null y contiene() deja de ver el choque país+pin.
+});
+
+test('ida y vuelta: sin tocar los lugares, el geo sale IDÉNTICO; y la firma reproduce el crudo', () => {
+  for (const [geo, exc] of [[GEO_PINES, undefined], [GEO_PAISES, undefined], [GEO_C, EXC_C]] as const) {
+    const t = conjunto(geo, exc);
+    const lec = lugaresDesdeMeta(t.geo_locations, (t as { excluded_geo_locations?: unknown }).excluded_geo_locations);
+    // Cambiar la edad no puede re-escribir el geo: vuelve el MISMO objeto.
+    assert.equal(aplicarLugares(t, lec, lec.lugares), t);
+    assert.equal(lugaresCambiaron(lec, [...lec.lugares]), false);
+    // Y lo que esos lugares mandarían es exactamente lo que había (12 km no sale 10 ni 25).
+    const spec = geoSpecDe(lec.lugares);
+    assert.deepEqual(spec.geo_locations, sinInfo(geo as Record<string, unknown>));
+    assert.deepEqual(spec.excluded_geo_locations, exc ? sinInfo(exc as Record<string, unknown>) : undefined);
+  }
+  //   ROTO A PROPÓSITO (07/10/2026, scratchpad romper-715.mjs, pass/fail sobre los 13 del
+  //   archivo): aplicarLugares re-escribiendo SIEMPRE, sin mirar la firma → 11 / 2 (éste,
+  //   porque el geo deja de ser el mismo objeto, y el de sólo lectura, porque tira). Y
+  //   geoSpecDe sin el caso 'pin' → 10 / 3 (éste, el de cambiar y el del pin): los pines
+  //   de los conjuntos medidos no viajaban.
+});
+
+test('cambiar un lugar re-escribe el geo desde los lugares y le devuelve location_types', () => {
+  const t = conjunto(GEO_PINES);
+  const lec = lugaresDesdeMeta(t.geo_locations, undefined);
+  const sinUno = lec.lugares.slice(1);
+  const g = aplicarLugares(t, lec, sinUno).geo_locations as Record<string, unknown>;
+  assert.deepEqual((g.custom_locations as unknown[]).length, 2);
+  assert.deepEqual(g.location_types, ['frequently_in', 'home', 'recent']);
+
+  // Con excluidos: sacar uno conserva el location_types de ESE lado; sacarlos todos borra la clave.
+  const tc = conjunto(GEO_C, EXC_C);
+  const lc = lugaresDesdeMeta(tc.geo_locations, tc.excluded_geo_locations);
+  const sinCordoba = lc.lugares.filter((l) => l.key !== '101');
+  const ex = aplicarLugares(tc, lc, sinCordoba).excluded_geo_locations as Record<string, unknown>;
+  assert.deepEqual(ex, { regions: [{ key: '100' }, { key: '117' }], location_types: ['home', 'recent'] });
+  assert.equal('excluded_geo_locations' in aplicarLugares(tc, lc, lc.lugares.filter((l) => !l.excluir)), false);
+  // Lo de afuera del geo no se toca.
+  assert.equal(aplicarLugares(tc, lc, sinCordoba).age_min, 25);
+  // Sin un solo lugar incluido no se guarda: Meta no tiene dónde mostrarlo.
+  assert.throws(() => aplicarLugares(tc, lc, lc.lugares.filter((l) => l.excluir)), /al menos un lugar/);
+  //   ROTO A PROPÓSITO: 'location_types' fuera de CLAVES_CONSERVADAS → 11 / 2 (éste y el
+  //   de la forma real): pasa a `noEntiendo`, los tres conjuntos medidos quedan en sólo
+  //   lectura, y re-escribir tira.
+});
+
+test('una ciudad en MILLAS vuelve en millas, y un radio que no está en la lista no se mueve', () => {
+  // ⚠️ Forma SINTÉTICA, no medida: ninguno de los tres conjuntos leídos el 07/10 tenía una
+  // ciudad con radio. Sale de lo que el repo ya manda (cleanGeo acepta 'mile') y de lo que
+  // Meta documenta. 10 mi = 16,09 km: con el clamp en km salía 17 km apenas se tocaba
+  // cualquier OTRO lugar, y el público de una ciudad que nadie tocó cambiaba.
+  const geo = { cities: [{ key: '2418956', name: 'Ciudad', region: 'Estado', region_id: '3847', country: 'US', radius: 10, distance_unit: 'mile' }, { key: '84740', name: 'Otra', country: 'AR', radius: 30, distance_unit: 'kilometer' }] };
+  const lec = lugaresDesdeMeta(geo, undefined);
+  assert.deepEqual(lec.noEntiendo, []);
+  const masUno = [...lec.lugares, { ...lugarPais('UY'), excluir: false }];
+  const cities = (aplicarLugares(conjunto(geo), lec, masUno).geo_locations as { cities: unknown[] }).cities;
+  assert.deepEqual(cities, [{ key: '2418956', radius: 10, distance_unit: 'mile' }, { key: '84740', radius: 30, distance_unit: 'kilometer' }]);
+  assert.equal(rotuloRadio(lec.lugares[0]), '+10 mi');
+  // Si alguien ELIGE otro radio en el selector (que escribe km), gana lo elegido, en km.
+  const elegido = { ...lec.lugares[0], radioKm: 25 };
+  assert.deepEqual(geoSpecDe([elegido]).geo_locations.cities, [{ key: '2418956', radius: 25, distance_unit: 'kilometer' }]);
+  assert.equal(rotuloRadio(elegido), '+25 km');
+  //   ROTO A PROPÓSITO: radioParaMeta sin el atajo de radioMeta (siempre km con clamp) →
+  //   12 / 1 (éste): las 10 mi salen { radius: 17, distance_unit: 'kilometer' }.
+});
+
+test('lo que no se entiende deja los lugares en SÓLO LECTURA, y re-escribir tira', () => {
+  const casos: Array<[unknown, string]> = [
+    [{ countries: ['AR'], places: [{ place_page_id: '1', radius: 5 }] }, 'geo_locations.places'],
+    [{ country_groups: ['latam'] }, 'geo_locations.country_groups'],
+    [{ cities: [{ key: '1', name: 'X', radius: 5, distance_unit: 'kilometer', custom_type: 'algo' }] }, 'geo_locations.cities[0].custom_type'],
+    [{ custom_locations: [{ latitude: -34, longitude: -58, distance_unit: 'kilometer' }] }, 'geo_locations.custom_locations[0].radius'],
+    [{ custom_locations: [{ latitude: -34, longitude: -58, radius: 5, distance_unit: 'feet' }] }, 'geo_locations.custom_locations[0].radius'],
+    [{ regions: [{ name: 'Sin key' }] }, 'geo_locations.regions[0].key'],
+    [{ countries: 'AR' }, 'geo_locations.countries'],
+  ];
+  for (const [geo, esperado] of casos) {
+    const lec = lugaresDesdeMeta(geo, undefined);
+    assert.ok(lec.noEntiendo.includes(esperado), `${JSON.stringify(geo)} → ${JSON.stringify(lec.noEntiendo)}`);
+  }
+  // Con algo sin entender: sin cambios vuelve igual; con cambios, tira en vez de borrar.
+  const geo = { countries: ['AR'], places: [{ place_page_id: '1' }] };
+  const t = conjunto(geo);
+  const lec = lugaresDesdeMeta(geo, undefined);
+  assert.equal(aplicarLugares(t, lec, lec.lugares), t);
+  assert.throws(() => aplicarLugares(t, lec, [lugarPais('UY')]), /no sabe editar/);
+  //   ROTO A PROPÓSITO: sin la lista blanca POR FILA (el `raro`) → 12 / 1 (éste): el campo
+  //   desconocido de la ciudad no aparece en noEntiendo. Y aplicarLugares sin el `throw`
+  //   de noEntiendo → 12 / 1 (éste): re-escribe y `places` desaparece.
+});
+
+test('el pin: no se busca en Meta, sobrevive al borrador y su radio dice la unidad', () => {
+  assert.equal((TIPOS_BUSCABLES as readonly string[]).includes('pin'), false);
+  assert.equal(lugarDesdeBusqueda({ key: '1', type: 'pin' }), null);
+  const p = { ...lugarPin(-34.6, -58.45, 3), excluir: false };
+  assert.equal(p.key, '-34.600000,-58.450000');
+  assert.deepEqual(lugaresDesdeDraft([p]), [p]);
+  assert.deepEqual(geoSpecDe([p]).geo_locations.custom_locations, [{ latitude: -34.6, longitude: -58.45, radius: 3, distance_unit: 'kilometer' }]);
+  assert.equal(rotuloRadio(p), '+3 km');
+  // Una dirección que viene CON coordenadas se re-emite como punto: no se re-geocodifica.
+  const lec = lugaresDesdeMeta({ custom_locations: [{ address_string: 'Calle 1 123', latitude: -34.6, longitude: -58.45, radius: 2, distance_unit: 'kilometer' }] }, undefined);
+  assert.deepEqual(lec.lugares.map((l) => [l.tipo, l.nombre]), [['pin', 'Calle 1 123']]);
+  //   ROTO A PROPÓSITO: lugaresDesdeDraft con la lista vieja `[...TIPOS_BUSCABLES, 'address']`
+  //   → 12 / 1 (éste): el pin del borrador vuelve como [].
 });

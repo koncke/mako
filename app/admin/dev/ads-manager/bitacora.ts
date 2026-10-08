@@ -24,6 +24,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Producto MÚLTIPLE por campaña', detalle: 'Choca con que un lead tiene un solo funnel_id (lib/campana-config.ts) · las tres salidas están medidas y la decisión es de Martín', estado: 'cola' },
   { titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta', detalle: 'La celda y el lote preguntan «viejo → nuevo» antes de escribir · se tipea en USD y se convierte a la moneda de la cuenta (lib/presupuesto-cambio.ts) · el presupuesto total no se edita como diario · lo escrito sobrevive a la caché vencida del árbol · falta la primera prueba en una cuenta real', estado: 'hecha' },
   { titulo: 'Un video se usa cuando Meta lo procesó, y un reintento no publica dos veces', detalle: 'La tarjeta espera a Meta (los tres modales, una sola subida) · las rutas preguntan por los videos antes de crear · clave de idempotencia por payload en campaign-create, ad-add y adset-add · falta aplicar la 0215, publicar de verdad y medir un video pesado', estado: 'sigue' },
+  { titulo: 'Ver y cambiar dónde se muestra un conjunto que ya corre', detalle: '«Dónde se muestra» en el detalle de un conjunto · los lugares se editan en el editor de público, con el geo tocado sólo si cambió y sólo lectura ante lo que no se entiende · los pines se leen, se ven en el mapa y se les cambia el radio · falta la primera prueba real en una campaña en pausa de Martín y decidir cómo se CREA un pin', estado: 'sigue' },
   { titulo: 'Usar un video de MaKo sin bajarlo y volverlo a subir', detalle: '«Mis creativos» en los tres modales: los anuncios montados y las tomas sueltas del bucket propio, por file_url · la url se deriva en el server, nunca viaja del navegador · falta la primera prueba en una cuenta real (Meta en ws9) y el worker de montaje; la imagen no tiene de dónde salir (#298)', estado: 'sigue' },
 ];
 
@@ -206,5 +207,27 @@ export const BITACORA: Hito[] = [
     commits: [
       { sha: '5488bbe0', msg: 'Ads Manager: la revisión de la #797 — la ref de una toma lleva el clip que se vio, y dos guards cazan su bug', lineas: 350, archivos: 10 },
     ],
+  },
+  {
+    fecha: '7 oct', hora: '21:50', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ver y cambiar dónde se muestra un conjunto que ya corre (#715)',
+    puntos: [
+      '**Los lugares de los conjuntos reales son PINES.** Se leyeron con un GET tres conjuntos de tres cuentas conectadas antes de escribir el parser: los que se arman en Meta son puntos sin dirección, con radios de 12, 8 y 16 km que nuestra lista no ofrecía, y `location_types` trae `frequently_in` en los dos lados. El plan suponía direcciones y dejaba el pin para después: sin el tipo pin la feature no servía para el caso inmobiliario que la pidió.',
+      'El detalle de un conjunto dice «Dónde se muestra» (incluye, excluye, radio con su unidad, el pin abre el mapa) con una lectura propia: si falla lo dice y no tumba las métricas. «Cambiar lugares» abre el MISMO editor que «Público» de la fila, y guardar relee sólo eso.',
+      'El POST reemplaza el targeting entero, así que el geo se toca SÓLO si la firma de los lugares cambió, con lista blanca por clave y por campo de fila: lo que no se entiende deja los lugares en sólo lectura y re-escribir tira antes de borrar. La consecuencia («Cambia dónde gasta. Meta lo revisa y reinicia el aprendizaje.») va pegada al botón.',
+      '⚠️ **Una decisión distinta del plan:** el radio que vino de Meta se re-emite con su unidad mientras nadie lo cambie (`radioMeta`). La `unidad` pegada al lugar que proponía el plan habría mandado «+25 km» elegido en el selector como 25 millas. Y el valor actual entra al desplegable como «(actual)»: decía «Seleccionar…» sobre 12 km.',
+      'Verificado: 4577 tests, quince roturas cazadas (ocho del parser y siete del cableado), y 27 de 27 en el navegador con Meta simulado, incluidas las dos pantallas de creación y un borrador con un pin. Falta lo que hace Martín: cambiar lugares de verdad en una campaña de prueba en pausa en su cuenta, y decidir cómo se CREA un pin.',
+    ],
+    archivos: [
+      'lib/meta-geo.ts — `lugaresDesdeMeta`, `aplicarLugares`, `radioMetaVigente`, el tipo pin y `lugarPin`',
+      'app/ads-manager/EditarPublicoModal.tsx — los lugares en el editor, sólo lectura y la consecuencia pegada al botón',
+      'app/ads-manager/EntityDetalle.tsx — «Dónde se muestra», con su lectura y `versionGeo`',
+      'app/ads-manager/LugaresLectura.tsx — la vista de lectura de los dos',
+      'app/ads-manager/LugarPicker.tsx — el radio del pin y el valor «(actual)»',
+      'app/ads-manager/CampanasBrowser.tsx — la segunda puerta al editor y la versión que sube al guardar',
+      'tests/meta-geo.test.ts y tests/ads-lugares-conjunto.test.ts — 10 tests nuevos, cada uno probado rompiendo lo que fija',
+    ],
+    commits: [],
   },
 ];

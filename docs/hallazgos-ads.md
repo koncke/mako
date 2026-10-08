@@ -517,6 +517,11 @@ creativos, analizar, sugerir o previsualizar (la orquestación vive solo en
 **Sin hacer:** una función en la lib que reciba SOLO los cambios, lea el crudo y superponga
 en el server; recién ahí la ruta y la API pueden aceptar un parámetro parcial.
 
+*(07/10, #715)* La cabecera de `ads.def.ts` ya dice que la ruta NO mergea. Y los LUGARES ahora
+se editan en el modal, sobre el mismo crudo, por `aplicarLugares` (`lib/meta-geo.ts`): el geo
+se toca sólo si cambió, y nunca si el crudo trae algo que no se entiende — ver «Dónde se muestra
+un conjunto que ya corre».
+
 **Vive en:** lib/meta-ads-create.ts (getAdsetTargeting/updateAdsetTargeting :1231-1244) + app/ads-manager/EditarPublicoModal.tsx:67-88 · app/api/ads-manager/adset-targeting/route.ts · *2026-06-30 ~auditoria-ads-manager-editar-publico · 2026-09-16 api-mako-areas*
 
 ### Reconstruir un creativo de Meta pierde todo lo que Meta no devuelve en `object_story_spec`
@@ -1901,14 +1906,97 @@ palabra entera: «Córdoba» no matchea «Cordobesa»), después el tamaño del 
 
 **Sin hacer:**
 - **Pin en el mapa** (latitud/longitud): sólo dirección escrita. `cleanGeo` ya sabe mandar
-  lat/long; falta la pantalla.
-- **`EditarPublicoModal` no edita lugares:** re-envía el geo crudo del conjunto, así que se
-  conserva pero no se cambia desde ahí.
+  lat/long; falta la pantalla. *(07/10: un pin YA se lee, se ve y se le cambia el radio en un
+  conjunto que corre — ver la entrada de abajo. Lo que sigue sin hacer es CREAR uno, y espera
+  una decisión de Martín.)*
+- ~~**`EditarPublicoModal` no edita lugares**~~ — cerrado el 07/10 (#715), entrada de abajo.
 - **Grupos de países** («Latinoamérica»): `location_types=["country_group"]` no devolvió
   nada en la búsqueda.
 - **`location_types` (vive / estuvo)** no se expone, a propósito: `travel_in` lo rechaza
   Meta con «All location targeting will now reach people living in or recently in», que es
   lo que hoy muestra Ads Manager.
+
+## Dónde se muestra un conjunto que ya corre: los lugares reales son PINES (07/10, #715)
+
+**Síntoma:** el detalle de un conjunto no decía dónde está segmentado —sólo el desglose
+`regiones` de insights, que es dónde se GASTÓ— y el editor de público re-enviaba el geo crudo
+y lo decía en pantalla («la ubicación… se conserva»). Cambiar los lugares de algo que ya corre
+era ir a Meta.
+
+**Lo que se midió antes de escribir el parser** (GET `/{adset}?fields=targeting`, la misma
+lectura del editor, sobre tres conjuntos de tres cuentas conectadas, con el token de cada
+workspace dueño y ninguna escritura):
+
+| | |
+|---|---|
+| `custom_locations` | `{ latitude, longitude, radius, distance_unit, primary_city_id, region_id, country }` — **sin `address_string` ni `name`**. Radios 1, 2, 5, 8, 10, 12 y 16 km |
+| `countries` | `['US', 'MX']`, pelados |
+| `regions` (excluidas) | `{ key, name, country }` |
+| `location_types` | `['home','recent']` y **`['frequently_in','home','recent']`**, adentro de `geo_locations` Y de `excluded_geo_locations` |
+
+⚠️ **El diagnóstico obvio era el equivocado, dos veces.** El plan suponía que lo que corre son
+direcciones y dejaba el pin para cuando Martín decidiera cómo se elige uno; pero los dos
+conjuntos inmobiliarios medidos —el caso que pidió la tarea— son TODO pines. Sin el tipo `pin`
+en el parser, la feature quedaba en sólo lectura justo donde hacía falta. Y el plan proponía
+`unidad?: 'mile'|'kilometer'` al lado de `radioKm`: los desplegables del selector escriben km y
+no saben de unidades, así que elegir «+25 km» sobre una ciudad en millas habría viajado como
+**25 millas**.
+
+**Las reglas que quedaron** (todas en `lib/meta-geo.ts`, con test que las ejecuta):
+
+- **El POST reemplaza el targeting entero → el geo se toca SÓLO si la firma cambió.**
+  `aplicarLugares` devuelve el MISMO objeto si los lugares dan el mismo spec: abrir el editor y
+  cambiar la edad deja el geo crudo intacto, con los campos informativos y todo.
+- **Lista blanca en POSITIVO, por clave Y por campo de fila.** Lo que no está nombrado
+  (`places`, `country_groups`, un campo nuevo en una ciudad, una unidad que no es mile/km, un
+  pin sin radio) va a `noEntiendo`, y con algo ahí los lugares son de sólo lectura y
+  `aplicarLugares` TIRA antes de re-escribir. `location_types` se copia tal cual a cada lado.
+- **El radio que vino de Meta se re-emite con su unidad y sin clamp** (`radioMeta`) mientras
+  `radioKm` siga coherente; si alguien elige otro en el selector, gana el elegido, en km.
+  Pasar millas a km no servía: 10 mi = 16,09 km cae debajo del mínimo de ciudad (17) y el clamp
+  movía el público de una ciudad que nadie tocó apenas se editaba OTRO lugar.
+- **Una dirección que vuelve con coordenadas se re-emite como punto**: re-geocodificar el texto
+  podría moverlo.
+- **Un radio que no está en la lista entra al desplegable como «(actual)»** — sin eso decía
+  «Seleccionar…» sobre 12 km y el primer clic escribía otro radio (la regla del `<select>`).
+- **`lugaresDesdeDraft` armaba los tipos como `string[]`**: sin `'pin'` ahí, el borrador del
+  wizard perdía el pin al recargar sin que el compilador avisara. Ahora sale de `ETIQUETA_TIPO`,
+  que es `Record<TipoLugar>`.
+- **«Dónde se muestra» se relee por versión, no por `key`**: un key remontaba el detalle, volvía
+  a pedir `/api/entity-insights` a Meta y perdía la métrica elegida.
+
+**Trampas del entorno:** el workspace de Martín (ws9) no tiene Meta conectado, así que las
+lecturas salieron de cuentas de clientes; el guard de voseo marca un IDENTIFICADOR (`const aca`)
+igual que un texto de pantalla.
+
+**Sin hacer:**
+- **La escritura REAL contra Meta**: cambiar los lugares de un conjunto y el «anuncio de prueba
+  con exclusión». Sólo se probó en el navegador con Meta simulado (27 de 27). Hace falta una
+  campaña de prueba EN PAUSA en una cuenta de Martín —nunca de un cliente: cambiar lugares
+  manda el conjunto a revisión y reinicia el aprendizaje— y probar DENTRO de su workspace: desde
+  SuperAdmin sin workspace resuelto, `guardAdsWs` y `cred()` caen a `OWNER_WS`, que es el ws1.
+- **Crear un pin** (decisión de Martín): (a) pegar coordenadas o un link LARGO de Maps con
+  vista previa de OpenStreetMap en un iframe, sin librería ni costo —la CSP no tiene
+  `frame-src`—, o (b) un mapa para arrastrar el pin, con librería y proveedor. Con (a) falta
+  `pinDesdeTexto` y que `pareceDireccion` (`LugarPicker.tsx`) no ofrezca una URL como calle: un
+  link corto de Maps no trae coordenadas.
+- **Los topes en millas no están medidos** (`reachestimate`): un radio en millas se re-emite
+  tal cual porque Meta ya lo aceptó; la ciudad en millas del test es forma SINTÉTICA (ningún
+  conjunto leído tenía ciudades con radio).
+- **Grupos de países**: un conjunto con `country_groups` queda en sólo lectura.
+- **La API de MaKo sigue sin «editar público»**: falta una función en la lib que lea el crudo y
+  superponga en el server (`ads.def.ts` ya no dice que la ruta mergea).
+- **La ruta `adset-targeting` no comprueba que el conjunto sea de la cuenta del workspace**: con
+  un token de agencia, un id equivocado lee o pisa el de otro cliente. Ya pasaba; el detalle suma
+  un call site de lectura.
+- **Cada detalle de conjunto abierto es una lectura más a Meta** (y el editor suma el alcance del
+  selector), contra la cuota de la cuenta de cada cliente.
+
+**Vive en:** `lib/meta-geo.ts` (`lugaresDesdeMeta`, `aplicarLugares`, `radioMetaVigente`,
+`lugarPin`) · `app/ads-manager/EditarPublicoModal.tsx` · `app/ads-manager/EntityDetalle.tsx` ·
+`app/ads-manager/LugaresLectura.tsx` · `app/ads-manager/LugarPicker.tsx` (`opcionesRadio`) ·
+`app/ads-manager/CampanasBrowser.tsx` (`versionGeo`) · `tests/meta-geo.test.ts` ·
+`tests/ads-lugares-conjunto.test.ts` · *2026-10-07 tarea #715*
 
 ---
 

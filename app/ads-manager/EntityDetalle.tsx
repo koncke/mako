@@ -6,6 +6,8 @@
 // Pide /api/entity-insights (serie diaria + desgloses) y los muestra cruzados
 // con datos del CRM (cierres/cash) que vienen del merge de senales. Incluye el
 // botón "Analizar con MaKo" con el contexto de métricas + recos de Meta + CRM.
+// En un conjunto, además, «Dónde se muestra»: los lugares en los que está SEGMENTADO
+// (el desglose `regiones` de abajo dice dónde se GASTÓ, que es otra cosa).
 
 import { useEffect, useMemo, useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
@@ -13,6 +15,11 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { BreakdownCharts, fmtUSD, type Demo, type BD } from '../marketing/ad-charts';
 import { MakoButton } from '../_components/ChartIA';
 import { colorDeSemaforo, bgDeSemaforo, type Semaforo, type Reco } from '@/lib/meta-health-ui';
+import { lugaresDesdeMeta, type LecturaGeo } from '@/lib/meta-geo';
+import { LugaresLectura } from './LugaresLectura';
+
+// «No pude leer» es un estado propio, no una lista vacía (#715).
+type EstadoGeo = { estado: 'cargando' } | { estado: 'error'; error: string } | { estado: 'ok'; lectura: LecturaGeo };
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -51,13 +58,18 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, hasta, cross, recosMeta, presupuestoMxn, onClose }: {
+export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, hasta, cross, recosMeta, presupuestoMxn, onClose, onCambiarLugar, versionGeo = 0 }: {
   id: string; level: 'campaign' | 'adset'; name: string; statusLabel: string; semaforo: Semaforo;
   desde: string; hasta: string; cross: CrossData; recosMeta?: Reco[]; presupuestoMxn?: number | null; onClose: () => void;
+  /** Sólo conjuntos: abre el editor de público (EditarPublicoModal), la misma puerta que «Público» de la fila. */
+  onCambiarLugar?: () => void;
+  /** Sube cuando se guardaron lugares: relee SÓLO «Dónde se muestra». */
+  versionGeo?: number;
 }) {
   const [data, setData] = useState<EntityInsights | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [met, setMet] = useState<MetKey>('spend_usd');
+  const [geo, setGeo] = useState<EstadoGeo | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -68,6 +80,28 @@ export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, h
       .catch((e) => { if (alive) setErr(String(e)); });
     return () => { alive = false; };
   }, [id, desde, hasta]);
+
+  // «Dónde se muestra» (#715): una lectura PROPIA, aparte de las métricas — si falla no
+  // las tumba, y si fallan ellas esto se ve igual. Es la misma lectura que hace el editor
+  // de público al abrirse (una llamada a Meta por conjunto abierto, contra la cuota de la
+  // cuenta del cliente). Se relee con `versionGeo` y NO con un `key` en el padre: el key
+  // remontaba el modal entero, volvía a pedir /api/entity-insights y perdía la métrica
+  // elegida.
+  useEffect(() => {
+    if (level !== 'adset') { setGeo(null); return; }
+    let alive = true;
+    setGeo({ estado: 'cargando' });
+    fetch(`/api/ads-manager/adset-targeting?adset_id=${encodeURIComponent(id)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        if (!j.ok) { setGeo({ estado: 'error', error: String(j.error || 'error desconocido') }); return; }
+        const t = (j.adset?.targeting ?? {}) as Record<string, unknown>;
+        setGeo({ estado: 'ok', lectura: lugaresDesdeMeta(t.geo_locations, t.excluded_geo_locations) });
+      })
+      .catch((e) => { if (alive) setGeo({ estado: 'error', error: String(e) }); });
+    return () => { alive = false; };
+  }, [id, level, versionGeo]);
 
   const p = data?.period;
   const metricaActiva = METRICAS.find((m) => m.key === met)!;
@@ -114,18 +148,37 @@ export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, h
           {!data && !err && <div style={{ fontSize: 13.5, color: 'var(--faint)', padding: '8px 0' }}>Cargando datos de Meta…</div>}
 
           {data && p && (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-                <Stat label="Gasto" value={fmtUSD(p.spend_usd, 0)} />
-                <Stat label="Agendas" value={fmtNum(p.agendas)} color={p.agendas > 0 ? 'var(--good)' : undefined} />
-                <Stat label="Costo / agenda" value={fmtUSD(cpa)} />
-                <Stat label="Cierres (CRM)" value={fmtNum(cross.cierres)} color={cross.cierres > 0 ? 'var(--good)' : undefined} />
-                <Stat label="Cash (CRM)" value={fmtUSD(cross.cash_usd, 0)} color={cross.cash_usd > 0 ? 'var(--good)' : undefined} />
-                <Stat label="ROAS cash" value={roasCash !== null ? `${roasCash.toFixed(2)}x` : '—'} />
-                <Stat label="Leads" value={fmtNum(p.leads)} />
-                <Stat label="CPL" value={fmtUSD(cpl)} />
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+              <Stat label="Gasto" value={fmtUSD(p.spend_usd, 0)} />
+              <Stat label="Agendas" value={fmtNum(p.agendas)} color={p.agendas > 0 ? 'var(--good)' : undefined} />
+              <Stat label="Costo / agenda" value={fmtUSD(cpa)} />
+              <Stat label="Cierres (CRM)" value={fmtNum(cross.cierres)} color={cross.cierres > 0 ? 'var(--good)' : undefined} />
+              <Stat label="Cash (CRM)" value={fmtUSD(cross.cash_usd, 0)} color={cross.cash_usd > 0 ? 'var(--good)' : undefined} />
+              <Stat label="ROAS cash" value={roasCash !== null ? `${roasCash.toFixed(2)}x` : '—'} />
+              <Stat label="Leads" value={fmtNum(p.leads)} />
+              <Stat label="CPL" value={fmtUSD(cpl)} />
+            </div>
+          )}
 
+          {/* Fuera del bloque de métricas a propósito: se ve aunque Meta no devuelva insights. */}
+          {geo && (
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 13, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Dónde se muestra</span>
+                {/* Sólo si se pueden cambiar de verdad: con algo que MaKo no entiende, el
+                    editor los deja en sólo lectura y el botón prometería otra cosa. */}
+                {onCambiarLugar && geo.estado === 'ok' && !geo.lectura.noEntiendo.length && (
+                  <button type="button" onClick={onCambiarLugar} style={{ padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' }}>Cambiar lugares</button>
+                )}
+              </div>
+              {geo.estado === 'cargando' && <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Leyendo en Meta…</span>}
+              {geo.estado === 'error' && <span style={{ fontSize: 12.5, color: 'var(--bad)' }}>No pude leer la ubicación: {geo.error}</span>}
+              {geo.estado === 'ok' && <LugaresLectura lectura={geo.lectura} />}
+            </div>
+          )}
+
+          {data && p && (
+            <>
               {data.daily.length > 0 && (
                 <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 13, padding: '16px 18px' }}>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>

@@ -212,6 +212,9 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   const [editCopyAd, setEditCopyAd] = useState<{ id: string; name: string } | null>(null);
   const [problemaSel, setProblemaSel] = useState<{ titulo: string; ads: ProblemAd[] } | null>(null);
   const [editPublicoAdset, setEditPublicoAdset] = useState<{ id: string; name: string } | null>(null);
+  // Sube cada vez que se guarda un público: el detalle abierto relee «Dónde se muestra»
+  // (y sólo eso; un `key` remontaría el detalle entero y volvería a pedir las métricas).
+  const [versionGeo, setVersionGeo] = useState(0);
   // La campaña y su objetivo viajan con el anuncio: sin ellos el registro de la publicación
   // nacía con el default de la tabla (Leads) y sin campaña (revisión de la #59).
   const [addAnuncioAdset, setAddAnuncioAdset] = useState<{ id: string; name: string; campaignId: string | null; objective: string | null } | null>(null);
@@ -883,7 +886,10 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       {adSel && <AdDetailTabs key={adSel.ad_id} senal={adSel} desde={desde} hasta={hasta} defaultTab="rendimiento" onClose={() => abrirAd(null)} />}
       {entSel && (
         <EntityDetalle id={entSel.node.id} level={entSel.level} name={entSel.node.name} statusLabel={entSel.node.statusLabel} semaforo={entSel.node.semaforo}
-          desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoMxn={entSel.node.dailyBudgetMxn ?? null} onClose={() => setEntSel(null)} />
+          desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoMxn={entSel.node.dailyBudgetMxn ?? null} onClose={() => setEntSel(null)}
+          // La segunda puerta al MISMO editor que «Público» de la fila: los dos refrescan igual.
+          onCambiarLugar={entSel.level === 'adset' ? () => setEditPublicoAdset({ id: entSel.node.id, name: nameOf(entSel.node) }) : undefined}
+          versionGeo={versionGeo} />
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
       {/* Renombra LO ELEGIDO, no la tab entera: el único camino de entrada es la barra
@@ -894,7 +900,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       {nuevaOpen && <NuevaCampanaModal key={nuevaModo} modo={nuevaModo} health={health} healthError={error} senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
       {problemaSel && <ProblemaModal ads={problemaSel.ads} accountId={health?.account.accountId ?? null} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
-      {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
+      {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setVersionGeo((v) => v + 1); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
       {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} campaignId={addAnuncioAdset.campaignId} campaignObjective={addAnuncioAdset.objective} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
       {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} monedaRespaldo={health?.account.currency ?? null} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
       {elegirCampana && (

@@ -3,8 +3,9 @@
 // =============================================================================
 // LugarPicker — dónde está la gente, con los mismos lugares que acepta Meta
 // =============================================================================
-// Lo usan el paso 'lugar' de NuevaCampanaModal (grande) y AgregarConjuntoModal
-// (compacto). Un buscador contra `search?type=adgeolocation` (país, provincia,
+// Lo usan el paso 'lugar' de NuevaCampanaModal (grande), AgregarConjuntoModal
+// (compacto) y EditarPublicoModal (compacto, sobre los lugares de un conjunto que ya
+// corre: ahí aparecen pines y radios que esta pantalla no crea). Un buscador contra `search?type=adgeolocation` (país, provincia,
 // ciudad, código postal, barrio, localidad, partido, DMA) + dirección con radio,
 // cada lugar para INCLUIR o EXCLUIR, radio en ciudades y direcciones, y el alcance
 // de Meta en vivo — que además VALIDA: si Meta rechaza la combinación, lo dice acá
@@ -16,7 +17,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import {
   ETIQUETA_TIPO, RADIOS_CIUDAD_KM, RADIOS_DIRECCION_KM,
-  agregarLugar, geoSpecDe, lugarDireccion, mismoLugar, nombrePais, type LugarMeta,
+  agregarLugar, geoSpecDe, lugarDireccion, mismoLugar, nombrePais, rotuloRadio, type LugarMeta,
 } from '@/lib/meta-geo';
 
 const MONO = "'Geist Mono', monospace";
@@ -42,6 +43,23 @@ function contexto(l: LugarMeta): string {
 
 // Una dirección tiene calle Y número. Así «C1425» (un CP) no se ofrece como calle.
 const pareceDireccion = (t: string) => t.length >= 6 && /\d/.test(t) && /[A-Za-zÁÉÍÓÚáéíóúñÑ]{3,}/.test(t);
+
+// Las opciones del radio, con el valor ACTUAL adentro aunque no esté en la lista (la regla
+// del <select> de AGENTS.md). Hasta la #715 no hacía falta: los lugares nacían acá y el
+// radio salía de esta misma lista. Un conjunto que ya corre trae los suyos —12, 8 y 16 km
+// en los pines medidos el 07/10, o millas—, y sin esto el desplegable mostraba
+// «Seleccionar…» sobre un radio guardado, y el primer clic escribía otro.
+// Con el «(actual)» el rótulo es más largo: el desplegable se ensancha sólo en ese caso
+// (en la creación nunca aparece, y ahí el ancho queda como estaba).
+const fueraDeLista = (base: readonly number[], l: LugarMeta) => !!l.radioKm && !base.includes(l.radioKm);
+function opcionesRadio(base: readonly number[], l: LugarMeta, cero?: string) {
+  const ops = [...(cero ? [{ value: '0', label: cero }] : []), ...base.map((km) => ({ value: String(km), label: `+${km} km` }))];
+  if (fueraDeLista(base, l)) {
+    ops.push({ value: String(l.radioKm), label: `${rotuloRadio(l)} (actual)` });
+    ops.sort((a, b) => Number(a.value) - Number(b.value));
+  }
+  return ops;
+}
 
 export function LugarPicker({ lugares, setLugares, sugerido, onValidez, compacto = false }: {
   lugares: LugarMeta[];
@@ -195,13 +213,14 @@ export function LugarPicker({ lugares, setLugares, sugerido, onValidez, compacto
                 <div style={{ fontFamily: MONO, fontSize: fs.sub, color: l.excluir ? 'var(--bad)' : 'var(--faint)' }}>{l.excluir ? 'Excluido · ' : ''}{ETIQUETA_TIPO[l.tipo]}{contexto(l)}</div>
               </div>
               {l.tipo === 'city' && (
-                <Dropdown value={String(l.radioKm ?? 0)} width="140px"
-                  options={[{ value: '0', label: 'Solo la ciudad' }, ...RADIOS_CIUDAD_KM.map((km) => ({ value: String(km), label: `+${km} km` }))]}
+                <Dropdown value={String(l.radioKm ?? 0)} width={fueraDeLista(RADIOS_CIUDAD_KM, l) ? '175px' : '140px'}
+                  options={opcionesRadio(RADIOS_CIUDAD_KM, l, 'Solo la ciudad')}
                   onChange={(v) => setRadio(l, Number(v) || null)} />
               )}
-              {l.tipo === 'address' && (
-                <Dropdown value={String(l.radioKm ?? 5)} width="110px"
-                  options={RADIOS_DIRECCION_KM.map((km) => ({ value: String(km), label: `+${km} km` }))}
+              {/* El pin lleva el radio de la dirección: Meta les pone el mismo piso (1 km). */}
+              {(l.tipo === 'address' || l.tipo === 'pin') && (
+                <Dropdown value={String(l.radioKm ?? 5)} width={fueraDeLista(RADIOS_DIRECCION_KM, l) ? '175px' : '110px'}
+                  options={opcionesRadio(RADIOS_DIRECCION_KM, l)}
                   onChange={(v) => setRadio(l, Number(v))} />
               )}
               <button type="button" aria-label={`Quitar ${l.nombre}`} onClick={() => quitar(l)}
@@ -224,7 +243,8 @@ export function LugarPicker({ lugares, setLugares, sugerido, onValidez, compacto
           {alcance.max === 0
             ? <span style={{ fontSize: 13, color: 'var(--warn)' }}>Meta calcula 0 personas para estos lugares.</span>
             : alcance.min != null && alcance.max != null && <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--dim)' }}>≈ {fmtPersonas(alcance.min)} – {fmtPersonas(alcance.max)} personas</span>}
-          {lugares.some((l) => l.tipo === 'address') && alcance.frase && (
+          {/* Un pin son coordenadas: la frase de Meta es lo único que dice DÓNDE cae. */}
+          {lugares.some((l) => l.tipo === 'address' || l.tipo === 'pin') && alcance.frase && (
             <span style={{ fontSize: 12, color: 'var(--faint)', textAlign: alinear, lineHeight: 1.4 }}>Meta lo ubicó así: {alcance.frase}</span>
           )}
         </div>

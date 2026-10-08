@@ -34,8 +34,13 @@
 //    pero pide un AdSetSpec entero (segmentación, optimización, anuncios adentro) como
 //    parámetro objeto. Hay que decidir su forma; no se calla.
 //  · editar_publico_conjunto: updateAdsetTargeting SÍ existe, pero REEMPLAZA el
-//    targeting completo; la ruta adset-targeting mergea antes. Sin ese merge en lib,
-//    un parámetro parcial borraría la segmentación. Pendiente de decidir.
+//    targeting completo, y la ruta adset-targeting NO mergea: reenvía lo que le llega.
+//    El merge vive en el NAVEGADOR (EditarPublicoModal superpone sobre el crudo, y los
+//    lugares pasan por aplicarLugares de lib/meta-geo.ts). Un parámetro parcial por la
+//    API borraría la segmentación. Falta una función en la lib que lea el crudo y
+//    superponga en el server; si se expone, va con confirmacion 'pantalla' y rolMinimo
+//    'admin' (cambiar lugares reinicia el aprendizaje del conjunto). Hasta el 07/10 este
+//    comentario decía «la ruta mergea antes», que era falso.
 // =============================================================================
 
 import type { Gating, OperacionDef, Parametro } from '../tipos';

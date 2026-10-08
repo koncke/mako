@@ -212,7 +212,9 @@ export const AREAS: AreaDev[] = [
     slug: 'ads-manager', titulo: 'Ads Manager', familia: 'Operate', grupo: 'Ads Manager',
     estado: 'listo', verEnApp: '/ads-manager',
     alcance: 'La réplica del Ads Manager de Meta adentro de la app: estado en vivo + rendimiento cruzado con el CRM, y las escrituras a Meta.',
-    vive: ['app/ads-manager/', 'app/api/ads-manager/', 'app/api/meta-health/route.ts', 'lib/presupuesto-cambio.ts'],
+    // lib/meta-geo.ts: los lugares de Meta (el selector y, desde la #715, leer y re-escribir
+    // los de un conjunto que ya corre). Sin esto la bitácora no veía el trabajo sobre él.
+    vive: ['app/ads-manager/', 'app/api/ads-manager/', 'app/api/meta-health/route.ts', 'lib/presupuesto-cambio.ts', 'lib/meta-geo.ts'],
     proyectos: ['Feature: Ads Manager'],
   },
   {
