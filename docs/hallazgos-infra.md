@@ -4696,3 +4696,93 @@ herramienta y no en el código.
 fallo del banco, no un test sano.
 
 **Vive en:** los bancos de `scratchpad/*/banco/` de cada corrida · *2026-10-08 Customer Success*
+
+## Las trampas del entorno en el rediseño de /chatbot (08/10/2026)
+
+Cinco partes en paralelo, cada una en su worktree, más la revisión adversarial y los arreglos (corridas
+`wf_8096a9d7-b3f`, `wf_c1c0d3d3-ae3` y `wf_92e4c306-856`). Lo que sigue costó vueltas sin ser del
+código; lo del código está en [hallazgos-chatbot.md](hallazgos-chatbot.md).
+
+### `head: true` sobre una tabla que no existe da `count: null` sin error; una columna que falta tira la consulta entera
+
+- Medido contra prod el 08/10 (sólo lectura): para una tabla que no existe, PostgREST contesta
+  **`PGRST205`** («Could not find the table … in the schema cache», HTTP 404), no `42P01`. Un
+  `select(..., { head: true, count: 'exact' })` sobre esa tabla devuelve `count: null` y `error:
+  null`: un cero sin error. Se volvió a pagar con la 0224 sin aplicar (204 y `count: null` sobre
+  `crm_etiquetas`). Ya estaba escrito en la entrada de la tabla `notificaciones` (más arriba, en
+  Migraciones): la segunda vez es la que hace de esto una regla.
+- Una COLUMNA que falta es otra cosa: `42703` («column X does not exist») o `PGRST204`, y PostgREST
+  rechaza el `select` ENTERO (AGENTS.md). Con la 0223 sin aplicar, el motor no mandaba nada y el
+  webhook se comía la primera respuesta del lead.
+- ⚠️ «does not exist» aparece en los dos mensajes: una regex floja toma una columna faltante por una
+  tabla faltante y la tolera.
+
+**Regla:** para saber si una tabla falta se mira el `code` de un `select` normal (PGRST205 o 42P01),
+nunca el count de un `head: true`. Sólo se tolera la TABLA que falta; una columna que falta es un
+error y tira. Los moldes: `esTablaInexistente` y `esColumnaInexistente`
+(`lib/nutricion-grafo-motor.ts`), `tablaNoExiste` (`lib/setting-adjuntos-reglas.ts`).
+
+### Los worktrees de una corrida pueden salir de OTRA base
+
+**Síntoma:** a dos de las cinco partes les faltaban `docs/chatbot-flujo-ramas-diseno.md`,
+`lib/flujo-grafo.ts` y `lib/flujo-legado.ts`, que es lo primero que la tarea mandaba leer.
+
+**Causa:** los worktrees `-3` y `-5` de la corrida salieron de `89991891` (main) y no de `b6de5bd1`
+(la rama del rediseño); los otros tres salieron bien.
+
+**Regla:** antes de trabajar en un worktree de una corrida, `git merge-base --is-ancestor <commit
+base> HEAD`. Se arregló con `git merge --ff-only b6de5bd1` (la base desciende de main, así que no
+pisa nada). Si falta un archivo que el contrato da por existente, el síntoma es la base, no el
+contrato.
+
+### El scratchpad es UNO por sesión, no por agente
+
+**Síntoma:** el `romper.py` de una parte pisó el de otra.
+
+**Causa:** las cinco partes corren en la misma sesión del orquestador, y el scratchpad es por sesión.
+
+**Regla:** en una corrida multi-agente, cada parte PREFIJA sus temporales (`L-roturas.mjs`,
+`E-romper.py`, `romper-E.mjs`). Es la regla de `/tmp` de AGENTS.md, un nivel más adentro.
+
+### Si hace falta junction se pregunta con `Test-Path node_modules`, no con `require.resolve`
+
+**Síntoma:** `npm test` daba un rojo en `tests/replay-envoltorio.test.ts` (ENOENT sobre
+`node_modules/rrweb/dist/record/rrweb-record.min.js`) aunque `require.resolve('tsx')` contestaba bien.
+
+**Causa:** el worktree vive ADENTRO del repo (`.claude/worktrees/…`), así que Node resuelve subiendo
+hasta el `node_modules` del clon, y el chequeo «¿hace falta junction?» dice que no. Pero un test que
+lee un archivo de `node_modules` por RUTA LITERAL desde la raíz del worktree no lo encuentra.
+
+**Regla:** el chequeo es `Test-Path node_modules`. Sin junction, ese rojo es del entorno (con el
+junction pasa 13/13), y el junction se quita con `cmd /c rmdir`, como dice AGENTS.md.
+
+### Write convierte escapes otra vez, y un guard con `\n` falla en el clon de Windows
+
+- **La herramienta Write volvió a convertir escapes Unicode en el carácter real**, esta vez U+200B y
+  el rango de diacríticos combinantes (U+0300 a U+036F), en `lib/etiquetas-reglas.ts` y en su test;
+  una rotura se reportó «NO APLICA» porque el texto buscado no coincidía con el archivo. La regla está
+  en «Escribir una barra invertida a un archivo» (más arriba). Lo nuevo: para sacar acentos va
+  `/\p{M}/gu` y no un rango de combinantes, y hay varios `lib/*.ts` con ese rango escrito crudo.
+- **En el clon de Windows los archivos llegan en CRLF, y un guard con un `\n` literal dentro de la
+  regex falla** sobre un archivo idéntico. Pasó en `tests/recordatorio-lead.test.ts` (`023f6f7d`):
+  `/rolAdmin\n/` pasó a `/rolAdmin\r?\n/`. AGENTS.md ya pide normalizar antes de buscar; si el salto
+  va adentro de la regex, va `\r?\n`.
+
+### Los números de migración se comparten entre sesiones, y la 0223 ya está repetida
+
+**Síntoma:** el rediseño usó 0223 a 0225 (`0223_flujo_grafo.sql`, `0224_crm_etiquetas.sql`,
+`0225_setting_adjuntos.sql`), y la sesión del curso (Customer Success) también usó una 0223
+(`0223_curso_papelera.sql`, en main desde `d188f3a8`): la renumeró ahí porque la API había tomado la
+0222. El diseño decía que las otras sesiones llegaban hasta la 0222.
+
+**Causa:** el próximo número es un recurso compartido (AGENTS.md), y un reparto acordado de antemano
+no sobrevive a que otra sesión renumere.
+
+**Regla:** el repo ya tolera números repetidos (13 hoy: 0024, 0025, 0026, 0039, 0060, 0061, 0069,
+0072, 0128, 0129, 0136, 0177 y 0223) y `scripts/apply-migration.mjs` aplica por RUTA, así que no rompe
+nada. Pero antes de nombrar una se mira `origin/main`, no sólo el árbol propio, y la cabecera de cada
+`.sql` dice su orden de despliegue, porque el número ya no lo dice.
+
+**Vive en:** `lib/nutricion-grafo-motor.ts` · `lib/setting-adjuntos-reglas.ts` ·
+`tests/recordatorio-lead.test.ts` · `tests/replay-envoltorio.test.ts` · `supabase/migrations/` ·
+*2026-10-08 rediseño de /chatbot*

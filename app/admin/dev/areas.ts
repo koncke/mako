@@ -536,6 +536,7 @@ export const AREAS: AreaDev[] = [
     alcance: 'El agente que conversa, SÓLO por WhatsApp y por la línea NO oficial del negocio (Evolution: sin ventana de 24 h ni plantillas). Lo primero: recordarle al lead la reunión agendada. Además, secuencias por etapa del CRM para la masa, simulación como lead, métricas y hand-off al humano. Instagram quedó afuera el 06/10/2026 (decisión de Martín: 0 DMs en su historia).',
     vive: ['app/chatbot/page.tsx', 'app/chatbot/ChatAgentApp.tsx', 'app/chat-bot/page.tsx', 'app/chat-agent/page.tsx', 'app/setting/page.tsx', 'lib/setting-estrategia.ts', 'lib/nutricion.ts', 'app/api/chat-agent/secuencias/route.ts', 'app/chatbot/FlujoLienzo.tsx', 'app/chatbot/SecuenciaPerfil.tsx', 'lib/flujo-conversacion.ts', 'app/_components/Lienzo.tsx', 'lib/lienzo-grafo.ts', 'lib/flujo-grafo.ts', 'lib/flujo-legado.ts', 'lib/nutricion-grafo-motor.ts', 'app/chatbot/EditorMensajeWhatsApp.tsx', 'app/chatbot/PanelProbar.tsx', 'app/chatbot/RecordatorioFlujo.tsx', 'lib/simulador-grafo.ts', 'lib/setting-adjuntos.ts'],
     proyectos: ['Agente: Chatbot'],
+    hallazgos: 'hallazgos-chatbot',
   },
   {
     slug: 'landing-generator', titulo: 'Landing Generator', familia: 'Sales Machine',

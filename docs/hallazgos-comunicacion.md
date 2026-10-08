@@ -5,6 +5,9 @@ inbox oficial (`lib/chatwoot.ts`, `lib/meta-templates.ts`), el motor de nutrici�
 (`lib/nutricion.ts`), el email (`lib/resend.ts`, `lib/email-marketing.ts`) o los avisos
 (`lib/avisos.ts`). **No es un changelog.**
 
+Lo del flujo con ramas de /chatbot (el modelo, el motor nuevo, el lienzo y «Probar», desde el
+08/10/2026) está en [hallazgos-chatbot.md](hallazgos-chatbot.md).
+
 Buena parte del material viene de los journals de las corridas multi-agente de junio a
 agosto de 2026: **es de segunda mano**, sale de lo que devolvieron los subagentes en su
 momento y no de una relectura del código de hoy. Cada entrada dice de qué corrida y de qué
@@ -8543,7 +8546,7 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
 
 **Vive en:** `lib/reunion-recordatorio.ts` · `lib/recordatorio-lead.ts` · `lib/leads.ts`
 (`cancelarJuntaEnLead`, `guardarLinkDeReunion`, `upsertLeadFromCalendly`) ·
-`app/api/webhooks/calendly/route.ts` · `app/chatbot/RecordatorioReunion.tsx` ·
+`app/api/webhooks/calendly/route.ts` · `app/chatbot/RecordatorioFlujo.tsx` ·
 `supabase/migrations/0204_link_de_la_reunion.sql`
 
 - ⚠️ **Hoy no hay a quién recordarle en el ws1: el webhook de Calendly está muerto OTRA VEZ**
@@ -9116,3 +9119,174 @@ objeto, sin migración.
 
 *08/10/2026, cuenta 2. Corrida `wf_48a7d912-9a9` y revisión `wf_d229086b-56f`; commits `3f961adc`,
 `1035b951`, `fb986a44`, `b2a6db9d`, `395c4c11`.*
+
+## El composer de WhatsApp es UNO, la biblioteca de archivos y las etiquetas del teléfono (08/10/2026)
+
+**Vive en:** `app/whatsapp/_shared/ComposerWhatsApp.tsx` · `app/whatsapp/_shared/BurbujaHilo.tsx` ·
+`app/whatsapp/_shared/ChatHilo.tsx` · `app/whatsapp/_shared/VoiceRecorder.tsx` ·
+`app/whatsapp/EmpresaInbox.tsx` · `app/chatbot/EditorMensajeWhatsApp.tsx` · `lib/setting-adjuntos.ts` ·
+`lib/setting-adjuntos-reglas.ts` · `app/api/chat-agent/adjuntos/route.ts` ·
+`supabase/migrations/0225_setting_adjuntos.sql` · `lib/borrador-oficial.ts` · `lib/evolution.ts` ·
+`lib/evolution-labels.ts` · `lib/etiquetas.ts` (`sincronizarAfuera`, `jidDelChat`) · `lib/chatwoot.ts`
+
+Del rediseño de /chatbot (punto 8 del pedido: UN mismo editor tipo WhatsApp para texto, audio y
+archivos, con grabación, adjuntos y emojis) y de las etiquetas (punto 12: que se pongan también en
+WhatsApp y en Chatwoot). El flujo con ramas, motor incluido, está en
+[hallazgos-chatbot.md](hallazgos-chatbot.md).
+
+### Una sola burbuja: la copia a mano se queda con los bugs del día en que se copió
+
+**Síntoma:** en /whatsapp (`EmpresaInbox`) los mensajes con *negrita* se veían con los asteriscos
+crudos, y un sticker dibujaba sólo la hora.
+
+**Causa:** `EmpresaInbox` era una copia a mano de `ChatHilo` hecha antes de que `ChatHilo` pasara a
+`TextoMarcas`, y ninguna de las dos tenía una rama para el sticker.
+
+**Regla:** la burbuja es UNA (`BurbujaHilo`) y la usan el hilo, el inbox, la vista previa del editor
+y la tarjeta del lienzo (`compacta`); el composer también (`ComposerWhatsApp`). Para auditar que un
+refactor «manda igual», se compara contra el archivo del commit PADRE (`git show <sha>^:<ruta>`)
+caso por caso —la tecla, el botón deshabilitado, qué closure captura el envío diferido—: leer sólo
+la versión nueva no alcanza. Así se revisó `EmpresaInbox` contra `aed2a22a^`, sin regresiones en
+texto, audio ni archivos. ⚠️ `app/whatsapp/WhatsAppApp.tsx` (el inbox OFICIAL) sigue con su propia
+copia del composer, la tercera.
+
+### El grabador no manda al desmontar, salvo lo que la persona ya soltó
+
+**Síntoma:** cerrar el panel de un mensaje (o cambiar de nodo) a mitad de una grabación subía el
+audio, se lo ponía al paso y publicaba.
+
+**Causa:** el cleanup de `useVoiceRecorder` llamaba a `stop()` sin marcar la cancelación, y el
+`onstop` del MediaRecorder entregaba el blob igual.
+
+⚠️ **«Cancelar todo al desmontar» estaba equivocado a medias:** lo que la persona YA terminó (apretó
+la flecha) y cuyo `onstop` todavía no llegó se tiene que entregar.
+
+**Regla:** al desmontar se cancela sólo si `rec.state !== 'inactive'` (`crearGrabadorVoz().soltar()`).
+La lógica vive sin React, con el navegador inyectado, para poder ejecutarla con un MediaRecorder
+falso (`tests/composer-whatsapp.test.ts`); y `soltar` no deja el grabador inservible, porque
+StrictMode monta, desmonta y vuelve a montar.
+
+### `wa-media` no filtra nada: la lista blanca se pregunta dos veces
+
+**Síntoma:** la biblioteca de archivos no podía apoyarse en el bucket para filtrar tipos ni tamaños:
+la URL firmada acepta cualquier cosa en ese path.
+
+**Causa:** medido el 08/10: `wa-media` es privado con `file_size_limit` null y `allowed_mime_types`
+null. Guarda el espejo de las conversaciones, y el espejo guarda lo que llegue.
+
+**Regla:** la lista blanca se pregunta al FIRMAR (lo que declara el navegador) y al REGISTRAR (lo que
+Storage dice que guardó, con `storage.info(path)`). Lo que no pasa se borra del bucket y no se
+registra. Medido: `info()` devuelve `size` y `contentType`, y para un path inexistente tira
+`StorageApiError 'Object not found'` (400); `storage.list()` de una carpeta inexistente da `[]`. Y el
+path propio se reconoce con una regex EXACTA (`pathEsAdjuntoDe`), nunca con un `startsWith`: `1/`
+acepta `1/mako_ws1/…` y `1/setting-adjuntos/../`.
+
+### `getAdjunto` tiene tres respuestas: el archivo, null y una excepción
+
+**Síntoma:** el contrato decía «o null si no existe en ESTE workspace» para todo.
+
+**Causa:** para el motor son dos cosas distintas: null es «el archivo ya no existe» (falla y se
+avisa) y una excepción es «la base no contestó» (se reintenta). Devolver null ante un error de red le
+diría al dueño que borró algo que sigue ahí.
+
+**Regla:** «no pude leer» es un tercer estado, y el que llama distingue el `catch` del null. Ante
+null, el motor falla con «el archivo ya no existe» y nunca degrada a texto.
+
+### Lo subido y no registrado se borra sólo con la fila CONFIRMADA ausente
+
+**Síntoma:** un archivo cuyo registro falló (o cuya pestaña se cerró entre subir y registrar) quedaba
+para siempre en `wa-media/<ws>/setting-adjuntos/`, y cada reintento dejaba otra copia (un
+`randomUUID()` nuevo por subida). Lo encontró la revisión (costuras-10).
+
+**Causa:** el navegador sube directo con la URL firmada y después registra; sólo la rama de rechazo
+borraba, y nada lista ese prefijo (no es el del espejo, `<ws>/mako_ws<ws>/`).
+
+⚠️ **«Borrar si el insert falla» no alcanzaba y además podía borrar de más.** Con la 0225 sin aplicar,
+la PRIMERA lectura del registro ya falla con PGRST205; y un insert que «falló» por la red pudo haber
+escrito, igual que un 23505 dice que otro ganó.
+
+**Regla:** se borra sólo con la fila CONFIRMADA ausente (`sinFilaConfirmada`): «no pude leer» no es
+«no hay», salvo la tabla que no existe (`tablaNoExiste`). El barrido de las pestañas cerradas
+(`barrerAdjuntosHuerfanos`, con `after()` en cada 'subir') lista hasta 5000 objetos y borra como mucho
+200 de más de 1 h; «no pude listar» o «no pude leer las filas» no decide nada, y las filas se leen
+DESPUÉS de listar. ⚠️ Si alguien llega a referenciar un binario de esa carpeta por otra vía que una
+fila de `setting_adjuntos` del mismo workspace, el barrido lo borra.
+
+### Un borrador de nota de voz o de archivo no sale por el WhatsApp oficial
+
+**Síntoma:** un borrador con audio o archivo, con la línea no oficial caída y la ventana de 24 h
+abierta, mostraba «Sale por tu WhatsApp oficial · Enviar ✓». Al aprobarlo se mandaba sólo el pie (el
+link), se marcaba 'enviado' y la secuencia avanzaba: el audio no salía nunca (costuras-2).
+
+**Causa:** `lib/borrador-oficial.ts` no leía `audio_id` ni `adjunto_id`, y `caminosDeEnvio` no sabía
+si el borrador llevaba media.
+
+**Regla:** un borrador con media no tiene camino oficial: `via: null` con su motivo («La nota de voz
+sale sólo por tu número de empresa.» / «El archivo sale sólo por tu número de empresa.»), y el panel
+dibuja el motivo en vez del botón. El `texto` de esos borradores es el pie, no «🎙 Nota de voz: …».
+
+### De `findLabels` sólo se toma qué ids siguen vivos
+
+**Síntoma:** `sincronizar_etiquetas_whatsapp` devolvía ok y el catálogo quedaba con «Huayacn», «Lac
+inters», «Hablar en cmara ».
+
+**Causa:** era un upsert por `label_id` con el nombre de `findLabels`, y Evolution 2.3.7 guarda los
+nombres sin lo que no es ASCII; los buenos habían llegado por el webhook `labels.edit`. Además,
+`listarLabelsEvolution` devolvía `[]` cuando fallaba la lectura: una poda montada sobre eso borraba el
+catálogo entero.
+
+**Regla:** de `findLabels` sólo se toma QUÉ IDS SIGUEN VIVOS: se agregan los nuevos, se actualiza el
+color y se poda. Un nombre que ya estaba no se pisa nunca. Una lectura vacía no poda, y una lectura
+caída tira (`listarLabelsEvolutionEstricto`, `planSincronizarCatalogo`).
+
+### Las etiquetas de WhatsApp no se crean por API, se aplican al chat del espejo, y la línea no está en el catálogo
+
+- **Evolution 2.3.7 no expone crear etiquetas**: sincronizar es poner o sacar una que YA EXISTE en el
+  celular, y el CRUD del CRM elige a cuál corresponde. `etiquetarChatWhatsApp` exige `add: true` /
+  `remove: true` en el cuerpo. `handleLabel` NO está medido contra una línea real (escribe en el
+  celular del cliente): si Evolution contestara con otra forma, cada sincronización quedaría como
+  fallo en el historial del lead, nunca como un éxito falso. Hay que probarla una vez en el ws3.
+- **La etiqueta se aplica al CHAT, y el chat se busca en el espejo** (`jidDelChat`: los últimos 10
+  dígitos contra `wa_mensajes`, sin grupos), no se arma desde el teléfono del lead: Evolution le borra
+  el tercer dígito a los números de Argentina y México (AGENTS.md, «un número que dio WhatsApp viaja
+  como jid»).
+- ⚠️ **`evolution_labels` no guarda de qué línea es cada etiqueta** (mig 0077, sin `instance_name`) y
+  el webhook `labels.edit` la carga sin decirlo. Al mapear, `wa_instance` se toma de la línea por
+  default (`validarWhatsApp`): con dos líneas en un workspace, el id podría ser de la otra.
+- **Chatwoot PISA la lista entera** de etiquetas de un contacto en el POST: se lee, se fusiona y se
+  escribe, o se borran las que el equipo puso a mano. El título no es el nombre (minúsculas; sólo
+  letras, números, guion y guion bajo): el slug se guarda en `crm_etiquetas.chatwoot_label` y nunca
+  se recalcula. Estas funciones TIRAN: un null por un error de red se leería como «no hay contacto».
+
+### Trampas menores
+
+- Una función pura que vive en un módulo server-only se muda a uno puro y se re-exporta (`export {
+  extDeMime } from`): sin eso ningún test la importa, y `docx`/`xlsx` quedaban como `.bin` en el
+  espejo.
+- `remapJson` de `lib/datos-mau.ts` es una LISTA (un paso nombra `audio_id` o `media_id`), y el aviso
+  «no había mapa de X» sale sólo si algún paso nombra un id de esa tabla. `setting_adjuntos` se copia
+  ANTES que `nutricion_secuencias`.
+- Un test del editor que tardó 128 s no era un handle colgado: era CPU (el tsc completo corría en
+  paralelo), e importar el editor solo tarda 1,7 s. Antes de buscar un timer colgado, se mide el
+  import solo y se mira `process._getActiveHandles()`.
+
+### Lo que quedó SIN hacer
+
+- **Aplicar la 0225 antes del deploy, o junto.** El código tolera la tabla ausente («La biblioteca de
+  archivos no está lista.») y no deja huérfanos, pero sin la tabla ningún archivo se registra.
+- `app/whatsapp/WhatsAppApp.tsx` sigue con su propia copia del composer.
+- **La vuelta WhatsApp→MaKo de las etiquetas**: una rama `labels.association` en
+  `app/api/webhooks/evolution/route.ts`, después del corte de la línea de MaKo, que llame a
+  `ponerEtiqueta` (es idempotente: el eco no duplica). Y la columna de línea (`instance_name`) en
+  `evolution_labels`, que toca la rama `labels.edit` del mismo webhook.
+- Los avisos de /mensajes no cuentan el uso de una etiqueta antes de archivarla (ver
+  [hallazgos-crm.md](hallazgos-crm.md)).
+- Sin medir: el tope de `sendMedia` de Evolution 2.3.7 y si llega el caption de un documento;
+  `storage.info()` contra un objeto recién subido por URL firmada (contra los que ya existían, sí); el
+  popover del emoji y del clip sobre el panel del lienzo; el composer nuevo en /whatsapp, en un
+  navegador.
+- El editor no maneja pasos de email: no tiene el campo del asunto.
+
+*08/10/2026, cuenta 2. Partes C y E de la corrida `wf_8096a9d7-b3f` (`dba63f61`, `aed2a22a`,
+`f5db7d5b`, `f92559e0`), revisión `wf_c1c0d3d3-ae3` (costuras-2 y costuras-10) y arreglos
+`wf_92e4c306-856` (`96bc5a08`, `bfd3ecee`, `2544f845`, `c3d85077`).*

@@ -7266,3 +7266,185 @@ lead nace en el elegido; si ya existía, se lo AGREGA a ese producto.
 
 _Hecho por un agente en worktree propio (`tests/inbox-agregar-al-crm.test.ts`, doce roturas, las doce
 caen); la escritura, probada en ws3 con un embudo temporal borrado después._
+
+## Las etiquetas del CRM: el lote, el espejo con las etapas y lo que archivar promete (08/10/2026)
+
+**Vive en:** `lib/etiquetas.ts` · `lib/etiquetas-motor.ts` · `lib/etiquetas-reglas.ts` · `lib/leads.ts`
+(`setPipelineStage`, `setBoardStageOverride`, `updateLead`, `upsertLeadFromCalendly`,
+`espejarEtiquetasDeEtapa`, `COLS_ETAPA_PREVIA`) · `lib/lead-funnel.ts` (`moverEtapaEnProducto`) ·
+`app/crm/actions.ts` (`moverLeadsDeEtapaAction`) · `app/crm/EditorEtiquetas.tsx` ·
+`app/crm/EtapasModal.tsx` · `app/crm/AccionesLoteLeads.tsx` · `app/crm/lead-view/EtiquetasDelLead.tsx` ·
+`app/_components/etiquetas-cliente.tsx` · `app/api/cron/crm-automatico/route.ts` ·
+`lib/email-marketing.ts` · `lib/datos-mau.ts` · `lib/clonar-config.ts` ·
+`supabase/migrations/0224_crm_etiquetas.sql`
+
+Punto 12 del pedido de Martín del 08/10/2026 (literal en `docs/chatbot-flujo-ramas-diseno.md`): un
+CRUD de etiquetas, vinculables a etapas, que sirvan en las condiciones, disparen automatizaciones y
+se espejen en WhatsApp y en Chatwoot. Lo de WhatsApp y Chatwoot está en
+[hallazgos-comunicacion.md](hallazgos-comunicacion.md); el disparador del lado del motor, en
+[hallazgos-chatbot.md](hallazgos-chatbot.md).
+
+### ⚠️ El lote disparaba por la puerta de atrás
+
+**Síntoma:** la regla era «una acción en lote no dispara automatizaciones», y `ponerEtiquetaLote` no
+disparaba. Igual, mover 200 leads a una etapa vinculada desde la barra de lote habría disparado la
+automatización de la etiqueta 200 veces, por la línea no oficial del cliente.
+
+**Causa:** ⚠️ «basta con no disparar en el lote de etiquetas» era el diagnóstico equivocado. El
+movimiento de etapa en lote (`moverLeadsDeEtapaAction` → `setLeadStageAction` → `setPipelineStage`,
+de a uno) no sabe que es un lote: pasa por el gancho de la etapa, que pone la etiqueta vinculada como
+si la hubiera puesto una persona. Y la revisión encontró la segunda puerta: el barrido horario
+inscribía después a todos los que tenían la etiqueta, la hubiera puesto quien la hubiera puesto.
+
+**Regla:** la etiqueta que pone una ETAPA (origen 'etapa') nunca dispara ni vuelve a mover: el evento
+de ese movimiento es la etapa, que tiene su propio disparador. Sólo dispara un poner directo (la
+ficha, la API, un paso «⚡ Acción»). Y sin horario, el disparador por etiqueta es sólo el evento
+(`barridoInscribe`, en hallazgos-chatbot.md). Antes de afirmar «esto no dispara» se enumeran TODOS
+los caminos que escriben la tabla del disparador, no sólo el que se está mirando. Es una decisión
+del constructor; Martín la puede dar vuelta.
+
+### El espejo etapa↔etiqueta es de TRANSICIONES, con foto: un barrido que impone deshace decisiones
+
+**Síntoma:** el espejo sólo corría en los movimientos explícitos (`setPipelineStage`,
+`setBoardStageOverride`, `moverEtapaEnProducto`). Agendar por Calendly, marcar asistencia o ganar
+desde la ficha mueven la etapa DERIVADA sin escribirla, así que «Agendó» no se ponía nunca y la
+etiqueta de la etapa anterior quedaba para siempre.
+
+**Causa:** la etapa que se ve es `pipelineStageOf`: el override o la derivada de las fechas. Nadie
+llamaba al espejo cuando cambiaba la derivada.
+
+⚠️ **El arreglo obvio era el equivocado:** un barrido que, por cada etiqueta vinculada, se la pone a
+los que están en su etapa y se la saca a los que no, deshace decisiones de personas (una vinculada
+que alguien sacó a mano vuelve en una hora; la que se puso sobre un lead que no se pudo mover
+desaparece) y contradice el contrato «cambiar el vínculo vale de aquí en adelante»: vincular
+«Cualificado», puesta a mano a 300 leads, se la sacaría a todos los que no están en esa etapa.
+
+**Regla:** el espejo mira TRANSICIONES. Los ganchos van en `updateLead` y en `upsertLeadFromCalendly`
+(comparan la etapa vista antes y después), y el barrido del cron (`conciliarEspejoEtapas`, en el
+crm-automatico) compara contra una FOTO de la etapa vista la vez anterior (`app_settings`
+'etiquetas.espejo.etapas', por workspace):
+
+- la primera corrida es línea de base y no toca nada;
+- una clave nueva cuenta como entrada sólo en un producto que ya se miraba;
+- la foto se fecha DESPUÉS de aplicar, o el historial del propio barrido se lee como una persona que
+  tocó.
+
+Y la etapa que el lead DEJA se lee de `pipelineStageOf(antes)`, no de `pipeline_stage`, que en la
+mayoría de los leads es NULL (`COLS_ETAPA_PREVIA`). `setPipelineStage` espeja dos veces la misma
+transición (manda el desenlace por `updateLead` y después espeja él): la idempotencia del motor
+corta y no deja historial de más. Un flag `espejarEtiquetas: false` no hace falta, y rompía la guarda
+de `updatelead-no-borra-venta`, que fija `await updateLead(id, sync)`.
+
+Límites del barrido, sin medir contra datos reales: reconoce lo que tocó una persona por el NOMBRE
+en `lead_audit` (una etiqueta renombrada entre corridas se espeja igual), y ningún test lo ejecuta
+(lo cubren `planEspejo`, que es puro, y guardas de fuente).
+
+### Un flag que atraviesa capas sin salir del server va por AsyncLocalStorage
+
+**Síntoma:** mover 200 leads de etapa en lote sincronizaba cada etiqueta espejada con WhatsApp y
+Chatwoot (el espejo de mensajes, Evolution y tres llamadas a Chatwoot por lead) adentro de una server
+action con `maxDuration = 60`: el lote se cortaba a la mitad sin devolver el conteo.
+
+**Causa:** el flag de lote no llegaba al espejo.
+
+⚠️ **Pasarlo como parámetro de `setLeadStageAction` era el arreglo equivocado:** es una server action
+exportada, así que el parámetro queda expuesto al navegador, y rompía las guardas que fijan «el lote
+pasa por el MISMO `setLeadStageAction`».
+
+**Regla:** un flag que tiene que atravesar varias capas sin cambiar firmas ni salir del server va por
+AsyncLocalStorage, como `wsStore` (`conLoteDeEtiquetas`, `loteStore`). Lo hereda todo lo que el lote
+toque, incluido el espejo de `updateLead`. La sincronización diferida tiene UN tope global (40), deja
+rastro en el historial de los que no se pasaron («eran más de 40 a la vez») y corre también si el lote
+se corta.
+
+### El dedup de una copia normaliza como el índice único de la tabla
+
+**Síntoma:** copiar las etiquetas en «Completar con los datos de Mau» con `dedupPor: 'nombre'` hacía
+caer el ámbito entero. Y las copias al workspace de prueba no traducían los ids de etiqueta de los
+pasos (las condiciones y `accion.params.etiquetaId`) ni la columna `etiqueta_id`: en el ws3 la
+condición nunca se cumplía y el disparador no corría.
+
+**Causa:** `crm_etiquetas` es única por `lower(btrim(nombre))` entre las VIVAS, y
+`nutricion_secuencias.clave` es única incluso con archivadas: un dedup exacto choca con el índice en
+un caso y en el otro reusa una clave. Y `remapearJson` sólo mira las claves de primer nivel de cada
+paso.
+
+**Regla:** el dedup de una copia normaliza igual que el índice único de la tabla y declara por tabla
+si mira sólo las vivas (`normalizarDedup`, `dedupEntreVivas`). Las etiquetas se copian ANTES que las
+secuencias (sin la copia no hay mapa viejo→nuevo) y se traducen las tres referencias; lo que no está
+en el mapa queda en null.
+
+### Un segmento de email que no existe no se guarda ni se manda: tira
+
+**Síntoma:** un segmento que el validador no conocía se guardaba como «activos», y el envío le
+escribía a todos los activos (1.044 en el ws1) sin un error. Con las etiquetas, un `etiqueta:<id>`
+le habría escrito a todos. Y /email ofrecía «Se le puso una etiqueta» sin elegir cuál: la secuencia
+quedaba activa y muda para siempre.
+
+**Causa:** tres caídas silenciosas: `crearBroadcast` hacía `esSegmentoValido(x) ? x : 'activos'`,
+`actualizarBroadcast` ignoraba el inválido y `filtroSegmento` tenía `case 'activos': default:`.
+
+**Regla:** un segmento inválido tira (`validarSegmento`). El de etiqueta se resuelve ANTES de
+`filtroSegmento`, contra `crm_lead_etiquetas`, paginando en las dos puntas. Un disparador por etiqueta
+sin etiqueta no se guarda (va por `setTriggerSecuencia`, que la exige), y /email manda el disparador
+sólo si CAMBIÓ: reenviarlo en cada guardado frenaba guardar el texto cuando la etiqueta se había
+archivado en el medio.
+
+### Archivar apaga, y el texto dice lo que hace
+
+**Síntoma:** archivar una etiqueta prometía «las condiciones que la nombran dejan de cumplirse», y el
+motor las seguía cumpliendo para los leads que ya la tenían (y el barrido los seguía inscribiendo):
+el dueño decidía con un dato falso. Y el selector de un paso que la usaba quedaba en «Elige una
+etiqueta», sin decir a cuál apuntaba.
+
+**Causa:** archivar sólo escribe `archivada_at` (nunca se borra: lo que la nombra apunta a su id), y
+`hechosDeLeads` y `leadsConEtiqueta` no lo miraban.
+
+**Regla:** se eligió una sola verdad: archivar APAGA (el motor saca las archivadas con
+`etiquetasQueCuentan`, `lib/nutricion-grafo-motor.ts`), y el texto de `archivar_etiqueta` y de
+`usoTexto` lo dice. Un selector cuyo valor elegido está archivado lo pide y lo muestra «Nombre
+(archivada)»; el lienzo pide `?archivadas=1`.
+
+### Trampas menores
+
+- **`tests/nutricion-etapa.test.ts` exige que `setBoardStageOverride` mida menos de 4000 caracteres,
+  comentarios incluidos**, y con el gancho medía 5149. Lo nuevo de esa función va como helper AFUERA
+  de su bloque, y el porqué largo va al docblock del helper (`espejarEtiquetasDeEtapa`). Quedan unos
+  90 caracteres de margen.
+- **Un count con `head: true` sobre `crm_etiquetas` sin la 0224 contestó 204, `count: null` y sin
+  error**: no prueba que la tabla exista (ver [hallazgos-infra.md](hallazgos-infra.md)).
+- **`funnel_id` NULL en el vínculo a una etapa es el producto del NEGOCIO**, igual que en
+  `leads.funnel_id`, y no «la casa de cada lead» como decía el diseño. Escrito en la 0224 y en
+  `lib/etiquetas.ts`.
+- **Poner una etiqueta vinculada NO mueve al lead en tres casos**, y cada uno queda en su historial:
+  la etapa es un cierre (pide monto o motivo), el lead ya está cerrado en su casa, o el lead no está
+  en ese producto.
+- Los chips de la ficha se releen cuando otro control cambia la etiqueta (mover de etapa), y
+  `etiquetas_lead` por HTTP ya no manda el email de quien la puso en `puesta_por`.
+
+### Lo que quedó SIN hacer
+
+- **Aplicar la 0224 ANTES del deploy**: el código nuevo lee las dos tablas.
+- **Correr una vez `sincronizar_etiquetas_whatsapp` en el ws1** (escribe en prod). Hoy el CRUD ofrece
+  para mapear las 5 etiquetas basura del 11/09 (ALQUILER, LALALALA, PAP, Molestar en Marzo,
+  Importante); la sincronización nueva poda las que ya no están en el celular.
+- **No espejan etiqueta↔etapa**: `agregarAProducto` y `quitarDeProducto`, el rescate al borrar un
+  producto (`lib/funnels.ts`), el webhook de Chatwoot y el bloqueo de un contacto, que escriben
+  `pipeline_stage` directo.
+- **`EtapasModal` no avisa cuántas etiquetas apuntan a una etapa** antes de borrarla o renombrarla:
+  un vínculo a una key que ya no existe se descubre al usarlo («la etapa ya no existe» en el
+  historial). `app/crm/EtapasModal.tsx`.
+- **`usoDeEtiqueta` no cuenta los flujos de /mensajes** (viven en el store de plantillas): un paso
+  «⚡ Acción» de un aviso que pone la etiqueta no se cuenta antes de archivarla. `lib/etiquetas.ts`.
+- **Sacar una etiqueta no cierra lo pendiente de las secuencias que disparó** (es del motor, como
+  `cerrarEntregaDeEtapa`).
+- **`reclamarEspaciado` deja una fila de `app_settings` por cada par (etiqueta, lead) que disparó**
+  (`mako.aviso.last.etiqueta:<id>:<hash>`), y nadie la limpia.
+- **Las copias, lo que falta**: `lib/clonar-config.ts` copia `mako.plantillas.store` tal cual (los
+  «⚡ Acción» de /mensajes conservan el `etiquetaId` del dueño), y ninguno de los dos clonadores
+  traduce el `funnel_id` de las condiciones de etapa ni `ir_a.destino.secuencia_id`.
+  `lib/clonar-config.ts` (`KEYS_COPIABLES`) · `lib/datos-mau.ts`.
+- No se miró en un navegador el selector «(archivada)», los chips releídos ni el selector de /email.
+
+_08/10/2026, cuenta 2. Parte E de la corrida `wf_8096a9d7-b3f` (`f92559e0`), revisión
+`wf_c1c0d3d3-ae3` (etiquetas-1 a 6, datos-1 a 7) y arreglos `wf_92e4c306-856` (`3f3aadd8`)._
