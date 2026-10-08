@@ -291,7 +291,10 @@ test('el lienzo ofrece «⚡ Acción de MaKo», la edita con el editor compartid
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
   assert.match(lienzo, /\{ value: 'accion', label: '⚡ Acción de MaKo' \}/);
   assert.match(lienzo, /\{ value: 'mensaje', label: '💬 Mensaje' \}/);
-  assert.match(lienzo, /import \{ EditorAccionMako, type ValorAccion \} from '@\/app\/_components\/EditorAccionMako';/);
+  assert.match(lienzo, /import \{ EditorAccionMako, useTitulosAcciones, type ValorAccion \} from '@\/app\/_components\/EditorAccionMako';/);
+  // Los títulos del nodo salen de la MISMA lectura que el desplegable del editor: el lienzo no
+  // vuelve a pedir el catálogo por su cuenta.
+  assert.doesNotMatch(lienzo, /fetch\('\/api\/flujos\/acciones'/);
   const editor = bloque(lienzo, "if (nodo.tipo === 'accion' && paso) {", "if (nodo.tipo === 'mensaje' && paso) {", 3_000);
   assert.match(editor, /<EditorAccionMako\s+key=\{`accion-\$\{paso\.orden\}-\$\{paso\.accion\?\.operacion \?\? ''\}`\}/, 'sin la key, lo escrito para una acción se ve en la siguiente');
   assert.match(editor, /onCambio=\{\(v\) => onAccion\?\.\(paso\.orden, v\)\}/);

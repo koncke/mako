@@ -35,7 +35,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
-import { EditorAccionMako, type ValorAccion } from '@/app/_components/EditorAccionMako';
+import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
@@ -109,7 +109,7 @@ export function FlujoLienzo({
   onAgregarTras?: (id: string, que: 'mensaje' | 'accion') => void;
 }) {
   const [sel, setSel] = useState<string | null>(null);
-  const titulos = useTitulosAccion(pasos.some(esPasoAccion));
+  const titulos = useTitulosAcciones(pasos.some(esPasoAccion));
   const grafo = grafoDeSecuencia(pasos as PasoParaGrafo[], estrategia, etiquetaEtapa, secuencias, (op) => titulos?.get(op));
   const pasoDe = (n: NodoFlujo) => (n.orden != null ? pasos.find((x) => x.orden === n.orden) ?? null : null);
 
@@ -168,38 +168,6 @@ export function FlujoLienzo({
       accion={pie}
     />
   );
-}
-
-/**
- * LOS TÍTULOS DE LAS ACCIONES, para que el nodo diga QUÉ hace MaKo («Mover un lead de
- * etapa») y no un id del registro. El catálogo lo arma el server (GET /api/flujos/acciones):
- * el registro no se importa desde un componente cliente (AGENTS.md).
- *
- * ⚠️ ES UNA SEGUNDA LECTURA DEL MISMO CATÁLOGO que ya pide `EditorAccionMako` para su
- * desplegable, y la razón es que el editor no lo exporta: su caché vive adentro del
- * módulo. Lo correcto es que el editor exponga esa lectura y este hook la use; mientras
- * tanto, se pide sólo si la secuencia TIENE pasos de acción, una vez por visita. Sólo el
- * admin lo puede leer: para el resto el nodo dice el id, que es feo y es verdad.
- */
-let titulosAccionP: Promise<Map<string, string>> | null = null;
-function useTitulosAccion(activo: boolean): Map<string, string> | null {
-  const [titulos, setTitulos] = useState<Map<string, string> | null>(null);
-  useEffect(() => {
-    if (!activo) return;
-    let vivo = true;
-    titulosAccionP ??= fetch('/api/flujos/acciones', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((j: { ok?: boolean; acciones?: Array<{ id: string; titulo: string }> }) => {
-        // Un «no» (no es admin, o el server falló) no se cachea: la próxima apertura vuelve a preguntar.
-        if (!j.ok) titulosAccionP = null;
-        return new Map((j.ok ? j.acciones ?? [] : []).map((a) => [a.id, a.titulo]));
-      })
-      // Sin red tampoco.
-      .catch(() => { titulosAccionP = null; return new Map<string, string>(); });
-    void titulosAccionP.then((m) => { if (vivo) setTitulos(m); });
-    return () => { vivo = false; };
-  }, [activo]);
-  return titulos;
 }
 
 /** El mensaje COMO LLEGA. Es la pieza que hace que esto sea un editor y no un

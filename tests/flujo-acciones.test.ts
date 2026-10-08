@@ -98,3 +98,23 @@ test('El editor recibe el catálogo por la API, no importando el registro', () =
   assert.match(ruta, /accionesParaFlujo\(ws\)/);
   assert.match(ruta, /rol !== 'admin'/, 'cualquiera del equipo podría ver qué configura el admin');
 });
+
+test('El catálogo lo pide UN lector (EditorAccionMako): los lienzos usan su hook, no un fetch propio', () => {
+  // Los dos lienzos nacieron con su propia copia del fetch y de la caché, porque el editor no
+  // exportaba la suya. Verificado rompiéndolo (08/10/2026): con el fetch de vuelta en
+  // FlujoAviso.tsx, 1 fallo; sin él, pasa.
+  const pidenElCatalogo: string[] = [];
+  const barrer = (rel: string) => {
+    for (const ent of readdirSync(new URL(rel, import.meta.url), { withFileTypes: true })) {
+      const p = `${rel}${ent.name}`;
+      if (ent.isDirectory()) { if (ent.name !== 'api' && ent.name !== 'node_modules') barrer(`${p}/`); continue; }
+      if (!/\.tsx?$/.test(ent.name)) continue;
+      if (/fetch\(\s*['"`]\/api\/flujos\/acciones/.test(sinComentarios(leer(p)))) pidenElCatalogo.push(p.replace('../', ''));
+    }
+  };
+  barrer('../app/');
+  assert.deepEqual(pidenElCatalogo, ['app/_components/EditorAccionMako.tsx']);
+  for (const lienzo of ['../app/agencia/FlujoAviso.tsx', '../app/chatbot/FlujoLienzo.tsx']) {
+    assert.match(sinComentarios(leer(lienzo)), /useTitulosAcciones\(/, `${lienzo} no usa el lector compartido de títulos`);
+  }
+});

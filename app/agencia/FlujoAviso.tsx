@@ -46,7 +46,7 @@ import {
   operacionDelPaso, pasoDeAccion, rotuloOperacion, SIN_ACCION,
   ACUSES, UNIDADES_RECORDATORIO, cadaDeMin, aMinutos, type UnidadRecordatorio,
 } from '@/lib/flujos-tipos';
-import { EditorAccionMako, type ValorAccion } from '@/app/_components/EditorAccionMako';
+import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import type { NodoFlujo } from '@/lib/lienzo-grafo';
 
 const SANS = "'Geist', sans-serif";
@@ -62,35 +62,9 @@ const btnQuitarPaso = {
   fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: SANS,
 } as const;
 
-// ── LOS TÍTULOS DE LAS ACCIONES, PARA LA TARJETA ───────────────────────────
-// ⚠️ La tarjeta del lienzo dice QUÉ acción corre el paso, y su título vive en el registro
-// de la API de MaKo, que no se importa desde un componente cliente (AGENTS.md). Sale de la
-// MISMA ruta que usa el editor del panel (`EditorAccionMako`); se pide aparte porque la
-// tarjeta se dibuja sin abrir el panel, y aquel no expone su catálogo. Si un día lo expone,
-// esto se borra y se usa el suyo (está anotado como pendiente).
-// Mientras no llega, o si falla, la tarjeta dice el id legible: nunca queda en blanco.
-let titulosP: Promise<Record<string, string>> | null = null;
-function titulosDeAcciones(): Promise<Record<string, string>> {
-  titulosP ??= fetch('/api/flujos/acciones', { cache: 'no-store' })
-    .then((r) => r.json())
-    .then((j: { ok?: boolean; acciones?: Array<{ id: string; titulo: string }> }) => {
-      if (!j.ok) throw new Error('sin catálogo');
-      return Object.fromEntries((j.acciones ?? []).map((a) => [a.id, a.titulo]));
-    })
-    .catch((e) => { titulosP = null; throw e; });
-  return titulosP;
-}
-
-function useTitulosAcciones(activo: boolean): Record<string, string> {
-  const [titulos, setTitulos] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (!activo) return;
-    let vivo = true;
-    titulosDeAcciones().then((m) => { if (vivo) setTitulos(m); }).catch(() => { /* queda el id legible */ });
-    return () => { vivo = false; };
-  }, [activo]);
-  return titulos;
-}
+// La tarjeta del lienzo dice QUÉ acción corre el paso: el título sale de `useTitulosAcciones`
+// (la misma lectura y la misma caché que el desplegable del editor). Mientras no llega, o si
+// falla, la tarjeta dice el id legible: nunca queda en blanco.
 
 const FLUJO_VACIO: Flujo = { version: 1, activo: true, disparador: { tipo: 'manual' }, pasos: [] };
 
@@ -255,7 +229,7 @@ export function FlujoAviso({
     if (n.tipo !== 'accion') return n.detalle;
     const p = pasosExtra[n.orden ?? -1];
     const op = p?.tipo === 'accion' ? operacionDelPaso(p) : null;
-    return op ? (titulos[op] ?? rotuloOperacion(op)) : SIN_ACCION;
+    return op ? (titulos?.get(op) ?? rotuloOperacion(op)) : SIN_ACCION;
   };
 
   const aviso: AvisoParaGrafo = {

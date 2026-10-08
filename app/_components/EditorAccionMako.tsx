@@ -36,6 +36,26 @@ function catalogo(): Promise<AccionEditor[]> {
   return catalogoP;
 }
 
+/**
+ * Los títulos de las acciones, para que la tarjeta de un lienzo diga QUÉ corre el paso sin
+ * abrir el panel. Es la MISMA lectura (y la misma caché) que el desplegable del editor: los
+ * dos lienzos la pedían cada uno por su cuenta. Se pide sólo si el flujo tiene pasos de
+ * acción; mientras no llega, o si falla (no es admin, sin red), devuelve null y la tarjeta
+ * dice el id legible.
+ */
+export function useTitulosAcciones(activo: boolean): Map<string, string> | null {
+  const [titulos, setTitulos] = useState<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (!activo) return;
+    let vivo = true;
+    catalogo()
+      .then((a) => { if (vivo) setTitulos(new Map(a.map((x) => [x.id, x.titulo]))); })
+      .catch(() => { /* queda el id legible */ });
+    return () => { vivo = false; };
+  }, [activo]);
+  return titulos;
+}
+
 /** «fechaJunta» → «Fecha junta». Un rótulo de 1-3 palabras; la descripción va en el title. */
 function rotulo(nombre: string): string {
   const s = nombre.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').toLowerCase();
@@ -79,7 +99,7 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
         placeholder="Elige qué hace MaKo"
         search
         disabled={disabled}
-        hint={elegida ? 'Corre sola cuando el flujo llega acá.' : undefined}
+        hint={elegida ? 'Corre sola cuando el flujo llega aquí.' : undefined}
       />
       {elegida?.parametros.map((p) => (
         <CampoParametro key={p.nombre} p={p} valor={params[p.nombre]} onCambio={(v) => fijar(p.nombre, v)} pideLead={elegida.pideLead} disabled={disabled} />
