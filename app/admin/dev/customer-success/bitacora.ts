@@ -801,4 +801,42 @@ export const BITACORA: Hito[] = [
       "app/components/dropdown-lugar.ts — el desplegable que abre para arriba (toda la app)",
     ],
   },
+  {
+    fecha: "8 oct", hora: "12:42", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El feedback del curso en un audio de 26 minutos: lo del curso acá, lo demás a sus chats",
+    pedido: "Te paso feedback de Customer Success...\nSI hay tareas que le corresponden a otros chats, pasalas a esos chats. (Como CRM que se que estuvimos viendo algo de eso)\n\n[Adjunto: «WhatsApp Audio 2026-10-08 at 12.42.15 (1).mp4», 26 minutos. La transcripción entera y lo que salió, en docs/feedback-curso-08oct.md]",
+    puntos: [
+      "El audio es una prueba del curso con alguien que tiene su propio infoproducto, en pantalla compartida con Martín. Salieron 21 cosas del curso y cuatro de otros chats.",
+      "Se repartieron con send_message: al CRM (la fricción del pre-onboarding y migrar desde otros CRMs), a la API de MaKo (el curso en la API) y a Integraciones (la seguridad). Los tres lo hicieron el mismo día.",
+      "⚠️ Los primeros 7 minutos salieron de la transcripción como «1 2 3 … 699»: se volvieron a transcribir con Whisper, y de ahí salió el arreglo del STT.",
+    ],
+  },
+  {
+    fecha: "8 oct", hora: "15:06", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El feedback del audio: guardar a mano, la tarea en su contenedor, embeds, comentarios de clase y el STT",
+    puntos: [
+      "La lección se guarda A MANO: un borrador con «Guardar», aviso al salir sin guardar, Ctrl+Z, y «Guardar y ver» para la vista del alumno.",
+      "«Se me borraron los campos» tenía tres causas: la pantalla no mandaba la lista con un campo incompleto, el Atrás reusaba la página vieja, y el saneo tiraba sin decir. Ahora lo incompleto va en rojo y nada se descarta en silencio.",
+      "La tarea: cada una en su contenedor con su consigna con formato (mig 0226), nace con su primer campo, opciones que se editan como opciones, escala en deslizador o estrellas, más de una tarea por clase; «Obligatoria para avanzar» pasó al menú «…» de la clase.",
+      "Videos por código embed (Panda adentro, con su duración), todas las formas de YouTube adentro, «Insertar» agendas y videos en la descripción y la tarea, comentarios por clase (mig 0227), «+ Nuevo producto», la invitación con el remitente del negocio y opcional por WhatsApp.",
+      "Abrir una clase: el editor rico va perezoso y se precarga con el cursor (857 → 423 KB de JS inicial). Y el STT ya no toma un bucle por una transcripción.",
+      "Siete pistas en paralelo y dos revisiones: typecheck en 0 y 5.682 tests. Todo en bancos de Chromium: nada se vio todavía en la app real.",
+    ],
+    commits: [
+      { sha: "870112ba", msg: "El feedback del curso del 08/10: la transcripción del audio de 26 minutos y lo que va a cada chat", lineas: 160, archivos: 1 },
+      { sha: "dbae4da9", msg: "Curso: el feedback del audio del 08/10 — guardar a mano, la tarea en su contenedor, videos por embed, comentarios de clase y el STT que contaba", lineas: 11222, archivos: 86 },
+    ],
+    archivos: [
+      "app/customer-success/curso/LeccionEditable.tsx + lib/curso-admin.ts (guardarLeccion) — el guardado manual",
+      "app/customer-success/curso/TareaEditor.tsx + EditorCampos.tsx — la tarea en su contenedor",
+      "lib/curso.ts (tareasDeClase, erroresDeCampos) + lib/curso-tarea-html.ts + mig 0226 — el modelo de la tarea",
+      "lib/embeds.ts + app/_ui/EditorRico.tsx + lib/html-seguro.ts + Reproductor.tsx — los embeds y Panda",
+      "app/_cursos/ComentariosClase.tsx + lib/comunidad-datos.ts + mig 0227 — los comentarios de clase",
+      "lib/curso-invitar-canales.ts + lib/invitaciones.ts — el remitente del negocio y el WhatsApp",
+      "lib/stt-degenerado.ts + lib/ai-cheap.ts — el bucle del STT",
+      "docs/feedback-curso-08oct.md + docs/migracion-cursos.md — la fuente y la investigación",
+    ],
+  },
 ];

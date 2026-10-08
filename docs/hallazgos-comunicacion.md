@@ -9290,3 +9290,25 @@ caída tira (`listarLabelsEvolutionEstricto`, `planSincronizarCatalogo`).
 *08/10/2026, cuenta 2. Partes C y E de la corrida `wf_8096a9d7-b3f` (`dba63f61`, `aed2a22a`,
 `f5db7d5b`, `f92559e0`), revisión `wf_c1c0d3d3-ae3` (costuras-2 y costuras-10) y arreglos
 `wf_92e4c306-856` (`96bc5a08`, `bfd3ecee`, `2544f845`, `c3d85077`).*
+
+## La invitación al curso salía siempre firmada por MaKo, y el ws1 tiene el dominio de MaKo como si fuera suyo (08/10/2026)
+
+**Síntoma:** la invitación de un negocio a SUS alumnos salía siempre `MaKo <equipo@hola-mako.com>`,
+tuviera o no su dominio conectado. Lo pidió la prueba del curso del 08/10 («puedes conectar tu email,
+puedes conectar tu WhatsApp y a la persona le puede llegar por ambos lados»).
+
+**Causa:** `invitarAlCursoPorEmail` mandaba siempre por `enviarDePlataforma`.
+
+**La trampa al arreglarlo:** el ws1 —un cliente— tiene `resend_from = MaKo <equipo@hola-mako.com>`, y
+`credWs` le devuelve las credenciales de la PLATAFORMA. Con cualquiera de las dos lecturas, el ws1
+«tenía dominio propio» y era el de MaKo.
+
+**Vive en:** `lib/curso-invitar-canales.ts` (`remitenteDeLaInvitacion`, puro y con test) ·
+`lib/invitaciones.ts` (`remitenteDelNegocio`, primera línea de `invitarAlCursoPorEmail`)
+
+**Regla:** el remitente de algo que manda un NEGOCIO se lee con las credenciales DEL CLIENTE
+(`credDelCliente`), nunca con `credWs`; y ningún negocio tiene el dominio de MaKo ni el sandbox de
+Resend como propio: esos caen al remitente de MaKo. Sin «si falla, lo manda MaKo»: un dominio que
+dejó de verificar se dice en la pantalla. Medido en prod: el ws11 pasa a firmar con su dominio; el
+ws1 sigue como MaKo. El WhatsApp de la invitación es opcional, sale después del mail y mira el
+interruptor de envío del negocio. · *2026-10-08 Customer Success*

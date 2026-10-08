@@ -3275,6 +3275,13 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   la agencia para el doer es sólo Gemini: los cuatro modelos gratis de Groq topean en 8.000
   tokens por minuto y un pedido del doer pesa 13-16 mil (413 medido en los cuatro).
 
+⚠️ **Y UN 200 DE UN STT NO ES UNA TRANSCRIPCIÓN HASTA QUE PASA `salidaDegenerada`**
+(`lib/stt-degenerado.ts`). Medido el 08/10/2026: Gemini devolvió un minuto de habla y después
+«1 2 3 … 699» con `finishReason: STOP`, y la cascada lo tomó como el texto del audio — siete minutos
+perdidos sin un error. Un bucle es un FALLO de esa cuenta: se anota con su motivo y se prueba la
+siguiente; nunca un texto a recortar. Todo camino que transcriba llama al detector (`lib/transcribe.ts`,
+el de los cursos, todavía no). El detalle, en `docs/hallazgos-ia.md`.
+
 # Un contrato de datos no es un layout
 
 `exige` en `lib/mako-gramatica.ts` dice qué tiene que **tener** un estado de MaKo para no
@@ -5071,6 +5078,22 @@ mentir sobre algo destructivo. Dos cosas más:
 se dibuja la PUERTA DE VUELTA corre al montar y nunca más — o sea que la puerta se vuelve
 invisible justo después de la única acción que crea algo para recuperar. Se re-pregunta
 cuando cambia el dato que la justifica, no al montar.
+
+# Si una fila de una tabla compartida pasa a significar OTRA cosa, cada LECTOR de la tabla decide
+
+Agregar un sentido nuevo a filas de una tabla que ya tiene lectores —un post que es el hilo de una
+clase, una tarea que es una plantilla, un campo que no se contesta— se piensa en la pantalla que lo
+dibuja, y se escapan los lectores que NO dibujan. Medido el 08/10/2026 con los comentarios de clase
+(`comunidad_posts.clase_id`): el feed y la búsqueda los sacaban, y la lista de posts para armar una
+tarea «Comentar» y su verificación no — una tarea podía apuntar al hilo de una clase cerrada. Y el
+«autor» del hilo (quien comentó primero) hacía que «sacar a un alumno con su contenido» se llevara los
+comentarios de todos.
+
+- **Se barren TODOS los lectores de la tabla** (`grep` del nombre de la tabla y de la columna) y cada
+  uno decide si las filas nuevas le tocan, en positivo.
+- **Y queda un guard que barre el repo**: cada consulta a la tabla nombra la columna o está en una lista
+  de excepciones con su porqué, y una excepción que ya no corresponde a nada también falla. Moldes:
+  `tests/curso-comentarios-clase.test.ts` y, para los campos `seccion`, `tests/curso-tareas-secciones.test.ts`.
 
 # Retirar una RUTA es enumerar sus links y decidir el destino de cada uno POR SEPARADO
 

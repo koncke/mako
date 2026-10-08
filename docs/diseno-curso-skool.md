@@ -187,6 +187,13 @@ type Bloqueo = { tipo: 'abierto' } | { tipo: 'etapa' } | { tipo: 'anterior' } | 
 | 0221 | `conocimiento_ajustes` |
 | 0222 | (la tomó la API de MaKo: `api_llamadas_token`) |
 | 0223 | la papelera: `curso_clases.borrada_at`, `curso_modulos.borrado_at` (APLICADA el 08/10) |
+| 0226 | `curso_clases.tarea_html`: la consigna de la tarea con formato; `tarea` queda como su texto plano derivado (APLICADA el 08/10) |
+| 0227 | `comunidad_posts.clase_id`: el hilo de comentarios de una clase, fuera del feed (APLICADA el 08/10) |
+
+**Desde el 08/10 a la tarde** (el audio, `docs/feedback-curso-08oct.md`): la lección del editor se guarda
+A MANO (`guardarLeccion`, un borrador con «Guardar»); una clase puede tener más de una tarea, como campos
+`tipo: 'seccion'` del jsonb `campos` (`tareasDeClase`, `camposConRespuesta`, `erroresDeCampos` en
+lib/curso.ts); y el video y el editor rico aceptan código embed de una lista blanca (`lib/embeds.ts`).
 
 Toda tabla con `workspace_id` va a `TENANT_TABLES` (lib/workspace.ts) Y a `TABLAS_DE_INQUILINO`
 (lib/tablas-de-inquilino.ts), con RLS prendido y `revoke all … from anon, authenticated`.

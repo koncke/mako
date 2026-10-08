@@ -4906,3 +4906,124 @@ el alto máximo no restaba el relleno de la caja. Ahora decide con lo que mide e
   `/api/compartido/miniatura` en producción, publicar y comentar desde la tarea con el link `?post=`,
   el auto-scroll al arrastrar campos (Playwright manda un solo `dragover`) y el desplegable en otras
   pantallas.
+
+## El feedback del audio del 08/10: guardar a mano, la tarea en su contenedor, embeds y comentarios de clase (08/10/2026)
+
+En `dbae4da9` (migs **0226** `curso_tarea_html` y **0227** `comentarios_de_clase`, APLICADAS antes del
+deploy; eran 0224 y 0225 y las tomaron otras sesiones en paralelo). La fuente es
+[feedback-curso-08oct.md](feedback-curso-08oct.md): alguien con su propio curso lo probó en pantalla
+compartida con Martín. Siete pistas en paralelo y dos revisiones. Todo en bancos de Chromium con
+actions de mentira: **nada se vio todavía en la app real**.
+
+### «Se me borraron los campos» tenía TRES causas, y el saneo era la menos importante
+
+El diagnóstico obvio era `sanearCampos` (`lib/curso.ts`), que tiraba en silencio un campo sin la
+pregunta escrita. Era cierto, y no alcanzaba:
+
+1. **La pantalla no mandaba la lista** si un campo estaba incompleto, y el guardado «al desmontar»
+   tampoco: se perdía la tanda entera, no sólo el campo incompleto.
+2. **El Atrás del navegador reusa la página ya bajada** (Next, «reused during browser back/forward
+   navigation»): guardar, ir a la vista del alumno y volver redibujaba lo viejo, y el próximo
+   «Guardar» chocaba consigo mismo.
+3. El saneo, que descartaba sin rastro.
+
+Ahora la lección es un BORRADOR con «Guardar» (`guardarLeccion`, lib/curso-admin.ts, un solo update
+con compare-and-set), lo incompleto se marca en rojo con `erroresDeCampos` y el server rechaza
+ANTES de sanear. Salir con cambios pregunta. `guardarLeccionAction` revalida la ruta.
+
+- **Regla: lo pendiente se ataja al salir, no se «guarda al desmontar».** Y **lo que se guarda a mano
+  y después se navega, revalida**.
+- **Revalidar resiembra la pantalla con lo del server**: lo que se guarde DESPUÉS en el mismo clic
+  queda pisado en pantalla. La disposición se guarda antes que la clase por eso.
+- **Un compare-and-set sobre `updated_at` a secas choca con las escrituras automáticas propias** (los
+  minutos del video, el menú): compara el contenido de las partes que escribe, más `updated_at` en el
+  `update`.
+- **Cambiar un saneador de «tirar» a «renombrar» rompe en silencio a quien detectaba contando
+  largos** (`validarCamposEntrada` dejó de ver los repetidos). Al cambiar qué hace un saneador, se
+  busca quién mide su salida.
+
+### La tarea: más de una por clase, sin tabla nueva
+
+Las tareas extra son campos `tipo: 'seccion'` del jsonb `campos` (título y consigna con formato); la
+principal tiene su consigna en `curso_clases.tarea_html` y `tarea` queda como su texto plano
+DERIVADO (`lib/curso-tarea-html.ts`), porque lo leen la IA, los mensajes y `tieneTarea`.
+
+- **Un tipo de campo que no se contesta obliga a cuidar a TODOS los lectores de `.campos`**:
+  `tests/curso-tareas-secciones.test.ts` los barre leyendo el DISCO (un archivo nuevo sin `git add`
+  también cuenta), con excepciones nombradas. El área «curso» de la API (otro chat) usa `v.campos`
+  para sus parámetros: excepción por línea, y cuando lea `clase.campos` el guard la va a ver.
+- **Dos pistas que resuelven el mismo pedido de cada lado de la pantalla terminan con dos nombres**:
+  el editor decía «Lo hice» con una casilla y el portal dibujaba «Marcar como hecho» con un botón;
+  el test de cada pista fijaba su versión y los dos daban verde. Quedó «Marcar como hecho».
+- **Arrastrar sobre un editor rico**: con `text/plain`, soltar un campo encima de la consigna le
+  insertaba el texto («c2») y el campo se movía igual. Dentro de una zona con un editor rico, el
+  arrastre usa un tipo propio (`MIME_CAMPO`) y el editor no recibe el puntero durante el gesto.
+- **Nada se esconde o se muestra según el foco si eso cambia alturas**: un `:focus-within` que
+  escondía la ayuda movía otra tarjeta, el navegador corregía el scroll y el desplegable de la casa
+  se cierra al scrollear. Parecía un problema de tiempos de Playwright.
+
+### El editor rico redibuja sus imágenes por la IDENTIDAD de `urlDeAdjunto`
+
+Una caché de URLs con `useCallback(…, [])` parecía una optimización y dejaba en blanco, sin error,
+toda imagen cuya URL llegaba después de montar (abrir una clase por link o sin pasar el cursor).
+`app/customer-success/curso/urls-adjuntos.ts`: la función cambia de identidad al llegar URLs.
+
+### Abrir una clase: un import estático deshace la carga perezosa entera
+
+TipTap pesa ~510 KB. El editor rico va perezoso (`editor-rico-perezoso.tsx`) y se precarga al pasar
+el cursor por una tarjeta: JS inicial de la tab **857 → 423 KB**. Un solo `import` estático (el de
+`TareaEditor`) lo devolvía a 932 KB: hay un guard. Y **`React.lazy` retiene ~300 ms lo que ya está
+precargado**: para algo precargado va un caché del módulo y se dibuja en el mismo render.
+
+### Videos por código embed y «Insertar»: Panda no era sólo el reconocedor
+
+`lib/embeds.ts` (lista blanca de hosts, sin `server-only`) decide un link o un `<iframe>` pegado.
+
+- **El diagnóstico obvio de Panda era incompleto**: además de mandar todo host desconocido a
+  «afuera», el campo era `<input type="url">` y el NAVEGADOR frenaba el código antes de que la
+  pantalla lo viera.
+- **`panda_timeupdate` no trae la duración, pero `panda_allData` sí, sin play.** La trampa real era
+  el autoplay mudo: `autoplay=false` y se descartan los avances con `isMutedIndicator`.
+- **sanitize-html no mira el PUERTO** en su lista de hosts (`calendly.com:8443` pasa esa capa), y un
+  `srcdoc` con `allow-same-origin` correría con nuestro origen: lo frena la primera capa
+  (`embedDe`, por `origin`). Las dos capas se cubren entre sí y ninguna tiene test propio.
+- **Un clic adentro de un iframe saca el foco del editor**: los controles de lo insertado van atados
+  a la selección, no al foco (con el foco, «Quitar» desaparecía en 3 de 7 corridas).
+- **TipTap: el `parseHTML` de cada atributo pisa lo que devuelve el `getAttrs` de la regla.**
+
+### Los comentarios de una clase son un post de la comunidad, y cada lector decide
+
+Un hilo por clase (`comunidad_posts.clase_id`, mig 0227), creado con el primer comentario, que no
+sale en el feed. **El diagnóstico obvio era «se filtró donde se dibuja»** (feed y búsqueda): se
+escaparon la lista de posts para armar una tarea «Comentar» y su verificación, que no dibujan posts.
+Una tarea podía apuntar al hilo de una clase cerrada, y el id de un hilo propio completaba
+«Publicar». Regla: **cuando una fila de una tabla compartida pasa a significar otra cosa, se barren
+todos los lectores de esa tabla y cada uno decide** (guard en `tests/curso-comentarios-clase.test.ts`).
+
+- **El «autor» de un contenedor compartido es quien comentó primero**: sacar a un alumno «con su
+  contenido» se llevaba en cascada los comentarios de todos. Se excluye en cada borrado por autor.
+- **Una navegación dura desde un diálogo con un borrador abierto**: «+ Nuevo producto» crea y navega
+  con `window.location.href`; la pregunta por la lección sin guardar va ANTES de crear.
+
+### Lo que quedó SIN hacer o espera una decisión de Martín
+
+- **«+ Nuevo campo» arriba y el campo nace abajo**: Martín lo pidió arriba a la mañana; la prueba de
+  la tarde quiere los campos nuevos abajo. A confirmar.
+- **Las invitaciones de un negocio con su dominio salen con SU remitente** (antes, siempre MaKo). Medido:
+  el ws11 pasa a firmar con el suyo. Si su dominio deja de verificar, el envío falla a la vista (sin
+  «lo manda MaKo»).
+- **Imágenes huérfanas**: las de un borrador descartado quedan en `curso_adjuntos` y la purga no las
+  barre (`lib/curso-purga.ts:63-65`).
+- Borrar la clase abierta con cambios sin guardar los pierde, aunque se use «Deshacer».
+- El renombrar, el menú «…» y la obligatoria no revalidan: el Atrás puede mostrarlos viejos.
+- La ficha numera «2. …» si la tarea principal está vacía (`curso-ficha-lectura.ts:205`).
+- «Comentar en la comunidad» se completa con cualquier comentario, no con el del post pedido (de antes).
+- Un Panda insertado en la descripción arranca solo si su cuenta tiene el autoplay prendido.
+- **La migración de cursos** está investigada en [migracion-cursos.md](migracion-cursos.md): primero la
+  API de MaKo + el Claude del cliente (ya hecha por el chat de la API), después «Traer de Panda», y
+  Skool/Hotmart como migración asistida. `catalogoPanda()` (`lib/panda.ts:285`) corta en 20 páginas
+  sin decirlo: un importador no la puede reusar tal cual.
+- **No medido en la app real**: guardar → vista del alumno → Atrás; el aviso nativo de
+  `beforeunload`; una imagen en la consigna vista por el alumno; Calendly, Cal.com y HubSpot
+  insertados con cuentas reales; un hilo de clase con la clase cerrada; la invitación de un negocio
+  con dominio y una real por WhatsApp.

@@ -4829,3 +4829,22 @@ nada. Pero antes de nombrar una se mira `origin/main`, no sólo el árbol propio
 **Vive en:** `lib/nutricion-grafo-motor.ts` · `lib/setting-adjuntos-reglas.ts` ·
 `tests/recordatorio-lead.test.ts` · `tests/replay-envoltorio.test.ts` · `supabase/migrations/` ·
 *2026-10-08 rediseño de /chatbot*
+
+## Un typecheck que no terminó contesta «0 errores», y OneDrive puede dejar una escritura a medias (08/10/2026)
+
+**Síntoma:** con siete pistas y otras sesiones sobre el mismo clon, el typecheck pasó de 20 s a 18-20
+minutos, y dos lecturas de su salida dieron VERDE sobre un chequeo que no había corrido:
+
+- `timeout 300 npm run typecheck | grep -c "error TS"` dio **0** con el proceso matado por el
+  timeout: un cero de un proceso que se cortó parece un verde.
+- `npm run typecheck` terminó con **exit 127 sin una línea de salida** con tres `tsc` en paralelo.
+  Directo con `node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit` terminó.
+
+**Regla:** de un chequeo se lee primero el CÓDIGO DE SALIDA y que haya terminado; recién después la
+cuenta de errores. Un `grep -c` sobre la salida de algo que pudo cortarse no es una medición.
+
+**Y OneDrive:** una escritura de un arnés de roturas falló con `UNKNOWN -4094` y dejó
+`lib/curso-invitar.ts` con la rotura puesta. Un arnés que escribe en el clon reintenta las
+escrituras y, al terminar, verifica el árbol con un grep de cada rotura; y con otras sesiones vivas,
+antes de restaurar compara el archivo contra la versión rota (si otro lo tocó en el medio, deshace
+sólo la rotura). · *2026-10-08 Customer Success*

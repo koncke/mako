@@ -278,6 +278,10 @@ const EXCEPCIONES: Array<{ archivo: string; contiene?: string; motivo: string }>
   { archivo: 'app/customer-success/curso-ficha-lectura.ts', contiene: 't.campos', motivo: '`t` es una TareaDeClase (gruposPorTarea)' },
   { archivo: 'app/customer-success/FichaCurso.tsx', contiene: "!c.tarea.trim() && !c.campos.length", motivo: '«¿pide algo?»: una sección es una tarea, como en tieneTarea' },
   { archivo: 'lib/curso-portal.ts', contiene: 'campos: c.campos.map((x) => {', motivo: 'conHtmlSaneado: re-sanea la consigna de cada sección (la línea de abajo mira el tipo)' },
+  // El área «curso» de la API de MaKo (otro chat, 08/10): ahí `v.campos` son los PARÁMETROS validados
+  // de la operación (título, video, html, minutos), no los campos de la tarea. Cuando esa área lea la
+  // tarea de una clase (`clase.campos`), el guard la va a mirar como a cualquier otra.
+  { archivo: 'lib/api-mako/areas/curso.run.ts', contiene: 'v.campos', motivo: '`v.campos` son los parámetros de la operación de la API, no la tarea' },
 ];
 
 /** ¿Esta línea con `.campos` está bien? (ver las reglas en el test) */

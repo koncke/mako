@@ -3772,3 +3772,48 @@ persona + núcleo) sacaría ~2.000 tokens más, pero el 19/07 se descartó porqu
 proponer→confirmar, y no está medido en Gemini.
 
 *08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`; commits `af3530c2`, `949bd68b` y `3950e7cd`.*
+
+## Un 200 con un BUCLE adentro salía como la transcripción del audio (08/10/2026)
+
+**Síntoma:** el tramo 0:00-7:00 de un audio de Martín (1,6 MB) volvió de `transcribirAudio` con un
+minuto de habla y después «1 2 3 … 699»: 3.492 caracteres, el 77% números. Los seis minutos
+siguientes no estaban. Gemini contestó HTTP 200 con `finishReason: STOP`. Whisper (Groq) transcribió
+bien el mismo tramo.
+
+**El diagnóstico obvio era el equivocado:** «se cortó por el techo de salida». No: el chequeo de
+`finishReason` caza la transcripción CORTADA; ésta es la falla espejo, una transcripción INFLADA por
+un decodificador en bucle que después terminó «bien». Y no era «Gemini» a secas: por el orden del
+log, contó el modelo de RESPALDO (`gemini-flash-lite-latest`) justo después de un 503 del de siempre
+(inferido, no medido). Por eso el corte prueba la cuenta siguiente (`continue`) y no cierra el
+proveedor (`break`).
+
+**Causa:** la cascada tomaba cualquier texto no vacío como éxito. Es «`res.ok` no es "salió bien"»
+del lado del contenido.
+
+**Vive en:** `lib/stt-degenerado.ts` (`salidaDegenerada`, `UMBRAL_DEGENERADO`) · `lib/ai-cheap.ts`
+(`transcribirAudio`, en las dos redes) · `tests/stt-degenerado.test.ts`
+
+**Regla:** una salida de STT es una transcripción recién después de pasar `salidaDegenerada`. Un
+bucle es un FALLO de esa cuenta: se anota con su motivo y se prueba la siguiente. No se recorta lo de
+antes (media transcripción se lee igual que una completa); si nadie más escucha, `SttSinEscucha`.
+
+**Los umbrales**: 50 o más enteros seguidos cae siempre (las cuentas reales del corpus llegan a 20);
+una repetición cae si se repite 8 veces o más, tapa 30 palabras o más y ocupa el 30% del texto o más.
+Calibrado contra 9.719 transcripciones de `public/cono-tx`: 0 falsos positivos en textos enteros, 3
+en 392.939 párrafos sueltos (una canción «La, la, la» y dos en el borde).
+
+**Dos trampas que costaron una vuelta:**
+- **El corpus «bueno» no era bueno.** `public/cono-tx` ya trae decenas de bucles de Whisper («no no
+  no» ×57, «Thank you» ×85 al final, un archivo entero de «Thank you»). Calibrar contando todo lo que
+  cae como falso positivo habría subido los umbrales hasta no ver nada: hubo que leerlos a mano.
+- **El motivo del error no puede llevar números ni la frase.** `causaDelFallo` clasifica la lista de
+  errores con regex: un conteo que llegue a 429, 503 o 413 se leería como cuota, saturación o tamaño.
+  Los números van al log.
+
+**Lo que no detecta:** conteos en palabras, conteos con otro paso, bucles con variaciones, y bucles
+chicos al final de un texto largo (a propósito: el «Thank you» del silencio del cierre no se lleva
+la reunión).
+
+**Sin hacer:** `lib/transcribe.ts` (el pipeline de cursos) tiene su propio `sttGemini` sin este
+chequeo; `escucharCon` no prueba el otro modelo de la misma key ante un bucle; no se corrió contra la
+red real (cada llamada escribe filas de uso en prod). · *2026-10-08 Customer Success*

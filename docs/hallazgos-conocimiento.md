@@ -7486,3 +7486,15 @@ por identidad: la clave tiene que ser un string, no un array armado aparte.
 **Sin hacer:** la tab compartida entera (`PortalCompartido`) sigue bajando el catálogo completo, lo
 oculto incluido (ya era así); el chip «Oculto» usa el ícono del candado y se puede leer como
 «bloqueado»; `getSesionAdmin` mira el rol global, así que edita cualquier usuario con `rol='admin'`.
+
+## Transcripciones publicadas con BUCLES de Whisper adentro (08/10/2026)
+
+Al calibrar el detector de bucles del STT (`lib/stt-degenerado.ts`, ver hallazgos-ia) contra las
+9.719 transcripciones de `public/cono-tx`, salieron publicadas: un archivo que es entero «Thank you.
+Thank you.» (`1X6de_rpO6cP9UbS7T2ghN1J9TGjMnspf.json`), colas de «Thank you» ×85
+(`1XY6TE4AW9qR2R0pRXjLzfeFBlf6lTgev.json`) y unos 48 párrafos en bucle («me ha tocado» ×19 en
+`1-c8cfVjgQrb-qELAWGsuZJBhIst2n4if.json#165`, «no no no» ×57).
+
+**Sin hacer:** `lib/transcribe.ts` (el pipeline de cursos) no usa `salidaDegenerada`, y
+`scripts/curso-verificar.mjs` podría usarlo para marcar las clases a re-transcribir. · *2026-10-08
+Customer Success*

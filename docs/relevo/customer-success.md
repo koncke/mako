@@ -6,6 +6,11 @@ proyecto de Customer Success y terminalo todo, cierra las tareas».
 
 ## ⚠️ Corrección medida el 06/10 21:40, gana sobre todo lo de abajo
 
+- **08/10, 15:06: el FEEDBACK DEL AUDIO de la tarde está en `main`** (`dbae4da9`, migs 0226 y 0227 APLICADAS).
+  La lección del editor se guarda A MANO, la tarea va en contenedores (y puede haber varias), videos y
+  agendas por embed, comentarios de clase, y el STT ya no toma un bucle por una transcripción. La fuente,
+  en docs/feedback-curso-08oct.md; lo aprendido y lo que espera a Martín, en
+  docs/hallazgos-customer-success.md → «El feedback del audio del 08/10». Nada se vio en la app real.
 - **08/10, 10:24: los 20 AJUSTES de Martín sobre el curso publicado están en `main`** (`d188f3a8`,
   mig 0223 APLICADA). Ojo: apagar «Etapa del kanban» ahora QUITA la etapa y mueve a sus clientes en
   silencio; nada de eso se probó en la app real (en el ws3, nunca en el ws1). Lo aprendido y lo que

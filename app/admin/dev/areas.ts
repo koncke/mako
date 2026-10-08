@@ -450,7 +450,11 @@ export const AREAS: AreaDev[] = [
       // Vimeo y el desplegable que abre para arriba (vale para toda la app).
       'lib/curso-modulos.ts', 'lib/curso-modulos-datos.ts', 'lib/curso-bloqueo.ts', 'lib/curso-papelera.ts', 'lib/curso-papelera-reglas.ts',
       'lib/curso-tarea-comunidad.ts', 'lib/cs-mover-etapa.ts', 'app/api/compartido/miniatura/', 'app/components/dropdown-lugar.ts',
-      'supabase/migrations/0220_curso_modulos_bloqueos.sql', 'supabase/migrations/0223_curso_papelera.sql'],
+      'supabase/migrations/0220_curso_modulos_bloqueos.sql', 'supabase/migrations/0223_curso_papelera.sql',
+      // El feedback del audio del 08/10 (docs/feedback-curso-08oct.md): la consigna con formato, los
+      // embeds, el remitente de la invitación y los comentarios de clase.
+      'docs/feedback-curso-08oct.md', 'docs/migracion-cursos.md', 'lib/embeds.ts', 'lib/curso-tarea-html.ts', 'lib/curso-invitar-canales.ts',
+      'supabase/migrations/0226_curso_tarea_html.sql', 'supabase/migrations/0227_comentarios_de_clase.sql'],
     proyectos: ['Feature: Customer Success'],
     nota: '⚠️ LA TAB SE REHÍZO DESDE CERO EL 26/09/2026 Y ESTA ENTRADA DECÍA OTRA COSA: figuraba «por-construir» apuntando a /cs-analyst (ComingSoon) cuando /customer-success existe y está desplegada desde el 11/08. Lo que se fue ese día es el programa de 44 clases de Mauricio —su temario, el cuestionario que su cliente contestaba por un link, su curso en Whop, los casos de otros clientes suyos y el banco de material—, junto con `app/customer-success/programa/`, once libs (`programa-catalogo`, `cs-respuestas`, `cs-avance`, `cs-reescritura`, `banco-skills`…), el webhook de Whop y las rutas del cuestionario. La tab ya no corta con `esWorkspaceDueno()`: es `requireCapa(\'customer-success\')` y lee con `getTenantDb()`. Por MaKo quedan TRES operaciones (ver_cartera_cs, ver_cliente_cs, marcar_estado_cliente_cs) y ninguna es `soloWs1`. ⚠️ Su Roadmap es PROPIO (`roadmapPropioDe` en paneles.tsx). Hasta el 06/10/2026 dibujaba como vivo el programa borrado (Whop, el cuestionario, la reescritura con IA); ese día se puso al día: las piezas son MaKo, el curso y el tablero, el grupo «El bucle de entrega» son los pasos del curso en MaKo, lo de agosto pasó a una sección Historia sin estado, la etapa por cliente figura hecha (mig 0188) y la cartera «sigue» con lo que le falta. Lo fija tests/sin-whop.test.ts.',
   },
@@ -787,7 +791,7 @@ export const AREAS: AreaDev[] = [
     slug: 'ai-runtime-cascada', titulo: 'AI Runtime & Cascada', familia: 'MaKo',
     estado: 'listo',
     alcance: 'El motor que ejecuta toda llamada de IA: chatClaude y el loop de tool-use, la cascada de proveedores gratis antes de pagar, y el override de qué modelo usa cada feature desde /modelos-ia.',
-    vive: ['lib/anthropic.ts', 'lib/ai-cheap.ts', 'lib/veto-claude.ts', 'lib/model-registry.ts', 'lib/model-catalogo.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'app/modelos-ia/ModelosIA.tsx', 'app/api/admin/modelos/route.ts', 'app/_components/ErrorIA.tsx', 'app/_components/ConectarIA.tsx', 'tests/veto-claude.test.ts', 'tests/model-registry.test.ts', 'tests/ia-mensajes.test.ts', 'tests/ia-keys.test.ts'],
+    vive: ['lib/anthropic.ts', 'lib/ai-cheap.ts', 'lib/stt-degenerado.ts', 'lib/veto-claude.ts', 'lib/model-registry.ts', 'lib/model-catalogo.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'app/modelos-ia/ModelosIA.tsx', 'app/api/admin/modelos/route.ts', 'app/_components/ErrorIA.tsx', 'app/_components/ConectarIA.tsx', 'tests/veto-claude.test.ts', 'tests/model-registry.test.ts', 'tests/ia-mensajes.test.ts', 'tests/ia-keys.test.ts'],
     hallazgos: 'hallazgos-ia',
     nota: 'Las «916 líneas» son lib/anthropic.ts (301) + lib/ai-cheap.ts (615), verificado. Dos trampas: el override de /modelos-ia SOLO aplica si el caller no pasó `model` explícito (cualquier `chatClaude(..., { model })` se saltea el registro entero), y el catálogo vive aparte en lib/model-catalogo.ts —sin `server-only`, para poder testearlo— pero nadie lo importa directo: model-registry.ts lo re-exporta. El fallback pago está adentro de chatClaude, no en el registro: si toda la cascada gratis falla cae a claude-sonnet-5 y deja la nota visible en el historial.',
   },
