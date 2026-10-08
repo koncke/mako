@@ -74,8 +74,13 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ficha_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Ficha de un lead',
-    descripcion: 'La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2. Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.',
+    descripcion: 'La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2 y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y no significa que no contestó). Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.',
     parametros: [leadId()],
+    // ⚠️ formulario_meta sale por TODOS los canales, a propósito (08/10/2026): es dato del lead
+    // como el teléfono y el email, que esta misma ficha ya entrega. Los dos caminos de afuera
+    // son el runner de HTTP (crm.run.ts → runMakoTool) y la ruta vieja de la skill
+    // (app/api/agente/consultar, que corre runMakoTool directo, sin ctx.canal): recortarlo en
+    // uno solo deja el otro abierto. El snapshot de HTTP fija ids, no campos: esto no lo frena nada.
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
