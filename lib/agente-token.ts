@@ -27,6 +27,8 @@ import { upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
 import { conReintentoTransitorio } from './webhook-ruteo-huella';
 import { mensajeDeError } from './calendly-error';
 import { prefijoDeAlcance } from './api-mako/alcance';
+import { marcarUso } from './api-mako/tokens-uso';
+import { ID_PRINCIPAL } from './api-mako/tokens-lista';
 import type { Alcance as AlcanceToken } from './api-mako/tipos';
 export type { AlcanceToken };
 
@@ -71,12 +73,26 @@ export async function wsPorAgenteToken(token: string): Promise<number | null> {
   // «token inválido o revocado» sobre un token BUENO — lo que manda a la persona a rotarlo y a
   // reconfigurar su skill por un corte de segundos. Ahora «no pude leer» TIRA, y quien llama lo
   // contesta 503 (`wsDelBearer`). Rotar sigue revocando: el segundo chequeo es contra el setting.
-  return conReintentoTransitorio(async () => {
+  const ws = await conReintentoTransitorio(async () => {
     const ws = await wsPorIdentificadorEstricto(AGENTE_SERVICIO, t);
     if (ws == null) return null;
     const vigente = await runWithWorkspace(ws, () => getSettingEstricto(AGENTE_TOKEN_KEY));
     return vigente && vigente === t ? ws : null;
   });
+  // «¿Este token se usa?», para la pantalla de API (lib/api-mako/tokens-uso.ts). Con
+  // freno y sin esperar: no demora ni puede tumbar la autenticación.
+  if (ws != null) marcarUso(ws, ID_PRINCIPAL);
+  return ws;
+}
+
+/**
+ * Revoca el token principal SIN acuñar otro (la pantalla de API, «me lo filtraron»).
+ * Queda vacío, no borrado: `wsPorAgenteToken` exige `vigente && vigente === t`, así
+ * que un vacío no autentica nada, y la tarjeta de Integraciones vuelve a «Genera tu
+ * token». Rotar sigue siendo `rotarAgenteToken`.
+ */
+export async function revocarAgenteToken(ws: number): Promise<void> {
+  await runWithWorkspace(ws, () => setSetting(AGENTE_TOKEN_KEY, ''));
 }
 
 /**

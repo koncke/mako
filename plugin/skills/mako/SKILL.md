@@ -50,7 +50,7 @@ qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a t
    por afuera: un formulario, una planilla, una conversación.
 8. **Todo lo demás, tab por tab** (`/api/v1`) — cada parte de MaKo con sus lecturas y
    sus acciones: CRM, plan, anuncios, WhatsApp, email, secuencias, métricas, experimentos
-   y más. Empieza por el catálogo; ver «La API de MaKo» más abajo.
+   y más. Empieza por el índice (`?compacto=1`); ver «La API de MaKo» más abajo.
 
 ⚠️ Los puntos 1 a 5 son de LECTURA y no tienen ninguna ceremonia: úsalos sin pedir
 permiso cada vez que vayas a escribir algo del negocio o a opinar sobre cómo le va.
@@ -69,16 +69,21 @@ que falta una conversación. **Tu trabajo termina cuando entregas el link entero
 ## La API de MaKo: todo lo que se puede leer y hacer, en un solo lugar
 
 Además de las rutas de arriba, MaKo expone cada tab con sus lecturas y sus acciones en
-`/api/v1`. **Empieza SIEMPRE por el catálogo**: te dice, para TU token, qué operaciones
-existen, qué parámetros llevan y cómo se confirman. Lo que no aparece ahí no existe para
-tu token: no lo adivines ni pruebes nombres.
+`/api/v1`. **Empieza SIEMPRE por el índice** (`?compacto=1`): te dice, para TU token,
+qué operaciones existen, con su método y su ruta. Antes de usar una, pide SU detalle con
+`?operacion=`: qué parámetros lleva y cómo se confirma. Lo que no aparece en el índice no
+existe para tu token: no lo adivines ni pruebes nombres. **No pidas el catálogo entero
+sin filtros**: son cientos de operaciones y te llena el contexto antes de empezar.
 
 ```bash
-# El catálogo, por área (crm, plan, ads, whatsapp, email, chatbot, metricas, …)
-curl -s "$BASE/api/v1" -H "Authorization: Bearer $TOKEN"
+# El índice liviano: id, método, ruta y título de cada operación
+curl -s "$BASE/api/v1?compacto=1" -H "Authorization: Bearer $TOKEN"
 
-# La referencia completa en markdown, con un ejemplo por operación
-curl -s "$BASE/api/v1/docs" -H "Authorization: Bearer $TOKEN"
+# Una operación con todo (parámetros, cómo se confirma), antes de usarla
+curl -s "$BASE/api/v1?operacion=buscar_leads" -H "Authorization: Bearer $TOKEN"
+
+# Solo un área (crm, plan, ads, whatsapp, email, chatbot, metricas, …)
+curl -s "$BASE/api/v1?area=crm" -H "Authorization: Bearer $TOKEN"
 
 # Una lectura: los parámetros en la URL
 curl -s "$BASE/api/v1/crm/buscar_leads?texto=ana" -H "Authorization: Bearer $TOKEN"
@@ -96,7 +101,7 @@ Ninguna acción escribe directo. Cómo contesta, y qué haces con cada respuesta
 | `{ ok, propuesta, url }` | Quedó una propuesta para revisar | Pásale el `url` ENTERO al usuario y detente |
 | `{ ok, pendiente: { id, resumen, url } }` | Quedó una acción pendiente; vence en 2 horas | Muéstrale el `resumen` y dile que la confirme en MaKo (`url`) o por WhatsApp |
 | `{ ok: false, error, faltan }` | Faltan datos o están mal | Pídele al usuario lo que dice `faltan`; no lo inventes |
-| 404 | No existe para tu token | Vuelve al catálogo |
+| 404 | No existe para tu token | Vuelve al índice (`?compacto=1`) |
 
 ⚠️ **No confirmes por tu cuenta.** Si tu token tiene alcance `ejecutar`, el catálogo te
 muestra `POST /api/v1/mako/confirmar_accion` con `{ "id": … }`: úsalo SOLO después de

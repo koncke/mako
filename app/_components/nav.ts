@@ -502,6 +502,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-vsl-tracking', label: 'VSL Tracking', href: '/admin/dev/vsl-tracking', icon: 'graphics', match: starts('/admin/dev/vsl-tracking') },
           { key: 'dev-whatsapp-de-mako', label: 'WhatsApp de MaKo', href: '/admin/dev/whatsapp-de-mako', icon: 'config', match: starts('/admin/dev/whatsapp-de-mako') },
           { key: 'dev-webhook-gateway', label: 'Webhook Gateway', href: '/admin/dev/webhook-gateway', icon: 'config', match: starts('/admin/dev/webhook-gateway') },
+          { key: 'dev-api-mako', label: 'API de MaKo', href: '/admin/dev/api-mako', icon: 'api', match: starts('/admin/dev/api-mako') },
           // Las dos capas del sistema visual, y van juntas y en este orden:
           // Design System son los tokens y la paleta (la capa de abajo), MaKo
           // UX/UI es el catálogo que los muestra montados (/admin/ui).
@@ -555,6 +556,10 @@ export const ADMIN_NAV: NavItem[] = ADMIN_FAMILIAS.flatMap(itemsDe);
 export const USER_NAV: NavItem[] = [
   { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', rolesWs: ['closer', 'setter'], match: starts('/perfil') },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
+  // La API de MaKo (08/10/2026): el catálogo, los tokens de cada integración y su uso.
+  // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
+  // un tercero. Solo el admin (sin `rolesWs`): acá se acuñan credenciales.
+  { key: 'api-mako', label: 'API', href: '/api-mako', icon: 'api', match: starts('/api-mako') },
   { key: 'onboarding', label: 'Onboarding', href: '/onboarding', icon: 'contexto', match: starts('/onboarding') },
   { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) },
   // Acá NO va «Admin» ni «Contexto de MaKo». Los dos eran `adminOnly`, o sea que

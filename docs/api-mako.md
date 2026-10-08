@@ -4,12 +4,13 @@
 
 ## Cómo se usa
 
-- **Autenticación:** `Authorization: Bearer <token>`. El token se genera en **Integraciones → Claude** de MaKo y es de UN workspace: no hay forma de pedir los datos de otro.
+- **Autenticación:** `Authorization: Bearer <token>`. Los tokens se crean en la pantalla **API** de MaKo (menú de tu foto): uno por integración, con su nombre y su alcance, y se revoca uno sin tocar los demás. El de la skill de Claude se genera en **Integraciones → Claude**. Cada token es de UN workspace: no hay forma de pedir los datos de otro.
 - **Alcance del token** (se elige al generarlo):
   - `lectura` — **Solo leer.** El agente consulta tu negocio y tus números. No deja nada pendiente ni propone cambios.
   - `proponer` — **Leer y proponer.** Además deja propuestas y acciones pendientes que tú confirmas en MaKo o por WhatsApp. Nada se escribe sin tu confirmación.
   - `ejecutar` — **Leer, proponer y ejecutar.** Además puede confirmar por sí mismo las acciones que dejó pendientes (mover un lead, pausar una campaña). Lo que gasta plata sigue pasando por una pantalla.
 - **Catálogo:** `GET /api/v1` devuelve, para tu token, todas las operaciones con sus parámetros. Empieza por ahí: lo que no aparece, no existe para ese token.
+  - Entero es muy largo para un agente. `?compacto=1` trae solo el índice (id, método, ruta y título), `?area=crm,ads` solo esas áreas y `?operacion=<id>` una sola con todo. El camino barato: el índice, y después el detalle de la que vas a usar.
 - **Lecturas:** `GET /api/v1/{area}/{operacion}?param=valor`. La respuesta trae `Content-Type` según la salida (`application/json`, `text/markdown`, `text/csv` o `text/plain`).
 - **Acciones:** `POST /api/v1/{area}/{operacion}` con el cuerpo en JSON. Ninguna escribe directo: devuelve una **pendiente** (la confirma una persona en MaKo o por WhatsApp) o una **propuesta** con un link a la pantalla donde se revisa.
 - **Pendientes:** `GET /api/v1/mako/listar_pendientes` lista las vigentes; `POST /api/v1/mako/cancelar_accion` descarta una; `POST /api/v1/mako/confirmar_accion` la ejecuta, solo con alcance `ejecutar` y siempre con su `id`.

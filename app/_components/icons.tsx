@@ -74,6 +74,9 @@ const PATHS: Record<string, ReactNode> = {
   video: (<><rect x="3" y="6" width="18" height="12" rx="3.2" /><path d="M10.4 9.4l4.7 2.6-4.7 2.6Z" /></>),
   // Enchufe con cable: "Probar conexión" en las filas de credenciales.
   plug: (<><path d="M7 3v5M13 3v5" /><path d="M4.5 8h11v2.4a5.5 5.5 0 0 1-11 0V8Z" /><path d="M10 15.9v2.1a3 3 0 0 0 3 3h3a3 3 0 0 0 3-3v-3.5" /></>),
+  // Llaves de código: la tab de la API (/api-mako). Se AGREGA en vez de reusar
+  // `plug`, que ya dice «probar conexión» en las filas de credenciales.
+  api: (<><path d="M8.5 4.5c-1.6 0-2.5.8-2.5 2.4v2.6c0 1.6-.8 2.5-2.5 2.5 1.7 0 2.5.9 2.5 2.5v2.6c0 1.6.9 2.4 2.5 2.4" /><path d="M15.5 4.5c1.6 0 2.5.8 2.5 2.4v2.6c0 1.6.8 2.5 2.5 2.5-1.7 0-2.5.9-2.5 2.5v2.6c0 1.6-.9 2.4-2.5 2.4" /></>),
   // Cruz: cancelar una edición en curso.
   x: (<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />),
   // Tacho: "Quitar credencial".

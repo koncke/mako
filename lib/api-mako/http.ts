@@ -1,9 +1,12 @@
 // =============================================================================
 // api-mako/http — lo que comparten las rutas de app/api/v1: auth, contexto, respuesta
 // =============================================================================
-// Todas las rutas de /api/v1 se autentican con el bearer del agente
-// (`Authorization: Bearer mkoag_…`, lib/agente-token.ts) y NO leen la cookie de
-// sesión ni el header interno del workspace: el `ws` sale SOLO del token. Por eso
+// Todas las rutas de /api/v1 se autentican con un bearer (`Authorization: Bearer
+// mkoag_…`): un token con nombre de la pantalla de API (lib/api-mako/tokens.ts) o el
+// principal de la skill (lib/agente-token.ts). `wsPorTokenApi` prueba los dos; las
+// rutas de /api/agente aceptan sólo el principal, a propósito (ver tokens-lista.ts).
+// NO leen la cookie de sesión ni el header interno del workspace: el `ws` sale SOLO
+// del token. Por eso
 // pueden estar en `PUBLICOS` (lib/rutas-publicas.ts) como prefijo sin abrir un
 // CSRF —el navegador nunca manda ese header solo—.
 //
@@ -17,10 +20,11 @@
 
 import 'server-only';
 import { NextResponse } from 'next/server';
-import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
+import { bearerDe } from '@/lib/agente-token';
 import { rateLimit, clientIp } from '@/lib/rate-limit';
 import { alcanceDeToken } from './alcance';
 import { canalKeyDe } from './canal';
+import { wsPorTokenApi } from './tokens';
 import type { Ctx, Formato, Resultado } from './tipos';
 
 /** Pedidos por minuto. Best-effort (memoria por instancia): corta un bucle
@@ -35,7 +39,7 @@ export const TOPE_CUERPO_BYTES = 256 * 1024;
 export type Autenticado = { ctx: Ctx };
 
 /** El workspace de un pedido, mirando SOLO `authorization`. `null` = no autorizado. */
-export async function wsDeHeaders(h: Headers, resolver: (token: string) => Promise<number | null> = wsPorAgenteToken): Promise<{ ws: number; token: string } | null> {
+export async function wsDeHeaders(h: Headers, resolver: (token: string) => Promise<number | null> = wsPorTokenApi): Promise<{ ws: number; token: string } | null> {
   const token = bearerDe({ headers: h } as Request);
   if (!token) return null;
   const ws = await resolver(token);
@@ -67,7 +71,8 @@ export async function autenticar(req: Request): Promise<Autenticado | NextRespon
     ctx: {
       ws: auth.ws, canal: 'http', canalKey: canalKeyDe('http', auth.ws),
       alcance: alcanceDeToken(auth.token),
-      // Solo el admin del workspace acuña el token (app/api/agente/token/route.ts).
+      // Solo el admin del workspace acuña tokens: el principal en app/api/agente/token/route.ts
+      // y los con nombre en app/api-mako/actions.ts.
       rol: 'admin',
     },
   };

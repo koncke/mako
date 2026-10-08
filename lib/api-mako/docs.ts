@@ -31,7 +31,9 @@ function tablaParametros(ps: readonly Parametro[]): string {
   return out.join('\n');
 }
 
-function ejemploCurl(d: OperacionDef, base: string): string {
+/** El curl de una operación. Lo usan la referencia y la pantalla de API (la tab lo
+ *  muestra al abrir una operación): un ejemplo, un lugar. */
+export function ejemploCurl(d: OperacionDef, base: string): string {
   const ruta = `${base}/api/v1/${d.area}/${d.id}`;
   if (esLectura(d)) {
     const qs = d.parametros.filter((p) => p.obligatorio).map((p) => `${p.nombre}=${encodeURIComponent(String(p.ejemplo ?? '…'))}`).join('&');
@@ -89,10 +91,11 @@ export function referenciaMarkdown(base: string): string {
   out.push('');
   out.push('## Cómo se usa');
   out.push('');
-  out.push('- **Autenticación:** `Authorization: Bearer <token>`. El token se genera en **Integraciones → Claude** de MaKo y es de UN workspace: no hay forma de pedir los datos de otro.');
+  out.push('- **Autenticación:** `Authorization: Bearer <token>`. Los tokens se crean en la pantalla **API** de MaKo (menú de tu foto): uno por integración, con su nombre y su alcance, y se revoca uno sin tocar los demás. El de la skill de Claude se genera en **Integraciones → Claude**. Cada token es de UN workspace: no hay forma de pedir los datos de otro.');
   out.push('- **Alcance del token** (se elige al generarlo):');
   for (const a of ALCANCES) out.push(`  - \`${a}\` — **${TEXTO_ALCANCE[a].titulo}.** ${TEXTO_ALCANCE[a].que}`);
   out.push('- **Catálogo:** `GET /api/v1` devuelve, para tu token, todas las operaciones con sus parámetros. Empieza por ahí: lo que no aparece, no existe para ese token.');
+  out.push('  - Entero es muy largo para un agente. `?compacto=1` trae solo el índice (id, método, ruta y título), `?area=crm,ads` solo esas áreas y `?operacion=<id>` una sola con todo. El camino barato: el índice, y después el detalle de la que vas a usar.');
   out.push('- **Lecturas:** `GET /api/v1/{area}/{operacion}?param=valor`. La respuesta trae `Content-Type` según la salida (`application/json`, `text/markdown`, `text/csv` o `text/plain`).');
   out.push('- **Acciones:** `POST /api/v1/{area}/{operacion}` con el cuerpo en JSON. Ninguna escribe directo: devuelve una **pendiente** (la confirma una persona en MaKo o por WhatsApp) o una **propuesta** con un link a la pantalla donde se revisa.');
   out.push('- **Pendientes:** `GET /api/v1/mako/listar_pendientes` lista las vigentes; `POST /api/v1/mako/cancelar_accion` descarta una; `POST /api/v1/mako/confirmar_accion` la ejecuta, solo con alcance `ejecutar` y siempre con su `id`.');
