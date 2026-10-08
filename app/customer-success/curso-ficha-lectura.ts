@@ -26,6 +26,8 @@ import {
   type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores, type EstadoPropuesta,
 } from '@/lib/curso';
 import type { Sesion } from '@/lib/curso-datos';
+import type { ModuloCurso } from '@/lib/curso-modulos';
+import type { Aperturas } from '@/lib/curso-bloqueo';
 import { moduloPermitido, productoRestringido, type AlcanceCurso } from '@/lib/curso-alcance';
 import { motivoDeFase } from '@/lib/curso-mensajes-texto';
 import { avanceDeCliente } from './curso/reglas';
@@ -265,15 +267,38 @@ export function fraseResumen(r: ResumenEtapa): string {
   return r.tareas ? `${r.enviadas}/${r.tareas} ${r.tareas === 1 ? 'tarea' : 'tareas'}` : 'Sin tareas';
 }
 
-export type EtapaFicha = {
+/**
+ * Un MÓDULO del curso en la ficha (D1, 08/10/2026: hasta acá eran las etapas, y las clases de un
+ * módulo suelto caían en «Sin etapa»).
+ */
+export type ModuloFicha = {
+  /** La clave del módulo (la de su etapa si es vinculado). */
   key: string;
+  /** Su nombre. */
   label: string;
-  /** Es la etapa en la que está hoy (`etapaActualDe`). */
+  /** ¿Es una etapa del kanban? Uno suelto no tiene «Actual» ni mueve a nadie. */
+  vinculado: boolean;
+  /** Es el módulo de la etapa en la que está hoy (`etapaActualDe`). */
   actual: boolean;
-  /** Clases que apuntan a una etapa que la entrega ya no tiene. */
+  /** El grupo de las clases que apuntan a un módulo que ya no existe. */
   huerfana: boolean;
   clases: ClaseFicha[];
   resumen: ResumenEtapa;
+};
+
+/**
+ * Algo CERRADO para este alumno, o abierto A MANO por el equipo (D2): lo que ofrece «Abrir a mano» de
+ * la caja de permisos de la ficha. `clave`: la del módulo, o el id de la clase como texto (la forma
+ * de `curso_desbloqueos`).
+ */
+export type BloqueoFicha = {
+  objeto: 'modulo' | 'clase';
+  clave: string;
+  nombre: string;
+  /** Cerrado: el porqué (el mismo que lee el alumno). `null` si está abierto a mano. */
+  motivo: string | null;
+  /** `true` = lo abrió el equipo a mano (se ofrece volver a cerrarlo). */
+  manual: boolean;
 };
 
 export type ProductoFicha = {
@@ -286,7 +311,13 @@ export type ProductoFicha = {
    * la cabecera de la ficha llama «Etapa borrada», y esta pestaña tiene que decir lo mismo.
    */
   etapaBorrada: string | null;
-  etapas: EtapaFicha[];
+  /** Los módulos del curso, en su orden, con sus clases (y «Sin módulo» al final si hay huérfanas). */
+  modulos: ModuloFicha[];
+  /**
+   * Lo cerrado para este alumno y lo que el equipo le abrió a mano (D2). Ausente = no se evaluó (la
+   * lectura de sus candados falló: la ficha no ofrece abrir nada a ciegas).
+   */
+  bloqueos?: BloqueoFicha[];
   /**
    * La FILA de la tabla Avance de la tab Curso, para este cliente (pedido del 06/10/2026: «el
    * Avance del curso debería también verse en el detail de cada cliente»). Las etapas con su
@@ -296,20 +327,26 @@ export type ProductoFicha = {
   avance: { etapas: EtapaVista[]; fila: Omit<DatosAvance, 'acceso'> };
 };
 
-/** La clave del grupo de las clases cuya etapa ya no existe. No choca con una clave real:
- *  `nuevaClaveEtapa` sólo arma claves de letras, números y guiones. */
+/** La clave del grupo de las clases cuyo módulo ya no existe. No choca con una clave real: las de
+ *  las etapas y los módulos son letras, números y guiones bajos (lib/curso-modulos.ts). */
 export const ETAPA_HUERFANA = '~sin-etapa';
 
 /**
- * El curso de un producto, por etapas y EN EL ORDEN DE LA ENTREGA. `null` = el producto no
- * tiene clases (la ficha no lo muestra: «por producto del cliente que tenga clases»).
+ * El curso de un producto, por MÓDULOS y EN EL ORDEN DEL CURSO (D1: las etapas que son módulo y los
+ * sueltos, `derivarModulos`). `null` = el producto no tiene clases (la ficha no lo muestra: «por
+ * producto del cliente que tenga clases»).
  *
- * ⚠️ TODAS LAS ETAPAS, TAMBIÉN LAS QUE NO TIENEN CLASES: la etapa actual se marca sobre el
- * recorrido entero, y saltear las vacías haría que «dónde está» se lea fuera de contexto.
+ * ⚠️ TODOS LOS MÓDULOS, TAMBIÉN LOS QUE NO TIENEN CLASES: el módulo actual se marca sobre el
+ * recorrido entero, y saltear los vacíos haría que «dónde está» se lea fuera de contexto.
  *
- * ⚠️ Y LAS CLASES DE UNA ETAPA BORRADA NO SE PIERDEN: van al final, en su propio grupo. Sacar
- * una etapa de la entrega no borra sus clases (la FK es al producto, no a la etapa), y una
- * ficha que no las dibujara escondería tareas que el cliente ya contestó.
+ * ⚠️ Y LAS CLASES DE UN MÓDULO QUE YA NO EXISTE NO SE PIERDEN: van al final, en su propio grupo.
+ * Sacar una etapa de la entrega no borra sus clases (la FK es al producto, no a la etapa), y una
+ * ficha que no las dibujara escondería tareas que el cliente ya contestó. Un módulo SUELTO no es
+ * huérfano: tiene su grupo con su nombre (hasta el 08/10/2026 caía en «Sin etapa»).
+ *
+ * `modulos`: los del curso. AUSENTE = cada etapa es un módulo (un curso sin sueltos ni etapas
+ * sacadas del curso), que es lo de antes del 08/10/2026. La fila de Avance sigue siendo POR ETAPA del
+ * kanban: es la misma de la tabla Avance.
  *
  * ⚠️ Y SI EL CLIENTE ESTÁ EN UNA ETAPA BORRADA (`etapaBorrada`), NINGUNA ES LA «ACTUAL». El
  * portal y el paso automático lo tratan como si estuviera en la primera (`etapaActualDe`), y la
@@ -322,6 +359,8 @@ export function armarProducto(p: {
   nombre: string;
   /** `color` = el de la etapa en el kanban (`colorDeEtapa`, con sus fases). */
   etapas: ReadonlyArray<{ key: string; label: string; color?: string }>;
+  /** Los módulos del curso (`derivarModulos`). Ausente = cada etapa es un módulo (ver arriba). */
+  modulos?: ReadonlyArray<Pick<ModuloCurso, 'clave' | 'nombre' | 'vinculado'>>;
   clases: readonly Clase[];
   /** El progreso EFECTIVO (`progresoEfectivo`): una clase por área cuenta con todas sus áreas. */
   progreso: ReadonlyMap<number, Progreso>;
@@ -363,14 +402,18 @@ export function armarProducto(p: {
     xs.push(aFicha(c));
     porEtapa.set(c.etapa, xs);
   }
-  const conocidas = new Set(p.etapas.map((e) => e.key));
-  const etapas: EtapaFicha[] = p.etapas.map((e) => {
-    const clases = ordenar(porEtapa.get(e.key) ?? []);
-    return { key: e.key, label: e.label, actual: e.key === actual, huerfana: false, clases, resumen: resumenDeEtapa(clases) };
+  const mods = p.modulos ?? p.etapas.map((e) => ({ clave: e.key, nombre: e.label, vinculado: true }));
+  const conocidas = new Set(mods.map((m) => m.clave));
+  const modulos: ModuloFicha[] = mods.map((m) => {
+    const clases = ordenar(porEtapa.get(m.clave) ?? []);
+    return {
+      key: m.clave, label: m.nombre, vinculado: m.vinculado, actual: m.vinculado && m.clave === actual,
+      huerfana: false, clases, resumen: resumenDeEtapa(clases),
+    };
   });
   const sueltas = ordenar([...porEtapa.entries()].filter(([k]) => !conocidas.has(k)).flatMap(([, xs]) => xs));
   if (sueltas.length) {
-    etapas.push({ key: ETAPA_HUERFANA, label: 'Sin etapa', actual: false, huerfana: true, clases: sueltas, resumen: resumenDeEtapa(sueltas) });
+    modulos.push({ key: ETAPA_HUERFANA, label: 'Sin módulo', vinculado: false, actual: false, huerfana: true, clases: sueltas, resumen: resumenDeEtapa(sueltas) });
   }
   // La fila de Avance: la misma función que arma la tabla de la tab (page.tsx), con las MISMAS
   // entradas — las clases del producto, las claves de la entrega, la etapa actual y el progreso.
@@ -381,7 +424,40 @@ export function armarProducto(p: {
     etapas: p.etapas.map((e) => ({ key: e.key, label: e.label, color: e.color ?? 'var(--faint)' })),
     fila: { etapa: actual, etapaBorrada: borrada != null, porEtapa: a.porEtapa, pctVisto: a.pctVisto, videosSinMedir: a.videosSinMedir },
   };
-  return { productoId: p.productoId, nombre: p.nombre, etapaActual: actual, etapaBorrada: borrada, etapas, avance };
+  return { productoId: p.productoId, nombre: p.nombre, etapaActual: actual, etapaBorrada: borrada, modulos, avance };
+}
+
+/**
+ * Lo cerrado para ESTE alumno y lo que el equipo le abrió a mano, para «Abrir a mano» (D2): los
+ * módulos que sus permisos le dan y, de los abiertos, sus clases. Sale de las MISMAS aperturas que
+ * decide el portal (`aperturasDe`), así la ficha no ofrece abrir algo que el alumno ya ve.
+ *
+ * ⚠️ UN MÓDULO QUE SUS PERMISOS NO LE DAN NO SE LISTA: no está cerrado por un candado, está fuera de
+ * lo suyo, y eso se cambia en «Permisos del curso». Y las clases de un módulo cerrado tampoco: lo que
+ * se abre ahí es el módulo (una clase no puede estar más abierta que su módulo).
+ */
+export function bloqueosDeFicha(
+  modulos: ReadonlyArray<Pick<ModuloCurso, 'clave' | 'nombre'>>,
+  clases: ReadonlyArray<Pick<Clase, 'id' | 'etapa' | 'orden' | 'titulo'>>,
+  ap: Aperturas,
+  permitido: (clave: string) => boolean,
+): BloqueoFicha[] {
+  const out: BloqueoFicha[] = [];
+  for (const m of modulos) {
+    if (!permitido(m.clave)) continue;
+    const a = ap.modulos.get(m.clave);
+    if (!a) continue;
+    if (!a.abierta) { out.push({ objeto: 'modulo', clave: m.clave, nombre: m.nombre, motivo: a.motivo, manual: false }); continue; }
+    if (a.manual) out.push({ objeto: 'modulo', clave: m.clave, nombre: m.nombre, motivo: null, manual: true });
+    const suyas = clases.filter((c) => c.etapa === m.clave).slice().sort((x, y) => x.orden - y.orden || x.id - y.id);
+    for (const c of suyas) {
+      const ac = ap.clases.get(c.id);
+      if (!ac) continue;
+      if (!ac.abierta) out.push({ objeto: 'clase', clave: String(c.id), nombre: c.titulo, motivo: ac.motivo, manual: false });
+      else if (ac.manual) out.push({ objeto: 'clase', clave: String(c.id), nombre: c.titulo, motivo: null, manual: true });
+    }
+  }
+  return out;
 }
 
 // ── El acceso y las llamadas ──────────────────────────────────────────────────
@@ -437,14 +513,16 @@ export type AccesoFicha = AccesoInvitacion & {
 export type ModuloPermiso = { key: string; label: string; clases: number };
 
 /**
- * Los módulos de un producto para elegir permisos: sus etapas EN EL ORDEN DE LA ENTREGA (D1: un
- * módulo vinculado es una etapa), con cuántas clases tiene cada una.
+ * Los módulos de un producto para elegir permisos: los MÓDULOS del curso en su orden (D1: los
+ * vinculados, que son etapas, y los sueltos), con cuántas clases tiene cada uno. Hasta el 08/10/2026
+ * salían de las etapas: un módulo suelto caía en «Sin etapa», no se podía tildar y, con «Elegir
+ * módulos», quedaba escondido.
  *
  * ⚠️ SIN EL GRUPO DE HUÉRFANAS (`ETAPA_HUERFANA`): es una clave inventada para dibujar las clases
- * de una etapa borrada, no un módulo. Guardada en un alcance no abriría nada nunca.
+ * de un módulo que ya no existe, no un módulo. Guardada en un alcance no abriría nada nunca.
  */
-export function modulosParaPermisos(prod: Pick<ProductoFicha, 'etapas'>): ModuloPermiso[] {
-  return prod.etapas.filter((e) => !e.huerfana).map((e) => ({ key: e.key, label: e.label, clases: e.clases.length }));
+export function modulosParaPermisos(prod: Pick<ProductoFicha, 'modulos'>): ModuloPermiso[] {
+  return prod.modulos.filter((e) => !e.huerfana).map((e) => ({ key: e.key, label: e.label, clases: e.clases.length }));
 }
 
 /**

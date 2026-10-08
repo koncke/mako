@@ -14,6 +14,7 @@
  *    (para armar el modelo del lado del server) sin arrastrar React al grafo del server.
  */
 import type { ReactNode } from 'react';
+import type { ValorLamina } from '@/lib/laminas';
 
 /**
  * El tono de un chip (`ChipUgc`). Vive acá y no en el componente para que un adaptador PURO (sin
@@ -47,8 +48,24 @@ export type ModuloUgc = {
    * el mismo lugar que `portada` y le gana a la lámina. Con las dos, gana la foto.
    */
   fondo?: string | null;
+  /**
+   * UNA LÁMINA DISEÑADA (item 5, app/_cursos/laminas/): el diseño, sus dos colores y su texto. Va en
+   * el lugar del cuaderno de siempre (`PortadaModulo`), que es lo que se dibuja sin esto. La foto y
+   * el degradado le siguen ganando.
+   */
+  lamina?: ValorLamina | null;
   /** `bloqueada`: se dibuja con candado y no se puede abrir. */
   estado?: EstadoModulo;
+  /**
+   * Un rótulo chico sobre la tapa, que NO cierra nada: el candado que el equipo le puso al módulo,
+   * dicho para quien lo arma («7 días después de entrar»). Al alumno le llega `estado` y `motivo`.
+   */
+  aviso?: string;
+  /**
+   * Por qué está cerrado, CORTO («Se abre el 12 de octubre»): lo decide el server (lib/curso-bloqueo.ts)
+   * y reemplaza al texto genérico del candado (`textos.bloqueada`). Ausente = el genérico.
+   */
+  motivo?: string;
   /**
    * Cuántas clases tiene. EXPLÍCITO y no `clases.length`: un módulo bloqueado llega SIN
    * clases (lib/curso-portal.ts no las manda) y aun así tiene que poder decir cuántas.
@@ -66,8 +83,8 @@ export type ModuloUgc = {
   textoBarra?: string;
   /**
    * Lo que va en la cabecera del módulo ABIERTO, a la derecha de su nombre: el link para agendar
-   * la sesión de una etapa terminada (el alumno), las notas de la etapa y el aviso de que no
-   * avanza sola (quien dicta). Es un hueco: el dibujo no sabe qué es.
+   * la sesión de una etapa terminada (el alumno) y el aviso de que no avanza sola (quien dicta).
+   * Es un hueco: el dibujo no sabe qué es.
    */
   acciones?: ReactNode;
   /**
@@ -75,6 +92,12 @@ export type ModuloUgc = {
    * `edicion`, no se renombra ni se le agregan clases.
    */
   sinEdicion?: boolean;
+  /**
+   * Se dibuja ATENUADO (la tarjeta y su renglón de la barra) y se abre igual: lo que el super admin
+   * ocultó en Conocimientos, que sólo le llega a él (app/conocimientos/modelo-ugc.ts). Lo dice además
+   * con `aviso`: atenuado solo no explica nada.
+   */
+  atenuado?: boolean;
 };
 
 export type ClaseUgc = {
@@ -91,6 +114,11 @@ export type ClaseUgc = {
   tapa?: string | null;
   /** Una tapa que no es una foto (un degradado), como `background` CSS. Con las dos, gana la foto. */
   fondo?: string | null;
+  /**
+   * Una lámina diseñada como tapa (ver `ModuloUgc.lamina`). Se dibuja sólo SIN `tapa`: el adaptador
+   * no pone la miniatura del video cuando se eligió una lámina, o la taparía.
+   */
+  lamina?: ValorLamina | null;
   /** Dibuja el triángulo de play sobre la tapa. */
   conVideo?: boolean;
   /** Chips de la tarjeta (estado de la tarea, % visto). Van con `<ChipUgc>`. */
@@ -99,28 +127,47 @@ export type ClaseUgc = {
   pastilla?: string;
   /** Texto que entra en la búsqueda además del título. Default: el nombre del módulo. */
   buscar?: string;
+  /** Se dibuja ATENUADA y se abre igual (ver `ModuloUgc.atenuado`); lo dice un chip. */
+  atenuado?: boolean;
 };
 
-export type PestanaUgc = { nombre: string; cuerpo: ReactNode };
-
-/** Lo que una pantalla pone adentro de la lección. Todo es opcional. */
+/**
+ * Lo que una pantalla pone adentro de la lección. Todo es opcional.
+ *
+ * ⚠️ SIN PESTAÑAS desde el 08/10/2026 (item 14): «Dentro de una clase, no deberían haber tabs de
+ *    "Tarea" y "Descripción", por defecto ambas juntas siempre, y primero siempre la descripción».
+ *    El papel es UNO y la pantalla pone adentro la descripción y, debajo, la tarea. Un material con
+ *    varias hojas (Conocimientos: documento y transcripción) trae su propia cabecera adentro del
+ *    papel (`CabeceraPestanas`, que sigue exportada para eso).
+ */
 export type LeccionUgc = {
   /**
    * El reproductor. `cuerpo` va adentro del marco 16:9 (`.ugc-vframe`: un `<iframe>` o un
-   * `<video>` descendiente se estira solo a la caja); `barra` es la franja de abajo.
+   * `<video>` descendiente se estira solo a la caja); `barra` es la franja de abajo (quien edita
+   * pone ahí «Cambiar» y «Quitar»).
    * Sin `video` no se dibuja el marco: un rectángulo negro sin nada adentro se lee como
    * un reproductor roto.
    */
   video?: { cuerpo: ReactNode; barra?: ReactNode };
-  /** Debajo del video y antes de Anterior/Siguiente (la tarea del alumno, cuando hay video). */
+  /**
+   * Sin `video`: lo que va EN SU LUGAR, adentro de un recuadro punteado del mismo 16:9 (item 16:
+   * «debe siempre estar un placeholder donde iría el vídeo para la opción de "Agregar vídeo"»). Es
+   * de quien edita; el alumno no lo recibe, y sin esto no se dibuja nada.
+   */
+  sinVideo?: ReactNode;
+  /** Debajo del video y antes de Anterior/Siguiente (la ficha de la clase, un link de afuera). */
   debajoDelVideo?: ReactNode;
-  /** Pestañas del papel. CursoUgc maneja cuál está abierta y vuelve a la primera al cambiar de clase. */
-  pestanas?: PestanaUgc[];
-  /** El papel cuando no hay `pestanas`: va tal cual adentro de la columna derecha. */
+  /** El papel: la descripción y debajo la tarea, juntas. Va tal cual adentro de la columna del texto. */
   papel?: ReactNode;
   /** A lo ancho, debajo de las dos columnas («Material de esta clase»). */
   despues?: ReactNode;
 };
+
+/**
+ * Dónde va el texto de la lección respecto del video: al costado (dos columnas) o abajo (todo a lo
+ * ancho). Es el ajuste `disposicion` del curso (lib/curso-estilo.ts), que lo guarda.
+ */
+export type DisposicionUgc = 'costado' | 'abajo';
 
 /** Una entrada propia en la barra («Avance de los clientes»), con su cuerpo en el área de contenido. */
 export type EntradaExtraUgc = {
@@ -134,10 +181,51 @@ export type EntradaExtraUgc = {
 
 /** Los controles de quien EDITA el curso. Sin esto, el dibujo es de sólo lectura. */
 export type EdicionUgc = {
-  /** «+ Clase», la última tarjeta de cada módulo abierto. */
-  onNueva: (moduloKey: string) => void;
-  /** «Editar» en el encabezado de la lección. */
-  onEditar: (claseId: number) => void;
+  /**
+   * «+ Nueva clase», la PRIMERA tarjeta de cada módulo abierto (item 12: «que aparezcan primero, no
+   * por último»: con treinta clases, el botón del final había que ir a buscarlo). Sin esto, no se
+   * dibuja: en Conocimientos las clases salen de la ficha del curso y no se crean desde la pantalla, y
+   * un «+ Nueva clase» que no hace nada se lee como que la app está rota.
+   */
+  onNueva?: (moduloKey: string) => void;
+  /**
+   * «+ Nuevo módulo», la PRIMERA tarjeta del índice. Pide el nombre EN SU LUGAR (la tarjeta se vuelve
+   * un campo) y lo manda con la casilla de `opcionNuevoModulo`. Devuelve si quedó: con `false` el
+   * campo se queda con lo tipeado. Sin esto, no se dibuja.
+   */
+  onNuevoModulo?: (nombre: string, conOpcion: boolean) => Promise<boolean>;
+  /**
+   * Una casilla, prendida por default, debajo del nombre del módulo nuevo (en la tab Curso: «Etapa
+   * del kanban»). Sin esto, no hay casilla.
+   */
+  opcionNuevoModulo?: string;
+  /**
+   * Cuántas letras deja escribir el campo de «+ Nuevo módulo»: el tope del server (en la tab Curso, el
+   * de una etapa del kanban, 40). Sin esto, 80. Un campo que deja escribir más de lo que el server
+   * acepta promete un nombre que después rebota.
+   */
+  topeNombreModulo?: number;
+  /**
+   * ARRASTRAR UN MÓDULO (item 7), en la grilla del índice o en la barra: la lista ENTERA de keys en
+   * el orden nuevo (los que se pueden mover: sin `sinEdicion`). La pantalla mueve en el acto y, si el
+   * server rechaza, vuelve. Sin esto, los módulos no se arrastran.
+   */
+  onOrdenarModulos?: (keys: string[]) => void;
+  /**
+   * ARRASTRAR UNA CLASE (item 7): en la grilla de su módulo (`antesDe` = la clase que queda después,
+   * `null` = al final), o SOLTADA SOBRE OTRO MÓDULO de la barra (va al final de ése). Sin esto, las
+   * clases no se arrastran.
+   */
+  onLlevarClase?: (claseId: number, moduloKey: string, antesDe: number | null) => void;
+  /**
+   * El menú «…» de un módulo (en su tarjeta y en su cabecera) y de una clase (en su tarjeta): lo ARMA
+   * LA PANTALLA (renombrar, portada, candado, borrar…); el dibujo pone el botón y el desplegable. Sin
+   * esto, no hay botón.
+   */
+  menuModulo?: (m: ModuloUgc, ctl: ControlMenuUgc) => ReactNode;
+  menuClase?: (c: ClaseUgc, ctl: ControlMenuUgc) => ReactNode;
+  // ⚠️ SIN `onEditar` desde el 08/10/2026 (item 16): el botón «Editar» y su modal se fueron, cada
+  //    parte de la lección se edita en su lugar (ver `LeccionUgc`, y la pantalla que la arma).
   onMover: (claseId: number, dir: 'arriba' | 'abajo') => void;
   onBorrar: (claseId: number) => void;
   /** Default: por posición dentro de su módulo (la primera no sube, la última no baja). */
@@ -155,7 +243,19 @@ export type EdicionUgc = {
    * su selector colgado de `ancla` (el botón que se tocó).
    */
   onPortada?: (que: ObjetivoUgc, ancla: HTMLElement) => void;
+  /**
+   * «Texto al costado / Texto abajo» en la lección (item 16). Cambia el ajuste del CURSO, no el de
+   * esa clase: la pantalla lo guarda y vuelve a pasar `disposicion`. Sin esto, el interruptor no se
+   * dibuja.
+   */
+  onDisposicion?: (d: DisposicionUgc) => void;
 };
+
+/**
+ * Lo que recibe el armado de un menú «…»: cerrarlo, el botón del que cuelga (para abrir desde ahí otro
+ * desplegable, como el de la portada) y, en un módulo, poner su nombre a editar en la tarjeta.
+ */
+export type ControlMenuUgc = { cerrar: () => void; ancla: HTMLElement | null; renombrar?: () => void };
 
 /** De qué es una portada. */
 export type ObjetivoUgc = { tipo: 'curso' } | { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number };
@@ -212,8 +312,14 @@ export type TextosUgc = {
   bloqueada: string;
   /** El botón que abre la lista de módulos en el teléfono. */
   menu: string;
+  /** La primera tarjeta de un módulo abierto, para quien edita. */
   nueva: string;
-  editar: string;
+  /** La primera tarjeta del índice, para quien edita. */
+  nuevoModulo: string;
+  /** El campo de esa tarjeta, vacío. */
+  nombreModulo: string;
+  /** El rótulo (de accesibilidad) del botón «…» de un módulo o una clase. */
+  opciones: string;
   /** Lo que se lee en la descripción vacía de la portada, mientras se edita. */
   sinResumen: string;
   /** El botón que cambia una portada. */
@@ -247,11 +353,19 @@ export type CursoUgcProps = {
   portada?: PortadaUgc;
   /** Se llama con la clase abierta, en cada render. */
   leccion: (clase: ClaseUgc) => LeccionUgc;
+  /** Dónde va el texto de la lección (default `costado`). Ver `DisposicionUgc`. */
+  disposicion?: DisposicionUgc;
   recursos?: RecursosUgc;
   entradasExtra?: EntradaExtraUgc[];
   edicion?: EdicionUgc;
   /** Fijo arriba del contenido, debajo del buscador (un selector de producto, un saludo). */
   arriba?: ReactNode;
+  /**
+   * Botones de la barra de arriba, entre el buscador y el nombre del curso: lo que se hace con el
+   * curso ENTERO («Invitar alumnos», «Vista del alumno», el «?» del recorrido; en Conocimientos,
+   * «Compartir»). Siempre a la vista: en un menú no los encuentra nadie.
+   */
+  topbarExtra?: ReactNode;
   /** Una línea chica al pie de la barra («Este enlace es personal»). En el teléfono no va. */
   pieBarra?: ReactNode;
   /** El nivel de arriba del curso. Sin esto no hay salida en la barra (un share de UN curso). */

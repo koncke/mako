@@ -1,24 +1,30 @@
 // =============================================================================
-// curso-grabar-notas — la marca de grabar (#693), las notas del equipo con su adjunto (#692) y
-// la purga de los archivos huérfanos de los buckets del curso
+// curso-grabar-notas — lo que QUEDA de la marca de grabar (#693) y de las notas del equipo (#692):
+// sus columnas, su tabla, su bucket y la purga de los archivos huérfanos. Y que su pantalla NO esté.
 // =============================================================================
-// Ejecuta app/customer-success/curso/reglas.ts (puro) y lee como FUENTE (sin comentarios, con
-// los \r\n normalizados) lo que no se puede ejecutar sin base: lib/curso-admin.ts,
-// lib/curso-purga.ts, el cron, las actions, el editor y la migración 0208.
+// 08/10/2026, items 13 y 15 del pedido de Martín: «Elimina la sección de "Notas" en todos lados» y
+// «Elimina el botón de "grabar/no grabar"». Este archivo cambió de sentido ese día: antes fijaba el
+// cableado de la marca y de las notas; ahora fija que la pantalla, las acciones, la lectura y el
+// conteo NO estén, y que lo que se quedó a propósito (la columna, la tabla, el bucket, la purga)
+// siga en su lugar.
 //
-// Probado ROMPIÉNDOLO: ver el bloque «Roturas» al final del archivo, con el resultado de cada una.
+// Ejecuta app/customer-success/curso/reglas.ts (puro) y lee como FUENTE (sin comentarios, con los
+// \r\n normalizados) lo que no se puede ejecutar sin base: lib/curso-admin.ts, lib/curso-purga.ts, el
+// cron, las actions, la tab del curso y la migración 0208.
+//
+// Probado ROMPIÉNDOLO: ver los bloques «Roturas» al final del archivo, con el resultado de cada una.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import * as reglas from '../app/customer-success/curso/reglas';
 import {
-  valorGrabar, porGrabar, validarClase, mimeDeNota, pathDeNota, pathEsNotaDelProducto, pathEsNotaDelWorkspace,
+  validarClase, mimeDeNota, pathDeNota, pathEsNotaDelProducto, pathEsNotaDelWorkspace,
   nombreDeAdjunto, validarNota, adjuntoSeVe, huerfanosABorrar, decidirPurga, esVideoSubido, esAdjuntoSubido, pideBorrarPurga,
   MIME_NOTA, TOPE_NOTA_BYTES, TOPE_NOTA_TEXTO, TOPE_NOMBRE_ADJUNTO, type ArchivoBucket,
 } from '../app/customer-success/curso/reglas';
 import { TABLAS_DE_INQUILINO } from '../lib/tablas-de-inquilino';
-import type { Clase } from '../lib/curso';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -32,72 +38,64 @@ const bloque = (src: string, firma: string) => {
   const fin = src.slice(i + firma.length).search(/\n(export |async function |function |const |type )/);
   return fin < 0 ? src.slice(i) : src.slice(i, i + firma.length + fin);
 };
+/** Los fuentes (.ts/.tsx) de una carpeta, recursivo, con su ruta relativa a la raíz. */
+const fuentesDe = (rel: string): string[] => readdirSync(join(RAIZ, rel)).flatMap((n) => {
+  const r = `${rel}/${n}`;
+  if (statSync(join(RAIZ, r)).isDirectory()) return fuentesDe(r);
+  return /\.tsx?$/.test(n) ? [r] : [];
+});
 
 const UUID = '0f8fad5b-d9cb-469f-a165-70867728950e';
-const clase = (id: number, o: Partial<Clase> = {}): Clase => ({
-  id, productoId: 7, etapa: 'bienvenida', orden: id, titulo: `C${id}`, descripcion: '', tipo: 'clase',
-  minutos: null, videoTipo: 'ninguno', videoUrl: null, videoPath: null, tarea: '', campos: [], obligatoria: false, ...o,
-});
 
-// ── Grabar / no grabar ───────────────────────────────────────────────────────
+// ── Grabar / no grabar: se fue la pantalla, queda la columna ─────────────────
 
-test('valorGrabar: sólo true, false o null; cualquier otra cosa no escribe nada', () => {
-  assert.equal(valorGrabar(true), true);
-  assert.equal(valorGrabar(false), false);
-  assert.equal(valorGrabar(null), null);
-  for (const malo of ['true', 1, 0, undefined, {}, 'null']) assert.equal(valorGrabar(malo), undefined, `aceptó ${JSON.stringify(malo)}`);
-});
-
-test('porGrabar: las marcadas «Grabar» que todavía no tienen video; sin decidir no cuenta', () => {
-  const cs = [
-    clase(1), // grabar, sin video → cuenta
-    clase(2, { videoTipo: 'youtube', videoUrl: 'https://youtu.be/x' }), // grabar, ya tiene video → no
-    clase(3), // no grabar → no
-    clase(4), // sin decidir → no
-    clase(5), // sin entrada en el mapa → no
+test('«Grabar / No grabar» se fue entero: ni la regla, ni la escritura, ni la lectura, ni el conteo, ni el control', () => {
+  // La UI del curso (la tab, el dibujo compartido) y lo que la servía. Sin comentarios: el que
+  // explica por qué se fue nombra lo que se fue.
+  const archivos = [
+    ...fuentesDe('app/customer-success/curso'), ...fuentesDe('app/_cursos'),
+    'lib/curso-admin.ts', 'lib/curso-datos.ts', 'lib/curso-portal.ts',
   ];
-  assert.equal(porGrabar(cs, { 1: true, 2: true, 3: false, 4: null }), 1);
-  assert.equal(porGrabar(cs, {}), 0);
+  assert.ok(archivos.length >= 20, `barrí sólo ${archivos.length} archivos: la lista de carpetas quedó vieja`);
+  const rastro = /\b(?:marcarGrabar|marcarGrabarAction|grabarDeProductos|valorGrabar|porGrabar|ControlGrabar|nPorGrabar)\b|por grabar|cu-grabar|'No grabar'|"No grabar"|>\s*No grabar\s*</;
+  for (const f of archivos) assert.doesNotMatch(sinComentarios(leer(f)), rastro, `${f} todavía tiene la marca de grabar`);
+  // Y ninguna exportación de las reglas: un `export` que nadie llama es la puerta para volver a cablearla.
+  assert.equal('valorGrabar' in reglas, false);
+  assert.equal('porGrabar' in reglas, false);
 });
 
-test('guardar la clase entera NO trae la marca: validarClase no devuelve `grabar` aunque llegue', () => {
+test('guardar la clase entera NO trae la marca: validarClase no devuelve `grabar` aunque llegue (la columna queda)', () => {
   const r = validarClase({ productoId: 7, etapa: 'bienvenida', titulo: 'Tu compromiso', grabar: true },
-    { ws: 1, productoId: 7, etapas: ['bienvenida'] });
+    { ws: 1, productoId: 7, modulos: ['bienvenida'] });
   assert.ok(r.ok);
-  assert.equal('grabar' in r.fila, false, 'el guardado de la clase escribiría la marca y pisaría lo que eligió Mauricio');
-});
-
-test('marcarGrabar escribe SÓLO la columna grabar, y guardarClase no la nombra', () => {
-  const admin = sinComentarios(leer('lib/curso-admin.ts'));
-  const marcar = bloque(admin, 'export async function marcarGrabar(');
-  const updates = marcar.match(/\.update\(/g) ?? [];
-  assert.equal(updates.length, 1, 'marcarGrabar tiene que hacer UNA escritura');
-  assert.match(marcar, /\.update\(\{ grabar: valor \}\)/, 'la escritura tiene que llevar sólo `grabar`');
-  assert.doesNotMatch(marcar, /updated_at/, 'la marca no es un cambio del contenido');
-  assert.match(marcar, /valorGrabar\(raw\)/, 'el valor tiene que pasar por la regla pura');
-  const guardar = bloque(admin, 'export async function guardarClase(');
+  assert.equal('grabar' in r.fila, false, 'el guardado de la clase escribiría la marca que la mig 0208 dejó guardada');
+  const guardar = bloque(sinComentarios(leer('lib/curso-admin.ts')), 'export async function guardarClase(');
   assert.doesNotMatch(guardar, /grabar/);
 });
 
-test('el portal no depende de la 0208: COLUMNAS_CLASE no lee `grabar`, la tab la lee aparte', () => {
+test('el portal no depende de la 0208: COLUMNAS_CLASE no lee `grabar`, y la tab tampoco ya', () => {
   const datos = sinComentarios(leer('lib/curso-datos.ts'));
   const linea = datos.split('\n').find((l) => l.includes('export const COLUMNAS_CLASE'));
   assert.ok(linea);
   assert.doesNotMatch(linea!, /grabar/);
-  const admin = sinComentarios(leer('lib/curso-admin.ts'));
-  assert.match(bloque(admin, 'export async function grabarDeProductos('), /'id, grabar'/);
+  assert.doesNotMatch(sinComentarios(leer('app/customer-success/curso/page.tsx')), /grabar/i, 'la página de la tab volvió a leer la marca');
 });
 
-test('marcar es de un admin; las notas, de quien VE la tab', () => {
+test('las notas del equipo se fueron de la tab: ni la caja, ni sus seis acciones, ni el conteo, ni el botón de la etapa', () => {
   const acc = sinComentarios(leer('app/customer-success/curso/actions.ts'));
-  assert.match(bloque(acc, 'export async function marcarGrabarAction('), /await puedeEditar\(\)/);
-  for (const f of ['notasAction', 'agregarNotaAction', 'borrarNotaAction', 'urlSubidaNotaAction', 'descartarAdjuntoNotaAction', 'urlAdjuntoNotaAction']) {
-    const b = bloque(acc, `export async function ${f}(`);
-    assert.match(b, /await puedeVer\(\)/, `${f} no pregunta si puede ver`);
-    assert.doesNotMatch(b, /puedeEditar/, `${f} pide ser admin: el equipo no podría comentar`);
+  for (const f of ['notasAction', 'agregarNotaAction', 'borrarNotaAction', 'urlSubidaNotaAction', 'descartarAdjuntoNotaAction', 'urlAdjuntoNotaAction', 'marcarGrabarAction', 'guardarClaseAction']) {
+    assert.doesNotMatch(acc, new RegExp(`export async function ${f}\\(`), `${f} sigue abierta: una action sin pantalla es un POST que cualquiera con sesión puede mandar`);
   }
-  // El autor sale de la SESIÓN, no del pedido.
-  assert.match(bloque(acc, 'export async function agregarNotaAction('), /await quienMira\(\)/);
+  assert.doesNotMatch(acc, /@\/lib\/curso-notas/, 'actions.ts sigue importando las notas');
+  const rastro = /\b(?:NotasClase|notasAction|agregarNotaAction|conteoDeNotas|ConteoNotas|setNotasEtapa|notasEtapa|contarNotasClase|contarNotasEtapa)\b|['"`>]\s*Notas\b|curso-notas'/;
+  for (const f of [...fuentesDe('app/customer-success/curso'), ...fuentesDe('app/_cursos')]) {
+    assert.doesNotMatch(sinComentarios(leer(f)), rastro, `${f} todavía tiene las notas del equipo`);
+  }
+  // Los dos componentes de la pantalla, borrados (no «sin usar»: un archivo que nadie importa se
+  // vuelve a montar con una línea).
+  const curso = readdirSync(join(RAIZ, 'app/customer-success/curso'));
+  assert.ok(!curso.includes('NotasClase.tsx'), 'volvió NotasClase.tsx');
+  assert.ok(!curso.includes('EditorClase.tsx'), 'volvió EditorClase.tsx (el modal de «Editar», que tenía la caja de notas)');
 });
 
 // ── Las notas: el adjunto ────────────────────────────────────────────────────
@@ -322,43 +320,10 @@ test('el cron de la purga usa la auth de la casa, no itera inquilinos, y borra s
   assert.doesNotMatch(src, /correrPorWorkspace|runWithWorkspace/);
 });
 
-// ── El cableado de la pantalla ───────────────────────────────────────────────
-
-test('EditorClase monta las notas AFUERA del fieldset deshabilitado', () => {
-  const src = sinComentarios(leer('app/customer-success/curso/EditorClase.tsx'));
-  const cierre = src.indexOf('</fieldset>');
-  const notas = src.indexOf('<NotasClase');
-  assert.ok(cierre > 0 && notas > cierre, 'adentro de <fieldset disabled> quien sólo mira no puede comentar');
-  assert.equal((src.match(/<NotasClase/g) ?? []).length, 1);
-  assert.match(src.slice(notas, src.indexOf('/>', notas)), /destino=\{\{ claseId: clase\.id \}\}/);
-});
-
-test('CursoApp: el control de grabar sólo para quien edita, y las notas de cada etapa para todos', () => {
-  const src = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
-  assert.match(src, /\{puedeEditar && marca !== undefined && \(\s*<ControlGrabar /);
-  assert.match(src, /await marcarGrabarAction\(c\.id, valor\)/);
-  assert.match(src, /porGrabar\(delProducto, grabar\)/);
-  assert.match(src, /<NotasClase[^>]*destino=\{\{ etapa: notasEtapa \}\}/);
-  // El botón «Notas» de la etapa no cuelga de puedeEditar. Desde el 07/10/2026 vive en la cabecera
-  // del módulo abierto del curso (`acciones` de app/_cursos/CursoUgc.tsx), que arma `modulos`: ni
-  // el botón ni el bloque que lo arma pueden mirar `puedeEditar`.
-  const ini = src.indexOf('<span className="cu-sec-acciones">');
-  const accion = src.slice(ini, src.indexOf('</button>', ini));
-  assert.match(accion, /<button type="button" className="ugc-btn" onClick=\{\(\) => setNotasEtapa\(m\.key\)\}>/);
-  const bloque = src.slice(src.indexOf('const modulos = servicio'), src.indexOf('const clasesUgc = '));
-  assert.ok(bloque.length > 200 && bloque.includes('cu-sec-acciones'), 'no encontré el bloque que arma los módulos');
-  assert.doesNotMatch(bloque, /puedeEditar/);
-});
-
-test('NotasClase sube por URL firmada y abre por el id de la nota', () => {
-  const src = sinComentarios(leer('app/customer-success/curso/NotasClase.tsx'));
-  assert.match(src, /await urlSubidaNotaAction\(productoId, mime, archivo\.size\)/);
-  assert.match(src, /subirConProgreso\(firma\.signedUrl, archivo, firma\.apikey, setSubiendo, FORMATOS\)/);
-  assert.match(src, /await urlAdjuntoNotaAction\(n\.id\)/);
-  assert.match(src, /await agregarNotaAction\(/);
-});
-
 // ── Roturas (06/10/2026) ─────────────────────────────────────────────────────
+// ⚠️ Las de la marca de grabar, de las acciones de las notas y del cableado de la pantalla son de lo
+// que se BORRÓ el 08/10/2026: quedan acá como registro, y las que valen hoy están en el bloque del
+// 08/10, al final.
 // Con todo en su lugar: 24 pass / 0 fail. Un arnés (scratchpad, curso-admin-roturas.mjs) rompió
 // UNA cosa por vez sobre el archivo real y restauró de MEMORIA (nunca con git), verificando que
 // el archivo volviera idéntico. 34 roturas; cada una dio 23 pass / 1 fail con SU test caído,
@@ -391,3 +356,16 @@ test('NotasClase sube por URL firmada y abre por el id de la nota', () => {
 //     → cae «la purga, sin pedirlo, NO borra»
 //   · la ruta con `{ borrar: true }` fijo · la ruta con el entorno reemplazado por '1' · una segunda
 //     llamada que no pasa por pideBorrarPurga → cae «el cron de la purga… borra sólo si se lo piden»
+//
+// ── Roturas del 08/10/2026: que la pantalla de la marca y de las notas NO vuelva ──────
+// Sin romper: 21 pass / 0 fail. Arnés scratchpad/leccion/romper.mjs: una rotura por vez sobre el
+// archivo real, restaurado de MEMORIA (nunca con git) y comprobado con md5; si otra sesión hubiera
+// escrito el archivo mientras estaba roto, deshace SÓLO la rotura. 8 roturas, cada una 20 / 1 con SU
+// test caído:
+//   · `export const valorGrabar` de vuelta en reglas.ts · un `'No grabar'` en la lección
+//     → «"Grabar / No grabar" se fue entero»
+//   · validarClase devolviendo `grabar: true` en la fila → «guardar la clase entera NO trae la marca»
+//   · la página de la tab leyendo algo llamado `grabar…` → «el portal no depende de la 0208…»
+//   · `export async function guardarClaseAction` de vuelta · `import '@/lib/curso-notas'` en las
+//     actions · un `'Notas'` en la lección · un EditorClase.tsx (aunque vacío) en la carpeta
+//     → «las notas del equipo se fueron de la tab»

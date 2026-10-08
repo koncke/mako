@@ -41,6 +41,8 @@ import { esDelProducto, salioDeLaEntrega } from '@/app/customer-success/pertenen
 import { clasesDelProducto, progresoDelCliente, progresoDeClientes, accesoDe } from '@/lib/curso-datos';
 import { accesosDeClientes } from '@/lib/curso-admin';
 import { avanceDeCurso, accesoParaMako, NOTAS_CURSO } from '@/lib/curso-resumen';
+import { filasDeModulos } from '@/lib/curso-modulos-datos';
+import { derivarModulos, type FilaModulo } from '@/lib/curso-modulos';
 import type { Progreso } from '@/lib/curso';
 import { clienteDelWorkspace, estadoGuardadoDe, marcarEstadoCliente } from './cs.helpers';
 
@@ -209,10 +211,15 @@ export const RUNNERS: Runners = {
       // vacía sobre una consulta caída diría «su servicio no tiene curso».
       const cursos = (await Promise.all(u.servicios.map(async (s) => ({ s, clases: await clasesDelProducto(s.productoId) }))))
         .filter((x) => x.clases.length > 0);
+      // Los módulos SUELTOS de cada curso (D1): MaKo los nombra en vez de contarlos como clases
+      // «sin etapa». Si no se pueden leer, se dice como siempre (`clases_sin_etapa`): es una lectura.
+      const filasMods = await filasDeModulos(cursos.map((x) => x.s.productoId)).catch(() => new Map<number, FilaModulo[]>());
+      const sueltosDe = (productoId: number) => derivarModulos(cursos.find((x) => x.s.productoId === productoId)?.s.etapas ?? [], filasMods.get(productoId) ?? [])
+        .filter((m) => !m.vinculado).map((m) => ({ key: m.clave, label: m.nombre }));
       const deCliente = (id: number) => cursos.filter(({ s }) => esDelProducto(id, s.productoId, u.casa, u.filas[s.productoId] ?? {}));
       const avance = (id: number, x: (typeof cursos)[number], prog: ReadonlyMap<number, Pick<Progreso, 'estado' | 'pct'>> | undefined) =>
         avanceDeCurso({
-          etapas: x.s.etapas, clases: x.clases,
+          etapas: x.s.etapas, clases: x.clases, sueltos: sueltosDe(x.s.productoId),
           etapaGuardada: u.filas[x.s.productoId]?.[id]?.etapa ?? null,
           estadoDe: (claseId) => prog?.get(claseId)?.estado,
           pctDe: (claseId) => prog?.get(claseId)?.pct,

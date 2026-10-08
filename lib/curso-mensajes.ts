@@ -44,11 +44,16 @@ import { enviarYEspejar } from './evolution-envio';
 import { estaBloqueado } from './evolution-block';
 import { normalizarTelefono } from './leads';
 import { tzDeWorkspace } from './timezone';
-import { entregaDeProducto } from './entrega-servicio';
+import { entregaDeProducto, entregaDeProductoEstricta } from './entrega-servicio';
 import { emitirAviso } from './avisos';
-import { linkDeAcceso, linkDeAccesoExistente, clasesDelProducto, progresoDelCliente, etapaActualDe, productosDelAlumno } from './curso-datos';
+import {
+  linkDeAcceso, linkDeAccesoExistente, clasesDelProducto, progresoDelCliente, etapaActualDe, productosDelAlumno,
+  productosConCasaDelAlumno, accesoDe,
+} from './curso-datos';
 import { etapaCompleta, pendientesDe, videosSinVer, type Clase, type Progreso } from './curso';
+import { aperturasDelAlumno } from './curso-portal';
 import { etapaAnterior } from './curso-avance-regla';
+import { esModuloDelCurso } from './servicio-etapas';
 import { leerTodo } from './supabase-paginado';
 import {
   textoLinkCurso, textoEntradaAEtapa, textoPrevioCliente, textoPosteriorCliente,
@@ -180,11 +185,18 @@ export async function mandarLinkDelCurso(leadId: number, opts: { porQuien?: stri
  */
 export async function avisarEntradaAEtapa(p: { leadId: number; productoId: number; etapa: string }): Promise<ResultadoEnvio> {
   try {
+    // ⚠️ ESTRICTA (riesgo 12 del relevo del 07/10/2026): «¿esa etapa es de la entrega?» DECIDE si sale
+    // un mensaje, y con la lectura caída la tolerante contestaba sobre las etapas de fábrica.
     const [entrega, clases, progreso] = await Promise.all([
-      entregaDeProducto(p.productoId), clasesDelProducto(p.productoId), progresoDelCliente(p.leadId),
+      entregaDeProductoEstricta(p.productoId), clasesDelProducto(p.productoId), progresoDelCliente(p.leadId),
     ]);
+    if (!entrega) return { ok: false, motivo: 'no pude leer las etapas' };
     const claves = entrega.etapas.map((e) => e.key);
     if (!claves.includes(p.etapa)) return { ok: false, motivo: 'esa etapa no es de la entrega' };
+    // Sólo una etapa que es MÓDULO del curso (D1, 08/10/2026): una sacada del curso no tiene clases que
+    // contarle, y las que hubieran quedado con su clave no se dibujan en el portal (no son de ningún
+    // módulo). Un suelto no entra acá nunca: no es una etapa y nadie «entra» a él.
+    if (!entrega.etapas.some((e) => e.key === p.etapa && esModuloDelCurso(e))) return { ok: false, motivo: 'esa etapa no es un módulo del curso' };
     const deLaEtapa = clases.filter((c) => c.etapa === p.etapa);
     if (!deLaEtapa.length) return { ok: false, motivo: 'la etapa no tiene clases' };
 
@@ -291,19 +303,50 @@ async function cursoDeLaSesion(leadId: number, productoId: number | null): Promi
   return null;
 }
 
+/**
+ * De las clases de un producto, las que el alumno puede ABRIR hoy: sus candados y sus permisos, con la
+ * MISMA evaluación que el portal (`aperturasDelAlumno`, lib/curso-portal.ts). `null` = no se pudo
+ * evaluar, y entonces quien llama NO NOMBRA ninguna.
+ *
+ * ⚠️ UN MENSAJE QUE NOMBRA CLASES ES UNA PUERTA MÁS (revisión del 08/10/2026). El recordatorio y lo
+ * pendiente de una llamada salían de «las clases de su etapa», sin candados (D2) ni permisos (mig
+ * 0219): le pedían por WhatsApp ver una clase que no puede abrir, o le nombraban una de un módulo que
+ * en el portal no viaja «ni el nombre». No poder evaluar es no nombrar: una lista de menos se nota
+ * menos que una que manda a buscar lo que no está.
+ */
+async function abiertasDe(p: {
+  leadId: number; productoId: number; productos: readonly number[]; casa: number | null;
+  clases: readonly Clase[]; progreso: ReadonlyMap<number, Progreso>;
+}): Promise<Set<number> | null> {
+  try {
+    const acceso = await accesoDe(p.leadId);
+    const ap = await aperturasDelAlumno({ ...p, alcance: acceso?.alcance ?? null });
+    return new Set(p.clases.filter((c) => ap.clases.get(c.id)?.abierta === true).map((c) => c.id));
+  } catch (e) {
+    console.warn(`[curso-mensajes] no pude evaluar los candados del lead ${p.leadId}:`, msg(e));
+    return null;
+  }
+}
+
 async function contenidoDe(f: FilaSesion): Promise<Contenido> {
   const lead = await leerLead(f.lead_id);
   if (!lead) return { ok: false, motivo: 'el cliente no existe' };
   if (lead.estado_lead !== 'ganado') return { ok: false, motivo: 'no es cliente ganado' };
   const curso = await cursoDeLaSesion(f.lead_id, f.producto_id);
   if (!curso || !curso.clases.length) return { ok: false, motivo: 'su curso no tiene clases' };
-  const [etapa, progreso, entrega] = await Promise.all([
+  const [etapa, progreso, entrega, { productos, casa }] = await Promise.all([
     etapaActualDe(f.lead_id, curso.productoId), progresoDelCliente(f.lead_id), entregaDeProducto(curso.productoId),
+    productosConCasaDelAlumno(f.lead_id),
   ]);
   if (!etapa) return { ok: false, motivo: 'no está en la entrega de su servicio' };
   const deLaEtapa = curso.clases.filter((c) => c.etapa === etapa);
-  // `null` = la etapa no tiene clases cargadas: ni «te falta» ni «vas al día» serían verdad.
-  const pendientes = deLaEtapa.length ? pendientesDe(deLaEtapa, (id) => progreso.get(id)?.estado).map((c) => c.titulo) : null;
+  // Sólo lo que puede ABRIR (ver `abiertasDe`); sin poder evaluarlo, no se nombra nada (`null`).
+  const abiertas = deLaEtapa.length ? await abiertasDe({ leadId: f.lead_id, productoId: curso.productoId, productos, casa, clases: curso.clases, progreso }) : null;
+  // `null` = la etapa no tiene clases cargadas (o no se pudo saber cuáles se le abren): ni «te falta»
+  // ni «vas al día» serían verdad.
+  const pendientes = deLaEtapa.length && abiertas
+    ? pendientesDe(deLaEtapa.filter((c) => abiertas.has(c.id)), (id) => progreso.get(id)?.estado).map((c) => c.titulo)
+    : null;
   return {
     ok: true, lead, cliente: (lead.nombre ?? '').trim() || `cliente ${lead.id}`,
     etapa: entrega.etapas.find((e) => e.key === etapa)?.label ?? etapa, pendientes,
@@ -780,7 +823,7 @@ type CacheCursos = { clases: Map<number, Clase[]>; rotulos: Map<number, Map<stri
  * y por corrida: son los mismos para todos los clientes del negocio.
  */
 async function videosPendientesDe(leadId: number, cache: CacheCursos): Promise<BloqueVideos[]> {
-  const productos = await productosDelAlumno(leadId);
+  const { productos, casa } = await productosConCasaDelAlumno(leadId);
   const bloques: BloqueVideos[] = [];
   let progreso: Map<number, Progreso> | null = null;
   for (const productoId of productos) {
@@ -793,7 +836,10 @@ async function videosPendientesDe(leadId: number, cache: CacheCursos): Promise<B
     if (!deLaEtapa.length) continue;
     progreso ??= await progresoDelCliente(leadId);
     const visto = progreso;
-    const videos = videosSinVer(deLaEtapa, (id) => visto.get(id)?.pct);
+    // Sólo los videos que puede ABRIR (ver `abiertasDe`): sin poder evaluarlo, este curso no se nombra.
+    const abiertas = await abiertasDe({ leadId, productoId, productos, casa, clases, progreso: visto });
+    if (!abiertas) continue;
+    const videos = videosSinVer(deLaEtapa.filter((c) => abiertas.has(c.id)), (id) => visto.get(id)?.pct);
     if (!videos.length) continue;
     let rotulos = cache.rotulos.get(productoId);
     if (!rotulos) {

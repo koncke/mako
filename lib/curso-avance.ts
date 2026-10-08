@@ -13,6 +13,14 @@ import 'server-only';
 // la entrega (`moverClienteDeEtapa`, lib/cs-mover-etapa.ts) con `por: POR_MAKO`: el historial,
 // las secuencias de entrega y lo que venga mañana lo heredan sin que nadie se acuerde.
 //
+// ⚠️ SÓLO MUEVE CON UN MÓDULO VINCULADO (D1, 08/10/2026): un módulo SUELTO no es una etapa del
+// kanban, y completarlo no mueve a nadie (`decidirAvance`, pregunta 0).
+//
+// ⚠️ LA ENTREGA SE LEE ESTRICTA (riesgo 12 del relevo del 07/10/2026): con la lectura caída, la
+// tolerante devolvía las etapas DE FÁBRICA, y «la siguiente» de una etapa salía de un kanban que el
+// producto no tiene. Sin poder leer, no se mueve (la tarea ya está guardada; lo mueve el próximo envío
+// o el equipo).
+//
 // ⚠️ SÓLO MUEVE SI LA TAREA ES DE LA ETAPA EN LA QUE ESTÁ. Un cliente que completa una tarea de
 // una etapa ya pasada (o adelanta una futura) no se mueve: «terminó la etapa» habla de la etapa
 // en la que está, y moverlo desde otra lo haría saltar columnas.
@@ -33,7 +41,8 @@ import 'server-only';
 // WhatsApp. Lo fija tests/cs-mover-etapa.test.ts.
 
 import { claseDeId, clasesDelProducto, progresoDelCliente, etapaActualDe } from './curso-datos';
-import { entregaDeProducto } from './entrega-servicio';
+import { entregaDeProductoEstricta } from './entrega-servicio';
+import { esModuloDelCurso } from './servicio-etapas';
 import { moverClienteDeEtapa, POR_MAKO } from './cs-mover-etapa';
 import { decidirAvance } from './curso-avance-regla';
 import { avisarEntradaAEtapa } from './curso-mensajes';
@@ -68,13 +77,15 @@ export async function alEnviarTarea(p: { leadId: number; claseId: number }): Pro
       etapaActualDe(p.leadId, clase.productoId),
       clasesDelProducto(clase.productoId),
       progresoDelCliente(p.leadId),
-      entregaDeProducto(clase.productoId),
+      entregaDeProductoEstricta(clase.productoId),
     ]);
+    if (!entrega) return { movido: false, motivo: 'no pude leer las etapas del producto' };
 
     const d = decidirAvance({
       etapaDeLaClase: clase.etapa,
       etapaActual,
       etapas: entrega.etapas.map((e) => e.key),
+      vinculados: entrega.etapas.filter(esModuloDelCurso).map((e) => e.key),
       clases,
       estadoDe: (id) => progreso.get(id)?.estado,
     });

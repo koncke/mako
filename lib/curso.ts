@@ -10,6 +10,8 @@
 // link o subidos midiendo «cuánto del vídeo se vieron», y un acceso especial para sus clientes.
 // El modelo y su porqué están en la cabecera de supabase/migrations/0202_curso.sql.
 
+import type { Bloqueo } from './curso-bloqueo';
+
 export type VideoTipo = 'ninguno' | 'archivo' | 'youtube' | 'vimeo' | 'loom' | 'drive' | 'url';
 export type TipoClase = 'concepto' | 'demostracion' | 'clinica' | 'clase' | 'formulario';
 export type EstadoTarea = 'pendiente' | 'enviada' | 'aprobada';
@@ -118,6 +120,17 @@ export type Clase = {
    * literal de una clase (los tests, la vista previa) tiene que saber que existe.
    */
   porArea?: boolean;
+  /**
+   * Cuándo se abre ESTA clase (mig 0220, lib/curso-bloqueo.ts). `null`/ausente = hereda: abierta si
+   * su módulo lo está. Ausente en los literales viejos, igual que `porArea`.
+   */
+  bloqueo?: Bloqueo | null;
+  /**
+   * La descripción RICA (mig 0216): HTML ya saneado en el server (lib/html-seguro.ts) y con los
+   * adjuntos por referencia (`mako-adjunto:<id>`). `descripcion` sigue siendo su texto plano (la
+   * búsqueda, la IA, los mensajes). Ausente/'' = no tiene (se dibuja el texto plano).
+   */
+  descripcionHtml?: string;
 };
 
 /**
@@ -204,6 +217,11 @@ export type Progreso = {
    * navegador: por eso no está en `valores`.
    */
   calificacion?: Calificacion | null;
+  /**
+   * Cuándo el alumno marcó como HECHA esta clase (mig 0220): el tilde de una clase SIN tarea. Es una
+   * de las formas de completarla (lib/curso-bloqueo.ts, `claseCompleta`). Ausente/`null` = no la marcó.
+   */
+  hechaAt?: string | null;
 };
 
 // ── El video ──────────────────────────────────────────────────────────────────

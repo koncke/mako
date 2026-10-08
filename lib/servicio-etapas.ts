@@ -81,7 +81,7 @@ export type EtapaEntrega = {
   /**
    * El link para agendar la sesión de esta etapa (su Calendly), #665: el portal del alumno lo
    * muestra —«Agenda tu sesión»— RECIÉN cuando el alumno completó la etapa (`etapaCompleta`), y
-   * antes ni siquiera viaja a su navegador (lib/curso-portal.ts, `armarEtapas`). Sólo https
+   * antes ni siquiera viaja a su navegador (lib/curso-portal.ts, `armarModulos`). Sólo https
    * (`agendaValida`): termina en el `href` de un botón que ve el cliente de un cliente.
    *
    * ⚠️ ES UNA TRABA BLANDA y está dicho acá, no en la pantalla: el link existe afuera del portal,
@@ -89,6 +89,17 @@ export type EtapaEntrega = {
    * sin haber terminado. Lo que la traba logra es que el camino normal pase por la tarea.
    */
   agendaUrl?: string;
+  /**
+   * ¿Esta etapa es un MÓDULO del curso? (D1 de docs/diseno-curso-skool.md, 08/10/2026). AUSENTE =
+   * SÍ: es lo que había antes, y así ninguna etapa guardada tiene que saber que esto existe. Se
+   * guarda sólo el `false` (ver `normalizarEtapas`).
+   *
+   * Una etapa con `enCurso: false` sigue siendo una columna del kanban —los clientes que están ahí
+   * no se mueven, las secuencias que cuelgan de ella siguen— pero el curso no la dibuja: es la
+   * «Entregado» o la «Onboarding» que no tienen clases, o la etapa que quedó al DESVINCULAR un
+   * módulo del kanban (lib/curso-modulos-datos.ts: sus clases pasaron a un módulo suelto).
+   */
+  enCurso?: boolean;
 };
 
 /** El tope del link de agenda: un Calendly con sus parámetros entra de sobra. */
@@ -229,7 +240,7 @@ const CLAVE_OK = /^[a-z0-9_]+$/;
 /**
  * El tope del NOMBRE de una etapa (o de una fase): es la cabecera de una columna del kanban, y más
  * largo no entra. Uno solo para el editor de etapas (app/customer-success/EtapasEntregaModal.tsx)
- * y para el clic en el nombre desde el curso (`renombrarEtapaCursoAction`): con dos, el curso dejaba
+ * y para el nombre de un módulo del curso (lib/curso-modulos.ts, `nombreDeModulo`): con dos, el curso dejaba
  * escribir nombres que el editor de las mismas etapas no habría dejado (revisión del 07/10/2026).
  */
 export const TOPE_NOMBRE_ETAPA = 40;
@@ -497,7 +508,114 @@ export function normalizarEtapas(raw: unknown): EtapaEntrega[] | null {
       // sirve» antes de mandarlo (`agendaValida`), así que lo único que llega roto es un pedido
       // armado a mano.
       ...(agendaValida(o.agendaUrl) ? { agendaUrl: agendaValida(o.agendaUrl)! } : {}),
+      // ⚠️ «NO ES UN MÓDULO DEL CURSO» TAMBIÉN SOBREVIVE (D1, 08/10/2026), por lo mismo: el editor de
+      // etapas guarda la lista ENTERA, y sin esta línea renombrar una columna en el kanban le devolvía
+      // al curso el módulo que se había desvinculado —con sus clases ya mudadas a un suelto, o sea un
+      // módulo vacío que aparece solo—. Se guarda sólo el `false`: ausente es «sí», el default.
+      ...(o.enCurso === false ? { enCurso: false } : {}),
     });
   }
   return out;
+}
+
+/** ¿La etapa es un módulo del curso? La regla de `enCurso`, en UN lugar (ausente = sí). */
+export const esModuloDelCurso = (e: Pick<EtapaEntrega, 'enCurso'>): boolean => e.enCurso !== false;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOS GRUPOS DE FASES y el orden que se guarda
+// ─────────────────────────────────────────────────────────────────────────────
+// Mudado acá desde app/customer-success/EtapasEntregaModal.tsx el 08/10/2026, sin cambiar una
+// línea: el curso reordena las etapas desde el SERVER (reordenar módulos, lib/curso-modulos.ts) y
+// un server action no puede importar un VALOR de un archivo 'use client' (AGENTS.md, «'use client'
+// es una frontera de DATOS»). El modal los importa de acá y los re-exporta (lo ejecuta
+// tests/cs-kanban-fases.test.ts desde el modal, como siempre).
+
+/** A qué grupo se dibuja una etapa. `''` = sin fase (o con una fase que ya no existe,
+ *  que es la misma regla que `colorDeEtapa`: cae a lo suyo). */
+export function grupoDe(e: EtapaEntrega, fases: readonly FaseEntrega[]): string {
+  return e.fase && fases.some((f) => f.key === e.fase) ? e.fase : '';
+}
+
+/** Un grupo de la lista: una fase (o «Sin fase», `''`) con sus etapas en orden. */
+export type GrupoEditor = { clave: string; etapas: EtapaEntrega[] };
+
+/**
+ * Los grupos en el orden en que se dibujan: los que tienen etapas, en el orden en que
+ * aparecen en el tablero; después las fases vacías, en su orden.
+ *
+ * `conSueltas` agrega «Sin fase» VACÍO al final si hay fases y ninguna etapa está suelta:
+ * es el destino de un arrastre o de un Alt+↓ que quiere sacar una etapa de su fase.
+ */
+export function gruposDe(lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], conSueltas = false): GrupoEditor[] {
+  const orden: string[] = [];
+  const por = new Map<string, EtapaEntrega[]>();
+  for (const e of lista) {
+    const g = grupoDe(e, fases);
+    if (!por.has(g)) { por.set(g, []); orden.push(g); }
+    por.get(g)!.push(e);
+  }
+  for (const f of fases) if (!por.has(f.key)) { por.set(f.key, []); orden.push(f.key); }
+  if (conSueltas && fases.length > 0 && !por.has('')) { por.set('', []); orden.push(''); }
+  return orden.map((clave) => ({ clave, etapas: por.get(clave)! }));
+}
+
+/** Los grupos, uno detrás del otro: la lista del tablero que corresponde a lo que se ve. */
+export function aplanar(grupos: readonly GrupoEditor[]): EtapaEntrega[] {
+  return grupos.flatMap((g) => g.etapas);
+}
+
+/**
+ * Lo que se GUARDA: las etapas en el orden en que se dibujan y las fases en ese mismo
+ * orden. Ver «LO QUE SE GUARDA ES EL ORDEN QUE SE VE» en el encabezado del modal.
+ */
+export function enOrden(lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[]): { etapas: EtapaEntrega[]; fases: FaseEntrega[] } {
+  const grupos = gruposDe(lista, fases);
+  const orden = grupos.map((g) => g.clave);
+  return {
+    etapas: aplanar(grupos),
+    fases: [...fases].sort((a, b) => orden.indexOf(a.key) - orden.indexOf(b.key)),
+  };
+}
+
+/** La etapa con la fase de su grupo nuevo. `''` le SACA la fase (no la deja en `undefined`). */
+export function conFase(e: EtapaEntrega, grupo: string): EtapaEntrega {
+  const out: EtapaEntrega = { ...e };
+  if (grupo) out.fase = grupo; else delete out.fase;
+  return out;
+}
+
+/**
+ * Llevar una etapa al lugar `slot` del grupo `grupo` — ordenar y cambiar de fase son esto.
+ *
+ * `slot` cuenta los lugares del grupo COMO SE VEN, con la etapa todavía adentro si es del
+ * mismo grupo: soltar «antes de la fila 3» es `slot` 3 aunque la arrastrada sea la 1.
+ *
+ * ⚠️ NADA VA ANTES DE LA ENTRADA: en el grupo de la entrada el piso es 1. Y la entrada no
+ * cambia de lugar: si va a otro grupo cae PRIMERA y ese grupo pasa a dibujarse primero.
+ * Un grupo que no existe no se inventa: se devuelve la lista como estaba.
+ */
+export function llevarEtapa(
+  lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], key: string, grupo: string, slot: number,
+): EtapaEntrega[] {
+  const i = lista.findIndex((e) => e.key === key);
+  if (i < 0) return [...lista];
+  const e = lista[i];
+  const grupos = gruposDe(lista, fases, true).map((g) => ({ clave: g.clave, etapas: [...g.etapas] }));
+  const destino = grupos.find((g) => g.clave === grupo);
+  const origen = grupos.find((g) => g.etapas.includes(e));
+  if (!destino || !origen) return [...lista];
+  const pos = origen.etapas.indexOf(e);
+  if (i === 0) {
+    if (destino === origen) return [...lista];
+    origen.etapas.splice(pos, 1);
+    destino.etapas.unshift(conFase(e, grupo));
+    return aplanar([destino, ...grupos.filter((g) => g !== destino)]);
+  }
+  // El índice se corre uno cuando la etapa venía de más arriba en el mismo grupo.
+  let at = destino === origen && slot > pos ? slot - 1 : slot;
+  origen.etapas.splice(pos, 1);
+  const piso = destino.etapas[0]?.key === lista[0]?.key ? 1 : 0;
+  at = Math.max(piso, Math.min(at, destino.etapas.length));
+  destino.etapas.splice(at, 0, destino === origen ? e : conFase(e, grupo));
+  return aplanar(grupos);
 }

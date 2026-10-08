@@ -16,6 +16,7 @@
 
 import { saneaPortada, urlPortada, fondoPortada } from './portadas';
 import { leerLamina, valorDeLamina, type ValorLamina } from './laminas';
+import type { DisposicionUgc } from '@/app/_cursos/tipos';
 
 /** El estilo de un curso, ya saneado. `null` (o ausente en los mapas) = el default. */
 export type EstiloCurso = {
@@ -34,10 +35,26 @@ export type EstiloCurso = {
   portadasEtapa: Record<string, string>;
   /** Clase (su id) → su tapa. Default: la miniatura del video, si la plataforma la publica. */
   portadasClase: Record<number, string>;
+  /**
+   * Dónde va el texto de la lección: `null` = al COSTADO del video (lo de siempre); `'abajo'` = el
+   * video y, debajo, la descripción y la tarea, todo a lo ancho. Item 16 del 07/10/2026: «si el
+   * usuario prefiere… que la descripción y la tarea estén al costado del vídeo, o abajo de forma
+   * extendida». Es del CURSO, no de cada clase: lo ve el alumno igual en todas.
+   */
+  disposicion: 'abajo' | null;
 };
 
+/**
+ * Las dos disposiciones de la lección. Las define el DIBUJO (app/_cursos/tipos.ts, `DisposicionUgc`):
+ * acá se guarda una de ésas, y no una copia del tipo que se quede vieja.
+ */
+export type Disposicion = DisposicionUgc;
+
+/** La disposición que se dibuja: lo elegido, o al costado. Una fila rota ya cayó a `null` al leerse. */
+export const disposicionDe = (e: EstiloCurso | null | undefined): Disposicion => (e?.disposicion === 'abajo' ? 'abajo' : 'costado');
+
 export const estiloVacio = (): EstiloCurso => ({
-  acento: null, titulo: null, resumen: null, portada: null, portadasEtapa: {}, portadasClase: {},
+  acento: null, titulo: null, resumen: null, portada: null, portadasEtapa: {}, portadasClase: {}, disposicion: null,
 });
 
 export const TOPE_TITULO_CURSO = 80;
@@ -50,7 +67,8 @@ export type Ajuste =
   | { tipo: 'resumen' }
   | { tipo: 'portada' }
   | { tipo: 'portada-etapa'; etapa: string }
-  | { tipo: 'portada-clase'; clase: number };
+  | { tipo: 'portada-clase'; clase: number }
+  | { tipo: 'disposicion' };
 
 /**
  * La misma regla que las keys de la entrega (lib/servicio-etapas.ts, `CLAVE_OK`), menos las que
@@ -85,7 +103,7 @@ export function claveDe(a: Ajuste): string {
 /** El ajuste de una clave, o `null` si no es una que exista. Valida las dos mitades. */
 export function ajusteDe(clave: unknown): Ajuste | null {
   if (typeof clave !== 'string') return null;
-  if (clave === 'acento' || clave === 'titulo' || clave === 'resumen' || clave === 'portada') return { tipo: clave };
+  if (clave === 'acento' || clave === 'titulo' || clave === 'resumen' || clave === 'portada' || clave === 'disposicion') return { tipo: clave };
   const etapa = /^portada:etapa:(.+)$/.exec(clave);
   if (etapa) return KEY_ETAPA.test(etapa[1]) ? { tipo: 'portada-etapa', etapa: etapa[1] } : null;
   const clase = /^portada:clase:(\d{1,12})$/.exec(clave);
@@ -122,6 +140,9 @@ export function sanearAjuste(a: Ajuste, valor: unknown): string | null {
     case 'titulo': return linea(valor, TOPE_TITULO_CURSO) || null;
     case 'resumen': return linea(valor, TOPE_RESUMEN_CURSO) || null;
     case 'portada': return saneaPortada(valor);
+    // Sólo «abajo» se guarda: al costado es el default, y volver a él BORRA la fila (mig 0214: «nadie
+    // lo eligió» y «eligió lo de siempre» no quedan mezclados en un valor). Cualquier otra cosa, también.
+    case 'disposicion': return valor === 'abajo' ? 'abajo' : null;
     default: return portadaConLamina(valor);
   }
 }
@@ -150,6 +171,7 @@ export function armarEstilo(filas: ReadonlyArray<{ clave: unknown; valor: unknow
     if (v == null) continue;
     if (a.tipo === 'portada-etapa') e.portadasEtapa[a.etapa] = v;
     else if (a.tipo === 'portada-clase') e.portadasClase[a.clase] = v;
+    else if (a.tipo === 'disposicion') e.disposicion = v === 'abajo' ? 'abajo' : null;
     else e[a.tipo] = v;
   }
   return e;
@@ -164,7 +186,7 @@ export function valorDe(e: EstiloCurso, a: Ajuste): string | null {
 
 /**
  * El estilo con las portadas de clase SÓLO de las clases que viajan al alumno. Las de una etapa
- * con candado no viajan (`armarEtapas`: «lo que no se abre no tiene por qué estar en el HTML»), y
+ * con candado no viajan (`armarModulos`: «lo que no se abre no tiene por qué estar en el HTML»), y
  * la portada de una de esas clases tampoco; ni la de una clase borrada, que deja su fila.
  */
 export function soloDeClases(e: EstiloCurso, ids: ReadonlySet<number>): EstiloCurso {
@@ -188,6 +210,7 @@ export function conAjuste(e: EstiloCurso, a: Ajuste, v: string | null): EstiloCu
     if (v == null) delete m[a.clase]; else m[a.clase] = v;
     return { ...e, portadasClase: m };
   }
+  if (a.tipo === 'disposicion') return { ...e, disposicion: v === 'abajo' ? 'abajo' : null };
   return { ...e, [a.tipo]: v };
 }
 

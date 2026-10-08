@@ -12,6 +12,13 @@
 //   · `etapaSiguiente(…) ?? desde` (sin el corte de la última) → 11 / 1 (última etapa).
 //   · sin el corte de «la etapa no tiene obligatorias» → 11 / 1 (etapa sin obligatorias).
 //   · `alEnviarTarea` con `por: 'CRM'` en vez de POR_MAKO → 11 / 1 (el guard del choke point).
+//
+// 08/10/2026 (D1): sólo los módulos VINCULADOS mueven (un suelto no es una etapa) y la entrega se lee
+// ESTRICTA. Dos tests nuevos (14 pass), y las roturas, de a una y restauradas de memoria:
+//   · `decidirAvance` preguntando por las etapas y no por los vinculados → 13 / 1 «una clase de un
+//     módulo SUELTO…».
+//   · `alEnviarTarea` sin pasarle los vinculados                         → 13 / 1 «alEnviarTarea lee…».
+//   · `avisarEntradaAEtapa` sin mirar que la etapa sea módulo del curso  → 13 / 1 el mismo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -97,6 +104,31 @@ test('la etapa siguiente sin clases cargadas → se mueve con clasesEnHacia 0 (y
   const sinNorte = CLASES.filter((c) => c.etapa !== 'norte');
   const d = decidirAvance({ etapaDeLaClase: 'contexto', etapaActual: 'contexto', etapas: ETAPAS, clases: sinNorte, estadoDe: estados({ 1: 'enviada', 2: 'enviada' }) });
   assert.deepEqual(d, { mover: true, desde: 'contexto', hacia: 'norte', clasesEnHacia: 0 });
+});
+
+test('una clase de un módulo SUELTO (o de una etapa sacada del curso) no mueve a nadie', () => {
+  const suelta = [...CLASES, clase(8, 'm_bonus', { obligatoria: true, tarea: 'Extra' })];
+  const d = decidirAvance({ etapaDeLaClase: 'm_bonus', etapaActual: 'contexto', etapas: ETAPAS, vinculados: ETAPAS, clases: suelta, estadoDe: estados({ 8: 'enviada' }) });
+  assert.deepEqual(d, { mover: false, desde: 'contexto', motivo: 'la clase no es de una etapa del kanban' });
+  // Una etapa del kanban que NO es módulo (enCurso: false): está en `etapas`, no en `vinculados`.
+  const sinContexto = ETAPAS.filter((e) => e !== 'contexto');
+  const e = decidirAvance({ etapaDeLaClase: 'contexto', etapaActual: 'contexto', etapas: ETAPAS, vinculados: sinContexto, clases: CLASES, estadoDe: estados({ 1: 'enviada', 2: 'enviada' }) });
+  assert.equal(e.mover, false);
+  // Sin `vinculados` (quien no lo sabe), las etapas: lo de siempre.
+  assert.equal(decidirAvance({ etapaDeLaClase: 'contexto', etapaActual: 'contexto', etapas: ETAPAS, clases: CLASES, estadoDe: estados({ 1: 'enviada', 2: 'enviada' }) }).mover, true);
+});
+
+test('alEnviarTarea lee la entrega ESTRICTA y le pasa los vinculados (los módulos que son etapa)', () => {
+  const src = sinComentarios(leer('lib/curso-avance.ts'));
+  const cuerpo = src.slice(src.indexOf('export async function alEnviarTarea'));
+  assert.match(cuerpo, /entregaDeProductoEstricta\(clase\.productoId\)/);
+  assert.doesNotMatch(cuerpo, /entregaDeProducto\(/, 'con la lectura que cae al default se movería a alguien por etapas de fábrica');
+  assert.match(cuerpo, /vinculados: entrega\.etapas\.filter\(esModuloDelCurso\)\.map\(\(e\) => e\.key\)/);
+  // Y el mensaje de «entraste a una etapa» sale sólo por una etapa que es módulo del curso.
+  const msj = sinComentarios(leer('lib/curso-mensajes.ts'));
+  const aviso = msj.slice(msj.indexOf('export async function avisarEntradaAEtapa('), msj.indexOf('export type ResultadoSesiones'));
+  assert.ok(aviso.length > 300 && aviso.length < 3000, `el recorte mide ${aviso.length}`);
+  assert.match(aviso, /if \(!entrega\.etapas\.some\(\(e\) => e\.key === p\.etapa && esModuloDelCurso\(e\)\)\) return \{ ok: false/);
 });
 
 test('etapaAnterior: la clave de antes, null en la primera o si no existe', () => {

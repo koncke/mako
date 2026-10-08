@@ -7,8 +7,9 @@
 // el portal completo — el selector con todos los cursos y la navegación a
 // cualquiera de ellos.
 //
-// Las tres diferencias con el admin, las mismas de siempre:
+// Las diferencias con el admin, las mismas de siempre:
 //   • no hay botón de Compartir (no se re-comparte lo que te compartieron);
+//   • no hay EDICIÓN: este archivo no la arma ni importa nada que la arme;
 //   • la navegación la lleva `app/conocimientos/posicion.ts`, igual que en el
 //     admin. (Antes decía «por ESTADO, no por URL», y esa decisión se revirtió el
 //     2026-08-17: con la navegación solo en memoria, un F5 devolvía al selector y
@@ -24,17 +25,26 @@
 // ⚠️ La lista se resuelve EN CADA CARGA, no se congela al crear el link: un
 // curso que se suma al portal aparece en los links ya repartidos. Es lo que se
 // quiere de "compartí la tab" — es la tab, no una foto de la tab.
+//
+// ⚠️ LO QUE EL SUPER ADMIN CAMBIÓ (item 1, mig 0221) llega en `ajustes`, leído en el server, y se
+//    aplica acá SIN lo oculto (`aplicarAjustes` sin `conOcultos`): un módulo o una clase ocultos no se
+//    dibujan. Se aplica en el navegador porque el catálogo ya viaja entero a este bundle (los 126
+//    cursos, desde antes de esto): mandarlos ya ajustados desde el server serían megas de props.
+//    O sea que acá OCULTAR SACA DE LA VISTA, no del bundle — distinto del link de UN curso, donde lo
+//    oculto ni viaja.
+// ⚠️ POR ESO LA PÁGINA NO IMPORTA ESTE ARCHIVO: entra por ./PortalCompartidoPerezoso.tsx (`next/dynamic`).
+//    Importado directo, Turbopack metía el catálogo en el chunk de TODA la ruta, y el link de un curso
+//    (o la galería de marca de un cliente) bajaba los 132 cursos con lo oculto adentro.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { sembrar, usePosicion } from '@/app/conocimientos/posicion';
-import { CURSOS_COMPARTIBLES, VISTA_PROPIA } from '@/app/conocimientos/catalogo';
+import { CURSOS_COMPARTIBLES, VISTA_PROPIA, buscarCompartible } from '@/app/conocimientos/catalogo';
+import { ajustarFicha, aplicarAjustes, type FilaAjuste } from '@/lib/conocimiento-ajustes';
 import AnalisisNegocio from '@/app/conocimientos/AnalisisNegocio';
-import CursoPortal, { PortalShell, Selector, type Vista } from '@/app/conocimientos/CursoPortal';
+import { PortalShell, Selector } from '@/app/conocimientos/CursoPortal';
+import CursoConocimientos from '@/app/conocimientos/CursoConocimientos';
 
-/** Lo que este portal le pide al dueño de la URL. Sin `curso` es el selector. */
-type Paso = Vista & { curso?: string };
-
-export default function PortalCompartido({ invitado }: { invitado: string | null }) {
+export default function PortalCompartido({ invitado, ajustes }: { invitado: string | null; ajustes: FilaAjuste[] }) {
   /**
    * TODA la navegacion sale de `usePosicion`. Aca vivia una PILA EN ESTADO DE REACT
    * que se escribia el hash por su cuenta, en paralelo con la que tenia CursoReplica:
@@ -42,7 +52,10 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
    * dispara ningun evento. El porque completo esta en app/conocimientos/posicion.ts.
    */
   const { pos, ir } = usePosicion();
-  const curso = pos.curso ? CURSOS_COMPARTIBLES.find((c) => c.slug === pos.curso) : undefined;
+  // `buscarCompartible` y no un `find` sobre la lista: salta los slugs REEMPLAZADOS, igual que el admin.
+  const base = buscarCompartible(pos.curso);
+  const cursos = useMemo(() => CURSOS_COMPARTIBLES.map((c) => ajustarFicha(c, ajustes)), [ajustes]);
+  const curso = useMemo(() => (base ? aplicarAjustes(base, ajustes) : undefined), [base, ajustes]);
 
   /** De que curso venis, para que el selector traiga esa tarjeta a la vista. */
   const [foco, setFoco] = useState<string | undefined>();
@@ -60,20 +73,14 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
    */
   useEffect(() => { sembrar({}); }, []);
 
-  // `Vista` usa `null` para «nada» y la posición usa `undefined`: se traduce acá, en la
-  // frontera, y no se mezclan los dos vocabularios adentro.
-  const nav = (p: Paso) => ir({
-    curso: p.curso ?? pos.curso,
-    clase: p.clase ?? undefined,
-    r: p.r ?? undefined,
-  });
   /** El «volver» de una vista propia: lo resuelve el historial, como el del navegador. */
   const back = () => { if (typeof window !== 'undefined') window.history.back(); };
-  /** Volver al hub del curso actual: lo que hace el rotulo de arriba. */
+  /** Volver al índice del curso actual: lo que hace el rotulo de arriba. */
   const alHub = () => ir({ curso: pos.curso });
   /** Volver a TODOS los cursos. Es la marca de arriba, igual que en el admin. */
   const aTodos = () => { setFoco(pos.curso); ir({}); };
 
+  const pie = `Enlace privado${invitado ? ` · compartido con ${invitado}` : ''}`;
   return (
     <PortalShell
       marca={curso ? (
@@ -94,7 +101,7 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
         : undefined}
     >
       {!curso ? (
-        <Selector cursos={CURSOS_COMPARTIBLES} enter={(slug) => nav({ curso: slug })} sinMarca foco={foco} />
+        <Selector cursos={cursos} enter={(slug) => ir({ curso: slug })} sinMarca foco={foco} />
       ) : curso.slug === VISTA_PROPIA.analisis ? (
         // El Análisis de Negocio es un formulario interactivo, no clases de
         // video: se dibuja aparte, sin Compartir y con su propio Volver.
@@ -105,20 +112,11 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
         // genérico y aparecería un curso de CERO clases, sin ningún error.
         <AnalisisNegocio back={back} compartible={false} />
       ) : (
-        // `backLabel`: el hub ya tenía un «← Volver» y el dueño igual leyó la
-        // pantalla como sin salida. El botón no faltaba: faltaba que dijera a
-        // dónde iba. Un segundo botón habría sido dos salidas al mismo lugar.
-        <CursoPortal
-          curso={curso}
-          vista={{ clase: pos.clase ?? null, r: pos.r ?? null, de: null }}
-          nav={(v) => nav({ curso: curso.slug, ...v })}
-          salir={aTodos}
-          backLabel="Todos los cursos"
-        />
+        // `onSalir`: la salida de la barra («Volver a los cursos») y la marca llevan a TODOS los
+        // cursos, que es el nivel de arriba de esta ruta.
+        <CursoConocimientos key={curso.slug} curso={curso} onSalir={aTodos} pieBarra={pie} />
       )}
-      <p className="al-shared-ft">
-        Enlace privado{invitado ? ` · compartido con ${invitado}` : ''}
-      </p>
+      <p className="al-shared-ft">{pie}</p>
     </PortalShell>
   );
 }

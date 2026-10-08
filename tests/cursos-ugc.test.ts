@@ -20,20 +20,52 @@
 //   · una regla de app/_cursos/estilos.ts sin el acote `.ahdoc--ugc`         → 12 / 1
 //   · una flecha cruda (no escapada) en el código de CursoUgc                → 12 / 1
 //   · el portal volviendo a su propio dibujo (sin `<CursoUgc`)               → 12 / 1
+//
+// 08/10/2026 (D1 y D2): el portal arma MÓDULOS (`ProductoVista.modulos`), con los sueltos y los
+// candados. Los fixtures de etapas pasaron a módulos vinculados con las mismas aserciones; se suman
+// el suelto, el motivo del candado y la clase cerrada adentro de un módulo abierto. Roturas:
+//   · `modulosDelPortal` sin pasar el `motivo`                              → 13 / 1
+//   · `claseDeArranque` llevando a una clase CERRADA                        → 13 / 1
+//   · `estadoDeModulo` marcando «hecha» a un suelto                         → 13 / 1
+//   (sobre 14; scratchpad/nucleo/romper.mjs, restaurado de memoria)
+// REVISIÓN del 08/10/2026 (scratchpad/rev-nucleo/romper-final.mjs). Sin romper 15 / 0; cada una dio
+// 14 / 1 en «dónde está y cuánto lleva…»: `etapaActual` cayendo al ÚLTIMO módulo (lo de antes) ·
+// `avanceDelCurso` contando sólo etapas `hecha` (lo de antes) · un suelto vacío contando como hecho ·
+// la portada sin llamar a `avanceDelCurso`.
+// EL EDITOR DE LA ESTRUCTURA (08/10/2026, la sección del final; scratchpad/editor/roturas.mjs, que
+// restaura deshaciendo el reemplazo sobre el disco). Sin romper 23 / 0; cada rotura dio 22 / 1 en SU test:
+//   · «Módulos»: el editor vuelve a «Etapas» · el portal a «Las etapas» · las huérfanas a «Sin etapa»
+//   · la barra vuelve a decir el tiempo
+//   · salir del campo de «+ Nuevo módulo» con algo escrito lo crea
+//   · el arrastre: una foto propia en vez de la del Plan · la copia colgada del `body` · el setState
+//     del hueco en cada `dragover` · el molde del Plan sin dónde colgar la copia · los controles de la
+//     tarjeta sin `data-nodrag`
+//   · láminas: la miniatura del video tapándola · el portal sin pasarla · la tarjeta siempre con el cuaderno
+//   · el Avance de vuelta adentro del curso · el redirect del link viejo sin el `?ws=`
+//   · «Invitar alumnos» del menú de la marca sin abrir el modal
+//   · el `overflow` de vuelta en `body:has(.ahdoc)` (la sidebar de MaKo)
+// LA LECCIÓN (08/10/2026, paso LECCIÓN; scratchpad/leccion/romper.mjs, restaurado de memoria con md5):
+// sin romper 23 / 0; un chip «Por grabar» de vuelta en `chipsDelEditor` dio 22 / 1 en «editor: los
+// chips del equipo…». Las roturas de la lección misma están en tests/curso-leccion.test.ts.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ProductoVista, EtapaVista, ClaseVista } from '../lib/curso-portal';
+import type { ProductoVista, ModuloVista, ClaseVista, EstadoEtapa } from '../lib/curso-portal';
 import type { Clase } from '../lib/curso';
 import { ROTULO_TAREA, tapaDeVideo } from '../lib/curso';
 import type { ClaseUgc, ModuloUgc } from '../app/_cursos/tipos';
 import { estiloVacio } from '../lib/curso-estilo';
 import { clasesVisibles, pctAvance, textoBarraModulo, vecinas, moduloMarcado } from '../app/_cursos/reglas';
 import { CSS_UGC } from '../app/_cursos/estilos';
+// El editor de la estructura (08/10/2026): ver la sección del final.
+import { readdirSync } from 'node:fs';
+import { TEXTOS_DEFAULT, textoTarjetaModulo } from '../app/_cursos/reglas';
+import { TEXTOS_PORTAL } from '../app/compartido/curso/[token]/modelo-ugc';
+import { TEXTOS_EDITOR } from '../app/customer-success/curso/modelo-ugc';
 import {
-  agendaVigente, chipTarea, chipVisto, claseDeArranque, clasesDelPortal, marcaDelProducto, modulosDelPortal,
+  agendaVigente, avanceDelCurso, chipTarea, chipVisto, claseDeArranque, clasesDelPortal, etapaActual, marcaDelProducto, modulosDelPortal,
 } from '../app/compartido/curso/[token]/modelo-ugc';
 import {
   SIN_ETAPA, chipsDelEditor, cierraLaEtapa, clasesDelEditor, modulosDelEditor, puedeMoverEnEditor,
@@ -47,14 +79,17 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
 const claseV = (id: number, o: Partial<ClaseVista> = {}): ClaseVista => ({
-  id, titulo: `Clase ${id}`, descripcion: '', minutos: null, video: null, pct: null, tarea: '', campos: [],
-  tieneTarea: false, obligatoria: false, estado: 'pendiente', valores: {}, ...o,
+  id, titulo: `Clase ${id}`, descripcion: '', descripcionHtml: '', minutos: null, video: null, pct: null, tarea: '', campos: [],
+  tieneTarea: false, obligatoria: false, estado: 'pendiente', valores: {}, hecha: false, completa: false, ...o,
 });
-const etapaV = (key: string, estado: EtapaVista['estado'], clases: ClaseVista[], o: Partial<EtapaVista> = {}): EtapaVista => ({
-  key, label: key.toUpperCase(), estado, clases: estado === 'bloqueada' ? [] : clases, cuantas: clases.length,
-  obligatorias: 0, enviadas: 0, tareas: 0, tareasEnviadas: 0, ...o,
+/** Un módulo VINCULADO en la etapa `estado`; `bloqueada` = cerrado por su candado de siempre. */
+const etapaV = (key: string, estado: EstadoEtapa, clases: ModuloVista['clases'], o: Partial<ModuloVista> = {}): ModuloVista => ({
+  key, label: key.toUpperCase(), vinculado: true, etapa: estado, abierto: estado !== 'bloqueada',
+  ...(estado === 'bloqueada' ? { motivo: 'Se abre al terminar «Arranque»' } : {}),
+  clases: estado === 'bloqueada' ? [] : clases, cuantas: clases.length,
+  obligatorias: 0, enviadas: 0, tareas: 0, tareasEnviadas: 0, completo: false, ...o,
 });
-const producto = (etapas: EtapaVista[]): ProductoVista => ({ productoId: 1, nombre: 'Negocio que Escala', etapas, estilo: estiloVacio() });
+const producto = (modulos: ModuloVista[]): ProductoVista => ({ productoId: 1, nombre: 'Negocio que Escala', modulos, estilo: estiloVacio() });
 
 const clase = (id: number, etapa: string, orden: number, o: Partial<Clase> = {}): Clase => ({
   id, productoId: 1, etapa, orden, titulo: `C${id}`, descripcion: '', tipo: 'video', minutos: null,
@@ -97,10 +132,31 @@ test('portal: las etapas son módulos con su estado; la de candado se dibuja y s
   ]);
   assert.deepEqual(m[0].progreso, { hechas: 1, total: 1 });
   assert.equal(m[1].progreso, undefined, 'una etapa sin tareas no lleva barra de avance');
+  assert.equal(m[2].motivo, 'Se abre al terminar «Arranque»', 'el candado dice por qué');
+  assert.equal(m[1].motivo, undefined);
   const cs = clasesDelPortal(p);
   assert.deepEqual(cs.map((c) => [c.ugc.id, c.ugc.moduloKey, c.ugc.vn]), [
     [1, 'bienvenida', 1], [2, 'bienvenida', 2], [3, 'arranque', 1],
   ]);
+});
+
+test('portal: dónde está y cuánto lleva, con un SUELTO y con su etapa fuera del curso (revisión 08/10)', () => {
+  // Desde D1 un cliente puede estar en una etapa que NO es módulo (la que quedó al desvincular uno):
+  // ningún módulo es «actual». Antes caía al ÚLTIMO del curso («Etapa 3 de 3» a mitad del programa).
+  const suelto = (key: string, o: Partial<ModuloVista> = {}): ModuloVista => ({
+    ...etapaV(key, 'actual', [claseV(8)]), vinculado: false, etapa: undefined, ...o,
+  });
+  const enMedio = producto([etapaV('a', 'hecha', [claseV(1)]), suelto('m_s'), etapaV('c', 'bloqueada', [claseV(3)])]);
+  assert.deepEqual([etapaActual(enMedio).etapa?.key, etapaActual(enMedio).i], ['a', 0], 'el último que ya pasó');
+  const alPrincipio = producto([etapaV('a', 'bloqueada', [claseV(1)]), etapaV('b', 'bloqueada', [claseV(2)])]);
+  assert.deepEqual([etapaActual(alPrincipio).etapa?.key, etapaActual(alPrincipio).i], ['a', 0], 'si no pasó ninguno, el primero');
+  assert.equal(etapaActual(producto([etapaV('a', 'hecha', []), etapaV('b', 'actual', [])])).etapa?.key, 'b');
+  // La barra: un suelto cuenta al completarse (y uno vacío no); con sólo «etapa hecha» no se llenaba nunca.
+  const todo = producto([etapaV('a', 'hecha', []), suelto('m_s', { completo: true }), suelto('m_vacio', { completo: true, cuantas: 0, clases: [] })]);
+  assert.deepEqual(avanceDelCurso(todo), { hechas: 2, total: 3 });
+  assert.deepEqual(avanceDelCurso(producto([etapaV('a', 'hecha', []), suelto('m_s', { completo: false })])), { hechas: 1, total: 2 });
+  // Y la portada la USA (una función sin call site es una salida que nadie pide).
+  assert.match(sinComentarios(leer('app/compartido/curso/[token]/PortalAlumno.tsx')), /progreso: lider \? undefined : avanceDelCurso\(producto\),/);
 });
 
 test('portal: aunque una etapa con candado TRAIGA clases, no se listan (abrirlas sería saltearla)', () => {
@@ -121,6 +177,25 @@ test('portal: el botón de la portada lleva a la propuesta de la IA, después a 
   assert.equal(claseDeArranque(cs, 'arranque', sinIa), 4, 'resuelta la propuesta, la tarea pendiente de la actual');
   assert.equal(claseDeArranque(cs, 'arranque', { propuesta: () => false, estado: () => 'enviada' }), 3,
     'sin nada pendiente, la primera clase de la etapa actual');
+});
+
+test('portal: un módulo SUELTO se dibuja abierto y sin marca de etapa; una clase CERRADA adentro se lista y no es destino', () => {
+  const suelto: ModuloVista = {
+    key: 'm_bonus', label: 'Bonus', vinculado: false, abierto: true,
+    clases: [{ id: 7, titulo: 'Cerrada', cerrada: true, motivo: 'Se abre el 12 de octubre' }, claseV(8, { tieneTarea: true })],
+    cuantas: 2, obligatorias: 0, enviadas: 0, tareas: 1, tareasEnviadas: 0, completo: false,
+  };
+  const p = producto([etapaV('arranque', 'actual', [claseV(3)]), suelto]);
+  const m = modulosDelPortal(p);
+  assert.equal(m[1].estado, undefined, 'un suelto no está «hecho» ni es «el actual»: no es una etapa');
+  const cs = clasesDelPortal(p);
+  assert.deepEqual(cs.map((c) => [c.ugc.id, c.ugc.moduloKey, c.ugc.vn]), [[3, 'arranque', 1], [7, 'm_bonus', 1], [8, 'm_bonus', 2]]);
+  const cerrada = cs.find((c) => c.ugc.id === 7)!;
+  assert.ok(!cerrada.ugc.conVideo, 'una cerrada no promete un video');
+  assert.equal(JSON.stringify(cerrada.vista), JSON.stringify(suelto.clases[0]), 'de la cerrada viaja lo que vino, nada más');
+  // El botón de la portada no lleva nunca a una cerrada, aunque su módulo sea «el actual».
+  assert.equal(claseDeArranque(cs, 'm_bonus', { propuesta: () => false, estado: () => 'pendiente' }), 8);
+  assert.equal(claseDeArranque([cerrada], 'm_bonus'), undefined, 'sólo cerradas: no hay a dónde llevar');
 });
 
 test('portal: los chips no mienten — «Sin medir» nunca «0%», y la revisada dice el rótulo del equipo', () => {
@@ -170,12 +245,16 @@ test('editor: las huérfanas van a «Sin etapa», al final, y no se ordenan', ()
   assert.equal(modulosDelEditor(etapas, porEtapa, []).length, 2, 'sin huérfanas no hay «Sin etapa»');
 });
 
-test('editor: los chips del equipo, y sin poder leer la marca no se dice nada de grabar', () => {
+test('editor: los chips del equipo dicen qué le falta y qué pide la clase; ni «Grabar» ni notas (08/10), y «Cierra el módulo» sólo en un vinculado', () => {
   const c = clase(1, 'a', 0, { tarea: 'Completa', obligatoria: true });
-  const textos = (marca: boolean | null | undefined, notas = 0) => chipsDelEditor(c, { marca, notas }).map((x) => x.texto);
-  assert.deepEqual(textos(true, 2), ['Sin video', 'Tarea', 'Cierra la etapa', 'Grabar', '2 notas']);
-  assert.ok(!textos(undefined).some((t) => /grabar/i.test(t)), 'marca ilegible: ni «Grabar» ni «No grabar»');
-  assert.ok(textos(false).includes('No grabar'));
+  // Desde el 08/10/2026 (items 13 y 15) la marca de grabar y las notas se fueron de la tab: la
+  // tarjeta dice lo que la CLASE tiene, nada más.
+  const textos = chipsDelEditor(c, true).map((x) => x.texto);
+  // «Cierra el módulo»: el MISMO nombre que el interruptor de la lección (revisión final del 08/10).
+  assert.deepEqual(textos, ['Sin video', 'Tarea', 'Cierra el módulo']);
+  assert.ok(!textos.some((t) => /grabar|nota/i.test(t)), 'volvió un chip de grabar o de notas');
+  // En un SUELTO la marca se conserva y no cierra nada: el chip no lo afirma.
+  assert.deepEqual(chipsDelEditor(c, false).map((x) => x.texto), ['Sin video', 'Tarea']);
   assert.equal(cierraLaEtapa([c]), true);
   assert.equal(cierraLaEtapa([clase(2, 'a', 0, { obligatoria: true })]), false, 'obligatoria SIN tarea no cierra');
 });
@@ -215,4 +294,164 @@ test('las dos pantallas montan el dibujo (y ninguna volvió a uno propio)', () =
   assert.doesNotMatch(principal, /<PageHeader/, 'volvió la barra de arriba de la tab Curso');
   assert.match(editor, /edicion=\{puedeEditar \? \{/, 'los controles de editar son sólo de un admin');
   assert.doesNotMatch(editor, /function ListaClases/, 'volvió la lista de filas');
+});
+
+// ── El editor de la ESTRUCTURA (08/10/2026, pedido del 07/10: items 2, 4, 5, 7, 9, 11 y 12) ──────
+// Lo que el dibujo hace para quien arma el curso (los «+» primero, el arrastre del Plan, los nombres)
+// y lo que la tab dejó de tener (el Avance). La lógica de dónde cae lo arrastrado y del candado se
+// EJECUTA en tests/curso-editor.test.ts.
+
+/** El bloque que arranca en `desde` y termina en el primer `hasta` después de él. */
+const bloque = (src: string, desde: string, hasta: string) => {
+  const i = src.indexOf(desde);
+  assert.ok(i >= 0, `no encontré «${desde}»: ¿se movió?`);
+  const j = src.indexOf(hasta, i + desde.length);
+  assert.ok(j > i, `no encontré el cierre «${hasta}» de «${desde}»`);
+  return src.slice(i, j);
+};
+
+/** El código de una función del dibujo, hasta la siguiente. */
+const funcion = (src: string, nombre: string, siguiente: string) => {
+  const i = src.indexOf(`function ${nombre}(`);
+  assert.ok(i >= 0, `no encontré ${nombre}`);
+  const j = src.indexOf(`function ${siguiente}(`, i);
+  assert.ok(j > i, `no encontré ${siguiente} después de ${nombre}`);
+  return src.slice(i, j);
+};
+
+test('«Módulos» y no «Etapas» adentro del curso, en el editor y en el portal (item 11)', () => {
+  for (const [quien, textos] of [['dibujo', TEXTOS_DEFAULT], ['editor', TEXTOS_EDITOR], ['portal', TEXTOS_PORTAL]] as const) {
+    const etapa = Object.entries(textos).filter(([, v]) => /etapa/i.test(String(v)));
+    assert.deepEqual(etapa, [], `${quien}: todavía dice etapa`);
+  }
+  assert.equal(TEXTOS_EDITOR.modulo, 'Módulo', 'el rótulo de la lámina');
+  const huerfanas = modulosDelEditor([{ key: 'a', label: 'A' }], { a: [] }, [clase(3, 'borrada', 0)]);
+  assert.equal(huerfanas.at(-1)!.nombre, 'Sin módulo');
+  const portal = sinComentarios(leer('app/compartido/curso/[token]/PortalAlumno.tsx'));
+  assert.doesNotMatch(portal, /`Etapa \$\{/, 'el portal todavía dice «Etapa N»');
+});
+
+test('la barra de los módulos cuenta SÓLO las clases, sin el tiempo; la tarjeta sí lo dice (item 11)', () => {
+  const m: ModuloUgc = { key: 'a', nombre: 'A', n: 1, cuantas: 4, rotuloExtra: '71 min' };
+  assert.equal(textoBarraModulo(m), '4');
+  assert.equal(textoTarjetaModulo(m, TEXTOS_DEFAULT), '4 lecciones · 71 min');
+  // Y la barra sigue diciendo el avance cuando lo hay (es lo que cambia).
+  assert.equal(textoBarraModulo({ ...m, progreso: { hechas: 1, total: 3 } }), '1/3');
+});
+
+test('«+ Nuevo módulo» y «+ Nueva clase» van PRIMERO, antes de las tarjetas (item 12)', () => {
+  const src = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
+  const indice = funcion(src, 'Indice', 'TarjetaModulo');
+  const nuevo = indice.indexOf('<NuevoModulo ');
+  assert.ok(nuevo > 0, 'el índice no dibuja «+ Nuevo módulo»');
+  assert.ok(nuevo < indice.indexOf('{modulos.map('), '«+ Nuevo módulo» quedó después de las tarjetas');
+  const grilla = funcion(src, 'Grilla', 'Leccion');
+  const nueva = grilla.indexOf('ugc-modcard--nueva');
+  assert.ok(nueva > 0, 'la grilla no dibuja «+ Nueva clase»');
+  assert.ok(nueva < grilla.indexOf('{clases.map('), '«+ Nueva clase» quedó después de las tarjetas');
+  assert.equal(TEXTOS_DEFAULT.nueva, '+ Nueva clase');
+  assert.equal(TEXTOS_DEFAULT.nuevoModulo, '+ Nuevo módulo');
+  // El nombre del módulo nuevo se pide EN SU LUGAR, y salir con algo escrito NO lo crea (crearía una
+  // etapa del kanban por un clic que se fue a otro lado): sólo Enter o «Crear».
+  const nm = src.slice(src.indexOf('function NuevoModulo('));
+  assert.ok(nm.length > 300, 'no encontré NuevoModulo');
+  assert.match(nm, /if \(!creando && !nombre\.trim\(\) && !\(n && caja\.current\?\.contains\(n\)\)\) cerrar\(\);/);
+  assert.match(nm, /if \(e\.key === 'Enter'\) \{ e\.preventDefault\(\); void crear\(\); \}/);
+});
+
+test('el arrastre es el del PLAN: importa sus helpers y no los copia (item 7)', () => {
+  const arr = sinComentarios(leer('app/_cursos/arrastre-curso.ts'));
+  assert.match(arr, /import \{[^}]*\bfotoVaciaDeArrastre\b[^}]*\buseArrastreCopia\b[^}]*\} from '@\/app\/plan\/board\/arrastre-copia';/);
+  assert.match(arr, /fotoVaciaDeArrastre\(e\.dataTransfer\);/);
+  // La copia se cuelga del `.ugc` (la hoja del curso viste todo bajo `.ahdoc .ugc`) y el molde lo acepta.
+  assert.match(arr, /montarCopia\(nodo, e\.clientX - r\.left, e\.clientY - r\.top, raiz\);/);
+  assert.match(sinComentarios(leer('app/plan/board/arrastre-copia.ts')), /\(dentroDe \?\? document\.body\)\.appendChild\(nodo\);/);
+  // Un setState del hueco por `dragover` redibuja el curso sesenta veces por segundo: sólo si cambió.
+  assert.match(arr, /if \(mismoDestino\(destinoRef\.current, d\)\) return;/);
+  // NINGÚN archivo del dibujo arma su propia foto ni su propia copia: eso es copiar el molde.
+  for (const f of readdirSync(join(RAIZ, 'app/_cursos')).filter((x) => /\.tsx?$/.test(x))) {
+    const s = sinComentarios(leer(`app/_cursos/${f}`));
+    assert.doesNotMatch(s, /setDragImage\(|createElement\('canvas'\)|rotate\(1\.5deg\)/, `${f} copia el arrastre del Plan`);
+  }
+  // Y el dibujo lo usa en sus tres zonas, con lo que no arrastra marcado.
+  const ugc = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
+  assert.match(ugc, /const arr = useArrastreCurso\(\{/);
+  for (const z of ['rail', 'barra', 'grilla']) assert.ok(ugc.includes(`arr.zona('${z}')`), `la zona «${z}» no recibe nada`);
+  assert.ok((ugc.match(/className="ugc-editable-ctrls"[^>]*data-nodrag/g) ?? []).length >= 2, 'los controles de las tarjetas arrastran la tarjeta');
+});
+
+test('portadas: la lámina elegida llega al dibujo y la miniatura del video no la tapa (item 5)', () => {
+  const lam = 'lam:pizarra:2E4A3B:F4D35E:';
+  const estilo = { ...estiloVacio(), portadasEtapa: { a: lam }, portadasClase: { 1: lam } };
+  const m = modulosDelEditor([{ key: 'a', label: 'A' }], { a: [] }, [], estilo);
+  assert.equal(m[0].lamina?.diseno, 'pizarra');
+  const conVideo = clase(1, 'a', 0, { videoTipo: 'youtube', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' });
+  const c = clasesDelEditor([{ key: 'a', label: 'A' }], { a: [conVideo] }, [], estilo)[0];
+  assert.equal(c.tapa, null, 'la miniatura del video taparía la lámina');
+  assert.equal(c.lamina?.diseno, 'pizarra');
+  const p = producto([etapaV('a', 'actual', [claseV(1, { video: { tipo: 'youtube', id: 'dQw4w9WgXcQ' } })])]);
+  p.estilo = estilo;
+  assert.equal(modulosDelPortal(p)[0].lamina?.diseno, 'pizarra', 'el alumno ve la lámina que eligió el equipo');
+  assert.equal(clasesDelPortal(p)[0].ugc.tapa, null);
+  // El dibujo la pinta en el lugar del cuaderno, y el chip del número sólo donde no tapa el diseño.
+  const ugc = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
+  assert.match(funcion(ugc, 'TarjetaModulo', 'TarjetaClase'), /\{m\.lamina\s*\? <Lamina /);
+  assert.match(ugc, /conChipDeNumero\(m\.portada \|\| m\.fondo \? null : m\.lamina\)/);
+  assert.match(ugc, /conChipDeNumero\(clase\.tapa \|\| clase\.fondo \? null : clase\.lamina\)/);
+  // La pestaña «Diseños» del selector se abre para un módulo o una clase.
+  assert.match(sinComentarios(leer('app/customer-success/curso/CursoApp.tsx')), /disenos=\{disenosDe\(picker\.ajuste\)\}/);
+});
+
+test('el Avance de los clientes SE FUE del curso a Clientes, y el link viejo redirige (item 4)', () => {
+  const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
+  assert.doesNotMatch(app, /entradasExtra=|<AvanceCurso\b|Avance de los clientes/, 'volvió el Avance adentro del curso');
+  const page = sinComentarios(leer('app/customer-success/curso/page.tsx'));
+  assert.match(page, /if \(sp\.vista === 'avance'\) \{\s*redirect\(await rutaConWs\(`\/customer-success\?vista=avance\$\{productoId \? `&producto=\$\{productoId\}` : ''\}`\)\);/,
+    'un ?vista=avance viejo tiene que caer en la vista Avance de Clientes, con el ?ws=');
+});
+
+test('invitar desde el editor: un modal, que abren el botón de arriba y el menú de la marca (item 9)', () => {
+  const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
+  assert.match(app, /<button type="button" className="ugc-btn" data-recorrido="invitar" onClick=\{\(\) => setInvitando\(true\)\}>Invitar alumnos<\/button>/);
+  assert.match(bloque(app, 'const menuMarca = ', 'if (!servicio)'), /onClick=\{\(\) => \{ cerrar\(\); setInvitando\(true\); \}\}>Invitar alumnos/);
+  assert.match(app, /\{invitando && \(\s*<ModalInvitarAlumnos productoId=\{servicio\.productoId\}/);
+  assert.match(app, /topbarExtra=\{barraDeArriba\}/);
+  // La lista se prellena con el email del CRM.
+  assert.match(sinComentarios(leer('app/customer-success/curso/page.tsx')), /email: c\.email \?\? null,/);
+});
+
+test('la sidebar de MaKo: con el curso abierto, el BODY no lleva overflow (item 2)', () => {
+  // Un overflow en el body (con el html ya en hidden) lo vuelve un contenedor de scroll, y la sidebar
+  // de MaKo (sticky) le suma su padding: con la barra de agencia quedaba un bloque en blanco arriba de
+  // su logo (07/10/2026). Se lee la regla del body ENTERA, en la hoja y sin comentarios.
+  const css = leer('public/cono-doc/ugc.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const reglas = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter((m) => m[1].split(',').some((s) => s.trim() === 'body:has(.ahdoc)'));
+  assert.ok(reglas.length >= 1, 'no encontré la regla de body:has(.ahdoc)');
+  for (const r of reglas) assert.doesNotMatch(r[2], /overflow/, `volvió el overflow al body: ${r[2].trim()}`);
+});
+
+// ── REVISIÓN FINAL del 08/10/2026 (scratchpad/rev-final) ─────────────────────
+// Los pasos EDITOR y LECCIÓN escribieron cada uno su regla para `.mk-iconbtn` en app/_cursos/estilos.ts:
+// la de la lección (los botones de la app ADENTRO del curso, transparentes) y la del editor (el «?» del
+// recorrido en la barra de arriba, con borde y sombra). Con el mismo selector gana la de más abajo, así
+// que las flechas y la cruz del formulario de una tarea salían de 36 px con borde grueso y sombra —
+// medido en el banco de la lección: 36 × 36, «2px solid», sombra—. Arreglado acotando la del editor a
+// `.ugc-topbar-extra`: el banco da los botones del formulario sin borde y el «?» igual que antes.
+// Y el chip de la tarjeta decía «Cierra la etapa» donde el interruptor de la lección dice «Cierra el
+// módulo», también en un suelto (donde no cierra nada): ver «editor: los chips del equipo…».
+// Roturas (scratchpad/rev-final/romper.mjs, deshaciendo el reemplazo y comparando el md5): sin romper
+// 24 / 0; la regla de la barra sin el acote → 23 / 1 (este test) · el chip sin mirar si el módulo es
+// vinculado → 23 / 1 («editor: los chips del equipo…»).
+test('la piel del «?» de la barra de arriba no se derrama sobre los botones de la lección', () => {
+  const css = CSS_UGC.replace(/\/\*[\s\S]*?\*\//g, '');
+  const reglas = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), cuerpo: m[2] }));
+  const deIconbtn = reglas.filter((r) => r.sel.split(',').some((s) => /\.mk-iconbtn\b/.test(s)));
+  assert.ok(deIconbtn.length >= 2, `leí ${deIconbtn.length} reglas de .mk-iconbtn: el parser quedó corto`);
+  // Lo que da el tamaño y el borde grueso de la barra de arriba va SOLO bajo la barra de arriba.
+  const conPiel = deIconbtn.filter((r) => /\bwidth\s*:|\bborder\s*:\s*2px/.test(r.cuerpo));
+  assert.ok(conPiel.length >= 1, 'no encontré la piel del «?» de la barra de arriba');
+  for (const r of conPiel) {
+    for (const s of r.sel.split(',')) assert.match(s.trim(), /\.ugc-topbar-extra \.mk-iconbtn$/, `se derrama: ${s.trim()}`);
+  }
 });

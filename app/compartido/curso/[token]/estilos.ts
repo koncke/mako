@@ -70,4 +70,25 @@ export const CSS_PORTAL = `
 .cp-guardado{ font-size: var(--fs-meta); color: var(--faint); }
 .cp-guardado--guardado{ color: var(--good); }
 .cp-guardado--error{ color: var(--bad); }
+
+/* Marcar como hecha (una clase sin tarea): debajo de la descripcion, con la misma linea punteada que
+   separa la tarea. Arriba de todo en el papel no hay nada que separar. */
+.cp-hecha{ display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 16px; border-top: 1px dashed var(--border-strong); }
+.ugc-paper > .cp-hecha:first-child{ border-top: 0; padding-top: 0; }
+.cp-hecha .ugc-btn:disabled{ opacity: .6; cursor: default; }
+
+/* La comunidad del producto, en su pantalla: afuera del curso (la hoja del curso le sacaria el fondo
+   y el borde a sus botones). La franja de arriba lleva la marca y las dos pestanas del programa, con
+   la paleta del portal; cada color con su respaldo, porque aca no esta la hoja que los define. */
+.cp-com{ min-height: 100dvh; background: var(--u-paper, #f4f1e8); color: var(--u-ink, #16150f); }
+.cp-com-barra{ position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px;
+  padding: 12px 20px; background: var(--u-night, #16150f); color: var(--u-night-ink, #f4f1e8); }
+.cp-com-marca{ font-weight: 800; font-size: 19px; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.cp-com-marca span{ color: var(--u-lime, #cdf13b); }
+.cp-com-tabs{ display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.cp-com-tab{ display: inline-flex; align-items: center; min-height: 38px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+  border: 1.5px solid rgba(244, 241, 232, .35); background: transparent; color: inherit;
+  font: 700 12px/1 'Geist Mono', ui-monospace, monospace; letter-spacing: .04em; }
+.cp-com-tab[aria-current="page"]{ cursor: default; background: var(--u-lime, #cdf13b); color: #16150f; border-color: transparent; }
+.cp-com-cuerpo{ max-width: 1180px; margin: 0 auto; padding: 22px 16px 60px; }
 `;

@@ -19,7 +19,7 @@ import {
   valoresAprobables, mismoInstante, bloqueRespuestas, PROPUESTA_SYSTEM_TEMPLATE, PROPUESTA_USER_TEMPLATE,
   type FilaRespuesta,
 } from '../lib/curso-propuesta';
-import { armarEtapas, propuestaVista } from '../lib/curso-portal';
+import { armarModulos, esClaseCerrada, propuestaVista, type ClaseVista, type OpcionesVista } from '../lib/curso-portal';
 import { propuestaDeClase, propuestasPendientes, type ClaseFicha } from '../app/customer-success/curso-ficha-lectura';
 import type { Campo, Clase, Progreso, PropuestaIA } from '../lib/curso';
 import { CATALOGO_MODELOS } from '../lib/model-catalogo';
@@ -38,6 +38,20 @@ const cuerpoDe = (src: string, firma: string) => {
   const fin = src.slice(ini + firma.length).search(/\n(export |async function |function |const [A-Za-z_]+ = )/);
   return src.slice(ini, fin < 0 ? undefined : ini + firma.length + fin);
 };
+
+/**
+ * El portal de UNA etapa (un módulo vinculado, sin candados propios): la forma de `armarEtapas`, que
+ * se fue el 08/10/2026 (D1). Devuelve sus clases ABIERTAS y exige que no haya ninguna cerrada.
+ */
+const armarEtapas = (
+  etapas: Array<{ key: string; label: string }>, actual: string, clases: Clase[], progreso: Map<number, Progreso>, opts?: OpcionesVista,
+) => armarModulos({
+  modulos: etapas.map((e, i) => ({ clave: e.key, nombre: e.label, vinculado: true, n: i + 1, bloqueo: null })),
+  etapas, actual, clases, progreso, opts,
+}).map((m) => {
+  assert.ok(!m.clases.some(esClaseCerrada), `el módulo ${m.key} trajo una clase cerrada sin candados`);
+  return { ...m, clases: m.clases as ClaseVista[] };
+});
 
 const clase = (id: number, o: Partial<Clase> = {}): Clase => ({
   id, productoId: 1, etapa: 'e1', orden: id, titulo: `C${id}`, descripcion: '', tipo: 'clase',

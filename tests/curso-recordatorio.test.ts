@@ -293,6 +293,23 @@ test('por cliente: lo que se sabe sin mandar → la marca con compare-and-set �
   assert.doesNotMatch(SRC, /recordatorio_at: null/, 'nadie desmarca un recordatorio ya procesado');
 });
 
+test('los mensajes NOMBRAN sólo lo que el alumno puede abrir: candados y permisos, la evaluación del portal (revisión 08/10)', () => {
+  // El recordatorio y lo pendiente de una llamada listaban «las clases de su etapa»: con los candados
+  // (D2) y los permisos (mig 0219), eso era pedirle ver lo que no puede abrir, o nombrarle un módulo
+  // que en el portal no viaja ni el nombre.
+  const ab = bloque('async function abiertasDe(', 'async function contenidoDe(');
+  assert.match(ab, /await aperturasDelAlumno\(\{ \.\.\.p, alcance: acceso\?\.alcance \?\? null \}\)/, 'la MISMA evaluación que el portal, con sus permisos');
+  assert.match(ab, /ap\.clases\.get\(c\.id\)\?\.abierta === true/);
+  assert.match(ab, /catch \(e\) \{[\s\S]*return null;/, 'no poder evaluar es no nombrar');
+  const videos = bloque('async function videosPendientesDe(', 'async function marcarRecordatorio(');
+  assert.match(videos, /const abiertas = await abiertasDe\(/);
+  assert.match(videos, /if \(!abiertas\) continue;/);
+  assert.match(videos, /videosSinVer\(deLaEtapa\.filter\(\(c\) => abiertas\.has\(c\.id\)\)/);
+  const contenido = bloque('async function contenidoDe(', 'type Ctx =');
+  assert.match(contenido, /pendientesDe\(deLaEtapa\.filter\(\(c\) => abiertas\.has\(c\.id\)\)/);
+  assert.match(contenido, /const pendientes = deLaEtapa\.length && abiertas\s*\?/, 'sin evaluar, `null` (ni «te falta» ni «vas al día»)');
+});
+
 test('la marca: compare-and-set contra el valor recién leído, y se lee si agarró la fila', () => {
   const m = bloque('async function marcarRecordatorio(', 'async function anotarRecordatorio(');
   assert.match(m, /\.update\(\{ recordatorio_at: /);
@@ -499,3 +516,7 @@ test('el cron horario lo llama, DESPUÉS de las llamadas y con un tope de tiempo
 //   N. el cron vuelve a 90 s sueltos → 63/2 (ése y «el cron horario lo llama…»).
 //   Q. sin reloj antes de cada cliente → 64/1.   R. sin reloj antes de cada negocio → 64/1.
 //   S. la marca sin mirar el reloj → 64/1 («el reloj se mira antes de cada negocio…»).
+// REVISIÓN del 08/10/2026 (los candados y los permisos, scratchpad/rev-nucleo/romper-final.mjs,
+// restaurado de memoria). Sin romper, este archivo solo: 27 / 0. Cada una dio 26 / 1 en «los mensajes
+// NOMBRAN sólo lo que el alumno puede abrir…»: el recordatorio con los videos de la etapa sin filtrar ·
+// lo pendiente de una llamada sin filtrar · `abiertasDe` nombrando todo cuando no pudo evaluar.

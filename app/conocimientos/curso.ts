@@ -87,12 +87,6 @@ export type Curso = {
   // que además exige que cada archivo esté compartido.
   portada?: string;
   /**
-   * Este curso se muestra con la pantalla de SU plataforma de origen, replicada, en
-   * vez de con la grilla del portal. Se marca en `catalogo.ts` (no acá: este archivo
-   * es auto-generado). Ver `CursoReplica.tsx` para el porqué.
-   */
-  replica?: boolean;
-  /**
    * PREFIJO de las portadas de módulo: la del módulo N es `${portadasModulo}${N}.webp`.
    *
    * ⚠️ Es un dato del curso y no una ruta escrita en la vista. Estaba fija en

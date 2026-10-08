@@ -35,14 +35,21 @@
 // ⚠️ El guard «nada lee la base antes del resolver» buscaba `resolverAcceso(`, que NO aparece adentro
 // de `resolverAccesoPortal(`: con el nombre viejo el índice daba -1 y aprobaba cualquier orden. Ahora
 // cada ruta declara SU resolver y se busca ése.
+//
+// 08/10/2026 (D1 y D2, docs/diseno-curso-skool.md): el portal arma MÓDULOS (`armarModulos`) con sus
+// CANDADOS, y las rutas exigen la clase ABIERTA (`exigeAbierta`). Los tests de `armarEtapas` pasaron a
+// `armarModulos` con las mismas aserciones, y se suman los de lo cerrado que no viaja. Roturas en el
+// bloque ROTURAS 08/10 de abajo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  estadosDeEtapas, decidirClase, armarEtapas, videoDeClase, leerJsonTopeado, idDeClase, primerNombre,
+  estadosDeEtapas, decidirClase, armarModulos, videoDeClase, leerJsonTopeado, idDeClase, primerNombre, esClaseCerrada,
+  type ClaseVista, type EntradaModulos,
 } from '../lib/curso-portal';
+import type { ModuloCurso } from '../lib/curso-modulos';
 import { campoLleno, queFalta, filasDeTabla, fraseQueFalta } from '../app/compartido/curso/[token]/tarea-valores';
 import { pathEsDelProducto } from '../app/customer-success/curso/reglas';
 import { esPublicaDeEscritura, PUBLICOS_ESCRITURA } from '../lib/rutas-publicas';
@@ -57,6 +64,17 @@ const clase = (id: number, o: Partial<Clase> = {}): Clase => ({
 const prog = (claseId: number, o: Partial<Progreso> = {}): Progreso => ({
   claseId, segundosMax: 0, duracionSeg: null, pct: 0, vistoAt: null, valores: {}, estado: 'pendiente', enviadaAt: null, ...o,
 });
+
+/** Cada etapa como módulo VINCULADO (un curso sin sueltos), más los sueltos que se pidan. */
+const mods = (etapas: ReadonlyArray<{ key: string; label: string }>, extra: ModuloCurso[] = []): ModuloCurso[] =>
+  [...etapas.map((e, i): ModuloCurso => ({ clave: e.key, nombre: e.label, vinculado: true, n: i + 1, bloqueo: null })), ...extra];
+/** `armarModulos` con los módulos de las etapas: la forma de `armarEtapas` de antes. */
+const armar = (
+  etapas: ReadonlyArray<{ key: string; label: string; agendaUrl?: string }>, actual: string | null, clases: Clase[],
+  progreso: Map<number, Progreso>, o: Partial<EntradaModulos> = {},
+) => armarModulos({ modulos: mods(etapas), etapas, actual, clases, progreso, ...o });
+/** Las clases ABIERTAS de un módulo (las cerradas no traen nada más que el título y el motivo). */
+const abiertas = (m: { clases: ReturnType<typeof armar>[number]['clases'] }) => m.clases.filter((c): c is ClaseVista => !esClaseCerrada(c));
 
 // ── Las etapas ────────────────────────────────────────────────────────────────
 
@@ -75,21 +93,20 @@ test('sin fila (o con una etapa que ya no existe) está en la PRIMERA, no en nin
 
 test('decidirClase: una clase ajena es un 404, igual que una que no existe', () => {
   const c = clase(5, { productoId: 7 });
-  assert.equal(decidirClase(null, [7], 'actual', true), 'no-existe');
-  assert.equal(decidirClase(c, [1, 2], 'actual', true), 'no-existe', 'producto que el cliente no compró');
-  assert.equal(decidirClase(c, [], 'actual', false), 'no-existe');
-  assert.equal(decidirClase(c, [7], 'actual', true), 'ok');
-  assert.equal(decidirClase(c, [7], 'hecha', true), 'ok', 'lo de atrás se puede releer y corregir');
+  assert.equal(decidirClase(null, [7], true, true), 'no-existe');
+  assert.equal(decidirClase(c, [1, 2], true, true), 'no-existe', 'producto que el cliente no compró');
+  assert.equal(decidirClase(c, [], true, false), 'no-existe');
+  assert.equal(decidirClase(c, [7], true, true), 'ok');
 });
 
-test('decidirClase: con la etapa exigida, bloqueada o desconocida no se abre', () => {
+test('decidirClase: con la clase ABIERTA exigida, cerrada o desconocida no se abre', () => {
   const c = clase(5, { productoId: 7 });
-  assert.equal(decidirClase(c, [7], 'bloqueada', true), 'bloqueada');
-  assert.equal(decidirClase(c, [7], undefined, true), 'bloqueada', 'una etapa que ya no existe en la entrega');
-  assert.equal(decidirClase(c, [7], 'bloqueada', false), 'ok', 'el progreso no exige la etapa');
+  assert.equal(decidirClase(c, [7], false, true), 'bloqueada');
+  assert.equal(decidirClase(c, [7], undefined, true), 'bloqueada', 'no se evaluó (o su módulo ya no existe): cerrada');
+  assert.equal(decidirClase(c, [7], false, false), 'ok', 'sin exigirlo no se mira');
 });
 
-test('armarEtapas: agrupa en el orden de la entrega, ordena por orden y cuenta lo que cierra la etapa', () => {
+test('armarModulos: agrupa en el orden del curso, ordena por orden y cuenta lo que cierra la etapa', () => {
   const etapas = [{ key: 'e1', label: 'Uno' }, { key: 'e2', label: 'Dos' }];
   const clases = [
     clase(3, { etapa: 'e1', orden: 2, obligatoria: true, tarea: 'hazlo' }),
@@ -97,25 +114,101 @@ test('armarEtapas: agrupa en el orden de la entrega, ordena por orden y cuenta l
     clase(2, { etapa: 'e1', orden: 1 }), // sin tarea: no cuenta como obligatoria
     clase(9, { etapa: 'vieja' }), // su etapa ya no existe: no se dibuja
   ];
-  const vista = armarEtapas(etapas, 'e1', clases, new Map([[1, prog(1, { estado: 'enviada' })]]));
-  assert.deepEqual(vista.map((e) => [e.key, e.estado]), [['e1', 'actual'], ['e2', 'bloqueada']]);
+  const vista = armar(etapas, 'e1', clases, new Map([[1, prog(1, { estado: 'enviada' })]]));
+  assert.deepEqual(vista.map((e) => [e.key, e.etapa, e.abierto]), [['e1', 'actual', true], ['e2', 'bloqueada', false]]);
   assert.deepEqual(vista[0].clases.map((c) => c.id), [1, 2, 3], 'orden, y a igual orden el id');
   assert.equal(vista[0].obligatorias, 2);
   assert.equal(vista[0].enviadas, 1);
   // Lo que ve el alumno cuenta TODAS las tareas (aquí, las dos con tarea; la 2 no pide nada).
   assert.equal(vista[0].tareas, 2);
   assert.equal(vista[0].tareasEnviadas, 1);
-  assert.equal(vista[0].clases.find((c) => c.id === 1)?.estado, 'enviada');
+  assert.equal(abiertas(vista[0]).find((c) => c.id === 1)?.estado, 'enviada');
   assert.ok(!vista.flatMap((e) => e.clases).some((c) => c.id === 9), 'una clase huérfana no aparece');
 });
 
-test('lo bloqueado no viaja: se manda cuántas clases tiene, no su contenido', () => {
+test('lo bloqueado no viaja: se manda cuántas clases tiene y el porqué, no su contenido', () => {
   const etapas = [{ key: 'e1', label: 'Uno' }, { key: 'e2', label: 'Dos' }];
   const clases = [clase(1, { etapa: 'e1' }), clase(2, { etapa: 'e2', tarea: 'secreto' }), clase(3, { etapa: 'e2' })];
-  const [, e2] = armarEtapas(etapas, 'e1', clases, new Map());
-  assert.equal(e2.estado, 'bloqueada');
+  const [, e2] = armar(etapas, 'e1', clases, new Map());
+  assert.equal(e2.abierto, false);
   assert.equal(e2.clases.length, 0);
   assert.equal(e2.cuantas, 2);
+  assert.equal(e2.motivo, 'Se abre al terminar «Uno»');
+  assert.doesNotMatch(JSON.stringify(e2), /secreto/);
+});
+
+// ── Los módulos sueltos y los candados (D1 y D2, 08/10/2026) ───────────────────
+
+test('un módulo SUELTO se dibuja con sus clases (antes se tiraban por no ser una etapa)', () => {
+  const etapas = [{ key: 'e1', label: 'Uno' }, { key: 'e2', label: 'Dos' }];
+  const suelto: ModuloCurso = { clave: 'm_bonus', nombre: 'Bonus', vinculado: false, n: 3, bloqueo: null };
+  const clases = [clase(1, { etapa: 'e1' }), clase(7, { etapa: 'm_bonus', titulo: 'Extra' })];
+  const v = armarModulos({ modulos: mods(etapas, [suelto]), etapas, actual: 'e1', clases, progreso: new Map() });
+  const b = v.find((m) => m.key === 'm_bonus')!;
+  assert.equal(b.vinculado, false);
+  assert.equal(b.etapa, undefined, 'un suelto no tiene estado en el kanban');
+  assert.equal(b.abierto, true, 'el default de un suelto es abierto');
+  assert.deepEqual(b.clases.map((c) => c.titulo), ['Extra']);
+});
+
+test('una clase CERRADA adentro de un módulo abierto viaja con su título y su motivo, y nada más', () => {
+  const etapas = [{ key: 'e1', label: 'Uno' }];
+  const clases = [
+    clase(1, { etapa: 'e1', orden: 1, titulo: 'Intro', tarea: 'hazlo' }),
+    clase(2, {
+      etapa: 'e1', orden: 2, titulo: 'Secreta', descripcion: 'NO-VIAJA-DESC', descripcionHtml: '<p>NO-VIAJA-HTML</p>',
+      tarea: 'NO-VIAJA-TAREA', videoTipo: 'youtube', videoUrl: 'https://youtu.be/NOVIAJA', bloqueo: { tipo: 'anterior' },
+    }),
+  ];
+  const [m] = armar(etapas, 'e1', clases, new Map());
+  const cerrada = m.clases.find((c) => c.id === 2)!;
+  assert.ok(esClaseCerrada(cerrada));
+  assert.deepEqual(Object.keys(cerrada).sort(), ['cerrada', 'id', 'motivo', 'titulo']);
+  assert.equal(cerrada.motivo, 'Se abre al terminar «Intro»');
+  assert.doesNotMatch(JSON.stringify(m), /NO-VIAJA|NOVIAJA/);
+  // Al completar la anterior (enviar su tarea), se abre con todo lo suyo.
+  const [m2] = armar(etapas, 'e1', clases, new Map([[1, prog(1, { estado: 'enviada' })]]));
+  const abierta = m2.clases.find((c) => c.id === 2)!;
+  assert.ok(!esClaseCerrada(abierta));
+  assert.equal((abierta as ClaseVista).tarea, 'NO-VIAJA-TAREA');
+});
+
+test('un módulo con candado de FECHA no viaja antes del día, con el motivo en palabras', () => {
+  const etapas = [{ key: 'e1', label: 'Uno' }];
+  const m = { ...mods(etapas)[0], bloqueo: { tipo: 'fecha' as const, fecha: '2026-10-12' } };
+  const clases = [clase(1, { etapa: 'e1', tarea: 'hazlo' })];
+  const antes = armarModulos({ modulos: [m], etapas, actual: 'e1', clases, progreso: new Map(), contexto: { fechas: { hoy: '2026-10-11', inicio: null }, nivel: null, desbloqueos: [] } });
+  assert.equal(antes[0].abierto, false);
+  assert.equal(antes[0].clases.length, 0);
+  assert.equal(antes[0].motivo, 'Se abre el 12 de octubre');
+  const el = armarModulos({ modulos: [m], etapas, actual: 'e1', clases, progreso: new Map(), contexto: { fechas: { hoy: '2026-10-12', inicio: null }, nivel: null, desbloqueos: [] } });
+  assert.equal(el[0].abierto, true);
+  // Sin poder calcular las fechas (sin contexto), cerrado: no poder leer no abre.
+  assert.equal(armarModulos({ modulos: [m], etapas, actual: 'e1', clases, progreso: new Map() })[0].abierto, false);
+});
+
+test('un módulo que sus PERMISOS no le dan no viaja en absoluto (ni el nombre)', () => {
+  const etapas = [{ key: 'e1', label: 'Uno' }, { key: 'e2', label: 'Escondido' }];
+  const clases = [clase(1, { etapa: 'e1' }), clase(2, { etapa: 'e2' })];
+  const v = armar(etapas, 'e2', clases, new Map(), { permitido: (k) => k !== 'e2' });
+  assert.deepEqual(v.map((m) => m.key), ['e1']);
+  assert.doesNotMatch(JSON.stringify(v), /Escondido/);
+});
+
+test('al LÍDER de un área, el motivo de una clase cerrada no le nombra lo que no ve (revisión 08/10)', () => {
+  // #665: «el líder de Ventas no tiene por qué saber que existe el cuestionario de números del dueño».
+  // El motivo de la clase por área cerrada nombraba a su anterior, que no es por área.
+  const etapas = [{ key: 'e1', label: 'Uno' }];
+  const clases = [
+    clase(1, { etapa: 'e1', orden: 1, titulo: 'Tus números', tarea: 'del dueño' }),
+    clase(2, { etapa: 'e1', orden: 2, titulo: 'Ventas', tarea: 'hazlo', porArea: true, bloqueo: { tipo: 'anterior' } }),
+  ];
+  const lider = armar(etapas, 'e1', clases, new Map(), { opts: { lider: 'Ventas', areas: ['Ventas'] } });
+  assert.doesNotMatch(JSON.stringify(lider), /Tus números/);
+  assert.deepEqual(lider[0].clases, [{ id: 2, titulo: 'Ventas', cerrada: true, motivo: 'Se abre más adelante' }]);
+  // Al cliente sí: él ve las dos.
+  const cliente = armar(etapas, 'e1', clases, new Map());
+  assert.equal(cliente[0].clases.find((c) => c.id === 2 && esClaseCerrada(c)) && (cliente[0].clases[1] as { motivo: string }).motivo, 'Se abre al terminar «Tus números»');
 });
 
 // ── El video ──────────────────────────────────────────────────────────────────
@@ -140,12 +233,12 @@ test('el link manda, no la columna: lo guardado termina en el src de un iframe d
 });
 
 test('claseVista: un video que no se mide viaja con pct null («sin medir»), no con 0', () => {
-  const [e] = armarEtapas([{ key: 'e1', label: 'Uno' }], 'e1', [
+  const [e] = armar([{ key: 'e1', label: 'Uno' }], 'e1', [
     clase(1, { videoTipo: 'loom', videoUrl: 'https://www.loom.com/share/abc' }),
     clase(2, { videoTipo: 'youtube', videoUrl: 'https://youtu.be/x' }),
   ], new Map([[2, prog(2, { pct: 40 })]]));
-  assert.equal(e.clases[0].pct, null);
-  assert.equal(e.clases[1].pct, 40);
+  assert.equal(abiertas(e)[0].pct, null);
+  assert.equal(abiertas(e)[1].pct, 40);
 });
 
 test('el bucket es uno para todos: la ruta de video firma sólo lo del workspace Y del producto de la clase', () => {
@@ -334,8 +427,65 @@ test('los permisos del alumno (mig 0219) entran por la única puerta, en las sei
   }
   assert.match(leer('app/mi-curso/portal-comun.tsx'), /armarVistaAlumno\(\s*acceso\.leadId\s*,\s*\{\s*alcance:\s*acceso\.alcance\s*\}\s*\)/);
   const portal = leer('lib/curso-portal.ts');
-  assert.match(portal, /\.filter\(\(e\) => moduloPermitido\(alcance, productoId, e\.key\)\)/, 'armarVistaAlumno no filtra los módulos');
-  assert.match(portal, /!moduloPermitido\(opts\.alcance \?\? null, clase\.productoId, clase\.etapa\)\) \{\s*return \{ decision: 'no-existe' \}/, 'claseDelAlumno no mira los permisos');
+  assert.match(portal, /permitido: \(clave\) => moduloPermitido\(alcance, productoId, clave\)/, 'armarVistaAlumno no filtra los módulos');
+  assert.match(portal, /!moduloPermitido\(alcance, clase\.productoId, clase\.etapa\)\) \{\s*return \{ decision: 'no-existe' \}/, 'claseDelAlumno no mira los permisos');
+});
+
+// ROTURAS 08/10/2026 (scratchpad/nucleo/romper.mjs, de a una, restaurando de memoria). Sin romper,
+// 31 pass / 0 fail; las del evaluador están en tests/curso-bloqueo.test.ts. Acá, las de la puerta:
+//   · un módulo cerrado manda sus clases                            → 29 / 2 (los dos de «no viaja»)
+//   · una clase cerrada viaja entera                                → 30 / 1 «una clase CERRADA…»
+//   · un módulo no permitido viaja                                  → 30 / 1 «…sus PERMISOS no le dan…»
+//   · la ruta del progreso con `exigeAbierta: false`                → 30 / 1 «las cinco rutas exigen…»
+//     (y la del adjunto, ídem: cae también «la ruta del alumno» de tests/curso-adjuntos.test.ts)
+//   · `armarVistaAlumno` leyendo los módulos sin `estricta`         → 30 / 1 «la vista se arma ESTRICTA…»
+//   · `armarVistaAlumno` sin `conHtmlSaneado`                       → 30 / 1 «la vista se arma ESTRICTA…»
+//   · `decidirClase` abriendo lo que no se evaluó (`undefined`)      → 30 / 1 «decidirClase: con la clase ABIERTA…»
+//   · el líder marcando «hecha» una clase por el cliente            → 30 / 1 «las cinco rutas exigen…»
+// REVISIÓN del 08/10/2026 (scratchpad/rev-nucleo/romper-final.mjs, restaurado de memoria). Sin romper,
+// 32 pass / 0 fail; cada una dio 31 / 1:
+//   · `armarModulos` sin pasarle `nombrable` al líder                → «al LÍDER de un área, el motivo…»
+//   · `claseDelAlumno` con `abierta !== false` (lo no evaluado abre)  → «la vista se arma ESTRICTA…»
+//   · `marcarHecha` (la función) sin rechazar una clase con tarea      → el mismo
+//   (las dos últimas daban 32 / 0 antes de la revisión: no las miraba nadie)
+test('las cinco rutas de una clase exigen la clase ABIERTA (el progreso también: completar abre otras)', () => {
+  for (const r of ['progreso', 'tarea', 'video', 'entrega', 'adjunto']) {
+    assert.match(leer(`app/api/compartido/curso/${r}/route.ts`), /claseDelAlumno\([^)]*exigeAbierta:\s*true/, `${r}: no exige la clase abierta`);
+  }
+  // Marcar «hecha» una clase con tarea no se puede: se completa enviándola.
+  const progreso = leer('app/api/compartido/curso/progreso/route.ts');
+  // Y el líder de un área no la marca por el cliente.
+  assert.match(progreso, /if \(hecha != null\) \{\s*if \(acceso\.area != null \|\| tieneTarea\(r\.clase\)\) return NO\(\);/);
+});
+
+test('la vista se arma ESTRICTA (módulos y etapas) y con la descripción rica saneada otra vez', () => {
+  const portal = leer('lib/curso-portal.ts');
+  const vista = portal.slice(portal.indexOf('export async function armarVistaAlumno('), portal.indexOf('export async function claseDelAlumno('));
+  assert.ok(vista.length > 500 && vista.length < 5000, `el recorte mide ${vista.length}`);
+  assert.match(vista, /modulosDelCurso\(productoId, \{ estricta: true \}\)/);
+  assert.match(vista, /if \(!cur\) throw new Error/);
+  assert.match(vista, /conHtmlSaneado\(armarModulos\(/);
+  assert.match(vista, /\}\), sanearHtml\);/);
+  assert.doesNotMatch(vista, /entregaDeProducto\(/, 'la lectura que cae al default no decide qué se abre');
+  // La ruta y los mensajes que nombran clases leen y evalúan con UN armado (`aperturasDelAlumno`,
+  // revisión 08/10), que es la MISMA evaluación que el dibujo (`aperturasDe`) sobre lo ESTRICTO.
+  const clase = portal.slice(portal.indexOf('export async function claseDelAlumno('), portal.indexOf('export async function aperturasDelAlumno('));
+  const armado = portal.slice(portal.indexOf('export async function aperturasDelAlumno('));
+  assert.ok(clase.length > 300 && clase.length < 3000 && armado.length > 300 && armado.length < 3000, `recortes de ${clase.length} y ${armado.length}`);
+  assert.match(armado, /modulosDatos\.modulosDelCurso\(p\.productoId, \{ estricta: true \}\)/);
+  assert.match(armado, /if \(!cur\) throw new Error/);
+  assert.match(armado, /return aperturasDe\(\{/, 'la ruta decide con la MISMA evaluación que el dibujo');
+  assert.match(armado, /permitido: \(clave\) => moduloPermitido\(p\.alcance, p\.productoId, clave\)/);
+  // Lo que la evaluación no contestó (una clase que no está en la lista leída) NO se abre: `=== true`,
+  // nunca `!== false` (revisión 08/10: cambiarlo no tumbaba nada).
+  assert.match(clase, /await aperturasDelAlumno\(\{[^}]*\}\)\)\s*\.clases\.get\(clase\.id\)\?\.abierta === true;/);
+  assert.match(sinComentarios(readFileSync(join(RAIZ, 'lib/curso-mensajes.ts'), 'utf8')), /aperturasDelAlumno\(/, 'los mensajes nombran clases sin mirar candados');
+  // Y la marca de «hecha» de una clase con tarea la rechaza también la FUNCIÓN, no sólo la ruta: una
+  // exportada la puede llamar el próximo sin pasar por ahí.
+  const datos = leer('lib/curso-datos.ts').replace(/\r\n/g, '\n');
+  const marcar = datos.slice(datos.indexOf('export async function marcarHecha('), datos.indexOf('export async function abiertoDesdeDe('));
+  assert.ok(marcar.length > 100 && marcar.length < 1500, `el recorte mide ${marcar.length}`);
+  assert.match(marcar, /^export async function marcarHecha\([^)]*\): Promise<Progreso> \{\s*if \(tieneTarea\(clase\)\) throw new Error/);
 });
 
 test('los componentes del portal sólo importan TIPOS de lib/curso-portal (trae la capa de datos)', () => {
@@ -375,10 +525,10 @@ test('el portal del alumno no lee las notas del equipo ni su bucket', () => {
   }
 });
 
-test('claseVista es una lista blanca: la marca de grabar (ni nada que no esté en ella) no viaja', () => {
-  const conMarca = { ...clase(1), grabar: true, notas: ['interna'] } as unknown as Clase;
-  const [e] = armarEtapas([{ key: 'e1', label: 'Uno' }], 'e1', [conMarca], new Map());
+test('claseVista es una lista blanca: la marca de grabar, el candado (ni nada que no esté en ella) no viaja', () => {
+  const conMarca = { ...clase(1), grabar: true, notas: ['interna'], bloqueo: { tipo: 'abierto' } } as unknown as Clase;
+  const [e] = armar([{ key: 'e1', label: 'Uno' }], 'e1', [conMarca], new Map());
   assert.deepEqual(Object.keys(e.clases[0]).sort(), [
-    'campos', 'descripcion', 'estado', 'id', 'minutos', 'obligatoria', 'pct', 'tarea', 'tieneTarea', 'titulo', 'valores', 'video',
+    'campos', 'completa', 'descripcion', 'descripcionHtml', 'estado', 'hecha', 'id', 'minutos', 'obligatoria', 'pct', 'tarea', 'tieneTarea', 'titulo', 'valores', 'video',
   ]);
 });

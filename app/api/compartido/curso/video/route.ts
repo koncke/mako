@@ -16,14 +16,15 @@
 // que usa el editor de la tab Curso al guardar (`pathEsDelProducto`, sobre la forma
 // `<ws>/<producto>/<uuid>.<ext>` que arma `pathDeSubida`): una regla, no dos que divergen.
 //
-// ⚠️ LA ETAPA TIENE QUE ESTAR ABIERTA: el video de una etapa bloqueada no se sirve. Todo rechazo
-// es un 404 genérico (también el de etapa bloqueada: un `<video>` no lee el cuerpo del error).
+// ⚠️ LA CLASE TIENE QUE ESTAR ABIERTA (su candado y el de su módulo, D2): el video de una clase
+// cerrada no se sirve. Todo rechazo es un 404 genérico (también el de una cerrada: un `<video>` no
+// lee el cuerpo del error).
 //
 // Es GET: entra por el prefijo público de lectura `/api/compartido` y no necesita estar en
 // PUBLICOS_ESCRITURA.
 //
 // ⚠️ EL TOKEN PUEDE SER EL DEL LÍDER DE UN ÁREA (#665, `c2.`): sólo le sirve el video de una clase
-// POR ÁREA (`claseDelAlumno` con `lider`), con la misma etapa abierta que el cliente.
+// POR ÁREA (`claseDelAlumno` con `lider`), con los mismos candados que el cliente.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
     const acceso = await resolverAccesoPortal(token);
     if (!acceso) return NO();
     try {
-      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: true, lider: acceso.area, alcance: acceso.alcance });
+      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeAbierta: true, lider: acceso.area, alcance: acceso.alcance });
       if (r.decision !== 'ok') return NO();
       if (r.clase.videoTipo !== 'archivo' || !pathEsDelProducto(r.clase.videoPath, acceso.ws, r.clase.productoId)) return NO();
       const { data } = await getSupabaseServer().storage.from(BUCKET_CURSO).createSignedUrl(r.clase.videoPath!, VIDA_URL_VIDEO);

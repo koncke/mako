@@ -1617,10 +1617,9 @@ export const CURSOS_TODOS: Curso[] = [
   //    tarjeta puesto donde va la promesa del curso. Un fallback sin este filtro cambia
   //    siete heroes vacíos por noventa heroes que dicen una obviedad.
   resumen: c.resumen ?? RESUMEN[c.slug] ?? (cardDescEsGenerado(c.cardDesc) ? undefined : c.cardDesc),
-  // La réplica es la vista de TODOS los cursos, no un modo de uno. Se pone acá y no
-  // curso por curso porque un flag que hay que acordarse de poner deja al próximo curso
-  // naciendo con la vista vieja — y nadie se entera hasta que lo abre alguien.
-  replica: true,
+  // (Acá vivía `replica: true`, el flag que mandaba cada curso a CursoReplica. Desde el 08/10/2026
+  // TODOS los cursos se dibujan con app/conocimientos/CursoConocimientos.tsx y no hay otra vista que
+  // elegir: el flag se fue con el archivo, para que no quede un dato que nadie lee.)
 }));
 
 export const buscarCurso = (slug: string | null | undefined): Curso | undefined => {
@@ -1668,10 +1667,23 @@ export const VISTA_PROPIA = {
  * exclusión se declara por sección, nunca la inclusión por lista (una lista de
  * incluidos deja afuera en silencio a todo lo que nadie se acordó de sumar).
  */
-export const CURSOS_COMPARTIBLES: Curso[] = CURSOS_TODOS.filter(
-  // Dos condiciones y no una, porque son dos razones distintas: la sección es
-  // una decisión de producto (puede cambiar), y Branding es una imposibilidad
-  // técnica (no cambia). Si alguien saca Branding del mapa de secciones, la
-  // primera deja de cubrirlo y la segunda lo sigue tapando.
-  (c) => c.categoria !== CATEGORIA_PROPIA && c.slug !== VISTA_PROPIA.branding,
-);
+// Dos condiciones y no una, porque son dos razones distintas: la sección es
+// una decisión de producto (puede cambiar), y Branding es una imposibilidad
+// técnica (no cambia). Si alguien saca Branding del mapa de secciones, la
+// primera deja de cubrirlo y la segunda lo sigue tapando.
+const esCompartible = (c: Curso) => c.categoria !== CATEGORIA_PROPIA && c.slug !== VISTA_PROPIA.branding;
+
+export const CURSOS_COMPARTIBLES: Curso[] = CURSOS_TODOS.filter(esCompartible);
+
+/**
+ * Un curso de la tab compartida, por su slug: el mismo salto de los REEMPLAZADOS que `buscarCurso`
+ * (un `#curso=` con el slug viejo abre el curso que lo absorbió) y la misma regla de qué entra.
+ *
+ * ⚠️ Existe porque el link de la tab buscaba con `CURSOS_COMPARTIBLES.find`, que compara el slug
+ *    CRUDO: un `#curso=avatarhype` pegado en un chat abría el selector en vez del curso (relevo del
+ *    08/10/2026). Reemplazar es REDIRIGIR, y el salto vive en el único punto por el que pasan todos.
+ */
+export const buscarCompartible = (slug: string | null | undefined): Curso | undefined => {
+  const c = buscarCurso(slug);
+  return c && esCompartible(c) ? c : undefined;
+};

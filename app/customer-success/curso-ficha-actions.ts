@@ -42,19 +42,24 @@ import { firmarAccesoCurso } from '@/lib/curso-acceso';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { invitarLiderPorEmail } from '@/lib/invitaciones';
 import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
-import { cambiarModulos } from '@/lib/curso-alcance';
+import { cambiarModulos, moduloPermitido, type AlcanceCurso } from '@/lib/curso-alcance';
+import { modulosDelCurso, contextoDelAlumno } from '@/lib/curso-modulos-datos';
+import { aperturasDe } from '@/lib/curso-bloqueo';
+import type { ModuloCurso } from '@/lib/curso-modulos';
 import {
   clasesDelProducto, claseDeId, progresoDelCliente, avanceDelCliente, accesoDe, linkDeAcceso, urlDeToken, marcarInvitacion,
   revocarAcceso, reactivarAcceso, sesionesDe, agendarSesion, borrarSesion, aprobarTarea, productosDelAlumno,
-  ubicacionEnEntregaDe, accesosDeLideres, linkDeAccesoLider, linkDeLiderLeido, guardarAlcance,
+  ubicacionEnEntregaDe, accesosDeLideres, linkDeAccesoLider, linkDeLiderLeido, guardarAlcance, ponerDesbloqueo,
+  productosConCasaDelAlumno,
   type EstadoAcceso, type EstadoAccesoLider, type Sesion,
 } from '@/lib/curso-datos';
 import { mandarLinkDelCurso } from '@/lib/curso-mensajes';
 import { urlEntregaParaEquipo, darOtroIntento } from '@/lib/curso-entregas';
-import { nombreDeArea, type Clase, type EstadoTarea } from '@/lib/curso';
+import { nombreDeArea, type Clase, type EstadoTarea, type Progreso } from '@/lib/curso';
 import {
-  armarProducto, avisoInvitacionCurso,
+  armarProducto, avisoInvitacionCurso, bloqueosDeFicha,
   type AccesoFicha, type AccesoLiderFicha, type AvisoInvitacionCurso, type CursoDeCliente, type ProductoFicha,
+  type BloqueoFicha,
 } from './curso-ficha-lectura';
 
 type Fallo = { ok: false; error: string };
@@ -146,6 +151,27 @@ async function cursosDelCliente(leadId: number): Promise<{ ids: number[]; cursos
 }
 
 /**
+ * Lo cerrado para él y lo abierto a mano en UN producto (D2), con la MISMA evaluación que el portal
+ * (`aperturasDe` sobre `contextoDelAlumno`). `undefined` si no se pudo evaluar: la ficha no lo lista
+ * (y no ofrece abrir nada a ciegas), y el resto de la pestaña sigue.
+ */
+async function bloqueosDelProducto(p: {
+  leadId: number; productoId: number; casa: number | null; alcance: AlcanceCurso;
+  modulos: ModuloCurso[]; etapas: readonly { key: string; label: string }[]; actual: string | null;
+  clases: Clase[]; progreso: ReadonlyMap<number, Progreso>;
+}): Promise<BloqueoFicha[] | undefined> {
+  try {
+    const permitido = (clave: string) => moduloPermitido(p.alcance, p.productoId, clave);
+    const contexto = await contextoDelAlumno({ leadId: p.leadId, productoId: p.productoId, casa: p.casa, modulos: p.modulos, clases: p.clases });
+    const ap = aperturasDe({ modulos: p.modulos, etapas: p.etapas, actual: p.actual, clases: p.clases, progreso: p.progreso, permitido, contexto });
+    return bloqueosDeFicha(p.modulos, p.clases, ap, permitido);
+  } catch (e) {
+    console.warn(`[curso-ficha] no pude evaluar los candados del lead ${p.leadId}:`, e instanceof Error ? e.message : e);
+    return undefined;
+  }
+}
+
+/**
  * Sus productos CON CLASES, armados por etapa, con la actual marcada y la fila de Avance.
  *
  * ⚠️ `ubicacionEnEntregaDe` SÓLO PARA LOS QUE TIENEN CLASES. Cada llamada vuelve a resolver los
@@ -161,20 +187,26 @@ async function productosConCurso(leadId: number): Promise<{ productos: ProductoF
   const { ids, cursos } = await cursosDelCliente(leadId);
   if (!cursos.length) return { productos: [], areas: [] };
   // `avanceDelCliente` y no `progresoDelCliente`: trae además lo que contestó cada área y las áreas
-  // que declaró (#665), en la MISMA lectura.
-  const [entregas, avance, actuales] = await Promise.all([
+  // que declaró (#665), en la MISMA lectura. Los MÓDULOS de cada curso (D1) y el acceso (sus permisos,
+  // para no ofrecer abrir a mano lo que no es suyo) van en la misma ronda.
+  const [entregas, avance, actuales, cursosMods, casa, acceso] = await Promise.all([
     entregasDeProductos(cursos.map((c) => c.productoId)),
     avanceDelCliente(leadId),
     Promise.all(cursos.map((c) => ubicacionEnEntregaDe(leadId, c.productoId, ids))),
+    Promise.all(cursos.map((c) => modulosDelCurso(c.productoId))),
+    productosConCasaDelAlumno(leadId).then((x) => x.casa),
+    accesoDe(leadId).catch(() => null),
   ]);
   const out: ProductoFicha[] = [];
-  cursos.forEach((c, i) => {
+  await Promise.all(cursos.map(async (c, i) => {
     const cfg = entregas.get(c.productoId);
+    const mods = cursosMods[i].modulos;
     const p = armarProducto({
       productoId: c.productoId,
       nombre: c.nombre,
       // El color es el del kanban (`colorDeEtapa`, con sus fases), el mismo que la tabla Avance.
       etapas: (cfg?.etapas ?? []).map((e) => ({ key: e.key, label: e.label, color: colorDeEtapa(e, cfg?.fases ?? []) })),
+      modulos: mods,
       clases: c.clases,
       progreso: avance.progreso,
       porArea: avance.porArea,
@@ -182,11 +214,19 @@ async function productosConCurso(leadId: number): Promise<{ productos: ProductoF
       etapaActual: actuales[i].etapa,
       etapaBorrada: actuales[i].borrada,
     });
-    if (p) out.push(p);
-  });
+    if (!p) return;
+    const b = await bloqueosDelProducto({
+      leadId, productoId: c.productoId, casa, alcance: acceso?.alcance ?? null, modulos: mods,
+      etapas: cursosMods[i].entrega.etapas, actual: actuales[i].etapa, clases: c.clases, progreso: avance.progreso,
+    });
+    if (b) p.bloqueos = b;
+    out[i] = p;
+  }));
+  // `out[i]` y no `push`: en el orden de sus productos, aunque las evaluaciones terminen en otro.
+  const productos = out.filter(Boolean);
   // Las áreas sólo importan si hay a qué invitar a un líder: alguna clase por área en su curso.
   const conPorArea = cursos.some((c) => c.clases.some((x) => x.porArea === true));
-  return { productos: out, areas: conPorArea ? avance.areas : [] };
+  return { productos, areas: conPorArea ? avance.areas : [] };
 }
 
 /** Los accesos de sus líderes, como los dibuja la ficha: leídos y firmados, sin escribir nada. */
@@ -389,17 +429,56 @@ export async function guardarAlcanceCursoAction(leadId: number, productoId: numb
     const { productos } = await productosConCurso(leadId);
     const prod = productos.find((x) => x.productoId === productoId);
     if (!prod) return { ok: false, error: 'Ese producto no es suyo.' };
-    // Los módulos que el producto tiene HOY: las etapas de su entrega (leídas ESTRICTAS) y las
-    // claves que tienen sus clases. Sólo hacen falta si se eligieron módulos.
-    const existen = claves == null ? [] : [...new Set([
-      ...((await entregasDeProductos([productoId], { estricto: true })).get(productoId)?.etapas ?? []).map((e) => e.key),
-      ...prod.etapas.flatMap((e) => e.clases.map((c) => c.etapa)),
-    ])];
+    // Los módulos que el producto tiene HOY (D1: las etapas que son módulo y los sueltos), leídos
+    // ESTRICTOS: con la lectura que cae al default se validaría contra las etapas de fábrica. Sólo
+    // hacen falta si se eligieron módulos.
+    let existen: string[] = [];
+    if (claves != null) {
+      const cur = await modulosDelCurso(productoId, { estricta: true });
+      if (!cur) return { ok: false, error: 'No pude leer los módulos. Intenta de nuevo.' };
+      existen = cur.modulos.map((m) => m.clave);
+    }
     const actual = (await accesoDe(leadId))?.alcance ?? null;
     await guardarAlcance(leadId, cambiarModulos(actual, productoId, claves, existen), await autorActual());
     return { ok: true, acceso: await accesoActual(leadId, await getWorkspaceActual()) };
   } catch (e) {
     return mal(e, 'No se guardaron los permisos.');
+  }
+}
+
+/**
+ * «Abrir a mano» (D2): le abre (o le vuelve a cerrar) a ESTE alumno un módulo o una clase que su
+ * candado tiene cerrado. Gana sobre cualquier candado (`curso_desbloqueos`, mig 0220). Devuelve su
+ * producto como quedó (con lo cerrado y lo abierto a mano), para que la ficha no recargue.
+ *
+ * ⚠️ LO QUE LLEGA DEL NAVEGADOR SE MIRA CONTRA LA BASE: el producto tiene que ser suyo, el módulo uno
+ * del curso (leído ESTRICTO) y la clase una de ese producto. Una clave inventada dejaría una fila que
+ * no abre nada — o, peor, que abre lo que se cree mañana con esa clave.
+ */
+export async function desbloquearAction(
+  leadId: number, productoId: number, objeto: 'modulo' | 'clase', clave: string, abrir: boolean,
+): Promise<{ ok: true; producto: ProductoFicha } | Fallo> {
+  try {
+    const p = await puerta(leadId);
+    if (!p.ok) return p;
+    if (objeto !== 'modulo' && objeto !== 'clase') return { ok: false, error: 'No se entiende qué abrir.' };
+    if (typeof abrir !== 'boolean' || typeof clave !== 'string' || !clave) return { ok: false, error: 'No se entiende qué abrir.' };
+    const { productos } = await productosConCurso(leadId);
+    if (!productos.some((x) => x.productoId === productoId)) return { ok: false, error: 'Ese producto no es suyo.' };
+    if (objeto === 'modulo') {
+      const cur = await modulosDelCurso(productoId, { estricta: true });
+      if (!cur) return { ok: false, error: 'No pude leer los módulos. Intenta de nuevo.' };
+      if (!cur.modulos.some((m) => m.clave === clave)) return { ok: false, error: 'Ese módulo ya no existe.' };
+    } else {
+      const c = await claseDeId(Number(clave));
+      if (!c || c.productoId !== productoId || String(c.id) !== clave) return { ok: false, error: 'Esa clase ya no existe.' };
+    }
+    await ponerDesbloqueo(leadId, productoId, objeto, clave, abrir, await autorActual());
+    const quedo = (await productosConCurso(leadId)).productos.find((x) => x.productoId === productoId);
+    if (!quedo) return { ok: false, error: 'Ese producto ya no tiene curso.' };
+    return { ok: true, producto: quedo };
+  } catch (e) {
+    return mal(e, abrir ? 'No se pudo abrir.' : 'No se pudo cerrar.');
   }
 }
 

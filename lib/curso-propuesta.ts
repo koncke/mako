@@ -210,7 +210,7 @@ export const TOPE_CANDIDATAS = 12;
  * De qué etapas se toman las respuestas: la ANTERIOR a la actual y la actual, en ese orden.
  *
  * ⚠️ «LA ETAPA ACTUAL» SOLA NO ALCANZA, y es el diagnóstico obvio equivocado. El link de agenda de
- * la sesión aparece en el portal recién con la etapa COMPLETA (#665, `armarEtapas`), y completarla
+ * la sesión aparece en el portal recién con la etapa COMPLETA (#665, `armarModulos`), y completarla
  * pasa al cliente a la siguiente en el acto (lib/curso-avance.ts). O sea que cuando la llamada
  * ocurre, su etapa actual es la NUEVA —sin nada contestado— y lo que se habló en la llamada son las
  * respuestas de la que acaba de cerrar. Con sólo la actual, el paso 5 compilaba, corría y no

@@ -31,6 +31,11 @@ export const CSS_UGC = `
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard.is-bloqueada:hover { transform: none; box-shadow: none; border-color: var(--u-line); }
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard.is-bloqueada .ugc-modcard-cover { filter: grayscale(1); opacity: .5; }
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard.is-actual { border-color: var(--u-ink); box-shadow: var(--u-sh-md); }
+/* Lo OCULTO que solo ve el super admin en Conocimientos: atenuado y abrible (no es un candado). El aviso
+   y el chip dicen por que; la opacidad sola no lo explica. */
+.ahdoc.ahdoc--ugc .ugc .ugc-modcard.is-atenuado .ugc-modcard-cover > :not(.ugc-modcard-aviso),
+.ahdoc.ahdoc--ugc .ugc .ugc-modcard.is-atenuado .ugc-modcard-body > :not(.ugc-chips) { opacity: .45; }
+.ahdoc.ahdoc--ugc .ugc .ugc-nav-item.is-atenuado:not(.on) { opacity: .5; }
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard-candado,
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard-ok {
   position: absolute; top: 10px; right: 10px; z-index: 3;
@@ -116,7 +121,142 @@ export const CSS_UGC = `
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard--nueva:disabled { opacity: .5; cursor: default; transform: none; }
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard-nueva-t { font: 700 13px/1 var(--font-jetbrains), monospace; }
 .ahdoc.ahdoc--ugc .ugc .ugc-ltitle-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.ahdoc.ahdoc--ugc .ugc .ugc-ltitle-editar:disabled { opacity: .5; cursor: default; }
+
+/* ── La leccion: el recuadro del video que falta, y donde va el texto ──────────────
+ * SIN VIDEO, quien edita ve un recuadro PUNTEADO del mismo 16:9, nunca el marco negro: un
+ * rectangulo negro vacio se lee como un reproductor roto (item 16 del 07/10/2026). Puede crecer si
+ * lo de adentro no entra (un telefono angosto con el campo del link abierto). */
+.ahdoc.ahdoc--ugc .ugc .ugc-vvacio {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 180px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 18px; text-align: center; color: var(--u-ink);
+  background: var(--u-card-2); border: 2px dashed var(--u-ink-40); border-radius: 18px;
+}
+/* El interruptor de la disposicion: dos botones pegados, el elegido en el acento. */
+.ahdoc.ahdoc--ugc .ugc .ugc-dispo { flex: none; display: inline-flex; border: 2px solid var(--u-ink); border-radius: 9px; overflow: hidden; }
+.ahdoc.ahdoc--ugc .ugc .ugc-dispo-op {
+  min-height: 30px; padding: 6px 11px; white-space: nowrap; cursor: pointer;
+  background: var(--u-card-2); color: var(--u-ink); font: 600 11.5px/1 var(--font-jetbrains), monospace;
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-dispo-op + .ugc-dispo-op { border-left: 2px solid var(--u-ink); }
+.ahdoc.ahdoc--ugc .ugc .ugc-dispo-op[aria-pressed="true"] { background: var(--u-lime); font-weight: 800; }
+.ahdoc.ahdoc--ugc .ugc .ugc-dispo-op:disabled { opacity: .6; cursor: default; }
+/* TEXTO ABAJO: el video y, debajo, el papel, todo a lo ancho. La cola les da flex 1 1 0 a las dos
+ * columnas: apiladas en un alto que sale del contenido, base 0 las deja en CERO y el papel se dibuja
+ * encima del titulo (ya paso en el telefono, ver mas abajo). Y el papel deja su scroll propio: abajo
+ * scrollea la pagina entera, como en el telefono. */
+.ahdoc.ahdoc--ugc .ugc .ugc-split.ugc-split--abajo { flex-direction: column !important; align-items: stretch !important; }
+.ahdoc.ahdoc--ugc .ugc .ugc-split.ugc-split--abajo > .ugc-vcol,
+.ahdoc.ahdoc--ugc .ugc .ugc-split.ugc-split--abajo > .ugc-pcol { flex: 0 0 auto !important; width: 100% !important; }
+.ahdoc.ahdoc--ugc .ugc .ugc-content > .ugc-split.ugc-split--abajo > .ugc-pcol { max-height: none !important; overflow: visible !important; }
+
+/* ── Lo de la APP adentro del curso: campos, casillas, interruptores ──────────────
+ * La hoja del origen pone en cero el margen y el relleno de todo lo de .ahdoc, y deja sin fondo ni
+ * borde a todo button: la respuesta de una tarea se escribia pegada al borde de su caja y un
+ * interruptor quedaba invisible (solo la bolita). Se devuelve lo que la app les da. */
+.ahdoc.ahdoc--ugc .mk-input, .ahdoc.ahdoc--ugc .mk-textarea { padding: 10px 12px; }
+.ahdoc.ahdoc--ugc .mk-check { padding: 4px 0; }
+.ahdoc.ahdoc--ugc .mk-check input { margin: 1px 0 0; }
+.ahdoc.ahdoc--ugc .mk-switch { background: var(--u-ink-40); }
+.ahdoc.ahdoc--ugc .mk-switch[aria-checked="true"] { background: var(--u-ink); }
+.ahdoc.ahdoc--ugc .mk-iconbtn { background: transparent; border: 1px solid transparent; color: var(--u-ink-60); }
+/* El texto rico (la descripcion): los enlaces se ven como enlaces, y en el editor se puede
+ * seleccionar (el papel del origen apaga la seleccion de lo que se lee). */
+.ahdoc.ahdoc--ugc .mk-rico a { color: var(--u-ink); text-decoration: underline; text-underline-offset: 2px; }
+.ahdoc.ahdoc--ugc .mk-rico a.mk-adjunto { text-decoration: none; }
+.ahdoc.ahdoc--ugc .ugc .ugc-paper .mk-editor-rico { user-select: text; }
+
+/* ── El editor de la estructura: nuevo modulo, arrastrar, el menu de cada uno ──
+ * Lo que se arrastra se nota SOLO para quien edita (cursor de agarrar): el alumno no tiene nada
+ * que mover. La tarjeta de adentro es un boton con su cursor propio, y tambien lo lleva. */
+.ahdoc.ahdoc--ugc .ugc .ugc-arrastrable,
+.ahdoc.ahdoc--ugc .ugc .ugc-arrastrable .ugc-modcard,
+.ahdoc.ahdoc--ugc .ugc .ugc-arrastrable .ugc-modcard-abrir { cursor: grab; }
+.ahdoc.ahdoc--ugc .ugc .ugc-nav-item.ugc-arrastrable { cursor: grab; }
+/* EL HUECO: del alto de la tarjeta que se agarro (va en el style), punteado y con el acento. Es lo
+ * que dice DONDE cae; la tarjeta de origen no cambia nada mientras viaja (AGENTS.md). */
+.ahdoc.ahdoc--ugc .ugc .ugc-hueco {
+  border-radius: 16px; border: 2px dashed var(--u-ink-40); background: var(--u-lime-a12);
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-hueco--fila { height: 36px; border-radius: 10px; margin-bottom: 4px; border-color: var(--u-lime-a50); }
+/* Una clase sobre un modulo de la barra: el modulo entero es el destino. */
+.ahdoc.ahdoc--ugc .ugc .ugc-nav-item.is-destino { box-shadow: inset 0 0 0 2px var(--u-lime); background: var(--u-lime-a18); }
+/* La COPIA de un renglon de la barra va colgada del .ugc (no de la barra oscura): sin su fondo, el
+ * texto claro quedaba sobre nada. Le gana al fondo en linea que le pone la copia. */
+.ahdoc.ahdoc--ugc .ugc > .ugc-nav-item { background: var(--u-night) !important; border-radius: 10px; }
+
+/* La tarjeta de un modulo EDITANDO es un div: adentro va su nombre, que se edita con un clic, y un
+ * texto adentro de un boton abriria el modulo. La tapa es el boton que lo abre. */
+/* En COLUMNA y no en bloque: la tapa es un span, y adentro de un bloque queda en linea, donde el
+ * aspect-ratio no aplica y la tapa se aplasta a cero (medido en el arnes: tarjetas sin tapa y con el
+ * chip del numero encima del nombre). En la tarjeta de siempre la blockifica el flex de .ugc-modcard. */
+.ahdoc.ahdoc--ugc .ugc .ugc-modcard-abrir {
+  display: flex; flex-direction: column; width: 100%; padding: 0; margin: 0; border: 0; background: none; color: inherit;
+  font: inherit; text-align: inherit; cursor: pointer;
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-modcard--edicion .ugc-modcard-t .ugc-texto-editable { display: inline-block; max-width: 100%; }
+/* El candado que le puso el equipo, sobre la tapa: no cierra nada, avisa. */
+.ahdoc.ahdoc--ugc .ugc .ugc-modcard-aviso {
+  position: absolute; left: 10px; bottom: 10px; z-index: 3; max-width: calc(100% - 20px);
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px;
+  background: var(--u-card); border: 1.5px solid var(--u-ink); color: var(--u-ink);
+  font: 700 10px/1.2 var(--font-jetbrains), monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* «+ Nuevo modulo»: la primera tarjeta; al tocarla se vuelve un campo. */
+.ahdoc.ahdoc--ugc .ugc .ugc-nuevo-modulo {
+  min-height: 190px; display: flex; flex-direction: column; justify-content: center; gap: 10px;
+  padding: 18px 16px; border-radius: 16px; border: 2px dashed var(--u-ink); background: var(--u-card);
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-nuevo-modulo input[type="text"] {
+  width: 100%; min-height: 40px; padding: 8px 11px; border-radius: 10px; border: 2px solid var(--u-ink);
+  background: var(--u-card-2); color: var(--u-ink); font: 700 15px/1.2 var(--font-archivo), system-ui, sans-serif;
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-nuevo-modulo input[type="text"]:focus { outline: none; box-shadow: 0 0 0 3px var(--u-lime-a50); }
+.ahdoc.ahdoc--ugc .ugc .ugc-nuevo-check {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font: 600 11.5px/1.3 var(--font-jetbrains), monospace; color: var(--u-ink-60);
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-nuevo-pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ahdoc.ahdoc--ugc .ugc .ugc-nuevo-pie .ugc-btn { padding: 7px 12px; }
+
+/* El «...» de un modulo o una clase, y el de la cabecera del modulo abierto. */
+.ahdoc.ahdoc--ugc .ugc .ugc-editable-btn--menu { font-size: 15px; letter-spacing: .05em; }
+.ahdoc.ahdoc--ugc .ugc .ugc-rail-head h2 { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ahdoc.ahdoc--ugc .ugc .ugc-rail-head .ugc-editable-btn { flex: none; }
+
+/* Los campos adentro del menu (el candado y sus datos): sobre el fondo de noche del menu. */
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-bloque { display: flex; flex-direction: column; gap: 8px; padding: 4px 10px 8px; }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-campo { display: flex; flex-direction: column; gap: 5px; font: 600 11px/1.3 var(--font-jetbrains), monospace; color: var(--u-night-mut); }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-campo select,
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-campo input {
+  width: 100%; min-height: 34px; padding: 6px 9px; border-radius: 9px; border: 1.5px solid var(--u-night-line);
+  background: rgba(255, 255, 255, .06); color: var(--u-night-ink); font: 600 13px/1.25 var(--font-archivo), system-ui, sans-serif;
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-campo select option { color: #16150f; background: #fffdf6; }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-check { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; font: 600 13px/1.3 var(--font-archivo), system-ui, sans-serif; color: var(--u-night-ink); }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-check input { margin-top: 2px; flex: none; }
+/* La consecuencia de un cambio, PEGADA a su control y en tinta normal (AGENTS.md: lo irreversible
+ * se dice antes del clic, no en gris abajo). */
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-nota { margin: 2px 0 0; font: 500 12px/1.4 var(--font-archivo), system-ui, sans-serif; color: var(--u-night-ink); opacity: .85; }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-error { margin: 2px 10px 6px; font: 600 12px/1.35 var(--font-archivo), system-ui, sans-serif; color: #ffb4a6; }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-item:disabled { opacity: .45; cursor: default; }
+.ahdoc.ahdoc--ugc .ugc .ugc-menu-item--peligro:hover:not(:disabled) { background: rgba(246, 201, 193, .18); color: #ffd2c9; }
+
+/* Los botones de la barra de arriba (Invitar, la vista del alumno, el ?): entre el buscador y el
+ * curso. Si no entran, la barra baja de renglon: nunca scrollea de costado (AGENTS.md). */
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar { flex-wrap: wrap; }
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar-extra { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar-extra .ugc-btn { display: inline-flex; align-items: center; min-height: 36px; white-space: nowrap; font-family: var(--font-jetbrains), monospace; }
+/* El ? del recorrido, con la piel de los botones de AL LADO. SOLO en la barra de arriba (revision final
+ * del 08/10/2026): escrita para todo .mk-iconbtn del curso, pisaba la de mas arriba (la de la app
+ * adentro del curso) y las flechas y la cruz del formulario de una tarea salian de 36 px con borde
+ * grueso y sombra (medido en el banco de la leccion). Dos reglas para el mismo selector: gana la
+ * ultima, y la primera mentia. */
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar-extra .mk-iconbtn {
+  width: 36px; height: 36px; display: grid; place-items: center; padding: 0; cursor: pointer;
+  border-radius: 9px; border: 2px solid var(--u-ink); background: var(--u-card-2); color: var(--u-ink); box-shadow: var(--u-sh-sm);
+}
 
 /* ── El acento elegido, donde la hoja del origen lo tiene FIJO ─────────────────
  * La hoja pinta con var(--u-lime) casi todo, pero varios tintes llevan el lima escrito a mano
@@ -282,6 +422,9 @@ html:has(.ahdoc--embebido), body:has(.ahdoc--embebido) { overflow: visible !impo
   .ahdoc.ahdoc--ugc .ugc .ugc-split > .ugc-vcol,
   .ahdoc.ahdoc--ugc .ugc .ugc-split > .ugc-pcol { flex: 0 0 auto !important; }
   .ahdoc.ahdoc--ugc .ugc .ugc-content > .ugc-split > .ugc-pcol { max-height: none !important; overflow: visible !important; }
+  /* En el telefono la leccion va SIEMPRE apilada: el interruptor de la disposicion no cambiaria
+     nada, y un control que no hace nada se lee como que la app esta rota. */
+  .ahdoc.ahdoc--ugc .ugc .ugc-dispo { display: none; }
   .ahdoc.ahdoc--ugc .ugc .ugc-paper { padding: 22px 16px; }
   .ahdoc.ahdoc--ugc .ugc .ugc-hero-body { padding: 22px 18px; }
 }
