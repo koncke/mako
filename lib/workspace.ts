@@ -167,6 +167,10 @@ const TENANT_TABLES = new Set<string>([
   // (lib/replay-contrato.ts) no puede atajarlo: decide qué se graba, no quién lo lee.
   'replay_sesiones', 'replay_lotes',
   'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
+  // La biblioteca de archivos de los mensajes (mig 0225), al lado de la de audios: sin esta línea
+  // `getAdjunto(id)` devolvería el archivo de OTRO negocio (lib/setting-adjuntos.ts filtra a mano
+  // igual, por si esta línea se pierde al juntar las partes del rediseño del chatbot).
+  'setting_adjuntos',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración

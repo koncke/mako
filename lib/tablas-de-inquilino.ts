@@ -34,7 +34,8 @@
 // avisar de que la lista tiene un duplicado o perdió una tabla crítica.
 
 /**
- * Las tablas de inquilino (116 al 08/10/2026), en orden alfabético.
+ * Las tablas de inquilino (116 al 08/10/2026), en orden alfabético. Más `setting_adjuntos`, que
+ * entra con la mig 0225: hasta que se aplique, el reset avisa «esa tabla no existe» y sigue.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -64,7 +65,7 @@ export const TABLAS_DE_INQUILINO = [
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
   'plan_reprios', 'plan_tareas', 'producto_entrega', 'productos',
   'propuestas', 'retros', 'review_queue', 'script_analyses',
-  'script_drafts', 'service_incidents', 'setting_audios', 'shares', 'tarea_categorias',
+  'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares', 'tarea_categorias',
   'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes',
   'wa_ocultos', 'webhook_routing', 'whatsapp_template_drafts', 'workspace_telefonos',
   'zernio_workspace',] as const;

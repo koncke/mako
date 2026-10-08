@@ -35,17 +35,7 @@ export async function subirMediaSaliente(msgId: string, base64: string, mime: st
   return subirMedia(ws, instanceNameDeWs(ws), msgId, base64, mime, ext);
 }
 
-// Extensión de archivo por MIME (para el path del bucket). Fallback 'bin'.
-export function extDeMime(mime: string): string {
-  const m = (mime || '').toLowerCase();
-  if (m.includes('jpeg') || m.includes('jpg')) return 'jpg';
-  if (m.includes('png')) return 'png';
-  if (m.includes('webp')) return 'webp';
-  if (m.includes('gif')) return 'gif';
-  if (m.includes('pdf')) return 'pdf';
-  if (m.includes('mp4')) return 'mp4';
-  if (m.includes('ogg')) return 'ogg';
-  if (m.includes('mpeg') || m.includes('mp3')) return 'mp3';
-  if (m.includes('wav')) return 'wav';
-  return 'bin';
-}
+// Extensión de archivo por MIME (para el path del bucket). Fallback 'bin'. Vive en el módulo
+// puro de la biblioteca de archivos para que un test la pueda importar (éste es `server-only`);
+// antes no conocía docx ni xlsx y el espejo los guardaba como `.bin`.
+export { extDeMime } from './setting-adjuntos-reglas';
