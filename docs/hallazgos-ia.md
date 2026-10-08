@@ -3117,7 +3117,8 @@ esa forma de 7.038, y 0 pendientes de agenda de 3), y un eco del bloque como men
 usuario (de las 131 filas de la cola, ninguna es un mensaje de MaKo). Y uno real pero ANTERIOR,
 que no es de este cambio: si el turno rota de proveedor después de que una acción dejó su
 pendiente, `preparar()` vuelve a correr y queda una segunda pendiente igual (el loop del
-doer no tiene la guarda de `chatCheapToolsCascade`). Quedó como tarea aparte.
+doer no tiene la guarda de `chatCheapToolsCascade`). Resuelto el mismo día: ver «Re-arrancar el
+turno repetía las ACCIONES».
 
 ### Lo que quedó sin tratar
 
@@ -3126,7 +3127,6 @@ doer no tiene la guarda de `chatCheapToolsCascade`). Quedó como tarea aparte.
   de la agenda. La política promete «títulos, horarios e invitados», no la zona.
 - **Una fecha que la PERSONA guardó en la ficha** desde la pantalla, prellenada desde Google,
   es un dato del CRM y la leen los análisis. No se trató.
-- **Las pendientes duplicadas al rotar de proveedor** (arriba): tarea aparte.
 
 *07/10/2026 — relevo de 4 lectores, implementación sin agentes, revisión adversarial de 4
 lentes con refutador y segunda pasada. `tests/agenda-sin-ia.test.ts` probado con 23
@@ -3646,3 +3646,53 @@ hace tool calling; un pedido del doer pesa 13-16 mil. O sea que la red de plataf
   anterior).
 
 *07/10/2026, cuenta 2, commit `af3530c2`.*
+## Re-arrancar el turno repetía las ACCIONES, no sólo las lecturas (07/10/2026)
+
+**Vive en:** `lib/turno-sin-duplicar.ts` · `lib/mako-doer-in.ts` (`memo`, `nuevoIntento`,
+`runTool`) · `lib/mako-pendientes.ts` (`crearPendiente`) · `lib/api-mako/acciones.ts` ·
+`lib/mako-doer-acciones.ts` · `tests/turno-sin-duplicar.test.ts`
+
+El doer de WhatsApp vuelve a correr el turno ENTERO —desde `msgs`, con las mismas
+herramientas— en cinco lugares: la siguiente cuenta del cliente, el reintento con la
+herramienta forzada, la red de plataforma, el escalado a Claude y el camino de Groq. La entrada
+de arriba ya lo anotaba para las lecturas («no duplica nada pero paga los mismos pedidos»). Con
+una ACCIÓN sí duplica: el primer proveedor proponía, se caía o devolvía algo descartado, y el
+segundo volvía a proponer. `crearPendiente` era un INSERT pelado, así que quedaban dos
+pendientes iguales: el «sí» contestaba «Hay 2 acciones pendientes, aclara cuál», y confirmadas
+las dos eran dos eventos y dos invitaciones. Lo mismo un segundo borrador del plan, o un «sí»
+que se volvía a mandar. `chatCheapToolsCascade` tenía su guarda; el loop del doer, no.
+
+⚠️ **La guarda que ya había —«no rotes si ya hay borrador»— cubría UN camino de cinco.** Miraba
+`linkBorrador` sólo en la rotación por validación; el `continue` de «contestó sin texto final»
+y el `catch` rotaban igual con el borrador creado.
+
+Lo que quedó, en dos capas:
+
+1. **En el doer: lo que una acción hizo en un intento ANTERIOR del turno se le devuelve al
+   intento nuevo, sin volver a correr** (`crearMemoDeAcciones`). Cada corrida recibe
+   `nuevoIntento()` en vez de `runTool`, y el test exige que ninguna reciba `runTool` pelado:
+   un camino de reintento nuevo que se olvide de abrir intento se cae en el push. Dentro de un
+   intento se puede llamar varias veces (mover dos leads distintos); se cuenta por orden. Lo que
+   no hizo nada (`ok:false`, `isError`) no se guarda, así el intento siguiente lo intenta de
+   verdad.
+2. **En los datos: la misma pendiente no se guarda dos veces en un turno**
+   (`pendienteRepetida`, por grupo, tipo y payload con las claves ordenadas). Sólo en el turno:
+   reusar una de un mensaje anterior le saltearía el candado de «no se confirma en el mismo
+   turno en que se propuso», que mira `created_at`.
+
+⚠️ **Por qué no se cortó la rotación**, que era la salida que aparecía primero: dejaría sin
+respuesta a la persona cuando el primer proveedor se cae después de proponer, y la rotación es
+lo que mantiene a MaKo andando con una sola key (`af3530c2`, la entrada de arriba).
+
+⚠️ **Y dos condiciones del primer memo eran código muerto**, lo delataron las roturas que no
+tumbaban nada: comparar el intento de lo guardado (la k-ésima llamada siempre consulta antes de
+anotar, así que dentro del mismo intento nunca hay nada) y saltear las lecturas al consultar (una
+lectura nunca se anota). Se sacaron.
+
+**SIN HACER:** las propuestas de PANTALLA que crea el registro sin `ref`
+(`proponerPantallaGenerica`) no tienen red de datos: un mismo intento que llama dos veces la
+misma acción deja dos links. El memo ataja la rotación, que era el bug.
+
+*07/10/2026 — sin subagentes (el diagnóstico venía medido por la revisión de la agenda). 12
+roturas en `tests/turno-sin-duplicar.test.ts`, todas con su fallo.*
+

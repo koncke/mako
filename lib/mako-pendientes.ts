@@ -9,6 +9,7 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace } from './workspace';
+import { pendienteRepetida, MARGEN_RELOJ_MS } from './turno-sin-duplicar';
 
 export type EstadoPendiente = 'pendiente' | 'confirmada' | 'ejecutada' | 'cancelada' | 'vencida' | 'error';
 export type Pendiente = {
@@ -26,13 +27,34 @@ const toP = (r: Row): Pendiente => ({
   resumen: r.resumen, estado: r.estado as EstadoPendiente, venceAt: r.vence_at, origen: r.origen, createdAt: r.created_at,
 });
 
-/** Crea una acción pendiente de confirmación (ttl por default 2h). Devuelve el id. */
+/**
+ * Crea una acción pendiente de confirmación (ttl por default 2h). Devuelve el id.
+ *
+ * Con `mismoTurnoDesde` (el `turnStart` del doer), si ESTE turno ya dejó una pendiente
+ * igual —mismo grupo, tipo y payload— devuelve ésa en vez de crear otra: cuando el doer
+ * rota de proveedor vuelve a correr el turno, y una segunda pendiente igual es un «Hay 2
+ * acciones pendientes» o, confirmadas las dos, dos invitaciones (lib/turno-sin-duplicar.ts).
+ * Si la búsqueda falla, se crea igual: es lo que pasaba siempre, y perder la propuesta
+ * sería peor.
+ */
 export async function crearPendiente(
   ws: number,
-  data: { grupoJid: string; tipo: string; payload?: Record<string, unknown>; resumen: string; origen?: string; ttlMin?: number },
+  data: { grupoJid: string; tipo: string; payload?: Record<string, unknown>; resumen: string; origen?: string; ttlMin?: number; mismoTurnoDesde?: number },
 ): Promise<number | null> {
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
+    if (data.mismoTurnoDesde && data.mismoTurnoDesde > 0) {
+      const { data: previas, error: e } = await db.from('mako_acciones_pendientes')
+        .select('id, payload, created_at')
+        .eq('grupo_jid', data.grupoJid).eq('tipo', data.tipo).eq('estado', 'pendiente')
+        .gte('created_at', new Date(data.mismoTurnoDesde - MARGEN_RELOJ_MS).toISOString());
+      if (e) console.error('[pendientes] buscar la del turno:', e.message);
+      const repetida = e ? null : pendienteRepetida((previas ?? []) as Array<{ id: number; payload: unknown; created_at: string }>, data.payload ?? {}, data.mismoTurnoDesde);
+      if (repetida != null) {
+        console.warn(`[pendientes] ${data.tipo}: este turno ya dejó la #${repetida} igual; no se crea otra`);
+        return repetida;
+      }
+    }
     const venceAt = new Date(Date.now() + (data.ttlMin ?? 120) * 60_000).toISOString();
     const { data: row, error } = await db.from('mako_acciones_pendientes')
       .insert({ grupo_jid: data.grupoJid, tipo: data.tipo, payload: data.payload ?? {}, resumen: data.resumen, origen: data.origen ?? null, vence_at: venceAt })

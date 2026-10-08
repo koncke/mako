@@ -42,6 +42,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
 import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle } from '@/lib/agenda-sin-ia';
+import { crearMemoDeAcciones } from '@/lib/turno-sin-duplicar';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
@@ -1050,11 +1051,32 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     const runRegistro = runnerDelRegistro(ctxApi);
     const PENDIENTES_POR_REGISTRO = new Set(['listar_pendientes', 'confirmar_accion', 'cancelar_accion']);
     const NOMBRES_DE_SIEMPRE = new Set(MAKO_TOOLS.map((t) => t.name));
+    /**
+     * ⚠️ UNA ACCIÓN NO SE REPITE CUANDO EL TURNO ROTA DE PROVEEDOR.
+     *
+     * Las corridas de abajo —cada cuenta del cliente, el reintento con la herramienta
+     * forzada, la red de plataforma, el salto a Claude— vuelven a correr el turno
+     * desde `msgs`, con estas mismas herramientas. Una lectura repetida sólo cuesta; una
+     * acción repetida dejaba una segunda pendiente igual, un segundo borrador o un «sí»
+     * ejecutado dos veces. Lo que ya hizo una acción en un intento anterior se le devuelve
+     * al intento nuevo, que sigue desde ahí (lib/turno-sin-duplicar.ts). Cada corrida
+     * empieza con `nuevoIntento()`: sin eso, todo es «el mismo intento» y no se ataja nada.
+     */
+    const memo = crearMemoDeAcciones((n) => {
+      const d = porId(n);
+      return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
+    });
     const runTool = async (name: string, input: Record<string, unknown>) => {
+      const previo = memo.previo(name);
+      if (previo) {
+        console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
+        return previo.out as Awaited<ReturnType<typeof runRegistro>>;
+      }
       const out = await (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
         : NOMBRES_ACCION.has(name) ? runnerAcciones(name, input)
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
+      memo.anotar(name, out);
       if (name === 'buscar_tutorial' && typeof out === 'string') textoTutorialSalida = out;
       // El pedido de agenda que queda ABIERTO para el próximo mensaje (ver arriba,
       // `agendaAbierta`), o que se cierra porque ya quedó propuesto.
@@ -1100,6 +1122,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       }
       return out;
     };
+    /** Lo que se le pasa a CADA corrida del turno en vez de `runTool`: abre un intento nuevo
+     *  para el memo de las acciones. `tests/turno-sin-duplicar.test.ts` exige que ninguna
+     *  corrida reciba `runTool` pelado. */
+    const nuevoIntento = () => { memo.nuevoIntento(); return runTool; };
 
     // Si hay imagen/PDF, el último turno del usuario va con bloques (media + texto);
     // si no, texto plano. La memoria guarda siempre el placeholder de texto.
@@ -1177,7 +1203,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // corre ~gratis. Por default = Claude (ya mucho más barato por el router+lean+subset).
       if (process.env.DOER_GROQ_TOOLS === '1' && !pin && ruta.tier === 'sonnet' && !mediaBlocks && (await cheapDisponible())) {
         try {
-          const r = await chatCheapTools(system, msgs, tools, runTool, { feature: 'mako-doer-in', maxSteps: 6, motivo: `groq ${ruta.motivo} «${recorte}»` });
+          const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { feature: 'mako-doer-in', maxSteps: 6, motivo: `groq ${ruta.motivo} «${recorte}»` });
           // El tier sonnet SIEMPRE implica una tool (dato/acción/plan/confirmación): si
           // Groq contestó sin usar ninguna, no confiamos → lo rehace Claude.
           if (r.toolsUsados > 0 && r.text && !r.text.startsWith('(')) respuesta = r.text.trim();
@@ -1310,7 +1336,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // key que se destraba sola. Es el caso de Brigitte (07/10/2026, una sola key):
                 // ver lib/ia-rotacion-modelo.ts.
                 const esperaCuotaMaxMs = nInst === instancias.length - 1 ? 30_000 : 0;
-                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
+                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
                 /**
                  * ⚠️ ESTA SALIDA ERA MUDA, Y POR ESO EL CLIENTE LEYÓ «TE QUEDASTE SIN CUOTA».
                  *
@@ -1366,7 +1392,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 if (!vv.ok && vv.razon === 'link-inventado' && !linkBorrador) {
                   quisoBorrador = true;
                   console.warn(`[mako-doer-in] ${prov} inventó el link → reintento con la tool obligatoria`);
-                  const r2 = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
+                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
                   if (r2.text && !r2.text.startsWith('(')) {
                     texto2 = r2.text;
                     vv = validarRespuestaDoer(r2.text, { motivoRuta: ruta.motivo, linkBorrador });
@@ -1445,7 +1471,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 }
                 probados++;
                 try {
-                  const rp = await chatCheapTools(system, msgs, tools, runTool, {
+                  const rp = await chatCheapTools(system, msgs, tools, nuevoIntento(), {
                     provider: r.provider, clave: r.clave, wsKey: await wsSuperAdmin(),
                     // 10 s por proveedor: con 25 s de presupuesto entran al menos
                     // dos intentos reales aunque uno quede colgado.
@@ -1496,7 +1522,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               } else {
                 console.error(`[mako-doer-in] ninguna IA barata armó el borrador (${orden.join(', ')}) → escalando a Claude`);
                 try {
-                  const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
+                  const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
                     feature: 'mako-doer-in', maxSteps: 8, model: 'claude-sonnet-5',
                     toolChoice: 'any', motivo: `⚠ escalado a Claude: las gratis no armaron el borrador · ${ruta.motivo} «${recorte}»`,
                   });
@@ -1515,7 +1541,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               throw err;
             }
           } else {
-            const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
+            const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
               feature: 'mako-doer-in', maxSteps: 8,
               model: pin ? pin.model : ruta.model,
               effort: ruta.effort,

@@ -85,6 +85,8 @@ export async function proponerChat(def: AccionDef, payload: Record<string, unkno
   const id = await crearPendiente(ctx.ws, {
     grupoJid: ctx.canalKey, tipo: def.tipoPendiente ?? def.id, payload, resumen,
     origen: origenDe(ctx), ttlMin: TTL_PENDIENTE_MIN,
+    // Si el turno ya dejó una igual (el doer rotó de proveedor y volvió a correr), ésa.
+    mismoTurnoDesde: ctx.turnStart,
   });
   if (id == null) return { error: 'No se pudo registrar la acción pendiente.' };
   return { pendiente: { id, resumen, venceEnMin: TTL_PENDIENTE_MIN, url: linkPantalla(RUTA_BANDEJA, ctx.ws) } };

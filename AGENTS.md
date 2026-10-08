@@ -673,7 +673,7 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   proveedores que no entrenan), le sacó Gemini a un cliente que sólo tiene Gemini y dejó
   abiertos el «sí», la pendiente y el historial. Ver `docs/hallazgos-ia.md`.
 
-Seis cosas que no se ven en el código y ya mordieron:
+Siete cosas que no se ven en el código y ya mordieron:
 
 1. **Por HTTP nadie confirma por su cuenta.** Un bearer que propone y confirma con un
    `sleep` en el medio es escribir directo con delay. Solo un token acuñado con alcance
@@ -702,6 +702,15 @@ Seis cosas que no se ven en el código y ya mordieron:
    nombra la def. Los módulos de datos puros SÍ se importan: copiar su enum a mano es
    crear uno que se desincroniza. **Y sin `server-only` no es apto para el navegador:**
    ningún `'use client'` importa un valor del registro.
+7. **Un turno que se RE-ARRANCA no repite acciones.** El doer de WhatsApp vuelve a correr el
+   turno entero en cinco caminos (otra cuenta, la tool forzada, la red de plataforma, Claude,
+   Groq). Cada corrida recibe `nuevoIntento()`, nunca `runTool` pelado: lo que una acción ya
+   hizo en un intento anterior vuelve sin correr (`crearMemoDeAcciones`,
+   `lib/turno-sin-duplicar.ts`). Sin eso quedan dos pendientes iguales y el «sí» contesta
+   «Hay 2 acciones pendientes, aclara cuál»; `tests/turno-sin-duplicar.test.ts` frena un
+   camino de reintento nuevo que se olvide. Y quien propone desde el doer le pasa a
+   `crearPendiente` el inicio del turno (`mismoTurnoDesde`): la misma pendiente no se guarda
+   dos veces en un turno.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
