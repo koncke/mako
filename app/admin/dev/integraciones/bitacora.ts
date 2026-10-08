@@ -563,4 +563,53 @@ export const BITACORA: Hito[] = [
       'app/integraciones/IntegracionesBoard.tsx — sin el interruptor',
     ],
   },
+  // ── 7 de octubre: arrancar la verificación de la app de Google ─────────────
+  {
+    fecha: '7 oct', hora: '21:32', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Arrancar la verificación de la app de Google',
+    pedido: 'Puedes comenzar el proceso para verificar la app?',
+    puntos: [
+      'Llegó horas después de publicar la app («In production»), que dejó al cliente inmobiliario (ws13) conectando su agenda con el cartel de «Google no verificó esta app».',
+      'Ante la pregunta de cómo cumplir el Uso Limitado eligió **«IA que no entrena»**, sobre «exigir key paga» y «dejarlo para después». Y autorizó que Claude haga los pasos de la consola; el envío final lo confirma él.',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '21:32', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Qué pide Google, y por qué el Verification Center decía que no hacía falta',
+    puntos: [
+      '⚠️ **El Verification Center contestó «Verification is not required».** Mide lo declarado en Data Access, que tenía cero permisos, no lo que la app pide al conectar la agenda. Un verde que contradice la pantalla que ve el cliente.',
+      'Faltan cuatro cosas: verificar `hola-mako.com` en Search Console (y sacar dos dominios muertos que también habría que verificar), declarar los permisos con su justificación, un video demo en inglés, y una política que dijera la verdad.',
+      'Search Console no abre sus diálogos con la ventana de Chrome oculta: el TXT del dominio quedó para hacerlo con Chrome a la vista.',
+    ],
+    commits: [
+      { sha: 'ea323e6d', msg: 'Verificación de Google: el paso a paso, y por qué el Verification Center miente en verde', lineas: 138, archivos: 2 },
+    ],
+    archivos: [
+      'docs/verificacion-google.md — el estado, los textos para pegar en Data Access y el guion del video',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '21:55', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los datos de Google Calendar van sólo a una IA que no entrena',
+    puntos: [
+      'La política prometía que los datos del calendario no entrenan modelos, y con la key gratis de Gemini de un cliente era falso. Ahora un turno que ofrece una herramienta con datos de Google corre sólo en Groq, OpenAI o Anthropic; para el ws13, que sólo tiene Gemini, lo atiende nuestra red.',
+      '⚠️ **El camino era más ancho que el documentado**: además del reparto de tareas, dos chats (WhatsApp y la app) y cinco herramientas, una de ellas (`reuniones_lead`) llegando a Google de rebote por tres archivos. La marca vive en la definición (`datosDeGoogle`) y un test recorre los runners para que una nueva no se escape.',
+      'En el reparto de tareas, los invitados del calendario salen del prompt y el código les pone el email por nombre. De paso apareció un bug viejo: un participante sin email anulaba el rescate por nombre.',
+      'SIN HACER: el TXT del dominio en Search Console, sacar los dos dominios muertos, declarar los permisos y grabar el video.',
+    ],
+    commits: [
+      { sha: 'ac446f7f', msg: 'Uso Limitado de Google: lo que lleva datos de Calendar va sólo a una IA que no entrena', lineas: 497, archivos: 16 },
+    ],
+    archivos: [
+      'lib/datos-google-ia.ts — qué proveedor puede recibir datos de Google',
+      'lib/ai-cheap.ts · lib/mako-doer-in.ts — el filtro donde corre cada pedido con herramientas',
+      'lib/api-mako/areas/crm.def.ts · lib/api-mako/tipos.ts — `datosDeGoogle` en las cinco operaciones',
+      'lib/plan-fathom.ts · lib/tarea-dueno.ts — los invitados fuera del prompt, el email por nombre',
+      'app/privacidad/page.tsx — la política dice lo que hace',
+      'tests/datos-google-ia.test.ts — recorre los runners; probado con 13 roturas',
+    ],
+  },
 ];
