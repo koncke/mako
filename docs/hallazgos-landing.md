@@ -2336,6 +2336,8 @@ silencioso) · `app/api/cron/tracking-vigilante/route.ts` · `app/integraciones/
   (`app/integraciones/IntegracionesBoard.tsx`) nombra Lovable, Framer, Webflow, WordPress y
   HTML plano: falta el caso «tu código vive en un archivo» con un botón de copiar **sin** las
   etiquetas. Hasta que exista, a este cliente hay que decírselo a mano.
+  - *2026-10-08:* **resuelto** con un botón de descargar el archivo; ver «El editor con IA del
+    cliente TAPA el Pixel con ********» al final de este documento.
 - **SSRF en `analizarLanding`** (`lib/landing-analisis.ts:303`): usa `fetch` pelado con
   `redirect: 'follow'`, sin pasar por `validarDestino()` de `lib/landing-fetch.ts`. No se
   arregló acá **a propósito**: el camino probado (`bajarHtml`) filtra por content-type HTML y
@@ -3977,3 +3979,46 @@ hace cumplir: ahora cada una lleva su huella y el generador se niega a reescribi
 _Hecho por dos agentes en worktrees propios sobre un diagnóstico y una refutación medidos
 (`tests/replay-ficha.test.ts`, diecisiete roturas; `tests/replay-envoltorio.test.ts`, trece; todas
 caen)._
+
+## El editor con IA del cliente TAPA el Pixel con ******** (08/10/2026)
+
+**Vive en:** `lib/pixel-archivo.ts` · `app/integraciones/IntegracionesBoard.tsx` (`CodigoLanding`,
+`DONDE_PEGAR`) · `tests/pixel-archivo.test.ts` · `tests/landing-optin.test.ts` (los botones de la barra)
+
+Los clientes de Código Inmobiliario (ws13, y sus clientes ws15 y ws17) no podían instalar el
+Pixel. Su editor con IA contestó dos veces lo mismo: el código le llegó «con valores ocultos
+(`********`) en varias secciones», citó `var HOSTS = ********` y lo rechazó por
+`Unexpected token '*'`, restaurando el `public/mako-tracking.js` viejo.
+
+⚠️ **El diagnóstico obvio —«nuestra pantalla enmascara algo y se cuela en lo copiado»— era el
+equivocado, y se descarta midiendo:** el botón hace `navigator.clipboard.writeText` del snippet
+crudo, sin máscara; el snippet emitido tiene **2.226 líneas** —exactamente las del «[Pasted 2226
+lines]» de la captura, o sea que llegó entero— y **cero asteriscos**. Los pone la herramienta del
+cliente, que trata como secreto algo del texto. El único candidato con cara de secreto es la línea
+del token (`var TOKEN = 'mko_' + 32 hex`: una palabra clave y un valor de alta entropía, la forma
+que buscan los detectores genéricos), y el token es público —va en el HTML de cada página—.
+
+**NO MEDIDO:** cuál es la herramienta (la captura parece Codex o Lovable) ni qué detector usa.
+`var HOSTS = []` no tiene nada de secreto y aun así aparece citado como tapado, así que el
+detector no es sólo el de la palabra clave, o la cita del modelo es aproximada.
+
+**Lo que quedó:** un botón «Descargar» en la barra del código que baja el mismo Pixel como
+`mako-tracking.js`, sin las etiquetas `<script>` —el nombre que ya usa el ws13, así reemplazarlo es
+pisar un archivo—, y una línea en «¿Dónde lo pego?» para quien ve los `********` o lo tiene en un
+archivo. Es la salida que la propia herramienta pidió y no depende de adivinar el detector: el
+archivo va a la carpeta del proyecto sin pasar por el chat. El test lo prueba contra el snippet
+EMITIDO (en un node aparte, por el `server-only`), compilándolo con `vm.Script`, que es lo que hace
+`node --check` del lado del cliente.
+
+**SIN HACER:**
+- Renombrar `TOKEN` en el snippet para esquivar los detectores por palabra clave. No se hizo
+  porque no está medido que alcance (lo de `HOSTS`) y cambiar el snippet obliga a subir la versión,
+  o sea a pedirles a todos los clientes que repeguen por algo que a ellos no les cambia nada. Si
+  sale la v23 que está anotada arriba, conviene meterlo ahí.
+- Un cargador de una línea (`<script src="https://hola-mako.com/…">`) haría innecesario pegar 2.226
+  líneas y, de paso, que nadie tuviera que repegar nunca más. Es una decisión de diseño —el snippet
+  vive congelado en la página del cliente a propósito— y es de Martín.
+- No se verificó en el navegador: el botón y la línea de ayuda están fijados por test, no vistos.
+
+_Sin subagentes. El pedido llegó de la sesión del CRM con la captura del cliente; 5 roturas en
+`tests/pixel-archivo.test.ts`, todas con su fallo._

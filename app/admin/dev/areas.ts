@@ -491,6 +491,7 @@ export const AREAS: AreaDev[] = [
       'app/integraciones/escuchando/page.tsx', 'app/integraciones/landing-actions.ts',
       'app/integraciones/landing-config-actions.ts', 'app/api/integraciones/landing/estado/route.ts',
       'app/integraciones/prueba-lead-actions.ts', 'lib/landing-funnel.ts', 'lib/replay-leer.ts',
+      'lib/pixel-archivo.ts',
       'app/integraciones/AsignarProducto.tsx', 'app/integraciones/SelectorLanding.tsx',
       'app/api/cron/tracking-vigilante/route.ts',
       'app/api/cron/prueba-grabacion/route.ts',
