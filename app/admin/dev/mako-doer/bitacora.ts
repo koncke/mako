@@ -252,4 +252,34 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ia.md — la anatomía de los tokens y el caché de Gemini',
     ],
   },
+  {
+    fecha: '8 oct', hora: '—', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Las cinco decisiones, y «solucionalo end-to-end»',
+    pedido: 'Lo que tenés que decidir:\n\n* Que pueda hacer todo, sin limitaciones.\n* La ofrece.\n* No, no renombres.\n* Mantenla, no cambies nada.\n* No, no lo escondas...\n\n\nCon todo esto, solucionalo end-to-end...\nPrimero la optimización de los tokens para MaKo en WhatsApp. Y segundo la implementación de todas estas acciones en el chatbot. Y tercero, manda toda la info que tienes al chat de API de MaKo, para que cree la tab de API y que sea 100% funcional.',
+    puntos: [
+      'Contesta las cinco decisiones de docs/api-mako-diseno.md § 10: un flujo hace todo sin pedir el sí; en una pregunta MaKo ofrece la acción; no se renombra; /api/agente queda igual; el paso «⚡ Acción» no se esconde.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '03:33', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'En una pregunta MaKo ofrece, y viajan 4.535 tokens menos por pedido',
+    puntos: [
+      '**En consultar/pensar no viajan las herramientas que escriben** (lo dice el `tipo` del registro): las 7 `proponer_*` viejas y confirmar/cancelar eran 10.380 caracteres en cada pedido del turno. MaKo ofrece la acción en una línea y el «sí» llega como `actuar`, con todo.',
+      '**Las recetas del protocolo viajan con su herramienta** (`lib/doer-recetas.ts`): la de cargar tareas al plan ya no va en una pregunta del CRM. El protocolo de una pregunta bajó de 8.481 a 1.164 caracteres.',
+      '⚠️ **El refutador cazó el agujero del plan:** el «sí» a una pregunta caía en `charlar` o `pensar`, sin herramientas de escritura. Sin tocar el clasificador, MaKo habría ofrecido algo que después no podía hacer.',
+      '**Medido:** −4.535 tokens por pedido en una pregunta (−31% de 14.491). En `actuar` no cambia nada.',
+    ],
+    commits: [
+      { sha: '3950e7cd', msg: 'MaKo por WhatsApp: en una pregunta ofrece la acción, y viajan 4.535 tokens menos por pedido', lineas: 265, archivos: 4 },
+      { sha: 'f9302e58', msg: 'Guard de voseo: las recetas del doer mudadas a lib/doer-recetas.ts tienen la misma excepción', lineas: 4, archivos: 1 },
+    ],
+    archivos: [
+      'lib/doer-recetas.ts — las recetas y `recetasDelTurno`, puras',
+      'lib/mako-intencion.ts — `makoPreguntoAlgo` y la regla 3-ter: el «sí» al ofrecimiento es `actuar`',
+      'lib/mako-doer-in.ts — el filtro de escrituras en una pregunta',
+      'tests/doer-recetas.test.ts — 5 tests, cinco roturas',
+    ],
+  },
 ];

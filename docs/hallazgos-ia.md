@@ -3752,8 +3752,23 @@ Un índice de las 498 no sirve: 26.324 caracteres. Tiene que ser por área.
 de 12.253 a 0 al agregar una tool. Groq (`gpt-oss-20b`) y Gemini aceptan que la lista crezca y
 llaman la recién cargada, pero cada carga vuelve a pagar el prefijo entero.
 
-**SIN HACER:** las fases de `docs/api-mako-diseno.md` § 10. Pasar la base a «lean» (sólo persona +
-núcleo) sacaría ~2.000 tokens más, pero el 19/07 se descartó porque Sonnet fallaba en
+**HECHO el mismo día (`3950e7cd`), con la decisión de Martín «la ofrece»:** en una pregunta
+(consultar/pensar) no viajan las herramientas que ESCRIBEN —lo dice el `tipo` del registro— y MaKo
+OFRECE la acción en una línea; el «sí» a ese ofrecimiento llega como `actuar`, con todo
+(`makoPreguntoAlgo` + regla 3-ter de `lib/mako-intencion.ts`). Las recetas del protocolo viajan sólo
+con su herramienta (`lib/doer-recetas.ts`, puro y con test). Medido: en una pregunta, las herramientas
+de siempre bajan de 19.227 a 8.586 caracteres y el protocolo de 8.481 a 1.164 — **−4.535 tokens por
+pedido (−31%)**; en `actuar` no cambia nada. El protocolo base pide además todas las lecturas en el
+MISMO paso, que es lo que baja PASOS si el tope resulta ser de pedidos.
+
+⚠️ **El diagnóstico de la primera versión del plan sobre el «sí» era falso, y el refutador lo cazó:**
+se daba por hecho que el «sí» que sigue a una pregunta caía en `actuar`. En HEAD caía en `charlar`
+(«sí, movelo a agendado») o en `pensar` («sí, hacelo»), y sacar las herramientas de una pregunta sin
+tocar el clasificador habría dejado a MaKo ofreciendo algo que después no podía hacer.
+
+**SIN HACER:** el índice por área con esquemas a pedido (fase 3 del § 10), que espera saber si el
+tope es de pedidos o de tokens (desde `949bd68b` el rebote lo dice). Pasar la base a «lean» (sólo
+persona + núcleo) sacaría ~2.000 tokens más, pero el 19/07 se descartó porque Sonnet fallaba en
 proponer→confirmar, y no está medido en Gemini.
 
-*08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`; commits `af3530c2` y `949bd68b`.*
+*08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`; commits `af3530c2`, `949bd68b` y `3950e7cd`.*
