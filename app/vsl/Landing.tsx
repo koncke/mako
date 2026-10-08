@@ -644,7 +644,9 @@ function PieLegal() {
       <a href={`mailto:${EMAIL_MAKO}`} style={link}>{EMAIL_MAKO}</a>
       {/* Meta rechazó la verificación del negocio porque la razón social no estaba en el
           sitio (08/10/2026): ver lib/titular-mako.ts. */}
-      <span>Razón social: {RAZON_SOCIAL_MAKO}</span>
+      {/* Un solo nodo de texto: con «Razón social: {X}» React mete un comentario
+          entre el rótulo y el nombre, y una búsqueda de la frase entera no la encuentra. */}
+      <span>{`Razón social: ${RAZON_SOCIAL_MAKO}`}</span>
     </div>
   );
 }

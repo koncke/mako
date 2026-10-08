@@ -65,6 +65,9 @@ export const PUBLICOS = [
   // Los términos del servicio. Google los EXIGE junto con la política para
   // verificar la app OAuth de Calendar, y su revisor los abre sin cuenta.
   '/terminos',
+  // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
+  // pedía reglas recibía una página de login.
+  '/robots.txt',
   '/api/og',
   '/vsl',
   '/vsl-assets',

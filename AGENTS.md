@@ -3489,6 +3489,30 @@ a dos escalones del fondo, nunca un gris claro bajado de `opacity`.
 El detalle, con las mediciones, en
 [docs/hallazgos-second-brain.md](docs/hallazgos-second-brain.md).
 
+# Una página pública de más de ~12 KB llega VACÍA a quien no ejecuta JavaScript
+
+El layout raíz envuelve toda la app en un `<Suspense fallback={null}>` (por el
+`useSearchParams` del `WsProvider`), y React escribe aparte —en un `<div hidden id="S:0">`,
+hasta que un script lo inserta— **todo bloque de Suspense de más de 12.800 bytes, aunque ya
+esté listo**. O sea que cualquier página pública grande se lee VACÍA sin JavaScript: el
+verificador de Meta, las vistas previas de WhatsApp, cualquier crawler que no lo corra.
+
+Medido el 08/10/2026: Meta rechazó la verificación del negocio dos veces por «la razón social
+debe aparecer en el sitio web», la segunda con el nombre ya en el HTML. Con Chromium sin
+JavaScript, `/` tenía 0 caracteres visibles. Detalle en
+[docs/hallazgos-landing.md](docs/hallazgos-landing.md) → «La portada viajaba VACÍA…».
+
+- **Lo que una página pública TIENE que mostrar sin JavaScript va fuera del bloque grande**: lo
+  grande en su propio `<Suspense>`, con un fallback CHICO que se vea (molde:
+  `app/vsl/PortadaSinJs.tsx` en `app/page.tsx`).
+- **Se verifica leyendo como sin JavaScript**, nunca con `grep`: un texto oculto aparece en el
+  HTML igual que uno visible. Sacar los `<div hidden id="S:…">` cerrando por profundidad, o
+  Chromium con `javaScriptEnabled: false`.
+- **El test renderiza en streaming y adentro de `<html><body>`.** `renderToStaticMarkup` no
+  reproduce nada, y React sólo saca bloques aparte cuando renderiza un documento.
+- ⚠️ `/privacidad` sigue así: el arreglo de fondo (sacar `{children}` del Suspense del layout)
+  toca toda la app y pide un `npm run build` en el clon.
+
 # Una ruta con auth propia va en `lib/rutas-publicas.ts`, o no existe en producción
 
 Si una ruta se autentica sola —por firma, por secreto o por **bearer**— tiene que estar en

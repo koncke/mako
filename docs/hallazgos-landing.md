@@ -3857,3 +3857,58 @@ más datos y suma condiciones: se prende cuando haga falta).
 
 **Vive en:** lib/meta-pixel-mako.ts · app/vsl/Landing.tsx · app/privacidad/page.tsx ·
 tests/meta-pixel-mako.test.ts · *2026-10-08 publicitar-mako*
+
+---
+
+## La portada viajaba VACÍA para quien no ejecuta JavaScript (08/10/2026)
+
+**Síntoma.** Meta rechazó la verificación del negocio por segunda vez con «la razón social debe
+aparecer en el sitio web», con el nombre YA publicado en el pie de hola-mako.com. `curl` lo
+encontraba en el HTML (byte ~180.000), el user agent de Meta recibía 200, y los logs de Vercel
+mostraban que Meta había leído justo esa versión. Todo decía «está».
+
+**Causa.** Estaba, pero OCULTO. El layout raíz envuelve toda la app en un
+`<Suspense fallback={null}>` (app/layout.tsx, por el `useSearchParams` del `WsProvider`), y
+React **escribe aparte, dentro de un `<div hidden id="S:0">`, todo bloque de Suspense que pase
+los 12.800 bytes, aunque ya esté listo**; un script lo inserta cuando corre JavaScript. La
+landing pesa ~190 KB, así que el HTML de `/` traía un `<template id="B:0">` vacío y todo el
+contenido escondido. Medido: con Chromium y JavaScript apagado, `body.innerText` de `/` = **0
+caracteres**; con JavaScript, el nombre aparece a 10.155 px. `/privacidad` (93 KB) igual;
+`/terminos` (62 KB) entra justo debajo del umbral y se ve.
+
+**El diagnóstico obvio era el equivocado, dos veces.** Primero «la copia de Meta está vieja»
+(el Depurador de contenido compartido decía «hace 3 horas»): era cierto y no era la causa,
+porque el log muestra a Meta leyendo la versión nueva. Después «el nombre está en el HTML, así
+que lo ve»: un `grep` encuentra texto oculto igual que el visible. **Lo que contesta es leer la
+página como la lee alguien sin JavaScript**: sacar los `<div hidden id="S:…">` (cerrando por
+profundidad, no con una regex) o abrirla en Chromium con `javaScriptEnabled: false`.
+
+**El arreglo (portada).** La landing va en su PROPIO `<Suspense>` con un fallback que se ve
+(`app/vsl/PortadaSinJs.tsx`): marca, título, la razón social y los enlaces legales. El bloque del
+layout queda chico y sale visible; sin JavaScript se lee el fallback, y con JavaScript React lo
+reemplaza por la landing (que trae la razón social en su pie). El fallback tiene que seguir
+CHICO: si engorda hasta pasar el umbral, el bloque del layout lo pasa de nuevo y todo vuelve a
+quedar oculto.
+
+**Dos trampas para probarlo, medidas.** `renderToStaticMarkup` no reproduce nada (no hace
+streaming). Y en streaming, React sólo saca bloques aparte cuando renderiza un DOCUMENTO: un
+fragmento de 175 KB sale entero y visible; envuelto en `<html><body>`, sale oculto como en
+producción. `tests/razon-social-sitio.test.ts` renderiza así y además exige que haya un segmento
+oculto, para no dar verde el día que deje de reproducir la condición.
+
+**Lo que quedó sin hacer.** `/privacidad` sigue llegando vacía sin JavaScript, y es la URL de
+política que revisan Meta y Google. Partirla en bloques chicos NO sirve (medido: de 30 bloques
+de 3 KB, 26 salen ocultos igual, porque el umbral se mide sobre lo ya escrito). El arreglo de
+fondo es que `{children}` no viva adentro del Suspense del layout, y eso toca toda la app: hay
+que probarlo con un `npm run build` en el clon (el `useSearchParams` sin Suspense rompe el build
+en cualquier ruta estática).
+
+**De paso, en la misma tanda:** `/robots.txt` no existía (el gate lo mandaba a `/login`): ahora
+es `app/robots.ts`, público y sin `disallow`. Y la portada tiene su propia vista previa
+(`/og-landing.jpg`): caía en la del layout, `/og-mako.jpg`, que es la de material compartido y
+lo dice escrito en la imagen. El `openGraph` de una página REEMPLAZA al del layout, así que va
+completo (`tests/portada-vista-previa.test.ts`).
+
+**Vive en:** app/page.tsx · app/vsl/PortadaSinJs.tsx · app/vsl/Landing.tsx (`PieLegal`) ·
+app/layout.tsx (el Suspense) · app/robots.ts · public/og-landing.jpg ·
+tests/razon-social-sitio.test.ts · tests/portada-vista-previa.test.ts · *2026-10-08 publicitar-mako*

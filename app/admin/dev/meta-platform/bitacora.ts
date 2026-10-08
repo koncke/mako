@@ -203,4 +203,54 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ads.md — «La verificación del negocio de MaKo: lo que Meta rechaza no es el documento»',
     ],
   },
+  {
+    fecha: '8 oct', hora: '02:41', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Meta la rechazó otra vez por lo mismo',
+    pedido: 'Otra vez lo mismo... Asegurate de hacerlo bien',
+    puntos: [
+      'Con la misma captura: «la razón social de la empresa debe aparecer en el sitio web», sobre el reenvío confirmado por «Verificación del dominio», con el nombre ya publicado en el sitio.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '02:57', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La vista previa de hola-mako.com, en esta misma sesión',
+    pedido: 'Haz esta tarea aquí: “Cambiar la vista previa de hola-mako.com”',
+    puntos: [
+      'La tarea salió de mirar la portada en el Depurador de Meta: la tarjeta decía «Material compartido».',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '03:05', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'El nombre estaba en el HTML, pero oculto: sin JavaScript la portada se leía vacía',
+    puntos: [
+      'Cuatro ángulos con un refutador cada uno (documentación de Meta, reportes, el crawler, el documento). Meta no publica dónde busca el nombre; lo que decidió fue MEDIR: con Chromium sin JavaScript, la portada tenía 0 caracteres visibles.',
+      '⚠️ El Suspense del layout raíz hace que React esconda en un `<div hidden>` todo bloque de más de 12.800 bytes hasta que corre JavaScript. La copia vieja de Meta y el «está en el HTML» eran ciertos y no eran la causa.',
+      'Meta visita el sitio 11-20 minutos después de cada envío (Chrome desde su red con un `fbclid`, y después facebookexternalhit): en el log se ve qué versión evaluó.',
+    ],
+    archivos: [
+      'docs/hallazgos-landing.md — «La portada viajaba VACÍA para quien no ejecuta JavaScript»',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '03:25', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La portada se lee sin JavaScript, con su propia vista previa y su robots.txt',
+    puntos: [
+      'La landing va en su propio Suspense con un fallback visible (marca, título, razón social y enlaces legales): sin JavaScript se lee eso, con JavaScript la landing. El test renderiza en streaming dentro de <html><body>, que es lo único que reproduce producción.',
+      'La razón social también va en datos estructurados (`legalName`) al principio de la página, y /robots.txt existe y es público (antes redirigía al login).',
+      'La vista previa de la portada es suya (/og-landing.jpg) y ya no dice «Material compartido».',
+      'Pendiente: /privacidad sigue llegando vacía sin JavaScript; el arreglo de fondo toca el layout de toda la app.',
+    ],
+    archivos: [
+      'app/page.tsx — el Suspense propio, el JSON-LD y la vista previa',
+      'app/vsl/PortadaSinJs.tsx — lo que se ve sin JavaScript',
+      'app/robots.ts · lib/rutas-publicas.ts — robots.txt público',
+      'public/og-landing.jpg — la tarjeta de la portada',
+      'tests/razon-social-sitio.test.ts · tests/portada-vista-previa.test.ts',
+      'AGENTS.md — «Una página pública de más de ~12 KB llega VACÍA a quien no ejecuta JavaScript»',
+    ],
+  },
 ];

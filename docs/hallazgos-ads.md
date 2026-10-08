@@ -3794,9 +3794,21 @@ verificador que no ejecuta JavaScript no lo ve. Es el mismo motivo por el que lo
 legales ya estaban ahí (Google exige poder llegar a la política desde la página principal).
 `tests/razon-social-sitio.test.ts` renderiza con `renderToStaticMarkup`, que no corre efectos.
 
+⚠️ **Y ESTAR EN EL HTML NO ALCANZABA: estaba OCULTO.** El envío siguiente (08/10, confirmado
+por «Verificación del dominio», sin código) se rechazó con el mismo texto en ~25 minutos,
+con el nombre ya publicado. Toda la portada viajaba adentro de un `<div hidden>` del streaming
+de React y sin JavaScript se leía vacía: la causa y el arreglo están en
+`docs/hallazgos-landing.md` → «La portada viajaba VACÍA para quien no ejecuta JavaScript».
+
+**Cómo saber qué leyó Meta, la próxima vez.** Las dos veces, 11-20 minutos después del envío,
+llegó desde la red de Meta (AS32934) un GET `/` con user agent de Chrome, referer
+`www.facebook.com` y un `fbclid`, y ~35 s después facebookexternalhit con el mismo `fbclid`. En
+el log de Vercel eso dice qué versión del sitio se evaluó. No desplegar mientras está en revisión.
+
 **La regla:** cada dato que se le declara a Meta en la verificación (nombre legal, dirección,
 teléfono, sitio) tiene que aparecer **escrito igual** en algún lugar que Meta pueda mirar: el
 documento o el sitio. Antes de mandar, se busca cada uno.
 
 **Vive en:** lib/titular-mako.ts · app/vsl/Landing.tsx (`PieLegal`) · app/privacidad/page.tsx ·
-app/terminos/page.tsx · tests/razon-social-sitio.test.ts · *2026-10-08 publicitar-mako*
+app/terminos/page.tsx · app/page.tsx · app/vsl/PortadaSinJs.tsx ·
+tests/razon-social-sitio.test.ts · *2026-10-08 publicitar-mako*
