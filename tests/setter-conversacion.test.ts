@@ -153,6 +153,8 @@ const hace = (h: number) => new Date(AHORA - h * 3_600_000).toISOString();
 const insc = (o: Partial<InscCharla> = {}): InscCharla => ({
   id: 1, secuencia_id: 213, estado: 'respondio', desenlace: null,
   updated_at: hace(1), conversacion_ultima_at: hace(1), conversacion_cerrada_at: null,
+  // Un cierre del setter SIEMPRE trae su motivo (`redactarRespuesta`); sin motivo es el hand-off.
+  conversacion_cierre: o.conversacion_cerrada_at ? 'fin_bien' : null,
   tieneEnviado: true, asistida: true, pausada: false, reunionFutura: true, ...o,
 });
 

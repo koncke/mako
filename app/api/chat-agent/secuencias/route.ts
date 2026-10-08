@@ -166,7 +166,9 @@ export async function POST(req: NextRequest) {
         await setTriggerSecuencia(id, {
           trigger_tipo: String(body.trigger_tipo ?? ''),
           etapa: body.etapa == null ? null : String(body.etapa),
-          producto_id: num(body.producto_id), funnel_id: num(body.funnel_id), etiqueta_id: num(body.etiqueta_id),
+          producto_id: num(body.producto_id), etiqueta_id: num(body.etiqueta_id),
+          // «No vino» no es «null» (= todos los embudos): sin la clave, el embudo no se toca.
+          ...('funnel_id' in body ? { funnel_id: num(body.funnel_id) } : {}),
         });
       } catch (e) {
         if (e instanceof TriggerInvalidoError) return Response.json({ ok: false, error: e.message }, { status: 400 });

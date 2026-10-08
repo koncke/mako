@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
     if (new URL(req.url).searchParams.get('camino') !== '1') {
       return Response.json({ ok: true, borradores, pendientes });
     }
-    // Un solo viaje para todos: con el no oficial vivo ni se consulta Chatwoot.
-    const caminos = await caminosDeEnvio(borradores.map((b) => ({ id: b.id, telefono: b.telefono, linea: b.linea })));
+    // Un solo viaje para todos: con el no oficial vivo ni se consulta Chatwoot. El audio y el
+    // archivo viajan: un borrador que los lleva no tiene camino oficial (manda sólo el pie).
+    const caminos = await caminosDeEnvio(borradores.map((b) => ({ id: b.id, telefono: b.telefono, linea: b.linea, audioId: b.audioId, adjuntoId: b.adjuntoId })));
     return Response.json({
       ok: true,
       pendientes,

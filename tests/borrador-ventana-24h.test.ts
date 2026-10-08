@@ -146,7 +146,8 @@ test('Fuera de la ventana, el camino es null: no se intenta mandar', () => {
 test('La ventana se vuelve a verificar al enviar, y sale por el canal que puede', () => {
   const b = cuerpo(LIB, 'export async function enviarBorradorPorSuCanal');
   assert.ok(b.length < 1200, `el recorte mide ${b.length}: está mirando otra cosa`);
-  assert.match(b, /caminosDeEnvio\(\[\{ id: b\.id, telefono: b\.telefono, linea: b\.instance_name \}\]\)/, 'el envío dejó de recalcular el camino (con la línea del borrador): confía en el botón');
+  // 08/10/2026: con el audio y el archivo del borrador, que no tienen camino oficial.
+  assert.match(b, /caminosDeEnvio\(\[\{ id: b\.id, telefono: b\.telefono, linea: b\.instance_name, audioId: b\.audio_id, adjuntoId: b\.adjunto_id \}\]\)/, 'el envío dejó de recalcular el camino (con la línea y la media del borrador): confía en el botón');
   assert.match(b, /camino\?\.via === 'empresa'/);
   assert.match(b, /camino\?\.via === 'oficial'/);
   // Sin camino no se manda nada y se devuelve el motivo.

@@ -25,6 +25,7 @@ import {
   normalizar, nuevoId,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
 } from './flujo-grafo';
+import { TRIGGER_ETIQUETA } from './nutricion-etapa';
 
 /** Cuántos «Ir a» se siguen en una sola resolución. `validarGrafo` ya prohíbe el bucle sin espera: esto es la red. */
 export const TOPE_SALTOS = 20;
@@ -48,18 +49,30 @@ export function pasoDeEntrada<P extends PasoGrafo>(pasos: readonly P[]): P | und
 /**
  * El índice del nodo en el que está una inscripción, o -1 si no está en ninguno.
  *
- * Por `nodo_actual` (mig 0223); si no hay o ya no existe, `pasos[paso_actual]`, que es lo que
- * leía el motor hasta el 08/10/2026. ⚠️ UNA FILA QUE NUNCA AVANZÓ (`nodo_actual` NULL y
+ * Por `nodo_actual` (mig 0223). ⚠️ UNA FILA QUE NUNCA AVANZÓ (`nodo_actual` NULL y
  * `paso_actual` 0) ESTÁ EN LA ENTRADA, que no tiene por qué ser el índice 0: el lienzo puede
  * dejar «Si responde» primero en el array. Todo lo que inscribe escribe `paso_actual: 0`, así
  * que esta es la única puerta que lo traduce.
+ *
+ * ⚠️ UN `nodo_actual` QUE YA NO EXISTE ES -1, NO `pasos[paso_actual]` (revisión del 08/10/2026).
+ * Borrar una tarjeta corre el array un lugar, y en ese índice puede quedar la tarjeta de OTRA
+ * rama: el lead cualificado recibía el mensaje de los no cualificados, que es justo lo que
+ * `nodo_actual` vino a cerrar. El motor cierra la inscripción y lo dice.
+ *
+ * ⚠️ Y UNA FILA DE ANTES (`nodo_actual` NULL, `paso_actual` k > 0) SE BUSCA PRIMERO POR `o<k>`,
+ * el id que `legadoAGrafo` les CONSERVA a los pasos de antes. Publicar desde el lienzo convierte
+ * la secuencia sin reubicar las inscripciones vivas (eso sólo lo hace el script): con el índice
+ * pelado, la de #212 parada en el paso 1 leía `pasos[1]`, que en el array nuevo es el audio que ya
+ * le había llegado. Si `o<k>` no existe, el índice de siempre.
  */
 export function indiceActual(pasos: readonly PasoGrafo[], insc: PosicionInsc): number {
-  const porId = indicePorId(pasos, insc.nodo_actual ?? null);
-  if (porId >= 0) return porId;
+  if (insc.nodo_actual != null && insc.nodo_actual !== '') return indicePorId(pasos, insc.nodo_actual);
   const k = Number(insc.paso_actual);
-  if (insc.nodo_actual == null && k === 0) return indiceEntrada(pasos);
-  return Number.isInteger(k) && k >= 0 && k < pasos.length ? k : -1;
+  if (!Number.isInteger(k) || k < 0) return -1;
+  if (k === 0) return indiceEntrada(pasos);
+  const deAntes = indicePorId(pasos, `o${k}`);
+  if (deAntes >= 0) return deAntes;
+  return k < pasos.length ? k : -1;
 }
 
 /** El índice del nodo al que sigue uno de una salida (mensaje, acción, espera). -1 = termina. */
@@ -237,19 +250,38 @@ export function esPrimerPaso(pasos: readonly PasoGrafo[], idx: number): boolean 
 }
 
 /**
- * Si el nodo cuelga DIRECTO de una espera «N antes de la reunión», sus minutos. Un mensaje así
- * es un recordatorio: igual que el paso con `ancla: 'reunion'` de siempre, al mandarlo se
- * vuelve a mirar la agenda (sin reunión por delante se cierra; si el lead reprogramó para más
- * tarde, se re-ancla y espera).
+ * Si el nodo cuelga de una espera «N antes de la reunión», sus minutos. Un mensaje así es un
+ * recordatorio: igual que el paso con `ancla: 'reunion'` de siempre, al mandarlo se vuelve a
+ * mirar la agenda (sin reunión por delante se cierra; si el lead reprogramó para más tarde, se
+ * re-ancla y espera).
+ *
+ * ⚠️ UN MENSAJE SUBE POR LAS CONDICIONES hasta la primera espera (revisión del 08/10/2026). El
+ * conversor arma espera(antes de la reunión) → condición («Termina si paga») → mensaje, y la
+ * espera deja la inscripción parada en la CONDICIÓN: mirando sólo el padre directo, el mensaje
+ * no era un recordatorio y salía «Mañana es tu reunión» cuatro días antes, o para una reunión
+ * cancelada. Una condición no espera: lo que el mensaje recuerda lo decide la espera de arriba.
+ *
+ * Una ACCIÓN mira sólo su padre directo, como siempre: la que cuelga de la condición es la del
+ * logro («ya pagó → movelo»), y re-anclarla la postergaba hasta la reunión nueva.
  */
 export function minutosAntesDeReunion(pasos: readonly PasoGrafo[], idx: number): number | null {
   const p = pasos[idx];
   if (!p) return null;
-  const pa = padreDe(pasos, idDe(p, idx));
-  if (!pa) return null;
-  const padre = pasos[indicePorId(pasos, pa.id)];
-  if (!padre || claseDe(padre) !== 'esperar' || padre.espera?.modo !== 'antes_reunion') return null;
-  return Math.max(0, Number(padre.espera.minutos) || 0);
+  const sube = claseDe(p) === 'mensaje';
+  const vistos = new Set<string>();
+  let cur = idDe(p, idx);
+  while (!vistos.has(cur)) {
+    vistos.add(cur);
+    const pa = padreDe(pasos, cur);
+    if (!pa) return null;
+    const padre = pasos[indicePorId(pasos, pa.id)];
+    if (!padre) return null;
+    const c = claseDe(padre);
+    if (c === 'esperar') return padre.espera?.modo === 'antes_reunion' ? Math.max(0, Number(padre.espera.minutos) || 0) : null;
+    if (!sube || c !== 'condicion') return null;
+    cur = pa.id;
+  }
+  return null;
 }
 
 /**
@@ -367,6 +399,92 @@ export function esTablaInexistente(e: { code?: string | null; message?: string |
   if (!e) return false;
   if (e.code === 'PGRST205' || e.code === '42P01') return true;
   return /could not find the table|does not exist/i.test(String(e.message ?? '')) && /relation|table/i.test(String(e.message ?? ''));
+}
+
+/**
+ * ¿El error dice que falta una COLUMNA? Es la forma en que falla todo `select` de las secuencias
+ * con el deploy adelantado a la 0223 (`etiqueta_id`): PostgREST rechaza la consulta ENTERA.
+ * La pregunta `pausarPorRespuesta` antes de marcar 'respondio' (ver ahí).
+ */
+export function esColumnaInexistente(e: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!e) return false;
+  if (e.code === '42703' || e.code === 'PGRST204') return true;
+  const m = String(e.message ?? '');
+  return /column\s+\S+\s+does not exist|could not find the '?[\w.]+'? column/i.test(m);
+}
+
+// ── Lo que fijó la revisión adversarial del 08/10/2026 ──────────────────────────
+
+/**
+ * Las etiquetas que CUENTAN para una condición: las puestas, menos las ARCHIVADAS.
+ *
+ * Decisión del 08/10/2026: archivar una etiqueta la APAGA. Los leads conservan la fila (es su
+ * historia), pero «Tiene X» deja de cumplirse y su disparador deja de inscribir. Es lo que la
+ * propuesta de archivar le promete al dueño («las condiciones dejan de cumplirse»), y hasta acá
+ * el motor la seguía cumpliendo para todos los que ya la tenían.
+ */
+export function etiquetasQueCuentan(puestas: Iterable<number>, archivadas: ReadonlySet<number>): Set<number> {
+  const out = new Set<number>();
+  for (const id of puestas) if (!archivadas.has(Number(id))) out.add(Number(id));
+  return out;
+}
+
+/**
+ * ¿El BARRIDO horario inscribe a la cohorte de esta secuencia?
+ *
+ * Decisión del 08/10/2026: «Se le puso una etiqueta» SIN horario (el CRON «por una acción») es
+ * SÓLO el evento: el barrido no inscribe por etiqueta. Si barriera, poner la etiqueta en LOTE o
+ * por el espejo de una etapa —que a propósito no disparan— terminaba disparando igual en la
+ * corrida siguiente, a 200 leads y por la línea no oficial. CON horario (el CRON «por tiempo») sí
+ * barre a los que la tienen: es lo que el dueño eligió al poner el horario.
+ *
+ * El resto de los disparadores, como siempre: su cohorte es la red del evento.
+ */
+export function barridoInscribe(s: { trigger_tipo: string; cron: unknown }): boolean {
+  if (s.trigger_tipo === TRIGGER_ETIQUETA) return s.cron != null;
+  return true;
+}
+
+/**
+ * ¿El logro de la estrategia CIERRA la inscripción (`evaluarDesenlaces`)?
+ *
+ * Decisión del 08/10/2026: la limpieza de una secuencia convertida CONSERVA `desenlace.logrado`
+ * (lib/flujo-legado.ts, `limpiezaPara`). En un flujo de TARJETAS un «agendó» o un «pagó» no
+ * interrumpe la secuencia: lo hacen sus condiciones, que el conversor puso delante de cada
+ * mensaje. Cerrarla también acá serían dos reglas para lo mismo. «Respondió» sí se sigue
+ * cerrando como lograda: ninguna tarjeta lo hace, y sin eso la inscripción queda en 'respondio'
+ * para siempre (no se reusa cuando el lead reagenda).
+ */
+export function logroCierraLaInscripcion(logrado: string, flujoDeTarjetas: boolean): boolean {
+  if (logrado === 'ninguno' || !logrado) return false;
+  if (flujoDeTarjetas && (logrado === 'agendo' || logrado === 'pago')) return false;
+  return true;
+}
+
+/**
+ * Los índices de los «Ir a» que apuntan a la MISMA automatización. Un «Sigue con» a sí misma
+ * (una clave mal puesta) era un bucle que reenviaba la secuencia entera en cada vuelta; lo
+ * rechaza `setSecuenciaPasos` y, si llega igual, el motor lo cierra sin seguirlo.
+ */
+export function irAEstaMisma(pasos: readonly PasoGrafo[], secuenciaId: number): number[] {
+  const out: number[] = [];
+  pasos.forEach((p, i) => {
+    if (claseDe(p) !== 'ir_a' || !p.destino || !('secuencia_id' in p.destino)) return;
+    if (Number(p.destino.secuencia_id) === Number(secuenciaId)) out.push(i);
+  });
+  return out;
+}
+
+/**
+ * El comienzo del resumen con que `avisar_al_equipo` contesta que el aviso NO salió porque ya
+ * había salido (la deduplicación de `emitirAviso`). Lo lee el motor (`avisoSalio`): un aviso
+ * deduplicado no es un aviso, y sin el de respaldo nadie se entera de esa respuesta.
+ */
+export const AVISO_REPETIDO = 'Ya le había avisado al equipo';
+
+/** ¿El aviso al equipo salió de verdad? Ni falló ni quedó deduplicado. */
+export function avisoSalio(r: { ok: boolean; resumen: string }): boolean {
+  return r.ok && !r.resumen.startsWith(AVISO_REPETIDO);
 }
 
 // ── Archivos ────────────────────────────────────────────────────────────────────

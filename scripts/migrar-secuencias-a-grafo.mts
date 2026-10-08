@@ -20,8 +20,14 @@
 //   · `estrategia` ← la estrategia PARSEADA con la LIMPIEZA encima, y el objeto ENTERO (AGENTS.md:
 //     «un campo nuevo en un objeto que se guarda ENTERO»): sin la limpieza, el motor viejo volvería
 //     a hacer por su lado lo que ahora hacen las tarjetas (el desenlace global, el asistido);
-//   · el HAND-OFF VIVO de esa secuencia se resuelve (`resuelto_at`) y su inscripción congelada en
-//     'handoff' pasa a 'completada': el banner que la reactivaba se fue, y «Otra cosa» ya avisa;
+//   · el HAND-OFF VIVO de esa secuencia se resuelve (`resuelto_at`: el banner que lo resolvía se
+//     fue) y su inscripción congelada en 'handoff' pasa a 'respondio' con la CHARLA CERRADA por el
+//     hand-off (`conversacion_cerrada_at` sin `conversacion_cierre`, lib/setter-conversacion.ts →
+//     `cerradaPorUnaPersona`). ⚠️ NO a 'completada' a secas (revisión del 08/10/2026): ese lead
+//     estaba esperando a una PERSONA, y como 'completada' sin desenlace su próximo mensaje entraba
+//     por las «tardías» a «Si responde» y MaKo le contestaba solo. Con la charla cerrada, MaKo no
+//     le contesta y le avisa al dueño que la sigue él; el desenlace la cierra como lograda, como a
+//     cualquiera que contestó;
 //   · las inscripciones vivas (activa / respondio) que NUNCA escribieron `nodo_actual` quedan en
 //     el MISMO paso de antes por su id (`o<índice>`): con la conversión, el array cambia de orden y
 //     el índice de antes apuntaría a otra tarjeta. La espera de ese paso ya está en su
@@ -188,7 +194,9 @@ for (const [ws, delWs] of porWs) {
       if (e1) throw new Error(`resolver hand-offs #${s.id}: ${e1.message}`);
       const leads = handoffs.map((h) => h.lead_id).filter((x): x is number => x != null);
       if (leads.length) {
-        const { error: e2 } = await db.from('nutricion_inscripciones').update({ estado: 'completada', proximo_envio_at: null, updated_at: ahora })
+        // La charla la sigue una PERSONA: cerrada por el hand-off (fecha, sin motivo), no completada.
+        const { error: e2 } = await db.from('nutricion_inscripciones')
+          .update({ estado: 'respondio', proximo_envio_at: null, conversacion_cerrada_at: ahora, conversacion_cierre: null, updated_at: ahora })
           .eq('workspace_id', ws).eq('secuencia_id', s.id).eq('estado', 'handoff').in('lead_id', leads);
         if (e2) throw new Error(`inscripciones en hand-off #${s.id}: ${e2.message}`);
       }

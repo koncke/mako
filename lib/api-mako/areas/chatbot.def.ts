@@ -301,11 +301,15 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'avisar_al_equipo', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Avisar al equipo',
-    descripcion: 'PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas. Úsala desde una automatización cuando el caso lo tiene que ver una persona.',
+    descripcion: 'PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Úsala desde una automatización cuando el caso lo tiene que ver una persona.',
     parametros: [
       { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'opcional: el lead del que se avisa (de buscar_leads). En una automatización, el del evento.' },
       { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'opcional: el título corto del aviso.' },
       { nombre: 'mensaje', tipo: 'string', obligatorio: true, max: 1000, descripcion: 'lo que tiene que saber el equipo, en una o dos frases.' },
+      // La pone el MOTOR cuando el aviso sale de «Si responde» (lib/nutricion.ts →
+      // correrAccionDeRespuesta): el texto literal del lead. Sin ella, el aviso de «Otra cosa» no
+      // decía qué escribió y se deduplicaba por lead contra cualquier otro aviso de las 12 h.
+      { nombre: 'respuesta', tipo: 'string', max: 1000, descripcion: 'opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead).' },
     ],
     reversible: true, escribe: 'manda un aviso al grupo de WhatsApp del negocio y deja una notificación en la app (no toca al lead)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB },

@@ -35,7 +35,15 @@
 -- `adjunto_id` al mandar un borrador, y PostgREST rechaza la consulta ENTERA si una columna no
 -- existe. Con el deploy adelantado, el cron de nutrición falla en cada corrida ANTES de
 -- mandar nada (falla cerrado: no se duplica ningún mensaje), la pantalla de /chatbot no carga
--- y los borradores no salen. Nada se pierde, pero nada anda hasta aplicarla.
+-- y los borradores no salen.
+--
+-- ⚠️ Y SE PIERDEN LAS RESPUESTAS DE LOS LEADS. El webhook no puede leer las secuencias, así que
+-- nadie atiende lo que el lead escribe: ni borrador, ni «Si responde», ni aviso al dueño. Hasta
+-- la revisión del 08/10/2026 era peor: `pausarPorRespuesta` marcaba la inscripción 'respondio'
+-- ANTES de fallar, y esa respuesta quedaba comida para siempre (aplicar la migración después no
+-- la recupera). Ahora pregunta primero y, si falta una columna, no toca la inscripción y tira:
+-- el lead sigue 'activa' y su PRÓXIMO mensaje, ya con la 0223 puesta, se atiende. El que entró
+-- en el medio no se reprocesa.
 -- =============================================================================
 
 begin;

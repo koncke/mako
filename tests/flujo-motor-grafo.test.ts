@@ -101,9 +101,10 @@ test('el fixture es un flujo que se puede guardar', () => {
 test('(1) una fila que nunca avanzó está en la ENTRADA de la salida, no en el índice 0', () => {
   assert.equal(indiceEntrada(A), 1);
   assert.equal(indiceActual(A, { nodo_actual: null, paso_actual: 0 }), 1, '«Si responde» no es por dónde empieza la salida');
-  // `nodo_actual` manda; si ya no existe, el índice de siempre; fuera de rango, ninguno.
+  // `nodo_actual` manda; si ya no existe, NINGUNO (revisión del 08/10/2026: el índice de siempre
+  // podía ser otra rama — tests/motor-revision.test.ts); fuera de rango, ninguno.
   assert.equal(indiceActual(A, { nodo_actual: 'mB', paso_actual: 0 }), 4);
-  assert.equal(indiceActual(A, { nodo_actual: 'ya-no-existe', paso_actual: 5 }), 5);
+  assert.equal(indiceActual(A, { nodo_actual: 'ya-no-existe', paso_actual: 5 }), -1);
   assert.equal(indiceActual(A, { nodo_actual: null, paso_actual: 99 }), -1);
   // Una secuencia de antes (sin ids) sigue leyendo `pasos[paso_actual]`.
   const viejo = [{ canal: 'whatsapp', delay_horas: 0, cuerpo: 'a' }, { canal: 'whatsapp', delay_horas: 24, cuerpo: 'b' }] as PasoGrafo[];
@@ -369,6 +370,7 @@ test('(9) avisar_al_equipo: la acción que usa «Otra cosa», por el canal de lo
   const i = run.indexOf('\n  avisar_al_equipo: {');
   const b = run.slice(i, run.indexOf('\n  },\n', i));
   assert.match(b, /ws: ctx\.ws,/, 'sin ws explícito el aviso cae al grupo de la agencia');
-  assert.match(b, /dedupKey: `lead:\$\{lead\.id\}`, dedupTtlMin: 60 \* 12,/, 'dos automatizaciones del mismo lead son dos avisos');
+  // Por lead, y por RESPUESTA cuando sale de «Si responde» (revisión del 08/10/2026).
+  assert.match(b, /dedupKey: respuesta \? `lead:\$\{lead\.id\}:resp:\$\{respuesta\}` : `lead:\$\{lead\.id\}`, dedupTtlMin: 60 \* 12,/, 'dos automatizaciones del mismo lead son dos avisos');
   assert.match(b, /linkApp\(`\/crm\/\$\{lead\.id\}`, ctx\.ws\)/);
 });

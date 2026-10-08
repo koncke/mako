@@ -239,6 +239,11 @@ export type InscCharla = {
   updated_at: string | null;
   conversacion_ultima_at: string | null;
   conversacion_cerrada_at: string | null;
+  /**
+   * Por qué se cerró (`CierreConversacion`), o null. Con `conversacion_cerrada_at` puesto y esto
+   * en null, la cerró el HAND-OFF: la sigue una persona (`cerradaPorUnaPersona`).
+   */
+  conversacion_cierre: string | null;
   /** ¿Le SALIÓ algo de esta secuencia? Sin un envío no hubo charla que seguir. */
   tieneEnviado: boolean;
   /** ¿La secuencia es de modo 'asistido'? Las demás no redactan nada. */
@@ -272,7 +277,8 @@ export type VeredictoCharla =
  *
  * Abierta = asistida, en 'respondio' o 'completada', sin desenlace o lograda, sin cierre
  * del setter, con al menos un envío y con el último intercambio dentro de la ventana.
- * 'handoff' queda afuera (ya contesta una persona) y 'no_responde'/'cancelada' también.
+ * 'handoff' queda afuera (ya contesta una persona), igual que la charla que cerró «Otra cosa» de
+ * un flujo (`cerradaPorUnaPersona`), y 'no_responde'/'cancelada' también.
  *
  * `motivo` (cuando no está abierta) es lo que se le explica al dueño. `null` = este lead no
  * tiene nada asistido: no hay silencio que explicar.
@@ -308,7 +314,11 @@ export function conversacionAbierta(inscs: InscCharla[], ahoraMs: number): Vered
   // Por qué no: el motivo de la más reciente, que es la que el dueño tiene en la cabeza.
   const reciente = (i: InscCharla) => Math.max(ms(i.conversacion_ultima_at), ms(i.conversacion_cerrada_at), ms(i.updated_at));
   const masReciente = [...asistidas].sort((a, b) => reciente(b) - reciente(a))[0];
-  if (masReciente.estado === 'handoff') return { abierta: false, motivo: 'la charla la está siguiendo una persona' };
+  // El cierre que manda es el ÚLTIMO (un cierre es de la charla con el lead, no de una
+  // inscripción): si lo hizo el hand-off, la sigue una persona aunque otra secuencia del lead se
+  // haya tocado después.
+  const cierreUltimo = ultimoCierre > 0 ? asistidas.find((i) => ms(i.conversacion_cerrada_at) === ultimoCierre) : undefined;
+  if (masReciente.estado === 'handoff' || (cierreUltimo && cerradaPorUnaPersona(cierreUltimo))) return { abierta: false, motivo: 'la charla la está siguiendo una persona' };
   if (masReciente.conversacion_cerrada_at || ultimoCierre > 0) return { abierta: false, motivo: 'la charla ya se había cerrado' };
   if (masReciente.pausada) return { abierta: false, motivo: 'la secuencia está pausada' };
   if (masReciente.reunionFutura === false) return { abierta: false, motivo: 'su reunión ya pasó' };
@@ -317,6 +327,40 @@ export function conversacionAbierta(inscs: InscCharla[], ahoraMs: number): Vered
     return { abierta: false, motivo: `pasaron más de ${DIAS_CHARLA_ABIERTA} días desde la última charla` };
   }
   return { abierta: false, motivo: 'la secuencia ya había terminado con este lead' };
+}
+
+/**
+ * ¿La charla la cerró el HAND-OFF? (la sigue una persona: MaKo no contesta los mensajes que
+ * vengan.)
+ *
+ * ⚠️ SE MARCA CON `conversacion_cerrada_at` Y SIN `conversacion_cierre`, a propósito: el CHECK de
+ * la 0203 sólo admite fin_bien / fin_mal / insistencia, y todo cierre del setter escribe su motivo
+ * junto con la fecha (`redactarRespuesta`). Medido el 08/10/2026: 0 filas cerradas en toda la
+ * base, ninguna sin motivo. El `null` tiene que ser EXPLÍCITO: `undefined` es «no se leyó» y no
+ * afirma nada. Si el CHECK suma 'handoff' algún día, esto pasa a mirar ese valor.
+ */
+export function cerradaPorUnaPersona(i: Pick<InscCharla, 'conversacion_cerrada_at' | 'conversacion_cierre'>): boolean {
+  return !!i.conversacion_cerrada_at && i.conversacion_cierre === null;
+}
+
+/**
+ * ¿La charla PASA A UNA PERSONA después de recorrer la rama de «Si responde»?
+ *
+ * Decisión del 08/10/2026: «Otra cosa» ES el hand-off. Si la rama elegida no produjo una
+ * respuesta de MaKo —ningún mensaje mandado ni dejado como borrador, ningún «MaKo contesta»—,
+ * la charla la sigue una persona y MaKo no contesta los mensajes siguientes, como hacía la
+ * inscripción en 'handoff'. Sin esto, «Otra cosa» avisaba y la charla seguía abierta: el próximo
+ * mensaje que encajara en «Confirma» lo contestaba MaKo solo, en medio de la charla que ya
+ * llevaba una persona.
+ *
+ *   · `contesto`: un «MaKo contesta» corrió, o un mensaje de la rama salió / quedó como borrador
+ *     (o ya le había salido: el reclamo de 20 h);
+ *   · `siguio`: la rama retomó la salida («Ir a» una tarjeta) o lo pasó a otra automatización;
+ *   · `noPudoDecidir`: una condición no pudo leer lo que necesita. Eso no es «no hay respuesta»:
+ *     la charla no se cierra por un error de lectura.
+ */
+export function charlaPasaAUnaPersona(r: { contesto: boolean; siguio: boolean; noPudoDecidir: boolean }): boolean {
+  return !r.contesto && !r.siguio && !r.noPudoDecidir;
 }
 
 /**

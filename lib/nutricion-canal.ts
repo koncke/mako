@@ -102,6 +102,11 @@ export function proveedorDelPaso(p: {
  * recibía el audio y además lo mismo por escrito. Con un pie puesto, el sorteo
  * mandaba el link una de cada N veces. La condición es la MISMA que usa el motor
  * para decidir que el paso es una nota de voz.
+ *
+ * ⚠️ UN PASO DE ARCHIVO TAMPOCO SORTEA (revisión del 08/10/2026): su `cuerpo` es el CAPTION, y
+ * `pasoAMedia` (lib/guion-audio.ts) le deja las variantes del texto que era antes. Con tres
+ * variantes, a tres de cada cuatro leads les llegaba el PDF con el texto viejo como pie; con el
+ * caption vacío, a todos («Probar» mostraba el bueno, así que la prueba no lo veía).
  */
 export function textoDelPaso(paso: {
   tipo?: string | null;
@@ -110,6 +115,7 @@ export function textoDelPaso(paso: {
   variantes?: string[] | null;
 }): string {
   if (paso.tipo === 'audio' && Number(paso.audio_id) > 0) return paso.cuerpo;
+  if (paso.tipo === 'media') return paso.cuerpo;
   const vs = (paso.variantes ?? []).filter((v) => typeof v === 'string' && v.trim());
   if (!vs.length) return paso.cuerpo;
   // El cuerpo original entra al sorteo: es la versión que el dueño aprobó.

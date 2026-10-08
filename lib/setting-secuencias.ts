@@ -335,6 +335,7 @@ export type CambioDeTrigger = {
   trigger_tipo: string;
   etapa?: string | null;
   producto_id?: number | null;
+  /** AUSENTE = no se toca el embudo de la secuencia; `null` = «todos los embudos» (una elección). */
   funnel_id?: number | null;
   etiqueta_id?: number | null;
 };
@@ -377,6 +378,12 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   // La etiqueta la suma al catálogo la parte de etiquetas; hasta que esté, se acepta por su constante.
   const valido = tipo === TRIGGER_ETIQUETA || TRIGGERS.some((t) => t.value === tipo);
   if (!valido) throw new TriggerInvalidoError(`«${tipo || '(vacío)'}» no es un disparador de las secuencias.`);
+  // ⚠️ `funnel_id` AUSENTE NO ES `null` (revisión del 08/10/2026). El desplegable del CRON no
+  // ofrece producto para un evento ni para una etiqueta, y no lo manda: con `num(undefined)` →
+  // null se escribía «todos los embudos» y una secuencia del producto B pasaba a inscribir leads
+  // de todos los productos en la próxima corrida, sin que nadie lo eligiera. Ausente = no se toca;
+  // `null` explícito = «todos», que sí es una elección.
+  const tocaEmbudo = c.funnel_id !== undefined;
   const funnelId = c.funnel_id == null ? null : Number(c.funnel_id);
   if (funnelId != null && (!Number.isFinite(funnelId) || funnelId <= 0)) throw new TriggerInvalidoError('Ese producto no existe.');
   const supabase = await getTenantDb();
@@ -392,7 +399,7 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   }
   const { error } = await supabase
     .from('nutricion_secuencias')
-    .update({ trigger_tipo: tipo, etiqueta_id: etiquetaId, funnel_id: funnelId, producto_id: null, updated_at: new Date().toISOString() })
+    .update({ trigger_tipo: tipo, etiqueta_id: etiquetaId, ...(tocaEmbudo ? { funnel_id: funnelId } : {}), producto_id: null, updated_at: new Date().toISOString() })
     .eq('id', secuenciaId);
   if (error) throw new Error(`setTriggerSecuencia: ${error.message}`);
 }

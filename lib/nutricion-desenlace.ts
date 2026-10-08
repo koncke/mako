@@ -26,7 +26,9 @@ import { enTandas } from './ids-con-filas';
 import { enviosPorInscripcion } from './nutricion-envios-resumen';
 import { preparaUnaReunion } from './nutricion-familias';
 import { reunionQuePreparaMs, type JuntasLead } from './nutricion-reinscripcion';
-import { agendoLead, pagoLead, pasoDeEntrada } from './nutricion-grafo-motor';
+import { agendoLead, pagoLead, pasoDeEntrada, logroCierraLaInscripcion } from './nutricion-grafo-motor';
+import { esFlujoExplicito } from './flujo-legado';
+import type { PasoGrafo } from './flujo-grafo';
 
 export type ResultadoDesenlaces = {
   logrados: number;
@@ -103,9 +105,10 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   if (!inscs.length) return res;
 
   const secIds = [...new Set(inscs.map((i) => i.secuencia_id))];
+  // `pasos` para saber si es un flujo de TARJETAS (`logroCierraLaInscripcion`, más abajo).
   const { data: secData } = await supabase
-    .from('nutricion_secuencias').select('id, nombre, estrategia').in('id', secIds);
-  const secs = new Map(((secData ?? []) as Array<{ id: number; nombre: string; estrategia: unknown }>).map((s) => [s.id, s]));
+    .from('nutricion_secuencias').select('id, nombre, estrategia, pasos').in('id', secIds);
+  const secs = new Map(((secData ?? []) as Array<{ id: number; nombre: string; estrategia: unknown; pasos: unknown }>).map((s) => [s.id, s]));
 
   // Los leads, en tandas de 200 ids: una fila por id, así que cada tanda queda
   // lejos del techo de 1000 y la URL del `.in()` no crece con la cola.
@@ -217,7 +220,10 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     if (!lead) continue;
 
     // ── ¿Se logró? ──
-    if (d.logrado !== 'ninguno' && seLogro(d, lead, insc.estado)) {
+    // En un flujo de TARJETAS, «agendó» y «pagó» no cierran acá: lo hacen sus condiciones
+    // (decisión del 08/10/2026, `logroCierraLaInscripcion`). «Respondió» sí.
+    const flujo = esFlujoExplicito(Array.isArray(sec.pasos) ? (sec.pasos as PasoGrafo[]) : []);
+    if (logroCierraLaInscripcion(d.logrado, flujo) && seLogro(d, lead, insc.estado)) {
       await supabase.from('nutricion_inscripciones').update({
         desenlace: 'logrado', desenlace_at: ahora, proximo_envio_at: null,
         estado: 'completada', updated_at: ahora,

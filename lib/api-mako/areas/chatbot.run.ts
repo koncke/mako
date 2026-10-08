@@ -18,7 +18,7 @@ import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, plan
 import { motivoNoInscribe } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { claseDe, idDe, siguienteDe, raizRespuesta } from '@/lib/flujo-grafo';
-import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
+import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo, AVISO_REPETIDO } from '@/lib/nutricion-grafo-motor';
 import { getAdjunto } from '@/lib/setting-adjuntos';
 import { emitirAviso } from '@/lib/avisos';
 import { linkApp } from '@/lib/app-url';
@@ -559,6 +559,7 @@ export const RUNNERS: Runners = {
       const mensaje = str(input, 'mensaje');
       if (!mensaje) return { error: 'Falta el mensaje del aviso.', faltan: ['mensaje'] };
       const titulo = str(input, 'titulo');
+      const respuesta = str(input, 'respuesta');
       const leadId = input.leadId != null ? num(input, 'leadId') : null;
       let quien: string | null = null;
       if (leadId != null) {
@@ -567,7 +568,7 @@ export const RUNNERS: Runners = {
         quien = l.nombre;
       }
       return {
-        payload: { ...(leadId != null ? { leadId } : {}), ...(titulo ? { titulo } : {}), mensaje },
+        payload: { ...(leadId != null ? { leadId } : {}), ...(titulo ? { titulo } : {}), mensaje, ...(respuesta ? { respuesta } : {}) },
         resumen: `Avisar al equipo${quien ? ` sobre ${quien}` : ''}: «${mensaje.slice(0, 120)}»`,
       };
     },
@@ -575,6 +576,8 @@ export const RUNNERS: Runners = {
       const leadId = payload.leadId != null ? Number(payload.leadId) : null;
       const mensaje = String(payload.mensaje ?? '').trim();
       if (!mensaje) return { ok: false, resumen: 'El aviso no tiene mensaje.' };
+      // Lo que escribió el lead, cuando el aviso sale de «Si responde» (lo pone el motor).
+      const respuesta = String(payload.respuesta ?? '').trim();
       const lead = leadId != null ? await leadDelAviso(leadId) : null;
       if (leadId != null && !lead) return { ok: false, resumen: `El lead #${leadId} ya no existe en este negocio.` };
       const titulo = String(payload.titulo ?? '').trim() || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
@@ -586,19 +589,28 @@ export const RUNNERS: Runners = {
         semaforo: 'amarillo',
         // POR LEAD y 12 h: dos automatizaciones avisando del mismo lead en la misma tarde son un
         // aviso. Sin lead no hay entidad de qué deduplicar, y por tipo se comería los de todos.
-        ...(lead ? { dedupKey: `lead:${lead.id}`, dedupTtlMin: 60 * 12, lead: { id: lead.id, nombre: lead.nombre }, link: `/crm/${lead.id}` } : {}),
+        // ⚠️ CON `respuesta`, POR RESPUESTA (revisión del 08/10/2026): por lead, el aviso de «Otra
+        // cosa» se lo comía el «no confirmó» de la misma tarde —el mismo tipo y la misma clave— y
+        // lo que escribió el lead no le llegaba a nadie. La clave se hashea (`keyEspaciado`).
+        ...(lead ? {
+          dedupKey: respuesta ? `lead:${lead.id}:resp:${respuesta}` : `lead:${lead.id}`, dedupTtlMin: 60 * 12,
+          lead: { id: lead.id, nombre: lead.nombre }, link: `/crm/${lead.id}`,
+        } : {}),
         // El link que viaja en el WhatsApp va por `linkApp` (lleva el `?ws=`): abierto desde el
         // teléfono, sin él abre la ficha en el negocio que esté mirando la pestaña.
         texto: [
           `🟡 *${titulo}*`,
           '',
           mensaje,
+          ...(respuesta ? ['', `_"${respuesta.slice(0, 400)}"_`] : []),
           ...(lead ? ['', `${lead.nombre}${lead.telefono ? ` · ${lead.telefono}` : ''}`, `👉 ${linkApp(`/crm/${lead.id}`, ctx.ws)}`] : []),
           '',
           '— MaKo',
         ].join('\n'),
       });
-      if (r.deduped) return { ok: true, resumen: lead ? `Ya le había avisado al equipo de ${lead.nombre} hace poco.` : 'Ese aviso ya había salido hace poco.' };
+      // El resumen de un aviso deduplicado EMPIEZA con `AVISO_REPETIDO`: el motor lo lee
+      // (`avisoSalio`, lib/nutricion-grafo-motor.ts) para mandar el de respaldo.
+      if (r.deduped) return { ok: true, resumen: `${AVISO_REPETIDO}${lead ? ` de ${lead.nombre}` : ''} hace poco.` };
       if (r.apagado) return { ok: true, resumen: 'El aviso está apagado en Configuraciones › Notificaciones: quedó sólo en la app.' };
       return { ok: r.ok, resumen: r.ok ? 'Le avisé al equipo.' : 'No pude avisarle al equipo.' };
     },
