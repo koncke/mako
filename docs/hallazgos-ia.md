@@ -3696,3 +3696,64 @@ misma acción deja dos links. El memo ataja la rotación, que era el bug.
 *07/10/2026 — sin subagentes (el diagnóstico venía medido por la revisión de la agenda). 12
 roturas en `tests/turno-sin-duplicar.test.ts`, todas con su fallo.*
 
+## Dónde se van los 14.500 tokens de una pregunta al doer, y lo que Gemini ya cacheaba (08/10/2026)
+
+**Vive en:** `lib/mako-doer-in.ts` (`DOER_WA_TOOLS`, la selección de tools, el armado del system)
+· `lib/mako-context.ts` (`buildSystemPrompt`, `hechosMako`) · `lib/anthropic-usage.ts`
+(`recordUsage`) · `lib/ai-cheap.ts` (`chatCheapTools`)
+
+Medido reconstruyendo con el código de HEAD el primer pedido de la pregunta de Brigitte (ws15,
+07/10, 14.491 tokens reales; la reconstrucción coincide con el log: las mismas 20 tools del
+registro y las mismas que quedaron afuera por el tope). Divisor calibrado: 3,96 caracteres por
+token.
+
+| Parte | Tokens | % |
+|---|---|---|
+| Esquemas de tools (43) | 7.796 | 53,8 |
+| · las 25 «de siempre» | 4.758 | 32,8 |
+| · · `proponer_tareas_plan` sola | 1.403 | 9,7 |
+| · las 18 del registro | 3.039 | 21,0 |
+| System propio del doer | 2.989 | 20,6 |
+| · `DOER_WA_TOOLS` (texto de protocolo) | 2.181 | 15,1 |
+| · · la receta de cargar tareas al plan | 1.149 | 7,9 |
+| Base de `buildSystemPrompt` | ~3.568 | 24,6 |
+| Historial y mensaje | 137 | 0,9 |
+
+⚠️ **El costo es el PREFIJO re-enviado, no los resultados.** El loop manda system + tools + toda la
+conversación en cada paso: en 7 días el 95,9% del input es el primer pedido repetido (89,8% en 30
+días); los resultados de las tools suman 4-10% (el tope de 12.000 caracteres por resultado casi
+nunca se toca). Achicar resultados no sirve; achicar el prefijo, sí.
+
+⚠️ **Lo que viaja de más**: en una pregunta del CRM (consultar/pensar) van las 7 `proponer_*`
+viejas, la receta del plan (4.552 caracteres) y las de lead, agenda y presupuesto, aunque el turno
+no cargue tareas: −3.769 a −4.437 tokens por pedido (−26/−31%) si viajan sólo cuando viaja su
+tool. El registro ya no manda sus acciones fuera de `actuar`; las viejas, sí. Y el tope de 12.000
+caracteres del registro deja afuera lo útil: con «pasá a Juan a agenda» quedan afuera 30 del crm,
+entre ellas `asignar_closer_setter` y `agregar_nota_lead`. El índice `id: título` de las 114
+operaciones de crm+ads pesa 6.110 caracteres, MENOS que los 18 esquemas que viajan hoy (12.041).
+Un índice de las 498 no sirve: 26.324 caracteres. Tiene que ser por área.
+
+⚠️ **EL DIAGNÓSTICO OBVIO —«bajemos tokens»— PUEDE SER EL EQUIVOCADO, por dos cosas medidas:**
+
+1. **Gemini ya cachea el prefijo.** Con la key de la agencia contra el mismo endpoint del doer: el
+   2º pedido con el mismo system y las mismas tools vino con `cached_tokens` = 86% (16.349 de
+   18.931). La tabla decía 0 en todas las filas porque `recordUsage` sólo leía la forma de Claude
+   (`cache_read_input_tokens`); desde `949bd68b` lo anota. En plata, el prefijo ya salía barato.
+   Si lo cacheado cuenta para el tope por minuto, Google no lo documenta.
+2. **No se sabe qué tope se pasó el 07/10.** El 429 se guardó como «HTTP 429» pelado (Gemini manda
+   el error en un array, arreglado en `af3530c2`). Los datos no distinguen pedidos de tokens: 6
+   pedidos aceptados en 12,6 s (~92k tokens) y el 7º rebotó; el 09/09 la key del ws1 aceptó 8
+   pedidos y 103k tokens en 43 s sobre el mismo modelo. El único 429 completo que leímos de
+   `gemini-flash-latest` (16/08) era de PEDIDOS (límite 20). **Si el tope es de pedidos, lo que
+   sirve es bajar PASOS, y cargar esquemas a pedido —que agrega un paso— empeora.** Desde
+   `949bd68b` qué tope fue queda adelante del mensaje y entra en la marca del rebote.
+
+⚠️ **Cambiar la lista de tools a mitad del turno invalida el caché**: medido, `cached_tokens` pasa
+de 12.253 a 0 al agregar una tool. Groq (`gpt-oss-20b`) y Gemini aceptan que la lista crezca y
+llaman la recién cargada, pero cada carga vuelve a pagar el prefijo entero.
+
+**SIN HACER:** las fases de `docs/api-mako-diseno.md` § 10. Pasar la base a «lean» (sólo persona +
+núcleo) sacaría ~2.000 tokens más, pero el 19/07 se descartó porque Sonnet fallaba en
+proponer→confirmar, y no está medido en Gemini.
+
+*08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`; commits `af3530c2` y `949bd68b`.*

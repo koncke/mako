@@ -223,4 +223,33 @@ export const BITACORA: Hito[] = [
       'tests/turno-sin-duplicar.test.ts — 10 tests, probado con 12 roturas',
     ],
   },
+  {
+    fecha: '8 oct', hora: '—', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Todas las acciones de MaKo, modularizadas como una API',
+    pedido: 'Yo creo que algo importante, y también para todo el tema de chatbot que estamos haciendo, es tener muy bien modularizado todas las acciones de MaKo...\n\nNo se como recomiendas hacerlo, pero yo me imagino que cada acción, sea algo como /crm-lead-X\nO algo así, que sea como la documentación de "API" que hicimos en su momento, no recuerdo si en esta cuenta o en la otra...\nQue basicamente MaKo tenga una API propia, con todas las acciones bien documentadas y moduladas, como un CRUD de cosas que se pueden hacer dentro de MaKo y así nos podemos ahorrar muchos tokens en la busqueda. Y también muy importante, podemos configurar acciones en el chatbot y en otros lugares que se pueda integrar la API de MaKo.',
+    puntos: [
+      'Viene después del «sin cuota» de Brigitte: una pregunta al doer son 6-8 pedidos de ~15.000 tokens.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '—', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'La API ya existe; lo que falta es que el doer y los flujos pasen por ella',
+    puntos: [
+      '**Medido:** el registro tiene 498 operaciones en 18 áreas, con su ruta `/api/v1/{área}/{operación}` y la referencia generada. Pero las 25 herramientas más usadas viajan al doer con su copia VIEJA, y las dos copias ya divergieron en 3 arreglos.',
+      '**Dónde se van los tokens de una pregunta:** 54% son esquemas de herramientas (las 25 viejas, el 33%) y la receta del plan viaja en preguntas que no cargan tareas. El prefijo re-enviado en cada paso es el 90-96% del input; los resultados de las tools, ~5%.',
+      '⚠️ **Dos supuestos del plan cayeron al refutarlos:** Gemini ya cachea el 86% del prefijo (la tabla decía 0 porque no se leía), y no se sabe si el tope del 07/10 fue de pedidos o de tokens — si es de pedidos, cargar esquemas a pedido empeora.',
+      '**Chatbot:** ninguna automatización pasa por el registro, y el paso «⚡ Acción» del lienzo de avisos no hace nada al confirmarse. El canal `flujo` espera la decisión de qué puede correr solo.',
+      '**De paso:** todo el gasto de Meta se lee en dólares como si la cuenta cobrara en pesos; para Código Inmobiliario (USD) sale 17,3 veces más chico. Va como tarea aparte.',
+    ],
+    commits: [
+      { sha: '949bd68b', msg: 'IA: se anota lo que Gemini cachea, y qué tope se pasó en un 429 queda adelante', lineas: 57, archivos: 4 },
+    ],
+    archivos: [
+      'docs/api-mako-diseno.md — § 10: el orden de las fases y las decisiones de Martín',
+      'docs/hallazgos-api-mako.md — las 25 dobles, /api/agente, los huecos que un flujo necesita',
+      'docs/hallazgos-ia.md — la anatomía de los tokens y el caché de Gemini',
+    ],
+  },
 ];

@@ -9027,3 +9027,25 @@ atribuir**:
 **Vive en:** lib/evolution-mensajes.ts · app/api/webhooks/chatwoot/route.ts ·
 lib/leads.ts (`createLead`, `upsertLeadFromMeta`) · app/crm/lead-view/OrigenCard.tsx ·
 lib/nutricion.ts · lib/meta-ads.ts (`parseInsightsToMetrics`) · *2026-10-07 tareas-ads-manager*
+
+## El paso «⚡ Acción» del lienzo de avisos promete «se hace con tu sí» y no hace nada (08/10/2026)
+
+**Vive en:** `lib/flujos.ts` (`ejecutarPaso`, ~:245-256) · `lib/flujos-tipos.ts` (`AccionFlujo`) ·
+`app/agencia/FlujoAviso.tsx` (:346, :587) · `lib/api-mako/acciones.ts` (`confirmarPendiente`)
+
+Medido sobre HEAD en la corrida de la API de MaKo (ver `docs/hallazgos-api-mako.md`, «La API existe,
+pero los que más la usan todavía no pasan por ella»). El paso ofrece tres acciones fijas
+(`crear_tarea`, `inscribir_nutricion`, `marcar_lead`) y las tres dejan una pendiente
+`flujo_<acción>` que **ningún área del registro declara**: al decirle «sí», `confirmarPendiente`
+la cierra con «ya no existe en MaKo». No toca el registro (`lib/flujos.ts` no importa nada de
+`lib/api-mako`). Nunca corrió: en producción hay 1 paso acción guardado, con disparador manual, 0
+pendientes `flujo_*` y 0 corridas. Es un control que se dibuja, promete y no puede cumplir.
+
+⚠️ **Y «cuando el lead contesta» no existe para la línea de empresa**: `lead.wa_entrante` lo
+dispara sólo el webhook de Chatwoot (`app/api/webhooks/chatwoot/route.ts:177`). Un flujo de avisos
+que espere esa respuesta no corre nunca para quien usa el WhatsApp no oficial (Evolution).
+
+**SIN HACER:** esconder el paso o enchufarlo al registro con un canal `flujo` es decisión de Martín
+(`docs/api-mako-diseno.md` § 10, decisión E y fase 6).
+
+*08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`.*

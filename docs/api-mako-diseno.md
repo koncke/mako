@@ -277,3 +277,68 @@ Y los que se mueven con los cuerpos cuando se muden (no en esta pasada):
   (`CONTRATO.areas`), el doer de la app con lecturas, la skill enseña `/api/v1`,
   `plugin/` regenerado, la guarda del pre-push, AGENTS.md.
 - **F4 — después**: mudar los 26 cuerpos, un área por commit, con sus tests.
+
+## 10. La segunda etapa (08/10/2026): una sola copia, menos tokens, acciones en los flujos
+
+El pedido de Martín, literal: «tener muy bien modularizado todas las acciones de MaKo... me
+imagino que cada acción sea algo como /crm-lead-X... que MaKo tenga una API propia, con todas
+las acciones bien documentadas y moduladas, como un CRUD... y así nos podemos ahorrar muchos
+tokens en la búsqueda. Y también muy importante, podemos configurar acciones en el chatbot y en
+otros lugares que se pueda integrar la API de MaKo».
+
+**La API ya existe y es esto**: 498 operaciones en 18 áreas (316 lecturas, 180 acciones, 2
+controles), 379 por HTTP. Lo que falta no es otra API: es que la usen de verdad los que todavía
+no la usan. Lo medido, con las correcciones de los refutadores, en `docs/hallazgos-api-mako.md`
+(«La API existe, pero los que más la usan todavía no pasan por ella») y en `docs/hallazgos-ia.md`
+(«Dónde se van los 14.500 tokens de una pregunta al doer»).
+
+### El orden, y por qué ése
+
+| # | Qué | Para qué | Tamaño | Bloqueado por |
+|---|---|---|---|---|
+| 0 | **Medir** qué tope se pasa en un 429 y cuánto cachea Gemini | Decide si conviene bajar TOKENS o PASOS | chico | — (hecho, `949bd68b`) |
+| 1 | **Las recetas del system viajan con su tool**, y en consultar/pensar no viajan las 7 `proponer_*` viejas | −26% a −31% por pedido (−3.769 a −4.437 tokens de 14.491) | chico | decisión B, y tocar el clasificador |
+| 2 | **Una sola copia de las 25**: el doer y el chat toman el ToolDef del registro | Saca las descripciones dobles y 3 bugs ya medidos | mediano | arreglar ANTES la def de `proponer_tareas_plan` |
+| 3 | **Índice por área + esquemas a pedido** | −42% por pedido, y el modelo ve las 114 operaciones de crm+ads en vez de 18 | mediano | 0 (si el tope es de pedidos, agregar un paso empeora) y 2 |
+| 4 | **Rotar sin volver a pagar el turno** | Hasta −14% del input de 30 días | mediano | — |
+| 5 | **Catálogo HTTP filtrable** (`?area=`, `?compacto=1`) y `recurso` como etiqueta | La vista «crm › lead › mover» sin renombrar; el catálogo entero son ~90k tokens | chico | — |
+| 6 | **Canal `flujo`**: una operación del registro como paso de un flujo | «Configurar acciones en el chatbot»; 0 tokens por paso | grande | decisión A |
+| 7 | **Las operaciones que un flujo necesita**: `lead_funnel` (agregar, quitar y mover dentro de un producto) e inscribir a UN lead en una secuencia | Hoy el lienzo no tiene a qué apuntar | mediano | 6 |
+
+Lo que la primera versión del plan afirmaba y **no se sostuvo** (refutado el 08/10):
+
+- «El "sí" que sigue a una pregunta se resuelve como `actuar`». **Falso en HEAD**: sin pendiente,
+  `clasificarIntencion` manda un «sí» a `charlar` (sin tools). La fase 1 necesita tocar el
+  clasificador, no sólo sacar las tools.
+- «El caché de Gemini no abarata el prefijo». **Falso para el COSTO**: el 2º pedido con el mismo
+  system y las mismas tools vino 86% cacheado. Para el CUPO no se sabe. Y cambiar la lista de
+  tools a mitad del turno lo invalida (medido: de 12.253 cacheados a 0), así que la fase 3 paga
+  el prefijo entero en cada carga.
+- «El 429 de Brigitte fue por tokens». **No está demostrado**: el único 429 completo de ese
+  modelo que leímos (16/08) era de PEDIDOS, y bajar tokens no toca ese tope.
+- «`cargar_operaciones` entra sin tocar nada». **Del lado del proveedor sí** (Groq y Gemini
+  aceptan que la lista crezca), **del nuestro no**: `permitidas` se fija antes del loop (la tool
+  cargada sería una fantasma), la cascada marca `ejecutó` ante CUALQUIER tool (una lectura apaga
+  la rotación) y el system dice «las que tienes y NINGUNA otra».
+- «La def del registro de `proponer_tareas_plan` sostiene capturar». **No**: no declara
+  `recurrente`, pierde los moldes del detalle y del proyecto, y manda a usar una tool que capturar
+  no ve. Hay que arreglar la def antes de la fase 2.
+
+### Decisiones de Martín (no se toman en el código)
+
+- **A. ¿Qué puede correr SOLO desde un flujo que armó el admin?** Recomendación: una clase
+  cerrada —interna, reversible, gratis y sobre el lead del evento (mover de etapa, etiquetar,
+  nota, inscribir en secuencia)—, opt-in por paso y con default «propone». Plata, mensajes a
+  personas, borrados y configuración, nunca. El porqué de «el canal propone» es que un dato que
+  pasa por un modelo deja de ser exacto, y en un paso configurado no escribe ningún modelo. No
+  «aplica y deja deshacer»: el CRM automático, que funciona así, tuvo 37 de 73 revertidas.
+- **B. Cuando MaKo contesta una pregunta, ¿deja la propuesta armada o la ofrece?** Recomendación:
+  la ofrece, y el «sí» siguiente va a `actuar` (hoy va a `charlar`). Medido: en 30 días hubo 0
+  turnos `actuar` y en toda la base 3 pendientes de chat: casi nunca propone desde una pregunta.
+- **C. Los nombres**: no renombrar. Etiqueta `recurso` y agrupar por área › recurso › verbo; un
+  alias (el mecanismo existe, con 0 en uso) sólo si una integración pide URLs más lindas.
+- **D. `/api/agente/*`** (duplica 6 operaciones y es lo que enseña la skill instalada): mantener,
+  y que la skill regenerada enseñe `/api/v1`; deprecar cuando haya rastro de uso (hoy 0 filas en
+  `api_llamadas`).
+- **E. El paso «⚡ Acción» del lienzo de avisos** promete «se hace con tu sí» y no hace nada (1
+  guardado, 0 corridas): esconderlo hasta la fase 6, o dejarlo.
