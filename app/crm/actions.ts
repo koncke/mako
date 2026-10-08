@@ -58,6 +58,7 @@ import { listLeadsDeFunnel, contarLeadsDeFunnel,
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { agregarAProducto } from '@/lib/lead-funnel';
+import { conLoteDeEtiquetas } from '@/lib/etiquetas';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
@@ -1258,26 +1259,34 @@ const TOPE_LOTE = 200;
 export async function moverLeadsDeEtapaAction(
   leadIds: number[],
   stageKey: string,
-): Promise<{ movidos: number; conPendientes: number; fallaron: number }> {
+): Promise<{ movidos: number; conPendientes: number; fallaron: number; sinSincronizar: number }> {
   const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0).slice(0, TOPE_LOTE);
   let movidos = 0, conPendientes = 0, fallaron = 0;
-  // SECUENCIAL: cada vuelta son ~6 consultas y un `revalidatePath`. En paralelo no se gana
-  // nada util y se multiplica la chance de que un lote quede a medias sin poder decir donde.
-  for (const id of ids) {
-    try {
-      const r = await setLeadStageAction(id, stageKey);
-      // ⚠️ `StageMoveResultado` ES UNA UNION, y la rama `ok: false` NO movio el lead.
-      // Contarla como movida seria exactamente el «N movidos» mentiroso que esta action
-      // existe para evitar: el numero se leeria como exito sobre un lote a medias.
-      if (!r.ok) { fallaron += 1; continue; }
-      movidos += 1;
-      if (r.pendientes?.length) conPendientes += 1;
-    } catch (e) {
-      fallaron += 1;
-      console.error(`[lote] no se pudo mover el lead ${id} a ${stageKey}:`, e instanceof Error ? e.message : e);
+  // ⚠️ LAS ETIQUETAS ESPEJADAS SE SINCRONIZAN AL FINAL, NO LEAD POR LEAD (revision del
+  // 08/10/2026, etiquetas-4/datos-3). Con una etiqueta vinculada a la etapa, cada vuelta esperaba
+  // WhatsApp y tres llamadas a Chatwoot por etiqueta: 200 leads eran cientos de viajes HTTP en
+  // una action de 60 s, y el lote moria a la mitad sin poder devolver el conteo. Adentro del
+  // lote el espejo escribe la base y anota; al salir se pasa afuera con el tope del lote de
+  // etiquetas y el rastro de los que no entraron (lib/etiquetas.ts, `conLoteDeEtiquetas`).
+  const { sinSincronizar } = await conLoteDeEtiquetas(async () => {
+    // SECUENCIAL: cada vuelta son ~6 consultas y un `revalidatePath`. En paralelo no se gana
+    // nada util y se multiplica la chance de que un lote quede a medias sin poder decir donde.
+    for (const id of ids) {
+      try {
+        const r = await setLeadStageAction(id, stageKey);
+        // ⚠️ `StageMoveResultado` ES UNA UNION, y la rama `ok: false` NO movio el lead.
+        // Contarla como movida seria exactamente el «N movidos» mentiroso que esta action
+        // existe para evitar: el numero se leeria como exito sobre un lote a medias.
+        if (!r.ok) { fallaron += 1; continue; }
+        movidos += 1;
+        if (r.pendientes?.length) conPendientes += 1;
+      } catch (e) {
+        fallaron += 1;
+        console.error(`[lote] no se pudo mover el lead ${id} a ${stageKey}:`, e instanceof Error ? e.message : e);
+      }
     }
-  }
-  return { movidos, conPendientes, fallaron };
+  });
+  return { movidos, conPendientes, fallaron, sinSincronizar };
 }
 
 /**

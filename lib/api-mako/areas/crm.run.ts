@@ -66,7 +66,7 @@ import {
   archivarEtiqueta, usoDeEtiqueta, ponerEtiqueta, sacarEtiqueta, catalogoWhatsApp, esEtiquetaError,
   type Etiqueta, type EntradaEtiqueta, type ResultadoPoner,
 } from '@/lib/etiquetas';
-import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido } from '@/lib/etiquetas-reglas';
+import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, consecuenciaDeArchivar, autorPublico } from '@/lib/etiquetas-reglas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
@@ -198,14 +198,16 @@ const fallosSync = (r: Extract<ResultadoPoner, { ok: true }>): string => {
   return mal.length ? ` No se pudo en ${mal.map((x) => x.destino).join(' ni ')} (quedó en el historial).` : '';
 };
 
-/** El uso de una etiqueta en una frase. Un número que no se pudo leer se dice, no se inventa. */
+/**
+ * La consecuencia de archivar, para el resumen de la propuesta: la MISMA frase que la confirmación
+ * del CRUD (`consecuenciaDeArchivar`, lib/etiquetas-reglas.ts). Revisión del 08/10/2026
+ * (etiquetas-6, datos-5): cada una tenía su redacción y la de acá prometía que las condiciones
+ * «dejan de cumplirse» cuando el motor todavía las cumplía. La decisión ahora es que archivar la
+ * APAGA (el motor la excluye) y la frase dice eso. Un número que no se pudo leer se dice.
+ */
 function usoTexto(u: Awaited<ReturnType<typeof usoDeEtiqueta>>): string {
-  const partes: string[] = [];
-  const autom = (u.disparadores ?? 0) + (u.condiciones ?? 0) + (u.acciones ?? 0);
-  if (u.condiciones == null) partes.push('no se pudo contar qué automatizaciones la usan');
-  else if (autom) partes.push(`la nombran ${autom} ${autom === 1 ? 'paso o disparador' : 'pasos o disparadores'} de las automatizaciones${u.condiciones ? ` (${u.condiciones} ${u.condiciones === 1 ? 'condición deja' : 'condiciones dejan'} de cumplirse)` : ''}`);
-  if (u.leads != null && u.leads > 0) partes.push(`la tienen ${u.leads} leads, que la conservan`);
-  return partes.length ? `: ${partes.join('; ')}` : '';
+  const frase = consecuenciaDeArchivar(u);
+  return frase ? `. ${frase.replace(/\.$/, '')}` : '';
 }
 
 // ── un lead en varios productos (mig 0207) ────────────────────────────────────
@@ -614,11 +616,15 @@ export const RUNNERS: Runners = {
     },
   },
   etiquetas_lead: {
-    leer: (input) => conLead(input, async (lead) => {
+    // ⚠️ `puesta_por` guarda el EMAIL de quien la puso desde la ficha (autorDelMovimiento). Por
+    // HTTP no viajan datos del equipo —`historial_lead` y `notas_lead`, con el mismo autor, son
+    // SIN_HTTP—, así que ahí sale reducido a «una persona» / «MaKo» / la automatización
+    // (revisión del 08/10/2026, datos-7). En la app y en WhatsApp el que pregunta es del equipo.
+    leer: (input, ctx) => conLead(input, async (lead) => {
       const [suyas, productos] = await Promise.all([etiquetasDeLead(lead.id), productosCrm().catch(() => null)]);
       return json({
         lead: { id: lead.id, nombre: lead.nombre },
-        etiquetas: suyas.map((e) => ({ ...vistaEtiqueta(e, productos), puesta_at: e.puesta_at, puesta_por: e.puesta_por })),
+        etiquetas: suyas.map((e) => ({ ...vistaEtiqueta(e, productos), puesta_at: e.puesta_at, puesta_por: ctx.canal === 'http' ? autorPublico(e.puesta_por) : e.puesta_por })),
       });
     }),
   },

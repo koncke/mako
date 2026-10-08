@@ -201,3 +201,201 @@ export function usoEnPasos(pasos: unknown, etiquetaId: number): UsoEnPasos {
   }
   return out;
 }
+
+// ── Archivar: lo que se le dice a la persona antes del «sí» ──────────────────
+
+/** Quién apunta a una etiqueta (`usoDeEtiqueta`, lib/etiquetas.ts). `null` = no se pudo contar. */
+export type UsoEtiqueta = { disparadores: number | null; condiciones: number | null; acciones: number | null; leads: number | null };
+
+/**
+ * La consecuencia de archivar, en UNA frase: la dicen la confirmación del CRUD
+ * (app/crm/EditorEtiquetas.tsx) y la propuesta de MaKo (`archivar_etiqueta`, crm.run.ts). Una sola
+ * redacción para las dos, porque las dos tenían la suya y una prometía lo que el motor no hacía.
+ *
+ * ⚠️ LO QUE AFIRMA ES LA DECISIÓN DEL 08/10/2026: archivar una etiqueta la APAGA — deja de contar
+ * en las condiciones y no dispara más (el motor la excluye, lib/nutricion.ts) — y los leads
+ * conservan la fila como historia (la ficha la muestra «(archivada)»). Si el motor dejara de
+ * excluirla, esta frase vuelve a mentir: el test del motor es el que la sostiene.
+ * Lo que no se pudo contar se dice, no se inventa. `null` = nada la usa (no hace falta preguntar).
+ */
+export function consecuenciaDeArchivar(u: UsoEtiqueta): string | null {
+  const autom = (u.disparadores ?? 0) + (u.condiciones ?? 0) + (u.acciones ?? 0);
+  const partes: string[] = [];
+  if (autom) partes.push(`deja de contar en ${autom} ${autom === 1 ? 'paso' : 'pasos'}${u.disparadores ? ' o disparadores' : ''} de automatizaciones`);
+  if (u.leads) partes.push(u.leads === 1 ? 'el lead que la tiene la conserva como historia' : `los ${u.leads} leads que la tienen la conservan como historia`);
+  if (u.condiciones == null) partes.push('no pude contar las automatizaciones');
+  if (!partes.length) return null;
+  const frase = partes.join(' y ');
+  return `${frase.charAt(0).toUpperCase()}${frase.slice(1)}.`;
+}
+
+// ── Quién la puso, para un canal sin datos del equipo ────────────────────────
+
+/**
+ * `puesta_por` guarda el EMAIL de la sesión que la puso (`autorDelMovimiento`), y por HTTP no
+ * viajan datos del equipo: `historial_lead` y `notas_lead`, que traen el mismo autor, son SIN_HTTP
+ * (revisión del 08/10/2026, datos-7). Lo de MaKo sale tal cual («MaKo», «MaKo · automatización
+ * «x»»: el nombre de una automatización del negocio, no de una persona); cualquier otra cosa —un
+ * email, un nombre, el default «CRM» de la columna— es «una persona».
+ */
+export function autorPublico(puestaPor: string | null | undefined): string {
+  const s = (puestaPor ?? '').trim();
+  return /^MaKo(?:\s·\s|$)/.test(s) ? s : 'una persona';
+}
+
+// ── Las copias a un workspace de prueba ──────────────────────────────────────
+
+export type TraduccionEtiquetas = {
+  /** Los pasos con los ids traducidos (un array NUEVO; el de entrada no se toca). */
+  pasos: unknown;
+  /** La columna `nutricion_secuencias.etiqueta_id` (el disparador «se le puso X»), traducida. */
+  etiquetaId: number | null;
+  /** Cuántos ids de etiqueta no estaban en el mapa y quedaron vacíos. */
+  sinTraducir: number;
+};
+
+const idEtiqueta = (v: unknown): number | null => {
+  const n = typeof v === 'string' && v.trim() ? Number(v) : v;
+  return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : null;
+};
+
+/**
+ * Los ids de etiquetas que viven ADENTRO de una secuencia, traducidos con el mapa de una copia
+ * (lib/datos-mau.ts y lib/clonar-config.ts → el workspace de prueba). Revisión del 08/10/2026,
+ * datos-6: las copias llevaban los ids del DUEÑO, y como los ids de `crm_etiquetas` son globales,
+ * en el destino nunca coinciden — la condición «tiene X» no se cumplía nunca, el paso ⚡ contestaba
+ * «No existe la etiqueta» y el disparador no corría, todo sin un error. La prueba no probaba lo que
+ * decía.
+ *
+ * Mira las TRES formas en que una secuencia nombra una etiqueta (las mismas que `usoEnPasos`):
+ *   · `ramas[].filas[]` con `campo: 'etiqueta'` → `valor` (lib/flujo-grafo.ts);
+ *   · `accion.params.etiquetaId` de un paso «⚡ Acción» (cualquier operación que la nombre);
+ *   · la columna `etiqueta_id` del disparador.
+ * ⚠️ LO QUE NO ESTÁ EN EL MAPA QUEDA VACÍO, nunca con el id viejo: un id del dueño que sobrevive
+ * apunta a una etiqueta que en el destino no existe o, por casualidad, a OTRA. Vacía, la condición
+ * la marca el lienzo y Publicar la frena («falta elegir la etiqueta»), que es el estado honesto.
+ */
+export function traducirEtiquetasEnSecuencia(pasos: unknown, etiquetaId: unknown, traducir: (id: number) => number | null): TraduccionEtiquetas {
+  let sinTraducir = 0;
+  const tr = (v: unknown): number | null => {
+    const id = idEtiqueta(v);
+    if (id == null) return null;
+    const nuevo = traducir(id);
+    if (nuevo == null) sinTraducir++;
+    return nuevo;
+  };
+  const columna = etiquetaId == null ? null : tr(etiquetaId);
+  if (!Array.isArray(pasos)) return { pasos, etiquetaId: columna, sinTraducir };
+  const nuevos = pasos.map((p) => {
+    if (!p || typeof p !== 'object') return p;
+    const paso = { ...(p as Record<string, unknown>) };
+    if (Array.isArray(paso.ramas)) {
+      paso.ramas = paso.ramas.map((r) => {
+        if (!r || typeof r !== 'object' || !Array.isArray((r as { filas?: unknown }).filas)) return r;
+        const rama = r as { filas: unknown[] };
+        return {
+          ...rama,
+          filas: rama.filas.map((f) => {
+            if (!f || typeof f !== 'object' || (f as { campo?: unknown }).campo !== 'etiqueta') return f;
+            return { ...(f as Record<string, unknown>), valor: tr((f as { valor?: unknown }).valor) };
+          }),
+        };
+      });
+    }
+    const a = paso.accion as { params?: Record<string, unknown> } | undefined;
+    if (a && typeof a === 'object' && a.params && typeof a.params === 'object' && 'etiquetaId' in a.params) {
+      const params = { ...a.params };
+      const nuevo = tr(params.etiquetaId);
+      if (nuevo == null) delete params.etiquetaId; else params.etiquetaId = nuevo;
+      paso.accion = { ...a, params };
+    }
+    return paso;
+  });
+  return { pasos: nuevos, etiquetaId: columna, sinTraducir };
+}
+
+// ── El espejo etapa→etiqueta para lo que NO pasa por un movimiento explícito ─
+
+/**
+ * La FOTO con la que el barrido horario (lib/etiquetas.ts, `conciliarEspejoEtapas`) detecta que un
+ * lead CAMBIÓ de etapa sin que nadie llamara al espejo: la etapa DERIVADA (Calendly le carga la
+ * fecha y el tablero lo muestra en «Agenda R1» sin escribir `pipeline_stage`), un alta, una fila de
+ * otro producto escrita por otro camino. Revisión del 08/10/2026 (etiquetas-3, datos-2).
+ *
+ * ⚠️ ES UNA FOTO Y NO UNA RECONCILIACIÓN DE ESTADO, a propósito. La salida obvia —«por cada etiqueta
+ * vinculada, ponérsela a los que están en su etapa y sacársela a los que no»— era la equivocada:
+ *   · DESHACE DECISIONES DE PERSONAS: una etiqueta vinculada que alguien sacó a mano vuelve en la
+ *     hora siguiente, y la que alguien puso sobre un lead que no se pudo mover (un cierre, un lead
+ *     cerrado, otro producto) desaparece;
+ *   · CONTRADICE EL CONTRATO DEL VÍNCULO: «cambiar el vínculo vale de acá en adelante» (editarEtiqueta,
+ *     crm.def editar_etiqueta). Vincular «Cualificado» —puesta a mano a 300 leads— a una etapa se la
+ *     sacaría en una hora a todos los que no están ahí.
+ * El espejo es de TRANSICIONES («entrar a la etapa la pone, salir la saca», diseño §5), así que el
+ * barrido compara contra la etapa que vio la vez anterior y sólo actúa sobre lo que se movió.
+ *
+ * Clave: `${leadId}:${productoId}` (el producto REAL, el default incluido: no NULL). `productos`
+ * son los que tenían alguna etiqueta vinculada al sacar la foto: una clave nueva de un producto que
+ * ya se miraba es un lead que ENTRÓ (alta, agregado); una de un producto que recién se empieza a
+ * mirar es la línea de base, sin tocar nada (lo mismo que la primera corrida).
+ */
+export type FotoEspejo = { v: 1; at: string; productos: number[]; etapas: Record<string, string> };
+export type EtapaActual = { leadId: number; productoId: number; etapa: string };
+export type TransicionEspejo = { leadId: number; productoId: number; desde: string | null; hacia: string | null };
+
+export const claveEspejo = (leadId: number, productoId: number): string => `${leadId}:${productoId}`;
+
+/** La foto guardada, o null si no hay o no se entiende (null = la próxima es la línea de base). */
+export function leerFotoEspejo(raw: string | null | undefined): FotoEspejo | null {
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw) as Partial<FotoEspejo>;
+    if (p?.v !== 1 || typeof p.at !== 'string' || !Array.isArray(p.productos) || !p.etapas || typeof p.etapas !== 'object') return null;
+    const etapas: Record<string, string> = {};
+    for (const [k, v] of Object.entries(p.etapas)) if (typeof v === 'string' && /^\d+:\d+$/.test(k)) etapas[k] = v;
+    return { v: 1, at: p.at, productos: p.productos.map(Number).filter((n) => Number.isInteger(n) && n > 0), etapas };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Qué se movió desde la foto anterior, y la foto nueva. `tope` acota cuántas transiciones se
+ * aplican en UNA corrida: las que no entran quedan en la foto nueva con su etapa VIEJA (o sin
+ * clave, si era una entrada), así la corrida siguiente las vuelve a ver. Un lead que ya no existe
+ * se suelta sin transición (sus filas se fueron con él, por la FK).
+ */
+export function planEspejo(
+  foto: FotoEspejo | null,
+  actuales: ReadonlyArray<EtapaActual>,
+  leadsVivos: ReadonlySet<number>,
+  productos: ReadonlyArray<number>,
+  opts: { ahora: string; tope: number },
+): { transiciones: TransicionEspejo[]; diferidas: number; foto: FotoEspejo } {
+  const etapas: Record<string, string> = {};
+  for (const a of actuales) etapas[claveEspejo(a.leadId, a.productoId)] = a.etapa;
+  const nueva: FotoEspejo = { v: 1, at: opts.ahora, productos: [...new Set(productos)].sort((a, b) => a - b), etapas };
+  if (!foto) return { transiciones: [], diferidas: 0, foto: nueva };
+
+  const mirados = new Set(foto.productos);
+  const vigentes = new Set(productos);
+  const todas: TransicionEspejo[] = [];
+  for (const a of actuales) {
+    const previa = foto.etapas[claveEspejo(a.leadId, a.productoId)];
+    if (previa !== undefined) { if (previa !== a.etapa) todas.push({ leadId: a.leadId, productoId: a.productoId, desde: previa, hacia: a.etapa }); }
+    else if (mirados.has(a.productoId)) todas.push({ leadId: a.leadId, productoId: a.productoId, desde: null, hacia: a.etapa });
+  }
+  for (const [k, previa] of Object.entries(foto.etapas)) {
+    if (k in etapas) continue;
+    const [leadId, productoId] = k.split(':').map(Number);
+    if (leadsVivos.has(leadId) && vigentes.has(productoId)) todas.push({ leadId, productoId, desde: previa, hacia: null });
+  }
+  todas.sort((x, y) => x.leadId - y.leadId || x.productoId - y.productoId);
+
+  const tope = Math.max(0, Math.trunc(opts.tope));
+  const transiciones = todas.slice(0, tope);
+  for (const t of todas.slice(tope)) {
+    const k = claveEspejo(t.leadId, t.productoId);
+    if (t.desde == null) delete etapas[k]; else etapas[k] = t.desde;
+  }
+  return { transiciones, diferidas: todas.length - transiciones.length, foto: nueva };
+}

@@ -18,14 +18,26 @@
 //                          foot-gun que este modo reemplaza.
 //
 // Auth: Bearer ${CRON_SECRET}.
+//
+// ⚠️ Y EL BARRIDO DEL ESPEJO ETAPA → ETIQUETA (lib/etiquetas.ts, conciliarEspejoEtapas) corre acá,
+// en todo negocio activo y SIN mirar crm_auto_enabled: no mueve leads ni manda nada, sólo pone y
+// saca las etiquetas vinculadas a una etapa cuando el lead cambió de etapa por un camino que no
+// llamó al espejo (revisión del 08/10/2026, etiquetas-3/datos-2). No va en el cron de nutrición a
+// propósito: aquel inscribe y manda, y éste no tiene que poder hacer ninguna de las dos cosas.
+// En `dry=1` no corre (escribe). Tiene su propio presupuesto de tiempo (ESPEJO_MS) para no
+// comerle los 300 s al CRM automático: lo que no entra queda para la hora siguiente.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { evaluarAutoTodos, aplicarAutoTodos } from '@/lib/crm-auto';
+import { conciliarEspejoEtapasTodos } from '@/lib/etiquetas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
+
+/** Cuánto puede tardar el barrido del espejo en una corrida, sumando todos los negocios. */
+const ESPEJO_MS = 90_000;
 
 export async function GET(request: NextRequest) {
   const unauth = checkCronAuth(request);
@@ -51,6 +63,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Primero el espejo, con su propio techo: si el CRM automático tirara, el barrido igual corrió.
+    // Nunca tira (cada negocio falla por su cuenta y lo dice en su fila).
+    const espejo = await conciliarEspejoEtapasTodos({ soloWs, hastaMs: Date.now() + ESPEJO_MS });
+
     const res = await aplicarAutoTodos(undefined, { soloWs, forzar });
     if (soloWs && res.length === 0) {
       return Response.json({ ok: false, error: `workspace ${soloWs} inexistente o pausado` }, { status: 404 });
@@ -66,6 +82,7 @@ export async function GET(request: NextRequest) {
         aplicadas_auto: auto,
         confirmaciones_creadas: confirmaciones,
         workspaces: res,
+        espejo_etiquetas: espejo,
       },
       { status: todoFallo ? 500 : 200 },
     );

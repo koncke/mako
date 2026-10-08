@@ -34,7 +34,7 @@ import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
 import { ProductoDelLead, EtapaEnProducto, useProductosDeLaFicha, type ProductoOpcion } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
 import { CaraDelLead } from '../lead-view/CaraDelLead';
-import { EtiquetasDelLead } from '../lead-view/EtiquetasDelLead';
+import { EtiquetasDelLead, versionDeEtiquetas } from '../lead-view/EtiquetasDelLead';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { MoverEtapaConfirm } from '../MoverEtapaConfirm';
 import { pideWizardAlElegir } from '../mover-etapa';
@@ -273,7 +273,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     <div>
       {header}
       {/* Las ETIQUETAS del lead (mig 0224): la MISMA pieza que el pop-up del tablero. */}
-      <div style={{ margin: '0 0 16px' }}><EtiquetasDelLead leadId={lead.id} /></div>
+      <div style={{ margin: '0 0 16px' }}><EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} /></div>
       {editandoDeal ? (
         <EditarDeal
           lead={lead}

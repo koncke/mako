@@ -4,13 +4,15 @@
 // GET   → { kpis, secuencias, etapas, triggers } (secuencias de email + stats)
 // PATCH → activar/pausar, editar pasos, renombrar, o crear una secuencia nueva.
 //         Body: { id, activa? } | { id, pasos? } | { id, nombre? }
-//             | { action:'crear', nombre, etapa, trigger }
+//             | { id, trigger, etiquetaId? } | { action:'crear', nombre, etapa, trigger, etiquetaId? }
+//         Con trigger 'etiqueta_puesta' la etiqueta es OBLIGATORIA (400 sin ella): sin etiqueta la
+//         secuencia no se disparaba nunca y nadie se enteraba (lib/email-marketing.ts).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { setSecuenciaActiva, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 import {
-  getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia,
+  getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia, DisparadorEmailError,
   ETAPAS, TRIGGERS,
 } from '@/lib/email-marketing';
 import { resendConfigurado, emailConectado } from '@/lib/resend';
@@ -34,7 +36,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  let body: { id?: unknown; activa?: unknown; pasos?: unknown; nombre?: unknown; action?: unknown; etapa?: unknown; trigger?: unknown };
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown; nombre?: unknown; action?: unknown; etapa?: unknown; trigger?: unknown; etiquetaId?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -43,7 +45,7 @@ export async function PATCH(req: NextRequest) {
 
   try {
     if (body.action === 'crear') {
-      const id = await crearEmailSecuencia(String(body.nombre ?? ''), String(body.etapa ?? 'nutri'), String(body.trigger ?? 'manual'));
+      const id = await crearEmailSecuencia(String(body.nombre ?? ''), String(body.etapa ?? 'nutri'), String(body.trigger ?? 'manual'), body.etiquetaId);
       return Response.json({ ok: true, id });
     }
 
@@ -63,6 +65,7 @@ export async function PATCH(req: NextRequest) {
         nombre: typeof body.nombre === 'string' ? body.nombre : undefined,
         etapa: typeof body.etapa === 'string' ? body.etapa : undefined,
         trigger_tipo: typeof body.trigger === 'string' ? body.trigger : undefined,
+        etiqueta_id: body.etiquetaId,
       });
     }
     if (typeof body.activa === 'boolean') {
@@ -74,6 +77,7 @@ export async function PATCH(req: NextRequest) {
     }
     return Response.json({ ok: true });
   } catch (e) {
+    if (e instanceof DisparadorEmailError) return Response.json({ ok: false, error: e.message }, { status: 400 });
     console.error(`[api:email/secuencias PATCH] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
   }

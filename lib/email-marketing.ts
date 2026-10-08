@@ -18,7 +18,7 @@ import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, ge
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { enTandas } from '@/lib/ids-con-filas';
 import { COLS_RESIDUO, RESIDUO_DIAS, SEGMENTO_RESIDUO, esResiduoFormulario, type LeadResiduo } from '@/lib/nutricion-residuo';
-import { etiquetaDeSegmento, PREFIJO_SEGMENTO_ETIQUETA } from '@/lib/etiquetas-reglas';
+import { etiquetaDeSegmento, PREFIJO_SEGMENTO_ETIQUETA, TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
 
 const ahoraISO = () => new Date().toISOString();
 const haceDiasISO = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString();
@@ -108,6 +108,8 @@ export async function getEmailKpis(): Promise<EmailKpi[]> {
 export type EmailStepStats = { sent: number; abiertos: number; clics: number };
 export type EmailSecuencia = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
+  /** La etiqueta del disparador «se le puso una etiqueta» (mig 0223). null = otro disparador, o no se pudo leer. */
+  etiqueta_id: number | null;
   activa: boolean; pasos: PasoSecuencia[]; inscriptos: number; statsPorPaso: EmailStepStats[];
 };
 
@@ -174,35 +176,98 @@ export async function getEmailSecuencias(): Promise<EmailSecuencia[]> {
     }
   }
 
+  // La etiqueta del disparador, aparte y TOLERANTE: la columna es de la mig 0223, y una lectura que
+  // la nombre en el select de arriba tiraría la tab entera si la migración no estuviera. Sin ella
+  // la pantalla sólo no puede mostrar cuál es (y guardar por etiqueta lo rechaza el que guarda).
+  const etiquetaDe = new Map<number, number | null>();
+  if (ids.length) {
+    const { data: ets, error: eEt } = await supabase.from('nutricion_secuencias').select('id, etiqueta_id').in('id', ids);
+    if (eEt) console.error(`[email] no pude leer la etiqueta de los disparadores: ${eEt.message}`);
+    for (const r of (ets ?? []) as Array<{ id: number; etiqueta_id: number | null }>) etiquetaDe.set(Number(r.id), r.etiqueta_id == null ? null : Number(r.etiqueta_id));
+  }
+
   return secuencias.map((s) => ({
     id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger_tipo: s.trigger_tipo,
+    etiqueta_id: etiquetaDe.get(s.id) ?? null,
     activa: s.activa, pasos: s.pasosArr, inscriptos: inscMap.get(s.id) ?? 0,
     statsPorPaso: s.pasosArr.map((_, i) => statsMap.get(s.id)?.get(i + 1) ?? { sent: 0, abiertos: 0, clics: 0 }),
   }));
 }
 
+/** El disparador no se puede guardar así: un error para mostrar tal cual (la ruta lo contesta 400). */
+export class DisparadorEmailError extends Error {
+  constructor(m: string) { super(m); this.name = 'DisparadorEmailError'; }
+}
+
+/**
+ * ⚠️ «SE LE PUSO UNA ETIQUETA» SIN ELEGIR CUÁL ERA UNA SECUENCIA MUDA (revisión del 08/10/2026,
+ * etiquetas-2). /email ofrecía el disparador en el desplegable y guardaba sólo `trigger_tipo`:
+ * `etiqueta_id` quedaba NULL, el evento no la inscribía (exige la etiqueta) y la cohorte devolvía
+ * vacío — activa y sin mandar nunca nada, sin un error. Ahora se exige la etiqueta y el que la
+ * escribe es la puerta de los disparadores (`setTriggerSecuencia`, lib/setting-secuencias.ts),
+ * que la valida contra ESTE negocio y rechaza una archivada. Import dinámico: aquel módulo
+ * importa éste (por `TRIGGERS`).
+ */
+async function fijarDisparadorEtiqueta(id: number, etiquetaId: unknown): Promise<void> {
+  const n = typeof etiquetaId === 'string' && etiquetaId.trim() ? Number(etiquetaId) : etiquetaId;
+  if (typeof n !== 'number' || !Number.isInteger(n) || n <= 0) throw new DisparadorEmailError('Elige la etiqueta que lo dispara.');
+  const { setTriggerSecuencia, TriggerInvalidoError } = await import('@/lib/setting-secuencias');
+  try {
+    await setTriggerSecuencia(id, { trigger_tipo: TRIGGER_ETIQUETA, etiqueta_id: n });
+  } catch (e) {
+    if (e instanceof TriggerInvalidoError) throw new DisparadorEmailError(e.message);
+    throw e;
+  }
+}
+
 // Crea una secuencia de email nueva (pausada) con un paso vacío.
-export async function crearEmailSecuencia(nombre: string, etapa: string, trigger: string): Promise<number> {
+export async function crearEmailSecuencia(nombre: string, etapa: string, trigger: string, etiquetaId?: unknown): Promise<number> {
+  const porEtiqueta = trigger === TRIGGER_ETIQUETA;
+  // Lo que se puede saber sin escribir, antes de escribir: una secuencia creada a medias quedaría
+  // en la lista sin disparador.
+  if (porEtiqueta && !(typeof etiquetaId === 'number' || (typeof etiquetaId === 'string' && etiquetaId.trim()))) {
+    throw new DisparadorEmailError('Elige la etiqueta que lo dispara.');
+  }
   const supabase = (await getTenantDb());
   const clave = `email-${Date.now().toString(36)}`;
   const pasoInicial: PasoSecuencia = { orden: 1, canal: 'email', delay_horas: 0, asunto: '', preheader: '', cuerpo: '', template_wa: null };
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .insert({ clave, nombre: nombre || 'Nueva secuencia de email', etapa: etapa || 'nutri', trigger_tipo: trigger || 'manual', activa: false, pasos: [pasoInicial] })
+    // Por etiqueta nace «manual» y el disparador lo fija su puerta (abajo): así hay UN lugar que
+    // valida la etiqueta. Si la rechaza, la fila se borra y el error llega tal cual.
+    .insert({ clave, nombre: nombre || 'Nueva secuencia de email', etapa: etapa || 'nutri', trigger_tipo: porEtiqueta ? 'manual' : (trigger || 'manual'), activa: false, pasos: [pasoInicial] })
     .select('id')
     .single();
   if (error) throw new Error(`crearEmailSecuencia: ${error.message}`);
-  return (data as { id: number }).id;
+  const id = (data as { id: number }).id;
+  if (porEtiqueta) {
+    try {
+      await fijarDisparadorEtiqueta(id, etiquetaId);
+    } catch (e) {
+      const { error: eDel } = await supabase.from('nutricion_secuencias').delete().eq('id', id);
+      if (eDel) console.error(`[email] la secuencia ${id} quedó sin disparador y no se pudo borrar: ${eDel.message}`);
+      throw e;
+    }
+  }
+  return id;
 }
 
 // Actualiza metadata de una secuencia (nombre / etapa / trigger). Solo toca los
-// campos provistos.
-export async function actualizarMetaEmailSecuencia(id: number, patch: { nombre?: string; etapa?: string; trigger_tipo?: string }): Promise<void> {
+// campos provistos. El disparador por etiqueta exige `etiqueta_id` (ver `fijarDisparadorEtiqueta`).
+export async function actualizarMetaEmailSecuencia(id: number, patch: { nombre?: string; etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown }): Promise<void> {
   const supabase = (await getTenantDb());
   const upd: Record<string, unknown> = { updated_at: ahoraISO() };
   if (typeof patch.nombre === 'string') upd.nombre = patch.nombre;
   if (typeof patch.etapa === 'string' && patch.etapa) upd.etapa = patch.etapa;
-  if (typeof patch.trigger_tipo === 'string' && patch.trigger_tipo) upd.trigger_tipo = patch.trigger_tipo;
+  const porEtiqueta = patch.trigger_tipo === TRIGGER_ETIQUETA;
+  if (typeof patch.trigger_tipo === 'string' && patch.trigger_tipo && !porEtiqueta) {
+    upd.trigger_tipo = patch.trigger_tipo;
+    // El disparador dejó de ser por etiqueta: la que tenía no puede seguir contando como «la
+    // usa una automatización» al archivarla (usoDeEtiqueta cuenta por esta columna).
+    upd.etiqueta_id = null;
+  }
+  // La etiqueta PRIMERO: si se rechaza, no se escribió nada del resto del pedido.
+  if (porEtiqueta) await fijarDisparadorEtiqueta(id, patch.etiqueta_id);
   if (Object.keys(upd).length === 1) return; // solo updated_at → nada que hacer
   const { error } = await supabase.from('nutricion_secuencias').update(upd).eq('id', id);
   if (error) throw new Error(`actualizarMetaEmailSecuencia: ${error.message}`);

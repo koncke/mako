@@ -37,8 +37,10 @@ import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia,
   ETAPAS, TRIGGERS, SEGMENTOS, esSegmentoValido, leadsDeSegmento, contarSegmento, contarTodosSegmentos,
   getBroadcasts, crearBroadcast, actualizarBroadcast, eliminarBroadcast, enviarBroadcast, enviarBroadcastPrueba,
-  MAX_DESTINATARIOS, type EmailSecuencia, type Broadcast,
+  MAX_DESTINATARIOS, DisparadorEmailError, type EmailSecuencia, type Broadcast,
 } from '@/lib/email-marketing';
+import { etiquetaPorId } from '@/lib/etiquetas';
+import { TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
 import { setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { getEmailFrom, remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain } from '@/lib/resend';
@@ -124,10 +126,30 @@ function errorEtapaTrigger(etapa: string | undefined, trigger: string | undefine
 
 /** Cambiar el trigger, o la etapa con el trigger etapa_actual, cambia QUIÉN inscribe el
  *  motor: en una secuencia activa eso es mandarle emails reales a una cohorte nueva en la
- *  próxima corrida, y un envío masivo no se confirma con un «sí» por chat (diseño §3). */
-function cambiaCohorte(s: EmailSecuencia, etapa: string | undefined, trigger: string | undefined): boolean {
+ *  próxima corrida, y un envío masivo no se confirma con un «sí» por chat (diseño §3).
+ *  Cambiar la etiqueta de una que se dispara por etiqueta, también. */
+function cambiaCohorte(s: EmailSecuencia, etapa: string | undefined, trigger: string | undefined, etiquetaId?: number | null): boolean {
   if (trigger !== undefined && trigger !== s.trigger_tipo) return true;
+  if (etiquetaId != null && etiquetaId !== s.etiqueta_id) return true;
   return etapa !== undefined && etapa !== s.etapa && (trigger ?? s.trigger_tipo) === 'etapa_actual';
+}
+
+/**
+ * ⚠️ «SE LE PUSO UNA ETIQUETA» SIN DECIR CUÁL ES UNA SECUENCIA MUDA (revisión del 08/10/2026,
+ * etiquetas-2): se guardaba sólo el trigger, `etiqueta_id` quedaba vacío y la secuencia no se
+ * disparaba nunca, sin un error. Con ese trigger la etiqueta es obligatoria y tiene que existir
+ * (viva) en este negocio. Lo valida acá para contestarlo ANTES del «sí»; al confirmar lo vuelve a
+ * validar la puerta de los disparadores (lib/setting-secuencias.ts, vía lib/email-marketing.ts).
+ */
+async function errorEtiquetaDelTrigger(trigger: string | undefined, etiquetaId: number | null): Promise<Preparado | null> {
+  if (trigger !== TRIGGER_ETIQUETA) {
+    return etiquetaId != null ? { error: `etiquetaId va sólo con el trigger ${TRIGGER_ETIQUETA}.` } : null;
+  }
+  if (etiquetaId == null) return { error: 'Con el trigger etiqueta_puesta hay que decir qué etiqueta lo dispara (listar_etiquetas, área crm).', faltan: ['etiquetaId'] };
+  const e = await etiquetaPorId(etiquetaId);
+  if (!e) return { error: `No existe la etiqueta #${etiquetaId} en este negocio. Pide la lista con listar_etiquetas (área crm).` };
+  if (e.archivada_at) return { error: `La etiqueta «${e.nombre}» está archivada: no dispara nada.` };
+  return null;
 }
 const ERROR_COHORTE_ACTIVA = (id: number) => `La secuencia #${id} está ACTIVA: cambiarle el trigger (o la etapa con el trigger etapa_actual) inscribe a una cohorte nueva y le manda emails reales en la próxima corrida. Primero hay que pausarla con proponer_toggle_nutricion (área chatbot); renombrarla sí se puede sin pausar.`;
 
@@ -169,6 +191,7 @@ export const RUNNERS: Runners = {
         total: secs.length,
         secuencias: secs.map((s) => ({
           id: s.id, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, trigger_label: labelDe(TRIGGERS, s.trigger_tipo),
+          ...(s.trigger_tipo === TRIGGER_ETIQUETA ? { etiquetaId: s.etiqueta_id } : {}),
           activa: s.activa, archivada: archivadas.has(s.id), inscriptos: s.inscriptos,
           pasos: s.pasos.map((p, i) => ({
             orden: i + 1, delay_horas: p.delay_horas, ...(p.ancla ? { ancla: p.ancla } : {}),
@@ -189,6 +212,7 @@ export const RUNNERS: Runners = {
       const advertencias = [AVISO_SIMULADO];
       return json({
         id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, trigger_label: labelDe(TRIGGERS, s.trigger_tipo),
+        ...(s.trigger_tipo === TRIGGER_ETIQUETA ? { etiquetaId: s.etiqueta_id } : {}),
         activa: s.activa, archivada: archivadas.has(id), inscriptos: s.inscriptos,
         pasos: s.pasos.map((p, i) => ({
           orden: i + 1, delay_horas: p.delay_horas, ...(p.ancla ? { ancla: p.ancla } : {}), ...(p.requiere ? { requiere: p.requiere } : {}),
@@ -349,17 +373,25 @@ export const RUNNERS: Runners = {
       const nombre = str(input, 'nombre');
       const etapa = str(input, 'etapa');
       const trigger = str(input, 'trigger');
+      const etiquetaId = num(input, 'etiquetaId');
       const mal = errorEtapaTrigger(etapa, trigger);
       if (mal) return mal;
       if (trigger === 'etapa_actual' && !etapa) return { error: 'Con el trigger etapa_actual hay que decir la etapa del funnel.', faltan: ['etapa'] };
+      const malEtiqueta = await errorEtiquetaDelTrigger(trigger, etiquetaId);
+      if (malEtiqueta) return malEtiqueta;
       return {
-        payload: { nombre: nombre ?? '', etapa: etapa ?? '', trigger: trigger ?? '' },
-        resumen: `Crear la secuencia de email «${nombre ?? 'Nueva secuencia de email'}» pausada, con etapa ${etapa ?? 'nutri'} y trigger «${labelDe(TRIGGERS, trigger ?? 'manual')}». No manda nada hasta escribir los pasos y activarla.`,
+        payload: { nombre: nombre ?? '', etapa: etapa ?? '', trigger: trigger ?? '', ...(etiquetaId != null ? { etiquetaId } : {}) },
+        resumen: `Crear la secuencia de email «${nombre ?? 'Nueva secuencia de email'}» pausada, con etapa ${etapa ?? 'nutri'} y trigger «${labelDe(TRIGGERS, trigger ?? 'manual')}»${etiquetaId != null ? ` (etiqueta #${etiquetaId})` : ''}. No manda nada hasta escribir los pasos y activarla.`,
       };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
-      const id = await crearEmailSecuencia(String(payload.nombre ?? ''), String(payload.etapa ?? ''), String(payload.trigger ?? ''));
-      return { ok: true, resumen: `Secuencia de email #${id} creada (pausada).`, datos: { id } };
+      try {
+        const id = await crearEmailSecuencia(String(payload.nombre ?? ''), String(payload.etapa ?? ''), String(payload.trigger ?? ''), payload.etiquetaId);
+        return { ok: true, resumen: `Secuencia de email #${id} creada (pausada).`, datos: { id } };
+      } catch (e) {
+        if (e instanceof DisparadorEmailError) return { ok: false, resumen: e.message };
+        throw e;
+      }
     },
   },
 
@@ -371,16 +403,29 @@ export const RUNNERS: Runners = {
       const nombre = str(input, 'nombre');
       const etapa = str(input, 'etapa');
       const trigger = str(input, 'trigger_tipo');
-      if (nombre === undefined && etapa === undefined && trigger === undefined) return { error: 'No hay nada que cambiar: manda nombre, etapa o trigger_tipo.', faltan: ['nombre', 'etapa', 'trigger_tipo'] };
+      const etiquetaId = num(input, 'etiquetaId');
+      if (nombre === undefined && etapa === undefined && trigger === undefined && etiquetaId == null) return { error: 'No hay nada que cambiar: manda nombre, etapa, trigger_tipo o etiquetaId.', faltan: ['nombre', 'etapa', 'trigger_tipo'] };
       const mal = errorEtapaTrigger(etapa, trigger ?? s.trigger_tipo);
       if (mal) return mal;
-      if (s.activa && cambiaCohorte(s, etapa, trigger)) return { error: ERROR_COHORTE_ACTIVA(id) };
+      // La etiqueta se mira contra el trigger que QUEDA. Pasar a etiqueta_puesta sin decir cuál
+      // (o seguir en ese trigger sin una guardada) es la secuencia muda de antes.
+      const queda = trigger ?? s.trigger_tipo;
+      const etiquetaQueda = etiquetaId ?? (queda === s.trigger_tipo ? s.etiqueta_id : null);
+      const malEtiqueta = (trigger !== undefined || etiquetaId != null) ? await errorEtiquetaDelTrigger(queda, queda === TRIGGER_ETIQUETA ? etiquetaQueda : etiquetaId) : null;
+      if (malEtiqueta) return malEtiqueta;
+      if (s.activa && cambiaCohorte(s, etapa, trigger, etiquetaId)) return { error: ERROR_COHORTE_ACTIVA(id) };
       const partes: string[] = [];
       if (nombre !== undefined) partes.push(`nombre «${s.nombre}» → «${nombre}»`);
       if (etapa !== undefined) partes.push(`etapa ${s.etapa} → ${etapa}`);
       if (trigger !== undefined) partes.push(`trigger «${labelDe(TRIGGERS, s.trigger_tipo)}» → «${labelDe(TRIGGERS, trigger)}»${s.activa ? '' : ' (la secuencia está pausada: la cohorte nueva se inscribe recién al activarla)'}`);
+      if (queda === TRIGGER_ETIQUETA && etiquetaQueda != null && etiquetaQueda !== s.etiqueta_id) partes.push(`la dispara la etiqueta #${etiquetaQueda}`);
       return {
-        payload: { id, ...(nombre !== undefined ? { nombre } : {}), ...(etapa !== undefined ? { etapa } : {}), ...(trigger !== undefined ? { trigger_tipo: trigger } : {}) },
+        payload: {
+          id, ...(nombre !== undefined ? { nombre } : {}), ...(etapa !== undefined ? { etapa } : {}),
+          // El disparador por etiqueta viaja ENTERO (trigger + etiqueta): cambiar sólo la etiqueta
+          // también pasa por la puerta que la valida.
+          ...(queda === TRIGGER_ETIQUETA && (trigger !== undefined || etiquetaId != null) ? { trigger_tipo: TRIGGER_ETIQUETA, etiquetaId: etiquetaQueda } : trigger !== undefined ? { trigger_tipo: trigger } : {}),
+        },
         resumen: `Secuencia #${id}: ${partes.join('; ')}.`,
       };
     },
@@ -388,15 +433,22 @@ export const RUNNERS: Runners = {
       const id = Number(payload.id);
       const s = await secuenciaEmail(id);
       if (!s) return { ok: false, resumen: noSecuencia(id) };
+      const etiquetaId = typeof payload.etiquetaId === 'number' ? payload.etiquetaId : null;
       // Pudo activarse entre el «sí» y ahora: un cambio de cohorte en una activa es un envío masivo.
-      if (s.activa && cambiaCohorte(s, typeof payload.etapa === 'string' ? payload.etapa : undefined, typeof payload.trigger_tipo === 'string' ? payload.trigger_tipo : undefined)) {
+      if (s.activa && cambiaCohorte(s, typeof payload.etapa === 'string' ? payload.etapa : undefined, typeof payload.trigger_tipo === 'string' ? payload.trigger_tipo : undefined, etiquetaId)) {
         return { ok: false, resumen: ERROR_COHORTE_ACTIVA(id) };
       }
-      await actualizarMetaEmailSecuencia(id, {
-        nombre: typeof payload.nombre === 'string' ? payload.nombre : undefined,
-        etapa: typeof payload.etapa === 'string' ? payload.etapa : undefined,
-        trigger_tipo: typeof payload.trigger_tipo === 'string' ? payload.trigger_tipo : undefined,
-      });
+      try {
+        await actualizarMetaEmailSecuencia(id, {
+          nombre: typeof payload.nombre === 'string' ? payload.nombre : undefined,
+          etapa: typeof payload.etapa === 'string' ? payload.etapa : undefined,
+          trigger_tipo: typeof payload.trigger_tipo === 'string' ? payload.trigger_tipo : undefined,
+          etiqueta_id: etiquetaId ?? undefined,
+        });
+      } catch (e) {
+        if (e instanceof DisparadorEmailError) return { ok: false, resumen: e.message };
+        throw e;
+      }
       return { ok: true, resumen: `Secuencia de email #${id} actualizada.` };
     },
   },

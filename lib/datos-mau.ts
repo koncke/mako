@@ -27,6 +27,7 @@ import { getSupabaseServer } from './supabase';
 import { leerPorPaginas } from './supabase-paginado';
 import { OWNER_WS } from './auth-session';
 import { SERVICIOS_METODO } from './metodo-catalogo';
+import { claveNombre, traducirEtiquetasEnSecuencia } from './etiquetas-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Forma del registro
@@ -89,6 +90,21 @@ type TablaClon = {
    * biblioteca (`media_id`), y los dos ids viven en el mismo jsonb.
    */
   remapJson?: Array<{ campo: string; clave: string; desde: string }>;
+  /**
+   * Cómo se compara `dedupPor` (default: el texto tal cual). Las etiquetas del CRM son únicas por
+   * `lower(btrim(nombre))` (mig 0224): comparadas tal cual, «Cualificado» del dueño no reconocía a
+   * «cualificado» del destino, el insert chocaba con el índice y se caía el ámbito entero.
+   */
+  normalizarDedup?: (v: string) => string;
+  /** Con `soloNulo`: el dedup mira sólo las filas VIVAS del destino (la unicidad es entre las vivas). */
+  dedupEntreVivas?: boolean;
+  /**
+   * Las ETIQUETAS que la fila nombra por id —condiciones, pasos «⚡ Acción» y el disparador
+   * `etiqueta_id`—, traducidas con el mapa de `crm_etiquetas` ya copiada (revisión del 08/10/2026,
+   * datos-6). No alcanza con `remapJson`: mira sólo las claves de PRIMER nivel de cada paso, y una
+   * condición vive en `ramas[].filas[].valor`. Lo que no está en el mapa queda vacío.
+   */
+  remapEtiquetas?: boolean;
   /** Tablas que apuntan a esta por FK: se copian remapeando el id nuevo. */
   hijos?: Array<{ tabla: string; fk: string; omitir?: string[]; limite?: number }>;
 };
@@ -238,10 +254,29 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
       // (mig 0225). El path viaja verbatim y apunta al archivo del DUEÑO: lo protege
       // `pathEsAdjuntoDe` al borrar (lib/setting-adjuntos.ts), igual que a los audios.
       { tabla: 'setting_adjuntos', omitir: ['id'], limite: 40, ordenar: { col: 'created_at' }, dedupPor: 'media_path' },
+      // LAS ETIQUETAS DEL CRM TAMBIÉN, y por lo mismo (mig 0224, revisión del 08/10/2026, datos-6):
+      // las condiciones «tiene la etiqueta X», los pasos «⚡ Acción» y el disparador nombran su id,
+      // y los ids son globales — los del dueño en el destino no existen. Sin el catálogo copiado,
+      // la condición no se cumplía nunca y la acción contestaba «No existe la etiqueta».
+      // Lo que NO viaja: las archivadas, el vínculo a una etapa de OTRO producto (su `funnel_id` es
+      // un embudo del dueño) y el mapeo a WhatsApp y a Chatwoot (las integraciones del dueño: una
+      // prueba no puede etiquetar su celular). Qué lead tiene cuál, tampoco: es un dato operativo.
+      {
+        tabla: 'crm_etiquetas',
+        omitir: ['id', 'wa_instance', 'wa_label_id', 'chatwoot_label', 'created_at', 'updated_at'],
+        soloNulo: 'archivada_at',
+        dedupPor: 'nombre',
+        normalizarDedup: claveNombre,
+        dedupEntreVivas: true,
+        neutralizar: {
+          funnel_id: () => null,
+          etapa_key: (f) => (f.funnel_id == null ? f.etapa_key ?? null : null),
+        },
+      },
       // Pausadas SIEMPRE: un workspace de prueba no arranca mandando solo.
       // Los PASOS viajan con la fila (son la columna jsonb `pasos`, no una
-      // tabla hija), así que la secuencia no llega vacía — lo único que hay que
-      // arreglarles de adentro es a qué audio apuntan.
+      // tabla hija), así que la secuencia no llega vacía — lo que hay que
+      // arreglarles de adentro es a qué audio, archivo y etiqueta apuntan.
       {
         tabla: 'nutricion_secuencias',
         omitir: ['id'],
@@ -252,6 +287,7 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
           { campo: 'pasos', clave: 'audio_id', desde: 'setting_audios' },
           { campo: 'pasos', clave: 'media_id', desde: 'setting_adjuntos' },
         ],
+        remapEtiquetas: true,
       },
     ],
     nota: 'Los audios y archivos se leen desde los del dueño. Para probar, sube los tuyos.',
@@ -572,23 +608,29 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
   // Lo que el destino ya tiene con esa clave no se vuelve a traer: un UNIQUE por
   // workspace haría fallar el insert ENTERO, y con él todo el ámbito.
   if (t.dedupPor) {
-    const { data: yaHay } = await sb.from(t.tabla).select(`id, ${t.dedupPor}`).eq('workspace_id', destino);
+    let qHay = sb.from(t.tabla).select(`id, ${t.dedupPor}`).eq('workspace_id', destino);
+    // Las etiquetas son únicas entre las VIVAS (mig 0224): una archivada del destino con el mismo
+    // nombre no ocupa la clave ni puede recibir los ids de la que se trae. (Las secuencias, al
+    // revés: su `clave` es única aunque estén archivadas, y por eso esto va con su propio flag.)
+    if (t.dedupEntreVivas && t.soloNulo) qHay = qHay.is(t.soloNulo, null);
+    const { data: yaHay } = await qHay;
+    const dedup = (v: unknown) => (t.normalizarDedup ? t.normalizarDedup(String(v)) : String(v));
     // Clave → id QUE YA ESTÁ en el destino. No alcanza con saber cuáles
     // saltear: lo que apunta a esas filas (un audio_id, un setting) necesita
     // su id igual. Sin esto, copiar dos veces dejaba las secuencias apuntando
     // a la tanda vieja y el mapa de audios a la nueva.
     const existentes = new Map<string, string | number>();
     for (const r of ((yaHay ?? []) as unknown as Array<Record<string, unknown>>)) {
-      existentes.set(String(r[t.dedupPor!]), r.id as string | number);
+      existentes.set(dedup(r[t.dedupPor!]), r.id as string | number);
     }
-    const yaEstaban = origen.filter((f) => existentes.has(String(f[t.dedupPor!])));
+    const yaEstaban = origen.filter((f) => existentes.has(dedup(f[t.dedupPor!])));
     const salteadas = yaEstaban.map((f) => String(f[t.dedupPor!]));
     const mapaPrevio = (mapas[t.tabla] ??= new Map());
     for (const f of yaEstaban) {
-      const id = existentes.get(String(f[t.dedupPor!]));
+      const id = existentes.get(dedup(f[t.dedupPor!]));
       if (id != null && f.id != null) mapaPrevio.set(String(f.id), id);
     }
-    origen = origen.filter((f) => !existentes.has(String(f[t.dedupPor!])));
+    origen = origen.filter((f) => !existentes.has(dedup(f[t.dedupPor!])));
     // Antes se salteaban en silencio y el resultado decía «copiado: N» como si
     // nada. Justo las dos secuencias del onboarding tienen clave fija, así que
     // una cuenta de prueba que ya lo hubiera corrido a medias descartaba
@@ -607,6 +649,21 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
     const nombra = nuevas.some((f) => Array.isArray(f[r.campo]) && (f[r.campo] as Array<Record<string, unknown> | null>).some((it) => it?.[r.clave] != null));
     if (!mapa && nombra) avisos.push(`${t.tabla}: no había mapa de ${r.desde}, los ${r.clave} quedan vacíos.`);
     for (const f of nuevas) remapearJson(f, r, mapa);
+  }
+  if (t.remapEtiquetas) {
+    const mapa = mapas.crm_etiquetas;
+    let sinTraducir = 0;
+    for (const f of nuevas) {
+      const tr = traducirEtiquetasEnSecuencia(f.pasos, f.etiqueta_id, (id) => {
+        const nuevo = mapa?.get(String(id));
+        return nuevo == null ? null : Number(nuevo);
+      });
+      f.pasos = tr.pasos;
+      // La columna sólo se toca si la fila la trae (la mig 0223): inventarla rompería el insert.
+      if ('etiqueta_id' in f) f.etiqueta_id = tr.etiquetaId;
+      sinTraducir += tr.sinTraducir;
+    }
+    if (sinTraducir) avisos.push(`${t.tabla}: ${sinTraducir} ${sinTraducir === 1 ? 'etiqueta quedó' : 'etiquetas quedaron'} sin elegir (no se copió una igual).`);
   }
   const { data: ins, error } = await sb.from(t.tabla).insert(nuevas).select('id');
   if (error) { avisos.push(`${t.tabla}: ${error.message}`); return 0; }

@@ -26,7 +26,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Confirm } from '@/app/_ui/Confirm';
 import { Dropdown, type DropdownGroup } from '@/app/components/Dropdown';
 import { avisarCambioEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
-import { COLORES_ETIQUETA, TOPE_NOMBRE_ETIQUETA } from '@/lib/etiquetas-reglas';
+import { COLORES_ETIQUETA, TOPE_NOMBRE_ETIQUETA, consecuenciaDeArchivar } from '@/lib/etiquetas-reglas';
 
 const SANS = "'Geist', sans-serif";
 
@@ -51,15 +51,11 @@ async function post(cuerpo: Record<string, unknown>): Promise<{ ok: true; etique
   }
 }
 
-/** La frase de quién la usa, para la confirmación de archivar. Lo que no se pudo contar se dice. */
-function frenoDe(u: Uso): string | null {
-  const autom = (u.disparadores ?? 0) + (u.condiciones ?? 0) + (u.acciones ?? 0);
-  const partes: string[] = [];
-  if (autom) partes.push(`La usan ${autom} ${autom === 1 ? 'paso' : 'pasos'} de automatizaciones`);
-  if (u.leads) partes.push(`la tienen ${u.leads} leads`);
-  if (u.condiciones == null) partes.push('no pude contar las automatizaciones');
-  return partes.length ? `${partes.join(' y ')}.` : null;
-}
+/**
+ * La consecuencia de archivar, para la confirmación: la MISMA frase que dice MaKo antes del «sí»
+ * (lib/etiquetas-reglas.ts, `consecuenciaDeArchivar`, con la decisión del 08/10/2026 adentro).
+ */
+const frenoDe = (u: Uso): string | null => consecuenciaDeArchivar(u);
 
 export function EditorEtiquetas() {
   const [datos, setDatos] = useState<Datos | null>(null);

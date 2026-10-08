@@ -83,7 +83,7 @@ export type OpcionesPoner = {
   autor: string;
   /** 'etapa' = la pone ENTRAR a la etapa vinculada: no vuelve a mover (corta el espejo) ni dispara. */
   origen?: 'etapa' | 'directo';
-  /** false = no pegarle a WhatsApp ni a Chatwoot (lo usa el lote para su tope). */
+  /** false = no pegarle a WhatsApp ni a Chatwoot ahora: lo hace quien llamó, al final y con tope (`sincronizarDiferidos`). */
   sincronizar?: boolean;
 };
 
@@ -164,11 +164,22 @@ export async function sacarEtiquetaCon<E extends EtiquetaMotor>(p: PuertosEtique
   return { ok: true, yaEstaba: false, disparo: 'no', movio: false, sync };
 }
 
+/** Un cambio que el espejo HIZO en la base y que todavía no se pasó a WhatsApp ni a Chatwoot. */
+export type CambioEtiqueta = { leadId: number; etiquetaId: number; accion: 'poner' | 'sacar' };
+
 /**
  * El lado de la ETAPA del espejo: el lead pasó de `desde` a `hacia` en el producto `funnelId`
  * (null = el del negocio). Saca las etiquetas vinculadas a la etapa que deja y pone las de la que
  * entra, con `origen: 'etapa'` — que nunca vuelve a mover. Lo llaman los ganchos de
- * `setBoardStageOverride`, `setPipelineStage` y `moverEtapaEnProducto`.
+ * `setBoardStageOverride`, `setPipelineStage`, `updateLead`, `upsertLeadFromCalendly` y
+ * `moverEtapaEnProducto`, y el barrido horario (`conciliarEspejoEtapas`).
+ *
+ * ⚠️ `sincronizar: false` ES PARA LOS LOTES (revisión del 08/10/2026, etiquetas-4/datos-3): mover
+ * 200 leads de etapa desde la barra del CRM esperaba, lead por lead, WhatsApp y tres llamadas a
+ * Chatwoot por cada etiqueta espejada — cientos de viajes HTTP adentro de una server action con
+ * techo de 60 s, con el lote cortado a la mitad y sin el conteo. Así el espejo escribe la base y
+ * devuelve en `cambios` lo que hizo; quien llamó lo sincroniza AL FINAL con `sincronizarDiferidos`,
+ * con el mismo tope que el lote de etiquetas y el rastro de los que no se pasaron.
  */
 export async function espejarEtapaCon<E extends EtiquetaMotor>(
   p: PuertosEtiquetas<E>,
@@ -177,23 +188,71 @@ export async function espejarEtapaCon<E extends EtiquetaMotor>(
   desde: string | null,
   hacia: string | null,
   autor: string,
-): Promise<{ puestas: number; sacadas: number }> {
-  if (desde === hacia) return { puestas: 0, sacadas: 0 };
+  opts?: { sincronizar?: boolean },
+): Promise<{ puestas: number; sacadas: number; cambios: CambioEtiqueta[] }> {
+  const cambios: CambioEtiqueta[] = [];
+  if (desde === hacia) return { puestas: 0, sacadas: 0, cambios };
+  const sincronizar = opts?.sincronizar !== false;
   let puestas = 0;
   let sacadas = 0;
   if (desde) {
     for (const e of await p.etiquetasDeEtapa(funnelId, desde)) {
-      const r = await sacarEtiquetaCon(p, leadId, e.id, { autor, origen: 'etapa' });
-      if (r.ok && !r.yaEstaba) sacadas++;
+      const r = await sacarEtiquetaCon(p, leadId, e.id, { autor, origen: 'etapa', sincronizar });
+      if (r.ok && !r.yaEstaba) { sacadas++; cambios.push({ leadId, etiquetaId: e.id, accion: 'sacar' }); }
     }
   }
   if (hacia) {
     for (const e of await p.etiquetasDeEtapa(funnelId, hacia)) {
-      const r = await ponerEtiquetaCon(p, leadId, e.id, { autor, origen: 'etapa' });
-      if (r.ok && !r.yaEstaba) puestas++;
+      const r = await ponerEtiquetaCon(p, leadId, e.id, { autor, origen: 'etapa', sincronizar });
+      if (r.ok && !r.yaEstaba) { puestas++; cambios.push({ leadId, etiquetaId: e.id, accion: 'poner' }); }
     }
   }
-  return { puestas, sacadas };
+  return { puestas, sacadas, cambios };
+}
+
+/**
+ * Pasa a WhatsApp y a Chatwoot lo que el espejo (o un lote) escribió sin sincronizar, con UN tope
+ * para todo el conjunto: los primeros `tope` (lead, etiqueta) se sincronizan y al resto se le deja
+ * escrito en el historial que no se pasó — el mismo rastro que el lote de etiquetas. Lo que no
+ * tiene a dónde ir (una etiqueta sin WhatsApp mapeado y un negocio sin Chatwoot) no gasta tope.
+ */
+export async function sincronizarDiferidos<E extends EtiquetaMotor>(
+  p: PuertosEtiquetas<E>,
+  cambios: ReadonlyArray<CambioEtiqueta>,
+  tope: number = SYNC_LOTE_MAX,
+): Promise<{ sincronizados: number; sinSincronizar: number }> {
+  const grupos = new Map<string, { etiquetaId: number; accion: 'poner' | 'sacar'; ids: number[] }>();
+  for (const c of cambios) {
+    const k = `${c.etiquetaId}:${c.accion}`;
+    const g = grupos.get(k) ?? { etiquetaId: c.etiquetaId, accion: c.accion, ids: [] };
+    if (!g.ids.includes(c.leadId)) g.ids.push(c.leadId);
+    grupos.set(k, g);
+  }
+  const resueltos: Array<{ e: E; accion: 'poner' | 'sacar'; ids: number[] }> = [];
+  for (const g of grupos.values()) {
+    const e = await p.etiqueta(g.etiquetaId);
+    if (e) resueltos.push({ e, accion: g.accion, ids: g.ids });
+  }
+  return syncGrupos(p, resueltos, tope);
+}
+
+async function syncGrupos<E extends EtiquetaMotor>(p: PuertosEtiquetas<E>, grupos: ReadonlyArray<{ e: E; accion: 'poner' | 'sacar'; ids: number[] }>, tope: number): Promise<{ sincronizados: number; sinSincronizar: number }> {
+  let quedan = Math.max(0, Math.trunc(tope));
+  let sincronizados = 0;
+  let sinSincronizar = 0;
+  for (const { e, accion, ids } of grupos) {
+    if (!ids.length) continue;
+    const destinos = await p.destinos(e);
+    if (!destinos.length) continue;
+    const ahora = ids.slice(0, quedan);
+    const resto = ids.slice(ahora.length);
+    quedan -= ahora.length;
+    for (const id of ahora) await anotarSync(p, id, e, accion, await p.sincronizar(id, e, accion));
+    sincronizados += ahora.length;
+    if (resto.length) await p.historialLote(resto, `«${e.nombre}» no se ${accion === 'poner' ? 'puso' : 'sacó'} en ${destinos.join(' ni ')}: eran más de ${tope} a la vez`, 'MaKo');
+    sinSincronizar += resto.length;
+  }
+  return { sincronizados, sinSincronizar };
 }
 
 export type ResultadoLote = { ok: true; cambiados: number[]; yaEstaban: number; sinSincronizar: number } | { ok: false; error: string };
@@ -227,13 +286,7 @@ export async function sacarLoteCon<E extends EtiquetaMotor>(p: PuertosEtiquetas<
   return { ok: true, cambiados: sacados, yaEstaban: ids.length - sacados.length, sinSincronizar };
 }
 
+/** El lote de etiquetas: un solo grupo, por el MISMO camino (y el mismo tope) que el espejo diferido. */
 async function syncLote<E extends EtiquetaMotor>(p: PuertosEtiquetas<E>, ids: number[], e: E, accion: 'poner' | 'sacar'): Promise<number> {
-  if (!ids.length) return 0;
-  const destinos = await p.destinos(e);
-  if (!destinos.length) return 0;
-  const ahora = ids.slice(0, SYNC_LOTE_MAX);
-  const resto = ids.slice(SYNC_LOTE_MAX);
-  for (const id of ahora) await anotarSync(p, id, e, accion, await p.sincronizar(id, e, accion));
-  if (resto.length) await p.historialLote(resto, `«${e.nombre}» no se ${accion === 'poner' ? 'puso' : 'sacó'} en ${destinos.join(' ni ')}: el lote pasaba de ${SYNC_LOTE_MAX}`, 'MaKo');
-  return resto.length;
+  return (await syncGrupos(p, [{ e, accion, ids }], SYNC_LOTE_MAX)).sinSincronizar;
 }
