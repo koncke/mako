@@ -209,7 +209,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '21:50', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '21:37', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Ver y cambiar dónde se muestra un conjunto que ya corre (#715)',
     puntos: [
@@ -228,6 +228,8 @@ export const BITACORA: Hito[] = [
       'app/ads-manager/CampanasBrowser.tsx — la segunda puerta al editor y la versión que sube al guardar',
       'tests/meta-geo.test.ts y tests/ads-lugares-conjunto.test.ts — 10 tests nuevos, cada uno probado rompiendo lo que fija',
     ],
-    commits: [],
+    commits: [
+      { sha: '335837cb', msg: 'Ads Manager: ver y cambiar dónde se muestra un conjunto que ya corre (#715)', lineas: 902, archivos: 13 },
+    ],
   },
 ];
