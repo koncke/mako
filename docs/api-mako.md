@@ -5799,7 +5799,7 @@ curl -L \
 
 ### `POST /api/v1/chatbot/avisos-equipo` — Avisar al equipo
 
-PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
+PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/avisar_al_equipo`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -5816,6 +5816,7 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 | `leadId` | number | no | opcional: el lead del que se avisa (de buscar_leads). En una automatización, el del evento. |
 | `titulo` | string | no | opcional: el título corto del aviso. |
 | `mensaje` | string | sí | lo que tiene que saber el equipo, en una o dos frases. |
+| `respuesta` | string | no | opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead). |
 
 ```bash
 curl -L \

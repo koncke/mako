@@ -39,6 +39,13 @@
 //     manda los dos audios de apertura —uno presentándose y otro retomando la charla—, que es
 //     el duplicado que partir la secuencia vino a evitar (lib/nutricion-familias.ts). Con la
 //     otra mitad ya terminada, no: ahí es una decisión del dueño.
+//  6. DESDE UN FLUJO NO SE REINICIA NADA (`desdeFlujo`, revisión del 08/10/2026). La regla 3 es
+//     para una ORDEN de una persona; un «Ir a otra automatización» corre solo, en cada lead que
+//     llega a esa tarjeta. Con la regla 3, el «Sigue con» convertido (#198 → #212) le reenviaba
+//     la secuencia ENTERA a quien ya la había terminado —quizás para la misma reunión—, y uno que
+//     apuntara a sí misma era un bucle. Es lo que hacía `encadenar` (lib/nutricion-desenlace.ts):
+//     cualquier fila previa es «ya estuvo», y si el trabajo de la otra YA está hecho
+//     (`hitoYaHecho`), tampoco.
 // =============================================================================
 
 import { ESTADOS_TERMINADOS } from './nutricion-reinscripcion';
@@ -64,6 +71,7 @@ export type CondicionesDelMotor = {
 export type PorQueNoInscribe =
   | 'archivada' | 'pausada' | 'sin_pasos'
   | 'en_curso' | 'cancelada' | 'respondio' | 'handoff' | 'estado_desconocido'
+  | 'ya_estuvo' | 'objetivo_hecho'
   | 'fuera_de_antiguedad' | 'sin_reunion' | 'fuera_del_residuo' | 'otra_mitad_post_agenda';
 
 export type VeredictoInscripcion =
@@ -77,6 +85,10 @@ export function decidirInscripcionManual(p: {
   secuencia: SecuenciaParaInscribir;
   previa: PreviaParaInscribir;
   motor: CondicionesDelMotor;
+  /** Lo pide un «Ir a otra automatización» de un flujo, no una persona (regla 6). */
+  desdeFlujo?: boolean;
+  /** `hitoYaHecho(objetivo de la secuencia, lead) === true`. Sólo cuenta desde un flujo. */
+  objetivoHecho?: boolean;
 }): VeredictoInscripcion {
   const { secuencia, previa, motor } = p;
   if (secuencia.archivada) return { inscribe: false, porque: 'archivada' };
@@ -89,7 +101,10 @@ export function decidirInscripcionManual(p: {
     if (previa.estado === 'respondio') return { inscribe: false, porque: 'respondio' };
     if (previa.estado === 'handoff') return { inscribe: false, porque: 'handoff' };
     if (!ESTADOS_TERMINADOS.includes(previa.estado)) return { inscribe: false, porque: 'estado_desconocido' };
+    // Terminada: una persona la puede volver a arrancar; un flujo, no (regla 6).
+    if (p.desdeFlujo) return { inscribe: false, porque: 'ya_estuvo' };
   }
+  if (p.desdeFlujo && p.objetivoHecho) return { inscribe: false, porque: 'objetivo_hecho' };
 
   if (!motor.aTiempo) return { inscribe: false, porque: 'fuera_de_antiguedad' };
   if (motor.sinReunion) return { inscribe: false, porque: 'sin_reunion' };
@@ -122,6 +137,8 @@ const MOTIVOS: Record<PorQueNoSeInscribio, (s: string, lead: string, ids: { secu
   respondio: (s, lead) => `${lead} contestó en «${s}» y la charla puede seguir abierta: no se reinicia mientras habla.`,
   handoff: (s, lead) => `La charla de ${lead} en «${s}» la sigue una persona: no se reinicia.`,
   estado_desconocido: (s, lead) => `La inscripción de ${lead} en «${s}» está en un estado que no se puede reabrir.`,
+  ya_estuvo: (s, lead) => `${lead} ya pasó por «${s}»: desde una automatización no se le repite.`,
+  objetivo_hecho: (s, lead) => `${lead} ya hizo lo que busca «${s}»: no se le manda.`,
   fuera_de_antiguedad: (s, lead) => `«${s}» sólo le escribe a leads recién llegados (el tope de antigüedad de su estrategia) y ${lead} llegó antes: el motor cerraría la inscripción sin mandar nada.`,
   sin_reunion: (s, lead) => `«${s}» prepara una reunión y ${lead} no tiene ninguna futura: el motor cerraría la inscripción sin mandar nada.`,
   fuera_del_residuo: (s, lead) => `«${s}» es para leads que quedaron sin cerrar y ${lead} ya no lo está (pagó, agendó u otra secuencia le habla): el motor la cerraría sin mandar nada.`,
