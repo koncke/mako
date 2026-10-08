@@ -34,7 +34,25 @@ export type TipoNodo =
   | 'recordatorio' | 'accion' | 'mensaje-lead'
   // Los dos que el motor PASÓ A EJECUTAR el 04/10/2026 (mig 0186, `flujo_corridas`):
   // antes de eso `esperar` hacía `break` y no había condicional.
-  | 'espera' | 'condicion';
+  | 'espera' | 'condicion'
+  // La tarjeta de ETIQUETA del chatbot (segunda tanda, decisión 8): una PRESENTACIÓN sobre la
+  // ⚡ Acción `poner_etiqueta_lead` / `sacar_etiqueta_lead`. El dato sigue siendo una acción y
+  // el motor no cambia; lo que cambia es cómo se dibuja.
+  | 'etiqueta';
+
+/**
+ * LAS DOS FAMILIAS DE TARJETAS (segunda tanda, decisión 9; pedido literal, punto 5: «Las
+ * tarjetas de condición, esperar y etiqueta, deberían tener un diseño diferente a las de mensaje
+ * y CRON»).
+ *
+ *   · `contenido`: lo que MANDA o DISPARA algo (el CRON, un mensaje, un email, una acción). La
+ *     tarjeta blanca de siempre.
+ *   · `control`: lo que DECIDE o ESPERA (condición, esperar, etiqueta, ir a). Compacta y
+ *     teñida: se lee como una bisagra del camino, no como un mensaje.
+ *
+ * Ausente = la tarjeta de siempre (el lienzo de /mensajes no la pasa y no cambia ni un píxel).
+ */
+export type FamiliaNodo = 'contenido' | 'control';
 
 export type TonoArista = 'normal' | 'buena' | 'mala' | 'condicional';
 
@@ -55,6 +73,15 @@ export type PuertoNodo = {
   vacio: boolean;
   /** Una marca chica al final de la fila («2 sin caso»): algo que salió por aquí y espera. */
   marca?: string;
+  /**
+   * FLECHAS EN PARALELO (segunda tanda, decisión 2). Esta salida admite MÁS de una flecha: con
+   * el punto ocupado, el lienzo igual ofrece un ＋ que agrega una flecha «en paralelo» (en
+   * vez de la de siempre, que continúa el hilo). Las flechas en paralelo que salen del nodo
+   * (`par:<id>`) parten de ESTA fila.
+   *
+   * Ausente = una sola flecha por salida, como siempre: /mensajes no lo pasa y no cambia.
+   */
+  paralelo?: boolean;
 };
 
 export type NodoFlujo = {
@@ -80,6 +107,14 @@ export type NodoFlujo = {
    * termina (un «Ir a»): sin puntos y sin el ＋ de pasar el cursor.
    */
   puertos?: PuertoNodo[];
+  /** Contenido o control (ver `FamiliaNodo`). Ausente = la tarjeta de siempre. */
+  familia?: FamiliaNodo;
+  /**
+   * El color de lo que la tarjeta representa, en `#rrggbb` (hoy: el de la etiqueta). La tarjeta
+   * se tiñe con él como `ChipEtiqueta` (fondo color+24, borde color+66). Otro formato se ignora:
+   * pegarle «24» a un `var(--x)` o a un `rgb()` da un color inválido, que no falla — no pinta.
+   */
+  color?: string | null;
   x: number; y: number; ancho: number; alto: number;
 };
 
@@ -181,12 +216,16 @@ export function tieneFilas(n: Pick<NodoFlujo, 'puertos'>): boolean {
  * · Una fila: el centro de su fila, contado desde el PIE de la tarjeta. Desde el pie y
  *   no desde la cabecera porque lo de arriba (el contenido) es lo que varía; las filas
  *   tienen alto fijo y van pegadas abajo (`TarjetaNodo`).
+ * · Una flecha EN PARALELO (`par:<id>`) sale de la fila que la admite (`paralelo: true`): en el
+ *   CRON es «Al entrar». Sin esto caía a la cabecera, y la flecha salía de arriba de la tarjeta,
+ *   por encima de las filas, como si viniera de otro lado.
  */
 export function yDePuerto(n: NodoFlujo, puerto?: string): number {
   const cabecera = n.y + Math.min(n.alto / 2, 44);
   if (!puerto || !tieneFilas(n)) return cabecera;
   const filas = n.puertos ?? [];
-  const i = filas.findIndex((p) => p.id === puerto);
+  let i = filas.findIndex((p) => p.id === puerto);
+  if (i < 0 && puerto.startsWith('par:')) i = filas.findIndex((p) => p.paralelo);
   if (i < 0) return cabecera;
   return n.y + n.alto - BORDE_NODO - PIE_PUERTOS - (filas.length - i - 0.5) * ALTO_PUERTO;
 }
@@ -332,6 +371,198 @@ export function vistaAlCerrarPanel(
   if (!igual(actual, aplicada)) return null;
   if (igual(actual, antes)) return null;
   return antes;
+}
+
+// ── El panel APAISADO y los muelles (segunda tanda, decisiones 10 y 11) ───────────────
+
+/** El margen con el que el panel del nodo (y lo que flota) se despega del borde del lienzo. */
+export const PANEL_MARGEN = 12;
+/**
+ * El alto de la fila del zoom, abajo a la izquierda. El panel del nodo abre POR ENCIMA de ella:
+ * medido el 04/10/2026, un panel de 328x355 en `bottom: 12` la tapaba entera.
+ */
+export const ZOOM_ALTO = 40;
+/** Lo que ocupa arriba el chrome flotante (su relleno de 14 + la tarjeta del título, ~36). */
+export const CHROME_ALTO = 64;
+
+/**
+ * CÓMO QUEDA LA VISTA CUANDO SE ABRE EL PANEL APAISADO (la franja de abajo).
+ *
+ * Es la otra mitad de `vistaConPanel`: aquél corre el lienzo en HORIZONTAL porque el panel de
+ * columna tapa la izquierda; éste lo corre en VERTICAL, porque el panel apaisado tapa la franja
+ * de abajo, de la lista al borde derecho. Y también en horizontal si la tarjeta quedó debajo de
+ * lo que la pantalla apoya a los costados (la lista, «Probar» arriba a la derecha).
+ *
+ * `libre` es la franja que queda a la vista, en coordenadas de PANTALLA del lienzo: de `izq` a
+ * `der` y de `arriba` (debajo del chrome) a `abajo` (el borde de arriba del panel, menos la
+ * separación). Devuelve `null` si la tarjeta ya se ve entera, o si no hay franja.
+ *
+ * Una tarjeta MÁS ALTA que la franja se alinea arriba: se ve su cabecera, que es lo que dice qué
+ * se está editando; centrarla dejaría la cabecera debajo del chrome. Lo mismo a lo ancho: manda
+ * el borde izquierdo.
+ */
+export function vistaConPanelAbajo(
+  v: VistaLienzo,
+  nodo: { x: number; y: number; ancho: number; alto: number },
+  libre: { izq: number; der: number; arriba: number; abajo: number },
+): VistaLienzo | null {
+  if (libre.abajo <= libre.arriba || libre.der <= libre.izq) return null;
+  const top = v.ty + nodo.y * v.k;
+  const alto = nodo.alto * v.k;
+  const left = v.tx + nodo.x * v.k;
+  const ancho = nodo.ancho * v.k;
+  let dy = 0;
+  if (top + alto > libre.abajo) dy = libre.abajo - (top + alto);
+  if (top + dy < libre.arriba) dy = libre.arriba - top;
+  let dx = 0;
+  if (left + ancho > libre.der) dx = libre.der - (left + ancho);
+  if (left + dx < libre.izq) dx = libre.izq - left;
+  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return null;
+  return { ...v, tx: v.tx + dx, ty: v.ty + dy };
+}
+
+/**
+ * LOS NÚMEROS DE LOS MUELLES de /chatbot. Viven acá y no en los componentes por la misma razón
+ * que `muelles`: con un número en cada lado, el título vuelve a nacer debajo del buscador en
+ * cuanto alguien toque uno (ya pasó con el inset contado dos veces, hallazgos-chatbot.md).
+ */
+export const MUELLE = {
+  /** El hueco de las cosas que flotan contra el borde (la lista, «Probar»). */
+  hueco: 16,
+  /** La lista de automatizaciones, a la izquierda. */
+  listaAncho: 272,
+  /** «Probar», apilado arriba a la derecha (pedido literal, punto 8: «más ancho, no tan largo»). */
+  probarAncho: 560,
+  probarAnchoMin: 360,
+  probarAltoMax: 420,
+  probarAltoMin: 240,
+  /** Lo que «Probar» y el editor toman como mucho del alto de la caja, cada uno. */
+  fraccionAlto: 0.46,
+  /** El editor apaisado: alto FIJO (una caja cuyo alto es un tope salta al pasar de tarjeta). */
+  editorAltoMax: 360,
+  editorAltoMin: 240,
+  /** Por debajo de este ancho útil el editor apaisado no tiene lugar para sus dos columnas. */
+  apaisadoMin: 620,
+  /** El aire entre «Probar» y el editor apilados. */
+  separacion: 12,
+} as const;
+
+export type RectMuelle = { left: number; top: number; width: number; height: number };
+
+export type Muelles = {
+  /** Dónde va «Probar» (en coordenadas de la caja), o null si está cerrado. */
+  probar: RectMuelle | null;
+  /** El editor apaisado (la franja de abajo), o null si es de columna o no está abierto. */
+  editor: RectMuelle | null;
+  /** La forma del editor: apaisado si hay ancho para sus dos columnas; si no, de columna. */
+  editorForma: 'apaisado' | 'columna';
+  /** «Probar» arriba y el editor abajo, o los dos lado a lado (ventana baja). null sin «Probar». */
+  disposicion: 'apilados' | 'lado' | null;
+  /** El alto del editor apaisado (el `panelAlto` del lienzo), esté abierto o no. */
+  editorAlto: number;
+  /**
+   * Lo que cada cosa que flota sobre el lienzo tiene que dejar libre:
+   *   · `izq`: la lista (el chrome, el zoom, el panel y el encuadre: `Lienzo.insetIzq`);
+   *   · `der`: lo que «Probar» tapa a la derecha en la franja de ARRIBA (el encuadre y el panel
+   *     de columna: `Lienzo.insetDer`);
+   *   · `derChrome`: lo que tapa a la altura del chrome (apilado, «Probar» empieza debajo: 0);
+   *   · `derAbajo`: lo que tapa en la franja de ABAJO («Publicar» y el panel apaisado; apilado: 0).
+   */
+  insets: { izq: number; der: number; derChrome: number; derAbajo: number };
+};
+
+/**
+ * DÓNDE VA CADA COSA QUE FLOTA SOBRE EL LIENZO DE /chatbot: la lista, «Probar» y el editor.
+ *
+ * Pedido literal (segunda tanda, puntos 3 y 8): «El editor de WhatsApp debes hacerlo más ancho
+ * que largo, sino, se amontona todo» y «El "Probar" debe ser más ancho también, no tan largo,
+ * sino, se rompe el diseño». Con los dos anchos y anclados donde estaban, se pisan (R3: con la
+ * lista y «Probar» abiertos quedaban ~500 px de lienzo y el editor ocupaba 392). La salida
+ * (decisión 11): «Probar» arriba a la derecha, debajo del chrome, y el editor en la franja de
+ * abajo, de la lista al borde derecho. Si apilados no entran (una ventana baja), van lado a lado:
+ * «Probar» de arriba a abajo a la derecha y el editor entre la lista y él.
+ *
+ * ⚠️ UNA SOLA FUNCIÓN, PURA. Lo decide esto y nada más: la lista, el lienzo y «Probar» leen el
+ * resultado. Repartida en tres componentes, esta aritmética ya produjo el inset contado dos veces.
+ *
+ * ⚠️ «PROBAR» NO DEPENDE DE SI EL EDITOR ESTÁ ABIERTO. Abrir una tarjeta no puede cambiarle el
+ * tamaño a «Probar»: se le correría el chat en el medio de una prueba. Por eso la disposición se
+ * decide con el alto de la caja (lo que NO cambia al abrir el editor) y `editorAbierto` sólo dice
+ * si se devuelve el rectángulo del editor. Es la regla de la casa: una medición que cambia lo que
+ * mide no puede decidir.
+ */
+export function muelles(
+  caja: { w: number; h: number },
+  op: { listaAbierta: boolean; probarAbierto: boolean; editorAbierto: boolean },
+): Muelles {
+  const { w, h } = caja;
+  const H = MUELLE.hueco;
+  const izq = op.listaAbierta ? MUELLE.listaAncho + H * 2 : 0;
+  const bajo = PANEL_MARGEN + ZOOM_ALTO;
+  const editorAlto = Math.max(0, Math.min(
+    MUELLE.editorAltoMax,
+    Math.max(MUELLE.editorAltoMin, Math.round(h * MUELLE.fraccionAlto)),
+    h - bajo - CHROME_ALTO,
+  ));
+  const anchoEditor = (derAbajo: number) => w - izq - derAbajo - PANEL_MARGEN * 2;
+  const forma = (derAbajo: number): 'apaisado' | 'columna' => (anchoEditor(derAbajo) >= MUELLE.apaisadoMin ? 'apaisado' : 'columna');
+  const editor = (derAbajo: number): RectMuelle | null => (op.editorAbierto && forma(derAbajo) === 'apaisado'
+    ? { left: izq + PANEL_MARGEN, top: h - bajo - editorAlto, width: anchoEditor(derAbajo), height: editorAlto }
+    : null);
+
+  if (!op.probarAbierto) {
+    return { probar: null, editor: editor(0), editorForma: forma(0), disposicion: null, editorAlto, insets: { izq, der: 0, derChrome: 0, derAbajo: 0 } };
+  }
+
+  // Apilados: «Probar» entre el chrome y el editor, a la derecha.
+  const anchoP = Math.min(MUELLE.probarAncho, w - izq - H * 2);
+  const altoP = Math.min(MUELLE.probarAltoMax, Math.round(h * MUELLE.fraccionAlto), h - CHROME_ALTO - bajo - editorAlto - MUELLE.separacion);
+  if (forma(0) === 'apaisado' && anchoP >= MUELLE.probarAnchoMin && altoP >= MUELLE.probarAltoMin) {
+    return {
+      probar: { left: w - H - anchoP, top: CHROME_ALTO, width: anchoP, height: altoP },
+      editor: editor(0), editorForma: 'apaisado', disposicion: 'apilados', editorAlto,
+      insets: { izq, der: anchoP + H * 2, derChrome: 0, derAbajo: 0 },
+    };
+  }
+
+  // Lado a lado: «Probar» de arriba a abajo a la derecha, y el editor entre la lista y él.
+  const anchoL = Math.max(0, Math.min(
+    w - izq - H * 2,
+    Math.max(MUELLE.probarAnchoMin, Math.min(MUELLE.probarAncho, Math.round((w - izq) * 0.4))),
+  ));
+  const der = anchoL + H * 2;
+  return {
+    probar: { left: w - H - anchoL, top: H, width: anchoL, height: Math.max(0, h - H * 2) },
+    editor: editor(der), editorForma: forma(der), disposicion: 'lado', editorAlto,
+    insets: { izq, der, derChrome: der, derAbajo: der },
+  };
+}
+
+// ── El revelado: las tarjetas aparecen de a una (segunda tanda, decisión 14) ───────────
+
+/** Cuánto tarda una tarjeta en aparecer, cuánto sube y cuánto espera la siguiente. */
+export const REVELAR_DURACION_MS = 220;
+export const REVELAR_SUBE_PX = 8;
+export const REVELAR_PASO_MS = 150;
+
+/**
+ * ¿YA TOCA VER ESTE NODO? Con «Crear con IA» las tarjetas aparecen de a una, en el orden que
+ * da quien las creó (`orden`), sobre el layout FINAL: `cuantos` es cuántas ya aparecieron.
+ *
+ *   · Un nodo que no está en `orden` se ve siempre (el CRON, si quien ordena no lo nombra: es la
+ *     tarjeta que ya estaba). Un revelado no puede esconder para siempre lo que no nombra.
+ *   · `cuantos` Infinity = todo a la vista (sin revelado, terminado, o con `prefers-reduced-motion`).
+ *
+ * Una FLECHA se ve cuando se ven sus dos puntas: `aristaRevelada`.
+ */
+export function nodoRevelado(orden: readonly string[] | null | undefined, cuantos: number, id: string): boolean {
+  if (!orden || !Number.isFinite(cuantos)) return true;
+  const i = orden.indexOf(id);
+  return i < 0 || i < cuantos;
+}
+
+export function aristaRevelada(orden: readonly string[] | null | undefined, cuantos: number, a: Pick<AristaFlujo, 'desde' | 'hasta'>): boolean {
+  return nodoRevelado(orden, cuantos, a.desde) && nodoRevelado(orden, cuantos, a.hasta);
 }
 
 /** De dónde sale y a dónde llega la flecha. La salida es la de su puerto (`yDePuerto`);

@@ -28,6 +28,7 @@ import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas 
 import { Dropdown } from '@/app/components/Dropdown';
 import type { Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, validarGrafo, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
+import type { Muelles } from '@/lib/lienzo-grafo';
 import { legadoAGrafo, esFlujoExplicito } from '@/lib/flujo-legado';
 import {
   insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, faltaEscribir, tarjetaDelError, estrategiaConLimpieza,
@@ -76,7 +77,7 @@ export type EdicionLocal = {
   instance_name: string | null;
 };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer, handoffs }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver un «Ir a» y convertir un «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -124,6 +125,16 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * se borró, no se veían en ningún lado). Ausente = no se marca nada.
    */
   handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
+  /** Dónde va cada cosa que flota (`muelles`, lib/lienzo-grafo.ts). Lo calcula la tab. */
+  muelles?: Muelles | null;
+  /** Las tarjetas aparecen de a una («Crear con IA», decisión 14). Lo pasa quien crea. */
+  revelar?: { orden: string[]; clave: number } | null;
+  /**
+   * Hay cambios del flujo SIN PUBLICAR que la persona hizo (decisión 15). Lo lee la tab para
+   * preguntar antes de cambiar de automatización: con el `key` por secuencia, cambiar remonta este
+   * componente y lo no publicado se perdía sin aviso (medido, R1/R3).
+   */
+  onSinPublicar?: (hay: boolean) => void;
 }) {
   const est = secuencia.estrategia;
 
@@ -162,6 +173,31 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [convertida, setConvertida] = useState(inicial.convertida);
   const [publicado, setPublicado] = useState(inicial.publicado);
   const sinPublicar = convertida || JSON.stringify(pasos) !== publicado;
+
+  /**
+   * LO QUE LA PERSONA CAMBIÓ Y NO PUBLICÓ (decisión 15): el flujo de ahora contra el que vio al
+   * abrir o al publicar por última vez. NO es `sinPublicar`: una secuencia de antes abre
+   * CONVERTIDA (el lienzo la muestra en tarjetas) y eso dice «Sin publicar» sin que nadie haya
+   * tocado nada. Preguntar «Tienes cambios sin publicar» ahí sería afirmar algo falso, y salir no
+   * pierde nada: la conversión se vuelve a hacer al abrirla.
+   */
+  const [visto, setVisto] = useState(() => JSON.stringify(inicial.pasos));
+  const cambiosPropios = rolAdmin && JSON.stringify(pasos) !== visto;
+  const avisarSinPublicar = useRef(onSinPublicar);
+  useEffect(() => { avisarSinPublicar.current = onSinPublicar; });
+  useEffect(() => { avisarSinPublicar.current?.(cambiosPropios); }, [cambiosPropios]);
+  // Al desmontarse (cambió de automatización, se descartó), ya no hay nada sin publicar acá.
+  useEffect(() => () => { avisarSinPublicar.current?.(false); }, []);
+  /**
+   * Y CERRAR LA PESTAÑA (o recargar) TAMBIÉN PREGUNTA mientras haya cambios. El navegador muestra
+   * su propio cartel —no se le puede poner texto—: es el único que corre al cerrar.
+   */
+  useEffect(() => {
+    if (!cambiosPropios) return;
+    const alSalir = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', alSalir);
+    return () => window.removeEventListener('beforeunload', alSalir);
+  }, [cambiosPropios]);
 
   /**
    * CÓMO SE DISPARA: POR TIEMPO O POR UNA ACCIÓN.
@@ -335,6 +371,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       }
     } catch { setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }
     setPublicado(JSON.stringify(pasos));
+    setVisto(JSON.stringify(pasos));
     if (convertida) {
       // ⚠️ SIN ESTRATEGIA NO SE MANDA NADA (revisión, lienzo-8): `estrategiaConLimpieza(null)`
       // es null, y antes inventaba `{ objetivo: 'agendar', … }` donde no había nada.
@@ -530,7 +567,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onCrearRespuesta={rolAdmin ? nuevaRespuesta : undefined}
         onAudioNuevo={onAudioNuevo} onError={setErr}
         onModoIA={rolAdmin ? abrirGuiaSiFalta : undefined}
-        insetIzq={insetIzq} insetDer={insetDer}
+        insetIzq={insetIzq} insetDer={insetDer} muelles={muelles} revelar={revelar}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
             {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
