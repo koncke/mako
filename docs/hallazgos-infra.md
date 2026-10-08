@@ -3491,12 +3491,52 @@ cmd /c rd /s /q "<repo>\.next\dev"    # rd es mucho más rápido que Remove-Item
 
 Mismo barrido, otros 5,7 GB: `npm cache clean --force` (estaba en 6,7 GB, quedó en 1).
 
-**Y lo que NO era el problema, aunque lo parecía:** los typechecks concurrentes. Con 4
-sesiones sobre el mismo clon, cada `git push` dispara su `npm run typecheck` de 1,5-2,5 GB y
-se superponen; uno que tarda 7 segundos puede quedar 20 minutos. Son síntoma de la
-saturación, no su causa — matarlos da aire un rato y vuelven.
+**Y lo que parecía NO ser el problema sí lo era, una vez resuelto el disco:** los
+typechecks concurrentes. Esa tarde se los declaró «síntoma, no causa» —y con el disco al
+10% era cierto—. Con 109 GB libres la máquina se volvió a trabar y los únicos consumidores
+grandes eran dos `tsc` a la vez. **Un factor descartado mientras otro lo dominaba vuelve a
+ser candidato en cuanto el primero se arregla**, y conviene decirlo al descartarlo.
 
 **Vive en:** `<repo>\.next\dev` · *2026-10-08*
+
+### ⚠️ `tsc --noEmit` pide 2,4 GB, y 4 sesiones pushean a la vez: el typecheck va con LOCK
+
+Medido el 08/10/2026, las dos puntas del mismo día: a la mañana **tres typechecks
+simultáneos** (2.329 + 1.283 + 474 MB) con 0,8 GB libres y uno corriendo hacía **21
+minutos**; a la noche, dos (2,9 GB uno) con la máquina trabada otra vez. El chequeo solo
+tarda ~7 segundos.
+
+No tardan el doble: **se pelean por la RAM, el sistema pagina y el de 7 segundos queda 20
+minutos.** Serializarlos los hace más RÁPIDOS en total — tres en fila son 21 segundos.
+
+`npm run typecheck` pasa por `scripts/typecheck-lock.mjs`, y el pre-push lo hereda sin
+tocar `.git/hooks` (que no se versiona, así que un arreglo escrito ahí se pierde al
+reclonar). Cuatro cosas que no se ven en la firma:
+
+- **El lock es por MÁQUINA, no por repo** (`os.tmpdir()`), porque el otro proyecto que vive
+  en `C:\dev\mako-api` corre su propio typecheck y también pesa 2,4 GB. Hoy sólo lo usa
+  este repo; cableado allá, los dos se turnan solos.
+- **Se toma con `writeFileSync(..., { flag: 'wx' })`**, que falla si el archivo existe: ése
+  es el test-and-set atómico. Y el dueño se comprueba con `process.kill(pid, 0)` —que no
+  mata, pregunta—, o un lock huérfano bloquea para siempre.
+- **A los 10 minutos corre IGUAL y lo dice.** Es la regla de la casa: una guarda bloquea
+  sólo lo que se arregla haciendo lo que ella pide, y acá no hay nada que hacer. Trabar un
+  push para siempre por un lock pegado es peor que dos typechecks a la vez.
+- **Se llama al `tsc` de `node_modules` con `process.execPath`, sin `npx` ni `shell: true`.**
+  npx agrega un proceso y ~1 s; `shell: true` con argumentos sueltos imprime un
+  `DeprecationWarning` (DEP0190) en **cada** push.
+
+Verificado en las tres direcciones, no sólo en la feliz: dos a la vez → el segundo escribe
+«espero mi turno» y corre después (4m37 contra 2m30, con la máquina saturada); un `tsc` que
+falla → **exit 2 se propaga** (un error de tipos sigue bloqueando el push) **y el lock se
+suelta igual**; y el guard `tests/typecheck-lock.test.ts`, probado rompiéndolo (con
+`tsc --noEmit` directo en package.json: 1 fallo / 1 pase).
+
+⚠️ **El guard existe porque sacar el lock NO FALLA:** los pushes siguen saliendo y la
+máquina se vuelve a trabar días después, sin nada que apunte al cambio.
+
+**Vive en:** `scripts/typecheck-lock.mjs` · `package.json` → `scripts.typecheck` ·
+*2026-10-08*
 
 ## La integración con Claude nunca funcionó desde afuera
 
