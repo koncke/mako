@@ -469,6 +469,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'el prompt del Doer, que le habla a Martín por WhatsApp: su voz ES rioplatense',
   },
   {
+    ruta: 'lib/doer-recetas.ts',
+    porque: 'las recetas del prompt del Doer, mudadas de lib/mako-doer-in.ts el 08/10/2026: misma voz rioplatense',
+  },
+  {
     ruta: 'lib/mako-guardian.ts',
     porque: 'el prompt del Perro, que le contesta a Martín en su propio tablero',
   },
