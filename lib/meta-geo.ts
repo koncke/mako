@@ -167,6 +167,22 @@ export function lugarDesdeBusqueda(o: Record<string, unknown>): LugarMeta | null
 
 export const mismoLugar = (a: LugarMeta, b: LugarMeta) => a.tipo === b.tipo && a.key === b.key;
 
+// ⚠️ `mismoLugar` dice si es el mismo LUGAR; no si es la misma FILA de la lista. Al
+// AGREGAR alcanza (el buscador no deja sumar algo que ya está, de ningún lado, así que en
+// las pantallas de creación el par no puede existir). Un conjunto LEÍDO de Meta sí lo trae:
+// la «dona» —el mismo pin incluido con 25 km y excluido con 8—, que Meta acepta. Con
+// `mismoLugar`, agrandar el anillo agrandaba también el agujero (público en 0) y sacar el
+// agujero se llevaba el anillo (el conjunto dejaba de mostrarse ahí). Revisión de la #715.
+/** La misma fila: el mismo lugar del MISMO lado. Es lo que identifica una fila al quitarla o cambiarle el radio. */
+export const mismaFila = (a: LugarMeta, b: LugarMeta) => mismoLugar(a, b) && !a.excluir === !b.excluir;
+/** Clave única de una fila (para el `key` de React): el lugar y el lado. */
+export const claveFila = (l: LugarMeta) => `${l.excluir ? 'excluye' : 'incluye'}:${l.tipo}:${l.key}`;
+/** Saca UNA fila: la del mismo lado. El mismo lugar del otro lado se queda. */
+export const quitarLugar = (lista: LugarMeta[], l: LugarMeta): LugarMeta[] => lista.filter((x) => !mismaFila(x, l));
+/** Cambia el radio de UNA fila: la del mismo lado. */
+export const cambiarRadio = (lista: LugarMeta[], l: LugarMeta, radioKm: number | null): LugarMeta[] =>
+  lista.map((x) => (mismaFila(x, l) ? { ...x, radioKm } : x));
+
 /**
  * ¿`a` contiene a `b` de una forma que Meta RECHAZA si se incluyen los dos?
  *
@@ -260,8 +276,8 @@ export function lugaresDesdeDraft(raw: unknown): LugarMeta[] {
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // La forma, MEDIDA el 07/10/2026 con GET /{adset}?fields=targeting (Graph v25.0) sobre
-// tres conjuntos de tres cuentas conectadas (tests/meta-geo.test.ts las tiene, con las
-// coordenadas corridas):
+// tres conjuntos de tres cuentas conectadas (tests/meta-geo.test.ts copia la FORMA con
+// valores sintéticos: ids, coordenadas y regiones no son las de ningún cliente):
 //
 //   · countries: ['US', 'MX']                       — ISO-2 pelados
 //   · regions: [{ key, name, country }]
@@ -313,6 +329,16 @@ function leerRadio(o: Record<string, unknown>): RadioMeta | 'no' | null {
 function leerBolsa(g: unknown, excluir: boolean, donde: string, lec: LecturaGeo, conservar: Record<string, unknown>) {
   if (g == null) return;
   if (!esObjeto(g)) { lec.noEntiendo.push(donde); return; }
+  // El selector identifica una fila por lugar Y lado (`mismaFila`). El mismo lugar en los
+  // dos lados (la dona) son dos filas distintas y se editan bien; dos filas iguales del
+  // MISMO lado, no: quitar una se llevaría las dos. La segunda va a `noEntiendo`.
+  const vistas = new Set<string>();
+  const sumar = (ruta: string, l: LugarMeta) => {
+    const k = claveFila(l);
+    if (vistas.has(k)) { lec.noEntiendo.push(ruta); return; }
+    vistas.add(k);
+    lec.lugares.push(l);
+  };
   for (const [clave, valor] of Object.entries(g)) {
     if ((CLAVES_CONSERVADAS as readonly string[]).includes(clave)) { conservar[clave] = valor; continue; }
     const tipoDeClave = CLAVE_A_TIPO[clave];
@@ -323,7 +349,7 @@ function leerBolsa(g: unknown, excluir: boolean, donde: string, lec: LecturaGeo,
     valor.forEach((fila, i) => {
       const ruta = `${donde}.${clave}[${i}]`;
       if (clave === 'countries') {
-        if (typeof fila === 'string' && /^[A-Za-z]{2}$/.test(fila)) lec.lugares.push({ ...lugarPais(fila), excluir });
+        if (typeof fila === 'string' && /^[A-Za-z]{2}$/.test(fila)) sumar(ruta, { ...lugarPais(fila), excluir });
         else lec.noEntiendo.push(ruta);
         return;
       }
@@ -348,9 +374,9 @@ function leerBolsa(g: unknown, excluir: boolean, donde: string, lec: LecturaGeo,
           // Con coordenadas se re-emite el PUNTO aunque traiga dirección: re-geocodificar
           // el texto podría moverlo. La dirección, si vino, queda como el nombre.
           const p = lugarPin(lat, lng);
-          lec.lugares.push(conRadio({ ...p, nombre: dir ?? texto(fila.name) ?? p.nombre, ...info, excluir }));
+          sumar(ruta, conRadio({ ...p, nombre: dir ?? texto(fila.name) ?? p.nombre, ...info, excluir }));
         } else if (dir && fila.latitude == null && fila.longitude == null) {
-          lec.lugares.push(conRadio({ ...lugarDireccion(dir), ...info, excluir }));
+          sumar(ruta, conRadio({ ...lugarDireccion(dir), ...info, excluir }));
         } else {
           lec.noEntiendo.push(ruta);
         }
@@ -358,7 +384,7 @@ function leerBolsa(g: unknown, excluir: boolean, donde: string, lec: LecturaGeo,
       }
       const key = texto(fila.key);
       if (!key) { lec.noEntiendo.push(`${ruta}.key`); return; }
-      lec.lugares.push(conRadio({
+      sumar(ruta, conRadio({
         tipo: tipoDeClave, key, nombre: texto(fila.name) ?? key, ...info,
         region: tipoDeClave === 'region' ? null : texto(fila.region), ciudad: texto(fila.primary_city), excluir,
       }));

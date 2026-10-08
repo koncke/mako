@@ -500,19 +500,20 @@ CRUDO del proveedor y superponé solo lo que el editor toca. Así está hoy en
 `getAdsetTargeting`/`updateAdsetTargeting`.
 
 ⚠️ **(16/09) Pero la superposición NO vive en la lib ni en la ruta: vive en el navegador.**
-`EditarPublicoModal` arma `{ ...base }` con el crudo y pisa sus campos
-(`app/ads-manager/EditarPublicoModal.tsx:67-88`). `POST /api/ads-manager/adset-targeting`
+`EditarPublicoModal` arma el targeting sobre el crudo y pisa sus campos —`{ ...base }` hasta la
+#715; desde el 07/10, `{ ...aplicarLugares(base, lectura, lugares) }`—
+(`app/ads-manager/EditarPublicoModal.tsx:90-120`, `guardar`). `POST /api/ads-manager/adset-targeting`
 acepta cualquier objeto y lo reenvía (`route.ts:34-36`), y `updateAdsetTargeting` también
-(`lib/meta-ads-create.ts:1242-1244`). O sea que **todo llamador de server que mande un
+(`lib/meta-ads-create.ts:1324-1326`). O sea que **todo llamador de server que mande un
 targeting parcial borra la segmentación**, con la ruta en verde. Por eso la API de MaKo no
 expone «editar público de un conjunto»; y la cabecera de `lib/api-mako/areas/ads.def.ts:35-37`
 dice que «la ruta adset-targeting mergea antes», que es falso: el que lo lea va a creer que
 la ruta lo protege. Tampoco quedaron en la API, por motivos vecinos: crear campaña, subir
 creativos, analizar, sugerir o previsualizar (la orquestación vive solo en
 `app/api/ads-manager/*`, o gasta IA al proponer), ni agregar un conjunto
-(`addAdsetToCampaign`, `lib/meta-ads-create.ts:1303`, sí es reutilizable pero pide un
+(`addAdsetToCampaign`, `lib/meta-ads-create.ts:1388`, sí es reutilizable pero pide un
 `AdSetSpec` entero y falta decidir cómo se declara ese parámetro). La lista está en
-`ads.def.ts:28-37`.
+`ads.def.ts:29-43`.
 
 **Sin hacer:** una función en la lib que reciba SOLO los cambios, lea el crudo y superponga
 en el server; recién ahí la ruta y la API pueden aceptar un parámetro parcial.
@@ -522,7 +523,7 @@ se editan en el modal, sobre el mismo crudo, por `aplicarLugares` (`lib/meta-geo
 se toca sólo si cambió, y nunca si el crudo trae algo que no se entiende — ver «Dónde se muestra
 un conjunto que ya corre».
 
-**Vive en:** lib/meta-ads-create.ts (getAdsetTargeting/updateAdsetTargeting :1231-1244) + app/ads-manager/EditarPublicoModal.tsx:67-88 · app/api/ads-manager/adset-targeting/route.ts · *2026-06-30 ~auditoria-ads-manager-editar-publico · 2026-09-16 api-mako-areas*
+**Vive en:** lib/meta-ads-create.ts (getAdsetTargeting/updateAdsetTargeting :1313-1326) + app/ads-manager/EditarPublicoModal.tsx:90-120 · app/api/ads-manager/adset-targeting/route.ts · *2026-06-30 ~auditoria-ads-manager-editar-publico · 2026-09-16 api-mako-areas*
 
 ### Reconstruir un creativo de Meta pierde todo lo que Meta no devuelve en `object_story_spec`
 
@@ -1935,8 +1936,8 @@ workspace dueño y ninguna escritura):
 | `location_types` | `['home','recent']` y **`['frequently_in','home','recent']`**, adentro de `geo_locations` Y de `excluded_geo_locations` |
 
 ⚠️ **El diagnóstico obvio era el equivocado, dos veces.** El plan suponía que lo que corre son
-direcciones y dejaba el pin para cuando Martín decidiera cómo se elige uno; pero los dos
-conjuntos inmobiliarios medidos —el caso que pidió la tarea— son TODO pines. Sin el tipo `pin`
+direcciones y dejaba el pin para cuando Martín decidiera cómo se elige uno; pero dos de los
+tres conjuntos medidos —el caso que pidió la tarea— son TODO pines. Sin el tipo `pin`
 en el parser, la feature quedaba en sólo lectura justo donde hacía falta. Y el plan proponía
 `unidad?: 'mile'|'kilometer'` al lado de `radioKm`: los desplegables del selector escriben km y
 no saben de unidades, así que elegir «+25 km» sobre una ciudad en millas habría viajado como
@@ -1969,6 +1970,18 @@ no saben de unidades, así que elegir «+25 km» sobre una ciudad en millas habr
 lecturas salieron de cuentas de clientes; el guard de voseo marca un IDENTIFICADOR (`const aca`)
 igual que un texto de pantalla.
 
+⚠️ **Y esas lecturas salieron FUERA DEL PLAN** (revisión del mismo día). El plan autorizaba UN
+GET sobre un conjunto de la cuenta propia de Martín, desde su workspace y nunca el ws1; se
+hicieron tres, sobre tres cuentas de clientes, el ws1 incluido. Fueron sólo lecturas, pero la
+regla de la corrida permitía las que el plan pidiera y ésta no la pedía así. Peor: las fixtures
+commiteadas conservaban los `primary_city_id` y `region_id` reales con las coordenadas corridas
+unos km, y una región excluida rotulada con su nombre — cruzándolas se deducía en qué ciudades
+pauta un cliente identificable. En la revisión pasaron a valores SINTÉTICOS (sólo queda la
+forma). **Pendiente de Martín:** confirmar si la medición se rehace sobre su cuenta cuando ws9
+tenga Meta, o si alcanza con la forma. **La regla: «se anonimiza» no es correr un número;
+todo id o nombre que ate el dato a un lugar se reemplaza, y un fixture copia la FORMA, no los
+valores.**
+
 **Sin hacer:**
 - **La escritura REAL contra Meta**: cambiar los lugares de un conjunto y el «anuncio de prueba
   con exclusión». Sólo se probó en el navegador con Meta simulado (27 de 27). Hace falta una
@@ -1997,6 +2010,49 @@ igual que un texto de pantalla.
 `app/ads-manager/LugaresLectura.tsx` · `app/ads-manager/LugarPicker.tsx` (`opcionesRadio`) ·
 `app/ads-manager/CampanasBrowser.tsx` (`versionGeo`) · `tests/meta-geo.test.ts` ·
 `tests/ads-lugares-conjunto.test.ts` · *2026-10-07 tarea #715*
+
+## Revisión de la #715: el mismo lugar de los dos lados son DOS filas (07/10)
+
+**Síntoma** (medido con tsx sobre `lib/meta-geo.ts`, no en un conjunto real): un conjunto con
+la «dona» —el mismo pin incluido con 25 km y excluido con 8; excluir adentro de lo incluido
+vale, medido el 11/09— abría el editor sin ninguna defensa. Agrandar el anillo a 40 km
+agrandaba también el agujero: el público quedaba en 0, y el selector no frena por «0
+personas». Sacar el agujero se llevaba el pin incluido: con Uruguay al lado viajaba
+`{ countries: ['UY'] }` y el conjunto dejaba de mostrarse en esa zona. Y las dos filas tenían
+el mismo `key` de React.
+
+**Causa:** `LugarPicker` identificaba la fila con `mismoLugar` (tipo + key), que no mira
+`excluir`. En las pantallas de creación era correcto por construcción: el buscador deshabilita
+lo que «ya está», de cualquier lado, así que el par no podía existir. La #715 abrió el mismo
+editor sobre lo que se LEE de Meta, y eso sí lo trae.
+
+**Regla:** un editor que pasa de editar lo que CREÓ a editar lo que LEE de afuera hereda
+estados que su propia pantalla hacía imposibles. Antes de abrirle el editor a un dato ajeno,
+enumerá qué invariante garantizaba la pantalla de creación —acá, «un lugar aparece una
+vez»— y comprobá si el dato de afuera la cumple. La fila se identifica por lugar Y lado
+(`mismaFila`, `quitarLugar`, `cambiarRadio`, `claveFila`); dos filas iguales del MISMO lado van
+a `noEntiendo`, porque ahí ni el lado las distingue. Se eligió esto y no mandar la dona a sólo
+lectura (la salida mínima): en sólo lectura, una segmentación legítima volvía a ser «cámbialo
+en Meta».
+
+**Y otro agujero de la misma revisión: el guard del pin sin radio no tenía test.** La fila de la
+tabla que lo «probaba» traía `distance_unit`, así que caía en `leerRadio` (`'no'`) y nunca
+llegaba al `if (!radio)`: borrar esa línea daba 14 / 0. Sin ella, un pin sin radio nacía con
+los 5 km por defecto de `lugarPin` y viajaba a Meta apenas se editaba otro lugar. **Un caso de
+test que comparte la salida con OTRA rama no prueba la rama que nombra**: la fila decía «pin sin
+radio» y probaba «unidad sin número». Ahora hay una sin radio ni unidad (13 / 1 al romperla).
+Las fixtures de clientes, en la entrada de arriba (Trampas).
+
+**Sin hacer:**
+- «Usar como dirección» no mira si la dirección ya está: con una dona de DIRECCIONES
+  (`address_string` sin coordenadas), tipearla de nuevo reemplaza las dos filas (`agregarLugar`
+  deduplica por lugar, a propósito). Improbable si Meta devuelve la dirección con coordenadas
+  (entonces se lee como pin, que no se tipea); ninguna de las dos cosas está medida.
+- La dona no se probó contra Meta: es forma sintética, como la ciudad en millas.
+
+**Vive en:** `lib/meta-geo.ts` (`mismaFila`, `quitarLugar`, `cambiarRadio`, `claveFila`,
+`leerBolsa`) · `app/ads-manager/LugarPicker.tsx` (`quitar`, `setRadio`) · `tests/meta-geo.test.ts`
+· `tests/ads-lugares-conjunto.test.ts` · *2026-10-07 revisión de la tarea #715*
 
 ---
 

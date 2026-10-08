@@ -17,7 +17,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import {
   ETIQUETA_TIPO, RADIOS_CIUDAD_KM, RADIOS_DIRECCION_KM,
-  agregarLugar, geoSpecDe, lugarDireccion, mismoLugar, nombrePais, rotuloRadio, type LugarMeta,
+  agregarLugar, cambiarRadio, claveFila, geoSpecDe, lugarDireccion, mismoLugar, nombrePais, quitarLugar, rotuloRadio, type LugarMeta,
 } from '@/lib/meta-geo';
 
 const MONO = "'Geist Mono', monospace";
@@ -144,8 +144,10 @@ export function LugarPicker({ lugares, setLugares, sugerido, onValidez, compacto
       : ensancha ? `Quité ${nombres}: ya queda adentro de ${nuevo.nombre}.`
         : `Quité ${nombres}: ${nuevo.nombre} está adentro, y Meta no deja incluir los dos. Si querías todo ${nombres} menos una parte, búscala en «Excluir».`);
   }
-  const quitar = (l: LugarMeta) => { setLugares(lugares.filter((x) => !mismoLugar(x, l))); setAviso(null); };
-  const setRadio = (l: LugarMeta, km: number | null) => setLugares(lugares.map((x) => (mismoLugar(x, l) ? { ...x, radioKm: km } : x)));
+  // Por FILA (lugar y lado), no por lugar: un conjunto leído de Meta puede traer el mismo
+  // pin incluido y excluido (la dona), y por lugar tocar uno tocaba los dos (lib/meta-geo.ts).
+  const quitar = (l: LugarMeta) => { setLugares(quitarLugar(lugares, l)); setAviso(null); };
+  const setRadio = (l: LugarMeta, km: number | null) => setLugares(cambiarRadio(lugares, l, km));
 
   const fs = compacto ? { titulo: 14, sub: 11, input: 14 } : { titulo: 15.5, sub: 11.5, input: 16 };
   const alinear = compacto ? 'left' : 'center';
@@ -207,7 +209,7 @@ export function LugarPicker({ lugares, setLugares, sugerido, onValidez, compacto
       {lugares.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {lugares.map((l) => (
-            <div key={`${l.tipo}:${l.key}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: compacto ? '8px 10px 8px 12px' : '10px 12px 10px 15px', borderRadius: 13, border: `1px solid ${l.excluir ? 'var(--bad)' : 'var(--border-strong)'}`, background: l.excluir ? 'var(--bad-bg)' : 'var(--surface-2)' }}>
+            <div key={claveFila(l)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: compacto ? '8px 10px 8px 12px' : '10px 12px 10px 15px', borderRadius: 13, border: `1px solid ${l.excluir ? 'var(--bad)' : 'var(--border-strong)'}`, background: l.excluir ? 'var(--bad-bg)' : 'var(--surface-2)' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: SANS, fontSize: fs.titulo, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.nombre}</div>
                 <div style={{ fontFamily: MONO, fontSize: fs.sub, color: l.excluir ? 'var(--bad)' : 'var(--faint)' }}>{l.excluir ? 'Excluido · ' : ''}{ETIQUETA_TIPO[l.tipo]}{contexto(l)}</div>

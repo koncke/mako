@@ -75,3 +75,20 @@ test('la puerta nueva tiene call site, y los dos caminos refrescan lo mismo', ()
   //   quedaba con cero call sites y el botón no se dibujaba nunca); sin `setVersionGeo` en
   //   el onSaved → 1 fallo (éste); con `key={versionGeo}` en el detalle → 1 fallo (éste).
 });
+
+test('el selector quita y cambia el radio de UNA fila (lugar y lado), no de un lugar', () => {
+  // Revisión de la #715: con el mismo pin incluido y excluido (la dona), identificar la
+  // fila por tipo+key cambiaba el radio de los dos o se llevaba los dos. Lo que hacen
+  // quitarLugar / cambiarRadio lo ejecuta tests/meta-geo.test.ts; esto fija que el
+  // selector pase por ellas y que el `key` de React lleve el lado.
+  const PICKER = sinComentarios(leer('app/ads-manager/LugarPicker.tsx'));
+  assert.match(PICKER, /const quitar = \(l: LugarMeta\) => \{ setLugares\(quitarLugar\(lugares, l\)\);/);
+  assert.match(PICKER, /const setRadio = \(l: LugarMeta, km: number \| null\) => setLugares\(cambiarRadio\(lugares, l, km\)\);/);
+  assert.match(PICKER, /\{lugares\.map\(\(l\) => \(\s*<div key=\{claveFila\(l\)\}/);
+  // mismoLugar queda SÓLO para «ya está» en los resultados de la búsqueda.
+  assert.equal((PICKER.match(/\bmismoLugar\(/g) ?? []).length, 1);
+  //   ROTO A PROPÓSITO (07/10/2026, scratchpad romper-715r.mjs), cada una sola: el setRadio
+  //   de antes (`lugares.map((x) => (mismoLugar(x, l) ? …`) → 1 fallo de 5 (éste); el quitar
+  //   de antes (`lugares.filter((x) => !mismoLugar(x, l))`) → 1 fallo (éste); el key
+  //   `${l.tipo}:${l.key}` → 1 fallo (éste).
+});

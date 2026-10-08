@@ -232,4 +232,22 @@ export const BITACORA: Hito[] = [
       { sha: '335837cb', msg: 'Ads Manager: ver y cambiar dónde se muestra un conjunto que ya corre (#715)', lineas: 902, archivos: 13 },
     ],
   },
+  {
+    fecha: '7 oct', hora: '22:30', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La revisión de la #715: el mismo lugar de los dos lados son dos filas',
+    puntos: [
+      '**La dona rompía el editor.** Meta acepta el mismo pin incluido con un radio grande y excluido con uno chico, y el selector identificaba la fila sólo por el lugar: agrandar el anillo agrandaba el agujero (público en 0) y sacar el agujero se llevaba el anillo. Ahora una fila es lugar y lado, y dos filas iguales del mismo lado quedan en sólo lectura. Se eligió eso y no mandar toda dona a sólo lectura: es una segmentación legítima.',
+      '**El guard del pin sin radio no tenía test**: la fila que lo «probaba» traía unidad y caía en otra rama. Borrarlo daba 14 de 14 en verde; con la fila nueva, 13 / 1.',
+      '⚠️ **Las fixtures salían de cuentas de clientes, fuera del plan**, con ids reales de ciudades y coordenadas corridas unos km. Pasaron a valores sintéticos, y queda la pregunta para Martín: ¿se rehace la medición en su cuenta cuando tenga Meta conectado?',
+      'Y las citas de líneas del hallazgo del merge en el navegador, que el commit había corrido. Seis roturas cazadas, cada una con su número en el comentario del test; sin navegador ni Meta.',
+    ],
+    archivos: [
+      'lib/meta-geo.ts — `mismaFila`, `quitarLugar`, `cambiarRadio`, `claveFila`, y el corte de filas repetidas en `leerBolsa`',
+      'app/ads-manager/LugarPicker.tsx — quitar, el radio y el `key` de React por fila',
+      'tests/meta-geo.test.ts — la dona, el pin sin radio ni unidad, y las fixtures sintéticas',
+      'tests/ads-lugares-conjunto.test.ts — el selector pasa por las funciones de fila',
+    ],
+    commits: [],
+  },
 ];

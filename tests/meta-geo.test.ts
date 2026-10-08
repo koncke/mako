@@ -10,8 +10,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TIPOS_BUSCABLES, agregarLugar, aplicarLugares, contiene, explicarErrorGeo, geoSpecDe, lugarDesdeBusqueda, lugarDireccion, lugarPais, lugarPin,
-  lugaresCambiaron, lugaresDesdeDraft, lugaresDesdeMeta, ordenarLugares, rotuloRadio, type LugarMeta,
+  TIPOS_BUSCABLES, agregarLugar, aplicarLugares, cambiarRadio, claveFila, contiene, explicarErrorGeo, geoSpecDe, lugarDesdeBusqueda, lugarDireccion, lugarPais, lugarPin,
+  lugaresCambiaron, lugaresDesdeDraft, lugaresDesdeMeta, ordenarLugares, quitarLugar, rotuloRadio, type LugarMeta,
 } from '../lib/meta-geo';
 
 // Filas reales (Graph v25.0, locale es_LA).
@@ -155,37 +155,45 @@ test('los rechazos de Meta por subcode tienen texto; lo demás no se disfraza de
 // =============================================================================
 // Los lugares de un conjunto QUE YA CORRE (tarea #715)
 // =============================================================================
-// Las tres formas de abajo son copias de GET /{adset}?fields=targeting (Graph v25.0,
-// 07/10/2026) sobre tres conjuntos de tres cuentas conectadas, con el token de cada
-// workspace dueño — la misma lectura que hace EditarPublicoModal al abrirse. Recortadas
-// (menos filas) y con las COORDENADAS CORRIDAS a propósito: lo que se mide es la forma,
-// no dónde pauta cada cliente. Los ids de lugares de Meta son públicos y quedan.
+// Las tres formas de abajo copian la FORMA de GET /{adset}?fields=targeting (Graph v25.0,
+// 07/10/2026) sobre tres conjuntos de tres cuentas conectadas — la misma lectura que hace
+// EditarPublicoModal al abrirse. Recortadas (menos filas) y con TODOS los valores
+// SINTÉTICOS: coordenadas, primary_city_id, region_id, países y regiones no son los de
+// ningún cliente. Lo único medido es la forma: qué campos trae cada fila, location_types
+// en los dos lados, radios fuera de nuestra lista. Los radios sí son los leídos: no dicen
+// dónde pauta nadie.
+//
+// ⚠️ Revisión de la #715 (07/10): la primera versión dejaba los primary_city_id y region_id
+// REALES con las coordenadas corridas apenas unos km, y rotulaba una de las regiones
+// excluidas con su nombre: cruzando las dos se deducía en qué ciudades pauta un cliente
+// identificable. Y la lectura salió de cuentas de clientes, fuera del plan (que pedía UN
+// GET sobre la cuenta propia de Martín): ver docs/hallazgos-ads.md.
 
 // Cuenta A: los pines que se arman en el Ads Manager de Meta. SIN address_string ni name,
 // con radios que nuestra lista no ofrece, y con `frequently_in` en location_types.
 const GEO_PINES = {
   custom_locations: [
-    { distance_unit: 'kilometer', latitude: -31.61, longitude: -60.71, radius: 12, primary_city_id: 90205, region_id: 117, country: 'AR' },
-    { distance_unit: 'kilometer', latitude: -34.43, longitude: -58.63, radius: 8, primary_city_id: 86073, region_id: 97, country: 'AR' },
-    { distance_unit: 'kilometer', latitude: -34.6, longitude: -58.45, radius: 16, primary_city_id: 83693, region_id: 103, country: 'AR' },
+    { distance_unit: 'kilometer', latitude: -1.1, longitude: -1.1, radius: 12, primary_city_id: 1001, region_id: 2001, country: 'AR' },
+    { distance_unit: 'kilometer', latitude: -1.2, longitude: -1.2, radius: 8, primary_city_id: 1002, region_id: 2002, country: 'AR' },
+    { distance_unit: 'kilometer', latitude: -1.3, longitude: -1.3, radius: 16, primary_city_id: 1003, region_id: 2003, country: 'AR' },
   ],
   location_types: ['frequently_in', 'home', 'recent'],
 };
 // Cuenta B: dos países pelados.
-const GEO_PAISES = { countries: ['US', 'MX'], location_types: ['home', 'recent'] };
+const GEO_PAISES = { countries: ['CL', 'UY'], location_types: ['home', 'recent'] };
 // Cuenta C: pines incluidos y provincias EXCLUIDAS, con location_types en los DOS lados.
 const GEO_C = {
   custom_locations: [
-    { distance_unit: 'kilometer', latitude: -34.5, longitude: -58.5, radius: 5, primary_city_id: 88527, region_id: 97, country: 'AR' },
-    { distance_unit: 'kilometer', latitude: -34.55, longitude: -58.56, radius: 1, primary_city_id: 91038, region_id: 97, country: 'AR' },
+    { distance_unit: 'kilometer', latitude: -1.4, longitude: -1.4, radius: 5, primary_city_id: 1004, region_id: 2004, country: 'AR' },
+    { distance_unit: 'kilometer', latitude: -1.5, longitude: -1.5, radius: 1, primary_city_id: 1005, region_id: 2004, country: 'AR' },
   ],
   location_types: ['home', 'recent'],
 };
 const EXC_C = {
   regions: [
-    { key: '100', name: 'Chubut', country: 'AR' },
-    { key: '101', name: 'Córdoba', country: 'AR' },
-    { key: '117', name: 'Santa Fe', country: 'AR' },
+    { key: '3001', name: 'Región Uno', country: 'AR' },
+    { key: '3002', name: 'Región Dos', country: 'AR' },
+    { key: '3003', name: 'Región Tres', country: 'AR' },
   ],
   location_types: ['home', 'recent'],
 };
@@ -214,11 +222,11 @@ test('el geo de un conjunto que ya corre se lee con la forma que Meta devuelve',
   assert.equal(contiene(lugarPais('AR'), a.lugares[0]), true);
 
   const b = lugaresDesdeMeta(GEO_PAISES, null);
-  assert.deepEqual(b.lugares.map((l) => [l.tipo, l.key]), [['country', 'US'], ['country', 'MX']]);
+  assert.deepEqual(b.lugares.map((l) => [l.tipo, l.key]), [['country', 'CL'], ['country', 'UY']]);
 
   const c = lugaresDesdeMeta(GEO_C, EXC_C);
   assert.deepEqual(c.noEntiendo, []);
-  assert.deepEqual(c.lugares.filter((l) => l.excluir).map((l) => [l.tipo, l.key, l.nombre]), [['region', '100', 'Chubut'], ['region', '101', 'Córdoba'], ['region', '117', 'Santa Fe']]);
+  assert.deepEqual(c.lugares.filter((l) => l.excluir).map((l) => [l.tipo, l.key, l.nombre]), [['region', '3001', 'Región Uno'], ['region', '3002', 'Región Dos'], ['region', '3003', 'Región Tres']]);
   assert.deepEqual(c.conservar.excluidos, { location_types: ['home', 'recent'] });
   //   ROTO A PROPÓSITO: sin pasar `country` a `pais` → 12 / 1 (éste): los pines salen con
   //   pais null y contiene() deja de ver el choque país+pin.
@@ -254,12 +262,12 @@ test('cambiar un lugar re-escribe el geo desde los lugares y le devuelve locatio
   // Con excluidos: sacar uno conserva el location_types de ESE lado; sacarlos todos borra la clave.
   const tc = conjunto(GEO_C, EXC_C);
   const lc = lugaresDesdeMeta(tc.geo_locations, tc.excluded_geo_locations);
-  const sinCordoba = lc.lugares.filter((l) => l.key !== '101');
-  const ex = aplicarLugares(tc, lc, sinCordoba).excluded_geo_locations as Record<string, unknown>;
-  assert.deepEqual(ex, { regions: [{ key: '100' }, { key: '117' }], location_types: ['home', 'recent'] });
+  const sinLaDos = lc.lugares.filter((l) => l.key !== '3002');
+  const ex = aplicarLugares(tc, lc, sinLaDos).excluded_geo_locations as Record<string, unknown>;
+  assert.deepEqual(ex, { regions: [{ key: '3001' }, { key: '3003' }], location_types: ['home', 'recent'] });
   assert.equal('excluded_geo_locations' in aplicarLugares(tc, lc, lc.lugares.filter((l) => !l.excluir)), false);
   // Lo de afuera del geo no se toca.
-  assert.equal(aplicarLugares(tc, lc, sinCordoba).age_min, 25);
+  assert.equal(aplicarLugares(tc, lc, sinLaDos).age_min, 25);
   // Sin un solo lugar incluido no se guarda: Meta no tiene dónde mostrarlo.
   assert.throws(() => aplicarLugares(tc, lc, lc.lugares.filter((l) => l.excluir)), /al menos un lugar/);
   //   ROTO A PROPÓSITO: 'location_types' fuera de CLAVES_CONSERVADAS → 11 / 2 (éste y el
@@ -293,6 +301,9 @@ test('lo que no se entiende deja los lugares en SÓLO LECTURA, y re-escribir tir
     [{ country_groups: ['latam'] }, 'geo_locations.country_groups'],
     [{ cities: [{ key: '1', name: 'X', radius: 5, distance_unit: 'kilometer', custom_type: 'algo' }] }, 'geo_locations.cities[0].custom_type'],
     [{ custom_locations: [{ latitude: -34, longitude: -58, distance_unit: 'kilometer' }] }, 'geo_locations.custom_locations[0].radius'],
+    // Sin radius NI distance_unit: la fila de arriba trae unidad, así que cae en leerRadio
+    // ('no') y nunca llegaba al `if (!radio)` de los custom_locations. Ésta sí.
+    [{ custom_locations: [{ latitude: -34, longitude: -58 }] }, 'geo_locations.custom_locations[0].radius'],
     [{ custom_locations: [{ latitude: -34, longitude: -58, radius: 5, distance_unit: 'feet' }] }, 'geo_locations.custom_locations[0].radius'],
     [{ regions: [{ name: 'Sin key' }] }, 'geo_locations.regions[0].key'],
     [{ countries: 'AR' }, 'geo_locations.countries'],
@@ -310,19 +321,63 @@ test('lo que no se entiende deja los lugares en SÓLO LECTURA, y re-escribir tir
   //   ROTO A PROPÓSITO: sin la lista blanca POR FILA (el `raro`) → 12 / 1 (éste): el campo
   //   desconocido de la ciudad no aparece en noEntiendo. Y aplicarLugares sin el `throw`
   //   de noEntiendo → 12 / 1 (éste): re-escribe y `places` desaparece.
+  //   Y (revisión, 07/10, scratchpad romper-715r.mjs) sin el `if (!radio)` de los
+  //   custom_locations → 13 / 1 de 14 (éste): el pin sin radio nacía con los 5 km por
+  //   defecto de lugarPin y viajaba a Meta con un radio que nadie eligió apenas se editaba
+  //   otro lugar. Con la tabla sin la fila sin unidad, la misma rotura da 14 / 0: el guard
+  //   no tenía test.
 });
 
 test('el pin: no se busca en Meta, sobrevive al borrador y su radio dice la unidad', () => {
   assert.equal((TIPOS_BUSCABLES as readonly string[]).includes('pin'), false);
   assert.equal(lugarDesdeBusqueda({ key: '1', type: 'pin' }), null);
-  const p = { ...lugarPin(-34.6, -58.45, 3), excluir: false };
-  assert.equal(p.key, '-34.600000,-58.450000');
+  const p = { ...lugarPin(-1.6, -1.65, 3), excluir: false };
+  assert.equal(p.key, '-1.600000,-1.650000');
   assert.deepEqual(lugaresDesdeDraft([p]), [p]);
-  assert.deepEqual(geoSpecDe([p]).geo_locations.custom_locations, [{ latitude: -34.6, longitude: -58.45, radius: 3, distance_unit: 'kilometer' }]);
+  assert.deepEqual(geoSpecDe([p]).geo_locations.custom_locations, [{ latitude: -1.6, longitude: -1.65, radius: 3, distance_unit: 'kilometer' }]);
   assert.equal(rotuloRadio(p), '+3 km');
   // Una dirección que viene CON coordenadas se re-emite como punto: no se re-geocodifica.
-  const lec = lugaresDesdeMeta({ custom_locations: [{ address_string: 'Calle 1 123', latitude: -34.6, longitude: -58.45, radius: 2, distance_unit: 'kilometer' }] }, undefined);
+  const lec = lugaresDesdeMeta({ custom_locations: [{ address_string: 'Calle 1 123', latitude: -1.6, longitude: -1.65, radius: 2, distance_unit: 'kilometer' }] }, undefined);
   assert.deepEqual(lec.lugares.map((l) => [l.tipo, l.nombre]), [['pin', 'Calle 1 123']]);
   //   ROTO A PROPÓSITO: lugaresDesdeDraft con la lista vieja `[...TIPOS_BUSCABLES, 'address']`
   //   → 12 / 1 (éste): el pin del borrador vuelve como [].
+});
+
+test('la dona: el mismo pin incluido y excluido son DOS filas, y tocar una no toca la otra', () => {
+  // Meta acepta el mismo punto incluido con un radio grande y excluido con uno chico: un
+  // anillo. Forma SINTÉTICA (ninguno de los conjuntos leídos el 07/10 la tenía), sacada de
+  // la revisión de la #715. Las pantallas de creación no la pueden armar —el buscador no
+  // deja sumar lo que ya está—, pero un conjunto leído de Meta sí la trae al editor.
+  const punto = { latitude: -1.7, longitude: -1.7, distance_unit: 'kilometer' };
+  const geo = { custom_locations: [{ ...punto, radius: 25 }] };
+  const exc = { custom_locations: [{ ...punto, radius: 8 }] };
+  const t = conjunto(geo, exc);
+  const lec = lugaresDesdeMeta(geo, exc);
+  assert.deepEqual(lec.noEntiendo, []);
+  const [anillo, agujero] = lec.lugares;
+  assert.deepEqual([anillo.excluir, agujero.excluir], [false, true]);
+  assert.notEqual(claveFila(anillo), claveFila(agujero)); // el `key` de React de cada fila
+  const custom = (g: unknown) => (g as { custom_locations: unknown[] }).custom_locations;
+
+  // Agrandar el anillo a 40 km deja el agujero en 8: con el mismo radio en los dos, el
+  // agujero tapaba todo el círculo y el público quedaba en cero.
+  const mas = aplicarLugares(t, lec, cambiarRadio(lec.lugares, anillo, 40));
+  assert.deepEqual(custom(mas.geo_locations), [{ ...punto, radius: 40 }]);
+  assert.deepEqual(custom(mas.excluded_geo_locations), [{ ...punto, radius: 8 }]);
+
+  // Sacar el agujero, con otro lugar incluido al lado, deja el anillo: antes se llevaba el
+  // pin incluido, viajaba { countries: ['UY'] } y el conjunto dejaba de mostrarse en esa zona.
+  const geoUy = { countries: ['UY'], ...geo };
+  const lecUy = lugaresDesdeMeta(geoUy, exc);
+  const agujeroUy = lecUy.lugares.find((l) => l.excluir)!;
+  const sinAgujero = aplicarLugares(conjunto(geoUy, exc), lecUy, quitarLugar(lecUy.lugares, agujeroUy));
+  assert.deepEqual(sinAgujero.geo_locations, { countries: ['UY'], custom_locations: [{ ...punto, radius: 25 }] });
+  assert.equal('excluded_geo_locations' in sinAgujero, false);
+
+  // Dos filas iguales del MISMO lado no se pueden tocar por separado: sólo lectura.
+  const doble = lugaresDesdeMeta({ custom_locations: [{ ...punto, radius: 25 }, { ...punto, radius: 8 }] }, undefined);
+  assert.deepEqual(doble.noEntiendo, ['geo_locations.custom_locations[1]']);
+  //   ROTO A PROPÓSITO (07/10/2026, scratchpad romper-715r.mjs): `mismaFila` igual a
+  //   `mismoLugar` (sin mirar el lado) → 13 / 1 de 14 (éste): el agujero salía con 40 km. Y
+  //   sin el corte de las filas repetidas en leerBolsa → 13 / 1 (éste).
 });
