@@ -201,4 +201,34 @@ export const BITACORA: Hito[] = [
       'tests/stt-red.test.ts — doce roturas probadas',
     ],
   },
+  {
+    fecha: '7 oct', hora: '—', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El grupo de Brigitte: sin cuota a la segunda pregunta',
+    pedido: 'Revisa el grupo de brigitte, sigue con el problema de los token de IA apenas haciendo 1 consulta... Eso es muy molesto, realmente tenemos que solucionarlo, ya creo que habré enviado como 10 prompts intentando iterar esto... Por favor solucionalo, proponme una solución definitiva...',
+    puntos: [
+      'En el grupo (una sola key, la de Gemini): MaKo contestó la primera pregunta y a la segunda dijo «Te quedaste sin cuota de IA… Tu API key llegó al tope».',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '22:41', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El 429 era el del MINUTO, y se tiraba el turno con seis pasos hechos',
+    puntos: [
+      '**Medido:** una pregunta con herramientas son 6 a 8 pedidos de ~15.000 tokens (el loop re-manda la conversación en cada paso). La segunda hizo 6 en 13 s y el séptimo volvió 429; 57 minutos después la misma key contestaba 200. No era el cupo del día.',
+      '⚠️ **Lo que tiraba el turno era una regla de agosto, «nunca reintentar después de una tool».** Vale para RE-ARRANCAR el turno con otro proveedor, que vuelve a correr las tools; repetir el pedido que falló no ejecuta nada. Por eso el séptimo paso descartaba los seis anteriores, y el modelo de respaldo —con su propio cupo— no se probaba nunca en este camino.',
+      '**Cada pedido que falla decide en `crearRotacion`**: otro modelo de la misma key, y si no queda, la espera que dice Google (hasta 30 s, una vez, sólo en la última cuenta del cliente). Verificado contra Google: un modelo inexistente rotó solo a `flash-lite`, usó la herramienta y contestó en 3,8 s.',
+      '⚠️ **Gemini manda el error en un ARRAY** y se leía `data.error`: todo llegaba como «HTTP 429» pelado. Y **Groq gratis no puede con el doer en ningún modelo** (8.000 tokens por minuto contra pedidos de 13-16 mil): la red de la agencia para el doer es sólo Gemini.',
+      'Quedan para decidir: bajar los tokens por pregunta (la palanca grande), que la red de la agencia no re-arranque de cero, que el mensaje pida una key «de otra cuenta de Google» y un último recurso pago.',
+    ],
+    commits: [
+      { sha: 'af3530c2', msg: 'MaKo con una sola key: un 429 a mitad de la pregunta se cubre con el otro modelo, no tira el turno', lineas: 541, archivos: 5 },
+    ],
+    archivos: [
+      'lib/ia-rotacion-modelo.ts — `crearRotacion`, `leerErrorProveedor`, `tipoDeFallo` (puro, con test)',
+      'lib/ai-cheap.ts — `chatCheapTools` rota de modelo en cada paso y el `fetch` va adentro del `try`',
+      'lib/mako-doer-in.ts — la última cuenta del cliente espera la cuota del minuto',
+      'tests/ia-rotacion-modelo.test.ts — ocho roturas probadas',
+    ],
+  },
 ];

@@ -3513,3 +3513,75 @@ modelos de respaldo y Groq de la agencia, un bache de Google ya no deja a nadie 
   plataforma puede pasarle a cualquiera. Gemini contesta «(vacío)»; Whisper no tiene esa salida.
 
 *07/10/2026, cuenta 2, commit `c67ca07c`.*
+
+## «Te quedaste sin cuota» a la segunda pregunta: era el tope del MINUTO, y el turno se tiraba con seis pasos hechos (07/10/2026)
+
+**Vive en:** `lib/ai-cheap.ts` (`chatCheapTools`) · `lib/ia-rotacion-modelo.ts` ·
+`lib/mako-doer-in.ts` (el loop de las cuentas del cliente) · `tests/ia-rotacion-modelo.test.ts`
+
+Lo que mandó Martín: «Revisa el grupo de brigitte, sigue con el problema de los token de IA
+apenas haciendo 1 consulta... ya creo que habré enviado como 10 prompts intentando iterar
+esto... proponme una solución definitiva». En el grupo (ws15, una sola key: la de Gemini) MaKo
+contestó la primera pregunta y a la segunda —«¿tenés la información del lead Rosana Grandoli?»—
+dijo «Te quedaste sin cuota de IA».
+
+**Medido en `anthropic_usage` y en los logs de Vercel:**
+
+| | |
+|---|---|
+| Una pregunta con herramientas | **6 a 8 pedidos de ~15.000 tokens**: el loop re-manda la conversación entera en cada paso |
+| La segunda pregunta | 6 pedidos en 13 s, y el **séptimo 429** |
+| La misma key, 57 min después | **200**: era el tope del MINUTO, no el del día |
+| `gemini-flash-lite-latest` (respaldo) | nunca se probó en este camino |
+| Red de la agencia: Groq ×2 | **413**: los 4 modelos gratis topean en 8.000 tokens/min y el pedido pesaba 13.455 |
+| Red de la agencia: Gemini ×3 | 503 «high demand» ×2 y un timeout que salió como excepción del `fetch` |
+
+⚠️ **El diagnóstico obvio —el del propio mensaje— era el equivocado.** «Cargá otra key» no
+arreglaba nada: la key no estaba agotada, una pregunta sola llenaba el minuto. Lo que tiraba el
+turno era una regla escrita en agosto: **«nunca reintentar después de que una tool tocó datos»**
+(`toolsUsados > 0 || intento >= 1`, fijada por un guard en `tests/red-plataforma.test.ts`). Esa
+regla vale para RE-ARRANCAR el turno con otro proveedor —eso vuelve a correr las tools desde el
+mensaje original—, y se aplicaba a repetir UN pedido que falló, que no ejecuta nada: las tools
+corren sólo con una respuesta buena y lo que ya corrieron está en `msgs`. Por eso el 429 del
+séptimo paso descartaba los seis anteriores, y la red de la agencia arrancaba de cero.
+
+Lo que quedó (`af3530c2`):
+
+1. **Cada pedido que falla se decide en `crearRotacion`** (`lib/ia-rotacion-modelo.ts`, puro):
+   un 429 o un 503 pasa al OTRO MODELO de la misma key —en el plan gratis cada modelo tiene su
+   propio cupo— sin perder lo hecho, en cualquier paso. Verificado contra Google: un modelo que no
+   existe → «rotar a gemini-flash-lite-latest» → usó la herramienta y contestó, 3,8 s.
+2. **Sin otro modelo, la cuota del minuto se ESPERA** con lo que dice Google («Please retry in
+   17s», o el `RetryInfo`), hasta 30 s, una vez por turno, y **sólo en la última cuenta del
+   cliente**: con otra esperando, saltar es mejor. La del día no se espera nunca.
+3. **El `fetch` va adentro del `try`**: un timeout es una excepción, no una respuesta, y no pasaba
+   por ningún reintento.
+
+⚠️ **Y GEMINI MANDA EL ERROR EN UN ARRAY** (`[{ "error": { … } }]`). `chatCheapTools` leía
+`data.error.message`, así que todo error de Gemini llegaba como «HTTP 429» pelado: ni qué cuota
+ni cuánto esperar, y la marca de `anotarRebote429` decía lo mismo. Para saber si era la del minuto
+o la del día hubo que pegarle a mano a la key del cliente. `leerErrorProveedor` lee las dos formas
+y agrega qué cuota fue.
+
+⚠️ **Groq gratis no puede atender al doer, en ningún modelo.** Medido con la key de la agencia:
+`gpt-oss-20b`, `gpt-oss-120b` y `qwen3.8-27b` topean en 8.000 tokens por minuto y `allam-2-7b` no
+hace tool calling; un pedido del doer pesa 13-16 mil. O sea que la red de plataforma del doer es
+**Gemini y nada más**, y Groq sólo suma dos líneas de error por turno.
+
+**SIN HACER:**
+- **Los tokens por pregunta son la palanca grande**: ~15.000 por paso × 6-8 pasos. Dónde se van
+  vive en `lib/mako-doer-in.ts` (las tools del turno y el presupuesto de 12.000 caracteres del
+  registro). Bajarlo a la mitad es duplicar cuántas preguntas entran por minuto, para todos.
+- **La red de la agencia re-arranca el turno de cero**: vuelve a correr las tools que ya corrieron
+  con la key del cliente (`lib/mako-doer-in.ts`, el `for` de `distintoPrimero`). Con lecturas no
+  duplica nada pero paga los mismos 6 pedidos otra vez.
+- **El mensaje de «sin cuota» pide «cargá otra key»** (`lib/fallo-ia-texto.ts`). En Gemini el cupo
+  es por PROYECTO de Google: una segunda key del mismo proyecto comparte el balde. Tiene que decir
+  «de otra cuenta de Google». No se tocó: ese archivo lo estaba editando otra sesión.
+- **Un último recurso PAGO** (una key de Gemini con facturación en la agencia) es lo único que
+  hace «nunca» verdadero. Es una decisión de plata, de Martín; el costo por pregunta hay que
+  medirlo contra el precio de lista del día antes de decidir.
+- **La cuenta de OpenAI de la plataforma sigue sin crédito** (el RAG de todos, ver la entrada
+  anterior).
+
+*07/10/2026, cuenta 2, commit `af3530c2`.*

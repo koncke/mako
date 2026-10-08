@@ -3153,6 +3153,15 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   que el que falló, y con el motivo «⚠ red de plataforma»** (`provsGratisDePlataforma`; el molde
   es `transcribirAudio` en `lib/ai-cheap.ts`). Y los errores de la red viajan SEPARADOS de los
   del cliente: con ellos se fabricaría el texto que lee él.
+- **Un 429 del MINUTO también se cubre con otro modelo, y repetir un PEDIDO no repite
+  herramientas.** El 07/10/2026 a Brigitte (una sola key) una pregunta de 6-8 pedidos de ~15k
+  tokens llenó el cupo del minuto, y el 429 tiraba el turno con seis pasos hechos por una regla
+  que decía «nunca reintentar después de una tool». Esa regla es para RE-ARRANCAR el turno (otro
+  proveedor desde el mensaje original, que vuelve a correr las tools); el pedido que falló no
+  ejecutó nada. Todo loop de herramientas decide en `crearRotacion` (`lib/ia-rotacion-modelo.ts`):
+  otro modelo, y si no queda, la espera que dice el PROVEEDOR, nunca una inventada. Y la red de
+  la agencia para el doer es sólo Gemini: los cuatro modelos gratis de Groq topean en 8.000
+  tokens por minuto y un pedido del doer pesa 13-16 mil (413 medido en los cuatro).
 
 # Un contrato de datos no es un layout
 
