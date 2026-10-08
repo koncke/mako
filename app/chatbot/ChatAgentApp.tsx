@@ -157,7 +157,7 @@ export function ChatAgentApp() {
 function ChatAgentInner() {
   const [secuencias, setSecuencias] = useState<SecuenciaDto[] | null>(null);
   /** Respuestas que cayeron en «Otra cosa» sin resolver (ex banner del hand-off): las marca la tarjeta. */
-  const [handoffs, setHandoffs] = useState<ReadonlyArray<{ secuenciaId: number | null }>>([]);
+  const [sinCaso, setSinCaso] = useState<ReadonlyArray<{ secuenciaId: number | null }>>([]);
   const [rolAdmin, setRolAdmin] = useState(false);
   const [objetivos, setObjetivos] = useState<Opcion[]>([]);
   const [etapas, setEtapas] = useState<Opcion[]>([]);
@@ -222,7 +222,7 @@ function ChatAgentInner() {
       if (!j.ok) { errorCarga = j.error || 'No se pudieron cargar las secuencias de mensajes.'; throw new Error(errorCarga ?? ''); }
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
-      setHandoffs(Array.isArray(j.handoffs) ? (j.handoffs as Array<{ secuenciaId: number | null }>) : []);
+      setSinCaso(Array.isArray(j.handoffs) ? (j.handoffs as Array<{ secuenciaId: number | null }>) : []);
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
       setProductos(j.productos ?? []); setDisparadores(j.disparadores ?? []);
       setHuecos(j.huecos ?? []); setTz(j.tz ?? null);
@@ -523,7 +523,7 @@ function ChatAgentInner() {
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onWizard={(id) => setWizard(id)} onReload={() => void load()}
           abrir={abrirSec}
-          handoffs={handoffs}
+          handoffs={sinCaso}
           /* ⚠️ QUÉ ETAPAS QUEDARON SIN SECUENCIA — ERA UNA FRANJA ARRIBA DEL LIENZO.
              Primero fue una banda ámbar con las seis etapas enumeradas y un botón negro
              («haz que sea mucho más sutil»), después un renglón gris, y las dos le
