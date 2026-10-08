@@ -198,8 +198,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [disparo, setDisparo] = useState<DisparoActual>(() => ({
     trigger_tipo: secuencia.trigger_tipo, etapa: secuencia.etapa,
     funnel_id: secuencia.funnel_id ?? null, producto_id: secuencia.producto_id ?? null,
-    // El DTO todavía no declara `etiqueta_id` (mig 0223): se lee estructural.
-    etiqueta_id: (secuencia as SecuenciaDto & { etiqueta_id?: number | null }).etiqueta_id ?? null,
+    etiqueta_id: secuencia.etiqueta_id ?? null,
   }));
   const guardarDisparo = async (valor: string) => {
     const body = pedidoDisparo(valor, secuencia.id);

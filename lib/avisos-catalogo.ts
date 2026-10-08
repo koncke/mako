@@ -208,6 +208,9 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
   'lead-no-confirmo': 'lead',
+  // El «Avisarme» de una automatización (la acción `avisar_al_equipo`, y la rama «Otra cosa» de
+  // «Si responde», que reemplazó al hand-off): siempre habla de un lead.
+  'chatbot-aviso-equipo': 'lead',
   // Habla de los leads que se quedaron quietos, no del motor que los movió: el rótulo
   // tiene que decirle al dueño de qué le están hablando desde la primera línea.
   'crm-lead-estancado': 'lead',

@@ -27,6 +27,11 @@ type Camino = { via: 'empresa' | 'oficial' | null; motivo: string | null; venceA
 type BorradorEnCola = {
   id: number; leadId: number | null; telefono: string; texto: string; origen: string;
   leadNombre: string | null; createdAt: string;
+  /**
+   * Un borrador de NOTA DE VOZ o de ARCHIVO (mig 0223): al aprobarse sale el audio o el archivo,
+   * y `texto` es su pie. Antes el de audio guardaba «🎙 Nota de voz: …» y eso era lo que salía.
+   */
+  audioId?: number | null; adjuntoId?: number | null;
   /** Ausente = la lectura barata todavía no lo resolvió. El servidor nunca manda `null`. */
   camino?: Camino;
 };
@@ -109,7 +114,8 @@ export function PanelBorradores({ onEnviado }: { onEnviado?: () => void | Promis
                       <span style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)' }}>{b.leadNombre || b.telefono}</span>
                       <span style={{ fontSize: '11px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace" }}>{ORIGEN_LABEL[b.origen] ?? b.origen}</span>
                     </div>
-                    <div style={{ fontSize: '13.5px', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginBottom: '10px' }}>{b.texto}</div>
+                    {(b.audioId || b.adjuntoId) && <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dim)', marginBottom: '4px' }}>{b.audioId ? '🎙 Nota de voz' : '📎 Archivo'}</div>}
+                    {b.texto && <div style={{ fontSize: '13.5px', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginBottom: '10px' }}>{b.texto}</div>}
                     {via === 'oficial' && <div style={{ fontSize: '11.5px', color: 'var(--dim)', marginBottom: '8px' }}>Sale por tu WhatsApp oficial.</div>}
                     {via === null && <div style={{ fontSize: '11.5px', color: 'var(--warn)', marginBottom: '8px', lineHeight: 1.45 }}>{b.camino?.motivo ?? 'No hay por dónde mandarlo.'}</div>}
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>

@@ -91,6 +91,8 @@ export type SecuenciaDto = {
   producto_id?: number | null;
   /** Por qué número de WhatsApp sale (mig 0198). `null`/ausente = la línea por default. */
   instance_name?: string | null;
+  /** La etiqueta que la dispara (`trigger_tipo: 'etiqueta_puesta'`, mig 0223). */
+  etiqueta_id?: number | null;
   /**
    * EL HORARIO con el que inscribe (mig 0192). `null`/ausente = se dispara por una
    * ACCIÓN, que es lo que hacen hoy todas las filas. Ver lib/nutricion-agenda.ts.
