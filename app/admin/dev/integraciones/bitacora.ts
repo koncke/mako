@@ -604,12 +604,44 @@ export const BITACORA: Hito[] = [
       { sha: 'ac446f7f', msg: 'Uso Limitado de Google: lo que lleva datos de Calendar va sólo a una IA que no entrena', lineas: 497, archivos: 16 },
     ],
     archivos: [
-      'lib/datos-google-ia.ts — qué proveedor puede recibir datos de Google',
-      'lib/ai-cheap.ts · lib/mako-doer-in.ts — el filtro donde corre cada pedido con herramientas',
+      'lib/datos-google-ia.ts — qué proveedor puede recibir datos de Google (BORRADO el mismo día: ver el hito siguiente)',
+      'lib/ai-cheap.ts · lib/mako-doer-in.ts — el filtro donde corre cada pedido con herramientas (revertido el mismo día)',
       'lib/api-mako/areas/crm.def.ts · lib/api-mako/tipos.ts — `datosDeGoogle` en las cinco operaciones',
       'lib/plan-fathom.ts · lib/tarea-dueno.ts — los invitados fuera del prompt, el email por nombre',
       'app/privacidad/page.tsx — la política dice lo que hace',
-      'tests/datos-google-ia.test.ts — recorre los runners; probado con 13 roturas',
+      'tests/datos-google-ia.test.ts — recorre los runners; probado con 13 roturas (reemplazado por tests/agenda-sin-ia.test.ts)',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '23:16', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La IA sólo procesa lo que pide la persona: la agenda la maneja el código',
+    pedido: 'Pero no entiendo la limitación de la IA, si la IA solo procesa la info que le pide el usuario, y la app se debe ejecutar con código interno, no con IA...\nPuedes solucionar eso?\n\nY limitar el uso de Gemini en este caso no tiene sentido',
+    puntos: [
+      'Sobre el arreglo de esa misma mañana, que mandaba los turnos con datos de la agenda sólo a proveedores «que no entrenan» y le sacaba Gemini a un cliente que sólo tiene Gemini.',
+    ],
+  },
+  {
+    fecha: '7 oct', hora: '23:16', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La agenda de Google no pasa por ninguna IA: el modelo lee a la persona, el código busca y muestra',
+    puntos: [
+      '⚠️ **El primer arreglo era el diagnóstico equivocado**: la pregunta no era a QUÉ IA va el dato, sino por qué va a una. Un relevo de 4 lectores midió además que el ruteo dejaba abiertos el «sí», el resumen de la pendiente (que va en cada turno), el historial del lead y el título del chat de la app.',
+      'Ahora el modelo pasa lo que dijo la persona y recibe un estado o un resumen sin nada de la agenda; el código busca y le muestra el detalle a la persona en un mensaje aparte, que no entra al historial. Gemini sirve igual.',
+      'Mover ya no le pide al modelo copiar la hora exacta de una lista: el código elige con el día y la hora que dijo la persona, y si hay varias se las muestra. Y la respuesta corta que sigue («la de las 16») llega con las herramientas de agenda.',
+      '⚠️ **La revisión adversarial encontró que el primer test daba verde sobre la forma exacta del bug de antes**: buscaba nombres de variable. Ahora los textos salen de constructores puros probados con datos falsos, y 23 roturas medidas lo confirman.',
+      'Quedó como tarea aparte un bug ANTERIOR: si el doer rota de proveedor después de proponer una acción, la vuelve a proponer.',
+    ],
+    commits: [
+      { sha: '3ce63c82', msg: 'La agenda de Google no pasa por ninguna IA: el modelo lee a la persona, el código busca y muestra', lineas: 1731, archivos: 33 },
+    ],
+    archivos: [
+      'lib/agenda-sin-ia.ts — los constructores de lo que ve el modelo y lo que ve la persona, y el pedido que queda abierto',
+      'lib/api-mako/areas/crm.run.ts · crm.def.ts — las cuatro herramientas de agenda, que sólo leen y llaman',
+      'lib/api-mako/ejecutar.ts · acciones.ts · tipos.ts — `paraLaPersona` y `ctx.aPersona`',
+      'lib/mako-doer-in.ts — manda el detalle aparte, fuera del historial; lee el pedido abierto',
+      'app/privacidad/page.tsx — la política: los eventos de la agenda no pasan por ninguna IA',
+      'tests/agenda-sin-ia.test.ts — centinelas; 23 roturas',
     ],
   },
 ];
