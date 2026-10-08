@@ -241,14 +241,31 @@ test('ningún componente cliente importa un VALOR del registro, de las defs ni d
     const s = leer(p);
     if (!/^\s*['"]use client['"]/m.test(s.slice(0, 400))) continue;
     // Con alias Y con ruta relativa: un `../../lib/api-mako/registro` mete lo mismo al bundle.
-    // `alcance` es la única excepción, y por contenido: son tres textos y una función de
-    // prefijo que el tutorial del token necesita, sin una sola descripción de operación.
-    for (const m of s.matchAll(/^import\s+(type\s+)?([^;]*?)\s+from\s+['"](?:@\/|(?:\.\.?\/)+)lib\/(api-mako\/(?!alcance['"])[^'"]+|agente-skill)['"]/gm)) {
+    // Dos excepciones, y por contenido: `alcance` (tres textos y una función de prefijo que el
+    // tutorial del token necesita) y `flujo-params` (la constante «el lead del evento» y tres
+    // funciones puras que el editor del paso «⚡ Acción» comparte con el ejecutor). Ninguna
+    // trae una descripción de operación, y el test de abajo fija que no importen VALORES.
+    for (const m of s.matchAll(/^import\s+(type\s+)?([^;]*?)\s+from\s+['"](?:@\/|(?:\.\.?\/)+)lib\/(api-mako\/(?!(?:alcance|flujo-params)['"])[^'"]+|agente-skill)['"]/gm)) {
       const soloTipos = !!m[1] || m[2].replace(/[{}]/g, '').split(',').filter((x) => x.trim()).every((x) => /^\s*type\s/.test(x));
       if (!soloTipos) culpables.push(`${p.slice(RAIZ.length)} → ${m[0].slice(0, 90)}`);
     }
   }
   assert.deepEqual(culpables, [], `estos componentes cliente meten el registro (o la skill, que lo importaría) en el bundle del navegador:\n${culpables.join('\n')}`);
+});
+
+test('las dos excepciones de arriba no importan VALORES más allá de tipos.ts: si lo hicieran, el registro viajaría por ellas', () => {
+  // `tipos.ts` ya viajaba por `alcance` (ALCANCES, alcanceMinimo) y no trae una sola
+  // descripción de operación; el registro, las defs y los runners sí.
+  // Verificado rompiéndolo (08/10/2026): con `import { porId } from './registro'` en
+  // flujo-params, 1 fallo; sin él, pasa.
+  for (const m of ['alcance', 'flujo-params']) {
+    const s = leer(join(RAIZ, 'lib', 'api-mako', `${m}.ts`));
+    const valores = [...s.matchAll(/^import\s+(?!type\s)([^;]*?)\s+from\s+['"]([^'"]+)['"]/gm)]
+      .filter((x) => !x[1].replace(/[{}]/g, '').split(',').filter((y) => y.trim()).every((y) => /^\s*type\s/.test(y)))
+      .map((x) => x[2])
+      .filter((ruta) => ruta !== './tipos');
+    assert.deepEqual(valores, [], `lib/api-mako/${m}.ts importa valores de ${valores.join(', ')}: deja de ser apto para un componente cliente`);
+  }
 });
 
 test('bajo app/api/v1 hay EXACTAMENTE las rutas previstas, todas bearer, y /api/v1 entra sin sesión', () => {
