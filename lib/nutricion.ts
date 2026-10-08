@@ -35,13 +35,13 @@ import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA } from '@/lib/nutricion-residuo';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
-import { tzActual, TZ_DEFAULT } from '@/lib/timezone';
+import { tzActual, TZ_DEFAULT, KEY_TIMEZONE } from '@/lib/timezone';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
 import {
-  TZ_OFFSET_MX, reunionFuturaMs, reunionQuePreparaMs, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion,
+  reunionFuturaMs, reunionQuePreparaMs, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion,
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
@@ -56,8 +56,10 @@ import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
-  avisoSalio, type FilaHechos,
+  avisoSalio, frenadoPorAntiBan, anotarEnCorrida, zonaDelMotor, dentroDeVentanaEn,
+  type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida,
 } from '@/lib/nutricion-grafo-motor';
+import { getSetting } from '@/lib/settings';
 import { getAdjunto, adjuntoBase64 } from '@/lib/setting-adjuntos';
 
 export type CanalNutricion = 'email' | 'whatsapp';
@@ -212,8 +214,17 @@ const VENTANA_DIAS = 30;
 // ── Rate-limiter / anti-baneo de WhatsApp (defaults conservadores; override por env) ──
 // El envío REAL de cada canal se decide POR WORKSPACE (lib/envio-flags.ts): un
 // canal apagado deja sus pasos ESPERANDO (reintento en 24h, sin enviar ni avanzar).
+// ⚠️ LOS DOS TOPES SON DE WHATSAPP, NO DE «LOS MENSAJES» (decisión 5 de la segunda tanda,
+// 08/10/2026). Son el presupuesto anti-ban de la LÍNEA: un email no la quema, y contándolos
+// juntos, una secuencia de email en paralelo se comía el cupo del WhatsApp del mismo negocio.
 const MAX_POR_DIA = Number(process.env.NUTRICION_MAX_POR_DIA ?? '40');        // tope en 24h móviles (por workspace)
 const MAX_POR_CORRIDA = Number(process.env.NUTRICION_MAX_POR_CORRIDA ?? '6'); // tope por corrida del cron
+// El tope DIARIO del email, aparte. Su porqué no es el ban de una línea: el email de nutrición
+// sale por Resend con el remitente del negocio, y un envío masivo de golpe es lo que hunde la
+// reputación de ese dominio (los mails empiezan a caer en spam, incluidos los transaccionales).
+// 100 por día por negocio es holgado para una nutrición (medido el 08/10/2026: nunca salió un
+// email por nutrición) y corta un bucle o una cohorte mal puesta antes de que dañe el dominio.
+const MAX_EMAIL_POR_DIA = Number(process.env.NUTRICION_MAX_EMAIL_POR_DIA ?? '100');
 const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h (prospección fría)
 // Excepción del guard anterior (reunión 31/07): con una reunión encima, la
 // cadencia de preparación exige toques cercanos ("si chateo dos veces y le mando
@@ -221,8 +232,8 @@ const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h 
 // de un lead con reunión próxima no es el de la prospección fría.
 const HS_MIN_PREPARACION = 3;
 const HS_REUNION_CERCA = 48;      // reunión dentro de este plazo → cadencia de preparación
-// La ventana horaria se evalúa en hora de México: `TZ_OFFSET_MX` vive en
-// lib/nutricion-reinscripcion.ts, junto con la hora por defecto de una reunión sin hora.
+// La ventana horaria se evalúa en la zona del NEGOCIO (`mako.timezone`, decisión 6 de la segunda
+// tanda); sin zona, Ciudad de México, que es lo que hacía `TZ_OFFSET_MX` (`zonaDelMotor`).
 const VENTANA_INICIO = 9;
 const VENTANA_FIN = 21;
 
@@ -1815,19 +1826,25 @@ function haceHorasISO(h: number): string {
   return new Date(Date.now() - h * 3600 * 1000).toISOString();
 }
 
-function dentroDeVentana(): boolean {
-  const hLocal = (new Date().getUTCHours() + TZ_OFFSET_MX + 24) % 24;
-  return hLocal >= VENTANA_INICIO && hLocal < VENTANA_FIN;
+/**
+ * ¿Es hora de escribirle a alguien? Entre las 9 y las 21 de la zona del negocio. Era la hora de
+ * México para todos (`TZ_OFFSET_MX`): a Código Inmobiliario, en Buenos Aires, le salía corrida
+ * tres horas. La zona se lee UNA vez por corrida (`zonaDelMotor`, en `procesarEnvios`).
+ */
+function dentroDeVentana(tz: string): boolean {
+  return dentroDeVentanaEn(Date.now(), tz, VENTANA_INICIO, VENTANA_FIN);
 }
 
 // Tope diario: cuenta SOLO envíos reales — una corrida de prueba (?commit=1,
 // simulados) no debe consumir el presupuesto anti-baneo del workspace.
-async function enviosUltimas24h(): Promise<number> {
+// POR CANAL (decisión 5): el de WhatsApp es el de la línea; el de email, el suyo.
+async function enviosUltimas24h(canal: CanalNutricion): Promise<number> {
   const supabase = (await getTenantDb());
   const { count, error } = await supabase
     .from('nutricion_envios')
     .select('id', { count: 'exact', head: true })
     .eq('estado', 'enviado')
+    .eq('canal', canal)
     .gte('created_at', haceHorasISO(24));
   if (error) throw new Error(`enviosUltimas24h: ${error.message}`);
   return count ?? 0;
@@ -1887,9 +1904,21 @@ async function leadsYaContactados(leadIds: number[]): Promise<Set<number>> {
   return set;
 }
 
-async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
+/**
+ * El freno de 20 h, leído de la base, POR CANAL (decisión 5 de la segunda tanda, 08/10/2026).
+ *
+ * ⚠️ CONTABA TODOS LOS CANALES JUNTOS: un email frenaba al WhatsApp 20 h y al revés, así que el
+ * ejemplo de Martín —WhatsApp y email desde el mismo CRON— salía con un día de diferencia. El de
+ * WhatsApp cuenta lo que salió por WhatsApp (la nutrición y el espejo, con la excepción de la
+ * reunión cercana); el de email, la nutrición por email y los envíos masivos.
+ *
+ * Se lee UNA vez por lote: lo que el lote acaba de mandar lo sabe `enviadoEnCorrida`, en memoria
+ * (`frenadoPorAntiBan` mira las dos cosas).
+ */
+async function leadsConEnvioReciente(leadIds: number[]): Promise<RecientesPorCanal> {
   const set = new Set<number>();
-  if (leadIds.length === 0) return set;
+  const email = new Set<number>();
+  if (leadIds.length === 0) return { whatsapp: set, email };
   const supabase = (await getTenantDb());
   const desde = haceHorasISO(HS_MIN_ENTRE_MSGS);
   const desdeCorto = haceHorasISO(HS_MIN_PREPARACION);
@@ -1919,17 +1948,21 @@ async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
     q: (pend: number[], desdeISO: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
     tabla: string,
   ) => (ids.length === 0 ? Promise.resolve(new Set<number>()) : idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(q(pend, desdeISO), tabla)));
-  const qNutri = (pend: number[], d: string) => supabase.from('nutricion_envios').select('lead_id')
-    .in('lead_id', pend).in('estado', ['enviado', 'simulado']).gte('created_at', d);
+  const qNutri = (canal: CanalNutricion) => (pend: number[], d: string) => supabase.from('nutricion_envios').select('lead_id')
+    .in('lead_id', pend).in('estado', ['enviado', 'simulado']).eq('canal', canal).gte('created_at', d);
   const qEspejo = (pend: number[], d: string) => supabase.from('wa_mensajes').select('lead_id')
     .in('lead_id', pend).eq('from_me', true).gte('wa_timestamp', d);
-  const resultados = await Promise.all([
-    porVentana(fuera, desde, qNutri, 'nutricion_envios'),
-    porVentana(enPrep, desdeCorto, qNutri, 'nutricion_envios'),
-    // El broadcast no tiene excepción de preparación: un email masivo cuenta
-    // igual con o sin reunión.
+  // EL EMAIL, CON SU PROPIO FRENO: la nutrición por email y el masivo, 20 h, sin la excepción de
+  // la reunión cercana (esa es la cadencia de preparación de una conversación por WhatsApp).
+  const [eNutri, eMasivo] = await Promise.all([
+    porVentana(leadIds, desde, qNutri('email'), 'nutricion_envios'),
     porVentana(leadIds, desde, (pend, d) => supabase.from('email_broadcast_envios').select('lead_id')
       .in('lead_id', pend).in('estado', ['enviado', 'simulado']).gte('created_at', d), 'email_broadcast_envios'),
+  ]);
+  for (const r of [eNutri, eMasivo]) for (const id of r) email.add(id);
+  const resultados = await Promise.all([
+    porVentana(fuera, desde, qNutri('whatsapp'), 'nutricion_envios'),
+    porVentana(enPrep, desdeCorto, qNutri('whatsapp'), 'nutricion_envios'),
     // LO QUE SALIÓ DE VERDAD, no solo lo que mandó la app. El guard anti-ban
     // pregunta «¿este lead ya recibió algo hace poco?», y las dos tablas de
     // arriba solo saben de la nutrición: un mensaje que el dueño escribió a
@@ -1952,7 +1985,7 @@ async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
     porVentana(enPrep, desdeCorto, qEspejo, 'wa_mensajes'),
   ]);
   for (const r of resultados) for (const id of r) set.add(id);
-  return set;
+  return { whatsapp: set, email };
 }
 
 /**
@@ -2150,14 +2183,23 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // el teléfono de alguien a las 3 de la mañana, y la ventana existe para eso. Y no cuesta:
   // el cron corre sólo de 15 a 23 UTC (vercel.json), dentro de la ventana; esto frena la vía
   // rápida de un evento nocturno, que queda para la primera corrida de la mañana.
-  if (!opts?.ignorarVentana && !dentroDeVentana()) {
+  // La zona del NEGOCIO, una vez por corrida (decisión 6). Sin `mako.timezone`, o si no se pudo
+  // leer, Ciudad de México: lo que el motor hacía siempre. No se AVERIGUA acá (`tzDeWorkspace`
+  // sale a la red): el cron no puede colgarse por una zona.
+  if (!opts?.ignorarVentana && !dentroDeVentana(zonaDelMotor(await getSetting(KEY_TIMEZONE).catch(() => null)))) {
     return { ...res, saltado: 'fuera-de-ventana-horaria' };
   }
-  const presupuesto = MAX_POR_DIA - (await enviosUltimas24h());
+  const presupuesto = MAX_POR_DIA - (await enviosUltimas24h('whatsapp'));
 
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   const porId = new Map(secuencias.map((s) => [s.id, s]));
+  // EL EMAIL, CON SU PROPIO TOPE (decisión 5): las secuencias que mandan algún email siguen con el
+  // cupo de WhatsApp cumplido, como las acciones, mientras quede tope de email.
+  const conEmail = secuencias.filter((s) => s.pasos.some((p) => claseDe(p) === 'mensaje' && !esPasoAccion(p) && p.canal === 'email')).map((s) => s.id);
+  const presupuestoEmail = conEmail.length ? MAX_EMAIL_POR_DIA - (await enviosUltimas24h('email')) : 0;
+  let emailsEnCorrida = 0;
+  const emailLleno = (): boolean => emailsEnCorrida >= presupuestoEmail;
   /**
    * LAS SECUENCIAS CON PASOS «⚡ ACCIÓN». El tope diario y el de la corrida son el
    * presupuesto ANTI-BAN de la línea de WhatsApp: cuentan mensajes. Una acción no es un
@@ -2167,9 +2209,18 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
    * Sin ninguna, todo es exactamente como antes (incluido el corte por tope diario).
    */
   const conAcciones = secuencias.filter((s) => s.pasos.some(esPasoAccion)).map((s) => s.id);
-  if (presupuesto <= 0 && !conAcciones.length) return { ...res, saltado: 'tope-diario' };
+  // Lo que puede seguir con el cupo de WHATSAPP cumplido: las acciones y, con tope de email, los emails.
+  const sinTopeWa = [...new Set([...conAcciones, ...(presupuestoEmail > 0 ? conEmail : [])])];
+  if (presupuesto <= 0 && !sinTopeWa.length) return { ...res, saltado: 'tope-diario' };
   const cupo = Math.max(0, Math.min(MAX_POR_CORRIDA, presupuesto));
-  const cupoLleno = (): boolean => res.enviados + res.simulados >= cupo;
+  // El cupo cuenta SÓLO WhatsApp (decisión 5): `waEnCorrida`, no `res.enviados`, que suma el email.
+  let waEnCorrida = 0;
+  const cupoLleno = (): boolean => waEnCorrida >= cupo;
+  /** ¿Este nodo puede correr con el cupo de WhatsApp lleno? Una acción sí; un email, si queda su tope. */
+  const sigueSinCupoWa = (p: PasoSecuencia): boolean => esPasoAccion(p) || (claseDe(p) === 'mensaje' && p.canal === 'email' && !emailLleno());
+  // LO QUE SALIÓ EN ESTA CORRIDA, por lead y por canal: el freno de la base se lee por lote y no
+  // se entera de lo que el lote acaba de mandar (dos hilos del mismo lead en la misma vuelta).
+  const enviadoEnCorrida: EnviadoEnCorrida = new Map();
   // El workspace de la corrida, UNA vez: lo usan el nombre del negocio y cada acción.
   const wsCorrida = await getWorkspaceActual();
   // El nombre del negocio, UNA vez por corrida y no por lead: es del workspace, no de
@@ -2318,7 +2369,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // `RESIDUO_POR_CORRIDA` y su uso más abajo.
   let residuoEnCorrida = 0;
 
-  while ((!cupoLleno() || conAcciones.length > 0) && rondas < 6) {
+  while ((!cupoLleno() || sinTopeWa.length > 0) && rondas < 6) {
     rondas += 1;
     // Una acción de esta vuelta dejó su inscripción con el paso siguiente ya vencido.
     let otraVuelta = false;
@@ -2332,7 +2383,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
     // Sin cupo de mensajes, lo único que puede correr es un paso de acción: no se leen
     // las filas de las secuencias que no tienen ninguno.
-    if (cupoLleno()) q = q.in('secuencia_id', conAcciones);
+    if (cupoLleno()) q = q.in('secuencia_id', sinTopeWa);
     // LOS YA VISTOS SE EXCLUYEN EN EL SERVER, y el orden desempata por `id`. Antes se
     // filtraban en memoria después del `.limit(LOTE)`: las filas salteadas por «msg
     // <20h» no se actualizan, así que la vuelta siguiente releía LAS MISMAS LOTE
@@ -2401,7 +2452,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const pasoLeido = sec && idxLeido >= 0 ? sec.pasos[idxLeido] : undefined;
       // Con el cupo de mensajes lleno, un MENSAJE queda para la corrida que viene, sin
       // tocarlo (era un `break`: lo mismo para los mensajes). Una ACCIÓN sigue: no gasta cupo.
-      if (cupoLleno() && !(pasoLeido && esPasoAccion(pasoLeido))) continue;
+      if (cupoLleno() && !(pasoLeido && sigueSinCupoWa(pasoLeido))) continue;
       if (!sec || !pasoLeido) {
         // Una automatización SIN salida (sólo «Si responde») no tiene nada que mandar por su
         // cuenta: la inscripción queda ACTIVA y sin próximo envío, esperando que el lead
@@ -2492,7 +2543,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.paso_actual = r.idx;
         insc.nodo_actual = idDe(destino, r.idx);
         if (!enSuHora) { res.detalle.push({ lead_id: insc.lead_id, canal: destino.canal, estado: 'saltado', nota: 'espera su hora' }); continue; }
-        if (cupoLleno() && !esPasoAccion(destino)) continue;
+        if (cupoLleno() && !sigueSinCupoWa(destino)) continue;
       } else if (idxLeido !== insc.paso_actual || (insc.nodo_actual != null && insc.nodo_actual !== idDe(pasoLeido, idxLeido))) {
         // La fila decía otra posición que la del nodo (una fila que nunca avanzó, con la entrada
         // más abajo en el array; o un array reordenado): se alinea ANTES de seguir, porque todo
@@ -2730,9 +2781,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         continue;
       }
 
-      if (!canalApagado && conEnvioReciente.has(insc.lead_id)) {
+      // El freno de 20 h POR CANAL, y mirando las DOS cosas: lo que dice la base (por lote) y lo
+      // que ya salió en esta corrida (`frenadoPorAntiBan`, decisión 5).
+      if (!canalApagado && frenadoPorAntiBan(insc.lead_id, paso.canal, conEnvioReciente, enviadoEnCorrida)) {
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
         continue; // no avanzar; se reintenta en otra corrida
+      }
+      if (!canalApagado && paso.canal === 'email' && emailLleno()) {
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'tope diario de email' });
+        continue;
       }
 
       // ⚠️ EL RESIDUO SALE DE A UNO POR CORRIDA (#790), y es el techo que no depende de
@@ -3069,6 +3126,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       else if (estado === 'omitido') res.omitidos += 1;
       else if (estado === 'borrador') res.borradores += 1;
       else res.simulados += 1;
+      // Los topes y el freno de esta corrida, POR CANAL (decisión 5). Un borrador no gasta cupo
+      // (no salió), pero frena: si se aprueba ya, son dos mensajes seguidos al mismo lead.
+      if (estado === 'enviado' || estado === 'simulado') { if (paso.canal === 'email') emailsEnCorrida += 1; else waEnCorrida += 1; }
+      if (estado === 'enviado' || estado === 'simulado' || estado === 'borrador') anotarEnCorrida(enviadoEnCorrida, insc.lead_id, paso.canal);
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
     }
 

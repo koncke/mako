@@ -218,7 +218,8 @@ test('⚠️ la acción va DESPUÉS de las guardas de la inscripción y ANTES de
   }
   // Antes: lo que es del MENSAJE. El anti-ban de 20 h frenaría «mover a Contactado» por el
   // mensaje que acaba de salir; el canal apagado y el [relleno] no le dicen nada a una acción.
-  for (const despues of ['pasoConRelleno(paso)', 'const canalApagado', 'conEnvioReciente.has(insc.lead_id)', 'residuoEnCorrida >= RESIDUO_POR_CORRIDA']) {
+  // (08/10/2026, segunda tanda: el freno de 20 h es `frenadoPorAntiBan`, por canal y con lo de la corrida.)
+  for (const despues of ['pasoConRelleno(paso)', 'const canalApagado', 'frenadoPorAntiBan(insc.lead_id', 'residuoEnCorrida >= RESIDUO_POR_CORRIDA']) {
     const j = PROC.indexOf(despues);
     assert.ok(j > i, `la acción quedó detrás de «${despues}», que es una guarda del mensaje`);
   }
@@ -228,14 +229,18 @@ test('⚠️ la acción va DESPUÉS de las guardas de la inscripción y ANTES de
 
 test('el cupo de mensajes no frena a las acciones: con el tope cumplido el motor sigue mirando SÓLO esas', () => {
   assert.match(PROC, /const conAcciones = secuencias\.filter\(\(s\) => s\.pasos\.some\(esPasoAccion\)\)\.map\(\(s\) => s\.id\);/);
-  assert.match(PROC, /if \(presupuesto <= 0 && !conAcciones\.length\) return \{ \.\.\.res, saltado: 'tope-diario' \};/, 'sin acciones, el corte de siempre');
-  assert.match(PROC, /while \(\(!cupoLleno\(\) \|\| conAcciones\.length > 0\) && rondas < 6\)/);
-  assert.match(PROC, /if \(cupoLleno\(\)\) q = q\.in\('secuencia_id', conAcciones\);/);
+  // Desde la segunda tanda (08/10/2026, decisión 5) el cupo es de WHATSAPP: con él cumplido siguen
+  // las acciones y, mientras quede su propio tope, los emails (`sinTopeWa`, `sigueSinCupoWa`).
+  assert.match(PROC, /const sinTopeWa = \[\.\.\.new Set\(\[\.\.\.conAcciones, \.\.\.\(presupuestoEmail > 0 \? conEmail : \[\]\)\]\)\];/);
+  assert.match(PROC, /if \(presupuesto <= 0 && !sinTopeWa\.length\) return \{ \.\.\.res, saltado: 'tope-diario' \};/, 'sin acciones ni emails, el corte de siempre');
+  assert.match(PROC, /while \(\(!cupoLleno\(\) \|\| sinTopeWa\.length > 0\) && rondas < 6\)/);
+  assert.match(PROC, /if \(cupoLleno\(\)\) q = q\.in\('secuencia_id', sinTopeWa\);/);
+  assert.match(PROC, /const sigueSinCupoWa = \(p: PasoSecuencia\): boolean => esPasoAccion\(p\) \|\| /);
   // Con el cupo lleno un MENSAJE se deja sin tocar (era un `break`), una acción sigue. Desde el
   // 08/10/2026 se mira el nodo LEÍDO (`indiceActual`) y otra vez el que quedó después de resolver
   // las tarjetas de control: una condición puede llevar a un mensaje o a una acción.
-  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && esPasoAccion\(pasoLeido\)\)\) continue;/);
-  assert.match(PROC, /if \(cupoLleno\(\) && !esPasoAccion\(destino\)\) continue;/);
+  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && sigueSinCupoWa\(pasoLeido\)\)\) continue;/);
+  assert.match(PROC, /if \(cupoLleno\(\) && !sigueSinCupoWa\(destino\)\) continue;/);
   // Y la ventana horaria vale para todo: el corte sigue ANTES de mirar nada.
   assert.ok(PROC.indexOf("saltado: 'fuera-de-ventana-horaria'") < PROC.indexOf('const conAcciones'));
 });
