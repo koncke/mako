@@ -23,7 +23,7 @@
 // clon de Windows). Los puros se EJECUTAN.
 //
 // PROBADO ROMPIÉNDOLO (08/10/2026), una rotura por vez con un arnés en el scratchpad que restaura
-// DE MEMORIA (nunca `git checkout`). Como está: 13 pasan / 0 fallan. 21 roturas, 21 cazadas
+// DE MEMORIA (nunca `git checkout`). Como está: 13 pasan / 0 fallan. 22 roturas, 22 cazadas
 // (12 pasan / 1 falla en cada una, la del número):
 //   (1)  sin el `o<k>`                                    → 1 falla (1)
 //   (1)  un nodo borrado cae a `paso_actual` otra vez      → 1 falla (1)
@@ -40,6 +40,7 @@
 //   (8)  avisoSalio sin mirar la deduplicación             → 1 falla (8)
 //   (8)  el motor marcando el aviso ANTES de correrlo      → 1 falla (8)
 //   (9)  charlaPasaAUnaPersona ignorando «contestó»        → 1 falla (9)
+//   (9)  el motivo mirando la más tocada, no el último cierre → 1 falla (9)
 //   (9)  el script devolviendo la 199 a 'completada'       → 1 falla (9)
 //   (10) el texto fijo sin su reclamo                      → 1 falla (10)
 //   (11) esColumnaInexistente siempre false                → 1 falla (11)
@@ -259,6 +260,11 @@ test('(9) «Otra cosa» sin respuesta de MaKo pasa la charla a una PERSONA, y Ma
   assert.equal(v.abierta, false);
   if (!v.abierta) assert.match(v.motivo ?? '', /una persona/);
   assert.equal(atiendeAlResponder(h), false);
+  // El hand-off cerró la 212, y la 213 del mismo lead se tocó después (otro motivo de `updated_at`):
+  // manda el ÚLTIMO cierre, que es el de la persona.
+  const dos = conversacionAbierta([h, insc({ id: 2, secuencia_id: 213, updated_at: hace(0.1), conversacion_ultima_at: hace(48) })], AHORA);
+  assert.equal(dos.abierta, false);
+  if (!dos.abierta) assert.match(dos.motivo ?? '', /una persona/, 'el dueño lee «ya se había cerrado» sobre una charla que tiene que seguir él');
   // Un cierre del setter trae su motivo: no es el hand-off. `undefined` = no se leyó: tampoco.
   assert.equal(cerradaPorUnaPersona(insc({ conversacion_cerrada_at: hace(1), conversacion_cierre: 'fin_bien' })), false);
   assert.equal(cerradaPorUnaPersona({ conversacion_cerrada_at: hace(1) } as InscCharla), false);

@@ -314,7 +314,11 @@ export function conversacionAbierta(inscs: InscCharla[], ahoraMs: number): Vered
   // Por qué no: el motivo de la más reciente, que es la que el dueño tiene en la cabeza.
   const reciente = (i: InscCharla) => Math.max(ms(i.conversacion_ultima_at), ms(i.conversacion_cerrada_at), ms(i.updated_at));
   const masReciente = [...asistidas].sort((a, b) => reciente(b) - reciente(a))[0];
-  if (masReciente.estado === 'handoff' || cerradaPorUnaPersona(masReciente)) return { abierta: false, motivo: 'la charla la está siguiendo una persona' };
+  // El cierre que manda es el ÚLTIMO (un cierre es de la charla con el lead, no de una
+  // inscripción): si lo hizo el hand-off, la sigue una persona aunque otra secuencia del lead se
+  // haya tocado después.
+  const cierreUltimo = ultimoCierre > 0 ? asistidas.find((i) => ms(i.conversacion_cerrada_at) === ultimoCierre) : undefined;
+  if (masReciente.estado === 'handoff' || (cierreUltimo && cerradaPorUnaPersona(cierreUltimo))) return { abierta: false, motivo: 'la charla la está siguiendo una persona' };
   if (masReciente.conversacion_cerrada_at || ultimoCierre > 0) return { abierta: false, motivo: 'la charla ya se había cerrado' };
   if (masReciente.pausada) return { abierta: false, motivo: 'la secuencia está pausada' };
   if (masReciente.reunionFutura === false) return { abierta: false, motivo: 'su reunión ya pasó' };
