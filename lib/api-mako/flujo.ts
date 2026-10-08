@@ -32,7 +32,7 @@ import { ejecutarOperacion, vistaDe } from './ejecutar';
 import { confirmarPendiente, aplicarPropuestaGenerica } from './acciones';
 import { PREFIJO_FLUJO } from './canal';
 import { paramsDelPaso, pideLead, filasDeLeads } from './flujo-params';
-import { AREA_INFO, esAccion, type Ctx, type Parametro } from './tipos';
+import { AREA_INFO, esAccion, type AccionDef, type Ctx, type Parametro } from './tipos';
 import { getPropuesta, marcarAplicada } from '@/lib/propuestas';
 import { aplicarPropuesta } from '@/lib/plan-propuesta';
 import { createLead } from '@/lib/leads';
@@ -72,6 +72,18 @@ export async function ejecutarDesdeFlujo(
   if (!def || !esAccion(def)) return { ok: false, resumen: `«${operacion}» no es una acción de MaKo.`, via: 'ninguna' };
   const ctx = ctxDeFlujo(opts.ws, opts.origen, opts.nombre);
   const input = paramsDelPaso(def.parametros, params, { leadId: opts.leadId ?? null });
+  // ⚠️ EL WORKSPACE LO FIJA EL EJECUTOR, no quien lo llama. `ejecutarOperacion` lo fija para
+  // proponer, pero confirmar (`confirmarPendiente`) corre el `ejecutar()` de la acción tal
+  // cual, y ahí `logLeadEvent` → `getTenantDb` sin contexto cae a las cookies: medido el
+  // 08/10 en la prueba del ws3, la nota salía y el historial tiraba «`cookies` was called
+  // outside a request scope». Un cron que itera clientes no tiene cookies.
+  return runWithWorkspace(opts.ws, () => correr(def, input, ctx, opts));
+}
+
+async function correr(
+  def: AccionDef, input: Record<string, unknown>, ctx: Ctx,
+  opts: { ws: number; origen: string },
+): Promise<ResultadoFlujo> {
   try {
     const r = await ejecutarOperacion(def.id, input, ctx, 'json');
     if (!r.ok) return { ok: false, resumen: r.error, via: 'ninguna' };

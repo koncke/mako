@@ -556,7 +556,10 @@ const pareceConfirmacion = (msg: string): boolean => {
 export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0, mensajeUsuario = ''): ToolRunner {
   const proponer = async (tipo: string, payload: Record<string, unknown>, resumen: string): Promise<string> => {
     // Si el turno ya dejó una igual (el doer rotó de proveedor y volvió a correr), ésa.
-    const id = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen: 'hola-mako', ttlMin: TTL_MIN, mismoTurnoDesde: turnStart });
+    // Un paso de un flujo (lib/api-mako/flujo.ts) corre las heredadas por acá con la clave
+    // `app:flujo:<origen>`: la fila lleva el flujo de origen, no «hola-mako».
+    const origen = grupoJid.startsWith('app:flujo:') ? grupoJid.slice('app:'.length) : 'hola-mako';
+    const id = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen, ttlMin: TTL_MIN, mismoTurnoDesde: turnStart });
     if (id == null) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
     return JSON.stringify({ ok: true, pendiente_id: id, resumen, vence_en_min: TTL_MIN, instruccion: 'Diles qué vas a hacer y pide que confirmen con un "sí" para ejecutarlo.' });
   };
