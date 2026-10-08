@@ -302,7 +302,7 @@ test('la ruta aprueba DETRÁS de todas sus puertas, con el lead y el área del A
 test('el portal y la ficha leen la propuesta con el lead de la firma (avanceDelCliente)', () => {
   const f = cuerpoDe(DATOS, 'export async function avanceDelCliente(');
   assert.match(f, /\.select\(COLS_PROGRESO_IA\)\.eq\('lead_id', leadId\)/);
-  assert.match(DATOS, /const COLS_PROGRESO_IA = `\$\{COLS_PROGRESO\}, valores_ia, ia_estado, ia_recording_id, ia_propuesta_at, ia_resuelta_at`;/);
+  assert.match(DATOS, /const COLS_PROGRESO_IA = `\$\{COLS_PROGRESO\}, valores_ia, ia_estado, ia_recording_id, ia_propuesta_at, ia_resuelta_at, calificacion`;/);
 });
 
 // ── 6. La IA, gratis; el disparo, sin mensajes ───────────────────────────────

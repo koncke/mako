@@ -46,7 +46,9 @@ import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
 const TABLAS_RESET = TABLAS_DE_INQUILINO;
 
 /** Buckets con binarios prefijados por `<ws>/`. `avatars` NO: es por usuario. */
-const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas'] as const;
+// Los tres últimos son del curso tipo Skool (07/10/2026): adjuntos de la descripción (0216), lo que
+// sube el alumno en una tarea (0218) y los adjuntos de la comunidad (0217). Todos con <ws>/ adelante.
+const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas', 'curso-adjuntos', 'curso-entregas', 'comunidad-adjuntos'] as const;
 
 export type ResultadoReset = {
   borrado: Record<string, number>;

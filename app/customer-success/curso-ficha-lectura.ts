@@ -26,6 +26,7 @@ import {
   type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores, type EstadoPropuesta,
 } from '@/lib/curso';
 import type { Sesion } from '@/lib/curso-datos';
+import { moduloPermitido, productoRestringido, type AlcanceCurso } from '@/lib/curso-alcance';
 import { motivoDeFase } from '@/lib/curso-mensajes-texto';
 import { avanceDeCliente } from './curso/reglas';
 import type { DatosAvance, EtapaVista } from './curso/FilaAvance';
@@ -422,7 +423,42 @@ export type AccesoFicha = AccesoInvitacion & {
   link: string | null;
   email: string | null;
   invitacionEnviadaAt: string | null;
+  /**
+   * Los PERMISOS del alumno (mig 0219): qué módulos ve. `null` = todo. Viaja con el acceso porque
+   * vive en la misma fila; lo dibuja «Permisos del curso» de la ficha. Opcional porque el acceso de
+   * un LÍDER (`AccesoLiderFicha`) no lo lleva: el alcance es del cliente (lib/curso-datos.ts).
+   */
+  alcance?: AlcanceCurso;
 };
+
+// ── Los permisos: qué módulos se ofrecen y cuáles están tildados ─────────────
+
+/** Un módulo, como lo ofrece «Permisos del curso». */
+export type ModuloPermiso = { key: string; label: string; clases: number };
+
+/**
+ * Los módulos de un producto para elegir permisos: sus etapas EN EL ORDEN DE LA ENTREGA (D1: un
+ * módulo vinculado es una etapa), con cuántas clases tiene cada una.
+ *
+ * ⚠️ SIN EL GRUPO DE HUÉRFANAS (`ETAPA_HUERFANA`): es una clave inventada para dibujar las clases
+ * de una etapa borrada, no un módulo. Guardada en un alcance no abriría nada nunca.
+ */
+export function modulosParaPermisos(prod: Pick<ProductoFicha, 'etapas'>): ModuloPermiso[] {
+  return prod.etapas.filter((e) => !e.huerfana).map((e) => ({ key: e.key, label: e.label, clases: e.clases.length }));
+}
+
+/**
+ * Lo que dibujan las casillas de UN producto: `null` = «Todos los módulos» (el producto no está
+ * restringido); un array = las claves tildadas, en el orden de la entrega.
+ *
+ * Sale de `moduloPermitido` (lib/curso-alcance.ts), la MISMA regla que aplica el portal: si la
+ * ficha decidiera «tildado» por su cuenta, podría mostrar abierto lo que el alumno no ve.
+ */
+export function modulosElegidos(alcance: AlcanceCurso | undefined, productoId: number, modulos: readonly ModuloPermiso[]): string[] | null {
+  const a = alcance ?? null;
+  if (!productoRestringido(a, productoId)) return null;
+  return modulos.filter((m) => moduloPermitido(a, productoId, m.key)).map((m) => m.key);
+}
 
 export type EstadoInvitacion =
   | { tipo: 'cortado' }
@@ -444,6 +480,84 @@ export function estadoDeInvitacion(a: AccesoInvitacion | null | undefined): Esta
     return { tipo: 'invitado', email: a.email ?? null, enviadaAt: a.invitacionEnviadaAt };
   }
   return a.invitacionEnviadaAt === null ? { tipo: 'sin-invitar' } : { tipo: 'no-se' };
+}
+
+/**
+ * El acceso de una fila de Avance, como lo arma la lectura en lote (`accesosDeClientes`,
+ * lib/curso-admin.ts): `sin-link` = no tiene fila. `null` = no se pudo leer.
+ */
+export type AccesoDeFila = {
+  estado: 'sin-link' | 'activo' | 'cortado';
+  ingresos: number;
+  ultimoIngresoAt: string | null;
+  email?: string | null;
+  invitacionEnviadaAt?: string | null;
+} | null;
+
+/**
+ * El acceso de una fila, como lo leen la celda «Acceso», la tarjeta del kanban y la lista «Clientes
+ * sin invitar» del editor. «Sin link» = no tiene fila: nunca se lo invitó.
+ *
+ * ⚠️ UNA traducción para las tres (vivía adentro de ./curso/AvanceCurso.tsx): con dos, una diría
+ * «Invitado» y la otra ofrecería «Invitar» sobre el mismo cliente — que es un segundo mail.
+ */
+export function accesoDeFila(a: AccesoDeFila): AccesoInvitacion | null {
+  if (!a) return null;
+  const existe = a.estado !== 'sin-link';
+  return {
+    existe,
+    revocado: a.estado === 'cortado',
+    ingresos: a.ingresos,
+    ultimoIngresoAt: a.ultimoIngresoAt,
+    email: a.email,
+    invitacionEnviadaAt: existe ? a.invitacionEnviadaAt : null,
+  };
+}
+
+/**
+ * Las opciones del CURSO en el menú «Acciones» de la tarjeta del kanban (item 9, 07/10/2026): «En
+ * cada cliente del kanban se debería poder invitar al curso … Y claro poder administrar los permisos».
+ *
+ * ⚠️ NO DEPENDEN DE QUE EL WORKSPACE SEA AGENCIA (`conCuentas`): eso decide lo de la CUENTA de MaKo,
+ * y el curso no crea cuentas. Dependen de que el producto tenga curso (`curso` presente).
+ *   · Invitar / Reenviar: con el acceso LEÍDO y no cortado. Sin leer, no se invita a ciegas (podría
+ *     ser un segundo mail); cortado, la invitación rebota — se habilita en la ficha.
+ *   · Permisos: siempre que haya curso y alguien que abra la ficha.
+ * Vive acá (puro) y no en la tarjeta para que un test la EJECUTE: la tarjeta es un componente de
+ * cliente que arrastra server actions y ningún test la puede importar.
+ */
+export function opcionesDeCursoEnTarjeta(
+  curso: { acceso: AccesoInvitacion | null } | null | undefined,
+  conPermisos: boolean,
+): Array<{ value: 'curso-invitar' | 'curso-permisos'; label: string }> {
+  if (!curso) return [];
+  const estado = curso.acceso ? estadoDeInvitacion(curso.acceso) : null;
+  // ⚠️ EN POSITIVO: sólo «sin invitar» o «invitado». `no-se` (el acceso se leyó pero sin la
+  // invitación) ofrecía «Invitar al curso» —nunca «Reenviar»— que es justo el segundo mail que la
+  // regla de arriba promete no mandar; la lista del editor ya lo dejaba afuera (`clientesSinInvitar`).
+  return [
+    ...(estado && (estado.tipo === 'sin-invitar' || estado.tipo === 'invitado')
+      ? [{ value: 'curso-invitar' as const, label: estado.tipo === 'invitado' ? 'Reenviar invitación' : 'Invitar al curso' }]
+      : []),
+    ...(conPermisos ? [{ value: 'curso-permisos' as const, label: 'Permisos del curso' }] : []),
+  ];
+}
+
+/** Un cliente de la lista «Clientes sin invitar» del editor: su nombre y el email con que se prellena. */
+export type ClienteSinInvitar = { leadId: number; nombre: string; empresa: string | null; email: string };
+
+/**
+ * Los clientes de un producto que TODAVÍA NO están invitados, para elegirlos en el editor del curso.
+ *
+ * ⚠️ SÓLO «SIN INVITAR» DE VERDAD: un cortado no se invita (primero se habilita, en su ficha), un
+ * invitado ya tiene su mail, y uno cuyo acceso no se pudo leer (`null`) o no trae la invitación
+ * («no lo sé») queda AFUERA — ofrecerlo sería invitar a ciegas a alguien a quien quizás ya le llegó.
+ * El email arranca con el del CRM (o el de un intento anterior) y se edita en la lista.
+ */
+export function clientesSinInvitar(filas: ReadonlyArray<{ leadId: number; nombre: string; empresa: string | null; email?: string | null; acceso: AccesoDeFila }>): ClienteSinInvitar[] {
+  return filas
+    .filter((f) => estadoDeInvitacion(accesoDeFila(f.acceso)).tipo === 'sin-invitar')
+    .map((f) => ({ leadId: f.leadId, nombre: f.nombre, empresa: f.empresa, email: (f.email ?? f.acceso?.email ?? '').trim() }));
 }
 
 /** Un día, en la hora local de quien mira: «6 oct». */

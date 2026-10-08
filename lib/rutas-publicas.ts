@@ -101,6 +101,15 @@ export const PUBLICOS = [
   // POST, y por eso no están en PUBLICOS_DE_ESCRITURA.
   '/api/agente/metricas',
   '/api/agente/consultar',
+  // ── El alumno del curso: entrar con su email (07/10/2026) ─────────────────
+  // «Soy alumno: entrar con mi email» en /login. Las DOS se autentican solas y NO leen ninguna
+  // cookie: `link` recibe un email y, si tiene una invitación vigente, le manda un link (contesta lo
+  // mismo exista o no); `entrar` recibe el token firmado de ese link en el CUERPO (un POST del botón
+  // de /login), lo gasta y ESCRIBE la cookie del alumno. Sin estar acá, el proxy las cortaría con
+  // 401 antes de correr. Exactas y una por una, como las del agente: `/api/alumno` es una carpeta
+  // donde mañana puede vivir algo que sí lea una cookie.
+  '/api/alumno/link',
+  '/api/alumno/entrar',
   // ── La API de MaKo (lib/api-mako, app/api/v1) ─────────────────────────────
   // Va como PREFIJO, y es la única carpeta que puede: bajo /api/v1 hay UNA ruta
   // dinámica (`[area]/[operacion]`), el catálogo y la referencia, y las tres se
@@ -143,6 +152,11 @@ export const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'] as const
 export const PUBLICOS_ESCRITURA = [
   '/api/compartido/curso/progreso',
   '/api/compartido/curso/tarea',
+  // Las dos del curso tipo Skool (07/10/2026), con el mismo token del portal en el CUERPO: la que
+  // firma la subida de lo que entrega el alumno en una tarea (mig 0218) y la de la comunidad
+  // (mig 0217: una sola ruta, también para leer, así el token no queda en la URL).
+  '/api/compartido/curso/entrega',
+  '/api/compartido/comunidad',
   '/api/agente/lead',
 ] as const;
 

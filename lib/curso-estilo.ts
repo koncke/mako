@@ -15,6 +15,7 @@
 //    contraste, se dibujaría en el navegador de un alumno: se descarta al leer y vuelve el default.
 
 import { saneaPortada, urlPortada, fondoPortada } from './portadas';
+import { leerLamina, valorDeLamina, type ValorLamina } from './laminas';
 
 /** El estilo de un curso, ya saneado. `null` (o ausente en los mapas) = el default. */
 export type EstiloCurso = {
@@ -26,7 +27,10 @@ export type EstiloCurso = {
   resumen: string | null;
   /** La tapa de la portada del curso, con el formato de lib/portadas.ts (`grad:<id>` o una foto). */
   portada: string | null;
-  /** Etapa (su key) → su tapa. Default: la lámina dibujada. */
+  /**
+   * Etapa (su key) → su tapa. Default: la lámina dibujada. Además de lo de lib/portadas.ts acepta una
+   * lámina elegida (`lam:…`, lib/laminas.ts), igual que `portadasClase`; la del curso, no.
+   */
   portadasEtapa: Record<string, string>;
   /** Clase (su id) → su tapa. Default: la miniatura del video, si la plataforma la publica. */
   portadasClase: Record<number, string>;
@@ -117,8 +121,23 @@ export function sanearAjuste(a: Ajuste, valor: unknown): string | null {
     }
     case 'titulo': return linea(valor, TOPE_TITULO_CURSO) || null;
     case 'resumen': return linea(valor, TOPE_RESUMEN_CURSO) || null;
-    default: return saneaPortada(valor);
+    case 'portada': return saneaPortada(valor);
+    default: return portadaConLamina(valor);
   }
+}
+
+/**
+ * La portada de una ETAPA o de una CLASE: lo de lib/portadas.ts o una lámina dibujada (lib/laminas.ts,
+ * item 5 del 07/10/2026). La lámina se guarda en su forma CANÓNICA (`valorDeLamina`), así la que marca
+ * el selector y la que está guardada son el mismo string.
+ *
+ * ⚠️ LA PORTADA DEL CURSO NO ACEPTA LÁMINAS, a propósito y en positivo: una lámina es un número con su
+ *    rótulo, y la portada del curso no tiene número; nada la dibujaría y el curso quedaría con el fondo
+ *    de la casa sin que nadie entienda por qué.
+ */
+function portadaConLamina(valor: unknown): string | null {
+  const l = leerLamina(valor);
+  return l ? valorDeLamina(l) : saneaPortada(valor);
 }
 
 /** El estilo desde las filas de `curso_estilo`, saneando cada una (ver la cabecera). */
@@ -173,13 +192,16 @@ export function conAjuste(e: EstiloCurso, a: Ajuste, v: string | null): EstiloCu
 }
 
 /**
- * Una portada guardada, en lo que dibuja el curso: una FOTO (`tapa`) o un degradado (`fondo`,
- * como `background` CSS). Sin portada, nada: cada lugar pone su default (la lámina, la miniatura
- * del video, el fondo de la casa).
+ * Una portada guardada, en lo que dibuja el curso: una FOTO (`tapa`), un degradado (`fondo`,
+ * como `background` CSS) o una LÁMINA dibujada (`lamina`, para app/_cursos/laminas/: el diseño, sus
+ * dos colores y el texto; vacío = el nombre). Sin portada, nada: cada lugar pone su default (la
+ * lámina de siempre, la miniatura del video, el fondo de la casa).
  */
-export function tapaDe(v: unknown): { tapa?: string; fondo?: string } {
+export function tapaDe(v: unknown): { tapa?: string; fondo?: string; lamina?: ValorLamina } {
   // `typeof` y no `!v`: lo que llega de un mapa leído a mano puede ser cualquier cosa (ver `propia`).
   if (typeof v !== 'string' || !v) return {};
+  const lamina = leerLamina(v);
+  if (lamina) return { lamina };
   const url = urlPortada(v);
   if (url) return { tapa: url };
   return v.startsWith('grad:') ? { fondo: fondoPortada(v, ACENTO_DEFAULT) } : {};

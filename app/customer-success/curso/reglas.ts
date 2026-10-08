@@ -14,7 +14,8 @@
 // mida cuánto del vídeo se vieron, cuáles tareas completaron».
 
 import {
-  videoDeLink, sanearCampos, tieneTarea, reproductorDeClase, conteoDeEtapa, vistoDeEtapa,
+  videoDeLink, sanearCampos, tieneTarea, reproductorDeClase, conteoDeEtapa, vistoDeEtapa, linkValido,
+  MAX_PREGUNTAS, MAX_OPCIONES_QUIZ,
   type Campo, type Clase, type EstadoTarea, type TipoClase, type VideoTipo,
 } from '@/lib/curso';
 
@@ -31,7 +32,11 @@ export const TIPOS_CLASE: ReadonlyArray<{ value: TipoClase; label: string }> = [
 
 export const rotuloTipo = (t: TipoClase): string => TIPOS_CLASE.find((x) => x.value === t)?.label ?? 'Clase';
 
-/** Los tipos de campo de un formulario, con el nombre que entiende quien lo arma. */
+/**
+ * Los tipos de campo de un formulario, con el nombre que entiende quien lo arma. Los nueve de abajo
+ * son la #18 (07/10/2026, ver `CampoTipo` en lib/curso.ts): rótulos de una o dos palabras, que es lo
+ * que entra en el selector.
+ */
 export const TIPOS_CAMPO: ReadonlyArray<{ value: Campo['tipo']; label: string }> = [
   { value: 'texto', label: 'Texto largo' },
   { value: 'linea', label: 'Línea' },
@@ -39,7 +44,64 @@ export const TIPOS_CAMPO: ReadonlyArray<{ value: Campo['tipo']; label: string }>
   { value: 'eleccion', label: 'Una opción' },
   { value: 'checks', label: 'Varias opciones' },
   { value: 'tabla', label: 'Tabla' },
+  { value: 'archivo', label: 'Archivo' },
+  { value: 'audio', label: 'Audio' },
+  { value: 'video', label: 'Video' },
+  { value: 'link', label: 'Link' },
+  { value: 'escala', label: 'Escala' },
+  { value: 'quiz', label: 'Quiz' },
+  { value: 'checklist', label: 'Checklist' },
+  { value: 'agenda', label: 'Agendar llamada' },
+  { value: 'confirmacion', label: 'Lo hice' },
 ];
+
+/**
+ * Lo que le falta a UN campo para poder guardarse, o `null`. Errores CORTOS: se dibujan tal cual.
+ *
+ * ⚠️ SE MIRA ANTES DE SANEAR, por lo mismo que la pregunta vacía (ver `validarClase`): `sanearCampos`
+ * tira en silencio una pregunta de quiz sin texto o con una sola opción, y un link de agenda inválido.
+ * En la base está bien; en el editor sería que la pregunta desaparece al guardar sin que nadie lo diga.
+ *
+ * Las reglas que NO son de forma sino de sentido, y por eso viven acá:
+ *   · un quiz sin una correcta marcada no se puede aprobar nunca (`corregirQuiz` la da por mal);
+ *   · una pregunta de UNA respuesta con dos correctas no tiene cómo contestarse bien;
+ *   · una escala sin sus dos extremos es «una pregunta muerta» (un 7 de qué);
+ *   · una checklist sin acciones o una agenda sin link no piden nada.
+ */
+export function faltaEnCampo(c: Record<string, unknown> | null | undefined): string | null {
+  const label = typeof c?.label === 'string' ? c.label.trim() : '';
+  const nom = `«${label.slice(0, 40)}»`;
+  const lleno = (x: unknown) => Array.isArray(x) && x.some((s) => typeof s === 'string' && s.trim());
+  const tipo = c?.tipo;
+  if ((tipo === 'eleccion' || tipo === 'checks') && !lleno(c?.opciones)) return `Faltan las opciones de ${nom}.`;
+  if (tipo === 'checklist' && !lleno(c?.opciones)) return `Faltan las acciones de ${nom}.`;
+  if (tipo === 'tabla' && !lleno(c?.columnas)) return `Faltan las columnas de ${nom}.`;
+  if (tipo === 'agenda' && !linkValido(c?.url)) return `Falta el link para agendar de ${nom}.`;
+  if (tipo === 'escala') {
+    const e = (c?.escala ?? {}) as Record<string, unknown>;
+    const punta = (x: unknown) => typeof x === 'string' && x.trim().length > 0;
+    if (!punta(e.bajo) || !punta(e.alto)) return `Faltan los extremos de ${nom}.`;
+  }
+  if (tipo === 'quiz') {
+    const ps = Array.isArray(c?.preguntas) ? (c!.preguntas as Array<Record<string, unknown> | null>) : [];
+    if (!ps.length) return `Faltan las preguntas de ${nom}.`;
+    // ⚠️ Los dos topes del saneo (`sanearPreguntas`) cortan EN SILENCIO lo que sobra: una correcta que
+    // caía en la opción 13 dejaba la pregunta sin correcta, y el quiz no lo aprobaba nadie (revisión
+    // del 08/10/2026). Se dicen acá, antes de guardar.
+    if (ps.length > MAX_PREGUNTAS) return `Máximo ${MAX_PREGUNTAS} preguntas en ${nom}.`;
+    for (const [i, p] of ps.entries()) {
+      const n = `la pregunta ${i + 1} de ${nom}`;
+      if (!(typeof p?.texto === 'string' && p.texto.trim())) return `Falta el texto de ${n}.`;
+      const opciones = (Array.isArray(p?.opciones) ? p!.opciones as unknown[] : []).filter((s): s is string => typeof s === 'string' && !!s.trim()).map((s) => s.trim());
+      if (new Set(opciones).size < 2) return `Faltan opciones en ${n}.`;
+      if (new Set(opciones).size > MAX_OPCIONES_QUIZ) return `Máximo ${MAX_OPCIONES_QUIZ} opciones en ${n}.`;
+      const correctas = (Array.isArray(p?.correctas) ? p!.correctas as unknown[] : []).filter((s): s is string => typeof s === 'string' && opciones.includes(s.trim()));
+      if (!correctas.length) return `Marca la correcta en ${n}.`;
+      if (p?.multiple !== true && new Set(correctas).size > 1) return `En ${n} hay dos correctas.`;
+    }
+  }
+  return null;
+}
 
 // ── El video subido ──────────────────────────────────────────────────────────
 
@@ -313,9 +375,8 @@ export function validarClase(
   for (const c of crudos) {
     const label = typeof c?.label === 'string' ? c.label.trim() : '';
     if (!label) return { ok: false, error: 'Hay un campo sin pregunta.' };
-    const lleno = (x: unknown) => Array.isArray(x) && x.some((s) => typeof s === 'string' && s.trim());
-    if ((c?.tipo === 'eleccion' || c?.tipo === 'checks') && !lleno(c.opciones)) return { ok: false, error: `Faltan las opciones de «${label.slice(0, 40)}».` };
-    if (c?.tipo === 'tabla' && !lleno(c.columnas)) return { ok: false, error: `Faltan las columnas de «${label.slice(0, 40)}».` };
+    const falta = faltaEnCampo(c);
+    if (falta) return { ok: false, error: falta };
   }
   const campos = sanearCampos(crudos);
   if (campos.length !== crudos.length) return { ok: false, error: 'Hay campos repetidos.' };

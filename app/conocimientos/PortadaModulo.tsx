@@ -86,6 +86,14 @@
  * sirve igual desde un server component. Cuando la importa CursoReplica (que si es
  * cliente) viaja al bundle como parte de el, y no arrastra nada: no importa ningun
  * catalogo — la frontera de DATOS de AGENTS.md se respeta por no tener imports.
+ *
+ * ── DESDE EL 07/10/2026 ES TAMBIEN LA LAMINA «CUADERNO» DEL CATALOGO (app/_cursos/laminas/) ──
+ * El curso de un cliente puede elegir su portada entre varios diseños, y este es uno: acepta
+ * un `texto` elegido y los dos colores (`brocha`, `sticker`). Sin esas props dibuja byte por
+ * byte lo mismo que antes —comparado contra 560 laminas renderizadas antes del cambio—, asi
+ * que Conocimientos no se entera. Y EXPORTA su alfabeto, su tabla de anchos, su reparto y su
+ * limpieza de titulos: las otras laminas los usan en vez de tener los suyos (una cosa, un
+ * lugar), sin que este archivo importe nada.
  */
 
 /* ─────────────────────────── paleta ───────────────────────────
@@ -97,14 +105,16 @@
  * constante en dos archivos, o sea el segundo quedandose viejo.
  */
 export const PAPEL = '#F4F3E7'; // medido rgb(246,244,232) / rgb(245,243,230)
-const TINTA = '#16150F';        // es --u-ink de ugc.css: no se inventa un negro nuevo
+/** Se exporta para las otras láminas (app/_cursos/laminas/): la tinta de todas es ésta. */
+export const TINTA = '#16150F'; // es --u-ink de ugc.css: no se inventa un negro nuevo
 const MARGEN = '#BE6560';       // rojo apagado, casi rosa: rgb(184,107,99) en m1
 const ESPIRAL_BANDA = '#EBE8DB';
 const ESPIRAL_CANTO = '#CFC9B6';
 const ANILLO = '#2E2A1F';       // el 10% mas oscuro de la banda: rgb(39,30,18) en m2
 const ANILLO_LUZ = '#F2EEE2';
-const LIMA_BROCHA = '#DCF35F';  // promedio del brochazo: rgb(216,243,78)
-const LIMA_STICKER = '#D5F240'; // medido en m3: rgb(213,242,64)
+/** Exportados porque el catálogo de láminas (lib/laminas.ts) los copia como default del cuaderno, y un test compara las dos copias. */
+export const LIMA_BROCHA = '#DCF35F';  // promedio del brochazo: rgb(216,243,78)
+export const LIMA_STICKER = '#D5F240'; // medido en m3: rgb(213,242,64)
 /**
  * Los dos limas se pintan por VARIABLE CSS, con el lima de siempre como respaldo: el curso de un
  * cliente (app/_cursos/CursoUgc.tsx) elige su color de acento y la lámina lo sigue
@@ -142,7 +152,7 @@ const GRILLA = '#C3D0DB';
  * tiene su propio alfabeto, justamente porque es la pieza que no puede depender de que
  * una hoja inyectada en runtime haya terminado su @import.
  */
-const FAMILIA = "Archivo, 'Archivo Fallback', Arial, Helvetica, sans-serif";
+export const FAMILIA = "Archivo, 'Archivo Fallback', Arial, Helvetica, sans-serif";
 
 /* ─────────────────────────── el lienzo ───────────────────────────
    320x180 = 16/9 exacto, que es el aspect-ratio de .ugc-modcard-cover (ugc.css:1977).
@@ -243,9 +253,10 @@ const CAJA = 222;             // x 67..289: el brochazo despeja el margen rojo y
  * caja. Es la diferencia entre una constante que describe el sistema y una que lo adorna.
  */
 const SEGURO = 0.86;
-const ANCHO_UTIL = CAJA * SEGURO;
+/** Exportados (con el piso): la lámina «cuaderno» parte con ESTOS dos las palabras que no entran. */
+export const ANCHO_UTIL = CAJA * SEGURO;
 const TIT_FS_MAX = 34;
-const TIT_FS_PISO = 15;       // 13,9 css px de Archivo 900 sobre lima: el piso de lectura
+export const TIT_FS_PISO = 15; // 13,9 css px de Archivo 900 sobre lima: el piso de lectura
 const MAX_LINEAS = 4;
 
 /**
@@ -266,7 +277,7 @@ const BROCHA_MAX_X = 290;
 /* ─────────────────────────── hash ─────────────────────────── */
 
 /** FNV-1a. Entero, sin flotantes, misma respuesta en el server y en el navegador. */
-function h32(s: string): number {
+export function h32(s: string): number {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -275,7 +286,7 @@ function h32(s: string): number {
   return h >>> 0;
 }
 /** Cada rasgo lee SUS bits: agregar uno no corre a los demas. */
-const bits = (h: number, desde: number, cuantos: number) => (h >>> desde) & ((1 << cuantos) - 1);
+export const bits = (h: number, desde: number, cuantos: number) => (h >>> desde) & ((1 << cuantos) - 1);
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /* ─────────────────────────── el titulo ─────────────────────────── */
@@ -337,7 +348,8 @@ const PICTOGRAMAS = /[\p{Extended_Pictographic}\uFE0F\u200D]/gu;
  *  resaltador. Sin titulo la lamina es el numero solo, que no afirma nada falso. */
 const SIN_MODULO = /^sin\s*m[oó]dulo$/iu;
 
-function limpiarTitulo(crudo: string): string {
+/** Exportada: las otras láminas (app/_cursos/laminas/) limpian el nombre del módulo con la MISMA regla. */
+export function limpiarTitulo(crudo: string): string {
   // NFC antes de nada: hay tildes y ñ, y contar con .length sobre NFD da otro largo.
   const base = crudo.normalize('NFC').replace(PICTOGRAMAS, '').replace(/\s+/g, ' ').trim();
   if (!base || SIN_MODULO.test(base)) return '';
@@ -376,7 +388,7 @@ const ANGOSTOS = "iljItfr.,;:!'’|()[]-–—·";
 const ANCHOS = 'mwMW@%&';
 const MAYUS_ACENTUADAS = 'ÁÉÍÓÚÜÑ';
 
-function anchoEm(s: string): number {
+export function anchoEm(s: string): number {
   let w = 0;
   for (const ch of s) {
     if (ch === ' ') w += 0.27;
@@ -397,16 +409,21 @@ function anchoEm(s: string): number {
  *
  * Fuerza bruta sobre los cortes. El titulo mas largo del catalogo tiene 12 palabras: con
  * L=4 son C(11,3)=165 combinaciones, o sea nada. No hace falta una DP.
+ *
+ * `medir` es el ancho en em de un pedazo de texto. Default: `anchoEm` (Archivo 900), y con el
+ * default la cuenta es EXACTAMENTE la de siempre (el espacio vale `anchoEm(' ')` = 0,27). Las otras
+ * láminas (app/_cursos/laminas/) le pasan el de su tipografía: un reparto, no dos que diverjan.
  */
-function repartir(palabras: string[], L: number): string[][] | null {
+export function repartir(palabras: string[], L: number, medir: (s: string) => number = anchoEm): string[][] | null {
   const n = palabras.length;
   if (n < L) return null;
   if (L === 1) return [palabras];
 
-  const pesos = palabras.map(anchoEm);
+  const pesos = palabras.map((p) => medir(p));
+  const esp = medir(' ');
   const acc = [0];
   for (let i = 0; i < n; i++) acc.push(acc[i] + pesos[i]);
-  const ancho = (i: number, j: number) => acc[j] - acc[i] + 0.27 * (j - i - 1);
+  const ancho = (i: number, j: number) => acc[j] - acc[i] + esp * (j - i - 1);
 
   const cortes = new Array<number>(L + 1);
   cortes[0] = 0;
@@ -553,7 +570,8 @@ function componer(titulo: string): Caja {
    un «00» da 116/97 = 1,20, o sea que la referencia lleva aire ENTRE los digitos. Con
    TRACKING=8 el «00» da 1,28 y el «01» 1,15 (medido en m1: 1,11).
    ═══════════════════════════════════════════════════════════════════ */
-const GLIFOS: readonly string[] = [
+/** Exportados (con AVANCE, EJE_G y TRACKING): la pizarra y la nota dibujan su número con ESTE alfabeto. */
+export const GLIFOS: readonly string[] = [
   'M32,12 C20.4,12.6 12.6,28.6 12,50 C11.4,71.6 20,88.2 32,88 C44.2,87.8 52.6,71 52,50 C51.4,28.8 43.8,11.4 32,12 Z',
   'M17,28.5 C23,24 29,18.4 33.5,12 C35.5,30 37.4,60 39.5,88',
   'M13.6,29 C15,17.6 24,11.4 34,12 C45.4,12.6 52.2,20.2 51.4,31 C50.6,42.4 41.6,50.2 31.6,58 C23.6,64.4 15.8,73 13,87.6 C25.4,86.8 41,87.4 53,87',
@@ -565,9 +583,9 @@ const GLIFOS: readonly string[] = [
   'M32,12 C22,12.2 15,18.4 15,27 C15,36 23.4,43 32,47.2 C43.4,51.6 52,58 52,68 C52,79.8 43,88.4 32,88 C21.2,87.6 12,79.8 12,68 C12,58 20.8,51.6 32,47.2 C41,43 49,36 49,27 C49,18.4 42.2,11.8 32,12 Z',
   'M17,86.4 C31,81 42,69 48,55 C51.8,45.2 52.4,38.4 52,34 C51.4,20.6 43,11.4 32,12 C20.6,12.6 12.8,21 13,33.6 C13.2,45 21,52.6 32,52.4 C42.8,52.2 51.6,45 52,34',
 ];
-const AVANCE = [58, 46, 58, 58, 58, 58, 58, 56, 58, 58];
-const EJE_G = [32, 28.2, 32.5, 32, 32.5, 32.5, 31.5, 32.5, 32, 32.5];
-const TRACKING = 8;
+export const AVANCE = [58, 46, 58, 58, 58, 58, 58, 56, 58, 58];
+export const EJE_G = [32, 28.2, 32.5, 32, 32.5, 32.5, 31.5, 32.5, 32, 32.5];
+export const TRACKING = 8;
 const TRAZO_GORDO = 21;                        // en unidades de glifo
 const TRAZO_HUECO = 12;
 const GLIFO_ALTO = 88 - 12 + TRAZO_GORDO;      // 97: lo que el digito mide CON su trazo
@@ -575,22 +593,52 @@ const GLIFO_TOP = 12 - TRAZO_GORDO / 2;        // 1,5: donde arranca la tinta
 
 /* ─────────────────────────── el componente ─────────────────────────── */
 
-export function PortadaModulo({ n, titulo, className, rotulo = 'Módulo' }: {
+export function PortadaModulo({ n, titulo, className, rotulo = 'Módulo', texto, brocha, sticker, instancia }: {
   n: number; titulo: string; className?: string;
   /**
    * La palabra de arriba del nombre. «Módulo» en Conocimientos; el curso de un cliente
    * (app/_cursos/CursoUgc.tsx) dice «Etapa», porque sus módulos son las etapas de la entrega.
    */
   rotulo?: string;
+  /**
+   * EL TEXTO QUE ELIGIÓ ALGUIEN para debajo del número (la lámina «cuaderno» de
+   * app/_cursos/laminas/, item 5 del 07/10/2026). Va TAL CUAL —sólo sin pictogramas y con los
+   * blancos colapsados— y NO pasa por `limpiarTitulo`: esa regla existe para los nombres de
+   * catálogo, y a quien escribió «Paso 1» a propósito le borraría el texto entero. Vacío o
+   * ausente = el `titulo` limpio, que es lo de siempre.
+   */
+  texto?: string;
+  /**
+   * Los dos colores, cuando la lámina los trae elegidos. Ausentes = las variables del acento del
+   * curso con el lima de respaldo, que es lo de siempre (Conocimientos no pasa ninguno).
+   * ⚠️ `brocha` tiene que llegar ya LEGIBLE bajo la tinta: la que arma el catálogo de láminas lo
+   *    resuelve antes (app/_cursos/laminas/cuaderno.tsx); acá no se corrige nada.
+   */
+  brocha?: string;
+  sticker?: string;
+  /**
+   * Para separar dos láminas IDÉNTICAS en la misma página (la tarjeta y su miniatura en el
+   * selector). Ver la nota 1 de la cabecera: sin esto las dos comparten la máscara, que dibuja lo
+   * mismo; con esto, no la comparten ni por casualidad.
+   */
+  instancia?: string;
 }) {
-  const limpio = limpiarTitulo(titulo);
+  const propio = texto != null ? texto.normalize('NFC').replace(PICTOGRAMAS, '').replace(/\s+/g, ' ').trim() : '';
+  const limpio = propio || limpiarTitulo(titulo);
   const { lineas, fs, tituloTop, kickerBase, numeroPie } = componer(limpio);
   const L = lineas.length;
 
   const h = h32(`${n}|${limpio}`);
   /** Ver la nota 1 de la cabecera: unico por instancia, sin hooks, y con una colision que
-   *  no se puede ver porque exige que las dos tarjetas dibujen los mismos digitos. */
-  const uid = h32(`${n}\u0000${titulo}`).toString(36);
+   *  no se puede ver porque exige que las dos tarjetas dibujen los mismos digitos.
+   *  ⚠️ CON TEXTO O COLORES PROPIOS EL HASH LOS INCLUYE. Con `n` y `titulo` solos, una tarjeta con
+   *     el texto de siempre y otra del MISMO módulo con un texto elegido compartían el id, y la
+   *     máscara de la segunda (otro reparto, otro alto del número) se resolvía contra la de la
+   *     primera. Sin ninguno de los cuatro, la cuenta es la de siempre: Conocimientos no cambia. */
+  const conPropios = texto != null || brocha != null || sticker != null || instancia != null;
+  const uid = (conPropios
+    ? h32(`${n}\u0000${titulo}\u0000${propio}\u0000${brocha ?? ''}\u0000${sticker ?? ''}\u0000${instancia ?? ''}`)
+    : h32(`${n}\u0000${titulo}`)).toString(36);
   const idHueco = `pm${uid}`;
 
   /* ── EL NUMERO, ultimo eslabon de la cadena ── */
@@ -941,7 +989,7 @@ export function PortadaModulo({ n, titulo, className, rotulo = 'Módulo' }: {
               ⚠️ Si algun ancestro llegara a tener `isolation: isolate` o un `filter`, el
               multiply queda encerrado: el brochazo tapa la cuadricula en vez de dejarla
               ver. Degrada bien, pero no hay que ponerselo al padre a proposito. */}
-          <g opacity={0.92} style={{ mixBlendMode: 'multiply', ...fillVar('--lamina-brocha', LIMA_BROCHA) }}>
+          <g opacity={0.92} style={{ mixBlendMode: 'multiply', ...(brocha ? { fill: brocha } : fillVar('--lamina-brocha', LIMA_BROCHA)) }}>
             {brochas.map((b, i) => (
               <path key={i} d={b.d} />
             ))}
@@ -965,7 +1013,7 @@ export function PortadaModulo({ n, titulo, className, rotulo = 'Módulo' }: {
       {puesto && (
       <g transform={`translate(${sx},${sy}) rotate(${giro},${S / 2},${S / 2})`}>
         <path d={`M3.5,4.2 L${S + 3},3.5 L${S + 3.5},${S + 3} L4,${S + 3.5} Z`} fill={TINTA} />
-        <path d={`M0.6,0.8 L${S - 0.4},0 L${S},${S - 0.6} L0,${S} Z`} style={fillVar('--lamina-sticker', LIMA_STICKER)} />
+        <path d={`M0.6,0.8 L${S - 0.4},0 L${S},${S - 0.6} L0,${S} Z`} style={sticker ? { fill: sticker } : fillVar('--lamina-sticker', LIMA_STICKER)} />
         <path
           d={`M4.2,4.6 L${S - 4},3.8 L${S - 3.6},${S - 4.2} L3.6,${S - 3.8} Z`}
           fill="none"

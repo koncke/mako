@@ -244,6 +244,10 @@ const RUTAS = {
   progreso: { metodo: 'POST', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
   tarea: { metodo: 'POST', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
   video: { metodo: 'GET', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
+  // Las dos del curso tipo Skool (07/10/2026): lo que sube el alumno en una tarea y los adjuntos de
+  // la descripción de una clase. Las dos abren el link del líder, así que van con el del portal.
+  entrega: { metodo: 'POST', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
+  adjunto: { metodo: 'GET', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
   entrar: { metodo: 'GET', lector: 'leerAccesoCurso', resolver: 'resolverAcceso' },
 } as const;
 const SIN_CLASE: ReadonlySet<string> = new Set(['entrar']);
@@ -317,8 +321,21 @@ test('la página también arranca por la firma y por su resolver, y cuenta el in
   assert.ok(src.indexOf('contarIngreso(') > src.indexOf('resolverAccesoPortal('));
   assert.ok(src.indexOf('contarIngreso(') < src.indexOf('armarVistaAlumno('), 'el ingreso se cuenta antes de armar la vista');
   // El área del líder sale del ACCESO resuelto, y llega a la vista: sin esto, un link de líder
-  // armaría el portal entero del cliente.
-  assert.match(src, /armarVistaAlumno\(\s*acceso\.leadId\s*,\s*\{\s*lider:\s*acceso\.area\s*\}\s*\)/);
+  // armaría el portal entero del cliente. Y los PERMISOS (mig 0219), del mismo acceso: sin ellos el
+  // alumno vería los módulos que le sacaron.
+  assert.match(src, /armarVistaAlumno\(\s*acceso\.leadId\s*,\s*\{\s*lider:\s*acceso\.area\s*,\s*alcance:\s*acceso\.alcance\s*\}\s*\)/);
+});
+
+test('los permisos del alumno (mig 0219) entran por la única puerta, en las seis rutas y en las dos páginas', () => {
+  // Rompiéndolo (08/10/2026): sacar `alcance: acceso.alcance` de la ruta del video, o el filtro de
+  // `armarVistaAlumno`, tumba este test (1 fallo). Restaurado: pasa.
+  for (const r of ['progreso', 'tarea', 'video', 'entrega', 'adjunto']) {
+    assert.match(leer(`app/api/compartido/curso/${r}/route.ts`), /claseDelAlumno\([^)]*alcance:\s*acceso\.alcance/, `${r}: sin los permisos`);
+  }
+  assert.match(leer('app/mi-curso/portal-comun.tsx'), /armarVistaAlumno\(\s*acceso\.leadId\s*,\s*\{\s*alcance:\s*acceso\.alcance\s*\}\s*\)/);
+  const portal = leer('lib/curso-portal.ts');
+  assert.match(portal, /\.filter\(\(e\) => moduloPermitido\(alcance, productoId, e\.key\)\)/, 'armarVistaAlumno no filtra los módulos');
+  assert.match(portal, /!moduloPermitido\(opts\.alcance \?\? null, clase\.productoId, clase\.etapa\)\) \{\s*return \{ decision: 'no-existe' \}/, 'claseDelAlumno no mira los permisos');
 });
 
 test('los componentes del portal sólo importan TIPOS de lib/curso-portal (trae la capa de datos)', () => {

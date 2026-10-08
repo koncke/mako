@@ -6,6 +6,10 @@
 // La ENTREGA de un servicio en etapas y, al abrir una tarjeta: sus proyectos, sus
 // tareas y sus recurrentes. Eso es toda la pantalla.
 //
+// Desde el 07/10/2026 (items 4 y 9 del curso tipo Skool) también el CURSO de la cartera: la vista
+// «Avance» (Kanban · Tabla · Avance, la tabla que vivía en la tab Curso) y, en el menú de cada
+// tarjeta, «Invitar al curso» y «Permisos del curso». Los datos los arma page.tsx (`curso`).
+//
 // ⚠️ LA GRILLA DE TARJETAS NO EXISTE MÁS (05/10/2026). «No quiero que exista la vista
 // de Tarjetas, es la vista de kanban por default y la otra es la vista de tabla. Solo
 // que dentro del kanban, las tarjetas no son como las del CRM, son como las nuevas que
@@ -44,6 +48,37 @@ import { filasCSV, textoCSV } from './exportar';
 import { hrefConFicha } from './url-ficha';
 import { ChecklistClientes } from './ChecklistClientes';
 import { listaVisible, type OnboardingClientes } from './onboarding-clientes';
+import { AvanceCurso, type FilaConAcceso } from './curso/AvanceCurso';
+import type { EtapaVista } from './curso/FilaAvance';
+import type { CursoDeTarjeta } from './ClienteCard';
+import { accesoDeFila, type AccesoInvitacion } from './curso-ficha-lectura';
+
+/**
+ * Lo que la cartera necesita del CURSO (07/10/2026, items 4 y 9). Lo arma page.tsx
+ * (`cursoDeLaCartera`) y viene con el HTML.
+ *
+ * ⚠️ TRES DATOS Y CADA UNO CON SU «NO PUDE LEER»: `conCurso` vacío = no se sabe qué producto tiene
+ * clases (la tarjeta no ofrece nada del curso); `accesos: null` = no se leyeron (la tarjeta no ofrece
+ * invitar, la columna dice «—»); `avance.ok: false` = la vista lo dice en vez de una tabla vacía.
+ */
+export type CursoClientes = {
+  /** productoId → ¿tiene clases? Sin entrada = no se sabe (se trata como «no»). */
+  conCurso: Record<number, boolean>;
+  /** leadId → su acceso, CON su invitación. `null` = no se pudo leer. */
+  accesos: Record<number, FilaConAcceso['acceso']> | null;
+  avance:
+    | { ok: true; porProducto: Record<number, { etapas: EtapaVista[]; filas: FilaConAcceso[] }> }
+    | { ok: false; error: string };
+};
+
+/** Un acceso como lo pinta la celda, de vuelta a la forma de la fila (para pisar la del server). */
+const filaDeAcceso = (a: AccesoInvitacion): NonNullable<FilaConAcceso['acceso']> => ({
+  estado: a.revocado ? 'cortado' : a.existe ? 'activo' : 'sin-link',
+  ingresos: a.ingresos,
+  ultimoIngresoAt: a.ultimoIngresoAt,
+  email: a.email ?? null,
+  invitacionEnviadaAt: a.invitacionEnviadaAt ?? null,
+});
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
@@ -66,7 +101,7 @@ const FILTRO_SIN_CUENTAS = Object.fromEntries(
   Object.entries(FILTRO_LABEL).filter(([k]) => k !== 'con-cuenta' && k !== 'sin-cuenta'),
 ) as Partial<typeof FILTRO_LABEL>;
 
-export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false, onboarding = null, clienteInicial = null }: {
+export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false, onboarding = null, curso, vistaInicial = null, productoInicial = null, clienteInicial = null }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
    *  cliente. Ese orden es el que numera («Cliente 1»); la grilla se ordena aparte. */
   clientes: ClienteCruce[];
@@ -106,6 +141,19 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * ws1 su catálogo y su cartera sobre una lectura caída sería taparle lo que ya tiene.
    */
   onboarding?: OnboardingClientes | null;
+  /**
+   * El curso de la cartera: la vista «Avance» (item 4, se mudó de la tab Curso) y el menú de cada
+   * tarjeta («Invitar al curso», «Permisos del curso», item 9). Ausente = no hay cartera o la entrega
+   * no se leyó: ni la vista ni el menú se ofrecen.
+   */
+  curso?: CursoClientes;
+  /**
+   * Con qué vista y qué servicio abre: `?vista=avance&producto=<id>`, leídos en el server (page.tsx).
+   * Es a donde caen los links viejos de la vista Avance de la tab Curso. Son un PEDIDO: si la vista
+   * no se ofrece o el producto no es un servicio, manda el default de siempre (`vista`, `servicio`).
+   */
+  vistaInicial?: VistaClientes | null;
+  productoInicial?: number | null;
 }) {
   /**
    * El alta, y EN QUÉ ETAPA se apretó.
@@ -147,7 +195,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * arranca en `'kanban'` a secas porque el kanban no siempre se puede dibujar, y una
    * pantalla que abre vacía no distingue «no configuraste» de «se rompió».
    */
-  const [vistaElegida, setVista] = useState<VistaClientes | null>(null);
+  const [vistaElegida, setVista] = useState<VistaClientes | null>(vistaInicial);
   const [filtro, setFiltro] = useState<FiltroClientes>('todos');
   const [cuando, setCuando] = useState('siempre');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
@@ -179,17 +227,44 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * cálculo, el caso que todavía no existe lo hereda gratis.
    */
   const hayKanban = Boolean(entrega?.ok && servicios.length);
-  const vistasDisponibles: VistaClientes[] = hayKanban ? ['kanban', 'tabla'] : ['tabla'];
+  /**
+   * La vista «Avance» (item 4, 07/10/2026) se ofrece con servicios Y con algún producto con curso.
+   * ⚠️ CON EL AVANCE CAÍDO SE OFRECE IGUAL: adentro dice «no pude leer»; esconder el botón haría
+   * desaparecer la vista sin decir por qué. Sin ningún producto con clases, no: sería un botón que
+   * abre siempre la misma pantalla vacía.
+   */
+  const hayAvance = hayKanban && curso != null && (!curso.avance.ok || Object.values(curso.conCurso).some(Boolean));
+  const vistasDisponibles: VistaClientes[] = hayKanban ? ['kanban', 'tabla', ...(hayAvance ? ['avance' as const] : [])] : ['tabla'];
   const vista: VistaClientes = vistaElegida && vistasDisponibles.includes(vistaElegida)
     ? vistaElegida
     : (vistasDisponibles[0] ?? 'tabla');
   /** De que servicio es el tablero. `null` = todavia no se eligio; cae al primero. */
-  const [servicioId, setServicioId] = useState<number | null>(null);
+  const [servicioId, setServicioId] = useState<number | null>(productoInicial);
   const servicio = servicios.find((s) => s.productoId === servicioId) ?? servicios[0] ?? null;
   /** Lo que de verdad se está dibujando. ⚠️ No es `vista === 'kanban'` a secas: lo
    *  escribiría dos veces y el día que una de las dos cambie, el renglón de «no
    *  encontré» aparece sobre un tablero o desaparece sobre una tabla. */
   const enKanban = vista === 'kanban' && Boolean(servicio);
+  const enAvance = vista === 'avance' && Boolean(servicio);
+
+  /**
+   * LO QUE SE INVITÓ ACÁ ADENTRO, encima del acceso que trajo el server. Mismo trato que `imgs` y
+   * `movs`: es lo que el server action ya devolvió, aplicado sin releer la cartera. Lo comparten la
+   * tarjeta y la vista Avance — invitar desde una tiene que cambiar lo que dice la otra, o la
+   * tarjeta seguiría ofreciendo «Invitar al curso» a alguien que acaba de recibir el mail.
+   */
+  const [accesoMovs, setAccesoMovs] = useState<Record<number, AccesoInvitacion>>({});
+  const alAcceso = (leadId: number, a: AccesoInvitacion) => setAccesoMovs((m) => ({ ...m, [leadId]: a }));
+  /**
+   * El curso de UNA tarjeta, en el servicio que se mira. `null` = ese producto no tiene curso (o no
+   * se sabe): el menú no ofrece nada del curso. `acceso: null` = no se pudo leer: se ofrecen los
+   * permisos, nunca invitar.
+   */
+  const cursoDe = (leadId: number): CursoDeTarjeta | null => {
+    if (!curso || !servicio || !curso.conCurso[servicio.productoId]) return null;
+    const acceso = accesoMovs[leadId] ?? (curso.accesos ? accesoDeFila(curso.accesos[leadId] ?? { estado: 'sin-link', ingresos: 0, ultimoIngresoAt: null }) : null);
+    return { acceso, onAcceso: (a) => alAcceso(leadId, a) };
+  };
   /**
    * QUÉ FASE DEL TABLERO SE ESTÁ MIRANDO. `null` = todas, `''` = las columnas sueltas.
    *
@@ -941,7 +1016,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
           {/* ⚠️ EL LOTE ACTÚA SOBRE LOS ELEGIDOS QUE SE VEN, como la barra del Plan. Con
               un buscador puesto, `sel` puede tener clientes que la pantalla esconde, y
               moverlos sería actuar sobre algo que nadie está mirando. */}
-          {elegidosVisibles.length > 0 && (
+          {/* En «Avance» no hay casillas que elegir: la barra de lote ahí actuaría sobre una
+              selección que esta vista no muestra. Vuelve sola al volver al kanban o la tabla. */}
+          {elegidosVisibles.length > 0 && !enAvance && (
             <LoteClientes
               elegidos={elegidosVisibles.length}
               visibles={enPantalla.length}
@@ -977,7 +1054,15 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               onError={setMal}
               seleccion={sel}
               onSeleccion={setSel}
+              /* EL CURSO EN EL MENÚ DE CADA TARJETA (item 9): «Invitar al curso» abre el modal de
+                 invitar ahí mismo; «Permisos del curso» abre la ficha en su pestaña Curso, que es
+                 donde viven (el mismo molde que «Ver su equipo»). */
+              cursoDe={cursoDe}
+              onPermisos={(leadId) => { setAbrirEn('curso'); setAbiertoId(leadId); }}
             />
+          ) : enAvance && servicio ? (
+            <AvanceDelServicio curso={curso} productoId={servicio.productoId}
+              visibles={visiblesServ} accesoMovs={accesoMovs} onAcceso={alAcceso} />
           ) : (
             <TablaClientes filas={visiblesServ} numeroDe={numeroDe} resumenDe={resumenDe}
               tableroOk={tablero.ok}
@@ -1001,7 +1086,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               cartera. En el kanban no va: ahí lo dice cada columna, y un renglón más
               debajo de cinco «Sin clientes» es repetir lo mismo seis veces. */}
           {/* Un producto sin clientes no es una búsqueda sin resultados: son dos frases. */}
-          {visiblesServ.length === 0 && !enKanban && (
+          {visiblesServ.length === 0 && !enKanban && !enAvance && (
             <p className="cl-nada">{listaServ.length === 0 ? 'Este producto todavía no tiene clientes.' : 'Ningún cliente coincide con lo que buscaste.'}</p>
           )}
         </>
@@ -1117,6 +1202,39 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   );
 }
 
+
+/**
+ * La vista «Avance» de UN servicio: la tabla que vivía en la tab Curso, mudada acá (item 4 del
+ * 07/10/2026). Las celdas, la columna «Acceso» y el modal de invitar son los MISMOS
+ * (./curso/AvanceCurso.tsx): esto sólo elige las filas.
+ *
+ * ⚠️ FILTRA POR LO QUE LA BARRA DEJÓ (`visibles`, ya buscado, filtrado y del servicio): el buscador
+ * de la pantalla vale igual en las tres vistas. Con una lista propia, buscar «Ana» y pasar a Avance
+ * mostraría a todos — dos vistas de la misma cartera diciendo cosas distintas.
+ *
+ * ⚠️ LO INVITADO EN ESTA SESIÓN (`accesoMovs`) PISA LA FILA DEL SERVER: si se invitó desde la
+ * tarjeta, la columna tiene que decir «Invitado», no ofrecer «Invitar» otra vez.
+ */
+function AvanceDelServicio({ curso, productoId, visibles, accesoMovs, onAcceso }: {
+  curso: CursoClientes | undefined;
+  productoId: number;
+  visibles: readonly ClienteCruce[];
+  accesoMovs: Readonly<Record<number, AccesoInvitacion>>;
+  onAcceso: (leadId: number, a: AccesoInvitacion) => void;
+}) {
+  if (!curso) return null;
+  if (!curso.avance.ok) return <AvanceCurso etapas={[]} filas={[]} error={curso.avance.error} />;
+  const p = curso.avance.porProducto[productoId];
+  // Un producto sin clases no es «nadie empezó»: es que no hay curso, y se dice dónde se arma.
+  if (!p) return <EmptyState titulo="Este producto no tiene curso" detalle="Sus clases se cargan en Curso." accion={{ label: 'Ir a Curso', href: '/customer-success/curso' }} />;
+  const ids = new Set(visibles.map((c) => c.leadId));
+  const filas = p.filas
+    .filter((f) => ids.has(f.leadId))
+    .map((f) => (accesoMovs[f.leadId] ? { ...f, acceso: filaDeAcceso(accesoMovs[f.leadId]) } : f));
+  // «No encontré» no es «no tiene clientes»: con el buscador puesto, la tabla vacía diría lo segundo.
+  if (!filas.length && p.filas.length) return <p className="cl-nada">Ningún cliente coincide con lo que buscaste.</p>;
+  return <AvanceCurso etapas={p.etapas} filas={filas} error={null} onAcceso={onAcceso} />;
+}
 
 /**
  * LO QUE SE VE, a un CSV.

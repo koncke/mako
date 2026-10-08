@@ -385,26 +385,38 @@ export async function urlsDeVistaPrevia(paths: readonly string[]): Promise<Map<s
 }
 
 /**
- * El acceso al portal de VARIOS clientes (la tabla de Avance): leadId → acceso. Los que nunca
- * recibieron su link no están en el mapa (y la tabla dice «sin link»).
+ * El acceso de una fila de Avance CON su invitación (mig 0206): a qué email salió y cuándo.
+ *
+ * ⚠️ `null` EN LOS DOS ES «NUNCA», Y POR ESO VIAJAN SIEMPRE. Hasta el 07/10/2026 esta lectura no
+ * los traía, la fila llegaba con `undefined` («no lo sé», ver `AccesoInvitacion` en
+ * app/customer-success/curso-ficha-lectura.ts) y la tabla Avance le ofrecía «Invitar» —nunca
+ * «Reenviar»— a gente ya invitada, con el modal vacío: un mail duplicado a un clic.
+ */
+export type AccesoFilaInvitacion = AccesoFila & { email: string | null; invitacionEnviadaAt: string | null };
+
+/**
+ * El acceso al portal de VARIOS clientes (la tabla de Avance y las tarjetas del kanban): leadId →
+ * acceso. Los que nunca recibieron su link no están en el mapa (y la tabla dice «sin link»).
  *
  * ⚠️ TIRA si no puede leer, y quien llama decide: leído como «nadie tiene link», una consulta
  * caída le diría a Mauricio que tiene que mandarle el link a los catorce.
  */
-export async function accesosDeClientes(leadIds: readonly number[]): Promise<Map<number, AccesoFila>> {
-  const out = new Map<number, AccesoFila>();
+export async function accesosDeClientes(leadIds: readonly number[]): Promise<Map<number, AccesoFilaInvitacion>> {
+  const out = new Map<number, AccesoFilaInvitacion>();
   if (!leadIds.length) return out;
   const db = await getTenantDb();
   // ⚠️ `area is null`: el acceso DEL CLIENTE. Desde la 0212 un cliente tiene además uno por cada
   // líder de área, y sin el filtro la columna «Acceso» pintaba el del último líder (#665).
   const { data, error } = await db.from('curso_accesos')
-    .select('lead_id, revocado_at, ingresos, ultimo_ingreso_at').in('lead_id', [...leadIds]).is('area', null);
+    .select('lead_id, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at').in('lead_id', [...leadIds]).is('area', null);
   if (error) throw new Error(error.message);
-  for (const f of (data ?? []) as Array<{ lead_id: number; revocado_at: string | null; ingresos: number | null; ultimo_ingreso_at: string | null }>) {
+  for (const f of (data ?? []) as Array<{ lead_id: number; revocado_at: string | null; ingresos: number | null; ultimo_ingreso_at: string | null; email: string | null; invitacion_enviada_at: string | null }>) {
     out.set(Number(f.lead_id), {
       estado: f.revocado_at ? 'cortado' : 'activo',
       ingresos: f.ingresos ?? 0,
       ultimoIngresoAt: f.ultimo_ingreso_at ?? null,
+      email: f.email ?? null,
+      invitacionEnviadaAt: f.invitacion_enviada_at ?? null,
     });
   }
   return out;

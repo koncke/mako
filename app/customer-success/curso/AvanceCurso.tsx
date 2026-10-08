@@ -15,8 +15,14 @@
 // Curso de la ficha muestra arriba para un cliente. Acá se agrega lo que es de la TABLA: la
 // columna del cliente y la del acceso.
 //
-// ⚠️ SIN `Pagina` NI CAJA PROPIA: lo monta la vista Avance de la tab (CursoApp) adentro de su
-// propio contenedor. Es una tabla con scroll de costado y nada más.
+// ⚠️ SIN `Pagina` NI CAJA PROPIA: lo monta la vista Avance adentro de su propio contenedor. Es una
+// tabla con scroll de costado y nada más.
+//
+// ⚠️ DESDE EL 07/10/2026 VIVE EN CLIENTES (item 4: «Elimina la tab de Avance de clientes en este
+// lugar [el curso] solo se va a editar el curso. Que esa tab esté en la ruta de clientes»): la monta
+// ../ClientesApp.tsx como la vista «Avance» de /customer-success, con el selector de servicio de esa
+// pantalla. Las filas las arma ../page.tsx (`cursoDeLaCartera`) con el email del CRM y la
+// invitación, que la tab Curso nunca le pasó.
 
 import { useState } from 'react';
 import { EmptyState, Banner } from '@/app/_ui';
@@ -24,7 +30,7 @@ import { useRouter } from '@/app/_ui/Link';
 import type { AccesoFila, FilaAvance } from './reglas';
 import { CabezaAvance, CeldasAvance, EstiloAvance, type EtapaVista } from './FilaAvance';
 import { CeldaAcceso, EstiloInvitar } from './InvitarAlCurso';
-import type { AccesoInvitacion } from '../curso-ficha-lectura';
+import { accesoDeFila, type AccesoInvitacion } from '../curso-ficha-lectura';
 
 // CursoApp lo importa de acá desde antes de que existiera FilaAvance.tsx.
 export type { EtapaVista };
@@ -42,24 +48,19 @@ export type FilaConAcceso = Omit<FilaAvance, 'acceso'> & {
   acceso: (AccesoFila & { email?: string | null; invitacionEnviadaAt?: string | null }) | null;
 };
 
-/** El acceso de una fila, como lo lee la celda. «Sin link» = no tiene fila: nunca se lo invitó. */
-function accesoDeFila(a: FilaConAcceso['acceso']): AccesoInvitacion | null {
-  if (!a) return null;
-  const existe = a.estado !== 'sin-link';
-  return {
-    existe,
-    revocado: a.estado === 'cortado',
-    ingresos: a.ingresos,
-    ultimoIngresoAt: a.ultimoIngresoAt,
-    email: a.email,
-    invitacionEnviadaAt: existe ? a.invitacionEnviadaAt : null,
-  };
-}
+// ⛔ ACÁ VIVÍA `accesoDeFila` (el acceso de una fila → lo que lee la celda). Se mudó a
+// ../curso-ficha-lectura.ts el 07/10/2026: desde que la tarjeta del kanban y la lista «Clientes sin
+// invitar» también la necesitan, tres traducciones del mismo acceso podían decir tres cosas.
 
-export function AvanceCurso({ etapas, filas, error }: {
+export function AvanceCurso({ etapas, filas, error, onAcceso }: {
   etapas: EtapaVista[];
   filas: readonly FilaConAcceso[];
   error: string | null;
+  /**
+   * El acceso de un cliente como quedó después de invitarlo o habilitarlo desde la tabla. Lo usa
+   * Clientes para que la tarjeta del kanban diga lo mismo (`Reenviar invitación`) sin releer la página.
+   */
+  onAcceso?: (leadId: number, a: AccesoInvitacion) => void;
 }) {
   /**
    * Lo que cambió en esta pantalla (invitar, habilitar), por cliente. El acceso es del CLIENTE,
@@ -76,6 +77,7 @@ export function AvanceCurso({ etapas, filas, error }: {
    */
   const alCambiar = (leadId: number, a: AccesoInvitacion) => {
     setCambios((m) => ({ ...m, [leadId]: a }));
+    onAcceso?.(leadId, a);
     router.refresh();
   };
 

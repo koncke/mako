@@ -44,11 +44,15 @@ import { repartirEnEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/ser
  * lista de WORKSPACES, que no tiene etapas de entrega (tarjetas + tabla). Un botón
  * que no puede dibujar nada se lee como que la app está rota, así que la lista va en
  * POSITIVO: se dibuja lo que la pantalla declara, no «todas menos».
+ *
+ * `avance` (07/10/2026, item 4): el AVANCE de los clientes en el curso del servicio elegido.
+ * «Elimina la tab de Avance de clientes en este lugar [el curso] solo se va a editar el curso. Que
+ * esa tab esté en la ruta de clientes». La ofrece sólo Customer Success, con un servicio elegido.
  */
-export type VistaClientes = 'tarjetas' | 'tabla' | 'kanban';
+export type VistaClientes = 'tarjetas' | 'tabla' | 'kanban' | 'avance';
 
 /** El orden en que se dibujan los botones, sea cual sea el orden de `vistas`. */
-const ORDEN_VISTAS: readonly VistaClientes[] = ['kanban', 'tarjetas', 'tabla'];
+const ORDEN_VISTAS: readonly VistaClientes[] = ['kanban', 'tarjetas', 'tabla', 'avance'];
 
 /**
  * Qué dibuja cada botón del toggle: el catálogo COMPARTIDO con el CRM y el Plan.

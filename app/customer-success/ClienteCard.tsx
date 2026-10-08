@@ -31,13 +31,29 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { CuentaDeMaKo, type CuentasProp } from './CuentaDeMaKo';
 import { useFotoCliente } from './foto-cliente';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
+import { ModalInvitar } from './curso/InvitarAlCurso';
+import { opcionesDeCursoEnTarjeta, type AccesoFicha, type AccesoInvitacion } from './curso-ficha-lectura';
 
 // `colorDe` vivía acá y se fue con el molde, porque lo usan las dos pantallas. Se
 // re-exporta para no tocar a los tres que ya lo importaban de este archivo (la
 // tabla, la ficha y el picker de clientes del tablero).
 export { colorDe };
 
-export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, accionExtra, antesDelNombre, onAbrir, onEquipo, onError }: {
+/**
+ * El curso de ESTE cliente, como lo ofrece la tarjeta: su acceso y qué hacer cuando cambia.
+ *
+ * Lo arma la pantalla (ClientesApp) SÓLO si el producto que se mira tiene clases: sin curso no hay
+ * a qué invitar, y una opción cuya única respuesta es «sus productos no tienen clases» se lee como
+ * que la app está rota. `acceso: null` = no se pudo leer su acceso: se ofrecen los permisos pero NO
+ * invitar (no se invita a ciegas: podría ser un segundo mail a alguien ya invitado).
+ */
+export type CursoDeTarjeta = {
+  acceso: AccesoInvitacion | null;
+  /** El acceso como quedó después de invitar (lo releyó el server). */
+  onAcceso: (a: AccesoFicha) => void;
+};
+
+export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, accionExtra, antesDelNombre, onAbrir, onEquipo, onError, curso, onPermisos }: {
   c: ClienteCruce;
   /** Su número de cliente: «Cliente 1». No es el id del lead — ver `NumeroCliente`. */
   n: number;
@@ -76,6 +92,14 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
   /** Abre la ficha directamente en la tab «Equipo». */
   onEquipo: () => void;
   onError: (m: string) => void;
+  /**
+   * El curso del cliente (item 9, 07/10/2026): «En cada cliente del kanban se debería poder invitar
+   * al curso». Con esto el menú suma «Invitar al curso» (o «Reenviar invitación») y «Permisos del
+   * curso». Ausente = el producto no tiene curso: el menú no ofrece nada del curso.
+   */
+  curso?: CursoDeTarjeta | null;
+  /** «Permisos del curso»: abre la ficha en su pestaña Curso, donde viven (FichaCurso). */
+  onPermisos?: () => void;
 }) {
   const nombre = c.nombre.trim() || 'Sin nombre';
   /** Su WhatsApp o su email, si nadie le eligió una foto (./foto-cliente.ts). */
@@ -120,7 +144,16 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
    * que le paga a MaKo. Queda sin hacer y dicho, no hecho a medias.
    */
   const admin = equipo?.find((u) => u.rol === 'admin') ?? equipo?.[0];
-  const opciones = [
+  /**
+   * ⚠️ LAS DEL CURSO NO CUELGAN DE `conCuentas` (07/10/2026). Hasta acá el menú —y la fila de
+   * acciones entera— existía sólo para una AGENCIA, porque lo único que ofrecía era gestionar una
+   * cuenta de MaKo. Invitar al curso es otra cosa: no crea cuenta ni workspace (lib/curso-invitar.ts),
+   * así que lo tiene cualquier negocio con la tab, agencia o no. Las de cuenta siguen atadas a
+   * `conCuentas`; éstas, a que el producto tenga curso (`curso`). La regla (cortado no ofrece
+   * invitar, sin leer tampoco) vive en `opcionesDeCursoEnTarjeta`, que tiene test.
+   */
+  const opciones: Array<{ value: string; label: string }> = [
+    ...opcionesDeCursoEnTarjeta(curso, Boolean(onPermisos)),
     // Sólo con una cuenta abierta Y alguien adentro: reenviarle el acceso a nadie no es
     // una opción, es un botón que contesta un error.
     ...(ws && admin ? [{ value: 'reinvitar', label: `Reenviar el acceso a ${admin.nombre}` }] : []),
@@ -129,6 +162,8 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
 
   const [reenviando, setReenviando] = useState(false);
   const [aviso, setAviso] = useState<{ tono: 'ok' | 'warn'; texto: string } | null>(null);
+  /** El modal de invitar al curso, abierto desde el menú. Se monta al abrirse (cada apertura arranca de cero). */
+  const [invitando, setInvitando] = useState(false);
 
   const reinvitar = async () => {
     if (!ws || !admin || reenviando) return;
@@ -149,11 +184,14 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
   };
 
   const elegir = (v: string) => {
+    if (v === 'curso-invitar') { setAviso(null); setInvitando(true); return; }
+    if (v === 'curso-permisos') { onPermisos?.(); return; }
     if (v === 'reinvitar') { void reinvitar(); return; }
     if (v === 'equipo') onEquipo();
   };
 
   return (
+    <>
     <TarjetaEntidad
       nombre={nombre}
       bajada={c.empresa?.trim() || `Cliente ${n}`}
@@ -193,29 +231,50 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
           {aviso && <PieTexto mal={aviso.tono === 'warn'}>{aviso.texto}</PieTexto>}
         </>
       }
-      /* ⚠️ SÓLO PARA QUIEN PUEDE HACER ALGO CON ELLOS. `cuentas.visible` lo decide el
-         SERVER (page.tsx): desde el 05/10/2026, que este workspace sea una AGENCIA. Dibujarlos
-         para un negocio que no lo es sería ofrecerle entrar a una cuenta que no existe. */
-      acciones={conCuentas || accionExtra ? (
+      /* ⚠️ SÓLO PARA QUIEN PUEDE HACER ALGO CON ELLOS. Lo de la CUENTA cuelga de `cuentas.visible`
+         (lo decide el SERVER, page.tsx: que este workspace sea una AGENCIA); lo del CURSO, de que el
+         producto tenga curso. La fila existe si hay alguna de las dos — sin ninguna, una fila vacía
+         con un menú sin opciones es una tarjeta que ofrece algo que no tiene. */
+      acciones={conCuentas || accionExtra || opciones.length > 0 ? (
         <>
           {conCuentas && cuentas && <CuentaDeMaKo c={c} cuentas={cuentas} onError={onError} variante="boton" />}
           <span style={{ flex: 1 }} />
           {/* ⚠️ SIN OPCIONES NO SE DIBUJA. `Dropdown` no tiene rama de lista vacía: con
               `options={[]}` igual pinta el botón y abre un popover en blanco, que se lee
-              como una app rota. Pasa de verdad — un cliente sin cuenta y sin equipo no
-              tiene ninguna. */}
-          {conCuentas && opciones.length > 0 && (
-            <Dropdown
-              value="" resetAfterSelect align="right" placeholder="Acciones"
-              ariaLabel={`Acciones sobre ${nombre}`} disabled={reenviando}
-              buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
-              options={opciones}
-              onChange={elegir}
-            />
+              como una app rota. Pasa de verdad — un cliente sin cuenta, sin equipo y sin
+              curso no tiene ninguna. */}
+          {/* ⚠️ EL MENÚ NO ARRASTRA: en el kanban la tarjeta entera es `draggable`, y apretar
+              «Acciones» y correr un poco el mouse se llevaba la tarjeta. Lo corta `data-nodrag`,
+              que mira `agarrar` (KanbanEntrega) con el nodo donde nació el gesto. ⛔ Acá había un
+              `onDragStart` que lo cancelaba y no corría NUNCA: el `dragstart` sale del nodo
+              arrastrable (el envoltorio), no de un hijo (revisión del 08/10/2026).
+              `onPointerDown` frenado como la casilla de selección. `display: contents` para no
+              meter una caja en la fila `nowrap`, que desbordaría. */}
+          {opciones.length > 0 && (
+            <span style={{ display: 'contents' }} data-nodrag
+              onPointerDown={(e) => e.stopPropagation()}>
+              <Dropdown
+                value="" resetAfterSelect align="right" placeholder="Acciones"
+                ariaLabel={`Acciones sobre ${nombre}`} disabled={reenviando}
+                buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
+                options={opciones}
+                onChange={elegir}
+              />
+            </span>
           )}
           {accionExtra}
         </>
       ) : undefined}
     />
+    {/* EL MODAL DE INVITAR va AFUERA de la tarjeta en el árbol y por portal en el DOM
+        (`ModalInvitar` se portalea solo al body): adentro de la tarjeta heredaría su
+        `pointer-events: none` y, en el kanban, su `overflow: hidden`. */}
+    {invitando && curso && (
+      <ModalInvitar leadId={c.leadId} nombre={nombre} emailCrm={c.email} acceso={curso.acceso}
+        onCerrar={() => setInvitando(false)}
+        onEnviada={() => setAviso({ tono: 'ok', texto: 'Invitación enviada.' })}
+        onListo={(a, av) => { if (a) curso.onAcceso(a); if (av) setAviso(av); }} />
+    )}
+    </>
   );
 }

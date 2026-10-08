@@ -16,7 +16,7 @@
 
 import type { ReactNode } from 'react';
 
-export type VistaIcono = 'tarjetas' | 'tabla' | 'kanban';
+export type VistaIcono = 'tarjetas' | 'tabla' | 'kanban' | 'avance';
 
 export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode }> = {
   tarjetas: {
@@ -54,6 +54,18 @@ export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode 
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
         <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+  },
+  avance: {
+    // El AVANCE de los clientes en el curso (item 4 del 07/10/2026: «Que esa tab esté en la ruta de
+    // clientes»). Barras de progreso de largo distinto: lo que la vista dice es CUÁNTO avanzó cada
+    // uno, y ni los cubos ni las tres líneas parejas de la tabla lo cuentan. Lo ofrece SÓLO
+    // Customer Success (kanban · tabla · avance): /admin y el CRM no tienen curso.
+    titulo: 'Ver el avance del curso',
+    icono: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="14" y2="12" /><line x1="4" y1="18" x2="9" y2="18" />
       </svg>
     ),
   },

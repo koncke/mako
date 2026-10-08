@@ -61,6 +61,9 @@ const PATHS: Record<string, ReactNode> = {
   // que es el ÁREA) ni `crm` (el embudo): es «mi gente», un conjunto contado.
   users: (<><circle cx="9.2" cy="8.6" r="3.2" /><path d="M3.6 19.4a5.6 5.6 0 0 1 11.2 0" /><path d="M16.2 6.2a3.2 3.2 0 0 1 0 6" /><path d="M17.6 14.6a5.6 5.6 0 0 1 2.8 4.8" /></>),
   cs: (<><circle cx="12" cy="12" r="8.5" /><path d="M8 14a5 5 0 0 0 8 0" /><path d="M9 9.7h.01" /><path d="M15 9.7h.01" /></>),
+  // Dos globos que se responden: la COMUNIDAD de un producto (el feed tipo Skool). No es `chats`
+  // (un globo: los canales de conversación con un lead) ni `users` (la cartera, un conjunto contado).
+  comunidad: (<><path d="M3.5 5.5A1.5 1.5 0 0 1 5 4h8.5A1.5 1.5 0 0 1 15 5.5v4.5a1.5 1.5 0 0 1-1.5 1.5H8.6L5.2 14v-2.5H5A1.5 1.5 0 0 1 3.5 10V5.5Z" /><path d="M17.5 8.5H19a1.5 1.5 0 0 1 1.5 1.5v4.5A1.5 1.5 0 0 1 19 16h-.2v2.5L15.4 16H11a1.5 1.5 0 0 1-1.5-1.5V14" /></>),
   instagram: (<><rect x="4" y="4" width="16" height="16" rx="4.5" /><circle cx="12" cy="12" r="3.4" /><circle cx="16.9" cy="7.1" r="1" /></>),
   pen: (<><path d="M4 20l3.6-.9L18.2 8.5 15.5 5.8 4.9 16.4 4 20Z" /><path d="M14 7.3 16.7 10" /></>),
   hammer: (<><path d="M13.3 4.6l6.1 6.1-2.4 2.4-6.1-6.1Z" /><path d="M14 9.9l-8.4 8.4a1.7 1.7 0 0 0 2.4 2.4l8.4-8.4" /></>),

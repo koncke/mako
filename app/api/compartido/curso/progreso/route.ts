@@ -34,6 +34,7 @@ import { leerTokenPortal } from '@/lib/curso-acceso';
 import { resolverAccesoPortal, guardarVisto } from '@/lib/curso-datos';
 import { claseDelAlumno, leerJsonTopeado, idDeClase, TOPE_PROGRESO, videoDeClase } from '@/lib/curso-portal';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
+import { marcarActividadDeLead } from '@/lib/comunidad-datos';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -63,10 +64,13 @@ export async function POST(req: NextRequest) {
   return runWithWorkspace(firma.ws, async () => {
     const acceso = await resolverAccesoPortal(token);
     if (!acceso) return NO();
+    // «En línea» en la comunidad (mig 0217) cuenta también la actividad en el curso. El líder de un
+    // área no es miembro de la comunidad: escribiría con el nombre del cliente. No tira (ver ahí).
+    if (acceso.area == null) void marcarActividadDeLead(acceso.leadId);
     // Por alumno: seis por minuto por video es lo normal; esto deja varias pestañas y pausas.
     if (!rateLimit(`curso-progreso:lead:${acceso.ws}:${acceso.leadId}`, 60, 60_000)) return MUCHO();
     try {
-      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: false, lider: acceso.area });
+      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: false, lider: acceso.area, alcance: acceso.alcance });
       if (r.decision !== 'ok') return NO();
       // Un video que no se puede medir (Drive, Loom, sin video) no recibe progreso: crearle la fila
       // con `visto_at` lo contaría como «lo vio» sin que nadie lo haya medido.

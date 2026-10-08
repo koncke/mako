@@ -25,12 +25,23 @@
 //      en el `title` y en el `aria-label`, donde no ocupa lugar (AGENTS.md: «el
 //      texto que se DIBUJA es corto»).
 //
-// Tres pestañas, y el orden es la decisión:
-//   1. Degradados — el catálogo de `lib/portadas.ts`. Se dibuja SIN RED, entra en
-//      cualquier ancho y no puede 404ear, así que es lo que abre.
-//   2. Fotos      — el repositorio (`/api/portadas`). Sale a buscar; si no contesta,
-//      lo dice: una grilla vacía se lee como «no hay fotos».
-//   3. Subir      — la propia.
+// Las pestañas, y el orden es la decisión:
+//   · Diseños — SÓLO si quien lo abre pasa `disenos` (la portada de un módulo del curso). Las
+//               láminas dibujadas de app/_cursos/laminas/: el cuaderno de siempre y los otros
+//               diseños, con el número y el nombre de ESE módulo, el texto editable y dos colores.
+//               Pedido de Martín (07/10/2026, item 5): «las portadas diseñadas por nosotros
+//               deberían aparecer también en la selección de portadas, sino, cambio la portada de 1,
+//               y luego ya no aparecen». Va primera porque es el default de un módulo, y abre ahí
+//               cuando lo que hay puesto es una lámina o nada.
+//   · Galería — UNA pestaña con los degradados de `lib/portadas.ts` arriba (se dibujan SIN RED,
+//               así que la galería nunca se ve vacía) y las fotos del repositorio (`/api/portadas`)
+//               abajo. Es la que abre en el resto de los casos.
+//   · Subir   — la propia.
+// (Hasta el 07/10/2026 esta cabecera decía «tres pestañas: Degradados, Fotos y Subir»: dos de esas
+// se habían juntado en «Galería» el 27/09 y el comentario se quedó con el dibujo viejo.)
+//
+// ⚠️ SIN `disenos` EL SELECTOR ES EL DE SIEMPRE: el tablero y la ficha del cliente no lo pasan, no
+// ven la pestaña y no bajan los dibujos (la pestaña se carga perezosa, ver `SelectorLaminas`).
 //
 // ⚠️ ES UNO SOLO PARA EL CLIENTE Y PARA EL PROYECTO. La misma pregunta contestada en
 // dos componentes son dos componentes que divergen: el día que se agregue una pestaña,
@@ -43,15 +54,23 @@
 // del mismo—. Entra como `anidada`: la capa de abajo se sigue viendo, que es el punto
 // entero de que esto sea un popover.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Spinner } from '@/app/_ui';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { GRADIENTES, cssGradiente, valorGradiente, fondoPortada } from '@/lib/portadas';
+import { esLamina } from '@/lib/laminas';
 import { SWATCHES, colorName } from '@/app/plan/board/types';
 import type { FotoDeCatalogo } from '@/lib/portadas';
 
-type Pestana = 'galeria' | 'subir';
+/**
+ * La pestaña «Diseños», PEREZOSA: los dibujos de las láminas (y el alfabeto del cuaderno) sólo bajan
+ * cuando alguien abre un selector con `disenos`. El tablero y la ficha no los piden nunca.
+ */
+const SelectorLaminas = lazy(() => import('@/app/_cursos/laminas/SelectorLaminas').then((m) => ({ default: m.SelectorLaminas })));
+
+type Pestana = 'disenos' | 'galeria' | 'subir';
+const NOMBRE_PESTANA: Record<Pestana, string> = { disenos: 'Diseños', galeria: 'Galería', subir: 'Subir' };
 
 /** El ancho del panel. Notion usa ~615 de contenido; acá entran cuatro muestras por fila. */
 const ANCHO = 620;
@@ -89,7 +108,7 @@ export function ubicarPanel(
   return { left, top };
 }
 
-export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onColor, onCerrar, sinAutomatico = false }: {
+export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onColor, onCerrar, sinAutomatico = false, disenos }: {
   /** Lo que hay puesto hoy, para marcarlo. */
   valor: string | null | undefined;
   /** El color derivado del nombre: el default, que también es una opción. */
@@ -127,8 +146,22 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
    * «Sin portada» sigue volviendo al default.
    */
   sinAutomatico?: boolean;
+  /**
+   * LA PORTADA DE UN MÓDULO: con esto aparece la pestaña «Diseños», que dibuja cada lámina con este
+   * número, este rótulo («Módulo», «Etapa») y este nombre (lo que va debajo del número mientras no
+   * haya un texto propio). Los colores con los que nace el cuaderno salen de `colorBase`, que en el
+   * curso es el acento. Sin esto, el selector es el de siempre.
+   */
+  disenos?: { n: number; rotulo: string; titulo: string };
 }) {
-  const [pest, setPest] = useState<Pestana>('galeria');
+  const [pest, setPest] = useState<Pestana>(() => (disenos && (!valor || esLamina(valor)) ? 'disenos' : 'galeria'));
+  const pestanas: Pestana[] = disenos ? ['disenos', 'galeria', 'subir'] : ['galeria', 'subir'];
+  /**
+   * Cuántas veces se apretó «Sin portada». La pestaña Diseños lo necesita aparte de `valor`: sobre
+   * una portada que ya estaba vacía, `null` sobre `null` no cambia nada y lo que se estaba tipeando
+   * se guardaba igual medio segundo después (ver `SelectorLaminas`).
+   */
+  const [quitadas, setQuitadas] = useState(0);
   const [montado, setMontado] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -247,16 +280,16 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
         pointerEvents: pos ? undefined : 'none',
       }}>
       <div className="pp-tabs" role="tablist">
-        {(['galeria', 'subir'] as const).map((p) => (
+        {pestanas.map((p) => (
           <button key={p} type="button" role="tab" aria-selected={pest === p}
             className={`pp-tab${pest === p ? ' on' : ''}`} onClick={() => setPest(p)}>
-            {p === 'galeria' ? 'Galería' : 'Subir'}
+            {NOMBRE_PESTANA[p]}
           </button>
         ))}
         <span style={{ flex: 1 }} />
         {/* Volver al default NO es borrar: es el color derivado del nombre, que es lo
             que se ve hoy. Va donde Notion pone «Remove». */}
-        <button type="button" className="pp-quitar" onClick={() => onElegir(null)}>Sin portada</button>
+        <button type="button" className="pp-quitar" onClick={() => { setQuitadas((q) => q + 1); onElegir(null); }}>Sin portada</button>
       </div>
 
       {/* ⚠️ UNA SOLA PESTAÑA «GALERÍA», CON LOS DEGRADADOS ARRIBA Y LAS FOTOS ABAJO
@@ -267,6 +300,12 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
           «Texturelabs» en la misma «Gallery». Los degradados van primero porque se
           dibujan sin red: la galería nunca se ve vacía mientras las fotos cargan. */}
       <div className="pp-cuerpo">
+        {pest === 'disenos' && disenos && (
+          <Suspense fallback={<p className="pp-cargando"><Spinner /> Abriendo los diseños…</p>}>
+            <SelectorLaminas valor={valor} acento={colorBase} n={disenos.n} rotulo={disenos.rotulo}
+              titulo={disenos.titulo} quitadas={quitadas} onElegir={onElegir} />
+          </Suspense>
+        )}
         {pest === 'galeria' && (
           <>
             <p className="pp-seccion">Color y degradado</p>
@@ -638,6 +677,20 @@ const CSS = `
 /* La que se esta copiando a nuestro bucket: se atenua y no se puede volver a tocar. */
 .pp-op.yendo{ opacity:.45; cursor:default; }
 .pp-op:disabled{ cursor:default; }
+
+/* La pestaña Diseños. Las láminas van en celdas 16:9, el formato de la tarjeta, y NO en la banda de
+   64 px de las muestras: una lámina recortada no dice cómo va a quedar en el curso. */
+.pp-grid-lam{ grid-template-columns:repeat(auto-fill, minmax(136px, 1fr)); }
+.pp-op.pp-lam{ position:relative; height:auto; aspect-ratio:16/9; background:#F4F3E7; }
+.pp-lam-texto{ display:flex; align-items:center; gap:8px; margin:0 2px; padding:0 10px; height:34px;
+  border:1px solid var(--border); border-radius:9px; background:var(--surface-2); }
+.pp-lam-texto:focus-within{ border-color:var(--primary); background:var(--surface); }
+.pp-lam-texto input{ flex:1; min-width:0; border:0; outline:none; background:none; font:inherit;
+  font-size:13px; color:var(--ink); }
+.pp-lam-cuenta{ flex:none; font-size:11.5px; color:var(--faint); font-variant-numeric:tabular-nums; }
+.pp-lam-nombre{ display:block; margin:7px 2px 0; background:none; border:0; padding:2px 0; font:inherit;
+  font-size:12.5px; color:var(--primary); cursor:pointer; }
+.pp-lam-nombre:disabled{ color:var(--faint); cursor:default; }
 
 .pp-cargando{ display:flex; align-items:center; gap:8px; margin:14px 2px 0; font-size:13px; color:var(--dim); }
 .pp-mas{ display:block; margin:14px auto 0; background:var(--surface); border:1px solid var(--border-strong);

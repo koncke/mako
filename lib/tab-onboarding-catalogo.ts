@@ -376,6 +376,31 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     href: '/customer-success/curso',
   },
 
+  // ── Comunidad (Customer Success): el feed tipo Skool de cada producto (07/10/2026) ──
+  //
+  // ⚠️ LOS PASOS SE DERIVAN DE LOS DATOS, como los del Curso: la página los marca sola al dibujarse
+  // (app/customer-success/comunidad/onboarding-sync.ts) y la regla de qué dato cierra cada uno vive en
+  // app/customer-success/comunidad/onboarding-comunidad.ts, con test. Y NO TAPA LA TAB: es una línea
+  // arriba del feed mientras falte el primer post.
+  //
+  //   comunidad_categorias → hay alguna categoría. Opcional (Skool las ofrece, no las exige).
+  //   comunidad_post       → el ENSAYO: el primer post. Es el único obligatorio.
+  //   comunidad_alumnos    → un alumno ya participó. Opcional y al final: depende de otros.
+  //
+  // ⚠️ Prefijo `comunidad_` por la colisión de KEY_PASOS_COMPARTIDOS (ver arriba). Y el ORDEN es una
+  // guarda (`marcarPasoTab`), así que coincide con PASOS_COMUNIDAD (el test lo compara).
+  'cs-comunidad': {
+    key: 'cs-comunidad',
+    titulo: 'Configuración de la comunidad',
+    nombre: 'Comunidad',
+    pasos: [
+      { key: 'comunidad_categorias', label: 'Tus categorías', opcional: true },
+      { key: 'comunidad_post', label: 'Tu primer post' },
+      { key: 'comunidad_alumnos', label: 'Un alumno participa', opcional: true },
+    ],
+    href: '/customer-success/comunidad',
+  },
+
   // ── Stories: el writer de secuencias de stories ──
   // Hasta el 06/10/2026 el primer paso era `conectar` («Tu cuenta de Instagram»,
   // opcional y compartido con la tab Instagram): salió con ella, porque ya no hay

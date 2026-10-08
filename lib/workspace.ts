@@ -119,6 +119,16 @@ const TENANT_TABLES = new Set<string>([
   // Cómo se ve el curso de cada producto: color, título y portadas (mig 0214). Sin esta línea el
   // curso de un negocio se dibujaría con el color y las tapas que eligió OTRO.
   'curso_estilo',
+  // Los adjuntos de la descripción de una clase (mig 0216). Sin esta línea, la lista de adjuntos de
+  // una clase traería los de OTRO negocio.
+  'curso_adjuntos',
+  // La COMUNIDAD de cada producto (mig 0217, la tab Comunidad y la pestaña del alumno). Las doce
+  // tienen N filas por workspace: sin estas líneas, el feed, los likes, el ranking y la campana de un
+  // negocio mostrarían los de TODOS. (El código de la comunidad igual escribe el workspace a mano en
+  // cada consulta, porque nació antes de este registro.)
+  'comunidad_ajustes', 'comunidad_categorias', 'comunidad_posts', 'comunidad_comentarios',
+  'comunidad_likes', 'comunidad_votos', 'comunidad_perfiles', 'comunidad_notificaciones',
+  'comunidad_seguimientos', 'comunidad_baneos', 'comunidad_eventos', 'comunidad_evento_avisos',
   // El orden manual de las columnas del kanban del CRM (mig 0200), la gemela de `cliente_entrega_orden`.
   // Sin esta línea la lectura devolvería el orden de las columnas de CUALQUIER workspace.
   'lead_orden',

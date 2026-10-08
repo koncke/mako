@@ -16,6 +16,8 @@
 //     copiarlo, mandárselo, cortarlo y volver a habilitarlo.
 //   · Las LLAMADAS de la entrega: de cada una salen el aviso del día antes y el de después
 //     (lo manda el cron, lib/curso-mensajes.ts). Acá se anotan y se ve si salieron.
+//   · Sus PERMISOS (07/10/2026, item 9): qué módulos de cada producto ve (lib/curso-alcance.ts).
+//     La tarjeta del kanban abre la ficha acá con «Permisos del curso».
 //
 // ⚠️ ABRIR ESTA PESTAÑA NO LE DA ACCESO A NADIE: sólo lee (ver ./curso-ficha-actions.ts). El
 // acceso nace al invitar, copiar el link o mandarlo por WhatsApp.
@@ -36,24 +38,26 @@
 // un vacío una frase) y los clientes de Mauricio son mexicanos. El porqué va acá, no en la UI.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Button, Confirm, Input, Select, Spinner, useOkFlash } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
+import { Button, Checkbox, Confirm, Input, RadioGroup, Select, Spinner, useOkFlash } from '@/app/_ui';
+import Link, { useRouter } from '@/app/_ui/Link';
 import type { Sesion } from '@/lib/curso-datos';
 import { ROTULO_TAREA, ROTULO_PROPUESTA, type EstadoTarea, type EstadoPropuesta, type Progreso } from '@/lib/curso';
 import type { EntregaFicha } from './FichaEntrega';
 import {
   cursoDeClienteAction, aprobarTareaCursoAction, mandarLinkCursoAction, cortarAccesoCursoAction,
   habilitarAccesoCursoAction, agendarLlamadaCursoAction, borrarLlamadaCursoAction, linkDelCursoAction,
-  linkDeLiderAction, cambiarLiderAction,
+  linkDeLiderAction, cambiarLiderAction, guardarAlcanceCursoAction, urlEntregaCursoAction, otroIntentoQuizAction,
 } from './curso-ficha-actions';
 import {
   avisosDeSesion, contestoAlgo, estadoDeInvitacion, estadoDeTarea, fechaHoraLocal, fraseIngresos, fraseInvitacion,
   fraseResumen, isoDeLocal, respuestaDe, resumenDeEtapa, rotuloVisto, propuestaDeClase, propuestasPendientes,
+  modulosParaPermisos, modulosElegidos,
   type AccesoFicha, type AccesoLiderFicha, type AvisoInvitacionCurso, type BloqueRespuesta, type ClaseFicha, type CursoDeCliente,
   type EtapaFicha, type ProductoFicha,
 } from './curso-ficha-lectura';
 import { CabezaAvance, CeldasAvance, EstiloAvance } from './curso/FilaAvance';
 import { BotonInvitar } from './curso/InvitarAlCurso';
+import RespuestaTarea from './curso/RespuestaTarea';
 
 type Carga = 'cargando' | { ok: false; error: string } | { ok: true; curso: CursoDeCliente };
 
@@ -127,6 +131,9 @@ export function FichaCurso({ leadId, entrega }: {
         </div>
         <aside className="fcu-lado">
           {(curso.acceso || curso.errorAcceso) && <Acceso leadId={leadId} curso={curso} editar={editar} />}
+          {/* Los permisos (item 9, 07/10/2026): qué módulos ve. Sólo con el acceso LEÍDO: con la
+              lectura caída no se sabe qué tiene, y unas casillas sobre «no sé» guardarían encima. */}
+          {curso.acceso && (curso.productos?.length ?? 0) > 0 && <Permisos leadId={leadId} curso={curso} editar={editar} />}
           {/* Los líderes de área (#665): sólo si su curso tiene clases por área Y declaró áreas. */}
           {curso.acceso && (curso.areas?.length ?? 0) > 0 && <Lideres leadId={leadId} curso={curso} editar={editar} />}
           <Llamadas leadId={leadId} curso={curso} productoId={prod?.productoId ?? null} editar={editar} />
@@ -238,7 +245,7 @@ function Avance({ leadId, curso, prod, editar }: {
               {open && (
                 <ul className="fcu-clases">
                   {e.clases.map((c) => (
-                    <FilaClase key={c.id} c={c} abierta={claseAbierta === c.id}
+                    <FilaClase key={c.id} c={c} leadId={leadId} abierta={claseAbierta === c.id}
                       onAbrir={() => setClaseAbierta((x) => (x === c.id ? null : c.id))}
                       revisando={revisando === c.id} onRevisar={(ok) => void revisar(c, ok)} />
                   ))}
@@ -255,8 +262,8 @@ function Avance({ leadId, curso, prod, editar }: {
 const TONO_TAREA: Record<EstadoTarea, string> = { pendiente: '', enviada: 'fcu-pill-warn', aprobada: 'fcu-pill-good' };
 const TONO_PROPUESTA: Record<EstadoPropuesta, string> = { pendiente: 'fcu-pill-ia', aprobada: 'fcu-pill-good', corregida: '' };
 
-function FilaClase({ c, abierta, onAbrir, revisando, onRevisar }: {
-  c: ClaseFicha; abierta: boolean; onAbrir: () => void; revisando: boolean; onRevisar: (aprobada: boolean) => void;
+function FilaClase({ c, leadId, abierta, onAbrir, revisando, onRevisar }: {
+  c: ClaseFicha; leadId: number; abierta: boolean; onAbrir: () => void; revisando: boolean; onRevisar: (aprobada: boolean) => void;
 }) {
   const visto = rotuloVisto(c.medicion, c.progreso);
   const estado = estadoDeTarea(c, c.progreso);
@@ -284,12 +291,29 @@ function FilaClase({ c, abierta, onAbrir, revisando, onRevisar }: {
           )}
         </span>
       </div>
-      {abierta && <DetalleClase c={c} />}
+      {abierta && <DetalleClase c={c} leadId={leadId} />}
     </li>
   );
 }
 
-function DetalleClase({ c }: { c: ClaseFicha }) {
+/**
+ * Lo que contestó, con el render de CADA tipo de campo (`RespuestaTarea`, #18): un archivo se abre
+ * con una URL firmada que pide la ficha (la puerta de siempre), y un quiz sin intentos se destraba
+ * desde acá. Sin esto los campos de archivo se veían como «[object Object]».
+ */
+function Respuesta({ c, leadId, area, progreso }: { c: ClaseFicha; leadId: number; area: string; progreso: Progreso | null }) {
+  return (
+    <RespuestaTarea
+      campos={c.campos}
+      valores={progreso?.valores}
+      calificacion={progreso?.calificacion}
+      abrirArchivo={async (a) => { const r = await urlEntregaCursoAction(leadId, a.path, a.nombre); return r.ok ? r.url : null; }}
+      onOtroIntento={async (id) => { await otroIntentoQuizAction(leadId, c.id, area, id); }}
+    />
+  );
+}
+
+function DetalleClase({ c, leadId }: { c: ClaseFicha; leadId: number }) {
   const bloques = respuestaDe(c.campos, c.progreso?.valores);
   const enviada = fechaHoraLocal(c.progreso?.enviadaAt);
   // Una clase POR ÁREA (#665): lo contestado vive en cada área, y se muestra área por área.
@@ -297,7 +321,7 @@ function DetalleClase({ c }: { c: ClaseFicha }) {
     return (
       <div className="fcu-det">
         {c.tarea.trim() && <p className="fcu-instr">{c.tarea.trim()}</p>}
-        {c.porArea.map((a) => <RespuestaDeArea key={a.area} c={c} area={a.area} vigente={a.vigente} progreso={a.progreso} />)}
+        {c.porArea.map((a) => <RespuestaDeArea key={a.area} c={c} leadId={leadId} area={a.area} vigente={a.vigente} progreso={a.progreso} />)}
       </div>
     );
   }
@@ -309,7 +333,7 @@ function DetalleClase({ c }: { c: ClaseFicha }) {
         ? <p className="fcu-nada">Esta clase no pide tarea.</p>
         : !contestoAlgo(bloques)
           ? <p className="fcu-nada">Sin contestar.</p>
-          : <dl className="fcu-resp">{bloques.map((b) => <Bloque key={b.id} b={b} />)}</dl>}
+          : <Respuesta c={c} leadId={leadId} area="" progreso={c.progreso} />}
       <VersionIA c={c} progreso={c.progreso} />
     </div>
   );
@@ -341,7 +365,7 @@ function VersionIA({ c, progreso }: { c: ClaseFicha; progreso: Progreso | null }
  * o la sacó): se muestra igual —lo contestado no se esconde— y se dice, porque ya no cuenta para
  * cerrar la etapa (lib/curso.ts, `progresoEfectivo`).
  */
-function RespuestaDeArea({ c, area, vigente, progreso }: { c: ClaseFicha; area: string; vigente: boolean; progreso: ClaseFicha['progreso'] }) {
+function RespuestaDeArea({ c, leadId, area, vigente, progreso }: { c: ClaseFicha; leadId: number; area: string; vigente: boolean; progreso: ClaseFicha['progreso'] }) {
   const bloques = respuestaDe(c.campos, progreso?.valores);
   const enviada = fechaHoraLocal(progreso?.enviadaAt);
   return (
@@ -350,7 +374,7 @@ function RespuestaDeArea({ c, area, vigente, progreso }: { c: ClaseFicha; area: 
       {enviada && <p className="fcu-meta">Enviada el {enviada}</p>}
       {!contestoAlgo(bloques)
         ? <p className="fcu-nada">Sin contestar.</p>
-        : <dl className="fcu-resp">{bloques.map((b) => <Bloque key={b.id} b={b} />)}</dl>}
+        : <Respuesta c={c} leadId={leadId} area={area} progreso={progreso} />}
       <VersionIA c={c} progreso={progreso} />
     </div>
   );
@@ -400,8 +424,19 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
   /** Lo que dejó la invitación cuando el mail salió pero algo quedó por decir (no se anotó). */
   const [aviso, setAviso] = useState<AvisoInvitacionCurso | null>(null);
   const a = curso.acceso;
+  const router = useRouter();
 
-  const poner = (acceso: AccesoFicha) => editar((c) => ({ ...c, acceso, errorAcceso: undefined }));
+  /**
+   * Pinta el acceso como quedó y RELEE la página de atrás. ⚠️ La relectura no es para esta caja (ya
+   * pinta lo que devolvió el server): es para la CARTERA, que tiene el acceso de cada cliente en el
+   * menú de su tarjeta y en la vista Avance (07/10/2026). Sin ella, invitar acá y cerrar la ficha
+   * dejaba la tarjeta ofreciendo «Invitar al curso» a alguien que acaba de recibir el mail — un
+   * segundo mail a un clic. `refresh` (el Link de la casa preserva el `?ws=`) no desmonta la ficha.
+   */
+  const poner = (acceso: AccesoFicha) => {
+    editar((c) => ({ ...c, acceso, errorAcceso: undefined }));
+    router.refresh();
+  };
 
   /**
    * Copia su link. Si todavía no tiene acceso (nunca se lo invitó ni se le mandó nada), lo CREA
@@ -532,6 +567,74 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
           onCancel={() => setPreguntaCortar(false)}
           onConfirm={() => { setPreguntaCortar(false); void cambiar('cortar'); }} />
       )}
+    </section>
+  );
+}
+
+// ── Los permisos del alumno (item 9, 07/10/2026) ───────────────────────────────
+
+/**
+ * Qué módulos ve, producto por producto: «Todos los módulos» o «Elegir módulos» con una casilla
+ * por módulo (los módulos son las etapas de su entrega, D1 de docs/diseno-curso-skool.md).
+ *
+ * ⚠️ CADA CAMBIO SE GUARDA EN EL ACTO Y SE PINTA LO QUE VOLVIÓ (`r.acceso`), no lo que se tildó: el
+ * server descarta las claves que no existen y el producto que no es suyo, y la pantalla tiene que
+ * mostrar eso. Y se manda UN producto por vez (`guardarAlcanceCursoAction`): tocar uno no reescribe
+ * los otros.
+ *
+ * ⚠️ «ELEGIR» ARRANCA CON TODOS TILDADOS: lo que ve no cambia al elegir el modo, cambia al destildar.
+ * Lo que sí cambia (y es la diferencia con «Todos») es que un módulo NUEVO arranca cerrado para él.
+ *
+ * ⚠️ LA APLICACIÓN NO ES DE ACÁ: la hace el portal en la misma puerta que los bloqueos
+ * (lib/curso-portal.ts), y lo no permitido no viaja al navegador. Esta caja guarda el dato.
+ */
+function Permisos({ leadId, curso, editar }: { leadId: number; curso: CursoDeCliente; editar: Editar }) {
+  const [ocupado, setOcupado] = useState<number | null>(null);
+  const [error, setError] = useState('');
+  const productos = curso.productos ?? [];
+  const alcance = curso.acceso?.alcance ?? null;
+
+  async function guardar(productoId: number, claves: string[] | null) {
+    setOcupado(productoId);
+    setError('');
+    try {
+      const r = await guardarAlcanceCursoAction(leadId, productoId, claves);
+      if (!r.ok) { setError(r.error); return; }
+      editar((c) => ({ ...c, acceso: r.acceso, errorAcceso: undefined }));
+    } catch (e) {
+      setError(msg(e, 'No se guardó.'));
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  return (
+    <section className="fcu-sec" id={`fcu-permisos-${leadId}`}>
+      <h4 className="fcu-tit">Permisos del curso</h4>
+      {productos.map((p) => {
+        const modulos = modulosParaPermisos(p);
+        const elegidos = modulosElegidos(alcance, p.productoId, modulos);
+        return (
+          <div key={p.productoId} className="fcu-perm">
+            {productos.length > 1 && <p className="fcu-estado" title={p.nombre}>{p.nombre}</p>}
+            <RadioGroup value={elegidos ? 'elegir' : 'todos'} disabled={ocupado != null}
+              options={[{ value: 'todos', label: 'Todos los módulos' }, { value: 'elegir', label: 'Elegir módulos' }]}
+              onChange={(v) => void guardar(p.productoId, v === 'todos' ? null : modulos.map((m) => m.key))} />
+            {elegidos && (
+              <div className="fcu-mods">
+                {modulos.map((m) => (
+                  <Checkbox key={m.key} checked={elegidos.includes(m.key)} disabled={ocupado != null}
+                    label={m.label} hint={m.clases ? undefined : 'Sin clases'}
+                    onChange={(on) => void guardar(p.productoId, on ? [...elegidos, m.key] : elegidos.filter((k) => k !== m.key))} />
+                ))}
+                {/* Cero tildados es una decisión (esconderle el producto), no un error: se dice. */}
+                {!elegidos.length && <p className="fcu-meta">No ve este producto.</p>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {error && <p className="fcu-mal">{error}</p>}
     </section>
   );
 }
@@ -864,6 +967,11 @@ const CSS = `
 .fcu-lid li{ padding:10px 0; border-top:1px solid var(--border); }
 .fcu-lid li:first-child{ border-top:0; padding-top:0; }
 .fcu-lid .fcu-bots{ margin-top:6px; }
+
+/* Los permisos: un bloque por producto, con filete entre ellos; las casillas sangradas bajo el modo. */
+.fcu-perm{ padding:8px 0; border-top:1px solid var(--border); }
+.fcu-perm:first-of-type{ border-top:0; padding-top:0; }
+.fcu-mods{ display:flex; flex-direction:column; gap:2px; margin:6px 0 0 22px; }
 
 @media(prefers-reduced-motion:reduce){ .fcu-chev{ transition:none; } }
 `;

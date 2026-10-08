@@ -30,7 +30,7 @@ import { sendEmail, renderEmailHtml } from './resend';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getSupabaseServer } from './supabase';
 import type { RolWorkspace } from './auth-session';
-import { textoInvitacionCurso, textoInvitacionLider, type ResultadoInvitacion } from './invitacion-aviso';
+import { textoInvitacionCurso, textoInvitacionLider, textoLinkAlumno, type ResultadoInvitacion } from './invitacion-aviso';
 
 // El tipo y el texto que lee la persona viven en `invitacion-aviso` (sin `server-only`,
 // para que lo importen las pantallas y los tests). Acá se re-exporta para que quien manda
@@ -262,5 +262,22 @@ export async function invitarLiderPorEmail(p: {
   if (!destino) return { enviado: false, error: 'no hay email al que escribirle', enlace: p.enlace };
   const t = textoInvitacionLider(p);
   const r = await enviarDePlataforma({ to: destino, asunto: t.asunto, preheader: t.preheader, cuerpo: t.cuerpo, tag: 'invitacion-curso-lider' });
+  return r.enviado ? { enviado: true, enlace: p.enlace } : { enviado: false, error: r.error, enlace: p.enlace };
+}
+
+/**
+ * El link para ENTRAR con el email (07/10/2026): «Soy alumno: entrar con mi email» en /login. El
+ * texto vive en `textoLinkAlumno` (lib/invitacion-aviso.ts, con test); el link lo arma quien llama
+ * (`urlDeLinkAlumno`, lib/alumno-sesion.ts).
+ *
+ * NUNCA tira, y NO ANOTA NADA, por la misma razón que las de arriba: el envío corre en el workspace
+ * de la plataforma. El nonce del link ya lo dejó escrito quien llama ANTES (`emitirLinkMagico`): un
+ * mail que no sale deja un link que nadie tiene, que es inofensivo.
+ */
+export async function mandarLinkAlumnoPorEmail(p: { email: string; enlace: string; minutos: number; negocio?: string | null }): Promise<ResultadoInvitacion> {
+  const destino = (p.email ?? '').trim().toLowerCase();
+  if (!destino) return { enviado: false, error: 'no hay email al que escribirle', enlace: p.enlace };
+  const t = textoLinkAlumno(p);
+  const r = await enviarDePlataforma({ to: destino, asunto: t.asunto, preheader: t.preheader, cuerpo: t.cuerpo, tag: 'link-alumno' });
   return r.enviado ? { enviado: true, enlace: p.enlace } : { enviado: false, error: r.error, enlace: p.enlace };
 }

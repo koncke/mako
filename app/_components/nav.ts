@@ -177,6 +177,10 @@ export const FAMILIAS: NavFamilia[] = [
           // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
           // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
           { key: 'cs-curso', label: 'Curso', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
+          // La comunidad tipo Skool de cada producto (07/10/2026, D8 de docs/diseno-curso-skool.md).
+          // Como el curso, su página pide `customer-success` (no tiene capa propia), y que el destino
+          // se VEA en cada capa donde esa página deja entrar lo persigue tests/comunidad-nav.test.ts.
+          { key: 'cs-comunidad', label: 'Comunidad', href: '/customer-success/comunidad', icon: 'comunidad', match: starts('/customer-success/comunidad') },
         ],
       },
     ],

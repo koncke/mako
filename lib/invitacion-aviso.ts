@@ -130,3 +130,32 @@ export function textoInvitacionLider(p: {
   ].join('\n');
   return { asunto: `Tus tareas de ${area}`, preheader: `Tus tareas de ${area} en ${programa}.`, cuerpo };
 }
+
+// ── El link para ENTRAR con el email (07/10/2026, item 9) ─────────────────────
+// «Soy alumno: entrar con mi email», en /login. Lo pide la persona misma, cuando su cookie venció
+// y no tiene Google (lib/alumno-sesion.ts). Las mismas reglas que el de arriba: neutro con TÚ, sin
+// jerga de MaKo, el link en el cuerpo. Y dos cosas propias:
+//   · DICE CUÁNTO VALE Y QUE SIRVE UNA VEZ: es lo que explica el «venció» del segundo clic.
+//   · «SI NO LO PEDISTE, IGNORA ESTE CORREO»: el formulario lo puede llenar cualquiera con
+//     cualquier email; el mail tiene que poder leerse sin alarma por quien no lo pidió.
+
+/** El mail con el link de entrada. `minutos` = cuánto vale (LINK_ALUMNO_MINUTOS). */
+export function textoLinkAlumno(p: {
+  enlace: string;
+  minutos: number;
+  /** El negocio del programa (el nombre del workspace), si se sabe. */
+  negocio?: string | null;
+}): { asunto: string; preheader: string; cuerpo: string } {
+  const de = p.negocio?.trim() ? ` de ${p.negocio.trim()}` : '';
+  const cuerpo = [
+    'Hola,',
+    '',
+    `Pediste entrar a tu programa${de}.`,
+    '',
+    'Entra desde aquí:',
+    p.enlace,
+    '',
+    `El link vale ${p.minutos} minutos y sirve una sola vez. Si no lo pediste, ignora este correo.`,
+  ].join('\n');
+  return { asunto: 'Tu link para entrar', preheader: `Vale ${p.minutos} minutos y una sola vez.`, cuerpo };
+}

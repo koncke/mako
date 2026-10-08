@@ -28,8 +28,9 @@
 // ⚠️ ABRIR LA PESTAÑA NO ESCRIBE NADA (06/10/2026). Hasta acá `cursoDeClienteAction` llamaba a
 // `linkDeAcceso`, que CREA la fila del acceso: mirar la ficha «le daba acceso» a alguien, y la
 // tabla Avance no podía distinguir «nunca se lo invitó» de «alguien abrió su ficha». Ahora la
-// fila nace sólo en las tres acciones que la necesitan: invitar, copiar el link y mandarlo por
-// WhatsApp. Lo fija tests/curso-ficha.test.ts.
+// fila nace sólo en las acciones que la necesitan: invitar, copiar el link, mandarlo por
+// WhatsApp y —desde el 07/10/2026— guardarle PERMISOS (el alcance vive en esa fila, mig 0219).
+// Lo fija tests/curso-ficha.test.ts.
 
 import { getTenantDb, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import { puedeUsarCs } from './puerta';
@@ -37,17 +38,19 @@ import { getUsuarioActual } from '@/lib/auth';
 import { listProductos } from '@/lib/productos';
 import { entregasDeProductos } from '@/lib/entrega-servicio';
 import { colorDeEtapa } from '@/lib/servicio-etapas';
-import { linkApp } from '@/lib/app-url';
 import { firmarAccesoCurso } from '@/lib/curso-acceso';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
-import { invitarAlCursoPorEmail, invitarLiderPorEmail } from '@/lib/invitaciones';
+import { invitarLiderPorEmail } from '@/lib/invitaciones';
+import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
+import { cambiarModulos } from '@/lib/curso-alcance';
 import {
   clasesDelProducto, claseDeId, progresoDelCliente, avanceDelCliente, accesoDe, linkDeAcceso, urlDeToken, marcarInvitacion,
   revocarAcceso, reactivarAcceso, sesionesDe, agendarSesion, borrarSesion, aprobarTarea, productosDelAlumno,
-  ubicacionEnEntregaDe, accesosDeLideres, linkDeAccesoLider, linkDeLiderLeido,
+  ubicacionEnEntregaDe, accesosDeLideres, linkDeAccesoLider, linkDeLiderLeido, guardarAlcance,
   type EstadoAcceso, type EstadoAccesoLider, type Sesion,
 } from '@/lib/curso-datos';
 import { mandarLinkDelCurso } from '@/lib/curso-mensajes';
+import { urlEntregaParaEquipo, darOtroIntento } from '@/lib/curso-entregas';
 import { nombreDeArea, type Clase, type EstadoTarea } from '@/lib/curso';
 import {
   armarProducto, avisoInvitacionCurso,
@@ -116,6 +119,7 @@ function aFicha(a: EstadoAcceso | null, leadId: number, ws: number | null): Acce
     ultimoIngresoAt: a?.ultimoIngresoAt ?? null,
     email: a?.email ?? null,
     invitacionEnviadaAt: a?.invitacionEnviadaAt ?? null,
+    alcance: a?.alcance ?? null,
   };
 }
 
@@ -323,21 +327,15 @@ export async function mandarLinkCursoAction(leadId: number): Promise<{ ok: true;
  * reenviar— pero SIN crear workspace, cuenta ni aprobación cruzada: es el mismo negocio y el que
  * invita es el dueño. El acceso es el del curso (`curso_accesos`, un link firmado).
  *
- * En orden, y el orden importa:
- *   1. la puerta, y un email utilizable (normalizado: es la identidad con la que va a entrar);
- *   2. que tenga curso (sin clases no se lo invita a un portal vacío);
- *   3. su acceso, CREÁNDOLO si no tenía — y si está CORTADO no se invita: un mail con un link que
- *      no abre es peor que ningún mail. Primero se habilita;
- *   4. el link de ENTRADA de la versión VIGENTE (reenviar después de cortar y habilitar manda el
- *      link nuevo, no el que dejó de abrir);
- *   5. el mail, y SÓLO SI SALIÓ se anota (`marcarInvitacion`). Anotar en el intento haría que la
- *      ficha diga «Invitado» sobre un mail que no llegó;
- *   6. si el lead no tenía email en el CRM, se le guarda: es el mismo dato.
+ * ⚠️ DESDE EL 07/10/2026 ES UN ENVOLTORIO DE SU PUERTA. La invitación entera —el orden (cortado
+ * gana, que tenga curso, el link de ENTRADA de la versión vigente con `linkDeEntradaAlumno`, que
+ * crea el acceso con `linkDeAcceso`; el mail, y anotar SÓLO si salió; guardarle el email al lead)—
+ * vive en lib/curso-invitar.ts (`invitarAlCurso`), porque el CRM la necesita SIN sesión
+ * (`invitarAlCursoSinSesion`) y con dos copias una se queda vieja. Acá queda lo que es de una
+ * persona apretando un botón: la puerta, el email que tipeó (obligatorio) y `reenviar: true` —
+ * «Reenviar invitación» es justamente mandarla otra vez, así que no corta por «ya invitado».
  *
- * ⚠️ DESPUÉS DEL ENVÍO NADA PUEDE TIRAR. Si el mail salió y algo de lo que sigue falla, devolver
- * un error haría que alguien lo reenvíe y le lleguen dos. Por eso lo de abajo va con su `catch`.
- *
- * ⚠️ EL AVISO SALE DE `inv.enviado`, NUNCA DE QUE HAYA UN RESULTADO (`avisoInvitacionCurso`): el
+ * ⚠️ EL AVISO SALE DE `enviado`, NUNCA DE QUE HAYA UN RESULTADO (`avisoInvitacionCurso`): el
  * falso éxito que tenían los avisos de aprobación de agencia.
  */
 export async function invitarAlCursoAction(leadId: number, email: string): Promise<{ ok: true; enviado: boolean; acceso: AccesoFicha | null; aviso: AvisoInvitacionCurso } | Fallo> {
@@ -349,49 +347,59 @@ export async function invitarAlCursoAction(leadId: number, email: string): Promi
     const ws = await getWorkspaceActual();
     if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
 
-    const { cursos } = await cursosDelCliente(leadId);
-    if (!cursos.length) return { ok: false, error: 'Sus productos todavía no tienen clases.' };
-
-    const autor = await autorActual();
-    await linkDeAcceso(leadId, ws, autor);
-    const a = await accesoDe(leadId);
-    if (!a || a.revocado) return { ok: false, error: 'Su acceso está cortado. Primero vuelve a habilitarlo.' };
-    const token = firmarAccesoCurso({ ws, leadId, version: a.version });
-    if (!token) return { ok: false, error: 'No pude armar su link.' };
-
-    // ⚠️ EL LINK DE ENTRADA lo sirve /api/compartido/curso/entrar (otro paquete de la misma
-    // tanda). Se arma acá con `linkApp` y sin `?ws=`: el workspace viaja adentro de la firma.
-    // TODO-COMPARTIR: si ese paquete exporta una función para armar este link, éste la llama.
-    const enlace = linkApp('/api/compartido/curso/entrar?t=' + token, null);
-    const negocio = (await getWorkspace(ws).catch(() => null))?.nombre?.trim() || null;
-    const programa = new Intl.ListFormat('es', { style: 'long', type: 'conjunction' }).format(cursos.map((c) => c.nombre));
-
-    const inv = await invitarAlCursoPorEmail({
-      email: correo, nombre: p.lead.nombre, programa, negocio, enlace, entrarConGoogle: linkApp('/login', null),
-    });
-
-    let anotado = false;
-    if (inv.enviado) {
-      try {
-        await marcarInvitacion(leadId, correo, autor);
-        anotado = true;
-      } catch (e) {
-        console.error('[curso] la invitación salió y no se pudo anotar:', e instanceof Error ? e.message : e);
-      }
-    }
-    if (!p.lead.email) {
-      try {
-        const db = await getTenantDb();
-        const { error } = await db.from('leads').update({ email: correo }).eq('id', leadId);
-        if (error) throw new Error(error.message);
-      } catch (e) {
-        console.error('[curso] no pude guardar el email del cliente:', e instanceof Error ? e.message : e);
-      }
-    }
+    const r = await invitarAlCurso({ ws, leadId, email: correo, autor: await autorActual(), reenviar: true });
+    if (r.tipo === 'error') return { ok: false, error: r.error };
+    if (r.tipo === 'no') return { ok: false, error: TEXTO_NO_INVITA[r.motivo] };
     const acceso = await accesoActual(leadId, ws).catch(() => null);
-    return { ok: true, enviado: inv.enviado, acceso, aviso: avisoInvitacionCurso(inv, anotado) };
+    return { ok: true, enviado: r.enviado, acceso, aviso: avisoInvitacionCurso({ enviado: r.enviado, error: r.fallo ?? undefined }, r.anotado) };
   } catch (e) {
     return mal(e, 'No se pudo invitar.');
+  }
+}
+
+/**
+ * Los PERMISOS del alumno en UN producto (item 9, 07/10/2026: «poder administrar los permisos de ese
+ * alumno, ya sea solo algunos módulos o lo que sea»). `claves: null` = «Todos los módulos»; un array
+ * = sólo ésos. Devuelve el acceso como quedó (guardar puede haberlo creado).
+ *
+ * ⚠️ LO QUE LLEGA DEL NAVEGADOR NO SE CREE: el producto tiene que ser SUYO y con curso, y de las
+ * claves quedan sólo las de módulos que existen hoy (las etapas de su entrega y las claves que tienen
+ * sus clases). Y se cambia ESE producto sobre lo que está guardado, nunca el alcance entero que mandó
+ * la pantalla.
+ *
+ * ⚠️ SE VALIDA SÓLO EL PRODUCTO QUE CAMBIA (`cambiarModulos`, lib/curso-alcance.ts, con test), y las
+ * restricciones de los OTROS quedan como estaban (revisión del 08/10/2026): validarlas todas contra
+ * los productos que HOY tienen curso le ABRÍA un producto entero a quien se lo habían cerrado.
+ *
+ * ⚠️ Y LAS ETAPAS SE LEEN ESTRICTAS (`estricto: true`). La lectura de la ficha cae a las etapas de
+ * FÁBRICA si el catálogo no contesta, y eso sirve para dibujar, no para decidir qué claves existen:
+ * con las de fábrica, tildar un módulo sin clases lo descartaba en silencio (AGENTS.md, «Una lectura
+ * que cae al DEFAULT…»). Con el catálogo caído no se guarda nada y se dice.
+ *
+ * ⚠️ NO ES ATÓMICO: lee el alcance y lo reescribe entero. Dos guardados de productos distintos en el
+ * MISMO instante pueden pisarse (gana el último); lo que sí no pasa es que una pestaña vieja
+ * reescriba lo que no tocó, porque se parte de la base y no de la pantalla.
+ */
+export async function guardarAlcanceCursoAction(leadId: number, productoId: number, claves: string[] | null): Promise<{ ok: true; acceso: AccesoFicha } | Fallo> {
+  try {
+    const p = await puerta(leadId);
+    if (!p.ok) return p;
+    if (!Number.isInteger(productoId) || productoId <= 0) return { ok: false, error: 'Ese producto no existe.' };
+    if (claves != null && (!Array.isArray(claves) || claves.some((c) => typeof c !== 'string'))) return { ok: false, error: 'Esos módulos no se entienden.' };
+    const { productos } = await productosConCurso(leadId);
+    const prod = productos.find((x) => x.productoId === productoId);
+    if (!prod) return { ok: false, error: 'Ese producto no es suyo.' };
+    // Los módulos que el producto tiene HOY: las etapas de su entrega (leídas ESTRICTAS) y las
+    // claves que tienen sus clases. Sólo hacen falta si se eligieron módulos.
+    const existen = claves == null ? [] : [...new Set([
+      ...((await entregasDeProductos([productoId], { estricto: true })).get(productoId)?.etapas ?? []).map((e) => e.key),
+      ...prod.etapas.flatMap((e) => e.clases.map((c) => c.etapa)),
+    ])];
+    const actual = (await accesoDe(leadId))?.alcance ?? null;
+    await guardarAlcance(leadId, cambiarModulos(actual, productoId, claves, existen), await autorActual());
+    return { ok: true, acceso: await accesoActual(leadId, await getWorkspaceActual()) };
+  } catch (e) {
+    return mal(e, 'No se guardaron los permisos.');
   }
 }
 
@@ -580,5 +588,38 @@ export async function borrarLlamadaCursoAction(leadId: number, sesionId: number)
     return { ok: true };
   } catch (e) {
     return mal(e, 'No se pudo borrar.');
+  }
+}
+
+/**
+ * La URL firmada de un archivo que el alumno subió en una tarea (#18, mig 0218), para abrirlo desde
+ * la ficha. El path tiene que ser DE ESTE cliente (`urlEntregaParaEquipo` lo mira contra el prefijo
+ * <ws>/<producto>/<lead>/): un path ajeno en el pedido no abre nada.
+ */
+export async function urlEntregaCursoAction(leadId: number, path: string, nombre: string): Promise<{ ok: true; url: string } | Fallo> {
+  try {
+    const p = await puerta(leadId);
+    if (!p.ok) return p;
+    const r = await urlEntregaParaEquipo(leadId, path, nombre);
+    return r.ok ? { ok: true, url: r.url } : r;
+  } catch (e) {
+    return mal(e, 'No pude abrir el archivo.');
+  }
+}
+
+/**
+ * Otro intento para un quiz (#18) que el alumno agotó sin aprobar. Sin esto, con `intentos > 0`, el
+ * que se queda sin intentos queda trabado sin salida: lo destraba el equipo desde acá.
+ */
+export async function otroIntentoQuizAction(leadId: number, claseId: number, area: string, campoId: string): Promise<{ ok: true } | Fallo> {
+  try {
+    const p = await puerta(leadId);
+    if (!p.ok) return p;
+    if (!(await claseDeId(claseId))) return { ok: false, error: 'Esa clase no existe.' };
+    return (await darOtroIntento(leadId, claseId, area, campoId))
+      ? { ok: true }
+      : { ok: false, error: 'No había intentos que destrabar.' };
+  } catch (e) {
+    return mal(e, 'No se pudo.');
   }
 }

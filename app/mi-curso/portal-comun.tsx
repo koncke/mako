@@ -71,7 +71,7 @@ export async function cargarPortal(token: string): Promise<CargaPortal> {
     const navega = dest ? dest === 'document' : (!h.get('rsc') && !esVistaPrevia);
     const conteo = navega ? contarIngreso(acceso.leadId) : Promise.resolve();
     try {
-      return { vista: await armarVistaAlumno(acceso.leadId) };
+      return { vista: await armarVistaAlumno(acceso.leadId, { alcance: acceso.alcance }) };
     } catch (e) {
       console.error('[curso-portal] no pude armar la vista del alumno:', e instanceof Error ? e.message : e);
       return 'fallo';

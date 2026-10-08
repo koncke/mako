@@ -56,9 +56,15 @@ test('la condición se lee UNA vez, y de ahí cuelga el cliente que se mira', ()
 
 test('los controles de la cuenta se dibujan sólo con la condición puesta', () => {
   const acciones = bloque(CUERPO, 'acciones={', '/>\n  );');
-  assert.match(acciones, /acciones=\{conCuentas \|\| accionExtra \? \(/);
+  // ⚠️ DESDE EL 07/10/2026 LA FILA Y EL MENÚ NO SON SÓLO DE LA AGENCIA: el menú suma «Invitar al
+  // curso» y «Permisos del curso» (item 9: «En cada cliente del kanban se debería poder invitar al
+  // curso»), que no crean cuenta de MaKo y los tiene cualquier negocio con curso. Lo que sigue atado
+  // a `conCuentas` es lo de la CUENTA: el control de entrar/abrir, y las dos opciones de abajo, que
+  // salen de `ws`/`equipo` — undefined sin la condición. La regla del curso la fija
+  // tests/curso-invitar.test.ts («la tarjeta ofrece el curso SIN conCuentas…»).
+  assert.match(acciones, /acciones=\{conCuentas \|\| accionExtra \|\| opciones\.length > 0 \? \(/);
   assert.match(acciones, /\{conCuentas && cuentas && <CuentaDeMaKo /, 'el control de la cuenta (abrir, entrar)');
-  assert.match(acciones, /\{conCuentas && opciones\.length > 0 && \(/, '«Reenviar el acceso» y «Ver su equipo»');
+  assert.match(acciones, /\{opciones\.length > 0 && \(/, 'el menú, con lo que haya (cuenta y/o curso)');
   // Y «Ver su equipo» sale de `equipo`, que sin la condición es undefined.
   assert.match(CUERPO, /\.\.\.\(equipo\?\.length \? \[\{ value: 'equipo'/);
   assert.match(CUERPO, /\.\.\.\(ws && admin \? \[\{ value: 'reinvitar'/);

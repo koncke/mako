@@ -12,12 +12,14 @@ import 'server-only';
 // envuelve en `runWithWorkspace(acceso.ws, …)` con el workspace QUE SALE DE LA FIRMA del link,
 // nunca de un parámetro del pedido. Sin eso, `getTenantDb` cae al workspace por defecto.
 
+import crypto from 'node:crypto';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { linkApp } from './app-url';
 import { firmarAccesoCurso, leerAccesoCurso, firmarAccesoLider, leerAccesoLider, type AccesoCurso } from './curso-acceso';
+import { saneaAlcance, type AlcanceCurso } from './curso-alcance';
 import {
-  pctVisto, sanearValores, respuestaCompleta, progresoEfectivo, areasDelCliente, nombreDeArea,
+  pctVisto, sanearValores, respuestaCompleta, progresoEfectivo, areasDelCliente, nombreDeArea, leerCalificacion,
   type Clase, type Progreso, type Campo, type Valores, type EstadoTarea, type TipoClase, type VideoTipo,
 } from './curso';
 import { propuestaDeFila, valoresAprobables, mismoInstante, type FilaPropuesta, type FilaRespuesta } from './curso-propuesta';
@@ -32,6 +34,8 @@ type FilaProgreso = FilaPropuesta & {
   visto_at: string | null; valores: Valores | null; estado: EstadoTarea; enviada_at: string | null;
   /** De qué área es (mig 0212). `''` = la del cliente. */
   area?: string | null;
+  /** La nota de sus quizzes (mig 0218). La corrige el SERVER: no vive en `valores`, que pisa cada autoguardado. */
+  calificacion?: unknown;
 };
 
 /**
@@ -56,6 +60,8 @@ const aProgreso = (f: FilaProgreso): Progreso => ({
   vistoAt: f.visto_at ?? null, valores: f.valores ?? {}, estado: f.estado, enviadaAt: f.enviada_at ?? null,
   // Sólo si la lectura trajo las columnas de la 0213: ausente es «no se pidió», no «no hay».
   ...('ia_estado' in f ? { ia: propuestaDeFila(f) } : {}),
+  // Igual: sólo si la lectura trajo la columna de la 0218.
+  ...('calificacion' in f ? { calificacion: leerCalificacion(f.calificacion) } : {}),
 });
 
 const COLS_PROGRESO = 'clase_id, segundos_max, duracion_seg, pct, visto_at, valores, estado, enviada_at, area';
@@ -63,8 +69,9 @@ const COLS_PROGRESO = 'clase_id, segundos_max, duracion_seg, pct, visto_at, valo
  * Lo mismo, con la PROPUESTA de la IA (mig 0213). Lo leen el portal del alumno y la ficha
  * (`avanceDelCliente`); la tabla Avance de la tab no lo necesita y sigue con `COLS_PROGRESO`.
  * ⚠️ Por esto la 0213 va ANTES del deploy: sin las columnas, PostgREST rechaza la consulta entera.
+ * Y la 0218 también (`calificacion`, la nota de los quizzes).
  */
-const COLS_PROGRESO_IA = `${COLS_PROGRESO}, valores_ia, ia_estado, ia_recording_id, ia_propuesta_at, ia_resuelta_at`;
+const COLS_PROGRESO_IA = `${COLS_PROGRESO}, valores_ia, ia_estado, ia_recording_id, ia_propuesta_at, ia_resuelta_at, calificacion`;
 
 /**
  * ⚠️ LOS TARGETS DE LOS UPSERT SON LOS ÍNDICES DE LA 0212, letra por letra: un `onConflict` que no
@@ -351,22 +358,35 @@ export async function aprobarPropuestaIA(leadId: number, clase: Clase, area: str
 type FilaAcceso = {
   id: number; lead_id: number; area: string | null; version: number; revocado_at: string | null; ingresos: number; ultimo_ingreso_at: string | null;
   email: string | null; invitacion_enviada_at: string | null; invitado_por: string | null;
+  /** Los permisos del alumno (mig 0219). Llega crudo del jsonb: se sanea al mapear. */
+  alcance?: unknown;
 };
 /**
  * El acceso de un cliente (o del líder de una de sus áreas). ⚠️ «Tiene fila» NO es «lo invitaron»
  * (mig 0206): lo que lo dice es `invitacionEnviadaAt`, que se escribe sólo si el mail salió.
+ *
+ * `alcance` (mig 0219): qué módulos ve. `null` = todo. Sólo significa algo en la fila del CLIENTE
+ * (`area` null): el de un líder es siempre `null` y el portal le aplica el del cliente.
  */
 export type EstadoAcceso = {
   version: number; revocado: boolean; ingresos: number; ultimoIngresoAt: string | null;
   email: string | null; invitacionEnviadaAt: string | null; invitadoPor: string | null;
+  alcance: AlcanceCurso;
 };
 /** El acceso del LÍDER de un área: lo mismo, más su área y el id de su fila (va adentro del link). */
 export type EstadoAccesoLider = EstadoAcceso & { id: number; area: string };
-const COLS_ACCESO = 'id, lead_id, area, version, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at, invitado_por';
+/**
+ * ⚠️ TRAE `alcance` (mig 0219), así que la 0219 va ANTES del deploy: sin la columna PostgREST
+ * rechaza la consulta entera y se caen la ficha, el portal y el cron de recordatorios.
+ */
+const COLS_ACCESO = 'id, lead_id, area, version, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at, invitado_por, alcance';
 
 const aEstado = (f: FilaAcceso): EstadoAcceso => ({
   version: f.version, revocado: f.revocado_at != null, ingresos: f.ingresos ?? 0, ultimoIngresoAt: f.ultimo_ingreso_at,
   email: f.email ?? null, invitacionEnviadaAt: f.invitacion_enviada_at ?? null, invitadoPor: f.invitado_por ?? null,
+  // Se sanea al LEER y no se cree lo guardado: el jsonb lo escribió una action con lo que mandó un
+  // navegador. `saneaAlcance` nunca tira; lo ilegible es `null` (ve todo), que es lo de siempre.
+  alcance: saneaAlcance(f.alcance),
 });
 
 /**
@@ -483,10 +503,112 @@ export const urlDeToken = (token: string): string => linkApp(`/compartido/curso/
  */
 export async function marcarInvitacion(leadId: number, email: string, porQuien: string | null, area: string | null = null): Promise<void> {
   const db = await getTenantDb();
+  // `invitando_at: null`: el reclamo de la invitación sin sesión (`reclamarInvitacion`) se suelta
+  // en la misma escritura que dice que salió — con dos escrituras, un fallo entre las dos dejaría
+  // la fila reclamada (y otro disparo esperando 5 minutos) sobre una invitación ya anotada.
   const { error } = await conArea(db.from('curso_accesos')
-    .update({ email: email.trim().toLowerCase(), invitacion_enviada_at: new Date().toISOString(), invitado_por: porQuien })
+    .update({ email: email.trim().toLowerCase(), invitacion_enviada_at: new Date().toISOString(), invitado_por: porQuien, invitando_at: null })
     .eq('lead_id', leadId), area);
   if (error) throw new Error(error.message);
+}
+
+// ── El reclamo de la invitación sin sesión (mig 0219) ─────────────────────────
+
+/** Cuánto vale un reclamo. Un envío que murió a mitad no puede dejar al cliente sin invitación para siempre. */
+const RECLAMO_MS = 5 * 60_000;
+
+/**
+ * Reclama la invitación del CLIENTE para mandarla UNA vez. `true` = es tuya: nadie la mandó
+ * todavía (`invitacion_enviada_at` null) y nadie la está mandando (sin reclamo, o uno vencido).
+ *
+ * ⚠️ COMPARE-AND-SET EN EL WHERE, no un «leer y después escribir»: dos disparos del mismo «pasó a
+ * Ganado» (lib/curso-invitar.ts lo explica) leían los dos «sin invitar» y mandaban dos mails. Acá
+ * el segundo no encuentra la fila. La fila tiene que existir (la crea `linkDeAcceso` antes).
+ */
+export async function reclamarInvitacion(leadId: number, ahora: Date = new Date()): Promise<boolean> {
+  const db = await getTenantDb();
+  const vencido = new Date(ahora.getTime() - RECLAMO_MS).toISOString();
+  const { data, error } = await db.from('curso_accesos')
+    .update({ invitando_at: ahora.toISOString() })
+    .eq('lead_id', leadId).is('area', null).is('revocado_at', null).is('invitacion_enviada_at', null)
+    .or(`invitando_at.is.null,invitando_at.lt.${vencido}`)
+    .select('id');
+  if (error) throw new Error(error.message);
+  return (data ?? []).length > 0;
+}
+
+/** Suelta el reclamo sin anotar nada (el mail no salió): el próximo intento puede mandarla. No tira. */
+export async function soltarInvitacion(leadId: number): Promise<void> {
+  try {
+    const db = await getTenantDb();
+    const { error } = await db.from('curso_accesos').update({ invitando_at: null }).eq('lead_id', leadId).is('area', null);
+    if (error) throw new Error(error.message);
+  } catch (e) {
+    // Si no se pudo soltar, vence solo a los 5 minutos: se dice y se sigue.
+    console.warn('[curso] no pude soltar el reclamo de la invitación:', e instanceof Error ? e.message : e);
+  }
+}
+
+// ── Los permisos del alumno (mig 0219) ────────────────────────────────────────
+
+/**
+ * Guarda el ALCANCE del cliente (qué módulos ve), creando su acceso si no lo tenía: darle permisos a
+ * alguien antes de invitarlo es un orden legítimo, y la fila es donde viven.
+ *
+ * ⚠️ QUÉ CLAVES EXISTEN LO VALIDA QUIEN LLAMA (`alcanceValido`, contra los módulos de SUS
+ * productos): acá sólo se sanea la forma, que es lo único que esta capa sabe. Devuelve lo que
+ * quedó en la base, releído: la pantalla pinta eso y no lo que pidió.
+ */
+export async function guardarAlcance(leadId: number, alcance: AlcanceCurso, porQuien: string | null = null): Promise<AlcanceCurso> {
+  await asegurarAcceso(leadId, null, porQuien);
+  const db = await getTenantDb();
+  const { error } = await db.from('curso_accesos').update({ alcance: saneaAlcance(alcance) }).eq('lead_id', leadId).is('area', null);
+  if (error) throw new Error(error.message);
+  return (await accesoDe(leadId))?.alcance ?? null;
+}
+
+// ── Entrar con el email (mig 0219): el link mágico de /login ──────────────────
+
+/** No se emite más de un link por minuto por acceso, y lo cuenta la base (el rate limit en memoria es por instancia). */
+const LINK_MAGICO_ESPERA_MS = 60_000;
+
+/**
+ * Emite el nonce de un link de entrada por email para el acceso DEL CLIENTE en esa versión.
+ * `null` = no se emite: no está vigente (revocado, otra versión) o ya se mandó uno hace menos de un
+ * minuto. Reemplaza al anterior: el link que se haya mandado antes deja de abrir.
+ *
+ * ⚠️ COMPARE-AND-SET con la espera en el WHERE: dos pedidos a la vez no mandan dos mails.
+ */
+export async function emitirLinkMagico(leadId: number, version: number, ahora: Date = new Date()): Promise<string | null> {
+  const db = await getTenantDb();
+  const nonce = crypto.randomBytes(18).toString('base64url');
+  const antes = new Date(ahora.getTime() - LINK_MAGICO_ESPERA_MS).toISOString();
+  const { data, error } = await db.from('curso_accesos')
+    .update({ link_magico_nonce: nonce, link_magico_at: ahora.toISOString() })
+    .eq('lead_id', leadId).is('area', null).eq('version', version).is('revocado_at', null)
+    .or(`link_magico_at.is.null,link_magico_at.lt.${antes}`)
+    .select('id');
+  if (error) throw new Error(error.message);
+  return (data ?? []).length ? nonce : null;
+}
+
+/**
+ * Consume el link: `true` = era el vigente y se acaba de gastar (nadie más puede entrar con él).
+ *
+ * ⚠️ UN SOLO USO POR CONSTRUCCIÓN: el update pide el nonce en el WHERE y lo borra. Dos clics, dos
+ * pestañas o el mail reenviado a otra persona: el segundo no encuentra la fila. Y la versión y el
+ * «no revocado» también van en el WHERE: cortar el acceso entre que se pidió y se usó, lo corta.
+ */
+export async function consumirLinkMagico(leadId: number, version: number, nonce: string): Promise<boolean> {
+  if (!nonce || nonce.length < 16 || nonce.length > 64) return false;
+  const db = await getTenantDb();
+  const { data, error } = await db.from('curso_accesos')
+    .update({ link_magico_nonce: null })
+    .eq('lead_id', leadId).is('area', null).eq('version', version).is('revocado_at', null)
+    .eq('link_magico_nonce', nonce)
+    .select('id');
+  if (error) throw new Error(error.message);
+  return (data ?? []).length > 0;
 }
 
 /**
@@ -522,6 +644,12 @@ export async function reactivarAcceso(leadId: number, area: string | null = null
 }
 
 /**
+ * Lo que abre un token del cliente, con sus PERMISOS (mig 0219): `alcance` = qué módulos ve
+ * (`null` = todo). Lo aplica el portal en la misma puerta que los bloqueos (lib/curso-alcance.ts).
+ */
+export type AccesoResuelto = AccesoCurso & { alcance: AlcanceCurso };
+
+/**
  * ¿Este token abre? Verifica la firma y, ADENTRO del workspace que dice la firma, que la versión
  * siga vigente, que no esté revocado y que el lead siga siendo un cliente ganado.
  *
@@ -532,19 +660,21 @@ export async function reactivarAcceso(leadId: number, area: string | null = null
  * ⚠️ Quien llama envuelve en `runWithWorkspace(leerAccesoCurso(token).ws, …)`: acá se usa
  * `getTenantDb`, así que fuera de ese contexto miraría otro inquilino y contestaría que no.
  */
-export async function resolverAcceso(token: string): Promise<AccesoCurso | null> {
+export async function resolverAcceso(token: string): Promise<AccesoResuelto | null> {
   const a = leerAccesoCurso(token);
   if (!a) return null;
   const db = await getTenantDb();
   const [{ data: acc, error: e1 }, { data: lead, error: e2 }] = await Promise.all([
-    db.from('curso_accesos').select('version, revocado_at').eq('lead_id', a.leadId).is('area', null).maybeSingle(),
+    // `alcance` viaja en la MISMA lectura que decide si abre: es de la misma fila y del mismo
+    // momento. Leerlo aparte sería una segunda consulta que puede contestar otra cosa.
+    db.from('curso_accesos').select('version, revocado_at, alcance').eq('lead_id', a.leadId).is('area', null).maybeSingle(),
     db.from('leads').select('id').eq('id', a.leadId).eq('estado_lead', 'ganado').maybeSingle(),
   ]);
   // ⚠️ Un error de base no es «este link ya no está activo»: tira, y la página muestra su fallo.
   if (e1 || e2) throw new Error((e1 ?? e2)!.message);
-  const f = acc as { version: number; revocado_at: string | null } | null;
+  const f = acc as { version: number; revocado_at: string | null; alcance?: unknown } | null;
   if (!f || f.revocado_at || f.version !== a.version || !lead) return null;
-  return a;
+  return { ...a, alcance: saneaAlcance(f.alcance) };
 }
 
 /**
@@ -561,27 +691,33 @@ export async function resolverAcceso(token: string): Promise<AccesoCurso | null>
  * «¿el cliente sigue adentro?» se hace ACÁ, en cada pedido, y no sólo al cortar. Sin fila del cliente
  * (nunca se le dio acceso a él, sólo a su líder) no hay nada cortado: el líder entra.
  */
-export type AccesoPortal = { ws: number; leadId: number; area: string | null; accesoId: number | null };
+/**
+ * `alcance` (mig 0219): los módulos que ve quien abre. ⚠️ ES SIEMPRE EL DEL CLIENTE, también para
+ * su LÍDER de área: los permisos se le dan a la persona que compró, y su gente ve, dentro de lo
+ * suyo (las clases por área), sólo los módulos que el cliente tiene abiertos. Un líder con un
+ * alcance propio sería una segunda pantalla de permisos que nadie pidió.
+ */
+export type AccesoPortal = { ws: number; leadId: number; area: string | null; accesoId: number | null; alcance: AlcanceCurso };
 export async function resolverAccesoPortal(token: string): Promise<AccesoPortal | null> {
   const lider = leerAccesoLider(token);
   if (!lider) {
     const a = await resolverAcceso(token);
-    return a ? { ws: a.ws, leadId: a.leadId, area: null, accesoId: null } : null;
+    return a ? { ws: a.ws, leadId: a.leadId, area: null, accesoId: null, alcance: a.alcance } : null;
   }
   const db = await getTenantDb();
   const [{ data: acc, error: e1 }, { data: lead, error: e2 }, { data: delCliente, error: e3 }] = await Promise.all([
     db.from('curso_accesos').select('id, area, version, revocado_at')
       .eq('id', lider.acceso).eq('lead_id', lider.leadId).not('area', 'is', null).maybeSingle(),
     db.from('leads').select('id').eq('id', lider.leadId).eq('estado_lead', 'ganado').maybeSingle(),
-    db.from('curso_accesos').select('revocado_at').eq('lead_id', lider.leadId).is('area', null).maybeSingle(),
+    db.from('curso_accesos').select('revocado_at, alcance').eq('lead_id', lider.leadId).is('area', null).maybeSingle(),
   ]);
   if (e1 || e2 || e3) throw new Error((e1 ?? e2 ?? e3)!.message);
   const f = acc as { id: number; area: string | null; version: number; revocado_at: string | null } | null;
-  const cliente = delCliente as { revocado_at: string | null } | null;
+  const cliente = delCliente as { revocado_at: string | null; alcance?: unknown } | null;
   const area = nombreDeArea(f?.area);
   if (!f || !area || f.revocado_at || f.version !== lider.version || !lead) return null;
   if (cliente?.revocado_at) return null;
-  return { ws: lider.ws, leadId: lider.leadId, area, accesoId: Number(f.id) };
+  return { ws: lider.ws, leadId: lider.leadId, area, accesoId: Number(f.id), alcance: saneaAlcance(cliente?.alcance) };
 }
 
 /** Cuenta un ingreso al portal, en el acceso de quien entró. No tira: un contador que falla no puede cerrarle la puerta. */

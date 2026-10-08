@@ -317,7 +317,9 @@ test('el líder nunca recibe una cuenta: ni usuarios, ni sesión, ni la cookie d
 test('el portal no abre el link de un líder si el acceso DEL CLIENTE está cortado', () => {
   const lider = cuerpoDe(DATOS, 'export async function resolverAccesoPortal(');
   // Lee la fila del cliente (la de `area` null) del MISMO lead del token, en cada pedido…
-  assert.match(lider, /from\('curso_accesos'\)\.select\('revocado_at'\)\.eq\('lead_id', lider\.leadId\)\.is\('area', null\)/);
+  // (Desde el 07/10/2026 esa misma lectura trae además el ALCANCE del cliente, mig 0219: los permisos
+  // del líder son los del cliente. Lo fija tests/curso-invitar.test.ts.)
+  assert.match(lider, /from\('curso_accesos'\)\.select\('revocado_at(, alcance)?'\)\.eq\('lead_id', lider\.leadId\)\.is\('area', null\)/);
   // …un error de esa lectura tira (no es «no está cortado»)…
   assert.match(lider, /if \(e1 \|\| e2 \|\| e3\) throw/);
   // …y cortado no abre.

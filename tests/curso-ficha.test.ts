@@ -311,7 +311,13 @@ test('ABRIR la ficha no crea el acceso: sólo invitar, copiar y mandar lo crean'
   assert.doesNotMatch(accesoActual, /linkDeAcceso\(/, 'leer el acceso no puede escribirlo');
   assert.match(accesoActual, /firmarAccesoCurso\(/, 'el link se FIRMA al leer, no se crea');
   assert.match(cuerpoDe('linkDelCursoAction'), /linkDeAcceso\(/);
-  assert.match(cuerpoDe('invitarAlCursoAction'), /linkDeAcceso\(/);
+  // Desde el 07/10/2026 invitar es UN núcleo (lib/curso-invitar.ts, el mismo que usa el CRM sin
+  // sesión) y la action lo envuelve: el acceso lo crea `linkDeEntradaAlumno`, que llama a
+  // `linkDeAcceso`. Lo fija tests/curso-invitar.test.ts.
+  assert.match(cuerpoDe('invitarAlCursoAction'), /invitarAlCurso\(\{/);
+  assert.match(sinComentarios(leer('lib/alumno-acceso.ts')), /export async function linkDeEntradaAlumno\([^)]*\)[^{]*\{\s*if \(!\(await linkDeAcceso\(/);
+  // Y guardar PERMISOS también crea la fila (el alcance vive ahí, mig 0219): es una acción, no mirar.
+  assert.doesNotMatch(cuerpoDe('cursoDeClienteAction'), /guardarAlcance\(/, 'abrir la pestaña escribe el alcance');
 });
 
 test('la ficha y la tabla dibujan la MISMA fila de Avance, y «listo» es `completa`', () => {

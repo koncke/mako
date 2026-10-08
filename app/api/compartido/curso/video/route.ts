@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     const acceso = await resolverAccesoPortal(token);
     if (!acceso) return NO();
     try {
-      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: true, lider: acceso.area });
+      const r = await claseDelAlumno(acceso.leadId, claseId, { exigeEtapa: true, lider: acceso.area, alcance: acceso.alcance });
       if (r.decision !== 'ok') return NO();
       if (r.clase.videoTipo !== 'archivo' || !pathEsDelProducto(r.clase.videoPath, acceso.ws, r.clase.productoId)) return NO();
       const { data } = await getSupabaseServer().storage.from(BUCKET_CURSO).createSignedUrl(r.clase.videoPath!, VIDA_URL_VIDEO);

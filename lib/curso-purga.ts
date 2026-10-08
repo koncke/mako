@@ -39,6 +39,8 @@ import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { BUCKET_CURSO } from './curso-admin';
 import { BUCKET_NOTAS } from './curso-notas';
+import { BUCKET_ADJUNTOS, esAdjuntoDescripcionSubido } from './curso-adjuntos-reglas';
+import { BUCKET_COMUNIDAD } from './comunidad-reglas';
 import { decidirPurga, esVideoSubido, esAdjuntoSubido, type ArchivoBucket } from '@/app/customer-success/curso/reglas';
 
 /** Cuántos objetos se borran por bucket y por vuelta. Lo que sobre, mañana. */
@@ -58,6 +60,15 @@ type Config = { bucket: string; tabla: string; columna: string; esPropio: (p: st
 const BUCKETS: readonly Config[] = [
   { bucket: BUCKET_CURSO, tabla: 'curso_clases', columna: 'video_path', esPropio: esVideoSubido },
   { bucket: BUCKET_NOTAS, tabla: 'curso_clase_notas', columna: 'archivo_path', esPropio: esAdjuntoSubido },
+  // Los adjuntos de la descripción de una clase (mig 0216): barre lo subido y nunca registrado. Lo
+  // registrado que la descripción dejó de nombrar todavía no tiene regla (queda en el bucket).
+  { bucket: BUCKET_ADJUNTOS, tabla: 'curso_adjuntos', columna: 'path', esPropio: esAdjuntoDescripcionSubido },
+  // Los adjuntos de los posts de la comunidad (mig 0217): <ws>/<producto>/<uuid>.<ext>, y sólo los
+  // posts llevan adjunto. La guarda de 24 h no toca una subida en curso.
+  {
+    bucket: BUCKET_COMUNIDAD, tabla: 'comunidad_posts', columna: 'adjunto_path',
+    esPropio: (p) => /^\d{1,12}\/\d{1,12}\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(p),
+  },
 ];
 
 export type ResultadoPurga = {

@@ -2420,7 +2420,13 @@
  * columna la suya. Es como funciona la barra de MaKo, que es lo que se pidio, y la
  * barra horizontal desaparece sola: sin scroll de pagina no hay barra vertical, y sin
  * barra vertical no sobra el ancho. */
-html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !important; }
+html:has(.ahdoc) { overflow: hidden !important; height: 100% !important; }
+/* El body NO lleva overflow (07/10/2026). Con html ya en hidden, un overflow en el body no se
+ * pasa a la ventana: lo vuelve un contenedor de scroll, y la sidebar de MaKo (sticky) se mide
+ * contra el y le suma su padding. Con la barra de agencia el body baja 50 px con padding-top, y la
+ * sidebar quedaba otros 50 px mas abajo, con un bloque en blanco arriba de su logo. La pagina
+ * igual no scrollea: la recorta el html. */
+body:has(.ahdoc) { height: 100% !important; }
 .cono:has(.ahdoc) { height: 100vh !important; min-height: 0 !important; overflow: hidden !important; }
 .cono:has(.ahdoc) > .paper-bg { height: 100vh !important; }
 /* El chrome del portal se saca: la replica ya trae su marca y su "Volver a los cursos"

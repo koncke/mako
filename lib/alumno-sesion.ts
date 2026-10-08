@@ -97,3 +97,76 @@ export function opcionesCookieAlumno(prod: boolean = process.env.NODE_ENV === 'p
  */
 export const urlDeEntrada = (token: string): string =>
   linkApp(`/api/compartido/curso/entrar?t=${encodeURIComponent(token)}`, null);
+
+// ── «Soy alumno: entrar con mi email» (07/10/2026, item 9) ──────────────────────
+// «Que se le cree una cuenta de MaKo con ese nivel de acceso, solo al curso, sin la sidebar principal
+// ni nada». La «cuenta» es la identidad de alumno de arriba (D3 de docs/diseno-curso-skool.md): sin
+// fila en `usuarios`, sin `mako_session`. Lo que faltaba era volver a entrar cuando la cookie vence
+// SIN Google (10 de 14 clientes de Mauricio no tienen Gmail) y sin buscar el mail de la invitación.
+//
+// El link que le llega pidiéndolo con su email en /login:
+//   `am1.<ws>.<lead>.<version>.<exp>.<nonce>.<firma>`, con la firma sobre `alumno-link:<cuerpo>`.
+//   · PREFIJO Y NAMESPACE PROPIOS: no se lee como la cookie (`al1.`), ni como el link del curso
+//     (`c1.`), ni como el del líder (`c2.`), y la firma de uno no sirve para otro.
+//   · VIDA CORTA (`LINK_ALUMNO_MINUTOS`) y el vencimiento FIRMADO: reescribirlo no lo estira.
+//   · UN SOLO USO: el `nonce` es el que la base guardó al emitirlo (`emitirLinkMagico`, mig 0219), y
+//     entrar lo BORRA con compare-and-set (`consumirLinkMagico`). Pedir otro lo reemplaza.
+//   · Entrar NO es abrir el link: el link lleva a /login, que muestra un botón; el botón hace el POST
+//     que lo gasta. Un escáner de correo que abre los links antes que la persona (lo hacen los de
+//     varias empresas) gastaría un link de un solo uso con un GET, y la persona encontraría
+//     «venció» en el primer clic.
+
+/** Cuánto vale el link de entrada por email. Corto: se pide y se usa en el momento. */
+export const LINK_ALUMNO_MINUTOS = 15;
+/** El parámetro de /login que trae el link (`/login?entrar=…`). */
+export const PARAM_LINK_ALUMNO = 'entrar';
+
+const PREFIJO_LINK = 'am1';
+const firmarLink = (cuerpo: string, secreto: string) =>
+  crypto.createHmac('sha256', secreto).update(`alumno-link:${cuerpo}`).digest('base64url');
+/** Un nonce como lo emite la base (`randomBytes(18).toString('base64url')`): sin puntos, que partirían el token. */
+const NONCE_VALIDO = /^[A-Za-z0-9_-]{16,64}$/;
+
+export type LinkAlumno = AccesoCurso & { nonce: string; exp: number };
+
+/** El token del link de entrada. `null` sin secreto, con un acceso mal formado o un nonce que no sirve. */
+export function firmarLinkAlumno(
+  a: AccesoCurso,
+  nonce: string,
+  secreto: string | null | undefined = process.env.AUTH_SECRET,
+  ahoraMs: number = Date.now(),
+  minutos: number = LINK_ALUMNO_MINUTOS,
+): string | null {
+  if (!secreto?.trim()) return null;
+  if (![a.ws, a.leadId, a.version].every((n) => Number.isInteger(n) && n > 0)) return null;
+  if (!NONCE_VALIDO.test(nonce)) return null;
+  const exp = Math.floor(ahoraMs / 1000) + Math.round(minutos * 60);
+  const cuerpo = `${a.ws}.${a.leadId}.${a.version}.${exp}.${nonce}`;
+  return `${PREFIJO_LINK}.${cuerpo}.${firmarLink(cuerpo, secreto)}`;
+}
+
+/**
+ * Lee el token y verifica SU FIRMA y su vencimiento. No mira la base: que el nonce siga siendo el
+ * vigente (y no se haya usado) lo decide `consumirLinkMagico` al entrar. Nunca tira.
+ */
+export function leerLinkAlumno(
+  token: string | null | undefined,
+  secreto: string | null | undefined = process.env.AUTH_SECRET,
+  ahoraMs: number = Date.now(),
+): LinkAlumno | null {
+  if (!token || !secreto?.trim() || token.length > 300) return null;
+  const p = token.split('.');
+  if (p.length !== 7 || p[0] !== PREFIJO_LINK) return null;
+  const ws = entero(p[1]), leadId = entero(p[2]), version = entero(p[3]), exp = entero(p[4]);
+  const nonce = p[5];
+  if (!ws || !leadId || !version || !exp || !NONCE_VALIDO.test(nonce)) return null;
+  const a = Buffer.from(p[6]);
+  const b = Buffer.from(firmarLink(`${p[1]}.${p[2]}.${p[3]}.${p[4]}.${p[5]}`, secreto));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  if (exp * 1000 <= ahoraMs) return null;
+  return { ws, leadId, version, nonce, exp };
+}
+
+/** El link que va en el mail: a /login, que muestra el botón que entra. Sin `?ws=`: viaja en la firma. */
+export const urlDeLinkAlumno = (token: string): string =>
+  linkApp(`/login?${PARAM_LINK_ALUMNO}=${encodeURIComponent(token)}`, null);

@@ -69,7 +69,7 @@ export default async function PortalCursoPage({ params }: { params: Promise<{ to
     const navega = dest ? dest === 'document' : (!h.get('rsc') && !esVistaPrevia);
     const conteo = navega ? contarIngreso(acceso.leadId, acceso.area) : Promise.resolve();
     try {
-      return { vista: await armarVistaAlumno(acceso.leadId, { lider: acceso.area }) };
+      return { vista: await armarVistaAlumno(acceso.leadId, { lider: acceso.area, alcance: acceso.alcance }) };
     } catch (e) {
       console.error('[curso-portal] no pude armar la vista del alumno:', e instanceof Error ? e.message : e);
       return 'fallo';

@@ -24,7 +24,9 @@
 // misma persona tiene uno distinto en cada servicio) y `antesDelNombre` (la casilla de
 // selección, que es la del CRM). `accionExtra` también existe y hoy no lo usa nadie
 // acá: sacar a alguien de la entrega dejó de ser un botón el día que todo cliente pasó
-// a estar en alguna columna.
+// a estar en alguna columna. Y desde el 07/10/2026 `curso` / `onPermisos` (item 9): el menú de la
+// tarjeta suma «Invitar al curso» y «Permisos del curso»; lo decide la pantalla (`cursoDe`) y acá
+// sólo se pasa.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // EL ARRASTRE: imagen VACÍA y la copia la dibujamos nosotros
@@ -102,7 +104,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ClienteCruce } from './cruce';
 import type { CuentasProp } from './CuentaDeMaKo';
 import type { ResumenTrabajo } from './trabajo';
-import { ClienteCard } from './ClienteCard';
+import { ClienteCard, type CursoDeTarjeta } from './ClienteCard';
 import { columnasVisibles } from './BarraClientes';
 import { repartirEnEtapas, colorDeEtapa, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { tiempoEnEtapa } from './en-etapa';
@@ -128,7 +130,7 @@ export function KanbanEntrega({
   etapas, fases, fase, origen, servicio, clientes, asignacion, numeroDe,
   trabajoDe, tableroOk, cuentas,
   onSoltar, onAbrir, onEquipo, onNuevoCliente, onError,
-  seleccion, onSeleccion,
+  seleccion, onSeleccion, cursoDe, onPermisos,
 }: {
   etapas: EtapaEntrega[];
   /**
@@ -189,6 +191,14 @@ export function KanbanEntrega({
   /** Los clientes marcados. Vive AFUERA: es la misma selección que la tabla. */
   seleccion: ReadonlySet<number>;
   onSeleccion: (next: Set<number>) => void;
+  /**
+   * El curso de cada cliente, para el menú de su tarjeta (item 9, 07/10/2026): «Invitar al curso»
+   * y «Permisos del curso». Lo decide la pantalla (`null` = este producto no tiene curso); acá sólo
+   * se pasa a la tarjeta.
+   */
+  cursoDe?: (leadId: number) => CursoDeTarjeta | null;
+  /** «Permisos del curso»: abre la ficha en su pestaña Curso. */
+  onPermisos?: (leadId: number) => void;
 }) {
   /**
    * Lo que está en la mano, EN UN REF: qué clientes viajan (el agarrado, o el lote).
@@ -205,6 +215,17 @@ export function KanbanEntrega({
    * salen de `ins`.
    */
   const enMano = useRef<{ ids: number[] } | null>(null);
+  /**
+   * DÓNDE APRETÓ el último `pointerdown` adentro de una tarjeta. Lo anota el envoltorio
+   * arrastrable EN CAPTURA (antes que cualquier `stopPropagation` de adentro) y lo lee `agarrar`.
+   *
+   * ⚠️ EXISTE PORQUE EL `dragstart` NO DICE DÓNDE SE APRETÓ (revisión del 08/10/2026). Su `target`
+   * es el nodo ARRASTRABLE —este envoltorio—, no el botón de adentro donde nació el gesto: un
+   * `onDragStart` puesto en un hijo (el menú «Acciones» de la tarjeta, ClienteCard) no corre nunca,
+   * y apretar «Acciones» y correr el mouse un poco se llevaba la tarjeta. Lo que no arrastra se
+   * marca `data-nodrag`, y `agarrar` cancela el gesto si nació ahí.
+   */
+  const origenGesto = useRef<Element | null>(null);
   /**
    * DÓNDE VA A CAER: la columna Y el índice exacto. Sólo se repinta cuando CAMBIA.
    *
@@ -308,6 +329,10 @@ export function KanbanEntrega({
     // texto arrastrado en el email del modal de «Abrir cuenta» (que se monta desde la
     // tarjeta y se portalea al body) llegaba acá y clonaba la tarjeta como si la agarraran.
     if (!e.currentTarget.contains(e.target as Node)) return;
+    // Nació en algo que no arrastra (el menú «Acciones»): se cancela, y el clic sigue siendo un clic.
+    // Sólo si ese nodo es de ESTA tarjeta: un `pointerdown` viejo de otra no puede frenar este gesto.
+    const origen = origenGesto.current;
+    if (origen && e.currentTarget.contains(origen) && origen.closest('[data-nodrag]')) { e.preventDefault(); return; }
     const tarjeta = e.currentTarget.closest<HTMLElement>('[data-tarjeta]');
     if (!tarjeta) return;
     const ids = quienesViajan(leadId, seleccion, clientes.map((c) => c.leadId));
@@ -600,6 +625,7 @@ export function KanbanEntrega({
                           que tocar el día que cambie. */}
                       <div data-tarjeta className={`ke-card mk-tarjeta-sel${elegida ? ' ke-card-elegida' : ''}`}
                         draggable
+                        onPointerDownCapture={(ev) => { origenGesto.current = ev.target as Element; }}
                         onDragStart={(ev) => agarrar(ev, c.leadId)}
                         onDragEnd={soltarGesto}
                       >
@@ -609,6 +635,8 @@ export function KanbanEntrega({
                           cuentas={cuentas} onError={onError}
                           onAbrir={() => onAbrir(c.leadId)}
                           onEquipo={() => onEquipo(c.leadId)}
+                          curso={cursoDe?.(c.leadId) ?? null}
+                          onPermisos={onPermisos ? () => onPermisos(c.leadId) : undefined}
                           /* LA CASILLA DEL CRM, tal cual (CrmBoard.tsx, la tarjeta del lead):
                              adelante del nombre y en su renglón, de ancho 0 hasta el hover.
                              · `onClick` con `stopPropagation` y no `onChange`: el click en la

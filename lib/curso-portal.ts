@@ -26,11 +26,12 @@
 // criterio que `productosDelAlumno` (lib/curso-datos.ts) usa para no traerse la pantalla entera.
 
 import {
-  tieneTarea, obligatoriasDe, reproductorDeClase, etapaCompleta, nombreDeArea,
-  type VideoVista, type Clase, type Progreso, type Campo, type Valores, type EstadoTarea,
+  tieneTarea, obligatoriasDe, reproductorDeClase, etapaCompleta, nombreDeArea, camposParaAlumno,
+  type VideoVista, type Clase, type Progreso, type Campo, type Valores, type EstadoTarea, type Calificacion,
 } from './curso';
 import { agendaValida } from './servicio-etapas';
 import { estiloVacio, soloDeClases, type EstiloCurso } from './curso-estilo';
+import { moduloPermitido, type AlcanceCurso } from './curso-alcance';
 
 // ── Las etapas ────────────────────────────────────────────────────────────────
 
@@ -156,6 +157,11 @@ export type ClaseVista = {
    * corregida no viaja: ya es su respuesta, o la descartó.
    */
   ia?: PropuestaVista;
+  /**
+   * La nota de sus quizzes (#18, mig 0218): en qué quedó cada uno y cuántos intentos usó. AUSENTE si
+   * no hay. La pone `claseVista`; con áreas viajaría en cada área (todavía no: ver lib/curso-entregas.ts).
+   */
+  calificacion?: Calificacion;
 };
 
 /**
@@ -165,7 +171,7 @@ export type ClaseVista = {
 export type PropuestaVista = { valores: Valores; desde: string };
 
 /** La tarea de UNA área de una clase por área. */
-export type TareaDeArea = { area: string; estado: EstadoTarea; valores: Valores; ia?: PropuestaVista };
+export type TareaDeArea = { area: string; estado: EstadoTarea; valores: Valores; ia?: PropuestaVista; calificacion?: Calificacion };
 
 /**
  * La propuesta que viaja al navegador: sólo una PENDIENTE (ver `ClaseVista.ia`).
@@ -223,18 +229,30 @@ export type VistaAlumno = { nombre: string | null; area: string | null; producto
 
 const enviada = (e: EstadoTarea | undefined) => e === 'enviada' || e === 'aprobada';
 
-/** Una clase, como la ve el alumno: lo que se guarda en el bucket y el `origen` no viajan. */
+/**
+ * Una clase, como la ve el alumno: lo que se guarda en el bucket y el `origen` no viajan.
+ *
+ * ⚠️ LOS CAMPOS VIAJAN SIN LAS RESPUESTAS CORRECTAS DE LOS QUIZZES (`camposParaAlumno`, #18): ésta es
+ * la única puerta por la que llegan al navegador del alumno (el portal, /mi-curso y la vista previa
+ * arman la vista acá), y un quiz con las correctas en el HTML se aprueba leyendo la página. El quiz se
+ * corrige en el server (/api/compartido/curso/tarea). Lo fija tests/curso-tareas-tipos.test.ts.
+ *
+ * `calificacion`: la nota de sus quizzes (mig 0218), para que vea en qué quedó y cuántos intentos le
+ * quedan. AUSENTE si no hay (y la lista blanca de tests/curso-portal.test.ts sigue valiendo).
+ */
 export function claseVista(c: Clase, p: Progreso | undefined, areas?: TareaDeArea[]): ClaseVista {
   const { video, medible } = videoDeClase(c);
+  const calificacion = !areas && p?.calificacion && Object.keys(p.calificacion).length ? p.calificacion : null;
   return {
     id: c.id, titulo: c.titulo, descripcion: c.descripcion, minutos: c.minutos, video,
     pct: medible ? Math.max(0, Math.min(100, p?.pct ?? 0)) : null,
-    tarea: c.tarea, campos: c.campos, tieneTarea: tieneTarea(c), obligatoria: c.obligatoria,
+    tarea: c.tarea, campos: camposParaAlumno(c.campos), tieneTarea: tieneTarea(c), obligatoria: c.obligatoria,
     // Con áreas, lo contestado vive en cada área: el `valores` de la fila del cliente no viaja.
     estado: p?.estado ?? 'pendiente', valores: areas ? {} : p?.valores ?? {},
     ...(areas ? { areas } : {}),
     // Y su propuesta, igual: con áreas, la de cada área viaja en SU área (al líder, sólo la suya).
     ...(!areas && propuestaVista(p) ? { ia: propuestaVista(p) } : {}),
+    ...(calificacion ? { calificacion } : {}),
   };
 }
 
@@ -291,7 +309,12 @@ export function armarEtapas(
   const tareaDe = (c: Clase, area: string): TareaDeArea => {
     const p = opts.porArea?.get(c.id)?.get(area);
     const ia = propuestaVista(p);
-    return { area, estado: p?.estado ?? 'pendiente', valores: p?.valores ?? {}, ...(ia ? { ia } : {}) };
+    // La nota de sus quizzes (mig 0218): sin esto, al recargar, el líder no ve en qué quedó.
+    const calificacion = p?.calificacion && Object.keys(p.calificacion).length ? p.calificacion : null;
+    return {
+      area, estado: p?.estado ?? 'pendiente', valores: p?.valores ?? {},
+      ...(ia ? { ia } : {}), ...(calificacion ? { calificacion } : {}),
+    };
   };
   /** Las tareas por área que viajan con la clase. `undefined` = se contesta una vez. */
   const areasDe = (c: Clase): TareaDeArea[] | undefined => {
@@ -404,9 +427,19 @@ export function idDeClase(v: unknown): number | null {
  * `opts.lider`: el área del líder que abrió el portal (#665), y SALE DE SU FILA EN LA BASE
  * (`resolverAccesoPortal`), nunca del pedido. Con un líder: sin nombre, sólo los productos que
  * tienen clases por área y, adentro, sólo esas (`armarEtapas`).
+ *
+ * `opts.alcance`: los PERMISOS del alumno (mig 0219, `curso_accesos.alcance`), que también salen de
+ * su fila en la base. Un módulo que no le permiten NO VIAJA: ni su nombre ni sus clases (lo que no
+ * se abre no viaja, la regla de siempre del portal). Se descarta DESPUÉS de armar las etapas con la
+ * lista entera de la entrega, porque el estado de cada una (hecha / actual / bloqueada) sale de su
+ * POSICIÓN en el kanban: filtrar antes correría las posiciones.
  */
-export async function armarVistaAlumno(leadId: number, opts: { lider?: string | null } = {}): Promise<VistaAlumno> {
+export async function armarVistaAlumno(
+  leadId: number,
+  opts: { lider?: string | null; alcance?: AlcanceCurso } = {},
+): Promise<VistaAlumno> {
   const lider = opts.lider ?? null;
+  const alcance = opts.alcance ?? null;
   const [datos, { entregaDeProducto }, { getTenantDb }, { estilosDeProductos }] = await Promise.all([
     import('./curso-datos'),
     import('./entrega-servicio'),
@@ -436,7 +469,10 @@ export async function armarVistaAlumno(leadId: number, opts: { lider?: string | 
     if (!clases.length) continue;
     if (lider != null && !clases.some((c) => c.porArea === true)) continue;
     const [cfg, actual] = await Promise.all([entregaDeProducto(productoId), datos.etapaActualDe(leadId, productoId, productos)]);
-    const etapas = armarEtapas(cfg.etapas, actual, clases, avance.progreso, { porArea: avance.porArea, areas: avance.areas, lider });
+    const etapas = armarEtapas(cfg.etapas, actual, clases, avance.progreso, { porArea: avance.porArea, areas: avance.areas, lider })
+      .filter((e) => moduloPermitido(alcance, productoId, e.key));
+    // Con todo escondido por sus permisos, el producto no se lista: un programa vacío se lee como roto.
+    if (alcance != null && !etapas.some((e) => e.cuantas > 0)) continue;
     const viajan = new Set(etapas.flatMap((e) => e.clases.map((c) => c.id)));
     out.push({
       productoId,
@@ -456,12 +492,15 @@ export async function armarVistaAlumno(leadId: number, opts: { lider?: string | 
  * (`productosDelAlumno`). Con `exigeEtapa`, además, que su etapa esté abierta para él. Con
  * `lider`, que sea una clase POR ÁREA (`decidirClase`): el líder no abre ninguna otra.
  *
+ * Con `alcance` (sus permisos, mig 0219), una clase de un módulo que no le permiten es
+ * `'no-existe'`: el mismo 404 que una clase de otro producto, así la respuesta no cuenta que existe.
+ *
  * ⚠️ Corre adentro de `runWithWorkspace(firma.ws, …)` y después de `resolverAccesoPortal`.
  */
 export async function claseDelAlumno(
   leadId: number,
   claseId: number,
-  opts: { exigeEtapa: boolean; lider?: string | null },
+  opts: { exigeEtapa: boolean; lider?: string | null; alcance?: AlcanceCurso },
 ): Promise<{ decision: Exclude<DecisionClase, 'ok'> } | { decision: 'ok'; clase: Clase; estadoEtapa: EstadoEtapa | undefined }> {
   const datos = await import('./curso-datos');
   const [clase, productos] = await Promise.all([datos.claseDeId(claseId), datos.productosDelAlumno(leadId)]);
@@ -472,6 +511,9 @@ export async function claseDelAlumno(
     estadoEtapa = estadosDeEtapas(cfg.etapas.map((e) => e.key), actual)[clase.etapa];
   }
   const decision = decidirClase(clase, productos, estadoEtapa, opts.exigeEtapa, opts.lider ?? null);
+  if (decision === 'ok' && clase && !moduloPermitido(opts.alcance ?? null, clase.productoId, clase.etapa)) {
+    return { decision: 'no-existe' };
+  }
   return decision === 'ok' && clase ? { decision, clase, estadoEtapa } : { decision: decision === 'ok' ? 'no-existe' : decision };
 }
 

@@ -14,12 +14,16 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 import type { NextResponse } from 'next/server';
-import { runWithWorkspace } from './workspace';
+import { runWithWorkspace, getWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { firmarAccesoCurso, type AccesoCurso } from './curso-acceso';
-import { resolverAcceso, linkDeAcceso, accesoDe } from './curso-datos';
-import { ALUMNO_COOKIE, ALUMNO_DIAS, firmarSesionAlumno, leerSesionAlumno, opcionesCookieAlumno, urlDeEntrada } from './alumno-sesion';
+import { resolverAcceso, linkDeAcceso, accesoDe, emitirLinkMagico, consumirLinkMagico } from './curso-datos';
+import { mandarLinkAlumnoPorEmail } from './invitaciones';
+import {
+  ALUMNO_COOKIE, ALUMNO_DIAS, LINK_ALUMNO_MINUTOS, firmarSesionAlumno, leerSesionAlumno, opcionesCookieAlumno, urlDeEntrada,
+  firmarLinkAlumno, leerLinkAlumno, urlDeLinkAlumno,
+} from './alumno-sesion';
 
 /**
  * ¿Este acceso abre HOY? Devuelve el token `c1.` de esa (ws, lead, versión) —el que usan las rutas
@@ -123,4 +127,57 @@ export async function linkDeEntradaAlumno(leadId: number, ws: number, porQuien: 
   if (!a || a.revocado) return null;
   const token = firmarAccesoCurso({ ws, leadId, version: a.version });
   return token ? urlDeEntrada(token) : null;
+}
+
+// ── «Soy alumno: entrar con mi email» (07/10/2026) ───────────────────────────────
+// La forma del link y por qué un solo uso, en lib/alumno-sesion.ts. Las dos mitades de acá las
+// llaman las rutas de app/api/alumno/: pedir el link (`mandarLinkDeEntrada`) y entrar con él
+// (`entrarConLinkDeEmail`).
+
+/**
+ * Le manda el link de entrada a ESE email, SI tiene una invitación vigente. Si no la tiene, no hace
+ * nada — y quien llama no se entera de cuál de las dos pasó: la ruta contesta lo mismo siempre.
+ *
+ * ⚠️ LA MISMA BÚSQUEDA QUE EL LOGIN CON GOOGLE (`accesoInvitadoPorEmail`): sólo invitaciones que
+ * SALIERON, del CLIENTE (nunca de un líder), no cortadas, con el lead ganado; y `usuarios` gana —
+ * a un usuario de MaKo no se le manda una puerta de alumno. Con dos búsquedas, el email abriría una
+ * cosa por Google y otra por acá.
+ *
+ * ⚠️ EL NONCE SE ESCRIBE ANTES DEL MAIL (`emitirLinkMagico`, compare-and-set con la espera de un
+ * minuto en el WHERE): dos pedidos a la vez no mandan dos mails. Tira si la base falla (lo atrapa la
+ * ruta, que ya contestó).
+ */
+export async function mandarLinkDeEntrada(email: string): Promise<void> {
+  const a = await accesoInvitadoPorEmail(email);
+  if (!a) return;
+  await runWithWorkspace(a.ws, async () => {
+    const nonce = await emitirLinkMagico(a.leadId, a.version);
+    if (!nonce) return;
+    const token = firmarLinkAlumno({ ws: a.ws, leadId: a.leadId, version: a.version }, nonce);
+    if (!token) return;
+    const negocio = (await getWorkspace(a.ws).catch(() => null))?.nombre?.trim() || null;
+    const r = await mandarLinkAlumnoPorEmail({ email, enlace: urlDeLinkAlumno(token), minutos: LINK_ALUMNO_MINUTOS, negocio });
+    if (!r.enviado) console.error('[alumno-link] no salió el link de entrada:', r.error);
+  });
+}
+
+/**
+ * Entra con el link del mail: lo GASTA (un solo uso) y devuelve el acceso para poner la cookie.
+ * `null` = no abre (firma mala, vencido, ya usado, reemplazado por otro, cortado, ya no es cliente)
+ * — UNA respuesta sin el porqué: distinguir los casos ayudaría a probar tokens. Tira si la base falla.
+ *
+ * ⚠️ EL WORKSPACE SALE DE LA FIRMA, y adentro de él: primero se gasta el nonce (compare-and-set, que
+ * además exige la versión vigente y no revocado) y DESPUÉS `resolverAcceso`, la misma regla de la
+ * cookie y del link del curso (lead ganado). Gastarlo primero es a propósito: si la regla dice que no,
+ * el link igual quedó usado, y no hay un segundo intento con el mismo token.
+ */
+export async function entrarConLinkDeEmail(token: string): Promise<AccesoCurso | null> {
+  const l = leerLinkAlumno(token);
+  if (!l) return null;
+  return runWithWorkspace(l.ws, async () => {
+    if (!(await consumirLinkMagico(l.leadId, l.version, l.nonce))) return null;
+    const c1 = firmarAccesoCurso({ ws: l.ws, leadId: l.leadId, version: l.version });
+    if (!c1) return null;
+    return resolverAcceso(c1);
+  });
 }

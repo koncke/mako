@@ -147,7 +147,21 @@ export async function crearClienteAction(datos: {
   nombre: string; empresa?: string; email?: string; telefono?: string;
   /** Un becado o bonificado (#747): la venta se marca «sin cobro» (lib/venta-tipo.ts). */
   sinCobro?: boolean;
-}): Promise<{ ok: boolean; leadId?: number; error?: string }> {
+  /**
+   * Crearlo AUNQUE se parezca a otro (07/10/2026, el alta desde el editor del curso). Es la regla de
+   * lib/leads-duplicados.ts: «si el usuario lo quiere duplicar bueno, que lo pueda hacer, pero no
+   * cargarlo automáticamente». Lo manda SÓLO un botón que la persona apretó después de ver el aviso.
+   */
+  permitirDuplicado?: boolean;
+}): Promise<{
+  ok: boolean; leadId?: number; error?: string;
+  /**
+   * Con quién choca, cuando choca (07/10/2026). Antes el duplicado era sólo un texto: el alta desde el
+   * editor del curso necesita el LEAD para ofrecer «usar ese» en vez de fallar («si el email ya es un
+   * lead del workspace, ofrecer usar ese lead»).
+   */
+  duplicados?: Array<{ leadId: number; nombre: string; motivo: 'email' | 'telefono' | 'nombre'; texto: string }>;
+}> {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   const nombre = (datos.nombre ?? '').trim();
   if (nombre.length < 2) return { ok: false, error: 'Falta el nombre.' };
@@ -167,6 +181,7 @@ export async function crearClienteAction(datos: {
     const lead = await createLead({
       nombre, empresa: (datos.empresa ?? '').trim() || null, email, telefono,
       origen_lead: ORIGEN_LEAD.carga_manual.id,
+      permitirDuplicado: datos.permitirDuplicado === true,
     });
     // El desenlace va en una segunda escritura porque `createLead` no lo acepta: su
     // trabajo es dar de alta un lead, y `estado_lead` es del recorrido. `updateLead`
@@ -194,7 +209,11 @@ export async function crearClienteAction(datos: {
     // persona y ninguna forma de saber cuál es la buena.
     const msg = e instanceof Error ? e.message : 'No se pudo cargar.';
     if (e instanceof LeadDuplicadoError) {
-      return { ok: false, error: 'Ya tienes a alguien con ese nombre o contacto en el CRM. Márcalo como ganado ahí y aparece aquí.' };
+      return {
+        ok: false,
+        error: 'Ya tienes a alguien con ese nombre o contacto en el CRM. Márcalo como ganado ahí y aparece aquí.',
+        duplicados: e.coincidencias.map((c) => ({ leadId: Number(c.lead.id), nombre: (c.lead.nombre ?? '').trim() || 'Sin nombre', motivo: c.motivo, texto: c.texto })),
+      };
     }
     return { ok: false, error: msg };
   }

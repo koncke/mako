@@ -18,8 +18,10 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { LoginForm } from './LoginForm';
 import { YaLogueado } from './YaLogueado';
+import { PedirLinkAlumno, BotonEntrarAlumno } from './EntrarAlumno';
 import { getUsuarioActual } from '@/lib/auth';
 import { hayAlumnoVigente } from '@/lib/alumno-acceso';
+import { leerLinkAlumno, PARAM_LINK_ALUMNO } from '@/lib/alumno-sesion';
 import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
 import { previewDeDestino } from '@/lib/preview-links';
 import { APP_BASE_URL } from '@/lib/app-url';
@@ -56,7 +58,26 @@ export async function generateMetadata(
   };
 }
 
-export default async function LoginPage() {
+/**
+ * Lo que dice /login sobre la entrada del ALUMNO con su email (07/10/2026), según cómo llegó:
+ *   · `?entrar=<token>` (el link del mail) → el botón que termina de entrar, si la firma y el
+ *     vencimiento valen; si no, «venció» y el pedido de otro abierto. Acá NO se mira la base ni se
+ *     gasta nada: lo hace el POST del botón (un escáner de correo que abra el link no lo gasta).
+ *   · `?alumno=<motivo>` (la vuelta de ese POST) → una frase, sin el porqué de fondo.
+ */
+const MOTIVO_ALUMNO: Record<string, string> = {
+  vencido: 'El link venció o ya se usó. Pide otro.',
+  intentos: 'Demasiados intentos. Prueba en unos minutos.',
+  fallo: 'No pude abrir tu programa. Prueba de nuevo.',
+};
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams;
+  const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
+  const tokenAlumno = uno(sp[PARAM_LINK_ALUMNO]).trim();
+  // Sólo firma y vencimiento (puro, sin base): decide si se dibuja el botón o «venció».
+  const linkValido = tokenAlumno ? leerLinkAlumno(tokenAlumno) != null : false;
+  const motivoAlumno = tokenAlumno && !linkValido ? MOTIVO_ALUMNO.vencido : (MOTIVO_ALUMNO[uno(sp.alumno)] ?? null);
   const sesion = await getUsuarioActual();
   // El alumno de un curso (cookie `mako_alumno`, lib/alumno-sesion.ts) no tiene sesión de MaKo:
   // cualquier ruta interna lo rebota acá. En vez de mandarlo a un Google que no le abre nada
@@ -75,7 +96,15 @@ export default async function LoginPage() {
           <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#facc15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#14161B', fontSize: '18px' }}>✦</div>
           <div style={{ fontWeight: 700, fontSize: '22px', color: '#14161B', letterSpacing: '-0.02em' }}>MaKo</div>
         </div>
-        {sesion ? (
+        {/* ⚠️ EL LINK DEL MAIL GANA SOBRE TODO LO DEMÁS: es una acción explícita que la persona
+            acaba de pedir, y con la sesión de MaKo (o una cookie de alumno vieja) puesta no tendría
+            dónde apretar. Entrar como alumno no toca la sesión de MaKo. */}
+        {linkValido ? (
+          <>
+            <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '6px' }}>Tu programa te espera.</div>
+            <BotonEntrarAlumno token={tokenAlumno} />
+          </>
+        ) : sesion ? (
           <YaLogueado nombre={sesion.nombre} email={sesion.email} />
         ) : alumno ? (
           <>
@@ -92,9 +121,14 @@ export default async function LoginPage() {
         ) : (
           <>
             <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '22px' }}>Entra al dashboard.</div>
+            {/* La vuelta del link del alumno (venció, intentos, fallo): arriba de todo, en una frase. */}
+            {motivoAlumno && <div style={{ marginBottom: '16px', fontSize: '13px', color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2', borderRadius: '10px', padding: '10px 12px' }}>{motivoAlumno}</div>}
             <Suspense fallback={<div style={{ height: '46px', borderRadius: '11px', background: 'rgba(0,0,0,.05)' }} />}>
               <LoginForm />
             </Suspense>
+            {/* «Soy alumno: entrar con mi email» (item 9): plegado, para no competir con el botón de
+                Google de quien sí es usuario; abierto si se vuelve de un link que no abrió. */}
+            <PedirLinkAlumno abierto={motivoAlumno != null} />
           </>
         )}
       </div>

@@ -15,20 +15,85 @@ export type TipoClase = 'concepto' | 'demostracion' | 'clinica' | 'clase' | 'for
 export type EstadoTarea = 'pendiente' | 'enviada' | 'aprobada';
 
 /**
- * Un campo del formulario de una tarea. Es el molde del programa viejo (`lib/programa-campos.ts`
- * en 07d07139^), que traía los 114 campos de los Cuestionarios Maestros de Mauricio con este tipo.
+ * Un campo del formulario de una tarea. Los seis primeros son el molde del programa viejo
+ * (`lib/programa-campos.ts` en 07d07139^), que traía los 114 campos de los Cuestionarios Maestros de
+ * Mauricio con este tipo.
+ *
+ * Los nueve de abajo son la #18 (07/10/2026): «Piensa en qué otras tareas se podría pedir aparte de
+ * formularios e impleméntalas». Salen del relevo de Skool, Kajabi y Thinkific (docs/diseno-curso-skool.md,
+ * D5): lo más usado en consultoría es el ENTREGABLE con devolución (`archivo`), practicar un pitch
+ * grabándolo (`audio`, `video`), el link a lo que ya hizo en otro lado (`link`), la encuesta
+ * (`escala`), el quiz corto (`quiz`), las acciones a tildar (`checklist`), la llamada agendada
+ * (`agenda`) y el «lo hice» (`confirmacion`).
+ *
+ * ⚠️ SON UN `tipo` MÁS DEL CAMPO, NO UN TIPO DE CLASE NI UNA TABLA: los `campos` viajan en un jsonb
+ * de `curso_clases` que ya pasa por `sanearCampos` en cada guardado, así que un tipo nuevo no pide
+ * migrar la clase, ni tocar el editor de la clase, ni el guardado. Lo que cada uno agrega va en sus
+ * propias propiedades opcionales de abajo (AGENTS.md, «un CAMPO del nodo es UNA rama»).
  */
-export type CampoTipo = 'texto' | 'linea' | 'numero' | 'eleccion' | 'checks' | 'tabla';
+export type CampoTipo =
+  | 'texto' | 'linea' | 'numero' | 'eleccion' | 'checks' | 'tabla'
+  | 'archivo' | 'audio' | 'video' | 'link' | 'escala' | 'quiz' | 'checklist' | 'agenda' | 'confirmacion';
+
+/**
+ * Una pregunta de un quiz. Se contesta con UNA opción (radio) o, con `multiple`, con casillas.
+ *
+ * ⚠️ LAS CORRECTAS SE GUARDAN POR SU TEXTO, NO POR SU POSICIÓN: el editor escribe las opciones una
+ * por renglón y `sanearCampos` tira los renglones vacíos, así que un índice quedaría apuntando a otra
+ * opción después de cada guardado. Con el texto, renombrar una opción la desmarca (y el editor lo
+ * muestra), que es el error que se ve.
+ *
+ * ⚠️ `correctas` NUNCA VIAJA AL NAVEGADOR DEL ALUMNO: la saca `camposParaAlumno`, que es lo que usa
+ * `claseVista` (lib/curso-portal.ts). El quiz se corrige en el SERVER (`corregirEnvio`).
+ */
+export type PreguntaQuiz = {
+  id: string;
+  texto: string;
+  opciones: string[];
+  correctas?: string[];
+  /** Más de una correcta: hay que marcar TODAS y sólo ésas. */
+  multiple?: boolean;
+};
+
+/**
+ * Una escala (encuesta / NPS). ⚠️ LOS DOS EXTREMOS SON OBLIGATORIOS (los exige `validarClase`): «una
+ * escala sin extremos explicados es una pregunta muerta» (AGENTS.md, «Una regla en un prompt no es
+ * una regla»): un 7 no dice nada si no se sabe qué es el 1 y qué es el 10.
+ */
+export type Escala = { min: 0 | 1; max: 5 | 10; bajo: string; alto: string };
+
 export type Campo = {
   id: string;
   label: string;
   tipo: CampoTipo;
   ayuda?: string;
+  /** eleccion / checks: las opciones. checklist: las ACCIONES que hay que tildar. */
   opciones?: string[];
   columnas?: string[];
   filasFijas?: string[];
   filasMin?: number;
   obligatorio?: boolean;
+  /** archivo: cuántos archivos como mucho (1 a `MAX_ARCHIVOS`). */
+  maxArchivos?: number;
+  /** audio / video: el tope de la grabación, en segundos. */
+  maxSeg?: number;
+  /** escala: el rango y qué quiere decir cada punta. */
+  escala?: Escala;
+  /** quiz: las preguntas. */
+  preguntas?: PreguntaQuiz[];
+  /**
+   * quiz: la nota mínima para aprobar, en %.
+   *
+   * ⚠️ VA EN EL CAMPO Y NO EN LA TAREA, a propósito: (1) una tarea puede tener más de un quiz (el del
+   * módulo y el de repaso) y cada uno su vara; (2) el campo ya viaja en el jsonb `campos` y pasa por
+   * `sanearCampos`, así que no hace falta una columna nueva en `curso_clases` ni tocar el guardado de
+   * la clase; (3) la nota es de las PREGUNTAS que la producen, y moverlas a otra tarea se lleva su vara.
+   */
+  notaMin?: number;
+  /** quiz: cuántos envíos corregidos se permiten. 0 = sin límite. */
+  intentos?: number;
+  /** agenda: el link para agendar la llamada (Calendly, Cal…). Sólo http/https (`linkValido`). */
+  url?: string;
 };
 
 export type Clase = {
@@ -55,9 +120,36 @@ export type Clase = {
   porArea?: boolean;
 };
 
-/** Un valor de un campo: texto, varias opciones, o una tabla (filas x columnas). */
-export type ValorCampo = string | string[] | string[][];
+/**
+ * Un archivo que ENTREGÓ el alumno (campos `archivo`, `audio`, `video`). Vive en el bucket privado
+ * `curso-entregas` (mig 0218) bajo `pathDeEntrega`; acá sólo va la referencia. `seg` = cuánto dura
+ * una grabación (lo cuenta el navegador; se muestra, no decide nada).
+ */
+export type ArchivoEntregado = { path: string; nombre: string; mime: string; bytes: number; seg?: number };
+
+/**
+ * Un valor de un campo: texto, varias opciones, una tabla (filas x columnas) o archivos entregados.
+ *
+ *   · link / escala → un texto (la URL; el número como texto).
+ *   · agenda / confirmacion → `'si'` (lo confirmó el alumno) o nada.
+ *   · checklist → la lista de acciones tildadas.
+ *   · quiz → una fila por pregunta con lo que marcó (`string[][]`, alineado con `preguntas`).
+ *   · archivo / audio / video → `ArchivoEntregado[]`.
+ *
+ * ⚠️ LA NOTA DEL QUIZ NO VIVE ACÁ: `valores` lo escribe el navegador (y lo pisa cada autoguardado),
+ * así que una nota guardada adentro se podría inventar o se borraría sola. Vive en
+ * `curso_progreso.calificacion` (mig 0218), que escribe sólo el server (lib/curso-entregas.ts).
+ */
+export type ValorCampo = string | string[] | string[][] | ArchivoEntregado[];
 export type Valores = Record<string, ValorCampo>;
+
+/**
+ * Cómo le fue en UN quiz: la nota (%), si aprobó, cuántos envíos se corrigieron, qué preguntas
+ * erró (sus posiciones: no se dice la correcta) y cuándo.
+ */
+export type NotaQuiz = { nota: number; aprobado: boolean; intentos: number; malas?: number[]; at: string };
+/** Las notas de los quizzes de UNA respuesta: campoId → nota. Lo escribe sólo el server. */
+export type Calificacion = Record<string, NotaQuiz>;
 
 // ── La propuesta de la IA (paso 5 de #665, mig 0213) ─────────────────────────
 // Vive ACÁ y no en lib/curso-propuesta.ts porque la dibujan pantallas del navegador (la ficha, el
@@ -106,6 +198,12 @@ export type Progreso = {
    * propone al lado y el cliente decide (lib/curso-propuesta.ts).
    */
   ia?: PropuestaIA | null;
+  /**
+   * Las notas de sus quizzes (mig 0218, `curso_progreso.calificacion`). Ausente = esta lectura no la
+   * trae; `null` = no hay. La escribe sólo el server al corregir (lib/curso-entregas.ts), nunca el
+   * navegador: por eso no está en `valores`.
+   */
+  calificacion?: Calificacion | null;
 };
 
 // ── El video ──────────────────────────────────────────────────────────────────
@@ -399,10 +497,91 @@ export function etapaSiguiente(etapas: readonly string[], actual: string): strin
 
 // ── Lo que se guarda: saneo ────────────────────────────────────────────────────
 
-const TIPOS_CAMPO: readonly CampoTipo[] = ['texto', 'linea', 'numero', 'eleccion', 'checks', 'tabla'];
+const TIPOS_CAMPO: readonly CampoTipo[] = [
+  'texto', 'linea', 'numero', 'eleccion', 'checks', 'tabla',
+  'archivo', 'audio', 'video', 'link', 'escala', 'quiz', 'checklist', 'agenda', 'confirmacion',
+];
 const corta = (s: unknown, n: number): string => (typeof s === 'string' ? s.trim().slice(0, n) : '');
+/** Un entero dentro de [min, max]; lo que no es un número finito es `def`. */
+const entero = (v: unknown, min: number, max: number, def: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : def;
 
-/** Los campos de un formulario, como los manda la pantalla de Mauricio. Lo que no cierra se tira. */
+// ── Los topes de los tipos nuevos (#18) ──────────────────────────────────────
+
+/** Cuántos archivos puede pedir un campo `archivo`. */
+export const MAX_ARCHIVOS = 10;
+/** La nota mínima de un quiz cuando nadie la eligió. */
+export const NOTA_MIN_DEFAULT = 70;
+/** El tope de una grabación cuando nadie lo eligió, y los límites del que se elija. */
+export const MAX_SEG_DEFAULT = 120;
+export const MAX_SEG_MIN = 15;
+export const MAX_SEG_MAX = 600;
+/**
+ * Cuántas preguntas tiene un quiz como mucho, y cuántas opciones cada una. Exportadas para que el
+ * editor las diga ANTES de guardar (`faltaEnCampo`, app/customer-success/curso/reglas.ts): el saneo
+ * corta lo que sobra en silencio, y una correcta que caía en la opción 13 dejaba la pregunta sin
+ * correcta — o sea un quiz que no aprueba nadie (revisión del 08/10/2026).
+ */
+export const MAX_PREGUNTAS = 50;
+export const MAX_OPCIONES_QUIZ = 12;
+
+/** ¿Este tipo de campo se contesta con ARCHIVOS (subidos o grabados)? */
+export const esCampoDeArchivo = (t: CampoTipo | string | undefined): t is 'archivo' | 'audio' | 'video' =>
+  t === 'archivo' || t === 'audio' || t === 'video';
+
+/**
+ * Un link que se puede guardar y DIBUJAR como `href`: http o https, con un dominio. `null` = no es un
+ * link. A lo que llega sin esquema y parece un dominio («loom.com/share/x») se le pone `https://`: es
+ * como lo pega la gente desde el teléfono, y rebotarlo sería perder lo que escribió.
+ *
+ * ⚠️ SÓLO http/https, por lo mismo que `videoDeLink`: termina en un `href` que alguien toca, y un
+ * `javascript:` ahí es un script corriendo en su navegador.
+ */
+export function linkValido(raw: unknown): string | null {
+  const s = typeof raw === 'string' ? raw.trim() : '';
+  if (!s || s.length > 2000 || /\s/.test(s)) return null;
+  const intentar = (x: string): URL | null => { try { return new URL(x); } catch { return null; } };
+  let u = intentar(s);
+  if (!u && /^[\w-]+(\.[\w-]+)+([/?#]|$)/.test(s)) u = intentar(`https://${s}`);
+  if (!u || (u.protocol !== 'https:' && u.protocol !== 'http:') || !u.hostname.includes('.')) return null;
+  return u.toString();
+}
+
+/** Las preguntas de un quiz: lo que no cierra (sin texto, menos de dos opciones) se tira. */
+function sanearPreguntas(raw: unknown): PreguntaQuiz[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PreguntaQuiz[] = [];
+  const vistos = new Set<string>();
+  for (const [i, x] of raw.slice(0, MAX_PREGUNTAS).entries()) {
+    if (!x || typeof x !== 'object') continue;
+    const o = x as Record<string, unknown>;
+    const texto = corta(o.texto, 600);
+    const opciones = [...new Set((Array.isArray(o.opciones) ? o.opciones : []).map((s) => corta(s, 200)).filter(Boolean))].slice(0, MAX_OPCIONES_QUIZ);
+    if (!texto || opciones.length < 2) continue;
+    let id = corta(o.id, 80).replace(/[^\w-]/g, '-') || `p${i}`;
+    while (vistos.has(id)) id = `${id}-${i}`;
+    vistos.add(id);
+    const multiple = o.multiple === true;
+    // Sólo las que son opciones de la pregunta, sin repetir; una de una sola respuesta tiene UNA.
+    const correctas = [...new Set((Array.isArray(o.correctas) ? o.correctas : []).map((s) => corta(s, 200)).filter((s) => opciones.includes(s)))];
+    const p: PreguntaQuiz = { id, texto, opciones, correctas: multiple ? correctas : correctas.slice(0, 1) };
+    if (multiple) p.multiple = true;
+    out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Los campos de un formulario, como los manda la pantalla de Mauricio. Lo que no cierra se tira.
+ *
+ * ⚠️ LOS SEIS TIPOS DE SIEMPRE SALEN EXACTAMENTE IGUAL que antes de la #18: los programas cargados
+ * se verifican con `isDeepStrictEqual(sanearCampos(c), c)` (scripts/curso-cargar-programa.ts y sus
+ * tests), así que a un `texto` no se le agrega ninguna propiedad. Los tipos nuevos sí salen con sus
+ * defaults puestos (un `archivo` sin `maxArchivos` sale con 1): es idempotente igual.
+ *
+ * ⚠️ UN QUIZ ES SIEMPRE OBLIGATORIO: un quiz que se puede dejar en blanco no tiene nota que pedir, y
+ * la regla «se aprueba con la nota mínima» no tendría a quién aplicarse.
+ */
 export function sanearCampos(raw: unknown): Campo[] {
   if (!Array.isArray(raw)) return [];
   const vistos = new Set<string>();
@@ -418,22 +597,292 @@ export function sanearCampos(raw: unknown): Campo[] {
     const lista = (v: unknown, n: number) => (Array.isArray(v) ? v.map((s) => corta(s, 200)).filter(Boolean).slice(0, n) : undefined);
     const c: Campo = { id, label, tipo };
     const ayuda = corta(o.ayuda, 600); if (ayuda) c.ayuda = ayuda;
-    const opciones = lista(o.opciones, 30); if (opciones?.length && (tipo === 'eleccion' || tipo === 'checks')) c.opciones = opciones;
+    const opciones = lista(o.opciones, 30); if (opciones?.length && (tipo === 'eleccion' || tipo === 'checks' || tipo === 'checklist')) c.opciones = opciones;
     const columnas = lista(o.columnas, 12); if (columnas?.length && tipo === 'tabla') c.columnas = columnas;
     const filasFijas = lista(o.filasFijas, 40); if (filasFijas?.length && tipo === 'tabla') c.filasFijas = filasFijas;
     if (tipo === 'tabla' && typeof o.filasMin === 'number' && o.filasMin > 0) c.filasMin = Math.min(40, Math.round(o.filasMin));
-    if (o.obligatorio === true) c.obligatorio = true;
+    if (tipo === 'archivo') c.maxArchivos = entero(o.maxArchivos, 1, MAX_ARCHIVOS, 1);
+    if (tipo === 'audio' || tipo === 'video') c.maxSeg = entero(o.maxSeg, MAX_SEG_MIN, MAX_SEG_MAX, MAX_SEG_DEFAULT);
+    if (tipo === 'escala') {
+      const e = (o.escala && typeof o.escala === 'object' ? o.escala : {}) as Record<string, unknown>;
+      c.escala = { min: e.min === 0 ? 0 : 1, max: e.max === 5 ? 5 : 10, bajo: corta(e.bajo, 60), alto: corta(e.alto, 60) };
+    }
+    if (tipo === 'quiz') {
+      c.preguntas = sanearPreguntas(o.preguntas);
+      c.notaMin = entero(o.notaMin, 0, 100, NOTA_MIN_DEFAULT);
+      c.intentos = entero(o.intentos, 0, 20, 0);
+    }
+    if (tipo === 'agenda') { const u = linkValido(o.url); if (u) c.url = u; }
+    if (o.obligatorio === true || tipo === 'quiz') c.obligatorio = true;
     out.push(c);
   }
   return out;
 }
 
 /**
+ * Los campos como los ve el ALUMNO: iguales, menos las respuestas correctas de los quizzes.
+ *
+ * ⚠️ ES LA ÚNICA PUERTA por la que los campos llegan a su navegador (`claseVista`, lib/curso-portal.ts,
+ * que arman el portal, /mi-curso y la vista previa). Un quiz con las correctas en el HTML se aprueba
+ * leyendo el código de la página. No muta lo que recibe: la misma clase la usa el server para corregir.
+ */
+export function camposParaAlumno(campos: readonly Campo[]): Campo[] {
+  return campos.map((c) => (c.tipo === 'quiz' && c.preguntas
+    ? { ...c, preguntas: c.preguntas.map(({ correctas: _fuera, ...p }) => p) }
+    : c));
+}
+
+// ── Las entregas: los archivos que sube o graba el alumno (mig 0218) ─────────
+// Puro, para que lo usen la ruta que firma la subida, la que guarda la tarea, la pantalla del alumno
+// (el `accept` y el tope ANTES de subir) y el test. Lo que toca Storage vive en lib/curso-entregas.ts.
+
+/**
+ * Los formatos del bucket `curso-entregas` (mig 0218, `allowed_mime_types`), por familia.
+ *
+ * ⚠️ TIENEN QUE SER LOS MISMOS QUE LOS DEL BUCKET (un test los compara con el `.sql`): Storage
+ * rechaza recién al TERMINAR de subir, y con un video de 80 MB eso son minutos de barra para un «no»
+ * que se podía decir antes de empezar.
+ */
+export const MIME_ENTREGA_DOC = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.oasis.opendocument.presentation',
+  'text/csv',
+  'text/plain',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+] as const;
+/**
+ * ⚠️ `audio/webm` y `video/webm` son lo que graba Chrome y Firefox; `audio/mp4` y `video/mp4`, lo que
+ * graba Safari (iPhone). El `MediaRecorder` los nombra con sus códecs (`audio/webm;codecs=opus`): la
+ * pantalla manda el tipo PELADO (`mimeBase`), que es lo que el bucket compara.
+ */
+export const MIME_ENTREGA_AUDIO = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/x-m4a', 'audio/wav', 'audio/aac'] as const;
+export const MIME_ENTREGA_VIDEO = ['video/webm', 'video/mp4', 'video/quicktime'] as const;
+export const MIME_ENTREGA: readonly string[] = [...MIME_ENTREGA_DOC, ...MIME_ENTREGA_AUDIO, ...MIME_ENTREGA_VIDEO];
+
+/**
+ * El tope de UN archivo: 100 MiB, el `file_size_limit` del bucket (mig 0218). ⚠️ EL DEL BUCKET Y NO UNO
+ * MÍO (AGENTS.md, «el entorno tiene un tope y tu código declara otro»): si se sube uno, se sube el
+ * otro en el mismo cambio. Un pitch grabado acá (720p a 1 Mbps) son ~8 MB por minuto; un video de
+ * teléfono en 1080p pasa de 100 MB al minuto, y para eso está el campo `link` (Loom, Drive).
+ */
+export const TOPE_ENTREGA_BYTES = 100 * 1024 * 1024;
+
+/** Los formatos que acepta UN campo: un `audio` no se contesta con un PDF. */
+export function mimesDeCampo(tipo: CampoTipo | string): readonly string[] {
+  if (tipo === 'audio') return MIME_ENTREGA_AUDIO;
+  if (tipo === 'video') return MIME_ENTREGA_VIDEO;
+  if (tipo === 'archivo') return MIME_ENTREGA;
+  return [];
+}
+
+const EXT_ENTREGA: Record<string, string> = {
+  'application/pdf': 'pdf', 'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt', 'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'application/vnd.oasis.opendocument.text': 'odt', 'application/vnd.oasis.opendocument.spreadsheet': 'ods',
+  'application/vnd.oasis.opendocument.presentation': 'odp',
+  'text/csv': 'csv', 'text/plain': 'txt', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif',
+  'audio/webm': 'weba', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/x-m4a': 'm4a', 'audio/wav': 'wav', 'audio/aac': 'aac',
+  'video/webm': 'webm', 'video/mp4': 'mp4', 'video/quicktime': 'mov',
+};
+/**
+ * Qué tipos puede ser un archivo por su extensión, en orden de preferencia. ⚠️ `.webm` y `.mp4` son
+ * AMBIGUOS (audio o video): se elige el primero que el campo acepte.
+ */
+const MIMES_DE_EXT: Record<string, readonly string[]> = {
+  ...Object.fromEntries(Object.entries(EXT_ENTREGA).filter(([m]) => !m.startsWith('audio/') && !m.startsWith('video/')).map(([m, e]) => [e, [m]])),
+  jpeg: ['image/jpeg'], webm: ['video/webm', 'audio/webm'], weba: ['audio/webm'], mp4: ['video/mp4', 'audio/mp4'],
+  m4a: ['audio/mp4', 'audio/x-m4a'], ogg: ['audio/ogg'], oga: ['audio/ogg'], mp3: ['audio/mpeg'], wav: ['audio/wav'], aac: ['audio/aac'], mov: ['video/quicktime'],
+};
+const EXTS_ENTREGA = [...new Set(Object.values(EXT_ENTREGA))].join('|');
+const UUID_RE = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
+/** El tipo sin sus parámetros: `audio/webm;codecs=opus` → `audio/webm`. */
+export const mimeBase = (m: string | null | undefined): string => (m ?? '').split(';')[0].trim().toLowerCase();
+
+/**
+ * El tipo de un archivo elegido o grabado, contra lo que acepta el campo. El del navegador si es uno
+ * de ésos; si no, por la extensión. `null` = ese campo no acepta ese archivo.
+ *
+ * ⚠️ AL REVÉS DE `mimeDeNota` (app/customer-success/curso/reglas.ts), primero el navegador: acá
+ * entran audio y video, y una grabación de Chrome se llama `.webm` sea audio o video — la extensión
+ * sola mandaría el audio como video. Para lo demás manda la extensión (Windows le pone
+ * `application/vnd.ms-excel` a un .csv).
+ */
+export function mimeDeEntrega(nombre: string, tipo: string | null | undefined, permitidos: readonly string[]): string | null {
+  const base = mimeBase(tipo);
+  if (base && permitidos.includes(base) && (base.startsWith('audio/') || base.startsWith('video/') || base.startsWith('image/') || base === 'application/pdf')) return base;
+  const ext = (nombre.includes('.') ? nombre.split('.').pop() ?? '' : '').toLowerCase();
+  const porExt = (MIMES_DE_EXT[ext] ?? []).find((m) => permitidos.includes(m));
+  if (porExt) return porExt;
+  return base && permitidos.includes(base) ? base : null;
+}
+
+/** Lo que va en el `accept` del input de archivo de un campo. */
+export function aceptaDeCampo(tipo: CampoTipo | string): string {
+  const mimes = mimesDeCampo(tipo);
+  const exts = Object.entries(MIMES_DE_EXT).filter(([, ms]) => ms.some((m) => mimes.includes(m))).map(([e]) => `.${e}`);
+  return [...mimes, ...exts].join(',');
+}
+
+/** De quién y de qué es una entrega: lo pone el SERVER, nunca el pedido. */
+export type DuenoEntrega = { ws: number; productoId: number; leadId: number; claseId: number };
+
+/**
+ * Dónde se guarda una entrega: `<ws>/<producto>/<lead>/<clase>/<uuid>.<ext>` en `curso-entregas`.
+ *
+ * ⚠️ EL WORKSPACE, EL ALUMNO Y LA CLASE VAN EN LA RUTA Y LOS PONE EL SERVER, como el video del curso
+ * (`pathDeSubida`): es lo que deja preguntar «¿este archivo es de ESTE alumno y de ESTA clase?» con
+ * un prefijo (`pathEsDeEntrega`), sin una tabla aparte. Un guardado que nombre la entrega de otro
+ * alumno no pasa. El nombre original NO entra (acentos, espacios, el nombre de un cliente): va aparte
+ * en `ArchivoEntregado.nombre`.
+ */
+export function pathDeEntrega(d: DuenoEntrega, mime: string, uuid: string): string | null {
+  const ext = EXT_ENTREGA[mime];
+  if (!ext || !MIME_ENTREGA.includes(mime)) return null;
+  if (![d.ws, d.productoId, d.leadId, d.claseId].every((n) => Number.isInteger(n) && n > 0)) return null;
+  if (!new RegExp(`^${UUID_RE}$`).test(uuid)) return null;
+  return `${d.ws}/${d.productoId}/${d.leadId}/${d.claseId}/${uuid}.${ext}`;
+}
+
+/** ¿Este path es una entrega de ESTE alumno, en ESTA clase, de ESTE workspace? */
+export function pathEsDeEntrega(path: unknown, d: DuenoEntrega): boolean {
+  return typeof path === 'string'
+    && new RegExp(`^${d.ws}/${d.productoId}/${d.leadId}/${d.claseId}/${UUID_RE}\\.(${EXTS_ENTREGA})$`).test(path);
+}
+
+/** ¿Este path tiene la FORMA de una entrega, de quien sea? (lo que se puede guardar sin saber el dueño) */
+export const esEntregaSubida = (path: unknown): path is string =>
+  typeof path === 'string' && new RegExp(`^\\d{1,12}/\\d{1,12}/\\d{1,12}/\\d{1,12}/${UUID_RE}\\.(${EXTS_ENTREGA})$`).test(path);
+
+/** ¿Este path es una entrega de ESTE cliente (cualquier clase) de ESTE workspace? Lo que abre el EQUIPO. */
+export const pathEsDelCliente = (path: unknown, ws: number, leadId: number): boolean =>
+  esEntregaSubida(path) && path.startsWith(`${ws}/`) && path.split('/')[2] === String(leadId);
+
+/** El nombre de un archivo para mostrarlo: sin carpetas, sin caracteres de control ni comillas, con tope. */
+export function nombreDeEntrega(raw: unknown): string {
+  // Los caracteres de control van como escape (AGENTS.md: un byte NUL crudo vuelve binario el archivo).
+  const s = typeof raw === 'string' ? raw.replace(/[\u0000-\u001f\u007f"]/g, '').split(/[\\/]/).pop()!.trim() : '';
+  return (s || 'archivo').slice(0, 160);
+}
+
+/**
+ * Las entregas de un campo, saneadas. Sin `dueno` sólo se mira la FORMA del path; con `dueno`, que
+ * sea de ese alumno y esa clase (`pathEsDeEntrega`).
+ *
+ * ⚠️ LA RUTA DE LA TAREA PASA EL DUEÑO (lib/curso-entregas.ts, `verificarEntregas`) ANTES de guardar,
+ * y es ésa la que cierra «nombrar la entrega de otro alumno»: `guardarTarea` vuelve a sanear sin dueño
+ * (no lo conoce), y lo que ya pasó por la puerta estricta pasa igual por la floja.
+ */
+export function archivosDeValor(c: Pick<Campo, 'tipo' | 'maxArchivos'>, v: unknown, dueno?: DuenoEntrega): ArchivoEntregado[] {
+  if (!Array.isArray(v)) return [];
+  const permitidos = mimesDeCampo(c.tipo);
+  const tope = c.tipo === 'archivo' ? Math.min(MAX_ARCHIVOS, Math.max(1, c.maxArchivos ?? 1)) : 1;
+  const out: ArchivoEntregado[] = [];
+  const vistos = new Set<string>();
+  for (const x of v) {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) continue;
+    const o = x as Record<string, unknown>;
+    if (!(dueno ? pathEsDeEntrega(o.path, dueno) : esEntregaSubida(o.path))) continue;
+    const path = o.path as string;
+    const mime = mimeBase(typeof o.mime === 'string' ? o.mime : '');
+    const bytes = typeof o.bytes === 'number' && Number.isFinite(o.bytes) ? Math.round(o.bytes) : NaN;
+    if (vistos.has(path) || !permitidos.includes(mime) || !(bytes > 0 && bytes <= TOPE_ENTREGA_BYTES)) continue;
+    vistos.add(path);
+    const a: ArchivoEntregado = { path, nombre: nombreDeEntrega(o.nombre), mime, bytes };
+    if (typeof o.seg === 'number' && Number.isFinite(o.seg) && o.seg > 0) a.seg = Math.min(MAX_SEG_MAX + 5, Math.round(o.seg));
+    out.push(a);
+    if (out.length >= tope) break;
+  }
+  return out;
+}
+
+/**
+ * Todas las rutas de entregas que nombran unos valores, de cualquier campo. Lo necesita quien quiera
+ * barrer los huérfanos del bucket (lib/curso-purga.ts lo hace hoy por COLUMNA, y acá la referencia
+ * vive adentro del jsonb `valores`) y la ruta, para no volver a preguntarle a Storage por lo que ya
+ * se había guardado.
+ */
+export function pathsDeEntregas(valores: Valores | null | undefined): string[] {
+  const out = new Set<string>();
+  for (const v of Object.values(valores ?? {})) {
+    if (!Array.isArray(v)) continue;
+    for (const x of v as unknown[]) {
+      const p = x && typeof x === 'object' && !Array.isArray(x) ? (x as { path?: unknown }).path : null;
+      if (esEntregaSubida(p)) out.add(p);
+    }
+  }
+  return [...out];
+}
+
+// ── El tope de lo que sube un alumno (revisión del 08/10/2026) ──────────────
+
+/**
+ * Cuánto puede SUBIR un alumno en un día a las entregas de UN programa, sumando todas sus clases:
+ * objetos y bytes creados en las últimas 24 h, leídos del bucket (lib/curso-entregas.ts,
+ * `urlSubidaEntrega`, antes de firmar).
+ *
+ * ⚠️ POR QUÉ HACE FALTA: la ruta de las entregas es PÚBLICA (el token del portal) y cada firma deja
+ * subir UN archivo de hasta `TOPE_ENTREGA_BYTES`. Sin tope, un link filtrado (o un alumno con un
+ * script) firmaba 30 por minuto = 3 GB por minuto, contra un Storage con 5 GiB de tope para TODA la
+ * plataforma (lib/curso-admin.ts): en dos minutos se le cortaban las subidas a todos los clientes.
+ *
+ * ⚠️ LOS BYTES SE CUENTAN CON EL PEOR CASO DEL PRÓXIMO: el tamaño que manda el navegador al pedir la
+ * firma no lo hace cumplir nadie (la URL firmada acepta hasta el tope del bucket), así que se firma
+ * sólo si lo ya subido MÁS un archivo entero del tope entra en el día.
+ *
+ * Lo legítimo queda lejos: 40 archivos y ~400 MB por día es un pitch grabado diez veces, o tres
+ * entregables de diez archivos. Lo que NO cubre, y está escrito en la ruta: varias firmas pedidas
+ * de golpe antes de que llegue la primera subida (el bucket todavía no las ve). Eso lo acota el
+ * rate limit por alumno de la ruta, que es por instancia.
+ */
+export const TOPE_SUBIDAS_DIA = 40;
+export const TOPE_BYTES_SUBIDAS_DIA = 500 * 1024 * 1024;
+export const VENTANA_SUBIDAS_MS = 24 * 3600 * 1000;
+
+/** Un objeto que el alumno ya subió, como lo lista el bucket. */
+export type SubidaHecha = { creado: string | null; bytes: number | null };
+
+/**
+ * ¿Ya no se le puede firmar otra subida hoy? `true` = alcanzó el tope de objetos, o el próximo
+ * (contado con el tope del bucket) pasaría el de bytes.
+ *
+ * ⚠️ UN OBJETO SIN FECHA LEGIBLE CUENTA COMO DE HOY: «no sé cuándo se subió» no es «es viejo», y
+ * contarlo de menos es justo el lado que abre la puerta.
+ */
+export function topeDeSubidasAlcanzado(subidas: readonly SubidaHecha[], ahora: number): boolean {
+  const desde = ahora - VENTANA_SUBIDAS_MS;
+  let n = 0;
+  let bytes = 0;
+  for (const s of subidas) {
+    const t = s.creado ? Date.parse(s.creado) : NaN;
+    if (Number.isFinite(t) && t < desde) continue;
+    n++;
+    if (typeof s.bytes === 'number' && Number.isFinite(s.bytes) && s.bytes > 0) bytes += s.bytes;
+  }
+  return n >= TOPE_SUBIDAS_DIA || bytes + TOPE_ENTREGA_BYTES > TOPE_BYTES_SUBIDAS_DIA;
+}
+
+/**
  * Lo que contestó el cliente, contra los campos de SU clase. Las claves que la clase no tiene se
  * tiran (los valores viajan desde un navegador sin sesión), y cada valor se corta a su forma.
  * Sin campos, la tarea es una respuesta libre: `{respuesta}`.
+ *
+ * `dueno`: de quién son las entregas (ver `archivosDeValor`). Sin él, sólo la forma del path.
  */
-export function sanearValores(campos: readonly Campo[], raw: unknown): Valores {
+export function sanearValores(campos: readonly Campo[], raw: unknown, dueno?: DuenoEntrega): Valores {
   const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   if (!campos.length) {
     const r = corta(o.respuesta, 20_000);
@@ -442,7 +891,30 @@ export function sanearValores(campos: readonly Campo[], raw: unknown): Valores {
   const out: Valores = {};
   for (const c of campos) {
     const v = o[c.id];
-    if (c.tipo === 'checks') {
+    if (esCampoDeArchivo(c.tipo)) {
+      if (Array.isArray(v)) out[c.id] = archivosDeValor(c, v, dueno);
+    } else if (c.tipo === 'quiz') {
+      // Una fila por pregunta, con lo que marcó y sólo opciones de ESA pregunta. Una de una sola
+      // respuesta guarda una. ⚠️ La nota NO se lee de acá: la pone el server (`corregirEnvio`).
+      if (Array.isArray(v)) {
+        out[c.id] = (c.preguntas ?? []).map((p, i) => {
+          const dadas = Array.isArray(v[i]) ? (v[i] as unknown[]) : [];
+          const ok = [...new Set(dadas.map((s) => corta(s, 200)).filter((s) => p.opciones.includes(s)))];
+          return p.multiple ? ok : ok.slice(0, 1);
+        });
+      }
+    } else if (c.tipo === 'checklist') {
+      if (Array.isArray(v)) out[c.id] = [...new Set(v.map((s) => corta(s, 300)).filter((s) => !!s && (c.opciones ?? []).includes(s)))];
+    } else if (c.tipo === 'escala') {
+      const e = c.escala ?? { min: 1, max: 10 };
+      const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d{1,2}$/.test(v.trim()) ? Number(v.trim()) : NaN;
+      if (Number.isInteger(n) && n >= e.min && n <= e.max) out[c.id] = String(n);
+    } else if (c.tipo === 'agenda' || c.tipo === 'confirmacion') {
+      if (v === 'si') out[c.id] = 'si';
+    } else if (c.tipo === 'link') {
+      const u = linkValido(v);
+      if (u) out[c.id] = u;
+    } else if (c.tipo === 'checks') {
       if (Array.isArray(v)) out[c.id] = v.map((s) => corta(s, 300)).filter((s) => !c.opciones || c.opciones.includes(s)).slice(0, 30);
     } else if (c.tipo === 'tabla') {
       if (Array.isArray(v)) {
@@ -467,13 +939,43 @@ export function sanearValores(campos: readonly Campo[], raw: unknown): Valores {
  * pantalla ya lo miraba bien y el server no, con la misma regla escrita dos veces. Ahora es una.
  */
 export function campoLleno(c: Pick<Campo, 'tipo' | 'filasFijas'>, v: ValorCampo | undefined): boolean {
+  // ⚠️ Un link que no es un link y un «ya agendé» que no es `'si'` no cuentan: el server los tira al
+  // sanear, y la pantalla (que mira lo que se está escribiendo, sin sanear) tiene que decir lo mismo
+  // o mandaría un envío que vuelve con «faltan respuestas».
+  if (c.tipo === 'link') return linkValido(v) != null;
+  if (c.tipo === 'agenda' || c.tipo === 'confirmacion') return v === 'si';
   if (typeof v === 'string') return v.trim().length > 0;
   if (!Array.isArray(v)) return false;
   if (c.tipo === 'tabla') {
     const desde = c.filasFijas?.length ? 1 : 0;
     return (v as unknown[]).some((f) => Array.isArray(f) && f.slice(desde).some((x) => String(x ?? '').trim().length > 0));
   }
+  // Un archivo cuenta por su path, no por su nombre: «[object Object]» también es un texto lleno.
+  if (esCampoDeArchivo(c.tipo)) return (v as unknown[]).some((x) => !!x && typeof x === 'object' && typeof (x as { path?: unknown }).path === 'string' && !!(x as { path: string }).path);
+  if (c.tipo === 'quiz') return (v as unknown[]).some((f) => Array.isArray(f) && f.length > 0);
   return (v as unknown[]).some((x) => String(x ?? '').trim().length > 0);
+}
+
+/**
+ * ¿Este campo está COMPLETO? Para la mayoría es lo mismo que «lleno»; dos tipos piden más:
+ *   · checklist → TODAS sus acciones tildadas (es lo que significa una checklist).
+ *   · quiz → TODAS sus preguntas contestadas. Contestado no es aprobado: eso lo decide la nota
+ *     (`corregirEnvio`), en el server.
+ * Es lo que pide `respuestaCompleta` a un campo obligatorio, y `queFalta` en la pantalla.
+ */
+export function campoCompleto(c: Pick<Campo, 'tipo' | 'filasFijas' | 'opciones' | 'preguntas'>, v: ValorCampo | undefined): boolean {
+  if (c.tipo === 'checklist' && c.opciones?.length) {
+    const marcadas = Array.isArray(v) ? (v as unknown[]).map((x) => String(x ?? '')) : [];
+    return c.opciones.every((o) => marcadas.includes(o));
+  }
+  if (c.tipo === 'quiz') {
+    const ps = c.preguntas ?? [];
+    // Un quiz sin preguntas no pregunta nada: no frena (`validarClase` no deja guardarlo así).
+    if (!ps.length) return true;
+    const filas = Array.isArray(v) ? (v as unknown[]) : [];
+    return ps.every((_, i) => Array.isArray(filas[i]) && (filas[i] as unknown[]).length > 0);
+  }
+  return campoLleno(c, v);
 }
 
 /** ¿Lo que contestó alcanza para ENVIAR? Sin campos: la respuesta libre no vacía. Con campos: los obligatorios. */
@@ -483,8 +985,125 @@ export function respuestaCompleta(c: Pick<Clase, 'tarea' | 'campos'>, valores: V
   // Sin ninguno marcado obligatorio, alcanza con que haya contestado ALGO: enviar un formulario
   // vacío no es haber hecho la tarea.
   return obligatorios.length
-    ? obligatorios.every((x) => campoLleno(x, valores[x.id]))
+    ? obligatorios.every((x) => campoCompleto(x, valores[x.id]))
     : c.campos.some((x) => campoLleno(x, valores[x.id]));
+}
+
+// ── El quiz: se corrige en el SERVER ──────────────────────────────────────────
+
+/**
+ * La nota de UN quiz sobre lo que marcó: el % de preguntas bien, y cuáles erró (sus posiciones).
+ * `null` = el quiz no tiene preguntas. Una pregunta está bien si marcó EXACTAMENTE sus correctas
+ * (ni una de más ni una de menos).
+ *
+ * ⚠️ UNA PREGUNTA SIN CORRECTAS CUENTA MAL, a propósito: si por algún camino llegaran los campos SIN
+ * las correctas (los del alumno, `camposParaAlumno`), corregir con ellos aprobaría a cualquiera o a
+ * nadie; así no aprueba a nadie, que es el error que se ve y se reporta.
+ */
+export function corregirQuiz(c: Pick<Campo, 'preguntas'>, v: ValorCampo | undefined): { nota: number; malas: number[] } | null {
+  const ps = c.preguntas ?? [];
+  if (!ps.length) return null;
+  const filas = Array.isArray(v) ? (v as unknown[]) : [];
+  const malas: number[] = [];
+  ps.forEach((p, i) => {
+    const dadas = new Set((Array.isArray(filas[i]) ? (filas[i] as unknown[]) : []).filter((x): x is string => typeof x === 'string'));
+    const buenas = new Set(p.correctas ?? []);
+    const bien = buenas.size > 0 && dadas.size === buenas.size && [...buenas].every((x) => dadas.has(x));
+    if (!bien) malas.push(i);
+  });
+  return { nota: Math.round(((ps.length - malas.length) / ps.length) * 100), malas };
+}
+
+/** Lo que pasó al corregir un envío. `null` = la tarea no tiene quiz (se envía como siempre). */
+export type ResultadoQuiz =
+  | { tipo: 'sin-intentos'; calificacion: Calificacion }
+  | { tipo: 'corregido'; calificacion: Calificacion; aprobado: boolean };
+
+const quizzesDe = (campos: readonly Campo[]) => campos.filter((c) => c.tipo === 'quiz' && (c.preguntas?.length ?? 0) > 0);
+
+/**
+ * Corrige los quizzes de un ENVÍO. Lo llama la ruta de la tarea con los campos DE LA BASE (con las
+ * correctas) y la calificación que ya tenía esa respuesta.
+ *
+ *   · Un quiz YA APROBADO no se vuelve a corregir ni gasta intentos: quedó aprobado (y sus respuestas
+ *     no se tocan, `conQuizzesAprobadosIntactos`).
+ *   · Con un tope de intentos agotado y sin aprobar: `sin-intentos`, y no se corrige nada (no se
+ *     guarda un intento de más). El equipo lo destraba (`darOtroIntento`, lib/curso-entregas.ts).
+ *   · Si no: se corrige, se suma el intento, y `aprobado` = TODOS los quizzes de la tarea con su nota
+ *     mínima. Sin aprobar, la tarea NO queda enviada (la ruta la guarda como borrador): un quiz
+ *     desaprobado no cierra una etapa.
+ */
+export function corregirEnvio(campos: readonly Campo[], valores: Valores, previa: Calificacion | null | undefined, ahora: string): ResultadoQuiz | null {
+  const quizzes = quizzesDe(campos);
+  if (!quizzes.length) return null;
+  const antes = previa ?? {};
+  for (const c of quizzes) {
+    const a = antes[c.id];
+    if (!a?.aprobado && (c.intentos ?? 0) > 0 && (a?.intentos ?? 0) >= (c.intentos ?? 0)) {
+      return { tipo: 'sin-intentos', calificacion: { ...antes } };
+    }
+  }
+  const out: Calificacion = { ...antes };
+  let aprobado = true;
+  for (const c of quizzes) {
+    if (antes[c.id]?.aprobado) continue;
+    const r = corregirQuiz(c, valores[c.id])!;
+    const ok = r.nota >= (c.notaMin ?? NOTA_MIN_DEFAULT);
+    out[c.id] = { nota: r.nota, aprobado: ok, intentos: (antes[c.id]?.intentos ?? 0) + 1, malas: r.malas, at: ahora };
+    if (!ok) aprobado = false;
+  }
+  return { tipo: 'corregido', calificacion: out, aprobado };
+}
+
+/**
+ * Lo que manda el navegador, con las respuestas de los quizzes YA APROBADOS puestas de vuelta como
+ * estaban guardadas. Un quiz aprobado no se vuelve a contestar: si un pedido trae otras respuestas
+ * (una pestaña vieja, uno armado a mano), dejarlas pasar dejaría «aprobado» al lado de respuestas
+ * que nadie corrigió.
+ */
+export function conQuizzesAprobadosIntactos(campos: readonly Campo[], raw: unknown, guardados: Valores | null | undefined, calificacion: Calificacion | null | undefined): unknown {
+  const aprobados = campos.filter((c) => c.tipo === 'quiz' && calificacion?.[c.id]?.aprobado);
+  if (!aprobados.length || !raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const out: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+  for (const c of aprobados) {
+    if (guardados && c.id in guardados) out[c.id] = guardados[c.id];
+    else delete out[c.id];
+  }
+  return out;
+}
+
+/**
+ * Los tipos que NO necesitan que una persona los mire para dar la tarea por buena: lo que se corrige
+ * solo (quiz) y lo que el alumno declara de sí mismo (una escala, una opción, «lo hice»).
+ * Un texto, una tabla, un link o un archivo son un ENTREGABLE: alguien del equipo tiene que verlo.
+ */
+const SIN_REVISION: ReadonlySet<CampoTipo> = new Set<CampoTipo>(['quiz', 'escala', 'eleccion', 'checks', 'checklist', 'confirmacion', 'agenda', 'numero']);
+
+/**
+ * ¿Una tarea con el quiz aprobado queda APROBADA sola (sin que el equipo la marque revisada)?
+ * Sólo si tiene un quiz y nada más que pida una revisión (ver `SIN_REVISION`). Una tarea con un quiz
+ * y un entregable queda ENVIADA: el quiz la habilita, pero el entregable lo mira el equipo.
+ */
+export function seApruebaSola(campos: readonly Campo[]): boolean {
+  return quizzesDe(campos).length > 0 && campos.every((c) => SIN_REVISION.has(c.tipo));
+}
+
+/** La calificación como se lee de la base (jsonb que escribió el server): lo que no cierra se tira. */
+export function leerCalificacion(raw: unknown): Calificacion | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out: Calificacion = {};
+  for (const [k, x] of Object.entries(raw as Record<string, unknown>)) {
+    if (!x || typeof x !== 'object') continue;
+    const o = x as Record<string, unknown>;
+    if (typeof o.nota !== 'number' || typeof o.aprobado !== 'boolean') continue;
+    const n: NotaQuiz = {
+      nota: entero(o.nota, 0, 100, 0), aprobado: o.aprobado, intentos: entero(o.intentos, 0, 1000, 0),
+      at: typeof o.at === 'string' ? o.at : '',
+    };
+    if (Array.isArray(o.malas)) n.malas = o.malas.filter((i): i is number => Number.isInteger(i) && i >= 0).slice(0, MAX_PREGUNTAS);
+    out[k] = n;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 // ── Por área (#665, mig 0212) ─────────────────────────────────────────────────

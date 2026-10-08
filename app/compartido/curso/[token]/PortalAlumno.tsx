@@ -284,6 +284,7 @@ function Tarea({ token, c, estados, valores, resueltas, onEstado, onValores, onR
                 valoresIniciales={valores[k] ?? a.valores}
                 estadoInicial={estados[k] ?? a.estado}
                 propuesta={resueltas.has(k) ? undefined : a.ia}
+                calificacion={a.calificacion}
                 onEstado={(e) => onEstado(k, e)}
                 onValores={(v) => onValores(k, v)}
                 onPropuesta={() => onResuelta(k)}
@@ -305,6 +306,7 @@ function Tarea({ token, c, estados, valores, resueltas, onEstado, onValores, onR
       valoresIniciales={valores[k] ?? c.valores}
       estadoInicial={estados[k] ?? c.estado}
       propuesta={resueltas.has(k) ? undefined : c.ia}
+      calificacion={c.calificacion}
       onEstado={(e) => onEstado(k, e)}
       onValores={(v) => onValores(k, v)}
       onPropuesta={() => onResuelta(k)}

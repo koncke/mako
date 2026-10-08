@@ -38,6 +38,14 @@ import { PARAM_CLIENTE, leerClienteDeUrl } from '@/app/plan/board/filtro-cliente
 import { ultimoContactoDeClientes } from '@/lib/cs-cartera';
 import { sincronizarOnboardingClientes } from './onboarding-clientes-sync';
 import { serviciosConEtapas, filasDeEntrega } from './onboarding-clientes';
+import { clasesDelProducto, progresoDeClientes } from '@/lib/curso-datos';
+import { accesosDeClientes } from '@/lib/curso-admin';
+import { colorDeEtapa } from '@/lib/servicio-etapas';
+import type { Clase } from '@/lib/curso';
+import { esDelProducto } from './pertenencia';
+import { avanceDeCliente, etapaDelCliente, ordenarFilas } from './curso/reglas';
+import type { FilaConAcceso } from './curso/AvanceCurso';
+import type { CursoClientes } from './ClientesApp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -169,6 +177,13 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
     movidos: entrega.ok ? filasDeEntrega(entrega.porServicio) : null,
   });
 
+  /**
+   * EL CURSO DE LA CARTERA (07/10/2026, items 4 y 9): la vista «Avance» y el menú de cada tarjeta
+   * («Invitar al curso», «Permisos del curso»). Viene con el HTML por la regla de esta pantalla:
+   * cambiar a Avance es un filtro sobre lo que ya llegó, sin estado de carga.
+   */
+  const curso = entrega.ok && clientes.length ? await cursoDeLaCartera(clientes, entrega) : undefined;
+
   // ⚠️ LA CARTERA VIENE CON EL HTML, por lo mismo que el trabajo: la ficha es un
   // modal sin estado de carga, y pedirle esto al abrirse le devolvería el «Leyendo
   // lo suyo» que esta pantalla ya se sacó de encima. Son dos consultas chicas sobre
@@ -277,6 +292,18 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
    * ninguna ficha (la busca en la lista que ya pasó por `getWorkspaceActual`).
    */
   const clienteInicial = leerClienteDeUrl((await searchParams)[PARAM_CLIENTE]);
+  const sp = await searchParams;
+  /**
+   * LA VISTA Y EL SERVICIO CON QUE ABRE: `?vista=avance&producto=<id>` (07/10/2026). La vista Avance
+   * se mudó de la tab Curso (item 4), y los links viejos (`/customer-success/curso?vista=avance`, el
+   * «Ir a Avance» del onboarding del curso) tienen que caer ACÁ, en esa vista y en ese producto. Se
+   * lee en el server por lo mismo que `?cliente=`: viene con el HTML, sin parpadeo. Un valor que no
+   * sirve no abre nada raro: la vista se valida contra las que la pantalla ofrece y el producto
+   * contra sus servicios (ClientesApp).
+   */
+  const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const vistaInicial = uno(sp.vista) === 'avance' ? 'avance' as const : null;
+  const productoInicial = /^[1-9]\d{0,11}$/.test(uno(sp.producto) ?? '') ? Number(uno(sp.producto)) : null;
 
   const clientesConFicha: ClienteCruce[] = clientes.map((c) => ({
     ...c,
@@ -308,12 +335,75 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
       puedeEditarEtapas={(await adminDeWorkspaceActual()) != null}
       clienteInicial={clienteInicial}
       onboarding={onboarding}
+      curso={curso}
+      vistaInicial={vistaInicial}
+      productoInicial={productoInicial}
     />
   );
 }
 
 const mensaje = (e: unknown): string =>
   e instanceof Error ? e.message : 'No pude leer tus clientes.';
+
+/**
+ * Lo que la cartera necesita del curso: qué productos tienen clases, el acceso de cada cliente (con
+ * su INVITACIÓN: a qué email y cuándo) y las filas de Avance de cada producto.
+ *
+ * ⚠️ LAS FILAS SE ARMAN CON LAS MISMAS FUNCIONES QUE LA TAB CURSO Y LA FICHA (`etapaDelCliente`,
+ * `avanceDeCliente`, `ordenarFilas` de ./curso/reglas.ts y `esDelProducto` de ./pertenencia.ts). Es
+ * la tabla que se mudó de /customer-success/curso (item 4): con una cuenta propia acá, la ficha y
+ * esta vista podrían decir dos cosas del mismo cliente.
+ *
+ * ⚠️ EL ACCESO TRAE EMAIL E `invitacion_enviada_at` (`accesosDeClientes`). Sin eso la columna
+ * «Acceso» le ofrecía «Invitar» —nunca «Reenviar»— a gente ya invitada, con el modal vacío.
+ *
+ * ⚠️ CADA LECTURA FALLA POR SU CUENTA. Las clases o el progreso caídos → la vista dice «no pude
+ * leer» (una tabla vacía se leería como «nadie empezó»). Los accesos caídos → `null`: la columna dice
+ * «—» y la tarjeta NO ofrece invitar (no se invita a ciegas: podría ser un segundo mail).
+ */
+async function cursoDeLaCartera(
+  clientes: Awaited<ReturnType<typeof clientesGanados>>,
+  entrega: Extract<Awaited<ReturnType<typeof carteraEnEntrega>>, { ok: true }>,
+): Promise<CursoClientes> {
+  const ids = clientes.map((c) => c.leadId);
+  const [clasesR, progresoR, accesosR] = await Promise.all([
+    Promise.all(entrega.servicios.map(async (s) => [s.productoId, await clasesDelProducto(s.productoId)] as const))
+      .then((xs) => ({ ok: true as const, m: new Map<number, Clase[]>(xs) }), (e) => ({ ok: false as const, error: mensaje(e) })),
+    progresoDeClientes(ids).then((m) => ({ ok: true as const, m }), (e) => ({ ok: false as const, error: mensaje(e) })),
+    accesosDeClientes(ids).catch((e) => { console.warn('[cs] no pude leer los accesos al curso:', mensaje(e)); return null; }),
+  ]);
+
+  const conCurso: Record<number, boolean> = {};
+  if (clasesR.ok) for (const [p, cs] of clasesR.m) conCurso[p] = cs.length > 0;
+  const sinFila = { estado: 'sin-link' as const, ingresos: 0, ultimoIngresoAt: null, email: null, invitacionEnviadaAt: null };
+  const accesoDe = (leadId: number): FilaConAcceso['acceso'] => (accesosR ? (accesosR.get(leadId) ?? sinFila) : null);
+  const accesos: CursoClientes['accesos'] = accesosR ? Object.fromEntries(ids.map((id) => [id, accesoDe(id)])) : null;
+
+  // Con las clases caídas tampoco se sabe qué producto tiene curso: `conCurso` va vacío y la
+  // tarjeta no ofrece nada del curso (no se invita a un curso que no se pudo leer).
+  if (!clasesR.ok) return { conCurso, accesos, avance: { ok: false, error: clasesR.error } };
+  if (!progresoR.ok) return { conCurso, accesos, avance: { ok: false, error: progresoR.error } };
+  const porProducto: Extract<CursoClientes['avance'], { ok: true }>['porProducto'] = {};
+  for (const s of entrega.servicios) {
+    const clases = clasesR.m.get(s.productoId) ?? [];
+    if (!clases.length) continue;
+    const keys = s.etapas.map((e) => e.key);
+    const asignacion = entrega.porServicio[s.productoId] ?? {};
+    const filas = clientes
+      .filter((c) => esDelProducto(c.leadId, s.productoId, entrega.casaPorLead, asignacion))
+      .map((c): FilaConAcceso => {
+        const etapa = etapaDelCliente(keys, asignacion[c.leadId]?.etapa);
+        const a = avanceDeCliente(clases, keys, etapa, progresoR.m.get(c.leadId));
+        return { leadId: c.leadId, nombre: c.nombre, empresa: c.empresa ?? null, email: c.email ?? null, etapa, ...a, acceso: accesoDe(c.leadId) };
+      });
+    porProducto[s.productoId] = {
+      etapas: s.etapas.map((e) => ({ key: e.key, label: e.label, color: colorDeEtapa(e, s.fases) })),
+      // `ordenarFilas` reordena los MISMOS objetos: el email y la invitación viajan con cada fila.
+      filas: ordenarFilas(filas, keys),
+    };
+  }
+  return { conCurso, accesos, avance: { ok: true, porProducto } };
+}
 
 /**
  * El plan y el equipo de los clientes que esta agencia tiene aprobados.

@@ -83,6 +83,19 @@ const comoTexto = (v: unknown): string | null =>
  *                filas fijas, tienen que estar todas, y la primera columna la pone el FORMULARIO
  *                (es la etiqueta de la fila, como la guarda el portal): no la decide el modelo.
  */
+/**
+ * Los tipos de campo que la IA puede reescribir: los de TEXTO (y las elecciones sobre sus opciones).
+ * Los de #18 (archivo, audio, video, link, escala, quiz, checklist, agenda, confirmación) no: un
+ * archivo, una grabación o una nota de quiz no salen de «lo que se habló en la llamada».
+ *
+ * ⚠️ SIN ESTA LISTA, UN TIPO NUEVO APAGABA LAS PROPUESTAS EN SILENCIO: `formaDeCampo` devuelve null
+ * para lo que no conoce, y `validarPropuesta` es todo o nada, así que bastaba que el modelo repitiera
+ * la clave de un quiz para que se tirara la propuesta entera (revisión del 07/10/2026). Y el prompt
+ * le mandaba al modelo las respuestas del quiz y los paths de los archivos, que no le sirven de nada.
+ */
+const PROPONIBLES: ReadonlySet<Campo['tipo']> = new Set(['texto', 'linea', 'numero', 'eleccion', 'checks', 'tabla']);
+export const esProponible = (c: Pick<Campo, 'tipo'>): boolean => PROPONIBLES.has(c.tipo);
+
 function formaDeCampo(c: Campo, v: unknown): ValorCampo | null {
   if (c.tipo === 'texto' || c.tipo === 'linea' || c.tipo === 'numero') return comoTexto(v);
   if (c.tipo === 'eleccion') {
@@ -166,6 +179,8 @@ export function validarPropuesta(campos: readonly Campo[], actuales: Valores, ra
   const mezcla: Record<string, unknown> = { ...actual };
   for (const [k, v] of Object.entries(raw)) {
     const c = porId.get(k)!;
+    // Una clave de un campo que la IA no reescribe se IGNORA (queda lo del cliente), no tira todo.
+    if (!esProponible(c)) continue;
     const f = formaDeCampo(c, v);
     if (f == null) return { ok: false, motivo: 'forma', detalle: k };
     if (campoLleno(c, f)) mezcla[k] = f;
@@ -259,6 +274,8 @@ export function candidatasDePropuesta(p: {
   const out: Candidata[] = [];
   for (const c of p.clases) {
     if (!tieneTarea(c)) continue;
+    // Una tarea hecha sólo de campos que la IA no reescribe (un quiz, un archivo) no tiene qué proponer.
+    if (c.campos.length && !c.campos.some(esProponible)) continue;
     const areas = c.porArea === true && p.areas.length ? p.areas : [''];
     for (const area of areas) {
       const f = fila.get(`${c.id}|${area}`);
@@ -279,12 +296,19 @@ export function candidatasDePropuesta(p: {
 /** El formulario de una clase, con lo que el modelo necesita para respetar su forma. */
 function formularioDe(c: Clase): unknown[] {
   if (!c.campos.length) return [{ id: 'respuesta', tipo: 'texto', pregunta: c.tarea.trim() || c.titulo }];
-  return c.campos.map((x) => ({
+  return c.campos.filter(esProponible).map((x) => ({
     id: x.id, pregunta: x.label, tipo: x.tipo,
     ...(x.opciones?.length ? { opciones: x.opciones } : {}),
     ...(x.columnas?.length ? { columnas: x.columnas } : {}),
     ...(x.filasFijas?.length ? { filasFijas: x.filasFijas } : {}),
   }));
+}
+
+/** Lo contestado, sin los campos que la IA no reescribe (la nota de un quiz, los paths de un archivo). */
+function soloProponible(c: Clase, valores: Valores): Valores {
+  if (!c.campos.length) return valores;
+  const ids = new Set(c.campos.filter(esProponible).map((x) => x.id));
+  return Object.fromEntries(Object.entries(valores).filter(([k]) => ids.has(k))) as Valores;
 }
 
 /** El bloque de respuestas del prompt. Va entero adentro de `contenidoNoConfiable`: lo escribió el cliente. */
@@ -294,7 +318,7 @@ export function bloqueRespuestas(cands: readonly Candidata[]): string {
     `Clase: ${c.clase.titulo}`,
     c.clase.tarea.trim() ? `Instrucción: ${c.clase.tarea.trim()}` : null,
     `Formulario: ${JSON.stringify(formularioDe(c.clase))}`,
-    `Lo que contestó: ${JSON.stringify(c.valores)}`,
+    `Lo que contestó: ${JSON.stringify(soloProponible(c.clase, c.valores))}`,
   ].filter(Boolean).join('\n')).join('\n\n');
 }
 

@@ -13,9 +13,16 @@
 // dueño). Lo que se da es el acceso al CURSO, un link firmado (lib/curso-acceso.ts), y el mail
 // lleva el link de entrada de la versión vigente.
 //
-// ⚠️ LO USAN DOS PANTALLAS, y por eso vive acá y no adentro de una: la caja «Acceso al curso» de
-// la ficha (../FichaCurso.tsx) y la columna «Acceso» de la tabla Avance (./AvanceCurso.tsx). Con
-// el modal escrito dos veces, uno de los dos se queda sin el «sólo si salió».
+// ⚠️ LO USAN TRES PANTALLAS, y por eso vive acá y no adentro de una: la caja «Acceso al curso» de
+// la ficha (../FichaCurso.tsx), la columna «Acceso» de la tabla Avance (./AvanceCurso.tsx) y,
+// desde el 07/10/2026, la opción «Invitar al curso» del menú de la tarjeta del kanban
+// (../ClienteCard.tsx, que monta `ModalInvitar` sin botón). Con el modal escrito dos veces, uno
+// de los dos se queda sin el «sólo si salió».
+//
+// ⚠️ Y EN LA TARJETA EL PORTAL TAMBIÉN SALVA EL ARRASTRE: la tarjeta es `draggable`, y un texto
+// arrastrado adentro del campo del email subiría por el árbol de React hasta el `dragstart` del
+// kanban. Lo corta la guarda de `agarrar` (KanbanEntrega.tsx), que mira si el gesto nació adentro
+// de la tarjeta EN EL DOM — y un portal la saca del DOM.
 //
 // ⚠️ EL MODAL VA POR PORTAL AL BODY. En la ficha se abre adentro de OTRO modal (la ficha es un
 // `contenedor`): montado ahí sería un descendiente de su DOM y la pila de modales lo apagaría
@@ -44,76 +51,82 @@ import {
 
 const msg = (e: unknown, def: string) => (e instanceof Error ? e.message : def);
 
-/**
- * El botón «Invitar» (o «Reenviar invitación» si ya se lo invitó) y su modal.
- *
- * `onListo(acceso, aviso)`: cada vez que el server contestó. `acceso` es el releído (`null` =
- * no se pudo releer: quien llama se queda con el que tenía) y `aviso` viene SÓLO cuando el
- * modal se cerró con algo que decir (el mail salió pero no quedó anotado): si el mail no salió,
- * el motivo se dice adentro del modal, que se queda abierto.
- */
-export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, variant = 'secondary', areas, lideres, onLideres }: {
+/** Lo que necesita el modal de invitar. Lo comparten el botón (`BotonInvitar`) y la tarjeta del kanban. */
+type PropsInvitar = {
   leadId: number;
   nombre: string;
   /** El email del CRM, con el que se prellena. Se pide IGUAL: puede ser el del contacto comercial. */
   emailCrm: string | null | undefined;
   acceso: AccesoInvitacion | null;
+  /**
+   * Cada vez que el server contestó. `acceso` es el releído (`null` = no se pudo releer: quien
+   * llama se queda con el que tenía) y `aviso` viene SÓLO cuando el modal se cerró con algo que
+   * decir (el mail salió pero no quedó anotado): si el mail no salió, el motivo se dice adentro del
+   * modal, que se queda abierto.
+   */
   onListo: (acceso: AccesoFicha | null, aviso: AvisoInvitacionCurso | null) => void;
-  variant?: ButtonVariant;
   /**
    * Las áreas del cliente, si su curso tiene clases por área (#665): el modal suma «Para» y se puede
-   * invitar al LÍDER de un área a SUS tareas, con su propio link. Sin áreas (la tabla Avance, o un
-   * curso sin clases por área) el modal es el de siempre.
+   * invitar al LÍDER de un área a SUS tareas, con su propio link. Sin áreas (la tabla Avance, la
+   * tarjeta del kanban, o un curso sin clases por área) el modal es el de siempre.
    */
   areas?: readonly string[];
   /** Los accesos de los líderes: de acá sale con qué email se prellena el de un área ya invitada. */
   lideres?: readonly AccesoLiderFicha[];
   /** Los líderes como quedaron después de invitar a uno. */
   onLideres?: (l: AccesoLiderFicha[]) => void;
+};
+
+/**
+ * El MODAL de invitar, sin botón: lo abre quien lo monta y lo cierra `onCerrar`.
+ *
+ * ⚠️ VIVE APARTE DEL BOTÓN DESDE EL 07/10/2026: la tarjeta del kanban lo abre desde una opción de su
+ * menú «Acciones» (ClienteCard.tsx), donde un botón más no entra — la fila de la tarjeta es `nowrap`
+ * y cada control extra la desborda. Con el modal escrito dos veces, uno se queda sin el «sólo si salió».
+ *
+ * `onEnviada`: el mail SALIÓ (para el «Enviada» del botón que lo abrió, si hay uno).
+ */
+export function ModalInvitar({ leadId, nombre, emailCrm, acceso, onListo, areas, lideres, onLideres, onCerrar, onEnviada }: PropsInvitar & {
+  onCerrar: () => void;
+  onEnviada?: () => void;
 }) {
   const id = useId();
-  const [abierto, setAbierto] = useState(false);
-  /** A quién: `''` = el cliente; un nombre = el líder de esa área. */
-  const [para, setPara] = useState('');
-  const [correo, setCorreo] = useState('');
-  const [mandando, setMandando] = useState(false);
-  const mandandoRef = useRef(false);
-  const [error, setError] = useState('');
-  const enviada = useOkFlash();
-
-  /**
-   * ⚠️ `onCerrar` ESTABLE, no una flecha nueva en cada render. El efecto de `Modal` depende de
-   * `onCerrar`: con una identidad nueva por tecla, su limpieza devuelve el foco al botón de atrás
-   * y vuelve a enfocar la caja — o sea que el campo pierde el foco con cada letra. Lo que mira si
-   * hay un envío en curso va por ref para no cambiar la identidad.
-   */
-  const cerrar = useCallback(() => { if (!mandandoRef.current) setAbierto(false); }, []);
-
-  // ⚠️ EL FOCO AL CAMPO VA DESPUÉS DEL DEL MODAL. `Modal` enfoca su caja al montarse, y eso corre
-  // DESPUÉS del `autoFocus` del input (los efectos van después del commit): el campo quedaba sin
-  // foco. Este efecto es del padre del modal, así que corre después del suyo.
-  useEffect(() => {
-    if (abierto) (document.getElementById(id) as HTMLInputElement | null)?.focus();
-  }, [abierto, id]);
   const estado = estadoDeInvitacion(acceso);
   const reenviar = estado.tipo === 'invitado';
   const quien = nombre || 'este cliente';
-  const sirve = emailUtilizable(correo);
-
-  const conAreas = (areas?.length ?? 0) > 0;
   /** Con qué email arranca cada destinatario: el cliente, con el de su invitación o el del CRM; un
    *  líder, con el de su invitación si ya tenía una — nunca con el del cliente, que es otra persona. */
   const emailDe = (area: string) => area
     ? lideres?.find((l) => l.area === area)?.email ?? ''
     : (estado.tipo === 'invitado' ? estado.email : null) ?? emailCrm ?? '';
+  /** A quién: `''` = el cliente; un nombre = el líder de esa área. */
+  const [para, setPara] = useState('');
+  // Reenviar arranca con la dirección a la que ya se mandó; invitar, con la del CRM. Se siembra UNA
+  // vez: el modal se monta al abrirse, así que cada apertura arranca de nuevo.
+  const [correo, setCorreo] = useState(() => emailDe(''));
+  const [mandando, setMandando] = useState(false);
+  const mandandoRef = useRef(false);
+  const [error, setError] = useState('');
 
-  const abrir = () => {
-    // Reenviar arranca con la dirección a la que ya se mandó; invitar, con la del CRM.
-    setPara('');
-    setCorreo(emailDe(''));
-    setError('');
-    setAbierto(true);
-  };
+  /**
+   * ⚠️ `onCerrar` ESTABLE, no una flecha nueva en cada render. El efecto de `Modal` depende de
+   * `onCerrar`: con una identidad nueva por tecla, su limpieza devuelve el foco al botón de atrás
+   * y vuelve a enfocar la caja — o sea que el campo pierde el foco con cada letra. Lo que mira si
+   * hay un envío en curso va por ref, y el `onCerrar` de quien lo monta también: así la identidad
+   * no cambia aunque el padre pase una flecha nueva en cada render.
+   */
+  const alCerrar = useRef(onCerrar);
+  alCerrar.current = onCerrar;
+  const cerrar = useCallback(() => { if (!mandandoRef.current) alCerrar.current(); }, []);
+
+  // ⚠️ EL FOCO AL CAMPO VA DESPUÉS DEL DEL MODAL. `Modal` enfoca su caja al montarse, y eso corre
+  // DESPUÉS del `autoFocus` del input (los efectos van después del commit): el campo quedaba sin
+  // foco. Este efecto es del padre del modal, así que corre después del suyo.
+  useEffect(() => {
+    (document.getElementById(id) as HTMLInputElement | null)?.focus();
+  }, [id]);
+  const sirve = emailUtilizable(correo);
+  const conAreas = (areas?.length ?? 0) > 0;
 
   async function mandar() {
     if (!sirve || mandandoRef.current) return;
@@ -132,8 +145,9 @@ export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, varian
         setError(r.aviso.texto);
         return;
       }
-      setAbierto(false);
-      enviada.flash();
+      // `alCerrar` y no `cerrar`: `cerrar` se niega mientras hay un envío en curso, y éste terminó.
+      alCerrar.current();
+      onEnviada?.();
       onListo('acceso' in r ? r.acceso : null, r.aviso.tono === 'warn' ? r.aviso : null);
     } catch (e) {
       setError(msg(e, 'No se pudo invitar.'));
@@ -143,50 +157,59 @@ export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, varian
     }
   }
 
+  return createPortal(
+    <Modal
+      titulo={para ? `Invitar al líder de ${para}` : reenviar ? `Reenviar a ${quien}` : `Invitar a ${quien}`}
+      encabezado="Acceso al curso"
+      ancho={440}
+      /* ⚠️ `anidada`: en la ficha se abre DESDE un control de la ficha y es parte de la misma
+         tarea, así que la de atrás se sigue viendo. Sin esto la ficha desaparece y parece
+         que el botón la cerró. En la tabla y en el kanban no hay nada atrás y no cambia nada. */
+      anidada
+      onCerrar={cerrar}
+      pie={
+        <>
+          <Button variant="secondary" disabled={mandando} onClick={cerrar}>Cancelar</Button>
+          {/* El botón dice LO QUE PASA: se le escribe a alguien, y eso no se deshace. */}
+          <Button variant="primary" loading={mandando} disabled={!sirve} onClick={() => void mandar()}>
+            Mandar invitación
+          </Button>
+        </>
+      }
+    >
+      {/* A QUIÉN (#665): el cliente o el líder de una de sus áreas. Cambiar de destinatario
+          cambia el email con el que arranca: el del cliente no es el de su líder. */}
+      {conAreas && (
+        <Select label="Para" value={para} width="100%"
+          options={[{ value: '', label: nombre || 'El cliente' }, ...(areas ?? []).map((a) => ({ value: a, label: `Líder de ${a}` }))]}
+          onChange={(v) => { setPara(v); setCorreo(emailDe(v)); setError(''); }} />
+      )}
+      {/* La consecuencia, pegada al campo y ANTES del click. Si algo falla, el motivo
+          ocupa su lugar. */}
+      <Field label={para ? `Email del líder de ${para}` : `Email de ${nombre || 'el cliente'}`} htmlFor={id}
+        hint={para ? 'Le llega el link de sus tareas.' : 'Le llega un correo con su acceso.'} error={error || undefined}>
+        <Input id={id} type="email" value={correo} placeholder="persona@empresa.com"
+          onChange={(e) => setCorreo(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') void mandar(); }} />
+      </Field>
+    </Modal>,
+    document.body,
+  );
+}
+
+/** El botón «Invitar» (o «Reenviar invitación» si ya se lo invitó) y su modal. */
+export function BotonInvitar({ variant = 'secondary', ...props }: PropsInvitar & { variant?: ButtonVariant }) {
+  const [abierto, setAbierto] = useState(false);
+  const enviada = useOkFlash();
+  const reenviar = estadoDeInvitacion(props.acceso).tipo === 'invitado';
+  const quien = props.nombre || 'este cliente';
   return (
     <>
-      <Button size="sm" variant={variant} ok={enviada.ok} okLabel="Enviada" onClick={abrir}
+      <Button size="sm" variant={variant} ok={enviada.ok} okLabel="Enviada" onClick={() => setAbierto(true)}
         title={reenviar ? `Mandarle otra vez el acceso a ${quien}` : `Mandarle a ${quien} su acceso al curso`}>
         {reenviar ? 'Reenviar invitación' : 'Invitar'}
       </Button>
-      {abierto && createPortal(
-        <Modal
-          titulo={para ? `Invitar al líder de ${para}` : reenviar ? `Reenviar a ${quien}` : `Invitar a ${quien}`}
-          encabezado="Acceso al curso"
-          ancho={440}
-          /* ⚠️ `anidada`: en la ficha se abre DESDE un control de la ficha y es parte de la misma
-             tarea, así que la de atrás se sigue viendo. Sin esto la ficha desaparece y parece
-             que el botón la cerró. En la tabla no hay nada atrás y no cambia nada. */
-          anidada
-          onCerrar={cerrar}
-          pie={
-            <>
-              <Button variant="secondary" disabled={mandando} onClick={cerrar}>Cancelar</Button>
-              {/* El botón dice LO QUE PASA: se le escribe a alguien, y eso no se deshace. */}
-              <Button variant="primary" loading={mandando} disabled={!sirve} onClick={() => void mandar()}>
-                Mandar invitación
-              </Button>
-            </>
-          }
-        >
-          {/* A QUIÉN (#665): el cliente o el líder de una de sus áreas. Cambiar de destinatario
-              cambia el email con el que arranca: el del cliente no es el de su líder. */}
-          {conAreas && (
-            <Select label="Para" value={para} width="100%"
-              options={[{ value: '', label: nombre || 'El cliente' }, ...(areas ?? []).map((a) => ({ value: a, label: `Líder de ${a}` }))]}
-              onChange={(v) => { setPara(v); setCorreo(emailDe(v)); setError(''); }} />
-          )}
-          {/* La consecuencia, pegada al campo y ANTES del click. Si algo falla, el motivo
-              ocupa su lugar. */}
-          <Field label={para ? `Email del líder de ${para}` : `Email de ${nombre || 'el cliente'}`} htmlFor={id}
-            hint={para ? 'Le llega el link de sus tareas.' : 'Le llega un correo con su acceso.'} error={error || undefined}>
-            <Input id={id} type="email" value={correo} placeholder="persona@empresa.com"
-              onChange={(e) => setCorreo(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void mandar(); }} />
-          </Field>
-        </Modal>,
-        document.body,
-      )}
+      {abierto && <ModalInvitar {...props} onCerrar={() => setAbierto(false)} onEnviada={enviada.flash} />}
     </>
   );
 }
