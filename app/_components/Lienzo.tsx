@@ -30,12 +30,20 @@
 //    60 veces por segundo.
 // 4. `touch-action: none` es obligatorio para el pellizco y ATRAPA el scroll de la
 //    página: por eso el alto tiene tope y el lienzo no ocupa todo el largo.
+//
+// ── LAS SALIDAS (08/10/2026) ────────────────────────────────────────────────
+// Un nodo con `puertos` dibuja un PUNTO por salida en su borde derecho, y un ＋ al lado
+// del punto cuando esa salida está vacía: así se crean las ramas de una condición
+// «arriba y abajo» (punto 9), sin arrastrar flechas. El ＋ del medio de una flecha
+// inserta EN el puerto del que sale esa flecha. Todo es opcional: el lienzo de
+// /mensajes no tiene puertos y se dibuja como siempre.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
-  curvaEntre, medioDeCurva, vistaConPanel, vistaAlCerrarPanel, type VistaLienzo,
+  curvaEntre, medioDeCurva, vistaConPanel, vistaAlCerrarPanel, yDePuerto, tieneFilas,
+  ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, type VistaLienzo,
   type GrafoFlujo, type NodoFlujo, type TonoArista,
 } from '@/lib/lienzo-grafo';
 
@@ -75,7 +83,8 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
-  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false, insetIzq = 0,
+  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, opcionesEn, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false, insetIzq = 0, insetDer = 0,
+  onBorrar, puedeBorrar,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -120,13 +129,41 @@ export function Lienzo({
    * error y en pantalla se lee como un título que no se puede editar.
    */
   insetIzq?: number;
+  /**
+   * LO MISMO DEL LADO DERECHO: cuánto se corre lo que flota a la derecha cuando la
+   * pantalla apoya algo sobre ese borde (el panel de «Probar» de /chatbot).
+   *
+   * ⚠️ SON CUATRO LUGARES, como el inset izquierdo (AGENTS.md, «apoyar algo sobre el borde
+   * de un lienzo»): el chrome (su borde derecho), «Publicar» (`accion`), el ANCHO del
+   * panel del nodo (que abre a la izquierda y no puede meterse debajo) y el ENCUADRE, que
+   * es el que no se ve: centrar sobre el ancho entero mete la última columna debajo del
+   * panel, y una tarjeta tapada no da error — no responde.
+   */
+  insetDer?: number;
   /** Sin borde ni radio: cuando el lienzo ES el recuadro, el marco lo pone la caja
    *  de afuera y dos marcos anidados dejan un filete doble. */
   sinMarco?: boolean;
   /** Agregar un paso DESPUÉS de este nodo. Dibuja un «＋» al pasar el cursor por la
    *  tarjeta, a su derecha — que es donde va a aparecer lo que se agregue. Un botón
-   *  suelto en una esquina no dice DÓNDE entra el paso; éste sí. */
-  onAgregarTras?: (id: string, que: string) => void;
+   *  suelto en una esquina no dice DÓNDE entra el paso; éste sí.
+   *
+   *  `puerto`: de qué salida. Lo pasan el ＋ de un punto vacío y el ＋ del medio de una
+   *  flecha que sale de un puerto. Ausente = el nodo no tiene puertos (/mensajes). */
+  onAgregarTras?: (id: string, que: string, puerto?: string) => void;
+  /**
+   * Qué se puede agregar EN un lugar (un nodo, una de sus salidas, el medio de una
+   * flecha). Gana sobre `opcionesAgregar` y sobre su filtro del medio, que es de /mensajes:
+   * en una conversación con ramas un mensaje entre dos tarjetas es lo normal, y debajo de
+   * «Si responde» no se puede esperar.
+   */
+  opcionesEn?: (nodo: string, puerto: string | undefined, medio: boolean) => DropdownOption[];
+  /**
+   * La papelera de la cabecera del panel. Reemplaza al «Quitar este mensaje» de abajo de
+   * cada editor: borrar es de la TARJETA, no de uno de sus campos, y al pie del editor
+   * quedaba lejos y distinto en cada clase de tarjeta.
+   */
+  onBorrar?: (id: string) => void;
+  puedeBorrar?: (id: string) => boolean;
   /** En qué nodos tiene sentido el ＋. Sin esto sale en TODOS, incluido el de entrada
    *  — y el paso que agrega ahí no cuelga de él sino del mensaje, así que el botón
    *  señala un lugar y el paso cae en otro. Eso es el «se comporta de manera random». */
@@ -194,7 +231,7 @@ export function Lienzo({
     // tocar un nodo devolvía el lienzo a su posición inicial y deshacía el paneo que
     // la persona acababa de hacer. El síntoma no se lee como un bug del encuadre:
     // se lee como que el lienzo «rebota solo».
-    const firma = `${Math.round(grafo.ancho)}x${Math.round(grafo.alto)}@${w}x${h}+${insetIzq}`;
+    const firma = `${Math.round(grafo.ancho)}x${Math.round(grafo.alto)}@${w}x${h}+${insetIzq}+${insetDer}`;
     if (!forzar && encuadrado.current === firma) return;
     encuadrado.current = firma;
     /**
@@ -210,14 +247,15 @@ export function Lienzo({
      *
      * Lo que se centra es el ancho ÚTIL (el que nadie tapa); el `tx` arranca después
      * del inset. Lo tapado sigue dibujándose —la cuadrícula es lo que se quería ver
-     * ahí— y nada del grafo nace abajo.
+     * ahí— y nada del grafo nace abajo. El inset derecho (el panel de «Probar») se
+     * descuenta igual: es el mismo problema contra el otro borde.
      */
-    const wUtil = Math.max(1, w - insetIzq);
+    const wUtil = Math.max(1, w - insetIzq - insetDer);
     const k = Math.min(1, Math.min(wUtil / grafo.ancho, h / grafo.alto));
     vista.current = { k, tx: insetIzq + (wUtil - grafo.ancho * k) / 2, ty: (h - grafo.alto * k) / 2 };
     setZoomTxt(Math.round(k * 100));
     pintar();
-  }, [grafo.ancho, grafo.alto, insetIzq, pintar]);
+  }, [grafo.ancho, grafo.alto, insetIzq, insetDer, pintar]);
 
   useEffect(() => { encuadrar(); }, [encuadrar]);
 
@@ -452,7 +490,7 @@ export function Lienzo({
               const h = grafo.nodos.find((n) => n.id === a.hasta);
               if (!d || !h) return null;
               return (
-                <path key={i} d={curvaEntre(d, h)} fill="none" stroke={COLOR_TONO[a.tono]}
+                <path key={i} d={curvaEntre(d, h, a.puerto)} fill="none" stroke={COLOR_TONO[a.tono]}
                   strokeWidth={1.6} strokeDasharray={a.tono === 'condicional' ? '5 4' : undefined}
                   markerEnd={`url(#punta-${a.tono})`} opacity={0.85} />
               );
@@ -474,12 +512,16 @@ export function Lienzo({
             Va con una zona de hover PROPIA y gorda (28 px), no sobre el `<path>`: un
             trazo de 1,6 px es imposible de apuntar, que es la misma medición que ya
             obligó a darle al ＋ de la tarjeta un puente de 8 px de padding.
+
+            ⚠️ CON PUERTOS, INSERTA EN EL PUERTO DE LA FLECHA (`a.puerto`), no «después
+            del nodo»: con N salidas eso es ambiguo, y el ＋ de la rama de abajo agregaba
+            en la de arriba.
           */}
-          {onAgregarTras && opcionesAgregar && grafo.aristas.map((a, i) => {
+          {onAgregarTras && (opcionesEn || opcionesAgregar) && grafo.aristas.map((a, i) => {
             const d = grafo.nodos.find((n) => n.id === a.desde);
             const h = grafo.nodos.find((n) => n.id === a.hasta);
             if (!d || !h || a.sinMas) return null;
-            const m = medioDeCurva(d, h);
+            const m = medioDeCurva(d, h, a.puerto);
             const abierta = enFlecha === i;
             return (
               <div key={`mas-${i}`} data-no-pan
@@ -501,10 +543,11 @@ export function Lienzo({
                     value="" ariaLabel="Agregar algo en el medio"
                     sinFlecha botonLabel="＋" disabled={agregarOcupado}
                     buttonStyle={{ width: 22, height: 22, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, lineHeight: 1 }}
-                    // En el MEDIO de una flecha no se ofrece un mensaje: un canal se
-                    // prende para el mensaje entero, no entre dos pasos.
-                    options={opcionesAgregar.filter((o) => o.value === 'delay' || o.value === 'condicional' || o.value === 'accion')}
-                    onChange={(v) => v && onAgregarTras(a.desde, v)}
+                    // En el MEDIO de una flecha de /mensajes no se ofrece un mensaje: un
+                    // canal se prende para el mensaje entero, no entre dos pasos. Quien
+                    // pasa `opcionesEn` decide lo suyo.
+                    options={opcionesEn ? opcionesEn(a.desde, a.puerto, true) : (opcionesAgregar ?? []).filter((o) => o.value === 'delay' || o.value === 'condicional' || o.value === 'accion')}
+                    onChange={(v) => v && onAgregarTras(a.desde, v, a.puerto)}
                   />
                 )}
               </div>
@@ -516,7 +559,7 @@ export function Lienzo({
             const d = grafo.nodos.find((n) => n.id === a.desde);
             const h = grafo.nodos.find((n) => n.id === a.hasta);
             if (!d || !h) return null;
-            const m = medioDeCurva(d, h);
+            const m = medioDeCurva(d, h, a.puerto);
             return (
               <div key={`et-${i}`} style={{
                 position: 'absolute', left: m.x, top: m.y, transform: 'translate(-50%, -50%)',
@@ -561,7 +604,9 @@ export function Lienzo({
               onBlur={() => setEncima((prev) => (prev === n.id ? null : prev))}
             >
               {renderNodo(n, seleccion === n.id)}
-              {onAgregarTras && encima === n.id && (puedeAgregarTras?.(n.id) ?? true) && (
+              {/* Un nodo CON puertos agrega desde sus puntos (abajo), no desde el ＋ de
+                  pasar el cursor: dos ＋ en la misma tarjeta prometerían dos lugares. */}
+              {onAgregarTras && !n.puertos && encima === n.id && (puedeAgregarTras?.(n.id) ?? true) && (
                 <span
                   // ⚠️ El `data-no-pan` va en el SPAN y no sólo en el botón: un
                   // pointerdown en los 8 px de padding no encuentra `[data-nodo]` —el
@@ -598,6 +643,42 @@ export function Lienzo({
                   )}
                 </span>
               )}
+              {/*
+                ⚠️ UN PUNTO POR SALIDA, EN EL BORDE DERECHO, Y SU ＋ CUANDO ESTÁ VACÍA.
+                Es el molde de ManyChat, medido en su ayuda: «Connect steps on the canvas
+                by clicking on the connection dot and choosing another step». El punto se
+                dibuja AFUERA de la tarjeta (acá, no en `TarjetaNodo`) para que quede
+                exactamente donde sale la flecha: los dos leen `yDePuerto`.
+
+                El ＋ no depende del hover: una salida vacía es algo que falta, y lo que
+                falta se ve sin tener que buscarlo con el cursor.
+              */}
+              {(n.puertos ?? []).map((p) => {
+                const y = yDePuerto(n, p.id);
+                const puede = Boolean(onAgregarTras) && (puedeAgregarTras?.(n.id) ?? true);
+                const color = p.tono ? COLOR_TONO[p.tono] : 'var(--border-strong)';
+                return (
+                  <div key={`pt-${n.id}-${p.id}`}>
+                    <span aria-hidden style={{
+                      position: 'absolute', left: n.x + n.ancho, top: y, transform: 'translate(-50%, -50%)',
+                      width: 9, height: 9, borderRadius: 999, boxSizing: 'border-box', pointerEvents: 'none',
+                      border: `1.5px solid ${color}`, background: p.vacio ? 'var(--surface)' : color,
+                    }} />
+                    {p.vacio && puede && onAgregarTras && (
+                      <span data-no-pan data-mas-puerto={`${n.id}:${p.id}`}
+                        style={{ position: 'absolute', left: n.x + n.ancho + 7, top: y, transform: 'translateY(-50%)', display: 'inline-flex', lineHeight: 0 }}>
+                        <Dropdown
+                          value="" ariaLabel={p.rotulo ? `Agregar en «${p.rotulo}»` : 'Agregar después de esta tarjeta'}
+                          sinFlecha botonLabel="＋" disabled={agregarOcupado}
+                          buttonStyle={{ width: 22, height: 22, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, lineHeight: 1 }}
+                          options={opcionesEn ? opcionesEn(n.id, p.id, false) : (opcionesAgregar ?? [{ value: 'accion', label: '＋' }])}
+                          onChange={(v) => v && onAgregarTras(n.id, v, p.id)}
+                        />
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -612,7 +693,7 @@ export function Lienzo({
         {grafo.nodos.some((n) => ICON[n.icono]) && <BrandDefs />}
 
         {chrome && (
-          <div data-no-pan style={{ position: 'absolute', left: insetIzq, right: 0, top: 0, padding: 14, pointerEvents: 'none' }}>
+          <div data-no-pan style={{ position: 'absolute', left: insetIzq, right: insetDer, top: 0, padding: 14, pointerEvents: 'none' }}>
             <div style={{ pointerEvents: 'auto' }}>{chrome}</div>
           </div>
         )}
@@ -644,7 +725,7 @@ export function Lienzo({
         </div>
 
         {/* `data-esquina-ocupada`: la esquina de los avisos sube para no taparlo (EsquinaAvisos). */}
-        {accion && <div data-no-pan data-esquina-ocupada style={{ position: 'absolute', right: 12, bottom: 12 }}>{accion}</div>}
+        {accion && <div data-no-pan data-esquina-ocupada style={{ position: 'absolute', right: 12 + insetDer, bottom: 12 }}>{accion}</div>}
 
         {/* EL EDITOR. Va acá adentro y en coordenadas de PANTALLA: si viviera en la
             capa transformada, el zoom le cambiaría el tamaño a los inputs. */}
@@ -658,6 +739,11 @@ export function Lienzo({
               // flecha del selector de disparo no se podía apretar («aside … intercepts
               // pointer events»), con el panel dibujado y a la vista.
               position: 'absolute', left: PANEL_MARGEN + insetIzq, bottom: PANEL_MARGEN + ZOOM_ALTO, width: panelAncho,
+              // Y con algo apoyado a la DERECHA (el panel de «Probar»), el ancho se topa ahí:
+              // en una ventana angosta el editor se metería debajo de ese panel. El ancho es
+              // de CONTENIDO (sin `boxSizing`, como siempre: cambiarlo le achicaba 30 px al
+              // editor de /mensajes), así que el tope descuenta el relleno y el borde (30).
+              maxWidth: `calc(100% - ${PANEL_MARGEN * 2 + insetIzq + insetDer + 30}px)`,
               maxHeight: `calc(100% - ${24 + ZOOM_ALTO}px)`, overflowY: 'auto', padding: 14, borderRadius: 14,
               background: 'var(--surface)', border: '1px solid var(--border-strong)',
               boxShadow: '0 12px 32px rgba(0,0,0,.14)', cursor: 'default',
@@ -675,8 +761,12 @@ export function Lienzo({
                   arriba se va del mensaje (y pregunta si publicar), éste sólo repliega
                   el panel de un nodo. Medido con Playwright: `getByLabel('Cerrar el
                   editor')` resolvía a DOS. */}
+              {onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) && (
+                <button onClick={() => { const id = nodoSel.id; onSeleccion(null); onBorrar(id); }} aria-label="Borrar esta tarjeta" title="Borrar esta tarjeta"
+                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 14, cursor: 'pointer', padding: 0, lineHeight: 1 }}>🗑</button>
+              )}
               <button onClick={() => onSeleccion(null)} aria-label="Cerrar este paso" title="Cerrar este paso"
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', padding: 0 }}>✕</button>
+                style={{ marginLeft: onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) ? 0 : 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', padding: 0 }}>✕</button>
             </div>
             {renderEditor(nodoSel)}
           </div>
@@ -686,23 +776,34 @@ export function Lienzo({
   );
 }
 
-/** La tarjeta de un nodo. La forma es del lienzo; el CONTENIDO lo pone quien lo usa. */
+/**
+ * La tarjeta de un nodo. La forma es del lienzo; el CONTENIDO lo pone quien lo usa.
+ *
+ * ⚠️ CON `puertos` LA TARJETA TIENE ALTO FIJO y sus filas de salida van PEGADAS AL PIE.
+ * El punto de cada salida lo dibuja el lienzo afuera (`yDePuerto`), contando desde el pie:
+ * si la tarjeta creciera con su contenido, las filas se correrían y cada flecha saldría de
+ * la fila de al lado. Lo que no entra en el contenido se corta; entero está en el editor.
+ * Sin `puertos` (el lienzo de /mensajes) crece como siempre.
+ */
 export function TarjetaNodo({ nodo, activo, roto, children }: {
   nodo: NodoFlujo; activo: boolean; roto?: boolean; children: ReactNode;
 }) {
   const borde = activo ? 'var(--primary)' : roto ? 'var(--bad)' : 'var(--border)';
+  const fijo = nodo.puertos !== undefined;
+  const filas = tieneFilas(nodo) ? (nodo.puertos ?? []) : [];
   return (
     <div
       data-nodo={nodo.id}
       role="button" tabIndex={0} aria-pressed={activo}
       style={{
-        position: 'absolute', left: nodo.x, top: nodo.y, width: nodo.ancho, minHeight: nodo.alto,
-        borderRadius: 13, background: 'var(--surface)', border: `1.5px solid ${borde}`,
+        position: 'absolute', left: nodo.x, top: nodo.y, width: nodo.ancho,
+        ...(fijo ? { height: nodo.alto, display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { minHeight: nodo.alto }),
+        borderRadius: 13, background: 'var(--surface)', border: `${BORDE_NODO}px solid ${borde}`,
         boxShadow: activo ? '0 0 0 3px var(--primary-bg)' : '0 1px 2px rgba(0,0,0,.05)',
-        padding: 11, boxSizing: 'border-box', cursor: 'pointer', fontFamily: SANS,
+        padding: fijo ? `11px 11px ${PIE_PUERTOS}px` : 11, boxSizing: 'border-box', cursor: 'pointer', fontFamily: SANS,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, flex: 'none' }}>
         <IconoNodo icono={nodo.icono} tam={15} />
         <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)' }}>
           {nodo.titulo}
@@ -711,7 +812,17 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
           <span title={nodo.advertencia} style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--warn)' }}>⚠</span>
         )}
       </div>
-      {children}
+      {fijo ? <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{children}</div> : children}
+      {filas.map((p) => (
+        <div key={p.id} title={p.rotulo}
+          style={{
+            flex: 'none', height: ALTO_PUERTO, boxSizing: 'border-box', borderTop: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', paddingRight: 6, fontSize: 11.5, color: p.tono === 'mala' ? 'var(--dim)' : 'var(--ink)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.rotulo}</span>
+        </div>
+      ))}
     </div>
   );
 }

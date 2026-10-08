@@ -417,10 +417,18 @@ test('el wizard pasa a voz con `pasoAVoz`, le da el guion al control y no lo gua
   assert.match(wiz, /pasos: draft\?\.map\(sinGuion\)/);
 });
 
-// ⟵ ROTURA (11): sin la `key` del control en el lienzo → rojo (1 fallo).
-test('el lienzo le da `paraGuion` al control y una key por paso', () => {
+// ⚠️ REESCRITO EL 08/10/2026: el lienzo ya NO monta `PasoAudioControl` (punto 8: «El
+// editable del audio también está horrible, todos los botones amontonados... que todo lo que
+// tenga que ver con WhatsApp tenga un mismo editable»). El audio, el texto y los archivos van
+// en UN editor, `EditorMensajeWhatsApp`; el wizard sigue con su control. Lo que este guard
+// cuidaba sigue valiendo: el editor es UNO que se reusa al tocar otra tarjeta, y sin una key
+// por tarjeta lo de un mensaje (el guion, lo grabado) se queda dibujado en el siguiente.
+// ⟵ ROTURA (11): sin la `key` del editor en el lienzo → rojo (1 fallo). Y volver a montar
+//   `PasoAudioControl` en el lienzo → rojo (1 fallo).
+test('el lienzo edita el audio con el editor único de WhatsApp, con una key por tarjeta', () => {
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-  const ctl = bloque(lienzo, '<PasoAudioControl', '/>');
-  assert.match(ctl, /key=\{`audio-\$\{paso\.orden\}`\}/, 'el editor es uno: sin key, el guion de un mensaje se ve en el siguiente');
-  assert.match(ctl, /paraGuion=\{\{ objetivo: estrategia\?\.objetivo, gancho: estrategia\?\.gancho, preguntas: estrategia\?\.preguntas, pie: paso\.cuerpo \}\}/);
+  assert.doesNotMatch(lienzo, /<PasoAudioControl/, 'volvió el control suelto del audio al lienzo');
+  const ed = bloque(lienzo, '<EditorMensajeWhatsApp', '/>');
+  assert.match(ed, /key=\{`msg-\$\{id\}`\}/, 'el editor es uno: sin key, lo de un mensaje se ve en el siguiente');
+  assert.match(ed, /audios=\{audios\} onAudioNuevo=\{onAudioNuevo\}/, 'la biblioteca de audios no llega al editor');
 });
