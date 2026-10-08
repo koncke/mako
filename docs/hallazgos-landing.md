@@ -3829,6 +3829,27 @@ La política de privacidad decía «no usamos Meta Pixel» y «MaKo no usa cooki
 dos eran sobre la app y seguían siéndolo, pero leídas sueltas pasaban a ser falsas para la página
 pública. Se corrigieron en el mismo commit.
 
+**Verificado en producción el 08/10, y tres trampas de la verificación.** Las tres dicen «el
+píxel no dispara» sobre un píxel que anda:
+
+- **Meta no manda nada desde un Chrome headless.** Con el user agent `HeadlessChrome`, fbevents.js
+  carga, baja la configuración del conjunto (`/signals/config/1869323014511830`) y registra el
+  píxel (`fbq.getState().pixels` lo trae), y **no sale ningún `/tr`**: ni error ni aviso. El mismo
+  navegador con un user agent normal manda `GET /tr/?id=1869323014511830&ev=PageView`. Sacar
+  `navigator.webdriver` no cambia nada: decide el user agent. Para medir sin ensuciar las
+  audiencias, una ruta de Playwright que ABORTA todo lo que va a `www.facebook.com` y anota la URL.
+- **Una extensión del navegador puede definir `window.fbq` antes que nosotros**: medido un stub con
+  `__phpro_patched`, `loaded: true` y la cola vacía. `cargarPixelMeta` hace lo mismo que el snippet
+  oficial (si `fbq` ya existe, no carga nada), así que en ese navegador no sale nada y no hay
+  error. A un visitante sin esa extensión no le pasa; a quien verifica desde su Chrome de todos los
+  días, sí.
+- **Una pestaña en segundo plano no corrió el efecto de la landing hasta que se pintó**:
+  `document.hidden: true`, el HTML del server completo y `.vsl-root` sin fiber de React. Al sacar una
+  captura (la pestaña se pinta) hidrató sola y el píxel se inicializó. Se reconoce porque el resto
+  del MISMO efecto tampoco está: el título de «Cómo funciona» sigue siendo el del HTML y
+  `#cal-embed` no tiene `data-cal-init`. Si eso falta, no es el píxel. Es la familia de «una
+  pestaña CDP puede no hidratar».
+
 **Lo que quedó sin hacer:** la API de Conversiones (eventos desde el servidor) para la propia
 landing; las páginas de cada función (`/vsl/<slug>`) no cargan el píxel; y la opción de Meta
 «conectar a la API de conversiones con Meta» se dejó apagada al crear el conjunto de datos (comparte

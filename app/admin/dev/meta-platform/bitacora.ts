@@ -125,4 +125,56 @@ export const BITACORA: Hito[] = [
       'tests/meta-login.test.ts — 10 tests, probados rompiéndolos',
     ],
   },
+  {
+    fecha: '7 oct', hora: '22:53', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Terminar el portafolio de MaKo y desvincular la página ajena',
+    pedido: 'Mientras se aprueba Meta... Termina de configurar todo el portfolio de MaKo, ponle el branding y no se si haga falta configurar otras cosas...\nY también elimina la pagina de LGBT Posadas y desvincula completamente de eso, no quiero que tenga nada que ver.',
+    puntos: [
+      'Hecho en el navegador de Martín: logo del portafolio, hola-mako.com verificado como dominio (registro TXT por la API de Porkbun), la app MaKo publicada (modo producción, que NO es el App Review) y la página «Hola MaKo» creada con la marca y puesta como principal.',
+      '⚠️ La página ajena no se podía sacar del portafolio: Meta exige antes una persona con control total por su cuenta de Facebook, y asignar permisos lo frena el clasificador de Claude. Martín se asignó el control y la dio de baja él.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '00:58', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La cuenta publicitaria para vender MaKo, y en qué moneda conviene',
+    pedido: '1. Configura todo la cuenta publicitaria, allí comenzaré a hacer ads para vender MaKo. Haz todo lo necesario, configura también el perfil de facebook que le va a salir a los usuarios como el que está corriendo la publicidad. Con respecto a la moneda, investiga que me conviene más estando en Argentina... Yo se que hay maneras de eludir los terribles impuestos que te pone Argentina, por ejemplo, tenía entendido que con mi cuenta de ARQ (DolarApp), si tengo USD y tarjeta global, me evito algunos impuestos... Pero te pido que investigues la mejor manera para que me salga más económico y que configures todo ese tema de divisas teninedo en cuenta eso. Y claro, crea todo el resto necesario para comenzar a publicitar MaKo.\n2. Por ahora nadie más como admin, solo yo.\n3. El Doble Factor lo hacemos a lo último, cuando ya esté todo, antes de correr anuncios, es decir, por ahora en esta tanda y en las que vienen lo posponemos.',
+    puntos: [
+      'Dos decisiones que quedan: Martín es el único admin del portafolio, y el doble factor se deja para el final, antes de correr anuncios.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '01:12', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cuenta publicitaria, conjunto de datos y el píxel en la landing de MaKo',
+    puntos: [
+      'Creados en el portafolio MaKo: la cuenta publicitaria «MaKo» (act_1426493815659364, USD, zona horaria de Buenos Aires) y el conjunto de datos «MaKo» (1869323014511830), conectado a la cuenta. La identidad de los anuncios es la página «Hola MaKo».',
+      'La landing (raíz de hola-mako.com) manda PageView al cargar y Schedule cuando Calendly avisa que se agendó; sólo en hola-mako.com, para que un preview no ensucie las audiencias.',
+      'Verificado en producción con un Chrome limpio y la llamada a Meta abortada antes de salir. ⚠️ Desde un Chrome headless Meta no manda nada, y en el Chrome de Martín una extensión define `fbq` antes que nosotros: las dos cosas se leen como «el píxel no dispara».',
+      'Falta y lo hace Martín: asignarse en la cuenta publicitaria, cargar la tarjeta y la facturación, y el doble factor al final.',
+    ],
+    commits: [
+      { sha: 'af9030c7', msg: 'Landing de MaKo: el píxel de Meta para pautar MaKo (visita y agenda)', lineas: 212, archivos: 6 },
+    ],
+    archivos: [
+      'lib/meta-pixel-mako.ts — el ID, dónde se mide y qué mensaje cuenta como agenda',
+      'app/vsl/Landing.tsx — el código base del píxel, escrito en TS',
+      'app/privacidad/page.tsx — la página pública sí lleva el píxel',
+      'docs/hallazgos-landing.md — «El píxel de Meta de MaKo en su propia landing»',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '01:30', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'La cuenta va en USD: el 30% sólo se percibe sobre lo que se paga en pesos',
+    puntos: [
+      'Recomendado: cuenta en USD y tarjeta de un banco argentino a nombre de Martín, con el resumen pagado en dólares propios. Son unos USD 121 por cada 100 de pauta (el 21% de IVA lo percibe el banco). Un débito automático en pesos se lleva el 30%.',
+      '⚠️ **«ARQ Global sin impuestos» es IVA que nadie percibe, no IVA que no se deba**: quien contrata lo paga por VEP antes de fin de mes, y no pagarlo es omisión. Hoy además ARQ vende el dólar un 4,4% arriba del oficial. Queda como plan B, sólo pagando el VEP.',
+      'La moneda se eligió ANTES de crear la cuenta porque cambiarla después es crear otra cuenta publicitaria. Lo que va al contador quedó escrito en el hallazgo.',
+    ],
+    archivos: [
+      'docs/hallazgos-ads.md — «Pautar MaKo desde Argentina: la moneda de la cuenta y cómo se paga»',
+    ],
+  },
 ];

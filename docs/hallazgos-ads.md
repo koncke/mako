@@ -3681,3 +3681,65 @@ Probarlo exige un token que alcance DOS cuentas reales en el workspace de Martí
 
 **Vive en:** lib/meta-ads-create.ts (`cred`) · lib/meta-ads.ts (`upsertMetrics`) ·
 lib/alerta-critica.ts · lib/meta-health.ts · lib/agencia-cartera.ts · *2026-10-07 tareas-ads-manager*
+
+---
+
+## Pautar MaKo desde Argentina: la moneda de la cuenta y cómo se paga (08/10/2026)
+
+Para que Martín empiece a hacer anuncios de MaKo se armó la cuenta del lado de Meta, y el
+pedido traía una premisa a medir: que con la tarjeta Global de ARQ (DolarApp) «se evitan los
+impuestos». Lo que quedó creado, en el portafolio MaKo (493711571134922):
+
+- **Cuenta publicitaria «MaKo» `act_1426493815659364`, en USD y con zona horaria de Buenos
+  Aires.** Sin medio de pago todavía: lo carga Martín.
+- **Conjunto de datos «MaKo» `1869323014511830`**, conectado a esa cuenta y puesto en la landing
+  (ver `docs/hallazgos-landing.md` → «El píxel de Meta de MaKo en su propia landing»).
+- **Identidad de los anuncios: la página «Hola MaKo»** (1315098941694049).
+- Decisiones de Martín: **nadie más como admin por ahora, sólo él**, y **el doble factor va al
+  final**, antes de correr anuncios.
+
+Las trampas, medidas por una corrida de investigación con fuentes fechadas. No es
+asesoramiento contable: lo marcado «sin confirmar» se confirma con un contador.
+
+- **La moneda se elige al CREAR la cuenta, y cambiarla es crear otra.** Según la ayuda de Meta
+  leída el 08/10, cambiar la moneda crea una cuenta publicitaria nueva (una vez cada 60 días y
+  sin saldo pendiente), y los medios manuales en pesos (Mercado Pago, Rapipago) sólo se eligen
+  al crearla. Por eso se decidió antes de crear, no después.
+- **El 30% (RG 5617) sólo se percibe sobre lo que se paga en PESOS.** El art. 1 lo dice
+  textual: «en la medida y la proporción que se abonen en pesos». Con la cuenta en USD y una
+  tarjeta de banco argentino, pagar el resumen con dólares propios lo evita legalmente, y
+  comprar esos dólares al oficial ya no lleva percepción (RG 5672). Queda el 21% de IVA
+  (RG 4240), que percibe el banco: **unos USD 121 por cada 100 de pauta**. Un cargo de Meta en
+  una cuenta en ARS es un cargo en pesos y no se puede saldar con dólares, así que con la cuenta
+  en pesos el 30% es inevitable.
+- **El error más fácil: un débito automático en pesos se lleva el 30%.** Se paga el saldo en
+  USD antes del vencimiento, con stop debit si hay débito automático, o se debita de una caja
+  en dólares.
+- **«ARQ Global sin el 21% ni el 30%» significa que nadie te PERCIBE el IVA, no que no se
+  deba.** Si no interviene un agente argentino, la RG 4240 (arts. 7 y 8) y la Ley de IVA
+  (art. 4 inc. i) ponen a quien contrata a pagarlo por VEP (impuesto 030, concepto 699) antes
+  de fin de mes. No pagarlo es omisión de impuesto, no ahorro. El 30% ya lo evita cualquier
+  tarjeta pagada con dólares propios, así que lo único que «ahorra» ARQ es el IVA que hay que
+  pagar igual. Y hoy sale más caro: el 08/10 ARQ vendía el USDC a $1.608 contra $1.540 del
+  oficial BNA (CriptoYa, una sola medición), un 4,4% más si se fondea con pesos. Su propia
+  ayuda se contradice (Meta Ads dice que la Global no tiene cargos extra; Impuestos dice que la
+  tarjeta paga IVA, 30% e IIBB), con los dos artículos fechados el 01/10/2026.
+- **La tarjeta tiene que ser de quien gasta, y la provincia de la sucursal emisora suma.** Con
+  la de Leandro (sucursal en Olivos, PBA) se agregan ~2% de IIBB de PBA y ~1,2% de sellos, y el
+  gasto queda a nombre de un monotributista de categoría A (tope ≈ $12 M al año). IIBB y sellos
+  de Misiones, sin confirmar.
+- **Trampa de las fuentes:** la noticia «desde el 2/1/2026 se elimina el 30%» fue una broma del
+  Día de los Inocentes (Infoviajera, 28/12/2025) que otros medios repitieron; el 30% se sigue
+  cobrando (Cronista, 16/09/2026). Y los encabezados de iProfesional muestran la fecha de
+  navegación, no la de publicación: hay notas de 2018 que aparecen como de 2026. Se fecha por el
+  cuerpo de la nota.
+
+**Lo que quedó sin hacer, y lo hace Martín:** asignarse control total en la cuenta publicitaria
+(asignar permisos lo frena el clasificador de Claude), cargar la tarjeta y los datos de
+facturación (Claude no ingresa números de tarjeta ni datos fiscales), y el doble factor al
+final. Para el contador: el encuadre de Martín (como Responsable Inscripto el IVA de Meta pasa a
+ser crédito fiscal), IIBB y sellos de Misiones, y la retención de Ganancias a beneficiarios del
+exterior.
+
+**Vive en:** el portafolio de Meta de MaKo (493711571134922) · lib/meta-pixel-mako.ts ·
+*2026-10-08 publicitar-mako*
