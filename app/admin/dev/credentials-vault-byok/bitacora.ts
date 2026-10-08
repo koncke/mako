@@ -139,4 +139,30 @@ export const BITACORA: Hito[] = [
       '⚠️ instrumentation.ts — `register()` NO se espera antes del primer request en Vercel: se lee por `envCred()` / `credencialesListas()`, nunca directo de `process.env`',
     ],
   },
+
+  // ── 8 de octubre: «si me hackean MaKo, me hackean a mí» ──────────────────────
+  {
+    fecha: '8 oct', hora: '13:22', chat: 'Customer Success', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La seguridad de lo que un cliente conecta, del audio del 08/10',
+    pedido: 'lo siento súper increíble, pero yo acá voy a conectar el Stripe y voy a conectar básicamente toda la base de datos de cliente, facturación, todo. A mí me gustaría que se pueda ver el tema de seguridad lo máximo posible, porque si ya me hackean MaKo, entiendo que me hackean a mí también, entonces es súper importante este tema de seguridad',
+    puntos: [
+      'Lo dice alguien que probó MaKo y tiene su propio infoproducto, en el audio de 26 minutos que Martín mandó el 08/10 (`docs/feedback-curso-08oct.md`, 07:30). Martín pidió pasarle a cada chat lo suyo, y la sesión de Customer Success lo mandó acá: medir qué protege cada credencial y que la pantalla lo diga.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '13:22', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Las cinco promesas del aviso se cumplen; Stripe no existe y hay dos agujeros fuera de las llaves',
+    puntos: [
+      '⚠️ **El diagnóstico obvio no tenía objeto: MaKo no tiene integración con Stripe.** Lo que el que probaba teme conectar todavía no se puede conectar; lo que se midió es lo que hoy SÍ se conecta.',
+      '**Medido en producción, en sólo lectura:** las 146 credenciales están cifradas (gcm2), el secreto que las abre está en producción y es la única fuente (la cadena de respaldos de julio se fue), la pantalla recibe 4 caracteres, el ojito queda registrado en la base y sólo lo usa el admin del espacio. El aviso «Tus llaves son seguras» de `/integraciones` dice exactamente eso: no se tocó.',
+      '⚠️ **Lo que no está a la altura no son las llaves.** (1) Dos vistas de cohortes devuelven la facturación por semana de TODOS los clientes a la clave pública de Supabase, que viaja al navegador; el arreglo son dos líneas, pero el guard ya lo dejó como decisión de Martín. (2) El token de la API de MaKo se guarda en claro; pasarlo a hash como los tokens con nombre cambia producto.',
+      '**Para cuando se construya Stripe:** clave restringida de sólo lectura (`rk_live_…`), nunca la secreta. Entra sola al cifrado y al aviso.',
+    ],
+    archivos: [
+      'docs/hallazgos-seguridad.md — «Si me hackean MaKo, me hackean a mí»: la tabla de lo medido y las dos decisiones',
+      'app/integraciones/ServicioConfigForm.tsx — `AvisoSeguridad`, verificado línea por línea',
+    ],
+  },
 ];

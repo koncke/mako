@@ -1359,3 +1359,67 @@ el proxy —sin sesión ya no llegan— pero no tienen su propia guarda; con una
 rol corren acotadas a su workspace. Y los más de 40 `?? OWNER_WS` que hacen que un workspace nulo
 termine leyendo el ws1 siguen ahí. **No se verificó en producción** antes del arreglo; después del
 deploy se comprueba que las páginas públicas contesten 405 a un POST.
+
+## «Si me hackean MaKo, me hackean a mí»: qué protege hoy cada credencial (08/10/2026)
+
+**Vive en:** `lib/cripto-credenciales.ts` · `lib/credenciales.ts` (`estadoCampo`, `auditarCredencial`) ·
+`app/api/integraciones/credencial/route.ts` (`puedeRevelar`) · `app/integraciones/ServicioConfigForm.tsx`
+(`AvisoSeguridad`) · `lib/agente-token.ts` · `app/api/ads-manager/creative-signurl/route.ts` (la clave
+`anon` al navegador) · `supabase/migrations/0001_initial_schema.sql` (`v_cohortes_*`) ·
+`tests/funnel-declarado.test.ts` (`YA_FILTRADAS`)
+
+El pedido sale del audio del 08/10 (`docs/feedback-curso-08oct.md`, 07:30), de alguien que probó MaKo y
+tiene su propio infoproducto: «voy a conectar el Stripe y básicamente toda la base de datos de cliente,
+facturación, todo… si ya me hackean MaKo, me hackean a mí también».
+
+⚠️ **El diagnóstico obvio —«medir cómo guardamos la clave de Stripe»— no tenía objeto: MaKo no tiene
+integración con Stripe.** Cero líneas (el área «Payment Gateway» de `/admin/dev` lo dice, con los dos
+falsos positivos del grep). Lo que el que probaba teme conectar todavía no se puede conectar. La
+pregunta que sí se contesta es qué protege lo que HOY se conecta: Meta, Google, WhatsApp, las keys de IA.
+
+**Lo que dice el aviso de `/integraciones`, contra lo medido en producción (lectura) el 08/10:**
+
+| El aviso dice | Medido |
+|---|---|
+| Se guardan siempre cifradas | 146 de 146 filas de `credenciales` en `gcm2` (AES-256-GCM, clave por workspace y clave, con AAD). El refresh token de Google, que vive fuera de esa tabla, también |
+| La llave que las abre no está en la base | `CREDENCIALES_SECRET` está en producción y es la ÚNICA fuente. La cadena de respaldos (`AUTH_COOKIE_VALUE` → la service role) y la rama `gcm1` se fueron: lo que la memoria de julio decía quedó viejo |
+| La pantalla recibe sólo los últimos 4 | `estadoCampo`: sólo los rótulos de cuenta (el email de cada key) van enteros |
+| El ojito es aparte, queda registrado y se oculta solo | Registrado EN LA BASE (`credenciales_auditoria`: 45 revelar, 5 rechazados, 155 guardar, 18 borrar), no en un log; `OCULTAR_MS` lo tapa |
+| Sólo el admin del espacio; el soporte de MaKo no | `puedeRevelar`: exige `sesion.ws === ws` y rechaza las sesiones sin dueño; la agencia impersonando a un cliente no pasa |
+
+Las cinco se cumplen y el texto no se tocó. El matiz que no dice —y es cierto de cualquier SaaS— es que
+quien opera la plataforma con el entorno de Vercel y la base puede descifrar: el aviso habla de lo que
+deja hacer el PRODUCTO.
+
+**Lo que NO está a la altura:**
+
+1. ⚠️ **Los números de negocio de TODOS los clientes se leen con la clave pública.** La clave `anon` de
+   Supabase viaja al navegador (`creative-signurl` la devuelve para subir directo al storage), y
+   `v_cohortes_semanales` / `v_cohortes_mensuales` —vistas sin `security_invoker` y con SELECT para
+   `anon`— devuelven por workspace y por semana o mes la facturación (`ingreso_total_usd`), los cierres y
+   las asistencias: 54 y 19 filas. No son datos personales; sí es lo que un cliente no le muestra a otro.
+   El barrido entero dio que son las ÚNICAS: 134 objetos en `public`, 50 con SELECT para `anon`, todas
+   las tablas con RLS, y `credenciales` sin una sola policy (o sea que `anon` no lee nada aunque tenga
+   el permiso). El arreglo son dos líneas por vista (`security_invoker = on` + `revoke all … from anon,
+   authenticated`); el servidor las lee con `getTenantDb`, que es la service role, así que no cambia lo
+   que ve. **No se aplicó**: el guard de vistas ya lo dejó escrito como un cambio de permisos en
+   producción que decide el humano. Pendiente de Martín.
+2. **El token de la API de MaKo se guarda en claro.** `agente_token` (el de la skill de Claude del
+   cliente) vive tal cual en `app_settings` y en `webhook_routing` (3 workspaces). Una copia de la base
+   no abre las llaves del cliente, pero sí da un bearer para su API de MaKo. Los tokens con nombre de
+   `/api/v1` ya hacen lo correcto (hash, se muestran una sola vez). Pasar el principal a ese molde es un
+   cambio de producto —la tarjeta de `/integraciones` y el archivo de la skill dejan de poder mostrarlo
+   otra vez— y es de Martín.
+
+**Para cuando se construya Stripe** (que entra solo al cifrado, a la auditoría y al aviso, porque los
+tres viven en el formulario común y no por servicio):
+- Se pide una clave **restringida** (`rk_live_…`) con sólo lectura de lo que se use —clientes, cobros,
+  suscripciones, facturas—, nunca la secreta (`sk_live_…`): filtrada, una restringida de lectura no
+  cobra, no reembolsa y no cambia nada. El tutorial del campo lo tiene que pedir así, y el ping de
+  verificación tiene que aceptar el prefijo `rk_`.
+- `lib/agente-redaccion.ts` ya tapa `sk_`/`rk_` en lo que se le manda a un modelo.
+- Su webhook va con el signing secret y la lectura estricta del ruteo (las reglas de webhooks de
+  AGENTS.md).
+
+_Sin subagentes. Pedido de la sesión de Customer Success; medido con scripts de sólo lectura sobre
+producción (transacción `read only`, ningún valor impreso)._
