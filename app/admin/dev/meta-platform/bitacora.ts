@@ -177,4 +177,30 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ads.md — «Pautar MaKo desde Argentina: la moneda de la cuenta y cómo se paga»',
     ],
   },
+  {
+    fecha: '8 oct', hora: '01:56', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Meta rechazó la verificación del negocio',
+    pedido: 'Mira lo que pasó, solucionalo...',
+    puntos: [
+      'Con una captura del Centro de seguridad: «No podemos verificar que el sitio web empresarial está asociado con la empresa Tejado Gonzalvez Leandro Martin porque la razón social de la empresa debe aparecer en el sitio web.»',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '02:05', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La razón social aparece en hola-mako.com, en el HTML que sirve el server',
+    puntos: [
+      'El sitio decía «MaKo» en todos lados y el nombre legal en ninguno. Ahora va en el pie de la landing y como responsable en /privacidad y /terminos, desde una sola constante, escrita como en la verificación (apellido primero).',
+      '⚠️ El pie de la landing se renderiza en el server: lo que esa página agrega en el efecto no lo ve un verificador que no ejecuta JavaScript. El test renderiza sin correr efectos, y se probó rompiéndolo (1 fallo por pieza).',
+      'Después del deploy, falta volver a mandar la verificación desde el Centro de seguridad.',
+    ],
+    archivos: [
+      'lib/titular-mako.ts — la razón social, exacta',
+      'app/vsl/Landing.tsx — PieLegal la muestra',
+      'app/privacidad/page.tsx · app/terminos/page.tsx — el responsable',
+      'tests/razon-social-sitio.test.ts — 4 tests',
+      'docs/hallazgos-ads.md — «La verificación del negocio de MaKo: lo que Meta rechaza no es el documento»',
+    ],
+  },
 ];

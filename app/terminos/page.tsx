@@ -13,6 +13,7 @@
 // ⚠️ Va en PUBLICOS de lib/rutas-publicas.ts: el revisor la abre sin cuenta.
 
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
 export const dynamic = 'force-dynamic';
@@ -22,11 +23,12 @@ export const metadata = {
   description: 'Las condiciones de uso de MaKo: qué hace, qué esperamos de ti y qué no prometemos.',
 };
 
-const ACTUALIZADO = '5 de septiembre de 2026';
+const ACTUALIZADO = '8 de octubre de 2026';
 
 // ⚠️ Los mismos tres datos que en /privacidad, y por el mismo motivo: no salen
-// del código. Si cambian, cambian en los dos lugares.
-const RESPONSABLE = 'MaKo';
+// del código. Si cambian, cambian en los dos lugares. El responsable sale de la
+// razón social verificada en Meta (lib/titular-mako.ts), igual que allá.
+const RESPONSABLE = `${RAZON_SOCIAL_MAKO} (MaKo)`;
 const JURISDICCION = 'la República Argentina';
 const EDAD_MINIMA = 18;
 

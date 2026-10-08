@@ -3755,3 +3755,34 @@ exterior.
 
 **Vive en:** el portafolio de Meta de MaKo (493711571134922) · lib/meta-pixel-mako.ts ·
 *2026-10-08 publicitar-mako*
+
+---
+
+## La verificación del negocio de MaKo: lo que Meta rechaza no es el documento (07-08/10/2026)
+
+El portafolio MaKo (493711571134922) se verifica a nombre de **Tejado Gonzalvez Leandro
+Martin** (monotributo). Meta lo rechazó dos veces, y ninguna de las dos fue por el documento:
+fue porque un dato del formulario no aparecía, tal cual, en otro lado.
+
+- **Primer intento (07/10), tres desajustes.** El nombre legal decía «MaKo» (va el nombre TAL
+  CUAL el documento, apellido primero como en ARCA, y «MaKo» en «Nombre alternativo»); la
+  dirección no figuraba en ningún documento, y el teléfono tampoco. Se resolvió confirmando por
+  correo (pide un documento con razón social más dirección O teléfono: la constancia de
+  monotributo alcanza sola).
+- **Segundo rechazo (08/10): «la razón social de la empresa debe aparecer en el sitio web».**
+  hola-mako.com decía «MaKo» en todos lados y el nombre legal en ninguno: ni en la landing ni
+  como responsable en /privacidad y /terminos. Ahora sale de una constante
+  (`lib/titular-mako.ts`) que usan el pie de la landing y las dos páginas legales.
+
+⚠️ **Y tiene que estar en el HTML que sirve el server.** El pie de la landing es JSX que se
+renderiza en el server; casi todo lo demás de esa página se agrega en el `useEffect`, y un
+verificador que no ejecuta JavaScript no lo ve. Es el mismo motivo por el que los enlaces
+legales ya estaban ahí (Google exige poder llegar a la política desde la página principal).
+`tests/razon-social-sitio.test.ts` renderiza con `renderToStaticMarkup`, que no corre efectos.
+
+**La regla:** cada dato que se le declara a Meta en la verificación (nombre legal, dirección,
+teléfono, sitio) tiene que aparecer **escrito igual** en algún lugar que Meta pueda mirar: el
+documento o el sitio. Antes de mandar, se busca cada uno.
+
+**Vive en:** lib/titular-mako.ts · app/vsl/Landing.tsx (`PieLegal`) · app/privacidad/page.tsx ·
+app/terminos/page.tsx · tests/razon-social-sitio.test.ts · *2026-10-08 publicitar-mako*
