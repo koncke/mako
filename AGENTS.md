@@ -303,6 +303,12 @@ Reglas que salen de eso:
   línea que el compilador exigía. Antes de excluir un archivo tocado por los dos, `git
   diff <archivo>` y separá: `git checkout HEAD -- <archivo>`, reaplicá **solo tu hunk**,
   commiteá, y devolvé el contenido completo al working tree.
+- ⚠️ **Y un `git status` encadenado con `&&` no frena nada.** Mirar el estado de una ruta antes de
+  `git checkout <sha> -- <ruta>` es la regla, y en una sola línea no sirve: `status` sale con 0
+  aunque la ruta esté modificada, así que el `checkout` corre igual y pisa el trabajo ajeno sin
+  aviso. Medido el 08/10/2026: así se borró un cambio sin commitear de la sesión de Customer
+  Success en `docs/hallazgos.md`. El `status` va en su PROPIO comando, se lee, y si la ruta
+  aparece ` M`, esa ruta no se toca y se avisa.
 - **Nunca `--amend` sin volver a mirar que HEAD siga siendo tuyo.** Entre tu commit y tu
   amend, la otra sesión puede haber commiteado: el amend le reescribe el commit A ELLA,
   con tu mensaje. Pasó. Se recupera con `git reset --soft <su-hash>` (nunca `--hard`: se
@@ -724,6 +730,41 @@ resuelven en `wsPorTokenApi` (`lib/api-mako/tokens.ts`), y `/api/agente/*` sigue
 PRINCIPAL en el archivo que entrega, y `/hook` y `/telemetria` tienen el consentimiento atado a
 él — aceptar ahí un token con nombre le daba el de la skill a cualquier token del workspace y
 abría el reporte sin trato. `tests/api-mako-tokens.test.ts` lo fija leyendo el fuente.
+
+**Y un FLUJO corre acciones por UNA puerta: `ejecutarDesdeFlujo` (`lib/api-mako/flujo.ts`).**
+Decisión de Martín (08/10/2026): un paso «⚡ Acción» de un lienzo —una secuencia de `/chatbot` o
+un aviso de `/mensajes`— «que pueda hacer todo, sin limitaciones»: corre cualquier acción del
+registro sin pedir un «sí», porque el dueño la confirmó al configurar el paso. Lo que eso exige al
+escribir código nuevo:
+
+- **Ningún motor escribe la acción por su cuenta.** Se propone por `ejecutarOperacion` (validador,
+  gating, `preparar()` contra la base) y se confirma en el acto por el camino que ya tiene cada
+  forma: la pendiente, la propuesta genérica, o la pantalla propia. Así cada ejecución deja su
+  fila con el flujo como origen. Un `.from('…')` en el ejecutor es una segunda implementación, y
+  `tests/flujo-acciones.test.ts` lo frena.
+- **Una acción nueva con pantalla PROPIA (`proponer` en su runner) necesita su forma de aplicarse
+  en el ejecutor.** Si no, cae en `aplicarPropuestaGenerica`, que contesta «la propuesta no
+  existe». El mismo test cuenta las de pantalla propia (7 al 08/10) y falla con una más.
+- **«Ya está así» se marca `yaEstaba: true` en `preparar()`.** Para una persona es un rechazo; para
+  un flujo es un éxito sin nada que hacer. Sin la marca, «cuando agenda, movelo a Agendado» le
+  manda una alarma al dueño en cada reagenda.
+- **Un paso que no es un mensaje lo tiene que saltear TODO lo que recorre pasos.** La prueba de una
+  secuencia, el generador de copy, la ficha que lee MaKo y las tools que reescriben pasos lo
+  trataban como un mensaje vacío (salía un WhatsApp de prueba en blanco por cada acción). Antes de
+  sumar un tipo de paso, `grep` de `.pasos` y de `setSecuenciaPasos`.
+- **Un paso de acción del store de la PLATAFORMA no se hereda** (`leerPar`, `lib/plantillas.ts`, al
+  lado del borrador): heredado, corría en el tablero y el CRM de cada cliente.
+- **El ejecutor fija el workspace él mismo** (`runWithWorkspace`): confirmar corre el `ejecutar()`
+  de la acción tal cual, y sin contexto `getTenantDb` cae a las cookies — un cron no tiene.
+- **Un evento que el proveedor puede REENTREGAR le pasa su `dedupKey` a `dispararEvento`**, la
+  misma con la que el webhook deduplica su aviso. Con un paso que corre solo, una reentrega ya no
+  duplica una línea al grupo: duplica una tarea o un WhatsApp al lead.
+- **Un id que se saca de un link va sin la query** (`split(/[?#]/)[0]`): `linkApp` le pega el
+  `?ws=N` adentro de un contexto con workspace, y con eso pegado el id no existe.
+
+Y del doer de WhatsApp, que sale de la misma tanda: **una receta del protocolo va en
+`lib/doer-recetas.ts`, atada a la herramienta que la usa**, y viaja sólo con ella
+(`recetasDelTurno`). Escrita suelta en el preámbulo se paga en cada pedido de cada turno.
 
 # Un permiso de UN inquilino sobre OTRO son DOS decisiones, y ninguna se deriva de la otra
 

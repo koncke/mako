@@ -794,4 +794,43 @@ export const BITACORA: Hito[] = [
       "app/admin/runway/datos.ts — CHATBOT_TAREAS: #350 a «falta», #786 con lo medido, y las decisiones de Calendly",
     ],
   },
+  {
+    fecha: "8 oct", hora: "—", chat: "—", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Las cinco decisiones de la API, y «la implementación de todas estas acciones en el chatbot»",
+    pedido: "Lo que tenés que decidir:\n\n* Que pueda hacer todo, sin limitaciones.\n* La ofrece.\n* No, no renombres.\n* Mantenla, no cambies nada.\n* No, no lo escondas...\n\n\nCon todo esto, solucionalo end-to-end...\nPrimero la optimización de los tokens para MaKo en WhatsApp. Y segundo la implementación de todas estas acciones en el chatbot. Y tercero, manda toda la info que tienes al chat de API de MaKo, para que cree la tab de API y que sea 100% funcional.",
+    puntos: [
+      "«Que pueda hacer todo, sin limitaciones» contesta qué corre solo desde un flujo: CUALQUIER acción de la API de MaKo, sin pedir un «sí». «No, no lo escondas» contesta qué hacer con el paso «⚡ Acción» del lienzo de avisos, que prometía «se hace con tu sí» y no hacía nada.",
+      "«En el chatbot» se leyó como los DOS lienzos: las secuencias de /chatbot y los avisos de /mensajes, que son la misma pieza.",
+    ],
+  },
+  {
+    fecha: "8 oct", hora: "05:00", chat: "—", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Un paso «⚡ Acción de MaKo» en las secuencias y en los avisos, que corre sin pedir un «sí»",
+    puntos: [
+      "Un paso de una secuencia ahora puede, en vez de mandar un mensaje, correr una acción de MaKo: mover al lead de etapa, agregarlo a un producto, meterlo en otra secuencia, crear una tarea. Se elige en el lienzo con el mismo editor en los dos lienzos.",
+      "⚠️ El paso es un sub-objeto `accion`, no un `tipo` más: medio repo lee `tipo` como la clase de MENSAJE, y un tipo nuevo caía en la rama de texto de todos los que no lo conocen.",
+      "Corre por el mismo camino que todo canal (el registro de la API), reclama el paso antes de ejecutar y nunca se cuenta como un mensaje enviado: el anti-ban, el tope diario y las métricas cuentan mensajes.",
+      "⚠️ Lo que rodeaba al paso lo trataba como un mensaje vacío: la prueba de una secuencia mandaba un WhatsApp en blanco por cada acción, el generador le pedía copy al modelo y dos tools de MaKo las borraban al reescribir. Cerrado, con su test.",
+      "Un paso de acción que el dueño arma en SU /mensajes ya no se hereda a los clientes: corría en el tablero y el CRM de cada uno.",
+      "Probado de punta a punta en el Cliente de Prueba (ws3): crear un lead, dejarle una nota y moverlo de etapa desde una automatización. Quedaron tres leads de prueba (2613-2615).",
+      "⚠️ Una revisión adversarial (cuatro lectores, cada uno con su refutador) confirmó 20 problemas: los más caros, que una reentrega de Calendly o Cal.com repetía la acción, que un aviso apagado en pantalla corría igual, y que crear tareas en el plan desde un flujo fallaba siempre por el ?ws= pegado al id. Los 20, arreglados con su test.",
+    ],
+    commits: [
+      { sha: "3f961adc", msg: "Avisos: el paso «⚡ Acción» corre cualquier acción de MaKo, sin pedir el sí", lineas: 511, archivos: 5 },
+      { sha: "1035b951", msg: "Chatbot: un paso «⚡ Acción de MaKo» en las secuencias, que corre sin pedir un «sí»", lineas: 1047, archivos: 12 },
+      { sha: "fb986a44", msg: "Lienzos: los títulos de las acciones salen de UN lector, el del editor", lineas: 119, archivos: 5 },
+      { sha: "b2a6db9d", msg: "Paso «⚡ Acción»: lo que lo rodea deja de tratarlo como un mensaje vacío", lineas: 177, archivos: 12 },
+      { sha: "395c4c11", msg: "Revisión adversarial del paso «⚡ Acción»: los 14 confirmados que quedaban, arreglados", lineas: 436, archivos: 20 },
+    ],
+    archivos: [
+      "lib/nutricion-paso-accion.ts — qué es un paso de acción, su saneo y cómo corre (puro, con test)",
+      "lib/nutricion.ts — la rama de la acción en procesarEnvios y el saneo en setSecuenciaPasos",
+      "app/chatbot/FlujoLienzo.tsx — el nodo, el ＋ con «⚡ Acción de MaKo» y el panel con el editor compartido",
+      "lib/flujos.ts — la acción en el motor de avisos, y la línea al grupo de MaKo si falla",
+      "lib/plantillas.ts — leerPar: un paso de acción de la plataforma no se hereda",
+      "tests/nutricion-paso-accion.test.ts, tests/flujo-aviso-accion.test.ts, tests/flujo-acciones-bordes.test.ts",
+    ],
+  },
 ];

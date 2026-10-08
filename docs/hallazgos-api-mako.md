@@ -518,9 +518,8 @@ que reagendar e importar no están, y ya existen `proponer_mover_reunion` y `pro
 **SIN HACER** (el plan, en `docs/api-mako-diseno.md` § 10):
 - La def de `proponer_tareas_plan` (`lib/api-mako/areas/plan.def.ts`) con `recurrente` y los
   moldes, y después el despacho de las 25 por el registro (`lib/mako-doer-in.ts`).
-- El canal `flujo` (`lib/api-mako/tipos.ts` CANALES, `canal.ts`, `ejecutar.ts`), bloqueado por
-  la decisión de qué corre solo.
-- `lead_funnel` e inscribir un lead en una secuencia, en el registro.
+- ~~El canal `flujo`~~ y ~~`lead_funnel` e inscribir un lead en una secuencia~~: HECHOS el mismo
+  día, sin canal nuevo (ver abajo, «El canal de los flujos»).
 - Declarar `lib/api-mako/` en un área de `app/admin/dev/areas.ts`.
 
 *08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`.*
@@ -584,3 +583,87 @@ Lo demás que no se ve desde la pantalla:
   `supabase/migrations/0158_api_llamadas.sql` + `lib/api-mako/bitacora.ts`).
 
 *08/10/2026, cuenta 2, sin subagentes. Commit `f2c0a04b`.*
+
+## El canal de los flujos: un paso corre cualquier acción, por el mismo choke point (08/10/2026)
+
+**Vive en:** `lib/api-mako/flujo.ts` · `lib/api-mako/flujo-params.ts` · `lib/api-mako/canal.ts` ·
+`lib/api-mako/ejecutar.ts` · `lib/api-mako/tipos.ts` (`yaEstaba`) · `app/api/flujos/acciones/route.ts` ·
+`app/_components/EditorAccionMako.tsx` · `lib/mako-doer-acciones.ts` (el origen de las heredadas)
+
+Martín contestó las cinco decisiones del § 10 de `api-mako-diseno.md` («Que pueda hacer todo, sin
+limitaciones» · «La ofrece» · «No, no renombres» · «Mantenla, no cambies nada» · «No, no lo
+escondas»). La A es la que cambia el registro: un paso «⚡ Acción» corre CUALQUIER acción sin pedir
+un «sí». Lo que costó:
+
+⚠️ **El diagnóstico obvio era el equivocado: «sumar `flujo` a CANALES».** `canales` es una lista
+EN POSITIVO en cada una de las 498 operaciones: un canal nuevo obligaba a declararlo en todas, y
+la decisión fue que todas valen. Va con el canal `app` y una clave de scope con prefijo
+(`app:flujo:<origen>`, `PREFIJO_FLUJO`): de ahí salen el origen de la fila y la etiqueta «vino de
+una automatización». CANALES no cambió.
+
+⚠️ **Confirmar corre el `ejecutar()` de la acción SIN contexto de workspace.** `ejecutarOperacion`
+fija el workspace para proponer, pero `confirmarPendiente` no: medido en la prueba del ws3, la nota
+salía y el historial tiraba «`cookies` was called outside a request scope» (`logLeadEvent` →
+`getTenantDb` cae a las cookies). Un cron que itera clientes no tiene cookies. El ejecutor envuelve
+todo en `runWithWorkspace(ws)` (`63a0f95a`).
+
+**Cada forma de acción se confirma por SU camino**, no por uno nuevo: la pendiente
+(`confirmarPendiente`), la pantalla genérica (`aplicarPropuestaGenerica`) y las 7 de pantalla
+propia —el borrador del plan (`aplicarPropuesta`), el alta de leads (`createLead` con su chequeo de
+duplicados) y el WhatsApp de empresa (`enviarBorrador`)—. Las 5 heredadas (`proponerLegado`) dejan
+la pendiente con origen «hola-mako» fijo: ahora, con la clave `app:flujo:`, llevan el flujo.
+
+⚠️ **«Ya está así» no es un fallo para un flujo.** Muchos `preparar()` del registro rechazan lo que
+ya es el estado actual («ya está en ese producto», «ya está marcado como calificado»): correcto para
+una persona, y para un flujo una alarma al dueño en cada evento repetido. `Preparado` gana
+`yaEstaba`, `ejecutarOperacion` lo propaga y el ejecutor lo cuenta como éxito. Hoy lo marcan las
+operaciones de producto, la inscripción en curso, la asistencia y el calificado; el resto de los
+«ya está» del registro todavía no.
+
+**Las operaciones que faltaban** (las pedía el relevo de arriba): `inscribir_lead_secuencia`
+(chatbot; la decisión y la escritura son UNA función, `inscribirEnSecuencia`, y antes de inscribir
+contesta lo que el motor cerraría sin mandar —secuencia pausada, sin reunión futura, fuera del
+tope—), y `agregar_lead_a_producto` / `quitar_lead_de_producto` / `mover_lead_en_producto` +
+la lectura `productos_del_lead` (crm, sobre `lib/lead-funnel.ts` sin cambios). Ninguna sale por HTTP.
+
+⚠️ **El id de un producto del CRM es el del EMBUDO, no el de la tabla `productos`.** Del producto al
+embudo hay dos saltos: un id del otro catálogo movería al lead en el producto equivocado sin error.
+El parámetro se llama `embudoId` y su descripción lo dice.
+
+⚠️ **`listarFunnels` devuelve `[]` cuando la lectura falla**, y como todo negocio tiene al menos un
+embudo, vacío significa «no pude leer»: `productosCrm` lo trata así.
+
+⚠️ **Lo que cazó la revisión adversarial** (`wf_d229086b-56f`: 20 confirmados, 3 refutados), y que
+vale para cualquier operación nueva:
+
+- **Un id sacado de un link con `split('/').pop()` se lleva la query.** `proponer_tareas_plan` y
+  `proponer_lead` sacaban el id del link que arma la tool vieja con `linkApp(…, wsEnContexto())`;
+  adentro de `ejecutarOperacion` el contexto tiene workspace, así que el link trae `?ws=N` y el id
+  quedaba `prop…?ws=3`. Desde un flujo, `aplicarPropuesta` no encontraba nada en CADA corrida. Va
+  `split(/[?#]/)[0]` antes de partir por `/`. La versión de fondo es que la tool devuelva el id.
+- **Un `leadId` OPCIONAL vacío es «ninguno», no «el del evento».** `paramsDelPaso` le inyectaba el
+  lead del evento a toda operación que declarara `leadId`: un «Proponer un WhatsApp» a un teléfono
+  fijo recibía además el lead, y la operación contestaba «el teléfono no coincide» siempre. Ahora
+  se inyecta sólo si es obligatorio o si el paso lo pidió con `LEAD_DEL_EVENTO`; y «Otro lead» sin
+  id se guarda como `LEAD_A_ELEGIR` y no viaja (antes era un `''` que se borraba y caía al evento).
+- **Un borrador de pantalla propia se aplica ENTERO**: `proponer_cierre_tareas` necesita sus
+  `cerrarIds` (sin ellos, «no hay nada para crear, cerrar ni borrar»), y el alta de leads reclama la
+  propuesta ANTES de crear (dos corridas con el mismo id, por el `ref`, creaban dos veces).
+- Lo obligatorio que le falta a un paso lo dice UNA función pura (`faltanEnPaso`), que usan el
+  motor de avisos (no corre el paso) y el saneo de las secuencias (no lo guarda).
+
+**SIN HACER:**
+- La reentrega de Cal.com y Calendly ya no repite los pasos (`dedupKey`, ver
+  `hallazgos-comunicacion.md`); Fathom y Meta también reintentan y sus `dispararEvento` todavía no
+  llevan clave. Chatwoot no reintenta.
+- El editor (`EditorAccionMako.tsx`) pide `secuenciaId`, `embudoId` y la key de una etapa como
+  números o texto sueltos: falta un selector alimentado por `listar_secuencias_nutricion` y
+  `productos_del_lead`.
+- No hay operación para SACAR a un lead de una secuencia, así que inscribir no se deshace por API.
+- Mover a un lead en su producto PRINCIPAL desde `mover_lead_en_producto` se niega y deriva a
+  `proponer_cambio_etapa`: unificarlo obliga a decidir qué hace el paso con el monto o el motivo.
+- Por chat no se puede CREAR un paso de acción (`editar_pasos_secuencia_mensajes` exige canal y
+  cuerpo para un paso nuevo); se crea en el lienzo.
+
+*08/10/2026, cuenta 2. Corrida `wf_48a7d912-9a9` (tres agentes en worktrees) y revisión
+`wf_d229086b-56f`; commits `fafe007b`, `6d4703ec`, `63a0f95a`, `40d8f052`, `b2a6db9d`, `395c4c11`.*
