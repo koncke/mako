@@ -90,10 +90,21 @@ function armarV2(rrweb, envoltorio) {
  * un archivo que baja perfecto y no define nada. El síntoma sería «no graba», sin
  * un error en ningún lado. En la v2 se pide además la marca del envoltorio.
  */
+//
+// ⚠️ Y CADA VERSIÓN PUBLICADA LLEVA SU HUELLA (`publicada`: sha256 sin CR, 12 hex), y
+// es la regla de «una versión publicada es inmutable» escrita donde se puede romper.
+// Sin ella, un `npm update rrweb` o un cambio en el envoltorio hacen que este script
+// —y el `--check` del pre-push, que lo pide— REESCRIBAN la v1 o la v2 en su lugar:
+// los visitantes que la tienen en caché siguen con la vieja, los nuevos bajan la
+// nueva, y la versión que se probó ya no existe. Si lo que se arma hoy no da la
+// huella, el script se niega. Lo que corresponde es una entrada NUEVA (`/replay/3/`,
+// REPLAY_LIB_VERSION = 3), y que la vieja deje de armarse de fuentes que cambiaron:
+// su `armar` pasa a ser el archivo publicado (`(dep, fuente, publicado) => publicado(...)`).
 const ARTEFACTOS = [
   {
     a: 'public/replay/1/r.js',
     grabador: 1,
+    publicada: 'bf8fa2f53188',
     debeTener: ['rrwebRecord'],
     armar: (dep) => dep(RRWEB),
     quien: 'el grabador v1 — lo baja el navegador del VISITANTE, así que su peso lo paga él',
@@ -101,18 +112,23 @@ const ARTEFACTOS = [
   {
     a: 'public/replay/2/r.js',
     grabador: 2,
+    // Fijada el 08/10/2026, antes del primer deploy: hasta que se despliegue, un
+    // cambio del envoltorio puede actualizarla A MANO acá. Después, no.
+    publicada: 'c5234232d1ac',
     debeTener: ['rrwebRecord', 'mkoEnvoltorio', 'inlineStylesheet = false'],
     armar: (dep, fuente) => armarV2(dep(RRWEB), fuente(ENVOLTORIO)),
     quien: 'el grabador v2 (rrweb + scripts/replay-envoltorio.js) — también lo baja el VISITANTE',
   },
   {
     a: 'public/replay/1/player.js',
+    publicada: '9015abec2bf3',
     debeTener: ['rrwebPlayer'],
     armar: (dep) => dep('node_modules/rrweb-player/dist/rrweb-player.umd.min.cjs'),
     quien: 'el reproductor — corre en MaKo, así que su peso lo pagamos nosotros',
   },
   {
     a: 'public/replay/1/player.css',
+    publicada: 'ce5e96298e20',
     debeTener: [],
     armar: (dep) => dep('node_modules/rrweb-player/dist/style.min.css'),
     quien: 'los estilos del reproductor',
@@ -169,15 +185,33 @@ const fuente = (ruta) => {
   return b;
 };
 
+/** El archivo ya publicado, para la versión vieja que dejó de armarse de fuentes. */
+const publicado = (ruta) => {
+  const b = versionado(ruta);
+  if (!b) {
+    console.error(`✖ falta ${ruta}${check ? ' en HEAD' : ''}: es una versión publicada.`);
+    process.exit(1);
+  }
+  return b;
+};
+
 let viejos = 0;
 
 for (const art of ARTEFACTOS) {
-  const bytes = art.armar(dep, fuente);
+  const bytes = art.armar(dep, fuente, publicado);
   for (const marca of art.debeTener) {
     if (!bytes.includes(marca)) {
       console.error(`✖ ${art.a} no menciona \`${marca}\`: se armó con el bundle o el fuente equivocado.`);
       process.exit(1);
     }
+  }
+  // La huella se toma sin CR: es la misma en el clon, en un worktree y en HEAD.
+  if (art.publicada && huella(sinCR(bytes)) !== art.publicada) {
+    console.error(`✖ ${art.a} es una versión PUBLICADA (huella ${art.publicada}) y lo que se arma hoy da ${huella(sinCR(bytes))}.`);
+    console.error('   Cambió lo que la arma (rrweb en node_modules, o el envoltorio). Una versión publicada no se');
+    console.error('   reescribe: está en la caché de los visitantes. Arma la siguiente como una entrada nueva');
+    console.error('   y deja ésta leyendo su archivo publicado (ver el comentario de ARTEFACTOS).');
+    process.exit(1);
   }
 
   const actual = versionado(art.a);

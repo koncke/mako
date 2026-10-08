@@ -9,27 +9,29 @@
 // commit que trajo esto.
 //
 // PROBADO ROMPIÉNDOLO (08/10/2026). Base: 13 pases, 0 fallos. Cada rotura, una por
-// una, regenerando `public/replay/` con `node scripts/replay-libs.mjs` cuando la
-// rotura era del envoltorio o del generador, y restaurando antes de la siguiente
-// (huellas de los 7 archivos iguales al final):
+// una, restaurando antes de la siguiente (huellas de los 7 archivos iguales al
+// final). Las del envoltorio se llevaron a mano hasta `public/replay/2/r.js`, con
+// la misma receta del generador: él ya no las deja pasar (ver abajo).
 //
-//   envoltorio sin `o.inlineStylesheet = false;` ........................ 12 · 1 (*)
+//   envoltorio sin `o.inlineStylesheet = false;` ........................ 11 · 2
 //   el stop sin `parar()` (el latido sigue después del tope) ............ 12 · 1
 //   late sin mirar la visibilidad (latir, programar y al esconderse) .... 12 · 1
 //   `alCambiar` sin `takeFullSnapshot` (no hay foto al volver) .......... 12 · 1
 //   LATIDO_LENTO_MS: 8000 → 12000 (más que el lote de 10 s) ............. 12 · 1
 //   `latir` sin el try/catch de addCustomEvent .......................... 12 · 1
 //   REPLAY_LIB_VERSION: 2 → 3 (anuncia un archivo que no existe) ........ 12 · 1
-//   el generador pega el envoltorio también detrás de la v1 ............. 12 · 1
+//   la v1 con el envoltorio pegado detrás ............................... 12 · 1
 //   constructorDelGlobal sólo con `typeof g === 'function'` ............. 12 · 1
 //   hojasSinCors sin mirar las mutaciones (type 3) ...................... 12 · 1
 //   `montar` pasando `events: eventos` sin hojasSinCors ................. 12 · 1
 //   el pop-up sin `!traeFoto(eventos)` en la condición de «cortada» ..... 12 · 1
 //   REPLAY_LATIDO: 'mko-vivo' → 'mko-latido' (el envoltorio no cambia) .. 11 · 2
 //
-// (*) Ésa la frena antes el GENERADOR: exige la marca `inlineStylesheet = false`
-// en la v2 y se niega a armarla. El test cae igual, porque la cola publicada deja
-// de ser el envoltorio del disco.
+// Y EL GENERADOR, ANTES QUE EL TEST: con cualquiera de las seis roturas del
+// envoltorio, `node scripts/replay-libs.mjs` se NIEGA a escribir (la huella de la v2
+// publicada no da), y con el envoltorio pegado a la v1 desde el generador, también
+// («public/replay/1/r.js es una versión PUBLICADA (huella bf8fa2f53188) y lo que se
+// arma hoy da c5234232d1ac»). El test es la segunda red, sobre el archivo que se sirve.
 //
 // ⚠️ La rotura de la visibilidad tuvo que ser triple: con UNA sola de las tres
 // guardas sacada (latir, programar o el `parar()` al esconderse) el envoltorio

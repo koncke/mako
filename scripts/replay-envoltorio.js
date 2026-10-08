@@ -6,6 +6,11 @@
 // descarga del visitante). La v1 es rrweb pelado y no se toca: una versión
 // publicada es inmutable, está en la caché de los visitantes.
 //
+// ⚠️ Y LA v2 TAMBIÉN: el generador tiene fijada su huella. Cambiar una línea de
+// CÓDIGO de este archivo hace que se niegue a armarla; los comentarios no cuentan
+// (no viajan). Un arreglo acá es la v3: entrada nueva en `scripts/replay-libs.mjs`
+// y REPLAY_LIB_VERSION = 3, con la v2 leyendo su archivo publicado.
+//
 // ⚠️ POR QUÉ EXISTE: EL GRABADOR DE VERDAD VIVE EN EL SNIPPET, NO ACÁ. El lote,
 // el piso (10 s y 20 eventos), el beacon de salida y la cola están dentro del
 // código pegado en la página del cliente (lib/landing-token.ts, «GRABACIÓN DE
