@@ -102,11 +102,10 @@ y Jose seguían afuera. El ruteo está bien: `webhook_routing` apunta a ws15 des
   suscribir. La nutrición la levanta igual la cohorte `instant_form_sin_agenda` del cron. El
   día que un cliente sin suscribir prenda el aviso, no le va a llegar. Arreglarlo necesita un
   tope de antigüedad, porque el poll también hace pasadas de 90 días.
-- **No se verificó el deploy contra un lead real de ws15** al cerrar esto. La primera pasada
-  después del deploy tiene que traer a Nicolas y a Jose.
-
 *08/10/2026 — diagnóstico y refutación con subagentes, sólo lectura (scratchpad
-`wf2-refuta-lead-brigitte/`). Commit `e869a24e`.*
+`wf2-refuta-lead-brigitte/`). Commit `e869a24e`. **Verificado en producción:** el deploy
+quedó listo a las 16:40 UTC, y la pasada de las 16:50 trajo a Jose (#2621) y a Nicolas
+(#2622) al embudo 17 «Captacion Forms», con sus 5 campos. Nadie escribió nada a mano.*
 
 ### ⚠️ El mapa de México no pinta cero: pinta el estado equivocado
 
