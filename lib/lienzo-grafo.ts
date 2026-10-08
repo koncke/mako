@@ -53,6 +53,8 @@ export type PuertoNodo = {
   tono?: TonoArista;
   /** No sale nada de acá todavía: el lienzo dibuja su ＋. */
   vacio: boolean;
+  /** Una marca chica al final de la fila («2 sin caso»): algo que salió por aquí y espera. */
+  marca?: string;
 };
 
 export type NodoFlujo = {
@@ -232,17 +234,37 @@ export type VistaLienzo = { k: number; tx: number; ty: number };
  * El panel está anclado abajo a la izquierda, así que un nodo de la primera columna
  * queda detrás y se escribiría a ciegas. Lo que se corre es el LIENZO —no el panel, que
  * iría a tapar otra cosa— y sólo cuando hace falta: devuelve `null` si el nodo ya se ve.
+ *
+ * `margenIzq` es dónde EMPIEZA el panel (su margen más lo que la pantalla apoya a la
+ * izquierda, `insetIzq`) y `separacion`, el aire entre el panel y el nodo. El borde libre es
+ * `margenIzq + panelAncho + separacion`.
+ *
+ * ⚠️ HASTA EL 08/10 ERA `panelAncho + margen × 2` CON `margen = 12 + insetIzq` (revisión,
+ * lienzo-4): el inset izquierdo entraba DOS veces. En /chatbot (lista de 304 px, panel de 392)
+ * el nodo se corría a x = 1024 en vez de 720, y con «Probar» abierto (el teléfono en
+ * [924, 1284] de un lienzo de 1300) quedaba DEBAJO del teléfono: se editaba a ciegas justo
+ * donde la pantalla promete «se prueba lo que se edita». Sin inset izquierdo (/mensajes) las
+ * dos cuentas dan lo mismo.
+ *
+ * Y con `tope` (lo que la pantalla deja ver a la derecha: el ancho menos `insetDer`) el nodo
+ * no se corre más allá de donde termina: si no entra entero al lado del panel, se corre hasta
+ * el tope, y si ni eso lo mejora, no se corre.
  */
 export function vistaConPanel(
   v: VistaLienzo,
   nodoX: number,
   panelAncho: number,
-  margen: number,
+  margenIzq: number,
+  op: { separacion?: number; nodoAncho?: number; tope?: number } = {},
 ): VistaLienzo | null {
-  const libre = panelAncho + margen * 2;
+  const libre = margenIzq + panelAncho + (op.separacion ?? 12);
   const izquierdaEnPantalla = v.tx + nodoX * v.k;
   if (izquierdaEnPantalla >= libre) return null;
-  return { ...v, tx: v.tx + (libre - izquierdaEnPantalla) };
+  const hasta = op.tope != null && op.nodoAncho != null
+    ? Math.min(libre, op.tope - op.nodoAncho * v.k)
+    : libre;
+  if (hasta <= izquierdaEnPantalla) return null;
+  return { ...v, tx: v.tx + (hasta - izquierdaEnPantalla) };
 }
 
 /**

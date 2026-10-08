@@ -30,8 +30,8 @@ import type { Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, validarGrafo, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
 import { legadoAGrafo, esFlujoExplicito } from '@/lib/flujo-legado';
 import {
-  insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, faltaEscribir, estrategiaConLimpieza,
-  detalleDisparador, seccionesDisparo, valorDisparo, pedidoDisparo, disparoDeValor,
+  insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, faltaEscribir, tarjetaDelError, estrategiaConLimpieza,
+  detalleDisparador, seccionesDisparo, valorDisparo, pedidoDisparo, disparoDeValor, nombreEtiqueta,
   type QueAgregar, type DisparoActual,
 } from '@/lib/flujo-conversacion';
 import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
@@ -76,7 +76,7 @@ export type EdicionLocal = {
   instance_name: string | null;
 };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer, handoffs }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver un «Ir a» y convertir un «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -117,6 +117,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   onCambioLocal?: (v: EdicionLocal) => void;
   /** Cuánto se corre lo que flota a la DERECHA (el panel de «Probar» abierto ocupa ese lado). */
   insetDer?: number;
+  /**
+   * Los hand-offs pendientes del workspace (GET /api/chat-agent/secuencias → `handoffs`): las
+   * respuestas que no encajaron en ningún caso y esperan a una persona. Se cuentan los de ESTA
+   * automatización y se marcan en la fila «Otra cosa» (revisión, costuras-5: sin el panel que
+   * se borró, no se veían en ningún lado). Ausente = no se marca nada.
+   */
+  handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
 }) {
   const est = secuencia.estrategia;
 
@@ -288,6 +295,17 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   };
 
   /**
+   * ⚠️ UN ERROR QUE FRENA PUBLICAR ABRE LA TARJETA CULPABLE (revisión, lienzo-6). El texto
+   * sólo no alcanzaba: nombraba «Mensaje 4» y ninguna tarjeta lleva número. `vez` cambia en
+   * cada pedido, así el mismo error dos veces la vuelve a abrir.
+   */
+  const [foco, setFoco] = useState<{ id: string; vez: number } | null>(null);
+  const frenar = (mensaje: string, tarjeta: string | null) => {
+    setErr(mensaje);
+    if (tarjeta) setFoco((f) => ({ id: tarjeta, vez: (f?.vez ?? 0) + 1 }));
+  };
+
+  /**
    * PUBLICAR = VALIDAR, PATCH de los pasos y, si la secuencia se convirtió, la estrategia
    * con la LIMPIEZA.
    *
@@ -300,9 +318,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const publicar = async () => {
     setErr(null);
     const errores = validarGrafo(pasos);
-    if (errores.length) { setErr(errorLegible(errores[0], pasos)); return; }
+    if (errores.length) { frenar(errorLegible(errores[0], pasos), tarjetaDelError(errores[0], pasos)); return; }
     const vacia = faltaEscribir(pasos);
-    if (vacia) { setErr(vacia); return; }
+    if (vacia) { frenar(vacia.error, vacia.id); return; }
     setBusy('save');
     try {
       const rp = await (await fetch('/api/whatsapp/secuencias', {
@@ -310,12 +328,21 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         body: JSON.stringify({ id: secuencia.id, pasos }),
       })).json();
       // El server valida con la MISMA función y rechaza con su primer error, que trae ids.
-      if (!rp.ok) { setErr(rp.error ? errorLegible(String(rp.error), pasos) : 'No se pudo publicar.'); setBusy(null); return; }
+      if (!rp.ok) {
+        const e = rp.error ? String(rp.error) : '';
+        frenar(e ? errorLegible(e, pasos) : 'No se pudo publicar.', e ? tarjetaDelError(e, pasos) : null);
+        setBusy(null); return;
+      }
     } catch { setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }
     setPublicado(JSON.stringify(pasos));
     if (convertida) {
-      const r = await api({ action: 'guardar-estrategia', secuenciaId: secuencia.id, estrategia: estrategiaConLimpieza(est) });
-      if (!r.ok) { setErr('Faltó limpiar lo de antes: publica otra vez.'); setBusy(null); onCambio(); return; }
+      // ⚠️ SIN ESTRATEGIA NO SE MANDA NADA (revisión, lienzo-8): `estrategiaConLimpieza(null)`
+      // es null, y antes inventaba `{ objetivo: 'agendar', … }` donde no había nada.
+      const limpia = estrategiaConLimpieza(est);
+      if (limpia) {
+        const r = await api({ action: 'guardar-estrategia', secuenciaId: secuencia.id, estrategia: limpia });
+        if (!r.ok) { setErr('Faltó limpiar lo de antes: publica otra vez.'); setBusy(null); onCambio(); return; }
+      }
       setConvertida(false);
     }
     flashOk('Publicado ✓'); onCambio();
@@ -347,13 +374,19 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * LAS ETIQUETAS (GET /api/crm/etiquetas, lo hace la parte E): las usan el desplegable del
    * disparador («Se le puso «X»») y la fila «Tiene la etiqueta» de una condición. Sin
    * lista, las dos se dibujan igual con lo que hay puesto.
+   *
+   * ⚠️ CON LAS ARCHIVADAS (`?archivadas=1`, revisión costuras-11). Sin ellas, una condición o
+   * un disparador que nombra una etiqueta archivada decía «Una etiqueta que ya no está» y el
+   * dueño la reemplazaba creyendo que se había borrado. Las archivadas no se OFRECEN
+   * (`seccionesDisparo` y el selector las filtran); sólo se nombran donde siguen puestas, con
+   * «(archivada)» (`nombreEtiqueta`).
    */
   const [etiquetas, setEtiquetas] = useState<EtiquetaLienzo[]>([]);
   useEffect(() => {
     let vivo = true;
     void (async () => {
       try {
-        const j = await (await fetch('/api/crm/etiquetas', { cache: 'no-store' })).json();
+        const j = await (await fetch('/api/crm/etiquetas?archivadas=1', { cache: 'no-store' })).json();
         if (vivo && Array.isArray(j?.etiquetas)) setEtiquetas(j.etiquetas);
       } catch { /* sin lista: se ofrece crear */ }
     })();
@@ -439,7 +472,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     trigger_tipo: disparo.trigger_tipo, etapa: disparo.etapa,
     etiquetaTrigger: disparadores.find((d) => d.value === disparo.trigger_tipo)?.label ?? null,
     nombreEtapa: disparo.etapa ? (todasLasEtapas.find((e) => e.value === disparo.etapa)?.label ?? etiquetaEtapa(disparo.etapa)) : null,
-    nombreEtiqueta: etiquetas.find((t) => t.id === disparo.etiqueta_id)?.nombre ?? null,
+    nombreEtiqueta: nombreEtiqueta(etiquetas, disparo.etiqueta_id),
   };
   const textoDisparo = detalleDisparador({ ...nombreDelDisparo, cron, tz });
   const secciones = seccionesDisparo({
@@ -453,7 +486,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   }]));
 
   // ── Lo que lee «Probar» ──
-  const estAPublicar = useMemo(() => (convertida ? (estrategiaConLimpieza(est) as unknown as SecuenciaDto['estrategia']) : est), [convertida, est]);
+  // Sin estrategia, «Probar» prueba sin estrategia: la limpieza de null es null (lienzo-8).
+  const estAPublicar = useMemo(() => (convertida ? ((estrategiaConLimpieza(est) ?? est) as unknown as SecuenciaDto['estrategia']) : est), [convertida, est]);
+
+  /** Lo que «✦ guion» de una nota de voz necesita de la estrategia (revisión, costuras-4). */
+  const paraGuion = useMemo(() => (est ? { objetivo: est.objetivo, gancho: est.gancho, preguntas: est.preguntas } : undefined), [est]);
+  const pendientesOtraCosa = (handoffs ?? []).filter((h) => h.secuenciaId === secuencia.id).length;
   const cambioLocal = useRef(onCambioLocal);
   useEffect(() => { cambioLocal.current = onCambioLocal; });
   useEffect(() => {
@@ -485,6 +523,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy != null}
         envioAutoSecuencia={est?.envio_automatico === true}
         etiquetas={etiquetas} onCrearEtiqueta={rolAdmin ? crearEtiqueta : undefined} etapas={etapasCond}
+        paraGuion={paraGuion} foco={foco} pendientesOtraCosa={pendientesOtraCosa}
         onPasos={onPasos}
         onAgregar={rolAdmin ? agregarEn : undefined}
         onBorrar={rolAdmin ? borrar : undefined}

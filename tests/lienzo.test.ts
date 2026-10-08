@@ -177,7 +177,9 @@ test('⚠️ y el LIENZO usa las dos, y guarda el `antes` UNA sola vez', () => {
   // decide, no el cuerpo que cuelga de ella.
   const src = leer(LIENZO);
   const ef = src.slice(src.indexOf('if (!caja.current) return;'), src.indexOf('const nodoSel ='));
-  assert.ok(ef.length < 1600, `el recorte del efecto mide ${ef.length}: está mirando otra cosa`);
+  // 2.000 desde el 08/10 (revisión, lienzo-4): el efecto ganó el tope derecho del corrimiento
+  // y su comentario; el recorte mide ~1.800 con los saltos CRLF de un worktree.
+  assert.ok(ef.length < 2000, `el recorte del efecto mide ${ef.length}: está mirando otra cosa`);
   assert.match(ef, /antes: corrimiento\.current\?\.antes \?\? vista\.current/,
     'el lienzo pisa el `antes` en cada corrimiento: volver deja la vista del nodo anterior');
   assert.match(ef, /vistaAlCerrarPanel\(vista\.current, c\.aplicada, c\.antes\)/,

@@ -259,23 +259,27 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   const pub = bloque(perfil, 'const publicar = async () => {', '\n  };', 2_400);
   const valida = pub.indexOf('validarGrafo(pasos)');
   assert.ok(valida >= 0 && valida < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda sin validar');
-  assert.match(pub, /if \(errores\.length\) \{ setErr\(errorLegible\(errores\[0\], pasos\)\); return; \}/);
-  // Convertida: los pasos Y la estrategia con la LIMPIEZA (el motor viejo no repite lo que hacen las tarjetas).
-  assert.match(pub, /if \(convertida\) \{\s*const r = await api\(\{ action: 'guardar-estrategia', secuenciaId: secuencia\.id, estrategia: estrategiaConLimpieza\(est\) \}\)/);
+  // Desde la revisión del 08/10 (lienzo-6) el error además ABRE la tarjeta (`frenar`, con su
+  // id): eso lo prueba tests/lienzo-revision.test.ts.
+  assert.match(pub, /if \(errores\.length\) \{ frenar\(errorLegible\(errores\[0\], pasos\), tarjetaDelError\(errores\[0\], pasos\)\); return; \}/);
+  // Convertida: los pasos Y la estrategia con la LIMPIEZA (el motor viejo no repite lo que hacen
+  // las tarjetas). Sin estrategia no se manda nada (lienzo-8, en tests/lienzo-revision.test.ts).
+  assert.match(pub, /if \(convertida\) \{\s*const limpia = estrategiaConLimpieza\(est\);\s*if \(limpia\) \{\s*const r = await api\(\{ action: 'guardar-estrategia', secuenciaId: secuencia\.id, estrategia: limpia \}\)/);
   assert.ok(pub.indexOf("fetch('/api/whatsapp/secuencias'") < pub.indexOf('guardar-estrategia'), 'primero los pasos, después la limpieza');
   // Una tarjeta VACÍA no se publica: `validarGrafo` mira la forma y no el contenido, y el
   // «MaKo contesta» con el que nace cada caso de «Si responde» nace sin guía.
-  assert.match(pub, /const vacia = faltaEscribir\(pasos\);\s*if \(vacia\) \{ setErr\(vacia\); return; \}/);
+  assert.match(pub, /const vacia = faltaEscribir\(pasos\);\s*if \(vacia\) \{ frenar\(vacia\.error, vacia\.id\); return; \}/);
   assert.ok(pub.indexOf('faltaEscribir(pasos)') < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda antes de mirar si hay tarjetas vacías');
   const r = crearRespuesta([msg('a')], rndDe());
-  assert.equal(faltaEscribir(agregarCaso(r.pasos, r.id, rndDe(3)).pasos), 'Falta completar «Mensaje 2»');
+  const conCaso = agregarCaso(r.pasos, r.id, rndDe(3));
+  assert.deepEqual(faltaEscribir(conCaso.pasos), { id: conCaso.mensaje, error: 'Falta completar «MaKo contesta»' });
   assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', audio_id: 4, cuerpo: '' })]), null, 'una nota de voz sin pie no está vacía');
-  assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', cuerpo: '' })]), 'Falta completar «Mensaje 2»', 'una nota de voz sin audio sí');
-  // El error, sin ids crudos.
+  assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', cuerpo: '' })])?.error, 'Falta completar «Nota de voz»', 'una nota de voz sin audio sí');
+  // El error, sin ids crudos, y sin «la condición «Condición»».
   const malos: PasoParaGrafo[] = [{ id: 'n0abcde', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', ramas: [], si_no: null }];
   const legible = errorLegible(validarGrafo(malos)[0], malos);
   assert.doesNotMatch(legible, /n0abcde/);
-  assert.match(legible, /«Condición 1»/);
+  assert.equal(legible, '«Condición» no tiene ninguna rama');
 });
 
 test('⚠️ al abrir, lo de antes se ve CONVERTIDO; un flujo de tarjetas no se vuelve a convertir ni pierde lo de su estrategia', () => {

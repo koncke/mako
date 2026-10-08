@@ -31,22 +31,25 @@
 // (sólo Publicar publica). Una edición que escribiera por su cuenta sería un segundo
 // camino a la base que no pasa por `validarGrafo`.
 
-import { Fragment, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { Lienzo, TarjetaNodo, inpLienzo } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
-import { EditorMensajeWhatsApp } from './EditorMensajeWhatsApp';
+import { EditorMensajeWhatsApp, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
+import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { aplicarVariables } from '@/lib/template-vars';
+import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
   claseDe, idDe, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS,
-  type FilaCondicion, type RamaCondicion, type CampoCondicion, type Espera,
+  type FilaCondicion, type RamaCondicion, type CampoCondicion, type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
+  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo,
   CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, ID_NUEVA_RESPUESTA,
   type NodoFlujo, type QueAgregar,
 } from '@/lib/flujo-conversacion';
@@ -63,9 +66,19 @@ export type SeccionEtapas = { title: string; funnelId: number; options: Array<{ 
  *  tick (el composer manda el texto y la IA juntos) se componen en vez de pisarse. */
 export type CambioPasos = (fn: (prev: PasoSecuenciaDto[]) => PasoSecuenciaDto[], apilar: boolean) => void;
 
+/** Lo que MaKo necesita para escribir el guion de una nota de voz: lo de la ESTRATEGIA. */
+export type ParaGuion = EditorMensajeWhatsAppProps['paraGuion'];
+
+/**
+ * La biblioteca de archivos, leída una vez para las tarjetas. «No pude leer» es un tercer
+ * estado y no una lista vacía: con una lista vacía la tarjeta afirmaría que el archivo ya no
+ * está (AGENTS.md, «No pude leer» es un tercer estado).
+ */
+type Biblioteca = { estado: 'ok'; lista: AdjuntoDto[] } | { estado: 'error' } | null;
+
 export function FlujoLienzo({
   pasos, disparador, secuencias, audios, negocio, rolAdmin, busy, envioAutoSecuencia,
-  etiquetas, onCrearEtiqueta, etapas,
+  etiquetas, onCrearEtiqueta, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer,
 }: {
@@ -86,6 +99,19 @@ export function FlujoLienzo({
   /** «+ Nueva» en el selector de etiqueta. Devuelve la creada, o null si no se pudo. */
   onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>;
   etapas: SeccionEtapas[];
+  /**
+   * El objetivo, el gancho y las preguntas de la estrategia, para «✦ guion» de una nota de voz
+   * (revisión, costuras-4: sin esto el guion salía sin el contexto de la secuencia, y un mensaje
+   * sin texto ni siquiera ofrecía el botón).
+   */
+  paraGuion?: ParaGuion;
+  /**
+   * La tarjeta que hay que ABRIR, la pide quien publica cuando un error la frena (revisión,
+   * lienzo-6). `vez` cambia en cada pedido: el mismo error dos veces la vuelve a abrir.
+   */
+  foco?: { id: string; vez: number } | null;
+  /** Cuántas respuestas de esta automatización esperan a una persona (ver `grafoDeSecuencia`). */
+  pendientesOtraCosa?: number;
   onPasos: CambioPasos;
   /** El ＋ de una salida (o del medio de una flecha). Devuelve el id de la tarjeta nueva. */
   onAgregar?: (nodo: string, puerto: string | undefined, que: QueAgregar) => string | null;
@@ -112,14 +138,44 @@ export function FlujoLienzo({
   insetDer?: number;
 }) {
   const [sel, setSel] = useState<string | null>(null);
+  // El foco que pide Publicar se aplica UNA vez por pedido (ajuste de estado en el render,
+  // no un efecto: la tarjeta se abre en el mismo pintado que el error).
+  const [focoVisto, setFocoVisto] = useState(0);
+  if (foco && foco.vez !== focoVisto) { setFocoVisto(foco.vez); setSel(foco.id); }
   const titulos = useTitulosAcciones(pasos.some(esPasoAccion));
-  const nombreEtiqueta = (id: number) => etiquetas.find((t) => t.id === id)?.nombre ?? null;
   const nombreEtapa = (key: string, funnelId: number | null) =>
     etapas.filter((s) => funnelId == null || s.funnelId === funnelId).flatMap((s) => s.options).find((o) => o.value === key)?.label ?? null;
   const editable = rolAdmin && !!onAgregar;
+
+  /**
+   * LA BIBLIOTECA DE ARCHIVOS, para que la tarjeta de un archivo diga CUÁL es (revisión,
+   * costuras-6). Hasta el 08/10 la tarjeta le pasaba a la burbuja un archivo con `url: null` y
+   * todas decían «(no disponible)», o «document (no disponible)» sin caption: afirmaban que un
+   * PDF bien subido estaba roto. Se pide sólo si hay un archivo y quien mira es admin (la ruta
+   * es de admin), y la misma lista le llega al editor, así no se pide dos veces.
+   */
+  const hayArchivos = pasos.some((p) => p.tipo === 'media');
+  const [biblioteca, setBiblioteca] = useState<Biblioteca>(null);
+  useEffect(() => {
+    if (!rolAdmin || !hayArchivos || biblioteca) return;
+    let vivo = true;
+    fetch('/api/chat-agent/adjuntos', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; adjuntos?: AdjuntoDto[] }) => {
+        if (vivo) setBiblioteca(j?.ok && Array.isArray(j.adjuntos) ? { estado: 'ok', lista: j.adjuntos } : { estado: 'error' });
+      })
+      .catch(() => { if (vivo) setBiblioteca({ estado: 'error' }); });
+    return () => { vivo = false; };
+  }, [rolAdmin, hayArchivos, biblioteca]);
+  const archivoNuevo = (a: AdjuntoDto) => setBiblioteca((b) => (b?.estado === 'ok' ? { estado: 'ok', lista: [a, ...b.lista.filter((x) => x.id !== a.id)] } : b));
+
+  // Los nombres de las etiquetas y las etapas: los mismos para la tarjeta y para el «Ir a».
+  const nombres: NombresParaTexto = { etiqueta: (id) => nombreEtiqueta(etiquetas, id), etapa: nombreEtapa };
   const grafo = grafoDeSecuencia(pasos, {
     disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
-    nombres: { etiqueta: nombreEtiqueta, etapa: nombreEtapa }, editable: rolAdmin && !!onCrearRespuesta,
+    nombres, editable: rolAdmin && !!onCrearRespuesta,
+    audioDe: (id) => audios.find((a) => a.id === id) ?? null,
+    pendientesOtraCosa,
   });
   const pasoDe = (id: string) => pasos.find((p, i) => idDe(p, i) === id) ?? null;
 
@@ -154,7 +210,7 @@ export function FlujoLienzo({
         return (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && Boolean(n.advertencia)}>
             {n.tipo === 'mensaje' && paso
-              ? <VistaMensaje paso={paso} audios={audios} negocio={negocio} />
+              ? <VistaMensaje paso={paso} audios={audios} negocio={negocio} biblioteca={biblioteca} />
               : n.detalle
                 ? <div style={{ fontSize: 12.5, fontWeight: n.tipo === 'accion' ? 600 : 400, color: n.advertencia ? 'var(--faint)' : 'var(--ink)', lineHeight: 1.45 }}>{n.detalle}</div>
                 : null}
@@ -166,6 +222,7 @@ export function FlujoLienzo({
           nodo={n} paso={pasoDe(n.id)} pasos={pasos} secuencias={secuencias}
           audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy} envioAutoSecuencia={envioAutoSecuencia}
           etiquetas={etiquetas} onCrearEtiqueta={onCrearEtiqueta} etapas={etapas}
+          nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada}
           onAbrir={(id) => setSel(id)}
@@ -199,12 +256,13 @@ function Fantasma({ nodo }: { nodo: NodoFlujo }) {
  * se le pasa el negocio: los datos del lead no se conocen acá, y quedan crudos, que es
  * como se ve que son variables.
  */
-function VistaMensaje({ paso, audios, negocio }: { paso: PasoSecuenciaDto; audios: AudioSetting[]; negocio: string }) {
+function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenciaDto; audios: AudioSetting[]; negocio: string; biblioteca: Biblioteca }) {
   const n = negocio.trim();
   const texto = aplicarVariables(paso.cuerpo || '', n ? { negocio: n } : {});
   const a = paso.tipo === 'audio' ? audios.find((x) => x.id === paso.audio_id) ?? null : null;
-  const vacio = paso.tipo !== 'audio' && paso.tipo !== 'media' && !texto.trim();
+  const vacio = paso.tipo === 'media' ? !paso.media_id : paso.tipo !== 'audio' && !texto.trim();
   if (vacio) return <span style={{ fontSize: 12, color: 'var(--faint)' }}>Sin escribir</span>;
+  if (paso.tipo === 'media') return <VistaArchivo paso={paso} texto={texto} negocio={negocio} biblioteca={biblioteca} />;
   return (
     <>
       {paso.canal === 'email' && paso.asunto && (
@@ -213,11 +271,30 @@ function VistaMensaje({ paso, audios, negocio }: { paso: PasoSecuenciaDto; audio
       <BurbujaHilo compacta saliente autor={negocio} contenido={{
         texto,
         audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: a?.transcript ?? null, duracion_s: a?.duracion_s ?? null } : null,
-        // La URL del archivo la resuelve la biblioteca (`setting_adjuntos`); la tarjeta sólo
-        // dice que lleva uno.
-        media: paso.tipo === 'media' ? { url: null, mime: '', nombre: null } : null,
         ia: paso.tipo === 'ia',
       }} />
+    </>
+  );
+}
+
+/**
+ * EL ARCHIVO EN LA TARJETA: su nombre y el caption, NUNCA «(no disponible)» sobre un archivo
+ * que existe (revisión, costuras-6). Qué se dibuja lo decide `vistaDeArchivo`
+ * (lib/flujo-conversacion.ts, con test): un documento con su nombre si la biblioteca lo tiene;
+ * «Archivo» si no se pudo saber; «Un archivo que ya no está» si se leyó y no está.
+ */
+function VistaArchivo({ paso, texto, negocio, biblioteca }: { paso: PasoSecuenciaDto; texto: string; negocio: string; biblioteca: Biblioteca }) {
+  const v = vistaDeArchivo(paso.media_id, biblioteca?.estado === 'ok' ? biblioteca.lista : biblioteca?.estado === 'error' ? 'error' : null);
+  if (v.modo === 'documento') {
+    return <BurbujaHilo compacta saliente autor={negocio} contenido={{ texto, media: { url: v.url, mime: v.mime, nombre: v.nombre, tipo: 'document' } }} />;
+  }
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: texto.trim() ? 6 : 0, fontSize: 12, fontWeight: 600, color: v.falta ? 'var(--warn)' : 'var(--ink)', minWidth: 0 }}>
+        <span style={{ flex: 'none', color: 'var(--dim)', display: 'inline-flex' }}><IconDoc size={16} /></span>
+        <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.nombre}</span>
+      </div>
+      {texto.trim() && <BurbujaHilo compacta saliente autor={negocio} contenido={{ texto }} />}
     </>
   );
 }
@@ -229,6 +306,10 @@ type PropsEditor = {
   secuencias: ReadonlyArray<{ id: number; nombre: string }>;
   audios: AudioSetting[]; negocio: string; rolAdmin: boolean; busy: boolean; envioAutoSecuencia: boolean;
   etiquetas: EtiquetaLienzo[]; onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>; etapas: SeccionEtapas[];
+  nombres: NombresParaTexto;
+  paraGuion?: ParaGuion;
+  /** La biblioteca de archivos ya leída (undefined = el editor la pide solo). */
+  adjuntos?: AdjuntoDto[]; onAdjuntoNuevo?: (a: AdjuntoDto) => void;
   onPasos: CambioPasos;
   onAudioNuevo: (a: AudioSetting) => void; onError: (m: string) => void; onModoIA?: (on: boolean) => void;
   /** Lo que se edita en la tarjeta CRON. Ver FlujoLienzo. */
@@ -279,7 +360,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, audios, negocio, busy, envioAutoSecuencia, onAudioNuevo, onModoIA }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, busy, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   if (paso.canal === 'email') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -304,20 +385,23 @@ function EditorMensaje({ paso, id, cambiar, audios, negocio, busy, envioAutoSecu
       paso={paso}
       onChange={(patch) => {
         // Tipear no entra a la pila (el Ctrl+Z del texto es del navegador); cambiar de
-        // audio, de archivo, de tipo o de «Revisar», sí.
-        const soloTexto = Object.keys(patch).every((k) => k === 'cuerpo' || k === 'asunto');
-        cambiar(patch, !soloTexto);
+        // audio, de archivo, de tipo o de «Revisar», sí. Escribir en una variante también es
+        // tipear: la decide `cambioApila` (lib/flujo-conversacion.ts).
+        cambiar(patch, cambioApila(patch, paso));
         if (patch.tipo === 'ia' && paso.tipo !== 'ia') onModoIA?.(true);
       }}
       audios={audios} onAudioNuevo={onAudioNuevo}
+      adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
+      paraGuion={paraGuion}
       permiteIA={!!onModoIA && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial' && paso.tipo !== 'audio' && paso.tipo !== 'media'}
       onModoIA={modoIA}
       permiteAudio={noOficial}
       permiteAdjuntos={noOficial}
-      // «Sale sola» pasó a cada mensaje (punto 6): ausente en el paso = lo que diga la
-      // secuencia, así que el interruptor se pinta con el valor heredado.
+      // «Sale sola» pasó a cada mensaje (punto 6): ausente en el paso = lo que hace el MOTOR con
+      // él, así que el interruptor se pinta con ese valor (`revisarHeredado`: un «MaKo contesta»
+      // de «Si responde» sin `revisar` deja borrador, aunque la secuencia salga sola).
       mostrarRevisar
-      revisarHeredado={!envioAutoSecuencia}
+      revisarHeredado={revisarHeredado(pasos, id, envioAutoSecuencia)}
       negocio={negocio}
       placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}
     />
@@ -493,7 +577,7 @@ function SelectorEtiqueta({ valor, etiquetas, onElegir, onCrear, busy, onError }
   }
   const vivas = etiquetas.filter((t) => !t.archivada_at || t.id === valor);
   const opciones: DropdownOption[] = [
-    ...vivas.map((t) => ({ value: String(t.id), label: t.archivada_at ? `${t.nombre} (archivada)` : t.nombre, ...(t.color ? { color: t.color } : {}) })),
+    ...vivas.map((t) => ({ value: String(t.id), label: nombreEtiqueta(etiquetas, t.id) ?? t.nombre, ...(t.color ? { color: t.color } : {}) })),
     // ⚠️ La que está puesta entra SIEMPRE, aunque no esté en la lista (todavía cargando, o
     // de otro lado): un valor que no está entre las opciones se dibuja como la primera.
     ...(valor != null && !vivas.some((t) => t.id === valor) ? [{ value: String(valor), label: 'Una etiqueta que ya no está' }] : []),
@@ -559,7 +643,7 @@ function EditorRespuesta({ paso, id, cambiar, onPasos, busy, onAbrir }: PropsEdi
 }
 
 /** «IR A»: otra automatización (se la inscribe) u otra tarjeta de este flujo (un salto). */
-function EditorIrA({ paso, id, cambiar, pasos, secuencias, busy }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorIrA({ paso, id, cambiar, pasos, secuencias, nombres, busy }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const d = paso.destino ?? null;
   const valor = !d ? '' : 'secuencia_id' in d ? `sec:${d.secuencia_id}` : `nodo:${d.nodo}`;
   const tarjetas = pasos
@@ -569,7 +653,8 @@ function EditorIrA({ paso, id, cambiar, pasos, secuencias, busy }: PropsEditor &
     { title: 'Otra automatización', options: secuencias.map((s) => ({ value: `sec:${s.id}`, label: s.nombre })) },
     {
       title: 'Otra tarjeta de este flujo',
-      options: tarjetas.map((x) => ({ value: `nodo:${x.id}`, label: nombreDeTarjeta(pasos, x.id), ...(x.p.cuerpo?.trim() ? { sub: x.p.cuerpo.trim().slice(0, 48) } : {}) })),
+      // El nombre ya trae lo que la tarjeta dice («Mensaje: Hola, te…»), como la tarjeta del «Ir a».
+      options: tarjetas.map((x) => ({ value: `nodo:${x.id}`, label: nombreDeTarjeta(pasos, x.id, nombres) })),
     },
   ].filter((s) => s.options.length > 0);
   if (valor && !secciones.some((s) => s.options.some((o) => o.value === valor))) {

@@ -416,8 +416,12 @@ export function Lienzo({
     // Las dos cuentas viven en `lib/lienzo-grafo.ts`, sin `server-only`, para que
     // tengan test: adentro de este efecto no las puede importar nadie.
     // El panel abre a `PANEL_MARGEN + insetIzq`, así que el borde contra el que se
-    // corre el lienzo para no taparlo es ése, no el del contenedor.
-    const prox = vistaConPanel(vista.current, n.x, panelAncho, PANEL_MARGEN + insetIzq);
+    // corre el lienzo para no taparlo es ése, no el del contenedor. Y a la derecha, el
+    // nodo no se corre más allá de lo que se ve: con «Probar» abierto (`insetDer`) quedaba
+    // DEBAJO del teléfono (revisión, lienzo-4).
+    const prox = vistaConPanel(vista.current, n.x, panelAncho, PANEL_MARGEN + insetIzq, {
+      separacion: PANEL_MARGEN, nodoAncho: n.ancho, tope: caja.current.clientWidth - insetDer,
+    });
     if (!prox) return;
     // El `antes` se guarda UNA vez: abrir un segundo nodo que necesite más corrimiento
     // no puede perder la vista original, que es a la que hay que volver.
@@ -821,6 +825,10 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.rotulo}</span>
+          {/* La marca CEDE último: el rótulo se corta con «…» antes que ella (flex: none). */}
+          {p.marca && (
+            <span style={{ marginLeft: 'auto', flex: 'none', padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: 'var(--warn)', border: '1px solid var(--warn)', background: 'var(--surface)' }}>{p.marca}</span>
+          )}
         </div>
       ))}
     </div>
