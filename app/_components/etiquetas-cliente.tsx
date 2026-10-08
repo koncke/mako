@@ -5,8 +5,10 @@
 // =============================================================================
 // Una sola lectura y una sola forma de dibujar una etiqueta para las cuatro pantallas que las
 // usan: la ficha del lead (chips), la barra de lote del CRM, el CRUD (app/crm/EtiquetasModal.tsx)
-// y el paso «⚡ Acción» de un flujo (app/_components/EditorAccionMako.tsx). El lienzo de /chatbot
-// (parte L) puede usar `useEtiquetas` y `SelectorEtiqueta` para la condición «tiene la etiqueta».
+// y el paso «⚡ Acción» de un flujo (app/_components/EditorAccionMako.tsx). Desde la segunda tanda
+// (08/10/2026) también la tarjeta 🏷️ del lienzo (app/chatbot/EditorEtiqueta.tsx); y el selector LOCAL
+// que tenía app/chatbot/FlujoLienzo.tsx para la condición «tiene la etiqueta» se reemplaza por éste:
+// dos selectores de la misma cosa son dos «＋ Nueva» que crean distinto.
 //
 // El dato sale de GET /api/crm/etiquetas; crear va por POST {action:'crear'} (sólo el admin: el
 // server lo decide). La lista se guarda UNA vez por pestaña y se vuelve a pedir cuando alguien
@@ -196,9 +198,15 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
     onElegir(r.etiqueta);
   };
 
+  // ⚠️ CON UN ANCHO EN PORCENTAJE, EL ENVOLTORIO TAMBIÉN LO LLEVA. Era un `inline-flex` sin ancho,
+  // así que el `width="100%"` del desplegable se resolvía contra una caja que medía lo que su
+  // contenido: el botón quedaba del largo del texto y no llenaba la frase de la tarjeta 🏷️ ni el
+  // campo del paso «⚡ Acción». Con un número, el desplegable ya se dimensiona solo.
+  const envoltorio: CSSProperties = { display: 'inline-flex', flexDirection: 'column', gap: 4, minWidth: 0, ...(typeof width === 'string' ? { width } : null) };
+
   if (creando) {
     return (
-      <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+      <span style={envoltorio}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <input autoFocus value={nombre} maxLength={40} placeholder="Nombre" aria-label="Nombre de la etiqueta nueva"
             onChange={(ev) => setNombre(ev.target.value)}
@@ -213,7 +221,7 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
   }
 
   return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+    <span style={envoltorio}>
       <Dropdown
         value={value != null ? String(value) : ''}
         options={opciones}
