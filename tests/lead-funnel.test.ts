@@ -72,9 +72,34 @@ test('se entra a un producto por la etapa declarada de entrada, o la primera', (
 
 const LIB = sinComentarios(leer('lib/lead-funnel.ts'));
 
+/** El cuerpo de UNA función de LIB, hasta la siguiente declaración de nivel superior. */
+const cuerpoDe = (firma: string): string => {
+  const i = LIB.indexOf(firma);
+  assert.ok(i >= 0, `no encontré «${firma}»`);
+  const fin = LIB.slice(i + firma.length).search(/\n(export )?(async )?function |\nexport (const|type) |\nconst |\ntype /);
+  return LIB.slice(i, fin < 0 ? undefined : i + firma.length + fin);
+};
+
 test('⚠️ agregar y mover en otro producto no tocan la casa: ni setPipelineStage, ni updateLead, ni nutrición', () => {
-  assert.doesNotMatch(LIB, /setPipelineStage|updateLead|setBoardStageOverride/, 'tocaría estado_lead, la venta o el CAPI de la casa');
+  // ⚠️ POR FUNCIÓN, no sobre el archivo entero (08/10/2026). Desde que QUITAR LA CASA sincroniza el
+  // desenlace con la etapa promovida (ver el test siguiente), el archivo llama a updateLead a
+  // propósito; lo que esta decisión v1 protege es que AGREGAR y MOVER en otro producto no toquen
+  // la casa.
+  for (const f of ['export async function agregarAProducto(', 'export async function moverEtapaEnProducto(', 'export async function agregarLoteAProducto(', 'export async function quitarLoteDeProducto(']) {
+    assert.doesNotMatch(cuerpoDe(f), /setPipelineStage|updateLead|setBoardStageOverride/, `${f}: tocaría estado_lead, la venta o el CAPI de la casa`);
+  }
+  assert.doesNotMatch(LIB, /setPipelineStage|setBoardStageOverride/, 'ninguna mueve la columna de la casa por el camino del recorrido');
   assert.doesNotMatch(LIB, /enrolarPorEvento|inscrib/, 'las secuencias aplican a todos los productos: le escribiría dos veces a la misma persona');
+});
+
+test('quitar la casa: updateLead SÓLO para que el desenlace siga a la etapa promovida (y su deshacer)', () => {
+  // Medido el 08/10/2026 en ws11: sacar la casa promovía una fila en «Ganado» escribiendo sólo la
+  // columna, y el #2605 quedó en la tarjeta de Ganado con el lead abierto (fuera del revenue).
+  const quitar = cuerpoDe('export async function quitarDeProducto(');
+  assert.equal((quitar.match(/updateLead\(/g) ?? []).length, 1);
+  assert.match(quitar, /if \(desenlace !== 'abierto'\) \{[\s\S]*?await updateLead\(leadId, \{ estado_lead: desenlace \}\);/);
+  const deshacer = cuerpoDe('export async function deshacerQuitar(');
+  assert.equal((deshacer.match(/updateLead\(/g) ?? []).length, 1);
 });
 
 test('quitar vuelve a contar en el server (esconder la X no protege nada)', () => {

@@ -95,7 +95,9 @@ test('⚠️ el lead y el producto se validan contra ESTE negocio antes de propo
   // Y la lista de productos: la de la pantalla, con vacío = no se pudo leer.
   const h = funcion(HELPERS, 'export async function productosCrm(');
   assert.match(h, /const funnels = await listarFunnels\(\);\s*if \(!funnels\.length\) return null;/);
-  assert.match(h, /nombre: f\.producto\?\.trim\(\) \|\| f\.nombre/, 'el nombre que ve la persona, con la regla de la ficha');
+  // La regla vive en UN lugar desde el 08/10/2026 (`nombreVisible`, lib/lead-funnel-reglas.ts,
+  // ejecutada en tests/inbox-agregar-al-crm.test.ts); acá se mira que se use.
+  assert.match(h, /nombre: nombreVisible\(f\)/, 'el nombre que ve la persona, con la regla de la ficha');
 });
 
 test('las tres preparan con leadYProducto, y ninguna escribe lead_funnel por su cuenta', () => {

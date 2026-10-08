@@ -28,5 +28,5 @@ export async function vistaDe(ctx: Ctx): Promise<Vista> {
     console.error(`[api-mako] no pude leer la capa del ws ${ctx.ws}; la vista queda sin tabs:`, err instanceof Error ? err.message : err);
     tabs = [];
   }
-  return { canal: ctx.canal, alcance: ctx.alcance, ws: ctx.ws, rol: ctx.rol, tabs };
+  return { canal: ctx.canal, alcance: ctx.alcance, ws: ctx.ws, rol: ctx.rol, tabs, ...(ctx.permisos ? { permisos: ctx.permisos } : {}) };
 }

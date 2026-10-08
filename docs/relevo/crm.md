@@ -1,5 +1,24 @@
 # Relevo — CRM
 
+## ⚡ Actualización del 08/10/2026, 08:00 — sesión CRM, cuenta claude2
+
+El feedback de Leila (ws11) y la grabación de sesiones, en producción:
+
+- **«Completar datos» ya no mueve al lead** y la ficha se relee al guardar (era el «loop» de la
+  empresa, y des-ganó al #2605). → `docs/hallazgos-crm.md` → «"Completar datos" devolvía al lead…».
+- **El monto de Ganado**: sí se guardaba (en `suscripcion_monto_usd`); la tarjeta ahora muestra
+  «$X/mes», el contrato precarga sin esconder el paso, y Deal Details edita la mensualidad.
+- **«+ Agregar al CRM» desde WhatsApp** elige el producto.
+- **La grabación de sesiones** (área landing): la ficha dice la verdad, el r.js v2 graba a quien mira
+  sin tocar (sin repegar) y el reproductor por fin abre las grabaciones. ⚠️ El r.js v2 se le sirve a
+  TODAS las páginas con Pixel v21/v22 en cuanto el servidor contesta `rec.v=2`.
+
+**Lo que espera a Leila / Martín:** corregir los datos de ws11 que entraron mal (Nadia #2605: la
+mensualidad dice 4.235,29 y es el total del contrato, con 12 cuotas de 4.235,29 pendientes que inflan
+el MRR un 85%; Fabi: ¿444 USD o pesos?; Nora #2610 y Fabi #2606 siguen en dos productos), y decidir si
+sacar el producto donde se ganó des-gana al lead. **Sin verificar en un navegador** ninguna de las
+pantallas; el grabador sí, con el snippet real en headless y contra la página real de ws1.
+
 ## ⚡ Actualización del 08/10/2026, 02:50 — sesión CRM, cuenta claude2
 
 Tres cosas salieron y están desplegadas, las tres APAGADAS para todos hasta que alguien las prenda:

@@ -14,7 +14,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { useSearchParams } from 'next/navigation';
-import { useRouter } from '@/app/_ui/Link';
+import { useRefrescarFicha } from '../lead-view/ficha-cambio';
 import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead } from '@/lib/leads';
@@ -158,6 +158,8 @@ function Modal({ onClose, width = 440, children }: { onClose: () => void; width?
 type DraftCuota = { key: number; id: number | null; numero: number | null; monto: string; fecha: string; pagado: boolean; fecha_pago: string | null };
 type Drafts = {
   monto: string; fechaCierre: string; fechaInicioServicio: string;
+  // Una suscripción: la mensualidad y el plazo en meses ('' = indefinida).
+  mensualidad: string; plazo: string;
   razon: string; idFiscal: string; domicilio: string; correo: string; facturadoPor: string;
   queEs: string; fechaInicio: string; fechaTermino: string; duracion: string; frecuencia: string; modalidad: string; sesiones: string;
   resultado: string; garantia: string; obCliente: string; obPrestador: string;
@@ -176,6 +178,7 @@ type ExtractResp = {
 function buildDraft(lead: Lead, pagos: Pago[]): Drafts {
   return {
     monto: lead.monto_cierre_usd != null ? String(lead.monto_cierre_usd) : '', fechaCierre: lead.fecha_cierre ?? '', fechaInicioServicio: lead.fecha_inicio_servicio ?? '',
+    mensualidad: lead.suscripcion_monto_usd != null ? String(lead.suscripcion_monto_usd) : '', plazo: lead.suscripcion_meses != null ? String(lead.suscripcion_meses) : '',
     // Correo de facturación: por defecto el email del lead (salvo que se cargue otro).
     razon: lead.deal_fiscal?.razon ?? '', idFiscal: lead.deal_fiscal?.id_fiscal ?? '', domicilio: lead.deal_fiscal?.domicilio ?? '', correo: lead.deal_fiscal?.correo || lead.email || '',
     facturadoPor: lead.facturado_por_id != null ? String(lead.facturado_por_id) : '',
@@ -203,7 +206,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
   onCambio?: (patch: Pick<Lead, 'venta_tipo'>) => void;
 }>(
   function DealDetailsCard({ lead, pagos, editing = false, onCambio }, ref) {
-  const router = useRouter();
+  const refrescarFicha = useRefrescarFicha();
   const sp = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
@@ -264,6 +267,14 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
         monto_cierre_usd: draft.monto.trim() ? (parseFloat(draft.monto) || null) : null,
         fecha_cierre: draft.fechaCierre || null,
         fecha_inicio_servicio: draft.fechaInicioServicio || null,
+        // ⚠️ La mensualidad de una suscripción se corrige ACÁ: era la única pantalla que la
+        // mostraba sin dejar editarla, y el wizard ya no la pregunta una vez cargada (08/10/2026,
+        // los 4.235,29 «al mes» de un total de contrato). Sólo si ES suscripción; el server
+        // igual lo re-chequea (compare-and-set sobre venta_tipo).
+        ...(ventaTipo === 'suscripcion' ? {
+          suscripcion_monto_usd: draft.mensualidad.trim() ? (parseFloat(draft.mensualidad) || null) : null,
+          suscripcion_meses: draft.plazo.trim() ? (parseInt(draft.plazo, 10) || null) : null,
+        } : {}),
       });
       if (draft.cuotasDirty) {
         // El `id` y la `fecha_pago` viajan porque el server tiene que distinguir
@@ -274,7 +285,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
         await saveCuotasAction(lead.id, draft.cuotas.map((c) => ({ id: c.id, monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado, fecha_pago: c.fecha_pago })));
       }
     },
-  }), [lead.id, lead.deal_fiscal]);
+  }), [lead.id, lead.deal_fiscal, ventaTipo]);
 
   const upd = (patch: Partial<Drafts>) => setD((prev) => (prev ? { ...prev, ...patch } : prev));
   const setCuota = (i: number, patch: Partial<DraftCuota>) => setD((prev) => { if (!prev) return prev; const cuotas = prev.cuotas.slice(); cuotas[i] = { ...cuotas[i], ...patch }; return { ...prev, cuotas, cuotasDirty: true }; });
@@ -294,7 +305,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
   // El monto queda editable mientras la cuota no se haya guardado (id === null):
   // una suscripción sin `suscripcion_monto_usd` cargado nacería en 0, y una cuota
   // en 0 la descarta el guardado sin decir nada.
-  const agregarMensualidad = () => setD((prev) => { if (!prev) return prev; const hoy = hoyISO(); const nueva: DraftCuota = { key: nextKey.current--, id: null, numero: null, monto: lead.suscripcion_monto_usd != null ? String(lead.suscripcion_monto_usd) : '', fecha: hoy, pagado: true, fecha_pago: hoy }; return { ...prev, cuotas: [...prev.cuotas, nueva], cuotasDirty: true }; });
+  const agregarMensualidad = () => setD((prev) => { if (!prev) return prev; const hoy = hoyISO(); const nueva: DraftCuota = { key: nextKey.current--, id: null, numero: null, monto: prev.mensualidad.trim(), fecha: hoy, pagado: true, fecha_pago: hoy }; return { ...prev, cuotas: [...prev.cuotas, nueva], cuotasDirty: true }; });
 
   // ── Totales / semáforo ──
   const cuotasVista = d ? d.cuotas.map((c) => ({ monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado })) : pagos.map((p) => ({ monto: Number(p.monto_usd), fecha: p.fecha_esperada, pagado: p.pagado }));
@@ -384,7 +395,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
   const desmarcarPago = (p: Pago) => {
     setFeedback(null);
     startTransition(async () => {
-      try { await marcarPagoAction(p.id, lead.id, false, null); setPagoToast({ pago: p, accion: 'desmarcada' }); router.refresh(); }
+      try { await marcarPagoAction(p.id, lead.id, false, null); setPagoToast({ pago: p, accion: 'desmarcada' }); refrescarFicha(); }
       catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
@@ -402,7 +413,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
         setTipoLeido({ sobre, es: r.ventaTipo });
         if (!r.cambio) setFeedback({ kind: 'ok', msg: 'Ya no era «Sin cobro».' });
         onCambio?.({ venta_tipo: r.ventaTipo });
-        router.refresh();
+        refrescarFicha();
       }
       catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
@@ -416,7 +427,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       try {
         if (accion === 'marcada') await marcarPagoAction(p.id, lead.id, false, null);
         else await marcarPagoManualAction(p.id, lead.id, { fecha: p.fecha_pago ?? new Date().toISOString().slice(0, 10), hora: p.pago_hora ?? null });
-        router.refresh();
+        refrescarFicha();
       } catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
@@ -500,7 +511,17 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
           <div style={{ ...mini, marginTop: 16 }}>
             <div style={{ ...miniLabel, marginBottom: 10 }}>Cierre</div>
             <div style={grid2}>
-              <Field label="Monto del cierre (USD)"><input className="lead-field" type="number" min={0} step="0.01" value={d.monto} onChange={(e) => upd({ monto: e.target.value })} /></Field>
+              {/* Una suscripción no tiene monto de cierre (queda NULL a propósito): su plata es
+                  la mensualidad, y el plazo vacío es «indefinida». Cambiar el plazo NO rehace
+                  las cuotas: se ajustan en la lista de abajo. */}
+              {ventaTipo === 'suscripcion' ? (
+                <>
+                  <Field label="Mensualidad (USD)"><input className="lead-field" type="number" min={0} step="0.01" value={d.mensualidad} onChange={(e) => upd({ mensualidad: e.target.value })} /></Field>
+                  <Field label="Plazo (meses)"><input className="lead-field" type="number" min={1} step="1" placeholder="Indefinida" value={d.plazo} onChange={(e) => upd({ plazo: e.target.value.replace(/[^\d]/g, '') })} /></Field>
+                </>
+              ) : (
+                <Field label="Monto del cierre (USD)"><input className="lead-field" type="number" min={0} step="0.01" value={d.monto} onChange={(e) => upd({ monto: e.target.value })} /></Field>
+              )}
               <Field label="Fecha de cierre"><input className="lead-field" type="date" value={d.fechaCierre} onChange={(e) => upd({ fechaCierre: e.target.value })} /></Field>
               <Field label="Inicio de servicio (opcional)"><input className="lead-field" type="date" value={d.fechaInicioServicio} onChange={(e) => upd({ fechaInicioServicio: e.target.value })} /></Field>
             </div>
@@ -579,7 +600,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
               </div>
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {ventaTipo === 'suscripcion' && (
-                  <button type="button" style={dashedBtn} onClick={agregarMensualidad}>+ Registrar mensualidad cobrada ({fmtUSD(lead.suscripcion_monto_usd ?? 0)})</button>
+                  <button type="button" style={dashedBtn} onClick={agregarMensualidad}>+ Registrar mensualidad cobrada ({fmtUSD(parseFloat(d.mensualidad) || 0)})</button>
                 )}
                 <button type="button" style={dashedBtn} onClick={agregarCuota}>+ Agregar cuota</button>
               </div>
@@ -722,7 +743,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       </section>
 
       {modal?.tipo === 'pagar' && (
-        <PayModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} onDone={(msg) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); setPagoToast({ pago: p, accion: 'marcada' }); router.refresh(); }} />
+        <PayModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} onDone={(msg) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); setPagoToast({ pago: p, accion: 'marcada' }); refrescarFicha(); }} />
       )}
       {modal?.tipo === 'comprobante' && <ComprobanteModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} />}
 

@@ -372,3 +372,32 @@ renombrar). Y dos cosas que el plan no tenía, decididas por Martín al pedir la
 La skill (`lib/agente-skill.ts` → `plugin/`) pasó a enseñar el índice compacto y el detalle por
 operación en vez del catálogo entero. `plugin/` está regenerado; publicarlo en el repo público
 es aparte.
+
+### La API copiada de GitHub (08/10/2026, a la tarde)
+
+Pedido de Martín: «Me gusta como hace la API GitHub, con su diseño, permisos, presentación,
+etc… Copialo todo, tal cual». Sus cuatro decisiones, y cómo quedaron:
+
+- **«Como GitHub: escribe directo».** Los tokens con nombre pasaron a ser **detallados**
+  (`mako_pat_…`, como `github_pat_`). Con «Lectura y escritura» en el área, una acción se hace EN EL
+  ACTO (200 `{ ok, hecho, resumen }`) por `aplicarEnElActo`, el mismo camino de los flujos; lo que
+  cuesta plata (`costo: 'dinero'`) propone igual (202 y link). El clásico (la skill, `mkoag_`) sigue
+  con el § 5: un alcance global y nunca escribe directo. La definición no cambia: `confirmacion`
+  sigue siendo `chat` o `pantalla`; escribir directo es una propiedad del token.
+- **Permisos por área y vencimiento.** Sin acceso / Solo lectura / Lectura y escritura por cada una
+  de las áreas con algo por HTTP (`lib/api-mako/permisos.ts`), y vencimiento de 7, 30, 60 o 90 días,
+  una fecha hasta un año, o ninguno. Viven en `gatingOk`, así que valen al proponer Y al confirmar.
+  Sin permiso: 403 con `X-Accepted-MaKo-Permissions`; lo que depende del plan sigue en 404.
+- **Las URLs de GitHub como alias.** Cada operación HTTP tiene una ruta por recurso con el verbo de
+  GitHub (`lib/api-mako/rest.ts`, 379 filas); la ruta por operación no cambia (decisión C).
+- **«Que se vea igual a GitHub».** La tab tiene la documentación de docs.github.com (área → recurso →
+  endpoints, con «Tokens de acceso detallados», «Parámetros», «Códigos de estado» y los ejemplos), los
+  tokens de Settings → Personal access tokens y el registro como el Security log, con los valores de
+  Primer limitados a `.gh` (`app/api-mako/github.css`).
+
+Lo demás que se copió: versión por fecha (`X-MaKo-Api-Version: 2026-10-08`), los headers
+`x-ratelimit-*` y `GET /api/v1/rate_limit` (que no gasta), el error `{ message, documentation_url,
+status }` (con el `{ ok:false, error }` de antes al lado), ETag/304, `User-Agent` obligatorio,
+`X-MaKo-Request-Id`, `MaKo-Authentication-Token-Expiration` y la descripción OpenAPI 3.1 en
+`GET /api/v1/openapi.json`. Lo que no se copió, y por qué, en `docs/hallazgos-api-mako.md`
+(«La API copiada de GitHub», «Lo que quedó sin hacer»).

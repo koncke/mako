@@ -28,7 +28,8 @@
 // marcarlo ahí guardaría y volvería solo al valor anterior.
 
 import { useRef, useState, useTransition, type CSSProperties } from 'react';
-import Link, { useRouter } from '@/app/_ui/Link';
+import Link from '@/app/_ui/Link';
+import { useRefrescarFicha } from './ficha-cambio';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { Dropdown } from '@/app/components/Dropdown';
@@ -58,17 +59,17 @@ const disparador: CSSProperties = {
  * criterio que `InfoPrincipalCard` ya usa para el nombre y el teléfono.
  */
 function useGuardarCampo(leadId: number, campo: CampoInline) {
-  const router = useRouter();
+  const refrescarFicha = useRefrescarFicha();
   const { toast, show, clear } = useToast();
   const [, startGuardar] = useTransition();
   const guardar = (nuevo: ValorInline, antes: ValorInline) => {
     startGuardar(async () => {
       try {
         await guardarCampoLeadAction(leadId, campo, nuevo);
-        router.refresh();
+        refrescarFicha();
         show('Guardado', () => {
           startGuardar(async () => {
-            try { await guardarCampoLeadAction(leadId, campo, antes); router.refresh(); }
+            try { await guardarCampoLeadAction(leadId, campo, antes); refrescarFicha(); }
             catch { show('No se pudo deshacer', undefined, 'bad'); }
           });
         });

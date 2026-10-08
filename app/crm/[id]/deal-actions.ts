@@ -14,7 +14,7 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { logLeadEvent, type Lead } from '@/lib/leads';
+import { getLead, logLeadChanges, logLeadEvent, type Lead } from '@/lib/leads';
 import { saveLeadPlanManual, marcarPago, getPagosByLead } from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
@@ -126,15 +126,33 @@ export type DealSectionsInput = {
   monto_cierre_usd?: number | null;
   fecha_cierre?: string | null;
   fecha_inicio_servicio?: string | null;
+  // Una SUSCRIPCIÓN: la mensualidad y el plazo (null = indefinida). Sólo se escriben si el
+  // lead ES una suscripción — ver el compare-and-set abajo.
+  suscripcion_monto_usd?: number | null;
+  suscripcion_meses?: number | null;
 };
 
 /**
  * Guarda las secciones del deal que vengan en el patch (las ausentes no se
  * tocan). Deja el evento en lead_audit y revalida las vistas del lead.
+ *
+ * ⚠️ LA PLATA DEJA SU VALOR EN EL HISTORIAL, no sólo «Guardó: monto». Hasta el 08/10/2026
+ * esta era la única pantalla que no podía corregir una suscripción (mostraba «USD X/mes»
+ * pero no tenía el campo), y cuando corregía el monto de cierre el historial decía qué se
+ * tocó y no de cuánto a cuánto. Ahora, si el patch trae plata, se diffea el lead antes y
+ * después con `logLeadChanges` (AUDIT_FIELDS: «Monto de cierre», «Suscripción (USD/mes)»,
+ * «Plazo de la suscripción»), y esas líneas se pueden revertir desde la ficha.
  */
 export async function saveDealSectionsAction(leadId: number, patch: DealSectionsInput): Promise<void> {
   const upd: Record<string, unknown> = {};
   const tocadas: string[] = [];
+  const db = await getTenantDb();
+  const sus: Record<string, number | null> = {};
+  if (patch.suscripcion_monto_usd !== undefined) sus.suscripcion_monto_usd = patch.suscripcion_monto_usd;
+  if (patch.suscripcion_meses !== undefined) sus.suscripcion_meses = patch.suscripcion_meses;
+  const tocaPlata = patch.monto_cierre_usd !== undefined || Object.keys(sus).length > 0;
+  // El «antes» del diff: sin poder leerlo se guarda igual y queda sólo el evento de abajo.
+  const before = tocaPlata ? await getLead(leadId).catch(() => null) : null;
   if (patch.deal_fiscal !== undefined) { upd.deal_fiscal = patch.deal_fiscal; tocadas.push('datos fiscales'); }
   if (patch.deal_servicio !== undefined) { upd.deal_servicio = patch.deal_servicio; tocadas.push('servicio'); }
   if (patch.deal_promesa !== undefined) { upd.deal_promesa = patch.deal_promesa; tocadas.push('promesa'); }
@@ -143,12 +161,27 @@ export async function saveDealSectionsAction(leadId: number, patch: DealSections
   if (patch.monto_cierre_usd !== undefined) { upd.monto_cierre_usd = patch.monto_cierre_usd; tocadas.push('monto de cierre'); }
   if (patch.fecha_cierre !== undefined) { upd.fecha_cierre = patch.fecha_cierre; tocadas.push('fecha de cierre'); }
   if (patch.fecha_inicio_servicio !== undefined) { upd.fecha_inicio_servicio = patch.fecha_inicio_servicio; tocadas.push('inicio de servicio'); }
-  if (Object.keys(upd).length === 0) return;
 
-  const { error } = await (await getTenantDb()).from('leads').update(upd).eq('id', leadId);
-  if (error) throw new Error(`Error guardando el deal del lead ${leadId}: ${error.message}`);
+  if (Object.keys(upd).length) {
+    const { error } = await db.from('leads').update(upd).eq('id', leadId);
+    if (error) throw new Error(`Error guardando el deal del lead ${leadId}: ${error.message}`);
+  }
+  // ⚠️ COMPARE-AND-SET sobre el tipo: la mensualidad sólo se escribe si el lead SIGUE siendo
+  // una suscripción. Una pantalla vieja (abierta antes de que alguien lo pasara a pago único
+  // en el wizard) no puede volver a colgarle una mensualidad que el server ya limpió.
+  if (Object.keys(sus).length) {
+    const { data, error } = await db.from('leads').update(sus).eq('id', leadId).eq('venta_tipo', 'suscripcion').select('id');
+    if (error) throw new Error(`Error guardando la suscripción del lead ${leadId}: ${error.message}`);
+    if (data?.length) {
+      if ('suscripcion_monto_usd' in sus) tocadas.push('mensualidad');
+      if ('suscripcion_meses' in sus) tocadas.push('plazo');
+    }
+  }
+  if (!tocadas.length) return;
 
-  await logLeadEvent(leadId, 'Deal details', `Guardó: ${tocadas.join(', ')}`, await autorActual());
+  const autor = await autorActual();
+  if (before) await logLeadChanges(leadId, before, await getLead(leadId).catch(() => null), autor);
+  await logLeadEvent(leadId, 'Deal details', `Guardó: ${tocadas.join(', ')}`, autor);
   bust(TAG.leads);
   revalidarLead(leadId);
 }

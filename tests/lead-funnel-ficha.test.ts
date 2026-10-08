@@ -172,7 +172,10 @@ test('la vista inicial sale del tablero desde el que se abrió (?funnel=N), y el
   assert.match(hook, /const sp = useSearchParams\(\);\s*const crudo = Number\(sp\?\.get\('funnel'\)\);/);
   assert.match(hook, /useState<number \| null>\(pedido\)/);
   // El pop-up no se entera por el refresh: sus datos los trajo una action al abrir.
-  assert.match(SHEET, /onCasaCambiada: \(\) => \{ void getLeadFullAction\(lead\.id\)\.then\(\(x\) => \{ if \(x\) setFresca\(x\); \}\)/);
+  // (Desde el 08/10/2026 el releer es UNO, el mismo que usan las tarjetas y los botones de mover:
+  // tests/ficha-se-relee.test.ts.)
+  assert.match(SHEET, /const releer = useCallback\(\(\) => \{\s*void getLeadFullAction\(lead\.id\)\.then\(\(x\) => \{ if \(x\) setFresca\(x\); \}\)/);
+  assert.match(SHEET, /onCasaCambiada: releer,/);
   assert.match(SHEET, /const vigente = fresca && fresca\.lead\.id === data\.lead\.id \? fresca : data;/);
   assert.match(SHEET, /fotoEmail \} = vigente;/);
 });

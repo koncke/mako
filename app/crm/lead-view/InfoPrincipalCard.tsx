@@ -19,7 +19,7 @@
 // La montan la ficha del CRM (pop-up y ruta) y la ficha de un cliente de Customer Success.
 
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
-import { useRouter } from '@/app/_ui/Link';
+import { useRefrescarFicha } from './ficha-cambio';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { saveLeadMetaAction } from '../actions';
@@ -149,7 +149,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
     navigator.clipboard?.writeText(text).then(() => { setCopied(key); setTimeout(() => setCopied(''), 1200); }).catch(() => {});
   };
 
-  const router = useRouter();
+  const refrescarFicha = useRefrescarFicha();
   const { toast, show, clear } = useToast();
   const [, startGuardar] = useTransition();
 
@@ -175,12 +175,12 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
     startGuardar(async () => {
       try {
         await saveLeadMetaAction(leadId, { [campo]: nuevo || null });
-        router.refresh();
+        refrescarFicha();
         // Tres palabras y el deshacer, que escribe en el SERVER: revertir sólo la
         // pantalla sería mentir hasta el próximo F5.
         show('Guardado', () => {
           startGuardar(async () => {
-            try { await saveLeadMetaAction(leadId, { [campo]: antes }); router.refresh(); }
+            try { await saveLeadMetaAction(leadId, { [campo]: antes }); refrescarFicha(); }
             catch { show('No se pudo deshacer', undefined, 'bad'); }
           });
         });

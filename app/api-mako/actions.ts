@@ -9,10 +9,10 @@
 // acuña o revoca credenciales.
 //
 // Lo que NO hace esta pantalla, a propósito:
-//   · no muestra un token después de crearlo (sólo se guarda su hash);
+//   · no muestra un token después de crearlo o regenerarlo (sólo se guarda su hash);
 //   · no «prueba» acciones ni lecturas que gastan IA (ver `sePuedeProbar`);
-//   · no acuña el token PRINCIPAL de la skill: ése tiene su trato de consentimiento
-//     y vive en Integraciones → Claude. Acá sólo se lo puede revocar.
+//   · no acuña el token CLÁSICO (el principal de la skill): ése tiene su trato de
+//     consentimiento y vive en Integraciones → Claude. Acá sólo se lo puede eliminar.
 // =============================================================================
 
 import { getUsuarioActual } from '@/lib/auth';
@@ -20,13 +20,14 @@ import { getCapaActual, getRolWsEfectivo, getWorkspaceActual } from '@/lib/works
 import { tabEnCapa } from '@/lib/capas';
 import { rateLimit } from '@/lib/rate-limit';
 import { APP_BASE_URL } from '@/lib/app-url';
-import { crearToken, listarTokens, revocarToken, type TokensDelWorkspace } from '@/lib/api-mako/tokens';
+import { crearToken, editarToken, regenerarToken, revocarToken } from '@/lib/api-mako/tokens';
 import { ejecutarOperacion } from '@/lib/api-mako/ejecutar';
 import { canalKeyDe } from '@/lib/api-mako/canal';
 import { porId } from '@/lib/api-mako/registro';
 import { referenciaMarkdown } from '@/lib/api-mako/docs';
+import { especificacionOpenApi } from '@/lib/api-mako/openapi';
 import type { TokenPublico } from '@/lib/api-mako/tokens-lista';
-import { detalleDe, sePuedeProbar, usoDe, vistaDeLaTab, type DetalleOp, type Prueba, type UsoApi } from './datos';
+import { sePuedeProbar, type Prueba } from './datos';
 
 type Puerta = { ws: number; email: string } | { error: string };
 
@@ -42,39 +43,36 @@ async function puerta(): Promise<Puerta> {
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-export async function detalleOperacion(id: string): Promise<{ detalle: DetalleOp } | { error: string }> {
-  const p = await puerta();
-  if ('error' in p) return p;
-  const detalle = detalleDe(String(id ?? ''), await vistaDeLaTab(p.ws), APP_BASE_URL);
-  return detalle ? { detalle } : { error: 'Esa operación no existe para tu cuenta.' };
-}
+export type DatosForm = { nombre: string; descripcion: string; permisos: Record<string, string>; expiracion: string; fecha?: string };
 
-export async function tokensApi(): Promise<TokensDelWorkspace | { error: string }> {
-  const p = await puerta();
-  if ('error' in p) return p;
-  try { return await listarTokens(p.ws); }
-  catch (e) { console.error(`[api-mako] listar tokens: ${msg(e)}`); return { error: 'No se pudieron leer los tokens.' }; }
-}
-
-export async function crearTokenApi(x: { nombre: string; alcance: string }): Promise<{ token: string; publico: TokenPublico } | { error: string }> {
+export async function crearTokenApi(x: DatosForm): Promise<{ token: string; publico: TokenPublico } | { error: string }> {
   const p = await puerta();
   if ('error' in p) return p;
   if (!rateLimit(`api-mako:token:${p.ws}`, 10, 60_000)) return { error: 'Demasiados intentos. Espera un minuto.' };
-  try { return await crearToken(p.ws, { nombre: x?.nombre, alcance: x?.alcance, actor: p.email }); }
+  try { return await crearToken(p.ws, { nombre: x?.nombre, descripcion: x?.descripcion, permisos: x?.permisos, expiracion: x?.expiracion, fecha: x?.fecha, actor: p.email }); }
   catch (e) { console.error(`[api-mako] crear token (ws ${p.ws}): ${msg(e)}`); return { error: 'No se pudo crear. Prueba de nuevo.' }; }
+}
+
+export async function editarTokenApi(id: string, x: Omit<DatosForm, 'expiracion' | 'fecha'>): Promise<{ publico: TokenPublico } | { error: string }> {
+  const p = await puerta();
+  if ('error' in p) return p;
+  try { return await editarToken(p.ws, String(id ?? ''), { nombre: x?.nombre, descripcion: x?.descripcion, permisos: x?.permisos }); }
+  catch (e) { console.error(`[api-mako] editar token (ws ${p.ws}): ${msg(e)}`); return { error: 'No se pudo guardar. Prueba de nuevo.' }; }
+}
+
+export async function regenerarTokenApi(id: string, x: { expiracion: string; fecha?: string }): Promise<{ token: string; publico: TokenPublico } | { error: string }> {
+  const p = await puerta();
+  if ('error' in p) return p;
+  if (!rateLimit(`api-mako:token:${p.ws}`, 10, 60_000)) return { error: 'Demasiados intentos. Espera un minuto.' };
+  try { return await regenerarToken(p.ws, String(id ?? ''), { expiracion: x?.expiracion, fecha: x?.fecha }); }
+  catch (e) { console.error(`[api-mako] regenerar token (ws ${p.ws}): ${msg(e)}`); return { error: 'No se pudo regenerar. Prueba de nuevo.' }; }
 }
 
 export async function revocarTokenApi(id: string): Promise<{ ok: true } | { error: string }> {
   const p = await puerta();
   if ('error' in p) return p;
   try { return await revocarToken(p.ws, String(id ?? '')); }
-  catch (e) { console.error(`[api-mako] revocar token (ws ${p.ws}): ${msg(e)}`); return { error: 'No se pudo revocar. Prueba de nuevo.' }; }
-}
-
-export async function usoApi(): Promise<UsoApi | { error: string }> {
-  const p = await puerta();
-  if ('error' in p) return p;
-  return usoDe(p.ws);
+  catch (e) { console.error(`[api-mako] revocar token (ws ${p.ws}): ${msg(e)}`); return { error: 'No se pudo eliminar. Prueba de nuevo.' }; }
 }
 
 const TOPE_PRUEBA = 30_000;
@@ -114,4 +112,11 @@ export async function referenciaApi(): Promise<{ markdown: string } | { error: s
   const p = await puerta();
   if ('error' in p) return p;
   return { markdown: referenciaMarkdown(APP_BASE_URL) };
+}
+
+/** La descripción OpenAPI (la misma de GET /api/v1/openapi.json), para bajarla. */
+export async function openApiApi(): Promise<{ json: string } | { error: string }> {
+  const p = await puerta();
+  if ('error' in p) return p;
+  return { json: JSON.stringify(especificacionOpenApi(APP_BASE_URL), null, 2) };
 }

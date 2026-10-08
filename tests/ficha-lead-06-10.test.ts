@@ -123,7 +123,9 @@ test('el pop-up tiene el desplegable de producto, y las dos puertas muestran el 
   assert.match(sheet, /useProductosDeLaFicha\(\{\s*leadId: lead\.id, casa: lead\.funnel_id, foto: productos,/, 'el desplegable se dibuja al toque con los productos que la ficha ya tiene');
   assert.ok(sheet.indexOf('<ProductoDelLead') < sheet.indexOf('ariaLabel="Cambiar etapa"'), 'el producto va ANTES de la etapa');
   for (const f of ['app/crm/actions.ts', 'app/crm/[id]/page.tsx']) {
-    assert.match(sinComentarios(leer(f)), /nombre: f\.producto\?\.trim\(\) \|\| f\.nombre/, `${f} muestra «Funnel principal»`);
+    // Con `nombreVisible` (lib/lead-funnel-reglas.ts) desde el 08/10/2026: la regla era una
+    // copia en 11 lugares y ahora es una función, ejecutada en tests/inbox-agregar-al-crm.test.ts.
+    assert.match(sinComentarios(leer(f)), /nombre: nombreVisible\(f\)/, `${f} muestra «Funnel principal»`);
   }
 });
 

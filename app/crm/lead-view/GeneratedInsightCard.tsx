@@ -9,9 +9,10 @@
 // completable, se pide con el wizard conocido. Diseño scaneble, no muro de texto.
 
 import { useState, useTransition, type CSSProperties } from 'react';
-import { useRouter } from '@/app/_ui/Link';
+import { useRefrescarFicha } from './ficha-cambio';
 import { deriveStageKey, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
+import { suscripcionDeFila } from '@/lib/venta-tipo';
 import type { LeadInsightGen } from '@/lib/lead-insights';
 import type { Step } from '@/lib/stage-requirements';
 import { generateLeadInsightAction, analizarLlamadaLeadAction, leadTieneLlamadaAction } from '../insights-actions';
@@ -51,7 +52,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
   /** Llamadas analizadas (Closing Analyst): habilitan la generación. */
   llamadas: LlamadaRef[];
 }) {
-  const router = useRouter();
+  const refrescarFicha = useRefrescarFicha();
   const tz = useTzWorkspace();
   const [pending, startTransition] = useTransition();
   const [insight, setInsight] = useState<LeadInsightGen | null>(inicial);
@@ -81,13 +82,16 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
     tienePlan, sinR1: !!lead.sin_r1, sinR2: !!lead.sin_r2, fathomOmitido: !!lead.fathom_omitido,
     // El tipo de venta guardado: sin él, a un becado (#747) el wizard le pedía el monto.
     ventaTipo: lead.venta_tipo ?? null,
+    // La mensualidad y el plazo de una suscripción: este wizard abre SIN `faltantes`, así
+    // que sin ellos pedía el monto vacío y guardar escribía NULL encima (lib/venta-tipo.ts).
+    ...suscripcionDeFila(lead),
   };
 
   const generar = () => {
     setError(null);
     startTransition(async () => {
       const res = await generateLeadInsightAction(lead.id);
-      if (res.ok) { setInsight(res.insight); setFaltantes([]); router.refresh(); }
+      if (res.ok) { setInsight(res.insight); setFaltantes([]); refrescarFicha(); }
       else { if (res.faltantes?.length) setFaltantes(res.faltantes); setError(res.motivo); }
     });
   };
@@ -101,8 +105,8 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
     setFase('Se están generando los insights del lead…');
     const res = await generateLeadInsightAction(lead.id);
     setFase(null);
-    if (res.ok) { setInsight(res.insight); setFaltantes([]); router.refresh(); }
-    else { if (res.faltantes?.length) setFaltantes(res.faltantes); setError(res.motivo); router.refresh(); }
+    if (res.ok) { setInsight(res.insight); setFaltantes([]); refrescarFicha(); }
+    else { if (res.faltantes?.length) setFaltantes(res.faltantes); setError(res.motivo); refrescarFicha(); }
   };
 
   // Antes de arrancar: si la llamada NO está en Closing Analyst, pedir CONFIRMACIÓN.
@@ -290,7 +294,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
           move={{ to: currentStage }}
           titulo="Completar datos"
           onClose={() => setWizard(false)}
-          onDone={() => { setWizard(false); setFaltantes([]); router.refresh(); generar(); }}
+          onDone={() => { setWizard(false); setFaltantes([]); refrescarFicha(); generar(); }}
         />
       )}
 

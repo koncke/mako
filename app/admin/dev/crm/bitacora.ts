@@ -1206,5 +1206,140 @@ export const BITACORA: Hito[] = [
       "app/crm/CrmBoard.tsx — la opción en el «⋯» de Ganado",
       "lib/leads.ts · lib/pagos.ts · lib/lead-funnel.ts — los tres caminos a Ganado"
     ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "06:05",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "La grabación de la visita no anda, y el feedback de Leila sobre el CRM",
+    "pedido": "Porque esto aún no funciona... Si literalmente dice en el historial que estuvo más de 10 segundos... Revisalo bien y hazlo funcionar.\n\nPor otro lado, Leila me mandó feedback del CRM, soluciona eso también",
+    "puntos": [
+      "Leila, en el audio: «cuando la quiero cargar la empresa, ahí es donde me hace el loop… Guardar… y me dice sin empresa».",
+      "Leila: «aquí no me preguntó cuánto es, puso el monto que se le cantó» y «ni siquiera lo guardó».",
+      "Leila: «ella está en marca personal. Primero de por sí me entra al funnel principal»."
+    ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "07:50",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "«Completar datos» ya no devuelve al lead a la etapa de antes, y la ficha se relee al guardar",
+    "puntos": [
+      "La ficha del tablero era una foto: «Solucionar» guardaba con la etapa de antes y movía al lead.",
+      "«Completar datos» guarda y no mueve; las tarjetas que guardan avisan a la ficha.",
+      "Quitar la casa: si la etapa promovida es Ganado, el lead queda ganado; el deshacer lo devuelve."
+    ],
+    "commits": [
+      {
+        "sha": "65ec2298",
+        "msg": "CRM: «Completar datos» ya no devuelve al lead a la etapa de antes, y la ficha se relee al guardar",
+        "lineas": 327,
+        "archivos": 16
+      }
+    ],
+    "archivos": [
+      "app/crm/LeadSheet.tsx — releer",
+      "app/crm/lead-view/ficha-cambio.tsx — el aviso",
+      "app/crm/actions.ts — soloCompletar",
+      "lib/lead-funnel.ts — quitarDeProducto"
+    ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "07:50",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "El Ganado pregunta el monto del contrato y la tarjeta muestra la suscripción",
+    "puntos": [
+      "Sí se guardaba, en otra columna: la tarjeta ahora dice «$444/mes».",
+      "Lo que lee el contrato se precarga y el paso del monto queda a la vista.",
+      "La mensualidad y el plazo se corrigen en Deal Details y quedan en el historial."
+    ],
+    "commits": [
+      {
+        "sha": "9f9bfc57",
+        "msg": "CRM: el Ganado pregunta el monto del contrato, la tarjeta muestra la suscripción y se corrige en el Deal",
+        "lineas": 581,
+        "archivos": 12
+      }
+    ],
+    "archivos": [
+      "app/crm/StageMoveDialog.tsx",
+      "lib/venta-tipo.ts — montoDeTarjeta",
+      "app/crm/[id]/deal-actions.ts"
+    ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "07:50",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "«+ Agregar al CRM» desde WhatsApp deja elegir el producto",
+    "puntos": [
+      "Con 2 o más productos, el clic abre la lista y el lead nace en el elegido.",
+      "Si ya existía, se lo agrega a ese producto.",
+      "El nombre de un producto sale de una sola función (había 11 copias)."
+    ],
+    "commits": [
+      {
+        "sha": "2522cd55",
+        "msg": "WhatsApp: «+ Agregar al CRM» deja elegir el producto y el lead nace ahí",
+        "lineas": 584,
+        "archivos": 20
+      }
+    ],
+    "archivos": [
+      "app/whatsapp/_shared/BotonAgregarAlCrm.tsx",
+      "app/crm/actions.ts — crearLeadDesdeWhatsappAction"
+    ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "07:50",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "La grabación de sesiones graba, se puede mirar, y la ficha dice la verdad",
+    "puntos": [
+      "La ficha ya no inventa «duró menos de 10 s»: la visita del #2593 es anterior al grabador.",
+      "El r.js v2 graba a quien mira sin tocar y la foto entra en el beacon, sin repegar el Pixel.",
+      "El reproductor nunca había podido abrir una grabación: ahora sí."
+    ],
+    "commits": [
+      {
+        "sha": "6106544d",
+        "msg": "La ficha del lead dice por qué no tiene grabación, sin inventar duraciones",
+        "lineas": 576,
+        "archivos": 6
+      },
+      {
+        "sha": "1075e528",
+        "msg": "El grabador graba a quien mira sin tocar, y las grabaciones ya se pueden ver",
+        "lineas": 878,
+        "archivos": 7
+      },
+      {
+        "sha": "9008bde1",
+        "msg": "Las versiones publicadas del grabador ya no se pueden reescribir por accidente",
+        "lineas": 59,
+        "archivos": 3
+      }
+    ],
+    "archivos": [
+      "lib/replay-leer.ts · lib/replay-ficha.ts",
+      "scripts/replay-envoltorio.js · public/replay/2/r.js",
+      "lib/replay-reproductor.ts"
+    ]
   }
 ];

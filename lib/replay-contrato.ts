@@ -88,6 +88,14 @@ export const REPLAY_IGNORE_CLASS = 'mko-sin-texto';
  * adentro de la grabación (si no, el reproductor dibuja la página sin estilo el
  * día que el cliente la rediseña) y las fuentes NO (son cientos de kB por sesión
  * para que un texto se vea con la tipografía exacta).
+ *
+ * ⚠️ PERO DESDE EL GRABADOR v2 ESE `true` NO MANDA. Es lo que pide el snippet pegado
+ * (v21/v22) y no se puede cambiar sin repegar; `public/replay/2/r.js` lo pisa con
+ * `false` antes de llamar a rrweb (`scripts/replay-envoltorio.js`). Medido el
+ * 08/10/2026 en la página real de ws1: con la hoja adentro la foto pesa 116.400 B y
+ * el beacon de salida 123.687 —no entra en los 64 KiB y el snippet lo TIRA—; con la
+ * hoja como link, 45.117 y 48.759. El costo es el del párrafo de arriba, y el
+ * reproductor lo compensa a medias (`hojasSinCors`, lib/replay-reproductor.ts).
  */
 export const REPLAY_OPCIONES_RRWEB = {
   maskAllInputs: true,
@@ -122,14 +130,37 @@ export const REPLAY_VERSION = 1;
  * snippet y la actual es la 20, y la columna `clic_vacio` —que la 20 estrenó—
  * tiene CERO filas en tres meses en los cuatro workspaces que miden.
  *
- * Así que el grabador NO se inlinea en el snippet: el snippet carga
- * `/replay/<REPLAY_LIB_VERSION>/r.js`, y arreglar el grabador es subir este número
+ * Así que la librería NO se inlinea en el snippet: el snippet carga
+ * `/replay/<REPLAY_LIB_VERSION>/r.js`, y cambiar ESE archivo es subir este número
  * — sin que nadie repegue nada. La ruta lleva la versión adentro para que se pueda
  * cachear un año y para que un arreglo sea una ruta NUEVA: cambiar el contenido de
  * una ruta que ya está cacheada en el navegador de un visitante es un cambio que
  * llega cuando quiere, y además pisa la versión que se probó.
+ *
+ * ⚠️ PERO EL GRABADOR NO ES r.js, Y ESTE COMENTARIO DECÍA LO CONTRARIO. El lote, el
+ * piso, el beacon de salida y la cola viven en el snippet pegado (lib/landing-token.ts,
+ * «GRABACIÓN DE SESIÓN»); r.js sólo trae rrweb. Subir este número cambia la librería
+ * y lo que se pueda hacer DESDE AFUERA del snippet, envolviendo lo único que él llama
+ * (`window.rrwebRecord`). Lo demás pide un snippet nuevo y repegar.
+ *
+ * LAS VERSIONES (las genera `scripts/replay-libs.mjs`, y ninguna se reescribe):
+ *   · 1 — rrweb 2.0.0-alpha.4 pelado (05/10/2026).
+ *   · 2 — el mismo rrweb + `scripts/replay-envoltorio.js` (08/10/2026): la hoja como
+ *         link para que la foto entre en el beacon, un latido mientras la pestaña
+ *         está a la vista para que quien mira el video sin tocar llegue al piso, y
+ *         una foto nueva cada vez que la pestaña vuelve. Medido en ws1 antes de esto:
+ *         0 de los 35 visitantes que estuvieron 10-30 s quedaron grabados.
  */
-export const REPLAY_LIB_VERSION = 1;
+export const REPLAY_LIB_VERSION = 2;
+
+/**
+ * La etiqueta del latido que el grabador v2 emite con la pestaña a la vista (un
+ * evento Custom de rrweb). La escriben DOS archivos que no se ven: el envoltorio
+ * (`scripts/replay-envoltorio.js`, que es JavaScript pelado y no puede importar
+ * esto) y el reproductor, que la vuelve invisible en la barra de tiempo. El test
+ * `tests/replay-envoltorio.test.ts` exige que sean la misma.
+ */
+export const REPLAY_LATIDO = 'mko-vivo';
 
 /** De dónde sale el grabador. Inmutable por versión. */
 export const rutaDeLibreria = (version: number = REPLAY_LIB_VERSION): string =>
