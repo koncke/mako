@@ -38,13 +38,22 @@ export type ModoDisparo = 'tiempo' | 'accion' | null;
  * flecha, elegir «Por tiempo» una vez dejaría esto agendado para siempre y la única
  * salida sería apagar el mensaje entero.
  */
-export function SelectorDisparo({ modo, disabled, onModo, rotuloTiempo, rotuloAccion }: {
+export function SelectorDisparo({ modo, disabled, onModo, rotuloTiempo, rotuloAccion, junto }: {
   modo: ModoDisparo;
   disabled?: boolean;
   /** `null` = volver a la elección, y el caller apaga lo que ese modo tenía escrito. */
   onModo: (m: ModoDisparo) => void;
   rotuloTiempo?: string;
   rotuloAccion?: string;
+  /**
+   * LO QUE SE ELIGE, AL LADO DE LA FLECHA, EN VEZ DEL RÓTULO DEL MODO.
+   *
+   * Pedido de Martín (08/10/2026, punto 5): «Elimina los títulos de Cuando y Que... Deja
+   * solo la flecha, sin aclarar nada». Con `junto`, el modo elegido no se nombra («Por una
+   * acción»): se ve lo elegido —el desplegable del disparador, el horario— con la ← a su
+   * izquierda para volver. Sin `junto` (el lienzo de /mensajes) queda como estaba.
+   */
+  junto?: ReactNode;
 }) {
   const txt = { tiempo: rotuloTiempo ?? 'Por tiempo', accion: rotuloAccion ?? 'Por una acción' };
   if (modo === null) {
@@ -62,16 +71,20 @@ export function SelectorDisparo({ modo, disabled, onModo, rotuloTiempo, rotuloAc
     );
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+    <div style={{ display: 'flex', alignItems: junto ? 'flex-start' : 'center', gap: 7, marginBottom: 12 }}>
       <button type="button" onClick={() => onModo(null)} disabled={disabled}
         title="Elegir otra cosa: apaga lo que está configurado aquí" aria-label="Elegir otra cosa"
         style={{
-          flex: 'none', width: 26, height: 26, borderRadius: 7, cursor: 'pointer',
+          // Con algo al lado, la ← se alinea con su PRIMER renglón (un control de ~34 px),
+          // no con el centro de un editor de horario de tres renglones.
+          flex: 'none', width: 26, height: 26, marginTop: junto ? 4 : 0, borderRadius: 7, cursor: 'pointer',
           border: '1px solid var(--border-strong)', background: 'var(--surface)',
           color: 'var(--dim)', fontFamily: 'inherit', fontSize: 13, lineHeight: 1,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         }}>←</button>
-      <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>{txt[modo]}</span>
+      {junto
+        ? <div style={{ flex: 1, minWidth: 0 }}>{junto}</div>
+        : <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>{txt[modo]}</span>}
     </div>
   );
 }

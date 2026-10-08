@@ -208,17 +208,24 @@ test('el paso de la voz vuelve al catálogo como OPCIONAL: no reabre el onboardi
   assert.equal(pasoBloqueadoPor(pasos, { wa_no_oficial: { done: true } }, 'contexto'), null);
 });
 
+// ⚠️ REESCRITO EL 08/10/2026 (el lienzo con ramas): la casilla pasó a ser el ✦ del editor
+// único de WhatsApp (`EditorMensajeWhatsApp`, prop `permiteIA`), con la MISMA condición; y
+// la tarjeta marca la IA con `ia` en la burbuja (`BurbujaHilo`). Roturas: la condición sin
+// `proveedorDelPaso` (su propia regla de canal) → 1 rojo; la burbuja sin `ia` → 1 rojo.
 test('la casilla sale sólo donde el saneo conserva el modo, con la MISMA función', () => {
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-  assert.match(lienzo, /onModoIA && paso\.canal === 'whatsapp' && proveedorDelPaso\(paso\) === 'no_oficial' && \(/);
+  assert.match(lienzo, /permiteIA=\{!!onModoIA && paso\.canal === 'whatsapp' && proveedorDelPaso\(paso\) === 'no_oficial' && paso\.tipo !== 'audio' && paso\.tipo !== 'media'\}/);
   assert.match(lienzo, /import \{ proveedorDelPaso \} from '@\/lib\/nutricion-canal'/);
   // Y la tarjeta lo dice: sin la marca, una tarjeta IA y una fija se ven idénticas.
-  assert.match(lienzo, /paso\.tipo === 'ia' && \(/);
+  assert.match(lienzo, /ia: paso\.tipo === 'ia',/);
 });
 
+// La rotura (11) se re-probó el 08/10 sobre la forma nueva: abrir el tutorial sin
+// preguntar (sacando `abrirGuiaVoz(j)`) → 1 rojo; y el lienzo sin pasarle el aviso al
+// perfil (`onModoIA?.(on)` fuera de `modoIA`) → 1 rojo.
 test('la primera vez que se tilda, el lienzo PREGUNTA si falta la voz y abre sólo ese paso', () => {
   const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
-  const fn = bloque(perfil, 'const setModoIA = (orden: number, on: boolean) => {', '\n  };');
+  const fn = bloque(perfil, 'const abrirGuiaSiFalta = (on: boolean) => {', '\n  };');
   assert.match(fn, /if \(!on \|\| guiaOfrecida\.enLaVisita\) return;/, 'apagar la IA no tiene por qué abrir nada');
   assert.match(fn, /fetch\('\/api\/chat-agent\/onboarding\?tab=setting'/);
   // Pregunta por la GUÍA, no por el tilde del paso (#745): el tilde se marca sin guía escrita.
@@ -226,7 +233,11 @@ test('la primera vez que se tilda, el lienzo PREGUNTA si falta la voz y abre só
   // Una vez por VISITA, no por secuencia: la marca vive en el módulo (el perfil se remonta).
   assert.match(perfil, /^const guiaOfrecida = \{ enLaVisita: false \};$/m);
   assert.match(perfil, /<OnboardingChatAgent soloPaso="contexto" onListo=\{\(\) => setGuiaVoz\(false\)\} \/>/);
-  assert.match(perfil, /onModoIA=\{rolAdmin \? setModoIA : undefined\}/);
+  assert.match(perfil, /onModoIA=\{rolAdmin \? abrirGuiaSiFalta : undefined\}/);
+  // El lienzo cambia el tipo (un cambio que se deshace) y AVISA al perfil.
+  const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const modo = bloque(lienzo, 'const modoIA = (on: boolean) => {', '\n  };');
+  assert.match(modo, /cambiar\(\{ tipo: on \? 'ia' : 'texto' \}, true\);\s*onModoIA\?\.\(on\);/);
   // Con el tutorial encima, el Ctrl+Z del lienzo de atrás no corre.
   assert.match(perfil, /activa: rolAdmin && !guiaVoz/);
 });

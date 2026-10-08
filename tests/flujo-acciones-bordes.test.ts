@@ -186,8 +186,12 @@ test('secuencias: sin canales, el cron corre igual las acciones', () => {
 });
 
 test('las pantallas de /chatbot cuentan como WhatsApp sólo los MENSAJES', () => {
+  // Desde el 08/10/2026 (el flujo con ramas) «no es un mensaje» es más que una acción: una
+  // espera, una condición o un salto tampoco le mandan nada al lead. El perfil pregunta
+  // con `esNodoMensaje` (lib/flujo-grafo.ts), que es la clase del nodo y no una copia.
+  // Probado rompiéndolo: volver a `!esPasoAccion(p)` → 1 rojo.
   const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /const mensajes = pasos\.filter\(\(p\) => !esPasoAccion\(p\)\);\n\s+const soloWa = mensajes\.length > 0 && mensajes\.every/);
+  assert.match(perfil, /const mensajes = pasos\.filter\(\(p\) => esNodoMensaje\(p\)\);\n\s+const soloWa = mensajes\.length > 0 && mensajes\.every/);
   const app = sinComentarios(leer('../app/chatbot/ChatAgentApp.tsx'));
   assert.match(app, /p\.canal === 'whatsapp' && !esPasoAccion\(p\)/);
 });

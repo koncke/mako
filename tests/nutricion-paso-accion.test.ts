@@ -39,7 +39,7 @@ import {
   esPasoAccion, sanearAccion, correrPasoAccion, origenDelPaso,
   type DepsPasoAccion, type EntradaPasoAccion,
 } from '../lib/nutricion-paso-accion';
-import { grafoDeSecuencia, type PasoParaGrafo } from '../lib/flujo-conversacion';
+import { grafoDeSecuencia, opcionesDelMas, nodoNuevo, type PasoParaGrafo } from '../lib/flujo-conversacion';
 
 const leer = (p: string): string => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas ANTES que los bloques: un `/*` adentro de un `//` se comería código (AGENTS.md).
@@ -266,58 +266,78 @@ test('las puertas de escritura dejan pasar el paso entero (no lo reconstruyen si
 });
 
 // ── El grafo y el lienzo ────────────────────────────────────────────────────
+// Reescrito el 08/10/2026 con el flujo con ramas (la parte del lienzo): los nodos se llaman
+// por su id (no `paso-<orden>`), el tiempo es su propia tarjeta (no un rótulo de la flecha)
+// y el ＋ inserta EN un puerto. Probado rompiéndolo (con todo puesto, archivo en 16 / 0):
+//   · el grafo dibuja la acción como un mensaje                           -> 15 / 1
+//   · la key del editor de la acción sin la operación                     -> 15 / 1
+//   · el menú del ＋ sin «⚡ Acción»                                       -> 15 / 1
+//   · una flecha del árbol vuelve a apagar su ＋ (`sinMas`)                -> 15 / 1
 
-const paso = (o: Partial<PasoParaGrafo> & { orden: number }): PasoParaGrafo => ({ canal: 'whatsapp', delay_horas: 0, cuerpo: 'hola', ...o });
+const paso = (o: Partial<PasoParaGrafo> & { id: string }): PasoParaGrafo => ({ canal: 'whatsapp', delay_horas: 0, cuerpo: 'hola', siguiente: null, ...o });
 
-test('⚠️ el grafo dibuja la acción como su propio nodo, con el TÍTULO de la acción y la misma flecha de tiempo', () => {
+test('⚠️ el grafo dibuja la acción como su propio nodo, con el TÍTULO de la acción', () => {
   const g = grafoDeSecuencia(
-    [paso({ orden: 1 }), paso({ orden: 2, delay_horas: 0, cuerpo: '', accion: { operacion: 'mover_lead_etapa' } })],
-    null, 'X', [], (op) => (op === 'mover_lead_etapa' ? 'Mover un lead de etapa' : null),
+    [paso({ id: 'a', siguiente: 'b' }), paso({ id: 'b', cuerpo: '', accion: { operacion: 'mover_lead_etapa' } })],
+    { disparador: 'X', tituloAccion: (op) => (op === 'mover_lead_etapa' ? 'Mover un lead de etapa' : null) },
   );
-  const n = g.nodos.find((x) => x.id === 'paso-2');
+  const n = g.nodos.find((x) => x.id === 'b');
   assert.equal(n?.tipo, 'accion', 'dibujada como mensaje, una acción es una burbuja vacía que afirma que al lead le llegó algo');
-  assert.equal(n?.titulo, 'Acción de MaKo');
+  assert.equal(n?.titulo, 'Acción');
   assert.equal(n?.detalle, 'Mover un lead de etapa');
   assert.equal(n?.advertencia, undefined);
-  assert.equal(g.aristas.find((a) => a.hasta === 'paso-2')?.etiqueta, 'Enseguida');
+  // Cuelga de la salida del paso anterior, sin rótulo de tiempo: la espera es una tarjeta.
+  const a = g.aristas.find((x) => x.hasta === 'b');
+  assert.equal(a?.desde, 'a');
+  assert.equal(a?.puerto, 'sig');
+  assert.equal(a?.etiqueta, undefined);
   // Sin el catálogo (cargando, o quien mira no es admin) dice el id, que es feo y es verdad.
-  const sin = grafoDeSecuencia([paso({ orden: 1, cuerpo: '', accion: { operacion: 'crear_tarea' } })], null, 'X');
-  assert.equal(sin.nodos.find((x) => x.id === 'paso-1')?.detalle, 'crear_tarea');
+  const sin = grafoDeSecuencia([paso({ id: 'a', cuerpo: '', accion: { operacion: 'crear_tarea' } })], { disparador: 'X' });
+  assert.equal(sin.nodos.find((x) => x.id === 'a')?.detalle, 'crear_tarea');
   // Sin elegir: se dice, con su marca.
-  const vacia = grafoDeSecuencia([paso({ orden: 1, cuerpo: '', accion: { operacion: '' } })], null, 'X');
-  const v = vacia.nodos.find((x) => x.id === 'paso-1');
+  const vacia = grafoDeSecuencia([paso({ id: 'a', cuerpo: '', accion: { operacion: '' } })], { disparador: 'X' });
+  const v = vacia.nodos.find((x) => x.id === 'a');
   assert.equal(v?.detalle, 'Sin elegir');
   assert.ok(v?.advertencia);
 });
 
-test('el ＋ de una flecha sólo vive en la cadena principal: ni en «si contesta» ni después del desenlace', () => {
-  const g = grafoDeSecuencia([paso({ orden: 1 }), paso({ orden: 2 })],
-    { preguntas: ['¿Cuánto facturas?'], desenlace: { logradoSecuencia: 'a' } }, 'X', [{ clave: 'a', nombre: 'A' }]);
-  const de = (d: string, h: string) => g.aristas.find((a) => a.desde === d && a.hasta === h);
-  assert.equal(de('paso-2', 'cualifica')?.sinMas, true, 'el ＋ de «si contesta» insertaría en la cadena, no en la rama');
-  assert.equal(de('desenlace', 'ir-logrado')?.sinMas, true);
-  for (const [d, h] of [['entrada', 'paso-1'], ['paso-1', 'paso-2'], ['paso-2', 'desenlace']] as const) {
-    assert.ok(!de(d, h)?.sinMas, `la cadena ${d} → ${h} perdió su ＋`);
+test('el ＋ del medio vive en TODA flecha del árbol, y cada una dice de qué salida sale', () => {
+  // Antes el ＋ de una flecha insertaba «después del nodo de origen», y por eso las ramas lo
+  // apagaban (`sinMas`): con N salidas, insertaba en otra. Ahora inserta EN el puerto de
+  // la flecha, así que ninguna lo apaga.
+  const g = grafoDeSecuencia([
+    paso({ id: 'c', cuerpo: '', nodo: 'condicion', ramas: [{ id: 'r1', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'x' }], si_no: 'y' }),
+    paso({ id: 'x', siguiente: 'z' }), paso({ id: 'z', cuerpo: '', accion: { operacion: 'crear_tarea' } }), paso({ id: 'y' }),
+  ], { disparador: 'X' });
+  assert.equal(g.aristas.length, 4);
+  for (const a of g.aristas) {
+    assert.ok(!a.sinMas, `${a.desde} → ${a.hasta} perdió su ＋`);
+    assert.ok(a.puerto, `${a.desde} → ${a.hasta} no dice de qué salida sale`);
   }
 });
 
-test('el lienzo ofrece «⚡ Acción de MaKo», la edita con el editor compartido y la agrega sin elegir', () => {
+test('el lienzo ofrece «⚡ Acción», la edita con el editor compartido y la agrega sin elegir', () => {
+  // El menú del ＋ es UNO, puro (`opcionesDelMas`), y el lienzo lo usa tal cual.
+  const menu = opcionesDelMas([], 'entrada', false);
+  assert.ok(menu.some((o) => o.value === 'accion' && o.label === '⚡ Acción'));
+  assert.ok(menu.some((o) => o.value === 'mensaje' && o.label === '💬 Mensaje'));
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-  assert.match(lienzo, /\{ value: 'accion', label: '⚡ Acción de MaKo' \}/);
-  assert.match(lienzo, /\{ value: 'mensaje', label: '💬 Mensaje' \}/);
+  assert.match(lienzo, /opcionesEn=\{\(nodo, _puerto, medio\) => opcionesDelMas\(pasos, nodo, medio\)\}/);
   assert.match(lienzo, /import \{ EditorAccionMako, useTitulosAcciones, type ValorAccion \} from '@\/app\/_components\/EditorAccionMako';/);
   // Los títulos del nodo salen de la MISMA lectura que el desplegable del editor: el lienzo no
   // vuelve a pedir el catálogo por su cuenta.
   assert.doesNotMatch(lienzo, /fetch\('\/api\/flujos\/acciones'/);
-  const editor = bloque(lienzo, "if (nodo.tipo === 'accion' && paso) {", "if (nodo.tipo === 'mensaje' && paso) {", 3_000);
-  assert.match(editor, /<EditorAccionMako\s+key=\{`accion-\$\{paso\.orden\}-\$\{paso\.accion\?\.operacion \?\? ''\}`\}/, 'sin la key, lo escrito para una acción se ve en la siguiente');
-  assert.match(editor, /onCambio=\{\(v\) => onAccion\?\.\(paso\.orden, v\)\}/);
-  // La acción que nace sin elegir abre su panel.
-  assert.match(lienzo, /if \(q === 'accion'\) \{ const m = \/\^paso-\(\\d\+\)\$\/\.exec\(id\); setSel\(`paso-\$\{m \? Number\(m\[1\]\) \+ 1 : 1\}`\); \}/);
+  const editor = bloque(lienzo, 'function EditorAccion(', '\ntype Unidad', 1_800);
+  assert.match(editor, /<EditorAccionMako\s+key=\{`accion-\$\{id\}-\$\{previa\}`\}/, 'sin la key, lo escrito para una acción se ve en la siguiente');
+  assert.match(editor, /onCambio=\{\(v: ValorAccion\) => cambiar\(\{ accion: \{ operacion: v\.operacion \?\? '', params: v\.params \?\? \{\} \} \}, \(v\.operacion \?\? ''\) !== previa\)\}/);
+  // La tarjeta nueva abre su panel (la acción nace SIN ELEGIR y así no se puede publicar).
+  assert.match(lienzo, /const nuevo = onAgregar!\(id, puerto, que as QueAgregar\);\s*if \(nuevo\) setSel\(nuevo\);/);
+  const nueva = nodoNuevo('accion', []);
+  assert.deepEqual(nueva.accion, { operacion: '', params: {} });
+  assert.equal(nueva.delay_horas, 0);
   const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /const agregarTras = \(idNodo: string, que: 'mensaje' \| 'accion' = 'mensaje'\) => \{/);
-  assert.match(perfil, /template_wa: null, accion: \{ operacion: '', params: \{\} \},/);
-  assert.match(perfil, /onAccion=\{rolAdmin \? editarAccion : undefined\}/);
+  assert.match(perfil, /const r = insertarDesdeLienzo\(pasos, nodo, puerto, que\);/);
+  assert.match(perfil, /onAgregar=\{rolAdmin \? agregarEn : undefined\}/);
   // El simulador muestra lo que le LLEGA al lead: una acción no le llega.
   assert.match(sinComentarios(leer('app/chatbot/SimuladorWhatsApp.tsx')), /pasos\.filter\(\(p\) => p\.canal === 'whatsapp' && !esPasoAccion\(p\)\)/);
 });
