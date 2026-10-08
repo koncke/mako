@@ -233,7 +233,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '22:30', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '22:05', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'La revisión de la #715: el mismo lugar de los dos lados son dos filas',
     puntos: [
@@ -248,6 +248,8 @@ export const BITACORA: Hito[] = [
       'tests/meta-geo.test.ts — la dona, el pin sin radio ni unidad, y las fixtures sintéticas',
       'tests/ads-lugares-conjunto.test.ts — el selector pasa por las funciones de fila',
     ],
-    commits: [],
+    commits: [
+      { sha: '6fe99555', msg: 'Ads Manager: la revisión de la #715 — el mismo lugar de los dos lados son dos filas', lineas: 264, archivos: 7 },
+    ],
   },
 ];
