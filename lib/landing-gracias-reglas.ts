@@ -11,6 +11,30 @@
 // =============================================================================
 
 import type { ProductoDelLead } from './lead-funnel-reglas';
+import type { LandingConfig } from './landing-config';
+import { normalizarUrl } from './landing-paginas';
+
+const sinParametros = (u: string): string => {
+  const i = u.indexOf('?');
+  return i < 0 ? u : u.slice(0, i);
+};
+
+/**
+ * La página de gracias que es esta visita, o null.
+ *
+ * ⚠️ SE COMPARA POR LA RUTA, SIN LOS PARÁMETROS. `normalizarUrl` saca los de medición (UTM,
+ * click-ids) y deja el resto, que para una página cualquiera está bien: `?plan=pro` puede ser otra
+ * página. Para la de gracias no: la plataforma de pago redirige con SU orden (`?transaction=…`,
+ * `?order_id=…`), distinta en cada compra, así que comparando la URL entera no coincidiría NUNCA
+ * con la que se guardó. Medido sobre el código el 08/10/2026 (lo señaló el relevo de Customer
+ * Success), con la función ya desplegada y apagada para todos.
+ */
+export function paginaDeGracias(configs: readonly LandingConfig[], url: string | null | undefined): LandingConfig | null {
+  const u = url ? normalizarUrl(url) : null;
+  if (!u) return null;
+  const ruta = sinParametros(u);
+  return configs.find((c) => c.gracias === true && sinParametros(c.url) === ruta) ?? null;
+}
 
 /** Un lead candidato: los que tienen el `visitor_id` de la visita. */
 export type CandidatoGracias = { id: number | string };

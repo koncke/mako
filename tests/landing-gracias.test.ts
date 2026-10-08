@@ -8,7 +8,7 @@
 // Correr: npx tsx --test tests/landing-gracias.test.ts
 //
 // ⚠️ PROBADO ROMPIÉNDOLO (07/10/2026), una por vez y restaurando de memoria. Con todo
-// puesto: 7 pases / 0 fallos. Cada rotura, 6 / 1:
+// puesto: 8 pases / 0 fallos. Cada rotura, una caída (6 / 1 con siete tests, 7 / 1 con ocho):
 //   · un "true" de texto prende la página de gracias
 //   · guardar los productos le saca la marca
 //   · con dos leads en el mismo navegador se elige el primero
@@ -16,12 +16,14 @@
 //   · una recarga suma otra visita sin ficha
 //   · la vista previa del editor también gana leads
 //   · valida los requisitos (y sin monto no lo mueve nunca)
+//   · (08/10) la página de gracias se compara por la URL ENTERA: con el ?transaction= de la
+//     plataforma de pago no coincide nunca → 7 / 1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { conLanding, parsearConfig } from '../lib/landing-config';
-import { conRechazo, parsearRechazos, pasosDeGracias, quienLlegoALaGracias, rechazosDe } from '../lib/landing-gracias-reglas';
+import { conRechazo, paginaDeGracias, parsearRechazos, pasosDeGracias, quienLlegoALaGracias, rechazosDe } from '../lib/landing-gracias-reglas';
 
 const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src
@@ -100,6 +102,17 @@ test('gana por los MISMOS caminos que el tablero, y sin crear leads', () => {
   assert.match(src, /setPipelineStage\(leadId, GANADO, \{ autor: MAKO, requisitos: \{ omitir: MOTIVO \} \}\)/);
   assert.match(src, /moverEtapaEnProducto\(leadId, paso\.funnelId, GANADO/);
   assert.doesNotMatch(src, /createLead|from\('leads'\)\.(insert|update|upsert)/);
-  // La primera pregunta del beacon es la marca: una página que no es de gracias sale ahí.
-  assert.match(src, /if \(!cfg\?\.gracias\) return;/);
+  // La primera pregunta del beacon es la marca, por la RUTA: una página que no es de gracias sale ahí.
+  assert.match(src, /const cfg = paginaDeGracias\(parsearConfig\(await getSetting\(CONFIG_KEY\)\), p\.landingUrl\);\n\s*if \(!cfg\) return;/);
+});
+
+test('la página de gracias se reconoce por su RUTA: la plataforma de pago agrega su orden', () => {
+  const configs = parsearConfig('[{"url":"https://a.com/gracias","gracias":true},{"url":"https://a.com/precios"}]');
+  // La orden de cada compra es distinta: comparando la URL entera no coincidiría nunca.
+  assert.equal(paginaDeGracias(configs, 'https://a.com/gracias?transaction=HP123&status=approved')?.url, 'https://a.com/gracias');
+  assert.equal(paginaDeGracias(configs, 'https://a.com/gracias/#arriba')?.url, 'https://a.com/gracias');
+  // Otra ruta, u otra página que no está marcada, no.
+  assert.equal(paginaDeGracias(configs, 'https://a.com/gracias-2'), null);
+  assert.equal(paginaDeGracias(configs, 'https://a.com/precios?x=1'), null);
+  assert.equal(paginaDeGracias(configs, null), null);
 });

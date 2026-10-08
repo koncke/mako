@@ -26,13 +26,13 @@ import 'server-only';
 import { after } from 'next/server';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSetting, setSetting } from './settings';
-import { CONFIG_KEY, landingDe, parsearConfig } from './landing-config';
+import { CONFIG_KEY, parsearConfig } from './landing-config';
 import { funnelsDeLanding } from './landing-funnel';
 import { agregarAProducto, moverEtapaEnProducto, productosDelLead } from './lead-funnel';
 import { casaReal } from './lead-funnel-reglas';
 import { getLead, logLeadEvent, setPipelineStage } from './leads';
 import {
-  RECHAZOS_GRACIAS_KEY, conRechazo, parsearRechazos, pasosDeGracias, quienLlegoALaGracias,
+  RECHAZOS_GRACIAS_KEY, conRechazo, paginaDeGracias, parsearRechazos, pasosDeGracias, quienLlegoALaGracias,
   type PorQueNoGana, type RechazoGracias,
 } from './landing-gracias-reglas';
 
@@ -53,8 +53,9 @@ const GANADO = 'ganado';
 export async function alVisitarPagina(p: { ws: number; visitorId: string; landingUrl: string | null }): Promise<void> {
   try {
     if (!p.landingUrl) return;
-    const cfg = landingDe(parsearConfig(await getSetting(CONFIG_KEY)), p.landingUrl);
-    if (!cfg?.gracias) return;
+    // Por la RUTA, sin los parámetros que agrega la plataforma de pago (ver `paginaDeGracias`).
+    const cfg = paginaDeGracias(parsearConfig(await getSetting(CONFIG_KEY)), p.landingUrl);
+    if (!cfg) return;
     const url = cfg.url;
     const trabajo = async () => {
       try {

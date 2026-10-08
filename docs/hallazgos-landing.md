@@ -3771,6 +3771,16 @@ existe todavía.
   al curso encadena sola (cuando el enganche esté desplegado: ver «La invitación al curso AL GANAR» en hallazgos-crm.md). No hay un segundo camino a Ganado.
 - **Lo ya ganado no se mueve** (la casa se mira por `estado_lead`, no por la columna), así que
   recargar la página no re-dispara nada.
+- ⚠️ **LA PÁGINA DE GRACIAS SE RECONOCE POR SU RUTA, NO POR LA URL ENTERA** (`paginaDeGracias`).
+  `normalizarUrl` saca los parámetros de MEDICIÓN y deja el resto, y la plataforma de pago redirige
+  con SU orden (`?transaction=…`), distinta en cada compra: la primera versión, desplegada con
+  `landingDe`, no habría coincidido NUNCA. Lo encontró el relevo de Customer Success leyendo el
+  código, un rato después del deploy (apagado para todos, así que no le pegó a nadie).
+- ⚠️ **Y EL `visitor_id` ES DEL DOMINIO.** Es una cookie host-only: si el checkout devuelve a una
+  página de gracias en OTRO dominio que la landing donde la persona dejó sus datos, la visita llega
+  con otro `visitor_id` y queda como «sin ficha». La página de gracias tiene que vivir en el mismo
+  dominio que la landing. Y un email que venga en la URL de gracias NO identifica: el beacon es
+  público y cualquiera manda ese POST.
 - **La vista previa del constructor y localhost no ganan a nadie**: es la misma regla que ya tenía la
   versión del snippet, ahora en una función (`esVistaDePrueba`) que usan los dos.
 - **La marca se guarda sólo como `true` literal** y `conLanding` la trata como los productos
