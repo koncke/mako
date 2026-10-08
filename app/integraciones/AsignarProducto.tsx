@@ -31,20 +31,23 @@
 // =============================================================================
 
 import { useState } from 'react';
-import { Select } from '@/app/_ui';
+import { Select, Switch } from '@/app/_ui';
 import { mismaPagina } from '@/lib/landing-paginas';
 import type { LandingConfig } from '@/lib/landing-config';
 import type { ProductoAsignable } from '@/lib/landing-funnel';
 import { alternarValor } from '@/app/components/dropdown-varios';
+import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
 import { guardarLandingAction } from './landing-config-actions';
 
-export function AsignarProducto({ elegida, productos, landings, onLandings }: {
+export function AsignarProducto({ elegida, productos, landings, onLandings, rechazos = [] }: {
   elegida: string | null;
   /** Los productos del workspace, resueltos en el server. `null` = no se pudieron leer. */
   productos: ProductoAsignable[] | null;
   /** Las landings con su configuración. Es el MISMO estado que usa el paso 1. */
   landings: LandingConfig[];
   onLandings: (l: LandingConfig[]) => void;
+  /** Visitas a páginas de gracias que no se unieron a un lead. Se muestran las de ESTA página. */
+  rechazos?: RechazoGracias[];
 }) {
   const [ocupado, setOcupado] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -95,6 +98,23 @@ export function AsignarProducto({ elegida, productos, landings, onLandings }: {
     onLandings(r.landings);
   };
 
+  // ── La página de GRACIAS (pedido de Martín, 07/10/2026) ───────────────────
+  // «Si alguien cae en una TKY Page, se pueda automatizar pasar al lead a Ganado». Va en ESTE
+  // paso porque gana en los productos que se acaban de elegir arriba: la página dice qué vende.
+  // Manda `gracias` solo (los productos ausentes = «no los toques», ver `conLanding`).
+  const esGracias = cfg?.gracias === true;
+  const cambiarGracias = async (v: boolean) => {
+    if (!elegida || ocupado) return;
+    setOcupado(true); setErr(null);
+    const r = await guardarLandingAction(elegida, { gracias: v });
+    setOcupado(false);
+    if (!r.ok) { setErr(r.error); return; }
+    onLandings(r.landings);
+  };
+  // Las visitas que no se pudieron unir a un lead, de ESTA página. Sin esto, una página de gracias
+  // que no mueve a nadie se ve igual que una a la que no llegó nadie.
+  const sinFicha = esGracias ? rechazos.filter((r) => mismaPagina(r.url, elegida)).length : 0;
+
   return (
     <div>
       <Select
@@ -106,6 +126,13 @@ export function AsignarProducto({ elegida, productos, landings, onLandings }: {
         onChange={(v) => { void alternar(v); }}
         disabled={ocupado}
       />
+      <div style={{ marginTop: 10 }}>
+        <Switch checked={esGracias} onChange={(v) => { void cambiarGracias(v); }} disabled={ocupado}
+          label="Es la página de gracias"
+          hint={sinFicha
+            ? `Quien llega pasa a Ganado · ${sinFicha} ${sinFicha === 1 ? 'visita' : 'visitas'} sin ficha`
+            : 'Quien llega pasa a Ganado'} />
+      </div>
       {err && <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}
     </div>
   );

@@ -60,6 +60,16 @@ export type LandingConfig = {
    * se midio que segun el driver eso vuelve como texto. Se sanea al parsear.
    */
   funnelIds?: number[];
+  /**
+   * Es la página de GRACIAS (la «TKY page»): quien llega acá ya compró, y MaKo lo pasa a Ganado
+   * en los productos de esta página (lib/landing-gracias.ts). Ausente = no lo es.
+   *
+   * Pedido de Martín (07/10/2026): «si alguien cae en una TKY Page, se pueda automatizar pasar
+   * al lead a Ganado directamente, así por ejemplo, si alguien tiene compra carrito o lo que
+   * sea». ⚠️ Se guarda SÓLO cuando es `true`: una fila sin el campo se lee igual que antes, así
+   * que las configs de hoy no cambian ni un byte.
+   */
+  gracias?: boolean;
 };
 
 export const CONFIG_KEY = 'landing.config';
@@ -130,7 +140,10 @@ export function parsearConfig(crudo: string | null): LandingConfig[] {
     const url = normalizarUrl(typeof x === 'string' ? x : limpio((x as Record<string, unknown>)?.url, 500));
     if (!url || out.some((c) => c.url === url)) continue;
     const fids = typeof x === 'object' && x ? idsDeFila(x as Record<string, unknown>) : [];
-    out.push({ url, ...(fids.length ? { funnelIds: fids } : {}) });
+    // Sólo un `true` literal: un «"true"» o un 1 de un setting editado a mano no prende algo que
+    // mueve leads a Ganado.
+    const gracias = typeof x === 'object' && x != null && (x as Record<string, unknown>).gracias === true;
+    out.push({ url, ...(fids.length ? { funnelIds: fids } : {}), ...(gracias ? { gracias: true } : {}) });
   }
   return out.slice(0, MAX_LANDINGS);
 }
@@ -178,9 +191,14 @@ export function conLanding(
   const fids = parcial.funnelIds !== undefined
     ? idsLimpios(parcial.funnelIds)
     : base?.funnelIds ?? [];
+  // La MISMA regla que los productos: `undefined` es «no lo toques». Sin esto, guardar los
+  // productos de la página de gracias la dejaría de ser — la trampa del mapper que reconstruye la
+  // fila campo por campo.
+  const gracias = parcial.gracias !== undefined ? parcial.gracias === true : base?.gracias === true;
   const fila: LandingConfig = {
     url: nueva,
     ...(fids.length ? { funnelIds: fids } : {}),
+    ...(gracias ? { gracias: true } : {}),
   };
   // Se conserva la POSICIÓN al editar: en un desplegable, que un renglón salte al
   // final porque le corregiste una letra es desconcertante.

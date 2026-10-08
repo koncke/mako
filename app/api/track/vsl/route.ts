@@ -41,7 +41,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
+import { runWithWorkspace, getTenantDb, wsEnContexto } from '@/lib/workspace';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { mensajeDeError } from '@/lib/calendly-error';
 import { LANDING_SERVICIO, SNIPPET_VERSION_KEY } from '@/lib/landing-token';
@@ -51,6 +51,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { canonizarVideoId } from '@/lib/video-id';
 import { esPreviewDeEditor } from '@/lib/landing-paginas';
+import { alVisitarPagina } from '@/lib/landing-gracias';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +80,14 @@ const CORS_HEADERS: Record<string, string> = {
 
 const json = (body: Record<string, unknown>) =>
   Response.json(body, { status: 200, headers: CORS_HEADERS });
+
+/**
+ * La vista previa del constructor o la máquina de quien arma la página: las dos son el dueño
+ * probando, no un visitante. Ni votan la versión del snippet ni ganan a nadie en una página de
+ * gracias. Una sola regla para los dos usos.
+ */
+const esVistaDePrueba = (url: string): boolean =>
+  esPreviewDeEditor(url) || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url);
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -142,7 +151,7 @@ async function stampVisitorOnLead(token: string, visitorId: string): Promise<voi
  */
 async function anotarVersionSnippet(sv: unknown, landingUrl?: unknown, tipo?: unknown): Promise<void> {
   const url = typeof landingUrl === 'string' ? landingUrl : '';
-  if (url && (esPreviewDeEditor(url) || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url))) return;
+  if (url && esVistaDePrueba(url)) return;
   const n = Number(sv);
   const version = Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
   // ⚠️ Y LA DE CADA PÁGINA, sólo en el pageview (06/10/2026). El setting de arriba es
@@ -335,6 +344,16 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       if (error) console.error(`[track:vsl] landing_visits insert falló: ${error.message}`);
     } catch (err) {
       console.error(`[track:vsl] landing_visits error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    // ── La página de GRACIAS → Ganado (lib/landing-gracias.ts) ────────────────
+    // «Si alguien cae en una TKY Page, se pueda automatizar pasar al lead a Ganado» (Martín,
+    // 07/10/2026). Después del insert —la visita ya quedó— y sin esperar el movimiento: acá sólo
+    // se pregunta si la página está marcada (una lectura) y el resto va por detrás. Nunca tira.
+    // ⚠️ El editor y localhost no ganan a nadie: son las vistas del dueño probando su página.
+    const pagina = texto(payload.landing_url, 500);
+    const wsVisita = wsEnContexto();
+    if (pagina && wsVisita != null && !esVistaDePrueba(pagina)) {
+      await alVisitarPagina({ ws: wsVisita, visitorId, landingUrl: pagina });
     }
     // ── El interruptor de la grabación de sesión ──────────────────────────────
     // ⚠️ VIAJA EN ESTA RESPUESTA, no en un request propio. El snippet ya manda el

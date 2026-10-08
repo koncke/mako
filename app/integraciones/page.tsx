@@ -15,6 +15,7 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { cuotasProveedores } from '@/lib/ia-cuotas';
 import { landingsDelWorkspace } from '@/lib/landing-config-leer';
 import { productosAsignables } from '@/lib/landing-funnel';
+import { rechazosDeGracias } from '@/lib/landing-gracias';
 import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
@@ -95,9 +96,12 @@ export default async function IntegracionesPage() {
   // falló —`productosAsignables` se traga el error y devuelve `[]`—, y dibujar
   // sobre eso «no tenés productos» sería afirmar algo falso con la pantalla. Se
   // baja `null` y el paso dice que no pudo leer.
-  const [landingsPixel, productosPixel] = ws == null ? [null, null] : await Promise.all([
+  // Y las visitas a una página de GRACIAS que no se pudieron unir a un lead: sin esto, «no pasa
+  // nada» y «llega gente que nunca dejó sus datos» se ven igual (lib/landing-gracias.ts).
+  const [landingsPixel, productosPixel, graciasPixel] = ws == null ? [null, null, null] : await Promise.all([
     landingsDelWorkspace().catch(() => null),
     productosAsignables().then((l) => (l.length ? l : null)).catch(() => null),
+    rechazosDeGracias(),
   ]);
 
   return (
@@ -111,7 +115,7 @@ export default async function IntegracionesPage() {
       cuotas={cuotas}
       agenteToken={agenteToken}
       appUrl={APP_URL}
-      pixel={{ landings: landingsPixel, productos: productosPixel }}
+      pixel={{ landings: landingsPixel, productos: productosPixel, gracias: graciasPixel }}
     />
   );
 }

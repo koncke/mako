@@ -19,6 +19,7 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
+import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
 import type { LandingConfig } from '@/lib/landing-config';
 import type { ProductoAsignable } from '@/lib/landing-funnel';
 import { Button } from '@/app/_ui';
@@ -922,7 +923,12 @@ function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string;
 }
 
 /** Las páginas y los productos del Pixel, tal como los resuelve el server. */
-type DatosPixel = { landings: LandingConfig[] | null; productos: ProductoAsignable[] | null };
+type DatosPixel = {
+  landings: LandingConfig[] | null;
+  productos: ProductoAsignable[] | null;
+  /** Visitas a una página de gracias que no movieron a nadie (lib/landing-gracias.ts). */
+  gracias?: RechazoGracias[] | null;
+};
 
 
 function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
@@ -1048,7 +1054,7 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
           mover el paso no puede dejar a nadie con un snippet viejo. */}
       <Paso n={2} titulo="¿Qué producto vende?">
         <AsignarProducto elegida={elegida} productos={pixel?.productos ?? null}
-          landings={landings} onLandings={setLandings} />
+          landings={landings} onLandings={setLandings} rechazos={pixel?.gracias ?? []} />
       </Paso>
 
       <Paso n={3} titulo="Copia el código y pégalo en tu página">

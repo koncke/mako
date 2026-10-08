@@ -45,7 +45,7 @@ async function leer(): Promise<LandingConfig[]> {
  */
 export async function guardarLandingAction(
   url: string,
-  parcial: { funnelIds?: number[] } = {},
+  parcial: { funnelIds?: number[]; gracias?: boolean } = {},
   anterior?: string | null,
 ): Promise<LandingsResult> {
   try {

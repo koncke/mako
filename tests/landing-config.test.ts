@@ -372,7 +372,9 @@ test('CABLEADO: el paso 2 está montado como el 2, y comparte las páginas con e
   // guardar en el 2 dejaba al 1 mostrando la configuración vieja.
   assert.ok(/<SelectorLanding elegida=\{elegida\} onElegir=\{onElegir\} landings=\{landings\} onLandings=\{setLandings\} \/>/.test(board),
     'el paso 1 lee y escribe el estado compartido');
-  assert.ok(/<AsignarProducto elegida=\{elegida\} productos=\{pixel\?\.productos \?\? null\}\s+landings=\{landings\} onLandings=\{setLandings\} \/>/.test(board),
+  // (Desde el 07/10/2026 recibe también las visitas a la página de gracias que no se unieron a
+  // un lead: lib/landing-gracias.ts.)
+  assert.ok(/<AsignarProducto elegida=\{elegida\} productos=\{pixel\?\.productos \?\? null\}\s+landings=\{landings\} onLandings=\{setLandings\} rechazos=\{pixel\?\.gracias \?\? \[\]\} \/>/.test(board),
     'el paso 2 también, y recibe los productos del server');
 
   // ⚠️ Y EL PASO 1 DEJÓ DE DECIDIR LOS PRODUCTOS: lo que se muda se SACA de donde
