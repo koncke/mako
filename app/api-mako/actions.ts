@@ -88,7 +88,7 @@ export async function probarOperacion(id: string, input: Record<string, string>)
   const p = await puerta();
   if ('error' in p) return { ok: false, error: p.error };
   const def = porId(String(id ?? ''));
-  if (!def || def.id !== id || !sePuedeProbar(def)) return { ok: false, error: 'Esta operación no se puede probar desde acá.' };
+  if (!def || def.id !== id || !sePuedeProbar(def)) return { ok: false, error: 'Esta operación no se puede probar desde aquí.' };
   if (!rateLimit(`api-mako:probar:${p.ws}`, 20, 60_000)) return { ok: false, error: 'Demasiadas pruebas. Espera un minuto.' };
   const limpio: Record<string, string> = {};
   for (const [k, v] of Object.entries(input ?? {})) if (typeof v === 'string' && v.trim()) limpio[k] = v.trim();
