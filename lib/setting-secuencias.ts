@@ -123,7 +123,7 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
  */
 export async function setCronSecuencia(secuenciaId: number, cron: unknown): Promise<void> {
   const c = cron == null ? null : sanearCron(cron);
-  if (cron != null && !c) throw new Error('Ese horario no se entiende: elegí la unidad de la lista.');
+  if (cron != null && !c) throw new Error('Ese horario no se entiende: elige la unidad de la lista.');
   const supabase = await getTenantDb();
   const ahora = new Date();
   const tz = c ? await tzActual().catch(() => TZ_DEFAULT) : TZ_DEFAULT;
@@ -270,7 +270,7 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
  */
 export async function setDisparadorEtapa(secuenciaId: number, etapa: string, funnelId: number | null): Promise<void> {
   const key = (etapa ?? '').trim();
-  if (!key) throw new Error('Elegí la etapa que dispara la secuencia.');
+  if (!key) throw new Error('Elige la etapa que dispara la secuencia.');
 
   const productos = await productosConEtapas();
   if (funnelId == null) {
@@ -281,7 +281,7 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string, fun
     const pr = productos.find((x) => x.funnelId === funnelId);
     if (!pr) throw new Error('Ese producto no existe o está archivado.');
     if (!pr.etapas.some((e) => e.value === key)) {
-      throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elegí una de las suyas.`);
+      throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elige una de las suyas.`);
     }
   }
 
@@ -311,13 +311,13 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string, fun
  */
 export async function setDisparadorEntrega(secuenciaId: number, etapa: string, productoId: number): Promise<void> {
   const key = (etapa ?? '').trim();
-  if (!key) throw new Error('Elegí la etapa de la entrega que dispara la secuencia.');
-  if (!Number.isFinite(productoId) || productoId <= 0) throw new Error('Elegí de qué producto es la entrega.');
+  if (!key) throw new Error('Elige la etapa de la entrega que dispara la secuencia.');
+  if (!Number.isFinite(productoId) || productoId <= 0) throw new Error('Elige de qué producto es la entrega.');
 
   const pr = (await productosConEtapas()).find((x) => x.productoId === productoId);
   if (!pr) throw new Error('Ese producto no existe o está archivado.');
   if (!pr.etapasEntrega.some((e) => e.value === key)) {
-    throw new Error(`«${key}» no es una etapa de la entrega de ${pr.nombre}: elegí una de las suyas.`);
+    throw new Error(`«${key}» no es una etapa de la entrega de ${pr.nombre}: elige una de las suyas.`);
   }
 
   const supabase = await getTenantDb();
@@ -370,7 +370,7 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   }
   if (tipo === TRIGGER_ENTREGA) {
     const pid = Number(c.producto_id);
-    if (!Number.isFinite(pid) || pid <= 0) throw new TriggerInvalidoError('Elegí de qué producto es la entrega.');
+    if (!Number.isFinite(pid) || pid <= 0) throw new TriggerInvalidoError('Elige de qué producto es la entrega.');
     try { return await setDisparadorEntrega(secuenciaId, String(c.etapa ?? ''), pid); }
     catch (e) { throw new TriggerInvalidoError(e instanceof Error ? e.message : String(e)); }
   }
@@ -390,7 +390,7 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   let etiquetaId: number | null = null;
   if (tipo === TRIGGER_ETIQUETA) {
     etiquetaId = Number(c.etiqueta_id);
-    if (!Number.isInteger(etiquetaId) || etiquetaId <= 0) throw new TriggerInvalidoError('Elegí la etiqueta que dispara la automatización.');
+    if (!Number.isInteger(etiquetaId) || etiquetaId <= 0) throw new TriggerInvalidoError('Elige la etiqueta que dispara la automatización.');
     const { data, error } = await supabase.from('crm_etiquetas').select('id, archivada_at').eq('id', etiquetaId).maybeSingle();
     if (error) throw new Error(`setTriggerSecuencia (etiqueta): ${error.message}`);
     const et = data as { id: number; archivada_at: string | null } | null;

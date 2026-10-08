@@ -50,7 +50,9 @@ const emojiSecuencia = (j: SecuenciaDto): string =>
  */
 export type AbrirSecuencia = { id: number };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores, pie, tz, abrir }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores, pie, tz, abrir, handoffs }: {
+  /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
+  handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
   productos: ProductoOpcion[];
   disparadores: Opcion[];
   secuencias: SecuenciaDto[];
@@ -172,6 +174,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           <SecuenciaPerfil key={sel.id} secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} tz={tz}
             insetIzq={LISTA_ANCHO + LISTA_HUECO * 2}
             insetDer={probando ? PANEL_PROBAR_ANCHO + LISTA_HUECO * 2 : undefined}
+            handoffs={handoffs}
             onAudioNuevo={onAudioNuevo}
             productos={productos} disparadores={disparadores}
             secuencias={secuencias}
