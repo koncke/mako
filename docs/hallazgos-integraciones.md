@@ -274,6 +274,34 @@ Dos correcciones a lo que decía la doc vieja, las dos medidas:
   origins, y `proxy.ts` deja pasar `www` sin mandarlo al apex: quien entre por ahí come
   `redirect_uri_mismatch`. Sin reproducir todavía.
 
+### 07/10/2026: el Verification Center dice «no hace falta verificar», y es falso
+
+Al arrancar la verificación, el Verification Center contestó *«Verification is not required
+since your app is not requesting any sensitive or restricted scopes»*. Mide lo DECLARADO en
+Data Access, que tiene cero scopes, no lo que la app pide: `GCAL_SCOPE` lleva
+`calendar.readonly` + `calendar.events` en cada conexión de agenda, y por eso el cliente ve
+«Google no verificó esta app». **Un verde que contradice la pantalla que ve el cliente es un
+dato sobre la consola, no sobre la app.**
+
+Y dos cosas más que piden el trabajo antes de enviar (el paso a paso, con los textos para
+pegar y el guion del video, está en `docs/verificacion-google.md`):
+
+- **Google exige verificar en Search Console CADA dominio autorizado.** Hay tres:
+  `hola-mako.com` (no verificado en martinkoncke@) y dos muertos, `makodigital.app` y
+  `dashboard-marketing-six.vercel.app`, que entraron solos con sus redirect URIs. Los dos
+  muertos contestan 410 en `/api/auth/...` (`EXENTAS_DE_HOST` no lo incluye), así que se
+  sacan en vez de verificarlos.
+- **`calendar.readonly` no sobra**: `calendar.events` no alcanza para `calendars.get` (el
+  correo y la zona de la agenda) ni para `freeBusy` (la grilla de horarios). La
+  justificación tiene que decirlo, porque Google pregunta por qué no alcanza un scope más
+  angosto.
+
+⚠️ **Con la ventana de Chrome oculta, Search Console no abre sus diálogos.** La pestaña que
+maneja la extensión mide 0×0 (`visibilityState: hidden`): la consola de Cloud se lee bien
+con `get_page_text`, pero las capturas vencen a los 30 s y el diálogo de «Verificar
+propiedad», que es donde Google da el TXT, no llega a armarse. No es un permiso: es que
+nadie lo dibuja.
+
 Y trae una cola que el código no puede distinguir: en Testing **los refresh_token
 caducan a los 7 días**. `googleCalendarConectado()` mide «el token descifra», no «Google
 lo acepta», así que el tile quedaba **VERDE diciendo «Cruzando las reuniones de …»**
