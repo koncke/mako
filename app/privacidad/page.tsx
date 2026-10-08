@@ -22,6 +22,7 @@
 // como prefijo (lo puso la página de la extensión), así que esta ruta lo hereda.
 
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { H, H3, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
 export const dynamic = 'force-dynamic';
@@ -33,11 +34,13 @@ export const metadata = {
 
 const ACTUALIZADO = '8 de octubre de 2026';
 
-// ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Los tiene que confirmar el dueño y
-// hoy son el supuesto más razonable, no un hecho verificado. Una política con el
-// responsable equivocado es peor que no tenerla: es el único dato que le dice a
-// una persona A QUIÉN reclamarle.
-const RESPONSABLE = 'MaKo';
+// ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Una política con el responsable
+// equivocado es peor que no tenerla: es el único dato que le dice a una persona A
+// QUIÉN reclamarle. Desde el 08/10/2026 el responsable es la razón social con la que
+// se verificó el negocio en Meta (lib/titular-mako.ts), no la marca sola: Meta rechazó
+// la verificación porque esa razón social no aparecía en el sitio. Jurisdicción y
+// edad siguen siendo el supuesto más razonable, sin confirmar.
+const RESPONSABLE = `${RAZON_SOCIAL_MAKO} (MaKo)`;
 const JURISDICCION = 'la República Argentina';
 const EDAD_MINIMA = 18;
 

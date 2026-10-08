@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { debeMedir, esAgendaDeCalendly, PIXEL_META_MAKO } from '@/lib/meta-pixel-mako';
 
 import { LANDING_HTML } from './landing-html';
@@ -641,6 +642,9 @@ function PieLegal() {
       <a href="/privacidad" style={link}>Privacidad</a>
       <a href="/terminos" style={link}>Términos</a>
       <a href={`mailto:${EMAIL_MAKO}`} style={link}>{EMAIL_MAKO}</a>
+      {/* Meta rechazó la verificación del negocio porque la razón social no estaba en el
+          sitio (08/10/2026): ver lib/titular-mako.ts. */}
+      <span>Razón social: {RAZON_SOCIAL_MAKO}</span>
     </div>
   );
 }
