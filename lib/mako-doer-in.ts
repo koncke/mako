@@ -17,6 +17,7 @@ import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion } from '@/lib/respuesta-doer';
+import { recetasDelTurno } from '@/lib/doer-recetas';
 import { evaluarPermiso } from '@/lib/veto-claude';
 import { causaDelFallo, textoFalloIA, linkKeysIA } from '@/lib/fallo-ia-texto';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
@@ -30,7 +31,7 @@ import { areasDelMensaje } from '@/lib/mako-intencion';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
-import { clasificarIntencion, CONTRATO, avisoDeDuda, type Intencion } from '@/lib/mako-intencion';
+import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, type Intencion } from '@/lib/mako-intencion';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
@@ -272,42 +273,21 @@ SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta co
  * pidiendo `metricas_negocio`, que sólo existía en el TEXTO de acá abajo. Por eso
  * `runTool` chequea contra la lista del turno (ver `permitidasDelTurno`).
  */
-const DOER_WA_TOOLS = `HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento, estado_experimentos, ver_funnel, listar_secuencias_nutricion, listar_campanas_meta, listar_horarios_reunion. Úsalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BÚSCALO con las tools antes de decir que no lo tienes.
+const DOER_WA_TOOLS = `TUS HERRAMIENTAS (la lista exacta de este turno está al final): úsalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BÚSCALO con las tools antes de decir que no lo tienes. Si necesitas VARIOS datos, pide TODAS las herramientas en el MISMO paso (puedes llamar varias a la vez): cada paso de más vuelve a mandar la conversación entera.
 
-SEGÚN DE QUÉ TE HABLEN, puedes tener MÁS herramientas que las nombradas acá (lecturas y acciones de cada tab de MaKo: email, chatbot, landing, métricas, experimentos…). Úsalas igual que las demás: una lectura trae el dato; una acción NUNCA ejecuta directo — o deja una acción pendiente (pides el "sí") o te devuelve un LINK para revisar en MaKo (lo pasas tal cual y no pides confirmación por el chat).
+SEGÚN DE QUÉ TE HABLEN, puedes tener herramientas de cada tab de MaKo (email, chatbot, landing, métricas, experimentos…). Úsalas igual que las demás: una lectura trae el dato; una acción NUNCA ejecuta directo — o deja una acción pendiente (pides el "sí") o te devuelve un LINK para revisar en MaKo (lo pasas tal cual y no pides confirmación por el chat).`;
 
-CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, agendar una reunión, activar/pausar una nutrición, renombrar/pausar una campaña de Meta): NO ejecutas directo. Usas la tool 'proponer_*' correspondiente —que deja la acción PENDIENTE— y en tu respuesta explicas en una línea qué vas a hacer y pides que confirmen con un "sí". Consigue primero los ids con las tools de lectura.
 
-EL PRESUPUESTO de una campaña mueve plata y NUNCA se confirma por el chat: si tienes la tool para proponerlo, te devuelve un link a una pantalla de revisión; pásalo y NO pidas un "sí". Si no tienes esa tool, di que el presupuesto se cambia desde MaKo, en Ads Manager.
-
-CUANDO TE PIDEN CARGAR UNA PERSONA AL CRM ("agrega este lead", "carga a fulano", "me sumas a este contacto"):
-- Si te COMPARTIERON UNA TARJETA DE CONTACTO, los datos ya te llegaron en el mensaje: úsalos, NO los pidas de nuevo.
-- Con el nombre alcanza para proponer. Llama 'proponer_lead' y TERMINA AHÍ: el mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_LEAD}"), y reemplaza lo que tú contestes en ese turno. No lo escribas tú y NO copies el link.
-- ⛔ NUNCA digas "anotado", "listo", "lo ingresé al CRM" ni "ya lo cargué". El lead NO EXISTE hasta que la persona confirma en esa pantalla. Un "anotado" en pasado hace creer que ya está — pasó, y la clienta dio por cargado un contacto que no estaba.
-- ⛔ Y un lead NO es una tarea del plan: no uses 'proponer_tareas_plan' para una persona.
-- Si de verdad no te llegó ningún dato, pide nombre y teléfono. Pero si te mandaron algo que no pudiste leer, DI QUÉ LLEGÓ ("me llegó una tarjeta de contacto y no la pude abrir") en vez de afirmar que no llegó nada.
-
-CUANDO TE PIDEN AGENDAR O REAGENDAR UNA REUNIÓN ("agendale la R2 a Carlos", "el lead confirmó, ponele fecha", "reagendá con Ana"), el caso típico es que están saliendo de una llamada y el lead dijo que sí. Tres pasos, sin saltear ninguno:
-1. 'buscar_leads' para el leadId. Si el lead no tiene email cargado, pedíselo: Calendly no reserva sin email.
-2. 'listar_horarios_reunion' para los huecos REALES. Ofrecele 3 opciones en lenguaje humano ("jueves 14 a las 11, o viernes 15 a las 9 o a las 13"). ⛔ NUNCA inventes un horario ni redondees: si el hueco no existe, Calendly lo rechaza.
-3. Cuando elige uno, 'proponer_agendar_reunion' con el startIso COPIADO TAL CUAL de la tool anterior, y pide el "sí". Recién con el "sí" se reserva.
-Al confirmar puede pasar una de dos, y la tool te dice cuál: o la reunión QUEDÓ AGENDADA (Calendly ya mandó las invitaciones), o Calendly no dejó reservarla directo y te devuelve un LINK con el formulario ya completo. En el segundo caso NO es un error ni pidas disculpas: pásale el link tal cual y dile que elija el horario ahí. Es un toque.
-Si una tool de LECTURA falla, DECÍSELO con las palabras que te dio (falta el token, el event type no coincide): es lo único que le dice al dueño dónde arreglarlo.
-
-CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hazlo", "adelante", "confirmo") y hay una acción pendiente: llama 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usa 'listar_pendientes' y pregunta.
-
-CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anota esto", "agrega al plan", varias cosas juntas):
-- Ya se mandó un acuse automático ("recibí, lo proceso"): NO vuelvas a saludar ni acusar, ve al grano.
-- MENSAJES SEPARADOS: WhatsApp se lee mejor cortito. Para mandar VARIOS mensajes en una misma respuesta, separalos con una línea que tenga SOLO tres guiones (---). Nada de un chorizo largo.
-00. LAS TAREAS SALEN DEL ÚLTIMO MENSAJE, no del historial. Lo de arriba está para que entiendas de qué se viene hablando — NO para volver a proponerlo. Si una tarea no sale de lo que el dueño acaba de escribir, no va: ya la propusiste antes y ya la revisó. (Pasó el 10/8: en un borrador sobre agentes de IA se coló una tarea de investigar competencia de branding, que era de dos mensajes antes.)
-0. EL DETALLE DE CADA TAREA ES LO MÁS IMPORTANTE. El título dice QUÉ; el detalle es lo que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a leer el WhatsApp — y es lo ÚNICO con lo que el Perro decide a qué proyecto va. Vuelca el razonamiento, los ejemplos, los links y los números del dueño, con sus palabras. NUNCA lo resumas a una línea.
-1. PRIMERO usa 'ver_plan' para ver los proyectos y las tareas que ya existen. Con eso resuelve SOLO lo DEDUCIBLE, sin preguntar:
-   · ASIGNA cada tarea al proyecto que YA existe y le corresponde. NO preguntes "a qué proyecto" si es deducible.
-   · CRITERIO PARA CREAR PROYECTO(S): un proyecto AGRUPA tareas del MISMO tema; una tarea es una acción. ⚠️ Si la lista mezcla VARIOS temas distintos (ej. funnels, análisis de competencia, finanzas, formatos de video son 4 temas, no 1), NO metas todo en UN SOLO proyecto "cajón de sastre": crea UN PROYECTO POR TEMA y reparte cada tarea en el suyo. Si un ítem encaja en un proyecto que YA existe, mándalo ahí (no crees uno nuevo). Si un ítem es una acción suelta que ningún tema agrupa, déjala como tarea sin proyecto. Para asignar a un proyecto (nuevo o existente), pon su nombre en el campo "proyecto" de cada tarea (el Perro Guardián revisa esa propuesta y decide si abre el proyecto o si la manda a uno que ya existe — tú propones, no decides).
-   · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: dilo, manda su link (el campo "link" que te da ver_plan) y ofrece enriquecerla en vez de crear otra.
-2. ARMA EL BORRADOR: llama 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Lo que NO puedes deducir pásalo en "preguntas" (se responden de a UNA en la app, no por WhatsApp que se traba). ⛔ Las preguntas son para SACARLE CONTEXTO al dueño para que EL PERRO GUARDIÁN decida la prioridad — NUNCA para que el dueño elija la prioridad (es el trabajo del Perro; el dueño exagera, se encariña y no sabe priorizar). PROHIBIDO preguntar "¿qué prioridad le das?", "¿cuál te urge primero?". Pregunta HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en DINERO y en cuánto, qué es "listo", si es 1 tarea o varias. CRITERIO: cada pregunta tiene que TENER SENTIDO (no preguntes lo obvio ni algo que se contradice con lo dicho) y ELIGE EL MEJOR TIPO por pregunta — "multi" si valen varias respuestas a la vez (sin opción "Ambas/Todas", que tilde varias), "opcion" si es excluyente, "escala" para intensidad 1-5, "comparacion" para enfrentar dos ítems. NADA de preguntas abiertas (siempre con opciones). Una lista cruda casi siempre tiene algo para preguntar.
-   · BAJAS (con criterio): si en ver_plan viste tareas que esta lista deja OBSOLETAS o que ya están DUPLICADAS, propón borrarlas/fusionarlas en el campo "eliminar" (cada una con su "id" EXACTO de ver_plan + un "motivo" corto). Solo lo que de verdad ya no aplica o se funde con otra — NO borres por borrar. Cada baja la confirma el dueño/cliente con un checkbox en la app.
-3. TERMINA AHÍ. El mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_BORRADOR}"): no lo escribas tú y NO copies el link — cualquier cosa que contestes en este turno se reemplaza por ese mensaje. ⛔ NO pidas "confirma con un sí", NO repitas la lista de tareas en el chat, NO tires preguntas sueltas: TODO se resuelve en el link. ⛔ NO INVENTES NÚMEROS: cuántas tareas, cuántas preguntas o cuántas bajas salen EXACTAMENTE de lo que te devolvió la tool, o no los digas. ⛔ NO NOMBRES EL PROYECTO: tú propones uno y el Perro decide otro; prometer un nombre que después no está en el tablero es la peor forma de romper la confianza. Vale IGUAL para el dueño y para un cliente.`;
+/**
+ * ¿Esta herramienta ESCRIBE? Lo dice el registro (lib/api-mako): las 25 viejas tienen ahí
+ * su gemela con el mismo id (medido el 08/10: 25 de 25). Sin def no se sabe, y se deja:
+ * sacar una lectura deja a MaKo sin poder contestar, y una escritura en una pregunta sólo
+ * puede PROPONER, nunca ejecutar.
+ */
+function escribe(nombre: string): boolean {
+  const d = porId(nombre);
+  return !!d && d.tipo !== 'lectura';
+}
 
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
@@ -849,11 +829,16 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // agenda: el modelo no tiene la lista (lib/agenda-sin-ia.ts). Lo deja `runTool`.
     const claveAgenda = `mako.doer.agenda.${jid}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
+    // ¿MaKo le acaba de preguntar algo? Es lo que convierte un «sí» corto en el pedido de
+    // hacer lo que ofreció (lib/mako-intencion.ts, regla 3-ter). Se mira sólo el final del
+    // historial: un ofrecimiento de hace diez mensajes no lo contesta un «sí» de ahora.
+    const ultimoDeMako = historial.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
     const intencion = clasificarIntencion(texto, {
       hayMedia: !!mediaBlocks,
       hayPendientes: vigentes.length > 0,
       hayContacto: contactosDelMensaje(data.message).length > 0,
       hayAgendaAbierta: !!agendaAbierta,
+      makoPregunto: makoPreguntoAlgo(typeof ultimoDeMako === 'string' ? ultimoDeMako : null),
     });
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
@@ -920,7 +905,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           relevanteA: texto,
         })
       : [];
-    const tools = toolsParaIntencion(intencion.intencion, [...toolsDeSiempre, ...toolsDelTurno], intencion.dudosa);
+    /**
+     * ⚠️ EN UNA PREGUNTA NO VIAJAN LAS HERRAMIENTAS QUE ESCRIBEN: MaKo OFRECE la acción.
+     *
+     * Decisión de Martín del 08/10/2026 («la ofrece»). Las 7 `proponer_*` viejas más
+     * confirmar/cancelar viajaban en consultar y pensar —10.380 caracteres de esquema en CADA
+     * pedido del turno, que el loop re-manda entero— mientras el registro ya mandaba sus
+     * acciones sólo en `actuar`. El «sí» al ofrecimiento llega como `actuar`, con todo. Si hay
+     * algo pendiente de confirmar, confirmar/cancelar quedan (la persona puede contestarlo).
+     */
+    const ofrece = intencion.intencion === 'consultar' || intencion.intencion === 'pensar';
+    const conPendientes = vigentes.length > 0;
+    const tools = toolsParaIntencion(intencion.intencion, [...toolsDeSiempre, ...toolsDelTurno], intencion.dudosa)
+      .filter((t) => !ofrece || !escribe(t.name) || (conPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
     if (toolsDelTurno.length) console.log(`[doer] ws=${wsData} +${toolsDelTurno.length} del registro (${areasNombradas.join(', ')})`);
 
     /**
@@ -950,7 +947,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * (`cheapSys`): era la tercera escritura de la misma regla y la única que faltaba.
      */
     const bloqueTools = tools.length
-      ? `\n\n${DOER_WA_TOOLS}${bloqueAgendaGoogle(tools.map((t) => t.name))}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+      ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
       : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea («eso lo miro y te lo paso») y nada más.';
     // ⚠️ HOY, EN LA ZONA DEL NEGOCIO. Sin esto el modelo no sabe qué día es, y «agendá una
     // visita el jueves» le pedía ADIVINAR la fecha: una fecha adivinada es una invitación
@@ -1389,7 +1386,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // que estaba armando un borrador. Es la señal de intención más limpia que
                 // tenemos —la da él, sobre este mensaje— y llega tarde pero llega. Se
                 // reintenta UNA vez con el mismo proveedor y la tool obligatoria.
-                if (!vv.ok && vv.razon === 'link-inventado' && !linkBorrador) {
+                // Sin proponer_tareas_plan en el turno (una pregunta: MaKo OFRECE, no arma) forzar
+                // una tool sólo obligaría a llamar una lectura cualquiera: un pedido tirado.
+                if (!vv.ok && vv.razon === 'link-inventado' && !linkBorrador && permitidasDelTurno.has('proponer_tareas_plan')) {
                   quisoBorrador = true;
                   console.warn(`[mako-doer-in] ${prov} inventó el link → reintento con la tool obligatoria`);
                   const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });

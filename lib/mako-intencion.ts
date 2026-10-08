@@ -249,9 +249,24 @@ function sinSaludoInicial(t: string): string {
   return r.trim();
 }
 
+/**
+ * ¿El último mensaje de MaKo le PREGUNTÓ algo a la persona? Es la señal de que un «sí»
+ * corto contesta un ofrecimiento. Desde el 08/10/2026 MaKo OFRECE la acción cuando
+ * contesta una pregunta (decisión de Martín, «la ofrece») en vez de dejarla armada, así
+ * que el «sí» que sigue es el pedido de hacerla. Mira el final: una pregunta al principio
+ * de un mensaje largo no es un ofrecimiento.
+ */
+export function makoPreguntoAlgo(ultimoDeMako: string | null | undefined): boolean {
+  const t = (ultimoDeMako ?? '').trim();
+  if (!t) return false;
+  return /\?/.test(t.slice(-280));
+}
+
+const NEGATIVA = /^[\s¡!¿?]*(no|nop|cancela|cancel[áa]|mejor no|dejalo|déjalo)(?![a-záéíóúñ])/i;
+
 export function clasificarIntencion(
   texto: string,
-  ctx: { hayPendientes?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean } = {},
+  ctx: { hayPendientes?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean; makoPregunto?: boolean } = {},
 ): VeredictoIntencion {
   const t = (texto || '').trim();
   const n = norm(t);
@@ -313,6 +328,17 @@ export function clasificarIntencion(
   //        eso no es elegir una opción.
   if (ctx.hayAgendaAbierta && t.length <= 160 && !esLista(t) && cuentaLinks(t) === 0) {
     return { intencion: 'actuar', dudosa: false, porque: 'sigue un pedido de agenda: el sistema le acaba de mostrar opciones' };
+  }
+
+  // 3-ter) DICE QUE SÍ A LO QUE MaKo LE OFRECIÓ. Desde el 08/10/2026 MaKo, cuando contesta
+  //        una pregunta, OFRECE la acción («¿Querés que pase a Rosana a Agendado?») en vez
+  //        de dejarla armada, porque en consultar/pensar ya no viajan las herramientas de
+  //        escritura (decisión de Martín, «la ofrece»). El «sí» que sigue es el pedido de
+  //        hacerla, y tiene que llegar CON esas herramientas: `actuar`. Medido sobre HEAD
+  //        antes de esto: «sí, hacelo» caía en `pensar` y «sí, movelo a agendado» en
+  //        `charlar` (sin ninguna herramienta). Un «no» a lo ofrecido sigue siendo charla.
+  if (ctx.makoPregunto && CONFIRMACION.test(t) && !NEGATIVA.test(t) && t.length <= 160 && !esLista(t)) {
+    return { intencion: 'actuar', dudosa: false, porque: 'dice que sí a lo que MaKo le acaba de ofrecer' };
   }
 
   // ── El cruce que importa: material dictado vs pedido a MaKo ────────────────
