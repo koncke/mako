@@ -3800,6 +3800,12 @@ con el nombre ya publicado. Toda la portada viajaba adentro de un `<div hidden>`
 de React y sin JavaScript se leía vacía: la causa y el arreglo están en
 `docs/hallazgos-landing.md` → «La portada viajaba VACÍA para quien no ejecuta JavaScript».
 
+✅ **VERIFICADA el 08/10/2026 (~04:00), al tercer envío.** Salió a las 03:35 con el mismo
+método (dominio), el mismo documento y los mismos datos; lo único distinto era el sitio. Meta lo
+leyó a las 03:45:31 y 03:46:07 (el patrón de siempre, ~10 min después) y esta vez encontró la
+razón social visible sin JavaScript. **El arreglo que la destrabó fue sacar el nombre del bloque
+oculto**, no ponerlo en el sitio: eso ya estaba hecho y había fallado.
+
 **Cómo saber qué leyó Meta, la próxima vez.** Las dos veces, 11-20 minutos después del envío,
 llegó desde la red de Meta (AS32934) un GET `/` con user agent de Chrome, referer
 `www.facebook.com` y un `fbclid`, y ~35 s después facebookexternalhit con el mismo `fbclid`. En
