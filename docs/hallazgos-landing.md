@@ -3740,3 +3740,52 @@ cierre real, nunca un número de caracteres»: ahora se corta en la declaración
   typecheck sólo valida los tipos generados de rutas si `.next/types` está fresco.
 - **La ventana de 90 días no es configurable desde la pantalla.** El endpoint ya acepta
   `?dias=` (1 a 365); falta el control.
+
+## La página de GRACIAS pasa a Ganado — y la visita no prueba la compra (07/10/2026)
+
+**Vive en:** `lib/landing-gracias.ts` (`alVisitarPagina`, `ganarPorGracias`) ·
+`lib/landing-gracias-reglas.ts` (con test) · `lib/landing-config.ts` (`gracias`) ·
+`app/api/track/vsl/route.ts` (el pageview) · `app/integraciones/AsignarProducto.tsx` (el
+interruptor, en el paso 2 del Pixel)
+
+Pedido de Martín, por el chat de Customer Success: «automatice mediante el pixel de MaKo que si
+alguien cae en una TKY Page, se pueda automatizar pasar al lead a Ganado directamente, así por
+ejemplo, si alguien tiene compra carrito o lo que sea... y a su vez si se tiene activado la
+invitación del curso automático, que sea todo automático».
+
+⚠️ **LA VISITA NO PRUEBA LA COMPRA.** Quien tenga la URL de la página de gracias la abre sin pagar
+—y el beacon es público: cualquiera con el token puede mandar un pageview con esa URL—, y con la
+invitación al curso prendida eso le da el curso. Es la regla que se pidió y nace APAGADA; lo que la
+hace segura es que la URL no se publique (la plataforma de pago redirige ahí después de cobrar). La
+salida robusta es el webhook de la plataforma de pago (Hotmart, Stripe), que dice quién pagó: no
+existe todavía.
+
+- **A quién es la visita lo dice el `visitor_id`, que es la cookie del NAVEGADOR, no de la persona.**
+  Sin lead no se crea uno (sería una venta sin nadie a quien atribuirla); con DOS no se elige (dos
+  opt-ins desde la misma computadora). Las dos visitas quedan escritas sin datos de la persona
+  (`landing.gracias_rechazos`, con tope y sin contar las recargas) y la pantalla dice «N visitas sin
+  ficha»: sin eso, «no hace nada» y «llegó gente que nunca dejó sus datos» se ven igual.
+- **Gana por los MISMOS caminos que el tablero**: `setPipelineStage` en la casa (con los requisitos
+  salteados DICIÉNDOLO: la decisión del 17/09 es que mover no se bloquea, y el monto queda pendiente)
+  y `moverEtapaEnProducto` en un agregado. Como los dos llaman al enganche «al ganar», la invitación
+  al curso encadena sola (cuando el enganche esté desplegado: ver «La invitación al curso AL GANAR» en hallazgos-crm.md). No hay un segundo camino a Ganado.
+- **Lo ya ganado no se mueve** (la casa se mira por `estado_lead`, no por la columna), así que
+  recargar la página no re-dispara nada.
+- **La vista previa del constructor y localhost no ganan a nadie**: es la misma regla que ya tenía la
+  versión del snippet, ahora en una función (`esVistaDePrueba`) que usan los dos.
+- **La marca se guarda sólo como `true` literal** y `conLanding` la trata como los productos
+  (`undefined` = no la toques): guardar los productos de la página de gracias no la deja de ser.
+
+Verificado en el ws4 de punta a punta (`alVisitarPagina` con un lead de prueba): una página común no
+mueve, la de gracias lo deja ganado con su historial, la recarga no vuelve a moverlo y una visita sin
+ficha queda anotada. Todo limpio después.
+
+### Lo que quedó SIN hacer
+
+- **Verificar la compra** (el webhook de la plataforma de pago), ver arriba.
+- **La pantalla no se miró en el navegador**: el interruptor del paso 2 se verificó por typecheck y
+  tests, no dibujado. Se intentó con un servidor local y no contestó (la máquina al 96% de CPU con
+  varias sesiones; el CRM del ws1 tardó 7 minutos contra la base de producción).
+
+_Hecho directo por la sesión de claude2 (`tests/landing-gracias.test.ts`, probado rompiéndolo: siete
+roturas, las siete caen)._

@@ -1137,5 +1137,45 @@ export const BITACORA: Hito[] = [
       "lib/avisos-catalogo.ts — lead-formulario-meta: texto con variables, apagado",
       "app/api/webhooks/meta-leads/route.ts — manda los datos, no el texto"
     ]
+  },
+  {
+    "fecha": "7 oct",
+    "hora": "22:55",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Invitar al curso al ganar, y la página de gracias pasa a Ganado (por Customer Success)",
+    "pedido": "Una tarea que quiero que le mandes al CRM es muy importante, poder automatizar la invitación al curso cuando un lead cae a Ganado, así no se tiene que estar invitando manualmente... Pero que sea opcional, activar esa automatización. Y también mandale que automatice mediante el pixel de MaKo que si alguien cae en una TKY Page, se pueda automatizar pasar al lead a Ganado directamente, así por ejemplo, si alguien tiene compra carrito o lo que sea, y cae en esa TKY Page, se pase automático a ganado y a su vez si se tiene activado la invitación del curso automático, que sea todo automático.",
+    "puntos": []
+  },
+  {
+    "fecha": "7 oct",
+    "hora": "23:59",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Pixel: quien llega a la página de gracias pasa a Ganado (apagado por default)",
+    "puntos": [
+      "Cada página del Pixel tiene «Es la página de gracias» en el paso 2; nace apagado.",
+      "El lead sale de su visitor_id: sin lead no se crea uno y con dos no se elige; esas visitas quedan anotadas.",
+      "Gana por los mismos caminos que el tablero, así que la invitación al curso encadena sola.",
+      "La visita no prueba la compra: quien tenga la URL la abre sin pagar."
+    ],
+    "commits": [
+      {
+        "sha": "76cfa80f",
+        "msg": "Pixel: quien llega a la página de gracias pasa a Ganado (apagado por default)",
+        "lineas": 464,
+        "archivos": 10
+      }
+    ],
+    "archivos": [
+      "lib/landing-gracias.ts — alVisitarPagina, ganarPorGracias",
+      "lib/landing-gracias-reglas.ts — a quién es la visita, los pasos, las visitas sin ficha",
+      "app/api/track/vsl/route.ts — el pageview pregunta después de guardar la visita",
+      "app/integraciones/AsignarProducto.tsx — el interruptor en el paso 2"
+    ]
   }
 ];
