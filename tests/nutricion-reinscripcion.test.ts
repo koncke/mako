@@ -424,7 +424,9 @@ test('cada paso que sale re-anota la reunión, en un update APARTE del avance', 
   assert.ok(ini > 0 && fin > ini, 'no encontré el avance del paso');
   const trozo = proc.slice(ini, fin);
   assert.ok(trozo.length < 1500, `el avance mide ${trozo.length}: está mirando otra cosa`);
-  const avance = trozo.slice(0, trozo.indexOf(".eq('id', insc.id);"));
+  // (08/10/2026, segunda tanda: el avance es la puerta `escribir`; el corte es la re-anotación.)
+  const avance = trozo.slice(0, trozo.indexOf('await anotarReunionDelPaso('));
+  assert.match(avance, /await escribir\(insc, \{/, 'el avance de un paso que salió no pasa por la puerta de la posición');
   assert.doesNotMatch(avance, /reunion_at/, 'el avance de un paso que ya salió no puede depender de la columna nueva');
   assert.match(trozo.slice(avance.length), /await anotarReunionDelPaso\(insc\.id, sec, lead\);/, 'el mensaje que salió no re-anota la reunión');
   // Y el paso de acción, después del reclamo (si no corrió, no hay nada que anotar).

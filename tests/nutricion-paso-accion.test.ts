@@ -177,15 +177,19 @@ test('⚠️ el motor corre el paso con `correrPasoAccion` → `ejecutarDesdeFlu
   assert.match(rama(), /await correrPasoAccion\(/);
   assert.match(rama(), /ejecutar: async \(operacion, params, o\) => \(await import\('@\/lib\/api-mako\/flujo'\)\)\.ejecutarDesdeFlujo\(operacion, params, o\)/);
   // El reclamo avanza SÓLO si la fila sigue en este paso y activa: es lo que impide correrla dos veces.
-  const reclamo = bloque(rama(), 'reclamar: async () => {', 'ejecutar:', 1_500);
-  assert.match(reclamo, /\.eq\('id', insc\.id\)\.eq\('estado', 'activa'\)\.eq\('paso_actual', insc\.paso_actual\)/);
+  // Desde la segunda tanda (08/10/2026) el reclamo es la PUERTA de la posición (`escribir`) en
+  // modo compare-and-set: la misma comparación, en `moverConCas`, que es por donde pasan todas.
+  const reclamo = bloque(rama(), 'reclamar: () => escribir(insc, {', 'ejecutar:', 1_500);
+  assert.match(reclamo, /\{ modo: 'cas'/, 'el reclamo de la acción tiene que comparar lo leído');
+  const cas = bloque(PROC, 'const moverConCas = async (', '\n  };', 1_200);
+  assert.match(cas, /\.eq\('id', insc\.id\)\.eq\('estado', 'activa'\)\.eq\('paso_actual', insc\.paso_actual\)/);
   // Desde el 08/10/2026 (flujo con ramas) avanza al SIGUIENTE DEL NODO, no al de abajo en el
   // array, escribe `nodo_actual` y el reclamo compara también el nodo: dos corridas que leyeron
   // la misma fila no pueden reclamarla las dos aunque `paso_actual` coincida.
   // Probado rompiéndolo (08/10/2026): el reclamo sin comparar el nodo → 1 falla (15/1).
   assert.match(reclamo, /paso_actual: siguientePaso \? sigIdx : n,/, 'avanza como si hubiera salido el mensaje');
   assert.match(reclamo, /nodo_actual: siguientePaso \? idDe\(siguientePaso, sigIdx\) : null,/);
-  assert.match(reclamo, /insc\.nodo_actual == null \? q\.is\('nodo_actual', null\) : q\.eq\('nodo_actual', insc\.nodo_actual\)/);
+  assert.match(cas, /insc\.nodo_actual == null \? q\.is\('nodo_actual', null\) : q\.eq\('nodo_actual', insc\.nodo_actual\)/);
   assert.match(rama(), /const sigIdx = siguienteIndice\(sec\.pasos, insc\.paso_actual\);/);
   assert.match(reclamo, /proximo_envio_at: proximo,/);
   assert.match(rama(), /const proximo = siguientePaso \? proximoEnvioDePaso\(siguientePaso, lead\) : null;/, 'la misma programación que un mensaje');
