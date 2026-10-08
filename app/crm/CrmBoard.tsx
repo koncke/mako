@@ -37,6 +37,7 @@ import {
   esTerminal,
   etapasVisibles,
   MAX_LABEL_ETAPA,
+  terminalEstadoFor,
 } from '@/lib/pipeline';
 // Sin 'server-only' a propósito (ver su cabecera): es la fuente única del mapeo
 // etapa→R1/R2, y la usa también este componente de cliente.
@@ -112,6 +113,7 @@ import { antesDeQuien, columnaConInsercion, mismaLista } from '@/app/customer-su
 import { ordenarKanbanManual, ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
 import { ordenarColumnaCrmAction } from './orden-actions';
 import { moverEtapaEnProductoAction } from './lead-funnel-actions';
+import { cambiarCursoAlGanarAction } from './curso-al-ganar-actions';
 
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
@@ -394,6 +396,7 @@ export function CrmBoard({
   abrirEmbudo = null,
   funnelActivo = null,
   ordenManual = {},
+  cursoAlGanar = null,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -432,6 +435,11 @@ export function CrmBoard({
   funnelActivo?: number | null;
   /** El orden que se armó arrastrando tarjetas en este embudo: etapa → leads (mig 0200). */
   ordenManual?: Record<string, number[]>;
+  /**
+   * Si este embudo invita SOLO al curso cuando un lead pasa a Ganado (lib/crm-curso-al-ganar.ts).
+   * `null` = la opción no se ofrece: su producto no tiene clases, o no se pudo leer.
+   */
+  cursoAlGanar?: { prendido: boolean } | null;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -1765,6 +1773,25 @@ export function CrmBoard({
   const [errorCerrado, setErrorCerrado] = useState(false);
   const { toast: avisoBoard, show: mostrarAviso, clear: limpiarAviso } = useToast();
 
+  // ── «Invitar al curso al ganar» (pedido de Martín, 07/10/2026) ──────────────
+  // ⚠️ NO ES UN useState SEMBRADO DE LA PROP: el tablero no se desmonta al cambiar de embudo, y
+  // un estado sembrado mostraría el interruptor del embudo anterior. Lo que se guarda es lo que
+  // ESTA pestaña cambió, con su embudo, y gana sólo sobre ese embudo hasta que el server lo diga.
+  const [cursoCambiado, setCursoCambiado] = useState<{ funnel: number | null; prendido: boolean } | null>(null);
+  const cursoPrendido = cursoCambiado && cursoCambiado.funnel === funnelActivo ? cursoCambiado.prendido : cursoAlGanar?.prendido ?? false;
+  const cambiarCurso = async (prendido: boolean): Promise<void> => {
+    const funnel = funnelActivo;
+    setCursoCambiado({ funnel, prendido });
+    const r = await cambiarCursoAlGanarAction(funnel, prendido);
+    if (!r.ok) {
+      setCursoCambiado({ funnel, prendido: !prendido });
+      mostrarAviso(r.error, undefined, 'bad');
+      return;
+    }
+    setCursoCambiado({ funnel, prendido: r.prendido });
+    mostrarAviso(r.prendido ? 'Invitación prendida' : 'Invitación apagada', () => { void cambiarCurso(!r.prendido); });
+  };
+
   // ── El orden de las tarjetas adentro de cada columna (mig 0200) ─────────────
   // «Es como poner un "ORDENAMIENTO" dentro de filtros» (Martín, 06/10/2026). La pieza pura
   // y el porqué de cada regla están en app/crm/orden-kanban.ts.
@@ -2313,6 +2340,12 @@ export function CrmBoard({
                   // etapa por la que entra un lead de Meta, y es el mismo lugar donde vive la
                   // sección en el pop-up del embudo.
                   ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Campañas de Meta' }] : []),
+                  // «Automatizar la invitación al curso cuando un lead cae a Ganado... Pero que sea
+                  // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
+                  // sólo si el producto tiene clases (sin curso no hay a qué invitar).
+                  ...(cursoAlGanar && terminalEstadoFor(c.key) === 'ganado'
+                    ? [{ value: 'curso', label: 'Invitar al curso al ganar', sub: cursoPrendido ? 'Prendido' : 'Apagado' }]
+                    : []),
                   { value: 'renombrar', label: 'Cambiar el nombre' },
                   // «En lugar de "Agregar etapa después" simplemente "Agregar etapa"» (Martín,
                   // 29/09/2026). Sigue insertando DESPUÉS de esta: el rótulo explicaba el
@@ -2340,6 +2373,7 @@ export function CrmBoard({
                 ]}
                 onChange={(v) => {
                   if (v === 'campanas') { setCampanasAbierto(true); return; }
+                  if (v === 'curso') { void cambiarCurso(!cursoPrendido); return; }
                   if (v === 'renombrar') { setRenombrando(c.key); return; }
                   if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
                   if (v === 'eliminar') void quitarColumna(c);

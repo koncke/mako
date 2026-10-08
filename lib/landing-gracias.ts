@@ -13,7 +13,7 @@ import 'server-only';
 // lib/landing-config.ts), se busca el lead por su `visitor_id` y se lo pasa a Ganado por los
 // MISMOS caminos que el tablero: `setPipelineStage` en su casa y `moverEtapaEnProducto` en un
 // producto agregado. Los dos llaman al enganche «al ganar», así que si el embudo invita al curso
-// (lib/curso-invitar-auto.ts), el mail sale solo. No hay un segundo camino a Ganado.
+// (lib/crm-curso-al-ganar.ts), el mail sale solo. No hay un segundo camino a Ganado.
 //
 // ⚠️ LA VISITA NO PRUEBA LA COMPRA. Quien tenga la URL de la página de gracias la puede abrir sin
 // pagar, y con la invitación prendida eso le da el curso. Es la regla que se pidió («cae en esa

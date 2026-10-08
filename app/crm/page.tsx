@@ -6,6 +6,7 @@ import { listLeadsDeFunnel, type Lead } from '@/lib/leads';
 // DEFAULT en las dos: el board pinta las COLUMNAS del negocio (la etapa de cada lead
 // se deriva de sus propias columnas con deriveStageKey, no del funnel).
 import { getPipelineStagesDefault, getFunnelTransitionsDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
+import { estadoCursoAlGanar } from '@/lib/crm-curso-al-ganar';
 import { generateFunnel, DEFAULT_PIPELINE, type FunnelTransition } from '@/lib/pipeline';
 import {
   getCampaignNameMap,
@@ -124,6 +125,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // El orden que se armó arrastrando tarjetas en ESTE embudo (mig 0200). Nunca tira: sin él,
   // las columnas van por fecha de llegada.
   const pOrden = leerOrdenManual(funnelId);
+  // Si este embudo invita solo al curso al ganar (el «⋯» de la columna Ganado). Nunca tira:
+  // sin él, la opción no se ofrece.
+  const pCurso = estadoCursoAlGanar(funnelId);
 
   try {
     // Las etapas van en la misma ola (antes serializaban al frente).
@@ -187,7 +191,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   // Con la etapa de ENTRADA pegada: a ella caen los agregados cuya etapa ya no existe acá.
   const validStageKeys = etapasDelTablero(stages);
-  const [[anunciosObj, adMap], ordenManual] = await Promise.all([pAtrib, pOrden]);
+  const [[anunciosObj, adMap], ordenManual, cursoAlGanar] = await Promise.all([pAtrib, pOrden, pCurso]);
   const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));
 
@@ -236,6 +240,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       hoy={hoy}
       equipo={equipo}
       ordenManual={ordenManual}
+      cursoAlGanar={cursoAlGanar}
     />
   );
 }

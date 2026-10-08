@@ -17,6 +17,8 @@ import { getTenantDb } from './workspace';
 import { getLead, logLeadEvent, autorDelMovimiento } from './leads';
 import { getFunnelDe, getFunnelDefault, idDelFunnelDefault, listarFunnels } from './funnels';
 import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscribir, casaReal, type ProductoDelLead, type FilaLeadFunnel } from './lead-funnel-reglas';
+import { terminalEstadoFor } from './pipeline';
+import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 
 /** Las etapas de un producto (el del negocio por su propio camino: su config vive en la fila default). */
 export async function etapasDeProducto(funnelId: number): Promise<Array<{ key: string; label: string; kind?: string | null; band?: string; dot?: string }>> {
@@ -156,6 +158,18 @@ export async function moverEtapaEnProducto(leadId: number, funnelId: number, eta
     .eq('lead_id', leadId).eq('funnel_id', funnelId);
   if (e2) throw new Error('No se pudo mover: ' + e2.message);
   await db.from('lead_audit').insert([{ lead_id: leadId, campo: `Etapa · ${await nombreDeProducto(funnelId)}`, valor_anterior: fila.etapa, valor_nuevo: etapa, autor }]);
+  // ⚠️ LA ÚNICA EXCEPCIÓN A «esto no toca nada más» (la cabecera): ganar en un producto agregado
+  // llama al MISMO enganche que la casa (lib/crm-curso-al-ganar.ts), porque la invitación al curso
+  // es POR PRODUCTO. Si el portal del alumno no abre ese producto, el enganche no invita y lo dice
+  // en el historial. Sólo la transición: la etapa de antes no era la de Ganado.
+  if (pasaAGanado(terminalEstadoFor(fila.etapa), terminalEstadoFor(etapa))) {
+    try {
+      const { alGanarInvitarAlCurso } = await import('./crm-curso-al-ganar');
+      await alGanarInvitarAlCurso({ leadId, funnelId });
+    } catch (e) {
+      console.error(`[lead-funnel] lead ${leadId}: el enganche al ganar falló:`, e instanceof Error ? e.message : e);
+    }
+  }
   return { antes: fila.etapa };
 }
 

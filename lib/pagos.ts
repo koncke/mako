@@ -13,6 +13,7 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
 import { VENTA_SIN_COBRO } from './venta-tipo';
+import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 
 export type Pago = {
   id: number;
@@ -218,9 +219,22 @@ export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise
   if (p.duracion_meses != null) leadUpdate.duracion_meses = p.duracion_meses;
   if (p.fecha_cierre) leadUpdate.fecha_cierre = p.fecha_cierre;
   if (p.fecha_inicio) leadUpdate.fecha_inicio_servicio = p.fecha_inicio;
+  // ⚠️ ESTE UPDATE TAMBIÉN GANA: no pasa por updateLead, así que el enganche «al ganar» (la
+  // invitación automática al curso, lib/crm-curso-al-ganar.ts) se llama acá. Por eso se lee
+  // el estado de ANTES: sólo la transición invita, y guardar las cuotas de un ganado no.
+  const { data: antes } = await supabase.from('leads').select('estado_lead, funnel_id').eq('id', leadId).maybeSingle();
   if (Object.keys(leadUpdate).length > 0) {
     const { error } = await supabase.from('leads').update(leadUpdate).eq('id', leadId);
     if (error) throw new Error(`Error guardando plan del lead ${leadId}: ${error.message}`);
+  }
+  const previo = antes as { estado_lead: string | null; funnel_id: number | string | null } | null;
+  if (previo && pasaAGanado(previo.estado_lead, 'ganado')) {
+    try {
+      const { alGanarInvitarAlCurso } = await import('./crm-curso-al-ganar');
+      await alGanarInvitarAlCurso({ leadId, funnelId: previo.funnel_id == null ? null : Number(previo.funnel_id) });
+    } catch (e) {
+      console.error(`[pagos] lead ${leadId}: el enganche al ganar falló:`, e instanceof Error ? e.message : e);
+    }
   }
 
   // Conservar cuotas pagadas; reemplazar las no pagadas por la lista nueva.

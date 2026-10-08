@@ -38,6 +38,7 @@ import { calificadoSeDescarta } from './calificado-reunion';
 // Qué deriva `updateLead` del desenlace (estado ↔ cerro, motivo, venta) y CUÁNDO:
 // puro y con test (tests/updatelead-no-borra-venta.test.ts).
 import { desenlaceAlGuardar } from './lead-desenlace';
+import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 // Qué reunión anula una cancelación: puro y con test (tests/recordatorio-lead.test.ts).
 import { juntaACancelar } from './recordatorio-lead';
 import type { Stage } from './pipeline';
@@ -1023,6 +1024,25 @@ export async function updateLead(
   // Auto-etiqueta de WhatsApp: si cambió la etapa derivada del lead, ajustamos la
   // etiqueta en el número (best-effort, no bloquea). Solo si hay mapeo configurado.
   void actualizarEtiquetaLead(id).catch(() => {});
+
+  // ───────────────────────────────────────────────────────────────────
+  // Al GANAR: la invitación al curso, si su embudo la tiene prendida
+  // ───────────────────────────────────────────────────────────────────
+  // Pedido de Martín (07/10/2026): «automatizar la invitación al curso cuando un lead cae a
+  // Ganado... Pero que sea opcional». Va ACÁ porque es por donde pasan todos los que ganan en
+  // su casa: el tablero, el wizard, MaKo, Customer Success y la página de gracias (los tres
+  // últimos vía setPipelineStage). Los dos caminos que no pasan por acá llaman lo mismo:
+  // `saveLeadPlanManual` (lib/pagos.ts) y `moverEtapaEnProducto` (lib/lead-funnel.ts).
+  // ⚠️ SÓLO LA TRANSICIÓN: re-guardar un ganado no es una venta nueva. Import dinámico: el
+  // módulo importa a éste.
+  if (pasaAGanado(actual.estado_lead, merged.estado_lead)) {
+    try {
+      const { alGanarInvitarAlCurso } = await import('./crm-curso-al-ganar');
+      await alGanarInvitarAlCurso({ leadId: id, funnelId: actual.funnel_id == null ? null : Number(actual.funnel_id) });
+    } catch (e) {
+      console.error(`[updateLead] lead ${id}: el enganche al ganar falló:`, e instanceof Error ? e.message : e);
+    }
+  }
 
   return data as Lead;
 }
