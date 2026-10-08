@@ -59,11 +59,13 @@ import { instanteDeLocal, DURACION_DEFECTO_MIN } from '@/app/crm/horarios-respue
 import { eventTypeDeReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
+import { productosDelLead, agregarAProducto, quitarDeProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
+import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
   nombresAsignables, marcarPendientesIgnorados, guardarEntradas, guardarDeal, existeIdentidadFiscal, proponerLote,
-  estadoConfirmacion,
+  estadoConfirmacion, productosCrm, type ProductoCrm,
 } from './crm.helpers';
 
 /** Los campos del Deal Details por sección: el parámetro plano es `<seccion>_<campo>`. */
@@ -137,6 +139,41 @@ async function agendaParaEscribir(): Promise<string | null> {
 async function anotar(leadId: number, titulo: string, texto: string, autor: string): Promise<void> {
   try { await logLeadEvent(leadId, titulo, texto, autor); }
   catch (e) { console.error(`[api-mako crm] historial del lead ${leadId}:`, e instanceof Error ? e.message : String(e)); }
+}
+
+// ── un lead en varios productos (mig 0207) ────────────────────────────────────
+
+const NO_LEI_PRODUCTOS = 'No se pudieron leer los productos del CRM de este negocio.';
+const etiquetaDe = (p: ProductoCrm, key: string | null | undefined): string => p.etapas.find((e) => e.key === key)?.label ?? key ?? 'sin etapa';
+
+/** Lo que las tres acciones validan antes de proponer: el lead en ESTE negocio (getLead scopea),
+ *  el producto por su embudo, y en cuáles está el lead. Un id que no es de acá no existe. */
+async function leadYProducto(input: Record<string, unknown>): Promise<
+  | { error: string; disponibles?: unknown }
+  | { lead: Lead; producto: ProductoCrm; productos: ProductoCrm[]; suyos: ProductoDelLead[]; enEse: ProductoDelLead | null }
+> {
+  const lead = await leadDe(input.leadId);
+  if (!lead) return { error: noExiste(input.leadId) };
+  const productos = await productosCrm();
+  if (!productos) return { error: NO_LEI_PRODUCTOS };
+  const id = Number(input.embudoId);
+  const producto = productos.find((p) => p.embudoId === id);
+  if (!producto) {
+    return {
+      error: `No existe el producto #${String(input.embudoId)} en el CRM de este negocio. Pide el embudoId con productos_del_lead.`,
+      disponibles: productos.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })),
+    };
+  }
+  const { productos: suyos } = await productosDelLead(lead.id);
+  return { lead, producto, productos, suyos, enEse: suyos.find((p) => p.funnelId === id) ?? null };
+}
+
+/** Los nombres para el resumen de lo que ya se hizo. Si la lectura falla, los ids: lo escrito ya
+ *  está escrito, y un nombre que no se pudo leer no lo vuelve un fallo. */
+async function nombresDe(leadId: number, embudoId: number): Promise<{ lead: string; producto: string; etapa: (key: string | null | undefined) => string }> {
+  const [lead, productos] = await Promise.all([leadDe(leadId), productosCrm().catch(() => null)]);
+  const p = productos?.find((x) => x.embudoId === embudoId);
+  return { lead: lead?.nombre ?? `el lead #${leadId}`, producto: p?.nombre ?? `el producto #${embudoId}`, etapa: (key) => (p ? etiquetaDe(p, key) : key ?? 'sin etapa') };
 }
 
 /** ejecutar() NUNCA lanza: si algo falla, ok:false con el motivo (la pendiente se
@@ -473,6 +510,28 @@ export const RUNNERS: Runners = {
       });
     },
   },
+  productos_del_lead: {
+    leer: async (input) => {
+      const productos = await productosCrm();
+      if (!productos) return fallo(NO_LEI_PRODUCTOS);
+      if (input.leadId == null) return json({ productos, nota: 'embudoId es el id que piden agregar_lead_a_producto, quitar_lead_de_producto y mover_lead_en_producto; no es el de listar_productos.' });
+      return conLead(input, async (lead) => {
+        const { productos: suyos } = await productosDelLead(lead.id);
+        const deEl = new Map(suyos.map((p) => [p.funnelId, p]));
+        return json({
+          lead: { id: lead.id, nombre: lead.nombre },
+          puede_quitar: puedeQuitar(suyos),
+          productos: productos.map((p) => {
+            const x = deEl.get(p.embudoId);
+            // En el principal, la etapa EFECTIVA (la que pinta el tablero): pipeline_stage es un
+            // override y casi siempre está vacío. En los agregados, la de su fila.
+            return { ...p, esta: !!x, principal: !!x?.esCasa, etapa: x ? (x.esCasa ? etapaVigenteDe(lead, p.etapas) : x.etapa) : null };
+          }),
+          nota: 'principal = su producto de origen: ahí se mueve con proponer_cambio_etapa. En los otros, con mover_lead_en_producto.',
+        });
+      });
+    },
+  },
 
   // ── Acciones heredadas ──────────────────────────────────────────────────────
   proponer_cambio_etapa: {
@@ -803,6 +862,82 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('declarar las entradas', async () => {
       const r = await guardarEntradas(payload.entradas as string[]);
       return r.ok ? { ok: true, resumen: 'Listo: quedó declarado cómo llega la gente al negocio.' } : { ok: false, resumen: r.error };
+    }),
+  },
+
+  // Un lead en VARIOS productos (mig 0207): por lib/lead-funnel.ts, tal como lo usa la ficha.
+  agregar_lead_a_producto: {
+    preparar: async (input) => {
+      const r = await leadYProducto(input);
+      if ('error' in r) return r;
+      if (r.enEse) return { error: `${r.lead.nombre} ya está en «${r.producto.nombre}».` };
+      const entrada = etapaDeEntrada(r.producto.etapas);
+      if (!entrada) return { error: `«${r.producto.nombre}» no tiene etapas.` };
+      return {
+        payload: { leadId: r.lead.id, embudoId: r.producto.embudoId },
+        resumen: `Agregar a ${r.lead.nombre} a «${r.producto.nombre}», en «${etiquetaDe(r.producto, entrada)}» (sigue en los productos que ya tiene).`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('agregar al producto', async () => {
+      const id = Number(payload.leadId); const embudo = Number(payload.embudoId);
+      const r = await agregarAProducto(id, embudo, { autor: autorDe(ctx) });
+      const n = await nombresDe(id, embudo);
+      if (!r.agregado) return { ok: false, resumen: `${n.lead} ya estaba en «${n.producto}»: no se agregó nada.` };
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: ${n.lead} quedó también en «${n.producto}», en «${n.etapa(r.etapa)}».` };
+    }),
+  },
+  quitar_lead_de_producto: {
+    preparar: async (input) => {
+      const r = await leadYProducto(input);
+      if ('error' in r) return r;
+      if (!r.enEse) return { error: `${r.lead.nombre} no está en «${r.producto.nombre}».` };
+      if (!puedeQuitar(r.suyos)) return { error: `«${r.producto.nombre}» es el único producto de ${r.lead.nombre}: no se lo puede quitar.` };
+      let resumen = `Quitar a ${r.lead.nombre} de «${r.producto.nombre}»`;
+      if (r.enEse.esCasa) {
+        // Quitar la casa PROMUEVE otra: lo dice antes del «sí», con su nombre y su etapa.
+        const nueva = aQuienPromover(r.suyos);
+        const np = nueva ? r.productos.find((p) => p.embudoId === nueva.funnelId) : undefined;
+        if (nueva && np) resumen += `: era su producto principal, y pasa a serlo «${np.nombre}», en «${etiquetaDe(np, nueva.etapa)}»`;
+      }
+      return { payload: { leadId: r.lead.id, embudoId: r.producto.embudoId }, resumen: `${resumen}.` };
+    },
+    ejecutar: (payload, ctx) => seguro('quitar del producto', async () => {
+      const id = Number(payload.leadId); const embudo = Number(payload.embudoId);
+      const d = await quitarDeProducto(id, embudo, { autor: autorDe(ctx) });
+      invalidar('leads');
+      const n = await nombresDe(id, embudo);
+      return {
+        ok: true,
+        resumen: d.casaAntes ? `Listo: ${n.lead} salió de «${n.producto}», que era su producto principal; ahora lo es el que tenía hace más tiempo.` : `Listo: ${n.lead} salió de «${n.producto}».`,
+        datos: { deshacer: d },
+      };
+    }),
+  },
+  mover_lead_en_producto: {
+    preparar: async (input) => {
+      const r = await leadYProducto(input);
+      if ('error' in r) return r;
+      if (!r.enEse) return { error: `${r.lead.nombre} no está en «${r.producto.nombre}»: se suma antes con agregar_lead_a_producto.` };
+      // La casa se mueve por el camino de siempre (requisitos, estado, Meta): moverEtapaEnProducto
+      // escribe sólo la fila de lead_funnel, y la casa no tiene fila.
+      if (r.enEse.esCasa) return { error: `«${r.producto.nombre}» es el producto principal de ${r.lead.nombre}: ahí se mueve con proponer_cambio_etapa, que pide el monto o el motivo cuando hacen falta.` };
+      const etapa = s(input.etapa) ?? '';
+      const destino = r.producto.etapas.find((e) => e.key === etapa);
+      if (!destino) return { error: `«${etapa}» no es una etapa de «${r.producto.nombre}».`, disponibles: r.producto.etapas.map((e) => ({ key: e.key, label: e.label })) };
+      if (r.enEse.etapa === etapa) return { error: `${r.lead.nombre} ya está en «${destino.label}» de «${r.producto.nombre}».` };
+      return {
+        payload: { leadId: r.lead.id, embudoId: r.producto.embudoId, etapa },
+        resumen: `Mover a ${r.lead.nombre} en «${r.producto.nombre}»: de «${etiquetaDe(r.producto, r.enEse.etapa)}» a «${destino.label}».`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('mover en el producto', async () => {
+      const id = Number(payload.leadId); const embudo = Number(payload.embudoId); const etapa = String(payload.etapa);
+      const r = await moverEtapaEnProducto(id, embudo, etapa, { autor: autorDe(ctx) });
+      const n = await nombresDe(id, embudo);
+      if (r.antes === etapa) return { ok: false, resumen: `${n.lead} ya estaba en «${n.etapa(etapa)}» de «${n.producto}»: no se movió nada.` };
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: ${n.lead} pasó de «${n.etapa(r.antes)}» a «${n.etapa(etapa)}» en «${n.producto}».` };
     }),
   },
 

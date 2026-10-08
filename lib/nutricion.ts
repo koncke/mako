@@ -43,6 +43,7 @@ import {
   TZ_OFFSET_MX, reunionFuturaMs, reunionQuePreparaMs, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion,
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
+import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -1342,6 +1343,118 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} falló:`, e);
     return 0;
   }
+}
+
+// ── Inscripción MANUAL: un lead en UNA secuencia elegida (08/10/2026) ────────
+// «Metelo en ESTA secuencia», por MaKo o por un paso «⚡ Acción» de un flujo. Las reglas
+// están en lib/nutricion-inscripcion-manual.ts (puras, con test); acá se lee y se escribe.
+
+export type InscripcionManual =
+  | { inscribe: true; como: 'nueva' | 'reinicio'; secuencia: { id: number; nombre: string }; lead: { id: number; nombre: string }; proximoEnvioAt: string }
+  | {
+    inscribe: false;
+    porque: PorQueNoSeInscribio;
+    secuencia: { id: number; nombre: string } | null;
+    lead: { id: number; nombre: string } | null;
+  };
+
+/**
+ * Mete a UN lead en UNA secuencia, sin pasar por su cohorte ni por un evento. La decisión es
+ * `decidirInscripcionManual`; acá se junta lo que pregunta —con las MISMAS funciones con las que
+ * el motor lo vuelve a preguntar al mandar (`aTiempo`, `reunionFuturaMs`, `residuoVigente`)— y
+ * se escribe con las MISMAS piezas que `enrolarPorEvento`:
+ *   · nueva    → una fila, con el horario del primer paso (`proximoEnvioDePaso`) y la reunión que
+ *                prepara sólo en la familia que prepara una (`preparaUnaReunion`);
+ *   · reinicio → la fila que ya terminó se reactiva con compare-and-set, y lo de la corrida vieja
+ *                deja de colgar de ella (lib/nutricion-reinscripcion.ts). La decisión se fecha
+ *                ANTES de leer la fila (ver `Reactivacion.ahora`).
+ * Después, la vía rápida de siempre: `procesarEnvios` de este lead, que respeta la ventana, el
+ * tope diario y la pausa de 20 h (salvo `sinEnvioInmediato`: ver abajo).
+ *
+ * `soloVer` decide SIN escribir: lo llama el `preparar()` del registro, que no puede escribir. Sin
+ * él vuelve a decidir contra la base, porque entre el «sí» y ahora pudo cambiar todo.
+ *
+ * ⚠️ El lead se lee con `getTenantDb`: un lead de OTRO negocio no existe acá. Sin esa lectura, el
+ * insert aceptaría su id (la FK es global) y le escribiría la secuencia de este negocio a una
+ * persona de otro. Y una lectura que falla TIRA: «no pude leer» no es «no existe».
+ */
+export async function inscribirEnSecuencia(
+  leadId: number,
+  secuenciaId: number,
+  opts?: { soloVer?: boolean; sinEnvioInmediato?: boolean },
+): Promise<InscripcionManual> {
+  const supabase = await getTenantDb();
+  // El ámbito (funnel_id, producto_id) viaja aunque acá no filtre —la secuencia la eligió una
+  // persona, no una cohorte—: todo select de secuencias lo trae (tests/nutricion-ambito-embudo).
+  const { data: filaSec, error: eSec } = await supabase.from('nutricion_secuencias')
+    .select('id, nombre, trigger_tipo, activa, archivada_at, pasos, estrategia, funnel_id, producto_id').eq('id', secuenciaId).maybeSingle();
+  if (eSec) throw new Error(`inscribirEnSecuencia (secuencia): ${eSec.message}`);
+  const s = filaSec as { id: number; nombre: string; trigger_tipo: string; activa: boolean; archivada_at: string | null; pasos: unknown; estrategia: unknown } | null;
+  const { data: filaLead, error: eLead } = await supabase.from('leads')
+    .select('id, nombre, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at').eq('id', leadId).maybeSingle();
+  if (eLead) throw new Error(`inscribirEnSecuencia (lead): ${eLead.message}`);
+  const lead = filaLead as ({ id: number; nombre: string | null } & JuntasLead) | null;
+  const quien = lead ? { id: Number(lead.id), nombre: lead.nombre?.trim() || `el lead #${lead.id}` } : null;
+  if (!s) return { inscribe: false, porque: 'secuencia_no_existe', secuencia: null, lead: quien };
+  const ref = { id: Number(s.id), nombre: s.nombre };
+  if (!lead || !quien) return { inscribe: false, porque: 'lead_no_existe', secuencia: ref, lead: null };
+
+  const pasos = Array.isArray(s.pasos) ? (s.pasos as PasoSecuencia[]) : [];
+  const prepara = preparaUnaReunion(s.trigger_tipo);
+  const decididoAt = ahoraISO();
+  const previa = (await inscripcionesDe(supabase, [leadId], (q) => q.eq('secuencia_id', s.id), prepara))[0] ?? null;
+
+  const aTiempoOk = (await aTiempo(supabase, { antiguedad_max_horas: parseEstrategia(s.estrategia)?.antiguedad_max_horas ?? null }, [leadId])).length > 0;
+  const sinReunion = (pasos[0]?.ancla === 'reunion' || prepara) && reunionFuturaMs(lead) == null;
+  const fueraDelResiduo = s.trigger_tipo === TRIGGER_RESIDUO && !(await residuoVigente(supabase, [leadId])).has(leadId);
+  let enLaOtraMitad = false;
+  if (FAMILIA_POST_AGENDA.includes(s.trigger_tipo)) {
+    const { data: hermanas, error: eH } = await supabase.from('nutricion_secuencias').select('id')
+      .in('trigger_tipo', FAMILIA_POST_AGENDA).neq('id', s.id);
+    if (eH) throw new Error(`inscribirEnSecuencia (post-agenda): ${eH.message}`);
+    const ids = ((hermanas ?? []) as Array<{ id: number }>).map((h) => h.id);
+    if (ids.length) {
+      const vivas = await inscripcionesDe(supabase, [leadId], (q) => q.in('secuencia_id', ids).in('estado', ['activa', 'pendiente', 'pausada']), false);
+      enLaOtraMitad = vivas.length > 0;
+    }
+  }
+
+  const v = decidirInscripcionManual({
+    secuencia: { activa: s.activa === true, archivada: s.archivada_at != null, pasos: pasos.length },
+    previa: previa ? { estado: previa.estado, desenlace: previa.desenlace } : null,
+    motor: { aTiempo: aTiempoOk, sinReunion, fueraDelResiduo, enLaOtraMitad },
+  });
+  if (!v.inscribe) return { inscribe: false, porque: v.porque, secuencia: ref, lead: quien };
+
+  const proximo = proximoEnvioDePaso(pasos[0], lead);
+  const reunion = prepara ? reunionQuePreparaMs(lead) : null;
+  const reunionAt = reunion == null ? null : new Date(reunion).toISOString();
+  const hecho = { inscribe: true as const, como: v.como, secuencia: ref, lead: quien, proximoEnvioAt: proximo };
+  if (opts?.soloVer) return hecho;
+
+  if (v.como === 'reinicio' && previa) {
+    const reclamada = await reactivarInscripcion(supabase, {
+      id: previa.id, leido: previa, proximoEnvioAt: proximo, reunionAt, ahora: decididoAt,
+    });
+    if (!reclamada) return { inscribe: false, porque: 'carrera', secuencia: ref, lead: quien };
+  } else {
+    const { error } = await supabase.from('nutricion_inscripciones').insert({
+      lead_id: leadId, secuencia_id: s.id, paso_actual: 0, estado: 'activa', proximo_envio_at: proximo,
+      ...(prepara ? { reunion_at: reunionAt } : {}),
+    });
+    // 23505 = el unique (lead_id, secuencia_id): otra corrida lo inscribió entre la lectura y acá.
+    if (error?.code === '23505') return { inscribe: false, porque: 'carrera', secuencia: ref, lead: quien };
+    if (error) throw new Error(`inscribirEnSecuencia: ${error.message}`);
+  }
+  console.log(`[nutricion] lead ${leadId}: inscripción manual en la secuencia ${s.id} (${v.como})`);
+  // ⚠️ SIN LA VÍA RÁPIDA DESDE UN FLUJO (`sinEnvioInmediato`). Un paso «⚡ Acción» de una secuencia
+  // corre ADENTRO de procesarEnvios: volver a llamarlo para el mismo lead levantaría la inscripción
+  // que todavía no avanzó de paso, y la acción correría dos veces. Ahí lo manda el cron.
+  if (!opts?.sinEnvioInmediato) {
+    try { await procesarEnvios({ soloLeadId: leadId }); }
+    catch (e) { console.error(`[nutricion] envío inmediato lead ${leadId} falló:`, e); }
+  }
+  return hecho;
 }
 
 // ── Envíos vencidos ───────────────────────────────────────────────────────────

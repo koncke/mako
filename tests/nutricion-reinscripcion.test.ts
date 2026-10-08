@@ -439,9 +439,17 @@ test('el corte de lo que el reuso desliga es el instante de ANTES de leer la fil
   const decE = ev.indexOf('const decididoAt = ahoraISO();');
   assert.ok(decE >= 0 && decE < ev.indexOf('const previas = await inscripcionesDe('), 'el evento: la decisión se fecha ANTES de leer las filas');
   assert.match(ev, /reunionAt: new Date\(r\.reunionMs\)\.toISOString\(\), ahora: decididoAt,/);
+  // La tercera, desde el 08/10/2026: la inscripción a mano reinicia una que terminó con el
+  // MISMO reuso (inscribirEnSecuencia), y también fecha la decisión antes de leer la fila.
+  // Probado rompiéndolo: reiniciando con `ahoraISO()`, o fechando DESPUÉS de leer la fila,
+  // 1 falla / 27 pasan cada una (28/28 como está).
+  const man = cuerpo(MOTOR, 'export async function inscribirEnSecuencia(');
+  const decM = man.indexOf('const decididoAt = ahoraISO();');
+  assert.ok(decM >= 0 && decM < man.indexOf('await inscripcionesDe('), 'la inscripción a mano: la decisión se fecha ANTES de leer la fila');
+  assert.match(man, /proximoEnvioAt: proximo, reunionAt, ahora: decididoAt,/);
   // Y ninguna llamada al reuso toma la hora del momento.
   const llamadas = MOTOR.split('await reactivarInscripcion(').slice(1).map((s) => s.slice(0, s.indexOf('});')));
-  assert.equal(llamadas.length, 2, `esperaba dos llamadas al reuso, hay ${llamadas.length}`);
+  assert.equal(llamadas.length, 3, `esperaba tres llamadas al reuso (cron, evento y a mano), hay ${llamadas.length}`);
   for (const l of llamadas) assert.doesNotMatch(l, /ahoraISO\(\)/);
 });
 

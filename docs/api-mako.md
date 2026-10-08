@@ -3985,7 +3985,7 @@ curl -s "https://hola-mako.com/api/v1/chatbot/plantillas_meta_de_secuencia?secue
 
 ### `GET /api/v1/chatbot/inscripciones_lead` — Secuencias en las que está un lead
 
-Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva.
+Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar SOLO a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva. A mano, con inscribir_lead_secuencia, sí vuelve a una que terminó.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
