@@ -241,11 +241,13 @@ test('ningún componente cliente importa un VALOR del registro, de las defs ni d
     const s = leer(p);
     if (!/^\s*['"]use client['"]/m.test(s.slice(0, 400))) continue;
     // Con alias Y con ruta relativa: un `../../lib/api-mako/registro` mete lo mismo al bundle.
-    // Dos excepciones, y por contenido: `alcance` (tres textos y una función de prefijo que el
-    // tutorial del token necesita) y `flujo-params` (la constante «el lead del evento» y tres
-    // funciones puras que el editor del paso «⚡ Acción» comparte con el ejecutor). Ninguna
-    // trae una descripción de operación, y el test de abajo fija que no importen VALORES.
-    for (const m of s.matchAll(/^import\s+(type\s+)?([^;]*?)\s+from\s+['"](?:@\/|(?:\.\.?\/)+)lib\/(api-mako\/(?!(?:alcance|flujo-params)['"])[^'"]+|agente-skill)['"]/gm)) {
+    // Cuatro excepciones, y por contenido: `alcance` (tres textos y una función de prefijo que
+    // el tutorial del token necesita), `flujo-params` (la constante «el lead del evento» y tres
+    // funciones puras que el editor del paso «⚡ Acción» comparte con el ejecutor), `permisos`
+    // (los niveles por área de un token detallado y sus textos) y `tokens-forma` (las opciones
+    // de vencimiento y los topes del formulario de tokens). Ninguna trae una descripción de
+    // operación, y el test de abajo fija que no importen VALORES.
+    for (const m of s.matchAll(/^import\s+(type\s+)?([^;]*?)\s+from\s+['"](?:@\/|(?:\.\.?\/)+)lib\/(api-mako\/(?!(?:alcance|flujo-params|permisos|tokens-forma)['"])[^'"]+|agente-skill)['"]/gm)) {
       const soloTipos = !!m[1] || m[2].replace(/[{}]/g, '').split(',').filter((x) => x.trim()).every((x) => /^\s*type\s/.test(x));
       if (!soloTipos) culpables.push(`${p.slice(RAIZ.length)} → ${m[0].slice(0, 90)}`);
     }
@@ -253,12 +255,12 @@ test('ningún componente cliente importa un VALOR del registro, de las defs ni d
   assert.deepEqual(culpables, [], `estos componentes cliente meten el registro (o la skill, que lo importaría) en el bundle del navegador:\n${culpables.join('\n')}`);
 });
 
-test('las dos excepciones de arriba no importan VALORES más allá de tipos.ts: si lo hicieran, el registro viajaría por ellas', () => {
+test('las excepciones de arriba no importan VALORES más allá de tipos.ts: si lo hicieran, el registro viajaría por ellas', () => {
   // `tipos.ts` ya viajaba por `alcance` (ALCANCES, alcanceMinimo) y no trae una sola
   // descripción de operación; el registro, las defs y los runners sí.
   // Verificado rompiéndolo (08/10/2026): con `import { porId } from './registro'` en
   // flujo-params, 1 fallo; sin él, pasa.
-  for (const m of ['alcance', 'flujo-params']) {
+  for (const m of ['alcance', 'flujo-params', 'permisos', 'tokens-forma']) {
     const s = leer(join(RAIZ, 'lib', 'api-mako', `${m}.ts`));
     const valores = [...s.matchAll(/^import\s+(?!type\s)([^;]*?)\s+from\s+['"]([^'"]+)['"]/gm)]
       .filter((x) => !x[1].replace(/[{}]/g, '').split(',').filter((y) => y.trim()).every((y) => /^\s*type\s/.test(y)))
@@ -274,8 +276,10 @@ test('bajo app/api/v1 hay EXACTAMENTE las rutas previstas, todas bearer, y /api/
   // lo que lo mantiene: una ruta nueva bajo /api/v1 falla acá hasta que alguien
   // decide que también es bearer y la agrega.
   const rutas = archivos(join(RAIZ, 'app', 'api', 'v1')).map((p) => p.slice(join(RAIZ, 'app', 'api', 'v1').length).replace(/\\/g, '/')).sort();
-  assert.deepEqual(rutas, ['/[area]/[operacion]/route.ts', '/docs/route.ts', '/route.ts']);
-  for (const r of ['/api/v1', '/api/v1/docs', '/api/v1/crm/buscar_leads', '/api/v1/mako/confirmar_accion']) {
+  // `[...resto]` son las rutas REST de más de dos tramos (lib/api-mako/rest.ts); `openapi.json`
+  // y `rate_limit` son los de GitHub (08/10/2026).
+  assert.deepEqual(rutas, ['/[area]/[operacion]/[...resto]/route.ts', '/[area]/[operacion]/route.ts', '/docs/route.ts', '/openapi.json/route.ts', '/rate_limit/route.ts', '/route.ts']);
+  for (const r of ['/api/v1', '/api/v1/docs', '/api/v1/crm/buscar_leads', '/api/v1/mako/confirmar_accion', '/api/v1/rate_limit', '/api/v1/openapi.json', '/api/v1/crm/leads/12/notas']) {
     assert.equal(esPublica(r), true, `${r} tiene que estar en PUBLICOS o el middleware lo corta antes del bearer`);
   }
   assert.equal(esPublica('/api/v10'), false, 'el prefijo matchea con la barra, no por parecerse');
@@ -299,6 +303,24 @@ test('la referencia generada está al día con el registro (docs/api-mako.md)', 
   const enDisco = existsSync(join(RAIZ, 'docs', 'api-mako.md')) ? leer(join(RAIZ, 'docs', 'api-mako.md')) : '';
   assert.equal(enDisco.replace(/\r/g, ''), referenciaMarkdown('https://hola-mako.com').replace(/\r/g, ''),
     'docs/api-mako.md quedó viejo: node --import tsx scripts/generar-api-doc.mjs');
+});
+
+test('los permisos por área de un token detallado viven en gatingOk: valen al proponer Y al confirmar', () => {
+  // Un token «Solo lectura» en CRM no ve las acciones del CRM ni las de otras áreas; y como
+  // gatingOk es también la guarda de confirmarPendiente, una pendiente que dejó el clásico
+  // no la confirma un detallado sin escritura en su área.
+  // Sin gating propio, para que lo único que decida sea el permiso.
+  const sinGating = (d: (typeof REGISTRO)[number] | undefined) => { assert.ok(d, 'no encontré la operación de ejemplo'); return { ...d, gating: undefined }; };
+  const leer = sinGating(REGISTRO.find((d) => d.area === 'crm' && d.tipo === 'lectura'));
+  const escribir = sinGating(REGISTRO.find((d) => d.area === 'crm' && d.tipo === 'accion'));
+  const otra = sinGating(REGISTRO.find((d) => d.area === 'ads' && d.tipo === 'lectura'));
+  const v = { ws: 9, rol: 'admin' as const, tabs: null, permisos: { crm: 'lectura' as const } };
+  assert.equal(gatingOk(leer, v), true);
+  assert.equal(gatingOk(escribir, v), false, 'Solo lectura no escribe');
+  assert.equal(gatingOk(otra, v), false, 'un área sin acceso no se ve');
+  assert.equal(gatingOk(escribir, { ...v, permisos: { crm: 'escritura' } }), true);
+  assert.equal(gatingOk(escribir, { ...v, permisos: {} }), false, 'sin permisos, nada: {} no es «sin filtro»');
+  assert.equal(gatingOk(escribir, { ws: 9, rol: 'admin', tabs: null }), true, 'sin `permisos` (el clásico, WhatsApp, la app) no filtra');
 });
 
 test('el gating se vuelve a mirar al confirmar, y no depende del canal ni del alcance', () => {

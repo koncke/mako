@@ -1,0 +1,472 @@
+// =============================================================================
+// api-mako/rest — las URLs REST estilo GitHub, como ALIAS de las operaciones
+// =============================================================================
+// Decisión de Martín (08/10/2026, «copiá la API de GitHub tal cual»): además de la ruta
+// por operación de siempre (`/api/v1/{area}/{operacion}`), cada operación que sale por
+// HTTP tiene UNA ruta por recurso, con el verbo de GitHub: GET lee, POST crea, PATCH
+// modifica una parte, PUT fija un estado, DELETE borra. Las rutas viejas NO cambian (la
+// decisión C, «no renombrar», sigue): esto es un alias.
+//
+// Cómo se diseñó: un diseñador por grupo de áreas con las reglas de GitHub (sustantivos en
+// plural y en español, kebab-case, parámetros de ruta = parámetros OBLIGATORIOS que son
+// identificadores, búsquedas en /{area}/busqueda/{recurso}), un chequeo determinista de
+// choques y la validación contra el registro (corrida `wf_f551abb8-91f`, 08/10/2026).
+//
+// ⚠️ ES UNA TABLA, NO UNA SEGUNDA DECLARACIÓN: la operación vive en su `.def.ts` y acá sólo
+// se le pone una URL. tests/api-mako-rest.test.ts fija que cada operación HTTP tenga
+// exactamente una ruta, que cada ruta apunte a una operación HTTP que existe, que los
+// parámetros de ruta sean parámetros de la operación, y que METODO+RUTA no se repitan.
+// Una operación nueva con 'http' falla ese test hasta que alguien le diseña su URL.
+//
+// SIN `server-only`: puro (lo usan el router, el generador de la referencia y los tests).
+// =============================================================================
+
+export type MetodoRest = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+export type RutaRest = readonly [MetodoRest, string, string];
+
+/** [método, ruta (sin /api/v1), id de la operación] */
+export const RUTAS_REST: readonly RutaRest[] = [
+  // ── general ───────────────────────────────────────────────────────────────
+  ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
+  ['GET', '/general/capacidad', 'ver_capacidad_instalada'],
+  ['PUT', '/general/capacidad', 'guardar_capacidad'],
+  ['GET', '/general/kpis', 'listar_kpis'],
+  ['POST', '/general/kpis', 'guardar_kpi'],
+  ['GET', '/general/kpis/fuentes', 'listar_fuentes_kpi'],
+  ['GET', '/general/kpis/fuentes/{fuenteId}/mediciones', 'medir_fuente_kpi'],
+  ['POST', '/general/kpis/siembras', 'sembrar_kpis_sugeridos'],
+  ['GET', '/general/kpis/sugerencias', 'sugerir_kpis'],
+  ['GET', '/general/kpis/tablero', 'ver_tablero_kpis'],
+  ['PUT', '/general/kpis/{id}/apagado', 'apagar_kpi'],
+  ['POST', '/general/kpis/{kpiId}/registros', 'registrar_valor_kpi'],
+  ['GET', '/general/objetivos', 'listar_objetivos'],
+  ['POST', '/general/objetivos', 'guardar_objetivo'],
+  ['GET', '/general/objetivos/principal', 'ver_objetivo_principal'],
+  ['GET', '/general/objetivos/resumen', 'leer_resumen_objetivos'],
+  ['PUT', '/general/objetivos/{id}/cierre', 'cerrar_objetivo'],
+  ['GET', '/general/tramos/r1-r2', 'medir_tramo_r1_r2'],
+  ['GET', '/general/trimestres/actual', 'ver_trimestre_actual'],
+  // ── plan ──────────────────────────────────────────────────────────────────
+  ['GET', '/plan/borradores', 'listar_borradores_plan'],
+  ['POST', '/plan/borradores', 'proponer_tareas_plan'],
+  ['POST', '/plan/borradores/ampliaciones', 'proponer_ampliar_tareas'],
+  ['POST', '/plan/borradores/cierres', 'proponer_cierre_tareas'],
+  ['DELETE', '/plan/borradores/{id}', 'descartar_borrador_plan'],
+  ['GET', '/plan/borradores/{id}', 'ver_borrador_plan'],
+  ['GET', '/plan/borradores/{id}/estado', 'ver_estado_borrador'],
+  ['GET', '/plan/busqueda/tareas', 'buscar_tareas_plan'],
+  ['GET', '/plan/dependencias', 'listar_dependencias_plan'],
+  ['POST', '/plan/dependencias', 'agregar_dependencia_plan'],
+  ['DELETE', '/plan/dependencias/{deId}/{aId}', 'quitar_dependencia_plan'],
+  ['POST', '/plan/glosario/terminos', 'guardar_termino_glosario'],
+  ['GET', '/plan/prioridades', 'ver_prioridades_plan'],
+  ['GET', '/plan/proyectos', 'listar_proyectos_plan'],
+  ['GET', '/plan/proyectos/vacios', 'listar_proyectos_vacios'],
+  ['GET', '/plan/proyectos/{proyectoId}', 'ver_proyecto_plan'],
+  ['GET', '/plan/resumen', 'ver_plan'],
+  ['GET', '/plan/reuniones/{recordingId}/borrador', 'ver_borrador_de_reunion'],
+  ['GET', '/plan/senales', 'ver_senales_negocio'],
+  ['GET', '/plan/tareas', 'listar_tareas_plan'],
+  ['GET', '/plan/tareas/ficha', 'ver_tarea_plan'],
+  ['GET', '/plan/tareas/paradas', 'listar_tareas_paradas'],
+  ['GET', '/plan/tareas/sin-fecha', 'listar_tareas_sin_datos'],
+  ['GET', '/plan/tareas/vencidas', 'listar_tareas_vencidas'],
+  ['PUT', '/plan/tareas/{id}/avance', 'actualizar_avance_tarea'],
+  // ── crm ───────────────────────────────────────────────────────────────────
+  ['GET', '/crm/automatizaciones/confirmaciones', 'confirmaciones_crm_automatico'],
+  ['PUT', '/crm/automatizaciones/confirmaciones/{id}/resolucion', 'resolver_confirmacion_crm'],
+  ['GET', '/crm/automatizaciones/estado', 'estado_crm_automatico'],
+  ['PUT', '/crm/automatizaciones/estado', 'activar_crm_automatico'],
+  ['GET', '/crm/automatizaciones/simulacion', 'evaluar_crm_automatico'],
+  ['GET', '/crm/busqueda/duplicados', 'duplicados_lead'],
+  ['GET', '/crm/busqueda/leads', 'buscar_leads'],
+  ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],
+  ['GET', '/crm/estadisticas/leads', 'contar_leads_por_etapa'],
+  ['GET', '/crm/etapas', 'ver_funnel'],
+  ['GET', '/crm/etapas/{etapa}/transiciones', 'transiciones_desde_etapa'],
+  ['POST', '/crm/importaciones', 'proponer_leads'],
+  ['GET', '/crm/leads', 'listar_leads'],
+  ['POST', '/crm/leads', 'proponer_lead'],
+  ['GET', '/crm/leads/{leadId}', 'ficha_lead'],
+  ['PATCH', '/crm/leads/{leadId}', 'editar_contacto_lead'],
+  ['PUT', '/crm/leads/{leadId}/calificacion', 'marcar_calificado'],
+  ['PUT', '/crm/leads/{leadId}/cuotas', 'guardar_cuotas'],
+  ['PATCH', '/crm/leads/{leadId}/cuotas/{pagoId}', 'marcar_pago_cobrado'],
+  ['PUT', '/crm/leads/{leadId}/deal-details', 'guardar_deal_details'],
+  ['PUT', '/crm/leads/{leadId}/etapa', 'proponer_cambio_etapa'],
+  ['GET', '/crm/leads/{leadId}/etapas/{etapa}/requisitos', 'requisitos_para_mover'],
+  ['GET', '/crm/leads/{leadId}/faltantes', 'faltantes_del_lead'],
+  ['DELETE', '/crm/leads/{leadId}/faltantes/silencio', 'reactivar_datos_sin_marcar'],
+  ['PUT', '/crm/leads/{leadId}/faltantes/silencio', 'ignorar_datos_sin_marcar'],
+  ['GET', '/crm/leads/{leadId}/hitos', 'journey_lead'],
+  ['POST', '/crm/leads/{leadId}/notas', 'agregar_nota_lead'],
+  ['PUT', '/crm/leads/{leadId}/nutricion-manual', 'mover_a_nutricion_manual'],
+  ['GET', '/crm/leads/{leadId}/plan-de-pagos', 'cobranza_lead'],
+  ['PUT', '/crm/leads/{leadId}/plan-de-pagos', 'guardar_plan_pagos'],
+  ['PUT', '/crm/leads/{leadId}/responsables', 'asignar_closer_setter'],
+  ['GET', '/crm/leads/{leadId}/resumen', 'link_resumen_lead'],
+  ['POST', '/crm/leads/{leadId}/reuniones', 'proponer_agendar_reunion'],
+  ['PUT', '/crm/leads/{leadId}/reuniones/{cual}/asistencia', 'marcar_asistencia_reunion'],
+  ['POST', '/crm/leads/{leadId}/reuniones/{cual}/grabaciones', 'agregar_link_fathom'],
+  ['PUT', '/crm/leads/{leadId}/reuniones/{which}', 'marcar_reunion_manual'],
+  ['GET', '/crm/leads/{leadId}/visitas', 'tracking_lead'],
+  ['GET', '/crm/productos', 'listar_productos'],
+  ['POST', '/crm/productos', 'guardar_producto'],
+  ['GET', '/crm/propuestas', 'propuestas_lead_pendientes'],
+  ['GET', '/crm/reuniones/horarios-libres', 'listar_horarios_reunion'],
+  ['GET', '/crm/reuniones/links-agenda', 'link_agenda_calendly'],
+  ['GET', '/crm/reuniones/proximas', 'reuniones_proximas'],
+  ['GET', '/crm/reuniones/recientes', 'reuniones_recientes'],
+  ['GET', '/crm/reuniones/sin-lead', 'r2_sin_lead'],
+  // ── ads ───────────────────────────────────────────────────────────────────
+  ['GET', '/ads/angulos', 'listar_angulos_guion'],
+  ['POST', '/ads/angulos', 'proponer_agregar_angulo'],
+  ['DELETE', '/ads/angulos/{key}', 'proponer_borrar_angulo'],
+  ['PATCH', '/ads/angulos/{key}', 'proponer_editar_angulo'],
+  ['GET', '/ads/anuncios', 'listar_anuncios_meta'],
+  ['GET', '/ads/anuncios-con-problemas', 'listar_anuncios_con_problemas_meta'],
+  ['GET', '/ads/anuncios-reusables', 'verificar_ganadores_reusables'],
+  ['GET', '/ads/anuncios/{adId}', 'ver_textos_anuncio_meta'],
+  ['PATCH', '/ads/anuncios/{adId}', 'proponer_editar_textos_anuncio'],
+  ['PUT', '/ads/anuncios/{adId}/estado', 'proponer_estado_anuncio'],
+  ['GET', '/ads/aprobaciones-manuales', 'verificar_aprobacion_meta'],
+  ['GET', '/ads/avatares', 'listar_avatares_guion'],
+  ['POST', '/ads/avatares', 'proponer_agregar_avatar'],
+  ['DELETE', '/ads/avatares/{key}', 'proponer_borrar_avatar'],
+  ['PATCH', '/ads/avatares/{key}', 'proponer_editar_avatar'],
+  ['GET', '/ads/busqueda/intereses', 'buscar_intereses_meta'],
+  ['GET', '/ads/busqueda/lugares', 'buscar_lugares_meta'],
+  ['GET', '/ads/campanas', 'listar_campanas_meta'],
+  ['GET', '/ads/campanas/{campaignId}', 'ver_datos_campana_meta'],
+  ['PATCH', '/ads/campanas/{campaignId}', 'proponer_renombrar_campana'],
+  ['PUT', '/ads/campanas/{campaignId}/estado', 'proponer_estado_campana'],
+  ['PUT', '/ads/campanas/{campaignId}/presupuesto', 'proponer_presupuesto_campana'],
+  ['GET', '/ads/conjuntos', 'listar_conjuntos_meta'],
+  ['GET', '/ads/conjuntos/{adsetId}', 'ver_datos_conjunto_meta'],
+  ['POST', '/ads/conjuntos/{adsetId}/anuncios', 'proponer_agregar_anuncio'],
+  ['PUT', '/ads/conjuntos/{adsetId}/estado', 'proponer_estado_conjunto'],
+  ['PUT', '/ads/conjuntos/{adsetId}/presupuesto', 'proponer_presupuesto_conjunto'],
+  ['GET', '/ads/conjuntos/{adsetId}/segmentacion', 'ver_publico_conjunto_meta'],
+  ['GET', '/ads/conversiones', 'listar_conversiones_meta'],
+  ['GET', '/ads/cuenta', 'ver_cuenta_meta'],
+  ['GET', '/ads/cuenta/salud', 'ver_salud_cuenta_meta'],
+  ['DELETE', '/ads/entidades/{id}', 'proponer_eliminar_entidad_meta'],
+  ['PATCH', '/ads/entidades/{id}', 'proponer_renombrar_entidad_meta'],
+  ['GET', '/ads/estadisticas/anuncios', 'ver_rendimiento_anuncios'],
+  ['GET', '/ads/estadisticas/cobertura-guiones', 'ver_estado_analisis_guiones'],
+  ['GET', '/ads/estadisticas/guiones', 'ver_perfil_guiones'],
+  ['GET', '/ads/estadisticas/retencion', 'ver_cuadrante_retencion'],
+  ['GET', '/ads/estado', 'ver_estado_meta'],
+  ['GET', '/ads/formularios', 'listar_formularios_meta'],
+  ['POST', '/ads/formularios', 'proponer_crear_formulario_meta'],
+  ['GET', '/ads/formularios/datos-base', 'ver_base_formulario_meta'],
+  ['GET', '/ads/guiones', 'listar_guiones_analizados'],
+  ['GET', '/ads/guiones-valorados', 'listar_guiones_valorados'],
+  ['DELETE', '/ads/guiones-valorados/{id}', 'proponer_borrar_guion_valorado'],
+  ['POST', '/ads/guiones/sincronizaciones', 'proponer_sincronizar_guiones'],
+  ['GET', '/ads/guiones/{ad_id}', 'ver_ficha_guion'],
+  ['POST', '/ads/guiones/{ad_id}/analisis', 'proponer_reanalizar_guion'],
+  ['PUT', '/ads/guiones/{ad_id}/angulo', 'proponer_corregir_angulo_guion'],
+  ['PUT', '/ads/guiones/{ad_id}/avatar', 'proponer_corregir_avatar_guion'],
+  ['GET', '/ads/guiones/{ad_id}/transcripcion', 'ver_transcript_anuncio'],
+  ['GET', '/ads/identidades', 'listar_identidades_meta'],
+  ['GET', '/ads/incidentes', 'listar_incidentes_meta'],
+  ['GET', '/ads/motivos-venta-llamada', 'listar_motivos_venta_llamada'],
+  ['GET', '/ads/pixeles', 'listar_pixeles_meta'],
+  ['GET', '/ads/pixeles/{pixel}/eventos', 'listar_eventos_pixel_meta'],
+  ['GET', '/ads/publicaciones', 'listar_publicaciones_mako_meta'],
+  ['GET', '/ads/publicos', 'listar_publicos_meta'],
+  ['POST', '/ads/publicos', 'proponer_crear_publico_meta'],
+  ['GET', '/ads/recomendaciones', 'listar_recomendaciones_meta'],
+  // ── whatsapp ──────────────────────────────────────────────────────────────
+  ['GET', '/whatsapp/ajustes/envio-real', 'estado_envio_whatsapp'],
+  ['POST', '/whatsapp/borradores-mensaje', 'crear_borrador_whatsapp_empresa'],
+  ['GET', '/whatsapp/borradores-plantilla', 'listar_borradores_plantilla'],
+  ['POST', '/whatsapp/borradores-plantilla', 'guardar_borrador_plantilla'],
+  ['POST', '/whatsapp/borradores-plantilla/sincronizaciones', 'reconciliar_plantillas'],
+  ['DELETE', '/whatsapp/borradores-plantilla/{id}', 'borrar_borrador_plantilla'],
+  ['POST', '/whatsapp/borradores-plantilla/{id}/solicitudes-aprobacion', 'enviar_plantilla_a_meta'],
+  ['GET', '/whatsapp/etiquetas', 'listar_etiquetas_whatsapp'],
+  ['POST', '/whatsapp/leads/{leadId}/conversaciones-oficiales', 'crear_contacto_chatwoot_lead'],
+  ['GET', '/whatsapp/leads/{leadId}/etapa-inbox', 'etapa_inbox_de_lead'],
+  ['GET', '/whatsapp/objeciones-repetidas', 'lead_insiste_con_lo_mismo'],
+  ['GET', '/whatsapp/plantillas', 'estado_plantillas_meta'],
+  ['GET', '/whatsapp/plantillas/aprobadas', 'listar_plantillas_aprobadas'],
+  ['DELETE', '/whatsapp/plantillas/{name}', 'borrar_plantilla_meta'],
+  ['PATCH', '/whatsapp/plantillas/{name}', 'editar_plantilla_meta'],
+  ['GET', '/whatsapp/variables', 'variables_plantilla'],
+  // ── email ─────────────────────────────────────────────────────────────────
+  ['GET', '/email/ajustes/envio-real', 'envio_email_habilitado'],
+  ['PUT', '/email/ajustes/envio-real', 'activar_envio_real_email'],
+  ['GET', '/email/ajustes/remitente', 'remitente_email'],
+  ['GET', '/email/broadcasts', 'listar_broadcasts'],
+  ['POST', '/email/broadcasts', 'crear_broadcast'],
+  ['DELETE', '/email/broadcasts/{id}', 'eliminar_broadcast'],
+  ['GET', '/email/broadcasts/{id}', 'ficha_broadcast'],
+  ['PATCH', '/email/broadcasts/{id}', 'editar_broadcast'],
+  ['POST', '/email/broadcasts/{id}/envios', 'enviar_broadcast'],
+  ['POST', '/email/broadcasts/{id}/envios-prueba', 'enviar_prueba_broadcast'],
+  ['DELETE', '/email/broadcasts/{id}/programacion', 'cancelar_programacion_broadcast'],
+  ['PUT', '/email/broadcasts/{id}/programacion', 'programar_broadcast'],
+  ['GET', '/email/disparadores', 'listar_triggers_email'],
+  ['POST', '/email/dominio-envio/verificaciones', 'verificar_dominio_envio'],
+  ['GET', '/email/estado', 'estado_email'],
+  ['GET', '/email/etapas', 'listar_etapas_email'],
+  ['GET', '/email/kpis', 'kpis_email'],
+  ['GET', '/email/secuencias', 'listar_secuencias_email'],
+  ['POST', '/email/secuencias', 'crear_secuencia_email'],
+  ['GET', '/email/secuencias/{id}', 'ficha_secuencia_email'],
+  ['PATCH', '/email/secuencias/{id}', 'editar_meta_secuencia_email'],
+  ['PUT', '/email/secuencias/{id}/pasos', 'editar_pasos_secuencia_email'],
+  ['GET', '/email/segmentos', 'listar_segmentos_email'],
+  ['GET', '/email/segmentos/{segmento}', 'contar_segmento_email'],
+  // ── chatbot ───────────────────────────────────────────────────────────────
+  ['PUT', '/chatbot/ajustes/link-video', 'guardar_link_video'],
+  ['PUT', '/chatbot/ajustes/publico', 'guardar_publico_audios'],
+  ['GET', '/chatbot/audios', 'audios_requeridos'],
+  ['GET', '/chatbot/canales/whatsapp', 'estado_canal_whatsapp_chatbot'],
+  ['GET', '/chatbot/casos-ensayo', 'escenarios_ensayo'],
+  ['GET', '/chatbot/etapas', 'etapas_para_secuencia'],
+  ['GET', '/chatbot/etapas/sin-secuencia', 'huecos_secuencias'],
+  ['GET', '/chatbot/etapas/{etapa}/contexto', 'contexto_etapa'],
+  ['POST', '/chatbot/lead-magnets', 'crear_lead_magnet'],
+  ['GET', '/chatbot/leads/{leadId}/inscripciones', 'inscripciones_lead'],
+  ['GET', '/chatbot/metricas', 'metricas_chatbot'],
+  ['GET', '/chatbot/objetivos', 'listar_objetivos_secuencia'],
+  ['POST', '/chatbot/objetivos', 'agregar_objetivo_custom'],
+  ['GET', '/chatbot/onboarding', 'estado_onboarding_chatbot'],
+  ['POST', '/chatbot/onboarding/reaperturas', 'reabrir_onboarding_chatbot'],
+  ['GET', '/chatbot/secuencias', 'listar_secuencias_nutricion'],
+  ['POST', '/chatbot/secuencias', 'crear_secuencia_mensajes'],
+  ['GET', '/chatbot/secuencias-archivadas', 'listar_secuencias_archivadas'],
+  ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
+  ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
+  ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
+  ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
+  ['PATCH', '/chatbot/secuencias/{secuenciaId}/estrategia', 'guardar_estrategia_secuencia'],
+  ['PUT', '/chatbot/secuencias/{secuenciaId}/pasos', 'editar_pasos_secuencia_mensajes'],
+  ['PATCH', '/chatbot/secuencias/{secuenciaId}/pasos/{orden}', 'cambiar_espera_paso'],
+  ['GET', '/chatbot/secuencias/{secuenciaId}/plantillas', 'plantillas_meta_de_secuencia'],
+  ['POST', '/chatbot/secuencias/{secuenciaId}/restauraciones', 'desarchivar_secuencia'],
+  // ── metricas ──────────────────────────────────────────────────────────────
+  ['GET', '/metricas/agendas/comparacion', 'comparar_agendas_meta_crm'],
+  ['GET', '/metricas/analisis', 'analisis_negocio'],
+  ['GET', '/metricas/cac', 'ver_cac_acumulado'],
+  ['GET', '/metricas/cac/meses', 'ver_cac_mensual'],
+  ['GET', '/metricas/ciclo-venta', 'ver_ciclo_venta'],
+  ['GET', '/metricas/ciclo-venta/tramos', 'ver_tramos_ciclo_venta'],
+  ['GET', '/metricas/cohortes/maduras', 'ver_embudo_comercial_maduro'],
+  ['GET', '/metricas/cohortes/meses', 'listar_cohortes_mensuales'],
+  ['GET', '/metricas/cohortes/semanas', 'listar_cohortes_semanales'],
+  ['GET', '/metricas/conjuntos-anuncios/fatigados', 'detectar_fatiga_adsets'],
+  ['GET', '/metricas/embudo/etapas', 'diagnosticar_funnel'],
+  ['GET', '/metricas/embudo/semanas', 'ver_serie_funnel_semanal'],
+  ['GET', '/metricas/ingresos', 'ver_revenue_periodo'],
+  ['GET', '/metricas/ingresos/meses', 'ver_revenue_mensual'],
+  ['GET', '/metricas/marketing/resumen', 'resumir_marketing_periodo'],
+  ['GET', '/metricas/mrr', 'ver_mrr_activo'],
+  ['GET', '/metricas/numeros', 'metricas_negocio'],
+  ['GET', '/metricas/pipeline', 'ver_distribucion_pipeline'],
+  ['GET', '/metricas/tendencias', 'ver_tendencias'],
+  ['GET', '/metricas/vsl/plays', 'ver_serie_vsl'],
+  // ── experimentos ──────────────────────────────────────────────────────────
+  ['GET', '/experimentos/conclusiones', 'listar_conclusiones_experimentos'],
+  ['GET', '/experimentos/experimentos', 'listar_experimentos'],
+  ['POST', '/experimentos/experimentos', 'crear_experimento'],
+  ['DELETE', '/experimentos/experimentos/{id}', 'descartar_experimento'],
+  ['GET', '/experimentos/experimentos/{id}', 'ficha_experimento'],
+  ['POST', '/experimentos/experimentos/{id}/cierre', 'cerrar_experimento'],
+  ['PUT', '/experimentos/experimentos/{id}/inicio', 'iniciar_experimento'],
+  ['GET', '/experimentos/experimentos/{id}/medicion', 'medicion_experimento'],
+  ['GET', '/experimentos/metricas', 'catalogo_metricas_experimento'],
+  ['GET', '/experimentos/metricas/cobertura', 'cobertura_datos_retro'],
+  ['GET', '/experimentos/metricas/destacadas', 'destacados_periodo_retro'],
+  ['GET', '/experimentos/metricas/valores', 'snapshot_funnel_experimentos'],
+  ['GET', '/experimentos/resumen', 'estado_experimentos'],
+  ['GET', '/experimentos/retros', 'listar_retros'],
+  ['GET', '/experimentos/retros/bloqueo', 'estado_gate_retro'],
+  ['GET', '/experimentos/retros/ultima/seguimiento', 'seguimiento_ultima_retro'],
+  ['DELETE', '/experimentos/retros/{retroId}', 'borrar_retro'],
+  ['GET', '/experimentos/retros/{retroId}/items', 'plan_retro'],
+  ['DELETE', '/experimentos/retros/{retroId}/items/{itemId}', 'descartar_item_plan_retro'],
+  ['POST', '/experimentos/retros/{retroId}/items/{itemId}/aceptacion', 'aceptar_item_plan_retro'],
+  ['DELETE', '/experimentos/retros/{retroId}/items/{itemId}/decision', 'deshacer_item_plan_retro'],
+  ['PUT', '/experimentos/retros/{retroId}/items/{itemId}/posposicion', 'posponer_item_plan_retro'],
+  ['GET', '/experimentos/tablero', 'vista_experimentos'],
+  // ── landing ───────────────────────────────────────────────────────────────
+  ['GET', '/landing/borradores', 'listar_borradores_landing'],
+  ['DELETE', '/landing/borradores/{id}', 'borrar_borrador_landing'],
+  ['GET', '/landing/borradores/{id}', 'ver_borrador_landing'],
+  ['GET', '/landing/diagnosticos', 'listar_analisis_landing'],
+  ['DELETE', '/landing/landings', 'borrar_landing'],
+  ['GET', '/landing/landings', 'listar_landings'],
+  ['POST', '/landing/landings', 'guardar_landing'],
+  ['GET', '/landing/landings/cambios', 'ver_cambios_landing'],
+  ['GET', '/landing/landings/comportamiento', 'ver_comportamiento_landing'],
+  ['DELETE', '/landing/landings/diagnostico', 'borrar_analisis_landing'],
+  ['GET', '/landing/landings/diagnostico', 'ver_diagnostico_landing'],
+  ['GET', '/landing/landings/piezas', 'detectar_piezas_landing'],
+  ['GET', '/landing/panda/videos', 'listar_videos_panda'],
+  ['GET', '/landing/panda/videos/{videoId}/metricas', 'ver_metricas_video_panda'],
+  ['GET', '/landing/pixel/codigo', 'ver_codigo_pixel'],
+  ['GET', '/landing/pixel/estado', 'ver_estado_pixel'],
+  ['GET', '/landing/pixel/novedades', 'ver_novedades_pixel'],
+  ['GET', '/landing/pixel/paginas', 'listar_landings_detectadas'],
+  ['GET', '/landing/pixel/pruebas/{prueba}/eventos', 'contar_eventos_prueba'],
+  ['GET', '/landing/pixel/pruebas/{prueba}/grabaciones', 'ver_grabaciones_prueba'],
+  ['GET', '/landing/pixel/verificacion', 'verificar_pagina_pixel'],
+  ['GET', '/landing/pixel/videos', 'listar_videos_detectados'],
+  ['GET', '/landing/videos', 'listar_videos_landing'],
+  ['DELETE', '/landing/videos/{id}/nombre', 'olvidar_nombre_video'],
+  ['PUT', '/landing/videos/{id}/nombre', 'nombrar_video'],
+  ['PUT', '/landing/videos/{id}/visibilidad', 'ocultar_video'],
+  // ── closing ───────────────────────────────────────────────────────────────
+  ['GET', '/closing/closers', 'metricas_closers'],
+  ['GET', '/closing/embudo', 'embudo_closing'],
+  ['GET', '/closing/factores', 'factores_cierre'],
+  ['POST', '/closing/grabaciones/sincronizaciones', 'adjuntar_grabaciones_fathom'],
+  ['GET', '/closing/leads/{leadId}/analisis', 'estado_analisis_lead'],
+  ['POST', '/closing/leads/{leadId}/analisis', 'analizar_llamadas_lead'],
+  ['GET', '/closing/leads/{leadId}/llamadas', 'lead_tiene_llamada'],
+  ['GET', '/closing/panorama', 'panorama_closing'],
+  ['GET', '/closing/scores-mensuales', 'tendencia_score'],
+  // ── negocio ───────────────────────────────────────────────────────────────
+  ['GET', '/negocio/archivero/documentos', 'ver_archivero'],
+  ['DELETE', '/negocio/archivero/documentos/{id}', 'borrar_documento_archivero'],
+  ['GET', '/negocio/avatares', 'listar_avatares_negocio'],
+  ['PATCH', '/negocio/avatares', 'editar_avatar_negocio'],
+  ['POST', '/negocio/avatares/generaciones', 'generar_avatares'],
+  ['POST', '/negocio/avatares/refinamientos', 'afinar_avatares'],
+  ['DELETE', '/negocio/avatares/{id}', 'borrar_avatar_negocio'],
+  ['GET', '/negocio/busqueda/conocimientos', 'buscar_conocimiento'],
+  ['GET', '/negocio/busqueda/segundo-cerebro', 'buscar_en_segundo_cerebro'],
+  ['GET', '/negocio/busqueda/tutoriales', 'buscar_tutorial'],
+  ['GET', '/negocio/contexto', 'contexto_negocio'],
+  ['GET', '/negocio/diagnostico-fase', 'ver_diagnostico_fase'],
+  ['PUT', '/negocio/diagnostico-fase', 'guardar_diagnostico_fase'],
+  ['GET', '/negocio/diagnostico-fase/preguntas', 'listar_preguntas_diagnostico_fase'],
+  ['GET', '/negocio/glosario/terminos', 'ver_glosario_negocio'],
+  ['GET', '/negocio/lead-magnets', 'listar_lead_magnets'],
+  ['POST', '/negocio/lead-magnets/generaciones', 'generar_lead_magnets'],
+  ['PATCH', '/negocio/lead-magnets/{id}', 'editar_lead_magnet'],
+  ['GET', '/negocio/onboarding', 'ver_estado_onboarding'],
+  ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
+  ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
+  ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
+  ['DELETE', '/negocio/personalidad-voz', 'reiniciar_personalidad'],
+  ['GET', '/negocio/personalidad-voz', 'ver_personalidad_voz'],
+  ['PUT', '/negocio/personalidad-voz/muletillas', 'guardar_muletillas_marca'],
+  ['PUT', '/negocio/personalidad-voz/respuestas/{key}', 'responder_pregunta_personalidad'],
+  ['POST', '/negocio/productos/generaciones', 'sugerir_productos'],
+  ['DELETE', '/negocio/productos/{id}', 'borrar_producto'],
+  ['GET', '/negocio/segundo-cerebro/archivos', 'leer_segundo_cerebro_como_archivos'],
+  // ── contenido ─────────────────────────────────────────────────────────────
+  ['GET', '/contenido/angulos', 'catalogo_angulos_guion'],
+  ['GET', '/contenido/anuncios', 'listar_anuncios_planteados'],
+  ['GET', '/contenido/anuncios/{celdaId}', 'ver_anuncio_planteado'],
+  ['POST', '/contenido/anuncios/{celdaId}/elecciones-formato', 'elegir_formato_creativo_anuncio'],
+  ['POST', '/contenido/anuncios/{celdaId}/guiones', 'escribir_guion_anuncio'],
+  ['DELETE', '/contenido/anuncios/{celdaId}/guiones/{guionId}', 'borrar_guion_anuncio'],
+  ['GET', '/contenido/anuncios/{celdaId}/guiones/{guionId}', 'leer_guion_anuncio'],
+  ['PATCH', '/contenido/anuncios/{celdaId}/guiones/{guionId}', 'editar_texto_guion_anuncio'],
+  ['PUT', '/contenido/anuncios/{celdaId}/guiones/{guionId}/estado', 'mover_estado_guion_anuncio'],
+  ['GET', '/contenido/contexto', 'estado_contexto_contenido'],
+  ['GET', '/contenido/estructuras', 'catalogo_estructuras_guion'],
+  ['GET', '/contenido/formatos', 'listar_formatos_creativo'],
+  ['POST', '/contenido/formatos/recomendaciones', 'recomendar_formatos_creativo'],
+  ['GET', '/contenido/guiones', 'listar_guiones_anuncio'],
+  ['GET', '/contenido/guiones/cobertura', 'cobertura_guiones_anuncio'],
+  ['GET', '/contenido/limites-instagram/{formato}', 'limites_formato_instagram'],
+  ['GET', '/contenido/siguientes-pasos', 'opciones_siguiente_paso_guion'],
+  ['GET', '/contenido/tabs/{tab}/onboarding', 'estado_onboarding_contenido'],
+  // ── video ─────────────────────────────────────────────────────────────────
+  ['GET', '/video/anuncios', 'listar_anuncios_video'],
+  ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],
+  ['GET', '/video/anuncios/{planId}/escenarios-reusables', 'contar_escenarios_reusables'],
+  ['GET', '/video/anuncios/{planId}/montaje', 'ver_montaje_anuncio'],
+  ['GET', '/video/contexto', 'ver_contexto_video'],
+  ['GET', '/video/flow/conexion', 'ver_puente_flow'],
+  ['GET', '/video/flow/trabajos', 'listar_trabajos_flow'],
+  ['GET', '/video/formatos', 'listar_formatos_video'],
+  ['GET', '/video/guiones', 'listar_guiones_para_video'],
+  ['GET', '/video/lugares', 'listar_lugares_grabacion'],
+  ['GET', '/video/onboarding', 'estado_onboarding_video'],
+  ['GET', '/video/voz', 'ver_voz_cliente'],
+  // ── integraciones ─────────────────────────────────────────────────────────
+  ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],
+  ['GET', '/integraciones/cuotas-ia', 'ver_cuotas_ia'],
+  ['GET', '/integraciones/google-calendar/conexion', 'ver_estado_google_calendar'],
+  ['GET', '/integraciones/servicios', 'ver_integraciones'],
+  ['GET', '/integraciones/servicios/{servicioKey}/conexion', 'probar_conexion_integracion'],
+  ['GET', '/integraciones/servicios/{servicio}', 'ver_integracion'],
+  ['GET', '/integraciones/servicios/{servicio}/link-configuracion', 'link_configurar_integracion'],
+  ['GET', '/integraciones/tabs/{key}/activacion', 'ver_activacion_tab'],
+  // ── equipo ────────────────────────────────────────────────────────────────
+  ['GET', '/equipo/negocio', 'ver_workspace'],
+  ['GET', '/equipo/negocio/zona-horaria', 'ver_zona_horaria_workspace'],
+  ['PUT', '/equipo/negocio/zona-horaria', 'fijar_zona_horaria_workspace'],
+  ['GET', '/equipo/notificaciones', 'ver_preferencias_notificaciones'],
+  ['GET', '/equipo/notificaciones/avisos', 'listar_avisos_disponibles'],
+  ['GET', '/equipo/notificaciones/avisos/{aviso}', 'esta_aviso_activo'],
+  ['PATCH', '/equipo/notificaciones/avisos/{aviso}', 'configurar_aviso_whatsapp'],
+  ['GET', '/equipo/notificaciones/plantilla-reporte', 'ver_estado_plantilla_reporte'],
+  ['PUT', '/equipo/notificaciones/plantilla-reporte', 'asegurar_plantilla_reporte'],
+  ['PATCH', '/equipo/notificaciones/reportes/{reporte}', 'configurar_reporte'],
+  ['PATCH', '/equipo/notificaciones/secciones/{seccion}', 'configurar_seccion_reporte'],
+  // ── mako ──────────────────────────────────────────────────────────────────
+  ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
+  ['GET', '/mako/capacidades', 'listar_capacidades_mako'],
+  ['GET', '/mako/pendientes', 'listar_pendientes'],
+  ['DELETE', '/mako/pendientes/{id}', 'cancelar_accion'],
+  ['GET', '/mako/pendientes/{id}', 'ver_pendiente'],
+  ['POST', '/mako/pendientes/{id}/confirmacion', 'confirmar_accion'],
+  ['GET', '/mako/propuestas', 'listar_propuestas_revisar'],
+  ['GET', '/mako/propuestas/{id}', 'ver_propuesta_accion'],];
+
+type Compilada = { metodo: MetodoRest; ruta: string; operacion: string; segs: string[] };
+const COMPILADAS: Compilada[] = RUTAS_REST.map(([metodo, ruta, operacion]) => ({ metodo, ruta, operacion, segs: ruta.split('/').filter(Boolean) }));
+const POR_OPERACION = new Map(COMPILADAS.map((c) => [c.operacion, c]));
+
+const esParam = (s: string) => s.startsWith('{') && s.endsWith('}');
+
+/** La ruta REST de una operación (para la referencia y la pantalla), o undefined. */
+export const rutaRestDe = (operacion: string): { metodo: MetodoRest; ruta: string } | undefined => {
+  const c = POR_OPERACION.get(operacion);
+  return c ? { metodo: c.metodo, ruta: c.ruta } : undefined;
+};
+
+/** Los nombres de los parámetros de ruta de una operación (`{leadId}` → `leadId`). */
+export const paramsDeRuta = (operacion: string): string[] =>
+  (POR_OPERACION.get(operacion)?.segs ?? []).filter(esParam).map((s) => s.slice(1, -1));
+
+export type Resolucion = { operacion: string; params: Record<string, string> } | { metodosPermitidos: MetodoRest[] } | null;
+
+/**
+ * Resuelve METODO + segmentos (sin /api/v1) a una operación y sus parámetros de ruta.
+ * Como GitHub, un segmento LITERAL le gana a un parámetro en la misma posición
+ * (`/plan/proyectos/vacios` antes que `/plan/proyectos/{proyectoId}`): se elige la ruta con
+ * más literales. Si la ruta existe con OTRO método, devuelve los métodos permitidos (405);
+ * si no existe, null (404).
+ */
+export function resolverRest(metodo: string, segmentos: readonly string[]): Resolucion {
+  const segs = segmentos.filter(Boolean);
+  let mejor: { c: Compilada; literales: number } | null = null;
+  const otros = new Set<MetodoRest>();
+  for (const c of COMPILADAS) {
+    if (c.segs.length !== segs.length) continue;
+    let literales = 0;
+    let calza = true;
+    for (let i = 0; i < segs.length; i++) {
+      if (esParam(c.segs[i])) continue;
+      if (c.segs[i] !== segs[i]) { calza = false; break; }
+      literales++;
+    }
+    if (!calza) continue;
+    if (c.metodo !== metodo) { otros.add(c.metodo); continue; }
+    if (!mejor || literales > mejor.literales) mejor = { c, literales };
+  }
+  if (!mejor) return otros.size ? { metodosPermitidos: [...otros] } : null;
+  const params: Record<string, string> = {};
+  mejor.c.segs.forEach((s, i) => { if (esParam(s)) params[s.slice(1, -1)] = decodeURIComponent(segs[i]); });
+  return { operacion: mejor.c.operacion, params };
+}

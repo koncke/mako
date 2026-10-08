@@ -77,10 +77,20 @@ export async function ejecutarDesdeFlujo(
   // cual, y ahí `logLeadEvent` → `getTenantDb` sin contexto cae a las cookies: medido el
   // 08/10 en la prueba del ws3, la nota salía y el historial tiraba «`cookies` was called
   // outside a request scope». Un cron que itera clientes no tiene cookies.
-  return runWithWorkspace(opts.ws, () => correr(def, input, ctx, opts));
+  return runWithWorkspace(opts.ws, () => aplicarEnElActo(def, input, ctx, opts));
 }
 
-async function correr(
+/**
+ * Propone una acción por el choke point y la confirma EN EL ACTO, por el camino que ya
+ * existe para cada forma (pendiente, propuesta genérica, pantalla propia). Lo comparten
+ * los dos que escriben sin pedir el «sí»: un paso de un flujo y un token detallado con
+ * «Lectura y escritura» por /api/v1 (decisión de Martín del 08/10/2026, copiar GitHub).
+ *
+ * ⚠️ NO FIJA EL WORKSPACE: quien llama lo envuelve en `runWithWorkspace(ws)` (ver arriba).
+ * ⚠️ Y «ya está así» (`yaEstaba`) vuelve como `ok: true` con `via: 'ninguna'`: para un
+ * flujo es éxito; quien necesite distinguirlo mira esa combinación.
+ */
+export async function aplicarEnElActo(
   def: AccionDef, input: Record<string, unknown>, ctx: Ctx,
   opts: { ws: number; origen: string },
 ): Promise<ResultadoFlujo> {
