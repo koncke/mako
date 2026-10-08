@@ -187,7 +187,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '7 oct', hora: '21:00', chat: 'Ads Manager', cuenta: 'claude2',
+    fecha: '7 oct', hora: '21:01', chat: 'Ads Manager', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'La revisión de la #797: la ref de una toma nombraba el casillero y no el clip',
     puntos: [
@@ -202,6 +202,9 @@ export const BITACORA: Hito[] = [
       'app/api/ads-manager/creative-upload/route.ts — el 409, antes de llamar a Meta',
       'app/ads-manager/NuevaCampanaModal.tsx — `vueltaMako`: el panel vuelve a pedir la lista tras un fallo',
       'tests/creativo-mako.test.ts y tests/ads-creativo-mako.test.ts — los guards que ahora cazan su bug',
+    ],
+    commits: [
+      { sha: '5488bbe0', msg: 'Ads Manager: la revisión de la #797 — la ref de una toma lleva el clip que se vio, y dos guards cazan su bug', lineas: 350, archivos: 10 },
     ],
   },
 ];
