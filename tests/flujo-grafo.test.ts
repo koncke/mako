@@ -18,7 +18,7 @@ import {
   type PasoGrafo, type HechosLead,
   idDe, esGrafo, siguienteDe, puertosDe, raizSalida, raizRespuesta, normalizar, validarGrafo,
   elegirSalida, cumpleFila, antiguedadDeEntrada, escenariosDeRespuesta, insertarNodo, borrarNodo,
-  nodoPorId, claseDe, textoFila, textoEspera, padreDe,
+  nodoPorId, claseDe, textoFila, textoEspera, padreDe, hiloDe, raicesSalida,
 } from '../lib/flujo-grafo';
 import { legadoAGrafo, tieneLegado, esFlujoExplicito, OP_AVISAR, OP_MOVER_ETAPA, limpiezaPara, puedePisarFlujo, audiosDeLaListaEnElFlujo } from '../lib/flujo-legado';
 import { readFileSync } from 'node:fs';
@@ -418,4 +418,51 @@ test('re-grabar el audio sobre un flujo cambia SÓLO el audio de su tarjeta y co
   assert.match(src, /const pasos = esFlujoExplicito\(actuales\) \? audiosDeLaListaEnElFlujo\(actuales, plan\.pasos\) : plan\.pasos;/);
   const motor = readFileSync(new URL('../lib/nutricion.ts', import.meta.url), 'utf8');
   assert.match(motor, /if \(puedePisarFlujo\(antes, pasos\) === false\) \{/);
+});
+
+// ── SEGUNDA TANDA: los flujos vigentes no cambian (08/10/2026, noche) ─────────────────
+// La regla de «Si responde» sin padre, el inicio y las flechas en paralelo no pueden mover a
+// nadie: #198, #212/#213 y #210 siguen sin errores y con la MISMA raíz. «La regla de hoy» se
+// escribe acá a mano (el primer nodo que ningún `siguiente`/rama/caso/«si no» apunta y que no es
+// «Si responde»), sin pasar por `puertosDe`, que es justo lo que la tanda cambió.
+// ⚠️ PROBADO ROMPIENDO (08/10/2026): «hiloDe sin "Si responde"», «normalizar deja `paralelos: []`
+// en todo paso» y «la regla de "Si responde" con padre cuenta sus casos» caen acá (la última, en
+// 9 tests de 54). «raizSalida devuelve el inicio» NO cae acá —ninguno de los seis tiene inicio— y la
+// caza tests/flujo-grafo-paralelos.test.ts.
+function raizDeHoy(pasos: readonly PasoGrafo[]): string | null {
+  const ap = new Set<string>();
+  pasos.forEach((p, i) => {
+    const c = claseDe(p);
+    if (c === 'condicion') { for (const r of p.ramas ?? []) if (r.siguiente) ap.add(r.siguiente); if (p.si_no) ap.add(p.si_no); }
+    else if (c === 'respuesta') { for (const x of p.casos ?? []) if (x.siguiente) ap.add(x.siguiente); if (p.si_no) ap.add(p.si_no); }
+    else if (c !== 'ir_a') { const s = siguienteDe(pasos, i); if (s) ap.add(s); }
+  });
+  for (let i = 0; i < pasos.length; i++) if (claseDe(pasos[i]) !== 'respuesta' && !ap.has(idDe(pasos[i], i))) return idDe(pasos[i], i);
+  return null;
+}
+
+test('segunda tanda: #198, #212/#213 y #210 siguen sin errores, con la misma raíz y en UN solo camino', () => {
+  const P210 = [
+    msg({ orden: 1, cuerpo: 'retomo', requiere: 'ya_contactado', delay_horas: 1 }),
+    msg({ orden: 2, cuerpo: 'me presento', requiere: 'primer_contacto', delay_horas: 1 }),
+    msg({ orden: 3, cuerpo: 'recordatorio', delay_horas: 24 }),
+  ];
+  const vigentes = [
+    legadoAGrafo(P198, E198, { idDeClave: () => 212, rnd: rndDe() }).pasos,
+    legadoAGrafo(P212, E212, { rnd: rndDe() }).pasos,
+    legadoAGrafo(P210, { modo: 'automatico' }, { rnd: rndDe() }).pasos,
+  ];
+  for (const pasos of vigentes) {
+    assert.deepEqual(validarGrafo(pasos), []);
+    assert.ok(raizDeHoy(pasos));
+    assert.equal(raizSalida(pasos), raizDeHoy(pasos));
+    assert.deepEqual(raicesSalida(pasos), [raizDeHoy(pasos)]);
+    // Ni un `paralelos` ni un inicio: guardarlos de nuevo deja el MISMO dato.
+    assert.equal(pasos.some((p) => 'paralelos' in p || p.nodo === 'inicio'), false);
+    assert.deepEqual(normalizar(pasos), pasos);
+    // Un solo camino de salida («p») y lo de «Si responde» («r»), nada más.
+    assert.deepEqual([...new Set(hiloDe(pasos).values())].sort(), raizRespuesta(pasos) ? ['p', 'r'] : ['p']);
+  }
+  // Y el «Solo a leads recientes» de #198 se sigue mirando al inscribir.
+  assert.equal(antiguedadDeEntrada(vigentes[0]), 72);
 });

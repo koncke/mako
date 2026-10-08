@@ -51,6 +51,26 @@
 // el nodo `ir_a` con destino `{ nodo }`: un salto, no un segundo padre. Así el layout es
 // un árbol determinista (sin posiciones guardadas) y el motor no puede quedar en un ciclo
 // sin una espera en el medio (`validarGrafo`).
+//
+// ── SEGUNDA TANDA (08/10/2026, noche): UN SOLO CRON Y FLECHAS EN PARALELO ─────────────
+// Pedido de Martín, puntos 1 y 2: «No pueden haber 2 flujos por separado. Solo 1 CRON y de
+// ahí desprende todo» y «Del CRON inicial debería poder sacar varias flechas... En realidad de
+// varias tarjetas debería poder sacar varias flechas, para que se pueda personalizar. Por
+// ejemplo, de un mismo cron puedo sacar todo una secuencia para WhatsApp y toda otra
+// secuencia de email». El contrato entero está en docs/chatbot-flujo-ramas-diseno.md, sección
+// «SEGUNDA TANDA».
+//
+//   · «Si responde» NO TIENE PADRE: se dibuja colgando del CRON (una fila de su tarjeta), pero
+//     es un EVENTO, no un camino en el tiempo. Ninguna tarjeta puede seguir en ella.
+//   · `paralelos` en un mensaje, una acción o una espera: los ids que arrancan A LA VEZ cuando
+//     esa tarjeta termina. Son PUERTOS más (`par:<id>`), así que el «un padre», las sueltas,
+//     `padreDe` y `descendientes` funcionan sin saber que existen. Una condición, «Si responde»
+//     y un «Ir a» no los tienen: sus salidas se excluyen entre sí o terminan.
+//   · El CRON lleva sus flechas en paralelo en un nodo `inicio` con el id reservado `'entrada'`
+//     (el mismo `ID_ENTRADA` del lienzo). Se crea SÓLO con la primera flecha en paralelo desde el
+//     CRON y va al FINAL del array: inyectarlo en todos los flujos los volvía «flujos de
+//     tarjetas» (`esFlujoExplicito`) y `puedePisarFlujo` dejaba de aceptar a /email, a la API
+//     «por orden» y al armado de audios del onboarding sobre una secuencia lineal.
 // =============================================================================
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
@@ -107,13 +127,34 @@ export type Espera =
 /** Un salto: a otra automatización (se lo inscribe) o a otra tarjeta de ésta. */
 export type DestinoIrA = { secuencia_id: number } | { nodo: string };
 
-export type ClaseNodo = 'mensaje' | 'accion' | 'esperar' | 'condicion' | 'respuesta' | 'ir_a';
+export type ClaseNodo = 'mensaje' | 'accion' | 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'inicio';
+
+/**
+ * El id del nodo de INICIO: el CRON cuando tiene flechas en paralelo. Es el mismo string que
+ * `ID_ENTRADA` del lienzo (lib/flujo-conversacion.ts) a propósito: el ＋ del CRON ya manda ese id
+ * como nodo, y así `{ nodo: ID_INICIO, puerto: 'par' }` es literalmente lo que el lienzo pide.
+ * `nuevoId` da `n…` y `normalizar` da `o<i>`: ninguno choca con él.
+ */
+export const ID_INICIO = 'entrada';
+
+/**
+ * Las claves de hilo que devuelve `hiloDe` además de los ids: 'p' = el principal, 'r' = lo que
+ * cuelga de «Si responde». Una flecha en paralelo a una tarjeta con uno de estos ids abriría un
+ * hilo que se confunde con ellos: `validarGrafo` la rechaza.
+ */
+export const HILO_PRINCIPAL = 'p';
+export const HILO_RESPUESTA = 'r';
 
 /** Los campos que este módulo lee de un paso. El resto del paso viaja intacto. */
 export type PasoGrafo = {
   id?: string;
   siguiente?: string | null;
-  nodo?: 'esperar' | 'condicion' | 'respuesta' | 'ir_a';
+  /**
+   * Mensaje, acción, espera e inicio: los ids que arrancan A LA VEZ cuando esta tarjeta termina
+   * (además de su `siguiente`). Ausente o vacío = una sola salida, como siempre.
+   */
+  paralelos?: string[];
+  nodo?: 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'inicio';
   espera?: Espera;
   ramas?: RamaCondicion[];
   casos?: CasoRespuesta[];
@@ -164,13 +205,44 @@ export const esGrafo = (pasos: readonly PasoGrafo[]): boolean =>
   pasos.some((p) => typeof p?.id === 'string' && p.id.length > 0);
 
 export function claseDe(p: PasoGrafo): ClaseNodo {
-  if (p.nodo === 'esperar' || p.nodo === 'condicion' || p.nodo === 'respuesta' || p.nodo === 'ir_a') return p.nodo;
+  if (p.nodo === 'esperar' || p.nodo === 'condicion' || p.nodo === 'respuesta' || p.nodo === 'ir_a' || p.nodo === 'inicio') return p.nodo;
   const a = p.accion;
   if (a != null && typeof a === 'object' && !Array.isArray(a)) return 'accion';
   return 'mensaje';
 }
 
 export const esNodoMensaje = (p: PasoGrafo): boolean => claseDe(p) === 'mensaje';
+
+export const TOPE_PARALELOS = 3;   // flechas en paralelo por tarjeta
+export const TOPE_HILOS = 6;       // por inscripción: 1 (el principal) + la suma de todos los paralelos
+
+/**
+ * ¿Esta tarjeta puede sacar flechas en paralelo? Un mensaje, una acción, una espera y el
+ * inicio, sí. Una condición no (sus ramas se EXCLUYEN: gana la primera que se cumple), «Si
+ * responde» tampoco (sus casos también se excluyen, y corre en el momento) y un «Ir a» termina
+ * ahí.
+ */
+export function puedeTenerParalelos(p: PasoGrafo): boolean {
+  const c = claseDe(p);
+  return c === 'mensaje' || c === 'accion' || c === 'esperar' || c === 'inicio';
+}
+
+/**
+ * Los paralelos de un nodo TAL COMO ESTÁN, sin repetidos ni vacíos, y sólo si su clase los
+ * admite. No saca el propio id ni los que no existen: eso lo tiene que VER `validarGrafo` (se
+ * dibuja y se rechaza), y lo limpia `normalizar`.
+ */
+function paralelosDe(p: PasoGrafo | undefined): string[] {
+  if (!p || !Array.isArray(p.paralelos) || !puedeTenerParalelos(p)) return [];
+  const out: string[] = [];
+  for (const d of p.paralelos) if (typeof d === 'string' && d && !out.includes(d)) out.push(d);
+  return out;
+}
+
+/** El nodo de inicio, si la automatización tiene uno (el primero, si por error hay varios). */
+function indiceInicio(pasos: readonly PasoGrafo[]): number {
+  return pasos.findIndex((p) => p && claseDe(p) === 'inicio');
+}
 
 export function indicePorId(pasos: readonly PasoGrafo[], id: string | null | undefined): number {
   if (!id) return -1;
@@ -195,6 +267,9 @@ export function siguienteDe(pasos: readonly PasoGrafo[], i: number): string | nu
   const c = claseDe(p);
   if (c === 'condicion' || c === 'respuesta' || c === 'ir_a') return null;
   if (p.siguiente !== undefined) return p.siguiente ?? null;
+  // El inicio va al FINAL del array: «el de abajo» no existe o es cualquier cosa. Su salida
+  // principal es la explícita o ninguna.
+  if (c === 'inicio') return null;
   const sig = pasos[i + 1];
   return sig ? idDe(sig, i + 1) : null;
 }
@@ -211,7 +286,13 @@ export function puertosDe(pasos: readonly PasoGrafo[], i: number): Puerto[] {
     case 'ir_a':
       return [];
     default:
-      return [{ puerto: 'sig', destino: siguienteDe(pasos, i) }];
+      // Mensaje, acción, espera e inicio: la salida de siempre y una por flecha en paralelo.
+      // Como PUERTOS, así `apuntados`, `padreDe`, `descendientes`, el «un padre» y las sueltas
+      // las ven sin saber que existen.
+      return [
+        { puerto: 'sig', destino: siguienteDe(pasos, i) },
+        ...paralelosDe(p).map((d) => ({ puerto: `par:${d}`, destino: d })),
+      ];
   }
 }
 
@@ -232,13 +313,70 @@ function apuntados(pasos: readonly PasoGrafo[]): Set<string> {
  * contaba los destinos de salto como alcanzables. Lo encontró la parte de «Probar».
  */
 export function raizSalida(pasos: readonly PasoGrafo[]): string | null {
+  // ⚠️ CON INICIO, LA PRIMERA TARJETA REAL, NUNCA 'entrada'. Lo leen `antiguedadDeEntrada` (el
+  // «Solo a leads recientes» de #198 es una condición que tiene que ser la PRIMERA tarjeta),
+  // `pasoDeEntrada` y `encadenar`: devolviendo el inicio, los tres miraban una tarjeta vacía.
+  const ini = indiceInicio(pasos);
+  if (ini >= 0) return pasos[ini].siguiente ?? null;
   const ap = apuntados(pasos);
   for (let i = 0; i < pasos.length; i++) {
     const id = idDe(pasos[i], i);
-    if (claseDe(pasos[i]) === 'respuesta' || ap.has(id)) continue;
+    const c = claseDe(pasos[i]);
+    if (c === 'respuesta' || c === 'inicio' || ap.has(id)) continue;
     return id;
   }
   return null;
+}
+
+/**
+ * Dónde arranca CADA hilo de la salida: [la principal, …las flechas en paralelo del CRON]. Sin
+ * inicio es `[raizSalida]` (o nada). El motor arranca un hilo por cada una al inscribir; con una
+ * sola, la inscripción sigue siendo de un cursor, como siempre.
+ */
+export function raicesSalida(pasos: readonly PasoGrafo[]): string[] {
+  const out: string[] = [];
+  const principal = raizSalida(pasos);
+  if (principal) out.push(principal);
+  const ini = indiceInicio(pasos);
+  if (ini >= 0) for (const d of paralelosDe(pasos[ini])) if (!out.includes(d)) out.push(d);
+  return out;
+}
+
+/**
+ * A qué HILO pertenece cada nodo: nodo → la clave del hilo. `'p'` = el principal (y el inicio);
+ * el de una flecha en paralelo se llama como su PRIMERA tarjeta (el id del destino de la flecha,
+ * el `h` del motor); `'r'` = lo que cuelga de «Si responde».
+ *
+ * Lo de «Si responde» ENTRA (como 'r') a propósito: es la única forma de que una regla pueda
+ * preguntar «¿esto es de la salida o de la respuesta?» con el mismo mapa. Un «Ir a» desde 'r'
+ * puede saltar a cualquier lado (retoma UN hilo); desde la salida, sólo a su propio hilo.
+ *
+ * Se sigue por PUERTOS: los saltos no cuentan (no son un padre). Un nodo que no está en el mapa
+ * es una tarjeta suelta.
+ */
+export function hiloDe(pasos: readonly PasoGrafo[]): Map<string, string> {
+  const hilo = new Map<string, string>();
+  const pila: Array<[string, string]> = [];
+  const ini = indiceInicio(pasos);
+  if (ini >= 0) pila.push([idDe(pasos[ini], ini), HILO_PRINCIPAL]);
+  else { const r = raizSalida(pasos); if (r) pila.push([r, HILO_PRINCIPAL]); }
+  const resp = raizRespuesta(pasos);
+  if (resp) pila.push([resp, HILO_RESPUESTA]);
+  while (pila.length) {
+    const [id, h] = pila.pop()!;
+    if (hilo.has(id)) continue;
+    hilo.set(id, h);
+    const i = indicePorId(pasos, id);
+    if (i < 0) continue;
+    for (const pt of puertosDe(pasos, i)) {
+      if (!pt.destino || hilo.has(pt.destino)) continue;
+      // Una flecha en paralelo abre un hilo nuevo, salvo adentro de «Si responde» (eso no se
+      // puede guardar; acá sigue en 'r' para que la regla que lo prohíbe lo encuentre).
+      const nuevo = pt.puerto.startsWith('par:') && h !== HILO_RESPUESTA ? pt.destino : h;
+      pila.push([pt.destino, nuevo]);
+    }
+  }
+  return hilo;
 }
 
 /** El nodo «Si responde», si la automatización tiene uno. */
@@ -303,7 +441,9 @@ export function nuevoId(pasos: readonly PasoGrafo[], rnd: () => number = Math.ra
  * Idempotente.
  */
 export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
-  const ids = pasos.map((p, i) => idDe(p, i));
+  // Un inicio sin id sólo puede tener uno: el reservado. Con `o<i>` `validarGrafo` lo rechazaría
+  // por un id que nadie eligió.
+  const ids = pasos.map((p, i) => (claseDe(p) === 'inicio' && !(typeof p.id === 'string' && p.id) ? ID_INICIO : idDe(p, i)));
   // Un id repetido (dos escritores que copiaron un paso con su id) se desempata: el
   // segundo toma otro. Sin esto, `nodoPorId` devolvería siempre el primero.
   const vistos = new Set<string>();
@@ -319,9 +459,25 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
     const c = claseDe(p);
     if (c === 'mensaje' || c === 'accion' || c === 'esperar') {
       out.siguiente = p.siguiente !== undefined ? (p.siguiente ?? null) : (pasos[i + 1] ? ids[i + 1] : null);
+    } else if (c === 'inicio') {
+      // El inicio, siempre explícito: «el de abajo del array» no es su salida (siguienteDe).
+      out.siguiente = p.siguiente ?? null;
     } else {
       delete out.siguiente;
     }
+    // Las flechas en paralelo se conservan SÓLO donde se admiten, sin repetidos, sin vacíos, sin
+    // apuntarse a sí misma y sin repetir la salida principal (una flecha «en paralelo» al mismo
+    // lugar que la de siempre es la misma flecha dos veces: le daría dos padres). Vacío = sin el
+    // campo, así un flujo que nunca tuvo paralelos queda IGUAL que antes byte a byte.
+    let par = puedeTenerParalelos(p) && Array.isArray(p.paralelos)
+      ? p.paralelos.filter((d, k, a): d is string => typeof d === 'string' && d.length > 0 && d !== ids[i] && a.indexOf(d) === k)
+      : [];
+    // Un inicio sin salida principal y con paralelos PROMUEVE el primero: la principal es la que
+    // leen `raizSalida` y el «Solo a leads recientes», y no puede quedar vacía con hilos vivos.
+    if (c === 'inicio' && out.siguiente == null && par.length) { out.siguiente = par[0]; par = par.slice(1); }
+    par = par.filter((d) => d !== out.siguiente);
+    if (par.length) out.paralelos = par;
+    else delete out.paralelos;
     if (c === 'condicion') {
       out.ramas = (p.ramas ?? []).map((r, k) => ({ ...r, id: r.id || `${ids[i]}r${k}`, siguiente: r.siguiente ?? null, filas: r.filas ?? [], modo: r.modo === 'cualquiera' ? 'cualquiera' : 'todas' }));
       out.si_no = p.si_no ?? null;
@@ -415,14 +571,102 @@ export function validarGrafo(pasos: readonly PasoGrafo[]): string[] {
     if (claseDe(pasos[indicePorId(pasos, destino)] ?? {}) === 'esperar') conEspera = true;
     if (!conEspera) err.push(`el «Ir a» ${ids[i]} vuelve atrás sin ninguna espera en el medio`);
   });
-  // Lo que no cuelga de ninguna de las dos raíces es una tarjeta suelta. Un salto NO la salva:
-  // una tarjeta a la que sólo se llega saltando es una segunda salida que nadie dibuja ni arranca.
+  err.push(...reglasDeHilos(pasos, ids, r));
+  // Lo que no cuelga de ninguna de las raíces es una tarjeta suelta. Un salto NO la salva: una
+  // tarjeta a la que sólo se llega saltando es una segunda salida que nadie dibuja ni arranca.
+  // Las raíces son las de CADA hilo de la salida (`raicesSalida`) y «Si responde»; el inicio es
+  // el CRON y cuenta como alcanzable (no es una tarjeta que alguien pueda dejar suelta).
   const alcanzable = new Set<string>();
-  const raices = [raizSalida(pasos), r].filter(Boolean) as string[];
+  const raices = [...raicesSalida(pasos), ...(r ? [r] : [])];
+  const ini = indiceInicio(pasos);
+  if (ini >= 0) raices.push(ids[ini]);
   for (const x of raices) { alcanzable.add(x); for (const d of descendientes(pasos, x)) alcanzable.add(d); }
   const sueltas = ids.filter((id) => !alcanzable.has(id));
   if (sueltas.length) err.push(`tarjetas sueltas: ${sueltas.join(', ')}`);
   return [...new Set(err)];
+}
+
+/**
+ * Las reglas de la SEGUNDA TANDA (el inicio, «Si responde» sin padre y las flechas en paralelo).
+ * Aparte de `validarGrafo` para que cada una se lea con su porqué.
+ */
+function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp: string | null): string[] {
+  const err: string[] = [];
+  // ── El inicio: uno solo, con su id, y nadie sigue en él ──
+  const inicios = pasos.map((p, i) => (claseDe(p) === 'inicio' ? i : -1)).filter((i) => i >= 0);
+  if (inicios.length > 1) err.push('hay más de un inicio');
+  for (const i of inicios) if (ids[i] !== ID_INICIO) err.push(`el inicio tiene que llamarse «${ID_INICIO}» (se llama ${ids[i]})`);
+  // 'entrada' en una tarjeta que no es el inicio: es el CRON del lienzo, y la tarjeta quedaría
+  // dibujada debajo de él.
+  pasos.forEach((p, i) => {
+    if (claseDe(p) !== 'inicio' && ids[i] === ID_INICIO) err.push(`el id «${ID_INICIO}» es del CRON: la tarjeta que lo usa tiene que cambiarlo`);
+  });
+  for (const i of inicios) if (padreDe(pasos, ids[i])) err.push('ninguna tarjeta puede seguir en el CRON');
+  // ── «Si responde» no tiene padre: cuelga del CRON (pedido literal, punto 1) ──
+  // Es un EVENTO (el lead contestó), no un paso del camino: una flecha hacia él lo convertiría en
+  // «después de este mensaje, si responde», que es otro modelo (un oyente con alcance) y no éste.
+  if (resp && padreDe(pasos, resp)) err.push('«Si responde» cuelga del CRON: ninguna tarjeta puede seguir en él');
+  // ── Las flechas en paralelo ──
+  let total = 0;
+  pasos.forEach((p, i) => {
+    const crudos = Array.isArray(p.paralelos) ? p.paralelos.filter((d) => typeof d === 'string' && d) : [];
+    if (!crudos.length) return;
+    if (!puedeTenerParalelos(p)) { err.push(`la tarjeta ${ids[i]} no puede sacar flechas en paralelo (una condición, «Si responde» y un «Ir a» no las tienen)`); return; }
+    const par = paralelosDe(p);
+    if (par.length !== crudos.length) err.push(`la tarjeta ${ids[i]} repite una flecha en paralelo`);
+    // El hilo de una flecha en paralelo se llama como su primera tarjeta (`hiloDe`, el `h` del
+    // motor): una llamada 'p' o 'r' sería «el principal» o «Si responde». Sólo pasa con ids
+    // escritos a mano (`nuevoId` da `n…`); como id de cualquier otra tarjeta, 'r' es válido y los
+    // tests lo usan.
+    if (par.some((d) => d === HILO_PRINCIPAL || d === HILO_RESPUESTA)) err.push(`una flecha en paralelo de ${ids[i]} va a una tarjeta con un id reservado («${HILO_PRINCIPAL}» o «${HILO_RESPUESTA}»)`);
+    if (par.length > TOPE_PARALELOS) err.push(`la tarjeta ${ids[i]} saca más de ${TOPE_PARALELOS} flechas en paralelo`);
+    total += par.length;
+  });
+  if (1 + total > TOPE_HILOS) err.push(`una automatización corre como mucho ${TOPE_HILOS} caminos a la vez`);
+  // Adentro de «Si responde» todo corre EN EL MOMENTO de la respuesta y retoma UN hilo (diseño,
+  // decisión 4): repartir ahí no tiene a qué hilo volver.
+  if (resp) for (const d of [resp, ...descendientes(pasos, resp)]) {
+    if (paralelosDe(pasos[indicePorId(pasos, d)]).length) err.push('«Si responde» no puede sacar flechas en paralelo');
+  }
+  // Una tarjeta con paralelos DENTRO DE UN BUCLE de «Ir a» abre hilos nuevos en cada vuelta, sin
+  // fin: m1 (en paralelo m2) → esperar 1 día → «Ir a» m1 suma un hilo m2 por día. Un bucle es
+  // cualquier ciclo del grafo de EJECUCIÓN (puertos + saltos a una tarjeta), no sólo un salto
+  // hacia su propio ancestro: dos saltos cruzados entre ramas también vuelven.
+  const ejec = (i: number): string[] => {
+    const p = pasos[i];
+    const out = puertosDe(pasos, i).map((pt) => pt.destino).filter((d): d is string => !!d);
+    if (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino) out.push(p.destino.nodo);
+    return out;
+  };
+  pasos.forEach((p, i) => {
+    if (!paralelosDe(p).length) return;
+    const vistos = new Set<string>();
+    const pila = ejec(i);
+    while (pila.length) {
+      const cur = pila.pop()!;
+      if (cur === ids[i]) { err.push(`la tarjeta ${ids[i]} saca flechas en paralelo dentro de un bucle de «Ir a» (abriría caminos nuevos en cada vuelta)`); return; }
+      if (vistos.has(cur)) continue;
+      vistos.add(cur);
+      const k = indicePorId(pasos, cur);
+      if (k >= 0) pila.push(...ejec(k));
+    }
+  });
+  // Un «Ir a {tarjeta}» de la SALIDA sólo salta dentro de su propio hilo: a la tarjeta de otro,
+  // dos cursores caen en la misma tarjeta y al lead le llega el mismo mensaje dos veces. Desde «Si
+  // responde» sí se puede ir a cualquier lado: la respuesta pausa todo y retoma UN solo hilo.
+  // Y nunca al CRON: volver a entrar no es un salto, es inscribir de nuevo.
+  const hilo = hiloDe(pasos);
+  pasos.forEach((p, i) => {
+    if (claseDe(p) !== 'ir_a' || !p.destino || !('nodo' in p.destino)) return;
+    const destino = p.destino.nodo;
+    const di = indicePorId(pasos, destino);
+    if (di >= 0 && claseDe(pasos[di]) === 'inicio') { err.push(`el «Ir a» ${ids[i]} no puede volver al CRON`); return; }
+    const desde = hilo.get(ids[i]);
+    if (!desde || desde === HILO_RESPUESTA) return;
+    const hasta = hilo.get(destino);
+    if (hasta !== undefined && hasta !== desde) err.push(`el «Ir a» ${ids[i]} salta a una tarjeta de otro camino (le llegaría lo mismo dos veces)`);
+  });
+  return err;
 }
 
 // ── Evaluar (motor y simulador) ───────────────────────────────────────────────────
@@ -489,6 +733,10 @@ export function elegirSalida(p: PasoGrafo, h: HechosLead): Puerto {
  * Sólo si TODAS las ramas exigen la antigüedad (si una no, entra igual por esa).
  */
 export function antiguedadDeEntrada(pasos: readonly PasoGrafo[]): number | null {
+  // Con flechas en paralelo desde el CRON, la condición de la principal frena a SU hilo y no a
+  // los otros: el lead entra igual por el hilo de al lado. Mirarla al inscribir dejaría afuera a
+  // quien el otro hilo sí atiende.
+  if (raicesSalida(pasos).length > 1) return null;
   const raiz = raizSalida(pasos);
   const p = nodoPorId(pasos, raiz);
   if (!p || claseDe(p) !== 'condicion' || (p.si_no ?? null) !== null) return null;
@@ -537,10 +785,33 @@ export function escenariosDeRespuesta(pasos: readonly PasoGrafo[]): EscenarioDeG
 
 // ── Editar (lienzo) ───────────────────────────────────────────────────────────────
 
-/** Apunta un puerto de un nodo a otro destino. Devuelve un array nuevo. */
+/**
+ * Apunta un puerto de un nodo a otro destino. Devuelve un array nuevo.
+ *
+ * Las flechas en paralelo: `'par:<id>'` REEMPLAZA ese elemento (con `null` lo saca), y `'par'`
+ * AGREGA una al final (si la tarjeta las admite y no estaba). Una lista que queda vacía se va
+ * con el campo.
+ */
 export function conectarPuerto<P extends PasoGrafo>(pasos: readonly P[], id: string, puerto: string, destino: string | null): P[] {
+  const conPar = (p: P, par: string[]): P => {
+    const q = { ...p };
+    if (par.length) q.paralelos = par;
+    else delete q.paralelos;
+    return q;
+  };
   return pasos.map((p, i) => {
     if (idDe(p, i) !== id) return p;
+    if (puerto === 'par') {
+      if (!destino || !puedeTenerParalelos(p)) return p;
+      const actual = Array.isArray(p.paralelos) ? p.paralelos : [];
+      return actual.includes(destino) ? p : conPar(p, [...actual, destino]);
+    }
+    if (puerto.startsWith('par:')) {
+      const viejo = puerto.slice(4);
+      const actual = Array.isArray(p.paralelos) ? p.paralelos : [];
+      if (!actual.includes(viejo)) return p;
+      return conPar(p, destino ? actual.map((d) => (d === viejo ? destino : d)) : actual.filter((d) => d !== viejo));
+    }
     if (puerto === 'sig') return { ...p, siguiente: destino };
     if (puerto === 'si_no') return { ...p, si_no: destino };
     if (p.ramas?.some((r) => r.id === puerto)) return { ...p, ramas: p.ramas.map((r) => (r.id === puerto ? { ...r, siguiente: destino } : r)) };
@@ -549,17 +820,55 @@ export function conectarPuerto<P extends PasoGrafo>(pasos: readonly P[], id: str
   });
 }
 
-/** Dónde se inserta: después de un puerto de un nodo, o al principio de la salida. */
-export type LugarInsercion = { nodo: string; puerto: string } | { inicio: true };
+/**
+ * Dónde se inserta:
+ *   · `{ nodo, puerto }` después de un puerto de un nodo: `'sig'`, `'si_no'`, el id de una rama o
+ *     de un caso, o `'par:<id>'` (el ＋ del MEDIO de una flecha en paralelo: la tarjeta nueva queda
+ *     en el medio y apunta a la de antes);
+ *   · `{ nodo, puerto: 'par' }` una flecha en paralelo NUEVA desde ese nodo (desde el CRON:
+ *     `nodo: ID_INICIO`, exista o no el inicio todavía);
+ *   · `{ inicio: true }` al principio de la salida principal.
+ */
+export type LugarInsercion = { nodo: string; puerto: 'sig' | 'si_no' | 'par' | `par:${string}` | (string & {}) } | { inicio: true };
 
 /**
  * Inserta un nodo YA ARMADO (con id) en un lugar. Lo que colgaba de ese lugar pasa a
  * colgar del nodo nuevo: de su `siguiente` si es simple, o de su PRIMERA rama si es una
  * condición («si se cumple, sigue como antes»). «Si responde» no se inserta: es una raíz.
+ *
+ * Una flecha en paralelo NUEVA (`puerto: 'par'`) no tiene nada colgando: la tarjeta nace con su
+ * `siguiente` en null. Desde el CRON sin inicio, el inicio se CREA (al final del array, con la
+ * salida de hoy como principal) — salvo que no haya salida principal: ahí la tarjeta nueva PASA a
+ * ser la principal y no hace falta ningún inicio (una sola raíz es un flujo de siempre).
  */
-export function insertarNodo<P extends PasoGrafo>(pasos: readonly P[], lugar: LugarInsercion, nuevo: P): P[] {
+export function insertarNodo<P extends PasoGrafo>(pasos: readonly P[], lugarIn: LugarInsercion, nuevo: P): P[] {
   const base = normalizar(pasos);
   const n = normalizar([nuevo])[0];
+  let lugar: LugarInsercion = lugarIn;
+  const ini = indiceInicio(base);
+  // Con inicio, «al principio» es su salida principal: anteponer la tarjeta en el array la
+  // dejaba sin padre y al inicio apuntando a la de antes (dos raíces que nadie dibuja).
+  if ('inicio' in lugar && ini >= 0) lugar = { nodo: base[ini].id!, puerto: 'sig' };
+  if (!('inicio' in lugar) && lugar.puerto === 'par') {
+    const desdeCron = lugar.nodo === ID_INICIO && ini < 0;
+    const principal = raizSalida(base);
+    if (desdeCron && !principal) {
+      lugar = { inicio: true };
+    } else if (desdeCron) {
+      const inicio = { id: ID_INICIO, nodo: 'inicio', siguiente: principal, paralelos: [n.id!] } as unknown as P;
+      return [...base, sinSalida(n), inicio];
+    } else {
+      const i = indicePorId(base, lugar.nodo);
+      if (i < 0 || !puedeTenerParalelos(base[i])) return base;
+      // Un inicio sin principal (lo dejó así un borrado): la flecha nueva ES la principal.
+      if (claseDe(base[i]) === 'inicio' && base[i].siguiente == null) lugar = { nodo: lugar.nodo, puerto: 'sig' };
+      else {
+        const out = conectarPuerto(base, lugar.nodo, 'par', n.id!);
+        out.splice(i + 1, 0, sinSalida(n));
+        return out;
+      }
+    }
+  }
   let antes: string | null;
   let out: P[];
   if ('inicio' in lugar) {
@@ -583,6 +892,14 @@ export function insertarNodo<P extends PasoGrafo>(pasos: readonly P[], lugar: Lu
   });
 }
 
+/** Una tarjeta que nace en una flecha en paralelo NUEVA: no hay nada que siga después de ella. */
+function sinSalida<P extends PasoGrafo>(n: P): P {
+  const c = claseDe(n);
+  if (c === 'condicion' && n.ramas?.length) return { ...n, ramas: n.ramas.map((r, k) => (k === 0 ? { ...r, siguiente: null } : r)) };
+  if (c === 'respuesta' || c === 'ir_a' || c === 'condicion') return n;
+  return { ...n, siguiente: null };
+}
+
 /**
  * Borra un nodo. Uno SIMPLE (mensaje, acción, espera) se saca de la cadena: lo que seguía
  * pasa a colgar de su padre. Uno de VARIAS salidas (condición, «Si responde») se lleva todo
@@ -595,21 +912,50 @@ export function borrarNodo<P extends PasoGrafo>(pasos: readonly P[], id: string)
   if (i < 0) return base;
   const p = base[i];
   const c = claseDe(p);
+  // El inicio es el CRON: no es una tarjeta que se borre. Sus flechas se sacan de a una.
+  if (c === 'inicio') return base;
   const padre = padreDe(base, id);
   const quitar = new Set<string>([id]);
   let reemplazo: string | null = null;
+  // Las flechas en paralelo que SALÍAN de la borrada: pasan a la que la reemplaza si puede
+  // tenerlas; si no, se van con su subárbol (el deshacer del lienzo las devuelve).
+  let heredan: string[] = [];
   if (c === 'condicion' || c === 'respuesta') for (const d of descendientes(base, id)) quitar.add(d);
-  else reemplazo = siguienteDe(base, i);
+  else {
+    reemplazo = siguienteDe(base, i);
+    const par = paralelosDe(p);
+    // Sin salida principal, la PRIMERA flecha en paralelo pasa a ser la que la reemplaza.
+    if (!reemplazo && par.length) { reemplazo = par[0]; heredan = par.slice(1); }
+    else heredan = par;
+    const r = reemplazo ? base[indicePorId(base, reemplazo)] : undefined;
+    if (heredan.length && !(r && puedeTenerParalelos(r))) {
+      for (const d of heredan) { quitar.add(d); for (const x of descendientes(base, d)) quitar.add(x); }
+      heredan = [];
+    }
+  }
   // Un salto a algo que se borra no tiene a dónde ir: se borra con él (y lo que colgara de
   // él, que no puede ser nada: un `ir_a` no tiene salidas).
   for (const q of base) if (claseDe(q) === 'ir_a' && q.destino && 'nodo' in q.destino && quitar.has(q.destino.nodo)) quitar.add(q.id!);
   let out = base.filter((q) => !quitar.has(q.id!));
+  // Si colgaba de una flecha en paralelo (`par:<id>`), el padre se reconecta POR ESA flecha:
+  // `conectarPuerto` reemplaza el elemento (o lo saca, si no queda nada).
   if (padre && !quitar.has(padre.id)) out = conectarPuerto(out, padre.id, padre.puerto, reemplazo);
+  if (reemplazo && heredan.length) for (const d of heredan) out = conectarPuerto(out, reemplazo, 'par', d);
   // Un salto borrado deja a su padre apuntando a la nada: se corta ahí.
   for (const q of base) {
     if (q.id === id || !quitar.has(q.id!)) continue;
     const pa = padreDe(base, q.id!);
     if (pa && !quitar.has(pa.id)) out = conectarPuerto(out, pa.id, pa.puerto, null);
+  }
+  // Un inicio que se quedó sin principal y con paralelos promueve el primero (lo mismo que hace
+  // `normalizar` al guardar; acá para que el lienzo lo dibuje igual que lo que se va a guardar).
+  const ini = indiceInicio(out);
+  if (ini >= 0 && out[ini].siguiente == null) {
+    const par = paralelosDe(out[ini]);
+    if (par.length) {
+      out = conectarPuerto(out, out[ini].id!, `par:${par[0]}`, null);
+      out = conectarPuerto(out, out[ini].id!, 'sig', par[0]);
+    }
   }
   return out;
 }
