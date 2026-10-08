@@ -63,13 +63,13 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'reuniones_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Reuniones y grabaciones de un lead',
-    descripcion: 'Busca las reuniones de un lead: fechas reales de R1 y R2 en Calendly (por el email del invitado), grabaciones de Fathom ya analizadas y enganchadas al lead, eventos de Google Calendar si hay agenda conectada, y las llamadas analizadas por Closing Analyst con su score. Ojo: si el análisis de una llamada nunca corrió, no aparece; vacío NO significa que la reunión no ocurrió.',
+    descripcion: 'Busca las reuniones de un lead: fechas reales de R1 y R2 en Calendly (por el email del invitado), grabaciones de Fathom ya analizadas y enganchadas al lead, y las llamadas analizadas por Closing Analyst con su score. NO incluye la agenda de Google: si el negocio agenda en Google, lo que tiene el lead ahí lo muestra reuniones_agenda_lead. Ojo: si el análisis de una llamada nunca corrió, no aparece; vacío NO significa que la reunión no ocurrió.',
     parametros: [leadId()],
     // SIN http: fathomR1/fathomR2 traen el share_url de Fathom, el link público a la
     // grabación y la transcripción de una llamada de venta con una persona.
+    // Sin Google Calendar, a propósito: lo lee un modelo, y la agenda no pasa por ninguno
+    // (lib/agenda-sin-ia.ts). La agenda de un lead la muestra reuniones_agenda_lead.
     salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: TAB, lenta: true,
-    // De rebote: las fechas de R1/R2 pueden salir de Google Calendar (lib/auto-reuniones.ts).
-    datosDeGoogle: true,
   },
   {
     id: 'reuniones_recientes', area: 'crm', tipo: 'lectura',
@@ -239,27 +239,32 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'horarios_libres_dia', area: 'crm', tipo: 'lectura',
-    titulo: 'Horas libres de un día',
-    descripcion: 'Los horarios de un día (cada 15 minutos) marcando cuáles están libres según la agenda de Google del negocio, en su zona horaria. Si no hay Google conectado o falla, NO bloquea: devuelve todo como libre con un `codigo` distinto de ok que lo explica, y eso no significa que la agenda esté vacía.',
+    // «huecos» en el título: es como se pregunta («¿tengo hueco el jueves?»), y la
+    // relevancia del turno puntúa id + título doble. Lo mide tests/agenda-whatsapp.test.ts.
+    titulo: 'Horarios libres o huecos del día',
+    descripcion: 'Le MUESTRA a la persona los horarios libres de un día según la agenda de Google del negocio, en su zona horaria. Tú NO ves la agenda: el sistema se la muestra directo y tú recibes sólo que se mostró. Úsala cuando quieran agendar y no dijeron la hora, o cuando pregunten qué tienen libre; después pídele que elija una hora.',
     parametros: [
       fechaIso('fecha', 'YYYY-MM-DD del día a mirar.', true),
       { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 240, descripcion: 'minutos de la reunión (default 45): el hueco solo cuenta si entra entera.' },
     ],
-    salida: 'json', canales: TODOS, costo: 'externo', gating: { tab: 'crm', integracion: 'google-calendar' },
+    // SIN http desde el 07/10/2026: el libre/ocupado es de la agenda de Google, y la agenda
+    // no pasa por ningún modelo — tampoco por el agente del cliente que llama con su token.
+    // Por chat lo ve la persona (lib/agenda-sin-ia.ts); por HTTP no hay persona.
+    salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: { tab: 'crm', integracion: 'google-calendar' },
     datosDeGoogle: true,
   },
   {
     id: 'reuniones_agenda_lead', area: 'crm', tipo: 'lectura',
     // El título lleva las palabras con las que se PIDE mover («reagendá», «cambiá»,
     // «mové»): la relevancia del turno puntúa id + título doble, y sin ellas esta
-    // lectura —sin la cual mover no puede funcionar— quedaba afuera del presupuesto de
-    // 12.000 caracteres frente al resto del CRM. Lo mide tests/agenda-whatsapp.test.ts.
+    // lectura quedaba afuera del presupuesto de 12.000 caracteres frente al resto del
+    // CRM. Lo mide tests/agenda-whatsapp.test.ts.
     titulo: 'Próximas reuniones para mover o reagendar',
-    descripcion: 'Las próximas reuniones (o visitas, o citas) de un lead en la agenda de Google del negocio, buscando las que lo tienen INVITADO por su email, en los próximos 60 días. Devuelve el `inicio` exacto de cada una, la hora legible en la zona del negocio, el título y la duración. Es el paso obligatorio antes de proponer_mover_reunion: ese `inicio` se copia TAL CUAL. Vacío también si la lectura falló: no garantiza que no tenga reuniones.',
+    descripcion: 'Le MUESTRA a la persona las próximas reuniones (o visitas, o citas) de un lead en la agenda de Google del negocio: las que lo tienen invitado por su email, en los próximos 60 días. Tú NO ves la lista: el sistema se la muestra directo y tú recibes sólo que se mostró. Úsala cuando pregunten qué reuniones tiene alguien. Para mover una no hace falta: proponer_mover_reunion la encuentra con el día y la hora que dijo la persona.',
     parametros: [leadId('id del lead (con email cargado).')],
     // SIN http: son los eventos de la agenda de Google del negocio, con el nombre de
-    // terceros en el título. Exponerlos a un bearer es decidirlo (snapshot), y además
-    // pasa por la Política de Uso Limitado de los datos de Google.
+    // terceros en el título. Por chat los ve la persona y nunca el modelo
+    // (lib/agenda-sin-ia.ts); por HTTP no hay persona a quien mostrárselos.
     salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
   },
   {
@@ -343,7 +348,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_agendar_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Agendar reunión, visita o cita',
-    descripcion: 'PROPONE agendar una reunión (o visita, o cita) con un lead en la agenda de Google del negocio e invitarlo por email (queda pendiente hasta el «sí»). Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento lo avisa en el resumen, pero no lo bloquea: la agenda es del negocio. El lead necesita email, porque es a donde Google manda la invitación.',
+    descripcion: 'PROPONE agendar una reunión (o visita, o cita) con un lead en la agenda de Google del negocio e invitarlo por email (queda pendiente hasta el «sí»). Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento, el sistema se lo avisa a la persona directo (tú no lo ves, así que no afirmes que está libre); no lo bloquea: la agenda es del negocio. El lead necesita email, porque es a donde Google manda la invitación.',
     parametros: [
       leadId('id del lead (con email cargado).'),
       fechaIso('fecha', 'YYYY-MM-DD del día de la reunión.', true),
@@ -359,10 +364,11 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_mover_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Reagendar reunión, visita o cita',
-    descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) de un lead que ya está en la agenda de Google del negocio (queda pendiente hasta el «sí»). Primero usa reuniones_agenda_lead y pasa el `inicio` de la que se mueve COPIADO TAL CUAL en inicio_actual. La fecha y la hora nuevas van como las dijo la persona: el código arma la hora exacta. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si la reunión la organiza otra cuenta, no se puede mover desde aquí. Si no encuentra la que se nombró, NO crea una nueva.',
+    descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) de un lead que ya está en la agenda de Google del negocio (queda pendiente hasta el «sí»). El sistema busca la reunión en la agenda: tú pasas el día y la hora que tiene HOY (fecha_actual, hora_actual) sólo si la persona los dijo, y la fecha y la hora nuevas como las dijo; el código arma la hora exacta. Tú NO ves la agenda: si hay varias o ninguna que coincida, el sistema se las muestra a la persona y tú le pides el día y la hora de la que quiere mover. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si no encuentra la que se nombró, NO crea una nueva.',
     parametros: [
       leadId(),
-      { nombre: 'inicio_actual', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el `inicio` de la reunión COPIADO TAL CUAL de reuniones_agenda_lead: identifica cuál se mueve.' },
+      fechaIso('fecha_actual', 'YYYY-MM-DD del día que tiene HOY la reunión que se mueve, como lo dijo la persona. Sin esto, la única que tenga.'),
+      { nombre: 'hora_actual', tipo: 'string', max: 5, descripcion: 'HH:MM que tiene HOY esa reunión, en 24 h, sólo si la persona la dijo.' },
       fechaIso('fecha', 'YYYY-MM-DD del día nuevo.', true),
       { nombre: 'hora', tipo: 'string', obligatorio: true, max: 5, descripcion: 'HH:MM nueva, en 24 h y en la zona del negocio.' },
     ],

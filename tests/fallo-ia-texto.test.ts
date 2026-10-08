@@ -271,9 +271,7 @@ test('⚠️ EL DOER SEPARA LAS DOS LISTAS EN EL ORIGEN, no por un prefijo en el
   assert.ok(!/erroresIA\.push/.test(hastaElFin),
     'la red de plataforma volvió a escribir en la lista con la que se juzga al cliente');
   // Y el veredicto se pide con el contexto medido, no sólo con el texto.
-  // (`apartadas`, desde el 07/10/2026: las cuentas suyas que no se probaron por llevar el
-  // turno datos de Google — ver tests/datos-google-ia.test.ts.)
-  assert.match(doer, /causaDelFallo\(errsIA, nKeys, \{ probadas: ee\?\.probadas, contestaron: ee\?\.contestaron, apartadas: ee\?\.apartadas \}\)/,
+  assert.match(doer, /causaDelFallo\(errsIA, nKeys, \{ probadas: ee\?\.probadas, contestaron: ee\?\.contestaron \}\)/,
     'el veredicto volvió a decidirse sólo con el texto de los errores');
 });
 

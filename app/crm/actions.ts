@@ -92,6 +92,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } from '@/lib/lead-insights';
 import { duracionDeReunionEnAgendaMin, moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
+import { motivoFijo } from '@/lib/agenda-sin-ia';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { DURACION_DEFECTO_MIN, instanteDeLocal } from './horarios-respuesta';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -1924,6 +1925,10 @@ export type ReagendarResultado = {
   reconectar: boolean;
   /** A quién avisó Google. null = el lead no tiene email, así que NO se avisó a nadie. */
   invitado: string | null;
+  /** El código de lib/google-calendar.ts. El historial del lead escribe una frase fija
+   *  por código (lo lee un modelo, `historial_lead`, y el `mensaje` puede traer el texto
+   *  de error de Google); la pantalla muestra el `mensaje`. */
+  codigo?: string;
 };
 
 /**
@@ -1954,7 +1959,7 @@ async function moverEnCalendario(lead: Lead | null, cual: 'r1' | 'r2', nuevoIso:
     // quedaba libre de mentira.
     duracionMin,
   });
-  return { ok: r.ok, accion: r.accion, mensaje: r.motivo, reconectar: r.codigo === 'sin-permiso' || r.codigo === 'sin-conexion', invitado: r.ok ? r.invitado : null };
+  return { ok: r.ok, accion: r.accion, mensaje: r.motivo, reconectar: r.codigo === 'sin-permiso' || r.codigo === 'sin-conexion', invitado: r.ok ? r.invitado : null, codigo: r.codigo };
 }
 
 /**
@@ -2042,7 +2047,10 @@ export async function reagendarReunionAction(
   const cal = await moverEnCalendario(antes, cual, at, opts.duracionMin).catch((e): ReagendarResultado => ({
     ok: false, accion: 'nada', mensaje: e instanceof Error ? e.message : 'Error inesperado con Google Calendar.', reconectar: false, invitado: null,
   }));
-  if (cal.mensaje) await logLeadEvent(leadId, 'Google Calendar', cal.ok ? cal.mensaje : `No se pudo mover el evento: ${cal.mensaje}`, autor).catch(() => {});
+  // El fallo va con la frase FIJA de su código: este historial lo lee un modelo
+  // (historial_lead) y el `mensaje` puede traer el texto de error de Google, que no pasa
+  // por ninguno (lib/agenda-sin-ia.ts). El de éxito sólo nombra al invitado del CRM.
+  if (cal.mensaje) await logLeadEvent(leadId, 'Google Calendar', cal.ok ? cal.mensaje : `No se pudo mover el evento: ${motivoFijo(cal.codigo ?? 'api')}.`, autor).catch(() => {});
 
   bust(TAG.leads);
   revalidatePath('/crm');

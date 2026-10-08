@@ -15,7 +15,7 @@ enviada ([requisitos oficiales](https://developers.google.com/identity/protocols
 | 2 | Cada dominio autorizado, verificado en Search Console por un dueño del proyecto | ❌ `hola-mako.com` no está verificado en martinkoncke@. Y sobran dos dominios muertos |
 | 3 | Los permisos declarados en *Data Access*, con su justificación | ❌ No hay ninguno declarado |
 | 4 | Un video en YouTube, oculto y en inglés | ❌ Hay que grabarlo (guion abajo) |
-| 5 | Una política de privacidad que coincida con lo que hace la app | ✅ Desde el 07/10 (decisión de Martín: los datos de Google van sólo a una IA que no entrena) |
+| 5 | Una política de privacidad que coincida con lo que hace la app | ✅ Desde el 07/10: la agenda no pasa por ninguna IA |
 
 ⚠️ **El Verification Center dice «Verification is not required».** Lo dice porque *Data
 Access* tiene cero permisos declarados, no porque la app no los use: el código pide
@@ -34,18 +34,15 @@ pantalla de app no verificada. Es un verde engañoso.
 
 ### 5 · Privacidad: el Uso Limitado
 
-La política promete que los datos del calendario **no se usan para entrenar modelos de IA**,
-y hasta el 07/10 no era cierto para los clientes con la key gratis de Gemini (Google
-entrena con el plan gratis). Martín decidió:
+La política promete que los datos del calendario **no se usan para entrenar modelos de IA**.
+Desde el 07/10 es cierto por construcción: **los eventos de la agenda no pasan por ningún
+modelo**. La IA sólo lee lo que escribe la persona; el código busca en la agenda y le muestra
+el resultado directo (`lib/agenda-sin-ia.ts`, fijado por `tests/agenda-sin-ia.test.ts`). En
+el reparto de tareas de una reunión, a los invitados del calendario los cruza el código.
 
-- **Un pedido a una IA que lleve datos de Google Calendar lo atiende sólo un proveedor que
-  no entrena** (Groq, OpenAI, Anthropic). Lo aplica `lib/datos-google-ia.ts` en el loop de
-  herramientas, y lo fija `tests/datos-google-ia.test.ts`.
-- **En el reparto de tareas de una reunión, los invitados del calendario ya no van al
-  prompt**: el código les pone el email por nombre (`resolverDueño`).
-
-El detalle, con lo que quedó sin tratar, en `docs/hallazgos-ia.md` → «La promesa de
-"Uso Limitado"…».
+Primero se había resuelto ruteando esos pedidos a proveedores que no entrenan; Martín lo
+cuestionó («limitar el uso de Gemini no tiene sentido») y tenía razón. El detalle, en
+`docs/hallazgos-ia.md` → «La promesa de "Uso Limitado"…».
 
 ## Para pegar en *Data Access* (en inglés: lo lee un revisor de Google)
 
@@ -60,8 +57,8 @@ iniciar sesión.
 > event when the owner asks for it, either from the lead's page in the CRM or by writing to
 > MaKo on WhatsApp ("move Juan's visit to Friday at 10"). Every change is shown to the owner
 > and only applied after the owner confirms it. Google notifies the attendees of the change.
-> When a request carries calendar data, MaKo only sends it to AI providers that contractually
-> do not train on it (Groq, OpenAI, Anthropic). We need write access to events because creating and moving events is the feature;
+> Calendar data is never sent to an AI model: the assistant only reads what the owner writes,
+> and our code looks up the calendar and shows the result to the owner directly. We need write access to events because creating and moving events is the feature;
 > a read-only scope cannot do it.
 
 **`https://www.googleapis.com/auth/calendar.readonly`**

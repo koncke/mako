@@ -104,7 +104,7 @@ export const MAKO_TOOLS: ToolDef[] = [
   },
   {
     name: 'reuniones_lead',
-    description: 'Reuniones/llamadas encontradas automáticamente para el lead (Calendly, Google Calendar y grabaciones de Fathom de la R1/R2).',
+    description: 'Reuniones/llamadas encontradas automáticamente para el lead (Calendly y grabaciones de Fathom de la R1/R2). NO incluye la agenda de Google: si el negocio agenda en Google, lo muestra reuniones_agenda_lead.',
     input_schema: {
       type: 'object',
       properties: { leadId: { type: 'number', description: 'id del lead (de buscar_leads).' } },
@@ -226,7 +226,8 @@ export const runMakoTool: ToolRunner = async (name, input) => {
 
     case 'reuniones_lead': {
       const lead = await requireLead(input);
-      const r = await buscarReunionesAutomatico(lead).catch(() => null);
+      // Sin Google Calendar: esto lo lee un modelo (lib/agenda-sin-ia.ts).
+      const r = await buscarReunionesAutomatico(lead, { conGoogle: false }).catch(() => null);
       // Llamadas analizadas por Closing Analyst → su recording_id sirve para el deep
       // link /closing?call=<id> (MaKo puede mandar el link al análisis completo).
       let analisis: Array<Record<string, unknown>> = [];

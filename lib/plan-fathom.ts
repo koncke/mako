@@ -45,8 +45,8 @@ export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 /** Alguien que estuvo en la reunión (nombre + email de la invitación de calendario). */
 export type Participante = {
   nombre: string; email: string;
-  /** Salió de la API de Google Calendar, no de Fathom. Ése NO va al prompt (Uso Limitado
-   *  de Google, lib/datos-google-ia.ts): sirve para que el CÓDIGO le ponga el email al
+  /** Salió de la API de Google Calendar, no de Fathom. Ése NO va al prompt (la agenda no
+   *  pasa por ninguna IA, lib/agenda-sin-ia.ts): sirve para que el CÓDIGO le ponga el email al
    *  dueño de cada tarea (`resolverDueño`), nunca para que lo lea un modelo. */
   delCalendario?: true;
 };
@@ -710,11 +710,10 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     : '(no hay proyectos — deja proyectoId en null)';
 
   const participantes = opts.participantes ?? [];
-  // ⚠️ LOS QUE SALIERON DE GOOGLE CALENDAR NO VAN AL PROMPT. Esta extracción corre en
-  // Gemini con la key del cliente, y el plan gratis entrena con lo que recibe: mandarle
-  // los invitados de la agenda rompía el Uso Limitado de Google y la promesa de
-  // /privacidad (decisión de Martín, 07/10/2026). El modelo escribe el nombre como lo
-  // oyó y `coerceCandidatas` —que sí recibe la lista entera— le pone el email.
+  // ⚠️ LOS QUE SALIERON DE GOOGLE CALENDAR NO VAN AL PROMPT. La agenda no pasa por
+  // ninguna IA (lib/agenda-sin-ia.ts, decisión de Martín del 07/10/2026): el modelo
+  // escribe el nombre como lo oyó y `coerceCandidatas` —que sí recibe la lista entera—
+  // le pone el email.
   const paraElPrompt = participantes.filter((p) => !p.delCalendario);
   const listaParticipantes = paraElPrompt.length
     ? paraElPrompt.map((p) => `- ${p.nombre || '(sin nombre)'} <${p.email}>`).join('\n')

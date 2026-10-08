@@ -430,9 +430,13 @@ sale por HTTP, tampoco figura).
   en el historial del lead.
 - **Si la reunión entró por Cal.com (o Calendly) y se mueve en Google, el proveedor de
   reservas no se entera.** El evento de Google se mueve; la reserva sigue con la hora vieja.
-- ~~El Uso Limitado de Google sigue abierto~~ **Cerrado el mismo día**: estas tools llevan
-  `datosDeGoogle: true` y un turno que las ofrece corre sólo en proveedores que no entrenan
-  (`lib/datos-google-ia.ts`, detalle en `docs/hallazgos-ia.md`).
+- ~~El Uso Limitado de Google sigue abierto~~ **Cerrado el mismo día, y rehecho**: la
+  agenda ya no pasa por el modelo. Estas tools le devuelven un estado o un resumen sin nada
+  de la agenda, y el detalle va a la persona por `paraLaPersona`. Mover ya no necesita la
+  lectura previa: el código busca la reunión con el día y la hora que dijo la persona
+  (`lib/agenda-sin-ia.ts`, detalle en `docs/hallazgos-ia.md`). Por eso lo de «la
+  herramienta para mover entraba y la que dice QUÉ mover no» quedó como historia: la
+  regla de armar el turno con frases reales sigue valiendo.
 
 *07/10/2026 — sin subagentes; medido armando el turno y rompiendo el test cinco veces
 (2, 2, 1, 1 y 1 fallos). Commit `c3c2ef17`.*

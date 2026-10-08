@@ -134,7 +134,6 @@ guardar_plan_pagos
 guardar_producto
 guardar_publico_audios
 guardar_termino_glosario
-horarios_libres_dia
 huecos_secuencias
 ignorar_datos_sin_marcar
 iniciar_experimento

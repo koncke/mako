@@ -63,8 +63,8 @@ export function resolverDueño(o: DueñoCrudo, yo: Yo, participantes: Participan
   const dn = normNombre(dueñoDicho);
   const propuesto = String(o.dueñoEmail ?? '').trim().toLowerCase();
   // ⚠️ SIN NOMBRE EXACTO, VALE UN NOMBRE QUE ARRANCA IGUAL, SI ES UNO SOLO. Desde el
-  // 07/10/2026 los invitados que salen de Google Calendar NO van al prompt (Uso Limitado
-  // de Google, lib/datos-google-ia.ts): el modelo escribe el nombre como lo oyó
+  // 07/10/2026 los invitados que salen de Google Calendar NO van al prompt (la agenda no
+  // pasa por ninguna IA, lib/agenda-sin-ia.ts): el modelo escribe el nombre como lo oyó
   // («Juan») y el email lo pone acá el código, contra «Juan Pérez» del calendario.
   // «Juan Gómez» no cae en «Juan Pérez» (tiene que ARRANCAR igual), y con dos Juanes
   // con email no se elige ninguno.

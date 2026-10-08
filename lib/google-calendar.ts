@@ -619,7 +619,10 @@ export async function moverEventoDeReunion(p: PedidoMoverEvento): Promise<Result
       // API responde 403 y, sobre todo, moverlo no sería correcto. Se avisa y NO
       // se crea uno paralelo — dos eventos para la misma reunión es peor.
       if (evento.organizer?.self === false) {
-        return { ...nada('no-organizador', `El evento «${evento.summary ?? 'sin título'}» lo organiza otra cuenta: muévelo desde ahí.`), eventoId: evento.id };
+        // Sin el título del evento: este motivo termina en el historial del lead
+        // (app/crm/actions.ts) y de ahí lo lee un modelo (historial_lead), y la agenda
+        // no pasa por ninguno (lib/agenda-sin-ia.ts).
+        return { ...nada('no-organizador', 'Ese evento lo organiza otra cuenta de Google: muévelo desde ahí.'), eventoId: evento.id };
       }
       const dur = duracionMs(evento) ?? (p.duracionMin ?? DURACION_DEFECTO_MIN) * 60 * 1000;
       const res = await fetch(`${EVENTS_URL}/${encodeURIComponent(evento.id)}${avisar}`, {

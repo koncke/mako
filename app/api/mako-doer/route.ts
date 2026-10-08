@@ -14,7 +14,7 @@ import { chatCheapCascade } from '@/lib/ai-cheap';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
-import { toolsDelRegistro } from '@/lib/api-mako/registro';
+import { toolsDelRegistro, REGISTRO } from '@/lib/api-mako/registro';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { canalKeyDe } from '@/lib/api-mako/canal';
 import { areasDelMensaje } from '@/lib/mako-intencion';
@@ -67,9 +67,15 @@ async function herramientasDelTurno(query: string): Promise<{ tools: ToolDef[]; 
   const rol = (await getRolWsEfectivo()) === 'admin' ? 'admin' : 'miembro';
   const ctx: Ctx = { ws, canal: 'app', canalKey: canalKeyDe('app', `ws${ws}`), alcance: 'lectura', rol };
   const deSiempre = new Set(MAKO_TOOLS.map((t) => t.name));
+  // ⚠️ SIN LAS QUE LEEN LA AGENDA DE GOOGLE (`datosDeGoogle`). La agenda no pasa por
+  // ninguna IA (lib/agenda-sin-ia.ts): esas herramientas le muestran el detalle a la
+  // persona por un canal del código, y este chat no tiene dónde ponerlo sin que vuelva
+  // al modelo — guarda la respuesta entera como turno (buildMsgs la reenvía) y con ella
+  // arma el título de la sesión (generarTitulo). La agenda se ve en el CRM.
+  const excluir = new Set([...deSiempre, ...REGISTRO.filter((d) => d.datosDeGoogle).flatMap((d) => [d.id, ...(d.alias ?? [])])]);
   const areas = areasDelMensaje(query);
   const extra = areas.length
-    ? toolsDelRegistro({ vista: await vistaDe(ctx), areas, incluirAcciones: false, excluir: deSiempre, maxChars: 12_000, relevanteA: query })
+    ? toolsDelRegistro({ vista: await vistaDe(ctx), areas, incluirAcciones: false, excluir, maxChars: 12_000, relevanteA: query })
     : [];
   const runRegistro = runnerDelRegistro(ctx);
   return {

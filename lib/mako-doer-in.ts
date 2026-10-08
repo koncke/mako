@@ -41,7 +41,7 @@ import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
-import { herramientasConDatosDeGoogle, puedeRecibirDatosDeGoogle } from '@/lib/datos-google-ia';
+import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle } from '@/lib/agenda-sin-ia';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
@@ -843,10 +843,16 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // la que manda sobre las tools, sobre si la tool es obligatoria y sobre qué
     // se valida al salir. Confundirlas es lo que hizo que «Investigar
     // competencia: <links>» devolviera un ensayo en vez de un borrador.
+    // ¿El código le acaba de mostrar a la persona opciones de su agenda? Entonces su
+    // respuesta corta («la de las 16») sigue ESE pedido y necesita las herramientas de
+    // agenda: el modelo no tiene la lista (lib/agenda-sin-ia.ts). Lo deja `runTool`.
+    const claveAgenda = `mako.doer.agenda.${jid}`;
+    const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
     const intencion = clasificarIntencion(texto, {
       hayMedia: !!mediaBlocks,
       hayPendientes: vigentes.length > 0,
       hayContacto: contactosDelMensaje(data.message).length > 0,
+      hayAgendaAbierta: !!agendaAbierta,
     });
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
@@ -879,9 +885,31 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // caracteres: todas juntas pasan el techo de Groq y encarecen cada turno. Y solo
     // cuando el contrato de la intención deja todas las tools (`tools: null`): capturar,
     // confirmar y charlar no ganan nada.
-    const ctxApi: CtxApi = { ws: wsData, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto };
+    /**
+     * LO QUE EL CÓDIGO LE MUESTRA A LA PERSONA SIN PASAR POR EL MODELO.
+     *
+     * La agenda de Google no pasa por ninguna IA (lib/agenda-sin-ia.ts, decisión de
+     * Martín del 07/10/2026): una herramienta que la lee le deja el detalle acá
+     * (`ctx.aPersona`) y al modelo le devuelve sólo un estado. Se agrega al final de la
+     * respuesta, DESPUÉS de los reemplazos y del validador, y NO se guarda en el
+     * historial del grupo: el historial vuelve al modelo en el turno siguiente.
+     *
+     * Sin repetidos: si el turno rota de proveedor, la herramienta vuelve a correr.
+     */
+    const paraLaPersona: string[] = [];
+    const ctxApi: CtxApi = {
+      ws: wsData, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto,
+      aPersona: (t) => {
+        const x = paraWhatsApp(t);
+        if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x);
+      },
+    };
     const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS];
-    const areasNombradas = CONTRATO[intencion.intencion].tools === null && !intencion.dudosa ? areasDelMensaje(texto) : [];
+    const areasDelTexto = CONTRATO[intencion.intencion].tools === null && !intencion.dudosa ? areasDelMensaje(texto) : [];
+    // Con un pedido de agenda abierto, «la de las 16» no nombra ningún área: el CRM va igual.
+    const areasNombradas = agendaAbierta && intencion.intencion === 'actuar' && !areasDelTexto.includes('crm')
+      ? [...areasDelTexto, 'crm' as const]
+      : areasDelTexto;
     const toolsDelTurno = areasNombradas.length
       ? toolsDelRegistro({
           vista: await vistaDe(ctxApi), areas: areasNombradas,
@@ -921,7 +949,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * (`cheapSys`): era la tercera escritura de la misma regla y la única que faltaba.
      */
     const bloqueTools = tools.length
-      ? `\n\n${DOER_WA_TOOLS}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+      ? `\n\n${DOER_WA_TOOLS}${bloqueAgendaGoogle(tools.map((t) => t.name))}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
       : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea («eso lo miro y te lo paso») y nada más.';
     // ⚠️ HOY, EN LA ZONA DEL NEGOCIO. Sin esto el modelo no sabe qué día es, y «agendá una
     // visita el jueves» le pedía ADIVINAR la fecha: una fecha adivinada es una invitación
@@ -933,7 +961,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     const ctxHoy = tzHoy
       ? `\n\nHOY ES ${hoyLegible(tzHoy)} (zona ${tzHoy}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.`
       : '';
-    const system = `${base}\n\n${DOER_WA_VOZ}${bloqueTools}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+    // El pedido de agenda en curso, sólo si el turno trae la herramienta que lo sigue (un
+    // prompt que nombra algo que no viajó es una trampa, ver DOER_WA_TOOLS).
+    const ctxAgenda = agendaAbierta && tools.some((t) => t.name === agendaAbierta.herramienta) ? contextoAgendaAbierta(agendaAbierta) : '';
+    const system = `${base}\n\n${DOER_WA_VOZ}${bloqueTools}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
@@ -1025,6 +1056,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       if (name === 'buscar_tutorial' && typeof out === 'string') textoTutorialSalida = out;
+      // El pedido de agenda que queda ABIERTO para el próximo mensaje (ver arriba,
+      // `agendaAbierta`), o que se cierra porque ya quedó propuesto.
+      const sigue = agendaQueSigue(name, input, out, Date.now());
+      if (sigue) await setSetting(claveAgenda, JSON.stringify(sigue)).catch(() => {});
+      else if (agendaSeCierra(name, out)) await setSetting(claveAgenda, '').catch(() => {});
       if (name === 'metricas_negocio' || name === 'analisis_negocio') {
         rangosPedidos.push({
           desde: typeof input.desde === 'string' ? input.desde : null,
@@ -1213,25 +1249,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
              * el que estaba pensado para exactamente este turno. Estuvo inalcanzable
              * desde el 13/08 por el bug de `provsDe`.
              */
-            /**
-             * ⚠️ CON DATOS DE GOOGLE EN EL TURNO, SÓLO PROVEEDORES QUE NO ENTRENAN.
-             *
-             * Decisión de Martín (07/10/2026, Uso Limitado de Google): si el turno ofrece una
-             * herramienta que devuelve eventos u horarios de Google Calendar, el pin de Gemini
-             * no corre — el plan gratis entrena con lo que recibe, y una key paga no se
-             * distingue. Para un cliente con sólo Gemini (el ws13) eso deja cero instancias
-             * suyas y el turno lo atiende la red de plataforma, que se filtra igual más abajo.
-             * `chatCheapTools` tiene la misma guarda como red (lib/datos-google-ia.ts).
-             */
-            const conDatosDeGoogle = herramientasConDatosDeGoogle(tools).length > 0;
-            const cands = [pin.provider, 'groq', 'openai']
-              .filter((p, i, a) => a.indexOf(p) === i)
-              .filter((p) => !conDatosDeGoogle || puedeRecibirDatosDeGoogle(p));
-            // Las cuentas del cliente que se apartaron por eso: si el turno igual falla, no
-            // es «no tenés IA» — fue una decisión nuestra (ver causaDelFallo).
-            const apartadas = conDatosDeGoogle && !puedeRecibirDatosDeGoogle(pin.provider)
-              ? (await provsDe(pin.provider as Parameters<typeof provsDe>[0]).catch(() => [])).length
-              : 0;
+            const cands = [pin.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
@@ -1419,7 +1437,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               const distintoPrimero = [
                 ...red.filter((r) => r.provider !== pin.provider),
                 ...red.filter((r) => r.provider === pin.provider),
-              ].filter((r) => !conDatosDeGoogle || puedeRecibirDatosDeGoogle(r.provider));
+              ];
               for (const r of distintoPrimero) {
                 if (Date.now() > limite) {
                   console.error(`[mako-doer-in] red de plataforma cortada por tiempo: ${probados}/${red.length} probados`);
@@ -1488,13 +1506,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             }
             if (!respuesta) {
               const err = (ultErr instanceof Error ? ultErr : new Error('todas las IA baratas fallaron')) as Error & {
-                erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number; apartadas?: number;
+                erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number;
               };
               err.erroresIA = erroresIA;
               err.erroresPlataforma = erroresPlataforma;
               err.probadas = probadasCliente;
               err.contestaron = contestaronCliente;
-              err.apartadas = apartadas;
               throw err;
             }
           } else {
@@ -1529,13 +1546,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           //
           // Solo cuando el fallo NO se puede atribuir —o es genuinamente de los
           // proveedores— se cae al aviso genérico de antes.
-          const ee = e as Error & { erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number; apartadas?: number };
+          const ee = e as Error & { erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number };
           const errsIA = ee?.erroresIA ?? [msg];
           const errsPlat = ee?.erroresPlataforma ?? [];
           const nKeys = await contarKeysIA().catch(() => 1);
           // El veredicto se decide SÓLO con lo del cliente (ver `erroresPlataforma`). Lo
           // nuestro va al log, que es donde se diagnostica.
-          const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron, apartadas: ee?.apartadas });
+          const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron });
           const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
           respuesta = causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
@@ -1699,23 +1716,29 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         console.error(`[mako-doer-in] ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
       }
     }
-    if (respuesta) {
+    if (respuesta || paraLaPersona.length) {
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos
       // cada parte como un mensaje aparte con una pausa chica (se lee como conversación,
       // no un chorizo). Registramos cada id enviado para el anti-eco.
-      const partes = respuesta.split(/\n\s*-{3,}\s*\n/).map((p) => p.trim()).filter(Boolean);
+      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => p.trim()).filter(Boolean);
+      // Lo que escribió el CÓDIGO (la agenda) va al final, cada bloque como su propio
+      // mensaje. Va acá y no antes porque los reemplazos de arriba (el borrador, el
+      // lead, el cartel) pisan `respuesta`, y el validador no tiene por qué leerlo.
+      const enviar = [...partes, ...paraLaPersona];
       const idsEnv: string[] = [];
-      for (let i = 0; i < partes.length; i++) {
+      for (let i = 0; i < enviar.length; i++) {
         if (i > 0) await new Promise((r) => setTimeout(r, 700));
-        const env = await enviarAGrupoJid(jid, partes[i]);
+        const env = await enviarAGrupoJid(jid, enviar[i]);
         if (env.ok && env.id) idsEnv.push(env.id);
       }
       await registrarEnviados(OPS, jid, idsEnv); // un solo write para toda la respuesta
       // Lo que SÍ es conversación se guarda; el cartel de «no pude», no (ver arriba).
-      if (avisoDeSistema) console.warn(`[mako-doer-in] ws=${wsData} aviso de plataforma enviado y FUERA del historial (${respuesta.length} chars)`);
-      else await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
+      // Y lo del código tampoco: el historial vuelve al modelo en el turno siguiente, y
+      // la agenda no pasa por ninguno.
+      if (avisoDeSistema) console.warn(`[mako-doer-in] ws=${wsData} aviso de plataforma enviado y FUERA del historial (${(respuesta ?? '').length} chars)`);
+      else if (partes.length) await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
     }
-    return { engaged: true, reply: respuesta };
+    return { engaged: true, reply: [respuesta, ...paraLaPersona].filter(Boolean).join('\n\n') };
   } catch (e) {
     console.error('[mako-doer-in]', e instanceof Error ? e.message : String(e));
     return { engaged: false, skip: e instanceof Error ? e.message : String(e) };

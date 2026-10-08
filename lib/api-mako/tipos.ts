@@ -172,12 +172,13 @@ type Base = {
   /** nombres anteriores (de MAKO_TOOLS, MAKO_ACCION_TOOLS o de /api/agente/*) que
    *  siguen resolviendo acá. Los usa el doer, la skill instalada y las pendientes. */
   alias?: readonly string[];
-  /** true si lo que DEVUELVE al modelo sale de la API de Google (eventos, horarios,
-   *  invitados de Google Calendar), aunque sea de rebote. No es una etiqueta: un turno
-   *  que ofrece una herramienta así corre SÓLO en proveedores que no entrenan con lo
-   *  que reciben (`lib/datos-google-ia.ts`). Es el Uso Limitado de Google, y la
-   *  promesa que hace /privacidad. Un runner que llama a `lib/google-calendar` sin
-   *  declararlo no pasa `tests/datos-google-ia.test.ts`. */
+  /** true si el runner LEE la agenda de Google (eventos, horarios, invitados). Lo que
+   *  lee va a la persona por `paraLaPersona`, NUNCA al modelo: el modelo recibe un
+   *  estado de `lib/agenda-sin-ia.ts` o un resumen armado con lo que dijo la persona y
+   *  el CRM (decisión de Martín, 07/10/2026). El chat de la app no las ofrece: guarda
+   *  cada respuesta y la reusa, y no tiene dónde separar lo que es para la persona.
+   *  Un runner que llama a `lib/google-calendar` sin declararlo, o que interpola un dato
+   *  de la agenda en lo que ve el modelo, no pasa `tests/agenda-sin-ia.test.ts`. */
   datosDeGoogle?: true;
   /** true si puede pasar de 30 s (pagina tablas grandes, sale a un proveedor lento).
    *  Va al catálogo; la ruta HTTP tiene `maxDuration = 60`. */
@@ -269,6 +270,10 @@ export type Ctx = {
   actor?: string;
   /** para las lecturas con `formatos`: el pedido por `?formato=` */
   formato?: Formato;
+  /** Por dónde el CÓDIGO le habla a la persona sin pasar por el modelo: el doer de
+   *  WhatsApp lo junta y lo agrega a la respuesta. Sin esto (HTTP, la bandeja) el
+   *  `paraLaPersona` de un runner no tiene a quién llegar y se descarta. */
+  aPersona?: (texto: string) => void;
 };
 
 // ── Lo que devuelven los runners ─────────────────────────────────────────────
@@ -277,18 +282,24 @@ export type Ctx = {
  *  adentro de un resultado válido». Para `formatos`, además el tipo y cabeceras. */
 export type SalidaLectura =
   | string
-  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string> };
+  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string };
 
 /** Lo que una acción `chat` deja listo ANTES del «sí»: el payload saneado (lo que
  *  se va a ejecutar, con ids resueltos) y el resumen que lee la persona. `faltan`
- *  nombra lo que hay que pedir antes de proponer (monto, motivo). */
+ *  nombra lo que hay que pedir antes de proponer (monto, motivo).
+ *
+ *  ⚠️ El `resumen` lo lee también el MODELO: viaja en la respuesta de la herramienta,
+ *  en el system de cada turno mientras la pendiente esté viva y en listar_pendientes.
+ *  Lo que no puede ver un modelo (la agenda de Google) va en `paraLaPersona`. */
 export type Preparado =
-  | { payload: Record<string, unknown>; resumen: string }
-  | { error: string; faltan?: string[]; disponibles?: unknown };
+  | { payload: Record<string, unknown>; resumen: string; paraLaPersona?: string }
+  | { error: string; faltan?: string[]; disponibles?: unknown; paraLaPersona?: string };
 
 /** Lo que devuelve la escritura REAL. NUNCA lanza: si algo falla, `ok: false` con
- *  el motivo — así la pendiente se resuelve y un «sí» repetido no la re-ejecuta. */
-export type Ejecutado = { ok: boolean; resumen: string; datos?: Record<string, unknown> };
+ *  el motivo — así la pendiente se resuelve y un «sí» repetido no la re-ejecuta. El
+ *  `resumen` vuelve al modelo y se guarda en la pendiente; el detalle que no puede ver
+ *  un modelo va en `paraLaPersona`. */
+export type Ejecutado = { ok: boolean; resumen: string; datos?: Record<string, unknown>; paraLaPersona?: string };
 
 export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> } | { error: string };
 

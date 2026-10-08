@@ -253,7 +253,10 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
       ? await (run as { ejecutar: (payload: Record<string, unknown>, ctx: Ctx) => Promise<Ejecutado> }).ejecutar(p.payload, ctx)
       : await ejecutarAccion(ctx.ws, p.tipo, p.payload);
   } catch (err) { r = { ok: false, resumen: `No pude ejecutarlo (${err instanceof Error ? err.message : 'error'}).` }; }
-  const quien = ctx.canal === 'http' ? ' (confirmado por la API)' : ctx.actor ? ` (confirmado por ${ctx.actor})` : '';
+  // El detalle que el modelo no puede ver (lib/agenda-sin-ia.ts) va directo a la
+  // persona. El `resumen` se guarda en la fila y vuelve al modelo: ése no lo lleva.
+  if (r.paraLaPersona) ctx.aPersona?.(r.paraLaPersona);
+  const quien =ctx.canal === 'http' ? ' (confirmado por la API)' : ctx.actor ? ` (confirmado por ${ctx.actor})` : '';
   await resolverPendiente(ctx.ws, p.id, r.ok ? 'ejecutada' : 'error', `${r.resumen}${quien}`);
   return { ok: r.ok, id: p.id, resumen: r.resumen, ...(r.datos ? { datos: r.datos } : {}) };
 }

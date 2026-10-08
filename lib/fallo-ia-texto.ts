@@ -107,9 +107,6 @@ export type ContextoFallo = {
   probadas?: number;
   /** Cuántas de ésas devolvieron HTTP 200 y lo descartamos nosotros. */
   contestaron?: number;
-  /** Cuántas instancias del CLIENTE no se probaron A PROPÓSITO: el turno llevaba datos de
-   *  Google y su proveedor entrena (lib/datos-google-ia.ts). No es que no tenga IA. */
-  apartadas?: number;
 };
 
 export function causaDelFallo(errores: string[], keysDelCliente: number, ctx: ContextoFallo = {}): CausaFalloIA {
@@ -123,10 +120,6 @@ export function causaDelFallo(errores: string[], keysDelCliente: number, ctx: Co
   // ⚠️ CERO INSTANCIAS PROBADAS NO ES «SE CAYÓ SU PROVEEDOR». Pasa cuando hay filas en
   // `credenciales` pero ninguna resuelve (no se puede descifrar, quedó de otro entorno),
   // y el veredicto caía en `sin_respaldo` — que afirma una caída que nadie vio.
-  // ⚠️ Y CERO PROBADAS PORQUE LAS APARTAMOS NOSOTROS tampoco es «no tiene keys»: el turno
-  // llevaba datos de Google, su key es de un proveedor que entrena y la red de plataforma
-  // (la que atiende esos turnos) no contestó. Es nuestro, y se dice.
-  if (ctx.probadas === 0 && (ctx.apartadas ?? 0) > 0) return 'fallo_nuestro';
   if (ctx.probadas === 0) return 'sin_keys';
   // Y si SÍ contestaron, el problema es nuestro: eso manda sobre cualquier texto de error,
   // porque un 200 es la prueba más fuerte que hay de que del otro lado estaba todo bien.

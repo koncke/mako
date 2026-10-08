@@ -43,12 +43,20 @@ const toolsDelTurno = (mensaje: string) => toolsDelRegistro({
   maxChars: 12_000, relevanteA: mensaje,
 }).map((t) => t.name);
 
+// Desde el 07/10/2026 mover ya no necesita la lectura previa: la reunión la encuentra el
+// CÓDIGO con el día y la hora que dijo la persona (la agenda no pasa por el modelo,
+// lib/agenda-sin-ia.ts). La lectura queda para «¿qué reuniones tiene…?».
 const CASOS: Array<{ mensaje: string; espera: string[] }> = [
   { mensaje: 'agendá una visita con Juan Pérez el jueves a las 10', espera: ['proponer_agendar_agenda'] },
   { mensaje: 'agendame una reunión con Ana mañana a las 15', espera: ['proponer_agendar_agenda'] },
-  { mensaje: 'pasá la visita de Juan al viernes a las 11', espera: ['reuniones_agenda_lead', 'proponer_mover_reunion'] },
-  { mensaje: 'reagendá a Juan para el lunes', espera: ['reuniones_agenda_lead', 'proponer_mover_reunion'] },
-  { mensaje: 'moveme la cita con Ana al martes 9:30', espera: ['reuniones_agenda_lead', 'proponer_mover_reunion'] },
+  { mensaje: 'pasá la visita de Juan al viernes a las 11', espera: ['proponer_mover_reunion'] },
+  { mensaje: 'reagendá a Juan para el lunes', espera: ['proponer_mover_reunion'] },
+  { mensaje: 'moveme la cita con Ana al martes 9:30', espera: ['proponer_mover_reunion'] },
+  { mensaje: '¿qué reuniones tiene Juan en la agenda?', espera: ['reuniones_agenda_lead'] },
+  { mensaje: '¿qué horarios tengo libres el jueves en la agenda?', espera: ['horarios_libres_dia'] },
+  // Como pregunta la gente, sin «agenda»: «huecos» y «horarios libres» nombran el CRM.
+  { mensaje: '¿qué horarios tengo libres el jueves?', espera: ['horarios_libres_dia'] },
+  { mensaje: '¿tengo hueco el jueves para una visita?', espera: ['horarios_libres_dia'] },
 ];
 
 test('el mensaje de agenda se reconoce como CRM, incluido el vocabulario de una inmobiliaria', () => {
@@ -87,7 +95,7 @@ test('mover desde WhatsApp NUNCA crea una reunión nueva si no encuentra la nomb
 });
 
 test('agendar y mover en Google no salen por HTTP sin decidirlo', () => {
-  for (const id of ['reuniones_agenda_lead', 'proponer_agendar_agenda', 'proponer_mover_reunion']) {
+  for (const id of ['horarios_libres_dia', 'reuniones_agenda_lead', 'proponer_agendar_agenda', 'proponer_mover_reunion']) {
     const d = porId(id);
     assert.ok(d, `${id} no está en el registro`);
     assert.ok(!d.canales.includes('http'), `${id} sale por HTTP: exponer la agenda de Google a un bearer es una decisión (snapshot), no un default`);

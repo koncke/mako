@@ -346,7 +346,9 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     const reunion = rotuloReunion(which, (await etapasDelWs())?.reuniones);
     const prevStage = lead.pipeline_stage ?? null;
     const prevFechaJ1 = lead.fecha_junta_1;
-    const auto = await buscarReunionesAutomatico(lead);
+    // Sin Google: lo que el motor escribe en la ficha sin que nadie lo mire después lo
+    // leen los análisis con IA, y la agenda no pasa por ninguna (lib/agenda-sin-ia.ts).
+    const auto = await buscarReunionesAutomatico(lead, { conGoogle: false });
     const fathom = which === 'j1' ? auto.fathomR1 : auto.fathomR2;
     const asistio = which === 'j1' ? auto.asistioJ1 : auto.asistioJ2;
 

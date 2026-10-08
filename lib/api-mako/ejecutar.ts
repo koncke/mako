@@ -74,6 +74,9 @@ export async function ejecutarOperacion(
         if (!('leer' in run)) throw new Error(`api-mako: «${def.id}» no tiene leer()`);
         const input = ctx.formato ? { ...v.input, formato: ctx.formato } : v.input;
         const cruda = await run.leer(input, ctx);
+        // Lo que el modelo no puede ver (la agenda de Google) va a la persona por el canal
+        // del código, sale bien o mal la lectura. Sin canal (HTTP), se descarta.
+        if (typeof cruda !== 'string' && cruda.paraLaPersona) ctx.aPersona?.(cruda.paraLaPersona);
         if (typeof cruda === 'string') return { ok: true, tipo: 'lectura', salida: def.salida, resultado: cruda };
         if (cruda.isError) return { ok: false, status: 400, error: cruda.content };
         return { ok: true, tipo: 'lectura', salida: def.salida, formato: cruda.formato, headers: cruda.headers, resultado: cruda.content };
@@ -106,6 +109,7 @@ export async function ejecutarOperacion(
 
       if (!run.preparar) throw new Error(`api-mako: «${def.id}» no tiene preparar()`);
       const prep = await run.preparar(v.input, ctx);
+      if ('error' in prep && prep.paraLaPersona) ctx.aPersona?.(prep.paraLaPersona);
       if ('error' in prep) return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles };
 
       if (def.confirmacion === 'pantalla') {
@@ -119,6 +123,9 @@ export async function ejecutarOperacion(
       }
       const c = await proponerChat(def, prep.payload, prep.resumen, ctx);
       if ('error' in c) return { ok: false, status: 500, error: c.error };
+      // DESPUÉS de guardar la pendiente: el detalle de algo que no quedó propuesto sería
+      // un detalle de nada.
+      if (prep.paraLaPersona) ctx.aPersona?.(prep.paraLaPersona);
       return { ok: true, tipo: 'pendiente', pendiente: c.pendiente };
     });
   } catch (err) {

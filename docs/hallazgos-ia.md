@@ -3016,60 +3016,121 @@ en el ruteo, o el próximo modelo que se agregue vuelve a abrir el mismo agujero
 *Corrida del 05/09/2026 — 7 agentes mapeando qué datos toca MaKo para escribir la política;
 246 hechos verificados y dos auditores adversariales sobre el mapa.*
 
-### Resuelto el 07/10/2026: lo que lleva datos de Google va sólo a un proveedor que no entrena
+### Cerrado el 07/10/2026: la agenda no pasa por ningún modelo (y el primer arreglo era el diagnóstico equivocado)
 
-Martín eligió, al arrancar la verificación de la app de Google, la segunda salida y la
-tercera juntas: **un pedido con datos de Google Calendar lo atiende sólo un proveedor que
-no entrena** (Groq, OpenAI, Anthropic; `lib/datos-google-ia.ts`), y **en el reparto de
-tareas los invitados del calendario salen del prompt**: el modelo escribe el nombre como lo
-oyó y `resolverDueño` le pone el email.
+**Vive en:** `lib/agenda-sin-ia.ts` · `lib/api-mako/areas/crm.run.ts` (las cuatro de agenda) ·
+`lib/api-mako/ejecutar.ts` · `lib/api-mako/acciones.ts` · `lib/mako-doer-in.ts` ·
+`app/api/mako-doer/route.ts` · `lib/auto-reuniones.ts` · `lib/plan-fathom.ts` ·
+`tests/agenda-sin-ia.test.ts`
 
-⚠️ **El camino real era más ancho que el documentado.** Este hallazgo hablaba de UN camino
-(`plan-fathom`). Al recorrerlo de nuevo había otros dos, y por los dos chats a la vez —el
-doer de WhatsApp y el de la app (`app/api/mako-doer`, que con override barato corre en
-`chatCheapToolsCascade`)—: las tres herramientas de agenda escritas ese mismo día, y dos
-más viejas que nadie había mirado con esta pregunta: `horarios_libres_dia` (freeBusy) y
-`reuniones_lead`, que llega a Google **de rebote**, por `mako-tools` → `auto-reuniones` →
-`buscarEventosGoogle`. Un `grep` de quién importa `lib/google-calendar` no la encuentra.
+⚠️ **El diagnóstico obvio era el equivocado, y se implementó y se desplegó.** La mañana del
+07/10 se eligió «IA que no entrena»: si un turno ofrecía una herramienta con datos de la
+agenda, se ruteaba a Groq, OpenAI o Anthropic y nunca a una key gratis de Gemini
+(`ac446f7f`). Martín lo cuestionó con una frase: *«si la IA solo procesa la info que le pide
+el usuario, y la app se debe ejecutar con código interno, no con IA… limitar el uso de Gemini
+en este caso no tiene sentido»*. Tenía razón, y por tres lados:
 
-Cómo quedó, para que el próximo no reabra el agujero:
+1. **La pregunta no era a QUÉ IA va el dato: era por qué va a una.** El modelo sólo necesita
+   las palabras de la persona para elegir qué hacer; buscar en la agenda y mostrar el
+   resultado lo puede hacer el código. Ahí la promesa de /privacidad deja de depender de
+   quién es el proveedor.
+2. **El ruteo dejaba abiertos los caminos que más pesaban.** Un relevo de 4 lectores midió
+   que el título y la hora de la reunión llegaban igual a Gemini por el «sí»
+   (`confirmar_accion` no estaba marcada), por el `resumen` de la pendiente —que se mete en
+   el system de CADA turno mientras la pendiente vive (`ctxPend`) y en `listar_pendientes`,
+   `ver_pendiente` y la lista `vigentes`—, por el historial del lead (`anotar()` →
+   `historial_lead`) y por el título del chat de la app (`generarTitulo` sobre la respuesta
+   entera). **Filtrar por herramienta ofrecida no ve un dato que viaja en un texto guardado.**
+3. **Le sacaba Gemini a quien sólo tiene Gemini** (el ws13), y mandaba esos turnos a
+   nuestras keys.
 
-- **La marca vive en la DEFINICIÓN** (`datosDeGoogle: true` en el `.def.ts`) y no en una
-  lista aparte. `tests/datos-google-ia.test.ts` recorre cada runner de
-  `lib/api-mako/areas/*.run.ts`, con un nivel de auxiliares y con los `case` de
-  `mako-tools` que llegan a la agenda, y falla nombrando la operación que no lo declara. Y
-  obliga a clasificar cada exportación nueva de `lib/google-calendar.ts`.
-- **El filtro va donde corre el pedido, no donde se elige el modelo.** `chatCheapTools`
-  tira `ProveedorQueEntrenaError` antes del primer pedido; la cascada y el doer de WhatsApp
-  ni prueban a los que entrenan (sin esto, cada uno dejaba un error de más en la lista con
-  la que se elige el mensaje al cliente). Es la etiqueta `pii`, que se pintaba y no gateaba
-  nada, convertida en control.
-- **Se decide por las herramientas OFRECIDAS, no por las usadas.** Cambiar de proveedor
-  después de que una herramienta corrió repetiría una acción que ya dejó su pendiente.
-- **Un cliente con sólo Gemini (ws13) queda con cero cuentas propias para esos turnos** y
-  los atiende la red de plataforma (nuestras keys de Groq). Si la red también falla, el
-  veredicto es `fallo_nuestro` (`apartadas` en `causaDelFallo`), no «no tenés keys».
+Cómo quedó:
 
-⚠️ **Y una trampa que estaba de antes, destapada por el test:** `resolverDueño` aceptaba un
+- **El modelo recibe un estado de lista cerrada o un resumen armado sólo con lo que dijo la
+  persona y el CRM.** Lo de la agenda va en `paraLaPersona`: `ejecutarOperacion` y
+  `confirmarPendiente` lo entregan por `ctx.aPersona`, y el doer de WhatsApp lo agrega al
+  final de la respuesta —después de los reemplazos y del validador— y **no lo guarda en el
+  historial del grupo**, que vuelve al modelo en el turno siguiente.
+- **El `resumen` de una pendiente es lo que más cuesta ver: lo lee el modelo aunque nadie
+  lo haya pensado así.** Por eso no lleva el título del evento, la hora vieja ni los
+  choques; esos van al detalle. El `payload` sí los lleva: lo lee sólo el código al
+  confirmar.
+- **Mover ya no le pide al modelo que copie el `inicio` exacto de una lista de la agenda.**
+  Pasa el día y la hora que dijo la persona (`fecha_actual`, `hora_actual`) y el código
+  elige (`filtrarReuniones`, ±10 min). Si hay varias o ninguna, el código se las lista a la
+  persona y el modelo le pide cuál.
+- **El chat de la app no ofrece esas herramientas**: guarda la respuesta entera como turno y
+  con ella arma el título, y no tiene dónde separar lo que es para la persona.
+- **`reuniones_lead` y el CRM automático buscan reuniones sin Google** (`conGoogle: false`,
+  obligatorio en `buscarReunionesAutomatico`): lo que el motor escribe en la ficha sin que
+  nadie lo mire lo leen después los análisis con IA. La pantalla (`StageMoveDialog`) sigue
+  con Google: la ve una persona, que decide si guarda la fecha.
+- Los invitados del calendario siguen fuera del prompt del reparto de tareas, y
+  `resolverDueño` les pone el email por nombre.
+
+⚠️ **Y una trampa que estaba de antes, destapada por un test:** `resolverDueño` aceptaba un
 `dueñoEmail` vacío como email real si algún participante no tenía email — `porEmail` guarda
-la clave `''`, y `porEmail.has('')` daba true. O sea que en un Meet improvisado (hablantes
-de Fathom sin email) el rescate por nombre no corría nunca. Va `propuesto &&`.
+la clave `''`. En un Meet improvisado el rescate por nombre no corría nunca. Va `propuesto &&`.
 
-### Lo que quedó sin tratar, a propósito o no
+### Lo que encontró la revisión adversarial, y cómo quedó
 
-- **Las fechas de reunión que el CRM automático guarda desde Google** (`lib/crm-auto.ts` →
-  `fecha_junta_1/2`, vía `buscarReunionesAutomatico`). Una vez en la ficha son un dato del
-  CRM y pueden llegarle a cualquier modelo que lea la ficha. No se trató.
-- **`tzDelCalendarioGoogle`** se clasificó como «no es dato de un tercero»: es la zona del
-  negocio y va en cada prompt con herramientas («HOY ES…»). Gatearla mandaría todo a Groq.
-- **`horarios_libres_dia` sale por HTTP** (`canales: TODOS`) al agente del propio cliente.
-  No lo lee un modelo nuestro; es el cliente mirando lo suyo con su herramienta.
-- **La extracción de reuniones sigue en Gemini**, y está bien: ya no recibe nada del
-  calendario. Si mañana alguien le vuelve a pasar los invitados, el test lo caza.
+Cuatro lentes (fuga, corrección, cómo se porta el modelo, tests) con un refutador cada
+una, sobre el árbol sin commitear. Lo que sobrevivió:
 
-*07/10/2026 — sin subagentes. Medido rompiendo cada pieza una por vez: 13 roturas, todas
-con su fallo (ver los comentarios de los tests). Una de ellas se midió primero sobre un test
-que ya estaba rojo, dio «1 fallo» y no medía nada: la rotura se mide desde VERDE.*
+- ⚠️ **El test de la regla daba VERDE sobre la forma exacta del bug que se venía a
+  arreglar.** Revisaba lo que ve el modelo buscando NOMBRES de variable (`choques`,
+  `reunion`…), y la forma de HEAD era `const aviso = …choques…` + `${aviso}`: `aviso` no
+  estaba en la lista. Tampoco veía `disponibles:` ni un valor partido en dos líneas. Lo que
+  lo cerró fue mudar TODO el texto de las herramientas de agenda a constructores puros
+  (`lib/agenda-sin-ia.ts`: `propuestaMover`, `resultadoAgendar`, `historialMover`…) y
+  probarlos con CENTINELAS —títulos, horas y motivos falsos que no pueden aparecer en lo
+  que lee el modelo y sí en lo que va a la persona—. Los runners quedaron obligados a no
+  armar texto. **Un guard sobre datos se prueba con datos, no con nombres.**
+- ⚠️ **El segundo paso de la conversación no llegaba a las herramientas.** Después de
+  «tiene dos reuniones, ¿cuál?», la respuesta («la de las 16») la clasificaba
+  `clasificarIntencion` como material para anotar, sin herramientas de agenda. El hueco
+  existía antes, pero el diseño nuevo depende de ese ida y vuelta. Ahora la herramienta
+  que deja una pregunta abierta guarda el pedido por grupo (`mako.doer.agenda.<jid>`, 30
+  min, sólo con lo que mandó el modelo) y el turno siguiente es `actuar` con el CRM y una
+  línea de contexto. Se cierra cuando la acción deja su pendiente.
+- **Las instrucciones daban por hecho que había algo** («pídele que elija una hora») y el
+  bloque del código podía decir «no tienes huecos» justo abajo: ahora son neutras. Y un
+  `codigo: 'ok'` con cero horarios (el día ya pasó) decía «agenda llena» sin haberla leído.
+- **«00:00 a 00:00»** para un día entero libre (el cierre daba la vuelta a medianoche), y el
+  rango cerraba en «último inicio + 15» y no en el fin real del hueco.
+- **La lista numerada invitaba a contestar «la 2»**, que nadie puede resolver (el modelo no
+  ve la lista): ahora va en viñetas y pide el día y la hora.
+- **La descripción de agendar seguía diciendo que el choque «va en el resumen»**: le
+  prometía al modelo un dato que ya no le llega.
+- **`horarios_libres_dia` salía por HTTP** con el libre/ocupado entero al agente del
+  cliente, que también es un modelo; su descripción le decía que no lo veía. Sale de HTTP.
+- **La bandeja de pendientes perdía el detalle** al confirmar (no tenía `aPersona`): ahora lo
+  pega al resumen, porque ahí mira una persona.
+- **El reagendar de la pantalla guardaba en el historial el motivo crudo de Google**, que
+  lee `historial_lead`: ahora una frase fija por código.
+- **«¿qué horarios tengo libres?»** no nombraba el área CRM y «¿tengo hueco el jueves?»
+  dejaba `horarios_libres_dia` fuera del presupuesto: suman `huecos`/`libres` al área y al
+  título.
+
+Refutados con medición: lo guardado antes del cambio (el 08/10, 0 filas de `lead_audit` con
+esa forma de 7.038, y 0 pendientes de agenda de 3), y un eco del bloque como mensaje del
+usuario (de las 131 filas de la cola, ninguna es un mensaje de MaKo). Y uno real pero ANTERIOR,
+que no es de este cambio: si el turno rota de proveedor después de que una acción dejó su
+pendiente, `preparar()` vuelve a correr y queda una segunda pendiente igual (el loop del
+doer no tiene la guarda de `chatCheapToolsCascade`). Quedó como tarea aparte.
+
+### Lo que quedó sin tratar
+
+- **La zona horaria del calendario** (`tzDelCalendarioGoogle` → `mako.timezone`) va en cada
+  prompt con herramientas («HOY ES…»). Se trató como la zona del negocio, no como un dato
+  de la agenda. La política promete «títulos, horarios e invitados», no la zona.
+- **Una fecha que la PERSONA guardó en la ficha** desde la pantalla, prellenada desde Google,
+  es un dato del CRM y la leen los análisis. No se trató.
+- **Las pendientes duplicadas al rotar de proveedor** (arriba): tarea aparte.
+
+*07/10/2026 — relevo de 4 lectores, implementación sin agentes, revisión adversarial de 4
+lentes con refutador y segunda pasada. `tests/agenda-sin-ia.test.ts` probado con 23
+roturas, una por vez y desde verde, todas con su fallo. Suite 4617/4617.*
 
 ## Un transcript largo se mide contra el HABLA, y el trozo final se verifica aparte (20/09/2026)
 

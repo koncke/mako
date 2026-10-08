@@ -53,7 +53,9 @@ test('la guarda va ANTES del envío, o no sirve de nada', () => {
   // llena la variable a tiempo y el mensaje igual no sale.
   const src = doer();
   const iGuarda = src.lastIndexOf('if (!respuesta) {');
-  const iEnvio = src.indexOf('const partes = respuesta.split(');
+  // (Desde el 07/10/2026 el envío lleva, después de la respuesta, los bloques que el
+  // código escribe para la persona —lib/agenda-sin-ia.ts—, y la línea cambió de forma.)
+  const iEnvio = src.indexOf("const partes = (respuesta ?? '').split(");
   assert.ok(iGuarda > 0 && iEnvio > 0, 'falta la guarda o el envío');
   assert.ok(iGuarda < iEnvio, 'la guarda quedó después de mandar: no la ve nadie');
 });

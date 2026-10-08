@@ -12,7 +12,8 @@ export async function autoReunionesAction(leadId: number): Promise<AutoReuniones
     if (!Number.isFinite(leadId) || leadId <= 0) return { error: 'Lead inválido.' };
     const lead = await getLead(leadId);
     if (!lead) return { error: 'El lead no existe.' };
-    return await buscarReunionesAutomatico(lead);
+    // Lo ve una PERSONA en la pantalla, que decide si guarda la fecha: con Google.
+    return await buscarReunionesAutomatico(lead, { conGoogle: true });
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }

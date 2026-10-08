@@ -68,7 +68,15 @@ function ventaCercaDe(calls: AnalisisReunion[], targetISO: string | undefined, u
     .sort((x, y) => x.d - y.d)[0]?.a;
 }
 
-export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReuniones> {
+/**
+ * `conGoogle` es OBLIGATORIO, sin default, para que cada llamador decida: con `true` la
+ * tercera fuente es la agenda de Google del negocio. Lo que va a un MODELO pasa `false`
+ * (la agenda no pasa por ninguna IA, lib/agenda-sin-ia.ts): `reuniones_lead` de
+ * mako-tools, y el CRM automático, que escribe la fecha en la ficha sin que nadie la
+ * mire y de ahí la leen los análisis con IA. La pantalla (StageMoveDialog) pasa `true`:
+ * la ve una persona, que decide si la guarda.
+ */
+export async function buscarReunionesAutomatico(lead: Lead, opts: { conGoogle: boolean }): Promise<AutoReuniones> {
   const supabase = (await getTenantDb());
 
   const [eventos, analisisRes, gcalEventos] = await Promise.all([
@@ -81,7 +89,7 @@ export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReunion
       .order('started_at', { ascending: true })
       .then((r) => (r.data ?? []) as AnalisisReunion[]),
     (async () => {
-      if (!lead.email) return [];
+      if (!lead.email || !opts.conGoogle) return [];
       const now = new Date();
       const timeMin = new Date(now.getTime() - 365 * 86400000).toISOString();
       const timeMax = new Date(now.getTime() + 60 * 86400000).toISOString();

@@ -251,7 +251,7 @@ function sinSaludoInicial(t: string): string {
 
 export function clasificarIntencion(
   texto: string,
-  ctx: { hayPendientes?: boolean; hayMedia?: boolean; hayContacto?: boolean } = {},
+  ctx: { hayPendientes?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean } = {},
 ): VeredictoIntencion {
   const t = (texto || '').trim();
   const n = norm(t);
@@ -302,6 +302,17 @@ export function clasificarIntencion(
       const v = clasificarIntencion(resto, ctx);
       return { ...v, porque: `${v.porque} (saludo adelante)` };
     }
+  }
+
+  // 3-bis) SIGUE UN PEDIDO DE AGENDA. El código le acaba de mostrar a la persona
+  //        opciones de su agenda (los huecos de un día, las reuniones de un lead) y
+  //        su respuesta es corta: «la de las 16», «a las 11», «el jueves». Sin esto
+  //        caía en el default —material para anotar— y el turno llegaba sin las
+  //        herramientas de agenda, con el modelo sin la lista (la agenda no pasa por
+  //        él, lib/agenda-sin-ia.ts). Lo largo, una lista o un link siguen su camino:
+  //        eso no es elegir una opción.
+  if (ctx.hayAgendaAbierta && t.length <= 160 && !esLista(t) && cuentaLinks(t) === 0) {
+    return { intencion: 'actuar', dudosa: false, porque: 'sigue un pedido de agenda: el sistema le acaba de mostrar opciones' };
   }
 
   // ── El cruce que importa: material dictado vs pedido a MaKo ────────────────
@@ -426,7 +437,7 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // VISITAS, y sin esto «pasá la visita de Juan al viernes» no traía ni una tool de agenda
   // (07/10/2026). Y `reagend` aparte porque `\bagend` NO matchea «reagendá»: entre «re» y
   // «agend» no hay borde de palabra.
-  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|r1|r2|juntas?|calific|pipeline|ficha)/i,
+  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|huecos?|horarios?\s+(?:\S+\s+){0,2}libres?|libres?\s+(?:el|la|este|esta|ma[ñn]ana|hoy|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b|disponibilidad|r1|r2|juntas?|calific|pipeline|ficha)/i,
   plan: /\b(tareas?|plan\b|tablero|proyectos?|checklist|deadline|perro guardi)/i,
   ads: /\b(campa[ñn]as?|anuncios?|ads\b|meta ads|presupuesto|adsets?|conjuntos?|creativos?|pauta|cpl|cpm|ctr|guion(es)? de anuncio)/i,
   whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,

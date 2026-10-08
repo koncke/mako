@@ -20,12 +20,17 @@ export async function confirmarPendienteAction(id: number): Promise<ResultadoBan
   if (!idValido(id)) return { ok: false, error: 'Falta el id de la acción.' };
   const c = await ctxDeBandeja();
   if ('error' in c) return { ok: false, error: c.error };
-  const r = await confirmarPendiente(c.ctx, id);
+  // Lo que el código sólo le muestra a una persona (la agenda de Google, que no pasa
+  // por ningún modelo: lib/agenda-sin-ia.ts). Acá la que mira es una persona, así que
+  // va pegado al resumen — si no, quien confirma desde la bandeja pierde el motivo real.
+  const detalle: string[] = [];
+  const r = await confirmarPendiente({ ...c.ctx, aPersona: (t) => { detalle.push(t); } }, id);
   revalidatePath('/mako/pendientes');
   if ('error' in r) return { ok: false, error: r.error };
+  const conDetalle = [r.resumen, ...detalle].join('\n');
   // `ok: false` acá es «se ejecutó y falló»: la pendiente ya quedó en `error` y
   // no vuelve a `pendiente`. Se muestra el motivo, no se invita a reintentar.
-  return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, error: r.resumen };
+  return r.ok ? { ok: true, resumen: conDetalle } : { ok: false, error: conDetalle };
 }
 
 export async function cancelarPendienteAction(id: number): Promise<ResultadoBandeja> {
