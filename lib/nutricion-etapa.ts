@@ -120,3 +120,32 @@ export function secuenciasDeEntrega<T extends SecuenciaDeEntrega>(
     return Number.isFinite(suyo) && suyo === prod;
   });
 }
+
+/**
+ * El trigger «le pusieron la etiqueta X» (mig 0223: `nutricion_secuencias.etiqueta_id`).
+ *
+ * ⚠️ OTRO TRIGGER Y NO UNA ETAPA MÁS, por lo mismo que la entrega: la etiqueta es un id de
+ * `crm_etiquetas` (mig 0224) y una etapa es una key que edita el cliente. Mezclados en
+ * `etapa`, el día que un id coincida con una key se dispararía una secuencia que nadie pidió.
+ */
+export const TRIGGER_ETIQUETA = 'etiqueta_puesta';
+
+/** Lo mínimo de una secuencia para saber si una etiqueta la dispara. */
+export type SecuenciaDeEtiqueta = { id: number; trigger_tipo: string; etiqueta_id?: number | string | null };
+
+/**
+ * Las secuencias que dispara un lead al que ACABAN de ponerle la etiqueta `etiquetaId`.
+ *
+ * ⚠️ SIN ETIQUETA NO SE ENROLA A NADIE, y es la misma guarda que la del evento de etapa:
+ * `enrolarPorEvento` mete al lead en TODAS las secuencias del trigger del evento, así que sin
+ * este filtro poner «Cualificado» lo metía también en la secuencia de «Seguimiento». Una
+ * secuencia sin `etiqueta_id` no dispara nunca: no existe «todas las etiquetas».
+ */
+export function secuenciasDeEtiqueta<T extends SecuenciaDeEtiqueta>(
+  secuencias: readonly T[],
+  etiquetaId: number | string | null | undefined,
+): T[] {
+  const id = etiquetaId == null || etiquetaId === '' ? NaN : Number(etiquetaId);
+  if (!Number.isInteger(id) || id <= 0) return [];
+  return secuencias.filter((s) => s.trigger_tipo === TRIGGER_ETIQUETA && s.etiqueta_id != null && Number(s.etiqueta_id) === id);
+}

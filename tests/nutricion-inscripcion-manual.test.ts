@@ -172,7 +172,9 @@ test('lo que el motor vuelve a mirar al mandar se pregunta con SUS funciones, y 
   assert.match(FN, /FAMILIA_POST_AGENDA\.includes\(s\.trigger_tipo\)/, 'la otra mitad de la post-agenda');
   // El alta: la misma fila que enrolarPorEvento, con la reunión sólo en la familia que prepara una.
   assert.match(FN, /\.insert\(\{\s*lead_id: leadId, secuencia_id: s\.id, paso_actual: 0, estado: 'activa', proximo_envio_at: proximo,\s*\.\.\.\(prepara \? \{ reunion_at: reunionAt \} : \{\}\),/);
-  assert.match(FN, /const proximo = proximoEnvioDePaso\(pasos\[0\], lead\);/);
+  // El primer envío lo programa el nodo de ENTRADA (08/10/2026): con ramas, `pasos[0]` puede ser
+  // «Si responde» o una condición, y no el primer mensaje.
+  assert.match(FN, /const proximo = proximoEnvioDePaso\(pasoDeEntrada\(pasos\), lead\);/);
   // El unique (lead_id, secuencia_id) que choca no es un error de la base: otra corrida ganó.
   assert.match(FN, /if \(error\?\.code === '23505'\) return \{ inscribe: false, porque: 'carrera'/);
   assert.match(FN, /try \{ await procesarEnvios\(\{ soloLeadId: leadId \}\); \}/, 'la vía rápida de enrolarPorEvento');

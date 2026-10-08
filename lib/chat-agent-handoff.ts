@@ -22,6 +22,9 @@ import { chatCheapCascade, CASCADA_GRATIS } from './ai-cheap';
 import { renderPrompt } from './prompt-render';
 import { contenidoNoConfiable } from './prompt-render-pure';
 import type { EscenarioSecuencia } from './setting-estrategia';
+import type { PasoSecuencia } from './nutricion';
+import { raizRespuesta } from './flujo-grafo';
+import { agregarCasoAlGrafo } from './nutricion-grafo-motor';
 
 export const HANDOFF_SYSTEM_TEMPLATE = `Eres MaKo y decides UNA sola cosa: si el mensaje de un lead encaja en alguno de los casos que este negocio ya sabe manejar.
 
@@ -124,15 +127,22 @@ export async function registrarHandoff(input: {
   const quien = input.leadNombre?.trim() || `lead ${input.leadId}`;
   try {
     const { emitirDelCatalogo } = await import('./avisos');
+    const ws = await getWorkspaceActual();
+    // ⚠️ CON LINK A LA AUTOMATIZACIÓN, armado por `linkApp` (la quinta forma de navegar: lleva el
+    // `?ws=`). El aviso decía «agrégalo a la secuencia» sin decir dónde, y desde el 08/10/2026 el
+    // formulario de arriba de /chatbot ya no existe: un caso nuevo es una rama de «Si responde».
+    const { linkApp } = await import('./app-url');
+    const link = input.secuenciaId != null ? linkApp(`/chatbot?sec=${input.secuenciaId}`, ws) : null;
     await emitirDelCatalogo('wa-mensaje-entrante', {
-      ws: (await getWorkspaceActual()) ?? undefined,
+      ws: ws ?? undefined,
       texto: [
         `🖐 *${quien} escribió algo que no tengo previsto.*`,
         input.secuenciaNombre ? `Secuencia: ${input.secuenciaNombre}` : '',
         '',
         `_"${input.mensaje.trim().slice(0, 220)}"_`,
         '',
-        'No le contesté nada: prefiero no improvisar con alguien real. Contéstale tú y, si es un caso que se va a repetir, agrégalo a la secuencia para que la próxima sepa qué hacer.',
+        'No le contesté nada: prefiero no improvisar con alguien real. Contéstale tú y, si es un caso que se va a repetir, súmalo como caso en «Si responde» para que la próxima sepa qué hacer.',
+        link ? `👉 ${link}` : '',
         '',
         '— MaKo',
       ].filter(Boolean).join('\n'),
@@ -180,29 +190,46 @@ export async function handoffsPendientes(): Promise<HandoffPendiente[]> {
  */
 export async function resolverHandoff(id: number, escenario: EscenarioSecuencia): Promise<void> {
   const supabase = await getTenantDb();
-  const { data } = await supabase
+  const { data, error: eH } = await supabase
     .from('chat_agent_handoffs').select('id, lead_id, secuencia_id').eq('id', id).maybeSingle();
+  if (eH) throw new Error(`resolverHandoff: ${eH.message}`);
   const h = data as { id: number; lead_id: number | null; secuencia_id: number | null } | null;
   if (!h) throw new Error('Ese caso ya no existe.');
 
   if (h.secuencia_id != null) {
-    const { data: secRow } = await supabase
-      .from('nutricion_secuencias').select('estrategia').eq('id', h.secuencia_id).maybeSingle();
-    const { parseEstrategia } = await import('./setting-estrategia');
-    const est = parseEstrategia((secRow as { estrategia?: unknown } | null)?.estrategia);
-    if (est) {
-      // Se suma al final: el orden de los escenarios es el orden en que el dueño
-      // los fue enseñando, y eso ya es información.
-      const escenarios = [...est.escenarios.filter((e) => e.titulo !== escenario.titulo), escenario];
-      await supabase.from('nutricion_secuencias')
-        .update({ estrategia: { ...est, escenarios }, updated_at: new Date().toISOString() })
-        .eq('id', h.secuencia_id);
+    const { data: secRow, error: eSec } = await supabase
+      .from('nutricion_secuencias').select('estrategia, pasos').eq('id', h.secuencia_id).maybeSingle();
+    if (eSec) throw new Error(`resolverHandoff (secuencia): ${eSec.message}`);
+    const fila = secRow as { estrategia?: unknown; pasos?: unknown } | null;
+    const pasos = Array.isArray(fila?.pasos) ? (fila!.pasos as PasoSecuencia[]) : [];
+    if (raizRespuesta(pasos) != null) {
+      // ⚠️ CON «SI RESPONDE», EL CASO ES UNA RAMA DE LA TARJETA (el flujo con ramas, 08/10/2026):
+      // el caso y, colgando de él, un «MaKo contesta» con la guía. Sumarlo a
+      // `estrategia.escenarios` sería escribirlo donde ya nadie lo lee — el clasificador de esa
+      // secuencia lee los casos de la tarjeta. Se guarda por `setSecuenciaPasos`, que valida.
+      const r = agregarCasoAlGrafo(pasos, escenario);
+      if ('error' in r) throw new Error(`No se pudo enseñar el caso: ${r.error}.`);
+      const { setSecuenciaPasos } = await import('./nutricion');
+      await setSecuenciaPasos(h.secuencia_id, r.pasos);
+    } else {
+      const { parseEstrategia } = await import('./setting-estrategia');
+      const est = parseEstrategia(fila?.estrategia);
+      if (est) {
+        // Se suma al final: el orden de los escenarios es el orden en que el dueño
+        // los fue enseñando, y eso ya es información.
+        const escenarios = [...est.escenarios.filter((e) => e.titulo !== escenario.titulo), escenario];
+        const { error } = await supabase.from('nutricion_secuencias')
+          .update({ estrategia: { ...est, escenarios }, updated_at: new Date().toISOString() })
+          .eq('id', h.secuencia_id);
+        if (error) throw new Error(`resolverHandoff (estrategia): ${error.message}`);
+      }
     }
   }
 
-  await supabase.from('chat_agent_handoffs')
+  const { error: eRes } = await supabase.from('chat_agent_handoffs')
     .update({ resuelto_at: new Date().toISOString(), escenario: escenario.titulo })
     .eq('id', id);
+  if (eRes) throw new Error(`resolverHandoff (marcar): ${eRes.message}`);
 
   // La inscripción vuelve a correr. Ver el comentario del encabezado: cerrarla
   // dejaría al lead fuera de esa secuencia para siempre.

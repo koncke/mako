@@ -26,7 +26,7 @@
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_secuencia_mensajes` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
+- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_secuencia_mensajes` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
@@ -3787,7 +3787,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/email/activar_envio_real_email" -H
 
 ## Chatbot y secuencias — `chatbot`
 
-Tab **Chatbot** (`/chatbot`). 14 lecturas · 13 acciones.
+Tab **Chatbot** (`/chatbot`). 14 lecturas · 14 acciones.
 
 ### `GET /api/v1/chatbot/listar_secuencias_nutricion` — Listar las secuencias de mensajes
 
@@ -3806,7 +3806,7 @@ curl -s "https://hola-mako.com/api/v1/chatbot/listar_secuencias_nutricion" -H "A
 
 ### `GET /api/v1/chatbot/ficha_secuencia_mensajes` — Ficha de una secuencia
 
-Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto o audio, condición, texto y cantidad de variantes), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
+Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -4053,7 +4053,7 @@ PROPONE crear una secuencia de mensajes nueva colgada de una etapa del funnel. N
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `etapa` | string | sí | clave de la etapa del funnel (de etapas_para_secuencia). |
-| `nombre` | string | sí | nombre de la secuencia, como lo va a ver el dueño. |
+| `nombre` | string | sí | nombre de la secuencia, como lo va a ver el dueño (hasta 40 caracteres). |
 
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/chatbot/crear_secuencia_mensajes" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -4062,7 +4062,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/chatbot/crear_secuencia_mensajes" 
 
 ### `POST /api/v1/chatbot/cambiar_espera_paso` — Cambiar la espera de un paso
 
-PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.
+PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). Si el paso es una tarjeta «Esperar», cambia lo que espera esa tarjeta. No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -4146,6 +4146,28 @@ curl -s -X POST "https://hola-mako.com/api/v1/chatbot/agregar_objetivo_custom" -
   --data-binary '{"objetivo":"…"}'
 ```
 
+### `POST /api/v1/chatbot/avisar_al_equipo` — Avisar al equipo
+
+PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
+
+- **Alcance mínimo del token:** proponer
+- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** manda un aviso al grupo de WhatsApp del negocio y deja una notificación en la app (no toca al lead)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | no | opcional: el lead del que se avisa (de buscar_leads). En una automatización, el del evento. |
+| `titulo` | string | no | opcional: el título corto del aviso. |
+| `mensaje` | string | sí | lo que tiene que saber el equipo, en una o dos frases. |
+
+```bash
+curl -s -X POST "https://hola-mako.com/api/v1/chatbot/avisar_al_equipo" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data-binary '{"mensaje":"…"}'
+```
+
 ### `POST /api/v1/chatbot/reabrir_onboarding_chatbot` — Reabrir el onboarding del chatbot
 
 PROPONE reabrir desde cero el onboarding del chatbot y devuelve un link para confirmarlo. La tab /chatbot vuelve a abrir en el recorrido, y los pasos que comparte con otras tabs (la conexión del número de WhatsApp, el email) se vuelven a pedir: no hay forma de volver a marcarlos sin rehacerlos. Úsala solo si el dueño pide rehacer la configuración del chatbot.
@@ -4167,7 +4189,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/chatbot/reabrir_onboarding_chatbot
 
 ### `POST /api/v1/chatbot/guardar_estrategia_secuencia` — Guardar la estrategia de una secuencia
 
-PROPONE cambiar la estrategia de una secuencia y devuelve un link para revisarla: objetivo, gancho, preguntas de cualificación, criterio de calificación, desenlace (qué cuenta como logrado, a qué etapa y a qué secuencia pasa el lead) y modo. Solo cambian los campos que pases; el resto se conserva. Si la secuencia todavía no tiene estrategia, el objetivo es obligatorio. El desenlace mueve leads de etapa solo desde el motor. Los escenarios se agregan con agregar_escenario_secuencia.
+PROPONE cambiar la estrategia de una secuencia y devuelve un link para revisarla: objetivo, gancho, preguntas de cualificación, criterio de calificación, desenlace (qué cuenta como logrado, a qué etapa y a qué secuencia pasa el lead) y modo. Solo cambian los campos que pases; el resto se conserva. Si la secuencia todavía no tiene estrategia, el objetivo es obligatorio. El desenlace mueve leads de etapa solo desde el motor; en una secuencia armada con tarjetas (condiciones, esperas, «Si responde») el desenlace y el modo no se cambian por aquí: cuándo termina y qué pasa al responder son tarjetas del lienzo. Los escenarios se agregan con agregar_escenario_secuencia.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -4205,7 +4227,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/chatbot/guardar_estrategia_secuenc
 
 ### `POST /api/v1/chatbot/editar_pasos_secuencia_mensajes` — Editar los pasos de una secuencia
 
-PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, condición) y devuelve un link para revisarla. La lista que pases REEMPLAZA a la actual en ese orden: un paso que no esté se borra. Dentro de cada paso, un campo que omitas se conserva del paso que hoy ocupa esa posición, y las variantes ya generadas se mantienen. En un paso de WhatsApp oficial con plantilla aprobada, cambiar el texto NO cambia lo que recibe el lead: sigue saliendo la plantilla aprobada con el texto anterior. Un paso de audio a un lead que todavía no es cliente queda como borrador para que alguien lo mande. Un [corchete] distinto de [tu link …] deja el paso sin salir nunca. Lee antes ficha_secuencia_mensajes.
+PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, condición) y devuelve un link para revisarla. Sólo en una secuencia SIN ramas (sin condiciones, sin «Si responde», sin «Ir a»): una con ramas se edita en el lienzo de /chatbot, y por aquí contesta un error. La lista que pases REEMPLAZA a la actual en ese orden: un paso que no esté se borra. Dentro de cada paso, un campo que omitas se conserva del paso que hoy ocupa esa posición, y las variantes ya generadas se mantienen. En un paso de WhatsApp oficial con plantilla aprobada, cambiar el texto NO cambia lo que recibe el lead: sigue saliendo la plantilla aprobada con el texto anterior. Un paso de audio a un lead que todavía no es cliente queda como borrador para que alguien lo mande. Un [corchete] distinto de [tu link …] deja el paso sin salir nunca. Lee antes ficha_secuencia_mensajes.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -4224,8 +4246,9 @@ PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, con
 | `pasos.cuerpo` | string | no | el texto del mensaje; en un paso de audio, el pie que sale después. Admite {{nombre}} y {{empresa}}. |
 | `pasos.asunto` | string | no | asunto (solo email). |
 | `pasos.preheader` | string | no | texto de vista previa (solo email). |
-| `pasos.tipo` | string (texto \\| audio) | no | texto o nota de voz (audio exige audio_id). |
+| `pasos.tipo` | string (texto \\| audio \\| media) | no | texto, nota de voz (audio exige audio_id) o archivo (media exige media_id: foto, video o documento, sólo por WhatsApp no oficial; el texto es el pie). |
 | `pasos.audio_id` | number | no | id del audio (lo da la biblioteca de audios, solo por WhatsApp o en la app), solo si tipo es audio. |
+| `pasos.media_id` | number | no | id del archivo de la biblioteca de archivos del chatbot, solo si tipo es media. |
 | `pasos.requiere` | string (respondio \\| sin_respuesta \\| ya_contactado \\| primer_contacto \\| ninguno) | no | condición para que el paso salga; «ninguno» la quita. «sin_respuesta» hoy no la evalúa el motor. |
 | `pasos.proveedor` | string (oficial \\| no_oficial) | no | WhatsApp oficial (plantilla de Meta) o no oficial (el número vinculado). |
 | `pasos.ancla` | string (reunion \\| ninguno) | no | reunion: la espera cuenta como horas ANTES de la próxima reunión del lead; «ninguno» quita el ancla. |
@@ -4237,7 +4260,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/chatbot/editar_pasos_secuencia_men
 
 ### `POST /api/v1/chatbot/agregar_escenario_secuencia` — Agregar un caso previsto
 
-PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. La secuencia tiene que tener estrategia guardada; máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
+PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la secuencia tiene la tarjeta «Si responde», el caso entra ahí como una rama nueva con un «MaKo contesta» que usa tu guía; si no, la secuencia tiene que tener estrategia guardada. Máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.

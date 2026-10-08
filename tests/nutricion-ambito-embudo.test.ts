@@ -149,8 +149,14 @@ test('el motor le pasa a la cohorte el embudo DE LA SECUENCIA', () => {
     // Desde el 05/10 viaja también `sec.producto_id`: el ámbito de una secuencia de
     // ENTREGA es el producto y no el embudo (mig 0189). Lo que el guard cuida sigue
     // siendo lo mismo — que el call-site no resuelva la cohorte SIN el ámbito.
-    assert.equal(s[1], ', sec.funnel_id, sec.producto_id', 'un call-site resuelve la cohorte sin el ámbito de la secuencia: el filtro queda muerto');
+    // Y desde el 08/10 `sec.etiqueta_id`: el trigger «Le ponen la etiqueta» (cohorte = los
+    // leads que YA la tienen) no tiene otra forma de saber de qué etiqueta se trata.
+    assert.equal(s[1], ', sec.funnel_id, sec.producto_id, sec.etiqueta_id', 'un call-site resuelve la cohorte sin el ámbito de la secuencia: el filtro queda muerto');
   }
+  // La etiqueta tiene que venir de la base, como el embudo: los dos selects del motor la traen.
+  // Probado rompiéndolo (08/10/2026): sacando `etiqueta_id` de uno de los dos → 1 falla (7/1).
+  const conEtiqueta = [...src.matchAll(/\.select\('([^']*trigger_tipo[^']*)'\)/g)].filter((m) => m[1].includes('etiqueta_id'));
+  assert.ok(conEtiqueta.length >= 2, `los selects de secuencias con etiqueta_id son ${conEtiqueta.length}: el trigger de etiqueta resolvería la cohorte vacía`);
   // Y el dato tiene que llegar desde la base, o `sec.funnel_id` es `undefined`
   // para siempre y el ámbito es «todos» aunque el dueño declare el embudo.
   // ⚠️ NO SE FIJA LA LISTA EXACTA DE COLUMNAS. La primera versión de este guard pedía

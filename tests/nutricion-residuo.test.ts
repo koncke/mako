@@ -260,7 +260,9 @@ test('⚠️ al MANDAR se vuelve a preguntar si sigue siendo residuo, y si no, s
   const src = fuente('lib/nutricion.ts');
   const fn = bloque(src, 'export async function procesarEnvios(', '\nexport ');
   assert.match(fn, /residuoDelLote[^;]*= delResiduo\.length\s*\?\s*await residuoVigente\(supabase, delResiduo\)/);
-  const guarda = bloque(fn, 'if (sec.trigger_tipo === TRIGGER_RESIDUO)', "if (paso.ancla === 'reunion') {");
+  // Hasta el re-anclado del recordatorio (08/10/2026: `anclada`, que suma la espera «antes de la
+  // reunión» del flujo al `ancla` de siempre).
+  const guarda = bloque(fn, 'if (sec.trigger_tipo === TRIGGER_RESIDUO)', 'if (anclada) {');
   assert.match(guarda, /if \(residuoDelLote === null\)\s*\{\s*res\.detalle\.push\(\{[^}]*\}\);\s*continue;/, 'sin poder leer, no puede seguir de largo');
   assert.match(guarda, /if \(!residuoDelLote\.has\(insc\.lead_id\)\)\s*\{[\s\S]*estado: 'completada', proximo_envio_at: null[\s\S]*continue;/);
   // Y va ANTES de cualquier rama que mande.

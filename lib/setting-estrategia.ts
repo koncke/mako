@@ -5,6 +5,15 @@
 // Parser TOLERANTE (patrón getSettingNum): basura → null, parciales → defaults.
 // Sin 'server-only': lo importan los tests y los tipos del client.
 
+/**
+ * El tope del NOMBRE de una secuencia (pedido de Martín, 08/10/2026, punto 3: «solo el título.
+ * Y procura que se vea todo, con un máximo de caracteres»). 40 entra entero en la lista de la
+ * izquierda del chatbot y no obliga a renombrar ninguna de las vigentes (medido: de 31 a 39).
+ * Vive acá, sin `server-only`, porque lo leen los tres que escriben un nombre: la pantalla,
+ * el servidor (lib/setting-secuencias.ts) y la API de MaKo (chatbot.def.ts).
+ */
+export const TOPE_NOMBRE_SECUENCIA = 40;
+
 // 'preparar' salió de la reunión del 31/07: es el objetivo que Mauricio declaró
 // como EL más importante del setter ("número dos, preparar para la llamada"),
 // por encima de cualificar. Sin él no era representable.

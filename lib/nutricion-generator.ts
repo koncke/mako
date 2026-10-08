@@ -22,6 +22,8 @@ import { ejemplosRelevantes } from '@/lib/copywriting-metodo';
 import { resumenFunnel } from '@/lib/mako-context';
 import { parseEstrategia } from '@/lib/setting-estrategia';
 import { puedeAfirmarEtapa } from './nutricion-familias';
+import { TRIGGER_ETIQUETA } from './nutricion-etapa';
+import { esNodoDeControl } from './nutricion-grafo-motor';
 import { esPasoAccion } from './nutricion-paso-accion';
 
 const KEY_VOZ = 'mako.voz_guia';
@@ -207,6 +209,9 @@ export const COHORTE_GLOSS: Record<string, string> = {
   // El residuo (#790). Junta a dos que no vivieron lo mismo, y la glosa lo dice: al
   // que faltó no se le puede escribir como si hubieran hablado.
   residuo_sin_cierre: 'Hace más de 45 días tuvo una reunión agendada contigo: o asistió y no compró, o no se presentó. No pagó ni tiene otra reunión. Se reabre la charla sin presión y con salida digna, sin dar por hecho que hablaron.',
+  // El disparador por ETIQUETA (mig 0223). La etiqueta la puso una persona o una automatización
+  // y su nombre dice para qué: la glosa no puede inventar la situación, sólo decir de dónde viene.
+  etiqueta_puesta: 'Le acaban de poner una etiqueta en el CRM (la que dispara esta secuencia): alguien del equipo o una automatización lo clasificó así. Escríbele según lo que esa etiqueta dice de él, sin nombrar la etiqueta.',
 };
 
 // Extrae el primer objeto JSON balanceado (tolera prosa alrededor y llaves {{...}}
@@ -260,7 +265,16 @@ export type GenerarSecuenciaResult =
  * `puedeAfirmarEtapa` (lib/nutricion-familias.ts), que es donde vive la condición para
  * que tenga test.
  */
-async function contextoDeSecuencia(sec: { nombre: string; etapa: string; trigger_tipo: string; funnel_id?: number | null }): Promise<string> {
+async function contextoDeSecuencia(sec: { nombre: string; etapa: string; trigger_tipo: string; funnel_id?: number | null; etiqueta_id?: number | null }): Promise<string> {
+  // Por ETIQUETA: el nombre de la etiqueta dice a quién le habla (mig 0223/0224). Si la tabla
+  // todavía no existe o no se puede leer, la glosa genérica de siempre.
+  if (sec.trigger_tipo === TRIGGER_ETIQUETA && sec.etiqueta_id != null) {
+    try {
+      const { data } = await (await getTenantDb()).from('crm_etiquetas').select('nombre').eq('id', sec.etiqueta_id).maybeSingle();
+      const nombre = String((data as { nombre?: unknown } | null)?.nombre ?? '').trim();
+      if (nombre) return `${sec.nombre}. Le acaban de poner la etiqueta «${nombre}» en el CRM: escríbele según lo que eso dice de él, sin nombrar la etiqueta.`;
+    } catch { /* cae a la glosa genérica */ }
+  }
   if (sec.trigger_tipo === 'etapa_actual') {
     try {
       // DEL FUNNEL DE LA SECUENCIA, no del lead: la etiqueta describe el cohorte.
@@ -291,7 +305,8 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   if (!sec.pasos.length) return { ok: false, error: 'Esa secuencia no tiene pasos para escribir.' };
   // Un paso «⚡ Acción de MaKo» no tiene texto: no viaja al modelo y sale del merge tal cual.
   // Antes se le pedía copy al modelo y el saneo lo tiraba al guardar (cuerpo vacío forzado).
-  const aEscribir = sec.pasos.filter((p) => !esPasoAccion(p));
+  // Ni una tarjeta de CONTROL (condición, espera, «Si responde», «Ir a»): tampoco tiene texto.
+  const aEscribir = sec.pasos.filter((p) => !esPasoAccion(p) && !esNodoDeControl(p));
   if (!aEscribir.length) return { ok: false, error: 'Esta secuencia sólo tiene acciones: no hay texto que escribir.' };
 
   const contexto = await contextoDeSecuencia(sec);
@@ -344,6 +359,7 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   let deTexto = 0;   // la posición entre los pasos que SÍ viajaron al modelo
   const merged: PasoSecuencia[] = sec.pasos.map((orig) => {
     if (esPasoAccion(orig)) return orig;
+    if (esNodoDeControl(orig)) return orig;
     const i = deTexto++;
     const g = genPasos.find((x) => Number(x.orden) === orig.orden) ?? genPasos[i];
     const cuerpo = asStr(g?.cuerpo).trim() || orig.cuerpo;

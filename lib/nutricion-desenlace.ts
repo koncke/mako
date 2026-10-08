@@ -26,6 +26,7 @@ import { enTandas } from './ids-con-filas';
 import { enviosPorInscripcion } from './nutricion-envios-resumen';
 import { preparaUnaReunion } from './nutricion-familias';
 import { reunionQuePreparaMs, type JuntasLead } from './nutricion-reinscripcion';
+import { agendoLead, pagoLead, pasoDeEntrada } from './nutricion-grafo-motor';
 
 export type ResultadoDesenlaces = {
   logrados: number;
@@ -55,19 +56,23 @@ function fechaReunion(lead: Record<string, unknown>): string {
     return d.toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
   } catch { return ''; }
 }
-/** ¿Se cumplió lo que la secuencia buscaba? */
+/**
+ * ¿Se cumplió lo que la secuencia buscaba?
+ *
+ * «Agendó» y «pagó» salen de lib/nutricion-grafo-motor.ts y no de una cuenta propia: son las
+ * MISMAS preguntas que la condición «Agendó» / «Pagó» de una tarjeta, y el conversor pasa
+ * «Termina si agenda» a esa condición. Con dos reglas, una secuencia convertida terminaría en
+ * otro momento que antes de convertirla.
+ */
 function seLogro(d: Desenlace, lead: Record<string, unknown>, estado: string): boolean {
   switch (d.logrado) {
     case 'respondio':
       return estado === 'respondio';
-    case 'agendo': {
+    case 'agendo':
       // Cualquier reunión agendada cuenta, sea la primera o la segunda.
-      const f = [lead.fecha_junta_1, lead.junta_1_at, lead.fecha_junta_2, lead.junta_2_at]
-        .find((x) => typeof x === 'string' && x);
-      return !!f;
-    }
+      return agendoLead(lead);
     case 'pago':
-      return Boolean(lead.fecha_primer_pago) || lead.cerro === true;
+      return pagoLead(lead);
     default:
       return false;
   }
@@ -174,8 +179,10 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     const { data: ya } = await supabase
       .from('nutricion_inscripciones').select('id').eq('lead_id', leadId).eq('secuencia_id', sig.id).maybeSingle();
     if (ya) return 'ya-estuvo-en-la-siguiente';
+    // El paso de ENTRADA, no el índice 0: con el flujo con ramas, «Si responde» puede estar
+    // primero en el array y la salida arrancar más abajo.
     const pasos = Array.isArray(sig.pasos) ? (sig.pasos as Array<{ delay_horas?: number }>) : [];
-    const delay = Number(pasos[0]?.delay_horas ?? 0) || 0;
+    const delay = Number(pasoDeEntrada(pasos)?.delay_horas ?? 0) || 0;
     // La reunión que esta inscripción prepara (mig 0205), igual que al inscribir por el
     // cohorte: sin ella, el reuso de mañana no sabría si la próxima agenda es otra reunión.
     const reunion = preparaUnaReunion(sig.trigger_tipo) ? reunionQuePreparaMs(lead as JuntasLead) : null;
