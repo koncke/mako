@@ -20,8 +20,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEFS, TOPE_TITULO_CLASE, TOPE_NOMBRE_MODULO, TOPE_DESCRIPCION_HTML, TOPE_DESCRIPCION_TEXTO } from '../lib/api-mako/areas/curso.def';
-import { htmlDeTexto } from '../lib/api-mako/areas/curso.helpers';
+import {
+  DEFS, TOPE_TITULO_CLASE, TOPE_NOMBRE_MODULO, TOPE_DESCRIPCION_HTML, TOPE_DESCRIPCION_TEXTO,
+  MAX_TAREAS_API, TOPE_TITULO_TAREA_API, TOPE_PREGUNTA_API, TOPE_CAMPOS_API,
+} from '../lib/api-mako/areas/curso.def';
+import { htmlDeTexto, modeloDeTareas, tareasParaApi, TIPOS_CAMPO_API } from '../lib/api-mako/areas/curso.helpers';
+import { erroresDeCampos, tareasDeClase, MAX_TAREAS, TOPE_TITULO_TAREA, TOPE_PREGUNTA, TOPE_CAMPOS } from '../lib/curso';
+import { validarInput } from '../lib/api-mako/validar';
 import { TOPE_TITULO, TOPE_TEXTO } from '../app/customer-success/curso/reglas';
 import { TOPE_NOMBRE_ETAPA } from '../lib/servicio-etapas';
 import { DIAS_PAPELERA } from '../lib/curso-papelera-reglas';
@@ -102,6 +107,71 @@ test('la guía «Migrar un curso con Claude» nombra rutas que existen', () => {
     const forma = ruta.replace(/&#123;|\{/g, '{').replace(/&#125;|\}/g, '}');
     assert.ok(RUTAS_REST.some(([m, r]) => m === metodo && r === forma), `la guía nombra ${metodo} ${forma}, que no existe`);
   }
+});
+
+test('los topes de la tarea son los del modelo', () => {
+  assert.equal(MAX_TAREAS_API, MAX_TAREAS);
+  assert.equal(TOPE_TITULO_TAREA_API, TOPE_TITULO_TAREA);
+  assert.equal(TOPE_PREGUNTA_API, TOPE_PREGUNTA);
+  assert.equal(TOPE_CAMPOS_API, TOPE_CAMPOS);
+});
+
+test('las tareas de la API → el modelo: la principal sin título, las demás como `seccion`', () => {
+  let n = 0;
+  const gen = () => `n${++n}`;
+  const m = modeloDeTareas([
+    { consigna: 'Mira el video.\n\nY contesta.', campos: [{ tipo: 'linea', label: 'Tu meta', obligatorio: true }] },
+    { titulo: 'Tu primer anuncio', consignaHtml: '<p>Súbelo</p>', campos: [{ tipo: 'link', label: 'El link' }, { tipo: 'eleccion', label: '¿Te gustó?', opciones: ['Sí', 'No'] }] },
+  ], [], gen);
+  assert.ok(!('error' in m));
+  if ('error' in m) return;
+  assert.equal(m.tareaHtml, '<p>Mira el video.</p><p>Y contesta.</p>');
+  assert.deepEqual(m.campos.map((c) => [c.tipo, c.label]), [['linea', 'Tu meta'], ['seccion', 'Tu primer anuncio'], ['link', 'El link'], ['eleccion', '¿Te gustó?']]);
+  assert.deepEqual(erroresDeCampos(m.campos), {}, 'lo que arma la API pasa la misma validación que el editor');
+  assert.deepEqual(tareasDeClase({ tarea: 'x', tareaHtml: m.tareaHtml, campos: m.campos }).map((t) => t.titulo), [null, 'Tu primer anuncio']);
+});
+
+test('editar las tareas CONSERVA los ids (las respuestas de los alumnos cuelgan de ellos)', () => {
+  const antes = [
+    { id: 'meta', label: 'Tu meta', tipo: 'linea' as const },
+    { id: 'sec', label: 'Tu primer anuncio', tipo: 'seccion' as const },
+    { id: 'link', label: 'El link', tipo: 'link' as const },
+  ];
+  const existentes = tareasDeClase({ tarea: 'x', tareaHtml: '<p>x</p>', campos: antes });
+  // Ida y vuelta tal cual: los mismos ids.
+  const ida = modeloDeTareas(tareasParaApi(existentes).map((t) => ({ titulo: t.titulo ?? undefined, consignaHtml: t.consignaHtml ?? undefined, campos: t.campos as never })), existentes, () => 'NUEVO');
+  assert.ok(!('error' in ida));
+  if ('error' in ida) return;
+  assert.deepEqual(ida.campos.map((c) => c.id), ['meta', 'sec', 'link']);
+  // Sin id, con la misma pregunta y el mismo tipo: se reusa. Una pregunta nueva nace con id nuevo.
+  const sinIds = modeloDeTareas([
+    { campos: [{ tipo: 'linea', label: 'Tu meta' }, { tipo: 'texto', label: 'Algo nuevo' }] },
+    { titulo: 'Tu primer anuncio', campos: [{ tipo: 'link', label: 'el link' }] },
+  ], existentes, () => 'NUEVO');
+  assert.ok(!('error' in sinIds));
+  if ('error' in sinIds) return;
+  assert.deepEqual(sinIds.campos.map((c) => c.id), ['meta', 'NUEVO', 'sec', 'link']);
+});
+
+test('`tareas: []` llega como lista vacía (las saca), y una lista sin la marca se sigue descartando', () => {
+  // Medido el 08/10/2026 en la prueba de punta a punta: sin `vaciaEsValor`, el validador tiraba la
+  // lista vacía y editar contestaba «No pasaste nada para cambiar» — no había forma de sacar la tarea.
+  const editar = DEFS.find((d) => d.id === 'editar_clase_curso')!;
+  const r = validarInput(editar.parametros, { claseId: 1, tareas: [] }, 'json');
+  assert.ok('input' in r);
+  if ('input' in r) assert.deepEqual(r.input.tareas, []);
+  const comun = [{ nombre: 'ids', tipo: 'string[]' as const, descripcion: 'x' }];
+  const r2 = validarInput(comun, { ids: [] }, 'json');
+  assert.ok('input' in r2 && !('ids' in r2.input));
+});
+
+test('lo que la API no arma se rechaza con su motivo, no se descarta', () => {
+  const gen = () => 'x';
+  assert.match(String((modeloDeTareas([{ titulo: 'Principal' }], [], gen) as { error: string }).error), /principal y no lleva título/);
+  assert.match(String((modeloDeTareas([{}, { campos: [] }], [], gen) as { error: string }).error), /no tiene `titulo`/);
+  assert.match(String((modeloDeTareas([{ campos: [{ tipo: 'quiz', label: 'Q' }] }], [], gen) as { error: string }).error), /no se arma por la API/);
+  assert.match(String((modeloDeTareas([{ consigna: 'a', consignaHtml: '<p>a</p>' }], [], gen) as { error: string }).error), /no en las dos/);
+  for (const t of TIPOS_CAMPO_API) assert.notEqual(t, 'seccion');
 });
 
 test('el texto plano se vuelve párrafos, escapado', () => {

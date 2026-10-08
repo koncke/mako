@@ -89,7 +89,8 @@ export function validarInput(
     if ('error' in r) return r;
     // Una lista obligatoria que queda vacía (`[]`, o `["", " "]` después de limpiar)
     // es una lista que no vino: pasarla haría que la lib reciba nada con cara de algo.
-    if (Array.isArray(r.valor) && r.valor.length === 0) {
+    // Salvo que la lista se declare `vaciaEsValor`: ahí `[]` es «vaciar».
+    if (Array.isArray(r.valor) && r.valor.length === 0 && !(p.vaciaEsValor && !p.obligatorio)) {
       if (p.obligatorio) faltan.push(ruta);
       continue;
     }

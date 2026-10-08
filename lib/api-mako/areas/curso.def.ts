@@ -21,9 +21,10 @@
 //   · NO SE EXPONEN vincular ni borrar módulos, ni mover clientes de etapa: mueven clientes en el
 //     kanban, y eso dispara mensajes (la secuencia por etapa del ws1 manda WhatsApp). Pedido del
 //     chat de Customer Success (08/10/2026).
-//   · LA TAREA Y EL VIDEO POR CÓDIGO EMBED, DESPUÉS: el chat de Customer Success está cambiando el
-//     modelo de la tarea y el video embed (Panda) en lib/curso.ts y lib/curso-admin.ts; se suman
-//     cuando lo commitee.
+//   · LA TAREA Y EL VIDEO POR CÓDIGO EMBED (la misma tarde, cuando el chat de Customer Success subió el
+//     modelo nuevo, `dbae4da9`): `videoUrl` acepta también el código `<iframe>` (Panda, Wistia, Bunny),
+//     y `tareas` arma la tarea principal y las demás (las `seccion` del modelo). Se escribe por
+//     `guardarLeccion`, el mismo camino del botón «Guardar» del editor.
 //   · UNA CLASE NUEVA VA AL FINAL de su módulo (el editor la pone al principio, a propósito: la abre
 //     para editar). Por la API se crean en orden, y al principio quedarían al revés.
 //
@@ -43,6 +44,11 @@ export const TOPE_TITULO_CLASE = 200;
 export const TOPE_NOMBRE_MODULO = 40;
 export const TOPE_DESCRIPCION_HTML = 100_000;
 export const TOPE_DESCRIPCION_TEXTO = 20_000;
+/** Los topes de la tarea (lib/curso.ts: MAX_TAREAS, TOPE_TITULO_TAREA, TOPE_PREGUNTA, TOPE_CAMPOS). */
+export const MAX_TAREAS_API = 10;
+export const TOPE_TITULO_TAREA_API = 140;
+export const TOPE_PREGUNTA_API = 400;
+export const TOPE_CAMPOS_API = 60;
 
 const productoId: Parametro = {
   nombre: 'productoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1,
@@ -57,9 +63,47 @@ const moduloClave: Parametro = {
   descripcion: 'la clave del módulo (de ver_curso: `modulos[].clave`), no su nombre.',
 };
 const videoUrl: Parametro = {
-  nombre: 'videoUrl', tipo: 'string', max: 2000,
-  descripcion: 'link del video: YouTube, Vimeo, Loom, Google Drive o un archivo .mp4/.webm directo. Un link de una página que no es de esos (por ejemplo, el de Panda) se guarda pero no se reproduce: el código embed llega pronto. Vacío ("") saca el video.',
+  nombre: 'videoUrl', tipo: 'string', max: 5000,
+  descripcion: 'el video: un link (YouTube, Vimeo, Loom, Google Drive, un archivo .mp4/.webm) o el CÓDIGO para insertar que da la plataforma, el `<iframe …>` entero (Panda, Wistia, Bunny y los mismos de antes). Vacío ("") saca el video.',
   ejemplo: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+};
+const tareas: Parametro = {
+  nombre: 'tareas', tipo: 'object[]', max: MAX_TAREAS_API, vaciaEsValor: true,
+  descripcion: 'las tareas de la clase, en orden. La PRIMERA es la principal y va SIN título; cada una de las siguientes lleva `titulo`. Cada tarea tiene su consigna (`consignaHtml` o `consigna` en texto) y sus campos (lo que contesta el alumno). Al editar, REEMPLAZA todas las tareas: pasa la lista entera (ver_clase_curso la devuelve en esta misma forma, con los `id` de los campos; mandarlos conserva las respuestas de los alumnos). Una lista vacía saca la tarea.',
+  campos: [
+    { nombre: 'titulo', tipo: 'string', max: TOPE_TITULO_TAREA_API, descripcion: 'el título de la tarea (no va en la primera).' },
+    { nombre: 'consignaHtml', tipo: 'string', max: TOPE_DESCRIPCION_TEXTO, descripcion: 'qué tiene que hacer el alumno, en HTML.' },
+    { nombre: 'consigna', tipo: 'string', max: TOPE_DESCRIPCION_TEXTO, descripcion: 'lo mismo en texto plano (una línea en blanco separa párrafos).' },
+    {
+      nombre: 'campos', tipo: 'object[]', max: TOPE_CAMPOS_API,
+      descripcion: 'lo que contesta el alumno, en orden.',
+      campos: [
+        { nombre: 'id', tipo: 'string', max: 80, descripcion: 'el id del campo, si ya existía (de ver_clase_curso). Sin id, se reusa el de un campo con la misma pregunta y el mismo tipo, o nace uno.' },
+        {
+          nombre: 'tipo', tipo: 'string', obligatorio: true,
+          enum: ['texto', 'linea', 'numero', 'eleccion', 'checks', 'tabla', 'archivo', 'audio', 'video', 'link', 'escala', 'checklist', 'agenda', 'confirmacion'],
+          descripcion: 'texto (párrafo), linea (una línea), numero, eleccion (una opción), checks (varias), tabla, archivo, audio, video, link, escala, checklist (acciones para tildar), agenda (agendar una llamada), confirmacion (un «lo hice»). El quiz y los de la comunidad se arman en MaKo.',
+        },
+        { nombre: 'label', tipo: 'string', obligatorio: true, max: TOPE_PREGUNTA_API, descripcion: 'la pregunta.' },
+        { nombre: 'obligatorio', tipo: 'boolean', descripcion: 'true si hay que contestarlo para enviar.' },
+        { nombre: 'ayuda', tipo: 'string', max: 1000, descripcion: 'una aclaración debajo de la pregunta.' },
+        { nombre: 'placeholder', tipo: 'string', max: 200, descripcion: 'el texto de ejemplo dentro del cuadro (no la pregunta).' },
+        { nombre: 'opciones', tipo: 'string[]', max: 50, descripcion: 'eleccion y checks: las opciones; checklist: las acciones.' },
+        { nombre: 'columnas', tipo: 'string[]', max: 20, descripcion: 'tabla: las columnas.' },
+        { nombre: 'url', tipo: 'string', max: 2000, descripcion: 'agenda: el link para agendar (Calendly, Cal.com…).' },
+        {
+          nombre: 'escala', tipo: 'object', descripcion: 'escala: el rango y qué quiere decir cada punta.',
+          campos: [
+            { nombre: 'min', tipo: 'number', entero: true, minimo: 0, maximo: 1, descripcion: '0 o 1.' },
+            { nombre: 'max', tipo: 'number', entero: true, descripcion: '5 o 10.' },
+            { nombre: 'bajo', tipo: 'string', max: 60, descripcion: 'qué quiere decir el mínimo.' },
+            { nombre: 'alto', tipo: 'string', max: 60, descripcion: 'qué quiere decir el máximo.' },
+            { nombre: 'estilo', tipo: 'string', enum: ['numeros', 'deslizador', 'estrellas'], descripcion: 'cómo se contesta (por default, números).' },
+          ],
+        },
+      ],
+    },
+  ],
 };
 const descripcionHtml: Parametro = {
   nombre: 'descripcionHtml', tipo: 'string', max: TOPE_DESCRIPCION_HTML,
@@ -94,7 +138,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_clase_curso', area: 'curso', tipo: 'lectura',
     titulo: 'Ver una clase',
-    descripcion: 'Una clase entera: módulo, título, video, minutos, la descripción (HTML y texto plano) y la tarea si tiene.',
+    descripcion: 'Una clase entera: módulo, título, video, minutos, la descripción (HTML y texto plano) y sus tareas, en la misma forma que reciben crear_clase_curso y editar_clase_curso (con los `id` de los campos, para editarlas sin perder las respuestas).',
     parametros: [claseId],
     salida: 'json', canales: HTTP, costo: 'gratis', gating: GATING,
   },
@@ -143,28 +187,28 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_clase_curso', area: 'curso', tipo: 'accion',
     titulo: 'Crear una clase',
-    descripcion: 'Crea una clase AL FINAL de un módulo, con su título y, si los pasas, su video por link, su descripción y sus minutos. Todo se valida antes de crear: si algo no va, no se crea nada. Devuelve el id de la clase en `datos.claseId`. Para migrar un curso, crea las clases en el orden en que tienen que quedar.',
+    descripcion: 'Crea una clase AL FINAL de un módulo, con su título y, si los pasas, su video (link o código para insertar), su descripción, sus minutos y sus tareas. Todo se valida antes de crear: si algo no va, no se crea nada. Devuelve el id de la clase en `datos.claseId`. Para migrar un curso, crea las clases en el orden en que tienen que quedar.',
     parametros: [
       productoId, moduloClave,
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: TOPE_TITULO_CLASE, descripcion: `el título de la clase (hasta ${TOPE_TITULO_CLASE} letras).`, ejemplo: 'Clase 1: Bienvenida' },
-      videoUrl, descripcionHtml, descripcion, minutos,
+      videoUrl, descripcionHtml, descripcion, minutos, tareas,
     ],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'chat', reversible: true,
-    escribe: 'agrega una clase al final del módulo (curso_clases) con su título, video, descripción y minutos',
+    escribe: 'agrega una clase al final del módulo (curso_clases) con su título, video, descripción, minutos y tareas',
   },
   {
     id: 'editar_clase_curso', area: 'curso', tipo: 'accion',
     titulo: 'Editar una clase',
-    descripcion: 'Cambia lo que se pase de una clase: título, video por link, descripción o minutos. Lo que no se pasa queda igual. Todo se valida antes de escribir.',
+    descripcion: 'Cambia lo que se pase de una clase: título, video (link o código para insertar), descripción, minutos o tareas. Lo que no se pasa queda igual; `tareas` reemplaza TODAS las tareas. Todo se valida antes de escribir, y se escribe de una vez: si otra persona cambió la clase en el medio, se vuelve a leer y se reintenta una vez.',
     parametros: [
       claseId,
       { nombre: 'titulo', tipo: 'string', max: TOPE_TITULO_CLASE, descripcion: `el título nuevo (hasta ${TOPE_TITULO_CLASE} letras).` },
-      videoUrl, descripcionHtml, descripcion, minutos,
+      videoUrl, descripcionHtml, descripcion, minutos, tareas,
     ],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'chat', reversible: true,
-    escribe: 'cambia el título, el video, la descripción o los minutos de la clase (curso_clases)',
+    escribe: 'cambia el título, el video, la descripción, los minutos o las tareas de la clase (curso_clases)',
   },
   {
     id: 'mover_clase_curso', area: 'curso', tipo: 'accion',

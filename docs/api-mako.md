@@ -10070,7 +10070,7 @@ curl -L \
 
 ### `GET /api/v1/curso/clases/{claseId}` — Ver una clase
 
-Una clase entera: módulo, título, video, minutos, la descripción (HTML y texto plano) y la tarea si tiene.
+Una clase entera: módulo, título, video, minutos, la descripción (HTML y texto plano) y sus tareas, en la misma forma que reciben crear_clase_curso y editar_clase_curso (con los `id` de los campos, para editarlas sin perder las respuestas).
 
 - **Ruta por operación:** `GET /api/v1/curso/ver_clase_curso`
 - **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
@@ -10190,14 +10190,14 @@ curl -L \
 
 ### `POST /api/v1/curso/cursos/{productoId}/clases` — Crear una clase
 
-Crea una clase AL FINAL de un módulo, con su título y, si los pasas, su video por link, su descripción y sus minutos. Todo se valida antes de crear: si algo no va, no se crea nada. Devuelve el id de la clase en `datos.claseId`. Para migrar un curso, crea las clases en el orden en que tienen que quedar.
+Crea una clase AL FINAL de un módulo, con su título y, si los pasas, su video (link o código para insertar), su descripción, sus minutos y sus tareas. Todo se valida antes de crear: si algo no va, no se crea nada. Devuelve el id de la clase en `datos.claseId`. Para migrar un curso, crea las clases en el orden en que tienen que quedar.
 
 - **Ruta por operación:** `POST /api/v1/curso/crear_clase_curso`
 - **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** agrega una clase al final del módulo (curso_clases) con su título, video, descripción y minutos
+- **Escribe:** agrega una clase al final del módulo (curso_clases) con su título, video, descripción, minutos y tareas
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -10208,10 +10208,30 @@ Crea una clase AL FINAL de un módulo, con su título y, si los pasas, su video 
 | `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
 | `moduloClave` | string | sí | la clave del módulo (de ver_curso: `modulos[].clave`), no su nombre. |
 | `titulo` | string | sí | el título de la clase (hasta 200 letras). |
-| `videoUrl` | string | no | link del video: YouTube, Vimeo, Loom, Google Drive o un archivo .mp4/.webm directo. Un link de una página que no es de esos (por ejemplo, el de Panda) se guarda pero no se reproduce: el código embed llega pronto. Vacío ("") saca el video. |
+| `videoUrl` | string | no | el video: un link (YouTube, Vimeo, Loom, Google Drive, un archivo .mp4/.webm) o el CÓDIGO para insertar que da la plataforma, el `<iframe …>` entero (Panda, Wistia, Bunny y los mismos de antes). Vacío ("") saca el video. |
 | `descripcionHtml` | string | no | la descripción en HTML (negrita, listas, links, títulos). Se sanea: lo que no es formato se descarta. Usa esto O `descripcion`, no los dos. |
 | `descripcion` | string | no | la descripción en texto plano: cada línea en blanco separa un párrafo. Usa esto O `descripcionHtml`, no los dos. |
 | `minutos` | number | no | cuánto dura la clase, en minutos (0 a 600). Si no lo pasas, lo mide el editor cuando alguien abre el video. |
+| `tareas` | object[] | no | las tareas de la clase, en orden. La PRIMERA es la principal y va SIN título; cada una de las siguientes lleva `titulo`. Cada tarea tiene su consigna (`consignaHtml` o `consigna` en texto) y sus campos (lo que contesta el alumno). Al editar, REEMPLAZA todas las tareas: pasa la lista entera (ver_clase_curso la devuelve en esta misma forma, con los `id` de los campos; mandarlos conserva las respuestas de los alumnos). Una lista vacía saca la tarea. |
+| `tareas.titulo` | string | no | el título de la tarea (no va en la primera). |
+| `tareas.consignaHtml` | string | no | qué tiene que hacer el alumno, en HTML. |
+| `tareas.consigna` | string | no | lo mismo en texto plano (una línea en blanco separa párrafos). |
+| `tareas.campos` | object[] | no | lo que contesta el alumno, en orden. |
+| `tareas.campos.id` | string | no | el id del campo, si ya existía (de ver_clase_curso). Sin id, se reusa el de un campo con la misma pregunta y el mismo tipo, o nace uno. |
+| `tareas.campos.tipo` | string (texto \\| linea \\| numero \\| eleccion \\| checks \\| tabla \\| archivo \\| audio \\| video \\| link \\| escala \\| checklist \\| agenda \\| confirmacion) | sí | texto (párrafo), linea (una línea), numero, eleccion (una opción), checks (varias), tabla, archivo, audio, video, link, escala, checklist (acciones para tildar), agenda (agendar una llamada), confirmacion (un «lo hice»). El quiz y los de la comunidad se arman en MaKo. |
+| `tareas.campos.label` | string | sí | la pregunta. |
+| `tareas.campos.obligatorio` | boolean | no | true si hay que contestarlo para enviar. |
+| `tareas.campos.ayuda` | string | no | una aclaración debajo de la pregunta. |
+| `tareas.campos.placeholder` | string | no | el texto de ejemplo dentro del cuadro (no la pregunta). |
+| `tareas.campos.opciones` | string[] | no | eleccion y checks: las opciones; checklist: las acciones. |
+| `tareas.campos.columnas` | string[] | no | tabla: las columnas. |
+| `tareas.campos.url` | string | no | agenda: el link para agendar (Calendly, Cal.com…). |
+| `tareas.campos.escala` | object | no | escala: el rango y qué quiere decir cada punta. |
+| `tareas.campos.escala.min` | number | no | 0 o 1. |
+| `tareas.campos.escala.max` | number | no | 5 o 10. |
+| `tareas.campos.escala.bajo` | string | no | qué quiere decir el mínimo. |
+| `tareas.campos.escala.alto` | string | no | qué quiere decir el máximo. |
+| `tareas.campos.escala.estilo` | string (numeros \\| deslizador \\| estrellas) | no | cómo se contesta (por default, números). |
 
 ```bash
 curl -L \
@@ -10226,14 +10246,14 @@ curl -L \
 
 ### `PATCH /api/v1/curso/clases/{claseId}` — Editar una clase
 
-Cambia lo que se pase de una clase: título, video por link, descripción o minutos. Lo que no se pasa queda igual. Todo se valida antes de escribir.
+Cambia lo que se pase de una clase: título, video (link o código para insertar), descripción, minutos o tareas. Lo que no se pasa queda igual; `tareas` reemplaza TODAS las tareas. Todo se valida antes de escribir, y se escribe de una vez: si otra persona cambió la clase en el medio, se vuelve a leer y se reintenta una vez.
 
 - **Ruta por operación:** `POST /api/v1/curso/editar_clase_curso`
 - **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** cambia el título, el video, la descripción o los minutos de la clase (curso_clases)
+- **Escribe:** cambia el título, el video, la descripción, los minutos o las tareas de la clase (curso_clases)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -10243,10 +10263,30 @@ Cambia lo que se pase de una clase: título, video por link, descripción o minu
 | --- | --- | --- | --- |
 | `claseId` | number | sí | id de la clase (de ver_curso). |
 | `titulo` | string | no | el título nuevo (hasta 200 letras). |
-| `videoUrl` | string | no | link del video: YouTube, Vimeo, Loom, Google Drive o un archivo .mp4/.webm directo. Un link de una página que no es de esos (por ejemplo, el de Panda) se guarda pero no se reproduce: el código embed llega pronto. Vacío ("") saca el video. |
+| `videoUrl` | string | no | el video: un link (YouTube, Vimeo, Loom, Google Drive, un archivo .mp4/.webm) o el CÓDIGO para insertar que da la plataforma, el `<iframe …>` entero (Panda, Wistia, Bunny y los mismos de antes). Vacío ("") saca el video. |
 | `descripcionHtml` | string | no | la descripción en HTML (negrita, listas, links, títulos). Se sanea: lo que no es formato se descarta. Usa esto O `descripcion`, no los dos. |
 | `descripcion` | string | no | la descripción en texto plano: cada línea en blanco separa un párrafo. Usa esto O `descripcionHtml`, no los dos. |
 | `minutos` | number | no | cuánto dura la clase, en minutos (0 a 600). Si no lo pasas, lo mide el editor cuando alguien abre el video. |
+| `tareas` | object[] | no | las tareas de la clase, en orden. La PRIMERA es la principal y va SIN título; cada una de las siguientes lleva `titulo`. Cada tarea tiene su consigna (`consignaHtml` o `consigna` en texto) y sus campos (lo que contesta el alumno). Al editar, REEMPLAZA todas las tareas: pasa la lista entera (ver_clase_curso la devuelve en esta misma forma, con los `id` de los campos; mandarlos conserva las respuestas de los alumnos). Una lista vacía saca la tarea. |
+| `tareas.titulo` | string | no | el título de la tarea (no va en la primera). |
+| `tareas.consignaHtml` | string | no | qué tiene que hacer el alumno, en HTML. |
+| `tareas.consigna` | string | no | lo mismo en texto plano (una línea en blanco separa párrafos). |
+| `tareas.campos` | object[] | no | lo que contesta el alumno, en orden. |
+| `tareas.campos.id` | string | no | el id del campo, si ya existía (de ver_clase_curso). Sin id, se reusa el de un campo con la misma pregunta y el mismo tipo, o nace uno. |
+| `tareas.campos.tipo` | string (texto \\| linea \\| numero \\| eleccion \\| checks \\| tabla \\| archivo \\| audio \\| video \\| link \\| escala \\| checklist \\| agenda \\| confirmacion) | sí | texto (párrafo), linea (una línea), numero, eleccion (una opción), checks (varias), tabla, archivo, audio, video, link, escala, checklist (acciones para tildar), agenda (agendar una llamada), confirmacion (un «lo hice»). El quiz y los de la comunidad se arman en MaKo. |
+| `tareas.campos.label` | string | sí | la pregunta. |
+| `tareas.campos.obligatorio` | boolean | no | true si hay que contestarlo para enviar. |
+| `tareas.campos.ayuda` | string | no | una aclaración debajo de la pregunta. |
+| `tareas.campos.placeholder` | string | no | el texto de ejemplo dentro del cuadro (no la pregunta). |
+| `tareas.campos.opciones` | string[] | no | eleccion y checks: las opciones; checklist: las acciones. |
+| `tareas.campos.columnas` | string[] | no | tabla: las columnas. |
+| `tareas.campos.url` | string | no | agenda: el link para agendar (Calendly, Cal.com…). |
+| `tareas.campos.escala` | object | no | escala: el rango y qué quiere decir cada punta. |
+| `tareas.campos.escala.min` | number | no | 0 o 1. |
+| `tareas.campos.escala.max` | number | no | 5 o 10. |
+| `tareas.campos.escala.bajo` | string | no | qué quiere decir el mínimo. |
+| `tareas.campos.escala.alto` | string | no | qué quiere decir el máximo. |
+| `tareas.campos.escala.estilo` | string (numeros \\| deslizador \\| estrellas) | no | cómo se contesta (por default, números). |
 
 ```bash
 curl -L \

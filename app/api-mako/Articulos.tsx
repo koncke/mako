@@ -379,7 +379,8 @@ function MigrarCurso({ d }: { d: DatosArticulos }) {
     '1. GET /api/v1/curso/cursos y pregúntame en qué producto lo cargo.',
     '2. Lee el curso de origen y muéstrame los módulos y las clases que vas a crear, en orden. Espera mi OK.',
     '3. Crea cada módulo con POST /api/v1/curso/cursos/{productoId}/modulos (nombre). Guarda la clave que devuelve.',
-    '4. Para cada clase, EN ORDEN: POST /api/v1/curso/cursos/{productoId}/clases con moduloClave, titulo, videoUrl, descripcion y minutos.',
+    '4. Para cada clase, EN ORDEN: POST /api/v1/curso/cursos/{productoId}/clases con moduloClave, titulo, videoUrl, descripcion, minutos y, si tiene, sus tareas (en «tareas»).',
+    '   El video: el link, o el código para insertar (el <iframe> entero) si viene de Panda u otra plataforma que no da un link público.',
     '5. Al final, GET /api/v1/curso/cursos/{productoId} y dime cuántas clases quedaron contra cuántas tenía el origen.',
     '',
     'Si un pedido falla, NO lo repitas a ciegas: mira primero el curso, para no duplicar clases.',
@@ -403,10 +404,10 @@ function MigrarCurso({ d }: { d: DatosArticulos }) {
 
       <h2 id="saber">Lo que tienes que saber</h2>
       <ul>
-        <li><strong>Los videos van por link.</strong> Se reproducen los de YouTube, Vimeo, Loom y Google Drive, y los archivos <C>.mp4</C> directos. El link de una página de Panda todavía no se reproduce: el código embed llega pronto. Mientras tanto, Claude puede cargar todo lo demás y dejar el video para después con <C>PATCH /api/v1/curso/clases/&#123;claseId&#125;</C>.</li>
+        <li><strong>El video va por link o por código.</strong> Un link de YouTube, Vimeo, Loom o Google Drive, o un archivo <C>.mp4</C>. De Panda, Wistia o Bunny, el código para insertar: el <C>&lt;iframe …&gt;</C> entero.</li>
         <li><strong>Lo que se crea se ve en el curso enseguida.</strong> Si tu curso ya tiene alumnos, pídele a Claude que lo cargue en módulos nuevos.</li>
         <li><strong>Los módulos nuevos no tocan tu tablero de clientes.</strong> Nacen como secciones del curso. Para que un módulo sea además una etapa del tablero, hay que pedirlo (<C>vinculado: true</C>).</li>
-        <li><strong>La tarea de cada clase todavía se arma en MaKo.</strong> La API va a sumarla.</li>
+        <li><strong>Las tareas van en <C>tareas</C>.</strong> La primera es la principal y va sin título; las demás, con título. El quiz y los campos de la comunidad se arman en MaKo.</li>
         <li><strong>El ritmo:</strong> hasta {d.limites.ws} pedidos por minuto. Un curso de 100 clases tarda unos pocos minutos.</li>
         <li><strong>Si algo sale mal</strong>, <C>DELETE /api/v1/curso/clases/&#123;claseId&#125;</C> manda una clase a la papelera, y <C>PUT …/restauracion</C> la devuelve durante 7 días.</li>
       </ul>

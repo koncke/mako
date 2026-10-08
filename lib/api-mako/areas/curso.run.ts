@@ -25,12 +25,16 @@ import { modulosDelCurso, crearModulo, renombrarModulo, reordenarModulos } from 
 import { nombreDeModulo, type ModuloCurso } from '@/lib/curso-modulos';
 import { clasesDelProducto, claseDeId } from '@/lib/curso-datos';
 import {
-  crearClase, moverClaseA, guardarCampoClase, borrarClase, restaurarClases, productoConModulos,
+  crearClase, moverClaseA, guardarCampoClase, guardarLeccion, borrarClase, restaurarClases, productoConModulos,
 } from '@/lib/curso-admin';
-import { videoDeLink, tieneTarea, type Clase } from '@/lib/curso';
+import { videoDeLink, tieneTarea, tareasDeClase, erroresDeCampos, type Campo, type Clase, type TareaDeClase } from '@/lib/curso';
 import { validarHtmlRico } from '@/lib/html-seguro';
+import { porQueNoSeInserta } from '@/lib/embeds';
+import { tareaParaGuardar } from '@/lib/curso-tarea-html';
+import { borradorDe, videoParaGuardar } from '@/app/customer-success/curso/leccion-reglas';
 import { TOPE_TITULO_CLASE } from './curso.def';
-import { htmlDeTexto } from './curso.helpers';
+import { htmlDeTexto, modeloDeTareas, tareasParaApi, type TareaEntrada } from './curso.helpers';
+import { randomBytes } from 'node:crypto';
 
 type In = Record<string, unknown>;
 
@@ -86,13 +90,20 @@ const filaClase = (c: Clase) => ({
   tiene_descripcion: Boolean(c.descripcionHtml || c.descripcion), tiene_tarea: tieneTarea(c),
 });
 
-type CamposClase = { titulo?: string; video?: string | null; html?: string; minutos?: number | null };
+/**
+ * Lo que se escribe de una clase, ya validado. `video: null` = sacar el video; ausente = no tocarlo.
+ * `tareaHtml` + `camposTarea` van JUNTOS (son las tareas): ausentes, no se tocan.
+ */
+type CamposClase = { titulo?: string; video?: string | null; html?: string; minutos?: number | null; tareaHtml?: string; camposTarea?: Campo[] };
+
+/** Un id nuevo para un campo o una tarea (`limpiarId` acepta letras, números, `_` y `-`). */
+const nuevoId = (): string => `api_${randomBytes(5).toString('hex')}`;
 
 /**
  * Valida lo que se va a escribir de una clase (crear o editar). Devuelve los campos limpios o el error.
- * `video: null` = sacar el video; ausente = no tocarlo.
+ * `existentes`: las tareas que la clase YA tiene (al editar), para conservar los ids de sus campos.
  */
-async function camposDe(input: In, exigirTitulo: boolean): Promise<{ campos: CamposClase } | { error: string }> {
+async function camposDe(input: In, exigirTitulo: boolean, existentes: readonly TareaDeClase[] = []): Promise<{ campos: CamposClase } | { error: string; faltan?: string[] }> {
   const campos: CamposClase = {};
   const titulo = str(input, 'titulo');
   if (titulo !== undefined || exigirTitulo) {
@@ -106,8 +117,10 @@ async function camposDe(input: In, exigirTitulo: boolean): Promise<{ campos: Cam
     const v = video.trim();
     if (!v) campos.video = null;
     else {
+      // Un link o el `<iframe>` que da la plataforma: `videoDeLink` saca la dirección de los dos y la
+      // pasa por la lista blanca de lib/embeds.ts. Lo que se guarda es la dirección limpia.
       const rec = videoDeLink(v);
-      if (!rec) return { error: 'Ese link de video no es válido: tiene que ser una URL https.' };
+      if (!rec) return { error: `El video no va: ${porQueNoSeInserta(v)}` };
       campos.video = rec.url;
     }
   }
@@ -120,26 +133,85 @@ async function camposDe(input: In, exigirTitulo: boolean): Promise<{ campos: Cam
     campos.html = v.html;
   }
   if (input.minutos !== undefined && input.minutos !== null) campos.minutos = Number(input.minutos);
+
+  if (Array.isArray(input.tareas)) {
+    const m = modeloDeTareas(input.tareas as TareaEntrada[], existentes, nuevoId);
+    if ('error' in m) return { error: m.error };
+    // La lista ENTERA, con sus `seccion` a propósito: se escribe (guardarLeccion), no se leen respuestas.
+    const { tareaHtml, consignasHtml, campos: lista } = m;
+    const t = tareaParaGuardar(tareaHtml);
+    if (!t.ok) return { error: t.error };
+    for (const consigna of consignasHtml) {
+      const c = validarHtmlRico(consigna);
+      if (!c.ok) return { error: c.error.replace('La descripción', 'La consigna de una tarea') };
+    }
+    // Lo incompleto se RECHAZA con su motivo (el mismo que pinta el editor), nunca se descarta.
+    const malos = erroresDeCampos(lista);
+    const ids = Object.keys(malos);
+    if (ids.length) {
+      const donde = (id: string) => {
+        const i = lista.findIndex((x) => x.id === id);
+        return i < 0 ? 'la tarea' : `«${lista[i].label || `campo ${i + 1}`}»`;
+      };
+      return { error: `Hay campos incompletos: ${ids.slice(0, 8).map((id) => `${donde(id)}: ${malos[id]}`).join('; ')}.` };
+    }
+    campos.tareaHtml = t.tareaHtml ?? '';
+    campos.camposTarea = lista;
+  }
   return { campos };
 }
 
-/** Escribe los campos de una clase, uno por uno, por el camino de la tab (`guardarCampoClase`). */
-async function escribirCampos(claseId: number, c: CamposClase): Promise<{ ok: true; clase: Clase | null } | { ok: false; hecho: string[]; error: string }> {
-  const hecho: string[] = [];
-  let clase: Clase | null = null;
-  // El video ANTES que los minutos: cambiar de video los vacía (son los del video que se fue).
-  const pasos: Array<[string, unknown]> = [];
-  if (c.titulo !== undefined) pasos.push(['el título', { titulo: c.titulo }]);
-  if (c.video !== undefined) pasos.push(['el video', { video: c.video === null ? null : { tipo: 'url', url: c.video } }]);
-  if (c.html !== undefined) pasos.push(['la descripción', { descripcionHtml: c.html }]);
-  if (c.minutos !== undefined) pasos.push(['los minutos', { minutos: c.minutos }]);
-  for (const [que, cambio] of pasos) {
-    const r = await guardarCampoClase(claseId, cambio);
-    if (!r.ok) return { ok: false, hecho, error: `${que}: ${r.error}` };
-    hecho.push(que);
-    clase = r.clase;
+/**
+ * Escribe la clase por `guardarLeccion` (lib/curso-admin.ts), el mismo camino del botón «Guardar» del
+ * editor: de una vez, en UN `update`, con compare-and-set. La base (`antes`) se deriva con la misma
+ * función que usa la pantalla (`borradorDe`); si otra persona cambió la clase en el medio, contesta
+ * `conflicto` y se reintenta UNA vez sobre la clase releída. Los minutos solos (sin video nuevo) van por
+ * `guardarCampoClase`: `guardarLeccion` los acepta sólo junto con un video.
+ */
+/** Lo que viajó en la pendiente, de vuelta a la forma de `escribirLeccion`. */
+const delPayload = (p: In): CamposClase => ({
+  ...(p.titulo !== undefined ? { titulo: p.titulo as string } : {}),
+  ...(p.video !== undefined ? { video: p.video as string | null } : {}),
+  ...(p.html !== undefined ? { html: p.html as string } : {}),
+  ...(p.minutos !== undefined ? { minutos: p.minutos as number | null } : {}),
+  ...(p.camposTarea !== undefined ? { tareaHtml: (p.tareaHtml as string) ?? '', camposTarea: p.camposTarea as Campo[] } : {}),
+});
+
+async function escribirLeccion(claseId: number, c: CamposClase): Promise<{ ok: true } | { ok: false; error: string }> {
+  for (let intento = 0; intento < 2; intento++) {
+    const cl = await claseDeId(claseId);
+    if (!cl) return { ok: false, error: 'La clase ya no existe.' };
+    const base = borradorDe(cl, 'costado');
+    const { campos: camposBase } = base;
+    const cambios: Record<string, unknown> = {};
+    const antes: Record<string, unknown> = {};
+    if (c.titulo !== undefined) { cambios.titulo = c.titulo; antes.titulo = base.titulo; }
+    if (c.video !== undefined) {
+      cambios.video = c.video === null ? null : { tipo: 'url', url: c.video };
+      antes.video = videoParaGuardar(base.video);
+      if (c.minutos !== undefined) cambios.minutos = c.minutos;
+    }
+    if (c.html !== undefined) { cambios.descripcionHtml = c.html; antes.descripcionHtml = base.descripcionHtml; }
+    if (c.camposTarea !== undefined) {
+      // Las tareas van juntas: la consigna principal y la lista entera (con sus secciones).
+      Object.assign(cambios, { tareaHtml: c.tareaHtml ?? '', campos: c.camposTarea });
+      Object.assign(antes, { tareaHtml: base.tareaHtml, campos: camposBase });
+    }
+    if (Object.keys(cambios).length) {
+      const r = await guardarLeccion(claseId, cambios, antes);
+      if (!r.ok) {
+        if (r.conflicto && intento === 0) continue;
+        const detalle = r.errores ? ` ${Object.entries(r.errores).slice(0, 8).map(([k, v]) => `${k}: ${v}`).join('; ')}.` : '';
+        return { ok: false, error: `${r.error}${detalle}` };
+      }
+    }
+    if (c.minutos !== undefined && c.video === undefined) {
+      const m = await guardarCampoClase(claseId, { minutos: c.minutos });
+      if (!m.ok) return { ok: false, error: `los minutos: ${m.error}` };
+    }
+    return { ok: true };
   }
-  return { ok: true, clase };
+  return { ok: false, error: 'La clase cambió mientras se guardaba. Vuelve a leerla y reintenta.' };
 }
 
 export const RUNNERS: Runners = {
@@ -196,7 +268,7 @@ export const RUNNERS: Runners = {
         modulo: modulo ? { clave: modulo.clave, nombre: modulo.nombre } : { clave: cl.etapa, nombre: null, nota: cur ? 'sin módulo: el suyo ya no existe' : 'no pude leer los módulos' },
         titulo: cl.titulo, orden: cl.orden, video: videoPublico(cl), minutos: cl.minutos,
         descripcion_html: cl.descripcionHtml ?? '', descripcion: cl.descripcion,
-        tarea: tieneTarea(cl) ? { texto: cl.tarea, campos: cl.campos.length, obligatoria: cl.obligatoria } : null,
+        tareas: tareasParaApi(tareasDeClase(cl)), cierra_la_etapa: cl.obligatoria,
       });
     },
   },
@@ -295,7 +367,7 @@ export const RUNNERS: Runners = {
       const modulo = prod.modulos.find((m) => m.clave === moduloClave)!;
       return {
         payload: { productoId, moduloClave, ...v.campos },
-        resumen: `Crear la clase «${v.campos.titulo}» al final del módulo «${modulo.nombre}»${v.campos.video ? ', con video' : ''}${v.campos.html ? ', con descripción' : ''}.`,
+        resumen: `Crear la clase «${v.campos.titulo}» al final del módulo «${modulo.nombre}»${v.campos.video ? ', con video' : ''}${v.campos.html ? ', con descripción' : ''}${v.campos.camposTarea !== undefined ? ', con su tarea' : ''}.`,
       };
     }),
     ejecutar: sinLanzar('crear la clase', async (p) => {
@@ -307,8 +379,8 @@ export const RUNNERS: Runners = {
       // La tab la crea AL PRINCIPIO (la abre para editarla); por la API van en orden: al final.
       const fin = await moverClaseA(id, moduloClave, null);
       const campos = fin.ok
-        ? await escribirCampos(id, { titulo: p.titulo as string, video: p.video as string | null | undefined, html: p.html as string | undefined, minutos: p.minutos as number | undefined })
-        : { ok: false as const, hecho: [], error: `llevarla al final: ${fin.error}` };
+        ? await escribirLeccion(id, delPayload(p))
+        : { ok: false as const, error: `llevarla al final: ${fin.error}` };
       if (!campos.ok) {
         // A medias no sirve: a la papelera, así el reintento no deja dos «Nueva clase».
         const b = await borrarClase(id);
@@ -327,19 +399,20 @@ export const RUNNERS: Runners = {
       if (id == null) return { error: 'Falta el claseId.' };
       const cl = await claseDeId(id);
       if (!cl) return { error: `La clase #${id} no existe en este negocio (o está en la papelera).` };
-      const v = await camposDe(input, false);
+      const v = await camposDe(input, false, tareasDeClase(cl));
       if ('error' in v) return v;
       const que = [
         v.campos.titulo !== undefined && 'el título', v.campos.video !== undefined && (v.campos.video === null ? 'sacar el video' : 'el video'),
         v.campos.html !== undefined && 'la descripción', v.campos.minutos !== undefined && 'los minutos',
+        v.campos.camposTarea !== undefined && 'las tareas',
       ].filter(Boolean) as string[];
-      if (!que.length) return { error: 'No pasaste nada para cambiar: titulo, videoUrl, descripcionHtml, descripcion o minutos.', faltan: ['titulo'] };
+      if (!que.length) return { error: 'No pasaste nada para cambiar: titulo, videoUrl, descripcionHtml, descripcion, minutos o tareas.', faltan: ['titulo'] };
       return { payload: { claseId: id, ...v.campos }, resumen: `Cambiar ${que.join(', ')} de la clase «${cl.titulo}».` };
     }),
     ejecutar: sinLanzar('editar la clase', async (p) => {
       const id = Number(p.claseId);
-      const r = await escribirCampos(id, { titulo: p.titulo as string | undefined, video: p.video as string | null | undefined, html: p.html as string | undefined, minutos: p.minutos as number | undefined });
-      if (!r.ok) return { ok: false, resumen: `No se pudo terminar (${r.error}).${r.hecho.length ? ` Sí se guardó: ${r.hecho.join(', ')}.` : ' No se cambió nada.'}` };
+      const r = await escribirLeccion(id, delPayload(p));
+      if (!r.ok) return { ok: false, resumen: `No se pudo guardar (${r.error}).` };
       return { ok: true, resumen: `Listo: clase #${id} actualizada.`, datos: { claseId: id } };
     }),
   },

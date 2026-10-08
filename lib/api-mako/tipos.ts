@@ -131,6 +131,10 @@ export type Parametro = {
   /** solo `number`: el rango permitido, inclusive. */
   minimo?: number;
   maximo?: number;
+  /** sólo listas: `[]` es un VALOR (vaciar), no «no vino». Sin esto el validador descarta una lista
+   *  vacía, que es lo correcto para un filtro y deja sin forma de vaciar algo que se reemplaza entero
+   *  (las tareas de una clase: `tareas: []` las saca). */
+  vaciaEsValor?: true;
   /** para `object` y `object[]`: sus campos, recursivo */
   campos?: readonly Parametro[];
   ejemplo?: unknown;
