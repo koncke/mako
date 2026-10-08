@@ -653,7 +653,7 @@ export const RUNNERS: Runners = {
       const fecha = cual === 'R1' ? lead.fecha_junta_1 : lead.fecha_junta_2;
       if (!fecha) return { error: `La ${cual} de ${lead.nombre} no tiene fecha cargada, y sin fecha la asistencia se descarta. Primero hay que cargar la reunión (marcar_reunion_manual) o esperar que llegue por Calendly.` };
       const asistio = input.asistio === true;
-      if ((cual === 'R1' ? lead.asistio_j1 : lead.asistio_j2) === asistio) return { error: `La ${cual} de ${lead.nombre} ya está marcada como ${asistio ? 'asistida' : 'no asistida'}.` };
+      if ((cual === 'R1' ? lead.asistio_j1 : lead.asistio_j2) === asistio) return { error: `La ${cual} de ${lead.nombre} ya está marcada como ${asistio ? 'asistida' : 'no asistida'}.`, yaEstaba: true };
       // updateLead: asistio_j1 !== true → calificado = null. Se dice ANTES del «sí».
       const borraCalificado = cual === 'R1' && !asistio && lead.calificado != null
         ? ` ⚠️ Se borra el calificado (hoy: ${lead.calificado ? 'calificado' : 'no calificado'}).` : '';
@@ -679,7 +679,7 @@ export const RUNNERS: Runners = {
       // `updateLead` descarta — consta que NO vino a una R1 con fecha.
       if (calificadoSeDescarta(lead)) return { error: `${lead.nombre} no asistió a la R1, así que el calificado se descarta. Corrige la asistencia primero (marcar_asistencia_reunion).` };
       const calificado = input.calificado === true;
-      if (lead.calificado === calificado) return { error: `${lead.nombre} ya está marcado como ${calificado ? 'calificado' : 'no calificado'}.` };
+      if (lead.calificado === calificado) return { error: `${lead.nombre} ya está marcado como ${calificado ? 'calificado' : 'no calificado'}.`, yaEstaba: true };
       return { payload: { leadId: lead.id, calificado }, resumen: `Marcar a ${lead.nombre} como ${calificado ? 'CALIFICADO (manda la conversión a Meta)' : 'NO calificado'}.` };
     },
     ejecutar: (payload, ctx) => seguro('marcar el calificado', async () => {
@@ -870,7 +870,7 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const r = await leadYProducto(input);
       if ('error' in r) return r;
-      if (r.enEse) return { error: `${r.lead.nombre} ya está en «${r.producto.nombre}».` };
+      if (r.enEse) return { error: `${r.lead.nombre} ya está en «${r.producto.nombre}».`, yaEstaba: true };
       const entrada = etapaDeEntrada(r.producto.etapas);
       if (!entrada) return { error: `«${r.producto.nombre}» no tiene etapas.` };
       return {
@@ -891,7 +891,7 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const r = await leadYProducto(input);
       if ('error' in r) return r;
-      if (!r.enEse) return { error: `${r.lead.nombre} no está en «${r.producto.nombre}».` };
+      if (!r.enEse) return { error: `${r.lead.nombre} no está en «${r.producto.nombre}».`, yaEstaba: true };
       if (!puedeQuitar(r.suyos)) return { error: `«${r.producto.nombre}» es el único producto de ${r.lead.nombre}: no se lo puede quitar.` };
       let resumen = `Quitar a ${r.lead.nombre} de «${r.producto.nombre}»`;
       if (r.enEse.esCasa) {
@@ -925,7 +925,7 @@ export const RUNNERS: Runners = {
       const etapa = s(input.etapa) ?? '';
       const destino = r.producto.etapas.find((e) => e.key === etapa);
       if (!destino) return { error: `«${etapa}» no es una etapa de «${r.producto.nombre}».`, disponibles: r.producto.etapas.map((e) => ({ key: e.key, label: e.label })) };
-      if (r.enEse.etapa === etapa) return { error: `${r.lead.nombre} ya está en «${destino.label}» de «${r.producto.nombre}».` };
+      if (r.enEse.etapa === etapa) return { error: `${r.lead.nombre} ya está en «${destino.label}» de «${r.producto.nombre}».`, yaEstaba: true };
       return {
         payload: { leadId: r.lead.id, embudoId: r.producto.embudoId, etapa },
         resumen: `Mover a ${r.lead.nombre} en «${r.producto.nombre}»: de «${etiquetaDe(r.producto, r.enEse.etapa)}» a «${destino.label}».`,

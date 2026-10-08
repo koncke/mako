@@ -113,7 +113,7 @@ test('las tres preparan con leadYProducto, y ninguna escribe lead_funnel por su 
 
 test('agregar: si ya está en ese producto lo dice, y entra por la etapa de entrada', () => {
   const { prep, ejec } = partes(runner('agregar_lead_a_producto'));
-  assert.match(prep, /if \(r\.enEse\) return \{ error: `\$\{r\.lead\.nombre\} ya está en «\$\{r\.producto\.nombre\}»\.` \};/);
+  assert.match(prep, /if \(r\.enEse\) return \{ error: `\$\{r\.lead\.nombre\} ya está en «\$\{r\.producto\.nombre\}»\.`, yaEstaba: true \};/);
   assert.match(prep, /const entrada = etapaDeEntrada\(r\.producto\.etapas\);/, 'la misma regla de entrada que agregarAProducto');
   assert.match(ejec, /await agregarAProducto\(id, embudo, /);
   assert.match(ejec, /if \(!r\.agregado\) return \{ ok: false, /, 'si otra cosa lo agregó entre el «sí» y ahora, no se cuenta como hecho');

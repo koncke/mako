@@ -197,6 +197,16 @@ async function leerPar(): Promise<{ propio: Store; efectivo: Store }> {
     // un «Sin publicar» y un texto que nunca tipeó — y al apretar Publicar estaría
     // publicando en SU negocio el borrador de la agencia.
     const { borrador: _sinHeredar, ...heredable } = baseStore[id] ?? {};
+    // ⚠️ Y UN PASO «⚡ ACCIÓN» TAMPOCO SE HEREDA. Desde el 08/10/2026 ese paso CORRE solo
+    // (lib/api-mako/flujo.ts), y lo que el dueño arma en su /mensajes es una automatización
+    // de SU negocio: heredada, «crear una tarea» o «mover el lead» corría en el tablero y el
+    // CRM de cada cliente, con un lead que no es el suyo si el paso fijaba uno a mano. El
+    // cliente hereda los MENSAJES del flujo; sus acciones las arma él. Se saca acá, donde se
+    // arma lo efectivo, para que la pantalla y el motor vean lo mismo: un paso que se dibuja
+    // y no corre se lee como una automatización rota.
+    if (!propio[id]?.flujo && heredable.flujo?.pasos?.some((x) => x.tipo === 'accion')) {
+      heredable.flujo = { ...heredable.flujo, pasos: heredable.flujo.pasos.filter((x) => x.tipo !== 'accion') };
+    }
     efectivo[id] = { ...heredable, ...(propio[id] ?? {}) };
   }
   return { propio, efectivo };

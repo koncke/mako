@@ -110,7 +110,7 @@ export async function ejecutarOperacion(
       if (!run.preparar) throw new Error(`api-mako: «${def.id}» no tiene preparar()`);
       const prep = await run.preparar(v.input, ctx);
       if ('error' in prep && prep.paraLaPersona) ctx.aPersona?.(prep.paraLaPersona);
-      if ('error' in prep) return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles };
+      if ('error' in prep) return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles, ...(prep.yaEstaba ? { yaEstaba: true } : {}) };
 
       if (def.confirmacion === 'pantalla') {
         // Se guarda el INPUT validado, no el payload preparado: la pantalla genérica

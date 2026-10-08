@@ -86,7 +86,9 @@ async function correr(
 ): Promise<ResultadoFlujo> {
   try {
     const r = await ejecutarOperacion(def.id, input, ctx, 'json');
-    if (!r.ok) return { ok: false, resumen: r.error, via: 'ninguna' };
+    // «Ya está así» no es un fallo para un flujo: el estado que el paso pide ya es el actual.
+    // Sin esto, «cuando agenda, movelo a Agendado» alarmaba al dueño en cada reagenda.
+    if (!r.ok) return { ok: r.yaEstaba === true, resumen: r.error, via: 'ninguna' };
 
     if (r.tipo === 'pendiente') {
       const c = await confirmarPendiente(ctx, r.pendiente.id);

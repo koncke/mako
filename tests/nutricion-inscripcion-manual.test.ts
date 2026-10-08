@@ -192,7 +192,7 @@ test('preparar() no escribe: pregunta con soloVer; ejecutar() vuelve a decidir y
   const prep = RUNNER.slice(RUNNER.indexOf('preparar:'), RUNNER.indexOf('ejecutar:'));
   const ejec = RUNNER.slice(RUNNER.indexOf('ejecutar:'));
   assert.match(prep, /await inscribirEnSecuencia\(leadId, secuenciaId, \{ soloVer: true \}\)/);
-  assert.match(prep, /if \(!v\.inscribe\) return \{ error: noSeInscribe\(v, leadId, secuenciaId\) \};/, 'un lead de otro negocio o una secuencia inexistente vuelve como error');
+  assert.match(prep, /if \(!v\.inscribe\) return \{ error: noSeInscribe\(v, leadId, secuenciaId\), \.\.\.\(v\.porque === 'en_curso' \? \{ yaEstaba: true \} : \{\}\) \};/, 'un lead de otro negocio o una secuencia inexistente vuelve como error');
   assert.doesNotMatch(prep, /logLeadEvent|\.insert\(|\.update\(|procesarEnvios/, 'preparar() no puede escribir');
   assert.match(ejec, /await inscribirEnSecuencia\(leadId, secuenciaId, \{ sinEnvioInmediato: desdeUnFlujo\(ctx\) \}\);/, 'al confirmar, sin soloVer');
   assert.doesNotMatch(ejec, /soloVer/);

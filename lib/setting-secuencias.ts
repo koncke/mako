@@ -25,6 +25,7 @@ import { enviarYEspejar, enviarAudioYEspejar } from './evolution-envio';
 import { getAudio, audioBase64 } from './setting-audios';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { aplicarVariables, valoresVariablesLead } from './template-vars';
+import { esPasoAccion } from './nutricion-paso-accion';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & { estrategia: Estrategia | null; metricas: MetricasSecuencia };
 
@@ -396,6 +397,11 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
   const sec = secs.find((s) => s.id === secuenciaId);
   if (!sec) return { ok: false, error: 'Esa secuencia no existe en este workspace.' };
   if (!sec.pasos.length) return { ok: false, error: 'La secuencia no tiene pasos para probar.' };
+  // Un paso «⚡ Acción de MaKo» no se prueba: correrlo ESCRIBE de verdad (mueve un lead, crea
+  // una tarea) y la prueba manda los MENSAJES al admin, nada más. Sin este filtro salía un
+  // WhatsApp «[PRUEBA n/N] » en blanco por cada acción, porque su cuerpo se guarda vacío.
+  const mensajes = sec.pasos.filter((p) => !esPasoAccion(p));
+  if (!mensajes.length) return { ok: false, error: 'Esta secuencia sólo tiene acciones: en una prueba no corren.' };
 
   const contacto = await getContactoReportes();
   if (!contacto.telefono && !contacto.email) {
@@ -426,7 +432,7 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
   // Se sale temprano solo si NO hay nada más que probar: una secuencia con un
   // paso de email sí se puede probar a medias, y frenar eso sería cobrarle al
   // email un problema del WhatsApp.
-  if (!evoConectada && sec.pasos.every((p) => p.canal === 'whatsapp')) {
+  if (!evoConectada && mensajes.every((p) => p.canal === 'whatsapp')) {
     const desde = inst?.ultima_conexion_at
       ? ` (se desconectó el ${new Date(inst.ultima_conexion_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })})`
       : '';
@@ -438,7 +444,7 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
     };
   }
 
-  for (const paso of sec.pasos) {
+  for (const paso of mensajes) {
     const cuerpo = `[PRUEBA ${paso.orden}/${total}] ${aplicarVariables(paso.cuerpo, vars)}`;
     if (paso.canal === 'whatsapp') {
       if (!contacto.telefono) { avisos.push(`Paso ${paso.orden}: sin teléfono en Perfil, no se probó.`); continue; }
