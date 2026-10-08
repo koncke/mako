@@ -28,9 +28,11 @@ import { leerTodo } from './supabase-paginado';
 import { entregaDeProducto, entregaDeProductoEstricta, guardarEtapasEntrega } from './entrega-servicio';
 import { esModuloDelCurso, type EntregaConfig, type EtapaEntrega } from './servicio-etapas';
 import {
-  derivarModulos, planReorden, planConEtapaNueva, etapaDeModulo, nuevaClaveSuelto, nombreDeModulo, anclasDe, CLAVE_MODULO_RE,
-  type FilaModulo, type ModuloCurso,
+  derivarModulos, planReorden, planConEtapaNueva, planConEtapaDevuelta, etapaDeModulo, nuevaClaveSuelto, nombreDeModulo, anclasDe,
+  decidirQuitarEtapa, CLAVE_MODULO_RE,
+  type FilaModulo, type ModuloCurso, type PreguntaDestino, type DestinoClientes,
 } from './curso-modulos';
+import { moverClienteDeEtapa, POR_PERSONA } from './cs-mover-etapa';
 import {
   saneaBloqueo, bloqueoPermitido, contextoNecesario, contextoDeFechas,
   type Bloqueo, type ContextoBloqueo, type Desbloqueo,
@@ -57,7 +59,9 @@ export async function filasDeModulos(productoIds: readonly number[]): Promise<Ma
   const out = new Map<number, FilaModulo[]>(productoIds.map((id) => [id, []]));
   if (!productoIds.length) return out;
   const db = await getTenantDb();
-  const filas = await leerTodo<FilaBD>(db, 'curso_modulos', COLS_MODULO, { filtros: (q) => q.in('producto_id', [...productoIds]), orden: 'id' });
+  // ⚠️ SIN LO QUE ESTÁ EN LA PAPELERA (mig 0223): un módulo borrado no existe para nadie más que para
+  // su «Deshacer» y para `clavesUsadas`, que lee aparte.
+  const filas = await leerTodo<FilaBD>(db, 'curso_modulos', COLS_MODULO, { filtros: (q) => q.in('producto_id', [...productoIds]).is('borrado_at', null), orden: 'id' });
   for (const f of filas) out.get(Number(f.producto_id))?.push(aFila(f));
   return out;
 }
@@ -105,13 +109,18 @@ export async function modulosDelCurso(productoId: number, opts: { estricta?: boo
  */
 async function clavesUsadas(productoId: number, entrega: EntregaConfig, filas: readonly FilaModulo[]): Promise<string[]> {
   const db = await getTenantDb();
-  const [clases, clientes] = await Promise.all([
+  // ⚠️ CON LO QUE ESTÁ EN LA PAPELERA, a propósito (mig 0223; excepción nombrada en
+  // tests/curso-papelera.test.ts): una clase o un módulo borrados siguen nombrando su clave hasta la
+  // purga, y su «Deshacer» los devuelve CON ella. Una clave reusada en el medio metería la clase
+  // devuelta adentro del módulo nuevo.
+  const [clases, clientes, modulos] = await Promise.all([
     leerTodo<{ id: number; etapa: string }>(db, 'curso_clases', 'id, etapa', { filtros: (q) => q.eq('producto_id', productoId), orden: 'id' }),
     leerTodo<{ id: number; etapa: string }>(db, 'cliente_entrega', 'id, etapa', { filtros: (q) => q.eq('producto_id', productoId), orden: 'id' }),
+    leerTodo<{ id: number; clave: string }>(db, 'curso_modulos', 'id, clave', { filtros: (q) => q.eq('producto_id', productoId), orden: 'id' }),
   ]);
   return [...new Set([
     ...entrega.etapas.map((e) => e.key), ...filas.map((f) => f.clave),
-    ...clases.map((c) => c.etapa), ...clientes.map((c) => c.etapa),
+    ...clases.map((c) => c.etapa), ...clientes.map((c) => c.etapa), ...modulos.map((m) => m.clave),
   ])];
 }
 
@@ -147,6 +156,9 @@ type AccesoConAlcance = { id: number; alcance: unknown };
 async function reclavear(productoId: number, vieja: string, nueva: string): Promise<void> {
   const db = await getTenantDb();
   const ahora = new Date().toISOString();
+  // ⚠️ TAMBIÉN las de la papelera (mig 0223; excepción nombrada en tests/curso-papelera.test.ts): una
+  // clase borrada de este módulo que se devuelve con «Deshacer» tiene que volver a SU módulo, que ahora
+  // tiene esta clave. Sin ella, volvería a «Sin módulo».
   const r1 = await db.from('curso_clases').update({ etapa: nueva, updated_at: ahora }).eq('producto_id', productoId).eq('etapa', vieja);
   if (r1.error) throw new Error(`las clases: ${r1.error.message}`);
   const r2 = await db.from('curso_estilo').update({ clave: `portada:etapa:${nueva}`, updated_at: ahora })
@@ -278,55 +290,230 @@ export async function reordenarModulos(productoId: number, claves: unknown): Pro
   }
 }
 
+// ── Quitar una etapa del kanban desde el curso (08/10/2026, item 15) ─────────
+
+/** Una etapa que se quitó del kanban: cómo era, dónde estaba y a cuántos clientes se mudó. */
+export type EtapaQuitada = { etapa: EtapaEntrega; indice: number; movidos: number };
+
 /**
- * Borra un módulo SUELTO SIN CLASES. Un vinculado no se borra desde el curso (es una columna del
- * kanban con clientes adentro: se borra en el editor de etapas, que avisa a quién deja sin columna),
- * y uno con clases tampoco (se llevaría el avance de cada alumno: primero se mueven o se borran).
- * Lo que venía después de él se engancha a lo que venía antes.
+ * Lo que contesta quitar una etapa: lo de siempre, o la PREGUNTA de a dónde van sus clientes
+ * (`pregunta`, ver `decidirQuitarEtapa`). Una pregunta no es un error: la pantalla abre el diálogo y
+ * vuelve a llamar con el destino.
  */
-export async function borrarModulo(productoId: number, clave: string): Promise<ResultadoModulos> {
+export type ResultadoQuitar<T extends object = object> = ResultadoModulos<T> | { ok: false; error: string; pregunta?: PreguntaDestino };
+
+/** Los clientes con fila en esta etapa del kanban. TIRA si no puede leer: decide a quién se mueve. */
+async function clientesDeLaEtapa(productoId: number, clave: string): Promise<number[]> {
+  const db = await getTenantDb();
+  const filas = await leerTodo<{ id: number; lead_id: number }>(db, 'cliente_entrega', 'id, lead_id',
+    { filtros: (q) => q.eq('producto_id', productoId).eq('etapa', clave), orden: 'id' });
+  return [...new Set(filas.map((f) => Number(f.lead_id)))];
+}
+
+/**
+ * Muda a los clientes de una etapa que se quita a `destino` por el choke point de siempre
+ * (`moverClienteDeEtapa`), SIN MENSAJES (`silencioso`): deja la línea del historial, cierra lo agendado
+ * de la etapa que se va y bloquea las secuencias de la nueva (con el WhatsApp del ws1 prendido, un
+ * «¡llegaste a Hito 2!» saldría por algo que no le pasó a nadie). Devuelve los que NO se movieron.
+ */
+async function moverClientesEnSilencio(productoId: number, leads: readonly number[], destino: string, por: string): Promise<number[]> {
+  const fallidos: number[] = [];
+  for (const leadId of leads) {
+    const r = await moverClienteDeEtapa({ leadId, productoId, etapa: destino, por, silencioso: true });
+    if (!r.ok) fallidos.push(leadId);
+  }
+  return fallidos;
+}
+
+const noSeMovieron = (n: number) => `No pude mover ${n} ${n === 1 ? 'cliente' : 'clientes'}. Intenta de nuevo.`;
+
+/**
+ * Lo que la pantalla necesita para PREGUNTAR antes de «Eliminar módulo» (la confirmación dice cuántas
+ * clases y cuántos clientes, corto): cuántos clientes hay en su etapa y a dónde pueden ir. No escribe
+ * nada. Un suelto no tiene clientes; la entrada del kanban contesta su motivo (no se elimina).
+ */
+export async function previaDeQuitar(productoId: number, clave: string): Promise<{ ok: true; clientes: number; destinos: DestinoClientes[] } | { ok: false; error: string }> {
   try {
     const cur = await modulosDelCurso(productoId, { estricta: true });
     if (!cur) return { ok: false, error: 'No pude leer los módulos. Intenta de nuevo.' };
     const m = cur.modulos.find((x) => x.clave === clave);
     if (!m) return { ok: false, error: 'Ese módulo ya no existe.' };
-    if (m.vinculado) return { ok: false, error: 'Es una etapa: se borra en el kanban.' };
+    if (!m.vinculado) return { ok: true, clientes: 0, destinos: [] };
+    const leads = await clientesDeLaEtapa(productoId, clave);
+    const d = decidirQuitarEtapa(cur.entrega, clave, leads.length, null);
+    if (d.ok) return { ok: true, clientes: 0, destinos: [] };
+    if (!d.pregunta) return { ok: false, error: d.error };
+    return { ok: true, clientes: d.pregunta.clientes, destinos: d.pregunta.destinos };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No pude contar sus clientes.') };
+  }
+}
+
+/**
+ * ELIMINAR UN MÓDULO (08/10/2026, item 15: «en módulo falta la opción de eliminar módulo, si se
+ * elimina, se elimina también la etapa»). Va a la PAPELERA (mig 0223): sus clases quedan con
+ * `borrada_at` y la fila del módulo con `borrado_at`, invisibles para todo lo demás, y el «Deshacer»
+ * de 5 segundos (`restaurarModulo`) los devuelve con la MISMA identidad —el avance de cada alumno, sus
+ * entregas y su portada siguen ahí—. La purga los borra de verdad después (lib/curso-papelera.ts).
+ *
+ * Un VINCULADO es además una columna del kanban: se QUITA (`decidirQuitarEtapa`: la entrada no, y con
+ * clientes adentro primero se pregunta a dónde van y se los muda SIN mensajes). Un suelto no mueve a
+ * nadie.
+ *
+ * ⚠️ EL ORDEN DEJA EL CURSO VISIBLE si algo se corta a mitad: primero los clientes (si uno no se
+ *    mueve, no se toca nada más), después el módulo (la etapa o la fila del suelto), y recién al final
+ *    sus clases. Cortado antes de las clases, quedan en «Sin módulo» —se ven y se mueven—, nunca
+ *    escondidas debajo de un módulo vivo.
+ * ⚠️ LO QUE ESTABA ANCLADO A ÉL se engancha a lo que venía antes (como siempre), y el «Deshacer» lo
+ *    vuelve a su lugar con el orden de antes.
+ */
+export async function borrarModulo(
+  productoId: number,
+  clave: string,
+  opts: { destino?: string | null; por?: string } = {},
+): Promise<ResultadoQuitar<{ clases: number[]; movidos: number; quitada: EtapaQuitada | null }>> {
+  try {
+    const cur = await modulosDelCurso(productoId, { estricta: true });
+    if (!cur) return { ok: false, error: 'No pude leer los módulos. Intenta de nuevo.' };
+    const m = cur.modulos.find((x) => x.clave === clave);
+    if (!m) return { ok: false, error: 'Ese módulo ya no existe.' };
     const db = await getTenantDb();
-    const { count, error: eC } = await db.from('curso_clases').select('id', { count: 'exact', head: true }).eq('producto_id', productoId).eq('etapa', clave);
-    if (eC) return { ok: false, error: eC.message };
-    if ((count ?? 0) > 0) return { ok: false, error: 'Tiene clases: muévelas antes.' };
+    // Las clases VIVAS del módulo: las que ya estaban en la papelera se quedan donde estaban (tienen su
+    // propio «Deshacer», o ya se les venció).
+    const vivas = await leerTodo<{ id: number }>(db, 'curso_clases', 'id',
+      { filtros: (q) => q.eq('producto_id', productoId).eq('etapa', clave).is('borrada_at', null), orden: 'id' });
+    const ids = vivas.map((c) => Number(c.id));
+    const ahora = new Date().toISOString();
+    let quitada: EtapaQuitada | null = null;
+
+    if (m.vinculado) {
+      const leads = await clientesDeLaEtapa(productoId, clave);
+      const d = decidirQuitarEtapa(cur.entrega, clave, leads.length, opts.destino);
+      if (!d.ok) return d;
+      if (leads.length) {
+        const no = await moverClientesEnSilencio(productoId, leads, d.destino!, opts.por ?? POR_PERSONA);
+        if (no.length) return { ok: false, error: noSeMovieron(no.length) };
+      }
+      if (!(await guardarEtapasEntrega(productoId, d.etapas, d.fases))) return { ok: false, error: 'No se pudo quitar la etapa. Intenta de nuevo.' };
+      quitada = { etapa: d.etapa, indice: d.indice, movidos: leads.length };
+      // Su candado (la fila de un vinculado existe sólo para eso), a la papelera con él: el «Deshacer»
+      // lo devuelve junto con la etapa. Best-effort: sin la etapa, una fila de más no abre ni dibuja nada.
+      const { error: eFila } = await db.from('curso_modulos').update({ borrado_at: ahora, updated_at: ahora })
+        .eq('producto_id', productoId).eq('clave', clave).eq('vinculado', true).is('borrado_at', null);
+      if (eFila) console.warn('[curso-modulos] se quitó la etapa y su candado no fue a la papelera:', eFila.message);
+    } else {
+      const { error } = await db.from('curso_modulos').update({ borrado_at: ahora, updated_at: ahora })
+        .eq('producto_id', productoId).eq('clave', clave).eq('vinculado', false).is('borrado_at', null);
+      if (error) return { ok: false, error: error.message };
+    }
+
     const deseado = cur.modulos.map((x) => x.clave).filter((k) => k !== clave);
     const esVinc = new Map(cur.modulos.map((x) => [x.clave, x.vinculado]));
-    const { error } = await db.from('curso_modulos').delete().eq('producto_id', productoId).eq('clave', clave).eq('vinculado', false);
-    if (error) return { ok: false, error: error.message };
     await guardarAnclas(productoId, cur.filas, anclasDe(deseado, (k) => esVinc.get(k) === false));
-    // Lo que lo nombraba y ya no nombra nada. Best-effort: una fila de más no abre ni dibuja nada.
-    await db.from('curso_estilo').delete().eq('producto_id', productoId).eq('clave', `portada:etapa:${clave}`);
-    await db.from('curso_desbloqueos').delete().eq('producto_id', productoId).eq('objeto', 'modulo').eq('clave', clave);
-    return { ok: true, modulos: await releer(productoId) };
+
+    if (ids.length) {
+      const { error } = await db.from('curso_clases').update({ borrada_at: ahora, updated_at: ahora })
+        .in('id', ids).eq('producto_id', productoId).is('borrada_at', null);
+      if (error) return { ok: false, error: `Se borró el módulo y sus clases quedaron en «Sin módulo». ${error.message}` };
+    }
+    return { ok: true, modulos: await releer(productoId), clases: ids, movidos: quitada?.movidos ?? 0, quitada };
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo borrar el módulo.') };
   }
 }
 
 /**
- * Desvincula un módulo del kanban (`vincular: false`) o vincula un suelto (`vincular: true`).
+ * El «DESHACER» DE «Eliminar módulo»: devuelve el MISMO módulo —la fila del suelto, o la etapa en su
+ * lugar del kanban con su clave, su color y su fase—, sus clases de la papelera (las que se borraron
+ * con él, por id: no las que ya estaban borradas de antes), y el orden de antes (`orden`, la lista de
+ * módulos como estaba).
  *
- * DESVINCULAR (pedido de Martín: «si quiero crear un módulo que NO sea una etapa dentro del kanban»):
- * nace un suelto con clave NUEVA en el mismo lugar, sus clases y todo lo que nombraba al módulo pasan
- * a esa clave (`reclavear`), y la etapa QUEDA en el kanban con `enCurso: false` — los clientes que
- * están en esa columna no se mueven, y sus secuencias siguen. Su candado pasa al suelto salvo `etapa`
- * (un suelto no es una etapa): ese vuelve al default de un suelto, abierto.
- *
- * VINCULAR: nace una etapa en el kanban en su lugar (`etapaNuevaEn`: la regla de la primera etapa
- * vale) y se re-clavea al revés. Su candado pasa a la etapa.
- *
- * ⚠️ EL ORDEN DE LAS ESCRITURAS ES EL QUE DEJA EL CURSO VISIBLE si algo se corta a mitad: primero nace
- * el módulo nuevo (la fila del suelto, o la etapa), después se mudan las clases, y recién al final se
- * apaga el viejo. Cortado en el medio queda un módulo de más (vacío, o con las clases), nunca clases
- * colgando de una clave que no es de ningún módulo.
+ * ⚠️ LA ETAPA SE DEVUELVE SÓLO SI NO TENÍA CLIENTES (la pantalla no lo ofrece de otro modo): a los
+ *    que se mudaron no se los vuelve a mover — sería un segundo movimiento silencioso de N personas
+ *    con su reloj de etapa arrancando hoy. Por eso, con clientes, «Eliminar módulo» no ofrece deshacer.
+ * ⚠️ LO QUE MANDA EL NAVEGADOR SE VALIDA: la clave con su forma, la etapa con esa MISMA clave (y la
+ *    sanea `guardarEtapasEntrega`), los ids como enteros, y sólo se tocan filas de este producto, de
+ *    esta clave y que estén en la papelera.
  */
-export async function vincularModulo(productoId: number, clave: string, vincular: boolean): Promise<ResultadoModulos<{ clave: string }>> {
+export async function restaurarModulo(
+  productoId: number,
+  raw: { clave?: unknown; clases?: unknown; orden?: unknown; quitada?: { etapa?: unknown; indice?: unknown } | null },
+): Promise<ResultadoModulos<{ clases: Clase[] }>> {
+  try {
+    const clave = String(raw?.clave ?? '');
+    if (!CLAVE_MODULO_RE.test(clave)) return { ok: false, error: 'No se entiende qué devolver.' };
+    const ids = Array.isArray(raw?.clases) ? [...new Set(raw.clases.map(Number))].filter((n) => Number.isInteger(n) && n > 0).slice(0, 1000) : [];
+    const orden = Array.isArray(raw?.orden) ? raw.orden.filter((k): k is string => typeof k === 'string') : [];
+    const etapaRaw = raw?.quitada?.etapa as EtapaEntrega | undefined;
+    if (raw?.quitada && (!etapaRaw || etapaRaw.key !== clave)) return { ok: false, error: 'No se entiende qué devolver.' };
+    const cur = await modulosDelCurso(productoId, { estricta: true });
+    if (!cur) return { ok: false, error: 'No pude leer los módulos. Intenta de nuevo.' };
+    const db = await getTenantDb();
+    const ahora = new Date().toISOString();
+
+    if (etapaRaw && !cur.entrega.etapas.some((e) => e.key === clave)) {
+      const largo = cur.entrega.etapas.length;
+      const i = Math.max(1, Math.min(Number(raw.quitada?.indice) || largo, largo));
+      const etapas = [...cur.entrega.etapas.slice(0, i), etapaRaw, ...cur.entrega.etapas.slice(i)];
+      if (!(await guardarEtapasEntrega(productoId, etapas, cur.entrega.fases))) return { ok: false, error: 'No se pudo devolver la etapa.' };
+    }
+    const { error: eFila } = await db.from('curso_modulos').update({ borrado_at: null, updated_at: ahora })
+      .eq('producto_id', productoId).eq('clave', clave).not('borrado_at', 'is', null);
+    if (eFila) return { ok: false, error: eFila.message };
+
+    let clases: Clase[] = [];
+    if (ids.length) {
+      const { COLUMNAS_CLASE, aClase } = await import('./curso-datos');
+      const { data, error } = await db.from('curso_clases').update({ borrada_at: null, updated_at: ahora })
+        .in('id', ids).eq('producto_id', productoId).eq('etapa', clave).not('borrada_at', 'is', null).select(COLUMNAS_CLASE);
+      if (error) return { ok: false, error: error.message };
+      clases = ((data ?? []) as Parameters<typeof aClase>[0][]).map(aClase);
+    }
+
+    // El orden de antes: lo que estaba anclado a él vuelve detrás de él. Sólo si la lista es la MISMA
+    // (si alguien creó o borró otro módulo en el medio, se deja como quedó).
+    const despues = await modulosDelCurso(productoId, { estricta: true });
+    if (despues && orden.length === despues.modulos.length && despues.modulos.every((m) => orden.includes(m.clave))) {
+      const plan = planReorden(despues.entrega, despues.modulos, orden);
+      if (plan.ok) {
+        if (plan.cambiaEntrega) await guardarEtapasEntrega(productoId, plan.etapas, plan.fases);
+        await guardarAnclas(productoId, despues.filas, plan.anclas);
+      }
+    }
+    return { ok: true, modulos: await releer(productoId), clases };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo devolver el módulo.') };
+  }
+}
+
+/**
+ * EL INTERRUPTOR «Etapa del kanban» de un módulo (`vincular`).
+ *
+ * APAGARLO QUITA LA ETAPA DEL KANBAN (cambió de sentido el 08/10/2026, item 15: «si se desactiva se
+ * elimina esa etapa del kanban, y si hay leads debería preguntar a dónde los mueve»). Hasta entonces
+ * la etapa quedaba en el kanban con `enCurso: false` y los clientes no se movían. Ahora:
+ *   · la ENTRADA del kanban no se quita (`ERROR_ENTRADA`);
+ *   · con clientes adentro y sin `destino`, PREGUNTA (`pregunta`) y no escribe nada;
+ *   · con destino, los muda SIN MENSAJES (`moverClientesEnSilencio`) antes que nada;
+ *   · nace un suelto con clave NUEVA en el mismo lugar, sus clases y todo lo que nombraba al módulo
+ *     pasan a esa clave (`reclavear`), y la etapa sale del kanban con las fases intactas.
+ * Su candado pasa al suelto salvo `etapa` (un suelto no es una etapa): ése vuelve al de un suelto.
+ *
+ * PRENDERLO crea la etapa en su lugar (`etapaNuevaEn`: la regla de la primera etapa vale) y re-clavea
+ * al revés; su candado pasa a la etapa. Con `devolver` (el «Deshacer» de haberlo apagado) es la MISMA
+ * etapa en el MISMO lugar (`planConEtapaDevuelta`), si su clave sigue libre.
+ *
+ * ⚠️ EL ORDEN DE LAS ESCRITURAS ES EL QUE DEJA EL CURSO VISIBLE si algo se corta a mitad: los clientes
+ * primero, después nace el módulo nuevo (la fila del suelto, o la etapa), se mudan las clases, y recién
+ * al final se apaga el viejo. Cortado en el medio queda un módulo de más (vacío, o con las clases),
+ * nunca clases colgando de una clave que no es de ningún módulo.
+ */
+export async function vincularModulo(
+  productoId: number,
+  clave: string,
+  vincular: boolean,
+  opts: { destino?: string | null; por?: string; devolver?: { etapa: EtapaEntrega; indice: number } | null } = {},
+): Promise<ResultadoQuitar<{ clave: string; quitada?: EtapaQuitada }>> {
   try {
     const cur = await modulosDelCurso(productoId, { estricta: true });
     if (!cur) return { ok: false, error: 'No pude leer los módulos. Intenta de nuevo.' };
@@ -334,12 +521,19 @@ export async function vincularModulo(productoId: number, clave: string, vincular
     if (!m) return { ok: false, error: 'Ese módulo ya no existe.' };
     if (m.vinculado === vincular) return { ok: true, clave, modulos: cur.modulos };
     const db = await getTenantDb();
-    const usadas = await clavesUsadas(productoId, cur.entrega, cur.filas);
     const claves = cur.modulos.map((x) => x.clave);
     const esVinc = new Map(cur.modulos.map((x) => [x.clave, x.vinculado]));
     const ahora = new Date().toISOString();
 
     if (!vincular) {
+      const leads = await clientesDeLaEtapa(productoId, clave);
+      const d = decidirQuitarEtapa(cur.entrega, clave, leads.length, opts.destino);
+      if (!d.ok) return d;
+      if (leads.length) {
+        const no = await moverClientesEnSilencio(productoId, leads, d.destino!, opts.por ?? POR_PERSONA);
+        if (no.length) return { ok: false, error: noSeMovieron(no.length) };
+      }
+      const usadas = await clavesUsadas(productoId, cur.entrega, cur.filas);
       const nueva = nuevaClaveSuelto(usadas);
       const deseado = claves.map((k) => (k === clave ? nueva : k));
       esVinc.set(nueva, false);
@@ -351,24 +545,32 @@ export async function vincularModulo(productoId: number, clave: string, vincular
       }]);
       if (ins.error) return { ok: false, error: ins.error.message };
       await reclavear(productoId, clave, nueva);
-      const etapas = cur.entrega.etapas.map((e): EtapaEntrega => (e.key === clave ? { ...e, enCurso: false } : e));
-      if (!(await guardarEtapasEntrega(productoId, etapas, cur.entrega.fases))) {
-        return { ok: false, error: 'Se movieron las clases y la etapa no se pudo sacar del curso. Intenta de nuevo.' };
+      if (!(await guardarEtapasEntrega(productoId, d.etapas, d.fases))) {
+        return { ok: false, error: 'Se movieron las clases y la etapa no se pudo quitar. Intenta de nuevo.' };
       }
       await guardarAnclas(productoId, cur.filas, anclas);
       await db.from('curso_modulos').delete().eq('producto_id', productoId).eq('clave', clave).eq('vinculado', true);
-      return { ok: true, clave: nueva, modulos: await releer(productoId) };
+      return { ok: true, clave: nueva, modulos: await releer(productoId), quitada: { etapa: d.etapa, indice: d.indice, movidos: leads.length } };
     }
 
-    const etapa = etapaDeModulo(m.nombre, usadas, cur.entrega.etapas.length);
+    const usadas = await clavesUsadas(productoId, cur.entrega, cur.filas);
+    const previa = opts.devolver?.etapa;
+    // El «Deshacer» devuelve la MISMA clave si sigue libre; si no (alguien la tomó en el medio), una
+    // nueva, como cualquier vincular.
+    const devuelta = previa && CLAVE_MODULO_RE.test(previa.key) && !usadas.includes(previa.key) ? { ...previa, label: m.nombre } : null;
+    const etapa = devuelta ?? etapaDeModulo(m.nombre, usadas, cur.entrega.etapas.length);
     const deseado = claves.map((k) => (k === clave ? etapa.key : k));
     // Los módulos de hoy SIN el suelto que se vincula (su clave vieja ya no está en `deseado`).
-    const plan = planConEtapaNueva(cur.entrega, cur.modulos.filter((x) => x.clave !== clave), deseado, etapa);
+    const sinEl = cur.modulos.filter((x) => x.clave !== clave);
+    const plan = devuelta
+      ? planConEtapaDevuelta(cur.entrega, sinEl, deseado, etapa, Number(opts.devolver?.indice))
+      : planConEtapaNueva(cur.entrega, sinEl, deseado, etapa);
     if (!plan.ok) return plan;
     if (!(await guardarEtapasEntrega(productoId, plan.etapas, plan.fases))) return { ok: false, error: 'No se pudo crear la etapa.' };
     await reclavear(productoId, clave, etapa.key);
     if (m.bloqueo) {
-      const up = await db.from('curso_modulos').upsert([{ producto_id: productoId, clave: etapa.key, vinculado: true, nombre: null, despues_de: null, bloqueo: m.bloqueo, updated_at: ahora }],
+      // `borrado_at: null`: si quedó en la papelera una fila con esta clave, el candado nuevo la revive.
+      const up = await db.from('curso_modulos').upsert([{ producto_id: productoId, clave: etapa.key, vinculado: true, nombre: null, despues_de: null, bloqueo: m.bloqueo, borrado_at: null, updated_at: ahora }],
         { onConflict: 'workspace_id,producto_id,clave' });
       if (up.error) console.warn('[curso-modulos] se vinculó y no se pudo pasar su candado:', up.error.message);
     }
@@ -376,7 +578,7 @@ export async function vincularModulo(productoId: number, clave: string, vincular
     await db.from('curso_modulos').delete().eq('producto_id', productoId).eq('clave', clave).eq('vinculado', false);
     return { ok: true, clave: etapa.key, modulos: await releer(productoId) };
   } catch (e) {
-    return { ok: false, error: msg(e, vincular ? 'No se pudo vincular.' : 'No se pudo desvincular.') };
+    return { ok: false, error: msg(e, vincular ? 'No se pudo vincular.' : 'No se pudo quitar la etapa.') };
   }
 }
 
@@ -403,7 +605,8 @@ export async function guardarBloqueo(productoId: number, objetivo: ObjetivoBloqu
     if (!cur) return { ok: false, error: 'No pude leer los módulos. Intenta de nuevo.' };
     const ahora = new Date().toISOString();
     const claseDelProducto = async (id: number): Promise<{ id: number; etapa: string } | null> => {
-      const { data, error } = await db.from('curso_clases').select('id, etapa').eq('id', id).eq('producto_id', productoId).maybeSingle();
+      // Sin las de la papelera (mig 0223): una clase borrada no existe para un candado.
+      const { data, error } = await db.from('curso_clases').select('id, etapa').eq('id', id).eq('producto_id', productoId).is('borrada_at', null).maybeSingle();
       if (error) throw new Error(error.message);
       return (data as { id: number; etapa: string } | null) ?? null;
     };
@@ -421,7 +624,7 @@ export async function guardarBloqueo(productoId: number, objetivo: ObjetivoBloqu
       if (m.vinculado) {
         // La fila de un vinculado existe SÓLO para guardar su candado: sin candado, se borra.
         const r = b
-          ? await db.from('curso_modulos').upsert([{ producto_id: productoId, clave: m.clave, vinculado: true, nombre: null, despues_de: null, bloqueo: b, updated_at: ahora }],
+          ? await db.from('curso_modulos').upsert([{ producto_id: productoId, clave: m.clave, vinculado: true, nombre: null, despues_de: null, bloqueo: b, borrado_at: null, updated_at: ahora }],
             { onConflict: 'workspace_id,producto_id,clave' })
           : await db.from('curso_modulos').delete().eq('producto_id', productoId).eq('clave', m.clave).eq('vinculado', true);
         if (r.error) return { ok: false, error: r.error.message };
@@ -442,7 +645,7 @@ export async function guardarBloqueo(productoId: number, objetivo: ObjetivoBloqu
     if (b?.tipo === 'tarea' && !(await claseDelProducto(b.claseId))) return { ok: false, error: 'Esa clase ya no existe.' };
     const { COLUMNAS_CLASE, aClase } = await import('./curso-datos');
     const { data, error } = await db.from('curso_clases').update({ bloqueo: b, updated_at: ahora })
-      .eq('id', id).eq('producto_id', productoId).select(COLUMNAS_CLASE).single();
+      .eq('id', id).eq('producto_id', productoId).is('borrada_at', null).select(COLUMNAS_CLASE).single();
     if (error) return { ok: false, error: error.message };
     return { ok: true, modulos: cur.modulos, clase: aClase(data as Parameters<typeof aClase>[0]) };
   } catch (e) {

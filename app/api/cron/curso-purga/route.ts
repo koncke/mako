@@ -21,10 +21,16 @@
 // Contesta 500 si hubo un error de verdad (listado, lectura o borrado) para que el monitoreo del
 // cron lo vea; una vuelta que se abstuvo por la regla (la lectura volvió vacía) es un 200 con su
 // motivo escrito.
+//
+// ⚠️ PRIMERO LA PAPELERA (08/10/2026, mig 0223): las clases y los módulos que se borraron desde el
+// editor hace más de una semana se borran DE VERDAD (lib/curso-papelera.ts). Va antes y SIN modo
+// prueba —es el `delete` de siempre, diferido para que exista el «Deshacer»—, y así el video de una
+// clase purgada queda sin fila que lo nombre para la purga de los buckets de abajo.
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { purgarHuerfanosDelCurso } from '@/lib/curso-purga';
+import { purgarPapeleraDelCurso } from '@/lib/curso-papelera';
 import { pideBorrarPurga } from '@/app/customer-success/curso/reglas';
 
 export const dynamic = 'force-dynamic';
@@ -35,10 +41,11 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   try {
+    const papelera = await purgarPapeleraDelCurso();
     const borrar = pideBorrarPurga(req.nextUrl.searchParams.get('borrar'), process.env.CURSO_PURGA_BORRAR);
     const resultados = await purgarHuerfanosDelCurso({ borrar });
-    const conError = resultados.some((r) => r.error);
-    return Response.json({ ok: !conError, modo: borrar ? 'borra' : 'prueba', resultados }, { status: conError ? 500 : 200 });
+    const conError = !!papelera.error || resultados.some((r) => r.error);
+    return Response.json({ ok: !conError, modo: borrar ? 'borra' : 'prueba', papelera, resultados }, { status: conError ? 500 : 200 });
   } catch (e) {
     return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }

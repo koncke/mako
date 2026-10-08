@@ -92,9 +92,14 @@ test('cada action ABRE con la puerta: por su producto (admin + propio) o por su 
     /if \(otra\.etapa === m\.clave\) return \{ ok: false, error: 'Un módulo no puede esperar a una clase suya\.' \};/);
 });
 
-test('revalidatePath sólo donde cambia el KANBAN (crear, renombrar, vincular, reordenar)', () => {
+test('revalidatePath sólo donde cambia el KANBAN (crear, renombrar, vincular, reordenar, y borrar/devolver uno vinculado)', () => {
   const con = exportadas(ACC).filter((f) => /alKanban\(\)|revalidatePath\(/.test(plano(f.nodo, ACC))).map((f) => f.nombre).sort();
-  assert.deepEqual(con, ['crearModuloAction', 'renombrarModuloAction', 'reordenarModulosAction', 'vincularModuloAction']);
+  // 08/10/2026 (item 15): borrar un módulo vinculado QUITA su columna del kanban, y su «Deshacer» la devuelve.
+  assert.deepEqual(con, ['borrarModuloAction', 'crearModuloAction', 'renombrarModuloAction', 'reordenarModulosAction', 'restaurarModuloAction', 'vincularModuloAction']);
+  // Y en esas dos, SÓLO si se tocó una columna: un suelto no cambia el kanban.
+  const cuerpo = (n: string) => plano(funciones(ACC).find((x) => x.nombre === n)!.nodo, ACC);
+  assert.match(cuerpo('borrarModuloAction'), /if \(r\.ok && r\.quitada\) alKanban\(\);/);
+  assert.match(cuerpo('restaurarModuloAction'), /if \(x\.ok && r\?\.quitada\) alKanban\(\);/);
 });
 
 test('guardarCampoClase: UN cambio por vez, y cada uno escribe SÓLO sus columnas (nunca la fila entera)', () => {
@@ -145,15 +150,22 @@ test('desvincular / vincular: el ORDEN de las escrituras deja el curso visible, 
   // clases colgando de una clave que no es de ningún módulo (desaparecen del portal).
   const DATOS = fuente('lib/curso-modulos-datos.ts');
   const vin = plano(funciones(DATOS).find((x) => x.nombre === 'vincularModulo')!.nodo, DATOS);
-  const corte = vin.indexOf('const etapa = etapaDeModulo(');
+  const corte = vin.indexOf('const etapa = devuelta ?? etapaDeModulo(');
   const desv = vin.slice(vin.indexOf('if (!vincular) {'), corte);
   const vinc = vin.slice(corte);
   assert.ok(desv.length > 300 && vinc.length > 300, `recortes de ${desv.length} y ${vinc.length}`);
   const posiciones = (s: string, marcas: string[]) => marcas.map((m) => { const i = s.indexOf(m); assert.ok(i >= 0, `falta ${m}`); return i; });
-  const d = posiciones(desv, ["from('curso_modulos').insert(", 'await reclavear(productoId, clave, nueva)', '{ ...e, enCurso: false }', 'guardarEtapasEntrega(', "from('curso_modulos').delete()"]);
-  assert.deepEqual([...d].sort((a, b) => a - b), d, 'desvincular: nace el suelto, se mudan las clases, la etapa sale del curso y recién ahí se borra la fila vieja');
-  // La etapa QUEDA en el kanban (los clientes que están ahí no se mueven): se marca, no se filtra.
-  assert.doesNotMatch(desv, /etapas\.filter\(/);
+  // 08/10/2026 (item 15): APAGAR «Etapa del kanban» QUITA LA ETAPA (antes quedaba con `enCurso: false`).
+  // Primero se decide (la entrada no, y con clientes se pregunta), después se mudan los clientes SIN
+  // mensajes, nace el suelto, se mudan las clases, se guarda el kanban SIN la etapa y al final se borra
+  // la fila vieja.
+  const d = posiciones(desv, [
+    'decidirQuitarEtapa(cur.entrega, clave, leads.length, opts.destino)', 'if (!d.ok) return d;', 'moverClientesEnSilencio(',
+    "from('curso_modulos').insert(", 'await reclavear(productoId, clave, nueva)', 'guardarEtapasEntrega(productoId, d.etapas, d.fases)',
+    "from('curso_modulos').delete()",
+  ]);
+  assert.deepEqual([...d].sort((a, b) => a - b), d, 'desvincular: decide, muda a los clientes, nace el suelto, se mudan las clases, la etapa sale del kanban y recién ahí se borra la fila vieja');
+  assert.doesNotMatch(desv, /enCurso: false/, 'la etapa se QUITA del kanban: no queda marcada fuera del curso');
   const v = posiciones(vinc, ['guardarEtapasEntrega(', 'await reclavear(productoId, clave, etapa.key)', "from('curso_modulos').delete()"]);
   assert.deepEqual([...v].sort((a, b) => a - b), v, 'vincular: nace la etapa, se mudan las clases y recién ahí se borra el suelto');
   // Las seis cosas que nombran la clave de un módulo.
@@ -176,10 +188,23 @@ test('guardarBloqueo y borrarModulo validan ANTES de escribir (revisión 08/10: 
   assert.match(g, /const no = bloqueoPermitido\('clase', b, \{ claseId: id \}\); if \(no\) return \{ ok: false, error: no \};/);
   // Una `tarea` apunta a una clase de ESTE producto (`claseDelProducto` filtra por producto).
   assert.match(g, /from\('curso_clases'\)\.select\('id, etapa'\)\.eq\('id', id\)\.eq\('producto_id', productoId\)/);
+  // 08/10/2026 (item 15): «Eliminar módulo» borra también uno VINCULADO (quita su etapa) y uno con clases:
+  // a la PAPELERA (mig 0223), nunca un `delete` (el avance de cada alumno se iría por la cascada y el
+  // «Deshacer» devolvería una clase IGUAL con otro id).
   const b = cuerpo('borrarModulo');
-  assert.match(b, /if \(m\.vinculado\) return \{ ok: false/, 'un vinculado es una columna del kanban con clientes: se borra allá');
-  assert.match(b, /if \(\(count \?\? 0\) > 0\) return \{ ok: false/, 'con clases se llevaría el avance de cada alumno');
-  assert.ok(b.indexOf("from('curso_modulos').delete()") > b.indexOf('(count ?? 0) > 0'), 'se borra DESPUÉS de contar las clases');
+  assert.doesNotMatch(b, /from\('curso_clases'\)\.delete\(\)|from\('curso_modulos'\)\.delete\(\)/, 'borrar un módulo no borra filas: van a la papelera');
+  const pb = (m: string) => { const i = b.indexOf(m); assert.ok(i >= 0, `borrarModulo: falta ${m}`); return i; };
+  // Primero se decide y se mudan los clientes (si uno no se mueve, no se toca nada), después el módulo
+  // (la etapa o la fila del suelto) y recién al final sus clases: cortado antes, quedan en «Sin módulo».
+  const orden = [
+    pb('decidirQuitarEtapa(cur.entrega, clave, leads.length, opts.destino)'), pb('moverClientesEnSilencio('),
+    pb('guardarEtapasEntrega(productoId, d.etapas, d.fases)'), pb(".update({ borrada_at: ahora, updated_at: ahora })"),
+  ];
+  assert.deepEqual([...orden].sort((x, y) => x - y), orden, 'borrarModulo: clientes, etapa, y las clases al final');
+  assert.ok(pb(".update({ borrado_at: ahora, updated_at: ahora }) .eq('producto_id', productoId).eq('clave', clave).eq('vinculado', false)") < pb(".update({ borrada_at: ahora"),
+    'un suelto: la fila a la papelera ANTES que sus clases');
+  // Las clases que se van son las VIVAS (las ya borradas tienen su propio «Deshacer»).
+  assert.match(b, /leerTodo<\{ id: number \}>\(db, 'curso_clases', 'id', \{ filtros: \(q\) => q\.eq\('producto_id', productoId\)\.eq\('etapa', clave\)\.is\('borrada_at', null\)/);
 });
 
 test('clavesUsadas: las claves que no se reusan se leen ESTRICTAS (decide una clave nueva, no dibuja)', () => {
@@ -229,3 +254,10 @@ test('validarVideoEntrada: lo que termina en las columnas del video son EXACTAME
 //   · los minutos escritos sin redondear · sin el rango 0 a 600 · el tipo sin `TIPOS_CLASE`
 //   (las dos últimas pasaban en VERDE antes de sumar las aserciones del `caso`: el mapa de `fila = …`
 //   no mira la validación de arriba.)
+// ESTRUCTURA (08/10/2026, item 15: apagar «Etapa del kanban» QUITA la etapa, y «Eliminar módulo» borra
+// también un vinculado o uno con clases, a la papelera). Los dos tests de arriba se reescribieron para el
+// sentido nuevo; scratchpad/estructura/romper.mjs, restaurado deshaciendo el reemplazo. Sin romper 8 / 0;
+// cada rotura 7 / 1 en SU test:
+//   · apagar deja la etapa con `enCurso: false` (el sentido viejo)      → «desvincular / vincular…»
+//   · borrar un módulo hace un `delete` de sus clases                   → «guardarBloqueo y borrarModulo…»
+//   · borrar un suelto revalida el kanban                               → «revalidatePath sólo donde…»

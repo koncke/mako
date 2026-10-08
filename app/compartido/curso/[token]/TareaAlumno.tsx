@@ -48,12 +48,21 @@
 //   · UN LINK, UNA ESCALA, «YA AGENDÉ» Y «LO HICE» cuentan con la MISMA regla que el server
 //     (`campoLleno`): un link que no es un link no es una respuesta.
 //
+// LOS AJUSTES DEL 08/10/2026:
+//   · La PREGUNTA es el título del campo, arriba del cuadro, NUNCA su placeholder (item 5: «No podés poner
+//     la pregunta dentro del cuadro de texto donde va a completar el alumno como si fuera un placeholder,
+//     eso confunde»). El cuadro lleva, si el equipo lo escribió, su TEXTO DE EJEMPLO (`Campo.placeholder`).
+//   · LA COMUNIDAD (item 17): un campo «Publicar en la comunidad» deja escribir el post (título y texto)
+//     acá mismo, y uno «Comentar en la comunidad» muestra el post y deja comentarlo. Va por la ruta de la
+//     tarea (`comunidad`, con su token y su candado) y lo que queda en la respuesta es QUÉ post o comentario
+//     (lib/curso-tarea-comunidad.ts), que la ruta verifica antes de guardar.
+//
 // Texto de pantalla: español neutro con TÚ (los clientes de Mauricio son mexicanos), corto.
 
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { ArchivoEntregado, Calificacion, Campo, EstadoTarea, NotaQuiz, Valores, ValorCampo } from '@/lib/curso';
 import {
-  aceptaDeCampo, corregirEnvio, esCampoDeArchivo, linkValido, mimeBase, mimeDeEntrega, mimesDeCampo, nombreDeEntrega,
+  aceptaDeCampo, corregirEnvio, esCampoDeArchivo, esCampoDeComunidad, linkValido, mimeBase, mimeDeEntrega, mimesDeCampo, nombreDeEntrega,
   pathsDeEntregas, sanearValores, seApruebaSola, MAX_SEG_DEFAULT, TOPE_ENTREGA_BYTES,
 } from '@/lib/curso';
 import type { PropuestaVista } from '@/lib/curso-portal';
@@ -79,6 +88,9 @@ type Respuesta = {
   descartados?: number;
 };
 
+/** Lo que contesta la ruta de la tarea a un pedido de la comunidad (item 17). */
+type RespuestaComunidad = { ok: boolean; error?: string; valor?: string | null; post?: { id: number; titulo: string; extracto: string } | null };
+
 /** Lo que un campo de la #18 necesita de la tarea: subir, abrir, cambiar sobre lo último y las notas. */
 type Herramientas = {
   subir: (c: Campo, f: File, onPct: (n: number) => void) => Promise<ArchivoEntregado>;
@@ -86,6 +98,10 @@ type Herramientas = {
   /** Pone la lista de archivos de un campo, o le agrega uno, sobre los valores MÁS NUEVOS. */
   archivos: (id: string, cambio: (antes: ArchivoEntregado[]) => ArchivoEntregado[]) => void;
   calificacion: Calificacion;
+  /** Publicar, comentar o mirar qué post se comenta, en la comunidad del producto (item 17). */
+  comunidad: (c: Campo, accion: 'publicar' | 'comentar' | 'ver', datos?: { titulo?: string; cuerpo?: string }) => Promise<RespuestaComunidad>;
+  /** Sin alumno detrás: la vista previa del equipo (no sale nada). */
+  previa: boolean;
 };
 
 /**
@@ -326,11 +342,38 @@ export default function TareaAlumno({ token, claseId, area, tarea, campos, valor
     }
   }, [previa, token, claseId, area]);
 
+  /**
+   * Publicar o comentar en la comunidad (item 17), o mirar qué post se comenta. Por la ruta de la TAREA,
+   * con el token y la clase: pasa por su candado. Lo que vuelve (`valor`, QUÉ post o comentario) entra a
+   * la respuesta como cualquier campo, y el server ya lo anotó. En la vista previa no sale nada.
+   */
+  const comunidad = useCallback(async (c: Campo, accion: 'publicar' | 'comentar' | 'ver', datos?: { titulo?: string; cuerpo?: string }): Promise<RespuestaComunidad> => {
+    if (previa) {
+      if (accion === 'ver') return { ok: true, post: c.postTitulo ? { id: c.postId ?? 0, titulo: c.postTitulo, extracto: '' } : null };
+      return { ok: true, valor: 'previa' };
+    }
+    try {
+      const r = await fetch(URL_TAREA, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ t: token, c: claseId, a: area, comunidad: { campo: c.id, accion, ...datos } }),
+      });
+      const j = (await r.json().catch(() => null)) as RespuestaComunidad | null;
+      if (r.status === 429) return { ok: false, error: 'Espera un minuto.' };
+      if (r.status === 403) return { ok: false, error: j?.error ?? 'Sin acceso a la comunidad.' };
+      return j ?? { ok: false, error: 'No se pudo.' };
+    } catch {
+      return { ok: false, error: 'Sin conexión.' };
+    }
+  }, [previa, token, claseId, area]);
+
   const herramientas: Herramientas = {
     subir,
     abrir,
     archivos: (id, cambio) => cambiar(id, cambio(archivosDe(ultimo.current[id]))),
     calificacion: calif,
+    comunidad,
+    previa,
   };
 
   // Al cerrar u ocultar la pestaña con algo sin guardar: `sendBeacon` sobrevive a la navegación,
@@ -680,13 +723,21 @@ function CampoAlumno({ idBase, campo, valor, soloLectura, onCambio, h }: {
     return grupo(<Checkbox checked={valor === 'si'} disabled={soloLectura} label="Lo hice" onChange={(on) => onCambio(on ? 'si' : '')} />);
   }
 
+  if (esCampoDeComunidad(campo.tipo)) {
+    return grupo(<CampoComunidad idBase={id} campo={campo} valor={valor} soloLectura={soloLectura} onCambio={onCambio} h={h} />);
+  }
+
+  // ⚠️ LA PREGUNTA VA ARRIBA (`cabeza`, el título del campo) Y EL CUADRO LLEVA SÓLO EL TEXTO DE EJEMPLO
+  //    que escribió el equipo (`campo.placeholder`), o nada: nunca la pregunta (item 5 del 08/10/2026).
+  const ejemplo = campo.placeholder?.trim() || undefined;
+
   if (campo.tipo === 'link') {
     const s = typeof valor === 'string' ? valor : '';
     const valido = linkValido(s);
     return (
       <div>
         {cabeza}
-        <Input id={id} type="url" inputMode="url" placeholder="https://" value={s} onChange={(e) => onCambio(e.target.value)} readOnly={soloLectura} />
+        <Input id={id} type="url" inputMode="url" placeholder={ejemplo ?? 'https://'} value={s} onChange={(e) => onCambio(e.target.value)} readOnly={soloLectura} />
         {s.trim() && !valido && !soloLectura && <p className="cp-aviso cp-aviso--falta">Revisa el link.</p>}
         {soloLectura && valido && <a className="cpt-link" href={valido} target="_blank" rel="noopener noreferrer">Abrir</a>}
       </div>
@@ -701,6 +752,7 @@ function CampoAlumno({ idBase, campo, valor, soloLectura, onCambio, h }: {
           id={id}
           type="text"
           inputMode={campo.tipo === 'numero' ? 'decimal' : undefined}
+          placeholder={ejemplo}
           value={typeof valor === 'string' ? valor : ''}
           onChange={(e) => onCambio(e.target.value)}
           readOnly={soloLectura}
@@ -712,7 +764,80 @@ function CampoAlumno({ idBase, campo, valor, soloLectura, onCambio, h }: {
   return (
     <div>
       {cabeza}
-      <Textarea id={id} rows={4} value={typeof valor === 'string' ? valor : ''} onChange={(e) => onCambio(e.target.value)} readOnly={soloLectura} />
+      <Textarea id={id} rows={4} placeholder={ejemplo} value={typeof valor === 'string' ? valor : ''} onChange={(e) => onCambio(e.target.value)} readOnly={soloLectura} />
+    </div>
+  );
+}
+
+// ── La comunidad (item 17 del 08/10/2026) ─────────────────────────────────────
+
+/**
+ * Publicar un post o comentar uno, DESDE la tarea. Hecho, dice que está hecho (y no se vuelve a
+ * publicar: un segundo post sería otro post en la comunidad de todos). Sin hacer, el formulario corto:
+ * título y texto para un post; el post y el comentario para comentar.
+ */
+function CampoComunidad({ idBase, campo, valor, soloLectura, onCambio, h }: {
+  idBase: string; campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; onCambio: (v: ValorCampo) => void; h: Herramientas;
+}) {
+  const publicar = campo.tipo === 'publicar';
+  const hecho = typeof valor === 'string' && valor.trim() !== '';
+  const [titulo, setTitulo] = useState('');
+  const [cuerpo, setCuerpo] = useState('');
+  const [mandando, setMandando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  /** El post que se comenta: `undefined` = todavía no se sabe; `null` = no hay. */
+  const [objetivo, setObjetivo] = useState<{ titulo: string; extracto: string } | null | undefined>(undefined);
+  const { comunidad } = h;
+  useEffect(() => {
+    if (publicar || hecho || soloLectura) return;
+    let vivo = true;
+    void comunidad(campo, 'ver').then((r) => { if (vivo) setObjetivo(r.ok ? (r.post ?? null) : null); });
+    return () => { vivo = false; };
+  }, [publicar, hecho, soloLectura, comunidad, campo]);
+
+  if (hecho) {
+    return <p className="cpt-hecho">{publicar ? 'Publicado en la comunidad.' : 'Comentado en la comunidad.'}</p>;
+  }
+  if (soloLectura) return <p className="cpt-meta">{publicar ? 'Sin publicar.' : 'Sin comentar.'}</p>;
+
+  async function mandar() {
+    setError(null);
+    if (publicar && !titulo.trim()) { setError('Falta el título.'); return; }
+    if (!cuerpo.trim() && !publicar) { setError('Escribe tu comentario.'); return; }
+    setMandando(true);
+    const r = await comunidad(campo, publicar ? 'publicar' : 'comentar', publicar ? { titulo, cuerpo } : { cuerpo });
+    setMandando(false);
+    if (!r.ok || !r.valor) { setError(r.error ?? 'No se pudo.'); return; }
+    onCambio(r.valor);
+  }
+
+  return (
+    <div className="cpt-col">
+      {!publicar && (
+        objetivo === undefined ? <p className="cpt-meta">Buscando el post…</p>
+          : objetivo === null ? <p className="cpt-meta">Todavía no hay un post para comentar.</p>
+            : (
+              <div className="cpt-post">
+                <p className="cpt-post-t">{objetivo.titulo}</p>
+                {objetivo.extracto && <p className="cpt-post-x">{objetivo.extracto}</p>}
+              </div>
+            )
+      )}
+      {publicar && (
+        <Input id={`${idBase}-t`} value={titulo} placeholder="Título" aria-label="Título del post" maxLength={200}
+          onChange={(e) => { setTitulo(e.target.value); setError(null); }} />
+      )}
+      {(publicar || objetivo) && (
+        <>
+          <Textarea id={`${idBase}-c`} rows={4} value={cuerpo} placeholder={publicar ? 'Escribe tu post' : 'Escribe tu comentario'}
+            aria-label={publicar ? 'Texto del post' : 'Tu comentario'} onChange={(e) => { setCuerpo(e.target.value); setError(null); }} />
+          <div className="cpt-fila">
+            <Button size="sm" onClick={() => void mandar()} loading={mandando}>{publicar ? 'Publicar' : 'Comentar'}</Button>
+            {h.previa && <span className="cpt-meta">Vista previa: no se publica.</span>}
+          </div>
+        </>
+      )}
+      {error && <p className="cp-aviso cp-aviso--error">{error}</p>}
     </div>
   );
 }
@@ -1184,4 +1309,8 @@ const CSS_TIPOS = `
 .cpt-nota.is-ok{ color: var(--good); }
 .cpt-nota.is-mal{ color: var(--warn); }
 .cpt-link{ display: inline-block; margin-top: 6px; font-size: var(--fs-sm); }
+.cpt-hecho{ margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--good); }
+.cpt-post{ padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); min-width: 0; }
+.cpt-post-t{ margin: 0; font-size: var(--fs-md); font-weight: 600; overflow-wrap: anywhere; }
+.cpt-post-x{ margin: 4px 0 0; font-size: var(--fs-sm); color: var(--dim); line-height: 1.5; overflow-wrap: anywhere; }
 `;

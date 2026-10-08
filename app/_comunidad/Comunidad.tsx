@@ -44,7 +44,7 @@ const PESTANAS: Array<{ id: Pestana; label: string }> = [
 /** Cada cuánto el alumno avisa que sigue acá (la ventana de «en línea» es de 5 minutos). */
 const LATIDO_MS = 90_000;
 
-export function Comunidad({ api, tema, inicial = null, cabecera, aviso: avisoArriba }: {
+export function Comunidad({ api, tema, inicial = null, cabecera, aviso: avisoArriba, postInicial = null }: {
   api: ApiComunidad;
   tema: Tema;
   /** Lo que ya trae el HTML (el equipo). Sin esto, se pide al montar (el alumno). */
@@ -53,12 +53,17 @@ export function Comunidad({ api, tema, inicial = null, cabecera, aviso: avisoArr
   cabecera?: ReactNode;
   /** Una línea arriba de todo (la lista del onboarding de la tab del equipo). */
   aviso?: ReactNode;
+  /**
+   * Un post para abrir al entrar: el link de la ficha a lo que un alumno publicó o comentó desde una
+   * tarea (item 17 del 08/10/2026, `?post=`). Es el mismo camino que abrirlo desde la campana.
+   */
+  postInicial?: number | null;
 }) {
   const [datos, setDatos] = useState(inicial);
   const [error, setError] = useState<string | null>(null);
   const [pestana, setPestana] = useState<Pestana>('comunidad');
   const [perfil, setPerfil] = useState<string | null>(null);
-  const [postPedido, setPostPedido] = useState<number | null>(null);
+  const [postPedido, setPostPedido] = useState<number | null>(postInicial);
   const [eventoPedido, setEventoPedido] = useState<{ id: number; ocurrencia: string | null } | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [sacando, setSacando] = useState<Pick<MiembroVista, 'clave' | 'nombre'> | null>(null);

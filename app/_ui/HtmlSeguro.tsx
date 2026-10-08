@@ -22,6 +22,8 @@
 //      MIRA, vence, y no puede vivir en la base.
 //   3. Los estilos de lectura (`CSS_RICO`), que comparte el editor para que lo que se escribe se
 //      vea igual que lo que se lee.
+//   4. Mete cada tabla en una caja que scrollea de costado (`envolverTablas`): en el teléfono una
+//      tabla no entra, y sin la caja empuja la página entera a lo ancho.
 //
 // ⚠️ SIN 'use client' Y SIN HOOKS, a propósito: lo monta el portal del alumno (cliente) y lo
 //    puede montar una página del server pasándole una función (ahí `urlDeAdjunto` corre en el
@@ -53,6 +55,48 @@ export function idDeRef(ref: unknown): string | null {
 /** La referencia de un id. `null` si el id no es un uuid. */
 export function refDeId(id: unknown): string | null {
   return typeof id === 'string' && RE_UUID.test(id) ? PREFIJO_ADJUNTO + id : null;
+}
+
+// ── El tamaño y la alineación de una imagen ──────────────────────────────────
+
+/**
+ * Los anchos que puede tener una imagen, en % del ancho del texto: de 10 a 100, de a 5. Pedido de
+ * Martín (08/10/2026, item 10): «Si subo una imagen en la descripción se ve enorme, no tengo manera
+ * de editar el tamaño».
+ *
+ * ⚠️ VA EN UN ATRIBUTO DE UNA LISTA CERRADA (`data-ancho="50"`), NUNCA EN UN `style`: un `style`
+ *    con un número adentro es un `style` libre a un error de distancia, y la lista blanca del saneo
+ *    (lib/html-seguro.ts) tendría que parsear CSS para separar `width:50%` de lo que venga pegado a
+ *    él. Con diecinueve valores exactos, el saneo los compara como TEXTO y `CSS_RICO` tiene una
+ *    regla para cada uno. Arrastrar la esquina salta de a 5, que es lo que se ve.
+ * ⚠️ VIVE ACÁ porque lo usan los tres: el saneo del server, el editor y la hoja de lectura. Con
+ *    tres copias de «qué anchos valen», la que se queda vieja deja una imagen que el editor muestra
+ *    a un tamaño y el alumno a otro.
+ */
+export const ANCHO_IMAGEN_MIN = 10;
+export const ANCHO_IMAGEN_PASO = 5;
+export const ANCHOS_IMAGEN: readonly number[] = Array.from(
+  { length: (100 - ANCHO_IMAGEN_MIN) / ANCHO_IMAGEN_PASO + 1 },
+  (_, i) => ANCHO_IMAGEN_MIN + i * ANCHO_IMAGEN_PASO,
+);
+
+/**
+ * El ancho de una imagen si es EXACTAMENTE uno de la lista (`'50'` o `50`), o `null`. Sin `trim`,
+ * sin `parseInt` (que lee «50px» como 50) y sin redondear: lo que no es uno de los diecinueve no es
+ * un ancho, y el saneo lo tira.
+ */
+export function anchoDeImagen(raw: unknown): number | null {
+  const t = typeof raw === 'number' ? String(raw) : raw;
+  if (typeof t !== 'string' || !/^\d{2,3}$/.test(t)) return null;
+  const n = Number(t);
+  // «050» no es «50»: lo que entra tiene que ser, carácter por carácter, lo que sale.
+  return String(n) === t && ANCHOS_IMAGEN.includes(n) ? n : null;
+}
+
+/** Cómo va una imagen: a la izquierda (lo de siempre: sin atributo) o centrada. */
+export type AlineaImagen = 'centro';
+export function alineaDeImagen(raw: unknown): AlineaImagen | null {
+  return raw === 'centro' ? 'centro' : null;
 }
 
 /**
@@ -146,6 +190,24 @@ export function traducirAdjuntos(html: string, urlDeAdjunto: (ref: string) => st
   });
 }
 
+/**
+ * Cada tabla, adentro de una caja que scrollea de costado: en el teléfono una tabla de cuatro
+ * columnas no entra, y sin la caja empuja la página entera a lo ancho (y con ella el curso).
+ *
+ * ⚠️ POR QUÉ UNA CAJA Y NO `display: block` EN LA TABLA: con la tabla en bloque, sus celdas dejan
+ *    de repartirse el ancho y un texto largo nunca se parte — la tabla mide lo que su renglón más
+ *    largo y scrollea hasta en una pantalla grande. Con la caja, la tabla ocupa el 100% y parte los
+ *    textos; recién cuando ni así entra, scrollea.
+ * Trabaja sobre un HTML YA saneado: ahí `<table` sólo puede ser una etiqueta (en el texto y en los
+ * atributos el `<` viene escapado). Reemplazo como función, por la regla de los `$`.
+ */
+export function envolverTablas(html: string): string {
+  if (!/<table\b/i.test(html)) return html;
+  return html
+    .replace(/<table\b/gi, () => '<div class="mk-rico-tabla"><table')
+    .replace(/<\/table\s*>/gi, () => '</table></div>');
+}
+
 // ── Los estilos de lectura ───────────────────────────────────────────────────
 
 /**
@@ -158,9 +220,17 @@ export function traducirAdjuntos(html: string, urlDeAdjunto: (ref: string) => st
  * ⚠️ SIN COMILLAS INVERTIDAS NI SIGNO DE PESOS CON LLAVE adentro: es una cadena (AGENTS.md).
  * ⚠️ El texto de un resaltado va OSCURO con !important: el resaltado trae `color: inherit` en
  *    línea, y en un fondo oscuro eso deja letra clara sobre amarillo claro — ilegible.
+ * ⚠️ LA LETRA NO ES DEL TEXTO RICO: ES DE DONDE SE MONTA. Pedido de Martín (08/10/2026, item 3):
+ *    «Los textos de la descripción y tarea deben seguir la misma tipografía». Adentro de un curso
+ *    la elige el curso (`--ugc-fuente`, que pone la raíz del curso junto con sus colores); afuera,
+ *    se hereda. Ninguna regla de acá pone una familia propia — salvo `code`, que es monoespaciado
+ *    a propósito. Una familia escrita acá le ganaría a la del curso y la descripción saldría con
+ *    otra letra que la tarea de abajo, que es justo lo que se reportó.
  */
+const CSS_ANCHOS_IMAGEN = ANCHOS_IMAGEN.map((n) => '.mk-rico img[data-ancho="' + n + '"] { width: ' + n + '%; }').join('\n');
+
 export const CSS_RICO = `
-.mk-rico { font-size: var(--fs-md, 14px); line-height: 1.65; color: inherit; overflow-wrap: anywhere; word-break: normal; }
+.mk-rico { font-family: var(--ugc-fuente, inherit); font-size: var(--fs-md, 14px); line-height: 1.65; color: inherit; overflow-wrap: anywhere; word-break: normal; }
 .mk-rico > :first-child { margin-top: 0; }
 .mk-rico > :last-child { margin-bottom: 0; }
 .mk-rico p { margin: 0 0 .75em; min-height: 1em; }
@@ -191,7 +261,14 @@ export const CSS_RICO = `
 .mk-rico ul[data-type="taskList"] > li[data-checked="true"]::before { border-color: var(--good, #1E9E57); background: var(--good, #1E9E57) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 78% no-repeat; }
 .mk-rico ul[data-type="taskList"] > li[data-checked="true"] > * { color: var(--faint, #66707F); text-decoration: line-through; }
 .mk-rico ul[data-type="taskList"] > li > * { flex: 1; min-width: 0; }
-`;
+.mk-rico img[data-alinea="centro"] { margin-left: auto; margin-right: auto; }
+.mk-rico .mk-rico-tabla, .mk-rico .tableWrapper { max-width: 100%; overflow-x: auto; margin: .4em 0 .9em; }
+.mk-rico table { width: 100%; border-collapse: collapse; border-spacing: 0; margin: 0; }
+.mk-rico th, .mk-rico td { border: 1px solid var(--border-strong, #DCE0E7); padding: .45em .65em; vertical-align: top; text-align: left; min-width: 6em; }
+.mk-rico th { background: rgba(127, 127, 127, .09); font-weight: 700; }
+.mk-rico th > p, .mk-rico td > p { margin: 0 0 .4em; }
+.mk-rico th > :last-child, .mk-rico td > :last-child { margin-bottom: 0; }
+` + CSS_ANCHOS_IMAGEN + '\n';
 
 /**
  * Dibuja el HTML. `vacio` es lo que se muestra si no hay nada (por default, nada).
@@ -213,7 +290,7 @@ export function HtmlSeguro({ html, urlDeAdjunto, className, style, vacio = null 
     console.error('[HtmlSeguro] me llegó un HTML que no pasó por sanearHtml: no lo dibujo.');
     return <>{vacio}</>;
   }
-  const listo = traducirAdjuntos(crudo, urlDeAdjunto);
+  const listo = envolverTablas(traducirAdjuntos(crudo, urlDeAdjunto));
   return (
     <>
       {/* React 19 sube este <style> al <head> UNA vez aunque haya veinte descripciones en la

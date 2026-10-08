@@ -279,6 +279,8 @@ function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProduct
       subtitulo={lider ? `Área: ${vista.area}` : `Módulo ${iActual + 1} de ${producto.modulos.length}`}
       marca={{ ...marcaDelProducto(tituloDe(producto)), menu }}
       acento={estilo?.acento}
+      // La fuente que eligió el equipo (item 3 del 08/10/2026): la misma que ve en la tab.
+      fuente={estilo?.fuente}
       modulos={modulosConAcciones}
       clases={clasesUgc}
       portada={{

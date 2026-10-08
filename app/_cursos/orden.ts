@@ -29,6 +29,33 @@ export function indiceEnGrilla(rects: readonly RectTarjeta[], px: number, py: nu
   return rects.length;
 }
 
+/** Un renglón medido de la barra: la clave de su módulo y su alto, en coordenadas del contenido. */
+export type FilaBarra = { key: string; y1: number; y2: number };
+
+/**
+ * QUÉ MÓDULO DE LA BARRA RECIBE UNA CLASE soltada a la altura `py` (08/10/2026, item 16: «si arrastro
+ * una clase a la sidebar… debería la clase moverse a ese módulo»): el renglón que la contiene, y si cae
+ * en el aire ENTRE dos renglones (o un poco arriba del primero o abajo del último, `margen`), el más
+ * cercano. `null` = lejos de la lista (la cabecera, el pie): ahí no cae en ninguno.
+ *
+ * ⚠️ POR QUÉ NO EL ELEMENTO BAJO EL CURSOR: se buscaba con `closest('[data-arr-modulo]')` sobre el
+ *    destino del evento, y entre dos renglones el destino es la lista: el `dragover` de ahí apagaba la
+ *    marca y SOLTAR NO HACÍA NADA, con el renglón de al lado marcado un instante antes (medido en un
+ *    banco con Chrome: el renglón «Bonus» marcado, el `drop` sin ninguna llamada). Con la altura, lo
+ *    marcado es siempre lo que recibe.
+ */
+export function filaEnBarra(filas: readonly FilaBarra[], py: number, margen = 16): string | null {
+  if (!filas.length) return null;
+  if (py < filas[0].y1 - margen || py > filas[filas.length - 1].y2 + margen) return null;
+  let mejor: FilaBarra | null = null;
+  let dist = Infinity;
+  for (const f of filas) {
+    const d = py < f.y1 ? f.y1 - py : py > f.y2 ? py - f.y2 : 0;
+    if (d < dist) { dist = d; mejor = f; }
+  }
+  return mejor?.key ?? null;
+}
+
 /** Dónde caería en una LISTA vertical (la barra de los módulos): antes del primer punto medio que pasa. */
 export function indiceEnLista(medios: readonly number[], py: number): number {
   for (let i = 0; i < medios.length; i++) if (py < medios[i]) return i;

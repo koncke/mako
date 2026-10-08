@@ -45,6 +45,25 @@
 //   · Nada probaba que el COMPONENTE llamara a la alarma y a la traducción: las funciones podían
 //     estar perfectas y `<HtmlSeguro>` no usarlas. Sacarle la alarma → 13 / 1; sacarle la traducción
 //     → 13 / 1 (los dos, «el COMPONENTE…»).
+//
+// EL TAMAÑO DE UNA IMAGEN Y LAS TABLAS (08/10/2026, item 10 del pedido de Martín), con el mismo
+// método. Con todo en su lugar: 18 / 0.
+//   · `anchoDeImagen` acepta cualquier número                → 15 / 3 (idempotente, ataques de imagen y tabla, la primera capa sola)
+//   · `anchoDeImagen` sin exigir el texto exacto («050»)     → 16 / 2 (ataques de imagen y tabla, la primera capa sola)
+//   · las DOS capas del ancho flojas                          → 16 / 2 (los mismos)
+//   · sólo la segunda capa (los `values`) floja               → 18 / 0 — la primera la cubre, como con los href.
+//     ⚠️ Y al revés no es simétrico: sanitize-html, ante un valor fuera de `values`, NO saca el
+//     atributo: lo deja VACÍO (`colspan=""`). Inofensivo, pero el HTML deja de ser el exacto; por
+//     eso la primera capa (el transform) es la que lo saca entero.
+//   · `colspan`/`rowspan` crudos en el transform              → 15 / 3 (lo que escribe el editor, idempotente, ataques)
+//   · crudos y sin `values`                                   → 16 / 2 (lo que escribe el editor, ataques)
+//   · `style` libre en una celda                              → 15 / 3 (ningún ataque…, lo que escribe el editor, ataques)
+//   · sin las etiquetas de tabla en la lista                  → 15 / 3 (lo que escribe el editor, el texto plano, ataques)
+//   · `textoDeHtml` sin separar las celdas                    → 17 / 1 (el texto plano)
+//   · el COMPONENTE sin `envolverTablas`                      → 17 / 1 (la caja que scrollea)
+//   · una regla de la lectura con su propia letra             → 17 / 1 (la hoja de lectura: item 3)
+//   · `.mk-rico` sin `var(--ugc-fuente, inherit)`             → 17 / 1 (la hoja de lectura)
+//   · sin la regla del centrado                               → 17 / 1 (la hoja de lectura)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,7 +72,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { HtmlSeguro, idDeRef, refDeId, refsEnHtml, pareceSaneado, traducirAdjuntos, urlDibujable } from '../app/_ui/HtmlSeguro';
+import { HtmlSeguro, idDeRef, refDeId, refsEnHtml, pareceSaneado, traducirAdjuntos, urlDibujable, anchoDeImagen, alineaDeImagen, ANCHOS_IMAGEN, envolverTablas, CSS_RICO } from '../app/_ui/HtmlSeguro';
 
 const RAIZ = join(import.meta.dirname, '..');
 const U = '0f8fad5b-d9cb-469f-a165-70867728950e';
@@ -120,6 +139,19 @@ const ATAQUES: string[] = [
   '<textarea><img src=x onerror=alert(1)></textarea>',
   '<details open ontoggle=alert(1)><summary>x</summary></details>',
   '<a href="https://ok.example"><img src="x" onerror="alert(1)"></a>',
+  // El tamaño de una imagen (08/10/2026, item 10): sólo uno de los diecinueve anchos, como TEXTO
+  // exacto, y sólo «centro». Nunca un `style` en una imagen.
+  `<img src="mako-adjunto:${U}" data-ancho="50;position:fixed">`,
+  `<img src="mako-adjunto:${U}" data-ancho="expression(alert(1))">`,
+  `<img src="mako-adjunto:${U}" data-ancho="050">`,
+  `<img src="mako-adjunto:${U}" data-ancho="500" data-alinea="javascript:alert(1)">`,
+  `<img src="mako-adjunto:${U}" data-ancho="33" style="width:50%;position:fixed;top:0" data-alinea="centro " onload="alert(1)">`,
+  // Tablas (08/10/2026, item 10): de una tabla pegada pasan sólo `colspan`/`rowspan` (2 a 20) y la
+  // alineación de la celda.
+  '<table style="position:fixed;top:0" onmouseover="alert(1)" background="javascript:alert(1)" border="9"><tr><td colspan="2;x" rowspan="999" style="background:url(javascript:alert(1));text-align:right" onclick="alert(1)" scope="col" bgcolor="red">a</td></tr></table>',
+  '<table><caption><img src=x onerror=alert(1)>c</caption><colgroup><col span="2" style="width:9999px"></colgroup><thead><tr><th colspan="0">a</th><th colspan="-1">b</th><th colspan="1e3">c</th><th colspan=" 2">d</th><th colspan="21">e</th><th rowspan="02">f</th></tr></thead></table>',
+  '<table><tbody><tr><td><iframe src="https://evil.example"></iframe><svg onload=alert(1)></svg>x</td></tr></tbody></table>',
+  '<table><tr><td style="text-align:center;width:9999px;position:fixed">z</td><th style="text-align: inherit">w</th></tr></table>',
 ];
 
 /** Lo que SÍ pasa, y cómo sale (exacto): lo que escribe el editor y lo que se pega de Word o Docs. */
@@ -147,6 +179,16 @@ const PASAN: Array<[string, string]> = [
   ['<!--[if gte mso 9]><xml><w:WordDocument></w:WordDocument></xml><![endif]--><p class="MsoNormal" style="mso-margin-top-alt:auto">Hola<o:p></o:p></p>', '<p>Hola</p>'],
   ['<p></p>', ''],
   ['<p><br></p><p>   </p>', ''],
+  // El tamaño de una imagen, como lo escribe el editor (08/10/2026).
+  [`<img src="mako-adjunto:${U}" alt="a" data-ancho="50" data-alinea="centro"><img src="mako-adjunto:${U2}" alt="b" data-ancho="10"><img src="mako-adjunto:${U2}" alt="c" data-ancho="100">`,
+    `<img src="mako-adjunto:${U}" alt="a" data-ancho="50" data-alinea="centro" /><img src="mako-adjunto:${U2}" alt="b" data-ancho="10" /><img src="mako-adjunto:${U2}" alt="c" data-ancho="100" />`],
+  // Una tabla como la escribe TipTap: el `style` de la tabla y el `colgroup` (anchos en px) no se
+  // guardan, el `colspan` de 1 tampoco (es el default), la alineación de la celda sí.
+  ['<table style="min-width: 75px;"><colgroup><col style="min-width: 25px;"><col style="min-width: 25px;"></colgroup><tbody><tr><th><p>Plan</p></th><th colspan="2" rowspan="1"><p>Precio</p></th></tr><tr><td><p>Base</p></td><td style="text-align: center"><p>US$10</p></td></tr></tbody></table>',
+    '<table><tbody><tr><th><p>Plan</p></th><th colspan="2"><p>Precio</p></th></tr><tr><td><p>Base</p></td><td style="text-align:center"><p>US$10</p></td></tr></tbody></table>'],
+  // Pegada de Excel: clases, estilos y atributos de Office afuera; queda la tabla.
+  ['<table border=0 cellpadding=0 cellspacing=0 width=300 style="border-collapse:collapse"><col width=100 span=3><tr height=20><td class=xl65 height=20 width=100 style="height:15pt;width:75pt">12</td><td class=xl66 align=right>34</td></tr></table>',
+    '<table><tr><td>12</td><td>34</td></tr></table>'],
 ];
 
 type Salida = {
@@ -185,6 +227,7 @@ function correr(): Salida {
       completo: `<h2>Título</h2><p>Hola &amp; chau</p><ul><li><p>uno</p></li><li><p>dos</p><ul><li><p>sub</p></li></ul></li></ul><ol start="3"><li><p>a</p></li><li><p>b</p></li></ol><ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>hecho</p></li><li data-type="taskItem" data-checked="false"><p>falta</p></li></ul><p>Fin<br>línea</p><p>Ver <a href="mako-adjunto:${U}">Precios.pdf</a></p><img src="mako-adjunto:${U2}" alt="foto"><hr><blockquote><p>cita</p></blockquote>`,
       ataque: '<p>a<script>alert(1)</script>b</p>',
       vacio: '<p></p>',
+      tabla: '<p>Antes</p><table><tbody><tr><th><p>Plan</p></th><th><p>Precio</p></th></tr><tr><td><p>Base</p><p>y más</p></td><td><p>US$10<br>al mes</p></td></tr></tbody></table><p>Después</p>',
     },
     hrefs: ['https://ej.com', 'http://ej.com/x y', 'mailto:hola@ej.com', `mako-adjunto:${U}`, `MAKO-ADJUNTO:${U}`, `mako-adjunto:${U}/x`,
       'javascript:alert(1)', ' JAVASCRIPT:alert(1)', 'java\tscript:alert(1)', 'data:text/html,x', '/relativa', '//evil.example', 'https://u:p@ej.com', 'ftp://ej.com', 'mailto:a b@c.d'],
@@ -336,6 +379,59 @@ test('textoDeHtml: párrafos, listas (con sangría y número), tareas, el nombre
   ].join('\n'));
   assert.equal(s.texto.ataque, 'ab', 'el texto plano sale del HTML ya saneado: un script no deja su código');
   assert.equal(s.texto.vacio, '');
+  // Una tabla: un renglón por fila, las celdas separadas por « | », lo de una celda en un renglón.
+  assert.equal(s.texto.tabla, ['Antes', '', 'Plan | Precio', 'Base y más | US$10 al mes', '', 'Después'].join('\n'));
+});
+
+// ── El tamaño de una imagen y las tablas (08/10/2026, item 10) ───────────────
+
+test('imagen y tabla: los ataques salen exactos (sin lo que no está en la lista)', { timeout: 180_000 }, () => {
+  const s = correr();
+  const sale = (h: string) => s.sanear[ATAQUES.indexOf(h)];
+  const sola = `<img src="mako-adjunto:${U}" alt="" />`;
+  assert.equal(sale(`<img src="mako-adjunto:${U}" data-ancho="50;position:fixed">`), sola);
+  assert.equal(sale(`<img src="mako-adjunto:${U}" data-ancho="expression(alert(1))">`), sola);
+  assert.equal(sale(`<img src="mako-adjunto:${U}" data-ancho="050">`), sola, '«050» no es «50»: lo que entra es lo que sale, o no entra');
+  assert.equal(sale(`<img src="mako-adjunto:${U}" data-ancho="500" data-alinea="javascript:alert(1)">`), sola);
+  assert.equal(sale(`<img src="mako-adjunto:${U}" data-ancho="33" style="width:50%;position:fixed;top:0" data-alinea="centro " onload="alert(1)">`), sola,
+    '33 no está en la lista (de a 5), una imagen no lleva style, y «centro » con un espacio no es «centro»');
+  assert.equal(sale(ATAQUES.find((a) => a.startsWith('<table style="position:fixed'))!), '<table><tr><td style="text-align:right">a</td></tr></table>');
+  assert.equal(sale(ATAQUES.find((a) => a.startsWith('<table><caption>'))!),
+    '<table>c<thead><tr><th>a</th><th>b</th><th>c</th><th>d</th><th>e</th><th>f</th></tr></thead></table>',
+    'un colspan de 0, negativo, en notación científica, con un espacio, de más de 20 o con un cero adelante no es un colspan');
+  assert.equal(sale(ATAQUES.find((a) => a.startsWith('<table><tbody><tr><td><iframe'))!), '<table><tbody><tr><td>x</td></tr></tbody></table>');
+  assert.equal(sale(ATAQUES.find((a) => a.startsWith('<table><tr><td style="text-align:center;'))!), '<table><tr><td style="text-align:center">z</td><th>w</th></tr></table>');
+});
+
+test('anchoDeImagen y alineaDeImagen: la lista, como texto exacto (la primera capa, sola)', () => {
+  assert.deepEqual(ANCHOS_IMAGEN, [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]);
+  for (const n of ANCHOS_IMAGEN) { assert.equal(anchoDeImagen(String(n)), n); assert.equal(anchoDeImagen(n), n); }
+  for (const malo of ['050', '5', '0', '105', '110', '33', '50px', '50%', ' 50', '50 ', '5e1', '50.0', '-50', '', null, undefined, {}, 50.5, Number.NaN]) {
+    assert.equal(anchoDeImagen(malo), null, `«${String(malo)}» pasó como ancho`);
+  }
+  assert.equal(alineaDeImagen('centro'), 'centro');
+  for (const malo of ['izquierda', 'derecha', 'Centro', 'centro ', 'center', '', null]) assert.equal(alineaDeImagen(malo), null);
+});
+
+test('la tabla se dibuja adentro de una caja que scrollea; el texto que dice «<table» no se toca', () => {
+  assert.equal(envolverTablas('<p>a</p>'), '<p>a</p>');
+  assert.equal(envolverTablas('<table><tr><td>1</td></tr></table><p>x</p><table><tr><td><table><tr><td>2</td></tr></table></td></tr></table>'),
+    '<div class="mk-rico-tabla"><table><tr><td>1</td></tr></table></div><p>x</p><div class="mk-rico-tabla"><table><tr><td><div class="mk-rico-tabla"><table><tr><td>2</td></tr></table></div></td></tr></table></div>');
+  assert.equal(envolverTablas('<p>&lt;table&gt; es una etiqueta</p>'), '<p>&lt;table&gt; es una etiqueta</p>');
+  // Y el COMPONENTE la envuelve (las funciones pueden estar bien y el componente no llamarlas).
+  const html = renderToStaticMarkup(createElement(HtmlSeguro, { html: '<table><tbody><tr><td><p>1</p></td></tr></tbody></table>', urlDeAdjunto: () => null }));
+  assert.match(html, /<div class="mk-rico"><div class="mk-rico-tabla"><table><tbody><tr><td><p>1<\/p><\/td><\/tr><\/tbody><\/table><\/div><\/div>/);
+});
+
+test('la hoja de lectura: un ancho por valor de la lista, el centrado, la tabla, y la LETRA del curso', () => {
+  for (const n of ANCHOS_IMAGEN) assert.ok(CSS_RICO.includes(`.mk-rico img[data-ancho="${n}"] { width: ${n}%; }`), `falta el ancho ${n}`);
+  assert.match(CSS_RICO, /\.mk-rico img\[data-alinea="centro"\] \{ margin-left: auto; margin-right: auto; \}/);
+  assert.match(CSS_RICO, /\.mk-rico \.mk-rico-tabla, \.mk-rico \.tableWrapper \{[^}]*overflow-x: auto/);
+  assert.match(CSS_RICO, /\.mk-rico th, \.mk-rico td \{[^}]*border: 1px solid/);
+  // Item 3: la letra del texto rico es la del curso (o la de donde se monte), nunca una propia.
+  assert.match(CSS_RICO, /\.mk-rico \{ font-family: var\(--ugc-fuente, inherit\);/);
+  const familias = [...CSS_RICO.matchAll(/([^{}]+)\{[^}]*font-family:[^;}]*/g)].map((m) => m[1].trim());
+  assert.deepEqual(familias, ['.mk-rico', '.mk-rico code'], 'otra regla con su propia letra le gana a la del curso');
 });
 
 test('validarHtmlRico: vacío vale, otra cosa que texto no, y pasarse se RECHAZA (no se corta)', { timeout: 180_000 }, () => {

@@ -238,7 +238,11 @@ test('el motor cierra lo pendiente de la etapa que se DEJA, antes de enrolar la 
 test('cerrar usa EL MISMO criterio que enrolar, no una copia', () => {
   // Dos formas de preguntar «qué secuencias son de esta etapa de este producto» es
   // cómo se desincronizan: la que cierra tiene que ser la misma que la que enrola.
-  const bloque = bloqueDe('lib/nutricion.ts', 'export async function cerrarEntregaDeEtapa(', '\nexport async function enrolarPorEvento(');
+  // ⚠️ El cierre es el `}` a COLUMNA CERO de la función (revisión final del 08/10/2026): anclado en
+  // «la función que viene después», el recorte se comió `silenciarEntregaDeEtapa`, que se escribió
+  // entre las dos, y su `throw` (que es a propósito: ver lib/cs-mover-etapa.ts, paso 4b) tumbaba esto.
+  // Con el recorte nuevo, un `throw` adentro de `cerrarEntregaDeEtapa` sigue cayendo: 26 / 1.
+  const bloque = bloqueDe('lib/nutricion.ts', 'export async function cerrarEntregaDeEtapa(', '\n}\n');
   assert.match(bloque, /secuenciasDeEntrega\(/, 'el cierre tiene que resolver las secuencias con la misma función');
   assert.match(bloque, /estado: 'completada'/, 'se cierra con el mismo estado que usa el motor');
   assert.match(bloque, /\.eq\('estado', 'activa'\)/, 'sólo se cierran las ACTIVAS: una ya cerrada no se vuelve a tocar');

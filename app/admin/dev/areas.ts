@@ -437,14 +437,20 @@ export const AREAS: AreaDev[] = [
       // portadas diseñadas, el editor rico y sus adjuntos, los tipos de tarea, invitar y permisos,
       // el recorrido de la tab, y la COMUNIDAD (tab del equipo y pestaña del alumno).
       'docs/diseno-curso-skool.md', 'app/_cursos/', 'lib/curso-estilo.ts', 'lib/curso-estilo-datos.ts', 'lib/laminas.ts',
-      'app/_ui/EditorRico.tsx', 'app/_ui/HtmlSeguro.tsx', 'lib/html-seguro.ts', 'lib/curso-adjuntos.ts', 'lib/curso-adjuntos-reglas.ts',
+      'app/_ui/EditorRico.tsx', 'app/_ui/editor-rico-reglas.ts', 'app/_ui/HtmlSeguro.tsx', 'lib/html-seguro.ts', 'lib/curso-adjuntos.ts', 'lib/curso-adjuntos-reglas.ts',
       'lib/curso-entregas.ts', 'lib/curso-invitar.ts', 'lib/curso-alcance.ts', 'lib/alumno-acceso.ts', 'lib/alumno-sesion.ts',
       'app/api/alumno/', 'app/login/EntrarAlumno.tsx', 'app/_ui/Recorrido.tsx', 'lib/recorridos.ts', 'app/api/recorridos/',
       'app/_comunidad/', 'app/api/compartido/comunidad/', 'lib/comunidad-datos.ts', 'lib/comunidad-reglas.ts', 'lib/comunidad-niveles.ts',
       'lib/comunidad-tipos.ts', 'lib/comunidad-eventos.ts', 'lib/comunidad-notificaciones.ts', 'lib/comunidad-calendario.ts',
       'lib/comunidad-campana.ts', 'lib/comunidad-moderacion.ts',
       'supabase/migrations/0214_curso_estilo.sql', 'supabase/migrations/0216_curso_adjuntos.sql', 'supabase/migrations/0217_comunidad.sql',
-      'supabase/migrations/0218_curso_entregas.sql', 'supabase/migrations/0219_curso_accesos_alcance.sql'],
+      'supabase/migrations/0218_curso_entregas.sql', 'supabase/migrations/0219_curso_accesos_alcance.sql',
+      // Tanda 2 (08/10): módulos que pueden no ser etapas y sus candados. Y los 20 ajustes del
+      // 08/10: la papelera con su purga, las tareas que publican en la comunidad, la miniatura de
+      // Vimeo y el desplegable que abre para arriba (vale para toda la app).
+      'lib/curso-modulos.ts', 'lib/curso-modulos-datos.ts', 'lib/curso-bloqueo.ts', 'lib/curso-papelera.ts', 'lib/curso-papelera-reglas.ts',
+      'lib/curso-tarea-comunidad.ts', 'lib/cs-mover-etapa.ts', 'app/api/compartido/miniatura/', 'app/components/dropdown-lugar.ts',
+      'supabase/migrations/0220_curso_modulos_bloqueos.sql', 'supabase/migrations/0223_curso_papelera.sql'],
     proyectos: ['Feature: Customer Success'],
     nota: '⚠️ LA TAB SE REHÍZO DESDE CERO EL 26/09/2026 Y ESTA ENTRADA DECÍA OTRA COSA: figuraba «por-construir» apuntando a /cs-analyst (ComingSoon) cuando /customer-success existe y está desplegada desde el 11/08. Lo que se fue ese día es el programa de 44 clases de Mauricio —su temario, el cuestionario que su cliente contestaba por un link, su curso en Whop, los casos de otros clientes suyos y el banco de material—, junto con `app/customer-success/programa/`, once libs (`programa-catalogo`, `cs-respuestas`, `cs-avance`, `cs-reescritura`, `banco-skills`…), el webhook de Whop y las rutas del cuestionario. La tab ya no corta con `esWorkspaceDueno()`: es `requireCapa(\'customer-success\')` y lee con `getTenantDb()`. Por MaKo quedan TRES operaciones (ver_cartera_cs, ver_cliente_cs, marcar_estado_cliente_cs) y ninguna es `soloWs1`. ⚠️ Su Roadmap es PROPIO (`roadmapPropioDe` en paneles.tsx). Hasta el 06/10/2026 dibujaba como vivo el programa borrado (Whop, el cuestionario, la reescritura con IA); ese día se puso al día: las piezas son MaKo, el curso y el tablero, el grupo «El bucle de entrega» son los pasos del curso en MaKo, lo de agosto pasó a una sección Historia sin estado, la etapa por cliente figura hecha (mig 0188) y la cartera «sigue» con lo que le falta. Lo fija tests/sin-whop.test.ts.',
   },

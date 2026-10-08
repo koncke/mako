@@ -66,7 +66,7 @@ export async function sincronizarOnboardingCurso(h: HechosCurso): Promise<Steps 
 export async function anotarVistaAbierta(): Promise<Steps | null> {
   let clases: number | null = null;
   try {
-    const { count, error } = await (await getTenantDb()).from('curso_clases').select('id', { count: 'exact', head: true });
+    const { count, error } = await (await getTenantDb()).from('curso_clases').select('id', { count: 'exact', head: true }).is('borrada_at', null);
     clases = error || count == null ? null : count;
   } catch { /* sin el conteo, el ensayo se intenta igual */ }
   return sincronizarOnboardingCurso({ clases, conVideo: null, entraron: null, invitados: null, vistaAbierta: true });

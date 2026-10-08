@@ -14,7 +14,8 @@
 //    del feed. Cambiar de producto es otra URL (`?producto=`), no un estado de carga.
 
 import { requireCapa } from '@/lib/tab-access';
-import { inicioComunidad, feedComunidad } from '@/lib/comunidad-datos';
+import { inicioComunidad, feedComunidad, productoDelPost } from '@/lib/comunidad-datos';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { productosDeLaEntrega } from '../entrega';
 import { actorDelEquipo } from './actor';
 import { ComunidadEquipo } from './ComunidadEquipo';
@@ -28,9 +29,13 @@ export const metadata = { title: 'Comunidad · Customer Success' };
 
 const mensaje = (e: unknown, def: string) => (e instanceof Error && e.message ? e.message : def);
 
-export default async function ComunidadPage({ searchParams }: { searchParams: Promise<{ producto?: string }> }) {
+export default async function ComunidadPage({ searchParams }: { searchParams: Promise<{ producto?: string; post?: string }> }) {
   await requireCapa('customer-success');
   const sp = await searchParams;
+  // `?post=N` abre ESE post (el link de la ficha a lo que un alumno publicó o comentó desde una tarea,
+  // item 17 del 08/10/2026). Sin `?producto=`, el producto sale del post: el link no sabe de cuál es.
+  const postPedido = Number(sp.post);
+  const postInicial = Number.isInteger(postPedido) && postPedido > 0 ? postPedido : null;
 
   // Los productos de Customer Success: la MISMA lista que el kanban y el Curso.
   let productos: Array<{ id: number; nombre: string }> = [];
@@ -39,7 +44,11 @@ export default async function ComunidadPage({ searchParams }: { searchParams: Pr
   } catch (e) {
     return <ComunidadEquipo productos={[]} productoId={null} inicial={null} error={mensaje(e, 'No pude leer tus productos.')} onboarding={null} />;
   }
-  const pedido = Number(sp.producto);
+  let pedido = Number(sp.producto);
+  if (!pedido && postInicial) {
+    const ws = await getWorkspaceActual();
+    pedido = ws ? ((await productoDelPost(ws, postInicial).catch(() => null)) ?? NaN) : NaN;
+  }
   const productoId = productos.find((p) => p.id === pedido)?.id ?? productos[0]?.id ?? null;
   if (!productoId) return <ComunidadEquipo productos={[]} productoId={null} inicial={null} error={null} onboarding={null} />;
 
@@ -70,6 +79,7 @@ export default async function ComunidadPage({ searchParams }: { searchParams: Pr
       inicial={inicial}
       error={error}
       onboarding={lineaOnboarding(steps)}
+      postInicial={postInicial}
     />
   );
 }

@@ -149,19 +149,15 @@ test('la página anota los pasos en cada carga y NO tapa la tab', () => {
   //    vez por PERSONA (D7) y se puede volver a ver con el «?». Los pasos de arriba se siguen anotando.
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   assert.doesNotMatch(app, /<ChecklistCurso\b|checklistCurso\(/, 'volvió el recuadro «Configura tu curso»');
-  assert.match(app, /const recorrido = useRecorrido\('cs-curso', \{ autoabrir: puedeEditar \}\);/);
-  assert.match(app, /<Recorrido id="cs-curso" pasos=\{PASOS_RECORRIDO\} abierto=\{recorrido\.abierto\} onCerrar=\{recorrido\.onCerrar\} \/>/);
-  assert.match(app, /<BotonRecorrido onClick=\{recorrido\.reabrir\} \/>/, 'sin el «?» el recorrido no se puede volver a ver');
+  // Desde el 08/10/2026 son DOS recorridos, el del curso y el de una clase (items 1 y 19), con sus pasos
+  // en ./recorridos-curso.ts. Que cada paso señale algo que existe, y cuál se abre dónde, lo fija
+  // tests/curso-recorridos.test.ts; acá queda que el del curso se abra solo y se pueda volver a ver.
+  // Rotura (scratchpad/apariencia/romper.mjs): el «?» con un onClick que no reabre nada → 13 / 1.
+  assert.match(app, /const recorrido = useRecorrido\(RECORRIDO_CURSO, \{ autoabrir: puedeEditar && !enClase \}\);/);
+  assert.match(app, /<Recorrido id=\{RECORRIDO_CURSO\} pasos=\{PASOS_RECORRIDO\} abierto=\{recorrido\.abierto\} onCerrar=\{recorrido\.onCerrar\} \/>/);
+  assert.match(app, /<BotonRecorrido objetivo="ayuda"[^>]*onClick=\{enClase \? recorridoClase\.reabrir : recorrido\.reabrir\}/,
+    'sin el «?» el recorrido no se puede volver a ver');
   assert.doesNotMatch(app, /hechosDeClases\(/, 'la tab volvió a contar el workspace entero');
-  // Y CADA PASO SEÑALA ALGO QUE EXISTE: un objetivo que ninguna pantalla marca se saltea en silencio
-  // (app/_ui/Recorrido.tsx), y el recorrido quedaría más corto sin que nada lo diga.
-  const pasos = [...bloque(app, 'const PASOS_RECORRIDO', '];').matchAll(/objetivo: '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(pasos, ['marca', 'titulo', 'portada', 'nuevo-modulo', 'modulo', 'invitar', 'vista-alumno']);
-  const ugc = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
-  for (const p of pasos) {
-    const marcado = new RegExp(`data-recorrido=(\\{[^}]*)?["']${p}["']|recorrido="${p}"`);
-    assert.ok(marcado.test(app) || marcado.test(ugc), `el paso «${p}» no señala nada: nadie tiene data-recorrido="${p}"`);
-  }
 });
 
 // ── La lista: si se dibuja lo dice el WORKSPACE; lo que cuenta, el PRODUCTO elegido ──

@@ -202,12 +202,12 @@ test('la tab ARMA el editor: el «+», el arrastre y los dos menús llegan al di
   assert.match(ordenar, /ponerModulos\(pid, modulosEnOrden\(antes, claves\)\)/, 'el arrastre se ve en el acto');
   assert.match(ordenar, /if \(!r\.ok\) \{ ponerModulos\(pid, antes\);/, 'si el server rechaza (la primera etapa), vuelve');
   assert.match(ordenar, /ponerModulos\(pid, r\.modulos\)/, 'lo que contestó el server manda');
-  const llevar = bloque(app, 'const llevarClase = async', 'const vincular = async');
+  const llevar = bloque(app, 'const llevarClase = async', 'const kanban = async');
   assert.match(llevar, /await moverClaseAAction\(claseId, clave, antesDe\)/);
   assert.match(llevar, /if \(!r\.ok\) \{ setClases\(antes\);/);
-  const vinc = bloque(app, 'const vincular = async', 'const candado = async');
+  const vinc = bloque(app, 'const kanban = async', 'const candado = async');
   assert.match(vinc, /clasesReclaveadas\(cs, pid, m\.clave, nueva\)/, 'desvincular deja las clases en «Sin módulo» hasta recargar');
-  assert.match(bloque(app, 'const candado = async', 'const porArea = async'), /await guardarBloqueoAction\(pid, objetivo, b\)/);
+  assert.match(bloque(app, 'const candado = async', "show('Acceso cambiado'"), /await guardarBloqueoAction\(pid, objetivo, b\)/);
   // El menú de un módulo mueve por el MISMO camino que el arrastre (no un segundo `reordenar…`).
   const menu = bloque(app, 'const menuModulo = ', 'const menuClase = ');
   assert.match(menu, /const n = clavesConMovido\(claves, mc\.clave, dir\); return n \? \(\) => \{ void ordenarModulos\(n\); \} : null;/);

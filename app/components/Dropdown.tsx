@@ -9,9 +9,10 @@
 // que NO lo recorte ningún contenedor con overflow (ej. el scroll del modal de
 // detalle): antes, dentro de un modal scrolleable el menú se cortaba al abrir.
 
-import { useEffect, useRef, useState, type CSSProperties , type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties , type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { puedeApagar, rotuloDeVarios } from './dropdown-varios';
+import { altoMaximoDelMenu, lugarDelMenu, CAJA_MENU, SEPARACION_MENU } from './dropdown-lugar';
 
 const SANS = "'Geist', sans-serif";
 
@@ -421,13 +422,19 @@ export function Dropdown({
   // Calcula la posición fija del menú a partir del rect del botón. Abre hacia
   // arriba si abajo no hay lugar (sin empujar el layout). En coordenadas de
   // viewport porque el menú vive en un portal con position: fixed.
-  const place = () => {
+  //
+  // ⚠️ DECIDE CON LO QUE MIDE EL MENÚ (`alto`, ./dropdown-lugar.ts), no con un número fijo: con «abajo
+  // si quedan 300 px» un menú de 340 abría para abajo y se cortaba (item 7 del curso, 08/10/2026). El
+  // primer cuadro no tiene el menú para medir y va con la regla de siempre; el efecto de abajo lo mide
+  // y lo vuelve a ubicar ANTES de pintar.
+  const place = (alto: number | null = null) => {
     if (!ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    const below = window.innerHeight - r.bottom;
-    const up = below < 300 && r.top > below;
-    const vertical = up ? { bottom: window.innerHeight - r.top + 6 } : { top: r.bottom + 6 };
-    const espacio = Math.floor((up ? r.top : below) - 18);
+    const lugar = lugarDelMenu({ top: r.top, bottom: r.bottom, ventana: window.innerHeight, alto });
+    const up = lugar.arriba;
+    const vertical = up ? { bottom: window.innerHeight - r.top + SEPARACION_MENU } : { top: r.bottom + SEPARACION_MENU };
+    // El alto que le queda al CONTENIDO: el lugar menos el relleno y el borde de la caja.
+    const espacio = Math.max(0, lugar.espacio - CAJA_MENU);
     // Con columnas el ancho del menú es conocido → clampear al viewport para
     // que en pantallas angostas no se salga por el lado del anclaje.
     if (columns && !alContenido) {
@@ -448,9 +455,25 @@ export function Dropdown({
     // El filtro se limpia AL ABRIR y no al cerrar: el menú solo existe abierto,
     // y limpiarlo al cerrar obligaría a un setState por cada camino de cierre
     // (click afuera, Escape, scroll, elegir una opción).
-    if (!open) { place(); setQ(''); }
+    if (!open) { place(); setQ(''); medido.current = null; }
     setOpen((v) => !v);
   };
+
+  /**
+   * EL MENÚ YA EXISTE: se mide su contenido entero y se lo vuelve a ubicar con su alto de verdad, antes
+   * de pintar (`useLayoutEffect`). UNA vez por apertura: lo que mide `scrollHeight` no depende del lado
+   * donde quedó, así que no hay ida y vuelta; y escribir en el buscador no lo mueve de lugar (un menú que
+   * salta de arriba a abajo mientras se tipea se lee como roto).
+   */
+  const medido = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (!open || medido.current != null || !menuRef.current) return;
+    // `scrollHeight` es el contenido, aunque el alto máximo lo esté recortando; el borde va aparte.
+    medido.current = menuRef.current.scrollHeight + 2;
+    place(medido.current);
+    // `place` se arma en cada render y lee las props de ahora: no es una dependencia que cambie el qué.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pos]);
 
   useEffect(() => {
     if (!open) return;
@@ -577,7 +600,7 @@ export function Dropdown({
         )}
       </button>
       {open && pos && createPortal(
-        <div ref={menuRef} role="listbox" aria-multiselectable={varios ? true : undefined} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : 360, maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : 'min(480px, calc(100dvh - 40px))') : 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
+        <div ref={menuRef} role="listbox" aria-multiselectable={varios ? true : undefined} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : 360, maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : altoMaximoDelMenu(480, pos.espacio, 200)) : altoMaximoDelMenu(340, pos.espacio), overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
           {conBusqueda && (
             // Queda PEGADA arriba: en una lista larga el buscador tiene que
             // seguir a la vista mientras se scrollea, o deja de servir.

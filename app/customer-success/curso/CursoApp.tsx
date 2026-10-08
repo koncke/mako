@@ -20,8 +20,13 @@
 //   · La ESTRUCTURA, editable en su lugar (items 6, 7, 8 y 12 del 07/10/2026): «+ Nuevo módulo» y
 //     «+ Nueva clase» primero, el nombre de un módulo con un clic (renombra su etapa del kanban),
 //     módulos y clases que se ARRASTRAN (el gesto del Plan), y el menú «…» de cada uno
-//     (./MenuCurso.tsx): la portada, «Es una etapa del kanban», cuándo se abre, borrar.
-//   · «Invitar alumnos» y «Vista del alumno» en la barra de arriba, y el RECORRIDO de la tab.
+//     (./MenuCurso.tsx), UNO con la misma forma para módulo y clase (item 15 del 08/10/2026): renombrar,
+//     portada, mover antes / después · público o privado · (módulo) «Etapa del kanban», que al apagarse
+//     QUITA la etapa y pregunta a dónde van sus clientes (./QuitarEtapa.tsx) · eliminar, a la papelera.
+//     Cada gesto deja su «Deshacer» de 5 segundos, que vuelve a escribir en el server (item 18).
+//   · «Vista del alumno», «Invitar alumnos» y el «?» arriba a la DERECHA, en el lugar del nombre del
+//     curso (item 14 del 08/10/2026), y los DOS RECORRIDOS: el del curso y el de una clase (items 1 y 19).
+//   · En el menú de la marca: el curso que se mira, el color y la FUENTE (item 3 del 08/10/2026).
 //   · ⚠️ SIN «Avance de los clientes» desde el 08/10/2026 (item 4): es una vista de /customer-success.
 //
 // ⚠️ EL CURSO CUELGA DE LAS ETAPAS DE LA ENTREGA, no tiene etapas propias (mig 0202). Las
@@ -44,6 +49,8 @@ import {
 import Link from '@/app/_ui/Link';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import type { Clase } from '@/lib/curso';
+import { CAMPO_AREAS } from '@/lib/curso';
+import { miniaturaDeClase } from './leccion-reglas';
 import CursoUgc, { ChipUgc, ItemMenuUgc, TituloMenuUgc } from '@/app/_cursos/CursoUgc';
 import type { LeccionUgc, ObjetivoUgc, TextoUgc } from '@/app/_cursos/tipos';
 import {
@@ -66,18 +73,25 @@ import { leccionDelEditor, type CtxLeccion } from './LeccionEditable';
 import type { EtapaVista } from './AvanceCurso';
 import type { OnboardingCurso } from './ChecklistCurso';
 // ── El editor de la ESTRUCTURA (pedido del 07/10/2026, items 3 a 9, 11 y 12) ──
-import { Recorrido, BotonRecorrido, useRecorrido, type PasoRecorrido } from '@/app/_ui/Recorrido';
+import { Recorrido, BotonRecorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { claveDe } from '@/lib/curso-estilo';
 import type { Bloqueo } from '@/lib/curso-bloqueo';
 import {
-  borrarModuloAction, crearModuloAction, guardarBloqueoAction, guardarCampoClaseAction, moverClaseAAction,
-  reordenarModulosAction, vincularModuloAction,
+  borrarModuloAction, crearModuloAction, guardarBloqueoAction, moverClaseAAction,
+  reordenarModulosAction, vincularModuloAction, restaurarModuloAction, restaurarClasesAction, previaQuitarAction,
 } from './modulos-actions';
-import { MenuClase, MenuModulo } from './MenuCurso';
+import { CSS_MENU_CURSO, MenuClase, MenuModulo } from './MenuCurso';
+import { QuitarEtapa, type PreguntaQuitar } from './QuitarEtapa';
+import type { EtapaEntrega } from '@/lib/servicio-etapas';
 import { avisoDeBloqueo, chipDeBloqueo } from './bloqueo-editor';
-import { clasesConMovida, clasesReclaveadas, clavesConMovido, conOrdenDe, estiloReclaveado, modulosEnOrden } from './estructura';
+import {
+  clasesConDevueltas, clasesConMovida, clasesReclaveadas, clavesConMovido, conOrdenDe, estiloReclaveado, lugarDe, modulosEnOrden,
+} from './estructura';
 import { ModalInvitarAlumnos } from './InvitarAlumnos';
 import type { ClaseUgc, ControlMenuUgc, ModuloUgc } from '@/app/_cursos/tipos';
+// La fuente del curso, en el menú de la marca al lado del color (item 3 del 08/10/2026).
+import { SelectorFuente } from '@/app/_cursos/SelectorFuente';
+import { PASOS_RECORRIDO, PASOS_RECORRIDO_LECCION, RECORRIDO_CURSO, RECORRIDO_LECCION } from './recorridos-curso';
 
 /**
  * Un servicio con su curso. `etapas` = las columnas del KANBAN (las de la tabla Avance, con su color);
@@ -95,25 +109,8 @@ export type VistaCurso = 'clases' | 'avance';
  */
 const SIN_ESTILOS: Record<number, EstiloCurso> = {};
 
-/**
- * EL RECORRIDO DE LA TAB (item 3, Martín, 07/10/2026): «Elimina el recuadro de "Configura tu curso"…
- * haz el típico tutorial de app, donde se pone todo medio oscuro y salen flechas apuntándote a las
- * acciones disponibles». Cada paso señala un `data-recorrido` de la pantalla (los del dibujo están en
- * app/_cursos/CursoUgc.tsx; «Invitar» y «Vista del alumno», en la barra de arriba de acá). Un paso
- * cuyo objetivo no está en pantalla se saltea solo (app/_ui/Recorrido.tsx): sin módulos no hay
- * «Tus módulos».
- *
- * ⚠️ TEXTOS CORTOS (una frase): es texto de pantalla. El porqué de cada cosa va en el código.
- */
-const PASOS_RECORRIDO: PasoRecorrido[] = [
-  { objetivo: 'marca', titulo: 'Tu programa', texto: 'Elige qué curso editas, su color y la vista del alumno.', lado: 'derecha' },
-  { objetivo: 'titulo', titulo: 'El nombre del curso', texto: 'Haz clic para cambiarlo.' },
-  { objetivo: 'portada', titulo: 'La portada', texto: 'Pasa el cursor y elige su imagen.' },
-  { objetivo: 'nuevo-modulo', titulo: 'Nuevo módulo', texto: 'Escribe su nombre: crea su etapa en el kanban.' },
-  { objetivo: 'modulo', titulo: 'Tus módulos', texto: 'Arrástralos para ordenarlos. Clic en el nombre para cambiarlo.', lado: 'derecha' },
-  { objetivo: 'invitar', titulo: 'Invita alumnos', texto: 'Tus clientes o alguien nuevo.' },
-  { objetivo: 'vista-alumno', titulo: 'Vista del alumno', texto: 'Mira el curso como lo ve tu cliente.' },
-];
+// ⚠️ LOS DOS RECORRIDOS (el del curso y el de una clase, items 1, 3 y 19) viven en ./recorridos-curso.ts:
+//    son datos puros, y así un test puede comprobar que cada paso señala algo que existe en el fuente.
 
 /** La vista previa del alumno de un producto (./vista/page.tsx): sin lead, no crea accesos. */
 const hrefVistaPrevia = (productoId: number) => `/customer-success/curso/vista?producto=${productoId}`;
@@ -173,7 +170,8 @@ export function CursoApp({
   const confirmados = useRef<Record<number, EstiloCurso>>(estilosProp);
   if (baseEstilos !== estilosProp) confirmados.current = estilosProp;
   /** El selector de portadas abierto: qué portada cambia y de qué botón cuelga. */
-  const [picker, setPicker] = useState<{ ajuste: Ajuste; ancla: HTMLElement } | null>(null);
+  // `antes`: la portada que había al abrirlo, para el «Deshacer» al cerrarlo (item 18).
+  const [picker, setPicker] = useState<{ ajuste: Ajuste; ancla: HTMLElement; antes: string | null } | null>(null);
   /**
    * LOS MÓDULOS DE CADA CURSO COMO QUEDARON ACÁ (renombrar, arrastrar, crear, desvincular, el
    * candado), por producto, hasta que la página traiga otros. Cada action de los módulos devuelve la
@@ -187,13 +185,31 @@ export function CursoApp({
   const [invitando, setInvitando] = useState(false);
   /** Un cambio de la ESTRUCTURA esperando al server: los controles se apagan, no desaparecen. */
   const [estructurando, setEstructurando] = useState(false);
+  /** La pregunta de antes de quitar una etapa o eliminar un módulo (./QuitarEtapa.tsx), afuera del curso. */
+  const [quitar, setQuitar] = useState<PreguntaQuitar | null>(null);
   const timerAcento = useRef<number | undefined>(undefined);
+  /** El color confirmado cuando se empezó a mover el selector «otro» (su «Deshacer»). `null` = no se está moviendo. */
+  const otroAntes = useRef<{ v: string | null } | null>(null);
   /** El turno de cada ajuste del estilo (ver `guardarAjuste`): una respuesta vieja no pisa una más nueva. */
   const turnos = useRef<Record<string, number>>({});
-  // El recorrido de la tab (item 3): se abre solo la primera vez, para quien arma el curso.
-  const recorrido = useRecorrido('cs-curso', { autoabrir: puedeEditar });
-  // Dónde está parado: la lista del onboarding va sólo en el índice.
+  // Dónde está parado: en el índice, en un módulo o adentro de una clase.
   const { pos } = usePosicion();
+  /**
+   * LOS DOS RECORRIDOS (items 1, 3 y 19; ./recorridos-curso.ts): el del CURSO y el de una CLASE. Cada
+   * uno se abre solo la primera vez, para quien arma el curso, y SÓLO donde explica algo: el de la
+   * clase al entrar a editar una, el del curso afuera de las clases. Así nunca se abren los dos juntos,
+   * y quien aterriza en una clase (un link, un F5) ve primero el de la clase y, al salir, el del curso.
+   * El «?» abre el del lugar donde está (`barraDeArriba`).
+   *
+   * ⚠️ «Adentro de una clase» es que la URL nombre una clase de ESTE curso: un `#clase=` de otro
+   *    producto no dibuja ninguna lección (`CursoUgc` no la encuentra), y abrir ahí el de la clase
+   *    sería esperar unos objetivos que no van a aparecer.
+   */
+  const enClase = pos.clase != null && clases.some((c) => c.id === pos.clase && c.productoId === productoId);
+  const recorrido = useRecorrido(RECORRIDO_CURSO, { autoabrir: puedeEditar && !enClase });
+  // `!recorrido.abierto`: el del curso abierto con el «?» sigue a la vista adentro de una clase (sus
+  // objetivos de la barra siguen ahí), y entrar a una con el Atrás del navegador abriría el segundo encima.
+  const recorridoClase = useRecorrido(RECORRIDO_LECCION, { autoabrir: puedeEditar && enClase && !recorrido.abierto });
   const { toast, show, clear } = useToast();
   const { confirm, confirmNode } = useConfirm();
 
@@ -250,11 +266,43 @@ export function CursoApp({
   );
   const porId = useMemo(() => new Map(delProducto.map((c) => [c.id, c])), [delProducto]);
 
+  // ── EL «DESHACER» DE LA ESTRUCTURA (08/10/2026, item 18: «te falta el botón de arrepentimiento para
+  //    muchas acciones, el de 5 segundos de "Deshacer"») ──
+  // Cada gesto de la estructura deja el aviso de 5 segundos (`show(texto, deshacer)`, app/_ui/Toast.tsx)
+  // con 3-4 palabras, y DESHACER ESCRIBE EN EL SERVER por el MISMO camino que el gesto, con el valor de
+  // antes: revertir sólo la pantalla mentiría hasta el próximo F5 (AGENTS.md). Las funciones de abajo
+  // (`devolverClase`, `devolverClases`, `devolverModulo`) leen TODO de lo que contesta el server y no del
+  // render en el que nacieron: corren desde un aviso, segundos después, con otra pantalla.
+
+  /** Devuelve una clase a un lugar EXACTO (su módulo y la que la seguía): por `moverClaseAAction`, el camino del arrastre. */
+  const devolverClase = async (claseId: number, lugar: { clave: string; antesDe: number | null }) => {
+    try {
+      const r = await moverClaseAAction(claseId, lugar.clave, lugar.antesDe);
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      setClases((cs) => conOrdenDe(cs.map((x) => (x.id === r.clase.id ? r.clase : x)), r.clase.productoId, r.clase.etapa, r.ids));
+    } catch {
+      show('No se pudo deshacer.', undefined, 'bad');
+    }
+  };
+
+  /** Saca clases de la PAPELERA (mig 0223) y las vuelve a poner: el «Deshacer» de borrar. */
+  const devolverClases = async (pid: number, ids: number[]) => {
+    try {
+      const r = await restaurarClasesAction(pid, ids);
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      setClases((cs) => clasesConDevueltas(cs, r.clases));
+    } catch {
+      show('No se pudo deshacer.', undefined, 'bad');
+    }
+  };
+
   const mover = async (c: Clase, dir: 'arriba' | 'abajo') => {
     const ids = (porEtapa[c.etapa] ?? []).map((x) => x.id);
     const nuevos = reordenar(ids, c.id, dir);
     if (!nuevos) return;
     const antes = clases;
+    // Dónde estaba, para el «Deshacer»: la clase que la seguía (un lugar EXACTO, no «uno más arriba»).
+    const lugar = lugarDe(clases, c.id);
     const ordenar = (lista: number[]) => setClases((cs) => cs.map((x) => {
       const i = x.etapa === c.etapa && x.productoId === c.productoId ? lista.indexOf(x.id) : -1;
       return i >= 0 ? { ...x, orden: i } : x;
@@ -266,13 +314,26 @@ export function CursoApp({
     if (!r.ok) { setClases(antes); show(r.error, undefined, 'bad'); return; }
     // La base manda: si otra pestaña movió en el medio, su orden es el que queda.
     ordenar(r.ids);
+    if (lugar) show('Clase movida', () => { void devolverClase(c.id, lugar); });
   };
 
+  /**
+   * Borrar una clase (08/10/2026, items 15 y 18): a la PAPELERA (lib/curso-admin.ts, `borrarClase`) y SIN
+   * PREGUNTA — no se pierde nada: el «Deshacer» la devuelve con su avance, sus entregas y su portada
+   * (AGENTS.md: «sin nada que perder no hay fricción: sale y queda el Deshacer»). Antes preguntaba
+   * «Se pierde el avance de N clientes», que era verdad cuando borrar era un `delete`.
+   */
   const borrar = async (c: Clase) => {
-    const r = await borrarClaseAction(c.id);
-    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+    try {
+      const r = await borrarClaseAction(c.id);
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+    } catch {
+      show('No se pudo borrar.', undefined, 'bad');
+      return;
+    }
     setClases((cs) => cs.filter((x) => x.id !== c.id));
-    show('Clase borrada');
+    if (pos.clase === c.id) navegar({ mod: c.etapa }, 'reemplazar');
+    show('Clase borrada', () => { void devolverClases(c.productoId, [c.id]); });
   };
 
   /**
@@ -295,14 +356,8 @@ export function CursoApp({
     }
   };
 
-  const borrarDesdeLista = async (c: Clase) => {
-    const n = conAvance[c.id] ?? 0;
-    const ok = await confirm(
-      n > 0 ? `Se pierde el avance de ${n} ${n === 1 ? 'cliente' : 'clientes'}.` : 'Nadie la empezó todavía.',
-      { title: `¿Borrar «${c.titulo}»?`, confirmLabel: 'Borrar' },
-    );
-    if (ok) await borrar(c);
-  };
+  // Desde la lista (la × de una tarjeta sin menú) es el mismo borrar: sin pregunta, con «Deshacer».
+  const borrarDesdeLista = (c: Clase) => borrar(c);
 
   if (errorEntrega) {
     return (
@@ -366,17 +421,23 @@ export function CursoApp({
     }
   };
 
-  /** Arrastrar un módulo (item 7): reordena las ETAPAS del kanban (sin mover la primera) y los sueltos. */
-  const ordenarModulos = async (claves: string[]) => {
+  /**
+   * Arrastrar un módulo (item 7) y «Mover antes / después» del menú: reordena las ETAPAS del kanban
+   * (sin mover la primera) y los sueltos. El «Deshacer» vuelve al orden de antes por el MISMO camino
+   * (`conDeshacer: false`: deshacer no ofrece deshacer el deshacer).
+   */
+  const ordenarModulos = async (claves: string[], conDeshacer = true) => {
     if (!servicio) return;
     const pid = servicio.productoId;
     const antes = modulosActuales;
+    const previas = antes.map((m) => m.clave);
     ponerModulos(pid, modulosEnOrden(antes, claves));
     setEstructurando(true);
     try {
       const r = await reordenarModulosAction(pid, claves);
       if (!r.ok) { ponerModulos(pid, antes); show(r.error, undefined, 'bad'); return; }
       ponerModulos(pid, r.modulos);
+      if (conDeshacer) show('Módulo movido', () => { void ordenarModulos(previas, false); });
     } catch {
       ponerModulos(pid, antes);
       show('No se pudo ordenar.', undefined, 'bad');
@@ -385,19 +446,20 @@ export function CursoApp({
     }
   };
 
-  /** Arrastrar una clase (en su módulo, o soltada sobre otro de la barra) y «Mover a» del menú. */
+  /** Arrastrar una clase (en su módulo, o soltada sobre otro de la barra). El «Deshacer» la devuelve a su lugar exacto. */
   const llevarClase = async (claseId: number, clave: string, antesDe: number | null) => {
     const c = porId.get(claseId);
     if (!c) return;
     const antes = clases;
+    const lugar = lugarDe(clases, claseId);
     setClases((cs) => clasesConMovida(cs, claseId, clave, antesDe));
     setEstructurando(true);
     try {
       const r = await moverClaseAAction(claseId, clave, antesDe);
       if (!r.ok) { setClases(antes); show(r.error, undefined, 'bad'); return; }
       setClases((cs) => conOrdenDe(cs.map((x) => (x.id === r.clase.id ? r.clase : x)), r.clase.productoId, r.clase.etapa, r.ids));
-      // A otro módulo, la tarjeta se va de la vista: se dice a dónde fue.
-      if (clave !== c.etapa) show('Clase movida');
+      // Se dice siempre: a otro módulo la tarjeta se va de la vista, y en el mismo es lo que se deshace.
+      if (lugar) show('Clase movida', () => { void devolverClase(claseId, lugar); });
     } catch {
       setClases(antes);
       show('No se pudo mover la clase.', undefined, 'bad');
@@ -407,17 +469,37 @@ export function CursoApp({
   };
 
   /**
-   * «Es una etapa del kanban» (item 12). La clave del módulo CAMBIA (lib/curso-modulos-datos.ts,
+   * El interruptor «Etapa del kanban» (items 12 y 15). La clave del módulo CAMBIA (lib/curso-modulos-datos.ts,
    * `reclavear`): el server ya mudó sus clases y su portada, y acá se hace lo mismo con lo que hay en
    * memoria — si no, sus clases caerían en «Sin módulo» hasta recargar.
+   *
+   * APAGARLO QUITA LA ETAPA DEL KANBAN (cambió de sentido el 08/10/2026): con clientes adentro, el server
+   * contesta la PREGUNTA (`pregunta`) y acá se abre ./QuitarEtapa.tsx para elegir a dónde van; con la
+   * respuesta se vuelve a llamar con el destino, y se los muda SIN mensajes.
+   *
+   * ⚠️ EL «DESHACER» SÓLO SI NO SE MUDÓ A NADIE: devuelve la MISMA etapa en su lugar (`devolver`). Con
+   *    clientes mudados no se ofrece: devolverlos sería un SEGUNDO movimiento silencioso de N personas
+   *    con su reloj de etapa arrancando hoy, y la etapa no se recrea sola con ellos adentro. Prenderlo
+   *    (crear la etapa) se deshace apagándola, que está vacía.
    */
-  const vincular = async (m: ModuloCurso, v: boolean): Promise<string | null> => {
-    if (!servicio) return null;
+  const kanban = async (m: ModuloCurso, activo: boolean, o: { destino?: string | null; devolver?: { etapa: EtapaEntrega; indice: number }; deshaciendo?: boolean } = {}) => {
+    if (!servicio) return;
     const pid = servicio.productoId;
     setEstructurando(true);
     try {
-      const r = await vincularModuloAction(pid, m.clave, v);
-      if (!r.ok) return r.error;
+      const r = await vincularModuloAction(pid, m.clave, activo, o.destino ?? null, o.devolver ?? null);
+      if (!r.ok) {
+        if (r.pregunta) {
+          const p = r.pregunta;
+          setQuitar({
+            titulo: `Quitar «${m.nombre}» del kanban`, clases: null, clientes: p.clientes, destinos: p.destinos,
+            boton: 'Quitar la etapa', hacer: (d) => kanban(m, false, { destino: d }),
+          });
+          return;
+        }
+        show(r.error, undefined, 'bad');
+        return;
+      }
       const nueva = r.clave;
       if (nueva !== m.clave) {
         setClases((cs) => clasesReclaveadas(cs, pid, m.clave, nueva));
@@ -427,18 +509,32 @@ export function CursoApp({
         if (pos.mod === m.clave) navegar({ mod: nueva, clase: pos.clase }, 'reemplazar');
       }
       ponerModulos(pid, r.modulos);
-      return null;
+      if (o.deshaciendo) return;
+      const ahora = r.modulos.find((x) => x.clave === nueva);
+      const q = r.quitada;
+      if (!activo) {
+        if (q && q.movidos === 0 && ahora) show('Etapa quitada', () => { void kanban(ahora, true, { devolver: { etapa: q.etapa, indice: q.indice }, deshaciendo: true }); });
+        else show('Etapa quitada');
+      } else if (ahora) {
+        show('Etapa creada', () => { void kanban(ahora, false, { deshaciendo: true }); });
+      }
     } catch {
-      return v ? 'No se pudo vincular.' : 'No se pudo desvincular.';
+      show(activo ? 'No se pudo vincular.' : 'No se pudo quitar la etapa.', undefined, 'bad');
     } finally {
       setEstructurando(false);
     }
   };
 
-  /** El candado de un módulo o de una clase (item 8, D2). Devuelve por qué no, o `null` si quedó. */
-  const candado = async (objetivo: { modulo: string } | { clase: number }, b: Bloqueo | null): Promise<string | null> => {
+  /**
+   * El ACCESO de un módulo o de una clase (items 8 y 15: público, o privado con su condición). Devuelve
+   * por qué no, o `null` si quedó. El «Deshacer» guarda el de antes por el mismo camino.
+   */
+  const candado = async (objetivo: { modulo: string } | { clase: number }, b: Bloqueo | null, conDeshacer = true): Promise<string | null> => {
     if (!servicio) return null;
     const pid = servicio.productoId;
+    const previo: Bloqueo | null = 'modulo' in objetivo
+      ? modulosActuales.find((x) => x.clave === objetivo.modulo)?.bloqueo ?? null
+      : porId.get(objetivo.clase)?.bloqueo ?? null;
     setEstructurando(true);
     try {
       const r = await guardarBloqueoAction(pid, objetivo, b);
@@ -446,6 +542,7 @@ export function CursoApp({
       ponerModulos(pid, r.modulos);
       const x = r.clase;
       if (x) setClases((cs) => cs.map((y) => (y.id === x.id ? x : y)));
+      if (conDeshacer && JSON.stringify(previo) !== JSON.stringify(b)) show('Acceso cambiado', () => { void candado(objetivo, previo, false); });
       return null;
     } catch {
       return 'No se pudo guardar el candado.';
@@ -454,33 +551,86 @@ export function CursoApp({
     }
   };
 
-  /** «Por área» de una clase (#665): cada área del cliente contesta su tarea. */
-  const porArea = async (c: Clase, v: boolean): Promise<string | null> => {
-    try {
-      const r = await guardarCampoClaseAction(c.id, { porArea: v });
-      if (!r.ok) return r.error;
-      setClases((cs) => cs.map((y) => (y.id === r.clase.id ? r.clase : y)));
-      return null;
-    } catch {
-      return 'No se pudo guardar.';
-    }
-  };
+  // «Por área» (#665) ya no está acá: salió del menú de la clase (item 15) y vive en la tarea, al lado de
+  // lo que cambia (./LeccionEditable.tsx, «Una respuesta por área»).
 
-  /** Borrar un módulo SUELTO y VACÍO (el menú no lo ofrece para otro: ver ./MenuCurso.tsx). */
-  const borrarModulo = async (m: ModuloCurso) => {
+  /**
+   * «Eliminar módulo» (08/10/2026, item 15): PREGUNTA primero —cuántas clases y cuántos clientes, corto,
+   * y a dónde van sus clientes si es una etapa con gente adentro (./QuitarEtapa.tsx)— y recién ahí borra.
+   * Las clases van a la PAPELERA con él (mig 0223).
+   */
+  const eliminarModulo = async (m: ModuloCurso) => {
     if (!servicio) return;
     const pid = servicio.productoId;
+    const clasesDel = (porEtapa[m.clave] ?? []).length;
+    let clientes = 0;
+    let destinos: Array<{ key: string; label: string }> = [];
+    if (m.vinculado) {
+      try {
+        const p = await previaQuitarAction(pid, m.clave);
+        if (!p.ok) { show(p.error, undefined, 'bad'); return; }
+        clientes = p.clientes;
+        destinos = p.destinos;
+      } catch {
+        show('No pude contar sus clientes.', undefined, 'bad');
+        return;
+      }
+    }
+    setQuitar({
+      titulo: `Eliminar «${m.nombre}»`, clases: clasesDel, clientes, destinos, boton: 'Eliminar módulo',
+      hacer: (d) => borrarModulo(m, d),
+    });
+  };
+
+  /**
+   * Borra el módulo con lo que contestó la pregunta. Si en el medio cambió algo (alguien sumó un cliente
+   * a la etapa), el server vuelve a preguntar y se vuelve a abrir la pregunta con lo de ahora.
+   *
+   * ⚠️ EL «DESHACER» SÓLO SI NO SE MUDÓ A NADIE (como el interruptor): devuelve el MISMO módulo, sus
+   *    clases de la papelera y el orden de antes; una etapa con clientes mudados no se recrea con ellos.
+   */
+  const borrarModulo = async (m: ModuloCurso, destino: string | null) => {
+    if (!servicio) return;
+    const pid = servicio.productoId;
+    const orden = modulosActuales.map((x) => x.clave);
     setEstructurando(true);
     try {
-      const r = await borrarModuloAction(pid, m.clave);
-      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      const r = await borrarModuloAction(pid, m.clave, destino);
+      if (!r.ok) {
+        if (r.pregunta) {
+          const p = r.pregunta;
+          setQuitar({
+            titulo: `Eliminar «${m.nombre}»`, clases: (porEtapa[m.clave] ?? []).length, clientes: p.clientes, destinos: p.destinos,
+            boton: 'Eliminar módulo', hacer: (d) => borrarModulo(m, d),
+          });
+          return;
+        }
+        show(r.error, undefined, 'bad');
+        return;
+      }
       ponerModulos(pid, r.modulos);
+      const idas = new Set(r.clases);
+      setClases((cs) => cs.filter((x) => !idas.has(x.id)));
       if (pos.mod === m.clave) navegar({}, 'reemplazar');
-      show('Módulo borrado');
+      const q = r.quitada;
+      if (r.movidos > 0) show('Módulo eliminado');
+      else show('Módulo eliminado', () => { void devolverModulo(pid, { clave: m.clave, clases: r.clases, orden, quitada: q ? { etapa: q.etapa, indice: q.indice } : null }); });
     } catch {
       show('No se pudo borrar el módulo.', undefined, 'bad');
     } finally {
       setEstructurando(false);
+    }
+  };
+
+  /** El «Deshacer» de «Eliminar módulo»: el MISMO módulo, sus clases y el orden de antes (`restaurarModuloAction`). */
+  const devolverModulo = async (pid: number, datos: { clave: string; clases: number[]; orden: string[]; quitada: { etapa: EtapaEntrega; indice: number } | null }) => {
+    try {
+      const r = await restaurarModuloAction(pid, datos);
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      ponerModulos(pid, r.modulos);
+      setClases((cs) => clasesConDevueltas(cs, r.clases));
+    } catch {
+      show('No se pudo deshacer.', undefined, 'bad');
     }
   };
 
@@ -524,9 +674,20 @@ export function CursoApp({
   const probarAcento = (hex: string) => {
     if (productoId == null) return;
     const pid = productoId;
+    // El color de ANTES de empezar a mover el selector, para el «Deshacer» (item 18): el confirmado al
+    // primer movimiento, no el del último (que es un tono a mitad de camino).
+    if (!otroAntes.current) otroAntes.current = { v: valorDe(confirmados.current[pid] ?? estiloVacio(), { tipo: 'acento' }) };
     setEstilos((m) => ({ ...m, [pid]: conAjuste(m[pid] ?? estiloVacio(), { tipo: 'acento' }, hex) }));
     window.clearTimeout(timerAcento.current);
-    timerAcento.current = window.setTimeout(() => { void guardarAjuste({ tipo: 'acento' }, hex); }, 450);
+    timerAcento.current = window.setTimeout(() => {
+      const antes = otroAntes.current;
+      otroAntes.current = null;
+      void guardarAjuste({ tipo: 'acento' }, hex).then((ok) => {
+        if (ok && antes && (antes.v ?? '').toUpperCase() !== hex.toUpperCase()) {
+          show('Color cambiado', () => { void guardarAjuste({ tipo: 'acento' }, antes.v); });
+        }
+      });
+    }, 450);
   };
 
   /** El clic en un texto (ver `TextoEditable` en app/_cursos/CursoUgc.tsx). */
@@ -538,20 +699,33 @@ export function CursoApp({
       return false;
     }
     // Vacío = volver al default: el nombre del producto, o la descripción automática.
-    if (que.tipo === 'curso-titulo') return guardarAjuste({ tipo: 'titulo' }, valor || null);
-    if (que.tipo === 'curso-resumen') return guardarAjuste({ tipo: 'resumen' }, valor || null);
+    // Con su «Deshacer» (item 18, revisión final del 08/10/2026), como el nombre de un módulo o de una
+    // clase: lo de antes es lo que el server CONFIRMÓ, y deshacer lo vuelve a guardar por el mismo camino.
+    if (que.tipo === 'curso-titulo' || que.tipo === 'curso-resumen') {
+      const a: Ajuste = { tipo: que.tipo === 'curso-titulo' ? 'titulo' : 'resumen' };
+      const antes = valorDe(confirmados.current[pid] ?? estiloVacio(), a);
+      const v = valor || null;
+      const ok = await guardarAjuste(a, v);
+      if (ok && (antes ?? null) !== v) show(a.tipo === 'titulo' ? 'Nombre cambiado' : 'Descripción cambiada', () => { void guardarAjuste(a, antes); });
+      return ok;
+    }
     if (!valor) { show('El nombre no puede quedar vacío.', undefined, 'bad'); return false; }
+    // El nombre de ANTES, para el «Deshacer» (item 18): vuelve a guardarse por este mismo camino.
+    const previo = que.tipo === 'modulo' ? modulosActuales.find((x) => x.clave === que.key)?.nombre : porId.get(que.id)?.titulo;
+    const deshacer = previo && previo !== valor ? () => { void guardarTexto(que, previo); } : undefined;
     try {
       if (que.tipo === 'modulo') {
         // Un vinculado renombra su ETAPA del kanban (item 6: «que se editen en las etapas del kanban»).
         const r = await renombrarModuloAction(pid, que.key, valor);
         if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
         ponerModulos(pid, r.modulos);
+        if (deshacer) show('Nombre cambiado', deshacer);
         return true;
       }
       const r = await renombrarClaseAction(que.id, valor);
       if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
       setClases((cs) => cs.map((x) => (x.id === que.id ? { ...x, titulo: r.titulo } : x)));
+      if (deshacer) show('Nombre cambiado', deshacer);
       return true;
     } catch {
       show('No se pudo guardar.', undefined, 'bad');
@@ -564,7 +738,7 @@ export function CursoApp({
     const ajuste: Ajuste = que.tipo === 'curso' ? { tipo: 'portada' }
       : que.tipo === 'modulo' ? { tipo: 'portada-etapa', etapa: que.key }
         : { tipo: 'portada-clase', clase: que.id };
-    setPicker({ ajuste, ancla });
+    setPicker({ ajuste, ancla, antes: valorDe(estilo, ajuste) });
   };
 
   /** El nombre de un curso: el que se le eligió, o el del producto. */
@@ -633,6 +807,11 @@ export function CursoApp({
       onClase: (x) => setClases((cs) => cs.map((y) => (y.id === x.id ? x : y))),
       avisar: (t) => show(t, undefined, 'bad'),
       confirmar: (mensaje, o) => confirm(mensaje, { title: o.titulo, confirmLabel: o.boton }),
+      // ── Pista LECCIÓN, 08/10/2026 ──
+      // El «Deshacer» de 5 segundos (item 18): el MISMO toast de la tab, afuera del curso.
+      deshacer: (t, f) => show(t, f),
+      // «Una respuesta por área» (items 9 y 15) se ofrece si el curso les pide a sus clientes sus áreas.
+      cursoPideAreas: delProducto.some((x) => x.campos.some((f) => f.id === CAMPO_AREAS)),
     };
     return leccionDelEditor(c, ctx);
   };
@@ -656,32 +835,38 @@ export function CursoApp({
     </div>
   ) : undefined;
 
-  // ── Los menús «…» de un módulo y de una clase (item 12): los arma esta pantalla ──
+  // ── Los menús «…» de un módulo y de una clase (items 12 y 15): los arma esta pantalla ──
+  // UN menú con la MISMA forma para los dos (./MenuCurso.tsx, `seccionesDelMenu`): Renombrar, Portada,
+  // Mover antes / después · Público o privado · (módulo) Etapa del kanban · Eliminar. «Mover a» y «Por
+  // área» salieron (una clase se lleva a otro módulo arrastrándola a la barra; «Por área» va con la tarea).
   const clasesParaMenu = delProducto.map((c) => ({ id: c.id, etapa: c.etapa, titulo: c.titulo }));
+  /** La ENTRADA del kanban (su primera columna): no se quita ni se elimina desde el curso. */
+  const claveEntrada = servicio?.etapas[0]?.key ?? null;
   const menuModulo = (m: ModuloUgc, ctl: ControlMenuUgc) => {
     const mc = modulosActuales.find((x) => x.clave === m.key);
     if (!mc) return null;
     const claves = modulosActuales.map((x) => x.clave);
     const mover = (dir: -1 | 1) => { const n = clavesConMovido(claves, mc.clave, dir); return n ? () => { void ordenarModulos(n); } : null; };
     return (
-      <MenuModulo modulo={mc} conClases={(porEtapa[mc.clave] ?? []).length} clases={clasesParaMenu} ctl={ctl} ocupado={estructurando}
+      <MenuModulo modulo={mc} entrada={mc.vinculado && mc.clave === claveEntrada} clases={clasesParaMenu} ctl={ctl} ocupado={estructurando}
         onMover={{ antes: mover(-1), despues: mover(1) }}
         onPortada={estiloError ? undefined : (a) => abrirPortada({ tipo: 'modulo', key: mc.clave }, a)}
-        onVincular={(v) => vincular(mc, v)}
         onBloqueo={(b) => candado({ modulo: mc.clave }, b)}
-        onBorrar={() => void borrarModulo(mc)} />
+        onKanban={(v) => { void kanban(mc, v); }}
+        onEliminar={() => { void eliminarModulo(mc); }} />
     );
   };
   const menuClase = (u: ClaseUgc, ctl: ControlMenuUgc) => {
     const c = porId.get(u.id);
     if (!c) return null;
+    const mover1 = (dir: 'arriba' | 'abajo') => (puedeMoverEnEditor(clasesUgc, c.id, dir) ? () => { void mover(c, dir); } : null);
     return (
-      <MenuClase clase={c} modulos={modulosActuales} clases={clasesParaMenu} ctl={ctl} ocupado={estructurando}
+      <MenuClase clase={c} clases={clasesParaMenu} ctl={ctl} ocupado={estructurando}
         onPortada={estiloError ? undefined : (a) => abrirPortada({ tipo: 'clase', id: c.id }, a)}
+        onRenombrar={async (t) => ((await guardarTexto({ tipo: 'clase', id: c.id }, t)) ? null : 'No se guardó.')}
+        onMover={{ antes: mover1('arriba'), despues: mover1('abajo') }}
         onBloqueo={(b) => candado({ clase: c.id }, b)}
-        onPorArea={(v) => porArea(c, v)}
-        onMover={(k) => void llevarClase(c.id, k, null)}
-        onBorrar={() => void borrarDesdeLista(c)} />
+        onEliminar={() => { void borrar(c); }} />
     );
   };
 
@@ -689,6 +874,9 @@ export function CursoApp({
    * La barra de arriba (item 9 y el recorrido del item 3): lo que se hace con el curso ENTERO, a la
    * vista. «Invitar alumnos» abre el modal de ./InvitarAlumnos.tsx (tus clientes sin invitar, o
    * alguien nuevo que entra como cliente al kanban); «Vista del alumno» abre el ensayo sin lead.
+   * ⚠️ VA ARRIBA A LA DERECHA, EN EL LUGAR DEL NOMBRE DEL CURSO, en este orden (item 14 del 08/10/2026:
+   *    «Vista de alumnos, invitar a alumno y ? deberían estar donde hoy está "Negocio que escala" 106
+   *    clases»): `acciones` de CursoUgc. El alumno sigue viendo ahí el nombre.
    */
   const barraDeArriba = (
     <>
@@ -696,14 +884,36 @@ export function CursoApp({
         <Link className="ugc-btn" href={hrefVistaPrevia(productoId)} data-recorrido="vista-alumno">Vista del alumno</Link>
       )}
       <button type="button" className="ugc-btn" data-recorrido="invitar" onClick={() => setInvitando(true)}>Invitar alumnos</button>
-      {puedeEditar && <BotonRecorrido onClick={recorrido.reabrir} />}
+      {/* El «?» abre el recorrido del LUGAR donde está: adentro de una clase, el de la clase (item 1). */}
+      {puedeEditar && (
+        <BotonRecorrido objetivo="ayuda" titulo={enClase ? 'Ver la guía de la clase' : 'Ver la guía del curso'}
+          onClick={enClase ? recorridoClase.reabrir : recorrido.reabrir} />
+      )}
     </>
   );
 
   /**
-   * EL MENÚ DE LA MARCA. Lo que estaba en la barra de arriba que se sacó: el producto que se mira
-   * (era un desplegable aparte), la vista del alumno, y lo nuevo, el color. Es el lugar donde
-   * Martín lo pidió: «el desplegable debería ser "Negocio que Escala" de la sidebar».
+   * EL ASPECTO DEL CURSO CON SU «DESHACER» (item 18 del 08/10/2026: «Te falta el botón de
+   * arrepentimiento para muchas acciones»): el color y la fuente. El valor de antes es el que el server
+   * CONFIRMÓ (no el de pantalla: con el color «otro», lo de pantalla es un tono a mitad de camino), y
+   * deshacer lo vuelve a guardar por el MISMO camino, o sea que escribe en el server (AGENTS.md: un
+   * deshacer que sólo revierte la pantalla miente hasta el próximo F5).
+   */
+  const cambiarAspecto = async (a: Ajuste, v: string | null, aviso: string) => {
+    if (productoId == null) return;
+    if (a.tipo === 'acento') otroAntes.current = null;
+    const antes = valorDe(confirmados.current[productoId] ?? estiloVacio(), a);
+    if (antes === v) return;
+    if (await guardarAjuste(a, v)) show(aviso, () => { void guardarAjuste(a, antes); });
+  };
+
+  /**
+   * EL MENÚ DE LA MARCA: el curso que se mira (era un desplegable aparte), el COLOR y la FUENTE (item 3
+   * del 08/10/2026: «Las tipografías se deberían editar en el mismo lugar que se editan los colores»).
+   * Es el lugar donde Martín lo pidió: «el desplegable debería ser "Negocio que Escala" de la sidebar».
+   * ⚠️ «Vista del alumno» e «Invitar alumnos» YA NO ESTÁN ACÁ desde el 08/10/2026 (item 14): son los
+   *    botones de arriba a la derecha, siempre a la vista. Dos lugares para la misma acción parten la
+   *    respuesta en dos (AGENTS.md, «contá los controles que ya contestan esa misma pregunta»).
    */
   const acentoActual = estilo.acento ?? ACENTO_DEFAULT;
   const menuMarca = (cerrar: () => void) => (
@@ -723,7 +933,7 @@ export function CursoApp({
             {ACENTOS.map((a) => (
               <button key={a.hex} type="button" className="ugc-swatch" style={{ background: a.hex }}
                 aria-pressed={acentoActual === a.hex} title={a.nombre} aria-label={a.nombre}
-                onClick={() => void guardarAjuste({ tipo: 'acento' }, a.hex === ACENTO_DEFAULT ? null : a.hex)} />
+                onClick={() => void cambiarAspecto({ tipo: 'acento' }, a.hex === ACENTO_DEFAULT ? null : a.hex, 'Color cambiado')} />
             ))}
             {/* Cualquier otro color. Uno muy oscuro vuelve aclarado: el acento es FONDO de texto
                 oscuro (lib/curso-estilo.ts, `acentoLegible`). */}
@@ -731,16 +941,13 @@ export function CursoApp({
               <input type="color" value={acentoActual} aria-label="Otro color" onChange={(e) => probarAcento(e.target.value)} />
             </label>
           </div>
-        </>
-      )}
-      {productoId != null && (
-        <>
           <div className="ugc-menu-sep" />
-          <Link className="ugc-menu-item" href={hrefVistaPrevia(productoId)} onClick={cerrar}>Vista del alumno</Link>
+          <TituloMenuUgc>Fuente</TituloMenuUgc>
+          {/* Cada fuente escrita con ella misma; cambia el curso entero, el del alumno también. No
+              cierra el menú: se prueba mirando, como el color. */}
+          <SelectorFuente actual={estilo.fuente} onElegir={(id) => void cambiarAspecto({ tipo: 'fuente' }, id, 'Fuente cambiada')} />
         </>
       )}
-      {/* El mismo modal que el botón de la barra de arriba (item 9): uno solo, con un solo estado. */}
-      <ItemMenuUgc onClick={() => { cerrar(); setInvitando(true); }}>Invitar alumnos</ItemMenuUgc>
     </>
   );
 
@@ -754,19 +961,21 @@ export function CursoApp({
 
   return (
     // ⚠️ SIN CABECERA: el curso ES la pantalla, como en Conocimientos. Lo que había arriba se mudó
-    //    al menú de la marca (el producto, la vista del alumno) y al pie del buscador (las clases).
+    //    al menú de la marca (el producto) y a la barra del curso (la vista del alumno, invitar, el «?»).
     <Pagina ancho="completo" style={{ padding: 0 }}>
       <CursoUgc
         key={servicio.productoId}
         modo="pagina"
-        // Arriba a la derecha va el NOMBRE del curso, como en Conocimientos: «Curso» era el título
-        // de la barra que Martín pidió sacar («ni el título»).
+        // El NOMBRE del curso: lo que se lee mientras carga la hoja. Arriba a la derecha va en su lugar
+        // `acciones` (item 14): el nombre ya está en la marca y en la portada.
         titulo={tituloDe(servicio)}
         subtitulo={`${nClases} ${nClases === 1 ? 'clase' : 'clases'}`}
         // Dónde va el texto de la lección: lo mismo que ve el alumno (item 16).
         disposicion={disposicionDe(estilo)}
         marca={{ ...marcaDelProducto(tituloDe(servicio)), menu: menuMarca, ariaLabel: `${tituloDe(servicio)}: cambiar de curso` }}
         acento={estilo.acento}
+        // La fuente del curso (item 3): la misma que ve el alumno en su portal.
+        fuente={estilo.fuente}
         modulos={modulos}
         clases={clasesUgc}
         portada={{
@@ -778,7 +987,8 @@ export function CursoApp({
         }}
         leccion={(clase) => leccion(clase.id)}
         arriba={avisos}
-        topbarExtra={barraDeArriba}
+        // Arriba a la DERECHA, en el lugar del nombre del curso (item 14): quien edita ve sus acciones.
+        acciones={barraDeArriba}
         // ⚠️ SIN «Avance de los clientes» (item 4): es una vista de /customer-success.
         edicion={puedeEditar ? {
           // ── La estructura (items 6, 7, 8 y 12): ver las funciones de arriba ──
@@ -818,13 +1028,24 @@ export function CursoApp({
           // («cambio la portada de 1, y luego ya no aparecen»). Sólo para un módulo o una clase: la
           // portada del curso no tiene número, y nada la dibujaría.
           disenos={disenosDe(picker.ajuste)}
+          // «Miniatura del video» (item 20, pista LECCIÓN): la tapa de una clase con video. Es la del
+          // default (sin portada elegida), así que elegirla es volver a él.
+          video={picker.ajuste.tipo === 'portada-clase' ? miniaturaDeClase(porId.get(picker.ajuste.clase)) : undefined}
           onElegir={(v) => { void guardarAjuste(picker.ajuste, v); }}
-          onCerrar={() => setPicker(null)}
+          // El «Deshacer» va al CERRAR y no en cada elección: elegir no cierra (se prueba mirando), así que
+          // la unidad de lo que la persona decidió es la vuelta entera, y deshacer vuelve a la de antes.
+          onCerrar={() => {
+            const { ajuste, antes } = picker;
+            setPicker(null);
+            if ((valorDe(estilo, ajuste) ?? null) !== (antes ?? null)) show('Portada cambiada', () => { void guardarAjuste(ajuste, antes); });
+          }}
         />
       )}
 
-      {/* El recorrido (item 3): sólo para quien arma el curso, que es a quien le señala las acciones. */}
-      {puedeEditar && <Recorrido id="cs-curso" pasos={PASOS_RECORRIDO} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />}
+      {/* Los dos recorridos (items 1, 3 y 19): sólo para quien arma el curso, que es a quien le señalan
+          las acciones. Montados los dos siempre: cada uno se dibuja sólo cuando está abierto. */}
+      {puedeEditar && <Recorrido id={RECORRIDO_CURSO} pasos={PASOS_RECORRIDO} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />}
+      {puedeEditar && <Recorrido id={RECORRIDO_LECCION} pasos={PASOS_RECORRIDO_LECCION} abierto={recorridoClase.abierto} onCerrar={recorridoClase.onCerrar} />}
 
       {invitando && (
         <ModalInvitarAlumnos productoId={servicio.productoId} producto={tituloDe(servicio)} filas={filas}
@@ -834,8 +1055,15 @@ export function CursoApp({
       {/* ⚠️ AFUERA DEL CURSO, a propósito: las preguntas de la lección («¿Quitar el video?») son un
           diálogo de la app, y adentro de la hoja del curso sus botones quedan sin fondo ni borde. */}
       {confirmNode}
+      {/* La pregunta de antes de quitar una etapa o eliminar un módulo (items 15): también AFUERA del curso.
+          `onCerrar` cierra SÓLO esta pregunta: si la respuesta trajo otra (el server volvió a preguntar
+          porque cambió algo en el medio), ésa queda abierta. */}
+      {quitar && (
+        <QuitarEtapa key={JSON.stringify([quitar.titulo, quitar.clientes, quitar.destinos.map((d) => d.key)])} pregunta={quitar}
+          onCerrar={() => setQuitar((q) => (q === quitar ? null : q))} />
+      )}
       <Toast state={toast} onClose={clear} />
-      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_PORTAL }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_PORTAL + CSS_MENU_CURSO }} />
     </Pagina>
   );
 }

@@ -11,7 +11,7 @@ import { reproductorDeClase, tapaDeVideo, tieneTarea } from '@/lib/curso';
 import { portadaDeClase, portadaDeEtapa, tapaDe, type EstiloCurso } from '@/lib/curso-estilo';
 import type { ChipDato, ClaseUgc, ModuloUgc, TextosUgc } from '@/app/_cursos/tipos';
 import { puedeMoverPorPosicion } from '@/app/_cursos/reglas';
-import { rotuloTipo, videoDeClase } from './reglas';
+import { videoDeClase } from './reglas';
 
 /**
  * La key del módulo de las clases cuya etapa ya no existe. No puede chocar con una etapa: las keys
@@ -103,7 +103,9 @@ export function clasesDelEditor(etapas: readonly EtapaMin[], porEtapa: Record<st
       moduloKey: key,
       vn: i + 1,
       titulo: c.titulo,
-      meta: [rotuloTipo(c.tipo), c.minutos != null ? `${c.minutos} min` : null].filter(Boolean).join(' · '),
+      // Sin el tipo («Concepto», «Clínica»…) desde el 08/10/2026 (item 12: «Elimina lo de "Concepto"»):
+      // la columna sigue en la base y salió de la pantalla. Los minutos salen solos del video.
+      meta: c.minutos != null ? `${c.minutos} min` : undefined,
       tapa: elegida.tapa ?? (elegida.fondo || elegida.lamina ? null : tapaDeVideo(video)),
       fondo: elegida.fondo ?? null,
       lamina: elegida.lamina ?? null,
@@ -131,7 +133,9 @@ export function chipsDelEditor(c: Clase, vinculado: boolean): ChipDato[] {
   if (!v.hay) out.push({ tono: 'neutro', texto: 'Sin video' });
   else if (!v.medible) out.push({ tono: 'neutro', texto: 'Sin medir' });
   if (tieneTarea(c)) out.push({ tono: 'neutro', texto: c.campos.length ? `Formulario · ${c.campos.length}` : 'Tarea' });
-  if (vinculado && c.obligatoria && tieneTarea(c)) out.push({ tono: 'lima', texto: 'Cierra el módulo' });
+  // «Obligatoria» (item 9 del 08/10/2026: «No se entiende el botón de "Cierra módulo"»): el MISMO nombre
+  // que el interruptor de la lección, «Obligatoria para avanzar», corto para un chip.
+  if (vinculado && c.obligatoria && tieneTarea(c)) out.push({ tono: 'lima', texto: 'Obligatoria' });
   return out;
 }
 

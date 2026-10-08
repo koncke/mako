@@ -26,12 +26,13 @@ type YTApi = {
   Player: new (el: HTMLElement, opts: {
     videoId: string; host?: string; width?: string; height?: string;
     playerVars?: Record<string, string | number>;
-    events?: { onStateChange?: (e: { data: number }) => void; onError?: () => void };
+    events?: { onReady?: () => void; onStateChange?: (e: { data: number }) => void; onError?: () => void };
   }) => YTPlayer;
 };
 type VimeoPlayer = {
   on: (ev: string, cb: (d: { seconds?: number; duration?: number }) => void) => void;
   off: (ev: string) => void;
+  getDuration?: () => Promise<number>;
 };
 declare global {
   interface Window {
@@ -156,23 +157,33 @@ function useReporte(token: string, claseId: number, onPct?: (pct: number) => voi
 
 // ── Las cuatro formas ─────────────────────────────────────────────────────────
 
-export default function Reproductor({ token, claseId, video, titulo, onPct }: {
+/** Una duración que sirve: un número de segundos finito y positivo. */
+const duracionOk = (d: unknown): d is number => typeof d === 'number' && Number.isFinite(d) && d > 0;
+
+export default function Reproductor({ token, claseId, video, titulo, onPct, onDuracion }: {
   token: string;
   claseId: number;
   video: VideoVista;
   titulo: string;
   /** El % que contestó el server después de guardar. */
   onPct?: (pct: number) => void;
+  /**
+   * Cuánto dura el video, en segundos, en cuanto el reproductor lo sabe (sin que nadie le dé play). Lo
+   * usa el EDITOR de la tab Curso para poner los minutos de la clase solos (item 12 del 08/10/2026: «los
+   * minutos, eso debería tomarlo automáticamente el tiempo del vídeo»). Loom y Drive van en un iframe
+   * que no lo dice: ahí no se llama nunca.
+   */
+  onDuracion?: (seg: number) => void;
 }) {
   switch (video.tipo) {
     case 'archivo':
-      return <VideoNativo token={token} claseId={claseId} src={`/api/compartido/curso/video?t=${encodeURIComponent(token)}&c=${claseId}`} reintenta titulo={titulo} onPct={onPct} />;
+      return <VideoNativo token={token} claseId={claseId} src={`/api/compartido/curso/video?t=${encodeURIComponent(token)}&c=${claseId}`} reintenta titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
     case 'directo':
-      return <VideoNativo token={token} claseId={claseId} src={video.url} titulo={titulo} onPct={onPct} />;
+      return <VideoNativo token={token} claseId={claseId} src={video.url} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
     case 'youtube':
-      return <VideoYouTube token={token} claseId={claseId} id={video.id} titulo={titulo} onPct={onPct} />;
+      return <VideoYouTube token={token} claseId={claseId} id={video.id} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
     case 'vimeo':
-      return <VideoVimeo token={token} claseId={claseId} embed={video.embed} titulo={titulo} onPct={onPct} />;
+      return <VideoVimeo token={token} claseId={claseId} embed={video.embed} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
     case 'iframe':
       return (
         <div className="cp-video">
@@ -193,8 +204,8 @@ export default function Reproductor({ token, claseId, video, titulo, onPct }: {
  * el próximo rango falla — se vuelve a pedir el endpoint del portal (que revalida el link) y se
  * sigue desde donde estaba. Dos veces como mucho: si vuelve a fallar, no es un vencimiento.
  */
-function VideoNativo({ token, claseId, src, reintenta = false, titulo, onPct }: {
-  token: string; claseId: number; src: string; reintenta?: boolean; titulo: string; onPct?: (pct: number) => void;
+function VideoNativo({ token, claseId, src, reintenta = false, titulo, onPct, onDuracion }: {
+  token: string; claseId: number; src: string; reintenta?: boolean; titulo: string; onPct?: (pct: number) => void; onDuracion?: (seg: number) => void;
 }) {
   const { marcar, enviar } = useReporte(token, claseId, onPct);
   const ref = useRef<HTMLVideoElement>(null);
@@ -222,6 +233,7 @@ function VideoNativo({ token, claseId, src, reintenta = false, titulo, onPct }: 
         onEnded={() => { leer(); enviar(); }}
         onLoadedMetadata={() => {
           const v = ref.current;
+          if (v && duracionOk(v.duration)) onDuracion?.(v.duration);
           if (!v || !volverA.current) return;
           v.currentTime = volverA.current;
           if (seguia.current) void v.play().catch(() => {});
@@ -243,17 +255,27 @@ function VideoNativo({ token, claseId, src, reintenta = false, titulo, onPct }: 
  * elemento que recibe por su iframe, y si ese elemento fuera de React, al desmontar React
  * intentaría sacar un nodo que ya no está. React maneja la caja; adentro manda YouTube.
  */
-function VideoYouTube({ token, claseId, id, titulo, onPct }: {
-  token: string; claseId: number; id: string; titulo: string; onPct?: (pct: number) => void;
+function VideoYouTube({ token, claseId, id, titulo, onPct, onDuracion }: {
+  token: string; claseId: number; id: string; titulo: string; onPct?: (pct: number) => void; onDuracion?: (seg: number) => void;
 }) {
   const { marcar, enviar } = useReporte(token, claseId, onPct);
   const caja = useRef<HTMLDivElement>(null);
   const [sinApi, setSinApi] = useState(false);
+  // Por un ref: si fuera dependencia del efecto, cada render del padre rearmaría el reproductor.
+  const durRef = useRef(onDuracion);
+  useEffect(() => { durRef.current = onDuracion; }, [onDuracion]);
 
   useEffect(() => {
     let vivo = true;
     let player: YTPlayer | null = null;
     let reloj: number | undefined;
+    let dicha = false;
+    // La duración, la primera vez que YouTube la sabe (al estar listo; si todavía da 0, en el primer
+    // cambio de estado).
+    const decirDuracion = () => {
+      if (dicha || !player) return;
+      try { const d = player.getDuration(); if (duracionOk(d)) { dicha = true; durRef.current?.(d); } } catch { /* todavía no está listo */ }
+    };
     const muestra = () => { try { if (player) marcar(player.getCurrentTime(), player.getDuration()); } catch { /* todavía no está listo */ } };
     cargarYouTube().then((YT) => {
       if (!vivo || !caja.current) return;
@@ -266,8 +288,10 @@ function VideoYouTube({ token, claseId, id, titulo, onPct }: {
         height: '100%',
         playerVars: { rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.origin },
         events: {
+          onReady: decirDuracion,
           // 1 = reproduciendo · 2 = pausa · 0 = terminó (los demás: cargando, en cola).
           onStateChange: ({ data }) => {
+            decirDuracion();
             window.clearInterval(reloj);
             if (data === 1) { reloj = window.setInterval(muestra, 1000); muestra(); return; }
             muestra();
@@ -299,11 +323,13 @@ function VideoYouTube({ token, claseId, id, titulo, onPct }: {
 }
 
 /** Vimeo: el iframe lo dibuja React y la Player API se le engancha encima. */
-function VideoVimeo({ token, claseId, embed, titulo, onPct }: {
-  token: string; claseId: number; embed: string; titulo: string; onPct?: (pct: number) => void;
+function VideoVimeo({ token, claseId, embed, titulo, onPct, onDuracion }: {
+  token: string; claseId: number; embed: string; titulo: string; onPct?: (pct: number) => void; onDuracion?: (seg: number) => void;
 }) {
   const { marcar, enviar } = useReporte(token, claseId, onPct);
   const ref = useRef<HTMLIFrameElement>(null);
+  const durRef = useRef(onDuracion);
+  useEffect(() => { durRef.current = onDuracion; }, [onDuracion]);
 
   useEffect(() => {
     let vivo = true;
@@ -311,6 +337,8 @@ function VideoVimeo({ token, claseId, embed, titulo, onPct }: {
     cargarScript('https://player.vimeo.com/api/player.js').then(() => {
       if (!vivo || !ref.current || !window.Vimeo) return;
       player = new window.Vimeo.Player(ref.current);
+      // La duración sin play: la Player API la contesta en cuanto cargó el video.
+      player.getDuration?.().then((d) => { if (vivo && duracionOk(d)) durRef.current?.(d); }).catch(() => { /* sin duración, sin minutos */ });
       player.on('timeupdate', (d) => marcar(Number(d.seconds), Number(d.duration)));
       player.on('pause', (d) => { marcar(Number(d.seconds), Number(d.duration)); enviar(); });
       player.on('ended', (d) => { marcar(Number(d.seconds), Number(d.duration)); enviar(); });

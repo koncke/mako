@@ -35,6 +35,13 @@ import { CSS_UGC } from '../app/_cursos/estilos';
 import {
   ENTRADA_COMUNIDAD, chipsDeClase, descripcionDeClase, ofreceComunidad, partesDelPapel,
 } from '../app/compartido/curso/[token]/modelo-ugc';
+// Los ajustes del 08/10/2026 (pista LECCIÓN, items 9, 11, 12, 13, 18 y 20).
+import {
+  AVISO_DESHACER, AYUDA_OBLIGATORIA, AYUDA_POR_AREA, ROTULO_OBLIGATORIA, ROTULO_POR_AREA, miniaturaDeClase, oembedDeLoom, ofrecePorArea,
+  pierdeAlCambiarTipo, tieneContenido,
+} from '../app/customer-success/curso/leccion-reglas';
+import { esMiniaturaDeVimeo, reproductorDeClase, tapaDeVideo, vimeoDeMiniatura, RUTA_MINIATURA } from '../lib/curso';
+import { chipsDelEditor } from '../app/customer-success/curso/modelo-ugc';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -82,7 +89,7 @@ test('pegar un link: los de la lista y un archivo directo; lo que no es http no 
   }
 });
 
-test('los minutos salen de la duración del archivo subido: al menos 1, con el tope de la clase, y sin duración nada', () => {
+test('los minutos salen de la duración del video: al menos 1, con el tope de la clase, y sin duración nada', () => {
   // 20 s y no 59: 59/60 redondea a 1 solo, y con 59 el «al menos 1» se podía borrar en VERDE (rotura).
   assert.equal(minutosDeDuracion(20), 1, 'un video corto no es una clase de 0 minutos');
   assert.equal(minutosDeDuracion(125), 2);
@@ -171,14 +178,20 @@ test('el dibujo de la lección: un papel, sin pestañas y sin «Editar»; sin vi
   assert.ok(lec.length > 500 && lec.length < 6000, `el recorte de Leccion mide ${lec.length}: está mirando otra cosa`);
   assert.doesNotMatch(lec, /pestanas|CabeceraPestanas|setTab/, 'volvieron las pestañas de la lección');
   assert.doesNotMatch(lec, /onEditar|t\.editar|ltitle-editar/, 'volvió el botón «Editar»');
-  assert.match(lec, /<div className="ugc-pcol">\{l\.papel\}<\/div>/);
-  assert.match(lec, /\{l\.video \? \([\s\S]*?\) : l\.sinVideo != null && \(\s*<div className="ugc-vvacio">\{l\.sinVideo\}<\/div>/,
+  // Item 13 (08/10/2026): el interruptor va ADENTRO del papel —se lo pasa a la función del papel— y un
+  // papel que es un nodo lo lleva arriba suyo (nunca se pierde).
+  assert.match(lec, /const papel = typeof l\.papel === 'function' \? l\.papel\(dispo\) : <>\{dispo\}\{l\.papel\}<\/>;/);
+  assert.match(lec, /<div className="ugc-pcol">\{papel\}<\/div>/);
+  assert.match(lec, /\{l\.video \? \([\s\S]*?\) : l\.sinVideo != null && \(\s*<div className="ugc-vvacio" data-recorrido="leccion-video">\{l\.sinVideo\}<\/div>/,
     'sin video va el recuadro, y SÓLO sin video');
   assert.match(lec, /<div className=\{claseDelSplit\(actual\)\}>/);
-  assert.match(lec, /\{edicion\?\.onDisposicion \? \(/, 'el interruptor es de quien edita');
+  assert.match(lec, /const dispo = edicion\?\.onDisposicion \? \(/, 'el interruptor es de quien edita');
+  const titulo = entre(lec, '<div className="ugc-ltitle">', '{l.video ?');
+  assert.doesNotMatch(titulo, /ugc-dispo/, 'volvió al lado del título, lejos de lo que mueve');
   const tipos = sinComentarios(leer('app/_cursos/tipos.ts'));
   assert.doesNotMatch(tipos, /pestanas\??:|PestanaUgc|onEditar|\beditar: string/);
   assert.match(tipos, /sinVideo\?: ReactNode;/);
+  assert.match(tipos, /papel\?: ReactNode \| \(\(arriba: ReactNode\) => ReactNode\);/);
 });
 
 test('no queda rastro de «Editar» ni de su modal en la tab ni en el dibujo', () => {
@@ -202,20 +215,18 @@ test('la tab: la descripción PRIMERO y la tarea debajo, y lo que edita cada par
   const lec = entre(le, 'export function leccionDelEditor(', 'const claveDeVideo');
   assert.doesNotMatch(lec, /pestanas/);
   assert.match(lec, /sinVideo: lugar === 'vacio' && ctx\.puedeEditar \? <AgregarVideo/, 'el recuadro de «Agregar video» es de quien edita');
-  // El video, por los dos caminos (link y archivo con su barra), y quitarlo.
+  // El video, SÓLO por link (item 11 del 08/10/2026), y quitarlo.
   assert.match(le, /guardar\(\{ video: \{ tipo: 'url', url: l\.url \} \}\)/);
-  assert.match(le, /subirConProgreso\(firma\.signedUrl, archivo, firma\.apikey, setPct\)/, 'la barra es la del XHR de subir-video.ts');
-  assert.match(le, /guardar\(\{ video: \{ tipo: 'archivo', path: firma\.path \} \}\)/);
   assert.match(le, /guardar\(\{ video: null \}\)/);
   // La descripción: el editor rico con adjuntos, guardado con respiro.
   assert.match(le, /<EditorRico [^>]*subirAdjunto=\{subirAdjunto\}/);
   assert.match(le, /guardarCampoClaseAction\(claseId, \{ descripcionHtml: h \}\)/);
   assert.match(le, /window\.setTimeout\(\(\) => \{ void guardar\(h\); \}, RESPIRO_DESCRIPCION_MS\)/);
-  // La tarea: el formulario a medias no se manda, y «Cierra el módulo» sólo en un vinculado.
+  // La tarea: el formulario a medias no se manda, y «Obligatoria para avanzar» sólo en un vinculado.
   const tarea = entre(le, 'function TareaEditable(', 'export const CSS_LECCION');
   assert.match(tarea, /const falta = faltaEnFormulario\(cs\);\s*if \(falta\) \{ setEstado\(\{ falta \}\); return; \}/);
   assert.match(tarea, /\{ofreceCierraModulo\(ctx\.vinculado\) && \(/);
-  assert.match(tarea, /label="Cierra el módulo"/);
+  assert.match(tarea, /label=\{ROTULO_OBLIGATORIA\} hint=\{conTarea \? AYUDA_OBLIGATORIA : 'Necesita una tarea\.'\}/);
   assert.match(tarea, /<EditorCampos campos=\{campos\}/);
   assert.match(tarea, />\+ Agregar tarea</);
   // Ninguna pregunta se dibuja ADENTRO del curso: la hoja le saca el fondo y el borde a sus botones.
@@ -300,6 +311,175 @@ test('portal: sin pestañas, la descripción rica con la URL de quien mira, «He
   assert.match(vista, /urlsAdjuntos=\{urlsAdjuntos\}/);
 });
 
+// =============================================================================
+// Los ajustes del 08/10/2026 (pista LECCIÓN): items 9, 11, 12, 13, 18 y 20
+// =============================================================================
+
+test('item 11: el video SÓLO por link — sin subir archivos, y el recuadro ENTERO es el botón que abre el link', () => {
+  const le = sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx'));
+  assert.doesNotMatch(le, /type="file"|urlSubidaVideoAction|descartarVideoAction|Subir un archivo|subirConProgreso\(firma/, 'volvió la subida');
+  const agregar = entre(le, 'function AgregarVideo(', 'function ControlesDelVideo(');
+  assert.match(agregar, /if \(!abierto\) \{\s*return \(\s*<button type="button" className="cu-vacio-boton" onClick=/, 'el recuadro entero es un botón');
+  assert.match(agregar, />Agregar video</);
+  assert.match(agregar, /<FormLink v=\{v\}/, 'el clic abre el campo del link ahí mismo');
+  // Los subidos de antes se siguen viendo (el link firmado de vida corta).
+  assert.match(le, /urlVerVideoAction\(path\)/);
+  // La puerta de la subida se cerró: una action sin pantalla es un POST abierto.
+  const acc = sinComentarios(leer('app/customer-success/curso/actions.ts'));
+  assert.doesNotMatch(acc, /export async function (urlSubidaVideoAction|descartarVideoAction)/);
+  // El recuadro (`.ugc-vvacio`) es la caja de posición del botón que lo llena.
+  const css = le.slice(le.indexOf('export const CSS_LECCION'));
+  assert.match(css, /\.cu-vacio-boton \{\s*position: absolute; inset: 0;/);
+});
+
+test('item 12: sin «Concepto» ni minutos a mano; los minutos salen SOLOS del reproductor (o del oEmbed de Loom)', () => {
+  const le = sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx'));
+  assert.doesNotMatch(le, /TipoDeLaClase|MinutosDeLaClase|TIPOS_CLASE|rotuloTipo|type="number"/, 'volvió el tipo o los minutos a mano');
+  assert.match(le, /onDuracion=\{alDurar\}/);
+  const auto = entre(le, 'function useMinutosDelVideo(', 'function VideoDeClase(');
+  assert.match(auto, /if \(!ctxRef\.current\.puedeEditar \|\| min == null \|\| hecho\.current === clave\) return;/, 'una vez por video, y sólo quien edita');
+  assert.match(auto, /if \(min === minutos\) return;/, 'sin escribir lo que ya está');
+  assert.match(auto, /guardarCampoClaseAction\(id, \{ minutos: min \}\)/);
+  // El reproductor dice la duración sin play: YouTube al estar listo, Vimeo por su API, un archivo al cargar.
+  const rep = sinComentarios(leer('app/compartido/curso/[token]/Reproductor.tsx'));
+  assert.match(rep, /onReady: decirDuracion,/);
+  assert.match(rep, /player\.getDuration\?\.\(\)\.then\(\(d\) => \{ if \(vivo && duracionOk\(d\)\) durRef\.current\?\.\(d\); \}\)/);
+  assert.match(rep, /if \(v && duracionOk\(v\.duration\)\) onDuracion\?\.\(v\.duration\);/);
+  // Loom: su oEmbed (que trae `duration`). Drive no tiene nada: ahí no hay minutos.
+  assert.equal(oembedDeLoom('https://www.loom.com/share/0281766fa2d04bb788eaf19e65135184'),
+    'https://www.loom.com/v1/oembed?url=https%3A%2F%2Fwww.loom.com%2Fshare%2F0281766fa2d04bb788eaf19e65135184');
+  for (const otro of ['https://drive.google.com/file/d/abc/view', 'https://youtu.be/x', null]) assert.equal(oembedDeLoom(otro), null);
+  // Otro video, otros minutos: el server vacía los de antes (eran del video que se fue).
+  const adm = sinComentarios(leer('lib/curso-admin.ts'));
+  const video = entre(adm, "case 'video': {", "case 'tarea': {");
+  assert.match(video, /const mismo = v\.video\.video_tipo === c\.videoTipo && v\.video\.video_url === c\.videoUrl && v\.video\.video_path === c\.videoPath;\s*if \(!mismo\) fila\.minutos = null;/);
+  // La tarjeta: sin el tipo, sólo los minutos.
+  const mod = sinComentarios(leer('app/customer-success/curso/modelo-ugc.ts'));
+  assert.match(mod, /meta: c\.minutos != null \? `\$\{c\.minutos\} min` : undefined,/);
+  assert.doesNotMatch(mod, /rotuloTipo/);
+});
+
+test('item 13: «Texto al costado / Texto abajo» va ADENTRO del papel, arriba de la descripción', () => {
+  const le = sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx'));
+  assert.match(le, /papel: \(arriba\) => <PapelDelEditor c=\{c\} ctx=\{ctx\} arriba=\{arriba\} \/>/);
+  const papel = entre(le, 'function PapelDelEditor(', 'function useUrlsDeAdjuntos(');
+  const dispo = papel.indexOf('data-recorrido="leccion-disposicion"');
+  assert.ok(dispo > 0 && dispo < papel.indexOf('<DescripcionEditable'), 'arriba de la descripción, adentro del recuadro');
+  assert.ok(papel.indexOf('className="ugc-paper cu-papel"') < dispo, 'adentro del recuadro del papel');
+});
+
+test('item 9: «Obligatoria para avanzar» dice qué pasa; «Una respuesta por área» sólo si el curso pide áreas', () => {
+  for (const r of [ROTULO_OBLIGATORIA, ROTULO_POR_AREA]) assert.ok(r.split(' ').length <= 4, r);
+  assert.equal(ROTULO_OBLIGATORIA, 'Obligatoria para avanzar');
+  for (const a of [AYUDA_OBLIGATORIA, AYUDA_POR_AREA]) assert.ok(a.length <= 80 && a.endsWith('.'), a);
+  assert.equal(ofrecePorArea(false, false), false, 'en un curso sin áreas no cambiaría nada');
+  assert.equal(ofrecePorArea(true, false), true);
+  assert.equal(ofrecePorArea(false, true), true, 'prendida, se tiene que poder apagar');
+  const le = sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx'));
+  assert.match(le, /\{ofrecePorArea\(ctx\.cursoPideAreas === true, porArea\) && \(/);
+  assert.match(le, /mandar\(\{ porArea: v \}\)/);
+  assert.doesNotMatch(le, /Cierra el módulo/);
+  // La tarjeta dice lo mismo que el interruptor, corto.
+  const c = { id: 1, productoId: 1, etapa: 'e', orden: 0, titulo: 'C', descripcion: '', tipo: 'clase', minutos: null, videoTipo: 'ninguno', videoUrl: null, videoPath: null, tarea: 'Hazlo', campos: [], obligatoria: true } as Clase;
+  assert.ok(chipsDelEditor(c, true).some((x) => x.texto === 'Obligatoria'));
+  // La tab dice si el curso pide áreas: alguna clase del producto tiene el campo de áreas.
+  const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
+  assert.match(app, /cursoPideAreas: delProducto\.some\(\(x\) => x\.campos\.some\(\(f\) => f\.id === CAMPO_AREAS\)\)/);
+});
+
+test('item 18: «Deshacer» al quitar el video, quitar la tarea, borrar o mover un campo — y deshacer ESCRIBE en el server', () => {
+  for (const t of Object.values(AVISO_DESHACER)) assert.ok(t.split(' ').length <= 4, t);
+  const le = sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx'));
+  assert.match(le, /deshacer\?\.\(AVISO_DESHACER\.video, \(\) => \{/);
+  assert.match(le, /deshacer\?\.\(AVISO_DESHACER\.tarea, \(\) => \{ void volverTarea\(foto\); \}\)/);
+  assert.match(le, /const aviso = motivo && motivo !== 'nuevo' \? AVISO_DESHACER\[motivo\] : null;\s*if \(aviso\) ctxRef\.current\.deshacer\?\.\(aviso, \(\) => volverCampos\(antes\)\);/);
+  // Deshacer vuelve a llamar al MISMO camino con lo de antes: la action, nunca sólo el estado.
+  const video = entre(le, 'const quitar = async () => {\n    const antes', 'return { error, ocupado, usarLink, quitar');
+  assert.match(video, /escribir\(c\.id, \{ video: \{ tipo: 'url', url \} \}, ctxRef\)/);
+  assert.match(video, /escribir\(c\.id, \{ minutos: antes\.minutos \}, ctxRef\)/, 'y sus minutos');
+  const tarea = entre(le, 'const volverTarea = async (', 'if (!tareaAbierta(');
+  assert.match(tarea, /escribir\(claseId, p, ctxRef\)/);
+  const campos = entre(le, 'const volverCampos = (antes: Campo[]) => {', 'const cambiarCampos =');
+  assert.match(campos, /if \(montado\.current\) \{ ponerCampos\(antes\); void guardarCampos\(\); return; \}/, 'en pantalla: la pone y la GUARDA');
+  assert.match(campos, /escribir\(claseId, \{ campos: antes \}, ctxRef\)/, 'si ya te fuiste de la clase: escribe directo');
+  // Quitar una TAREA ya no pregunta (se deshace); quitar un ARCHIVO subido sí (se borra del bucket, no se deshace).
+  const quitarTarea = entre(le, 'const quitar = async () => {\n    window.clearTimeout', 'const volverTarea');
+  assert.doesNotMatch(quitarTarea, /confirmar\(/);
+  assert.match(le, /c\.videoTipo === 'archivo' && !\(await ctx\.confirmar\('El archivo se borra\.'/);
+  // La tab le da a la lección su toast.
+  const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
+  assert.match(app, /deshacer: \(t, f\) => show\(t, f\),/);
+});
+
+// Revisión final (08/10/2026). Cambiar el TIPO de un campo arranca lo del tipo nuevo con sus defaults
+// (`conTipo`) y «Quitar pregunta» de un quiz borra su texto: los dos se llevaban lo escrito sin preguntar y
+// sin «Deshacer». Con algo escrito avisan; con nada (el campo que recién elige su tipo), no.
+// Roto (scratchpad/revision/romper.mjs, R26 a R29): el cambio de tipo sin motivo, quitar pregunta sin
+// motivo, `tieneContenido` contando el `id` de una pregunta → 25 / 1 cada una, este test; la lección que
+// sólo ofrece «Deshacer» para borrar y mover → 25 / 1, el de arriba. Restaurado 26 / 0.
+test('item 18: cambiar el tipo de un campo o quitar una pregunta CON algo escrito también se deshace', () => {
+  const quiz = campo({ tipo: 'quiz', preguntas: [{ id: 'p1', texto: '¿Cuánto?', opciones: ['1', '2'], correctas: ['1'] }], notaMin: 70, intentos: 0 });
+  assert.equal(pierdeAlCambiarTipo(quiz, campo({ tipo: 'texto' })), true, 'un quiz que pasa a texto pierde sus preguntas');
+  assert.equal(pierdeAlCambiarTipo(campo({ tipo: 'eleccion', opciones: ['Sí', 'No'] }), campo({ tipo: 'checks', opciones: ['Sí', 'No'] })), false,
+    'las opciones pasan entre una opción y varias: no se pierde nada');
+  assert.equal(pierdeAlCambiarTipo(campo({ tipo: 'texto', placeholder: 'Ej.: 20 %' }), campo({ tipo: 'eleccion' })), true);
+  // Recién creado (o con sólo los defaults del tipo): elegir otro no avisa.
+  assert.equal(pierdeAlCambiarTipo(campo({ tipo: 'texto' }), campo({ tipo: 'quiz' })), false);
+  const quizVacio = campo({ tipo: 'quiz', preguntas: [{ id: 'p1', texto: '', opciones: [], correctas: [] }], notaMin: 70, intentos: 0 });
+  assert.equal(pierdeAlCambiarTipo(quizVacio, campo({ tipo: 'texto' })), false, 'una pregunta vacía no es algo escrito (su id lo pone la pantalla)');
+  assert.equal(pierdeAlCambiarTipo(campo({ tipo: 'escala', escala: { min: 1, max: 10, bajo: '', alto: '' } }), campo({ tipo: 'texto' })), false,
+    'los extremos de la escala vienen con su default');
+  assert.equal(pierdeAlCambiarTipo(campo({ tipo: 'comentar', postId: 12 }), campo({ tipo: 'publicar' })), true, 'el post elegido');
+  assert.equal(tieneContenido({ id: 'p1', texto: ' ', opciones: [''], correctas: [] }), false);
+  for (const t of [AVISO_DESHACER.tipo, AVISO_DESHACER.pregunta]) assert.ok(t.split(' ').length <= 4, t);
+  // El cableado: el formulario avisa con el motivo, y la lección ofrece el «Deshacer» con su aviso.
+  const ed = sinComentarios(leer('app/customer-success/curso/EditorCampos.tsx'));
+  assert.match(ed, /onCampos\(campos\.map\(\(x, j\) => \(j === i \? n : x\)\), pierdeAlCambiarTipo\(c, n\) \? 'tipo' : undefined\);/);
+  assert.match(ed, /onCambio\(\{ preguntas: ps\.filter\(\(_, k\) => k !== j\) \}, tieneContenido\(p\) \? 'pregunta' : undefined\)/);
+  assert.match(ed, /onCambio=\{\(parche, motivo\) => cambiar\(i, parche, motivo\)\}/);
+});
+
+test('item 20: la miniatura del video es la tapa por default (YouTube, Vimeo, Loom, Drive) y el selector la ofrece', () => {
+  const tapa = (o: Partial<Clase>) => tapaDeVideo(reproductorDeClase({ videoTipo: 'ninguno', videoUrl: null, videoPath: null, ...o } as Clase).video);
+  assert.equal(tapa({ videoTipo: 'youtube', videoUrl: 'https://youtu.be/dQw4w9WgXcQ' }), 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+  assert.equal(tapa({ videoTipo: 'loom', videoUrl: 'https://www.loom.com/share/0281766fa2d04bb788eaf19e65135184' }),
+    'https://cdn.loom.com/sessions/thumbnails/0281766fa2d04bb788eaf19e65135184-00001.jpg');
+  assert.equal(tapa({ videoTipo: 'vimeo', videoUrl: 'https://vimeo.com/1084537' }), `${RUTA_MINIATURA}?vimeo=1084537`);
+  assert.equal(tapa({ videoTipo: 'vimeo', videoUrl: 'https://vimeo.com/1084537/abc123def' }), `${RUTA_MINIATURA}?vimeo=1084537&h=abc123def`, 'un no listado lleva su hash');
+  assert.equal(tapa({ videoTipo: 'drive', videoUrl: 'https://drive.google.com/file/d/AbC_1/view' }), 'https://drive.google.com/thumbnail?id=AbC_1&sz=w800');
+  assert.equal(tapa({ videoTipo: 'archivo', videoPath: '1/7/x.mp4' }), null);
+  assert.equal(miniaturaDeClase({ videoTipo: 'youtube', videoUrl: 'https://youtu.be/dQw4w9WgXcQ', videoPath: null }), 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+  assert.equal(miniaturaDeClase(undefined), null);
+  // La ruta de Vimeo: sólo un número (y el hash hex), y sólo redirige al CDN de Vimeo (comparando el ORIGEN).
+  assert.deepEqual(vimeoDeMiniatura('1084537', null), { id: '1084537', hash: null });
+  for (const [id, h] of [['abc', null], ['12/../x', null], ['123', 'zz!'], ['', null]] as const) assert.equal(vimeoDeMiniatura(id, h), null, `${id} ${h}`);
+  assert.equal(esMiniaturaDeVimeo('https://i.vimeocdn.com/video/1-abc-d_640?region=us'), 'https://i.vimeocdn.com/video/1-abc-d_640?region=us');
+  for (const malo of ['https://i.vimeocdn.com.evil.tld/x', 'https://i.vimeocdn.com@evil.tld/x', 'http://i.vimeocdn.com/x', 'javascript:alert(1)', 42]) {
+    assert.equal(esMiniaturaDeVimeo(malo), null, String(malo));
+  }
+  const ruta = sinComentarios(leer('app/api/compartido/miniatura/route.ts'));
+  assert.match(ruta, /const url = esMiniaturaDeVimeo\(j\?\.thumbnail_url\);\s*if \(!url\) return NO\(\);/);
+  assert.match(ruta, /fetch\(`https:\/\/vimeo\.com\/api\/oembed\.json\?width=800&url=\$\{encodeURIComponent\(pagina\)\}`/);
+  // El selector: «Miniatura del video» primero, y es la del default (elegirla es volver a él).
+  const pp = sinComentarios(leer('app/_components/PortadaPicker.tsx'));
+  assert.match(pp, /aria-label="Miniatura del video"/);
+  assert.match(pp, /className=\{`pp-op pp-op--video\$\{!valor \? ' on' : ''\}`\} onClick=\{\(\) => onElegir\(null\)\}/);
+  assert.match(pp, /\{!video && <button type="button" className="pp-quitar"/, 'con la miniatura, «Sin portada» haría lo mismo');
+  const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
+  assert.match(app, /video=\{picker\.ajuste\.tipo === 'portada-clase' \? miniaturaDeClase\(porId\.get\(picker\.ajuste\.clase\)\) : undefined\}/);
+});
+
+test('el recorrido de la lección: los puntos que señala están en la pantalla (data-recorrido)', () => {
+  const le = sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx'));
+  const ed = sinComentarios(leer('app/customer-success/curso/EditorCampos.tsx'));
+  const ugc = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
+  for (const id of ['leccion-disposicion', 'leccion-descripcion', 'leccion-tarea', 'leccion-obligatoria']) assert.match(le, new RegExp(`data-recorrido="${id}"`), id);
+  assert.match(ed, /data-recorrido="leccion-nuevo-campo"/);
+  assert.match(ed, /data-recorrido=\{i === 0 \? 'leccion-campo' : undefined\}/, 'el contenedor del PRIMER campo');
+  assert.match(ugc, /recorrido="leccion-titulo"/);
+  assert.equal((ugc.match(/data-recorrido="leccion-video"/g) ?? []).length, 2, 'el video puesto y el recuadro de «Agregar video»');
+});
+
 // ── Roturas (08/10/2026) ─────────────────────────────────────────────────────
 // Sin romper: 18 pass / 0 fail. Arnés scratchpad/leccion/romper.mjs: UNA rotura por vez sobre el
 // archivo real, restaurada de MEMORIA (nunca con git) y comprobada con md5; si otra sesión hubiera
@@ -329,3 +509,18 @@ test('portal: sin pestañas, la descripción rica con la URL de quien mira, «He
 //     vista previa · `conComunidad` fijo en true · la vista previa llegando al fetch del progreso · la
 //     vista previa pidiendo los adjuntos con el token (vacío) del alumno · «Hecha» dibujada sin
 //     esperar al server · la disposición fija al costado · la vista previa sin `urlsAdjuntos`
+//
+// ── Roturas de los ajustes del 08/10/2026 (pista LECCIÓN, items 9, 11, 12, 13, 18 y 20) ──
+// Arnés scratchpad/leccion20/romper.mjs, el mismo método. Base: 25 pass / 0 fail. Cada una, 24 / 1 con
+// SU test caído:
+//   · un `type="file"` de vuelta · el recuadro de «Agregar video» como `div`        → «item 11…»
+//   · los minutos sin el «una vez por video» · YouTube sin `onReady` · el server sin vaciar los minutos
+//     del video de antes · la tarjeta con el tipo · `oembedDeLoom` para cualquier link → «item 12…»
+//   · la disposición DEBAJO de la descripción                                      → «item 13…»
+//   · el papel recibiendo `null` (el interruptor perdido)                          → «el dibujo de la lección…»
+//   · «Una respuesta por área» siempre · el chip «Cierra el módulo» de vuelta       → «item 9…»
+//   · borrar un campo sin «Deshacer» · deshacer sin GUARDAR · quitar la tarea preguntando otra vez · la tab
+//     sin pasar su toast                                                           → «item 18…»
+//   · sin la tapa de Loom · el guard de Vimeo con `startsWith` · «Sin portada» con la miniatura · la tab sin
+//     pasarle la miniatura al selector                                             → «item 20…»
+//   · sin `data-recorrido="leccion-obligatoria"`                                   → «el recorrido de la lección…»

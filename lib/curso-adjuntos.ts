@@ -214,7 +214,7 @@ export async function urlAdjuntoParaAlumno(clase: { id: number; productoId: numb
   if (!ws || !refDeId(adjuntoId)) return null;
   const db = await getTenantDb();
   const [{ data: filaClase, error: eClase }, filas] = await Promise.all([
-    db.from('curso_clases').select('id, producto_id, descripcion_html').eq('workspace_id', ws).eq('id', clase.id).maybeSingle(),
+    db.from('curso_clases').select('id, producto_id, descripcion_html').eq('workspace_id', ws).eq('id', clase.id).is('borrada_at', null).maybeSingle(),
     adjuntosPorId(ws, [adjuntoId]),
   ]);
   if (eClase) throw new Error(eClase.message);

@@ -120,7 +120,6 @@ export const CSS_UGC = `
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard--nueva:hover { border-color: var(--u-ink); background: var(--u-card); }
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard--nueva:disabled { opacity: .5; cursor: default; transform: none; }
 .ahdoc.ahdoc--ugc .ugc .ugc-modcard-nueva-t { font: 700 13px/1 var(--font-jetbrains), monospace; }
-.ahdoc.ahdoc--ugc .ugc .ugc-ltitle-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 
 /* ── La leccion: el recuadro del video que falta, y donde va el texto ──────────────
  * SIN VIDEO, quien edita ve un recuadro PUNTEADO del mismo 16:9, nunca el marco negro: un
@@ -243,20 +242,65 @@ export const CSS_UGC = `
 .ahdoc.ahdoc--ugc .ugc .ugc-menu-item:disabled { opacity: .45; cursor: default; }
 .ahdoc.ahdoc--ugc .ugc .ugc-menu-item--peligro:hover:not(:disabled) { background: rgba(246, 201, 193, .18); color: #ffd2c9; }
 
-/* Los botones de la barra de arriba (Invitar, la vista del alumno, el ?): entre el buscador y el
- * curso. Si no entran, la barra baja de renglon: nunca scrollea de costado (AGENTS.md). */
+/* Los botones de la barra de arriba: el hueco de al lado del buscador (Compartir, en Conocimientos) y,
+ * para quien EDITA el curso, sus acciones EN EL LUGAR del nombre del curso, arriba a la derecha (Vista
+ * del alumno, Invitar alumnos y el ?; item 14 del 08/10/2026). Si no entran, la barra baja de renglon:
+ * nunca scrollea de costado (AGENTS.md). Las acciones NO se esconden en el telefono, a diferencia del
+ * nombre del curso (la cola lo saca debajo de 640 px): sin ellas no habria como invitar desde ahi. */
 .ahdoc.ahdoc--ugc .ugc .ugc-topbar { flex-wrap: wrap; }
 .ahdoc.ahdoc--ugc .ugc .ugc-topbar-extra { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ahdoc.ahdoc--ugc .ugc .ugc-topbar-extra .ugc-btn { display: inline-flex; align-items: center; min-height: 36px; white-space: nowrap; font-family: var(--font-jetbrains), monospace; }
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar-acciones {
+  flex: 0 1 auto; min-width: 0; margin-left: auto;
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
+}
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar-extra .ugc-btn,
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar-acciones .ugc-btn { display: inline-flex; align-items: center; min-height: 36px; white-space: nowrap; font-family: var(--font-jetbrains), monospace; }
 /* El ? del recorrido, con la piel de los botones de AL LADO. SOLO en la barra de arriba (revision final
  * del 08/10/2026): escrita para todo .mk-iconbtn del curso, pisaba la de mas arriba (la de la app
  * adentro del curso) y las flechas y la cruz del formulario de una tarea salian de 36 px con borde
  * grueso y sombra (medido en el banco de la leccion). Dos reglas para el mismo selector: gana la
  * ultima, y la primera mentia. */
-.ahdoc.ahdoc--ugc .ugc .ugc-topbar-extra .mk-iconbtn {
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar-extra .mk-iconbtn,
+.ahdoc.ahdoc--ugc .ugc .ugc-topbar-acciones .mk-iconbtn {
   width: 36px; height: 36px; display: grid; place-items: center; padding: 0; cursor: pointer;
   border-radius: 9px; border: 2px solid var(--u-ink); background: var(--u-card-2); color: var(--u-ink); box-shadow: var(--u-sh-sm);
 }
+
+/* ── La FUENTE del curso (item 3 del 08/10/2026) ──────────────────────────────────
+ * La elegida la pinta varsDeFuente (app/_cursos/fuentes.ts) en el style de .ugc: redefine
+ * --font-archivo, que es con lo que la hoja del origen escribe todo .ugc, y --ugc-fuente. Sin elegir,
+ * --ugc-fuente es la letra de siempre del curso.
+ * Las piezas de la APP adentro del curso no heredan: los campos de la app (.mk-input, .mk-textarea)
+ * traen Geist escrito, y un select o un input nativos traen la del sistema. Eran justo la descripcion
+ * y la tarea con otra letra que el resto (Martin: «Los textos de la descripcion y tarea deben seguir
+ * la misma tipografia»). Van con la del curso, pero SOLO adentro del contenido: el buscador y los
+ * botones siguen en la de maquina, que es el acento del diseno.
+ * Con :where() para no subir la especificidad: un campo que pida su propia letra con una regla mas
+ * especifica (el nombre de un modulo nuevo) la sigue teniendo. Uno por selector y no una lista adentro
+ * de un solo :where(): el guard de tests/cursos-ugc.test.ts parte los selectores por la coma. */
+.ahdoc.ahdoc--ugc .ugc { --ugc-fuente: var(--font-archivo), system-ui, sans-serif; }
+.ahdoc.ahdoc--ugc .ugc .ugc-content :where(.mk-input),
+.ahdoc.ahdoc--ugc .ugc .ugc-content :where(.mk-textarea),
+.ahdoc.ahdoc--ugc .ugc .ugc-content :where(.mk-rico),
+.ahdoc.ahdoc--ugc .ugc .ugc-content :where(.mk-editor-rico),
+.ahdoc.ahdoc--ugc .ugc .ugc-content :where(select),
+.ahdoc.ahdoc--ugc .ugc .ugc-content :where(textarea),
+.ahdoc.ahdoc--ugc .ugc .ugc-content :where(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"])) {
+  font-family: var(--ugc-fuente);
+}
+/* El selector del menu de la marca: cada fuente escrita con ella misma, y una palabra que la distingue. */
+.ahdoc.ahdoc--ugc .ugc .ugc-fuentes { display: flex; flex-direction: column; padding: 0 0 4px; }
+.ahdoc.ahdoc--ugc .ugc .ugc-fuente-op { justify-content: space-between; }
+.ahdoc.ahdoc--ugc .ugc .ugc-fuente-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; }
+.ahdoc.ahdoc--ugc .ugc .ugc-fuente-tipo {
+  flex: none; font: 600 9.5px/1 var(--font-jetbrains), monospace; letter-spacing: .08em; text-transform: uppercase; opacity: .62;
+}
+
+/* ── Mientras corre un RECORRIDO (app/_ui/Recorrido.tsx, que se monta en el body como .mk-rec) ──────
+ * Los controles que aparecen al pasar el cursor (el ... de una tarjeta, Portada) se muestran: el
+ * recorrido los señala, y un recorte sobre un boton transparente es una flecha a la nada. */
+.ahdoc.ahdoc--ugc:is(body:has(> .mk-rec) *) .ugc .ugc-editable-ctrls,
+.ahdoc.ahdoc--ugc:is(body:has(> .mk-rec) *) .ugc .ugc-portada-btn { opacity: 1; }
 
 /* ── El acento elegido, donde la hoja del origen lo tiene FIJO ─────────────────
  * La hoja pinta con var(--u-lime) casi todo, pero varios tintes llevan el lima escrito a mano

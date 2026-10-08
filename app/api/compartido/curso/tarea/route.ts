@@ -1,7 +1,9 @@
 // =============================================================================
-// POST /api/compartido/curso/tarea  {t, c, valores, enviar, a?}  ·  {t, c, a?, aprobar}
+// POST /api/compartido/curso/tarea  {t, c, valores, enviar, a?}  ·  {t, c, a?, aprobar}  ·  {t, c, a?, comunidad}
 // =============================================================================
 // (`aprobar` = el cliente aprueba la versión de la IA de esta tarea: el paso 5 de #665, ver abajo.)
+// (`comunidad` = publicar o comentar en la comunidad del producto desde un campo de la tarea: item 17
+// del 08/10/2026, lib/curso-tarea-comunidad.ts.)
 //
 // Lo que el alumno contestó en la tarea de una clase, desde su portal SIN sesión. `enviar: false`
 // guarda el borrador (el botón «Guardar», el autoguardado y el beacon al cerrar la pestaña);
@@ -41,6 +43,8 @@ import {
 } from '@/lib/curso';
 import { leerEntrega, verificarEntregas, registrarCalificacion, aprobarSola } from '@/lib/curso-entregas';
 import { claseDelAlumno, areaDeLaTarea, leerJsonTopeado, idDeClase, TOPE_TAREA } from '@/lib/curso-portal';
+import { accionDeComunidad, leerPedidoComunidad, verificarComunidad } from '@/lib/curso-tarea-comunidad';
+import { esCampoDeComunidad } from '@/lib/curso';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -111,13 +115,39 @@ export async function POST(req: NextRequest) {
         }, { headers: SIN_CACHE });
       }
 
+      // ── LA COMUNIDAD (item 17 del 08/10/2026): publicar o comentar DESDE la tarea ─────────────
+      // `{comunidad: {campo, accion, titulo?, cuerpo?}}`. Pasa por TODAS las puertas de arriba (la
+      // firma, el resolver, la clase de ESTE alumno con su candado, el área) y después por la de la
+      // comunidad (`actorDelAlumno`, adentro de `accionDeComunidad`). La categoría y el post salen del
+      // CAMPO, nunca del pedido. Lo que se publicó queda además anotado en su respuesta (si la tarea
+      // sigue pendiente): cerrar la pestaña antes del autoguardado no puede dejar un post sin su tarea
+      // contestada, ni invitar a publicarlo dos veces.
+      if (b.comunidad !== undefined) {
+        const pedido = leerPedidoComunidad(b.comunidad);
+        if (!pedido) return Response.json({ ok: false }, { status: 400, headers: SIN_CACHE });
+        // Publicar o comentar escribe en una comunidad que leen todos: un tope propio, más corto que el
+        // del autoguardado. Mirar qué post se comenta (`ver`) no escribe.
+        if (pedido.accion !== 'ver' && !rateLimit(`curso-tarea-comunidad:lead:${acceso.ws}:${acceso.leadId}`, 6, 60_000)) return MUCHO();
+        const rc = await accionDeComunidad(token, r.clase, pedido);
+        if (!rc.ok) return Response.json({ ok: false, error: rc.error }, { status: rc.status, headers: SIN_CACHE });
+        if (rc.valor) {
+          const previaCom = await leerEntrega(acceso.leadId, r.clase.id, area, false);
+          if (!previaCom || previaCom.estado === 'pendiente') {
+            await guardarTarea(acceso.leadId, r.clase, { ...(previaCom?.valores ?? {}), [pedido.campo]: rc.valor }, false, area);
+          }
+        }
+        return Response.json({ ok: true, valor: rc.valor ?? null, post: rc.post ?? null }, { headers: SIN_CACHE });
+      }
+
       // ── LOS TIPOS DE TAREA DE LA #18 (07/10/2026): entregas y quiz ───────────────────────────
       // Lo que ya estaba guardado se lee UNA vez y sólo si la tarea lo necesita: con archivos (para
       // no volver a preguntarle a Storage por lo que ya entró) o con un quiz (su nota y sus intentos).
       const campos = r.clase.campos;
       const conQuiz = campos.some((c) => c.tipo === 'quiz');
       const conArchivos = campos.some((c) => esCampoDeArchivo(c.tipo));
-      const leida = conQuiz || conArchivos;
+      // Item 17: lo publicado en la comunidad se verifica contra lo guardado (ver abajo).
+      const conComunidad = campos.some((c) => esCampoDeComunidad(c.tipo));
+      const leida = conQuiz || conArchivos || conComunidad;
       const previa = leida ? await leerEntrega(acceso.leadId, r.clase.id, area, conQuiz) : null;
 
       // ⚠️ UN BORRADOR NO PISA UNA TAREA YA ENVIADA. La pantalla sólo autoguarda una pendiente,
@@ -146,6 +176,12 @@ export async function POST(req: NextRequest) {
       }
       // Un quiz ya aprobado no se vuelve a contestar: sus respuestas quedan como estaban.
       if (conQuiz) crudo = conQuizzesAprobadosIntactos(campos, crudo, previa?.valores, previa?.calificacion);
+      // ⚠️ «PUBLIQUÉ» / «COMENTÉ» SE VERIFICA CONTRA LA BASE (lib/curso-tarea-comunidad.ts): la referencia
+      // la manda el navegador, y un número lo escribe cualquiera. Sólo queda si es la que ya estaba o si
+      // el post (o el comentario) es de ESTE alumno en ESTE producto.
+      if (conComunidad) {
+        crudo = (await verificarComunidad(campos, crudo, previa?.valores ?? null, { ws: acceso.ws, productoId: r.clase.productoId, leadId: acceso.leadId })).valores;
+      }
 
       // ⚠️ EL QUIZ SE CORRIGE ACÁ, EN EL SERVER, con los campos de la BASE (con las correctas, que al
       // navegador del alumno no llegan: `camposParaAlumno`). Sólo un ENVÍO completo se corrige: uno al

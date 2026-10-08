@@ -61,7 +61,14 @@ import {
 } from '../lib/curso';
 import { armarModulos, esClaseCerrada, type ClaseVista } from '../lib/curso-portal';
 import { queFalta, estadoDeQuiz } from '../app/compartido/curso/[token]/tarea-valores';
-import { validarClase, faltaEnCampo } from '../app/customer-success/curso/reglas';
+import { validarClase, faltaEnCampo, TIPOS_CAMPO } from '../app/customer-success/curso/reglas';
+// Los ajustes del 08/10/2026 (items 5, 6, 8 y 17): el texto de ejemplo, el orden y la comunidad.
+import {
+  refDeComunidad, valorDeComunidad, conTextoDeEjemplo, esCampoDeComunidad, TOPE_TEXTO_EJEMPLO,
+} from '../lib/curso';
+import {
+  camposEnOrden, campoNuevoArriba, opcionesDeCategoria, opcionesDePost,
+} from '../app/customer-success/curso/leccion-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const sinComentarios = (src: string) => src
@@ -397,7 +404,10 @@ test('lib/curso-entregas: la subida valida contra el CAMPO y el tope; ver exige 
 // ── La ruta de la tarea: verifica, corrige, y un desaprobado no queda enviado ─
 
 test('la ruta de la tarea: verifica las entregas y corrige el quiz ANTES de guardar; un quiz desaprobado no queda enviado', () => {
-  const src = leer('app/api/compartido/curso/tarea/route.ts');
+  const src0 = leer('app/api/compartido/curso/tarea/route.ts');
+  // ⚠️ Desde el 08/10/2026 la rama de la COMUNIDAD (item 17) también llama a `guardarTarea` (anota QUÉ
+  // publicó), y va antes en el archivo: lo que se mira acá es el guardado de los VALORES (`crudo`).
+  const src = src0.replace(/guardarTarea\(acceso\.leadId, r\.clase, \{ \.\.\.\(previaCom/, 'guardarTareaComunidad(acceso.leadId, r.clase, { ...(previaCom');
   const i = (s: string) => src.indexOf(s);
   assert.ok(i('verificarEntregas(') > 0 && i('verificarEntregas(') < i('guardarTarea('), 'verifica antes de guardar');
   assert.ok(i('corregirEnvio(') > 0 && i('corregirEnvio(') < i('guardarTarea('), 'corrige antes de guardar');
@@ -483,3 +493,173 @@ test('faltaEnCampo: lo que el saneo cortaría en silencio se dice antes de guard
   assert.equal(faltaEnCampo({ id: 'q', label: 'Repaso', tipo: 'quiz', preguntas }), `Máximo ${MAX_PREGUNTAS} preguntas en «Repaso».`);
   assert.equal(faltaEnCampo({ id: 'q', label: 'Repaso', tipo: 'quiz', preguntas: preguntas.slice(0, MAX_PREGUNTAS) }), null);
 });
+
+// =============================================================================
+// Los ajustes del 08/10/2026 (pista LECCIÓN): items 5, 6, 8 y 17
+// =============================================================================
+// «No podés poner la pregunta dentro del cuadro de texto donde va a completar el alumno como si fuera un
+// placeholder... Y también agregar la opción de placeholder» (5) · «ese contenedor se debe poder
+// arrastrar» (6) · «arriba del todo, un placeholder grande que diga "Nuevo campo"» (8) · «Faltan opciones
+// en las tareas para interactuar en la comunidad que hicimos» (17).
+// Las roturas, con su resultado, en el bloque al final del archivo.
+
+test('el texto de ejemplo: sólo donde hay un cuadro, recortado y en una línea; los campos de siempre no cambian', () => {
+  for (const t of ['texto', 'linea', 'numero', 'link']) assert.equal(conTextoDeEjemplo(t), true, t);
+  for (const t of ['eleccion', 'tabla', 'quiz', 'archivo', 'publicar', 'confirmacion']) assert.equal(conTextoDeEjemplo(t), false, t);
+  const [a, b, c] = sanearCampos([
+    { id: 'a', label: 'Tu meta', tipo: 'linea', placeholder: '  Ej:   vender   más  ' },
+    { id: 'b', label: 'Tu rubro', tipo: 'eleccion', opciones: ['A', 'B'], placeholder: 'no va' },
+    { id: 'c', label: 'Largo', tipo: 'texto', placeholder: 'x'.repeat(TOPE_TEXTO_EJEMPLO + 50) },
+  ]);
+  assert.equal(a.placeholder, 'Ej: vender más');
+  assert.equal('placeholder' in b, false, 'una elección no tiene cuadro: el ejemplo no se guarda');
+  assert.equal(c.placeholder!.length, TOPE_TEXTO_EJEMPLO);
+  // Idempotente, y un campo de siempre sin ejemplo sale IDÉNTICO (los programas cargados se comparan así).
+  const viejo = { id: 'v', label: 'Pregunta', tipo: 'texto' as const };
+  assert.deepEqual(sanearCampos([viejo]), [viejo]);
+  assert.deepEqual(sanearCampos(sanearCampos([a, c])), [a, c]);
+});
+
+test('la pregunta es el TÍTULO y el cuadro lleva sólo el texto de ejemplo: nunca la pregunta como placeholder', () => {
+  const src = leer('app/compartido/curso/[token]/TareaAlumno.tsx');
+  assert.doesNotMatch(src, /placeholder=\{campo\.label/, 'la pregunta como placeholder');
+  assert.match(src, /const ejemplo = campo\.placeholder\?\.trim\(\) \|\| undefined;/);
+  for (const n of [/<Input id=\{id\} type="url"[^>]*placeholder=\{ejemplo \?\? 'https:\/\/'\}/, /inputMode=\{campo\.tipo === 'numero' \? 'decimal' : undefined\}\s*placeholder=\{ejemplo\}/, /<Textarea id=\{id\} rows=\{4\} placeholder=\{ejemplo\}/]) {
+    assert.match(src, n);
+  }
+  // La pregunta va arriba, como rótulo del campo (`cabeza` / `grupo`).
+  assert.match(src, /<label className="cp-preg" htmlFor=\{id\}>\{rotulo\}<\/label>/);
+  // En el editor, la pregunta es el título de la tarjeta y el cuadro del alumno es otro campo.
+  const ed = leer('app/customer-success/curso/EditorCampos.tsx');
+  assert.match(ed, /<Pregunta valor=\{c\.label\}/);
+  assert.match(ed, /onChange=\{\(e\) => cambiar\(i, \{ placeholder: e\.target\.value \}\)\}/);
+  assert.match(ed, /\{conTextoDeEjemplo\(c\.tipo\) && \(/);
+});
+
+test('«+ Nuevo campo»: el recuadro grande PRIMERO, y el campo nace ARRIBA; reordenar no pierde ninguno', () => {
+  const c = (id: string): Campo => ({ id, label: id, tipo: 'texto' });
+  const lista = campoNuevoArriba([c('a'), c('b')], 'n');
+  assert.deepEqual(lista.map((x) => x.id), ['n', 'a', 'b']);
+  assert.deepEqual(lista[0], { id: 'n', label: '', tipo: 'texto' });
+  assert.deepEqual(camposEnOrden([c('a'), c('b'), c('c')], ['c', 'a', 'b']).map((x) => x.id), ['c', 'a', 'b']);
+  // Un id de más se ignora; uno que falta queda al final (las respuestas cuelgan de su id).
+  assert.deepEqual(camposEnOrden([c('a'), c('b'), c('c')], ['b', 'zz']).map((x) => x.id), ['b', 'a', 'c']);
+  const ed = leer('app/customer-success/curso/EditorCampos.tsx');
+  const ini = ed.indexOf('<div className="ec" {...arr.zona}>');
+  assert.ok(ini > 0, 'la lista es la zona del arrastre');
+  const nuevo = ed.indexOf('className="ec-nuevo"', ini);
+  const primero = ed.indexOf('{campos.map(', ini);
+  assert.ok(nuevo > ini && nuevo < primero, '«+ Nuevo campo» va ANTES de los campos');
+  assert.match(ed, />\s*\+ Nuevo campo\s*</);
+  assert.doesNotMatch(ed, />\s*\+ Campo\s*</, 'volvió el botón chico de abajo');
+  assert.match(ed, /const lista = campoNuevoArriba\(campos, nuevoIdCampo\(campos\)\);/);
+});
+
+test('el campo es una tarjeta que se ARRASTRA con las piezas del curso y del Plan (no una copia)', () => {
+  const arr = leer('app/customer-success/curso/arrastre-campos.ts');
+  assert.match(arr, /import \{ fotoVaciaDeArrastre, scrollerDe, useArrastreCopia \} from '@\/app\/plan\/board\/arrastre-copia';/);
+  assert.match(arr, /import \{ indiceEnLista, ordenAlSoltar \} from '@\/app\/_cursos\/orden';/);
+  assert.match(arr, /fotoVaciaDeArrastre\(e\.dataTransfer\);/, 'la foto del sistema operativo, vacía');
+  // La copia cuelga de la LISTA (su hoja va acotada ahí), y la medición la saltea.
+  assert.match(arr, /montarCopia\(nodo, e\.clientX - r\.left, e\.clientY - r\.top, nodo\.closest<HTMLElement>\('\[data-zona-campos\]'\) \?\? nodo\.closest<HTMLElement>\('\.ugc'\)\)/);
+  assert.match(arr, /\.filter\(\(n\) => n\.style\.position !== 'fixed'\)/);
+  assert.match(arr, /document\.addEventListener\('dragover', empuje, true\)/, 'el auto-scroll en el dragover de document, en captura');
+  assert.match(arr, /const h = huecoRef\.current;[\s\S]{0,120}terminar\(\);/, 'el hueco se lee ANTES de terminar');
+  assert.doesNotMatch(arr, /requestAnimationFrame|setInterval/, 'durante un arrastre nativo se congelan');
+  const ed = leer('app/customer-success/curso/EditorCampos.tsx');
+  assert.match(ed, /onDragStart=\{\(e\) => arr\.agarrar\(e, c\.id\)\}/);
+  assert.match(ed, /onPointerDownCapture=\{arr\.marcarOrigen\}/, 'adentro de un campo de texto no arrastra');
+  assert.match(ed, /onOrden: \(ids\) => onCampos\(camposEnOrden\(campos, ids\), 'movido'\)/, 'mover avisa (para el Deshacer)');
+  assert.match(ed, /onCampos\(campos\.filter\(\(_, j\) => j !== i\), 'borrado'\)/, 'borrar avisa (para el Deshacer)');
+});
+
+test('la comunidad: la referencia de lo publicado o comentado, sólo con su forma', () => {
+  assert.deepEqual(refDeComunidad('publicar', '42'), { postId: 42, comentarioId: null });
+  assert.deepEqual(refDeComunidad('comentar', '42/7'), { postId: 42, comentarioId: 7 });
+  for (const malo of ['', '0', '-3', '42/7', 'abc', '1e3']) assert.equal(refDeComunidad('publicar', malo), null, `publicar ${malo}`);
+  for (const malo of ['42', '0/7', '42/0', '42/x']) assert.equal(refDeComunidad('comentar', malo), null, `comentar ${malo}`);
+  assert.equal(valorDeComunidad(42), '42');
+  assert.equal(valorDeComunidad(42, 7), '42/7');
+  assert.equal(esCampoDeComunidad('publicar') && esCampoDeComunidad('comentar') && !esCampoDeComunidad('texto'), true);
+  const campos = sanearCampos([
+    { id: 'p', label: 'Preséntate', tipo: 'publicar', categoriaId: 9 },
+    { id: 'c', label: 'Opina', tipo: 'comentar', postId: 33, postTitulo: '  Bienvenida  ' },
+    { id: 'c2', label: 'Opina', tipo: 'comentar', postId: -1, postTitulo: 'no' },
+  ]);
+  assert.deepEqual(campos[0], { id: 'p', label: 'Preséntate', tipo: 'publicar', categoriaId: 9 });
+  assert.deepEqual(campos[1], { id: 'c', label: 'Opina', tipo: 'comentar', postId: 33, postTitulo: 'Bienvenida' });
+  assert.deepEqual(campos[2], { id: 'c2', label: 'Opina', tipo: 'comentar' }, 'sin post válido = el último fijado');
+  // Lo que manda el navegador se recorta a la FORMA; que sea SUYO lo mira la ruta (abajo).
+  assert.deepEqual(sanearValores(campos, { p: '42', c: '33/8', c2: '<script>' }), { p: '42', c: '33/8' });
+  assert.equal(campoLleno(campos[0], '42'), true);
+  assert.equal(campoLleno(campos[0], ''), false);
+  assert.ok(TIPOS_CAMPO.some((t) => t.value === 'publicar') && TIPOS_CAMPO.some((t) => t.value === 'comentar'), 'el selector los ofrece');
+  assert.equal(seApruebaSola([QUIZ, campos[0]]), true, 'publicar no pide que el equipo lo revise');
+});
+
+test('los desplegables de la comunidad: el elegido SIEMPRE está entre las opciones (si no, el primer clic lo borra)', () => {
+  const opc = { categorias: [{ id: 1, nombre: 'Presentaciones' }], posts: [{ id: 5, titulo: 'Reglas', fijado: false }, { id: 6, titulo: 'Bienvenida', fijado: true }] };
+  assert.deepEqual(opcionesDeCategoria(opc, undefined).map((o) => o.value), ['', '1']);
+  assert.ok(opcionesDeCategoria(opc, 99).some((o) => o.value === '99'), 'una categoría que ya no está se sigue viendo');
+  assert.ok(opcionesDeCategoria(null, 4).some((o) => o.value === '4'), 'sin red, la elegida igual');
+  const posts = opcionesDePost(opc, undefined);
+  assert.deepEqual(posts.map((o) => o.value), ['', '6', '5'], 'el último fijado, y los fijados primero');
+  assert.equal(posts[0].label, 'El último fijado');
+  assert.deepEqual(opcionesDePost(null, 33, 'Bienvenida').at(-1), { value: '33', label: 'Bienvenida' });
+});
+
+test('la ruta de la tarea: publicar y comentar pasan por TODAS sus puertas, y lo publicado se VERIFICA antes de guardar', () => {
+  const src = leer('app/api/compartido/curso/tarea/route.ts');
+  const i = (s: string) => src.indexOf(s);
+  const rama = i('if (b.comunidad !== undefined)');
+  assert.ok(rama > 0, 'no encontré la rama de la comunidad');
+  // Después de la firma, el resolver, la clase con su candado y el área: las puertas de siempre.
+  for (const puerta of ['leerTokenPortal(token)', 'resolverAccesoPortal(token)', 'claseDelAlumno(acceso.leadId, claseId, { exigeAbierta: true', 'areaDeLaTarea(r.clase']) {
+    assert.ok(i(puerta) > 0 && i(puerta) < rama, `la comunidad antes de ${puerta}`);
+  }
+  assert.match(src, /pedido\.accion !== 'ver' && !rateLimit\(`curso-tarea-comunidad:lead:\$\{acceso\.ws\}:\$\{acceso\.leadId\}`, 6, 60_000\)/, 'un tope propio para escribir');
+  assert.match(src, /await accionDeComunidad\(token, r\.clase, pedido\)/);
+  // Lo que manda el navegador como «ya publiqué» se verifica contra la base, ANTES del guardado de los valores.
+  const verif = i('verificarComunidad(campos, crudo, previa?.valores ?? null, { ws: acceso.ws, productoId: r.clase.productoId, leadId: acceso.leadId })');
+  assert.ok(verif > 0, 'la ruta no verifica lo publicado');
+  assert.ok(verif < i('guardarTarea(acceso.leadId, r.clase, crudo'), 'verifica ANTES de guardar');
+  // Y la línea que la enchufa: se corre con la tarea que tiene campos de comunidad, y lo que se guarda es lo verificado.
+  assert.match(src, /if \(conComunidad\) \{\s*crudo = \(await verificarComunidad\(/);
+  assert.match(src, /const conComunidad = campos\.some\(\(c\) => esCampoDeComunidad\(c\.tipo\)\);/);
+  assert.match(src, /const leida = conQuiz \|\| conArchivos \|\| conComunidad;/, 'lo guardado se lee para comparar');
+});
+
+test('lib/curso-tarea-comunidad: publica y comenta con las funciones de la comunidad; la categoría y el post salen del CAMPO', () => {
+  const src = leer('lib/curso-tarea-comunidad.ts');
+  assert.match(src, /^import 'server-only';/m);
+  assert.match(src, /await publicarPost\(actor, \{ titulo: pedido\.titulo, cuerpo: pedido\.cuerpo, categoriaId \}\)/);
+  assert.match(src, /await comentar\(actor, objetivo\.id, \{ cuerpo: pedido\.cuerpo \}\)/);
+  assert.doesNotMatch(src, /\.insert\(/, 'una segunda escritura de un post es la que se olvida de avisar');
+  assert.doesNotMatch(src, /pedido\.categoriaId|pedido\.postId/, 'la categoría o el post del PEDIDO');
+  assert.match(src, /const actor = await actorDelAlumno\(token, clase\.productoId\);\s*if \(!actor\) return \{ ok: false, status: 403/);
+  // La verificación: el post (o el comentario) de ESTE alumno en ESTE producto.
+  const v = src.slice(src.indexOf('export async function verificarComunidad('));
+  assert.match(v, /\.eq\('producto_id', dueno\.productoId\)\.eq\('id', ref\.postId\)\.eq\('miembro', miembro\)/);
+  assert.match(v, /\.eq\('id', ref\.comentarioId!\)\.eq\('post_id', ref\.postId\)\.eq\('miembro', miembro\)/);
+  assert.match(v, /const miembro = claveDeLead\(dueno\.leadId\);/);
+  // La vista del equipo (la ficha) lleva el link al post, y la tab Comunidad lo abre.
+  const ficha = leer('app/customer-success/curso/RespuestaTarea.tsx');
+  assert.match(ficha, /<Link className="rt-link" href=\{`\/customer-success\/comunidad\?post=\$\{r\.postId\}`\}>Ver post<\/Link>/);
+  const pag = leer('app/customer-success/comunidad/page.tsx');
+  assert.match(pag, /postInicial=\{postInicial\}/);
+  assert.match(leer('app/_comunidad/Comunidad.tsx'), /useState<number \| null>\(postInicial\)/);
+});
+
+// ── Roturas de los ajustes del 08/10/2026 (pista LECCIÓN) ───────────────────
+// Arnés scratchpad/leccion20/romper.mjs (UNA rotura por vez sobre el archivo real, restaurada de
+// MEMORIA y comprobada con md5; nunca con git). Base: 35 pass / 0 fail. Cada una, 34 / 1 con SU test:
+//   · el texto de ejemplo guardado en cualquier tipo · sin su tope                 → «el texto de ejemplo…»
+//   · `placeholder={campo.label}` en la línea del alumno                           → «la pregunta es el TÍTULO…»
+//   · el campo nuevo al FINAL · `camposEnOrden` perdiendo el que no venía          → «+ Nuevo campo…»
+//   · mover sin avisar 'movido' (sin Deshacer) · sin la foto vacía del arrastre     → «el campo es una tarjeta…»
+//   · `refDeComunidad` aceptando «42/0» · `sanearValores` guardando cualquier texto → «la comunidad: la referencia…»
+//   · el elegido fuera de las opciones del desplegable                              → «los desplegables…»
+//   · sin el tope propio de publicar · `if (false)` alrededor de `verificarComunidad` (el guard de la línea
+//     que la enchufa se sumó para esta rotura: los de orden miran que el llamado esté ESCRITO, y con el
+//     `if (false)` lo sigue estando)                                               → «la ruta de la tarea…»
+//   · la categoría del PEDIDO · la verificación del post sin el `miembro` · la ficha sin `?post=` → «lib/curso-tarea-comunidad…»

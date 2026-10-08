@@ -100,11 +100,16 @@ const CONFLICTO_PROGRESO = 'workspace_id,lead_id,clase_id,area';
 const CONFLICTO_ACCESO = 'workspace_id,lead_id,area';
 const CONFLICTO_DESBLOQUEO = 'workspace_id,lead_id,producto_id,objeto,clave';
 
-/** Las clases de un producto, en el orden de cada etapa. Tira si no puede leer. */
+/**
+ * Las clases de un producto, en el orden de cada etapa. Tira si no puede leer.
+ *
+ * ⚠️ SIN LAS DE LA PAPELERA (mig 0223, `borrada_at`): una clase borrada desde el editor no existe para
+ * el portal, la ficha, el cron ni la IA. Lo fija tests/curso-papelera.test.ts, que barre toda lectura.
+ */
 export async function clasesDelProducto(productoId: number): Promise<Clase[]> {
   const db = await getTenantDb();
   const { data, error } = await db.from('curso_clases').select(COLUMNAS_CLASE)
-    .eq('producto_id', productoId).order('etapa').order('orden').order('id');
+    .eq('producto_id', productoId).is('borrada_at', null).order('etapa').order('orden').order('id');
   if (error) throw new Error(error.message);
   return ((data ?? []) as FilaClase[]).map(aClase);
 }
@@ -113,7 +118,8 @@ export async function clasesDelProducto(productoId: number): Promise<Clase[]> {
 export async function claseDeId(claseId: number): Promise<Clase | null> {
   if (!Number.isInteger(claseId) || claseId <= 0) return null;
   const db = await getTenantDb();
-  const { data, error } = await db.from('curso_clases').select(COLUMNAS_CLASE).eq('id', claseId).maybeSingle();
+  // Sin las de la papelera (mig 0223): para el alumno una clase borrada no existe (`no-existe`).
+  const { data, error } = await db.from('curso_clases').select(COLUMNAS_CLASE).eq('id', claseId).is('borrada_at', null).maybeSingle();
   if (error) throw new Error(error.message);
   return data ? aClase(data as FilaClase) : null;
 }
@@ -124,7 +130,7 @@ export async function claseDeId(claseId: number): Promise<Clase | null> {
  */
 async function idsDeClasesPorArea(): Promise<Set<number>> {
   const db = await getTenantDb();
-  const filas = await leerTodo<{ id: number }>(db, 'curso_clases', 'id', { filtros: (q) => q.eq('por_area', true), orden: 'id' });
+  const filas = await leerTodo<{ id: number }>(db, 'curso_clases', 'id', { filtros: (q) => q.eq('por_area', true).is('borrada_at', null), orden: 'id' });
   return new Set(filas.map((f) => Number(f.id)));
 }
 

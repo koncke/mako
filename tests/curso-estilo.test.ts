@@ -240,8 +240,10 @@ test('al alumno sólo le viajan las portadas de las clases que ve (no las de una
   const portal = sinComentarios(leer('lib/curso-portal.ts'));
   assert.match(portal, /estilo: estiloQueViaja\(estilos\.get\(productoId\) \?\? estiloVacio\(\), modulos\)/);
   assert.match(sinComentarios(leer('app/customer-success/curso/vista/page.tsx')), /estilo: estiloQueViaja\(/);
-  assert.match(sinComentarios(leer('lib/curso-admin.ts')), /from\('curso_estilo'\)\.delete\(\)\.eq\('clave', `portada:clase:\$\{c\.id\}`\)/,
-    'borrar una clase borra su portada');
+  // Desde el 08/10/2026 borrar una clase la manda a la PAPELERA (mig 0223) y su portada se borra cuando
+  // la PURGA la borra de verdad: el «Deshacer» la tiene que devolver con su portada.
+  assert.match(sinComentarios(leer('lib/curso-papelera.ts')), /from\('curso_estilo'\)\.delete\(\)[^;]*\.eq\('clave', `portada:clase:\$\{c\.id\}`\)/,
+    'purgar una clase borra su portada');
 });
 
 test('los tintes del acento van como variables calculadas, no con color-mix (un navegador viejo dejaba la tapa sin fondo)', () => {

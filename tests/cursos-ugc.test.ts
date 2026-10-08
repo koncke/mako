@@ -218,11 +218,16 @@ test('portal: la marca es el PRODUCTO con la última palabra en lima, y la agend
   assert.equal(agendaVigente(producto([etapaV('a', 'actual', [])])), null);
 });
 
-test('la tapa de una clase sale de su video: YouTube y Drive sí, el resto sin tapa', () => {
+test('la tapa de una clase sale de su video: YouTube, Drive, Loom y Vimeo (por nuestra ruta); un archivo no', () => {
   assert.equal(tapaDeVideo({ tipo: 'youtube', id: 'dQw4w9WgXcQ' }), 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
   assert.equal(tapaDeVideo({ tipo: 'iframe', embed: 'https://drive.google.com/file/d/AbC_1/preview' }),
     'https://drive.google.com/thumbnail?id=AbC_1&sz=w800');
+  // Item 20 del 08/10/2026: Loom publica la suya en su CDN (la `thumbnail_url` de su oEmbed, medido), y la
+  // de Vimeo la busca nuestra ruta (tests/curso-leccion.test.ts). Un embed de Loom con un id que no lo es, nada.
+  // Probado rompiéndolo (scratchpad/leccion20/romper.mjs): Vimeo sin tapa → 23 / 1, cae ESTE test.
+  assert.equal(tapaDeVideo({ tipo: 'iframe', embed: 'https://www.loom.com/embed/abc123def' }), 'https://cdn.loom.com/sessions/thumbnails/abc123def-00001.jpg');
   assert.equal(tapaDeVideo({ tipo: 'iframe', embed: 'https://www.loom.com/embed/x' }), null);
+  assert.equal(tapaDeVideo({ tipo: 'vimeo', embed: 'https://player.vimeo.com/video/1084537' }), '/api/compartido/miniatura?vimeo=1084537');
   assert.equal(tapaDeVideo({ tipo: 'archivo' }), null);
   assert.equal(tapaDeVideo(null), null);
 });
@@ -245,13 +250,14 @@ test('editor: las huérfanas van a «Sin etapa», al final, y no se ordenan', ()
   assert.equal(modulosDelEditor(etapas, porEtapa, []).length, 2, 'sin huérfanas no hay «Sin etapa»');
 });
 
-test('editor: los chips del equipo dicen qué le falta y qué pide la clase; ni «Grabar» ni notas (08/10), y «Cierra el módulo» sólo en un vinculado', () => {
+test('editor: los chips del equipo dicen qué le falta y qué pide la clase; ni «Grabar» ni notas (08/10), y «Obligatoria» sólo en un vinculado', () => {
   const c = clase(1, 'a', 0, { tarea: 'Completa', obligatoria: true });
   // Desde el 08/10/2026 (items 13 y 15) la marca de grabar y las notas se fueron de la tab: la
   // tarjeta dice lo que la CLASE tiene, nada más.
   const textos = chipsDelEditor(c, true).map((x) => x.texto);
-  // «Cierra el módulo»: el MISMO nombre que el interruptor de la lección (revisión final del 08/10).
-  assert.deepEqual(textos, ['Sin video', 'Tarea', 'Cierra el módulo']);
+  // «Obligatoria»: el nombre del interruptor de la lección («Obligatoria para avanzar»), corto. Era
+  // «Cierra el módulo», que Martín no entendió (item 9 del 08/10/2026).
+  assert.deepEqual(textos, ['Sin video', 'Tarea', 'Obligatoria']);
   assert.ok(!textos.some((t) => /grabar|nota/i.test(t)), 'volvió un chip de grabar o de notas');
   // En un SUELTO la marca se conserva y no cierra nada: el chip no lo afirma.
   assert.deepEqual(chipsDelEditor(c, false).map((x) => x.texto), ['Sin video', 'Tarea']);
@@ -410,12 +416,17 @@ test('el Avance de los clientes SE FUE del curso a Clientes, y el link viejo red
     'un ?vista=avance viejo tiene que caer en la vista Avance de Clientes, con el ?ws=');
 });
 
-test('invitar desde el editor: un modal, que abren el botón de arriba y el menú de la marca (item 9)', () => {
+// 08/10/2026 (item 14, pista APARIENCIA): «Vista del alumno», «Invitar alumnos» y el «?» van arriba a la
+// derecha, EN EL LUGAR del nombre del curso (`acciones`), y se fueron del menú de la marca: dos lugares
+// para la misma acción partían la respuesta en dos. Lo del lugar lo fija tests/curso-apariencia.test.ts.
+// Roturas (scratchpad/apariencia/romper.mjs, de memoria + md5): «Invitar alumnos» de vuelta en el menú de
+// la marca → 23 / 1 (este test); la piel del «?» sin el acote de la barra → 23 / 1 («la piel del «?»…»).
+test('invitar desde el editor: un modal, que abre el botón de arriba a la derecha (items 9 y 14)', () => {
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   assert.match(app, /<button type="button" className="ugc-btn" data-recorrido="invitar" onClick=\{\(\) => setInvitando\(true\)\}>Invitar alumnos<\/button>/);
-  assert.match(bloque(app, 'const menuMarca = ', 'if (!servicio)'), /onClick=\{\(\) => \{ cerrar\(\); setInvitando\(true\); \}\}>Invitar alumnos/);
+  assert.doesNotMatch(bloque(app, 'const menuMarca = ', 'if (!servicio)'), /Invitar alumnos|Vista del alumno/, 'volvieron al menú de la marca');
   assert.match(app, /\{invitando && \(\s*<ModalInvitarAlumnos productoId=\{servicio\.productoId\}/);
-  assert.match(app, /topbarExtra=\{barraDeArriba\}/);
+  assert.match(app, /acciones=\{barraDeArriba\}/);
   // La lista se prellena con el email del CRM.
   assert.match(sinComentarios(leer('app/customer-success/curso/page.tsx')), /email: c\.email \?\? null,/);
 });
@@ -452,6 +463,8 @@ test('la piel del «?» de la barra de arriba no se derrama sobre los botones de
   const conPiel = deIconbtn.filter((r) => /\bwidth\s*:|\bborder\s*:\s*2px/.test(r.cuerpo));
   assert.ok(conPiel.length >= 1, 'no encontré la piel del «?» de la barra de arriba');
   for (const r of conPiel) {
-    for (const s of r.sel.split(',')) assert.match(s.trim(), /\.ugc-topbar-extra \.mk-iconbtn$/, `se derrama: ${s.trim()}`);
+    // Desde el 08/10/2026 (item 14) el «?» de quien edita vive en `.ugc-topbar-acciones`: la misma piel,
+    // acotada igual a la barra de arriba.
+    for (const s of r.sel.split(',')) assert.match(s.trim(), /\.ugc-topbar-(?:extra|acciones) \.mk-iconbtn$/, `se derrama: ${s.trim()}`);
   }
 });

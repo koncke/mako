@@ -348,3 +348,72 @@ export function planConEtapaNueva(
 export function etapaDeModulo(nombre: string, existentes: readonly string[], cuantas: number): EtapaEntrega {
   return { key: nuevaClaveEtapa(nombre, existentes), label: nombre, ...colorNuevaEtapa(cuantas) };
 }
+
+/**
+ * El plan de DEVOLVER una etapa que se acaba de quitar (el «Deshacer» del interruptor del kanban o de
+ * «Eliminar módulo»): la MISMA etapa —su clave, su color, su fase, su agenda— en el MISMO lugar del
+ * kanban (`indice`), no una igual en el lugar que elegiría `etapaNuevaEn`. Con otra clave, las
+ * secuencias de entrega que apuntaban a la vieja quedarían colgando (AGENTS.md, «Deshacer una acción
+ * destructiva devuelve la MISMA identidad, no una igual»).
+ *
+ * `indice` se acota a [1, largo]: el lugar 0 es la entrada del kanban, que nunca se quitó (ver
+ * `decidirQuitarEtapa`). `modulos`: los de hoy SIN la devuelta (su suelto ya no figura con su clave
+ * vieja); `claves`: la secuencia de módulos con la devuelta en su lugar.
+ */
+export function planConEtapaDevuelta(
+  entrega: { etapas: readonly EtapaEntrega[]; fases: readonly FaseEntrega[] },
+  modulos: readonly Pick<ModuloCurso, 'clave' | 'vinculado'>[],
+  claves: readonly string[],
+  etapa: EtapaEntrega,
+  indice: number,
+): Plan {
+  if (!claves.includes(etapa.key) || entrega.etapas.some((e) => e.key === etapa.key)) return { ok: false, error: 'El orden no coincide con los módulos.' };
+  const i = Math.max(1, Math.min(Number.isInteger(indice) ? indice : entrega.etapas.length, entrega.etapas.length));
+  const etapas = [...entrega.etapas.slice(0, i), etapa, ...entrega.etapas.slice(i)];
+  return planReorden({ etapas, fases: entrega.fases }, [...modulos, { clave: etapa.key, vinculado: true }], claves, entrega.etapas[0]?.key ?? null);
+}
+
+/** Por qué no se quita la entrada del kanban: corto, va en el menú al lado del interruptor apagado. */
+export const ERROR_ENTRADA = 'Es la entrada del kanban.';
+
+/** A dónde puede ir un cliente de una etapa que se quita: las OTRAS etapas del kanban, en su orden. */
+export type DestinoClientes = { key: string; label: string };
+
+/** Lo que hay que preguntar antes de quitar una etapa con clientes adentro. */
+export type PreguntaDestino = { clientes: number; destinos: DestinoClientes[] };
+
+/**
+ * QUITAR UNA ETAPA DEL KANBAN desde el curso (08/10/2026, item 15): apagar «Etapa del kanban» o
+ * «Eliminar módulo» de un vinculado. Pedido de Martín: «si se desactiva se elimina esa etapa del
+ * kanban, y si hay leads debería preguntar a dónde los mueve».
+ *
+ *   · La ENTRADA del kanban (la primera) no se quita (`ERROR_ENTRADA`): «un cliente sin fila está en
+ *     la primera etapa» (lib/servicio-etapas.ts, `repartirEnEtapas`), así que sacarla pasaría EN
+ *     SILENCIO a todos los clientes sin fila a la siguiente.
+ *   · Con clientes adentro y sin `destino`: no decide, PREGUNTA (las otras etapas, en orden).
+ *   · El `destino` tiene que ser OTRA etapa de este kanban.
+ *   · Las fases se conservan tal cual: quitar una columna no le borra el color a las demás.
+ *
+ * Puro: lo ejecuta tests/curso-modulos.test.ts. Quien escribe (lib/curso-modulos-datos.ts) mueve a
+ * los clientes SIN mensajes y recién después guarda el kanban sin la etapa.
+ */
+export function decidirQuitarEtapa(
+  entrega: { etapas: readonly EtapaEntrega[]; fases: readonly FaseEntrega[] },
+  clave: string,
+  clientes: number,
+  destino?: string | null,
+):
+  | { ok: true; etapas: EtapaEntrega[]; fases: FaseEntrega[]; etapa: EtapaEntrega; indice: number; destino: string | null }
+  | { ok: false; error: string; pregunta?: PreguntaDestino } {
+  const indice = entrega.etapas.findIndex((e) => e.key === clave);
+  if (indice < 0) return { ok: false, error: 'Esa etapa ya no existe.' };
+  if (indice === 0) return { ok: false, error: ERROR_ENTRADA };
+  const otras = entrega.etapas.filter((e) => e.key !== clave).map((e) => ({ key: e.key, label: e.label }));
+  const d = destino == null || destino === '' ? null : String(destino);
+  if (clientes > 0 && !d) return { ok: false, error: 'Elige a dónde van sus clientes.', pregunta: { clientes, destinos: otras } };
+  if (d && !otras.some((e) => e.key === d)) return { ok: false, error: 'Esa etapa ya no existe.' };
+  return {
+    ok: true, etapa: entrega.etapas[indice], indice, destino: clientes > 0 ? d : null,
+    etapas: entrega.etapas.filter((e) => e.key !== clave), fases: [...entrega.fases],
+  };
+}

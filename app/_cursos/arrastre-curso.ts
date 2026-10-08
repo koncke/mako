@@ -17,7 +17,9 @@
 //
 //   · `rail`   la grilla de módulos del índice       → reordena los módulos (y con eso, las etapas)
 //   · `barra`  la lista de módulos de la barra       → reordena los módulos; con una CLASE en la mano,
-//                                                       el módulo que está bajo el cursor la recibe
+//                                                       el módulo a la altura del cursor la RECIBE (la
+//                                                       clase se muda ahí: nunca nace un módulo) y la
+//                                                       tarjeta se vuelve una pastilla (item 16)
 //   · `grilla` las clases de un módulo abierto       → reordena las clases del módulo
 //
 // Lo que se decide (en qué lugar cae, cómo queda la lista) es puro y vive en ./orden.ts.
@@ -45,7 +47,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { fotoVaciaDeArrastre, scrollerDe, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { empujeDeColumna } from '@/app/crm/arrastre-columna';
-import { antesDeEn, indiceEnGrilla, indiceEnLista, ordenAlSoltar, type RectTarjeta } from './orden';
+import { antesDeEn, filaEnBarra, indiceEnGrilla, indiceEnLista, ordenAlSoltar, type FilaBarra, type RectTarjeta } from './orden';
 
 /** Lo que viaja en la mano. Una clase lleva su módulo: es el único al que se la puede reordenar. */
 export type ManoCurso = { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number; moduloKey: string };
@@ -86,6 +88,24 @@ export function useArrastreCurso(p: {
   const medidas = useRef<Partial<Record<ZonaCurso, Medida>>>({});
   const origen = useRef<Element | null>(null);
   const quitarEmpuje = useRef<(() => void) | null>(null);
+  /** Los renglones de la barra que reciben una clase, medidos UNA vez por gesto (como `medidas`). */
+  const filasBarra = useRef<{ filas: FilaBarra[]; sc: HTMLElement | null } | null>(null);
+  /**
+   * UNA CLASE SOBRE LA BARRA SE VE COMO UN RENGLÓN, NO COMO UNA TARJETA (08/10/2026, item 16). La
+   * copia de la tarjeta de una clase es igual a la de un módulo (la misma `.ugc-modcard`, con su chip
+   * de número) y mide 260×260: sobre la barra tapaba la lista entera y el renglón que la iba a recibir,
+   * y se leía como un MÓDULO NUEVO que se metía en la lista (medido en el banco con Chrome: la tarjeta
+   * encima de «Diagnóstico» y «Bonus», con «Bonus» marcado abajo, invisible). Sobre la barra la tarjeta
+   * se esconde y sigue al cursor una pastilla con el título, del alto de un renglón, al costado del
+   * cursor: el renglón marcado se ve y la clase se lee como lo que es.
+   */
+  const copiaGrande = useRef<HTMLElement | null>(null);
+  const pildora = useRef<HTMLElement | null>(null);
+  const quitarPildora = () => {
+    pildora.current?.remove();
+    pildora.current = null;
+    copiaGrande.current = null;
+  };
   // Los datos viajan por un ref: los handlers se arman en cada render y el gesto dura muchos.
   const datos = useRef(p);
   useEffect(() => { datos.current = p; });
@@ -100,13 +120,16 @@ export function useArrastreCurso(p: {
     manoRef.current = null;
     destinoRef.current = null;
     medidas.current = {};
+    filasBarra.current = null;
     setMano(null);
     setDestino(null);
     pararScroll();
     soltarCopia();
+    quitarPildora();
     quitarEmpuje.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `quitarPildora` sólo toca refs
   }, [pararScroll, soltarCopia]);
-  useEffect(() => () => { quitarEmpuje.current?.(); }, []);
+  useEffect(() => () => { quitarEmpuje.current?.(); quitarPildora(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** ¿Esta zona recibe lo que va en la mano? */
   const acepta = (z: ZonaCurso, m: ManoCurso): boolean => {
@@ -151,6 +174,16 @@ export function useArrastreCurso(p: {
       const t = e.target as Element | null;
       const z = typeof t?.closest === 'function' ? t.closest<HTMLElement>('[data-zona]')?.dataset.zona : undefined;
       if (!z || !acepta(z as ZonaCurso, m)) ponerDestino(null);
+      // Una clase sobre la barra: la pastilla en lugar de la tarjeta (ver `pildora`). Se escribe sobre
+      // los nodos, nunca con `setState` (uno por `dragover` redibuja el curso sesenta veces por segundo).
+      const p = pildora.current;
+      if (p) {
+        const enBarra = z === 'barra';
+        p.style.display = enBarra ? 'block' : 'none';
+        p.style.transform = `translate3d(${e.clientX + 14}px, ${e.clientY - 18}px, 0)`;
+        // `opacity` y no `visibility`: un hijo con su propio `visibility` se seguía viendo (el chip «Sin video»).
+        if (copiaGrande.current) copiaGrande.current.style.opacity = enBarra ? '0' : '1';
+      }
       for (const sc of scrollers) {
         if (sc.scrollHeight <= sc.clientHeight + 1) continue;
         const r = sc.getBoundingClientRect();
@@ -163,6 +196,8 @@ export function useArrastreCurso(p: {
       document.removeEventListener('dragover', empuje, true);
       document.removeEventListener('dragend', fin, true);
       document.removeEventListener('drop', fin, true);
+      // La pastilla también, acá: si el origen se desmontó en el medio, su `dragend` no llega.
+      quitarPildora();
       if (quitarEmpuje.current === fin) quitarEmpuje.current = null;
     };
     document.addEventListener('dragover', empuje, true);
@@ -203,6 +238,25 @@ export function useArrastreCurso(p: {
     // `body` salía como texto suelto (ver `montarCopia`).
     const raiz = nodo.closest<HTMLElement>('.ugc');
     montarCopia(nodo, e.clientX - r.left, e.clientY - r.top, raiz);
+    quitarPildora();
+    if (m.tipo === 'clase' && raiz) {
+      // La copia que acaba de colgar `montarCopia` es la última hija del `.ugc`. La pastilla va al lado,
+      // escondida hasta que la clase entre a la barra. Viste sola (estilos en línea): no depende de la
+      // hoja del curso, y no le cambia nada al hook de la copia que comparten el Plan y los kanban.
+      copiaGrande.current = raiz.lastElementChild as HTMLElement | null;
+      const p = document.createElement('div');
+      p.setAttribute('aria-hidden', 'true');
+      p.textContent = nodo.querySelector('.ugc-modcard-t')?.textContent?.trim() || 'Clase';
+      Object.assign(p.style, {
+        position: 'fixed', top: '0', left: '0', zIndex: '3001', display: 'none', pointerEvents: 'none',
+        maxWidth: '230px', padding: '8px 12px', borderRadius: '10px', whiteSpace: 'nowrap', overflow: 'hidden',
+        textOverflow: 'ellipsis', background: 'var(--u-lime, #d4f26a)', color: 'var(--u-ink, #16150f)',
+        border: '1.5px solid var(--u-ink, #16150f)', boxShadow: '0 10px 24px rgba(22, 21, 15, .35)',
+        font: '700 13px/1.2 var(--font-archivo), system-ui, sans-serif', transition: 'none',
+      });
+      raiz.appendChild(p);
+      pildora.current = p;
+    }
     if (raiz) montarEmpuje(raiz);
   };
 
@@ -221,10 +275,19 @@ export function useArrastreCurso(p: {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       if (z === 'barra' && m.tipo === 'clase') {
-        // Una clase sobre la barra no abre hueco: el módulo bajo el cursor la recibe entera.
-        const t = e.target as Element | null;
-        const k = (typeof t?.closest === 'function' ? t.closest<HTMLElement>('[data-arr-modulo]')?.dataset.arrModulo : null) ?? null;
-        ponerDestino(k && k !== m.moduloKey && datos.current.recibeClases(k) ? { zona: 'barra-clase', key: k } : null);
+        // Una clase sobre la barra no abre hueco: el módulo a la altura del cursor la recibe entera
+        // (`filaEnBarra`: también en el aire entre dos renglones, que antes no recibía nada).
+        if (!filasBarra.current) {
+          const sc = scrollerDe(e.currentTarget);
+          const off = desplazamiento(sc);
+          const filas = [...e.currentTarget.querySelectorAll<HTMLElement>('[data-arr-modulo]')]
+            .filter((n) => datos.current.recibeClases(n.dataset.arrModulo ?? ''))
+            .map((n) => { const r = n.getBoundingClientRect(); return { key: n.dataset.arrModulo ?? '', y1: r.top + off, y2: r.bottom + off }; });
+          filasBarra.current = { filas, sc };
+        }
+        const { filas, sc } = filasBarra.current;
+        const k = filaEnBarra(filas, e.clientY + desplazamiento(sc));
+        ponerDestino(k && k !== m.moduloKey ? { zona: 'barra-clase', key: k } : null);
         return;
       }
       const med = medir(z, e.currentTarget);

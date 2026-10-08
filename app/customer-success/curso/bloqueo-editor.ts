@@ -26,15 +26,19 @@ import type { ChipDato } from '@/app/_cursos/tipos';
 /** Una opción del selector. `default` = `null`: lo de siempre de ese objeto. */
 export type OpcionBloqueo = 'default' | Exclude<TipoBloqueo, 'etapa'>;
 
-/** Lo que dice cada opción: corto (es texto de pantalla). */
+/**
+ * Lo que dice cada opción: corto (es texto de pantalla). Desde el 08/10/2026 (item 15) son las
+ * condiciones de «Privado», con las palabras del pedido: «al enviar o aprobar la tarea de», «en el
+ * nivel N de la comunidad», «a mano».
+ */
 const TEXTO: Record<Exclude<OpcionBloqueo, 'default'>, string> = {
   abierto: 'Abierto',
   anterior: 'Al terminar el anterior',
   dias: 'Días después de entrar',
   fecha: 'En una fecha',
-  tarea: 'Al terminar otra clase',
-  nivel: 'Al llegar a un nivel',
-  manual: 'Lo abre el equipo',
+  tarea: 'Con la tarea de otra clase',
+  nivel: 'Con un nivel de la comunidad',
+  manual: 'A mano',
 };
 
 /** Lo de siempre, dicho para cada objeto. */
@@ -151,4 +155,46 @@ export function avisoDeBloqueo(objeto: ObjetoBloqueo, b: Bloqueo | null, titulo:
 export function chipDeBloqueo(b: Bloqueo | null | undefined, titulo: (claseId: number) => string | null): ChipDato | null {
   const a = avisoDeBloqueo('clase', b ?? null, titulo);
   return a ? { tono: 'aviso', texto: a } : null;
+}
+
+// ── Público o privado (08/10/2026, item 15) ───────────────────────────────────
+// Pedido de Martín, mirando el menú «…»: «la sección de "Público o Privado"... Si es público cualquiera
+// puede entrar, si es privado ahí viene el condicional». Es la MISMA pregunta de siempre (cuándo se
+// abre), partida en dos: «Público» es abierto para quien tiene el curso, y «Privado» abre la lista de
+// condiciones. Lo que se guarda no cambia (lib/curso-bloqueo.ts, el contrato de 8 tipos).
+
+/** Público (entra cualquiera con el curso) o privado (se abre con una condición). */
+export type Acceso = 'publico' | 'privado';
+
+/**
+ * Qué es «Público» para cada cosa: un VINCULADO por default espera a su etapa, así que público es
+ * `abierto` explícito; un suelto y una clase ya están abiertos por default, así que público es `null`
+ * (lo de siempre: «un candado de más que dice lo mismo» queda prohibido arriba).
+ */
+export function bloqueoPublico(objeto: ObjetoBloqueo): Bloqueo | null {
+  return objeto === 'vinculado' ? { tipo: 'abierto' } : null;
+}
+
+/** ¿Este candado es público o privado? Lo que es «abierto» para ese objeto es público. */
+export function accesoDe(objeto: ObjetoBloqueo, b: Bloqueo | null | undefined): Acceso {
+  if (objeto === 'vinculado') return b?.tipo === 'abierto' ? 'publico' : 'privado';
+  return !b || b.tipo === 'abierto' ? 'publico' : 'privado';
+}
+
+/**
+ * Las condiciones de «Privado», en orden. La de siempre de un vinculado («Al llegar a su etapa») va
+ * primera; un suelto y una clase no la tienen (no son una etapa), y ninguno ofrece «Abierto» acá:
+ * eso es «Público».
+ */
+export function opcionesPrivado(objeto: ObjetoBloqueo): Array<{ valor: OpcionBloqueo; texto: string }> {
+  return opcionesDeBloqueo(objeto).filter((o) => o.valor !== 'abierto' && (objeto === 'vinculado' || o.valor !== 'default'));
+}
+
+/**
+ * Con qué condición arranca «Privado» al elegirlo: la de siempre de un vinculado (esperar a su etapa),
+ * y «Al terminar el anterior» para un suelto y una clase — la que no pide ningún dato, así que se
+ * guarda en el acto y lo que se ve es lo que quedó.
+ */
+export function privadoInicial(objeto: ObjetoBloqueo): Bloqueo | null {
+  return objeto === 'vinculado' ? null : { tipo: 'anterior' };
 }

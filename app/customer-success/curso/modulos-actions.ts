@@ -18,7 +18,8 @@
 // agrupa por fases), o la clase como quedó.
 //
 // ⚠️ SIN `revalidatePath` SALVO DONDE CAMBIA EL KANBAN (crear, renombrar, vincular y reordenar
-// módulos): la pantalla del curso ya tiene lo que vuelve, y releer la página entera por cada gesto
+// módulos, y desde el 08/10/2026 borrar uno vinculado y devolverlo con «Deshacer», que quitan y
+// devuelven su columna): la pantalla del curso ya tiene lo que vuelve, y releer la página entera por cada gesto
 // pone medio segundo detrás de algo que se repite. El kanban de Clientes es otra página: ésa sí se
 // marca para que la próxima vez lea las etapas nuevas.
 //
@@ -29,16 +30,29 @@
 import { revalidatePath } from 'next/cache';
 import { puedeEditar, productoPropio } from './puerta-curso';
 import {
-  crearModulo, renombrarModulo, vincularModulo, reordenarModulos, borrarModulo, guardarBloqueo,
-  type ObjetivoBloqueo,
+  crearModulo, renombrarModulo, vincularModulo, reordenarModulos, borrarModulo, restaurarModulo, previaDeQuitar, guardarBloqueo,
+  type ObjetivoBloqueo, type EtapaQuitada,
 } from '@/lib/curso-modulos-datos';
-import { crearClase, moverClaseA, guardarCampoClase, type CambioClase } from '@/lib/curso-admin';
-import type { ModuloCurso } from '@/lib/curso-modulos';
+import { crearClase, moverClaseA, guardarCampoClase, restaurarClases, type CambioClase } from '@/lib/curso-admin';
+import { getUsuarioActual } from '@/lib/auth';
+import type { ModuloCurso, PreguntaDestino } from '@/lib/curso-modulos';
+import type { EtapaEntrega } from '@/lib/servicio-etapas';
 import type { Bloqueo } from '@/lib/curso-bloqueo';
 import type { Clase } from '@/lib/curso';
 
 type Fallo = { ok: false; error: string };
+/** Un rechazo que trae una PREGUNTA (a dónde van los clientes de una etapa que se quita). */
+type FalloConPregunta = { ok: false; error: string; pregunta?: PreguntaDestino };
 const fallo = (e: unknown, def: string): Fallo => ({ ok: false, error: e instanceof Error && e.message ? e.message : def });
+
+/** Quién firma la línea del historial de un cliente que se muda: el email de quien está logueado, como en el CRM. */
+async function autorActual(): Promise<string> {
+  try {
+    return (await getUsuarioActual())?.email?.trim() || 'CRM';
+  } catch {
+    return 'CRM';
+  }
+}
 
 /** Admin y producto propio: la puerta de todo lo que toca un curso por su producto. */
 async function puertaProducto(productoId: number): Promise<string | null> {
@@ -85,20 +99,33 @@ export async function renombrarModuloAction(productoId: number, clave: string, n
 }
 
 /**
- * Desvincula un módulo del kanban (`vincular: false`: su etapa queda en el kanban sin ser módulo, y
- * sus clases pasan a un módulo suelto con clave nueva) o vincula un suelto (`true`: nace su etapa).
- * Devuelve la clave NUEVA del módulo.
+ * El interruptor «Etapa del kanban» (08/10/2026, item 15). APAGARLO QUITA LA ETAPA DEL KANBAN: si tiene
+ * clientes y no llega `destino`, contesta la PREGUNTA (`pregunta`: cuántos y a dónde pueden ir) sin
+ * escribir nada; con destino, los muda SIN MENSAJES y sus clases pasan a un módulo suelto con clave
+ * nueva. PRENDERLO crea la etapa en su lugar; `devolver` (el «Deshacer» de haberlo apagado) la devuelve
+ * con su misma clave y en su mismo lugar. Devuelve la clave NUEVA del módulo y, al apagar, la etapa
+ * quitada (con cuántos clientes se mudaron).
  */
-export async function vincularModuloAction(productoId: number, clave: string, vincular: boolean): Promise<{ ok: true; clave: string; modulos: ModuloCurso[] } | Fallo> {
+export async function vincularModuloAction(
+  productoId: number,
+  clave: string,
+  vincular: boolean,
+  destino?: string | null,
+  devolver?: { etapa: EtapaEntrega; indice: number } | null,
+): Promise<{ ok: true; clave: string; modulos: ModuloCurso[]; quitada?: EtapaQuitada } | FalloConPregunta> {
   try {
     const no = await puertaProducto(productoId);
     if (no) return { ok: false, error: no };
     if (typeof vincular !== 'boolean') return { ok: false, error: 'No se entiende qué hacer.' };
-    const r = await vincularModulo(Number(productoId), String(clave ?? ''), vincular);
+    const r = await vincularModulo(Number(productoId), String(clave ?? ''), vincular, {
+      destino: typeof destino === 'string' ? destino : null,
+      devolver: devolver && typeof devolver === 'object' ? devolver : null,
+      por: await autorActual(),
+    });
     if (r.ok) alKanban();
     return r;
   } catch (e) {
-    return fallo(e, vincular ? 'No se pudo vincular.' : 'No se pudo desvincular.');
+    return fallo(e, vincular ? 'No se pudo vincular.' : 'No se pudo quitar la etapa.');
   }
 }
 
@@ -118,14 +145,59 @@ export async function reordenarModulosAction(productoId: number, claves: string[
   }
 }
 
-/** Borra un módulo SUELTO sin clases (una etapa se borra en el kanban). */
-export async function borrarModuloAction(productoId: number, clave: string): Promise<{ ok: true; modulos: ModuloCurso[] } | Fallo> {
+/**
+ * «Eliminar módulo» (08/10/2026, item 15): a la PAPELERA, con sus clases. Uno vinculado quita además su
+ * etapa del kanban: con clientes adentro y sin `destino`, contesta la PREGUNTA y no escribe nada.
+ * Devuelve los ids de las clases que se fueron con él y la etapa quitada: es lo que necesita el
+ * «Deshacer» (`restaurarModuloAction`).
+ */
+export async function borrarModuloAction(
+  productoId: number,
+  clave: string,
+  destino?: string | null,
+): Promise<{ ok: true; modulos: ModuloCurso[]; clases: number[]; movidos: number; quitada: EtapaQuitada | null } | FalloConPregunta> {
   try {
     const no = await puertaProducto(productoId);
     if (no) return { ok: false, error: no };
-    return await borrarModulo(Number(productoId), String(clave ?? ''));
+    const r = await borrarModulo(Number(productoId), String(clave ?? ''), { destino: typeof destino === 'string' ? destino : null, por: await autorActual() });
+    // Sólo si se quitó una columna: un suelto no cambia el kanban.
+    if (r.ok && r.quitada) alKanban();
+    return r;
   } catch (e) {
     return fallo(e, 'No se pudo borrar el módulo.');
+  }
+}
+
+/**
+ * Lo que pregunta «Eliminar módulo» ANTES de hacerlo: cuántos clientes hay en su etapa y a dónde pueden
+ * ir (las clases las cuenta la pantalla). No escribe nada.
+ */
+export async function previaQuitarAction(productoId: number, clave: string): Promise<{ ok: true; clientes: number; destinos: Array<{ key: string; label: string }> } | Fallo> {
+  try {
+    const no = await puertaProducto(productoId);
+    if (no) return { ok: false, error: no };
+    return await previaDeQuitar(Number(productoId), String(clave ?? ''));
+  } catch (e) {
+    return fallo(e, 'No pude contar sus clientes.');
+  }
+}
+
+/**
+ * El «Deshacer» de «Eliminar módulo»: el MISMO módulo (y su etapa en su lugar, si no tenía clientes),
+ * sus clases de la papelera y el orden de antes. Ver `restaurarModulo` (lib/curso-modulos-datos.ts).
+ */
+export async function restaurarModuloAction(
+  productoId: number,
+  r: { clave: string; clases: number[]; orden: string[]; quitada?: { etapa: EtapaEntrega; indice: number } | null },
+): Promise<{ ok: true; modulos: ModuloCurso[]; clases: Clase[] } | Fallo> {
+  try {
+    const no = await puertaProducto(productoId);
+    if (no) return { ok: false, error: no };
+    const x = await restaurarModulo(Number(productoId), r ?? {});
+    if (x.ok && r?.quitada) alKanban();
+    return x;
+  } catch (e) {
+    return fallo(e, 'No se pudo devolver el módulo.');
   }
 }
 
@@ -164,6 +236,21 @@ export async function crearClaseAction(productoId: number, moduloClave: string):
     return await crearClase(Number(productoId), String(moduloClave ?? ''));
   } catch (e) {
     return fallo(e, 'No se pudo crear la clase.');
+  }
+}
+
+/**
+ * El «Deshacer» de borrar una clase (08/10/2026, item 18): la saca de la PAPELERA (mig 0223) con todo
+ * lo suyo y la devuelve como quedó. Sin `revalidatePath`, como el resto de este archivo: la pantalla
+ * la vuelve a poner con lo que contesta esto.
+ */
+export async function restaurarClasesAction(productoId: number, ids: number[]): Promise<{ ok: true; clases: Clase[] } | Fallo> {
+  try {
+    const no = await puertaProducto(productoId);
+    if (no) return { ok: false, error: no };
+    return await restaurarClases(Number(productoId), ids);
+  } catch (e) {
+    return fallo(e, 'No se pudo devolver la clase.');
   }
 }
 

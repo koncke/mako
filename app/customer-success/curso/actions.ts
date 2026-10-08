@@ -3,7 +3,7 @@
 // =============================================================================
 // Server actions de la tab Curso (/customer-success/curso)
 // =============================================================================
-// Borrar y ordenar las clases de un producto, la subida de sus videos y cómo se ve el curso. Lo
+// Borrar y ordenar las clases de un producto, ver sus videos subidos y cómo se ve el curso. Lo
 // que se escribe y cómo se valida vive en lib/curso-admin.ts; acá está la PUERTA. Crear una clase y
 // guardar cada parte de la lección van por ./modulos-actions.ts (`crearClaseAction`,
 // `guardarCampoClaseAction`).
@@ -28,7 +28,7 @@
 import { revalidatePath } from 'next/cache';
 import { getUsuarioActual } from '@/lib/auth';
 import { puedeVer, puedeEditar, productoPropio } from './puerta-curso';
-import { borrarClase, moverClase, urlSubida, urlLectura, descartarVideo, renombrarClase, claseEsDelProducto } from '@/lib/curso-admin';
+import { borrarClase, moverClase, urlLectura, renombrarClase, claseEsDelProducto } from '@/lib/curso-admin';
 import { guardarAjusteEstilo } from '@/lib/curso-estilo-datos';
 import { ajusteValido, type Ajuste } from '@/lib/curso-estilo';
 import { anotarVistaAbierta } from './onboarding-sync';
@@ -72,27 +72,28 @@ export async function moverClaseAction(claseId: number, dir: 'arriba' | 'abajo')
   }
 }
 
-/** La URL firmada para que el navegador suba un video directo al bucket (ver `urlSubida`). */
-export async function urlSubidaVideoAction(productoId: number, mime: string, bytes: number): Promise<
-  { ok: true; path: string; signedUrl: string; apikey: string | null } | { ok: false; error: string }
+// ⚠️ SIN `urlSubidaVideoAction` NI `descartarVideoAction` desde el 08/10/2026 (item 11 de Martín:
+//    «Elimina la opción de "Subir vídeo", solo mediante link»). Eran la puerta de la subida, y una
+//    action sin pantalla es un POST abierto (ver la cabecera). Los videos YA subidos se siguen viendo:
+//    `urlVerVideoAction`, abajo, y la ruta del portal.
+
+/**
+ * Lo que hay en la COMUNIDAD del producto para armar un campo de tarea «Publicar en la comunidad» o
+ * «Comentar en la comunidad» (item 17 del 08/10/2026): las categorías donde puede publicar un alumno y
+ * los posts (los fijados y los más nuevos). Alcanza con poder editar el curso.
+ */
+export async function opcionesComunidadAction(productoId: number): Promise<
+  { ok: true; categorias: Array<{ id: number; nombre: string }>; posts: Array<{ id: number; titulo: string; fijado: boolean }> } | { ok: false; error: string }
 > {
   try {
     const no = await puedeEditar();
     if (no) return { ok: false, error: no };
-    return await urlSubida(Number(productoId), String(mime ?? ''), Number(bytes));
+    const ajeno = await productoPropio(Number(productoId));
+    if (ajeno) return { ok: false, error: ajeno };
+    const { opcionesParaTareas } = await import('@/lib/curso-tarea-comunidad');
+    return { ok: true, ...(await opcionesParaTareas(Number(productoId))) };
   } catch (e) {
-    return fallo(e, 'No pude preparar la subida.');
-  }
-}
-
-/** Borra un video subido que ninguna clase guardó (se salió de la lección, o el guardado rebotó). */
-export async function descartarVideoAction(path: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  try {
-    const no = await puedeEditar();
-    if (no) return { ok: false, error: no };
-    return await descartarVideo(String(path ?? ''));
-  } catch (e) {
-    return fallo(e, 'No se pudo descartar.');
+    return fallo(e, 'No pude leer la comunidad.');
   }
 }
 

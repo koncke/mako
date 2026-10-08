@@ -35,7 +35,11 @@ export type EstadoTarea = 'pendiente' | 'enviada' | 'aprobada';
  */
 export type CampoTipo =
   | 'texto' | 'linea' | 'numero' | 'eleccion' | 'checks' | 'tabla'
-  | 'archivo' | 'audio' | 'video' | 'link' | 'escala' | 'quiz' | 'checklist' | 'agenda' | 'confirmacion';
+  | 'archivo' | 'audio' | 'video' | 'link' | 'escala' | 'quiz' | 'checklist' | 'agenda' | 'confirmacion'
+  // Item 17 del 08/10/2026 («faltan opciones en las tareas para interactuar en la comunidad que
+  // hicimos»): el alumno PUBLICA un post o COMENTA uno desde la tarea, en la comunidad del producto
+  // (D8, lib/comunidad-datos.ts). Ver `esCampoDeComunidad` y lib/curso-tarea-comunidad.ts.
+  | 'publicar' | 'comentar';
 
 /**
  * Una pregunta de un quiz. Se contesta con UNA opción (radio) o, con `multiple`, con casillas.
@@ -96,6 +100,27 @@ export type Campo = {
   intentos?: number;
   /** agenda: el link para agendar la llamada (Calendly, Cal…). Sólo http/https (`linkValido`). */
   url?: string;
+  /**
+   * El TEXTO DE EJEMPLO del cuadro donde contesta el alumno (el `placeholder`), opcional. Sólo en los
+   * tipos que tienen un cuadro de texto (`conTextoDeEjemplo`).
+   *
+   * ⚠️ LA PREGUNTA NUNCA VA DE PLACEHOLDER (item 5 del 08/10/2026, Martín: «No podés poner la pregunta
+   *    dentro del cuadro de texto donde va a completar el alumno como si fuera un placeholder, eso
+   *    confunde... Tenés que poner arriba del cuadro del texto como título... Y también agregar la
+   *    opción de placeholder»). La pregunta es `label` y va ARRIBA, como título; esto es otra cosa, y
+   *    sin él el cuadro va vacío.
+   */
+  placeholder?: string;
+  /**
+   * publicar: en qué categoría de la comunidad cae el post. Ausente = la primera en la que puede
+   * publicar un alumno (lo resuelve el server al publicar: una categoría borrada no deja la tarea sin
+   * salida).
+   */
+  categoriaId?: number;
+  /** comentar: el post que se comenta. Ausente = el último FIJADO de la comunidad, al comentar. */
+  postId?: number;
+  /** comentar: el título de ese post cuando se eligió (lo que dibuja la vista previa del equipo). */
+  postTitulo?: string;
 };
 
 export type Clase = {
@@ -367,19 +392,60 @@ export function reproductorDeClase(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'vi
 
 /**
  * La TAPA de un video, para la tarjeta de la clase: la miniatura que la plataforma ya publica.
- * YouTube la sirve por id; Drive, la del primer fotograma (la misma que usa Conocimientos). El
- * resto —Vimeo, Loom, un archivo subido— no tiene una pública sin pedírsela a su API: va sin tapa
- * y la tarjeta queda con el degradé de la casa. `Miniatura` se hace cargo del 404.
+ * YouTube la sirve por id; Drive, la del primer fotograma (la misma que usa Conocimientos); Loom, la
+ * de su CDN (es la `thumbnail_url` que devuelve su oEmbed, medido el 08/10/2026:
+ * `cdn.loom.com/sessions/thumbnails/<id>-00001.jpg`). Un archivo subido no tiene: va sin tapa y la
+ * tarjeta queda con el degradé de la casa. `Miniatura` se hace cargo del 404.
+ *
+ * ⚠️ VIMEO NO SE PUEDE ARMAR CON EL ID: su miniatura es `i.vimeocdn.com/video/<otro id>-<hash>`, y lo
+ *    único que la dice es su oEmbed. La pide NUESTRA ruta (`/api/compartido/miniatura`), que la
+ *    busca en el server y redirige a la imagen: el navegador del alumno no le pregunta nada a Vimeo hasta
+ *    que abre la clase, y la respuesta queda en caché. Item 20 del 08/10/2026: «que por defecto esté
+ *    esa [la miniatura del video] siempre que haya vídeo».
  */
 export function tapaDeVideo(v: VideoVista | null | undefined): string | null {
   if (!v) return null;
   if (v.tipo === 'youtube') return `https://i.ytimg.com/vi/${encodeURIComponent(v.id)}/hqdefault.jpg`;
+  if (v.tipo === 'vimeo') {
+    // El embed lo escribió `embedDe`: el id son dígitos y el hash (de un video no listado) hexadecimal.
+    const m = /^https:\/\/player\.vimeo\.com\/video\/(\d{1,15})(?:\?h=([0-9a-f]{6,40}))?$/i.exec(v.embed);
+    return m ? `${RUTA_MINIATURA}?vimeo=${m[1]}${m[2] ? `&h=${m[2]}` : ''}` : null;
+  }
   if (v.tipo === 'iframe') {
     // El id ya viene escapado: lo escribió `embedDe`.
     const drive = /^https:\/\/drive\.google\.com\/file\/d\/([^/]+)\/preview$/.exec(v.embed);
     if (drive) return `https://drive.google.com/thumbnail?id=${drive[1]}&sz=w800`;
+    const loom = /^https:\/\/www\.loom\.com\/embed\/([0-9a-z_-]{6,64})$/i.exec(v.embed);
+    if (loom) return `https://cdn.loom.com/sessions/thumbnails/${loom[1]}-00001.jpg`;
   }
   return null;
+}
+
+/** La ruta que convierte un video de Vimeo en su miniatura (app/api/compartido/miniatura). */
+export const RUTA_MINIATURA = '/api/compartido/miniatura';
+
+/**
+ * Lo que la ruta de la miniatura acepta de un video de Vimeo: el id (dígitos) y, si es NO LISTADO, su
+ * hash. `null` = no es un pedido válido (la ruta contesta 404 sin salir a la red).
+ */
+export function vimeoDeMiniatura(id: unknown, hash: unknown): { id: string; hash: string | null } | null {
+  const i = typeof id === 'string' ? id.trim() : '';
+  const h = typeof hash === 'string' ? hash.trim() : '';
+  if (!/^\d{1,15}$/.test(i)) return null;
+  if (h && !/^[0-9a-f]{6,40}$/i.test(h)) return null;
+  return { id: i, hash: h || null };
+}
+
+/**
+ * ¿La miniatura que contestó Vimeo es de SU CDN? La ruta redirige ahí: comparar el ORIGEN (nunca un
+ * prefijo de la url, AGENTS.md) es lo que impide que un oEmbed alterado la vuelva un redirect abierto.
+ */
+export function esMiniaturaDeVimeo(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  try {
+    const u = new URL(raw);
+    return u.origin === 'https://i.vimeocdn.com' ? u.toString() : null;
+  } catch { return null; }
 }
 
 /**
@@ -518,7 +584,49 @@ export function etapaSiguiente(etapas: readonly string[], actual: string): strin
 const TIPOS_CAMPO: readonly CampoTipo[] = [
   'texto', 'linea', 'numero', 'eleccion', 'checks', 'tabla',
   'archivo', 'audio', 'video', 'link', 'escala', 'quiz', 'checklist', 'agenda', 'confirmacion',
+  'publicar', 'comentar',
 ];
+
+// ── El texto de ejemplo y la comunidad (items 5 y 17 del 08/10/2026) ─────────
+
+/** El largo del texto de ejemplo de un campo: es una pista adentro de un cuadro, no un párrafo. */
+export const TOPE_TEXTO_EJEMPLO = 120;
+
+/** ¿Este tipo tiene un CUADRO donde el alumno escribe? Sólo ésos llevan texto de ejemplo. */
+export const conTextoDeEjemplo = (t: CampoTipo | string | undefined): boolean =>
+  t === 'texto' || t === 'linea' || t === 'numero' || t === 'link';
+
+/** ¿Este tipo se contesta en la COMUNIDAD del producto (un post o un comentario)? */
+export const esCampoDeComunidad = (t: CampoTipo | string | undefined): t is 'publicar' | 'comentar' =>
+  t === 'publicar' || t === 'comentar';
+
+/**
+ * Lo que queda guardado de un campo de comunidad: QUÉ escribió el alumno, por referencia.
+ *   · publicar → `"<postId>"`
+ *   · comentar → `"<postId>/<comentarioId>"` (el post va adelante: es a dónde lleva el link de la ficha)
+ * `null` = no es una referencia de ese tipo.
+ *
+ * ⚠️ LA FORMA NO DICE QUE SEA SUYO: un número lo escribe cualquiera. Que el post (o el comentario) sea
+ *    de ESTE alumno en ESTE producto lo verifica la ruta de la tarea contra la base, antes de guardar
+ *    (lib/curso-tarea-comunidad.ts, `verificarComunidad`), igual que las entregas.
+ */
+export function refDeComunidad(tipo: CampoTipo | string, v: unknown): { postId: number; comentarioId: number | null } | null {
+  if (typeof v !== 'string') return null;
+  const m = tipo === 'publicar' ? /^(\d{1,12})$/.exec(v.trim()) : tipo === 'comentar' ? /^(\d{1,12})\/(\d{1,12})$/.exec(v.trim()) : null;
+  if (!m) return null;
+  const postId = Number(m[1]);
+  const comentarioId = m[2] ? Number(m[2]) : null;
+  if (!(postId > 0) || (tipo === 'comentar' && !(comentarioId! > 0))) return null;
+  return { postId, comentarioId };
+}
+
+/** La referencia escrita, en la forma de `refDeComunidad`. */
+export const valorDeComunidad = (postId: number, comentarioId?: number | null): string =>
+  comentarioId ? `${postId}/${comentarioId}` : String(postId);
+
+/** Un id positivo, o `undefined` (lo que se guarda en `categoriaId` / `postId`). */
+const idPositivo = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isInteger(v) && v > 0 && v < 1e15 ? v : undefined;
 const corta = (s: unknown, n: number): string => (typeof s === 'string' ? s.trim().slice(0, n) : '');
 /** Un entero dentro de [min, max]; lo que no es un número finito es `def`. */
 const entero = (v: unknown, min: number, max: number, def: number): number =>
@@ -631,6 +739,18 @@ export function sanearCampos(raw: unknown): Campo[] {
       c.intentos = entero(o.intentos, 0, 20, 0);
     }
     if (tipo === 'agenda') { const u = linkValido(o.url); if (u) c.url = u; }
+    // El texto de ejemplo, sólo donde hay un cuadro (item 5). Ausente en un campo que no lo tiene: los
+    // programas cargados siguen saliendo idénticos (ver la cabecera).
+    if (conTextoDeEjemplo(tipo)) { const p = corta(o.placeholder, TOPE_TEXTO_EJEMPLO).replace(/\s+/g, ' '); if (p) c.placeholder = p; }
+    if (tipo === 'publicar') { const n = idPositivo(o.categoriaId); if (n) c.categoriaId = n; }
+    if (tipo === 'comentar') {
+      const n = idPositivo(o.postId);
+      if (n) {
+        c.postId = n;
+        const t = corta(o.postTitulo, 200);
+        if (t) c.postTitulo = t;
+      }
+    }
     if (o.obligatorio === true || tipo === 'quiz') c.obligatorio = true;
     out.push(c);
   }
@@ -929,6 +1049,10 @@ export function sanearValores(campos: readonly Campo[], raw: unknown, dueno?: Du
       if (Number.isInteger(n) && n >= e.min && n <= e.max) out[c.id] = String(n);
     } else if (c.tipo === 'agenda' || c.tipo === 'confirmacion') {
       if (v === 'si') out[c.id] = 'si';
+    } else if (esCampoDeComunidad(c.tipo)) {
+      // Sólo la FORMA de la referencia: que sea SUYA lo mira la ruta contra la base (ver `refDeComunidad`).
+      const r = refDeComunidad(c.tipo, v);
+      if (r) out[c.id] = valorDeComunidad(r.postId, r.comentarioId);
     } else if (c.tipo === 'link') {
       const u = linkValido(v);
       if (u) out[c.id] = u;
@@ -1095,7 +1219,7 @@ export function conQuizzesAprobadosIntactos(campos: readonly Campo[], raw: unkno
  * solo (quiz) y lo que el alumno declara de sí mismo (una escala, una opción, «lo hice»).
  * Un texto, una tabla, un link o un archivo son un ENTREGABLE: alguien del equipo tiene que verlo.
  */
-const SIN_REVISION: ReadonlySet<CampoTipo> = new Set<CampoTipo>(['quiz', 'escala', 'eleccion', 'checks', 'checklist', 'confirmacion', 'agenda', 'numero']);
+const SIN_REVISION: ReadonlySet<CampoTipo> = new Set<CampoTipo>(['quiz', 'escala', 'eleccion', 'checks', 'checklist', 'confirmacion', 'agenda', 'numero', 'publicar', 'comentar']);
 
 /**
  * ¿Una tarea con el quiz aprobado queda APROBADA sola (sin que el equipo la marque revisada)?

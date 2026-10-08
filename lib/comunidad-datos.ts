@@ -185,6 +185,34 @@ async function categoriasDe(ws: number, productoId: number): Promise<CategoriaVi
 
 const aRegla = (c: CategoriaVista): CategoriaRegla => ({ id: c.id, nombre: c.nombre, permiso: c.permiso });
 
+// ── Lo que usa la TAREA de un curso (item 17 del 08/10/2026, lib/curso-tarea-comunidad.ts) ──────
+// Un campo «Publicar en la comunidad» / «Comentar en la comunidad»: el equipo elige la categoría o el
+// post al armar la tarea, y el alumno publica o comenta desde su portal con `publicarPost` / `comentar`
+// (las de acá, no una copia). Estas dos son las lecturas que eso necesita, con la misma puerta (`de`).
+
+/** Las categorías de la comunidad de un producto, en su orden (la misma lectura que el feed). */
+export async function categoriasDeLaComunidad(ws: number, productoId: number): Promise<CategoriaVista[]> {
+  return categoriasDe(ws, productoId);
+}
+
+/** El post fijado MÁS NUEVO de la comunidad (`null` = no hay ninguno): el default de «Comentar». */
+export async function ultimoPostFijado(ws: number, productoId: number): Promise<{ id: number; titulo: string } | null> {
+  const { data, error } = await de(ws, 'comunidad_posts').select('id, titulo')
+    .eq('producto_id', productoId).not('fijado_at', 'is', null).order('fijado_at', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  const f = data as { id: number; titulo: string } | null;
+  return f ? { id: Number(f.id), titulo: f.titulo } : null;
+}
+
+/** De qué producto es un post (para abrir la comunidad en él desde un link). `null` = no está. */
+export async function productoDelPost(ws: number, postId: number): Promise<number | null> {
+  if (!Number.isInteger(postId) || postId <= 0) return null;
+  const { data, error } = await de(ws, 'comunidad_posts').select('producto_id').eq('id', postId).maybeSingle();
+  if (error) throw new Error(error.message);
+  const f = data as { producto_id: number } | null;
+  return f ? Number(f.producto_id) : null;
+}
+
 /** Los puntos de unos miembros (likes recibidos en este producto). Sólo los pedidos. */
 async function puntosDe(ws: number, productoId: number, claves: readonly string[]): Promise<Map<string, number>> {
   const unicas = [...new Set(claves)];
@@ -1184,7 +1212,7 @@ async function aperturasDelCurso(a: Actor): Promise<Record<number, string[]>> {
     for (const m of cur.modulos) if (ve(m.clave)) items.push({ nombre: m.nombre, bloqueo: m.bloqueo });
     const existen = new Set(cur.modulos.map((m) => m.clave));
     const { data, error } = await getSupabaseServer().from('curso_clases').select('titulo, etapa, bloqueo')
-      .eq('workspace_id', a.ws).eq('producto_id', a.productoId);
+      .eq('workspace_id', a.ws).eq('producto_id', a.productoId).is('borrada_at', null);
     if (error) throw new Error(error.message);
     for (const f of (data ?? []) as Array<{ titulo: string; etapa: string; bloqueo: unknown }>) {
       if (existen.has(f.etapa) && ve(f.etapa)) items.push({ nombre: f.titulo, bloqueo: f.bloqueo });
