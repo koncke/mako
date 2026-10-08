@@ -62,7 +62,22 @@ export function resolverDueño(o: DueñoCrudo, yo: Yo, participantes: Participan
   const dueñoDicho = String(o.dueño ?? '').trim().slice(0, 80);
   const dn = normNombre(dueñoDicho);
   const propuesto = String(o.dueñoEmail ?? '').trim().toLowerCase();
-  const emailReal = porEmail.has(propuesto) ? propuesto : (dn ? porNombre.get(dn) ?? '' : '');
+  // ⚠️ SIN NOMBRE EXACTO, VALE UN NOMBRE QUE ARRANCA IGUAL, SI ES UNO SOLO. Desde el
+  // 07/10/2026 los invitados que salen de Google Calendar NO van al prompt (Uso Limitado
+  // de Google, lib/datos-google-ia.ts): el modelo escribe el nombre como lo oyó
+  // («Juan») y el email lo pone acá el código, contra «Juan Pérez» del calendario.
+  // «Juan Gómez» no cae en «Juan Pérez» (tiene que ARRANCAR igual), y con dos Juanes
+  // con email no se elige ninguno.
+  const porPrefijo = (): string => {
+    if (!dn) return '';
+    const c = participantes.filter((p) => p.email.trim() && p.nombre
+      && (normNombre(p.nombre) === dn || normNombre(p.nombre).startsWith(`${dn} `)));
+    return c.length === 1 ? c[0].email.trim().toLowerCase() : '';
+  };
+  // `propuesto &&`: un invitado SIN email (un hablante de Fathom en un Meet improvisado)
+  // deja la clave '' en `porEmail`, y un modelo que no puso email «matcheaba» esa fila
+  // vacía — o sea que nunca llegaba al rescate por nombre. Lo destapó el test del Juan.
+  const emailReal = propuesto && porEmail.has(propuesto) ? propuesto : (dn ? porNombre.get(dn) || porPrefijo() : '');
 
   // ¿Otro participante comparte mi primer nombre? Entonces el primer nombre no alcanza
   // para decidir (dos Martines en la reunión) y solo vale el email.

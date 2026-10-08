@@ -430,9 +430,9 @@ sale por HTTP, tampoco figura).
   en el historial del lead.
 - **Si la reunión entró por Cal.com (o Calendly) y se mueve en Google, el proveedor de
   reservas no se entera.** El evento de Google se mueve; la reserva sigue con la hora vieja.
-- **El Uso Limitado de Google sigue abierto** (`docs/hallazgos-ia.md`): estas tools pasan
-  títulos de eventos por el modelo del doer. Es para la función que la persona pidió, pero
-  con una key gratis de Gemini el problema de fondo es el mismo.
+- ~~El Uso Limitado de Google sigue abierto~~ **Cerrado el mismo día**: estas tools llevan
+  `datosDeGoogle: true` y un turno que las ofrece corre sólo en proveedores que no entrenan
+  (`lib/datos-google-ia.ts`, detalle en `docs/hallazgos-ia.md`).
 
 *07/10/2026 — sin subagentes; medido armando el turno y rompiendo el test cinco veces
 (2, 2, 1, 1 y 1 fallos). Commit `c3c2ef17`.*

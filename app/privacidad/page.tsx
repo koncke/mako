@@ -183,10 +183,13 @@ export default function Page() {
         artificial de uso general</strong>.
       </p>
       <p>
-        Lo que sí ocurre, y es parte de la función que pediste: cuando MaKo arma el resumen de una
-        reunión o reparte las tareas que salieron de ella, el nombre y el correo de los invitados a
-        ese evento pueden ir dentro del pedido que se le hace al modelo de inteligencia artificial
-        que produce ese resumen. Es un procesamiento puntual para darte ese resultado.
+        Lo que sí ocurre, y es parte de la función que pediste: cuando le pides a MaKo, por
+        WhatsApp o en el chat, que agende, mueva o te cuente las reuniones de un contacto, el título
+        y el horario de esos eventos pasan por un modelo de inteligencia artificial para entender
+        tu pedido y contestarte. Esos pedidos los atiende <strong>únicamente un proveedor que, por
+        contrato, no usa lo que recibe para entrenar sus modelos</strong>. Y cuando MaKo reparte
+        las tareas de una reunión, los invitados de tu calendario no se le mandan a ningún modelo:
+        los cruza el sistema.
       </p>
       <Ojo>
         <strong>Desconectar tu agenda en MaKo no revoca el permiso en Google.</strong> Al
@@ -312,7 +315,8 @@ export default function Page() {
           <strong>Proveedores de inteligencia artificial</strong> — Anthropic (Claude), Google
           (Gemini), OpenAI, Groq, Mistral y Cerebras. Reciben el texto de cada pedido, que según
           la función puede incluir la ficha de un contacto, una conversación o el análisis de una
-          llamada.
+          llamada. Lo que sale de tu Google Calendar va solo a los que no entrenan con lo que
+          reciben: Anthropic, OpenAI y Groq.
         </li>
         <li><strong>Google</strong> — para entrar y, si la conectas, para tu agenda.</li>
         <li><strong>Resend</strong> — el envío de correos.</li>

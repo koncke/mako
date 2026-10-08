@@ -68,6 +68,8 @@ export const DEFS: readonly OperacionDef[] = [
     // SIN http: fathomR1/fathomR2 traen el share_url de Fathom, el link público a la
     // grabación y la transcripción de una llamada de venta con una persona.
     salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: TAB, lenta: true,
+    // De rebote: las fechas de R1/R2 pueden salir de Google Calendar (lib/auto-reuniones.ts).
+    datosDeGoogle: true,
   },
   {
     id: 'reuniones_recientes', area: 'crm', tipo: 'lectura',
@@ -244,6 +246,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'duracion_min', tipo: 'number', entero: true, minimo: 15, maximo: 240, descripcion: 'minutos de la reunión (default 45): el hueco solo cuenta si entra entera.' },
     ],
     salida: 'json', canales: TODOS, costo: 'externo', gating: { tab: 'crm', integracion: 'google-calendar' },
+    datosDeGoogle: true,
   },
   {
     id: 'reuniones_agenda_lead', area: 'crm', tipo: 'lectura',
@@ -257,7 +260,7 @@ export const DEFS: readonly OperacionDef[] = [
     // SIN http: son los eventos de la agenda de Google del negocio, con el nombre de
     // terceros en el título. Exponerlos a un bearer es decidirlo (snapshot), y además
     // pasa por la Política de Uso Limitado de los datos de Google.
-    salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: GOOGLE,
+    salida: 'json', canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
   },
   {
     id: 'link_agenda_calendly', area: 'crm', tipo: 'lectura',
@@ -350,7 +353,7 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     // SIN http, por lo mismo que reuniones_agenda_lead y porque manda una invitación a
     // un tercero desde la cuenta de Google del negocio.
-    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE,
+    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
     reversible: false, escribe: 'crea un evento en la agenda de Google del negocio, Google le manda la invitación al lead, y queda en el historial del lead',
   },
   {
@@ -363,7 +366,7 @@ export const DEFS: readonly OperacionDef[] = [
       fechaIso('fecha', 'YYYY-MM-DD del día nuevo.', true),
       { nombre: 'hora', tipo: 'string', obligatorio: true, max: 5, descripcion: 'HH:MM nueva, en 24 h y en la zona del negocio.' },
     ],
-    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE,
+    canales: SIN_HTTP, costo: 'externo', gating: GOOGLE, datosDeGoogle: true,
     reversible: false, escribe: 'cambia el horario del evento en la agenda de Google del negocio (Google les avisa a los invitados) y deja el cambio en el historial del lead',
   },
   {

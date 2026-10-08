@@ -42,6 +42,37 @@ test('la tarea del consultor SÍ es de otro', () => {
   assert.equal(r.dueñoEmail, 'fran@ejemplo.com');
 });
 
+// Los invitados de Google Calendar ya no van al prompt (Uso Limitado, 07/10/2026): el
+// modelo escribe el nombre como lo oyó y el email lo pone el código. Probado rompiéndolo,
+// una rotura por vez y con todo en verde antes: sin `porPrefijo` caen 2 (éste y el del Meet
+// improvisado); con `startsWith(dn)` sin el espacio, el de «Ju» (1); contando también a los
+// sin email, el del Meet (1); y sin el `propuesto &&` de `emailReal`, el del Meet (1).
+test('un primer nombre que arranca UN solo invitado con email le pone su email', () => {
+  const cal = [...PARTICIPANTES, { nombre: 'Juan Pérez', email: 'juan@cliente.com' }];
+  const r = resolverDueño({ dueño: 'Juan', esMio: false }, YO, cal);
+  assert.equal(r.dueñoEmail, 'juan@cliente.com');
+  assert.equal(r.esDeOtro, true);
+});
+
+test('con dos Juanes con email no se elige ninguno, y otro apellido no cuenta', () => {
+  const dos = [...PARTICIPANTES, { nombre: 'Juan Pérez', email: 'juan@cliente.com' }, { nombre: 'Juan Ruiz', email: 'ruiz@cliente.com' }];
+  assert.equal(resolverDueño({ dueño: 'Juan', esMio: false }, YO, dos).dueñoEmail, '');
+  const uno = [...PARTICIPANTES, { nombre: 'Juan Pérez', email: 'juan@cliente.com' }];
+  assert.equal(resolverDueño({ dueño: 'Juan Gómez', esMio: false }, YO, uno).dueñoEmail, '');
+});
+
+// El caso del Meet improvisado: Fathom trae «Juan» SIN email (el hablante) y el
+// calendario trae a «Juan Pérez» con el suyo. Son la misma persona, no dos Juanes.
+test('el mismo Juan, por Fathom sin email y por el calendario con email, no se anula', () => {
+  const mezcla = [...PARTICIPANTES, { nombre: 'Juan', email: '' }, { nombre: 'Juan Pérez', email: 'juan@cliente.com' }];
+  assert.equal(resolverDueño({ dueño: 'Juan', esMio: false }, YO, mezcla).dueñoEmail, 'juan@cliente.com');
+});
+
+test('un pedazo de nombre no es un nombre', () => {
+  const cal = [...PARTICIPANTES, { nombre: 'Juan Pérez', email: 'juan@cliente.com' }];
+  assert.equal(resolverDueño({ dueño: 'Ju', esMio: false }, YO, cal).dueñoEmail, '');
+});
+
 test('un email inventado (que no estuvo en la reunión) se descarta', () => {
   const r = resolverDueño({ dueño: 'Alguien', dueñoEmail: 'random@nadie.com', esMio: false }, YO, PARTICIPANTES);
   assert.equal(r.dueñoEmail, '');

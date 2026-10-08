@@ -31,6 +31,7 @@ import { clavesAProbar, clavesDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
+import { herramientasConDatosDeGoogle, puedeRecibirDatosDeGoogle, ProveedorQueEntrenaError } from '@/lib/datos-google-ia';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 /** `clave` = de QUÉ credencial salió esta key. Con varias cuentas del mismo
@@ -820,6 +821,14 @@ export async function chatCheapTools(
 ): Promise<CheapToolsResult> {
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
+  // ⚠️ DATOS DE GOOGLE, SÓLO A UN PROVEEDOR QUE NO ENTRENA (lib/datos-google-ia.ts).
+  // Va acá, antes del primer pedido, porque es el único lugar por el que pasan los
+  // dos doers (WhatsApp y el chat de la app) y la cascada. Quien elige el proveedor
+  // ya lo filtra; esto es la red: si se le escapó, el pedido no sale. Se decide por
+  // las herramientas OFRECIDAS y no por las usadas: cambiar de proveedor a mitad del
+  // turno repetiría una acción que ya dejó su pendiente.
+  const deGoogle = herramientasConDatosDeGoogle(tools);
+  if (deGoogle.length && !puedeRecibirDatosDeGoogle(p.nombre)) throw new ProveedorQueEntrenaError(p.nombre, deGoogle);
   const model = opts.model || p.chatModel;
   const esGemini = p.nombre === 'gemini';
   const oaiTools = tools.map((t) => {
@@ -1066,7 +1075,10 @@ export async function chatCheapToolsCascade(
     toolChoicePrimerPaso?: 'required'; erroresOut?: string[];
   } = {},
 ): Promise<CheapToolsResult | null> {
-  const pedidos = opts.provs ?? CASCADA_TOOLS;
+  // Con datos de Google en el turno, los que entrenan ni se prueban: sin esto cada
+  // uno dejaría un error de más en la lista con la que se elige el mensaje al cliente.
+  const conGoogle = herramientasConDatosDeGoogle(tools).length > 0;
+  const pedidos = (opts.provs ?? CASCADA_TOOLS).filter((p) => !conGoogle || puedeRecibirDatosDeGoogle(p));
   const orden = await ordenarPorCuota(pedidos.map(String)).catch(() => pedidos.map(String));
   for (const prov of orden as ProvName[]) {
     for (const inst of await provsDe(prov)) {

@@ -4,7 +4,7 @@ App OAuth del proyecto `mako-500317` (cuenta martinkoncke@gmail.com), cliente «
 Publicada («In production») el 07/10/2026 y **sin verificar**: quien conecta su agenda ve
 «Google no verificó esta app» y la app tiene un tope de 100 usuarios en toda su vida.
 
-**Estado al 07/10/2026: no se envió nada a Google.** Google tarda 3 a 5 días hábiles una vez
+**Estado al 07/10/2026: no se envió nada a Google; el Uso Limitado quedó resuelto.** Google tarda 3 a 5 días hábiles una vez
 enviada ([requisitos oficiales](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)).
 
 ## Lo que pide Google, y cómo estamos
@@ -15,7 +15,7 @@ enviada ([requisitos oficiales](https://developers.google.com/identity/protocols
 | 2 | Cada dominio autorizado, verificado en Search Console por un dueño del proyecto | ❌ `hola-mako.com` no está verificado en martinkoncke@. Y sobran dos dominios muertos |
 | 3 | Los permisos declarados en *Data Access*, con su justificación | ❌ No hay ninguno declarado |
 | 4 | Un video en YouTube, oculto y en inglés | ❌ Hay que grabarlo (guion abajo) |
-| 5 | Una política de privacidad que coincida con lo que hace la app | ⚠️ Publicada, pero hoy es falsa para una parte de los clientes |
+| 5 | Una política de privacidad que coincida con lo que hace la app | ✅ Desde el 07/10 (decisión de Martín: los datos de Google van sólo a una IA que no entrena) |
 
 ⚠️ **El Verification Center dice «Verification is not required».** Lo dice porque *Data
 Access* tiene cero permisos declarados, no porque la app no los use: el código pide
@@ -34,19 +34,18 @@ pantalla de app no verificada. Es un verde engañoso.
 
 ### 5 · Privacidad: el Uso Limitado
 
-La política publicada promete que los datos del calendario **no se usan para entrenar
-modelos de IA**. Hoy no es cierto en dos caminos, porque los dos pueden correr con la key
-**gratis** de Gemini del cliente, y Google usa lo que entra al plan gratis para mejorar sus
-productos (con revisión humana):
+La política promete que los datos del calendario **no se usan para entrenar modelos de IA**,
+y hasta el 07/10 no era cierto para los clientes con la key gratis de Gemini (Google
+entrena con el plan gratis). Martín decidió:
 
-- **El reparto de tareas de una reunión** (`plan-fathom`): cuando Fathom no trae los correos,
-  los invitados del calendario (nombre y correo) entran al prompt
-  (`lib/plan-fathom.ts`, `invitadosDeReunionPorFecha`).
-- **Agendar y mover por WhatsApp** (desde el 07/10): el título y el horario de los eventos
-  vuelven al modelo del doer como resultado de la herramienta (`lib/api-mako/areas/crm.run.ts`).
+- **Un pedido a una IA que lleve datos de Google Calendar lo atiende sólo un proveedor que
+  no entrena** (Groq, OpenAI, Anthropic). Lo aplica `lib/datos-google-ia.ts` en el loop de
+  herramientas, y lo fija `tests/datos-google-ia.test.ts`.
+- **En el reparto de tareas de una reunión, los invitados del calendario ya no van al
+  prompt**: el código les pone el email por nombre (`resolverDueño`).
 
-Hasta que eso se resuelva, enviar la verificación es afirmar algo falso. El detalle está en
-`docs/hallazgos-ia.md` → «La promesa de "Uso Limitado"…».
+El detalle, con lo que quedó sin tratar, en `docs/hallazgos-ia.md` → «La promesa de
+"Uso Limitado"…».
 
 ## Para pegar en *Data Access* (en inglés: lo lee un revisor de Google)
 
@@ -61,7 +60,8 @@ iniciar sesión.
 > event when the owner asks for it, either from the lead's page in the CRM or by writing to
 > MaKo on WhatsApp ("move Juan's visit to Friday at 10"). Every change is shown to the owner
 > and only applied after the owner confirms it. Google notifies the attendees of the change.
-> We need write access to events because creating and moving events is the feature;
+> When a request carries calendar data, MaKo only sends it to AI providers that contractually
+> do not train on it (Groq, OpenAI, Anthropic). We need write access to events because creating and moving events is the feature;
 > a read-only scope cannot do it.
 
 **`https://www.googleapis.com/auth/calendar.readonly`**
@@ -71,11 +71,9 @@ iniciar sesión.
 > business's local time; (2) show the owner's free and busy slots before booking or moving
 > a meeting (`freeBusy.query`), so MaKo does not propose a time that collides with another
 > event; and (3) find the attendees of a recorded meeting by its date, so the action items
-> of that meeting can be assigned to the right person. `calendar.events` does not allow
+> of that meeting can be assigned to the right person (this matching is done by our code;
+> the attendee list is never sent to an AI model). `calendar.events` does not allow
 > `calendars.get` or `freeBusy.query`, which is why both scopes are requested.
-
-⚠️ El punto (3) y la frase sobre la IA dependen de la decisión del Uso Limitado: si los
-invitados dejan de ir a la IA, el texto se queda; si se saca esa función, se borra el (3).
 
 ## Guion del video (3 a 4 minutos, en inglés)
 
@@ -103,7 +101,7 @@ Subir a YouTube como **Unlisted** («Oculto») y pegar el link en el formulario.
 
 ## El orden para enviarla
 
-1. Decidir el Uso Limitado y aplicarlo en el código (y en `/privacidad` si cambia algo).
+1. ~~Decidir el Uso Limitado y aplicarlo en el código y en `/privacidad`~~ — hecho el 07/10.
 2. Verificar `hola-mako.com` y sacar los dos dominios muertos.
 3. Declarar los permisos en *Data Access* con los textos de arriba.
 4. Grabar y subir el video.

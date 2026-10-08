@@ -172,6 +172,13 @@ type Base = {
   /** nombres anteriores (de MAKO_TOOLS, MAKO_ACCION_TOOLS o de /api/agente/*) que
    *  siguen resolviendo acá. Los usa el doer, la skill instalada y las pendientes. */
   alias?: readonly string[];
+  /** true si lo que DEVUELVE al modelo sale de la API de Google (eventos, horarios,
+   *  invitados de Google Calendar), aunque sea de rebote. No es una etiqueta: un turno
+   *  que ofrece una herramienta así corre SÓLO en proveedores que no entrenan con lo
+   *  que reciben (`lib/datos-google-ia.ts`). Es el Uso Limitado de Google, y la
+   *  promesa que hace /privacidad. Un runner que llama a `lib/google-calendar` sin
+   *  declararlo no pasa `tests/datos-google-ia.test.ts`. */
+  datosDeGoogle?: true;
   /** true si puede pasar de 30 s (pagina tablas grandes, sale a un proveedor lento).
    *  Va al catálogo; la ruta HTTP tiene `maxDuration = 60`. */
   lenta?: true;

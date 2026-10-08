@@ -43,7 +43,13 @@ import { invitadosDeReunionPorFecha } from './google-calendar';
 export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 
 /** Alguien que estuvo en la reunión (nombre + email de la invitación de calendario). */
-export type Participante = { nombre: string; email: string };
+export type Participante = {
+  nombre: string; email: string;
+  /** Salió de la API de Google Calendar, no de Fathom. Ése NO va al prompt (Uso Limitado
+   *  de Google, lib/datos-google-ia.ts): sirve para que el CÓDIGO le ponga el email al
+   *  dueño de cada tarea (`resolverDueño`), nunca para que lo lea un modelo. */
+  delCalendario?: true;
+};
 
 /**
  * Setting donde queda cacheada una extracción (por workspace): sus tareas Y sus
@@ -704,8 +710,14 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     : '(no hay proyectos — deja proyectoId en null)';
 
   const participantes = opts.participantes ?? [];
-  const listaParticipantes = participantes.length
-    ? participantes.map((p) => `- ${p.nombre || '(sin nombre)'} <${p.email}>`).join('\n')
+  // ⚠️ LOS QUE SALIERON DE GOOGLE CALENDAR NO VAN AL PROMPT. Esta extracción corre en
+  // Gemini con la key del cliente, y el plan gratis entrena con lo que recibe: mandarle
+  // los invitados de la agenda rompía el Uso Limitado de Google y la promesa de
+  // /privacidad (decisión de Martín, 07/10/2026). El modelo escribe el nombre como lo
+  // oyó y `coerceCandidatas` —que sí recibe la lista entera— le pone el email.
+  const paraElPrompt = participantes.filter((p) => !p.delCalendario);
+  const listaParticipantes = paraElPrompt.length
+    ? paraElPrompt.map((p) => `- ${p.nombre || '(sin nombre)'} <${p.email}>`).join('\n')
     : '(no tengo la lista de invitados — deja "dueñoEmail" siempre en "")';
 
   const sys = await brandSystem(await renderPrompt('plan-fathom.extraer.system', PLAN_FATHOM_SYSTEM_TEMPLATE, { jsonShape: PLAN_FATHOM_JSON_SHAPE, molde: MOLDE_DETALLE }));
@@ -868,7 +880,7 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
         // Los del calendario primero (traen email); los que ya estaban por nombre se
         // conservan solo si el calendario no los cubrió.
         participantes = [
-          ...delCal.map((i) => ({ nombre: i.nombre, email: i.email })),
+          ...delCal.map((i) => ({ nombre: i.nombre, email: i.email, delCalendario: true as const })),
           ...participantes.filter((p) => !p.email && !delCal.some((i) => i.nombre.trim().toLowerCase() === p.nombre.trim().toLowerCase())),
         ];
         console.log(`[plan-fathom] reunión ${recordingId}: Fathom no trajo emails y los puso Google Calendar (${delCal.length}; ya había ${vistos.size} por nombre)`);

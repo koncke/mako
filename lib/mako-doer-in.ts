@@ -41,6 +41,7 @@ import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+import { herramientasConDatosDeGoogle, puedeRecibirDatosDeGoogle } from '@/lib/datos-google-ia';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
@@ -1212,7 +1213,25 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
              * el que estaba pensado para exactamente este turno. Estuvo inalcanzable
              * desde el 13/08 por el bug de `provsDe`.
              */
-            const cands = [pin.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
+            /**
+             * ⚠️ CON DATOS DE GOOGLE EN EL TURNO, SÓLO PROVEEDORES QUE NO ENTRENAN.
+             *
+             * Decisión de Martín (07/10/2026, Uso Limitado de Google): si el turno ofrece una
+             * herramienta que devuelve eventos u horarios de Google Calendar, el pin de Gemini
+             * no corre — el plan gratis entrena con lo que recibe, y una key paga no se
+             * distingue. Para un cliente con sólo Gemini (el ws13) eso deja cero instancias
+             * suyas y el turno lo atiende la red de plataforma, que se filtra igual más abajo.
+             * `chatCheapTools` tiene la misma guarda como red (lib/datos-google-ia.ts).
+             */
+            const conDatosDeGoogle = herramientasConDatosDeGoogle(tools).length > 0;
+            const cands = [pin.provider, 'groq', 'openai']
+              .filter((p, i, a) => a.indexOf(p) === i)
+              .filter((p) => !conDatosDeGoogle || puedeRecibirDatosDeGoogle(p));
+            // Las cuentas del cliente que se apartaron por eso: si el turno igual falla, no
+            // es «no tenés IA» — fue una decisión nuestra (ver causaDelFallo).
+            const apartadas = conDatosDeGoogle && !puedeRecibirDatosDeGoogle(pin.provider)
+              ? (await provsDe(pin.provider as Parameters<typeof provsDe>[0]).catch(() => [])).length
+              : 0;
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
@@ -1394,7 +1413,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               const distintoPrimero = [
                 ...red.filter((r) => r.provider !== pin.provider),
                 ...red.filter((r) => r.provider === pin.provider),
-              ];
+              ].filter((r) => !conDatosDeGoogle || puedeRecibirDatosDeGoogle(r.provider));
               for (const r of distintoPrimero) {
                 if (Date.now() > limite) {
                   console.error(`[mako-doer-in] red de plataforma cortada por tiempo: ${probados}/${red.length} probados`);
@@ -1463,12 +1482,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             }
             if (!respuesta) {
               const err = (ultErr instanceof Error ? ultErr : new Error('todas las IA baratas fallaron')) as Error & {
-                erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number;
+                erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number; apartadas?: number;
               };
               err.erroresIA = erroresIA;
               err.erroresPlataforma = erroresPlataforma;
               err.probadas = probadasCliente;
               err.contestaron = contestaronCliente;
+              err.apartadas = apartadas;
               throw err;
             }
           } else {
@@ -1503,13 +1523,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           //
           // Solo cuando el fallo NO se puede atribuir —o es genuinamente de los
           // proveedores— se cae al aviso genérico de antes.
-          const ee = e as Error & { erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number };
+          const ee = e as Error & { erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number; apartadas?: number };
           const errsIA = ee?.erroresIA ?? [msg];
           const errsPlat = ee?.erroresPlataforma ?? [];
           const nKeys = await contarKeysIA().catch(() => 1);
           // El veredicto se decide SÓLO con lo del cliente (ver `erroresPlataforma`). Lo
           // nuestro va al log, que es donde se diagnostica.
-          const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron });
+          const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron, apartadas: ee?.apartadas });
           const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
           respuesta = causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)

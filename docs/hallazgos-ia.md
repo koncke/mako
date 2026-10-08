@@ -2999,7 +2999,7 @@ contrato, una cláusula de uso limitado— hay que recorrer el camino REAL del d
 último proveedor. La promesa la cumple el eslabón más débil de la cadena, y acá el más débil
 es una key que carga el cliente y que nosotros no elegimos.
 
-### Pendiente, y bloquea pedir la verificación a Google
+### Lo que estaba pendiente (cerrado abajo, el 07/10/2026)
 
 Tres salidas posibles, ninguna aplicada todavía:
 
@@ -3015,6 +3015,61 @@ en el ruteo, o el próximo modelo que se agregue vuelve a abrir el mismo agujero
 
 *Corrida del 05/09/2026 — 7 agentes mapeando qué datos toca MaKo para escribir la política;
 246 hechos verificados y dos auditores adversariales sobre el mapa.*
+
+### Resuelto el 07/10/2026: lo que lleva datos de Google va sólo a un proveedor que no entrena
+
+Martín eligió, al arrancar la verificación de la app de Google, la segunda salida y la
+tercera juntas: **un pedido con datos de Google Calendar lo atiende sólo un proveedor que
+no entrena** (Groq, OpenAI, Anthropic; `lib/datos-google-ia.ts`), y **en el reparto de
+tareas los invitados del calendario salen del prompt**: el modelo escribe el nombre como lo
+oyó y `resolverDueño` le pone el email.
+
+⚠️ **El camino real era más ancho que el documentado.** Este hallazgo hablaba de UN camino
+(`plan-fathom`). Al recorrerlo de nuevo había otros dos, y por los dos chats a la vez —el
+doer de WhatsApp y el de la app (`app/api/mako-doer`, que con override barato corre en
+`chatCheapToolsCascade`)—: las tres herramientas de agenda escritas ese mismo día, y dos
+más viejas que nadie había mirado con esta pregunta: `horarios_libres_dia` (freeBusy) y
+`reuniones_lead`, que llega a Google **de rebote**, por `mako-tools` → `auto-reuniones` →
+`buscarEventosGoogle`. Un `grep` de quién importa `lib/google-calendar` no la encuentra.
+
+Cómo quedó, para que el próximo no reabra el agujero:
+
+- **La marca vive en la DEFINICIÓN** (`datosDeGoogle: true` en el `.def.ts`) y no en una
+  lista aparte. `tests/datos-google-ia.test.ts` recorre cada runner de
+  `lib/api-mako/areas/*.run.ts`, con un nivel de auxiliares y con los `case` de
+  `mako-tools` que llegan a la agenda, y falla nombrando la operación que no lo declara. Y
+  obliga a clasificar cada exportación nueva de `lib/google-calendar.ts`.
+- **El filtro va donde corre el pedido, no donde se elige el modelo.** `chatCheapTools`
+  tira `ProveedorQueEntrenaError` antes del primer pedido; la cascada y el doer de WhatsApp
+  ni prueban a los que entrenan (sin esto, cada uno dejaba un error de más en la lista con
+  la que se elige el mensaje al cliente). Es la etiqueta `pii`, que se pintaba y no gateaba
+  nada, convertida en control.
+- **Se decide por las herramientas OFRECIDAS, no por las usadas.** Cambiar de proveedor
+  después de que una herramienta corrió repetiría una acción que ya dejó su pendiente.
+- **Un cliente con sólo Gemini (ws13) queda con cero cuentas propias para esos turnos** y
+  los atiende la red de plataforma (nuestras keys de Groq). Si la red también falla, el
+  veredicto es `fallo_nuestro` (`apartadas` en `causaDelFallo`), no «no tenés keys».
+
+⚠️ **Y una trampa que estaba de antes, destapada por el test:** `resolverDueño` aceptaba un
+`dueñoEmail` vacío como email real si algún participante no tenía email — `porEmail` guarda
+la clave `''`, y `porEmail.has('')` daba true. O sea que en un Meet improvisado (hablantes
+de Fathom sin email) el rescate por nombre no corría nunca. Va `propuesto &&`.
+
+### Lo que quedó sin tratar, a propósito o no
+
+- **Las fechas de reunión que el CRM automático guarda desde Google** (`lib/crm-auto.ts` →
+  `fecha_junta_1/2`, vía `buscarReunionesAutomatico`). Una vez en la ficha son un dato del
+  CRM y pueden llegarle a cualquier modelo que lea la ficha. No se trató.
+- **`tzDelCalendarioGoogle`** se clasificó como «no es dato de un tercero»: es la zona del
+  negocio y va en cada prompt con herramientas («HOY ES…»). Gatearla mandaría todo a Groq.
+- **`horarios_libres_dia` sale por HTTP** (`canales: TODOS`) al agente del propio cliente.
+  No lo lee un modelo nuestro; es el cliente mirando lo suyo con su herramienta.
+- **La extracción de reuniones sigue en Gemini**, y está bien: ya no recibe nada del
+  calendario. Si mañana alguien le vuelve a pasar los invitados, el test lo caza.
+
+*07/10/2026 — sin subagentes. Medido rompiendo cada pieza una por vez: 13 roturas, todas
+con su fallo (ver los comentarios de los tests). Una de ellas se midió primero sobre un test
+que ya estaba rojo, dio «1 fallo» y no medía nada: la rotura se mide desde VERDE.*
 
 ## Un transcript largo se mide contra el HABLA, y el trozo final se verifica aparte (20/09/2026)
 

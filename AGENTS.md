@@ -655,6 +655,13 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **`datosDeGoogle: true`** si lo que devuelve al modelo sale de la API de Google
+  (Calendar), aunque sea de rebote. Un turno que la ofrece corre SÓLO en proveedores que
+  no entrenan (`lib/datos-google-ia.ts`): es el Uso Limitado de Google y la promesa de
+  /privacidad. Decisión de Martín del 07/10/2026: nunca una key gratis de Gemini, que
+  entrena con lo que recibe. `tests/datos-google-ia.test.ts` falla si un runner llega a
+  `lib/google-calendar` sin declararlo — y fuera del registro, lo que mande datos de
+  Google a un modelo pasa por el mismo filtro.
 
 Seis cosas que no se ven en el código y ya mordieron:
 
