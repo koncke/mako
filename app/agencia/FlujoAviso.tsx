@@ -42,9 +42,11 @@ import { variablesOfrecidas } from '@/lib/variables-aviso';
 import { guardarCanalDeMensaje } from '@/lib/mensaje-canales';
 import {
   EVENTOS, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
-  type Flujo, type Paso, type AccionFlujo,
+  type Flujo, type Paso, type PasoAccion,
+  operacionDelPaso, pasoDeAccion, rotuloOperacion, SIN_ACCION,
   ACUSES, UNIDADES_RECORDATORIO, cadaDeMin, aMinutos, type UnidadRecordatorio,
 } from '@/lib/flujos-tipos';
+import { EditorAccionMako, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import type { NodoFlujo } from '@/lib/lienzo-grafo';
 
 const SANS = "'Geist', sans-serif";
@@ -55,11 +57,40 @@ const btnFantasma = {
   cursor: 'pointer', fontFamily: SANS,
 } as const;
 
-const ACCIONES: Array<{ value: AccionFlujo; label: string }> = [
-  { value: 'crear_tarea', label: 'Crear una tarea' },
-  { value: 'inscribir_nutricion', label: 'Inscribir en nutrición' },
-  { value: 'marcar_lead', label: 'Marcar el lead' },
-];
+const btnQuitarPaso = {
+  marginTop: 12, background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12,
+  fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: SANS,
+} as const;
+
+// ── LOS TÍTULOS DE LAS ACCIONES, PARA LA TARJETA ───────────────────────────
+// ⚠️ La tarjeta del lienzo dice QUÉ acción corre el paso, y su título vive en el registro
+// de la API de MaKo, que no se importa desde un componente cliente (AGENTS.md). Sale de la
+// MISMA ruta que usa el editor del panel (`EditorAccionMako`); se pide aparte porque la
+// tarjeta se dibuja sin abrir el panel, y aquel no expone su catálogo. Si un día lo expone,
+// esto se borra y se usa el suyo (está anotado como pendiente).
+// Mientras no llega, o si falla, la tarjeta dice el id legible: nunca queda en blanco.
+let titulosP: Promise<Record<string, string>> | null = null;
+function titulosDeAcciones(): Promise<Record<string, string>> {
+  titulosP ??= fetch('/api/flujos/acciones', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((j: { ok?: boolean; acciones?: Array<{ id: string; titulo: string }> }) => {
+      if (!j.ok) throw new Error('sin catálogo');
+      return Object.fromEntries((j.acciones ?? []).map((a) => [a.id, a.titulo]));
+    })
+    .catch((e) => { titulosP = null; throw e; });
+  return titulosP;
+}
+
+function useTitulosAcciones(activo: boolean): Record<string, string> {
+  const [titulos, setTitulos] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!activo) return;
+    let vivo = true;
+    titulosDeAcciones().then((m) => { if (vivo) setTitulos(m); }).catch(() => { /* queda el id legible */ });
+    return () => { vivo = false; };
+  }, [activo]);
+  return titulos;
+}
 
 const FLUJO_VACIO: Flujo = { version: 1, activo: true, disparador: { tipo: 'manual' }, pasos: [] };
 
@@ -217,6 +248,15 @@ export function FlujoAviso({
 
   const insistir = (flujo?.pasos ?? []).find(esInsistir) ?? null;
   const pasosExtra = pasosDibujados(flujo?.pasos ?? []);
+  // El catálogo se pide sólo si alguna tarjeta tiene una acción que nombrar.
+  const titulos = useTitulosAcciones(pasosExtra.some((p) => p.tipo === 'accion' && operacionDelPaso(p) !== null));
+  /** Lo que dice la tarjeta de un paso «⚡ Acción»: el título de la acción, o que falta elegirla. */
+  const detalleDe = (n: NodoFlujo): string | undefined => {
+    if (n.tipo !== 'accion') return n.detalle;
+    const p = pasosExtra[n.orden ?? -1];
+    const op = p?.tipo === 'accion' ? operacionDelPaso(p) : null;
+    return op ? (titulos[op] ?? rotuloOperacion(op)) : SIN_ACCION;
+  };
 
   const aviso: AvisoParaGrafo = {
     disparador, frecuenciaMin, texto, canales, posiciones: pos, cron, tz,
@@ -318,11 +358,16 @@ export function FlujoAviso({
      *
      * Y el condicional nace en `contestaron`, que es la única señal que este motor
      * puede ver: el acuse en el grupo de MaKo, el mismo que corta las insistencias.
+     *
+     * ⚠️ LA ACCIÓN NACE SIN ACCIÓN, a propósito. Corre sola (decisión de Martín,
+     * 08/10/2026), así que un default elegido acá sería algo que el flujo hace sin que
+     * nadie lo haya elegido. Hasta ese día nacía en `crear_tarea`, que no corría nunca.
+     * Sin operación el motor no la corre y la tarjeta dice «Elige una acción».
      */
     const nuevo: Paso =
       que === 'delay' ? { tipo: 'esperar', horas: 24 }
       : que === 'condicional' ? { tipo: 'condicional', condicion: 'contestaron' }
-      : { tipo: 'accion', accion: 'crear_tarea' };
+      : { tipo: 'accion' };
     void guardarFlujo({ ...base, activo: true, pasos: insertarPasoTras(base.pasos, nodoId, nuevo) });
   }
 
@@ -367,7 +412,7 @@ export function FlujoAviso({
                   {texto.trim() ? <TextoMarcas texto={texto} /> : <span style={{ color: 'var(--faint)' }}>Sin escribir</span>}
                 </div>
               )
-              : <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{n.detalle}</div>}
+              : <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{detalleDe(n)}</div>}
           </TarjetaNodo>
         )}
         renderEditor={(n) => (
@@ -561,36 +606,36 @@ function EditorDelAviso({
     const vivos = pasosDibujados(base.pasos);
     const paso = vivos[i];
     const reemplazar = (nuevo: Paso) => onFlujo({ ...base, pasos: base.pasos.map((p) => (p === paso ? nuevo : p)) });
+    const advertencia = nodo.advertencia && (
+      <p style={{ fontSize: 11.5, color: 'var(--warn)', lineHeight: 1.45, marginTop: 6, marginBottom: 0 }}>{nodo.advertencia}</p>
+    );
+    if (paso?.tipo === 'accion') {
+      // El `key` es el del nodo: abrir otra tarjeta de acción tiene que traer SU estado,
+      // no reusar el de la anterior (el editor siembra un `useState` de props).
+      return (
+        <EditorPasoAccion key={nodo.id} paso={paso} onGuardar={reemplazar}
+          onQuitar={() => onQuitarPaso(i)} guardando={guardando} advertencia={advertencia} />
+      );
+    }
     return (
       <>
-        {paso?.tipo === 'accion' && (
-          <>
-            <label style={rotuloLienzo}>Qué hace</label>
-            <Dropdown value={paso.accion} options={ACCIONES}
-              onChange={(v) => reemplazar({ ...paso, accion: v as AccionFlujo })}
-              width="100%" ariaLabel="Qué hace este paso" />
-          </>
-        )}
         {paso?.tipo === 'mensaje' && (
           <>
             <label style={rotuloLienzo}>Qué le escribe al lead</label>
             <textarea value={paso.texto} rows={4} disabled={guardando}
               onChange={(e) => reemplazar({ ...paso, texto: e.target.value })}
               style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45 }} />
+            {/* ⛔ Este paso NO SE MANDA (decisión de Martín, 06/10/2026: «nada al
+                cliente»; ver la rama en lib/flujos.ts). Hasta el 08/10 esta línea decía
+                que MaKo lo proponía en el grupo y salía con un «sí»: no pasaba ni lo uno
+                ni lo otro. El lienzo ya no ofrece crearlo; queda para el que exista. */}
+            <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 8, marginBottom: 0 }}>
+              No se envía: nada sale al cliente.
+            </p>
           </>
         )}
-        <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 8, marginBottom: 0 }}>
-          {/* No se dispara solo NUNCA: la regla del negocio es que MaKo propone y una
-              persona confirma. Decirlo acá evita la sorpresa del primer disparo. */}
-          {paso?.tipo === 'mensaje'
-            ? 'MaKo te lo propone en el grupo y sale con tu «sí». Nunca se manda solo.'
-            : 'MaKo te lo propone en el grupo y se hace con tu «sí».'}
-        </p>
-        {nodo.advertencia && (
-          <p style={{ fontSize: 11.5, color: 'var(--warn)', lineHeight: 1.45, marginTop: 6, marginBottom: 0 }}>{nodo.advertencia}</p>
-        )}
-        <button onClick={() => onQuitarPaso(i)} disabled={guardando}
-          style={{ marginTop: 12, background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: SANS }}>
+        {advertencia}
+        <button onClick={() => onQuitarPaso(i)} disabled={guardando} style={btnQuitarPaso}>
           Quitar este paso
         </button>
       </>
@@ -598,6 +643,83 @@ function EditorDelAviso({
   }
 
   return <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{nodo.detalle}</div>;
+}
+
+/**
+ * EL PANEL DEL PASO «⚡ ACCIÓN»: cualquier acción de MaKo, con sus datos.
+ *
+ * Decisión de Martín (08/10/2026), textual: un paso de un flujo «que pueda hacer todo, sin
+ * limitaciones». Lo que se configura acá CORRE SOLO cuando el flujo llega a este paso
+ * (`ejecutarDesdeFlujo` en lib/flujos.ts): el dueño confirma al configurar, no después.
+ * Por eso ya no hay ninguna línea que prometa «se hace con tu sí» — era cierta para las
+ * tres acciones fijas de antes, y ésas no corrían nunca.
+ *
+ * El editor es el COMPARTIDO por los dos lienzos (`EditorAccionMako`), montado tal cual.
+ *
+ * ⚠️ TIENE ESTADO PROPIO Y GUARDA CON UN RESPIRO, por tres razones medidas en este archivo:
+ *  · `guardarFlujo` no pinta optimista —el flujo se repinta con lo que contesta el server—,
+ *    así que un campo de texto controlado por el flujo PIERDE LETRAS si se escribe más
+ *    rápido que un POST;
+ *  · cada guardado apila un deshacer, y uno por tecla deja un Ctrl+Z que borra una letra;
+ *  · no se le pasa `disabled={guardando}`: con el guardado en vuelo el campo se apagaría y
+ *    perdería el foco a mitad de una palabra.
+ * Elegir la ACCIÓN se guarda en el acto; los datos, 700 ms después de la última tecla.
+ *
+ * ⚠️ Y LO PENDIENTE SE MANDA AL CERRAR EL PANEL, salvo que se haya QUITADO el paso: el
+ * guardado diferido se arma con el flujo de antes de quitarlo, y lo devolvería.
+ */
+function EditorPasoAccion({ paso, onGuardar, onQuitar, guardando, advertencia }: {
+  paso: PasoAccion;
+  onGuardar: (nuevo: PasoAccion) => void;
+  onQuitar: () => void;
+  guardando: boolean;
+  advertencia?: React.ReactNode;
+}) {
+  // Un paso VIEJO (sólo `accion`, sin `operacion`) se abre sin acción elegida: sus tres
+  // valores no son ids del registro y el motor no lo corre.
+  const [valor, setValor] = useState<ValorAccion>(() => {
+    const op = operacionDelPaso(paso);
+    return op ? { operacion: op, params: paso.params ?? {} } : {};
+  });
+  // El guardado diferido llama al `onGuardar` del ÚLTIMO render: el de un render viejo
+  // reemplazaría el paso sobre un flujo que ya cambió.
+  const guardarRef = useRef(onGuardar);
+  useEffect(() => { guardarRef.current = onGuardar; });
+  const pendiente = useRef<ValorAccion | null>(null);
+  const reloj = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const soltar = useCallback(() => {
+    if (reloj.current) { clearTimeout(reloj.current); reloj.current = null; }
+    const v = pendiente.current;
+    pendiente.current = null;
+    if (v) guardarRef.current(pasoDeAccion(v));
+  }, []);
+  useEffect(() => soltar, [soltar]);
+
+  const cambiar = (v: ValorAccion) => {
+    const otraAccion = (v.operacion ?? '') !== (valor.operacion ?? '');
+    setValor(v);
+    pendiente.current = v;
+    if (reloj.current) clearTimeout(reloj.current);
+    if (otraAccion) soltar();
+    else reloj.current = setTimeout(soltar, 700);
+  };
+
+  const quitar = () => {
+    if (reloj.current) { clearTimeout(reloj.current); reloj.current = null; }
+    pendiente.current = null;
+    onQuitar();
+  };
+
+  return (
+    <>
+      <EditorAccionMako valor={valor} onCambio={cambiar} />
+      {advertencia}
+      <button onClick={quitar} disabled={guardando} style={btnQuitarPaso}>
+        Quitar este paso
+      </button>
+    </>
+  );
 }
 
 function Opcion({ activa, onClick, disabled, children }: {
