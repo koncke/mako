@@ -12,6 +12,7 @@ import { upsertLeadFromMeta } from './leads';
 import { credWs } from './credenciales';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import { META_PAGE_ID } from './config';
+import { esDelWebhookTodavia } from './meta-leads-poll-reglas';
 
 export const META_GRAPH_VERSION = process.env.META_API_VERSION || 'v24.0';
 
@@ -89,6 +90,8 @@ export type PollLeadsResult = {
   leads_vistos: number;
   creados: number;
   existentes: number;
+  /** los de menos de 5 minutos, que se dejan para el webhook (lib/meta-leads-poll-reglas.ts). */
+  del_webhook: number;
   errores: number;
   detalle_errores?: string[];
 };
@@ -136,6 +139,8 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
   let vistos = 0;
   let creados = 0;
   let existentes = 0;
+  let delWebhook = 0;
+  const ahoraMs = Date.now();
   const errores: string[] = [];
 
   for (const form of forms) {
@@ -159,6 +164,9 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
           break;
         }
         if (!lr.id) continue;
+        // Uno recién llegado es del webhook: si lo toma el poll, el webhook se saltea el aviso
+        // y la nutrición inmediata. La próxima pasada (10 min) lo levanta.
+        if (esDelWebhookTodavia(lr.created_time, ahoraMs)) { delWebhook++; continue; }
         vistos++;
         try {
           const { email, nombre, telefono, empresa, noReconocidos } = parseLeadFields(lr.field_data);
@@ -200,6 +208,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
     leads_vistos: vistos,
     creados,
     existentes,
+    del_webhook: delWebhook,
     errores: errores.length,
     ...(errores.length > 0 ? { detalle_errores: errores.slice(0, 10) } : {}),
   };
