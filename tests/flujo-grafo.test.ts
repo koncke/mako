@@ -20,7 +20,8 @@ import {
   elegirSalida, cumpleFila, antiguedadDeEntrada, escenariosDeRespuesta, insertarNodo, borrarNodo,
   nodoPorId, claseDe, textoFila, textoEspera, padreDe,
 } from '../lib/flujo-grafo';
-import { legadoAGrafo, tieneLegado, esFlujoExplicito, OP_AVISAR, OP_MOVER_ETAPA, limpiezaPara } from '../lib/flujo-legado';
+import { legadoAGrafo, tieneLegado, esFlujoExplicito, OP_AVISAR, OP_MOVER_ETAPA, limpiezaPara, puedePisarFlujo, audiosDeLaListaEnElFlujo } from '../lib/flujo-legado';
+import { readFileSync } from 'node:fs';
 import { porId } from '../lib/api-mako/registro';
 
 // Un generador determinista: los ids de los tests no dependen del azar.
@@ -389,4 +390,32 @@ test('la limpieza conserva lo que la secuencia daba por logrado (cierra al que c
   assert.equal(limpiezaPara(E212).desenlace.falloHoras, 0);
   assert.equal(limpiezaPara(null).desenlace.logrado, 'ninguno');
   assert.equal(limpiezaPara({ desenlace: { logrado: 'inventado' } }).desenlace.logrado, 'ninguno');
+});
+
+// ── Lo que encontró la cosecha: escritores que no saben de ramas (08/10/2026) ────────
+// El armado de las secuencias de audios del onboarding (lib/secuencias-audios.ts) corre en cada
+// carga de su paso y reescribía `pasos` directo: sobre #198/#212/#213 ya convertidas, las
+// devolvía a una lista y se perdían «Si responde» y sus casos, sin error.
+
+test('una lista sin ids NO puede pisar un flujo de tarjetas; el lienzo (con ids) sí', () => {
+  const flujo = legadoAGrafo(P212, E212, { rnd: rndDe() }).pasos;
+  assert.equal(puedePisarFlujo(flujo, P212), false);          // la lista de dos pasos del onboarding
+  assert.equal(puedePisarFlujo(flujo, flujo), true);           // el lienzo, con sus ids
+  assert.equal(puedePisarFlujo(P212, P212), true);             // una lista sobre una lista, como siempre
+});
+
+test('re-grabar el audio sobre un flujo cambia SÓLO el audio de su tarjeta y conserva lo demás', () => {
+  const flujo = legadoAGrafo(P212, E212, { rnd: rndDe() }).pasos;
+  const regrabada = [msg({ orden: 1, tipo: 'audio', audio_id: 99, delay_horas: 1, cuerpo: 'otro pie' }), P212[1]];
+  const r = audiosDeLaListaEnElFlujo(flujo, regrabada);
+  assert.equal(nodoPorId(r, 'o0')?.audio_id, 99);
+  assert.equal(nodoPorId(r, 'o0')?.cuerpo, 'Te dejo el link');   // el pie que el dueño editó no se pisa
+  assert.equal(r.length, flujo.length);
+  assert.ok(raizRespuesta(r));
+  assert.deepEqual(validarGrafo(r), []);
+  // Y el lugar que escribe lo usa, en vez de escribir la lista entera.
+  const src = readFileSync(new URL('../lib/secuencias-audios.ts', import.meta.url), 'utf8');
+  assert.match(src, /const pasos = esFlujoExplicito\(actuales\) \? audiosDeLaListaEnElFlujo\(actuales, plan\.pasos\) : plan\.pasos;/);
+  const motor = readFileSync(new URL('../lib/nutricion.ts', import.meta.url), 'utf8');
+  assert.match(motor, /if \(puedePisarFlujo\(antes, pasos\) === false\) \{/);
 });

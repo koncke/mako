@@ -131,6 +131,32 @@ export function esFlujoExplicito(pasos: readonly PasoGrafo[]): boolean {
   });
 }
 
+/**
+ * ¿Se pueden guardar `nuevos` encima de `guardados`? false = no: lo guardado es un flujo de
+ * tarjetas y lo nuevo es una lista sin un solo id, o sea un escritor que no sabe de ramas y
+ * aplanaría las condiciones, las esperas y «Si responde» (ver setSecuenciaPasos).
+ */
+export function puedePisarFlujo(guardados: readonly PasoGrafo[], nuevos: readonly PasoGrafo[]): boolean {
+  if (!esFlujoExplicito(guardados)) return true;
+  return nuevos.some((p) => typeof p?.id === 'string' && p.id.length > 0);
+}
+
+/**
+ * Re-grabar un audio del onboarding sobre una secuencia que YA es un flujo de tarjetas: se le
+ * cambia el audio a la tarjeta que lo tenía y nada más. `lista` es lo que arma el onboarding
+ * (lib/secuencias-audios.ts): su paso k es el `o<k>` del flujo, el id que la conversión
+ * conserva. Sólo se toca un mensaje de audio; si la tarjeta ya no existe o ya no es un audio,
+ * se deja como está (el dueño la cambió a propósito en el lienzo).
+ */
+export function audiosDeLaListaEnElFlujo<P extends PasoGrafo>(flujo: readonly P[], lista: readonly PasoGrafo[]): P[] {
+  const nuevoAudio = new Map<string, number>();
+  lista.forEach((p, k) => { if (p?.tipo === 'audio' && Number(p.audio_id) > 0) nuevoAudio.set(`o${k}`, Number(p.audio_id)); });
+  return flujo.map((p, i) => {
+    const audio = nuevoAudio.get(idDe(p, i));
+    return audio != null && claseDe(p) === 'mensaje' && p.tipo === 'audio' ? { ...p, audio_id: audio } : p;
+  });
+}
+
 /** ¿Tiene algo de lo de antes que haya que pasar a tarjetas? Un flujo explícito, nunca. */
 export function tieneLegado(pasos: readonly PasoGrafo[], est: EstrategiaLegada): boolean {
   if (esFlujoExplicito(pasos)) return false;

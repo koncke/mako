@@ -51,7 +51,7 @@ import {
   escenariosDeRespuesta, nodoPorId, siguienteDe, TOPE_NODOS,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead,
 } from '@/lib/flujo-grafo';
-import { OP_AVISAR } from '@/lib/flujo-legado';
+import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
@@ -448,6 +448,14 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
   // saneados (`camposDelFlujo`: un id que llega como texto cuenta igual).
   const aSiMisma = irAEstaMisma(pasos.filter(esPaso).map((p) => camposDelFlujo(p)), id);
   if (aSiMisma.length) throw new PasosInvalidosError(`No se guardó: el «Ir a» del paso ${aSiMisma[0] + 1} apunta a esta misma automatización.`);
+  // ⚠️ UNA LISTA SIN IDS NO PISA UN FLUJO DE TARJETAS (08/10/2026). Hay escritores que arman los
+  // pasos de cero y no saben de ramas (el armado de las secuencias de audios del onboarding, la
+  // API por orden, /email). Sobre un flujo, eso borraba en silencio las condiciones, las esperas
+  // y «Si responde» con sus casos: guardar una lista válida no da error. El lienzo manda SIEMPRE
+  // los ids de sus tarjetas; quien manda una lista sin ninguno no está editando ESTE flujo.
+  if (puedePisarFlujo(antes, pasos) === false) {
+    throw new PasosInvalidosError('No se guardó: esta automatización tiene tarjetas (condiciones, esperas o «Si responde»). Se edita en /chatbot.');
+  }
   const operaciones = [...new Set(acciones.flatMap((a) => (a?.ok ? [a.accion.operacion] : [])))];
   if (operaciones.length) {
     // Import dinámico: el registro son ~500 definiciones y sólo hace falta si hay acciones.

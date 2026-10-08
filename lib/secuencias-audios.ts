@@ -34,6 +34,7 @@ import { getSetting } from './settings';
 import { KEY_AUDIOS_CLAVE, type ClaveAudio } from './audios-paso';
 import { TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO } from './nutricion-familias';
 import type { PasoSecuencia } from './nutricion';
+import { esFlujoExplicito, audiosDeLaListaEnElFlujo } from './flujo-legado';
 import {
   DESENLACE_VACIO, HORAS_SIN_RESPUESTA,
   type Desenlace, type Estrategia, type Objetivo,
@@ -261,8 +262,8 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
 
   for (const plan of planos) {
     const { data: existente } = await supabase
-      .from('nutricion_secuencias').select('id, estrategia').eq('clave', plan.clave).maybeSingle();
-    const fila = existente as { id: number; estrategia: unknown } | null;
+      .from('nutricion_secuencias').select('id, estrategia, pasos').eq('clave', plan.clave).maybeSingle();
+    const fila = existente as { id: number; estrategia: unknown; pasos: unknown } | null;
 
     if (fila) {
       // Re-grabar un audio tiene que actualizar la secuencia que lo manda, o el
@@ -274,9 +275,17 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
       // grabar un audio no puede borrarle eso. La regla es la misma que la del
       // puente a Flow: una siembra pisa lo local únicamente cuando lo local no
       // tiene nada.
+      //
+      // ⚠️ Y UN FLUJO DE TARJETAS NO SE REARMA (08/10/2026). Esto corre en CADA carga del paso del
+      // onboarding (GET /api/chat-agent/onboarding/resumen) y escribía `pasos` directo, sin pasar
+      // por setSecuenciaPasos: sobre la Bienvenida y las post-agenda ya convertidas a tarjetas, las
+      // devolvía a una lista de dos pasos y se perdían «Si responde» con sus casos, las esperas y
+      // las condiciones, sin un error. Sobre un flujo sólo se cambia el audio de su tarjeta.
+      const actuales = Array.isArray(fila.pasos) ? (fila.pasos as PasoSecuencia[]) : [];
+      const pasos = esFlujoExplicito(actuales) ? audiosDeLaListaEnElFlujo(actuales, plan.pasos) : plan.pasos;
       await supabase.from('nutricion_secuencias')
         .update({
-          pasos: plan.pasos, archivada_at: null, updated_at: new Date().toISOString(),
+          pasos, archivada_at: null, updated_at: new Date().toISOString(),
           ...(fila.estrategia ? {} : { estrategia: plan.estrategia }),
         })
         .eq('id', fila.id);
