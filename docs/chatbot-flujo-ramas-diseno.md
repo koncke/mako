@@ -98,9 +98,35 @@ cinco partes que lo construyen en paralelo y la referencia para quien toque /cha
 | GET `/api/crm/etiquetas` → `{ etiquetas: [{id, nombre, color, funnel_id, etapa_key, archivada_at}] }`; POST `{action:'crear', nombre, color?}` → `{ etiqueta }` | **E** | L |
 | operación `avisar_al_equipo` `{ leadId?: number, titulo?: string, mensaje: string }` (área chatbot, gratis, reversible: sí; avisa al grupo del dueño con `emitirAviso`, `ws` explícito, dedup por lead 12 h) | **M** | conversor, lienzo |
 | operaciones `listar_etiquetas`, `etiquetas_lead`, `crear_etiqueta`, `editar_etiqueta`, `archivar_etiqueta`, `poner_etiqueta_lead`, `sacar_etiqueta_lead` (área crm; `leadId` + `etiquetaId`; `yaEstaba` cuando ya la tenía o ya no la tenía) | **E** | ⚡ Acción |
-| `crm_etiquetas`, `crm_lead_etiquetas` (mig 0221) | **E** | M (condición y cohorte) |
-| columnas `nutricion_inscripciones.nodo_actual text`, `nutricion_envios.nodo_id text`, `nutricion_secuencias.etiqueta_id bigint`, `wa_borradores.audio_id/adjunto_id` (mig 0220) | **M** | — |
-| `setting_adjuntos` (mig 0222) | **C** | M, P |
+| `crm_etiquetas`, `crm_lead_etiquetas` (mig 0224) | **E** | M (condición y cohorte) |
+| columnas `nutricion_inscripciones.nodo_actual text`, `nutricion_envios.nodo_id text`, `nutricion_secuencias.etiqueta_id bigint`, `wa_borradores.audio_id/adjunto_id` (mig 0223) | **M** | — |
+| `setting_adjuntos` (mig 0225) | **C** | M, P |
+
+### Lo que avisaron las otras sesiones (08/10/2026)
+
+- **API de MaKo** (estilo GitHub, sin pushear todavía):
+  - `lib/api-mako/rest.ts` tiene una ruta REST por cada operación que sale por `http`, y
+    `tests/api-mako-rest.test.ts` falla si alguna no la tiene. Las de las etiquetas y la del
+    aviso las suma quien pushee segundo:
+    - `GET /crm/etiquetas`;
+    - `POST /crm/etiquetas`;
+    - `PATCH /crm/etiquetas/{etiquetaId}`;
+    - `PUT /crm/etiquetas/{etiquetaId}/archivado`;
+    - `GET /crm/leads/{leadId}/etiquetas`;
+    - `PUT` y `DELETE /crm/leads/{leadId}/etiquetas/{etiquetaId}`;
+    - `POST /chatbot/avisos-equipo`.
+
+    Los parámetros se llaman `leadId` y `etiquetaId`.
+  - Con un token de escritura, una acción corre EN EL ACTO (`aplicarEnElActo`). Por eso
+    poner o sacar una etiqueta tiene que contestar `yaEstaba` cuando no cambia nada.
+- **CRM**:
+  - la ficha del lead (`app/crm/LeadSheet.tsx`) se relee después de cada escritura. Si un
+    componente de `app/crm/lead-view/` guarda algo, usa `useRefrescarFicha()`
+    (`app/crm/lead-view/ficha-cambio.tsx`), nunca `router.refresh()` suelto: lo fija
+    `tests/ficha-se-relee.test.ts`;
+  - `moverEtapaEnProducto` ya tiene un gancho «al ganar»: el de las etiquetas va al lado.
+
+Las migraciones van de la 0223 a la 0225: Customer Success reservó de la 0216 a la 0222 para su tanda del curso.
 
 ## 4. Quién es dueño de qué (nadie toca un archivo de otra parte)
 
@@ -110,10 +136,10 @@ cinco partes que lo construyen en paralelo y la referencia para quien toque /cha
     lib/setting-estrategia.ts, lib/nutricion-*.ts;
   - API: app/api/chat-agent/secuencias/route.ts, app/api/whatsapp/secuencias/route.ts,
     lib/api-mako/areas/chatbot.def.ts y .run.ts y sus helpers;
-  - mig 0220 y scripts/migrar-secuencias-a-grafo.mts;
+  - mig 0223 y scripts/migrar-secuencias-a-grafo.mts;
   - tests de todo eso.
 - **E — etiquetas**:
-  - datos: mig 0221, lib/etiquetas.ts, lib/workspace.ts (TENANT_TABLES), lib/tablas-de-inquilino.ts,
+  - datos: mig 0224, lib/etiquetas.ts, lib/workspace.ts (TENANT_TABLES), lib/tablas-de-inquilino.ts,
     lib/clonar-config.ts;
   - API: lib/api-mako/areas/crm.def.ts y .run.ts, app/api/crm/etiquetas/route.ts;
   - ganchos y sincronización: lib/leads.ts y lib/lead-funnel.ts (sólo los ganchos de etapa),
@@ -126,7 +152,7 @@ cinco partes que lo construyen en paralelo y la referencia para quien toque /cha
   - componentes: app/whatsapp/_shared/ComposerWhatsApp.tsx (nuevo), BurbujaHilo.tsx,
     ChatHilo.tsx, VoiceRecorder.tsx, app/whatsapp/EmojiPicker.tsx, app/whatsapp/EmpresaInbox.tsx,
     app/chatbot/EditorMensajeWhatsApp.tsx;
-  - biblioteca: mig 0222, lib/setting-adjuntos.ts, app/api/chat-agent/adjuntos/route.ts,
+  - biblioteca: mig 0225, lib/setting-adjuntos.ts, app/api/chat-agent/adjuntos/route.ts,
     lib/datos-mau.ts (remap de `media_id`);
   - tests.
 - **L — lienzo**:
