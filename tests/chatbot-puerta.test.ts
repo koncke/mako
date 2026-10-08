@@ -91,9 +91,12 @@ test('la pantalla decide la puerta con abreEnQR y marca el paso al vincular desd
 // sola se vería como «revisar» y viceversa. Probado rompiéndolo: el heredado sin negar
 // (`revisarHeredado={envioAutoSecuencia}`) → 1 fallo; el perfil sin pasar
 // `envio_automatico` → 1 fallo; volver a dibujar «Sale sola» en el CRON → 1 fallo.
+// Desde la revisión del 08/10 (costuras-3) el heredado sale de `revisarHeredado` (lib/
+// flujo-conversacion.ts), que además sabe que un «MaKo contesta» de «Si responde» sin
+// `revisar` deja borrador; lo que hace esa función lo prueba tests/lienzo-revision.test.ts.
 test('«Sale sola» es de cada mensaje («Revisar antes de enviar»), con el valor heredado de la secuencia', () => {
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-  assert.match(lienzo, /mostrarRevisar\s+revisarHeredado=\{!envioAutoSecuencia\}/);
+  assert.match(lienzo, /mostrarRevisar\s+revisarHeredado=\{revisarHeredado\(pasos, id, envioAutoSecuencia\)\}/);
   assert.doesNotMatch(lienzo, /label="Sale sola"|onEnvioAuto/, 'volvió «Sale sola» a la tarjeta del disparador');
   const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
   assert.match(perfil, /envioAutoSecuencia=\{est\?\.envio_automatico === true\}/);

@@ -135,16 +135,64 @@ export const FRASE_CONDICION: Record<CampoCondicion, readonly [string, string]> 
 
 // ── Alto de cada tarjeta, sin medir el DOM ────────────────────────────────────────
 
-/** Alto estimado de un mensaje. Se estima y no se mide porque el layout tiene que existir
- *  ANTES del primer pintado. La tarjeta tiene alto FIJO (lleva puertos): lo que no entra
- *  se corta, y el texto entero está en el editor. */
-function altoDeMensaje(p: PasoParaGrafo): number {
-  if (p.tipo === 'audio') return 108;
-  if (p.tipo === 'media') return 100;
+/**
+ * LAS PIEZAS DE UNA TARJETA DE MENSAJE, en px. Salen de los estilos que las dibujan, no de
+ * una captura: si cambia uno, cambia aquí.
+ *
+ * ⚠️ HASTA EL 08/10 LA NOTA DE VOZ MEDÍA 108 FIJO, Y NO ENTRABA (revisión, costuras-7). La
+ * tarjeta tiene alto FIJO con `overflow: hidden` (lleva puertos), y quitando su marco quedaban
+ * ≈44 px para el reproductor (34) + el título (14): el título salía cortado y el pie —el link
+ * que llevan los audios del ws1— y la transcripción no se veían NUNCA. Una nota con link se
+ * veía igual que una sin link. Ahora el alto se suma por partes, como el del texto.
+ */
+const MARCO_TARJETA = 47;       // TarjetaNodo: borde 1,5×2 + relleno 11 + 8 + la cabecera (ícono + 7)
+const MARCO_BURBUJA = 18;       // BurbujaHilo compacta: relleno 8×2 + borde 1×2
+const SEP_BURBUJA = 4;          // el `sep` compacto entre las piezas de la burbuja
+const ALTO_REPRODUCTOR = 34;    // AudioPlay compacto
+const ALTO_TITULO_AUDIO = 14;   // la fila «título · duración», a 11 px
+const ALTO_CHIP_ARCHIVO = 34;   // el chip del documento compacto (relleno 7×2, ícono 18, borde)
+const RENGLON_TEXTO = 18.5;     // 12,5 px × 1,45
+const LETRAS_TEXTO = 32;        // las que entran en un renglón de la burbuja compacta (205 px)
+const RENGLONES_TEXTO = 5;      // el `WebkitLineClamp` de la burbuja compacta
+const RENGLON_DICE = 16;        // «Dice: …», 11 px × 1,45
+const LETRAS_DICE = 36;
+const HOLGURA = 6;              // la fuente que no llegó, el redondeo
+const TOPE_MENSAJE = 260;
+
+const renglonesDe = (t: string, letras: number): number =>
+  t.trim() ? Math.max(1, Math.ceil(t.trim().length / letras)) + (t.trim().match(/\n/g)?.length ?? 0) : 0;
+
+/** Lo que el layout necesita saber de un audio de la biblioteca (lo da quien monta). */
+export type AudioParaAlto = { transcript?: string | null } | null | undefined;
+
+/**
+ * Alto estimado de un mensaje. Se estima y no se mide porque el layout tiene que existir
+ * ANTES del primer pintado. La tarjeta tiene alto FIJO (lleva puertos): lo que no entra
+ * se corta, y el texto entero está en el editor.
+ *
+ * El audio y el archivo se suman POR PARTES con lo mismo que dibuja la tarjeta (`VistaMensaje`
+ * en app/chatbot/FlujoLienzo.tsx): el reproductor, el título, la transcripción (si la hay, a lo
+ * sumo 90 letras, como la recorta la burbuja) y el pie. El archivo, con su chip y el caption.
+ */
+export function altoDeMensaje(p: PasoParaGrafo, audio?: AudioParaAlto): number {
   const cuerpo = p.cuerpo ?? '';
+  const pie = Math.min(RENGLONES_TEXTO, renglonesDe(cuerpo, LETRAS_TEXTO));
+  if (p.tipo === 'audio') {
+    const dice = (audio?.transcript ?? '').trim();
+    const renglonesDice = dice ? Math.min(3, Math.ceil((Math.min(dice.length, 90) + 9) / LETRAS_DICE)) : 0;
+    const hay = pie > 0 || renglonesDice > 0;
+    const h = MARCO_TARJETA + MARCO_BURBUJA + ALTO_REPRODUCTOR + (hay ? SEP_BURBUJA : 0) + ALTO_TITULO_AUDIO
+      + (renglonesDice ? SEP_BURBUJA + renglonesDice * RENGLON_DICE : 0)
+      + (pie ? SEP_BURBUJA + pie * RENGLON_TEXTO : 0) + HOLGURA;
+    return Math.min(TOPE_MENSAJE, Math.max(ALTO_MIN, Math.ceil(h)));
+  }
+  if (p.tipo === 'media') {
+    const h = MARCO_TARJETA + MARCO_BURBUJA + ALTO_CHIP_ARCHIVO + (pie ? SEP_BURBUJA + pie * RENGLON_TEXTO : 0) + HOLGURA;
+    return Math.min(TOPE_MENSAJE, Math.max(ALTO_MIN, Math.ceil(h)));
+  }
   const renglones = Math.max(1, Math.ceil(cuerpo.length / 34)) + (cuerpo.match(/\n/g)?.length ?? 0);
   const extra = (p.canal === 'email' && p.asunto ? 22 : 0) + (p.tipo === 'ia' ? 18 : 0);
-  return Math.min(260, ALTO_MIN + 8 + Math.min(renglones, 8) * 17 + extra);
+  return Math.min(TOPE_MENSAJE, ALTO_MIN + 8 + Math.min(renglones, 8) * 17 + extra);
 }
 
 /** Una tarjeta con N filas de salida: la cabecera, las filas y el pie. */
@@ -152,23 +200,59 @@ export function altoConFilas(filas: number): number {
   return Math.max(ALTO_MIN, 40 + filas * ALTO_PUERTO + PIE_PUERTOS + BORDE_NODO * 2);
 }
 
-// ── Nombrar una tarjeta (para los errores) ────────────────────────────────────────
+// ── Nombrar una tarjeta (para los errores y el «Ir a») ────────────────────────────
 
-const NOMBRE_CLASE = { mensaje: 'Mensaje', accion: 'Acción', esperar: 'Espera', condicion: 'Condición', respuesta: 'Si responde', ir_a: 'Ir a' } as const;
+/**
+ * EL TÍTULO QUE LA TARJETA DIBUJA. Lo usan el árbol (la cabecera de cada tarjeta) y los
+ * nombres de los errores: una sola función, para que el error nombre la tarjeta con lo
+ * mismo que se lee en el lienzo.
+ */
+export function tituloDeTarjeta(p: PasoGrafo, enRespuesta: boolean): string {
+  switch (claseDe(p)) {
+    case 'condicion': return 'Condición';
+    case 'respuesta': return 'Si responde';
+    case 'ir_a': return 'Ir a';
+    case 'esperar': return 'Esperar';
+    case 'accion': return 'Acción';
+    default:
+      if (p.canal === 'email') return 'Email';
+      if (p.tipo === 'audio') return 'Nota de voz';
+      if (p.tipo === 'media') return 'Archivo';
+      return p.tipo === 'ia' && enRespuesta ? 'MaKo contesta' : 'Mensaje';
+  }
+}
 
-/** «Mensaje 2», «Condición 1»: el número es el orden entre las de su clase. Es lo que
- *  la persona puede encontrar en el lienzo; el id (`n0a1b2c`) no le dice nada. */
-export function nombreDeTarjeta(pasos: readonly PasoGrafo[], id: string): string {
-  const i = indicePorId(pasos, id);
-  if (i < 0) return 'una tarjeta';
-  const c = claseDe(pasos[i]);
-  if (c === 'respuesta') return NOMBRE_CLASE.respuesta;
-  const n = pasos.slice(0, i + 1).filter((p) => claseDe(p) === c).length;
-  return `${NOMBRE_CLASE[c]} ${n}`;
+/** Un trozo de lo que la tarjeta DICE: el texto del mensaje, cuánto espera, la primera rama. */
+const TROZO = 26;
+function trozoDe(p: PasoGrafo, nombres?: NombresParaTexto): string {
+  const c = claseDe(p);
+  let t = '';
+  if (c === 'mensaje') t = p.cuerpo ?? '';
+  else if (c === 'esperar') t = textoEspera(p.espera).replace(/^Esperar /, '');
+  else if (c === 'condicion' && p.ramas?.[0]) t = textoRama(p.ramas[0], nombres);
+  t = t.replace(/\s+/g, ' ').trim();
+  return t.length > TROZO ? `${t.slice(0, TROZO - 1).trimEnd()}…` : t;
 }
 
 /**
- * LA PRIMERA TARJETA DE MENSAJE QUE NO DICE NADA, o null.
+ * LA TARJETA NOMBRADA POR LO QUE SE VE: su título y un trozo de lo que dice («Mensaje: Hola,
+ * te escribo de…», «Condición: Agendó»). Sin trozo (una tarjeta vacía), sólo el título.
+ *
+ * ⚠️ HASTA EL 08/10 ERA «Mensaje 4» (revisión, lienzo-6): un número que salía del orden del
+ * array y contaba todas las clases de mensaje, mientras ninguna tarjeta dibuja un número. En
+ * la forma de #212, «Mensaje 4» era la segunda «MaKo contesta». Un nombre que no se dibuja no
+ * se encuentra; por eso además Publicar SELECCIONA la tarjeta culpable (`tarjetaDelError`).
+ */
+export function nombreDeTarjeta(pasos: readonly PasoGrafo[], id: string, nombres?: NombresParaTexto): string {
+  const i = indicePorId(pasos, id);
+  if (i < 0) return 'una tarjeta';
+  const titulo = tituloDeTarjeta(pasos[i], subarbolRespuesta(pasos).has(id));
+  const t = trozoDe(pasos[i], nombres);
+  return t ? `${titulo}: ${t}` : titulo;
+}
+
+/**
+ * LA PRIMERA TARJETA DE MENSAJE QUE NO DICE NADA, con su id para seleccionarla, o null.
  *
  * `validarGrafo` mira la FORMA (ramas, destinos, topes) y no el contenido, así que una
  * tarjeta recién agregada —un «Mensaje», o el «MaKo contesta» con el que nace cada caso de
@@ -176,25 +260,47 @@ export function nombreDeTarjeta(pasos: readonly PasoGrafo[], id: string): string
  * cómo responder. Va acá y no en el modelo (sólo lectura para esta parte); la tarjeta ya lo
  * marca con «Sin escribir», y esto lo frena antes de Publicar.
  */
-export function faltaEscribir(pasos: readonly PasoGrafo[]): string | null {
+export function faltaEscribir(pasos: readonly PasoGrafo[]): { id: string; error: string } | null {
   for (let i = 0; i < pasos.length; i++) {
     const p = pasos[i];
     if (claseDe(p) !== 'mensaje') continue;
     const vacio = p.tipo === 'audio' ? !p.audio_id : p.tipo === 'media' ? !p.media_id : !(p.cuerpo ?? '').trim();
-    if (vacio) return `Falta completar «${nombreDeTarjeta(pasos, idDe(p, i))}»`;
+    const id = idDe(p, i);
+    if (vacio) return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
   }
   return null;
 }
 
-/** Un error de `validarGrafo` con las tarjetas nombradas como se ven, no por su id. */
+const escaparRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Un error de `validarGrafo` con las tarjetas nombradas como se ven, no por su id. El
+ * sustantivo que `validarGrafo` pone delante del id («la condición n0ab…») se va con él: si
+ * no, queda «la condición «Condición: Agendó»».
+ */
 export function errorLegible(err: string, pasos: readonly PasoGrafo[]): string {
   const ids = pasos.map((p, i) => idDe(p, i)).sort((a, b) => b.length - a.length);
   let out = err;
   for (const id of ids) {
-    const re = new RegExp(`(^|[^\\w])${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`, 'g');
+    const re = new RegExp(`(^|[^\\w])(?:(?:la condición|la espera|el «Ir a»|la tarjeta) )?${escaparRe(id)}(?![\\w])`, 'g');
     out = out.replace(re, (_m, pre: string) => `${pre}«${nombreDeTarjeta(pasos, id)}»`);
   }
   return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
+/**
+ * LA TARJETA DE LA QUE HABLA UN ERROR: la primera que nombra (por su id), o null. Es la que
+ * Publicar abre al frenar, para que el error se arregle donde se ve y no buscando un nombre.
+ */
+export function tarjetaDelError(err: string, pasos: readonly PasoGrafo[]): string | null {
+  let mejor: string | null = null;
+  let en = Infinity;
+  for (let i = 0; i < pasos.length; i++) {
+    const id = idDe(pasos[i], i);
+    const m = new RegExp(`(^|[^\\w])${escaparRe(id)}(?![\\w])`).exec(err);
+    if (m && m.index < en) { mejor = id; en = m.index; }
+  }
+  return mejor;
 }
 
 // ── El grafo ──────────────────────────────────────────────────────────────────────
@@ -215,6 +321,15 @@ export type OpcionesGrafo = {
   nombres?: NombresParaTexto;
   /** Se puede editar: sin «Si responde», dibuja la tarjeta fantasma «＋ Si responde». */
   editable?: boolean;
+  /** El audio de la biblioteca de una nota de voz: si tiene transcripción, la tarjeta la
+   *  muestra y el alto la cuenta (`altoDeMensaje`). Sin esto, se mide sin transcripción. */
+  audioDe?: (id: number) => AudioParaAlto;
+  /**
+   * Cuántas respuestas de esta automatización quedaron SIN CASO y esperan a una persona (los
+   * hand-offs pendientes, GET /api/chat-agent/secuencias → `handoffs`). Se marcan en la fila
+   * «Otra cosa», que es por donde salieron: sin la marca, no se ven en ningún lado.
+   */
+  pendientesOtraCosa?: number;
 };
 
 /** Lo que cuelga de «Si responde» (sin ella). Ahí no hay esperas: se contesta en el momento. */
@@ -254,7 +369,8 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       t = { ...base, tipo: 'condicion', titulo: 'Condición', icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'respuesta') {
       const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: x.titulo?.trim() || 'Caso sin nombre', tono: 'buena' as const, vacio: !x.siguiente }));
-      puertos.push({ id: 'si_no', rotulo: 'Otra cosa', tono: 'mala', vacio: !p.si_no });
+      const pendientes = Math.max(0, Math.floor(Number(op.pendientesOtraCosa) || 0));
+      puertos.push({ id: 'si_no', rotulo: 'Otra cosa', tono: 'mala', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
       t = { ...base, tipo: 'respuesta', titulo: 'Si responde', icono: '↩️', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'ir_a') {
       const d = p.destino;
@@ -265,7 +381,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         detalle = nom ?? 'Una automatización que ya no existe';
         advertencia = nom ? undefined : 'Esa automatización ya no existe';
       } else if (d && 'nodo' in d) {
-        detalle = existe.has(d.nodo) ? nombreDeTarjeta(pasos, d.nodo) : 'Una tarjeta que ya no existe';
+        detalle = existe.has(d.nodo) ? nombreDeTarjeta(pasos, d.nodo, op.nombres) : 'Una tarjeta que ya no existe';
         advertencia = existe.has(d.nodo) ? undefined : 'Esa tarjeta ya no existe';
       }
       // `puertos: []`: un «Ir a» termina ahí. Sin puntos y sin el ＋ de pasar el cursor.
@@ -286,14 +402,11 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         };
       } else {
         const email = p.canal === 'email';
-        const titulo = email ? 'Email'
-          : p.tipo === 'audio' ? 'Nota de voz'
-          : p.tipo === 'media' ? 'Archivo'
-          : p.tipo === 'ia' && enRespuesta.has(id) ? 'MaKo contesta'
-          : 'Mensaje';
+        const titulo = tituloDeTarjeta(p, enRespuesta.has(id));
         const icono = email ? '✉️' : p.tipo === 'audio' ? '🎙️' : p.tipo === 'media' ? '📎' : '💬';
         const vacio = (p.tipo === 'audio' && !p.audio_id) || (p.tipo === 'media' && !p.media_id) || (p.tipo !== 'audio' && p.tipo !== 'media' && !(p.cuerpo ?? '').trim());
-        t = { ...base, tipo: 'mensaje', titulo, icono, puertos, alto: altoDeMensaje(p), ...(vacio ? { advertencia: 'Sin escribir' } : {}) };
+        const audio = p.tipo === 'audio' && Number(p.audio_id) > 0 ? op.audioDe?.(Number(p.audio_id)) : undefined;
+        t = { ...base, tipo: 'mensaje', titulo, icono, puertos, alto: altoDeMensaje(p, audio), ...(vacio ? { advertencia: 'Sin escribir' } : {}) };
       }
     }
     if (!alcanzable.has(id) && !t.advertencia) t = { ...t, advertencia: 'Tarjeta suelta' };
@@ -545,13 +658,19 @@ export function quitarRama<P extends PasoGrafo>(pasos: readonly P[], condId: str
  * «+ caso»: un caso nuevo NACE CON SU TARJETA «MaKo contesta» (un mensaje `tipo: 'ia'`
  * cuyo cuerpo es CÓMO responder). Es lo que el motor lee como guía del caso
  * (`escenariosDeRespuesta`): un caso sin su tarjeta sería una rama que no contesta nada.
+ *
+ * ⚠️ Y NACE CON `revisar: true` EXPLÍCITO (revisión, costuras-3). Para un «MaKo contesta» de
+ * «Si responde» el motor contesta solo SÓLO con `revisar === false` (`escenariosDeRespuesta` →
+ * `contestaSolo`); ausente, deja un borrador. Sin el valor puesto, la casilla heredaba el
+ * `envio_automatico` de la secuencia y en las post-agenda del ws1 decía «sale sola» sobre un
+ * caso que dejaba borradores. Es lo mismo que hacen el conversor y `agregarCasoAlGrafo`.
  */
 export function agregarCaso<P extends PasoGrafo>(pasos: readonly P[], respId: string, rnd: () => number = Math.random): { pasos: P[]; mensaje: string | null } {
   const base = normalizar(pasos);
   const r = nodoPorId(base, respId);
   if (!r || claseDe(r) !== 'respuesta') return { pasos: base, mensaje: null };
   const msgId = nuevoId(base, rnd);
-  const msg = { ...relleno(), id: msgId, tipo: 'ia', siguiente: null } as unknown as P;
+  const msg = { ...relleno(), id: msgId, tipo: 'ia', revisar: true, siguiente: null } as unknown as P;
   const casoId = nuevoId([...base, msg], rnd);
   const conCaso = cambiarNodo(base, respId, { casos: [...(r.casos ?? []), { id: casoId, titulo: '', cuando: '', siguiente: msgId }] } as Partial<P>);
   const i = indicePorId(conCaso, respId);
@@ -589,9 +708,91 @@ export function crearRespuesta<P extends PasoGrafo>(pasos: readonly P[], rnd: ()
  * siempre con la LIMPIEZA encima, entera. `guardar-estrategia` reescribe el objeto
  * completo y lo que no viaja vuelve a su default (AGENTS.md: un campo nuevo en un objeto
  * que se guarda ENTERO), así que se manda todo lo que había.
+ *
+ * ⚠️ SIN ESTRATEGIA NO HAY NADA QUE LIMPIAR, y devuelve null (revisión, lienzo-8). Hasta el
+ * 08/10 inventaba `{ objetivo: 'agendar', … }` donde no había nada: una secuencia de
+ * `crearSecuenciaDesdeEtapa` (convertida por su espera de 48 h) pasaba a tener objetivo, y
+ * desde ahí `encadenar()` salteaba a todo lead que ya agendó (`ya-hizo-agendar`). Quien
+ * publica no manda `guardar-estrategia` con null; el script de migración hace lo mismo.
  */
-export function estrategiaConLimpieza<E extends EstrategiaLegada>(est: E): Record<string, unknown> {
-  return { objetivo: 'agendar', ...(est ?? {}), ...limpiezaPara(est) };
+export function estrategiaConLimpieza<E extends EstrategiaLegada>(est: E): Record<string, unknown> | null {
+  if (!est) return null;
+  return { objetivo: 'agendar', ...est, ...limpiezaPara(est) };
+}
+
+/**
+ * EL «REVISAR ANTES DE ENVIAR» QUE UN MENSAJE HEREDA cuando no tiene `revisar` propio: lo que
+ * el MOTOR hace con él, no lo que dice la secuencia a secas (revisión, costuras-3).
+ *
+ *   · Un «MaKo contesta» (`tipo: 'ia'`) de «Si responde» contesta solo SÓLO con
+ *     `revisar === false` (`escenariosDeRespuesta` → `contestaSolo`): ausente = borrador.
+ *   · Todo lo demás —la salida, y el texto, el audio o el archivo de una rama— usa
+ *     `saleSolo(p, envio_automatico)` (lib/nutricion-grafo-motor.ts): ausente = la secuencia.
+ *
+ * Con la casilla pintada desde `envio_automatico` para todo, un caso viejo sin `revisar`
+ * decía «sale sola» y el motor dejaba un borrador.
+ */
+export function revisarHeredado(pasos: readonly PasoGrafo[], id: string, envioAutoSecuencia: boolean): boolean {
+  const p = nodoPorId(pasos, id);
+  if (p && claseDe(p) === 'mensaje' && p.tipo === 'ia' && subarbolRespuesta(pasos).has(id)) return true;
+  return !envioAutoSecuencia;
+}
+
+/**
+ * ¿ESTE CAMBIO DEL EDITOR DEL MENSAJE ENTRA A LA PILA DE DESHACER? Tipear no entra (el Ctrl+Z
+ * del texto es del navegador, y una foto por tecla vacía la pila); cambiar de audio, de
+ * archivo, de tipo o de «Revisar», sí.
+ *
+ * ⚠️ LAS VARIANTES («↻ N») SON TEXTO MIENTRAS NO CAMBIE CUÁNTAS HAY (revisión, costuras-9 y
+ * lienzo-7). Cada tecla en una variante manda `{ variantes }`, y contada como cambio apilaba
+ * una foto por tecla: con el tope de 30, escribir una variante de 30 letras tiraba la foto de
+ * antes de borrar una rama, y ↶ deshacía la variante letra por letra. Quitar una (cambia el
+ * largo) sí entra.
+ */
+export function cambioApila(patch: Record<string, unknown>, paso: { variantes?: string[] | null }): boolean {
+  const largo = (v: unknown) => (Array.isArray(v) ? v.length : 0);
+  return !Object.keys(patch).every((k) =>
+    k === 'cuerpo' || k === 'asunto' || (k === 'variantes' && largo(patch.variantes) === largo(paso.variantes)));
+}
+
+/** Lo que la tarjeta necesita de un archivo de la biblioteca (`AdjuntoDto`, estructural). */
+export type ArchivoParaTarjeta = { id: number; titulo: string; media_mime: string; nombre_archivo: string | null; url: string | null };
+
+/**
+ * QUÉ DIBUJA LA TARJETA DE UN ARCHIVO (revisión, costuras-6). Hasta el 08/10 le pasaba a la
+ * burbuja un archivo con `url: null` y la burbuja decía «(no disponible)» —o «document (no
+ * disponible)», en inglés— sobre un PDF bien subido.
+ *
+ *   · `documento`: la biblioteca lo tiene y con su URL. Siempre como documento (nombre +
+ *     caption), también una foto: una miniatura cambiaría el alto, que es fijo y se calcula
+ *     antes de pintar (`altoDeMensaje`).
+ *   · `fila` sin `falta`: no se pudo saber (cargando, no se pudo leer, quien mira no es admin).
+ *     Dice «Archivo» y no afirma nada.
+ *   · `fila` con `falta`: la biblioteca se leyó y el archivo no está. Eso sí se dice.
+ *
+ * `biblioteca`: la lista leída, `'error'` si no se pudo leer, o null mientras carga.
+ */
+export function vistaDeArchivo(mediaId: number | null | undefined, biblioteca: readonly ArchivoParaTarjeta[] | 'error' | null):
+  | { modo: 'documento'; url: string; mime: string; nombre: string }
+  | { modo: 'fila'; nombre: string; falta: boolean } {
+  const lista = Array.isArray(biblioteca) ? biblioteca : null;
+  const adj = lista && mediaId != null ? lista.find((a) => a.id === Number(mediaId)) ?? null : null;
+  const nombre = adj ? (adj.nombre_archivo?.trim() || adj.titulo?.trim() || 'Archivo') : 'Archivo';
+  if (adj?.url) return { modo: 'documento', url: adj.url, mime: adj.media_mime, nombre };
+  if (lista && !adj) return { modo: 'fila', nombre: 'Un archivo que ya no está', falta: true };
+  return { modo: 'fila', nombre, falta: false };
+}
+
+/**
+ * EL NOMBRE DE UNA ETIQUETA COMO SE DICE EN EL LIENZO: la archivada que sigue puesta, con
+ * «(archivada)» (decisión del 08/10: archivar la apaga —el motor ya no la cuenta en las
+ * condiciones ni en los disparadores— y la pantalla lo dice donde todavía está puesta).
+ * null = no está en la lista (todavía cargando, o borrada).
+ */
+export function nombreEtiqueta(etiquetas: readonly EtiquetaParaDisparo[], id: number | null | undefined): string | null {
+  const t = id == null ? null : etiquetas.find((x) => x.id === Number(id));
+  if (!t) return null;
+  return t.archivada_at ? `${t.nombre} (archivada)` : t.nombre;
 }
 
 // ── El desplegable del disparador ─────────────────────────────────────────────────
