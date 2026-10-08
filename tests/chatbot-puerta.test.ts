@@ -100,7 +100,8 @@ test('el envío apagado viaja en el GET de secuencias y la pantalla lo avisa (#3
   assert.ok(ruta.includes('envioWhatsapp: await envioWhatsappHabilitadoEstricto().catch(() => null),'));
   const app = sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
   // Sólo si una secuencia activa manda por WhatsApp: una de puro email no está «sin mandar nada».
-  assert.ok(app.includes("!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa && s.pasos.some((p) => p.canal === 'whatsapp'))"));
+  // Y cuentan los MENSAJES: un paso «⚡ Acción» corre con el envío apagado (08/10/2026).
+  assert.ok(app.includes("!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa && s.pasos.some((p) => p.canal === 'whatsapp' && !esPasoAccion(p)))"));
   assert.match(app, /fetch\('\/api\/whatsapp\/envio'/);
   // Prender exige un número conectado: CUALQUIER línea, no sólo la de por default.
   const envio = sinComentarios(leer('app/api/whatsapp/envio/route.ts'));

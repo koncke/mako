@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Select, Input, Textarea, Checkbox, Field } from '@/app/_ui';
 import type { AccionEditor, ParametroEditor } from '@/lib/api-mako/flujo';
-import { LEAD_DEL_EVENTO } from '@/lib/api-mako/flujo-params';
+import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR } from '@/lib/api-mako/flujo-params';
 
 export type ValorAccion = { operacion?: string; params?: Record<string, unknown> };
 
@@ -34,6 +34,26 @@ function catalogo(): Promise<AccionEditor[]> {
     })
     .catch((e) => { catalogoP = null; throw e; });
   return catalogoP;
+}
+
+/**
+ * Los títulos de las acciones, para que la tarjeta de un lienzo diga QUÉ corre el paso sin
+ * abrir el panel. Es la MISMA lectura (y la misma caché) que el desplegable del editor: los
+ * dos lienzos la pedían cada uno por su cuenta. Se pide sólo si el flujo tiene pasos de
+ * acción; mientras no llega, o si falla (no es admin, sin red), devuelve null y la tarjeta
+ * dice el id legible.
+ */
+export function useTitulosAcciones(activo: boolean): Map<string, string> | null {
+  const [titulos, setTitulos] = useState<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (!activo) return;
+    let vivo = true;
+    catalogo()
+      .then((a) => { if (vivo) setTitulos(new Map(a.map((x) => [x.id, x.titulo]))); })
+      .catch(() => { /* queda el id legible */ });
+    return () => { vivo = false; };
+  }, [activo]);
+  return titulos;
 }
 
 /** «fechaJunta» → «Fecha junta». Un rótulo de 1-3 palabras; la descripción va en el title. */
@@ -79,10 +99,10 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
         placeholder="Elige qué hace MaKo"
         search
         disabled={disabled}
-        hint={elegida ? 'Corre sola cuando el flujo llega acá.' : undefined}
+        hint={elegida ? 'Corre sola cuando el flujo llega aquí.' : undefined}
       />
       {elegida?.parametros.map((p) => (
-        <CampoParametro key={p.nombre} p={p} valor={params[p.nombre]} onCambio={(v) => fijar(p.nombre, v)} pideLead={elegida.pideLead} disabled={disabled} />
+        <CampoParametro key={`${valor.operacion ?? ''}:${p.nombre}`} p={p} valor={params[p.nombre]} onCambio={(v) => fijar(p.nombre, v)} pideLead={elegida.pideLead} disabled={disabled} />
       ))}
     </div>
   );
@@ -96,21 +116,41 @@ function CampoParametro({ p, valor, onCambio, pideLead, disabled }: {
   const [jsonMal, setJsonMal] = useState(false);
 
   if (p.nombre === 'leadId' && pideLead) {
-    const delEvento = valor === undefined || valor === LEAD_DEL_EVENTO;
+    // El modo se GUARDA, no se deduce de un campo vacío: «Otro lead» sin id vuelve como
+    // LEAD_A_ELEGIR. Antes se guardaba '' y `fijar` lo borraba, así que el desplegable volvía
+    // solo a «El lead del evento» y la acción corría sobre ese lead.
+    const modo = typeof valor === 'number' || valor === LEAD_A_ELEGIR ? 'otro'
+      : valor === LEAD_DEL_EVENTO || p.obligatorio ? 'evento' : 'ninguno';
+    const opciones = [
+      { value: 'evento', label: 'El lead del evento' },
+      { value: 'otro', label: 'Otro lead (por id)' },
+      // Un lead opcional vacío es «ninguno» (lib/api-mako/flujo-params.ts, paramsDelPaso).
+      ...(p.obligatorio ? [] : [{ value: 'ninguno', label: 'Ninguno' }]),
+    ];
     return (
-      <Field label="Lead" required={p.obligatorio}>
+      <Field label="Lead" required={p.obligatorio} error={modo === 'otro' && typeof valor !== 'number' ? 'Falta el id.' : undefined}>
         <Select
-          value={delEvento ? 'evento' : 'otro'}
-          onChange={(v) => onCambio(v === 'evento' ? undefined : (typeof valor === 'number' ? valor : ''))}
-          options={[{ value: 'evento', label: 'El lead del evento' }, { value: 'otro', label: 'Otro lead (por id)' }]}
+          value={modo}
+          onChange={(v) => onCambio(v === 'evento' ? LEAD_DEL_EVENTO : v === 'ninguno' ? undefined : (typeof valor === 'number' ? valor : LEAD_A_ELEGIR))}
+          options={opciones}
           disabled={disabled}
           ariaLabel="De qué lead"
         />
-        {!delEvento && (
+        {modo === 'otro' && (
           <Input type="number" value={typeof valor === 'number' ? String(valor) : ''} placeholder="id del lead" disabled={disabled}
-            onChange={(e) => onCambio(e.target.value ? Number(e.target.value) : '')} />
+            onChange={(e) => onCambio(e.target.value ? Number(e.target.value) : LEAD_A_ELEGIR)} />
         )}
       </Field>
+    );
+  }
+  // Una lista con opciones cerradas se elige con VARIOS: con el desplegable de un solo valor
+  // nunca se podía marcar más de uno (y guardar_diagnostico_fase pide seis).
+  if (p.tipo === 'string[]' && p.enum?.length) {
+    const lista = Array.isArray(valor) ? (valor as string[]) : [];
+    return (
+      <Select label={label} required={p.obligatorio} value="" placeholder="Elige" varios={lista}
+        onChange={(v) => onCambio(lista.includes(v) ? lista.filter((x) => x !== v) : [...lista, v])}
+        options={p.enum.map((e) => ({ value: e, label: e }))} disabled={disabled} />
     );
   }
   if (p.enum?.length) {
@@ -140,12 +180,18 @@ function CampoParametro({ p, valor, onCambio, pideLead, disabled }: {
   }
   if (p.tipo === 'object' || p.tipo === 'object[]') {
     return (
-      <Field label={label} required={p.obligatorio} error={jsonMal ? 'No es un JSON válido.' : undefined}>
+      <Field label={label} required={p.obligatorio} error={jsonMal ? (p.tipo === 'object' ? 'Tiene que ser un objeto { … }.' : 'Tiene que ser una lista [ { … } ].') : undefined}>
         <Textarea rows={4} value={crudo} disabled={disabled} title={p.descripcion}
           onChange={(e) => setCrudo(e.target.value)}
           onBlur={() => {
             if (!crudo.trim()) { setJsonMal(false); onCambio(undefined); return; }
-            try { onCambio(JSON.parse(crudo)); setJsonMal(false); } catch { setJsonMal(true); }
+            // «hola» o [ … ] en un campo de objeto son JSON válido y fallaban en cada corrida.
+            const esObjeto = (x: unknown) => x != null && typeof x === 'object' && !Array.isArray(x);
+            try {
+              const v: unknown = JSON.parse(crudo);
+              const ok = p.tipo === 'object' ? esObjeto(v) : Array.isArray(v) && v.every(esObjeto);
+              if (ok) { onCambio(v); setJsonMal(false); } else setJsonMal(true);
+            } catch { setJsonMal(true); }
           }} />
       </Field>
     );

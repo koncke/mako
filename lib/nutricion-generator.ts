@@ -22,6 +22,7 @@ import { ejemplosRelevantes } from '@/lib/copywriting-metodo';
 import { resumenFunnel } from '@/lib/mako-context';
 import { parseEstrategia } from '@/lib/setting-estrategia';
 import { puedeAfirmarEtapa } from './nutricion-familias';
+import { esPasoAccion } from './nutricion-paso-accion';
 
 const KEY_VOZ = 'mako.voz_guia';
 
@@ -288,6 +289,10 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   const sec = secs.find((s) => s.id === secuenciaId);
   if (!sec) return { ok: false, error: 'No encontré esa secuencia.' };
   if (!sec.pasos.length) return { ok: false, error: 'Esa secuencia no tiene pasos para escribir.' };
+  // Un paso «⚡ Acción de MaKo» no tiene texto: no viaja al modelo y sale del merge tal cual.
+  // Antes se le pedía copy al modelo y el saneo lo tiraba al guardar (cuerpo vacío forzado).
+  const aEscribir = sec.pasos.filter((p) => !esPasoAccion(p));
+  if (!aEscribir.length) return { ok: false, error: 'Esta secuencia sólo tiene acciones: no hay texto que escribir.' };
 
   const contexto = await contextoDeSecuencia(sec);
   const [persona, perfil, metodologia, ejemplos, voz, funnelTxt] = await Promise.all([
@@ -321,7 +326,7 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   const user = await renderPrompt('nutri.gen.user', NUTRI_GEN_USER_TEMPLATE, {
     nombre: sec.nombre,
     contexto,
-    pasos: JSON.stringify(sec.pasos.map(pasoParaPrompt), null, 2),
+    pasos: JSON.stringify(aEscribir.map(pasoParaPrompt), null, 2),
   });
 
   let uso: { tokens: number; costUsd: number } | undefined;
@@ -336,7 +341,10 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   // Merge: la ESTRUCTURA (canal/orden/tiempos/proveedor/template) es la del
   // template; solo pisamos el TEXTO que escribió MaKo. Si un paso vino vacío,
   // conservamos el copy previo (nunca dejamos un paso en blanco).
-  const merged: PasoSecuencia[] = sec.pasos.map((orig, i) => {
+  let deTexto = 0;   // la posición entre los pasos que SÍ viajaron al modelo
+  const merged: PasoSecuencia[] = sec.pasos.map((orig) => {
+    if (esPasoAccion(orig)) return orig;
+    const i = deTexto++;
     const g = genPasos.find((x) => Number(x.orden) === orig.orden) ?? genPasos[i];
     const cuerpo = asStr(g?.cuerpo).trim() || orig.cuerpo;
     if (orig.canal === 'email') {

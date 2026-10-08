@@ -46,8 +46,11 @@ test('aTiempo decide con dentroDeAntiguedad, no con una cuenta propia', () => {
   assert.match(cuerpo('aTiempo'), /dentroDeAntiguedad\(/);
 });
 
-test('las tres entradas de inscripción pasan por el tope', () => {
-  for (const f of ['planificarInscripciones', 'comprometerInscripciones', 'enrolarPorEvento']) {
+// La cuarta, desde el 08/10/2026: la inscripción A MANO (`inscribirEnSecuencia`, MaKo y los
+// pasos «⚡ Acción» de los flujos). Ahí el tope no filtra en silencio: contesta el motivo.
+// Probado rompiéndolo (08/10/2026): sacando su `aTiempo`, este test cae (2 pasan / 1 falla).
+test('las cuatro entradas de inscripción pasan por el tope', () => {
+  for (const f of ['planificarInscripciones', 'comprometerInscripciones', 'enrolarPorEvento', 'inscribirEnSecuencia']) {
     assert.match(cuerpo(f), /aTiempo\(/, `${f} inscribe sin mirar el tope de antigüedad`);
   }
 });

@@ -20,6 +20,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { defsVisibles, DEFS_TEST } from '../lib/integraciones-catalogo';
+import { CAPAS } from '../lib/capas';
 
 const CAPA_SUPERADMIN = ['Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Datos'];
 const ve = (defs: ReturnType<typeof f>, key: string) => defs.some((d) => d.key === key);
@@ -119,4 +120,22 @@ test('ERROR 3 bis: y NO se confunde la plataforma con OWNER_WS', () => {
     !/const esSuper = [^\n]*OWNER_WS/.test(s),
     'OWNER_WS es un cliente, no la plataforma: comparar contra él reabre la fuga',
   );
+});
+
+// =============================================================================
+// El super-admin ve TODAS las integraciones (08/10/2026)
+// =============================================================================
+// Su capa escondía Publicidad, Mensajería y las de agenda («no corre anuncios»). Dejó de
+// ser cierto: MaKo pauta con su propia cuenta de Meta, y el botón «Conectar con Meta» de la
+// app propia se prueba en su workspace — probarlo adentro de un cliente le pisaría su
+// conexión. Sin la tarjeta de Meta no había dónde apretarlo. Lo pidió Martín: «vuélvelas a
+// poner todo». Este test lee la capa DE VERDAD (no una lista copiada, como los de arriba).
+//
+// Verificado rompiéndolo: volver a poner la lista de categorías vieja → 1 fallo.
+test('la capa SuperAdmin muestra Meta y las que antes escondía', () => {
+  const cap = CAPAS.superadmin;
+  const suyas = f({ cats: cap.categoriasIntegraciones, ocultas: cap.integracionesOcultas ?? [], esSuper: true });
+  for (const key of ['meta', 'calendly', 'google', 'youtube', 'github']) {
+    assert.equal(ve(suyas, key), true, `el super-admin no ve «${key}»`);
+  }
 });

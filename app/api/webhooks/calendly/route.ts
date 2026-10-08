@@ -452,7 +452,8 @@ export async function POST(request: NextRequest) {
               texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
             });
             // Flujos configurados por el dueño: disparar 'lead.agendo' (R2).
-            await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2' });
+            // La MISMA clave que el aviso de arriba: Calendly reentrega, y una reentrega no repite los pasos.
+            await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2', dedupKey: `calendly:${payload.scheduled_event?.uri ?? emailJ2}|${startTimeIso}` });
             console.log(`[webhook:calendly] J2 → lead id=${lead.id} email=${emailJ2 ?? '—'} fecha_j2=${fechaJ2} ms=${ms}`);
             return Response.json({ ok: true, event: body.event, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ms });
           }
@@ -614,7 +615,7 @@ export async function POST(request: NextRequest) {
           texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.${anuncio}\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.agendo' (R1).
-        await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: nombre, reunion: 'R1' });
+        await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: nombre, reunion: 'R1', dedupKey: `calendly:${payload.scheduled_event?.uri ?? email}|${startTimeIso}` });
         // Nutrición de preparación (reunión 31/07): el audio de bienvenida sale
         // al toque de agendar — es la palanca contra el no-show del 45%.
         await enrolarPorEvento(lead.id, 'agenda_nueva');
@@ -670,7 +671,7 @@ export async function POST(request: NextRequest) {
           texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} (era el ${fmtFechaHoraLocal(startTimeIso, tzWs)}) y todavía no reagendó.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\nSi consigues otro horario, dime *«reagéndale la ${tipoCancelada} a ${lead.nombre}»*.\n\n— MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.cancelo'.
-        await dispararEvento('lead.cancelo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada });
+        await dispararEvento('lead.cancelo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada, dedupKey: `calendly-cancelo:${payload.scheduled_event?.uri ?? lead.id}|${startTimeIso}` });
         console.log(`[webhook:calendly] cancelación lead id=${lead.id} fecha=${fechaCancelada}: ${cambio} ms=${ms}`);
         return Response.json({ ok: true, event: body.event, lead_id: lead.id, cambio, ms });
       } catch (err) {

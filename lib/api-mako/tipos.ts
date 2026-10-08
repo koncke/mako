@@ -293,7 +293,14 @@ export type SalidaLectura =
  *  Lo que no puede ver un modelo (la agenda de Google) va en `paraLaPersona`. */
 export type Preparado =
   | { payload: Record<string, unknown>; resumen: string; paraLaPersona?: string }
-  | { error: string; faltan?: string[]; disponibles?: unknown; paraLaPersona?: string };
+  | {
+      error: string; faltan?: string[]; disponibles?: unknown; paraLaPersona?: string;
+      /** «Ya está así»: lo pedido YA es el estado actual (el lead ya está en esa secuencia, en
+       *  ese producto, ya está marcado). Para un canal con persona es un rechazo como cualquier
+       *  otro; para un paso de un flujo (lib/api-mako/flujo.ts) es un éxito sin nada que hacer,
+       *  y no le manda una alarma al dueño cada vez que el evento se repite. */
+      yaEstaba?: boolean;
+    };
 
 /** Lo que devuelve la escritura REAL. NUNCA lanza: si algo falla, `ok: false` con
  *  el motivo — así la pendiente se resuelve y un «sí» repetido no la re-ejecuta. El
@@ -343,4 +350,4 @@ export type Resultado =
   | { ok: true; tipo: 'pendiente'; pendiente: { id: number; resumen: string; venceEnMin: number; url: string }; crudo?: string }
   | { ok: true; tipo: 'propuesta'; propuesta: { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> } }
   | { ok: true; tipo: 'control'; resultado: string }
-  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500 };
+  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean };

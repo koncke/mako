@@ -82,6 +82,25 @@ export function sanearHoras(h: unknown): number {
   return Math.min(DELAY_MAX_HORAS, Math.max(DELAY_MIN_HORAS, n));
 }
 
+/**
+ * LA LÍNEA QUE LE LLEGA AL DUEÑO CUANDO UN PASO «⚡ ACCIÓN» NO SE PUDO.
+ *
+ * Una sola línea y corta: es un aviso en el grupo de MaKo, no un log. Dice QUÉ acción y
+ * POR QUÉ, porque el paso corre solo (decisión de Martín, 08/10/2026) y nadie está
+ * mirando: si falla callado, el dueño cree que la automatización hizo su trabajo.
+ *
+ * ⚠️ EL RESUMEN SE APLANA Y SE CORTA. Lo escribe el validador del registro o el error de
+ * una operación, y puede traer saltos de línea o un párrafo entero; pegado tal cual, «una
+ * línea» deja de serlo. Pura y sin `server-only` para que tenga test.
+ */
+export const TOPE_RESUMEN_FALLO = 160;
+
+export function lineaDeFalloAccion(accion: string, aviso: string, resumen: string): string {
+  const plano = (resumen || '').replace(/\s+/g, ' ').trim();
+  const corto = plano.length > TOPE_RESUMEN_FALLO ? `${plano.slice(0, TOPE_RESUMEN_FALLO - 1).trimEnd()}…` : plano;
+  return `⚠️ No se pudo «${accion}» (${aviso})${corto ? `: ${corto}` : '.'}`;
+}
+
 /** ¿La condición se cumple con lo que el motor sabe hoy? */
 export function cumple(cond: CondicionFlujo, est: Pick<EstadoCorrida, 'respondioAt'>): boolean {
   if (cond === 'contestaron') return est.respondioAt !== null;

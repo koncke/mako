@@ -31,11 +31,39 @@ export type Disparador =
   | { tipo: 'manual' };
 
 export type CanalPaso = 'aviso_dueno' | 'wa_lead';
+/**
+ * ⚠️ VIEJO: SÓLO PARA LEER LO GUARDADO. Eran las tres opciones fijas del paso «⚡ Acción»
+ * hasta el 08/10/2026, y ninguna corría: el motor dejaba una pendiente `flujo_<acción>` que
+ * ningún área del registro declaraba, y al confirmarla moría como «operación desconocida».
+ * Medido ese día: 1 paso así en toda la base (ws1, `crear_tarea`) y 0 corridas. Un paso
+ * con esto y sin `operacion` no corre: se dibuja como «Elige una acción».
+ */
 export type AccionFlujo = 'crear_tarea' | 'inscribir_nutricion' | 'marcar_lead';
+
+/**
+ * EL PASO «⚡ ACCIÓN»: cualquier acción de MaKo, con sus datos.
+ *
+ * Decisión de Martín (08/10/2026), textual: un paso de un flujo «que pueda hacer todo, sin
+ * limitaciones». El dueño confirma la acción al CONFIGURAR el paso; cuando el flujo corre,
+ * se EJECUTA sin pedir un «sí» (`ejecutarDesdeFlujo`, lib/api-mako/flujo.ts).
+ *
+ * ⚠️ NO HAY `requiereAprobacion` ACÁ, Y SE SACÓ A PROPÓSITO: la tarjeta dibujaba «· con tu
+ * OK» sobre un paso que, con la decisión, corre solo. Un rótulo que promete un permiso que
+ * nadie va a pedir es la misma mentira que la pendiente que nadie podía ejecutar.
+ */
+export type PasoAccion = {
+  tipo: 'accion';
+  /** El id de una ACCIÓN del registro de la API de MaKo (`porId`). */
+  operacion?: string;
+  /** Lo que el dueño fijó al configurarlo. El lead del evento lo pone el motor (`paramsDelPaso`). */
+  params?: Record<string, unknown>;
+  /** Viejo, sólo para leer lo guardado. Ver `AccionFlujo`. */
+  accion?: AccionFlujo;
+};
 
 export type Paso =
   | { tipo: 'mensaje'; canal: CanalPaso; texto: string; requiereAprobacion?: boolean }
-  | { tipo: 'accion'; accion: AccionFlujo; params?: Record<string, unknown>; requiereAprobacion?: boolean }
+  | PasoAccion
   | { tipo: 'esperar'; horas: number }
   /**
    * La rama. ⚠️ SU `condicion` SALE DE `CONDICIONES_FLUJO` (lib/flujo-pasos.ts), que
@@ -47,6 +75,45 @@ export type Paso =
    */
   | { tipo: 'condicional'; condicion: string }
   | { tipo: 'insistir'; texto: string; cadaMin: number; veces: number };
+
+// ── EL PASO «⚡ ACCIÓN»: qué corre, y cómo se escribe ────────────────────────
+
+/** Lo que dibuja el nodo cuando el paso todavía no tiene acción (o es uno viejo). */
+export const SIN_ACCION = 'Elige una acción';
+
+/**
+ * La operación que el paso CORRE, o null. Es la única pregunta que el motor y el lienzo
+ * se hacen, y la contestan acá los dos: con dos lecturas, un paso viejo podría dibujarse
+ * «sin acción» y correr igual, o al revés.
+ *
+ * ⚠️ El `accion` viejo NO cuenta: sus tres valores no son ids del registro, y adivinarles
+ * una operación sería hacer correr, sin que nadie la eligiera, una acción que el dueño
+ * aprobó cuando todavía era «MaKo te lo propone y se hace con tu sí».
+ */
+export function operacionDelPaso(p: Pick<PasoAccion, 'operacion'>): string | null {
+  const op = typeof p.operacion === 'string' ? p.operacion.trim() : '';
+  return op || null;
+}
+
+/** «mover_lead_etapa» → «Mover lead etapa». El título real lo trae el catálogo del registro. */
+export function rotuloOperacion(op: string): string {
+  const s = op.replace(/_/g, ' ').trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * El paso que sale del editor (`EditorAccionMako`): la operación y SUS parámetros, nada más.
+ *
+ * ⚠️ SE ARMA ENTERO A PROPÓSITO, y es la única excepción a «se conserva lo que no se
+ * conoce»: lo que había en el paso era la acción ANTERIOR. El `accion` viejo y el
+ * `requiereAprobacion` describen una regla que ya no existe; dejarlos colgando haría que
+ * el paso dijera dos cosas a la vez. Los parámetros sólo viajan si son un objeto plano.
+ */
+export function pasoDeAccion(v: { operacion?: string; params?: Record<string, unknown> }): PasoAccion {
+  const operacion = typeof v.operacion === 'string' ? v.operacion.trim() : '';
+  const params = v.params && typeof v.params === 'object' && !Array.isArray(v.params) ? v.params : {};
+  return operacion ? { tipo: 'accion', operacion, params } : { tipo: 'accion' };
+}
 
 // ── EL TECHO DE LA INSISTENCIA ───────────────────────────────────────────────
 /**
@@ -143,8 +210,12 @@ export function describirPaso(p: Paso): string {
     return `${canal}${p.requiereAprobacion ? ' · con tu OK' : ''}`;
   }
   if (p.tipo === 'accion') {
-    const acc: Record<AccionFlujo, string> = { crear_tarea: 'Crear una tarea', inscribir_nutricion: 'Inscribir en nutrición', marcar_lead: 'Marcar el lead' };
-    return `${acc[p.accion] ?? p.accion}${p.requiereAprobacion ? ' · con tu OK' : ''}`;
+    // El TÍTULO de la acción vive en el registro de la API de MaKo, que no se importa
+    // desde acá (este módulo lo lee el navegador). Acá va el id legible; el lienzo lo
+    // pisa con el título del catálogo cuando lo tiene (app/agencia/FlujoAviso.tsx).
+    // Un paso VIEJO (`accion` sin `operacion`) no corre: se dibuja sin acción elegida.
+    const op = operacionDelPaso(p);
+    return op ? rotuloOperacion(op) : SIN_ACCION;
   }
   if (p.tipo === 'insistir') {
     const cada = p.cadaMin % 60 === 0 ? `${p.cadaMin / 60} h` : `${p.cadaMin} min`;

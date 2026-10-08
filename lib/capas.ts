@@ -257,10 +257,9 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     seedBoardVsl: true,
   },
   // El espacio propio del SUPER-ADMIN de la agencia (no es un cliente): usa MaKo
-  // para SU trabajo — su plan, su Perro, sus reuniones (Fathom) y sus IA. NO corre
-  // ads, no tiene CRM de leads ni mide su propio VSL, así que Publicidad (Meta),
-  // Mensajería y Datos son ruido de otro negocio. El canal no oficial de WhatsApp
-  // de MaKo no vive acá: es la tab de admin "WhatsApp de MaKo" (/agencia).
+  // para SU trabajo — su plan, su Perro, sus reuniones (Fathom) y sus IA. El canal no
+  // oficial de WhatsApp de MaKo no vive acá: es la tab de admin "WhatsApp de MaKo"
+  // (/agencia). Las integraciones, desde el 08/10/2026, las ve TODAS (ver abajo).
   superadmin: {
     id: 'superadmin',
     // ⚠️ SE LLAMABA «SuperAdmin (agencia)» Y ESO CONFUNDIA DOS COSAS. «Un SuperAdmin
@@ -268,7 +267,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // agencia es un cliente que ademas tiene clientes propios. Que compartieran nombre
     // es lo que hacia que el tipo apareciera como una opcion mas al crear un cliente.
     nombre: 'SuperAdmin',
-    descripcion: 'El espacio propio del super-admin: su plan, sus reuniones y sus IA. Sin ads, sin CRM, sin VSL.',
+    descripcion: 'El espacio propio del super-admin: su plan, sus reuniones, sus IA y todas las integraciones.',
     // No se manda nunca: nadie «pasa a» SuperAdmin (no está en CAPAS_VENDIBLES). Va igual
     // porque el campo es obligatorio y dejarlo opcional invita a olvidarlo en la próxima.
     queRecibe: 'Es el espacio de la plataforma.',
@@ -284,13 +283,15 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     onboarding: [],
     briefGrupos: ['negocio'],
     integracionesRequeridas: [],
-    // Sus IA, la voz, sus reuniones (Fathom) — y Datos: el super-admin SÍ mide su
-    // propio VSL. Los mini-VSL de cada funcionalidad viven en Panda y /vsl trackea
-    // landing + retención, así que necesita poder conectar Panda desde acá.
-    categoriasIntegraciones: ['Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos'],
-    // …pero no las tres que son de un funnel de ventas de leads: YouTube (mide un
-    // VSL en YT), Calendly y Google Calendar (agenda R1/R2). El super-admin no las usa.
-    integracionesOcultas: ['youtube', 'calendly', 'google'],
+    // ⚠️ TODAS LAS INTEGRACIONES, desde el 08/10/2026. Antes la capa listaba sólo
+    // Inteligencia, IA Generativa, Agentes, Reuniones, Contenido y Datos, y escondía
+    // YouTube, Calendly y Google Calendar, con el argumento de que el super-admin no
+    // corre anuncios ni tiene un funnel de leads. Dejó de ser cierto: MaKo pauta con su
+    // propia página, cuenta publicitaria y píxel, y el botón «Conectar con Meta» de la app
+    // propia se prueba ACÁ (probarlo adentro de un cliente le pisaría su conexión). Sin
+    // «Publicidad» la tarjeta de Meta no aparecía y no había dónde apretarlo. Lo pidió
+    // Martín: «En su momento habíamos quitado muchas conexiones, vuélvelas a poner todo».
+    categoriasIntegraciones: null,
     seedBoardVsl: false,
   },
 };

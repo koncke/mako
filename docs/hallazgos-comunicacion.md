@@ -9028,24 +9028,91 @@ atribuir**:
 lib/leads.ts (`createLead`, `upsertLeadFromMeta`) · app/crm/lead-view/OrigenCard.tsx ·
 lib/nutricion.ts · lib/meta-ads.ts (`parseInsightsToMetrics`) · *2026-10-07 tareas-ads-manager*
 
-## El paso «⚡ Acción» del lienzo de avisos promete «se hace con tu sí» y no hace nada (08/10/2026)
+## El paso «⚡ Acción» en los dos lienzos: corre de verdad, y lo que lo rodea lo trataba como un mensaje (08/10/2026)
 
-**Vive en:** `lib/flujos.ts` (`ejecutarPaso`, ~:245-256) · `lib/flujos-tipos.ts` (`AccionFlujo`) ·
-`app/agencia/FlujoAviso.tsx` (:346, :587) · `lib/api-mako/acciones.ts` (`confirmarPendiente`)
+**Vive en:** `lib/flujos.ts` (`ejecutarPaso`, rama `accion`) · `lib/flujos-tipos.ts` (`operacionDelPaso`) ·
+`lib/flujo-pasos.ts` (`lineaDeFalloAccion`) · `app/agencia/FlujoAviso.tsx` (`EditorPasoAccion`) ·
+`lib/nutricion.ts` (la rama de la acción en `procesarEnvios`, `setSecuenciaPasos`) ·
+`lib/nutricion-paso-accion.ts` · `lib/flujo-conversacion.ts` · `app/chatbot/FlujoLienzo.tsx` ·
+`lib/plantillas.ts` (`leerPar`) · `lib/setting-secuencias.ts` · `lib/nutricion-generator.ts`
 
-Medido sobre HEAD en la corrida de la API de MaKo (ver `docs/hallazgos-api-mako.md`, «La API existe,
-pero los que más la usan todavía no pasan por ella»). El paso ofrece tres acciones fijas
-(`crear_tarea`, `inscribir_nutricion`, `marcar_lead`) y las tres dejan una pendiente
-`flujo_<acción>` que **ningún área del registro declara**: al decirle «sí», `confirmarPendiente`
-la cierra con «ya no existe en MaKo». No toca el registro (`lib/flujos.ts` no importa nada de
-`lib/api-mako`). Nunca corrió: en producción hay 1 paso acción guardado, con disparador manual, 0
-pendientes `flujo_*` y 0 corridas. Es un control que se dibuja, promete y no puede cumplir.
+**Antes** (medido sobre HEAD en la corrida de la API): el paso ofrecía tres acciones fijas que
+dejaban una pendiente `flujo_<acción>` que ningún área del registro declaraba; al decirle «sí»,
+`confirmarPendiente` la cerraba con «ya no existe en MaKo». Nunca corrió (1 paso guardado, 0
+corridas). **Martín decidió (08/10): «No, no lo escondas»** y «que pueda hacer todo, sin
+limitaciones». Ahora el paso corre cualquier acción del registro por `ejecutarDesdeFlujo` (ver
+`docs/hallazgos-api-mako.md`, «El canal de los flujos»), en avisos y en secuencias.
 
-⚠️ **Y «cuando el lead contesta» no existe para la línea de empresa**: `lead.wa_entrante` lo
-dispara sólo el webhook de Chatwoot (`app/api/webhooks/chatwoot/route.ts:177`). Un flujo de avisos
-que espere esa respuesta no corre nunca para quien usa el WhatsApp no oficial (Evolution).
+**Avisos (/mensajes).** El paso guarda `operacion` + `params` y `operacionDelPaso` es la única
+pregunta «¿qué corre?» que hacen el motor y el lienzo. ⚠️ **El `accion` viejo NO cuenta**: sus tres
+valores no son ids del registro, y adivinarles una operación haría correr algo que el dueño aprobó
+cuando todavía era «se hace con tu sí». Si la acción falla, una línea al grupo de MaKo.
+- ⚠️ **El saneo de pasos que nombra AGENTS.md NO existe en este lienzo**: `setFlujo` guarda el flujo
+  entero y las dos rutas `flujo-set` lo pasan tal cual. El saneo campo por campo es el de las
+  secuencias (`setSecuenciaPasos`). Un guard exige que si un escritor empieza a reconstruir pasos,
+  nombre `operacion` y `params`.
+- ⚠️ **Un editor que llama a `guardarFlujo` en cada tecla pierde letras**: `guardarFlujo` no pinta
+  optimista. El panel tiene estado propio y guarda los parámetros 700 ms después de la última tecla.
+- ⚠️ **Y un guardado diferido que se suelta al desmontar RESUCITA un paso recién quitado**, si el
+  botón de quitar no cancela lo pendiente.
+- ⚠️ **Un paso de acción del store de la PLATAFORMA no se hereda.** La herencia del super admin a
+  cada cliente es campo por campo y el flujo viajaba entero: «crear una tarea» configurado en el
+  /mensajes del dueño corría en el tablero de cada cliente. Se saca en `leerPar`, al lado del
+  borrador, para que la pantalla y el motor vean lo mismo.
 
-**SIN HACER:** esconder el paso o enchufarlo al registro con un canal `flujo` es decisión de Martín
-(`docs/api-mako-diseno.md` § 10, decisión E y fase 6).
+**Secuencias (/chatbot).** ⚠️ **El paso es un sub-objeto `accion`, NO un `tipo` más**: `tipo` dice
+qué clase de MENSAJE es y medio repo lo lee así (`textoDelPaso`, `proveedorDelPaso`, los wizards);
+un tipo nuevo caía en la rama de texto de todos los que no lo conocen. Lo decide la presencia del
+objeto, sin migración.
+- **Reclama antes de ejecutar** (update con `.eq('estado','activa').eq('paso_actual', n)`): si otra
+  corrida tomó el paso, no corre. El costo aceptado: si la acción falla después, ese paso no se
+  reintenta — se registra y se sigue.
+- ⚠️ **Nunca escribe `estado: 'enviado'` en `nutricion_envios`**: el anti-ban, el tope diario, «ya
+  contactado», el silencio del desenlace y las métricas cuentan MENSAJES por estado. Va `accion` o
+  `fallo`.
+- **Las acciones no gastan el cupo diario de mensajes**, y si el paso siguiente ya venció el bucle da
+  otra vuelta (el lienzo dice «Enseguida»; sin esto salía un paso por hora de cron).
+- ⚠️ **Y lo que recorría los pasos asumía que todos eran mensajes**: la prueba mandaba un WhatsApp
+  «[PRUEBA n/N] » en blanco por cada acción, el generador le pedía copy al modelo, `asignar_audio_paso`
+  le ponía un audio que el saneo tiraba en silencio, y `editar_pasos_secuencia_email` (que arma los
+  pasos de cero) las borraba. `tests/flujo-acciones-bordes.test.ts` los fija.
+- ⚠️ **El `Lienzo` compartido prende el ＋ del medio de TODAS las flechas** en cuanto recibe
+  `opcionesAgregar`, y no mira `puedeAgregarTras`: en las ramas («si contesta», el desenlace) hay
+  que marcar `sinMas` o el ＋ inserta en otro lado.
+- Dos guards de `lib/nutricion.ts` estaban anclados a texto exacto y un refactor sin cambio de
+  conducta los puso rojos: se mudaron las anclas y se volvieron a probar rompiéndolos.
 
-*08/10/2026, cuenta 2. Corrida `wf_88a97c1e-c89`.*
+⚠️ **Lo que cazó la revisión adversarial** (`wf_d229086b-56f`), arreglado en `395c4c11`:
+- **Una REENTREGA del webhook repetía la acción.** Cal.com y Calendly reentregan (medido en el propio
+  webhook: 2 y 3 veces), el aviso ya deduplicaba por reserva y `dispararEvento` no: hasta el 08/10 se
+  duplicaba una línea al grupo; con un paso que corre solo, una tarea o un WhatsApp al lead. Ahora
+  `CtxFlujo.dedupKey` lleva la MISMA clave del aviso y el flujo se reclama antes de correr.
+- **Un aviso APAGADO en la pantalla corría su flujo**: `listarFlujosActivos` filtraba con
+  `e.enabled !== false` y la pantalla pinta con `estaPrendida` (~50 de 69 avisos nacen apagados y
+  sin el campo). Medido en prod antes de cambiarlo: ningún flujo estaba en ese caso.
+- **El drenador ejecutaba el paso antes de reclamarlo** (`ejecutarPasos`): un corte en el medio lo
+  volvía a correr. Ahora `avanzar` va antes; si falla, ese paso no se reintenta.
+- **Lo que el panel no alcanzó a guardar (700 ms) se pisaba**: un deshacer quedaba revertido por el
+  guardado diferido, y un paso insertado antes corría los índices y lo escrito caía en la acción de al
+  lado. El tablero TOMA lo pendiente (`panelPendiente`) antes de cambiar el flujo, y
+  `visibilitychange` cubre cerrar la pestaña.
+- **Una acción de una secuencia corría con el mensaje anterior en borrador sin mandar**: va con la
+  misma espera de 6 h que el mensaje.
+- **Con los dos canales apagados el cron cortaba en `off`** y la segunda acción no corría nunca; ahora
+  corre `procesarEnvios` (los mensajes esperan 24 h, como siempre). Y «Publicar» no guarda un paso al
+  que le falta un dato obligatorio.
+
+**SIN HACER:**
+- El envío de MENSAJES de una secuencia sigue sin compare-and-set (`lib/nutricion.ts`, el avance es
+  `.eq('id', insc.id)`): el cron y la vía rápida de `enrolarPorEvento` pueden mandar dos veces en una
+  carrera. Las acciones ya reclaman; conviene el mismo reclamo para los mensajes.
+- Con los canales apagados, una secuencia de COHORTE de sólo acciones no inscribe a nadie
+  (`comprometerInscripciones` sigue en `off`); las que inscriben por evento sí corren.
+- Desde un flujo, `inscribir_lead_secuencia` no tiene vía rápida: el primer mensaje lo manda el cron.
+- El lienzo de avisos no avisa en la tarjeta que a un paso le falta un dato: el motor no lo corre y
+  lo deja en el log.
+- Una acción que manda un WhatsApp (`crear_borrador_whatsapp_empresa`) no gasta el cupo diario ni la
+  pausa de 20 h: lo decidió «sin limitaciones», y el refutador lo dejó como observación para Martín.
+
+*08/10/2026, cuenta 2. Corrida `wf_48a7d912-9a9` y revisión `wf_d229086b-56f`; commits `3f961adc`,
+`1035b951`, `fb986a44`, `b2a6db9d`, `395c4c11`.*

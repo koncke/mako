@@ -40,6 +40,7 @@ import {
   MAX_DESTINATARIOS, type EmailSecuencia, type Broadcast,
 } from '@/lib/email-marketing';
 import { setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { getEmailFrom, remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain } from '@/lib/resend';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import {
@@ -455,6 +456,9 @@ export const RUNNERS: Runners = {
       if (!s) return { error: noSecuencia(id) };
       const crudos = Array.isArray(input.pasos) ? (input.pasos as Array<Record<string, unknown>>) : [];
       if (!crudos.length) return { error: 'Faltan los pasos.', faltan: ['pasos'] };
+      // Esta tool arma los pasos de cero, como emails: una acción de MaKo que tuviera la
+      // secuencia se perdería sin aviso. Se edita en el lienzo, que sí las conoce.
+      if (s.pasos.some(esPasoAccion)) return { error: `«${s.nombre}» tiene pasos «Acción de MaKo»: reescribirla por aquí los borraría. Edítala en el lienzo de /chatbot.` };
       const pasos: PasoSecuencia[] = crudos.map((p, i) => ({
         orden: i + 1, canal: 'email', delay_horas: Number(p.delay_horas) || 0,
         ...(p.ancla === 'reunion' ? { ancla: 'reunion' as const } : {}),

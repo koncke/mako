@@ -783,7 +783,10 @@ export const RUNNERS: Runners = {
       try { j = JSON.parse(crudo) as Record<string, unknown>; } catch { return { error: crudo }; }
       if (j.ok !== true || typeof j.link !== 'string') return { error: String(j.error ?? 'No se pudo armar el borrador.') };
       return {
-        id: j.link.split('/').pop() ?? '', url: j.link, nueva: true,
+        // ⚠️ Sin la query: el link lleva `?ws=N` (linkApp) y con él pegado el id no existe en
+        // plan_propuestas. Medido por la revisión del 08/10: desde un flujo, «El borrador del plan ya
+        // no existe» en cada corrida, con el borrador real colgado en /plan/revisar.
+        id: j.link.split(/[?#]/)[0].split('/').pop() ?? '', url: j.link, nueva: true,
         extra: { borrador: j.borrador, tareas: j.tareas },
       };
     },

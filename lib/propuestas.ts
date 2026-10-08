@@ -160,6 +160,14 @@ export async function marcarAplicada(id: string, resultado: Record<string, unkno
   return (data ?? []).length > 0;
 }
 
+/** El resultado de una propuesta que ya se reclamó con `marcarAplicada`: el que reclama
+ *  ANTES de hacer el trabajo escribe lo que pasó después. */
+export async function guardarResultadoPropuesta(id: string, resultado: Record<string, unknown>): Promise<void> {
+  const db = await getTenantDb();
+  const { error } = await db.from('propuestas').update({ resultado }).eq('id', id);
+  if (error) console.error(`[propuestas] no pude guardar el resultado de ${id}:`, error.message);
+}
+
 /** Descartar NO borra: la fila queda con su estado. Es la misma regla que el plan —
  *  descartar es una decisión y borrarla haría que el mismo lead vuelva a proponerse. */
 export async function descartarPropuesta(id: string): Promise<void> {

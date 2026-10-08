@@ -3091,12 +3091,61 @@ lee como que MaKo está rota. Por eso `conectarMetaDisponible()` lo ofrece:
 - al super admin (que sí tiene rol y lo prueba con sus propios activos), hasta la aprobación;
 - a todos, con `META_OAUTH_ABIERTO=true` en Vercel — sin deploy, el día que Meta apruebe.
 
+### La primera prueba real (08/10): entra la página y los leads; los anuncios, no
+
+Con el secreto cargado se probó en el workspace del súper admin (ws9), con la página
+Hola MaKo, el píxel y la cuenta publicitaria «MaKo» (act_1426493815659364) elegidos a
+mano en el diálogo. Tres cosas, en el orden en que aparecieron:
+
+1. **«El dominio de esta URL no está incluido en los dominios de la aplicación».** El
+   diagnóstico obvio —falta el dominio— era el equivocado: se agregó la plataforma «Sitio
+   web» en Configuración básica (hace falta igual) y el error siguió. La causa real era que
+   la lista **«URI de redireccionamiento de OAuth válidos» estaba VACÍA**: lo que el 07/10
+   se dio por guardado no persistió. Ese campo es de «chips»: el texto pegado no cuenta
+   hasta apretar **Enter** y después **Guardar cambios**; si no, se pierde sin aviso. Se
+   verifica con el **Validador de URI** de la misma pantalla, nunca releyendo lo tipeado.
+2. **La conexión vuelve bien y el token sale sin los permisos de anuncios.** `/me` contesta
+   «MaKo System User» (token de usuario del sistema, no vence) y `/me/accounts` trae la
+   página; `/me/permissions` lista `pages_show_list`, `leads_retrieval`,
+   `pages_read_engagement`, `pages_manage_ads` y `public_profile`. Faltan
+   **`ads_management`, `ads_read` y `business_management`**, aunque la configuración los
+   pide y la pantalla de consentimiento los muestra («Administración de anuncios de las
+   cuentas publicitarias…»). `/act_1426493815659364` contesta «(#200) Ad account owner has
+   NOT grant ads_management or ads_read permission». Medido dos veces, la segunda eligiendo
+   la cuenta publicitaria explícitamente.
+3. **La tarjeta de Meta en /integraciones dice «No se pudo leer»** y no dice por qué. La
+   causa es un permiso que Meta no dio, que no se arregla tocando nada en MaKo.
+
+Lo que se descartó, medido:
+
+- **No es el rol.** Los permisos que SÍ entraron también tienen acceso estándar (en el caso
+  de uso figuran todos «Listo para prueba»). Roles de la app lista sólo a «Martin Koncke»,
+  pero la propia pantalla avisa que los usuarios del portafolio pueden tener rol vía Meta
+  Business Suite, y ahí la persona que conectó figura con acceso total a la app.
+- **No es la cuenta elegida.** El diálogo la lista con su id (1426493815659364) y la marca
+  «Se ha compartido anteriormente».
+
+Lo que está a la vista y es la hipótesis más probable, **NO MEDIDA**: la app está con
+**«Marketing API Access Tier: Acceso limitado»** y con la **verificación de acceso de
+proveedor de tecnología EN REVISIÓN** (enviada el 08/10, Meta dice ~5 días hábiles). Un
+token de usuario del sistema de Login for Business es, según la documentación, «sólo para
+proveedores de tecnología»: los permisos de páginas pasan y los de anuncios no, que es el
+patrón de un acceso todavía no habilitado para ese tipo de token. Se confirma o se descarta
+reconectando cuando Meta conteste.
+
+⚠️ **Cómo se diagnostica sin tocar nada**: con el token del workspace (`credWsEstricta`),
+`GET /me/permissions` dice qué se concedió de verdad. `debug_token` no sirve con ese token
+—pide un token de APP, y el secreto no está en `.env.local`—, y la pantalla de
+consentimiento no es evidencia: lista lo que se PIDE, no lo que se da.
+
 ### Lo que quedó SIN hacer
 
-- **Martín carga `MAKO_META_APP_SECRET` en Vercel** (el secreto no pasa por Claude) y lo
-  prueba con su cuenta en su propio workspace. Hasta entonces el botón no aparece.
-- **No se probó en un navegador**: el botón sólo se dibuja con el secreto cargado, y bootear
-  local escribe en producción. La primera prueba real es la de Martín.
+- **Reconectar después de la verificación de acceso** y medir `/me/permissions` de nuevo.
+  Si siguen faltando los tres, el camino es pedir acceso avanzado en Revisión de la app,
+  que exige llamadas reales con cada permiso (se pueden hacer con un token de USUARIO del
+  administrador, desde el Explorador de la Graph API).
+- **La tarjeta tiene que decir qué falta**: «Faltan permisos de anuncios» en vez de «No se
+  pudo leer», leyendo `/me/permissions` al descubrir (`lib/meta-conexion.ts`).
 - **Webhook de leads con la app nueva.** Nadie llama a `subscribed_apps` y la app MaKo no
   tiene el webhook configurado: los leads de un cliente conectado SÓLO por la app MaKo entran
   por el polling, no en vivo. Para el webhook hace falta `pages_manage_metadata` (se dejó

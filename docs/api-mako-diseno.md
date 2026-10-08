@@ -343,6 +343,18 @@ Lo que la primera versión del plan afirmaba y **no se sostuvo** (refutado el 08
 - **E. El paso «⚡ Acción» del lienzo de avisos** promete «se hace con tu sí» y no hace nada (1
   guardado, 0 corridas): esconderlo hasta la fase 6, o dejarlo.
 
+**Contestadas por Martín el 08/10/2026**, textual: «Que pueda hacer todo, sin limitaciones. · La
+ofrece. · No, no renombres. · Mantenla, no cambies nada. · No, no lo escondas...».
+
+- **A → todo, sin «sí».** No la clase cerrada que se recomendaba: un paso «⚡ Acción» corre
+  CUALQUIER acción del registro, porque el dueño la confirmó al configurar el paso. Hecho por el
+  mismo choke point (`ejecutarDesdeFlujo`, `lib/api-mako/flujo.ts`), con el canal `app` y no uno
+  nuevo — CANALES no cambió (`docs/hallazgos-api-mako.md`, «El canal de los flujos»).
+- **B → la ofrece.** En una pregunta no viajan las herramientas que escriben y el «sí» al
+  ofrecimiento va a `actuar` (`3950e7cd`): −4.535 tokens por pedido.
+- **C → no se renombra**, y **D → `/api/agente/*` queda como está.**
+- **E → no se esconde: se hizo funcionar**, en los dos lienzos (`docs/hallazgos-comunicacion.md`).
+
 ### La tab `/api-mako` y los tokens con nombre (08/10/2026)
 
 Hecho del plan de arriba: la fase **5** a medias — el catálogo HTTP filtrable (`?compacto=1`,

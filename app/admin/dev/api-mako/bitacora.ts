@@ -102,4 +102,31 @@ export const BITACORA: Hito[] = [
       'app/api/v1/route.ts — los filtros del catálogo',
     ],
   },
+  {
+    fecha: '8 oct', hora: '03:51', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un paso de un flujo corre cualquier acción, por el mismo choke point',
+    pedido: 'Que pueda hacer todo, sin limitaciones.',
+    puntos: [
+      'Las cinco decisiones de Martín del § 10 están contestadas (docs/api-mako-diseno.md). La que cambia el registro es la A: un paso «⚡ Acción» de un flujo corre cualquier acción, sin pedir un «sí».',
+      '⚠️ **El diagnóstico obvio era el equivocado: sumar un canal `flujo`.** `canales` es una lista en positivo en las 498 operaciones; va con el canal `app` y una clave con prefijo (`app:flujo:`). CANALES no cambió.',
+      '⚠️ **Confirmar corre el `ejecutar()` sin contexto de workspace**: medido en el ws3, el historial de una nota tiraba «cookies was called outside a request scope». El ejecutor fija el workspace él mismo.',
+      '**«Ya está así» no es un fallo para un flujo**: `Preparado` gana `yaEstaba` y el ejecutor lo cuenta como éxito, o «cuando agenda, movelo» alarmaba al dueño en cada reagenda.',
+      'Operaciones nuevas: meter a un lead en UNA secuencia, y agregarlo, sacarlo o moverlo en uno de sus productos del CRM. Ninguna sale por HTTP.',
+    ],
+    commits: [
+      { sha: 'fafe007b', msg: 'API de MaKo: un paso de un flujo corre cualquier acción, por el mismo choke point', lineas: 350, archivos: 6 },
+      { sha: '63a0f95a', msg: 'Flujos: el ejecutor fija el workspace él mismo, y las heredadas dejan el flujo como origen', lineas: 19, archivos: 2 },
+      { sha: '40d8f052', msg: 'API de MaKo: meter un lead en UNA secuencia, y un lead en varios productos del CRM', lineas: 942, archivos: 12 },
+      { sha: 'b2a6db9d', msg: 'Paso «⚡ Acción»: lo que lo rodea deja de tratarlo como un mensaje vacío', lineas: 177, archivos: 12 },
+      { sha: '395c4c11', msg: 'Revisión adversarial del paso «⚡ Acción»: los 14 confirmados que quedaban, arreglados', lineas: 436, archivos: 20 },
+    ],
+    archivos: [
+      'lib/api-mako/flujo.ts — ejecutarDesdeFlujo: propone y confirma por el camino de cada forma',
+      'lib/api-mako/flujo-params.ts — el lead del evento y los parámetros del paso (puro, con test)',
+      'app/_components/EditorAccionMako.tsx — el editor del paso, compartido por los dos lienzos',
+      'app/api/flujos/acciones/route.ts — el catálogo que ve el editor, armado en el server',
+      'lib/api-mako/areas/crm.run.ts, chatbot.run.ts — las operaciones nuevas',
+    ],
+  },
 ];

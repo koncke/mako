@@ -32,6 +32,7 @@ import { PasoAudioControl } from './PasoAudioControl';
 import { DESENLACE_VACIO, type Desenlace, type Estrategia } from '@/lib/setting-estrategia';
 import { contextoDe } from '@/lib/etapas-contexto';
 import { pasoAVoz, pasoATexto, guionParaLeer, sinGuion, type PasoConVoz } from '@/lib/guion-audio';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 
 /** Un mensaje del borrador. `guion` es el texto que había antes de pasarlo a voz y
  *  `vozPrevia` cómo estaba partido al volver a texto: viven sólo acá y `sinGuion` los
@@ -426,7 +427,14 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
               {busy === 'redactar' ? 'MaKo está escribiendo…' : '✍️ Que los escriba MaKo'}
             </button>
           )}
-          {draft?.map((p, i) => (
+          {draft?.map((p, i) => (esPasoAccion(p) ? (
+            // Un paso «⚡ Acción» no tiene copy que redactar ni audio que grabar: se edita en
+            // el lienzo. Dibujado como mensaje, la casilla del audio lo volvía una nota de voz
+            // que el saneo (`setSecuenciaPasos`) después descarta en silencio.
+            <div key={i} style={{ ...caja, fontSize: 12.5, color: 'var(--dim)' }}>
+              ⚡ Acción de MaKo · paso {p.orden}
+            </div>
+          ) : (
             <div key={i} style={{ ...caja }}>
               <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 8 }}>
                 {p.canal === 'email' ? '✉️ Email' : '💬 WhatsApp'} · mensaje {p.orden}
@@ -470,7 +478,7 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
                 style={{ ...inp, resize: 'vertical' }}
               />
             </div>
-          ))}
+          )))}
           {draft && (
             <button onClick={() => void redactar()} disabled={busy != null} style={{ ...btnGhost, alignSelf: 'center' }}>{busy === 'redactar' ? 'Reescribiendo…' : '↻ Reescribir'}</button>
           )}

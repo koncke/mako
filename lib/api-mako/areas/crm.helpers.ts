@@ -19,7 +19,8 @@ import { revalidateTag } from 'next/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { TAG } from '@/lib/cache';
 import { listLeads, getLeadRespuestas, faltantesDeLead, logLeadEvent, type Lead } from '@/lib/leads';
-import { getFunnelDefault, getFunnelDeLead, saveFunnelDefault } from '@/lib/funnels';
+import { getFunnelDefault, getFunnelDeLead, saveFunnelDefault, listarFunnels } from '@/lib/funnels';
+import { etapasDeProducto } from '@/lib/lead-funnel';
 import { getPagosByLead } from '@/lib/pagos';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
@@ -65,6 +66,35 @@ export async function etapasDelFunnelDefault(): Promise<Stage[]> {
  *  es qué pregunta hace cada call-site, y por eso son dos funciones y no una. */
 export async function etapasDelFunnelDeLead(lead: Lead): Promise<Stage[]> {
   return (await getFunnelDeLead(lead)).stages;
+}
+
+/** Un producto del CRM: su EMBUDO (mig 0170), con el nombre que ve la persona y sus etapas.
+ *  ⚠️ El id es el del embudo, que es lo que piden lib/lead-funnel.ts y `lead_funnel`; NO el de
+ *  la tabla `productos` (el catálogo de ofertas de listar_productos): del producto al embudo hay
+ *  dos saltos (lib/funnels.ts → productoDeFunnel), y usar uno por el otro es un número correcto
+ *  sobre la pregunta equivocada. */
+export type ProductoCrm = {
+  embudoId: number;
+  nombre: string;
+  esDefault: boolean;
+  etapas: Array<{ key: string; label: string; kind?: string; band?: string }>;
+};
+
+/** Los productos del CRM del negocio, con sus etapas. DEUDA: es la misma lectura que
+ *  productosDeLaFichaAction (app/crm/lead-funnel-actions.ts), que es una server action y no se
+ *  llama desde el registro; el nombre sigue la regla de nombreDeProducto (lib/lead-funnel.ts,
+ *  privada): el del producto si lo hay, si no el del embudo.
+ *  `null` = no se pudieron leer: `listarFunnels` devuelve [] cuando la lectura falla, y todo
+ *  negocio tiene al menos su embudo, así que vacío no es «no tiene productos». */
+export async function productosCrm(): Promise<ProductoCrm[] | null> {
+  const funnels = await listarFunnels();
+  if (!funnels.length) return null;
+  return Promise.all(funnels.map(async (f) => ({
+    embudoId: f.id,
+    nombre: f.producto?.trim() || f.nombre,
+    esDefault: f.esDefault,
+    etapas: (await etapasDeProducto(f.id)).map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? undefined, band: s.band })),
+  })));
 }
 
 /** Copia de getLeadFullAction (app/crm/actions.ts): los mismos insumos para faltantesDeLead. */

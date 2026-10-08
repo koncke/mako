@@ -28,7 +28,9 @@ import {
   planificarEnvios,
   comprometerInscripciones,
   procesarEnvios,
+  getSecuenciasActivas,
 } from '@/lib/nutricion';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { evaluarDesenlaces } from '@/lib/nutricion-desenlace';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
@@ -129,7 +131,18 @@ export async function GET(request: NextRequest) {
           const cerradas = desenlaces ? { logrados: desenlaces.logrados, fallidos: desenlaces.fallidos, movidos: desenlaces.movidos } : undefined;
 
           const [waOn, emailOn] = await Promise.all([envioWhatsappHabilitado(), envioEmailHabilitado()]);
-          if (!waOn && !emailOn) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
+          if (!waOn && !emailOn) {
+            // ⚠️ SIN CANALES, LAS ACCIONES IGUAL CORREN. Un paso «⚡ Acción» no es un mensaje y el
+            // canal apagado no le aplica (lib/nutricion.ts), pero cortar acá dejaba vencida para
+            // siempre la segunda acción de una secuencia —la primera sale por la vía rápida del
+            // evento— y el día que se prendía un canal corrían todas juntas, semanas tarde. Con los
+            // dos canales apagados, el motor hace esperar 24 h a cada MENSAJE sin mandarlo, así que
+            // correrlo sólo mueve las acciones. No inscribe por cohorte: eso sigue en 'off'.
+            const conAcciones = (await getSecuenciasActivas()).some((s) => s.pasos.some(esPasoAccion));
+            if (!conAcciones) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
+            const proc = await procesarEnvios({ ignorarVentana });
+            return { ws: w.id, modo: 'off (sólo acciones)', ...proc, ...(cerradas ?? {}) };
+          }
           const inscriptas = await comprometerInscripciones();
           const proc = await procesarEnvios({ ignorarVentana });
           return { ws: w.id, modo: `commit (wa:${waOn ? 'on' : 'off'} email:${emailOn ? 'on' : 'off'})`, inscriptas, ...proc, ...(cerradas ?? {}) };

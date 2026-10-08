@@ -197,6 +197,16 @@ async function leerPar(): Promise<{ propio: Store; efectivo: Store }> {
     // un «Sin publicar» y un texto que nunca tipeó — y al apretar Publicar estaría
     // publicando en SU negocio el borrador de la agencia.
     const { borrador: _sinHeredar, ...heredable } = baseStore[id] ?? {};
+    // ⚠️ Y UN PASO «⚡ ACCIÓN» TAMPOCO SE HEREDA. Desde el 08/10/2026 ese paso CORRE solo
+    // (lib/api-mako/flujo.ts), y lo que el dueño arma en su /mensajes es una automatización
+    // de SU negocio: heredada, «crear una tarea» o «mover el lead» corría en el tablero y el
+    // CRM de cada cliente, con un lead que no es el suyo si el paso fijaba uno a mano. El
+    // cliente hereda los MENSAJES del flujo; sus acciones las arma él. Se saca acá, donde se
+    // arma lo efectivo, para que la pantalla y el motor vean lo mismo: un paso que se dibuja
+    // y no corre se lee como una automatización rota.
+    if (!propio[id]?.flujo && heredable.flujo?.pasos?.some((x) => x.tipo === 'accion')) {
+      heredable.flujo = { ...heredable.flujo, pasos: heredable.flujo.pasos.filter((x) => x.tipo !== 'accion') };
+    }
     efectivo[id] = { ...heredable, ...(propio[id] ?? {}) };
   }
   return { propio, efectivo };
@@ -336,7 +346,15 @@ export async function setFlujo(id: string, flujo: Flujo | null): Promise<Flujo |
 export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: Flujo }>> {
   const store = await leerStore();
   const vivos = Object.entries(store)
-    .filter(([, e]) => e.flujo && esFlujoValido(e.flujo) && e.flujo.activo && e.enabled !== false)
+    // ⚠️ PRENDIDO SE PREGUNTA CON `estaPrendida`, igual que para los de fábrica de abajo. Con
+    // `e.enabled !== false`, una entrada sin `enabled` (la mayoría: ~50 de 69 avisos nacen apagados
+    // y nadie les escribió el campo) pasaba el filtro: el flujo —con sus pasos «⚡ Acción», que
+    // escriben y le pueden mandar algo al lead— corría con el interruptor de la pantalla en apagado.
+    .filter(([id, e]) => {
+      if (!(e.flujo && esFlujoValido(e.flujo) && e.flujo.activo)) return false;
+      const cat = CATALOGO_AVISOS.find((c) => c.id === id);
+      return cat ? estaPrendida(cat, e) : e.enabled !== false;
+    })
     .map(([id, e]) => ({ id, flujo: e.flujo as Flujo }));
   // ⚠️ Y LOS DE FÁBRICA, O LA CADENCIA POR DEFECTO NO LA CORRE NADIE. El runtime busca
   // acá: si el default sólo se dibujara en el lienzo, el mensaje de entrada saldría y

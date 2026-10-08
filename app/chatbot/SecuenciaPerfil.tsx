@@ -20,6 +20,7 @@ import { FlujoLienzo } from './FlujoLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
 import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
@@ -207,15 +208,23 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
    * Agregar un paso DESPUÉS de una tarjeta. El ＋ del lienzo dice dónde entra, así que
    * el paso tiene que entrar ahí: insertar y renumerar, no apilar al final.
    */
-  const agregarTras = (idNodo: string) => {
+  const agregarTras = (idNodo: string, que: 'mensaje' | 'accion' = 'mensaje') => {
     antesDeCambiar();
     const m = /^paso-(\d+)$/.exec(idNodo);
     const tras = m ? Number(m[1]) : 0;   // `entrada` → 0, o sea primero de todo
     setPasos((prev) => {
-      const nuevo: PasoSecuenciaDto = {
-        orden: 0, canal: 'whatsapp', delay_horas: 24, asunto: null, cuerpo: '',
-        proveedor: 'no_oficial', template_wa: null,
-      };
+      // «⚡ Acción de MaKo» (decisión de Martín, 08/10/2026): nace SIN ELEGIR —el lienzo le
+      // abre el panel— y con espera 0: lo normal es que acompañe al paso anterior («le
+      // escribe y lo mueve de etapa»), no que espere un día como un mensaje nuevo.
+      const nuevo: PasoSecuenciaDto = que === 'accion'
+        ? {
+          orden: 0, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '',
+          proveedor: 'no_oficial', template_wa: null, accion: { operacion: '', params: {} },
+        }
+        : {
+          orden: 0, canal: 'whatsapp', delay_horas: 24, asunto: null, cuerpo: '',
+          proveedor: 'no_oficial', template_wa: null,
+        };
       const antes = prev.filter((p) => p.orden <= tras);
       const despues = prev.filter((p) => p.orden > tras);
       return [...antes, nuevo, ...despues].map((p, i) => ({ ...p, orden: i + 1 }));
@@ -303,6 +312,17 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   // ninguna manera — se veía «24 h» y había que salir al wizard para cambiarlo.
   const editarPaso = (orden: number, campo: 'cuerpo' | 'asunto' | 'delay_horas', val: string | number) =>
     setPasos((prev) => prev.map((p) => (p.orden === orden ? { ...p, [campo]: val } : p)));
+
+  /**
+   * Qué acción corre un paso «⚡ Acción» y con qué datos. Estado local, como el texto de un
+   * mensaje: se guarda con «Publicar» (y `setSecuenciaPasos` frena una acción sin elegir).
+   * Cambiar DE ACCIÓN entra a la pila de deshacer; tipear un dato no, igual que el texto.
+   */
+  const editarAccion = (orden: number, v: { operacion?: string; params?: Record<string, unknown> }) => {
+    const antes = pasos.find((p) => p.orden === orden)?.accion?.operacion ?? '';
+    if ((v.operacion ?? '') !== antes) antesDeCambiar();
+    setPasos((prev) => prev.map((p) => (p.orden === orden ? { ...p, accion: { operacion: v.operacion ?? '', params: v.params ?? {} } } : p)));
+  };
 
   const editarVariante = (orden: number, i: number, val: string) =>
     setPasos((prev) => prev.map((p) => (p.orden !== orden ? p : {
@@ -429,7 +449,10 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         // sin que salga un solo mensaje: cada paso falla y se reprograma +24h,
         // para siempre y sin síntoma. Pasó cinco días en la cuenta del dueño.
         // El toggle SÍ hizo su trabajo, así que no se falla — se dice qué falta.
-        const soloWa = pasos.every((p) => p.canal === 'whatsapp');
+        // Cuentan los MENSAJES: un paso «⚡ Acción» corre con el número caído (no es un mensaje),
+        // y una secuencia de sólo acciones sí hace algo aunque WhatsApp esté desconectado.
+        const mensajes = pasos.filter((p) => !esPasoAccion(p));
+        const soloWa = mensajes.length > 0 && mensajes.every((p) => p.canal === 'whatsapp');
         flashOk(
           !activa
             ? (caidaLaSec && soloWa
@@ -630,6 +653,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         onAudioNuevo={onAudioNuevo} onError={setErr}
         onEditarVariante={editarVariante} onQuitarVariante={quitarVariante}
         onModoIA={rolAdmin ? setModoIA : undefined}
+        onAccion={rolAdmin ? editarAccion : undefined}
         onModo={setModo} onDesenlace={setDesenlace} onAntiguedad={setAntiguedad}
         onEnvioAuto={rolAdmin ? setEnvioAuto : undefined}
         onAbrirSecuencia={onAbrirClave}

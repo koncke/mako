@@ -402,7 +402,17 @@ test('los cierres SIN envío dejan su fila: «la reunión ya pasó» y el tope d
 test('cada paso que sale re-anota la reunión, en un update APARTE del avance', () => {
   // Si el lead reprograma a mitad de la corrida, la fila tiene que terminar diciendo la reunión
   // NUEVA: con la vieja, el cron siguiente leía «otra reunión» y mandaba la post-agenda de nuevo.
+  //
+  // Desde el 08/10/2026 el update vive en `anotarReunionDelPaso`, porque son DOS los avances que
+  // lo necesitan: el de un mensaje y el de un paso «⚡ Acción», que también hace avanzar la misma
+  // corrida de la post-agenda. Probado rompiéndolo (08/10/2026, archivo en 28/0): sacando la
+  // llamada del avance del mensaje → 27/1 (éste); sacándola del de la acción → 27/1 (éste).
   const proc = cuerpo(MOTOR, 'export async function procesarEnvios(');
+  const iniHelper = proc.indexOf('const anotarReunionDelPaso = async');
+  assert.ok(iniHelper > 0, 'no encontré la re-anotación de la reunión');
+  const helper = proc.slice(iniHelper, proc.indexOf('\n  };', iniHelper));
+  assert.ok(helper.length > 0 && helper.length < 900, `la re-anotación mide ${helper.length}: está mirando otra cosa`);
+  assert.match(helper, /const reunionDelPaso = preparaUnaReunion\(sec\.trigger_tipo\) \? reunionQuePreparaMs\(lead\) : null;\s*if \(reunionDelPaso != null\) \{\s*const \{ error: eReunion \} = await supabase\.from\('nutricion_inscripciones'\)\s*\.update\(\{ reunion_at: /);
   const ini = proc.indexOf('const siguiente = sec.pasos[insc.paso_actual + 1];');
   const fin = proc.indexOf("if (estado === 'enviado') res.enviados += 1;", ini);
   assert.ok(ini > 0 && fin > ini, 'no encontré el avance del paso');
@@ -410,7 +420,12 @@ test('cada paso que sale re-anota la reunión, en un update APARTE del avance', 
   assert.ok(trozo.length < 1500, `el avance mide ${trozo.length}: está mirando otra cosa`);
   const avance = trozo.slice(0, trozo.indexOf(".eq('id', insc.id);"));
   assert.doesNotMatch(avance, /reunion_at/, 'el avance de un paso que ya salió no puede depender de la columna nueva');
-  assert.match(trozo, /const reunionDelPaso = preparaUnaReunion\(sec\.trigger_tipo\) \? reunionQuePreparaMs\(lead\) : null;\s*if \(reunionDelPaso != null\) \{\s*const \{ error: eReunion \} = await supabase\.from\('nutricion_inscripciones'\)\s*\.update\(\{ reunion_at: /);
+  assert.match(trozo.slice(avance.length), /await anotarReunionDelPaso\(insc\.id, sec, lead\);/, 'el mensaje que salió no re-anota la reunión');
+  // Y el paso de acción, después del reclamo (si no corrió, no hay nada que anotar).
+  const iniAccion = proc.indexOf('if (esPasoAccion(paso)) {');
+  const accion = proc.slice(iniAccion, proc.indexOf('pasoConRelleno(paso)', iniAccion));
+  assert.ok(iniAccion > 0 && accion.length > 0 && accion.length < 3000, `la rama de la acción mide ${accion.length}`);
+  assert.match(accion, /if \(r\.estado !== 'saltado'\) await anotarReunionDelPaso\(insc\.id, sec, lead\);/, 'la acción avanzó la post-agenda sin re-anotar la reunión');
 });
 
 test('la reunión NUEVA del reuso es la R1 (`reunionQuePreparaMs`), nunca «la más próxima»', () => {
@@ -439,9 +454,17 @@ test('el corte de lo que el reuso desliga es el instante de ANTES de leer la fil
   const decE = ev.indexOf('const decididoAt = ahoraISO();');
   assert.ok(decE >= 0 && decE < ev.indexOf('const previas = await inscripcionesDe('), 'el evento: la decisión se fecha ANTES de leer las filas');
   assert.match(ev, /reunionAt: new Date\(r\.reunionMs\)\.toISOString\(\), ahora: decididoAt,/);
+  // La tercera, desde el 08/10/2026: la inscripción a mano reinicia una que terminó con el
+  // MISMO reuso (inscribirEnSecuencia), y también fecha la decisión antes de leer la fila.
+  // Probado rompiéndolo: reiniciando con `ahoraISO()`, o fechando DESPUÉS de leer la fila,
+  // 1 falla / 27 pasan cada una (28/28 como está).
+  const man = cuerpo(MOTOR, 'export async function inscribirEnSecuencia(');
+  const decM = man.indexOf('const decididoAt = ahoraISO();');
+  assert.ok(decM >= 0 && decM < man.indexOf('await inscripcionesDe('), 'la inscripción a mano: la decisión se fecha ANTES de leer la fila');
+  assert.match(man, /proximoEnvioAt: proximo, reunionAt, ahora: decididoAt,/);
   // Y ninguna llamada al reuso toma la hora del momento.
   const llamadas = MOTOR.split('await reactivarInscripcion(').slice(1).map((s) => s.slice(0, s.indexOf('});')));
-  assert.equal(llamadas.length, 2, `esperaba dos llamadas al reuso, hay ${llamadas.length}`);
+  assert.equal(llamadas.length, 3, `esperaba tres llamadas al reuso (cron, evento y a mano), hay ${llamadas.length}`);
   for (const l of llamadas) assert.doesNotMatch(l, /ahoraISO\(\)/);
 });
 

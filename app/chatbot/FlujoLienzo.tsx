@@ -31,9 +31,12 @@
 // A las tres sub-tabs del perfil (Estrategia / Mensajes / Variantes), no se suma
 // a ellas: dos editores del mismo dato divergen, y el segundo se queda viejo.
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/Lienzo';
+// El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
+import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
 import { PasoAudioControl } from './PasoAudioControl';
@@ -51,7 +54,7 @@ const SANS = "'Geist', sans-serif";
 export function FlujoLienzo({
   pasos, estrategia, etiquetaEtapa, secuencias, audios, negocio, rolAdmin, busy,
   onEditarPaso, onAgregarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError,
-  onEditarVariante, onQuitarVariante, onModoIA,
+  onEditarVariante, onQuitarVariante, onModoIA, onAccion,
   onModo, onDesenlace, onAntiguedad, onEnvioAuto, onAbrirSecuencia,
   chrome, herramientas, pie, editorEntrada, onAgregarTras, insetIzq,
 }: {
@@ -74,6 +77,8 @@ export function FlujoLienzo({
   onQuitarVariante: (orden: number, i: number) => void;
   /** Prender o apagar «Lo adapta MaKo» en un paso. Sin esta prop la casilla no se dibuja. */
   onModoIA?: (orden: number, on: boolean) => void;
+  /** Qué acción corre un paso «⚡ Acción» y con qué datos. Sin esta prop el editor queda apagado. */
+  onAccion?: (orden: number, v: ValorAccion) => void;
   onModo: (m: ModoRespuesta) => void;
   onDesenlace: (d: Desenlace) => void;
   onAntiguedad: (h: number | null) => void;
@@ -99,11 +104,13 @@ export function FlujoLienzo({
    *  borde izquierdo del lienzo. No angosta el dibujo — ver `Lienzo.insetIzq`. */
   insetIzq?: number;
   /** Agregar un paso DESPUÉS de este nodo: el ＋ que aparece al pasar el cursor por la
-   *  tarjeta. Reemplaza al botón suelto «＋ Mensaje», que no decía DÓNDE entraba. */
-  onAgregarTras?: (id: string) => void;
+   *  tarjeta. Reemplaza al botón suelto «＋ Mensaje», que no decía DÓNDE entraba. Y
+   *  pregunta QUÉ: un mensaje, o una acción de MaKo. */
+  onAgregarTras?: (id: string, que: 'mensaje' | 'accion') => void;
 }) {
   const [sel, setSel] = useState<string | null>(null);
-  const grafo = grafoDeSecuencia(pasos as PasoParaGrafo[], estrategia, etiquetaEtapa, secuencias);
+  const titulos = useTitulosAcciones(pasos.some(esPasoAccion));
+  const grafo = grafoDeSecuencia(pasos as PasoParaGrafo[], estrategia, etiquetaEtapa, secuencias, (op) => titulos?.get(op));
   const pasoDe = (n: NodoFlujo) => (n.orden != null ? pasos.find((x) => x.orden === n.orden) ?? null : null);
 
   return (
@@ -115,7 +122,22 @@ export function FlujoLienzo({
          tiene sentido... si para eso habíamos hecho el botón de ＋ al lado de cada
          tarjeta... que hoy no está». Un botón suelto no dice dónde entra el paso; éste
          aparece a la derecha de la tarjeta, que es donde va a aparecer lo que se agregue. */
-      onAgregarTras={rolAdmin && onAgregarTras ? ((id) => onAgregarTras(id)) : undefined}
+      onAgregarTras={rolAdmin && onAgregarTras ? ((id, que) => {
+        const q = que === 'accion' ? 'accion' : 'mensaje';
+        onAgregarTras(id, q);
+        // Una acción nace SIN ELEGIR y así no se puede publicar: se abre su panel, que es lo
+        // único que se puede hacer con ella. El paso entra justo después del nodo tocado
+        // (`entrada` → el primero), así que su id es ése.
+        if (q === 'accion') { const m = /^paso-(\d+)$/.exec(id); setSel(`paso-${m ? Number(m[1]) + 1 : 1}`); }
+      }) : undefined}
+      /* «⚡ Acción de MaKo» (decisión de Martín, 08/10/2026): el ＋ PREGUNTA qué agregar.
+         Lista plana con emoji y título, como la de /mensajes. El ＋ del medio de una flecha
+         ofrece sólo la acción (lo filtra el Lienzo): las flechas que no son la cadena
+         principal no lo dibujan (`sinMas` en el grafo). */
+      opcionesAgregar={[
+        { value: 'mensaje', label: '💬 Mensaje' },
+        { value: 'accion', label: '⚡ Acción de MaKo' },
+      ]}
       /* Sólo donde el paso que se agregue cuelga de verdad de esa tarjeta: en la entrada
          (sería el primer mensaje) y después de cada mensaje. En el desenlace o en un
          «Sigue con» el ＋ señalaría un lugar y el paso caería en otro. */
@@ -124,7 +146,10 @@ export function FlujoLienzo({
         <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && n.destinoExiste === false}>
           {n.tipo === 'mensaje' && pasoDe(n)
             ? <VistaMensaje paso={pasoDe(n)!} audios={audios} negocio={negocio} />
-            : <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.45 }}>{n.detalle}</div>}
+            : n.tipo === 'accion'
+              // Sin burbuja: al lead no le llega nada. Lo que se lee es QUÉ hace MaKo.
+              ? <div style={{ fontSize: 12.5, fontWeight: 600, color: n.advertencia ? 'var(--faint)' : 'var(--ink)', lineHeight: 1.45 }}>{n.detalle}</div>
+              : <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.45 }}>{n.detalle}</div>}
         </TarjetaNodo>
       )}
       renderEditor={(n) => (
@@ -134,7 +159,7 @@ export function FlujoLienzo({
           onEditarPaso={onEditarPaso} onQuitarPaso={(o) => { onQuitarPaso(o); setSel(null); }}
           onAudio={onAudio} onAudioNuevo={onAudioNuevo} onError={onError}
           onEditarVariante={onEditarVariante} onQuitarVariante={onQuitarVariante}
-          onModoIA={onModoIA}
+          onModoIA={onModoIA} onAccion={onAccion}
           onModo={onModo} onDesenlace={onDesenlace} onAntiguedad={onAntiguedad} onEnvioAuto={onEnvioAuto}
           onAbrirSecuencia={onAbrirSecuencia}
           editorEntrada={editorEntrada}
@@ -183,7 +208,7 @@ function VistaMensaje({ paso, audios, negocio }: { paso: PasoSecuenciaDto; audio
 function EditorDeNodo({
   nodo, paso, estrategia, secuencias, audios, rolAdmin, busy,
   onEditarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError, onEditarVariante, onQuitarVariante,
-  onModoIA, onModo, onDesenlace, onAntiguedad, onEnvioAuto, onAbrirSecuencia, editorEntrada,
+  onModoIA, onAccion, onModo, onDesenlace, onAntiguedad, onEnvioAuto, onAbrirSecuencia, editorEntrada,
 }: {
   nodo: NodoFlujo; paso: PasoSecuenciaDto | null; estrategia: EstrategiaParaGrafo;
   secuencias: ReadonlyArray<{ clave: string; nombre: string }>;
@@ -196,6 +221,7 @@ function EditorDeNodo({
   onEditarVariante: (orden: number, i: number, val: string) => void;
   onQuitarVariante: (orden: number, i: number) => void;
   onModoIA?: (orden: number, on: boolean) => void;
+  onAccion?: (orden: number, v: ValorAccion) => void;
   onModo: (m: ModoRespuesta) => void;
   onDesenlace: (d: Desenlace) => void;
   onAntiguedad: (h: number | null) => void;
@@ -268,6 +294,45 @@ function EditorDeNodo({
     );
   }
 
+  /**
+   * EL PASO «⚡ ACCIÓN DE MAKO». El editor es el compartido (`EditorAccionMako`): qué
+   * acción y con qué datos. Lo que se configura acá CORRE SOLO cuando la secuencia llega a
+   * este paso, sin pedir un «sí» (decisión de Martín, 08/10/2026) — por eso no hay texto que
+   * lo explique: lo dice el propio editor, en una línea.
+   *
+   * ⚠️ LA `key` LLEVA LA OPERACIÓN. El editor siembra estado de sus props (el texto crudo de
+   * un campo JSON) y es UNO que se reusa al tocar otro nodo: sin la key, lo escrito para una
+   * acción se quedaba dibujado en la siguiente (AGENTS.md, el `useState` sembrado de props).
+   */
+  if (nodo.tipo === 'accion' && paso) {
+    return (
+      <>
+        <EditorAccionMako
+          key={`accion-${paso.orden}-${paso.accion?.operacion ?? ''}`}
+          valor={{ operacion: paso.accion?.operacion || undefined, params: paso.accion?.params ?? {} }}
+          onCambio={(v) => onAccion?.(paso.orden, v)}
+          disabled={busy || !onAccion}
+        />
+        <div style={{ marginTop: 12 }}>
+          <label style={rotuloLienzo}>Cuándo corre</label>
+          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+            <input type="number" min={0} step={1} value={paso.delay_horas} disabled={busy}
+              onChange={(e) => onEditarPaso(paso.orden, 'delay_horas', Math.max(0, Number(e.target.value)))}
+              style={{ ...inpLienzo, width: 90 }} />
+            <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>
+              {paso.ancla === 'reunion' ? 'horas antes de la reunión' : 'horas después'}
+            </span>
+          </div>
+        </div>
+        <AvisoCondicion requiere={paso.requiere} verbo="Corre" />
+        <button onClick={() => onQuitarPaso(paso.orden)} disabled={busy}
+          style={{ marginTop: 12, background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: SANS }}>
+          Quitar esta acción
+        </button>
+      </>
+    );
+  }
+
   if (nodo.tipo === 'mensaje' && paso) {
     return (
       <>
@@ -331,13 +396,7 @@ function EditorDeNodo({
           </div>
         </div>
 
-        {paso.requiere && (
-          <p style={{ fontSize: 11, color: CONDICIONES_VIVAS.has(paso.requiere) ? 'var(--faint)' : 'var(--warn)', lineHeight: 1.45, marginTop: 9, marginBottom: 0 }}>
-            {CONDICIONES_VIVAS.has(paso.requiere)
-              ? `Sale ${CONDICION_TXT[paso.requiere]}.`
-              : 'Dice «solo si no contestó», pero hoy sale siempre: el motor todavía no mira esa condición.'}
-          </p>
-        )}
+        <AvisoCondicion requiere={paso.requiere} verbo="Sale" />
 
         {paso.tipo !== 'audio' && (
           <div style={{ marginTop: 12 }}>
@@ -444,4 +503,17 @@ function EditorDeNodo({
   }
 
   return <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{nodo.detalle}</div>;
+}
+
+/** La condición de un paso, dicha con lo que el motor HACE. La comparten el mensaje y la
+ *  acción: una condición vale igual para los dos, y dos copias del texto se separan. */
+function AvisoCondicion({ requiere, verbo }: { requiere: PasoSecuenciaDto['requiere']; verbo: 'Sale' | 'Corre' }) {
+  if (!requiere) return null;
+  return (
+    <p style={{ fontSize: 11, color: CONDICIONES_VIVAS.has(requiere) ? 'var(--faint)' : 'var(--warn)', lineHeight: 1.45, marginTop: 9, marginBottom: 0 }}>
+      {CONDICIONES_VIVAS.has(requiere)
+        ? `${verbo} ${CONDICION_TXT[requiere]}.`
+        : `Dice «solo si no contestó», pero hoy ${verbo.toLowerCase()} siempre: el motor todavía no mira esa condición.`}
+    </p>
+  );
 }

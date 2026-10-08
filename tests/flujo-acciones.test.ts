@@ -21,7 +21,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { paramsDelPaso, filasDeLeads, pideLead, LEAD_DEL_EVENTO } from '../lib/api-mako/flujo-params';
+import { paramsDelPaso, filasDeLeads, pideLead, faltanEnPaso, LEAD_DEL_EVENTO, LEAD_A_ELEGIR } from '../lib/api-mako/flujo-params';
 import { PREFIJO_APP, PREFIJO_FLUJO, canalDeClave, etiquetaDeCanal } from '../lib/api-mako/canal';
 import type { Parametro } from '../lib/api-mako/tipos';
 
@@ -48,6 +48,30 @@ test('⚠️ EL LEAD DEL EVENTO SE PONE CUANDO LA ACCIÓN LO PIDE Y EL PASO NO F
   assert.deepEqual(paramsDelPaso(SIN_LEAD, { nombre: '  ' }, {}), {});
   assert.equal(pideLead(CON_LEAD), true);
   assert.equal(pideLead(SIN_LEAD), false);
+});
+
+test('⚠️ UN leadId OPCIONAL VACÍO ES «NINGUNO»: el lead del evento sólo si se pidió', () => {
+  // Verificado rompiéndolo (08/10/2026): con la inyección de antes (todo leadId), 1 fallo.
+  const OPCIONAL: Parametro[] = [
+    { nombre: 'leadId', tipo: 'number', descripcion: 'el lead', entero: true },
+    { nombre: 'telefono', tipo: 'string', descripcion: 'si no hay lead' },
+  ];
+  assert.deepEqual(paramsDelPaso(OPCIONAL, { telefono: '5491100000000' }, { leadId: 42 }), { telefono: '5491100000000' });
+  assert.deepEqual(paramsDelPaso(OPCIONAL, { leadId: LEAD_DEL_EVENTO }, { leadId: 42 }), { leadId: 42 });
+});
+
+test('faltanEnPaso: lo obligatorio que el paso no trae, con el lead del evento ya puesto', () => {
+  // Verificado rompiéndolo (08/10/2026): sin poner el lead del evento antes de mirar, 1 fallo.
+  const MOVER: Parametro[] = [...CON_LEAD, { nombre: 'motivo', tipo: 'string', descripcion: 'x', obligatorio: true }];
+  assert.deepEqual(faltanEnPaso(MOVER, { etapa: 'x' }, { leadId: 42 }), ['motivo']);
+  assert.deepEqual(faltanEnPaso(MOVER, { motivo: 'y' }, { leadId: 42 }), []);
+  assert.deepEqual(faltanEnPaso(MOVER, { motivo: 'y' }, {}), ['leadId']);
+  assert.deepEqual(faltanEnPaso(MOVER, { motivo: '   ' }, { leadId: 1 }), ['motivo']);
+  // «Otro lead» sin id NO es el del evento: no viaja, y falta. Verificado rompiéndolo (08/10):
+  // sin la rama que lo descarta, 1 fallo (corría sobre el lead del evento).
+  assert.deepEqual(paramsDelPaso(CON_LEAD, { leadId: LEAD_A_ELEGIR }, { leadId: 42 }), {});
+  assert.deepEqual(faltanEnPaso(MOVER, { leadId: LEAD_A_ELEGIR, motivo: 'y' }, { leadId: 42 }), ['leadId']);
+  assert.deepEqual(paramsDelPaso(CON_LEAD, { leadId: '17' }, { leadId: 42 }), { leadId: 17 });
 });
 
 test('Las personas de una propuesta de leads: una sola o un lote, y sin nombre no hay persona', () => {
@@ -97,4 +121,24 @@ test('El editor recibe el catálogo por la API, no importando el registro', () =
   const ruta = sinComentarios(leer('../app/api/flujos/acciones/route.ts'));
   assert.match(ruta, /accionesParaFlujo\(ws\)/);
   assert.match(ruta, /rol !== 'admin'/, 'cualquiera del equipo podría ver qué configura el admin');
+});
+
+test('El catálogo lo pide UN lector (EditorAccionMako): los lienzos usan su hook, no un fetch propio', () => {
+  // Los dos lienzos nacieron con su propia copia del fetch y de la caché, porque el editor no
+  // exportaba la suya. Verificado rompiéndolo (08/10/2026): con el fetch de vuelta en
+  // FlujoAviso.tsx, 1 fallo; sin él, pasa.
+  const pidenElCatalogo: string[] = [];
+  const barrer = (rel: string) => {
+    for (const ent of readdirSync(new URL(rel, import.meta.url), { withFileTypes: true })) {
+      const p = `${rel}${ent.name}`;
+      if (ent.isDirectory()) { if (ent.name !== 'api' && ent.name !== 'node_modules') barrer(`${p}/`); continue; }
+      if (!/\.tsx?$/.test(ent.name)) continue;
+      if (/fetch\(\s*['"`]\/api\/flujos\/acciones/.test(sinComentarios(leer(p)))) pidenElCatalogo.push(p.replace('../', ''));
+    }
+  };
+  barrer('../app/');
+  assert.deepEqual(pidenElCatalogo, ['app/_components/EditorAccionMako.tsx']);
+  for (const lienzo of ['../app/agencia/FlujoAviso.tsx', '../app/chatbot/FlujoLienzo.tsx']) {
+    assert.match(sinComentarios(leer(lienzo)), /useTitulosAcciones\(/, `${lienzo} no usa el lector compartido de títulos`);
+  }
 });

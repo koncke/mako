@@ -43,6 +43,11 @@ const leadId = (desc = 'id del lead (de buscar_leads o listar_leads).'): Paramet
 const fechaIso = (nombre: string, desc: string, obligatorio = false): Parametro =>
   ({ nombre, tipo: 'string', descripcion: desc, max: 10, ...(obligatorio ? { obligatorio: true } : {}) });
 const cualReunion: Parametro = { nombre: 'cual', tipo: 'string', enum: ['R1', 'R2'], obligatorio: true, descripcion: 'qué reunión: R1 (primera) o R2 (segunda).' };
+// ⚠️ EL PRODUCTO DEL CRM VA POR EL ID DE SU EMBUDO, que es lo que leen lib/lead-funnel.ts y la
+// tabla `lead_funnel` (mig 0207). NO es el id de listar_productos (el catálogo de ofertas): del
+// producto al embudo hay dos saltos, y un id del otro catálogo que coincida con un embudo
+// movería al lead en el producto equivocado sin un solo error. Por eso se llama `embudoId`.
+const embudoId: Parametro = { nombre: 'embudoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el producto del CRM, por el id de su embudo (de productos_del_lead). NO es el id de listar_productos.' };
 
 export const DEFS: readonly OperacionDef[] = [
   // ── Lecturas heredadas (lib/mako-tools.ts y lib/mako-doer-acciones.ts) ─────────
@@ -298,6 +303,16 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'soloActivos', tipo: 'boolean', descripcion: 'true para ver solo los activos (default false).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
+  // Un lead en VARIOS productos (mig 0207, 06/10/2026) no existía para ninguna operación del
+  // registro (medido el 08/10). SIN http, como las tres acciones que lo usan: abrirlo es una
+  // decisión que regenera tests/api-mako-http.snapshot.txt.
+  {
+    id: 'productos_del_lead', area: 'crm', tipo: 'lectura',
+    titulo: 'Productos del CRM de un lead',
+    descripcion: 'Los productos del CRM del negocio (cada uno con su propio tablero de etapas), con el embudoId y las keys de etapa que piden agregar_lead_a_producto, quitar_lead_de_producto y mover_lead_en_producto. Con leadId, además, en cuáles está ese lead, en qué etapa de cada uno, cuál es su producto principal y si se lo puede quitar de alguno (solo con dos o más). Un lead puede estar en varios productos a la vez. El embudoId NO es el id de listar_productos (el catálogo de ofertas).',
+    parametros: [{ nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads). Sin él, solo la lista de productos con sus etapas.' }],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
+  },
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
@@ -490,6 +505,37 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'reescribe las entradas declaradas en el funnel del negocio',
+  },
+  // Un lead en VARIOS productos (mig 0207). «No se debe "Mover", se debe agregar al otro
+  // producto» (Martín, 06/10/2026): los tres van por lib/lead-funnel.ts tal como lo usa la ficha,
+  // y escriben SÓLO la tarjeta de ese producto (ni etapa principal, ni estado, ni Meta, ni
+  // secuencias: la cabecera de lib/lead-funnel.ts dice por qué). SIN http, como su lectura.
+  {
+    id: 'agregar_lead_a_producto', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Agregar un lead a un producto',
+    descripcion: 'PROPONE sumar un lead a OTRO producto del CRM, en la etapa de entrada de ese producto (queda pendiente hasta el «sí»). No lo saca de los que ya tiene: un lead puede estar en varios productos a la vez. Escribe solo su tarjeta en ese tablero: no cambia su etapa principal, su estado ni su monto, no manda nada a Meta y no lo inscribe en secuencias. Si ya está en ese producto, lo dice. Pide antes el leadId (buscar_leads) y el embudoId (productos_del_lead).',
+    parametros: [leadId(), embudoId],
+    canales: SIN_HTTP, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'inserta la fila del lead en lead_funnel, en la etapa de entrada de ese producto, y deja historial',
+  },
+  {
+    id: 'quitar_lead_de_producto', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Quitar un lead de un producto',
+    descripcion: 'PROPONE sacar un lead de UNO de sus productos del CRM (queda pendiente hasta el «sí»). Solo si está en dos o más: del único no se lo puede quitar. Si era su producto principal, el que tiene hace más tiempo pasa a serlo, con la etapa que tenía ahí. Pide antes el leadId (buscar_leads) y el embudoId (productos_del_lead).',
+    parametros: [leadId(), embudoId],
+    canales: SIN_HTTP, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'borra la fila del lead en lead_funnel; si era su producto principal, el siguiente pasa a leads.funnel_id y pipeline_stage; deja historial',
+  },
+  {
+    id: 'mover_lead_en_producto', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Mover un lead dentro de un producto',
+    descripcion: 'PROPONE cambiar la etapa de un lead en un producto del CRM que se le AGREGÓ (queda pendiente hasta el «sí»). Escribe solo esa tarjeta: no cambia su etapa principal, su estado ni su monto, ni manda nada a Meta; si la etapa nueva es la de ganado y ese producto tiene prendido invitar al curso al ganar, lo invita. En su producto PRINCIPAL se mueve con proponer_cambio_etapa. Pide antes el leadId (buscar_leads), el embudoId y la key de la etapa (productos_del_lead).',
+    parametros: [
+      leadId(), embudoId,
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 60, descripcion: 'key de la etapa destino en ESE producto (de productos_del_lead).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'cambia la etapa del lead en lead_funnel (solo en ese producto) y deja historial; ganar ahí invita al curso de ese producto si ese embudo tiene prendida la invitación',
   },
 
   // ── Acciones nuevas: pantalla (genérica /mako/revisar) ────────────────────────

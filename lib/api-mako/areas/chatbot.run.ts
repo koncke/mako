@@ -14,7 +14,12 @@
 import 'server-only';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
-import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
+import { motivoNoInscribe } from '@/lib/nutricion-inscripcion-manual';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
+import { logLeadEvent } from '@/lib/leads';
+import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { PREFIJO_FLUJO } from '../canal';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio } from '@/lib/setting-secuencias';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
@@ -81,6 +86,27 @@ const historialDe = (input: Record<string, unknown>): TurnoSim[] =>
     .map((t) => ({ de: t.de as TurnoSim['de'], texto: String(t.texto) }))
     .slice(-30);
 
+/** Por qué no se inscribe, en la frase que lee la persona: sale de lib/nutricion-inscripcion-manual.ts
+ *  (puro, con test), incluido el id que no es de este negocio. */
+const noSeInscribe = (v: Extract<InscripcionManual, { inscribe: false }>, leadId: number, secuenciaId: number): string =>
+  motivoNoInscribe(v.porque, { secuenciaId, secuencia: v.secuencia?.nombre, leadId, lead: v.lead?.nombre });
+
+/** ¿Lo pide un paso «⚡ Acción» de un flujo? La clave de scope lo dice (lib/api-mako/canal.ts). */
+const desdeUnFlujo = (ctx: Ctx): boolean => ctx.canalKey.startsWith(PREFIJO_FLUJO);
+
+/** Cuándo sale el primer paso, en la zona del negocio. El motor manda de 9 a 21 y con un tope
+ *  diario: es «desde», no «a las». Desde un flujo no hay vía rápida (lib/nutricion.ts →
+ *  inscribirEnSecuencia): lo que ya toca lo manda la próxima vuelta del cron. */
+async function cuandoSale(iso: string, ws: number, porElCron: boolean): Promise<string> {
+  if (Date.parse(iso) <= Date.now() + 60_000) {
+    return porElCron ? 'el primer mensaje sale en la próxima vuelta del motor (cada hora, en horario de envío)' : 'el primer mensaje sale ya, si es horario de envío';
+  }
+  const tz = await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
+  let cuando = iso;
+  try { cuando = new Date(iso).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }); } catch { /* el ISO tal cual */ }
+  return `el primer mensaje sale desde el ${cuando}`;
+}
+
 /** El detector de copy sin terminar del motor (RX_RELLENO en lib/nutricion.ts, que no lo exporta):
  *  un paso con un [corchete] que no sea [tu link …] NO sale nunca y se reprograma cada 24 h. */
 const RX_RELLENO = /\[(?!tu link)[^\]\n]{2,80}\]/i;
@@ -99,7 +125,11 @@ export const RUNNERS: Runners = {
       if (!s) return errorLectura(noExiste(id));
       return json({
         id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, activa: s.activa,
-        pasos: s.pasos.map((p) => ({
+        pasos: s.pasos.map((p) => esPasoAccion(p) ? ({
+          // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
+          orden: p.orden, tipo: 'accion', delay_horas: p.delay_horas, ancla: p.ancla ?? null, requiere: p.requiere ?? null,
+          accion: p.accion,
+        }) : ({
           orden: p.orden, canal: p.canal, delay_horas: p.delay_horas, ancla: p.ancla ?? null, tipo: p.tipo ?? 'texto',
           audio_id: p.audio_id ?? null, requiere: p.requiere ?? null, proveedor: p.canal === 'whatsapp' ? proveedorDelPaso(p) : null,
           asunto: p.asunto, cuerpo: p.cuerpo, variantes: (p.variantes ?? []).length, plantilla_meta: p.template_wa,
@@ -301,7 +331,7 @@ export const RUNNERS: Runners = {
           desenlace: f.desenlace, desenlace_at: f.desenlace_at, inscripto: f.inscripto_at,
         })),
         nota: filas.length
-          ? 'pasos_avanzados incluye pasos omitidos y los que quedaron como borrador para el setter: no son todos envíos. Un lead no vuelve a entrar a una secuencia en la que ya estuvo (completada, cancelada o fallida), salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la misma inscripción vuelve a correr, con inscripto en la fecha nueva.'
+          ? 'pasos_avanzados incluye pasos omitidos y los que quedaron como borrador para el setter: no son todos envíos. Un lead no vuelve a entrar a una secuencia en la que ya estuvo (completada, cancelada o fallida), salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la misma inscripción vuelve a correr, con inscripto en la fecha nueva. A mano (inscribir_lead_secuencia) sí vuelve a una que terminó.'
           : 'Este lead no está ni estuvo en ninguna secuencia (o no existe en este negocio).',
       });
     },
@@ -364,6 +394,7 @@ export const RUNNERS: Runners = {
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
       if (!s.pasos.some((p) => p.orden === orden)) return { error: `La secuencia «${s.nombre}» no tiene paso ${orden}.` };
+      if (esPasoAccion(s.pasos.find((p) => p.orden === orden))) return { error: `El paso ${orden} de «${s.nombre}» es una acción de MaKo, no un mensaje: no lleva audio.` };
       if (audioId == null) return { payload: { secuenciaId: id, orden }, resumen: `Quitar el audio del paso ${orden} de «${s.nombre}» (vuelve a ser texto)` };
       const a = await getAudio(audioId);
       if (!a) return { error: `No existe el audio #${audioId} en este negocio. Pide el id con listar_audios.` };
@@ -447,6 +478,41 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload) => {
       const r = await agregarObjetivoCustom(String(payload.objetivo));
       return r.agregado ? { ok: true, resumen: `Objetivo «${String(payload.objetivo)}» agregado.` } : { ok: false, resumen: 'Ese objetivo ya existía.' };
+    },
+  },
+
+  inscribir_lead_secuencia: {
+    // La decisión y la escritura son UNA función (inscribirEnSecuencia, lib/nutricion.ts): acá
+    // con `soloVer`, que no escribe; al confirmar, sin él, y vuelve a decidir contra la base.
+    preparar: async (input, ctx) => {
+      const leadId = num(input, 'leadId'); const secuenciaId = num(input, 'secuenciaId');
+      const v = await inscribirEnSecuencia(leadId, secuenciaId, { soloVer: true });
+      // «Ya está en curso» es el estado que el paso pide: para un flujo, nada que hacer.
+      if (!v.inscribe) return { error: noSeInscribe(v, leadId, secuenciaId), ...(v.porque === 'en_curso' ? { yaEstaba: true } : {}) };
+      const como = v.como === 'reinicio' ? 'ya la había terminado: vuelve a arrancar desde el primer paso y le repite los mensajes' : 'arranca en el primer paso';
+      return {
+        payload: { leadId: v.lead.id, secuenciaId: v.secuencia.id },
+        resumen: `Meter a ${v.lead.nombre} en «${v.secuencia.nombre}» (${como}); ${await cuandoSale(v.proximoEnvioAt, ctx.ws, desdeUnFlujo(ctx))}`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const leadId = Number(payload.leadId); const secuenciaId = Number(payload.secuenciaId);
+      try {
+        // Desde un flujo, sin la vía rápida: el paso puede estar corriendo adentro del motor.
+        const v = await inscribirEnSecuencia(leadId, secuenciaId, { sinEnvioInmediato: desdeUnFlujo(ctx) });
+        if (!v.inscribe) return { ok: false, resumen: noSeInscribe(v, leadId, secuenciaId) };
+        // El motor no deja historial al inscribir; una inscripción a mano sí, con quién la pidió.
+        await logLeadEvent(v.lead.id, 'Secuencia', `${v.como === 'reinicio' ? 'Vuelve a arrancar' : 'Entra'} en «${v.secuencia.nombre}»`, ctx.actor?.trim() || 'MaKo');
+        return {
+          ok: true,
+          resumen: `Listo: ${v.lead.nombre} ${v.como === 'reinicio' ? 'vuelve a arrancar' : 'quedó'} en «${v.secuencia.nombre}»; ${await cuandoSale(v.proximoEnvioAt, ctx.ws, desdeUnFlujo(ctx))}.`,
+          datos: { leadId: v.lead.id, secuenciaId: v.secuencia.id, como: v.como, proximoEnvioAt: v.proximoEnvioAt },
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] inscribir_lead_secuencia:', msg);
+        return { ok: false, resumen: `No se pudo inscribir al lead #${leadId} en la secuencia #${secuenciaId} (${msg}).` };
+      }
     },
   },
 
@@ -547,6 +613,10 @@ export const RUNNERS: Runners = {
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
       const entrada = (Array.isArray(input.pasos) ? input.pasos : []) as Array<Record<string, unknown>>;
+      const conAcciones = s.pasos.some(esPasoAccion);
+      if (conAcciones && entrada.length !== s.pasos.length) {
+        return { error: `«${s.nombre}» tiene pasos «Acción de MaKo»: por aquí sólo se cambian sus mensajes, con los mismos ${s.pasos.length} pasos en el mismo orden. Para agregar o quitar pasos, el lienzo de /chatbot.` };
+      }
       const avisos: string[] = [];
       const cambiosDeTexto: string[] = [];
       let avisosAudio = false;
@@ -557,6 +627,11 @@ export const RUNNERS: Runners = {
         const e = entrada[i];
         if (!previo && (e.canal == null || e.cuerpo == null || e.delay_horas == null)) {
           return { error: `El paso ${i + 1} es nuevo: necesita canal, delay_horas y cuerpo.`, faltan: [`pasos[${i}].canal`, `pasos[${i}].delay_horas`, `pasos[${i}].cuerpo`] };
+        }
+        // Un paso de acción conserva su acción: de lo que mande el modelo sólo vale cuándo sale.
+        if (previo && esPasoAccion(previo)) {
+          pasos.push({ ...previo, ...(e.delay_horas != null ? { delay_horas: Number(e.delay_horas) || 0 } : {}), orden: i + 1 });
+          continue;
         }
         const base: PasoSecuencia = previo ?? { orden: i + 1, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null };
         // null = «no lo pasaste» (la pantalla genérica manda null por cada campo vacío): se conserva el previo.

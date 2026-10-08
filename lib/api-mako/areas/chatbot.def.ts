@@ -180,7 +180,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'inscripciones_lead', area: 'chatbot', tipo: 'lectura',
     titulo: 'Secuencias en las que está un lead',
-    descripcion: 'Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva.',
+    descripcion: 'Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar SOLO a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva. A mano, con inscribir_lead_secuencia, sí vuelve a una que terminó.',
     parametros: [{ nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -271,6 +271,23 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'objetivo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el objetivo, en una frase corta.' }],
     reversible: false, escribe: 'agrega a app_settings chat_agent.objetivos_custom (no hay forma de borrarlo)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // Pedido del 08/10/2026: un paso «⚡ Acción» de un flujo (y el dueño por WhatsApp) tiene que
+  // poder decir «mete a este lead en ESTA secuencia»; hasta ese día sólo se entraba por el
+  // cohorte o por un evento. Las reglas están en lib/nutricion-inscripcion-manual.ts.
+  // SIN http: le escribe a una persona real, y por HTTP no hay nadie mirando quién es.
+  // reversible: false, aunque la fila se pueda cerrar: el primer mensaje puede salir en el acto
+  // (la vía rápida de enrolarPorEvento) y un mensaje en el teléfono de alguien no se deshace.
+  {
+    id: 'inscribir_lead_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Meter un lead en una secuencia',
+    descripcion: 'PROPONE inscribir a UN lead en UNA secuencia de mensajes elegida, aunque no cumpla la condición con la que esa secuencia inscribe sola (queda pendiente hasta el «sí»). El primer paso sale con su espera contada desde ahora (o antes de la reunión si está anclado a ella), en el horario de envío y con el tope diario. No duplica: si ya está en esa secuencia en curso, lo dice. Si ya la terminó (completada o sin respuesta), vuelve a arrancar desde el primer paso y le repite los mensajes. No reabre una inscripción cancelada (puede ser una baja), ni la de un lead que está contestando o que atiende una persona. La secuencia tiene que estar activa. Pide antes el leadId (buscar_leads) y el secuenciaId (listar_secuencias_nutricion); para ver dónde está, inscripciones_lead.',
+    parametros: [
+      { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' },
+      pSecuenciaId,
+    ],
+    reversible: false, escribe: 'inserta una inscripción activa en nutricion_inscripciones (o reactiva desde el primer paso la que ya terminó), deja historial del lead y dispara el primer envío si ya toca (desde un flujo lo manda el cron)',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
 
   // ── Acciones por pantalla ──────────────────────────────────────────────────
