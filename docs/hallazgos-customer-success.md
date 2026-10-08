@@ -4443,3 +4443,350 @@ plataforma sugerida para un curso pago; la subida queda como respaldo. Lo decide
   Cliente de Prueba dejaría sus videos. Hoy el bucket está vacío.
 - Si el título del curso tendría que renombrar también el producto: hoy NO, a propósito (arriba).
   Si Martín lo quiere, es un cambio de una línea en `guardarTexto` y una pregunta de producto.
+
+## El curso tipo Skool, tanda 1 (07-08/10/2026)
+
+Pedido de Martín del 07/10/2026: 19 puntos, literales en la bitácora de
+`/admin/dev/customer-success` (hito «El curso tipo Skool: 19 pedidos»). Las decisiones y los
+contratos entre piezas, en [diseno-curso-skool.md](diseno-curso-skool.md). La tanda 1 son las
+piezas que no dependían de otras —comunidad, tipos de tarea, invitar y permisos, editor rico,
+portadas diseñadas y recorrido—: seis pistas en paralelo, cada una con su revisión adversarial,
+integradas en `1080f74c` (migs 0216-0219 APLICADAS). **Las revisiones corrigieron a los informes
+originales en las seis pistas**; lo de abajo es lo que quedó en pie. Lo del entorno (el
+typecheck sin memoria, el guard que corta en el `;`, el merge con intent-to-add, escribir un
+escape) está en [hallazgos-infra.md](hallazgos-infra.md); la sidebar corrida, en
+[hallazgos-conocimiento.md](hallazgos-conocimiento.md) → «El dibujo de Conocimientos montado en
+OTRAS pantallas», punto 11.
+
+### Lo que el relevo de Skool dejó medido para los bloqueos (tanda 2)
+
+- **El drip de Skool cuenta desde que la persona entró al GRUPO**, no desde que se le abrió el
+  curso: quien entra el día 0 y compra el día 30 ve abiertas las páginas de 7 y 14 días. Por eso
+  el bloqueo `dias` (D2) cuenta desde que se le abrió el curso a ESE alumno.
+- ⚠️ **Skool NO tiene desbloqueo por completado** («terminó la clase», «aprobó el quiz»,
+  «entregó la tarea»): sólo nivel, tiempo, compra, plan o a mano. El diagnóstico obvio —«copiemos
+  lo que Skool ya resuelve»— es el equivocado para el item 8: lo que pidió Martín va más allá de
+  Skool, y el molde está en Kajabi, Teachable y Thinkific. Skool tampoco tiene quizzes, tareas ni
+  certificados.
+
+El relevo entero (72 fuentes fechadas) quedó en el scratchpad de la sesión `7a6bc4be`, no en el
+repo; lo que sirve para decidir está en D2 y D8 del diseño.
+
+### Invitar, permisos y el link mágico (items 9 y 4)
+
+1. **Los permisos se guardaban y el portal no los aplicaba.** `moduloPermitido` tenía su test y la
+   ficha lo usaba para DIBUJAR; `armarVistaAlumno` y `claseDelAlumno` no recibían el alcance, así
+   que el alumno seguía abriendo lo que la ficha decía cerrado. Lo cazó la revisión (el informe lo
+   dejaba como «integración pendiente» de otra pista): **una función con su test puede tener la
+   línea que la enchufa sin ninguno.** Quedó en la ÚNICA puerta del portal, con un orden que no
+   es el obvio: `armarVistaAlumno` arma con la lista ENTERA de etapas de la entrega y filtra
+   DESPUÉS, porque el estado de cada etapa (hecha, actual, por venir) sale de su POSICIÓN — filtrar
+   antes corre las posiciones. `claseDelAlumno` contesta `no-existe` (no «bloqueada»: lo no
+   permitido no viaja) y las cinco rutas del alumno lo heredan pasando `alcance`.
+   **Vive en:** `lib/curso-portal.ts` · `lib/curso-alcance.ts`.
+2. **Validar el alcance ENTERO puede ABRIR permisos.** Guardar los módulos de un producto validaba
+   los de TODOS contra los que hoy tienen curso: si otro producto restringido se quedaba un rato
+   sin clases, tocar éste le borraba la restricción, y sin restricción el alumno ve todo. Y decidía
+   qué módulos existen con la lectura que cae a las etapas de fábrica. Se valida sólo lo que cambia
+   (`cambiarModulos`, puro) y con la lectura estricta. La forma del dato: lista vacía = NINGÚN
+   módulo; «todos» = sacar la entrada del producto; y se lee con `hasOwnProperty`, nunca con `in`.
+   **Vive en:** `lib/curso-alcance.ts` · `app/customer-success/curso-ficha-actions.ts`.
+3. **Un cliente creado desde el editor de OTRO producto nacía con el principal como casa** (el
+   alta del CRM lo pone en el embudo principal), y la invitación (`productosDelAlumno`) le abría
+   entero el curso principal, que no compró. Si la action lo hizo cliente, se lo saca de los otros
+   productos; si no se puede, no se lo invita y la pantalla lo dice. ⚠️ El «Nuevo cliente» de la
+   cartera hace lo mismo desde antes y no se tocó. **Vive en:**
+   `app/customer-success/curso/invitar-actions.ts`.
+4. **Un link de un solo uso que se gasta con un GET lo quema el escáner del correo** antes que la
+   persona. El link del mail lleva a `/login?entrar=…`, que dibuja un botón; lo gasta el POST.
+   Y pedir el link contesta SIEMPRE lo mismo y busca después (`after`): ni el texto ni el tiempo
+   dicen si el email existe. El alumno sigue sin fila en `usuarios`. **Vive en:**
+   `app/api/alumno/link/route.ts` · `app/api/alumno/entrar/route.ts` · `lib/alumno-sesion.ts`.
+5. **Tres caminos pasan un lead a Ganado, y dos disparos mandaban dos mails**: la invitación
+   RECLAMA la fila antes de mandar (`invitando_at`, compare-and-set), y `ok:true` con
+   `enviado:false` siempre trae su motivo. **Vive en:** `lib/curso-invitar.ts`
+   (`invitarAlCursoSinSesion`, la que llama el CRM). ⚠️ **No se cosecha** lo que afirmaba el
+   informe original («`getCapaActual` está cacheada por request: en un cron contesta la capa del
+   primero para todos»): no se midió, y según React `cache` vive dentro de un render o una acción.
+6. **El `dragstart` lo dispara el nodo ARRASTRABLE, no el hijo donde se apretó.** El
+   `onDragStart` que frenaba el arrastre desde el menú «Acciones» de la tarjeta no corría nunca,
+   y el test fijaba ese código muerto. El envoltorio anota dónde se apretó
+   (`onPointerDownCapture`) y `agarrar` corta si nació en algo `data-nodrag`. Sin probar en el
+   navegador. **Vive en:** `app/customer-success/KanbanEntrega.tsx`.
+
+Y dos chicas: `.ia-mal` chocaba entre dos hojas (`InvitarAlumnos` pasó a `.ina-`), y pasarle un
+`id` a `TextField` (`app/_ui`) desconecta su rótulo.
+
+### Tipos de tarea (item 18)
+
+- **La nota del quiz va en una COLUMNA** (`curso_progreso.calificacion`, mig 0218), no en
+  `valores`: cada autoguardado del navegador pisa `valores`, y lo que escribe el navegador no
+  puede decidir una nota. Se corrige en el server y las correctas no viajan (`camposParaAlumno`).
+- **Las correctas se marcan por TEXTO, no por posición**: el saneo tira los renglones vacíos y un
+  índice queda apuntando a otra opción. ⚠️ Las RESPUESTAS del alumno siguen por posición
+  (`string[][]`): si el equipo borra una pregunta ya contestada, se corren, y un Sí/No se
+  califica en la pregunta equivocada sin que nadie lo note.
+- **Una ruta pública que firma subidas sin tope por persona es un ataque a todo el Storage.** El
+  token del portal firmaba 30 subidas por minuto de hasta 100 MB, y la URL firmada no hace cumplir
+  el tamaño que declara el navegador: ~3 GB por minuto contra el tope de 5 GiB que el código
+  declara para TODA la plataforma. Con un link filtrado, en dos minutos se cortaban las subidas de
+  todos los clientes. Ahora: 40 subidas y 500 MiB por alumno en 24 h contando el peor caso del
+  próximo archivo (un objeto sin fecha cuenta como de hoy), si no puede listar no firma, y 12
+  firmas por minuto. ⚠️ **Contar lo que hay en el bucket no ve las firmas pedidas que todavía no
+  subieron nada**: queda una ráfaga posible (~1,2 GB por minuto por instancia; el rate limit no es
+  compartido). ⚠️ Y «5 GiB» es lo que dicen los comentarios de `lib/curso-admin.ts`; la entrada de
+  arriba («Links o videos subidos») mide 100 GB incluidos en Pro. Cuál es el tope real no está
+  medido. **Vive en:** `lib/curso.ts` (`topeDeSubidasAlcanzado`) · `lib/curso-entregas.ts` ·
+  `app/api/compartido/curso/entrega/route.ts`.
+- **`validarPropuesta` era todo-o-nada**: con un campo de un tipo nuevo, `formaDeCampo` devolvía
+  null y se rechazaba la propuesta ENTERA — o sea que sumar un tipo de campo apagaba en silencio
+  las propuestas de la IA (el paso 5) de toda tarea que lo tuviera. Ahora hay una lista en
+  positivo de lo que se puede proponer (`PROPONIBLES`) y lo demás se ignora; tampoco viajan al
+  modelo las respuestas del quiz ni los paths. ⚠️ El informe original decía que las correctas
+  llegaban al proveedor de IA: era falso (`formularioDe` no manda `preguntas`). **Vive en:**
+  `lib/curso-propuesta.ts`.
+- `storage.exists` devuelve `false` sólo ante un 400/404 y tira ante cualquier otra falla: «no
+  pude preguntar» no es «no está». Un link inválido cuenta como vacío también en la PANTALLA, o el
+  envío vuelve con «faltan respuestas». Un `<style>` adentro de un `<dl>` es anidamiento inválido
+  y React lo marca al hidratar. Y borrar `conQuizzesAprobadosIntactos` de la ruta daba 22/0: tenía
+  test la función, no la línea que la llama.
+
+### Comunidad (item 10)
+
+1. **Doce regresiones de una línea pasaban en verde** (0 fallos, 89 pases cada una). La red
+   exigía «el permiso antes de la escritura», y eso no protege QUÉ FILAS toca: sin el
+   `.eq('id', …)`, editar o borrar un post tocaba todos los del producto; lo mismo cerrar
+   comentarios, sacar a un alumno «con su contenido», quitar un like o dejar de seguir. Más
+   `perfilDe` sin chequear que sea miembro (el nombre y la foto de cualquier lead del CRM),
+   menciones a cualquiera, `descartarAdjunto` sin chequear la ruta, votar una opción inexistente.
+   **La red es barrer cada `update`/`delete` y exigir el producto MÁS la fila**, y en las tablas de
+   una persona, sólo lo de `a.clave`. **Vive en:** `tests/comunidad-permisos.test.ts` (barre las
+   29 escrituras).
+2. **Un popover adentro de un `Modal` es una capa**: Escape en las sugerencias de una @mención
+   cerraba el compositor entero, con el borrador y el adjunto. La regla ya estaba en AGENTS.md y
+   se volvió a pagar en tres piezas nuevas (el menú ⋯, la campana, las menciones): el molde quedó
+   en `CapaPopover` (`app/_comunidad/piezas.tsx`). Razonado sobre `app/_ui/Modal.tsx`, no
+   tecleado en un navegador.
+3. **El tope de largo va sobre el valor NORMALIZADO**: `videoDePost` y `linkDeLugar` medían lo
+   escrito; una «ñ» normalizada en una URL son 6 caracteres, y pasar el CHECK de 600 mostraba el
+   error crudo de Postgres.
+4. **La subida se firmaba sin preguntar si podía publicar** (un alumno sin el nivel para postear
+   recibía URLs de 25 MB, 40 por minuto): la misma familia que las entregas. Va la regla pura que
+   apaga «Escribe algo» (`puedePublicarEnLaComunidad`) y 6 firmas por minuto.
+5. Lo que manda el navegador se acota: un `desde` en el año 2200 recorría cada serie del
+   calendario hasta ahí, y un año fuera del rango de `Date` contestaba 500 (`rangoDeCalendario`).
+   El link de un líder de área (`c2.`) no abre la comunidad: escribiría con el nombre del cliente.
+6. Chicas: un «hace cuánto» o un `toLocaleString` calculados en el server no hidratan (el reloj
+   nace en `null`); `text-transform: capitalize` sube TODAS las palabras («Jueves, 8 De
+   Octubre»); `create table if not exists` no agrega columnas a una tabla que ya existe (cada
+   columna nueva va además como `add column if not exists`, antes del índice que la usa); y el
+   guard de «leído si todas lo están» pasaba sobre su rotura cuando la fila más nueva era la sin
+   leer — un guard se prueba también con el caso al revés.
+7. ⚠️ **El primer informe recomendaba lo que después tiró el typecheck**: «el wrapper de `select`
+   tiene que ser genérico `<Q extends string>`». Con el genérico, `tsc` se quedaba sin memoria:
+   quedó con `string` y `'*'` (ver hallazgos-infra → «El typecheck sin memoria»).
+8. **Un banco visual sin servidor sirve**: esbuild con un stub de `@/app/_ui/Link`, una API falsa
+   y Playwright dejan revisar la UI sin el dev server (que escribe en producción). Quedó en el
+   scratchpad de la sesión `7a6bc4be` (`comunidad/visual/`), no en el repo.
+
+### Las portadas diseñadas (item 5)
+
+- **El chip del número tapa 5 de los 7 diseños.** El enchufe propuesto dejaba el chip lima de
+  arriba a la izquierda encima de la lámina: el póster y el kraft perdían la «M» de «MÓDULO», la
+  pizarra la punta del número, la entrada y el plano el talón. Sólo el cuaderno (cae en el
+  espiral) y la nota (cae en el corcho) dejan esa esquina libre. Lo decide `conChipDeNumero`,
+  medido con capturas a 280 px.
+- **Una respuesta vieja del server borra lo tipeado**: se manda «Uno», después «Uno dos», la
+  respuesta de «Uno» llega tarde y el campo queda en «Uno» con «Uno dos» guardado. La causa es
+  `guardarAjuste` (`CursoApp.tsx`), que aplica cualquier respuesta aunque ya haya salido una más
+  nueva. El arreglo (un turno por clave) está escrito y NO se aplicó (abajo).
+- Un emoji cortado a la mitad (un surrogate suelto) hacía tirar «URI malformed» a
+  `valorDeLamina` —que prometía no fallar nunca— y desmontaba el selector (va `\p{Cs}` en el
+  saneo). Pasar «ß» a mayúsculas da «SS»: treinta letras se volvían sesenta y el texto bajaba del
+  piso de lectura (`mayusculas()` no cambia el largo). «Sin portada» perdía contra lo que se
+  estaba tipeando, justo en un módulo nuevo. Y el test del contraste daba verde con la tiza
+  invisible: buscaba la tinta en cualquier `fill` (el rótulo la tiene), no en el grupo del texto.
+- El reparto del cuaderno («la menor cantidad de renglones») no sirve para cajas de texto fijas.
+  Y `ClaseUgc.vn` es `number | string` y `clase.id` es el id de la base, no el número de la
+  clase: el código de integración del informe original no compilaba.
+
+**Vive en:** `lib/laminas.ts` · `app/_cursos/laminas/` · `app/_components/PortadaPicker.tsx`.
+
+### El recorrido (item 3)
+
+- **`localStorage` es del NAVEGADOR, no de la persona.** El respaldo local del «ya lo vi» tenía
+  la clave `mako.recorrido.<id>`: en una computadora compartida, a la segunda persona no se le
+  abría nunca, y peor, el gancho le SINCRONIZABA al server «visto» a nombre de ella, para siempre
+  y en todos sus dispositivos. La clave lleva a la persona (`quien`: 16 hex de un sha256 del email,
+  que devuelve `/api/recorridos`), y con sesión no se lee lo local hasta que el server dice quién
+  es. Sin sesión (el portal del alumno, `soloLocal`) sigue siendo del navegador.
+  **Vive en:** `lib/recorridos.ts` (`claveLocal`) · `app/_ui/Recorrido.tsx` ·
+  `app/api/recorridos/route.ts`.
+- **La pila registra la capa en un EFECTO**: el primer render de una capa abierta sale con
+  `display:none` y cualquier medida da 0×0. El primer cuadro caía al tamaño de respaldo y saltaba
+  (a veces al otro lado del objetivo), con un comentario que decía «casi nunca cae al respaldo».
+  La medida espera a `capa.visible`.
+- ⚠️ **Tercera vez: un nodo en `visibility: hidden` no recibe `focus()`, y no da error.** Pasó en
+  el recorrido (el foco por paso), en el panel de enlace del editor rico (lo tipeado tras Ctrl+K
+  caía en el texto) y antes en el menú de la marca (hallazgos-conocimiento, punto 10). Lo que se
+  oculta mientras se mide y tiene que recibir el foco, va con `opacity`.
+- `ChecklistCurso.tsx` NO se puede borrar al montar el recorrido: lo importan
+  `app/customer-success/ChecklistClientes.tsx` y `app/customer-success/curso/page.tsx`. Y
+  `color-mix()` en Safari anterior a 16.2 invalida el `box-shadow` ENTERO: sin velo ni aro.
+
+### El editor rico (item 17)
+
+- **Una imagen de nuestro propio dominio es un GET con la sesión de quien mira.** `srcSeguro`
+  aceptaba cualquier ruta de hola-mako.com: medido, un `<img>` a
+  `https://hola-mako.com/api/compartido/curso/entrar?t=…` salía del saneo intacto, y cada persona
+  que abriera la clase —el equipo, el super admin que inspecciona— le pegaba con sus cookies. De
+  nuestro dominio pasa sólo un archivo de imagen estático: sin query ni `#`, sin `/api/` ni
+  `/_next/` (tampoco en mayúsculas), sin `%` (`/%61pi/` es `/api/` para el router) y sin `//`.
+  **Vive en:** `lib/html-seguro.ts` (`RUTA_IMAGEN_PROPIA`).
+- **Pegar desde Excel (y a veces Word) trae, además del HTML, una IMAGEN de lo copiado**, y
+  `handlePaste` subía los archivos siempre: se subía una foto del texto y el texto se tiraba. Si
+  el HTML del mismo pegado trae texto visible, se pega el texto; una captura (sin HTML) o «Copiar
+  imagen» (un HTML que es sólo un `<img>`) se siguen subiendo. ⚠️ Plausible y NO medido con
+  Office real. **Vive en:** `app/_ui/EditorRico.tsx` (`pegadoEsDeArchivos`).
+- Soltar contenido también pasa por `transformPastedHTML` y `handleDrop` no ponía en cero el
+  contador de imágenes sacadas: el pegado siguiente decía «Una imagen no se pegó» sin que nadie
+  pegara una. `traducirAdjuntos` reemplazaba con una cadena (`$&` es sustitución: la regla de
+  AGENTS.md, otra vez). TipTap 3 dibuja la tarea como `<li data-checked>` SIN `data-type` (el CSS
+  va por `ul[data-type=taskList] > li`), y `setEditable` emite un cambio por default.
+- El adjunto se le sirve al alumno sólo si la descripción PUBLICADA de esa clase lo nombra, no por
+  `clase_id`: una imagen copiada a otra clase del mismo curso se sigue viendo, y lo que se sacó de
+  la descripción deja de servirse. **Vive en:** `lib/curso-adjuntos-reglas.ts`
+  (`decidirAdjuntoAlumno`).
+
+### Lo que quedó SIN hacer (medido contra HEAD el 08/10)
+
+**Sin montar** (lo enchufa la tanda 2, con los módulos, los bloqueos, el arrastre, la lección
+editable y el portal):
+- El recorrido: la tab Curso sigue con `<ChecklistCurso>` (`app/customer-success/curso/CursoApp.tsx`).
+- La vista Avance sigue también en la tab Curso (`VistaCurso`, `CursoApp.tsx`); el item 4 pide
+  sacarla de ahí. En Clientes ya existe.
+- Invitar desde el editor: `app/customer-success/curso/InvitarAlumnos.tsx`, sin call site.
+- El editor rico: sin call site, y el portal no lee `descripcion_html` (`lib/curso-datos.ts`). Al
+  montarlo: `guardarClase` (`lib/curso-admin.ts`) escribe `descripcion` y deja `descripcion_html`
+  como está, así que el texto plano y el rico pueden decir dos cosas; la vista previa del equipo
+  pasa `token=""` (`app/customer-success/curso/vista/page.tsx`) y sale sin imágenes; y el snippet
+  del informe original volvía a pedir en cada tecla los ids que no se pudieron firmar.
+- Las láminas en las tarjetas: `app/_cursos/tipos.ts`, los dos `modelo-ugc.ts`,
+  `app/_cursos/CursoUgc.tsx` (con `conChipDeNumero`) y la prop `disenos` en `CursoApp.tsx`.
+- La comunidad del alumno: `ComunidadAlumno` sin montar en `PortalAlumno.tsx` ni en `/mi-curso`;
+  va con `!vistaPrevia`.
+
+**Escrito y sin aplicar:**
+- La respuesta vieja que borra lo tipeado: `guardarAjuste` en `CursoApp.tsx`.
+- `curso-entregas` no se purga (`lib/curso-purga.ts`): lo que se quita o se regraba, y lo de una
+  clase o un lead borrados —voces y caras grabadas—, queda para siempre. Las referencias viven en
+  `valores` Y en `valores_ia`. Tampoco tienen regla los adjuntos registrados que la descripción
+  dejó de nombrar.
+- El quiz: dos envíos en paralelo pueden saltearse `intentos` (falta compare-and-set,
+  `lib/curso-entregas.ts`); un quiz aprobado al que le agregan una pregunta deja la tarea sin
+  poder reenviarse; las respuestas por posición (arriba).
+- La puerta copiada: `puedeVer`, `puedeEditar` y `productoPropio` viven en
+  `app/customer-success/curso/actions.ts` y en `adjuntos-actions.ts`, con un test que falla si se
+  separan. Va a un módulo común.
+- `setPerfil` (`lib/perfil.ts`) reescribe el jsonb sin compare-and-set: una marca de recorrido
+  puede perderse (vuelve a aparecer una vez).
+- El nombre de descarga con acentos: `@supabase/storage-js` 2.106.1 codifica dos veces el
+  `download=` de una URL firmada. Medido en lo que arma la librería, no en lo que baja el
+  navegador; pega en todos los buckets, así que va en un helper común.
+- La comunidad: los mails (el recordatorio de 24 h —`comunidad_evento_avisos` no la escribe
+  nadie— y el resumen diario); el «empieza pronto» se anota recién al abrir la campana; no se
+  puede seguir a una persona; el directorio y las @menciones topean en 300 miembros; el ranking
+  lee todos los likes en cada pedido; el perfil del super admin no abre para un alumno.
+- No hay cuota de almacenamiento por workspace: el bucket es uno para toda la plataforma.
+- Con los módulos sueltos (tanda 2), `modulosParaPermisos`
+  (`app/customer-success/curso-ficha-lectura.ts`) tiene que salir de la lista derivada: hoy un
+  suelto cae en «Sin etapa» y con «Elegir módulos» queda escondido.
+
+**Decisiones de Martín:**
+- Un alumno parado en una etapa cuyo módulo tiene oculto queda trabado (`etapaCompleta` nunca
+  cierra), los mensajes automáticos pueden nombrar clases ocultas, y el mail de invitación nombra
+  productos con cero módulos.
+- Un alumno con el curso de un producto escondido (`alcance` vacío) sigue siendo miembro de esa
+  comunidad; un evento «con un módulo» se decide por el alcance, y como `null` es «todos», casi
+  todos entran.
+- 100 MB por archivo de entrega, con el Storage que haya.
+- El póster pone el número a la izquierda y D6 dice «número arriba»; el círculo de play de la
+  tarjeta de clase pisa el final del texto en cuatro diseños.
+
+Nada de la tanda 1 se vio dentro de la app en un navegador: los bancos (esbuild, Playwright,
+Chrome headless) no son la app real.
+
+## El curso tipo Skool, tanda 2: módulos, candados, arrastre y la lección editable (08/10/2026)
+
+En `bccbebae` (migs 0220 y 0221 APLICADAS). El diseño y sus contratos, en
+[diseno-curso-skool.md](diseno-curso-skool.md). Probado en el navegador sobre la app real (dev-login,
+ws1 y ws15 inspeccionado): índice, módulo, lección, vista del alumno, Conocimientos y la sidebar con
+la barra de agencia.
+
+### La clave del módulo se quedó en `curso_clases.etapa`, y por qué
+
+El relevo contó ~40 lugares que agrupan clases por `c.etapa` (portal, avance, mensajes, IA, ficha,
+resumen). Un `modulo_id` nuevo los rompía a todos; dejar la clave donde está y que un módulo
+VINCULADO use la clave de su etapa los deja andando sin tocarlos. Lo que cambia es quién decide la
+lista: `modulosDelCurso` (lib/curso-modulos-datos.ts) la DERIVA de las etapas con `enCurso !== false`
+más los sueltos de `curso_modulos` anclados con `despues_de`.
+
+- **Todo lo que lista módulos pasa por `modulosDelCurso`**, nunca lee `curso_modulos` directo: la
+  fila de un vinculado no tiene nombre (sólo guarda su candado). El ranking de la comunidad se perdió
+  así el nivel de los vinculados hasta que la revisión lo cazó.
+- **Cambiar la clave de un módulo (desvincular / vincular) re-clavea TODO lo que la nombra**: las
+  clases, su portada (`curso_estilo portada:etapa:<clave>`), los desbloqueos, las notas, los eventos
+  de la comunidad y los permisos de los alumnos (`reclavear`, lib/curso-modulos-datos.ts). Un dato que
+  se olvide queda apuntando a un módulo que ya no existe, sin error.
+- **La primera etapa del kanban no se mueve** («un cliente sin fila está en la primera»): un
+  arrastre que la cambie se rechaza con `ERROR_PRIMERA`. ⚠️ El chequeo se comparaba contra el kanban
+  de ANTES de meter una etapa nueva (`planReorden` + `planConEtapaNueva`): lo cazó el test del núcleo.
+
+### Los candados: lo que el relevo de Skool cambió del diseño
+
+Skool sólo bloquea por nivel, tiempo desde que la persona entró al GRUPO, compra, plan o a mano. Acá
+son 8 reglas (lib/curso-bloqueo.ts, puro) y dos se apartan de Skool a propósito: los días cuentan
+desde que se le ABRIÓ el curso a ese alumno (contar desde el grupo rompe un curso que se abre
+después), y hay «al terminar el anterior» y «al enviar/aprobar la tarea de…», que Skool no tiene.
+
+- **Un motivo de candado es un canal**: «Se abre al terminar «X»» nombra a X, así que sólo puede
+  nombrar lo que quien mira tiene permitido ver (`nombrable`).
+- **Un mensaje automático que nombra clases es otra puerta**: usa la misma evaluación que el portal
+  (`aperturasDelAlumno`), o le anuncia a un alumno una clase que todavía no puede abrir.
+- **«Probado rompiéndolo» había cubierto lo que tenía test, no todas las reglas**: la revisión rompió
+  las reglas del CONTRATO y seis daban 0 fallas. Se rompe la regla, no el test.
+
+### Dos pasos en paralelo sobre la misma hoja, y lo que se pisaron
+
+El editor y la lección corrieron a la vez sobre `CursoUgc.tsx`, `CursoApp.tsx` y `estilos.ts` para
+cerrar antes. Funcionó (Edit falla si el archivo cambió y el agente relee), con dos pisadas que sólo
+encontró la revisión final volviendo a correr los arneses de cada paso sobre el árbol integrado:
+
+- **Dos reglas para el mismo selector** (`.mk-iconbtn`) en la hoja compartida: gana la última en
+  silencio, y los botones del formulario de una tarea salían de 36 px con borde y sombra. La piel de
+  un control va acotada a su zona (`.ugc-topbar-extra`), con un test.
+- **El mismo dato con dos nombres en la misma pantalla**: la tarjeta decía «Cierra la etapa» y el
+  interruptor «Cierra el módulo», y el chip aparecía en un módulo suelto, donde no cierra nada.
+
+### Trampas del dibujo que aparecieron al editar adentro
+
+- El reset de `.ahdoc` (`* {margin:0; padding:0}`, botones sin fondo ni borde) rompe los controles de
+  la app dentro del curso (switches sin fondo, inputs sin relleno), y `Modal`/`Confirm` no se
+  portalean: una pregunta se dibuja afuera del curso.
+- Un clon del arrastre colgado del `body` pierde los estilos acotados a `.ahdoc .ugc`, y la copia de
+  un renglón de la barra necesita su fondo oscuro (el original es transparente con texto claro).
+- El hueco se cierra afuera de las zonas donde soltar funciona: si no, promete un destino que no hay.
+
+### Lo que quedó SIN hacer o espera una decisión de Martín
+
+- Desvincular y volver a vincular crea una columna NUEVA en el kanban; la vieja queda con sus
+  clientes (lib/curso-modulos-datos.ts, `vincularModulo`). Y no es atómico: un corte a mitad deja un
+  estado intermedio.
+- La vista Avance cuenta por etapa del kanban: las tareas de los sueltos no salen ahí (sí en la ficha).
+- «Completar un módulo» exige también las clases con candado manual (lib/curso-bloqueo.ts).
+- Borrar una etapa en el kanban manda al final los sueltos anclados a ella.
+- Pantallas táctiles: no hay arrastre (quedan ↑↓ y «Mover antes / después»).
+- Código sin uso: `guardarClase` (lib/curso-admin.ts), `conteoDeNotas` (lib/curso-notas.ts), el
+  componente `ChecklistCurso` y la prop `onboarding` de `CursoApp`.
+- La Comunidad del equipo exige una sesión con id de usuario: la de `dev-login` contesta «Tu sesión
+  no tiene una cuenta propia» (app/customer-success/comunidad/actor.ts). Con una sesión real anda.

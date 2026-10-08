@@ -710,4 +710,62 @@ export const BITACORA: Hito[] = [
       "tests/curso-estilo.test.ts — las reglas, cada guard probado rompiéndolo",
     ],
   },
+  {
+    fecha: "7 oct", hora: "—", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El curso tipo Skool: 19 pedidos, del recorrido a la comunidad",
+    pedido: "1. Todos los cambios que te  estoy pidiendo, aplicalo también a SuperAdmin... En la tab de CONOCIMIENTOS como SuperAdmin debería poder editar todo, aplicalo también allí. Claro que los links compartidos y otros usuarios no deben poder editar eso.\n2. Revisa que se bugeo la sidebar principal de MaKo, hay un espacio en blanco arriba... No se si solo ocurren en la vista de inspección o siempre...\n3. Elimina el recuadro de \"Configura tu curso\" cuando alguien entra por primera vez... En su lugar haz el típico tutorial de app, donde se pone todo medio oscuro y salen flechas apuntandote a las acciones disponibles, como un pequeño recorrido con texto explicativo. Con botones de siguiente y uno para omitir tutorial.\n4. Elimina la tab de \"Avance de clientes\" en este lugar solo se va a editar el curso. Que esa tab esté en la ruta de clientes...\n5. Las portadas de \"01 . Bienvenida\" que están diseñadas por nosotros, deberían aparecer también en la selección de portadas, sino, cambio la portada de 1, y luego ya no aparecen... Y se debería poder editar el texto que aparece debajo del número, por defecto es igual que el título, pero tal vez alguien lo quiere cambiar. También te pido que hagas varios diseños así, tipo portadas... Para que puedan elegir, que todos tengan la misma logica, que se pueda editar los colores y el texto. Ten cuidado de poner un límite de  caracteres, para que no rompan el diseño de la portada.\n6. Debería poder editar los nombres de los módulos allí mismo. Y claro, que se editen en las etapas del kanban.\n7. Debería poder agarrar una tarjeta y arrastrarla para cambiar la posición... Tando de módulos como clases. Y eso también debería cambiar las etapas. Copia la animación de arrastre de tarjetas que tenemos en varios lugares, como el PLAN, copia esa animación tal cual, con todo...\n8. Quiero que implementes la funcionalidad de Skool de poder \"bloquear\" algunas clases, y que se vayan desbloqueando con ciertos requerimientos... Me gustaría que investigues todo lo que tiene Skool para que lo implementemos.\n9. Falta algo muy importante... En cada cliente del kanban se debería poder invitar al curso, que se le cree una cuenta de MaKo con ese nivel de acceso, solo al curso, sin la sidebar principal ni nada... Y claro poder administrar los permisos de ese \"alumno\", ya sea solo algunos modulos o lo que sea... También en la vista de editor de curso debería poder invitar a alguien. Ya sea seleccionandolo de la lista de clientes que aún no estén invitados o invitandolo de 0, en ese caso, me debe pedir más datos para también agregarlo como cliente al kanban.\n10. También quiero implementar una nueva tab dentro del desplegable de la sidebar de Customer Suceess, que sea \"Comunidad\", replica lo que tiene skool tal cual, todas las funcionalidades de comunidad.\n11. Para las \"Etapas\" dentro del curso, llamalo \"Modulos\" y elimina en la sidebar de los modulos el tiempo. Si está bien que estén la cantidad de clases nada más.\n12. Falta el botón de \"Nuevo módulo\". Y tanto ese como el de nueva clase, que aparezcan primero, no por último. Es importante un editor para los módulos, para poder \"desvinclarlo\" del kanban... Es decir, si quiero crear un módulo que NO sea una etapa dentro del kanban. Por defecto si lo son, pero se debería poder desvincular. Y claro, si creo un nuevo modulo, se crea una nueva etapa.\n13. Elimina la sección de \"Notas\" en todos lados.\n14. Dentro de una clase, no deberían haber tabs de \"Tarea\" y \"Descripción\", por defecto ambas juntas siempre, y primero siempre la descripción.\n15. Elimina el botón de \"grabar/no grabar\".\n16. Elimina el botón de \"Editar\", para eso ya se edita en cada parte... Si quiero editar el título, le doy click, como la descripción... Si quiero agregar un vídeo, al igual que al agregar una nueva clase, debe siempre estar un placeholder donde iría el vídeo para la opción de \"Agregar vídeo\". También sería bueno si el usuario prefiere editar que la descripción y la tarea estén al costado del vídeo, o abajo de forma estendida, para que el vídeo y la descripción junto con la tarea ocupen todo el ancho en ese caso. Lo mismo con el botón de \"Agregar tarea\" ahí mismo abajo de la descripción, como placeholder.\n17. Se debería poder adjuntar cosas a la descripción... Imágenes, PDF, archivos, etc.. Y mejora bastante las opciones de editar texto allí, se debería poder editar el texto completo, como si fuera un word. Obvio que hay cosas que no hacen falta, pero si una buena edición de texto.\n18. Piensa en que otras tareas se podría pedir aparte de formularios e implementalas.\n19. Una tarea que quiero que le mandes al CRM es muy importante, poder automatizar la invitación al curso cuando un lead cae a Ganado, así no se tiene que estar invitando manualmente... Pero que sea opcional, activar esa automatización. Y también mandale que automatice mediante el pixel de MaKo que si alguien cae en una TKY Page, se pueda automatizar pasar al lead a Ganado directamente, así por ejemplo, si alguien tiene compra carrito o lo que sea, y cae en esa TKY Page, se pase automático a ganado y a su vez si se tiene activado la invitación del curso automático, que sea todo automático.\n\nRecuerda enviar el pedido al chat de CRM, para que ya comience a trabajar.",
+    puntos: [
+      "Lo mandó con dos capturas: la tab Curso de una clienta de Código Inmobiliario, inspeccionada desde la agencia, con el recuadro «Configura tu curso», y la grilla de módulos con las láminas «01 · Bienvenida».",
+      "El último párrafo llegó a mitad de camino, en otro mensaje. El pedido 19 (invitar al curso al ganar) lo tomó el chat del CRM.",
+    ],
+  },
+  {
+    fecha: "8 oct", hora: "02:35", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Curso tipo Skool, tanda 1: seis piezas en paralelo, integradas en un commit",
+    puntos: [
+      "La comunidad (tab nueva), nueve tipos de tarea, invitar y permisos con link mágico, el editor rico, siete portadas diseñadas y el recorrido. Migs 0216-0219 aplicadas.",
+      "Los permisos se aplican en la ÚNICA puerta del portal: armarVistaAlumno filtra después de armar con la entrega entera (filtrar antes corre las posiciones) y claseDelAlumno contesta no-existe.",
+      "⚠️ El select genérico de la comunidad dejaba a tsc sin memoria (4, 8 y 14 GB) y trababa el pre-push de todas las sesiones. Sin el genérico: 0 errores en 20 s con caché.",
+      "⚠️ Los tests de la comunidad daban verde sobre 12 regresiones de una línea (un update sin su .eq tocaba todo el producto): ahora uno barre cada escritura.",
+      "La sidebar corrida 50 px con la barra de agencia: la hoja del curso le ponía overflow al body, que se volvía contenedor de scroll.",
+      "Sin montar todavía (tanda 2): el recorrido, el editor rico, las láminas en las tarjetas, invitar desde el editor y la comunidad del alumno. Nada se vio en el navegador.",
+    ],
+    commits: [
+      { sha: "1080f74c", msg: "Curso tipo Skool, tanda 1: comunidad, tipos de tarea, invitar y permisos, editor rico, portadas diseñadas y recorrido", lineas: 25760, archivos: 139 },
+    ],
+    archivos: [
+      "lib/comunidad-datos.ts + lib/comunidad-reglas.ts + app/_comunidad/ — la comunidad (mig 0217)",
+      "lib/curso.ts + lib/curso-entregas.ts + app/compartido/curso/[token]/TareaAlumno.tsx — los tipos de tarea (mig 0218)",
+      "lib/curso-invitar.ts + lib/curso-alcance.ts + lib/curso-portal.ts — invitar sin sesión y los permisos en la puerta (mig 0219)",
+      "app/_ui/EditorRico.tsx + lib/html-seguro.ts + lib/curso-adjuntos.ts — el editor rico y su saneo (mig 0216)",
+      "lib/laminas.ts + app/_cursos/laminas/ — las siete portadas diseñadas",
+      "app/_ui/Recorrido.tsx + lib/recorridos.ts — el recorrido, visto por persona",
+      "public/cono-doc/ugc.css + scripts/avatarhype-css.mjs — el body sin overflow (la sidebar)",
+      "tests/comunidad-modelo.test.ts — el select sin genérico",
+    ],
+  },
+  {
+    fecha: "8 oct", hora: "07:55", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Curso tipo Skool, tanda 2: módulos, candados, arrastre, la lección editable y Conocimientos",
+    puntos: [
+      "Módulos que pueden no ser etapas del kanban (curso_modulos): se crean primero, se renombran con un clic, se desvinculan sin mover a ningún cliente y se reordenan arrastrando. La clave sigue en curso_clases.etapa para no romper los ~40 lugares que agrupan por ella.",
+      "Ocho candados por módulo y por clase en la ÚNICA puerta del portal: lo cerrado no viaja, sólo su motivo. Los días cuentan desde que se le abrió el curso al alumno (Skool cuenta desde el grupo y rompe los cursos que se abren después).",
+      "La lección sin Notas, Grabar, Editar ni pestañas: el lugar del video, el editor rico con adjuntos, la tarea debajo y «Texto al costado / abajo».",
+      "Conocimientos monta el mismo dibujo y el super admin edita con una capa en la base. ⚠️ El link de UN curso bajaba el catálogo entero (con lo oculto): ahora va en un chunk perezoso.",
+      "Editor y lección corrieron en paralelo para cerrar antes; la revisión final cazó lo que se pisaron (una regla para el mismo selector, el mismo dato con dos nombres). Probado en el navegador sobre la app real.",
+    ],
+    commits: [
+      { sha: "bccbebae", msg: "Curso tipo Skool, tanda 2: módulos, candados, arrastre, la lección editable, el portal y Conocimientos editable", lineas: 15352, archivos: 103 },
+    ],
+    archivos: [
+      "lib/curso-modulos.ts + lib/curso-modulos-datos.ts — la lista derivada y las operaciones de módulos (mig 0220)",
+      "lib/curso-bloqueo.ts + lib/curso-portal.ts — los candados y la puerta del portal",
+      "app/customer-success/curso/LeccionEditable.tsx + MenuCurso.tsx + modulos-actions.ts — la lección y el editor",
+      "app/_cursos/CursoUgc.tsx + arrastre-curso.ts — el dibujo compartido y el arrastre",
+      "app/conocimientos/modelo-ugc.ts + lib/conocimiento-ajustes.ts — Conocimientos editable (mig 0221)",
+    ],
+  },
 ];
