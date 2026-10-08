@@ -487,6 +487,71 @@ export function avisoSalio(r: { ok: boolean; resumen: string }): boolean {
   return r.ok && !r.resumen.startsWith(AVISO_REPETIDO);
 }
 
+// ── El freno anti-ban, POR CANAL (decisión 5 de la segunda tanda, 08/10/2026) ───
+
+/** Los dos canales que el freno distingue. Todo lo que no es email frena como WhatsApp. */
+export type CanalFreno = 'whatsapp' | 'email';
+export const canalDelFreno = (canal: string | null | undefined): CanalFreno => (canal === 'email' ? 'email' : 'whatsapp');
+
+/** Los leads que recibieron algo en la ventana del freno, leídos de la base, uno por canal. */
+export type RecientesPorCanal = { whatsapp: ReadonlySet<number>; email: ReadonlySet<number> };
+
+/** Lo que salió EN ESTA corrida, por lead y por canal (`enviadoEnCorrida`). */
+export type EnviadoEnCorrida = Map<number, Set<CanalFreno>>;
+
+/**
+ * ¿El freno de 20 h para a este mensaje? Mira LAS DOS cosas: lo que dice la base (leído UNA vez
+ * por lote) y lo que salió en esta misma corrida.
+ *
+ * ⚠️ SIN LA SEGUNDA, DOS HILOS DE WHATSAPP DEL MISMO LEAD SALÍAN EN LA MISMA VUELTA: la lectura
+ * de la base es por lote y no se entera de lo que el lote acaba de mandar. Y SIN EL CANAL, un
+ * email frenaba al WhatsApp 20 h (y al revés): el ejemplo de Martín —WhatsApp y email desde el
+ * mismo CRON— salía con un día de diferencia.
+ */
+export function frenadoPorAntiBan(leadId: number, canal: string | null | undefined, deLaBase: RecientesPorCanal, enCorrida: ReadonlyMap<number, ReadonlySet<CanalFreno>>): boolean {
+  const c = canalDelFreno(canal);
+  return deLaBase[c].has(leadId) || enCorrida.get(leadId)?.has(c) === true;
+}
+
+/** Anota que a este lead le salió algo (un envío o un borrador) por este canal en esta corrida. */
+export function anotarEnCorrida(m: EnviadoEnCorrida, leadId: number, canal: string | null | undefined): void {
+  const s = m.get(leadId) ?? new Set<CanalFreno>();
+  s.add(canalDelFreno(canal));
+  m.set(leadId, s);
+}
+
+// ── La ventana horaria, en la zona del NEGOCIO (decisión 6) ─────────────────────
+
+/**
+ * La zona de un negocio que no tiene `mako.timezone`: Ciudad de México, que es lo que el motor
+ * hacía siempre (`TZ_OFFSET_MX = -6`). No es `TZ_DEFAULT` (Tijuana) a propósito: cambiar la
+ * ventana de los que no tienen zona sería mover cuándo les sale todo, sin que nadie lo pidiera.
+ */
+export const ZONA_SIN_CONFIGURAR = 'America/Mexico_City';
+
+/** ¿Es una zona IANA que el runtime conoce? */
+export function zonaValida(tz: unknown): tz is string {
+  if (typeof tz !== 'string' || !tz) return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
+}
+
+/** La zona con la que corre el motor: la guardada si es válida, si no Ciudad de México. */
+export function zonaDelMotor(guardada: unknown): string {
+  return zonaValida(guardada) ? guardada : ZONA_SIN_CONFIGURAR;
+}
+
+/** La hora de pared (0-23) de un instante en una zona. */
+export function horaEnZona(ahoraMs: number, tz: string): number {
+  const h = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(new Date(ahoraMs));
+  return Number(h) % 24;
+}
+
+/** ¿Este instante cae entre `inicio` (incluida) y `fin` (excluida) en la zona del negocio? */
+export function dentroDeVentanaEn(ahoraMs: number, tz: string, inicio: number, fin: number): boolean {
+  const h = horaEnZona(ahoraMs, tz);
+  return h >= inicio && h < fin;
+}
+
 // ── Archivos ────────────────────────────────────────────────────────────────────
 
 /** Cómo sale un archivo de la biblioteca por Evolution: imagen, video o documento según el mime. */
@@ -510,7 +575,9 @@ export function mediaDeAdjunto(a: { media_mime: string; nombre_archivo?: string 
 const RX_ID = /^[A-Za-z0-9_-]{1,60}$/;
 const idValido = (x: unknown): x is string => typeof x === 'string' && RX_ID.test(x);
 const destinoId = (x: unknown): string | null | undefined => (x === null ? null : idValido(x) ? x : undefined);
-const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a']);
+// 'inicio' (segunda tanda, 08/10/2026): el CRON con flechas en paralelo. Sin él acá, el primer
+// guardado lo volvía un mensaje vacío y las flechas del CRON se perdían en silencio.
+const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a', 'inicio']);
 /** Un año de espera, en minutos. Una espera más larga es un dato roto, no una decisión. */
 const TOPE_ESPERA_MIN = 366 * 24 * 60;
 
@@ -570,7 +637,19 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar'>;
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar'>;
+
+/**
+ * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
+ * admiten (mensaje, acción, espera, inicio): en una condición no significan nada y `normalizar`
+ * las tiraría igual. Vacío = sin el campo.
+ */
+function sanearParalelos(x: unknown): string[] | undefined {
+  if (!Array.isArray(x)) return undefined;
+  const out: string[] = [];
+  for (const d of x) if (idValido(d) && !out.includes(d)) out.push(d);
+  return out.length ? out : undefined;
+}
 
 /**
  * Los campos del FLUJO de un paso, saneados uno por uno. Lo que no se reconoce no viaja: un
@@ -596,6 +675,9 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   }
   if (nodo === 'ir_a') out.destino = sanearDestino(o.destino);
   if (!nodo && typeof o.revisar === 'boolean') out.revisar = o.revisar;
+  // ⚠️ LA QUINTA PUERTA (AGENTS.md): `setSecuenciaPasos` reconstruye cada paso campo por campo, y
+  // sin esta línea BORRABA las flechas en paralelo en el primer guardado, sin error.
+  if (!nodo || nodo === 'esperar' || nodo === 'inicio') { const par = sanearParalelos(o.paralelos); if (par) out.paralelos = par; }
   return out;
 }
 
@@ -618,6 +700,9 @@ export function esLineal(pasos: readonly PasoGrafo[]): boolean {
   for (let i = 0; i < pasos.length; i++) {
     const c = claseDe(pasos[i]);
     if (c === 'condicion' || c === 'respuesta' || c === 'ir_a') return false;
+    // El inicio y las flechas en paralelo: «el paso 3» ya no es UN lugar (puede haber dos
+    // caminos corriendo a la vez), así que una edición «por orden» no tiene a qué referirse.
+    if (c === 'inicio' || (Array.isArray(pasos[i].paralelos) && pasos[i].paralelos!.length > 0)) return false;
     const esperado = pasos[i + 1] ? idDe(pasos[i + 1], i + 1) : null;
     if (siguienteDe(pasos, i) !== esperado) return false;
   }
