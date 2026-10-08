@@ -141,7 +141,17 @@ export type CalcomReservaPayload = {
   type?: string;
   /** Motivo de cancelación, cuando el trigger es CANCELLED/REJECTED. */
   cancellationReason?: string | null;
-  /** Respuestas del formulario de reserva. La forma cambió entre versiones. */
+  /**
+   * Respuestas del formulario de reserva. La forma cambió entre versiones:
+   *  - hoy cada campo llega como `{ label, value, isHidden }` (el `label` es el que escribió
+   *    el dueño del calendario, o una CLAVE de traducción en los campos de sistema:
+   *    «additional_notes»);
+   *  - `responses` trae TODOS los campos y `userFieldsResponses` sólo los que agregó el dueño;
+   *  - con el event type borrado, el `label` es el nombre del campo;
+   *  - en versiones viejas el valor llega pelado, sin el sobre.
+   * El valor puede ser texto, número, booleano, lista (un multiselect) u objeto (`{ value,
+   * optionValue }` en la ubicación, `{ firstName, lastName }` en el nombre partido).
+   */
   responses?: Record<string, unknown>;
   userFieldsResponses?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
@@ -170,12 +180,127 @@ export type ReservaNormalizada = {
   /** Qué reunión es, para clasificarla contra la config del workspace. */
   eventType: { id: string | null; slug: string | null; nombre: string | null };
   cancelacion: string | null;
+  /**
+   * Lo que la persona completó en el formulario, en el orden del formulario y con el rótulo
+   * que trae Cal.com. NO trae lo que ya es un campo de arriba (nombre, email, teléfono) ni la
+   * ubicación de la reunión, ni lo que quedó vacío. Hasta el 08/10/2026 esto se tiraba: el aviso
+   * «Nuevo agendado» salía sin el teléfono y sin la «experiencia en el rubro» que Código
+   * Inmobiliario (ws13) pidió ver, y que su equipo terminaba pidiéndole a MaKo por audio.
+   */
+  respuestas: RespuestaReserva[];
 };
+
+/** Una respuesta del formulario de reserva: la `clave` es el nombre del campo en Cal.com. */
+export type RespuestaReserva = { clave: string; rotulo: string; valor: string };
 
 const txt = (v: unknown): string | null => {
   const s = typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '';
   return s ? s : null;
 };
+
+/**
+ * Los campos del formulario que NO son una respuesta: son un campo de la reserva (nombre,
+ * email, los dos teléfonos de sistema) o la ubicación de la reunión, que es un link de Meet y
+ * no algo que la persona contestó. Se nombran en positivo: un campo nuevo que agregue el dueño
+ * del calendario entra como respuesta sin que nadie lo tenga que sumar acá.
+ */
+const CAMPOS_DE_LA_RESERVA = new Set(['name', 'email', 'attendeePhoneNumber', 'smsReminderNumber', 'location']);
+
+/**
+ * Los campos de SISTEMA llegan con una clave de traducción en vez de un rótulo (medido en el
+ * código de Cal.com: `defaultLabel`). Guardada así, la ficha diría «additional_notes».
+ */
+const ROTULO_DE_SISTEMA: Record<string, string> = {
+  what_is_this_meeting_about: 'Tema',
+  additional_notes: 'Notas',
+  additional_guests: 'Invitados',
+  reason_for_reschedule: 'Motivo del cambio',
+  reschedule_reason: 'Motivo del cambio',
+};
+
+/**
+ * Topes de lo que se GUARDA (el aviso tiene los suyos, más cortos: `TOPE_AVISO`). Corre antes de
+ * la firma —el webhook normaliza para saber contra qué key validar—, así que un payload sin firmar
+ * de 20 MB no puede volverse una lista de 20 MB en memoria.
+ */
+const TOPE_RESPUESTAS = { cuantas: 30, rotulo: 200, valor: 500 } as const;
+
+/** El valor de un campo como UNA línea de texto, o null si quedó vacío. */
+function textoDeValor(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === 'string') return v.replace(/\s+/g, ' ').trim() || null;
+  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : null;
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  if (Array.isArray(v)) {
+    const partes = v.map(textoDeValor).filter((s): s is string => !!s);
+    return partes.length ? partes.join(', ') : null;
+  }
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    // El nombre partido en dos campos (variante «firstAndLastName»).
+    if ('firstName' in o || 'lastName' in o) return textoDeValor([o.firstName, o.lastName].filter((x) => typeof x === 'string').join(' '));
+    // La forma `{ value, optionValue }` de un radio con opción «Otro».
+    if ('value' in o) return textoDeValor(o.value);
+  }
+  return null;
+}
+
+/** Saca el rótulo y el valor de un campo, venga con el sobre `{ label, value }` o pelado. */
+function entradaDe(crudo: unknown): { rotulo: string | null; valor: unknown; oculta: boolean } {
+  if (crudo && typeof crudo === 'object' && !Array.isArray(crudo)) {
+    const o = crudo as Record<string, unknown>;
+    if ('label' in o || 'isHidden' in o || 'value' in o) {
+      return { rotulo: typeof o.label === 'string' ? o.label : null, valor: o.value, oculta: o.isHidden === true };
+    }
+  }
+  return { rotulo: null, valor: crudo, oculta: false };
+}
+
+/** El rótulo para mostrar: el del dueño tal cual, y si no hay, el de sistema o el nombre del campo en palabras. */
+function rotuloDe(clave: string, rotulo: string | null): string {
+  const r = (rotulo ?? '').replace(/\s+/g, ' ').trim();
+  if (ROTULO_DE_SISTEMA[r]) return ROTULO_DE_SISTEMA[r];
+  // Sin rótulo, con el nombre del campo como rótulo (event type borrado) o con una clave de
+  // traducción que no conocemos: se pasa a palabras. «-Hace-cu-nto-que…» queda legible igual.
+  const esClave = !r || r === clave || /^[a-z0-9]+(?:_[a-z0-9]+)+$/.test(r);
+  const base = esClave ? (r || clave).replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() : r;
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : 'Respuesta';
+}
+
+/**
+ * Las respuestas del formulario. `yaSonCampo` son el nombre, el email y el teléfono ya
+ * resueltos: un campo PROPIO del dueño que repite uno de esos (un «WhatsApp» además del
+ * teléfono de sistema, de donde `telefonoDe` sacó el número) no se repite como respuesta.
+ *
+ * Se compara por la HUELLA (sin mayúsculas, espacios, guiones, puntos ni paréntesis): el mismo
+ * número tipeado «+54 9 11 2222-3333» en el campo propio y guardado «+5491122223333» en el de
+ * sistema es el mismo dato, y comparado tal cual salía dos veces en el aviso.
+ */
+function respuestasDe(p: CalcomReservaPayload, yaSonCampo: Array<string | null>): RespuestaReserva[] {
+  const huella = (s: string) => s.toLowerCase().replace(/[\s().-]+/g, '');
+  const repetidos = new Set(yaSonCampo.filter((x): x is string => !!x).map(huella).filter(Boolean));
+  const out: RespuestaReserva[] = [];
+  const vistas = new Set<string>();
+  // `responses` primero: trae TODOS los campos en el orden del formulario. `userFieldsResponses`
+  // completa lo que una versión vieja mande sólo ahí.
+  for (const fuente of [p.responses, p.userFieldsResponses]) {
+    if (!fuente || typeof fuente !== 'object' || Array.isArray(fuente)) continue;
+    for (const [clave, crudo] of Object.entries(fuente)) {
+      if (vistas.has(clave)) continue;
+      vistas.add(clave);
+      if (CAMPOS_DE_LA_RESERVA.has(clave)) continue;
+      const e = entradaDe(crudo);
+      // Un campo OCULTO no lo completó la persona: lo llena la URL de reserva.
+      if (e.oculta) continue;
+      const valor = textoDeValor(e.valor);
+      if (!valor) continue; // las notas vacías, los invitados que no hay
+      if (repetidos.has(huella(valor))) continue;
+      out.push({ clave, rotulo: rotuloDe(clave, e.rotulo).slice(0, TOPE_RESPUESTAS.rotulo), valor: valor.slice(0, TOPE_RESPUESTAS.valor) });
+      if (out.length >= TOPE_RESPUESTAS.cuantas) return out;
+    }
+  }
+  return out;
+}
 
 /**
  * Saca el teléfono, que viaja en tres lugares distintos según la versión del
@@ -215,11 +340,14 @@ export function normalizarReserva(p: CalcomReservaPayload | undefined): ReservaN
   const a = (p.attendees ?? [])[0] ?? {};
   const uid = txt(p.uid) ?? txt(p.bookingId);
   if (!uid) return null; // sin identificador no hay idempotencia posible
+  const email = txt(a.email)?.toLowerCase() ?? null;
+  const nombre = txt(a.name);
+  const telefono = telefonoDe(p, a);
   return {
     uid,
-    email: txt(a.email)?.toLowerCase() ?? null,
-    nombre: txt(a.name),
-    telefono: telefonoDe(p, a),
+    email,
+    nombre,
+    telefono,
     inicio: txt(p.startTime),
     fin: txt(p.endTime),
     eventType: {
@@ -228,7 +356,88 @@ export function normalizarReserva(p: CalcomReservaPayload | undefined): ReservaN
       nombre: txt(p.title),
     },
     cancelacion: txt(p.cancellationReason),
+    respuestas: respuestasDe(p, [nombre, email, telefono]),
   };
+}
+
+/**
+ * Las respuestas en la forma de las de Calendly (`{ question, answer }`), para guardarlas con
+ * la MISMA función (`saveLeadRespuestas`, lib/leads.ts): dos maneras de escribir `lead_respuestas`
+ * serían dos fichas que leen distinto la misma tabla.
+ */
+export function preguntasDeReserva(respuestas: RespuestaReserva[]): Array<{ question: string; answer: string }> {
+  return respuestas.map((r) => ({ question: r.rotulo, answer: r.valor }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El aviso «Nuevo agendado»
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Topes del aviso. Es un WhatsApp al grupo del negocio que se lee en el celular: un renglón por
+ * respuesta, con el rótulo ABREVIADO (los del formulario de ws13 llegan a 230 caracteres: «Valoramos
+ * mucho nuestro tiempo tanto como el suyo, si selecciona un dia…») y el valor cortado. Lo completo
+ * queda en la ficha, que es adonde lleva el link del final.
+ */
+export const TOPE_AVISO = { respuestas: 6, rotulo: 40, valor: 60 } as const;
+
+/** Corta en el último espacio antes del tope y marca el corte con «…». */
+function cortar(s: string, tope: number): string {
+  if (s.length <= tope) return s;
+  const dentro = s.slice(0, tope - 1);
+  const espacio = dentro.lastIndexOf(' ');
+  return (espacio > tope / 2 ? dentro.slice(0, espacio) : dentro).replace(/[\s,;:.-]+$/, '') + '…';
+}
+
+/**
+ * El rótulo de una respuesta, abreviado para un renglón: hasta la primera pausa (una coma, un
+ * punto, el signo de pregunta), sin el «Tu»/«Su» del principio y con un tope de largo.
+ * «¿Hace cuánto que formas parte del rubro inmobiliario?» → «Hace cuánto que formas parte del rubro…».
+ */
+export function rotuloCorto(rotulo: string): string {
+  let r = rotulo.replace(/\s+/g, ' ').trim().replace(/^[¿¡?!.,;:\s]+/, '');
+  const pausa = r.search(/[,;.:?!(]/);
+  if (pausa > 0) r = r.slice(0, pausa);
+  r = r.trim().replace(/^(tu|tus|su|sus)\s+(?=\S)/i, '');
+  r = cortar(r, TOPE_AVISO.rotulo);
+  return r ? r.charAt(0).toUpperCase() + r.slice(1) : 'Respuesta';
+}
+
+/**
+ * Lo que va DESPUÉS de la línea de la reunión: el contacto en un renglón y un renglón por
+ * respuesta. Vacío si no hay nada que decir (una reserva sin teléfono, sin email y sin formulario
+ * deja el aviso como era).
+ */
+export function detalleDelAviso(d: { telefono: string | null; email: string | null; respuestas: RespuestaReserva[] }): string[] {
+  const lineas: string[] = [];
+  const contacto = [d.telefono ? `📱 ${d.telefono}` : null, d.email ? `✉️ ${d.email}` : null].filter((x): x is string => !!x);
+  if (contacto.length) lineas.push(contacto.join(' · '));
+  const visibles = d.respuestas.slice(0, TOPE_AVISO.respuestas);
+  for (const r of visibles) lineas.push(`• ${rotuloCorto(r.rotulo)}: ${cortar(r.valor, TOPE_AVISO.valor)}`);
+  const resto = d.respuestas.length - visibles.length;
+  if (resto > 0) lineas.push(`• +${resto} en el resumen`);
+  return lineas;
+}
+
+/**
+ * El texto del aviso «Nuevo agendado» de Cal.com, para la R1 y la R2. Es UNA función para las dos
+ * porque son dos emisores del mismo aviso: con el texto armado en cada uno, el teléfono llegaba a
+ * uno y al otro no. El link al resumen va siempre al final, y la firma después.
+ */
+export function textoNuevoAgendado(d: {
+  nombre: string;
+  reunion: 'R1' | 'R2';
+  /** La fecha y hora ya escritas en la zona del negocio («martes 13 a las 10:15»). */
+  cuando: string;
+  link: string;
+  telefono: string | null;
+  email: string | null;
+  respuestas: RespuestaReserva[];
+}): string {
+  const detalle = detalleDelAviso(d);
+  return `🎯 *Nuevo agendado*: ${d.nombre} reservó una *${d.reunion} para el ${d.cuando}*.`
+    + (detalle.length ? `\n${detalle.join('\n')}` : '')
+    + `\n\n👉 Mira el resumen del lead:\n${d.link}\n\n— MaKo`;
 }
 
 /**
