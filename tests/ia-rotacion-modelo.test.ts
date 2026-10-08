@@ -11,6 +11,8 @@
 // PROBADO ROMPIÉNDOLO, sobre copias, junto con tests/red-plataforma.test.ts (con todo
 // puesto: 15 pasan, 0 fallan). Pasan / fallan con cada rotura:
 //   · `leerErrorProveedor` vuelve a leer sólo `data.error` (no el array)   -> 13 / 2
+//   · qué cuota fue vuelve al FINAL del mensaje (la marca corta a 300)     -> 14 / 1
+//     (con «dentro de los 240» daba 15 / 0: el fixture es más corto que un 429 real)
 //   · la cuota vuelve a tirar sin probar el otro modelo                    -> 13 / 2
 //   · la espera usa un número propio en vez del que dice el proveedor      -> 14 / 1
 //   · se espera aunque la cuota sea la del DÍA                             -> 14 / 1
@@ -64,6 +66,10 @@ test('⚠️ GEMINI MANDA EL ERROR EN UN ARRAY: leerlo como objeto lo dejaba en 
   const c = leerErrorProveedor(GEMINI_429_MINUTO, 429);
   assert.match(c.mensaje, /exceeded your current quota/);
   assert.match(c.mensaje, /PerMinute/, 'qué cuota fue tiene que quedar en el log');
+  // Y ADELANTE: la marca del rebote guarda 300 caracteres y el texto de Google ocupa ~250.
+  // (El fixture es más corto que un 429 real, que trae además la métrica, el tope y el
+  // modelo: por eso se exige el PRINCIPIO y no «dentro de los 240».)
+  assert.ok(c.mensaje.startsWith('[GenerateContentInputTokensPerModelPerMinute'), `qué cuota fue no va adelante: ${c.mensaje.slice(0, 80)}`);
   // Y el formato de siempre (objeto) se sigue leyendo.
   assert.match(leerErrorProveedor(GROQ_413, 413).mensaje, /Request too large/);
   // Sin cuerpo, el status: nunca un vacío.
