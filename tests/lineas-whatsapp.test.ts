@@ -226,8 +226,10 @@ test('el motor manda cada secuencia por SU línea, con una sonda por línea', ()
   const rama = bloque(nutri, "} else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {", "} else if (waOn && paso.canal === 'whatsapp') {");
   assert.match(rama, /const lineaSec = sec\.instance_name;/);
   assert.match(rama, /const canalEvo = await canalDeLinea\(lineaSec\);/);
-  // Los tres envíos y los dos borradores de la rama llevan la línea de la secuencia.
-  assert.equal(cuenta(rama, 'linea: lineaSec'), 5);
+  // Los cuatro envíos y los tres borradores de la rama llevan la línea de la secuencia (desde el
+  // 08/10/2026 el archivo de la biblioteca suma uno de cada: `enviarMediaYEspejar` y su borrador).
+  // Probado rompiéndolo (08/10/2026): el envío del archivo sin su línea → 1 falla (15/1).
+  assert.equal(cuenta(rama, 'linea: lineaSec'), 7);
   // Y guardarla valida que sea del negocio.
   assert.match(bloque(nutri, 'export async function setSecuenciaLinea(', '\n}\n'), /elegirLinea\(await listarLineas\(\), linea, ws\)/);
 });

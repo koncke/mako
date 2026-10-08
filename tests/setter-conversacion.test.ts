@@ -42,6 +42,8 @@ import { parseEstrategia } from '../lib/setting-estrategia';
 // (25) sin releer antes de guardar · (26) `calificado` sin compare-and-set ·
 // (27) la primera respuesta sin mirar la reunión → 1 rojo cada uno. (22)-(23) viven en
 // tests/conversacion-repeticion.test.ts y (24) en tests/chatbot-puerta.test.ts.
+// (28) (08/10/2026, la respuesta partida en cuatro funciones para «Si responde») sacando la
+// relectura de `redactarRespuesta` → 1 rojo (27/1).
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const leer = (r: string) => readFileSync(`${RAIZ}${r}`, 'utf8').replace(/\r\n/g, '\n');
@@ -230,6 +232,18 @@ test('conversacionAbierta: de dos abiertas sigue la del último intercambio', ()
 
 const NUTRI_787 = sinComentarios(leer('lib/nutricion.ts'));
 
+/**
+ * LA RESPUESTA ASISTIDA, ENTERA. Desde el 08/10/2026 vive partida en cuatro funciones para que
+ * «Si responde» del flujo con ramas use el MISMO redactor y las MISMAS puertas sin copiarlas
+ * (`asistirRespuesta` despacha y hace el hand-off, `contextoDeRespuesta` lee la charla,
+ * `hayMensajeMasNuevo` relee, `redactarRespuesta` redacta, guarda, califica y avisa). Las
+ * preguntas de abajo son las mismas de siempre, sobre las cuatro.
+ */
+const RESPUESTA = (src: string): string => [
+  'async function asistirRespuesta(', 'async function contextoDeRespuesta(',
+  'async function hayMensajeMasNuevo(', 'async function redactarRespuesta(',
+].map((f) => bloque(src, f)).join('\n');
+
 // ── #787: ¿la respuesta sale sola? ──────────────────────────────────────────
 
 const CONFIRMA = { titulo: 'Confirma que vio el video', cuando: 'dice que ya lo vio', comoResponder: 'Agradece y confirma la reunión.', contestaSolo: true };
@@ -277,7 +291,7 @@ test('el saneo de la estrategia conserva «contesta solo» sólo con un true lit
 });
 
 test('el motor manda solo únicamente con el caso prendido, sin descalificar, y por el mismo borrador (#787)', () => {
-  const b = bloque(NUTRI_787, 'async function asistirRespuesta(');
+  const b = RESPUESTA(NUTRI_787);
   assert.match(b, /clas\.escenario\.contestaSolo === true && !alertaDescalifica\)/);
   assert.match(b, /const d = puedeContestarSolo\(\{/);
   assert.match(b, /if \(d\.ok\) \{\s*const \{ enviarBorrador \} = await import\('@\/lib\/evolution-envio'\);\s*const env = await enviarBorrador\(borradorId, 'mako-auto'\);/);
@@ -292,7 +306,7 @@ const NUTRI = sinComentarios(leer('lib/nutricion.ts'));
 const SIM = sinComentarios(leer('lib/setting-simulador.ts'));
 
 test('asistirRespuesta le pasa al setter la charla real, el lead y el caso (#360, #361, #358)', () => {
-  const b = bloque(NUTRI, 'async function asistirRespuesta(');
+  const b = RESPUESTA(NUTRI);
   assert.match(b, /mensajesRecientesDelLead\(leadId/);
   assert.match(b, /conTurnoActual\(historialDeMensajes\(/);
   assert.match(b, /responderSimulador\(secuencia\.id, historial, \{\s*leadId, escenario: clas\.escenario/);
@@ -301,14 +315,14 @@ test('asistirRespuesta le pasa al setter la charla real, el lead y el caso (#360
 });
 
 test('el aviso del asistido dice por qué no hay borrador (#380)', () => {
-  const b = bloque(NUTRI, 'async function asistirRespuesta(');
+  const b = RESPUESTA(NUTRI);
   assert.match(b, /else sinBorrador = r\.error/);
   assert.match(b, /No pude dejarte un borrador: \$\{sinBorrador\}/);
   assert.doesNotMatch(b, /catch \{ \/\* sin sugerencia/);
 });
 
 test('el corte de la charla se guarda y el borrador es UNO por lead (#360, #788)', () => {
-  const b = bloque(NUTRI, 'async function asistirRespuesta(');
+  const b = RESPUESTA(NUTRI);
   assert.match(b, /conversacion_cierre: cierre, conversacion_cerrada_at:/);
   assert.match(b, /guardarBorradorSetter\(/);
   assert.doesNotMatch(b, /crearBorrador\(/);
@@ -343,14 +357,17 @@ test('el panel «Consejo» de las dos bandejas lee el formulario del lead (#361)
 });
 
 test('revisión del 06/10: el motor descarta el borrador viejo, no contesta un mensaje viejo y no pisa «calificado»', () => {
-  const b = bloque(NUTRI, 'async function asistirRespuesta(');
+  const b = RESPUESTA(NUTRI);
   // El hand-off y la redacción fallida descartan el borrador del mensaje anterior.
   const handoff = b.slice(b.indexOf("update({ estado: 'handoff'"), b.indexOf('await registrarHandoff('));
   assert.ok(handoff.includes('await descartarViejo();'), 'el hand-off no descarta el borrador viejo');
   assert.ok(b.includes('if (!sugerida) await descartarViejo();'));
   // Antes de guardar se relee: si entró algo más nuevo, se sale sin tocar nada.
-  assert.ok(b.includes('if (masNuevo != null && masNuevo > respondeA) return true;'));
-  assert.ok(b.indexOf('masNuevo > respondeA') < b.indexOf('guardarBorradorSetter('), 'la relectura tiene que ir ANTES de guardar');
+  // (08/10/2026: la relectura es `hayMensajeMasNuevo`, que comparte «Si responde» del flujo.)
+  assert.ok(b.includes('return masNuevo != null && masNuevo > c.respondeA;'));
+  const red = bloque(NUTRI, 'async function redactarRespuesta(');
+  assert.ok(red.includes('if (sugerida && await hayMensajeMasNuevo(c)) return true;'));
+  assert.ok(red.indexOf('hayMensajeMasNuevo(c)') < red.indexOf('guardarBorradorSetter('), 'la relectura tiene que ir ANTES de guardar');
   // «calificado» sólo se escribe sobre un null, y sólo se evalúa si nadie lo decidió.
   assert.ok(b.includes('lead?.calificado == null ? await evaluarCalificacion('));
   assert.ok(b.includes(".is('calificado', null)"));

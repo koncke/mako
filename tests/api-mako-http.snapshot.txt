@@ -16,6 +16,7 @@ archivar_secuencia
 asegurar_plantilla_reporte
 asignar_closer_setter
 audios_requeridos
+avisar_al_equipo
 borrar_analisis_landing
 borrar_avatar_negocio
 borrar_borrador_landing

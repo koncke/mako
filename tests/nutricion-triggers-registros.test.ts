@@ -33,7 +33,7 @@ import { join } from 'node:path';
 // el runtime de Next, que bajo tsx no carga. Por eso las constantes viven
 // aparte — ver la cabecera de lib/nutricion-familias.ts.
 import { TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, mitadPostAgenda, secuenciasParaElLead, puedeAfirmarEtapa } from '../lib/nutricion-familias';
-import { TRIGGER_ENTREGA } from '../lib/nutricion-etapa';
+import { TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from '../lib/nutricion-etapa';
 import { TRIGGER_RESIDUO } from '../lib/nutricion-residuo';
 
 const raiz = join(__dirname, '..');
@@ -53,6 +53,10 @@ function triggersDelMotor(): string[] {
     TRIGGER_AGENDA_NUEVO,
     TRIGGER_ENTREGA,
     TRIGGER_RESIDUO,
+    // 08/10/2026: «Le ponen la etiqueta» (lib/nutricion-etapa.ts). Su NOMBRE en TRIGGERS lo
+    // escribe la parte del selector (lib/email-marketing.ts): hasta que se integre, el test
+    // de abajo lo acusa, que es exactamente para lo que existe.
+    TRIGGER_ETIQUETA,
   };
   for (const m of src.matchAll(/triggerTipo === ([A-Z][A-Z0-9_]+)/g)) {
     const v = consts[m[1]];

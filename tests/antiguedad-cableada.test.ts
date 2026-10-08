@@ -60,5 +60,19 @@ test('el primer paso vuelve a mirar el tope al mandar', () => {
   // entró con 2 h recibe la bienvenida con 5 días.
   const c = cuerpo('procesarEnvios');
   assert.match(c, /dentroDeAntiguedad\(/, 'procesarEnvios manda el primer paso sin mirar el tope');
-  assert.match(c, /paso_actual === 0 && sec\.antiguedad_max_horas != null/);
+  // Desde el 08/10/2026 (flujo con ramas): «el primero» ya no es `paso_actual === 0` —detrás de
+  // la condición «Llegó hace menos de N h» que pone el conversor, el primer mensaje está en
+  // otro índice— y el tope sale de la secuencia O de esa condición (`topeAntiguedad`).
+  assert.match(c, /esPrimerPaso\(sec\.pasos, insc\.paso_actual\) && topeAntig != null/);
+  assert.match(c, /const topeAntig = topeAntiguedad\(sec\)/);
+});
+
+// Probado rompiéndolo (08/10/2026): con `topeAntiguedad` devolviendo sólo
+// `sec.antiguedad_max_horas`, este test cae (1 falla); como está, pasa.
+test('el tope sale de la secuencia y, si no tiene, de la condición de entrada del flujo', () => {
+  const ini = SRC.indexOf('\nfunction topeAntiguedad(');
+  assert.ok(ini >= 0, 'no encontré topeAntiguedad');
+  const fin = SRC.indexOf('\n}\n', ini);
+  assert.match(SRC.slice(ini, fin), /sec\.antiguedad_max_horas \?\? antiguedadDeEntrada\(sec\.pasos\)/);
+  assert.match(cuerpo('aTiempo'), /topeAntiguedad\(sec\)/, 'aTiempo no usa el tope del flujo');
 });

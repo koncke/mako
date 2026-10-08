@@ -2,11 +2,14 @@
 // API interna: secuencias de nutrición para la tab /whatsapp
 // =============================================================================
 // GET   → todas las secuencias (activas y pausadas) + inscriptos/enviados.
-// PATCH → activar/pausar una secuencia. Body: { id, activa }.
+// PATCH → activar/pausar una secuencia, sus pasos o su línea. Body: { id, activa?, pasos?, linea? }.
+//         Los pasos llevan los campos del flujo con ramas (id, siguiente, nodo, espera, ramas,
+//         casos, si_no, destino, revisar, media_id): `setSecuenciaPasos` los sanea, normaliza y
+//         valida (`validarGrafo`). Un flujo que no se puede guardar contesta 400 con el motivo.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 
@@ -59,6 +62,9 @@ export async function PATCH(req: NextRequest) {
     return Response.json({ ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // Lo que no es un flujo válido es un error del que guarda, no del servidor: 400, con el
+    // primer motivo, que es lo que la pantalla muestra.
+    if (err instanceof PasosInvalidosError) return Response.json({ ok: false, error: msg }, { status: 400 });
     console.error(`[api:whatsapp/secuencias PATCH] ${msg}`);
     return Response.json({ ok: false, error: msg }, { status: 500 });
   }

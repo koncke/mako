@@ -26,15 +26,16 @@ import { setVozGuia } from '@/lib/nutricion-generator';
 
 // ── Filas crudas (las libs filtran archivadas o topean en 50) ────────────────
 
-export type SecuenciaFila = { id: number; nombre: string; clave: string; etapa: string; activa: boolean; archivada_at: string | null; estrategia: unknown };
-export type SecuenciaCorta = Omit<SecuenciaFila, 'estrategia'>;
+export type SecuenciaFila = { id: number; nombre: string; clave: string; etapa: string; activa: boolean; archivada_at: string | null; estrategia: unknown; pasos: unknown };
+export type SecuenciaCorta = Omit<SecuenciaFila, 'estrategia' | 'pasos'>;
 
 /** Una secuencia de ESTE workspace por id, INCLUIDAS las archivadas
  *  (getSecuenciasConStats las filtra y desarchivar necesita verlas).
- *  Un error de lectura TIRA: «no pude leer» no es «no existe». */
+ *  Un error de lectura TIRA: «no pude leer» no es «no existe».
+ *  Con los `pasos`: resolver un hand-off necesita saber si tiene la tarjeta «Si responde». */
 export async function secuenciaFila(id: number): Promise<SecuenciaFila | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('nutricion_secuencias').select('id, nombre, clave, etapa, activa, archivada_at, estrategia').eq('id', id).maybeSingle();
+  const { data, error } = await db.from('nutricion_secuencias').select('id, nombre, clave, etapa, activa, archivada_at, estrategia, pasos').eq('id', id).maybeSingle();
   if (error) throw new Error(`api-mako: secuenciaFila: ${error.message}`);
   return (data as SecuenciaFila | null) ?? null;
 }

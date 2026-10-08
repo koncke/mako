@@ -177,7 +177,14 @@ test('⚠️ el motor corre el paso con `correrPasoAccion` → `ejecutarDesdeFlu
   // El reclamo avanza SÓLO si la fila sigue en este paso y activa: es lo que impide correrla dos veces.
   const reclamo = bloque(rama(), 'reclamar: async () => {', 'ejecutar:', 1_500);
   assert.match(reclamo, /\.eq\('id', insc\.id\)\.eq\('estado', 'activa'\)\.eq\('paso_actual', insc\.paso_actual\)/);
-  assert.match(reclamo, /paso_actual: n,/, 'avanza como si hubiera salido el mensaje');
+  // Desde el 08/10/2026 (flujo con ramas) avanza al SIGUIENTE DEL NODO, no al de abajo en el
+  // array, escribe `nodo_actual` y el reclamo compara también el nodo: dos corridas que leyeron
+  // la misma fila no pueden reclamarla las dos aunque `paso_actual` coincida.
+  // Probado rompiéndolo (08/10/2026): el reclamo sin comparar el nodo → 1 falla (15/1).
+  assert.match(reclamo, /paso_actual: siguientePaso \? sigIdx : n,/, 'avanza como si hubiera salido el mensaje');
+  assert.match(reclamo, /nodo_actual: siguientePaso \? idDe\(siguientePaso, sigIdx\) : null,/);
+  assert.match(reclamo, /insc\.nodo_actual == null \? q\.is\('nodo_actual', null\) : q\.eq\('nodo_actual', insc\.nodo_actual\)/);
+  assert.match(rama(), /const sigIdx = siguienteIndice\(sec\.pasos, insc\.paso_actual\);/);
   assert.match(reclamo, /proximo_envio_at: proximo,/);
   assert.match(rama(), /const proximo = siguientePaso \? proximoEnvioDePaso\(siguientePaso, lead\) : null;/, 'la misma programación que un mensaje');
   assert.match(rama(), /ws: wsCorrida, secuenciaId: sec\.id, nombre: sec\.nombre, orden: n, leadId: insc\.lead_id,/);
@@ -197,7 +204,9 @@ test('⚠️ la acción queda en `nutricion_envios` con estado PROPIO, nunca com
 test('⚠️ la acción va DESPUÉS de las guardas de la inscripción y ANTES de las del mensaje', () => {
   const i = PROC.indexOf('if (esPasoAccion(paso)) {');
   // Después: lo que es de la inscripción entera (reunión pasada, residuo, antigüedad, condiciones).
-  for (const antes of ["if (paso.ancla === 'reunion' || preparaUnaReunion(sec.trigger_tipo))", 'if (insc.paso_actual === 0 && sec.antiguedad_max_horas != null', "if (paso.requiere === 'respondio') {"]) {
+  // (08/10/2026: «anclada» suma la espera «antes de la reunión» del flujo al `ancla` de siempre, y
+  // «el primero» es `esPrimerPaso`, que con ramas no es el índice 0.)
+  for (const antes of ['if (anclada || preparaUnaReunion(sec.trigger_tipo))', 'if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null', "if (paso.requiere === 'respondio') {"]) {
     const j = PROC.indexOf(antes);
     assert.ok(j > 0 && j < i, `la acción tiene que respetar «${antes}»`);
   }
@@ -216,8 +225,11 @@ test('el cupo de mensajes no frena a las acciones: con el tope cumplido el motor
   assert.match(PROC, /if \(presupuesto <= 0 && !conAcciones\.length\) return \{ \.\.\.res, saltado: 'tope-diario' \};/, 'sin acciones, el corte de siempre');
   assert.match(PROC, /while \(\(!cupoLleno\(\) \|\| conAcciones\.length > 0\) && rondas < 6\)/);
   assert.match(PROC, /if \(cupoLleno\(\)\) q = q\.in\('secuencia_id', conAcciones\);/);
-  // Con el cupo lleno un MENSAJE se deja sin tocar (era un `break`), una acción sigue.
-  assert.match(PROC, /if \(cupoLleno\(\) && !\(paso && esPasoAccion\(paso\)\)\) continue;/);
+  // Con el cupo lleno un MENSAJE se deja sin tocar (era un `break`), una acción sigue. Desde el
+  // 08/10/2026 se mira el nodo LEÍDO (`indiceActual`) y otra vez el que quedó después de resolver
+  // las tarjetas de control: una condición puede llevar a un mensaje o a una acción.
+  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && esPasoAccion\(pasoLeido\)\)\) continue;/);
+  assert.match(PROC, /if \(cupoLleno\(\) && !esPasoAccion\(destino\)\) continue;/);
   // Y la ventana horaria vale para todo: el corte sigue ANTES de mirar nada.
   assert.ok(PROC.indexOf("saltado: 'fuera-de-ventana-horaria'") < PROC.indexOf('const conAcciones'));
 });
@@ -234,10 +246,12 @@ test('«Enseguida» quiere decir enseguida: lo que sigue a una acción ya vencid
 // ── El saneo: `setSecuenciaPasos` reconstruye campo por campo ────────────────
 
 test('⚠️ `setSecuenciaPasos` conserva la acción, frena la inválida y no le deja nada de un mensaje', () => {
-  const saneo = bloque(MOTOR, 'export async function setSecuenciaPasos(', '.update({ pasos: limpio', 6_000);
+  // (08/10/2026: lo que se escribe es el GRAFO normalizado y validado, y los rechazos son
+  // `PasosInvalidosError`, que la ruta contesta 400.)
+  const saneo = bloque(MOTOR, 'export async function setSecuenciaPasos(', '.update({ pasos: grafo', 12_000);
   assert.match(saneo, /const acciones = pasos\.filter\(esPaso\)\.map\(\(p\) => sanearAccion\(/);
   assert.match(saneo, /\.filter\(esPaso\)\s*\.map\(\(p, i\): PasoSecuencia => \{/, 'el mismo filtro: `acciones[i]` tiene que ser el paso `i`');
-  assert.match(saneo, /if \(malas\.length\) throw new Error\(/, 'una acción sin elegir se descartaba en silencio');
+  assert.match(saneo, /if \(malas\.length\) throw new PasosInvalidosError\(/, 'una acción sin elegir se descartaba en silencio');
   assert.match(saneo, /porId\(op\); return !d \|\| !esAccion\(d\);/, 'una operación que el registro no tiene se guardaba');
   assert.match(saneo, /if \(a\?\.ok\) return \{ \.\.\.comun, asunto: null, preheader: null, cuerpo: '', template_wa: null, accion: a\.accion \};/);
 });

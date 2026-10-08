@@ -107,7 +107,8 @@ test('vacío, de seis párrafos o de dos palabras no es «el mismo mensaje adapt
 const NUTRI = sinComentarios(leer('lib/nutricion.ts'));
 
 test('el saneo conserva el modo IA sólo en WhatsApp no oficial', () => {
-  const saneo = bloque(NUTRI, 'export async function setSecuenciaPasos', '.update({ pasos: limpio');
+  // (08/10/2026: lo que se escribe es el grafo normalizado, `pasos: grafo`.)
+  const saneo = bloque(NUTRI, 'export async function setSecuenciaPasos', '.update({ pasos: grafo');
   assert.match(
     saneo,
     /p\.tipo === 'ia' && p\.canal !== 'email' && proveedorDelPaso\(p\) === 'no_oficial'\s*\?\s*\{ tipo: 'ia' as const \}/,

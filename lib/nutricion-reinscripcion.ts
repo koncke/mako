@@ -256,6 +256,9 @@ export function camposDeReactivacion(r: Pick<Reactivacion, 'proximoEnvioAt' | 'r
   return {
     estado: 'activa',
     paso_actual: 0,
+    // ⚠️ Y EL NODO TAMBIÉN (mig 0223). El motor busca primero por `nodo_actual`: con el de la
+    // corrida vieja puesto, la reusada arrancaría en el último nodo de antes y no en la entrada.
+    nodo_actual: null,
     proximo_envio_at: r.proximoEnvioAt,
     reunion_at: r.reunionAt,
     desenlace: null,
