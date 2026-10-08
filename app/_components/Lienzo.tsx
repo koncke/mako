@@ -42,8 +42,10 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
-  curvaEntre, medioDeCurva, vistaConPanel, vistaAlCerrarPanel, yDePuerto, tieneFilas, encuadreInicial,
-  ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, type VistaLienzo,
+  curvaEntre, medioDeCurva, vistaConPanel, vistaConPanelAbajo, vistaAlCerrarPanel, yDePuerto, tieneFilas, encuadreInicial,
+  nodoRevelado, aristaRevelada,
+  ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO,
+  REVELAR_DURACION_MS, REVELAR_SUBE_PX, REVELAR_PASO_MS, type VistaLienzo,
   type GrafoFlujo, type NodoFlujo, type TonoArista,
 } from '@/lib/lienzo-grafo';
 
@@ -66,13 +68,11 @@ const ARRASTRE2 = 25;
  * incluido el del chatbot, que no lo pidió.
  */
 const PANEL_ANCHO = 328;
-const PANEL_MARGEN = 12;
-/** Alto de la barra de zoom, que vive en la MISMA esquina. El panel del nodo abre
- *  por encima de ella: medido, un panel de 328x355 en `bottom: 12` la tapaba
- *  ENTERA (solapamiento total), y con eso el zoom dejaba de existir justo cuando
- *  hay algo abierto que mirar. La barra no se mueve: la esquina la pidió el dueño.
- */
-const ZOOM_ALTO = 40;
+/* `PANEL_MARGEN` y `ZOOM_ALTO` (el alto de la barra de zoom, que vive en la MISMA esquina: el
+   panel del nodo abre por encima de ella, porque medido, un panel de 328x355 en `bottom: 12` la
+   tapaba ENTERA) viven en lib/lienzo-grafo.ts desde la segunda tanda: los usa también `muelles`,
+   que calcula dónde va el editor apaisado, y con dos copias el rectángulo de `muelles` y el panel
+   dibujado se separarían en la primera edición. La barra no se mueve: la esquina la pidió el dueño. */
 
 export const COLOR_TONO: Record<TonoArista, string> = {
   normal: 'var(--border-strong)',
@@ -84,6 +84,7 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
   alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, opcionesEn, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false, insetIzq = 0, insetDer = 0,
+  insetDerChrome, insetDerAbajo, panelForma = 'columna', panelAlto, revelar = null,
   onBorrar, puedeBorrar,
 }: {
   grafo: GrafoFlujo;
@@ -140,6 +141,43 @@ export function Lienzo({
    * panel, y una tarjeta tapada no da error — no responde.
    */
   insetDer?: number;
+  /**
+   * LO DE LA DERECHA, POR FRANJA (segunda tanda, `muelles` en lib/lienzo-grafo.ts). Con «Probar»
+   * apilado arriba a la derecha, debajo del chrome, lo que tapa depende de la ALTURA: a la altura
+   * del chrome no tapa nada (`insetDerChrome`) y en la franja de abajo tampoco (`insetDerAbajo`:
+   * «Publicar» y el panel apaisado). `insetDer` queda para el encuadre y el panel de columna.
+   *
+   * Ausentes = `insetDer`, que es lo de siempre: /mensajes y el recordatorio no cambian.
+   */
+  insetDerChrome?: number;
+  insetDerAbajo?: number;
+  /**
+   * LA FORMA DEL PANEL DEL NODO (segunda tanda, decisión 10; pedido literal, punto 3: «El editor
+   * de WhatsApp debes hacerlo más ancho que largo, sino, se amontona todo»).
+   *
+   *   · `columna` (default): anclado abajo a la izquierda, ancho `panelAncho` y alto libre.
+   *   · `apaisado`: la franja de abajo, de `insetIzq` a `insetDerAbajo`, con alto FIJO
+   *     (`panelAlto`). Fijo y no un tope: una caja cuyo alto es un tope cambia de tamaño al
+   *     pasar de una tarjeta a otra, y se lleva puesto lo que cuelga adentro (AGENTS.md).
+   *
+   * Quién decide la forma (y cuándo cae a columna en una ventana angosta) es `muelles`, con lo
+   * que NO cambia al abrir el panel (el ancho de la caja). Sin `panelAlto`, es de columna.
+   */
+  panelForma?: 'columna' | 'apaisado';
+  panelAlto?: number;
+  /**
+   * LAS TARJETAS APARECEN DE A UNA (segunda tanda, decisión 14: «Crear con IA»). En el orden de
+   * `orden`, sobre el layout FINAL: el encuadre corre una sola vez, con el grafo entero, y lo
+   * que todavía no toca está en su lugar con opacidad 0. `clave` cambia en cada revelado nuevo.
+   *
+   *   · cada tarjeta sube `REVELAR_SUBE_PX` en `REVELAR_DURACION_MS`, `REVELAR_PASO_MS` después
+   *     de la anterior; una flecha aparece cuando están sus dos puntas;
+   *   · un clic en cualquier lado lo completa (nadie espera una animación para poder trabajar);
+   *   · con `prefers-reduced-motion`, todo junto.
+   *
+   * Ausente o null = todo a la vista, como siempre.
+   */
+  revelar?: { orden: string[]; clave: number } | null;
   /** Sin borde ni radio: cuando el lienzo ES el recuadro, el marco lo pone la caja
    *  de afuera y dos marcos anidados dejan un filete doble. */
   sinMarco?: boolean;
@@ -212,6 +250,49 @@ export function Lienzo({
   const corrimiento = useRef<{ antes: VistaLienzo; aplicada: VistaLienzo } | null>(null);
   /** La última forma encuadrada: grafo + caja. Ver `encuadrar`. */
   const encuadrado = useRef('');
+  const derChrome = insetDerChrome ?? insetDer;
+  const derAbajo = insetDerAbajo ?? insetDer;
+  const apaisado = panelForma === 'apaisado' && Number(panelAlto) > 0;
+
+  /**
+   * EL REVELADO: cuántas tarjetas de `revelar.orden` ya aparecieron. Infinity = todas (sin
+   * revelado, terminado o completado con un clic). Va en el estado porque cambia ~10 veces por
+   * revelado, no 60 por segundo: no es la trampa 3.
+   */
+  const [revelados, setRevelados] = useState(Number.POSITIVE_INFINITY);
+  const revelando = revelar != null && Number.isFinite(revelados) && revelados < revelar.orden.length;
+  useEffect(() => {
+    if (!revelar || !revelar.orden.length) { setRevelados(Number.POSITIVE_INFINITY); return; }
+    // ⚠️ CON `prefers-reduced-motion`, TODO JUNTO: la animación es un adorno, y para quien la
+    // pidió apagada es un mareo.
+    const quieto = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (quieto) { setRevelados(Number.POSITIVE_INFINITY); return; }
+    setRevelados(0);
+    let k = 0;
+    const t = setInterval(() => {
+      k += 1;
+      setRevelados((prev) => (Number.isFinite(prev) ? k : prev));
+      if (k >= revelar.orden.length) clearInterval(t);
+    }, REVELAR_PASO_MS);
+    return () => clearInterval(t);
+    // La clave ES el pedido: el mismo orden con otra clave vuelve a revelar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revelar?.clave]);
+  // Un clic en CUALQUIER lado lo completa (la lista, el chrome, el lienzo): nadie espera una
+  // animación para poder trabajar. En `document` y en captura, como los Escape de la casa: un
+  // `pointerdown` que un hijo frene igual llega.
+  useEffect(() => {
+    if (!revelando) return;
+    const completar = () => setRevelados(Number.POSITIVE_INFINITY);
+    document.addEventListener('pointerdown', completar, true);
+    return () => document.removeEventListener('pointerdown', completar, true);
+  }, [revelando]);
+  const verNodo = (id: string) => nodoRevelado(revelar?.orden, revelados, id);
+  const estiloRevelado = (id: string): CSSProperties | undefined => (revelar ? {
+    opacity: verNodo(id) ? 1 : 0,
+    transform: verNodo(id) ? 'none' : `translateY(${REVELAR_SUBE_PX}px)`,
+    transition: `opacity ${REVELAR_DURACION_MS}ms ease, transform ${REVELAR_DURACION_MS}ms ease`,
+  } : undefined);
 
   /** Escribe la vista en el DOM. NUNCA pasa por setState: ver la trampa 3. */
   const pintar = useCallback(() => {
@@ -426,9 +507,17 @@ export function Lienzo({
     // corre el lienzo para no taparlo es ése, no el del contenedor. Y a la derecha, el
     // nodo no se corre más allá de lo que se ve: con «Probar» abierto (`insetDer`) quedaba
     // DEBAJO del teléfono (revisión, lienzo-4).
-    const prox = vistaConPanel(vista.current, n.x, panelAncho, PANEL_MARGEN + insetIzq, {
-      separacion: PANEL_MARGEN, nodoAncho: n.ancho, tope: caja.current.clientWidth - insetDer,
-    });
+    // Con el panel APAISADO (la franja de abajo) se corre en VERTICAL: la tarjeta queda arriba
+    // del panel, entre la lista y lo que tapa la derecha, y debajo del chrome.
+    const prox = apaisado
+      ? vistaConPanelAbajo(vista.current, n, {
+        izq: insetIzq + PANEL_MARGEN, der: caja.current.clientWidth - insetDer - PANEL_MARGEN,
+        arriba: chrome ? CHROME_ALTO : PANEL_MARGEN,
+        abajo: caja.current.clientHeight - (PANEL_MARGEN + ZOOM_ALTO) - Number(panelAlto) - PANEL_MARGEN,
+      })
+      : vistaConPanel(vista.current, n.x, panelAncho, PANEL_MARGEN + insetIzq, {
+        separacion: PANEL_MARGEN, nodoAncho: n.ancho, tope: caja.current.clientWidth - insetDer,
+      });
     if (!prox) return;
     // El `antes` se guarda UNA vez: abrir un segundo nodo que necesite más corrimiento
     // no puede perder la vista original, que es a la que hay que volver.
@@ -500,10 +589,13 @@ export function Lienzo({
               const d = grafo.nodos.find((n) => n.id === a.desde);
               const h = grafo.nodos.find((n) => n.id === a.hasta);
               if (!d || !h) return null;
+              // Revelando, una flecha aparece cuando ya están sus dos puntas.
+              const vista = !revelar || aristaRevelada(revelar.orden, revelados, a);
               return (
                 <path key={i} d={curvaEntre(d, h, a.puerto)} fill="none" stroke={COLOR_TONO[a.tono]}
                   strokeWidth={1.6} strokeDasharray={a.tono === 'condicional' ? '5 4' : undefined}
-                  markerEnd={`url(#punta-${a.tono})`} opacity={0.85} />
+                  markerEnd={`url(#punta-${a.tono})`} opacity={vista ? 0.85 : 0}
+                  style={revelar ? { transition: `opacity ${REVELAR_DURACION_MS}ms ease` } : undefined} />
               );
             })}
           </svg>
@@ -532,6 +624,8 @@ export function Lienzo({
             const d = grafo.nodos.find((n) => n.id === a.desde);
             const h = grafo.nodos.find((n) => n.id === a.hasta);
             if (!d || !h || a.sinMas) return null;
+            // Mientras se revela no hay dónde insertar: la flecha todavía no está.
+            if (revelando) return null;
             const m = medioDeCurva(d, h, a.puerto);
             const abierta = enFlecha === i;
             return (
@@ -602,6 +696,9 @@ export function Lienzo({
              * (Un `margin` no sirve: el margen no recibe eventos de puntero.)
              */
             <div key={n.id}
+              // Revelando: opacidad 0 y unos px abajo hasta que le toque. El envoltorio mide 0×0,
+              // pero la opacidad y el `transform` se aplican igual a todo lo que pinta adentro.
+              style={estiloRevelado(n.id)}
               onPointerEnter={() => setEncima(n.id)}
               /**
                * ⚠️ NO SE APAGA MIENTRAS HAYA UN MENU ABIERTO. El ＋ sólo existe con
@@ -663,11 +760,19 @@ export function Lienzo({
 
                 El ＋ no depende del hover: una salida vacía es algo que falta, y lo que
                 falta se ve sin tener que buscarlo con el cursor.
+
+                ⚠️ Y UNA SALIDA QUE ADMITE FLECHAS EN PARALELO (`paralelo`) OFRECE OTRO ＋ CON
+                EL PUNTO OCUPADO (segunda tanda, decisión 2): el de la salida vacía continúa el
+                hilo; éste abre uno nuevo que corre A LA VEZ, y su menú lo dice («En paralelo»).
+                Ése sí va con el hover: no es algo que falte, es una opción más, y siempre a la
+                vista llenaría el lienzo de ＋ sobre cada flecha. Arranca EN el borde de la tarjeta
+                y se come la separación como padding (el bug de los 8 px de acá arriba).
               */}
               {(n.puertos ?? []).map((p) => {
                 const y = yDePuerto(n, p.id);
                 const puede = Boolean(onAgregarTras) && (puedeAgregarTras?.(n.id) ?? true);
                 const color = p.tono ? COLOR_TONO[p.tono] : 'var(--border-strong)';
+                const opciones = (puerto: string, medio: boolean) => (opcionesEn ? opcionesEn(n.id, puerto, medio) : (opcionesAgregar ?? [{ value: 'accion', label: '＋' }]));
                 return (
                   <div key={`pt-${n.id}-${p.id}`}>
                     <span aria-hidden style={{
@@ -678,12 +783,22 @@ export function Lienzo({
                     {p.vacio && puede && onAgregarTras && (
                       <span data-no-pan data-mas-puerto={`${n.id}:${p.id}`}
                         style={{ position: 'absolute', left: n.x + n.ancho + 7, top: y, transform: 'translateY(-50%)', display: 'inline-flex', lineHeight: 0 }}>
-                        <Dropdown
-                          value="" ariaLabel={p.rotulo ? `Agregar en «${p.rotulo}»` : 'Agregar después de esta tarjeta'}
-                          sinFlecha botonLabel="＋" disabled={agregarOcupado}
-                          buttonStyle={{ width: 22, height: 22, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, lineHeight: 1 }}
-                          options={opcionesEn ? opcionesEn(n.id, p.id, false) : (opcionesAgregar ?? [{ value: 'accion', label: '＋' }])}
-                          onChange={(v) => v && onAgregarTras(n.id, v, p.id)}
+                        <MasDeSalida
+                          ariaLabel={p.rotulo ? `Agregar en «${p.rotulo}»` : 'Agregar después de esta tarjeta'}
+                          disabled={agregarOcupado}
+                          opciones={opciones(p.id, false)}
+                          onElegir={(v) => onAgregarTras(n.id, v, p.id)}
+                        />
+                      </span>
+                    )}
+                    {!p.vacio && p.paralelo && puede && onAgregarTras && encima === n.id && (
+                      <span data-no-pan data-mas-paralelo={`${n.id}:${p.id}`}
+                        style={{ position: 'absolute', left: n.x + n.ancho, top: y, transform: 'translateY(-50%)', paddingLeft: 7, display: 'inline-flex', lineHeight: 0 }}>
+                        <MasDeSalida
+                          ariaLabel="Agregar en paralelo" titulo="En paralelo"
+                          disabled={agregarOcupado}
+                          opciones={opciones('par', false)}
+                          onElegir={(v) => onAgregarTras(n.id, v, 'par')}
                         />
                       </span>
                     )}
@@ -704,7 +819,7 @@ export function Lienzo({
         {grafo.nodos.some((n) => ICON[n.icono]) && <BrandDefs />}
 
         {chrome && (
-          <div data-no-pan style={{ position: 'absolute', left: insetIzq, right: insetDer, top: 0, padding: 14, pointerEvents: 'none' }}>
+          <div data-no-pan style={{ position: 'absolute', left: insetIzq, right: derChrome, top: 0, padding: 14, pointerEvents: 'none' }}>
             <div style={{ pointerEvents: 'auto' }}>{chrome}</div>
           </div>
         )}
@@ -736,31 +851,46 @@ export function Lienzo({
         </div>
 
         {/* `data-esquina-ocupada`: la esquina de los avisos sube para no taparlo (EsquinaAvisos). */}
-        {accion && <div data-no-pan data-esquina-ocupada style={{ position: 'absolute', right: 12 + insetDer, bottom: 12 }}>{accion}</div>}
+        {accion && <div data-no-pan data-esquina-ocupada style={{ position: 'absolute', right: 12 + derAbajo, bottom: 12 }}>{accion}</div>}
 
         {/* EL EDITOR. Va acá adentro y en coordenadas de PANTALLA: si viviera en la
             capa transformada, el zoom le cambiaría el tamaño a los inputs. */}
         {nodoSel && (
           <div
             data-no-pan
+            data-panel-forma={apaisado ? 'apaisado' : 'columna'}
             style={{
               // Las TRES cosas que flotan llevan el inset, no dos: el chrome, la fila
               // del zoom y ESTE panel, que abre justo abajo a la izquierda — o sea exactamente
               // donde se apoya la lista de secuencias de /chatbot. Medido con el arnés: la
               // flecha del selector de disparo no se podía apretar («aside … intercepts
               // pointer events»), con el panel dibujado y a la vista.
-              position: 'absolute', left: PANEL_MARGEN + insetIzq, bottom: PANEL_MARGEN + ZOOM_ALTO, width: panelAncho,
-              // Y con algo apoyado a la DERECHA (el panel de «Probar»), el ancho se topa ahí:
-              // en una ventana angosta el editor se metería debajo de ese panel. El ancho es
-              // de CONTENIDO (sin `boxSizing`, como siempre: cambiarlo le achicaba 30 px al
-              // editor de /mensajes), así que el tope descuenta el relleno y el borde (30).
-              maxWidth: `calc(100% - ${PANEL_MARGEN * 2 + insetIzq + insetDer + 30}px)`,
-              maxHeight: `calc(100% - ${24 + ZOOM_ALTO}px)`, overflowY: 'auto', padding: 14, borderRadius: 14,
+              position: 'absolute', left: PANEL_MARGEN + insetIzq, bottom: PANEL_MARGEN + ZOOM_ALTO,
+              ...(apaisado
+                // APAISADO: la franja de abajo, de la lista a lo que tapa la derecha EN ESA FRANJA,
+                // con alto FIJO. Es exactamente el rectángulo `editor` de `muelles` (los mismos
+                // PANEL_MARGEN y ZOOM_ALTO, importados de lib/lienzo-grafo.ts): con dos cuentas, el
+                // panel y lo que `muelles` le reserva se separarían. El contenido va en columna y
+                // llena el alto, así un editor de dos columnas puede usar el 100 %.
+                ? { right: PANEL_MARGEN + derAbajo, height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' }
+                : {
+                  width: panelAncho,
+                  // Y con algo apoyado a la DERECHA (el panel de «Probar»), el ancho se topa ahí:
+                  // en una ventana angosta el editor se metería debajo de ese panel.
+                  // ⚠️ `width` y `maxWidth` son el ancho EXTERIOR: `app/globals.css` pone
+                  // `* { box-sizing: border-box }`. Hasta el 08/10/2026 este comentario decía «de
+                  // contenido» y el tope le restaba 30 px más (el relleno y el borde, contados dos
+                  // veces): en una ventana angosta el editor quedaba 30 px más angosto de lo que
+                  // entraba (hallazgos-chatbot.md, «Con «Probar» abierto…»).
+                  maxWidth: `calc(100% - ${PANEL_MARGEN * 2 + insetIzq + insetDer}px)`,
+                  maxHeight: `calc(100% - ${24 + ZOOM_ALTO}px)`, overflowY: 'auto' as const,
+                }),
+              padding: 14, borderRadius: 14,
               background: 'var(--surface)', border: '1px solid var(--border-strong)',
               boxShadow: '0 12px 32px rgba(0,0,0,.14)', cursor: 'default',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flex: 'none' }}>
               {tituloEditor ? tituloEditor(nodoSel) : (
                 <>
                   <IconoNodo icono={nodoSel.icono} tam={17} />
@@ -779,7 +909,9 @@ export function Lienzo({
               <button onClick={() => onSeleccion(null)} aria-label="Cerrar este paso" title="Cerrar este paso"
                 style={{ marginLeft: onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) ? 0 : 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', padding: 0 }}>✕</button>
             </div>
-            {renderEditor(nodoSel)}
+            {apaisado
+              ? <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{renderEditor(nodoSel)}</div>
+              : renderEditor(nodoSel)}
           </div>
         )}
       </div>
@@ -799,9 +931,32 @@ export function Lienzo({
 export function TarjetaNodo({ nodo, activo, roto, children }: {
   nodo: NodoFlujo; activo: boolean; roto?: boolean; children: ReactNode;
 }) {
-  const borde = activo ? 'var(--primary)' : roto ? 'var(--bad)' : 'var(--border)';
+  const tinte = tinteDeControl(nodo);
+  const borde = activo ? 'var(--primary)' : roto ? 'var(--bad)' : (tinte?.borde ?? 'var(--border)');
   const fijo = nodo.puertos !== undefined;
   const filas = tieneFilas(nodo) ? (nodo.puertos ?? []) : [];
+  /**
+   * ⚠️ LA ESPERA ES UNA PÍLDORA (segunda tanda, decisión 9): «⏳ 24 h» en UNA línea, sin
+   * cabecera. Su alto y su ancho los estima lib/flujo-conversacion.ts (el punto de salida se
+   * calcula de ahí: `yDePuerto` con un alto de ~44 sale de la mitad, que es donde está el texto).
+   */
+  if (nodo.familia === 'control' && nodo.tipo === 'espera') {
+    return (
+      <div data-nodo={nodo.id} role="button" tabIndex={0} aria-pressed={activo} title={nodo.titulo}
+        style={{
+          position: 'absolute', left: nodo.x, top: nodo.y, width: nodo.ancho, height: nodo.alto,
+          borderRadius: 999, background: 'var(--surface-2)',
+          border: `${BORDE_NODO}px ${activo || roto ? 'solid' : 'dashed'} ${activo || roto ? borde : 'var(--border-strong)'}`,
+          boxShadow: activo ? '0 0 0 3px var(--primary-bg)' : 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '0 14px',
+          boxSizing: 'border-box', cursor: 'pointer', fontFamily: SANS, overflow: 'hidden',
+        }}>
+        <IconoNodo icono={nodo.icono} tam={15} />
+        <span style={{ minWidth: 0, fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{children}</span>
+        {nodo.advertencia && <span title={nodo.advertencia} style={{ flex: 'none', fontSize: 10.5, color: 'var(--warn)' }}>⚠</span>}
+      </div>
+    );
+  }
   return (
     <div
       data-nodo={nodo.id}
@@ -809,14 +964,14 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
       style={{
         position: 'absolute', left: nodo.x, top: nodo.y, width: nodo.ancho,
         ...(fijo ? { height: nodo.alto, display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { minHeight: nodo.alto }),
-        borderRadius: 13, background: 'var(--surface)', border: `${BORDE_NODO}px solid ${borde}`,
+        borderRadius: 13, background: tinte?.fondo ?? 'var(--surface)', border: `${BORDE_NODO}px solid ${borde}`,
         boxShadow: activo ? '0 0 0 3px var(--primary-bg)' : '0 1px 2px rgba(0,0,0,.05)',
         padding: fijo ? `11px 11px ${PIE_PUERTOS}px` : 11, boxSizing: 'border-box', cursor: 'pointer', fontFamily: SANS,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, flex: 'none' }}>
         <IconoNodo icono={nodo.icono} tam={15} />
-        <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+        <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: tinte?.titulo ?? 'var(--dim)' }}>
           {nodo.titulo}
         </span>
         {nodo.advertencia && (
@@ -842,6 +997,25 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
   );
 }
 
+/**
+ * EL TINTE DE UNA TARJETA DE CONTROL (segunda tanda, decisión 9), o null para la blanca de
+ * siempre (contenido, o sin `familia`: /mensajes).
+ *
+ * ⚠️ SÓLO TOKENS QUE SE REDEFINEN EN OSCURO (`--primary-bg`, `--primary-weak`, `--primary-strong`,
+ * `--surface-2`, `--border`). `--wa*`, `--mako`, `--mako-lite` y las `--grafo-*` NO se redefinen:
+ * como fondo de una tarjeta quedan, en oscuro, un rectángulo pastel claro (R3, medido en
+ * app/globals.css). La etiqueta va con SU color, como `ChipEtiqueta` (fondo color+24, borde
+ * color+66): sobre cualquier fondo es el mismo color transparente.
+ */
+export function tinteDeControl(n: Pick<NodoFlujo, 'familia' | 'tipo' | 'color'>): { fondo: string; borde: string; titulo: string } | null {
+  if (n.familia !== 'control') return null;
+  if (n.tipo === 'condicion') return { fondo: 'var(--primary-bg)', borde: 'var(--primary-weak)', titulo: 'var(--primary-strong)' };
+  if (n.tipo === 'etiqueta' && typeof n.color === 'string' && /^#[0-9a-f]{6}$/i.test(n.color)) {
+    return { fondo: `${n.color}24`, borde: `${n.color}66`, titulo: 'var(--ink)' };
+  }
+  return { fondo: 'var(--surface-2)', borde: 'var(--border)', titulo: 'var(--dim)' };
+}
+
 export function BotonChico({ children, onClick, rotulo }: { children: ReactNode; onClick: () => void; rotulo: string }) {
   return (
     <button data-no-pan onClick={onClick} title={rotulo} aria-label={rotulo}
@@ -851,6 +1025,44 @@ export function BotonChico({ children, onClick, rotulo }: { children: ReactNode;
         fontFamily: SANS, fontSize: 13, lineHeight: 1, display: 'inline-flex',
         alignItems: 'center', justifyContent: 'center',
       }}>{children}</button>
+  );
+}
+
+const estiloMas: CSSProperties = {
+  width: 22, height: 22, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)',
+  background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center',
+  justifyContent: 'center', fontSize: 13, lineHeight: 1, cursor: 'pointer', fontFamily: SANS,
+};
+
+/**
+ * EL ＋ DE UNA SALIDA: un desplegable con lo que se puede agregar ahí.
+ *
+ * ⚠️ CON UNA SOLA OPCIÓN NO HAY DESPLEGABLE: un menú de una opción es una pregunta ya contestada
+ * (el mismo criterio que el ＋ de pasar el cursor, más arriba). Es el caso de la fila «Si
+ * responde» del CRON vacía: su ＋ crea la tarjeta y listo. El botón lleva la opción en su
+ * nombre accesible, para que diga qué hace.
+ *
+ * `titulo`: lo que dice el menú arriba (el de una flecha en paralelo dice «En paralelo»: es lo
+ * que distingue ese ＋ del de la salida vacía, que continúa el hilo).
+ */
+function MasDeSalida({ opciones, onElegir, ariaLabel, titulo, disabled }: {
+  opciones: DropdownOption[]; onElegir: (v: string) => void; ariaLabel: string; titulo?: string; disabled?: boolean;
+}) {
+  if (opciones.length === 1) {
+    const o = opciones[0];
+    return (
+      <button type="button" onClick={() => onElegir(o.value)} disabled={disabled}
+        aria-label={`${ariaLabel}: ${o.label}`} title={o.label}
+        style={{ ...estiloMas, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1 }}>＋</button>
+    );
+  }
+  return (
+    <Dropdown
+      value="" ariaLabel={ariaLabel} sinFlecha botonLabel="＋" disabled={disabled}
+      buttonStyle={estiloMas}
+      {...(titulo ? { columns: [[{ title: titulo, options: opciones }]], alContenido: true } : { options: opciones })}
+      onChange={(v) => v && onElegir(v)}
+    />
   );
 }
 
