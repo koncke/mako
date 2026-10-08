@@ -487,6 +487,71 @@ export function avisoSalio(r: { ok: boolean; resumen: string }): boolean {
   return r.ok && !r.resumen.startsWith(AVISO_REPETIDO);
 }
 
+// ── El freno anti-ban, POR CANAL (decisión 5 de la segunda tanda, 08/10/2026) ───
+
+/** Los dos canales que el freno distingue. Todo lo que no es email frena como WhatsApp. */
+export type CanalFreno = 'whatsapp' | 'email';
+export const canalDelFreno = (canal: string | null | undefined): CanalFreno => (canal === 'email' ? 'email' : 'whatsapp');
+
+/** Los leads que recibieron algo en la ventana del freno, leídos de la base, uno por canal. */
+export type RecientesPorCanal = { whatsapp: ReadonlySet<number>; email: ReadonlySet<number> };
+
+/** Lo que salió EN ESTA corrida, por lead y por canal (`enviadoEnCorrida`). */
+export type EnviadoEnCorrida = Map<number, Set<CanalFreno>>;
+
+/**
+ * ¿El freno de 20 h para a este mensaje? Mira LAS DOS cosas: lo que dice la base (leído UNA vez
+ * por lote) y lo que salió en esta misma corrida.
+ *
+ * ⚠️ SIN LA SEGUNDA, DOS HILOS DE WHATSAPP DEL MISMO LEAD SALÍAN EN LA MISMA VUELTA: la lectura
+ * de la base es por lote y no se entera de lo que el lote acaba de mandar. Y SIN EL CANAL, un
+ * email frenaba al WhatsApp 20 h (y al revés): el ejemplo de Martín —WhatsApp y email desde el
+ * mismo CRON— salía con un día de diferencia.
+ */
+export function frenadoPorAntiBan(leadId: number, canal: string | null | undefined, deLaBase: RecientesPorCanal, enCorrida: ReadonlyMap<number, ReadonlySet<CanalFreno>>): boolean {
+  const c = canalDelFreno(canal);
+  return deLaBase[c].has(leadId) || enCorrida.get(leadId)?.has(c) === true;
+}
+
+/** Anota que a este lead le salió algo (un envío o un borrador) por este canal en esta corrida. */
+export function anotarEnCorrida(m: EnviadoEnCorrida, leadId: number, canal: string | null | undefined): void {
+  const s = m.get(leadId) ?? new Set<CanalFreno>();
+  s.add(canalDelFreno(canal));
+  m.set(leadId, s);
+}
+
+// ── La ventana horaria, en la zona del NEGOCIO (decisión 6) ─────────────────────
+
+/**
+ * La zona de un negocio que no tiene `mako.timezone`: Ciudad de México, que es lo que el motor
+ * hacía siempre (`TZ_OFFSET_MX = -6`). No es `TZ_DEFAULT` (Tijuana) a propósito: cambiar la
+ * ventana de los que no tienen zona sería mover cuándo les sale todo, sin que nadie lo pidiera.
+ */
+export const ZONA_SIN_CONFIGURAR = 'America/Mexico_City';
+
+/** ¿Es una zona IANA que el runtime conoce? */
+export function zonaValida(tz: unknown): tz is string {
+  if (typeof tz !== 'string' || !tz) return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
+}
+
+/** La zona con la que corre el motor: la guardada si es válida, si no Ciudad de México. */
+export function zonaDelMotor(guardada: unknown): string {
+  return zonaValida(guardada) ? guardada : ZONA_SIN_CONFIGURAR;
+}
+
+/** La hora de pared (0-23) de un instante en una zona. */
+export function horaEnZona(ahoraMs: number, tz: string): number {
+  const h = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(new Date(ahoraMs));
+  return Number(h) % 24;
+}
+
+/** ¿Este instante cae entre `inicio` (incluida) y `fin` (excluida) en la zona del negocio? */
+export function dentroDeVentanaEn(ahoraMs: number, tz: string, inicio: number, fin: number): boolean {
+  const h = horaEnZona(ahoraMs, tz);
+  return h >= inicio && h < fin;
+}
+
 // ── Archivos ────────────────────────────────────────────────────────────────────
 
 /** Cómo sale un archivo de la biblioteca por Evolution: imagen, video o documento según el mime. */

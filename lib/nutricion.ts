@@ -2257,6 +2257,37 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   };
 
   /**
+   * LA PUERTA DE LA POSICIÓN (segunda tanda, 08/10/2026). Toda escritura de dónde está una
+   * inscripción —avanzar, esperar, cerrar, reprogramar— pasa por acá y por ningún otro lado:
+   * eran 23 `update` sueltos, y con varios hilos en una inscripción cada uno tenía que saber de
+   * hilos. Así lo sabe uno solo.
+   *
+   * `modo` es lo que cada escritura hacía antes, sin tocarle una coma:
+   *   · 'cas'    — compare-and-set contra lo leído (`moverConCas`): sigue activa, en el mismo
+   *                `paso_actual` y el mismo `nodo_actual`. Las que DECIDEN algo (resolver una
+   *                condición, reclamar una acción): dos corridas no pueden decidir lo mismo.
+   *   · 'activa' — sólo si sigue activa.
+   *   · 'fila'   — por id, como siempre (reprogramar un reintento, el avance después de mandar).
+   * `alcance` dice qué cierra un `estado: 'completada' | 'cancelada'`: el hilo (lo de siempre:
+   * con un solo cursor, hilo e inscripción son lo mismo) o la inscripción entera (la reunión ya
+   * pasó, el residuo ya no aplica, el tope de saltos).
+   */
+  type ModoEscritura = 'cas' | 'activa' | 'fila';
+  const escribir = async (
+    insc: { id: number; paso_actual: number; nodo_actual?: string | null },
+    campos: Record<string, unknown>,
+    o: { modo: ModoEscritura; alcance?: 'hilo' | 'inscripcion' },
+  ): Promise<boolean> => {
+    if (o.modo === 'cas') return moverConCas(insc, campos);
+    let q = supabase.from('nutricion_inscripciones').update({ ...campos, updated_at: ahoraISO() }).eq('id', insc.id);
+    if (o.modo === 'activa') q = q.eq('estado', 'activa');
+    const { error } = await q;
+    // Como antes, no tira: un reintento que no se reprogramó vuelve en la corrida que viene.
+    if (error) { console.error(`[nutricion] posición de la inscripción ${insc.id}: ${error.message}`); return false; }
+    return true;
+  };
+
+  /**
    * A dónde pasa la inscripción después de un nodo que salió (o se omitió): su `siguiente` por
    * el grafo, no el índice + 1. Devuelve los campos del avance y si lo que sigue YA toca, para
    * mirarlo en esta misma corrida (`otraVuelta`), como hace la acción.
@@ -2376,14 +2407,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // cuenta: la inscripción queda ACTIVA y sin próximo envío, esperando que el lead
         // escriba (`pausarPorRespuesta` la toma de ahí). Cerrarla la dejaría sorda.
         if (sec && raizSalida(sec.pasos) == null && raizRespuesta(sec.pasos) != null) {
-          await supabase.from('nutricion_inscripciones')
-            .update({ proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id).eq('estado', 'activa');
+          await escribir(insc, { proximo_envio_at: null }, { modo: 'activa' });
           continue;
         }
-        await supabase
-          .from('nutricion_inscripciones')
-          .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() })
-          .eq('id', insc.id);
+        // Sin la secuencia se cierra la inscripción; sin la tarjeta, el camino en el que estaba.
+        await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila', alcance: sec ? 'hilo' : 'inscripcion' });
         // La tarjeta en la que estaba se BORRÓ: no se cae a `pasos[paso_actual]`, que con ramas
         // puede ser otra rama (`indiceActual`, revisión del 08/10/2026). Se cierra y se dice.
         if (sec && insc.nodo_actual != null) {
@@ -2405,8 +2433,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const hechos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
         const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead) });
         const canalCtl = pasoLeido.canal;
-        const cerrar = async (motivo: string, rastro: boolean): Promise<void> => {
-          if (!(await moverConCas(insc, { estado: 'completada', proximo_envio_at: null }))) {
+        const cerrar = async (motivo: string, rastro: boolean, alcance: 'hilo' | 'inscripcion' = 'hilo'): Promise<void> => {
+          if (!(await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance }))) {
             res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
             return;
           }
@@ -2424,8 +2452,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           await cerrar(porCondicion ? 'la condición cerró el flujo sin mandar nada' : r.motivo, porCondicion && esPrimerPaso(sec.pasos, idxLeido));
           continue;
         }
-        if (r.tipo === 'sin_reunion') { await cerrar('la reunión ya pasó', true); continue; }
-        if (r.tipo === 'tope_saltos') { await cerrar(`el flujo da más de ${TOPE_SALTOS} saltos sin esperar: se cortó`, true); continue; }
+        // Estos dos cierran la INSCRIPCIÓN entera: la condición que hacía verdadero al flujo dejó
+        // de valer (la reunión), o el flujo está roto (el tope de saltos).
+        if (r.tipo === 'sin_reunion') { await cerrar('la reunión ya pasó', true, 'inscripcion'); continue; }
+        if (r.tipo === 'tope_saltos') { await cerrar(`el flujo da más de ${TOPE_SALTOS} saltos sin esperar: se cortó`, true, 'inscripcion'); continue; }
         if (r.tipo === 'ir_a_secuencia') {
           // A ESTA MISMA automatización: un bucle (la cierra, la reinicia y al terminar vuelve a
           // saltar). `setSecuenciaPasos` ya no lo deja guardar; si llega igual, se corta acá.
@@ -2434,7 +2464,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // corridas del mismo minuto inscribían dos veces. La otra respeta el UNIQUE y la
           // familia (`inscribirEnSecuencia`): si ya estaba, no pasa nada y esta igual termina.
           // `desdeFlujo`: lo terminado NO se reinicia (era reenviarle la secuencia entera).
-          if (!(await moverConCas(insc, { estado: 'completada', proximo_envio_at: null }))) continue;
+          if (!(await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' }))) continue;
           const v = await inscribirEnSecuencia(insc.lead_id, r.secuenciaId, { sinEnvioInmediato: true, desdeFlujo: true })
             .catch((e: unknown) => ({ inscribe: false as const, error: e instanceof Error ? e.message : String(e) }));
           res.detalle.push({
@@ -2444,9 +2474,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           continue;
         }
         if (r.tipo === 'esperar') {
-          const ok = await moverConCas(insc, {
+          const ok = await escribir(insc, {
             paso_actual: r.idx, nodo_actual: idDe(sec.pasos[r.idx], r.idx), proximo_envio_at: new Date(r.proximoMs).toISOString(),
-          });
+          }, { modo: 'cas' });
           res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: ok ? 'espera' : 'otra corrida ya movió esta inscripción' });
           continue;
         }
@@ -2455,9 +2485,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const destino = sec.pasos[r.idx];
         const suHora = proximoEnvioDePaso(destino, lead);
         const enSuHora = Date.parse(suHora) <= Date.now() + 60_000;
-        const ok = await moverConCas(insc, {
+        const ok = await escribir(insc, {
           paso_actual: r.idx, nodo_actual: idDe(destino, r.idx), ...(enSuHora ? {} : { proximo_envio_at: suHora }),
-        });
+        }, { modo: 'cas' });
         if (!ok) { res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' }); continue; }
         insc.paso_actual = r.idx;
         insc.nodo_actual = idDe(destino, r.idx);
@@ -2467,7 +2497,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // La fila decía otra posición que la del nodo (una fila que nunca avanzó, con la entrada
         // más abajo en el array; o un array reordenado): se alinea ANTES de seguir, porque todo
         // lo de abajo —el reclamo de una acción, el avance— compara contra `paso_actual`.
-        if (!(await moverConCas(insc, { paso_actual: idxLeido, nodo_actual: idDe(pasoLeido, idxLeido) }))) {
+        if (!(await escribir(insc, { paso_actual: idxLeido, nodo_actual: idDe(pasoLeido, idxLeido) }, { modo: 'cas' }))) {
           res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
           continue;
         }
@@ -2495,8 +2525,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (reunionFuturaMs(lead) == null) {
           res.omitidos += 1;
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
-          await supabase.from('nutricion_inscripciones')
-            .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
+          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila', alcance: 'inscripcion' });
           await anotarCierreSinEnvio(insc, paso, lead, 'la reunión ya pasó');
           continue;
         }
@@ -2514,8 +2543,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (!residuoDelLote.has(insc.lead_id)) {
           res.omitidos += 1;
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'ya no está sin cerrar (pagó, agendó u otra secuencia le habla)' });
-          await supabase.from('nutricion_inscripciones')
-            .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
+          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila', alcance: 'inscripcion' });
           continue;
         }
       }
@@ -2527,8 +2555,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           : new Date(Math.max((reunionFuturaMs(lead) ?? Date.now()) - (minAntes ?? 0) * 60_000, Date.now())).toISOString();
         if (Date.parse(objetivo) > Date.now() + 5 * 60 * 1000) {
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 're-anclado a la reunión' });
-          await supabase.from('nutricion_inscripciones')
-            .update({ proximo_envio_at: objetivo, updated_at: ahoraISO() }).eq('id', insc.id);
+          await escribir(insc, { proximo_envio_at: objetivo }, { modo: 'fila' });
           continue;
         }
       }
@@ -2546,8 +2573,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           && !dentroDeAntiguedad({ maxHoras: topeAntig, createdAt: lead?.created_at ?? null, ahoraMs: Date.now() })) {
         res.omitidos += 1;
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: `llegó hace más de ${topeAntig} h` });
-        await supabase.from('nutricion_inscripciones')
-          .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
+        await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila' });
         await anotarCierreSinEnvio(insc, paso, lead, `llegó hace más de ${topeAntig} h`);
         continue;
       }
@@ -2564,7 +2590,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (!corresponde) {
           // Lo que sigue, por el grafo (`siguiente`), no el índice + 1.
           const { campos, yaToca } = avanceDesde(sec, insc.paso_actual, lead);
-          const ok = await moverConCas(insc, campos);
+          const ok = await escribir(insc, campos, { modo: 'cas' });
           if (ok && yaToca) { vistos.delete(insc.id); otraVuelta = true; }
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: paso.requiere === 'ya_contactado' ? 'es primer contacto' : 'ya le habíamos escrito' });
           continue;
@@ -2577,9 +2603,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (paso.requiere === 'respondio') {
         // El primero que NO espera respuesta, siguiendo la cadena del grafo desde el que sigue.
         const siguienteLibre = siguienteSin(sec.pasos, siguienteIndice(sec.pasos, insc.paso_actual), 'respondio');
-        await moverConCas(insc, siguienteLibre >= 0
+        await escribir(insc, siguienteLibre >= 0
           ? { paso_actual: siguienteLibre, nodo_actual: idDe(sec.pasos[siguienteLibre], siguienteLibre), proximo_envio_at: proximoEnvioDePaso(sec.pasos[siguienteLibre], lead) }
-          : { estado: 'completada', proximo_envio_at: null });
+          : { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' });
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'espera que el lead responda' });
         continue;
       }
@@ -2618,8 +2644,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // puede haber quedado como borrador aunque la secuencia diga que sale sola.
         if (lead && await tieneBorradorNutriPendiente(lead.id) && !(await esLeadCliente(lead.id))) {
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
-          await supabase.from('nutricion_inscripciones')
-            .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
+          await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
           continue;
         }
         // `n` es el número de ESTE paso (contado desde 1, el de `nutricion_envios.paso` y el del
@@ -2634,21 +2659,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             ws: wsCorrida, secuenciaId: sec.id, nombre: sec.nombre, orden: n, leadId: insc.lead_id,
           },
           {
-            reclamar: async () => {
-              const q = supabase.from('nutricion_inscripciones')
-                .update({
-                  paso_actual: siguientePaso ? sigIdx : n,
-                  nodo_actual: siguientePaso ? idDe(siguientePaso, sigIdx) : null,
-                  proximo_envio_at: proximo,
-                  estado: siguientePaso ? 'activa' : 'completada',
-                  // Sin `ultimo_paso_at`: es «el último MENSAJE», y una acción no le habló a nadie.
-                  updated_at: ahoraISO(),
-                })
-                .eq('id', insc.id).eq('estado', 'activa').eq('paso_actual', insc.paso_actual);
-              const { data, error } = await (insc.nodo_actual == null ? q.is('nodo_actual', null) : q.eq('nodo_actual', insc.nodo_actual)).select('id');
-              if (error) throw new Error(error.message);
-              return ((data ?? []) as unknown[]).length > 0;
-            },
+            // El reclamo es la puerta de la posición en modo compare-and-set: avanza SÓLO si la
+            // fila sigue activa, en este paso y en este nodo (`moverConCas`).
+            reclamar: () => escribir(insc, {
+              paso_actual: siguientePaso ? sigIdx : n,
+              nodo_actual: siguientePaso ? idDe(siguientePaso, sigIdx) : null,
+              proximo_envio_at: proximo,
+              estado: siguientePaso ? 'activa' : 'completada',
+              // Sin `ultimo_paso_at`: es «el último MENSAJE», y una acción no le habló a nadie.
+            }, { modo: 'cas' }),
             // Import dinámico: lib/api-mako/flujo → ejecutar → los runners → chatbot.run →
             // este archivo es un ciclo (el mismo motivo que `escribirPasoIA`, más abajo).
             ejecutar: async (operacion, params, o) => (await import('@/lib/api-mako/flujo')).ejecutarDesdeFlujo(operacion, params, o),
@@ -2688,8 +2707,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (!opts?.simularApagados && pasoConRelleno(paso)) {
         res.esperando += 1;
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'copy con [relleno] — escríbelo con MaKo' });
-        await supabase.from('nutricion_inscripciones')
-          .update({ proximo_envio_at: enHorasISO(24), updated_at: ahoraISO() }).eq('id', insc.id);
+        await escribir(insc, { proximo_envio_at: enHorasISO(24) }, { modo: 'fila' });
         continue;
       }
 
@@ -2708,8 +2726,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (canalApagado && !alcanzablesDesde(sec.pasos, insc.paso_actual).some((j) => canalOn(sec.pasos[j]))) {
         res.esperando += 1;
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: `canal ${paso.canal} apagado` });
-        await supabase.from('nutricion_inscripciones')
-          .update({ proximo_envio_at: enHorasISO(24), updated_at: ahoraISO() }).eq('id', insc.id);
+        await escribir(insc, { proximo_envio_at: enHorasISO(24) }, { modo: 'fila' });
         continue;
       }
 
@@ -2828,8 +2845,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             }
           } else if (await tieneBorradorNutriPendiente(lead.id)) {
             res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
-            await supabase.from('nutricion_inscripciones')
-              .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
+            await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
             continue;
           } else {
             // Lead caliente → el audio también pasa por el setter: queda como borrador.
@@ -2861,8 +2877,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             if (!r.ok) { nota = r.error; backoffHoras = 24; }
           } else if (await tieneBorradorNutriPendiente(lead.id)) {
             res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
-            await supabase.from('nutricion_inscripciones')
-              .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
+            await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
             continue;
           } else {
             // El borrador lleva el ARCHIVO por referencia y el pie como texto, como el audio.
@@ -2889,8 +2904,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // otro y NO avanzamos: la cadencia espera a que el setter lo mande o
           // descarte. Reintentamos en 6h (no en cada corrida).
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
-          await supabase.from('nutricion_inscripciones')
-            .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
+          await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
           continue;
         } else {
           // Lead caliente → BORRADOR (el setter lo manda con 1 clic). En modo IA el
@@ -3025,17 +3039,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (terminal) {
           // Condición permanente (opt-out / sin email): cerramos la inscripción para
           // que no se reintente eternamente y no acumule filas 'fallo' por corrida.
-          await supabase
-            .from('nutricion_inscripciones')
-            .update({ estado: 'cancelada', proximo_envio_at: null, updated_at: ahoraISO() })
-            .eq('id', insc.id);
+          await escribir(insc, { estado: 'cancelada', proximo_envio_at: null }, { modo: 'fila' });
         } else {
           // Backoff: corre el próximo intento para que la fila no bloquee la
           // cola ni genere una fila de 'fallo' por corrida.
-          await supabase
-            .from('nutricion_inscripciones')
-            .update({ proximo_envio_at: enHorasISO(backoffHoras), updated_at: ahoraISO() })
-            .eq('id', insc.id);
+          await escribir(insc, { proximo_envio_at: enHorasISO(backoffHoras) }, { modo: 'fila' });
         }
         continue;
       }
@@ -3043,17 +3051,13 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // Lo que sigue, POR EL GRAFO (`siguiente`), y no el índice + 1: con ramas, el elemento de
       // abajo del array puede ser otra rama.
       const { campos: avance, yaToca } = avanceDesde(sec, insc.paso_actual, lead);
-      await supabase
-        .from('nutricion_inscripciones')
-        .update({
-          ...avance,
-          // El reloj del fallo por silencio se cuenta desde el ÚLTIMO mensaje,
-          // no desde que el lead se inscribió: una secuencia con pasos a los 30
-          // días se daría por fallida antes de terminar de mandarlos.
-          ultimo_paso_at: ahoraISO(),
-          updated_at: ahoraISO(),
-        })
-        .eq('id', insc.id);
+      await escribir(insc, {
+        ...avance,
+        // El reloj del fallo por silencio se cuenta desde el ÚLTIMO mensaje,
+        // no desde que el lead se inscribió: una secuencia con pasos a los 30
+        // días se daría por fallida antes de terminar de mandarlos.
+        ultimo_paso_at: ahoraISO(),
+      }, { modo: 'fila' });
       // La reunión que preparó este paso, en un update APARTE del avance (ver la función).
       await anotarReunionDelPaso(insc.id, sec, lead);
       // ⚠️ SI LO QUE SIGUE YA TOCA, SE MIRA EN ESTA MISMA CORRIDA, como después de una acción:
