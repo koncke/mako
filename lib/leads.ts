@@ -1027,6 +1027,24 @@ export async function updateLead(
   await actualizarEtiquetaLead(id);
 
   // ───────────────────────────────────────────────────────────────────
+  // Las etiquetas del CRM vinculadas a una etapa (mig 0224): la etapa DERIVADA
+  // ───────────────────────────────────────────────────────────────────
+  // Revisión del 08/10/2026 (etiquetas-3, datos-2): cargar la fecha de la reunión, marcar la
+  // asistencia o ganar desde la ficha cambia la etapa EFECTIVA del lead (`pipelineStageOf`) sin
+  // escribir `pipeline_stage`, y el espejo sólo corría en los movimientos explícitos: «Agendó» no
+  // se ponía nunca y la etiqueta de la etapa anterior quedaba para siempre. Acá pasan todos esos
+  // caminos. Contra la etapa que SE VEÍA antes de este guardado, y sólo si cambió.
+  // `setPipelineStage` manda el desenlace por acá y después espeja él mismo contra la misma etapa
+  // de antes: la segunda pasada encuentra todo puesto (idempotencia) y no deja ni historial ni
+  // sincronización de más. Un lote (moverLeadsDeEtapaAction) llega acá con su contexto de lote y
+  // tampoco sincroniza adentro de la vuelta (lib/etiquetas.ts, `conLoteDeEtiquetas`).
+  {
+    const antes = pipelineStageOf(actual);
+    const despues = pipelineStageOf(data as Lead);
+    if (antes !== despues) await espejarEtiquetasDeEtapa(id, actual.funnel_id ?? null, antes, despues);
+  }
+
+  // ───────────────────────────────────────────────────────────────────
   // Al GANAR: la invitación al curso, si su embudo la tiene prendida
   // ───────────────────────────────────────────────────────────────────
   // Pedido de Martín (07/10/2026): «automatizar la invitación al curso cuando un lead cae a
@@ -1859,6 +1877,15 @@ export async function upsertLeadFromCalendly(
       .single();
     if (error) throw new Error(`Error actualizando lead ${existing.id}: ${error.message}`);
     await avisarFusion(input.origen_lead === 'calcom' ? 'Cal.com' : 'Calendly', data as Lead, 'coincide el contacto');
+    // La reserva cambia la etapa DERIVADA («Agenda R1» sale de la fecha) sin pasar por
+    // updateLead: el espejo de las etiquetas vinculadas va acá (revisión del 08/10/2026,
+    // etiquetas-3). No en el backfill histórico: ahí no hay una transición de HOY, y si hiciera
+    // falta la levanta el barrido horario con su tope (lib/etiquetas.ts, conciliarEspejoEtapas).
+    if (!soloVacios) {
+      const antes = pipelineStageOf(existing);
+      const despues = pipelineStageOf(data as Lead);
+      if (antes !== despues) await espejarEtiquetasDeEtapa(existing.id, existing.funnel_id ?? null, antes, despues);
+    }
     return { created: false, lead: data as Lead };
   }
 
@@ -1892,6 +1919,8 @@ export async function upsertLeadFromCalendly(
     .select('*')
     .single();
   if (error) throw new Error(`Error creando lead desde Calendly: ${error.message}`);
+  // Un lead que NACE agendado entra a su etapa: se le pone la etiqueta vinculada (si la hay).
+  if (!soloVacios) await espejarEtiquetasDeEtapa((data as Lead).id, (data as Lead).funnel_id ?? null, null, pipelineStageOf(data as Lead));
   return { created: true, lead: data as Lead };
 }
 
@@ -2744,12 +2773,19 @@ const COLS_ETAPA_PREVIA = 'pipeline_stage, funnel_id, estado_lead, fecha_agenda,
 
 /**
  * El gancho de las etiquetas vinculadas a una etapa (lib/etiquetas.ts, `espejarEtapa`): sale de
- * la que deja, entra a la que llega (mig 0224). En `setBoardStageOverride` corre con la misma regla
- * que el disparo de la secuencia de etapa —sólo un movimiento explícito, nunca «volver a la
- * derivación», que no afirma ninguna etapa—, comparando contra la etapa que SE VEÍA. Va por
- * import dinámico por la misma razón que `enrolarPorEvento`: lib/etiquetas.ts importa este módulo.
- * Nunca tira, y se ESPERA: en una función serverless, lo que se lanza sin esperar puede cortarse
- * al responder (el patrón del `void actualizarEtiquetaLead` que esto reemplaza).
+ * la que deja, entra a la que llega (mig 0224). Sigue a la etapa EFECTIVA —la que dibuja el
+ * tablero, `pipelineStageOf`—, comparando contra la que SE VEÍA antes de escribir.
+ * ⚠️ A DIFERENCIA DEL DISPARO DE LA SECUENCIA DE ETAPA, corre también al «volver a la derivación»
+ * (`setBoardStageOverride` con null): el espejo no AFIRMA una etapa, sigue la que el tablero va a
+ * dibujar, y ésa se calcula con los campos del lead (revisión del 08/10/2026, etiquetas-3). Sin
+ * esto, deshacer un movimiento dejaba puesta la etiqueta de la etapa que se deshizo. Lo llaman
+ * `setPipelineStage`, `setBoardStageOverride` (también al «volver a la derivación»), `updateLead`
+ * (la etapa derivada: fechas, asistencias, desenlace) y `upsertLeadFromCalendly`; lo que escriba
+ * la etapa por otro camino lo levanta el barrido horario (lib/etiquetas.ts, conciliarEspejoEtapas).
+ * Va por import dinámico por la misma razón que `enrolarPorEvento`: lib/etiquetas.ts importa este
+ * módulo. Nunca tira, y se ESPERA: en una función serverless, lo que se lanza sin esperar puede
+ * cortarse al responder (el patrón del `void actualizarEtiquetaLead` que esto reemplaza).
+ * Adentro de un lote (`conLoteDeEtiquetas`) escribe la base y deja la sincronización para el final.
  */
 async function espejarEtiquetasDeEtapa(leadId: number, funnelId: number | null, desde: string | null, hacia: string, autor?: string): Promise<void> {
   try {
@@ -2824,8 +2860,9 @@ export async function setBoardStageOverride(id: number, stageKey: string | null,
     }
   }
 
-  // Las etiquetas vinculadas a la etapa (ver `espejarEtiquetasDeEtapa`), contra la que SE VEÍA.
-  if (stageKey && antes && pipelineStageOf(antes) !== stageKey) await espejarEtiquetasDeEtapa(id, antes.funnel_id ?? null, pipelineStageOf(antes), stageKey);
+  // Las etiquetas vinculadas, contra la etapa que SE VEÍA (también al volver a la derivación).
+  const nueva = stageKey ?? (antes ? deriveStageKey({ ...antes, pipeline_stage: null }) : null);
+  if (antes && nueva && pipelineStageOf(antes) !== nueva) await espejarEtiquetasDeEtapa(id, antes.funnel_id ?? null, pipelineStageOf(antes), nueva);
 }
 
 export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<void> {

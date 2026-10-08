@@ -25,7 +25,24 @@ import { ChipEtiqueta, SelectorEtiqueta, type Etiqueta } from '@/app/_components
 type EtiquetaDelLead = Etiqueta & { puesta_at: string; puesta_por: string };
 type Resultado = { ok?: boolean; error?: string; yaEstaba?: boolean; movio?: boolean; sync?: Array<{ destino: string; ok: boolean }> };
 
-export function EtiquetasDelLead({ leadId }: { leadId: number }) {
+/**
+ * La `version` con la que se releen los chips: cambia cuando cambia la ETAPA del lead en
+ * cualquiera de sus productos. `updated_at` de la fila sube con todo lo que escribe la casa (la
+ * etapa, las fechas que la derivan, el desenlace) y las etapas de los productos agregados cubren
+ * lo que se mueve en `lead_funnel`, que no toca la fila del lead. Es un CÁLCULO sobre lo que la
+ * ficha ya tiene, no un contador que cada camino tenga que acordarse de subir (AGENTS.md).
+ */
+export function versionDeEtiquetas(actualizado: string | null | undefined, productos: ReadonlyArray<{ id: number; etapa: string | null }> | null | undefined): string {
+  return `${actualizado ?? ''}|${(productos ?? []).map((p) => `${p.id}:${p.etapa ?? ''}`).join(',')}`;
+}
+
+/**
+ * `version`: ver `versionDeEtiquetas`. Revisión del 08/10/2026 (etiquetas-5): mover al lead de
+ * etapa desde otro control ponía y sacaba sus etiquetas vinculadas (el espejo), la cabecera
+ * cambiaba y estos chips seguían mostrando las de antes — leían sólo al montarse, y ni el `releer`
+ * de la ficha ni el `router.refresh()` de la ruta los remontan.
+ */
+export function EtiquetasDelLead({ leadId, version }: { leadId: number; version?: string | number }) {
   const refrescarFicha = useRefrescarFicha();
   const [suyas, setSuyas] = useState<EtiquetaDelLead[] | null>(null);
   const [ocupada, setOcupada] = useState<number | null>(null);
@@ -43,7 +60,7 @@ export function EtiquetasDelLead({ leadId }: { leadId: number }) {
     }
   }, [leadId]);
 
-  useEffect(() => { void leer(); }, [leer]);
+  useEffect(() => { void leer(); }, [leer, version]);
 
   const escribir = async (action: 'poner' | 'sacar', e: Etiqueta) => {
     if (ocupada != null) return;

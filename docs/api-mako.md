@@ -1744,7 +1744,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}/etiquetas` — Etiquetas de un lead
 
-Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Pide el leadId (de buscar_leads).
+Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización; por la API HTTP no se dice QUÉ persona: sale «una persona»). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Una archivada viene con archivada en true: ya no cuenta en las automatizaciones. Pide el leadId (de buscar_leads).
 
 - **Ruta por operación:** `GET /api/v1/crm/etiquetas_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2232,7 +2232,7 @@ curl -L \
 
 ### `PUT /api/v1/crm/etiquetas/{etiquetaId}/archivado` — Archivar una etiqueta del CRM
 
-PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»): deja de ofrecerse y de poder ponerse, y las condiciones de las automatizaciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen la conservan, y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.
+PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»). Archivarla la APAGA: deja de ofrecerse y de poder ponerse, no dispara más las automatizaciones que arrancan con ella y las condiciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen conservan la fila como historia (su ficha la muestra «archivada»), y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.
 
 - **Ruta por operación:** `POST /api/v1/crm/archivar_etiqueta`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -4957,6 +4957,7 @@ Propone crear una secuencia de email nueva, PAUSADA y con un paso vacío. No man
 | `nombre` | string | no | Nombre visible de la secuencia. Vacío: «Nueva secuencia de email». |
 | `etapa` | string | no | Etapa (value de listar_etapas_email, o clave de etapa del funnel si el trigger es etapa_actual). Vacío: nutri. |
 | `trigger` | string | no | Trigger (value de listar_triggers_email). Vacío: manual, que no inscribe a nadie solo. |
+| `etiquetaId` | number | no | Con el trigger etiqueta_puesta, OBLIGATORIO: la etiqueta del CRM que lo dispara (id de listar_etiquetas, área crm). Sin ella la secuencia no se dispararía nunca. |
 
 ```bash
 curl -L \
@@ -4987,6 +4988,7 @@ Propone cambiar el nombre, la etapa y/o el trigger de una secuencia de email ide
 | `nombre` | string | no | Nombre nuevo. |
 | `etapa` | string | no | Etapa nueva (value de listar_etapas_email, o clave de etapa del funnel si el trigger es etapa_actual). |
 | `trigger_tipo` | string | no | Trigger nuevo (value de listar_triggers_email). |
+| `etiquetaId` | number | no | Con el trigger etiqueta_puesta, OBLIGATORIO: la etiqueta del CRM que lo dispara (id de listar_etiquetas, área crm). Se puede mandar sola para cambiar la etiqueta de una secuencia que ya se dispara por etiqueta. |
 
 ```bash
 curl -L \

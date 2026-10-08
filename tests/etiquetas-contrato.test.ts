@@ -27,6 +27,23 @@
 //   8. volver a `void actualizarEtiquetaLead(id).catch(() => {})`;
 //   9. `etiquetarChatWhatsApp` aceptando `r.ok` sin mirar `add`/`remove`;
 //  10. clonar también `crm_lead_etiquetas`.
+//
+// ⚠️ Y LA REVISIÓN ADVERSARIAL DEL 08/10/2026 (parte E). Con todo puesto: 17 pass / 0 fail.
+// Veinticinco roturas más (arnés romper-E.mjs en el scratchpad, restaura de memoria), las
+// veinticinco cazadas (16 pass / 1 fail cada una):
+//   etiquetas-3/datos-2 · updateLead sin el espejo de la etapa derivada · Calendly sin espejo (el
+//     lead que nace agendado, y aparte el que ya estaba) · «volver a la derivación» sin espejo ·
+//     el cron del CRM automático sin el barrido · el barrido sincronizando adentro de la vuelta ·
+//     la foto fechada antes de aplicar · el barrido deshaciendo lo que tocó una persona;
+//   etiquetas-4/datos-3 · el espejo ignorando el contexto de lote · el lote corriendo sin contexto
+//     · el lote sin sincronizar al final · un lote cortado sin sincronizar lo que ya movió;
+//   etiquetas-5 · los chips sin escuchar la versión · la ficha sin pasarla;
+//   etiquetas-6/datos-5 · el selector sin nombrar la archivada · MaKo con su propia frase;
+//   datos-7 · HTTP mandando el email de quien la puso;
+//   datos-6 · clonar-config copiando las secuencias tal cual · dejando los adjuntos del dueño ·
+//     datos-mau sin traducir etiquetas · su dedup de etiquetas sin normalizar;
+//   etiquetas-2 · /email guardando «etiqueta_puesta» sin etiqueta · la ruta con 500 en vez de 400 ·
+//     el alta de /email sin selector · MaKo creando por etiqueta sin validar.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -148,7 +165,7 @@ test('las pantallas: el selector del paso «⚡ Acción», la ficha y la ruta', 
   const editor = sinComentarios(leer('app/_components/EditorAccionMako.tsx'));
   assert.match(editor, /p\.nombre === 'etiquetaId'[\s\S]{0,400}<SelectorEtiqueta/, 'un etiquetaId se elige de un desplegable, no se tipea');
   for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
-    assert.match(sinComentarios(leer(f)), /<EtiquetasDelLead leadId=\{lead\.id\} \/>/, `${f} no muestra las etiquetas del lead`);
+    assert.match(sinComentarios(leer(f)), /<EtiquetasDelLead leadId=\{lead\.id\}[^>]*\/>/, `${f} no muestra las etiquetas del lead`);
   }
   const chips = sinComentarios(leer('app/crm/lead-view/EtiquetasDelLead.tsx'));
   assert.match(chips, /useRefrescarFicha\(\)/);
@@ -156,4 +173,102 @@ test('las pantallas: el selector del paso «⚡ Acción», la ficha y la ruta', 
   const ruta = sinComentarios(leer('app/api/crm/etiquetas/route.ts'));
   const crud = bloque(ruta, "if (action === 'crear' || action === 'editar' || action === 'archivar') {", "\n  }\n");
   assert.match(crud, /getRolWsEfectivo\(\)\) !== 'admin'\) return malo\(/, 'el CRUD es del admin, y lo decide el server');
+});
+
+// ── Revisión adversarial del 08/10/2026 (parte E) ────────────────────────────
+
+test('etiquetas-3 / datos-2: el espejo sigue a la etapa DERIVADA (updateLead, Calendly y «volver a la derivación»)', () => {
+  const leads = sinComentarios(leer('lib/leads.ts'));
+  const update = bloque(leads, 'export async function updateLead(', '\nexport async function ');
+  assert.match(update, /const antes = pipelineStageOf\(actual\);\s*const despues = pipelineStageOf\(data as Lead\);\s*if \(antes !== despues\) await espejarEtiquetasDeEtapa\(id, actual\.funnel_id \?\? null, antes, despues\);/,
+    'updateLead tiene que espejar cuando cambia la etapa EFECTIVA (fechas, asistencia, desenlace)');
+  const calendly = bloque(leads, 'export async function upsertLeadFromCalendly(', '\nexport ');
+  // Calendly: el lead que ya estaba (contra su etapa de antes) y el que nace agendado (entra).
+  assert.match(calendly, /if \(!soloVacios\) \{\s*const antes = pipelineStageOf\(existing\);\s*const despues = pipelineStageOf\(data as Lead\);\s*if \(antes !== despues\) await espejarEtiquetasDeEtapa\(existing\.id,/);
+  assert.match(calendly, /if \(!soloVacios\) await espejarEtiquetasDeEtapa\(\(data as Lead\)\.id, \(data as Lead\)\.funnel_id \?\? null, null, pipelineStageOf\(data as Lead\)\)/);
+  const override = bloque(leads, 'export async function setBoardStageOverride(', '\nexport async function saveLeadMeta(');
+  assert.match(override, /const nueva = stageKey \?\? \(antes \? deriveStageKey\(\{ \.\.\.antes, pipeline_stage: null \}\) : null\);\s*if \(antes && nueva && pipelineStageOf\(antes\) !== nueva\) await espejarEtiquetasDeEtapa\(/,
+    'volver a la derivación también cambia la etapa que se ve');
+});
+
+test('etiquetas-3 / datos-2: el barrido corre en el cron del CRM automático (no en el de nutrición) y compara contra la foto', () => {
+  const cron = sinComentarios(leer('app/api/cron/crm-automatico/route.ts'));
+  assert.match(cron, /await conciliarEspejoEtapasTodos\(\{ soloWs, hastaMs: Date\.now\(\) \+ ESPEJO_MS \}\)/);
+  assert.doesNotMatch(sinComentarios(leer('app/api/cron/nutricion/route.ts')), /conciliarEspejo/, 'el cron de nutrición inscribe y manda: el espejo no va ahí');
+  const et = sinComentarios(leer('lib/etiquetas.ts'));
+  const barrido = bloque(et, 'export async function conciliarEspejoEtapas(', '\nexport async function conciliarEspejoEtapasTodos(');
+  assert.match(barrido, /planEspejo\(foto, actuales, vivos, productos,/, 'compara contra la FOTO, no contra el estado');
+  assert.match(barrido, /espejarEtapaCon\(p, t\.leadId, t\.productoId, t\.desde, t\.hacia, MAKO_SETTER, \{ sincronizar: false \}\)/, 'sin sincronizar adentro de la vuelta');
+  assert.match(barrido, /sincronizarEtiquetasDiferidas\(porSincronizar\)/, 'y la sincronización al final, con tope');
+  assert.match(barrido, /getSettingEstricto\(KEY_FOTO_ESPEJO\)/, '«no pude leer la foto» no es «no hay foto»');
+  assert.ok(barrido.indexOf('plan.foto.at = new Date().toISOString()') > barrido.indexOf('sincronizarEtiquetasDiferidas('), 'la foto se fecha DESPUÉS de aplicar');
+  assert.match(barrido, /suyas\?\.has\(claveNombre\(e\.nombre\)\)/, 'lo que una persona tocó desde la foto no se deshace');
+});
+
+test('etiquetas-4 / datos-3: mover en lote no sincroniza lead por lead; sincroniza al final con tope', () => {
+  const acc = sinComentarios(leer('app/crm/actions.ts'));
+  const lote = bloque(acc, 'export async function moverLeadsDeEtapaAction(', '\n}\n');
+  // El MISMO camino de a uno, adentro del contexto de lote (el flag llega hasta el espejo).
+  assert.match(lote, /const \{ sinSincronizar \} = await conLoteDeEtiquetas\(async \(\) => \{\s*for \(const id of ids\) \{\s*try \{\s*const r = await setLeadStageAction\(id, stageKey\);/);
+  const et = sinComentarios(leer('lib/etiquetas.ts'));
+  const espejo = bloque(et, 'export async function espejarEtapa(', '\n}\n');
+  assert.match(espejo, /const lote = loteStore\.getStore\(\);\s*const r = await espejarEtapaCon\(puertos\(\), leadId, funnelId, desde, hacia, autor, \{ sincronizar: !lote \}\);\s*if \(lote\) lote\.cambios\.push\(\.\.\.r\.cambios\);/);
+  const conLote = bloque(et, 'export async function conLoteDeEtiquetas<', '\n}\n');
+  assert.ok(conLote.indexOf('sincronizarEtiquetasDiferidas(lote.cambios)') > conLote.indexOf('loteStore.run(lote, fn)'), 'la sincronización va DESPUÉS del lote');
+  assert.equal((conLote.match(/sincronizarEtiquetasDiferidas\(lote\.cambios\)/g) ?? []).length, 2, 'también si el lote se corta: lo que ya se movió se pasa o deja rastro');
+});
+
+test('etiquetas-5: los chips de la ficha se releen cuando cambia la etapa (la ficha y la ruta les pasan la versión)', () => {
+  const chips = sinComentarios(leer('app/crm/lead-view/EtiquetasDelLead.tsx'));
+  assert.match(chips, /useEffect\(\(\) => \{ void leer\(\); \}, \[leer, version\]\)/);
+  for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(sinComentarios(leer(f)), /<EtiquetasDelLead leadId=\{lead\.id\} version=\{versionDeEtiquetas\(lead\.updated_at, fichaProd\.productos\)\} \/>/, f);
+  }
+});
+
+test('etiquetas-6 / datos-5: el selector NOMBRA la etiqueta archivada que ya está elegida', () => {
+  const sel = sinComentarios(leer('app/_components/etiquetas-cliente.tsx'));
+  const comp = bloque(sel, 'export function SelectorEtiqueta(', '\n}\n');
+  assert.match(comp, /const fuera = !accion && value != null && etiquetas != null && !etiquetas\.some\(\(e\) => e\.id === value\);/);
+  assert.match(comp, /label: deFuera \? nombreConEstado\(deFuera\) : 'Una etiqueta que ya no está'[^}]*disabled: true/);
+  assert.match(sel, /fetch\('\/api\/crm\/etiquetas\?archivadas=1'/);
+  // Y la frase de archivar es UNA para la pantalla y para MaKo.
+  assert.match(sinComentarios(leer('app/crm/EditorEtiquetas.tsx')), /consecuenciaDeArchivar\(u\)/);
+  assert.match(sinComentarios(leer('lib/api-mako/areas/crm.run.ts')), /consecuenciaDeArchivar\(u\)/);
+});
+
+test('datos-7: por HTTP, etiquetas_lead no expone el email de quien la puso', () => {
+  const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
+  const r = bloque(run, '  etiquetas_lead: {', '\n  },\n');
+  assert.match(r, /puesta_por: ctx\.canal === 'http' \? autorPublico\(e\.puesta_por\) : e\.puesta_por/);
+});
+
+test('datos-6: los clonadores copian el catálogo de etiquetas ANTES y traducen los ids de las secuencias', () => {
+  const cc = sinComentarios(leer('lib/clonar-config.ts'));
+  const tablas = bloque(cc, 'const TABLAS: TablaClon[] = [', '\n];');
+  assert.ok(tablas.indexOf("tabla: 'crm_etiquetas'") >= 0 && tablas.indexOf("tabla: 'crm_etiquetas'") < tablas.indexOf("tabla: 'nutricion_secuencias'"), 'el mapa de etiquetas sale de la copia del catálogo: va ANTES');
+  assert.match(tablas, /cols: \[[^\]]*'etiqueta_id'[^\]]*\],\s*forzar: \{ activa: false \},\s*preparar: secuenciaParaElDestino/);
+  const prep = bloque(cc, 'function secuenciaParaElDestino(', '\n}\n');
+  assert.match(prep, /traducirEtiquetasEnSecuencia\(r\.pasos, r\.etiqueta_id,/);
+  assert.match(prep, /for \(const k of \['audio_id', 'media_id'\]\) if \(o\[k\] != null\) \{ o\[k\] = null;/, 'los adjuntos del dueño no viajan');
+  const dm = sinComentarios(leer('lib/datos-mau.ts'));
+  const setting = bloque(dm, '  setting: {', "\n    nota: 'Los audios");
+  assert.ok(setting.indexOf("tabla: 'crm_etiquetas'") >= 0 && setting.indexOf("tabla: 'crm_etiquetas'") < setting.indexOf("tabla: 'nutricion_secuencias'"));
+  assert.match(setting, /normalizarDedup: claveNombre/);
+  assert.match(setting, /remapEtiquetas: true/);
+  assert.match(bloque(dm, 'async function copiarTabla(', '\n}\n'), /traducirEtiquetasEnSecuencia\(f\.pasos, f\.etiqueta_id,/);
+});
+
+test('etiquetas-2: «Se le puso una etiqueta» no se guarda sin la etiqueta (/email, su ruta y la API de MaKo)', () => {
+  const em = sinComentarios(leer('lib/email-marketing.ts'));
+  const act = bloque(em, 'export async function actualizarMetaEmailSecuencia(', '\n}\n');
+  assert.match(act, /if \(porEtiqueta\) await fijarDisparadorEtiqueta\(id, patch\.etiqueta_id\)/);
+  assert.match(bloque(em, 'export async function crearEmailSecuencia(', '\n}\n'), /await fijarDisparadorEtiqueta\(id, etiquetaId\)/);
+  const fijar = bloque(em, 'async function fijarDisparadorEtiqueta(', '\n}\n');
+  assert.match(fijar, /setTriggerSecuencia\(id, \{ trigger_tipo: TRIGGER_ETIQUETA, etiqueta_id: n \}\)/, 'la etiqueta la escribe la puerta de los disparadores');
+  assert.match(sinComentarios(leer('app/api/email/secuencias/route.ts')), /if \(e instanceof DisparadorEmailError\) return Response\.json\(\{ ok: false, error: e\.message \}, \{ status: 400 \}\)/);
+  const app = sinComentarios(leer('app/email/EmailApp.tsx'));
+  assert.equal((app.match(/<SelectorEtiqueta /g) ?? []).length, 2, 'el editor y el alta muestran el selector');
+  const run = sinComentarios(leer('lib/api-mako/areas/email.run.ts'));
+  assert.equal((run.match(/await errorEtiquetaDelTrigger\(/g) ?? []).length, 2, 'crear y editar por MaKo validan la etiqueta antes del «sí»');
 });

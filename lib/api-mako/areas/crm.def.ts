@@ -339,7 +339,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'etiquetas_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Etiquetas de un lead',
-    descripcion: 'Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Pide el leadId (de buscar_leads).',
+    descripcion: 'Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización; por la API HTTP no se dice QUÉ persona: sale «una persona»). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Una archivada viene con archivada en true: ya no cuenta en las automatizaciones. Pide el leadId (de buscar_leads).',
     parametros: [leadId()],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -600,7 +600,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'archivar_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Archivar una etiqueta del CRM',
-    descripcion: 'PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»): deja de ofrecerse y de poder ponerse, y las condiciones de las automatizaciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen la conservan, y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.',
+    descripcion: 'PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»). Archivarla la APAGA: deja de ofrecerse y de poder ponerse, no dispara más las automatizaciones que arrancan con ella y las condiciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen conservan la fila como historia (su ficha la muestra «archivada»), y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.',
     parametros: [
       etiquetaId(),
       { nombre: 'archivar', tipo: 'boolean', descripcion: 'false para recuperarla (default true, archivar).' },

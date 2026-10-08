@@ -22,6 +22,8 @@ export type { Etiqueta };
 
 const EVENTO = 'mako:etiquetas-cambiaron';
 let cache: Promise<Etiqueta[]> | null = null;
+/** Con las archivadas: sólo para NOMBRAR una que ya está elegida (ver `SelectorEtiqueta`). */
+let cacheTodas: Promise<Etiqueta[]> | null = null;
 
 function pedir(): Promise<Etiqueta[]> {
   cache ??= fetch('/api/crm/etiquetas', { cache: 'no-store' })
@@ -34,11 +36,46 @@ function pedir(): Promise<Etiqueta[]> {
   return cache;
 }
 
+function pedirTodas(): Promise<Etiqueta[]> {
+  cacheTodas ??= fetch('/api/crm/etiquetas?archivadas=1', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((j: { ok?: boolean; etiquetas?: Etiqueta[]; error?: string }) => {
+      if (!j.ok) throw new Error(j.error || 'No se pudieron leer las etiquetas.');
+      return j.etiquetas ?? [];
+    })
+    .catch((e) => { cacheTodas = null; throw e; });
+  return cacheTodas;
+}
+
 /** Alguien creó, editó o archivó una etiqueta: las listas abiertas se vuelven a pedir. */
 export function avisarCambioEtiquetas(): void {
   cache = null;
+  cacheTodas = null;
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO));
 }
+
+/**
+ * La etiqueta `id` cuando NO está entre las vivas: archivada (la devuelve con su nombre) o borrada
+ * del todo (`null`). `undefined` mientras no hace falta o mientras carga. Para que un valor ya
+ * elegido se siga LEYENDO aunque no se pueda volver a elegir (AGENTS.md: un desplegable cuyo valor
+ * no está entre sus opciones no muestra nada).
+ */
+function useEtiquetaFuera(id: number | null): Etiqueta | null | undefined {
+  // Lo hallado lleva su id: lo que se devuelve se DERIVA de eso, sin resetear estado en el efecto.
+  const [hallada, setHallada] = useState<{ id: number; e: Etiqueta | null } | null>(null);
+  useEffect(() => {
+    if (id == null) return;
+    let vivo = true;
+    pedirTodas().then((todas) => { if (vivo) setHallada({ id, e: todas.find((x) => x.id === id) ?? null }); })
+      .catch(() => { if (vivo) setHallada({ id, e: null }); });
+    return () => { vivo = false; };
+  }, [id]);
+  return id != null && hallada?.id === id ? hallada.e : undefined;
+}
+
+/** «Seguimiento (archivada)»: así se nombra una archivada donde todavía está puesta o elegida. */
+export const nombreConEstado = (e: Pick<Etiqueta, 'nombre'> & { archivada_at?: string | null }): string =>
+  e.archivada_at ? `${e.nombre} (archivada)` : e.nombre;
 
 export type CrearEtiqueta = (nombre: string, color?: string) => Promise<{ ok: true; etiqueta: Etiqueta } | { ok: false; error: string }>;
 
@@ -78,22 +115,27 @@ export function useEtiquetas(): { etiquetas: Etiqueta[] | null; error: string | 
   return { etiquetas, error, recargar };
 }
 
-/** El chip de una etiqueta: su color de fondo, suave, y el nombre. */
-export function ChipEtiqueta({ e, onSacar, ocupado, chico }: { e: Pick<Etiqueta, 'nombre' | 'color' | 'emoji'>; onSacar?: () => void; ocupado?: boolean; chico?: boolean }) {
+/**
+ * El chip de una etiqueta: su color de fondo, suave, y el nombre. Una ARCHIVADA que el lead
+ * todavía tiene se dibuja apagada y con «(archivada)»: ya no cuenta en las automatizaciones
+ * (decisión del 08/10/2026) y la fila queda como historia.
+ */
+export function ChipEtiqueta({ e, onSacar, ocupado, chico }: { e: Pick<Etiqueta, 'nombre' | 'color' | 'emoji'> & { archivada_at?: string | null }; onSacar?: () => void; ocupado?: boolean; chico?: boolean }) {
+  const nombre = nombreConEstado(e);
   const estilo: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: 220,
     padding: chico ? '2px 8px' : '4px 10px', borderRadius: 999,
     fontSize: chico ? 11.5 : 12.5, fontWeight: 600, lineHeight: 1.3,
-    background: `${e.color}24`, color: 'var(--ink)', border: `1px solid ${e.color}66`,
-    opacity: ocupado ? 0.55 : 1,
+    background: `${e.color}24`, color: e.archivada_at ? 'var(--dim)' : 'var(--ink)', border: `1px solid ${e.color}66`,
+    opacity: ocupado ? 0.55 : e.archivada_at ? 0.75 : 1,
   };
   return (
-    <span style={estilo} title={e.nombre}>
+    <span style={estilo} title={nombre}>
       <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: e.color, flex: 'none' }} />
       {e.emoji && <span aria-hidden>{e.emoji}</span>}
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nombre}</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</span>
       {onSacar && (
-        <button type="button" onClick={onSacar} disabled={ocupado} aria-label={`Sacar ${e.nombre}`} title="Sacar"
+        <button type="button" onClick={onSacar} disabled={ocupado} aria-label={`Sacar ${nombre}`} title="Sacar"
           style={{ border: 'none', background: 'transparent', color: 'var(--dim)', cursor: ocupado ? 'default' : 'pointer', padding: 0, marginLeft: 2, fontSize: 13, lineHeight: 1 }}>×</button>
       )}
     </span>
@@ -126,8 +168,17 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
   const [fallo, setFallo] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
+  // ⚠️ EL VALOR ELEGIDO SE NOMBRA AUNQUE YA NO SE PUEDA ELEGIR (revisión del 08/10/2026,
+  // etiquetas-6/datos-5). La lista son las VIVAS: un paso «⚡ Acción» que apunta a una etiqueta
+  // archivada mostraba «Elige una etiqueta», como si no tuviera ninguna, y no se veía a cuál
+  // apuntaba. Entra como renglón apagado («Seguimiento (archivada)»), que se lee y no se elige.
+  const fuera = !accion && value != null && etiquetas != null && !etiquetas.some((e) => e.id === value);
+  const deFuera = useEtiquetaFuera(fuera ? value : null);
   const lista = (etiquetas ?? []).filter((e) => !excluir?.has(e.id));
   const opciones = [
+    ...(fuera && deFuera !== undefined
+      ? [{ value: String(value), label: deFuera ? nombreConEstado(deFuera) : 'Una etiqueta que ya no está', color: deFuera?.color, disabled: true }]
+      : []),
     ...lista.map((e) => ({ value: String(e.id), label: `${e.emoji ? `${e.emoji} ` : ''}${e.nombre}`, color: e.color })),
     { value: NUEVA, label: 'Nueva', crear: true },
   ];

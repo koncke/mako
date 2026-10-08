@@ -31,27 +31,38 @@
 //   5. reclamarDisparo ignorado (dispara siempre) → 1 fallo (espaciado).
 //   6. un `.from('crm_lead_etiquetas').insert(` en app/api/crm/etiquetas/route.ts → 1 fallo
 //      (la única puerta).
+//
+// ⚠️ Y LA REVISIÓN ADVERSARIAL DEL 08/10/2026 (parte E, etiquetas-4/datos-3: el lote de etapa
+// sincronizaba lead por lead). Con todo puesto: 11 pass / 0 fail. Tres roturas más, con el arnés
+// del scratchpad (romper-E.mjs, restaura de memoria), las tres cazadas (10 pass / 1 fail cada una):
+//   7. `espejarEtapaCon` sincronizando aunque le pidan que no (`const sincronizar = true`);
+//   8. el tope de `syncGrupos` sin compartir entre grupos (sin `quedan -= ahora.length`);
+//   9. lo que no tiene destino gastando el tope (sin el `if (!destinos.length) continue`).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ponerEtiquetaCon, sacarEtiquetaCon, espejarEtapaCon, ponerLoteCon, sacarLoteCon,
-  type PuertosEtiquetas, type EtiquetaMotor, type ResultadoSync,
+  ponerEtiquetaCon, sacarEtiquetaCon, espejarEtapaCon, ponerLoteCon, sacarLoteCon, sincronizarDiferidos,
+  type PuertosEtiquetas, type EtiquetaMotor, type ResultadoSync, type CambioEtiqueta,
 } from '../lib/etiquetas-motor';
+import { SYNC_LOTE_MAX } from '../lib/etiquetas-reglas';
 
 type Fila = EtiquetaMotor & { wa: boolean };
 
 /** Un negocio de mentira: etiquetas, leads con su etapa, y lo que se llamó afuera. */
-function negocio(opts?: { etapaDe?: Record<number, string> }) {
+function negocio(opts?: { etapaDe?: Record<number, string>; leads?: number[] }) {
   const etiquetas = new Map<number, Fila>([
     [1, { id: 1, nombre: 'Seguimiento', funnel_id: null, etapa_key: null, archivada_at: null, wa: true }],
     [2, { id: 2, nombre: 'Cualificado', funnel_id: null, etapa_key: 'calificado', archivada_at: null, wa: false }],
     [3, { id: 3, nombre: 'Agendó', funnel_id: null, etapa_key: 'agenda', archivada_at: null, wa: false }],
+    // Vinculadas Y mapeadas al celular: las que hacen caro un lote de etapa.
+    [4, { id: 4, nombre: 'Llamar', funnel_id: null, etapa_key: 'llamar', archivada_at: null, wa: true }],
+    [5, { id: 5, nombre: 'Frío', funnel_id: null, etapa_key: 'frio', archivada_at: null, wa: true }],
     [9, { id: 9, nombre: 'Vieja', funnel_id: null, etapa_key: null, archivada_at: '2026-10-01', wa: false }],
   ]);
-  const leads = new Set([10, 11, 12]);
+  const leads = new Set(opts?.leads ?? [10, 11, 12]);
   const filas = new Set<string>();                      // `${lead}:${etiqueta}`
   const etapa = new Map<number, string>(Object.entries(opts?.etapaDe ?? { 10: 'nuevo', 11: 'nuevo', 12: 'nuevo' }).map(([k, v]) => [Number(k), v]));
   const reloj = { ahora: 0 };
@@ -169,16 +180,52 @@ test('ESPEJO sin bucle: poner una vinculada mueve a la etapa UNA vez, y el ganch
 test('ESPEJO desde la etapa: entrar la pone (sin disparar), salir la saca', async () => {
   const n = negocio();
   const e = await espejarEtapaCon(n.p, 10, null, 'nuevo', 'agenda', 'MaKo');
-  assert.deepEqual(e, { puestas: 1, sacadas: 0 });
+  assert.deepEqual({ puestas: e.puestas, sacadas: e.sacadas }, { puestas: 1, sacadas: 0 });
   assert.ok(n.filas.has('10:3'));
   assert.equal(n.log.disparos.length, 0, 'la que pone una etapa no dispara: el evento es la etapa');
   assert.equal(n.log.movimientos.length, 0, 'y no vuelve a mover');
   const s = await espejarEtapaCon(n.p, 10, null, 'agenda', 'calificado', 'MaKo');
-  assert.deepEqual(s, { puestas: 1, sacadas: 1 });
+  assert.deepEqual({ puestas: s.puestas, sacadas: s.sacadas }, { puestas: 1, sacadas: 1 });
+  assert.deepEqual(s.cambios, [{ leadId: 10, etiquetaId: 3, accion: 'sacar' }, { leadId: 10, etiquetaId: 2, accion: 'poner' }]);
   assert.ok(!n.filas.has('10:3') && n.filas.has('10:2'));
   // Una etapa de OTRO producto con la misma key no toca las del negocio.
   const otro = await espejarEtapaCon(n.p, 11, 77, 'nuevo', 'agenda', 'MaKo');
-  assert.deepEqual(otro, { puestas: 0, sacadas: 0 });
+  assert.deepEqual({ puestas: otro.puestas, sacadas: otro.sacadas, cambios: otro.cambios }, { puestas: 0, sacadas: 0, cambios: [] });
+});
+
+test('LOTE DE ETAPA: el espejo no le pega a WhatsApp lead por lead; al final se sincroniza con UN tope y rastro', async () => {
+  // Revisión del 08/10/2026 (etiquetas-4/datos-3): mover 200 leads a una etapa vinculada esperaba
+  // WhatsApp y Chatwoot por cada uno adentro de una action de 60 s.
+  const n = negocio({ etapaDe: { 10: 'frio', 11: 'frio', 12: 'frio' } });
+  for (const l of [10, 11, 12]) n.filas.add(`${l}:5`);          // los tres tienen «Frío», de su etapa
+  const porSincronizar: CambioEtiqueta[] = [];
+  for (const l of [10, 11, 12]) {
+    const r = await espejarEtapaCon(n.p, l, null, 'frio', 'llamar', 'Martín', { sincronizar: false });
+    porSincronizar.push(...r.cambios);
+  }
+  assert.equal(n.log.sync.length, 0, 'en el lote nadie le pega a WhatsApp adentro de la vuelta');
+  assert.ok([10, 11, 12].every((l) => n.filas.has(`${l}:4`) && !n.filas.has(`${l}:5`)), 'la base sí quedó espejada');
+  assert.equal(porSincronizar.length, 6, 'tres sacadas y tres puestas por sincronizar');
+  // Tope 4 para TODO el conjunto: las tres sacadas y una puesta; las otras dos dejan rastro.
+  const s = await sincronizarDiferidos(n.p, porSincronizar, 4);
+  assert.deepEqual(s, { sincronizados: 4, sinSincronizar: 2 });
+  assert.deepEqual(n.log.sync, ['sacar:10:5', 'sacar:11:5', 'sacar:12:5', 'poner:10:4']);
+  const rastro = n.log.historial.filter((h) => h.includes('eran más de 4 a la vez'));
+  assert.deepEqual(rastro, ['11:«Llamar» no se puso en WhatsApp: eran más de 4 a la vez', '12:«Llamar» no se puso en WhatsApp: eran más de 4 a la vez']);
+});
+
+test('lo que no tiene a dónde ir no gasta el tope, y el lote de etiquetas topa por el MISMO camino', async () => {
+  const n = negocio();
+  const sinDestino: CambioEtiqueta[] = [10, 11, 12].map((leadId) => ({ leadId, etiquetaId: 3, accion: 'poner' }));
+  const conDestino: CambioEtiqueta[] = [{ leadId: 10, etiquetaId: 1, accion: 'poner' }];
+  const s = await sincronizarDiferidos(n.p, [...sinDestino, ...conDestino], 1);
+  assert.deepEqual(s, { sincronizados: 1, sinSincronizar: 0 }, '«Agendó» no está en el celular: no consume el único lugar');
+  // El lote de la barra (ponerLoteCon) pasa por el mismo tope.
+  const muchos = Array.from({ length: SYNC_LOTE_MAX + 5 }, (_, i) => 100 + i);
+  const m = negocio({ leads: muchos });
+  const r = await ponerLoteCon(m.p, muchos, 1, 'Martín');
+  assert.ok(r.ok && r.sinSincronizar === 5, JSON.stringify(r));
+  assert.equal(m.log.sync.length, SYNC_LOTE_MAX);
 });
 
 test('no se pone una archivada, ni a un lead de otro negocio, ni una que no existe', async () => {
