@@ -4790,3 +4790,119 @@ encontró la revisión final volviendo a correr los arneses de cada paso sobre e
   componente `ChecklistCurso` y la prop `onboarding` de `CursoApp`.
 - La Comunidad del equipo exige una sesión con id de usuario: la de `dev-login` contesta «Tu sesión
   no tiene una cuenta propia» (app/customer-success/comunidad/actor.ts). Con una sesión real anda.
+
+## El curso tipo Skool, los 20 ajustes: la papelera, el kanban que se quita y el movimiento silencioso (08/10/2026)
+
+En `d188f3a8` (mig **0223** APLICADA antes del deploy). Martín usó el curso publicado y mandó 20
+ajustes (el texto literal, en la bitácora de `/admin/dev/customer-success`). Cuatro pistas en
+paralelo (lección, editor rico, estructura, apariencia) y dos revisiones sobre el árbol integrado.
+Todo se probó en bancos de Chromium con actions de mentira: **nada se vio todavía en la app real**.
+
+### Quitar una etapa con clientes: el bloqueo de secuencias va ANTES de mover
+
+El interruptor «Etapa del kanban» cambió de sentido: apagarlo ya no deja la etapa con
+`enCurso: false`, la **quita** (la decisión D1 de `diseno-curso-skool.md` se corrigió). Si tiene
+clientes, se pregunta a dónde van y se los mueve **sin mandar nada** (`silencioso` en
+`moverClienteDeEtapa`, lib/cs-mover-etapa.ts). El envío de WhatsApp del ws1 está PRENDIDO.
+
+**El diagnóstico obvio era el equivocado.** La primera versión movía al cliente y DESPUÉS bloqueaba
+las secuencias de la etapa nueva, con un `catch` que sólo anotaba — «best-effort, como el
+enrolamiento». Pero la red del cron (`leadsDeCohorte` → `aInscribir`) enrola a todo cliente que esté
+en una etapa con secuencia: si el bloqueo fallaba (o el cron pasaba entre las dos escrituras), el
+cliente quedaba movido SIN bloqueo y el cron le mandaba el WhatsApp en la corrida siguiente. Ahora:
+
+- **El bloqueo va antes de mover, y sin bloqueo no se mueve** (lib/cs-mover-etapa.ts:227-241).
+  `silenciarEntregaDeEtapa` (lib/nutricion.ts) tira si una secuencia no quedó bloqueada; antes
+  anotaba y seguía.
+- **Lo que cuesta**: si la columna no se escribe después, quedan bloqueadas secuencias de una etapa a
+  la que el cliente no llegó; y si más adelante lo mueven ahí por el camino normal, esa secuencia no
+  le sale. Es el lado barato: un mensaje de menos, nunca uno de más.
+- La primera etapa (la entrada) no se quita: el interruptor se dibuja apagado con su motivo.
+- Con clientes mudados, ni el interruptor ni «Eliminar módulo» ofrecen Deshacer: la etapa no se
+  recrea con ellos adentro (`planConEtapaDevuelta` sólo sirve para una etapa vacía).
+
+### La papelera: el borrado suave tiene que ser INVISIBLE, y se renumeró a 0223
+
+Borrar una clase era un `delete` y el avance de cada alumno se iba por la cascada: un Deshacer que
+la vuelve a crear devuelve una IGUAL con otro id. Ahora va a la papelera (`curso_clases.borrada_at`,
+`curso_modulos.borrado_at`) y una purga la borra de verdad a los 7 días (lib/curso-papelera.ts, desde
+el cron `/api/cron/curso-purga`, con compare-and-set).
+
+- **Toda lectura de clases filtra `borrada_at is null`** y lo fija `tests/curso-papelera.test.ts`
+  barriendo `app/` y `lib/`, con tres excepciones nombradas (las claves que no se reusan, quién usa
+  un video, la purga). Una lectura nueva sin el filtro le muestra al alumno una clase borrada.
+- **Va ANTES del deploy**: sin las columnas, PostgREST rechaza la consulta entera y se caen el
+  portal de cada alumno y la tab.
+- **El número lo tomó otra sesión**: la pista la escribió como 0222 y la API publicó
+  `0222_api_llamadas_token.sql` en paralelo. Se renumeró al integrar (archivo y 19 menciones de
+  «mig 0222») ANTES de aplicarla.
+- **Sin hacer**: un módulo vinculado sin candado que se elimina deja su `portada:etapa:<clave>`
+  sin purgar; un módulo nuevo con el mismo nombre la hereda.
+
+### Item 16: «la clase se convierte en un módulo nuevo» era una COPIA, no una lógica
+
+Nadie lo vio como lo vio Martín; la pista lo reconstruyó en Chrome con ventana. Dos causas, y
+ninguna era «el soltar crea un módulo»: la copia que sigue al cursor de una CLASE es idéntica a la
+tarjeta de un módulo (260×260, con su chip de número), así que sobre la barra se leía como un módulo
+nuevo entrando a la lista; y soltar en el aire entre dos renglones no hacía nada aunque uno se viera
+marcado. Ahora sobre la barra la copia es una pastilla con el título, y `filaEnBarra`
+(app/_cursos/orden.ts) elige el módulo por la altura del cursor, también en el hueco. **A confirmar
+con el gesto real de Martín.**
+
+### El desplegable que se cortaba: decidía con un número fijo
+
+`Dropdown.tsx` ya sabía abrir para arriba: lo decidía con «¿hay 300 px abajo?» y el menú medía 354, y
+el alto máximo no restaba el relleno de la caja. Ahora decide con lo que mide el menú
+(app/components/dropdown-lugar.ts, puro, con test). **Es el primitive de toda la app**: cambia cada
+`Select`, y sólo se midió en el banco.
+
+### Trampas del dibujo, para el próximo que edite adentro del curso
+
+- **Esconder por CSS deja la caja**: el interruptor «Texto al costado / abajo» se escondía en el
+  teléfono y su contenedor con el `data-recorrido` quedaba de alto cero; `getClientRects()` lo daba
+  presente y el recorrido señalaba la nada. Se esconde el elemento que lleva la marca.
+- **Un `contentEditable` cuenta como `:focus-visible` hasta con el mouse**, y la regla genérica de
+  foco del curso (`.ahdoc .ugc [tabindex]:focus-visible`) carga después: un marco negro en cada clic
+  del editor. Hace falta una regla con más peso, no la misma.
+- **Los campos de la app (`.mk-input`, `.mk-textarea`) traen Geist escrito**: por eso la descripción
+  y la tarea se veían con letras distintas. Adentro del curso se pisan con `:where()` por selector,
+  porque el guard de `cursos-ugc` parte los selectores por la coma.
+- **La misma clase en dos reglas**: `.mk-er-fila` era la fila del panel del enlace y también cada
+  renglón de los menús «Más» y de la tabla; ganaba la última y cada renglón tenía 9 px de hueco.
+- **Un formulario con la hoja acotada a la lista (`.ec .ec-…`) pierde los estilos en la copia del
+  arrastre** si la copia cuelga afuera: la de los campos cuelga de la lista y la medición la saltea.
+- **Un Deshacer propio al lado del Ctrl+Z** tiene que mirar la profundidad del historial, o repone
+  dos veces lo que el Ctrl+Z ya devolvió (dos tablas iguales). Y ProseMirror junta en un paso lo que
+  pasa en medio segundo: cada ajuste de imagen va con `closeHistory`.
+- **Medir la barra contra lo que muestra la hace saltar**: se mide contra una regla escondida con
+  todas las piezas (app/_ui/editor-rico-reglas.ts).
+- **sanitize-html, ante un valor fuera de `values`, deja el atributo VACÍO** (`colspan=""`), no lo saca.
+- **Cambiar el tipo de un campo es destructivo** (un quiz a Texto pierde sus preguntas): Deshacer
+  sólo si se pierde algo escrito, o el aviso sale en cada elección de un campo recién creado.
+- **`marcasDeVoseo` no veía «hacé», «pegá», «elegí», «volvé»**: el test de voseo de la apariencia dio
+  verde la primera vez. Se le sumó la regla de la vocal con tilde final.
+- **Un recorte de test anclado en «la función que viene después» se rompe** cuando alguien escribe
+  una función en el medio (`nutricion-etapa` se comió `silenciarEntregaDeEtapa`).
+
+### Lo que quedó SIN hacer o espera una decisión de Martín
+
+- **La negrita del curso se dibuja en Arial**: `public/cono-doc/ugc.css` declara Archivo negrita con
+  archivos que dan 404 (vienen del sitio de origen). Sacarlas de la hoja y de
+  `scripts/avatarhype-css.mjs` cambia también los 132 cursos de Conocimientos: decide Martín.
+- **La fuente en Conocimientos** necesita sumar `'fuente'` al CHECK de `conocimiento_ajustes.campo`
+  (otra migración) y tocar lib/conocimiento-ajustes.ts y EditorConocimientos.tsx.
+- **El recorrido del curso conserva la clave `cs-curso`**: quien ya lo vio no ve los pasos nuevos
+  solo (sí con el «?»). Cambiar la clave en recorridos-curso.ts se lo reabre a todos.
+- **Sin Deshacer**: crear módulo o clase, la disposición, «Obligatoria» y «Por área» (se revierten
+  con el mismo control), y quitar un video SUBIDO (el server borra el archivo).
+- **La vista previa** no busca el «último fijado» de un campo «Comentar en la comunidad» y dice que
+  no hay post.
+- **Código muerto**: `urlSubida` y `descartarVideo` (lib/curso-admin.ts, nombrados en comentarios de
+  curso-entregas, curso-notas y curso-purga), `duracionDeArchivo` (subir-video.ts), `{ tipo }` en
+  `CambioClase` y `rotuloTipo` (reglas.ts).
+- **No medido en la app real**: quitar una etapa con clientes (en el ws3, NUNCA en el ws1: que no
+  salga nada y aparezcan las inscripciones `cancelada`), eliminar módulo con su Deshacer y la purga,
+  la duración de YouTube/Vimeo en un navegador real, el oEmbed de Loom desde el navegador, la ruta
+  `/api/compartido/miniatura` en producción, publicar y comentar desde la tarea con el link `?post=`,
+  el auto-scroll al arrastrar campos (Playwright manda un solo `dragover`) y el desplegable en otras
+  pantallas.

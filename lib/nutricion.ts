@@ -1455,6 +1455,52 @@ export async function cerrarEntregaDeEtapa(
 }
 
 /**
+ * Un cliente que llega a una etapa de la entrega SIN que eso le dispare nada (el movimiento
+ * silencioso de lib/cs-mover-etapa.ts: quitar una etapa del kanban desde el curso muda a sus
+ * clientes a otra). No alcanza con no enrolar: la RED del cron (`leadsDeCohorte`, rama de la
+ * entrega) junta a todo el que está parado en la etapa y lo enrola en la próxima corrida. Lo que
+ * la frena es lo mismo que frena a cualquiera que ya pasó por una secuencia: una fila suya en
+ * `nutricion_inscripciones` (`aInscribir` saltea a quien tiene fila, y una de entrega no se reusa).
+ * Se escribe CERRADA de entrada —'cancelada' + desenlace 'cancelado', sin próximo envío—: nunca
+ * mandó nada y el evaluador de desenlaces no la toca.
+ *
+ * ⚠️ DE A UNA, como `enrolarPorEvento`: una que ya existe (ya la recibió, o ya la tiene corriendo)
+ * choca con el `unique (lead_id, secuencia_id)` y se deja como está. Tira si no puede leer las
+ * secuencias o si alguna no quedó bloqueada: quien llama NO mueve al cliente (fail-closed).
+ */
+export async function silenciarEntregaDeEtapa(
+  leadId: number,
+  etapa: string | null | undefined,
+  productoId: number | string | null | undefined,
+): Promise<number> {
+  const key = (etapa ?? '').trim();
+  if (!key) return 0;
+  const de = secuenciasDeEntrega(await getSecuenciasActivas(), key, productoId);
+  if (!de.length) return 0;
+  const supabase = await getTenantDb();
+  const ahora = ahoraISO();
+  let n = 0;
+  const fallas: string[] = [];
+  for (const s of de) {
+    const { error } = await supabase.from('nutricion_inscripciones').insert({
+      lead_id: leadId, secuencia_id: s.id, paso_actual: 0, estado: 'cancelada', proximo_envio_at: null,
+      desenlace: 'cancelado', desenlace_at: ahora, updated_at: ahora,
+    });
+    if (!error) { n += 1; continue; }
+    // Ya tiene fila de esa secuencia (la recibió, o la tiene corriendo): para la red ya está frenada.
+    if (error.code === '23505') continue;
+    console.error(`[nutricion] silenciarEntregaDeEtapa(${leadId}, ${key}) en ${s.clave}: ${error.message}`);
+    fallas.push(s.clave);
+  }
+  if (n) console.log(`[nutricion] lead ${leadId} llegó a «${key}» en silencio: ${n} secuencia(s) bloqueada(s)`);
+  // ⚠️ TIRA SI ALGUNA NO QUEDÓ BLOQUEADA (revisión final del 08/10/2026): quien llama mueve al cliente SÓLO
+  // si esto no tira (lib/cs-mover-etapa.ts, paso 4b), y una secuencia sin su fila es justo la que la red
+  // del cron enrola en la próxima corrida. Antes se anotaba y se seguía: el cliente se movía igual.
+  if (fallas.length) throw new Error(`no pude bloquear ${fallas.join(', ')}`);
+  return n;
+}
+
+/**
  * Enrola a UN lead en las secuencias activas del evento y dispara su primer
  * paso en el acto. Best-effort: nunca tira (lo llaman webhooks — si falla el
  * enrolamiento, el lead igual quedó creado y el cron lo levanta después).

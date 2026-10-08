@@ -4676,3 +4676,23 @@ una tilde escrita como escape, también.
 
 **Vive en:** cualquier edición de fuente desde el harness · `tests/laminas.test.ts` ·
 *2026-10-08 Customer Success*
+
+## Dos trampas de los bancos de navegador y de los scripts de rotura (08/10/2026)
+
+**Síntoma:** en la corrida de los 20 ajustes del curso, dos pistas perdieron vueltas en la
+herramienta y no en el código.
+
+- **`tsx` le agrega `__name(...)` a toda función con nombre**, también a las que van adentro de un
+  `page.evaluate` de Playwright. El navegador no tiene ese helper y contesta «__name is not
+  defined»: se lee como un fallo del componente. En un banco que corre con `tsx`, lo que se manda al
+  navegador va como función flecha anónima o como string.
+- **`sed -i` del Git Bash pasó a LF un archivo que estaba en CRLF**, y la herramienta Edit dejó
+  otros en CRLF. Un script de roturas que busca el ancla con `\n` da «NO APLICA» sobre el archivo
+  CRLF: las cuatro primeras roturas de una revisión no se aplicaron, y un «no aplica» se lee igual
+  que una rotura que el test no caza. El ancla se convierte al fin de línea DE ESE ARCHIVO (es la
+  regla de AGENTS.md «El fin de línea es POR ARCHIVO», del lado del que rompe).
+
+**Regla:** un banco o un script de roturas cuenta y reporta cuántas aplicó; un «0 aplicadas» es un
+fallo del banco, no un test sano.
+
+**Vive en:** los bancos de `scratchpad/*/banco/` de cada corrida · *2026-10-08 Customer Success*

@@ -93,6 +93,18 @@ export type PedidoMovimiento = {
    * Un movimiento normal no lo manda.
    */
   relojPrevio?: string | null;
+  /**
+   * SIN MENSAJES (08/10/2026, item 15): el movimiento se guarda y deja su línea de historial, pero
+   * NO enrola en las secuencias de la etapa nueva, y además las BLOQUEA para este cliente
+   * (`silenciarEntregaDeEtapa`): sin eso, la red del cron (`leadsDeCohorte`, que junta a quien
+   * está parado en la etapa) lo enrolaría en la próxima corrida y el mensaje saldría igual. Lo
+   * agendado de la etapa que deja SÍ se cierra (cerrar no manda nada: frena lo que iba a salir).
+   *
+   * Lo usa UN caso: quitar una etapa del kanban desde el curso, que muda a sus clientes a la que
+   * elige el equipo. Nadie movió a esos clientes por algo que les pasó a ELLOS: una secuencia de
+   * «¡llegaste a Hito 2!» sería mentira, y con el WhatsApp del ws1 prendido, saldría.
+   */
+  silencioso?: boolean;
 };
 
 export type Movimiento = {
@@ -212,6 +224,24 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
     if (!((leads ?? []) as Array<{ id: number }>)[0]) return fallo(pedido, 'Ese cliente no existe.', prod.nombre);
   }
 
+  // ── 4b. EN SILENCIO: los mensajes de la etapa nueva se frenan ANTES de mover ──
+  // (ver `PedidoMovimiento.silencioso`). ⚠️ ANTES y FAIL-CLOSED (revisión final del 08/10/2026): con el
+  // bloqueo después de la columna, si `silenciarEntregaDeEtapa` tiraba (no pudo leer las secuencias) el
+  // cliente quedaba movido y sin bloqueo, y la red del cron lo enrolaba en la próxima corrida —el mensaje
+  // que este modo existe para no mandar, con el WhatsApp del ws1 prendido—; y entre las dos escrituras el
+  // cron podía pasar igual. Sin poder frenarlos, no se mueve («no pude mover N clientes»).
+  // Lo que cuesta: si la columna después no se escribe, quedan bloqueadas las secuencias de una etapa a
+  // la que no llegó — el mismo efecto que ya deja un movimiento silencioso que sí llegó.
+  if (pedido.silencioso) {
+    try {
+      const { silenciarEntregaDeEtapa } = await import('./nutricion');
+      await silenciarEntregaDeEtapa(pedido.leadId, hacia, pedido.productoId);
+    } catch (e) {
+      console.error(`[cs-mover-etapa] no pude frenar las secuencias de «${hacia}» para el cliente ${pedido.leadId}: no lo muevo:`, e instanceof Error ? e.message : String(e));
+      return fallo(pedido, 'No pude frenar sus mensajes.', prod.nombre);
+    }
+  }
+
   // ── 5. Se fija la COLUMNA, y recién después se escribe la línea ─────────────
   // Este orden es el de lib/etapa-historial.ts y por la misma razón: si algo falla en
   // el medio, el peor caso es perder una línea del historial — nunca mover al cliente
@@ -257,6 +287,19 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
     autor: por,
   }]);
   if (errAudit) console.error(`[cs-mover-etapa] el movimiento se guardó pero la línea de historial falló: ${errAudit.message}`);
+
+  // SILENCIOSO (ver `PedidoMovimiento.silencioso`): las secuencias de la nueva ya se bloquearon antes de
+  // mover (paso 4b); acá se cierra lo agendado de la etapa que deja, y NO se enrola. Cerrar es
+  // best-effort, como el enrolamiento: el cliente ya se movió, y un fallo queda en el log con su nombre.
+  if (pedido.silencioso) {
+    try {
+      const { cerrarEntregaDeEtapa } = await import('./nutricion');
+      await cerrarEntregaDeEtapa(pedido.leadId, desde, pedido.productoId);
+    } catch (e) {
+      console.error(`[cs-mover-etapa] el cliente ${pedido.leadId} se movió en silencio a «${hacia}» pero no pude cerrar lo agendado de «${desde ?? '—'}»:`, e instanceof Error ? e.message : String(e));
+    }
+    return { ...base, cambio: true };
+  }
 
   /**
    * LAS SECUENCIAS DE LA ENTREGA, enganchadas donde pide la cabecera: en el único

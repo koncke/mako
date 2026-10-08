@@ -39,24 +39,59 @@
 //    se corre con cada cambio del documento (`transaction.mapping`), no se guarda fija.
 // 4. LA BARRA DE PROGRESO LA ALIMENTA UN XHR (lo arma quien pasa `subirAdjunto`, con
 //    `subirConProgreso`): `fetch` no expone el progreso de subida (AGENTS.md, «tres topes»).
-// 5. LOS PANELES (color, resaltado, enlace) SE PORTALEAN AL BODY y se registran en la pila de
-//    modales (`useCapaModal`, anidada): el editor puede vivir adentro de una caja con `overflow` o
-//    de un modal, y un Escape en el panel no puede cerrar el modal de abajo.
+// 5. LOS PANELES (color, resaltado, enlace, «Más», tabla) SE PORTALEAN AL BODY y se registran en
+//    la pila de modales (`useCapaModal`, anidada): el editor puede vivir adentro de una caja con
+//    `overflow` o de un modal, y un Escape en el panel no puede cerrar el modal de abajo.
+//
+// ── LA TANDA DEL 08/10/2026 (items 3, 4 y 10 del pedido de Martín) ──────────
+// 6. LA BARRA ES UN SOLO RENGLÓN, SIEMPRE. «Intenta que las opciones en la barra de edición no se
+//    salten de línea... Que si tiene mucho zoom que haya un desplegable». Lo que no entra va al
+//    botón «Más» del final. Cuántas entran lo decide `repartoDeBarra` (editor-rico-reglas.ts) con
+//    los anchos de una REGLA escondida que dibuja todas las piezas siempre —nunca con la barra,
+//    donde las que se fueron a «Más» no están: medir lo que la decisión cambia es un ping-pong—, y
+//    se vuelve a decidir cuando cambia el ancho de la barra (`ResizeObserver`) o la ventana (el
+//    zoom es una ventana más angosta en px CSS). Las piezas son UNA lista: la barra y «Más» dibujan
+//    la misma, así un botón nuevo aparece en los dos lugares sin que nadie se acuerde.
+// 7. UNA IMAGEN TIENE TAMAÑO. «Si subo una imagen en la descripción se ve enorme, no tengo manera de
+//    editar el tamaño». Seleccionada, muestra 25 / 50 / 75 / 100 %, izquierda o centro, quitar, y
+//    una esquina para arrastrar (salta de a 5 %). Se guarda en `data-ancho` / `data-alinea`, con
+//    los valores de una lista cerrada (`ANCHOS_IMAGEN`, HtmlSeguro.tsx): nunca un `style`. Y una
+//    imagen NUEVA entra a su tamaño natural o al 60 % del texto, lo que sea menos.
+// 8. TABLAS. «Y también falta una opción en la descripción de agregar tabla». La extensión oficial
+//    de TipTap (`@tiptap/extension-table`, la misma versión que el resto). Con el cursor adentro,
+//    el botón «Tabla» y un botón en la esquina de la tabla abren filas, columnas, títulos y borrar.
+// 9. BORRAR UNA TABLA O SACAR UNA IMAGEN CON UN BOTÓN DEJA 5 SEGUNDOS DE «DESHACER» (item 18), que
+//    vuelve a poner el MISMO nodo donde estaba (corrido con cada cambio, como las subidas): así el
+//    deshacer no se lleva lo que se escribió después, que es lo que haría el Ctrl+Z. Y como el
+//    editor guarda solo, deshacer también escribe en el server.
+// 10. LA LETRA ES LA DEL CURSO (item 3): ver `CSS_RICO`. El editor no pone familia propia.
+// 11. EL TEXTO NO LLEVA EL ARO DEL CURSO (revisión final del 08/10/2026). La hoja del curso pinta
+//    `.ahdoc .ugc [tabindex]:focus-visible` con un contorno de 3 px en tinta, y ProseMirror lleva
+//    `tabindex` (y un contentEditable cuenta como `:focus-visible` hasta con el mouse): cada clic en la
+//    descripción dibujaba un marco negro adentro del aro azul de `:focus-within` — medido en el banco de
+//    la lección real, `outline: solid 3px` con foco. La regla del curso pesa 4 (dos clases, el
+//    atributo y la pseudoclase) y la hoja del curso carga DESPUÉS: con 4 contra 4 ganaba ella (medido).
+//    Por eso la clase del editor va DOBLE: 5 contra 4, sin depender del orden de las hojas.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as EventoTecla, type ReactNode, type Ref, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor, useEditorState, EditorContent, type Editor } from '@tiptap/react';
-import { Extension, Node as NodoTiptap, createDocument } from '@tiptap/core';
+import { Extension, Node as NodoTiptap, createDocument, type JSONContent } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
+import { closeHistory, undoDepth } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle, Color } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
+import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
 import { Placeholder } from '@tiptap/extensions';
 import { Dropdown } from '@/app/components/Dropdown';
 import { useCapaModal } from '@/app/_components/pila-modales';
-import { CSS_RICO, idDeRef, urlDibujable } from './HtmlSeguro';
+import { CSS_RICO, idDeRef, urlDibujable, anchoDeImagen, alineaDeImagen, type AlineaImagen } from './HtmlSeguro';
+import { repartoDeBarra, recortarSeparadores, anchoDeArrastre, anchoInicialDeImagen } from './editor-rico-reglas';
+import { Toast, useToast } from './Toast';
 
 // ── El contrato ──────────────────────────────────────────────────────────────
 
@@ -228,6 +263,29 @@ const ImagenAdjunto = Image.extend<{ ctx: CtxAdjuntos | null; inline: boolean; a
   addOptions() {
     return { inline: false, allowBase64: false, HTMLAttributes: {}, resize: false, ctx: null };
   },
+  // El tamaño y la alineación (item 10): lo que no es EXACTAMENTE un valor de la lista no se lee,
+  // y lo que no se lee no se escribe. Sin atributo, la imagen va a su tamaño natural, como antes.
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      ancho: {
+        default: null,
+        parseHTML: (el: HTMLElement) => anchoDeImagen(el.getAttribute('data-ancho')),
+        renderHTML: (a: Record<string, unknown>) => {
+          const n = anchoDeImagen(a.ancho);
+          return n ? { 'data-ancho': String(n) } : {};
+        },
+      },
+      alinea: {
+        default: null,
+        parseHTML: (el: HTMLElement) => alineaDeImagen(el.getAttribute('data-alinea')),
+        renderHTML: (a: Record<string, unknown>) => {
+          const al = alineaDeImagen(a.alinea);
+          return al ? { 'data-alinea': al } : {};
+        },
+      },
+    };
+  },
   addNodeView() {
     const ctx = this.options.ctx;
     return ({ node }) => {
@@ -240,6 +298,12 @@ const ImagenAdjunto = Image.extend<{ ctx: CtxAdjuntos | null; inline: boolean; a
         else { img.removeAttribute('src'); img.classList.add('mk-rico-img-pendiente'); }
         img.alt = String(actual.attrs.alt ?? '');
         if (actual.attrs.title) img.title = String(actual.attrs.title); else img.removeAttribute('title');
+        // El ancho lo dibuja `CSS_RICO` desde el atributo, igual que en la lectura: la imagen se ve
+        // en el editor al mismo tamaño que la va a ver el alumno.
+        const ancho = anchoDeImagen(actual.attrs.ancho);
+        if (ancho) img.dataset.ancho = String(ancho); else delete img.dataset.ancho;
+        const alinea = alineaDeImagen(actual.attrs.alinea);
+        if (alinea) img.dataset.alinea = alinea; else delete img.dataset.alinea;
       };
       pintar();
       ctx?.vivas.add(pintar);
@@ -364,17 +428,36 @@ const I = {
   clip: <Ico d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />,
   resaltar: <Ico d="m9 11-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />,
   cerrar: <Ico d="M18 6 6 18M6 6l12 12" />,
+  tabla: <Ico><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 10v10M15 10v10" /></Ico>,
+  mas: <Ico><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></Ico>,
+  basura: <Ico d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" />,
+  filaArriba: <Ico d="M4 14h16M4 20h16M12 11V3M8.5 6.5 12 3l3.5 3.5" />,
+  filaAbajo: <Ico d="M4 4h16M4 10h16M12 13v8M8.5 17.5 12 21l3.5-3.5" />,
+  colIzquierda: <Ico d="M14 4v16M20 4v16M11 12H3M6.5 8.5 3 12l3.5 3.5" />,
+  colDerecha: <Ico d="M4 4v16M10 4v16M13 12h8M17.5 8.5 21 12l-3.5 3.5" />,
+  sacarFila: <Ico><rect x="3" y="9" width="18" height="6" rx="1" /><path d="M9 12h6" /></Ico>,
+  sacarCol: <Ico><rect x="9" y="3" width="6" height="18" rx="1" /><path d="M12 9v6" /></Ico>,
+  titulos: <Ico><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9.5h18M7 7h4" /></Ico>,
+  parrafo: <span aria-hidden="true" style={{ fontWeight: 600, fontSize: 14 }}>¶</span>,
+  titulo: <span aria-hidden="true" style={{ fontWeight: 800, fontSize: 15 }}>T</span>,
+  subtitulo: <span aria-hidden="true" style={{ fontWeight: 700, fontSize: 12 }}>T</span>,
 };
+
+/** El ancho del selector «Párrafo / Título / Subtítulo»: lo usan el selector y su lugar en la regla. */
+const ANCHO_BLOQUE = 118;
 
 // ── Los estilos del editor (los de LECTURA vienen de CSS_RICO) ───────────────
 // ⚠️ SIN COMILLAS INVERTIDAS NI SIGNO DE PESOS CON LLAVE adentro: es una cadena (AGENTS.md).
 
 const CSS_EDITOR = `
-.mk-editor-rico { position: relative; border: 1px solid var(--border-strong, #DCE0E7); border-radius: var(--r-md, 11px); background: var(--surface, #FFFFFF); color: var(--ink, #12151B); }
+.mk-editor-rico { position: relative; min-width: 0; border: 1px solid var(--border-strong, #DCE0E7); border-radius: var(--r-md, 11px); background: var(--surface, #FFFFFF); color: var(--ink, #12151B); --mk-er-gap: 2px; }
 .mk-editor-rico:focus-within { border-color: var(--primary, #2F6FED); box-shadow: 0 0 0 3px var(--primary-bg, #EAF1FE); }
 .mk-editor-rico.es-arrastre { border-color: var(--primary, #2F6FED); border-style: dashed; }
-.mk-editor-rico .mk-er-barra { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px 6px; background: var(--surface, #FFFFFF); border-bottom: 1px solid var(--border, #EAECF1); border-radius: var(--r-md, 11px) var(--r-md, 11px) 0 0; }
-.mk-editor-rico .mk-er-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--border, #EAECF1); flex: none; }
+.mk-editor-rico .mk-er-barra { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: nowrap; align-items: center; gap: var(--mk-er-gap); min-width: 0; padding: 5px 6px; overflow: hidden; contain: inline-size; background: var(--surface, #FFFFFF); border-bottom: 1px solid var(--border, #EAECF1); border-radius: var(--r-md, 11px) var(--r-md, 11px) 0 0; }
+.mk-editor-rico .mk-er-regla { position: absolute; top: 0; left: 0; display: flex; flex-wrap: nowrap; align-items: center; gap: var(--mk-er-gap); width: max-content; visibility: hidden; pointer-events: none; }
+.mk-editor-rico .mk-er-sep { flex: none; width: 9px; height: 18px; background: linear-gradient(var(--border, #EAECF1), var(--border, #EAECF1)) center / 1px 100% no-repeat; }
+.mk-editor-rico .mk-er-bloque { flex: none; display: inline-flex; align-items: center; }
+.mk-editor-rico .mk-er-btn.mk-er-mas { margin-left: auto; }
 .mk-editor-rico .mk-er-btn { width: 30px; height: 30px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--r-sm, 8px); background: transparent; color: var(--dim, #454C57); cursor: pointer; font-family: inherit; font-size: 14px; line-height: 1; padding: 0; transition: background .12s ease, color .12s ease; }
 .mk-editor-rico .mk-er-btn:hover:not(:disabled) { background: var(--velo-hover, rgba(18,21,27,.055)); color: var(--ink, #12151B); }
 .mk-editor-rico .mk-er-btn[aria-pressed="true"] { background: var(--primary-bg, #EAF1FE); color: var(--primary, #2F6FED); }
@@ -382,10 +465,26 @@ const CSS_EDITOR = `
 .mk-editor-rico .mk-er-btn:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #FFFFFF, 0 0 0 4px #2F6FED); }
 .mk-editor-rico .mk-er-btn .mk-er-raya { display: block; width: 14px; height: 3px; border-radius: 2px; margin-top: 2px; }
 .mk-editor-rico .ProseMirror { outline: none; padding: 12px 14px 14px; min-height: var(--mk-er-min, 140px); cursor: text; }
+.mk-editor-rico.mk-editor-rico .ProseMirror[contenteditable]:focus-visible { outline: none; }
 .mk-editor-rico .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--faint, #66707F); }
 .mk-editor-rico .ProseMirror img { cursor: default; }
 .mk-editor-rico .ProseMirror img.ProseMirror-selectednode, .mk-editor-rico .ProseMirror .mk-adjunto.ProseMirror-selectednode { outline: 2px solid var(--primary, #2F6FED); outline-offset: 2px; }
 .mk-editor-rico .ProseMirror .mk-rico-img-pendiente { width: 100%; min-height: 96px; background: var(--surface-2, #F5F7FA); border: 1px dashed var(--border-strong, #DCE0E7); }
+.mk-editor-rico .ProseMirror .selectedCell { position: relative; }
+.mk-editor-rico .ProseMirror .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgba(47, 111, 237, .14); pointer-events: none; }
+.mk-editor-rico .mk-er-img-barra { position: absolute; z-index: 1; display: flex; align-items: center; gap: 2px; padding: 3px; white-space: nowrap; border-radius: var(--r-sm, 8px); background: var(--surface, #FFFFFF); border: 1px solid var(--border-strong, #DCE0E7); box-shadow: 0 6px 18px rgba(18, 21, 27, .18); }
+.mk-editor-rico .mk-er-img-op { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 26px; min-width: 26px; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: var(--dim, #454C57); font-family: inherit; font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; cursor: pointer; }
+.mk-editor-rico .mk-er-img-op:hover { background: var(--velo-hover, rgba(18, 21, 27, .055)); color: var(--ink, #12151B); }
+.mk-editor-rico .mk-er-img-op[aria-pressed="true"] { background: var(--primary-bg, #EAF1FE); color: var(--primary, #2F6FED); }
+.mk-editor-rico .mk-er-img-op:focus-visible, .mk-editor-rico .mk-er-img-asa:focus-visible, .mk-editor-rico .mk-er-tabla-chip:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #FFFFFF, 0 0 0 4px #2F6FED); }
+.mk-editor-rico .mk-er-img-sep { flex: none; width: 1px; height: 16px; margin: 0 3px; background: var(--border, #EAECF1); }
+.mk-editor-rico .mk-er-img-asa { position: absolute; z-index: 1; width: 14px; height: 14px; padding: 0; border: 2px solid var(--surface, #FFFFFF); border-radius: 4px; background: var(--primary, #2F6FED); box-shadow: 0 1px 4px rgba(18, 21, 27, .35); cursor: nwse-resize; touch-action: none; }
+.mk-editor-rico .mk-er-img-pct { position: absolute; z-index: 1; padding: 3px 7px; border-radius: 6px; background: var(--ink, #12151B); color: #FFFFFF; font-size: 11px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; opacity: 0; pointer-events: none; }
+.mk-editor-rico.es-redimension .mk-er-img-barra { opacity: 0; pointer-events: none; }
+.mk-editor-rico.es-redimension .mk-er-img-pct { opacity: 1; }
+.mk-editor-rico.es-redimension, .mk-editor-rico.es-redimension * { cursor: nwse-resize !important; }
+.mk-editor-rico .mk-er-tabla-chip { position: absolute; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--border-strong, #DCE0E7); border-radius: 999px; background: var(--surface, #FFFFFF); color: var(--dim, #454C57); box-shadow: 0 2px 8px rgba(18, 21, 27, .16); cursor: pointer; }
+.mk-editor-rico .mk-er-tabla-chip:hover, .mk-editor-rico .mk-er-tabla-chip[aria-expanded="true"] { color: var(--primary, #2F6FED); border-color: var(--primary, #2F6FED); }
 .mk-editor-rico .ProseMirror ul[data-type="taskList"] > li::before { display: none; }
 .mk-editor-rico .ProseMirror ul[data-type="taskList"] > li > label { flex: none; display: inline-flex; margin-top: .3em; user-select: none; text-decoration: none; }
 .mk-editor-rico .ProseMirror ul[data-type="taskList"] > li > label > input { width: 1.05em; height: 1.05em; margin: 0; cursor: pointer; accent-color: var(--good, #1E9E57); }
@@ -411,12 +510,24 @@ const CSS_EDITOR = `
 .mk-er-flota .mk-er-quitar:hover { background: var(--velo-hover, rgba(18,21,27,.055)); }
 .mk-er-flota .mk-er-input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border: 1px solid var(--border-strong, #DCE0E7); border-radius: var(--r-sm, 8px); background: var(--surface, #FFFFFF); color: inherit; font: inherit; outline: none; }
 .mk-er-flota .mk-er-input:focus { border-color: var(--primary, #2F6FED); box-shadow: 0 0 0 3px var(--primary-bg, #EAF1FE); }
-.mk-er-flota .mk-er-fila { display: flex; gap: 6px; margin-top: 8px; }
+.mk-er-flota .mk-er-acciones { display: flex; gap: 6px; margin-top: 8px; }
 .mk-er-flota .mk-er-accion { height: 30px; padding: 0 12px; border-radius: var(--r-sm, 8px); border: 1px solid var(--border, #EAECF1); background: transparent; color: var(--dim, #454C57); cursor: pointer; font: inherit; }
 .mk-er-flota .mk-er-accion:hover { background: var(--velo-hover, rgba(18,21,27,.055)); }
 .mk-er-flota .mk-er-accion.es-primaria { background: var(--primary, #2F6FED); border-color: var(--primary, #2F6FED); color: var(--on-primary, #FFFFFF); }
 .mk-er-flota .mk-er-accion.es-primaria:hover { background: var(--primary-strong, #245FD6); }
 .mk-er-flota .mk-er-error { margin-top: 6px; color: var(--bad, #D0504A); font-size: var(--fs-meta, 12px); }
+.mk-er-flota .mk-er-menu { display: flex; flex-direction: column; gap: 1px; margin: -4px; max-height: min(70vh, 480px); overflow-y: auto; }
+.mk-er-flota .mk-er-fila { flex: none; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 0 8px; border: 0; border-radius: var(--r-sm, 8px); background: transparent; color: var(--ink, #12151B); font: inherit; text-align: left; cursor: pointer; }
+.mk-er-flota .mk-er-fila:hover:not(:disabled), .mk-er-flota .mk-er-fila:focus-visible { background: var(--velo-hover, rgba(18, 21, 27, .055)); outline: none; }
+.mk-er-flota .mk-er-fila[aria-checked="true"] { color: var(--primary, #2F6FED); font-weight: 600; }
+.mk-er-flota .mk-er-fila:disabled { opacity: .4; cursor: default; }
+.mk-er-flota .mk-er-fila.es-peligro { color: var(--bad, #D0504A); }
+.mk-er-flota .mk-er-fila-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; color: var(--dim, #454C57); }
+.mk-er-flota .mk-er-fila[aria-checked="true"] .mk-er-fila-ico, .mk-er-flota .mk-er-fila.es-peligro .mk-er-fila-ico { color: inherit; }
+.mk-er-flota .mk-er-fila-txt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-er-flota .mk-er-fila-atajo { flex: none; font-size: var(--fs-meta, 12px); color: var(--faint, #66707F); font-variant-numeric: tabular-nums; }
+.mk-er-flota .mk-er-menu-sep { flex: none; height: 1px; margin: 4px 2px; background: var(--border, #EAECF1); }
+.mk-er-flota .mk-er-raya { display: block; width: 14px; height: 3px; border-radius: 2px; margin-top: 2px; }
 `;
 
 // ── El panel flotante (color, resaltado, enlace) ─────────────────────────────
@@ -499,6 +610,55 @@ function Flotante({ ancla, onCerrar, children, etiqueta, ancho = 220 }: {
 
 type Subida = { id: string; nombre: string; pct: number | null; error?: string };
 
+// ── Medidas del DOM (las decisiones viven en editor-rico-reglas.ts) ──────────
+
+const num = (s: string | null | undefined): number => parseFloat(s ?? '') || 0;
+
+/** El ancho del TEXTO del editor (sin su relleno), en px CSS: contra eso se mide el % de una imagen. */
+function anchoDelTexto(e: Editor | null): number | null {
+  if (!e || e.isDestroyed) return null;
+  const pm = e.view.dom as HTMLElement;
+  const cs = getComputedStyle(pm);
+  const w = pm.clientWidth - num(cs.paddingLeft) - num(cs.paddingRight);
+  return w > 0 ? w : null;
+}
+
+/**
+ * El ancho natural de una imagen recién subida, leído de su `blob:` (ya está en memoria: tarda nada).
+ * Con un tope de tiempo: si no carga, la imagen entra igual, al ancho por default.
+ * (Con `createElement` y no `new Image()`: `Image` acá es la extensión de TipTap.)
+ */
+function anchoNatural(url: string): Promise<number | null> {
+  return new Promise((ok) => {
+    const img = document.createElement('img');
+    const t = window.setTimeout(() => ok(null), 3000);
+    img.onload = () => { window.clearTimeout(t); ok(img.naturalWidth || null); };
+    img.onerror = () => { window.clearTimeout(t); ok(null); };
+    img.src = url;
+  });
+}
+
+/** Dónde empieza la tabla en la que está el cursor (o la selección de celdas), o `null`. */
+function posDeTabla(e: Editor): number | null {
+  const { $from } = e.state.selection;
+  for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.name === 'table') return $from.before(d);
+  return null;
+}
+
+type TipoPanel = 'color' | 'resaltado' | 'enlace' | 'mas' | 'tabla';
+
+/**
+ * Una pieza de la barra. La barra y el menú «Más» dibujan la MISMA lista: lo que no entra en una
+ * va al otro, con el mismo nombre y la misma acción. `abre` = la acción abre un panel propio (color,
+ * resaltado, enlace, tabla), así que desde «Más» no lo cierra: lo reemplaza.
+ */
+type PiezaBoton = {
+  tipo: 'boton'; id: string; nombre: string; atajo?: string; icono: ReactNode;
+  activo?: boolean; apagado?: boolean; abre?: boolean; recorrido?: string; refBoton?: Ref<HTMLButtonElement>;
+  accion: (el: HTMLElement) => void;
+};
+type Pieza = PiezaBoton | { tipo: 'sep'; id: string; sep: true } | { tipo: 'bloque'; id: string };
+
 // ── El editor ────────────────────────────────────────────────────────────────
 
 export function EditorRico({
@@ -517,15 +677,31 @@ export function EditorRico({
   const imagenesFueraDelPegado = useRef(0);
   const abrirEnlaceRef = useRef<() => void>(() => {});
   const editorRef = useRef<Editor | null>(null);
+  /**
+   * Lo último que se sacó con un botón (una tabla, una imagen) y dónde estaba, con la posición
+   * CORRIDA con cada cambio (como las subidas): es lo que vuelve a poner «Deshacer».
+   */
+  const sacado = useRef<{ pos: number; nodo: JSONContent; profundidad: number } | null>(null);
 
   const [subidas, setSubidas] = useState<Subida[]>([]);
   const [aviso, setAviso] = useState<string | null>(null);
   const [arrastre, setArrastre] = useState(false);
-  const [panel, setPanel] = useState<null | { tipo: 'color' | 'resaltado' | 'enlace'; ancla: HTMLElement }>(null);
+  const [panel, setPanel] = useState<null | { tipo: TipoPanel; ancla: HTMLElement }>(null);
   const [mod, setMod] = useState('Ctrl');
+  /** Cuántas piezas de la barra se ven; las demás están en «Más». Lo decide `repartoDeBarra`. */
+  const [visibles, setVisibles] = useState(Number.POSITIVE_INFINITY);
+  /** ¿El foco está adentro del editor? Los controles de la imagen y de la tabla viven sólo mientras tanto. */
+  const [enfocado, setEnfocado] = useState(false);
+  const { toast, show: mostrarToast, clear: cerrarToast } = useToast();
   const inputImagen = useRef<HTMLInputElement | null>(null);
   const inputArchivo = useRef<HTMLInputElement | null>(null);
   const botonEnlace = useRef<HTMLButtonElement | null>(null);
+  const botonMas = useRef<HTMLButtonElement | null>(null);
+  /** «Más» abierto con el teclado: el foco va a la primera opción (con el mouse se queda en el texto). */
+  const masPorTeclado = useRef(false);
+  const raizRef = useRef<HTMLDivElement | null>(null);
+  const barraRef = useRef<HTMLDivElement | null>(null);
+  const reglaRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { onCambioRef.current = onCambio; }, [onCambio]);
   useEffect(() => { subirRef.current = subirAdjunto; }, [subirAdjunto]);
@@ -557,14 +733,20 @@ export function EditorRico({
       setSubidas((s) => [...s, { id, nombre: file.name, pct: null }]);
       const local = esImagen(file.type) ? URL.createObjectURL(file) : null;
       subir(file, (pct) => setSubidas((s) => s.map((x) => (x.id === id ? { ...x, pct: Math.max(0, Math.min(100, Math.round(pct))) } : x))))
-        .then((r) => {
+        .then(async (r) => {
           if (!r || !idDeRef(r.ref)) throw new Error('No se pudo adjuntar.');
+          // Una imagen nueva entra a un ancho razonable (item 10): «se ve enorme» era una captura
+          // de 1.920 px ocupando todo el texto. Se mide ANTES de leer el destino: mientras carga,
+          // el destino se sigue corriendo con lo que se escriba.
+          const ancho = esImagen(r.mime)
+            ? anchoInicialDeImagen(local ? await anchoNatural(local) : null, anchoDelTexto(editorRef.current))
+            : null;
           const e = editorRef.current;
           if (!e || e.isDestroyed) return;
           const donde = Math.max(0, Math.min(destinos.current.get(id) ?? e.state.selection.to, e.state.doc.content.size));
           if (esImagen(r.mime)) {
             if (local) ctx.current!.locales.set(r.ref, local);
-            e.chain().insertContentAt(donde, { type: 'image', attrs: { src: r.ref, alt: r.nombre } }).run();
+            e.chain().insertContentAt(donde, { type: 'image', attrs: { src: r.ref, alt: r.nombre, ancho } }).run();
           } else {
             if (local) URL.revokeObjectURL(local);
             e.chain().insertContentAt(donde, [{ type: 'adjuntoArchivo', attrs: { ref: r.ref, nombre: r.nombre } }, { type: 'text', text: ' ' }]).run();
@@ -602,6 +784,12 @@ export function EditorRico({
     TaskItem.configure({ nested: true, a11y: { checkboxLabel: (n, hecho) => `${hecho ? 'Hecha' : 'Pendiente'}: ${n.textContent || 'tarea vacía'}` } }),
     ImagenAdjunto.configure({ ctx: ctx.current }),
     ChipAdjunto,
+    // Las tablas (item 10). Sin columnas redimensionables: el ancho de cada columna en px no pasa el
+    // saneo (no tiene sentido en un teléfono), y la tabla se reparte el ancho sola.
+    Table.configure({ resizable: false }),
+    TableRow,
+    TableHeader,
+    TableCell,
     Placeholder.configure({ placeholder }),
     AtajosMako.configure({ abrirEnlace: () => abrirEnlaceRef.current() }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -656,8 +844,10 @@ export function EditorRico({
     onCreate: ({ editor: e }) => { editorRef.current = e; },
     onDestroy: () => { editorRef.current = null; },
     onTransaction: ({ transaction }) => {
-      if (!transaction.docChanged || !destinos.current.size) return;
+      if (!transaction.docChanged) return;
       for (const [k, p] of destinos.current) destinos.current.set(k, transaction.mapping.map(p));
+      const s = sacado.current;
+      if (s) sacado.current = { ...s, pos: transaction.mapping.map(s.pos) };
     },
     onUpdate: ({ editor: e }) => {
       const html = e.getHTML();
@@ -712,20 +902,66 @@ export function EditorRico({
         resaltado: (e.getAttributes('highlight').color as string | undefined) ?? (e.isActive('highlight') ? '#FEF08A' : null),
         deshacer: e.can().undo(),
         rehacer: e.can().redo(),
+        imagen: imagenElegida(e),
+        tabla: tablaDelCursor(e),
       };
     },
   });
 
   const abrirEnlace = useCallback(() => {
-    if (soloLectura || !botonEnlace.current) return;
-    setPanel({ tipo: 'enlace', ancla: botonEnlace.current });
+    // Si «Enlace» se fue a «Más», el panel se ancla a «Más»: Ctrl+K no puede dejar de andar porque
+    // la ventana se achicó.
+    const ancla = botonEnlace.current ?? botonMas.current ?? barraRef.current;
+    if (soloLectura || !ancla) return;
+    setPanel({ tipo: 'enlace', ancla });
   }, [soloLectura]);
   useEffect(() => { abrirEnlaceRef.current = abrirEnlace; }, [abrirEnlace]);
 
   const cerrarPanel = useCallback(() => setPanel(null), []);
+  const alternarPanel = (tipo: TipoPanel, ancla: HTMLElement) => setPanel((p) => (p?.tipo === tipo ? null : { tipo, ancla }));
   // `null` mientras el editor no existe (el primer render, que también es el del server): un clic
   // en la barra en ese instante no hace nada, en vez de tirar la pantalla.
   const cadena = () => (editor && !editor.isDestroyed ? editor.chain().focus() : null);
+
+  // El menú de la tabla no sobrevive a salir de la tabla (lo que hace ya no tiene sobre qué), y un
+  // panel anclado a un botón que se fue a «Más» (la ventana se achicó) queda flotando en la nada.
+  const enTabla = !!estado?.tabla;
+  useEffect(() => {
+    if (!panel) return;
+    if ((panel.tipo === 'tabla' && !enTabla) || !panel.ancla.isConnected) setPanel(null);
+  }, [panel, enTabla, visibles]);
+
+  /**
+   * Saca un nodo (la tabla o la imagen) y deja 5 segundos de «Deshacer» (item 18). Deshacer vuelve a
+   * poner EL MISMO nodo donde estaba —corrido con lo que se haya escrito después—, no un Ctrl+Z, que
+   * se llevaría lo último que se tipeó. Como el editor guarda solo, deshacer escribe en el server.
+   */
+  const sacarConDeshacer = useCallback((pos: number, aviso: string) => {
+    const e = editorRef.current;
+    if (!e || e.isDestroyed) return;
+    const nodo = e.state.doc.nodeAt(pos);
+    if (!nodo) return;
+    sacado.current = { pos, nodo: nodo.toJSON() as JSONContent, profundidad: 0 };
+    e.chain().focus().deleteRange({ from: pos, to: pos + nodo.nodeSize }).run();
+    if (sacado.current) sacado.current = { ...sacado.current, profundidad: undoDepth(e.state) };
+    const deshacer = () => {
+      const s = sacado.current;
+      sacado.current = null;
+      const ed = editorRef.current;
+      if (!s || !ed || ed.isDestroyed) return;
+      // ⚠️ SI UN Ctrl+Z YA LO DEVOLVIÓ, NO SE PONE OTRA VEZ (revisión final del 08/10/2026): borrar con
+      //    el botón es también un paso del historial, así que un Ctrl+Z dentro de los 5 segundos ya
+      //    devuelve el nodo, y apretar además «Deshacer» dejaba DOS tablas iguales. Se sabe mirando la
+      //    PROFUNDIDAD del historial: es una pila, así que el borrado sólo se deshizo si quedó por debajo
+      //    de lo que medía justo después de borrar (deshacer lo que se tipeó después no baja de ahí).
+      if (undoDepth(ed.state) < s.profundidad) return;
+      ed.chain().focus().insertContentAt(Math.max(0, Math.min(s.pos, ed.state.doc.content.size)), s.nodo).run();
+    };
+    // ⚠️ EL TOAST ES DEL EDITOR, no de quien lo monta: uno de afuera puede vivir más que el editor
+    //    (se cambia de clase en esos 5 segundos) y ahí «Deshacer» no tendría dónde volver a poner el
+    //    nodo — un botón que no deshace nada. El propio se va con el editor.
+    mostrarToast(aviso, deshacer);
+  }, [mostrarToast]);
 
   const alElegirArchivos = (lista: FileList | null, input: HTMLInputElement | null) => {
     const files = Array.from(lista ?? []);
@@ -736,10 +972,132 @@ export function EditorRico({
   const puedeAdjuntar = !!subirAdjunto && !soloLectura;
   const enCurso = subidas.length > 0;
 
+  const aplicarBloque = (v: string) => {
+    if (v === 'h2') cadena()?.setHeading({ level: 2 }).run();
+    else if (v === 'h3') cadena()?.setHeading({ level: 3 }).run();
+    else cadena()?.setParagraph().run();
+  };
+
+  // ── Las piezas de la barra, en orden: lo más usado primero, porque lo que no entra se va a
+  //    «Más» desde el final. Las marcas (negrita, cursiva…) antes que el selector de párrafo, que
+  //    mide como cuatro botones: en una columna angosta, la negrita es lo que tiene que quedar a
+  //    mano. Insertar (enlace, imagen, archivo, tabla) va antes que las listas y la alineación: es
+  //    lo que se pidió que se vea.
+  const sep = (id: string): Pieza => ({ tipo: 'sep', id, sep: true });
+  const piezas: Pieza[] = [
+    { tipo: 'boton', id: 'deshacer', nombre: 'Deshacer', atajo: `${mod}+Z`, icono: I.deshacer, apagado: !estado?.deshacer, accion: () => cadena()?.undo().run() },
+    { tipo: 'boton', id: 'rehacer', nombre: 'Rehacer', atajo: `${mod}+Shift+Z`, icono: I.rehacer, apagado: !estado?.rehacer, accion: () => cadena()?.redo().run() },
+    sep('s-marcas'),
+    { tipo: 'boton', id: 'negrita', nombre: 'Negrita', atajo: `${mod}+B`, icono: <b style={{ fontWeight: 800 }}>B</b>, activo: estado?.negrita, accion: () => cadena()?.toggleBold().run() },
+    { tipo: 'boton', id: 'cursiva', nombre: 'Cursiva', atajo: `${mod}+I`, icono: <i style={{ fontFamily: 'Georgia, serif', fontSize: 15 }}>I</i>, activo: estado?.cursiva, accion: () => cadena()?.toggleItalic().run() },
+    { tipo: 'boton', id: 'subrayado', nombre: 'Subrayado', atajo: `${mod}+U`, icono: <span style={{ textDecoration: 'underline', textUnderlineOffset: 2 }}>U</span>, activo: estado?.subrayado, accion: () => cadena()?.toggleUnderline().run() },
+    { tipo: 'boton', id: 'tachado', nombre: 'Tachado', atajo: `${mod}+Shift+S`, icono: <span style={{ textDecoration: 'line-through' }}>S</span>, activo: estado?.tachado, accion: () => cadena()?.toggleStrike().run() },
+    {
+      tipo: 'boton', id: 'color', nombre: 'Color del texto', activo: !!estado?.color, abre: true, accion: (el) => alternarPanel('color', el),
+      icono: (
+        <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', fontWeight: 700 }}>
+          A<span className="mk-er-raya" style={{ background: estado?.color ?? 'var(--ink, #12151B)' }} />
+        </span>
+      ),
+    },
+    {
+      tipo: 'boton', id: 'resaltar', nombre: 'Resaltar', activo: !!estado?.resaltado, abre: true, accion: (el) => alternarPanel('resaltado', el),
+      icono: (
+        <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+          {I.resaltar}<span className="mk-er-raya" style={{ background: estado?.resaltado ?? 'transparent', marginTop: 1 }} />
+        </span>
+      ),
+    },
+    sep('s-bloque'),
+    { tipo: 'bloque', id: 'bloque' },
+    sep('s-insertar'),
+    { tipo: 'boton', id: 'enlace', nombre: 'Enlace', atajo: `${mod}+K`, icono: I.enlace, activo: estado?.enlace, abre: true, refBoton: botonEnlace, accion: (el) => alternarPanel('enlace', el) },
+    ...(puedeAdjuntar ? [
+      { tipo: 'boton', id: 'imagen', nombre: 'Imagen', icono: I.imagen, recorrido: 'editor-imagen', accion: () => inputImagen.current?.click() } satisfies PiezaBoton,
+      { tipo: 'boton', id: 'adjuntar', nombre: 'Adjuntar archivo', icono: I.clip, recorrido: 'editor-adjuntar', accion: () => inputArchivo.current?.click() } satisfies PiezaBoton,
+    ] : []),
+    {
+      // Afuera de una tabla, la inserta (3 × 3 con títulos); adentro, abre sus filas y columnas.
+      tipo: 'boton', id: 'tabla', nombre: enTabla ? 'Filas y columnas' : 'Tabla', icono: I.tabla, activo: enTabla, abre: enTabla, recorrido: 'editor-tabla',
+      accion: (el) => (enTabla ? alternarPanel('tabla', el) : cadena()?.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()),
+    },
+    sep('s-listas'),
+    { tipo: 'boton', id: 'lista', nombre: 'Lista', atajo: `${mod}+Shift+8`, icono: I.lista, activo: estado?.lista, accion: () => cadena()?.toggleBulletList().run() },
+    { tipo: 'boton', id: 'numerada', nombre: 'Lista numerada', atajo: `${mod}+Shift+7`, icono: I.numerada, activo: estado?.numerada, accion: () => cadena()?.toggleOrderedList().run() },
+    { tipo: 'boton', id: 'tareas', nombre: 'Lista de tareas', atajo: `${mod}+Shift+9`, icono: I.tareas, activo: estado?.tareas, accion: () => cadena()?.toggleTaskList().run() },
+    { tipo: 'boton', id: 'cita', nombre: 'Cita', atajo: `${mod}+Shift+B`, icono: I.cita, activo: estado?.cita, accion: () => cadena()?.toggleBlockquote().run() },
+    { tipo: 'boton', id: 'linea', nombre: 'Línea', icono: I.linea, accion: () => cadena()?.setHorizontalRule().run() },
+    sep('s-alinear'),
+    { tipo: 'boton', id: 'izquierda', nombre: 'Alinear a la izquierda', atajo: `${mod}+Shift+L`, icono: I.izquierda, activo: estado?.alinea === 'left', accion: () => cadena()?.setTextAlign('left').run() },
+    { tipo: 'boton', id: 'centro', nombre: 'Centrar', atajo: `${mod}+Shift+E`, icono: I.centro, activo: estado?.alinea === 'center', accion: () => cadena()?.setTextAlign('center').run() },
+    { tipo: 'boton', id: 'derecha', nombre: 'Alinear a la derecha', atajo: `${mod}+Shift+R`, icono: I.derecha, activo: estado?.alinea === 'right', accion: () => cadena()?.setTextAlign('right').run() },
+    { tipo: 'boton', id: 'justificar', nombre: 'Justificar', atajo: `${mod}+Shift+J`, icono: I.justificar, activo: estado?.alinea === 'justify', accion: () => cadena()?.setTextAlign('justify').run() },
+  ];
+  const firmaPiezas = piezas.map((p) => p.id).join(',');
+  const nVisibles = Math.min(visibles, piezas.length);
+  const hayMas = nVisibles < piezas.length;
+  const enMas = hayMas ? recortarSeparadores(piezas.slice(nVisibles).map((p) => ({ p, sep: p.tipo === 'sep' }))).map((x) => x.p) : [];
+
+  // ⚠️ CUÁNTAS PIEZAS ENTRAN se decide con la REGLA (todas las piezas, escondidas, siempre) y el
+  //    ancho de la barra — nunca con lo que la barra muestra, que es lo que la decisión cambia. Se
+  //    vuelve a decidir si cambia el ancho de la barra (su contenedor, el zoom, el teléfono que gira)
+  //    o la ventana: con zoom, la ventana es más angosta en px CSS aunque nada observado cambie.
+  //    `getBoundingClientRect`, no `offsetWidth`: con zoom los anchos son fraccionarios.
+  useLayoutEffect(() => {
+    if (soloLectura) return;
+    const barra = barraRef.current, regla = reglaRef.current;
+    if (!barra || !regla) return;
+    const medir = () => {
+      const hijos = Array.from(regla.children) as HTMLElement[];
+      if (hijos.length < 2) return;
+      const mas = hijos[hijos.length - 1];
+      const medidas = hijos.slice(0, -1).map((h) => ({ ancho: h.getBoundingClientRect().width, sep: h.classList.contains('mk-er-sep') }));
+      const cs = getComputedStyle(barra);
+      const disponible = barra.getBoundingClientRect().width - num(cs.paddingLeft) - num(cs.paddingRight) - num(cs.borderLeftWidth) - num(cs.borderRightWidth);
+      const r = repartoDeBarra(medidas, disponible, num(cs.columnGap), mas.getBoundingClientRect().width);
+      setVisibles((v) => (v === r.visibles ? v : r.visibles));
+    };
+    medir();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    ro?.observe(barra);
+    ro?.observe(regla);
+    window.addEventListener('resize', medir);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', medir); };
+  }, [firmaPiezas, soloLectura]);
+
+  const pintarPieza = (p: Pieza) => {
+    if (p.tipo === 'sep') return <span key={p.id} className="mk-er-sep" aria-hidden="true" />;
+    if (p.tipo === 'bloque') {
+      return (
+        <span key={p.id} className="mk-er-bloque" style={{ width: ANCHO_BLOQUE }}>
+          <Dropdown
+            value={estado?.bloque ?? 'p'}
+            options={BLOQUES}
+            onChange={(v) => { if (editor) aplicarBloque(v); }}
+            width={ANCHO_BLOQUE}
+            ariaLabel="Estilo del texto"
+            search={false}
+            disabled={!editor}
+            buttonStyle={{ height: 30, minHeight: 30, padding: '0 8px', fontSize: 13, borderRadius: 8, border: '1px solid transparent', background: 'transparent' }}
+          />
+        </span>
+      );
+    }
+    return (
+      <Boton key={p.id} titulo={p.atajo ? `${p.nombre} (${p.atajo})` : p.nombre} activo={p.activo} disabled={p.apagado}
+        refBoton={p.refBoton} recorrido={p.recorrido} onClick={(el) => p.accion(el)}>
+        {p.icono}
+      </Boton>
+    );
+  };
+
   return (
     <div
+      ref={raizRef}
       className={['mk-editor-rico', arrastre ? 'es-arrastre' : '', className].filter(Boolean).join(' ')}
       style={{ ...({ '--mk-er-min': `${minAlto}px` } as CSSProperties), ...style }}
+      onFocus={() => setEnfocado(true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEnfocado(false); }}
       onDragOver={(e) => {
         if (!puedeAdjuntar || !e.dataTransfer.types.includes('Files')) return;
         // Sin esto, soltar un archivo sobre la BARRA (fuera del texto) lo abre el navegador en la
@@ -763,78 +1121,32 @@ export function EditorRico({
       <style href="mk-editor-rico" precedence="medium">{CSS_EDITOR}</style>
 
       {!soloLectura && (
-        <div className="mk-er-barra" role="toolbar" aria-label="Formato">
-          <Boton titulo={`Deshacer (${mod}+Z)`} disabled={!estado?.deshacer} onClick={() => cadena()?.undo().run()}>{I.deshacer}</Boton>
-          <Boton titulo={`Rehacer (${mod}+Shift+Z)`} disabled={!estado?.rehacer} onClick={() => cadena()?.redo().run()}>{I.rehacer}</Boton>
-          <span className="mk-er-sep" aria-hidden="true" />
-          <Dropdown
-            value={estado?.bloque ?? 'p'}
-            options={BLOQUES}
-            onChange={(v) => {
-              if (!editor) return;
-              if (v === 'h2') cadena()?.setHeading({ level: 2 }).run();
-              else if (v === 'h3') cadena()?.setHeading({ level: 3 }).run();
-              else cadena()?.setParagraph().run();
-            }}
-            width={118}
-            ariaLabel="Estilo del texto"
-            search={false}
-            disabled={!editor}
-            buttonStyle={{ height: 30, minHeight: 30, padding: '0 8px', fontSize: 13, borderRadius: 8, border: '1px solid transparent', background: 'transparent' }}
-          />
-          <span className="mk-er-sep" aria-hidden="true" />
-          <Boton titulo={`Negrita (${mod}+B)`} activo={estado?.negrita} onClick={() => cadena()?.toggleBold().run()}><b style={{ fontWeight: 800 }}>B</b></Boton>
-          <Boton titulo={`Cursiva (${mod}+I)`} activo={estado?.cursiva} onClick={() => cadena()?.toggleItalic().run()}><i style={{ fontFamily: 'Georgia, serif', fontSize: 15 }}>I</i></Boton>
-          <Boton titulo={`Subrayado (${mod}+U)`} activo={estado?.subrayado} onClick={() => cadena()?.toggleUnderline().run()}><span style={{ textDecoration: 'underline', textUnderlineOffset: 2 }}>U</span></Boton>
-          <Boton titulo={`Tachado (${mod}+Shift+S)`} activo={estado?.tachado} onClick={() => cadena()?.toggleStrike().run()}><span style={{ textDecoration: 'line-through' }}>S</span></Boton>
-          <Boton
-            titulo="Color del texto"
-            activo={!!estado?.color}
-            onClick={(el) => setPanel((p) => (p?.tipo === 'color' ? null : { tipo: 'color', ancla: el }))}
-          >
-            <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', fontWeight: 700 }}>
-              A<span className="mk-er-raya" style={{ background: estado?.color ?? 'var(--ink, #12151B)' }} />
-            </span>
-          </Boton>
-          <Boton
-            titulo="Resaltar"
-            activo={!!estado?.resaltado}
-            onClick={(el) => setPanel((p) => (p?.tipo === 'resaltado' ? null : { tipo: 'resaltado', ancla: el }))}
-          >
-            <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-              {I.resaltar}<span className="mk-er-raya" style={{ background: estado?.resaltado ?? 'transparent', marginTop: 1 }} />
-            </span>
-          </Boton>
-          <span className="mk-er-sep" aria-hidden="true" />
-          <Boton titulo={`Lista (${mod}+Shift+8)`} activo={estado?.lista} onClick={() => cadena()?.toggleBulletList().run()}>{I.lista}</Boton>
-          <Boton titulo={`Lista numerada (${mod}+Shift+7)`} activo={estado?.numerada} onClick={() => cadena()?.toggleOrderedList().run()}>{I.numerada}</Boton>
-          <Boton titulo={`Lista de tareas (${mod}+Shift+9)`} activo={estado?.tareas} onClick={() => cadena()?.toggleTaskList().run()}>{I.tareas}</Boton>
-          <Boton titulo={`Cita (${mod}+Shift+B)`} activo={estado?.cita} onClick={() => cadena()?.toggleBlockquote().run()}>{I.cita}</Boton>
-          <Boton titulo="Línea" onClick={() => cadena()?.setHorizontalRule().run()}>{I.linea}</Boton>
-          <span className="mk-er-sep" aria-hidden="true" />
-          <Boton
-            titulo={`Enlace (${mod}+K)`}
-            activo={estado?.enlace}
-            refBoton={botonEnlace}
-            onClick={(el) => setPanel((p) => (p?.tipo === 'enlace' ? null : { tipo: 'enlace', ancla: el }))}
-          >
-            {I.enlace}
-          </Boton>
-          <span className="mk-er-sep" aria-hidden="true" />
-          <Boton titulo={`Alinear a la izquierda (${mod}+Shift+L)`} activo={estado?.alinea === 'left'} onClick={() => cadena()?.setTextAlign('left').run()}>{I.izquierda}</Boton>
-          <Boton titulo={`Centrar (${mod}+Shift+E)`} activo={estado?.alinea === 'center'} onClick={() => cadena()?.setTextAlign('center').run()}>{I.centro}</Boton>
-          <Boton titulo={`Alinear a la derecha (${mod}+Shift+R)`} activo={estado?.alinea === 'right'} onClick={() => cadena()?.setTextAlign('right').run()}>{I.derecha}</Boton>
-          <Boton titulo={`Justificar (${mod}+Shift+J)`} activo={estado?.alinea === 'justify'} onClick={() => cadena()?.setTextAlign('justify').run()}>{I.justificar}</Boton>
-          {puedeAdjuntar && (
-            <>
-              <span className="mk-er-sep" aria-hidden="true" />
-              <Boton titulo="Imagen" onClick={() => inputImagen.current?.click()}>{I.imagen}</Boton>
-              <Boton titulo="Adjuntar archivo" onClick={() => inputArchivo.current?.click()}>{I.clip}</Boton>
-              <input ref={inputImagen} type="file" accept={aceptaImagenes} multiple hidden onChange={(e) => alElegirArchivos(e.target.files, e.target)} />
-              <input ref={inputArchivo} type="file" accept={aceptaArchivos} multiple hidden onChange={(e) => alElegirArchivos(e.target.files, e.target)} />
-            </>
+        <div ref={barraRef} className="mk-er-barra" role="toolbar" aria-label="Formato" data-recorrido="editor-barra">
+          {piezas.slice(0, nVisibles).map(pintarPieza)}
+          {hayMas && (
+            <Boton titulo="Más opciones" refBoton={botonMas} clase="mk-er-mas" recorrido="editor-mas" expandido={panel?.tipo === 'mas'}
+              onClick={(el, teclado) => { masPorTeclado.current = teclado; alternarPanel('mas', el); }}>
+              {I.mas}
+            </Boton>
           )}
+          {/* La REGLA: todas las piezas, siempre, escondidas. Contra ella se mide qué entra (ver el
+              efecto de `repartoDeBarra`); la última es el lugar de «Más». Sin texto ni
+              `data-recorrido`: no la ve ni el lector de pantalla ni el recorrido. */}
+          <div ref={reglaRef} className="mk-er-regla" aria-hidden="true">
+            {piezas.map((p) => (
+              p.tipo === 'sep' ? <span key={p.id} className="mk-er-sep" />
+                : p.tipo === 'bloque' ? <span key={p.id} className="mk-er-bloque" style={{ width: ANCHO_BLOQUE }} />
+                  : <span key={p.id} className="mk-er-btn" />
+            ))}
+            <span className="mk-er-btn" />
+          </div>
         </div>
+      )}
+      {puedeAdjuntar && (
+        <>
+          <input ref={inputImagen} type="file" accept={aceptaImagenes} multiple hidden onChange={(e) => alElegirArchivos(e.target.files, e.target)} />
+          <input ref={inputArchivo} type="file" accept={aceptaArchivos} multiple hidden onChange={(e) => alElegirArchivos(e.target.files, e.target)} />
+        </>
       )}
 
       {(enCurso || aviso) && (
@@ -907,36 +1219,405 @@ export function EditorRico({
           />
         </Flotante>
       )}
+      {panel && editor && panel.tipo === 'mas' && (
+        <Flotante ancla={panel.ancla} onCerrar={cerrarPanel} etiqueta="Más opciones" ancho={240}>
+          <MenuMas piezas={enMas} ancla={panel.ancla} enfocar={masPorTeclado.current} bloque={estado?.bloque ?? 'p'}
+            onBloque={aplicarBloque} onCerrar={cerrarPanel} />
+        </Flotante>
+      )}
+      {panel && editor && panel.tipo === 'tabla' && estado?.tabla && (
+        <Flotante ancla={panel.ancla} onCerrar={cerrarPanel} etiqueta="Filas y columnas" ancho={240}>
+          <Menu etiqueta="Filas y columnas" enfocar={false}>
+            <FilaMenu nombre="Fila arriba" icono={I.filaArriba} apagado={!estado.tabla.filaAntes} onClick={() => cadena()?.addRowBefore().run()} />
+            <FilaMenu nombre="Fila abajo" icono={I.filaAbajo} apagado={!estado.tabla.filaDespues} onClick={() => cadena()?.addRowAfter().run()} />
+            <FilaMenu nombre="Columna a la izquierda" icono={I.colIzquierda} apagado={!estado.tabla.colAntes} onClick={() => cadena()?.addColumnBefore().run()} />
+            <FilaMenu nombre="Columna a la derecha" icono={I.colDerecha} apagado={!estado.tabla.colDespues} onClick={() => cadena()?.addColumnAfter().run()} />
+            <div role="separator" className="mk-er-menu-sep" />
+            <FilaMenu nombre="Quitar fila" icono={I.sacarFila} apagado={!estado.tabla.sacarFila} onClick={() => cadena()?.deleteRow().run()} />
+            <FilaMenu nombre="Quitar columna" icono={I.sacarCol} apagado={!estado.tabla.sacarCol} onClick={() => cadena()?.deleteColumn().run()} />
+            <div role="separator" className="mk-er-menu-sep" />
+            <FilaMenu nombre="Fila de títulos" icono={I.titulos} activo={estado.tabla.titulos} onClick={() => cadena()?.toggleHeaderRow().run()} />
+            <div role="separator" className="mk-er-menu-sep" />
+            <FilaMenu nombre="Borrar tabla" icono={I.basura} peligro
+              onClick={() => { const pos = estado.tabla?.pos; cerrarPanel(); if (pos != null) sacarConDeshacer(pos, 'Tabla borrada'); }} />
+          </Menu>
+        </Flotante>
+      )}
+
+      {/* Los controles de lo que está elegido: el tamaño de una imagen y el menú de una tabla. Viven
+          adentro del editor (no en un portal): se mueven con el texto al scrollear, y la barra
+          pegada de arriba les pasa por encima. */}
+      {editor && !soloLectura && enfocado && estado?.imagen && (
+        <ControlesImagen editor={editor} raiz={raizRef} pos={estado.imagen.pos} ancho={estado.imagen.ancho} alinea={estado.imagen.alinea}
+          onQuitar={() => { const pos = estado.imagen?.pos; if (pos != null) sacarConDeshacer(pos, 'Imagen quitada'); }} />
+      )}
+      {editor && !soloLectura && enfocado && estado?.tabla && (
+        <BotonTabla editor={editor} raiz={raizRef} pos={estado.tabla.pos} abierto={panel?.tipo === 'tabla'}
+          onAbrir={(el) => alternarPanel('tabla', el)} />
+      )}
+
+      <Toast state={toast} onClose={cerrarToast} />
     </div>
   );
 }
 
 export default EditorRico;
 
+// ── Lo que el editor lee del documento (para `useEditorState`) ──────────────
+
+/** La imagen elegida (un clic sobre ella), con su ancho y su alineación, o `null`. */
+function imagenElegida(e: Editor): { pos: number; ancho: number | null; alinea: AlineaImagen | null } | null {
+  const sel = e.state.selection;
+  if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'image') return null;
+  return { pos: sel.from, ancho: anchoDeImagen(sel.node.attrs.ancho), alinea: alineaDeImagen(sel.node.attrs.alinea) };
+}
+
+/** La tabla donde está el cursor y lo que se puede hacer con ella, o `null`. */
+function tablaDelCursor(e: Editor) {
+  const pos = posDeTabla(e);
+  if (pos == null) return null;
+  const tabla = e.state.doc.nodeAt(pos);
+  return {
+    pos,
+    titulos: tabla?.firstChild?.firstChild?.type.name === 'tableHeader',
+    filaAntes: e.can().addRowBefore(),
+    filaDespues: e.can().addRowAfter(),
+    colAntes: e.can().addColumnBefore(),
+    colDespues: e.can().addColumnAfter(),
+    sacarFila: e.can().deleteRow(),
+    sacarCol: e.can().deleteColumn(),
+  };
+}
+
 // ── Piezas de la barra ───────────────────────────────────────────────────────
 
-function Boton({ titulo, activo, disabled, onClick, children, refBoton }: {
+function Boton({ titulo, activo, disabled, onClick, children, refBoton, recorrido, expandido, clase }: {
   titulo: string;
   activo?: boolean;
   disabled?: boolean;
-  onClick: (el: HTMLButtonElement) => void;
+  /** `teclado`: el clic vino de Enter o Espacio (un clic de teclado no trae coordenadas). */
+  onClick: (el: HTMLButtonElement, teclado: boolean) => void;
   children: ReactNode;
   refBoton?: Ref<HTMLButtonElement>;
+  /** El punto del recorrido de la pantalla que es este botón (`data-recorrido`, app/_ui/Recorrido.tsx). */
+  recorrido?: string;
+  /** Si abre un menú: si está abierto. */
+  expandido?: boolean;
+  clase?: string;
 }) {
   return (
     <button
       ref={refBoton}
       type="button"
-      className="mk-er-btn"
+      className={clase ? `mk-er-btn ${clase}` : 'mk-er-btn'}
       title={titulo}
       aria-label={titulo}
       aria-pressed={activo === undefined ? undefined : !!activo}
+      aria-haspopup={expandido === undefined ? undefined : 'menu'}
+      aria-expanded={expandido}
+      data-recorrido={recorrido}
       disabled={disabled}
       // Sin esto, el clic le saca el foco al texto y la selección se pierde antes de aplicar.
       onMouseDown={(e) => e.preventDefault()}
-      onClick={(e) => onClick(e.currentTarget)}
+      onClick={(e) => onClick(e.currentTarget, e.detail === 0)}
     >
       {children}
+    </button>
+  );
+}
+
+// ── Los menús («Más» y la tabla) ─────────────────────────────────────────────
+
+/**
+ * Un menú de filas: flechas, Inicio y Fin mueven el foco entre las opciones habilitadas. `enfocar`
+ * pone el foco en la primera al abrir (cuando se abrió con el teclado; con el mouse, el foco se
+ * queda en el texto, que es donde se está escribiendo).
+ */
+function Menu({ etiqueta, enfocar, children }: { etiqueta: string; enfocar: boolean; children: ReactNode }) {
+  const lista = useRef<HTMLDivElement | null>(null);
+  const opciones = () => Array.from(lista.current?.querySelectorAll<HTMLButtonElement>('.mk-er-fila:not(:disabled)') ?? []);
+  useEffect(() => {
+    if (!enfocar) return;
+    // Un cuadro después: el panel se ubica en el mismo commit (va con opacidad, así recibe el foco).
+    const id = requestAnimationFrame(() => opciones()[0]?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [enfocar]);
+  const tecla = (e: EventoTecla<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const ops = opciones();
+    if (!ops.length) return;
+    const i = ops.indexOf(document.activeElement as HTMLButtonElement);
+    const j = e.key === 'Home' ? 0 : e.key === 'End' ? ops.length - 1
+      : e.key === 'ArrowDown' ? (i + 1) % ops.length : (i <= 0 ? ops.length - 1 : i - 1);
+    ops[j].focus();
+  };
+  return <div ref={lista} role="menu" aria-label={etiqueta} className="mk-er-menu" onKeyDown={tecla}>{children}</div>;
+}
+
+function FilaMenu({ nombre, atajo, icono, activo, apagado, peligro, onClick }: {
+  nombre: string;
+  atajo?: string;
+  icono: ReactNode;
+  activo?: boolean;
+  apagado?: boolean;
+  peligro?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role={activo === undefined ? 'menuitem' : 'menuitemcheckbox'}
+      aria-checked={activo === undefined ? undefined : !!activo}
+      className={peligro ? 'mk-er-fila es-peligro' : 'mk-er-fila'}
+      disabled={apagado}
+      // Como en la barra: el clic no le saca el foco al texto, o se pierde lo que había elegido.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+    >
+      <span className="mk-er-fila-ico" aria-hidden="true">{icono}</span>
+      <span className="mk-er-fila-txt">{nombre}</span>
+      {atajo && <span className="mk-er-fila-atajo">{atajo}</span>}
+    </button>
+  );
+}
+
+/**
+ * Lo que no entró en la barra, en el mismo orden y con la misma acción. Lo que abre un panel propio
+ * (color, resaltado, enlace, la tabla) lo abre anclado a «Más» y este menú se cierra solo (el panel
+ * lo reemplaza); lo demás actúa y cierra.
+ */
+function MenuMas({ piezas, ancla, enfocar, bloque, onBloque, onCerrar }: {
+  piezas: Pieza[];
+  ancla: HTMLElement;
+  enfocar: boolean;
+  bloque: string;
+  onBloque: (v: string) => void;
+  onCerrar: () => void;
+}) {
+  const ICONO_BLOQUE: Record<string, ReactNode> = { p: I.parrafo, h2: I.titulo, h3: I.subtitulo };
+  return (
+    <Menu etiqueta="Más opciones" enfocar={enfocar}>
+      {piezas.map((p) => {
+        if (p.tipo === 'sep') return <div key={p.id} role="separator" className="mk-er-menu-sep" />;
+        if (p.tipo === 'bloque') {
+          return BLOQUES.map((b) => (
+            <FilaMenu key={`bloque-${b.value}`} nombre={b.label} icono={ICONO_BLOQUE[b.value]} activo={bloque === b.value}
+              onClick={() => { onBloque(b.value); onCerrar(); }} />
+          ));
+        }
+        return (
+          <FilaMenu key={p.id} nombre={p.nombre} atajo={p.atajo} icono={p.icono} activo={p.activo} apagado={p.apagado}
+            onClick={() => { p.accion(ancla); if (!p.abre) onCerrar(); }} />
+        );
+      })}
+    </Menu>
+  );
+}
+
+// ── Lo que está elegido: la imagen y la tabla ────────────────────────────────
+
+type Caja = { top: number; left: number; ancho: number; alto: number; anchoRaiz: number };
+
+/**
+ * Dónde está un nodo del documento, relativo a la raíz del editor, y se vuelve a medir cuando el
+ * documento cambia (lo de arriba crece o se achica), cuando cambia el tamaño del texto (una imagen
+ * que termina de cargar, la ventana) y cuando carga una imagen adentro.
+ */
+function useCajaDelNodo(editor: Editor, raiz: RefObject<HTMLDivElement | null>, pos: number): Caja | null {
+  const [caja, setCaja] = useState<Caja | null>(null);
+  useLayoutEffect(() => {
+    if (editor.isDestroyed) return;
+    const pm = editor.view.dom as HTMLElement;
+    const medir = () => {
+      const r = raiz.current;
+      let el: Node | null = null;
+      try { el = editor.isDestroyed ? null : editor.view.nodeDOM(pos); } catch { el = null; }
+      if (!r || !(el instanceof HTMLElement) || !el.isConnected) { setCaja((c) => (c ? null : c)); return; }
+      const a = r.getBoundingClientRect(), b = el.getBoundingClientRect();
+      const nueva: Caja = { top: b.top - a.top, left: b.left - a.left, ancho: b.width, alto: b.height, anchoRaiz: a.width };
+      setCaja((c) => (c && c.top === nueva.top && c.left === nueva.left && c.ancho === nueva.ancho && c.alto === nueva.alto && c.anchoRaiz === nueva.anchoRaiz ? c : nueva));
+    };
+    medir();
+    editor.on('transaction', medir);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    ro?.observe(pm);
+    window.addEventListener('resize', medir);
+    pm.addEventListener('load', medir, true);
+    return () => {
+      editor.off('transaction', medir);
+      ro?.disconnect();
+      window.removeEventListener('resize', medir);
+      pm.removeEventListener('load', medir, true);
+    };
+  }, [editor, raiz, pos]);
+  return caja;
+}
+
+const TAMANOS_IMAGEN = [25, 50, 75, 100] as const;
+
+/**
+ * Lo que aparece sobre una imagen elegida (item 10): 25 / 50 / 75 / 100 %, izquierda o centro,
+ * quitar, y la esquina para arrastrar. Todo escribe el atributo del nodo (una transacción: se
+ * deshace con Ctrl+Z y se guarda como cualquier otro cambio).
+ *
+ * ⚠️ MIENTRAS SE ARRASTRA NO HAY TRANSACCIONES NI `setState`: se cambia el `data-ancho` del `<img>`
+ *    (lo dibuja la misma regla de `CSS_RICO`) y la esquina se mueve escribiendo su estilo. Una
+ *    transacción por `pointermove` serían sesenta pasos de deshacer por segundo y sesenta
+ *    guardados. Al soltar, UNA transacción con el ancho final; si el gesto se cancela, el `<img>`
+ *    vuelve a lo que tenía.
+ * ⚠️ `setPointerCapture` manda el `pointerup` a la esquina aunque se suelte afuera, y
+ *    `releasePointerCapture` puede tirar: va en un `try`, después de resolver (AGENTS.md).
+ */
+function ControlesImagen({ editor, raiz, pos, ancho, alinea, onQuitar }: {
+  editor: Editor;
+  raiz: RefObject<HTMLDivElement | null>;
+  pos: number;
+  ancho: number | null;
+  alinea: AlineaImagen | null;
+  onQuitar: () => void;
+}) {
+  const caja = useCajaDelNodo(editor, raiz, pos);
+  const barra = useRef<HTMLDivElement | null>(null);
+  const asa = useRef<HTMLButtonElement | null>(null);
+  const pct = useRef<HTMLSpanElement | null>(null);
+  const gesto = useRef<{ x: number; inicio: number; contenido: number; centro: boolean; img: HTMLElement; previo: string | undefined; actual: number } | null>(null);
+
+  // La barra arranca sobre la esquina de la imagen y no se sale del editor por la derecha. Su ancho
+  // no depende de dónde se ponga (no hay ida y vuelta), así que se mide y se escribe directo, antes
+  // de pintar: sin un estado más que redibuje el editor.
+  useLayoutEffect(() => {
+    const b = barra.current;
+    if (!b || !caja) return;
+    const w = b.getBoundingClientRect().width;
+    b.style.left = `${Math.max(4, Math.min(caja.left + 8, caja.anchoRaiz - w - 4))}px`;
+  }, [caja, ancho, alinea]);
+
+  // Cada cambio de tamaño o de lugar es UN paso de deshacer, aunque vengan seguidos: sin
+  // `closeHistory`, el historial junta lo que pasa en medio segundo y un Ctrl+Z se llevaba el
+  // arrastre junto con el 25 % de antes (medido en el banco).
+  const aplicar = (attrs: { ancho?: number | null; alinea?: AlineaImagen | null }) => {
+    if (editor.isDestroyed) return;
+    editor.chain().focus().command(({ tr }) => {
+      const n = tr.doc.nodeAt(pos);
+      if (!n || n.type.name !== 'image') return false;
+      tr.setNodeMarkup(pos, undefined, { ...n.attrs, ...attrs });
+      tr.setSelection(NodeSelection.create(tr.doc, pos));
+      closeHistory(tr);
+      return true;
+    }).run();
+  };
+
+  const terminar = (guardar: boolean, el: HTMLElement | null, idPuntero: number | null) => {
+    const g = gesto.current;
+    gesto.current = null;
+    raiz.current?.classList.remove('es-redimension');
+    if (g) {
+      if (guardar && g.actual !== ancho) aplicar({ ancho: g.actual });
+      else if (g.previo) g.img.dataset.ancho = g.previo; else delete g.img.dataset.ancho;
+    }
+    try { if (el && idPuntero != null) el.releasePointerCapture(idPuntero); } catch { /* ya no la tenía */ }
+  };
+
+  if (!caja) return null;
+  // Adentro de la imagen, arriba; si la imagen es más baja que la barra, encima de ella.
+  const arriba = caja.alto >= 72 ? caja.top + 8 : Math.max(0, caja.top - 40);
+
+  return (
+    <>
+      <div ref={barra} className="mk-er-img-barra" role="toolbar" aria-label="Imagen" style={{ top: arriba }}>
+        {TAMANOS_IMAGEN.map((n) => (
+          <button key={n} type="button" className="mk-er-img-op" aria-pressed={ancho === n} title={`Ancho ${n} %`}
+            onMouseDown={(e) => e.preventDefault()} onClick={() => aplicar({ ancho: n })}>{n}%</button>
+        ))}
+        <span className="mk-er-img-sep" aria-hidden="true" />
+        <button type="button" className="mk-er-img-op" aria-pressed={alinea !== 'centro'} title="A la izquierda" aria-label="A la izquierda"
+          onMouseDown={(e) => e.preventDefault()} onClick={() => aplicar({ alinea: null })}>{I.izquierda}</button>
+        <button type="button" className="mk-er-img-op" aria-pressed={alinea === 'centro'} title="Centrada" aria-label="Centrada"
+          onMouseDown={(e) => e.preventDefault()} onClick={() => aplicar({ alinea: 'centro' })}>{I.centro}</button>
+        <span className="mk-er-img-sep" aria-hidden="true" />
+        <button type="button" className="mk-er-img-op" title="Quitar imagen" aria-label="Quitar imagen"
+          onMouseDown={(e) => e.preventDefault()} onClick={onQuitar}>{I.basura}</button>
+      </div>
+      <button
+        ref={asa}
+        type="button"
+        className="mk-er-img-asa"
+        title="Arrastra para cambiar el tamaño"
+        aria-label="Cambiar el tamaño"
+        style={{ top: caja.top + caja.alto - 8, left: caja.left + caja.ancho - 8 }}
+        onMouseDown={(e) => e.preventDefault()}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          let img: Node | null = null;
+          try { img = editor.view.nodeDOM(pos); } catch { img = null; }
+          const contenido = anchoDelTexto(editor);
+          if (!(img instanceof HTMLElement) || !contenido) return;
+          const inicio = img.getBoundingClientRect().width;
+          gesto.current = { x: e.clientX, inicio, contenido, centro: alinea === 'centro', img, previo: img.dataset.ancho, actual: ancho ?? anchoDeArrastre(inicio, contenido) };
+          try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* sin captura, el gesto sigue igual */ }
+          raiz.current?.classList.add('es-redimension');
+        }}
+        onPointerMove={(e) => {
+          const g = gesto.current, r = raiz.current;
+          if (!g || !r) return;
+          const dx = e.clientX - g.x;
+          const nuevo = anchoDeArrastre(g.inicio + (g.centro ? 2 * dx : dx), g.contenido);
+          if (nuevo !== g.actual) { g.actual = nuevo; g.img.dataset.ancho = String(nuevo); }
+          // La esquina y el número siguen a la imagen: se leen del DOM (no se calculan), y se
+          // escriben directo en el estilo — nada de `setState` por cada movimiento.
+          const a = r.getBoundingClientRect(), b = g.img.getBoundingClientRect();
+          if (asa.current) { asa.current.style.top = `${b.bottom - a.top - 8}px`; asa.current.style.left = `${b.right - a.left - 8}px`; }
+          if (pct.current) { pct.current.textContent = `${g.actual} %`; pct.current.style.top = `${b.bottom - a.top + 10}px`; pct.current.style.left = `${Math.max(4, b.right - a.left - 40)}px`; }
+        }}
+        onPointerUp={(e) => terminar(true, e.currentTarget, e.pointerId)}
+        onPointerCancel={(e) => terminar(false, e.currentTarget, e.pointerId)}
+        onLostPointerCapture={() => { if (gesto.current) terminar(true, null, null); }}
+        onKeyDown={(e) => {
+          // Sin mouse: las flechas cambian el ancho de a 5 %.
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+          e.preventDefault();
+          // Sin ancho guardado la imagen va a su tamaño natural: se parte de lo que MIDE, como el
+          // arrastre. Con `?? 100`, una imagen de 300 px en un texto de 1.000 saltaba del 30 al 95 %.
+          let img: Node | null = null;
+          try { img = editor.view.nodeDOM(pos); } catch { img = null; }
+          const contenido = anchoDelTexto(editor);
+          const base = ancho ?? (img instanceof HTMLElement && contenido ? anchoDeArrastre(img.getBoundingClientRect().width, contenido) : 100);
+          aplicar({ ancho: Math.max(10, Math.min(100, base + (e.key === 'ArrowRight' ? 5 : -5))) });
+        }}
+      />
+      <span ref={pct} className="mk-er-img-pct" aria-hidden="true" />
+    </>
+  );
+}
+
+/**
+ * El botón de la esquina de la tabla donde está el cursor: abre filas, columnas, títulos y borrar
+ * (lo mismo que el botón «Tabla» de la barra, que puede haberse ido a «Más»).
+ */
+function BotonTabla({ editor, raiz, pos, abierto, onAbrir }: {
+  editor: Editor;
+  raiz: RefObject<HTMLDivElement | null>;
+  pos: number;
+  abierto: boolean;
+  onAbrir: (el: HTMLElement) => void;
+}) {
+  const caja = useCajaDelNodo(editor, raiz, pos);
+  if (!caja) return null;
+  return (
+    <button
+      type="button"
+      className="mk-er-tabla-chip"
+      title="Filas y columnas"
+      aria-label="Filas y columnas"
+      aria-haspopup="menu"
+      aria-expanded={abierto}
+      style={{ top: caja.top + 4, left: Math.max(4, caja.left + caja.ancho - 28) }}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={(e) => onAbrir(e.currentTarget)}
+    >
+      {I.mas}
     </button>
   );
 }
@@ -997,7 +1678,11 @@ function PanelEnlace({ actual, onAplicar, onQuitar }: {
         onChange={(e) => { setTexto(e.target.value); setError(null); }}
       />
       {error && <div className="mk-er-error">{error}</div>}
-      <div className="mk-er-fila">
+      {/* `mk-er-acciones` y NO `mk-er-fila` (revisión final del 08/10/2026): ese nombre es el de cada
+          renglón de los menús «Más» y de la tabla, y las dos reglas con el mismo selector se pisaban —
+          cada renglón del menú heredaba el `margin-top: 8px` de esta fila, y esta fila el relleno y el
+          cursor de un renglón—. */}
+      <div className="mk-er-acciones">
         <button type="submit" className="mk-er-accion es-primaria">Aplicar</button>
         {onQuitar && <button type="button" className="mk-er-accion" onClick={onQuitar}>Quitar</button>}
         {abrible && <a className="mk-er-accion" href={actual} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Abrir</a>}

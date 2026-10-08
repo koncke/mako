@@ -157,8 +157,14 @@ export type LeccionUgc = {
   sinVideo?: ReactNode;
   /** Debajo del video y antes de Anterior/Siguiente (la ficha de la clase, un link de afuera). */
   debajoDelVideo?: ReactNode;
-  /** El papel: la descripción y debajo la tarea, juntas. Va tal cual adentro de la columna del texto. */
-  papel?: ReactNode;
+  /**
+   * El papel: la descripción y debajo la tarea, juntas. Va tal cual adentro de la columna del texto.
+   *
+   * Como FUNCIÓN recibe lo que el dibujo pone ARRIBA de todo adentro del papel —el interruptor «Texto
+   * al costado / Texto abajo» de quien edita (item 13 del 08/10/2026), `null` si no hay—, y lo dibuja
+   * adentro de su recuadro. Un papel que es un nodo lo recibe arriba suyo, afuera del recuadro.
+   */
+  papel?: ReactNode | ((arriba: ReactNode) => ReactNode);
   /** A lo ancho, debajo de las dos columnas («Material de esta clase»). */
   despues?: ReactNode;
 };
@@ -366,6 +372,18 @@ export type CursoUgcProps = {
    * «Compartir»). Siempre a la vista: en un menú no los encuentra nadie.
    */
   topbarExtra?: ReactNode;
+  /**
+   * Arriba a la DERECHA, EN LUGAR del nombre del curso: las acciones de quien EDITA («Vista del
+   * alumno», «Invitar alumnos» y el «?» del recorrido; item 14 del 08/10/2026). Sin esto va el nombre
+   * del curso con su cuenta de clases, que es lo que ve el alumno. A diferencia del nombre, no se
+   * esconde en el teléfono: baja de renglón (una barra no scrollea de costado, AGENTS.md).
+   */
+  acciones?: ReactNode;
+  /**
+   * La fuente del curso: un id de app/_cursos/fuentes.ts (`null` = la de siempre). La pinta
+   * `varsDeFuente` en `.ugc`, como el acento, y la hoja de esa familia se pide sólo si hace falta.
+   */
+  fuente?: string | null;
   /** Una línea chica al pie de la barra («Este enlace es personal»). En el teléfono no va. */
   pieBarra?: ReactNode;
   /** El nivel de arriba del curso. Sin esto no hay salida en la barra (un share de UN curso). */

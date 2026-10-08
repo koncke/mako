@@ -17,6 +17,9 @@
 import { saneaPortada, urlPortada, fondoPortada } from './portadas';
 import { leerLamina, valorDeLamina, type ValorLamina } from './laminas';
 import type { DisposicionUgc } from '@/app/_cursos/tipos';
+// El catálogo de fuentes es del DIBUJO (lo pinta y lo muestra); acá sólo se decide qué id se guarda.
+// Es un módulo puro (sin React ni DOM), así que el server lo importa sin arrastrar nada.
+import { fuenteGuardable } from '@/app/_cursos/fuentes';
 
 /** El estilo de un curso, ya saneado. `null` (o ausente en los mapas) = el default. */
 export type EstiloCurso = {
@@ -42,6 +45,12 @@ export type EstiloCurso = {
    * extendida». Es del CURSO, no de cada clase: lo ve el alumno igual en todas.
    */
   disposicion: 'abajo' | null;
+  /**
+   * La FUENTE del curso: un id del catálogo cerrado de app/_cursos/fuentes.ts. `null` = la de siempre.
+   * Item 3 del 08/10/2026: se elige en el menú de la marca, al lado del color, y cambia el curso
+   * entero —la tab, el portal del alumno y la vista previa—, descripción y tarea incluidas.
+   */
+  fuente: string | null;
 };
 
 /**
@@ -54,7 +63,7 @@ export type Disposicion = DisposicionUgc;
 export const disposicionDe = (e: EstiloCurso | null | undefined): Disposicion => (e?.disposicion === 'abajo' ? 'abajo' : 'costado');
 
 export const estiloVacio = (): EstiloCurso => ({
-  acento: null, titulo: null, resumen: null, portada: null, portadasEtapa: {}, portadasClase: {}, disposicion: null,
+  acento: null, titulo: null, resumen: null, portada: null, portadasEtapa: {}, portadasClase: {}, disposicion: null, fuente: null,
 });
 
 export const TOPE_TITULO_CURSO = 80;
@@ -68,7 +77,8 @@ export type Ajuste =
   | { tipo: 'portada' }
   | { tipo: 'portada-etapa'; etapa: string }
   | { tipo: 'portada-clase'; clase: number }
-  | { tipo: 'disposicion' };
+  | { tipo: 'disposicion' }
+  | { tipo: 'fuente' };
 
 /**
  * La misma regla que las keys de la entrega (lib/servicio-etapas.ts, `CLAVE_OK`), menos las que
@@ -103,7 +113,7 @@ export function claveDe(a: Ajuste): string {
 /** El ajuste de una clave, o `null` si no es una que exista. Valida las dos mitades. */
 export function ajusteDe(clave: unknown): Ajuste | null {
   if (typeof clave !== 'string') return null;
-  if (clave === 'acento' || clave === 'titulo' || clave === 'resumen' || clave === 'portada' || clave === 'disposicion') return { tipo: clave };
+  if (clave === 'acento' || clave === 'titulo' || clave === 'resumen' || clave === 'portada' || clave === 'disposicion' || clave === 'fuente') return { tipo: clave };
   const etapa = /^portada:etapa:(.+)$/.exec(clave);
   if (etapa) return KEY_ETAPA.test(etapa[1]) ? { tipo: 'portada-etapa', etapa: etapa[1] } : null;
   const clase = /^portada:clase:(\d{1,12})$/.exec(clave);
@@ -143,6 +153,9 @@ export function sanearAjuste(a: Ajuste, valor: unknown): string | null {
     // Sólo «abajo» se guarda: al costado es el default, y volver a él BORRA la fila (mig 0214: «nadie
     // lo eligió» y «eligió lo de siempre» no quedan mezclados en un valor). Cualquier otra cosa, también.
     case 'disposicion': return valor === 'abajo' ? 'abajo' : null;
+    // Un id del catálogo cerrado (app/_cursos/fuentes.ts), tal cual; la de siempre BORRA la fila. Nunca
+    // un nombre de familia ni una pila CSS: el valor termina adentro del `style` del curso de cada alumno.
+    case 'fuente': return fuenteGuardable(valor);
     default: return portadaConLamina(valor);
   }
 }

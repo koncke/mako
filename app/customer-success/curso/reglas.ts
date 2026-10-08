@@ -54,6 +54,9 @@ export const TIPOS_CAMPO: ReadonlyArray<{ value: Campo['tipo']; label: string }>
   { value: 'checklist', label: 'Checklist' },
   { value: 'agenda', label: 'Agendar llamada' },
   { value: 'confirmacion', label: 'Lo hice' },
+  // Item 17 del 08/10/2026: interactuar en la comunidad del producto (lib/curso-tarea-comunidad.ts).
+  { value: 'publicar', label: 'Publicar en la comunidad' },
+  { value: 'comentar', label: 'Comentar en la comunidad' },
 ];
 
 /**

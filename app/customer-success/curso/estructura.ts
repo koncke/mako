@@ -75,6 +75,52 @@ export function clasesReclaveadas(clases: readonly Clase[], productoId: number, 
   return clases.map((c) => (c.productoId === productoId && c.etapa === vieja ? { ...c, etapa: nueva } : c));
 }
 
+/**
+ * Dónde está HOY una clase en su módulo, dicho como lo entiende el server (`moverClaseA`): la clase
+ * que la sigue (`null` = es la última). Es lo que guarda el «Deshacer» de un arrastre o de «Mover
+ * antes / después» para devolverla a su lugar EXACTO, no un lugar parecido.
+ */
+export function lugarDe(clases: readonly Clase[], claseId: number): { clave: string; antesDe: number | null } | null {
+  const yo = clases.find((c) => c.id === claseId);
+  if (!yo) return null;
+  const hermanas = clases
+    .filter((c) => c.productoId === yo.productoId && c.etapa === yo.etapa)
+    .sort((a, b) => a.orden - b.orden || a.id - b.id);
+  const i = hermanas.findIndex((c) => c.id === claseId);
+  return { clave: yo.etapa, antesDe: hermanas[i + 1]?.id ?? null };
+}
+
+/** Las clases con `vuelven` puestas (las que devolvió el «Deshacer»): reemplaza por id, o agrega. */
+export function clasesConDevueltas(clases: readonly Clase[], vuelven: readonly Clase[]): Clase[] {
+  const ids = new Set(vuelven.map((c) => c.id));
+  return [...clases.filter((c) => !ids.has(c.id)), ...vuelven];
+}
+
+// ── El menú «…» (08/10/2026, item 15) ─────────────────────────────────────────
+
+/** Lo que puede tener el menú «…» de un módulo o de una clase. */
+export type ItemMenuEstructura = 'renombrar' | 'portada' | 'mover-antes' | 'mover-despues' | 'acceso' | 'kanban' | 'eliminar';
+
+/**
+ * EL MENÚ «…» ES UNO Y TIENE LA MISMA FORMA para un módulo y para una clase. Pedido de Martín
+ * (08/10/2026, item 15): «los tres puntos al editar un modulo o clase, el desplegable es diferente.
+ * Debería ser igual. Primero Renombrar, Portada, Mover Antes, Mover Después y ahí un divider. Luego la
+ * sección de "Público o Privado"… divider. Abajo en el caso de los módulos, ahí la sección del kanban…
+ * divider. Y abajo en módulo falta la opción de eliminar módulo… En el desplegable de las clases, las
+ * primeras opciones como ya mencioné, y luego nuevamente la opción de público o privado. No entiendo eso
+ * de "Por área"» (salió del menú: va con la tarea).
+ *
+ * Cada lista es una SECCIÓN y entre dos secciones va una línea. ./MenuCurso.tsx dibuja ESTO, en este
+ * orden, para los dos: el día que el de la clase gane un renglón que el del módulo no tiene, se escribe
+ * acá, a la vista, y no en un segundo componente (que es como habían quedado distintos).
+ */
+export function seccionesDelMenu(tipo: 'modulo' | 'clase'): ItemMenuEstructura[][] {
+  const arriba: ItemMenuEstructura[] = ['renombrar', 'portada', 'mover-antes', 'mover-despues'];
+  return tipo === 'modulo'
+    ? [arriba, ['acceso'], ['kanban'], ['eliminar']]
+    : [arriba, ['acceso'], ['eliminar']];
+}
+
 /** La portada elegida del módulo, mudada a su clave nueva (lo mismo que hizo el server). */
 export function estiloReclaveado(e: EstiloCurso, vieja: string, nueva: string): EstiloCurso {
   if (!Object.prototype.hasOwnProperty.call(e.portadasEtapa, vieja)) return e;

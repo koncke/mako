@@ -79,13 +79,15 @@ const ROTULO_PASO: Record<PasoComunidad, string> = {
   comunidad_alumnos: 'Un alumno participa',
 };
 
-export function ComunidadEquipo({ productos, productoId, inicial, error, onboarding }: {
+export function ComunidadEquipo({ productos, productoId, inicial, error, onboarding, postInicial = null }: {
   productos: Array<{ id: number; nombre: string }>;
   productoId: number | null;
   inicial: { comunidad: ComunidadVista; feed: FeedVista } | null;
   error: string | null;
   /** La línea del onboarding de la tab (`null` = ya está). */
   onboarding: Record<PasoComunidad, boolean> | null;
+  /** El post que se abre al entrar (`?post=`: el link de la ficha a lo que publicó un alumno). */
+  postInicial?: number | null;
 }) {
   const router = useRouter();
   const api = useMemo(() => (productoId ? apiDelEquipo(productoId) : null), [productoId]);
@@ -120,7 +122,7 @@ export function ComunidadEquipo({ productos, productoId, inicial, error, onboard
       {error && !inicial ? (
         <EmptyState titulo="No pude cargar la comunidad" detalle={error} />
       ) : (
-        <Comunidad key={productoId} api={api} tema="equipo" inicial={inicial} cabecera={selector} aviso={linea} />
+        <Comunidad key={productoId} api={api} tema="equipo" inicial={inicial} cabecera={selector} aviso={linea} postInicial={postInicial} />
       )}
     </Pagina>
   );

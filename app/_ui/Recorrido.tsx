@@ -397,9 +397,17 @@ export function Recorrido({ id, pasos, abierto, onCerrar }: {
  * El «?» para volver a verlo. Lo dibuja quien monta el recorrido, donde le quede cerca de
  * lo que explica; esto es sólo para que sea el mismo botón en todas las tabs.
  */
-export function BotonRecorrido({ onClick, titulo = 'Ver el recorrido' }: { onClick: () => void; titulo?: string }) {
+export function BotonRecorrido({ onClick, titulo = 'Ver el recorrido', objetivo }: {
+  onClick: () => void;
+  titulo?: string;
+  /**
+   * El `data-recorrido` del propio «?»: el recorrido lo señala en su último paso («vuelve a verlo
+   * acá»), que es lo único que hace falta saber de él. Sin esto, no se señala.
+   */
+  objetivo?: string;
+}) {
   return (
-    <IconButton title={titulo} small onClick={onClick}>
+    <IconButton title={titulo} small onClick={onClick} {...(objetivo ? { 'data-recorrido': objetivo } : {})}>
       <span aria-hidden style={{ fontWeight: 700, fontSize: 'var(--fs-sm)', lineHeight: 1 }}>?</span>
     </IconButton>
   );

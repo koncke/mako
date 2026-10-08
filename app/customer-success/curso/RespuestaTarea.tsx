@@ -22,14 +22,15 @@
 
 import { useState, type ReactNode } from 'react';
 import {
-  corregirQuiz, esCampoDeArchivo, linkValido, NOTA_MIN_DEFAULT,
+  corregirQuiz, esCampoDeArchivo, esCampoDeComunidad, linkValido, refDeComunidad, NOTA_MIN_DEFAULT,
   type ArchivoEntregado, type Calificacion, type Campo, type CampoTipo, type ValorCampo, type Valores,
 } from '@/lib/curso';
 import { Button } from '@/app/_ui';
+import Link from '@/app/_ui/Link';
 import { respuestaDe, type BloqueRespuesta } from '../curso-ficha-lectura';
 
 /** Los tipos que se dibujan con su propia forma; el resto, como la ficha (`respuestaDe`). */
-const PROPIOS: ReadonlySet<CampoTipo> = new Set<CampoTipo>(['archivo', 'audio', 'video', 'link', 'escala', 'quiz', 'checklist', 'agenda', 'confirmacion']);
+const PROPIOS: ReadonlySet<CampoTipo> = new Set<CampoTipo>(['archivo', 'audio', 'video', 'link', 'escala', 'quiz', 'checklist', 'agenda', 'confirmacion', 'publicar', 'comentar']);
 
 const archivosDe = (v: ValorCampo | undefined): ArchivoEntregado[] =>
   Array.isArray(v) ? (v as unknown[]).filter((x): x is ArchivoEntregado => !!x && typeof x === 'object' && !Array.isArray(x) && typeof (x as ArchivoEntregado).path === 'string') : [];
@@ -137,6 +138,18 @@ function Propio({ c, v, nota, abrirArchivo, onOtroIntento }: {
   if (c.tipo === 'confirmacion') return v === 'si' ? <span className="rt-texto">Lo hizo</span> : sin;
 
   if (c.tipo === 'quiz') return <Quiz c={c} v={v} nota={nota} onOtroIntento={onOtroIntento} />;
+
+  // La comunidad (item 17 del 08/10/2026): QUÉ publicó o comentó, con el link al post (la tab Comunidad
+  // abre ese post, y elige sola su producto: `?post=`).
+  if (esCampoDeComunidad(c.tipo)) {
+    const r = refDeComunidad(c.tipo, v);
+    if (!r) return c.tipo === 'publicar' ? <span className="rt-sin">Sin publicar</span> : <span className="rt-sin">Sin comentar</span>;
+    return (
+      <span className="rt-texto">
+        {c.tipo === 'publicar' ? 'Publicó un post' : 'Comentó un post'} · <Link className="rt-link" href={`/customer-success/comunidad?post=${r.postId}`}>Ver post</Link>
+      </span>
+    );
+  }
 
   return sin;
 }

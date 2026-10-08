@@ -15,9 +15,11 @@
 // que se le abrió el curso, está en el nivel 1 y nadie le abrió nada a mano. Así lo que se abre «a los
 // 7 días» o «en el nivel 3» se ve cerrado, con su motivo, que es lo que ve un alumno que recién entra.
 //
-// La etapa se elige (`?etapa=`): por defecto la primera, que es como lo ve un cliente el día uno
-// —lo de adelante, cerrado—. Los videos SUBIDOS van con un link firmado de vida corta: la ruta del
-// portal pide el token de un alumno, y acá no hay ninguno.
+// La etapa es SIEMPRE la primera, que es como lo ve un cliente el día uno —lo de adelante, cerrado—.
+// ⚠️ Hasta el 08/10/2026 se elegía con un desplegable arriba a la derecha (`?etapa=`), y Martín lo pidió
+//    afuera (item 2: «no entiendo por qué el desplegable de "Bienvenida"... quitalo»): se leía como un
+//    selector de módulos. Un `?etapa=` viejo ya no se lee. Los videos SUBIDOS van con un link firmado
+//    de vida corta: la ruta del portal pide el token de un alumno, y acá no hay ninguno.
 
 import { requireCapa } from '@/lib/tab-access';
 import { getTenantDb, adminDeWorkspaceActual } from '@/lib/workspace';
@@ -41,7 +43,7 @@ export const revalidate = 0;
 
 export const metadata = { title: 'Vista del alumno · Curso' };
 
-export default async function VistaAlumnoPage({ searchParams }: { searchParams: Promise<{ producto?: string; etapa?: string }> }) {
+export default async function VistaAlumnoPage({ searchParams }: { searchParams: Promise<{ producto?: string }> }) {
   await requireCapa('customer-success');
   const sp = await searchParams;
   const productoId = Number(sp.producto) > 0 ? Number(sp.producto) : null;
@@ -54,7 +56,7 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
   if (!productoId || !prod) {
     return (
       <Pagina>
-        <EmptyState titulo="No encontré ese producto" accion={{ label: 'Volver al curso', href: '/customer-success/curso' }} />
+        <EmptyState titulo="No encontré ese producto" accion={{ label: 'Volver a editar', href: '/customer-success/curso' }} />
       </Pagina>
     );
   }
@@ -70,7 +72,8 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     tzActual(),
   ]);
   const cfg = cur.entrega;
-  const etapa = cfg.etapas.some((e) => e.key === sp.etapa) ? sp.etapa! : cfg.etapas[0]?.key ?? null;
+  // El día uno: la primera etapa del kanban (ver la cabecera).
+  const etapa = cfg.etapas[0]?.key ?? null;
   const hoy = hoyEnTz(tz);
   const modulos = conHtmlSaneado(armarModulos({
     modulos: cur.modulos, etapas: cfg.etapas, actual: etapa, clases, progreso: new Map(),
@@ -120,12 +123,7 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
   // con flex»).
   return (
     <div style={{ height: '100dvh', minHeight: 560, display: 'flex', flexDirection: 'column' }}>
-      <BarraVistaPrevia
-        productoId={productoId}
-        etapa={etapa}
-        etapas={cfg.etapas.map((e) => ({ key: e.key, label: e.label }))}
-        anotar={adminId != null}
-      />
+      <BarraVistaPrevia productoId={productoId} anotar={adminId != null} />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <PortalAlumno token="" vista={vista} vistaPrevia urlsAdjuntos={urlsAdjuntos} />
       </div>

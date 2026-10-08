@@ -35,13 +35,23 @@ import 'server-only';
 //     avisa cuándo abre la clase cada alumno: se sube como adjunto o no va.
 //   · Listas de tareas (las del editor): `ul[data-type=taskList]`, `li[data-type=taskItem]` con
 //     `data-checked` true/false. La casilla la DIBUJA el CSS; el `<input>` no se guarda.
+//   · El tamaño de una imagen (08/10/2026, item 10): `data-ancho` con uno de los diecinueve anchos
+//     de `ANCHOS_IMAGEN` (10 a 100, de a 5) y `data-alinea="centro"`. Comparados como TEXTO contra
+//     la lista, dos veces: en el transform y en los `values` de `allowedAttributes`. Nunca un
+//     `style` en una imagen: el ancho de Word (`width`/`height` en px) sigue pasando como antes.
+//   · Tablas (08/10/2026, item 10): table, thead, tbody, tr, th, td. De todo lo que trae una tabla
+//     pegada de Excel o Word, pasan sólo `colspan`/`rowspan` (un entero de 2 a 20: el 1 es el
+//     default y no se escribe) y la alineación de la celda (la misma regla que un párrafo). Ni
+//     `style` en la tabla, ni `colgroup`/`col` (los anchos de columna en px del editor), ni
+//     `scope`/`headers`/`background`/`bgcolor`. Un `caption` pierde la etiqueta y deja su texto,
+//     como toda etiqueta que no pasa.
 //
 // Lo que nunca pasa, aunque venga bien escrito: on*, style libre, iframe, svg, math, form, input,
 // base, meta, link, script, style, object, embed, comentarios, `javascript:` (con entidades,
 // mayúsculas, tabs o espacios en el medio), `data:`, `vbscript:`, `file:`, rutas relativas.
 
 import sanitizeHtml from 'sanitize-html';
-import { idDeRef } from '@/app/_ui/HtmlSeguro';
+import { idDeRef, anchoDeImagen, alineaDeImagen, ANCHOS_IMAGEN } from '@/app/_ui/HtmlSeguro';
 import { APP_BASE_URL } from './app-url';
 
 /**
@@ -141,6 +151,26 @@ export function srcSeguro(raw: unknown): string | null {
 const dimension = (v: unknown): string | null =>
   typeof v === 'string' && /^\d{1,4}$/.test(v.trim()) && Number(v) > 0 ? String(Number(v)) : null;
 
+/**
+ * Cuántas columnas o filas abarca una celda: un entero de 2 a 20, o nada. El 1 es el default y no
+ * se escribe (así el HTML del editor y el saneado son el mismo texto). Un `colspan="999"` pegado
+ * de algún lado haría una tabla de mil columnas vacías: se acota.
+ */
+const TOPE_SPAN = 20;
+const VALORES_SPAN: string[] = Array.from({ length: TOPE_SPAN - 1 }, (_, i) => String(i + 2));
+const span = (v: unknown): string | null =>
+  typeof v === 'string' && /^[1-9]\d?$/.test(v) && Number(v) >= 2 && Number(v) <= TOPE_SPAN ? v : null;
+
+/** Una celda: sólo su `colspan`/`rowspan` válidos y su `style` (que después filtra `allowedStyles`). */
+function celda(tag: 'td' | 'th', a: Attrs): { tagName: string; attribs: Attrs } {
+  const out: Attrs = {};
+  const c = span(a.colspan), r = span(a.rowspan);
+  if (c) out.colspan = c;
+  if (r) out.rowspan = r;
+  if (a.style) out.style = a.style;
+  return { tagName: tag, attribs: out };
+}
+
 type Attrs = Record<string, string>;
 
 /** Sólo el `style` (que después filtra `allowedStyles`): lo demás de un título pegado no se copia. */
@@ -151,10 +181,15 @@ const OPCIONES: sanitizeHtml.IOptions = {
   allowedTags: [
     'p', 'h2', 'h3', 'blockquote', 'pre', 'hr', 'ul', 'ol', 'li', 'br',
     'strong', 'em', 'u', 's', 'code', 'mark', 'span', 'a', 'img',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
   ],
   allowedAttributes: {
     a: ['href', 'target', 'rel', 'title'],
-    img: ['src', 'alt', 'title', 'width', 'height'],
+    // El ancho y la alineación: la segunda capa, con los VALORES exactos (la primera es el
+    // transform). Si alguien afloja una de las dos, queda la otra.
+    img: ['src', 'alt', 'title', 'width', 'height',
+      { name: 'data-ancho', multiple: false, values: ANCHOS_IMAGEN.map(String) },
+      { name: 'data-alinea', multiple: false, values: ['centro'] }],
     span: ['style'],
     mark: ['style'],
     p: ['style'],
@@ -163,6 +198,8 @@ const OPCIONES: sanitizeHtml.IOptions = {
     ol: ['start'],
     ul: ['data-type'],
     li: ['data-type', 'data-checked'],
+    th: [{ name: 'colspan', multiple: false, values: VALORES_SPAN }, { name: 'rowspan', multiple: false, values: VALORES_SPAN }, 'style'],
+    td: [{ name: 'colspan', multiple: false, values: VALORES_SPAN }, { name: 'rowspan', multiple: false, values: VALORES_SPAN }, 'style'],
   },
   // `class` sólo en un link, y sólo la del chip de un archivo adjunto (la pone el transform).
   allowedClasses: { a: ['mk-adjunto'] },
@@ -172,6 +209,8 @@ const OPCIONES: sanitizeHtml.IOptions = {
     p: { 'text-align': [ALINEACION] },
     h2: { 'text-align': [ALINEACION] },
     h3: { 'text-align': [ALINEACION] },
+    th: { 'text-align': [ALINEACION] },
+    td: { 'text-align': [ALINEACION] },
   },
   // La segunda capa, después de `hrefSeguro`/`srcSeguro` (que corren en el transform): la del
   // propio sanitize-html. Si un día alguien afloja una de las dos, queda la otra.
@@ -222,8 +261,14 @@ const OPCIONES: sanitizeHtml.IOptions = {
       const w = dimension(a.width), h = dimension(a.height);
       if (w) out.width = w;
       if (h) out.height = h;
+      const ancho = anchoDeImagen(a['data-ancho']);
+      if (ancho) out['data-ancho'] = String(ancho);
+      const alinea = alineaDeImagen(a['data-alinea']);
+      if (alinea) out['data-alinea'] = alinea;
       return { tagName: 'img', attribs: out };
     },
+    td: (_t, a) => celda('td', a),
+    th: (_t, a) => celda('th', a),
     ol: (_t, a) => {
       const s = (a.start ?? '').trim();
       const attribs: Attrs = /^\d{1,5}$/.test(s) && Number(s) !== 1 ? { start: String(Number(s)) } : {};
@@ -303,8 +348,9 @@ function decodificar(s: string): string {
 /**
  * El TEXTO PLANO de un HTML rico: para la búsqueda, para la IA y para los mensajes (lo que se sigue
  * guardando en `curso_clases.descripcion`). Párrafos separados por una línea en blanco, ítems de
- * lista con «•» (o su número, o «[x]»/«[ ]» si es de tareas), el chip de un archivo como su nombre.
- * Las imágenes no dejan texto: una referencia no le sirve a nadie que lee.
+ * lista con «•» (o su número, o «[x]»/«[ ]» si es de tareas), el chip de un archivo como su nombre,
+ * una tabla como un renglón por fila con las celdas separadas por « | ». Las imágenes no dejan
+ * texto: una referencia no le sirve a nadie que lee.
  *
  * Sanea antes de leer, así que trabaja sobre la forma regular del saneo (sin comentarios, con el
  * `<` del texto escapado) y alcanza con un tokenizador de una expresión.
@@ -316,6 +362,14 @@ export function textoDeHtml(html: string | null | undefined): string {
   /** ¿Lo último que se escribió es la marca de un ítem? (el primer párrafo del ítem va pegado) */
   let recienMarca = false;
   const listas: Array<{ ordenada: boolean; n: number }> = [];
+  /**
+   * Las tablas abiertas (pueden anidarse): cuántas celdas lleva el renglón actual. Una tabla sale
+   * como renglones con las celdas separadas por « | », y lo de adentro de una celda va en el mismo
+   * renglón — un párrafo por celda partiría cada fila en tantos renglones como columnas.
+   */
+  const tablas: Array<{ celdas: number }> = [];
+  /** ¿Lo último que se escribió es el principio de una celda? (su primer párrafo va pegado) */
+  let recienCelda = false;
   /** Que lo escrito termine en `n` saltos de línea como mínimo (nunca al principio). */
   const salto = (n: number) => {
     out = out.replace(/[ \t]+$/, '');
@@ -328,14 +382,30 @@ export function textoDeHtml(html: string | null | undefined): string {
     if (m[4] != null) {
       const t = decodificar(m[4]);
       out += t;
-      if (t.trim()) recienMarca = false;
+      if (t.trim()) { recienMarca = false; recienCelda = false; }
       continue;
     }
     const cierra = m[1] === '/';
     const tag = m[2].toLowerCase();
     const attrs = m[3] ?? '';
-    if (tag === 'br') { out += '\n'; continue; }
+    if (tag === 'br') { out += tablas.length ? ' ' : '\n'; continue; }
     if (tag === 'hr') { salto(2); continue; }
+    if (tag === 'table') {
+      if (cierra) { tablas.pop(); if (!tablas.length) salto(2); continue; }
+      if (tablas.length) { if (!recienCelda) out += ' '; } else salto(2);
+      tablas.push({ celdas: 0 });
+      continue;
+    }
+    if (tag === 'tr') {
+      const t = tablas[tablas.length - 1];
+      if (!cierra && t) { if (tablas.length === 1) salto(1); t.celdas = 0; }
+      continue;
+    }
+    if (tag === 'td' || tag === 'th') {
+      const t = tablas[tablas.length - 1];
+      if (!cierra && t) { if (t.celdas++ > 0) out += ' | '; recienCelda = true; }
+      continue;
+    }
     if (tag === 'ul' || tag === 'ol') {
       if (cierra) { listas.pop(); continue; }
       const start = /\sstart="(\d+)"/.exec(attrs);
@@ -355,6 +425,7 @@ export function textoDeHtml(html: string | null | undefined): string {
       continue;
     }
     if (!cierra && (tag === 'p' || tag === 'h2' || tag === 'h3' || tag === 'blockquote' || tag === 'pre')) {
+      if (tablas.length) { if (!recienCelda) out += ' '; recienCelda = true; continue; }
       if (listas.length) { if (!recienMarca) salto(1); } else salto(2);
     }
   }

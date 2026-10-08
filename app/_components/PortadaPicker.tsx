@@ -108,7 +108,7 @@ export function ubicarPanel(
   return { left, top };
 }
 
-export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onColor, onCerrar, sinAutomatico = false, disenos }: {
+export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onColor, onCerrar, sinAutomatico = false, disenos, video }: {
   /** Lo que hay puesto hoy, para marcarlo. */
   valor: string | null | undefined;
   /** El color derivado del nombre: el default, que también es una opción. */
@@ -153,8 +153,17 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
    * curso es el acento. Sin esto, el selector es el de siempre.
    */
   disenos?: { n: number; rotulo: string; titulo: string };
+  /**
+   * LA MINIATURA DEL VIDEO de una clase del curso (item 20 del 08/10/2026: «En la miniatura de la clase,
+   * falta una opción para sacar la miniatura del vídeo. Que por defecto esté esa siempre que haya
+   * vídeo»). Con esto, «Miniatura del video» es la PRIMERA muestra de la Galería, y es la del default:
+   * elegirla es volver a él (`onElegir(null)`), así que «Sin portada» —que haría lo mismo— no se dibuja.
+   * Dos botones que hacen lo mismo con dos nombres se leen como dos cosas distintas.
+   */
+  video?: string | null;
 }) {
-  const [pest, setPest] = useState<Pestana>(() => (disenos && (!valor || esLamina(valor)) ? 'disenos' : 'galeria'));
+  // Sin portada elegida en una clase con video, lo que se ve ES la miniatura: abre donde está marcada.
+  const [pest, setPest] = useState<Pestana>(() => (disenos && (!valor || esLamina(valor)) && !(video && !valor) ? 'disenos' : 'galeria'));
   const pestanas: Pestana[] = disenos ? ['disenos', 'galeria', 'subir'] : ['galeria', 'subir'];
   /**
    * Cuántas veces se apretó «Sin portada». La pestaña Diseños lo necesita aparte de `valor`: sobre
@@ -289,7 +298,7 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
         <span style={{ flex: 1 }} />
         {/* Volver al default NO es borrar: es el color derivado del nombre, que es lo
             que se ve hoy. Va donde Notion pone «Remove». */}
-        <button type="button" className="pp-quitar" onClick={() => { setQuitadas((q) => q + 1); onElegir(null); }}>Sin portada</button>
+        {!video && <button type="button" className="pp-quitar" onClick={() => { setQuitadas((q) => q + 1); onElegir(null); }}>Sin portada</button>}
       </div>
 
       {/* ⚠️ UNA SOLA PESTAÑA «GALERÍA», CON LOS DEGRADADOS ARRIBA Y LAS FOTOS ABAJO
@@ -308,7 +317,19 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
         )}
         {pest === 'galeria' && (
           <>
-            <p className="pp-seccion">Color y degradado</p>
+            {video && (
+              <>
+                <p className="pp-seccion">Del video</p>
+                <ul className="pp-grid">
+                  <li>
+                    <button type="button" className={`pp-op pp-op--video${!valor ? ' on' : ''}`} onClick={() => onElegir(null)}
+                      title="Miniatura del video" aria-label="Miniatura del video"
+                      style={{ backgroundImage: `url("${video.replace(/["\\]/g, '')}")` }} />
+                  </li>
+                </ul>
+              </>
+            )}
+            <p className={`pp-seccion${video ? ' pp-seccion-2' : ''}`}>Color y degradado</p>
             <ul className="pp-grid">
               {!sinAutomatico && (
                 <li>
@@ -656,6 +677,7 @@ const CSS = `
 .pp-op:hover{ border-color:var(--border-strong); box-shadow:0 2px 8px rgba(18,21,27,.14); }
 .pp-op.on{ border-color:var(--primary); box-shadow:0 0 0 2px var(--primary-bg); }
 .pp-op.foto img{ display:block; width:100%; height:100%; object-fit:cover; }
+.pp-op.pp-op--video{ background-color:#000; background-size:cover; background-position:center; background-repeat:no-repeat; }
 
 .pp-colores{ display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin:0 2px; }
 .pp-color{ width:28px; height:28px; border-radius:999px; border:2px solid transparent;

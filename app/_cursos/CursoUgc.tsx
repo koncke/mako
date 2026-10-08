@@ -55,6 +55,9 @@ import type { ControlMenuUgc } from './tipos';
 import type { ClaseUgc, CursoUgcProps, DisposicionUgc, EdicionUgc, LeccionUgc, ModuloUgc, PortadaUgc, TextosUgc, TonoChip } from './tipos';
 import { CSS_UGC } from './estilos';
 import { varsDeAcento } from '@/lib/curso-estilo';
+// La fuente del curso (item 3 del 08/10/2026): las variables que pinta y la hoja que la trae.
+import { varsDeFuente } from './fuentes';
+import { useHojasDeFuentes } from './SelectorFuente';
 import {
   OPCIONES_DISPOSICION, TEXTOS_DEFAULT, abrible, claseDelSplit, clasesVisibles, moduloMarcado, pctAvance, puedeMoverPorPosicion,
   rotuloGrilla, textoBarraModulo, textoTarjetaModulo, vecinas,
@@ -167,10 +170,12 @@ function BarraAvance({ p, className }: { p: { hechas: number; total: number }; c
 export default function CursoUgc(props: CursoUgcProps) {
   const {
     titulo, subtitulo, marca, modulos, clases, portada, leccion, recursos, entradasExtra,
-    edicion, arriba, pieBarra, onSalir, modo = 'pagina', acento, disposicion,
+    edicion, arriba, pieBarra, onSalir, modo = 'pagina', acento, disposicion, fuente,
   } = props;
   const t: TextosUgc = useMemo(() => ({ ...TEXTOS_DEFAULT, ...props.textos }), [props.textos]);
   const cssListo = useCssUgc();
+  // La hoja de la fuente elegida (la de siempre no carga nada). Antes del `return` de abajo: es un hook.
+  useHojasDeFuentes([fuente]);
   const idNav = useId();
 
   /**
@@ -281,8 +286,9 @@ export default function CursoUgc(props: CursoUgcProps) {
       <style dangerouslySetInnerHTML={{ __html: CSS_UGC }} />
       <div className="paper-bg" aria-hidden />
       <div className="grain" aria-hidden />
-      {/* El acento va en `.ugc` y no acá: ver `varsDeAcento` (lib/curso-estilo.ts). */}
-      <div className="ugc" style={varsDeAcento(acento) as CSSProperties | undefined}>
+      {/* El acento y la fuente van en `.ugc` y no acá: ver `varsDeAcento` (lib/curso-estilo.ts) y
+          `varsDeFuente` (./fuentes.ts). Sin ninguno de los dos elegido, sin `style`. */}
+      <div className="ugc" style={(acento || fuente ? { ...varsDeAcento(acento), ...varsDeFuente(fuente) } : undefined) as CSSProperties | undefined}>
         <div className="ugc-shell">
           <aside className={`ugc-side${menu ? ' ugc-side--abierta' : ''}`} aria-label="Navegacion del curso">
             {/* ⚠️ LA MARCA ES UN BOTÓN sólo si hay a dónde ir. Es donde todo el mundo hace
@@ -332,7 +338,7 @@ export default function CursoUgc(props: CursoUgcProps) {
             )}
             {/* La barra es una ZONA del arrastre (./arrastre-curso.ts): un módulo se reordena acá
                 también, y una clase soltada sobre un módulo se muda a ése. */}
-            <nav className="ugc-nav" id={idNav} {...arr.zona('barra')}>
+            <nav className="ugc-nav" id={idNav} data-recorrido="barra-modulos" {...arr.zona('barra')}>
               {/* El `!q` no sobra: sin él, «Inicio» seguía marcado mientras un módulo
                   filtraba, y quedaban DOS renglones en lima. Una barra que marca dos lugares
                   a la vez dice menos que ninguna. */}
@@ -398,11 +404,19 @@ export default function CursoUgc(props: CursoUgcProps) {
               </div>
               {props.topbarExtra != null && <div className="ugc-topbar-extra">{props.topbarExtra}</div>}
               {/* De QUÉ curso es esta pantalla: al otro extremo de la marca, donde se lee como
-                  contexto y no como identidad. Pedido de Martín. */}
-              <div className="ugc-topbar-curso">
-                <span className="ugc-topbar-curso-t">{titulo}</span>
-                <span className="ugc-topbar-curso-n">{subtitulo ?? `${clases.length} ${t.clases}`}</span>
-              </div>
+                  contexto y no como identidad. Pedido de Martín.
+                  ⚠️ QUIEN EDITA VE SUS ACCIONES EN ESE LUGAR, no el nombre (item 14 del 08/10/2026: «Vista
+                  de alumnos, invitar a alumno y ? deberían estar donde hoy está "Negocio que escala" 106
+                  clases... el editor ve esos 3 botones»). El nombre ya lo tiene en la marca y en la
+                  portada; el alumno (portal y vista previa) sigue viendo el nombre acá. */}
+              {props.acciones != null ? (
+                <div className="ugc-topbar-acciones">{props.acciones}</div>
+              ) : (
+                <div className="ugc-topbar-curso">
+                  <span className="ugc-topbar-curso-t">{titulo}</span>
+                  <span className="ugc-topbar-curso-n">{subtitulo ?? `${clases.length} ${t.clases}`}</span>
+                </div>
+              )}
             </div>
             {arriba != null && <div className="ugc-arriba">{arriba}</div>}
 
@@ -559,7 +573,8 @@ function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo, estru
                         </button>
                       )}
                       {estructura.conMenuModulo && (
-                        <BotonOpciones t={t} nombre={m.nombre} onAbrir={(a) => estructura.abrirOpciones({ tipo: 'modulo', key: m.key }, a)} />
+                        <BotonOpciones t={t} nombre={m.nombre} recorrido={iMov === 0 ? 'menu-modulo' : undefined}
+                          onAbrir={(a) => estructura.abrirOpciones({ tipo: 'modulo', key: m.key }, a)} />
                       )}
                     </div>
                   )}
@@ -701,7 +716,8 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
             {` · ${clases.length} ${clases.length === 1 ? t.leccion : t.lecciones}`}
             {/* El mismo menú «…» que en su tarjeta del índice: adentro del módulo es donde se lo mira. */}
             {estructura.conMenuModulo && (
-              <BotonOpciones t={t} nombre={modulo.nombre} onAbrir={(a) => estructura.abrirOpciones({ tipo: 'modulo', key: modulo.key }, a)} />
+              <BotonOpciones t={t} nombre={modulo.nombre} recorrido="menu-modulo"
+                onAbrir={(a) => estructura.abrirOpciones({ tipo: 'modulo', key: modulo.key }, a)} />
             )}
           </h2>
         ) : <h2>{rotuloGrilla(mod ? (modulo?.nombre ?? mod) : null, clases.length, total, t)}</h2>}
@@ -711,7 +727,7 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
       <div className="ugc-rail" {...(editando ? arr.zona('grilla') : {})}>
         {/* «+ Nueva clase» PRIMERO (item 12). Sin `data-arr`: el hueco 0 es el de la primera CLASE. */}
         {editando && !modulo?.sinEdicion && edicion!.onNueva && (
-          <button type="button" className="ugc-modcard ugc-modcard--nueva" disabled={edicion!.ocupado}
+          <button type="button" className="ugc-modcard ugc-modcard--nueva" disabled={edicion!.ocupado} data-recorrido="nueva-clase"
             onClick={() => edicion!.onNueva?.(mod!)}>
             <span className="ugc-modcard-nueva-t">{t.nueva}</span>
           </button>
@@ -744,7 +760,8 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
                     {/* Con el menú «…», borrar vive adentro (con el candado, por área y mover a otro
                         módulo): una × suelta al lado de tres controles se tocaba sin querer. */}
                     {estructura.conMenuClase ? (
-                      <BotonOpciones t={t} nombre={c.titulo} onAbrir={(a) => estructura.abrirOpciones({ tipo: 'clase', id: c.id }, a)} />
+                      <BotonOpciones t={t} nombre={c.titulo} recorrido={i === 0 ? 'menu-clase' : undefined}
+                        onAbrir={(a) => estructura.abrirOpciones({ tipo: 'clase', id: c.id }, a)} />
                     ) : (
                       <button type="button" className="ugc-editable-btn ugc-editable-btn--borrar" title="Borrar" aria-label="Borrar"
                         disabled={edicion!.ocupado} onClick={() => edicion!.onBorrar(c.id)}>&times;</button>
@@ -776,6 +793,12 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
  *    lugar (el título acá, el resto en lo que trae la pantalla) y el papel es uno solo.
  * ⚠️ SIN VIDEO, QUIEN EDITA VE UN RECUADRO PUNTEADO (`sinVideo`), nunca un marco negro vacío: se
  *    leería como un reproductor roto. El alumno no recibe nada en ese lugar.
+ * ⚠️ «TEXTO AL COSTADO / TEXTO ABAJO» VA ADENTRO DEL PAPEL, arriba de todo (item 13 del 08/10/2026:
+ *    «debería estar dentro del recuadro de la descripción y la tarea, arriba de todo, arriba de la
+ *    descripción»). Estaba al lado de la pastilla del título, lejos de lo que mueve. El interruptor lo
+ *    arma ESTE dibujo (las opciones son suyas) y se lo pasa al papel (`LeccionUgc.papel` como función);
+ *    un papel que no lo recibe (uno que es un nodo) lo lleva arriba suyo, así nunca se pierde.
+ * ⚠️ `data-recorrido` en el título y en el video: son pasos del recorrido de la lección (app/_ui/Recorrido).
  */
 function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edicion, disposicion }: {
   clase: ClaseUgc; l: LeccionUgc; nombreModulo?: string;
@@ -784,37 +807,36 @@ function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edic
 }) {
   const pastilla = <span className="ugc-pill">{clase.pastilla ?? nombreModulo ?? ''}</span>;
   const actual: DisposicionUgc = disposicion === 'abajo' ? 'abajo' : 'costado';
+  // El interruptor cambia el ajuste del CURSO: lo dice su rótulo de accesibilidad.
+  const dispo = edicion?.onDisposicion ? (
+    <div className="ugc-dispo" role="group" aria-label="Dónde va el texto, en todo el curso">
+      {OPCIONES_DISPOSICION.map((o) => (
+        <button key={o.valor} type="button" className="ugc-dispo-op" aria-pressed={actual === o.valor}
+          disabled={edicion.ocupado} onClick={() => { if (actual !== o.valor) edicion.onDisposicion!(o.valor); }}>
+          {o.texto}
+        </button>
+      ))}
+    </div>
+  ) : null;
+  const papel = typeof l.papel === 'function' ? l.papel(dispo) : <>{dispo}{l.papel}</>;
 
   return (
     <>
       <div className={claseDelSplit(actual)}>
         <div className="ugc-vcol">
           <div className="ugc-ltitle">
-            {edicion?.onDisposicion ? (
-              <div className="ugc-ltitle-fila">
-                {pastilla}
-                {/* El interruptor cambia el ajuste del CURSO: lo dice su rótulo de accesibilidad. */}
-                <div className="ugc-dispo" role="group" aria-label="Dónde va el texto, en todo el curso">
-                  {OPCIONES_DISPOSICION.map((o) => (
-                    <button key={o.valor} type="button" className="ugc-dispo-op" aria-pressed={actual === o.valor}
-                      disabled={edicion.ocupado} onClick={() => { if (actual !== o.valor) edicion.onDisposicion!(o.valor); }}>
-                      {o.texto}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : pastilla}
+            {pastilla}
             {edicion?.onTexto
-              ? <h1><TextoEditable valor={clase.titulo} etiqueta="Título de la clase" onGuardar={(v) => edicion.onTexto!({ tipo: 'clase', id: clase.id }, v)} /></h1>
+              ? <h1><TextoEditable valor={clase.titulo} etiqueta="Título de la clase" recorrido="leccion-titulo" onGuardar={(v) => edicion.onTexto!({ tipo: 'clase', id: clase.id }, v)} /></h1>
               : <h1>{clase.titulo}</h1>}
           </div>
           {l.video ? (
-            <div className="ugc-vcard">
+            <div className="ugc-vcard" data-recorrido="leccion-video">
               <div className="ugc-vframe" style={{ aspectRatio: '16 / 9', width: '100%' }}>{l.video.cuerpo}</div>
               {l.video.barra != null && <div className="ugc-vbar">{l.video.barra}</div>}
             </div>
           ) : l.sinVideo != null && (
-            <div className="ugc-vvacio">{l.sinVideo}</div>
+            <div className="ugc-vvacio" data-recorrido="leccion-video">{l.sinVideo}</div>
           )}
           {l.debajoDelVideo != null && <div className="ugc-debajo">{l.debajoDelVideo}</div>}
           {/* ⚠️ ANTERIOR / SIGUIENTE VAN DEBAJO DEL VIDEO, no arriba: son lo que se usa
@@ -827,7 +849,7 @@ function Leccion({ clase, l, nombreModulo, anterior, siguiente, abrirClase, edic
           )}
         </div>
 
-        <div className="ugc-pcol">{l.papel}</div>
+        <div className="ugc-pcol">{papel}</div>
       </div>
       {l.despues}
     </>
@@ -955,7 +977,12 @@ function MenuMarca({ id, etiqueta, ancla, onCerrar, children }: {
       //    abajo del botón no entra y arriba sí, va arriba (una tarjeta de la última fila).
       const left = Math.max(8, Math.min(r.left + 12, window.innerWidth - width - 8));
       const alto = ref.current?.offsetHeight ?? 0;
-      const top = alto && r.bottom + 4 + alto > window.innerHeight - 8 && r.top - 4 - alto >= 8 ? r.top - 4 - alto : r.bottom + 4;
+      // ⚠️ Y SI NO ENTRA NI ABAJO NI ARRIBA (08/10/2026: el menú «…» de un módulo creció con el acceso y
+      //    el interruptor del kanban, 447 px, colgado de una tarjeta a media pantalla), se corre hacia arriba
+      //    lo justo para que su final quede adentro: abajo de todo estaba «Eliminar módulo», cortado.
+      const cabeAbajo = r.bottom + 4 + alto <= window.innerHeight - 8;
+      const top = !alto || cabeAbajo ? r.bottom + 4
+        : r.top - 4 - alto >= 8 ? r.top - 4 - alto : Math.max(8, window.innerHeight - 8 - alto);
       setPos({ left, top, width });
     };
     medir();
@@ -1034,9 +1061,13 @@ function Hueco({ alto }: { alto: number }) {
 }
 
 /** El «…» de un módulo o una clase. Va con los controles de la tarjeta y no arrastra. */
-function BotonOpciones({ t, nombre, onAbrir }: { t: TextosUgc; nombre: string; onAbrir: (ancla: HTMLElement) => void }) {
+function BotonOpciones({ t, nombre, onAbrir, recorrido }: {
+  t: TextosUgc; nombre: string; onAbrir: (ancla: HTMLElement) => void;
+  /** El punto del recorrido que es este botón (`data-recorrido`): el del primer módulo y el de la primera clase. */
+  recorrido?: string;
+}) {
   return (
-    <button type="button" className="ugc-editable-btn ugc-editable-btn--menu" data-nodrag
+    <button type="button" className="ugc-editable-btn ugc-editable-btn--menu" data-nodrag data-recorrido={recorrido}
       title={t.opciones} aria-label={`${t.opciones} de ${nombre}`} aria-haspopup="true"
       onClick={(e) => { e.stopPropagation(); onAbrir(e.currentTarget); }}>
       &hellip;

@@ -85,7 +85,8 @@ export async function productoConEtapas(productoId: number): Promise<{ etapas: s
 async function claseCruda(claseId: number): Promise<Clase | null> {
   if (!Number.isInteger(claseId) || claseId <= 0) return null;
   const db = await getTenantDb();
-  const { data, error } = await db.from('curso_clases').select(COLUMNAS_CLASE).eq('id', claseId).maybeSingle();
+  // Sin las de la papelera (mig 0223): para el editor, una clase borrada no existe.
+  const { data, error } = await db.from('curso_clases').select(COLUMNAS_CLASE).eq('id', claseId).is('borrada_at', null).maybeSingle();
   if (error) throw new Error(error.message);
   return data ? aClase(data as FilaDeClase) : null;
 }
@@ -102,6 +103,8 @@ async function borrarArchivo(path: string | null | undefined): Promise<void> {
     // borrarlo sin preguntar dejaba el reproductor negro en la otra, para todos sus clientes. Ante
     // la duda (la consulta falla) no se borra: un archivo huérfano cuesta disco, uno borrado de más
     // cuesta la clase.
+    // ⚠️ CON LAS DE LA PAPELERA (mig 0223; excepción nombrada en tests/curso-papelera.test.ts): una clase
+    // borrada que vuelve con «Deshacer» tiene que volver CON su video.
     const { data: usos, error: eUsos } = await (await getTenantDb()).from('curso_clases').select('id').eq('video_path', path).limit(1);
     if (eUsos || (usos ?? []).length) return;
     const { error } = await getSupabaseServer().storage.from(BUCKET_CURSO).remove([path]);
@@ -159,7 +162,7 @@ export async function guardarClase(raw: unknown): Promise<Resultado<{ clase: Cla
     let orden = previa?.orden ?? 0;
     if (!previa || previa.etapa !== v.fila.etapa) {
       const { data: hermanas, error } = await db.from('curso_clases').select('id, etapa, orden')
-        .eq('producto_id', productoId).eq('etapa', v.fila.etapa);
+        .eq('producto_id', productoId).eq('etapa', v.fila.etapa).is('borrada_at', null);
       if (error) return { ok: false, error: error.message };
       orden = siguienteOrden((hermanas ?? []) as Array<{ id: number; etapa: string; orden: number }>, v.fila.etapa);
     }
@@ -179,29 +182,48 @@ export async function guardarClase(raw: unknown): Promise<Resultado<{ clase: Cla
 }
 
 /**
- * Borra una clase. Su avance (`curso_progreso`) se va con ella por la FK `on delete cascade`
- * de la mig 0202 — por eso la pantalla pregunta antes diciendo cuántos clientes lo pierden.
+ * Borra una clase: a la PAPELERA (mig 0223), no un `delete`. Hasta el 08/10/2026 era un `delete` y el
+ * avance de cada alumno (`curso_progreso`) se iba con ella por la FK `on delete cascade` de la 0202;
+ * ahora queda con `borrada_at`, invisible para todo lo demás (toda lectura de clases la filtra:
+ * tests/curso-papelera.test.ts), y el «Deshacer» de 5 segundos la devuelve ENTERA con
+ * `restaurarClases` —la misma fila, con su avance, sus entregas, su video, su portada y lo que se le
+ * abrió a mano a cada alumno—. Lo que antes se limpiaba acá (el video, la portada, lo abierto a mano)
+ * lo limpia la purga, cuando la borra de verdad (lib/curso-papelera.ts).
+ *
+ * Pedido de Martín (08/10/2026, item 18): «te falta el botón de arrepentimiento para muchas acciones,
+ * el de 5 segundos de "Deshacer"».
  */
-export async function borrarClase(claseId: number): Promise<Resultado> {
+export async function borrarClase(claseId: number): Promise<Resultado<{ id: number }>> {
   try {
     const c = await claseCruda(claseId);
     if (!c) return { ok: false, error: 'Esa clase ya no existe.' };
     const db = await getTenantDb();
-    const { error } = await db.from('curso_clases').delete().eq('id', c.id);
+    const ahora = new Date().toISOString();
+    const { error } = await db.from('curso_clases').update({ borrada_at: ahora, updated_at: ahora })
+      .eq('id', c.id).eq('producto_id', c.productoId).is('borrada_at', null);
     if (error) return { ok: false, error: error.message };
-    await borrarArchivo(c.videoPath);
-    // Lo que se le abrió a mano a algún alumno (mig 0220) nombra la clase por su id como texto, sin
-    // FK: se limpia acá. Best-effort, como la portada: una fila de más no abre nada.
-    const { error: errAbierta } = await db.from('curso_desbloqueos').delete().eq('producto_id', c.productoId).eq('objeto', 'clase').eq('clave', String(c.id));
-    if (errAbierta) console.warn(`[curso-admin] no pude limpiar lo abierto a mano de la clase ${c.id}: ${errAbierta.message}`);
-    // La portada que se le eligió (mig 0214) no tiene FK a la clase: sin esto su fila quedaba para
-    // siempre. Best-effort, como el archivo: lo que importa —la clase— ya se borró, y una fila de
-    // más no se dibuja (el portal sólo manda las portadas de las clases que viajan).
-    const { error: errEstilo } = await db.from('curso_estilo').delete().eq('clave', `portada:clase:${c.id}`);
-    if (errEstilo) console.warn(`[curso-admin] no pude borrar la portada de la clase ${c.id}: ${errEstilo.message}`);
-    return { ok: true };
+    return { ok: true, id: c.id };
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo borrar la clase.') };
+  }
+}
+
+/**
+ * El «Deshacer» de borrar clases (una, o las de un módulo): las saca de la papelera y las devuelve como
+ * quedaron. SÓLO de este producto y sólo las que están en la papelera: los ids viajan desde el
+ * navegador. Una cuyo módulo ya no existe vuelve a «Sin módulo», donde se ve y se mueve.
+ */
+export async function restaurarClases(productoId: number, raw: unknown): Promise<Resultado<{ clases: Clase[] }>> {
+  try {
+    const ids = Array.isArray(raw) ? [...new Set(raw.map(Number))].filter((n) => Number.isInteger(n) && n > 0).slice(0, 1000) : [];
+    if (!ids.length) return { ok: true, clases: [] };
+    const db = await getTenantDb();
+    const { data, error } = await db.from('curso_clases').update({ borrada_at: null, updated_at: new Date().toISOString() })
+      .in('id', ids).eq('producto_id', productoId).not('borrada_at', 'is', null).select(COLUMNAS_CLASE);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, clases: ((data ?? []) as FilaDeClase[]).map(aClase) };
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo devolver la clase.') };
   }
 }
 
@@ -221,7 +243,7 @@ export async function moverClase(claseId: number, dir: 'arriba' | 'abajo'): Prom
     if (!prod.claves.includes(c.etapa)) return { ok: false, error: 'Su módulo ya no existe.' };
     const db = await getTenantDb();
     const { data, error } = await db.from('curso_clases').select('id, etapa, orden')
-      .eq('producto_id', c.productoId).eq('etapa', c.etapa);
+      .eq('producto_id', c.productoId).eq('etapa', c.etapa).is('borrada_at', null);
     if (error) return { ok: false, error: error.message };
     const actuales = clasesDeEtapa((data ?? []) as Array<{ id: number; etapa: string; orden: number }>, c.etapa);
     const ids = reordenar(actuales.map((x) => Number(x.id)), c.id, dir);
@@ -295,6 +317,7 @@ export async function descartarVideo(path: string): Promise<Resultado> {
     const ws = await getWorkspaceActual();
     if (!ws || !pathEsDelWorkspace(path, ws)) return { ok: false, error: 'Ese video no es de este negocio.' };
     const db = await getTenantDb();
+    // ⚠️ CON LAS DE LA PAPELERA, como `borrarArchivo`: el video de una clase borrada sigue siendo suyo.
     const { data, error } = await db.from('curso_clases').select('id').eq('video_path', path).limit(1);
     if (error) return { ok: false, error: error.message };
     if ((data ?? []).length) return { ok: true };
@@ -344,7 +367,7 @@ export async function renombrarClase(claseId: number, raw: unknown): Promise<Res
     const db = await getTenantDb();
     const { data, error } = await db.from('curso_clases')
       .update({ titulo, updated_at: new Date().toISOString() })
-      .eq('id', claseId).select('id, titulo').maybeSingle();
+      .eq('id', claseId).is('borrada_at', null).select('id, titulo').maybeSingle();
     if (error) return { ok: false, error: error.message };
     if (!data) return { ok: false, error: 'Esa clase ya no existe.' };
     return { ok: true, titulo: (data as { titulo: string }).titulo };
@@ -376,7 +399,7 @@ export async function crearClase(productoId: number, moduloClave: string): Promi
     if (!prod) return { ok: false, error: 'Ese producto no es de este negocio.' };
     if (!prod.claves.includes(moduloClave)) return { ok: false, error: 'Ese módulo no existe.' };
     const db = await getTenantDb();
-    const { data: hermanas, error: e1 } = await db.from('curso_clases').select('id, orden').eq('producto_id', productoId).eq('etapa', moduloClave);
+    const { data: hermanas, error: e1 } = await db.from('curso_clases').select('id, orden').eq('producto_id', productoId).eq('etapa', moduloClave).is('borrada_at', null);
     if (e1) return { ok: false, error: e1.message };
     const ordenes = ((hermanas ?? []) as Array<{ orden: number }>).map((h) => h.orden ?? 0);
     const orden = ordenes.length ? Math.min(...ordenes) - 1 : 0;
@@ -414,7 +437,7 @@ export async function moverClaseA(claseId: number, moduloClave: string, antesDe:
     const destino = prod.modulos.find((m) => m.clave === moduloClave);
     if (destino?.bloqueo?.tipo === 'tarea' && destino.bloqueo.claseId === c.id) return { ok: false, error: 'Ese módulo se abre con esta clase.' };
     const db = await getTenantDb();
-    const { data, error } = await db.from('curso_clases').select('id, etapa, orden').eq('producto_id', c.productoId).eq('etapa', moduloClave);
+    const { data, error } = await db.from('curso_clases').select('id, etapa, orden').eq('producto_id', c.productoId).eq('etapa', moduloClave).is('borrada_at', null);
     if (error) return { ok: false, error: error.message };
     const actuales = clasesDeEtapa((data ?? []) as Array<{ id: number; etapa: string; orden: number }>, moduloClave);
     const ids = ordenConClaseEn(actuales.map((x) => Number(x.id)), c.id, antesDe == null ? null : Number(antesDe));
@@ -441,8 +464,9 @@ export async function moverClaseA(claseId: number, moduloClave: string, antesDe:
  * Lo que se guarda de UNA parte de la lección. Un objeto con UNA de estas claves.
  *
  * `minutos` y `tipo` (08/10/2026, paso LECCIÓN): eran campos del editor de la clase, el modal que se
- * fue con el botón «Editar» (item 16). Ahora viven en la ficha de la lección, y los minutos se llenan
- * solos con la duración del video que se sube.
+ * fue con el botón «Editar» (item 16). Desde la tanda siguiente del mismo día (items 11 y 12) el tipo
+ * salió de la pantalla (la columna queda con su valor) y los minutos no se escriben a mano: los pone
+ * la lección con la duración que dice el reproductor del video.
  */
 export type CambioClase =
   | { titulo: string }
@@ -518,6 +542,12 @@ export async function guardarCampoClase(claseId: number, cambio: unknown): Promi
           if (!hay) return { ok: false, error: 'El video no terminó de subir.' };
         }
         fila = { ...v.video };
+        // ⚠️ OTRO VIDEO, OTROS MINUTOS (item 12 del 08/10/2026: los minutos salen solos del video). Los
+        //    de antes eran del video que se fue: quedan vacíos hasta que el reproductor del editor mida el
+        //    nuevo (app/customer-success/curso/LeccionEditable.tsx, `useMinutosDelVideo`). Con el mismo
+        //    video no se tocan.
+        const mismo = v.video.video_tipo === c.videoTipo && v.video.video_url === c.videoUrl && v.video.video_path === c.videoPath;
+        if (!mismo) fila.minutos = null;
         if (c.videoPath && c.videoPath !== v.video.video_path) alFinal = () => borrarArchivo(c.videoPath);
         break;
       }
@@ -581,7 +611,7 @@ export async function guardarCampoClase(claseId: number, cambio: unknown): Promi
 export async function claseEsDelProducto(claseId: number, productoId: number): Promise<boolean> {
   if (!Number.isInteger(claseId) || claseId <= 0) return false;
   const db = await getTenantDb();
-  const { data, error } = await db.from('curso_clases').select('id').eq('id', claseId).eq('producto_id', productoId).maybeSingle();
+  const { data, error } = await db.from('curso_clases').select('id').eq('id', claseId).eq('producto_id', productoId).is('borrada_at', null).maybeSingle();
   if (error) throw new Error(error.message);
   return !!data;
 }
