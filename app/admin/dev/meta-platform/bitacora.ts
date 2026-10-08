@@ -253,4 +253,25 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — «Una página pública de más de ~12 KB llega VACÍA a quien no ejecuta JavaScript»',
     ],
   },
+  {
+    fecha: '8 oct', hora: '03:31', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El reenvío, de punta a punta',
+    pedido: 'Haz todo el proceso tu, como siempre...',
+    puntos: [
+      'Martín sólo resolvió el captcha; el resto del asistente lo recorrió Claude en su Chrome.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '04:00', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Verificación del negocio APROBADA al tercer envío',
+    puntos: [
+      'Enviada a las 03:35 por «Verificación del dominio», con la misma constancia y los mismos datos. Meta leyó el sitio a las 03:45 y 03:46 y esta vez encontró la razón social visible sin JavaScript.',
+      'Lo único distinto respecto del segundo rechazo era el sitio: lo que la destrabó fue sacar el nombre del bloque que React dejaba oculto.',
+    ],
+    archivos: [
+      'docs/hallazgos-ads.md — «La verificación del negocio de MaKo…»',
+    ],
+  },
 ];
