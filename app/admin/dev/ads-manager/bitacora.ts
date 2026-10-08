@@ -252,4 +252,33 @@ export const BITACORA: Hito[] = [
       { sha: '6fe99555', msg: 'Ads Manager: la revisión de la #715 — el mismo lugar de los dos lados son dos filas', lineas: 264, archivos: 7 },
     ],
   },
+  {
+    fecha: '8 oct', hora: '—', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El gasto de Meta en la moneda de cada cuenta',
+    pedido: 'Haz esta tarea aquí: “Leer el gasto de Meta en la moneda de cada cuenta”',
+    puntos: [
+      'La tarea salió del relevamiento de la API de MaKo: todo el gasto de Meta se pasaba a dólares como si la cuenta cobrara en pesos.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '02:57', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El gasto en dólares sale de la moneda real de la cuenta, en un solo lugar',
+    puntos: [
+      '**Medido contra Meta:** ws1, ws4 y ws11 cobran en MXN; ws13, ws14 y ws15 en USD. Para esos tres, el dashboard, el CAC, los experimentos, la salud de la cuenta y MaKo mostraban el gasto 17,3 veces más chico: 44 lugares dividían por la tasa del peso.',
+      '⚠️ **Las escrituras ya estaban bien desde septiembre** (`usdACuenta`); lo que nunca se arregló fue lo que se MUESTRA. Arreglar un lector solo habría dejado al chat contradiciendo al dashboard, así que todos piden su conversor a `conversorGastoMeta()`.',
+      '**La moneda se guarda al sincronizar** (`account_currency` en el mismo pedido de siempre) y, si falta, se le pregunta a Meta una vez. Una moneda sin tasa no se convierte; una desconocida va vacía donde la salida puede decir «no sé».',
+      '**La tool del doer nombra el campo con la moneda real** (`gasto_usd`, `gasto_mxn`), y la salud de la cuenta deja de ponerle «MXN» al saldo de una cuenta en dólares.',
+    ],
+    commits: [
+      { sha: '6118b275', msg: 'El gasto de Meta en dólares sale de la moneda de cada cuenta, no asumiendo pesos', lineas: 488, archivos: 22 },
+    ],
+    archivos: [
+      'lib/moneda-meta.ts — la moneda de la cuenta del workspace y `conversorGastoMeta()`',
+      'lib/presupuesto-cambio.ts — `conversorDeGasto`, la regla pura por moneda',
+      'lib/queries.ts — los ocho puntos del dashboard',
+      'tests/moneda-meta.test.ts — 6 tests, seis roturas, y el barrido que impide volver a asumir pesos',
+    ],
+  },
 ];

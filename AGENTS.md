@@ -2444,6 +2444,14 @@ publicitaria es el país **fiscal**, no el del público. Una LLC estadounidense 
 en Argentina da `US`. El que acierta es `timezone_name`, que es la zona con la que se
 eligió operar la cuenta (`lib/meta-pais.ts`).
 
+⚠️ **Y LO QUE SE LEE TAMBIÉN: el gasto de Meta en dólares sale de `conversorGastoMeta()`
+(`lib/moneda-meta.ts`), nunca de dividir por `TIPO_DE_CAMBIO_USD_MXN`.** Las escrituras se
+arreglaron en septiembre y la lectura siguió dividiendo por 17,3 para todos: el 08/10/2026
+ws13, ws14 y ws15 —que cobran en USD— veían su gasto 17 veces más chico en el dashboard, el
+CAC y MaKo. `spend`, `balanceMxn` y compañía están en la moneda de la CUENTA aunque se
+llamen distinto. `tests/moneda-meta.test.ts` barre `lib/` y `app/` y falla nombrando el
+archivo si un lector vuelve a asumir pesos.
+
 # Un estimador que devuelve CERO no es un validador
 
 Meta tiene dos endpoints que contestan «¿a cuántas personas llega esta segmentación?», y

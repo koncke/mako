@@ -1828,17 +1828,31 @@ lote tipea en dólares como la celda, así que **para el ws1 el mismo número ti
 lote vale ahora 17,3 veces más que antes**: quien tipeaba pesos ahí ahora tipea dólares (el
 placeholder y el cartel lo dicen).
 
-⚠️ **(08/10) Y la LECTURA nunca se arregló: el gasto de Meta se pasa a dólares como si toda cuenta
-cobrara en pesos.** Las tres veces de arriba eran escrituras y se cerraron con `cuentaAUsd` /
-`usdACuenta` (`lib/presupuesto-cambio.ts`). Lo que se MUESTRA sigue dividiendo por
-`TIPO_DE_CAMBIO_USD_MXN` para todos: 44 usos en 13 archivos, empezando por `lib/queries.ts:251-256`
+⚠️ **(08/10) Y la LECTURA no se había arreglado nunca: el gasto de Meta se pasaba a dólares como si
+toda cuenta cobrara en pesos.** Las tres veces de arriba eran escrituras y se cerraron con
+`cuentaAUsd` / `usdACuenta` (`lib/presupuesto-cambio.ts`). Lo que se MOSTRABA seguía dividiendo por
+`TIPO_DE_CAMBIO_USD_MXN` para todos: 44 usos en 13 archivos, empezando por `lib/queries.ts`
 («Meta devuelve spend en MXN (la cuenta está en MXN)»), que alimenta el dashboard, el CAC, los
-experimentos y el estructurador de campañas. Para el ws13, que cobra en USD, todo gasto en dólares
-sale 17,3 veces más chico: en 30 días son 1.336 de gasto que se leerían como ≈77 USD. La misma
-tool del doer (`listar_campanas_meta`, `lib/mako-doer-acciones.ts:615-616`) lo rotula «MXN».
-**SIN HACER**: una sola función «el gasto de este workspace en dólares» que lea la moneda de la
-cuenta (guardada, no pedida a Meta en cada request) y la usen todos los lectores; arreglar un
-lector solo deja al chat contradiciendo al dashboard. Medido en la corrida `wf_88a97c1e-c89`.
+experimentos y el estructurador de campañas. Medido contra Meta: **ws1, ws4 y ws11 cobran en MXN;
+ws13, ws14 y ws15 en USD**, y para esos tres todo gasto en dólares salía 17,3 veces más chico (MaKo
+decía «1.336 MXN ≈ 77 USD» sobre 1.336 dólares). La salud de la cuenta, además, le ponía «MXN» al
+saldo de una cuenta en dólares.
+
+**Arreglado el mismo día, en un solo lugar.** `conversorGastoMeta()` (`lib/moneda-meta.ts`) da el
+conversor del workspace en curso, y la regla de qué hacer con cada moneda es `conversorDeGasto`
+(`lib/presupuesto-cambio.ts`, pura y con test): USD tal cual, MXN con la tasa del código, una moneda
+sin tasa NO se convierte, y una moneda desconocida va vacía donde la salida puede decir «no sé» (las
+métricas de MaKo, la tool del doer, el KPI de inversión) y como antes —con un aviso— sólo en los
+tableros cuyo tipo no admite vacío. La moneda se guarda en `meta.moneda_cuenta`: la escribe el
+sincronizador (`fetchMetaInsights` pide `account_currency` en el mismo pedido) y, si falta o es de
+otra cuenta, se le pregunta a Meta una vez. La tool del doer nombra el campo con la moneda real
+(`gasto_usd`, `gasto_mxn`). `tests/moneda-meta.test.ts` barre `lib/` y `app/`: un lector nuevo que
+vuelva a dividir por `TIPO_DE_CAMBIO_USD_MXN` no pasa.
+
+⚠️ **Lo que NO cambió, a propósito:** los nombres `spend` / `*Mxn` / `balanceMxn` de la base y de los
+tipos siguen así aunque signifiquen «en la moneda de la cuenta» (renombrarlos es una migración y
+toca decenas de pantallas), y `META_BALANCE_ALERTA_MXN` vale 1, que funciona igual en cualquier
+moneda. Si ese umbral sube, hay que hacerlo por moneda.
 
 **Regla que queda, y es la de las tres:** un campo con el nombre de una moneda o de un país
 adentro (`daily_budget_mxn`, `countries: ['MX']`) es una constante disfrazada de dato. Lo
