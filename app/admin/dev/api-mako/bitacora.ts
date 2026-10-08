@@ -26,7 +26,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Tokens detallados', detalle: '`mako_pat_`, varios por workspace, con permisos por área (Sin acceso / Solo lectura / Lectura y escritura) y vencimiento · escriben en el acto salvo lo que gasta plata · valen SOLO para /api/v1', estado: 'hecha' },
   { titulo: 'Rutas REST y convenciones de GitHub', detalle: '379 rutas por recurso como alias · versión por fecha, rate limit en headers y en /rate_limit, errores {message, documentation_url, status}, 403 con el permiso que falta, ETag/304, OpenAPI 3.1', estado: 'hecha' },
   { titulo: 'El curso por la API', detalle: 'Área «curso»: leer cursos, módulos y clases; crear y ordenar módulos (sueltos por default); crear, editar, mover, borrar y restaurar clases · la guía «Migrar un curso con Claude»', estado: 'hecha' },
-  { titulo: 'La tarea y el video embed del curso por la API', detalle: 'Esperan el cambio del modelo de la tarea y del video por código embed que hace el chat de Customer Success (lib/curso.ts, lib/curso-admin.ts)', estado: 'sigue' },
+  { titulo: 'La tarea y el video embed del curso por la API', detalle: '`tareas` en crear y editar una clase (la principal sin título, las demás con título; los ids de los campos se conservan) · `videoUrl` acepta el `<iframe>` de Panda, Wistia o Bunny · se escribe por `guardarLeccion`, el camino del editor', estado: 'hecha' },
   { titulo: 'Un token se apaga cuando su creador pierde el acceso', detalle: 'Como en GitHub: hoy `creadoPor` no se vuelve a mirar y un admin que sacan del workspace se lleva tokens que andan · va en `resolverTokenApi`', estado: 'cola' },
   { titulo: 'Catálogo liviano', detalle: '`?compacto=1`, `?area=` y `?operacion=`: de ~90k tokens a ~6k para arrancar · la skill ya enseña ese camino', estado: 'hecha' },
   { titulo: 'Una sola copia de las 25 tools', detalle: 'El doer y el chat mandan el ToolDef viejo y ya divergieron de la def · antes hay que arreglar la def de `proponer_tareas_plan` (docs/api-mako-diseno.md § 10)', estado: 'sigue' },
@@ -198,6 +198,26 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: 'c4309144', msg: 'API de MaKo: el curso entra a la API, para que un Claude migre un curso entero', lineas: 1174, archivos: 18 },
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '15:55', chat: 'API de MaKo', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El curso por la API, con sus tareas y el video de Panda',
+    pedido: 'tengo que agregar el tema de curso en la API',
+    puntos: [
+      'Sobre el modelo nuevo de la tarea y del video que subió el chat de Customer Success (`dbae4da9`): `tareas` en crear y editar una clase, y `videoUrl` acepta el código `<iframe>` de Panda, Wistia o Bunny. La guía ya no dice que el link de Panda no se reproduce.',
+      '⚠️ **Los ids de los campos se conservan**: de ellos cuelgan las respuestas de los alumnos. Sin `id`, se reusa el del campo con la misma pregunta y el mismo tipo.',
+      '⚠️ **El validador tiraba toda lista vacía**: `tareas: []` contestaba «no pasaste nada» y la tarea no se podía sacar. Ahora la lista declara `vaciaEsValor`. Lo cazó la prueba de punta a punta.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/curso.helpers.ts — `modeloDeTareas` y `tareasParaApi`: de la API al modelo de la clase y de vuelta',
+      'lib/api-mako/areas/curso.run.ts — se escribe por `guardarLeccion`, con compare-and-set',
+      'lib/api-mako/validar.ts, tipos.ts — `vaciaEsValor`: una lista vacía que vale «vaciar»',
+      'app/api-mako/Articulos.tsx — la guía, con el video por código y las tareas',
+    ],
+    commits: [
+      { sha: '3b684747', msg: 'API de MaKo: las tareas y el video por código del curso', lineas: 446, archivos: 9 },
     ],
   },
 ];

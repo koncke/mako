@@ -801,7 +801,8 @@ Los tokens de prueba se eliminaron.
 
 **Vive en:** `lib/api-mako/areas/curso.def.ts` · `lib/api-mako/areas/curso.run.ts` ·
 `lib/api-mako/areas/curso.helpers.ts` · `lib/api-mako/flujo.ts` (`ResultadoFlujo.datos`) ·
-`lib/api-mako/rutas-http.ts` · `app/api-mako/Articulos.tsx` (la guía) · `tests/api-mako-curso.test.ts`
+`lib/api-mako/rutas-http.ts` · `lib/api-mako/validar.ts` (`vaciaEsValor`) · `app/api-mako/Articulos.tsx`
+(la guía) · `tests/api-mako-curso.test.ts`
 
 Pedido de Martín, en el audio de feedback del curso (minuto ~05:30): quien probaba, con su curso en
 Panda, preguntó «si esto lo puedo conectar por medio de API para que mi Claude lo pueda subir de forma
@@ -820,9 +821,12 @@ por HTTP), y la guía «Migrar un curso con Claude» en la documentación de la 
 - **La tab crea una clase AL PRINCIPIO de su módulo** (`crearClase`, a propósito: la abre para editarla).
   Una migración crea en orden, así que quedaba al revés. `crear_clase_curso` la lleva al final con
   `moverClaseA(id, modulo, null)`, que con el módulo ya numerado escribe UNA fila.
-- **Crear una clase son hasta seis escrituras** (crear, llevar al final, título, video, descripción,
-  minutos). Todo se valida en `preparar()`; si una escritura falla después de crear, la clase va a la
-  papelera, para que un reintento no deje dos «Nueva clase».
+- **Crear una clase son tres escrituras**: crear, llevarla al final y UNA con todo lo demás por
+  `guardarLeccion` (lib/curso-admin.ts), el mismo camino del «Guardar» del editor, con compare-and-set
+  (la base sale de `borradorDe`, la misma función de la pantalla; si otra persona la cambió en el medio,
+  se relee y se reintenta una vez). Todo se valida en `preparar()`; si la escritura falla después de
+  crear, la clase va a la papelera, para que un reintento no deje dos «Nueva clase». ⚠️ `guardarLeccion`
+  acepta los minutos SÓLO junto con un video nuevo: los minutos solos van por `guardarCampoClase`.
 - **`crearModulo` entiende `despuesDe: null` como «al principio»** y crea VINCULADO por default (una
   columna más en el kanban de clientes). Por la API, sin `despuesDe` va al final, y nace SUELTO salvo que
   se pida.
@@ -837,6 +841,30 @@ por HTTP), y la guía «Migrar un curso con Claude» en la documentación de la 
   clientes en el kanban, y en el ws1 eso manda WhatsApp. El test lo frena por nombre de función.
 - **Lo que se crea se ve enseguida**: un módulo suelto nace `abierto` (`lib/curso-bloqueo.ts`). La guía lo
   avisa.
+
+**La tarea y el video por código (la misma tarde, sobre el modelo nuevo de Customer Success, `dbae4da9`):**
+
+- **`tareas` REEMPLAZA todas las tareas, y los ids de los campos se CONSERVAN.** Las respuestas de los
+  alumnos cuelgan del `id` de cada campo: reescribir la tarea con ids nuevos las deja sin pregunta, sin
+  un error. `modeloDeTareas` (curso.helpers.ts) mantiene el `id` que llega, y sin `id` reusa el del campo
+  que ya tenía la misma pregunta y el mismo tipo. `ver_clase_curso` devuelve las tareas en la MISMA forma
+  que se mandan, para editar de ida y vuelta.
+- ⚠️ **El validador de la API TIRABA toda lista vacía, obligatoria o no** («una lista que no vino»), así
+  que `tareas: []` contestaba «No pasaste nada para cambiar» y no había forma de sacar la tarea. Lo cazó
+  la prueba de punta a punta, no los tests: los del helper le pasaban la lista directo. Ahora un
+  parámetro declara `vaciaEsValor` y ahí `[]` es «vaciar»; sin la marca se sigue descartando, que es lo
+  correcto para un filtro. **Toda lista que REEMPLAZA algo entero la lleva.**
+- **La tarea principal es la primera y no lleva título; las demás son `seccion` del modelo.** Una
+  `seccion` no se pide como campo (queda afuera de los tipos de la API, con `quiz`, `publicar` y
+  `comentar`, que se arman en MaKo). Lo incompleto se rechaza con el motivo de `erroresDeCampos`, el mismo
+  que pinta el editor; nunca se descarta.
+- **El video acepta el `<iframe>` entero** (`videoDeLink` → lib/embeds.ts). El `src` que se guarda lo
+  arma lib/embeds.ts desde el id: el `autoplay=1` del código de Panda no viaja (medido). El link del
+  PANEL de Panda (`dashboard.pandavideo.com.br/…`) no es un video: contesta con `porQueNoSeInserta`, la
+  misma frase del editor («De Panda Video, pega su código para insertar»).
+- ⚠️ **Este archivo no puede leer `.campos` de nada**: `tests/curso-tareas-secciones.test.ts` barre todo
+  lector de `.campos` en los archivos que importan lib/curso (una `seccion` no es un campo que se
+  conteste). Los campos se toman por desestructuración.
 
 **Probado contra la base el 08/10** en el ws 9, con un producto de prueba creado y borrado por la misma API.
 Se probó todo esto: tres clases creadas en orden, video inválido (422 sin crear nada), editar con HTML

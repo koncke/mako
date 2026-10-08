@@ -661,6 +661,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
+  el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
+  operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).
 - **`datosDeGoogle: true`** si el runner lee la agenda de Google (Calendar), aunque sea de
   rebote. **La agenda no pasa por ningún modelo de IA** (decisión de Martín, 07/10/2026:
   «si la IA solo procesa la info que le pide el usuario, y la app se debe ejecutar con
