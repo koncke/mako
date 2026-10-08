@@ -34,7 +34,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorMensajeWhatsApp, mismoPaso, placeholderDe, type EditorMensajeWhatsAppProps } from '../app/chatbot/EditorMensajeWhatsApp';
+import { EditorMensajeWhatsApp, mismoPaso, placeholderDe, ANCHO_MIN_FILA, type EditorMensajeWhatsAppProps } from '../app/chatbot/EditorMensajeWhatsApp';
 import { pasoSinAdjunto, pasoAMedia, pasoAVozDesde, pasoAVoz, cambiosDePaso } from '../lib/guion-audio';
 import type { PasoSecuenciaDto, AudioSetting } from '../app/chatbot/ChatAgentApp';
 
@@ -189,4 +189,38 @@ test('`{{negocio}}` se resuelve con la función del MOTOR; lo demás queda como 
 
 test('sin rótulos encima del campo: el placeholder alcanza (punto 5 del pedido)', () => {
   assert.doesNotMatch(EDITOR, /Qué tiene que decir|El mensaje<\/label>|<label/);
+});
+
+// ── La `fila` (segunda tanda, 08/10/2026, punto 3: «más ancho que largo, sino, se amontona todo») ──
+// Roturas (08/10/2026, mismo arnés, una por vez, restaurada de memoria; base 18 / 18):
+//  14. `fila` dibujando la columna de siempre (el render del WIP) → 2 fallos.
+//  15. la burbuja DESPUÉS de la barra en la fila (chat a la derecha) → 1.
+//  16. la consulta del contenedor con otro ancho que `ANCHO_MIN_FILA` → 1.
+//  17. «Revisar antes de enviar» fuera de la columna de la derecha → 1.
+//  18. la `columna` con el grid de la fila (lo de antes cambiado) → 1.
+
+test('`fila`: el chat a la izquierda a todo el alto; la barra y las herramientas a la derecha', () => {
+  const html = dibujar({ disposicion: 'fila', mostrarRevisar: true, permiteIA: true });
+  const chat = html.indexOf('class="mk-wa-fila-chat"');
+  const der = html.indexOf('class="mk-wa-fila-der"');
+  assert.ok(html.includes('class="mk-wa-fila"') && chat > 0 && der > chat, 'el chat primero (izquierda), la barra después (derecha)');
+  const izquierda = html.slice(chat, der);
+  const derecha = html.slice(der);
+  assert.ok(izquierda.includes('Hola, ¿cómo vas?'), 'la burbuja vive en el chat');
+  assert.ok(!izquierda.includes('placeholder='), 'la barra no se mete en el chat');
+  for (const t of ['placeholder="Escribe el mensaje"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"', '✦ MaKo', 'Revisar antes de enviar']) {
+    assert.ok(derecha.includes(t), `falta ${t} a la derecha`);
+  }
+  assert.doesNotMatch(izquierda, /max-height:260px/, 'en la fila el chat va a todo el alto, sin el tope de la columna');
+  assert.match(html, /container-type:inline-size/);
+});
+
+test('`fila` se apila sola en un panel angosto, y `columna` (el default) no cambió', () => {
+  const fila = dibujar({ disposicion: 'fila' });
+  assert.equal(ANCHO_MIN_FILA, 560);
+  assert.ok(fila.includes(`@container mkwa (max-width: ${ANCHO_MIN_FILA - 1}px)`), 'sin la consulta, un panel angosto vuelve a amontonarse');
+  const columna = dibujar({});
+  assert.ok(!columna.includes('mk-wa-fila') && !columna.includes('<style'), 'la columna de siempre: sin grid ni CSS de la fila');
+  assert.match(columna, /max-height:260px/);
+  assert.ok(columna.indexOf('Hola, ¿cómo vas?') < columna.indexOf('placeholder="Escribe el mensaje"'), 'la burbuja arriba y la barra abajo');
 });
