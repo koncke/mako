@@ -1341,5 +1341,72 @@ export const BITACORA: Hito[] = [
       "scripts/replay-envoltorio.js · public/replay/2/r.js",
       "lib/replay-reproductor.ts"
     ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "12:52",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Los pedidos de Joan: agenda, formulario por WhatsApp, el lead de Brigitte y el Pixel",
+    "pedido": "Te paso las solucitudes de Joan:\n* El calendar integrado bien, pero no me deja modificar la agenda (crear editar y esas cosas). Fijate que lo estuvo intentando en el WhatsApp de MaKo con Código Inmobiliario.\n* No me trae la info del formulario al whatsApp cuando le pregunto. (Esto es cuando le pregunta en MaKo en WhatsApp por un cliente y no le trae esa info, fijate en el grupo de Brigitte)\n* Y lo más importante: Llego un nuevo lead form de Brigitte pero no se cargo en el CRM\n* Tampoco están pudiendo pegar el Pixel de MaKo, les salta este error. (Creo que esta tarea se la podes mandar a integraciones que estuvo trabajando en el pixel)",
+    "puntos": [
+      "El Pixel se lo pasé a Integraciones, como pidió Martín: botón «Descargar» en /integraciones (6a43d32e).",
+      "La agenda también fue a Integraciones: el código es suyo y el doer lo estaba editando API de MaKo."
+    ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "13:08",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "El CRM sin el pre-onboarding (vía Customer Success, del audio del feedback del curso)",
+    "pedido": "vos actualmente en el CRM tenés como el pre onboarding del CRM, yo lo que quiero hacer es quitar eso… tengo que quitar toda la fricción que hay en el CRM y que se entre automáticamente",
+    "puntos": [
+      "Le gana a la regla vieja «onboarding en toda tab»: lo que decía el panel sigue para MaKo."
+    ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "16:45",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Los leads de Brigitte entran solos, y MaKo ve lo que contestaron en el formulario",
+    "puntos": [
+      "No era el webhook: la página de Brigitte no está suscripta. Ahora el poll corre cada 10 min.",
+      "El poll deja al webhook los leads de menos de 5 minutos, para no saltear el aviso.",
+      "MaKo decía «no hay detalles» con la respuesta guardada: ficha_lead ahora la trae.",
+      "El CRM entra directo al tablero, sin el panel de activación delante."
+    ],
+    "commits": [
+      {
+        "sha": "713661d7",
+        "msg": "CRM: entra directo al tablero, sin el panel de activación delante",
+        "lineas": 60,
+        "archivos": 2
+      },
+      {
+        "sha": "e869a24e",
+        "msg": "Leads de Meta: el poll corre cada 10 minutos y deja al webhook los recién llegados",
+        "lineas": 159,
+        "archivos": 5
+      },
+      {
+        "sha": "ddfb07e8",
+        "msg": "MaKo: ficha_lead trae lo que el lead contestó en el formulario de Meta",
+        "lineas": 131,
+        "archivos": 5
+      }
+    ],
+    "archivos": [
+      "vercel.json · lib/meta-leads-poll-reglas.ts — cada 10 min y el guardia del webhook",
+      "lib/mako-tools.ts · lib/meta-leads-campos.ts — formulario_meta en ficha_lead",
+      "app/crm/page.tsx — sin PanelActivacion"
+    ]
   }
 ];

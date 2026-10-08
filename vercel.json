@@ -27,7 +27,7 @@
     },
     {
       "path": "/api/cron/meta-leads-poll",
-      "schedule": "30 13 * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/onboarding-extraccion",

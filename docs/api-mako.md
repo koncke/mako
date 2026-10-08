@@ -1212,7 +1212,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}` — Ficha de un lead
 
-La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2. Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.
+La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2 y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y no significa que no contestó). Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.
 
 - **Ruta por operación:** `GET /api/v1/crm/ficha_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)

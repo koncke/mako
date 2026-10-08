@@ -458,8 +458,12 @@ test('la barra del código arranca PLEGADA y la ayuda es su cuarto botón', () =
   const barra = board.slice(j, board.indexOf('{errorCopia', j));
   const botones = barra.match(/<IconBtn/g) ?? [];
   // TRES desde que verificar se mudó al desplegable: chevron, copiar y ayuda.
+  // CUATRO desde el 08/10/2026: descargar el código como archivo, para quien no lo
+  // puede pegar (su editor con IA lo tapa con ********; lib/pixel-archivo.ts). Ese
+  // botón se dibuja sólo si el snippet tiene la forma esperada.
   // La ayuda sigue siendo el ÚLTIMO botón de la barra y no una fila aparte.
-  assert.equal(botones.length, 3, `la barra tiene que tener 3 botones y tiene ${botones.length}`);
+  assert.equal(botones.length, 4, `la barra tiene que tener 4 botones y tiene ${botones.length}`);
+  assert.ok(barra.lastIndexOf('<IconBtn') === barra.indexOf('<IconBtn name="help"'), 'la ayuda dejó de ser el último botón de la barra');
   assert.ok(/name="help"/.test(barra), 'el «?» va DENTRO de la barra, no en una fila aparte debajo');
 });
 

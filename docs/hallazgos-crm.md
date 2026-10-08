@@ -7060,6 +7060,11 @@ apagado.
   texto tampoco se puede editar desde /chatbot.
 - **Las respuestas del formulario de la LANDING no se guardan en el lead**: `body.respuestas`
   sólo arma el resumen del WhatsApp. La ficha de un lead de landing no las puede mostrar.
+- ~~MaKo no las ve~~ **Resuelto el 08/10** (`ddfb07e8`): ahora `ficha_lead` trae
+  `formulario_meta`. Antes, MaKo le contestó a Joan «en su ficha no hay detalles» sobre una
+  respuesta que estaba guardada. La trampa, en `docs/hallazgos-api-mako.md` («Una herramienta
+  con una lista cerrada de campos…»). Siguen sin verlo `reuniones_proximas`, `insight_lead`,
+  `generar_insight` y el paso del chatbot.
 
 _Hecho directo por la sesión de claude2 (`tests/meta-formulario-legible.test.ts`, probado
 rompiéndolo: seis roturas, las seis caen)._
@@ -7448,3 +7453,24 @@ etiqueta», sin decir a cuál apuntaba.
 
 _08/10/2026, cuenta 2. Parte E de la corrida `wf_8096a9d7-b3f` (`f92559e0`), revisión
 `wf_c1c0d3d3-ae3` (etiquetas-1 a 6, datos-1 a 7) y arreglos `wf_92e4c306-856` (`3f3aadd8`)._
+
+## El CRM entra directo: una decisión más nueva de Martín le gana a «onboarding en toda tab» (08/10/2026)
+
+**Vive en:** `app/crm/page.tsx` · `lib/tab-activacion.ts` (`TABS_ACTIVACION.crm`) ·
+`tests/crm-entra-directo.test.ts`
+
+Martín, en el audio del feedback del curso: «vos actualmente en el CRM tenés como el pre
+onboarding del CRM, yo lo que quiero hacer es quitar eso… tengo que quitar toda la fricción
+que hay en el CRM y que se entre automáticamente». El que probaba dijo: «no entiendo nada,
+siento que es mucho texto también».
+
+⚠️ **Choca con una regla vieja suya, y gana la nueva:** «onboarding en toda tab». El panel no
+se borró del todo. Lo que decía (qué conectar para que los leads entren solos) sigue en
+`TABS_ACTIVACION.crm`, y MaKo lo contesta si se lo preguntan (`ver_activacion_tab`). Se fue la
+pantalla que frenaba, no el dato. El test fija las dos cosas: que la página no ponga ningún
+panel delante y que la entrada `crm` siga existiendo.
+
+**Lo que quedó SIN hacer:** no se miró en un navegador el CRM de un workspace sin nada
+conectado. Ahora entra a un tablero vacío, y ese tablero no dice qué conectar.
+
+_08/10/2026, cuenta 2, sin subagentes. Commit `713661d7`._

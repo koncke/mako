@@ -66,7 +66,46 @@ código, preguntá **de quién es la página** y **si está suscrita**. Son dos 
 descartan las tres capas de abajo.
 
 **Vive en:** `app/api/webhooks/meta-leads/` · `app/api/cron/meta-leads-poll/` ·
-`lib/meta-leads.ts`
+`lib/meta-leads.ts` · `lib/meta-leads-poll-reglas.ts`
+
+#### 08/10/2026: Brigitte (ws15) cae en esta familia, y el poll pasó a correr cada 10 minutos
+
+Joan: «Llegó un nuevo lead form de Brigitte pero no se cargó en el CRM». El diagnóstico
+obvio, «el webhook está roto», era el equivocado: el webhook anda, y los leads de ws1 entran
+en 6 a 11 s. La página de ws15 (102044152117181) devuelve `subscribed_apps` = `[]`, y su
+token es de la app de la clienta («Bri App»). El único camino era el poll de las 13:30 UTC.
+Los cuatro leads que habían entrado tardaron 10,05 h, 10,62 h, 10,96 h y 19,29 h, y Nicolas
+y Jose seguían afuera. El ruteo está bien: `webhook_routing` apunta a ws15 desde el 30/09.
+
+- **El poll corre cada 10 minutos** (`*/10`). Repasa 1 día, y la corrida de las 13:30 repasa
+  la semana, que era la red de antes. Costo medido: 17 llamadas a Graph por pasada entre las
+  4 páginas, y seis llamadas seguidas a la misma página dejan el uso de `leadgen` en el 1 %.
+- ⚠️ **El poll NO toma un lead de menos de 5 minutos.** Si lo lee antes que el webhook, el
+  webhook lo encuentra por `meta_lead_id`, recibe `created:false` y se saltea **en
+  silencio** todo lo que sólo hace con un lead nuevo: el alta del chat, el aviso, los flujos
+  y la nutrición inmediata. No da error y el lead está, así que nadie lo nota. En ws1 le
+  pasaría a ~1 de cada 60 leads.
+- ⚠️ **ws11 no tiene NINGÚN camino**, ni webhook ni poll. Su token («Lidermente_Agent») no
+  tiene `leads_retrieval` ni `pages_manage_ads`, y listar los formularios devuelve «(#200)
+  Requires pages_manage_ads». Subir la frecuencia no lo arregla: hace falta un token nuevo.
+- En ws15, a Joan no le faltó ningún aviso: `lead-formulario-meta` está apagado, no hay
+  secuencias y ningún flujo escucha `lead.form_meta`. Lo único que de verdad no sale por el
+  poll es el evento `Lead` de CAPI, y eso es a propósito (`tests/meta-capi-lead-id.test.ts`).
+
+**Lo que quedó SIN hacer:**
+
+- **Suscribir la página de ws15** a la app 954456647632371, la del `META_APP_SECRET`, con un
+  token de página con `pages_manage_metadata`. Es un paso de Meta que hace un admin de la
+  página, no código. Hasta entonces, sus leads tardan hasta 10 minutos.
+- **ws11: token nuevo** con `leads_retrieval` y `pages_manage_ads`.
+- **El poll no dispara lo inmediato** (aviso, flujos, nutrición, CAPI) para una página sin
+  suscribir. La nutrición la levanta igual la cohorte `instant_form_sin_agenda` del cron. El
+  día que un cliente sin suscribir prenda el aviso, no le va a llegar. Arreglarlo necesita un
+  tope de antigüedad, porque el poll también hace pasadas de 90 días.
+*08/10/2026 — diagnóstico y refutación con subagentes, sólo lectura (scratchpad
+`wf2-refuta-lead-brigitte/`). Commit `e869a24e`. **Verificado en producción:** el deploy
+quedó listo a las 16:40 UTC, y la pasada de las 16:50 trajo a Jose (#2621) y a Nicolas
+(#2622) al embudo 17 «Captacion Forms», con sus 5 campos. Nadie escribió nada a mano.*
 
 ### ⚠️ El mapa de México no pinta cero: pinta el estado equivocado
 

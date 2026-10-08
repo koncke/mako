@@ -33,6 +33,7 @@ import { analisisAMarkdown } from './analisis-modelo';
 import { reporteMetricas, metricasAMarkdown } from './metricas-negocio';
 import { linkApp } from './app-url';
 import { tableroDeCapa } from './tablero-de-capa';
+import { formularioParaModelo } from './meta-leads-campos';
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ export const MAKO_TOOLS: ToolDef[] = [
   },
   {
     name: 'ficha_lead',
-    description: 'Ficha 360 de un lead: datos, estado comercial, fechas de reuniones y sus respuestas de calificación (R1/R2).',
+    description: 'Ficha 360 de un lead: datos, estado comercial, fechas de reuniones, sus respuestas de calificación (R1/R2) y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y NO significa que no contestó).',
     input_schema: {
       type: 'object',
       properties: { leadId: { type: 'number', description: 'id del lead (de buscar_leads).' } },
@@ -200,7 +201,10 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     case 'ficha_lead': {
       const lead = await requireLead(input);
       const respuestas = await getLeadRespuestas(lead).catch(() => ({ R1: [], R2: [] }));
-      return JSON.stringify({ lead: resumenLead(lead), respuestas });
+      // Lo del formulario de Meta va APARTE de `respuestas`: getLeadRespuestas lo usan los
+      // datos faltantes y el chatbot, y mezclarlo ahí les cambia lo que leen. El porqué, en
+      // formularioParaModelo (lib/meta-leads-campos.ts).
+      return JSON.stringify({ lead: resumenLead(lead), respuestas, ...formularioParaModelo(lead.meta_field_data) });
     }
 
     case 'historial_whatsapp': {

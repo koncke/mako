@@ -39,6 +39,7 @@ import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type Goo
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import { ProbarTracking } from './ProbarTracking';
 import { ROTULO_PIXEL_VIEJO } from '@/lib/pixel-aviso';
+import { ARCHIVO_PIXEL, pixelComoArchivo } from '@/lib/pixel-archivo';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -821,6 +822,10 @@ const DONDE_PEGAR: PasoPegar[] = [
       ['Webflow', 'Project Settings → Custom Code → Footer Code.'],
       ['WordPress', 'un plugin de "insert headers and footers" (footer).'],
       ['HTML plano', 'antes del </body>.'],
+      // ⚠️ El caso de los clientes de Código Inmobiliario (08/10/2026): su editor con IA
+      // les TAPA partes del código con ******** y lo rechaza, o lo tienen en un .js
+      // propio. El archivo se pone en la carpeta sin pasar por el chat (lib/pixel-archivo.ts).
+      [`Si tu editor tapa el código con ******** o lo tienes en un archivo`, `descárgalo, guárdalo en public/ y, antes del </body>, carga <script src="/${ARCHIVO_PIXEL}"></script>.`],
     ],
   },
   { paso: 'Publica los cambios y entra a tu página una vez. En cuanto llegue la primera visita, esta integración se pone en verde.' },
@@ -980,6 +985,22 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
     finally { setVerificando(false); }
   };
 
+  // El mismo código como ARCHIVO, para quien no lo puede pegar: su editor con IA lo
+  // tapa con ********, o lo tiene en un .js propio (lib/pixel-archivo.ts). `null`
+  // si el snippet no tiene la forma esperada, y entonces el botón no se dibuja.
+  const archivo = useMemo(() => (codigo ? pixelComoArchivo(codigo) : null), [codigo]);
+  const descargar = () => {
+    if (!archivo) return;
+    const url = URL.createObjectURL(new Blob([archivo], { type: 'text/javascript' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = ARCHIVO_PIXEL;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const copiar = async () => {
     if (!codigo) return;
     try {
@@ -1084,6 +1105,7 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
         {/* Copiar funciona PLEGADO: la acción no depende de ver el contenido —
             nadie lee el snippet, lo que hace es copiarlo y pegarlo. */}
         <IconBtn name={copiado ? 'check' : 'copy'} title={copiado ? '¡Copiado!' : 'Copiar el código'} tone={copiado ? 'good' : 'dim'} onClick={copiar} />
+        {archivo && <IconBtn name="descargar" title={`Descargar como ${ARCHIVO_PIXEL}`} tone="dim" onClick={descargar} />}
         {/* ⚠️ EL BOTÓN DE VERIFICAR SE FUE DE ACÁ, al lado del desplegable de
             páginas. Es la misma distancia física y una pregunta distinta: acá
             contestaba por el workspace entero —«¿llegó algún evento alguna

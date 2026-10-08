@@ -431,4 +431,33 @@ export const BITACORA: Hito[] = [
       '⚠️ Queda ABIERTO: el camino del DUPLICADO no lleva el producto. `FilaImport` (app/crm/leads-importar.ts) no declara `funnel_id`, asi que el campo NO se escribio en la propuesta a proposito — un dato que solo existe en su declaracion se lee como que ya funciona',
     ],
   },
+  // ── 8 de octubre: el editor con IA del cliente tapa el Pixel con asteriscos ──
+  {
+    fecha: '8 oct', hora: '13:04', chat: 'CRM', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los clientes de Joan no pueden pegar el Pixel',
+    pedido: 'Tampoco están pudiendo pegar el Pixel de MaKo, les salta este error. (Creo que esta tarea se la podes mandar a integraciones que estuvo trabajando en el pixel)',
+    puntos: [
+      'Viene del feedback de Joan (Código Inmobiliario, ws13; sus clientes son ws15 y ws17), con la captura de su editor con IA: el código le llegó «con valores ocultos (********) en varias secciones» y lo rechazó por JavaScript inválido. Lo pasó la sesión del CRM.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '13:04', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Pixel se puede bajar como archivo: los asteriscos los pone la herramienta del cliente',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era el equivocado.** Los asteriscos no salen de MaKo: el botón copia el snippet crudo, el emitido tiene 2.226 líneas —las mismas del «[Pasted 2226 lines]» de la captura, o sea que llegó entero— y ninguno. Los pone su editor, que trata como secreto algo del texto (el candidato es la línea del token, que es público). Qué herramienta y qué detector, NO se pudo medir.',
+      '**La salida no depende de adivinar el detector:** un botón «Descargar» en la barra del código baja el mismo Pixel como `mako-tracking.js`, sin las etiquetas `<script>` —el nombre que ya usa el ws13—, y una línea en «¿Dónde lo pego?» para quien ve los `********` o lo tiene en un archivo. Cierra además el pendiente de agosto «tu código vive en un archivo».',
+      '**Lo que quedó para Martín:** renombrar `TOKEN` en el snippet (no se hizo: obliga a subir la versión y no está medido que alcance) y un cargador de una línea, que haría innecesario pegar 2.226 líneas y repegar nunca más.',
+    ],
+    archivos: [
+      'lib/pixel-archivo.ts — el snippet como archivo, puro y con test',
+      'app/integraciones/IntegracionesBoard.tsx — el botón de descargar y la línea de ayuda',
+      'tests/pixel-archivo.test.ts — contra el snippet EMITIDO, compilado con vm.Script; 5 roturas',
+      'docs/hallazgos-landing.md — «El editor con IA del cliente TAPA el Pixel con ********»',
+    ],
+    commits: [
+      { sha: '6a43d32e', msg: 'El Pixel se puede bajar como archivo: el editor con IA del cliente lo tapaba con asteriscos', lineas: 195, archivos: 7 },
+    ],
+  },
 ];

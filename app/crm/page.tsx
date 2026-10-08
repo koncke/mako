@@ -19,9 +19,6 @@ import {
 } from '@/lib/queries';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
-import { integracionConectada } from '@/lib/credenciales';
-import { PanelActivacion } from '../_components/PanelActivacion';
-import { tabActivacion } from '@/lib/tab-activacion';
 import { credWs } from '@/lib/credenciales';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
 import { mapToCrmLead, etapasDelTablero } from './crm-map';
@@ -52,15 +49,17 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const funnelPideId = Number.isInteger(funnelPedido) && funnelPedido > 0 ? funnelPedido : null;
   await requireCapa('crm');
 
-  // Sin NINGUNA fuente de leads el Kanban es una bienvenida muerta, y encima es
-  // la primera tab de todos los roles (FALLBACK de tab-access).
-  const tabCrm = tabActivacion('crm');
-  // ⚠️ Cal.com cuenta como fuente de leads. Sin esto, a un cliente que vende por
-  // Cal.com —y cuyas reservas SÍ entran al CRM— se le escondía el Kanban entero
-  // detrás de un panel de activación que le pedía conectar otra cosa.
-  if (tabCrm && !(await integracionConectada('calendly')) && !(await integracionConectada('calcom')) && !(await integracionConectada('meta'))) {
-    return <PanelActivacion tab={tabCrm} />;
-  }
+  // ⚠️ EL CRM ENTRA DIRECTO, SIN PANEL DE ACTIVACIÓN (08/10/2026). Hasta acá, sin Calendly,
+  // Cal.com ni Meta conectados, la tab no mostraba el tablero: mostraba un panel con un
+  // párrafo, un aviso y tres diapositivas. Pedido de Martín, en el audio del feedback del
+  // curso: «vos actualmente en el CRM tenés como el pre onboarding del CRM, yo lo que quiero
+  // hacer es quitar eso… tengo que quitar toda la fricción que hay en el CRM y que se entre
+  // automáticamente»; y el que probaba: «no entiendo nada, siento que es mucho texto».
+  // Un CRM vacío NO es una bienvenida muerta: los leads se cargan a mano, se importan o
+  // entran desde WhatsApp, y el tablero ya tiene el «＋ Nuevo lead» en cada columna.
+  // Lo que el panel decía (qué conectar para que entren solos) sigue en TABS_ACTIVACION.crm
+  // (lib/tab-activacion.ts), que es lo que MaKo contesta cuando se lo preguntan
+  // (ver_activacion_tab); lo fija tests/crm-entra-directo.test.ts.
   await guardOnboarding();
   let leads: Lead[] = [];
   let campMap: Record<string, string> = {};

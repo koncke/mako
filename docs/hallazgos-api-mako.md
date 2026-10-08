@@ -441,6 +441,51 @@ sale por HTTP, tampoco figura).
 *07/10/2026 — sin subagentes; medido armando el turno y rompiendo el test cinco veces
 (2, 2, 1, 1 y 1 fallos). Commit `c3c2ef17`.*
 
+⚠️ **08/10: el test de este molde estaba verde y el turno real NO traía la herramienta.**
+Joan escribió en ws13 «Mako, agenda me una reunión mañana 12hs de 1hs que se llame PRUEBA»,
+y el mensaje se clasificó `capturar` (dudosa). Viajaron 2 herramientas y MaKo contestó «por
+aquí no puedo agendarte». Lo mismo pasa con 3 de las 5 frases de escritura del test, que arma
+el turno con `incluirAcciones: true` y se saltea `clasificarIntencion` y el filtro `ofrece`. Y
+el «sí» a lo que MaKo ofreció llega como `actuar`, pero con las áreas Y la relevancia
+(`relevanteA`) calculadas sobre «sí, dale»: el presupuesto deja afuera las acciones de
+agenda. **La regla se corrige así: armar el turno es pasar por el CLASIFICADOR, no sólo por
+`toolsDelRegistro`.** Está en curso en Integraciones. El diagnóstico está en el scratchpad
+de la sesión CRM (`joan-0-diag.json` y `joan-3-refuta.json`).
+
+## ⚠️ Una herramienta con una lista cerrada de campos hace que el modelo afirme «no hay» sobre un dato guardado (08/10/2026)
+
+**Vive en:** `lib/mako-tools.ts` (`ficha_lead`, `resumenLead`) · `lib/meta-leads-campos.ts`
+(`formularioParaModelo`) · `lib/api-mako/areas/crm.def.ts` (`ficha_lead`)
+
+Joan le preguntó a MaKo por WhatsApp (ws15) qué propiedad quería vender Rosana, y MaKo
+contestó «en su ficha no hay detalles». La respuesta estaba en `leads.meta_field_data`, y la
+ficha de la app la mostraba desde el 07/10. `ficha_lead` devolvía `resumenLead`, que son 20
+campos fijos, más `getLeadRespuestas`, que son R1/R2 de `lead_respuestas`, y un lead de
+formulario no tiene nada ahí. **El modelo no dice «no me llegó ese campo»: dice «no hay».**
+El otro turno, «¿tenés acceso a lo que dijo en el formulario?», gastó 6 pasos buscando con
+otras herramientas algo que ninguna devolvía, hasta el 429. `historial_lead` le mostraba que
+las preguntas EXISTÍAN, pero sin las respuestas.
+
+- **El dato va APARTE de `respuestas`.** `getLeadRespuestas` lo leen los datos faltantes, el
+  chatbot y los insights, y mezclarlo ahí les cambia lo que leen.
+- **`null` ≠ `[]`.** `null` es que no vino de un formulario, o que entró antes del 04/10, cuando
+  las respuestas no se guardaban. `[]` es que el formulario no tenía preguntas propias. Lo
+  explica la descripción una vez, no cada ficha: la nota en la ficha pesaba ~170 caracteres y
+  viajaba en cada lead que no fuera de Meta.
+- ⚠️ **Hay DOS descripciones de la misma herramienta.** El modelo de WhatsApp y la ruta vieja
+  de la skill leen la de `MAKO_TOOLS`, y HTTP y la doc leen la del registro. Si se corrige una
+  sola, el que la lee de la otra no se entera.
+- **Sale por todos los canales, decidido.** Es dato del lead, como el teléfono y el email de
+  la misma ficha. Los dos caminos de afuera son el runner de HTTP y `/api/agente/consultar`,
+  que corre `runMakoTool` sin `ctx.canal`. Recortarlo en uno solo deja abierto el otro, y el
+  snapshot de HTTP fija ids, no campos.
+
+**Lo que quedó SIN hacer:** `reuniones_proximas`, `insight_lead`/`generar_insight` y el paso
+del chatbot (`lib/paso-ia.ts:96`) tampoco ven `meta_field_data`.
+
+*08/10/2026 — diagnóstico y refutación con subagentes, sólo lectura. Medido con la
+herramienta real: `#2594` pasó de 438 a 648 caracteres. Commit `ddfb07e8`.*
+
 ## Lo que quedó sin hacer en el núcleo
 
 | Qué | Dónde | Por qué no se hizo |
