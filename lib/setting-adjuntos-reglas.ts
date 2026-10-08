@@ -185,6 +185,28 @@ export function pesoLegible(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
 }
 
+/**
+ * ¿El error dice que la TABLA no existe? Es la 0225 sin aplicar con el código ya desplegado.
+ * Medido el 08/10/2026 contra prod: PostgREST contesta `PGRST205` («Could not find the table … in
+ * the schema cache», HTTP 404); `42P01` es el mismo hecho dicho por Postgres.
+ */
+export function tablaNoExiste(e: { code?: string } | null | undefined): boolean {
+  return e?.code === 'PGRST205' || e?.code === '42P01';
+}
+
+/**
+ * ¿La lectura de `setting_adjuntos` por path CONFIRMA que no hay fila? Es lo que decide si un
+ * archivo subido que no se pudo registrar se borra del bucket (`soltarSiNoQuedo`, costuras-10).
+ *
+ * ⚠️ «NO PUDE LEER» NO ES «NO HAY»: con un error cualquiera la fila puede existir (un insert que
+ *    «falló» por la red y escribió igual, otro registro que ganó), y borrar ahí deja una fila sin
+ *    binario. La única excepción es la tabla que no existe: sin tabla no puede haber fila.
+ */
+export function sinFilaConfirmada(lectura: { data: unknown; error: { code?: string } | null }): boolean {
+  if (lectura.data) return false;
+  return !lectura.error || tablaNoExiste(lectura.error);
+}
+
 /** ¿Algún paso de esta secuencia nombra este archivo? (para no dejar un `media_id` colgado al borrar) */
 export function pasosUsanAdjunto(pasos: unknown, id: number): boolean {
   if (!Array.isArray(pasos)) return false;
