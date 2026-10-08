@@ -192,4 +192,35 @@ export const BITACORA: Hito[] = [
       'tests/agenda-whatsapp.test.ts — arma el turno con frases reales; probado rompiéndolo',
     ],
   },
+  // ── 8 de octubre: rotar de proveedor duplicaba las pendientes ────────────────
+  {
+    fecha: '8 oct', hora: '00:05', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Evitar pendientes duplicadas al rotar de proveedor',
+    pedido: 'Haz esta tarea aquí: “Evitar pendientes duplicadas al rotar de proveedor”',
+    puntos: [
+      'La tarea salió de la revisión adversarial del rediseño de la agenda (7/10): un refutador confirmó, leyendo el código, que el doer repetía las acciones al rotar de proveedor.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '00:05', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Rotar de proveedor ya no duplica: lo que una acción hizo vuelve sin correr',
+    puntos: [
+      '**El doer vuelve a correr el turno ENTERO en cinco caminos** (otra cuenta, la tool forzada, la red de plataforma, Claude, Groq). Si el primer proveedor proponía y se caía, el segundo volvía a proponer, y `crearPendiente` era un INSERT pelado: dos pendientes iguales, un «sí» que contestaba «Hay 2 acciones pendientes, aclara cuál» y, confirmadas las dos, dos invitaciones.',
+      '⚠️ **La guarda que ya había cubría UN camino de cinco**: «no rotes si ya hay borrador» miraba el link sólo en la rotación por validación; el `continue` de «contestó sin texto» y el `catch` rotaban igual.',
+      '**Dos capas.** En el doer, un memo por turno: cada corrida recibe `nuevoIntento()` y lo que una acción hizo en un intento anterior se le devuelve sin correr (dentro de un intento se cuenta por orden, mover dos leads es legítimo). En los datos, la misma pendiente no se guarda dos veces en un turno — sólo en el turno, para no saltear el candado de «no se confirma en el mismo turno en que se propuso».',
+      '⚠️ **No se cortó la rotación**, que era la salida que aparecía primero: dejaría muda a la persona cuando el primer proveedor se cae después de proponer, y es lo que sostiene a un cliente con una sola key.',
+      '**SIN HACER:** las propuestas de pantalla del registro sin `ref` (`proponerPantallaGenerica`) no tienen red de datos; un mismo intento que llama dos veces la misma acción deja dos links.',
+    ],
+    commits: [
+      { sha: 'cf365907', msg: 'Rotar de proveedor ya no duplica pendientes: lo que una acción hizo en el intento anterior vuelve sin correr', lineas: 415, archivos: 8 },
+    ],
+    archivos: [
+      'lib/turno-sin-duplicar.ts — el memo de acciones y `pendienteRepetida`, puros y con test',
+      'lib/mako-doer-in.ts — `nuevoIntento()` en las seis corridas del turno',
+      'lib/mako-pendientes.ts — `crearPendiente` con `mismoTurnoDesde`',
+      'tests/turno-sin-duplicar.test.ts — 10 tests, probado con 12 roturas',
+    ],
+  },
 ];
