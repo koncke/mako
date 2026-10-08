@@ -694,6 +694,69 @@ Los tokens de prueba se eliminaron.
 ---
 
 
+## El curso por la API: que un Claude migre un curso entero (08/10/2026)
+
+**Vive en:** `lib/api-mako/areas/curso.def.ts` · `lib/api-mako/areas/curso.run.ts` ·
+`lib/api-mako/areas/curso.helpers.ts` · `lib/api-mako/flujo.ts` (`ResultadoFlujo.datos`) ·
+`lib/api-mako/rutas-http.ts` · `app/api-mako/Articulos.tsx` (la guía) · `tests/api-mako-curso.test.ts`
+
+Pedido de Martín, en el audio de feedback del curso (minuto ~05:30): quien probaba, con su curso en
+Panda, preguntó «si esto lo puedo conectar por medio de API para que mi Claude lo pueda subir de forma
+automática»; Martín: «No están las acciones dentro de curso, como agregar nueva clase… tengo que agregar
+el tema de curso en la API», y «un pequeño tutorial de copia tu token de API, pásalo a Claude y dile que
+te haga tal». Lo pasó el chat de Customer Success. Quedó un área nueva, `curso` (11 operaciones, SÓLO
+por HTTP), y la guía «Migrar un curso con Claude» en la documentación de la tab API.
+
+**Lo que no se ve desde el pedido:**
+
+- **Una escritura que CREA algo no devolvía su id por la API.** `confirmarPendiente` sí devuelve
+  `Ejecutado.datos`, pero `aplicarEnElActo` lo tiraba y la escritura directa contestaba sólo `resumen`.
+  Quien crea una clase necesita su id para lo que sigue. Ahora viaja: `ResultadoFlujo.datos` → la
+  respuesta 200 lleva `datos` (y el OpenAPI lo describe). Una operación nueva que crea algo devuelve su
+  id en `datos`.
+- **La tab crea una clase AL PRINCIPIO de su módulo** (`crearClase`, a propósito: la abre para editarla).
+  Una migración crea en orden, así que quedaba al revés. `crear_clase_curso` la lleva al final con
+  `moverClaseA(id, modulo, null)`, que con el módulo ya numerado escribe UNA fila.
+- **Crear una clase son hasta seis escrituras** (crear, llevar al final, título, video, descripción,
+  minutos). Todo se valida en `preparar()`; si una escritura falla después de crear, la clase va a la
+  papelera, para que un reintento no deje dos «Nueva clase».
+- **`crearModulo` entiende `despuesDe: null` como «al principio»** y crea VINCULADO por default (una
+  columna más en el kanban de clientes). Por la API, sin `despuesDe` va al final, y nace SUELTO salvo que
+  se pida.
+- **Un producto sin entrega guardada ya tiene CINCO módulos**: las etapas de fábrica del kanban
+  (onboarding, arranque, hito 1, hito 2, entregado), todas vinculadas. Por eso `ordenar_modulos_curso`
+  pide la lista ENTERA de claves, y la guía le dice a Claude que lea el curso antes.
+- **No hay una pantalla de papelera**: lo borrado vuelve sólo con el «Deshacer» de 5 segundos de la tab.
+  La primera versión de la descripción de `borrar_clase_curso` prometía «se recupera desde la papelera
+  del curso en MaKo», que no existe. Por la API vuelve con `restaurar_clase_curso` (7 días, los de la
+  purga; el test los compara con `DIAS_PAPELERA`).
+- **Lo que NO se expone, a propósito**: vincular o borrar un módulo y mover clientes de etapa. Mueven
+  clientes en el kanban, y en el ws1 eso manda WhatsApp. El test lo frena por nombre de función.
+- **Lo que se crea se ve enseguida**: un módulo suelto nace `abierto` (`lib/curso-bloqueo.ts`). La guía lo
+  avisa.
+
+**Probado contra la base el 08/10** en el ws 9, con un producto de prueba creado y borrado por la misma API.
+Se probó todo esto: tres clases creadas en orden, video inválido (422 sin crear nada), editar con HTML
+saneado (el `<script>` no quedó), mover, reordenar (incompleto 422; completo 200; igual 200 `sinCambios`),
+renombrar, borrar dos veces (200 y 200 `sinCambios`), restaurar, y un token sin «Curso» (403). Al borrar
+el producto, su curso cayó en cascada.
+
+⚠️ **El Cliente de Prueba (ws 3) no sirve para probar una tab**: con el onboarding pendiente, cualquier
+pantalla rebota a `/onboarding`. El e2e corrió en el ws 9.
+
+### Lo que quedó sin hacer
+
+- **La tarea y el video por código embed** (el de Panda): el chat de Customer Success está cambiando ese
+  modelo en `lib/curso.ts` y `lib/curso-admin.ts`, y avisa con las firmas nuevas. Hasta entonces, un link
+  de una página de Panda se guarda pero no se reproduce, y la guía lo dice.
+- **Sin idempotencia por clave externa**: si un pedido se corta, el reintento puede duplicar una clase. La
+  guía le pide a Claude que mire el curso antes de reintentar. Una columna `ref` en `curso_clases` lo
+  cerraría.
+- **Los módulos no se pueden crear cerrados** por la API: el candado (`guardarBloqueo`) no está expuesto.
+  Para cargar un curso sin que los alumnos lo vean a medias, hoy hay que crearlo en módulos nuevos.
+
+*08/10/2026, cuenta 2, sin subagentes.*
+
 ## El canal de los flujos: un paso corre cualquier acción, por el mismo choke point (08/10/2026)
 
 **Vive en:** `lib/api-mako/flujo.ts` · `lib/api-mako/flujo-params.ts` · `lib/api-mako/canal.ts` ·

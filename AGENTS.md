@@ -748,6 +748,9 @@ skill a cualquier token del workspace y abría el reporte sin trato.
   que en la def). `tests/api-mako-rest.test.ts` falla hasta que alguien le diseña la URL.
 - **Ninguna operación del registro administra credenciales** (acuñar, editar, regenerar o revocar
   tokens): un token filtrado se perpetuaría. El mismo test lo frena.
+- **Una acción que CREA algo devuelve su id en `Ejecutado.datos`** (`{ claseId }`, `{ clave }`): viaja
+  hasta la respuesta 200 de la escritura directa (`ResultadoFlujo.datos`, lib/api-mako/flujo.ts). Sin el
+  id, quien crea por la API no puede seguir trabajando sobre lo que creó.
 - **«Ya está así» con `yaEstaba: true` también importa por HTTP:** con un detallado, una acción
   que no cambia nada devuelve 200 `sinCambios` (lo idempotente de un `PUT`); sin la marca es un
   422 que el integrador lee como falla.

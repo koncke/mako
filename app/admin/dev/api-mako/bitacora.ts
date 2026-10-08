@@ -25,6 +25,8 @@ export const PARTES: Parte[] = [
   { titulo: 'La tab /api-mako, con el aspecto de GitHub', detalle: 'Documentación como docs.github.com (área → recurso → endpoints, ejemplos en cURL/JavaScript/Python), los tokens como Settings → Personal access tokens y el registro como el Security log · el registro no viaja al navegador', estado: 'hecha' },
   { titulo: 'Tokens detallados', detalle: '`mako_pat_`, varios por workspace, con permisos por área (Sin acceso / Solo lectura / Lectura y escritura) y vencimiento · escriben en el acto salvo lo que gasta plata · valen SOLO para /api/v1', estado: 'hecha' },
   { titulo: 'Rutas REST y convenciones de GitHub', detalle: '379 rutas por recurso como alias · versión por fecha, rate limit en headers y en /rate_limit, errores {message, documentation_url, status}, 403 con el permiso que falta, ETag/304, OpenAPI 3.1', estado: 'hecha' },
+  { titulo: 'El curso por la API', detalle: 'Área «curso»: leer cursos, módulos y clases; crear y ordenar módulos (sueltos por default); crear, editar, mover, borrar y restaurar clases · la guía «Migrar un curso con Claude»', estado: 'hecha' },
+  { titulo: 'La tarea y el video embed del curso por la API', detalle: 'Esperan el cambio del modelo de la tarea y del video por código embed que hace el chat de Customer Success (lib/curso.ts, lib/curso-admin.ts)', estado: 'sigue' },
   { titulo: 'Un token se apaga cuando su creador pierde el acceso', detalle: 'Como en GitHub: hoy `creadoPor` no se vuelve a mirar y un admin que sacan del workspace se lleva tokens que andan · va en `resolverTokenApi`', estado: 'cola' },
   { titulo: 'Catálogo liviano', detalle: '`?compacto=1`, `?area=` y `?operacion=`: de ~90k tokens a ~6k para arrancar · la skill ya enseña ese camino', estado: 'hecha' },
   { titulo: 'Una sola copia de las 25 tools', detalle: 'El doer y el chat mandan el ToolDef viejo y ya divergieron de la def · antes hay que arreglar la def de `proponer_tareas_plan` (docs/api-mako-diseno.md § 10)', estado: 'sigue' },
@@ -165,6 +167,37 @@ export const BITACORA: Hito[] = [
       'lib/api-mako/ejemplos.ts, openapi.ts — los ejemplos en cURL/JavaScript/Python y la descripción OpenAPI',
       'app/api-mako/ — la pantalla (github.css con los valores de Primer, Docs, Endpoint, Articulos, Tokens, Registro)',
       'supabase/migrations/0222_api_llamadas_token.sql — qué token pidió cada llamada (aplicada el 08/10)',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '12:42', chat: 'Customer Success', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que un Claude pueda subir el curso solo',
+    pedido: 'vos en MaKo ya tenés MaKo API entonces como ya tenés MaKo API podés generar tu propio token y tenés la documentación… Lo último que hice fue el tema de curso No están las acciones dentro de curso Como agregar nueva clase Agregar nuevo lo que sea Acá, entonces tengo que agregar El tema de curso en la API… para los usuarios que no son tan técnicos… un pequeño tutorial de copia tu token de API, pásalo a Claude y dile que te haga tal.',
+    puntos: [
+      'Salió de una prueba del curso con alguien que tiene el suyo en Panda: «si yo tengo que pasar cada uno de estos videos de Panda… me va a tardar como una hora y media… acá manual me pego un tiro». Audio del 08/10 (docs/feedback-curso-08oct.md, ~04:00-07:30), repartido por el chat de Customer Success.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '14:24', chat: 'API de MaKo', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El curso entra a la API: un Claude con un token «Curso» migra un curso entero',
+    pedido: 'tengo que agregar el tema de curso en la API',
+    puntos: [
+      'Área nueva `curso`, sólo por HTTP: leer cursos, módulos y clases; crear, renombrar y ordenar módulos; crear, editar, mover, borrar y restaurar clases. Y la guía «Migrar un curso con Claude», con el mensaje para pegarle.',
+      '⚠️ **Una escritura que crea algo no devolvía su id por la API**: `aplicarEnElActo` tiraba `datos`. Ahora viaja hasta la respuesta.',
+      '⚠️ **La tab crea la clase AL PRINCIPIO del módulo**: por la API, que crea en orden, quedaban al revés. Va al final.',
+      'Fuera, a propósito: vincular o borrar módulos y mover clientes de etapa (en el ws1 disparan WhatsApp). La tarea y el video embed esperan al chat de Customer Success.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/curso.def.ts — las 11 operaciones y sus topes (los de la tab)',
+      'lib/api-mako/areas/curso.run.ts — los cuerpos: llaman a lib/curso-*, nunca a las server actions',
+      'lib/api-mako/flujo.ts, rutas-http.ts — `datos` viaja hasta la respuesta de la escritura directa',
+      'app/api-mako/Articulos.tsx — la guía «Migrar un curso con Claude»',
+      'tests/api-mako-curso.test.ts — topes, canal, lo prohibido, sueltos por default, clases al final, la guía',
+    ],
+    commits: [
+      { sha: 'c4309144', msg: 'API de MaKo: el curso entra a la API, para que un Claude migre un curso entero', lineas: 1174, archivos: 18 },
     ],
   },
 ];
