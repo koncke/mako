@@ -10,13 +10,17 @@
 // (una función de Vercel corta el cuerpo en ~4,5 MB) y después lo registra. La lógica y sus
 // guardas viven en lib/setting-adjuntos.ts; las reglas puras, en lib/setting-adjuntos-reglas.ts.
 //
+// Lo subido que no llega a registrarse no se queda en el bucket: un registro que falla lo suelta
+// (`registrarAdjunto`), y cada subida nueva barre, después de contestar, lo que quedó de una
+// pestaña cerrada a mitad de camino (`barrerAdjuntosHuerfanos`, con `after()`).
+//
 // Guard: admin del workspace, como la biblioteca de audios: lo que se sube aquí sale a los leads
 // con el número del negocio.
 // =============================================================================
 
-import type { NextRequest } from 'next/server';
-import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
-import { listarAdjuntos, urlsDeAdjuntos, aDto, urlSubidaAdjunto, registrarAdjunto, borrarAdjunto } from '@/lib/setting-adjuntos';
+import { after, type NextRequest } from 'next/server';
+import { getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { listarAdjuntos, urlsDeAdjuntos, aDto, urlSubidaAdjunto, registrarAdjunto, borrarAdjunto, barrerAdjuntosHuerfanos } from '@/lib/setting-adjuntos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -52,6 +56,13 @@ export async function POST(req: NextRequest) {
 
   if (body.action === 'subir') {
     const r = await urlSubidaAdjunto({ nombre: String(body.nombre ?? ''), mime: String(body.mime ?? ''), tamano: Number(body.tamano) });
+    // Quien sube es quien deja huérfanos (la pestaña cerrada entre la subida y el registro): se
+    // barren los de más de una hora DESPUÉS de contestar, sin demorar la subida (costuras-10). El
+    // workspace se fija ANTES, con el de esta subida: el barrido no vuelve a leer la cookie.
+    if (r.ok) {
+      const ws = await getWorkspaceActual();
+      if (ws) after(() => runWithWorkspace(ws, () => barrerAdjuntosHuerfanos()));
+    }
     return Response.json(r, { status: r.ok ? 200 : 400 });
   }
   if (body.action === 'registrar') {
