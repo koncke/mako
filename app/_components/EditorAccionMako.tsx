@@ -32,7 +32,9 @@
 // que agendó, el de la inscripción). Al ELEGIR una acción que pide lead se guarda
 // LEAD_DEL_EVENTO explícito, también si el lead es opcional: sin eso un «Avisar al equipo»
 // recién elegido nacía en «Ninguno» y el aviso salía sin el nombre ni el link del lead, al
-// revés de lo que decía este mismo encabezado. «Ninguno» sigue a un clic («Cambiar»).
+// revés de lo que decía este mismo encabezado. La excepción es la acción con OTRO destinatario
+// (un teléfono): ahí el lead del evento chocaba con él (`naceSobreElLeadDelEvento`,
+// lib/editor-acciones.ts). «Ninguno» y «el del evento» siguen a un clic («Cambiar»).
 //
 // La etiqueta: un `etiquetaId` (poner_etiqueta_lead, sacar_etiqueta_lead, editar y archivar) se
 // ELIGE de un desplegable con las etiquetas del CRM y «＋ Nueva», nunca se tipea como número: el
@@ -43,7 +45,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Select, Input, Textarea, Checkbox, Field } from '@/app/_ui';
 import type { AccionEditor, ParametroEditor } from '@/lib/api-mako/flujo';
 import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR, LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
-import { rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, repartoDelFormulario } from '@/lib/editor-acciones';
+import { rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, repartoDelFormulario, naceSobreElLeadDelEvento } from '@/lib/editor-acciones';
 import { SelectorEtiqueta } from './etiquetas-cliente';
 
 export type ValorAccion = { operacion?: string; params?: Record<string, unknown> };
@@ -85,8 +87,9 @@ const ES_TEXTO_LARGO = /texto|mensaje|nota|detalle|descripcion|cuerpo|contenido/
 /** Los parámetros que pone el flujo para esta operación: no se dibujan. */
 const ocultosDe = (operacion: string): ReadonlySet<string> => new Set(Object.keys(LLENA_EL_FLUJO[operacion] ?? {}));
 
-/** Lo que se guarda al ELEGIR una acción: vacío, salvo el lead del evento si la acción pide uno. */
-const paramsIniciales = (a: AccionEditor | undefined): Record<string, unknown> => (a?.pideLead ? { leadId: LEAD_DEL_EVENTO } : {});
+/** Lo que se guarda al ELEGIR una acción: vacío, salvo el lead del evento cuando es el default. */
+const paramsIniciales = (a: Pick<AccionEditor, 'pideLead' | 'parametros'> | undefined): Record<string, unknown> =>
+  (a?.pideLead && naceSobreElLeadDelEvento(a.parametros) ? { leadId: LEAD_DEL_EVENTO } : {});
 
 const tieneValor = (v: unknown): boolean => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length);
 
@@ -157,7 +160,8 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
   );
 }
 
-function FormularioAccion({ accion, valor, params, fijar, disabled }: {
+/** El formulario de UNA acción ya elegida (exportado para tests/editor-acciones.test.ts). */
+export function FormularioAccion({ accion, valor, params, fijar, disabled }: {
   accion: AccionEditor; valor: ValorAccion; params: Record<string, unknown>;
   fijar: (nombre: string, v: unknown) => void; disabled?: boolean;
 }) {

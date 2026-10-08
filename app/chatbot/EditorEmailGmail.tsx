@@ -35,7 +35,7 @@ import { PopoverWA, MenuWA, insertarEnCursor } from '../whatsapp/_shared/Compose
 import { IconSmiley } from '../whatsapp/_shared/composer-icons';
 import { EmojiPicker } from '../whatsapp/EmojiPicker';
 import { useWs } from '@/app/_ui/Link';
-import { renderEmailHtml } from '@/lib/email-html';
+import { renderEmailHtml, type RenderEmailParams } from '@/lib/email-html';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, aplicarVariables } from '@/lib/template-vars';
 
 export type EditorEmailGmailProps = {
@@ -82,6 +82,26 @@ export function avisoDelRemitente(e: Pick<EstadoRemitente, 'sandbox' | 'envioHab
   if (e.sandbox) return 'No sale · dominio sin verificar';
   if (!e.envioHabilitado) return 'Email apagado';
   return null;
+}
+
+/**
+ * Lo que la vista previa le pasa a `renderEmailHtml`, con las MISMAS reglas que el envío (lib/nutricion.ts,
+ * la rama de email de `procesarEnvios`): el asunto vacío sale «(sin asunto)», el preheader vacío no va y
+ * la firma es el nombre del remitente (o ninguna). Sólo se resuelve `{{negocio}}`, con la función del
+ * motor: el nombre del lead lo pone el envío para cada uno, y lo que el motor no conoce tiene que verse
+ * crudo, como va a llegar. Pura y exportada para que un test la compare con el motor.
+ */
+export function paramsDeVista(p: { asunto: string; preheader: string; cuerpo: string; negocio?: string; remitente: string }): RenderEmailParams {
+  const vars: Record<string, string> = p.negocio?.trim() ? { negocio: p.negocio.trim() } : {};
+  const asunto = aplicarVariables(p.asunto, vars) || '(sin asunto)';
+  return {
+    subject: asunto,
+    bodyText: aplicarVariables(p.cuerpo, vars),
+    preheader: aplicarVariables(p.preheader, vars) || undefined,
+    // El link de baja de verdad lleva un token por lead; acá alcanza con que el pie se vea igual.
+    unsubscribeUrl: '#',
+    fromName: nombreDelRemitente(p.remitente),
+  };
 }
 
 /** Una URL tipeada, lista para que `linkify` la reconozca: sin esquema no sería un link. */
@@ -154,25 +174,11 @@ export function EditorEmailGmail({ asunto, preheader, cuerpo, onChange, negocio,
     return () => { vivo = false; };
   }, [clave]);
 
-  // La vista previa resuelve SÓLO `{{negocio}}`, con la función del MOTOR: el nombre del lead lo pone
-  // el envío para cada uno, y lo que el motor no conoce tiene que verse crudo, como va a llegar.
-  const vars = useMemo<Record<string, string>>(() => (negocio?.trim() ? { negocio: negocio.trim() } : {}), [negocio]);
-  const asuntoVisto = aplicarVariables(asunto, vars).trim() || '(sin asunto)';
-  const preheaderVisto = aplicarVariables(preheader, vars).trim();
   const remitente = estado?.remitente ?? '';
   const de = remitente ? partirRemitente(remitente) : null;
-  const firma = nombreDelRemitente(remitente);
   const aviso = avisoDelRemitente(estado ?? null);
-
-  const html = useMemo(() => renderEmailHtml({
-    subject: asuntoVisto,
-    bodyText: aplicarVariables(cuerpo, vars),
-    preheader: preheaderVisto || undefined,
-    // El link de baja de verdad lleva un token por lead; acá alcanza con que el pie se vea igual.
-    unsubscribeUrl: '#',
-    // La firma es la del motor: el nombre del remitente, y si no tiene nombre, ninguna.
-    fromName: firma || undefined,
-  }), [asuntoVisto, cuerpo, vars, preheaderVisto, firma]);
+  const vista = useMemo(() => paramsDeVista({ asunto, preheader, cuerpo, negocio, remitente }), [asunto, preheader, cuerpo, negocio, remitente]);
+  const html = useMemo(() => renderEmailHtml(vista), [vista]);
   // ⚠️ EL IFRAME SE RECARGA CON CADA `srcDoc` NUEVO: escribiendo, parpadearía en cada tecla. La vista
   // previa va con un respiro; el primer render ya la trae.
   const [htmlVisto, setHtmlVisto] = useState(html);
@@ -263,7 +269,7 @@ export function EditorEmailGmail({ asunto, preheader, cuerpo, onChange, negocio,
         {/* ── El mail abierto: el MISMO render que sale ── */}
         <section className="mk-gmail-abierto" aria-label="Así llega">
           <div style={{ flex: 'none', padding: '12px 14px 10px', borderBottom: '1px solid var(--border)' }}>
-            <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asuntoVisto}</h3>
+            <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vista.subject}</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, minWidth: 0 }}>
               <Avatar letra={((de?.nombre || negocio || 'M').trim().charAt(0) || 'M').toUpperCase()} />
               <div style={{ minWidth: 0 }}>

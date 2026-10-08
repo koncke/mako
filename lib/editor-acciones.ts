@@ -57,6 +57,12 @@ export const ROTULOS_PARAMETRO: Readonly<Record<string, string>> = {
   diasAtras: 'Días atrás', sitioUrl: 'URL del sitio', privacidadUrl: 'URL de privacidad', page: 'Página',
   senalesMeta: 'Señales en Meta', queEs: 'Qué es', comoResponder: 'Cómo responder', contestaSolo: 'Contesta solo',
   linkVideo: 'Link del video', fuenteId: 'Fuente', deId: 'De', aId: 'A', itemId: 'Ítem',
+  // Los de las operaciones de Meta y del Pixel, que vienen en inglés o pegados (medido sobre las 200
+  // acciones del registro el 08/10/2026: eran los únicos rótulos que salían en inglés o sin tilde).
+  category: 'Categoría', image_hash: 'Imagen', lead_form_id: 'Formulario', media_type: 'Tipo de archivo',
+  source_ad_id: 'Anuncio de origen', ref: 'Referencia', params: 'Parámetros', descripcionHtml: 'Descripción',
+  despuesDe: 'Después de', moduloClave: 'Módulo', servicio_que_es: 'Qué es el servicio', sinWhatsApp: 'Sin WhatsApp',
+  videoUrl: 'URL del video',
 };
 
 /**
@@ -75,6 +81,7 @@ const TILDES: Readonly<Record<string, string>> = {
   codigo: 'código', numero: 'número', nutricion: 'nutrición', informacion: 'información', opcion: 'opción',
   pais: 'país', minimo: 'mínimo', maximo: 'máximo', ultimo: 'último', proximo: 'próximo', periodo: 'período',
   estandar: 'estándar', intencion: 'intención', suscripcion: 'suscripción', diagnostico: 'diagnóstico',
+  despues: 'después', modulo: 'módulo',
 };
 
 /** El nombre partido en palabras y con sus tildes: «fechaPago» → «Fecha pago», «anio» → «Año». */
@@ -114,12 +121,18 @@ export const TOPE_RESUMEN = 90;
  * UNA línea de qué hace la acción, para una persona: la primera frase de la descripción, sin el
  * verbo del protocolo («PROPONE»), sin paréntesis («queda pendiente hasta el «sí»», que en un flujo
  * no pasa), sin las mayúsculas de énfasis y con tope.
+ *
+ * ⚠️ LOS PARÉNTESIS SE SACAN, NO SE CORTA AHÍ. La primera versión cortaba la frase en el primer
+ * «(», y «Propone crear (sin id) o editar (con id) un objetivo…» quedaba en «Crear»: siete de las
+ * 200 acciones tenían una línea de una o dos palabras (medido sobre el registro el 08/10/2026).
  */
 export function resumenDeAccion(descripcion: string): string {
   let s = (descripcion ?? '').replace(/\s+/g, ' ').trim();
   s = s.replace(/^propone\s+/i, '');
-  // La primera frase: hasta un punto, dos puntos, punto y coma o un paréntesis que abre.
-  const corte = s.search(/[.:;](\s|$)|\s\(/);
+  // Los paréntesis, de adentro para afuera (un anidado sale en dos vueltas).
+  for (let antes = ''; antes !== s;) { antes = s; s = s.replace(/\s*\([^()]*\)/g, ''); }
+  // La primera frase: hasta un punto, dos puntos o punto y coma.
+  const corte = s.search(/[.:;](\s|$)/);
   if (corte > 0) s = s.slice(0, corte);
   // Una coma después de un trecho ya largo suele abrir la letra chica («…elegida, aunque no…»).
   const coma = s.indexOf(', ', 30);
@@ -214,6 +227,31 @@ export function seccionesDeAcciones<A extends AccionParaSecciones>(acciones: rea
 }
 
 // ── El formulario ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Los parámetros que nombran OTRO destinatario que el lead: con uno de éstos, el lead del evento no
+ * es el default de un `leadId` opcional (ver `naceSobreElLeadDelEvento`).
+ */
+export const OTRO_DESTINATARIO: readonly string[] = ['telefono', 'contactId'];
+
+/**
+ * ¿Al ELEGIR esta acción, el paso nace «sobre el lead de este flujo»? Con un `leadId` obligatorio da
+ * igual (ausente ya es el del evento, `paramsDelPaso`); con uno OPCIONAL, ausente quiere decir
+ * «ninguno», y «Avisar al equipo» recién elegido nacía en «Ninguno»: el aviso salía sin el nombre
+ * ni el link del lead, al revés de lo que hacen el conversor y el lienzo (lib/flujo-legado.ts, que lo
+ * crea con `leadId: 'evento'`).
+ *
+ * ⚠️ SALVO QUE LA ACCIÓN TENGA OTRO DESTINATARIO (`OTRO_DESTINATARIO`). Medido en la revisión del
+ * 08/10/2026: un borrador de WhatsApp a un teléfono fijo (avisarle a un socio) que además recibía el
+ * lead del evento contestaba «el teléfono no coincide» en cada corrida, con alarma al dueño. Ahí el
+ * lead queda en «Ninguno» y elegirlo es un clic («Cambiar»).
+ */
+export function naceSobreElLeadDelEvento(parametros: ReadonlyArray<{ nombre: string; obligatorio?: boolean }>): boolean {
+  const lead = parametros.find((p) => p.nombre === 'leadId');
+  if (!lead) return false;
+  if (lead.obligatorio === true) return true;
+  return !parametros.some((p) => OTRO_DESTINATARIO.includes(p.nombre));
+}
 
 /** Lo mínimo de un parámetro que necesita el reparto del formulario. */
 type ParamReparto = Pick<Parametro, 'nombre' | 'obligatorio'>;
