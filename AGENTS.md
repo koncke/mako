@@ -681,10 +681,15 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
 
 Siete cosas que no se ven en el código y ya mordieron:
 
-1. **Por HTTP nadie confirma por su cuenta.** Un bearer que propone y confirma con un
-   `sleep` en el medio es escribir directo con delay. Solo un token acuñado con alcance
-   `ejecutar` ve `confirmar_accion`, y el alcance viaja en el PREFIJO del token
-   (`mkoag_e_…`): rotar lo resetea.
+1. **Con el token CLÁSICO, por HTTP nadie confirma por su cuenta.** Un bearer que propone y
+   confirma con un `sleep` en el medio es escribir directo con delay. Solo un clásico
+   acuñado con alcance `ejecutar` ve `confirmar_accion`, y el alcance viaja en el PREFIJO
+   del token (`mkoag_e_…`): rotar lo resetea. **Un token DETALLADO (`mako_pat_`) con
+   «Lectura y escritura» en el área SÍ escribe en el acto** (decisión de Martín, 08/10/2026:
+   «como GitHub»), salvo `costo: 'dinero'`, que propone igual. Escribir directo es una
+   propiedad del TOKEN, no de la definición: la def sigue declarando `chat` o `pantalla`, y la
+   escritura pasa por `aplicarEnElActo` (`lib/api-mako/flujo.ts`), el mismo camino con que
+   confirma un flujo — `lib/api-mako/rutas-http.ts` (`correr`) es el único lugar que lo decide.
 2. **El gating se mira al PROPONER y al CONFIRMAR.** Entre los dos momentos cambia quién
    está (el dueño propone por WhatsApp, un closer abre la bandeja). La guarda vive en
    `lib/api-mako/acciones.ts` (`gatingOk`), no en cada pantalla que confirma.
@@ -722,14 +727,34 @@ Siete cosas que no se ven en el código y ya mordieron:
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
 tener. Una ruta nueva ahí falla ese test hasta que alguien decide que también es bearer.
 
-**Y los tokens son dos clases, con dos puertas.** El PRINCIPAL (`agente_token`, el de la skill,
+**Y los tokens son dos clases, con dos puertas.** El CLÁSICO (`agente_token`, el de la skill,
 se acuña en Integraciones → Claude con su trato de consentimiento) vale en `/api/agente/*` y en
-`/api/v1`. Los CON NOMBRE (la tab `/api-mako`, guardados por hash) valen **sólo en `/api/v1`**:
-resuelven en `wsPorTokenApi` (`lib/api-mako/tokens.ts`), y `/api/agente/*` sigue con
-`wsPorAgenteToken`, que no los conoce. No es prolijidad: `/api/agente/skill` mete el token
-PRINCIPAL en el archivo que entrega, y `/hook` y `/telemetria` tienen el consentimiento atado a
-él — aceptar ahí un token con nombre le daba el de la skill a cualquier token del workspace y
-abría el reporte sin trato. `tests/api-mako-tokens.test.ts` lo fija leyendo el fuente.
+`/api/v1`. Los DETALLADOS (`mako_pat_`, la tab `/api-mako`, guardados por hash, con permisos por
+área y vencimiento) valen **sólo en `/api/v1`**: resuelven en `resolverTokenApi`
+(`lib/api-mako/tokens.ts`), y `/api/agente/*` sigue con `wsPorAgenteToken`, que no los conoce. No
+es prolijidad: `/api/agente/skill` mete el token CLÁSICO en el archivo que entrega, y `/hook` y
+`/telemetria` tienen el consentimiento atado a él — aceptar ahí un detallado le daba el de la
+skill a cualquier token del workspace y abría el reporte sin trato.
+`tests/api-mako-tokens.test.ts` lo fija leyendo el fuente.
+
+**La API copiada de GitHub (08/10/2026): lo que exige al escribir código nuevo.**
+
+- **Los permisos por área de un token detallado viven en `gatingOk`**, no en `visible()` ni en
+  la ruta: esa misma guarda corre al CONFIRMAR, y fuera de ahí un token con escritura sólo en
+  «mako» confirmaba pendientes de cualquier área. Una puerta nueva que corra operaciones con un
+  `Ctx` de token pasa `permisos` en el `Ctx` (y `vistaDe` los lleva a la `Vista`).
+- **Una operación nueva con `'http'` necesita su fila en `lib/api-mako/rest.ts`** (la ruta REST:
+  sustantivo en plural, kebab-case, el verbo de GitHub, parámetros de ruta con el MISMO nombre
+  que en la def). `tests/api-mako-rest.test.ts` falla hasta que alguien le diseña la URL.
+- **Ninguna operación del registro administra credenciales** (acuñar, editar, regenerar o revocar
+  tokens): un token filtrado se perpetuaría. El mismo test lo frena.
+- **«Ya está así» con `yaEstaba: true` también importa por HTTP:** con un detallado, una acción
+  que no cambia nada devuelve 200 `sinCambios` (lo idempotente de un `PUT`); sin la marca es un
+  422 que el integrador lee como falla.
+- **La tab `/api-mako` NO usa `PageHeader` ni `Tabs` de `app/_ui`, a propósito**: Martín pidió
+  «que se vea igual a GitHub», y su CSS (`app/api-mako/github.css`, los valores de Primer) vive
+  limitado a `.gh`. No se «arregla» a los componentes de la casa. Lo que sí sigue: la vista en
+  `?tab=` leída en el server, los links de `app/_ui/Link` y el registro fuera del navegador.
 
 **Y un FLUJO corre acciones por UNA puerta: `ejecutarDesdeFlujo` (`lib/api-mako/flujo.ts`).**
 Decisión de Martín (08/10/2026): un paso «⚡ Acción» de un lienzo —una secuencia de `/chatbot` o
@@ -746,7 +771,7 @@ escribir código nuevo:
   en el ejecutor.** Si no, cae en `aplicarPropuestaGenerica`, que contesta «la propuesta no
   existe». El mismo test cuenta las de pantalla propia (7 al 08/10) y falla con una más.
 - **«Ya está así» se marca `yaEstaba: true` en `preparar()`.** Para una persona es un rechazo; para
-  un flujo es un éxito sin nada que hacer. Sin la marca, «cuando agenda, movelo a Agendado» le
+  un flujo (y para un token detallado por HTTP) es un éxito sin nada que hacer. Sin la marca, «cuando agenda, movelo a Agendado» le
   manda una alarma al dueño en cada reagenda.
 - **Un paso que no es un mensaje lo tiene que saltear TODO lo que recorre pasos.** La prueba de una
   secuencia, el generador de copy, la ficha que lee MaKo y las tools que reescriben pasos lo

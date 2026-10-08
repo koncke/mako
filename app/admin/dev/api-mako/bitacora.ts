@@ -22,12 +22,14 @@ import type { Hito, Parte } from '../_registro/tipos';
 export const PARTES: Parte[] = [
   { titulo: 'El registro', detalle: 'Una operación se declara UNA vez (`<área>.def.ts` + `.run.ts`) y de ahí salen las tools del doer, /api/v1, la referencia y la skill · canales en positivo, confirmación chat|pantalla, nunca «directo»', estado: 'hecha' },
   { titulo: '/api/v1 con alcance por prefijo', detalle: 'lectura / proponer / ejecutar viajan en el prefijo del token: rotar lo resetea · por HTTP sólo confirma un token `ejecutar` y siempre con id', estado: 'hecha' },
-  { titulo: 'La tab /api-mako', detalle: 'Catálogo navegable con detalle y «Probar» (lecturas gratis), tokens con nombre, uso de `api_llamadas` y cómo se usa · el registro no viaja al navegador', estado: 'hecha' },
-  { titulo: 'Tokens con nombre', detalle: 'Varios por workspace, cada uno con su alcance, guardados por hash y revocables de a uno · valen SOLO para /api/v1', estado: 'hecha' },
+  { titulo: 'La tab /api-mako, con el aspecto de GitHub', detalle: 'Documentación como docs.github.com (área → recurso → endpoints, ejemplos en cURL/JavaScript/Python), los tokens como Settings → Personal access tokens y el registro como el Security log · el registro no viaja al navegador', estado: 'hecha' },
+  { titulo: 'Tokens detallados', detalle: '`mako_pat_`, varios por workspace, con permisos por área (Sin acceso / Solo lectura / Lectura y escritura) y vencimiento · escriben en el acto salvo lo que gasta plata · valen SOLO para /api/v1', estado: 'hecha' },
+  { titulo: 'Rutas REST y convenciones de GitHub', detalle: '379 rutas por recurso como alias · versión por fecha, rate limit en headers y en /rate_limit, errores {message, documentation_url, status}, 403 con el permiso que falta, ETag/304, OpenAPI 3.1', estado: 'hecha' },
+  { titulo: 'Un token se apaga cuando su creador pierde el acceso', detalle: 'Como en GitHub: hoy `creadoPor` no se vuelve a mirar y un admin que sacan del workspace se lleva tokens que andan · va en `resolverTokenApi`', estado: 'cola' },
   { titulo: 'Catálogo liviano', detalle: '`?compacto=1`, `?area=` y `?operacion=`: de ~90k tokens a ~6k para arrancar · la skill ya enseña ese camino', estado: 'hecha' },
   { titulo: 'Una sola copia de las 25 tools', detalle: 'El doer y el chat mandan el ToolDef viejo y ya divergieron de la def · antes hay que arreglar la def de `proponer_tareas_plan` (docs/api-mako-diseno.md § 10)', estado: 'sigue' },
-  { titulo: 'Canal `flujo`', detalle: 'Que una automatización corra cualquier operación sin confirmar cada vez (decisión A de Martín, 08/10) · lo implementa el chat «Chatbot»', estado: 'sigue' },
-  { titulo: 'Qué token pidió cada llamada', detalle: '`api_llamadas` no guarda el token: el «último uso» se anota aparte, con freno · tenerlo por fila es una columna nueva (migración)', estado: 'cola' },
+  { titulo: 'Canal `flujo`', detalle: 'Que una automatización corra cualquier operación sin confirmar cada vez (decisión A de Martín, 08/10) · `ejecutarDesdeFlujo`, sin un canal nuevo', estado: 'hecha' },
+  { titulo: 'Qué token pidió cada llamada', detalle: '`api_llamadas.token_id` (migración 0222): el registro de la tab filtra y desglosa por token', estado: 'hecha' },
   { titulo: 'El alcance en /api/agente', detalle: '/plan y /lead (POST) no lo miran: un principal acuñado como `lectura` propone igual · /api/agente se mantiene tal cual por decisión de Martín', estado: 'cola' },
 ];
 
@@ -127,6 +129,42 @@ export const BITACORA: Hito[] = [
       'app/_components/EditorAccionMako.tsx — el editor del paso, compartido por los dos lienzos',
       'app/api/flujos/acciones/route.ts — el catálogo que ve el editor, armado en el server',
       'lib/api-mako/areas/crm.run.ts, chatbot.run.ts — las operaciones nuevas',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '06:02', chat: 'API de MaKo', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que se parezca a la API de GitHub, en todo',
+    pedido: 'Me gusta como hace la API GitHub, con su diseño, permisos, presentación, etc... Copialo todo, tal cual.',
+    puntos: [
+      'Cuatro decisiones suyas, a dos minutos: **«como GitHub: escribe directo»** (un token con permiso de escritura hace el cambio; lo que gasta plata sigue en una pantalla), **permisos por área y vencimiento**, **las URLs de GitHub como alias** (las rutas por operación no se renombran: la decisión C sigue) y **«que se vea igual a GitHub»**.',
+      'Cambia la regla de la casa «un canal propone y una persona confirma» para un caso: el token detallado con escritura. El clásico (la skill) sigue proponiendo.',
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '08:41', chat: 'API de MaKo', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La API copiada de GitHub: tokens que escriben, permisos por área, rutas REST y su pantalla',
+    pedido: 'Copialo todo, tal cual.',
+    puntos: [
+      'Antes de escribir, un relevo de cómo lo hace GitHub (8 agentes leyendo docs.github.com, su OpenAPI y su código) y el diseño de las 379 rutas REST, chequeado contra el registro sin un solo choque.',
+      '⚠️ **El diagnóstico obvio era el equivocado: filtrar los permisos en la ruta.** Van en `gatingOk`, que también corre al CONFIRMAR: si no, un token con escritura sólo en «mako» confirmaba pendientes de cualquier área.',
+      '**Escribir directo no es un segundo camino**: el token detallado pasa por `aplicarEnElActo`, el mismo con que confirma un flujo. Probado contra la base (ignorar y reactivar los datos sin marcar de un lead del ws 9): 200 las dos, el lead quedó igual.',
+      '⚠️ **El token recién creado se perdía en la pantalla**: cambiar `?v=` monta de nuevo la página (los searchParams son parte de su clave) y `push` + `refresh` la montaba dos veces. Vive en una variable de módulo, una vez, como en GitHub.',
+      'Sin hacer, en docs/hallazgos-api-mako.md: que un token se apague cuando su creador pierde el acceso, el modo sudo, webhooks salientes, OAuth, `documentation_url` pública y más runners con `yaEstaba`.',
+    ],
+    commits: [
+      { sha: 'b51155c9', msg: 'API de MaKo copiada de GitHub: tokens detallados que escriben, permisos por área, rutas REST y la pantalla con su aspecto', lineas: 11114, archivos: 43 },
+    ],
+    archivos: [
+      'lib/api-mako/permisos.ts — los niveles por área y el permiso que pide cada operación (puro, lo lee la pantalla)',
+      'lib/api-mako/tokens.ts, tokens-lista.ts, tokens-forma.ts — crear, editar, regenerar, revocar y resolver los detallados',
+      'lib/api-mako/rutas-http.ts — `correr()`: el único lugar que decide si se lee, se propone o se escribe en el acto',
+      'lib/api-mako/rest.ts, recursos.ts — la tabla de rutas REST, el router y el nombre de cada recurso',
+      'lib/api-mako/http.ts, version.ts — autenticación y convenciones de GitHub (versión, rate limit, errores, ETag)',
+      'lib/api-mako/ejemplos.ts, openapi.ts — los ejemplos en cURL/JavaScript/Python y la descripción OpenAPI',
+      'app/api-mako/ — la pantalla (github.css con los valores de Primer, Docs, Endpoint, Articulos, Tokens, Registro)',
+      'supabase/migrations/0222_api_llamadas_token.sql — qué token pidió cada llamada (aplicada el 08/10)',
     ],
   },
 ];
