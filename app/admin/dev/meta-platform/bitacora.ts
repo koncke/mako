@@ -296,4 +296,17 @@ export const BITACORA: Hito[] = [
       'tests/integraciones-visibles.test.ts — el test nuevo',
     ],
   },
+  {
+    fecha: '8 oct', hora: '05:15', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: '«Conectar con Meta» probado de verdad: entran la página y los leads, los anuncios no',
+    puntos: [
+      'El primer intento rebotaba con «el dominio no está incluido»: la lista de URI de redireccionamiento estaba vacía (el guardado del 07/10 no persistió; el campo pide Enter y Guardar). Se cargó y se verificó con el Validador de URI.',
+      'Reconectado eligiendo a mano la página, el píxel y la cuenta publicitaria MaKo: el token trae los permisos de página y leads, y faltan ads_management, ads_read y business_management aunque el consentimiento los muestra.',
+      'Descartado: el rol (los permisos que sí entran también son de acceso estándar) y la cuenta elegida. Más probable, sin medir: el acceso limitado de la API de marketing y la verificación de acceso en revisión.',
+    ],
+    archivos: [
+      'docs/hallazgos-ads.md — «La primera prueba real (08/10)…»',
+    ],
+  },
 ];
