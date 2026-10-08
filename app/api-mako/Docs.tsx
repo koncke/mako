@@ -170,7 +170,7 @@ function Portada({ indice }: { indice: AreaDocs[] }) {
 
       <h2 id="empieza">Empieza aquí</h2>
       <div className="gh-tarjetas">
-        {(['inicio-rapido', 'autenticacion', 'permisos', 'limites'] as SlugArticulo[]).map((s) => (
+        {(['inicio-rapido', 'autenticacion', 'permisos', 'limites', 'migrar-curso'] as SlugArticulo[]).map((s) => (
           <Link key={s} className="gh-tarjeta" href={hrefArt(s)}>
             <h3>{ARTICULOS[s].corto}</h3>
             <p>{ARTICULOS[s].lead}</p>

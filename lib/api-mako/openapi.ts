@@ -108,7 +108,7 @@ export function especificacionOpenApi(base: string): Json {
       securitySchemes: { bearer: { type: 'http', scheme: 'bearer', description: 'Token de acceso personal: detallado (mako_pat_…) o el clásico de la skill de Claude (mkoag_…).' } },
       schemas: {
         Lectura: { type: 'object', properties: { ok: { type: 'boolean', const: true }, resultado: {} }, required: ['ok', 'resultado'] },
-        Hecho: { type: 'object', properties: { ok: { type: 'boolean' }, hecho: { type: 'boolean' }, sinCambios: { type: 'boolean' }, resumen: { type: 'string' } }, required: ['ok', 'hecho', 'resumen'] },
+        Hecho: { type: 'object', properties: { ok: { type: 'boolean' }, hecho: { type: 'boolean' }, sinCambios: { type: 'boolean' }, resumen: { type: 'string' }, datos: { type: 'object', description: 'lo que la escritura devuelve además del resumen, como el id de lo que creó' } }, required: ['ok', 'hecho', 'resumen'] },
         Propuesta: { type: 'object', properties: { ok: { type: 'boolean' }, propuesta: { type: 'string' }, url: { type: 'string' }, pendiente: { type: 'object' }, mensaje: { type: 'string' } } },
         Error: { type: 'object', properties: { message: { type: 'string' }, documentation_url: { type: 'string' }, status: { type: 'string' }, ok: { type: 'boolean', const: false }, error: { type: 'string' }, faltan: { type: 'array', items: { type: 'string' } } }, required: ['message', 'status'] },
       },

@@ -421,6 +421,18 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/equipo/notificaciones/plantilla-reporte', 'asegurar_plantilla_reporte'],
   ['PATCH', '/equipo/notificaciones/reportes/{reporte}', 'configurar_reporte'],
   ['PATCH', '/equipo/notificaciones/secciones/{seccion}', 'configurar_seccion_reporte'],
+  // ── curso (08/10/2026: migrar un curso con Claude) ─────────────────────────
+  ['GET', '/curso/cursos', 'listar_cursos'],
+  ['GET', '/curso/cursos/{productoId}', 'ver_curso'],
+  ['POST', '/curso/cursos/{productoId}/modulos', 'crear_modulo_curso'],
+  ['PUT', '/curso/cursos/{productoId}/modulos', 'ordenar_modulos_curso'],
+  ['PATCH', '/curso/cursos/{productoId}/modulos/{clave}', 'renombrar_modulo_curso'],
+  ['POST', '/curso/cursos/{productoId}/clases', 'crear_clase_curso'],
+  ['GET', '/curso/clases/{claseId}', 'ver_clase_curso'],
+  ['PATCH', '/curso/clases/{claseId}', 'editar_clase_curso'],
+  ['DELETE', '/curso/clases/{claseId}', 'borrar_clase_curso'],
+  ['PUT', '/curso/clases/{claseId}/lugar', 'mover_clase_curso'],
+  ['PUT', '/curso/clases/{claseId}/restauracion', 'restaurar_clase_curso'],
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],

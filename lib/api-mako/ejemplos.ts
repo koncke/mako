@@ -154,7 +154,7 @@ function esquemaDe(d: OperacionDef): string {
   if (esAccion(d)) {
     return json({
       oneOf: [
-        { title: 'Hecho (200)', type: 'object', properties: { ok: { type: 'boolean' }, hecho: { type: 'boolean' }, sinCambios: { type: 'boolean' }, resumen: { type: 'string' } }, required: ['ok', 'hecho', 'resumen'] },
+        { title: 'Hecho (200)', type: 'object', properties: { ok: { type: 'boolean' }, hecho: { type: 'boolean' }, sinCambios: { type: 'boolean' }, resumen: { type: 'string' }, datos: { type: 'object' } }, required: ['ok', 'hecho', 'resumen'] },
         { title: 'Propuesta o pendiente (202)', type: 'object', properties: { ok: { type: 'boolean' }, propuesta: { type: 'string' }, url: { type: 'string' }, pendiente: { type: 'object' }, mensaje: { type: 'string' } } },
       ],
     });

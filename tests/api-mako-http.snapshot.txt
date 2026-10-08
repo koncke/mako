@@ -22,6 +22,7 @@ borrar_analisis_landing
 borrar_avatar_negocio
 borrar_borrador_landing
 borrar_borrador_plantilla
+borrar_clase_curso
 borrar_documento_archivero
 borrar_guion_anuncio
 borrar_landing
@@ -60,10 +61,12 @@ contexto_etapa
 contexto_negocio
 crear_borrador_whatsapp_empresa
 crear_broadcast
+crear_clase_curso
 crear_contacto_chatwoot_lead
 crear_etiqueta
 crear_experimento
 crear_lead_magnet
+crear_modulo_curso
 crear_secuencia_email
 crear_secuencia_mensajes
 declarar_entradas_funnel
@@ -79,6 +82,7 @@ diagnosticar_funnel
 duplicados_lead
 editar_avatar_negocio
 editar_broadcast
+editar_clase_curso
 editar_contacto_lead
 editar_etiqueta
 editar_lead_magnet
@@ -174,6 +178,7 @@ listar_cohortes_semanales
 listar_conclusiones_experimentos
 listar_conjuntos_meta
 listar_conversiones_meta
+listar_cursos
 listar_dependencias_plan
 listar_etapas_email
 listar_etiquetas
@@ -238,11 +243,13 @@ metricas_chatbot
 metricas_closers
 metricas_negocio
 mover_a_nutricion_manual
+mover_clase_curso
 mover_estado_guion_anuncio
 nombrar_video
 ocultar_video
 olvidar_nombre_video
 opciones_siguiente_paso_guion
+ordenar_modulos_curso
 panorama_closing
 plan_retro
 plantillas_meta_de_secuencia
@@ -291,9 +298,11 @@ reconciliar_plantillas
 registrar_valor_kpi
 reiniciar_personalidad
 remitente_email
+renombrar_modulo_curso
 requisitos_para_mover
 resolver_confirmacion_crm
 responder_pregunta_personalidad
+restaurar_clase_curso
 resumen_bandejas_confirmacion
 resumir_marketing_periodo
 reuniones_proximas
@@ -321,12 +330,14 @@ ver_cac_mensual
 ver_cambios_landing
 ver_capacidad_instalada
 ver_ciclo_venta
+ver_clase_curso
 ver_codigo_pixel
 ver_comportamiento_landing
 ver_contexto_video
 ver_cuadrante_retencion
 ver_cuenta_meta
 ver_cuotas_ia
+ver_curso
 ver_datos_campana_meta
 ver_datos_conjunto_meta
 ver_diagnostico_fase

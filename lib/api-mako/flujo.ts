@@ -46,6 +46,10 @@ export type ResultadoFlujo = {
   resumen: string;
   /** Por qué camino se confirmó, para el rastro. */
   via: 'pendiente' | 'propuesta' | 'propia' | 'ninguna';
+  /** Lo que la escritura devolvió además del resumen (`Ejecutado.datos`: el id de lo que creó). Lo lee
+   *  la escritura directa de /api/v1 (lib/api-mako/rutas-http.ts): sin esto, quien crea una clase por la
+   *  API no sabe su id. Un flujo no lo usa. */
+  datos?: Record<string, unknown>;
 };
 
 /** El contexto con el que corre un flujo: el admin del negocio, con alcance de ejecutar. */
@@ -103,7 +107,7 @@ export async function aplicarEnElActo(
     if (r.tipo === 'pendiente') {
       const c = await confirmarPendiente(ctx, r.pendiente.id);
       if ('error' in c) return { ok: false, resumen: String(c.error), via: 'pendiente' };
-      return { ok: c.ok, resumen: c.resumen, via: 'pendiente' };
+      return { ok: c.ok, resumen: c.resumen, via: 'pendiente', ...('datos' in c && c.datos ? { datos: c.datos as Record<string, unknown> } : {}) };
     }
 
     if (r.tipo === 'propuesta') {

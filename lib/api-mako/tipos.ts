@@ -33,7 +33,7 @@ import type { Permisos } from './permisos';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'integraciones', 'equipo', 'cs', 'mako',
+  'integraciones', 'equipo', 'cs', 'curso', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -56,6 +56,7 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   integraciones: { titulo: 'Integraciones', tab: 'Integraciones', ruta: '/integraciones' },
   equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
   cs: { titulo: 'Customer Success', tab: 'Customer Success', ruta: '/customer-success' },
+  curso: { titulo: 'Curso (módulos y clases)', tab: 'Customer Success › Curso', ruta: '/customer-success/curso' },
   mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Pregúntale a MaKo', ruta: '/mako' },
 };
 

@@ -479,6 +479,9 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   integraciones: /\b(integraci[oó]n(es)?|conectad[oa]|calendly|chatwoot|resend|google calendar|salud de meta|keys? de ia)/i,
   equipo: /\b(equipo|usuarios?|roles?\b|setters?|notificaci[oó]n(es)?|reportes? (diario|semanal)|zona horaria)/i,
   cs: /\b(customer success|cartera|programa|alumnos?|clientes? activos?)/i,
+  // El área «curso» sale SÓLO por HTTP (lib/api-mako/areas/curso.def.ts): nombrarla no le suma
+  // ninguna herramienta al doer. Está para que la tabla cubra todas las áreas.
+  curso: /\b(m[oó]dulos? del curso|clases? del curso|armar (el|un) curso|migrar (el|un) curso)/i,
   mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades)/i,
 };
 

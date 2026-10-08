@@ -43,6 +43,7 @@
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
+- **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
 ## General — `general`
@@ -10015,6 +10016,335 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/equipo/notificaciones/plantilla-reporte"
+```
+
+## Curso (módulos y clases) — `curso`
+
+Tab **Customer Success › Curso** (`/customer-success/curso`). 3 lecturas · 8 acciones.
+
+### `GET /api/v1/curso/cursos` — Listar los cursos
+
+Los productos de este negocio que pueden tener curso (los mismos que muestra Customer Success › Curso), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.
+
+- **Ruta por operación:** `GET /api/v1/curso/listar_cursos`
+- **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/cursos"
+```
+
+### `GET /api/v1/curso/cursos/{productoId}` — Ver un curso
+
+El curso de un producto: sus módulos en orden (clave, nombre, si es una etapa del kanban de clientes) y, adentro de cada uno, sus clases en orden (id, título, video, minutos, si tiene descripción y tarea). Las clases sin módulo vienen aparte. Para la descripción entera de una clase, ver_clase_curso.
+
+- **Ruta por operación:** `GET /api/v1/curso/ver_curso`
+- **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID"
+```
+
+### `GET /api/v1/curso/clases/{claseId}` — Ver una clase
+
+Una clase entera: módulo, título, video, minutos, la descripción (HTML y texto plano) y la tarea si tiene.
+
+- **Ruta por operación:** `GET /api/v1/curso/ver_clase_curso`
+- **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID"
+```
+
+### `POST /api/v1/curso/cursos/{productoId}/modulos` — Crear un módulo
+
+Crea un módulo en el curso de un producto, después del módulo `despuesDe` (sin él, al final). Nace SUELTO: una sección del curso que no toca el kanban de clientes. Con vinculado: true es además una etapa nueva del kanban de clientes (no mueve a nadie); úsalo sólo si te lo piden. Devuelve la clave del módulo nuevo en `datos.clave`.
+
+- **Ruta por operación:** `POST /api/v1/curso/crear_modulo_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un módulo al curso (curso_modulos; si es vinculado, una etapa a la entrega del producto)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `nombre` | string | sí | el nombre del módulo (hasta 40 letras). |
+| `despuesDe` | string | no | la clave del módulo después del cual va. Sin esto, al final del curso. |
+| `vinculado` | boolean | no | true = además es una etapa del kanban de clientes. Por default, false. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/modulos" \
+  -d '{"nombre":"Módulo 1: Fundamentos"}'
+```
+
+### `PATCH /api/v1/curso/cursos/{productoId}/modulos/{clave}` — Renombrar un módulo
+
+Le cambia el nombre a un módulo. Si el módulo es una etapa del kanban de clientes, la etapa también se renombra (es la misma cosa).
+
+- **Ruta por operación:** `POST /api/v1/curso/renombrar_modulo_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia el nombre del módulo (o de la etapa del kanban, si es vinculado)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `clave` | string | sí | la clave del módulo (de ver_curso). |
+| `nombre` | string | sí | el nombre nuevo (hasta 40 letras). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/modulos/CLAVE" \
+  -d '{"nombre":"NOMBRE"}'
+```
+
+### `PUT /api/v1/curso/cursos/{productoId}/modulos` — Ordenar los módulos
+
+Pone los módulos del curso en el orden que se pasa: la lista ENTERA de claves, en el orden nuevo. Los vinculados reordenan también el kanban de clientes (sin mover a nadie), y la primera etapa del kanban no se puede mover. Devuelve el orden como quedó.
+
+- **Ruta por operación:** `POST /api/v1/curso/ordenar_modulos_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** reordena los módulos del curso (y el kanban de clientes, si hay vinculados)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `claves` | string[] | sí | todas las claves de los módulos del curso, en el orden nuevo. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/modulos" \
+  -d '{"claves":[]}'
+```
+
+### `POST /api/v1/curso/cursos/{productoId}/clases` — Crear una clase
+
+Crea una clase AL FINAL de un módulo, con su título y, si los pasas, su video por link, su descripción y sus minutos. Todo se valida antes de crear: si algo no va, no se crea nada. Devuelve el id de la clase en `datos.claseId`. Para migrar un curso, crea las clases en el orden en que tienen que quedar.
+
+- **Ruta por operación:** `POST /api/v1/curso/crear_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega una clase al final del módulo (curso_clases) con su título, video, descripción y minutos
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `moduloClave` | string | sí | la clave del módulo (de ver_curso: `modulos[].clave`), no su nombre. |
+| `titulo` | string | sí | el título de la clase (hasta 200 letras). |
+| `videoUrl` | string | no | link del video: YouTube, Vimeo, Loom, Google Drive o un archivo .mp4/.webm directo. Un link de una página que no es de esos (por ejemplo, el de Panda) se guarda pero no se reproduce: el código embed llega pronto. Vacío ("") saca el video. |
+| `descripcionHtml` | string | no | la descripción en HTML (negrita, listas, links, títulos). Se sanea: lo que no es formato se descarta. Usa esto O `descripcion`, no los dos. |
+| `descripcion` | string | no | la descripción en texto plano: cada línea en blanco separa un párrafo. Usa esto O `descripcionHtml`, no los dos. |
+| `minutos` | number | no | cuánto dura la clase, en minutos (0 a 600). Si no lo pasas, lo mide el editor cuando alguien abre el video. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/clases" \
+  -d '{"moduloClave":"MODULO_CLAVE","titulo":"Clase 1: Bienvenida","videoUrl":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","descripcionHtml":"<p>En esta clase vas a ver <strong>cómo armar tu oferta</strong>.</p>"}'
+```
+
+### `PATCH /api/v1/curso/clases/{claseId}` — Editar una clase
+
+Cambia lo que se pase de una clase: título, video por link, descripción o minutos. Lo que no se pasa queda igual. Todo se valida antes de escribir.
+
+- **Ruta por operación:** `POST /api/v1/curso/editar_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia el título, el video, la descripción o los minutos de la clase (curso_clases)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+| `titulo` | string | no | el título nuevo (hasta 200 letras). |
+| `videoUrl` | string | no | link del video: YouTube, Vimeo, Loom, Google Drive o un archivo .mp4/.webm directo. Un link de una página que no es de esos (por ejemplo, el de Panda) se guarda pero no se reproduce: el código embed llega pronto. Vacío ("") saca el video. |
+| `descripcionHtml` | string | no | la descripción en HTML (negrita, listas, links, títulos). Se sanea: lo que no es formato se descarta. Usa esto O `descripcion`, no los dos. |
+| `descripcion` | string | no | la descripción en texto plano: cada línea en blanco separa un párrafo. Usa esto O `descripcionHtml`, no los dos. |
+| `minutos` | number | no | cuánto dura la clase, en minutos (0 a 600). Si no lo pasas, lo mide el editor cuando alguien abre el video. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID" \
+  -d '{"videoUrl":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","descripcionHtml":"<p>En esta clase vas a ver <strong>cómo armar tu oferta</strong>.</p>"}'
+```
+
+### `PUT /api/v1/curso/clases/{claseId}/lugar` — Mover una clase
+
+Lleva una clase a un módulo (el mismo u otro), antes de la clase `antesDe`; sin `antesDe`, al final. Devuelve el orden del módulo como quedó.
+
+- **Ruta por operación:** `POST /api/v1/curso/mover_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia el módulo y el orden de la clase y renumera su módulo (curso_clases)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+| `moduloClave` | string | sí | la clave del módulo (de ver_curso: `modulos[].clave`), no su nombre. |
+| `antesDe` | number | no | id de la clase antes de la cual va. Sin esto, al final del módulo. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/lugar" \
+  -d '{"moduloClave":"MODULO_CLAVE"}'
+```
+
+### `DELETE /api/v1/curso/clases/{claseId}` — Borrar una clase
+
+Manda una clase a la papelera: deja de verse en el curso y en el portal de los alumnos. A los 7 días se borra de verdad, con su avance; hasta entonces restaurar_clase_curso la devuelve como estaba.
+
+- **Ruta por operación:** `POST /api/v1/curso/borrar_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca la clase como borrada (curso_clases.borrada_at); la purga diaria la borra a los 7 días
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID"
+```
+
+### `PUT /api/v1/curso/clases/{claseId}/restauracion` — Restaurar una clase borrada
+
+Saca de la papelera una clase borrada (con borrar_clase_curso o desde MaKo) y la devuelve como estaba, con su video y su lugar. Sólo dentro de los 7 días.
+
+- **Ruta por operación:** `POST /api/v1/curso/restaurar_clase_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** limpia curso_clases.borrada_at de la clase
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase (de ver_curso). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/restauracion"
 ```
 
 ## MaKo (pendientes, propuestas, chats) — `mako`
