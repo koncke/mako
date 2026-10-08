@@ -31,6 +31,7 @@ import { clavesAProbar, clavesDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
+import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
 import { herramientasConDatosDeGoogle, puedeRecibirDatosDeGoogle, ProveedorQueEntrenaError } from '@/lib/datos-google-ia';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
@@ -817,6 +818,12 @@ export async function chatCheapTools(
      * no se creaba nunca.
      */
     toolChoicePrimerPaso?: 'required';
+    /**
+     * Cuánto se puede ESPERAR una cuota del minuto cuando no queda otro modelo (ms).
+     * Default 0: sólo el que llama sabe si tiene OTRA cuenta a la que saltar, y con una
+     * esperando, esperar es perder el tiempo. Ver lib/ia-rotacion-modelo.ts.
+     */
+    esperaCuotaMaxMs?: number;
   } = {},
 ): Promise<CheapToolsResult> {
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
@@ -829,7 +836,12 @@ export async function chatCheapTools(
   // turno repetiría una acción que ya dejó su pendiente.
   const deGoogle = herramientasConDatosDeGoogle(tools);
   if (deGoogle.length && !puedeRecibirDatosDeGoogle(p.nombre)) throw new ProveedorQueEntrenaError(p.nombre, deGoogle);
-  const model = opts.model || p.chatModel;
+  // El modelo pedido y atrás sus respaldos (MODELOS_RESPALDO): un 429 o un 503 a mitad del
+  // turno se cubre con OTRO MODELO de la misma key, sin perder los pasos hechos. Antes este
+  // camino usaba UN modelo para todo el turno, y el respaldo sólo lo veían los documentos y
+  // el audio. Ver lib/ia-rotacion-modelo.ts (el caso de Brigitte, 07/10/2026).
+  const rotacion = crearRotacion(modelosAProbar(p.nombre, opts.model || p.chatModel), { esperaMaxMs: opts.esperaCuotaMaxMs });
+  let model = rotacion.modelo || p.chatModel;
   const esGemini = p.nombre === 'gemini';
   const oaiTools = tools.map((t) => {
     const fn: Record<string, unknown> = { name: t.name, description: t.description };
@@ -864,64 +876,82 @@ export async function chatCheapTools(
     // bache. Ese cliente tiene UNA sola key cargada, así que la cascada de cinco
     // proveedores es en los hechos un solo intento: si ese falla, no hay red.
     //
-    // ⚠️ SOLO MIENTRAS NO SE HAYA TOCADO NADA. Es la regla que el propio módulo ya
-    // dice para la cascada: «reintentar después de una acción a medias es
-    // duplicarla». Un reintento después de que una tool creó un borrador crea DOS.
-    // Por eso la ventana es `toolsUsados === 0`: ahí no se escribió nada todavía, y
-    // ahí es justo donde caen los 429 y los 503 — en el primer request.
+    // ⚠️ Y EN CUALQUIER PASO, NO SÓLO ANTES DE LA PRIMERA TOOL. La versión de agosto lo
+    // limitaba a `toolsUsados === 0` citando «reintentar después de una acción a medias
+    // es duplicarla» — y eso vale para RE-ARRANCAR el turno (la cascada de proveedores,
+    // que vuelve a correr las tools desde el mensaje original), no para repetir UN
+    // pedido que falló: las tools corren sólo con una respuesta buena, y lo que ya
+    // corrieron está en `msgs`. Volver a pedir el mismo paso no repite ninguna.
+    //
+    // La ventana costó el turno de Brigitte (07/10/2026): seis pasos bien, el séptimo
+    // 429 del minuto, y se tiró todo. Ahora el paso que falla se vuelve a pedir según
+    // lo que decida la rotación: otro modelo (429/503), una pausa (503 sin otro modelo)
+    // o la espera que dice el proveedor (429 del minuto, si el que llama la permite).
     let res: Response | null = null;
     let data: any = {};
-    for (let intento = 0; ; intento++) {
-      res = await fetch(`${p.base}/chat/completions`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model, messages: msgs,
-          // ⚠️ CON LA LISTA VACÍA NO VIAJAN NI `tools` NI `tool_choice`.
-          //
-          // Medido el 01/10/2026 contra Groq con `openai/gpt-oss-20b`: un body con
-          // `tools: []` hace que el proveedor resuelva `tool_choice` a `none`, y si el
-          // modelo igual emite una llamada contesta **HTTP 400 «Tool choice is none, but
-          // model called a tool»**. Mandar un array vacío no es «no mandar nada»: es
-          // pedir explícitamente que no use ninguna, que es otra cosa.
-          //
-          // ⚠️ Y ESTO SOLO NO ALCANZA: con el preámbulo del doer el mismo pedido revienta
-          // igual SIN el campo (2/2 medido). Lo que rompe de fondo es el PROMPT que ordena
-          // usar herramientas que no se mandaron — eso se arregla en el caller
-          // (ver `DOER_WA_TOOLS` en lib/mako-doer-in.ts). Esta guarda cierra la mitad que
-          // es del transporte; aquélla, la del contenido.
-          ...(oaiTools.length
-            ? { tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto' }
-            : {}),
-          max_tokens: opts.maxTokens ?? 1400, temperature: 0.2,
-        }),
-        cache: 'no-store',
-        signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
-      });
-      data = await res.json().catch(() => ({}));
-      const err = !res.ok || (data as { error?: unknown }).error;
+    /** El error del último intento, si no quedó nada que probar. */
+    let falloFinal: string | null = null;
+    rotacion.nuevoPaso();
+    for (;;) {
+      // ⚠️ EL `fetch` VA ADENTRO DEL TRY: un timeout no vuelve como respuesta sino como
+      // EXCEPCIÓN («The operation was aborted due to timeout»), y salía del turno sin
+      // pasar por ningún reintento. Medido esa misma noche en la tercera Gemini de la red.
+      let excepcion: string | null = null;
+      try {
+        res = await fetch(`${p.base}/chat/completions`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model, messages: msgs,
+            // ⚠️ CON LA LISTA VACÍA NO VIAJAN NI `tools` NI `tool_choice`.
+            //
+            // Medido el 01/10/2026 contra Groq con `openai/gpt-oss-20b`: un body con
+            // `tools: []` hace que el proveedor resuelva `tool_choice` a `none`, y si el
+            // modelo igual emite una llamada contesta **HTTP 400 «Tool choice is none, but
+            // model called a tool»**. Mandar un array vacío no es «no mandar nada»: es
+            // pedir explícitamente que no use ninguna, que es otra cosa.
+            //
+            // ⚠️ Y ESTO SOLO NO ALCANZA: con el preámbulo del doer el mismo pedido revienta
+            // igual SIN el campo (2/2 medido). Lo que rompe de fondo es el PROMPT que ordena
+            // usar herramientas que no se mandaron — eso se arregla en el caller
+            // (ver `DOER_WA_TOOLS` en lib/mako-doer-in.ts). Esta guarda cierra la mitad que
+            // es del transporte; aquélla, la del contenido.
+            ...(oaiTools.length
+              ? { tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto' }
+              : {}),
+            max_tokens: opts.maxTokens ?? 1400, temperature: 0.2,
+          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
+        });
+        data = await res.json().catch(() => ({}));
+      } catch (e) {
+        excepcion = e instanceof Error ? e.message : String(e);
+        res = null;
+      }
+      // ⚠️ `data.error` SOLO NO ALCANZA: Gemini manda el error en un ARRAY.
+      const err = excepcion != null || !res!.ok || (data as { error?: unknown })?.error || (Array.isArray(data) && data[0]?.error);
       if (!err) break;
-      const detalle = String((data as { error?: { message?: string } })?.error?.message || `HTTP ${res.status}`);
-      // ⚠️ EL 429 NO SE REINTENTA, y esa distinción es la que hace que esto sirva.
-      // Un 429 es la CUOTA de esa cuenta: volver a pegarle en un segundo es pedirle
-      // otra vez a quien ya dijo que no. Quien llama rota a otra cuenta o a otro
-      // proveedor, que es la respuesta correcta — lo dice el propio módulo más
-      // arriba. Lo que SÍ se reintenta es la SATURACIÓN (5xx, timeout), que es un
-      // bache de segundos: es exactamente lo que mató el turno del 25/8, con la
-      // misma consulta funcionando perfecto 74 s después.
-      //
-      // Un 404 (modelo retirado) o un 401 (key mala) tampoco: no van a volver.
-      const saturacion = /\b5\d\d\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET|unavailable|overloaded|high demand/i.test(detalle)
-        || (res.status >= 500 && res.status <= 599);
-      // UN solo reintento, y corto: del otro lado hay alguien mirando el chat. Si
-      // con 1,2 s no se destrabó, rotar es mejor que seguir esperando.
-      if (!saturacion || toolsUsados > 0 || intento >= 1) break;
-      console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) ${detalle} → reintento`);
-      await new Promise((r) => setTimeout(r, 1200));
+      const status = res?.status ?? 0;
+      const leido = excepcion != null
+        ? { mensaje: excepcion, esperaMs: null, porDia: false }
+        : leerErrorProveedor(data, status);
+      // El status va adelante: los clasificadores de río abajo (fallo-ia-texto) leen
+      // `\b429\b` y `HTTP 503`, y el texto del proveedor no siempre los trae.
+      const detalle = status && !leido.mensaje.startsWith(`HTTP ${status}`) ? `HTTP ${status} · ${leido.mensaje}` : leido.mensaje;
+      const tipo = tipoDeFallo(status, leido.mensaje);
+      const paso = rotacion.trasFallo({ tipo, esperaMs: leido.esperaMs, porDia: leido.porDia });
+      if (!paso) { falloFinal = detalle; break; }
+      // Un 429 que se cubrió con otro modelo no llega al que llama, así que se anota acá:
+      // es lo que lee `ordenarPorCuota` para no volver a empezar por esa cuenta.
+      if (tipo === 'cuota') void anotarRebote429(p.nombre, nroCuenta(p), model, detalle);
+      console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) ${model}: ${detalle.slice(0, 240)} → ${paso.accion}${paso.modelo && paso.modelo !== model ? ` a ${paso.modelo}` : ''}${paso.esperaMs ? ` en ${paso.esperaMs} ms` : ''}`);
+      if (paso.esperaMs) await new Promise((r) => setTimeout(r, paso.esperaMs));
+      model = paso.modelo || model;
     }
-    if (!res!.ok || (data as { error?: unknown }).error) {
-      const extra = p.nombre === 'gemini' && res!.status === 404 ? await modelosDisponibles(p) : '';
-      throw new Error(`chatCheapTools(${rotulo(p)}): ${(data as { error?: { message?: string } })?.error?.message || `HTTP ${res!.status}`}${extra}`);
+    if (falloFinal != null) {
+      const extra = p.nombre === 'gemini' && res?.status === 404 ? await modelosDisponibles(p) : '';
+      throw new Error(`chatCheapTools(${rotulo(p)}): ${falloFinal}${extra}`);
     }
     void recordUsage(opts.feature || 'ia-barata-tools', model, data.usage, opts.motivo, p.nombre, nroCuenta(p));
     const msg = data.choices?.[0]?.message as { content?: string; tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }> } | undefined;

@@ -1283,10 +1283,16 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 async (prov) => (await provsDe(prov)).map((inst) => ({ prov, inst })),
               ),
             )).flat();
-            for (const { prov, inst } of instancias) {
+            for (const [nInst, { prov, inst }] of instancias.entries()) {
               probadasCliente++;
               try {
-                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined });
+                // ⚠️ LA ÚLTIMA CUENTA DEL CLIENTE ESPERA LA CUOTA DEL MINUTO (hasta 30 s, lo que
+                // diga el proveedor). Con otra cuenta esperando, saltar es mejor que esperar; con
+                // ninguna, la alternativa a 30 s de espera era «te quedaste sin cuota» sobre una
+                // key que se destraba sola. Es el caso de Brigitte (07/10/2026, una sola key):
+                // ver lib/ia-rotacion-modelo.ts.
+                const esperaCuotaMaxMs = nInst === instancias.length - 1 ? 30_000 : 0;
+                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
                 /**
                  * ⚠️ ESTA SALIDA ERA MUDA, Y POR ESO EL CLIENTE LEYÓ «TE QUEDASTE SIN CUOTA».
                  *

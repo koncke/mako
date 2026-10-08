@@ -19,26 +19,30 @@ import { readFileSync } from 'node:fs';
 const NL = String.fromCharCode(10);
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 
-test('El camino del tool-use reintenta la SATURACIÓN, no la cuota', () => {
+test('El camino del tool-use no pega una sola vez: lo que decide qué hacer con un fallo es la rotación', () => {
+  // ⚠️ Desde el 07/10/2026 la decisión vive en lib/ia-rotacion-modelo.ts, con su test que
+  // la EJECUTA (tests/ia-rotacion-modelo.test.ts): una saturación se reintenta o rota de
+  // modelo, y un 429 NO se le vuelve a pedir al mismo modelo — rota al otro, que tiene su
+  // propio cupo, o espera lo que DIJO el proveedor si el que llama lo permite.
   const src = leer('../lib/ai-cheap.ts');
   const i = src.indexOf('export async function chatCheapTools');
   const cuerpo = src.slice(i, src.indexOf('export async function chatCheapToolsCascade'));
-  assert.ok(/const saturacion =/.test(cuerpo),
+  assert.match(cuerpo, /rotacion\.trasFallo\(/,
     'chatCheapTools volvió a pegar una sola vez: un 503 de segundos mata el turno');
-  // ⚠️ Un 429 es la CUOTA de esa cuenta: reintentar es pedirle otra vez a quien ya
-  // dijo que no. Quien llama rota. Si el 429 volviera a entrar acá, cada turno
-  // pagaría esperas inútiles antes de rotar.
-  assert.ok(!/\b429\b/.test(cuerpo.slice(cuerpo.indexOf('const saturacion ='), cuerpo.indexOf('const saturacion =') + 400)),
-    'el 429 volvió a reintentarse: hay que ROTAR, no insistirle a la cuota agotada');
 });
 
-test('Nunca se reintenta después de que una tool tocó datos', () => {
-  // La regla que el propio módulo ya dice para la cascada: «reintentar después de
-  // una acción a medias es duplicarla». Un reintento después de que una tool creó
-  // un borrador crea DOS.
+test('Reintentar un PEDIDO nunca repite una tool; re-arrancar el TURNO sí, y eso lo corta la cascada', () => {
+  // ⚠️ Esta regla decía «nunca se reintenta después de que una tool tocó datos» y fijaba la
+  // ventana `toolsUsados > 0 || intento >= 1`. Mezclaba dos cosas: repetir el pedido que
+  // falló (las tools corren sólo con una respuesta buena, y lo que ya corrieron está en la
+  // conversación: no se repite nada) y re-arrancar el turno con otro proveedor (eso SÍ las
+  // vuelve a correr). Por la primera se tiró el turno de Brigitte con seis pasos hechos. La
+  // invariante de verdad se fija en tests/ia-rotacion-modelo.test.ts; acá queda la otra mitad.
   const src = leer('../lib/ai-cheap.ts');
-  assert.match(src, /toolsUsados > 0 \|\| intento >= 1/,
-    'se perdió la ventana segura del reintento: puede duplicar lo que una tool ya hizo');
+  const i = src.indexOf('export async function chatCheapToolsCascade');
+  const cascada = src.slice(i, src.indexOf(NL + '}', i) + 2);
+  assert.match(cascada, /if \(ejecutó\) throw e/,
+    'la cascada volvió a re-arrancar el turno después de que una tool tocó datos: puede duplicarla');
 });
 
 // Probado rompiéndolo: devolviendo mistral a la lista, 4 pasan y 1 falla.
