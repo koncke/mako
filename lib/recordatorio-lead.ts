@@ -33,9 +33,10 @@
 // programarse: «empieza en 52 minutos» si el cron llegó 8 minutos tarde, no «en una hora».
 //
 // ⚠️ EL LINK LO PONE EL CÓDIGO, nunca un modelo, y si la reunión no tiene link (una llamada por
-// teléfono, una reserva de Cal.com, una anterior a la mig 0204) el renglón que lo nombra NO
-// SALE: un «Para entrar: {{link}}» crudo en el teléfono de un lead es lo único peor que no
-// mandar nada.
+// teléfono, una presencial, una anterior a la mig 0204) el renglón que lo nombra NO SALE: un
+// «Para entrar: {{link}}» crudo en el teléfono de un lead es lo único peor que no mandar nada.
+// Lo escriben TRES caminos, y los tres pasan por acá: el webhook y el backfill de Calendly
+// (`linkDeReunion`) y el webhook de Cal.com (`linkDeReunionCalcom`).
 // =============================================================================
 
 import { cuandoEs, horaDe, primerNombreDe } from './curso-mensajes-texto';
@@ -283,6 +284,44 @@ function limpiarLink(v: unknown): string | null {
 export function linkDeReunion(location: unknown): string | null {
   if (!location || typeof location !== 'object') return null;
   return limpiarLink((location as { join_url?: unknown }).join_url);
+}
+
+/** Un mapa no es un link para entrar: es la dirección de una presencial pegada como URL. */
+const MAPA = /^https:\/\/([^/]*\.)?(google\.[a-z.]+\/maps|maps\.google\.|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.apple\.com|waze\.com)/i;
+
+/**
+ * El link para ENTRAR a una reserva de Cal.com, del `payload` de su webhook (BOOKING_CREATED y
+ * BOOKING_RESCHEDULED; la cancelación no lo trae). Cal.com NO lo manda donde Calendly: no hay
+ * `join_url`, y `location` casi nunca sirve, porque en una reunión por videollamada es el
+ * NOMBRE de la integración (`integrations:google:meet`, `integrations:daily`), no una URL.
+ *
+ * En este orden (doc de webhooks de Cal.com, payload 2021-10-20):
+ *   1. `metadata.videoCallUrl` — el link PÚBLICO, el mismo que va en el mail de confirmación:
+ *      el Meet (`hangoutLink`), el Zoom, o `app.cal.com/video/<uid>` para Cal Video.
+ *   2. `videoCallData.url` — salvo Cal Video (`daily_video` o un host `*.daily.co`): ese es el
+ *      cuarto CRUDO de Daily, que pide un token para entrar (cal.diy PR #29922 lo reescribe
+ *      justamente por eso). Se usa sólo si falta el 1.
+ *   3. `location`, sólo si ES un link — la ubicación «Link» fija que el dueño pega en su event
+ *      type. Una dirección, un teléfono, un `integrations:…` sin URL o un mapa NO son un link.
+ *
+ * Medido en el ws13 (06/10/2026, GET /v2/bookings, sólo lectura): sus 5 reservas próximas son
+ * Google Meet. La API v2 devuelve el Meet en `location`/`meetingUrl`, pero el WEBHOOK lo manda en
+ * `metadata.videoCallUrl` con `location: "integrations:google:meet"`: son dos formas distintas.
+ */
+export function linkDeReunionCalcom(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const p = payload as { metadata?: unknown; videoCallData?: unknown; location?: unknown };
+  if (p.metadata && typeof p.metadata === 'object') {
+    const u = limpiarLink((p.metadata as { videoCallUrl?: unknown }).videoCallUrl);
+    if (u) return u;
+  }
+  if (p.videoCallData && typeof p.videoCallData === 'object') {
+    const v = p.videoCallData as { type?: unknown; url?: unknown };
+    const u = limpiarLink(v.url);
+    if (u && v.type !== 'daily_video' && !/^https:\/\/([^/]*\.)?daily\.co(\/|$)/i.test(u)) return u;
+  }
+  const u = limpiarLink(p.location);
+  return u && !MAPA.test(u) ? u : null;
 }
 
 /**

@@ -2034,6 +2034,14 @@ barre `app/api/webhooks/` entero: un webhook nuevo con la lectura tolerante no p
 contestar depende del PROVEEDOR, que se mide antes de elegir: Calendly y Svix (Fathom) reintentan y
 **deshabilitan**, Meta reintenta ~36 h, Cal.com y Chatwoot **no reintentan nunca**.
 
+⚠️ **Y LA FORMA DE UN WEBHOOK SE MIDE EN EL WEBHOOK, NUNCA EN LA API REST DEL MISMO PROVEEDOR.**
+Son dos contratos. Medido el 06/10/2026 con Cal.com: `GET /v2/bookings` devuelve el Meet de cada
+reserva en `location`, y el webhook de esa misma reserva manda `location: "integrations:google:meet"`
+con el link en `metadata.videoCallUrl`. Un parser escrito mirando la API contesta null en TODAS las
+reservas, sin un error. La forma sale del ejemplo de la doc del webhook o de un cuerpo real, y el
+test se escribe sobre ese cuerpo (`tests/link-de-reunion.test.ts`). Al revés vale igual: el listado
+de Calendly sí trae el mismo `location` que su webhook, y eso se comprobó, no se supuso.
+
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
 que **si un campo tiene ayuda propia, el tutorial del servicio no se ve nunca para ese

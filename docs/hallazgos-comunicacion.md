@@ -8546,7 +8546,8 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
 
 **Vive en:** `lib/reunion-recordatorio.ts` · `lib/recordatorio-lead.ts` · `lib/leads.ts`
 (`cancelarJuntaEnLead`, `guardarLinkDeReunion`, `upsertLeadFromCalendly`) ·
-`app/api/webhooks/calendly/route.ts` · `app/chatbot/RecordatorioFlujo.tsx` ·
+`app/api/webhooks/calendly/route.ts` · `app/api/webhooks/calcom/route.ts` ·
+`scripts/backfill-calendly.ts` · `app/chatbot/RecordatorioFlujo.tsx` ·
 `supabase/migrations/0204_link_de_la_reunion.sql`
 
 - ⚠️ **Hoy no hay a quién recordarle en el ws1: el webhook de Calendly está muerto OTRA VEZ**
@@ -8577,11 +8578,25 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   recordatorio de menos, nunca uno doble.
 - **HECHO el 06/10 (OK de Martín):** la suscripción de Calendly se recreó, entraron las reservas
   perdidas (las dos con reunión por delante, con su link puesto a mano porque el backfill no lo
-  guarda) y el recordatorio quedó PRENDIDO para Mauricio. El simulacro antes de prender mostró el
+  guardaba — desde la tarde de ese día lo guarda, ver `docs/hallazgos-infra.md` → «Webhooks») y
+  el recordatorio quedó PRENDIDO para Mauricio. El simulacro antes de prender mostró el
   texto con el link en el toque de 24 h y en el de 15 min. Falta que Martín apague el workflow de n8n.
-- **SIN HACER:** **Cal.com no guarda el link**
-  (`app/api/webhooks/calcom/route.ts`), así que el ws13 recibiría el recordatorio sin ese renglón.
-  **Un lead que faltó a la R1 y vuelve a agendar por Calendly no recibe recordatorios**:
+- **HECHO el 06/10: Cal.com guarda el link** (R1, R2 y el borrado al cancelar con
+  `soloSiInicio`, igual que Calendly). ⚠️ **Y el diagnóstico obvio era el equivocado: el link NO
+  está en `location`.** En el WEBHOOK de una videollamada, `location` es el NOMBRE de la
+  integración (`integrations:google:meet`, `integrations:daily`) y el link viaja en
+  `metadata.videoCallUrl`. Lo que lo hace fácil de errar: la API v2 (`GET /v2/bookings`) de las 5
+  reservas próximas del ws13 sí devuelve el Meet en `location` y en `meetingUrl` — **la API y el
+  webhook del mismo proveedor tienen dos formas distintas**, y medir la forma en la API para
+  escribir el parser del webhook da un extractor que contesta null en todas las reservas del
+  ws13. El segundo engaño es `videoCallData.url`: para Cal Video es el cuarto CRUDO de Daily, que
+  pide un token (cal.diy PR #29922 lo reescribe por eso); el link público es el de metadata. Y la
+  ubicación «Link» fija del event type sí llega como URL en `location`: se acepta, salvo un mapa.
+  El extractor es `linkDeReunionCalcom` (lib/recordatorio-lead.ts), con test sobre los cuerpos de
+  la doc (`tests/link-de-reunion.test.ts`). SIN MEDIR: un cuerpo REAL de Cal.com — no se guardan
+  en ningún lado, así que la primera reserva del ws13 después del deploy es la que lo confirma
+  (`junta_1_url` del lead nuevo con host `meet.google.com`).
+- **SIN HACER:** **Un lead que faltó a la R1 y vuelve a agendar por Calendly no recibe recordatorios**:
   `upsertLeadFromCalendly` no toca `asistio_j1` (es manual) y el emisor saltea toda reunión con la
   asistencia marcada — justo el caso donde más sirve. Medido: 13 leads del ws1 y 11 del ws13. Es
   una decisión del CRM (sacarlo de «No Show»), no un arreglo.

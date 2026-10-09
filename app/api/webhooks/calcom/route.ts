@@ -17,8 +17,10 @@
 //
 // La lógica de negocio NO se duplica: se normaliza la reserva y de ahí en
 // adelante se llama a las MISMAS funciones que usa Calendly (upsertLeadFromCalendly,
-// setFechaJunta2, cancelarJuntaEnLead, saveLeadRespuestas, enrolarPorEvento). Dos
-// caminos que escriben leads distinto son dos CRMs.
+// setFechaJunta2, cancelarJuntaEnLead, saveLeadRespuestas, enrolarPorEvento,
+// guardarLinkDeReunion). Dos caminos que escriben leads distinto son dos CRMs. Lo único
+// propio es DE DÓNDE sale el link para entrar a la reunión, porque Cal.com no lo manda
+// donde Calendly (`linkDeReunionCalcom`).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -39,7 +41,9 @@ import {
   setFechaJunta2,
   cancelarJuntaEnLead,
   saveLeadRespuestas,
+  guardarLinkDeReunion,
 } from '@/lib/leads';
+import { linkDeReunionCalcom, juntaQueSeCancela } from '@/lib/recordatorio-lead';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { emitirDelCatalogo } from '@/lib/avisos';
@@ -176,6 +180,11 @@ export async function POST(request: NextRequest) {
         // Con el instante, como en Calendly: la fecha sola borra la reunión nueva de una reagenda
         // del mismo día (`juntaACancelar`, lib/recordatorio-lead.ts).
         const detalle = await cancelarJuntaEnLead(lead, isoToFechaTijuana(reserva.inicio), hoyEnTijuana(), reserva.inicio);
+        // El link de la reunión cancelada se borra, igual que en Calendly: sólo si la fila SIGUE
+        // en ese horario (`soloSiInicio`). Si la reserva nueva de una reagenda ya escribió su hora
+        // y su link, el instante no calza y el link nuevo se queda. `junta_X_at` no se toca.
+        const cualLink = juntaQueSeCancela(lead, reserva.inicio);
+        if (cualLink) await guardarLinkDeReunion(lead.id, cualLink, null, { soloSiInicio: reserva.inicio });
         console.log(`[webhook:calcom] cancelación lead=${lead.id}: ${detalle} ms=${ms}`);
         return Response.json({ ok: true, trigger: body.triggerEvent, action: 'cancelar', lead_id: lead.id, detalle, ms });
       }
@@ -202,6 +211,10 @@ export async function POST(request: NextRequest) {
         // Lo que completó en el formulario de la R2, POR reunión y con la MISMA función que Calendly.
         // No tira: una respuesta que no se guarda no puede tumbar la reserva.
         await saveLeadRespuestas(lead.id, 'R2', preguntasDeReserva(reserva.respuestas), fechaReunion);
+        // El link para entrar, para el recordatorio al lead (mig 0204). Aparte y sin tirar, como en
+        // Calendly, y también en null: una reserva sin videollamada no hereda el link de la anterior.
+        // Cal.com lo manda en `metadata.videoCallUrl`, no en `location` (`linkDeReunionCalcom`).
+        await guardarLinkDeReunion(lead.id, 'R2', linkDeReunionCalcom(body.payload));
         await emitirDelCatalogo('reunion-nuevo-agendado', {
           // ⚠️ Dedup POR RESERVA. Los webhooks se reentregan y el mismo agendado
           // salía 2 y 3 veces (medido: 9 s, 25 s, 38 s y 41 s de diferencia). La
@@ -244,6 +257,8 @@ export async function POST(request: NextRequest) {
         // atribuyan la venta a una herramienta que este cliente no usa.
         origen_lead: 'calcom',
       });
+      // El link de la R1, aparte de `upsertLeadFromCalendly` y sin tirar (ver `guardarLinkDeReunion`).
+      await guardarLinkDeReunion(lead.id, 'R1', linkDeReunionCalcom(body.payload));
 
       // Lo que completó en el formulario (el rubro, si es agente, su Instagram…), como las de
       // Calendly: hasta el 08/10/2026 se tiraban, y la ficha y el aviso no tenían de dónde sacarlas.

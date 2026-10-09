@@ -1057,6 +1057,20 @@ vivo lo escribe.~~ **ARREGLADO el mismo día:** el backfill escribe el link (`gu
 `linkDeReunion(ev.location)`). Las dos reservas recuperadas con reunión por delante se habían
 completado a mano con el `join_url` de la API de Calendly.
 
+**Medido contra producción el 06/10 (sólo lectura):** el `location` que devuelve
+`GET /scheduled_events` para las dos reservas futuras, pasado por `linkDeReunion`, es
+**idéntico** al link que se les puso a mano a los leads 2592 y 2593, con el mismo instante. O sea
+que el LISTADO de Calendly trae el mismo objeto que el webhook en `scheduled_event.location` (en
+Cal.com no: ver AGENTS.md, «la forma de un webhook se mide en el webhook»).
+
+⚠️ **SIN HACER, y a decidir si importa:** la regla de main escribe en TODA fila cuyo `junta_X_at`
+sea esa reunión, también en las que ya pasaron y también con `null` si el evento no trae
+`join_url`. Inocuo hoy —el único lector es el recordatorio, que nunca manda por una reunión
+pasada—, pero un link puesto a mano en una reunión cuyo evento de Calendly no trae `join_url` se
+pisa con null. La misma tarde se escribió otra versión en una rama aparte (`fcfe373e`,
+`linkACompletar`: sólo si la columna está vacía, sin escribir nulls y sólo reuniones futuras) y
+no se unió el 09/10 porque main ya tenía la suya; si hace falta, está ahí.
+
 ⚠️ **Y lo que el backfill NO recupera, que es la letra chica de «200 y anotado»:** corre SÓLO sobre
 el ws1 (token y config del dueño), y una reserva que trae vuelve como lead con su reunión y su link
 pero SIN lo que dispara el webhook —la bienvenida, el aviso al dueño, el CAPI, los flujos—. Una
