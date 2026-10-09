@@ -10,8 +10,11 @@
 // una llamada por lead por paso, y que «nadie aprobó ese texto». Los dos se contestan acá,
 // y el interruptor existe porque ahora es una DECISIÓN del negocio y no un default:
 //
-//  · LA LLAMADA va por la cascada GRATIS (CASCADA_GRATIS), nunca por Claude. Lo que se
-//    gasta es CUOTA, no plata, y por la misma cascada que ya usan las variantes.
+//  · LA LLAMADA va por la cascada GRATIS (CASCADA_DOCS), nunca por Claude. Lo que se
+//    gasta es CUOTA, no plata. ⚠️ Es CASCADA_DOCS y no CASCADA_GRATIS porque la segunda
+//    no trae Gemini, y tres clientes (ws13, ws15, ws17) tienen cargada SOLO la de Gemini:
+//    con CASCADA_GRATIS cada paso en modo IA de esos negocios salía siempre con el texto
+//    de respaldo, registrado como `fallback`, sin que el modelo llegara a correr (06/10).
 //  · EL CONTROL tiene tres capas. El `cuerpo` que escribió una persona es la BASE (dice
 //    qué hay que lograr) y el RESPALDO (sale tal cual si el modelo falla). Lo escrito se
 //    VALIDA de forma determinista (lib/texto-critico.ts): si pierde un placeholder, un
@@ -35,13 +38,14 @@
 
 import 'server-only';
 
-import { chatCheapCascade, CASCADA_GRATIS } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS } from './ai-cheap';
 import { renderPrompt } from './prompt-render';
 import { contenidoNoConfiable } from './prompt-render-pure';
 import { getVozGuia } from './nutricion-generator';
 import { mensajesRecientesDelLead } from './wa-historial';
 import { bloqueFormulario, SEGURIDAD_FORMULARIO } from './setter-conversacion';
 import { respetaElOriginal } from './texto-critico';
+import { esDescarteDeLaIA } from './ia-mensajes';
 
 /** Cuántos mensajes de la conversación ve el modelo: contexto, no un historial entero. */
 const MENSAJES_DE_CONTEXTO = 12;
@@ -144,7 +148,7 @@ export async function escribirPasoIA(args: { cuerpo: string; leadId: number | nu
     crudo = await chatCheapCascade({
       system, user, maxTokens: 500, temperature: 0.7,
       feature: 'chatbot-paso-ia', motivo: 'Paso de secuencia en modo IA',
-      provs: CASCADA_GRATIS,
+      provs: CASCADA_DOCS,
       // Si un proveedor pierde un dato, la cascada prueba el siguiente en vez de quedarse
       // con la primera respuesta que llegó.
       validar: (t) => respetaElOriginal(base, limpiar(t)).ok,
@@ -157,7 +161,17 @@ export async function escribirPasoIA(args: { cuerpo: string; leadId: number | nu
   const texto = limpiar(crudo);
   const v = respetaElOriginal(base, texto);
   if (!v.ok) {
-    const porque = !texto && errores.length ? `ningún proveedor contestó (${errores[0].slice(0, 120)})` : `la IA ${v.motivo}`;
+    // Las causas son distintas, y la que este motivo confundía es la de los descartes: con
+    // las versiones descartadas por la validación, `errores` tiene una línea por proveedor que
+    // CONTESTÓ, y decir «ningún proveedor contestó» manda a revisar keys que andan.
+    const descartes = errores.filter(esDescarteDeLaIA).length;
+    const porque = texto
+      ? `la IA ${v.motivo}`
+      : descartes
+        ? `la IA contestó y ninguna versión respetó el original (${descartes} descartada${descartes === 1 ? '' : 's'})`
+        : errores.length
+          ? `ningún proveedor contestó (${errores[0].slice(0, 120)})`
+          : 'no hay ninguna IA conectada';
     return { texto: args.cuerpo, autor: 'fallback', motivo: porque };
   }
   return { texto, autor: 'ia' };

@@ -14,7 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { FRASE_PROHIBIDA, mensajeIAFallo, resumirErrores, motivoDeErroresCascada, esErrorDeIA } from '../lib/ia-mensajes';
+import { FRASE_PROHIBIDA, mensajeIAFallo, resumirErrores, motivoDeErroresCascada, esErrorDeIA, esDescarteDeLaIA } from '../lib/ia-mensajes';
 
 test('sin ninguna IA conectada: pedir una key es la respuesta correcta', () => {
   const m = mensajeIAFallo({ hayIA: false, motivo: null, tema: 'generar las razones' });
@@ -259,4 +259,46 @@ test('VISION tiene un respaldo GRATIS, no solo el que cobra', () => {
   // usar el respaldo gratis que el cliente YA tenia cargado.
   assert.ok(!/fetch\('https:\/\/api\.openai\.com/.test(ai),
     'el lector de vision volvio a apuntar fijo a api.openai.com');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Un proveedor que CONTESTÓ y cuya salida descartamos (06/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// `chatCheapCascade` salía con un `break` mudo cuando la respuesta llegaba vacía o no
+// pasaba el `validar` del caller: con TODOS los proveedores contestando 200, `erroresOut`
+// quedaba vacío y el caller no distinguía «lo tiramos nosotros» de «no hay IA».
+//
+// Probado rompiéndolo (06/10/2026), una rotura por vez, restaurando de memoria:
+//  (1) sin el push antes del `break` en lib/ai-cheap.ts        → 1 rojo (el del fuente)
+//  (2) el caso de descarte DESPUÉS del de cuota                 → 1 rojo (el de la tanda mixta)
+//  (3) `esDescarteDeLaIA` buscando sólo «descartamos»           → 1 rojo (el del vacío)
+
+test('el descarte se reconoce en las dos formas que escribe la cascada, y en la del doer', () => {
+  assert.ok(esDescarteDeLaIA('groq·1: contestó y lo descartamos (no tiene la forma pedida)'));
+  assert.ok(esDescarteDeLaIA('gemini·2: contestó vacío'));
+  assert.ok(esDescarteDeLaIA('gemini·1: contestó y lo descartamos (inventó un número)'));
+  assert.ok(!esDescarteDeLaIA('gemini·1: HTTP 429 RESOURCE_EXHAUSTED'));
+  assert.ok(!esDescarteDeLaIA('groq·1: timeout'));
+});
+
+test('si alguno CONTESTÓ, el motivo no culpa a la cuota ni a la key aunque otro haya rebotado', () => {
+  const solo = motivoDeErroresCascada(['groq·1: contestó y lo descartamos (no tiene la forma pedida)']);
+  assert.match(solo!, /contestó/);
+  assert.doesNotMatch(solo!, /sin cuota|API key|saturado/i);
+  // La tanda mixta: un 429 de otro proveedor no puede tapar que éste contestó 200.
+  const mixta = motivoDeErroresCascada(['gemini·1: HTTP 429 RESOURCE_EXHAUSTED', 'groq·1: contestó vacío']);
+  assert.match(mixta!, /contestó/);
+  assert.doesNotMatch(mixta!, /sin cuota/i);
+  // Y el mensaje entero no le pide una key a quien la tiene.
+  const m = mensajeIAFallo({ hayIA: true, motivo: mixta, errores: ['groq·1: contestó vacío'], tema: 'escribir el mensaje' });
+  assert.doesNotMatch(m, /Conecta|Pega una nueva/);
+});
+
+test('la cascada ESCRIBE el descarte antes de pasar a la cuenta siguiente', () => {
+  const src = readFileSync(new URL('../lib/ai-cheap.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+    .replace(/^[ \t]*\/\/.*$/gm, '');
+  const i = src.indexOf('if (t.trim() && (!opts.validar || opts.validar(t))) return t;');
+  assert.ok(i > 0, 'no encontré la línea que acepta la salida de un proveedor');
+  const hastaElBreak = src.slice(i, src.indexOf('break;', i));
+  assert.match(hastaElBreak, /opts\.erroresOut\?\.push\(`\$\{rotulo\(inst\)\}: \$\{t\.trim\(\) \? 'contestó y lo descartamos/);
 });

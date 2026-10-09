@@ -77,6 +77,14 @@ export function motivoDeErroresCascada(errores: string[]): string | null {
   if (/does not exist|unavailable for free|no longer available|decommissioned|model_not_found|invalid model/.test(todo)) {
     return 'Hay un problema de configuración de MaKo con ese proveedor de IA: el modelo que teníamos puesto ya no está disponible. No es tu key — avísanos y lo corregimos.';
   }
+  // ⚠️ UN PROVEEDOR QUE CONTESTÓ 200 MANDA SOBRE CUALQUIER TEXTO DE ERROR (06/10/2026).
+  // Si alguno contestó y descartamos lo que escribió, la key y la cuota del cliente están
+  // bien: decirle «sin cuota» porque OTRO proveedor de la lista rebotó con un 429 lo manda a
+  // arreglar algo que anda. Va antes que saturación y cuota por la misma razón que en el
+  // doer (`causaDelFallo`, lib/fallo-ia-texto.ts): un 200 es la prueba más fuerte que hay.
+  if (errores.some(esDescarteDeLaIA)) {
+    return 'La IA contestó, pero lo que escribió no servía (no es tu key ni tu cuota).';
+  }
   // ⚠️ SATURACIÓN ANTES QUE CUOTA, Y ESE ORDEN ES EL ARREGLO. Un 503 «high demand» es el
   // proveedor caído para todo el mundo: no gastaste nada, tu key está perfecta, y en dos
   // minutos anda. Decirle a alguien «te quedaste sin cuota» lo manda a comprar créditos o
@@ -104,6 +112,17 @@ export function motivoDeErroresCascada(errores: string[]): string | null {
     return 'No respondió a tiempo — puede ser una falla momentánea de conexión.';
   }
   return null;
+}
+
+/**
+ * ¿Esta línea de `erroresOut` es un proveedor que CONTESTÓ y cuya salida no usamos?
+ * Las escribe `chatCheapCascade` (lib/ai-cheap.ts) cuando la respuesta llega vacía o no
+ * pasa el `validar` del caller, con las mismas palabras que el doer. Un caller que arme
+ * su propio motivo (lib/paso-ia.ts) la usa para no decir «ningún proveedor contestó»
+ * sobre una tanda donde contestaron todos.
+ */
+export function esDescarteDeLaIA(linea: string): boolean {
+  return /:\s*contestó (vacío|y lo descartamos)/.test(linea);
 }
 
 export type MotivoIA = { hayIA: boolean; motivo: string | null; errores?: string[]; tema?: string };

@@ -573,6 +573,13 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
           // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
           if (t.trim() && (!opts.validar || opts.validar(t))) return t;
+          // ⚠️ EL DESCARTE QUEDA ESCRITO, como cualquier otro fallo. Un `break` mudo deja
+          // `erroresOut` vacío cuando TODOS los proveedores contestaron 200 y la salida no
+          // sirvió, y el caller no puede distinguir «contestó y lo tiramos nosotros» de «no
+          // hay IA»: el mensaje le pedía al cliente conectar una key que ya tenía. Es la
+          // misma regla que el doer ya cumple (lib/mako-doer-in.ts, «contestó y lo
+          // descartamos»), con las mismas palabras para que un solo detector lea las dos.
+          opts.erroresOut?.push(`${rotulo(inst)}: ${t.trim() ? 'contestó y lo descartamos (no tiene la forma pedida)' : 'contestó vacío'}`);
           break; // respondió (o vacío en ambos modos) pero no sirve → próxima cuenta
         } catch (e) {
           const m = e instanceof Error ? e.message : String(e);

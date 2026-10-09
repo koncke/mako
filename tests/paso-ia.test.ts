@@ -30,7 +30,8 @@ import { pasoBloqueadoPor } from '../lib/onboarding-orden';
 //  (4) la IA escrita ARRIBA de las guardas del envío   → 1 rojo (el del orden)
 //  (5) el modelo recibiendo el texto ya resuelto       → 1 rojo (el de la base cruda)
 //  (6) el insert sin `texto_autor`                     → 1 rojo (el del registro)
-//  (7) la cascada de `paso-ia` sin CASCADA_GRATIS      → 1 rojo (el de la cascada)
+//  (7) la cascada de `paso-ia` con CASCADA_GRATIS (06/10/2026: la lista SIN Gemini, que
+//      deja sin modelo a los clientes con sólo esa key) → 1 rojo (el de la cascada)
 //  (8) el template con el escape inventado `{{"{{"}}`  → 1 rojo (el del template)
 //  (9) `contexto` sin `opcional` en el catálogo         → 1 rojo (el del catálogo)
 // (10) la casilla con su propia condición de canal      → 1 rojo (el de la casilla)
@@ -180,7 +181,10 @@ const PASO_IA = sinComentarios(PASO_IA_CRUDO);
 
 test('la llamada va por la cascada GRATIS, con la validación determinista como filtro', () => {
   const fn = bloque(PASO_IA, 'export async function escribirPasoIA', '\n}\n');
-  assert.match(fn, /provs: CASCADA_GRATIS,/, 'lo que se gasta es CUOTA, nunca plata: el plan nunca paga IA');
+  assert.match(fn, /provs: CASCADA_DOCS,/, 'lo que se gasta es CUOTA, nunca plata: el plan nunca paga IA');
+  // CASCADA_DOCS y no CASCADA_GRATIS: la segunda no trae Gemini, y un cliente con SOLO esa
+  // key (ws13, ws15, ws17) mandaba cada paso con el texto de respaldo sin que el modelo corriera.
+  assert.doesNotMatch(PASO_IA, /CASCADA_GRATIS/);
   assert.doesNotMatch(PASO_IA, /chatClaude|anthropic/i);
   assert.match(fn, /validar: \(t\) => respetaElOriginal\(base, limpiar\(t\)\)\.ok,/);
   // Nunca tira: el catch devuelve el respaldo.

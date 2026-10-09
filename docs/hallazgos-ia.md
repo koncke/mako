@@ -3482,10 +3482,9 @@ bache cuando lo que falta es un proveedor en la lista.
 
 - **Copy que tiene que andar con la key gratis que carga cada cliente va por `CASCADA_DOCS`**, que
   es la misma lista con la que `errorDeCascada` mide. Las dos son gratis y ninguna toca Claude.
-- ⚠️ **SIN HACER: `lib/paso-ia.ts` («Lo adapta MaKo») tiene el mismo agujero.** En el ws13, ws15
-  y ws17 no adapta nunca: siempre sale el texto de respaldo, con el motivo engañoso «la IA vino
-  vacío», porque `errores` queda vacío. Pasarlo a `CASCADA_DOCS` es una línea; no se tocó porque
-  era otra tarjeta.
+- **HECHO el 09/10/2026: `lib/paso-ia.ts` («Lo adapta MaKo») pasó a `CASCADA_DOCS`.** En el
+  ws13, ws15 y ws17 no adaptaba nunca: siempre salía el texto de respaldo, con el motivo engañoso
+  «la IA vino vacío». Lo fija `tests/paso-ia.test.ts` (con `CASCADA_GRATIS` de vuelta: 1 rojo).
 
 ## Lo que rechaza `validar` no deja rastro, y el error que sale es el de otra cosa
 
@@ -3497,6 +3496,17 @@ contestan 200 con algo inservible (un guion con una palabra prohibida, un númer
 lista de errores llega vacía y `errorDeCascada` dice «tu IA está conectada pero no pudo» en vez
 del motivo real. Quien pasa `validar` junta sus propios rechazos y dice el último — así lo hace
 la ruta del guion. **Revisar los otros que validan: `productos-ia`, `ofertas-ia` y avatares.**
+
+**HECHO el 09/10/2026, en la cascada y no en cada caller:** `chatCheapCascade` escribe
+`<proveedor·cuenta>: contestó y lo descartamos (no tiene la forma pedida)` o `contestó vacío`
+antes de pasar a la cuenta siguiente, con las mismas palabras que ya usaba el doer. Lo lee
+`esDescarteDeLaIA` (`lib/ia-mensajes.ts`), y `motivoDeErroresCascada` lo pone ANTES que la
+saturación y la cuota: si un proveedor contestó 200, la key y la cuota del cliente están bien, y
+un 429 de otro proveedor de la lista no puede contestar «te quedaste sin cuota». Así los tres
+callers de arriba dejan de decir «no pudo» sin motivo sin tocar ninguno. `lib/paso-ia.ts` arma su
+propio motivo y ahora distingue «la IA contestó y ninguna versión respetó el original» de
+«ningún proveedor contestó». Tests en `tests/ia-mensajes.test.ts`, probados rompiéndolos (3
+roturas, las 3 en rojo).
 
 ⚠️ **Y un `validar` puede rechazar lo que el propio pedido exige.** El filtro del guion prohibía
 «agendar» en los negocios sin link de agenda, y una secuencia con objetivo «agendar» hace que el
