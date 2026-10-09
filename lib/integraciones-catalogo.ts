@@ -21,6 +21,10 @@ export const DEFS: Def[] = [
   { key: 'meta', nombre: 'Meta Ads', categoria: 'Publicidad', descripcion: 'Campañas, insights y estado de la cuenta publicitaria.', envs: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'], tieneDetalle: true },
   // WhatsApp (Chatwoot) salió el 09/10/2026: ver tests/sin-chatwoot.test.ts.
   { key: 'email', nombre: 'Email (Resend)', categoria: 'Mensajería', descripcion: 'Envío de emails de nutrición y reportes.', envs: ['RESEND_API_KEY'] },
+  // Instagram y Messenger como canales de las automatizaciones (09/10/2026, sexta tanda): salió el
+  // 06/10 con la tab y vuelve como canal. BYOK con respaldo de plataforma (lib/zernio.ts): sin key
+  // propia, la de la agencia, aislada por el profile de Zernio de cada workspace.
+  { key: 'zernio', nombre: 'Instagram y Messenger (Zernio)', categoria: 'Mensajería', descripcion: 'Mensajes de Instagram y Messenger en tus automatizaciones.', envs: ['ZERNIO_API_KEY'] },
   // IA = BYOK por cliente (ya NO global): cada workspace usa su propia key y su
   // gasto corre contra su cuenta. Para el dueño, credWs cae al env de respaldo.
   { key: 'anthropic', nombre: 'MaKo IA (Anthropic)', categoria: 'Inteligencia', descripcion: 'El cerebro de MaKo: análisis, chats y sugerencias.', envs: ['ANTHROPIC_API_KEY'] },

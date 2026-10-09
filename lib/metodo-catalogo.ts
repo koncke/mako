@@ -238,7 +238,36 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // WhatsApp (Chatwoot), el WhatsApp OFICIAL, salió el 09/10/2026: ver tests/sin-chatwoot.test.ts.
   // El WhatsApp del producto es el número de empresa (Evolution), que se vincula por QR desde
   // /whatsapp y no pide ninguna credencial acá.
-  // Instagram (Zernio) salió el 06/10/2026 con la tab Instagram: ver tests/sin-instagram.test.ts.
+  // Instagram (Zernio) salió el 06/10/2026 con la tab Instagram y volvió el 09/10/2026 como CANAL de
+  // las automatizaciones, con Messenger (tests/sin-instagram.test.ts cuenta la historia).
+  {
+    key: 'zernio',
+    nombre: 'Instagram y Messenger (Zernio)',
+    categoria: 'Mensajería',
+    paraQue: 'Mensajes de Instagram y Messenger en tus automatizaciones: comentarios, historias, mensajes y anuncios.',
+    campos: [
+      // BYOK con respaldo de plataforma: `opcional` a propósito — sin key propia, lib/zernio.ts usa la
+      // cuenta de Zernio de la agencia y el aislamiento lo da el PROFILE por workspace. El ruteo del
+      // webhook NO sale de este campo (una key es secreta y jamás se espeja a `webhook_routing`): lo
+      // acuña el server (`ensureProfile`, `cuentasConectadas`). Por eso no está en ROUTING_CREDS.
+      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true, opcional: true,
+        sinEsto: 'Sin key propia, MaKo usa la cuenta de la plataforma.',
+        nota: 'Opcional. Con tu propia key, el consumo se factura a tu cuenta de Zernio. Zernio incluye 2 cuentas conectadas; desde la 3.ª cobra por cada una.' },
+    ],
+    tutorial: {
+      url: 'https://zernio.com',
+      urlLabel: 'Zernio',
+      pasos: [
+        'Para qué sirve: para que el consumo de tu Instagram y tu Messenger se facture a tu propia cuenta de Zernio en vez de a la de la plataforma. Es opcional.',
+        'Zernio es el servicio que conecta Instagram y Facebook por detrás; por eso aparece su nombre aquí.',
+        'Entra a zernio.com y crea una cuenta, o entra a la tuya si ya la tienes.',
+        'Ya dentro de Zernio, abre "Settings" (el panel está en inglés) y toca "API Keys".',
+        'Toca "Create API Key" y copia la key en ese mismo momento: se muestra UNA sola vez.',
+        'Pégala en el campo "API key de Zernio" y guarda.',
+        'Después, en una automatización, agrega una tarjeta de Instagram o de Messenger y toca "Conectar". Tiene que ser una cuenta de empresa o de creador: Instagram no deja que un programa responda desde una cuenta personal.',
+      ],
+    },
+  },
   {
     key: 'email',
     nombre: 'Email (Resend)',

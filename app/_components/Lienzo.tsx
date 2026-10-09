@@ -55,6 +55,7 @@
 //   · DELAY 1 «Que Delay no sea una tarjeta, que la flecha no se corte» → las esperas de una arista
 //        (`AristaFlujo.esperas`) son pastillas sobre la flecha, y se editan tocándolas.
 
+import { IDENTIDAD_SOCIAL } from '@/lib/canal-social';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
@@ -1631,6 +1632,11 @@ export function identidadDeTarjeta(n: Pick<NodoFlujo, 'canal' | 'tipo'>): { fond
   }
   if (n.canal === 'email') {
     return { fondo: 'var(--surface)', borde: 'color-mix(in srgb, #EA4335 35%, var(--border))', titulo: 'color-mix(in srgb, #EA4335 80%, var(--ink))' };
+  }
+  // Instagram y Messenger (sexta tanda, parte «canales»): sus colores viven con el canal (lib/canal-social.ts).
+  if (n.canal === 'instagram' || n.canal === 'messenger') {
+    const c = IDENTIDAD_SOCIAL[n.canal];
+    return { fondo: c.fondo, borde: c.borde, titulo: c.titulo };
   }
   if (n.tipo === 'mako') {
     return { fondo: 'color-mix(in srgb, #C9A227 8%, var(--surface))', borde: 'color-mix(in srgb, #C9A227 45%, var(--border))', titulo: 'color-mix(in srgb, #A07E14 70%, var(--ink))' };

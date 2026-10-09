@@ -49,6 +49,8 @@
 
 // Puro (sólo importa ./template-vars): la pregunta «¿este HTML tiene algo que leer?» del saneo del email.
 import { htmlEmailVacio } from './email-html-seguro';
+// Instagram y Messenger (sexta tanda, parte «canales»): sus tarjetas, su ＋ y su «Probar». Puro.
+import { esCanalSocial, logoSocialSvg, type CanalSocial } from './canal-social';
 import {
   ANCHO_NODO, ALTO_MIN, GAP_Y, MARGEN, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, ICONO_MAKO, ICONO_GMAIL,
   encerrar, aOrigen, centroDeFilas, tieneFilas, posicionDePildora,
@@ -392,6 +394,8 @@ export const TITULO = {
   etiqueta: 'TAG', accion: 'ACTION', mako: 'MAKO', respuesta: 'REPLY',
   // «Ir a» ya no se crea (decisión 3), pero los que existen se siguen dibujando.
   ir_a: 'GO TO',
+  // Los canales de Meta por Zernio (sexta tanda, CRON 5 y 7).
+  instagram: 'INSTAGRAM', messenger: 'MESSENGER',
 } as const;
 
 /**
@@ -410,7 +414,7 @@ export function tituloDeTarjeta(p: PasoGrafo, enRespuesta?: boolean): string {
     case 'inicio': return TITULO.cron;
     // Un WhatsApp con texto, audio, archivo o escrito por MaKo es WHATSAPP (decisión 5): «no pongas
     // "Nota de voz" es simplemente "WhatsApp" y un WhatsApp puede contener diversas cosas».
-    default: return p.canal === 'email' ? TITULO.email : TITULO.whatsapp;
+    default: return esCanalSocial(p.canal) ? TITULO[p.canal] : p.canal === 'email' ? TITULO.email : TITULO.whatsapp;
   }
 }
 
@@ -788,14 +792,16 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         };
       } else {
         const email = p.canal === 'email';
+        const social = esCanalSocial(p.canal) ? p.canal : null;
         const titulo = tituloDeTarjeta(p, enRespuesta.has(id));
         // La identidad de la app (decisión 5): el logo de WhatsApp para todo lo que sale por ahí
-        // —texto, audio, archivo o escrito por MaKo— y el sobre de Gmail para el email.
-        const icono = email ? ICONO_GMAIL : 'whatsapp';
+        // —texto, audio, archivo o escrito por MaKo— y el sobre de Gmail para el email. Instagram y
+        // Messenger llevan su logo (la clave del catálogo de marcas, app/_components/ServicioVisual.tsx).
+        const icono = social ?? (email ? ICONO_GMAIL : 'whatsapp');
         const vacio = mensajeVacio(p);
         const audio = p.tipo === 'audio' && Number(p.audio_id) > 0 ? op.audioDe?.(Number(p.audio_id)) : undefined;
         t = {
-          ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: email ? 'email' : 'whatsapp',
+          ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: social ?? (email ? 'email' : 'whatsapp'),
           puertos, ...pie, alto: altoDeMensaje(p, audio) + ALTO_PUERTO, ...(vacio ? { advertencia: 'Sin escribir' } : {}),
         };
       }
@@ -987,7 +993,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
  * salta a la 212, el que junta ramas) se siguen dibujando, corriendo y borrando: lo que se va es
  * crearlos. Con «MaKo» (decisión 11): la ⚡ Acción `avisar_al_equipo`, dibujada como su tarjeta.
  */
-export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako';
+export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako' | CanalSocial;
 /** Lo que ofrece el ＋ de un lugar: lo que se inserta, y en la fila «Si responde» del CRON, crearla. */
 export type QueAgregarEn = QueAgregar | 'respuesta';
 /** Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). `grupo` separa
@@ -1013,6 +1019,9 @@ export const ICONOS_MAS = {
   // El engranaje: el rayo es del CRON desde la sexta tanda (`ICONO_CRON`), y las dos no lo comparten.
   accion: svg(`<g ${LINEA}><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g>`),
   mako: svg('<path fill="#F2B01E" d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z"/>', '-12 -12 24 24'),
+  // Los logos oficiales sobre su degradé (lib/canal-social.ts, `logoSocialSvg`).
+  instagram: logoSocialSvg('instagram'),
+  messenger: logoSocialSvg('messenger'),
 } as const;
 
 /**
@@ -1046,6 +1055,10 @@ export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, 
 export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }> = [
   { value: 'mensaje', label: 'WhatsApp', icono: ICONOS_MAS.whatsapp, grupo: 0 },
   { value: 'email', label: 'Email', icono: ICONOS_MAS.email, grupo: 0, fueraDeRespuesta: true },
+  // Instagram y Messenger (sexta tanda, CRON 5 y 7) van con los mensajes. No adentro de «Si
+  // responde»: esa rama le contesta por el WhatsApp donde escribió, y el motor la frena ahí.
+  { value: 'instagram', label: 'Instagram', icono: ICONOS_MAS.instagram, grupo: 0, fueraDeRespuesta: true },
+  { value: 'messenger', label: 'Messenger', icono: ICONOS_MAS.messenger, grupo: 0, fueraDeRespuesta: true },
   { value: 'esperar', label: 'Esperar', icono: ICONOS_MAS.esperar, grupo: 1, fueraDeRespuesta: true },
   { value: 'condicion', label: 'Condición', icono: ICONOS_MAS.condicion, grupo: 1 },
   { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
@@ -1090,6 +1103,8 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
     // Un email: el mismo paso con su canal, el asunto y la vista previa vacíos (los pide el editor
     // tipo Gmail; sin asunto, `faltaEscribir` no lo deja publicar).
     case 'email': return { ...b, canal: 'email', asunto: '', preheader: '', cuerpo: '' };
+    // Instagram y Messenger: el mismo mensaje con su canal (sale por Zernio, lib/canal-zernio.ts).
+    case 'instagram': case 'messenger': return { ...b, canal: que };
     // La etiqueta es la ⚡ Acción de poner una etiqueta, sobre el lead del EVENTO (decisión 8): nace
     // «Poner» y sin etiqueta elegida, y así no se puede publicar hasta elegir una.
     case 'etiqueta': return { ...b, accion: { operacion: OP_PONER_ETIQUETA, params: { leadId: LEAD_DEL_EVENTO } } };
@@ -1608,11 +1623,14 @@ export function rotuloDisparo(secs: readonly SeccionDisparo[], valor: string, te
  * LOS CANALES QUE «PROBAR» OFRECE (tercera tanda, decisión 14): los que el flujo USA, en el orden
  * WhatsApp → Email. Sin ningún mensaje, WhatsApp (el teléfono es lo que «Probar» abre por default).
  */
-export function canalesParaProbar(pasos: readonly PasoGrafo[]): Array<'whatsapp' | 'email'> {
+export function canalesParaProbar(pasos: readonly PasoGrafo[]): Array<'whatsapp' | 'email' | CanalSocial> {
   const mensajes = pasos.filter((p) => claseDe(p) === 'mensaje');
-  const out: Array<'whatsapp' | 'email'> = [];
-  if (mensajes.some((p) => p.canal !== 'email')) out.push('whatsapp');
+  const out: Array<'whatsapp' | 'email' | CanalSocial> = [];
+  if (mensajes.some((p) => p.canal !== 'email' && !esCanalSocial(p.canal))) out.push('whatsapp');
   if (mensajes.some((p) => p.canal === 'email')) out.push('email');
+  // Instagram y Messenger, después (sexta tanda): cada uno con su simulador (app/chatbot/SimuladorSocial.tsx).
+  if (mensajes.some((p) => p.canal === 'instagram')) out.push('instagram');
+  if (mensajes.some((p) => p.canal === 'messenger')) out.push('messenger');
   return out.length ? out : ['whatsapp'];
 }
 

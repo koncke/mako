@@ -75,7 +75,8 @@ test('el motor: varias partes ANTES que la rama del audio, en orden, y la marca 
   const iPartes = nut.indexOf('} else if (partesMulti) {');
   const iAudio = nut.indexOf('} else if (esAudio) {');
   assert.ok(iPartes > 0 && iAudio > iPartes, 'por la rama del audio saldría sólo la primera parte');
-  assert.match(nut, /const partesMulti = paso\.canal === 'whatsapp' \? partesExplicitas\(paso\) : null;/);
+  // Sexta tanda (parte «canales»): Instagram y Messenger también mandan varias partes, con la misma marca.
+  assert.match(nut, /const partesMulti = paso\.canal === 'whatsapp' \|\| esCanalSocial\(paso\.canal\) \? partesExplicitas\(paso\) : null;/);
   assert.match(nut, /asunto: estado === 'fallo' && partesMulti \? marcaPartes\(partesSalidas\) : paso\.asunto,/);
   const enviar = nut.slice(nut.indexOf('async function enviarPartesDelPaso('), nut.indexOf('// Procesa los envíos vencidos'));
   // Los archivos se bajan TODOS antes de mandar la primera.

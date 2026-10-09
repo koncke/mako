@@ -48,7 +48,7 @@ export type TipoNodo =
  * y el fondo de chat; la de Email, el blanco de Gmail y el sobre rojo. Ausente = la tarjeta de
  * siempre (/mensajes no la pasa).
  */
-export type CanalTarjeta = 'whatsapp' | 'email';
+export type CanalTarjeta = 'whatsapp' | 'email' | 'instagram' | 'messenger';
 
 /**
  * Los dos íconos de tarjeta que no son ni un emoji ni una marca del catálogo (`ServicioVisual`): el
@@ -133,7 +133,7 @@ export type NodoFlujo = {
    * pegarle «24» a un `var(--x)` o a un `rgb()` da un color inválido, que no falla — no pinta.
    */
   color?: string | null;
-  /** WhatsApp o Email: la tarjeta lleva la identidad de esa app (ver `CanalTarjeta`). */
+  /** WhatsApp, Email, Instagram o Messenger: la tarjeta lleva la identidad de esa app (ver `CanalTarjeta`). */
   canal?: CanalTarjeta;
   /**
    * LA SALIDA AL PIE (sexta tanda, punto 4: «cada paso tiene un círculo al final que dice "Entonces"

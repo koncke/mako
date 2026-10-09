@@ -95,8 +95,13 @@ import {
   partesExplicitas, partesAlGuardar, problemaDePartes, partesYaSalidas, marcaPartes, borradorDePartes,
   PAUSA_ENTRE_PARTES_MS, type ParteMensaje,
 } from '@/lib/mensaje-partes';
+// Instagram y Messenger por Zernio (sexta tanda, parte «canales»): el canal de un paso al guardarlo y
+// UNA rama del envío (`enviarPasoSocial`). Lo demás del motor no cambia.
+import { esCanalSocial, canalAGuardar, type CanalSocial } from '@/lib/canal-social';
+import { enviarPasoSocial } from '@/lib/canal-zernio';
+import { partesDe } from '@/lib/mensaje-partes';
 
-export type CanalNutricion = 'email' | 'whatsapp';
+export type CanalNutricion = 'email' | 'whatsapp' | CanalSocial;
 
 export type ProveedorWa = 'oficial' | 'no_oficial';
 
@@ -711,8 +716,10 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
       if (esNodoDeControl(flujo)) return { orden: i + 1, ...RELLENO_CONTROL, ...flujo } as PasoSecuencia;
       const comun = {
         orden: i + 1,
-        // Un paso de audio es de WhatsApp por definición (no hay nota de voz por email).
-        canal: (p.canal === 'email' && p.tipo !== 'audio' ? 'email' : 'whatsapp') as CanalNutricion,
+        // Un paso de audio es de WhatsApp por definición (no hay nota de voz por email). ⚠️ Instagram y
+        // Messenger SE CONSERVAN (`canalAGuardar`): hasta el 09/10 todo lo que no era email se guardaba
+        // como WhatsApp, y un paso de Instagram le habría salido al lead POR WHATSAPP sin un error.
+        canal: canalAGuardar(p.canal, p.tipo),
         delay_horas: Math.max(0, Math.round(Number(p.delay_horas) || 0)),
         ...(p.ancla === 'reunion' ? { ancla: 'reunion' as const } : {}),
         ...(p.requiere === 'respondio' || p.requiere === 'sin_respuesta' || p.requiere === 'ya_contactado' || p.requiere === 'primer_contacto'
@@ -3132,7 +3139,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       nodo_id: idDe(paso, insc.paso_actual),
       canal: paso.canal,
       estado: 'omitido',
-      destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
+      destino: esCanalSocial(paso.canal) ? null : paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
       asunto: paso.asunto,
       error: motivo,
     });
@@ -3730,7 +3737,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // sólo porque más adelante hay una acción. Ni un nodo de control, que tampoco manda nada.
       // ⚠️ «MÁS ADELANTE» ES LO ALCANZABLE POR EL GRAFO (`alcanzablesDesde`), no el resto del
       // array: con ramas, lo que está más abajo puede ser otra rama que este lead no recorre.
-      const canalOn = (p: PasoSecuencia) => !esPasoAccion(p) && !esNodoDeControl(p) && (p.canal === 'whatsapp' ? waOn : emailOn);
+      // Instagram y Messenger no tienen un interruptor del negocio: si la cuenta no está conectada,
+      // la rama social falla con su motivo y reintenta (sin esto contaban como EMAIL apagado).
+      const canalOn = (p: PasoSecuencia) => !esPasoAccion(p) && !esNodoDeControl(p) && (p.canal === 'whatsapp' ? waOn : esCanalSocial(p.canal) ? true : emailOn);
       const canalApagado = !opts?.simularApagados && !canalOn(paso);
       if (canalApagado && !alcanzablesDesde(sec.pasos, insc.paso_actual).some((j) => canalOn(sec.pasos[j]))) {
         res.esperando += 1;
@@ -3750,7 +3759,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 
       // El freno de 20 h POR CANAL, y mirando las DOS cosas: lo que dice la base (por lote) y lo
       // que ya salió en esta corrida (`frenadoPorAntiBan`, decisión 5).
-      if (!canalApagado && frenadoPorAntiBan(insc.lead_id, paso.canal, conEnvioReciente, enviadoEnCorrida)) {
+      // ⚠️ SIN EL FRENO DE 20 H PARA INSTAGRAM Y MESSENGER: protege a la línea NO oficial de WhatsApp
+      // de un baneo, y por Meta la ventana es de 24 h — frenar 20 h un segundo DM lo dejaría afuera.
+      if (!canalApagado && !esCanalSocial(paso.canal) && frenadoPorAntiBan(insc.lead_id, paso.canal, conEnvioReciente, enviadoEnCorrida)) {
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
         continue; // no avanzar; se reintenta en otra corrida
       }
@@ -3793,13 +3804,46 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // antes. TODO `fallo` de este paso la vuelve a escribir (en `asunto`, `marcaPartes`), también el
       // de «línea caída» o «sin teléfono»: con un fallo sin la marca, el reintento empezaba de cero y
       // le repetía al lead lo que ya leyó.
-      const partesMulti = paso.canal === 'whatsapp' ? partesExplicitas(paso) : null;
+      const partesMulti = paso.canal === 'whatsapp' || esCanalSocial(paso.canal) ? partesExplicitas(paso) : null;
       let partesSalidas = 0;
+      // A quién le salió un paso de Instagram o Messenger (`@usuario`): el destino de la fila.
+      let destinoSocial: string | null = null;
 
       if (canalApagado) {
         // Queda un paso posterior enviable → este se omite y la cadencia sigue.
         estado = 'omitido';
         nota = `canal ${paso.canal} apagado`;
+      } else if (esCanalSocial(paso.canal)) {
+        // INSTAGRAM O MESSENGER, por Zernio (sexta tanda, CRON 4 y 7). Las partes en orden como el
+        // WhatsApp no oficial, la ventana de 24 h de Meta y la respuesta privada a un comentario
+        // viven en lib/canal-zernio.ts. Sin borrador del setter: no hay bandeja de Instagram donde
+        // aprobarlo, y el paso sale como un email.
+        let desde = 0;
+        if (partesMulti) {
+          // Como en WhatsApp: «no pude leer cuántas salieron» no es «no salió ninguna».
+          const { data: ultimo, error: errUltimo } = await supabase.from('nutricion_envios')
+            .select('estado, asunto').eq('inscripcion_id', insc.id).eq('nodo_id', idDe(paso, insc.paso_actual))
+            .order('id', { ascending: false }).limit(1).maybeSingle();
+          if (errUltimo) {
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'no pude leer cuántas partes salieron' });
+            continue;
+          }
+          desde = partesYaSalidas(ultimo as { estado?: string | null; asunto?: string | null } | null);
+        }
+        if (wsCorrida == null) {
+          estado = 'fallo'; nota = 'sin workspace en la corrida'; backoffHoras = 4;
+        } else {
+          const r = await enviarPasoSocial({
+            ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesDe(paso),
+            vars: valoresVariablesLead(lead ?? {}, { negocio }), idempotencia: `nutri:${insc.id}:${idDe(paso, insc.paso_actual)}`, desde,
+          });
+          partesSalidas = r.salieron;
+          destinoSocial = r.destino;
+          textoEnviado = r.textos.join('\n\n') || null; textoAutor = r.textos.length ? 'fijo' : null;
+          estado = r.ok ? 'enviado' : 'fallo';
+          if (!r.ok) { nota = r.error; backoffHoras = r.backoffHoras ?? 4; terminal = r.terminal === true; }
+          else if (r.nota) nota = r.nota;
+        }
       } else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {
         // Canal EMPRESA (no oficial, Evolution). Regla dura del PDF: a leads
         // CALIENTES nunca automático directo → borrador para el setter; a CLIENTES
@@ -4102,7 +4146,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         nodo_id: idDe(paso, insc.paso_actual),
         canal: paso.canal,
         estado,
-        destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
+        destino: esCanalSocial(paso.canal) ? destinoSocial : paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
         // Un mensaje de varias partes que falló deja escrito cuántas salieron (lib/mensaje-partes.ts).
         asunto: estado === 'fallo' && partesMulti ? marcaPartes(partesSalidas) : paso.asunto,
         proveedor_id: proveedorId,
@@ -4843,7 +4887,9 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     });
     if (error) console.error(`[nutricion] rastro de «Si responde», lead ${leadId}: ${error.message}`);
   };
-  if (p.canal === 'email' || proveedorDelPaso(p) !== 'no_oficial') return no('Un mensaje de la rama no es de WhatsApp no oficial: no salió.');
+  // ⚠️ Instagram y Messenger también se frenan acá: su proveedor «es» no_oficial (no tienen plantilla),
+  // y sin esta guarda un paso de Instagram de la rama le salía al lead POR WHATSAPP.
+  if (p.canal === 'email' || esCanalSocial(p.canal) || proveedorDelPaso(p) !== 'no_oficial') return no('Un mensaje de la rama no es de WhatsApp no oficial: no salió.');
   if (!lead?.telefono) { await registrar('fallo', 'lead sin teléfono', null); return no('No le contesté: no tiene teléfono.'); }
   if (!(await envioWhatsappHabilitado().catch(() => false))) { await registrar('fallo', 'el envío de WhatsApp está apagado', null); return no('No le contesté: el envío de WhatsApp está apagado.'); }
   if (await estaBloqueado(lead.telefono).catch(() => true)) { await registrar('omitido', 'contacto bloqueado', null); return no('No le contesté: el contacto está bloqueado.'); }

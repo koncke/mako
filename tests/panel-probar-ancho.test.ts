@@ -209,7 +209,8 @@ test('lo del OTRO canal ni se dibuja ni sale: el filtro vive en el panel, y lo r
   const avanzar = src.slice(src.indexOf('function avanzar() {'), src.indexOf('const arrancarRefs = () => {'));
   assert.ok(avanzar.length > 0 && avanzar.length < 3200, `el recorte de avanzar mide ${avanzar.length}`);
   // (Quinta tanda, punto 1: en el medio se marca «ya le escribimos», salga por el canal que salga.)
-  assert.match(avanzar, /const delPaso: CanalProbar = paso\.canal === 'email' \? 'email' : 'whatsapp';\s+huboMensaje\.current = true;\s+if \(delPaso !== ctx\.current\.canal\) \{ luego\(0, avanzar\); return; \}/);
+  // (Sexta tanda, parte «canales»: Instagram y Messenger son su propio canal, no WhatsApp.)
+  assert.match(avanzar, /const delPaso: CanalProbar = esCanalSocial\(paso\.canal\) \? paso\.canal : paso\.canal === 'email' \? 'email' : 'whatsapp';\s+huboMensaje\.current = true;\s+if \(delPaso !== ctx\.current\.canal\) \{ luego\(0, avanzar\); return; \}/);
   // El filtro va ANTES de dibujar y de mandar nada.
   assert.ok(avanzar.indexOf('if (delPaso !== ctx.current.canal)') < avanzar.indexOf('mostrarPaso('));
   const mandar = src.slice(src.indexOf('const mandarReal = ('), src.indexOf('const mostrarPaso = ('));

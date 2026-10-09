@@ -79,6 +79,10 @@ import { ALTO_PRINCIPAL } from '@/app/components/dropdown-reglas';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { conPosiciones, moverRelativo, fijarPosicion, type Posiciones } from '@/lib/lienzo-posiciones';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
+// Instagram y Messenger (sexta tanda, parte «canales»): su tarjeta y su editor viven aparte.
+import { esCanalSocial } from '@/lib/canal-social';
+import { VistaMensajeSocial } from './VistaMensajeSocial';
+import { EditorMensajeSocial } from './EditorMensajeSocial';
 
 const SANS = "'Geist', sans-serif";
 
@@ -441,7 +445,9 @@ export function FlujoLienzo({
         }
         return (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && Boolean(n.advertencia)}>
-            {n.tipo === 'mensaje' && paso
+            {n.tipo === 'mensaje' && paso && esCanalSocial(paso.canal)
+              ? <VistaMensajeSocial paso={paso} canal={paso.canal} negocio={negocio} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : null} />
+              : n.tipo === 'mensaje' && paso
               ? <VistaMensaje paso={paso} audios={audios} negocio={negocio} biblioteca={biblioteca} />
               : n.detalle
                 ? <div style={{
@@ -692,6 +698,15 @@ function EditorDeNodo(pr: PropsEditor) {
     case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
     default:
       if (paso.canal === 'email') return <EditorEmail paso={paso} id={id} negocio={pr.negocio} busy={pr.busy} cambiar={cambiar} />;
+      // Instagram y Messenger: la lógica del de WhatsApp con la cara de su app. La `key` va por tarjeta
+      // (siembra estado de sus props). Tipear no apila; borrar, editar o adjuntar sí (`cambioApila`).
+      if (esCanalSocial(paso.canal)) {
+        return (
+          <EditorMensajeSocial key={`social-${id}`} paso={paso} canal={paso.canal} negocio={pr.negocio} deshabilitado={pr.busy}
+            adjuntos={pr.adjuntos} onAdjuntoNuevo={pr.onAdjuntoNuevo} onError={pr.onError}
+            onChange={(patch) => cambiar(patch, cambioApila(patch, paso))} />
+        );
+      }
       return <EditorMensaje {...pr} paso={paso} id={id} cambiar={cambiar} />;
   }
 }

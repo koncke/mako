@@ -4451,12 +4451,26 @@ Lo que se sigue de eso al escribir código nuevo del editor:
 con razón (`lib/ventana-24h.ts`). Lo que la decisión fija es el ALCANCE — son dos canales,
 y el del chatbot no es el oficial.
 
-**Y el Chatbot es SÓLO WhatsApp: Instagram se sacó del producto el 06/10/2026** (decisión de
-Martín, «C: sacar la tab»: 0 DMs y 0 publicaciones en toda su historia). Se borraron la tab,
-su bandeja, su programador, el puente de los DMs al setter y sus 21 operaciones de la API de
-MaKo; `/instagram` redirige a `/chatbot` y el webhook de Zernio contesta 200 sin procesar
-nada. Las tablas quedan. Sumarle un canal al Chatbot es una decisión del dueño, no un
-arreglo: `tests/sin-instagram.test.ts` falla si algo vuelve a cablear Instagram.
+**Y la TAB Instagram sigue afuera, pero Instagram y Messenger son CANALES del Chatbot desde el
+09/10/2026.** El 06/10 Martín sacó la tab entera («C: sacar la tab»: 0 DMs y 0 publicaciones en
+toda su historia): su bandeja, su programador, el puente de los DMs al setter y sus 21
+operaciones de la API de MaKo, y `/instagram` redirige a `/chatbot`. El 09/10 (sexta tanda, CRON
+4-7) decidió que vuelve como CANAL de las automatizaciones, por Zernio, y con Messenger: «ya
+tenemos la integración de Zernio, utiliza eso para poder enviar mensajes por allí». No vuelve la
+tab. Lo que gobierna código nuevo:
+
+- **Instagram NO es el WhatsApp no oficial: ahí SÍ manda la ventana de 24 h de Meta.** Un DM sale
+  dentro de las 24 h del último mensaje de la persona, o como la única respuesta privada a un
+  comentario, dentro de los 7 días; fuera de eso NO sale, y es terminal (`decidirSalida`,
+  lib/canal-social.ts). Sin `HUMAN_AGENT`: es para una persona que contesta, nunca para una
+  automatización. Lo que manda es la respuesta de Zernio (`esLimiteDeMeta`), no el reloj.
+- **El canal de un paso se conserva al guardar** (`canalAGuardar`): todo lo que no era email se
+  guardaba como WhatsApp, y un paso de Instagram le habría salido al lead POR WHATSAPP. Un camino
+  nuevo que mande lo que dice un paso pregunta `esCanalSocial(p.canal)` ANTES de decidir que es
+  WhatsApp: el proveedor de un paso de Instagram «es» no oficial (no tiene plantilla).
+- **Zernio se habla sólo desde el canal** (lib/zernio.ts, lib/canal-zernio.ts, lib/zernio-entrante.ts,
+  el webhook y app/api/zernio): `tests/sin-instagram.test.ts` lo fija en positivo, archivo por
+  archivo, y sigue fallando si vuelve algo de la tab.
 
 **Y Chatwoot (el WhatsApp OFICIAL) se BORRÓ el 09/10/2026** (Martín: «que no exista más. Guardalo
 en privado»): el código entero está en la etiqueta de git `archivo/chatwoot-2026-10-09`, y
