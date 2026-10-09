@@ -147,8 +147,7 @@ const cajaPopover: CSSProperties = { width: 280, maxHeight: 340, overflowY: 'aut
 const CSS_FILA = `
 .mk-wa-fila{display:grid;grid-template-columns:minmax(0,44fr) minmax(0,56fr);grid-template-rows:minmax(0,1fr);gap:12px;flex:1 1 auto;min-height:0;min-width:0}
 .mk-wa-fila-chat{min-height:160px}
-.mk-wa-fila-der{justify-content:flex-end}
-@container mkwa (max-width: 559px){.mk-wa-fila{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}.mk-wa-fila-chat{min-height:0;max-height:260px}.mk-wa-fila-der{justify-content:flex-start}}
+@container mkwa (max-width: 559px){.mk-wa-fila{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}.mk-wa-fila-chat{min-height:0;max-height:260px}}
 `;
 
 /**
@@ -288,9 +287,10 @@ export function EditorMensajeWhatsApp({
 
   const mientrasGraba: ReactNode = (paraLeer || puedeGuion) ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '9px 11px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-      {/* En `fila` el guion vive en la columna de la derecha, ancha: se le da más alto para leerse
-          sin scrollear mientras se graba (el panel apaisado mide ~340 y la barra de grabar ~60). */}
-      {paraLeer && <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: enFila ? 190 : 150, overflowY: 'auto' }}>{paraLeer}</div>}
+      {/* En `fila` el guion vive en la columna de la derecha, que es ANCHA (~540 px contra ~362): con
+          120 de alto entran ~400 caracteres a la vista, más que los ~315 de la columna con 150. Más alto
+          no entra: el panel apaisado mide ~340 y abajo van la barra de grabar y las herramientas. */}
+      {paraLeer && <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: enFila ? 120 : 150, overflowY: 'auto' }}>{paraLeer}</div>}
       {puedeGuion && (
         <button type="button" onClick={() => void pedirGuion()} disabled={pidiendo} title="MaKo escribe qué decir"
           style={{ ...chip, alignSelf: 'flex-start', color: 'var(--mako-ink)' }}>
@@ -437,7 +437,7 @@ export function EditorMensajeWhatsApp({
   );
   const errorNodo = error ? <div role="alert" style={{ padding: '6px 12px 8px', fontSize: 12, color: 'var(--bad)' }}>{error}</div> : null;
   const herramientas = (
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
         {permiteIA && esTexto && (
           <button type="button" disabled={ocupado} aria-pressed={paso.tipo === 'ia'} title="MaKo lo adapta para cada persona"
             onClick={() => { const on = paso.tipo !== 'ia'; onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); }}
@@ -472,7 +472,9 @@ export function EditorMensajeWhatsApp({
         </div>
       </div>
       <div className="mk-wa-fila-der" style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0, minWidth: 0, overflowY: 'auto' }}>
-        <div style={{ flex: 'none', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)' }}>
+        {/* Abajo, como en WhatsApp, con el mismo `marginTop: auto` que el chat: si al grabar el guion no
+            entra, la columna scrollea en vez de cortar por arriba. */}
+        <div style={{ flex: 'none', marginTop: 'auto', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)' }}>
           {faseNodo}
           {composerNodo}
           {errorNodo}
