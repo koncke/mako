@@ -216,9 +216,13 @@ test('el paso de la voz vuelve al catálogo como OPCIONAL: no reabre el onboardi
 // único de WhatsApp (`EditorMensajeWhatsApp`, prop `permiteIA`), con la MISMA condición; y
 // la tarjeta marca la IA con `ia` en la burbuja (`BurbujaHilo`). Roturas: la condición sin
 // `proveedorDelPaso` (su propia regla de canal) → 1 rojo; la burbuja sin `ia` → 1 rojo.
+// ⚠️ Y EL 09/10/2026 la condición se mudó a UNA función (`permiteIADe`), porque la usan dos: el
+// editor y «✦ MaKo» en la cabecera del panel (tests/chatbot-enchufes.test.ts). Se fija su cuerpo
+// y que el editor la llame.
 test('la casilla sale sólo donde el saneo conserva el modo, con la MISMA función', () => {
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-  assert.match(lienzo, /permiteIA=\{!!onModoIA && paso\.canal === 'whatsapp' && proveedorDelPaso\(paso\) === 'no_oficial' && paso\.tipo !== 'audio' && paso\.tipo !== 'media'\}/);
+  assert.match(lienzo, /function permiteIADe\(paso: PasoSecuenciaDto, hayModoIA: boolean\): boolean \{\n  return hayModoIA && paso\.canal === 'whatsapp' && proveedorDelPaso\(paso\) === 'no_oficial' && paso\.tipo !== 'audio' && paso\.tipo !== 'media';\n\}/);
+  assert.match(lienzo, /permiteIA=\{permiteIADe\(paso, !!onModoIA\)\}/);
   assert.match(lienzo, /import \{ proveedorDelPaso \} from '@\/lib\/nutricion-canal'/);
   // Y la tarjeta lo dice: sin la marca, una tarjeta IA y una fija se ven idénticas.
   assert.match(lienzo, /ia: paso\.tipo === 'ia',/);

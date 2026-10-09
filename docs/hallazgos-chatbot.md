@@ -1012,7 +1012,8 @@ remitentes por negocio) y lo decide Martín.
 en el lienzo (`EditorEmail`, `app/chatbot/FlujoLienzo.tsx`, de otra parte de la tanda) no se lo pasa:
 elegir otro remitente lo GUARDABA en el paso y la pantalla seguía diciendo el del workspace. Es
 «escribir la salida no es ofrecerla» con la forma del reparto por archivo: la capacidad en un
-archivo y el enchufe en otro que la parte no podía tocar. Quedó como bloqueante al unir.
+archivo y el enchufe en otro que la parte no podía tocar. Se enchufó al unir la tanda, y lo fija
+`tests/chatbot-enchufes.test.ts`.
 
 **Vive en:** `app/chatbot/FlujoLienzo.tsx` (`EditorEmail`)
 
@@ -1168,16 +1169,60 @@ distancia de mandarle la prueba a él.
 
 **Vive en:** `lib/simulador-grafo.ts` (`destinosGuardados`, `perfilConDestino`) · `lib/prueba-paso.ts` (`guardarDestinoDeQuienPrueba`) · `app/api/chat-agent/simulador/route.ts` (`guardar-destino`) · `app/chatbot/PanelProbar.tsx` (`MenuDestinos`)
 
+## Quinta tanda punto 2 (09/10/2026, parte «lienzo»): el ＋ en toda la flecha y las tarjetas que se mueven
+
+### `vector-effect: non-scaling-stroke` NO corrige un zoom de CSS: el diagnóstico obvio era el equivocado [lienzo]
+
+El ＋ de una flecha sólo aparecía en un cuadrado invisible de 28 px en el medio. La cura que proponía
+el relevo —una franja invisible a lo largo del trazo con `non-scaling-stroke`— medida en Chrome al 40%
+daba **6,5 px**, igual que sin el efecto: Chromium calcula el trazo «que no escala» sólo con las
+transformaciones de ADENTRO del `<svg>`, y el zoom del lienzo es un `scale()` sobre la capa HTML. Lo que
+anda es dividir el ancho por el zoom (16,5 px a cualquier escala). El ＋ además tarda 350 ms en apagarse,
+para poder llegar a él en línea recta aunque la curva se salga de la franja. Ya está en AGENTS.md, en la
+regla de las capas con `scale(k)`.
+
+**Vive en:** `app/_components/Lienzo.tsx` (`TOQUE_FLECHA`)
+
+### Mover una tarjeta: tres trampas que no se ven en el handler [lienzo]
+
+- **Soltar deshacía el paneo.** Al mover una tarjeta el dibujo cambia de tamaño, cambia la firma del
+  encuadre y la vista se re-centraba sola. Afectaba también a /mensajes. `trasMover` lo evita.
+- **Mover sólo la tarjeta dejaba atrás sus salidas y sus ＋**, y las flechas se despegaban. Se arrastra el
+  ENVOLTORIO de la tarjeta y las flechas se recalculan con la misma curva.
+- **«No pude leer las posiciones» no es «no hay ninguna».** Un mapa que arrancó vacío por una lectura
+  caída y se guarda al soltar pisa todo lo que la persona ya había acomodado: con la lectura fallida no se
+  guarda nada. Y si falta la columna (la 0233 sin aplicar), las tarjetas se mueven y no se guardan, sin
+  error (42703 / PGRST204 se distinguen de otros fallos).
+
+Las posiciones son DESPLAZAMIENTOS desde donde el árbol pone el CRON (lo que no se movió se dibuja como
+antes), viven en `nutricion_secuencias.posiciones` —nunca en `pasos`, que pasan por un saneo campo por
+campo— y se guardan por su propia acción, sin pasar por Publicar ni por la pila de deshacer.
+
+**Vive en:** `lib/lienzo-posiciones.ts` · `lib/secuencia-posiciones.ts` · `app/chatbot/usePosicionesLienzo.ts` ·
+`app/_components/Lienzo.tsx` (`trasMover`) · `supabase/migrations/0233_secuencia_posiciones.sql`
+
+### Proceso: lo que costó verificarlo con clics en un worktree [proceso]
+
+`next dev --webpack` no compila (`node:crypto`); Turbopack en un worktree sólo anda con `turbopack.root`
+apuntando a la carpeta de arriba (se cambia y se restaura sin diff); la primera compilación de /chatbot
+tardó 4,6 min; matar un `npm test` en curso deja 218 falsos rojos «The service was stopped»; y el número
+de migración se ocupó DOS veces mientras se trabajaba (0231 y 0232): se mira justo antes de commitear.
+Y el agente dejó el `next dev` prendido al terminar: quien une la tanda revisa los procesos.
+
 ## Lo que quedó sin hacer
 
-**Del punto 15 de la cuarta tanda (09/10/2026), lo que vive en archivos de otras partes:** el número de
-salida con «Vincular nuevo» dentro del editor (falta pasar `linea` desde SecuenciaPerfil por
-FlujoLienzo), «✦ MaKo» al lado del título del panel (`makoEnCabecera` + `BotonMakoWhatsApp`, falta la
-ranura en la cabecera de `Lienzo.tsx`) y la TARJETA del lienzo con las partes y sin la transcripción
-(`VistaMensaje` y `altoDeMensaje`). El marcador de cuántas partes salieron vive en
-`nutricion_envios.asunto` (una columna `partes_salidas` es el arreglo de fondo) y el borrador del
-setter de un mensaje de varias partes junta los textos en uno (`wa_borradores` no tiene partes).
-`app/chatbot/FlujoLienzo.tsx` · `app/_components/Lienzo.tsx` · `lib/flujo-conversacion.ts` · `lib/mensaje-partes.ts`
+**De la parte «lienzo» (quinta 2), lo que decide Martín:** si mover una tarjeta se deshace con Ctrl+Z (hoy
+no: la pila es de los pasos), si hace falta un «Reacomodar» que vuelva al layout automático, y qué pasa con
+una tarjeta soltada arriba o a la izquierda del margen (queda en coordenadas negativas y «Centrar» no la
+cuenta; igual en /mensajes). La copia de «Duplicar» hereda el acomodo. `app/_components/Lienzo.tsx`
+
+**Del punto 15 de la cuarta tanda (09/10/2026):** los tres enchufes que quedaron en archivos de otras
+partes —el número de salida en el editor, «✦ MaKo» al lado del título (`accionesTitulo` de `Lienzo.tsx`)
+y la tarjeta con «+N más» y sin la transcripción— y el «De» del email (punto 16) se ENCHUFARON al unir la
+tanda, con `tests/chatbot-enchufes.test.ts` (7 roturas, las 7 en rojo). Lo que sigue sin hacer: el
+marcador de cuántas partes salieron vive en `nutricion_envios.asunto` (una columna `partes_salidas` es el
+arreglo de fondo) y el borrador del setter de un mensaje de varias partes junta los textos en uno
+(`wa_borradores` no tiene partes). `lib/mensaje-partes.ts` · `lib/nutricion.ts`
 
 **De la cuarta tanda (09/10/2026):** los puntos 1, 5, 6 (la cuota N), 7, 8, 11 (más acciones), 14,
 15 y 16, cada uno con sus archivos, en `docs/relevo/chatbot.md` → «La cuarta tanda». El chat de CRM ya

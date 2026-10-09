@@ -99,7 +99,7 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 };
 
 export function Lienzo({
-  grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
+  grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accionesTitulo, accion,
   alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, opcionesEn, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false, insetIzq = 0, insetDer = 0,
   insetDerChrome, insetDerAbajo, panelForma = 'columna', panelAlto, revelar = null,
   onBorrar, puedeBorrar, reservaAbajo = 0,
@@ -113,6 +113,9 @@ export function Lienzo({
   renderEditor: (nodo: NodoFlujo) => ReactNode;
   /** La cabecera del panel. Por default, el ícono y el título del nodo. */
   tituloEditor?: (nodo: NodoFlujo) => ReactNode;
+  /** Lo que va al lado del título del panel, sin reemplazarlo (ícono y título siguen siendo del
+   *  lienzo). `null` = nada. Se ignora si hay `tituloEditor`. */
+  accionesTitulo?: (nodo: NodoFlujo) => ReactNode;
   /** El botón flotante de abajo a la derecha. */
   accion?: ReactNode;
   alto?: string;
@@ -1035,12 +1038,18 @@ export function Lienzo({
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flex: 'none' }}>
-              {tituloEditor ? tituloEditor(nodoSel) : (
-                <>
-                  <IconoNodo icono={nodoSel.icono} tam={17} />
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', flex: 1, minWidth: 0 }}>{nodoSel.titulo}</div>
-                </>
-              )}
+              {tituloEditor ? tituloEditor(nodoSel) : (() => {
+                // Lo que va PEGADO al título (cuarta tanda, punto 15: «el botón de MaKo arriba del
+                // todo, al lado del título de WhatsApp»): sin esto el título se lleva el ancho.
+                const extra = accionesTitulo ? accionesTitulo(nodoSel) : null;
+                return (
+                  <>
+                    <IconoNodo icono={nodoSel.icono} tam={17} />
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', flex: extra ? '0 1 auto' : 1, minWidth: 0 }}>{nodoSel.titulo}</div>
+                    {extra && <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>{extra}</div>}
+                  </>
+                );
+              })()}
               {/* ⚠️ NO dice «Cerrar el editor»: ése es el de la pantalla, y con los dos
                   con el mismo rótulo había dos ✕ que cierran cosas distintas — el de
                   arriba se va del mensaje (y pregunta si publicar), éste sólo repliega

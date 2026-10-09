@@ -36,7 +36,7 @@ import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { Lienzo, TarjetaNodo, inpLienzo, campoGrande, botonGrande } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
-import { EditorMensajeWhatsApp, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
+import { EditorMensajeWhatsApp, BotonMakoWhatsApp, makoPosible, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
 import { EditorEmailGmail } from './EditorEmailGmail';
 import { EditorEtiqueta } from './EditorEtiqueta';
 // El editor de la CONDICIÓN (tercera tanda, puntos 9 y 10): una frase por fila, del catálogo por
@@ -58,9 +58,10 @@ import {
   grafoDeSecuencia, opcionesDelMas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
   revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, tarjetasParaIrA, esMako, makoDeAccion,
   ID_ENTRADA, PUERTO_RESPUESTA,
-  MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL,
+  MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES,
   type NodoFlujo, type QueAgregar,
 } from '@/lib/flujo-conversacion';
+import { partesExplicitas } from '@/lib/mensaje-partes';
 import { editorDeTarjeta, type Muelles } from '@/lib/lienzo-grafo';
 import {
   UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadMostrada, sinPrecision, avisoDePrecision,
@@ -95,8 +96,13 @@ export function FlujoLienzo({
   etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
-  onTarjetaAbierta, reservaAbajo, triggerTipo, productos, posiciones, onPosiciones,
+  onTarjetaAbierta, reservaAbajo, triggerTipo, productos, posiciones, onPosiciones, linea,
 }: {
+  /**
+   * EL NÚMERO DE SALIDA de la automatización y su guardado (cuarta tanda, punto 15): el mismo del
+   * selector del CRON, en el editor de cada mensaje de WhatsApp. Sin esto, la fila no se dibuja.
+   */
+  linea?: EditorMensajeWhatsAppProps['linea'];
   /**
    * DÓNDE QUEDÓ CADA TARJETA QUE LA PERSONA MOVIÓ (quinta tanda, punto 2; mig 0233): desplazamientos
    * desde el CRON derivado (lib/lienzo-posiciones.ts). Lo demás va donde lo pone el árbol. Las guarda
@@ -313,12 +319,32 @@ export function FlujoLienzo({
           etiquetas={etiquetas} etapas={etapas} triggerTipo={triggerTipo} productos={productos}
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
-          editorEntrada={editorEntrada} formaPanel={formaPanel}
+          editorEntrada={editorEntrada} formaPanel={formaPanel} linea={linea}
           onAbrir={(id) => setSel(id)}
         />
       )}
+      // «✦ MaKo» AL LADO DEL TÍTULO del panel de un mensaje de WhatsApp (cuarta tanda, punto 15). Se
+      // ofrece con la MISMA regla que el editor (`makoPosible` + `permiteIADe`), que con
+      // `makoEnCabecera` deja de dibujar el suyo: un solo botón, nunca dos.
+      accionesTitulo={(n) => {
+        const paso = pasoDe(n.id);
+        if (!rolAdmin || !paso || claseDe(paso) !== 'mensaje' || paso.canal === 'email') return null;
+        if (!makoPosible(paso, permiteIADe(paso, !!onModoIA), proveedorDelPaso(paso) === 'no_oficial')) return null;
+        return (
+          <BotonMakoWhatsApp activo={paso.tipo === 'ia'} deshabilitado={busy}
+            onCambiar={(on) => { onPasos((prev) => cambiarNodo(prev, n.id, { tipo: on ? 'ia' : 'texto' }), true); onModoIA?.(on); }} />
+        );
+      }}
     />
   );
+}
+
+/**
+ * ¿El editor de este mensaje ofrece «✦ MaKo»? Sólo donde el motor la honra: WhatsApp no oficial y un
+ * mensaje de texto (ver `EditorMensaje`). Una función para el editor y la cabecera del panel.
+ */
+function permiteIADe(paso: PasoSecuenciaDto, hayModoIA: boolean): boolean {
+  return hayModoIA && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial' && paso.tipo !== 'audio' && paso.tipo !== 'media';
 }
 
 /**
@@ -339,14 +365,23 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
   if (paso.canal === 'email') return <VistaEmail paso={paso} texto={texto} negocio={n} />;
   const vacio = paso.tipo === 'media' ? !paso.media_id : paso.tipo !== 'audio' && !texto.trim();
   if (vacio) return <span style={{ fontSize: 12, color: 'var(--faint)' }}>Sin escribir</span>;
-  if (paso.tipo === 'media') return <VistaArchivo paso={paso} texto={texto} negocio={negocio} biblioteca={biblioteca} />;
+  // VARIAS PARTES (cuarta tanda, punto 15): la tarjeta dibuja la PRIMERA (los campos de siempre son su
+  // espejo) y «+N más» debajo. El alto lo mide `altoDeMensaje` con lo mismo (`RENGLON_MAS_PARTES`).
+  const mas = (partesExplicitas(paso)?.length ?? 1) - 1;
+  const masPartes = mas > 0
+    ? <div style={{ marginTop: 4, fontSize: 11, lineHeight: `${RENGLON_MAS_PARTES}px`, color: 'var(--dim)', fontWeight: 600 }}>+{mas} más</div>
+    : null;
+  if (paso.tipo === 'media') return <><VistaArchivo paso={paso} texto={texto} negocio={negocio} biblioteca={biblioteca} />{masPartes}</>;
   return (
     <>
+      {/* Sin la transcripción del audio (punto 15: «que no se vea la transcripción»): el alto
+          tampoco la cuenta. */}
       <BurbujaHilo compacta saliente autor={negocio} contenido={{
         texto,
-        audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: a?.transcript ?? null, duracion_s: a?.duracion_s ?? null } : null,
+        audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: null, duracion_s: a?.duracion_s ?? null } : null,
         ia: paso.tipo === 'ia',
       }} />
+      {masPartes}
     </>
   );
 }
@@ -421,6 +456,8 @@ type PropsEditor = {
   /** La forma del panel donde se dibuja este editor (apaisado = la franja de abajo, ancha y baja). */
   formaPanel: 'apaisado' | 'columna';
   onAbrir: (id: string) => void;
+  /** El número de salida de la automatización (ver FlujoLienzo). */
+  linea?: EditorMensajeWhatsAppProps['linea'];
 };
 
 /**
@@ -467,10 +504,14 @@ function EditorDeNodo(pr: PropsEditor) {
 }
 
 /**
- * EL EMAIL, con la cara de redactar en Gmail (punto 4 del pedido): asunto, la VISTA PREVIA (el
- * preheader, que el motor ya manda) y el cuerpo con negrita, itálica y tachado; a la derecha, el
- * mail abierto con el MISMO render que sale. Tipear no apila: el Ctrl+Z del texto es del navegador.
+ * EL EMAIL, con la cara de redactar en Gmail: el «De», el asunto y el cuerpo con su barra de
+ * formato (cuarta tanda, punto 16: sin la vista previa ni el ojo «Así llega»). Tipear no apila: el
+ * Ctrl+Z del texto es del navegador; elegir otro «De», sí, porque es una decisión.
  * La `key` va por tarjeta: el editor siembra estado de sus props (AGENTS.md).
+ *
+ * ⚠️ `remitente` VA SIEMPRE: el editor lo acepta y sin este enchufe elegir otro «De» se guardaba en el
+ * paso y la pantalla seguía mostrando el del negocio (docs/hallazgos-chatbot.md, «Una prop nueva del
+ * editor con CERO call sites»).
  */
 function EditorEmail({ paso, id, negocio, busy, cambiar }: { paso: PasoSecuenciaDto; id: string; negocio: string; busy: boolean; cambiar: Cambiar }) {
   return (
@@ -478,7 +519,8 @@ function EditorEmail({ paso, id, negocio, busy, cambiar }: { paso: PasoSecuencia
     // entero (sin esto, arrancaba del texto plano y deshacer sólo volvía el texto).
     <EditorEmailGmail key={`email-${id}`}
       asunto={paso.asunto ?? ''} preheader={paso.preheader ?? ''} cuerpo={paso.cuerpo ?? ''} cuerpoHtml={paso.cuerpo_html ?? ''}
-      onChange={(patch) => cambiar(patch, false)} negocio={negocio} deshabilitado={busy} />
+      remitente={paso.remitente ?? null}
+      onChange={(patch) => cambiar(patch, 'remitente' in patch)} negocio={negocio} deshabilitado={busy} />
   );
 }
 
@@ -573,7 +615,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, linea }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   const modoIA = (on: boolean) => {
     // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
@@ -598,8 +640,11 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       audios={audios} onAudioNuevo={onAudioNuevo}
       adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
       paraGuion={paraGuion}
-      permiteIA={!!onModoIA && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial' && paso.tipo !== 'audio' && paso.tipo !== 'media'}
+      permiteIA={permiteIADe(paso, !!onModoIA)}
       onModoIA={modoIA}
+      // «✦ MaKo» lo dibuja la cabecera del panel (`accionesTitulo` en FlujoLienzo), con la misma regla.
+      makoEnCabecera
+      linea={linea}
       permiteAudio={noOficial}
       permiteAdjuntos={noOficial}
       // «Sale sola» pasó a cada mensaje (punto 6): ausente en el paso = lo que hace el MOTOR con

@@ -70,6 +70,8 @@ import { LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 // Puro (sólo importa ./nutricion-ambito, sin imports): la regla de cuáles etapas disparan (`etapasDe`).
 import { etapasDe, normalizarEtapas } from './nutricion-etapa';
 import { alternarValor } from '../app/components/dropdown-varios';
+// Puro (sólo importa ./nutricion-canal): cuántas partes tiene un mensaje, para su alto (`altoDeMensaje`).
+import { partesExplicitas } from './mensaje-partes';
 export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo, PuertoNodo, FamiliaNodo } from './lienzo-grafo';
 export { curvaEntre, medioDeCurva, ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y } from './lienzo-grafo';
 
@@ -271,8 +273,8 @@ const ALTO_CHIP_ARCHIVO = 34;   // el chip del documento compacto (relleno 7×2,
 const RENGLON_TEXTO = 18.5;     // 12,5 px × 1,45
 const LETRAS_TEXTO = 32;        // las que entran en un renglón de la burbuja compacta (205 px)
 const RENGLONES_TEXTO = 5;      // el `WebkitLineClamp` de la burbuja compacta
-const RENGLON_DICE = 16;        // «Dice: …», 11 px × 1,45
-const LETRAS_DICE = 36;
+/** «+N más» debajo de la burbuja de un mensaje de VARIAS partes: 11 px × 1,45 (`VistaMensaje`). */
+export const RENGLON_MAS_PARTES = 16;
 const HOLGURA = 6;              // la fuente que no llegó, el redondeo
 const TOPE_MENSAJE = 260;
 // La caja del mail (`VistaEmail`): relleno 7×2 + borde 1×2; el asunto a 12,5 px en 18; la vista
@@ -297,18 +299,26 @@ export type AudioParaAlto = { transcript?: string | null } | null | undefined;
  * se corta, y el texto entero está en el editor.
  *
  * El audio y el archivo se suman POR PARTES con lo mismo que dibuja la tarjeta (`VistaMensaje`
- * en app/chatbot/FlujoLienzo.tsx): el reproductor, el título, la transcripción (si la hay, a lo
- * sumo 90 letras, como la recorta la burbuja) y el pie. El archivo, con su chip y el caption.
+ * en app/chatbot/FlujoLienzo.tsx): el reproductor, el título y el pie. El archivo, con su chip y el
+ * caption. Un mensaje de VARIAS partes dibuja la primera y un renglón «+N más»
+ * (`RENGLON_MAS_PARTES`).
+ *
+ * ⚠️ LA TRANSCRIPCIÓN DEL AUDIO YA NO SE DIBUJA (cuarta tanda, punto 15: «que no se vea la
+ * transcripción del audio»), así que tampoco suma: medir lo que la tarjeta no pinta deja aire
+ * abajo. `_audio` queda en la firma porque el árbol se lo pasa (`audioDe`).
  */
-export function altoDeMensaje(p: PasoParaGrafo, audio?: AudioParaAlto): number {
+export function altoDeMensaje(p: PasoParaGrafo, _audio?: AudioParaAlto): number {
+  const mas = (partesExplicitas(p)?.length ?? 1) - 1;
+  const base = altoDeLaPrimera(p);
+  return mas > 0 ? Math.min(TOPE_MENSAJE, base + SEP_BURBUJA + RENGLON_MAS_PARTES) : base;
+}
+
+/** El alto de la burbuja que la tarjeta dibuja: el mensaje, o la PRIMERA parte (el espejo). */
+function altoDeLaPrimera(p: PasoParaGrafo): number {
   const cuerpo = p.cuerpo ?? '';
   const pie = Math.min(RENGLONES_TEXTO, renglonesDe(cuerpo, LETRAS_TEXTO));
   if (p.tipo === 'audio') {
-    const dice = (audio?.transcript ?? '').trim();
-    const renglonesDice = dice ? Math.min(3, Math.ceil((Math.min(dice.length, 90) + 9) / LETRAS_DICE)) : 0;
-    const hay = pie > 0 || renglonesDice > 0;
-    const h = MARCO_TARJETA + MARCO_BURBUJA + ALTO_REPRODUCTOR + (hay ? SEP_BURBUJA : 0) + ALTO_TITULO_AUDIO
-      + (renglonesDice ? SEP_BURBUJA + renglonesDice * RENGLON_DICE : 0)
+    const h = MARCO_TARJETA + MARCO_BURBUJA + ALTO_REPRODUCTOR + (pie ? SEP_BURBUJA : 0) + ALTO_TITULO_AUDIO
       + (pie ? SEP_BURBUJA + pie * RENGLON_TEXTO : 0) + HOLGURA;
     return Math.min(TOPE_MENSAJE, Math.max(ALTO_MIN, Math.ceil(h)));
   }

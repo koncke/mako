@@ -135,7 +135,7 @@ test('costuras-6: la tarjeta de un archivo dice CUÁL es, o «Archivo»; «ya no
 
 // ── costuras-7: la nota de voz entra en su tarjeta ─────────────────────────────────────
 
-test('costuras-7: el alto de una nota de voz se suma por partes (reproductor, título, transcripción, pie)', () => {
+test('costuras-7: el alto de una nota de voz se suma por partes (reproductor, título, pie), sin la transcripción', () => {
   const voz = (cuerpo: string) => msg('v', { tipo: 'audio', audio_id: 3, cuerpo });
   const sola = altoDeMensaje(voz(''));
   // La cuenta de la revisión: marco 3 + relleno 19 + cabecera ≈24 + burbuja 18 + reproductor 34 +
@@ -143,8 +143,10 @@ test('costuras-7: el alto de una nota de voz se suma por partes (reproductor, t�
   assert.ok(sola >= 112, `una nota de voz sola mide ${sola}: el título no entra`);
   const conPie = altoDeMensaje(voz('Te dejo el link abajo 👇 https://hola-mako.com/agenda'));
   assert.ok(conPie - sola >= 22, `el pie suma ${conPie - sola}: no entra ni un renglón`);
+  // La tarjeta ya NO dibuja la transcripción (cuarta tanda, punto 15: «que no se vea la transcripción
+  // del audio»), así que no suma: medirla dejaba aire abajo de la burbuja.
   const conDice = altoDeMensaje(voz(''), { transcript: 'Hola, ¿cómo estás? Te cuento lo que vamos a ver el martes en la llamada, que es corto.' });
-  assert.ok(conDice - sola >= 20, `la transcripción suma ${conDice - sola}`);
+  assert.equal(conDice, sola, `la transcripción suma ${conDice - sola} y la tarjeta no la dibuja`);
   assert.ok(altoDeMensaje(voz('x'.repeat(2000)), { transcript: 'y'.repeat(500) }) <= 260, 'sin tope');
   // El árbol usa la biblioteca para saber si hay transcripción.
   const g = grafoDeSecuencia([voz('')], { disparador: 'X', audioDe: () => ({ transcript: 'Hola, te cuento algo largo que dice la nota de voz.' }) });

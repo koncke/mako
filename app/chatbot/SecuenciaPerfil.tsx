@@ -635,6 +635,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     })();
     return () => { vivo = false; };
   }, []);
+  /**
+   * EL NÚMERO ELEGIDO DESDE EL EDITOR DE UN MENSAJE (cuarta tanda, punto 15): el mismo guardado que el
+   * selector del CRON. Si es uno recién vinculado («Vincular nuevo»), la lista se vuelve a pedir antes:
+   * sin eso, el selector del CRON lo dibujaba como «Un número que ya no está vinculado».
+   */
+  const elegirLineaDesdeEditor = async (linea: string | null) => {
+    if (linea && !lineasWa.some((l) => l.linea === linea)) {
+      try {
+        const j = await (await fetch('/api/whatsapp/evolution/mensajes?lineas=1', { cache: 'no-store' })).json();
+        if (j.ok) setLineasWa(j.lineas ?? []);
+      } catch { /* sin lista nueva, se guarda igual: el server valida la línea */ }
+    }
+    await guardarLinea(linea);
+  };
   // ¿La línea por la que sale ESTA secuencia puede mandar? Con un solo número es la pregunta de
   // siempre (`canalCaido`, sondeada). Con varios, la de la secuencia: mirar la de por default
   // decía «Activada ✓» sobre una secuencia que sale por una línea caída.
@@ -823,6 +837,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         insetIzq={insetIzq} insetDer={insetDer} muelles={muelles} revelar={revelarIA ?? revelar}
         onTarjetaAbierta={setTarjetaAbierta}
         posiciones={lugares.posiciones} onPosiciones={rolAdmin ? lugares.mover : undefined}
+        linea={rolAdmin ? { actual: lineaSec, onElegir: elegirLineaDesdeEditor } : undefined}
         reservaAbajo={rolAdmin && pasos.length === 0 ? RESERVA_ABAJO_CREAR : 0}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
