@@ -11,6 +11,7 @@
 // puede equivocar, y adentro de un módulo de servidor ningún test la podría
 // importar. La comparten la ruta que contesta y el componente que dibuja.
 // =============================================================================
+import { tokenDelCargador } from './pixel-cargador';
 
 /**
  * Desde qué versión del Pixel el aviso se apaga.
@@ -24,6 +25,14 @@
  * Hoy es 22: el código que graba las visitas, ancla el mapa de calor y ya no trae el
  * tag de Clarity. Medido el 06/10/2026: los ws 11 y 13 están en la 18, el 14 en la 15,
  * y la página principal del ws1 se repegó con una 21 que todavía traía Clarity.
+ *
+ * ⚠️ Y SE QUEDÓ EN 22 A PROPÓSITO CUANDO SALIÓ LA 23 (09/10/2026). La 23 sólo renombra la
+ * variable del token (para que el editor con IA de un cliente no lo tape con ********) y
+ * llega con el cargador de una línea: a quien tiene la 22 no le cambia nada de lo que
+ * mide, así que no se le pide a nadie que repegue. Este número es también el corte del
+ * WhatsApp del vigilante, del chip, del pulso y del bloqueo de «Probar»
+ * (`snippetDesactualizado` y `verificarPagina` en lib/landing-token.ts): subirlo es
+ * mandarle un mensaje a cada negocio.
  */
 export const PIXEL_MINIMO_AVISO = 22;
 
@@ -98,14 +107,26 @@ export function clavePagina(url: string | null | undefined): string | null {
  *
  * `null` no es «viejo»: el código puede entrar por un administrador de etiquetas y no
  * estar en el HTML. Quien llama cae a lo que dicen las visitas.
+ *
+ * ⚠️ LA LÍNEA DEL CARGADOR (`/m.js?id=…`, lib/pixel-cargador.ts) CUENTA COMO `actual`: el
+ * cargador sirve siempre el Pixel del día, así que una página que lo trae está al día por
+ * construcción — aunque sus visitas viejas digan otra cosa, que es justo cuando se mira el
+ * HTML. `actual` lo pasa quien conoce `SNIPPET_VERSION` (este módulo no la importa a
+ * propósito: ver `PIXEL_MINIMO_AVISO`); sin él vale el mínimo del aviso, que alcanza para
+ * apagarlo. Y la regla de las dos copias sigue: cargador + una copia vieja pegada = la
+ * vieja, porque la vieja sigue corriendo.
  */
-export function versionEnHtml(html: string | null | undefined): number | null {
+export function versionEnHtml(html: string | null | undefined, actual: number = PIXEL_MINIMO_AVISO): number | null {
   const h = html ?? '';
-  if (!/\/api\/track\/vsl/.test(h)) return null;
-  const vs = [...h.matchAll(/\bvar SV\s*=\s*(\d+)\s*;/g)]
-    .map((m) => Number(m[1]))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  return vs.length ? Math.min(...vs) : 1;
+  const versiones: number[] = [];
+  if (/\/api\/track\/vsl/.test(h)) {
+    const vs = [...h.matchAll(/\bvar SV\s*=\s*(\d+)\s*;/g)]
+      .map((m) => Number(m[1]))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    versiones.push(...(vs.length ? vs : [1]));
+  }
+  if (tokenDelCargador(h)) versiones.push(actual);
+  return versiones.length ? Math.min(...versiones) : null;
 }
 
 /**

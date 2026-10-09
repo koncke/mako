@@ -66,6 +66,7 @@ export type HostVideo = {
 };
 
 import { canonizarVideoId } from './video-id';
+import { tokenDelCargador } from './pixel-cargador';
 
 export const HOSTS_VIDEO: HostVideo[] = [
   {
@@ -410,8 +411,15 @@ export function analizarHtml(url: string, html: string, bundle = ''): AnalisisLa
   if (botones > 0) add('botones');
 
   // ── El Pixel ───────────────────────────────────────────────────────────────
-  const tok = /var TOKEN = '([^']+)'/.exec(h);
+  // ⚠️ DOS NOMBRES y una LÍNEA. Desde la v23 (09/10/2026) el token viaja en `var CUENTA`
+  // —`var TOKEN` lo tapaba con ******** el editor con IA de un cliente—, y las páginas
+  // pegadas antes siguen con el nombre viejo. Y una página con el cargador de una línea
+  // (lib/pixel-cargador.ts) no trae el código: trae `/m.js?id=<token>`. Sin las tres
+  // formas, «esta landing tiene el código de OTRO workspace» dejaba de verse.
+  const tok = /var (?:TOKEN|CUENTA) = '([^']+)'/.exec(h);
+  const delCargador = tok ? null : tokenDelCargador(h);
   if (tok) { a.tokenPixel = tok[1]; add('pixel'); }
+  else if (delCargador) { a.tokenPixel = delCargador; add('pixel'); }
   const sv = /var SV = (\d+)/.exec(h);
   if (sv) a.versionPixel = Number(sv[1]);
   // Los espacios del snippet son opcionales: un minificador los saca, y el

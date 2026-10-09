@@ -9,6 +9,7 @@ import { getIntegraciones } from '@/lib/integraciones';
 import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
+import { lineaCargador } from '@/lib/pixel-cargador';
 import { estadoPixel } from '@/lib/pixel-estado';
 import { getAgenteToken } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
@@ -60,7 +61,11 @@ export default async function IntegracionesPage() {
   // se resuelve acá y baja como prop. Idempotente: se genera la primera vez.
   // Sin workspace (admin de agencia sin impersonar) no hay landing que medir.
   const ws = await getWorkspaceActual();
-  const snippetLanding = ws == null ? null : landingSnippet(await getOrCreateLandingToken(ws));
+  const tokenLanding = ws == null ? null : await getOrCreateLandingToken(ws);
+  const snippetLanding = tokenLanding == null ? null : landingSnippet(tokenLanding);
+  // La línea del cargador (09/10/2026): lo PRIMERO que se ofrece. Sirve siempre el Pixel
+  // del día, así que quien la pega no vuelve a pegar nada (lib/pixel-cargador.ts).
+  const cargadorLanding = tokenLanding == null ? null : lineaCargador(tokenLanding, APP_URL);
 
   // ¿El código pegado en su página se quedó atrás? El dato ya existía (lo anota el
   // beacon) pero solo lo leía el cron: el aviso salía por WhatsApp y la pantalla
@@ -111,6 +116,7 @@ export default async function IntegracionesPage() {
       metaError={metaError}
       incidentes={incidentes}
       snippetLanding={snippetLanding}
+      cargadorLanding={cargadorLanding}
       landingVieja={landingVieja}
       cuotas={cuotas}
       agenteToken={agenteToken}

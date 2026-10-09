@@ -68,6 +68,13 @@ export const PUBLICOS = [
   // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
   // pedía reglas recibía una página de login.
   '/robots.txt',
+  // El cargador del Pixel (app/m.js/route.ts, 09/10/2026): la línea que el cliente pega
+  // en SU página, así que lo pide el navegador de un VISITANTE, sin sesión de MaKo. Lee
+  // un token público del query y devuelve JavaScript: no lee ninguna cookie. Hoy el proxy
+  // ni la ve —su matcher excluye todo camino que termina en `.js`—, y está acá igual para
+  // que un cambio del matcher no apague el Pixel de todos los clientes con un 401. No es
+  // /api/, así que `esPublicaSoloLeer` la deja sólo en GET/HEAD/OPTIONS.
+  '/m.js',
   '/api/og',
   '/vsl',
   '/vsl-assets',

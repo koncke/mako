@@ -140,6 +140,32 @@ test('⚠️ la versión que SIRVE la página se lee del HTML, y si hay dos copi
   assert.equal(versionEnHtml(''), null);
 });
 
+test('⚠️ una página con la LÍNEA DEL CARGADOR está al día, salvo que también tenga una copia vieja pegada', () => {
+  // El cargador (lib/pixel-cargador.ts, 09/10/2026) sirve siempre el Pixel del día: la
+  // página que lo trae no tiene nada que repegar aunque sus visitas viejas digan 18.
+  //
+  // PROBADO ROMPIÉNDOLO (09/10/2026, con todo en verde antes: 14 pass / 0 fail en este archivo):
+  //   · `versionEnHtml` sin la rama del cargador     → 13 / 1 (éste)
+  //   · Math.max en vez de Math.min                    → 12 / 2 (éste y el de las dos copias)
+  //   · el default de `actual` en 1 en vez del mínimo → 13 / 1 (éste)
+  const linea = `<script src="https://hola-mako.com/m.js?id=mko_${'c3'.repeat(16)}" defer></script>`;
+  assert.equal(versionEnHtml(`<html><body>x${linea}</body></html>`, 23), 23, 'la página con el cargador sirve la versión de hoy');
+  // Sin `actual` (quien llama no conoce SNIPPET_VERSION), vale el mínimo: alcanza para apagar el aviso.
+  assert.equal(versionEnHtml(linea), PIXEL_MINIMO_AVISO);
+  // Dos copias, gana la más vieja: la pegada sigue corriendo y mandando sus eventos.
+  assert.equal(versionEnHtml(`${snip(18)}${linea}`, 23), 18);
+  assert.equal(versionEnHtml(`${linea}${snip(null)}`, 23), 1);
+  assert.equal(versionEnHtml(`${snip(23)}${linea}`, 23), 23);
+  // Un `/m.js` cualquiera sin un token no es el nuestro.
+  assert.equal(versionEnHtml('<script src="https://cdn.x.com/m.js?id=ab"></script>', 23), null);
+  // Y el veredicto se apaga aunque las visitas de esa página digan 18.
+  const P = 'https://pagina-con-cargador.com';
+  assert.equal(veredictoPixel({
+    guardada: '18', mapa: { 'pagina-con-cargador.com': { v: 18, t: '' } }, paginas: [P],
+    servidas: { 'pagina-con-cargador.com': versionEnHtml(linea, 23) },
+  }).viejo, false);
+});
+
 test('la clave de una página es la misma para el beacon y para el aviso', () => {
   assert.equal(clavePagina('https://www.Ejemplo.com/landing/?utm_source=fb#arriba'), 'ejemplo.com/landing');
   assert.equal(clavePagina('ejemplo.com'), 'ejemplo.com');

@@ -42,6 +42,7 @@ import { distintosPorExclusion, listaPostgrest } from './ids-con-filas';
 // nadie se entera (ver lib/replay-contrato.ts).
 import { REPLAY_LOTE_MAX_BYTES } from './replay-sellado';
 import { versionServida } from './pixel-servido';
+import { PIXEL_MINIMO_AVISO } from './pixel-aviso';
 import {
   REPLAY_VERSION,
   REPLAY_OPCIONES_RRWEB,
@@ -132,8 +133,18 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       un 32% en la misma página y el mismo ancho. Y es el primer código SIN el tag
  *       de Clarity: una página repegada con la v21 antes del 06/10 a las 07:23 UTC
  *       todavía lo trae adentro, y con la versión en 21 contaba como al día.
+ *  23 — el token viaja en `var CUENTA` y no en `var TOKEN` (09/10/2026). El editor con
+ *       IA de un cliente tapaba el código con ******** al pegarlo, y la línea del token
+ *       era lo único con cara de secreto: una palabra de las que buscan los detectores
+ *       (token, key, secret, api, auth) y un valor de alta entropía. Sale junto con el
+ *       CARGADOR de una línea (lib/pixel-cargador.ts, app/m.js/route.ts), que sirve
+ *       siempre esta versión: quien lo usa no vuelve a pegar nada.
+ *       ⚠️ NO SE LE PIDE A NADIE QUE REPEGUE POR ESTO: a quien tiene la 22 no le cambia
+ *       nada de lo que mide. Por eso PIXEL_MINIMO_AVISO (lib/pixel-aviso.ts) queda en 22
+ *       y todo lo que pide repegar (el aviso fijo, el WhatsApp del vigilante, el chip y
+ *       el bloqueo de «Probar») corta ahí y no en esta constante.
  */
-export const SNIPPET_VERSION = 22;
+export const SNIPPET_VERSION = 23;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -147,12 +158,18 @@ export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
  *
  * `false` si no hay token acuñado: sin código pegado no hay nada que actualizar,
  * y decirle a alguien que actualice algo que nunca instaló es ruido.
+ *
+ * ⚠️ «VIEJO» ES «HAY QUE PEDIRLE QUE REPEGUE», Y ESO CORTA EN `PIXEL_MINIMO_AVISO`, NO EN
+ * `SNIPPET_VERSION` (09/10/2026). Con la versión actual, cada subida —también la v23, que
+ * sólo renombra una variable— le mandaba el WhatsApp del vigilante a todos los negocios
+ * (su dedupKey sale del mismo número) y le ponía el cartel del pulso. El número que se
+ * DICE (`instalada`) no cambia; lo que cambia es cuándo se pide algo.
  */
 export async function snippetDesactualizado(): Promise<{ viejo: boolean; instalada: number }> {
   const token = (await getSetting(LANDING_TOKEN_KEY))?.trim();
   if (!token) return { viejo: false, instalada: 0 };
   const instalada = Number(await getSetting(SNIPPET_VERSION_KEY)) || 1;
-  return { viejo: instalada < SNIPPET_VERSION, instalada };
+  return { viejo: instalada < PIXEL_MINIMO_AVISO, instalada };
 }
 
 /**
@@ -172,6 +189,7 @@ const NOVEDADES: Record<number, string> = {
   // lee la pantalla de cualquier negocio y el aviso de WhatsApp: «llega apagada»
   // era falso para los cuatro negocios con la grabación prendida (06/10/2026). Si
   // un mensaje necesita decir el estado, lo agrega quien lo arma, leyendo el dato.
+  23: 'una línea de instalación que se actualiza sola: la pegas una vez y cada mejora del Pixel te llega sin volver a pegar nada',
   22: 'el mapa de calor de tu página: en qué parte exacta toca la gente, dibujado sobre tu página y separado en celular y computadora',
   21: 'la grabación de cada visita: mirar lo que hizo cada persona en tu página —dónde se detuvo, qué intentó tocar, en qué punto se fue— desde su ficha en el CRM. Lo que alguien escribe en un formulario viaja tapado, así que no queda grabado',
   20: 'EN QUÉ PUNTO de tu página toca cada persona, que es lo que hace falta para dibujar el mapa de calor. Hasta ahora se guardaba a dónde iba cada clic y nunca dónde se hizo, así que no se podía pintar sobre tu página; y los toques en algo que no es un botón —una foto que parece clickeable, un precio que la gente aprieta esperando que pase algo— se tiraban, cuando son lo que más te dice qué está confundiendo a la gente',
@@ -576,7 +594,9 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
     // lo que importa es eso y no las 300 visitas viejas de antes.
     const conSv = filas.find((r) => r.sv != null);
     const version = conSv?.sv ?? null;
-    const vieja = version != null && version < SNIPPET_VERSION;
+    // «Vieja» es «hay que pedirle que repegue», y eso corta en PIXEL_MINIMO_AVISO (ver
+    // `snippetDesactualizado`): una página en la 22 no se nombra en el WhatsApp por la v23.
+    const vieja = version != null && version < PIXEL_MINIMO_AVISO;
     return {
       url, instalada: true, version, vieja, ultima: filas[0].created_at, visitas: filas.length,
       texto: version == null
@@ -584,8 +604,10 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
         // snippet la mandara, o sea de las más viejas que hay.
         ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el Pixel es tan antiguo que no informa su versión. Copia el código de arriba y reemplázalo.`
         : vieja
-          ? `Está midiendo con la versión ${version}, y la actual es la ${SNIPPET_VERSION}. Copia el código de arriba y reemplázalo EN ESTA PÁGINA para sumar: ${novedadesDesde(version)}.`
-          : `Todo correcto: está midiendo con la última versión (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`,
+          ? `Está midiendo con la versión ${version}, y la actual es la ${SNIPPET_VERSION}. Pon la línea del Pixel EN ESTA PÁGINA, en lugar del código viejo, para sumar: ${novedadesDesde(version)}.`
+          : version >= SNIPPET_VERSION
+            ? `Todo correcto: está midiendo con la última versión (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`
+            : `Todo correcto: está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`,
     };
   } catch (e) {
     console.error('[verificarPagina] falló:', e instanceof Error ? e.message : e);
@@ -990,7 +1012,7 @@ export async function landingDiagnostico(
   // quien acaba de republicar con el código nuevo apretaba «Comprobar» y el primer
   // renglón le decía que tenía la versión vieja: la última visita era de antes. Sólo
   // puede SUBIR el número —un HTML que no se pudo leer no baja nada—, igual que el setting.
-  const servida = urlLanding ? await versionServida(urlLanding, { minimo: SNIPPET_VERSION }).catch(() => null) : null;
+  const servida = urlLanding ? await versionServida(urlLanding, { minimo: SNIPPET_VERSION, actual: SNIPPET_VERSION }).catch(() => null) : null;
   const instalada = Math.max(
     svDeLaPagina?.instalada && typeof svDeLaPagina.version === 'number' ? svDeLaPagina.version : 0,
     instaladaDelWs,
@@ -1022,7 +1044,10 @@ export async function landingDiagnostico(
   const ULTIMA_PARA_TODAS = 22;
   const ganaConLaNueva = instalada < ULTIMA_PARA_TODAS
     || !piezas || piezas.some((p) => HOSTS_DE_LA_V16.includes(p));
-  const codigoViejo = instalada > 0 && instalada < SNIPPET_VERSION && ganaConLaNueva;
+  // ⚠️ Y EL CORTE ES EL DEL AVISO, no la última versión (09/10/2026): la v23 sólo renombra
+  // una variable y trae el cargador de una línea, así que a una página en la 22 no le mide
+  // nada distinto, y frenarle la prueba era un candado sin llave.
+  const codigoViejo = instalada > 0 && instalada < PIXEL_MINIMO_AVISO && ganaConLaNueva;
 
   // ⚠️ EL ORDEN ES EL DEL EMBUDO, no el de cuándo se escribió cada chequeo.
   // Antes empezaba por «llegan las visitas» y metía el formulario ANTES del video:
@@ -1131,11 +1156,11 @@ export async function landingDiagnostico(
     { id: 'version', label: 'Pixel actualizado',
       estado: instalada === 0 || !hayPageview ? 'falta' : codigoViejo ? 'viejo' : 'ok',
       detalle: instalada === 0 || !hayPageview ? 'Aún no llega ningún evento para saber qué versión del Pixel tienes instalada.'
-        : codigoViejo ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Copia el código de arriba y reemplázalo para sumar: ${novedadesDesde(instalada)}.`
+        : codigoViejo ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Pon la línea del Pixel en lugar del código viejo para sumar: ${novedadesDesde(instalada)}.`
         // Hay una version nueva y a ESTA pagina no le cambia nada: se dice, y no se
         // frena la prueba. Mandar a actualizar algo que va a medir igual es mandar
         // a hacer un tramite.
-        : instalada < SNIPPET_VERSION ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Para esta página miden igual, así que no hay apuro: lo que suma la nueva es medir los videos alojados en otro lugar.`
+        : instalada < SNIPPET_VERSION ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Para esta página mide igual, así que no hay apuro. Lo nuevo: ${novedadesDesde(instalada)}.`
         : 'Es la última versión.' },
     { id: 'pageview', label: 'Llega a tu página', paso: true,
       estado: hayPageview ? 'ok' : 'falta',
@@ -1265,10 +1290,18 @@ export function landingSnippet(token: string): string {
   // el código — hoy hay un workspace con 7.052 visitas midiendo con la v14.
   const SENAL = 7777777;
   const [libAntes, libDespues] = rutaDeLibreria(SENAL).split(String(SENAL));
+  // ⚠️ EL TOKEN VA EN «var CUENTA», NO EN «var TOKEN» (v23, 09/10/2026). El editor con IA
+  // de un cliente tapaba el código con ******** al pegarlo, y lo único con cara de secreto
+  // era esa línea: una palabra de las que buscan los detectores (token, key, secret, api,
+  // auth) pegada a un valor de alta entropía. El token es público —va en el HTML de cada
+  // página—: no hay nada que esconder, sólo hay que no parecerse a un secreto. Los campos
+  // del payload (`t`, y `token` en el opt-in) son el contrato con el server y no se tocan.
+  // El análisis de la página (lib/landing-analisis.ts) lee los DOS nombres.
+  // Lo fija tests/landing-snippet-emitido.test.ts.
   return `<script>
 (function () {
   var ENDPOINT = '${APP_BASE_URL}/api/track/vsl';
-  var TOKEN = '${token}';
+  var CUENTA = '${token}';
   // Versión del snippet: viaja en cada evento para que MaKo sepa quién quedó
   // con el código viejo y le avise. Ver SNIPPET_VERSION.
   var SV = ${SNIPPET_VERSION};
@@ -1302,7 +1335,7 @@ export function landingSnippet(token: string): string {
   } catch (e) {}
 
   function enviar(data, alResponder) {
-    data.t = TOKEN;
+    data.t = CUENTA;
     data.sv = SV;
     data.visitor_id = visitorId;
     // ⚠️ LA PÁGINA VIAJA EN CADA EVENTO, no solo en la visita. Hasta la v11 solo
@@ -3108,7 +3141,7 @@ export function landingSnippet(token: string): string {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token: TOKEN, visitor_id: visitorId,
+          token: CUENTA, visitor_id: visitorId,
           nombre: d.nombre || null, email: d.email || null,
           telefono: d.telefono || null, empresa: d.empresa || null,
           origen_captura: d.origen || 'formulario',
@@ -3274,7 +3307,7 @@ export function landingSnippet(token: string): string {
   function replayPiso() { return RMS >= RPISO_MS && REV >= RPISO_EV; }
 
   function replayArmar(fin, z, cuerpo, n) {
-    var l = { v: RV, t: TOKEN, visitor_id: visitorId, s: RSID, n: n, e: cuerpo, z: z, ms: Math.round(RMS) };
+    var l = { v: RV, t: CUENTA, visitor_id: visitorId, s: RSID, n: n, e: cuerpo, z: z, ms: Math.round(RMS) };
     l.landing_url = location.href;
     if (prueba) l.prueba = prueba;
     if (fin) l.fin = 1;

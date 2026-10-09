@@ -247,6 +247,25 @@ test('el beacon conoce el evento de scroll', () => {
   );
 });
 
+test('el token no viaja en una línea con cara de secreto (v23)', () => {
+  // El editor con IA de un cliente tapaba el código con ******** al pegarlo (08/10/2026),
+  // y lo único con cara de secreto era `var TOKEN = 'mko_…'`: una palabra de las que
+  // buscan los detectores pegada a un valor de alta entropía. El token es público; sólo
+  // tiene que no parecerse a un secreto.
+  //
+  // PROBADO ROMPIÉNDOLO (09/10/2026): con la declaración renombrada a `var API_ID` →
+  // 18 pass / 1 fail (éste), con 19 / 0 antes.
+  const valor = 'mko_' + 'd4'.repeat(16);
+  const gen = snippetEmitido().split('${token}').join(valor);
+  const conValor = gen.split('\n').filter((l) => l.includes(valor));
+  assert.equal(conValor.length, 1, 'el token aparece en más de un lugar del snippet');
+  assert.doesNotMatch(conValor[0], /token|key|secret|api|auth/i, `la línea del token tiene una palabra que tapan los detectores: ${conValor[0].trim()}`);
+  assert.match(conValor[0], /^\s*var CUENTA = 'mko_[0-9a-f]+';$/);
+  assert.ok(!/\bvar TOKEN\b/.test(gen), 'volvió `var TOKEN`');
+  // Y ninguna asignación del snippet con esas palabras lleva un literal largo.
+  assert.doesNotMatch(gen, /\b\w*(?:token|key|secret|auth)\w*\s*[=:]\s*['"][^'"\n]{16,}['"]/i);
+});
+
 test('la versión del snippet sube junto con su renglón de novedades', () => {
   // Un cliente al que se le pide repegar el código sin decirle qué gana no lo
   // repega. `novedadesDesde()` arma ese texto leyendo NOVEDADES.
@@ -687,7 +706,8 @@ test('el grabador se ata al visitor_id que YA existe, y la sesión vive en sessi
   const lote = cod.slice(i, cod.indexOf('function replayGzip', i));
   assert.ok(lote.length > 200 && lote.length < 1200, `el recorte quedó en ${lote.length}: está mirando otra cosa`);
   assert.ok(
-    /t: TOKEN/.test(lote) && /visitor_id: visitorId/.test(lote),
+    // `CUENTA` desde la v23: es el mismo token, con un nombre que no tapan los detectores.
+    /t: CUENTA/.test(lote) && /visitor_id: visitorId/.test(lote),
     'el lote tiene que viajar con el token y con el visitor_id que el snippet ya usa, sin inventar una identidad nueva',
   );
 
