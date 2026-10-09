@@ -19,5 +19,17 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | Chatbot | `Leé docs/relevo/chatbot.md y seguimos desde ahí.` |
 | Customer Success | `Leé docs/relevo/customer-success.md y seguimos desde ahí.` |
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
+| API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |
+| Ads Manager | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
+| Plan / Perro Guardián | `Leé docs/relevo/plan-perro-guardian.md y seguimos desde ahí.` |
+
+Y los de ÁREA, que no tienen un chat con ese nombre pero sí briefing propio —se pegan en el
+chat que toque ese código: `seguridad-aislamiento.md`, `pixel-clarity-landing.md`,
+`avisos-y-whatsapp.md`, `instagram-afuera-y-curso.md`.
+
+⚠️ **Esta tabla la editan varias sesiones a la vez y por eso choca.** Dos sesiones que
+agregan su fila tocan la MISMA línea y el rebase da conflicto (pasó el 09/10 entre
+`integraciones` y `api-mako`). La resolución es siempre la misma: **se quedan las dos filas**,
+nunca se elige una. Si ves marcas de conflicto acá, juntá y seguí.
 
 El estado completo de la ventana está en [`../relevo.md`](../relevo.md).
