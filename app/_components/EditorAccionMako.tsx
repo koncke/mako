@@ -153,7 +153,7 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
       title: s.titulo,
       // Sin subtítulo (cuarta tanda, punto 11: «Elimina los subtitulos en las opciones, debería
       // entenderse solo con el título»). Lo que hace va en el `buscar`, para que se encuentre igual.
-      options: s.acciones.map((a) => ({ value: a.id, label: a.titulo, buscar: `${a.id} ${lineaDe(a) ?? ''}` })),
+      options: s.acciones.map((a): { value: string; label: string; sub?: string; buscar: string } => ({ value: a.id, label: a.titulo, buscar: `${a.id} ${lineaDe(a) ?? ''}` })),
     }));
     // ⚠️ LA QUE ESTÁ PUESTA ENTRA AUNQUE YA NO EXISTA (otra capa, una operación que se retiró): un
     // desplegable cuyo valor no está entre sus opciones no muestra nada (AGENTS.md).
