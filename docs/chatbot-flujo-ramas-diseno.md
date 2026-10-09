@@ -482,3 +482,82 @@ editor de la nota de voz (alto y angosto) y el de la acción «Avisar al equipo�
 > 9. Quiero que audites, como ya hiciste en el pasado, o si te quedó contexto, todo lo que hace Manychat, si nosotros lo estamos haciendo "mal" o "poco eficiente" y revises lo que nos falta y podriamos mejorar.
 > 10. Quiero que crees las secuencias que necesita Mauricio por sobre todo y la que quería Código Inmobiliario.
 > 11. Quiero que implementes la funcionalidad de crear un secuencia con IA, mendiente un "prompt", y que ahí se vayan creando...
+
+
+---
+
+# TERCERA TANDA (09/10/2026, madrugada): editores medidos, títulos en inglés, CRON por producto, condiciones de todo el negocio
+
+El pedido literal (16 puntos + 6 de «Crear con IA») está en `app/admin/dev/chatbot/bitacora.ts` (hito
+del 9 oct 02:05). Martín lo mandó con siete capturas de producción después de la segunda tanda.
+
+## Decisiones (mías; Martín las puede dar vuelta)
+
+1. **El editor es mediano, no apaisado de borde a borde**: un panel de hasta ~720 px de ancho y alto
+   fijo (~420), pegado a la lista. El de WhatsApp vuelve a UNA columna (el chat arriba con su scroll,
+   el composer abajo, como un teléfono): partido en dos se leía roto.
+2. **«Revisar antes de enviar» sale de la pantalla.** El dato `revisar` queda: lo que ya tiene valor
+   sigue igual; lo nuevo hereda lo de la secuencia.
+3. **«Ir a» sale del ＋ y de Crear con IA.** Los que ya existen (la 198 salta a la 212, el «Ir a» que
+   junta ramas) se siguen dibujando, corriendo y se pueden borrar.
+4. **El CRON elige: producto → «Adquisición de clientes» o «Entrega del servicio» → la etapa de ese
+   kanban.** Con un solo producto, el primer paso no está. «Eventos» sale del CRON y pasa a las
+   condiciones. Un disparador de antes (un evento) se sigue mostrando como lo que es, sin ofrecerse.
+   El modo «Por tiempo» se queda.
+5. **Los títulos de las tarjetas, en inglés**: CRON · WHATSAPP · EMAIL · DELAY · CONDITION · TAG ·
+   ACTION · MAKO · REPLY. «Nota de voz» deja de existir como título: un WhatsApp puede llevar audio,
+   texto o archivo. La tarjeta de WhatsApp lleva la identidad de WhatsApp (verde, fondo de chat) y la de
+   Email la de Gmail (blanco, el sobre rojo), con tokens que funcionan en oscuro.
+6. **Los tres puntos de cada automatización en la lista**: Activar/Pausar, Duplicar y Eliminar (archiva,
+   con confirmación; se recupera desde la base).
+7. **«Nueva» aparece YA en la lista y abre su lienzo**; lo que tarda se ve adentro del lienzo, con un
+   loader. El botón tiene su animación al pasar el cursor.
+8. **El emoji del título se edita** con el selector de emoji de la casa (`app/plan/board/EmojiPicker.tsx`).
+   Va en una columna propia (`nutricion_secuencias.emoji`, mig 0229).
+9. **El editor de la condición es una frase por fila**, con «＋ Condición» y, cuando hay más de una, un
+   «Todas / Cualquiera» claro. Nada de «+y +o».
+10. **Las condiciones salen de UN catálogo por secciones** (`lib/condiciones-catalogo.ts`), filtrado
+    por el ámbito del CRON: adquisición = el CRM (información del lead, origen y tracking, etapa,
+    llamadas y agenda, pagos, mensajes, etiquetas, plan); entrega = Customer Success (el curso y su
+    avance, la comunidad, las tareas, los pagos del cliente, la etapa de entrega). Cada condición la
+    EVALÚA el motor con un dato que lee en batch; una condición que el motor no puede evaluar no se
+    ofrece. Profesional y genérico: nada armado para un cliente.
+11. **La tarjeta MAKO** manda un mensaje al grupo de WhatsApp del negocio con MaKo: es la acción
+    `avisar_al_equipo` con su propio editor (el mensaje, con los datos del lead) y su propia tarjeta.
+12. **El email se edita en UNA columna, como redactar en Gmail, con el editor enriquecido de las
+    lecciones del curso** (`app/_ui/EditorRico.tsx`). El paso guarda `cuerpo_html` (saneado con una
+    lista blanca) y el motor lo manda como HTML; `cuerpo` queda como texto plano de respaldo.
+13. **«Probar» se frena con lo mismo que Publicar** (`validarGrafo` + lo que falta escribir) y abre la
+    tarjeta que falta, como las tareas del curso.
+14. **«Probar» es un desplegable: WhatsApp o Email** (sólo los canales que el flujo usa). WhatsApp es el
+    teléfono; Email es una bandeja tipo Gmail. Arranca solo, como recibiendo la automatización, y abajo
+    está el botón para probarlo de verdad con tu número o tu email.
+15. **Sin «Sin publicar»**: «Publicar» está apagado cuando no hay cambios.
+16. **Las acciones de un flujo son una lista CORTA y curada**, cada campo con su control: la etapa con el
+    selector de producto y etapa, la etiqueta, la automatización, la persona del equipo, el producto; y
+    los campos que dependen de otro aparecen sólo cuando aplican (monto y motivo sólo al mover a Ganado o
+    Perdido).
+17. **Crear con IA**: se arregla la falla de proveedores (se diagnostica con las keys reales), la caja
+    copia el «Nueva tarea» del Plan (minimalista, con micrófono que transcribe en vivo:
+    `app/plan/board/CrearTareaModal.tsx` + `dictado-vivo.ts`), el título es «Generar con IA», el
+    placeholder escribe y borra ejemplos genéricos como el onboarding (`app/onboarding/OnboardingWizard.tsx`)
+    y para del todo al tocar la caja, y mientras crea oscurece el resto, bloquea el lienzo y ofrece
+    Cancelar.
+
+## Quién es dueño de qué
+
+| Parte | Archivos |
+|---|---|
+| **A condiciones** | lib/condiciones-catalogo.ts (nuevo), lib/flujo-grafo.ts (CampoCondicion, FilaCondicion, cumpleFila, textoFila, validación de filas), lib/nutricion-grafo-motor.ts (sanearFila, necesitaHechos), lib/nutricion.ts (sólo hechosDeLeads y lo que lee para las condiciones), lib/simulador-grafo.ts (sólo lo que toque condiciones), app/chatbot/EditorCondicion.tsx (nuevo: el editor de la condición sale de FlujoLienzo), tests |
+| **B lienzo y CRON** | lib/flujo-conversacion.ts, lib/lienzo-grafo.ts, app/_components/Lienzo.tsx, app/_components/EditorCron.tsx, app/chatbot/FlujoLienzo.tsx (todo menos el editor de la condición), app/chatbot/SecuenciaPerfil.tsx, supabase/migrations/0229_secuencia_emoji.sql, app/api/chat-agent/secuencias/route.ts (la acción del emoji), lib/setting-secuencias.ts (el emoji), tests |
+| **C editores de mensaje** | app/chatbot/EditorMensajeWhatsApp.tsx, app/chatbot/EditorEmailGmail.tsx, lib/email-html.ts, lib/nutricion.ts (sólo el saneo y el envío del email con `cuerpo_html`), un saneador de HTML nuevo en lib, tests |
+| **D acciones** | app/_components/EditorAccionMako.tsx, lib/editor-acciones.ts, lib/api-mako/flujo.ts (el catálogo de flujo), widgets nuevos de parámetros, tests |
+| **E probar, lista y nueva** | app/chatbot/PanelProbar.tsx, app/chatbot/SimuladorWhatsApp.tsx, app/chatbot/ChatAgentApp.tsx, tests |
+| **F crear con IA** | app/chatbot/CrearConIA.tsx, app/api/chat-agent/secuencias/ia/route.ts, lib/flujo-ia.ts, lib/flujo-ia-cliente.ts, lo mínimo de la cascada si la falla está ahí, tests |
+
+Contratos entre partes (la integración enchufa lo que falte):
+- `SecuenciaPerfil` (B) llama `onProbar(canal: 'whatsapp' | 'email')`; `SimuladorWhatsApp` (E) se lo pasa a
+  `PanelProbar` como `canal`.
+- `EditorCondicion` (A) recibe `{ paso, cambiar, ambito: 'adquisicion' | 'entrega', etapas, productos, busy }`
+  y lo monta `FlujoLienzo` (B). `ambitoDeDisparo(trigger_tipo)` vive en lib/condiciones-catalogo.ts.
+- La tarjeta MAKO (B) es una acción `avisar_al_equipo` con `tipo: 'mako'` en el lienzo, como la etiqueta.
