@@ -53,6 +53,8 @@ import {
 } from './flujo-grafo';
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
+// El HTML de un email (parte C de la tercera tanda): puro y sin `server-only`, como este módulo.
+import { aplicarVariablesHtml, sanearHtmlEmail, TOPE_HTML_EMAIL } from './email-html-seguro';
 
 /** Topes: el motor corta a 20 saltos por corrida; acá además se cortan las vueltas infinitas. */
 export const TOPE_SALTOS = 20;
@@ -169,15 +171,20 @@ export function textoDeEjemplo(texto: string, negocio?: string | null): string {
  *
  * Vacío = vacío: el panel decide qué rótulo poner («Sin asunto»), y la vista previa ausente no se
  * reemplaza por el principio del cuerpo, que ya se ve debajo.
+ *
+ * `html`: el cuerpo del editor rico (`cuerpo_html`, parte C de la tercera tanda) con las variables
+ * puestas POR CONTEXTO (`aplicarVariablesHtml`: escapadas en el texto, codificadas en un link), que es
+ * como lo pone el envío. '' = el paso no tiene HTML (un email de antes): se dibuja el `cuerpo`.
  */
 export function correoDeEjemplo(
-  p: { asunto?: string | null; preheader?: string | null; cuerpo?: string | null },
+  p: { asunto?: string | null; preheader?: string | null; cuerpo?: string | null; cuerpo_html?: string | null },
   negocio?: string | null,
-): { asunto: string; vistaPrevia: string; cuerpo: string } {
+): { asunto: string; vistaPrevia: string; cuerpo: string; html: string } {
   return {
     asunto: textoDeEjemplo(p.asunto ?? '', negocio).trim(),
     vistaPrevia: textoDeEjemplo(p.preheader ?? '', negocio).trim(),
     cuerpo: textoDeEjemplo(p.cuerpo ?? '', negocio),
+    html: p.cuerpo_html ? aplicarVariablesHtml(p.cuerpo_html, valoresVariablesLead(LEAD_DE_EJEMPLO, { negocio })) : '',
   };
 }
 
@@ -426,6 +433,8 @@ export type MensajePrueba = {
   asunto?: string | null;
   audio_id?: number | null;
   media_id?: number | null;
+  /** Sólo email: el cuerpo HTML como apareció en la bandeja (las variables ya puestas). */
+  html?: string | null;
 };
 
 export type DestinoPrueba = { telefono: string | null; email: string | null };
@@ -435,7 +444,7 @@ export type EnvioPrueba =
   | { via: 'wa-texto'; texto: string }
   | { via: 'wa-audio'; audioId: number }
   | { via: 'wa-media'; mediaId: number; caption: string }
-  | { via: 'email'; asunto: string; texto: string };
+  | { via: 'email'; asunto: string; texto: string; html?: string };
 
 /** El aviso del PRIMER mensaje real: quien lo recibe tiene que saber que es una prueba. */
 export const AVISO_PRUEBA = '🧪 Prueba de MaKo';
@@ -563,10 +572,12 @@ export function sanearMensajePrueba(raw: unknown): MensajePrueba | null {
   const asunto = typeof o.asunto === 'string' ? o.asunto.slice(0, 300) : null;
   const audio_id = idPositivo(o.audio_id);
   const media_id = idPositivo(o.media_id);
+  // El HTML de un email vuelve a pasar por la lista blanca: lo manda el navegador.
+  const html = canal === 'email' && typeof o.html === 'string' ? sanearHtmlEmail(o.html.slice(0, TOPE_HTML_EMAIL)) : null;
   if (canal === 'whatsapp' && tipo === 'audio' && !audio_id) return null;
   if (canal === 'whatsapp' && tipo === 'media' && !media_id) return null;
   if (tipo === 'texto' && !texto.trim()) return null;
-  return { canal, tipo: canal === 'email' ? 'texto' : tipo, texto, asunto, audio_id, media_id };
+  return { canal, tipo: canal === 'email' ? 'texto' : tipo, texto, asunto, audio_id, media_id, ...(html ? { html } : {}) };
 }
 
 /** El destino que se escribió en el panel. NO se guarda en ningún lado: es de esta prueba. */
@@ -587,7 +598,9 @@ export function planDePrueba(m: MensajePrueba, primero: boolean): EnvioPrueba[] 
   const texto = m.texto.trim();
   if (m.canal === 'email') {
     const asunto = `${primero ? '[Prueba] ' : ''}${(m.asunto ?? '').trim() || 'Sin asunto'}`;
-    return [{ via: 'email', asunto, texto: primero ? `${AVISO_PRUEBA}\n\n${texto}` : texto }];
+    // El HTML lleva el aviso como su primer párrafo, igual que el texto plano lo lleva arriba.
+    const html = m.html ? `${primero ? `<p>${AVISO_PRUEBA}</p>` : ''}${m.html}` : undefined;
+    return [{ via: 'email', asunto, texto: primero ? `${AVISO_PRUEBA}\n\n${texto}` : texto, ...(html ? { html } : {}) }];
   }
   const conAviso = (t: string) => (primero ? (t ? `${AVISO_PRUEBA}\n${t}` : AVISO_PRUEBA) : t);
   if (m.tipo === 'audio' && m.audio_id) {

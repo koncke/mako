@@ -205,7 +205,9 @@ test('datos-4: el panel no reenvía una tarjeta que ya salió, y el server topea
   assert.ok(iSwitch >= 0 && iCorte > iSwitch && iPost > iCorte, 'interruptor → no repetir → mandar, en ese orden');
   // Cada mensaje que se dibuja pasa su TARJETA, y ↻ arranca con el registro vacío.
   assert.equal((panel.match(/mostrarPaso\(paso, evento\.nodo,/g) ?? []).length, 3, 'las tres llamadas de avanzar() (el email, «MaKo contesta» y el resto) pasan la tarjeta');
-  assert.equal((panel.match(/mandarReal\(\{[^}]*\}, nodo, enRespuesta\)/g) ?? []).length, 4, 'email, audio, archivo y texto');
+  // (El del email lleva el HTML con un spread `...(correo.html ? { html } : {})`: el patrón tolera un
+  // nivel de llaves adentro.)
+  assert.equal((panel.match(/mandarReal\(\{(?:[^{}]|\{[^{}]*\})*\}, nodo, enRespuesta\)/g) ?? []).length, 4, 'email, audio, archivo y texto');
   const arrancar = panel.slice(panel.indexOf('const arrancarRefs = () => {'), panel.indexOf('const reiniciar = (deVerdad = false) => {'));
   assert.ok(arrancar.length > 0 && arrancar.length < 800, `el recorte de arrancarRefs mide ${arrancar.length}`);
   assert.match(arrancar, /enviadosReal\.current = new Set\(\);\n\s+turnoLead\.current = 0;/);

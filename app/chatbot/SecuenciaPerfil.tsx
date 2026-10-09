@@ -29,6 +29,8 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
 import type { CanalProbar } from './PanelProbar';
+import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
+import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, RESERVA_ABAJO_CREAR } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
 import type { Objetivo } from '@/lib/setting-estrategia';
@@ -446,6 +448,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * cada pedido, así el mismo error dos veces la vuelve a abrir.
    */
   const [foco, setFoco] = useState<{ id: string; vez: number } | null>(null);
+  /**
+   * Lo que le falta a cada «⚡ Acción» según su formulario (el monto al mover a Ganado, el motivo de una
+   * baja): lo frena `frenoDelFlujo` en Publicar y en Probar. Se pide sólo si hay una acción.
+   */
+  const faltanEnAccion = useFaltanEnAcciones(rolAdmin && pasos.some(esPasoAccion));
   const frenar = (mensaje: string, tarjeta: string | null) => {
     setErr(mensaje);
     if (tarjeta) setFoco((f) => ({ id: tarjeta, vez: (f?.vez ?? 0) + 1 }));
@@ -464,7 +471,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const publicar = async () => {
     setErr(null);
     // La forma y lo que falta escribir, con la MISMA función que frena «Probar» (`frenoDelFlujo`).
-    const freno = frenoDelFlujo(pasos);
+    const freno = frenoDelFlujo(pasos, faltanEnAccion);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
     setBusy('save');
     try {
@@ -656,7 +663,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const canales = canalesParaProbar(pasos);
   const probar = (canal: CanalProbar) => {
     if (!onProbar) return;
-    const freno = frenoDelFlujo(pasos);
+    const freno = frenoDelFlujo(pasos, faltanEnAccion);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
     setErr(null);
     onProbar(canal);

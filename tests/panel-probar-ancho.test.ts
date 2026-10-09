@@ -178,9 +178,13 @@ test('el email del recorrido va a la BANDEJA con su minuto, y lo que sale de ver
   assert.ok(rama.length > 0 && rama.length < 700, `el recorte de la rama del email mide ${rama.length}`);
   assert.match(rama, /const correo = correoDeEjemplo\(p, c\.negocio\);/);
   assert.match(rama, /ponerCorreo\(\{ id: nuevoId\('em'\), \.\.\.correo, minuto, leido: false \}\);/);
-  assert.match(rama, /mandarReal\(\{ canal: 'email', tipo: 'texto', texto: correo\.cuerpo, asunto: correo\.asunto \}, nodo, enRespuesta\);/);
+  // (Integración, parte C: lo que sale de verdad lleva el HTML del editor rico, el mismo de la bandeja.)
+  assert.match(rama, /mandarReal\(\{ canal: 'email', tipo: 'texto', texto: correo\.cuerpo, asunto: correo\.asunto, \.\.\.\(correo\.html \? \{ html: correo\.html \} : \{\}\) \}, nodo, enRespuesta\);/);
   assert.doesNotMatch(rama, /\bponer\(/, 'el email volvió a meterse en el hilo de WhatsApp');
   assert.doesNotMatch(src, /<select\b/);
+  // Y el mail abierto se dibuja con ese HTML (`cuerpoHtml` → `bodyHtml`), y la prueba real lo manda.
+  assert.match(src, /renderEmailHtml\(paramsDeVista\(\{ asunto: correo\.asunto, preheader: correo\.vistaPrevia, cuerpo: correo\.cuerpo, cuerpoHtml: correo\.html \|\| null, negocio, remitente \}\)\)/);
+  assert.match(sinComentarios(leer('lib/prueba-paso.ts')), /renderEmailHtml\(\{ subject: envio\.asunto, bodyText: envio\.texto, bodyHtml: envio\.html \|\| undefined \}\)/);
 });
 
 // ── La bandeja tipo Gmail ──────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ import {
   flujoParaProbar, iniciar, siguiente, elegir, pausarPorRespuesta, entrarEnRespuesta, escenarioParaRedactar,
   textoDeEjemplo, firmaFlujo, sanearMensajePrueba, sanearDestinoPrueba, planDePrueba, AVISO_PRUEBA, TOPE_SALTOS,
   debeSalirDeVerdad, claveDestinoPrueba, reclamarCupoPrueba, TOPE_PRUEBA_REAL, VENTANA_PRUEBA_MIN,
-  burbujaDeArchivo, destinoDelQueMira,
+  burbujaDeArchivo, destinoDelQueMira, correoDeEjemplo,
   type EstadoSim, type EventoSim,
 } from '../lib/simulador-grafo';
 import { contenidoDeMensaje } from '../app/whatsapp/_shared/ChatHilo';
@@ -210,6 +210,21 @@ test('lo que llega del navegador se sanea: sin audio no hay audio, sin texto no 
   assert.equal(sanearMensajePrueba(null), null);
   assert.deepEqual(sanearDestinoPrueba({ telefono: '+52 1 55 1234 5678', email: ' yo@negocio.mx ' }), { telefono: '5215512345678', email: 'yo@negocio.mx' });
   assert.deepEqual(sanearDestinoPrueba({ telefono: '123', email: 'no-es-mail' }), { telefono: null, email: null });
+});
+
+// Integración de la tercera tanda (parte C): «Probar» dibuja y manda el email con su HTML, el MISMO que
+// sale. Roturas: `correoDeEjemplo` sin el html → 1 fallo; `sanearMensajePrueba` sin la lista blanca → 1;
+// `planDePrueba` sin llevar el html → 1.
+test('el email lleva su HTML: con las variables por contexto, saneado al llegar, y con el aviso arriba', () => {
+  const c = correoDeEjemplo({ asunto: 'Hola', cuerpo: 'Hola', cuerpo_html: '<p>Hola <b>{{nombre}}</b>, mira <a href="https://x.com/?n={{nombre_completo}}">esto</a></p>' }, 'Valle');
+  assert.match(c.html, /<strong>Luis<\/strong>/, 'la variable del lead de ejemplo, en el texto (el saneo pasa <b> a <strong>)');
+  assert.match(c.html, /href="https:\/\/x\.com\/\?n=Luis%20P%C3%A9rez"/, 'en un link, codificada');
+  assert.equal(correoDeEjemplo({ asunto: 'x', cuerpo: 'y' }).html, '', 'un email de antes no tiene HTML');
+  const m = sanearMensajePrueba({ canal: 'email', tipo: 'texto', texto: 'Hola', asunto: 'A', html: '<p>Hola</p><script>alert(1)</script><img src="javascript:x">' })!;
+  assert.equal(m.html, '<p>Hola</p>', 'lo que manda el navegador vuelve a pasar por la lista blanca');
+  assert.equal(sanearMensajePrueba({ canal: 'whatsapp', tipo: 'texto', texto: 'Hola', html: '<p>x</p>' })!.html, undefined, 'un WhatsApp no lleva HTML');
+  assert.deepEqual(planDePrueba(m, true), [{ via: 'email', asunto: '[Prueba] A', texto: `${AVISO_PRUEBA}\n\nHola`, html: `<p>${AVISO_PRUEBA}</p><p>Hola</p>` }]);
+  assert.deepEqual(planDePrueba(m, false), [{ via: 'email', asunto: 'A', texto: 'Hola', html: '<p>Hola</p>' }]);
 });
 
 // ── La prueba real NO repite y tiene TOPE (revisión adversarial del 08/10/2026, datos-4) ─────────

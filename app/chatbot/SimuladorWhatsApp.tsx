@@ -540,7 +540,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           <PanelProbar
             key={`${sel.id}-${probando}`}
             canal={probando ?? 'whatsapp'}
-            secuencia={sel} edicion={edicion} secuencias={secuencias} audios={audios} negocio={negocio}
+            secuencia={sel} edicion={edicion} secuencias={secuencias} audios={audios} negocio={negocio} productos={productos}
             rolAdmin={rolAdmin} etiquetaEtapa={etiquetaEtapa} onCerrar={() => setProbando(null)}
             style={{ width: '100%', height: '100%' }}
           />

@@ -44,7 +44,7 @@ import type { AccionEditor, ParametroEditor } from '@/lib/api-mako/flujo';
 import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR, LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
 import {
   rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, repartoDelFormulario, naceSobreElLeadDelEvento,
-  controlDe, monedaDe, rotuloDeOpcion, SECCION_PUESTA, type OpcionesAccion,
+  controlDe, monedaDe, rotuloDeOpcion, faltanDelFormulario, SECCION_PUESTA, type OpcionesAccion,
 } from '@/lib/editor-acciones';
 import { SelectorEtiqueta } from './etiquetas-cliente';
 import { useOpcionesAccion, SelectorEtapa, SelectorProducto, SelectorSecuencia, SelectorPersona, CampoMonto, type Cambiar } from './CamposAccion';
@@ -86,6 +86,35 @@ export function useTitulosAcciones(activo: boolean): Map<string, string> | null 
 
 /** Los parámetros que pone el flujo para esta operación: no se dibujan. */
 const ocultosDe = (operacion: string): ReadonlySet<string> => new Set(Object.keys(LLENA_EL_FLUJO[operacion] ?? {}));
+
+/**
+ * LO QUE LE FALTA A CADA PASO «⚡ ACCIÓN», para frenar «Probar» y «Publicar» (`frenoDelFlujo`,
+ * lib/flujo-conversacion.ts; decisión 13 de la tercera tanda). Es la MISMA cuenta que dibuja el
+ * formulario (`faltanDelFormulario`: lo declarado más lo que pide lo elegido, como el monto al mover a
+ * Ganado), con el mismo catálogo y las mismas opciones del negocio que el editor.
+ *
+ * null mientras el catálogo no llegó (o si no se pudo leer): ahí sólo frena lo de siempre, y el server
+ * sigue validando lo declarado. Sin opciones (no llegaron o no se pudieron leer) cuenta sólo lo
+ * declarado: no se frena por un dato que no se pudo mirar.
+ */
+export function useFaltanEnAcciones(activo: boolean): ((operacion: string, params: Record<string, unknown>) => string[]) | null {
+  const [acciones, setAcciones] = useState<AccionEditor[] | null>(null);
+  useEffect(() => {
+    if (!activo) return;
+    let vivo = true;
+    catalogo().then((a) => { if (vivo) setAcciones(a); }).catch(() => { /* frena lo de siempre */ });
+    return () => { vivo = false; };
+  }, [activo]);
+  const opciones = useOpcionesAccion(activo);
+  return useMemo(() => {
+    if (!acciones) return null;
+    const porId = new Map(acciones.map((a) => [a.id, a]));
+    return (operacion: string, params: Record<string, unknown>) => {
+      const a = porId.get(operacion);
+      return a ? faltanDelFormulario(operacion, a.parametros, params, opciones, ocultosDe(operacion)) : [];
+    };
+  }, [acciones, opciones]);
+}
 
 /** Lo que se guarda al ELEGIR una acción: vacío, salvo el lead del evento cuando es el default. */
 const paramsIniciales = (a: Pick<AccionEditor, 'pideLead' | 'parametros'> | undefined): Record<string, unknown> =>

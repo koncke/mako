@@ -31,6 +31,7 @@ import {
 } from '../lib/editor-acciones';
 import { FormularioAccion } from '../app/_components/EditorAccionMako';
 import type { AccionEditor } from '../lib/api-mako/flujo';
+import { frenoDelFlujo, type PasoParaGrafo } from '../lib/flujo-conversacion';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -235,6 +236,21 @@ test('lo que falta: lo declarado y lo que pide lo elegido (el monto de Ganado), 
   assert.deepEqual(faltanDelFormulario(mover.id, mover.parametros, { etapa: 'agenda' }, OPCIONES), []);
   const cs = ed('marcar_estado_cliente_cs');
   assert.deepEqual(faltanDelFormulario(cs.id, cs.parametros, { estado: 'baja' }), ['motivo']);
+});
+
+// Integración de la tercera tanda: «Probar» y «Publicar» se frenan con lo MISMO que dibuja el formulario
+// (`frenoDelFlujo(pasos, faltanEnAccion)`, el que arma `useFaltanEnAcciones` en el editor).
+// Rotura (sacar la vuelta de las acciones en `frenoDelFlujo`): 1 fallo.
+test('⚠️ un «Mover a Ganado» sin monto frena Publicar y abre esa tarjeta', () => {
+  const mover = ed('proponer_cambio_etapa');
+  const faltan = (op: string, params: Record<string, unknown>) => (op === mover.id ? faltanDelFormulario(op, mover.parametros, params, OPCIONES) : []);
+  const paso = (params: Record<string, unknown>): PasoParaGrafo => ({ id: 'a1', canal: 'whatsapp', delay_horas: 0, cuerpo: '', accion: { operacion: mover.id, params: { leadId: LEAD_DEL_EVENTO, ...params } } });
+  assert.deepEqual(frenoDelFlujo([paso({ etapa: 'ganado' })], faltan)?.tarjeta, 'a1', 'se publicaba y rebotaba en cada lead');
+  assert.match(frenoDelFlujo([paso({ etapa: 'ganado' })], faltan)?.error ?? '', /^Falta completar «/);
+  assert.equal(frenoDelFlujo([paso({ etapa: 'ganado', monto: 900 })], faltan), null);
+  assert.equal(frenoDelFlujo([paso({ etapa: 'agenda' })], faltan), null);
+  // Sin el catálogo todavía (null), sólo lo de siempre: no se frena por algo que no se pudo mirar.
+  assert.equal(frenoDelFlujo([paso({ etapa: 'ganado' })], null), null);
 });
 
 test('el producto de una etapa: el elegido, el que la tiene (el principal primero) o el principal', () => {

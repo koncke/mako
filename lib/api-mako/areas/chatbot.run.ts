@@ -22,6 +22,7 @@ import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCas
 import { getAdjunto } from '@/lib/setting-adjuntos';
 import { emitirAviso } from '@/lib/avisos';
 import { linkApp } from '@/lib/app-url';
+import { aplicarVariables, valoresVariablesLead } from '@/lib/template-vars';
 import { getTenantDb } from '@/lib/workspace';
 import { logLeadEvent } from '@/lib/leads';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -97,13 +98,32 @@ const historialDe = (input: Record<string, unknown>): TurnoSim[] =>
 const noSeInscribe = (v: Extract<InscripcionManual, { inscribe: false }>, leadId: number, secuenciaId: number): string =>
   motivoNoInscribe(v.porque, { secuenciaId, secuencia: v.secuencia?.nombre, leadId, lead: v.lead?.nombre });
 
-/** El lead de un aviso al equipo, de ESTE negocio (getTenantDb). Un error de lectura TIRA: «no pude leer» no es «no existe». */
-async function leadDelAviso(leadId: number): Promise<{ id: number; nombre: string; telefono: string | null } | null> {
+/**
+ * El lead de un aviso al equipo, de ESTE negocio (getTenantDb). Un error de lectura TIRA: «no pude leer»
+ * no es «no existe». Trae el nombre CRUDO y la empresa para las variables del mensaje (`{{nombre}}`,
+ * `{{empresa}}`…), que la tarjeta MAKO ofrece insertar.
+ */
+async function leadDelAviso(leadId: number): Promise<{ id: number; nombre: string; nombreCrudo: string | null; empresa: string | null; telefono: string | null } | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('leads').select('id, nombre, telefono').eq('id', leadId).maybeSingle();
+  const { data, error } = await db.from('leads').select('id, nombre, telefono, empresa').eq('id', leadId).maybeSingle();
   if (error) throw new Error(`avisar_al_equipo (lead): ${error.message}`);
-  const l = data as { id: number; nombre: string | null; telefono: string | null } | null;
-  return l ? { id: Number(l.id), nombre: l.nombre?.trim() || `el lead #${l.id}`, telefono: l.telefono ?? null } : null;
+  const l = data as { id: number; nombre: string | null; telefono: string | null; empresa: string | null } | null;
+  return l ? {
+    id: Number(l.id), nombre: l.nombre?.trim() || `el lead #${l.id}`, nombreCrudo: l.nombre?.trim() || null,
+    empresa: l.empresa?.trim() || null, telefono: l.telefono ?? null,
+  } : null;
+}
+
+/**
+ * Las variables del lead en el mensaje y el título de un aviso (la tarjeta MAKO del lienzo ofrece «＋ Dato
+ * del lead»: `VARIABLES_LEAD`). Con la función del MOTOR (`aplicarVariables`): lo que no conoce queda
+ * crudo, igual que en un WhatsApp al lead. Sin lead, nada que reemplazar. (Las dos funciones del motor
+ * tienen su test en tests/template-vars; acá se fija el cableado en tests/lienzo-tercera-tanda.test.ts.)
+ */
+function textoDelAviso(texto: string, lead: { nombreCrudo: string | null; empresa: string | null } | null): string {
+  const t = texto.trim();
+  if (!lead) return t;
+  return aplicarVariables(t, valoresVariablesLead({ nombre: lead.nombreCrudo, empresa: lead.empresa })).trim();
 }
 
 /** ¿Lo pide un paso «⚡ Acción» de un flujo? La clave de scope lo dice (lib/api-mako/canal.ts). */
@@ -577,13 +597,15 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (payload, ctx) => {
       const leadId = payload.leadId != null ? Number(payload.leadId) : null;
-      const mensaje = String(payload.mensaje ?? '').trim();
-      if (!mensaje) return { ok: false, resumen: 'El aviso no tiene mensaje.' };
+      const mensajeCrudo = String(payload.mensaje ?? '').trim();
+      if (!mensajeCrudo) return { ok: false, resumen: 'El aviso no tiene mensaje.' };
       // Lo que escribió el lead, cuando el aviso sale de «Si responde» (lo pone el motor).
       const respuesta = String(payload.respuesta ?? '').trim();
       const lead = leadId != null ? await leadDelAviso(leadId) : null;
       if (leadId != null && !lead) return { ok: false, resumen: `El lead #${leadId} ya no existe en este negocio.` };
-      const titulo = String(payload.titulo ?? '').trim() || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
+      // Las variables del lead (la tarjeta MAKO las ofrece): sin esto, «{{nombre}}» salía crudo al grupo.
+      const mensaje = textoDelAviso(mensajeCrudo, lead);
+      const titulo = textoDelAviso(String(payload.titulo ?? ''), lead) || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
       const r = await emitirAviso({
         ws: ctx.ws,
         tipo: 'chatbot-aviso-equipo',

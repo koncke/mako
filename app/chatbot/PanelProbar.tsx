@@ -59,9 +59,11 @@ import { Button } from '@/app/_ui';
 import { useTitulosAcciones } from '@/app/_components/EditorAccionMako';
 import { renderEmailHtml } from '@/lib/email-html';
 import { paramsDeVista, nombreDelRemitente } from './EditorEmailGmail';
-import type { AudioSetting, PasoSecuenciaDto, SecuenciaDto } from './ChatAgentApp';
+import { useCatalogosCondicion, catalogosDe } from './EditorCondicion';
+import { nombresCatalogoDe } from '@/lib/condiciones-catalogo';
+import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion, SecuenciaDto } from './ChatAgentApp';
 import type { EdicionLocal } from './SecuenciaPerfil';
-import { raizRespuesta } from '@/lib/flujo-grafo';
+import { claseDe, raizRespuesta } from '@/lib/flujo-grafo';
 import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, elegir, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
@@ -89,6 +91,8 @@ type Turno = { de: 'lead' | 'negocio'; texto: string };
 /** Un mail que llegó a la bandeja de «Probar», con las variables del lead de ejemplo ya puestas. */
 export type CorreoRecibido = {
   id: string; asunto: string; vistaPrevia: string; cuerpo: string;
+  /** El cuerpo del editor rico, con las variables puestas (`correoDeEjemplo`). '' = un email de antes: se dibuja `cuerpo`. */
+  html?: string;
   /** El minuto virtual en que llega (el reloj del hilo: una espera de un día = 1440). */
   minuto: number;
   leido: boolean;
@@ -244,10 +248,11 @@ function CorreoAbierto({ correo, de, remitente, negocio, onVolver }: {
   correo: CorreoRecibido; de: { nombre: string; mail: string }; remitente: string; negocio: string; onVolver: () => void;
 }) {
   // Las variables del lead de ejemplo ya vienen puestas (`correoDeEjemplo`); `paramsDeVista` pone el
-  // resto con las reglas del envío (asunto vacío, preheader, firma del remitente).
+  // resto con las reglas del envío (asunto vacío, preheader, firma del remitente). Con el HTML del editor
+  // rico (`cuerpoHtml` → `bodyHtml` de `renderEmailHtml`), el mail se ve con su formato, como sale.
   const html = useMemo(
-    () => renderEmailHtml(paramsDeVista({ asunto: correo.asunto, preheader: correo.vistaPrevia, cuerpo: correo.cuerpo, negocio, remitente })),
-    [correo.asunto, correo.vistaPrevia, correo.cuerpo, negocio, remitente],
+    () => renderEmailHtml(paramsDeVista({ asunto: correo.asunto, preheader: correo.vistaPrevia, cuerpo: correo.cuerpo, cuerpoHtml: correo.html || null, negocio, remitente })),
+    [correo.asunto, correo.vistaPrevia, correo.cuerpo, correo.html, negocio, remitente],
   );
   return (
     <div role="region" aria-label="Correo abierto" style={caja}>
@@ -293,7 +298,7 @@ async function blobABase64(b: Blob): Promise<string> {
   return btoa(bin);
 }
 
-export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, rolAdmin, etiquetaEtapa, canal, onCerrar, style }: {
+export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, rolAdmin, etiquetaEtapa, canal, onCerrar, style, productos }: {
   /** La automatización GUARDADA: su id, su línea y, si el lienzo todavía no mandó nada, sus pasos. */
   secuencia: SecuenciaDto;
   /** Lo que el lienzo tiene SIN publicar (`onCambioLocal`). Es lo que se prueba. */
@@ -308,6 +313,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   onCerrar: () => void;
   /** Dónde se acopla: lo decide quien monta. */
   style?: CSSProperties;
+  /**
+   * Los productos con sus etapas, para que la condición diga el nombre de lo elegido del catálogo
+   * («Está en el embudo de «Mentoría»», no «un producto»), como la tarjeta del lienzo.
+   */
+  productos?: ProductoOpcion[];
 }) {
   const propia = edicion && edicion.secuenciaId === secuencia.id ? edicion : null;
   const pasosVivos = propia?.pasos ?? secuencia.pasos;
@@ -393,12 +403,17 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     return () => { vivo = false; };
   }, [rolAdmin, canal]);
 
+  // Los catálogos de las condiciones (cursos, clases, posts, campañas) para nombrar lo elegido, con la
+  // MISMA lectura que el editor y la tarjeta (`useCatalogosCondicion`). Sólo si hay una condición y es admin.
+  const usaCondicion = flujoVivo.some((p) => claseDe(p) === 'condicion');
+  const remotosCond = useCatalogosCondicion(rolAdmin && usaCondicion);
   const nombres: NombresSim = useMemo(() => ({
     etiqueta: (id) => etiquetas.get(id) ?? null,
     etapa: (key) => etiquetaEtapa(key),
     secuencia: (id) => secuencias.find((s) => s.id === id)?.nombre ?? null,
     accion: (op) => titulosAccion?.get(op) ?? null,
-  }), [etiquetas, etiquetaEtapa, secuencias, titulosAccion]);
+    catalogo: nombresCatalogoDe(catalogosDe({ etapas: [], productos: productos ?? [], remotos: remotosCond })),
+  }), [etiquetas, etiquetaEtapa, secuencias, titulosAccion, productos, remotosCond]);
 
   // ── El motor del panel ─────────────────────────────────────────────────────
   // Todo lo que leen los timers va por REF: un timer agendado en un render viejo tiene que ver
@@ -483,7 +498,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       // A la BANDEJA, con las variables del lead de ejemplo; lo que sale de verdad es lo que se ve.
       const correo = correoDeEjemplo(p, c.negocio);
       ponerCorreo({ id: nuevoId('em'), ...correo, minuto, leido: false });
-      mandarReal({ canal: 'email', tipo: 'texto', texto: correo.cuerpo, asunto: correo.asunto }, nodo, enRespuesta);
+      mandarReal({ canal: 'email', tipo: 'texto', texto: correo.cuerpo, asunto: correo.asunto, ...(correo.html ? { html: correo.html } : {}) }, nodo, enRespuesta);
       return;
     }
     if (p.tipo === 'audio') {

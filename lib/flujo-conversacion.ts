@@ -1246,16 +1246,42 @@ export function canalesParaProbar(pasos: readonly PasoGrafo[]): Array<'whatsapp'
 }
 
 /**
+ * Lo OBLIGATORIO que le falta a un paso «⚡ Acción», por nombre de parámetro (`faltanDelFormulario`,
+ * lib/editor-acciones.ts, con el catálogo y las opciones del negocio). Lo arma quien tiene esos datos
+ * (el componente); null = todavía no se sabe (el catálogo no llegó) y no se frena por eso.
+ */
+export type FaltanEnAccion = (operacion: string, params: Record<string, unknown>) => readonly string[];
+
+/**
  * ¿SE PUEDE PROBAR / PUBLICAR? Lo mismo que frena Publicar (decisión 13: «No debería dejarme "Probar"
  * si hay cosas inconclusas en la edición... que me lleve al lugar donde falta el dato»): la forma
- * (`validarGrafo`) y lo que falta escribir (`faltaEscribir`). Devuelve el error ya legible y la
- * tarjeta a abrir, o null si está todo. UNA función para los dos botones: con dos, uno se queda viejo.
+ * (`validarGrafo`), lo que falta escribir (`faltaEscribir`) y lo obligatorio que le falta a una acción
+ * (`faltanEnAccion`). Devuelve el error ya legible y la tarjeta a abrir, o null si está todo. UNA
+ * función para los dos botones: con dos, uno se queda viejo.
+ *
+ * ⚠️ LA ACCIÓN MIRA LO QUE EL FORMULARIO PIDE, NO SÓLO LO DECLARADO (integración de la tercera tanda,
+ * decisión 16). `faltanEnPaso` (el del server) ve sólo los parámetros obligatorios de la def: un
+ * «Mover a Ganado» sin monto se publicaba y rebotaba en cada lead con «falta cargar: Monto de cierre».
+ * El monto lo pide la ETAPA elegida, y eso sólo lo sabe el formulario.
  */
-export function frenoDelFlujo(pasos: readonly PasoGrafo[]): { error: string; tarjeta: string | null } | null {
+export function frenoDelFlujo(pasos: readonly PasoGrafo[], faltanEnAccion?: FaltanEnAccion | null): { error: string; tarjeta: string | null } | null {
   const errores = validarGrafo(pasos);
   if (errores.length) return { error: errorLegible(errores[0], pasos), tarjeta: tarjetaDelError(errores[0], pasos) };
   const vacia = faltaEscribir(pasos);
-  return vacia ? { error: vacia.error, tarjeta: vacia.id } : null;
+  if (vacia) return { error: vacia.error, tarjeta: vacia.id };
+  if (faltanEnAccion) {
+    for (let i = 0; i < pasos.length; i++) {
+      const a = pasos[i].accion as { operacion?: unknown; params?: unknown } | null | undefined;
+      const op = typeof a?.operacion === 'string' ? a.operacion : '';
+      if (claseDe(pasos[i]) !== 'accion' || !op) continue;
+      const params = a?.params && typeof a.params === 'object' && !Array.isArray(a.params) ? (a.params as Record<string, unknown>) : {};
+      if (faltanEnAccion(op, params).length) {
+        const id = idDe(pasos[i], i);
+        return { error: `Falta completar «${nombreDeTarjeta(pasos, id)}»`, tarjeta: id };
+      }
+    }
+  }
+  return null;
 }
 
 /** Lo que se le manda al server al elegir un valor del desplegable (POST

@@ -153,6 +153,15 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   assert.match(ed, /botonLabel="＋ Dato del lead"/);
   assert.match(ed, /leadId: params\.leadId \?\? LEAD_DEL_EVENTO/, 'el aviso perdió el lead del evento');
   assert.match(flujo, /const DATOS_MAKO: DropdownOption\[\] = VARIABLES_LEAD\.map/);
+  // ⚠️ Y EL RUNNER LOS REEMPLAZA (integración): «＋ Dato del lead» inserta `{{nombre}}`, y sin esto
+  // salía crudo al grupo. Mensaje Y título, con la función del motor y el nombre CRUDO del lead (el
+  // `nombre` del aviso trae el respaldo «el lead #N», que no es un nombre).
+  // Rotura (el runner arma el texto con el mensaje crudo): 1 fallo.
+  const run = sinComentarios(leer('../lib/api-mako/areas/chatbot.run.ts'));
+  assert.match(run, /\.select\('id, nombre, telefono, empresa'\)/);
+  assert.match(run, /return aplicarVariables\(t, valoresVariablesLead\(\{ nombre: lead\.nombreCrudo, empresa: lead\.empresa \}\)\)\.trim\(\);/);
+  assert.match(run, /const mensaje = textoDelAviso\(mensajeCrudo, lead\);/);
+  assert.match(run, /const titulo = textoDelAviso\(String\(payload\.titulo \?\? ''\), lead\) \|\|/);
 });
 
 test('«Probar» ofrece sólo los canales que el flujo usa', () => {
@@ -167,7 +176,7 @@ test('«Probar» ofrece sólo los canales que el flujo usa', () => {
 test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y es un desplegable con 2 canales', () => {
   const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
   const probar = bloque(perfil, 'const probar = (canal:', '\n  };', 400);
-  const freno = probar.indexOf('const freno = frenoDelFlujo(pasos);');
+  const freno = probar.indexOf('const freno = frenoDelFlujo(pasos, faltanEnAccion);');
   assert.ok(freno >= 0 && freno < probar.indexOf('onProbar(canal)'), '«Probar» abre sin frenar lo inconcluso');
   assert.match(probar, /if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
   assert.match(perfil, /const canales = canalesParaProbar\(pasos\);/);

@@ -89,9 +89,11 @@ export async function enviarPasoDePrueba(p: {
   let enviados = 0;
   for (const envio of planDePrueba(mensaje, primero)) {
     if (envio.via === 'email') {
+      // Con el HTML del editor rico (parte C de la tercera tanda): sin `bodyHtml`, la prueba mandaba el
+      // texto plano de respaldo y no el email que se ve en la bandeja. `renderEmailHtml` lo vuelve a sanear.
       const r = await sendEmail({
         to: destino.email!, subject: envio.asunto,
-        html: renderEmailHtml({ subject: envio.asunto, bodyText: envio.texto }), text: envio.texto,
+        html: renderEmailHtml({ subject: envio.asunto, bodyText: envio.texto, bodyHtml: envio.html || undefined }), text: envio.texto,
       });
       if (!r.ok) return { ok: false, error: r.error || 'El email no salió' };
       enviados += 1;
