@@ -1,101 +1,82 @@
 # Retomar: Plan · Perro Guardián
 
-**Dónde quedó:** 06/10/2026, 16:30. Sesión `153a499a` (chat «Plan - Perro Guardián»), cuenta
-`claude1`. Cierre por cambio de cuenta. El árbol de esta sesión está limpio: todo lo mío está
-commiteado, pusheado y **en producción** (el deploy Ready de las ~16:04 del 06/10 contiene
-`de64b5b7`, que tiene adentro los cuatro commits de abajo).
+**Dónde quedó:** 09/10/2026, cuenta `claude2`, sesión `153a499a` (chat «Plan - Perro
+Guardián»). Lo anterior, del 05-06/10 en la cuenta 1, está en el historial de este archivo.
 
-## 1. Lo que está hecho y desplegado
+## 1. Lo que está hecho
 
 | Qué | Commit | Dónde vive |
 |---|---|---|
-| **Cargar tareas no pregunta nada.** Fuera el paso de preguntas en las tres puertas (el modal de reuniones, `/plan/revisar` y lo que entra por WhatsApp, Claude y el proyecto vacío) y en los cuatro productores que las fabricaban con IA | `d763c2b9` (05/10 22:32) | `app/plan/board/TareasRecibidasModal.tsx` · `app/plan/revisar/[id]/RevisarPropuesta.tsx` · `lib/plan-propuesta.ts` (`crearPropuesta` escribe `notas: []`) · guard `tests/alta-sin-preguntas.test.ts` |
-| **La casilla de selección de las tarjetas del Plan se anima como la del CRM** (ancho 0 → 15 px con el hover, todas a la vista si hay algo elegido) | `d988fc98` (06/10 00:21) | `app/plan/board/BoardShell.tsx` (CardTile, ProyectoCardTile) · `app/globals.css` (`.mk-sel-tarjeta`) · guard `tests/plan-casilla-tarjeta.test.ts` |
-| Cosecha de las dos: el alta tenía otra puerta, la casilla y sus trampas de medición, y la bitácora del área (no existía) | `b8255314` (06/10 00:26) | `docs/hallazgos-plan.md` · `docs/hallazgos-ui.md` · `docs/hallazgos-infra.md` · `app/admin/dev/plan/bitacora.ts` |
-| **El arrastre del Kanban, medido sin tocar código** (ver punto 4) | `d59353ca` (06/10 10:54) | `docs/hallazgos-plan.md` → «El punto medio es correcto y la tarjeta igual NO queda donde se soltó» |
+| **Soltar una tarea en el Kanban la deja donde se soltó**: se corren las de abajo un punto, sin cruzarse ni cambiar de columna; el deshacer las devuelve. En los dos tableros (el tuyo y el de cada cliente) | `27ef6b28` (09/10) | `app/plan/board/lugar-al-soltar.ts` (la regla, pura) · `BoardShell.tsx` (el `onDrop` y el pop-up) · `lib/plan-reprio.ts` · `app/plan/TodoBoard.tsx` · guard `tests/plan-lugar-al-soltar.test.ts` |
+| Cargar tareas no pregunta nada (las tres puertas) | `d763c2b9` (05/10) | `tests/alta-sin-preguntas.test.ts` |
+| La casilla de selección de las tarjetas se anima como la del CRM | `d988fc98` (06/10) | `tests/plan-casilla-tarjeta.test.ts` |
+| La prueba de un cierre tiene UN tope (otra sesión) | `6641b6d8` (07/10) | `lib/cierre-tarjeta.ts` |
 
-La regla del alta quedó también en la memoria `alta-sin-preguntas` y en la tabla de
-`AGENTS.md` («Los tipos de pregunta del Perro…»). La bitácora de `/admin/dev/plan` tiene los
-pedidos textuales de Martín.
+Los porqués están en `docs/hallazgos-plan.md` → «El punto medio es correcto y la tarjeta igual NO
+queda donde se soltó» (la medición del 06/10 y la cura del 09/10). Los pedidos textuales, en la
+bitácora de `/admin/dev/plan`.
 
-## 2. Lo que quedó a medio hacer
+## 2. Lo que Martín decidió el 09/10 (no se re-pregunta)
 
-- **Código sin call site que dejó el alta sin preguntas:** `PreguntaCampo` y cuatro exports de
-  `lib/preguntas-contrato.ts`. No rompe nada; queda en la cola de la bitácora («Borrar lo que
-  quedó sin call site»). No se borró en la misma tanda para no mezclar un borrado con el
-  cambio de comportamiento.
-- **El orden al soltar una tarjeta** (punto 4): medido, sin implementar, porque cada cura
-  choca con una decisión anterior.
+- **El arrastre: «Correr las de abajo».** Lo eligió dos veces, la segunda con el costo medido:
+  sobre el tablero real se corren p50 1 tarea, p90 29, máximo 52, un punto cada una.
+- **Los scores de los 14 proyectos que reordenó la corrida del 03/10: «Dejarlos».** Son el plan
+  de las cinco etapas que está vigente. Los diez deadlines que esa corrida pisó ya se habían
+  revertido en `3cc5ecb2` (04/10).
+- **`docs/proyeccion-04oct.md`: «Mostrame qué cambiaría».** Sigue SIN cargarse. El cruce está en
+  el punto 4.
 
-## 3. Las trampas del área (las que ahorran tiempo)
+## 3. Lo que quedó a medio hacer
 
-- **Verificar el Plan ESCRIBE en producción.** «Agregar N al plan» crea tareas reales;
-  «Aplicar» en el pop-up de prioridad fija el número. Para mirar el pop-up se aprieta
-  **Cancelar**, que no escribe.
-- **Levantar el dev server local escribe credenciales en prod** al arrancar
-  (`migrarEnvACredenciales`). Hay que vaciar las keys del catálogo para ese proceso y mirar
-  que el log diga «hidratadas» y no «migradas» (memoria `boot-local-escribe-prod`).
-- **Next 16 permite UN dev server por carpeta.** Si otra sesión tiene el suyo levantado, el
-  tuyo no arranca: worktree hermano + `turbopack.root` subido en la copia descartable;
-  `--webpack` ya no sirve (`node:crypto`). Detalle en `docs/hallazgos-infra.md`.
-- **Las tareas admiten EMPATES a propósito; los proyectos no.** `fijarPrioridadAMano`
-  (`lib/plan-reprio.ts`) escribe el número de una tarea tal cual, sin cascada (241 tareas no
-  entran en 100 números). Los proyectos sí corren la cascada `fijarYDesempatar`.
-- **`updated_at` no distingue al Perro de una persona.** El cron del Perro re-curva el tablero
-  entero y le pone a todas las tarjetas el mismo timestamp al milisegundo. Lo que dice «esto
-  lo tocó Martín» es el `actor: 'user'` del historial y `score_manual`.
-- **Medir un hover en el tablero:** el mouse en reposo sobre la barra lateral la despliega y
-  tapa las tarjetas, y el scroll del tablero es suave (hace falta esperar ~900 ms). Las dos
-  dieron falsos negativos (`docs/hallazgos-ui.md`).
+- **Las TABLAS no corren a las de abajo.** Arrastrar una fila de la tabla de tareas
+  (`useArrastreFilas`, `app/plan/board/Tablas.tsx`) sigue con el punto medio solo: el mismo gesto
+  da otro resultado según la vista. Es la misma regla (`hacerLugar`) con su `lugar`.
+- **El Perro puede re-empatar al día siguiente** a una tarjeta fijada con una vecina que no lo
+  está: `recurvarPlanOwner` reparte números por rango y no sabe dónde estaba la fijada. No es
+  nuevo (le pasa a toda tarjeta fijada a mano) y se arregla ahí, no en el arrastre.
+- **Código sin call site** del alta sin preguntas: `PreguntaCampo` y cuatro exports de
+  `lib/preguntas-contrato.ts`.
 
-## 4. Lo que espera una DECISIÓN DE MARTÍN
+## 4. La proyección del 04/10 contra el tablero de hoy (sólo lectura, 09/10)
 
-1. **Qué hacer cuando se suelta una tarjeta entre dos con el mismo número.** Pedido del 06/10
-   (por la sesión de Customer Success): «la posición son PRIORIDADES… Si lo hace bien, que no
-   modifique nada». **No lo hace bien:** contra el tablero real, en 472 de 618 lugares (76%)
-   la tarjeta queda corrida 1 a 3 lugares, porque 208 tareas abiertas comparten 85 números y
-   entre dos con el mismo no hay número que la deje en el medio (desempata `num`). Opciones:
-   - **Dejarlo así.** La prioridad que queda es la que se eligió; sólo el lugar entre
-     empatadas no es exacto.
-   - **Correr a las vecinas** que tienen ese número un lugar para abajo, sin que ninguna cambie
-     de columna. Es la que recomendé: mantiene «posición = prioridad». Toca el número de 2 a 5
-     tareas ajenas; la cascada completa para tareas se descartó el 23/09.
-   - **Una posición manual** como desempate, como el CRM. Es lo que él dijo que el Plan no es.
+| Lo que propone | En el tablero |
+|---|---|
+| P1 técnico al 7/10 · Onboarding y oferta 8-9/10 · Video e Imagen 10-14/10 · Landing y VSL al 18/10 | **Ya coinciden** |
+| Prospección cobrando el grupal a mano, **19/10** | «Vender MaKo: Prospección» vence el **31/10** |
+| Anuncios con la pasarela aprobada, **1/11** | «Vender MaKo: Ads» vence el **18/10** |
+| Stripe propio · `/terminos` con la cláusula de cobro · el documento de oferta | Existen **sin fecha**: #388, #551, #783 (`/reembolsos` no aparece) |
+| Tu CRM + tu embudo · el embudo de la app · filtro de embudo en broadcasts · la capa nueva + migración · el webhook de pago · precios y botón de compra en la landing · anuncios + pasarela | **No existen** (7) |
 
-   Vive en `app/plan/board/BoardShell.tsx` (`scoreEntre`, el `onDrop` del Kanban) y
-   `lib/plan-reprio.ts` (`fijarPrioridadAMano`, rama de tareas). El primer punto del pedido
-   (un drop que se pierde sobre el hueco) **no pasa en el Plan**: 6 de 6 drops llegaron. No hay
-   nada que decidir ahí.
-2. **Los SCORES de los catorce proyectos que reordenó la corrida del 03/10.** Esa corrida
-   aplicó el plan de la llamada con Leila del 1/10 y **pisó diez deadlines** que Martín había
-   depurado a mano catorce minutos antes (seis que había dejado sin fecha a propósito y cuatro
-   a los que les había cambiado la fecha). **Los deadlines se revirtieron en `3cc5ecb2`
-   (04/10 21:29).** Los **scores** que esa misma corrida reordenó («prioridad 94 a 96», «93 a
-   88»…) **NO se revirtieron**: reordenar era lo pedido en ese momento, y deshacerlo sin
-   preguntar sería la misma falta al revés. En esta ventana no cambió nada de eso. Detalle:
-   `docs/hallazgos-plan.md` → «Un plan tiene FECHA, y el tablero sobre el que se aplica
-   también».
-3. **`docs/proyeccion-04oct.md` sigue SIN cargarse al tablero, a propósito.** Ningún commit
-   lo tocó después de crearlo (04/10 22:33) y en esta ventana no se cargó. Cargarlo es
-   decisión de Martín, y si se carga hay que hacerlo con la regla de arriba: comparar contra
-   lo que HAY y frenar en todo lo que una persona tocó después (`actor: 'user'`).
-4. Dos más de producto, chicas, anotadas en `docs/hallazgos-plan.md`: lo que se crea con el
-   filtro de cliente puesto no nace asignado a ese cliente (05/10), y la barra de lote de la
-   grilla de Proyectos cuenta sobre todo lo filtrado y no sobre lo dibujado (04/10).
+Nada de eso pisa algo que una persona tocó después del 04/10: los únicos toques a mano son el
+trimestre de Chatbot y de Customer Success (07/10), que la proyección no cambia. **Cargar
+cualquiera de esas cosas es decisión de Martín**, con la regla de AGENTS.md («la fuente más
+nueva puede ser el tablero mismo»).
 
-## 5. Lo que quedó SIN verificar, y cómo medirlo
+## 5. Trampas del área
 
-- **El alta sin preguntas no se probó con un click.** «Agregar» crea tareas reales, así que se
-  verificó el cableado (el botón llama a `aplicar()`, la misma función que corría al final del
-  wizard) y lo fija el guard. Para medirlo: la próxima reunión de Fathom con tareas, apretar
-  «Agregar N al plan» y comprobar que carga directo, sin ninguna pantalla en el medio.
-- **Por qué el Plan no sufre el drop perdido que sí tenía Customer Success:** no se midió el
-  porqué, sólo el resultado (6/6, Chromium headless con Playwright contra el dev server). Si
-  Martín lo ve fallar en su Chrome, se repite el arrastre con `channel: 'chrome'` y
-  `headless: false`.
-- **Que `docs/proyeccion-04oct.md` siga sin cargar lo dicen git y esta sesión, no la base.**
-  No consulté el tablero en esta ventana. Para confirmarlo: buscar en `plan_tareas` las
-  tarjetas que ese documento nombra y mirar su `created_at`.
-- **Las cifras del arrastre (76%, 85 números) son del tablero del 06/10 a la mañana.** El Perro
-  re-curva todos los días, así que cambian; el script que las reproduce lee `/api/plan-board`
-  en sólo lectura y tiene 60 líneas (está explicado en el hallazgo).
+- **Verificar el Plan ESCRIBE en producción.** «Agregar N al plan» crea tareas reales y «Cambiar»
+  en el pop-up fija el número. Para verificar sin escribir: `page.route` de Playwright contestando
+  todo lo que no sea GET a `/api/*`.
+- **Levantar el dev server local escribe credenciales en prod** (memoria `boot-local-escribe-prod`),
+  y Next 16 deja UN dev server por carpeta. Un dev server ajeno puede escuchar y no contestar: el
+  del puerto 3021 no contestó ni el login en dos minutos el 09/10.
+- **La máquina se queda sin memoria con varias sesiones**: el 09/10 había 0,6 GB libres de 16 y
+  42 procesos de node. El typecheck va por `scripts/typecheck-lock.mjs`, de a uno por máquina, y
+  puede esperar varios minutos su turno; la suite completa da falsos rojos por timeout (se
+  confirman corriendo esos archivos solos).
+- **El scratchpad de la sesión se vacía en el relevo de cuenta.** Lo que haya que conservar va al
+  repo.
+- **Las tareas admiten empates; los proyectos no.** `Hist.ts` es epoch en MILISEGUNDOS: un filtro
+  de fecha contra un string ISO da cero sin error (pasó en el cruce de la proyección).
+- **`updated_at` no distingue al Perro de una persona**: lo que lo dice es `actor: 'user'` en el
+  historial y `score_manual`.
+
+## 6. Sin verificar, y cómo medirlo
+
+- **El arrastre nuevo no se probó con un arrastre en el navegador** (sin dev server que contestara
+  y sin memoria para levantar otro). Para medirlo: dev server propio con las claves del catálogo
+  vacías, `/api/auth/dev-login?ws=9&next=/plan/agencia`, vista «Tareas», arrastrar una tarjeta
+  entre dos con el mismo número y contestar el `POST /api/plan-board` desde Playwright con las
+  vecinas que da `hacerLugar` sobre el `GET /api/plan-board`. Tiene que quedar entre las dos.
+- **El alta sin preguntas no se probó con un click**: la próxima reunión con tareas, «Agregar N al
+  plan» tiene que cargar directo.

@@ -3432,12 +3432,80 @@ chocan con decisiones anteriores, así que **no se implementó nada y lo decide 
 
 ⚠️ **La trampa:** «¿soltar abajo de otra ya la deja ahí?» no se contesta leyendo el handler
 ni con un tablero de prueba de cinco tarjetas sin empates — ahí da 100%. Se contesta con los
-empates del tablero real. Los scripts (`simular-orden2.cjs`, `probar-drop.cjs`) quedaron en
-el scratchpad de la sesión; la réplica entra en 60 líneas y vuelve a correr contra
-`/api/plan-board`.
+empates del tablero real.
 
 **Vive en:** app/plan/board/BoardShell.tsx (`scoreEntre`, el `onDrop` del Kanban) ·
 lib/plan-reprio.ts (`fijarPrioridadAMano`, rama de tareas) · *2026-10-06*
+
+### Y la cura: se corren las de abajo (09/10/2026)
+
+Martín eligió «Correr las de abajo» **dos veces**: la primera con una estimación mía («toca de
+2 a 5 tareas») que resultó falsa, y la segunda con el costo medido. La regla vive en UN módulo
+puro, `app/plan/board/lugar-al-soltar.ts` (`hacerLugar` y `sugerirNumero`), y la llaman los
+tres: el Kanban para sugerir el número, `fijarPrioridadAMano` con el tablero recién leído, y el
+repo del cliente (`TodoBoard`).
+
+Medido contra las 184 abiertas del tablero real (561 lugares, tres tarjetas que se mueven):
+
+| | |
+|---|---|
+| la tarjeta queda donde se soltó | **561 de 561** |
+| alguna vecina cambia de columna | 0 |
+| alguna vecina SUBE | 0 |
+| vecinas corridas por soltada | p50 **1** · p90 **29** · máx **52** (un punto cada una, sin cruzarse) |
+
+⚠️ **Una estimación que decide entre opciones se MIDE antes de implementarla.** «De 2 a 5» salió
+de pensar en un grupo de empates; la ola real atraviesa la columna, porque al correr una tarjeta
+un punto queda empatada con el grupo de abajo y, si su `num` es más alto que el de alguna de
+ese grupo, la arrastra. Se volvió a preguntar con los números y la respuesta fue la misma — pero
+ahora es una decisión con su costo a la vista, no una con el costo inventado.
+
+Tres cosas que cuestan ver y que la regla hace a propósito:
+
+- **El empate por `num` se aprovecha, no se ignora.** Una vecina corrida queda en el mismo número
+  que la anterior si su `num` ya la deja detrás; sólo si no, un punto menos. Restar siempre un
+  punto también deja la tarjeta en su lugar —por eso pasaba el test en verde— y baja la columna
+  entera. Lo cazó la aserción del plan exacto de dos vecinas, no la de «queda en su lugar».
+- **El número puede quedar UN punto por debajo de la de abajo.** Con la ventana `[abajo, arriba]`,
+  133 de 561 lugares exigían SUBIR a la de arriba (entre dos de 62, una soltada con `num` más alto
+  sólo cabe en 62 corriendo a la de arriba). Con `[abajo − 1, arriba]` ninguno. Más abajo que eso,
+  el número del pop-up contradice el lugar y gana el número: no se corre a nadie.
+- **Se corre la BASE igual que el número** (`baseCorrida`). El Perro re-curva cada día desde
+  `score_base` (`recurvarPlanOwner`); corriendo sólo el número que se ve, la corrida de la
+  mañana siguiente lo deshace y la soltada vuelve a empatar. Y el estado local del board corre
+  la base también: el autosave de una tarea upsertea la fila ENTERA.
+
+Y dos que encontró escribir la verificación, no el test:
+
+- **El botón «Cambiar» del pop-up se apagaba si el número no cambiaba.** Soltar una tarjeta de 62
+  entre dos de 62 no cambia el número y SÍ el lugar, así que el lugar no se podía aplicar nunca.
+  Va `conLugar`. Es «un control que se apaga por una regla que ya no es la regla».
+- **Del lado del server, el atajo «mismo número y ya fijada → no hago nada»** se llevaba puesto
+  el mismo caso. Ahora sólo vale sin lugar y sin deshacer.
+
+El deshacer devuelve también a las vecinas, en el server y con compare-and-set: sólo las que
+todavía tienen el número que les puso el arrastre.
+
+**Sin hacer:**
+
+- **No se verificó con un arrastre en el navegador.** El dev server de otra sesión (puerto 3021)
+  escuchaba y no contestaba, y la máquina tenía 0,6 GB libres de 16 con 42 procesos de node:
+  levantar otro con Chromium era arriesgar trabarla. Para medirlo: dev server propio con las
+  claves del catálogo vacías, arrastrar en `/plan/agencia` entre dos tarjetas con el mismo
+  número, y contestar el `POST /api/plan-board` desde Playwright (`page.route`) para no escribir
+  —con las vecinas que devuelve `hacerLugar` sobre el `GET /api/plan-board`, que es lo que haría
+  el server—. El script se escribió y no sobrevive: el scratchpad de la sesión se vacía en el
+  relevo de cuenta (se perdió así también la foto del tablero del 06/10).
+- **Las TABLAS no lo hacen.** Arrastrar una fila de `TablaTareas` (`useArrastreFilas`, Tablas.tsx)
+  sigue usando el punto medio solo: el mismo gesto da otro resultado según la vista.
+- **El Perro todavía puede re-empatar al día siguiente** a una tarjeta fijada con una vecina que no
+  lo está: la curva reparte números por rango y no sabe que la fijada estaba en ese lugar. No es
+  nuevo —le pasa a toda tarjeta fijada a mano— y se arregla en `recurvarPlanOwner`, no acá.
+
+**Vive en:** app/plan/board/lugar-al-soltar.ts · app/plan/board/BoardShell.tsx (`onDrop` del
+Kanban, el pop-up) · app/plan/board/PrioridadAMano.tsx (`conLugar`) · lib/plan-reprio.ts
+(`fijarPrioridadAMano`) · app/plan/TodoBoard.tsx · app/plan/board/useBoard.ts
+(`aplicarCascadaManual`) · tests/plan-lugar-al-soltar.test.ts · *2026-10-09*
 
 ## Tres cosas que se sacaron porque no significaban nada
 
