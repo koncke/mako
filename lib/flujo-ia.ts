@@ -67,10 +67,18 @@ export const FEATURE_CREAR_IA = 'chatbot-crear-ia';
  * ⚠️ El relevo R5 sumaba `marcar_calificado` y `agregar_nota_lead`, y el registro los declara
  * `reversible: false` (medido el 08/10/2026). Quedan afuera: la decisión 14 dice «gratis y
  * reversibles», y un test lo cruza contra el registro.
+ *
+ * ⚠️ `asignar_closer_setter` TAMPOCO (revisión de la segunda tanda, 09/10/2026). Es gratis y
+ * reversible, pero sus dos parámetros son NOMBRES del equipo y `CtxIA` no los trae: el modelo
+ * escribía cualquier texto (o nada), `faltanEnPaso` daba [] porque los dos son opcionales, y en
+ * cada lead `preparar` (crm.run.ts) rechazaba con «Pasa un closer, un setter o los dos» o «"Juan"
+ * no es nadie del equipo». O sea una tarjeta que el lienzo dibuja configurada y que no hace nada.
+ * Para volver a sumarla hace falta pasar los nombres asignables en `CtxIA` y validarlos con un
+ * igual exacto en `resolverAccion`.
  */
 export const LISTA_BLANCA_IA: readonly string[] = [
   'poner_etiqueta_lead', 'sacar_etiqueta_lead', 'proponer_cambio_etapa', 'mover_lead_en_producto',
-  'agregar_lead_a_producto', 'asignar_closer_setter', 'avisar_al_equipo',
+  'agregar_lead_a_producto', 'avisar_al_equipo',
 ];
 
 const OP_PONER = 'poner_etiqueta_lead';
