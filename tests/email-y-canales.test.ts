@@ -33,17 +33,24 @@ function sinComentarios(src: string): string {
 
 // ── El render, que ahora vive fuera de `server-only` ─────────────────────────
 
-test('El render del email no importa NADA del repo, ni transitivamente', () => {
+test('El render del email no importa NADA con server-only, ni transitivamente', () => {
   // Lo importa un componente `use client` (app/perfil/BandejaEmail.tsx) para
   // previsualizar el correo. `tests/frontera-use-client.test.ts` sólo mira imports
   // DIRECTOS, así que un import transitivo de algo con `server-only` no lo cazaría
   // nadie: el modo de falla es el build entero, con un error que nombra otra ruta.
   //
+  // Desde la tercera tanda del Chatbot (09/10/2026) importa UN módulo: el saneo
+  // del cuerpo HTML de un email (`./email-html-seguro`), que importa sólo
+  // `./template-vars`, que no importa nada. La cadena se fija ENTERA, eslabón por
+  // eslabón: sumar un import en cualquiera de los tres es una decisión, no un descuido.
+  //
   // Probado rompiéndolo: agregando `import { getSetting } from './settings';` a
-  // lib/email-html.ts -> 1 falla / 9 pasan.
-  const src = leer('../lib/email-html.ts');
-  const imports = [...src.matchAll(/^\s*import\s[^;]*?from\s+'([^']+)'/gm)].map((m) => m[1]);
-  assert.deepEqual(imports, [], `lib/email-html.ts importó ${imports.join(', ')}: tiene que quedarse sin dependencias del repo`);
+  // lib/email-html.ts -> 1 falla / 9 pasan (08/10). Y el 09/10, agregando
+  // `import 'server-only';` a lib/email-html-seguro.ts -> 1 falla / 9 pasan.
+  const importsDe = (ruta: string) => [...leer(ruta).matchAll(/^\s*import\s[^;]*?from\s+'([^']+)'|^\s*import\s+'([^']+)'/gm)].map((m) => m[1] ?? m[2]);
+  assert.deepEqual(importsDe('../lib/email-html.ts'), ['./email-html-seguro'], 'lib/email-html.ts sumó un import');
+  assert.deepEqual(importsDe('../lib/email-html-seguro.ts'), ['./template-vars'], 'lib/email-html-seguro.ts sumó un import');
+  assert.deepEqual(importsDe('../lib/template-vars.ts'), [], 'lib/template-vars.ts sumó un import');
 });
 
 test('Las marcas de WhatsApp se convierten DESPUÉS de escapar, no antes', () => {

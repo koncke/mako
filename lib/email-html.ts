@@ -14,7 +14,10 @@
 //
 // ⚠️ `tests/frontera-use-client.test.ts` sólo mira imports DIRECTOS, así que no va
 // a cazar un import transitivo de un módulo server-only. Se cuida a mano: este
-// archivo importa CERO módulos del repo, a propósito.
+// archivo importa UN solo módulo del repo, `./email-html-seguro` (el saneo del
+// cuerpo HTML de un email de /chatbot, tercera tanda del 09/10/2026), que a su vez
+// importa sólo `./template-vars`, que no importa nada. Ninguno de los dos puede
+// sumar un import con `server-only`: lo fija tests/email-html-seguro.test.ts.
 //
 // ── Qué tiene que aguantar un HTML de email ──────────────────────────────────
 // No es una página web: los clientes de correo (Outlook sobre todo) no soportan
@@ -23,6 +26,8 @@
 // a nada). Por eso los hex están escritos acá y no salen de globals.css — y por
 // eso están anotados con el token del que son copia, que es lo único que permite
 // darse cuenta cuando la app cambia y el mail queda viejo.
+
+import { sanearHtmlEmail, htmlEmailVacio, type EstiloEmail } from './email-html-seguro';
 
 /** Los colores del mail. Copia LITERAL de app/globals.css: un `var()` no existe en un correo. */
 const C = {
@@ -103,9 +108,64 @@ export function bodyToHtml(text: string): string {
     .join('');
 }
 
+const MONO = `ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
+
+/**
+ * El estilo EN LÍNEA de cada etiqueta de un cuerpo HTML adentro del correo: un cliente de correo
+ * (Outlook, Gmail) no lee hojas de estilo, así que una tabla sin borde o una cita sin su raya no
+ * se distinguen del texto. Los márgenes son los de `bodyToHtml` (16 px entre párrafos), para que
+ * un email escrito con el editor rico y uno de antes se lean igual. Adentro de una lista o de una
+ * celda, el párrafo no lleva margen: si no, cada ítem quedaría separado por un renglón en blanco.
+ */
+export const estiloDeCorreo: EstiloEmail = (tag, padres, attrs) => {
+  const enLista = padres.includes('li');
+  const enCelda = padres.includes('td') || padres.includes('th');
+  switch (tag) {
+    case 'p': case 'div': return enLista || enCelda ? 'margin:0;' : 'margin:0 0 16px;';
+    case 'h1': return `margin:0 0 12px;font-size:24px;line-height:1.3;font-weight:700;color:${C.tinta};`;
+    case 'h2': return `margin:0 0 12px;font-size:20px;line-height:1.3;font-weight:600;color:${C.tinta};`;
+    case 'h3': return `margin:0 0 10px;font-size:17px;line-height:1.35;font-weight:600;color:${C.tinta};`;
+    case 'ul': case 'ol': return enLista ? 'margin:4px 0 0;padding-left:22px;' : 'margin:0 0 16px;padding-left:24px;';
+    case 'li': return 'margin:0 0 4px;';
+    case 'blockquote': return `margin:0 0 16px;padding:2px 0 2px 14px;border-left:3px solid ${C.linea};color:${C.dim};`;
+    case 'pre': return `margin:0 0 16px;padding:12px 14px;background:${C.suave};border-radius:8px;font-family:${MONO};font-size:13px;line-height:1.5;white-space:pre-wrap;`;
+    case 'code': return padres.includes('pre') ? '' : `padding:1px 5px;background:${C.suave};border-radius:4px;font-family:${MONO};font-size:0.92em;`;
+    case 'hr': return `border:none;border-top:1px solid ${C.linea};margin:20px 0;`;
+    case 'a': return `color:${C.azul};text-decoration:underline;`;
+    case 'table': return 'border-collapse:collapse;width:100%;margin:0 0 16px;';
+    case 'th': return `border:1px solid ${C.linea};padding:6px 8px;background:${C.suave};text-align:left;font-weight:600;`;
+    case 'td': return `border:1px solid ${C.linea};padding:6px 8px;vertical-align:top;`;
+    case 'img': {
+      // El tamaño del editor (`data-ancho`, una lista cerrada que ya validó el saneo) como ancho en %.
+      const ancho = attrs.find(([k]) => k === 'data-ancho')?.[1];
+      const centro = attrs.some(([k, v]) => k === 'data-alinea' && v === 'centro');
+      return `max-width:100%;height:auto;border:0;${ancho ? `width:${ancho}%;` : ''}${centro ? 'display:block;margin:0 auto;' : ''}`;
+    }
+    default: return '';
+  }
+};
+
+/**
+ * Un cuerpo de TEXTO (con las marcas de WhatsApp) como el HTML limpio del editor rico: es lo que
+ * abre el editor de un email de antes, que no tiene `cuerpo_html`. Las mismas reglas que lo mandan
+ * hoy (`bodyToHtml`: párrafos, saltos, *negrita*, _itálica_, ~tachado~ y links), pasadas por el
+ * saneo: lo que se ve al abrirlo es lo que llegaba.
+ */
+export function htmlDeCuerpoTexto(texto: string | null | undefined): string {
+  return typeof texto === 'string' && texto.trim() ? sanearHtmlEmail(bodyToHtml(texto)) : '';
+}
+
 export type RenderEmailParams = {
   subject: string;
   bodyText: string;        // cuerpo en texto plano, variables ya resueltas
+  /**
+   * El cuerpo en HTML (el editor rico de un email de /chatbot), con las variables ya resueltas
+   * (`aplicarVariablesHtml`). Si está y tiene algo que leer, REEMPLAZA a `bodyText` en el cuerpo
+   * del correo; `bodyText` sigue siendo la parte de texto. Se vuelve a pasar por el saneo acá
+   * (idempotente): el render es el único lugar que arma el correo, y así ningún llamador puede
+   * olvidarse de sanear.
+   */
+  bodyHtml?: string;
   preheader?: string;      // texto de vista previa (oculto en el cuerpo)
   unsubscribeUrl?: string; // link de baja para el footer
   fromName?: string;       // firma del pie (display name del remitente del ws)
@@ -139,6 +199,7 @@ export type RenderEmailParams = {
 export function renderEmailHtml(params: RenderEmailParams): string {
   const fromName = params.fromName?.trim() || '';
   const conMarca = params.marca === 'mako';
+  const cuerpoHtml = params.bodyHtml && !htmlEmailVacio(params.bodyHtml) ? sanearHtmlEmail(params.bodyHtml, { estilo: estiloDeCorreo }) : '';
 
   const preheader = params.preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(params.preheader)}</div>`
@@ -210,7 +271,7 @@ ${preheader}
       ${banda}
       ${titulo}
       <tr><td class="mk-pad" style="padding:${params.titulo ? '14px' : '28px'} 32px ${cta ? '6px' : '10px'};font-family:${FUENTE};color:${C.tinta};font-size:16px;line-height:1.6;">
-        ${bodyToHtml(params.bodyText)}
+        ${cuerpoHtml || bodyToHtml(params.bodyText)}
       </td></tr>
       ${cta}
       <tr><td class="mk-pad" style="padding:18px 32px 26px;font-family:${FUENTE};color:${C.dim};font-size:13px;line-height:1.5;border-top:1px solid ${C.linea};">

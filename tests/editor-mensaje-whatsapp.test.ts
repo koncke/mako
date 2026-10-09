@@ -9,8 +9,10 @@
 //     escribe la BIBLIOTECA y le pasa al lienzo un cambio local (`onChange`).
 //   · la ✕ del chip vuelve a TEXTO sin perder lo escrito (`pasoSinAdjunto`), y las otras vueltas
 //     (a archivo, a voz desde un archivo) tampoco pierden nada;
-//   · lo que se dibuja según el paso (placeholder, ✦, «↻ N», «Revisar antes de enviar», mic y
-//     clip según los permisos) y que `{{negocio}}` se resuelve con la función del MOTOR.
+//   · lo que se dibuja según el paso (placeholder, ✦, «↻ N», mic y clip según los permisos) y que
+//     `{{negocio}}` se resuelve con la función del MOTOR;
+//   · tercera tanda (09/10/2026): UNA columna como un teléfono (la `fila` se fue) y sin «Revisar
+//     antes de enviar» (el dato `revisar` queda; el editor ya no lo dibuja ni lo escribe).
 //
 // Probado rompiéndolo (08/10/2026) con un arnés que rompe UNA cosa, corre este archivo y restaura
 // de memoria: 8 roturas, 8 cazadas (13 tests):
@@ -34,7 +36,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorMensajeWhatsApp, mismoPaso, placeholderDe, ANCHO_MIN_FILA, type EditorMensajeWhatsAppProps } from '../app/chatbot/EditorMensajeWhatsApp';
+import { EditorMensajeWhatsApp, mismoPaso, placeholderDe, ALTO_MIN_CHAT, type EditorMensajeWhatsAppProps } from '../app/chatbot/EditorMensajeWhatsApp';
 import { pasoSinAdjunto, pasoAMedia, pasoAVozDesde, pasoAVoz, cambiosDePaso } from '../lib/guion-audio';
 import type { PasoSecuenciaDto, AudioSetting } from '../app/chatbot/ChatAgentApp';
 
@@ -171,12 +173,16 @@ test('«↻ N» sólo en un mensaje de texto: ni en un audio ni en un archivo (c
     'en un archivo el campo es el caption: mostrarlas invita a editar lo que el motor sorteaba debajo del PDF');
 });
 
-test('«Revisar antes de enviar»: ausente en el paso = lo que hereda de la secuencia', () => {
-  const marcado = (html: string) => /<input[^>]*type="checkbox"[^>]*checked/.test(html);
-  assert.ok(marcado(dibujar({ mostrarRevisar: true, revisarHeredado: true })), 'sin `revisar` en el paso vale lo de la secuencia');
-  assert.ok(!marcado(dibujar({ mostrarRevisar: true, revisarHeredado: true, paso: paso({ revisar: false }) })));
-  assert.ok(marcado(dibujar({ mostrarRevisar: true, revisarHeredado: false, paso: paso({ revisar: true }) })));
-  assert.ok(!dibujar({}).includes('Revisar antes de enviar'));
+// Tercera tanda (09/10/2026, punto 2 del pedido y decisión 2): «¿Qué es "Revisar antes de enviar"?,
+// eso no tiene mucho sentido». Sale de la pantalla; el dato `revisar` de cada paso queda (lo lee el
+// motor) y las props que lo pintaban quedan en el tipo SIN efecto, porque el lienzo las sigue pasando.
+test('«Revisar antes de enviar» ya no se dibuja, aunque el lienzo pase las props, y el editor no escribe `revisar`', () => {
+  for (const p of [{}, { mostrarRevisar: true, revisarHeredado: true }, { mostrarRevisar: true, paso: paso({ revisar: true }) }]) {
+    const html = dibujar(p);
+    assert.ok(!html.includes('Revisar antes de enviar'), 'el interruptor volvió');
+    assert.ok(!/type="checkbox"/.test(html), 'una casilla volvió');
+  }
+  assert.doesNotMatch(EDITOR, /revisar\s*:|Checkbox|revisarHeredado\s*\?\?|paso\.revisar/, 'el editor no lee ni escribe `revisar`');
 });
 
 test('`{{negocio}}` se resuelve con la función del MOTOR; lo demás queda como dato', () => {
@@ -191,37 +197,46 @@ test('sin rótulos encima del campo: el placeholder alcanza (punto 5 del pedido)
   assert.doesNotMatch(EDITOR, /Qué tiene que decir|El mensaje<\/label>|<label/);
 });
 
-// ── La `fila` (segunda tanda, 08/10/2026, punto 3: «más ancho que largo, sino, se amontona todo») ──
-// Roturas (08/10/2026, arnés del scratchpad E-v2-romper.mjs: una por vez, restaurada de memoria;
-// base 17 / 17): 5 roturas, 5 cazadas.
-//  14. `fila` dibujando la columna de siempre (el render que dejó el WIP) → 1 fallo.
-//  15. la barra metida adentro del chat → 1.
-//  16. la consulta del contenedor con otro ancho que `ANCHO_MIN_FILA` (619 en vez de 559) → 1.
-//  17. el chat de la fila con el tope de 260 de la columna → 1.
-//  18. la `columna` con el grid de la fila (lo de antes cambiado) → 1.
+// ── UNA columna, como un teléfono (tercera tanda, 09/10/2026, punto 1 y decisión 1) ──────────────
+// Roturas (09/10/2026, arnés C-romper.mjs del scratchpad: una por vez, restaurada de memoria; base
+// 17 / 17): 3 roturas, 3 cazadas.
+//  R16. el chat con el tope de 260 de antes                → 1 fallo.
+//  R17. la barra que se achica (`flex: 1 1 auto`)           → 1.
+//  R18. una casilla «Revisar antes de enviar» de vuelta     → 2 (ésta y la de «sin rótulos»).
+// La segunda tanda había partido el editor en dos para el panel apaisado (`disposicion="fila"`: el
+// chat a un costado y el composer al otro). Martín, sobre la captura de producción: «el editor de
+// WhatsApp, que está bugeado, la barra donde se escribe o se graba audio al costado y el chat al otro
+// costado». La fila se fue; `disposicion` queda en el tipo sin efecto (el lienzo la sigue pasando).
 
-test('`fila`: el chat a la izquierda a todo el alto; la barra y las herramientas a la derecha', () => {
-  const html = dibujar({ disposicion: 'fila', mostrarRevisar: true, permiteIA: true });
-  const chat = html.indexOf('class="mk-wa-fila-chat"');
-  const der = html.indexOf('class="mk-wa-fila-der"');
-  assert.ok(html.includes('class="mk-wa-fila"') && chat > 0 && der > chat, 'el chat primero (izquierda), la barra después (derecha)');
-  const izquierda = html.slice(chat, der);
-  const derecha = html.slice(der);
-  assert.ok(izquierda.includes('Hola, ¿cómo vas?'), 'la burbuja vive en el chat');
-  assert.ok(!izquierda.includes('placeholder='), 'la barra no se mete en el chat');
-  for (const t of ['placeholder="Escribe el mensaje"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"', '✦ MaKo', 'Revisar antes de enviar']) {
-    assert.ok(derecha.includes(t), `falta ${t} a la derecha`);
+test('una sola columna: el chat arriba y la barra abajo, también con `disposicion="fila"`', () => {
+  for (const disposicion of [undefined, 'columna', 'fila'] as const) {
+    const html = dibujar({ disposicion, permiteIA: true });
+    const chat = html.indexOf('data-chat="true"');
+    const barra = html.indexOf('data-barra="true"');
+    assert.ok(chat > 0 && barra > chat, `${disposicion}: el chat va ARRIBA de la barra`);
+    const enChat = html.slice(chat, barra);
+    assert.ok(enChat.includes('Hola, ¿cómo vas?'), 'la burbuja vive en el chat');
+    assert.ok(!enChat.includes('placeholder='), 'la barra no se mete en el chat');
+    const abajo = html.slice(barra);
+    for (const t of ['placeholder="Escribe el mensaje"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"', '✦ MaKo']) {
+      assert.ok(abajo.includes(t), `${disposicion}: falta ${t} debajo del chat`);
+    }
+    assert.ok(!html.includes('mk-wa-fila') && !html.includes('<style') && !html.includes('container-type'), 'volvió algo de la fila');
   }
-  assert.doesNotMatch(izquierda, /max-height:260px/, 'en la fila el chat va a todo el alto, sin el tope de la columna');
-  assert.match(html, /container-type:inline-size/);
+  assert.equal(dibujar({ disposicion: 'fila' }), dibujar({}), 'la `fila` no cambia ni un píxel');
 });
 
-test('`fila` se apila sola en un panel angosto, y `columna` (el default) no cambió', () => {
-  const fila = dibujar({ disposicion: 'fila' });
-  assert.equal(ANCHO_MIN_FILA, 560);
-  assert.ok(fila.includes(`@container mkwa (max-width: ${ANCHO_MIN_FILA - 1}px)`), 'sin la consulta, un panel angosto vuelve a amontonarse');
-  const columna = dibujar({});
-  assert.ok(!columna.includes('mk-wa-fila') && !columna.includes('<style'), 'la columna de siempre: sin grid ni CSS de la fila');
-  assert.match(columna, /max-height:260px/);
-  assert.ok(columna.indexOf('Hola, ¿cómo vas?') < columna.indexOf('placeholder="Escribe el mensaje"'), 'la burbuja arriba y la barra abajo');
+test('el chat LLENA el alto que haya y es lo único que se achica; nada de height:100%', () => {
+  const html = dibujar({});
+  const raiz = /^<div style="([^"]*)"/.exec(html)?.[1] ?? '';
+  assert.match(raiz, /flex:1 1 auto/, 'la raíz estira en un panel de alto fijo');
+  assert.match(raiz, /min-height:0/);
+  const chat = /<div data-chat="true" style="([^"]*)"/.exec(html)?.[1] ?? '';
+  assert.match(chat, /flex:1 1 auto/, 'el chat se queda con lo que sobra');
+  assert.match(chat, new RegExp(`min-height:${ALTO_MIN_CHAT}px`), 'el chat no se aplasta por debajo de una burbuja');
+  assert.match(chat, /overflow-y:auto/, 'un mensaje largo scrollea adentro del chat');
+  assert.doesNotMatch(chat, /max-height/, 'el tope de 260 de antes dejaba el chat chico en un panel alto');
+  const barra = /<div data-barra="true" style="([^"]*)"/.exec(html)?.[1] ?? '';
+  assert.match(barra, /flex:none/, 'la barra no se achica: en un panel bajo se recortaba la de grabar');
+  assert.doesNotMatch(EDITOR, /height:\s*'100%'|height: 100%/, 'contra un alto indefinido Safari da cero (AGENTS.md)');
 });

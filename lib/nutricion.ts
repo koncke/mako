@@ -20,6 +20,7 @@ import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
+import { sanearHtmlEmail, textoDeHtmlEmail, aplicarVariablesHtml, cuerpoHtmlAGuardar, cuerpoHtmlEntrante, problemaDeCuerpoHtml } from '@/lib/email-html-seguro';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarLineas, sondearSocket, type LineaRow } from '@/lib/evolution';
@@ -130,7 +131,15 @@ export type PasoSecuencia = {
   asunto: string | null;
   preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
-  proveedor?: ProveedorWa;                     // whatsapp: 'oficial' (plantilla/Chatwoot) | 'no_oficial' (Evolution)
+  /**
+   * Sólo email (tercera tanda, 09/10/2026, decisión 12): el cuerpo escrito con el editor rico, en
+   * HTML SANEADO (`sanearHtmlEmail`, lib/email-html-seguro.ts). Si está, el motor lo manda como el
+   * cuerpo del correo y `cuerpo` es su TEXTO PLANO (`textoDeHtmlEmail`), que va como parte de texto
+   * y es lo que leen la tarjeta y el resto de la app. Lo decide `setSecuenciaPasos`, nadie más. Un
+   * email sin este campo (los de antes) sale como siempre, con `cuerpo` y sus marcas.
+   */
+  cuerpo_html?: string | null;
+  proveedor?: ProveedorWa;                    // whatsapp: 'oficial' (plantilla/Chatwoot) | 'no_oficial' (Evolution)
   template_wa: string | null;                 // nombre del template aprobado (WhatsApp oficial)
   template_categoria?: 'marketing' | 'utility' | 'authentication';
   template_idioma?: string;                   // ej. 'es_MX'
@@ -488,6 +497,12 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   antes.forEach((p, i) => {
     if (p && Array.isArray(p.variantes) && p.variantes.length) variantesPrevias.set(idDe(p, i), p.variantes);
   });
+  // El cuerpo HTML de un email (tercera tanda): lo conserva SÓLO el escritor que no lo manda y no
+  // tocó el texto (`cuerpoHtmlEntrante`). Mismo merge por id del nodo que las variantes.
+  const emailsPrevios = new Map<string, PasoSecuencia>();
+  antes.forEach((p, i) => {
+    if (p && p.canal === 'email' && typeof p.cuerpo_html === 'string' && p.cuerpo_html) emailsPrevios.set(idDe(p, i), p);
+  });
 
   // ⚠️ EL PASO «⚡ ACCIÓN» SE VALIDA ANTES DE ESCRIBIR NADA, y una acción inválida frena el
   // guardado ENTERO con un error que la pantalla muestra. Esta función reconstruye cada
@@ -505,6 +520,13 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   if (malas.length) throw new PasosInvalidosError(`No se guardó: ${malas.join('; ')}.`);
   const sinArchivo = pasos.filter(esPaso).flatMap((p, i) => { const m = problemaDeMedia(p); return m ? [`el paso ${i + 1} ${m}`] : []; });
   if (sinArchivo.length) throw new PasosInvalidosError(`No se guardó: ${sinArchivo.join('; ')}.`);
+  // Un email que no entra no se recorta: un HTML cortado a la mitad deja etiquetas abiertas y el
+  // final del mensaje afuera, sin que nadie lo vea.
+  const largos = pasos.filter(esPaso).flatMap((p, i) => {
+    const m = p.canal === 'email' && !esNodoDeControl(camposDelFlujo(p)) ? problemaDeCuerpoHtml(p.cuerpo_html) : null;
+    return m ? [`el paso ${i + 1} ${m}`] : [];
+  });
+  if (largos.length) throw new PasosInvalidosError(`No se guardó: ${largos.join('; ')}.`);
   // Un «Ir a» a ESTA MISMA automatización (un «Sigue con» con la clave mal puesta) es un bucle
   // que le reenviaba la secuencia entera al lead en cada vuelta (revisión del 08/10/2026).
   // `validarGrafo` no sabe qué id tiene la secuencia: lo dice esto. Con los campos del flujo ya
@@ -538,6 +560,15 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
     });
     if (incompletas.length) throw new PasosInvalidosError(`No se guardó: ${incompletas.join('; ')}.`);
   }
+
+  // El cuerpo de un mensaje. Un EMAIL escrito con el editor rico guarda su HTML SANEADO, y su
+  // `cuerpo` pasa a ser el texto plano DERIVADO de ese HTML: lo decide esta función y no la
+  // pantalla, así el texto de respaldo nunca dice otra cosa que el correo (decisión 12 de la tercera
+  // tanda). Sin HTML (un email de antes, un WhatsApp), el `cuerpo` es el que llegó, como siempre.
+  const cuerpoDelPaso = (p: PasoSecuencia, flujo: ReturnType<typeof camposDelFlujo>, i: number, canal: CanalNutricion): { cuerpo: string; cuerpo_html?: string } => {
+    const html = canal === 'email' ? cuerpoHtmlAGuardar(cuerpoHtmlEntrante(p, emailsPrevios.get(idDe(flujo, i)))) : null;
+    return html ? { cuerpo: textoDeHtmlEmail(html), cuerpo_html: html } : { cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '' };
+  };
 
   // Normaliza el orden (1..n) y descarta basura. Los campos del FLUJO (id, siguiente, nodo,
   // espera, ramas, casos, si_no, destino, revisar) salen de `camposDelFlujo`, saneados uno por
@@ -582,7 +613,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
               : {}),
         asunto: typeof p.asunto === 'string' ? p.asunto : null,
         preheader: typeof p.preheader === 'string' ? p.preheader : null,
-        cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
+        ...cuerpoDelPaso(p, flujo, i, comun.canal),
         // El oficial va DECLARADO; la ausencia del campo cae al no oficial, que es
         // el canal real del chatbot. El porqué, en `proveedorDelPaso`.
         proveedor: proveedorDelPaso(p),
@@ -3477,6 +3508,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         } else {
           const vars = valoresVariablesLead(lead, { negocio });
           const cuerpo = aplicarVariables(paso.cuerpo, vars);
+          // El cuerpo del editor rico (tercera tanda): se vuelve a SANEAR acá —lo guardó
+          // `setSecuenciaPasos`, pero la fila la puede escribir otro— y las variables entran con
+          // el valor ESCAPADO (`aplicarVariablesHtml`): un nombre con `<b>` llega como ese texto.
+          // Sin HTML, el correo de siempre con `cuerpo`. La parte de texto es `cuerpo` igual.
+          const html = typeof paso.cuerpo_html === 'string' && paso.cuerpo_html ? sanearHtmlEmail(paso.cuerpo_html) : '';
           textoEnviado = cuerpo; textoAutor = 'fijo';
           const asunto = aplicarVariables(paso.asunto ?? '', vars) || '(sin asunto)';
           const unsubUrl = buildUnsubscribeUrl(insc.lead_id);
@@ -3486,6 +3522,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             html: renderEmailHtml({
               subject: asunto,
               bodyText: cuerpo,
+              ...(html ? { bodyHtml: aplicarVariablesHtml(html, vars) } : {}),
               preheader: aplicarVariables(paso.preheader ?? '', vars) || undefined,
               unsubscribeUrl: unsubUrl,
               fromName: fromNameWs,
