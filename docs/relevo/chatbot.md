@@ -24,6 +24,23 @@ está a medias: lo hecho está en `main` (push `9165da11`). El pedido literal de
 - **13.** El filtro al lado del buscador, por estado y por emoji, con «Quitar filtro». El «⋯»
   abre hacia afuera.
 
+**ESTADO 09/10 ~13:00 (cuota 98 %, leer esto primero):**
+- UNIDAS en `chatbot-v2` (wt-chatbot) con sus bloqueantes aplicados: `wip-v4-condiciones` (7, 5, 6b), `wip-v4-flechas` (8)
+  y `wip-v4-cron` (14; trae la mig **0230_secuencia_etapas.sql**, que va ANTES del deploy; el código tolera que falte:
+  guardar varias etapas contesta «Aún no se pueden varias etapas»). Suite verde. Si no se llegó a pushear: aplicar la 0230
+  (`node scripts/apply-migration.mjs` desde el clon) y `git push origin HEAD:main` desde wt-chatbot.
+- CORRIENDO en segundo plano (si la cuota cortó, quedaron a medias en sus ramas locales): `wip-v4-editores` (1 + el 3 de la
+  quinta: segundos y minutos en el DELAY), `wip-v4-whatsapp` (15 + el 1 de la quinta: «Probar» con logo, desplegable de
+  números guardados y el lead RECIÉN LLEGADO para elegir rama), `wip-v4-email` (16) — workflow `wf_f6f9b9a0-933`, retomable
+  con `resumeFromRunId`; y `wip-v5-lista` (4 y 5 de la quinta) + un diagnóstico del ＋ del medio de las flechas y del arrastre
+  — workflow `wf_8c0dd6fe-093`. Los reportes de cada parte quedan en el `journal.jsonl` de su workflow
+  (`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/461dd390-9e4f-44a5-810a-0e9efe9b8ae0/subagents/workflows/<runId>/`).
+- Pendientes de las tres unidas (en sus reportes): sacar `onAgregarRama` de FlujoLienzo.tsx:435 (no bloquea); decidir si
+  «Agendó» se retira (dice lo mismo que «Tiene reunión agendada»); el panel del CRON tiene que medir su contenido (~130-410
+  px según el horario: lo hace la parte «editores»); Crear con IA no conoce las flechas por resultado; con «felicitar a un
+  alumno que terminó una clase» la IA elige TODAS las etapas de entrega, pero llegar a una etapa es terminar un MÓDULO, no
+  una clase (decide Martín).
+
 **QUINTA TANDA (09/10 ~12:20, pedido literal en la bitácora):** 1. «Probar» con el logo del canal arriba a la
 izquierda, «Probar en WhatsApp» al lado de ↻ que abre un desplegable con los números guardados y «Nuevo número» (el form
 de teléfono con banderas), igual con Email; y la prueba de «Bienvenida» no mostró el mensaje porque siguió por el «Sí» de
