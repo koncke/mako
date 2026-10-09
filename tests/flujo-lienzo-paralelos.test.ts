@@ -190,8 +190,12 @@ test('⚠️ el «Ir a» de la salida no ofrece tarjetas de OTRO hilo; el de «S
   const desdeResp = conIrA(conSalto.pasos, avisoId, 'iry');
   const todas = tarjetasParaIrA(desdeResp.pasos, desdeResp.id!);
   for (const t of ['m1', 'm2', 'e1', 'e2', 'f1']) assert.ok(todas.includes(t), `desde «Si responde» falta ${t}`);
-  // Y el editor del «Ir a» usa esa lista (no la suya propia).
-  assert.match(sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx')), /options: tarjetasParaIrA\(pasos, id\)\.map\(\(t\) => \(\{ value: `nodo:\$\{t\}`/);
+  // SEXTA TANDA (punto 12, «"Go to" desaparece directamente»): el editor del «Ir a» ya no elige un
+  // destino; el que queda se pasa a una flecha (o se quita) con la MISMA conversión que el lienzo al
+  // abrir (`quitarIrA`). `tarjetasParaIrA` queda para lo de antes (la IA, los tests de arriba).
+  const flujo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
+  assert.match(flujo, /onPasos\(\(prev\) => quitarIrA\(prev, \{ solo: id \}\)\.pasos, true\)/);
+  assert.doesNotMatch(flujo, /tarjetasParaIrA\(/, 'el editor del «Ir a» vuelve a ofrecer destinos');
 });
 
 test('⚠️ dos familias: las de control son compactas (la espera, una píldora) y las columnas siguen alineadas', () => {

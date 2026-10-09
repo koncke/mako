@@ -10,42 +10,68 @@
 // CUARTA TANDA (09/10/2026, mañana):
 //   · Punto 7: «No entiendo el botón de "+Rama", es básicamente lo mismo que "+condición"... Eso
 //     eliminalo. Y también me gustaba antes la opción de "+y" "+o", para que cumplan ambas o una de las
-//     2». Sin «＋ Rama» y sin «Todas / Cualquiera»: una condición nueva es UNA pregunta con «Sí» y «Si
-//     no», y cada fila nueva RECUERDA con qué se une a la de arriba (`FilaCondicion.union`). El
+//     2». Sin «＋ Rama» y sin el selector de la rama entera: una condición nueva es UNA pregunta con «Sí»
+//     y «Si no», y cada fila nueva RECUERDA con qué se une a la de arriba (`FilaCondicion.union`). El
 //     separador entre dos filas se ve («y» / «o») y se cambia tocándolo. Las condiciones de antes con
 //     varias ramas se siguen dibujando (numeradas) y editando; sólo no se ofrece agregar otra.
-//   · Punto 5: la familia de la reunión («Asistió / No asistió a la reunión», «Tiene reunión agendada»,
-//     «Próxima reunión en») suma un selector de una o más etapas de REUNIÓN del kanban (vacío = cualquier
-//     reunión). Las etapas salen de GET /api/chat-agent/condiciones (`reuniones`).
+//   · Punto 5: la familia de la reunión suma un selector de una o más etapas de REUNIÓN del kanban.
 //   · Punto 6: «Pagó / No pagó» suma la cuota (vacío = como siempre): «No pagó la cuota 1».
-//   · Punto 1 («editores sin aire»): el selector de la condición es un campo grande, de ancho completo.
-//     Nada adentro lleva ancho propio: el único tope vive en el CONTENEDOR (AGENTS.md), que lo pone el
-//     panel del lienzo.
+//
+// SEXTA TANDA (09/10/2026, noche), los cuatro puntos de «CONDITION» y el 12 de «General»:
+//   · Punto 3: «Se tiene que diferenciar el desplegable principal del resto... Tiene que tener más
+//     protagonismo el principal». La pregunta de cada fila es el CAMPO GRANDE de la casa (`botonGrande`,
+//     48 de alto, letra 16) y lo que pide va debajo, más chico y colgando de una línea a la izquierda.
+//   · Punto 1: «primero selecciono el módulo y ahí me aparecen las clases de ese módulo... Esto para
+//     TODO». Los valores con jerarquía se eligen por un árbol (`arbolDeOpciones`): curso → módulo →
+//     clase, producto → etapa, embudo → reunión.
+//   · Punto 4: «El botón de "+y" "+o" que sean como en la captura de Manychat de "+Nuevo disparador"...
+//     tipo placeholder, centrado... uno al lado del otro, pero que ocupen todo el ancho». Borde punteado,
+//     texto en el color primario, centrado, 48 de alto y los dos repartiendo el renglón.
+//   · Punto 12: «Reply ya te dije que tiene que estar dentro de CONDITION». La condición que escucha
+//     las respuestas (el nodo `respuesta` de siempre) se edita ACÁ (`EditorCondicionDeRespuesta`): cada
+//     caso es una fila «Su respuesta trata de» con su nombre y cuándo aplica, y el «Si no» es lo que
+//     antes era «Otra cosa». Y una condición VACÍA puede pasar a escuchar (`onPasarARespuesta`).
 //
 // ⚠️ EL BUG DE «+y» QUE CREABA «+o» (tercera tanda) NO VUELVE: aquellos dos botones agregaban la fila Y
 // cambiaban el modo de la rama ENTERA, así que el separador de TODAS las filas cambiaba con el último
-// tocado. Ahora cada botón fija la unión de SU fila y de ninguna otra; la rama ya no tiene un modo que
-// tocar (el `modo` guardado queda para las filas de antes que no dicen la suya).
+// tocado. Ahora cada botón fija la unión de SU fila y de ninguna otra.
 //
-// ⚠️ ESTE ARCHIVO NO GUARDA NADA (como FlujoLienzo): cada cambio sube por `cambiar`, y quitar una rama
-// —que se lleva lo que colgaba de ella— por `onQuitarRama`, que hace el lienzo sobre el flujo entero.
+// ⚠️ ESTE ARCHIVO NO GUARDA NADA (como FlujoLienzo): cada cambio sube por `cambiar` (o por los de
+// `EdicionRespuesta`), y quitar una rama —que se lleva lo que colgaba de ella— por `onQuitarRama`, que
+// hace el lienzo sobre el flujo entero.
 
-import { Fragment, useEffect, useState, type CSSProperties } from 'react';
-import { Dropdown, type DropdownGroup } from '../components/Dropdown';
+import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Dropdown, type DropdownGroup, type DropdownOption } from '../components/Dropdown';
 import { SelectorEtiqueta } from '@/app/_components/etiquetas-cliente';
-import { inpLienzo } from '@/app/_components/Lienzo';
-import { TOPE_FILAS, unionDe, type FilaCondicion, type RamaCondicion } from '@/lib/flujo-grafo';
+import { inpLienzo, botonGrande } from '@/app/_components/Lienzo';
+import { TOPE_FILAS, TOPE_CASOS, ROTULO_RESPUESTA, unionDe, type FilaCondicion, type RamaCondicion, type CasoRespuesta } from '@/lib/flujo-grafo';
 import {
-  condicionPorId, seccionesDeCondiciones, opcionesDe, filaNueva, deValorOpcion, valorOpcion, problemaDeFila,
-  nombreDeValor, nombresCatalogoDe, cuotaDeFila, SIMBOLO_OP, TOPE_CUOTA, TOPE_REUNIONES,
+  condicionPorId, seccionesDeCondiciones, arbolDeOpciones, esArbol, filaNueva, deValorOpcion, valorOpcion, problemaDeFila,
+  nombreDeValor, nombresCatalogoDe, cuotaDeFila, SIMBOLO_OP, TOPE_CUOTA, TOPE_REUNIONES, SECCION_RESPUESTA,
   type AmbitoDisparo, type CatalogosCondicion, type CursoCondicion, type DefCondicion, type ProductoCondicion,
-  type ReunionesDeEmbudo, type SeccionOpciones,
+  type ReunionesDeEmbudo, type SeccionOpciones, type NivelArbol,
 } from '@/lib/condiciones-catalogo';
 
 const SANS = "'Geist', sans-serif";
 
+/** El id de la fila de la condición que escucha las respuestas (lib/condiciones-catalogo.ts). */
+const ID_RESPUESTA = 'respuesta_trata_de';
+
 /** Las etapas de venta de UN producto (la forma de `SeccionEtapas` de FlujoLienzo). */
 type EtapasDeProducto = { title: string; funnelId: number; options: Array<{ value: string; label: string }> };
+
+/** La condición que ESCUCHA LAS RESPUESTAS (el nodo `respuesta`): sus casos y cómo se editan. */
+export type EdicionRespuesta = {
+  casos: readonly CasoRespuesta[];
+  /** Un cambio del nombre o del «cuándo aplica» de un caso. `apilar`: entra a la pila de deshacer. */
+  cambiarCasos: (casos: CasoRespuesta[], apilar: boolean) => void;
+  /** «＋ o»: un caso más, con su tarjeta «MaKo contesta» (`agregarCaso`, lib/flujo-conversacion.ts). */
+  onAgregarCaso: () => void;
+  /** Quitar un caso, con lo que colgaba de él (`quitarCaso`). */
+  onQuitarCaso: (casoId: string) => void;
+  /** Abre la tarjeta del «Si no» (lo que antes era «Otra cosa»), si tiene una. */
+  onVerSiNo?: () => void;
+};
 
 export type EditorCondicionProps = {
   /** La tarjeta: sus ramas (el «Si no» es fijo). */
@@ -68,6 +94,12 @@ export type EditorCondicionProps = {
   onQuitarRama: (ramaId: string) => void;
   /** Los catálogos de la base (cursos, posts, campañas, reuniones). Ausente = los lee el editor solo. */
   catalogos?: CatalogosRemotos | null;
+  /**
+   * SEXTA TANDA: esta condición, VACÍA, puede pasar a escuchar las respuestas (`condicionARespuesta`,
+   * lib/flujo-grafo.ts): el desplegable de su primera fila ofrece «Su respuesta trata de». Ausente = no
+   * se ofrece (ya hay una en la automatización, o quien monta no lo enchufó).
+   */
+  onPasarARespuesta?: () => void;
 };
 
 /** Lo que trae GET /api/chat-agent/condiciones. `reuniones` en null = no se pudo leer. */
@@ -121,15 +153,36 @@ export function catalogosDe(p: { etapas: EtapasDeProducto[]; productos: Producto
   };
 }
 
+// ── Las piezas de la cara ─────────────────────────────────────────────────────────
+
+/**
+ * EL PLACEHOLDER de la casa para agregar (sexta tanda, punto 4, el «+ Nuevo disparador» de ManyChat):
+ * borde punteado, el texto en el color primario y centrado, 48 de alto. Lo que se ve es el botón de un
+ * desplegable (`Agregar`), así que el estilo va como `buttonStyle`.
+ */
+const PLACEHOLDER: CSSProperties = {
+  ...botonGrande, width: '100%', justifyContent: 'center', background: 'transparent',
+  border: '1.5px dashed var(--border-strong)', fontSize: 14.5,
+};
+
+/** Lo que pide una condición, debajo de la pregunta: más chico y colgando de una línea a la izquierda. */
+const SECUNDARIO: CSSProperties = { minHeight: 38, padding: '7px 11px', fontSize: 13.5, fontWeight: 500, borderRadius: 9 };
+const COLGANDO: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', paddingLeft: 12, borderLeft: '2px solid var(--border)', marginLeft: 6 };
+
 // ── El editor ─────────────────────────────────────────────────────────────────────
 
-export function EditorCondicion({ paso, cambiar, ambito, etapas, productos, busy, onQuitarRama, catalogos }: EditorCondicionProps) {
+export function EditorCondicion({ paso, cambiar, ambito, etapas, productos, busy, onQuitarRama, catalogos, onPasarARespuesta }: EditorCondicionProps) {
   const leidos = useCatalogosCondicion();
   const remotos = catalogos !== undefined ? catalogos : leidos;
   const cat = catalogosDe({ etapas, productos, remotos });
   const ramas = paso.ramas ?? [];
   const setRama = (ri: number, r: RamaCondicion, apilar: boolean) => cambiar({ ramas: ramas.map((x, k) => (k === ri ? r : x)) }, apilar);
-  const secciones = seccionesDeCondiciones(ambito, cat);
+  const deLaSalida = seccionesDeCondiciones(ambito, cat);
+  // Una condición VACÍA puede pasar a escuchar las respuestas: se ofrece su familia, al final.
+  const vacia = ramas.every((r) => !(r.filas?.length));
+  const secciones: SeccionOpciones[] = vacia && onPasarARespuesta
+    ? [...deLaSalida, { title: SECCION_RESPUESTA, options: [{ value: valorOpcion(ID_RESPUESTA, false), label: ROTULO_RESPUESTA }] }]
+    : deLaSalida;
   // Varias ramas = una condición de ANTES de la cuarta tanda: cada una numerada y en su caja, y el «Si
   // no» al pie para que se entienda el orden. Una sola (todo lo nuevo): la pregunta, sin cajas.
   const varias = ramas.length > 1;
@@ -143,6 +196,7 @@ export function EditorCondicion({ paso, cambiar, ambito, etapas, productos, busy
           // ÚNICA rama: una condición sin ramas no se puede publicar. Ahí la fila se vacía.
           onQuitarRama={() => onQuitarRama(r.id)}
           puedeQuitarRama={varias}
+          onPasarARespuesta={onPasarARespuesta}
         />
       ))}
       {varias && <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--dim)' }}>Si no</div>}
@@ -150,14 +204,17 @@ export function EditorCondicion({ paso, cambiar, ambito, etapas, productos, busy
   );
 }
 
-function Rama({ rama, numero, secciones, cat, busy, onCambiar, onQuitarRama, puedeQuitarRama }: {
+function Rama({ rama, numero, secciones, cat, busy, onCambiar, onQuitarRama, puedeQuitarRama, onPasarARespuesta }: {
   rama: RamaCondicion; numero: number | null; secciones: SeccionOpciones[]; cat: CatalogosCondicion; busy: boolean;
   onCambiar: (r: RamaCondicion, apilar: boolean) => void; onQuitarRama: () => void; puedeQuitarRama: boolean;
+  onPasarARespuesta?: () => void;
 }) {
   const filas = rama.filas ?? [];
   /** Agrega la fila elegida. `union`: con qué se une a la de arriba (la primera no se une a nada). */
   const agregar = (union: 'y' | 'o' | null) => (v: string) => {
     const d = deValorOpcion(v);
+    // «Su respuesta trata de» no es una fila de la salida: la tarjeta pasa a escuchar las respuestas.
+    if (d?.id === ID_RESPUESTA) { onPasarARespuesta?.(); return; }
     const f = d ? filaNueva(d.id, d.no) : null;
     if (!f) return;
     onCambiar({ ...rama, filas: [...filas, filas.length && union ? { ...f, union } : f] }, true);
@@ -169,66 +226,71 @@ function Rama({ rama, numero, secciones, cat, busy, onCambiar, onQuitarRama, pue
     else onCambiar({ ...rama, filas: [] }, true);
   };
   const lleno = busy || filas.length >= TOPE_FILAS;
+  // Lo que se agrega DESPUÉS de una fila es de la salida: «Su respuesta trata de» sólo en la primera.
+  const deLaSalida = secciones.filter((s) => s.title !== SECCION_RESPUESTA);
   const caja: CSSProperties = numero != null
     ? { border: '1px solid var(--border)', borderRadius: 10, padding: '10px 10px 9px', background: 'var(--surface)' }
     : {};
   return (
-    <div style={{ ...caja, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ ...caja, display: 'flex', flexDirection: 'column', gap: 10 }}>
       {numero != null && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--faint)', fontFamily: SANS }}>{numero}</span>}
       {filas.map((f, fi) => (
         <Fragment key={fi}>
           {fi > 0 && <Union union={unionDe(rama, fi)} busy={busy} onCambiar={(u) => setFila(fi, { ...f, union: u }, true)} />}
-          <FilaFrase fila={f} cat={cat} secciones={secciones} busy={busy}
+          <FilaFrase fila={f} cat={cat} secciones={deLaSalida} busy={busy}
             onCambiar={(nf, apilar) => setFila(fi, nf, apilar)}
             onQuitar={() => quitarFila(fi)} />
         </Fragment>
       ))}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {filas.length === 0
-          ? <Agregar texto="＋ Condición" aria="Agregar una condición" secciones={secciones} disabled={lleno} onElegir={agregar(null)} />
-          : (
-            <>
-              <Agregar texto="＋ y" aria="Agregar una condición que se cumpla además" titulo="Se cumplen las dos" secciones={secciones} disabled={lleno} onElegir={agregar('y')} />
-              <Agregar texto="＋ o" aria="Agregar una condición alternativa" titulo="Alcanza con una" secciones={secciones} disabled={lleno} onElegir={agregar('o')} />
-            </>
-          )}
-      </div>
+      {filas.length === 0
+        ? <Agregar texto="＋ Condición" aria="Agregar una condición" secciones={secciones} disabled={lleno} onElegir={agregar(null)} />
+        : (
+          // Los dos placeholders LADO A LADO y repartiendo el renglón (punto 4: «no pongas uno abajo
+          // del otro, sino que uno al lado del otro, pero que ocupen todo el ancho»).
+          <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+            <Agregar texto="＋ y" aria="Agregar una condición que se cumpla además" titulo="Se cumplen las dos" secciones={deLaSalida} disabled={lleno} onElegir={agregar('y')} />
+            <Agregar texto="＋ o" aria="Agregar una condición alternativa" titulo="Alcanza con una" secciones={deLaSalida} disabled={lleno} onElegir={agregar('o')} />
+          </div>
+        )}
     </div>
   );
 }
 
 /**
- * «＋ Condición» / «＋ y» / «＋ o»: el desplegable de condiciones por secciones, con cara de botón. No
- * son los botoncitos de la tercera tanda («No me gustan los botones chiquitos»): se leen como botones.
+ * «＋ Condición» / «＋ y» / «＋ o»: el desplegable de condiciones por secciones, con cara de PLACEHOLDER
+ * (punto 4). Ocupa lo que le dan: solo, el renglón; de a dos, la mitad cada uno.
  */
 function Agregar({ texto, aria, titulo, secciones, disabled, onElegir }: {
   texto: string; aria: string; titulo?: string; secciones: SeccionOpciones[]; disabled: boolean; onElegir: (v: string) => void;
 }) {
   return (
-    <span title={titulo}>
+    <div title={titulo} style={{ flex: 1, minWidth: 0 }}>
       <Dropdown value="" secciones={secciones as DropdownGroup[]} onChange={onElegir} resetAfterSelect sinFlecha search
-        disabled={disabled} ariaLabel={aria} menuAncho={340} menuAlto={420}
-        botonLabel={<span style={{ fontSize: 13, fontWeight: 600, color: disabled ? 'var(--faint)' : 'var(--primary)', fontFamily: SANS }}>{texto}</span>}
-        buttonStyle={{ padding: '6px 14px', borderRadius: 8, minHeight: 0, width: 'auto', border: '1px solid var(--border-strong)', background: 'var(--surface)' }} />
-    </span>
+        disabled={disabled} ariaLabel={aria} menuAncho={340} menuAlto={420} width="100%"
+        botonLabel={<span style={{ fontSize: 14.5, fontWeight: 600, color: disabled ? 'var(--faint)' : 'var(--primary)', fontFamily: SANS }}>{texto}</span>}
+        buttonStyle={PLACEHOLDER} />
+    </div>
   );
 }
 
 /** El separador entre dos filas: «y» / «o», a la vista. Tocarlo cambia la unión de ESA fila. */
 function Union({ union, busy, onCambiar }: { union: 'y' | 'o'; busy: boolean; onCambiar: (u: 'y' | 'o') => void }) {
   const otra = union === 'y' ? 'o' : 'y';
-  const linea: CSSProperties = { flex: 1, height: 1, background: 'var(--border)' };
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={linea} />
+    <Separador>
       <button type="button" disabled={busy} onClick={() => onCambiar(otra)} title={`Cambiar a «${otra}»`} aria-label={`Se une con «${union}». Cambiar a «${otra}»`}
         style={{
           border: '1px solid var(--border-strong)', borderRadius: 999, padding: '2px 12px', fontSize: 12, fontWeight: 700, fontFamily: SANS,
           background: 'var(--surface-2)', color: 'var(--ink)', cursor: busy ? 'default' : 'pointer', lineHeight: 1.4,
         }}>{union}</button>
-      <span style={linea} />
-    </div>
+    </Separador>
   );
+}
+
+/** Una línea de lado a lado con algo en el medio (la unión entre dos filas). */
+function Separador({ children }: { children: ReactNode }) {
+  const linea: CSSProperties = { flex: 1, height: 1, background: 'var(--border)' };
+  return <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={linea} />{children}<span style={linea} /></div>;
 }
 
 /** ¿La condición tiene algo que elegir además de sí misma? (para no dibujar una fila vacía debajo). */
@@ -238,7 +300,10 @@ function tieneValor(def: DefCondicion | null, campo: string): boolean {
   return def.valor.t !== 'ninguno';
 }
 
-/** Una fila: el selector de la condición (grande, de ancho completo) y su ✕; debajo, lo que pide. */
+/**
+ * Una fila: la PREGUNTA (el desplegable grande, de ancho completo: punto 3, «más protagonismo el
+ * principal») y su ✕; debajo, más chico y colgando, lo que pide.
+ */
 function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
   fila: FilaCondicion; cat: CatalogosCondicion; secciones: SeccionOpciones[]; busy: boolean;
   onCambiar: (f: FilaCondicion, apilar: boolean) => void; onQuitar: () => void;
@@ -246,8 +311,8 @@ function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
   const def = condicionPorId(fila.campo);
   const valorCampo = valorOpcion(String(fila.campo), !!fila.no && !!def?.negable);
   // Lo puesto que ya no se ofrece (una condición retirada, de otro ámbito o sin catálogo) lo dice el
-  // BOTÓN, sin una sección «La que tiene puesta»: el desplegable de la casa no es un <select> y nada se
-  // escribe hasta elegir (cuarta tanda, decisión 2, docs/hallazgos-chatbot.md).
+  // BOTÓN: el desplegable de la casa no es un <select> y nada se escribe hasta elegir (cuarta tanda,
+  // decisión 2, docs/hallazgos-chatbot.md).
   const enLista = secciones.some((s) => s.options.some((o) => o.value === valorCampo));
   const rotuloPuesto = def ? def.rotulo[fila.no && def.negable ? 1 : 0] : 'Condición desconocida';
   const elegirCampo = (v: string) => {
@@ -266,23 +331,30 @@ function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
   };
   const incompleta = problemaDeFila(fila) != null;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <Dropdown value={valorCampo} secciones={secciones as DropdownGroup[]} search ariaLabel="Condición" disabled={busy}
-            width="100%" menuAncho={340} menuAlto={420} onChange={elegirCampo}
+            width="100%" menuAncho={340} menuAlto={420} onChange={elegirCampo} buttonStyle={botonGrande}
             botonLabel={enLista ? undefined : rotuloPuesto} />
         </div>
-        <button type="button" onClick={onQuitar} disabled={busy} title="Quitar" aria-label="Quitar esta condición"
-          style={{ flex: 'none', background: 'none', border: 'none', color: 'var(--faint)', cursor: busy ? 'default' : 'pointer', fontSize: 14, padding: '6px 4px' }}>✕</button>
+        <BotonQuitar onClick={onQuitar} disabled={busy} aria="Quitar esta condición" />
       </div>
       {tieneValor(def, String(fila.campo)) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <div style={COLGANDO}>
           <Valor fila={fila} cat={cat} busy={busy} onCambiar={onCambiar} incompleta={incompleta} />
         </div>
       )}
       {def?.reuniones && <SelectorReuniones fila={fila} cat={cat} busy={busy} onCambiar={onCambiar} />}
     </div>
+  );
+}
+
+/** La ✕ de una fila. */
+function BotonQuitar({ onClick, disabled, aria }: { onClick: () => void; disabled: boolean; aria: string }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title="Quitar" aria-label={aria}
+      style={{ flex: 'none', background: 'none', border: 'none', color: 'var(--faint)', cursor: disabled ? 'default' : 'pointer', fontSize: 14, padding: '6px 4px' }}>✕</button>
   );
 }
 
@@ -293,7 +365,7 @@ function sin<K extends keyof FilaCondicion>(f: FilaCondicion, k: K): FilaCondici
   return copia;
 }
 
-/** El control del valor, según lo que la condición necesita. */
+/** El control del valor, según lo que la condición necesita. Todo con la cara SECUNDARIA (punto 3). */
 function Valor({ fila, cat, busy, onCambiar, incompleta }: {
   fila: FilaCondicion; cat: CatalogosCondicion; busy: boolean; incompleta: boolean;
   onCambiar: (f: FilaCondicion, apilar: boolean) => void;
@@ -314,7 +386,7 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
     if (fila.campo === 'etapa') {
       const valor = fila.valor != null && fila.valor !== '' ? `${fila.funnel_id ?? ''}:${fila.valor}` : '';
       return (
-        <SelectorDeLista secciones={opcionesDe('etapa', cat)} valor={valor} nombrePuesto={String(fila.valor ?? '')} busy={busy} aria="Etapa"
+        <SelectorDeLista niveles={arbolDeOpciones('etapa', cat)} valor={valor} nombrePuesto={String(fila.valor ?? '')} busy={busy} aria="Etapa"
           onElegir={(x) => { const [fid, ...k] = x.split(':'); onCambiar({ ...fila, valor: k.join(':'), funnel_id: fid ? Number(fid) : null }, true); }} />
       );
     }
@@ -350,7 +422,7 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
   if (v.t === 'lista') {
     const valor = fila.valor == null ? '' : String(fila.valor);
     return (
-      <SelectorDeLista secciones={opcionesDe(v.catalogo, cat)} valor={valor} nombrePuesto={nombreDeValor(v.catalogo, valor, nombresCatalogoDe(cat))}
+      <SelectorDeLista niveles={arbolDeOpciones(v.catalogo, cat)} valor={valor} nombrePuesto={nombreDeValor(v.catalogo, valor, nombresCatalogoDe(cat))}
         busy={busy} aria={def.rotulo[0]} onElegir={(x) => onCambiar({ ...fila, valor: x }, true)} />
     );
   }
@@ -368,11 +440,11 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
     return (
       <>
         {v.ref && (
-          <SelectorDeLista secciones={opcionesDe(v.ref, cat)} valor={fila.ref == null ? '' : String(fila.ref)}
+          <SelectorDeLista niveles={arbolDeOpciones(v.ref, cat)} valor={fila.ref == null ? '' : String(fila.ref)}
             nombrePuesto={nombreDeValor(v.ref, String(fila.ref ?? ''), nombresCatalogoDe(cat))} busy={busy} aria="Curso"
             onElegir={(x) => onCambiar({ ...fila, ref: Number(x) }, true)} />
         )}
-        <Dropdown value={op} width={64} ariaLabel="Operador" disabled={busy} search={false}
+        <Dropdown value={op} width={64} ariaLabel="Operador" disabled={busy} search={false} buttonStyle={SECUNDARIO}
           options={[{ value: 'mayor_igual', label: SIMBOLO_OP.mayor_igual }, { value: 'menor_igual', label: SIMBOLO_OP.menor_igual }]}
           onChange={(x) => onCambiar({ ...fila, op: x === 'menor_igual' ? 'menor_igual' : 'mayor_igual' }, true)} />
         <input type="number" min={v.min} max={v.max} step={1} value={fila.valor == null ? '' : Number(fila.valor)} disabled={busy} aria-label="Número"
@@ -387,8 +459,8 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
 
 /**
  * LAS ETAPAS DE REUNIÓN de la condición (cuarta tanda, punto 5): se eligen una o más, y ninguna es
- * «cualquier reunión». Las ofrece el CRM (las etapas marcadas como reunión, por embudo); la tercera en
- * adelante se ve apagada, porque la ficha no tiene dónde guardar su fecha ni su asistencia.
+ * «cualquier reunión». Las ofrece el CRM (las etapas marcadas como reunión, por embudo: un árbol si
+ * hay varios); la tercera en adelante se ve apagada, porque la ficha no tiene dónde guardar su fecha.
  *
  * ⚠️ LO ELEGIDO QUE YA NO ESTÁ EN LA LISTA SE SIGUE NOMBRANDO (una etapa que el CRM dejó de marcar como
  * reunión): el botón dice lo puesto, y tocar otra cosa no lo borra.
@@ -397,8 +469,8 @@ function SelectorReuniones({ fila, cat, busy, onCambiar }: {
   fila: FilaCondicion; cat: CatalogosCondicion; busy: boolean; onCambiar: (f: FilaCondicion, apilar: boolean) => void;
 }) {
   const elegidas = fila.reuniones ?? [];
-  const secciones = opcionesDe('reunion', cat).filter((s) => s.options.length > 0);
-  const hay = secciones.length > 0;
+  const niveles = arbolDeOpciones('reunion', cat);
+  const hay = niveles.some((n) => opcionesDelNivel(n).length > 0);
   const nombres = nombresCatalogoDe(cat);
   const tocar = (v: string) => {
     const nuevas = elegidas.includes(v) ? elegidas.filter((x) => x !== v) : [...elegidas, v].slice(0, TOPE_REUNIONES);
@@ -411,34 +483,95 @@ function SelectorReuniones({ fila, cat, busy, onCambiar }: {
   // condición igual vale para cualquier reunión, que es lo que dice el botón.
   const motivo = cat.reuniones === undefined ? 'Cargando las reuniones' : cat.reuniones === null ? 'No se pudieron leer las reuniones'
     : !hay ? 'Ninguna etapa del CRM está marcada como reunión' : undefined;
-  const porSecciones = secciones.length > 1 && secciones.every((s) => s.title);
   return (
-    <div title={motivo} style={{ width: '100%' }}>
-      {porSecciones
-        ? <Dropdown value="" secciones={secciones as DropdownGroup[]} varios={elegidas} onChange={tocar} width="100%" ariaLabel="Reuniones"
-            disabled={busy || !hay} botonLabel={rotulo} />
-        : <Dropdown value="" options={secciones.flatMap((s) => s.options)} varios={elegidas} onChange={tocar} width="100%" ariaLabel="Reuniones"
-            disabled={busy || !hay} botonLabel={rotulo} />}
+    <div title={motivo} style={COLGANDO}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {esArbol(niveles)
+          ? <Dropdown value="" secciones={niveles as DropdownGroup[]} varios={elegidas} onChange={tocar} width="100%" ariaLabel="Reuniones"
+              disabled={busy || !hay} botonLabel={rotulo} buttonStyle={SECUNDARIO} />
+          : <Dropdown value="" options={niveles.flatMap(opcionesDelNivel)} varios={elegidas} onChange={tocar} width="100%" ariaLabel="Reuniones"
+              disabled={busy || !hay} botonLabel={rotulo} buttonStyle={SECUNDARIO} />}
+      </div>
     </div>
   );
 }
 
+/** Todas las opciones de un nivel y de los de adentro. */
+function opcionesDelNivel(n: NivelArbol): DropdownOption[] {
+  return [...n.options, ...(n.grupos ?? []).flatMap(opcionesDelNivel)];
+}
+
 /**
- * Un desplegable de un catálogo, de ancho completo en su renglón. Con varias secciones con título, por
- * secciones; si no, plano. Lo puesto que no está en la lista lo dice el botón (`nombrePuesto`).
+ * Un desplegable de un catálogo, de ancho completo en su renglón y con la cara SECUNDARIA. Si el
+ * catálogo tiene jerarquía, un ÁRBOL (`arbolDeOpciones`: primero el curso o el módulo, después lo de
+ * adentro; buscar aplana); si no, plano. Lo puesto que no está en la lista lo dice el botón.
  */
-function SelectorDeLista({ secciones, valor, nombrePuesto, busy, aria, onElegir }: {
-  secciones: SeccionOpciones[]; valor: string; nombrePuesto: string; busy: boolean; aria: string; onElegir: (v: string) => void;
+function SelectorDeLista({ niveles, valor, nombrePuesto, busy, aria, onElegir }: {
+  niveles: NivelArbol[]; valor: string; nombrePuesto: string; busy: boolean; aria: string; onElegir: (v: string) => void;
 }) {
-  const lista = secciones.filter((s) => s.options.length > 0);
-  const esta = !valor || lista.some((s) => s.options.some((o) => o.value === valor));
+  const todas = niveles.flatMap(opcionesDelNivel);
+  const esta = !valor || todas.some((o) => o.value === valor);
   const botonLabel = esta ? undefined : nombrePuesto;
-  const porSecciones = lista.length > 1 && lista.every((s) => s.title);
   return (
     <div style={{ flex: 1, minWidth: 180 }}>
-      {porSecciones
-        ? <Dropdown value={valor} secciones={lista as DropdownGroup[]} placeholder="Elige" width="100%" ariaLabel={aria} disabled={busy} search onChange={onElegir} botonLabel={botonLabel} />
-        : <Dropdown value={valor} options={lista.flatMap((s) => s.options)} placeholder="Elige" width="100%" ariaLabel={aria} disabled={busy} onChange={onElegir} botonLabel={botonLabel} />}
+      {esArbol(niveles)
+        ? <Dropdown value={valor} secciones={niveles as DropdownGroup[]} placeholder="Elige" width="100%" ariaLabel={aria} disabled={busy} search onChange={onElegir} botonLabel={botonLabel} buttonStyle={SECUNDARIO} />
+        : <Dropdown value={valor} options={todas} placeholder="Elige" width="100%" ariaLabel={aria} disabled={busy} onChange={onElegir} botonLabel={botonLabel} buttonStyle={SECUNDARIO} />}
+    </div>
+  );
+}
+
+// ── La condición que escucha las respuestas (sexta tanda, punto 12) ──────────────────
+
+/**
+ * «SI RESPONDE», COMO UNA CONDITION: cada CASO es una fila con la pregunta grande «Su respuesta trata
+ * de» (la familia «Respuesta» del catálogo) y, colgando, su nombre y cuándo aplica —que es lo que lee
+ * el clasificador—. Entre dos casos va «o» y no se cambia: el clasificador elige UNO, así que nunca
+ * se cumplen dos a la vez. «＋ o» suma un caso con su «MaKo contesta». El «Si no» es lo que antes era
+ * «Otra cosa» (MaKo se calla y te avisa, si nadie lo cambió).
+ *
+ * Tipear el nombre o el «cuándo» no apila (el Ctrl+Z del texto es del navegador); sumar o quitar un
+ * caso, sí. El motor no cambia (`responderConGrafo`): lo que se edita acá es el mismo dato de siempre.
+ */
+export function EditorCondicionDeRespuesta({ r, busy }: { r: EdicionRespuesta; busy: boolean }) {
+  const casos = r.casos;
+  const setCaso = (k: number, p: Partial<CasoRespuesta>) => r.cambiarCasos(casos.map((c, j) => (j === k ? { ...c, ...p } : c)), false);
+  const lleno = busy || casos.length >= TOPE_CASOS;
+  return (
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {casos.map((c, k) => (
+        <Fragment key={c.id}>
+          {k > 0 && <Separador><span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)', fontFamily: SANS }}>o</span></Separador>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div aria-label="Condición" style={{
+                ...botonGrande, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', boxSizing: 'border-box',
+                border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS,
+              }}>{ROTULO_RESPUESTA}</div>
+              <BotonQuitar onClick={() => r.onQuitarCaso(c.id)} disabled={busy} aria="Quitar este caso" />
+            </div>
+            <div style={{ ...COLGANDO, flexDirection: 'column', alignItems: 'stretch' }}>
+              <input value={c.titulo} maxLength={40} placeholder="Nombre del caso" disabled={busy} aria-label="Nombre del caso"
+                onChange={(e) => setCaso(k, { titulo: e.target.value })}
+                style={{ ...inpLienzo, fontWeight: 600, ...(c.titulo.trim() ? {} : { borderColor: 'var(--warn)' }) }} />
+              <textarea value={c.cuando} rows={2} placeholder="Cuándo aplica" disabled={busy} aria-label="Cuándo aplica"
+                onChange={(e) => setCaso(k, { cuando: e.target.value })}
+                style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45, ...(c.cuando.trim() ? {} : { borderColor: 'var(--warn)' }) }} />
+            </div>
+          </div>
+        </Fragment>
+      ))}
+      <button type="button" onClick={r.onAgregarCaso} disabled={lleno} aria-label="Agregar un caso"
+        style={{ ...PLACEHOLDER, display: 'flex', alignItems: 'center', cursor: lleno ? 'default' : 'pointer', color: lleno ? 'var(--faint)' : 'var(--primary)', fontFamily: SANS, fontWeight: 600 }}>
+        ＋ o
+      </button>
+      <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 12, color: 'var(--dim)' }}>Si no</span>
+        {r.onVerSiNo && (
+          <button type="button" onClick={r.onVerSiNo}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--primary)', cursor: 'pointer', fontFamily: SANS }}>Ver</button>
+        )}
+      </div>
     </div>
   );
 }
