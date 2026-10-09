@@ -12,7 +12,7 @@
 // =============================================================================
 
 import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, preparaUnaReunion, secuenciasParaElLead } from '@/lib/nutricion-familias';
-import { getTenantDb, getWorkspace, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { getTenantDb, getWorkspace, getWorkspaceActual, runWithWorkspace, wsEnContexto } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
 import { LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
@@ -41,6 +41,14 @@ import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA } from '@/lib/nutricion-residuo';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
+// VARIOS CRON por automatización (sexta tanda, mig 0241): el modelo, cuándo dispara cada uno y qué le
+// llega al grupo de MaKo. Puro y con test: lib/disparadores.ts.
+import {
+  disparadoresDe, vistasPorDisparador, unaPorSecuencia, disparaPorEvento, barreElDisparador, textosParaElGrupo,
+  TRIGGERS_SOLO_EVENTO, TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER,
+  TRIGGER_EMAIL_RECIBIDO,
+  type Disparador,
+} from '@/lib/disparadores';
 import { tzActual, TZ_DEFAULT, KEY_TIMEZONE } from '@/lib/timezone';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar, crearBorrador, tieneBorradorNutriPendiente, tieneBorradorPendienteDePaso } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
@@ -259,6 +267,14 @@ export type Secuencia = {
    * (mig 0223). `null` en todas las demás.
    */
   etiqueta_id: number | null;
+  /**
+   * TODOS LOS CRON de la automatización (sexta tanda, mig 0241), ya armados (`disparadoresDe`,
+   * lib/disparadores.ts): el primero es el de las columnas de arriba. El motor pregunta por cada uno
+   * con `vistasPorDisparador`. Ausente = la lista de uno (un objeto armado a mano, un test).
+   */
+  disparadores?: Disparador[];
+  /** El compare-and-set de la lista (mig 0241). null = la columna todavía no está: no hay CRON extra. */
+  disparadores_rev?: number | null;
 };
 
 /** Una fila de `nutricion_secuencias` como la leen las dos lecturas de abajo. */
@@ -268,6 +284,9 @@ type FilaSecuencia = {
   funnel_id: number | null; cron: unknown; cron_proxima_at: string | null; instance_name: string | null; etiqueta_id: number | string | null;
   /** Ausente con la 0230 sin aplicar (`leerFilasDeSecuencias` vuelve a pedir sin ella). */
   etapas?: unknown;
+  /** Ausentes con la 0241 sin aplicar (ídem). */
+  disparadores?: unknown;
+  disparadores_rev?: number | null;
 };
 
 /**
@@ -279,6 +298,14 @@ type FilaSecuencia = {
 const COLS_SECUENCIA = 'id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name, etiqueta_id';
 /** Y la columna de la 0230, que se pide aparte para poder pedir sin ella. */
 const COL_ETAPAS = 'etapas';
+/** Y las de la 0241 (varios CRON), por lo mismo. */
+const COLS_DISPARADORES = 'disparadores, disparadores_rev';
+
+/** Los CRON de una fila, y su revisión (null = sin la 0241: la fila no trae la columna). */
+const listaDe = (r: FilaSecuencia): Pick<Secuencia, 'disparadores' | 'disparadores_rev'> => ({
+  disparadores: disparadoresDe(r),
+  disparadores_rev: 'disparadores_rev' in r ? Number(r.disparadores_rev ?? 0) : null,
+});
 
 /**
  * LEE LAS SECUENCIAS CON `etapas`, Y SIN ELLA SI LA 0230 TODAVÍA NO ESTÁ (cuarta tanda, punto 14).
@@ -294,6 +321,13 @@ async function leerFilasDeSecuencias(
   pedir: (cols: string) => PromiseLike<{ data: unknown; error: { code?: string | null; message: string } | null }>,
   quien: string,
 ): Promise<FilaSecuencia[]> {
+  // ⚠️ PRIMERO CON LOS CRON DE LA 0241, Y LA MISMA TOLERANCIA (sexta tanda): sin la columna, cada
+  // automatización dispara por sus columnas de siempre, como hoy, y queda el log. Lo de abajo es el
+  // camino de antes, sin tocar.
+  const conLista = await pedir(`${COLS_SECUENCIA}, ${COL_ETAPAS}, ${COLS_DISPARADORES}`);
+  if (!conLista.error) return (conLista.data ?? []) as FilaSecuencia[];
+  if (!esColumnaInexistente(conLista.error)) throw new Error(`${quien}: ${conLista.error.message}`);
+  console.warn(`[nutricion] ${quien}: falta nutricion_secuencias.disparadores (mig 0241); cada secuencia dispara por sus columnas (${conLista.error.message})`);
   const conEtapas = await pedir(`${COLS_SECUENCIA}, ${COL_ETAPAS}`);
   if (!conEtapas.error) return (conEtapas.data ?? []) as FilaSecuencia[];
   if (!esColumnaInexistente(conEtapas.error)) throw new Error(`${quien}: ${conEtapas.error.message}`);
@@ -374,6 +408,8 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     cron_proxima_at: r.cron_proxima_at ?? null,
     instance_name: r.instance_name || null,
     etiqueta_id: r.etiqueta_id == null ? null : Number(r.etiqueta_id),
+    // Los CRON (mig 0241): el primero es el de estas mismas columnas.
+    ...listaDe(r),
   }));
 }
 
@@ -438,6 +474,8 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     cron_proxima_at: r.cron_proxima_at ?? null,
     instance_name: r.instance_name || null,
     etiqueta_id: r.etiqueta_id == null ? null : Number(r.etiqueta_id),
+    // Los CRON (mig 0241): la pantalla los lee de acá (`SecuenciaDto.disparadores`).
+    ...listaDe(r),
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -1362,20 +1400,27 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
   const tz = await tzActual().catch(() => TZ_DEFAULT);
   const ahora = new Date();
 
-  for (const sec of secuencias) {
-    // ⚠️ LA MISMA PUERTA QUE EL COMMIT, o el preview miente sobre a quién va a
-    // inscribir. Acá NO se escribe `cron_proxima_at`: un dry-run que avanza el ancla
-    // deja al commit de al lado sin su ocurrencia.
-    if (!barridoInscribe(sec)) continue;
-    if (!decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora).toca) continue;
-    // `etapasDe(sec)`: una o VARIAS etapas (punto 14). La MISMA pregunta que el commit de abajo. No
-    // duplica al pasar por dos: `aInscribir` saltea a quien ya tiene fila (una de etapa no se reusa).
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id));
-    if (candidatos.length === 0) continue;
-    const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
-      .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
-    for (const n of nuevas) plan.push({ secuencia: sec.clave, lead_id: n.lead_id, proximo_envio_at: n.proximo_envio_at });
-    for (const r of reusar) plan.push({ secuencia: sec.clave, lead_id: r.lead_id, proximo_envio_at: r.proximo_envio_at, reactiva: true });
+  // VARIOS CRON (mig 0241): cada automatización se mira por CADA uno de sus CRON, y una persona que
+  // alcanzan dos sale UNA vez en el plan (`yaEnElPlan`), igual que en el commit.
+  for (const base of secuencias) {
+    const yaEnElPlan = new Set<number>();
+    for (const sec of vistasPorDisparador(base)) {
+      // ⚠️ LA MISMA PUERTA QUE EL COMMIT, o el preview miente sobre a quién va a
+      // inscribir. Acá NO se escribe `cron_proxima_at`: un dry-run que avanza el ancla
+      // deja al commit de al lado sin su ocurrencia. Y no se le manda nada al grupo.
+      if (!barridoInscribe(sec)) continue;
+      if (!barreElDisparador(sec)) continue;
+      if (!decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora).toca) continue;
+      // `etapasDe(sec)`: una o VARIAS etapas (punto 14). La MISMA pregunta que el commit de abajo. No
+      // duplica al pasar por dos: `aInscribir` saltea a quien ya tiene fila (una de etapa no se reusa).
+      const candidatos = (await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id)))
+        .filter((id) => !yaEnElPlan.has(id));
+      if (candidatos.length === 0) continue;
+      const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
+        .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
+      for (const n of nuevas) { yaEnElPlan.add(n.lead_id); plan.push({ secuencia: sec.clave, lead_id: n.lead_id, proximo_envio_at: n.proximo_envio_at }); }
+      for (const r of reusar) { yaEnElPlan.add(r.lead_id); plan.push({ secuencia: sec.clave, lead_id: r.lead_id, proximo_envio_at: r.proximo_envio_at, reactiva: true }); }
+    }
   }
   return plan;
 }
@@ -1441,6 +1486,32 @@ async function aInscribir(
 
 // Persiste las inscripciones nuevas y reactiva las que se reusan (#789). Devuelve cuántas
 // corridas ARRANCÓ: las dos cuentan, porque las dos son un lead que empieza la secuencia.
+//
+// · «Se le puso una etiqueta» SIN horario es sólo el evento: el barrido no inscribe por etiqueta
+//   (decisión del 08/10/2026, `barridoInscribe`). Si barriera, el LOTE y el espejo de una etapa
+//   —que a propósito no disparan— disparaban igual en esta corrida. Lo mismo, desde la sexta tanda,
+//   para todo lo que dispara SÓLO por su evento (`barreElDisparador`, lib/disparadores.ts).
+//
+// · ⚠️ LA PUERTA DEL HORARIO, Y EL AVANCE VA ANTES DE INSCRIBIR. Marcar primero es la regla de la
+//   casa, y está medida: dos invocaciones del mismo tick inscribían dos veces (21 pares duplicados el
+//   27/09 por los 7-10 s que el envío por WhatsApp retiene el HTTP abierto). El costo de este orden
+//   es el opuesto y es el correcto: si la inscripción falla se pierde UNA ocurrencia, y eso se nota
+//   menos que dos mensajes iguales en el teléfono de un cliente. El `eq('cron_proxima_at', …)` es el
+//   compare-and-set: si otra invocación ya la avanzó, el update toca 0 filas y esta corrida se
+//   abstiene. Para los CRON que no son el primero, el compare-and-set es la revisión de la lista
+//   (`reclamarOcurrenciaExtra`, mig 0241).
+//
+// · VARIOS CRON (sexta tanda, mig 0241): cada automatización se mira por CADA uno de sus CRON
+//   (`vistasPorDisparador`), y la misma persona entra UNA vez aunque la alcancen dos (`yaInscriptos`;
+//   la base además lo frena con el unique (lead, secuencia)).
+//
+// · EL RECURRENTE AL GRUPO DE MAKO sale una vez por ocurrencia, la que esta corrida acaba de
+//   reclamar (`mandarRecurrenteAlGrupo`). No inscribe a nadie: el grupo no es un lead.
+//
+// · Un error de `aInscribir` LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y el
+//   insert moría contra el unique — o sea que igual cortaba, pero con un mensaje que culpaba al
+//   insert y no a la lectura. `reunion_at` va sólo en la familia que prepara una reunión: fuera de
+//   ella la columna no dice nada, y no mandarla deja a las demás andando sin la 0205.
 export async function comprometerInscripciones(): Promise<number> {
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
@@ -1449,59 +1520,120 @@ export async function comprometerInscripciones(): Promise<number> {
   const tz = await tzActual().catch(() => TZ_DEFAULT);
   const ahora = new Date();
 
-  for (const sec of secuencias) {
-    // «Se le puso una etiqueta» SIN horario es sólo el evento: el barrido no inscribe por
-    // etiqueta (decisión del 08/10/2026, `barridoInscribe`). Si barriera, el LOTE y el espejo de
-    // una etapa —que a propósito no disparan— disparaban igual en esta corrida.
-    if (!barridoInscribe(sec)) continue;
-    /**
-     * ⚠️ LA PUERTA DEL HORARIO, Y EL AVANCE VA ANTES DE INSCRIBIR.
-     *
-     * Marcar primero es la regla de la casa, y está medida: dos invocaciones del
-     * mismo tick inscribían dos veces (21 pares duplicados el 27/09 por los 7-10 s
-     * que el envío por WhatsApp retiene el HTTP abierto). El costo de este orden es
-     * el opuesto y es el correcto: si la inscripción falla se pierde UNA ocurrencia,
-     * y eso se nota menos que dos mensajes iguales en el teléfono de un cliente.
-     *
-     * El `eq('cron_proxima_at', …)` es el compare-and-set: si otra invocación ya la
-     * avanzó, el update toca 0 filas y esta corrida se abstiene.
-     */
-    const agenda = decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora);
-    if (agenda.proxima) {
-      const q = supabase.from('nutricion_secuencias').update({ cron_proxima_at: agenda.proxima }).eq('id', sec.id);
-      const { data: reclamadas, error: eCron } = sec.cron_proxima_at == null
-        ? await q.is('cron_proxima_at', null).select('id')
-        : await q.eq('cron_proxima_at', sec.cron_proxima_at).select('id');
-      if (eCron) throw new Error(`comprometerInscripciones (cron): ${eCron.message}`);
-      // Sembrar NO dispara (ver lib/nutricion-agenda.ts), así que `toca` manda igual.
-      if (agenda.toca && (reclamadas ?? []).length === 0) continue;
+  for (const base of secuencias) {
+    const yaInscriptos = new Set<number>();
+    const lista = { disparadores: base.disparadores ?? [], rev: base.disparadores_rev ?? null };
+    for (const sec of vistasPorDisparador(base)) {
+      if (!barridoInscribe(sec)) continue;
+      if (!barreElDisparador(sec) && !sec.disparador.grupo) continue;
+      const agenda = decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora);
+      if (agenda.proxima) {
+        let reclamada = false;
+        if (sec.disparador.indice === 0) {
+          const q = supabase.from('nutricion_secuencias').update({ cron_proxima_at: agenda.proxima }).eq('id', sec.id);
+          const { data: reclamadas, error: eCron } = sec.cron_proxima_at == null
+            ? await q.is('cron_proxima_at', null).select('id')
+            : await q.eq('cron_proxima_at', sec.cron_proxima_at).select('id');
+          if (eCron) throw new Error(`comprometerInscripciones (cron): ${eCron.message}`);
+          reclamada = (reclamadas ?? []).length > 0;
+        } else reclamada = await reclamarOcurrenciaExtra(supabase, sec.id, lista, sec.disparador.id, agenda.proxima);
+        // Sembrar NO dispara (ver lib/nutricion-agenda.ts), así que `toca` manda igual.
+        if (agenda.toca && !reclamada) continue;
+      }
+      if (!agenda.toca) continue;
+      if (sec.disparador.grupo) await mandarRecurrenteAlGrupo(base, sec.disparador, sec.cron_proxima_at);
+      if (!barreElDisparador(sec)) continue;
+      // Una o varias etapas (punto 14).
+      const candidatos = (await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id)))
+        .filter((id) => !yaInscriptos.has(id));
+      if (candidatos.length === 0) continue;
+      const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
+        .catch((e: unknown) => { throw new Error(`comprometerInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
+      for (const x of [...nuevas, ...reusar]) yaInscriptos.add(x.lead_id);
+      if (nuevas.length) {
+        const { error } = await supabase.from('nutricion_inscripciones').insert(nuevas.map((n) => ({
+          lead_id: n.lead_id,
+          secuencia_id: sec.id,
+          paso_actual: 0,
+          estado: 'activa',
+          proximo_envio_at: n.proximo_envio_at,
+          ...(preparaUnaReunion(sec.trigger_tipo) ? { reunion_at: n.reunion_at } : {}),
+        })));
+        if (error) throw new Error(`comprometerInscripciones: ${error.message}`);
+        creadas += nuevas.length;
+      }
+      creadas += await reactivarReusables(supabase, sec, reusar);
     }
-    if (!agenda.toca) continue;
-    // Una o varias etapas (punto 14).
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id));
-    if (candidatos.length === 0) continue;
-    // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y
-    // el insert moría contra el unique — o sea que igual cortaba, pero con un
-    // mensaje que culpaba al insert y no a la lectura.
-    const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
-      .catch((e: unknown) => { throw new Error(`comprometerInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
-    if (nuevas.length) {
-      const { error } = await supabase.from('nutricion_inscripciones').insert(nuevas.map((n) => ({
-        lead_id: n.lead_id,
-        secuencia_id: sec.id,
-        paso_actual: 0,
-        estado: 'activa',
-        proximo_envio_at: n.proximo_envio_at,
-        // Sólo en la familia que prepara una reunión: fuera de ella la columna no dice nada,
-        // y no mandarla deja a las demás secuencias andando aunque la 0205 todavía no esté.
-        ...(preparaUnaReunion(sec.trigger_tipo) ? { reunion_at: n.reunion_at } : {}),
-      })));
-      if (error) throw new Error(`comprometerInscripciones: ${error.message}`);
-      creadas += nuevas.length;
-    }
-    creadas += await reactivarReusables(supabase, sec, reusar);
   }
   return creadas;
+}
+
+/**
+ * AVANZA LA PRÓXIMA OCURRENCIA DE UN CRON QUE NO ES EL PRIMERO (mig 0241), con compare-and-set por la
+ * revisión de la lista. Devuelve si ESTA corrida la reclamó. La lista y su revisión viajan en `estado`
+ * y se actualizan acá: dos CRON extra de la misma automatización en el mismo tick avanzan de a uno, el
+ * segundo sobre la lista que dejó el primero.
+ *
+ * ⚠️ SIN LA COLUMNA NO HAY CRON EXTRA (la lista sale de las columnas), así que `rev: null` no reclama
+ * nada: es la puerta cerrada. Y si la escritura falla, TIRA, como la del primero: «no pude marcar»
+ * seguido de «inscribo igual» es el duplicado que el compare-and-set vino a cerrar.
+ */
+async function reclamarOcurrenciaExtra(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  secuenciaId: number,
+  estado: { disparadores: Disparador[]; rev: number | null },
+  disparadorId: string,
+  proxima: string,
+): Promise<boolean> {
+  if (estado.rev == null) return false;
+  const nueva = estado.disparadores.map((d) => (d.id === disparadorId ? { ...d, cron_proxima_at: proxima } : d));
+  const { data, error } = await db.from('nutricion_secuencias')
+    .update({ disparadores: nueva, disparadores_rev: estado.rev + 1 })
+    .eq('id', secuenciaId).eq('disparadores_rev', estado.rev)
+    .select('id');
+  if (error) throw new Error(`comprometerInscripciones (cron ${disparadorId}): ${error.message}`);
+  if (!(data ?? []).length) return false;
+  estado.disparadores = nueva;
+  estado.rev += 1;
+  return true;
+}
+
+/**
+ * EL RECURRENTE AL GRUPO DE MAKO (sexta tanda, CRON punto 9: «falta poder enviarlo al grupo de
+ * MaKo... Puedo seleccionar enviarlo a clientes y al grupo de MaKo al mismo tiempo»).
+ *
+ * Una automatización corre sobre un LEAD, y el grupo no es un lead. Así que en cada ocurrencia de un
+ * Recurrente con «El grupo de MaKo» marcado, al grupo de WhatsApp del negocio le llega UN mensaje,
+ * por la línea de MaKo y por el MISMO camino que la tarjeta MAKO (`emitirAviso`, el tipo
+ * `chatbot-aviso-equipo`: el interruptor y los canales que el negocio eligió en Configuraciones ›
+ * Notificaciones valen igual), con el TEXTO de lo que la automatización dice: `textosParaElGrupo`
+ * (lib/disparadores.ts) dice qué entra y qué no (una condición corta el camino; una espera no se
+ * espera; un email, una acción, un audio no salen).
+ *
+ * ⚠️ EL WORKSPACE ES EL DEL CONTEXTO, Y SIN CONTEXTO NO SALE NADA. `emitirAviso` sin `ws` cae al
+ * dueño (`OWNER_WS`, que es el ws1, un cliente): el Recurrente de un negocio sonaría en el grupo de
+ * otro. El cron de nutrición corre cada workspace adentro de `runWithWorkspace`.
+ *
+ * Nunca tira: un aviso que no sale no puede cortar la inscripción de la cohorte del mismo CRON.
+ */
+async function mandarRecurrenteAlGrupo(sec: Pick<Secuencia, 'id' | 'nombre' | 'pasos'>, d: Disparador, ocurrencia: string | null): Promise<void> {
+  try {
+    const ws = wsEnContexto();
+    if (ws == null) { console.warn(`[nutricion] recurrente ${sec.id}/${d.id}: sin workspace en contexto, no se le manda nada al grupo`); return; }
+    const textos = textosParaElGrupo(sec.pasos);
+    if (!textos.length) { console.log(`[nutricion] recurrente ${sec.id}/${d.id}: la automatización no tiene texto para el grupo`); return; }
+    const { emitirAviso } = await import('@/lib/avisos');
+    const titulo = (sec.nombre || 'Una automatización').slice(0, 120);
+    const r = await emitirAviso({
+      ws, tipo: 'chatbot-aviso-equipo', titulo, categoria: 'accion', semaforo: 'amarillo',
+      // UNA por ocurrencia: el compare-and-set ya la reclamó, y esto cubre una reentrega del mismo tick.
+      dedupKey: `recurrente:${sec.id}:${d.id}:${ocurrencia ?? ''}`, dedupTtlMin: 30,
+      texto: [`🟡 *${titulo}*`, '', textos.join('\n\n'), '', '— MaKo'].join('\n'),
+    });
+    console.log(`[nutricion] recurrente ${sec.id}/${d.id} al grupo (ws ${ws}): ${r.wa ? 'salió' : r.apagado ? 'apagado en Notificaciones' : r.deduped ? 'ya había salido' : `no salió${r.waError ? ` — ${r.waError}` : ''}`}`);
+  } catch (e) {
+    console.error(`[nutricion] recurrente ${sec.id}/${d.id} al grupo falló:`, e instanceof Error ? e.message : String(e));
+  }
 }
 
 /**
@@ -1535,7 +1667,19 @@ async function reactivarReusables(
 // evento cae fuera de 9-21 MX, la inscripción queda vencida y la levanta la
 // primera corrida del cron de la mañana.
 
-export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega' | 'etiqueta';
+/**
+ * Los eventos que inscriben en el acto.
+ *
+ * ⚠️ CONTRATO CON LAS PARTES «canales» Y «probar» (sexta tanda, 09/10/2026): sus webhooks llaman
+ * `enrolarPorEvento(leadId, 'instagram' | 'messenger' | 'email_recibido', { subtipo })` con el lead ya
+ * creado o encontrado. `subtipo` es el evento del canal: Instagram 'comentario' | 'historia' | 'dm' |
+ * 'anuncio' | 'en_vivo' | 'ref'; Messenger 'anuncio' | 'comentario' | 'dm' | 'ref' | 'qr' | 'tienda'
+ * (`EVENTOS_INSTAGRAM` / `EVENTOS_MESSENGER`, lib/disparadores.ts). Sin `subtipo`, Instagram y
+ * Messenger no inscriben a nadie. 'etiqueta_quitada' lo emite el choke point de las etiquetas.
+ */
+export type EventoNutricion =
+  | 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega' | 'etiqueta'
+  | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido';
 
 /** Lo que el evento de ETAPA necesita saber, porque no se deduce del lead id. */
 export type CtxEvento = {
@@ -1551,8 +1695,10 @@ export type CtxEvento = {
   productoId?: number | string | null;
   /** De qué etapa SALIÓ. `null` = recién entra. Ver `cerrarEntregaDeEtapa`. */
   desde?: string | null;
-  /** La etiqueta (`crm_etiquetas.id`) que ACABAN de ponerle. Es la pregunta del evento `'etiqueta'`. */
+  /** La etiqueta (`crm_etiquetas.id`) que ACABAN de ponerle (`'etiqueta'`) o de sacarle (`'etiqueta_quitada'`). */
   etiquetaId?: number | string | null;
+  /** Instagram / Messenger / Email: QUÉ pasó en el canal (ver `EventoNutricion`). */
+  subtipo?: string;
 };
 
 // Qué triggers responden a cada evento. Los cohortes siguen siendo la fuente de
@@ -1569,8 +1715,15 @@ const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
   entrega: [TRIGGER_ENTREGA],
   // Le PUSIERON una etiqueta (08/10/2026, punto 12: «debería también poder salir acciones y
   // CRON desde etiquetas»). Lo dispara el choke point de las etiquetas (lib/etiquetas.ts). Como
-  // el de etapa, no alcanza solo: `secuenciasDeEtiqueta` filtra por CUÁL.
-  etiqueta: [TRIGGER_ETIQUETA],
+  // el de etapa, no alcanza solo: `secuenciasDeEtiqueta` filtra por CUÁL. Y desde la sexta tanda
+  // (CRON punto 3) también «Se agrega etiqueta a un lead», con su «Ignorar» (`disparaPorEvento`).
+  etiqueta: [TRIGGER_ETIQUETA, TRIGGER_ETIQUETA_AGREGADA],
+  // «Se elimina etiqueta a un lead» (CRON punto 3), con su «Ignorar».
+  etiqueta_quitada: [TRIGGER_ETIQUETA_QUITADA],
+  // Los canales (CRON puntos 6, 7 y 8): los emiten sus webhooks. `disparaPorEvento` pregunta por CUÁL evento.
+  instagram: [TRIGGER_INSTAGRAM],
+  messenger: [TRIGGER_MESSENGER],
+  email_recibido: [TRIGGER_EMAIL_RECIBIDO],
 };
 
 /**
@@ -1739,7 +1892,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     const supabase = await getTenantDb();
     const claves = TRIGGERS_POR_EVENTO[evento] ?? [];
     if (!claves.length) return 0;
-    const todas = (await getSecuenciasActivas()).filter((s) => claves.includes(s.trigger_tipo));
+    // VARIOS CRON (mig 0241): una vista por CRON; un Recurrente (con horario) no responde a eventos.
+    const todas = (await getSecuenciasActivas()).flatMap((s) => vistasPorDisparador(s)).filter((s) => claves.includes(s.trigger_tipo) && !s.cron);
     if (!todas.length) return 0;
     // LAS DOS MITADES DE LA POST-AGENDA SON EXCLUYENTES, Y ACÁ ES DONDE MÁS
     // FÁCIL SE ROMPE: este camino no pasa por `leadsDeCohorte` —enrola en TODAS
@@ -1751,6 +1905,10 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     let delEvento = hayFamilia
       ? secuenciasParaElLead(todas, (await leadsYaContactados([leadId])).has(leadId))
       : todas;
+    // Los CRON nuevos (cualquier etiqueta, sacar una, los canales) los decide `disparaPorEvento`
+    // (lib/disparadores.ts: «Ignorar», el subtipo del canal). Los de siempre, las reglas de abajo.
+    const porLoNuevo = delEvento.filter((s) => TRIGGERS_SOLO_EVENTO.has(s.trigger_tipo) && disparaPorEvento(s.disparador, evento, ctx));
+    delEvento = delEvento.filter((s) => !TRIGGERS_SOLO_EVENTO.has(s.trigger_tipo));
 
     // ⚠️ EL EVENTO DE ETAPA ES EL ÚNICO QUE PREGUNTA POR *CUÁL*. Los otros dos enrolan
     // en todas las secuencias de su trigger —son un puñado y le aplican a cualquier lead
@@ -1759,7 +1917,7 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     // la pregunta, y el ámbito se resuelve UNA vez por secuencia (`ambitoDeFunnel` ya
     // tolera el id que no existe cayendo a `propio`, que no junta a nadie de más).
     if (evento === 'etapa') {
-      const conAmbito: Array<Secuencia & { ambito: AmbitoFunnel }> = [];
+      const conAmbito: Array<(typeof delEvento)[number] & { ambito: AmbitoFunnel }> = [];
       for (const sec of delEvento) conAmbito.push({ ...sec, ambito: await ambitoDeFunnel(sec.funnel_id) });
       delEvento = secuenciasDeEtapa(conAmbito, ctx?.etapa, ctx?.funnelId);
     }
@@ -1776,6 +1934,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     // ⚠️ LA ETIQUETA TAMBIÉN PREGUNTA POR *CUÁL*, como la etapa: sin esto, ponerle «Cualificado»
     // a un lead lo metía también en la secuencia de «Seguimiento».
     if (evento === 'etiqueta') delEvento = secuenciasDeEtiqueta(delEvento, ctx?.etiquetaId);
+    // Una vez por automatización aunque disparen dos de sus CRON (`unaPorSecuencia`).
+    delEvento = unaPorSecuencia([...delEvento, ...porLoNuevo]);
     // El tope de antigüedad vale también acá: un evento de un lead viejo (una
     // agenda nueva, un lead re-importado) no lo mete a una secuencia que no le
     // escribe a leads de esa edad.

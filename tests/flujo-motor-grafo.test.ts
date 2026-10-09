@@ -283,7 +283,9 @@ test('(7) una etiqueta dispara SÓLO las secuencias de esa etiqueta; sin etiquet
   assert.deepEqual(secuenciasDeEtiqueta(lista, null), []);
   assert.deepEqual(secuenciasDeEtiqueta(lista, 0), []);
   // El motor: el evento, el filtro y la cohorte.
-  assert.match(NUTRI, /etiqueta: \[TRIGGER_ETIQUETA\],/);
+  // Sexta tanda (CRON punto 3): el evento también mira «Se agrega etiqueta a un lead», cuyo filtro
+  // (con «Ignorar») es `disparaPorEvento` y lo prueba tests/disparadores.test.ts.
+  assert.match(NUTRI, /etiqueta: \[TRIGGER_ETIQUETA, TRIGGER_ETIQUETA_AGREGADA\],/);
   assert.match(fn(NUTRI, 'export async function enrolarPorEvento('), /if \(evento === 'etiqueta'\) delEvento = secuenciasDeEtiqueta\(delEvento, ctx\?\.etiquetaId\);/);
   assert.match(NUTRI, /if \(triggerTipo === TRIGGER_ETIQUETA\) return leadsConEtiqueta\(/);
   // Y se cambia por la ruta del lienzo, con la validación en `setTriggerSecuencia`.

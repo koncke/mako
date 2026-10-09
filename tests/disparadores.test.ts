@@ -16,7 +16,7 @@ import {
   conValorEtiqueta, valorEtiqueta, alternarIgnorar, textoDeDisparador, textosParaElGrupo, barreElDisparador, nuevoIdDisparador,
   ZONAS_POR_PAIS, paisDeZona, EVENTOS_INSTAGRAM, EVENTOS_MESSENGER, CLASES_DISPARADOR, VALOR_GRUPO,
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_SOLO_GRUPO,
-  VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TOPE_DISPARADORES,
+  VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TOPE_DISPARADORES, vistasPorDisparador, unaPorSecuencia,
   type Disparador,
 } from '../lib/disparadores';
 import { PAISES } from '../lib/paises';
@@ -84,6 +84,30 @@ test('⚠️ lo que el primero escribe en las columnas: el embudo SÓLO con un d
   const venta = columnasDeDisparador({ id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'a', etapas: ['a', 'b'], funnel_id: 5 });
   assert.deepEqual(venta, { trigger_tipo: 'etapa_actual', etapa: 'a', etapas: ['a', 'b'], funnel_id: 5, producto_id: null, etiqueta_id: null, cron: null });
   assert.equal(columnasDeDisparador({ id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'a' }).etapas, null, 'con una sola etapa, `etapas` null (como la 0230)');
+});
+
+test('⚠️ las vistas del motor: un CRON extra que no es de adquisición usa el EMBUDO de la automatización', () => {
+  const base = {
+    id: 7, trigger_tipo: 'etapa_actual', etapa: 'agenda', etapas: [] as string[], funnel_id: 5, producto_id: null, etiqueta_id: null,
+    cron: null, cron_proxima_at: null,
+    disparadores: [
+      { id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'agenda', funnel_id: 5 },
+      { id: 'd2', trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3, cron: CRON, cron_proxima_at: '2026-10-10T15:00:00Z' },
+      { id: 'd3', trigger_tipo: 'etapa_actual', etapa: 'ganado', funnel_id: 8 },
+    ] as Disparador[],
+  };
+  const v = vistasPorDisparador(base);
+  assert.deepEqual(v.map((x) => [x.disparador.id, x.disparador.indice, x.trigger_tipo]), [['d1', 0, 'etapa_actual'], ['d2', 1, 'etiqueta_puesta'], ['d3', 2, 'etapa_actual']]);
+  // Con el embudo del CRON (ausente → null = TODOS), el de etiqueta le escribía a leads de otros productos.
+  assert.equal(v[1].funnel_id, 5);
+  assert.equal(v[1].etiqueta_id, 3);
+  assert.deepEqual(v[1].cron, CRON);
+  assert.equal(v[1].cron_proxima_at, '2026-10-10T15:00:00Z');
+  assert.equal(v[2].funnel_id, 8, 'el de adquisición lleva SU embudo');
+  // Sin la lista, una sola vista: la automatización tal cual.
+  assert.equal(vistasPorDisparador({ ...base, disparadores: undefined }).length, 1);
+  // Y una automatización, UNA vez, aunque disparen dos de sus CRON.
+  assert.deepEqual(unaPorSecuencia([{ id: 1, n: 'a' }, { id: 2, n: 'b' }, { id: 1, n: 'c' }]).map((x) => x.n), ['a', 'b']);
 });
 
 // ── 2. Cuándo dispara un evento ─────────────────────────────────────────────────────────────────

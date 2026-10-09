@@ -457,7 +457,7 @@ export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | '
  *   · Email: el email recibido.
  */
 export function disparaPorEvento(
-  d: Pick<Disparador, 'trigger_tipo' | 'cron' | 'etiqueta_id' | 'ignorar' | 'subtipo'>,
+  d: Pick<Disparador, 'trigger_tipo'> & Partial<Disparador>,
   evento: EventoDisparador | string,
   ctx?: { etiquetaId?: number | string | null; subtipo?: string | null } | null,
 ): boolean {
@@ -476,6 +476,65 @@ export function disparaPorEvento(
   }
   if (evento === 'email_recibido') return t === TRIGGER_EMAIL_RECIBIDO;
   return false;
+}
+
+// ── El motor: una «vista» de la automatización por cada CRON ────────────────────────────────────
+
+/** Lo que el motor lee de una automatización para decidir a quién inscribe (`Secuencia`, lib/nutricion.ts). */
+export type SecuenciaConDisparo = {
+  id: number;
+  trigger_tipo: string;
+  etapa: string;
+  etapas: string[];
+  funnel_id: number | null;
+  producto_id: number | null;
+  etiqueta_id: number | null;
+  cron: CronAviso | null;
+  cron_proxima_at: string | null;
+  /** La lista ya armada (`disparadoresDe`). Ausente = la de UNO, de las columnas. */
+  disparadores?: Disparador[];
+};
+
+/** Una vista: la automatización con los campos de disparo de UNO de sus CRON, y cuál es. */
+export type VistaDisparo<S> = S & { disparador: Disparador & { indice: number } };
+
+/**
+ * LA AUTOMATIZACIÓN UNA VEZ POR CADA CRON, con los campos de disparo de ese CRON puestos encima
+ * (`trigger_tipo`, la etapa, el ámbito, el horario). Es lo que deja al motor preguntarle a CADA CRON
+ * con las funciones de siempre —`secuenciasDeEtapa`, `secuenciasDeEtiqueta`, `leadsDeCohorte`,
+ * `decidirAgenda`— sin que ninguna sepa que hay una lista. La vista del primero es la secuencia tal
+ * cual (sus columnas).
+ *
+ * ⚠️ EL EMBUDO DE UN CRON QUE NO ES DE ADQUISICIÓN ES EL DE LA AUTOMATIZACIÓN. «Se le puso «X»» con
+ * horario barre a los que la tienen DENTRO del embudo de la automatización, igual que el primero:
+ * con el `funnel_id` del CRON (ausente → null = TODOS los embudos), un segundo CRON de etiqueta le
+ * escribía a leads de productos ajenos.
+ */
+export function vistasPorDisparador<S extends SecuenciaConDisparo>(sec: S): Array<VistaDisparo<S>> {
+  const lista = sec.disparadores?.length ? sec.disparadores : disparadoresDe(sec);
+  return lista.map((d, indice) => ({
+    ...sec,
+    trigger_tipo: d.trigger_tipo,
+    etapa: d.etapa ?? sec.etapa,
+    etapas: d.etapas ? [...d.etapas] : [],
+    funnel_id: d.trigger_tipo === TRIGGER_ETAPA ? (d.funnel_id ?? null) : sec.funnel_id,
+    producto_id: d.trigger_tipo === TRIGGER_ENTREGA ? (d.producto_id ?? null) : null,
+    etiqueta_id: d.trigger_tipo === TRIGGER_ETIQUETA ? (d.etiqueta_id ?? null) : null,
+    cron: d.cron ?? null,
+    cron_proxima_at: d.cron_proxima_at ?? null,
+    disparador: { ...d, indice },
+  }));
+}
+
+/**
+ * UNA VEZ POR AUTOMATIZACIÓN, AUNQUE DISPAREN DOS DE SUS CRON (la primera vista gana). «Una misma
+ * persona no se inscribe dos veces por dos disparadores del mismo evento»: la inscripción es única
+ * por (lead, secuencia) en la base, pero el evento inscribe de a una y el segundo insert chocaba con
+ * el unique y dejaba un error en el log por cada evento.
+ */
+export function unaPorSecuencia<T extends { id: number }>(vistas: readonly T[]): T[] {
+  const vistos = new Set<number>();
+  return vistas.filter((v) => (vistos.has(v.id) ? false : (vistos.add(v.id), true)));
 }
 
 // ── El Recurrente: «A quién» ─────────────────────────────────────────────────────────────────────
