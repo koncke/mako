@@ -26,17 +26,32 @@
 //     lienzo abierto y un loader adentro. La fila la pone ChatAgentApp (`crearNueva`, con
 //     `listaConCreando`); cuando el server contesta, la fila toma su id real y la selección la
 //     sigue (por su clave, `claveCreando`). Si falla, la fila se va y vuelve la que estaba elegida.
+//
+// ── QUINTA TANDA (09/10/2026): el filtro del Plan y los Mensajes de MaKo ──
+//   · EL FILTRO (punto 4): un botón chico, sólo el embudo, al lado del buscador (que gana el lugar),
+//     y el desplegable del Plan por secciones —Emojis, Estado, Canal— con varias marcadas y «Quitar
+//     filtros» sutil abajo del todo (`FiltroLista`). Quién pasa y qué ofrece cada sección lo decide
+//     lib/chatbot-lista-filtro.ts, con el canal DERIVADO de los pasos.
+//   · LOS MENSAJES DE MAKO (punto 5): los flujos de Configuraciones › Notificaciones son filas de
+//     esta lista (sólo para el admin: es el guard de su endpoint) y su lienzo se abre ACÁ, con el
+//     mismo editor de allá (`MensajeMakoLienzo`). Se eligen aparte de las automatizaciones
+//     (`avisoSel`), así la selección de siempre —y lo que sus tests fijan— no cambia de tipo.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
 import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { RecordatorioFlujo, NOMBRE_RECORDATORIO } from './RecordatorioFlujo';
+import { FiltroLista, LADO_FILTRO } from './FiltroLista';
+import { MensajeMakoLienzo } from './MensajeMakoLienzo';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
+import type { PlantillaVista } from '@/lib/plantillas';
 import { muelles as calcularMuelles, MUELLE } from '@/lib/lienzo-grafo';
+import { enviosDePasos, filaDeMensaje, pasaFiltroLista, type FilaFiltrable } from '@/lib/chatbot-lista-filtro';
+import { emojiDeMensaje, mensajeActivo } from '@/lib/chatbot-mensajes-mako';
 
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
@@ -121,27 +136,26 @@ export const emojiSecuencia = (j: Pick<SecuenciaDto, 'emoji' | 'estrategia'>): s
 
 /** El emoji del recordatorio de la reunión en la lista (es una fila más, y también se filtra). */
 const EMOJI_RECORDATORIO = '⏰';
-/** El valor del renglón «Quitar filtro»: no es un filtro, vuelve a la lista entera. */
-export const QUITAR_FILTRO = '__quitar';
+
+// ⚠️ ACÁ VIVÍAN `opcionesDeFiltro` Y `QUITAR_FILTRO` (cuarta tanda, punto 13): un Dropdown de un
+// valor —estado o un emoji— con «Quitar filtro» como el PRIMER renglón. La quinta tanda (punto 4) lo
+// reemplazó por el desplegable del Plan, con varias marcadas por sección y «Quitar filtros» sutil
+// abajo del todo: `FiltroLista` + lib/chatbot-lista-filtro.ts.
 
 /**
- * Las opciones del filtro de la lista (cuarta tanda, punto 13): por estado, por cada emoji que se ve
- * en la lista (con cuántas tiene), y «Quitar filtro» sólo si hay uno puesto. Sin «Todas»: sin filtro
- * el botón dice «Filtrar».
+ * La fila del filtro de una automatización: lo que se VE (el emoji, el punto de estado) y lo que
+ * sus pasos mandan, derivado (`enviosDePasos`). Exportada para que el test la ejecute.
  */
-export function opcionesDeFiltro(
-  secuencias: ReadonlyArray<Pick<SecuenciaDto, 'activa' | 'emoji' | 'estrategia'>>, filtro: string, emojiRecordatorio: string | null,
-): Array<{ value: string; label: string }> {
-  const porEmoji = new Map<string, number>();
-  for (const j of secuencias) { const e = emojiSecuencia(j); porEmoji.set(e, (porEmoji.get(e) ?? 0) + 1); }
-  if (emojiRecordatorio) porEmoji.set(emojiRecordatorio, (porEmoji.get(emojiRecordatorio) ?? 0) + 1);
-  return [
-    ...(filtro ? [{ value: QUITAR_FILTRO, label: 'Quitar filtro' }] : []),
-    { value: 'activas', label: `Activas · ${secuencias.filter((j) => j.activa).length}` },
-    { value: 'pausadas', label: `Pausadas · ${secuencias.filter((j) => !j.activa).length}` },
-    ...[...porEmoji.entries()].map(([e, n]) => ({ value: `emoji:${e}`, label: `${e} · ${n}` })),
-  ];
-}
+export const filaDeSecuencia = (j: Pick<SecuenciaDto, 'activa' | 'emoji' | 'estrategia' | 'pasos'>): FilaFiltrable => ({
+  activa: j.activa, emoji: emojiSecuencia(j), envios: enviosDePasos(j.pasos),
+});
+/** El recordatorio de la reunión le escribe al LEAD por WhatsApp (lib/reunion-recordatorio.ts). */
+const filaDeRecordatorio = (activo: boolean | null): FilaFiltrable => ({
+  activa: activo, emoji: EMOJI_RECORDATORIO, envios: [{ canal: 'whatsapp', destino: 'clientes' }],
+});
+
+/** El rótulo del grupo de los Mensajes de MaKo en la lista: el nombre de la tab de donde vienen. */
+export const ROTULO_MENSAJES_MAKO = 'Notificaciones';
 
 const API_SECUENCIAS = '/api/chat-agent/secuencias';
 
@@ -172,14 +186,34 @@ const CSS_LISTA = `
 @media (prefers-reduced-motion: reduce){.chb-nueva__mas{transition:none}.chb-nueva:hover .chb-nueva__mas,.chb-nueva:focus-visible .chb-nueva__mas,.chb-nueva:active .chb-nueva__mas{transform:none}}
 `;
 
+/** La caja del lienzo: de borde a borde, estirando con flex (la del recordatorio, la automatización o un mensaje). */
+const ESTILO_LIENZO: CSSProperties = { flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' };
+/** El rótulo de un grupo de la lista: el de los grupos del Dropdown de la casa (mono, chico, apagado). */
+const ROTULO_GRUPO: CSSProperties = {
+  fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase',
+  color: 'var(--faint)', padding: '12px 12px 4px', marginTop: 4, borderTop: '1px solid var(--border)',
+};
+
 /**
  * Un pedido de abrir el LIENZO de una automatización desde afuera (el link del aviso,
  * `/chatbot?sec=<id>`). Es un objeto y no un número a propósito: cada pedido es uno NUEVO, así
  * que el mismo id dos veces seguidas (dos avisos de la misma secuencia) vuelve a abrirla.
  */
 export type AbrirSecuencia = { id: number };
+/** Lo mismo para un Mensaje de MaKo (el link de Notificaciones, `/chatbot?aviso=<id>`): un objeto por pedido. */
+export type AbrirAviso = { id: string };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, pedidoIA }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, pedidoIA, avisos, abrirAviso, onAvisosCambio }: {
+  /**
+   * Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5), como
+   * los lee su propio endpoint. `null`/ausente = no se leyeron (quien no es admin no los ve: el
+   * endpoint tiene guard de admin y la pantalla no los pide).
+   */
+  avisos?: PlantillaVista[] | null;
+  /** Abrir el lienzo de este mensaje (el deep link `?aviso=`). */
+  abrirAviso?: AbrirAviso | null;
+  /** Cambió un mensaje (su nombre, su interruptor, lo publicado): volver a leerlos. */
+  onAvisosCambio?: () => void;
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
   handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
   productos: ProductoOpcion[];
@@ -214,9 +248,22 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   abrir?: AbrirSecuencia | null;
 }) {
   const [busq, setBusq] = useState('');
-  /** '' = sin filtro · 'activas' · 'pausadas' · `emoji:<el emoji>` (cuarta tanda, punto 13). */
-  const [filtro, setFiltro] = useState<string>('');
+  /**
+   * Lo marcado en el filtro (quinta tanda, punto 4): varios a la vez, como los guarda el Dropdown
+   * con `varios` (`estado:activas`, `emoji:📅`, `canal:whatsapp`, `destino:mako`…). `[]` = sin filtro.
+   */
+  const [filtros, setFiltros] = useState<string[]>([]);
   const [elegida, setSelId] = useState<number | typeof ID_RECORDATORIO | ''>('');
+  /**
+   * EL MENSAJE DE MAKO ABIERTO (quinta tanda, punto 5), APARTE de `elegida`. Mientras hay uno, el
+   * lienzo es el suyo; elegir una automatización lo suelta (`cambiarA`). Va aparte y no como un
+   * tercer tipo de `elegida` porque la selección de siempre —la fila que se está creando, «Probar»,
+   * lo no publicado— está escrita para números y el recordatorio, y un id de texto más le cambiaba
+   * el tipo a todo eso para que ninguna de esas cosas le sirva a un mensaje.
+   */
+  const [avisoSel, setAvisoSel] = useState<string | null>(null);
+  /** El que está abierto, si todavía existe: si se eliminó, se vuelve solo a la automatización. Se CALCULA. */
+  const aviso = rolAdmin && avisoSel != null ? (avisos ?? []).find((a) => a.id === avisoSel) ?? null : null;
   /** La que estaba elegida antes de abrir una fila que se está creando: si falla, se vuelve. */
   const [volverA, setVolverA] = useState<number | typeof ID_RECORDATORIO | ''>('');
 
@@ -256,24 +303,29 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const creandoSel = !!sel && esFilaCreando(sel);
   // La fila que se está creando nace PAUSADA: con «Activas» o un texto en el buscador no se vería,
   // y «aparece YA en la lista» es lo que se pidió. Se limpian AL DIBUJAR, sólo mientras está elegida.
-  if (creandoSel && (filtro !== '' || busq)) { setFiltro(''); setBusq(''); }
+  if (creandoSel && (filtros.length > 0 || busq)) { setFiltros([]); setBusq(''); }
 
   // ⚠️ EL BUSCADOR BUSCA POR NOMBRE, que es lo único que la lista muestra (pedido de Martín,
   // 08/10/2026, punto 3: «elimina el subtitulo, solo el título»). Buscar por un gancho que no se
   // ve devolvía filas que no dicen por qué coinciden.
   const q = busq.trim().toLowerCase();
-  const pasaFiltro = (activa: boolean | null, emoji: string) =>
-    filtro === '' ? true
-      : filtro.startsWith('emoji:') ? filtro.slice(6) === emoji
-        : activa != null && (filtro === 'activas') === activa;
+  // Las filas del filtro: cada automatización, el recordatorio (sólo el admin lo ve) y los Mensajes
+  // de MaKo. El desplegable cuenta sobre TODAS; la lista dibuja las que pasan.
+  const filasSec = useMemo(() => new Map(secuencias.map((j) => [j.id, filaDeSecuencia(j)] as const)), [secuencias]);
+  const avisosLista = useMemo(() => (rolAdmin ? avisos ?? [] : []), [rolAdmin, avisos]);
+  const todasLasFilas: FilaFiltrable[] = [
+    ...filasSec.values(),
+    ...(rolAdmin ? [filaDeRecordatorio(recordatorioActivo)] : []),
+    ...avisosLista.map(filaDeMensaje),
+  ];
   const lista = useMemo(
-    () => secuencias.filter((j) => pasaFiltro(j.activa, emojiSecuencia(j)) && (!q || j.nombre.toLowerCase().includes(q))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [secuencias, q, filtro],
+    () => secuencias.filter((j) => pasaFiltroLista(filasSec.get(j.id) ?? filaDeSecuencia(j), filtros) && (!q || j.nombre.toLowerCase().includes(q))),
+    [secuencias, filasSec, q, filtros],
   );
   const verRecordatorio = rolAdmin
-    && pasaFiltro(recordatorioActivo, EMOJI_RECORDATORIO)
+    && pasaFiltroLista(filaDeRecordatorio(recordatorioActivo), filtros)
     && (!q || NOMBRE_RECORDATORIO.toLowerCase().includes(q));
+  const avisosVisibles = avisosLista.filter((a) => pasaFiltroLista(filaDeMensaje(a), filtros) && (!q || a.titulo.toLowerCase().includes(q)));
 
   /**
    * Elegir OTRA automatización: cierra «Probar» y suelta la edición local de la anterior.
@@ -285,7 +337,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * puede cambiar qué se prueba.
    */
   const cambiarA = (id: number | typeof ID_RECORDATORIO) => {
-    setSelId(id); setProbando(null); setEdicion(null);
+    setSelId(id); setProbando(null); setEdicion(null); setAvisoSel(null);
     // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
     if (typeof id === 'number' && id < 0) setVolverA(selId);
   };
@@ -296,11 +348,33 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * botón; «Nueva secuencia» pasa por la misma puerta.
    */
   const [sinPublicar, setSinPublicar] = useState(false);
-  const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva'; pedido?: string } | null>(null);
+  const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva' | 'aviso'; pedido?: string; aviso?: string } | null>(null);
   const elegir = (id: number | typeof ID_RECORDATORIO) => {
     if (id === selId) return;
     if (sinPublicar) { setPendiente({ ir: id }); return; }
     cambiarA(id);
+  };
+  /**
+   * La fila de una automatización (o del recordatorio) tocada DESDE LA LISTA. Con un Mensaje de MaKo
+   * abierto, tocar la automatización que quedó elegida debajo tiene que volver a ella — y `elegir`
+   * no hace nada con la que ya está elegida (lienzo-5). Lo no publicado no se pregunta: con un
+   * mensaje abierto, el lienzo de la automatización no está montado.
+   */
+  const elegirDeLaLista = (id: number | typeof ID_RECORDATORIO) => {
+    if (avisoSel != null) { setAvisoSel(null); if (id === selId) return; }
+    elegir(id);
+  };
+  /** Abrir un Mensaje de MaKo: cierra «Probar» y suelta la edición local de la automatización. */
+  const abrirAvisoYa = (id: string) => { setAvisoSel(id); setProbando(null); setEdicion(null); };
+  /**
+   * Elegir un Mensaje de MaKo, con la MISMA puerta de lo no publicado que una automatización: su
+   * lienzo se desmonta y lo no publicado se perdería. Entre dos mensajes no se pregunta nada: el
+   * detalle guarda el borrador solo al desmontarse (TemplateDetalleModal, «salir de la vista guarda»).
+   */
+  const elegirAviso = (id: string) => {
+    if (id === avisoSel) return;
+    if (sinPublicar) { setPendiente({ ir: 'aviso', aviso: id }); return; }
+    abrirAvisoYa(id);
   };
   // ⚠️ La pregunta va ANTES de crear, también para «Armar una» del pie (revisión de la segunda
   // tanda, 09/10/2026): creaba la fila primero y «Seguir editando» dejaba una vacía de más.
@@ -314,6 +388,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     if (!p) return;
     setSinPublicar(false);
     if (p.ir === 'nueva') onNueva(p.pedido);
+    else if (p.ir === 'aviso') { if (p.aviso) abrirAvisoYa(p.aviso); }
     else cambiarA(p.ir);
   };
   const recibirEdicion = useCallback((v: EdicionLocal) => setEdicion(v), []);
@@ -351,7 +426,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         const r = await pedir(API_SECUENCIAS, 'POST', { action: 'duplicar', secuenciaId: j.id });
         if (!r.ok || !(Number(r.secuenciaId) > 0)) { setErrFila({ id: j.id, texto: r.error || 'No se pudo duplicar' }); return; }
         // La copia nace pausada: con «Activas» no se vería.
-        if (filtro !== '') setFiltro('');
+        if (filtros.length) setFiltros([]);
         setAbrirCopia(Number(r.secuenciaId));
       }
       onReload();
@@ -408,6 +483,19 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   if (abrir && abrir !== abrirVisto && secuencias.some((j) => j.id === abrir.id)) {
     setAbrirVisto(abrir);
     elegir(abrir.id);
+    // Con un Mensaje de MaKo abierto, «＋ Nueva» o el link de una automatización la tienen que
+    // mostrar aunque sea la que quedó elegida debajo (`elegir` no hace nada con ésa).
+    setAvisoSel(null);
+  }
+  /**
+   * EL LINK DE NOTIFICACIONES ABRE EL LIENZO DE ESE MENSAJE (quinta tanda, punto 5): `/chatbot?aviso=<id>`.
+   * Igual que `abrir`: al DIBUJAR, un objeto por pedido, y sólo si el mensaje está entre los que
+   * esta persona ve (quien no es admin no los tiene: el link no abre nada y queda la lista).
+   */
+  const [abrirAvisoVisto, setAbrirAvisoVisto] = useState<AbrirAviso | null>(null);
+  if (abrirAviso && abrirAviso !== abrirAvisoVisto && avisosLista.some((a) => a.id === abrirAviso.id)) {
+    setAbrirAvisoVisto(abrirAviso);
+    elegirAviso(abrirAviso.id);
   }
 
   // `editorAbierto: true`: lo que se reparte es el muelle que el editor ocupa CUANDO se abre (el
@@ -432,8 +520,15 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   return (
     <div ref={raiz} style={{ flex: 1, minHeight: 0, position: 'relative', minWidth: 0, display: 'flex' }}>
       <style>{CSS_LISTA}</style>
-      {/* EL LIENZO: debajo de todo y de borde a borde. */}
-      <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      {/* EL LIENZO: debajo de todo y de borde a borde. Con un Mensaje de MaKo abierto (quinta
+          tanda, punto 5), el suyo: el MISMO editor de Notificaciones, con el inset de la lista. */}
+      {aviso ? (
+        <div style={ESTILO_LIENZO}>
+          <MensajeMakoLienzo key={aviso.id} plantilla={aviso} insetIzq={m.insets.izq}
+            onCambio={() => onAvisosCambio?.()} onCerrar={() => setAvisoSel(null)} />
+        </div>
+      ) : (
+      <div style={ESTILO_LIENZO}>
         {selId === ID_RECORDATORIO && rolAdmin ? (
           <RecordatorioFlujo negocio={negocio} insetIzq={m.insets.izq} onCambio={setRecordatorioActivo} />
         ) : !sel ? (
@@ -485,6 +580,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             onCambio={onReload} />
         )}
       </div>
+      )}
 
       {/* LA LISTA, FLOTANDO.
           `aria-label` porque la app YA tiene un <aside>: el de la navegación global. Sin
@@ -502,19 +598,15 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         {/* El buscador va SIEMPRE, como en el molde. Antes aparecía con más de seis
             secuencias, y un control que aparece solo es un control que nadie busca. */}
         <div style={{ flex: 'none', padding: '14px 14px 12px', borderBottom: '1px solid var(--border)' }}>
-          {/* EL FILTRO VA AL LADO DEL BUSCADOR, en la misma fila (cuarta tanda, punto 13: «al lado
-              debe estar el desplegable de "Todas, activas, etc..." y agrega la opción de filtrar por
-              emojis. Y en ese caso, elimina "Todas" simplemente, eliminar filtro»). Por ESTADO (una
-              pausada no manda nada, y es lo que uno busca cuando algo no sale) o por EMOJI (el que
-              se ve en la fila, también el que pone MaKo cuando no eligieron uno). */}
+          {/* EL FILTRO VA AL LADO DEL BUSCADOR, en la misma fila (cuarta tanda, punto 13), y desde la
+              quinta (punto 4) es CHICO —sólo el embudo, cuadrado y del alto del buscador— para que
+              el buscador se lleve el lugar: «debería ser más chico, con el ícono de filtro como ya
+              lo tenemos en otros lados, así la barra de busqueda tiene más espacio». Adentro, el
+              desplegable del Plan por secciones (`FiltroLista`). */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar" aria-label="Buscar por nombre"
-              style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
-            <div style={{ flex: 'none' }}>
-              <Dropdown value={filtro} placeholder="Filtrar" onChange={(v) => setFiltro(v === QUITAR_FILTRO ? '' : v)} width={104}
-                ariaLabel="Filtrar secuencias" buttonStyle={{ padding: '9px 10px', fontSize: 13 }} menuMinAncho={190} search={false}
-                options={opcionesDeFiltro(secuencias, filtro, rolAdmin ? EMOJI_RECORDATORIO : null)} />
-            </div>
+              style={{ flex: 1, minWidth: 0, height: LADO_FILTRO, boxSizing: 'border-box', padding: '0 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
+            <FiltroLista filas={todasLasFilas} valores={filtros} onCambio={setFiltros} />
           </div>
         </div>
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
@@ -526,13 +618,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             </button>
           )}
           {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}</div>}
-          {lista.length === 0 && !verRecordatorio && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
+          {lista.length === 0 && !verRecordatorio && avisosVisibles.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
           {lista.map((j) => {
             const creando = esFilaCreando(j);
             return (
               <div key={creando ? j.clave : j.id}>
-                <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={j.nombre} creando={creando}
-                  onClick={() => elegir(j.id)}
+                <ItemLista on={!aviso && j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={j.nombre} creando={creando}
+                  onClick={() => elegirDeLaLista(j.id)}
                   menu={rolAdmin && !creando ? (
                     /* ⚠️ VA EL `Dropdown` DE LA CASA y no un menú propio: la lista scrollea
                        (`overflowY: auto`) y un menú en flujo se recortaría contra su borde. Éste se
@@ -553,8 +645,20 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               emisor de siempre; la lista sólo lo abre en su lienzo. Sin «⋯»: no se duplica ni
               se archiva (no es una fila de secuencias), y se prende en su propio lienzo. */}
           {verRecordatorio && (
-            <ItemLista on={selId === ID_RECORDATORIO} activa={recordatorioActivo === true} emoji={EMOJI_RECORDATORIO} nombre={NOMBRE_RECORDATORIO} onClick={() => elegir(ID_RECORDATORIO)} />
+            <ItemLista on={!aviso && selId === ID_RECORDATORIO} activa={recordatorioActivo === true} emoji={EMOJI_RECORDATORIO} nombre={NOMBRE_RECORDATORIO} onClick={() => elegirDeLaLista(ID_RECORDATORIO)} />
           )}
+          {/* LOS MENSAJES DE MAKO (quinta tanda, punto 5): los flujos de Configuraciones ›
+              Notificaciones, cada uno una fila con su emoji, su nombre y su punto de prendido. Bajo
+              su rótulo, para que no se lean como automatizaciones: no se duplican ni se archivan
+              desde acá (no son filas de secuencias), así que van sin «⋯» — se prenden y se
+              eliminan en su propio lienzo, como en Notificaciones. */}
+          {avisosVisibles.length > 0 && (
+            <div data-grupo-mensajes-mako style={ROTULO_GRUPO}>{ROTULO_MENSAJES_MAKO}</div>
+          )}
+          {avisosVisibles.map((a) => (
+            <ItemLista key={`aviso:${a.id}`} on={aviso?.id === a.id} activa={mensajeActivo(a)} emoji={emojiDeMensaje(a)} nombre={a.titulo}
+              onClick={() => elegirAviso(a.id)} />
+          ))}
         </div>
         {/* El pie de la lista: lo que antes era una franja arriba del lienzo y le comía
             alto a la pizarra. Acá cuelga de lo que nombra —las secuencias— y no ocupa

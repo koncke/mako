@@ -9,7 +9,7 @@
 // que NO lo recorte ningún contenedor con overflow (ej. el scroll del modal de
 // detalle): antes, dentro de un modal scrolleable el menú se cortaba al abrir.
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties , type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties , type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { puedeApagar, rotuloDeVarios } from './dropdown-varios';
 import { altoMaximoDelMenu, lugarDelMenu, CAJA_MENU, SEPARACION_MENU } from './dropdown-lugar';
@@ -268,7 +268,17 @@ export type DropdownOption = { value: string; label: string; /** Un ícono (URL 
    * ya dicen qué hace cada uno, y la palabra de más convierte dos botones en un renglón.
    */
   soloAcciones?: boolean;
-  sutil?: boolean };
+  sutil?: boolean;
+  /**
+   * Una LÍNEA arriba de este renglón: separa dos preguntas adentro de la misma lista.
+   *
+   * Existe por el filtro de la lista de /chatbot (quinta tanda, punto 4, pedido literal: «dentro
+   * de la sección canal, luego de WhatsApp y Email, un divider y las opciones "A clientes" y "Al
+   * WhatsApp de MaKo"»): por dónde sale y a quién le llega son dos preguntas, y sin la línea se
+   * leían como cuatro canales. Es una línea suelta y no un borde del renglón: el renglón sigue
+   * con su fondo redondeado al pasar el cursor.
+   */
+  lineaArriba?: boolean };
 /** Grupo con título para menús en columnas (ver prop `columns`) o por secciones (`secciones`). */
 export type DropdownGroup = { title: string; options: DropdownOption[];
   /**
@@ -286,7 +296,18 @@ export type DropdownGroup = { title: string; options: DropdownOption[];
    * dentro las etapas de cada kanban». Buscar aplana también esto: el rótulo de cada tramo es el
    * camino («Producto · Adquisición de clientes»). Opcional: sin `grupos`, nada cambia.
    */
-  grupos?: DropdownGroup[] };
+  grupos?: DropdownGroup[];
+  /**
+   * Sólo con `secciones`: lo que la fila de la sección dice a la DERECHA en la raíz, en vez de
+   * cuántas opciones tiene. Es el «resumen» del filtro del Plan (app/plan/board/BoardShell.tsx,
+   * `FilterMenu`): «Todos», lo que está marcado, o «2 elegidos» — dice qué tiene puesto cada
+   * sección sin tener que entrar. Existe por el filtro de la lista de /chatbot (quinta tanda,
+   * punto 4: «Replica el desplegable de Filtro que tenemos en el plan»). Sin esto, el conteo de
+   * siempre.
+   */
+  resumen?: string;
+  /** Con `resumen`: la sección tiene algo marcado, y el resumen se pinta en el color de lo elegido. */
+  activo?: boolean };
 
 /** Las opciones de un grupo y de todos los de adentro. */
 function opcionesDe(g: DropdownGroup): DropdownOption[] {
@@ -336,6 +357,7 @@ export function Dropdown({
   menuAncho,
   menuMinAncho,
   menuAlto,
+  pie,
 }: {
   value: string;
   options?: DropdownOption[];
@@ -466,6 +488,16 @@ export function Dropdown({
    *  apretado: «Que sea un poco más ancho el desplegable», 09/10/2026). */
   menuMinAncho?: number;
   menuAlto?: number;
+  /**
+   * UN TEXTO SUTIL ABAJO DEL TODO del menú, que no es una opción: «Quitar filtros».
+   *
+   * Pedido de Martín (quinta tanda, punto 4), sobre el filtro del Plan: «"Quitar filtros" es un
+   * texto sutil abajo del todo». La cuarta tanda lo había puesto como el PRIMER renglón de la
+   * lista, con el peso de una opción, y competía con lo que se estaba eligiendo. Va con la cara
+   * del renglón `sutil` (apagado, centrado, con su línea arriba, y se enciende al pasar el cursor)
+   * y NO cierra el menú: lo que se quitó se ve en la lista de al lado. Ausente = nada.
+   */
+  pie?: { label: string; onClick: () => void };
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -647,10 +679,23 @@ export function Dropdown({
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
       <span style={{ fontWeight: 600 }}>{g.title}</span>
       {/* El conteo es el «resumen» de la fila, como en el filtro del plan: dice si vale la pena
-          entrar antes de entrar. Una sección de secciones (`grupos`) no cuenta: sólo la flecha. */}
-      <span style={{ fontSize: 12, color: 'var(--faint)', flex: 'none' }}>{g.grupos?.length ? '›' : `${g.options.length} ›`}</span>
+          entrar antes de entrar. Una sección de secciones (`grupos`) no cuenta: sólo la flecha.
+          Con `resumen`, la fila dice lo que tiene PUESTO (el filtro del Plan, con sus mismos
+          números: 12 px, el color de lo elegido si hay algo, y la › aparte). */}
+      {g.resumen != null ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <span style={{ fontSize: 12, color: g.activo ? 'var(--primary)' : 'var(--faint)', fontWeight: g.activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{g.resumen}</span>
+          <span style={{ color: 'var(--faint)', fontSize: 16, lineHeight: 1, flex: 'none' }}>›</span>
+        </span>
+      ) : (
+        <span style={{ fontSize: 12, color: 'var(--faint)', flex: 'none' }}>{g.grupos?.length ? '›' : `${g.options.length} ›`}</span>
+      )}
     </button>
   );
+  /** La línea suelta de `lineaArriba`, antes del renglón que la pide. */
+  const conLinea = (o: DropdownOption, renglon: ReactNode) => (o.lineaArriba
+    ? <Fragment key={o.value}><div aria-hidden style={{ borderTop: '1px solid var(--border)', margin: '4px 8px' }} />{renglon}</Fragment>
+    : renglon);
 
   const rotuloGrupo: CSSProperties = {
     fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em',
@@ -711,7 +756,7 @@ export function Dropdown({
                   ‹ {abierta.title}
                 </button>
                 {(abierta.grupos ?? []).map((g) => botonSeccion(g))}
-                {abierta.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined))}
+                {abierta.options.map((o) => conLinea(o, renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined)))}
               </>
             ) : (
               (seccVisibles ?? []).map((g) => botonSeccion(g))
@@ -735,7 +780,7 @@ export function Dropdown({
             </div>
           ) : (
             <>
-              {optsVisibles.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined))}
+              {optsVisibles.map((o) => conLinea(o, renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined)))}
               {(options ?? []).length === 0 && <div style={{ padding: '9px 11px', fontSize: 13, color: 'var(--faint)' }}>Sin opciones</div>}
             </>
           )}
@@ -746,6 +791,15 @@ export function Dropdown({
             <div style={{ padding: '10px 11px', fontSize: 13, color: 'var(--faint)', lineHeight: 1.5 }}>
               Nada coincide con «{q.trim()}».
             </div>
+          )}
+          {/* El texto sutil de abajo del todo (`pie`): la cara del renglón `sutil`, y NO cierra. */}
+          {pie && !buscando && (
+            <button type="button" onClick={pie.onClick}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.opacity = '1'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--faint)'; e.currentTarget.style.opacity = '0.7'; }}
+              style={{ display: 'block', width: '100%', textAlign: 'center', padding: '8px 11px 3px', marginTop: 4, border: 'none', borderTop: '1px solid var(--border)', borderRadius: 0, background: 'transparent', color: 'var(--faint)', opacity: 0.7, fontFamily: SANS, fontSize: 12.5, cursor: 'pointer', transition: 'color .12s, opacity .12s' }}>
+              {pie.label}
+            </button>
           )}
         </div>,
         portalTo ?? document.body,
