@@ -132,6 +132,16 @@ test('⚠️ BORRAR es UN dibujo y SIEMPRE rojo: en el menú, en el ícono suelt
 });
 
 // ── Roturas (09/10/2026) ─────────────────────────────────────────────────────────────────────
-// Arnés en el scratchpad (editores-v6/romper.mjs): UNA rotura por vez, corre este archivo y restaura
-// DE MEMORIA (nunca `git checkout --`). Base: 5 / 0. Pasan / fallan con cada una:
-//   (se completa al correr el arnés; ver el pie definitivo)
+// Arnés en el scratchpad (editores-v6/romper.mjs): UNA rotura por vez, restaurada DE MEMORIA (nunca
+// `git checkout --`), corriendo este archivo junto con editor-acciones, editor-etiqueta, editores-control
+// y flujo-lienzo-paralelos. Base: 51 / 0. Restaurado: 51 / 0. Pasan / fallan con cada una:
+//   B1. el umbral vuelve a 8                                            → 50 / 1
+//   B2. el Dropdown vuelve a su número propio (`search ?? flat.length > 8`) → 50 / 1
+//   B3. el principal mide 48, lo mismo que el campo grande               → 49 / 2 (acá y el TAG de editores-control)
+//   B4. la variante pisa al `buttonStyle` de quien llama                 → 50 / 1
+//   B5. el placeholder con la flecha de «acá se elige»                   → 50 / 1
+//   B6. el renglón vuelve a la imagen suelta (un nombre del set no se dibuja) → 50 / 1
+//   B7. el botón sin el ícono de lo elegido                              → 50 / 1
+//   B8. el «borrar» del menú sin el rojo                                 → 50 / 1
+//   B9. el rojo del botón de borrar se puede pisar con `style`           → 50 / 1
+//   B10. `esIconoMenu` con `in` (acepta «toString»)                       → 50 / 1

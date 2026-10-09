@@ -161,3 +161,15 @@ test('la lista para NOMBRAR (con archivadas) se vuelve a pedir cuando alguien cr
 //   C3. el verbo con otro texto («Agregar»)                          → 1
 //   C4. cambiar de verbo pierde la etiqueta                          → 1
 //   C5. `useEtiquetasTodas` sin escuchar el aviso de cambio          → 1 (de 5)
+//
+// SEXTA TANDA (09/10/2026, parte «editores»). Arnés scratchpad/editores-v6/romper.mjs, corriendo este
+// archivo junto con dropdown-reglas, editor-acciones, editores-control y flujo-lienzo-paralelos.
+// Base: 51 / 0 (más los dos `todo` de los enchufes). Restaurado: 51 / 0. Pasan / fallan con cada una:
+//   B17. elegir una etiqueta PISA las elegidas en vez de sumarla              → 50 / 1
+//   B18. el selector vuelve a ofrecer las ya elegidas (sin `excluir`)         → 50 / 1
+//   B19. vuelve «Poner» a la frase                                            → 50 / 1
+//   B20. con UNA etiqueta el paso cambia de forma (lleva `etiquetaIds`)        → 50 / 1
+//   B21. el ejecutor corre una sola tanda con varias                          → 50 / 1
+//   B22. una tanda que falla queda tapada (`some` en vez de `every`)          → 50 / 1
+//   B23. el lienzo le pasa al editor sólo la primera                          → 50 / 1
+// (La C3 de arriba —«el verbo con otro texto ("Agregar")»— es hoy lo pedido: el test lo exige.)

@@ -235,6 +235,7 @@ test('⚠️ la tarjeta de ETIQUETA: la ⚡ Acción de poner/sacar dibujada como
   assert.equal(a.icono, '🏷️');
   assert.equal(a.familia, 'control');
   // Sexta tanda, TAG 1: «En lugar de "Poner" y "Sacar"... "Agregar" y "Eliminar"» (antes, «+ » y «− »).
+  // Probado rompiéndolo (arnés scratchpad/editores-v6/romper.mjs, B25): con «+ »/«− » de vuelta → 50 / 1.
   assert.equal(a.detalle, 'Agregar Cualificado');
   assert.equal(a.color, '#22aa66', 'la tarjeta de etiqueta no lleva el color de la etiqueta');
   assert.equal(a.alto, ALTO_COMPACTO);

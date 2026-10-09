@@ -99,10 +99,14 @@ test('TAG: «[Agregar ▾] [etiquetas]» gigante: el verbo es el principal y el 
   assert.match(ETIQUETA, /import \{ ALTO_PRINCIPAL \} from '@\/app\/components\/dropdown-reglas';/);
   assert.equal((ETIQUETA.match(/variante="principal"/g) ?? []).length, 1, 'el verbo es el desplegable principal');
   assert.match(ETIQUETA, /minHeight: ALTO_PRINCIPAL,/, 'el campo de las etiquetas no mide lo del principal');
-  assert.match(ETIQUETA, /<div style=\{\{ \.\.\.CAMPO, flex: '1 1 240px' \}\}>/, 'el campo no llena el renglón');
+  assert.match(ETIQUETA, /<div style=\{\{ \.\.\.CAMPO, \.\.\.\(ids\.length \? \{\} : CAMPO_VACIO\), flex: '1 1 240px' \}\}>/, 'el campo no llena el renglón');
   // Y se ve: el botón del verbo y el campo traen los 56 de alto.
   const html = renderToStaticMarkup(createElement(EditorEtiqueta, { operacion: 'poner_etiqueta_lead', etiquetaIds: [], onChange: () => {} }));
   assert.ok((html.match(/min-height:56px/g) ?? []).length >= 2, 'la frase no salió gigante');
+  // CONDITION 4 («para todos lados»): vacío, el campo es el PLACEHOLDER de la casa (punteado); con etiquetas, un campo.
+  assert.match(html, /border-style:dashed/, 'el campo vacío no tiene la cara de placeholder');
+  const conUna = renderToStaticMarkup(createElement(EditorEtiqueta, { operacion: 'poner_etiqueta_lead', etiquetaIds: [7], onChange: () => {} }));
+  assert.doesNotMatch(conUna, /border-style:dashed/, 'con etiquetas elegidas el campo sigue punteado');
 });
 
 test('ACTION: el desplegable «Elige una acción» de ancho completo y grande, y debajo los campos de la elegida', () => {
@@ -147,3 +151,12 @@ test('⚠️ ningún editor de control deja media caja vacía con un `maxWidth` 
 //   M7. la acción sin ancho completo                                    → 31 / 1 (acá)
 //   M8. el DELAY sin `key` por tarjeta                                  → 31 / 1 (acá)
 //   M9. un `maxWidth: 320` en la frase del DELAY                        → 31 / 1 (acá)
+//
+// SEXTA TANDA (09/10/2026, parte «editores»). Arnés scratchpad/editores-v6/romper.mjs, corriendo este
+// archivo junto con dropdown-reglas, editor-acciones, editor-etiqueta y flujo-lienzo-paralelos.
+// Base: 51 / 0. Restaurado: 51 / 0. Las de acá:
+//   B3. el principal mide 48 (el TAG deja de salir a 56)                → 49 / 2 (acá y dropdown-reglas)
+//   B14. la acción sin `variante="principal"`                            → 49 / 2 (acá y editor-acciones)
+//   B24. vuelve «Sigue a la hora en punto» a la frase del DELAY          → 50 / 1 (acá)
+//   B26. el campo vacío del TAG sin el borde punteado (romper-uno.mjs, con editor-etiqueta;
+//        base 16 / 0)                                                    → 15 / 1 (acá)

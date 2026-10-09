@@ -54,13 +54,16 @@ const OPCIONES: DropdownOption[] = [
 /**
  * EL CAMPO DE LAS ETIQUETAS: mide lo mismo que el desplegable principal de al lado, y adentro van las
  * elegidas como chips con su ✕ y, al final, el selector. Con ninguna elegida, el selector LLENA el campo
- * («Elige una etiqueta»): todo el campo es el botón.
+ * («＋ Elige una etiqueta») y el campo va con la cara PLACEHOLDER de la casa —borde punteado, texto
+ * centrado y apagado— (CONDITION 4, «para todos lados»: «siempre que puedas usa ese diseño tipo
+ * placeholder»): todo el campo es el botón para agregar la primera.
  */
 const CAMPO: CSSProperties = {
   display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: ALTO_PRINCIPAL,
   padding: '6px 8px', borderRadius: 13, border: '1.5px solid var(--border-strong)', background: 'var(--surface)',
   boxSizing: 'border-box', minWidth: 0,
 };
+const CAMPO_VACIO: CSSProperties = { borderStyle: 'dashed', background: 'transparent', justifyContent: 'center' };
 /** El selector adentro del campo: sin caja propia (la caja es el campo). */
 const SELECTOR_EN_CAMPO: CSSProperties = {
   border: 'none', background: 'transparent', minHeight: 40, padding: '8px 8px', fontSize: 16, fontWeight: 600, borderRadius: 9,
@@ -96,7 +99,7 @@ export function EditorEtiqueta({ operacion, etiquetaIds, etiquetaId, onChange, d
         variante="principal"
         onChange={(v) => { if (v === 'poner_etiqueta_lead' || v === 'sacar_etiqueta_lead') onChange(v, ids); }}
       />
-      <div style={{ ...CAMPO, flex: '1 1 240px' }}>
+      <div style={{ ...CAMPO, ...(ids.length ? {} : CAMPO_VACIO), flex: '1 1 240px' }}>
         {ids.map((id) => (
           <ChipEtiqueta key={id} e={chip(id)} onSacar={deshabilitado ? undefined : () => quitar(id)} />
         ))}
@@ -106,11 +109,11 @@ export function EditorEtiqueta({ operacion, etiquetaIds, etiquetaId, onChange, d
             accion
             excluir={new Set(ids)}
             onElegir={(e) => elegir(e.id)}
-            placeholder={ids.length ? '＋ Otra' : 'Elige una etiqueta'}
+            placeholder={ids.length ? '＋ Otra' : '＋ Elige una etiqueta'}
             ariaLabel={ids.length ? 'Otra etiqueta' : 'Etiqueta'}
             width={ids.length ? undefined : '100%'}
             disabled={deshabilitado}
-            buttonStyle={{ ...SELECTOR_EN_CAMPO, ...(ids.length ? { color: 'var(--primary)' } : {}) }}
+            buttonStyle={{ ...SELECTOR_EN_CAMPO, ...(ids.length ? { color: 'var(--primary)' } : { justifyContent: 'center', color: 'var(--dim)' }) }}
           />
         </div>
       </div>

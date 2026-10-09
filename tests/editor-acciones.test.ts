@@ -55,9 +55,9 @@ const ed = (id: string) => aEditor(porId(id)!);
 
 test('⚠️ LA LISTA DEL LIENZO: ids exactos del registro, acciones de UN lead, gratis, sin JSON crudo, con su ícono', () => {
   // Sexta tanda (ACTION 1): «Faltan muchas acciones posibles que podríamos agregar». El piso es lo que
-  // ofrecía la sexta tanda (15 con las dos que el selector no ofrece); el techo frena que la lista vuelva
-  // a ser el registro entero (la tercera tanda: «pusiste muchísimas acciones que tal vez no son necesarias»).
-  assert.ok(ACCIONES_DEL_FLUJO.length >= 15 && ACCIONES_DEL_FLUJO.length <= 30, `son ${ACCIONES_DEL_FLUJO.length}`);
+  // ofrece la sexta tanda (14 con las dos que el selector no ofrece; eran 10); el techo frena que la lista
+  // vuelva a ser el registro entero (la tercera tanda: «pusiste muchísimas acciones que tal vez no son necesarias»).
+  assert.ok(ACCIONES_DEL_FLUJO.length >= 14 && ACCIONES_DEL_FLUJO.length <= 30, `son ${ACCIONES_DEL_FLUJO.length}`);
   const ids = ACCIONES_DEL_FLUJO.map((a) => a.id);
   assert.equal(new Set(ids).size, ids.length, 'una acción repetida');
   for (const a of ACCIONES_DEL_FLUJO) {
@@ -75,7 +75,8 @@ test('⚠️ LA LISTA DEL LIENZO: ids exactos del registro, acciones de UN lead,
     assert.doesNotMatch(`${a.titulo} ${a.que}`, /(?<!\p{L})(poner|pone|sacar|saca)(?!\p{L})/iu, `«${a.titulo}» dice poner o sacar`);
   }
   // Las que piden un valor FIJO que en un flujo miente, las que gastan y las que repiten una tarjeta, no están.
-  for (const id of ['mover_a_nutricion_manual', 'proponer_agendar_agenda', 'editar_contacto_lead', 'proponer_tareas_plan', 'marcar_pago_cobrado', 'generar_insight_lead', 'crear_borrador_whatsapp_empresa']) {
+  // `mover_lead_en_producto`: mueve sólo en un producto AGREGADO, y cuál es el principal depende del lead.
+  for (const id of ['mover_a_nutricion_manual', 'proponer_agendar_agenda', 'editar_contacto_lead', 'proponer_tareas_plan', 'marcar_pago_cobrado', 'generar_insight_lead', 'crear_borrador_whatsapp_empresa', 'mover_lead_en_producto']) {
     assert.equal(accionDelFlujo(id), null, `«${id}» volvió a la lista del lienzo`);
   }
   // Cada bloque cae en un área que el selector dibuja.
@@ -133,10 +134,9 @@ test('el selector ofrece SÓLO la lista del lienzo, en ÁRBOL por área; la pues
   const conAviso = seccionesDeAcciones(EDITOR, 'inscribir_lead_secuencia');
   assert.deepEqual([conAviso[0].titulo, conAviso[0].acciones.map((a) => a.id)], [SECCION_PUESTA, ['inscribir_lead_secuencia']], 'un paso que ya la tiene se sigue viendo');
   assert.ok(s.flatMap((x) => x.acciones).every((a) => a.titulo === accionDelFlujo(a.id)!.titulo), 'el nombre de lienzo, no el del registro');
-  // `mover_lead_en_producto` era la de afuera hasta la sexta tanda (ahora es «Mover en otro producto»).
-  const conPuesta = seccionesDeAcciones(EDITOR, 'marcar_asistencia_reunion');
+  const conPuesta = seccionesDeAcciones(EDITOR, 'mover_lead_en_producto');
   assert.equal(conPuesta[0].titulo, SECCION_PUESTA);
-  assert.deepEqual(conPuesta[0].acciones.map((a) => a.id), ['marcar_asistencia_reunion'], 'un paso guardado con una de afuera se sigue viendo');
+  assert.deepEqual(conPuesta[0].acciones.map((a) => a.id), ['mover_lead_en_producto'], 'un paso guardado con una de afuera se sigue viendo');
   assert.equal(seccionesDeAcciones(EDITOR, 'proponer_cambio_etapa')[0].titulo, AREAS_ACCION[0], 'una de la lista no se duplica arriba');
 });
 
@@ -375,3 +375,13 @@ test('el formulario de «Avisar al equipo»: el lead del flujo NO se dibuja, «R
 //   R10. un sí/no obligatorio como casilla                                       → 2
 //   R11. la etapa elegida inventada cuando las opciones no llegaron               → 2
 //   R12. «no pude leer» las automatizaciones como lista vacía                     → 1
+//
+// SEXTA TANDA (09/10/2026, parte «editores»). Arnés scratchpad/editores-v6/romper.mjs, corriendo este
+// archivo junto con dropdown-reglas, editor-etiqueta, editores-control y flujo-lienzo-paralelos.
+// Base: 51 / 0. Restaurado: 51 / 0. Pasan / fallan con cada una:
+//   B11. una acción de la lista con un ícono que no existe en el set              → 50 / 1
+//   B12. vuelve «Poner una etiqueta» a la lista                                    → 50 / 1
+//   B13. las áreas del árbol en otro orden                                          → 50 / 1
+//   B14. el desplegable de la acción sin `variante="principal"`                     → 49 / 2 (acá y editores-control)
+//   B15. vuelve la línea «Sobre el lead de este flujo · Cambiar»                    → 50 / 1
+//   B16. un lead FIJO de antes deja de verse (FilaLead devuelve null siempre)       → 50 / 1

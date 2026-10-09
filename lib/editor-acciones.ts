@@ -209,10 +209,7 @@ export type AccionDelFlujo = {
  *
  * El criterio, medido contra las 200 acciones del registro el 09/10/2026: que tenga sentido CORRIENDO
  * SOLA sobre el lead del flujo, sin una persona mirando, y que no cueste plata. La sexta tanda (ACTION 1:
- * «Faltan muchas acciones») sumó las cuatro que cumplían y estaban afuera:
- *   · `mover_lead_en_producto` («Mover en otro producto»): «Mover de etapa» (`proponer_cambio_etapa`)
- *     mueve SÓLO en el producto principal —el producto del editor es una pista—, así que mover en un
- *     producto AGREGADO no tenía forma. El mismo control de etapa escribe su `embudoId`;
+ * «Faltan muchas acciones») sumó las que cumplían y estaban afuera:
  *   · `quitar_lead_de_producto`: sólo saca de uno de dos o más (del único no deja, y lo dice);
  *   · `ignorar_datos_sin_marcar` / `reactivar_datos_sin_marcar`: callar o volver a contar sus
  *     pendientes en «Datos sin marcar» (p.ej. al etiquetarlo «Spam»);
@@ -225,6 +222,12 @@ export type AccionDelFlujo = {
  *   · `proponer_tareas_plan`: aplicar un borrador del plan corre al Perro, que re-curva TODO el
  *     tablero (AGENTS.md); una tarea por lead lo dispararía en cada inscripción. Del Plan no queda
  *     ninguna que sea de UN lead;
+ *   · `mover_lead_en_producto`: mueve SÓLO en un producto AGREGADO, y «Mover de etapa»
+ *     (`proponer_cambio_etapa`) SÓLO en el principal. Cuál es el principal depende del LEAD, no del
+ *     flujo: ofrecer las dos es pedirle a quien arma la automatización que sepa eso de cada lead que va a
+ *     pasar, y la equivocada falla en cada uno con una alarma al dueño (medido en `preparar`,
+ *     lib/api-mako/areas/crm.run.ts). Lo que falta es UNA «Mover de etapa» que elija cuál correr por
+ *     lead (docs/hallazgos-chatbot.md, parte «editores»);
  *   · `marcar_asistencia_reunion`: la asistencia la marca el evento de la agenda, no un flujo;
  *   · las que usan IA (`generar_insight_lead`, `redactar_followup_post_llamada`, `analizar_llamadas_lead`):
  *     tardan y gastan en cada lead;
@@ -240,7 +243,6 @@ export type AccionDelFlujo = {
  */
 export const ACCIONES_DEL_FLUJO: readonly AccionDelFlujo[] = [
   { id: 'proponer_cambio_etapa', titulo: 'Mover de etapa', que: 'Lo pasa a otra etapa del kanban', grupo: 'Etapa y productos', icono: 'etapa' },
-  { id: 'mover_lead_en_producto', titulo: 'Mover en otro producto', que: 'Cambia su etapa en un producto agregado', grupo: 'Etapa y productos', icono: 'mover' },
   { id: 'agregar_lead_a_producto', titulo: 'Agregar a un producto', que: 'Lo suma a otro producto, sin sacarlo del suyo', grupo: 'Etapa y productos', icono: 'producto' },
   { id: 'quitar_lead_de_producto', titulo: 'Quitar de un producto', que: 'Lo quita de uno de sus productos', grupo: 'Etapa y productos', icono: 'quitar' },
   { id: 'poner_etiqueta_lead', titulo: 'Agregar una etiqueta', que: 'Le agrega una etiqueta del CRM', grupo: 'Etiquetas', icono: 'etiqueta-mas' },
