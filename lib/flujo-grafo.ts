@@ -78,6 +78,8 @@ import {
   cumpleCatalogo, problemaDeFila, textoCondicion,
   type HechosCatalogo, type NombresCatalogo, type OperadorCondicion,
 } from './condiciones-catalogo';
+// Sólo el TIPO de una parte de un mensaje (cuarta tanda, punto 15): `import type` se borra al compilar.
+import type { ParteMensaje } from './mensaje-partes';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
@@ -188,6 +190,11 @@ export type PasoGrafo = {
   revisar?: boolean;
   /** Sólo `tipo: 'media'`: el archivo de la biblioteca (`setting_adjuntos`), por referencia. */
   media_id?: number | null;
+  /**
+   * Sólo un mensaje de WhatsApp (cuarta tanda, punto 15): VARIOS mensajes que salen en orden, dos o
+   * más. Ausente = el mensaje de siempre. Qué significa y cómo se guarda, en lib/mensaje-partes.ts.
+   */
+  partes?: ParteMensaje[];
   // ── Lo de siempre, que el conversor y el motor leen ──
   orden?: number;
   canal?: string;

@@ -71,6 +71,11 @@ import {
   type Hilo, type LeidoPosicion,
 } from '@/lib/nutricion-hilos';
 import { getAdjunto, adjuntoBase64 } from '@/lib/setting-adjuntos';
+// Un mensaje de WhatsApp con VARIAS partes (cuarta tanda, punto 15): el modelo, el guardado y la marca.
+import {
+  partesExplicitas, partesAlGuardar, problemaDePartes, partesYaSalidas, marcaPartes, borradorDePartes,
+  PAUSA_ENTRE_PARTES_MS, type ParteMensaje,
+} from '@/lib/mensaje-partes';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -128,6 +133,13 @@ export type PasoSecuencia = {
    * cuesta cero y evita las dos cosas.
    */
   variantes?: string[];
+  /**
+   * VARIOS mensajes de WhatsApp en orden (cuarta tanda, punto 15: «en una sola automatización enviar
+   * varios mensajes... un audio primero y luego un link»). Dos o más; ausente = el mensaje de siempre,
+   * y los campos de siempre son el espejo de la primera. Lo guarda `setSecuenciaPasos`
+   * (`partesAlGuardar`) y lo manda `enviarPartesDelPaso`. Ver lib/mensaje-partes.ts.
+   */
+  partes?: ParteMensaje[];
   asunto: string | null;
   preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
@@ -503,6 +515,10 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   antes.forEach((p, i) => {
     if (p && p.canal === 'email' && typeof p.cuerpo_html === 'string' && p.cuerpo_html) emailsPrevios.set(idDe(p, i), p);
   });
+  // Las PARTES de un mensaje (cuarta tanda, punto 15), por el id del nodo como las variantes: un
+  // escritor que no manda la clave `partes` no sabe de ellas, y así no las borra (`partesAlGuardar`).
+  const partesPrevias = new Map<string, unknown>();
+  antes.forEach((p, i) => { if (p && Array.isArray(p.partes) && p.partes.length) partesPrevias.set(idDe(p, i), p.partes); });
 
   // ⚠️ EL PASO «⚡ ACCIÓN» SE VALIDA ANTES DE ESCRIBIR NADA, y una acción inválida frena el
   // guardado ENTERO con un error que la pantalla muestra. Esta función reconstruye cada
@@ -520,6 +536,9 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   if (malas.length) throw new PasosInvalidosError(`No se guardó: ${malas.join('; ')}.`);
   const sinArchivo = pasos.filter(esPaso).flatMap((p, i) => { const m = problemaDeMedia(p); return m ? [`el paso ${i + 1} ${m}`] : []; });
   if (sinArchivo.length) throw new PasosInvalidosError(`No se guardó: ${sinArchivo.join('; ')}.`);
+  // Las partes que llegan (una sin su archivo, varias por el oficial o por email): mismo criterio.
+  const partesMalas = pasos.filter(esPaso).flatMap((p, i) => { const m = esNodoDeControl(camposDelFlujo(p)) ? null : problemaDePartes(p); return m ? [`el paso ${i + 1} ${m}`] : []; });
+  if (partesMalas.length) throw new PasosInvalidosError(`No se guardó: ${partesMalas.join('; ')}.`);
   // Un email que no entra no se recorta: un HTML cortado a la mitad deja etiquetas abiertas y el
   // final del mensaje afuera, sin que nadie lo vea.
   const largos = pasos.filter(esPaso).flatMap((p, i) => {
@@ -627,6 +646,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
           const vs = Array.isArray(p.variantes) && p.variantes.length ? p.variantes : variantesPrevias.get(idDe(flujo, i));
           return vs?.length ? { variantes: vs.filter((v) => typeof v === 'string' && v.trim()).slice(0, 8) } : {};
         })(),
+        ...partesAlGuardar(p, partesPrevias.get(idDe(flujo, i))),
       };
     });
   // Ids y `siguiente` EXPLÍCITOS en cada guardado (insertar o borrar un elemento del array ya no
@@ -2529,6 +2549,68 @@ export type ResultadoProceso = {
   detalle: Array<{ lead_id: number; canal: string; estado: string; nota?: string }>;
 };
 
+/**
+ * UN MENSAJE DE VARIAS PARTES (cuarta tanda, punto 15: «un audio primero y luego un link»): las
+ * manda EN ORDEN por la misma línea, desde la parte `desde` (las anteriores ya salieron en un intento
+ * de antes: `partesYaSalidas`).
+ *
+ * ⚠️ PRIMERO SE BAJAN TODOS LOS ARCHIVOS, DESPUÉS SE MANDA. Un audio que ya no está en la biblioteca
+ * se descubre antes de mandar la primera parte: si no, el lead recibía la mitad del mensaje y el resto
+ * esperaba 24 h a un archivo que no iba a volver. Es la doctrina del audio de siempre: si el binario
+ * no está, falla y reintenta, nunca sale el texto solo como si fuera el mensaje.
+ *
+ * ⚠️ SI UNA PARTE FALLA, LAS SIGUIENTES NO SALEN, y vuelve cuántas salieron (`salieron`): el `fallo`
+ * lo deja escrito (`marcaPartes`) y el reintento arranca de ahí, sin repetirle al lead lo que ya leyó.
+ *
+ * ⚠️ PARA LOS TOPES, UN PASO ES UN MENSAJE, tenga las partes que tenga: el cupo del día y el freno de
+ * 20 h cuentan TOQUES al lead, y las partes son un solo toque de segundos. Es lo que el motor ya hacía
+ * con el pie de un audio («segundo mensaje inmediato, en el mismo toque — no como paso aparte, que el
+ * guard anti-ban de 20h frenaría»). Lo que sí cuida la línea es el RITMO: `PAUSA_ENTRE_PARTES_MS` entre
+ * una y otra, para que no salgan en una ráfaga de milisegundos, y el tope de `TOPE_PARTES`.
+ */
+async function enviarPartesDelPaso(a: {
+  partes: readonly ParteMensaje[]; desde: number; telefono: string; leadId: number; linea: string | null;
+  vars: Record<string, string>;
+}): Promise<{ ok: boolean; salieron: number; error?: string; backoffHoras: number; textos: string[] }> {
+  const salieronAntes = Math.max(0, Math.min(a.desde, a.partes.length));
+  const pendientes = a.partes.slice(salieronAntes);
+  // Los binarios de todas las pendientes, antes de mandar nada.
+  const binarios = new Map<number, { base64: string; mime: string; media?: ReturnType<typeof mediaDeAdjunto> }>();
+  for (const [k, p] of pendientes.entries()) {
+    if (p.tipo === 'audio') {
+      const audio = await getAudio(p.audio_id);
+      const b64 = audio ? await audioBase64(audio) : null;
+      if (!audio || !b64) return { ok: false, salieron: salieronAntes, backoffHoras: 24, textos: [], error: `parte ${salieronAntes + k + 1}: ${audio ? 'no pude bajar el audio' : 'el audio ya no existe'}` };
+      binarios.set(k, { base64: b64, mime: audio.media_mime });
+    } else if (p.tipo === 'media') {
+      const adj = await getAdjunto(p.media_id);
+      const b64 = adj ? await adjuntoBase64(adj) : null;
+      if (!adj || !b64) return { ok: false, salieron: salieronAntes, backoffHoras: 24, textos: [], error: `parte ${salieronAntes + k + 1}: ${adj ? 'no pude bajar el archivo' : 'el archivo ya no existe'}` };
+      binarios.set(k, { base64: b64, mime: adj.media_mime, media: mediaDeAdjunto(adj) });
+    }
+  }
+  const textos: string[] = [];
+  for (const [k, p] of pendientes.entries()) {
+    if (k > 0) await new Promise((r) => setTimeout(r, PAUSA_ENTRE_PARTES_MS));
+    let r: { ok: boolean; error?: string };
+    if (p.tipo === 'texto') {
+      const t = aplicarVariables(p.cuerpo, a.vars);
+      textos.push(t);
+      r = await enviarYEspejar({ telefono: a.telefono, texto: t, leadId: a.leadId, linea: a.linea });
+    } else if (p.tipo === 'audio') {
+      const b = binarios.get(k)!;
+      r = await enviarAudioYEspejar({ telefono: a.telefono, base64: b.base64, mimetype: b.mime, leadId: a.leadId, linea: a.linea });
+    } else {
+      const b = binarios.get(k)!;
+      const caption = aplicarVariables(p.cuerpo ?? '', a.vars).trim();
+      if (caption) textos.push(caption);
+      r = await enviarMediaYEspejar({ telefono: a.telefono, media: { ...b.media!, base64: b.base64 }, caption: caption || undefined, leadId: a.leadId, linea: a.linea });
+    }
+    if (!r.ok) return { ok: false, salieron: salieronAntes + k, backoffHoras: 4, textos, error: `parte ${salieronAntes + k + 1} de ${a.partes.length}: ${r.error ?? 'no salió'}` };
+  }
+  return { ok: true, salieron: a.partes.length, backoffHoras: 4, textos };
+}
+
 // Procesa los envíos vencidos con rate-limiting anti-baneo: ventana horaria,
 // tope diario (24h móviles), tope por corrida y guard de 20h por lead.
 // El envío REAL de cada canal se decide por workspace (envio-flags):
@@ -3288,6 +3370,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // ahí lo arma Meta con sus parámetros. En un `fallo` es el texto que se INTENTÓ.
       let textoEnviado: string | null = null;
       let textoAutor: AutorTexto | null = null;
+      // Un mensaje de VARIAS partes (cuarta tanda, punto 15): cuántas ya salieron en un intento de
+      // antes. TODO `fallo` de este paso la vuelve a escribir (en `asunto`, `marcaPartes`), también el
+      // de «línea caída» o «sin teléfono»: con un fallo sin la marca, el reintento empezaba de cero y
+      // le repetía al lead lo que ya leyó.
+      const partesMulti = paso.canal === 'whatsapp' ? partesExplicitas(paso) : null;
+      let partesSalidas = 0;
 
       if (canalApagado) {
         // Queda un paso posterior enviable → este se omite y la cadencia sigue.
@@ -3333,6 +3421,19 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const saleSoloEste = saleSolo(paso, sec.envio_automatico);
         // La línea de ESTA secuencia (`null` = la de por default) y si puede mandar ahora.
         const lineaSec = sec.instance_name;
+        if (partesMulti) {
+          // ⚠️ «NO PUDE LEER» NO ES «NO SALIÓ NINGUNA». Sin saber cuántas salieron no se manda nada ni
+          // se escribe nada: un `fallo` sin la marca borraría la del intento anterior. Vuelve en la
+          // próxima corrida.
+          const { data: ultimo, error: errUltimo } = await supabase.from('nutricion_envios')
+            .select('estado, asunto').eq('inscripcion_id', insc.id).eq('nodo_id', idDe(paso, insc.paso_actual))
+            .order('id', { ascending: false }).limit(1).maybeSingle();
+          if (errUltimo) {
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'no pude leer cuántas partes salieron' });
+            continue;
+          }
+          partesSalidas = partesYaSalidas(ultimo as { estado?: string | null; asunto?: string | null } | null);
+        }
         const canalEvo = await canalDeLinea(lineaSec);
         const evoConectado = canalEvo.listo;
         if (!lead?.telefono) {
@@ -3341,6 +3442,37 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           estado = 'fallo'; nota = canalEvo.motivo ?? 'WhatsApp de empresa no conectado'; backoffHoras = 24;
         } else if (await estaBloqueado(lead.telefono)) {
           estado = 'omitido'; nota = 'contacto bloqueado'; // no le mandamos por el no oficial
+        } else if (partesMulti) {
+          // VARIAS PARTES, en orden y por la línea de la secuencia (`enviarPartesDelPaso`). Antes que
+          // el audio y el archivo: los campos de siempre son el espejo de la PRIMERA parte, y por esas
+          // ramas saldría sólo ésa.
+          if (saleSoloEste || await esLeadCliente(lead.id)) {
+            const r = await enviarPartesDelPaso({ partes: partesMulti, desde: partesSalidas, telefono: lead.telefono, leadId: lead.id, linea: lineaSec, vars: varsNO });
+            partesSalidas = r.salieron;
+            textoEnviado = r.textos.join('\n\n') || null; textoAutor = r.textos.length ? 'fijo' : null;
+            estado = r.ok ? 'enviado' : 'fallo';
+            if (!r.ok) { nota = r.error; backoffHoras = r.backoffHoras; }
+          } else if (await tieneBorradorNutriPendiente(lead.id)) {
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
+            await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
+            continue;
+          } else {
+            // Lead caliente → borrador. Un borrador es UN mensaje: el único archivo de las partes que
+            // faltan y sus textos juntos como pie (`borradorDePartes`). Con dos archivos no se arma.
+            const b = borradorDePartes(partesMulti.slice(partesSalidas));
+            if (!b.ok) {
+              estado = 'fallo'; nota = b.error; backoffHoras = 24;
+            } else {
+              const texto = aplicarVariables(b.texto, varsNO);
+              textoEnviado = texto || null; textoAutor = texto ? 'fijo' : null;
+              await crearBorrador({
+                leadId: lead.id, telefono: lead.telefono, texto, audioId: b.audioId, adjuntoId: b.adjuntoId,
+                origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
+                linea: lineaSec,
+              });
+              estado = 'borrador';
+            }
+          }
         } else if (esAudio) {
           const audio = await getAudio(Number(paso.audio_id));
           const b64 = audio ? await audioBase64(audio) : null;
@@ -3547,7 +3679,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         canal: paso.canal,
         estado,
         destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
-        asunto: paso.asunto,
+        // Un mensaje de varias partes que falló deja escrito cuántas salieron (lib/mensaje-partes.ts).
+        asunto: estado === 'fallo' && partesMulti ? marcaPartes(partesSalidas) : paso.asunto,
         proveedor_id: proveedorId,
         // EL MOTIVO SE CALCULABA Y SE TIRABA. Cada rama de arriba llena `nota`
         // («WhatsApp de empresa no conectado», «el audio del paso ya no existe»,

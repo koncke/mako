@@ -45,6 +45,7 @@ const marcarPasoWhatsapp = () => fetch('/api/chat-agent/onboarding', {
 });
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
+import type { ParteMensaje } from '@/lib/mensaje-partes';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import type { MetricasSecuencia } from '@/lib/setting-metricas';
 
@@ -68,6 +69,11 @@ export type PasoSecuenciaDto = {
   requiere?: 'respondio' | 'sin_respuesta' | 'ya_contactado' | 'primer_contacto';
   /** Formas alternativas de decir lo mismo: el motor sortea una en cada envío. */
   variantes?: string[];
+  /**
+   * VARIOS mensajes de WhatsApp en orden (cuarta tanda, punto 15). Ausente = el de siempre; `[]` =
+   * «una sola parte», que es lo que manda el editor (lib/mensaje-partes.ts).
+   */
+  partes?: ParteMensaje[];
   /**
    * El paso «⚡ Acción de MaKo»: con esto el paso NO manda un mensaje, corre una acción del
    * registro (lib/nutricion-paso-accion.ts). La forma es la del editor compartido
