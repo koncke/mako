@@ -169,23 +169,55 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'n
 const RX_URL = /(?:https?:\/\/|www\.)[^\s<>"'()\]]+/gi;
 const RX_CORCHETE = /\[[^\]\n]{0,200}\]/g;
 const RX_VARIABLE = /\{\{?\s*([A-Za-z_]+)\s*\}?\}/g;
+/**
+ * CUALQUIER GRUPO ENTRE LLAVES, no sólo los que parecen una variable (revisión, 09/10/2026).
+ * `RX_VARIABLE` no admite espacios internos, tildes ni dígitos: «{{Nombre del lead}}»,
+ * «{{teléfono}}», «{{ 1 }}» y «{nombre completo}» quedaban CRUDOS y `aplicarVariables`
+ * (lib/template-vars.ts) devuelve tal cual lo que no conoce: le llegaban al lead con las llaves.
+ */
+const RX_LLAVES = /\{+\s*([^{}\n]{0,60}?)\s*\}+/g;
+/** Lo que queda después de `RX_LLAVES`: una variable buena (se conserva) o una llave suelta. */
+const RX_LLAVE_SUELTA = /\{\{[a-z_]+\}\}|[{}]/g;
+/**
+ * UN DOMINIO SIN `http` NI `www` TAMBIÉN ES UN LINK (revisión, 09/10/2026): WhatsApp convierte en
+ * link «calendly.com/juan», y `RX_URL` lo dejaba pasar en las dos capas. Sólo con un TLD de esta
+ * lista corta, en MINÚSCULAS y sin una letra pegada después, para no comerse «datos.Te», «Hola.Me»
+ * ni un decimal. No arranca después de `@`, `/`, `:` ni un punto: un email y el host de una URL
+ * completa (que ya mira `RX_URL`) quedan afuera.
+ */
+const TLD_SUELTO = 'com|net|org|io|co|app|me|ly|link|page|site|ar|mx|es|cl|pe|uy';
+const RX_DOMINIO = new RegExp(`(?<![@\\w.\\/:-])[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.(?:${TLD_SUELTO})(?![A-Za-z0-9-])(?:\\/[^\\s<>"'()\\]]*)?`, 'g');
+
+/** El host de una URL o de un dominio suelto, sin `www.` y en minúsculas. */
+function hostDe(u: string): string {
+  const s = u.trim().replace(/^https?:\/\//i, '');
+  return s.split(/[/?#]/)[0].toLowerCase().replace(/^www\./, '');
+}
 
 /**
  * Lo que se BORRA de un texto escrito por el modelo, antes de pegarle el link:
- *   · toda URL (los links los pone el código, desde `ctx.links`);
+ *   · toda URL (los links los pone el código, desde `ctx.links`), con `http`, con `www.` o como
+ *     un dominio suelto (`RX_DOMINIO`);
  *   · los corchetes (un `[algo]` deja el paso sin salir nunca: `RX_RELLENO`);
- *   · las variables que el motor no resuelve (`esVariableConocida`). Las que sí resuelve se
- *     reescriben con doble llave, que es como las lee `aplicarVariables`.
+ *   · las variables que el motor no resuelve (`esVariableConocida`) y TODA llave suelta. Las que sí
+ *     resuelve se reescriben con doble llave, que es como las lee `aplicarVariables`.
  * Devuelve el texto y qué clase de cosa se sacó, para el aviso.
  */
 export function limpiarTexto(t: string): { texto: string; quitado: Array<'link' | 'corchete' | 'variable'> } {
   const quitado = new Set<'link' | 'corchete' | 'variable'>();
   let s = String(t ?? '');
   s = s.replace(RX_URL, () => { quitado.add('link'); return ''; });
+  s = s.replace(RX_DOMINIO, () => { quitado.add('link'); return ''; });
   s = s.replace(RX_CORCHETE, () => { quitado.add('corchete'); return ''; });
-  s = s.replace(RX_VARIABLE, (_m, k: string) => {
-    const key = k.toLowerCase();
-    if (esVariableConocida(key)) return `{{${key}}}`;
+  s = s.replace(RX_LLAVES, (_m, k: string) => {
+    const key = String(k).trim().toLowerCase();
+    if (/^[a-z_]+$/.test(key) && esVariableConocida(key)) return `{{${key}}}`;
+    quitado.add('variable');
+    return '';
+  });
+  // `{{nombre}}}` o `{nombre` dejan una llave de más: se va (la variable buena se queda).
+  s = s.replace(RX_LLAVE_SUELTA, (m) => {
+    if (m.length > 1) return m;
     quitado.add('variable');
     return '';
   });
@@ -433,7 +465,7 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
     const crudo = datos[p.nombre];
     let dato: unknown = crudo;
     if (p.tipo === 'string' && typeof crudo === 'string') {
-      const sin = crudo.replace(RX_VARIABLE, '').replace(RX_CORCHETE, '').replace(/[ \t]+/g, ' ').replace(/ +([,.;:!?])/g, '$1').trim();
+      const sin = crudo.replace(RX_LLAVES, '').replace(/[{}]/g, '').replace(RX_CORCHETE, '').replace(/[ \t]+/g, ' ').replace(/ +([,.;:!?])/g, '$1').trim();
       if (sin !== crudo.trim()) est.avisos.push('Borré una variable de una acción: ahí no se completa');
       dato = sin;
     }
@@ -1223,6 +1255,7 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
   const etiquetas = new Set(ctx.etiquetas.filter((e) => !e.archivada).map((e) => e.id));
   const etiquetaOk = (v: unknown) => { const n = Number(v); return Number.isInteger(n) && (etiquetas.has(n) || n < 0); };
   const links = new Set(Object.values(ctx.links).map((l) => l.url));
+  const hostsDeLinks = new Set(Object.values(ctx.links).map((l) => hostDe(l.url)));
   const audios = new Set(ctx.audios.map((a) => a.id));
   const archivos = new Set(ctx.archivos.map((a) => a.id));
   const etapaOk = (key: unknown, fid: number | null | undefined) => {
@@ -1260,7 +1293,11 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         const s = String(t ?? '');
         if (/\[[^\]\n]{0,200}\]/.test(s)) err.push('un texto tiene corchetes (no saldría nunca)');
         for (const u of s.match(RX_URL) ?? []) if (!links.has(u)) err.push('un texto tiene un link que no es de tus links');
+        // Un dominio suelto vale sólo si es el de uno de tus links (el de la URL completa ya se miró).
+        for (const d of s.replace(RX_URL, ' ').match(RX_DOMINIO) ?? []) if (!hostsDeLinks.has(hostDe(d))) err.push('un texto tiene un link que no es de tus links');
         for (const m of s.matchAll(RX_VARIABLE)) if (!esVariableConocida(m[1].toLowerCase())) err.push(`un texto usa la variable «${m[1]}», que no existe`);
+        // Sacadas las variables buenas, no puede quedar NINGUNA llave: el motor la manda cruda.
+        if (/[{}]/.test(s.replace(/\{\{([a-z_]+)\}\}/g, (m0, k: string) => (esVariableConocida(k) ? '' : m0)))) err.push('un texto tiene llaves que no son una variable');
         if (!ctx.usaVoseo && marcasDeVoseo(s).length) err.push(`un texto está en voseo («${marcasDeVoseo(s)[0]}»)`);
       }
     }
