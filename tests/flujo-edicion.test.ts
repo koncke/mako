@@ -14,13 +14,13 @@
 // PROBADO ROMPIÉNDOLO (09/10/2026; base en verde: 16 pasan, 0 fallan). Cada rotura de a una,
 // aplicada y restaurada DE MEMORIA por un arnés (nunca con `git checkout`). Pasan / fallan:
 //   1. `conRaiz` no hace nada (el CRON implícito no queda explícito)               -> 12 / 4
-//   2. `conectar` reemplaza la salida ocupada en vez de agregar en paralelo          -> 14 / 2
-//   3. sin el chequeo de círculo                                                     -> 15 / 1
+//   2. `conectar` reemplaza la salida ocupada en vez de agregar en paralelo          -> 15 / 1
+//   3. sin el chequeo de círculo (la red de `validarGrafo` lo frena con otro motivo) -> 15 / 1
 //   4. sin el chequeo de caminos que se juntan                                       -> 15 / 1
 //   5. `quitarPuerto` sin promover la primera flecha en paralelo                     -> 15 / 1
-//   6. `eliminar` borra también lo que colgaba (como `borrarNodo`)                   -> 14 / 2
+//   6. `eliminar` borra también lo que colgaba (como `borrarNodo`)                   -> 13 / 3
 //   7. `duplicar` copia el `siguiente` (la copia no sale suelta)                     -> 15 / 1
-//   8. `crearSuelta` sin `siguiente: null` (sigue en la de abajo del array)          -> 15 / 1
+//   8. `crearSuelta` sin dejar el CRON explícito (en un flujo vacío sería la primera) -> 15 / 1
 //
 // Correr: node --import tsx --test tests/flujo-edicion.test.ts
 import { test } from 'node:test';

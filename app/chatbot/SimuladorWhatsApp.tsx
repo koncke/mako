@@ -119,12 +119,26 @@ export function listaConCreando(lista: readonly SecuenciaDto[], creando: Creando
   return [...lista, { ...filaCreando(creando.temporal), id: creando.id ?? creando.temporal }];
 }
 
-/** Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. */
-export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'eliminar'; label: string }> {
+/**
+ * Los íconos del «⋯» de una fila (sexta tanda, punto 10: «en los desplegables de los 3 puntos en la
+ * sidebar... pon íconos en todos los desplegable»). Un SVG como `data:` (lo que dibuja el `Dropdown`),
+ * del trazo de los de la casa; la papelera, en rojo (punto 9: «que siempre el ícono de borrar sea rojo»).
+ */
+const svgFila = (cuerpo: string, color = '#4C5363') =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${cuerpo}</svg>`)}`;
+export const ICONOS_FILA = {
+  activar: svgFila('<path d="M8 5.5v13l11-6.5-11-6.5Z"/>'),
+  pausar: svgFila('<path d="M9 5.5v13M15 5.5v13"/>'),
+  duplicar: svgFila('<rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M5.5 15.5A2 2 0 0 1 4 13.6V6a2 2 0 0 1 2-2h7.6a2 2 0 0 1 1.9 1.5"/>'),
+  eliminar: svgFila('<path d="M4 6.5h16"/><path d="M9.5 6.5V5a1.3 1.3 0 0 1 1.3-1.3h2.4A1.3 1.3 0 0 1 14.5 5v1.5"/><path d="M6.6 6.5l.85 12.6a1.8 1.8 0 0 0 1.8 1.7h5.5a1.8 1.8 0 0 0 1.8-1.7l.85-12.6"/><path d="M10.4 10.5v6M13.6 10.5v6"/>', '#D0504A'),
+} as const;
+
+/** Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. Cada una con su ícono. */
+export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'eliminar'; label: string; icono: string }> {
   return [
-    { value: 'activa', label: activa ? 'Pausar' : 'Activar' },
-    { value: 'duplicar', label: 'Duplicar' },
-    { value: 'eliminar', label: 'Eliminar' },
+    { value: 'activa', label: activa ? 'Pausar' : 'Activar', icono: activa ? ICONOS_FILA.pausar : ICONOS_FILA.activar },
+    { value: 'duplicar', label: 'Duplicar', icono: ICONOS_FILA.duplicar },
+    { value: 'eliminar', label: 'Eliminar', icono: ICONOS_FILA.eliminar },
   ];
 }
 
@@ -154,8 +168,15 @@ const filaDeRecordatorio = (activo: boolean | null): FilaFiltrable => ({
   activa: activo, emoji: EMOJI_RECORDATORIO, envios: [{ canal: 'whatsapp', destino: 'clientes' }],
 });
 
-/** El rótulo del grupo de los Mensajes de MaKo en la lista: el nombre de la tab de donde vienen. */
-export const ROTULO_MENSAJES_MAKO = 'Notificaciones';
+/**
+ * LAS DOS DIVISIONES DE LA LISTA (sexta tanda, punto 3, con la respuesta de Martín del mismo día: la
+ * sidebar lleva DOS, «Chatbot» y «MaKo en WhatsApp»). La primera son las automatizaciones (y el
+ * recordatorio de la reunión, que le escribe al lead); la segunda, los Mensajes de MaKo (los flujos de
+ * Configuraciones › Notificaciones, que le escriben al dueño). Hasta acá eran la lista sin rótulo y
+ * una sección «Notificaciones», el nombre de la tab de donde venían.
+ */
+export const ROTULO_CHATBOT = 'Chatbot';
+export const ROTULO_MENSAJES_MAKO = 'MaKo en WhatsApp';
 
 const API_SECUENCIAS = '/api/chat-agent/secuencias';
 
@@ -610,6 +631,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           </div>
         </div>
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
+          {/* La PRIMERA división (sexta tanda, punto 3): las automatizaciones. Arriba de todo, sin
+              filete (no la separa nada de arriba). */}
+          <div data-grupo-chatbot style={{ ...ROTULO_GRUPO, borderTop: 'none', marginTop: 0, padding: '4px 12px 6px' }}>{ROTULO_CHATBOT}</div>
           {rolAdmin && (
             <button type="button" onClick={() => nueva()} className="chb-nueva"
               style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 12, cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit' }}>

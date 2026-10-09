@@ -26,6 +26,10 @@
 //  11. sin el ＋ en paralelo con el punto ocupado                               -> 6 / 1
 //  12. vuelve el `+ 30` al `maxWidth` del panel                                 -> 6 / 1
 //  13. el chrome se corre con `insetDer` y no con `derChrome`                   -> 6 / 1
+// Sexta tanda (09/10/2026, parte «lienzo»: el ＋ adentro del círculo, las sueltas punteadas). 7 / 0:
+//  14. el ＋ del círculo agrega sin el puerto                                  -> 6 / 1
+//  15. el ＋ del círculo sin el paralelo con la salida ocupada                 -> 6 / 1
+//  16. la suelta sin borde punteado                                            -> 6 / 1
 //
 // Correr: node --import tsx --test tests/lienzo-puertos.test.ts
 import { test } from 'node:test';

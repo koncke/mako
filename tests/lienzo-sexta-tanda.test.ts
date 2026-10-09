@@ -19,7 +19,7 @@
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026; base en verde: 13 pasan, 0 fallan). Cada rotura de a una,
 // aplicada y restaurada DE MEMORIA por un arnés (nunca con `git checkout`). Pasan / fallan:
-//   1. `tieneFilas` sin la salida al pie                                           -> 11 / 2
+//   1. `tieneFilas` sin la salida al pie                                           -> 10 / 3
 //   2. `rotuloDeFila` dice «Entonces» también sin flecha                            -> 12 / 1
 //   3. la espera nunca va en la flecha (`colapsable` siempre false)                -> 11 / 2
 //   4. la espera con DOS padres también va en la flecha                            -> 12 / 1
@@ -28,9 +28,10 @@
 //   7. `fijarPosicion` poda la tarjeta nueva                                        -> 12 / 1
 //   8. el lienzo arma el gesto también con el botón derecho                        -> 12 / 1
 //   9. el ✦ de MaKo vuelve a la fila del zoom                                       -> 12 / 1
-//  10. «Activar» vuelve arriba, al lado del título                                  -> 12 / 1
+//  10. «Activar» sale de al lado de «Publicar»                                      -> 12 / 1
 //  11. eliminar una tarjeta vuelve a ser `borrarNodo`                               -> 12 / 1
 //  12. sin la suelta marcada                                                        -> 12 / 1
+//  13. la lista sin la división «Chatbot»                                           -> 12 / 1
 //
 // Correr: node --import tsx --test tests/lienzo-sexta-tanda.test.ts
 import { test } from 'node:test';
@@ -46,6 +47,11 @@ import {
 } from '../lib/lienzo-grafo';
 import { fijarPosicion, conPosiciones } from '../lib/lienzo-posiciones';
 import { ID_INICIO } from '../lib/flujo-grafo';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { SimuladorWhatsApp, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO, opcionesDeFila } from '../app/chatbot/SimuladorWhatsApp';
+import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
+import type { PlantillaVista } from '../lib/plantillas';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -208,6 +214,32 @@ test('⚠️ el chrome: el ✦ de MaKo al lado del título, «Activar» al lado 
   const pie = tramo(PERFIL, 'pie={(', 'editorEntrada={(', 4_000);
   assert.ok(pie.indexOf('>Activar<') >= 0 && pie.indexOf('>Activar<') < pie.indexOf("'Publicar'"), '«Activar» no está al lado de «Publicar»');
   assert.match(PERFIL, /onPublicar=\{rolAdmin \? \(\) => void publicar\(\) : undefined\}/);
+});
+
+test('⚠️ la lista lleva DOS divisiones: «Chatbot» arriba y «MaKo en WhatsApp» (punto 3), y el «⋯» con íconos', () => {
+  const secuencia = {
+    id: 7, clave: 'bienvenida', nombre: 'Bienvenida', etapa: 'nuevo', trigger_tipo: 'etapa',
+    activa: true, pasos: [], inscriptos: 0, enviados: 0, estrategia: null, metricas: {},
+  } as unknown as SecuenciaDto;
+  const aviso = {
+    id: 'reporte-semanal', titulo: 'Reporte semanal', categoria: 'reporte', prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false,
+    yaImplementado: 'si', disparador: 'x', ejemplo: 'x', enabled: true, esCustom: false, fijo: false, canales: { wa: true, email: false },
+    frecuenciaMin: 0, posiciones: {}, borrador: null, asunto: '',
+  } as unknown as PlantillaVista;
+  const html = renderToStaticMarkup(createElement(SimuladorWhatsApp, {
+    secuencias: [secuencia], objetivos: [], etiquetaEtapa: (k: string) => k, negocio: 'Mi negocio', avisos: [aviso],
+    rolAdmin: true, audios: [], canalCaido: false, onAudioNuevo: () => {}, onNueva: () => {}, onReload: () => {},
+    productos: [], disparadores: [], tz: null,
+  } as Parameters<typeof SimuladorWhatsApp>[0]));
+  assert.equal(ROTULO_CHATBOT, 'Chatbot');
+  assert.equal(ROTULO_MENSAJES_MAKO, 'MaKo en WhatsApp', 'el título es «MaKo en WhatsApp», no sólo MaKo (se confunde con la IA)');
+  const iChatbot = html.indexOf(`>${ROTULO_CHATBOT}</div>`);
+  const iSec = html.indexOf('>Bienvenida</span>');
+  const iMako = html.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`);
+  const iAviso = html.indexOf('>Reporte semanal</span>');
+  assert.ok(iChatbot >= 0 && iChatbot < iSec && iSec < iMako && iMako < iAviso, 'las divisiones no van en orden: Chatbot, sus automatizaciones, MaKo en WhatsApp, sus mensajes');
+  assert.ok(opcionesDeFila(true).every((o) => o.icono.startsWith('data:image/svg+xml')), 'una opción del «⋯» sin ícono');
+  assert.match(decodeURIComponent(opcionesDeFila(false).find((o) => o.value === 'eliminar')!.icono), /stroke="#D0504A"/, 'la papelera no es roja');
 });
 
 test('el CRON del lienzo de antes (con «Si responde») sigue con sus dos filas, sin la salida al pie', () => {
