@@ -223,11 +223,13 @@ export const CRM_DECISIONES = [
 // pantalla sola, leyendo la tarjeta; si alguien la reabre, vuelve a decir lo de acá. El
 // borrador del Plan se aplicó el 06/10 a la noche: 15 cerradas con su prueba, y la #350
 // quedó abierta a propósito (no se reproduce con el reproductor solo; ver su `falta`).
+// El 09/10 se cerraron #328, #358 y #790 con su prueba medida en la base (borrador
+// propmv17h8dzpvf0o), y #17 con el push de la reagenda y el link de Cal.com.
 //
 // El detalle técnico, en docs/hallazgos-comunicacion.md → «Las seis tarjetas del Chatbot
 // en paralelo» y «El setter con la charla de verdad».
 
-export const CHATBOT_MEDIDO = '5 y el 6 de octubre de 2026';
+export const CHATBOT_MEDIDO = '5, el 6 y el 9 de octubre de 2026';
 
 /** Las propuestas de los casos de la post-agenda (#358), en el negocio de Mauricio. */
 export const CHATBOT_CASOS = '/mako/revisar?ws=1';
@@ -245,12 +247,12 @@ export const CHATBOT_TAREAS: Record<number, TareaApartado> = {
   // llamadas a los flujos que caían ahí (los webhooks de Calendly, Cal.com, Chatwoot y Meta).
   // Se cerró con el arreglo de esas siete, no con la prueba vieja.
   834: { estado: 'lista', hizo: 'Ni los avisos ni los flujos se cruzan entre negocios, y el semanal sale a cada cliente con lo suyo' },
-  328: { estado: 'falta', hizo: 'La línea de Mauricio está conectada y el envío prendido', falta: 'Ver salir el primer audio con la próxima agenda' },
+  328: { estado: 'lista', hizo: 'Salió el primer audio de la post-agenda el 06/10, y el segundo paso el 07/10' },
   784: { estado: 'lista', hizo: 'Se vigila cada línea de cada negocio y el aviso le llega al dueño de esa línea' },
-  790: { estado: 'falta', hizo: 'WhatsApp escalonado a 63 con reunión y mail a 884 formularios: armados y apagados', falta: 'Corregir el remitente (dice «MaKo») y decidir cuándo se prende' },
+  790: { estado: 'lista', hizo: 'WhatsApp escalonado a 63 con reunión y mail a 884 formularios: armados y apagados, como decidiste' },
   19: { estado: 'lista', hizo: 'La cobranza sale al grupo del dueño; al cliente nada, como decidiste' },
   789: { estado: 'lista', hizo: 'Con una reunión nueva, la post-agenda vuelve a salir' },
-  17: { estado: 'falta', hizo: 'A las 24 h, 1 h y 15 min, con el link para entrar. Prendido para Mauricio', falta: 'Apagar el workflow de n8n' },
+  17: { estado: 'lista', hizo: 'A las 24 h, 1 h y 15 min, con el link. El primero salió el 09/10; reagendar limpia el «no asistió» y Cal.com también guarda el link' },
   748: { estado: 'lista', hizo: '«Para leer» al grabar un audio, con el guion que escribe MaKo gratis' },
   360: { estado: 'lista', hizo: 'MaKo deja de insistir cuando el lead rebate tres veces, y cierra la charla' },
   // #786: la tarjeta pedía resolver que la sembrada #1 tenía el mismo disparador. Medido el
@@ -259,7 +261,7 @@ export const CHATBOT_TAREAS: Record<number, TareaApartado> = {
   786: { estado: 'lista', hizo: 'La bienvenida sale sola, una vez, y sólo a quien llegó en las últimas 72 h' },
   361: { estado: 'lista', hizo: 'El setter lee lo que el lead contestó al agendar y no se lo vuelve a preguntar' },
   745: { estado: 'lista', hizo: 'El onboarding mira lo que hay (la línea, la guía de voz) y no un tilde guardado' },
-  358: { estado: 'falta', hizo: 'Los 4 casos de la post-agenda, probados contra el clasificador (7 de 7)', falta: 'Confirmar las 8 propuestas' },
+  358: { estado: 'lista', hizo: 'Los 4 casos de la post-agenda, cargados en las dos y probados contra el clasificador (7 de 7)' },
   787: { estado: 'lista', hizo: 'Sale sola sólo al confirmar o cambiar el día; el precio va siempre a borrador' },
   788: { estado: 'lista', hizo: 'MaKo contesta del segundo mensaje en adelante: la charla sigue abierta 7 días' },
   380: { estado: 'lista', hizo: 'Cuando no hay borrador, el aviso dice por qué' },
@@ -284,18 +286,19 @@ export const CHATBOT_EN_PRODUCCION = [
   '**El mensaje de las 24 h** de la post-agenda lo escribe MaKo para cada lead.',
   '**El residuo quedó armado y apagado**: la secuencia de WhatsApp y el mail en borrador.',
   '**El semanal** les llega a los clientes desde el lunes 12/10, por mail.',
+  '**Ya salen solos**: el primer audio de la post-agenda (06/10) y el primer recordatorio de 24 h (09/10).',
+  '**Reagendar limpia el «no asistió»**, en Calendly y en Cal.com, y el historial del lead lo guarda.',
+  '**Cal.com también guarda el link** de la reunión, así el recordatorio lo lleva.',
+  '**Cuando la línea de un cliente vuelve, le llega «Volvió tu WhatsApp»**, y los dos avisos los puede apagar él.',
+  '**«Lo adapta MaKo» anda con la key de Gemini** de los clientes que sólo tienen ésa.',
 ];
 
 /** Lo que le queda a Martín. Lo que tiene link, lo lleva al lado. */
 export const CHATBOT_TE_TOCA: Pendiente[] = [
-  { t: '**Confirma los 8 casos** de la post-agenda. Hasta entonces, un agendado que contesta va a una persona.', href: CHATBOT_CASOS, boton: 'Abrir las propuestas' },
   { t: '**Apaga el workflow de n8n** «WhatsApp Reminders for Calendly». Hoy no manda nada, pero duplicaría si alguien recrea su conexión.' },
-  { t: '**Corrige el remitente de Mauricio** antes de mandar el mail del residuo: hoy dice «MaKo».' },
+  { t: '**El día que mandes el mail del residuo**, corrige antes el remitente de Mauricio: hoy dice «MaKo».' },
   { t: '**Rota la key de Fathom** (FATHOM_API_KEY_MARTIN): quedó impresa en la salida de un agente.' },
-  { t: '**Decide** si el residuo sale solo o como borrador, y qué pasa con los 29 que quedaron afuera.' },
-  { t: '**Decide** si un lead que faltó a la R1 y vuelve a agendar recibe recordatorios (hoy no).' },
   { t: '**Decide** qué se hace con las llaves de Zernio de dos clientes y con el proyecto Instagram del tablero.' },
-  { t: '**Decide** si se avisa cuando la línea vuelve, y si el cliente puede apagar el aviso de línea caída.' },
   { t: '**Decide** qué es «por tiempo» en una secuencia: hoy, un horario que inscribe a quien esté en la etapa. La otra lectura: cuánto espera el primer mensaje.' },
   { t: '**Decide** si /mensajes se absorbe en /chatbot o queda como la tab de los avisos.' },
   { t: '**Decide** el nombre «Chat Analyst» para el dashboard de secuencias: ese nombre era para analizar conversaciones.' },
