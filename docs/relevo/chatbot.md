@@ -1,129 +1,60 @@
 # Retomar: Chatbot
 
-**Dónde quedó:** 09/10/2026, ~11:50. Cuenta `claude2`, con la cuota semanal en 93 %. La CUARTA tanda
-está a medias: lo hecho está en `main` (push `9165da11`). El pedido literal de los 17 puntos está en
-`app/admin/dev/chatbot/bitacora.ts` (hito del 9 oct 11:02), y las decisiones punto por punto en
-`docs/chatbot-flujo-ramas-diseno.md` → «CUARTA TANDA». Lo que falta se retoma desde ahí.
+**Dónde quedó:** 09/10/2026 ~15:30, cuenta `claude2` (cuota semanal 33 %). La CUARTA y la QUINTA tanda
+están ENTERAS en `main` (el push de la rama `chatbot-v2` de esta tarde), con las migraciones 0230 y
+0233 aplicadas. El pedido literal de las dos está en `app/admin/dev/chatbot/bitacora.ts` (hitos del
+9 oct 11:02 y 12:09); lo que costó, en `docs/hallazgos-chatbot.md`. **Nada se vio con clics** salvo el
+lienzo de la quinta 2, que un agente arrastró en el ws1 en sólo lectura.
 
-## La cuarta tanda: qué está y qué falta (por número de punto)
+Y del mismo cierre (Martín: «Termina todo lo que haga falta y cierra las tareas en el plan»): el plan
+de «Feature: Chatbot» quedó en **33 de 34 cerradas**; abierta la #350 (el reproductor de audios: con
+el reproductor solo no se reproduce, falta probarlo en la pantalla real). Lo que se decidió en el
+formulario del 09/10 (no-show que reagenda, línea caída apagable + «volvió», residuo apagado) está
+hecho y anotado en `docs/hallazgos-comunicacion.md`.
 
-**Hecho (en producción, sin verificar con clics):**
-- **2.** El desplegable del CRON arranca en «Productos» y «Etiquetas». Sale «La que tiene puesta».
-- **3 y 17.** «Probar» ya no se frena en las condiciones: sigue solo por el «Sí». Esa era la causa
-  de que no salieran los mensajes. Sin botones de rama. «Probar en WhatsApp / Email» está arriba a
-  la izquierda, y el «▶ Probar» del chrome se vuelve «✕ Cerrar». Es más alto: va de debajo del
-  chrome hasta abajo.
-- **4 y 12.** El CRON sin «Al entrar» ni «Si responde». El ＋ no ofrece REPLY ni GO TO. Los flujos
-  que ya los tienen los siguen dibujando y corriendo.
-- **6 (mitad).** «Confirmó la compra y no pagó» no se ofrece (`retirada` en el catálogo).
-- **9.** El DELAY sólo espera; «antes de la reunión» sale del desplegable para lo nuevo.
-- **10.** El ＋ con íconos SVG, los logos de WhatsApp y Gmail, la chispa de MaKo, «MaKo en
-  WhatsApp», más ancho y por grupos con línea.
-- **11 (mitad).** ACTION dice «Elige una acción», sin subtítulos, sin «Avisar al equipo» ni
-  «Inscribir en otra automatización» (`FUERA_DEL_SELECTOR`).
-- **13.** El filtro al lado del buscador, por estado y por emoji, con «Quitar filtro». El «⋯»
-  abre hacia afuera.
+## Qué hay, por punto
 
-**ESTADO 09/10 ~13:00 (cuota 98 %, leer esto primero):**
-- UNIDAS en `chatbot-v2` (wt-chatbot) con sus bloqueantes aplicados: `wip-v4-condiciones` (7, 5, 6b), `wip-v4-flechas` (8)
-  y `wip-v4-cron` (14; trae la mig **0230_secuencia_etapas.sql**, que va ANTES del deploy; el código tolera que falte:
-  guardar varias etapas contesta «Aún no se pueden varias etapas»). Suite verde. Si no se llegó a pushear: aplicar la 0230
-  (`node scripts/apply-migration.mjs` desde el clon) y `git push origin HEAD:main` desde wt-chatbot.
-- CORRIENDO en segundo plano (si la cuota cortó, quedaron a medias en sus ramas locales): `wip-v4-editores` (1 + el 3 de la
-  quinta: segundos y minutos en el DELAY), `wip-v4-whatsapp` (15 + el 1 de la quinta: «Probar» con logo, desplegable de
-  números guardados y el lead RECIÉN LLEGADO para elegir rama), `wip-v4-email` (16) — workflow `wf_f6f9b9a0-933`, retomable
-  con `resumeFromRunId`; y `wip-v5-lista` (4 y 5 de la quinta) + un diagnóstico del ＋ del medio de las flechas y del arrastre
-  — workflow `wf_8c0dd6fe-093`. Los reportes de cada parte quedan en el `journal.jsonl` de su workflow
-  (`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/461dd390-9e4f-44a5-810a-0e9efe9b8ae0/subagents/workflows/<runId>/`).
-- **TERMINADA y SIN UNIR: `wip-v5-lista`** (puntos 4 y 5 de la quinta; suite verde en su rama, 6071/0). Filtro del Plan en la
-  lista (app/chatbot/FiltroLista.tsx, lib/chatbot-lista-filtro.ts) y los flujos de Configuraciones › Notificaciones en /chatbot
-  (app/chatbot/MensajeMakoLienzo.tsx, lib/chatbot-mensajes-mako.ts, `/chatbot?aviso=<id>`); en Notificaciones queda «Editar en
-  Chatbot ↗». Para unir: `git merge wip-v5-lista` en wt-chatbot + su bloqueante (`MUELLE.listaAncho` 272 → 320 en
-  lib/lienzo-grafo.ts) + npm test + push. Decide Martín: ¿/mensajes (el catálogo de la agencia) también se muda a /chatbot?
-- **DIAGNÓSTICO del punto 2 (en el journal de `wf_8c0dd6fe-093`):** (a) el ＋ del medio NO se rompió: es un cuadrado invisible
-  de 28 px en el punto medio y la flecha no reacciona fuera de él (antes la etiqueta «24 h» lo marcaba). Arreglo: un segundo
-  `<path>` transparente por arista, strokeWidth 14-16, `vectorEffect='non-scaling-stroke'`, `pointerEvents:'stroke'`, que dé
-  el hover a TODA la flecha (app/_components/Lienzo.tsx ~601-613). (b) /chatbot NUNCA pudo mover tarjetas: FlujoLienzo no pasa
-  `onMover`. Hace falta una columna `nutricion_secuencias.posiciones jsonb` (nunca en `pasos` ni `estrategia`), relativa al
-  CRON, escrita por su propia acción, mezclada con el layout derivado; cambia la regla de AGENTS.md «el layout de /chatbot no se
-  guarda» (Martín ya lo pidió).
-- Pendientes de las tres unidas (en sus reportes): sacar `onAgregarRama` de FlujoLienzo.tsx:435 (no bloquea); decidir si
-  «Agendó» se retira (dice lo mismo que «Tiene reunión agendada»); el panel del CRON tiene que medir su contenido (~130-410
-  px según el horario: lo hace la parte «editores»); Crear con IA no conoce las flechas por resultado; con «felicitar a un
-  alumno que terminó una clase» la IA elige TODAS las etapas de entrega, pero llegar a una etapa es terminar un MÓDULO, no
-  una clase (decide Martín).
+**Cuarta tanda:** 1 el panel mide por TIPO de tarjeta y el selector es el grande · 2 el CRON arranca
+en «Productos» / «Etiquetas» · 3 y 17 «Probar» sin ramas, arriba, con «Cerrar» · 4 y 12 el CRON sin
+filas, sin REPLY ni GO TO · 5 la reunión por etapas del kanban (sin R1/R2) · 6 «No pagó la cuota N» ·
+7 «＋ y» / «＋ o» y sin «＋ Rama» · 8 varias flechas por resultado · 9 el DELAY sólo espera · 10 el ＋
+con íconos y por grupos · 11 «Elige una acción», sin las dos que sobraban · 13 el filtro al lado del
+buscador · 14 el CRON con varias etapas (mig 0230) · 15 WhatsApp con varias partes por tarjeta, el
+número de salida y «✦ MaKo» al lado del título · 16 el email con «De», modo HTML y la firma del negocio.
 
-**QUINTA TANDA (09/10 ~12:20, pedido literal en la bitácora):** 1. «Probar» con el logo del canal arriba a la
-izquierda, «Probar en WhatsApp» al lado de ↻ que abre un desplegable con los números guardados y «Nuevo número» (el form
-de teléfono con banderas), igual con Email; y la prueba de «Bienvenida» no mostró el mensaje porque siguió por el «Sí» de
-«Agendó» (que salta a otra automatización): «Probar» tiene que evaluar las condiciones como un lead RECIÉN LLEGADO (sin
-agenda, sin pago, recién entrado), no siempre el «Sí». 2. el ＋ del medio de una flecha desapareció y las tarjetas no se
-mueven (diagnóstico en wf_8c0dd6fe-093). 3. minutos y segundos en el DELAY (el motor corre cada hora: hay que resolver
-la precisión, no sólo ofrecer la unidad). 4. el filtro del Plan en la lista (ícono, secciones Emojis / Estado / Canal con
-«A clientes» y «Al WhatsApp de MaKo», multi-selección, «Quitar filtros» sutil abajo) y la lista más ancha. 5. los flujos
-de «Notificaciones» (Mensajes de MaKo) adentro de /chatbot, y en esa tab un enlace en vez del lienzo. 4 y 5 en la rama
-local `wip-v5-lista` (wf_8c0dd6fe-093); 1, 2 y 3 después de unir la cuarta.
+**Quinta tanda:** 1 «Probar» con el logo, los números y mails guardados de quien prueba, y las
+condiciones decididas como un lead RECIÉN LLEGADO · 2 el ＋ en cualquier punto de la flecha y las
+tarjetas que se mueven y se guardan (mig 0233) · 3 segundos y minutos en el DELAY: hasta 120 s se
+cumple exacto, más que eso sigue con el cron y la pantalla dice cuándo · 4 el filtro del Plan en la
+lista y la lista a 320 · 5 los Mensajes de MaKo (Configuraciones › Notificaciones) adentro de /chatbot.
 
-**EN CONSTRUCCIÓN (09/10 ~12:00, cuenta `claude2` en 93 %):** Martín dijo «Continua con el resto». Un
-workflow con seis partes en worktrees, cada una en su rama LOCAL `wip-v4-<parte>` (sin pushear):
-`condiciones` (7, 5, 6b), `flechas` (8), `cron` (14 + el editor del CRON del punto 1 + revisar Crear con
-IA), `editores` (1), `whatsapp` (15), `email` (16). Si se corta: cada rama tiene sus commits WIP; se
-retoma con `resumeFromRunId: "wf_f6f9b9a0-933"` (script en `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main-wt-chatbot/461dd390-9e4f-44a5-810a-0e9efe9b8ae0/workflows/scripts/chatbot-cuarta-tanda-resto-wf_f6f9b9a0-933.js`; worktrees en `dashboard-marketing/.claude/worktrees/wf_f6f9b9a0-933-N`) o se termina a mano desde la rama. Después: unir en `chatbot-v2`, enchufar
-los bloqueantes, aplicar la migración del CRON (0230 o la que toque) ANTES del push, suite entera, push.
+## Lo que falta (no espera a nadie)
 
-⚠️ **El punto 11 (más acciones del CRM y de CS) NO va en esta tanda:** el chat «API de MaKo» las está
-escribiendo en `wip/api-acciones-0910` (worktree `C:/dev/mako-api`, sin pushear): `mover_cliente_entrega_cs`,
-`cambiar_acceso_curso_cs`, `invitar_cliente_curso_cs`, `mandar_link_curso_cs`, `asignar_trabajo_cliente_cs`,
-`agendar_llamada_cs`, `registrar_cobro_cuota`… Cuando esa rama entre a main, se suman a `ACCIONES_DEL_FLUJO`
-(lib/editor-acciones.ts) las que tengan sentido corriendo solas. Esa rama también toca `chatbot.def.ts`
-(`cambiar_disparador_secuencia`): si el CRON pasa a varias etapas, ahí hay que ajustar.
+- **Verlo con clics** en producción: la tercera, la cuarta y la quinta tanda.
+- **11:** sumar las acciones de Customer Success cuando entre la rama de la API de MaKo
+  (`wip/api-acciones-0910`) a `ACCIONES_DEL_FLUJO` (lib/editor-acciones.ts).
+- Las partes de un mensaje: la marca de cuántas salieron vive en `nutricion_envios.asunto` (lo prolijo
+  es una columna `partes_salidas`), y un borrador del setter de varias partes junta los textos en uno.
+- «Probar» manda con el remitente del negocio y no con el del paso (da lo mismo mientras haya uno).
+- Unificar el selector del CRON (`BOTON_CAMPO_CRON`) con el grande de la casa y darle el grande a la
+  CONDITION. `onAgregarRama` de FlujoLienzo ya no lo usa nadie.
+- Medir en producción cuánto vive la espera corta que corre después de contestar un webhook.
 
-**Falta (en este orden, del más chico al más grande):**
-- **7. «＋ y» / «＋ o» de vuelta y sin «＋ Rama».** Cada fila nueva guarda con qué se une (`union:
-  'y' | 'o'` en `FilaCondicion`, lib/flujo-grafo.ts); se evalúa con las «y» atando más que las
-  «o» (`cumpleFila` / la evaluación de la rama, y el mismo cambio en lib/simulador-grafo.ts). El
-  editor es `app/chatbot/EditorCondicion.tsx`. Las condiciones de antes con varias ramas se
-  siguen dibujando.
-- **1. Los editores de control sin aire.** CRON, DELAY, CONDITION, TAG y ACTION abren un panel de
-  alto FIJO de ~420 (`MUELLE.editorAltoMax`, lib/lienzo-grafo.ts) con un selector chico arriba.
-  Que el panel mida su contenido para los de control (la regla de la casa dice que un panel que
-  salta de tamaño es malo: decidir un alto chico fijo para los de control, ~200, y el grande
-  para WhatsApp/Email), y el selector como campo grande de ancho completo.
-- **5. La reunión, una sola familia de condiciones.** El chat de CRM YA marcó qué etapas son
-  reuniones (`adf1ca3d`, `kind: 'reunion'`, regla en `lib/etapa-reunion.ts`). La condición
-  «Asistió / No asistió a la reunión», «Tiene reunión agendada» y «Próxima reunión en» suman
-  un selector de etapas de reunión; el índice sale de `reunionesDe(stages).indexOf(etapa)`
-  (0 → `r1`, 1 → `r2`; una tercera da «no sé»). Las R1/R2 de antes, `retirada`.
-- **6 (la otra mitad). «No pagó la cuota N».** Hoy los hechos de pagos son `{ pagadas, vencidas }`
-  (lib/condiciones-catalogo.ts, `HechosCatalogo.pagos`): hace falta leer el estado POR cuota en
-  `hechosDeLeads` (lib/nutricion.ts).
-- **11 (la otra mitad). Más acciones del CRM y de Customer Success.** El registro tiene UNA de CS
-  (`marcar_estado_cliente_cs`). Las que faltan se declaran en `lib/api-mako/areas/cs.def.ts` /
-  `crm.def.ts` (mover en el kanban de entrega, sacar de una automatización, dar o quitar acceso
-  al curso) y después entran a `ACCIONES_DEL_FLUJO` (lib/editor-acciones.ts).
-- **16. Email:** «De» con los remitentes vinculados y «Vincular nuevo»; sin «Vista previa» ni el
-  ojo; modo HTML; el pie de baja con el nombre del NEGOCIO (no «MaKo»; el link de baja se queda);
-  el «{ }» y el emoji en la barra de formato. `app/chatbot/EditorEmailGmail.tsx`, `lib/email-html.ts`.
-- **15. WhatsApp con varios mensajes por tarjeta:** «Enviar» suma la burbuja y vacía la barra;
-  lápiz y papelera visible (con 5 s de deshacer) por burbuja; sin transcripción; «{ }» al lado del
-  clip; «✦ MaKo» al lado del título; elegir el número de salida con «Vincular nuevo». Es un cambio
-  de MODELO (el paso tiene un solo cuerpo + audio + archivo): o una lista de partes en el paso
-  (que pase por `setSecuenciaPasos` y el motor las mande en orden), o tarjetas encadenadas.
-  `app/chatbot/EditorMensajeWhatsApp.tsx`, lib/nutricion.ts.
-- **8. Varias flechas por resultado de una condición** («Sí» y «Si no» con sus flechas en
-  paralelo). Toca el modelo (`paralelos` por rama) y el motor de hilos (lib/nutricion-hilos.ts):
-  al resolver la rama, arrancan sus hilos.
-- **14. El CRON con varias etapas.** `nutricion_secuencias.etapa` es UNA: hace falta una columna
-  (migración ANTES del deploy), que el motor inscriba por cualquiera, el desplegable con selección
-  múltiple, y que Crear con IA elija todas las de entrega cuando el pedido habla de un alumno.
-  Revisar también el flujo que Martín creó con IA («felicitar a un alumno que terminó una clase»).
-- **Verlo con clics** en producción, la tercera y la cuarta tanda.
+## Lo que decide Martín
 
-## Lo que espera a Martín (no cambió)
-
-- La key de Gemini de la plataforma está bloqueada por Google.
-- Activar #221/#222 (pausando 212, 213 y 198) y el disparador de #224.
-- Lo de las tandas anteriores, abajo.
+- ¿/mensajes (el catálogo de avisos de la agencia) también se muda a /chatbot?
+- ¿Se retira la condición «Agendó»? Dice lo mismo que «Tiene reunión agendada».
+- «Felicitar a un alumno que terminó una clase»: la IA elige todas las etapas de entrega, pero llegar a
+  una etapa es terminar un MÓDULO, no una clase.
+- Varios remitentes por negocio: hoy «Vincular nuevo» REEMPLAZA el remitente (lo avisa).
+- Minutos exactos entre 2 y 59 min (haría falta un tick frecuente), y el cron corre de 15 a 23 UTC: de 17 a
+  21 de México no hay ninguna corrida.
+- El lienzo: ¿mover una tarjeta se deshace con Ctrl+Z?, ¿un botón «Reacomodar»?, ¿«Duplicar» hereda el
+  acomodo (hoy sí)?
+- «Probar»: ¿muestra por qué rama siguió? ¿un lead nuevo «tiene email» por defecto (hoy sí)?
+- De antes: activar #221/#222 (pausando 212, 213 y 198) y el disparador de #224; la key de Gemini de la
+  plataforma está bloqueada por Google; apagar el workflow de n8n «WhatsApp Reminders for Calendly»;
+  rotar la key de Fathom.
 
 ## La tercera tanda (para contexto)
 
@@ -188,7 +119,7 @@ Lo que quedó, punto por punto:
 La revisión adversarial reportó 38 hallazgos: 32 confirmados, los 32 arreglados con test. Suite:
 5938 tests, 0 rojos.
 
-## Lo que falta
+### Lo que faltaba de la segunda tanda (08/10)
 
 - **Mirarlo en un navegador en producción.** Nada de la tanda se vio con clics (bootear local
   escribe en prod). La lista de qué mirar está en `docs/hallazgos-chatbot.md` → «Lo que quedó sin
@@ -198,7 +129,7 @@ La revisión adversarial reportó 38 hallazgos: 32 confirmados, los 32 arreglado
   `no_show_j1`, que exige leads abiertos, y ninguno de sus 14 no-shows lo está.
 - Los pendientes técnicos chicos están en `docs/hallazgos-chatbot.md`.
 
-## Lo que espera a Martín
+### Lo que esperaba a Martín en la segunda tanda (08/10)
 
 - **Activar las secuencias nuevas**: pausar 212 y 213 y activar la #221. Para la #222 (que
   reemplaza a la 198), el email del ws1 tiene que estar prendido y el remitente no puede seguir
