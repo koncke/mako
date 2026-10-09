@@ -45,18 +45,19 @@ const dentro = (r: RectMuelle, w: number, h: number) =>
 const LISTA = MUELLE.listaAncho + MUELLE.hueco * 2;
 const ABAJO = PANEL_MARGEN + ZOOM_ALTO;
 
-test('⚠️ ventana grande: «Probar» ancho y bajo arriba a la derecha, el editor en la franja de abajo, y no se pisan', () => {
-  const w = 1440, h = 900;
+test('⚠️ ventana grande: «Probar» de debajo del chrome hasta abajo a la derecha, el editor entre la lista y él, y no se pisan', () => {
+  // Cuarta tanda, punto 3: «En "Probar", si tiene que ser más grande el desplegable, sino, no se lee
+  // el mensaje». Apilado medía ~330 de alto; ahora va SIEMPRE lado a lado, debajo del chrome.
+  const w = 1850, h = 900;
   const m = muelles({ w, h }, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
-  assert.equal(m.disposicion, 'apilados');
+  assert.equal(m.disposicion, 'lado');
   assert.equal(m.editorForma, 'apaisado');
   const p = m.probar!, e = m.editor!;
-  // «Probar»: debajo del chrome, pegado a la derecha con el hueco, ~560 de ancho, alto ≤ 420 y ≤ 46 %.
-  assert.equal(p.top, CHROME_ALTO, '«Probar» tapa el chrome');
+  assert.equal(p.top, CHROME_ALTO, '«Probar» tapa el chrome (el «Cerrar» vive ahí)');
   assert.equal(p.left + p.width, w - MUELLE.hueco);
   assert.equal(p.width, MUELLE.probarAncho);
-  assert.ok(p.height <= MUELLE.probarAltoMax && p.height <= Math.round(h * MUELLE.fraccionAlto), `«Probar» mide ${p.height} de alto: no es bajo`);
-  assert.ok(p.width > p.height, '«Probar» tiene que ser más ancho que alto (punto 8)');
+  assert.equal(p.height, h - CHROME_ALTO - MUELLE.hueco, '«Probar» va hasta abajo');
+  assert.ok(e.left + e.width <= p.left, 'el editor se mete debajo de «Probar»');
   // El editor MEDIANO (tercera tanda, decisión 1): pegado a la lista, 720 de ancho como mucho (ya
   // no hasta el borde derecho: «ya te fuiste al otro extremo»), pegado arriba de la fila del zoom,
   // alto FIJO de ~420.
@@ -69,8 +70,8 @@ test('⚠️ ventana grande: «Probar» ancho y bajo arriba a la derecha, el edi
   assert.equal(e.height, MUELLE.editorAltoMax, 'a 900 de alto el editor mide sus 420');
   assert.ok(!sePisan(p, e), '«Probar» y el editor se pisan');
   assert.ok(dentro(p, w, h) && dentro(e, w, h));
-  // Los insets: la lista a la izquierda; a la derecha, «Probar» sólo en la franja de arriba.
-  assert.deepEqual(m.insets, { izq: LISTA, der: p.width + MUELLE.hueco * 2, derChrome: 0, derAbajo: 0 });
+  // Los insets: la lista a la izquierda; a la derecha, «Probar» abajo (el chrome no se corre).
+  assert.deepEqual(m.insets, { izq: LISTA, der: p.width + MUELLE.hueco * 2, derChrome: 0, derAbajo: p.width + MUELLE.hueco * 2 });
 });
 
 test('⚠️ abrir una tarjeta NO le cambia el tamaño a «Probar» (una medición que cambia lo que mide no decide)', () => {
@@ -92,10 +93,10 @@ test('⚠️ ventana baja: si apilados no entran, van LADO A LADO y tampoco se p
   const m = muelles({ w, h }, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
   assert.equal(m.disposicion, 'lado');
   const p = m.probar!;
-  assert.equal(p.top, MUELLE.hueco);
-  assert.equal(p.height, h - MUELLE.hueco * 2, 'lado a lado, «Probar» va de arriba a abajo');
+  assert.equal(p.top, CHROME_ALTO);
+  assert.equal(p.height, h - CHROME_ALTO - MUELLE.hueco, 'lado a lado, «Probar» va de debajo del chrome hasta abajo');
   assert.ok(dentro(p, w, h));
-  assert.equal(m.insets.derChrome, m.insets.der, 'lado a lado, «Probar» también tapa a la altura del chrome');
+  assert.equal(m.insets.derChrome, 0, 'el chrome no se corre: su «▶ Probar» se vuelve «Cerrar» en el mismo lugar');
   assert.equal(m.insets.derAbajo, m.insets.der);
   if (m.editor) {
     assert.ok(!sePisan(p, m.editor), '«Probar» y el editor se pisan lado a lado');

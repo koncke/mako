@@ -132,9 +132,11 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   assert.doesNotMatch(lista, /PANEL_PROBAR_ANCHO/, 'el ancho de «Probar» volvió a decidirse en la lista y no en `muelles`');
 });
 
-test('el panel tiene ✕ «Cerrar» y ↻ «Reiniciar», y ningún «Editar»', () => {
+test('el panel tiene ↻ «Reiniciar» y ningún «Editar»; el «Cerrar» es el botón del chrome', () => {
   const panel = PANEL();
-  assert.match(panel, /aria-label="Cerrar"/);
+  // Cuarta tanda, punto 3: «el botón de "Cerrar" debería estar donde hoy está el botón de "probar"».
+  assert.doesNotMatch(panel, /✕ Cerrar/, 'volvió el «Cerrar» adentro del panel');
+  assert.match(leer('app/chatbot/SecuenciaPerfil.tsx'), /\{probarAbierto \? \(\s*<button onClick=\{\(\) => onCerrarProbar\?\.\(\)\} title="Cerrar la prueba" style=\{estiloProbar\}>✕ Cerrar<\/button>/);
   assert.match(panel, /aria-label="Reiniciar"/);
   assert.doesNotMatch(panel, />Editar<|'Editar'|readOnly/);
   // ↻ vacía la prueba (el hilo Y la bandeja) y arranca de nuevo con el flujo de AHORA.
@@ -312,14 +314,14 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
 // botones a y=557 con la ventana de 566). Van adentro del chat, arriba de la barra, como las
 // respuestas rápidas. Probado rompiéndolo: devolver el bloque `{opciones && (` afuera de
 // ChatHilo pone rojo este test (1 de 1).
-test('las ramas de una condición se eligen ADENTRO del chat, arriba de la barra', () => {
+test('una condición NO frena la prueba: sigue sola por el «Sí», sin botones de rama (cuarta tanda, puntos 3 y 17)', () => {
   const panel = PANEL();
-  // Tercera tanda: las ramas se arman una vez (`ramas`) y van adentro del chat en WhatsApp; en la
-  // bandeja de email, que no tiene barra, en el renglón de abajo.
-  assert.match(panel, /const ramas = opciones \? \(/);
-  assert.match(panel, /encimaDelComposer=\{ramas\}/);
-  assert.doesNotMatch(panel, /\{opciones && \(\s*<div style=\{\{ flex: 'none'/);
-  const hilo = sinComentarios(leer('app/whatsapp/_shared/ChatHilo.tsx'));
-  // Lo que va encima de la barra se dibuja ANTES del composer.
-  assert.ok(hilo.indexOf('{encimaDelComposer &&') > 0 && hilo.indexOf('{encimaDelComposer &&') < hilo.indexOf('{puedeComponer && ('));
+  // «elimina los botones de "Tiene WhatsApp" y "Si no"... Y lo peor es que esos botones salen en la
+  // prueba del Email también». Con una condición primera, la prueba quedaba parada y no salía nada.
+  assert.doesNotMatch(panel, /const ramas = |encimaDelComposer=\{ramas\}|Elige la rama/);
+  const caso = panel.slice(panel.indexOf("case 'condicion': {"), panel.indexOf("case 'fin':"));
+  assert.match(caso, /const o = evento\.opciones\[0\];/);
+  assert.match(caso, /simRef\.current = elegir\(simRef\.current, o\.puerto\);\n\s+luego\(0, avanzar\);/);
+  // Y «Probar en WhatsApp / Email» está ARRIBA, en la cabecera (antes del cuerpo).
+  assert.ok(panel.indexOf("'Probar en WhatsApp'") > 0 && panel.indexOf("'Probar en WhatsApp'") < panel.indexOf('<BandejaGmail'), 'el botón de probar de verdad no está arriba');
 });

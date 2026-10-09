@@ -479,6 +479,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
                el panel se monta con ESE canal. Una sola forma: el tipo es `CanalProbar` en las dos
                puntas, así que no hay un «sin canal» que adivinar. */
             onProbar={(canal: CanalProbar) => setProbando(canal)}
+            probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
             pedidoIA={pedidoIA?.secuenciaId === sel.id ? pedidoIA.pedido : undefined}
             onCambio={onReload} />

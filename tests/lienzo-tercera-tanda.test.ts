@@ -180,7 +180,7 @@ test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y e
   assert.ok(freno >= 0 && freno < probar.indexOf('onProbar(canal)'), '«Probar» abre sin frenar lo inconcluso');
   assert.match(probar, /if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
   assert.match(perfil, /const canales = canalesParaProbar\(pasos\);/);
-  assert.match(perfil, /\{canales\.length > 1 \? \(\s*<Dropdown value="" resetAfterSelect sinFlecha=\{false\} botonLabel="▶ Probar"/);
+  assert.match(perfil, /: canales\.length > 1 \? \(\s*<Dropdown value="" resetAfterSelect sinFlecha=\{false\} botonLabel="▶ Probar"/);
   assert.match(perfil, /<button onClick=\{\(\) => probar\(canales\[0\]\)\} title="Probar esta automatización" style=\{estiloProbar\}>▶ Probar<\/button>/);
   // El tipo del canal es el del panel (`CanalProbar`, app/chatbot/PanelProbar.tsx): uno en las dos puntas.
   assert.match(perfil, /onProbar\?: \(canal: CanalProbar\) => void;/);

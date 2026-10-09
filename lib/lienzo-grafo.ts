@@ -595,27 +595,20 @@ export function muelles(
     return { probar: null, editor: editor(0), editorForma: forma(0), disposicion: null, editorAlto, editorAncho: anchoEditor(0), insets: { izq, der: 0, derChrome: 0, derAbajo: 0 } };
   }
 
-  // Apilados: «Probar» entre el chrome y el editor, a la derecha.
-  const anchoP = Math.min(MUELLE.probarAncho, w - izq - H * 2);
-  const altoP = Math.min(MUELLE.probarAltoMax, Math.round(h * MUELLE.fraccionAlto), h - CHROME_ALTO - bajo - editorAlto - MUELLE.separacion);
-  if (forma(0) === 'apaisado' && anchoP >= MUELLE.probarAnchoMin && altoP >= MUELLE.probarAltoMin) {
-    return {
-      probar: { left: w - H - anchoP, top: CHROME_ALTO, width: anchoP, height: altoP },
-      editor: editor(0), editorForma: 'apaisado', disposicion: 'apilados', editorAlto, editorAncho: anchoEditor(0),
-      insets: { izq, der: anchoP + H * 2, derChrome: 0, derAbajo: 0 },
-    };
-  }
-
-  // Lado a lado: «Probar» de arriba a abajo a la derecha, y el editor entre la lista y él.
+  // ⚠️ CUARTA TANDA, PUNTO 3: «En "Probar", si tiene que ser más grande el desplegable, sino, no se
+  // lee el mensaje». Apilado entre el chrome y el editor medía ~330 de alto y el chat quedaba en
+  // ~150. Ahora va SIEMPRE lado a lado: de DEBAJO del chrome hasta abajo, a la derecha, y el editor
+  // entre la lista y él. Debajo del chrome y no desde arriba: el «▶ Probar» del chrome se vuelve
+  // «Cerrar» en el MISMO lugar, así que el chrome no se corre (`derChrome: 0`).
   const anchoL = Math.max(0, Math.min(
     w - izq - H * 2,
     Math.max(MUELLE.probarAnchoMin, Math.min(MUELLE.probarAncho, Math.round((w - izq) * 0.4))),
   ));
   const der = anchoL + H * 2;
   return {
-    probar: { left: w - H - anchoL, top: H, width: anchoL, height: Math.max(0, h - H * 2) },
+    probar: { left: w - H - anchoL, top: CHROME_ALTO, width: anchoL, height: Math.max(0, h - CHROME_ALTO - H) },
     editor: editor(der), editorForma: forma(der), disposicion: 'lado', editorAlto, editorAncho: anchoEditor(der),
-    insets: { izq, der, derChrome: der, derAbajo: der },
+    insets: { izq, der, derChrome: 0, derAbajo: der },
   };
 }
 

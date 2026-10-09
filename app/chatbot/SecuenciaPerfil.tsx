@@ -98,7 +98,7 @@ export type EdicionLocal = {
   instance_name: string | null;
 };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, pedidoIA }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, pedidoIA }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver un «Ir a» y convertir un «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -117,6 +117,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * lienzo. Se llama recién cuando el flujo pasa lo mismo que Publicar (`frenoDelFlujo`).
    */
   onProbar?: (canal: CanalProbar) => void;
+  /** «Probar» está abierto: el botón del chrome se vuelve «Cerrar» en el mismo lugar (cuarta tanda, punto 3). */
+  probarAbierto?: boolean;
+  onCerrarProbar?: () => void;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   rolAdmin: boolean;
@@ -775,7 +778,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 descuenta el panel de «Probar» abierto (`insetDer`). */}
             {onProbar && (
               <div style={{ marginLeft: 'auto', flex: 'none' }}>
-                {canales.length > 1 ? (
+                {probarAbierto ? (
+                  <button onClick={() => onCerrarProbar?.()} title="Cerrar la prueba" style={estiloProbar}>✕ Cerrar</button>
+                ) : canales.length > 1 ? (
                   <Dropdown value="" resetAfterSelect sinFlecha={false} botonLabel="▶ Probar" ariaLabel="Probar esta automatización"
                     options={canales.map((c) => ({ value: c, label: c === 'email' ? 'Email' : 'WhatsApp' }))}
                     buttonStyle={estiloProbar} onChange={(v) => v && probar(v === 'email' ? 'email' : 'whatsapp')} />

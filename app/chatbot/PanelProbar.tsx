@@ -570,10 +570,17 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         sistema(evento.texto);
         luego(PILDORA_MS, avanzar);
         return;
-      case 'condicion':
-        sistema('◇ Elige la rama');
-        setOpciones(evento.opciones);
+      // ⚠️ CUARTA TANDA, PUNTOS 3 Y 17: «elimina los botones de "Tiene WhatsApp" y "Si no", eso no
+      // tiene sentido». Con una condición primera la prueba se quedaba PARADA esperando la rama, y
+      // no salía ningún mensaje («le di a probar y no salieron los mensajes»). Sigue sola por la
+      // primera rama (el «Sí»): se prueba lo que se escribió, no la lógica del lead.
+      case 'condicion': {
+        const o = evento.opciones[0];
+        if (!o) { sistema('Fin'); setTerminado(true); return; }
+        simRef.current = elegir(simRef.current, o.puerto);
+        luego(0, avanzar);
         return;
+      }
       case 'fin':
         sistema(evento.texto);
         setTerminado(true);
@@ -617,13 +624,6 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     e.preventDefault();
     if (!destino.trim()) return;
     reiniciar(true);
-  };
-
-  const elegirRama = (o: OpcionRama) => {
-    setOpciones(null);
-    simRef.current = elegir(simRef.current, o.puerto);
-    sistema(`→ ${o.texto}`);
-    luego(PILDORA_MS, avanzar);
   };
 
   const abrirCorreo = (id: string) => {
@@ -696,25 +696,31 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   };
   if (style?.top != null && style?.bottom != null && style.height == null) delete raiz.height;
 
-  /** Las ramas de una condición: quien prueba elige por dónde sigue (molde de ManyChat). */
-  const ramas = opciones ? (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {opciones.map((o) => (
-        <button key={o.puerto} type="button" onClick={() => elegirRama(o)} title={o.texto}
-          style={{ maxWidth: '100%', padding: '6px 11px', borderRadius: 999, border: `1px solid ${o.puerto === 'si_no' ? 'var(--border-strong)' : 'var(--primary)'}`, background: 'var(--surface)', color: o.puerto === 'si_no' ? 'var(--dim)' : 'var(--primary)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {o.texto}
-        </button>
-      ))}
-    </div>
-  ) : undefined;
 
   return (
     <section aria-label="Probar" data-canal={canal} style={raiz}>
       <style>{CSS}</style>
-      {/* La cabecera, en UN renglón: el nombre y el canal, «Cambió» si el flujo se editó, ↻ y ✕ Cerrar. */}
+      {/* LA CABECERA, EN UN RENGLÓN (cuarta tanda, punto 3: «no me gusta que "Probar en mi WhatsApp"
+          esté abajo del todo, tiene que estar arriba a la izquierda, en donde hoy está el texto
+          "Probar WhatsApp", elimina ese texto. Y que el botón diga "Probar en WhatsApp". Y el botón
+          de "Cerrar" debería estar donde hoy está el botón de "probar"»). A la izquierda, probarlo
+          de verdad con TU número o TU email (sólo el admin manda); a la derecha, «Cambió» y ↻. El
+          «Cerrar» es el «▶ Probar» del chrome (SecuenciaPerfil). */}
       <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 0', whiteSpace: 'nowrap' }}>
-        <span style={{ flex: 'none', fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Probar</span>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{esEmail ? 'Email' : 'WhatsApp'}</span>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
+          {rolAdmin && (real ? (
+            <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--dim)', ...recorte }}>
+              <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)', flex: 'none' }} />
+              {esEmail ? 'Llega a tu email' : 'Llega a tu WhatsApp'}
+            </div>
+          ) : (
+            <form onSubmit={probarDeVerdad} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input value={destino} onChange={(e) => setDestino(e.target.value)} inputMode={esEmail ? 'email' : 'tel'}
+                aria-label={esEmail ? 'Tu email' : 'Tu WhatsApp'} placeholder={esEmail ? 'Tu email' : 'Tu número'} style={inpReal} />
+              <Button type="submit" size="sm" disabled={!destino.trim()}>{esEmail ? 'Probar en Email' : 'Probar en WhatsApp'}</Button>
+            </form>
+          ))}
+        </div>
         {cambio && (
           <button type="button" onClick={() => reiniciar()} title="Reiniciar con lo último"
             style={{ flex: 'none', background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 600, color: 'var(--warn)', cursor: 'pointer' }}>
@@ -722,7 +728,6 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           </button>
         )}
         <button type="button" onClick={() => reiniciar()} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>
-        <button type="button" onClick={() => { cortar(); onCerrar(); }} title="Cerrar" aria-label="Cerrar" style={cerrarBtn}>✕ Cerrar</button>
       </div>
 
       {/* El cuerpo va en una caja ABSOLUTA: `ChatHilo` se mide con `height: 100%`, y contra un
@@ -743,34 +748,17 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
               /* Vacío a propósito: arranca solo y en 150 ms ya está el «escribiendo…». Un «Sin
                  mensajes» que aparece y se va se lee como un parpadeo. */
               vacio={<></>}
-              /* Una condición: adentro del chat y arriba de la barra, como las respuestas rápidas. */
-              encimaDelComposer={ramas}
             />
           </div>
         )}
       </div>
 
-      {/* En la bandeja no hay hilo: la última píldora y las ramas van en un renglón debajo. */}
-      {esEmail && (ramas || aviso) && (
+      {/* En la bandeja no hay hilo: la última píldora va en un renglón debajo. */}
+      {esEmail && aviso && (
         <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 6, padding: '0 2px' }}>
-          {aviso && <span role="status" style={{ fontSize: 12.5, color: aviso.tono === 'bad' ? 'var(--bad)' : 'var(--dim)', ...recorte }}>{aviso.texto}</span>}
-          {ramas}
+          <span role="status" style={{ fontSize: 12.5, color: aviso.tono === 'bad' ? 'var(--bad)' : 'var(--dim)', ...recorte }}>{aviso.texto}</span>
         </div>
       )}
-
-      {/* PROBARLO DE VERDAD, con TU número o TU email según el canal. Sólo el admin manda. */}
-      {rolAdmin && (real ? (
-        <div role="status" style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 7, padding: '2px 2px 0', fontSize: 12.5, color: 'var(--dim)', ...recorte }}>
-          <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)', flex: 'none' }} />
-          {esEmail ? 'Llega a tu email' : 'Llega a tu WhatsApp'}
-        </div>
-      ) : (
-        <form onSubmit={probarDeVerdad} style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input value={destino} onChange={(e) => setDestino(e.target.value)} inputMode={esEmail ? 'email' : 'tel'}
-            aria-label={esEmail ? 'Tu email' : 'Tu WhatsApp'} placeholder={esEmail ? 'Tu email' : 'Tu número'} style={inpReal} />
-          <Button type="submit" size="sm" disabled={!destino.trim()}>{esEmail ? 'Probar en mi email' : 'Probar en mi WhatsApp'}</Button>
-        </form>
-      ))}
     </section>
   );
 }
