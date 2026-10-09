@@ -111,13 +111,27 @@ Si `.git/hooks/pre-push` no existe, recrealo con este contenido y `chmod +x`:
 
 ```sh
 #!/bin/sh
-echo "[pre-push] Chequeando tipos (npm run typecheck)…"
-if ! npm run --silent typecheck; then
+LOCK_TSC="$(dirname "$(git rev-parse --git-common-dir)")/scripts/typecheck-lock.mjs"
+echo "[pre-push] Chequeando tipos…"
+if [ -f "$LOCK_TSC" ]; then node "$LOCK_TSC"; else npm run --silent typecheck; fi
+if [ $? -ne 0 ]; then
   echo "\n  ✖ PUSH BLOQUEADO: hay errores de tipos.\n"
   exit 1
 fi
 echo "[pre-push] ✓ Tipos OK."
 ```
+
+⚠️ **Y el typecheck se llama POR LA RUTA DEL CLON PRINCIPAL, no con `npm run typecheck`.**
+`npm` resuelve el script del `package.json` **del worktree**, y este `.git` lo comparten 20
+checkouts: los que se checkoutearon antes de que el lock existiera (commit `75314fc1`,
+08/10/2026) traen `"typecheck": "tsc --noEmit"` **crudo**. Medido el 09/10: **SEIS worktrees
+con trabajo sin commitear** podían disparar desde el pre-push un `tsc` de 2,3 GB sin esperar
+a nadie — que es exactamente lo que trabó la máquina, y el `package.json` del clon estaba
+perfecto. **Un lock que vive en un archivo versionado protege a un COMMIT, no a una
+máquina**; el único lugar común a todos los árboles de trabajo es el hook. El cwd sigue
+siendo el del worktree, así que `tsc` lee SU `tsconfig`: lo que se serializa es la RAM, no
+lo que se chequea. Lo fija `tests/typecheck-lock.test.ts`, que se saltea donde no hay hook
+legible (un clon nuevo, o un worktree donde `.git` es un archivo).
 
 Reglas para cualquier agente que trabaje acá:
 - **Nunca** uses `git push --no-verify` (saltea el único chequeo de tipos que queda).
