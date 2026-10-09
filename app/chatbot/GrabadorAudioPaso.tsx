@@ -17,8 +17,8 @@
 //     en voz alta. Traducir "saluda y di tu nombre" a una frase propia mientras
 //     se sostiene el micrófono es justo donde la gente se traba.
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { useVoiceRecorder, VoiceRecorderBar } from '../whatsapp/_shared/VoiceRecorder';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useGrabacionVoz, BarraGrabacion } from '../whatsapp/_shared/VoiceRecorder';
 import { Icon } from '@/app/_components/icons';
 import type { AudioPasoDef } from '@/lib/audios-paso';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
@@ -87,11 +87,9 @@ export function GrabadorAudioPaso({ def, grabado, abierto, onToggle, onGrabado, 
     } finally { setSubiendo(false); setFase(null); }
   }, [def, onGrabado, onError]);
 
-  const voz = useVoiceRecorder(subir, onError);
-  // La duración se lee del hook en el momento de soltar: el propio hook la
-  // entrega como segundo argumento de onSend, porque su estado ya se reseteó.
-  const secsRef = useRef(0);
-  secsRef.current = voz.secs;
+  // La sesión de voz de la casa (sexta tanda, WhatsApp 7): ✓ termina, se escucha, y recién la ➤ verde
+  // lo guarda. La duración llega con lo que se manda (`subir` la recibe como segundo argumento).
+  const voz = useGrabacionVoz(subir, onError);
 
   async function borrar() {
     if (!grabado) return;
@@ -147,18 +145,13 @@ export function GrabadorAudioPaso({ def, grabado, abierto, onToggle, onGrabado, 
           )}
 
           {/* Grabar · escuchar · rehacer · borrar, sin salir del paso */}
-          {voz.recording ? (
-            <VoiceRecorderBar
-              paused={voz.paused} secs={voz.secs} sending={subiendo}
-              onCancel={() => voz.stop(true)}
-              onTogglePause={() => (voz.paused ? voz.resume() : voz.pause())}
-              onSend={() => voz.stop(false)}
-            />
+          {voz.fase !== 'quieta' ? (
+            <BarraGrabacion voz={voz} ocupado={subiendo} rotuloEnviar="Guardar este audio" />
           ) : subiendo ? (
             <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{fase ?? 'Guardando…'}</div>
           ) : grabado ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {grabado.url && <AudioPlay src={grabado.url} style={{ flex: 1, minWidth: 200, height: 36 }} />}
+              {grabado.url && <AudioPlay src={grabado.url} duracion={grabado.duracion_s} style={{ flex: 1, minWidth: 200, width: 'auto' }} />}
               <button type="button" onClick={() => void voz.start()} style={btn}>Grabar de nuevo</button>
               <button
                 type="button" onClick={() => void borrar()}

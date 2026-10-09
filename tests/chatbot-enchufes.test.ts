@@ -65,18 +65,23 @@ test('el número de salida viaja de SecuenciaPerfil al editor de WhatsApp', () =
   assert.match(montaje, /linea=\{rolAdmin \? \{ actual: lineaSec, onElegir: elegirLineaDesdeEditor \} : undefined\}/);
   const elegir = bloque(PERFIL, 'const elegirLineaDesdeEditor', 'await guardarLinea(linea);', 1_200);
   assert.match(elegir, /mensajes\?lineas=1/, 'un número recién vinculado no vuelve a pedir la lista');
-  const editor = bloque(FLUJO, 'function EditorMensaje(', '\nfunction EditorAccion(', 4_500);
-  assert.match(editor, /linea=\{linea\}/, 'el editor de WhatsApp no recibe la línea');
+  // ⚠️ SEXTA TANDA (WhatsApp 2): el número va en la CABECERA del panel y es de CADA mensaje; la línea de
+  // la automatización llega a la cabecera como lo que se ve cuando la tarjeta no eligió otra.
+  const cabecera = bloque(FLUJO, 'tituloEditor={cabeceraDe(', '\n    />', 1_500);
+  assert.match(cabecera, /<CabeceraWhatsApp paso=\{paso\} lineaAutomatizacion=\{linea\?\.actual \?\? null\}/, 'la cabecera no recibe la línea de la automatización');
+  assert.match(cabecera, /cambiarNodo\(prev, n\.id, conLinea as Partial<PasoSecuenciaDto>\), true\)/, 'elegir el número de un mensaje no se guarda en ESE paso (o no se puede deshacer)');
   assert.match(FLUJO, /editorEntrada=\{editorEntrada\} formaPanel=\{formaPanel\} linea=\{linea\}/, 'EditorDeNodo no la pasa');
 });
 
-test('«✦ MaKo» va al lado del título del panel, con la MISMA regla que el editor, y una sola vez', () => {
+test('«✦ MaKo» va en la cabecera del panel, con la MISMA regla que el editor, y una sola vez', () => {
   const editor = bloque(FLUJO, 'function EditorMensaje(', '\nfunction EditorAccion(', 4_500);
-  assert.match(editor, /makoEnCabecera/, 'el editor dibujaría su propio «✦ MaKo» además del de la cabecera');
   assert.match(editor, /permiteIA=\{permiteIADe\(paso, !!onModoIA\)\}/);
-  const cabecera = bloque(FLUJO, 'accionesTitulo={(n) => {', '\n    />', 1_500);
-  assert.match(cabecera, /makoPosible\(paso, permiteIADe\(paso, !!onModoIA\), proveedorDelPaso\(paso\) === 'no_oficial'\)/);
-  assert.match(cabecera, /!rolAdmin/, 'un setter vería el botón sin poder editar');
+  const cabecera = bloque(FLUJO, 'tituloEditor={cabeceraDe(', '\n    />', 1_500);
+  assert.match(cabecera, /conMako=\{permiteIADe\(paso, !!onModoIA\)\}/);
+  const regla = bloque(FLUJO, 'function cabeceraDe(', '\n}\n', 800);
+  assert.match(regla, /!rolAdmin/, 'un setter vería el número y el botón sin poder editar');
+  // El editor ya no dibuja su propio ✦: lo abre la cabecera (un solo botón).
+  assert.doesNotMatch(sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx')).slice(0, 2_000), /<BotonMakoWhatsApp/);
 });
 
 test('el lienzo dibuja `accionesTitulo` al lado del título, sin reemplazarlo', () => {
@@ -98,3 +103,6 @@ test('`/mensajes` (el otro lienzo) no se entera: `accionesTitulo` es opcional', 
 // R5 SecuenciaPerfil sin `linea=` en <FlujoLienzo                       → 6/1
 // R6 EditorMensaje sin `makoEnCabecera`                                 → 6/1
 // R7 la cabecera sin el `!rolAdmin`                                     → 6/1
+// Sexta tanda (09/10/2026, parte «whatsapp»): las dos de la cabecera se reescribieron sobre la nueva
+// (`tituloEditor` + `CabeceraWhatsApp`); se re-probaron, base 7/0: `cabeceraDe` sin `!rolAdmin` → 6/1;
+// la cabecera con `lineaAutomatizacion={null}` → 6/1; `onLinea` guardando sin apilar (`, false)`) → 6/1.

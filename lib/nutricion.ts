@@ -85,7 +85,7 @@ import { after } from 'next/server';
 // Un mensaje de WhatsApp con VARIAS partes (cuarta tanda, punto 15): el modelo, el guardado y la marca.
 import {
   partesExplicitas, partesAlGuardar, problemaDePartes, partesYaSalidas, marcaPartes, borradorDePartes,
-  PAUSA_ENTRE_PARTES_MS, type ParteMensaje,
+  pausaAntesDe, lineaDelPaso, lineaAlGuardar, type ParteMensaje,
 } from '@/lib/mensaje-partes';
 
 export type CanalNutricion = 'email' | 'whatsapp';
@@ -719,6 +719,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
           return vs?.length ? { variantes: vs.filter((v) => typeof v === 'string' && v.trim()).slice(0, 8) } : {};
         })(),
         ...partesAlGuardar(p, partesPrevias.get(idDe(flujo, i))),
+        ...lineaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
       };
     });
   // Ids y `siguiente` EXPLÍCITOS en cada guardado (insertar o borrar un elemento del array ya no
@@ -2783,7 +2784,9 @@ async function enviarPartesDelPaso(a: {
   }
   const textos: string[] = [];
   for (const [k, p] of pendientes.entries()) {
-    if (k > 0) await new Promise((r) => setTimeout(r, PAUSA_ENTRE_PARTES_MS));
+    // La pausa que eligió la tarjeta antes de ESTA parte (sexta tanda, WhatsApp 11), acotada; sin
+    // elegir, la de siempre (`pausaAntesDe`, lib/mensaje-partes.ts).
+    if (k > 0) await new Promise((r) => setTimeout(r, pausaAntesDe(p)));
     let r: { ok: boolean; error?: string };
     if (p.tipo === 'texto') {
       const t = aplicarVariables(p.cuerpo, a.vars);
@@ -3678,8 +3681,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const esMedia = paso.tipo === 'media' && Number(paso.media_id) > 0;
         // «Sale sola» POR MENSAJE (`revisar`); sin el campo, lo de la secuencia, como siempre.
         const saleSoloEste = saleSolo(paso, sec.envio_automatico);
-        // La línea de ESTA secuencia (`null` = la de por default) y si puede mandar ahora.
-        const lineaSec = sec.instance_name;
+        // La línea de ESTA tarjeta si eligió una (sexta tanda, WhatsApp 2: `lineaDelPaso`), si no la de
+        // la secuencia (`null` = la de por default), y si puede mandar ahora. Una línea pedida que no es
+        // del negocio no está en `lineasEvo`: `canalDeLinea` la frena con su motivo, sin caer a otra.
+        const lineaSec = lineaDelPaso(paso) ?? sec.instance_name;
         if (partesMulti) {
           // ⚠️ «NO PUDE LEER» NO ES «NO SALIÓ NINGUNA». Sin saber cuántas salieron no se manda nada ni
           // se escribe nada: un `fallo` sin la marca borraría la del intento anterior. Vuelve en la

@@ -24,7 +24,7 @@
 // no, el guion de un mensaje se quedaría dibujado al abrir el siguiente.
 
 import { useCallback, useState, type CSSProperties } from 'react';
-import { useVoiceRecorder, VoiceRecorderBar } from '../whatsapp/_shared/VoiceRecorder';
+import { useGrabacionVoz, BarraGrabacion } from '../whatsapp/_shared/VoiceRecorder';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '@/app/_components/icons';
 import { Spinner } from '@/app/_ui';
@@ -89,7 +89,8 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
     } finally { setSubiendo(false); setFase(null); }
   }, [orden, onElegir, onGrabado, onError]);
 
-  const voz = useVoiceRecorder(subir, onError);
+  // La sesión de voz de la casa (sexta tanda, WhatsApp 7): ✓ termina, se escucha, y la ➤ lo guarda.
+  const voz = useGrabacionVoz(subir, onError);
   const audio = audioId ? audios.find((a) => a.id === audioId) ?? null : null;
   // El guion de MaKo se ata al TEXTO del mensaje (`guion`), no a la transcripción del
   // audio: ésa cambia con cada grabación, y el guion se tiene que poder volver a leer
@@ -166,18 +167,13 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
             </div>
           )}
 
-          {voz.recording ? (
-            <VoiceRecorderBar
-              paused={voz.paused} secs={voz.secs} sending={subiendo}
-              onCancel={() => voz.stop(true)}
-              onTogglePause={() => (voz.paused ? voz.resume() : voz.pause())}
-              onSend={() => voz.stop(false)}
-            />
+          {voz.fase !== 'quieta' ? (
+            <BarraGrabacion voz={voz} ocupado={subiendo} rotuloEnviar="Usar este audio" />
           ) : subiendo ? (
             <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{fase ?? 'Guardando…'}</div>
           ) : audio ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-              {audio.url && <AudioPlay src={audio.url} style={{ flex: 1, minWidth: 180, height: 34 }} />}
+              {audio.url && <AudioPlay src={audio.url} duracion={audio.duracion_s} style={{ flex: 1, minWidth: 180, width: 'auto' }} />}
               <button type="button" disabled={disabled} onClick={() => void voz.start()} style={btn}>Grabar otro</button>
             </div>
           ) : (

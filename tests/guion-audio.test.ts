@@ -369,7 +369,8 @@ test('«Para leer» se dibuja ARRIBA del grabador y afuera de su ternario: se ve
   const leerIdx = cuerpo.indexOf('>Para leer<');
   assert.ok(leerIdx >= 0, 'el rótulo «Para leer» no está en el bloque del audio');
   assert.ok(cuerpo.includes('{paraLeer}'), 'el texto para leer no se dibuja');
-  assert.ok(leerIdx < cuerpo.indexOf('{voz.recording ? ('), 'si queda debajo o adentro del ternario, desaparece al grabar');
+  // Sexta tanda: el grabador es la sesión de voz (`voz.fase`), con la misma regla: «Para leer» arriba.
+  assert.ok(leerIdx < cuerpo.indexOf("{voz.fase !== 'quieta' ? ("), 'si queda debajo o adentro del ternario, desaparece al grabar');
   assert.match(CONTROL, /const paraLeer = \(deMaKo \?\? guion \?\? ''\)\.trim\(\);/);
 });
 

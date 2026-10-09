@@ -13,60 +13,73 @@
 // sigue leyendo el motor; `mostrarRevisar` y `revisarHeredado` quedan en el tipo sin efecto).
 //
 // ── CUARTA TANDA, PUNTO 15: VARIOS MENSAJES POR TARJETA ─────────────────────────────────────────
-// Pedido literal: «Debería funcionar el botón de "enviar", justamente es una buena manera de en una
-// sola automatización enviar varios mensajes... Por ejemplo, un audio primero y luego un link. Pero en
-// este caso, no se debe conservar esos mensajes ya enviados en la barra donde se escriben mensajes,
-// porque sino, no puedo enviar otros. Se debería enviar y si lo quiero modificar, debería tener el
-// icono del lapiz cada mensaje. También elimina la transcripción de los audios, es innecesario. Luego,
-// el botón de basura para eliminar debería ser más notorio... y siempre debe aparecer los 5 segundos
-// de deshacer. Y no quiero botones ni nada abajo de donde se escriben mensajes...».
-//
 //   · ES UN CHAT DE WHATSAPP DE VERDAD: la barra es un BORRADOR (modo `enviar` del composer: Enter y
 //     la flecha mandan). «Enviar» suma la burbuja y vacía la barra. Lo que hay en el chat ES el
 //     mensaje: la lista de partes (`partes`, lib/mensaje-partes.ts), que sale en orden.
 //   · CADA BURBUJA TIENE SU ✏️ (la vuelve a la barra; «Enviar» la devuelve a SU lugar) y una papelera
 //     VISIBLE, roja, con «Deshacer» 5 s (el toast de la casa, app/_ui/Toast).
 //   · UN ADJUNTO VA COMO EN WHATSAPP: elegirlo lo deja arriba de la barra (el chip) y lo escrito es su
-//     pie; «Enviar» lo suma. Una nota de voz grabada se manda con la flecha, como en WhatsApp.
-//   · SIN LA TRANSCRIPCIÓN del audio (en la burbuja), y NADA DEBAJO DE LA BARRA: «{ }» va EN la barra,
-//     al lado del clip (la ranura `trasClip` de ComposerWhatsApp), y «✦ MaKo» arriba: en la cabecera
-//     del panel al lado del título cuando quien monta la dibuja (`makoEnCabecera` + `BotonMakoWhatsApp`),
-//     y si no, en la fila de arriba.
-//   · ARRIBA, EL NÚMERO DE SALIDA (`linea`, SalidaWhatsApp.tsx) con «Vincular nuevo». Es el de la
-//     AUTOMATIZACIÓN: lo pasa quien monta, y sin la prop no se dibuja.
+//     pie; «Enviar» lo suma.
+//   · «{ }» va EN la barra, al lado del clip (la ranura `trasClip` de ComposerWhatsApp).
 //
-// ⚠️ VARIAS PARTES SÓLO DONDE EL MOTOR LAS MANDA: el WhatsApp NO oficial (es el que lleva audio y
-//    archivos, y por eso la condición es `permiteAudio || permiteAdjuntos`). En el oficial sale UNA
-//    plantilla y en el recordatorio de la reunión UN texto: ahí el editor es el de siempre (modo
-//    `editar`: la barra ES el mensaje).
+// ── SEXTA TANDA (09/10/2026, «FEEDBACK DE WHATSAPP») ──────────────────────────────────────────────
+//   · 1 y 8, EL AUDIO QUE NO SE ESCUCHABA: era el ancho del reproductor en la burbuja (AudioPlay.tsx).
+//   · 2, EL NÚMERO VA EN LA CABECERA, al lado del logo y en lugar de la palabra «WhatsApp», y es de
+//     CADA MENSAJE (`linea` del paso, lib/mensaje-partes.ts `lineaDelPaso`): `CabeceraWhatsApp`, que
+//     dibuja la cabecera del panel (FlujoLienzo, `tituloEditor`). Sin «Toda la automatización».
+//   · 3, EL ✦ DE MaKo AL LADO DEL NÚMERO abre el panel que ayuda a escribir (MakoRedacta.tsx). El panel
+//     se abre ACÁ, en el lugar del chat: lo que propone se aplica con las mismas funciones que la barra.
+//     «MaKo lo adapta a cada persona» (`tipo: 'ia'`) pasó a ser una casilla de ese panel.
+//   · 4, LOS BOTONES PEGADOS A LA BURBUJA: el tope de ancho lo pone la fila, no un 78% de una caja que
+//     se ajusta a la burbuja (BurbujaHilo `maxAncho`).
+//   · 5, LAS PALOMITAS: cada burbuja lleva la hora y el ✓✓ (`Ticks`), como en WhatsApp.
+//   · 6, GRABAR SIN EL BOTÓN DE MaKo: mientras se graba se lee el guion SÓLO si MaKo propuso uno (en el
+//     panel, «Grabar con este guion»). Sin propuesta, no aparece nada.
+//   · 7, LA GRABACIÓN NUEVA (✓ termina, se escucha, ➤ manda): la sesión de voz de ComposerWhatsApp.
+//   · 9, EDITAR UN AUDIO abre la MISMA barra de escuchar (borrar, escuchar, seguir grabando, dejarlo),
+//     no el recuadro con el nombre y una ✕ (`audioPendiente` del composer).
+//   · 11, LA PAUSA ENTRE MENSAJES: entre dos burbujas, la pastilla «1 s» se toca y se elige
+//     (`pausa_s` de la parte; topes en lib/mensaje-partes.ts).
+//
+// ⚠️ VARIAS PARTES SÓLO DONDE EL MOTOR LAS MANDA: el WhatsApp NO oficial (`permiteAudio ||
+//    permiteAdjuntos`). En el oficial sale UNA plantilla, en el recordatorio de la reunión UN texto y en
+//    «MaKo en WhatsApp» UN aviso al grupo: ahí la barra ES el mensaje (modo `editar`).
 // ⚠️ LO ESCRITO SIN ENVIAR NO SE PIERDE AL TOCAR OTRA TARJETA: el borrador de la barra vive en un
-//    mapa del módulo por tarjeta (como el borrador de un chat). No viaja a la secuencia: lo que se
-//    publica es lo que está en el chat.
+//    mapa del módulo por tarjeta (como el borrador de un chat). No viaja a la secuencia.
 // ⚠️ NADA DE ACÁ PUBLICA. `onChange` es un cambio LOCAL (sólo «Publicar» publica). Lo único que este
 //    editor escribe en el server es la BIBLIOTECA (un audio o un archivo nuevo), que no cambia ninguna
-//    secuencia; el número de salida lo guarda quien monta (`linea.onElegir`). Lo fija
-//    tests/editor-mensaje-whatsapp.test.ts.
+//    secuencia. Lo fija tests/editor-mensaje-whatsapp.test.ts.
 // ⚠️ LO QUE TERMINA DESPUÉS DE UN `await` SE APLICA SÓLO AL MISMO PASO (`mismoPaso`): subir un video
 //    tarda, y el lienzo puede reusar este editor para otro nodo.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
 import { BurbujaHilo } from '../whatsapp/_shared/BurbujaHilo';
+import { Ticks } from '../whatsapp/_shared/Ticks';
 import { ComposerWhatsApp, PopoverWA, MenuWA, IconVideo, iconComposer, type ComposerHandle, type OpcionMenuWA, type ChipComposer } from '../whatsapp/_shared/ComposerWhatsApp';
 import { IconClip, IconDoc, IconMic, IconTrash } from '../whatsapp/_shared/composer-icons';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
 import { SalidaWhatsApp } from './SalidaWhatsApp';
+import { MakoRedacta } from './MakoRedacta';
+import { Dropdown } from '../components/Dropdown';
+import { SvcIcon } from '@/app/_components/ServicioVisual';
+import { MakoLogo } from '@/app/_components/MakoBrand';
 import { useWs } from '@/app/_ui/Link';
 import { Spinner, Toast, useToast } from '@/app/_ui';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, aplicarVariables } from '@/lib/template-vars';
-import { guionVigente, cambiosDePaso } from '@/lib/guion-audio';
-import { partesDe, formaGuardada, esUnTexto, TOPE_PARTES, type ParteMensaje } from '@/lib/mensaje-partes';
+import { cambiosDePaso } from '@/lib/guion-audio';
+import {
+  partesDe, formaGuardada, esUnTexto, TOPE_PARTES, pausaVisible, pausasPosibles, lineaDelPaso, type ParteMensaje,
+} from '@/lib/mensaje-partes';
 import {
   ACEPTA_FOTO_VIDEO, ACEPTA_DOCUMENTO, validarArchivoWA, archivoConTipoWA, tituloDeArchivo, pesoLegible,
   tipoEnvioDeMime, type AdjuntoDto,
 } from '@/lib/setting-adjuntos-reglas';
 
 export type VariableEditor = { key: string; label: string; ejemplo?: string };
+
+/** El paso con la línea de ESTA tarjeta (sexta tanda, WhatsApp 2). El campo viaja tal cual en `pasos`. */
+export type PasoConLinea = PasoSecuenciaDto & { linea?: string | null };
 
 export type EditorMensajeWhatsAppProps = {
   /** El mensaje (un nodo `mensaje` del flujo). */
@@ -79,9 +92,9 @@ export type EditorMensajeWhatsAppProps = {
   onAudioNuevo?: (a: AudioSetting) => void;
   /** Los datos que se pueden insertar como {{key}}. Default: los del motor (lib/template-vars.ts). */
   variables?: VariableEditor[];
-  /** El botón ✦ (MaKo lo adapta para cada lead). Sólo texto por el no oficial. */
+  /** ✦ MaKo (el panel que ayuda a escribir y «adaptarlo a cada persona»). Sólo por el no oficial. */
   permiteIA?: boolean;
-  /** Abre la guía de voz la primera vez que se prende la IA. */
+  /** Abre la guía de voz la primera vez que se prende «adaptarlo a cada persona». */
   onModoIA?: (on: boolean) => void;
   /** Mic y «Audios guardados». false en el recordatorio y en el oficial. */
   permiteAudio?: boolean;
@@ -89,71 +102,141 @@ export type EditorMensajeWhatsAppProps = {
   permiteAdjuntos?: boolean;
   /**
    * SIN EFECTO desde la tercera tanda (09/10/2026, decisión 2): «Revisar antes de enviar» salió de
-   * la pantalla. Quedan en el tipo para que quien las pasa siga compilando; el dato `revisar` del
-   * paso no se toca (este editor ya no lo escribe).
+   * la pantalla. Quedan en el tipo para que quien las pasa siga compilando.
    */
   mostrarRevisar?: boolean;
   revisarHeredado?: boolean;
   /** Nombre del negocio, para la burbuja de vista previa. */
   negocio?: string;
   placeholder?: string;
-  // ── Opcionales (08/10/2026) ──
   /** La biblioteca de ARCHIVOS, si el padre ya la tiene. Sin esto, el editor la pide solo. */
   adjuntos?: AdjuntoDto[];
   /** Un archivo subido desde aquí, para el padre que lleva la biblioteca. */
   onAdjuntoNuevo?: (a: AdjuntoDto) => void;
-  /** Lo que MaKo necesita para escribir el guion de la nota de voz («✦ guion»). */
+  /** Lo de la estrategia que MaKo usa para escribir (✦ MaKo). */
   paraGuion?: { objetivo?: string | null; gancho?: string | null; preguntas?: string[] };
+  /** El disparador de la automatización, en palabras («Cuando agenda…»): lo lee MaKo. */
+  disparador?: string;
   /** Mientras el lienzo guarda: apaga los botones. */
   deshabilitado?: boolean;
   /** Además de la línea de error del editor. */
   onError?: (m: string) => void;
-  /**
-   * SIN EFECTO desde la tercera tanda (09/10/2026, decisión 1): el editor es UNA columna siempre,
-   * el chat arriba y el composer abajo. La `fila` (chat a un costado, composer al otro) se leía rota.
-   */
+  /** SIN EFECTO desde la tercera tanda (decisión 1): el editor es UNA columna siempre. */
   disposicion?: 'columna' | 'fila';
   /**
-   * EL NÚMERO DE SALIDA (cuarta tanda, punto 15): la línea de la AUTOMATIZACIÓN y su guardado (el
-   * mismo del selector del CRON). Sin esto, la fila del número no se dibuja.
+   * SIN EFECTO desde la sexta tanda (WhatsApp 2): el número va en la CABECERA del panel y es de cada
+   * mensaje (`CabeceraWhatsApp`). Queda en el tipo para que quien lo pasa siga compilando.
    */
   linea?: { actual: string | null; onElegir: (linea: string | null) => void | Promise<void> };
   /**
-   * «✦ MaKo» va en la CABECERA del panel, al lado del título «WhatsApp» (punto 15: «el botón de MaKo
-   * arriba del todo, al lado del título de WhatsApp»). La cabecera es del lienzo: quien monta la dibuja
-   * con `BotonMakoWhatsApp` y pasa esto para que el editor no la repita. Sin esto, va en la fila de arriba.
+   * SIN EFECTO desde la sexta tanda: el ✦ de MaKo va siempre en la cabecera (`CabeceraWhatsApp`) y el
+   * panel se abre acá. Queda en el tipo para que quien lo pasa siga compilando.
    */
   makoEnCabecera?: boolean;
+  /** Quién firma las burbujas («MaKo» en «MaKo en WhatsApp»). Default: el negocio. */
+  autor?: string;
 };
 
 /**
- * ¿Se ofrece «✦ MaKo»? MaKo reescribe UN texto: con un solo texto (o nada todavía), sí; con un audio,
- * un archivo o varias partes, no. `permiteIA` es lo que decide quien monta (el no oficial). Pura y
- * exportada: la usa la cabecera del panel para no ofrecerlo donde el editor no lo haría.
+ * ¿Se ofrece «✦ MaKo»? Por el no oficial (`permiteIA`, lo decide quien monta), siempre: el panel ayuda a
+ * escribir cualquier mensaje. Lo que sólo vale para UN texto es «adaptarlo a cada persona» (`adaptable`).
+ * `varias` queda en la firma: la cabecera del panel la llama así.
  */
-export function makoPosible(paso: PasoSecuenciaDto, permiteIA: boolean | undefined, varias: boolean): boolean {
-  if (!permiteIA) return false;
+export function makoPosible(_paso: PasoSecuenciaDto, permiteIA: boolean | undefined, _varias: boolean): boolean {
+  void _paso; void _varias;
+  return !!permiteIA;
+}
+
+/** ¿Se puede prender «adaptarlo a cada persona»? MaKo reescribe UN texto: con un audio o varias partes, no. */
+export function adaptable(paso: PasoSecuenciaDto, varias: boolean): boolean {
   if (!varias) return true;
   const lista = partesDe(paso);
   return lista.length === 0 || esUnTexto(lista);
 }
 
-/** «✦ MaKo»: prendido, MaKo adapta el texto a cada persona. Lo usa el editor o la cabecera del panel. */
-export function BotonMakoWhatsApp({ activo, deshabilitado, onCambiar }: { activo: boolean; deshabilitado?: boolean; onCambiar: (on: boolean) => void }) {
+// ── El panel de MaKo, abierto por tarjeta ────────────────────────────────────────────────────────
+// El ✦ vive en la CABECERA del panel (la dibuja el lienzo) y el panel se abre ADENTRO de este editor:
+// un estado del módulo por tarjeta los conecta sin que el lienzo sepa nada de MaKo.
+
+const panelesAbiertos = new Set<string>();
+const oyentesPanel = new Set<() => void>();
+const avisarPanel = () => { for (const f of oyentesPanel) f(); };
+const suscribirPanel = (f: () => void) => { oyentesPanel.add(f); return () => { oyentesPanel.delete(f); }; };
+
+/** La clave de una tarjeta en una pestaña: la del borrador de la barra. */
+export const claveDeTarjeta = (ws: number | string | null | undefined, paso: Pick<PasoSecuenciaDto, 'id' | 'orden'>): string =>
+  `${ws ?? ''}|${paso.id ?? ''}|${paso.orden}`;
+
+export function alternarPanelMako(clave: string, abierto?: boolean): void {
+  const sig = abierto ?? !panelesAbiertos.has(clave);
+  if (sig) panelesAbiertos.add(clave); else panelesAbiertos.delete(clave);
+  avisarPanel();
+}
+
+function usePanelMako(clave: string): boolean {
+  // La misma lectura en el server: el estado sólo lo prende un clic, así que al hidratar está vacío
+  // (y un test que dibuja en el server puede abrirlo).
+  const leer = () => panelesAbiertos.has(clave);
+  return useSyncExternalStore(suscribirPanel, leer, leer);
+}
+
+/** El ✦ de MaKo: abre (o cierra) el panel que ayuda a escribir ESTE mensaje. */
+export function BotonMakoWhatsApp({ clave, adaptando, deshabilitado }: { clave: string; adaptando?: boolean; deshabilitado?: boolean }) {
+  const abierto = usePanelMako(clave);
+  const on = abierto || !!adaptando;
   return (
-    <button type="button" disabled={deshabilitado} aria-pressed={activo} title="MaKo lo adapta para cada persona"
-      onClick={() => onCambiar(!activo)}
-      style={{ ...chip, ...(activo ? { background: 'var(--mako-bg)', borderColor: 'var(--mako-border)', color: 'var(--mako-ink)' } : {}) }}>
-      ✦ MaKo
+    <button type="button" data-no-pan disabled={deshabilitado} aria-pressed={abierto}
+      title={adaptando ? 'MaKo lo adapta a cada persona' : 'Que MaKo te ayude a escribirlo'} aria-label="Que MaKo te ayude a escribirlo"
+      onClick={() => alternarPanelMako(clave)}
+      style={{ ...chip, padding: '0 8px', ...(on ? { background: 'var(--mako-bg)', border: '1px solid var(--mako-border)', color: 'var(--mako-ink)' } : {}) }}>
+      <MakoLogo size={16} animate={false} />
     </button>
   );
 }
 
-/** La ruta del guion: la misma que usa PasoAudioControl (una cosa, un lugar). */
-const RUTA_GUION = '/api/chat-agent/onboarding/guion-audio';
-/** La ruta corta a los 60 s (`maxDuration`); el navegador espera un poco más y no para siempre. */
-const ESPERA_GUION_MS = 65_000;
-/** La de audios corta a los 120 s (transcribe al guardar). */
+/**
+ * LA CABECERA DEL PANEL DE UN WHATSAPP (WhatsApp 2 y 3): el logo, el número POR EL QUE SALE ESTE
+ * mensaje en lugar de la palabra «WhatsApp», y el ✦ de MaKo al lado. La monta el lienzo
+ * (FlujoLienzo, `tituloEditor`) para las tarjetas de WhatsApp no oficial.
+ *
+ * El número es del PASO (`linea`); sin elegir, el de la automatización (`lineaAutomatizacion`), que
+ * es el que el motor usa entonces (`lineaDelPaso(paso) ?? sec.instance_name`). Elegir uno lo fija en
+ * esta tarjeta: «si más adelante en la automatización quiero enviar otro mensaje por otro de mis
+ * números… se debería poder».
+ */
+export function CabeceraWhatsApp({ paso, lineaAutomatizacion, onLinea, deshabilitado, conMako = true }: {
+  paso: PasoSecuenciaDto;
+  lineaAutomatizacion: string | null;
+  /** Guarda la línea de ESTA tarjeta (un cambio local del paso, como cualquier otro). */
+  onLinea: (linea: string) => void;
+  deshabilitado?: boolean;
+  /** El ✦ de MaKo (lo decide la misma regla que el editor: `permiteIA`). */
+  conMako?: boolean;
+}) {
+  const ws = useWs();
+  const actual = lineaDelPaso(paso) ?? lineaAutomatizacion;
+  return (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <SvcIcon k="whatsapp" size={13} box={24} radius={6} />
+      <div style={{ flex: '0 1 auto', minWidth: 0 }}>
+        <SalidaWhatsApp actual={actual} explicita onElegir={(l) => { if (l) onLinea(l); }} deshabilitado={deshabilitado} ancho={210} />
+      </div>
+      {conMako && <BotonMakoWhatsApp clave={claveDeTarjeta(ws, paso)} adaptando={paso.tipo === 'ia'} deshabilitado={deshabilitado} />}
+    </div>
+  );
+}
+
+/** La cabecera del panel de «MaKo en WhatsApp» (MaKo en WhatsApp 1: «El título debe ser ese»). */
+export function CabeceraMakoEnWhatsApp() {
+  return (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <MakoLogo size={22} animate={false} />
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MaKo en WhatsApp</div>
+    </div>
+  );
+}
+
+/** La ruta de audios corta a los 120 s (transcribe al guardar). */
 const ESPERA_AUDIO_MS = 125_000;
 
 const fmtDur = (s: number | null | undefined) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}` : '');
@@ -164,8 +247,7 @@ export const mismoPaso = (a: Pick<PasoSecuenciaDto, 'id' | 'orden'>, b: Pick<Pas
 
 /**
  * El placeholder dice qué se está escribiendo: no hay rótulos (pedido de Martín, punto 5). `adjunto`
- * es lo que espera arriba de la barra: con un archivo, lo escrito es su pie; con un audio, otro
- * mensaje que sale después (un audio no lleva pie en WhatsApp).
+ * es lo que espera arriba de la barra: con un archivo, lo escrito es su pie.
  */
 export function placeholderDe(tipo: PasoSecuenciaDto['tipo'], propio?: string, adjunto?: 'audio' | 'media' | null): string {
   if (adjunto === 'media') return 'Agrega un texto (opcional)';
@@ -190,15 +272,30 @@ export function partesDeLaBarra(texto: string, adjunto: Pendiente | null): Parte
 
 /**
  * La lista después de «Enviar»: lo de la barra se suma al final o, si se estaba editando una burbuja,
- * va a SU lugar. Pura y exportada para el test.
+ * va a SU lugar (con la pausa que tenía antes de ella). Pura y exportada para el test.
  */
 export function enviarALista(lista: readonly ParteMensaje[], nuevas: readonly ParteMensaje[], editando: number | null): ParteMensaje[] {
-  if (editando != null && editando >= 0 && editando < lista.length) return [...lista.slice(0, editando), ...nuevas, ...lista.slice(editando + 1)];
+  if (editando != null && editando >= 0 && editando < lista.length) {
+    const pausa = lista[editando]?.pausa_s;
+    const primera = nuevas[0] && pausa != null ? [{ ...nuevas[0], pausa_s: pausa }, ...nuevas.slice(1)] : nuevas;
+    return [...lista.slice(0, editando), ...primera, ...lista.slice(editando + 1)];
+  }
   return [...lista, ...nuevas];
+}
+
+/**
+ * Lo que propuso MaKo, sobre la lista: «reemplazar» deja sólo sus textos; «agregar» los suma al final.
+ * Con el tope de partes. Pura y exportada para el test.
+ */
+export function propuestaALista(lista: readonly ParteMensaje[], textos: readonly string[], modo: 'reemplazar' | 'agregar'): ParteMensaje[] {
+  const nuevas: ParteMensaje[] = textos.filter((t) => t.trim()).map((t) => ({ tipo: 'texto', cuerpo: t.trim() }));
+  return (modo === 'reemplazar' ? nuevas : [...lista, ...nuevas]).slice(0, TOPE_PARTES);
 }
 
 /** El borrador de la barra por tarjeta: tocar otra no lo tira (no viaja a la secuencia). */
 const borradores = new Map<string, string>();
+/** El guion que propuso MaKo para grabar, por tarjeta (WhatsApp 6: sólo si propuso uno). */
+const guionesDeMaKo = new Map<string, string>();
 
 // La biblioteca de archivos se pide UNA vez por pestaña y cliente (10 min): el editor se monta
 // cada vez que se toca un nodo, y diez nodos no son diez pedidos.
@@ -212,6 +309,9 @@ const accionBurbuja: CSSProperties = { width: 28, height: 28, flex: 'none', bord
 function IconLapiz() {
   return <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" /><path d="M13.5 6.5l4 4" stroke="currentColor" strokeWidth={1.8} /></svg>;
 }
+function IconReloj() {
+  return <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth={2} /><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" /></svg>;
+}
 
 /**
  * El alto mínimo del chat: una burbuja de dos renglones y su aire. En un panel de alto fijo el chat
@@ -219,29 +319,38 @@ function IconLapiz() {
  */
 export const ALTO_MIN_CHAT = 110;
 
+/** Lo que dice la pastilla de la pausa entre dos mensajes (WhatsApp 11). Pura (test). */
+export const rotuloPausa = (s: number): string => `${Number.isInteger(s) ? s : s.toFixed(1)} s`;
+
+/** La hora de las burbujas: la de cuando se abrió el editor, como en un chat. */
+function horaDeAhora(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export function EditorMensajeWhatsApp({
   paso, onChange, audios, onAudioNuevo, variables, permiteIA, onModoIA, permiteAudio = true, permiteAdjuntos = true,
-  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, deshabilitado, onError, linea, makoEnCabecera,
+  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor,
 }: EditorMensajeWhatsAppProps) {
   const ws = useWs();
-  // ¿Varias partes? Sólo por el no oficial (ver la cabecera): el oficial y el recordatorio mandan uno.
+  // ¿Varias partes? Sólo por el no oficial (ver la cabecera): el oficial, el recordatorio y el aviso
+  // al grupo mandan uno.
   const varias = permiteAudio || permiteAdjuntos;
   const clavePaso = `${paso.id ?? ''}|${paso.orden}`;
-  const claveBorrador = `${ws ?? ''}|${clavePaso}`;
+  const claveBorrador = claveDeTarjeta(ws, paso);
   const [barra, setBarra] = useState(() => borradores.get(claveBorrador) ?? '');
   const [adjunto, setAdjunto] = useState<Pendiente | null>(null);
   const [editando, setEditando] = useState<number | null>(null);
-  const [grabado, setGrabado] = useState<{ blob: Blob; secs: number } | null>(null);
   const [fase, setFase] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [guionIA, setGuionIA] = useState<{ texto: string; de: string } | null>(null);
-  const [pidiendo, setPidiendo] = useState(false);
+  const [guionMaKo, setGuionMaKo] = useState<string | null>(() => guionesDeMaKo.get(claveBorrador) ?? null);
   const [subida, setSubida] = useState<{ nombre: string; pct: number; cancelar: () => void } | null>(null);
   const [bibLocal, setBibLocal] = useState<AdjuntoDto[] | null>(() => cacheBiblioteca.get(String(ws ?? ''))?.lista ?? null);
   const [audiosAca, setAudiosAca] = useState<AudioSetting[]>([]);
   const [abierto, setAbierto] = useState<'datos' | 'variantes' | null>(null);
   const [btnDatos, setBtnDatos] = useState<HTMLButtonElement | null>(null);
   const [btnVariantes, setBtnVariantes] = useState<HTMLButtonElement | null>(null);
+  const [hora] = useState(horaDeAhora);
   const { toast, show, clear } = useToast();
   const composer = useRef<ComposerHandle>(null);
   const inputFoto = useRef<HTMLInputElement>(null);
@@ -250,18 +359,17 @@ export function EditorMensajeWhatsApp({
   useEffect(() => { pasoVivo.current = paso; }, [paso]);
   const cancelarSubida = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelarSubida.current?.(); }, []);
+  const panelMako = usePanelMako(claveBorrador) && !!permiteIA;
 
-  // El lienzo puede reusar este editor para otro nodo: lo que era del anterior (el audio sin usar,
-  // el guion de MaKo, el error, la barra) no se queda dibujado en éste.
+  // El lienzo puede reusar este editor para otro nodo: lo que era del anterior (el guion de MaKo, el
+  // error, la barra) no se queda dibujado en éste.
   const [claveVista, setClaveVista] = useState(clavePaso);
   if (claveVista !== clavePaso) {
     setClaveVista(clavePaso);
-    setGrabado(null); setGuionIA(null); setError(null); setAbierto(null); setAdjunto(null); setEditando(null);
+    setError(null); setAbierto(null); setAdjunto(null); setEditando(null);
+    setGuionMaKo(guionesDeMaKo.get(claveBorrador) ?? null);
     setBarra(borradores.get(claveBorrador) ?? '');
   }
-
-  const urlGrabado = useMemo(() => (grabado ? URL.createObjectURL(grabado.blob) : null), [grabado]);
-  useEffect(() => () => { if (urlGrabado) URL.revokeObjectURL(urlGrabado); }, [urlGrabado]);
 
   const biblioteca = adjuntos ?? bibLocal;
   useEffect(() => {
@@ -287,6 +395,10 @@ export function EditorMensajeWhatsApp({
     if (v) borradores.set(claveBorrador, v); else borradores.delete(claveBorrador);
   };
   const limpiarBarra = () => { escribir(''); setAdjunto(null); setEditando(null); };
+  const ponerGuion = (g: string | null) => {
+    setGuionMaKo(g);
+    if (g) guionesDeMaKo.set(claveBorrador, g); else guionesDeMaKo.delete(claveBorrador);
+  };
 
   const todosLosAudios = useMemo(() => {
     const vistos = new Set(audios.map((a) => a.id));
@@ -296,17 +408,12 @@ export function EditorMensajeWhatsApp({
   const archivoDe = (id: number) => (biblioteca ?? []).find((a) => a.id === id) ?? null;
 
   // ── EL MENSAJE ES LA LISTA DE PARTES ──────────────────────────────────────────────────────────
-  // Varias: `partesDe` (lo de antes se lee como sus partes, sin migrar). Una (oficial, recordatorio):
-  // el texto, que se edita en la barra misma.
   const partes = varias ? partesDe(paso) : [];
   const esIA = paso.tipo === 'ia';
 
   /**
-   * Le pasa al lienzo la lista nueva en su forma GUARDADA (`formaGuardada`): una parte en los campos
-   * de siempre y `partes: []` (que dice «una sola, lo sé»), varias en `partes`. Las variantes («↻ N»)
-   * son de UN texto: con cualquier otra cosa se sueltan EXPLÍCITAS (`[]`), que es lo que le dice al
-   * server «ya no tiene» (hallazgos-chatbot.md, «Un mensaje que pasa a archivo o a voz suelta sus
-   * variantes»).
+   * Le pasa al lienzo la lista nueva en su forma GUARDADA (`formaGuardada`). Las variantes («↻ N»)
+   * son de UN texto: con cualquier otra cosa se sueltan EXPLÍCITAS (`[]`).
    */
   const aplicarPartes = (lista: readonly ParteMensaje[]) => {
     const antes = pasoVivo.current;
@@ -323,8 +430,8 @@ export function EditorMensajeWhatsApp({
     const nuevas = partesDeLaBarra(barra, adjunto);
     if (!nuevas.length) return;
     const lista = partesDe(pasoVivo.current);
-    // «MaKo lo adapta» reescribe UN texto: una segunda parte lo apagaría sin decirlo.
-    if (pasoVivo.current.tipo === 'ia' && editando == null && lista.length >= 1) { avisar('Con ✦ MaKo va un solo mensaje'); return; }
+    // «Adaptarlo a cada persona» reescribe UN texto: una segunda parte lo apagaría sin decirlo.
+    if (pasoVivo.current.tipo === 'ia' && editando == null && lista.length >= 1) { avisar('Adaptado a cada persona va un solo mensaje'); return; }
     const sig = enviarALista(lista, nuevas, editando);
     if (sig.length > TOPE_PARTES) { avisar(`Hasta ${TOPE_PARTES} mensajes`); return; }
     setError(null);
@@ -332,7 +439,7 @@ export function EditorMensajeWhatsApp({
     limpiarBarra();
   };
 
-  /** ✏️: la burbuja vuelve a la barra. Lo escrito sin enviar no se pisa. */
+  /** ✏️: la burbuja vuelve a la barra. Un audio abre la barra de escucharlo (WhatsApp 9). */
   const editar = (i: number) => {
     const p = partes[i];
     if (!p) return;
@@ -341,7 +448,7 @@ export function EditorMensajeWhatsApp({
     setEditando(i);
     if (p.tipo === 'texto') { setAdjunto(null); escribir(p.cuerpo); }
     else if (p.tipo === 'media') { setAdjunto({ tipo: 'media', media_id: p.media_id }); escribir(p.cuerpo ?? ''); }
-    else { setAdjunto({ tipo: 'audio', audio_id: p.audio_id }); escribir(''); }
+    else { setAdjunto(null); escribir(''); }
     composer.current?.enfocar();
   };
 
@@ -356,23 +463,31 @@ export function EditorMensajeWhatsApp({
     show('Mensaje borrado', () => { if (mismoPaso(pasoVivo.current, deQuien)) aplicarPartes(antes); });
   };
 
-  // ── El audio: grabar al costado, escuchar, mandarlo con la flecha ─────────────────────────────
-  async function usarAudio() {
-    const g = grabado;
-    if (!g || fase) return;
+  /** La pausa antes de la parte `i` (WhatsApp 11). */
+  const ponerPausa = (i: number, s: number) => {
+    const lista = partesDe(pasoVivo.current);
+    if (!lista[i] || i < 1) return;
+    aplicarPartes(lista.map((x, k) => (k === i ? { ...x, pausa_s: s } : x)));
+  };
+
+  // ── El audio: grabar, ESCUCHAR y mandarlo con la ➤ (la sesión de voz del composer) ─────────────
+  /** Lo que la ➤ verde mandó (ya escuchado): se pasa a MP3, se guarda en la biblioteca y entra al chat. */
+  async function usarAudio(blob: Blob, secs: number) {
+    if (fase) return;
     const deQuien = pasoVivo.current;
+    const dondeIba = editando;
     setError(null);
     try {
       setFase('Convirtiendo…');
       const { blobToMp3 } = await import('../whatsapp/audio');
-      const mp3 = await blobToMp3(g.blob);
+      const mp3 = await blobToMp3(blob);
       const buf = new Uint8Array(await mp3.arrayBuffer());
       let bin = '';
       for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
       setFase('Guardando…');
       const r = await fetch('/api/chat-agent/audios', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titulo: `Mensaje ${deQuien.orden}`, base64: btoa(bin), mime: 'audio/mpeg', duracionS: g.secs }),
+        body: JSON.stringify({ titulo: `Mensaje ${deQuien.orden}`, base64: btoa(bin), mime: 'audio/mpeg', duracionS: secs }),
         signal: AbortSignal.timeout(ESPERA_AUDIO_MS),
       });
       const j = await r.json().catch(() => null) as { ok?: boolean; audio?: AudioSetting; error?: string } | null;
@@ -380,60 +495,30 @@ export function EditorMensajeWhatsApp({
       const audio = j.audio;
       setAudiosAca((xs) => [audio, ...xs]);
       onAudioNuevo?.(audio);
-      setGrabado(null);
       if (!mismoPaso(pasoVivo.current, deQuien)) return;
-      // Como en WhatsApp: la nota de voz grabada SALE con la flecha (se suma al chat). Si se estaba
-      // editando una burbuja, la reemplaza; lo escrito en la barra se queda para lo que siga.
+      // Como en WhatsApp: la nota de voz SALE con la flecha (se suma al chat). Si se estaba editando una
+      // burbuja (un audio al que se le grabó algo más), la reemplaza.
       const nueva: ParteMensaje = { tipo: 'audio', audio_id: audio.id };
-      const sig = enviarALista(partesDe(pasoVivo.current), [nueva], editando);
+      const sig = enviarALista(partesDe(pasoVivo.current), [nueva], dondeIba);
       if (sig.length > TOPE_PARTES) { avisar(`Hasta ${TOPE_PARTES} mensajes`); return; }
       aplicarPartes(sig);
-      if (editando != null) limpiarBarra();
+      if (dondeIba != null) limpiarBarra();
+      ponerGuion(null);
     } catch (e) {
       avisar(e instanceof Error && e.name === 'TimeoutError' ? 'Tardó demasiado. Prueba de nuevo.' : 'No se pudo procesar el audio.');
     } finally { setFase(null); }
   }
 
-  // Lo que se lee mientras se graba: lo escrito en la barra (o el texto del mensaje), o el guion de
-  // MaKo si salió de ESE texto (`guionVigente`: si el texto cambió, el de MaKo ya no es de éste).
-  const textosDelChat = partes.flatMap((p) => (p.tipo === 'texto' ? [p.cuerpo] : [])).join('\n\n');
-  const base = (barra.trim() || textosDelChat || (!varias ? paso.cuerpo ?? '' : '')).trim();
-  const deMaKo = guionVigente(guionIA, base);
-  const paraLeer = deMaKo ?? base;
-  const puedeGuion = !!(base || paraGuion?.objetivo || paraGuion?.gancho);
-
-  async function pedirGuion() {
-    if (pidiendo) return;
-    setPidiendo(true);
-    const de = base;
-    try {
-      const r = await fetch(RUTA_GUION, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paso: {
-          texto: base, pie: '',
-          objetivo: paraGuion?.objetivo ?? '',
-          gancho: paraGuion?.gancho ?? '',
-          preguntas: paraGuion?.preguntas ?? [],
-        } }),
-        signal: AbortSignal.timeout(ESPERA_GUION_MS),
-      });
-      const j = await r.json().catch(() => null) as { ok?: boolean; guion?: string; error?: string } | null;
-      if (!j?.ok || !j.guion) { avisar(j?.error || 'MaKo no pudo escribir el guion.'); return; }
-      setGuionIA({ texto: j.guion, de });
-    } catch (e) {
-      avisar(e instanceof Error && e.name === 'TimeoutError' ? 'MaKo tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.');
-    } finally { setPidiendo(false); }
-  }
-
-  const mientrasGraba: ReactNode = (paraLeer || puedeGuion) ? (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '9px 11px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-      {paraLeer && <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto' }}>{paraLeer}</div>}
-      {puedeGuion && (
-        <button type="button" onClick={() => void pedirGuion()} disabled={pidiendo} title="MaKo escribe qué decir"
-          style={{ ...chip, alignSelf: 'flex-start', color: 'var(--mako-ink)' }}>
-          {pidiendo ? <><Spinner size={12} /> Escribiendo…</> : '✦ guion'}
-        </button>
-      )}
+  // MIENTRAS SE GRABA, SÓLO EL GUION QUE PROPUSO MaKo (WhatsApp 6: «solo si sugirió algo, sino, que no
+  // aparezca nada»). Ni el botón de pedirlo (el ✦ de la cabecera lo hace) ni el texto del mensaje.
+  const mientrasGraba: ReactNode = guionMaKo ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '9px 11px', borderRadius: 10, background: 'var(--mako-bg)', border: '1px solid var(--mako-border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}>
+        ✦ Para leer
+        <button type="button" onClick={() => ponerGuion(null)} aria-label="Quitar el guion" title="Quitar"
+          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: 0 }}>✕</button>
+      </div>
+      <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto' }}>{guionMaKo}</div>
     </div>
   ) : null;
 
@@ -463,7 +548,6 @@ export function EditorMensajeWhatsApp({
       cacheBiblioteca.set(clave, { t: Date.now(), lista });
       setBibLocal(lista);
       onAdjuntoNuevo?.(adj);
-      // Queda ARRIBA de la barra, como en WhatsApp: lo escrito es su pie y «Enviar» lo suma.
       if (mismoPaso(pasoVivo.current, deQuien)) setAdjunto({ tipo: 'media', media_id: adj.id });
     } catch (e) {
       avisar(e instanceof Error ? e.message : 'No se pudo subir el archivo.');
@@ -475,8 +559,14 @@ export function EditorMensajeWhatsApp({
 
   // ── El chip arriba del campo: lo que se sube, o el adjunto que espera «Enviar» ────────────────
   let chipActual: ChipComposer | null = null;
+  const audioSinUrl = editando != null && partes[editando]?.tipo === 'audio'
+    ? audioDe((partes[editando] as Extract<ParteMensaje, { tipo: 'audio' }>).audio_id)
+    : undefined;
   if (subida) {
     chipActual = { icono: 'doc', titulo: subida.nombre, detalle: `Subiendo ${subida.pct}%`, onQuitar: subida.cancelar, tituloQuitar: 'Cancelar subida' };
+  } else if (audioSinUrl !== undefined && !audioSinUrl?.url) {
+    // Editando un audio que no se puede escuchar (no está en la biblioteca, o sin URL): el nombre, sin barra.
+    chipActual = { icono: 'audio', titulo: audioSinUrl?.titulo ?? 'Nota de voz', detalle: 'No disponible' };
   } else if (adjunto?.tipo === 'audio') {
     const a = audioDe(adjunto.audio_id);
     chipActual = { icono: 'audio', titulo: a?.titulo ?? 'Nota de voz', detalle: fmtDur(a?.duracion_s), onQuitar: () => setAdjunto(null), tituloQuitar: 'Quitar audio' };
@@ -491,6 +581,14 @@ export function EditorMensajeWhatsApp({
       onQuitar: () => setAdjunto(null), tituloQuitar: 'Quitar archivo',
     };
   }
+
+  // EDITAR UN AUDIO (WhatsApp 9): la barra de escucharlo, no un chip. 🗑 lo borra (con deshacer),
+  // ➤ lo deja como está, 🎤 le graba algo más al final (lo nuevo reemplaza a esta burbuja).
+  const editandoAudio = editando != null && partes[editando]?.tipo === 'audio' ? partes[editando] as Extract<ParteMensaje, { tipo: 'audio' }> : null;
+  const audioEditado = editandoAudio ? audioDe(editandoAudio.audio_id) : null;
+  const audioPendiente = editandoAudio && audioEditado?.url
+    ? { url: audioEditado.url, secs: audioEditado.duracion_s, seguir: permiteAudio, rotuloUsar: 'Dejar este audio', onDescartar: () => { const i = editando!; limpiarBarra(); borrar(i); }, onUsar: limpiarBarra }
+    : null;
 
   // ── El clip ──────────────────────────────────────────────────────────────────────────────
   const menuClip: OpcionMenuWA[] = [];
@@ -512,22 +610,25 @@ export function EditorMensajeWhatsApp({
   }
 
   // ── Las burbujas como llegan ─────────────────────────────────────────────────────────────
-  // `{{negocio}}` se resuelve con la MISMA función que el motor (`aplicarVariables`): si la pantalla
-  // resolviera un token que el envío no conoce, al lead le llegaría con las llaves puestas y el
-  // editor mostrándolo perfecto (tests/paso-variables-editor.test.ts).
+  // `{{negocio}}` se resuelve con la MISMA función que el motor (`aplicarVariables`).
   const conNegocio = (t: string) => aplicarVariables(t, negocio?.trim() ? { negocio: negocio.trim() } : {});
   const sinEscribir = <span style={{ color: 'var(--faint)', fontSize: 13 }}>Sin escribir</span>;
+  // LAS PALOMITAS (WhatsApp 5): la hora y el ✓✓ azul de un mensaje leído, como en WhatsApp.
+  // Firmado por otro («MaKo» en «MaKo en WhatsApp»): llega al grupo como un mensaje de MaKo, a la
+  // izquierda y con su nombre, como lo ve el equipo.
+  const saliente = !autor;
+  const pieBurbuja = { hora, pie: saliente ? <Ticks status="read" /> : undefined, autor, saliente };
   const burbujaDe = (p: ParteMensaje): ReactNode => {
     if (p.tipo === 'audio') {
       const a = audioDe(p.audio_id);
       // Sin la transcripción (punto 15: «elimina la transcripción de los audios, es innecesario»).
-      return <BurbujaHilo contenido={{ audio: a ? { url: a.url, titulo: a.titulo, transcript: null, duracion_s: a.duracion_s } : { url: null, titulo: 'audio' } }} />;
+      return <BurbujaHilo maxAncho="100%" {...pieBurbuja} contenido={{ audio: a ? { url: a.url, titulo: a.titulo, transcript: null, duracion_s: a.duracion_s } : { url: null, titulo: 'audio' } }} />;
     }
     if (p.tipo === 'media') {
       const adj = archivoDe(p.media_id);
       const t = tipoEnvioDeMime(adj?.media_mime);
       return (
-        <BurbujaHilo contenido={{
+        <BurbujaHilo maxAncho="100%" {...pieBurbuja} contenido={{
           media: adj
             ? { url: adj.url, mime: adj.media_mime, nombre: t === 'document' ? (adj.nombre_archivo ?? adj.titulo) : null }
             : { url: null, mime: '', nombre: biblioteca === null ? 'Cargando' : 'archivo' },
@@ -535,7 +636,7 @@ export function EditorMensajeWhatsApp({
         }} />
       );
     }
-    return <BurbujaHilo contenido={{ texto: conNegocio(p.cuerpo), ia: esIA }} />;
+    return <BurbujaHilo maxAncho="100%" {...pieBurbuja} contenido={{ texto: conNegocio(p.cuerpo), ia: esIA }} />;
   };
 
   const vars = variables ?? [...VARIABLES_LEAD, ...VARIABLES_NEGOCIO].map((v) => ({ key: v.key, label: v.label, ejemplo: v.ejemplo }));
@@ -543,34 +644,48 @@ export function EditorMensajeWhatsApp({
   const unTexto = varias ? esUnTexto(partes) : (!paso.tipo || paso.tipo === 'texto' || paso.tipo === 'ia');
   const variantes = unTexto ? (paso.variantes ?? []) : [];
   const ocupado = !!deshabilitado || !!fase || !!subida;
-  // ✦ MaKo: con UN texto (o nada todavía). Con varias partes no hay un texto que reescribir.
-  const iaPosible = makoPosible(paso, permiteIA, varias);
+
+  const pastillaPausa = (i: number) => {
+    const s = pausaVisible(partes[i], i);
+    if (s == null) return null;
+    const posibles = pausasPosibles(partes, i);
+    return (
+      <div key={`pausa-${i}`} data-pausa={i} style={{ alignSelf: 'center', margin: '-2px 0' }}>
+        <Dropdown value={String(s)} search={false} disabled={ocupado} ariaLabel={`Espera antes del mensaje ${i + 1}`}
+          botonLabel={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconReloj /> {rotuloPausa(s)}</span>}
+          buttonStyle={{ padding: '2px 9px', fontSize: 11.5, borderRadius: 999, minHeight: 0, background: 'var(--surface)', color: 'var(--dim)' }}
+          options={posibles.map((x) => ({ value: String(x), label: rotuloPausa(x) }))}
+          onChange={(v) => { const n = Number(v); if (n > 0) ponerPausa(i, n); }} />
+      </div>
+    );
+  };
 
   const vista: ReactNode = varias ? (
-    partes.length ? partes.map((p, i) => (
-      <div key={i} data-parte={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, alignSelf: 'stretch', minWidth: 0 }}>
+    partes.length ? partes.flatMap((p, i) => [
+      pastillaPausa(i),
+      // LOS BOTONES PEGADOS A LA BURBUJA (WhatsApp 4): la fila se acomoda a la derecha y la burbuja no
+      // lleva un tope propio — lo pone la fila (`maxWidth` del envoltorio).
+      <div key={`p-${i}`} data-parte={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, alignSelf: 'stretch', minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
           {unTexto && variantes.length > 0 && (
             <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
               onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={{ ...chip, height: 28 }}>↻ {variantes.length}</button>
           )}
           <button type="button" disabled={ocupado} onClick={() => editar(i)} title="Editar" aria-label={`Editar el mensaje ${i + 1}`}
-            style={{ ...accionBurbuja, ...(editando === i ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>
+            style={{ ...accionBurbuja, ...(editando === i ? { border: '1px solid var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>
           <button type="button" disabled={ocupado} onClick={() => borrar(i)} title="Borrar" aria-label={`Borrar el mensaje ${i + 1}`}
-            style={{ ...accionBurbuja, color: 'var(--bad)', borderColor: 'var(--bad)' }}><IconTrash /></button>
+            style={{ ...accionBurbuja, color: 'var(--bad)', border: '1px solid var(--bad)' }}><IconTrash /></button>
         </div>
-        <div style={{ minWidth: 0, display: 'flex', justifyContent: 'flex-end', borderRadius: 16, outline: editando === i ? '2px solid var(--primary)' : 'none', outlineOffset: 2 }}>
+        <div style={{ flex: '0 1 auto', minWidth: 0, maxWidth: 'calc(100% - 70px)', display: 'flex', justifyContent: 'flex-end', borderRadius: 16, outline: editando === i ? '2px solid var(--primary)' : 'none', outlineOffset: 2 }}>
           {burbujaDe(p)}
         </div>
-      </div>
-    )) : sinEscribir
+      </div>,
+    ]) : sinEscribir
   ) : (
-    <BurbujaHilo contenido={{ texto: conNegocio(paso.cuerpo ?? ''), ia: esIA }} vacio={sinEscribir} />
+    <BurbujaHilo contenido={{ texto: conNegocio(paso.cuerpo ?? ''), ia: esIA }} vacio={sinEscribir} maxAncho="92%" {...pieBurbuja} />
   );
 
-  // «{ }» EN LA BARRA, AL LADO DEL CLIP (punto 15: «la opción de "{}" para insertar dato, debería estar
-  // al lado del botón de adjuntar archivo»): la ranura `trasClip` de ComposerWhatsApp. Antes iba en la
-  // fila de arriba porque el composer no tenía ese lugar.
+  // «{ }» EN LA BARRA, AL LADO DEL CLIP (la ranura `trasClip` de ComposerWhatsApp).
   const botonDatos = (
     <button type="button" ref={setBtnDatos} disabled={ocupado} title="Insertar un dato" aria-label="Insertar un dato" aria-expanded={abierto === 'datos'}
       onClick={() => setAbierto((a) => (a === 'datos' ? null : 'datos'))}
@@ -582,7 +697,7 @@ export function EditorMensajeWhatsApp({
       <Spinner size={12} /> {fase}
     </div>
   ) : null;
-  const editandoNodo = varias && editando != null ? (
+  const editandoNodo = varias && editando != null && !editandoAudio ? (
     <div style={{ flex: 'none', padding: '6px 12px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 7 }}>
       <IconLapiz /> <span style={{ flex: 1 }}>Editando</span>
       <button type="button" onClick={limpiarBarra} aria-label="Cancelar edición" title="Cancelar"
@@ -600,10 +715,10 @@ export function EditorMensajeWhatsApp({
       placeholder={placeholderDe(paso.tipo, placeholder, adjunto?.tipo ?? null)}
       ocupado={ocupado}
       menuClip={menuClip.length ? menuClip : undefined}
-      onAudio={permiteAudio ? (blob, secs) => { setError(null); setGrabado({ blob, secs }); } : undefined}
+      onAudio={permiteAudio ? (blob, secs) => usarAudio(blob, secs) : undefined}
       onErrorAudio={avisar}
       mientrasGraba={mientrasGraba}
-      audioPendiente={grabado ? { url: urlGrabado, onDescartar: () => setGrabado(null), onUsar: () => void usarAudio() } : null}
+      audioPendiente={audioPendiente}
       chip={chipActual}
       maxAlto={168}
       trasClip={botonDatos}
@@ -620,44 +735,67 @@ export function EditorMensajeWhatsApp({
     />
   );
 
-  // LA FILA DE ARRIBA: el número de salida y «✦ MaKo» (hasta que la cabecera del panel lo lleve al
-  // lado del título: `makoEnCabecera`). Arriba y no abajo: «no quiero botones ni nada abajo de donde
-  // se escriben mensajes». Sin nada que mostrar, no hay fila.
-  const conMakoAca = iaPosible && !makoEnCabecera;
-  const conSalida = !!linea && varias;
+  // ── ✦ MaKo: lo que propone se aplica con las MISMAS funciones que la barra ─────────────────────
+  const usarPropuesta = (textos: string[], modo: 'reemplazar' | 'agregar') => {
+    if (!textos.length) return;
+    if (!varias) {
+      const unido = textos.join('\n\n');
+      onChange({ cuerpo: modo === 'reemplazar' ? unido : [paso.cuerpo ?? '', unido].filter((t) => t.trim()).join('\n\n') });
+    } else {
+      aplicarPartes(propuestaALista(partesDe(pasoVivo.current), textos, modo));
+    }
+    alternarPanelMako(claveBorrador, false);
+  };
+  const usarGuion = (g: string) => {
+    ponerGuion(g);
+    alternarPanelMako(claveBorrador, false);
+    // Arranca a grabar en el MISMO clic (el permiso del micrófono necesita el gesto de la persona).
+    composer.current?.grabar();
+  };
+  const textoActual = (varias ? partes.flatMap((p) => (p.tipo === 'texto' ? [p.cuerpo] : p.tipo === 'media' && p.cuerpo ? [p.cuerpo] : [])) : [paso.cuerpo ?? '']).join('\n\n');
+  const puedeAdaptar = !!permiteIA && adaptable(paso, varias);
+
+  // LA FILA DE ARRIBA: sólo las variantes del mensaje de un texto (el número y el ✦ van en la cabecera).
   const conVariantes = !varias && variantes.length > 0;
-  const arriba = (conSalida || conMakoAca || conVariantes) ? (
-    <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, minWidth: 0 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {conSalida && linea && <SalidaWhatsApp actual={linea.actual} onElegir={linea.onElegir} deshabilitado={ocupado} />}
-      </div>
-      {conMakoAca && <BotonMakoWhatsApp activo={esIA} deshabilitado={ocupado} onCambiar={(on) => { onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); }} />}
-      {conVariantes && (
-        <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
-          onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={chip}>↻ {variantes.length}</button>
-      )}
+  const arriba = conVariantes ? (
+    <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 8, minWidth: 0 }}>
+      <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
+        onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={chip}>↻ {variantes.length}</button>
     </div>
   ) : null;
 
   // ── UNA columna, como un teléfono: arriba la fila, el chat (llena y scrollea), la barra abajo ──
-  // El alto lo pone quien monta (el panel de /chatbot): el CHAT se queda con lo que sobra y es lo
-  // único que se achica (hasta `ALTO_MIN_CHAT`); la barra no se achica nunca. Todo estira con flex y
-  // `minHeight: 0`, nunca con `height: 100%` (AGENTS.md: contra un alto indefinido, Safari da cero).
+  // Con el panel de MaKo abierto, el panel ocupa el lugar del chat y la barra; la barra queda MONTADA
+  // (escondida): «Grabar con este guion» arranca la grabación desde el mismo clic.
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, minWidth: 0 }}>
-      {arriba}
-      <div data-chat style={{ flex: '1 1 auto', minHeight: ALTO_MIN_CHAT, padding: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderBottom: 'none', borderRadius: '14px 14px 0 0', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        {/* `marginTop: auto` y no `justify-content: flex-end`: con flex-end y scroll, lo que desborda
-            por ARRIBA no se puede alcanzar. Así las burbujas quedan abajo, como en un chat. */}
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          {vista}
+      {panelMako && (
+        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: 12, borderRadius: 14, border: '1px solid var(--mako-border)', background: 'var(--surface)' }}>
+          <MakoRedacta
+            contexto={{ actual: textoActual, disparador, objetivo: paraGuion?.objetivo ?? null, gancho: paraGuion?.gancho ?? null }}
+            permiteAudio={permiteAudio}
+            adaptar={puedeAdaptar ? { activo: esIA, onCambiar: (on) => { onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); } } : null}
+            onUsar={usarPropuesta} onGuion={usarGuion}
+            onCerrar={() => alternarPanelMako(claveBorrador, false)}
+            deshabilitado={ocupado}
+          />
         </div>
-      </div>
-      <div data-barra style={{ flex: 'none', border: '1px solid var(--border)', borderRadius: '0 0 14px 14px', overflow: 'hidden', background: 'var(--surface)' }}>
-        {faseNodo}
-        {editandoNodo}
-        {errorNodo}
-        {composerNodo}
+      )}
+      <div style={{ display: panelMako ? 'none' : 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, minWidth: 0 }}>
+        {arriba}
+        <div data-chat style={{ flex: '1 1 auto', minHeight: ALTO_MIN_CHAT, padding: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderBottom: 'none', borderRadius: '14px 14px 0 0', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          {/* `marginTop: auto` y no `justify-content: flex-end`: con flex-end y scroll, lo que desborda
+              por ARRIBA no se puede alcanzar. Así las burbujas quedan abajo, como en un chat. */}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: saliente ? 'flex-end' : 'flex-start', gap: 6 }}>
+            {vista}
+          </div>
+        </div>
+        <div data-barra style={{ flex: 'none', border: '1px solid var(--border)', borderRadius: '0 0 14px 14px', overflow: 'hidden', background: 'var(--surface)' }}>
+          {faseNodo}
+          {editandoNodo}
+          {errorNodo}
+          {composerNodo}
+        </div>
       </div>
 
       <input ref={inputFoto} type="file" accept={ACEPTA_FOTO_VIDEO} style={{ display: 'none' }}
@@ -689,5 +827,35 @@ export function EditorMensajeWhatsApp({
       )}
       <Toast state={toast} onClose={clear} />
     </div>
+  );
+}
+
+/**
+ * «MaKo en WhatsApp» (MaKo en WhatsApp 2: «El editable de MaKo en WhatsApp debe ser lo mismo que el
+ * editable de WhatsApp. La misma interfaz»): el MISMO editor, con el mensaje que MaKo le manda al
+ * GRUPO del negocio. Es UN texto (el aviso al grupo es un mensaje): la barra es el mensaje, con
+ * emojis y «{ }», sin audio ni archivos, y la burbuja la firma MaKo.
+ *
+ * Lo monta la tarjeta MAKO del lienzo (FlujoLienzo, `EditorMako`) y lo puede montar el lienzo de los
+ * Mensajes de MaKo (las «Notificaciones», app/agencia/FlujoAviso.tsx) en lugar de su editor viejo.
+ */
+export function EditorMensajeGrupo({ texto, onTexto, variables, deshabilitado, placeholder = 'Mensaje para tu equipo' }: {
+  texto: string;
+  /** El texto nuevo, en cada tecla (tipear no entra a la pila de deshacer del lienzo). */
+  onTexto: (v: string) => void;
+  variables?: VariableEditor[];
+  deshabilitado?: boolean;
+  placeholder?: string;
+}) {
+  const paso = useMemo<PasoSecuenciaDto>(() => ({
+    orden: 1, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: texto, template_wa: null, tipo: 'texto', id: 'mako-grupo',
+  }), [texto]);
+  return (
+    <EditorMensajeWhatsApp
+      paso={paso} audios={[]} variables={variables} autor="MaKo"
+      permiteAudio={false} permiteAdjuntos={false} permiteIA={false}
+      deshabilitado={deshabilitado} placeholder={placeholder}
+      onChange={(patch) => { if (typeof patch.cuerpo === 'string') onTexto(patch.cuerpo); }}
+    />
   );
 }

@@ -144,15 +144,15 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   const otra = r.pasos.find((p) => p.id === r.pasos.find((q) => q.id === r.id)!.si_no)!;
   assert.equal(nodo(grafoDeSecuencia(r.pasos, { disparador: 'X' }), otra.id!).tipo, 'mako');
   assert.equal(nombreDeTarjeta(r.pasos, otra.id!), 'MAKO: Te escribió algo que no s…');
-  // Y el editor de la tarjeta MAKO es el suyo: el mensaje, un título opcional y los datos del lead.
+  // Y el editor de la tarjeta MAKO es el de WhatsApp en modo grupo (sexta tanda, MaKo en WhatsApp 2:
+  // «la misma interfaz»): el mensaje con los datos del lead en «{ }». El título salió de la pantalla y
+  // el guardado lo conserva (`params` viaja entero).
   const flujo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
   assert.match(flujo, /if \(esMako\(paso\)\) return <EditorMako key=\{`mako-\$\{id\}`\} /);
   const ed = bloque(flujo, 'function EditorMako(', '\n}\n', 3_200);
-  assert.match(ed, /placeholder="Título \(opcional\)"/);
-  assert.match(ed, /placeholder="Mensaje para tu equipo"/);
-  assert.match(ed, /botonLabel="＋ Dato del lead"/);
-  assert.match(ed, /leadId: params\.leadId \?\? LEAD_DEL_EVENTO/, 'el aviso perdió el lead del evento');
-  assert.match(flujo, /const DATOS_MAKO: DropdownOption\[\] = VARIABLES_LEAD\.map/);
+  assert.match(ed, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\} variables=\{DATOS_MAKO\}/);
+  assert.match(ed, /\.\.\.params, leadId: params\.leadId \?\? LEAD_DEL_EVENTO, mensaje/, 'el aviso perdió el lead del evento o el título guardado');
+  assert.match(flujo, /const DATOS_MAKO = VARIABLES_LEAD\.map/);
   // ⚠️ Y EL RUNNER LOS REEMPLAZA (integración): «＋ Dato del lead» inserta `{{nombre}}`, y sin esto
   // salía crudo al grupo. Mensaje Y título, con la función del motor y el nombre CRUDO del lead (el
   // `nombre` del aviso trae el respaldo «el lead #N», que no es un nombre).

@@ -24,8 +24,13 @@
 //   · LA FLECHA. En `enviar`, con texto o adjunto la flecha reemplaza al micrófono, como en
 //     WhatsApp. En `editar` no hay nada que mandar: el texto ES el mensaje, y el micrófono queda
 //     siempre al costado.
-//   · EL AUDIO. Al soltar la grabación el audio queda PENDIENTE para escucharlo, con papelera y
-//     enviar/«Usar» — salvo `audioAlSoltar` (EmpresaInbox), que lo manda en el acto como siempre.
+//   · EL AUDIO, IGUAL EN LOS DOS Y EN TODOS LADOS (sexta tanda, WhatsApp 7): ✓ TERMINA la grabación
+//     (no manda), la barra pasa a escucharla (▶ donde estaba el punto rojo, 🎤 para seguir grabando) y
+//     recién la ➤ verde la manda (`onAudio`). La sesión vive en `useGrabacionVoz` (VoiceRecorder.tsx).
+//     `audioAlSoltar` ya no hace nada: «por motivos de seguridad que no se escape nunca un audio
+//     indeseado» — EmpresaInbox lo sigue pasando y ahora también escucha antes de mandar.
+//   · UN AUDIO QUE YA EXISTE (`audioPendiente`, WhatsApp 9): editar una nota de voz del lienzo la abre
+//     en ESTA misma barra para escucharla, borrarla o grabarle algo más, no en un recuadro con una ✕.
 //
 // ⚠️ EL EMOJI Y EL MENÚ DEL CLIP VAN POR PORTAL (`PopoverWA`). El panel del nodo en el lienzo mide
 //    328 px, scrollea y vive adentro de un contenedor con `overflow: hidden` (Lienzo.tsx): un
@@ -41,8 +46,7 @@ import {
 import { createPortal } from 'react-dom';
 import { EmojiPicker } from '../EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc, IconTrash } from './composer-icons';
-import { useVoiceRecorder, VoiceRecorderBar, IconListo } from './VoiceRecorder';
-import { AudioPlay } from './AudioPlay';
+import { useGrabacionVoz, BarraGrabacion } from './VoiceRecorder';
 import { useCapaModal } from '@/app/_components/pila-modales';
 
 // ── Lo que se decide sin DOM (lo ejecuta tests/composer-whatsapp.test.ts) ────────────────────
@@ -230,6 +234,8 @@ export type ComposerHandle = {
   /** Escribe `texto` en el cursor. `enfocar`: devuelve el foco al campo (un dato sí, un emoji no). */
   insertar: (texto: string, opciones?: { enfocar?: boolean }) => void;
   enfocar: () => void;
+  /** Arranca a grabar (el ✦ de MaKo: «Grabar con este guion»). Sin micrófono (`onAudio`), nada. */
+  grabar: () => void;
 };
 
 export type ComposerWhatsAppProps = {
@@ -248,15 +254,23 @@ export type ComposerWhatsAppProps = {
   acceptArchivo?: string;
   /** Clip con menú (el editor): «Foto o video», «Documento», «Audios guardados»… */
   menuClip?: OpcionMenuWA[];
-  /** Mic: lo grabado. Sin esto, no hay micrófono. */
+  /** Mic: lo que se MANDA (con la ➤ verde, después de escucharlo). Sin esto, no hay micrófono. */
   onAudio?: (blob: Blob, secs: number) => void | Promise<void>;
   onErrorAudio?: (m: string) => void;
-  /** EmpresaInbox: el audio sale al soltar la grabación, sin escucharlo antes. */
+  /**
+   * SIN EFECTO desde la sexta tanda (WhatsApp 7): mandaba la nota de voz al soltar la grabación. Ahora
+   * en todos lados se termina, se escucha y se manda con la ➤. Queda en el tipo para que quien la pasa
+   * (EmpresaInbox) siga compilando.
+   */
   audioAlSoltar?: boolean;
-  /** Arriba de la barra de grabación, MIENTRAS se graba (el guion para leer). */
+  /** Arriba de la barra de grabación, MIENTRAS se graba (el guion que sugirió MaKo, si sugirió uno). */
   mientrasGraba?: ReactNode;
-  /** El audio grabado sin mandar / usar: se escucha antes, con papelera. */
-  audioPendiente?: { url: string | null; onDescartar: () => void; onUsar: () => void; rotuloUsar?: string } | null;
+  /**
+   * Un audio que YA existe y se está editando (WhatsApp 9): la barra de escuchar, con 🗑 (`onDescartar`),
+   * ➤ (`onUsar`: dejarlo como está) y, con `seguir`, 🎤 para grabarle algo más al final (lo baja, lo
+   * une y lo que sale por `onAudio` es el audio nuevo).
+   */
+  audioPendiente?: { url: string | null; secs?: number | null; onDescartar: () => void; onUsar: () => void; rotuloUsar?: string; seguir?: boolean } | null;
   chip?: ChipComposer | null;
   ref?: Ref<ComposerHandle>;
   /** El alto máximo del campo antes de scrollear. */
@@ -271,7 +285,7 @@ export type ComposerWhatsAppProps = {
 
 export function ComposerWhatsApp({
   modo, valor, onValor, placeholder, ocupado, soloLectura, onEnviar, onArchivo, acceptArchivo, menuClip,
-  onAudio, onErrorAudio, audioAlSoltar, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip,
+  onAudio, onErrorAudio, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip,
 }: ComposerWhatsAppProps) {
   const editar = modo === 'editar';
   const campo = useRef<HTMLTextAreaElement | null>(null);
@@ -282,7 +296,23 @@ export function ComposerWhatsApp({
   const valorVivo = useRef(valor);
   const cursorPendiente = useRef<number | null>(null);
 
-  const voz = useVoiceRecorder(async (blob, secs) => { await onAudio?.(blob, secs); }, onErrorAudio);
+  const voz = useGrabacionVoz(async (blob, secs) => { await onAudio?.(blob, secs); }, onErrorAudio);
+  const [bajando, setBajando] = useState(false);
+  /** 🎤 sobre un audio que ya existe: se baja, se entra a la sesión con él y se graba lo que sigue. */
+  const seguirExistente = async () => {
+    const u = audioPendiente?.url;
+    if (!u || bajando) return;
+    setBajando(true);
+    try {
+      const r = await fetch(u, { signal: AbortSignal.timeout(30_000) });
+      if (!r.ok) throw new Error(String(r.status));
+      const blob = await r.blob();
+      await voz.revisarExistente({ blob, secs: audioPendiente?.secs ?? 0 });
+      await voz.seguir();
+    } catch {
+      onErrorAudio?.('No pude abrir ese audio para seguir grabando. Grábalo de nuevo.');
+    } finally { setBajando(false); }
+  };
 
   // El valor de AHORA para insertar: un emoji elegido entre dos renders no puede pisar lo último
   // que se escribió. Y el cursor se repone después de que React escribió el valor nuevo.
@@ -312,7 +342,10 @@ export function ComposerWhatsApp({
     onValor(r.valor);
     if (opciones?.enfocar) el?.focus();
   };
-  useImperativeHandle(ref, () => ({ insertar, enfocar: () => campo.current?.focus() }));
+  useImperativeHandle(ref, () => ({
+    insertar, enfocar: () => campo.current?.focus(),
+    grabar: () => { if (onAudio && voz.fase === 'quieta') void voz.start(); },
+  }));
 
   if (soloLectura) {
     return (
@@ -325,30 +358,21 @@ export function ComposerWhatsApp({
     );
   }
 
-  if (voz.recording) {
+  // GRABANDO o ESCUCHANDO lo grabado (la sesión), o revisando un audio que YA existe (`audioPendiente`).
+  // La barra ocupa TODO el ancho de la fila (WhatsApp 7: «no todo amontonado a la derecha»).
+  if (voz.fase !== 'quieta' || !!audioPendiente?.url || bajando) {
+    const existente = voz.fase === 'quieta' && audioPendiente?.url
+      ? {
+        url: audioPendiente.url, secs: audioPendiente.secs ?? null,
+        onBorrar: audioPendiente.onDescartar, onDejar: audioPendiente.onUsar,
+        onSeguir: audioPendiente.seguir ? () => void seguirExistente() : undefined,
+      }
+      : null;
     return (
       <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px' }}>
-        {mientrasGraba && <div style={{ marginBottom: 10 }}>{mientrasGraba}</div>}
-        <VoiceRecorderBar paused={voz.paused} secs={voz.secs} sending={!!ocupado}
-          onCancel={() => voz.stop(true)} onTogglePause={voz.paused ? voz.resume : voz.pause} onSend={() => voz.stop(false)}
-          rotuloListo={audioAlSoltar ? 'Enviar audio' : 'Terminar grabación'} iconoListo={audioAlSoltar ? undefined : <IconListo />} />
-      </div>
-    );
-  }
-
-  if (audioPendiente) {
-    return (
-      <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button type="button" onClick={audioPendiente.onDescartar} disabled={ocupado} title="Descartar audio" aria-label="Descartar audio" style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--bad)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconTrash /></button>
-        {audioPendiente.url && <AudioPlay src={audioPendiente.url} style={{ flex: 1, minWidth: 0, height: 40 }} />}
-        {editar ? (
-          <button type="button" onClick={audioPendiente.onUsar} disabled={ocupado} title="Usar este audio"
-            style={{ flex: 'none', height: 38, padding: '0 16px', borderRadius: 19, border: 'none', background: 'var(--good)', color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: 13.5, fontWeight: 600, cursor: ocupado ? 'default' : 'pointer', opacity: ocupado ? 0.6 : 1 }}>
-            {audioPendiente.rotuloUsar ?? 'Usar'}
-          </button>
-        ) : (
-          <button type="button" onClick={audioPendiente.onUsar} disabled={ocupado} title="Enviar audio" aria-label="Enviar audio" style={{ flex: 'none', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: ocupado ? 'default' : 'pointer', opacity: ocupado ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
-        )}
+        {voz.fase === 'grabando' && mientrasGraba && <div style={{ marginBottom: 10 }}>{mientrasGraba}</div>}
+        <BarraGrabacion voz={voz} ocupado={!!ocupado || bajando} existente={existente}
+          rotuloEnviar={existente ? (audioPendiente?.rotuloUsar ?? 'Dejar este audio') : 'Enviar audio'} />
       </div>
     );
   }
