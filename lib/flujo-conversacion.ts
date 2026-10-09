@@ -66,6 +66,9 @@ import {
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
 import { LEAD_DEL_EVENTO } from './api-mako/flujo-params';
+// Puro (sólo importa ./nutricion-ambito, sin imports): la regla de cuáles etapas disparan (`etapasDe`).
+import { etapasDe, normalizarEtapas } from './nutricion-etapa';
+import { alternarValor } from '../app/components/dropdown-varios';
 export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo, PuertoNodo, FamiliaNodo } from './lienzo-grafo';
 export { curvaEntre, medioDeCurva, ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y } from './lienzo-grafo';
 
@@ -202,9 +205,17 @@ export function detalleDisparador(d: {
   etiquetaTrigger?: string | null;
   nombreEtapa?: string | null;
   nombreEtiqueta?: string | null;
+  /**
+   * Con VARIAS etapas (cuarta tanda, punto 14): sus nombres, en el orden en que se eligieron. Con dos
+   * o más, mandan sobre `nombreEtapa`. `todas`: son todas las de su kanban.
+   */
+  nombresEtapas?: readonly string[] | null;
+  todas?: boolean;
 }): string {
   if (d.cron) return textoCron(d.cron, d.tz ?? null);
   if (d.trigger_tipo === 'etapa_actual' || d.trigger_tipo === 'entrega_actual') {
+    const nombres = (d.nombresEtapas ?? []).map((n) => n.trim()).filter(Boolean);
+    if (nombres.length > 1) return fraseEtapas(nombres, d.todas === true, d.trigger_tipo === 'entrega_actual' ? 'entrega' : 'venta');
     return `Llega a «${(d.nombreEtapa || d.etapa || 'una etapa').trim()}»`;
   }
   if (d.trigger_tipo === 'etiqueta_puesta') return `Se le puso «${d.nombreEtiqueta || 'una etiqueta'}»`;
@@ -1137,6 +1148,8 @@ export type EtiquetaParaDisparo = { id: number; nombre: string; archivada_at?: s
 export type DisparoActual = {
   trigger_tipo: string; etapa?: string | null; funnel_id?: number | null;
   producto_id?: number | null; etiqueta_id?: number | null;
+  /** VARIAS etapas del mismo kanban (punto 14, mig 0230). Cuáles disparan lo dice `etapasDe`. */
+  etapas?: readonly string[] | null;
 };
 
 /** Un paso del desplegable del CRON: sus opciones, o los pasos de adentro (`grupos`). */
@@ -1146,12 +1159,86 @@ export type SeccionDisparo = { title: string; options: OpcionDisparo[]; grupos?:
 export const KANBAN_ADQUISICION = 'Adquisición de clientes';
 export const KANBAN_ENTREGA = 'Entrega del servicio';
 
-/** El valor del desplegable para lo que la secuencia tiene puesto. */
+/**
+ * El valor del desplegable para lo que la secuencia tiene puesto.
+ *
+ * Con VARIAS etapas (punto 14) las claves van juntas detrás del ámbito, separadas por coma:
+ * `entrega:9:onb,hito1,hito2`. Es UN string a propósito: es lo que viaja entre «Crear con IA», la
+ * ruta, el 409 con lo guardado y la tarjeta CRON (`ListoIA.disparador`, `disparoDeValor`), y así
+ * ninguno de esos caminos necesitó otro campo. Una clave de etapa no lleva coma: las de la entrega
+ * son `[a-z0-9_]` (`nuevaClaveEtapa`) y las del embudo, de fábrica o `st<N>`.
+ */
 export function valorDisparo(s: DisparoActual): string {
-  if (s.trigger_tipo === 'etapa_actual') return `venta:${s.funnel_id ?? ''}:${s.etapa ?? ''}`;
-  if (s.trigger_tipo === 'entrega_actual') return `entrega:${s.producto_id ?? ''}:${s.etapa ?? ''}`;
+  if (s.trigger_tipo === 'etapa_actual') return `venta:${s.funnel_id ?? ''}:${etapasDe(s).join(',')}`;
+  if (s.trigger_tipo === 'entrega_actual') return `entrega:${s.producto_id ?? ''}:${etapasDe(s).join(',')}`;
   if (s.trigger_tipo === 'etiqueta_puesta') return `etiqueta:${s.etiqueta_id ?? ''}`;
   return `trigger:${s.trigger_tipo}`;
+}
+
+/**
+ * Lo puesto, como los valores de UNA etapa cada uno (los de las opciones del desplegable): es lo que
+ * el Dropdown marca con `varios`. Un disparador sin etapa es un valor solo.
+ */
+export function valoresDisparo(s: DisparoActual): string[] {
+  return separarValor(valorDisparo(s));
+}
+
+/** `venta:5:a,b` → [`venta:5:a`, `venta:5:b`]. Lo demás, tal cual. */
+function separarValor(valor: string): string[] {
+  const m = /^(venta|entrega):([^:]*):(.*)$/.exec(valor);
+  if (!m) return valor ? [valor] : [];
+  const keys = normalizarEtapas(m[3].split(','));
+  return keys.length ? keys.map((k) => `${m[1]}:${m[2]}:${k}`) : [];
+}
+
+/** El KANBAN de un valor: `venta:<embudo>` o `entrega:<producto>`. null = no es de etapa. */
+export function kanbanDeValor(valor: string): string | null {
+  const m = /^(venta|entrega):([^:]*):/.exec(valor);
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+
+/**
+ * LOS VALORES DESPUÉS DE TOCAR UNA OPCIÓN del desplegable del CRON (punto 14: «quiero que en el CRON
+ * se puedan seleccionar más de 1 etapa»).
+ *
+ *   · Una etapa del MISMO kanban que lo puesto → se prende o se apaga (`alternarValor`, la misma del
+ *     Dropdown), y la última no se apaga: un CRON sin etapa no dispara nunca.
+ *   · Una etapa de OTRO kanban (la entrega en vez de la adquisición, u otro producto) → REEMPLAZA a
+ *     lo puesto. Un CRON es de UN kanban: su ámbito (`funnel_id` o `producto_id`) es una columna, así
+ *     que mezclar no se puede ni guardar. Reemplazar es lo que la persona espera cuando cambia de
+ *     kanban; sumarla en silencio no se podría escribir.
+ *   · Una etiqueta → reemplaza todo (dispara UNA).
+ */
+export function valoresTrasTocar(actuales: readonly string[], tocado: string): string[] {
+  const k = kanbanDeValor(tocado);
+  if (!k) return [tocado];
+  const mismos = actuales.filter((v) => kanbanDeValor(v) === k);
+  if (mismos.length !== actuales.length || !mismos.length) return [tocado];
+  return alternarValor([...mismos], tocado, 1);
+}
+
+/** Los valores de UN kanban, juntos en el valor que se guarda (`venta:5:a,b`). Vacío → ''. */
+export function valorDeVarios(valores: readonly string[]): string {
+  if (!valores.length) return '';
+  const k = kanbanDeValor(valores[0]);
+  if (!k) return valores[0];
+  const keys = normalizarEtapas(valores.filter((v) => kanbanDeValor(v) === k).map((v) => v.slice(k.length + 1)));
+  return `${k}:${keys.join(',')}`;
+}
+
+/**
+ * CÓMO SE DICEN VARIAS ETAPAS, en el botón del desplegable y en la tarjeta CRON (punto 14: «el botón
+ * dice cuántas o cuáles»). Dice CUÁLES mientras entren en un renglón y, si son todas las del kanban,
+ * lo dice así — es lo que la persona eligió, no una lista que hay que leer.
+ *   · 2 → `Llega a «A» o «B»`
+ *   · todas (3+) → `Cualquier etapa de la entrega` / `… de la venta`
+ *   · 3+ → `Llega a «A», «B» y 3 más`
+ */
+export function fraseEtapas(nombres: readonly string[], todas: boolean, kanban: 'venta' | 'entrega'): string {
+  if (nombres.length === 1) return `Llega a «${nombres[0]}»`;
+  if (nombres.length === 2) return `Llega a «${nombres[0]}» o «${nombres[1]}»`;
+  if (todas) return kanban === 'entrega' ? 'Cualquier etapa de la entrega' : 'Cualquier etapa de la venta';
+  return `Llega a «${nombres[0]}», «${nombres[1]}» y ${nombres.length - 2} más`;
 }
 
 /** Todas las opciones de un árbol de pasos, aplanadas (para saber si lo puesto está). */
@@ -1268,22 +1355,29 @@ function planoDe(g: SeccionDisparo, producto: string | null, varios: boolean): {
  * de qué producto y de qué kanban); cerrado, el botón tiene que decirlo todo.
  */
 export function rotuloDisparo(secs: readonly SeccionDisparo[], valor: string, textoActual: string): string {
-  const buscar = (s: readonly SeccionDisparo[], ruta: string[]): string[] | null => {
+  // El camino de títulos hasta una opción, y cuántas opciones tiene su paso (para «todas»).
+  const buscar = (s: readonly SeccionDisparo[], ruta: string[], v: string): { ruta: string[]; enElPaso: number } | null => {
     for (const g of s) {
-      const o = g.options.find((x) => x.value === valor);
-      if (o) return [...ruta, g.title, o.label];
-      const r = buscar(g.grupos ?? [], [...ruta, g.title]);
+      const o = g.options.find((x) => x.value === v);
+      if (o) return { ruta: [...ruta, g.title, o.label], enElPaso: g.options.length };
+      const r = buscar(g.grupos ?? [], [...ruta, g.title], v);
       if (r) return r;
     }
     return null;
   };
-  const r = buscar(secs, []);
-  if (!r) return textoActual;
+  // VARIAS etapas (punto 14): cada una se busca por su valor de UNA etapa. Si alguna no está en la
+  // lista (la borraron del kanban), el botón dice lo puesto como lo dice la tarjeta (`textoActual`).
+  const partes = separarValor(valor);
+  const halladas = partes.map((v) => buscar(secs, [], v));
+  if (!halladas.length || halladas.some((h) => !h)) return textoActual;
+  const r = halladas[0]!.ruta;
   if (r[r.length - 2] === 'Etiquetas') return r[r.length - 1];
-  const etapa = r[r.length - 1];
   // [Productos, <producto>, <kanban>, <etapa>]; con un solo producto, [Productos, <kanban>, <etapa>].
   const producto = r.length >= 4 ? r[r.length - 3] : null;
-  return producto ? `${producto} · Llega a «${etapa}»` : `Llega a «${etapa}»`;
+  const nombres = halladas.map((h) => h!.ruta[h!.ruta.length - 1]);
+  const todas = nombres.length >= 3 && nombres.length === halladas[0]!.enElPaso;
+  const frase = fraseEtapas(nombres, todas, r[r.length - 2] === KANBAN_ENTREGA ? 'entrega' : 'venta');
+  return producto ? `${producto} · ${frase}` : frase;
 }
 
 /**
@@ -1341,10 +1435,14 @@ export function frenoDelFlujo(pasos: readonly PasoGrafo[], faltanEnAccion?: Falt
  *  /api/chat-agent/secuencias, `action: 'trigger'`). null = el valor no se entiende. */
 export function pedidoDisparo(valor: string, secuenciaId: number): Record<string, unknown> | null {
   const [clase, ambito, ...resto] = valor.split(':');
-  const etapa = resto.join(':');
+  // VARIAS etapas (punto 14) viajan juntas, con coma (`valorDisparo`). Con una sola, el pedido es
+  // EXACTAMENTE el de siempre (sin `etapas`): la ruta, la API y los tests viejos lo siguen leyendo igual.
+  const keys = clase === 'venta' || clase === 'entrega' ? normalizarEtapas(resto.join(':').split(',')) : [];
+  const etapa = keys[0] ?? '';
+  const varias = keys.length > 1 ? { etapas: keys } : {};
   if (clase === 'trigger' && ambito) return { action: 'trigger', id: secuenciaId, trigger_tipo: [ambito, ...resto].join(':') };
-  if (clase === 'venta' && etapa) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'etapa_actual', etapa, funnel_id: ambito ? Number(ambito) : null };
-  if (clase === 'entrega' && etapa && Number(ambito) > 0) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'entrega_actual', etapa, producto_id: Number(ambito) };
+  if (clase === 'venta' && etapa) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'etapa_actual', etapa, ...varias, funnel_id: ambito ? Number(ambito) : null };
+  if (clase === 'entrega' && etapa && Number(ambito) > 0) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'entrega_actual', etapa, ...varias, producto_id: Number(ambito) };
   if (clase === 'etiqueta' && Number(ambito) > 0) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'etiqueta_puesta', etiqueta_id: Number(ambito) };
   return null;
 }
@@ -1381,5 +1479,8 @@ export function disparoDeValor(valor: string, previo: DisparoActual): DisparoAct
     funnel_id: (p.funnel_id as number | null | undefined) ?? null,
     producto_id: (p.producto_id as number | undefined) ?? null,
     etiqueta_id: (p.etiqueta_id as number | undefined) ?? null,
+    // Con una sola etapa, null (como la fila que escribe `escribirDisparador`): así la firma de lo
+    // pintado y la de la relectura coinciden y no se vuelve a sembrar de gusto.
+    etapas: (p.etapas as string[] | undefined) ?? null,
   };
 }

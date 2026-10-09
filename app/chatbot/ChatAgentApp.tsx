@@ -84,6 +84,12 @@ export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espe
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
+  /**
+   * Las etapas de un CRON con VARIAS (cuarta tanda, punto 14; mig 0230), crudas como vienen de la
+   * fila. Cuáles disparan lo dice `etapasDe` (lib/nutricion-etapa.ts): manda si su primera es `etapa`.
+   * `[]`/ausente = una sola, la de `etapa`.
+   */
+  etapas?: string[] | null;
   activa: boolean; pasos: PasoSecuenciaDto[]; inscriptos: number; enviados: number;
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
   /** El EMBUDO al que se acota una secuencia de venta. null = todos los productos. */
