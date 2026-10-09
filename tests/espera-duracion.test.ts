@@ -198,4 +198,16 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
 });
 
 // ── Roturas (09/10/2026) ─────────────────────────────────────────────────────────────────────
-// Arnés en el scratchpad: una rotura por vez, restaurada de memoria. Ver el resultado en el commit.
+// Arnés en el scratchpad (romper.mjs): una rotura por vez, restaurada DE MEMORIA, corriendo este
+// archivo junto con tests/editores-control.test.ts y tests/lienzo-muelles.test.ts. Base: 32 / 0.
+// Pasan / fallan con cada una (las de este archivo):
+//   E1. `sanearEspera` vuelve a redondear a minutos (10 s → 0)          → 31 / 1
+//   E2. la unidad elegida no se recuerda (salta al tipear)              → 31 / 1
+//   E3. `esperaEnLaCorrida` duerme sin el tope de la ruta               → 31 / 1
+//   E4. la píldora sin segundos («0.1666 min»)                         → 31 / 1
+//   E5. el aviso de precisión también en horas y días                  → 31 / 1
+//   E6. CADENCIA_MOTOR_MIN = 30 con vercel.json en una por hora         → 30 / 2
+//   E7. no duerme cuando la vuelta no trae nada vencido                 → 31 / 1
+//   E8. la rama de la espera no anota la corta                          → 31 / 1
+//   E10. el desplegable de la unidad nace con 80 px («segundos» pide 123) → 31 / 1
+// (E9 —el DELAY sin segundos ni minutos— lo caza tests/editores-control.test.ts.)

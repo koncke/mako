@@ -261,7 +261,9 @@ test('⚠️ POR TIPO, NUNCA POR CONTENIDO: dos tarjetas del mismo tipo miden lo
 
 test('⚠️ el de control comparte la esquina con el grande y cabe ADENTRO: si el grande no pisa a «Probar», el chico tampoco', () => {
   const pisadas: string[] = [];
-  for (const w of [1100, 1280, 1440, 1600, 1920]) for (const h of [560, 700, 900, 1080]) for (const probar of [false, true]) {
+  // 1366 con «Probar» deja 581 de lugar: es la caja donde el ancho de control (600) pasaría al de
+  // mensaje si no se topara contra él.
+  for (const w of [1100, 1280, 1366, 1440, 1600, 1920]) for (const h of [560, 700, 900, 1080]) for (const probar of [false, true]) {
     const m = muelles({ w, h }, { listaAbierta: true, probarAbierto: probar, editorAbierto: true });
     if (!m.editor) continue;
     for (const t of CONTROL) {

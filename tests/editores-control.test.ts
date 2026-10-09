@@ -128,4 +128,16 @@ test('⚠️ ningún editor de control deja media caja vacía con un `maxWidth` 
 });
 
 // ── Roturas (09/10/2026) ─────────────────────────────────────────────────────────────────────
-// Arnés en el scratchpad: una rotura por vez, restaurada de memoria. Ver el resultado en el commit.
+// Arnés en el scratchpad (romper.mjs): una rotura por vez, restaurada DE MEMORIA, corriendo este
+// archivo junto con tests/espera-duracion.test.ts y tests/lienzo-muelles.test.ts. Base: 32 / 0.
+// Pasan / fallan con cada una:
+//   E9. el DELAY ofrece sólo horas y días                               → 31 / 1 (acá)
+//   M1. `editorDeTarjeta` devuelve el tamaño del mensaje para todas     → 30 / 2 (lienzo-muelles)
+//   M2. el DELAY con 420 de alto                                        → 31 / 1 (lienzo-muelles)
+//   M3. el ancho de control sin topar contra el de mensaje (1366 con «Probar») → 31 / 1 (lienzo-muelles)
+//   M4. el panel de columna sin alto fijo                               → 31 / 1 (acá)
+//   M5. el lienzo de /chatbot pasa el alto de WhatsApp a todas          → 31 / 1 (acá)
+//   M6. la etiqueta sin el campo grande                                 → 31 / 1 (acá)
+//   M7. la acción sin ancho completo                                    → 31 / 1 (acá)
+//   M8. el DELAY sin `key` por tarjeta                                  → 31 / 1 (acá)
+//   M9. un `maxWidth: 320` en la frase del DELAY                        → 31 / 1 (acá)
