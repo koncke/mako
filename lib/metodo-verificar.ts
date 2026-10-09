@@ -406,6 +406,30 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: r?.name ? `Conectado como ${r.name}.` : 'Token válido.', facts };
   },
 
+  // Instagram y Messenger por Zernio (volvió el 09/10/2026 como canal de las automatizaciones). El
+  // ping SÓLO lee (GET /profiles): registrar el webhook y reclamar las cuentas lo hace el editor de
+  // la tarjeta (POST /api/zernio, «estado»), que es donde se elige la cuenta.
+  async zernio(v) {
+    const key = (v.ZERNIO_API_KEY ?? '').trim();
+    // La key es OPCIONAL: sin key propia lib/zernio.ts usa la de la plataforma. «Sin key» no es un error.
+    if (!key) {
+      return { ok: true, detalle: 'Sin key propia: usa la cuenta de la plataforma.', facts: [{ k: 'Cuenta', v: 'La de la plataforma' }] };
+    }
+    const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Cópiala de nuevo desde Zernio.' };
+    if (status >= 400) return { ok: false, error: `Zernio respondió ${status}.` };
+    const perfiles = (body.profiles as Array<{ name?: string }> | undefined) ?? [];
+    return {
+      ok: true,
+      detalle: 'Key válida.',
+      facts: perfiles.length
+        ? [{ k: 'Perfiles', v: perfiles.map((x) => x.name).filter(Boolean).join(' · ') || String(perfiles.length), c: 'var(--good)' }]
+        : [{ k: 'Perfiles', v: 'Ninguno todavía', c: 'var(--warn)' }],
+    };
+  },
+
   // ⚠️ ESTE ES EL TERCER REGISTRO, Y ME LO SALTEÉ. El aviso de más arriba lo dice
   // con todas las letras y aun así la integración de Cal.com salió a producción con
   // el catálogo y los campos puestos y SIN verificador: el tilde de cada campo

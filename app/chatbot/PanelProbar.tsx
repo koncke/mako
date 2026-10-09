@@ -91,6 +91,9 @@ import { ICONOS_MAS } from '@/lib/flujo-conversacion';
 import { PopoverWA } from '../whatsapp/_shared/ComposerWhatsApp';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
+// Instagram y Messenger (sexta tanda, parte «canales»): el mismo recorrido, con su cara.
+import { esCanalSocial, logoSocialSvg, NOMBRE_CANAL, type CanalSocial } from '@/lib/canal-social';
+import { SimuladorSocial } from './SimuladorSocial';
 
 /**
  * El tamaño que pide «Probar»: ancho y bajo (decisión 11 de la segunda tanda). La cuenta vive en
@@ -99,8 +102,11 @@ import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 export const PANEL_PROBAR_ANCHO = 560;
 export const PANEL_PROBAR_ALTO = 400;
 
-/** Qué se prueba: lo elige el desplegable de «Probar» (decisión 14 de la tercera tanda). */
-export type CanalProbar = 'whatsapp' | 'email';
+/**
+ * Qué se prueba: lo elige el desplegable de «Probar» (decisión 14 de la tercera tanda). Instagram y
+ * Messenger (sexta tanda) corren el MISMO recorrido de acá y se dibujan con `SimuladorSocial`.
+ */
+export type CanalProbar = 'whatsapp' | 'email' | CanalSocial;
 
 const API = '/api/chat-agent/simulador';
 const ESCRIBIENDO_MS = 600;
@@ -444,7 +450,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const usaAccion = flujoVivo.some((p) => p.accion != null && typeof p.accion === 'object');
   const titulosAccion = useTitulosAcciones(usaAccion);
   const usaEtiqueta = flujoVivo.some((p) => (p.ramas ?? []).some((r) => (r.filas ?? []).some((f) => f.campo === 'etiqueta')));
-  const usaMedia = canal === 'whatsapp' && flujoVivo.some((p) => p.tipo === 'media');
+  const usaMedia = canal !== 'email' && flujoVivo.some((p) => p.tipo === 'media');
   const [etiquetas, setEtiquetas] = useState<Map<number, string>>(new Map());
   const [adjuntos, setAdjuntos] = useState<Adjunto[]>([]);
 
@@ -676,7 +682,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     switch (evento.t) {
       case 'mensaje': {
         const paso = evento.paso as PasoSecuenciaDto;
-        const delPaso: CanalProbar = paso.canal === 'email' ? 'email' : 'whatsapp';
+        const delPaso: CanalProbar = esCanalSocial(paso.canal) ? paso.canal : paso.canal === 'email' ? 'email' : 'whatsapp';
         // Salga por el canal que salga, desde acá el lead «ya fue contactado» (para las condiciones).
         huboMensaje.current = true;
         // UN CANAL POR VEZ: lo del otro canal ni se dibuja ni sale. El recorrido sigue igual (sus
@@ -864,6 +870,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
 
   const cambio = firmaViva !== firmaProbada;
   const esEmail = canal === 'email';
+  const social = esCanalSocial(canal) ? canal : null;
 
   // LLENA EL RECTÁNGULO DEL PADRE (`width/height: 100%`): el lugar y el tamaño los decide quien lo
   // monta (`muelles`). Un padre que lo ancla arriba Y abajo sin dar alto lo dimensiona con el
@@ -891,7 +898,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         {/* EL LOGO DEL CANAL, arriba a la izquierda (quinta tanda, punto 1: «no elimines el logo de
             WhatsApp o Email arriba a la izquierda»). Los mismos del ＋ (`ICONOS_MAS`). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={esEmail ? ICONOS_MAS.email : ICONOS_MAS.whatsapp} alt={esEmail ? 'Email' : 'WhatsApp'} width={22} height={22} style={{ flex: 'none', display: 'block' }} />
+        <img src={social ? logoSocialSvg(social) : esEmail ? ICONOS_MAS.email : ICONOS_MAS.whatsapp} alt={social ? NOMBRE_CANAL[social] : esEmail ? 'Email' : 'WhatsApp'} width={22} height={22} style={{ flex: 'none', display: 'block' }} />
         <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
           {rolAdmin && real && (
             <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--dim)', ...recorte }}>
@@ -909,7 +916,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         {/* «PROBAR EN WHATSAPP» AL LADO DE ↻, y el destino en un DESPLEGABLE que abre el botón (quinta
             tanda, punto 1: «que no esté desplegado el "Tu número", sino que al clickear ese botón salga
             el desplegable»). Sólo el admin manda de verdad. */}
-        {rolAdmin && !real && (
+        {/* Sin «Probar en Instagram» de verdad: Meta no deja escribirle primero a nadie (SimuladorSocial). */}
+        {rolAdmin && !real && !social && (
           <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
             onClick={() => (menu ? cerrarMenu() : setMenu(true))}>{esEmail ? 'Probar en Email' : 'Probar en WhatsApp'}</Button>
         )}
@@ -937,7 +945,9 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           alto que sale de `flex: 1` eso es CERO en Safari (AGENTS.md). Con `inset: 0` el alto
           es definido en los dos motores. */}
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        {esEmail ? (
+        {social ? (
+          <SimuladorSocial canal={social} mensajes={mensajes} typing={typing} onEnviarTexto={enviarTexto} negocio={negocio} />
+        ) : esEmail ? (
           <BandejaGmail correos={correos} abierto={abierto} recibiendo={recibiendo} terminado={terminado}
             remitente={remitente} negocio={negocio} onAbrir={abrirCorreo} onVolver={() => setAbierto(null)} />
         ) : (
