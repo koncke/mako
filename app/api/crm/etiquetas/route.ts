@@ -2,7 +2,7 @@
 // /api/crm/etiquetas — las etiquetas del CRM para las pantallas (mig 0224)
 // =============================================================================
 // GET                     → { ok, etiquetas: [{ id, nombre, color, emoji, funnel_id, etapa_key,
-//                              wa_instance, wa_label_id, chatwoot_label, orden, archivada_at }] }
+//                              wa_instance, wa_label_id, orden, archivada_at }] }
 //     ?archivadas=1       → también las archivadas
 //     ?leadId=N           → + delLead: las que tiene ese lead (con puesta_at y puesta_por)
 //     ?crud=1             → + leads (cuántos tiene cada una), whatsapp (las del celular para
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     try {
       if (action === 'crear') {
         const r = await crearEtiqueta(entradaDe(b));
-        return Response.json({ ok: true, etiqueta: r.etiqueta, aviso: r.aviso });
+        return Response.json({ ok: true, etiqueta: r.etiqueta });
       }
       const id = idOk(b.id);
       if (id == null) return malo('Falta el id de la etiqueta.');

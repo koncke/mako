@@ -33,9 +33,12 @@ const CHART_KEY = 'mako-doer';
 
 // Preámbulo que se suma al system de MaKo para el modo doer: cómo y cuándo usar
 // las herramientas. Inline (no registry) para no acoplar con prompt-registry.
+// (`historial_whatsapp` ya no se nombra: leía el WhatsApp oficial, que se borró el 09/10/2026,
+// y hoy sólo contesta que ya no existe. Mandar al modelo a usarla para «el detalle» le
+// quemaba un paso por pedido.)
 const DOER_PREAMBLE = `HERRAMIENTAS (modo doer):
-Tienes herramientas para CONSULTAR datos reales del negocio: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento y estado_experimentos. Según de qué te hablen, puedes tener además otras LECTURAS de cada tab de MaKo (email, chatbot, landing, métricas, experimentos…): úsalas igual. Aquí no hay herramientas que escriban: si te piden un cambio, di dónde se hace en MaKo.
-Cuando la respuesta dependa de un dato concreto —un lead puntual, su historial, una reunión, tu método— ÚSALAS en vez de suponer. Flujo típico: buscar_leads para ubicar al lead por nombre → ficha_lead / historial_whatsapp / reuniones_lead para el detalle → buscar_conocimiento para apoyar tu recomendación en el método real.
+Tienes herramientas para CONSULTAR datos reales del negocio: buscar_leads, ficha_lead, reuniones_lead, buscar_conocimiento y estado_experimentos. Según de qué te hablen, puedes tener además otras LECTURAS de cada tab de MaKo (email, chatbot, landing, métricas, experimentos…): úsalas igual. Aquí no hay herramientas que escriban: si te piden un cambio, di dónde se hace en MaKo.
+Cuando la respuesta dependa de un dato concreto —un lead puntual, su historial, una reunión, tu método— ÚSALAS en vez de suponer. Flujo típico: buscar_leads para ubicar al lead por nombre → ficha_lead / reuniones_lead para el detalle → buscar_conocimiento para apoyar tu recomendación en el método real.
 Nunca inventes nombres, números, fechas ni mensajes: si una herramienta no lo trae, di explícitamente que no lo tienes. Después de consultar, responde en tu voz de siempre, sin volcar el JSON crudo.`;
 
 async function buildDoerSystem(opts: { titulo: string; query: string }): Promise<string> {

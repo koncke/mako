@@ -183,7 +183,8 @@ test('TODA llamada a dispararEvento del repo lleva el ws del evento', () => {
   const todas = llamadasDelRepo();
   // «No encontré nada que revisar» no es «está todo bien»: si un día no queda ninguna
   // llamada, el guard quedó sin sujeto y hay que decidirlo, no pasar en verde.
-  assert.ok(todas.length >= 8, `sólo encontré ${todas.length} llamadas a dispararEvento: el barrido perdió archivos (eran 8 el 06/10)`);
+  // (Eran 8 el 06/10; desde el 09/10/2026 son 7: la del webhook de Chatwoot se fue con la integración.)
+  assert.ok(todas.length >= 7, `sólo encontré ${todas.length} llamadas a dispararEvento: el barrido perdió archivos (eran 7 el 09/10)`);
   const malas = todas
     .map((x) => ({ ...x, motivo: faltaWs(x.args) }))
     .filter((x) => x.motivo)
@@ -198,7 +199,8 @@ test('TODA llamada a dispararEvento del repo lleva el ws del evento', () => {
 // instancia — lo que se fija es la forma (una variable, cortada si es null antes del evento).
 test('en cada WEBHOOK que dispara, el ws es una sola variable y corta si es null antes del evento', () => {
   const archivos = [...new Set(llamadasDelRepo().map((x) => x.archivo))].filter((a) => a.startsWith('app/api/webhooks/'));
-  assert.ok(archivos.length >= 5, `sólo ${archivos.length} webhooks disparan: el barrido perdió archivos (eran 5 el 06/10)`);
+  // (Eran 5 el 06/10; desde el 09/10/2026 son 4: el webhook de Chatwoot se borró.)
+  assert.ok(archivos.length >= 4, `sólo ${archivos.length} webhooks disparan: el barrido perdió archivos (eran 4 el 09/10)`);
   const problemas: string[] = [];
   for (const archivo of archivos) {
     const src = sinComentarios(leer(archivo));

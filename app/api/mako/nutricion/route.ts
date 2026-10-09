@@ -12,8 +12,7 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { getSecuenciasConStats, type PasoSecuencia } from '@/lib/nutricion';
 import { generarSecuencia, aplicarSecuencia } from '@/lib/nutricion-generator';
-import { plantillaDesdePaso, estadoPlantillasSecuencia } from '@/lib/nutricion-plantillas';
-import { integracionConectada } from '@/lib/credenciales';
+import { estadoPlantillasSecuencia } from '@/lib/nutricion-plantillas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -64,15 +63,12 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true });
     }
     if (body.action === 'plantilla') {
-      // MaKo convierte el copy del paso WA oficial en plantilla Meta y la manda a aprobar.
-      if (!(await integracionConectada('whatsapp'))) {
-        return Response.json({ ok: false, error: 'Conecta WhatsApp (Meta) primero para mandar plantillas a aprobar.' }, { status: 400 });
-      }
-      const orden = Number(body.orden);
-      if (!Number.isFinite(orden)) return Response.json({ ok: false, error: 'orden inválido' }, { status: 400 });
-      const r = await plantillaDesdePaso(secuenciaId, orden);
-      if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });
-      return Response.json({ ok: true, name: r.name, status: r.status, nota: r.nota });
+      // ⛔ Convertía el copy de un paso del WhatsApp OFICIAL en plantilla de Meta y la mandaba a
+      // aprobar, con la cuenta de WhatsApp Business del inbox de Chatwoot. Chatwoot se borró el
+      // 09/10/2026: no hay a qué cuenta mandarla. Antes de esto contestaba «Conecta WhatsApp
+      // (Meta) primero», que manda a conectar algo que ya no existe. Pendiente: sacar la acción
+      // (y lib/nutricion-plantillas.ts) con el resto de las plantillas de Meta.
+      return Response.json({ ok: false, error: 'Las plantillas de Meta salían por el WhatsApp oficial, que ya no existe.' }, { status: 400 });
     }
     if (body.action === 'estado-plantillas') {
       const estados = await estadoPlantillasSecuencia(secuenciaId);

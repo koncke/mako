@@ -3,14 +3,16 @@
 // =============================================================================
 // Teléfonos del workspace — CRUD de los números desde los que se contacta leads
 // =============================================================================
-// Cada número tiene su etiqueta, su fuente (Chatwoot / API WhatsApp / personal)
-// y los setters asignados. MaKo sugiere la fuente: si hay Chatwoot conectado,
-// el número por defecto se marca "Chatwoot"; si no, "Número personal".
+// Cada número tiene su etiqueta, su fuente (API WhatsApp / personal) y los setters
+// asignados. El número nuevo arranca en "Número personal".
+//
+// ⛔ La fuente 'chatwoot' (el WhatsApp oficial) ya no se ofrece: Chatwoot se borró el
+// 09/10/2026 con toda la integración. Sigue en el TIPO porque hay filas guardadas con ese
+// valor, y una fila que ya la tiene la tiene que poder mostrar.
 
 import { revalidatePath } from 'next/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { normalizarTelefono } from '@/lib/leads';
-import { chatwootConfigurado } from '@/lib/chatwoot';
 import { getEquipoAction, type MiembroEquipo } from '../crm/actions';
 
 export type FuenteTelefono = 'chatwoot' | 'whatsapp_api' | 'personal';
@@ -26,14 +28,12 @@ export type WsTelefono = {
 
 export type TelefonosData = {
   telefonos: WsTelefono[];
-  chatwootConectado: boolean;
   equipo: MiembroEquipo[];   // para asignar setters
 };
 
 export async function getTelefonosAction(): Promise<TelefonosData> {
-  const [db, chatwootConectado, equipo] = await Promise.all([
+  const [db, equipo] = await Promise.all([
     getTenantDb(),
-    chatwootConfigurado(),
     getEquipoAction().catch(() => [] as MiembroEquipo[]),
   ]);
   const { data, error } = await db
@@ -49,7 +49,7 @@ export async function getTelefonosAction(): Promise<TelefonosData> {
     setters: Array.isArray(r.setters) ? (r.setters as string[]) : [],
     created_at: String(r.created_at ?? ''),
   }));
-  return { telefonos, chatwootConectado, equipo };
+  return { telefonos, equipo };
 }
 
 export type TelefonoInput = {

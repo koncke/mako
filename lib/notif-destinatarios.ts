@@ -148,9 +148,10 @@ export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente:
   await Promise.all([
     setSetting(KEY_TELEFONOS, JSON.stringify(dest.telefonos)),
     setSetting(KEY_EMAILS, JSON.stringify(dest.emails)),
-    // Espejo de los singulares. `enviarAperturaDiaria` y `getContactoReportes`
-    // todavía leen de acá; sin esto, cambiar el número dejaba la apertura del día
-    // yendo al anterior.
+    // Espejo de los singulares. `getContactoReportes` todavía lee de acá; sin esto,
+    // cambiar el número dejaba el contacto de los reportes en el anterior. (También
+    // la leía `enviarAperturaDiaria`, la apertura del día por el WhatsApp oficial,
+    // que se borró el 09/10/2026.)
     setSetting('user_telefono', dest.telefonos[0] ?? ''),
     setSetting('user_email', dest.emails[0] ?? ''),
   ]);

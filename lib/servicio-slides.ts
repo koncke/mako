@@ -13,20 +13,12 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/meta-health.ts (semáforo + recomendaciones fuente:'mako')
     { t: 'El semáforo de la cuenta', d: 'Si Meta te frenó la entrega, te rechazó un anuncio o algo quedó en aprendizaje, lo ves aquí — y MaKo te dice qué tocar.' },
     // app/api/webhooks/meta-leads + lib/meta-leads.ts (poll de respaldo)
-    { t: 'Los leads entran solos', d: 'Cada Lead Ad cae en el CRM en el momento, con su hilo de WhatsApp ya abierto.' },
+    // («con su hilo de WhatsApp ya abierto» se fue el 09/10/2026: lo abría Chatwoot.)
+    { t: 'Los leads entran solos', d: 'Cada Lead Ad cae en el CRM en el momento.' },
     // lib/meta-capi.ts, disparado desde lib/leads.ts y el webhook de Calendly
     { t: 'Meta se entera de lo que cierra', d: 'Cuando un lead califica o agenda, le devolvemos el evento por CAPI para que optimice con datos reales, no con clicks.' },
   ],
-  whatsapp: [
-    // app/whatsapp/WhatsAppApp.tsx + lib/chatwoot.ts
-    { t: 'El inbox, aquí adentro', d: 'Lee y contesta WhatsApp sin salir de MaKo: un hilo por lead, con adjuntos.' },
-    // lib/template-validator.ts + lib/meta-templates.ts (explicarRechazo)
-    { t: 'Plantillas que no te rechazan', d: 'MaKo las valida contra las reglas de Meta antes de mandarlas. Si igual te rechazan, te explica por qué en español.' },
-    // lib/nutricion.ts (ventana horaria, tope diario, 1 msg/lead cada 20h)
-    { t: 'Nutrición que cuida tu número', d: 'Ventana horaria, tope diario y un mensaje por lead cada 20 horas. Nada de ráfagas.' },
-    // app/api/webhooks/chatwoot → lib/nutricion.ts (pausarPorRespuesta)
-    { t: 'Contesta el lead, se corta sola', d: 'En cuanto responde, la secuencia se pausa: nunca le escribes encima a alguien que ya está hablando.' },
-  ],
+  // (Las de `whatsapp` —el servicio Chatwoot— se fueron el 09/10/2026 con la integración.)
   email: [
     // lib/nutricion.ts (mismo motor que WhatsApp, canal email)
     { t: 'Secuencias que salen solas', d: 'El mismo motor de nutrición, por mail: pasos, variables y horarios.' },

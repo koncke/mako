@@ -1156,11 +1156,11 @@ export const RUNNERS: Runners = {
     },
     ejecutar: (payload) => seguro('crear la etiqueta', async () => {
       try {
-        const { etiqueta, aviso } = await crearEtiqueta({
+        const { etiqueta } = await crearEtiqueta({
           nombre: payload.nombre, color: payload.color ?? undefined, emoji: payload.emoji ?? undefined,
           vinculo: (payload.vinculo as EntradaEtiqueta['vinculo']) ?? null, waLabelId: (payload.waLabelId as string | null) ?? null,
         });
-        return { ok: true, resumen: `Listo: creada la etiqueta «${etiqueta.nombre}» (id ${etiqueta.id}).${aviso ? ` ${aviso}` : ''}`, datos: { etiquetaId: etiqueta.id } };
+        return { ok: true, resumen: `Listo: creada la etiqueta «${etiqueta.nombre}» (id ${etiqueta.id}).`, datos: { etiquetaId: etiqueta.id } };
       } catch (e) {
         if (esEtiquetaError(e)) return { ok: false, resumen: e.message };
         throw e;

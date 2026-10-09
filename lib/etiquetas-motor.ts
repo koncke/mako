@@ -21,7 +21,7 @@
 //      disparador, y el movimiento en lote del CRM (`moverLeadsDeEtapaAction` → setPipelineStage
 //      de a uno) pasa por el espejo — sin este corte, mover 200 leads a una etapa vinculada sería
 //      un envío masivo por la puerta de atrás, por la línea NO oficial del cliente.
-//   5. La sincronización con WhatsApp y Chatwoot, ESPERANDO el resultado: lo que falla queda en
+//   5. La sincronización con WhatsApp, ESPERANDO el resultado: lo que falla queda en
 //      el historial del lead. Nada de `void` ni de `.catch(() => {})` mudo (el patrón que dejó
 //      la sincronización vieja de etapa→etiqueta sin un solo rastro).
 //
@@ -42,7 +42,8 @@ export type EtiquetaMotor = {
   archivada_at: string | null;
 };
 
-export type ResultadoSync = { destino: 'WhatsApp' | 'Chatwoot'; ok: boolean; error?: string };
+// (Hasta el 09/10/2026 había un segundo destino, 'Chatwoot', que se fue con la integración.)
+export type ResultadoSync = { destino: 'WhatsApp'; ok: boolean; error?: string };
 
 /** Lo que el motor necesita de afuera. lib/etiquetas.ts arma los reales; el test, unos de mentira. */
 export type PuertosEtiquetas<E extends EtiquetaMotor = EtiquetaMotor> = {
@@ -74,7 +75,7 @@ export type PuertosEtiquetas<E extends EtiquetaMotor = EtiquetaMotor> = {
   etiquetasDeEtapa: (funnelId: number | null, etapaKey: string) => Promise<E[]>;
   /** A dónde se sincroniza ESTA etiqueta (vacío = a ningún lado). Para decidir un lote sin pegarle a nadie. */
   destinos: (etiqueta: E) => Promise<Array<ResultadoSync['destino']>>;
-  /** Pone o saca la etiqueta afuera (WhatsApp, Chatwoot) y devuelve cada resultado. Nunca tira. */
+  /** Pone o saca la etiqueta afuera (el WhatsApp del celular) y devuelve cada resultado. Nunca tira. */
   sincronizar: (leadId: number, etiqueta: E, accion: 'poner' | 'sacar') => Promise<ResultadoSync[]>;
 };
 
@@ -83,7 +84,7 @@ export type OpcionesPoner = {
   autor: string;
   /** 'etapa' = la pone ENTRAR a la etapa vinculada: no vuelve a mover (corta el espejo) ni dispara. */
   origen?: 'etapa' | 'directo';
-  /** false = no pegarle a WhatsApp ni a Chatwoot ahora: lo hace quien llamó, al final y con tope (`sincronizarDiferidos`). */
+  /** false = no pegarle a WhatsApp ahora: lo hace quien llamó, al final y con tope (`sincronizarDiferidos`). */
   sincronizar?: boolean;
 };
 
@@ -164,7 +165,7 @@ export async function sacarEtiquetaCon<E extends EtiquetaMotor>(p: PuertosEtique
   return { ok: true, yaEstaba: false, disparo: 'no', movio: false, sync };
 }
 
-/** Un cambio que el espejo HIZO en la base y que todavía no se pasó a WhatsApp ni a Chatwoot. */
+/** Un cambio que el espejo HIZO en la base y que todavía no se pasó a WhatsApp. */
 export type CambioEtiqueta = { leadId: number; etiquetaId: number; accion: 'poner' | 'sacar' };
 
 /**
@@ -175,8 +176,8 @@ export type CambioEtiqueta = { leadId: number; etiquetaId: number; accion: 'pone
  * `moverEtapaEnProducto`, y el barrido horario (`conciliarEspejoEtapas`).
  *
  * ⚠️ `sincronizar: false` ES PARA LOS LOTES (revisión del 08/10/2026, etiquetas-4/datos-3): mover
- * 200 leads de etapa desde la barra del CRM esperaba, lead por lead, WhatsApp y tres llamadas a
- * Chatwoot por cada etiqueta espejada — cientos de viajes HTTP adentro de una server action con
+ * 200 leads de etapa desde la barra del CRM esperaba, lead por lead, WhatsApp (y entonces tres
+ * llamadas a Chatwoot) por cada etiqueta espejada — cientos de viajes HTTP adentro de una server action con
  * techo de 60 s, con el lote cortado a la mitad y sin el conteo. Así el espejo escribe la base y
  * devuelve en `cambios` lo que hizo; quien llamó lo sincroniza AL FINAL con `sincronizarDiferidos`,
  * con el mismo tope que el lote de etiquetas y el rastro de los que no se pasaron.
@@ -211,10 +212,10 @@ export async function espejarEtapaCon<E extends EtiquetaMotor>(
 }
 
 /**
- * Pasa a WhatsApp y a Chatwoot lo que el espejo (o un lote) escribió sin sincronizar, con UN tope
+ * Pasa a WhatsApp lo que el espejo (o un lote) escribió sin sincronizar, con UN tope
  * para todo el conjunto: los primeros `tope` (lead, etiqueta) se sincronizan y al resto se le deja
  * escrito en el historial que no se pasó — el mismo rastro que el lote de etiquetas. Lo que no
- * tiene a dónde ir (una etiqueta sin WhatsApp mapeado y un negocio sin Chatwoot) no gasta tope.
+ * tiene a dónde ir (una etiqueta sin WhatsApp mapeado) no gasta tope.
  */
 export async function sincronizarDiferidos<E extends EtiquetaMotor>(
   p: PuertosEtiquetas<E>,

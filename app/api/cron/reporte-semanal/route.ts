@@ -13,13 +13,12 @@
 //
 // Cada workspace corre ADENTRO de `runWithWorkspace(w.id, …)`, y eso es lo que hace que
 // cada lectura y cada envío sean de ESE cliente: las preferencias, los destinatarios
-// (`getDestinatarios`), los números del reporte (`getTenantDb`) y el Chatwoot del
-// WhatsApp (`credWs`, que con un workspace que no es el 1 nunca cae al env del dueño).
+// (`getDestinatarios`) y los números del reporte (`getTenantDb`).
 // El mail sale firmado por MaKo (`REMITENTE_MAKO`, en `despacharReporte`).
 //
-// ⚠️ EL WHATSAPP DEL REPORTE SALE POR EL CHATWOOT DEL WORKSPACE (medido el 06/10/2026:
-// sólo el ws1 lo tiene completo). Un cliente sin Chatwoot recibe el semanal por mail y
-// el renglón de WhatsApp no le llega. `?dry=1` lo dice por workspace (`waPorChatwoot`).
+// ⛔ EL REPORTE YA NO SALE POR WHATSAPP. Salía por el Chatwoot del workspace (sólo el ws1 lo
+// tenía completo), que se borró el 09/10/2026 con toda la integración (ver lib/notify.ts).
+// `?dry=1` lo dice por workspace (`waSinCanal`) a quien lo tenga pedido.
 //
 // Modos:
 //   ?dry=1[&ws=N] → lista a quién le mandaría (destinos enmascarados), sin armar el
@@ -34,7 +33,6 @@ import { estadoAviso, getContactoReportes, getNotifPrefs } from '@/lib/perfil';
 import { getDestinatarios } from '@/lib/notif-destinatarios';
 import { buildReporteSemanal } from '@/lib/reportes';
 import { despacharReporte } from '@/lib/notify';
-import { chatwootConfigurado } from '@/lib/chatwoot';
 import { idDeMensaje } from '@/lib/disparador-mensaje';
 import { decidirReporte, destinosDelReporte, enmascararDestino } from '@/lib/reporte-destino';
 
@@ -63,7 +61,7 @@ async function reporteDelWorkspace(ws: number, dry: boolean): Promise<ResultadoW
       ws, modo: 'dry',
       wa: prefs.semanal.wa ? destinos.telefonos.map(enmascararDestino) : [],
       email: prefs.semanal.email ? destinos.emails.map(enmascararDestino) : [],
-      waPorChatwoot: prefs.semanal.wa ? await chatwootConfigurado() : null,
+      waSinCanal: prefs.semanal.wa ? true : null,
     };
   }
 

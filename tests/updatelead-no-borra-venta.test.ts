@@ -115,7 +115,8 @@ test('pasar a Ganado deriva cerro, conserva el monto y completa la fecha de cier
 test('perder, descalificar y el desbloqueo de WhatsApp limpian lo que corresponde', () => {
   const perdido = guardar(FACTURANDO, { estado_lead: 'perdido', motivo_perdida: 'Precio' });
   assert.deepEqual(perdido, { estado_lead: 'perdido', cerro: false, motivo_perdida: 'Precio', monto_cierre_usd: null, fecha_cierre: null });
-  // app/api/whatsapp/contacts/[id]/block/route.ts: reabre al bloqueado.
+  // El desbloqueo de WhatsApp reabre al bloqueado (lo hacía app/api/whatsapp/contacts/[id]/block,
+  // que se fue con Chatwoot el 09/10/2026; el caso sigue valiendo para cualquier desbloqueo).
   const bloqueado: Desenlace = { estado_lead: 'descalificado', cerro: false, motivo_perdida: 'Bloqueado en WhatsApp', monto_cierre_usd: null, fecha_cierre: null };
   assert.deepEqual(guardar(bloqueado, { estado_lead: 'abierto', motivo_perdida: null }), {
     estado_lead: 'abierto', cerro: null, motivo_perdida: null, monto_cierre_usd: null, fecha_cierre: null,

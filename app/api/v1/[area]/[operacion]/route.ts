@@ -20,7 +20,7 @@ import { manejarOperacion, type Metodo } from '@/lib/api-mako/rutas-http';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-// Hay lecturas que salen a Meta, Chatwoot, Calendly o Fathom, análisis que invocan un
+// Hay lecturas que salen a Meta, Calendly o Fathom, análisis que invocan un
 // modelo y escrituras directas que corren su `ejecutar()`. 60 s, el techo de la casa para
 // lo que no es un cron.
 export const maxDuration = 60;

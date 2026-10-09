@@ -1,29 +1,25 @@
 'use client';
 
 // =============================================================================
-// PanelBorradores — la cola de borradores, en los DOS inboxes de WhatsApp
+// PanelBorradores — la cola de borradores del WhatsApp
 // =============================================================================
-// Vivía inline en EmpresaInbox, o sea SOLO en el inbox del número de empresa, que
-// no se dibuja sin Evolution conectado: en un workspace del canal oficial el
-// borrador se redactaba y no había dónde verlo ni por dónde mandarlo. Acá está
-// una vez y lo montan los dos inboxes (el oficial y el de empresa).
+// Lo monta la bandeja del número de empresa (EmpresaInbox). Hasta el 09/10/2026 lo
+// montaba también la bandeja oficial (Chatwoot), que se borró con la integración.
 //
-// EL BOTÓN DE ENVIAR SE DIBUJA SOLO SI HAY POR DÓNDE. El canal y la ventana de
-// 24 h de Meta las decide el SERVIDOR (`?camino=1` → lib/borrador-oficial.ts):
-// fuera de la ventana, Meta solo acepta plantillas aprobadas, así que un botón
-// que manda texto libre a las 25 horas falla del lado de Meta y se lee como que
-// la app está rota. Cuando no se puede, en lugar del botón va el motivo en una
+// EL BOTÓN DE ENVIAR SE DIBUJA SOLO SI HAY POR DÓNDE. Lo decide el SERVIDOR
+// (`?camino=1` → lib/borrador-camino.ts): un borrador cuyo número está desconectado
+// o ya no está vinculado no tiene por dónde salir, y un botón que falla se lee como
+// que la app está rota. Cuando no se puede, en lugar del botón va el motivo en una
 // frase, y «Descartar» sigue disponible.
 //
-// El POST vuelve a verificar: entre el dibujo y el clic la ventana se cierra
-// sola con el reloj, así que este gate es para no ofrecer lo imposible, nunca
-// la única guarda.
+// El POST vuelve a verificar: entre el dibujo y el clic el número se puede caer,
+// así que este gate es para no ofrecer lo imposible, nunca la única guarda.
 // =============================================================================
 
 import { useCallback, useEffect, useState } from 'react';
 import { IconDraft } from './composer-icons';
 
-type Camino = { via: 'empresa' | 'oficial' | null; motivo: string | null; venceAt: number | null };
+type Camino = { via: 'empresa' | null; motivo: string | null };
 type BorradorEnCola = {
   id: number; leadId: number | null; telefono: string; texto: string; origen: string;
   leadNombre: string | null; createdAt: string;
@@ -59,9 +55,9 @@ export function PanelBorradores({ onEnviado }: { onEnviado?: () => void | Promis
   const [err, setErr] = useState<string | null>(null);
 
   // La CINTA sólo necesita cuántos hay: eso es una lectura de nuestra DB. El
-  // CAMINO se pide aparte (`?camino=1`) porque sin el no oficial vivo cuesta una
-  // lectura paginada de la bandeja de Chatwoot, y pagarla cada 20 s para una
-  // cinta que dice un número sería gratis para nadie.
+  // CAMINO se pide aparte (`?camino=1`), al abrir el panel: cuesta una lectura de
+  // las líneas del negocio, y pagarla cada 20 s para una cinta que dice un número
+  // no le sirve a nadie.
   const cargar = useCallback(async (conCamino: boolean) => {
     const j = await jget<{ ok: boolean; borradores: BorradorEnCola[] }>(conCamino ? `${RUTA}?camino=1` : RUTA);
     if (j.ok) setBorradores(j.borradores);
@@ -116,7 +112,6 @@ export function PanelBorradores({ onEnviado }: { onEnviado?: () => void | Promis
                     </div>
                     {(b.audioId || b.adjuntoId) && <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dim)', marginBottom: '4px' }}>{b.audioId ? '🎙 Nota de voz' : '📎 Archivo'}</div>}
                     {b.texto && <div style={{ fontSize: '13.5px', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginBottom: '10px' }}>{b.texto}</div>}
-                    {via === 'oficial' && <div style={{ fontSize: '11.5px', color: 'var(--dim)', marginBottom: '8px' }}>Sale por tu WhatsApp oficial.</div>}
                     {via === null && <div style={{ fontSize: '11.5px', color: 'var(--warn)', marginBottom: '8px', lineHeight: 1.45 }}>{b.camino?.motivo ?? 'No hay por dónde mandarlo.'}</div>}
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                       <button onClick={() => void accion(b.id, 'descartar')} disabled={busy === b.id} style={{ padding: '7px 14px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Descartar</button>

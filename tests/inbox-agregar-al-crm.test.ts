@@ -4,8 +4,12 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { destinoDelAlta, nombreVisible, pideProducto, productosParaAlta } from '../lib/lead-funnel-reglas';
 
 // =============================================================================
-// Las DOS bandejas suben el contacto al CRM, y el duplicado vuelve como DATO
+// La bandeja sube el contacto al CRM, y el duplicado vuelve como DATO
 // =============================================================================
+// ⛔ Hasta el 09/10/2026 eran DOS bandejas: la OFICIAL (Chatwoot, en WhatsAppApp.tsx) se borró
+// con toda la integración (tests/sin-chatwoot.test.ts). Queda la NO OFICIAL; la lista de abajo
+// sigue siendo una lista para que una bandeja nueva entre al mismo guard.
+//
 // #830 era «allá funciona y acá no»: el alta desde una conversación existía desde el #381
 // en la bandeja OFICIAL (Chatwoot) y no en la NO OFICIAL (Evolution) — que es la que quedó
 // por default el 05/10/2026 y la que usa el chatbot. Para un contacto que escribió por
@@ -46,7 +50,6 @@ const sinComentarios = (src: string) => src
 /** Cada bandeja, con el nombre con el que se la reporta. */
 const BANDEJAS = [
   { quien: 'la bandeja NO OFICIAL (Evolution)', archivo: 'app/whatsapp/EmpresaInbox.tsx' },
-  { quien: 'la bandeja OFICIAL (Chatwoot)', archivo: 'app/whatsapp/WhatsAppApp.tsx' },
 ];
 
 for (const b of BANDEJAS) {
@@ -94,9 +97,9 @@ test('los DOS montajes de la bandeja le pasan los productos (page.tsx y el cierr
       assert.match(m[0], /\bproductos=\{productos\}/, `${f}: <${m[1]}> se monta sin los productos del alta`);
     }
   }
-  // page.tsx: 1 del wizard + 1 de la bandeja · el wizard: 1 · WhatsAppApp: 1 de EmpresaInbox. Eran 5
-  // hasta c09e16ad (09/10/2026): sin canal vivo, page.tsx ya no cae al wizard sino a la bandeja con
-  // su QR, y ese segundo montaje del wizard se fue a propósito.
+  // page.tsx: 1 del wizard + 1 de la bandeja · el wizard: 1 · WhatsAppApp: 1 de EmpresaInbox.
+  // (Eran 5: page.tsx tenía un segundo montaje del wizard para cuando no había canal vivo —
+  // c09e16ad lo pasó a la bandeja con su QR— y el canal oficial se fue con Chatwoot el 09/10/2026.)
   assert.equal(montajes, 4, `encontré ${montajes} montajes: el barrido no está mirando lo que debe`);
   // Y page.tsx los lee con `leerFunnels` (null = falló), no con `listarFunnels` ([] = falló).
   const page = sinComentarios(leer('app/whatsapp/page.tsx'));
@@ -234,10 +237,10 @@ test('la bandeja no oficial le pone el lead a la conversación en el acto', () =
 });
 
 // ── Probado rompiéndolo (08/10/2026) ─────────────────────────────────────────
-// El archivo entero da 14 / 0. Doce roturas, cada una restaurada de memoria; las doce dan
-// 13 pasan / 1 falla y la que cae es la que corresponde:
+// El archivo entero daba 14 / 0 (13 desde el 09/10/2026: la bandeja oficial se fue con Chatwoot).
+// Doce roturas, cada una restaurada de memoria; las doce dieron 13 pasan / 1 falla y la que cae
+// es la que corresponde (la de la oficial ya no existe):
 //   · EmpresaInbox llama a la action sin `funnelId`              -> «la bandeja NO OFICIAL…»
-//   · la oficial vuelve a un <button> propio                      -> «la bandeja OFICIAL…»
 //   · createLead sin `funnel_id: destino.casa`                    -> «el alta RECIBE el producto…»
 //   · la action valida con `listarFunnels` en vez de `leerFunnels` -> «el alta RECIBE el producto…»
 //   · se saca el `agregarAProducto` de la persona que ya estaba   -> «el alta RECIBE el producto…»

@@ -1,7 +1,7 @@
 // =============================================================================
 // Cliente de Resend — envío de email (Email Marketing)
 // =============================================================================
-// Patrón de integración HTTP igual que lib/chatwoot.ts / lib/meta-capi.ts:
+// Patrón de integración HTTP igual que lib/meta-capi.ts:
 //   • valida la config sin lanzar (devuelve {ok:false}), no rompe el cron;
 //   • el ENVÍO REAL queda detrás del flag EMAIL_SEND_ENABLED (el caller decide
 //     si llamar a sendEmail o registrar 'simulado'), igual que WhatsApp.

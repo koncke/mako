@@ -4,9 +4,12 @@
 // TelefonosPanel — números del workspace desde los que se contacta a los leads
 // =============================================================================
 // Una empresa puede tener varios números. Cada uno con su etiqueta, su fuente
-// (Chatwoot / API WhatsApp / personal) y los setters que lo atienden. MaKo
-// sugiere la fuente: si hay Chatwoot conectado, el número nuevo arranca en
-// "Chatwoot"; si no, en "Número personal".
+// (API WhatsApp / personal) y los setters que lo atienden. El número nuevo arranca
+// en "Número personal".
+//
+// ⛔ «Chatwoot» ya no se ofrece como fuente (la integración se borró el 09/10/2026), pero
+// una fila guardada con esa fuente la sigue mostrando, y su editor la conserva entre las
+// opciones: un desplegable cuyo valor no está en la lista lo pisa con el primero al tocarlo.
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '@/app/components/Dropdown';
@@ -20,12 +23,16 @@ const input: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius
 const primaryBtn: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 const ghostBtn: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
 
+/** Las que se pueden ELEGIR. */
 const FUENTES: Array<{ value: FuenteTelefono; label: string }> = [
-  { value: 'chatwoot', label: 'Chatwoot' },
   { value: 'whatsapp_api', label: 'API WhatsApp (no oficial)' },
   { value: 'personal', label: 'Número personal' },
 ];
-const fuenteLabel = (f: FuenteTelefono) => FUENTES.find((x) => x.value === f)?.label ?? f;
+/** La que sólo se MUESTRA: filas guardadas antes de que se borrara Chatwoot. */
+const FUENTE_RETIRADA = { value: 'chatwoot' as FuenteTelefono, label: 'Chatwoot (retirado)' };
+const fuenteLabel = (f: FuenteTelefono) => [...FUENTES, FUENTE_RETIRADA].find((x) => x.value === f)?.label ?? f;
+/** Las opciones del editor: las elegibles y, si el número ya la tiene, la retirada. */
+const opcionesFuente = (actual: FuenteTelefono) => (actual === FUENTE_RETIRADA.value ? [...FUENTES, FUENTE_RETIRADA] : FUENTES);
 const fuenteTone: Record<FuenteTelefono, { bg: string; fg: string }> = {
   chatwoot: { bg: 'var(--good-bg)', fg: 'var(--good)' },
   whatsapp_api: { bg: 'var(--warn-bg)', fg: 'var(--warn)' },
@@ -40,10 +47,10 @@ export function TelefonosPanel() {
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState<WsTelefono | null>(null);
 
-  const cargar = () => { getTelefonosAction().then(setData).catch(() => setData({ telefonos: [], chatwootConectado: false, equipo: [] })); };
+  const cargar = () => { getTelefonosAction().then(setData).catch(() => setData({ telefonos: [], equipo: [] })); };
   useEffect(() => { cargar(); }, []);
 
-  const nuevo = () => setDraft({ numero: '', etiqueta: '', fuente: data?.chatwootConectado ? 'chatwoot' : 'personal', setters: [] });
+  const nuevo = () => setDraft({ numero: '', etiqueta: '', fuente: 'personal', setters: [] });
   const editar = (t: WsTelefono) => setDraft({ id: t.id, numero: t.numero, etiqueta: t.etiqueta ?? '', fuente: t.fuente, setters: t.setters });
 
   const guardar = async () => {
@@ -115,7 +122,7 @@ export function TelefonosPanel() {
                     ariaLabel="Fuente del número"
                     width="100%"
                     onChange={(v) => { if (v) setDraft({ ...draft, fuente: v as FuenteTelefono }); }}
-                    columns={[[{ title: 'Cómo está conectado', options: FUENTES.map((f) => ({ value: f.value, label: f.label })) }]]}
+                    columns={[[{ title: 'Cómo está conectado', options: opcionesFuente(draft.fuente).map((f) => ({ value: f.value, label: f.label })) }]]}
                   />
                 </div>
               </div>

@@ -769,7 +769,7 @@ https://hola-mako.com/plan — MaKo`,
   {
     id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp entrante (al dueño)', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'parcial',
-    disparador: 'Webhook Chatwoot: mensaje entrante (detectar por dirección).',
+    disparador: 'Un lead contesta por el WhatsApp del negocio y nadie le respondió todavía.',
     ejemplo: `💬 *Mensaje nuevo* de Carla (+52 686 399…): "Hola, ¿sigue disponible la promo?". Lleva 12 min sin respuesta. — MaKo`,
   },
   {
@@ -803,7 +803,7 @@ https://hola-mako.com/plan — MaKo`,
   {
     id: 'wa-sin-responder', titulo: 'Conversaciones sin responder hace X horas', categoria: 'accion',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'no',
-    disparador: 'Chatwoot: conversaciones con último entrante sin respuesta > umbral.',
+    disparador: 'Conversaciones con último entrante sin respuesta > umbral.',
     ejemplo: `🟡 *3 conversaciones sin responder* hace más de 2 horas. La más caliente: Juan, que preguntó precio. Cada hora que pasa baja la chance de cierre.\n\n¿Te dejo borradores de respuesta para que apruebes? — MaKo`,
   },
   {

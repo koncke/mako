@@ -12,7 +12,6 @@
 import type { NextRequest } from 'next/server';
 import { recomendarMensajes, chatAdvisor, redactarTemplate, type WaMsg, type AdvisorLead } from '@/lib/whatsapp-advisor';
 import { listSessions, createSession, getSessionMessages, appendMessage } from '@/lib/chart-chats';
-import { integracionConectada } from '@/lib/credenciales';
 import { getInstanciaRow } from '@/lib/evolution';
 
 export const dynamic = 'force-dynamic';
@@ -63,14 +62,11 @@ async function sesionDeContacto(groupId: string, contacto: string, crear: boolea
 }
 
 export async function POST(req: NextRequest) {
-  // El asesor sirve para AMBOS canales: WhatsApp oficial (Chatwoot/Meta) o el no
-  // oficial (Evolution). Permitimos si cualquiera de los dos está conectado — un
-  // workspace con solo Evolution también debe poder pedirle a MaKo qué escribir.
-  if (!(await integracionConectada('whatsapp'))) {
-    const inst = await getInstanciaRow().catch(() => null);
-    if (inst?.estado !== 'conectado') {
-      return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conecta el número oficial o el no oficial en la tab WhatsApp.' }, { status: 403 });
-    }
+  // El asesor sirve con el número de empresa (Evolution) conectado. (Hasta el 09/10/2026
+  // también con el WhatsApp oficial, Chatwoot, que se borró con toda la integración.)
+  const inst = await getInstanciaRow().catch(() => null);
+  if (inst?.estado !== 'conectado') {
+    return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conecta tu número en la tab WhatsApp.' }, { status: 403 });
   }
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }

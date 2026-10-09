@@ -47,8 +47,8 @@ const SOLO_ADMIN = ['/admin', '/api/admin', '/metodo', '/api/metodo'];
 //                     DEPLOY (*.vercel.app), nunca contra el dominio. Sacarla
 //                     apaga los 14 crons. No es deuda: es cómo funciona Vercel.
 //   · /api/webhooks — Se puede sacar cuando TODOS los webhooks estén
-//                     re-registrados en el dominio actual (Chatwoot, las 4
-//                     instancias de Evolution, Calendly, Fathom, Meta, Resend).
+//                     re-registrados en el dominio actual (las instancias de
+//                     Evolution, Calendly, Fathom, Meta, Resend).
 //                     Sacarla antes silencia WhatsApp y el alta de leads: el 410
 //                     es definitivo, no hay reintento que lo salve.
 //   · /api/track    — La landing NO es un webhook re-registrable por API: es HTML

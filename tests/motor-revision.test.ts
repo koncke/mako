@@ -325,17 +325,6 @@ test('(12) elegir un disparador sin producto NO borra el producto de la secuenci
 });
 
 // ── (13) El borrador con audio o archivo ───────────────────────────────────────
-
-test('(13) un borrador con nota de voz o archivo no tiene camino OFICIAL (mandaría sólo el pie)', () => {
-  const lib = sinComentarios(leer('../lib/borrador-oficial.ts'));
-  const caminos = lib.slice(lib.indexOf('export async function caminosDeEnvio('), lib.indexOf('\n}', lib.indexOf('export async function caminosDeEnvio(')));
-  const iSin = caminos.indexOf('const sinOficial = sinCaminoOficial(b);');
-  assert.ok(iSin > 0 && iSin < caminos.indexOf('else sinLinea.push(b);'), 'el audio cae al oficial cuando la línea está caída');
-  const oficial = lib.slice(lib.indexOf('async function mandarPorOficial('), lib.indexOf('\n}', lib.indexOf('async function mandarPorOficial(')));
-  assert.ok(oficial.indexOf('sinCaminoOficial(') > 0 && oficial.indexOf('sinCaminoOficial(') < oficial.indexOf('sendToContact('), 'la segunda red manda el pie solo');
-  assert.match(lib, /select\('id, telefono, texto, estado, instance_name, audio_id, adjunto_id'\)/);
-  assert.match(lib, /if \(Number\(b\.audioId\) > 0\) return AUDIO_SOLO_EMPRESA;/);
-  assert.match(lib, /if \(Number\(b\.adjuntoId\) > 0\) return ARCHIVO_SOLO_EMPRESA;/);
-  const ruta = leer('../app/api/whatsapp/evolution/borradores/route.ts');
-  assert.match(ruta, /caminosDeEnvio\(borradores\.map\(\(b\) => \(\{ id: b\.id, telefono: b\.telefono, linea: b\.linea, audioId: b\.audioId, adjuntoId: b\.adjuntoId \}\)\)\)/);
-});
+// «Un borrador con nota de voz o archivo no tiene camino OFICIAL» se fue el 09/10/2026 con
+// Chatwoot: el camino oficial ya no existe, y el audio y el archivo salen por el número de
+// empresa (lib/borrador-camino.ts, tests/borrador-camino.test.ts).

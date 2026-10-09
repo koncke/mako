@@ -4,16 +4,17 @@
 // Estrategia: en vez de mandar cada reporte como plantilla (Meta prohíbe saltos
 // de línea en los parámetros y limita el largo), mandamos UNA plantilla-apertura
 // a la mañana con un botón "Recibir reporte". Al tocarlo, Mauricio abre la
-// ventana de servicio de 24h y a partir de ahí los reportes salen como TEXTO
-// LIBRE (multilínea, sin límite práctico) vía Chatwoot (ver lib/notify.ts).
+// ventana de servicio de 24h y a partir de ahí los reportes salían como TEXTO
+// LIBRE (multilínea, sin límite práctico) vía Chatwoot.
 //
-// La plantilla se crea + se manda a aprobar a Meta desde /perfil (tab
-// Notificaciones) o automáticamente en el cron diario si todavía no existe.
+// ⛔ Desde el 09/10/2026 no hay apertura ni texto libre: los dos salían por el WhatsApp
+// OFICIAL (Chatwoot), que se borró con toda la integración (ver lib/notify.ts). Lo que queda
+// —el estado de la plantilla y mandarla a aprobar— lo leen /api/perfil/plantilla y el área
+// `equipo` de la API de MaKo, y se va con las plantillas de Meta en la segunda tanda.
 // =============================================================================
 
 import 'server-only';
 import { listMetaTemplates, upsertDraft, enviarBorradorAMeta, listDrafts, type TemplateDraft } from './meta-templates';
-import { sendWhatsappTemplate } from './chatwoot';
 
 export const PLANTILLA_REPORTE_NOMBRE = 'reporte_mako';
 export const PLANTILLA_REPORTE_IDIOMA = 'es_MX';
@@ -67,22 +68,4 @@ export async function asegurarPlantillaReporte(): Promise<{ ok: boolean; estado:
   const r = await enviarBorradorAMeta(draft.id);
   if (!r.ok) return { ok: false, estado: est.estado, error: r.error };
   return { ok: true, estado: 'pending' };
-}
-
-// Manda la plantilla-apertura al WhatsApp de Mauricio (abre la ventana al tocar el
-// botón). Requiere plantilla aprobada en Meta.
-export async function enviarAperturaDiaria(perfil: { nombre: string; telefono: string }): Promise<{ ok: boolean; error?: string }> {
-  if (!perfil.telefono) return { ok: false, error: 'sin teléfono en el perfil' };
-  const r = await sendWhatsappTemplate({
-    phone: perfil.telefono,
-    name: perfil.nombre,
-    content: 'Tu resumen del día está listo — toca "Recibir reporte".',
-    template: {
-      name: PLANTILLA_REPORTE_NOMBRE,
-      category: 'utility',
-      language: PLANTILLA_REPORTE_IDIOMA,
-      bodyParams: { nombre: primerNombre(perfil.nombre) },
-    },
-  });
-  return r.ok ? { ok: true } : { ok: false, error: r.error };
 }

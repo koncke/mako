@@ -21,8 +21,9 @@ export const KEY_FALLOS_RUTEO = 'webhooks.fallos_ruteo';
 export const TOPE_FALLOS_RUTEO = 30;
 
 /** `landing`: el formulario de una landing (`/api/track/optin`), que tampoco se reintenta. */
-export type ServicioRuteo = 'calcom' | 'chatwoot' | 'fathom' | 'meta' | 'landing';
-const SERVICIOS: ReadonlySet<string> = new Set(['calcom', 'chatwoot', 'fathom', 'meta', 'landing']);
+// ('chatwoot' salió el 09/10/2026 con la integración: una huella vieja con ese servicio se descarta al leerla.)
+export type ServicioRuteo = 'calcom' | 'fathom' | 'meta' | 'landing';
+const SERVICIOS: ReadonlySet<string> = new Set(['calcom', 'fathom', 'meta', 'landing']);
 
 export type FalloRuteo = {
   cuando: string;

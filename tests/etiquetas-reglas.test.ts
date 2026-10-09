@@ -1,7 +1,7 @@
 // =============================================================================
 // Las reglas de las etiquetas del CRM que se deciden sin base (lib/etiquetas-reglas.ts)
 // =============================================================================
-// El nombre y su clave de unicidad (la misma que el índice de la mig 0224), el slug de Chatwoot,
+// El nombre y su clave de unicidad (la misma que el índice de la mig 0224),
 // las listas del sistema de WhatsApp que NO son etiquetas, la sincronización del catálogo del
 // celular que NO pisa nombres, quién apunta a una etiqueta dentro de una secuencia, y el
 // segmento de email `etiqueta:<id>`.
@@ -31,11 +31,13 @@
 //  13. … sin ver las salidas (un lead que dejó el producto) → 2 fallos;
 //  14. `leerFotoEspejo` aceptando una foto de otra versión → 1 fallo;
 //  15. `consecuenciaDeArchivar` con la frase vieja («la usan…») → 1 fallo.
+//
+// (Desde el 09/10/2026 son 13 tests: el del slug de Chatwoot se fue con la integración.)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  limpiarNombreEtiqueta, claveNombre, colorValido, slugChatwoot, esListaDelSistema, catalogoCelular,
+  limpiarNombreEtiqueta, claveNombre, colorValido, esListaDelSistema, catalogoCelular,
   planSincronizarCatalogo, usoEnPasos, etiquetaDeSegmento, TOPE_NOMBRE_ETIQUETA,
   autorPublico, traducirEtiquetasEnSecuencia, consecuenciaDeArchivar, planEspejo, leerFotoEspejo,
   type FotoEspejo,
@@ -53,12 +55,7 @@ test('el nombre se limpia y su clave es la del índice único (mayúsculas y bor
   assert.equal(colorValido('rojo'), null);
 });
 
-test('el slug de Chatwoot: minúsculas, sin acentos ni espacios, y nunca vacío', () => {
-  assert.equal(slugChatwoot('Seguimiento semanal', 1), 'seguimiento_semanal');
-  assert.equal(slugChatwoot('Hablar en cámara 📷', 2), 'hablar_en_camara');
-  assert.equal(slugChatwoot('Lac interés', 3), 'lac_interes');
-  assert.equal(slugChatwoot('📷📷', 7), 'etiqueta_7');
-});
+// (El test del slug de Chatwoot se fue el 09/10/2026 con la integración: `slugChatwoot` ya no existe.)
 
 test('las listas del sistema (Favoritos, Grupos, No leídos) no son etiquetas, con o sin U+200E', () => {
   for (const n of ['Favoritos', '\u200EGrupos', '\u200ENo leídos', 'No leidos', 'Unread', 'favorites']) {

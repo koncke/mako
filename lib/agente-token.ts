@@ -16,7 +16,7 @@
 // apriete "aplicar".
 //
 // El mapeo token → workspace vive en webhook_routing('agente', <hash del token>, ws), el
-// mismo índice de plataforma que ya usan Meta/Chatwoot/Calendly/Fathom/landing.
+// mismo índice de plataforma que ya usan Meta/Calendly/Fathom/landing.
 //
 // ⚠️ DESDE EL 09/10/2026 EL TOKEN NO SE GUARDA EN CLARO (decisión de Martín): en el setting
 // va su hash y una pista, y en el índice su hash. Se muestra UNA vez, en la respuesta de

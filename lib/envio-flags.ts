@@ -53,7 +53,7 @@ export function envioEmailHabilitado(): Promise<boolean> {
   return flag(KEY_ENVIO_EMAIL, process.env.EMAIL_SEND_ENABLED);
 }
 
-/** ¿Este workspace tiene habilitado el envío REAL de WhatsApp (Chatwoot)? */
+/** ¿Este workspace tiene habilitado el envío REAL de WhatsApp? */
 export function envioWhatsappHabilitado(): Promise<boolean> {
   return flag(KEY_ENVIO_WHATSAPP, process.env.NUTRICION_SEND_ENABLED);
 }

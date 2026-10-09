@@ -6,8 +6,8 @@
 //
 // ⚠️ POR QUÉ NO VA ADENTRO DEL REPORTE DIARIO, que era lo primero que uno piensa. Son tres
 // sistemas distintos y confundirlos rompe las tres cosas:
-//   · CANAL — los avisos salen por Evolution al grupo «MaKo <> cliente»; el reporte sale
-//     por Chatwoot/WABA a un TELÉFONO y sólo dentro de la ventana de 24 h.
+//   · CANAL — los avisos salen por Evolution al grupo «MaKo <> cliente»; el reporte salía
+//     por Chatwoot/WABA a un TELÉFONO (hasta el 09/10/2026, cuando se borró Chatwoot).
 //   · DESTINO — grupo vs. `notif_telefonos`.
 //   · INQUILINO — `/api/cron/reporte-diario` lee las preferencias SIN `runWithWorkspace`,
 //     así que hoy corre sólo para el ws1. Un resumen ahí adentro no lo recibiría ningún

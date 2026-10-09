@@ -2,7 +2,7 @@
 
 // =============================================================================
 // Transcodificación de audio en el cliente → MP3 (audio/mpeg).
-// En este Chatwoot/WABA el ÚNICO formato de audio que Meta ENTREGA es audio/mpeg
+// En el WhatsApp oficial (Chatwoot/WABA, borrado el 09/10/2026) el ÚNICO formato de audio que Meta ENTREGABA era audio/mpeg
 // (verificado en producción: ogg/opus y m4a dan 131053 "Media upload error", el
 // MP3 se entrega). Decodificamos el webm/opus de MediaRecorder con Web Audio y
 // re-encodeamos con lamejs (JS puro, sin WASM). Import perezoso (solo al enviar).

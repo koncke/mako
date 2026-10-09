@@ -2,8 +2,8 @@
 // metodo-verificar — "Probar conexión" de una integración (lógica compartida)
 // =============================================================================
 // Hace el request MÁS BARATO que valida las credenciales de un servicio (el
-// estilo exacto de auth de cada lib del repo: Meta por query param, Chatwoot
-// con header api_access_token, Panda sin prefijo Bearer, etc.). Los valores
+// estilo exacto de auth de cada lib del repo: Meta por query param, Panda sin
+// prefijo Bearer, etc.). Los valores
 // enviados pisan a los guardados/env, así se puede probar ANTES de guardar.
 // Timeout 8s por ping. La usan /api/metodo/verificar (super admin) y el wizard
 // de onboarding (/api/onboarding, admin-cliente) — el GUARD lo pone cada ruta.
@@ -13,7 +13,6 @@ import { CALCOM_API, calcomHeaders } from './calcom';
 import { credWs } from './credenciales';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
-import { esCanalWhatsapp } from './chatwoot-canales';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 
 type Valores = Record<string, string>;
@@ -132,27 +131,6 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
         : `Cuenta "${String(body.name ?? cuenta)}" encontrada.`,
       facts,
     };
-  },
-
-  async whatsapp(v) {
-    const base = v.CHATWOOT_BASE_URL.replace(/\/$/, '');
-    const { status, body } = await fetchJson(`${base}/api/v1/accounts/${v.CHATWOOT_ACCOUNT_ID}/inboxes`, {
-      headers: { api_access_token: v.CHATWOOT_API_TOKEN, 'Content-Type': 'application/json' },
-    });
-    if (status === 401) return { ok: false, error: 'Access token inválido.' };
-    if (status === 404) return { ok: false, error: 'Cuenta no encontrada — revisa la URL base y el ID de cuenta.' };
-    if (status >= 400) return { ok: false, error: `Chatwoot respondió ${status}.` };
-    const inboxes = (body.payload as Array<{ name?: string; channel_type?: string; phone_number?: string }> | undefined) ?? [];
-    // El de WhatsApp es el que importa: es el que va a espejar los chats.
-    // Chatwoot devuelve el nombre de la clase Ruby — 'Channel::Whatsapp', con W
-    // mayúscula—, así que el `.includes('whatsapp')` que había acá NUNCA matcheaba
-    // y se caía a `inboxes[0]`: con un solo inbox eso da la respuesta correcta por
-    // casualidad, y con dos rotula «tu bandeja de WhatsApp» sobre la de Instagram.
-    const wa = inboxes.find((i) => esCanalWhatsapp(i.channel_type)) ?? inboxes[0];
-    const facts: Fact[] = [{ k: 'Bandejas', v: String(inboxes.length) }];
-    if (wa?.name) facts.unshift({ k: 'Tu bandeja de WhatsApp', v: wa.name });
-    if (wa?.phone_number) facts.push({ k: 'Número conectado', v: wa.phone_number });
-    return { ok: true, detalle: `Conectado — ${inboxes.length} bandeja(s) de entrada.`, facts };
   },
 
   async email(v) {

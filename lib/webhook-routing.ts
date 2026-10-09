@@ -1,7 +1,7 @@
 // =============================================================================
 // webhook-routing — índice reverse-map identificador entrante → workspace
 // =============================================================================
-// Los webhooks entrantes (Meta / Chatwoot / Calendly / Fathom) llegan SIN
+// Los webhooks entrantes (Meta / Calendly / Fathom) llegan SIN
 // sesión: la única forma de saber de qué workspace es cada evento es mirar un
 // identificador en claro que trae el payload (page_id, account_id, URI del
 // event type, email que grabó). Esta tabla (webhook_routing, mig 0090) es ese
@@ -30,7 +30,6 @@ export function normalizar(id: string): string {
  * (lib/credenciales.ts).
  */
 export const ROUTING_CREDS: Record<string, string> = {
-  CHATWOOT_ACCOUNT_ID: 'chatwoot',
   FATHOM_HOST_EMAIL: 'fathom',
   CALENDLY_EVENT_TYPE_J1: 'calendly',
   CALENDLY_EVENT_TYPE_J2: 'calendly',
@@ -226,7 +225,6 @@ export async function seedRoutingDelDueno(): Promise<void> {
   const real = (v: string | undefined): v is string => Boolean(v && v.trim() && !v.trim().startsWith('PENDING'));
   const pares: Array<[string, string | undefined]> = [
     ['meta', process.env.META_PAGE_ID],
-    ['chatwoot', process.env.CHATWOOT_ACCOUNT_ID],
     ['calendly', process.env.CALENDLY_EVENT_TYPE_J1],
     ['calendly', process.env.CALENDLY_EVENT_TYPE_J2],
     ['fathom', process.env.FATHOM_HOST_EMAIL],

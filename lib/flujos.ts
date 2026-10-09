@@ -2,7 +2,7 @@
 // flujos — runtime del FLUJO (dispara por evento y ejecuta los pasos)
 // =============================================================================
 // dispararEvento(evento, ctx) lo llaman los choke points ya cableados (calendly/
-// fathom/meta-leads/chatwoot), al lado del emitirDelCatalogo existente. Lee los
+// fathom/meta-leads), al lado del emitirDelCatalogo existente. Lee los
 // flujos ACTIVOS, matchea el evento + filtro, y ejecuta los pasos EN ORDEN hasta
 // el primer 'esperar' (los pasos con espera necesitan el cron drenador — pendiente).
 //

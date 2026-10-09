@@ -715,12 +715,12 @@ export async function revertirEstadoNoOficial(ws: number): Promise<void> {
   const { runWithWorkspace } = await import('./workspace');
   const { desmarcarPasoEnTodasLasTabs } = await import('./tab-onboarding-state');
   const { setEnvioWhatsapp } = await import('./envio-flags');
-  const { integracionConectada } = await import('./credenciales');
   await runWithWorkspace(ws, async () => {
     await desmarcarPasoEnTodasLasTabs('wa_no_oficial').catch(() => {});
-    // Si tampoco hay canal oficial no queda por dónde enviar: el flag baja, en
-    // vez de dejar la nutrición marcando "habilitado" contra un canal muerto.
-    try { if (!(await integracionConectada('whatsapp'))) await setEnvioWhatsapp(false); } catch { /* no fatal */ }
+    // Sin el número no queda por dónde enviar: el flag baja, en vez de dejar la nutrición
+    // marcando "habilitado" contra un canal muerto. (Hasta el 09/10/2026 se quedaba prendido
+    // si había canal oficial; Chatwoot se borró con toda la integración.)
+    try { await setEnvioWhatsapp(false); } catch { /* no fatal */ }
   });
 }
 

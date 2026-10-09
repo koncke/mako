@@ -254,7 +254,7 @@ export async function getWorkspaceActual(): Promise<number | null> {
 
 /**
  * true si el request opera sobre el workspace dueño (Mauricio). En Fase 1 las
- * integraciones (Meta/Chatwoot/etc.) son globales del dueño: las vistas EN VIVO
+ * integraciones (Meta/Calendly/etc.) son globales del dueño: las vistas EN VIVO
  * (WhatsApp, insights de Meta) solo se sirven al dueño para no filtrarle sus
  * datos a un cliente nuevo. Las integraciones por-cliente son Fase 2.
  */

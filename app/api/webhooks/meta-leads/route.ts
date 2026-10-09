@@ -22,7 +22,6 @@ import type { NextRequest } from 'next/server';
 import { upsertLeadFromMeta, logLeadEvent } from '@/lib/leads';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { eventIdLeadCrudo } from '@/lib/meta-capi-payload';
-import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
 import { resumenRespuestas } from '@/lib/meta-leads-campos';
 import { emitirDelCatalogo } from '@/lib/avisos';
@@ -300,11 +299,8 @@ export async function POST(request: NextRequest) {
           await logLeadEvent(lead.id, 'Meta', `No entró la conversión Lead: ${capi.detalle}`.slice(0, 300), 'MaKo');
         }
 
-        // Alta del chat: contacto + conversación en Chatwoot para que el 100% de
-        // los leads tenga su hilo de WhatsApp desde el día cero (silencioso).
-        if (created && lead.telefono) {
-          await ensureContactoWhatsapp(lead.nombre, lead.telefono);
-        }
+        // (Hasta el 09/10/2026 acá se le creaba al lead nuevo su contacto y su conversación en
+        // Chatwoot; se fue con la integración.)
 
         // Aviso al dueño del workspace: entró un lead nuevo por formulario de Meta
         // (solo en INSERT, para no re-avisar si Meta reenvía el batch). Best-effort.

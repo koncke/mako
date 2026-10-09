@@ -16,11 +16,10 @@
 // en claro en /integraciones.
 //
 // El mapeo token → workspace vive en webhook_routing('landing', token, ws), el
-// mismo índice de plataforma que ya usan Meta/Chatwoot/Calendly/Fathom. Lo
+// mismo índice de plataforma que ya usan Meta/Calendly/Fathom. Lo
 // espeja setSetting('landing_token') (lib/settings.ts) — es el ÚNICO que se
 // espeja desde ahí, porque lo acuña el server y no puede colisionar. Los
-// identificadores que pega el usuario (page id de Meta, account id de Chatwoot,
-// event types de Calendly) van por guardarCredencial(), que falla cerrado.
+// identificadores que pega el usuario (page id de Meta, event types de Calendly) van por guardarCredencial(), que falla cerrado.
 // =============================================================================
 
 import 'server-only';

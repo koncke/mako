@@ -167,7 +167,7 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Instagram', emoji: '📸', familia: 'producto', que: 'La tab de Instagram del producto: conectar la cuenta, leer DMs, publicar desde la app.' },
   { nombre: 'Onboarding', emoji: '🧳', familia: 'producto', que: 'El arranque de un cliente: el wizard, el Archivero, el funnel y el diagnóstico de fase.' },
   { nombre: 'Contexto de MaKo', emoji: '🧩', familia: 'producto', que: 'Lo que MaKo sabe del negocio: RAG, glosario, prompts y el contexto que le entra a cada respuesta.' },
-  { nombre: 'Integraciones', emoji: '🔌', familia: 'producto', que: 'Conectar servicios de afuera: Meta, Chatwoot, Fathom, Resend, las credenciales y su salud.' },
+  { nombre: 'Integraciones', emoji: '🔌', familia: 'producto', que: 'Conectar servicios de afuera: Meta, Fathom, Resend, las credenciales y su salud.' },
   { nombre: 'Configuraciones y equipo', emoji: '🔑', familia: 'producto', que: 'Cuentas, roles, permisos, perfil y las configuraciones del workspace.' },
   { nombre: 'Admin y clientes', emoji: '🏢', familia: 'producto', que: 'El panel del super-admin: alta de clientes, impersonación, ver el estado de cada workspace.' },
   // Las dos que el relevamiento encontró SIN proyecto: son tabs reales y en uso, así que

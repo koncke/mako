@@ -17,7 +17,7 @@
 // RUTEO (lo que hace multi-tenant a este beacon): `t` es el token público de
 // landing del workspace (mko_ + 32 hex), que el usuario copia de /integraciones
 // → Landing y pega en su landing. webhook_routing('landing', t) → workspace_id,
-// el mismo índice de plataforma que usan los webhooks de Meta/Chatwoot/Calendly.
+// el mismo índice de plataforma que usan los webhooks de Meta/Calendly.
 // TODA escritura va dentro de runWithWorkspace(ws) → los eventos caen en el
 // workspace dueño de esa landing, no en el del dueño de la app.
 //

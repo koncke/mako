@@ -182,9 +182,10 @@ test('todo borrador de una secuencia lleva su línea, y uno con línea nunca cae
   // El borrador del setter (uno por lead, #788) también sale por la línea: la que escribió el lead o la de la secuencia.
   assert.match(nutri, /guardarBorradorSetter\(\{[\s\S]{0,300}?linea,\s*\}\)/);
   assert.match(nutri, /const linea = lineaEntrante \?\? secuencia\.instance_name;/);
-  const bo = sinComentarios(leer('lib/borrador-oficial.ts'));
-  const loop = bloque(bo, 'for (const b of borradores) {\n    if (b.linea) {', '\n  }\n  if (!sinLinea.length)');
-  assert.doesNotMatch(loop.slice(0, loop.indexOf('} else if')), /sinLinea\.push/, 'un borrador que nombra su línea no puede seguir al camino del oficial');
+  // Un borrador que nombra su línea sale por ELLA o no sale (lib/borrador-camino.ts; hasta el
+  // 09/10/2026 se llamaba borrador-oficial.ts y tenía un camino por Chatwoot).
+  const bo = sinComentarios(leer('lib/borrador-camino.ts'));
+  assert.match(bo, /if \(b\.linea\) \{\s*const fila = lineas\?\.find\(\(l\) => l\.instance_name === b\.linea\);/, 'un borrador que nombra su línea no se decide por su línea');
 });
 
 test('la bandeja guarda su caché POR LÍNEA, no cae a otro chat, y el aviso abre la línea por la que entró', () => {
@@ -246,7 +247,9 @@ test('la bandeja filtra por línea en la base, y la pantalla siempre le pasa una
   // (Y desde el 08/10/2026 lleva los productos del «+ Agregar al CRM»: tests/inbox-agregar-al-crm.test.ts.)
   assert.match(app, /<EmpresaInbox key=\{`bandeja-\$\{lineaActiva\?\.linea \?\? 'default'\}`\} puedeChatbot=\{puedeChatbot\} linea=\{lineaActiva\?\.linea \?\? null\} productos=\{productos\} \/>/);
   // Sin la lista —o con la lista caída— la bandeja leería el espejo entero: dos números mezclados.
-  assert.match(app, /canal === 'empresa' && lineasCargadas && !\(lineasError && !lineas\.length\) && !agregando/);
+  // (Hasta el 09/10/2026 la condición arrancaba con `canal === 'empresa' &&`: la otra pestaña era
+  // la bandeja oficial, que se fue con Chatwoot.)
+  assert.match(app, /\{lineasCargadas && !\(lineasError && !lineas\.length\) && !agregando/);
 });
 
 test('las migraciones dicen su orden: la que agrega ANTES del deploy, la que saca DESPUÉS', () => {

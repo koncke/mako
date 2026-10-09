@@ -195,7 +195,7 @@ test('ESPEJO desde la etapa: entrar la pone (sin disparar), salir la saca', asyn
 
 test('LOTE DE ETAPA: el espejo no le pega a WhatsApp lead por lead; al final se sincroniza con UN tope y rastro', async () => {
   // Revisión del 08/10/2026 (etiquetas-4/datos-3): mover 200 leads a una etapa vinculada esperaba
-  // WhatsApp y Chatwoot por cada uno adentro de una action de 60 s.
+  // WhatsApp (y entonces Chatwoot) por cada uno adentro de una action de 60 s.
   const n = negocio({ etapaDe: { 10: 'frio', 11: 'frio', 12: 'frio' } });
   for (const l of [10, 11, 12]) n.filas.add(`${l}:5`);          // los tres tienen «Frío», de su etapa
   const porSincronizar: CambioEtiqueta[] = [];
