@@ -50,10 +50,26 @@
 //     email» en la misma fila): con un canal por vez, un interruptor del otro no tiene sentido.
 //     ↻ vuelve a la prueba sin envío.
 //
+// ── QUINTA TANDA (09/10/2026, punto 1) ────────────────────────────────────────────────
+// Pedido literal: «En "Probar", no elimines el logo de WhatsApp o Email arriba a la izquierda, y pon
+// al lado del botón de "Reiniciar" el botón de "Probar en WhatsApp", y que no esté desplegado el "Tu
+// número", sino que al clickear ese botón salga el desplegable... Y primero el desplegable me debe
+// ofrecer los números que ya tiene guardado, y abajo un botón de "Nuevo número", y que tenga el form
+// que ya tenemos de número, con la característica con las banderas, etc... Esto mismo con Email. Y
+// al darle probar en la automatización de bienvenida, no salió el mensaje que debería salir...».
+//   · EL LOGO DEL CANAL arriba a la izquierda; «Probar en WhatsApp / Email» al lado de ↻ y el destino
+//     en su desplegable (`MenuDestinos`): los guardados de QUIEN PRUEBA y «Nuevo número» con
+//     `TelefonoConPais` (o «Nuevo email»), que se suma a sus guardados (lib/prueba-paso.ts).
+//   · UNA CONDICIÓN LA DECIDE EL MOTOR con un lead RECIÉN LLEGADO (`hechosDeLeadNuevo` +
+//     `elegirComoLead`, lib/simulador-grafo.ts), no siempre el «Sí»: con el «Sí», la Bienvenida
+//     saltaba a otra automatización y no salía ningún mensaje. La espera NO era la causa: ya no espera.
+//   · UN MENSAJE DE VARIAS PARTES (cuarta tanda, punto 15) sale parte por parte, y cada una sale de
+//     verdad una vez (`${nodo}#${k}`). El audio, sin su transcripción.
+//
 // ⚠️ EL TEXTO DE ESTA PIEZA ES CORTO A PROPÓSITO (AGENTS.md, «el texto que se DIBUJA»): una
 // píldora son 1-4 palabras. El porqué de cada cosa vive acá, no en la pantalla.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { Button } from '@/app/_ui';
 import { useTitulosAcciones } from '@/app/_components/EditorAccionMako';
@@ -65,10 +81,16 @@ import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion, SecuenciaDto } fro
 import type { EdicionLocal } from './SecuenciaPerfil';
 import { claseDe, raizRespuesta } from '@/lib/flujo-grafo';
 import {
-  flujoParaProbar, firmaFlujo, iniciar, siguiente, elegir, pausarPorRespuesta, entrarEnRespuesta,
+  flujoParaProbar, firmaFlujo, iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
-  type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba,
+  hechosDeLeadNuevo, leadNuevoDelCron, elegirComoLead, sanearDestinoPrueba,
+  type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados,
 } from '@/lib/simulador-grafo';
+import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
+import { ICONOS_MAS } from '@/lib/flujo-conversacion';
+import { PopoverWA } from '../whatsapp/_shared/ComposerWhatsApp';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
+import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 
 /**
  * El tamaño que pide «Probar»: ancho y bajo (decisión 11 de la segunda tanda). La cuenta vive en
@@ -84,6 +106,8 @@ const API = '/api/chat-agent/simulador';
 const ESCRIBIENDO_MS = 600;
 const ENTRE_MS = 350;
 const PILDORA_MS = 300;
+/** Entre una parte y la siguiente de un mismo mensaje (el motor deja un respiro parecido). */
+const ENTRE_PARTES_MS = 500;
 
 type Adjunto = { id: number; url: string | null; mime: string; nombre: string | null };
 type Turno = { de: 'lead' | 'negocio'; texto: string };
@@ -281,6 +305,76 @@ function CorreoAbierto({ correo, de, remitente, negocio, onVolver }: {
   );
 }
 
+/**
+ * Un destino como se LEE: el teléfono con la lada separada (`+52 2233550684`, como en Notificaciones:
+ * un número de corrido es uno en el que nadie nota que la lada está mal) y el email tal cual.
+ */
+export function destinoLegible(d: string, esEmail: boolean): string {
+  if (esEmail) return d.trim();
+  const { lada, resto } = splitTelefono(d);
+  return resto ? `${lada} ${resto}` : d.trim();
+}
+
+const cajaDestinos: CSSProperties = {
+  width: 300, maxHeight: 360, overflowY: 'auto', padding: 6, background: 'var(--surface)', border: '1px solid var(--border-strong)',
+  borderRadius: 12, boxShadow: '0 12px 34px rgba(18,21,27,.18)', fontFamily: "'Geist', sans-serif", display: 'flex', flexDirection: 'column', gap: 2,
+};
+const filaDestino: CSSProperties = {
+  width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: 'none', borderRadius: 8,
+  background: 'transparent', color: 'var(--ink)', fontSize: 13.5, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+};
+
+/**
+ * El desplegable de «Probar en WhatsApp / Email» (quinta tanda, punto 1): primero los GUARDADOS de
+ * quien prueba (elegir uno prueba ahí), y abajo «Nuevo número» / «Nuevo email», que abre el form de
+ * siempre. Sin estado propio: lo decide el panel. Exportado para el test.
+ *
+ * ⚠️ «NO PUDE LEER» NO ES «NO TIENE» (AGENTS.md): con la lista caída se dice eso, y «Nuevo» sigue.
+ */
+export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onNuevo, onProbarNuevo, error, formTelefono, formEmail, puedeProbarNuevo }: {
+  refCaja?: (el: HTMLDivElement | null) => void;
+  esEmail: boolean;
+  guardados: DestinosGuardados | 'error' | null;
+  onElegir: (d: string) => void;
+  nuevo: boolean;
+  onNuevo: () => void;
+  onProbarNuevo: (e: FormEvent) => void;
+  error: string | null;
+  formTelefono: ReactNode;
+  formEmail: ReactNode;
+  puedeProbarNuevo: boolean;
+}) {
+  const lista = guardados && guardados !== 'error' ? (esEmail ? guardados.emails : guardados.telefonos) : [];
+  return (
+    <div ref={refCaja} role="menu" style={cajaDestinos}>
+      <style>{'.pp-destino:hover{background:var(--surface-2)}'}</style>
+      {guardados === null && <div style={{ padding: '9px 10px', fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>}
+      {guardados === 'error' && <div style={{ padding: '9px 10px', fontSize: 13, color: 'var(--dim)' }}>{esEmail ? 'No pude leer tus emails' : 'No pude leer tus números'}</div>}
+      {lista.map((d) => (
+        <button key={d} type="button" role="menuitem" className="pp-destino" onClick={() => onElegir(d)} style={filaDestino}>
+          <span style={{ flex: 1, minWidth: 0, ...recorte }}>{destinoLegible(d, esEmail)}</span>
+        </button>
+      ))}
+      {Array.isArray(lista) && guardados && guardados !== 'error' && lista.length === 0 && !nuevo && (
+        <div style={{ padding: '9px 10px', fontSize: 13, color: 'var(--faint)' }}>{esEmail ? 'Sin emails guardados' : 'Sin números guardados'}</div>
+      )}
+      <div style={{ borderTop: '1px solid var(--border)', marginTop: 4, paddingTop: 4 }}>
+        {nuevo ? (
+          <form onSubmit={onProbarNuevo} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '6px 4px 4px' }}>
+            {esEmail ? formEmail : formTelefono}
+            {error && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</span>}
+            <Button type="submit" size="sm" disabled={!puedeProbarNuevo}>Probar</Button>
+          </form>
+        ) : (
+          <button type="button" className="pp-destino" onClick={onNuevo} style={{ ...filaDestino, color: 'var(--primary)', fontWeight: 600 }}>
+            ＋ {esEmail ? 'Nuevo email' : 'Nuevo número'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 async function postar(body: Record<string, unknown>): Promise<Record<string, unknown> & { ok?: boolean; error?: string }> {
   try {
     const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -391,17 +485,21 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     return () => { vivo = false; };
   }, [canal]);
 
-  // El destino precargado: el de QUIEN PRUEBA, del canal de este panel (sólo admin, que es el
-  // único que manda). Lo que ya se escribió a mano no se pisa.
+  // LOS DESTINOS GUARDADOS de QUIEN PRUEBA (quinta tanda, punto 1): su teléfono y su email, y los que
+  // guardó con «Nuevo número». Sólo admin, que es el único que manda. «No pude leer» no es «no tiene»:
+  // con la lista caída el desplegable lo dice y «Nuevo número» sigue a mano.
+  const [guardados, setGuardados] = useState<DestinosGuardados | 'error' | null>(null);
   useEffect(() => {
     if (!rolAdmin) return;
     let vivo = true;
-    void fetch(`${API}?destino=1`, { cache: 'no-store' }).then((r) => r.json()).then((j) => {
-      if (!vivo || !j?.ok) return;
-      setDestino((d) => d || String((canal === 'email' ? j.email : j.telefono) ?? ''));
-    }).catch(() => { /* se escribe a mano */ });
+    void fetch(`${API}?destino=1`, { cache: 'no-store', signal: AbortSignal.timeout(20_000) }).then((r) => r.json()).then((j) => {
+      if (!vivo) return;
+      if (!j?.ok) { setGuardados('error'); return; }
+      const lista = (v: unknown, uno: unknown) => (Array.isArray(v) ? v.map(String) : uno ? [String(uno)] : []);
+      setGuardados({ telefonos: lista(j.telefonos, j.telefono), emails: lista(j.emails, j.email) });
+    }).catch(() => { if (vivo) setGuardados('error'); });
     return () => { vivo = false; };
-  }, [rolAdmin, canal]);
+  }, [rolAdmin]);
 
   // Los catálogos de las condiciones (cursos, clases, posts, campañas) para nombrar lo elegido, con la
   // MISMA lectura que el editor y la tarjeta (`useCatalogosCondicion`). Sólo si hay una condición y es admin.
@@ -438,6 +536,18 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const turnoLead = useRef(0);
   /** El «no se reenvía» se dice UNA vez por prueba: en un bucle serían veinte píldoras. */
   const dijoRepetido = useRef(false);
+  /**
+   * Ya salió un mensaje en esta prueba (de cualquier canal): para el motor, desde ahí el lead «ya fue
+   * contactado», y una condición sobre eso se decide con ese dato (`hechosDeLeadNuevo`).
+   */
+  const huboMensaje = useRef(false);
+  /** Quién entra según el CRON de lo que se ve (`leadNuevoDelCron`): su etapa, su etiqueta. */
+  const leadDelCron = useMemo(() => leadNuevoDelCron({
+    trigger_tipo: propia?.trigger_tipo ?? secuencia.trigger_tipo, etapa: secuencia.etapa,
+    funnel_id: secuencia.funnel_id, producto_id: secuencia.producto_id, etiqueta_id: secuencia.etiqueta_id,
+  }), [propia?.trigger_tipo, secuencia.trigger_tipo, secuencia.etapa, secuencia.funnel_id, secuencia.producto_id, secuencia.etiqueta_id]);
+  const leadRef = useRef(leadDelCron);
+  useEffect(() => { leadRef.current = leadDelCron; }, [leadDelCron]);
   const ctx = useRef({ nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id });
   useEffect(() => {
     ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id };
@@ -490,8 +600,42 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     });
   };
 
-  /** Dibuja un mensaje del flujo como le llega al lead, y lo manda si el recorrido es de verdad. */
-  const mostrarPaso = (p: PasoSecuenciaDto, nodo: string, redactado?: string, enRespuesta = false, minuto = 0) => {
+  /**
+   * UNA parte de un mensaje de WhatsApp, como le llega al lead, y su envío de verdad. `clave`: la de
+   * esa parte para `debeSalirDeVerdad` (cada parte sale una vez por prueba, no una por tarjeta).
+   *
+   * ⚠️ El audio SIN la transcripción (cuarta tanda, punto 15: «elimina la transcripción de los audios,
+   * es innecesario»): al lead le llega una nota de voz, no un texto debajo.
+   */
+  const mostrarParte = (parte: ParteMensaje, clave: string, enRespuesta: boolean) => {
+    const c = ctx.current;
+    const ahora = new Date().toISOString();
+    if (parte.tipo === 'audio') {
+      const a = c.audios.find((x) => x.id === parte.audio_id) ?? null;
+      poner(a?.url
+        ? { id: nuevoId('au'), fromMe: false, autor: firma(), tipo: 'audio', mediaUrl: a.url, texto: null, fecha: ahora }
+        : { id: nuevoId('au'), fromMe: false, autor: firma(), texto: '🎙 Sin audio elegido', fecha: ahora });
+      mandarReal({ canal: 'whatsapp', tipo: 'audio', audio_id: parte.audio_id, texto: '' }, clave, enRespuesta);
+      return;
+    }
+    if (parte.tipo === 'media') {
+      const adj = c.adjuntos.find((x) => x.id === parte.media_id) ?? null;
+      const caption = textoDeEjemplo(parte.cuerpo ?? '', c.negocio);
+      // El documento con SU nombre y el caption aparte, como le llega al lead (costuras-8).
+      poner({ id: nuevoId('md'), fromMe: false, autor: firma(), ...burbujaDeArchivo(adj, caption), fecha: ahora });
+      mandarReal({ canal: 'whatsapp', tipo: 'media', media_id: parte.media_id, texto: caption }, clave, enRespuesta);
+      return;
+    }
+    const texto = textoDeEjemplo(parte.cuerpo, c.negocio);
+    poner({ id: nuevoId('tx'), fromMe: false, autor: firma(), texto: texto.trim() || 'Sin escribir', fecha: ahora });
+    if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto }, clave, enRespuesta);
+  };
+
+  /**
+   * Dibuja un mensaje del flujo como le llega al lead, y lo manda si el recorrido es de verdad.
+   * Devuelve cuánto tarda en terminar de aparecer (las partes que vienen después de la primera).
+   */
+  const mostrarPaso = (p: PasoSecuenciaDto, nodo: string, redactado?: string, enRespuesta = false, minuto = 0): number => {
     const c = ctx.current;
     const ahora = new Date().toISOString();
     if (p.canal === 'email') {
@@ -499,32 +643,29 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       const correo = correoDeEjemplo(p, c.negocio);
       ponerCorreo({ id: nuevoId('em'), ...correo, minuto, leido: false });
       mandarReal({ canal: 'email', tipo: 'texto', texto: correo.cuerpo, asunto: correo.asunto, ...(correo.html ? { html: correo.html } : {}) }, nodo, enRespuesta);
-      return;
+      return 0;
     }
-    if (p.tipo === 'audio') {
-      const a = c.audios.find((x) => x.id === p.audio_id) ?? null;
-      poner(a?.url
-        ? { id: nuevoId('au'), fromMe: false, autor: firma(), tipo: 'audio', mediaUrl: a.url, texto: a.transcript ? `🎙 ${a.transcript}` : null, fecha: ahora }
-        : { id: nuevoId('au'), fromMe: false, autor: firma(), texto: '🎙 Sin audio elegido', fecha: ahora });
-      // El pie sale como SEGUNDO mensaje, que es como le llega al lead.
-      const pie = textoDeEjemplo(p.cuerpo, c.negocio).trim();
-      if (pie) poner({ id: nuevoId('pie'), fromMe: false, autor: firma(), texto: pie, fecha: ahora });
-      if (p.audio_id) mandarReal({ canal: 'whatsapp', tipo: 'audio', audio_id: p.audio_id, texto: pie }, nodo, enRespuesta);
-      return;
-    }
-    if (p.tipo === 'media') {
-      const adj = c.adjuntos.find((x) => x.id === p.media_id) ?? null;
-      const caption = textoDeEjemplo(p.cuerpo, c.negocio);
-      // El documento con SU nombre y el caption aparte, como le llega al lead (costuras-8).
-      poner({ id: nuevoId('md'), fromMe: false, autor: firma(), ...burbujaDeArchivo(adj, caption), fecha: ahora });
-      if (p.media_id) mandarReal({ canal: 'whatsapp', tipo: 'media', media_id: p.media_id, texto: caption }, nodo, enRespuesta);
-      return;
+    // ⚠️ VARIOS MENSAJES POR TARJETA (cuarta tanda, punto 15: «un audio primero y luego un link»): cada
+    // parte EN ORDEN, como las manda el motor, con un respiro entre una y otra. `partesDe` lee también
+    // lo de antes: un audio con pie son dos burbujas, el audio y el texto de después. Un «MaKo lo
+    // adapta» es UN texto: va por abajo.
+    if (redactado == null && p.tipo !== 'ia') {
+      const lista = partesDe(p);
+      if (!lista.length) { poner({ id: nuevoId('tx'), fromMe: false, autor: firma(), texto: 'Sin escribir', fecha: ahora }); return 0; }
+      // `luego` corta solo si la prueba se reinicia en el medio (↻, el lead que escribe).
+      lista.forEach((parte, k) => {
+        const clave = lista.length > 1 ? `${nodo}#${k}` : nodo;
+        if (k === 0) mostrarParte(parte, clave, enRespuesta);
+        else luego(k * ENTRE_PARTES_MS, () => mostrarParte(parte, clave, enRespuesta));
+      });
+      return (lista.length - 1) * ENTRE_PARTES_MS;
     }
     const texto = redactado ?? textoDeEjemplo(p.cuerpo, c.negocio);
     // En la salida, un «Lo adapta MaKo» muestra el texto BASE: a cada lead le llega otro.
     const marca = p.tipo === 'ia' && !enRespuesta ? ' · ✦' : '';
     poner({ id: nuevoId('tx'), fromMe: false, autor: `${firma()}${marca}`, texto: texto.trim() || 'Sin escribir', fecha: ahora });
     if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto }, nodo, enRespuesta);
+    return 0;
   };
 
   /** Corre UN evento del flujo y agenda el que sigue. */
@@ -536,6 +677,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       case 'mensaje': {
         const paso = evento.paso as PasoSecuenciaDto;
         const delPaso: CanalProbar = paso.canal === 'email' ? 'email' : 'whatsapp';
+        // Salga por el canal que salga, desde acá el lead «ya fue contactado» (para las condiciones).
+        huboMensaje.current = true;
         // UN CANAL POR VEZ: lo del otro canal ni se dibuja ni sale. El recorrido sigue igual (sus
         // esperas y sus condiciones son del flujo, no del canal).
         if (delPaso !== ctx.current.canal) { luego(0, avanzar); return; }
@@ -561,7 +704,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           });
           return;
         }
-        luego(ESCRIBIENDO_MS, () => { setTyping(null); mostrarPaso(paso, evento.nodo, undefined, evento.enRespuesta); luego(ENTRE_MS, avanzar); });
+        luego(ESCRIBIENDO_MS, () => { setTyping(null); const resto = mostrarPaso(paso, evento.nodo, undefined, evento.enRespuesta); luego(ENTRE_MS + resto, avanzar); });
         return;
       }
       case 'espera':
@@ -571,13 +714,18 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         luego(PILDORA_MS, avanzar);
         return;
       // ⚠️ CUARTA TANDA, PUNTOS 3 Y 17: «elimina los botones de "Tiene WhatsApp" y "Si no", eso no
-      // tiene sentido». Con una condición primera la prueba se quedaba PARADA esperando la rama, y
-      // no salía ningún mensaje («le di a probar y no salieron los mensajes»). Sigue sola por la
-      // primera rama (el «Sí»): se prueba lo que se escribió, no la lógica del lead.
+      // tiene sentido». Con una condición primera la prueba se quedaba PARADA esperando la rama. Sin
+      // botones, la condición se decide sola.
+      // ⚠️ QUINTA TANDA, PUNTO 1: sola, pero NO siempre por el «Sí». Así, la Bienvenida entraba por el
+      // «Sí» de «Agendó», saltaba a otra automatización y no salía ningún mensaje (medido: «Esperar 1 h»
+      // y «↪ Sigue en…», nada más). La decide el MOTOR (`elegirSalida`) con un lead RECIÉN LLEGADO por
+      // este CRON: sin agenda, sin pago, entrado ahora, y lo que esta prueba ya le mandó o le contestó.
       case 'condicion': {
-        const o = evento.opciones[0];
-        if (!o) { sistema('Fin'); setTerminado(true); return; }
-        simRef.current = elegir(simRef.current, o.puerto);
+        const r = elegirComoLead(flujoRef.current, simRef.current, hechosDeLeadNuevo({
+          ...leadRef.current, yaContactado: huboMensaje.current, respondio: turnoLead.current > 0,
+        }));
+        simRef.current = r.estado;
+        if (!r.opcion) { sistema('Fin'); setTerminado(true); return; }
         luego(0, avanzar);
         return;
       }
@@ -598,6 +746,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     enviadosReal.current = new Set();
     turnoLead.current = 0;
     dijoRepetido.current = false;
+    huboMensaje.current = false;
     luego(150, avanzar);
   };
 
@@ -619,11 +768,42 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     arrancarRefs();
   };
 
-  /** «Probar en mi WhatsApp / email»: el mismo recorrido, desde el principio y de verdad. */
-  const probarDeVerdad = (e: FormEvent) => {
-    e.preventDefault();
-    if (!destino.trim()) return;
+  // ── «Probar en WhatsApp / Email» (quinta tanda, punto 1) ─────────────────────────────────────
+  // Un botón al lado de ↻ que abre un desplegable: primero los destinos GUARDADOS de quien prueba y
+  // abajo «Nuevo número» / «Nuevo email», que abre el form de siempre (el teléfono con su bandera,
+  // `TelefonoConPais`). Elegir uno arranca el MISMO recorrido, desde el principio y de verdad.
+  const [menu, setMenu] = useState(false);
+  const [btnProbar, setBtnProbar] = useState<HTMLButtonElement | null>(null);
+  const [cajaMenu, setCajaMenu] = useState<HTMLDivElement | null>(null);
+  const [nuevo, setNuevo] = useState(false);
+  const [lada, setLada] = useState(DIAL_DEFAULT);
+  const [numero, setNumero] = useState('');
+  const [nuevoEmail, setNuevoEmail] = useState('');
+  const [errNuevo, setErrNuevo] = useState<string | null>(null);
+  const cerrarMenu = () => { setMenu(false); setNuevo(false); setErrNuevo(null); };
+
+  /** El mismo recorrido, desde el principio y de verdad, a `d`. */
+  const probarA = (d: string) => {
+    const limpio = d.trim();
+    if (!limpio) return;
+    cerrarMenu();
+    setDestino(limpio);
+    // Antes del primer envío: `ctx` se copia después del render, y el recorrido arranca ahora.
+    ctx.current = { ...ctx.current, destino: limpio };
     reiniciar(true);
+  };
+
+  /** «Nuevo número» / «Nuevo email»: se valida con la regla del server, se guarda y se prueba. */
+  const probarNuevo = (e: FormEvent) => {
+    e.preventDefault();
+    const d = esEmail ? sanearDestinoPrueba({ email: nuevoEmail }).email : sanearDestinoPrueba({ telefono: unirTelefono(lada, numero) }).telefono;
+    if (!d) { setErrNuevo(esEmail ? 'Email inválido' : 'Número incompleto'); return; }
+    // Se suma a los de QUIEN PRUEBA sin esperar: la prueba no depende de que se guarde.
+    void postar({ action: 'guardar-destino', destino: esEmail ? { email: d } : { telefono: d } }).then((j) => {
+      if (j.ok && Array.isArray(j.telefonos) && Array.isArray(j.emails)) setGuardados({ telefonos: j.telefonos.map(String), emails: j.emails.map(String) });
+    });
+    setNumero(''); setNuevoEmail('');
+    probarA(d);
   };
 
   const abrirCorreo = (id: string) => {
@@ -703,23 +883,22 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       {/* LA CABECERA, EN UN RENGLÓN (cuarta tanda, punto 3: «no me gusta que "Probar en mi WhatsApp"
           esté abajo del todo, tiene que estar arriba a la izquierda, en donde hoy está el texto
           "Probar WhatsApp", elimina ese texto. Y que el botón diga "Probar en WhatsApp". Y el botón
-          de "Cerrar" debería estar donde hoy está el botón de "probar"»). A la izquierda, probarlo
-          de verdad con TU número o TU email (sólo el admin manda); a la derecha, «Cambió» y ↻. El
-          «Cerrar» es el «▶ Probar» del chrome (SecuenciaPerfil). */}
+          de "Cerrar" debería estar donde hoy está el botón de "probar"»). Desde la QUINTA tanda
+          (punto 1): a la izquierda el logo del canal; a la derecha «Cambió», «Probar en WhatsApp» (con
+          su desplegable, sólo el admin manda) y ↻. El «Cerrar» es el «▶ Probar» del chrome
+          (SecuenciaPerfil). */}
       <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 0', whiteSpace: 'nowrap' }}>
+        {/* EL LOGO DEL CANAL, arriba a la izquierda (quinta tanda, punto 1: «no elimines el logo de
+            WhatsApp o Email arriba a la izquierda»). Los mismos del ＋ (`ICONOS_MAS`). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={esEmail ? ICONOS_MAS.email : ICONOS_MAS.whatsapp} alt={esEmail ? 'Email' : 'WhatsApp'} width={22} height={22} style={{ flex: 'none', display: 'block' }} />
         <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
-          {rolAdmin && (real ? (
+          {rolAdmin && real && (
             <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--dim)', ...recorte }}>
               <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)', flex: 'none' }} />
-              {esEmail ? 'Llega a tu email' : 'Llega a tu WhatsApp'}
+              Llega a {destinoLegible(destino, esEmail)}
             </div>
-          ) : (
-            <form onSubmit={probarDeVerdad} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input value={destino} onChange={(e) => setDestino(e.target.value)} inputMode={esEmail ? 'email' : 'tel'}
-                aria-label={esEmail ? 'Tu email' : 'Tu WhatsApp'} placeholder={esEmail ? 'Tu email' : 'Tu número'} style={inpReal} />
-              <Button type="submit" size="sm" disabled={!destino.trim()}>{esEmail ? 'Probar en Email' : 'Probar en WhatsApp'}</Button>
-            </form>
-          ))}
+          )}
         </div>
         {cambio && (
           <button type="button" onClick={() => reiniciar()} title="Reiniciar con lo último"
@@ -727,8 +906,32 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             Cambió · ↻
           </button>
         )}
+        {/* «PROBAR EN WHATSAPP» AL LADO DE ↻, y el destino en un DESPLEGABLE que abre el botón (quinta
+            tanda, punto 1: «que no esté desplegado el "Tu número", sino que al clickear ese botón salga
+            el desplegable»). Sólo el admin manda de verdad. */}
+        {rolAdmin && !real && (
+          <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
+            onClick={() => (menu ? cerrarMenu() : setMenu(true))}>{esEmail ? 'Probar en Email' : 'Probar en WhatsApp'}</Button>
+        )}
         <button type="button" onClick={() => reiniciar()} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>
       </div>
+      {menu && rolAdmin && (
+        <PopoverWA ancla={btnProbar} etiqueta={esEmail ? 'Probar en Email' : 'Probar en WhatsApp'} onCerrar={cerrarMenu}>
+          <MenuDestinos
+            refCaja={setCajaMenu} esEmail={esEmail} guardados={guardados} onElegir={probarA}
+            nuevo={nuevo} onNuevo={() => { setNuevo(true); setErrNuevo(null); }} onProbarNuevo={probarNuevo} error={errNuevo}
+            formTelefono={(
+              <TelefonoConPais lada={lada} numero={numero} onLada={setLada} onNumero={(v) => { setNumero(v); setErrNuevo(null); }}
+                inputStyle={inpReal} portalTo={cajaMenu} anchoLada={112} autoFocus />
+            )}
+            formEmail={(
+              <input value={nuevoEmail} onChange={(e) => { setNuevoEmail(e.target.value); setErrNuevo(null); }} type="email" inputMode="email" autoFocus
+                aria-label="Nuevo email" placeholder="nombre@correo.com" style={inpReal} />
+            )}
+            puedeProbarNuevo={esEmail ? !!nuevoEmail.trim() : !!numero.trim()}
+          />
+        </PopoverWA>
+      )}
 
       {/* El cuerpo va en una caja ABSOLUTA: `ChatHilo` se mide con `height: 100%`, y contra un
           alto que sale de `flex: 1` eso es CERO en Safari (AGENTS.md). Con `inset: 0` el alto

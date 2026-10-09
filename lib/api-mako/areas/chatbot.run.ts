@@ -28,6 +28,7 @@ import { logLeadEvent } from '@/lib/leads';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { PREFIJO_FLUJO } from '../canal';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
+import { partesExplicitas, pasosUsanAudio } from '@/lib/mensaje-partes';
 import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio } from '@/lib/setting-secuencias';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import { huecosDeSecuencias, archivarSecuencias } from '@/lib/secuencias-huecos';
@@ -174,6 +175,9 @@ export const RUNNERS: Runners = {
           orden: p.orden, id: idDe(p, i), canal: p.canal, delay_horas: p.delay_horas, ancla: p.ancla ?? null, tipo: p.tipo ?? 'texto',
           audio_id: p.audio_id ?? null, media_id: p.media_id ?? null, requiere: p.requiere ?? null, proveedor: p.canal === 'whatsapp' ? proveedorDelPaso(p) : null,
           asunto: p.asunto, cuerpo: p.cuerpo, variantes: (p.variantes ?? []).length, plantilla_meta: p.template_wa,
+          // VARIOS mensajes seguidos (cuarta tanda, punto 15): `cuerpo`/`audio_id`/`media_id` son el
+          // espejo de la PRIMERA parte; sin esto, quien lee la ficha creía que el paso era sólo eso.
+          ...(partesExplicitas(p) ? { partes: partesExplicitas(p) } : {}),
           revisar: p.revisar ?? null, siguiente: siguienteDe(s.pasos, i),
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),
@@ -796,6 +800,12 @@ export const RUNNERS: Runners = {
         const cambiaTexto = !!previo && e.cuerpo != null && e.cuerpo !== previo.cuerpo;
         if (cambiaTexto) cambiosDeTexto.push(`paso ${i + 1}: «${recorte(previo!.cuerpo)}» → «${recorte(String(e.cuerpo))}»`);
         if (cambiaTexto && (previo!.variantes ?? []).length) avisos.push(`el paso ${i + 1} cambia de texto pero conserva ${previo!.variantes!.length} variantes del texto viejo`);
+        // Un mensaje de VARIAS partes (cuarta tanda, punto 15): por acá se cambia la PRIMERA (los campos
+        // de siempre son su espejo) y las demás se conservan (`partesAlGuardar`). Se dice, para que nadie
+        // crea que reescribió el mensaje entero.
+        if (previo && partesExplicitas(previo) && (cambiaTexto || e.tipo != null || e.audio_id != null || e.media_id != null)) {
+          avisos.push(`el paso ${i + 1} son ${partesExplicitas(previo)!.length} mensajes seguidos: por aquí cambia sólo el primero, el resto se edita en el lienzo de /chatbot`);
+        }
         // El motor manda sendWhatsappTemplate con template.name: Meta entrega el texto APROBADO, no el cuerpo.
         // No se pone template_wa en null: plantillaDesdePaso (lib/nutricion-plantillas.ts) es idempotente por
         // nombre y volvería a vincular la misma plantilla aprobada con el texto viejo.
@@ -964,13 +974,15 @@ export const RUNNERS: Runners = {
       const audioId = num(input, 'audioId');
       const a = await getAudio(audioId);
       if (!a) return { error: `No existe el audio #${audioId} en este negocio.` };
-      const usan = (await getSecuenciasConStats()).filter((s) => s.pasos.some((p) => Number(p.audio_id) === audioId));
+      // En CUALQUIER parte del mensaje, no sólo en el espejo de la primera (`pasosUsanAudio`): el audio
+      // de la segunda parte se podía borrar y el motor fallaba en cada lead.
+      const usan = (await getSecuenciasConStats()).filter((s) => pasosUsanAudio(s.pasos, audioId));
       if (usan.length) return { error: `El audio «${a.titulo}» lo usan pasos de: ${usan.map((s) => `«${s.nombre}» (#${s.id})`).join(', ')}. Quítaselo primero con asignar_audio_paso.` };
       return { payload: { audioId }, resumen: `Borrar para siempre la nota de voz «${a.titulo}»` };
     },
     ejecutar: async (payload) => {
       const audioId = Number(payload.audioId);
-      if ((await getSecuenciasConStats()).some((s) => s.pasos.some((p) => Number(p.audio_id) === audioId))) return { ok: false, resumen: 'Un paso empezó a usar este audio: no se borró.' };
+      if ((await getSecuenciasConStats()).some((s) => pasosUsanAudio(s.pasos, audioId))) return { ok: false, resumen: 'Un paso empezó a usar este audio: no se borró.' };
       await borrarAudio(audioId);
       await quitarAudioDeClaves(audioId);
       return { ok: true, resumen: `Audio #${audioId} borrado.` };

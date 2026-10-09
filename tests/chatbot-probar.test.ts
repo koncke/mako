@@ -171,7 +171,9 @@ test('escribir como el lead PAUSA la salida y clasifica contra los casos LOCALES
   assert.match(ruta, /const r = await responderSimulador\(id, historial, \{ escenario \}\);/);
 });
 
-test('la prueba real: sólo el admin, por la línea de la secuencia, y el destino NO se guarda', () => {
+// (Quinta tanda, punto 1: los destinos de QUIEN PRUEBA sí se guardan, en SU fila de `usuarios`; lo
+// fija tests/probar-lead-nuevo.test.ts. Lo del NEGOCIO sigue sin tocarse, que es lo de abajo.)
+test('la prueba real: sólo el admin, por la línea de la secuencia, y nada del NEGOCIO se guarda', () => {
   const ruta = RUTA();
   const enviar = ruta.slice(ruta.indexOf("if (body.action === 'enviar-real')"), ruta.indexOf('const id = Number(body.secuenciaId);\n    if (!Number.isFinite(id)) return json({ ok: false, error: \'secuenciaId inválido\' }, 400);\n    const historial = historialDe(body.historial);\n    const t = await'));
   assert.ok(enviar.indexOf("if (a.rol !== 'admin')") >= 0 && enviar.indexOf("if (a.rol !== 'admin')") < enviar.indexOf('enviarPasoDePrueba('), 'el guard de admin va ANTES de mandar');
@@ -198,7 +200,8 @@ test('la prueba real: sólo el admin, por la línea de la secuencia, y el destin
 
 test('datos-4: el panel no reenvía una tarjeta que ya salió, y el server topea por destino', () => {
   const panel = PANEL();
-  const mandar = panel.slice(panel.indexOf('const mandarReal = ('), panel.indexOf('const mostrarPaso = ('));
+  // (Cuarta tanda, punto 15: después de `mandarReal` viene `mostrarParte`, una parte de un mensaje.)
+  const mandar = panel.slice(panel.indexOf('const mandarReal = ('), panel.indexOf('const mostrarParte = ('));
   assert.ok(mandar.length > 0 && mandar.length < 1500, `el recorte de mandarReal mide ${mandar.length}`);
   // El interruptor se mira PRIMERO y la tarjeta repetida corta ANTES del POST.
   const iSwitch = mandar.indexOf('if (!vaWa && !vaEmail) return;');
@@ -209,7 +212,10 @@ test('datos-4: el panel no reenvía una tarjeta que ya salió, y el server topea
   assert.equal((panel.match(/mostrarPaso\(paso, evento\.nodo,/g) ?? []).length, 3, 'las tres llamadas de avanzar() (el email, «MaKo contesta» y el resto) pasan la tarjeta');
   // (El del email lleva el HTML con un spread `...(correo.html ? { html } : {})`: el patrón tolera un
   // nivel de llaves adentro.)
-  assert.equal((panel.match(/mandarReal\(\{(?:[^{}]|\{[^{}]*\})*\}, nodo, enRespuesta\)/g) ?? []).length, 4, 'email, audio, archivo y texto');
+  // Cuarta tanda, punto 15: el audio, el archivo y el texto de UNA PARTE pasan su `clave` (la tarjeta,
+  // o `${nodo}#${k}` en un mensaje de varias partes); el email y «MaKo contesta», la tarjeta.
+  assert.equal((panel.match(/mandarReal\(\{(?:[^{}]|\{[^{}]*\})*\}, nodo, enRespuesta\)/g) ?? []).length, 2, 'email y «MaKo contesta»');
+  assert.equal((panel.match(/mandarReal\(\{(?:[^{}]|\{[^{}]*\})*\}, clave, enRespuesta\)/g) ?? []).length, 3, 'audio, archivo y texto de una parte');
   const arrancar = panel.slice(panel.indexOf('const arrancarRefs = () => {'), panel.indexOf('const reiniciar = (deVerdad = false) => {'));
   assert.ok(arrancar.length > 0 && arrancar.length < 800, `el recorte de arrancarRefs mide ${arrancar.length}`);
   assert.match(arrancar, /enviadosReal\.current = new Set\(\);\n\s+turnoLead\.current = 0;/);
@@ -314,14 +320,18 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
 // botones a y=557 con la ventana de 566). Van adentro del chat, arriba de la barra, como las
 // respuestas rápidas. Probado rompiéndolo: devolver el bloque `{opciones && (` afuera de
 // ChatHilo pone rojo este test (1 de 1).
-test('una condición NO frena la prueba: sigue sola por el «Sí», sin botones de rama (cuarta tanda, puntos 3 y 17)', () => {
+// ⚠️ QUINTA TANDA, PUNTO 1 (09/10/2026): «sigue sola por el «Sí»» CAMBIÓ. La Bienvenida entraba por el
+// «Sí» de «Agendó» y no salía ningún mensaje; ahora decide el motor con un lead RECIÉN LLEGADO. Lo
+// ejecuta tests/probar-lead-nuevo.test.ts; acá queda que no hay botones y que no se frena.
+test('una condición NO frena la prueba y no tiene botones de rama: la decide sola (cuarta tanda 3 y 17; quinta 1)', () => {
   const panel = PANEL();
   // «elimina los botones de "Tiene WhatsApp" y "Si no"... Y lo peor es que esos botones salen en la
   // prueba del Email también». Con una condición primera, la prueba quedaba parada y no salía nada.
   assert.doesNotMatch(panel, /const ramas = |encimaDelComposer=\{ramas\}|Elige la rama/);
   const caso = panel.slice(panel.indexOf("case 'condicion': {"), panel.indexOf("case 'fin':"));
-  assert.match(caso, /const o = evento\.opciones\[0\];/);
-  assert.match(caso, /simRef\.current = elegir\(simRef\.current, o\.puerto\);\n\s+luego\(0, avanzar\);/);
+  assert.match(caso, /simRef\.current = r\.estado;/);
+  assert.match(caso, /luego\(0, avanzar\);/);
+  assert.doesNotMatch(caso, /setOpciones\(|sistema\('◇/, 'volvió la pregunta de la rama');
   // Y «Probar en WhatsApp / Email» está ARRIBA, en la cabecera (antes del cuerpo).
   assert.ok(panel.indexOf("'Probar en WhatsApp'") > 0 && panel.indexOf("'Probar en WhatsApp'") < panel.indexOf('<BandejaGmail'), 'el botón de probar de verdad no está arriba');
 });

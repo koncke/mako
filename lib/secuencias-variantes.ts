@@ -22,6 +22,7 @@ import { renderPrompt } from './prompt-render';
 import { getVozGuia } from './nutricion-generator';
 import { getSecuenciasConStats, setSecuenciaPasos, type PasoSecuencia } from './nutricion';
 import { piezasCriticas } from './texto-critico';
+import { partesExplicitas } from './mensaje-partes';
 
 /** Cuántas formas alternativas por mensaje. */
 const POR_PASO = 4;
@@ -118,7 +119,10 @@ export async function generarVariantes(secuenciaId: number): Promise<ResultadoVa
   const nuevos: PasoSecuencia[] = [];
 
   for (const p of pasos) {
-    if (p.tipo === 'audio' || !p.cuerpo?.trim()) { nuevos.push(p); continue; }
+    // Un mensaje de VARIAS partes no sortea variantes (cuarta tanda, punto 15): son otras formas de
+    // decir UN texto, y `setSecuenciaPasos` se las saca al guardar (`partesAlGuardar`). Generarlas era
+    // pagar un pedido al modelo por cada uno y contar como «generadas» unas que no se guardaban.
+    if (p.tipo === 'audio' || !p.cuerpo?.trim() || partesExplicitas(p)) { nuevos.push(p); continue; }
     const vs = await variantesDe(p.cuerpo, voz);
     generadas += vs.length;
     nuevos.push(vs.length ? { ...p, variantes: vs } : p);

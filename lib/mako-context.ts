@@ -21,6 +21,7 @@ import {
   MAKO_CTX_CHART_DEFAULT,
   MAKO_CTX_WHATSAPP_DEFAULT,
 } from './prompt-defaults';
+import { resumenDePartes } from './mensaje-partes';
 
 // Resumen fresco de las secuencias de nutrición + borradores de plantillas, para
 // que MaKo opine con el funnel real a la vista en el chat de secuencias.
@@ -33,7 +34,9 @@ async function resumenSecuencias(): Promise<string> {
   ]);
   const lineasSec = secs.map((s) => {
     const pasos = s.pasos
-      .map((p, i) => `    ${i + 1}. +${p.delay_horas}h ${p.canal}${p.template_wa ? ` [${p.template_wa}]` : ''}: ${(p.cuerpo || '').slice(0, 90)}`)
+      // `resumenDePartes`: un mensaje de VARIAS partes (cuarta tanda, punto 15) se lee entero —
+      // «[audio] · Link…»—, no sólo el espejo de la primera (un audio tiene el cuerpo vacío).
+      .map((p, i) => `    ${i + 1}. +${p.delay_horas}h ${p.canal}${p.template_wa ? ` [${p.template_wa}]` : ''}: ${resumenDePartes(p)}`)
       .join('\n');
     return `- "${s.nombre}" (etapa ${s.etapa}, trigger ${s.trigger_tipo}, ${s.activa ? 'activa' : 'pausada'}, ${s.inscriptos} inscriptos):\n${pasos || '    (sin pasos)'}`;
   }).join('\n');

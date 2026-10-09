@@ -261,11 +261,17 @@ export type ComposerWhatsAppProps = {
   ref?: Ref<ComposerHandle>;
   /** El alto máximo del campo antes de scrollear. */
   maxAlto?: number;
+  /**
+   * Un botón más EN la barra, al lado del clip (cuarta tanda del chatbot, punto 15: «la opción de "{}"
+   * para insertar dato, debería estar al lado del botón de adjuntar archivo»). Lo dibuja quien monta;
+   * la barra sólo le da el lugar. Sin esto, la barra es la de siempre.
+   */
+  trasClip?: ReactNode;
 };
 
 export function ComposerWhatsApp({
   modo, valor, onValor, placeholder, ocupado, soloLectura, onEnviar, onArchivo, acceptArchivo, menuClip,
-  onAudio, onErrorAudio, audioAlSoltar, mientrasGraba, audioPendiente, chip, ref, maxAlto,
+  onAudio, onErrorAudio, audioAlSoltar, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip,
 }: ComposerWhatsAppProps) {
   const editar = modo === 'editar';
   const campo = useRef<HTMLTextAreaElement | null>(null);
@@ -385,6 +391,7 @@ export function ComposerWhatsApp({
             onClick={() => { if (menuClip?.length) setAbierto((a) => (a === 'clip' ? null : 'clip')); else archivo.current?.click(); }}
             style={{ ...icono, color: abierto === 'clip' ? 'var(--primary)' : 'var(--dim)', opacity: ocupado ? 0.5 : 1 }}><IconClip /></button>
         )}
+        {trasClip}
         <textarea ref={campo} value={valor} rows={1}
           onChange={(e) => { valorVivo.current = e.target.value; onValor(e.target.value); }}
           onKeyDown={(e) => {

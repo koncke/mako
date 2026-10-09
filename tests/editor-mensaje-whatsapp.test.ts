@@ -4,39 +4,47 @@
 // `app/chatbot/EditorMensajeWhatsApp.tsx` (pedido de Martín del 08/10/2026, punto 8): la burbuja
 // como llega arriba, la barra de WhatsApp abajo, el mic al costado y el clip con la biblioteca.
 // Lo que fija este test:
-//   · USAR UN AUDIO NO PUBLICA. Antes, grabar o elegir un audio en el lienzo llamaba a
-//     `setAudioDePaso`, que hacía PATCH de todos los pasos locales en el acto. El editor sólo
-//     escribe la BIBLIOTECA y le pasa al lienzo un cambio local (`onChange`).
-//   · la ✕ del chip vuelve a TEXTO sin perder lo escrito (`pasoSinAdjunto`), y las otras vueltas
-//     (a archivo, a voz desde un archivo) tampoco pierden nada;
-//   · lo que se dibuja según el paso (placeholder, ✦, «↻ N», mic y clip según los permisos) y que
-//     `{{negocio}}` se resuelve con la función del MOTOR;
+//   · NO PUBLICA. Antes, grabar o elegir un audio en el lienzo llamaba a `setAudioDePaso`, que hacía
+//     PATCH de todos los pasos locales en el acto. El editor sólo escribe la BIBLIOTECA y le pasa al
+//     lienzo un cambio local (`onChange`).
+//   · las vueltas de lib/guion-audio.ts (la ✕ del chip, a archivo, a voz) no pierden nada: las sigue
+//     usando el wizard de secuencias (PasoAudioControl);
 //   · tercera tanda (09/10/2026): UNA columna como un teléfono (la `fila` se fue) y sin «Revisar
 //     antes de enviar» (el dato `revisar` queda; el editor ya no lo dibuja ni lo escribe).
+//   · ⚠️ CUARTA TANDA, PUNTO 15 (09/10/2026) — CAMBIÓ LO QUE ESTE TEST FIJABA: el mensaje es una LISTA
+//     de partes. La barra es un borrador (modo `enviar`: «Enviar» suma la burbuja y vacía la barra);
+//     cada burbuja tiene ✏️ y una papelera visible con «Deshacer» 5 s; el audio sin transcripción;
+//     «{ }» EN la barra al lado del clip y «✦ MaKo» arriba (nada debajo de la barra); arriba, el
+//     número de salida. Antes este test
+//     fijaba el chip del audio guardado arriba del campo, el campo como «el pie», «Usar» con
+//     `pasoAVozDesde` y «✦ MaKo»/«{ }» DEBAJO de la barra: se reescribió a lo nuevo.
 //
-// Probado rompiéndolo (08/10/2026) con un arnés que rompe UNA cosa, corre este archivo y restaura
-// de memoria: 8 roturas, 8 cazadas (13 tests):
-//   1. `usarAudio` con un `fetch('/api/whatsapp/secuencias', { method: 'PATCH' })` → 1 fallo.
-//   2. `pasoSinAdjunto` de un archivo con `cuerpo: ''` (perdía el caption) → 3.
-//   3. `pasoSinAdjunto` de un audio sin `pasoATexto` (sólo `tipo: 'texto'`: perdía el guion) → 1.
-//   4. `pasoAMedia` sin pasar por `pasoATexto` (el caption perdía el guion) → 1.
-//   5. el ✦ dibujado también en un paso de audio → 1.
-//   6. «Revisar antes de enviar» leyendo `paso.revisar ?? false` (sin lo heredado) → 1.
-//   7. la vista previa con un replace propio de `{{negocio}}` en vez de `aplicarVariables` → 1.
-//   8. `mismoPaso` comparando sólo `orden` → 1.
-//
-// costuras-1 (revisión del 08/10/2026), mismo arnés: 5 roturas, 5 cazadas (15 tests):
-//   9. `pasoAMedia` sin `variantes: []` → 1 fallo.
-//  10. `pasoAVoz` desde un texto sin `variantes: []` → 1.
-//  11. `pasoAVoz` sobre un paso que ya era audio sin `variantes: []` → 1.
-//  12. el editor leyendo `paso.variantes ?? []` en cualquier tipo («↻ N» en audio y archivo) → 1.
-//  13. `pasoSinAdjunto` de un archivo devolviendo variantes viejas → 2.
+// Probado rompiéndolo (08/10/2026, primera y tercera tanda): las roturas de entonces están en el
+// historial de este archivo. Las de la cuarta tanda (09/10/2026, arnés del scratchpad: una por vez,
+// restaurada de memoria; base 23 / 23): 8 roturas, 8 cazadas.
+//   1. `enviarALista` que siempre suma al final (la edición no vuelve a su lugar) → 1 rojo.
+//   2. `partesDeLaBarra` con el texto de un audio como si fuera su pie (una parte)  → 1.
+//   3. la burbuja del audio con su `transcript`                                    → 1.
+//   4. la papelera sin «Deshacer» (`show('Mensaje borrado')` a secas)               → 1.
+//   5. «✦ MaKo» de vuelta debajo de la barra                                       → 2.
+//   6. el composer de varias partes en modo `editar` (la barra vuelve a ser el mensaje) → 1.
+//   7. el número de salida dibujado sin la prop `linea`                            → 2.
+//   8. `aplicarPartes` sin las variantes explícitas `[]` para lo que no es un texto → 1.
+// Al TERMINAR el punto 15 (09/10/2026, mismo arnés, este archivo con los otros cuatro de la tanda;
+// base 69 / 0) «{ }» pasó a la barra al lado del clip y «✦ MaKo» puede ir en la cabecera. 3 roturas,
+// 3 cazadas, cada una 68 / 1:
+//   9. «{ }» fuera de la barra de varias partes (sin `trasClip`).
+//  10. «✦ MaKo» repetido aunque lo lleve la cabecera (`makoEnCabecera` ignorado).
+//  11. ComposerWhatsApp sin dibujar la ranura `trasClip`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorMensajeWhatsApp, mismoPaso, placeholderDe, ALTO_MIN_CHAT, type EditorMensajeWhatsAppProps } from '../app/chatbot/EditorMensajeWhatsApp';
+import {
+  EditorMensajeWhatsApp, BotonMakoWhatsApp, mismoPaso, placeholderDe, partesDeLaBarra, enviarALista, makoPosible, ALTO_MIN_CHAT,
+  type EditorMensajeWhatsAppProps,
+} from '../app/chatbot/EditorMensajeWhatsApp';
 import { pasoSinAdjunto, pasoAMedia, pasoAVozDesde, pasoAVoz, cambiosDePaso } from '../lib/guion-audio';
 import type { PasoSecuenciaDto, AudioSetting } from '../app/chatbot/ChatAgentApp';
 
@@ -52,7 +60,7 @@ const dibujar = (p: Partial<EditorMensajeWhatsAppProps>) => renderToStaticMarkup
   paso: paso(), onChange: () => {}, audios: [audio], adjuntos: [], ...p,
 }));
 
-// ── Usar un audio NO publica ─────────────────────────────────────────────────────────────────
+// ── NO publica ───────────────────────────────────────────────────────────────────────────────
 
 test('el editor no publica: no le habla a la ruta de las secuencias ni hace PATCH', () => {
   assert.doesNotMatch(EDITOR, /\/api\/whatsapp\/secuencias|\/api\/chat-agent\/secuencias/, 'el editor no guarda la secuencia: eso es «Publicar»');
@@ -60,15 +68,17 @@ test('el editor no publica: no le habla a la ruta de las secuencias ni hace PATC
   // Lo único que escribe: la biblioteca de audios, la de archivos y el guion (que no persiste).
   const rutas = [...EDITOR.matchAll(/fetch\(([^,)]+)/g)].map((m) => m[1]!.trim()).sort();
   assert.deepEqual(rutas, ["'/api/chat-agent/adjuntos'", "'/api/chat-agent/adjuntos'", "'/api/chat-agent/audios'", 'RUTA_GUION'].sort());
+  // El número de salida lo guarda QUIEN MONTA (el mismo guardado que el selector del CRON).
+  assert.match(EDITOR, /<SalidaWhatsApp actual=\{linea\.actual\} onElegir=\{linea\.onElegir\}/);
 });
 
-test('«Usar» sube el audio y le pasa al lienzo un cambio LOCAL con `pasoAVoz`', () => {
-  const usar = EDITOR.slice(EDITOR.indexOf('async function usarAudio()'), EDITOR.indexOf('const base = guionParaLeer('));
-  assert.ok(usar.length > 200 && usar.length < 2500, `no encontré usarAudio (${usar.length})`);
+test('la nota de voz grabada sube a la biblioteca y SALE con la flecha: se suma al chat, en local', () => {
+  const usar = EDITOR.slice(EDITOR.indexOf('async function usarAudio()'), EDITOR.indexOf('const textosDelChat ='));
+  assert.ok(usar.length > 200 && usar.length < 3000, `no encontré usarAudio (${usar.length})`);
   assert.match(usar, /fetch\('\/api\/chat-agent\/audios'/);
-  assert.match(usar, /if \(mismoPaso\(pasoVivo\.current, deQuien\)\) aplicar\(pasoAVozDesde\(pasoVivo\.current, audio\.id\)\)/,
-    'el paso cambia sólo si sigue siendo el mismo, y por pasoAVoz (el texto se vuelve el guion)');
-  assert.match(EDITOR, /const aplicar = \(despues: PasoSecuenciaDto\) => onChange\(cambiosDePaso\(pasoVivo\.current, despues\)\)/);
+  assert.match(usar, /if \(!mismoPaso\(pasoVivo\.current, deQuien\)\) return;/, 'el paso cambia sólo si sigue siendo el mismo');
+  assert.match(usar, /enviarALista\(partesDe\(pasoVivo\.current\), \[nueva\], editando\)/);
+  assert.match(EDITOR, /onChange\(cambiosDePaso\(antes, despues\)\)/, 'un cambio LOCAL: el patch de lo que cambió');
 });
 
 test('lo que termina después de un await se aplica sólo al MISMO paso', () => {
@@ -77,7 +87,67 @@ test('lo que termina después de un await se aplica sólo al MISMO paso', () => 
   assert.equal(mismoPaso({ orden: 1 }, { orden: 2 }), false);
 });
 
-// ── Las vueltas sin pérdida ──────────────────────────────────────────────────────────────────
+// ── «Enviar»: la barra es un borrador ────────────────────────────────────────────────────────
+
+test('lo que la barra MANDA: el archivo con su pie, el audio y su texto como DOS partes, o el texto', () => {
+  assert.deepEqual(partesDeLaBarra('Hola', null), [{ tipo: 'texto', cuerpo: 'Hola' }]);
+  assert.deepEqual(partesDeLaBarra('   ', null), [], 'una barra vacía no manda nada');
+  assert.deepEqual(partesDeLaBarra('Los precios', { tipo: 'media', media_id: 3 }), [{ tipo: 'media', media_id: 3, cuerpo: 'Los precios' }]);
+  assert.deepEqual(partesDeLaBarra('', { tipo: 'media', media_id: 3 }), [{ tipo: 'media', media_id: 3 }]);
+  // WhatsApp no tiene pie de audio: el texto sale DESPUÉS, como otro mensaje.
+  assert.deepEqual(partesDeLaBarra('Link', { tipo: 'audio', audio_id: 7 }), [{ tipo: 'audio', audio_id: 7 }, { tipo: 'texto', cuerpo: 'Link' }]);
+});
+
+test('«Enviar» suma al final; editando, la burbuja vuelve a SU lugar', () => {
+  const a = { tipo: 'texto' as const, cuerpo: 'a' };
+  const b = { tipo: 'texto' as const, cuerpo: 'b' };
+  const n = { tipo: 'texto' as const, cuerpo: 'nuevo' };
+  assert.deepEqual(enviarALista([a, b], [n], null), [a, b, n]);
+  assert.deepEqual(enviarALista([a, b], [n], 0), [n, b], 'la que se editaba no se va al final');
+  assert.deepEqual(enviarALista([a, b], [n], 9), [a, b, n], 'un índice que ya no está suma al final');
+});
+
+test('la barra de varias partes es un BORRADOR (modo `enviar`); el oficial y el recordatorio, el de siempre', () => {
+  const varias = EDITOR.slice(EDITOR.indexOf('const composerNodo = varias ?'), EDITOR.indexOf('const arriba ='));
+  assert.ok(varias.length > 200, 'no encontré el composer');
+  const [conPartes, unaSola] = varias.split(') : (');
+  assert.match(conPartes, /modo="enviar"/);
+  assert.match(conPartes, /onEnviar=\{enviar\}/);
+  assert.match(conPartes, /valor=\{barra\}/, 'la barra NO es el mensaje: lo enviado no se queda escrito');
+  assert.match(unaSola, /modo="editar"/);
+  assert.match(EDITOR, /const varias = permiteAudio \|\| permiteAdjuntos;/, 'varias partes sólo por el no oficial');
+  assert.match(EDITOR, /limpiarBarra\(\);\s*\};/, '«Enviar» vacía la barra');
+});
+
+test('cada burbuja tiene ✏️ y una papelera VISIBLE (roja); borrar ofrece «Deshacer» con el toast de la casa', () => {
+  const html = dibujar({ paso: paso({ cuerpo: 'Hola', partes: [{ tipo: 'texto', cuerpo: 'Hola' }, { tipo: 'texto', cuerpo: 'Link' }] }) });
+  for (const n of [1, 2]) {
+    assert.ok(html.includes(`aria-label="Editar el mensaje ${n}"`), `falta el lápiz del ${n}`);
+    assert.ok(html.includes(`aria-label="Borrar el mensaje ${n}"`), `falta la papelera del ${n}`);
+  }
+  const papelera = /<button[^>]*aria-label="Borrar el mensaje 1"[^>]*style="([^"]*)"/.exec(html)?.[1] ?? '';
+  assert.match(papelera, /color:var\(--bad\)/, 'la papelera no se notaba');
+  assert.match(EDITOR, /show\('Mensaje borrado', \(\) => \{ if \(mismoPaso\(pasoVivo\.current, deQuien\)\) aplicarPartes\(antes\); \}\)/);
+  assert.match(EDITOR, /<Toast state=\{toast\} onClose=\{clear\} \/>/);
+});
+
+test('lo guardado antes se ve como sus burbujas: un audio con pie son dos, y SIN la transcripción', () => {
+  const html = dibujar({ paso: paso({ tipo: 'audio', audio_id: 7, cuerpo: 'Link: https://x.y' }) });
+  assert.ok(html.includes('<audio'));
+  assert.ok(!html.includes('Dice:'), 'la transcripción salió de la burbuja (punto 15)');
+  assert.ok(html.includes('Link: https://x.y'));
+  assert.ok(html.includes('aria-label="Borrar el mensaje 2"'), 'el pie es su propia burbuja');
+  assert.equal(placeholderDe('texto', undefined, 'media'), 'Agrega un texto (opcional)');
+  assert.equal(placeholderDe('texto', undefined, 'audio'), 'Texto después del audio');
+  assert.equal(placeholderDe('ia'), 'Qué tiene que lograr');
+  assert.equal(placeholderDe(undefined, 'Tu mensaje'), 'Tu mensaje');
+});
+
+test('al pasar a algo que no es UN texto, las variantes se sueltan EXPLÍCITAS (costuras-1)', () => {
+  assert.match(EDITOR, /\.\.\.\(esUnTexto\(lista\) \? \{\} : \{ variantes: \[\] \}\)/);
+});
+
+// ── Las vueltas sin pérdida de lib/guion-audio.ts (las usa el wizard) ──────────────────────────
 
 test('la ✕ del audio vuelve a texto con el guion y el pie juntos: no se pierde nada', () => {
   const voz = pasoAVoz(paso({ cuerpo: 'Te cuento cómo sigue' }), 7);
@@ -115,19 +185,13 @@ test('a voz desde un archivo: el archivo se suelta y el caption pasa a ser el gu
   assert.equal((voz as { guion?: string }).guion, 'Mira el catálogo');
 });
 
-// costuras-1 (revisión del 08/10/2026): un texto con variantes al que se le adjuntaba un PDF las
-// conservaba, y el motor las sorteaba como CAPTION: 3 de cada 4 leads recibían el archivo con el
-// texto viejo debajo (y con el caption vacío, todos). «Probar» mostraba el bueno.
 test('un paso que pasa a audio o a archivo SUELTA sus variantes, y el patch lo dice explícito', () => {
   const conVar = paso({ cuerpo: 'Te paso los precios', variantes: ['Mira los precios', 'Aquí van los precios'] });
   assert.deepEqual(pasoAMedia(conVar, 3).variantes, [], 'el motor sortearía una variante del texto como caption');
   assert.deepEqual(pasoAVoz(conVar, 7).variantes, []);
   assert.deepEqual(pasoAVozDesde(pasoAMedia(conVar, 3), 7).variantes, []);
-  // Un audio que ya las arrastraba también las suelta al cambiarle el audio.
   assert.deepEqual(pasoAVoz(paso({ tipo: 'audio', audio_id: 7, cuerpo: '', variantes: ['x'] }), 9).variantes, []);
-  // Viajan EXPLÍCITAS (`[]`, no ausentes): es lo que le dice al server «ya no tiene».
   assert.deepEqual(cambiosDePaso(conVar, pasoAMedia(conVar, 3)).variantes, []);
-  // Y volver a texto no las resucita: eran del texto de antes, y el caption pudo cambiar.
   assert.deepEqual(pasoSinAdjunto(pasoAMedia(conVar, 3)).variantes, []);
   assert.equal(pasoSinAdjunto(pasoAMedia(conVar, 3)).cuerpo, 'Te paso los precios', 'lo escrito sí vuelve');
 });
@@ -140,21 +204,12 @@ test('el patch lleva sólo lo que cambió, y lo que se va viaja como null', () =
 
 // ── Lo que se dibuja ─────────────────────────────────────────────────────────────────────────
 
-test('un paso de audio: el reproductor arriba, su chip con ✕, y el campo es el pie', () => {
-  const html = dibujar({ paso: paso({ tipo: 'audio', audio_id: 7, cuerpo: '' }) });
-  assert.ok(html.includes('<audio'));
-  assert.ok(html.includes('Dice: «Hola, soy yo»'));
-  assert.ok(html.includes('aria-label="Quitar audio"'));
-  assert.ok(html.includes('placeholder="Texto junto al audio"'));
-  assert.equal(placeholderDe('media'), 'Agrega un texto (opcional)');
-  assert.equal(placeholderDe('ia'), 'Qué tiene que lograr');
-  assert.equal(placeholderDe(undefined, 'Tu mensaje'), 'Tu mensaje');
-});
-
-test('✦ sólo en texto y si se permite; «↻ N» con variantes; mic y clip según los permisos', () => {
+test('✦ sólo con UN texto y si se permite; «↻ N» con variantes; mic y clip según los permisos', () => {
   assert.ok(dibujar({ permiteIA: true }).includes('✦ MaKo'));
   assert.ok(!dibujar({ permiteIA: false }).includes('✦ MaKo'));
-  assert.ok(!dibujar({ permiteIA: true, paso: paso({ tipo: 'audio', audio_id: 7 }) }).includes('✦ MaKo'), 'el motor sólo reescribe la rama de texto');
+  assert.ok(!dibujar({ permiteIA: true, paso: paso({ tipo: 'audio', audio_id: 7 }) }).includes('✦ MaKo'), 'el motor sólo reescribe UN texto');
+  assert.ok(!dibujar({ permiteIA: true, paso: paso({ partes: [{ tipo: 'texto', cuerpo: 'a' }, { tipo: 'texto', cuerpo: 'b' }], cuerpo: 'a' }) }).includes('✦ MaKo'),
+    'con varias partes no hay UN texto que reescribir');
   assert.ok(dibujar({ paso: paso({ variantes: ['a', 'b'] }) }).includes('↻ 2'));
   assert.ok(!dibujar({}).includes('↻'));
   const sinNada = dibujar({ permiteAudio: false, permiteAdjuntos: false });
@@ -167,15 +222,10 @@ test('✦ sólo en texto y si se permite; «↻ N» con variantes; mic y clip se
 test('«↻ N» sólo en un mensaje de texto: ni en un audio ni en un archivo (costuras-1)', () => {
   const vs = ['Mira los precios', 'Aquí van los precios'];
   assert.ok(dibujar({ paso: paso({ variantes: vs }) }).includes('↻ 2'), 'el texto sigue mostrándolas');
-  assert.ok(!dibujar({ paso: paso({ tipo: 'audio', audio_id: 7, cuerpo: '', variantes: vs }) }).includes('↻'),
-    'en un audio el campo es el pie: no hay texto que variar');
-  assert.ok(!dibujar({ paso: paso({ tipo: 'media', media_id: 3, cuerpo: 'Te dejo la info', variantes: vs }) }).includes('↻'),
-    'en un archivo el campo es el caption: mostrarlas invita a editar lo que el motor sorteaba debajo del PDF');
+  assert.ok(!dibujar({ paso: paso({ tipo: 'audio', audio_id: 7, cuerpo: '', variantes: vs }) }).includes('↻'));
+  assert.ok(!dibujar({ paso: paso({ tipo: 'media', media_id: 3, cuerpo: 'Te dejo la info', variantes: vs }) }).includes('↻'));
 });
 
-// Tercera tanda (09/10/2026, punto 2 del pedido y decisión 2): «¿Qué es "Revisar antes de enviar"?,
-// eso no tiene mucho sentido». Sale de la pantalla; el dato `revisar` de cada paso queda (lo lee el
-// motor) y las props que lo pintaban quedan en el tipo SIN efecto, porque el lienzo las sigue pasando.
 test('«Revisar antes de enviar» ya no se dibuja, aunque el lienzo pase las props, y el editor no escribe `revisar`', () => {
   for (const p of [{}, { mostrarRevisar: true, revisarHeredado: true }, { mostrarRevisar: true, paso: paso({ revisar: true }) }]) {
     const html = dibujar(p);
@@ -189,7 +239,7 @@ test('`{{negocio}}` se resuelve con la función del MOTOR; lo demás queda como 
   const html = dibujar({ negocio: 'Inmobiliaria del Valle', paso: paso({ cuerpo: 'Hola {{nombre}}, te escribo de {{negocio}}' }) });
   assert.ok(html.includes('Inmobiliaria del Valle'));
   assert.ok(html.includes('{{nombre}}'), 'el nombre lo pone el motor para cada lead');
-  assert.match(EDITOR, /aplicarVariables\(paso\.cuerpo \?\? '', negocio\?\.trim\(\) \? \{ negocio: negocio\.trim\(\) \} : \{\}\)/);
+  assert.match(EDITOR, /const conNegocio = \(t: string\) => aplicarVariables\(t, negocio\?\.trim\(\) \? \{ negocio: negocio\.trim\(\) \} : \{\}\)/);
   assert.doesNotMatch(EDITOR, /\.replace\(\/\\\{\\\{/, 'un replace propio: la pantalla y el envío dejarían de decir lo mismo');
 });
 
@@ -197,18 +247,22 @@ test('sin rótulos encima del campo: el placeholder alcanza (punto 5 del pedido)
   assert.doesNotMatch(EDITOR, /Qué tiene que decir|El mensaje<\/label>|<label/);
 });
 
-// ── UNA columna, como un teléfono (tercera tanda, 09/10/2026, punto 1 y decisión 1) ──────────────
-// Roturas (09/10/2026, arnés C-romper.mjs del scratchpad: una por vez, restaurada de memoria; base
-// 17 / 17): 3 roturas, 3 cazadas.
-//  R16. el chat con el tope de 260 de antes                → 1 fallo.
-//  R17. la barra que se achica (`flex: 1 1 auto`)           → 1.
-//  R18. una casilla «Revisar antes de enviar» de vuelta     → 2 (ésta y la de «sin rótulos»).
-// La segunda tanda había partido el editor en dos para el panel apaisado (`disposicion="fila"`: el
-// chat a un costado y el composer al otro). Martín, sobre la captura de producción: «el editor de
-// WhatsApp, que está bugeado, la barra donde se escribe o se graba audio al costado y el chat al otro
-// costado». La fila se fue; `disposicion` queda en el tipo sin efecto (el lienzo la sigue pasando).
+test('el número de salida va arriba SÓLO si quien monta pasa la línea de la automatización', () => {
+  const rotulo = 'Número de WhatsApp por el que sale esta automatización';
+  assert.ok(!dibujar({}).includes(rotulo), 'sin la prop no hay a quién guardarle el número');
+  const con = dibujar({ linea: { actual: null, onElegir: () => {} } });
+  assert.ok(con.includes(rotulo));
+  assert.ok(con.indexOf(rotulo) < con.indexOf('data-chat="true"'), 'arriba del chat');
+  assert.ok(!dibujar({ linea: { actual: null, onElegir: () => {} }, permiteAudio: false, permiteAdjuntos: false }).includes(rotulo),
+    'en el oficial y el recordatorio no hay número que elegir acá');
+});
 
-test('una sola columna: el chat arriba y la barra abajo, también con `disposicion="fila"`', () => {
+// ── UNA columna, como un teléfono, y NADA debajo de la barra ─────────────────────────────────
+
+// ⚠️ CUARTA TANDA, PUNTO 15 (09/10/2026, al terminarlo): «{ }» pasó de la fila de arriba A LA BARRA, al
+// lado del clip («la opción de "{}" para insertar dato, debería estar al lado del botón de adjuntar
+// archivo»), con la ranura `trasClip` de ComposerWhatsApp. «✦ MaKo» sigue arriba.
+test('una sola columna: arriba «✦ MaKo», el chat, y la barra abajo de todo con «{ }» al lado del clip', () => {
   for (const disposicion of [undefined, 'columna', 'fila'] as const) {
     const html = dibujar({ disposicion, permiteIA: true });
     const chat = html.indexOf('data-chat="true"');
@@ -217,13 +271,42 @@ test('una sola columna: el chat arriba y la barra abajo, también con `disposici
     const enChat = html.slice(chat, barra);
     assert.ok(enChat.includes('Hola, ¿cómo vas?'), 'la burbuja vive en el chat');
     assert.ok(!enChat.includes('placeholder='), 'la barra no se mete en el chat');
+    const arriba = html.slice(0, chat);
+    assert.ok(arriba.includes('✦ MaKo'), `${disposicion}: ✦ MaKo va arriba`);
+    assert.ok(!arriba.includes('Insertar un dato'), `${disposicion}: «{ }» quedó arriba`);
     const abajo = html.slice(barra);
-    for (const t of ['placeholder="Escribe el mensaje"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"', '✦ MaKo']) {
-      assert.ok(abajo.includes(t), `${disposicion}: falta ${t} debajo del chat`);
-    }
+    for (const t of ['placeholder="Escribe un mensaje"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"']) assert.ok(abajo.includes(t), `${disposicion}: falta ${t} en la barra`);
+    // «{ }» AL LADO del clip: después del clip y antes del campo, en la MISMA fila.
+    const iClip = abajo.indexOf('aria-label="Adjuntar archivo"');
+    const iDatos = abajo.indexOf('aria-label="Insertar un dato"');
+    const iCampo = abajo.indexOf('<textarea');
+    assert.ok(iClip < iDatos && iDatos < iCampo, `${disposicion}: «{ }» no está entre el clip y el campo`);
+    assert.doesNotMatch(abajo.slice(iClip, iCampo), /<div/, '«{ }» se fue a otra fila');
+    // «no quiero botones ni nada abajo de donde se escriben mensajes».
+    const despuesDelCampo = abajo.slice(abajo.indexOf('</textarea>'));
+    for (const t of ['Insertar un dato', '✦ MaKo', '↻']) assert.ok(!despuesDelCampo.includes(t), `${disposicion}: ${t} quedó debajo de la barra`);
     assert.ok(!html.includes('mk-wa-fila') && !html.includes('<style') && !html.includes('container-type'), 'volvió algo de la fila');
   }
   assert.equal(dibujar({ disposicion: 'fila' }), dibujar({}), 'la `fila` no cambia ni un píxel');
+  // En el oficial y el recordatorio (sin clip) «{ }» también va en la barra, al lado del emoji.
+  const sinClip = dibujar({ permiteAudio: false, permiteAdjuntos: false });
+  assert.ok(sinClip.indexOf('aria-label="Insertar un dato"') > sinClip.indexOf('data-barra="true"'));
+});
+
+test('«✦ MaKo» al lado del TÍTULO cuando la cabecera del panel lo lleva; la misma regla en los dos lugares', () => {
+  // Con la cabecera dibujándolo (`makoEnCabecera`), el editor no lo repite.
+  assert.ok(!dibujar({ permiteIA: true, makoEnCabecera: true }).includes('✦ MaKo'));
+  // Sin nada que mostrar arriba (ni número, ni MaKo, ni «↻ N»), no hay fila vacía.
+  const html = dibujar({ permiteIA: true, makoEnCabecera: true });
+  assert.ok(html.indexOf('data-chat="true"') < 200, 'quedó una fila vacía arriba del chat');
+  // El botón exportado (lo usa la cabecera) y la regla de cuándo se ofrece.
+  const boton = renderToStaticMarkup(createElement(BotonMakoWhatsApp, { activo: true, onCambiar: () => {} }));
+  assert.match(boton, /aria-pressed="true"/);
+  assert.equal(makoPosible(paso(), true, true), true);
+  assert.equal(makoPosible(paso(), false, true), false);
+  assert.equal(makoPosible(paso({ tipo: 'audio', audio_id: 7, cuerpo: '' }), true, true), false);
+  assert.equal(makoPosible(paso({ partes: [{ tipo: 'texto', cuerpo: 'a' }, { tipo: 'texto', cuerpo: 'b' }], cuerpo: 'a' }), true, true), false);
+  assert.equal(makoPosible(paso({ tipo: 'audio', audio_id: 7 }), true, false), true, 'en el oficial la barra ES el texto');
 });
 
 test('el chat LLENA el alto que haya y es lo único que se achica; nada de height:100%', () => {

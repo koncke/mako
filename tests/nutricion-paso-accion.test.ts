@@ -169,9 +169,11 @@ test('sin workspace no se corre nada ajeno: se registra el fallo', async () => {
 // ── El motor, cableado (lib/nutricion.ts, con `server-only`) ─────────────────
 
 const MOTOR = sinComentarios(leer('lib/nutricion.ts'));
-// El tope es contra un recorte que se fue de largo (otra función adentro), no contra el motor: medido
-// el 09/10/2026 con las esperas cortas de la quinta tanda, `procesarEnvios` sin comentarios mide 39 984.
-const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 46_000);
+// El tope es contra un recorte que se fue de largo (otra función adentro), no contra el motor.
+// Medido el 09/10/2026 sin comentarios: 39.984 con las esperas cortas de la quinta tanda, 40.583 con
+// la rama del mensaje de VARIAS partes (cuarta tanda, punto 15), y 42.457 con las dos juntas.
+// Si se pasa, que se mire qué creció antes de subirlo.
+const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 48_000);
 // Hasta la primera guarda que es sólo del mensaje que sigue a la rama (`canalOn`). Perezoso:
 // si la rama se mueve de lugar, que caigan los tests que la miran, no el archivo entero.
 const rama = (): string => bloque(PROC, 'if (esPasoAccion(paso)) {', 'const canalOn = ', 4_000);

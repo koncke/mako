@@ -99,6 +99,9 @@ import {
 // Puro y sin dependencias: lo importan también el editor (cliente) y el motor.
 import { segundosDeMinutos, textoDuracion } from './espera-duracion';
 
+// Sólo el TIPO de una parte de un mensaje (cuarta tanda, punto 15): `import type` se borra al compilar.
+import type { ParteMensaje } from './mensaje-partes';
+
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
 /** De qué está hecha una condición. Cada una la evalúa el motor con un dato que YA tiene. */
@@ -236,6 +239,11 @@ export type PasoGrafo = {
   revisar?: boolean;
   /** Sólo `tipo: 'media'`: el archivo de la biblioteca (`setting_adjuntos`), por referencia. */
   media_id?: number | null;
+  /**
+   * Sólo un mensaje de WhatsApp (cuarta tanda, punto 15): VARIOS mensajes que salen en orden, dos o
+   * más. Ausente = el mensaje de siempre. Qué significa y cómo se guarda, en lib/mensaje-partes.ts.
+   */
+  partes?: ParteMensaje[];
   // ── Lo de siempre, que el conversor y el motor leen ──
   orden?: number;
   canal?: string;
