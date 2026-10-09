@@ -259,6 +259,10 @@ export function camposDeReactivacion(r: Pick<Reactivacion, 'proximoEnvioAt' | 'r
     // ⚠️ Y EL NODO TAMBIÉN (mig 0223). El motor busca primero por `nodo_actual`: con el de la
     // corrida vieja puesto, la reusada arrancaría en el último nodo de antes y no en la entrada.
     nodo_actual: null,
+    // ⚠️ Y LOS HILOS (mig 0228, segunda tanda). Con los de la corrida vieja puestos, la reusada
+    // seguiría desde donde quedaron sus caminos en paralelo; en NULL vuelve a ser una fila nueva y
+    // el motor la reparte en las raíces la primera vez que la procesa.
+    hilos: null,
     proximo_envio_at: r.proximoEnvioAt,
     reunion_at: r.reunionAt,
     desenlace: null,

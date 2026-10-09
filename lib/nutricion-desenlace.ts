@@ -26,7 +26,9 @@ import { enTandas } from './ids-con-filas';
 import { enviosPorInscripcion } from './nutricion-envios-resumen';
 import { preparaUnaReunion } from './nutricion-familias';
 import { reunionQuePreparaMs, type JuntasLead } from './nutricion-reinscripcion';
-import { agendoLead, pagoLead, pasoDeEntrada, logroCierraLaInscripcion } from './nutricion-grafo-motor';
+import { agendoLead, pagoLead, logroCierraLaInscripcion, textoFechaReunion } from './nutricion-grafo-motor';
+import { proximoDeEntrada } from './nutricion-hilos';
+import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import { esFlujoExplicito } from './flujo-legado';
 import type { PasoGrafo } from './flujo-grafo';
 
@@ -48,15 +50,13 @@ type FilaInsc = {
 
 /** Horas transcurridas desde un ISO. El umbral del desenlace se mide acá. */
 
-/** La fecha de la reunión del lead, en texto corto para el aviso. */
-function fechaReunion(lead: Record<string, unknown>): string {
-  const raw = [lead.junta_1_at, lead.fecha_junta_1, lead.fecha_agenda].find((x) => typeof x === 'string' && x);
-  if (typeof raw !== 'string') return '';
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00-06:00` : raw);
-  if (Number.isNaN(d.getTime())) return '';
-  try {
-    return d.toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-  } catch { return ''; }
+/**
+ * La fecha de la reunión del lead, en texto corto para el aviso, EN LA ZONA DEL NEGOCIO
+ * (`textoFechaReunion`). Se escribía en la del servidor (UTC): «sábado 10, 01:00 a.m.» para una
+ * reunión del viernes 9 a las 18 de Tijuana (medido el 08/10/2026 en el grupo de Mauricio).
+ */
+function fechaReunion(lead: Record<string, unknown>, tz: string): string {
+  return textoFechaReunion(lead, tz);
 }
 /**
  * ¿Se cumplió lo que la secuencia buscaba?
@@ -91,6 +91,7 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   // Si no hay contexto no se avisa: mejor mudo que en el grupo equivocado.
   const ws = await getWorkspaceActual().catch(() => null);
   const res: ResultadoDesenlaces = { logrados: 0, fallidos: 0, movidos: 0, encadenados: 0, avisados: 0, detalle: [] };
+  let tzNegocio: string | undefined;
 
   // La cola ENTERA de inscripciones sin desenlace, paginada por `id`. Antes era
   // un `.limit(500)` sin ORDER BY: pasadas las 500 pendientes, cuáles entraban
@@ -184,14 +185,15 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     if (ya) return 'ya-estuvo-en-la-siguiente';
     // El paso de ENTRADA, no el índice 0: con el flujo con ramas, «Si responde» puede estar
     // primero en el array y la salida arrancar más abajo.
-    const pasos = Array.isArray(sig.pasos) ? (sig.pasos as Array<{ delay_horas?: number }>) : [];
-    const delay = Number(pasoDeEntrada(pasos)?.delay_horas ?? 0) || 0;
+    // Con flechas en paralelo desde el CRON, el mínimo entre las raíces (`proximoDeEntrada`).
+    const pasos = Array.isArray(sig.pasos) ? (sig.pasos as PasoGrafo[]) : [];
+    const primero = proximoDeEntrada(pasos, (p) => new Date(Date.now() + (Number(p?.delay_horas ?? 0) || 0) * 3_600_000).toISOString());
     // La reunión que esta inscripción prepara (mig 0205), igual que al inscribir por el
     // cohorte: sin ella, el reuso de mañana no sabría si la próxima agenda es otra reunión.
     const reunion = preparaUnaReunion(sig.trigger_tipo) ? reunionQuePreparaMs(lead as JuntasLead) : null;
     const { error } = await supabase.from('nutricion_inscripciones').insert({
       lead_id: leadId, secuencia_id: sig.id, paso_actual: 0, estado: 'activa',
-      proximo_envio_at: new Date(Date.now() + delay * 3_600_000).toISOString(),
+      proximo_envio_at: primero,
       ...(preparaUnaReunion(sig.trigger_tipo) ? { reunion_at: reunion == null ? null : new Date(reunion).toISOString() } : {}),
     });
     if (error) { console.error(`[desenlace] encadenar ${clave}:`, error.message); return `error-${error.code ?? ""}`; }
@@ -273,7 +275,9 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
             const { emitirAviso } = await import('./avisos');
             const quien = String(lead.nombre ?? '').trim() || 'Un lead';
             const tel = String(lead.telefono ?? '').trim();
-            const cuando = fechaReunion(lead);
+            // La zona del negocio, UNA vez por corrida y sólo si hay que avisar.
+            tzNegocio ??= await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
+            const cuando = fechaReunion(lead, tzNegocio);
             await emitirAviso({
               // `ws` EXPLÍCITO: sin esto cae a OWNER_WS y el lead de un cliente
               // suena en el grupo de la agencia.

@@ -175,7 +175,7 @@ async function crearLeadsDePropuesta(ws: number, propuestaId: string, ctx: Ctx):
 
 // ── El catálogo que ve el editor del lienzo ───────────────────────────────────
 
-export type ParametroEditor = Pick<Parametro, 'nombre' | 'tipo' | 'descripcion' | 'obligatorio' | 'enum' | 'minimo' | 'maximo' | 'entero'>;
+export type ParametroEditor = Pick<Parametro, 'nombre' | 'tipo' | 'descripcion' | 'obligatorio' | 'enum' | 'minimo' | 'maximo' | 'entero' | 'rotulo'>;
 export type AccionEditor = {
   id: string; area: string; areaTitulo: string; titulo: string; descripcion: string;
   costo: string; reversible: boolean; pideLead: boolean; parametros: ParametroEditor[];
@@ -191,6 +191,6 @@ export async function accionesParaFlujo(ws: number): Promise<AccionEditor[]> {
   return REGISTRO.filter((d) => esAccion(d) && visible(d, vista)).map((d) => ({
     id: d.id, area: d.area, areaTitulo: AREA_INFO[d.area]?.titulo ?? d.area, titulo: d.titulo, descripcion: d.descripcion,
     costo: d.costo, reversible: esAccion(d) ? d.reversible : false, pideLead: pideLead(d.parametros),
-    parametros: d.parametros.map((p) => ({ nombre: p.nombre, tipo: p.tipo, descripcion: p.descripcion, obligatorio: p.obligatorio, enum: p.enum, minimo: p.minimo, maximo: p.maximo, entero: p.entero })),
+    parametros: d.parametros.map((p) => ({ nombre: p.nombre, tipo: p.tipo, descripcion: p.descripcion, obligatorio: p.obligatorio, enum: p.enum, minimo: p.minimo, maximo: p.maximo, entero: p.entero, rotulo: p.rotulo })),
   }));
 }

@@ -350,6 +350,9 @@ export const RUNNERS: Runners = {
         inscripciones: filas.map((f) => ({
           secuencia_id: f.secuencia_id, secuencia: f.secuencia?.nombre ?? null, archivada: !!f.secuencia?.archivada_at,
           estado: f.estado, pasos_avanzados: f.paso_actual, proximo_envio: f.proximo_envio_at, ultimo_envio: f.ultimo_paso_at,
+          // Dónde está: la tarjeta (con ramas, `pasos_avanzados` es una posición del array) y, con
+          // flechas en paralelo, cuántos caminos corren a la vez.
+          tarjeta: f.nodo_actual, caminos_en_paralelo: Array.isArray(f.hilos) ? f.hilos.length : 0,
           desenlace: f.desenlace, desenlace_at: f.desenlace_at, inscripto: f.inscripto_at,
         })),
         nota: filas.length

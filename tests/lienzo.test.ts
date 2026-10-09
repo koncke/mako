@@ -6,6 +6,9 @@
 // persigue no es qué se dibuja —eso es de cada flujo— sino las cuatro trampas que
 // un lienzo tiene y una lista no, las cuatro medidas en el navegador.
 //
+// Segunda tanda (08/10/2026, parte L): el efecto del panel ganó la rama APAISADA. Roto con
+// `const prox = false` (el panel apaisado no corre la vista en vertical): 15 pasan / 1 falla.
+//
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -178,8 +181,10 @@ test('⚠️ y el LIENZO usa las dos, y guarda el `antes` UNA sola vez', () => {
   const src = leer(LIENZO);
   const ef = src.slice(src.indexOf('if (!caja.current) return;'), src.indexOf('const nodoSel ='));
   // 2.000 desde el 08/10 (revisión, lienzo-4): el efecto ganó el tope derecho del corrimiento
-  // y su comentario; el recorte mide ~1.800 con los saltos CRLF de un worktree.
-  assert.ok(ef.length < 2000, `el recorte del efecto mide ${ef.length}: está mirando otra cosa`);
+  // y su comentario; el recorte mide ~1.800 con los saltos CRLF de un worktree. 2.600 desde la
+  // segunda tanda: ganó la rama del panel APAISADO (`vistaConPanelAbajo`); mide ~2.250.
+  assert.ok(ef.length < 2600, `el recorte del efecto mide ${ef.length}: está mirando otra cosa`);
+  assert.match(ef, /const prox = apaisado\r?\n\s+\? vistaConPanelAbajo\(vista\.current, n, \{/, 'el panel apaisado no corre la vista en vertical');
   assert.match(ef, /antes: corrimiento\.current\?\.antes \?\? vista\.current/,
     'el lienzo pisa el `antes` en cada corrimiento: volver deja la vista del nodo anterior');
   assert.match(ef, /vistaAlCerrarPanel\(vista\.current, c\.aplicada, c\.antes\)/,

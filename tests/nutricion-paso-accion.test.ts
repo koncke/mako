@@ -177,15 +177,19 @@ test('⚠️ el motor corre el paso con `correrPasoAccion` → `ejecutarDesdeFlu
   assert.match(rama(), /await correrPasoAccion\(/);
   assert.match(rama(), /ejecutar: async \(operacion, params, o\) => \(await import\('@\/lib\/api-mako\/flujo'\)\)\.ejecutarDesdeFlujo\(operacion, params, o\)/);
   // El reclamo avanza SÓLO si la fila sigue en este paso y activa: es lo que impide correrla dos veces.
-  const reclamo = bloque(rama(), 'reclamar: async () => {', 'ejecutar:', 1_500);
-  assert.match(reclamo, /\.eq\('id', insc\.id\)\.eq\('estado', 'activa'\)\.eq\('paso_actual', insc\.paso_actual\)/);
+  // Desde la segunda tanda (08/10/2026) el reclamo es la PUERTA de la posición (`escribir`) en
+  // modo compare-and-set: la misma comparación, en `moverConCas`, que es por donde pasan todas.
+  const reclamo = bloque(rama(), 'reclamar: () => escribir(insc, {', 'ejecutar:', 1_500);
+  assert.match(reclamo, /\{ modo: 'cas'/, 'el reclamo de la acción tiene que comparar lo leído');
+  const cas = bloque(PROC, 'const moverConCas = async (', '\n  };', 1_200);
+  assert.match(cas, /\.eq\('id', insc\.id\)\.eq\('estado', 'activa'\)\.eq\('paso_actual', insc\.paso_actual\)/);
   // Desde el 08/10/2026 (flujo con ramas) avanza al SIGUIENTE DEL NODO, no al de abajo en el
   // array, escribe `nodo_actual` y el reclamo compara también el nodo: dos corridas que leyeron
   // la misma fila no pueden reclamarla las dos aunque `paso_actual` coincida.
   // Probado rompiéndolo (08/10/2026): el reclamo sin comparar el nodo → 1 falla (15/1).
   assert.match(reclamo, /paso_actual: siguientePaso \? sigIdx : n,/, 'avanza como si hubiera salido el mensaje');
   assert.match(reclamo, /nodo_actual: siguientePaso \? idDe\(siguientePaso, sigIdx\) : null,/);
-  assert.match(reclamo, /insc\.nodo_actual == null \? q\.is\('nodo_actual', null\) : q\.eq\('nodo_actual', insc\.nodo_actual\)/);
+  assert.match(cas, /insc\.nodo_actual == null \? q\.is\('nodo_actual', null\) : q\.eq\('nodo_actual', insc\.nodo_actual\)/);
   assert.match(rama(), /const sigIdx = siguienteIndice\(sec\.pasos, insc\.paso_actual\);/);
   assert.match(reclamo, /proximo_envio_at: proximo,/);
   assert.match(rama(), /const proximo = siguientePaso \? proximoEnvioDePaso\(siguientePaso, lead\) : null;/, 'la misma programación que un mensaje');
@@ -214,7 +218,8 @@ test('⚠️ la acción va DESPUÉS de las guardas de la inscripción y ANTES de
   }
   // Antes: lo que es del MENSAJE. El anti-ban de 20 h frenaría «mover a Contactado» por el
   // mensaje que acaba de salir; el canal apagado y el [relleno] no le dicen nada a una acción.
-  for (const despues of ['pasoConRelleno(paso)', 'const canalApagado', 'conEnvioReciente.has(insc.lead_id)', 'residuoEnCorrida >= RESIDUO_POR_CORRIDA']) {
+  // (08/10/2026, segunda tanda: el freno de 20 h es `frenadoPorAntiBan`, por canal y con lo de la corrida.)
+  for (const despues of ['pasoConRelleno(paso)', 'const canalApagado', 'frenadoPorAntiBan(insc.lead_id', 'residuoEnCorrida >= RESIDUO_POR_CORRIDA']) {
     const j = PROC.indexOf(despues);
     assert.ok(j > i, `la acción quedó detrás de «${despues}», que es una guarda del mensaje`);
   }
@@ -224,14 +229,18 @@ test('⚠️ la acción va DESPUÉS de las guardas de la inscripción y ANTES de
 
 test('el cupo de mensajes no frena a las acciones: con el tope cumplido el motor sigue mirando SÓLO esas', () => {
   assert.match(PROC, /const conAcciones = secuencias\.filter\(\(s\) => s\.pasos\.some\(esPasoAccion\)\)\.map\(\(s\) => s\.id\);/);
-  assert.match(PROC, /if \(presupuesto <= 0 && !conAcciones\.length\) return \{ \.\.\.res, saltado: 'tope-diario' \};/, 'sin acciones, el corte de siempre');
-  assert.match(PROC, /while \(\(!cupoLleno\(\) \|\| conAcciones\.length > 0\) && rondas < 6\)/);
-  assert.match(PROC, /if \(cupoLleno\(\)\) q = q\.in\('secuencia_id', conAcciones\);/);
+  // Desde la segunda tanda (08/10/2026, decisión 5) el cupo es de WHATSAPP: con él cumplido siguen
+  // las acciones y, mientras quede su propio tope, los emails (`sinTopeWa`, `sigueSinCupoWa`).
+  assert.match(PROC, /const sinTopeWa = \[\.\.\.new Set\(\[\.\.\.conAcciones, \.\.\.\(presupuestoEmail > 0 \? conEmail : \[\]\)\]\)\];/);
+  assert.match(PROC, /if \(presupuesto <= 0 && !sinTopeWa\.length\) return \{ \.\.\.res, saltado: 'tope-diario' \};/, 'sin acciones ni emails, el corte de siempre');
+  assert.match(PROC, /while \(\(!cupoLleno\(\) \|\| sinTopeWa\.length > 0\) && rondas < 6\)/);
+  assert.match(PROC, /if \(cupoLleno\(\)\) q = q\.in\('secuencia_id', sinTopeWa\);/);
+  assert.match(PROC, /const sigueSinCupoWa = \(p: PasoSecuencia\): boolean => esPasoAccion\(p\) \|\| /);
   // Con el cupo lleno un MENSAJE se deja sin tocar (era un `break`), una acción sigue. Desde el
   // 08/10/2026 se mira el nodo LEÍDO (`indiceActual`) y otra vez el que quedó después de resolver
   // las tarjetas de control: una condición puede llevar a un mensaje o a una acción.
-  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && esPasoAccion\(pasoLeido\)\)\) continue;/);
-  assert.match(PROC, /if \(cupoLleno\(\) && !esPasoAccion\(destino\)\) continue;/);
+  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && sigueSinCupoWa\(pasoLeido\)\)\) continue;/);
+  assert.match(PROC, /if \(cupoLleno\(\) && !sigueSinCupoWa\(destino\)\) continue;/);
   // Y la ventana horaria vale para todo: el corte sigue ANTES de mirar nada.
   assert.ok(PROC.indexOf("saltado: 'fuera-de-ventana-horaria'") < PROC.indexOf('const conAcciones'));
 });
@@ -322,9 +331,12 @@ test('el lienzo ofrece «⚡ Acción», la edita con el editor compartido y la a
   // El menú del ＋ es UNO, puro (`opcionesDelMas`), y el lienzo lo usa tal cual.
   const menu = opcionesDelMas([], 'entrada', false);
   assert.ok(menu.some((o) => o.value === 'accion' && o.label === '⚡ Acción'));
-  assert.ok(menu.some((o) => o.value === 'mensaje' && o.label === '💬 Mensaje'));
+  // Segunda tanda (parte L): «WhatsApp» y no «Mensaje», desde que el ＋ también crea un email; y
+  // el menú recibe el puerto (la fila «Si responde» del CRON ofrece sólo crear «Si responde»).
+  // Roto devolviendo el `puerto` a `_puerto` en FlujoLienzo: 1 falla.
+  assert.ok(menu.some((o) => o.value === 'mensaje' && o.label === '💬 WhatsApp'));
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-  assert.match(lienzo, /opcionesEn=\{\(nodo, _puerto, medio\) => opcionesDelMas\(pasos, nodo, medio\)\}/);
+  assert.match(lienzo, /opcionesEn=\{\(nodo, puerto, medio\) => opcionesDelMas\(pasos, nodo, medio, puerto\)\}/);
   assert.match(lienzo, /import \{ EditorAccionMako, useTitulosAcciones, type ValorAccion \} from '@\/app\/_components\/EditorAccionMako';/);
   // Los títulos del nodo salen de la MISMA lectura que el desplegable del editor: el lienzo no
   // vuelve a pedir el catálogo por su cuenta.

@@ -8,14 +8,16 @@
 // flotando a la izquierda y, al tocar «Probar», el teléfono acoplado a la derecha
 // (PanelProbar). El editor de la secuencia (SecuenciaPerfil) queda SIEMPRE montado.
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
+import { Confirm } from '@/app/_ui/Confirm';
 import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
-import { PanelProbar, PANEL_PROBAR_ANCHO } from './PanelProbar';
+import { PanelProbar } from './PanelProbar';
 import { RecordatorioFlujo, NOMBRE_RECORDATORIO } from './RecordatorioFlujo';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
+import { muelles as calcularMuelles, MUELLE } from '@/lib/lienzo-grafo';
 
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
@@ -24,9 +26,12 @@ export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', prepa
  * caja de la lista y el corrimiento de lo que flota sobre el lienzo. Con dos números, el título
  * vuelve a nacer debajo del buscador en cuanto alguien toque uno. El panel de «Probar» usa el
  * mismo hueco del lado derecho.
+ *
+ * Desde la segunda tanda viven en `MUELLE` (lib/lienzo-grafo.ts): los lee también `muelles`, la
+ * única función que decide dónde va cada cosa que flota (la lista, «Probar» y el editor).
  */
-export const LISTA_ANCHO = 272;
-const LISTA_HUECO = 16;
+export const LISTA_ANCHO = MUELLE.listaAncho;
+const LISTA_HUECO = MUELLE.hueco;
 
 /**
  * El tope del nombre de una automatización. Medido el 08/10/2026: los seis vigentes miden de 31
@@ -50,7 +55,7 @@ const emojiSecuencia = (j: SecuenciaDto): string =>
  */
 export type AbrirSecuencia = { id: number };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores, pie, tz, abrir, handoffs }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, ejemplosIA, pedidoIA }: {
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
   handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
   productos: ProductoOpcion[];
@@ -64,7 +69,16 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   rolAdmin: boolean;
   audios: AudioSetting[];
   onAudioNuevo: (a: AudioSetting) => void;
-  onWizard: (id: number | 'nueva') => void;
+  /**
+   * «Nueva»: crea una automatización VACÍA y pausada y la abre con la caja de «Crear con IA»
+   * (decisión 14). El wizard de 9 pasos dejó de ser la entrada: ahí no existían «Si responde» ni
+   * las condiciones.
+   */
+  onNueva: () => void;
+  /** Pedidos de ejemplo para la caja de una automatización vacía (las etapas sin secuencia). */
+  ejemplosIA?: readonly string[];
+  /** Un pedido ya escrito para la automatización recién creada («Armar una»). */
+  pedidoIA?: { secuenciaId: number; pedido: string } | null;
   onReload: () => void;
   /** El pie de la LISTA (hoy: qué etapas quedaron sin secuencia). Viene de la tab
    *  porque el dato es del workspace, no de esta pieza. */
@@ -120,11 +134,52 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * sin «Cambió · ↻» y, con «A mi WhatsApp» prendido, mandándolo—. Un clic sin efecto visible no
    * puede cambiar qué se prueba.
    */
-  const elegir = (id: number | typeof ID_RECORDATORIO) => {
-    if (id === selId) return;
+  const cambiarA = (id: number | typeof ID_RECORDATORIO) => {
     setSelId(id); setProbando(false); setEdicion(null);
   };
+  /**
+   * ⚠️ Y CON CAMBIOS SIN PUBLICAR, SE PREGUNTA ANTES (decisión 15). El lienzo se remonta por
+   * automatización (`key={sel.id}`), así que cambiar de una a otra tiraba lo no publicado sin
+   * aviso (medido, R1/R3). La pregunta es la de la casa (`Confirm`), con la consecuencia pegada al
+   * botón; «Nueva secuencia» pasa por la misma puerta.
+   */
+  const [sinPublicar, setSinPublicar] = useState(false);
+  const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva' } | null>(null);
+  const elegir = (id: number | typeof ID_RECORDATORIO) => {
+    if (id === selId) return;
+    if (sinPublicar) { setPendiente({ ir: id }); return; }
+    cambiarA(id);
+  };
+  const nueva = () => {
+    if (sinPublicar) { setPendiente({ ir: 'nueva' }); return; }
+    onNueva();
+  };
+  const descartar = () => {
+    const p = pendiente;
+    setPendiente(null);
+    if (!p) return;
+    setSinPublicar(false);
+    if (p.ir === 'nueva') onNueva();
+    else cambiarA(p.ir);
+  };
   const recibirEdicion = useCallback((v: EdicionLocal) => setEdicion(v), []);
+
+  /**
+   * LOS MUELLES (decisión 11): dónde va «Probar», el editor apaisado y lo que cada cosa que flota
+   * tiene que dejar libre. Lo decide UNA función pura (`muelles`, lib/lienzo-grafo.ts) con la caja
+   * de esta tab: acá sólo se mide la caja y se reparte el resultado.
+   */
+  const raiz = useRef<HTMLDivElement | null>(null);
+  const [caja, setCaja] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = raiz.current;
+    if (!el) return;
+    const medir = () => setCaja((c) => (c.w === el.clientWidth && c.h === el.clientHeight ? c : { w: el.clientWidth, h: el.clientHeight }));
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /**
    * EL LINK DEL AVISO ABRE EL LIENZO (revisión adversarial del 08/10/2026, costuras-5). El aviso
@@ -138,6 +193,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     setAbrirVisto(abrir);
     elegir(abrir.id);
   }
+
+  // `editorAbierto: true`: lo que se reparte es el muelle que el editor ocupa CUANDO se abre (el
+  // lienzo lo usa al tocar una tarjeta). «Probar» no depende de eso (ver `muelles`).
+  const probarVisible = probando && !!sel && caja.w > 0;
+  const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible, editorAbierto: true });
 
   /**
    * LA TAB ES EL LIENZO, Y LA LISTA SE LE APOYA ENCIMA.
@@ -154,11 +214,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * izquierda, y el lienzo le corre lo que flota con `insetDer`.
    */
   return (
-    <div style={{ flex: 1, minHeight: 0, position: 'relative', minWidth: 0, display: 'flex' }}>
+    <div ref={raiz} style={{ flex: 1, minHeight: 0, position: 'relative', minWidth: 0, display: 'flex' }}>
       {/* EL LIENZO: debajo de todo y de borde a borde. */}
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {selId === ID_RECORDATORIO && rolAdmin ? (
-          <RecordatorioFlujo negocio={negocio} insetIzq={LISTA_ANCHO + LISTA_HUECO * 2} onCambio={setRecordatorioActivo} />
+          <RecordatorioFlujo negocio={negocio} insetIzq={m.insets.izq} onCambio={setRecordatorioActivo} />
         ) : !sel ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
             Elige una automatización
@@ -172,8 +232,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
            * anterior.
            */
           <SecuenciaPerfil key={sel.id} secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} tz={tz}
-            insetIzq={LISTA_ANCHO + LISTA_HUECO * 2}
-            insetDer={probando ? PANEL_PROBAR_ANCHO + LISTA_HUECO * 2 : undefined}
+            insetIzq={m.insets.izq}
+            insetDer={m.insets.der || undefined}
+            muelles={m}
+            onSinPublicar={setSinPublicar}
             handoffs={handoffs}
             onAudioNuevo={onAudioNuevo}
             productos={productos} disparadores={disparadores}
@@ -186,7 +248,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             }}
             onProbar={() => setProbando(true)}
             onCambioLocal={recibirEdicion}
-            onCambio={onReload} onWizard={() => onWizard(sel.id)} />
+            ejemplosIA={ejemplosIA}
+            pedidoIA={pedidoIA?.secuenciaId === sel.id ? pedidoIA.pedido : undefined}
+            onCambio={onReload} />
         )}
       </div>
 
@@ -223,10 +287,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         </div>
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
           {rolAdmin && (
-            <button type="button" onClick={() => onWizard('nueva')}
+            <button type="button" onClick={nueva}
               style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85, fontFamily: 'inherit' }}>
               <span style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--faint)' }}>＋</span>
-              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva secuencia</span>
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva</span>
             </button>
           )}
           {lista.length === 0 && !verRecordatorio && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
@@ -245,14 +309,28 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         {pie && <div style={{ flex: 'none', borderTop: '1px solid var(--border)', padding: '9px 14px' }}>{pie}</div>}
       </aside>
 
-      {/* «PROBAR», ACOPLADO A LA DERECHA. Mismo hueco que la lista, y el lienzo le corre lo que
-          flota (`insetDer`). Se remonta por automatización: otra secuencia es otra prueba. */}
-      {probando && sel && (
-        <PanelProbar
-          key={sel.id}
-          secuencia={sel} edicion={edicion} secuencias={secuencias} audios={audios} negocio={negocio}
-          rolAdmin={rolAdmin} etiquetaEtapa={etiquetaEtapa} onCerrar={() => setProbando(false)}
-          style={{ position: 'absolute', right: LISTA_HUECO, top: LISTA_HUECO, bottom: LISTA_HUECO, width: PANEL_PROBAR_ANCHO, zIndex: 3 }}
+      {/* «PROBAR», EN SU MUELLE (decisión 11): ancho y bajo, arriba a la derecha y debajo del
+          chrome; o de arriba a abajo a la derecha si la ventana es baja. El rectángulo sale de
+          `muelles` y el panel lo LLENA (width/height 100 %): ni el ancho ni el alto se deciden
+          adentro. Se remonta por automatización: otra secuencia es otra prueba. */}
+      {probarVisible && sel && m.probar && (
+        <div data-muelle="probar" style={{ position: 'absolute', left: m.probar.left, top: m.probar.top, width: m.probar.width, height: m.probar.height, zIndex: 3, display: 'flex' }}>
+          <PanelProbar
+            key={sel.id}
+            secuencia={sel} edicion={edicion} secuencias={secuencias} audios={audios} negocio={negocio}
+            rolAdmin={rolAdmin} etiquetaEtapa={etiquetaEtapa} onCerrar={() => setProbando(false)}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </div>
+      )}
+
+      {/* Lo no publicado se pregunta ANTES de perderlo (decisión 15). La consecuencia, pegada al
+          botón: el texto que se dibuja es corto (AGENTS.md). */}
+      {pendiente && (
+        <Confirm
+          message="Tienes cambios sin publicar"
+          confirmLabel="Descartar cambios" cancelLabel="Seguir editando" tone="danger"
+          onConfirm={descartar} onCancel={() => setPendiente(null)}
         />
       )}
     </div>
