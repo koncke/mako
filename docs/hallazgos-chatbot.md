@@ -935,7 +935,56 @@ lado (el CRON por pasos dejaba a Crear con IA sin disparadores).
 
 **Vive en:** `tests/flujo-ia*.test.ts` · `lib/flujo-conversacion.ts` (`seccionesDisparo`)
 
+
+## La cuarta tanda (09/10/2026, a medias): «Probar» que no mostraba nada, y sacar sin romper lo prendido
+
+Pedido literal en la bitácora (9 oct 11:02); decisiones en docs/chatbot-flujo-ramas-diseno.md →
+«CUARTA TANDA». Se hizo una parte, directo y en pasos chicos (la cuenta en 92-93 %): lo que falta,
+por número de punto, en `docs/relevo/chatbot.md`.
+
+### «Le di a probar y no salieron los mensajes»: no era el envío, era una puerta del simulador [probar]
+
+El diagnóstico obvio era que la prueba no mandaba. Lo que pasaba: el simulador FRENABA en cada
+condición esperando que alguien eligiera la rama con los botones («Llegó hace menos de 3 días /
+Si no»), y con una condición como primera tarjeta no salía ningún mensaje. Ahora sigue sola por la
+primera rama (el «Sí»). La regla: una prueba que arranca sola no puede quedarse esperando una
+decisión que nadie le pidió a quien mira; si hace falta probar la otra rama, eso es un control
+aparte, no un freno.
+
+**Vive en:** `app/chatbot/PanelProbar.tsx` (el `case 'condicion'`)
+
+### Sacar un tipo de tarjeta del producto = dejar de OFRECERLO, no dejar de dibujarlo [lienzo]
+
+Martín pidió sacar REPLY, GO TO, «Si responde» del CRON, «antes de la reunión» del DELAY y
+condiciones que el CRM no registra. Varias secuencias PRENDIDAS los usan (las convertidas de la
+primera tanda tienen «Si responde»). Sacarlos del dibujo habría cambiado qué hace hoy una secuencia
+sin que nadie lo viera. Se sacan de lo que se OFRECE (el ＋, el desplegable, el catálogo con
+`retirada`, `FUERA_DEL_SELECTOR`) y lo que ya existe se sigue dibujando, corriendo y borrando. La
+migración de esas secuencias a lo nuevo es una decisión aparte.
+
+**Vive en:** `lib/flujo-conversacion.ts` (`opcionesDelMas`, la tarjeta CRON) · `lib/condiciones-catalogo.ts` (`retirada`, `seOfrece`) · `lib/editor-acciones.ts` (`FUERA_DEL_SELECTOR`) · `app/chatbot/FlujoLienzo.tsx` (`EditorEspera`)
+
+### El desplegable de la casa no es un `<select>`: lo puesto que no está en la lista lo dice el botón [cron]
+
+«La que tiene puesta» existía por la regla del `<select>` cuyo valor no está entre sus opciones
+(muestra la primera y el primer clic la pisa). El `Dropdown` de la casa no tiene esa trampa: el botón
+dibuja `botonLabel` (`rotuloDisparo` cae a `textoActual`) y nada se escribe hasta elegir. Esa sección
+era ruido, y Martín la vio como tal. La regla del `<select>` sigue valiendo para un `<select>` nativo.
+
+**Vive en:** `lib/flujo-conversacion.ts` (`pasosDisparo`, `rotuloDisparo`)
+
+### `echo tsc=$?` después de un pipe mide el `tail`, no el typecheck [proceso]
+
+`npx tsc --noEmit | tail -15; echo tsc=$?` imprime el exit del `tail` (0), y un commit salió con un
+error de tipos que el mismo comando mostraba arriba. Se cazó en el paso siguiente, sin pushear. El
+chequeo va a un archivo y el `$?` del comando: `npx tsc --noEmit > out.txt 2>&1; echo $?`.
+
 ## Lo que quedó sin hacer
+
+**De la cuarta tanda (09/10/2026):** los puntos 1, 5, 6 (la cuota N), 7, 8, 11 (más acciones), 14,
+15 y 16, cada uno con sus archivos, en `docs/relevo/chatbot.md` → «La cuarta tanda». El chat de CRM ya
+dejó marcadas las etapas de reunión (`adf1ca3d`), que es lo que el punto 5 necesitaba.
+
 
 **De la tercera tanda (09/10/2026)**
 

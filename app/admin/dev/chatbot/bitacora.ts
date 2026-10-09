@@ -967,4 +967,25 @@ export const BITACORA: Hito[] = [
       "La cuenta estaba en 92 % de la cuota semanal al recibirlo.",
     ],
   },
+  {
+    fecha: "9 oct", hora: "11:50", chat: "—", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Cuarta tanda, primera mitad: «Probar» que arranca y se ve, el CRON por Productos / Etiquetas y sin filas, el ＋ con íconos, la lista con filtro por emoji, y lo que no se ofrece más",
+    puntos: [
+      "«Probar» no mostraba mensajes porque frenaba en cada condición esperando que alguien eligiera la rama: ahora sigue solo por el «Sí», sin botones de rama, con «Probar en WhatsApp / Email» arriba, el «Cerrar» en el botón del chrome y de alto completo.",
+      "El CRON sin «Al entrar» ni «Si responde», y su desplegable arranca en «Productos» y «Etiquetas». El ＋ con íconos, los logos de WhatsApp y Gmail, la chispa de MaKo y «MaKo en WhatsApp», por grupos.",
+      "No se ofrecen más REPLY, GO TO, «antes de la reunión», «Confirmó la compra y no pagó», «Avisar al equipo» ni «Inscribir en otra automatización»; lo que ya existe se sigue dibujando y corriendo.",
+      "La lista: el filtro al lado del buscador, por estado y por emoji, con «Quitar filtro»; el «⋯» abre hacia afuera.",
+      "Falta (en el relevo, por número de punto): editores de control sin aire, «＋ y / ＋ o», la condición de reunión (el CRM ya marcó las etapas), la cuota N, más acciones, varias flechas por resultado, el CRON con varias etapas, WhatsApp con varios mensajes y el email con remitente y HTML.",
+      "⚠️ Sin ver con clics todavía.",
+    ],
+    commits: [
+      { sha: "5fa0e885", msg: "Chatbot (cuarta tanda, puntos 4, 10 y 12): el CRON sin filas y el ＋ con íconos y por grupos", lineas: 162, archivos: 5 },
+      { sha: "27be4adc", msg: "Chatbot (cuarta tanda, punto 11): ACTION dice «Elige una acción», sin subtítulos ni las dos que sobraban", lineas: 32, archivos: 3 },
+      { sha: "1405d3f1", msg: "Chatbot (cuarta tanda, punto 13): el filtro al lado del buscador, por emoji, y el «⋯» abre hacia afuera", lineas: 108, archivos: 4 },
+      { sha: "fd9d6dcc", msg: "Chatbot (cuarta tanda, puntos 6 y 9): sin «Confirmó la compra y no pagó», y el DELAY sólo espera", lineas: 29, archivos: 4 },
+      { sha: "920f6832", msg: "Chatbot (cuarta tanda, puntos 3 y 17): «Probar» arranca sin frenar en las condiciones, más alto, y con el botón arriba", lineas: 160, archivos: 7 },
+      { sha: "3eb29d30", msg: "Chatbot (cuarta tanda, punto 2): el desplegable del CRON arranca en «Productos» / «Etiquetas»", lineas: 74, archivos: 2 },
+    ],
+  },
 ];

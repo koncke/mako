@@ -1,10 +1,79 @@
 # Retomar: Chatbot
 
-**Dónde quedó:** 09/10/2026, ~04:00. Cuenta `claude2`. La TERCERA tanda está en `main` (`240cb75c`),
-con la mig **0229** (emoji) aplicada y verificada. Antes, la segunda (`ecf93d0f`) y las secuencias
-de los clientes en pausa. La cuota semanal de la cuenta está en ~87 %.
+**Dónde quedó:** 09/10/2026, ~11:50. Cuenta `claude2`, con la cuota semanal en 93 %. La CUARTA tanda
+está a medias: lo hecho está en `main` (push `9165da11`). El pedido literal de los 17 puntos está en
+`app/admin/dev/chatbot/bitacora.ts` (hito del 9 oct 11:02), y las decisiones punto por punto en
+`docs/chatbot-flujo-ramas-diseno.md` → «CUARTA TANDA». Lo que falta se retoma desde ahí.
 
-## La tercera tanda (pedido del 9 oct 02:05, en la bitácora)
+## La cuarta tanda: qué está y qué falta (por número de punto)
+
+**Hecho (en producción, sin verificar con clics):**
+- **2.** El desplegable del CRON arranca en «Productos» y «Etiquetas». Sale «La que tiene puesta».
+- **3 y 17.** «Probar» ya no se frena en las condiciones: sigue solo por el «Sí». Esa era la causa
+  de que no salieran los mensajes. Sin botones de rama. «Probar en WhatsApp / Email» está arriba a
+  la izquierda, y el «▶ Probar» del chrome se vuelve «✕ Cerrar». Es más alto: va de debajo del
+  chrome hasta abajo.
+- **4 y 12.** El CRON sin «Al entrar» ni «Si responde». El ＋ no ofrece REPLY ni GO TO. Los flujos
+  que ya los tienen los siguen dibujando y corriendo.
+- **6 (mitad).** «Confirmó la compra y no pagó» no se ofrece (`retirada` en el catálogo).
+- **9.** El DELAY sólo espera; «antes de la reunión» sale del desplegable para lo nuevo.
+- **10.** El ＋ con íconos SVG, los logos de WhatsApp y Gmail, la chispa de MaKo, «MaKo en
+  WhatsApp», más ancho y por grupos con línea.
+- **11 (mitad).** ACTION dice «Elige una acción», sin subtítulos, sin «Avisar al equipo» ni
+  «Inscribir en otra automatización» (`FUERA_DEL_SELECTOR`).
+- **13.** El filtro al lado del buscador, por estado y por emoji, con «Quitar filtro». El «⋯»
+  abre hacia afuera.
+
+**Falta (en este orden, del más chico al más grande):**
+- **7. «＋ y» / «＋ o» de vuelta y sin «＋ Rama».** Cada fila nueva guarda con qué se une (`union:
+  'y' | 'o'` en `FilaCondicion`, lib/flujo-grafo.ts); se evalúa con las «y» atando más que las
+  «o» (`cumpleFila` / la evaluación de la rama, y el mismo cambio en lib/simulador-grafo.ts). El
+  editor es `app/chatbot/EditorCondicion.tsx`. Las condiciones de antes con varias ramas se
+  siguen dibujando.
+- **1. Los editores de control sin aire.** CRON, DELAY, CONDITION, TAG y ACTION abren un panel de
+  alto FIJO de ~420 (`MUELLE.editorAltoMax`, lib/lienzo-grafo.ts) con un selector chico arriba.
+  Que el panel mida su contenido para los de control (la regla de la casa dice que un panel que
+  salta de tamaño es malo: decidir un alto chico fijo para los de control, ~200, y el grande
+  para WhatsApp/Email), y el selector como campo grande de ancho completo.
+- **5. La reunión, una sola familia de condiciones.** El chat de CRM YA marcó qué etapas son
+  reuniones (`adf1ca3d`, `kind: 'reunion'`, regla en `lib/etapa-reunion.ts`). La condición
+  «Asistió / No asistió a la reunión», «Tiene reunión agendada» y «Próxima reunión en» suman
+  un selector de etapas de reunión; el índice sale de `reunionesDe(stages).indexOf(etapa)`
+  (0 → `r1`, 1 → `r2`; una tercera da «no sé»). Las R1/R2 de antes, `retirada`.
+- **6 (la otra mitad). «No pagó la cuota N».** Hoy los hechos de pagos son `{ pagadas, vencidas }`
+  (lib/condiciones-catalogo.ts, `HechosCatalogo.pagos`): hace falta leer el estado POR cuota en
+  `hechosDeLeads` (lib/nutricion.ts).
+- **11 (la otra mitad). Más acciones del CRM y de Customer Success.** El registro tiene UNA de CS
+  (`marcar_estado_cliente_cs`). Las que faltan se declaran en `lib/api-mako/areas/cs.def.ts` /
+  `crm.def.ts` (mover en el kanban de entrega, sacar de una automatización, dar o quitar acceso
+  al curso) y después entran a `ACCIONES_DEL_FLUJO` (lib/editor-acciones.ts).
+- **16. Email:** «De» con los remitentes vinculados y «Vincular nuevo»; sin «Vista previa» ni el
+  ojo; modo HTML; el pie de baja con el nombre del NEGOCIO (no «MaKo»; el link de baja se queda);
+  el «{ }» y el emoji en la barra de formato. `app/chatbot/EditorEmailGmail.tsx`, `lib/email-html.ts`.
+- **15. WhatsApp con varios mensajes por tarjeta:** «Enviar» suma la burbuja y vacía la barra;
+  lápiz y papelera visible (con 5 s de deshacer) por burbuja; sin transcripción; «{ }» al lado del
+  clip; «✦ MaKo» al lado del título; elegir el número de salida con «Vincular nuevo». Es un cambio
+  de MODELO (el paso tiene un solo cuerpo + audio + archivo): o una lista de partes en el paso
+  (que pase por `setSecuenciaPasos` y el motor las mande en orden), o tarjetas encadenadas.
+  `app/chatbot/EditorMensajeWhatsApp.tsx`, lib/nutricion.ts.
+- **8. Varias flechas por resultado de una condición** («Sí» y «Si no» con sus flechas en
+  paralelo). Toca el modelo (`paralelos` por rama) y el motor de hilos (lib/nutricion-hilos.ts):
+  al resolver la rama, arrancan sus hilos.
+- **14. El CRON con varias etapas.** `nutricion_secuencias.etapa` es UNA: hace falta una columna
+  (migración ANTES del deploy), que el motor inscriba por cualquiera, el desplegable con selección
+  múltiple, y que Crear con IA elija todas las de entrega cuando el pedido habla de un alumno.
+  Revisar también el flujo que Martín creó con IA («felicitar a un alumno que terminó una clase»).
+- **Verlo con clics** en producción, la tercera y la cuarta tanda.
+
+## Lo que espera a Martín (no cambió)
+
+- La key de Gemini de la plataforma está bloqueada por Google.
+- Activar #221/#222 (pausando 212, 213 y 198) y el disparador de #224.
+- Lo de las tandas anteriores, abajo.
+
+## La tercera tanda (para contexto)
+
+### Lo que se hizo (pedido del 9 oct 02:05, en la bitácora)
 
 Hecho: el editor mediano (WhatsApp en una columna, sin «Revisar antes de enviar»), «Ir a» fuera del
 ＋ y de la IA, el CRON por producto → adquisición/entrega → etapa (sin «Eventos»), títulos en inglés
