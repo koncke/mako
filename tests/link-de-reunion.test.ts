@@ -146,7 +146,7 @@ const CALCOM = sinComentarios(leer('app/api/webhooks/calcom/route.ts'));
 test('CABLEADO: Cal.com guarda el link de la R1 y de la R2, del payload y con su extractor', () => {
   const r2 = entre(CALCOM, "if (tipo === 'j2') {", 'return Response.json({ ok: true, trigger: body.triggerEvent, tipo: \'j2\', action: \'set_j2\'');
   // Entre las dos va `saveLeadRespuestas` (lo que completó en el formulario de la R2).
-  assert.match(r2, /await setFechaJunta2\(lead\.id, fechaReunion, reserva\.inicio\);[\s\S]*?await guardarLinkDeReunion\(lead\.id, 'R2', linkDeReunionCalcom\(body\.payload\)\);/);
+  assert.match(r2, /await setFechaJunta2\(lead\.id, fechaReunion, reserva\.inicio(, 'Cal\.com')?\);[\s\S]*?await guardarLinkDeReunion\(lead\.id, 'R2', linkDeReunionCalcom\(body\.payload\)\);/);
   const r1 = entre(CALCOM, 'const { lead, created } = await upsertLeadFromCalendly({', "await emitirDelCatalogo('reunion-nuevo-agendado'");
   assert.match(r1, /await guardarLinkDeReunion\(lead\.id, 'R1', linkDeReunionCalcom\(body\.payload\)\);/);
   // El de Calendly lee `location.join_url`, que Cal.com no tiene: daría null siempre.

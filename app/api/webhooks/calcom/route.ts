@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
           console.warn(`[webhook:calcom] J2 SIN MATCH email=${reserva.email ?? '—'} uid=${reserva.uid} ms=${ms}`);
           return Response.json({ ok: true, trigger: body.triggerEvent, tipo: 'j2', action: 'sin_match', ms });
         }
-        await setFechaJunta2(lead.id, fechaReunion, reserva.inicio);
+        await setFechaJunta2(lead.id, fechaReunion, reserva.inicio, 'Cal.com');
         // Lo que completó en el formulario de la R2, POR reunión y con la MISMA función que Calendly.
         // No tira: una respuesta que no se guarda no puede tumbar la reserva.
         await saveLeadRespuestas(lead.id, 'R2', preguntasDeReserva(reserva.respuestas), fechaReunion);

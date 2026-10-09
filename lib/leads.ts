@@ -57,6 +57,7 @@ import type { VentaTipo } from './venta-tipo';
 import { etapaVigenteDe } from './funnel-etapas';
 import { avanceDe, esEventoDeVideo } from './vsl-retencion';
 import { hoyEnTijuana } from './date-utils';
+import { limpiaNoShow, textoNoShow } from './reagenda-no-show';
 import { cachedRead, TAG, TTL } from './cache';
 import { actualizarEtiquetaLead } from './evolution-labels';
 import { idDeclaraHost } from './video-id';
@@ -1356,13 +1357,38 @@ export async function findLeadByContacto(
 
 /**
  * Setea SOLO fecha_junta_2 en un lead (J2 entrante de Calendly, Fase 10).
- * Nunca toca otros campos.
+ * No toca otros campos, salvo uno: si la R2 estaba marcada «no asistió» y esta reserva es OTRA
+ * reunión, la marca vuelve a null y el no-show queda en el historial (`limpiaNoShow`,
+ * lib/reagenda-no-show.ts; decisión de Martín del 06/10/2026). Si la lectura previa falla no se
+ * limpia nada: «no pude leer» no autoriza a borrar una marca.
  */
-export async function setFechaJunta2(leadId: number, fechaJ2: string, juntaAtIso?: string | null): Promise<void> {
+export async function setFechaJunta2(
+  leadId: number,
+  fechaJ2: string,
+  juntaAtIso?: string | null,
+  canal: string = 'Calendly',
+): Promise<void> {
   const supabase = (await getTenantDb());
+  const { data: antes } = await supabase
+    .from('leads')
+    .select('fecha_junta_2, junta_2_at, asistio_j2')
+    .eq('id', leadId)
+    .maybeSingle();
+  const fila = antes as { fecha_junta_2: string | null; junta_2_at: string | null; asistio_j2: boolean | null } | null;
+  const limpia = !!fila && limpiaNoShow(
+    { asistio: fila.asistio_j2, fecha: fila.fecha_junta_2, at: fila.junta_2_at },
+    { fecha: fechaJ2, at: juntaAtIso },
+  );
+  // El no-show se anota ANTES del update: hay un solo par de campos por reunión, y si no queda acá
+  // el hecho de que faltó desaparece (lo mismo que `reagendarReunionAction` en el CRM).
+  if (limpia) await logLeadEvent(leadId, 'Reunión 2 — no asistió', textoNoShow(fila!.fecha_junta_2, canal), canal).catch(() => {});
   const { error } = await supabase
     .from('leads')
-    .update({ fecha_junta_2: fechaJ2, ...(juntaAtIso ? { junta_2_at: juntaAtIso } : {}) })
+    .update({
+      fecha_junta_2: fechaJ2,
+      ...(juntaAtIso ? { junta_2_at: juntaAtIso } : {}),
+      ...(limpia ? { asistio_j2: null } : {}),
+    })
     .eq('id', leadId);
   if (error) throw new Error(`Error seteando fecha_junta_2 en lead ${leadId}: ${error.message}`);
 }
@@ -1868,6 +1894,17 @@ export async function upsertLeadFromCalendly(
       if (input.respuesta_decisor)        extraUpdates.respuesta_decisor        = input.respuesta_decisor;
       if (input.visitor_id)               extraUpdates.visitor_id               = input.visitor_id;
       updatePayload = { ...basePayload, ...extraUpdates };
+      // ⚠️ UNA REUNIÓN NUEVA LIMPIA LA MARCA DE «NO ASISTIÓ» (decisión de Martín, 06/10/2026). Sólo
+      // acá, en el webhook en vivo: el backfill (`soloVacios`) no reagenda a nadie. El no-show se
+      // anota ANTES del update, como en el «reagendar» del CRM (lib/reagenda-no-show.ts).
+      if (limpiaNoShow(
+        { asistio: existing.asistio_j1, fecha: existing.fecha_junta_1, at: existing.junta_1_at },
+        { fecha: input.fecha_junta_1, at: input.junta_1_at },
+      )) {
+        const canal = input.origen_lead === 'calcom' ? 'Cal.com' : 'Calendly';
+        await logLeadEvent(existing.id, 'Reunión 1 — no asistió', textoNoShow(existing.fecha_junta_1, canal), canal).catch(() => {});
+        updatePayload.asistio_j1 = null;
+      }
     }
 
     const { data, error } = await supabase
