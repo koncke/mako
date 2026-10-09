@@ -51,6 +51,8 @@ import type { MetricasSecuencia } from '@/lib/setting-metricas';
 export type PasoSecuenciaDto = {
   orden: number; canal: 'email' | 'whatsapp'; delay_horas: number;
   asunto: string | null; preheader?: string | null; cuerpo: string;
+  /** Sólo email: el cuerpo del editor rico, en HTML saneado. `cuerpo` es su texto plano (lib/nutricion.ts, `cuerpo_html`). */
+  cuerpo_html?: string | null;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
   /** 'ia' = MaKo reescribe el mensaje para cada lead (lib/paso-ia.ts); `cuerpo` es la base y el respaldo. */
   tipo?: 'texto' | 'audio' | 'ia' | 'media'; audio_id?: number | null;
