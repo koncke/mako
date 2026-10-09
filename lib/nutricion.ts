@@ -583,6 +583,11 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
     const html = canal === 'email' ? cuerpoHtmlAGuardar(cuerpoHtmlEntrante(p, emailsPrevios.get(idDe(flujo, i)))) : null;
     return html ? { cuerpo: textoDeHtmlEmail(html), cuerpo_html: html } : { cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '' };
   };
+  // El «De» de un email (cuarta tanda, punto 16). Sólo email: un WhatsApp no tiene remitente de correo.
+  const remitenteDelGuardado = (p: PasoSecuencia, flujo: ReturnType<typeof camposDelFlujo>, i: number, canal: CanalNutricion): { remitente?: string } => {
+    const r = canal === 'email' ? remitenteAGuardar(p.remitente, remitentesPrevios.get(idDe(flujo, i))) : null;
+    return r ? { remitente: r } : {};
+  };
 
   // Normaliza el orden (1..n) y descarta basura. Los campos del FLUJO (id, siguiente, nodo,
   // espera, ramas, casos, si_no, destino, revisar) salen de `camposDelFlujo`, saneados uno por
@@ -627,11 +632,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
               : {}),
         asunto: typeof p.asunto === 'string' ? p.asunto : null,
         preheader: typeof p.preheader === 'string' ? p.preheader : null,
-        ...(() => {
-          // El «De» del email (punto 16). Sólo email: un WhatsApp no tiene remitente de correo.
-          const r = comun.canal === 'email' ? remitenteAGuardar(p.remitente, remitentesPrevios.get(idDe(flujo, i))) : null;
-          return r ? { remitente: r } : {};
-        })(),
+        ...remitenteDelGuardado(p, flujo, i, comun.canal),
         ...cuerpoDelPaso(p, flujo, i, comun.canal),
         // El oficial va DECLARADO; la ausencia del campo cae al no oficial, que es
         // el canal real del chatbot. El porqué, en `proveedorDelPaso`.
