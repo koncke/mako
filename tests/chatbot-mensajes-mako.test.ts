@@ -168,13 +168,23 @@ test('sin automatizaciones pero con mensajes, /chatbot dibuja la lista (el link 
   assert.ok(html.includes('>Reporte semanal</span>'));
 });
 
+test('el link de Notificaciones no se queda en el QR de un negocio sin WhatsApp vinculado: ahí es el único lugar donde se edita', () => {
+  const app = fuente('app/chatbot/ChatAgentApp.tsx');
+  assert.match(app, /const vieneAUnMensaje = params\.get\(PARAM_AVISO\) != null;\n\s+if \(enOnboarding && !vieneAUnMensaje\) \{/);
+  // Y la puerta del QR sigue igual para todo lo demás (lib/chatbot-puerta.ts).
+  assert.ok(app.includes('const calculada = abreEnQR({ onboarding, canal: estadoCanal });'));
+});
+
 // ── La tab de Notificaciones ────────────────────────────────────────────────────
 // PlantillasView elige su primer mensaje en un EFECTO, que un render estático no corre: lo que se
 // dibuja se mira donde se puede (la lista, el alta) y la rama del lienzo se fija en el fuente.
 
-const dibujarPlantillas = (extra: Record<string, unknown> = {}) => renderToStaticMarkup(createElement(PlantillasView, {
+// Sus props son opcionales con `= {}`, y con eso `createElement` no infiere el tipo: se le dice.
+type PropsVista = { endpoint: string; iniciales: PlantillaVista[]; enlaceEditar?: (p: PlantillaVista) => string };
+const Vista = PlantillasView as unknown as (p: PropsVista) => ReturnType<typeof PlantillasView>;
+const dibujarPlantillas = (extra: Pick<PropsVista, 'enlaceEditar'> = {}) => renderToStaticMarkup(createElement(Vista, {
   endpoint: ENDPOINT_MENSAJES_MAKO, iniciales: AVISOS, ...extra,
-} as Parameters<typeof PlantillasView>[0]));
+}));
 
 test('en Notificaciones el lienzo SE VA y queda «Editar en Chatbot», un link a ESE mensaje; lo demás se queda', () => {
   const pv = fuente('app/agencia/PlantillasView.tsx');
@@ -224,3 +234,4 @@ test('el link aparece sólo si el negocio tiene /chatbot: lo decide el server co
 //     (la primera versión daba VERDE: probaba con un espacio y una barra, que la URL tolera)
 //   · M11 sin automatizaciones no hay lista: 32 / 1 · M12 con un mensaje abierto, tocar la automatización
 //     de abajo no vuelve: 32 / 1 · M13 la automatización sigue elegida con un mensaje abierto: 32 / 1
+//   · M15 (con el test del QR ya sumado: 34 tests) el link se queda en el QR: 33 / 1

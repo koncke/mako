@@ -452,7 +452,14 @@ function ChatAgentInner() {
   // un lienzo que todavía no puede mandar nada. `EvolutionConnect` es la misma pieza que usa
   // /whatsapp —ahí viven el sondeo, el QR y la recuperación de una sesión caída— y en modo
   // `inline` se dibuja sola y desaparece en cuanto engancha.
-  if (enOnboarding) {
+  //
+  // ⚠️ SALVO QUE SE VENGA A EDITAR UN MENSAJE DE MAKO (quinta tanda, punto 5): el link de
+  // Notificaciones (`?aviso=<id>`) es el ÚNICO lugar donde ese mensaje se edita desde que su lienzo
+  // salió de allá, y un mensaje de MaKo no sale por la línea del negocio (va al grupo de MaKo o al
+  // correo). Detrás del QR, un negocio sin WhatsApp vinculado se quedaba sin ningún lugar donde
+  // editarlo (AGENTS.md, «Si después de cerrar no queda ningún camino…»).
+  const vieneAUnMensaje = params.get(PARAM_AVISO) != null;
+  if (enOnboarding && !vieneAUnMensaje) {
     return (
       <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px', gap: 16 }}>
         <div>
