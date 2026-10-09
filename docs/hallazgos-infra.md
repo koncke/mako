@@ -4841,6 +4841,9 @@ sesiones sobre el clon.
      invalid, it points out of the filesystem root». La raíz es `turbopack.root`, que
      `next.config.ts` fija en `__dirname` a propósito. En el worktree (y SÓLO ahí, sin
      commitearlo) va un ancestro común de los dos: `root: 'C:/Users/marti'`.
+     Vale igual para `npm run build`, que AGENTS.md daba por imposible en un worktree: medido el
+     09/10/2026, verde con `root` en la carpeta que contiene al worktree y al clon (y
+     `next.config.ts` restaurado después, con `git diff` vacío).
   2. **Con el worktree adentro del scratchpad, Turbopack muere por largo de ruta** («path length
      for file … .next\dev\server\chunks\…»). El scratchpad ya tiene ~140 caracteres antes de
      empezar. El worktree va en una ruta corta (`C:\Users\marti\<nombre>`) y se borra al terminar.

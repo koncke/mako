@@ -1403,13 +1403,14 @@ deja hacer el PRODUCTO.
    el permiso). El arreglo son dos líneas por vista (`security_invoker = on` + `revoke all … from anon,
    authenticated`); el servidor las lee con `getTenantDb`, que es la service role, así que no cambia lo
    que ve. **No se aplicó**: el guard de vistas ya lo dejó escrito como un cambio de permisos en
-   producción que decide el humano. Pendiente de Martín.
+   producción que decide el humano. Pendiente de Martín. → **Cerrado el 09/10** (mig 0231), ver
+   «Las cohortes y el token de la API, cerrados» más abajo.
 2. **El token de la API de MaKo se guarda en claro.** `agente_token` (el de la skill de Claude del
    cliente) vive tal cual en `app_settings` y en `webhook_routing` (3 workspaces). Una copia de la base
    no abre las llaves del cliente, pero sí da un bearer para su API de MaKo. Los tokens con nombre de
    `/api/v1` ya hacen lo correcto (hash, se muestran una sola vez). Pasar el principal a ese molde es un
    cambio de producto —la tarjeta de `/integraciones` y el archivo de la skill dejan de poder mostrarlo
-   otra vez— y es de Martín.
+   otra vez— y es de Martín. → **Hecho el 09/10** («terminalo todo»), ver abajo.
 
 **Para cuando se construya Stripe** (que entra solo al cifrado, a la auditoría y al aviso, porque los
 tres viven en el formulario común y no por servicio):
@@ -1423,3 +1424,62 @@ tres viven en el formulario común y no por servicio):
 
 _Sin subagentes. Pedido de la sesión de Customer Success; medido con scripts de sólo lectura sobre
 producción (transacción `read only`, ningún valor impreso)._
+
+## Las cohortes y el token de la API, cerrados (09/10/2026)
+
+**Vive en:** `supabase/migrations/0231_cohortes_cerradas.sql` · `tests/funnel-declarado.test.ts` ·
+`lib/agente-token-nucleo.ts` · `lib/agente-token.ts` · `lib/agente-token-conversion.ts` ·
+`scripts/agente-token-a-hash.ts` · `lib/api-mako/alcance.ts` (`alcanceDePista`) ·
+`app/api/agente/skill/route.ts` · `app/integraciones/TutorialAgente.tsx` · `tests/agente-token-hash.test.ts`
+
+Los dos pendientes de la entrada de arriba, con la decisión de Martín del 09/10 («terminalo todo»).
+
+**Las vistas de cohortes.** Medido antes, con la clave pública: HTTP 200 y 54/19 filas (facturación,
+cierres y asistencias de todos los workspaces). Después de la 0231 (`security_invoker = on` + `revoke
+all … from anon, authenticated`): 401 «permission denied», y la service role sigue leyendo 54/19. El
+servidor no cambió nada porque ya leía con la service role.
+
+⚠️ **El guard que las dejaba pasar era una lista de excusas, y la cura no es sacar dos nombres de la
+lista.** `tests/funnel-declarado.test.ts` tenía `YA_FILTRADAS` con las dos vistas; sin la lista, lo que
+importa es DÓNDE está el revoke: una vista re-creada en una migración posterior (`drop view` + `create
+view`) nace sin lo que se le hizo antes. El guard ahora exige, por cada vista, el revoke en la misma
+migración o en una POSTERIOR a su ÚLTIMA creación (archivos ordenados). Probado rompiéndolo: sin la 0231,
+1 fallo (`v_cohortes_mensuales`, la última creación es la 0084); con un revoke anterior a la re-creación
+de `v_funnel_productos` (0171), 1 fallo.
+
+**El token clásico (`agente_token`) por hash.** Se guarda como los tokens con nombre: sha256 + una pista
+no secreta (`mkoag_e_…a1b2`), y se muestra UNA vez, en la respuesta del POST que lo acuña. El índice
+`webhook_routing('agente')` pasa a ir por hash. Convertido en producción el 09/10 a las 16:07 (−03):
+3 settings (ws1, ws9, ws11) y 5 filas en claro borradas del índice (2 eran de tokens rotados hace
+tiempo que el índice, append-only, seguía guardando en claro). Releído: 0 en claro, 3 por hash.
+
+⚠️ **Desde esa conversión, NO se vuelve a un deploy anterior a `dc25a921`.** El código viejo no sabe
+leer el hash: las tres skills instaladas dejan de autenticar sin ningún error que lo explique.
+
+Las tres trampas que encontró la revisión, y las tres eran de la forma «el cambio era correcto y lo de
+alrededor seguía contando con la versión anterior»:
+
+1. **La skill mandaba a un botón que ya no existe.** Le decía a Claude que mandara a la persona a
+   Integraciones, «botón Copiar». Con el hash, ese botón existe sólo la vez que se genera; a quien
+   cambió de máquina, Claude lo mandaba a buscar un control que su pantalla no tiene. Ahora dice que se
+   muestra una vez y que, si no lo tiene, «Generar otro» (y que el anterior deja de andar).
+2. **El modal mostraba una foto vieja.** `TutorialAgente` arranca con la pista que bajó del server al
+   cargar la página y vive en un modal que se desmonta: quien generaba su primer token, cerraba y
+   reabría veía «Generar token» otra vez —y al apretarlo revocaba el que acababa de pegar—. Va
+   `router.refresh()` después del POST.
+3. **Limpiar el índice después de escribir podía perder el token nuevo.** Con el anterior ya revocado,
+   un error en la limpieza contestaba 500 y el token recién acuñado no le llegaba a nadie. La limpieza
+   ya no puede tumbar la entrega.
+
+Y `/api/agente/skill` ya no relee el setting para armar el archivo (no hay texto plano que releer):
+usa el bearer PRESENTADO, que ya se verificó como el principal.
+
+**Lo que quedó sin verificar:** un uso real de una skill DESPUÉS de la conversión. No hay forma de
+probarlo sin el valor del token (por diseño ya no se guarda). Las rutas contestan con su propio 401 (o
+sea que corre el código nuevo) y los 15 tests cubren el camino por hash; la prueba de verdad es el
+próximo uso, que se lee en `app_settings.api_tokens_uso` (`principal`): el ws1 lo usó por última vez a
+las 03:02 UTC del 09/10, antes de convertir.
+
+_09/10/2026 — corrida de 4 agentes en worktrees (token, Pixel, Chatwoot, agenda) + revisión
+adversarial de cada rama; integrado, typecheck 0 y 6327/0 antes de subir. Conversión y mediciones en
+producción hechas por quien integró._

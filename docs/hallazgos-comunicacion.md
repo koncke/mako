@@ -9414,3 +9414,77 @@ bandeja sigue siendo MaKo hasta que conecte su propio dominio. Lo decide Martín
 
 *09/10/2026 — cuarta tanda del Chatbot, parte «email» (punto 16), cuenta 2. 8 roturas en
 `tests/email-remitente.test.ts` y `tests/editor-email-gmail.test.ts` en este cierre, todas cazadas.*
+
+## Chatwoot BORRADO (tanda 1), y la puerta de /whatsapp que el apagado dejó viva (09/10/2026)
+
+**Vive en:** `app/whatsapp/page.tsx` · `lib/tab-activacion.ts` · `lib/chatwoot.ts` (cascarón) ·
+`tests/sin-chatwoot.test.ts` · `tests/whatsapp-sin-chatwoot-gate.test.ts` ·
+`lib/api-mako/areas/integraciones.def.ts` / `.run.ts` (`ver_activacion_tab`) · `app/api/mako-doer/route.ts` ·
+`lib/agente-skill.ts`
+
+**El síntoma, en producción:** dos horas después del apagado de arriba, Martín mandó la captura de
+`/whatsapp?ws=11`: la tab entera era el formulario «WhatsApp se prende con esto — Conecta tu cuenta por
+Chatwoot…», sin ningún camino al QR. «Los clientes lo necesitan usar y eso lo bloquea.»
+
+⚠️ **El apagado lo CAUSÓ, y no por un descuido del interruptor.** La causa era doble —la page caía al
+`PanelActivacion` cuando no había canal vivo, y la activación de la tab declaraba `servicio: 'whatsapp'`,
+que son las credenciales de Chatwoot— y existía desde antes. Lo que cambió es que con `CHATWOOT_APAGADO`
+la pregunta «¿está conectado?» pasó a contestar NO para todo el mundo, así que la puerta que antes veían
+pocos (un negocio sin ningún canal) la vio cualquiera con el número desvinculado. **Apagar un servicio con
+un interruptor cambia la respuesta de todo lo que pregunta por él**: antes de prenderlo, se buscan las
+PUERTAS que cuelgan de esa respuesta (un `if (!conectado) return <Panel…/>`), no sólo las llamadas. Arreglo
+de urgencia en `c09e16ad`, verificado en el ws11 en producción: sin número, la bandeja con su QR.
+
+**La tanda 1 del borrado** (`99246cff`, `dae6b3b4`, `886890f3`, `f98778f7` y tres de revisión): se va la
+bandeja oficial entera, 12 rutas (`/api/webhooks/chatwoot` y las de `/api/whatsapp/*` del oficial), el
+sondeo de 6 s de las notificaciones, la tarjeta, los campos y el ping. `lib/chatwoot.ts` pasa de 990
+líneas a un cascarón sin un pedido ni una credencial; cada firma contesta lo que contestaba apagada.
+Las credenciales de Chatwoot de los ws1, ws4 y ws13 se borraron de la base; el respaldo cifrado quedó
+FUERA del repo (`C:/Users/marti/mako-archivo/chatwoot-credenciales-2026-10-09.json`), y el código entero
+sigue en la etiqueta `archivo/chatwoot-2026-10-09`.
+
+Dos cosas que un barrido por nombre no ve, y las encontró la revisión:
+
+1. **Un LECTOR de lo que se borró no lo nombra.** `historial_whatsapp` leía el hilo del oficial y desde la
+   tanda 1 contesta «ese canal ya no existe»; el preámbulo del doer y la skill de Claude la seguían
+   vendiendo como LA fuente de la conversación con un lead. El modelo la llamaba y quemaba un paso por
+   pedido. Ninguno de los dos textos dice «Chatwoot».
+2. **Una lista copiada a mano no se entera de que el catálogo cambió.** `ver_activacion_tab` tenía la lista
+   de tabs escrita en la def y otra copia en el mensaje de error del runner: con la entrada de WhatsApp
+   fuera de `TABS_ACTIVACION`, MaKo ofrecía `'whatsapp'` y el runner contestaba «no tiene activación». Las
+   dos derivan ahora de las claves del catálogo (que es datos puros, así que una def lo puede importar).
+
+Y el guard tenía dos agujeros medidos: el regex de importadores aceptaba UN solo `../` (con
+`'../../chatwoot'` daba 9 pases), y el cascarón sólo miraba `fetch(` y `CHATWOOT_` (un `credWs`
+importado pasaba). Ahora cualquier profundidad, `from`/`import()`/`require()`, y el cascarón no importa
+nada salvo `server-only`.
+
+**Lo que quedó sin hacer:**
+- **La tanda 2: borrar el cascarón.** Lo importan archivos que la rama local `wip/api-acciones-0910`
+  (worktree `C:/dev/mako-api`) tiene cambiados —`app/crm/actions.ts`, `lib/nutricion.ts`,
+  `lib/evolution-mensajes.ts`, `lib/mako-intencion.ts` y el área whatsapp de la API—, y
+  `lib/meta-templates.ts`. Se borra cuando esa rama entre.
+- **`'lead.wa_entrante'` (`lib/flujos-tipos.ts`) quedó sin emisor**: era el webhook de Chatwoot. Un flujo
+  que lo use no dispara nunca.
+- **Después de actualizar el clon, `npx next typegen`**: se borraron rutas, y `.next/types/validator.ts`
+  las sigue nombrando (deja el typecheck rojo para todas las sesiones).
+
+_09/10/2026 — el arreglo de urgencia sin subagentes; la tanda 1 por un agente en worktree con revisión
+adversarial (8 roturas del guard, todas cazadas; 6 más en la revisión). Integrado por quien escribe esto._
+
+## La key de Resend de la PLATAFORMA se leía antes de la hidratación (09/10/2026)
+
+**Vive en:** `lib/resend.ts` (`resendKey`) · `app/api/webhooks/resend/route.ts` · `tests/resend-env-cred.test.ts`
+
+Lo encontró la sesión de Customer Success con el audio del 08/10 (Leandro probando el curso): el invitar
+decía «RESEND_API_KEY no configurada» y mandaba al cliente a conectar SU correo. `resendKey()` leía la key
+COMPARTIDA de `process.env`, que se llena recién cuando termina la hidratación de credenciales del
+arranque: leída antes, `null`. El webhook leía su secreto de firma igual. Las dos van por `envCred`, que
+espera la hidratación. Es la regla de `lib/credenciales.ts` («`envCred` reemplaza a `process.env.X`»)
+aplicada a un archivo que se escribió antes de que existiera.
+
+⚠️ **El diagnóstico obvio era el equivocado**: el mensaje culpaba a la configuración del cliente y el
+cliente cargó su key —que tapó el síntoma—. Lo que faltaba de verdad, además, era su REMITENTE: eso está
+en `docs/hallazgos-integraciones.md` («El remitente de Resend…»).
+
+_09/10/2026 — sin subagentes; probado rompiéndolo (1 fallo por cada `process.env` devuelto)._

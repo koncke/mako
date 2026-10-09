@@ -669,4 +669,134 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-comunicacion.md — «Chatwoot APAGADO: un interruptor, no 122 archivos borrados»',
     ],
   },
+  // ── 9 de octubre (tarde): «terminalo todo» ─────────────────────────────────
+  {
+    fecha: '9 oct', hora: '13:24', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Terminar todo lo pendiente de Integraciones, y la verificación de Google con su video',
+    pedido: 'Si terminalo todo, y tu puedes grabar la pantalla para subir a google sin problemas.',
+    puntos: [
+      'Era la respuesta a «¿Arranco por la 1?» sobre los cinco pendientes: cerrar las vistas de cohortes a la clave pública, guardar el token de la API por hash, borrar Chatwoot y sus credenciales, el Pixel en una línea, y el aviso de repegar.',
+      'Y además: la verificación de la app OAuth de Google (consola, dominio, permisos, el video y el envío) y los dos casos de agenda por WhatsApp que habían quedado abiertos.',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '13:34', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las cohortes ya no se leen con la clave pública',
+    puntos: [
+      'Medido antes: con la clave pública, 200 y la facturación de todos los clientes (54 y 19 filas). Después de la 0231: 401, y el servidor sigue leyendo lo mismo.',
+      '⚠️ **El guard tenía una lista de excusas con esas dos vistas.** Ahora exige el revoke después de la ÚLTIMA vez que se crea cada vista: una vista re-creada nace sin lo que se le hizo antes.',
+    ],
+    commits: [
+      { sha: '70d52565', msg: 'Cohortes cerradas a la clave pública: la facturación de los clientes ya no se lee con la anon', lineas: 83, archivos: 2 },
+    ],
+    archivos: [
+      'supabase/migrations/0231_cohortes_cerradas.sql — security_invoker + revoke',
+      'tests/funnel-declarado.test.ts — el revoke después de la última creación; 2 roturas',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '14:07', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Chatwoot sigue apareciendo y bloquea a los clientes',
+    pedido: 'En la otra cuenta habia pedido que eliminases la integración con chatwoot y sigue apareciendo, solucionalo rapido que los clientes lo necesitan usar y eso lo bloquea',
+    puntos: [
+      'Con la captura de /whatsapp del ws11: la tab entera era el formulario de credenciales de Chatwoot, sin ningún camino al QR.',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '14:28', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Sin número conectado, /whatsapp muestra la bandeja con su QR',
+    puntos: [
+      '⚠️ **El apagado de Chatwoot lo destapó:** con el interruptor, «¿está conectado?» pasó a contestar NO para todos, y una puerta vieja de la page (`PanelActivacion` con las credenciales de Chatwoot) se la mostró a cualquiera con el número desvinculado.',
+      'Desplegado y verificado en el ws11 en producción.',
+    ],
+    commits: [
+      { sha: 'c09e16ad', msg: 'WhatsApp ya no pide Chatwoot: sin número conectado se ve la bandeja con su QR', lineas: 83, archivos: 3 },
+    ],
+    archivos: [
+      'app/whatsapp/page.tsx — sin la caída al PanelActivacion',
+      'tests/whatsapp-sin-chatwoot-gate.test.ts — que no vuelva; 2 roturas',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '15:50', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Token por hash, el Pixel en una línea, Chatwoot borrado y la agenda: cuatro ramas integradas',
+    puntos: [
+      '**Token de la API por hash + pista**, mostrado una sola vez. Convertido en producción después del deploy: los 3 tokens (ws1, ws9, ws11) y 5 filas en claro borradas. Desde ahí no se vuelve a un deploy anterior.',
+      '**El Pixel con UNA línea** (`/m.js`): el server sirve el código actual y nadie vuelve a pegar nada. ⚠️ Subir la versión por un renombre le iba a mandar el WhatsApp de volver a pegar el código a todos: la versión que obliga a actualizar quedó aparte, en 22.',
+      '**Chatwoot borrado (tanda 1)**: la bandeja oficial, 12 rutas y la tarjeta; `lib/chatwoot.ts` queda en cascarón hasta que entre la rama de acciones de la API. Las credenciales de los ws1, ws4 y ws13, borradas con un respaldo cifrado fuera del repo.',
+      '**Agenda por WhatsApp**: «movela al viernes» pregunta una vez «¿La reunión o la tarea?», y «Agendar…» dentro de una lista sigue siendo material.',
+      'Cada rama la hizo un agente en su worktree y la revisó otro; integradas con typecheck 0, 6327 tests en verde y el build verde en el worktree.',
+    ],
+    commits: [
+      { sha: 'dc25a921', msg: 'El token clásico de la API de MaKo deja de guardarse en claro: hash + pista', lineas: 943, archivos: 22 },
+      { sha: '0f12fe27', msg: 'Token clásico por hash: la skill ya no manda a un «Copiar» que no existe, y el modal no muestra una foto vieja', lineas: 115, archivos: 6 },
+      { sha: '3a0ec23c', msg: 'El Pixel se instala con UNA línea: cargador /m.js, v23 sin «var TOKEN», y la v23 no le pide a nadie que repegue', lineas: 718, archivos: 19 },
+      { sha: '75e32327', msg: 'Revisión del cargador del Pixel: los textos que seguían mandando a repegar, la línea ajena que apagaba el aviso y los guards que faltaban', lineas: 159, archivos: 10 },
+      { sha: '99246cff', msg: 'Chatwoot fuera (1/4): la bandeja oficial y sus rutas', lineas: 3087, archivos: 25 },
+      { sha: 'dae6b3b4', msg: 'Chatwoot fuera (2/4): los consumidores de lib/ dejan de llamarlo', lineas: 1285, archivos: 32 },
+      { sha: '886890f3', msg: 'Chatwoot fuera (3/4): los registros de la integración', lineas: 313, archivos: 15 },
+      { sha: 'f98778f7', msg: 'Chatwoot fuera (4/4): lib/chatwoot.ts queda en cascarón, y el guard fija que no vuelva', lineas: 1324, archivos: 29 },
+      { sha: '5561c1db', msg: 'Agenda por WhatsApp: «movela al viernes» sin decir qué, y «Agendar…» dentro de una lista', lineas: 217, archivos: 4 },
+      { sha: 'c3572358', msg: 'Agenda por WhatsApp (revisión): un lead a una etapa con un día, la respuesta tras cualquier pregunta, el saludo y el audio dictado', lineas: 201, archivos: 4 },
+    ],
+    archivos: [
+      'lib/agente-token-nucleo.ts · lib/agente-token.ts · scripts/agente-token-a-hash.ts — el token por hash y su conversión',
+      'app/m.js/route.ts · lib/pixel-cargador.ts — el cargador del Pixel',
+      'lib/chatwoot.ts · tests/sin-chatwoot.test.ts — el cascarón y quién puede importarlo',
+      'lib/mako-intencion.ts · lib/doer-herramientas.ts · tests/agenda-whatsapp.test.ts — la agenda por WhatsApp',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '15:50', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La key de Resend de la plataforma se leía antes de que estuviera',
+    puntos: [
+      'Lo encontró Customer Success con el audio de Leandro probando el curso: el invitar decía «RESEND_API_KEY no configurada» y mandaba al cliente a conectar SU correo, por una falla nuestra.',
+    ],
+    commits: [
+      { sha: '3677e675', msg: 'Resend: la key de la plataforma y el secreto del webhook se leen con envCred', lineas: 49, archivos: 3 },
+    ],
+    archivos: [
+      'lib/resend.ts · app/api/webhooks/resend/route.ts — envCred en vez de process.env',
+      'tests/resend-env-cred.test.ts — 2 roturas',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '16:18', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El remitente de Resend dice «falta», y la ayuda de un campo es «Cómo configurarlo»',
+    puntos: [
+      'Puntos 13 y 15 del audio de Customer Success. El remitente figuraba «opcional» y sin él los correos sólo le llegan al dueño de la cuenta de Resend; la tarjeta decía «Conectada».',
+      '⚠️ **Marcarlo obligatorio dejaba la tab /email detrás de la activación** justo a quien tiene que entrar a verificar su dominio. Son dos preguntas —«¿se puede abrir?» y «¿sale algo?»— y cada una tiene su campo.',
+      'Al guardar, el remitente se juzga contra los dominios de esa cuenta de Resend. Y en todas las integraciones: el link a la página de keys arriba, «Cómo configurarlo» con rótulo debajo del campo, y la nota gris adentro de la ayuda.',
+    ],
+    commits: [
+      { sha: 'e0692c54', msg: 'Integraciones: el remitente de Resend dice «falta», y la ayuda de un campo es «Cómo configurarlo»', lineas: 300, archivos: 7 },
+    ],
+    archivos: [
+      'lib/metodo-catalogo.ts — `sinEsto` en el remitente',
+      'app/integraciones/ServicioConfigForm.tsx — el semáforo, la ayuda con el link arriba',
+      'lib/integraciones.ts — la tarjeta de Email sin remitente',
+      'lib/resend-remitente.ts — ¿este remitente puede mandar con esta cuenta?',
+      'tests/resend-remitente.test.ts — 7 roturas',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '16:29', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo aprendido, en los documentos de cada área',
+    puntos: [
+      'Seguridad (cohortes y token), landing (el cargador), comunicación (Chatwoot y la puerta de /whatsapp, la key de Resend), API de MaKo (la agenda) e integraciones (el remitente y la ayuda). Y en AGENTS.md: Chatwoot borrado, la regla de las puertas al apagar un servicio, el guard de las vistas y el build en un worktree.',
+      '**Lo que quedó trabado:** la verificación de Google. El Chrome conectado sólo tiene la cuenta de Mauricio; falta que Martín entre con martinkoncke@gmail.com para seguir (consola, dominio, video y envío).',
+    ],
+    archivos: [
+      'docs/hallazgos-seguridad.md · docs/hallazgos-landing.md · docs/hallazgos-comunicacion.md · docs/hallazgos-api-mako.md · docs/hallazgos-integraciones.md',
+      'AGENTS.md — Chatwoot, las puertas, el guard de vistas, el build en un worktree',
+    ],
+  },
 ];

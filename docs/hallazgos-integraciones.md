@@ -606,3 +606,63 @@ quedado la integración: los tres registros, el logo, sus `AYUDA_CAMPO` y una li
   borre a mano. Las 4 credenciales (ws1 y ws4) también: son dato del cliente.
 - La categoría «Contenido» quedó sin tarjetas; se sigue nombrando en `CAT_ORDER` y en
   `lib/capas.ts`, y es inofensivo porque el tablero filtra las categorías vacías.
+
+## El remitente de Resend: «opcional» para abrir la tab, obligatorio para que salga algo (09/10/2026)
+
+**Vive en:** `lib/metodo-catalogo.ts` (`CampoCredencial.sinEsto`, el `RESEND_FROM`) ·
+`app/integraciones/ServicioConfigForm.tsx` (`semaforo`, `PasosAyuda`) · `lib/integraciones.ts` (la rama de
+email) · `lib/resend-remitente.ts` (`problemaDelRemitente`) · `lib/metodo-verificar.ts` (el ping `email`) ·
+`app/api/integraciones/credencial/route.ts` · `tests/resend-remitente.test.ts`
+
+Punto 15 del audio de Customer Success (08/10, Leandro probando el curso): con su key de Resend puesta los
+correos no salían. «Resend en teoría está conectado… el problema es que me faltaba un campo… falta
+remitente, y lo raro es que dice que es opcional». El formulario lo marcaba «opcional», la tarjeta decía
+«Conectada», y el tutorial afirmaba que «si lo dejas vacío MaKo usa uno por defecto». Ese default es
+`onboarding@resend.dev`, que con una key PROPIA sólo le entrega al dueño de la cuenta de Resend: nadie
+más recibe nada. Medido el 09/10: el ws4 tiene su key y ningún remitente.
+
+⚠️ **El arreglo obvio —marcarlo obligatorio— rompía otra cosa.** `opcional` es la entrada que ya tiene
+escrita «no es un rótulo» (04/10, arriba): lo leen los tres lectores de «conectado», y uno de ellos es la
+puerta de `/email` (`integracionConectada('email')` → `PanelActivacion`). La tab se abre con la key sola
+porque ES donde se verifica el dominio desde MaKo. Obligatorio, el remitente dejaba esa tab detrás de la
+activación justo a quien tiene que entrar a verificar para poder escribir el remitente: un huevo y una
+gallina. **Son dos preguntas —«¿se puede abrir?» y «¿sale algo?»— y cada una va en su campo**: `opcional`
+sigue contestando la primera y `sinEsto` (una frase: qué no anda sin él) la segunda. El campo se pinta
+«falta» en ámbar, la tarjeta de Email pasa a «Por configurar» con el motivo (sólo si el remitente que se
+va a usar es el sandbox, leído con `remitenteEsSandbox`, que mira también el setting de `/email`), y el
+paso del tutorial que mentía dice lo que pasa.
+
+Y el remitente que se escribe tiene que servir: el ping de Email ya traía los dominios de la cuenta para
+el detalle, así que juzga ahí el remitente antes de guardar (correo inválido, el sandbox, un dominio que
+no está en ESA cuenta o que Resend declara sin verificar). **Generoso a propósito**: frenar uno que anda
+es peor que dejar pasar uno que no (el segundo es lo de antes); por eso acepta un subdominio del
+verificado y los estados que Resend no declara rotos.
+
+## La ayuda de un campo: el link arriba, «Cómo configurarlo» con rótulo, la nota adentro (09/10/2026)
+
+**Vive en:** `app/integraciones/ServicioConfigForm.tsx` (`PasosAyuda`, el bloque de cada campo) ·
+`tests/resend-remitente.test.ts` (los dos tests del punto 13)
+
+Punto 13 del mismo audio: «el link para sacar la key, ARRIBA del todo»; el «?» dentro del campo «pasa
+desapercibido»; el texto gris de debajo del campo «no lo va a leer nadie»; y un «Cómo configurarlo»
+visible debajo del campo que al abrirse dé el link directo a la página de keys.
+
+- El link del proveedor va primero, como botón, y después los pasos.
+- El «?» de la barra se fue: la ayuda es un «Cómo configurarlo ⌄» con rótulo, debajo del campo, sólo
+  mientras la credencial no está guardada. Es la misma lección que el «Guardar» con rótulo que ya está en
+  ese archivo: un ícono hay que ir a buscarlo, y sólo lo busca quien ya sabe que ahí hay algo.
+- ⚠️ **La nota no se borró: se mudó adentro de la ayuda.** Algunas dicen algo que los pasos no dicen («Lo
+  completa MaKo», «con el prefijo act_»); borrarla por «no la lee nadie» habría perdido esas.
+
+**Vale para TODAS las integraciones**, no sólo Resend: es el formulario común. Y Customer Success monta
+este mismo formulario adentro del aviso del invitar del curso, así que allá cambia igual.
+
+**Lo que quedó sin hacer:**
+- **Verlo con clics en producción** (ws3) después del deploy: los tests fijan la forma del código, no cómo
+  se ve.
+- **El punto 14 (conectar el correo con Google/Gmail, como el QR del WhatsApp)**: espera la verificación
+  de la app OAuth de Google, que sigue trabada (falta que Martín entre con martinkoncke@gmail.com en el
+  Chrome conectado).
+
+_09/10/2026 — sin subagentes; `tests/resend-remitente.test.ts` probado con 7 roturas (1 fallo cada una,
+2 la del juez). Typecheck 0; npm test 6339/0._

@@ -503,8 +503,10 @@ default del código (`lib/prompt-defaults.ts`, con su guard `tests/prompt-sin-du
   cliente: probar ahí es escribir en su agenda. La primera prueba es su próximo pedido.
 - **«movela al viernes» SIN pendiente ni agenda abierta** sigue sin llegar: no nombra la
   reunión, y un verbo suelto como «movela» también se usa para una tarea del plan.
+  → **Cerrado el 09/10**: pregunta UNA vez «¿La reunión o la tarea?» (ver la entrada de abajo).
 - **Un «Agendar reunión con…» al principio de una línea** se lee como una tarea dictada si
   el mensaje es una lista: decidir si es una orden o material es de Martín.
+  → **Cerrado el 09/10**: dentro de una lista sigue siendo material; sola en una línea, es orden.
 
 *08/10/2026 — sin subagentes; el diagnóstico y su refutación los midió la sesión del CRM
 (solo lectura; `joan-0-diag.json` y `joan-3-refuta.json` en su scratchpad). 15 roturas entre `tests/agenda-whatsapp.test.ts` y
@@ -1043,3 +1045,49 @@ vale para cualquier operación nueva:
 
 *08/10/2026, cuenta 2. Corrida `wf_48a7d912-9a9` (tres agentes en worktrees) y revisión
 `wf_d229086b-56f`; commits `fafe007b`, `6d4703ec`, `63a0f95a`, `40d8f052`, `b2a6db9d`, `395c4c11`.*
+
+## Agenda por WhatsApp: los dos casos abiertos, cerrados — y cuatro formas de romperlo sin un error (09/10/2026)
+
+**Vive en:** `lib/mako-intencion.ts` (`esPedidoAgenda`, la sección de mover, `DESTINO_TIEMPO`,
+`preguntoReunionOTarea`) · `lib/doer-herramientas.ts` (`INSTRUCCION_MOVER_SIN_OBJETO`,
+`SIN_FECHA_DE_TAREA`) · `lib/mako-doer-in.ts` · `tests/agenda-whatsapp.test.ts`
+
+Decisión de Martín del 09/10 («terminalo todo») sobre los dos casos de la entrada de arriba:
+
+1. **«movela al viernes» sin nada abierto** se leía como mover a un lead DE ETAPA (`MOVER_A` tomaba «al
+   viernes» por una columna), sin `agenda_del_dia` ni nada del plan; «cambiala para el jueves» o
+   «reprogramala para mañana» caían al default con dos herramientas. Ahora un pedido corto de mover a un
+   día u hora SIN objeto nombrado lleva CRM y plan, mete en el presupuesto reagendar, leer el día y las
+   tareas, y el turno pregunta UNA vez «¿La reunión o la tarea?». Con una propuesta de agenda abierta es
+   la reunión y no se pregunta. La agenda sigue sin pasar por la IA.
+2. **«Agendar reunión con…» dentro de una lista** sigue siendo material para el plan (cargar tareas no
+   pregunta nada). ⚠️ La premisa «sola ya era una orden» era falsa: sola también caía al default. Ahora el
+   infinitivo es orden de agenda sólo en UNA línea y con reunión y día u hora.
+
+**Lo que midió la revisión con el turno real** (`clasificarIntencion` + `herramientasDelTurno`), y ninguno
+da error — dan la herramienta equivocada:
+
+- **«pasalo a agendado para el lunes» preguntaba «¿La reunión o la tarea?».** Era mover un lead a una
+  ETAPA; bastaba un día en cualquier lado del mensaje. Y no hay lista de nombres de etapa que lo resuelva:
+  las etapas son de cada negocio. El día tiene que ser el DESTINO del verbo («al», «para el», «del…»).
+- **La respuesta («la tarea») se reconocía después de CUALQUIER pregunta de MaKo**, así que «la agenda de
+  mañana?» dejaba de ser una consulta y llegaba como acción con herramientas que escriben. El doer le dice
+  ahora al clasificador si MaKo hizo ESA pregunta (las dos palabras en la misma pregunta), y «no, la tarea»
+  también cuenta.
+- **«Buen día, movela al viernes» llegaba sin la pregunta**: `herramientasDelTurno` volvía a leer el texto
+  con el preludio del CRM, que no pela «buen día». Ahora lo dice el veredicto (campo `mover`), que
+  sobrevive al saludo. ⚠️ Es la misma familia que «un prefijo de saludo no es el mensaje» (AGENTS.md): dos
+  lectores del mismo texto con dos peladores distintos.
+- **Un audio dictado llega en UNA línea**: «Agendar reunión con Ana mañana a las 15, llamar a la
+  inmobiliaria y subir las fotos» se volvía una orden de agenda. Con otro infinitivo después de una coma o
+  un punto, vuelve a ser material.
+- **Un `if (porId('cambiar_fecha_tarea_plan'))` en el test iba a romperlo al integrar** la rama
+  `wip/api-acciones-0910`, donde esa acción existe y es SÓLO HTTP. O sea que por WhatsApp no hay con qué
+  cambiarle la fecha a una tarea, y el modelo tenía a mano sólo `proponer_tareas_plan`, que CREA una. El
+  turno se lo dice (`SIN_FECHA_DE_TAREA`) cuando esa herramienta no viaja, y el test mira `visible`.
+
+**Lo que decide Martín:** si `cambiar_fecha_tarea_plan` sale también por WhatsApp. Hoy, a «movela al
+viernes» → «la tarea», el turno le avisa al modelo que no tiene con qué cambiarle la fecha (para que no cree una tarea nueva); no se midió qué le contesta a la persona.
+
+_09/10/2026 — agente en worktree + revisión adversarial (8 roturas, cada una con su fallo, y dos del
+implementador re-hechas); `tests/agenda-whatsapp.test.ts` 16/16. Integrado por quien escribe esto._

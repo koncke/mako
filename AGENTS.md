@@ -257,11 +257,15 @@ limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, u
 `node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:main` desde ahí, y
 después `git worktree remove --force` + `git worktree prune`.
 
-⚠️ **Y en ese worktree `npm run build` NO corre**: con `node_modules` como junction, Turbopack
-aborta con «Symlink [project]/node_modules is invalid, it points out of the filesystem root»
-(`turbopack.root = __dirname`). El junction sirve para `tsc` y los tests; el build va en el
-clon. Y antes de `git worktree remove`, el junction se saca con `cmd /c rmdir`: un
-`Remove-Item -Recurse` de PowerShell 5.1 sobre él borra el `node_modules` del clon.
+⚠️ **Y en ese worktree `npm run build` NO corre tal cual**: con `node_modules` como junction,
+Turbopack aborta con «Symlink [project]/node_modules is invalid, it points out of the filesystem
+root» (`turbopack.root = __dirname`). **Corre si la raíz apunta, SÓLO para ese build, a una carpeta
+que contenga a los DOS** (el worktree y el clon al que apunta el junction): medido el 09/10/2026, con
+`root: require('path').resolve(__dirname, '..')` en `next.config.ts` el build del worktree salió
+verde. Se copia `next.config.ts` al scratchpad antes, se restaura después y se comprueba con
+`git diff -- next.config.ts` vacío: ese cambio NO se commitea. Y antes de `git worktree remove`, el
+junction se saca con `cmd /c rmdir`: un `Remove-Item -Recurse` de PowerShell 5.1 sobre él borra el
+`node_modules` del clon.
 
 ⚠️ **Lo que el hook NO hace es correr los tests** (`npm test`), y por eso hay que acordarse
 a mano. Un renombre pasa el typecheck perfecto y rompe una aserción sin que nada avise: al
@@ -779,7 +783,9 @@ se acuña en Integraciones → Claude con su trato de consentimiento) vale en `/
 `/api/v1`. Los DETALLADOS (`mako_pat_`, la tab `/api-mako`, guardados por hash, con permisos por
 área y vencimiento) valen **sólo en `/api/v1`**: resuelven en `resolverTokenApi`
 (`lib/api-mako/tokens.ts`), y `/api/agente/*` sigue con `wsPorAgenteToken`, que no los conoce. No
-es prolijidad: `/api/agente/skill` mete el token CLÁSICO en el archivo que entrega, y `/hook` y
+es prolijidad: `/api/agente/skill` mete en el archivo que entrega el token CLÁSICO que se le
+presentó (desde el 09/10/2026 el clásico se guarda por hash + pista, como los detallados, y no se
+puede releer: se muestra UNA vez al acuñarlo), y `/hook` y
 `/telemetria` tienen el consentimiento atado a él — aceptar ahí un detallado le daba el de la
 skill a cualquier token del workspace y abría el reporte sin trato.
 `tests/api-mako-tokens.test.ts` lo fija leyendo el fuente.
@@ -4222,8 +4228,9 @@ lee las filas de TODOS los workspaces. El molde que se copia de la tabla de al l
 (`enable row level security` + `revoke all`) deja afuera justo la mitad que ahí importa.
 
 Y que el grant llegue o no **depende de quién aplique el DDL**, así que no se puede dejar al azar.
-Medido en prod el 26/09: `v_cohortes_semanales` (vista, mig 0001) tiene hoy `anon=arwdDxtm` con
-`security_invoker` apagado, leyendo `leads`; `funnel_config` y `productos`, aplicadas con el
+Medido en prod el 26/09: `v_cohortes_semanales` (vista, mig 0001) tenía `anon=arwdDxtm` con
+`security_invoker` apagado, leyendo `leads` (se cerró el 09/10/2026 con la 0231: la clave pública
+leía la facturación de todos los clientes); `funnel_config` y `productos`, aplicadas con el
 `postgres` de `scripts/apply-migration.mjs`, tienen sólo `postgres` + `service_role`. Lo único que
 mantiene afuera a las tablas nuevas es el revoke explícito.
 
@@ -4233,9 +4240,10 @@ revoke all on v_loquesea from anon, authenticated;
 ```
 
 El servidor no cambia: lee con `service_role`, que tiene `BYPASSRLS`. Lo fija
-`tests/funnel-declarado.test.ts`, que barre todas las vistas de `supabase/migrations/` con una
-lista de excusas **por nombre de vista, no por archivo** — una misma vista se re-crea en varias
-migraciones, y exceptuar un archivo dejaría entrar cualquier vista nueva escrita ahí.
+`tests/funnel-declarado.test.ts`, que barre todas las vistas de `supabase/migrations/` y exige el
+`revoke` en la migración de su **ÚLTIMA creación o en una posterior**: una vista re-creada (`drop` +
+`create`) nace sin lo que se le hizo antes, así que un revoke viejo no la cubre. Desde el 09/10/2026
+no hay lista de excusas (eran las dos de cohortes, y se cerraron).
 
 # Lo que está OCULTO se deriva de lo que se DIBUJA, nunca se enumera al lado
 
@@ -4432,11 +4440,19 @@ MaKo; `/instagram` redirige a `/chatbot` y el webhook de Zernio contesta 200 sin
 nada. Las tablas quedan. Sumarle un canal al Chatbot es una decisión del dueño, no un
 arreglo: `tests/sin-instagram.test.ts` falla si algo vuelve a cablear Instagram.
 
-**Y Chatwoot (el WhatsApp OFICIAL) está APAGADO desde el 09/10/2026** (Martín: «que no exista
-más. Guardalo en privado»). Un interruptor en `lib/chatwoot.ts` (`CHATWOOT_APAGADO`) corta toda
-llamada en `cfg()`; el código dormido sigue en 122 archivos y entero en la etiqueta de git
-`archivo/chatwoot-2026-10-09`. **Código nuevo no usa Chatwoot**: el WhatsApp es Evolution.
-`tests/sin-chatwoot.test.ts` falla si se prende sin decidirlo.
+**Y Chatwoot (el WhatsApp OFICIAL) se BORRÓ el 09/10/2026** (Martín: «que no exista más. Guardalo
+en privado»): el código entero está en la etiqueta de git `archivo/chatwoot-2026-10-09`, y
+`lib/chatwoot.ts` quedó como un CASCARÓN sin un pedido ni una credencial, sólo porque lo importan
+archivos que la rama `wip/api-acciones-0910` tiene cambiados. **Código nuevo no importa
+`lib/chatwoot.ts` ni nombra Chatwoot**: el WhatsApp es Evolution, y `tests/sin-chatwoot.test.ts`
+fija en positivo quién puede hacer cada cosa (las listas sólo se achican).
+
+⚠️ **Y apagar o borrar un servicio cambia lo que contesta todo el que pregunta «¿está
+conectado?».** Con Chatwoot apagado, «no conectado» pasó a ser la respuesta de TODOS, y una puerta
+vieja de `/whatsapp` (`if (!conectado) return <PanelActivacion …/>`, que pedía las credenciales de
+Chatwoot) se la mostró a cualquier cliente con el número desvinculado, sin camino al QR. Antes de
+apagar algo, se buscan las PUERTAS que cuelgan de esa respuesta, no sólo las llamadas
+(`docs/hallazgos-comunicacion.md`).
 
 # Evolution le BORRA un dígito a los números de Argentina y México: un número que dio WhatsApp viaja como jid
 

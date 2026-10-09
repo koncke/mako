@@ -4022,3 +4022,58 @@ EMITIDO (en un node aparte, por el `server-only`), compilándolo con `vm.Script`
 
 _Sin subagentes. El pedido llegó de la sesión del CRM con la captura del cliente; 5 roturas en
 `tests/pixel-archivo.test.ts`, todas con su fallo._
+
+## El Pixel se instala con UNA línea: el cargador `/m.js` (09/10/2026)
+
+**Vive en:** `app/m.js/route.ts` · `lib/pixel-cargador.ts` (`tokenDelCargador`) · `lib/landing-token.ts`
+(`SNIPPET_VERSION` 23, `PIXEL_MINIMO_AVISO` 22, `var CUENTA`) · `lib/pixel-aviso.ts` (`versionEnHtml`) ·
+`lib/pixel-estado.ts` · `lib/landing-analisis.ts` · `app/integraciones/IntegracionesBoard.tsx` ·
+`lib/hechos-mako.ts` · `tests/pixel-cargador.test.ts`
+
+Decisión de Martín del 09/10 («terminalo todo»): en vez de pegar ~2.226 líneas se pega
+`<script src="https://hola-mako.com/m.js?id=mko_…" defer></script>` y el server sirve el Pixel ACTUAL.
+Nadie vuelve a pegar nada cuando sale una versión, y una línea con una URL no tiene nada que el editor
+con IA del cliente pueda tapar con asteriscos (la entrada del 08/10, arriba). Medido en producción el
+09/10 con el token público del ws9: 200, `application/javascript; charset=utf-8`, 121.237 bytes, `SV =
+23`, sin `var TOKEN`, y el JS parsea; un id desconocido y la ruta sin id, 404.
+
+⚠️ **La trampa cara: subir `SNIPPET_VERSION` por un RENOMBRE le mandaba un WhatsApp a cada negocio.** El
+`dedupKey` del aviso «tu Pixel quedó viejo» era `v${SNIPPET_VERSION}` y `snippetDesactualizado` cortaba en
+la versión actual, así que la v23 —que sólo renombra `var TOKEN` a `var CUENTA` para que los detectores
+de secretos no la tapen— disparaba el aviso para todos los que estaban en la 22. Ahora todo lo que pide
+repegar (el WhatsApp, «Verificar», el bloqueo de «Probar», `snippetDesactualizado`) corta en
+`PIXEL_MINIMO_AVISO`, que queda en 22 a propósito, y la clave es `v${PIXEL_MINIMO_AVISO}`: su VALOR sigue
+siendo `'v22'`, o sea que nadie recibió un envío extra. **La versión del código y la versión que obliga a
+actualizar son dos números**, y sólo el segundo puede despertar a alguien.
+
+⚠️ **Un nombre genérico no identifica a nadie.** `tokenDelCargador` aceptaba CUALQUIER `/m.js?id=<8-64>`
+como nuestra línea, y esa función decide que una página «está al día»: con el script de otro producto
+llamado igual, una página con el Pixel viejo metido por un administrador de etiquetas se leía al día y el
+aviso se apagaba. Exige `mko_` (medido en sólo lectura: los 9 tokens del ruteo son `mko_` + 32 hex). La
+RUTA sigue aceptando la forma amplia: lo que se endureció es lo que decide, no lo que sirve.
+
+⚠️ **La línea va EN LUGAR del código viejo, y la pantalla tiene que decirlo.** El snippet no se protege
+de correr dos veces: quien suma la línea sin sacar el código cuenta cada visita doble, y con la copia vieja
+en la 22 ningún aviso lo dice. El paso de «¿Dónde la pego?» lo dice ahora.
+
+Y lo que quedaba mandando a «volver a pegar el código»: SEIS textos que el cliente ve (el aviso fijo de la
+esquina, el pulso de Landing Analyst, el vacío del mapa de calor, `verificarPagina` sin versión) y dos que
+leen modelos (MaKo afirmaba que el Pixel «es UN solo `<script>`» que «hay que volver a pegar»). Un guard
+barre esos archivos sin comentarios.
+
+**Trampas del entorno, medidas:**
+- **Vercel saca `s-maxage` y `stale-while-revalidate` del header que llega al navegador.** La ruta manda
+  `public, max-age=300, s-maxage=600, stale-while-revalidate=86400` y `curl` ve `public, max-age=300`. No
+  es un bug: el CDN se queda con lo suyo. Verificar la caché por el header del cliente da un falso «falta».
+- **El matcher del proxy excluye `.js`**, así que `/m.js` ni pasa por `proxy.ts`; igual está en
+  `PUBLICOS` como ruta EXACTA (no un prefijo `/m.js/…`: una ruta nueva ahí nacería pública sin que nadie
+  lo decidiera) y, como no es `/api/`, sólo se lee.
+
+**Lo que quedó sin hacer:**
+- **La guarda en el snippet contra correr dos veces** (`lib/landing-token.ts`): hoy lo protege sólo el
+  texto del paso.
+- **Nadie tiene la línea pegada todavía.** Los clientes siguen con su código de la 22; el aviso no les
+  pide nada (a propósito). La línea se ofrece primero en /integraciones para quien instale o reinstale.
+
+_09/10/2026 — agente en worktree + revisión adversarial de la rama (cada guard probado rompiéndolo, restaurando de memoria);
+integrado y medido en producción por quien integró._
