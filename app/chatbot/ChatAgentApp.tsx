@@ -53,6 +53,8 @@ export type PasoSecuenciaDto = {
   asunto: string | null; preheader?: string | null; cuerpo: string;
   /** Sólo email: el cuerpo del editor rico, en HTML saneado. `cuerpo` es su texto plano (lib/nutricion.ts, `cuerpo_html`). */
   cuerpo_html?: string | null;
+  /** Sólo email: el «De» que eligió el paso (punto 16 de la cuarta tanda). Ausente = el del workspace. */
+  remitente?: string | null;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
   /** 'ia' = MaKo reescribe el mensaje para cada lead (lib/paso-ia.ts); `cuerpo` es la base y el respaldo. */
   tipo?: 'texto' | 'audio' | 'ia' | 'media'; audio_id?: number | null;
