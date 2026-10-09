@@ -426,13 +426,19 @@ async function datosDeMisClientes(aprobados: number[]): Promise<{
   const permitidos = new Set(aprobados);
   const [wss, usuarios] = await Promise.all([
     listarWorkspaces().catch(() => []),
-    listarUsuarios().catch(() => []),
+    // `null` = NO SE PUDO LEER, que no es lo mismo que «nadie». Ver la siembra de abajo.
+    listarUsuarios().catch(() => null),
   ]);
   const planPorWs: Record<number, string> = {};
   for (const w of wss) if (permitidos.has(w.id)) planPorWs[w.id] = capaDef(w.capa).nombre;
 
   const equipoPorWs: Record<number, EquipoItem[]> = {};
-  for (const u of usuarios) {
+  // ⚠️ CADA CLIENTE APROBADO ARRANCA CON SU LISTA VACÍA, PERO SÓLO SI LA LECTURA ANDUVO. Así la
+  // tarjeta distingue «cero personas» (`[]`: la cuenta existe y NO PUEDE ENTRAR NADIE) de «no
+  // pude mirar» (sin entrada). Es el estado de Brigitte Eberlin (ws15) desde el 28/09, y la
+  // tarjeta no lo decía: la agencia veía «Inspeccionar» y nada más (09/10/2026).
+  if (usuarios) for (const ws of permitidos) equipoPorWs[ws] = [];
+  for (const u of usuarios ?? []) {
     const ws = u.workspace_id;
     if (ws == null || !permitidos.has(ws)) continue;
     (equipoPorWs[ws] ??= []).push({

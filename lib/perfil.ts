@@ -14,7 +14,9 @@ import { getSupabaseServer } from './supabase';
 import { getSetting, setSetting } from './settings';
 import { getUsuarioActual } from './auth';
 import { buscarUsuarioPorEmail } from './usuarios';
-import { getWorkspaceActual, runWithWorkspace } from './workspace';
+import { getWorkspace, getWorkspaceActual, runWithWorkspace } from './workspace';
+import { contextoDeAgencia } from './agencia';
+import { deQuienEsElPerfil, titularDelCliente } from './perfil-sujeto';
 import { DEFAULT_IN_APP, normalizarInApp, type NotifInApp } from './notif-catalogo';
 
 // ── Perfil personal (por usuario) ─────────────────────────────────────────────
@@ -39,61 +41,113 @@ export const DEFAULT_PERFIL: Perfil = {
 type PerfilExtra = Pick<Perfil, 'telefono' | 'cargo' | 'empresa' | 'web' | 'bio' | 'timezone'>;
 const EXTRA_KEYS: Array<keyof PerfilExtra> = ['telefono', 'cargo', 'empresa', 'web', 'bio', 'timezone'];
 
-/** Perfil de la PERSONA logueada. Sesiones sin fila real (legacy/dev/maestra) → defaults. */
 /**
  * De quién es el perfil que se está mirando. Normalmente, el de la persona
- * logueada. Pero un admin de agencia VIENDO COMO cliente está parado adentro de
- * esa cuenta: ahí el perfil que corresponde es el del cliente, no el suyo. Ver
- * su propia foto adentro de la cuenta ajena hace dudar de dónde estás parado, y
- * peor: editarla escribiría sobre su propio usuario creyendo tocar el del cliente.
+ * logueada. Pero quien está VIENDO COMO cliente —el super admin parado en él, o una
+ * agencia inspeccionando a uno de su cartera— está adentro de esa cuenta: ahí el
+ * perfil que corresponde es el del cliente, no el suyo. Ver su propia foto adentro de
+ * la cuenta ajena hace dudar de dónde estás parado, y peor: editarla escribiría sobre
+ * su propio usuario creyendo tocar el del cliente.
+ *
+ * La decisión vive en `deQuienEsElPerfil` (lib/perfil-sujeto.ts, pura y con test). Acá
+ * sólo se leen sus datos, y del SERVER: `getWorkspaceActual` y `contextoDeAgencia`,
+ * nunca un `?ws=` leído a mano.
  */
 type FilaPerfil = { id: number; nombre: string | null; email: string; foto_url: string | null; perfil?: unknown };
 
-async function usuarioDelPerfil(): Promise<FilaPerfil | null> {
+/**
+ * Lo que la pantalla necesita saber además de los datos: si es el perfil de OTRO, de
+ * qué cuenta, y si esa cuenta no tiene a nadie adentro (o no se pudo leer — son dos
+ * hechos distintos y la pantalla no puede decir «nadie» cuando no miró).
+ */
+export type VistaPerfil =
+  | { deOtro: false }
+  | { deOtro: true; cuenta: string; sinNadie: boolean; sinLeer: boolean };
+
+const PROPIA: VistaPerfil = { deOtro: false };
+
+async function usuarioDelPerfil(): Promise<{ fila: FilaPerfil | null; vista: VistaPerfil }> {
   const sesion = await getUsuarioActual();
-  if (!sesion || !sesion.email) return null;
+  if (!sesion || !sesion.email) return { fila: null, vista: PROPIA };
 
   const propio = await buscarUsuarioPorEmail(sesion.email).catch(() => null);
-  if (sesion.rol !== 'admin') return propio;
+  const esSuperAdmin = sesion.rol === 'admin';
+  const sujeto = deQuienEsElPerfil({
+    esSuperAdmin,
+    wsPropio: propio?.workspace_id ?? sesion.ws ?? null,
+    wsActual: await getWorkspaceActual(),
+    // La agencia: su cookie firmada + la cartera aprobada AHORA. Es el permiso, leído en
+    // este request. El super admin no tiene cartera (y `contextoDeAgencia` lo devuelve null).
+    clienteDeAgencia: esSuperAdmin ? null : await contextoDeAgencia(),
+  });
+  if (sujeto.tipo === 'propio') return { fila: propio, vista: PROPIA };
 
-  // Admin: si está parado en un workspace que NO es el suyo, es una vista de
-  // cliente. El perfil pasa a ser el del admin de ESE workspace.
-  const ws = await getWorkspaceActual();
-  if (ws == null || ws === propio?.workspace_id) return propio;
-  try {
-    const { data } = await getSupabaseServer()
-      .from('usuarios').select('id, nombre, email, foto_url, perfil, workspace_id, rol_ws')
-      .eq('workspace_id', ws).order('id', { ascending: true }).limit(20);
-    const filas = (data ?? []) as Array<{ id: number; nombre: string | null; email: string; foto_url: string | null; perfil?: unknown; rol_ws?: string | null }>;
-    return filas.find((u) => u.rol_ws === 'admin') ?? filas[0] ?? propio;
-  } catch { return propio; }
-}
-
-export async function getPerfil(): Promise<Perfil> {
-  const sesion = await getUsuarioActual();
-  if (!sesion || !sesion.email) return { ...DEFAULT_PERFIL };
-  const u = await usuarioDelPerfil();
-  if (!u) return { ...DEFAULT_PERFIL, nombre: sesion.nombre || '', email: sesion.email };
-  const extra = ((u as { perfil?: Partial<PerfilExtra> }).perfil ?? {}) as Partial<PerfilExtra>;
+  // ⚠️ VISTA DE OTRO: NUNCA SE CAE A `propio`. Antes, sin nadie adentro (o con la lectura
+  // caída) volvía el perfil de quien mira, y la pantalla lo dibujaba como si fuera el del
+  // cliente. Ahora el vacío se dice, y la escritura no tiene a quién tocar.
+  const cuenta = (await getWorkspace(sujeto.ws).catch(() => null))?.nombre ?? '';
+  const { data, error } = await getSupabaseServer()
+    .from('usuarios').select('id, nombre, email, foto_url, perfil, workspace_id, rol_ws')
+    .eq('workspace_id', sujeto.ws).order('id', { ascending: true }).limit(50);
+  if (error) return { fila: null, vista: { deOtro: true, cuenta, sinNadie: false, sinLeer: true } };
+  const filas = (data ?? []) as Array<FilaPerfil & { workspace_id: number | null; rol_ws?: string | null }>;
+  const fila = titularDelCliente(filas, sujeto.ws);
   return {
-    ...DEFAULT_PERFIL,
-    nombre: u.nombre || '',
-    email: u.email,
-    avatarUrl: u.foto_url ?? '',
-    telefono: extra.telefono ?? '',
-    cargo: extra.cargo ?? '',
-    empresa: extra.empresa ?? '',
-    web: extra.web ?? '',
-    bio: extra.bio ?? '',
-    timezone: extra.timezone ?? DEFAULT_PERFIL.timezone,
+    fila,
+    vista: { deOtro: true, cuenta: (fila?.nombre ?? '').trim() || cuenta, sinNadie: !fila, sinLeer: false },
   };
 }
 
-/** Guarda el perfil de la PERSONA logueada en su fila usuarios. No toca el email de login. */
+/** El perfil y de quién es. Lo usa /api/perfil para que la pantalla diga «Perfil de X». */
+export async function leerPerfil(): Promise<{ perfil: Perfil; vista: VistaPerfil }> {
+  const sesion = await getUsuarioActual();
+  if (!sesion || !sesion.email) return { perfil: { ...DEFAULT_PERFIL }, vista: PROPIA };
+  const { fila: u, vista } = await usuarioDelPerfil();
+  if (!u) {
+    // Sin fila: en el propio, la sesión (legacy/dev/maestra) con sus datos. En la vista de
+    // otro, el NOMBRE DE LA CUENTA y nada más: ni el email ni la foto de quien mira, que es
+    // exactamente lo que este archivo existe para no mostrar.
+    return vista.deOtro
+      ? { perfil: { ...DEFAULT_PERFIL, nombre: vista.cuenta }, vista }
+      : { perfil: { ...DEFAULT_PERFIL, nombre: sesion.nombre || '', email: sesion.email }, vista };
+  }
+  const extra = ((u as { perfil?: Partial<PerfilExtra> }).perfil ?? {}) as Partial<PerfilExtra>;
+  return {
+    perfil: {
+      ...DEFAULT_PERFIL,
+      nombre: u.nombre || '',
+      email: u.email,
+      avatarUrl: u.foto_url ?? '',
+      telefono: extra.telefono ?? '',
+      cargo: extra.cargo ?? '',
+      empresa: extra.empresa ?? '',
+      web: extra.web ?? '',
+      bio: extra.bio ?? '',
+      timezone: extra.timezone ?? DEFAULT_PERFIL.timezone,
+    },
+    vista,
+  };
+}
+
+/** Perfil de quien se está mirando (ver `usuarioDelPerfil`). Sesiones sin fila real → defaults. */
+export async function getPerfil(): Promise<Perfil> {
+  return (await leerPerfil()).perfil;
+}
+
+/**
+ * Guarda el perfil que se está MIRANDO en su fila de usuarios. No toca el email de login.
+ *
+ * ⚠️ EL PERMISO SE RESUELVE ACÁ, EN CADA POST, y no lo trae la pantalla: es el mismo
+ * `usuarioDelPerfil` que decide qué se lee, así que una agencia a la que le revocaron la
+ * cartera vuelve a su propio perfil en el acto, y lo que llegue en el body no elige fila.
+ */
 export async function setPerfil(patch: Partial<Perfil>): Promise<Perfil> {
   // Escribe sobre el MISMO usuario que se está mirando: viendo como cliente, se
   // edita el perfil del cliente. Si no, se vería uno y se editaría otro.
-  const u = await usuarioDelPerfil();
+  const { fila: u, vista } = await usuarioDelPerfil();
+  // Vista de otro sin nadie adentro (o sin poder leer): no hay a quién escribirle, y
+  // devolver «ok» sería un guardado falso.
+  if (!u && vista.deOtro) throw new Error(vista.sinLeer ? 'No pude leer el perfil de esta cuenta.' : 'Esta cuenta todavía no tiene a nadie adentro.');
   if (!u) return getPerfil(); // break-glass: sin fila, no-op
 
   const cols: Record<string, unknown> = { updated_at: new Date().toISOString() };

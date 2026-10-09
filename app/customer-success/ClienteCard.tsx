@@ -151,6 +151,20 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
    */
   const admin = equipo?.find((u) => u.rol === 'admin') ?? equipo?.[0];
   /**
+   * ⚠️ UNA CUENTA ABIERTA A LA QUE NO PUEDE ENTRAR NADIE (09/10/2026). «No se le envió la
+   * invitación a Brigitte, ella no puede acceder a su propio workspace» (Joan, vía Martín).
+   * Medido: el ws15 tiene CERO usuarios desde el 28/09 —nació antes de que abrir una cuenta
+   * pidiera el email— así que no había a quién mandarle nada. Y la tarjeta no lo decía: con
+   * nadie adentro no hay «Reenviar el acceso» ni «Ver su equipo», y lo único que quedaba era
+   * «Inspeccionar», que se lee como «está todo bien».
+   *
+   * `equipo` es `[]` SÓLO si la lectura anduvo (page.tsx siembra la lista vacía); sin
+   * entrada es «no pude mirar», y ahí no se afirma nada.
+   */
+  const sinNadie = Boolean(ws && equipo && equipo.length === 0);
+  /** Quién puede hacer algo al respecto desde la tab Equipo: la agencia PIDE, el super admin SUMA. */
+  const puedeSumarAlguien = Boolean(cuentas?.superAdmin || cuentas?.puedePedirAltas);
+  /**
    * ⚠️ LAS DEL CURSO NO CUELGAN DE `conCuentas` (07/10/2026). Hasta acá el menú —y la fila de
    * acciones entera— existía sólo para una AGENCIA, porque lo único que ofrecía era gestionar una
    * cuenta de MaKo. Invitar al curso es otra cosa: no crea cuenta ni workspace (lib/curso-invitar.ts),
@@ -164,6 +178,11 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
     // una opción, es un botón que contesta un error.
     ...(ws && admin ? [{ value: 'reinvitar', label: `Reenviar el acceso a ${admin.nombre}` }] : []),
     ...(equipo?.length ? [{ value: 'equipo', label: `Ver su equipo (${equipo.length})` }] : []),
+    // Sin nadie adentro, la acción que falta: abre la tab Equipo, donde está el formulario
+    // (el mismo rótulo que su botón, porque no pasa lo mismo: la agencia pide, él suma).
+    ...(sinNadie && puedeSumarAlguien
+      ? [{ value: 'equipo', label: cuentas?.superAdmin ? 'Sumar a alguien' : 'Pedir sumar a alguien' }]
+      : []),
   ];
 
   const [reenviando, setReenviando] = useState(false);
@@ -235,6 +254,7 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
               no en `acciones` porque esa fila es nowrap — un tercer hijo ancho la
               desborda en vez de bajar a su renglón. */}
           {aviso && <PieTexto mal={aviso.tono === 'warn'}>{aviso.texto}</PieTexto>}
+          {sinNadie && !aviso && <PieTexto mal>Nadie puede entrar todavía</PieTexto>}
         </>
       }
       /* ⚠️ SÓLO PARA QUIEN PUEDE HACER ALGO CON ELLOS. Lo de la CUENTA cuelga de `cuentas.visible`

@@ -73,6 +73,7 @@ import { FichaCurso } from './FichaCurso';
 import { rutaPlanDeCliente } from './ficha-datos';
 import { useFotoCliente } from './foto-cliente';
 import { ROTULO_ALTA, ROTULO_ROL, ROLES_ALTA, emailUtilizable, type EstadoAlta, type RolAlta } from '@/lib/agencia-altas';
+import { avisoInvitacion, type AvisoInvitacion } from '@/lib/invitacion-aviso';
 
 export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, tabInicial, onImagen, onCerrar }: {
   c: ClienteCruce;
@@ -703,6 +704,9 @@ const CSS = `
 .fc-eq .rol{ flex:none; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
   background:var(--surface-2); color:var(--dim); }
 .fc-eq-nada{ margin:16px 2px; font-size:13.5px; color:var(--faint); }
+/* Si el mail de acceso salió (o no) al sumar a alguien. */
+.fc-envio{ margin:12px 2px 0; font-size:13px; color:var(--good); }
+.fc-envio.mal{ color:var(--bad); }
 /* Un pedido todavia no es una persona de la cuenta: se ve, y se ve que no esta. */
 .fc-eq li.pend{ opacity:.72; }
 .fc-eq .est{ flex:none; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
@@ -756,6 +760,8 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, puedeS
   const [email, setEmail] = useState('');
   const [nom, setNom] = useState('');
   const [rol, setRol] = useState<RolAlta>('admin');
+  /** Si el mail de acceso SALIÓ, cuando suma el super admin. Ver `pedir`. */
+  const [envio, setEnvio] = useState<AvisoInvitacion | null>(null);
 
   // ⚠️ LOS RECHAZADOS TAMBIÉN SE VEN. Un pedido que desaparece hace indistinguible
   // «se lo rechazaron» de «nunca lo mandé», y la agencia lo vuelve a pedir o se queda
@@ -775,6 +781,7 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, puedeS
     if (!clienteWs || !emailUtilizable(email) || mandando) return;
     setMandando(true);
     onError('');
+    setEnvio(null);
     try {
       const j = await (await fetch(puedeSumar ? '/api/admin/usuarios' : '/api/agencia/altas', {
         method: 'POST', headers: { 'content-type': 'application/json' },
@@ -783,6 +790,13 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, puedeS
           : { clienteWs, email: email.trim(), nombre: nom.trim(), rolWs: rol }),
       })).json();
       if (!j?.ok) { onError(j?.error ?? (puedeSumar ? 'No se pudo sumar.' : 'No se pudo pedir.')); return; }
+      // ⚠️ SUMAR NO ES «LE LLEGÓ» (09/10/2026). `/api/admin/usuarios` crea a la persona y
+      // devuelve si el mail SALIÓ (`invitacion.enviado`), y esto cerraba el formulario sin
+      // mirarlo: con el mail caído, la persona quedaba adentro sin enterarse y la pantalla
+      // no decía nada. Es el camino con el que se repara una cuenta sin nadie adentro (la de
+      // Brigitte), así que es justo donde un verde mudo cuesta más. El texto sale de
+      // `avisoInvitacion`, que mira `enviado` y nunca que haya un resultado.
+      if (puedeSumar) setEnvio(avisoInvitacion(j.invitacion, email.trim()));
       setEmail(''); setNom(''); setPidiendo(false);
       // `router.refresh()` y no un reload: la ficha abierta viaja en `?cliente=` y un
       // reload la reabriría, pero en Resumen y no en esta tab — se leería como que te sacó.
@@ -842,6 +856,8 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, puedeS
           ))}
         </ul>
       )}
+
+      {envio && <p className={envio.tono === 'warn' ? 'fc-envio mal' : 'fc-envio'}>{envio.texto}</p>}
 
       {(puedePedir || puedeSumar) && (pidiendo ? (
         <div className="fc-pedir">

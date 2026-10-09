@@ -14,6 +14,12 @@ const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
 type Perfil = { nombre: string; email: string; telefono: string; cargo: string; empresa: string; web: string; bio: string; timezone: string; avatarUrl: string };
+/**
+ * De quién es el perfil (lo decide el server, lib/perfil-sujeto.ts). En una «vista de otro»
+ * —la agencia inspeccionando a un cliente, o el super admin parado en él— es el del CLIENTE,
+ * y la pantalla lo rotula: sin rótulo, los datos de otra persona se leen como los propios.
+ */
+type Vista = { deOtro: false } | { deOtro: true; cuenta: string; sinNadie: boolean; sinLeer: boolean };
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 };
 const input: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
@@ -34,6 +40,7 @@ const TZ_OPTS = [
 export function PerfilTabs() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [draft, setDraft] = useState<Perfil | null>(null);
+  const [vista, setVista] = useState<Vista>({ deOtro: false });
   const [busy, setBusy] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -41,7 +48,11 @@ export function PerfilTabs() {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    fetch('/api/perfil').then((r) => r.json()).then((j) => { if (j.ok) { setPerfil(j.perfil as Perfil); setDraft(j.perfil as Perfil); } }).catch(() => {});
+    fetch('/api/perfil').then((r) => r.json()).then((j) => {
+      if (!j.ok) return;
+      setPerfil(j.perfil as Perfil); setDraft(j.perfil as Perfil);
+      if (j.vista?.deOtro) setVista(j.vista as Vista);
+    }).catch(() => {});
   }, []);
 
   if (!perfil || !draft) {
@@ -59,12 +70,16 @@ export function PerfilTabs() {
     const r = await fetch('/api/perfil', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'perfil', perfil: p }) });
     const j = await r.json();
     if (j.ok) setPerfil(j.perfil as Perfil);
+    // Un rechazo del server se dice: un botón que no hace nada se lee como guardado.
+    else setErr(j.error ?? 'No se pudo guardar');
     return j.ok as boolean;
   };
 
   const guardar = async () => {
-    setBusy(true);
+    setBusy(true); setErr(null);
     try { if (await persistir(draft)) { setFlash('Guardado ✓'); setTimeout(() => setFlash(null), 1800); } }
+    // Sin red el `fetch` tira, y sin este catch el botón volvía a su lugar sin decir nada.
+    catch { setErr('No se pudo guardar'); }
     finally { setBusy(false); }
   };
 
@@ -94,9 +109,24 @@ export function PerfilTabs() {
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="perfil" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Perfil</h1>
       </header>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Tu perfil personal (solo tuyo). Los reportes y las notificaciones se configuran en Configuraciones.</p>
+      {vista.deOtro ? (
+        /* El rótulo de una vista de otro: corto, y dice de QUIÉN son los datos de abajo. */
+        <p style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 600, margin: '0 0 22px', maxWidth: 720 }}>
+          Perfil de {vista.cuenta || 'esta cuenta'}
+        </p>
+      ) : (
+        <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Tu perfil personal (solo tuyo). Los reportes y las notificaciones se configuran en Configuraciones.</p>
+      )}
 
       <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {vista.deOtro && (vista.sinNadie || vista.sinLeer) ? (
+          /* ⚠️ «No hay nadie» y «no pude leer» son dos hechos: con la lectura caída, decir
+             «nadie» sería afirmar algo que no se miró. Y en ninguno de los dos hay formulario:
+             no hay fila a la que guardarle nada. */
+          <div style={{ ...card, fontSize: 14, color: 'var(--dim)' }}>
+            {vista.sinLeer ? 'No pude leer el perfil de esta cuenta.' : 'Esta cuenta todavía no tiene a nadie adentro.'}
+          </div>
+        ) : (
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 22 }}>
             <div style={{ width: 78, height: 78, flex: 'none', borderRadius: 18, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 30, color: '#171511', overflow: 'hidden' }}>
@@ -138,6 +168,7 @@ export function PerfilTabs() {
             <button style={{ ...btnDark, opacity: busy || !dirty ? 0.5 : 1 }} disabled={busy || !dirty} onClick={guardar}>Guardar cambios</button>
           </div>
         </div>
+        )}
 
         <div style={{ ...card, background: 'var(--surface-2)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <span style={{ fontSize: 18 }}>🔒</span>
