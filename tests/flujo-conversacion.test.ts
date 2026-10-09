@@ -407,7 +407,10 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
   const perfil = sinComentarios(leer(PERFIL));
   assert.doesNotMatch(perfil, /Cambiar a una etapa|setCambiandoAEtapa|Cuándo se dispara|Qué lo dispara|Solo a leads recientes|Sale sola/);
   assert.match(perfil, /const body = pedidoDisparo\(valor, secuencia\.id\);/);
-  assert.match(perfil, /<Dropdown\s+value=\{valorDisparo\(disparo\)\} secciones=\{secciones\} search width="100%"\s+botonLabel=\{rotuloDisparo\(secciones, valorDisparo\(disparo\), textoActualDisparo\)\}/);
+  // Cuarta tanda, punto 14: el desplegable elige VARIAS (`varios` con las etapas puestas y la última
+  // que no se apaga) y, punto 1, es un campo grande (`BOTON_CAMPO_CRON`). El botón sigue diciendo lo
+  // puesto con `rotuloDisparo`.
+  assert.match(perfil, /<Dropdown\s+value=\{valorDisparo\(disparo\)\} secciones=\{secciones\} search width="100%"\s+varios=\{valoresDisparo\(disparo\)\} minimo=\{1\} buttonStyle=\{BOTON_CAMPO_CRON\}\s+botonLabel=\{rotuloDisparo\(secciones, valorDisparo\(disparo\), textoActualDisparo\)\}/);
 });
 
 test('`seccionesDisparo` (el catálogo PLANO que lee «Crear con IA»): el de antes, sin «Eventos», y con los valores de los pasos', () => {

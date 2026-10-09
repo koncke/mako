@@ -11,8 +11,8 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
-import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
-import { esNodoDeControl, mediaDeAdjunto } from './nutricion-grafo-motor';
+import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA, normalizarEtapas } from './nutricion-etapa';
+import { esNodoDeControl, mediaDeAdjunto, esColumnaInexistente } from './nutricion-grafo-motor';
 import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
 import { sanearCron, proximaOcurrencia } from './cron-aviso';
 import { tzActual, TZ_DEFAULT } from './timezone';
@@ -339,32 +339,65 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
  *
  * `funnelId = null` es «todos los productos», y es una elección explícita del dueño: la
  * secuencia le aplica a cualquier lead que caiga en una etapa con esa key.
+ *
+ * ⚠️ UNA O VARIAS ETAPAS (cuarta tanda, punto 14; mig 0230), y TODAS del MISMO kanban: el ámbito es
+ * UN embudo (`funnelId`), así que mezclar adquisición con entrega o dos productos no se puede ni
+ * escribir. Cada una se valida igual que la de siempre; una sola que no existe frena el guardado
+ * entero (guardar «las que sí» sería decidir por la persona cuáles quería).
  */
-export async function setDisparadorEtapa(secuenciaId: number, etapa: string, funnelId: number | null): Promise<void> {
-  const key = (etapa ?? '').trim();
-  if (!key) throw new Error('Elige la etapa que dispara la secuencia.');
+export async function setDisparadorEtapa(secuenciaId: number, etapa: string | readonly string[], funnelId: number | null): Promise<void> {
+  const keys = typeof etapa === 'string' ? normalizarEtapas([etapa]) : normalizarEtapas(etapa);
+  if (!keys.length) throw new Error('Elige la etapa que dispara la secuencia.');
 
   const productos = await productosConEtapas();
-  if (funnelId == null) {
-    // «Todos los productos»: la etapa tiene que existir en ALGUNO, o es una key muerta.
-    const existe = productos.some((pr) => pr.etapas.some((e) => e.value === key));
-    if (!existe) throw new Error(`La etapa «${key}» no existe en ninguno de tus productos.`);
-  } else {
-    const pr = productos.find((x) => x.funnelId === funnelId);
-    if (!pr) throw new Error('Ese producto no existe o está archivado.');
-    if (!pr.etapas.some((e) => e.value === key)) {
-      throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elige una de las suyas.`);
+  for (const key of keys) {
+    if (funnelId == null) {
+      // «Todos los productos»: la etapa tiene que existir en ALGUNO, o es una key muerta.
+      const existe = productos.some((pr) => pr.etapas.some((e) => e.value === key));
+      if (!existe) throw new Error(`La etapa «${key}» no existe en ninguno de tus productos.`);
+    } else {
+      const pr = productos.find((x) => x.funnelId === funnelId);
+      if (!pr) throw new Error('Ese producto no existe o está archivado.');
+      if (!pr.etapas.some((e) => e.value === key)) {
+        throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elige una de las suyas.`);
+      }
     }
   }
 
+  // `producto_id` se limpia por lo mismo que allá se limpia `funnel_id`, y la etiqueta también:
+  // un disparador viejo escrito al lado del nuevo es un ámbito que nadie ve.
+  await escribirDisparador(secuenciaId, { trigger_tipo: TRIGGER_ETAPA, funnel_id: funnelId, producto_id: null, etiqueta_id: null }, keys, 'setDisparadorEtapa');
+}
+
+/**
+ * ESCRIBE UN DISPARADOR CON SUS ETAPAS: `etapa` = la primera (para los lectores viejos) y `etapas` =
+ * la lista si son dos o más, o null si es una (null = «una sola, la de `etapa`», que es lo que dicen
+ * todas las filas de antes). Para los disparadores sin etapa (`keys` vacío) limpia `etapas` y NO toca
+ * `etapa` (la columna es NOT NULL y nadie la lee con esos triggers).
+ *
+ * ⚠️ SIEMPRE ESCRIBE `etapas`, también para borrarla: una lista vieja que sobrevive a un cambio de
+ * disparador vuelve a mandar el día que alguien elija de nuevo la misma primera etapa.
+ *
+ * ⚠️ Y TOLERA LA 0230 SIN APLICAR SÓLO DONDE NO SE PIERDE NADA: con una etapa (o ninguna) vuelve a
+ * escribir sin la columna, que es exactamente lo de antes; con varias, contesta «Aún no se pueden
+ * varias etapas» (guardar sólo la primera sería guardar otra cosa que la elegida, en silencio).
+ */
+async function escribirDisparador(
+  secuenciaId: number,
+  base: Record<string, unknown>,
+  keys: readonly string[],
+  quien: string,
+): Promise<void> {
   const supabase = await getTenantDb();
-  const { error } = await supabase
-    .from('nutricion_secuencias')
-    // `producto_id` se limpia por lo mismo que allá se limpia `funnel_id`, y la etiqueta también:
-    // un disparador viejo escrito al lado del nuevo es un ámbito que nadie ve.
-    .update({ trigger_tipo: TRIGGER_ETAPA, etapa: key, funnel_id: funnelId, producto_id: null, etiqueta_id: null, updated_at: new Date().toISOString() })
-    .eq('id', secuenciaId);
-  if (error) throw new Error(`setDisparadorEtapa: ${error.message}`);
+  const conEtapa = keys.length ? { etapa: keys[0] } : {};
+  const upd = { ...base, ...conEtapa, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from('nutricion_secuencias').update({ ...upd, etapas: keys.length > 1 ? [...keys] : null }).eq('id', secuenciaId);
+  if (!error) return;
+  if (!esColumnaInexistente(error)) throw new Error(`${quien}: ${error.message}`);
+  if (keys.length > 1) throw new TriggerInvalidoError('Aún no se pueden varias etapas.');
+  console.warn(`[setting-secuencias] ${quien}: falta nutricion_secuencias.etapas (mig 0230); se guardó sin ella`);
+  const { error: e2 } = await supabase.from('nutricion_secuencias').update(upd).eq('id', secuenciaId);
+  if (e2) throw new Error(`${quien}: ${e2.message}`);
 }
 
 /**
@@ -380,32 +413,33 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string, fun
  * quiere decir nada sin el producto —«hito 2» es de UN servicio— y el motor directamente
  * no enrola sin él (`secuenciasDeEntrega` devuelve [] con el producto vacío). Ofrecer
  * «todos los productos» acá sería ofrecer una configuración que no dispara nunca.
+ *
+ * Una o VARIAS etapas de la entrega de ESTE producto (punto 14), cada una validada.
  */
-export async function setDisparadorEntrega(secuenciaId: number, etapa: string, productoId: number): Promise<void> {
-  const key = (etapa ?? '').trim();
-  if (!key) throw new Error('Elige la etapa de la entrega que dispara la secuencia.');
+export async function setDisparadorEntrega(secuenciaId: number, etapa: string | readonly string[], productoId: number): Promise<void> {
+  const keys = typeof etapa === 'string' ? normalizarEtapas([etapa]) : normalizarEtapas(etapa);
+  if (!keys.length) throw new Error('Elige la etapa de la entrega que dispara la secuencia.');
   if (!Number.isFinite(productoId) || productoId <= 0) throw new Error('Elige de qué producto es la entrega.');
 
   const pr = (await productosConEtapas()).find((x) => x.productoId === productoId);
   if (!pr) throw new Error('Ese producto no existe o está archivado.');
-  if (!pr.etapasEntrega.some((e) => e.value === key)) {
-    throw new Error(`«${key}» no es una etapa de la entrega de ${pr.nombre}: elige una de las suyas.`);
+  for (const key of keys) {
+    if (!pr.etapasEntrega.some((e) => e.value === key)) {
+      throw new Error(`«${key}» no es una etapa de la entrega de ${pr.nombre}: elige una de las suyas.`);
+    }
   }
 
-  const supabase = await getTenantDb();
-  const { error } = await supabase
-    .from('nutricion_secuencias')
-    // `funnel_id` se LIMPIA: una secuencia es de venta o es de entrega, y dejar el
-    // embudo puesto deja un ámbito viejo escrito al lado del nuevo.
-    .update({ trigger_tipo: TRIGGER_ENTREGA, etapa: key, producto_id: productoId, funnel_id: null, etiqueta_id: null, updated_at: new Date().toISOString() })
-    .eq('id', secuenciaId);
-  if (error) throw new Error(`setDisparadorEntrega: ${error.message}`);
+  // `funnel_id` se LIMPIA: una secuencia es de venta o es de entrega, y dejar el
+  // embudo puesto deja un ámbito viejo escrito al lado del nuevo.
+  await escribirDisparador(secuenciaId, { trigger_tipo: TRIGGER_ENTREGA, producto_id: productoId, funnel_id: null, etiqueta_id: null }, keys, 'setDisparadorEntrega');
 }
 
 /** Lo que llega para cambiar el disparador de una secuencia (POST `{action:'trigger'}`). */
 export type CambioDeTrigger = {
   trigger_tipo: string;
   etapa?: string | null;
+  /** VARIAS etapas del mismo kanban (punto 14). Con dos o más, manda sobre `etapa`. */
+  etapas?: readonly string[] | null;
   producto_id?: number | null;
   /** AUSENTE = no se toca el embudo de la secuencia; `null` = «todos los embudos» (una elección). */
   funnel_id?: number | null;
@@ -434,16 +468,19 @@ export class TriggerInvalidoError extends Error {
  */
 export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigger): Promise<void> {
   const tipo = String(c.trigger_tipo ?? '').trim();
+  // Una o VARIAS etapas (punto 14): la lista manda si trae algo; si no, la etapa de siempre.
+  const etapas = normalizarEtapas(c.etapas ?? null);
+  const pedidas: string | string[] = etapas.length ? etapas : String(c.etapa ?? '');
   if (tipo === TRIGGER_ETAPA) {
     const fid = c.funnel_id == null ? null : Number(c.funnel_id);
     if (fid != null && !Number.isFinite(fid)) throw new TriggerInvalidoError('Ese producto no existe.');
-    try { return await setDisparadorEtapa(secuenciaId, String(c.etapa ?? ''), fid); }
+    try { return await setDisparadorEtapa(secuenciaId, pedidas, fid); }
     catch (e) { throw new TriggerInvalidoError(e instanceof Error ? e.message : String(e)); }
   }
   if (tipo === TRIGGER_ENTREGA) {
     const pid = Number(c.producto_id);
     if (!Number.isFinite(pid) || pid <= 0) throw new TriggerInvalidoError('Elige de qué producto es la entrega.');
-    try { return await setDisparadorEntrega(secuenciaId, String(c.etapa ?? ''), pid); }
+    try { return await setDisparadorEntrega(secuenciaId, pedidas, pid); }
     catch (e) { throw new TriggerInvalidoError(e instanceof Error ? e.message : String(e)); }
   }
   const { TRIGGERS } = await import('./email-marketing');
@@ -469,11 +506,9 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
     if (!et) throw new TriggerInvalidoError('Esa etiqueta no existe en este negocio.');
     if (et.archivada_at) throw new TriggerInvalidoError('Esa etiqueta está archivada.');
   }
-  const { error } = await supabase
-    .from('nutricion_secuencias')
-    .update({ trigger_tipo: tipo, etiqueta_id: etiquetaId, ...(tocaEmbudo ? { funnel_id: funnelId } : {}), producto_id: null, updated_at: new Date().toISOString() })
-    .eq('id', secuenciaId);
-  if (error) throw new Error(`setTriggerSecuencia: ${error.message}`);
+  // Sin etapa: `etapas` se LIMPIA (`escribirDisparador` con `keys` vacío), por lo mismo que se limpia
+  // el producto — una lista vieja escrita al lado del disparador nuevo es un ámbito que nadie ve.
+  await escribirDisparador(secuenciaId, { trigger_tipo: tipo, etiqueta_id: etiquetaId, ...(tocaEmbudo ? { funnel_id: funnelId } : {}), producto_id: null }, [], 'setTriggerSecuencia');
 }
 
 // ── Prompts del wizard (editables en /configuraciones vía prompt-registry) ────
