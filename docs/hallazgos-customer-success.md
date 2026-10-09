@@ -5203,3 +5203,79 @@ vio en la app real.
   cliente de ese producto» y no invita (lib/crm-curso-al-ganar.ts). Antes invitaba a lo que veía.
 - **Nada de la invitación por producto se vio en la app real**: el modal con su borrador, el correo
   embebido, la lista desde el curso y la tarjeta, Avance y ficha por producto. El ws3 tiene 0 productos.
+
+---
+
+## «No se le envió la invitación a Brigitte»: no había a quién, y /perfil mostraba a la agencia (09/10/2026)
+
+Captura de Joan (Código Inmobiliario, ws13) inspeccionando a Brigitte Eberlin: el cartel decía
+«Estás viendo el dashboard de Brigitte Eberlin» y /perfil mostraba «Codigo Inmobiliario» y
+codigoinmobiliarioia@gmail.com. Martín: «no se le envió la invitación, ella no puede acceder a su
+propio workspace».
+
+**Vive en:** `app/customer-success/ClienteCard.tsx` · `app/customer-success/page.tsx`
+(`datosDeMisClientes`) · `app/customer-success/FichaCliente.tsx` (`EquipoDelCliente`) ·
+`lib/perfil.ts` · `lib/perfil-sujeto.ts` · `app/perfil/PerfilTabs.tsx`. Guard en
+`tests/perfil-vista-de-otro.test.ts`.
+
+### ⚠️ El diagnóstico obvio era el falso: no fue el mail, fue que no había a quién
+
+Las dos sospechas razonables estaban descartadas antes de mirar: la key de Resend de la
+plataforma leída antes de la hidratación (arreglada hoy con `envCred`, `3677e675`, desplegada) y el
+«Se le mandó el acceso» mirando el objeto y no `enviado` (arreglado el 06/10, `c0e2570b`; su guarda
+rota hoy da 29 / 1). Lo medido contra prod:
+
+- ws15: `activo`; `agencia_clientes` 13→15 `aprobado` el 28/09 13:24.
+- `usuarios where workspace_id = 15`: **0**. El lead 2486 (ws13): `email` null, sólo teléfono.
+- `agencia_altas`: **0 filas en toda la tabla** — nadie pidió nunca sumarla.
+- Un barrido de «eberlin / brigit / brieb» en TODAS las columnas de texto de `public`: **su email no
+  está en ningún lado**. No hay a quién mandarle nada, y por eso no se mandó.
+
+Es la cuenta que nació con el alta vieja del 28/09 (ver «Una cuenta aprobada con CERO usuarios»,
+que ya la dejaba anotada como SIN HACER). Lo que la hizo parecer una falla de envío: **la tarjeta de
+la cartera no lo decía**. Con cero personas no hay «Reenviar el acceso» ni «Ver su equipo», y lo único
+que quedaba era «Inspeccionar», que se lee como «está todo bien» — y la cuenta se usa todos los días
+(la agencia la opera por MaKo: hay conversación en `mako_doer_conv` del ws15 de hoy).
+
+**La regla:** un estado que sólo existe en la base («autorizada, sin nadie adentro») va en la
+pantalla desde la que alguien ACTÚA, con la acción al lado. Ahora la tarjeta dice «Nadie puede entrar
+todavía» y su menú ofrece «Pedir sumar a alguien» (o «Sumar a alguien» al super admin), que abre la
+tab Equipo. ⚠️ Y el cero se afirma sólo si se pudo mirar: `datosDeMisClientes` siembra `[]` para cada
+cliente aprobado **sólo si `listarUsuarios` contestó**; caída, no hay entrada y la tarjeta no dice nada.
+
+### Sumar desde la ficha era un verde mudo
+
+El camino con el que se repara una cuenta vacía —el super admin, «Sumar y mandarle el acceso»—
+recibía `invitacion` de `/api/admin/usuarios` y cerraba el formulario sin mirarla: con el mail caído,
+la persona quedaba adentro sin enterarse. Ahora dice el resultado con `avisoInvitacion`, que mira
+`enviado`.
+
+### /perfil: la regla preguntaba por el ROL, y la agencia no es admin
+
+`usuarioDelPerfil` cambiaba de sujeto con `if (sesion.rol !== 'admin') return propio`: sólo el super
+admin. La agencia entra por su cookie firmada, no por rol, así que caía en su propio perfil — **y
+«Guardar» habría escrito sobre su usuario creyendo tocar el del cliente**. Es la misma omisión que ya
+había tenido `estaImpersonando` («la agencia también está viendo a otro»). Y el vacío caía a
+`?? propio`: en un cliente sin nadie, el super admin veía SU perfil rotulado como el del cliente.
+
+**La regla:** «¿de quién son estos datos?» se contesta con las MISMAS dos puertas que
+`getWorkspaceActual` —pestaña/impersonación para el super admin, `contextoDeAgencia` para la
+agencia—, nunca con el rol, y en la vista de otro un vacío se dice, nunca se rellena con quien mira.
+La decisión es `deQuienEsElPerfil` (pura, con DOS agencias en el test); la persona es
+`titularDelCliente`, que es `aQuienReinvitar`: el dueño de la cuenta es uno solo. `setPerfil` resuelve
+lo mismo en cada POST, y sin nadie adentro contesta error en vez de un «ok» que no escribió nada.
+Medido en el navegador (dev :3022): agencia en ws15 → «Perfil de Brigitte Eberlin / Esta cuenta
+todavía no tiene a nadie adentro.»; en ws17 → joan prueba, email de sólo lectura; el POST de prueba
+cortado; un POST real sobre ws15 → 500 «Esta cuenta todavía no tiene a nadie adentro.», 0 filas.
+
+### Lo que quedó SIN hacer
+
+- **El acceso de Brigitte.** Hace falta SU email, y no lo tiene nadie en la base. Con él: Joan,
+  tarjeta → «Acciones» → «Pedir sumar a alguien»; Martín lo aprueba y sale el mail. O Martín directo
+  desde la ficha de Brigitte → Equipo → «Sumar y mandarle el acceso». Después, verificar
+  `invitacion_enviada_at` en su fila.
+- **La foto subida en la vista de otro** queda en la carpeta del que mira (`/api/perfil/avatar` arma
+  la ruta con la sesión): se ve bien, pero el archivo no es «de» la cuenta.
+- **Los otros lectores de `getPerfil`** (el usuario del menú en /plan y /customer-success, el guion
+  del audio) ahora también muestran al cliente en la vista de agencia, como ya pasaba con el super
+  admin. No se miraron uno por uno en el navegador.
