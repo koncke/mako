@@ -65,6 +65,7 @@ import { TRIGGERS } from '@/lib/email-marketing';
 import { seccionesDisparo, pedidoDisparo, valorDisparo } from '@/lib/flujo-conversacion';
 import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
 import { validarGrafo, type PasoGrafo } from '@/lib/flujo-grafo';
+import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import { marcasDeVoseo } from '@/lib/puestas-data';
 import {
   FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE,
@@ -173,6 +174,8 @@ async function armarContexto(ws: number, pedido: string): Promise<{ ctx: CtxIA; 
     usaVoseo: !!voz && marcasDeVoseo(voz).length > 0,
     // Un MONTO de una acción sólo vale si lo escribió una persona: en el perfil o en el pedido.
     numerosPermitidos: numerosEn(`${perfil}\n${pedido}`),
+    // La segunda capa de «un alumno → todas las etapas de la entrega» (cuarta tanda, punto 14).
+    pedido,
   };
   return { ctx, perfil, voz };
 }
@@ -326,8 +329,14 @@ export async function POST(req: NextRequest) {
   if (!modo) return Response.json({ ok: false, error: 'modo inválido' }, { status: 400 });
 
   const db = await getTenantDb();
-  const { data: sec, error: errSec } = await db.from('nutricion_secuencias')
-    .select('id, nombre, pasos, activa, trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id').eq('id', secuenciaId).maybeSingle();
+  // Con `etapas` (mig 0230, punto 14) y sin ella si todavía no está: es para decir el disparador del
+  // 409, y una columna que falta no puede tirar la creación entera (`esColumnaInexistente`).
+  const leerSec = async (cols: string) => {
+    const r = await db.from('nutricion_secuencias').select(cols).eq('id', secuenciaId).maybeSingle();
+    return { data: r.data as unknown as Record<string, unknown> | null, error: r.error };
+  };
+  let { data: sec, error: errSec } = await leerSec('id, nombre, pasos, activa, trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id');
+  if (errSec && esColumnaInexistente(errSec)) ({ data: sec, error: errSec } = await leerSec('id, nombre, pasos, activa, trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id'));
   if (errSec) return Response.json({ ok: false, error: `No pude leer la automatización: ${errSec.message}` }, { status: 500 });
   if (!sec) return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
   const guardados = (Array.isArray((sec as { pasos?: unknown }).pasos) ? (sec as { pasos: PasoGrafo[] }).pasos : []);
@@ -336,11 +345,12 @@ export async function POST(req: NextRequest) {
   // una que ya tiene tarjetas es porque su copia quedó vieja (Cancelar en «Revisando» llega tarde y
   // el server guarda igual). Con lo guardado, la caja se lo pasa al lienzo en vez de quedar sin salida.
   if (modo === 'crear' && guardados.length) {
-    const s = sec as { nombre?: unknown; trigger_tipo?: unknown; etapa?: unknown; funnel_id?: unknown; producto_id?: unknown; etiqueta_id?: unknown };
+    const s = sec as { nombre?: unknown; trigger_tipo?: unknown; etapa?: unknown; etapas?: unknown; funnel_id?: unknown; producto_id?: unknown; etiqueta_id?: unknown };
     const guardado: GuardadoIA = {
       pasos: guardados, nombre: String(s.nombre ?? ''), orden: ordenDeRevelado(guardados),
       disparador: valorDisparo({
         trigger_tipo: String(s.trigger_tipo ?? 'manual'), etapa: s.etapa == null ? null : String(s.etapa),
+        etapas: Array.isArray(s.etapas) ? s.etapas.map(String) : null,
         funnel_id: s.funnel_id == null ? null : Number(s.funnel_id), producto_id: s.producto_id == null ? null : Number(s.producto_id),
         etiqueta_id: s.etiqueta_id == null ? null : Number(s.etiqueta_id),
       }),
@@ -434,6 +444,8 @@ export async function POST(req: NextRequest) {
             await setTriggerSecuencia(secuenciaId, {
               trigger_tipo: String(pedidoTrigger.trigger_tipo ?? ''),
               etapa: pedidoTrigger.etapa == null ? null : String(pedidoTrigger.etapa),
+              // VARIAS etapas (punto 14): las del alumno, o las que pidió el modelo en una lista.
+              etapas: Array.isArray(pedidoTrigger.etapas) ? (pedidoTrigger.etapas as unknown[]).map(String) : null,
               producto_id: pedidoTrigger.producto_id == null ? null : Number(pedidoTrigger.producto_id),
               etiqueta_id: pedidoTrigger.etiqueta_id == null ? null : Number(pedidoTrigger.etiqueta_id),
               // Ausente = no toca el embudo (`setTriggerSecuencia`); sólo una etapa de venta lo trae.

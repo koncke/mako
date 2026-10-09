@@ -1184,7 +1184,7 @@ export function valoresDisparo(s: DisparoActual): string[] {
 }
 
 /** `venta:5:a,b` → [`venta:5:a`, `venta:5:b`]. Lo demás, tal cual. */
-function separarValor(valor: string): string[] {
+export function separarValor(valor: string): string[] {
   const m = /^(venta|entrega):([^:]*):(.*)$/.exec(valor);
   if (!m) return valor ? [valor] : [];
   const keys = normalizarEtapas(m[3].split(','));

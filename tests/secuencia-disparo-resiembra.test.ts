@@ -56,11 +56,26 @@ test('ausente y null son lo mismo: una relectura con los campos en null no re-si
   );
 });
 
-test('disparoDeSecuencia copia los cinco campos que lee el CRON', () => {
+test('disparoDeSecuencia copia los SEIS campos que lee el CRON (cuarta tanda, punto 14: suma `etapas`)', () => {
   assert.deepEqual(
     disparoDeSecuencia({ trigger_tipo: 'entrega_actual', etapa: 'onboarding', funnel_id: null, producto_id: 9, etiqueta_id: null }),
-    { trigger_tipo: 'entrega_actual', etapa: 'onboarding', funnel_id: null, producto_id: 9, etiqueta_id: null },
+    { trigger_tipo: 'entrega_actual', etapa: 'onboarding', funnel_id: null, producto_id: 9, etiqueta_id: null, etapas: null },
   );
+  assert.deepEqual(
+    disparoDeSecuencia({ trigger_tipo: 'entrega_actual', etapa: 'onb', etapas: ['onb', 'hito1'], producto_id: 9 }).etapas,
+    ['onb', 'hito1'],
+  );
+});
+
+test('VARIAS etapas: otra lista es otro disparador, y la lista cruda vacía y null son lo mismo (punto 14)', () => {
+  const una = disparoDeSecuencia({ trigger_tipo: 'entrega_actual', etapa: 'onb', producto_id: 9 });
+  const dos = disparoDeSecuencia({ trigger_tipo: 'entrega_actual', etapa: 'onb', etapas: ['onb', 'hito1'], producto_id: 9 });
+  assert.notEqual(firmaDisparo(una), firmaDisparo(dos), 'sumar una etapa no volvería a sembrar el CRON');
+  // La relectura trae `[]` y lo pintado al elegir una sola trae `null`: el mismo disparador, sin re-siembra de gusto.
+  assert.equal(firmaDisparo(una), firmaDisparo({ ...una, etapas: [] }));
+  // Una lista vieja que ya no coincide con `etapa` (la cambió un escritor viejo) no cuenta: firma de UNA etapa.
+  assert.equal(firmaDisparo(disparoDeSecuencia({ trigger_tipo: 'entrega_actual', etapa: 'hito2', etapas: ['onb', 'hito1'], producto_id: 9 })),
+    firmaDisparo(disparoDeSecuencia({ trigger_tipo: 'entrega_actual', etapa: 'hito2', producto_id: 9 })));
 });
 
 test('el render compara la firma de la PROP y vuelve a sembrar `disparo` cuando cambia', () => {
@@ -68,7 +83,12 @@ test('el render compara la firma de la PROP y vuelve a sembrar `disparo` cuando 
   assert.match(cuerpo, /const firmaProp = firmaDisparo\(disparoDeSecuencia\(secuencia\)\);/);
   assert.match(cuerpo, /useState\(firmaProp\)/);
   // A nivel del componente (dos espacios), no adentro de un efecto: un efecto pintaría primero lo viejo.
-  assert.match(cuerpo, /\n {2}if \(firmaProp !== firmaVista\) \{\n {4}setFirmaVista\(firmaProp\);\n {4}setDisparo\(disparoDeSecuencia\(secuencia\)\);\n {2}\}/);
+  // ⚠️ CUARTA TANDA, PUNTO 14: con varias etapas el guardado espera su respiro, y mientras haya uno en
+  // camino NO se siembra (la relectura traería el conjunto de antes del último toque y le borraría a la
+  // persona la etapa que acaba de marcar). La firma vista se actualiza igual.
+  assert.match(cuerpo, /\n {2}if \(firmaProp !== firmaVista\) \{\n {4}setFirmaVista\(firmaProp\);\n {4}if \(!guardandoDisparo\) setDisparo\(disparoDeSecuencia\(secuencia\)\);\n {2}\}/);
+  // Y el «guardando» se apaga recién cuando vuelve el ÚLTIMO pedido.
+  assert.match(cuerpo, /if \(disparoPendiente\.current\) return;\n {4}setGuardandoDisparo\(false\);/);
 });
 
 test('lo que dibuja la tarjeta CRON y lo que recibe «Probar» salen de `disparo`, el que se re-siembra', () => {

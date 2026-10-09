@@ -226,8 +226,10 @@ test('el choke point de Customer Success enrola con el evento de ENTREGA y con e
 
 test('el motor cierra lo pendiente de la etapa que se DEJA, antes de enrolar la nueva', () => {
   const bloque = bloqueDe('lib/nutricion.ts', "    if (evento === 'entrega') {", '\n    const secuencias:');
-  assert.ok(bloque.length < 1200, `el recorte mide ${bloque.length}: está mirando otra cosa`);
+  assert.ok(bloque.length < 1400, `el recorte mide ${bloque.length}: está mirando otra cosa`);
   assert.match(bloque, /cerrarEntregaDeEtapa\(leadId, ctx\?\.desde/, 'el evento de entrega tiene que cerrar lo de la etapa anterior');
+  // Cuarta tanda, punto 14: con la etapa NUEVA, para no cortar una secuencia que cubre las dos.
+  assert.match(bloque, /cerrarEntregaDeEtapa\(leadId, ctx\?\.desde, ctx\?\.productoId, ctx\?\.etapa\)/, 'sin la etapa nueva, una secuencia de varias etapas se corta en su propio recorrido');
   // El ORDEN importa: al revés, un movimiento de ida y vuelta deja viva la inscripción
   // de la etapa que el cliente ya no tiene.
   assert.ok(
@@ -243,8 +245,12 @@ test('cerrar usa EL MISMO criterio que enrolar, no una copia', () => {
   // «la función que viene después», el recorte se comió `silenciarEntregaDeEtapa`, que se escribió
   // entre las dos, y su `throw` (que es a propósito: ver lib/cs-mover-etapa.ts, paso 4b) tumbaba esto.
   // Con el recorte nuevo, un `throw` adentro de `cerrarEntregaDeEtapa` sigue cayendo: 26 / 1.
-  const bloque = bloqueDe('lib/nutricion.ts', 'export async function cerrarEntregaDeEtapa(', '\n}\n');
-  assert.match(bloque, /secuenciasDeEntrega\(/, 'el cierre tiene que resolver las secuencias con la misma función');
+  const bloque = sinComentariosEtapa(bloqueDe('lib/nutricion.ts', 'export async function cerrarEntregaDeEtapa(', '\n}\n'));
+  // ⚠️ CUARTA TANDA, PUNTO 14: el cierre pasa por `secuenciasQueSeCierran` (lib/nutricion-etapa.ts),
+  // que resuelve con `secuenciasDeEntrega` y le RESTA las que también cubren la etapa nueva. Se fija
+  // la cadena entera: el cierre llama a la pura, y la pura llama a la misma de enrolar.
+  assert.match(bloque, /secuenciasQueSeCierran\(await getSecuenciasActivas\(\), key, etapaHacia, productoId\)/, 'el cierre tiene que resolver las secuencias con la función pura');
+  assert.match(sinComentariosEtapa(bloqueDe('lib/nutricion-etapa.ts', 'export function secuenciasQueSeCierran<', '\n}\n')), /const deLaQueSeDeja = secuenciasDeEntrega\(secuencias, desde, productoId\);/, 'la pura tiene que resolver con la misma función que enrola');
   assert.match(bloque, /estado: 'completada'/, 'se cierra con el mismo estado que usa el motor');
   assert.match(bloque, /\.eq\('estado', 'activa'\)/, 'sólo se cierran las ACTIVAS: una ya cerrada no se vuelve a tocar');
   assert.ok(!/throw/.test(bloque), 'no puede tirar: romper el movimiento del kanban es peor que cerrar de menos');

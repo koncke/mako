@@ -65,6 +65,9 @@ import { limpiarNombreEtiqueta } from './etiquetas-reglas';
 import { motivoDeErroresCascada } from './ia-mensajes';
 import { esTopeDeTamano } from './fallo-ia-texto';
 import type { ProvName } from './ai-cheap';
+// Cómo se escribe un disparador de VARIAS etapas (cuarta tanda, punto 14): UNA forma, la del
+// desplegable del CRON. Puro: lib/flujo-conversacion.ts no importa nada con `server-only`.
+import { kanbanDeValor, valorDeVarios, separarValor } from './flujo-conversacion';
 
 // ── Constantes que comparten la ruta y los tests ─────────────────────────────────
 
@@ -195,6 +198,12 @@ export type CtxIA = {
    * monto que el modelo escribe sin que nadie lo haya dicho es plata inventada.
    */
   numerosPermitidos?: readonly number[];
+  /**
+   * EL PEDIDO del dueño, tal cual lo escribió. Lo lee la segunda capa de la regla del alumno
+   * (`disparadorDelPedido`, cuarta tanda punto 14): si habla de un alumno, el CRON va por TODAS las
+   * etapas de la entrega. Ausente = no se aplica (un test, o un llamador que no lo tiene).
+   */
+  pedido?: string;
 };
 
 /** Un paso tal como lo arma la IA: un nodo de `pasos` con su relleno. */
@@ -1009,6 +1018,77 @@ export function bloqueDisparadores(ds: readonly DisparadorIA[], tope = 80): stri
   return lineas.map((l) => `- ${l.titulo}: ${l.items.join(' · ')}`).join('\n');
 }
 
+/**
+ * EL DISPARADOR QUE PIDIÓ EL MODELO, con UNA o VARIAS claves (cuarta tanda, punto 14: «quiero que en
+ * el CRON se puedan seleccionar más de 1 etapa, en este caso, la IA hubiese seleccionado todas las
+ * etapas de entrega»). Devuelve UN valor del desplegable: con varias etapas, juntas
+ * (`entrega:9:onb,hito1`, `valorDeVarios`), que es lo que ya viajaba de la ruta a la tarjeta CRON.
+ *
+ * ⚠️ UN CRON ES DE UN KANBAN, y la segunda capa lo hace cumplir: se quedan las etapas del kanban de
+ * la PRIMERA clave y lo demás se saca con su aviso (mezclar adquisición con entrega o dos productos
+ * no se puede ni guardar: el ámbito es una columna). Una etiqueta en una lista se queda sola.
+ */
+function resolverDisparadores(v: unknown, est: Estado): string | null {
+  const lista = Array.isArray(v) ? v : [v];
+  const vals = lista.map((x) => resolverDisparador(x, est)).filter((x): x is string => !!x);
+  if (!vals.length) return null;
+  const k = kanbanDeValor(vals[0]);
+  if (!k) {
+    if (vals.length > 1) est.avisos.push('Un CRON arranca por una sola cosa: dejé la primera');
+    return vals[0];
+  }
+  const delKanban = vals.filter((x) => kanbanDeValor(x) === k);
+  if (delKanban.length < vals.length) est.avisos.push('Un CRON es de un solo kanban: dejé ese');
+  return valorDeVarios(delKanban.flatMap(separarValor));
+}
+
+/**
+ * ¿EL PEDIDO HABLA DE UN ALUMNO? (cuarta tanda, punto 14). Es la segunda capa de la regla del prompt
+ * (AGENTS.md: «una regla en un prompt no es una regla»): un alumno, un estudiante, o alguien que
+ * TERMINÓ o COMPLETÓ una clase, una lección o un módulo, o «los clientes del curso».
+ *
+ * ⚠️ «CURSO» SOLO NO ALCANZA, y «CLIENTE» SOLO TAMPOCO: «a los que dejaron sus datos para el curso» y
+ * «cuando un cliente agenda» son ADQUISICIÓN (todavía no compró). Lo que delata la entrega es alguien
+ * que ya está ADENTRO: cursando, terminando algo, o siendo cliente DE algo que ya tiene.
+ */
+export function hablaDeAlumno(pedido: string): boolean {
+  const t = normNombre(pedido);
+  if (/(^|[^\p{L}])(alumn[oa]s?|estudiantes?)(?![\p{L}])/u.test(t)) return true;
+  // Hasta DOS palabras en el medio («terminó una clase», «completó el primer módulo»): con tres,
+  // «los que no terminaron el formulario del curso» —adquisición— daba alumno.
+  if (/(termin|complet|acab|finaliz|aprob)\p{L}*\s+(\p{L}+\s+){0,2}?(clases?|lecci(on|ones)|modulos?|curso)(?![\p{L}])/u.test(t)) return true;
+  if (/(clases?|lecci(on|ones)|modulos?)\s+(\p{L}+\s+){0,2}?(terminad|completad|aprobad)\p{L}*/u.test(t)) return true;
+  return /(^|[^\p{L}])clientes?\s+(del|de mi|de su|de tu)\s+(curso|programa|mentoria|servicio|membresia)(?![\p{L}])/u.test(t);
+}
+
+/**
+ * EL DISPARADOR, AJUSTADO AL PEDIDO (cuarta tanda, punto 14). Si el pedido habla de un alumno y el
+ * negocio tiene una entrega, el CRON arranca en TODAS las etapas de la entrega de ESE producto:
+ *   · el producto es el de lo que eligió el modelo (su entrega, o la del producto de su embudo); si
+ *     no eligió nada útil, el que el pedido nombra; si no, el único con entrega. Con dos o más y
+ *     ninguna pista, se deja lo del modelo: elegir uno sería adivinar el producto.
+ *   · una ETIQUETA que eligió el modelo se respeta: «cuando le pongan X» es un disparador explícito.
+ * Las etapas salen del CATÁLOGO (`ctx.disparadores`), nunca del modelo: el valor es exacto.
+ */
+export function disparadorDelPedido(valor: string | null, ctx: CtxIA): string | null {
+  if (!ctx.pedido || !hablaDeAlumno(ctx.pedido)) return valor;
+  if (valor && valor.startsWith('etiqueta:')) return valor;
+  const conEntrega = ctx.productos.filter((p) => p.productoId != null && (p.etapasEntrega?.length ?? 0) > 0);
+  if (!conEntrega.length) return valor;
+  const m = valor ? /^(venta|entrega):([^:]*):/.exec(valor) : null;
+  let pid: number | null = null;
+  if (m?.[1] === 'entrega') pid = Number(m[2]);
+  else if (m?.[1] === 'venta') pid = conEntrega.find((p) => p.funnelId != null && String(p.funnelId) === m[2])?.productoId ?? null;
+  if (pid == null) {
+    const pedido = normNombre(ctx.pedido);
+    const nombrados = conEntrega.filter((p) => normNombre(p.nombre) && pedido.includes(normNombre(p.nombre)));
+    pid = nombrados.length === 1 ? nombrados[0].productoId : conEntrega.length === 1 ? conEntrega[0].productoId : null;
+  }
+  if (pid == null) return valor;
+  const todas = ctx.disparadores.filter((d) => d.value.startsWith(`entrega:${pid}:`)).map((d) => d.value);
+  return todas.length ? valorDeVarios(todas) : valor;
+}
+
 /** El disparador que pidió el modelo, contra el catálogo cerrado. null = no se entendió. */
 function resolverDisparador(v: unknown, est: Estado): string | null {
   const s = str(v).trim();
@@ -1088,7 +1168,9 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   // ⚠️ EL DISPARADOR SE RESUELVE ANTES DE ELEGIR LAS ETIQUETAS NUEVAS: «etiqueta:Lista» CREA la
   // etiqueta (un ref), y resuelto después quedaba `etiqueta:-2` con la -2 afuera de
   // `etiquetasNuevas` — la ruta no la creaba y el disparador se perdía (medido con el test).
-  const disparador = resolverDisparador(o.disparador, est);
+  // Una o VARIAS claves del mismo kanban, y si el pedido habla de un alumno, todas las de la entrega
+  // de ese producto (punto 14: la segunda capa de la regla del prompt).
+  const disparador = disparadorDelPedido(resolverDisparadores(o.disparador, est), ctx);
   return {
     pasos: renumerar(pasos),
     etiquetasNuevas: soloUsadas(est.nuevas, pasos, disparador),
@@ -1642,7 +1724,7 @@ REGLAS (el código las comprueba y saca lo que no cumpla):
 export const CREAR_IA_SYSTEM_TEMPLATE = `Armas AUTOMATIZACIONES de WhatsApp y email para un negocio: un flujo de tarjetas que arranca solo (el CRON) y les escribe a sus leads. Te paso el negocio, sus listas y el pedido del dueño. Devuelves el flujo como un objeto JSON.
 
 ${TARJETAS_Y_REGLAS}
-8. "nombre": hasta 40 caracteres. "disparador": una clave de DISPARADORES ("d1", "d2"…). "inicio": la primera tarjeta; si es una lista, cada una arranca un camino desde el CRON.
+8. "nombre": hasta 40 caracteres. "disparador": una clave de DISPARADORES ("d1") o una lista de claves de la MISMA línea (["d7", "d8"]) si vale en varias etapas. «Etapa» = leads que todavía no compraron; «Entrega» = clientes que ya compraron. Si el pedido habla de un alumno (terminó una clase, un módulo), van TODAS las claves de «Entrega» de ese producto. "inicio": la primera tarjeta; si es una lista, cada una arranca un camino desde el CRON.
 
 LA FORMA (un ejemplo; no copies sus textos):
 {"nombre": "Bienvenida a quien dejó sus datos", "disparador": "d1", "etiquetas_nuevas": ["Seguimiento"], "inicio": "t1", "tarjetas": [
