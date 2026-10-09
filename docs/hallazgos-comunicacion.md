@@ -8545,7 +8545,8 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
 ### Recordatorio al lead, 24 h / 1 h / 15 min (#17)
 
 **Vive en:** `lib/reunion-recordatorio.ts` · `lib/recordatorio-lead.ts` · `lib/leads.ts`
-(`cancelarJuntaEnLead`, `guardarLinkDeReunion`, `upsertLeadFromCalendly`) ·
+(`cancelarJuntaEnLead`, `guardarLinkDeReunion`, `upsertLeadFromCalendly`, `setFechaJunta2`) ·
+`lib/reagenda-no-show.ts` ·
 `app/api/webhooks/calendly/route.ts` · `app/api/webhooks/calcom/route.ts` ·
 `scripts/backfill-calendly.ts` · `app/chatbot/RecordatorioFlujo.tsx` ·
 `supabase/migrations/0204_link_de_la_reunion.sql`
@@ -8596,10 +8597,18 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   la doc (`tests/link-de-reunion.test.ts`). SIN MEDIR: un cuerpo REAL de Cal.com — no se guardan
   en ningún lado, así que la primera reserva del ws13 después del deploy es la que lo confirma
   (`junta_1_url` del lead nuevo con host `meet.google.com`).
-- **SIN HACER:** **Un lead que faltó a la R1 y vuelve a agendar por Calendly no recibe recordatorios**:
-  `upsertLeadFromCalendly` no toca `asistio_j1` (es manual) y el emisor saltea toda reunión con la
-  asistencia marcada — justo el caso donde más sirve. Medido: 13 leads del ws1 y 11 del ws13. Es
-  una decisión del CRM (sacarlo de «No Show»), no un arreglo.
+- **HECHO el 09/10 (decisión de Martín: «la reunión nueva limpia la marca»):** un lead que faltó y
+  vuelve a agendar por Calendly o Cal.com ya no queda con `asistio_jN = false` sobre una reunión
+  que no pasó — era el caso donde el recordatorio más sirve y el emisor lo salteaba (13 leads del
+  ws1 y 11 del ws13). La regla es `limpiaNoShow` (`lib/reagenda-no-show.ts`, pura y con test):
+  limpia sólo si la marca es `false` Y la reunión es OTRA — otro día, o el mismo día a otro
+  INSTANTE. ⚠️ **Comparar sólo el día era el error fácil**: una reagenda para el mismo día a otra
+  hora quedaba marcada. Y comparar el TEXTO del instante es el error opuesto: Calendly manda `…Z`
+  y la base devuelve `+00:00`, así que una reentrega del mismo webhook parecía una reunión nueva y
+  borraba una inasistencia real. Se compara con `isoCanonico`. El no-show se ANOTA en el historial
+  antes de limpiarlo: hay un solo par de campos por reunión, así que si no queda escrito, el hecho
+  de que faltó desaparece. En la R2 (`setFechaJunta2`) el evento se escribe ANTES del update por
+  lo mismo. El «reagendar» del CRM ya hacía esto; ahora los webhooks también.
 
 ### La reagenda: la post-agenda vuelve con una reunión nueva (#789)
 
@@ -8705,10 +8714,15 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   que la vista previa dibujara al dueño contestando «Sí, adelante 👍» y a MaKo «Listo, lo hago
   ahora». Y el `ejemplo:` del catálogo ES el texto que sale cuando el negocio no escribió el suyo
   (ningún store tiene override de la cuota): la promesa llegaba al grupo tal cual.
-- **SIN HACER, decisiones de Martín:** que `wa-desconectado` entre en la lista de avisos que el
-  cliente puede apagar; un aviso de «volvió» (hoy al recuperarse se borran las marcas sin mensaje);
-  y si el semanal a los clientes va también por el grupo de MaKo, porque por Chatwoot sólo lo tiene
-  el ws1. Quedan dos de otra tarjeta: el lienzo sigue dibujando un `wa_lead` como «Le escribe al
+- **HECHO el 09/10 (Martín: «las dos cosas»):** `wa-desconectado` y el nuevo `wa-reconectado`
+  están en `AVISOS_DEL_CLIENTE`, así que el cliente los apaga desde su configuración; y cuando la
+  línea vuelve sale «🟢 Volvió tu WhatsApp». Dos reglas que no se ven en el código: el «volvió»
+  sale **sólo si la caída se AVISÓ** (`decidirLinea` devuelve `volvio` con la marca de avisado; un
+  corte que volvió entre dos corridas no tiene nada que desmentir), y el vigilante **limpia las
+  marcas ANTES de mandarlo y aunque no llegue**: dejarlas puestas haría que la próxima caída se
+  avise sin la segunda medición que la confirma. Dedup con su propia clave (`volvio:<línea>`).
+- **SIN HACER, decisión de Martín:** si el semanal a los clientes va también por el grupo de MaKo,
+  porque por Chatwoot sólo lo tiene el ws1 (y Chatwoot está apagado desde el 09/10). Quedan dos de otra tarjeta: el lienzo sigue dibujando un `wa_lead` como «Le escribe al
   lead», y los pasos `accion` de un flujo mueren como «operación desconocida».
 
 ### El guion del audio con IA gratis (#748)
