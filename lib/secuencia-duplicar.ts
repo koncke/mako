@@ -20,7 +20,9 @@
 //   · LO QUE SE COPIA ES UNA LISTA BLANCA (`COPIA`). Medido el 09/10/2026 contra
 //     information_schema: 18 columnas. Lo que no está en ninguna de las dos listas no se copia: una
 //     columna nueva (un contador, una marca de envío) copiada a ciegas sería un dato falso en la
-//     copia. `emoji` (mig 0229, la parte B de la tercera tanda) se copia si la fila lo trae.
+//     copia. `emoji` (mig 0229, la parte B de la tercera tanda) se copia si la fila lo trae, y
+//     `posiciones` (mig 0233, quinta tanda) también: los pasos conservan sus ids al pasar por
+//     `setSecuenciaPasos`, así que la copia se dibuja acomodada igual que la original.
 //   · SI ALGO FALLA DESPUÉS DE CREARLA, SE BORRA. Una copia a medias (sin pasos, o sin su horario)
 //     es una automatización que dice ser la otra y no lo es. Recién creada no tiene inscripciones ni
 //     envíos, así que borrarla no se lleva nada.
@@ -33,7 +35,7 @@
 import { TOPE_NOMBRE_SECUENCIA } from './setting-estrategia';
 
 /** Las columnas que la copia trae tal cual de la original. */
-export const COPIA = ['etapa', 'etapas', 'trigger_tipo', 'estrategia', 'funnel_id', 'producto_id', 'instance_name', 'etiqueta_id', 'emoji'] as const;
+export const COPIA = ['etapa', 'etapas', 'trigger_tipo', 'estrategia', 'funnel_id', 'producto_id', 'instance_name', 'etiqueta_id', 'emoji', 'posiciones'] as const;
 
 /**
  * Las que NO se copian, cada una por algo: la identidad (`id`, `clave`, `workspace_id`, que pone

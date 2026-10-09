@@ -62,6 +62,7 @@ import {
   type NodoFlujo, type QueAgregar,
 } from '@/lib/flujo-conversacion';
 import type { Muelles } from '@/lib/lienzo-grafo';
+import { conPosiciones, moverRelativo, type Posiciones } from '@/lib/lienzo-posiciones';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 
 const SANS = "'Geist', sans-serif";
@@ -90,8 +91,16 @@ export function FlujoLienzo({
   etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
-  onTarjetaAbierta, reservaAbajo, triggerTipo, productos,
+  onTarjetaAbierta, reservaAbajo, triggerTipo, productos, posiciones, onPosiciones,
 }: {
+  /**
+   * DÓNDE QUEDÓ CADA TARJETA QUE LA PERSONA MOVIÓ (quinta tanda, punto 2; mig 0233): desplazamientos
+   * desde el CRON derivado (lib/lienzo-posiciones.ts). Lo demás va donde lo pone el árbol. Las guarda
+   * quien monta, por SU acción: este archivo sigue sin guardar nada.
+   */
+  posiciones?: Posiciones;
+  /** Soltar una tarjeta: el mapa entero, ya podado. Sin esto las tarjetas no se agarran (sólo se panea). */
+  onPosiciones?: (p: Posiciones) => void;
   /** El flujo, normalizado (ids y `siguiente` explícitos). */
   pasos: PasoSecuenciaDto[];
   /** Lo que dice la tarjeta CRON: el disparador real (`detalleDisparador`). */
@@ -212,12 +221,14 @@ export function FlujoLienzo({
     etiqueta: (id) => nombreEtiqueta(etiquetas, id), etapa: nombreEtapa,
     catalogo: nombresCatalogoDe(catalogosDe({ etapas, productos: productos ?? [], remotos: remotosCond })),
   };
-  const grafo = grafoDeSecuencia(pasos, {
+  const derivado = grafoDeSecuencia(pasos, {
     disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
     pendientesOtraCosa,
   });
+  // Lo movido, sobre el árbol. `moverRelativo` mide contra el DERIVADO: mover el CRON no arrastra al resto.
+  const grafo = conPosiciones(derivado, posiciones, ID_ENTRADA);
   const pasoDe = (id: string) => pasos.find((p, i) => idDe(p, i) === id) ?? null;
   /**
    * ¿HAY UNA TARJETA ABIERTA? Se CALCULA del dato, igual que el Lienzo decide si dibuja el panel
@@ -239,6 +250,7 @@ export function FlujoLienzo({
   return (
     <Lienzo
       grafo={grafo} seleccion={sel} onSeleccion={setSel}
+      onMover={onPosiciones ? (id, x, y) => onPosiciones(moverRelativo(derivado, posiciones, id, x, y, ID_ENTRADA)) : undefined}
       // El editor MEDIANO (tercera tanda, decisión 1): el ancho que le da `muelles` (hasta 720, pegado
       // a la lista); de columna, el de siempre.
       sinMarco alto="100%" panelAncho={formaPanel === 'apaisado' && muelles ? muelles.editorAncho : 392}

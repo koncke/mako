@@ -30,11 +30,19 @@ import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { aplicarVariables, valoresVariablesLead } from './template-vars';
 import { esPasoAccion } from './nutricion-paso-accion';
 import { emojiDeSecuencia } from './flujo-conversacion';
+import { leerPosicionesSecuencias, type DbPosiciones } from './secuencia-posiciones';
+import type { Posiciones } from './lienzo-posiciones';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
   /** El emoji del título (mig 0229). null = el del objetivo, que lo pone la pantalla. */
   emoji: string | null;
+  /**
+   * Dónde puso la persona cada tarjeta del lienzo (mig 0233, lib/secuencia-posiciones.ts). `{}` =
+   * ninguna movida; `null` = NO SE PUDIERON LEER (falta la columna o falló la consulta): el lienzo se
+   * dibuja como siempre y no guarda, para no pisar lo que no se leyó.
+   */
+  posiciones: Posiciones | null;
 };
 
 /**
@@ -90,12 +98,17 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     leerTodo<FilaInsc>(supabase, 'nutricion_inscripciones', 'secuencia_id, estado, updated_at', { orden: 'id' }),
   ]);
   const met = agregarMetricas(filasEnvio, filasInsc);
-  const emojis = await emojisDeSecuencias(supabase);
+  // Las posiciones van aparte y tolerantes (no tiran): ver `leerPosicionesSecuencias`.
+  const [emojis, posiciones] = await Promise.all([
+    emojisDeSecuencias(supabase),
+    leerPosicionesSecuencias(supabase as unknown as DbPosiciones),
+  ]);
   const secuencias = secs.map((s) => ({
     ...s,
     estrategia: parseEstrategia(s.estrategia),
     metricas: met.get(s.id) ?? { ...METRICAS_CERO },
     emoji: emojis.get(s.id) ?? null,
+    posiciones: posiciones ? (posiciones.get(s.id) ?? {}) : null,
   }));
   return { secuencias, serie: serieDiaria(filasEnvio, filasInsc, new Date().toISOString()) };
 }

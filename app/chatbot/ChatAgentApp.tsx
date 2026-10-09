@@ -106,6 +106,9 @@ export type SecuenciaDto = {
   etiqueta_id?: number | null;
   /** El emoji del título (mig 0229). `null`/ausente = el del objetivo. */
   emoji?: string | null;
+  /** Dónde quedó cada tarjeta movida del lienzo (mig 0233). `{}` = ninguna; `null` = no se pudieron
+   *  leer (el lienzo se mueve y no guarda). Ver lib/secuencia-posiciones.ts. */
+  posiciones?: Record<string, { x: number; y: number }> | null;
   /**
    * EL HORARIO con el que inscribe (mig 0192). `null`/ausente = se dispara por una
    * ACCIÓN, que es lo que hacen hoy todas las filas. Ver lib/nutricion-agenda.ts.
