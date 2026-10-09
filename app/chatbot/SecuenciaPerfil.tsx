@@ -26,7 +26,7 @@ import type { CronAviso } from '@/lib/cron-aviso';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
-import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
+import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
 import type { Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, validarGrafo, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
@@ -353,6 +353,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       setPasos(nuevos);
       setEditandoIA(false);
     }
+    // ⚠️ LAS ETIQUETAS QUE CREÓ LA IA SE ANUNCIAN, EN LOS DOS MODOS (revisión de la segunda tanda,
+    // 09/10/2026). La ruta las crea en el SERVER, así que el selector «＋ Nueva» —que sí avisa— no
+    // pasó por acá: la lista compartida (`useEtiquetasTodas`) seguía con la que pidió al montar, la
+    // tarjeta 🏷️ decía «una etiqueta», el CRON «Se le puso «una etiqueta»» y el selector la daba
+    // por borrada («Una etiqueta que ya no está»). Antes de revelar, para que las tarjetas nazcan
+    // con el nombre en cuanto vuelve la lista.
+    if (r.etiquetasNuevas.length) avisarCambioEtiquetas();
     setRevelarIA({ orden: r.orden, clave: Date.now() });
     const n = r.etiquetasNuevas.length;
     if (n) flashOk(n === 1 ? '1 etiqueta nueva' : `${n} etiquetas nuevas`);
