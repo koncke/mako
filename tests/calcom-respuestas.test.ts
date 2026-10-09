@@ -195,6 +195,45 @@ test('un payload raro no rompe: corre ANTES de la firma, sobre lo que mande cual
   assert.ok(r.respuestas.every((x) => x.valor.length <= 500));
 });
 
+/** Un texto sin sustitutos sueltos: lo único que Postgres acepta adentro de un jsonb. */
+const bienFormado = (s: string) => !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s);
+
+test('un emoji justo en el tope no queda partido: Postgres rechazaría el jsonb de TODA la reserva', () => {
+  // `slice` cuenta unidades UTF-16 y un emoji son dos: cortado entre las dos queda un sustituto
+  // suelto, `JSON.stringify` lo saca como «\ud83d» y Postgres contesta «invalid input syntax for
+  // type json» (medido contra prod, 09/10/2026). `saveLeadRespuestas` guarda el set en UN insert:
+  // se perdían todas las respuestas de la reserva, y con el emoji en el RÓTULO, las de todas las
+  // reservas de ese formulario.
+  // Rotura (09/10/2026): con `recortar` devolviendo el `slice` pelado → fallan 2 de 20 (este y el
+  // del aviso de abajo); los otros 18 siguen verdes.
+  const r = normalizarReserva({
+    uid: 'bk_emoji',
+    attendees: [{ name: 'Lucía Prueba', email: 'lucia@ejemplo.test' }],
+    responses: {
+      historia: { label: 'Algo más', value: 'a'.repeat(499) + '😀' }, // el emoji ocupa 499-500
+      cabe: { label: 'Cabe justo', value: 'a'.repeat(498) + '😀' }, // el emoji entero entra
+      rubro: { label: 'B' + 'b'.repeat(198) + '🏠 y algo más', value: 'Inmobiliario' }, // rótulo: 199-200
+    },
+  })!;
+  const porClave = Object.fromEntries(r.respuestas.map((x) => [x.clave, x]));
+  assert.equal(porClave.historia.valor, 'a'.repeat(499), 'el emoji que no entra se saca entero, no por la mitad');
+  assert.equal(porClave.cabe.valor, 'a'.repeat(498) + '😀', 'el que entra entero se queda');
+  assert.equal(porClave.rubro.rotulo, 'B' + 'b'.repeat(198));
+  for (const x of r.respuestas) assert.ok(bienFormado(x.rotulo) && bienFormado(x.valor), `quedó medio emoji en «${x.clave}»`);
+  // Lo que viaja a la base: sin una sola secuencia «\udXXX» suelta.
+  assert.doesNotMatch(JSON.stringify(preguntasDeReserva(r.respuestas)), /\\ud[89a-f][0-9a-f]{2}/i);
+});
+
+test('el corte del AVISO tampoco parte un emoji cuando no encuentra un espacio', () => {
+  // Sin un espacio después de la mitad, `cortar` corta donde cae: con `slice` el renglón salía con
+  // un «�» delante del «…».
+  const valor = 'x'.repeat(58) + '😀' + 'yyyy'; // el corte (59) cae entre las dos mitades del emoji
+  const [linea] = detalleDelAviso({ telefono: null, email: null, respuestas: [{ clave: 'c', rotulo: 'Pregunta', valor }] });
+  assert.equal(linea, `• Pregunta: ${'x'.repeat(58)}…`);
+  const rotulo = rotuloCorto('R' + 'r'.repeat(37) + '😀' + 'zzz'); // tope 40 → corte en 39
+  assert.ok(bienFormado(rotulo) && bienFormado(linea), `quedó medio emoji: ${JSON.stringify([rotulo, linea])}`);
+});
+
 test('se guardan con la forma de Calendly: la MISMA función escribe lead_respuestas', () => {
   // `saveLeadRespuestas` (lib/leads.ts) filtra por `question` y `answer` con texto: con otra
   // forma no guardaría nada y no daría error.

@@ -30,6 +30,11 @@
 -- hilos_rev`, y PostgREST rechaza la consulta ENTERA si falta una columna: con el deploy
 -- adelantado, el cron de nutrición falla en cada corrida antes de mandar nada (falla cerrado: no
 -- se duplica ningún mensaje, pero no sale ninguno).
+--
+-- ✓ YA APLICADA EN PROD (medido el 09/10/2026 en una transacción read only): `hilos` jsonb
+-- nullable sin default, `hilos_rev` integer NOT NULL default 0 y el CHECK
+-- `nutricion_inscripciones_hilos_chk` igual al de abajo. El requisito de arriba está cumplido: la
+-- 0228 NO frena el deploy. Volver a correrla no hace nada (todo va con `if not exists`).
 -- =============================================================================
 
 begin;

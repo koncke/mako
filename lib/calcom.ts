@@ -225,6 +225,18 @@ const ROTULO_DE_SISTEMA: Record<string, string> = {
  */
 const TOPE_RESPUESTAS = { cuantas: 30, rotulo: 200, valor: 500 } as const;
 
+/**
+ * Corta a `n` unidades UTF-16 sin dejar MEDIO emoji al final.
+ *
+ * ⚠️ `slice` cuenta unidades UTF-16, no caracteres: un emoji son dos (un par sustituto), y cortar
+ * entre las dos deja un sustituto alto suelto. `JSON.stringify` lo saca como «\ud83d» y Postgres
+ * rechaza ese jsonb ENTERO («invalid input syntax for type json», medido el 09/10/2026 contra prod
+ * en una transacción read only; el par completo pasa). Como `saveLeadRespuestas` guarda el set de
+ * una reserva en UN insert, una sola respuesta mal cortada tiraba TODAS las de esa reserva, y si el
+ * emoji caía en el RÓTULO —que es fijo por formulario— las de todas las reservas de ese event type.
+ */
+const recortar = (s: string, n: number): string => s.slice(0, n).replace(/[\uD800-\uDBFF]$/, '');
+
 /** El valor de un campo como UNA línea de texto, o null si quedó vacío. */
 function textoDeValor(v: unknown): string | null {
   if (v == null) return null;
@@ -295,7 +307,7 @@ function respuestasDe(p: CalcomReservaPayload, yaSonCampo: Array<string | null>)
       const valor = textoDeValor(e.valor);
       if (!valor) continue; // las notas vacías, los invitados que no hay
       if (repetidos.has(huella(valor))) continue;
-      out.push({ clave, rotulo: rotuloDe(clave, e.rotulo).slice(0, TOPE_RESPUESTAS.rotulo), valor: valor.slice(0, TOPE_RESPUESTAS.valor) });
+      out.push({ clave, rotulo: recortar(rotuloDe(clave, e.rotulo), TOPE_RESPUESTAS.rotulo), valor: recortar(valor, TOPE_RESPUESTAS.valor) });
       if (out.length >= TOPE_RESPUESTAS.cuantas) return out;
     }
   }
@@ -377,14 +389,19 @@ export function preguntasDeReserva(respuestas: RespuestaReserva[]): Array<{ ques
  * Topes del aviso. Es un WhatsApp al grupo del negocio que se lee en el celular: un renglón por
  * respuesta, con el rótulo ABREVIADO (los del formulario de ws13 llegan a 230 caracteres: «Valoramos
  * mucho nuestro tiempo tanto como el suyo, si selecciona un dia…») y el valor cortado. Lo completo
- * queda en la ficha, que es adonde lleva el link del final.
+ * queda en el RESUMEN del lead (/crm/<id>/resumen), que es adonde lleva el link del final: desde el
+ * 09/10/2026 esa pantalla lee `lead_respuestas` (`respuestasDelResumen`, lib/lead-respuestas.ts);
+ * antes sólo leía las columnas respuesta_* de Calendly, y para un lead de Cal.com «Lo que contestó
+ * al agendar» no salía nunca.
  */
 export const TOPE_AVISO = { respuestas: 6, rotulo: 40, valor: 60 } as const;
 
 /** Corta en el último espacio antes del tope y marca el corte con «…». */
 function cortar(s: string, tope: number): string {
   if (s.length <= tope) return s;
-  const dentro = s.slice(0, tope - 1);
+  // `recortar` y no `slice`: sin un espacio después de la mitad, el corte cae donde cae y puede
+  // partir un emoji (el aviso saldría con un «�» suelto delante del «…»).
+  const dentro = recortar(s, tope - 1);
   const espacio = dentro.lastIndexOf(' ');
   return (espacio > tope / 2 ? dentro.slice(0, espacio) : dentro).replace(/[\s,;:.-]+$/, '') + '…';
 }

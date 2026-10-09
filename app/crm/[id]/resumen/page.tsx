@@ -242,7 +242,8 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
     <>
       {respuestas.length > 0 && (
         <Seccion titulo="Lo que contestó al agendar">
-          {respuestas.map((r) => <Dato key={r.pregunta} k={r.pregunta} v={r.respuesta} />)}
+          {/* Key con índice: con las de Cal.com (lead_respuestas) la R1 y la R2 pueden repetir la pregunta. */}
+          {respuestas.map((r, i) => <Dato key={`${i}:${r.pregunta}`} k={r.pregunta} v={r.respuesta} />)}
         </Seccion>
       )}
       {(origen.campana || origen.anuncio || origen.canal) && (
