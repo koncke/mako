@@ -151,7 +151,9 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
     if (!acciones) return [];
     const out = seccionesDeAcciones(acciones, valor.operacion).map((s) => ({
       title: s.titulo,
-      options: s.acciones.map((a) => ({ value: a.id, label: a.titulo, sub: lineaDe(a), buscar: a.id })),
+      // Sin subtítulo (cuarta tanda, punto 11: «Elimina los subtitulos en las opciones, debería
+      // entenderse solo con el título»). Lo que hace va en el `buscar`, para que se encuentre igual.
+      options: s.acciones.map((a) => ({ value: a.id, label: a.titulo, buscar: `${a.id} ${lineaDe(a) ?? ''}` })),
     }));
     // ⚠️ LA QUE ESTÁ PUESTA ENTRA AUNQUE YA NO EXISTA (otra capa, una operación que se retiró): un
     // desplegable cuyo valor no está entre sus opciones no muestra nada (AGENTS.md).
@@ -180,7 +182,7 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
           value={valor.operacion ?? ''}
           onChange={(id) => onCambio({ operacion: id, params: paramsIniciales(acciones.find((a) => a.id === id)) })}
           secciones={secciones}
-          placeholder="Elige qué hace MaKo"
+          placeholder="Elige una acción"
           disabled={disabled}
           ariaLabel="Acción"
           menuAncho={340}

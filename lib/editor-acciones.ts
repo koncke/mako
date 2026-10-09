@@ -217,6 +217,16 @@ export const ACCIONES_DEL_FLUJO: readonly AccionDelFlujo[] = [
 
 const POR_ID: ReadonlyMap<string, AccionDelFlujo> = new Map(ACCIONES_DEL_FLUJO.map((a) => [a.id, a]));
 
+/**
+ * Las de la lista corta que el SELECTOR de ACTION no ofrece (cuarta tanda, punto 11: «elimina la
+ * opción "Avisar al equipo", para eso ya tenemos la opción de "MaKo en WhatsApp". Tampoco tiene
+ * sentido "Inscribir en otra automatización"... el cliente le pondrá una etiqueta y ahí se disparará
+ * esa otra automatización»). Siguen en la lista —con su nombre y su formulario— porque la tarjeta
+ * MaKo ES `avisar_al_equipo` y Crear con IA la usa, y porque un paso que ya tiene una de las dos se
+ * sigue dibujando y editando (va en «La que tiene puesta»).
+ */
+export const FUERA_DEL_SELECTOR: ReadonlySet<string> = new Set(['avisar_al_equipo', 'inscribir_lead_secuencia']);
+
 /** Las operaciones que dibuja la tarjeta 🏷️ (decisión 8: una presentación sobre la ⚡ Acción). */
 export const OPS_ETIQUETA = ['poner_etiqueta_lead', 'sacar_etiqueta_lead'] as const;
 export type OperacionEtiqueta = (typeof OPS_ETIQUETA)[number];
@@ -243,11 +253,11 @@ export const SECCION_PUESTA = 'La que tiene puesta';
  */
 export function seccionesDeAcciones<A extends AccionParaSecciones>(acciones: readonly A[], puesta?: string | null): SeccionAcciones<A>[] {
   const out: SeccionAcciones<A>[] = [];
-  const fuera = puesta ? acciones.find((a) => a.id === puesta && !a.curada) : undefined;
+  const fuera = puesta ? acciones.find((a) => a.id === puesta && (!a.curada || FUERA_DEL_SELECTOR.has(a.id))) : undefined;
   if (fuera) out.push({ titulo: SECCION_PUESTA, acciones: [fuera] });
   const orden = new Map(ACCIONES_DEL_FLUJO.map((a, i) => [a.id, i]));
   for (const g of GRUPOS_ACCION) {
-    const del = acciones.filter((a) => a.curada && a.grupo === g).sort((x, y) => (orden.get(x.id) ?? 99) - (orden.get(y.id) ?? 99));
+    const del = acciones.filter((a) => a.curada && a.grupo === g && !FUERA_DEL_SELECTOR.has(a.id)).sort((x, y) => (orden.get(x.id) ?? 99) - (orden.get(y.id) ?? 99));
     if (del.length) out.push({ titulo: g, acciones: del });
   }
   return out;

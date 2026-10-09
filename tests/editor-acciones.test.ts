@@ -25,7 +25,7 @@ import { LLENA_EL_FLUJO, LEAD_DEL_EVENTO } from '../lib/api-mako/flujo-params';
 import { DEFAULT_PIPELINE } from '../lib/pipeline';
 import { buildFunnel } from '../lib/funnel-fila';
 import {
-  rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, repartoDelFormulario, naceSobreElLeadDelEvento,
+  rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, FUERA_DEL_SELECTOR, repartoDelFormulario, naceSobreElLeadDelEvento,
   ACCIONES_DEL_FLUJO, GRUPOS_ACCION, SECCION_PUESTA, TOPE_RESUMEN, accionDelFlujo, controlDe, monedaDe,
   datosQuePideLaEtapa, visibilidadDe, productoDeLaEtapa, faltanDelFormulario, type OpcionesAccion, type ProductoDeAccion,
 } from '../lib/editor-acciones';
@@ -106,8 +106,14 @@ test('lo que pide una etapa sale de la regla del CRM, no de una lista de nombres
 
 test('el selector ofrece SÓLO la lista corta, por grupo; la puesta de afuera va primero', () => {
   const s = seccionesDeAcciones(EDITOR);
-  assert.deepEqual(s.map((x) => x.titulo), [...GRUPOS_ACCION], 'un grupo por sección, en orden');
-  assert.deepEqual(s.flatMap((x) => x.acciones.map((a) => a.id)), ACCIONES_DEL_FLUJO.map((a) => a.id), 'la lista corta, en su orden, y nada más');
+  // Cuarta tanda, punto 11: «Avisar al equipo» (es la tarjeta MaKo) e «Inscribir en otra automatización»
+  // (se hace con una etiqueta) no se ofrecen; el grupo que queda vacío no se dibuja.
+  const ofrecidas = ACCIONES_DEL_FLUJO.filter((a) => !FUERA_DEL_SELECTOR.has(a.id));
+  assert.deepEqual(s.map((x) => x.titulo), GRUPOS_ACCION.filter((g) => ofrecidas.some((a) => a.grupo === g)), 'un grupo por sección, en orden');
+  assert.deepEqual(s.flatMap((x) => x.acciones.map((a) => a.id)), ofrecidas.map((a) => a.id), 'la lista corta, en su orden, y nada más');
+  assert.ok(!s.flatMap((x) => x.acciones.map((a) => a.id)).some((id) => id === 'avisar_al_equipo' || id === 'inscribir_lead_secuencia'), 'volvieron «Avisar al equipo» o «Inscribir»');
+  const conAviso = seccionesDeAcciones(EDITOR, 'inscribir_lead_secuencia');
+  assert.deepEqual([conAviso[0].titulo, conAviso[0].acciones.map((a) => a.id)], [SECCION_PUESTA, ['inscribir_lead_secuencia']], 'un paso que ya la tiene se sigue viendo');
   assert.ok(s.flatMap((x) => x.acciones).every((a) => a.titulo === accionDelFlujo(a.id)!.titulo), 'el nombre de lienzo, no el del registro');
   const conPuesta = seccionesDeAcciones(EDITOR, 'mover_lead_en_producto');
   assert.equal(conPuesta[0].titulo, SECCION_PUESTA);
