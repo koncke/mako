@@ -3538,6 +3538,36 @@ máquina se vuelve a trabar días después, sin nada que apunte al cambio.
 **Vive en:** `scripts/typecheck-lock.mjs` · `package.json` → `scripts.typecheck` ·
 *2026-10-08*
 
+### «Vengo trabajando igual hace meses»: lo que cambió no fue la forma, fueron TRES números
+
+Martín lo preguntó así y es la pregunta correcta: si el flujo de trabajo es el mismo,
+¿por qué empieza a fallar ahora? Medido, y **ninguno de los tres alcanzaba solo**:
+
+| Qué | Antes | Hoy (08/10/2026) |
+|---|---|---|
+| Archivos `.ts/.tsx` que tipa `tsc` | **1.604** (08/09) | **2.512** — +57% en un mes |
+| Proyectos con typecheck propio en la máquina | 1 | **2** (`C:\dev\mako-api`, otros 2.592 archivos) |
+| Sesiones de Claude abiertas por día | 6-8 (fin de septiembre) | **23, 48, 14, 31** (5 al 8/10) |
+
+El typecheck escala con la cantidad de archivos: pasó a pedir **2,4-2,9 GB**. Con dos
+proyectos de ese tamaño y 3-4 sesiones que pueden dispararlo cada una en cada `git push`,
+el pico pasa de ~3 GB a más de 10 — y la máquina sigue teniendo 16 GB, de los cuales
+Claude ya ocupa 3,2.
+
+**La lección, que vale para cualquier «antes andaba»:** un sistema que funciona cerca de su
+techo no avisa cuando se acerca — **avisa cuando lo pasa**, y entonces parece que algo se
+rompió de golpe. Si el flujo de trabajo no cambió, lo que hay que medir es el CRECIMIENTO
+de lo que ese flujo mueve, con dos fechas y el mismo comando (`git ls-tree -r --name-only
+HEAD@{30.days.ago}` contra `HEAD`). Tres factores que crecieron a la vez se leen como un
+bug; por separado, ninguno lo habría producido.
+
+⚠️ **Y por eso el lock se cableó en LOS DOS proyectos.** Es por máquina (`os.tmpdir()`), así
+que `dashboard-marketing` y `mako-api` se turnan solos; cablearlo en uno solo dejaba la
+mitad del pico sin cubrir, que es justo lo que se midió esa noche (2,9 GB de `mako-api`
+contra un typecheck del repo principal).
+
+**Vive en:** `C:\dev\mako-api\scripts\typecheck-lock.mjs` (copia) · *2026-10-08*
+
 ## La integración con Claude nunca funcionó desde afuera
 
 **Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `tests/rutas-publicas.test.ts`
