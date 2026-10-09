@@ -173,6 +173,8 @@ export type PasoSecuencia = {
   ramas?: RamaCondicion[];
   casos?: CasoRespuesta[];
   si_no?: string | null;
+  /** Condición (cuarta tanda, punto 8): las flechas en paralelo del «Si no» (las de cada rama van en la rama). */
+  paralelos_si_no?: string[];
   destino?: DestinoIrA | null;
   /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
   revisar?: boolean;
@@ -2954,8 +2956,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const hechos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
         const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead) });
         const canalCtl = pasoLeido.canal;
-        // Las flechas en paralelo que la resolución encontró (de una espera o del inicio) arrancan
-        // con cualquier desenlace del camino, salvo un cierre de la inscripción entera.
+        // Las flechas en paralelo que la resolución encontró (de una espera, del inicio o —cuarta
+        // tanda, punto 8— del RESULTADO elegido de una condición) arrancan con cualquier desenlace
+        // del camino, salvo un cierre de la inscripción entera. Un hilo por flecha, por la misma
+        // puerta (`escribir`, con su compare-and-set de `hilos_rev`).
         const nuevos = r.tipo === 'faltan_hechos' ? [] : nuevosDe(sec, r.repartos, lead);
         if (nuevos.some((n) => Date.parse(n.proximo) <= Date.now())) { vistos.delete(insc.id); otraVuelta = true; }
         const cerrar = async (motivo: string, rastro: boolean, alcance: 'hilo' | 'inscripcion' = 'hilo'): Promise<void> => {
@@ -2974,7 +2978,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // Una condición que cierra ANTES de que salga nada (la «Llegó hace menos de N h» del
           // conversor) deja su rastro, como lo dejaba el tope de antigüedad de antes (#789).
           const porCondicion = r.via.some((id) => claseDe(sec.pasos[indicePorId(sec.pasos, id)] ?? {}) === 'condicion');
-          await cerrar(porCondicion ? 'la condición cerró el flujo sin mandar nada' : r.motivo, porCondicion && esPrimerPaso(sec.pasos, idxLeido));
+          // ⚠️ CON FLECHAS EN PARALELO ARRANCANDO (`nuevos`: las de una espera o, desde la cuarta tanda,
+          // las del resultado elegido de una condición), ESTE camino termina pero el flujo NO: el rastro
+          // de «la condición cerró el flujo sin mandar nada» mentiría sobre un lead al que le van a
+          // llegar los mensajes de los otros hilos (y contaría un omitido).
+          const cerroElFlujo = porCondicion && !nuevos.length;
+          await cerrar(cerroElFlujo ? 'la condición cerró el flujo sin mandar nada' : r.motivo, cerroElFlujo && esPrimerPaso(sec.pasos, idxLeido));
           continue;
         }
         // Estos dos cierran la INSCRIPCIÓN entera: la condición que hacía verdadero al flujo dejó

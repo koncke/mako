@@ -71,6 +71,24 @@
 //     CRON y va al FINAL del array: inyectarlo en todos los flujos los volvía «flujos de
 //     tarjetas» (`esFlujoExplicito`) y `puedePisarFlujo` dejaba de aceptar a /email, a la API
 //     «por orden» y al armado de audios del onboarding sobre una secuencia lineal.
+//
+// ── CUARTA TANDA (09/10/2026), PUNTO 8: VARIAS FLECHAS POR RESULTADO DE UNA CONDICIÓN ─────
+// Pedido literal: «dentro de las flechas que se despegan de una condición, se debería poder
+// desplegar varias si se cumple y varias si no se cumple... En ambos casos, por ejemplo, se
+// podría enviar un WhatsApp y un Email y eso son 2 flechas en cada resultado».
+//
+//   · Cada RESULTADO de una condición (cada rama y el «Si no») lleva SU lista de flechas en
+//     paralelo: `paralelos` en la rama y `paralelos_si_no` en la tarjeta. La condición en sí
+//     sigue sin `paralelos` (`puedeTenerParalelos` = false): sus resultados se excluyen, así que
+//     una flecha «de la condición» no diría de cuál sale.
+//   · Son PUERTOS más, como los de siempre: `par:<destino>@<resultado>` (el resultado es el id de
+//     la rama o 'si_no'). Empiezan con `par:` a propósito: `hiloDe`, `padreDe`, `descendientes`,
+//     el «un padre» y las sueltas los ven sin saber que existen. El `@<resultado>` dice de qué
+//     fila sale la flecha (el lienzo la dibuja ahí) y a qué lista vuelve un borrado.
+//   · El motor: al resolver la condición, el hilo sigue por la principal del resultado elegido
+//     y ARRANCA un hilo por cada paralelo de ESE resultado (`paralelosDeResultado`). Los del
+//     otro resultado no corren nunca para ese lead.
+//   · Lo guardado sin el campo nuevo se lee igual: sin listas no hay puertos nuevos.
 // =============================================================================
 
 // El catálogo de condiciones importa sólo TIPOS de acá: el ciclo no existe en runtime.
@@ -142,6 +160,11 @@ export type RamaCondicion = {
   modo: 'todas' | 'cualquiera';
   filas: FilaCondicion[];
   siguiente: string | null;
+  /**
+   * CUARTA TANDA, PUNTO 8: los ids que arrancan A LA VEZ que `siguiente` cuando la condición sale
+   * por esta rama (el WhatsApp y el email del pedido). Ausente o vacío = una sola flecha.
+   */
+  paralelos?: string[];
 };
 
 /** Un caso de «Si responde»: lo que el clasificador busca en el mensaje del lead. */
@@ -195,6 +218,12 @@ export type PasoGrafo = {
   casos?: CasoRespuesta[];
   /** condicion: «si no» · respuesta: «otra cosa». */
   si_no?: string | null;
+  /**
+   * Sólo condición (cuarta tanda, punto 8): las flechas en paralelo del «Si no», como las de cada
+   * rama (`RamaCondicion.paralelos`). «Otra cosa» de «Si responde» no las tiene: ahí se contesta en
+   * el momento y en UN hilo.
+   */
+  paralelos_si_no?: string[];
   destino?: DestinoIrA | null;
   /**
    * Sólo mensajes: true = queda como BORRADOR para que lo apruebe una persona; false = sale
@@ -248,7 +277,13 @@ export function claseDe(p: PasoGrafo): ClaseNodo {
 
 export const esNodoMensaje = (p: PasoGrafo): boolean => claseDe(p) === 'mensaje';
 
-export const TOPE_PARALELOS = 3;   // flechas en paralelo por tarjeta
+// Por SALIDA: una tarjeta de una salida, o cada RESULTADO de una condición (cuarta tanda, punto 8:
+// «varias si se cumple y varias si no se cumple»).
+export const TOPE_PARALELOS = 3;   // flechas en paralelo por tarjeta (o por resultado de una condición)
+// ⚠️ La suma cuenta TODOS los paralelos, también los de los dos resultados de una condición aunque
+// para un lead corra uno solo: es la cota que el motor no puede pasar (`aplicarAHilo`), y medirla por
+// camino exigiría recorrer cada combinación de resultados. Con el ejemplo del pedido (un paralelo en
+// cada resultado) son 3 de 6.
 export const TOPE_HILOS = 6;       // por inscripción: 1 (el principal) + la suma de todos los paralelos
 
 /**
@@ -269,9 +304,82 @@ export function puedeTenerParalelos(p: PasoGrafo): boolean {
  */
 function paralelosDe(p: PasoGrafo | undefined): string[] {
   if (!p || !Array.isArray(p.paralelos) || !puedeTenerParalelos(p)) return [];
+  return listaLimpia(p.paralelos);
+}
+
+/** Los ids de una lista de flechas, sin repetidos ni vacíos (lo que no es un string no cuenta). */
+function listaLimpia(x: unknown): string[] {
   const out: string[] = [];
-  for (const d of p.paralelos) if (typeof d === 'string' && d && !out.includes(d)) out.push(d);
+  if (Array.isArray(x)) for (const d of x) if (typeof d === 'string' && d && !out.includes(d)) out.push(d);
   return out;
+}
+
+// ── Las flechas en paralelo de un RESULTADO de una condición (cuarta tanda, punto 8) ─────────
+
+/** El resultado «Si no» de una condición: el nombre de su puerto y de su fila en el lienzo. */
+export const RESULTADO_SI_NO = 'si_no';
+
+/**
+ * El puerto de una flecha en paralelo. `par:<destino>` desde un mensaje, una acción, una espera o el
+ * CRON (lo de siempre); `par:<destino>@<resultado>` desde un RESULTADO de una condición. Sin destino
+ * es el pedido de agregar una NUEVA: `'par'` (lo de siempre) o `par@<resultado>`.
+ *
+ * El `@` no choca con ningún id: los ids que se guardan son `[A-Za-z0-9_-]` (el saneo de
+ * `setSecuenciaPasos`), y se lee con el ÚLTIMO `@` por si uno escrito a mano lo trajera.
+ */
+export function puertoParalelo(destino: string | null, resultado?: string | null): string {
+  return `par${destino ? `:${destino}` : ''}${resultado ? `@${resultado}` : ''}`;
+}
+
+/** Lo que dice un puerto de flecha en paralelo, o null si no lo es. */
+export function leerPuertoParalelo(puerto: string): { destino: string | null; resultado: string | null } | null {
+  if (puerto !== 'par' && !puerto.startsWith('par:') && !puerto.startsWith('par@')) return null;
+  const k = puerto.lastIndexOf('@');
+  const cuerpo = k > 0 ? puerto.slice(0, k) : puerto;
+  const resultado = k > 0 ? puerto.slice(k + 1) || null : null;
+  const destino = cuerpo.startsWith('par:') ? cuerpo.slice(4) || null : null;
+  return { destino, resultado };
+}
+
+/** ¿`resultado` es una salida de esta condición? (El id de una de sus ramas, o 'si_no'.) */
+function esResultadoDe(p: PasoGrafo, resultado: string): boolean {
+  return claseDe(p) === 'condicion' && (resultado === RESULTADO_SI_NO || (p.ramas ?? []).some((r) => r.id === resultado));
+}
+
+/** La lista TAL COMO ESTÁ guardada para un resultado (sin limpiar). */
+function crudoDeResultado(p: PasoGrafo, resultado: string): unknown {
+  return resultado === RESULTADO_SI_NO ? p.paralelos_si_no : (p.ramas ?? []).find((r) => r.id === resultado)?.paralelos;
+}
+
+/**
+ * LAS FLECHAS EN PARALELO DE UN RESULTADO de una condición (la rama `resultado`, o 'si_no'), sin
+ * repetidos ni vacíos. Vacío si no es una condición o no tiene ese resultado. Es lo que arranca el
+ * motor cuando la condición sale por ahí (`resolverControl`) y lo que «Probar» abre al elegir.
+ */
+export function paralelosDeResultado(p: PasoGrafo | undefined, resultado: string): string[] {
+  if (!p || !esResultadoDe(p, resultado)) return [];
+  return listaLimpia(crudoDeResultado(p, resultado));
+}
+
+/** Los resultados de una condición, en el orden de sus filas: [cada rama, 'si_no']. */
+function resultadosDe(p: PasoGrafo): string[] {
+  return claseDe(p) === 'condicion' ? [...(p.ramas ?? []).map((r) => r.id), RESULTADO_SI_NO] : [];
+}
+
+/**
+ * TODAS las flechas en paralelo que saca una tarjeta: las suyas (mensaje, acción, espera, inicio) o
+ * las de sus resultados (condición). Lo que cuentan las reglas de «Si responde», del bucle y del
+ * tope de caminos: una regla que mirara sólo las de la tarjeta dejaba pasar las de un resultado.
+ */
+function todosLosParalelos(p: PasoGrafo | undefined): string[] {
+  if (!p) return [];
+  if (claseDe(p) !== 'condicion') return paralelosDe(p);
+  return resultadosDe(p).flatMap((r) => paralelosDeResultado(p, r));
+}
+
+/** Cuántas flechas en paralelo hay en un flujo, de tarjetas y de resultados (para `TOPE_HILOS`). */
+export function contarParalelos(pasos: readonly PasoGrafo[]): number {
+  return pasos.reduce((n, p) => n + todosLosParalelos(p).length, 0);
 }
 
 /** El nodo de inicio, si la automatización tiene uno (el primero, si por error hay varios). */
@@ -314,8 +422,18 @@ export function puertosDe(pasos: readonly PasoGrafo[], i: number): Puerto[] {
   const p = pasos[i];
   if (!p) return [];
   switch (claseDe(p)) {
-    case 'condicion':
-      return [...(p.ramas ?? []).map((r) => ({ puerto: r.id, destino: r.siguiente ?? null })), { puerto: 'si_no', destino: p.si_no ?? null }];
+    case 'condicion': {
+      // Cada resultado, y DETRÁS de él sus flechas en paralelo (cuarta tanda, punto 8): en ese orden
+      // se apilan los hijos en el lienzo, así las de un resultado quedan pegadas a su fila.
+      const out: Puerto[] = [];
+      const conSusParalelos = (resultado: string, principal: string | null | undefined) => {
+        out.push({ puerto: resultado, destino: principal ?? null });
+        for (const d of paralelosDeResultado(p, resultado)) out.push({ puerto: puertoParalelo(d, resultado), destino: d });
+      };
+      for (const r of p.ramas ?? []) conSusParalelos(r.id, r.siguiente);
+      conSusParalelos(RESULTADO_SI_NO, p.si_no);
+      return out;
+    }
     case 'respuesta':
       return [...(p.casos ?? []).map((c) => ({ puerto: c.id, destino: c.siguiente ?? null })), { puerto: 'si_no', destino: p.si_no ?? null }];
     case 'ir_a':
@@ -406,7 +524,9 @@ export function hiloDe(pasos: readonly PasoGrafo[]): Map<string, string> {
     for (const pt of puertosDe(pasos, i)) {
       if (!pt.destino || hilo.has(pt.destino)) continue;
       // Una flecha en paralelo abre un hilo nuevo, salvo adentro de «Si responde» (eso no se
-      // puede guardar; acá sigue en 'r' para que la regla que lo prohíbe lo encuentre).
+      // puede guardar; acá sigue en 'r' para que la regla que lo prohíbe lo encuentre). También la
+      // de un RESULTADO de una condición (`par:<destino>@<resultado>`, cuarta tanda): el motor la
+      // arranca con el nombre de su primera tarjeta, igual que la de una tarjeta.
       const nuevo = pt.puerto.startsWith('par:') && h !== HILO_RESPUESTA ? pt.destino : h;
       pila.push([pt.destino, nuevo]);
     }
@@ -467,6 +587,23 @@ export function nuevoId(pasos: readonly PasoGrafo[], rnd: () => number = Math.ra
 // ── Normalizar: lo que se GUARDA ──────────────────────────────────────────────────
 
 /**
+ * UN RESULTADO de una condición, limpio: su principal y sus flechas en paralelo sin repetidos, sin
+ * vacíos, sin la propia condición, sin las que van a una tarjeta que no está (`existe`, si se pasa)
+ * y sin repetir la principal (sería la misma flecha dos veces: dos padres). Y SIN PRINCIPAL, LA
+ * PRIMERA FLECHA PASA A SERLO, como en el inicio: un «Si no» con sólo flechas en paralelo y la
+ * principal vacía se leería como «termina» (`antiguedadDeEntrada` frenaría al inscribir a quien
+ * entra por esas flechas) y su fila se dibujaría vacía con flechas saliendo. El motor hace lo mismo
+ * con las dos formas: sigue por una y arranca hilos por las otras.
+ */
+function salidaLimpia(principal: string | null | undefined, lista: unknown, propio: string, existe?: ReadonlySet<string>): { principal: string | null; paralelos: string[] } {
+  let par = listaLimpia(lista).filter((d) => d !== propio && (!existe || existe.has(d)));
+  let sig = principal ?? null;
+  if (sig == null && par.length) { sig = par[0]; par = par.slice(1); }
+  par = par.filter((d) => d !== sig);
+  return { principal: sig, paralelos: par };
+}
+
+/**
  * Deja todos los ids y todos los `siguiente` EXPLÍCITOS. Lo corre `setSecuenciaPasos` en
  * cada guardado y el lienzo al cargar: después de esto, insertar o borrar un elemento del
  * array no le cambia a nadie el paso siguiente.
@@ -474,6 +611,13 @@ export function nuevoId(pasos: readonly PasoGrafo[], rnd: () => number = Math.ra
  * Los ids que faltan toman `o<índice>` (el mismo que leía el motor con `paso_actual`), así
  * que la PRIMERA normalización de una secuencia vieja no mueve a ninguna inscripción.
  * Idempotente.
+ *
+ * ⚠️ UNA FLECHA EN PARALELO A UNA TARJETA QUE NO ESTÁ EN EL FLUJO SE VA (cuarta tanda). El comentario
+ * de `paralelosDe` lo prometía desde la segunda tanda («lo limpia `normalizar`») y el código no lo
+ * hacía: un id colgado no se dibuja (no hay tarjeta a la que llegar), así que en el lienzo no había
+ * nada que borrar, y Publicar frenaba con «sigue en X, que no existe» nombrando un id. Una flecha en
+ * paralelo es un extra: sin su tarjeta no lleva a ningún lado. Una salida PRINCIPAL colgada NO se
+ * toca: ésa sí cambia por dónde sigue el lead, y la tiene que ver `validarGrafo`.
  */
 export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
   // Un inicio sin id sólo puede tener uno: el reservado. Con `o<i>` `validarGrafo` lo rechazaría
@@ -489,6 +633,7 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
     ids[i] = `${id}_${k}`;
     vistos.add(ids[i]);
   });
+  const existe = new Set(ids);
   return pasos.map((p, i) => {
     const out: P = { ...p, id: ids[i] };
     const c = claseDe(p);
@@ -505,7 +650,7 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
     // lugar que la de siempre es la misma flecha dos veces: le daría dos padres). Vacío = sin el
     // campo, así un flujo que nunca tuvo paralelos queda IGUAL que antes byte a byte.
     let par = puedeTenerParalelos(p) && Array.isArray(p.paralelos)
-      ? p.paralelos.filter((d, k, a): d is string => typeof d === 'string' && d.length > 0 && d !== ids[i] && a.indexOf(d) === k)
+      ? p.paralelos.filter((d, k, a): d is string => typeof d === 'string' && d.length > 0 && d !== ids[i] && a.indexOf(d) === k && existe.has(d))
       : [];
     // Un inicio sin salida principal y con paralelos PROMUEVE el primero: la principal es la que
     // leen `raizSalida` y el «Solo a leads recientes», y no puede quedar vacía con hilos vivos.
@@ -514,8 +659,22 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
     if (par.length) out.paralelos = par;
     else delete out.paralelos;
     if (c === 'condicion') {
-      out.ramas = (p.ramas ?? []).map((r, k) => ({ ...r, id: r.id || `${ids[i]}r${k}`, siguiente: r.siguiente ?? null, filas: r.filas ?? [], modo: r.modo === 'cualquiera' ? 'cualquiera' : 'todas' }));
-      out.si_no = p.si_no ?? null;
+      out.ramas = (p.ramas ?? []).map((r, k) => {
+        // Las flechas en paralelo de cada resultado (cuarta tanda, punto 8), con la misma limpieza
+        // que las de una tarjeta y la promoción del inicio (`salidaLimpia`).
+        const s = salidaLimpia(r.siguiente, r.paralelos, ids[i], existe);
+        const rama: RamaCondicion = { ...r, id: r.id || `${ids[i]}r${k}`, siguiente: s.principal, filas: r.filas ?? [], modo: r.modo === 'cualquiera' ? 'cualquiera' : 'todas' };
+        if (s.paralelos.length) rama.paralelos = s.paralelos;
+        else delete rama.paralelos;
+        return rama;
+      });
+      const s = salidaLimpia(p.si_no, p.paralelos_si_no, ids[i], existe);
+      out.si_no = s.principal;
+      if (s.paralelos.length) out.paralelos_si_no = s.paralelos;
+      else delete out.paralelos_si_no;
+    } else {
+      // Sólo una condición tiene «Si no» con flechas: en otra clase el campo no significa nada.
+      delete out.paralelos_si_no;
     }
     if (c === 'respuesta') {
       out.casos = (p.casos ?? []).map((x, k) => ({ ...x, id: x.id || `${ids[i]}c${k}`, siguiente: x.siguiente ?? null }));
@@ -669,10 +828,12 @@ export function nodosEnBucle(pasos: readonly PasoGrafo[]): Set<string> {
  * hipotético (`tarjetasParaIrA`) en vez de reescribir la regla.
  */
 export function repartenEnBucle(pasos: readonly PasoGrafo[]): Set<string> {
-  if (!pasos.some((p) => paralelosDe(p).length)) return new Set();
+  // `todosLosParalelos`: una condición que reparte desde un RESULTADO dentro de un bucle abre hilos
+  // en cada vuelta igual que una tarjeta (cuarta tanda, punto 8).
+  if (!pasos.some((p) => todosLosParalelos(p).length)) return new Set();
   const enBucle = nodosEnBucle(pasos);
   const out = new Set<string>();
-  pasos.forEach((p, i) => { const id = idDe(p, i); if (paralelosDe(p).length && enBucle.has(id)) out.add(id); });
+  pasos.forEach((p, i) => { const id = idDe(p, i); if (todosLosParalelos(p).length && enBucle.has(id)) out.add(id); });
   return out;
 }
 
@@ -706,26 +867,39 @@ function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp
   if (resp && padreDe(pasos, resp)) err.push('«Si responde» cuelga del CRON: ninguna tarjeta puede seguir en él');
   // ── Las flechas en paralelo ──
   let total = 0;
-  pasos.forEach((p, i) => {
-    const crudos = Array.isArray(p.paralelos) ? p.paralelos.filter((d) => typeof d === 'string' && d) : [];
-    if (!crudos.length) return;
-    // Una condición, «Si responde» y un «Ir a» no las tienen (`puedeTenerParalelos`).
-    if (!puedeTenerParalelos(p)) { err.push(`la tarjeta ${ids[i]} no puede sacar flechas en paralelo`); return; }
-    const par = paralelosDe(p);
+  // Una lista de flechas (la de una tarjeta o la de un resultado de una condición): repetidas, ids
+  // reservados y el tope por salida. Las dos pasan por las MISMAS reglas.
+  const revisarLista = (i: number, crudos: readonly unknown[], par: readonly string[], dondeTope: string) => {
     if (par.length !== crudos.length) err.push(`la tarjeta ${ids[i]} repite una flecha en paralelo`);
     // El hilo de una flecha en paralelo se llama como su primera tarjeta (`hiloDe`, el `h` del
     // motor): una llamada 'p' o 'r' sería «el principal» o «Si responde». Sólo pasa con ids
     // escritos a mano (`nuevoId` da `n…`); como id de cualquier otra tarjeta, 'r' es válido y los
     // tests lo usan.
     if (par.some((d) => d === HILO_PRINCIPAL || d === HILO_RESPUESTA)) err.push(`una flecha en paralelo de ${ids[i]} va a una tarjeta con un id reservado («${HILO_PRINCIPAL}» o «${HILO_RESPUESTA}»)`);
-    if (par.length > TOPE_PARALELOS) err.push(`la tarjeta ${ids[i]} saca más de ${TOPE_PARALELOS} flechas en paralelo`);
+    if (par.length > TOPE_PARALELOS) err.push(`la tarjeta ${ids[i]} saca más de ${TOPE_PARALELOS} flechas en paralelo${dondeTope}`);
     total += par.length;
+  };
+  const noVacios = (x: unknown): unknown[] => (Array.isArray(x) ? x.filter((d) => typeof d === 'string' && d) : []);
+  pasos.forEach((p, i) => {
+    // Las de cada RESULTADO de una condición (cuarta tanda, punto 8): el tope es por resultado,
+    // como el de una tarjeta es por tarjeta («varias si se cumple y varias si no se cumple»).
+    for (const res of resultadosDe(p)) {
+      const crudos = noVacios(crudoDeResultado(p, res));
+      if (crudos.length) revisarLista(i, crudos, paralelosDeResultado(p, res), ' en un resultado');
+    }
+    const crudos = noVacios(p.paralelos);
+    if (!crudos.length) return;
+    // Una condición, «Si responde» y un «Ir a» no las tienen en la TARJETA (`puedeTenerParalelos`):
+    // las de una condición van en cada resultado.
+    if (!puedeTenerParalelos(p)) { err.push(`la tarjeta ${ids[i]} no puede sacar flechas en paralelo`); return; }
+    revisarLista(i, crudos, paralelosDe(p), '');
   });
   if (1 + total > TOPE_HILOS) err.push(`una automatización corre como mucho ${TOPE_HILOS} caminos a la vez`);
   // Adentro de «Si responde» todo corre EN EL MOMENTO de la respuesta y retoma UN hilo (diseño,
-  // decisión 4): repartir ahí no tiene a qué hilo volver.
+  // decisión 4): repartir ahí no tiene a qué hilo volver. Tampoco desde un resultado de una
+  // condición que cuelga de ella.
   if (resp) for (const d of [resp, ...descendientes(pasos, resp)]) {
-    if (paralelosDe(pasos[indicePorId(pasos, d)]).length) err.push('«Si responde» no puede sacar flechas en paralelo');
+    if (todosLosParalelos(pasos[indicePorId(pasos, d)]).length) err.push('«Si responde» no puede sacar flechas en paralelo');
   }
   // Una tarjeta con paralelos DENTRO DE UN BUCLE de «Ir a» abre hilos nuevos en cada vuelta, sin
   // fin: m1 (en paralelo m2) → esperar 1 día → «Ir a» m1 suma un hilo m2 por día. Qué es un bucle
@@ -919,33 +1093,70 @@ export function escenariosDeRespuesta(pasos: readonly PasoGrafo[]): EscenarioDeG
  * Las flechas en paralelo: `'par:<id>'` REEMPLAZA ese elemento (con `null` lo saca), y `'par'`
  * AGREGA una al final (si la tarjeta las admite y no estaba). Una lista que queda vacía se va
  * con el campo.
+ *
+ * Las de un RESULTADO de una condición (cuarta tanda, punto 8): `par@<resultado>` agrega,
+ * `par:<id>@<resultado>` reemplaza o saca. Un `par:<id>` sin resultado sobre una condición busca
+ * la lista que lo tiene (un id cuelga de un solo lugar).
  */
 export function conectarPuerto<P extends PasoGrafo>(pasos: readonly P[], id: string, puerto: string, destino: string | null): P[] {
-  const conPar = (p: P, par: string[]): P => {
-    const q = { ...p };
-    if (par.length) q.paralelos = par;
-    else delete q.paralelos;
-    return q;
-  };
+  const pp = leerPuertoParalelo(puerto);
   return pasos.map((p, i) => {
     if (idDe(p, i) !== id) return p;
-    if (puerto === 'par') {
-      if (!destino || !puedeTenerParalelos(p)) return p;
-      const actual = Array.isArray(p.paralelos) ? p.paralelos : [];
-      return actual.includes(destino) ? p : conPar(p, [...actual, destino]);
-    }
-    if (puerto.startsWith('par:')) {
-      const viejo = puerto.slice(4);
-      const actual = Array.isArray(p.paralelos) ? p.paralelos : [];
-      if (!actual.includes(viejo)) return p;
-      return conPar(p, destino ? actual.map((d) => (d === viejo ? destino : d)) : actual.filter((d) => d !== viejo));
-    }
+    if (pp) return conectarParalelo(p, pp, destino);
     if (puerto === 'sig') return { ...p, siguiente: destino };
     if (puerto === 'si_no') return { ...p, si_no: destino };
     if (p.ramas?.some((r) => r.id === puerto)) return { ...p, ramas: p.ramas.map((r) => (r.id === puerto ? { ...r, siguiente: destino } : r)) };
     if (p.casos?.some((c) => c.id === puerto)) return { ...p, casos: p.casos.map((c) => (c.id === puerto ? { ...c, siguiente: destino } : c)) };
     return p;
   });
+}
+
+/** Agrega (`viejo` null), reemplaza o saca (`nuevo` null) un destino de una lista. La MISMA lista si no cambia nada. */
+function editarLista(actual: readonly string[], viejo: string | null, nuevo: string | null): readonly string[] {
+  if (viejo == null) return !nuevo || actual.includes(nuevo) ? actual : [...actual, nuevo];
+  if (!actual.includes(viejo)) return actual;
+  return nuevo ? actual.map((d) => (d === viejo ? nuevo : d)) : actual.filter((d) => d !== viejo);
+}
+
+/** La lista de flechas de un campo, como array (lo que no lo es, vacío). */
+const comoLista = (x: unknown): string[] => (Array.isArray(x) ? x.filter((d): d is string => typeof d === 'string') : []);
+
+/** El puerto de una flecha en paralelo (`leerPuertoParalelo`) aplicado a UNA tarjeta. */
+function conectarParalelo<P extends PasoGrafo>(p: P, pp: { destino: string | null; resultado: string | null }, destino: string | null): P {
+  if (claseDe(p) === 'condicion') {
+    // De un RESULTADO. Sin resultado en el puerto, el que ya tiene ese destino (borrar por la flecha).
+    const res = pp.resultado ?? (pp.destino ? resultadosDe(p).find((r) => comoLista(crudoDeResultado(p, r)).includes(pp.destino!)) ?? null : null);
+    if (res == null || !esResultadoDe(p, res)) return p;
+    const actual = comoLista(crudoDeResultado(p, res));
+    const nueva = editarLista(actual, pp.destino, destino);
+    if (nueva === actual) return p;
+    if (res === RESULTADO_SI_NO) {
+      const q = { ...p };
+      if (nueva.length) q.paralelos_si_no = [...nueva];
+      else delete q.paralelos_si_no;
+      return q;
+    }
+    return {
+      ...p,
+      ramas: (p.ramas ?? []).map((r) => {
+        if (r.id !== res) return r;
+        const q = { ...r };
+        if (nueva.length) q.paralelos = [...nueva];
+        else delete q.paralelos;
+        return q;
+      }),
+    };
+  }
+  // Una tarjeta de una salida (o el CRON): no tiene resultados. `par@sig` es lo mismo que `par`.
+  if (pp.resultado != null && pp.resultado !== 'sig') return p;
+  if (pp.destino == null && !puedeTenerParalelos(p)) return p;
+  const actual = comoLista(p.paralelos);
+  const nueva = editarLista(actual, pp.destino, destino);
+  if (nueva === actual) return p;
+  const q = { ...p };
+  if (nueva.length) q.paralelos = [...nueva];
+  else delete q.paralelos;
+  return q;
 }
 
 /**
@@ -955,9 +1166,11 @@ export function conectarPuerto<P extends PasoGrafo>(pasos: readonly P[], id: str
  *     en el medio y apunta a la de antes);
  *   · `{ nodo, puerto: 'par' }` una flecha en paralelo NUEVA desde ese nodo (desde el CRON:
  *     `nodo: ID_INICIO`, exista o no el inicio todavía);
+ *   · `{ nodo, puerto: 'par@<resultado>' }` una flecha en paralelo NUEVA desde un RESULTADO de una
+ *     condición (cuarta tanda, punto 8), y `'par:<id>@<resultado>'` el ＋ del medio de una de ellas;
  *   · `{ inicio: true }` al principio de la salida principal.
  */
-export type LugarInsercion = { nodo: string; puerto: 'sig' | 'si_no' | 'par' | `par:${string}` | (string & {}) } | { inicio: true };
+export type LugarInsercion = { nodo: string; puerto: 'sig' | 'si_no' | 'par' | `par:${string}` | `par@${string}` | (string & {}) } | { inicio: true };
 
 /**
  * Inserta un nodo YA ARMADO (con id) en un lugar. Lo que colgaba de ese lugar pasa a
@@ -997,6 +1210,22 @@ export function insertarNodo<P extends PasoGrafo>(pasos: readonly P[], lugarIn: 
       }
     }
   }
+  // Una flecha en paralelo NUEVA desde un RESULTADO de una condición (cuarta tanda, punto 8).
+  const pp = 'inicio' in lugar ? null : leerPuertoParalelo(lugar.puerto);
+  if (!('inicio' in lugar) && pp && pp.destino == null && pp.resultado != null && pp.resultado !== 'sig') {
+    const i = indicePorId(base, lugar.nodo);
+    // ⚠️ SIN ESTO, UN `par@x` SOBRE ALGO QUE NO ES UNA CONDICIÓN SEGUÍA AL CAMINO DE ABAJO:
+    // `conectarPuerto` no conectaba nada y la tarjeta nueva quedaba igual en el array, SUELTA.
+    if (i < 0 || !esResultadoDe(base[i], pp.resultado)) return base;
+    const principal = puertosDe(base, i).find((pt) => pt.puerto === pp.resultado)?.destino ?? null;
+    // Un resultado vacío: la flecha nueva ES su principal (como el inicio sin principal).
+    if (principal == null) lugar = { nodo: lugar.nodo, puerto: pp.resultado };
+    else {
+      const out = conectarPuerto(base, lugar.nodo, lugar.puerto, n.id!);
+      out.splice(i + 1, 0, sinSalida(n));
+      return out;
+    }
+  }
   let antes: string | null;
   let out: P[];
   if ('inicio' in lugar) {
@@ -1005,8 +1234,13 @@ export function insertarNodo<P extends PasoGrafo>(pasos: readonly P[], lugarIn: 
   } else {
     const i = indicePorId(base, lugar.nodo);
     if (i < 0) return base;
-    antes = puertosDe(base, i).find((pt) => pt.puerto === lugar.puerto)?.destino ?? null;
+    // El ＋ del medio de una flecha en paralelo: lo de antes es su destino (también el `par:<id>` sin
+    // resultado sobre una condición, que no coincide letra por letra con su puerto).
+    antes = pp?.destino ?? puertosDe(base, i).find((pt) => pt.puerto === lugar.puerto)?.destino ?? null;
     out = conectarPuerto(base, lugar.nodo, lugar.puerto, n.id!);
+    // ⚠️ UN PUERTO QUE ESA TARJETA NO TIENE NO CONECTA NADA, y la tarjeta nueva quedaba igual en el
+    // array: SUELTA (y apuntando a `antes`, o sea con un segundo padre). No se inserta.
+    if (!puertosDe(out, i).some((pt) => pt.destino === n.id)) return base;
     // El nodo nuevo va justo después de su padre en el array: el orden del array es el
     // orden de lectura (`orden`, las métricas por paso), no el del dibujo.
     out.splice(i + 1, 0, n);
@@ -1084,6 +1318,35 @@ export function borrarNodo<P extends PasoGrafo>(pasos: readonly P[], id: string)
       out = conectarPuerto(out, out[ini].id!, `par:${par[0]}`, null);
       out = conectarPuerto(out, out[ini].id!, 'sig', par[0]);
     }
+  }
+  // Y lo mismo con un RESULTADO de una condición (cuarta tanda, punto 8): borrar la principal del
+  // «Si no» que tenía un email en paralelo deja al email como su principal, no una fila vacía con
+  // una flecha punteada saliendo.
+  return out.map((q) => (claseDe(q) === 'condicion' ? promoverResultados(q) : q));
+}
+
+/** Los resultados de una condición sin principal y con flechas en paralelo promueven la primera (`salidaLimpia`). */
+function promoverResultados<P extends PasoGrafo>(q: P): P {
+  let out = q;
+  const ramas = q.ramas ?? [];
+  if (ramas.some((r) => r.siguiente == null && listaLimpia(r.paralelos).length)) {
+    out = {
+      ...out,
+      ramas: ramas.map((r) => {
+        if (r.siguiente != null) return r;
+        const s = salidaLimpia(null, r.paralelos, q.id ?? '');
+        const x: RamaCondicion = { ...r, siguiente: s.principal };
+        if (s.paralelos.length) x.paralelos = s.paralelos;
+        else delete x.paralelos;
+        return x;
+      }),
+    };
+  }
+  if (q.si_no == null && listaLimpia(q.paralelos_si_no).length) {
+    const s = salidaLimpia(null, q.paralelos_si_no, q.id ?? '');
+    out = { ...out, si_no: s.principal };
+    if (s.paralelos.length) out.paralelos_si_no = s.paralelos;
+    else delete out.paralelos_si_no;
   }
   return out;
 }

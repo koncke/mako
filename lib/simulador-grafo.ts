@@ -49,7 +49,7 @@
 import {
   type PasoGrafo, type NombresParaTexto,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
-  textoEspera, textoRama, TOPE_HILOS,
+  textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado,
 } from './flujo-grafo';
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
@@ -60,7 +60,11 @@ import { aplicarVariablesHtml, sanearHtmlEmail, htmlEmailVacio, TOPE_HTML_EMAIL 
 export const TOPE_SALTOS = 20;
 export const TOPE_EVENTOS = 200;
 
-export type OpcionRama = { puerto: string; texto: string; destino: string | null };
+/**
+ * Un resultado de una condición, para elegir. `paralelos`: sus flechas en paralelo (cuarta tanda,
+ * punto 8), que arrancan un hilo cada una al elegirlo (`elegir`). Ausente = ninguna.
+ */
+export type OpcionRama = { puerto: string; texto: string; destino: string | null; paralelos?: string[] };
 
 /** Lo que pasa en el teléfono, de a uno. El panel decide CÓMO se ve (burbuja, píldora, chips). */
 export type EventoSim<P extends PasoGrafo = PasoGrafo> =
@@ -293,10 +297,16 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
       return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
     }
     case 'condicion': {
+      // Las flechas en paralelo de cada resultado viajan con su opción (cuarta tanda, punto 8): las
+      // lee la MISMA función que el motor (`paralelosDeResultado`), y `elegir` las abre.
+      const conParalelos = (o: OpcionRama): OpcionRama => {
+        const par = paralelosDeResultado(p, o.puerto);
+        return par.length ? { ...o, paralelos: par } : o;
+      };
       const opciones: OpcionRama[] = [
         ...(p.ramas ?? []).map((r) => ({ puerto: r.id, texto: textoRama(r, nombres), destino: r.siguiente ?? null })),
-        { puerto: 'si_no', texto: 'Si no', destino: p.si_no ?? null },
-      ];
+        { puerto: RESULTADO_SI_NO, texto: 'Si no', destino: p.si_no ?? null },
+      ].map(conParalelos);
       return { evento: { t: 'condicion', nodo: id, opciones }, estado: { ...base, eligiendo: { nodo: id, opciones, hilo: k } } };
     }
     case 'respuesta':
@@ -359,7 +369,12 @@ export function siguiente<P extends PasoGrafo>(
   return fin(st, 'Se repite: fin de la prueba');
 }
 
-/** Quien prueba elige por qué rama sigue una condición: se mueve SU hilo, no otro. */
+/**
+ * Quien prueba elige por qué rama sigue una condición: se mueve SU hilo, no otro. Y cada flecha en
+ * paralelo de ESE resultado abre un hilo con el mismo reloj (cuarta tanda, punto 8: «Probar» sigue
+ * solo por el «Sí», y con esto se ven también el email y el WhatsApp que salen a la vez). Adentro de
+ * «Si responde» no se reparte, como en el motor.
+ */
 export function elegir(estado: EstadoSim, puerto: string): EstadoSim {
   const e = estado.eligiendo;
   if (!e) return estado;
@@ -367,7 +382,8 @@ export function elegir(estado: EstadoSim, puerto: string): EstadoSim {
   if (!o) return estado;
   const h = estado.hilos[e.hilo];
   if (!h) return { ...estado, eligiendo: null };
-  return { ...estado, eligiendo: null, hilos: seguir(estado.hilos, e.hilo, o.destino, [], h.reloj) };
+  const paralelos = estado.rama === 'respuesta' ? [] : (o.paralelos ?? []);
+  return { ...estado, eligiendo: null, hilos: seguir(estado.hilos, e.hilo, o.destino, paralelos, h.reloj) };
 }
 
 /**

@@ -62,6 +62,7 @@ import {
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, HILO_RESPUESTA,
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, hiloDe,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, repartenEnBucle,
+  RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
@@ -508,6 +509,61 @@ export function subarbolRespuesta(pasos: readonly PasoGrafo[]): Set<string> {
   return r ? descendientes(pasos, r) : new Set();
 }
 
+/**
+ * QUÉ FILAS DE RESULTADO admiten una flecha en paralelo NUEVA (cuarta tanda, punto 8: «varias si se
+ * cumple y varias si no se cumple»), como `<condición>|<resultado>` → sí/no. `pasos`, normalizados.
+ *
+ * Lo que se ofrece sale de la regla que Publicar RECHAZA: se arma el flujo HIPOTÉTICO con la flecha
+ * nueva (`insertarNodo`, lo mismo que hace el ＋) y tiene que pasar `validarGrafo` sin ningún error
+ * que hoy no esté. Los topes, «Si responde» y el bucle se preguntan ADEMÁS a mano, con las mismas
+ * funciones (`contarParalelos`, `nodosEnBucle`): un error que YA está en la lista («corre como mucho
+ * 6 caminos», «"Si responde" no puede…») repetido no se ve como nuevo. Y al revés, el hipotético ve lo
+ * que ningún chequeo a mano mira (hoy: el tope de 60 tarjetas).
+ *
+ * ⚠️ MEMORIZADO POR LA FORMA DEL FLUJO. Medido el 09/10/2026: con un `validarGrafo` hipotético por fila,
+ * `grafoDeSecuencia` pasaba de 4,4 ms a 75-110 ms en un flujo de 57 tarjetas y 19 condiciones, y corre
+ * en CADA render del lienzo (FlujoLienzo no lo memoriza: una tecla en un editor es un render). La
+ * respuesta depende sólo de la FORMA (ids, clases, salidas, flechas, destinos): lo que depende del
+ * contenido (una fila de condición incompleta, una espera sin minutos, un caso sin nombre) da el MISMO
+ * error en el flujo de hoy y en el hipotético, así que no cambia la resta. Una sola entrada: la del
+ * flujo que se está editando.
+ */
+let memoFilasConParalelo: { firma: string; filas: ReadonlyMap<string, boolean> } | null = null;
+
+export function filasConParalelo(pasos: readonly PasoGrafo[]): ReadonlyMap<string, boolean> {
+  const firma = JSON.stringify(pasos.map((p, i) => [
+    idDe(p, i), claseDe(p), p.siguiente ?? null, p.paralelos ?? null,
+    (p.ramas ?? []).map((r) => [r.id, r.siguiente ?? null, r.paralelos ?? null]),
+    p.si_no ?? null, p.paralelos_si_no ?? null, (p.casos ?? []).map((c) => [c.id, c.siguiente ?? null]), p.destino ?? null,
+  ]));
+  if (memoFilasConParalelo?.firma === firma) return memoFilasConParalelo.filas;
+  const filas = new Map<string, boolean>();
+  const condiciones = pasos.map((p, i) => i).filter((i) => claseDe(pasos[i]) === 'condicion');
+  if (condiciones.length) {
+    const ids = pasos.map((p, i) => idDe(p, i));
+    const resp = raizRespuesta(pasos);
+    const enRespuesta = new Set(resp ? [resp, ...descendientes(pasos, resp)] : []);
+    const enBucle = nodosEnBucle(pasos);
+    const caminos = 1 + contarParalelos(pasos);
+    const erroresHoy = new Set(validarGrafo(pasos));
+    const idDePrueba = nuevoId(pasos, () => 0.5);
+    for (const i of condiciones) {
+      for (const resultado of [...(pasos[i].ramas ?? []).map((r) => r.id), RESULTADO_SI_NO]) {
+        let si = !enRespuesta.has(ids[i]) && !enBucle.has(ids[i]) && caminos < TOPE_HILOS
+          && paralelosDeResultado(pasos[i], resultado).length < TOPE_PARALELOS;
+        if (si) {
+          const prueba = { ...relleno(), id: idDePrueba } as unknown as PasoGrafo;
+          const hipotetico = insertarNodo(pasos, { nodo: ids[i], puerto: puertoParalelo(null, resultado) }, prueba);
+          si = hipotetico.some((q) => q.id === idDePrueba) && validarGrafo(hipotetico).every((e) => erroresHoy.has(e));
+        }
+        filas.set(`${ids[i]}|${resultado}`, si);
+      }
+    }
+  }
+  memoFilasConParalelo = { firma, filas };
+  return filas;
+}
+
 export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: OpcionesGrafo): GrafoFlujo {
   const pasos = normalizar(pasosIn);
   const ids = pasos.map((p, i) => idDe(p, i));
@@ -537,11 +593,16 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // de un bucle». Una flecha nueva no arma un bucle (la tarjeta que crea no sigue en nada), así
   // que alcanza con mirar el flujo como está.
   const paralelosDe = (i: number) => puertosDe(pasos, i).filter((pt) => pt.puerto.startsWith('par:')).length;
-  const caminos = 1 + pasos.reduce((s, _, i) => s + paralelosDe(i), 0);
+  // Los caminos con la MISMA cuenta que `validarGrafo` (`contarParalelos`): las flechas de las tarjetas
+  // y, desde la cuarta tanda, las de cada resultado de una condición.
+  const caminos = 1 + contarParalelos(pasos);
   const enBucle = nodosEnBucle(pasos);
   const admiteParalelo = (i: number): boolean => i >= 0
     ? puedeTenerParalelos(pasos[i]) && !enRespuesta.has(ids[i]) && ids[i] !== resp && !enBucle.has(ids[i]) && caminos < TOPE_HILOS && paralelosDe(i) < TOPE_PARALELOS
     : caminos < TOPE_HILOS;
+  // ── Y las de cada RESULTADO de una condición (cuarta tanda, punto 8): `filasConParalelo` ──
+  const conParalelo = filasConParalelo(pasos);
+  const admiteEnResultado = (i: number, resultado: string): boolean => conParalelo.get(`${ids[i]}|${resultado}`) === true;
 
   // ── La tarjeta de cada paso (sin posición todavía) ──
   type Tarjeta = Omit<NodoFlujo, 'x' | 'y'>;
@@ -555,8 +616,12 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     const base = { id, ancho: ANCHO_NODO };
     let t: Tarjeta;
     if (c === 'condicion') {
-      const puertos: PuertoNodo[] = (p.ramas ?? []).map((r) => ({ id: r.id, rotulo: textoRama(r, op.nombres), tono: 'buena' as const, vacio: !r.siguiente }));
-      puertos.push({ id: 'si_no', rotulo: 'Si no', tono: 'mala', vacio: !p.si_no });
+      // Cada fila es un RESULTADO: con `paralelo` ofrece el ＋ de una flecha en paralelo desde ESA fila
+      // (cuarta tanda, punto 8), y las que ya salen en paralelo (`par:<id>@<resultado>`) se dibujan
+      // desde ella.
+      const enParalelo = (resultado: string) => (admiteEnResultado(i, resultado) ? { paralelo: true } : {});
+      const puertos: PuertoNodo[] = (p.ramas ?? []).map((r) => ({ id: r.id, rotulo: textoRama(r, op.nombres), tono: 'buena' as const, vacio: !r.siguiente, ...enParalelo(r.id) }));
+      puertos.push({ id: RESULTADO_SI_NO, rotulo: 'Si no', tono: 'mala', vacio: !p.si_no, ...enParalelo(RESULTADO_SI_NO) });
       t = { ...base, tipo: 'condicion', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'respuesta') {
       const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: x.titulo?.trim() || 'Caso sin nombre', tono: 'buena' as const, vacio: !x.siguiente }));
@@ -880,6 +945,9 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
  *     inicio: `insertarNodo` lo crea con la primera.
  *   · El del MEDIO de una flecha en paralelo (`puerto: 'par:<id>'`): la tarjeta nueva queda en el
  *     medio de ESA flecha.
+ *   · El de la fila de un RESULTADO de una condición con el punto ocupado (`puerto: 'par@<resultado>'`,
+ *     cuarta tanda, punto 8): una flecha en paralelo NUEVA desde ese resultado; y el del medio de una
+ *     de ellas (`'par:<id>@<resultado>'`). Viajan tal cual: `insertarNodo` los entiende.
  */
 export function lugarDesdeLienzo(nodo: string, puerto?: string): LugarInsercion {
   if (nodo === ID_ENTRADA) {

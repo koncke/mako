@@ -80,8 +80,15 @@ export function hilosVencidos(hilos: readonly Hilo[], ahoraMs: number): Hilo[] {
   return hilos.filter((x) => ms(x.proximo) <= ahoraMs).sort(porProximo);
 }
 
-/** Los ids que arrancan A LA VEZ cuando la tarjeta `idx` termina (sus flechas en paralelo). */
+/**
+ * Los ids que arrancan A LA VEZ cuando la tarjeta `idx` termina (sus flechas en paralelo).
+ *
+ * ⚠️ UNA CONDICIÓN NO «TERMINA»: sale por UN resultado, y sólo arrancan las flechas de ése (cuarta
+ * tanda, punto 8; las arranca `resolverControl` con `paralelosDeResultado`). Sus puertos `par:` son
+ * los de TODOS sus resultados: devolverlos acá le mandaría al lead lo del «Sí» y lo del «Si no».
+ */
 export function repartosDe(pasos: readonly PasoGrafo[], idx: number): string[] {
+  if (!pasos[idx] || claseDe(pasos[idx]) === 'condicion') return [];
   return puertosDe(pasos, idx).flatMap((pt) => (pt.puerto.startsWith('par:') && pt.destino ? [pt.destino] : []));
 }
 

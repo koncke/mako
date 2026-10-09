@@ -103,7 +103,11 @@ test('⚠️ el ＋ de una salida vacía y el ＋ del medio de una flecha insert
   assert.match(puntos, /\{!p\.vacio && p\.paralelo && puede && onAgregarTras && encima === n\.id && \(/);
   assert.match(puntos, /ariaLabel="Agregar en paralelo"/);
   assert.doesNotMatch(LIENZO, /titulo="En paralelo"/, 'volvió el título «En paralelo» (cuarta tanda, punto 10)');
-  assert.match(puntos, /opciones=\{opciones\('par', false\)\}\n\s+onElegir=\{\(v\) => onAgregarTras\(n\.id, v, 'par'\)\}/);
+  // CUARTA TANDA, PUNTO 8 (cambió esto): la fila de un RESULTADO de una condición pide
+  // `par@<fila>`; la salida de siempre ('sig', también la «Al entrar» del CRON) sigue pidiendo 'par'.
+  // Con 'par' a secas el ＋ del «Si no» no decía de qué fila salía y el modelo no la agregaba.
+  assert.match(puntos, /const enParalelo = p\.id === 'sig' \? 'par' : `par@\$\{p\.id\}`;/);
+  assert.match(puntos, /opciones=\{opciones\(enParalelo, false\)\}\n\s+onElegir=\{\(v\) => onAgregarTras\(n\.id, v, enParalelo\)\}/);
   // El medio de una flecha: inserta en el puerto de ESA flecha, y la curva sale de él.
   const medio = tramo('{onAgregarTras && (opcionesEn || opcionesAgregar) && grafo.aristas.map((a, i) => {', '{grafo.aristas.map((a, i) => {', 3_000);
   assert.match(medio, /const m = medioDeCurva\(d, h, a\.puerto\);/);
