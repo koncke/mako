@@ -67,6 +67,7 @@ import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineSta
   productosPorFunnel, idDelFunnelDefault, leerFunnels } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
   conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
+import { puedeSerReunion, tipoAlMarcar } from '@/lib/etapa-reunion';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
@@ -3026,6 +3027,11 @@ export type OpEtapa =
   | { op: 'insertar'; etapa: { key: string; label: string; dot?: string; kind?: string }; at: number }
   | { op: 'agregar'; despuesDe?: string; label?: string }
   /**
+   * Marcar (o desmarcar) una etapa como REUNIÓN: `kind: 'reunion'`, lo único que la marca
+   * (lib/etapa-reunion.ts). Apagada vuelve a `'paso'`, como una etapa nueva.
+   */
+  | { op: 'reunion'; key: string; es: boolean }
+  /**
    * Apagar o encender una nutrición. `id` es `"desde>hacia"`, la misma clave que vive en
    * `data.suppressed`.
    *
@@ -3181,6 +3187,14 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       const orden = [...pipeline];
       [orden[i], orden[j]] = [orden[j], orden[i]];
       pipeline = orden;
+    } else if (op.op === 'reunion') {
+      // ⚠️ SE DECIDE ACÁ, NO EN LA PANTALLA: `op` es el argumento de una server action. La
+      // entrada, el pago, el cierre y las terminales no pueden ser una reunión (perderían su
+      // tipo, y al desmarcarlas volverían como un paso cualquiera). Ver `puedeSerReunion`.
+      const st = pipeline.find((x) => x.key === op.key);
+      if (!st) return { ok: false, error: 'Esa etapa la pone MaKo al final del embudo: no puede ser una reunión.' };
+      if (!puedeSerReunion(st)) return { ok: false, error: 'Esa etapa no puede ser una reunión.' };
+      pipeline = pipeline.map((x) => (x.key === op.key ? ({ ...x, kind: tipoAlMarcar(op.es) } as Stage) : x));
     } else {
       // La clave se acuña acá, en el server, y se comprueba contra el pipeline real: si se
       // eligiera en el navegador, dos pestañas abiertas acuñan la misma y la segunda pisa a
