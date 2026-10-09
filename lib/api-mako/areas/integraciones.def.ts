@@ -91,7 +91,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_estado_agente_claude', area: 'integraciones', tipo: 'lectura',
     titulo: 'Estado de Claude conectado',
-    descripcion: 'Si el negocio ya generó el token para conectar Claude (la skill de MaKo) y con qué alcance: solo leer, leer y proponer, o además ejecutar. Nunca devuelve el token. Úsala ante «¿tengo Claude conectado?» o para explicar por qué Claude no puede confirmar una acción. No requiere parámetros.',
+    descripcion: 'Si el negocio ya generó el token para conectar Claude (la skill de MaKo) y con qué alcance: solo leer, leer y proponer, o además ejecutar. Nunca devuelve el token: sólo su pista (el prefijo y los últimos 4 caracteres) para reconocerlo. Úsala ante «¿tengo Claude conectado?» o para explicar por qué Claude no puede confirmar una acción. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_ADMIN,
   },

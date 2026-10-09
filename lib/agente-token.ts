@@ -15,70 +15,77 @@
 // puntúa el Perro. Un token filtrado no puede ensuciar el board sin que alguien
 // apriete "aplicar".
 //
-// El mapeo token → workspace vive en webhook_routing('agente', token, ws), el
+// El mapeo token → workspace vive en webhook_routing('agente', <hash del token>, ws), el
 // mismo índice de plataforma que ya usan Meta/Chatwoot/Calendly/Fathom/landing.
+//
+// ⚠️ DESDE EL 09/10/2026 EL TOKEN NO SE GUARDA EN CLARO (decisión de Martín): en el setting
+// va su hash y una pista, y en el índice su hash. Se muestra UNA vez, en la respuesta de
+// `rotarAgenteToken`; ninguna función de acá lo devuelve después. Qué guarda cada lugar, la
+// compatibilidad con las filas viejas y el porqué del orden, en lib/agente-token-nucleo.ts.
 // =============================================================================
 
 import 'server-only';
-import { randomBytes } from 'node:crypto';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace } from './workspace';
-import { upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
+import { borrarRoutingConPrefijo, upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
 import { conReintentoTransitorio } from './webhook-ruteo-huella';
 import { mensajeDeError } from './calendly-error';
-import { prefijoDeAlcance } from './api-mako/alcance';
 import { marcarUso } from './api-mako/tokens-uso';
 import { ID_PRINCIPAL } from './api-mako/tokens-lista';
+import {
+  AGENTE_SERVICIO, AGENTE_TOKEN_KEY, PREFIJO_PRINCIPAL,
+  acunarCon, leerGuardado, revocarCon, visibleDe, wsDeTokenCon,
+  type AlmacenAgente, type TokenAgenteVisible,
+} from './agente-token-nucleo';
 import type { Alcance as AlcanceToken } from './api-mako/tipos';
-export type { AlcanceToken };
+export type { AlcanceToken, TokenAgenteVisible };
+export { AGENTE_SERVICIO, AGENTE_TOKEN_KEY };
 
-/** Key en app_settings (por workspace). */
-export const AGENTE_TOKEN_KEY = 'agente_token';
+/**
+ * La base de verdad para el núcleo. Las lecturas que AUTENTICAN son estrictas: con
+ * `wsPorIdentificador` y `getSetting`, que no leen el `error` de supabase-js, la base caída
+ * daba null y el pedido se contestaba 401 sobre un token BUENO (07/10/2026).
+ */
+const almacen: AlmacenAgente = {
+  leerSetting: (ws) => runWithWorkspace(ws, () => getSettingEstricto(AGENTE_TOKEN_KEY)),
+  escribirSetting: (ws, valor) => runWithWorkspace(ws, () => setSetting(AGENTE_TOKEN_KEY, valor)),
+  wsPorIndice: (identificador) => wsPorIdentificadorEstricto(AGENTE_SERVICIO, identificador),
+  indexar: (identificador, ws) => upsertRouting(AGENTE_SERVICIO, identificador, ws),
+  // Sin el guion bajo: va a un LIKE, donde `_` es comodín (ver borrarRoutingConPrefijo).
+  borrarIndicesEnClaro: (ws) => borrarRoutingConPrefijo(AGENTE_SERVICIO, ws, PREFIJO_PRINCIPAL.replace(/_$/, '')),
+};
 
-/** Servicio bajo el que se indexa el token en webhook_routing. */
-export const AGENTE_SERVICIO = 'agente';
-
-/** Token vigente del workspace, o null si nunca acuñó uno. */
-export async function getAgenteToken(ws: number): Promise<string | null> {
-  return runWithWorkspace(ws, () => getSetting(AGENTE_TOKEN_KEY));
+/**
+ * Lo que se puede MOSTRAR del token del workspace —la pista y el alcance—, o null si nunca
+ * acuñó uno (o lo revocó). Nunca el token: no está guardado. Lectura TOLERANTE: es para
+ * dibujar (la tarjeta, el tutorial, la pantalla de API), no para decidir.
+ */
+export async function tokenAgenteVisible(ws: number): Promise<TokenAgenteVisible | null> {
+  return visibleDe(leerGuardado(await runWithWorkspace(ws, () => getSetting(AGENTE_TOKEN_KEY))));
 }
 
 /**
- * Acuña un token nuevo para el workspace (o lo ROTA, si ya tenía).
- * El anterior deja de servir en el acto: `wsPorAgenteToken` valida contra el
+ * Acuña un token nuevo para el workspace (o lo ROTA, si ya tenía) y lo devuelve UNA vez,
+ * con su pista. El anterior deja de servir en el acto: `wsPorAgenteToken` valida contra el
  * setting, no contra el índice.
  */
-export async function rotarAgenteToken(ws: number, alcance: AlcanceToken = 'proponer'): Promise<string> {
-  // El alcance viaja en el PREFIJO (lib/api-mako/alcance.ts): rotar el token resetea
-  // el alcance junto con él. Los tokens sin letra —los de antes— son `proponer`.
-  const token = `${prefijoDeAlcance(alcance)}${randomBytes(24).toString('hex')}`;
-  await runWithWorkspace(ws, () => setSetting(AGENTE_TOKEN_KEY, token));
-  await upsertRouting(AGENTE_SERVICIO, token, ws);
-  return token;
+export async function rotarAgenteToken(ws: number, alcance: AlcanceToken = 'proponer'): Promise<{ token: string; pista: string }> {
+  return acunarCon(almacen, ws, alcance);
 }
 
 /**
  * Resuelve el workspace de un bearer token. null = no autorizado (fail-closed).
  *
- * Dos pasos a propósito: el índice de routing es append-only (`upsertRouting`
- * usa ignoreDuplicates para que la carrera la decida la base), así que un token
- * ROTADO seguiría teniendo su fila ahí. La fuente de verdad de cuál está vigente
- * es el setting del workspace — sin este segundo chequeo, rotar no revocaría nada.
+ * Dos pasos a propósito (ver `wsDeTokenCon`): el índice es append-only, así que un token
+ * ROTADO seguiría teniendo su fila ahí; la fuente de verdad de cuál está vigente es el
+ * setting del workspace.
  */
 export async function wsPorAgenteToken(token: string): Promise<number | null> {
   const t = (token ?? '').trim();
   if (!t) return null;
-  // ⚠️ ESTRICTAS LAS DOS, Y CON REINTENTO (07/10/2026). Con `wsPorIdentificador` y `getSetting`,
-  // que no leen el `error` de supabase-js, la base caída daba null y el pedido se contestaba 401
-  // «token inválido o revocado» sobre un token BUENO — lo que manda a la persona a rotarlo y a
-  // reconfigurar su skill por un corte de segundos. Ahora «no pude leer» TIRA, y quien llama lo
+  // ⚠️ ESTRICTAS LAS DOS, Y CON REINTENTO (07/10/2026): «no pude leer» TIRA, y quien llama lo
   // contesta 503 (`wsDelBearer`). Rotar sigue revocando: el segundo chequeo es contra el setting.
-  const ws = await conReintentoTransitorio(async () => {
-    const ws = await wsPorIdentificadorEstricto(AGENTE_SERVICIO, t);
-    if (ws == null) return null;
-    const vigente = await runWithWorkspace(ws, () => getSettingEstricto(AGENTE_TOKEN_KEY));
-    return vigente && vigente === t ? ws : null;
-  });
+  const ws = await conReintentoTransitorio(() => wsDeTokenCon(almacen, t));
   // «¿Este token se usa?», para la pantalla de API (lib/api-mako/tokens-uso.ts). Con
   // freno y sin esperar: no demora ni puede tumbar la autenticación.
   if (ws != null) marcarUso(ws, ID_PRINCIPAL);
@@ -87,12 +94,11 @@ export async function wsPorAgenteToken(token: string): Promise<number | null> {
 
 /**
  * Revoca el token principal SIN acuñar otro (la pantalla de API, «me lo filtraron»).
- * Queda vacío, no borrado: `wsPorAgenteToken` exige `vigente && vigente === t`, así
- * que un vacío no autentica nada, y la tarjeta de Integraciones vuelve a «Genera tu
- * token». Rotar sigue siendo `rotarAgenteToken`.
+ * Queda vacío, no borrado: un vacío no autentica nada, y la tarjeta de Integraciones
+ * vuelve a «Genera tu token». Rotar sigue siendo `rotarAgenteToken`.
  */
 export async function revocarAgenteToken(ws: number): Promise<void> {
-  await runWithWorkspace(ws, () => setSetting(AGENTE_TOKEN_KEY, ''));
+  await revocarCon(almacen, ws);
 }
 
 /**

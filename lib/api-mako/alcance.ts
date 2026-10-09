@@ -33,6 +33,23 @@ export function alcanceDeToken(token: string): Alcance {
   return 'lectura';
 }
 
+/**
+ * El alcance leído de la PISTA del token (`mkoag_e_…a1b2`), sin el texto plano.
+ *
+ * Existe desde el 09/10/2026, cuando el token principal dejó de guardarse en claro: en la
+ * base queda su hash y esta pista, y la pantalla (y `ver_estado_agente_claude`) tienen que
+ * poder decir qué puede hacer el token sin tenerlo. Lee lo MISMO que `alcanceDeToken`
+ * —el prefijo— y con la misma regla fail-closed: lo que no es un prefijo conocido es
+ * `lectura`, y el formato viejo sin letra (`mkoag_…`) es `proponer`.
+ */
+export function alcanceDePista(pista: string): Alcance {
+  const p = (pista ?? '').trim();
+  const m = /^mkoag_([lpe])_…/i.exec(p);
+  if (m) return m[1].toLowerCase() === 'e' ? 'ejecutar' : m[1].toLowerCase() === 'p' ? 'proponer' : 'lectura';
+  if (/^mkoag_…/i.test(p)) return 'proponer';
+  return 'lectura';
+}
+
 /** El prefijo con el que se acuña un token de este alcance. */
 export const prefijoDeAlcance = (alcance: Alcance): string => `mkoag_${LETRA[alcance]}_`;
 

@@ -21,8 +21,7 @@ import { cambiarSettingSi, getSetting, getSettingEstricto } from '@/lib/settings
 import { runWithWorkspace } from '@/lib/workspace';
 import { upsertRouting, wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { conReintentoTransitorio } from '@/lib/webhook-ruteo-huella';
-import { getAgenteToken, revocarAgenteToken, wsPorAgenteToken } from '@/lib/agente-token';
-import { alcanceDeToken } from './alcance';
+import { revocarAgenteToken, tokenAgenteVisible, wsPorAgenteToken } from '@/lib/agente-token';
 import { AREAS } from './tipos';
 import type { Permisos } from './permisos';
 import { marcarUso, olvidarUso } from './tokens-uso';
@@ -83,11 +82,11 @@ export async function listarTokens(ws: number): Promise<TokensDelWorkspace> {
     const [raw, rawUsos, principal] = await Promise.all([
       getSettingEstricto(API_TOKENS_KEY),
       getSetting(API_TOKENS_USO_KEY),
-      getAgenteToken(ws),
+      tokenAgenteVisible(ws),
     ]);
     const usos = parsearUsos(rawUsos);
     return {
-      principal: principal ? { alcance: alcanceDeToken(principal), pista: pistaDe(principal), ultimoUso: usos[ID_PRINCIPAL] ?? null } : null,
+      principal: principal ? { alcance: principal.alcance, pista: principal.pista, ultimoUso: usos[ID_PRINCIPAL] ?? null } : null,
       tokens: aPublico(leerLista(raw), usos, Date.now()),
     };
   });

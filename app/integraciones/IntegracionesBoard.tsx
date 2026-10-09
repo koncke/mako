@@ -31,6 +31,7 @@ import type { MetaHealth } from '@/lib/meta-health-ui';
 import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible, ordenIA, IA_ORDEN, esIAdePago } from '@/lib/ia-labels';
 import type { CuotaProv } from '@/lib/ia-cuotas';
 import { TutorialAgente, CODE } from '../_components/TutorialAgente';
+import type { TokenAgenteVisible } from '@/lib/agente-token-nucleo';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import ServicioConfigForm, { IconBtn } from './ServicioConfigForm';
@@ -158,7 +159,7 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, cuotas = [], agenteToken, appUrl, pixel }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, cuotas = [], agenteActual, appUrl, pixel }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
@@ -169,8 +170,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   landingVieja?: boolean;
   /** Cuota gratis consumida hoy por cada IA barata (gauge "cuánto queda"). */
   cuotas?: CuotaProv[];
-  /** Token del agente externo (Claude Code). null = todavía no acuñó ninguno. */
-  agenteToken?: string | null;
+  /** Token del agente externo (Claude Code): sólo su pista y su alcance —el token no está
+   *  guardado desde el 09/10/2026—. null = todavía no acuñó ninguno. */
+  agenteActual?: TokenAgenteVisible | null;
   /** URL absoluta de la app, para embeberla en la skill que se copia. */
   appUrl?: string;
   /**
@@ -494,7 +496,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
           snippetLanding={snippetLanding}
           pixel={pixel}
-          agenteToken={agenteToken ?? null}
+          agenteActual={agenteActual ?? null}
           appUrl={appUrl ?? ''}
           onClose={() => setModal(null)}
           // Al guardar saldo/créditos: refetch del uso (client) + refresh del server
@@ -1246,13 +1248,13 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   );
 }
 
-function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, pixel, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
+function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, pixel, agenteActual, appUrl, onClose, onCambio, onRefetchUsage }: {
   i: Integracion; sev: 'good' | 'warn' | 'bad';
   /** Reemplaza la palabra del chip cuando el estado tiene un nombre propio ("Falta permiso"). */
   chipWord?: string;
   /** Permiso real de la agenda de Google (lo pide el board una vez, ver arriba). */
   gcal: GoogleCalendarStatus | null;
-  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; pixel?: DatosPixel; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
+  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; pixel?: DatosPixel; agenteActual?: TokenAgenteVisible | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
   // El workspace de la pestaña, para que el OAuth de Google sepa a QUIÉN le está
   // conectando la agenda: es un redirect de página entera y el `?ws=` no viaja solo.
@@ -1430,7 +1432,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
           {i.key === 'google' && <PermisoGoogleCalendar conectada={i.estado === 'conectada'} estado={gcal} />}
 
           {esAgente ? (
-            <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
+            <TutorialAgente actual={agenteActual ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
             <>
               <CodigoLanding snippet={snippetLanding ?? null} pixel={pixel}

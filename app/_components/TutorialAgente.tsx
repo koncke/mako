@@ -26,8 +26,9 @@
 
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { AGENTE_TOKEN_ARCHIVO } from '@/lib/agente-constantes';
-import { TEXTO_ALCANCE, alcanceDeToken } from '@/lib/api-mako/alcance';
+import { TEXTO_ALCANCE } from '@/lib/api-mako/alcance';
 import type { Alcance } from '@/lib/api-mako/tipos';
+import type { TokenAgenteVisible } from '@/lib/agente-token-nucleo';
 import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
 
 /** Los dos comandos del método normal. Son CONSTANTES —no dependen del cliente— porque
@@ -66,7 +67,7 @@ export const CODE = {
  *  que copia bien y nunca confirma — y eso se lee como que no funcionó. */
 type Copiable = 'token' | 'comando-1' | 'comando-2' | 'pedido-app';
 
-export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
+export function TutorialAgente({ actual: actualInicial, appUrl }: { actual: TokenAgenteVisible | null; appUrl: string }) {
   /**
    * LA URL QUE VA ADENTRO DE LA SKILL, con red propia.
    *
@@ -87,7 +88,13 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   const origen = typeof window !== 'undefined' ? window.location.origin : '';
   const enLocal = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|$)/.test(origen);
   const base = ((enLocal ? origen : appUrl) || origen).replace(/\/+$/, '');
-  const [token, setToken] = useState<string | null>(tokenInicial);
+  // EL TOKEN SE VE UNA SOLA VEZ (09/10/2026). En la base queda su hash y una pista
+  // (lib/agente-token-nucleo.ts), así que del server baja sólo `actual` —pista y alcance— y
+  // el valor existe en esta pantalla únicamente en `recien`, entre la respuesta del POST que
+  // lo acuñó y el cierre del modal. Después no hay de dónde volver a sacarlo: quien lo
+  // perdió genera otro, que deja sin efecto al anterior.
+  const [actual, setActual] = useState<TokenAgenteVisible | null>(actualInicial);
+  const [recien, setRecien] = useState<string | null>(null);
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<Copiable | null>(null);
@@ -100,10 +107,9 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   // El alcance del token (lib/api-mako/alcance.ts). Default `proponer`: es lo que
   // los tokens siempre hicieron. `ejecutar` se elige a propósito, con el texto de lo
   // que significa a la vista, y viaja en el prefijo del token: rotar lo resetea.
-  const [alcance, setAlcance] = useState<Alcance>(() => (tokenInicial ? alcanceDeToken(tokenInicial) : 'proponer'));
+  const [alcance, setAlcance] = useState<Alcance>(() => actualInicial?.alcance ?? 'proponer');
 
-
-  const listo = !!token;
+  const listo = !!actual;
 
   // ⚠️ EL 409 NO ES UN ERROR: ES LA PUERTA. `/api/agente/token` responde
   // `necesitaConsentimiento` cuando el workspace todavía no aceptó el trato, y la única
@@ -120,7 +126,12 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
         body: JSON.stringify(acepto ? { acepto: true, alcance } : { alcance }),
       });
       const j = await r.json();
-      if (j?.ok) { setToken(j.token as string); setVerTrato(false); return; }
+      if (j?.ok) {
+        setRecien(j.token as string);
+        setActual({ pista: j.pista as string, alcance: j.alcance as Alcance });
+        setVerTrato(false);
+        return;
+      }
       if (j?.necesitaConsentimiento) { setVerTrato(true); return; }
       setError(j?.error === 'sin workspace (entra como un cliente)' ? 'Entra a un cliente para generar su token.' : (j?.error ?? 'No se pudo generar.'));
     } catch { setError('No se pudo generar. Revisa tu conexión.'); }
@@ -213,16 +224,32 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
         {/* PASO 1 — token */}
         {paso(1, 'Genera tu token de conexión', listo ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <code style={{ fontFamily: MONO, fontSize: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', color: 'var(--dim)', userSelect: 'all', wordBreak: 'break-all', flex: '1 1 200px', minWidth: 0 }}>{token}</code>
-              <button type="button" style={btnSecundario} onClick={() => copiar('token', token!)}>{copiado === 'token' ? '¡Copiado!' : 'Copiar'}</button>
-              <button type="button" style={{ ...btnSecundario, color: 'var(--faint)' }} onClick={() => void generar(true)} disabled={generando} title="Genera uno nuevo e invalida el anterior">{generando ? 'Rotando…' : 'Rotar'}</button>
-            </div>
-            <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Es una credencial: identifica tu espacio. Claude lo guarda en {AGENTE_TOKEN_ARCHIVO} y no viaja en la skill. Si lo rotas, el anterior deja de funcionar.</span>
+            {recien ? (
+              <>
+                {/* Recién acuñado: es la ÚNICA vez que se ve. El aviso va pegado al valor y
+                    en tinta de advertencia, antes de que la persona cierre. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <code style={{ fontFamily: MONO, fontSize: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', color: 'var(--dim)', userSelect: 'all', wordBreak: 'break-all', flex: '1 1 200px', minWidth: 0 }}>{recien}</code>
+                  <button type="button" style={btnSecundario} onClick={() => copiar('token', recien)}>{copiado === 'token' ? '¡Copiado!' : 'Copiar'}</button>
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--warn)', fontWeight: 600, lineHeight: 1.5 }}>Cópialo ahora: no se vuelve a mostrar.</span>
+              </>
+            ) : (
+              // Ya existía: se muestra la PISTA (el prefijo y los últimos 4) para reconocerlo.
+              // No es copiable a propósito: no sirve como token.
+              <code style={{ fontFamily: MONO, fontSize: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', color: 'var(--dim)', alignSelf: 'flex-start' }}>{actual!.pista}</code>
+            )}
+            <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Es una credencial: identifica tu espacio. Claude lo guarda en {AGENTE_TOKEN_ARCHIVO} y no viaja en la skill.</span>
             <span style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>
-              Este token: <strong style={{ color: 'var(--ink)' }}>{TEXTO_ALCANCE[alcanceDeToken(token!)].titulo}</strong>. Para cambiarlo, elige otra opción y rótalo.
+              Este token: <strong style={{ color: 'var(--ink)' }}>{TEXTO_ALCANCE[actual!.alcance].titulo}</strong>. Para cambiarlo, elige otra opción y genera otro.
             </span>
             {elegirAlcance}
+            {/* La consecuencia va PEGADA al botón, no en un párrafo de arriba: generar otro
+                deja sin efecto el que Claude ya tiene guardado. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+              <button type="button" style={btnSecundario} onClick={() => void generar(true)} disabled={generando} title="Genera uno nuevo e invalida el anterior">{generando ? 'Generando…' : 'Generar otro'}</button>
+              <span style={{ fontSize: 12, color: 'var(--ink)' }}>El anterior deja de funcionar.</span>
+            </div>
           </div>
         ) : (
           verTrato ? trato : (

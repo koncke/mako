@@ -28,7 +28,7 @@ import { requireRolWs } from '@/lib/tab-access';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { BotonExportar } from './BotonExportar';
 import { BotonClaude } from './BotonClaude';
-import { getAgenteToken } from '@/lib/agente-token';
+import { tokenAgenteVisible } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { TemaOscuro } from '@/app/_components/TemaOscuro';
 import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
@@ -69,7 +69,8 @@ export default async function SecondBrainPage() {
     </p>
   );
   const ws = await getWorkspaceActual();
-  const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);
+  // Sólo la pista y el alcance: el token se muestra una vez, al acuñarlo (09/10/2026).
+  const agenteActual = ws == null ? null : await tokenAgenteVisible(ws).catch(() => null);
   // ⚠️ ACÁ SE ENTREGABA UNA SKILL ROTA. Esto leía `NEXT_PUBLIC_BASE_URL`, una variable
   // que NO EXISTE en ningún lado del repo ni de Vercel — las que existen son
   // `APP_BASE_URL` y `NEXT_PUBLIC_APP_URL`, y las dos las resuelve `lib/app-url.ts`.
@@ -98,7 +99,7 @@ export default async function SecondBrainPage() {
       <VistaCerebro
         cerebro={cerebro}
         funnelPanel={funnelPanel}
-        agenteToken={agenteToken}
+        agenteActual={agenteActual}
         appUrl={appUrl}
       />
     </Pagina>

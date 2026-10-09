@@ -22,7 +22,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { bearerDe, wsDelBearer, getAgenteToken } from '@/lib/agente-token';
+import { bearerDe, wsDelBearer } from '@/lib/agente-token';
 import { agenteSkillMarkdown, AGENTE_SKILL_ARCHIVO } from '@/lib/agente-skill';
 import { APP_BASE_URL } from '@/lib/app-url';
 
@@ -37,10 +37,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
   }
 
-  // Se relee el token vigente del workspace en vez de reusar el del header. Son el
-  // mismo valor —`wsPorAgenteToken` ya lo verificó— pero así el archivo que se entrega
-  // sale SIEMPRE de la fuente de verdad, y no de lo que mandó el que pidió.
-  const vigente = (await getAgenteToken(ws)) ?? token;
+  // El archivo lleva el bearer PRESENTADO. `wsDelBearer` sólo deja pasar el token PRINCIPAL
+  // vigente (resuelve con `wsPorAgenteToken`, que no conoce los tokens con nombre: ver
+  // tests/api-mako-tokens.test.ts), así que el que pidió ES el principal y ya lo tiene en la
+  // mano. Antes se releía del setting «para salir de la fuente de verdad»; desde el
+  // 09/10/2026 el setting guarda sólo el hash y no hay de dónde releerlo.
+  const vigente = token;
 
   // La URL base se toma del REQUEST y no del entorno: la skill que se baja desde
   // localhost tiene que apuntar a localhost. `APP_BASE_URL` queda de respaldo por si
