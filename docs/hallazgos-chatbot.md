@@ -1442,6 +1442,127 @@ lienzo 10 minutos en vez de fallar al ver la URL. Un arnés que espera un select
 - Las posiciones (lo movido, la suelta, «Acomodar») siguen afuera de Ctrl+Z: «Acomodar» trae su deshacer
   en un aviso; mover una tarjeta, no.
 - La papelera del círculo aparece al pasar el cursor por la tarjeta (o con la tarjeta elegida), no siempre.
+## Sexta tanda (09/10/2026, parte «disparadores»): varios CRON por automatización
+
+Una automatización tiene ahora una LISTA de CRON (`nutricion_secuencias.disparadores`, mig 0241) y
+arranca por CUALQUIERA. El primero sigue viviendo también en las columnas de siempre (`trigger_tipo`,
+`etapa`, `cron`…), que leen unos quince lugares; los demás, sólo en la lista. **La regla para código
+nuevo: quien pregunta «¿esto dispara esta automatización?» recorre `vistasPorDisparador(sec)`
+(`lib/disparadores.ts`), nunca `sec.trigger_tipo` solo** — eso es el primer CRON, no la automatización.
+
+### Un Recurrente con «A quién» arrancaba TAMBIÉN por el evento [motor]
+
+Con el CRON único, una secuencia con `cron` y `trigger_tipo: 'etapa_actual'` era «cada lunes a las 9, a
+los que están en Agendado» — y `enrolarPorEvento` la inscribía además en el momento en que alguien
+entraba a Agendado, porque sólo miraba `trigger_tipo`. Con varios CRON eso deja de ser un detalle: un
+«Recurrente» y un «Producto» sobre la misma etapa son dos cosas distintas. El evento saltea los CRON con
+horario (`!s.cron`) y `disparaPorEvento` devuelve false para un horario. Medido en prod el 09/10: **cero
+secuencias con `cron`**, así que el cambio no le mueve nada a nadie hoy.
+
+**Vive en:** `lib/nutricion.ts` (`enrolarPorEvento`) · `lib/disparadores.ts` (`disparaPorEvento`)
+
+### Guardar la lista entera corría el ancla de los horarios a «ahora» [motor]
+
+Cada toque del panel (un «A quién», el evento de OTRO CRON) guarda la lista completa, y la primera
+versión recalculaba la próxima ocurrencia de todos los horarios: un «todos los lunes a las 9» guardado
+un lunes a las 10 saltaba al lunes siguiente y perdía la de hoy, o la que el motor ya había reclamado.
+`conProximas` conserva la de antes si la firma del horario de ESE CRON no cambió. Es la regla de
+AGENTS.md («un horario se ancla en la ocurrencia anterior») aplicada a un guardado que no es del horario.
+
+**Vive en:** `lib/disparadores.ts` (`conProximas`) · `lib/disparadores-guardar.ts`
+
+### Un CRON extra con horario necesita su propio compare-and-set, y sin la 0241 no existe [motor]
+
+El CAS de siempre (`.eq('cron_proxima_at', …)`) cubre sólo la columna, o sea el primero. Los horarios
+de los demás viven en el JSON: se reclaman con un CAS sobre `disparadores_rev`, que sube en cada
+escritura (`reclamarOcurrenciaExtra`). Con la 0241 sin aplicar no hay `rev`: el motor no reclama ningún
+extra y el guardado rechaza una lista de más de uno («Aún no se pueden varios CRON.») en vez de guardar
+la mitad.
+
+**Vive en:** `lib/nutricion.ts` (`comprometerInscripciones`, `reclamarOcurrenciaExtra`) · `lib/disparadores-guardar.ts`
+
+### «El grupo de MaKo» como destinatario: cómo corre un Recurrente sin lead [motor]
+
+Un Recurrente con el grupo marcado, en cada ocurrencia RECLAMADA (no en el dry-run), le manda al grupo
+de MaKo los TEXTOS de los mensajes del flujo (`textosParaElGrupo`) por `emitirAviso` (tipo
+`chatbot-aviso-equipo`, `dedupKey` por ocurrencia). No corre condiciones, esperas ni acciones: sin lead
+no hay de quién preguntar nada. Dos trampas:
+
+- **`emitirAviso` sin workspace cae al `OWNER_WS`**, que es el ws1, un CLIENTE: un Recurrente de otro
+  negocio le hablaría al grupo de Mauricio. `mandarRecurrenteAlGrupo` lee `wsEnContexto()` y sin él no
+  manda nada.
+- **El barrido sólo corre si el negocio tiene un canal prendido**: `app/api/cron/nutricion` llama a
+  `comprometerInscripciones` dentro de esa condición. Un Recurrente que sólo le habla al grupo, en un
+  negocio sin WhatsApp ni email, no sale. Es de la ruta del cron (otra parte): está en «sin hacer».
+
+**Vive en:** `lib/nutricion.ts` (`mandarRecurrenteAlGrupo`) · `lib/disparadores.ts` (`textosParaElGrupo`)
+
+### Sacar una etiqueta no avisaba nada, y la etapa no puede disparar «Se elimina» [etiquetas]
+
+`sacarEtiquetaCon` no emitía ningún evento: «Se elimina etiqueta a un lead» no tenía de dónde salir.
+Ahora emite `etiqueta_quitada` (con su clave de reclamo `etiqueta-quitada:<id>`), salvo cuando la saca
+el cambio de ETAPA: mover a un lead de columna le saca la etiqueta de la columna vieja, y eso dispararía
+«Se elimina…» en cada movimiento del kanban.
+
+**Vive en:** `lib/etiquetas-motor.ts` · `lib/etiquetas.ts`
+
+### El contrato con «canales» y «probar»: los eventos nuevos y su `subtipo` [motor]
+
+`EventoNutricion` suma `etiqueta_quitada`, `instagram`, `messenger` y `email_recibido`, y `CtxEvento`
+suma `subtipo` (Instagram: `comentario | historia | dm | anuncio | en_vivo | ref`; Messenger: `anuncio |
+comentario | dm | ref | qr | tienda`). Hoy no los emite nadie: los webhooks son de la parte «canales».
+Los eventos de anuncios se OFRECEN apagados («Todavía no»), como en ManyChat, y con el canal sin
+conectar se apagan todos con su motivo (`GET /api/chat-agent/secuencias?canales=1`). «No pude
+comprobarlo» también apaga: un evento que no puede llegar es una automatización que no arranca nunca.
+
+**Vive en:** `lib/nutricion.ts` (`EventoNutricion`, `TRIGGERS_POR_EVENTO`) · `lib/disparadores.ts` (`EVENTOS_*`) · `lib/disparadores-canales.ts`
+
+### El catálogo `TRIGGERS` no conoce los tipos nuevos [motor]
+
+`lib/email-marketing.ts` (`TRIGGERS`) es el catálogo con el que `setTriggerSecuencia` valida y con el
+que la API de MaKo nombra un disparador. Los seis tipos nuevos no están: el guardado de la lista los
+acepta (`TRIGGERS_NUEVOS`), pero `setTriggerSecuencia` los rechaza y `labelDe(TRIGGERS, …)` devuelve el
+slug crudo. Sumarlos ahí es de otra parte; mientras tanto, «Crear con IA» y la API sólo editan el
+primer CRON con los tipos de siempre.
+
+**Vive en:** `lib/email-marketing.ts` (`TRIGGERS`) · `lib/disparadores-guardar.ts`
+
+### Un test de coherencia en verde con la rotura: el saneo ya hacía el trabajo [proceso]
+
+La regla «`ignorar` sólo vale en las dos etiquetas genéricas» se probó quitándola de
+`problemaDeDisparador`, y el test siguió verde: `higiene` (el saneo) ya borraba el campo antes de
+validar. El diagnóstico obvio —«el test está flojo»— era el equivocado: la rotura no era observable por
+ese camino. Hizo falta un caso que el saneo no limpia (un `subtipo` de Messenger en un CRON de
+Instagram). Cuando un guard de validación pasa con la validación quitada, mirá primero si un saneo de
+más arriba ya la cumple.
+
+### Proceso: el scratchpad de una corrida es UNO para todas las partes [proceso]
+
+Las ocho partes de esta tanda compartían el directorio de scratchpad: un `msg1.txt` con el mensaje de
+un commit lo pisó otra parte antes del `git commit -F`. Se verificó el cuerpo después de commitear
+(`git log -1 --format=%B`) y cada parte pasó a su propia subcarpeta. Es la regla de `/tmp` de AGENTS.md,
+un nivel más adentro: un scratchpad por SESIÓN no es uno por AGENTE.
+
+### Lo que quedó sin hacer (parte «disparadores»)
+
+- **La tarjeta CRON del lienzo todavía no dibuja la lista**: `FlujoLienzo` ya tiene las props
+  (`disparadores`, `onNuevoDisparador`, `onAbrirDisparador`) y SecuenciaPerfil las llena; dibujar una
+  fila por CRON con su ícono y «＋ Nuevo CRON», y abrir el panel con ESE CRON, es de la parte «lienzo».
+  `app/chatbot/FlujoLienzo.tsx`
+- **El panel del Recurrente pide más alto**: `ALTO_EDITOR_CONTROL` de la entrada es 320 y el Recurrente
+  con «A quién» mide ~440. `lib/lienzo-grafo.ts`
+- **El barrido no corre sin un canal prendido** (ver arriba): un Recurrente sólo al grupo no sale.
+  `app/api/cron/nutricion/route.ts`
+- **Ninguna operación de la API cambia los CRON**: la ficha (`ficha_secuencia_mensajes`) los LEE;
+  `setTriggerSecuencia` y las tools de antes siguen editando sólo el primero. Y «Crear con IA» elige uno
+  solo. `lib/api-mako/areas/chatbot.def.ts` · `lib/flujo-ia.ts`
+- **Los webhooks de Instagram, Messenger y Email no emiten los eventos** (parte «canales»), y «Probar»
+  no simula un Recurrente ni un evento de canal (parte «probar»).
+- **Aplicar la 0241 ANTES del deploy** (el código la tolera ausente: dispara sólo el primer CRON).
+  Lo decide Martín. `supabase/migrations/0241_secuencia_disparadores.sql`
+- **Nada se vio con clics**: los seis botones, el Recurrente (días, calendario, reloj, huso), «A
+  quién», «Ignorar», los eventos apagados y las pastillas de dos CRON se probaron dibujando
+  (`tests/editor-disparadores.test.ts`), no en un navegador.
 
 ## Lo que quedó sin hacer
 

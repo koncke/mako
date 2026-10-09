@@ -404,13 +404,24 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
   assert.deepEqual(pedidoDisparo('trigger:no_show_j1', 7), { action: 'trigger', id: 7, trigger_tipo: 'no_show_j1' });
   assert.equal(pedidoDisparo('entrega::kick', 7), null, 'una entrega sin producto no se manda');
   // Y la pantalla: un desplegable, sin el botón, sin los rótulos de antes.
+  // ⚠️ SEXTA TANDA (varios CRON, 09/10/2026): el desplegable de producto se mudó al editor del CRON
+  // «Producto» (app/chatbot/EditorDisparadores.tsx), y se guarda la LISTA entera (`action:
+  // 'disparadores'`), no un `pedidoDisparo` por CRON. Las etiquetas salieron de este desplegable
+  // (CRON punto 3: son un CRON aparte), así que los pasos se arman SIN etiquetas.
+  // PROBADO ROMPIÉNDOLO (09/10/2026; este archivo + cron-varias-etapas + flujo-ia-arreglos +
+  // lienzo-revision, base 71 / 0): sin `BOTON_CAMPO_CRON` → 70 / 1; con las etiquetas adentro del
+  // desplegable → 70 / 1; guardando con `action: 'trigger'` → 70 / 1. Cae éste las tres veces.
   const perfil = sinComentarios(leer(PERFIL));
-  assert.doesNotMatch(perfil, /Cambiar a una etapa|setCambiandoAEtapa|Cuándo se dispara|Qué lo dispara|Solo a leads recientes|Sale sola/);
-  assert.match(perfil, /const body = pedidoDisparo\(valor, secuencia\.id\);/);
+  const editor = sinComentarios(leer('../app/chatbot/EditorDisparadores.tsx'));
+  for (const src of [perfil, editor]) {
+    assert.doesNotMatch(src, /Cambiar a una etapa|setCambiandoAEtapa|Cuándo se dispara|Qué lo dispara|Solo a leads recientes|Sale sola/);
+  }
+  assert.match(editor, /const body = \{ action: 'disparadores', secuenciaId: secuencia\.id, disparadores: nueva \};/);
+  assert.match(editor, /pasosDisparo\(\{ disparadores, productos, etiquetas: \[\], actual,/);
   // Cuarta tanda, punto 14: el desplegable elige VARIAS (`varios` con las etapas puestas y la última
   // que no se apaga) y, punto 1, es un campo grande (`BOTON_CAMPO_CRON`). El botón sigue diciendo lo
   // puesto con `rotuloDisparo`.
-  assert.match(perfil, /<Dropdown\s+value=\{valorDisparo\(disparo\)\} secciones=\{secciones\} search width="100%"\s+varios=\{valoresDisparo\(disparo\)\} minimo=\{1\} buttonStyle=\{BOTON_CAMPO_CRON\}\s+botonLabel=\{rotuloDisparo\(secciones, valorDisparo\(disparo\), textoActualDisparo\)\}/);
+  assert.match(editor, /<Dropdown\s+value=\{valor\} secciones=\{deProductos\} search width="100%"\s+varios=\{valor \? valoresDisparo\(actual\) : \[\]\} minimo=\{1\} buttonStyle=\{BOTON_CAMPO_CRON\}\s+botonLabel=\{valor \? rotuloDisparo\(conRaiz, valor, textos\.deSiempre\(d\)\) : 'Elige la etapa'\}/);
 });
 
 test('`seccionesDisparo` (el catálogo PLANO que lee «Crear con IA»): el de antes, sin «Eventos», y con los valores de los pasos', () => {

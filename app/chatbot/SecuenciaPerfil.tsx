@@ -21,8 +21,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
-import { EditorCron, SelectorDisparo, CRON_DEFAULT } from '@/app/_components/EditorCron';
-import type { CronAviso } from '@/lib/cron-aviso';
+// LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
+// Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
+import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
+import { disparoActualDe, iconoDeDisparador } from '@/lib/disparadores';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
@@ -42,12 +44,9 @@ import type { Muelles } from '@/lib/lienzo-grafo';
 import { legadoAGrafo, esFlujoExplicito } from '@/lib/flujo-legado';
 import {
   insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, tarjetaDelError, estrategiaConLimpieza,
-  detalleDisparador, pasosDisparo, valorDisparo, pedidoDisparo, disparoDeValor, nombreEtiqueta,
-  rotuloDisparo, canalesParaProbar, frenoDelFlujo, valoresDisparo, valoresTrasTocar, valorDeVarios,
-  type QueAgregar, type DisparoActual,
+  disparoDeValor, canalesParaProbar, frenoDelFlujo,
+  type QueAgregar,
 } from '@/lib/flujo-conversacion';
-import { etapasDe } from '@/lib/nutricion-etapa';
-import { Field } from '@/app/_ui';
 import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
 import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 
@@ -80,44 +79,6 @@ const tarjetaChrome: CSSProperties = {
  * vuelve a ofrecer, que es lo que «una vez por visita» quiere decir.
  */
 const guiaOfrecida = { enLaVisita: false };
-
-/** El disparador que trae la FILA (la prop), en la forma que usa el desplegable del CRON. */
-export function disparoDeSecuencia(s: Pick<SecuenciaDto, 'trigger_tipo' | 'etapa' | 'funnel_id' | 'producto_id' | 'etiqueta_id'> & { etapas?: readonly string[] | null }): DisparoActual {
-  return {
-    trigger_tipo: s.trigger_tipo, etapa: s.etapa,
-    funnel_id: s.funnel_id ?? null, producto_id: s.producto_id ?? null, etiqueta_id: s.etiqueta_id ?? null,
-    // VARIAS etapas (cuarta tanda, punto 14). La fila trae la lista cruda; cuáles disparan lo dice `etapasDe`.
-    etapas: s.etapas ?? null,
-  };
-}
-
-/**
- * Lo que distingue un disparador de otro: si cambia en la prop, el CRON se vuelve a sembrar. Las etapas
- * entran como las que DISPARAN (`etapasDe`), no como la lista cruda: la relectura trae `[]` y lo
- * pintado al elegir una sola trae `null`, y son el mismo disparador.
- */
-export const firmaDisparo = (d: DisparoActual): string =>
-  [d.trigger_tipo, d.etapa ?? '', d.funnel_id ?? '', d.producto_id ?? '', d.etiqueta_id ?? '', etapasDe(d).join(',')].join('|');
-
-/**
- * Cuánto espera el CRON antes de guardar las etapas elegidas (punto 14). Con varias, cada toque cambia
- * el conjunto: guardar cada uno eran N pedidos, y la relectura del primero volvía a sembrar el
- * desplegable con un conjunto viejo mientras la persona seguía tocando (el ajuste de la firma). Con
- * el respiro sale UN pedido con el conjunto final.
- */
-const RESPIRO_DISPARO_MS = 500;
-
-/** El rótulo de un campo del editor del CRON (punto 1): corto, arriba, como el resto de la casa. */
-function CampoCron({ rotulo, children }: { rotulo: string; children: ReactNode }) {
-  return <Field label={rotulo}>{children}</Field>;
-}
-
-/**
- * EL CAMPO GRANDE del desplegable del CRON (punto 1: «tanto espacio en blanco y un desplegable chico
- * arriba del todo»). El selector es el protagonista del panel: ancho completo y con el alto y la letra
- * de un campo, no de un menú de fila.
- */
-const BOTON_CAMPO_CRON: CSSProperties = { minHeight: 44, padding: '11px 14px', fontSize: 14.5 };
 
 /** La edición en curso de una automatización, tal como la ve el lienzo. */
 export type EdicionLocal = {
@@ -270,108 +231,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   }, [cambiosPropios]);
 
   /**
-   * CÓMO SE DISPARA: POR TIEMPO O POR UNA ACCIÓN.
+   * LOS CRON DE LA AUTOMATIZACIÓN (sexta tanda, CRON punto 10: «agrega la opción de tener más de un
+   * CRON»). La lista —optimista, guardada UNA vez por respiro y vuelta a sembrar cuando el server la
+   * cambia sin un guardado en camino— vive en `useDisparadores` (app/chatbot/EditorDisparadores.tsx),
+   * y el panel en `EditorDisparadores`. Reemplaza al par «Por tiempo» / «Por una acción» (CRON punto
+   * 2): el horario es de un CRON «Recurrente», no de la automatización.
    *
-   * ⚠️ `eligiendo` ES UN ESTADO PROPIO Y NO SE DERIVA DEL DATO. Toda secuencia tiene
-   * `trigger_tipo`, así que «qué hay guardado» siempre contesta tiempo o acción y los
-   * dos botones no aparecerían NUNCA: cambiar de modo sería imposible. La flecha pone
-   * esto en true, que es lo que vuelve a la elección.
+   * `disparo` es el PRIMERO en la forma de siempre: lo leen «Probar» (`trigger_tipo`), el catálogo de
+   * las condiciones (`triggerTipo` del lienzo) y «Crear con IA». `setErr` va en una flecha: se declara
+   * más abajo, y pasarlo pelado acá sería leerlo antes de que exista.
    */
-  const [eligiendo, setEligiendo] = useState(false);
-
-  /**
-   * ⚠️ EL HORARIO SE PINTA OPTIMISTA, Y NO ES UN LUJO: MEDIDO, TARDABA 6 SEGUNDOS.
-   *
-   * `onCambio()` recarga el GET entero de la tab, así que esperar la vuelta para dibujar el
-   * editor del horario deja el botón «Por tiempo» sin efecto visible por 4-6 s, y un botón
-   * que hace su trabajo y te lo muestra cinco segundos después es indistinguible de uno
-   * roto. `undefined` = «todavía no tocaron nada, manda la prop»: null es un valor VÁLIDO
-   * del campo («se dispara por una acción»).
-   */
-  const [cronOptimista, setCronOptimista] = useState<CronAviso | null | undefined>(undefined);
-  const cron = cronOptimista !== undefined ? cronOptimista : (secuencia.cron ?? null);
-  const guardarCron = async (c: CronAviso | null) => {
-    setEligiendo(false);
-    const previo = cron;
-    setCronOptimista(c);
-    const j = await api({ action: 'cron', secuenciaId: secuencia.id, cron: c });
-    // Y si el server dice que no, se VUELVE. Un optimista que no revierte es una
-    // pantalla que afirma un horario que no está guardado.
-    if (!j.ok) { setCronOptimista(previo); setErr(j.error ?? 'No se pudo guardar el horario'); return; }
-    setErr(null);
-    onCambio();
-  };
-
-  /**
-   * QUÉ LA DISPARA: un desplegable con TODO lo que puede disparar una automatización
-   * (`pasosDisparo`), que reemplaza al par «texto + Cambiar a una etapa». Se guarda al
-   * elegir (POST `action: 'trigger'`, lo implementa la parte del motor) y se pinta
-   * optimista, con la vuelta si el server dice que no.
-   */
-  const [disparo, setDisparo] = useState<DisparoActual>(() => disparoDeSecuencia(secuencia));
-  /**
-   * ⚠️ Y SE VUELVE A SEMBRAR CUANDO EL SERVER LO CAMBIA (revisión de la segunda tanda, 09/10/2026).
-   * «Crear con IA» guarda el disparador que eligió el modelo en el server (`setTriggerSecuencia`) y
-   * el lienzo NO se remonta (el `key` es el id, que no cambia): con el `useState` sembrado una sola
-   * vez, la tarjeta CRON seguía diciendo «A mano», el desplegable marcaba lo de antes y «Probar»
-   * recibía el `trigger_tipo` viejo — y la pantalla donde se activa mostraba otro disparador que el
-   * que iba a inscribir. Se compara EN EL RENDER (no en un efecto, que pintaría primero lo viejo).
-   * No choca con el optimista de `tocarDisparo`: la prop sólo cambia cuando vuelve la relectura,
-   * y vuelve al mismo valor que ya se pintó — y mientras haya un guardado en camino no se siembra.
-   */
-  const firmaProp = firmaDisparo(disparoDeSecuencia(secuencia));
-  const [firmaVista, setFirmaVista] = useState(firmaProp);
-  /**
-   * Hay etapas elegidas que todavía no se guardaron (el respiro de `tocarDisparo`, o el pedido en
-   * vuelo). Mientras tanto la relectura NO vuelve a sembrar: traería el conjunto de ANTES del último
-   * toque y le borraría a la persona la etapa que acaba de marcar (cuarta tanda, punto 14).
-   */
-  const [guardandoDisparo, setGuardandoDisparo] = useState(false);
-  if (firmaProp !== firmaVista) {
-    setFirmaVista(firmaProp);
-    if (!guardandoDisparo) setDisparo(disparoDeSecuencia(secuencia));
-  }
-  /** Lo último que el server confirmó: a esto vuelve el desplegable si el guardado falla. */
-  const disparoConfirmado = useRef<DisparoActual>(disparoDeSecuencia(secuencia));
-  /** El guardado que espera su respiro (`RESPIRO_DISPARO_MS`), con lo que va a mandar. */
-  const disparoPendiente = useRef<{ t: ReturnType<typeof setTimeout>; body: Record<string, unknown> } | null>(null);
-  useEffect(() => {
-    // La prop cambió (relectura, «Crear con IA»): eso es lo confirmado, salvo que haya uno en camino.
-    if (!disparoPendiente.current) disparoConfirmado.current = disparoDeSecuencia(secuencia);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firmaProp]);
-  // Al irse (cambió de automatización, se cerró) lo que esperaba su respiro se manda igual: la
-  // persona ya lo eligió. Sin pintar nada: el componente ya no está.
-  useEffect(() => () => {
-    const p = disparoPendiente.current;
-    if (p) { clearTimeout(p.t); disparoPendiente.current = null; void api(p.body); }
-  }, []);
-  const mandarDisparo = async (body: Record<string, unknown>, nuevo: DisparoActual) => {
-    const j = await api(body);
-    // Si la persona tocó algo más mientras volvía este, decide el que viene: no se pinta ni se revierte.
-    if (disparoPendiente.current) return;
-    setGuardandoDisparo(false);
-    if (!j.ok) { setDisparo(disparoConfirmado.current); setErr(j.error ?? 'No se pudo cambiar el disparador'); return; }
-    disparoConfirmado.current = nuevo;
-    setErr(null);
-    onCambio();
-  };
-  /**
-   * TOCAR UNA OPCIÓN DEL CRON (punto 14). Una etapa del mismo kanban se prende o se apaga; una de
-   * otro kanban o una etiqueta reemplaza lo puesto (`valoresTrasTocar`). Se pinta en el acto y se
-   * guarda UNA vez, con el conjunto final, después del respiro.
-   */
-  const tocarDisparo = (tocado: string) => {
-    const valor = valorDeVarios(valoresTrasTocar(valoresDisparo(disparo), tocado));
-    const body = pedidoDisparo(valor, secuencia.id);
-    if (!body) return;
-    const nuevo = disparoDeValor(valor, disparo);
-    setDisparo(nuevo);
-    setGuardandoDisparo(true);
-    if (disparoPendiente.current) clearTimeout(disparoPendiente.current.t);
-    const t = setTimeout(() => { disparoPendiente.current = null; void mandarDisparo(body, nuevo); }, RESPIRO_DISPARO_MS);
-    disparoPendiente.current = { t, body };
-  };
+  const crons = useDisparadores(secuencia as SecuenciaConDisparadores, { onCambio, onError: (m) => setErr(m) });
+  const disparo = disparoActualDe(crons.primero);
+  /** El CRON abierto en el panel: su id, 'nuevo' (el «＋ Nuevo CRON» de la tarjeta) o null (el primero). */
+  const [cronAbierto, setCronAbierto] = useState<string | 'nuevo' | null>(null);
 
   /** El nombre, editable tocándolo. Se siembra de la prop y el `key` por secuencia del
    *  caller es lo que lo vuelve a sembrar al cambiar de secuencia. */
@@ -455,8 +328,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       if (r.nombre) setNombre(r.nombre);
       // El disparador que quedó puesto (revisión, 09/10/2026): `disparo` se siembra al montar, y sin
       // esto la tarjeta CRON seguía diciendo el de antes («manual») hasta recargar.
+      // Con varios CRON (sexta tanda), la IA pone el PRIMERO: los demás siguen como estaban.
       const puesto = r.disparador;
-      if (puesto) setDisparo((d) => disparoDeValor(puesto, d));
+      if (puesto) crons.sembrarPrimero(disparoDeValor(puesto, disparo));
       onCambio();
     } else {
       // ⚠️ SI EL LIENZO CAMBIÓ MIENTRAS LA IA TRABAJABA, NO SE PISA (revisión, 09/10/2026): el
@@ -705,33 +579,15 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setBusy(null);
   };
 
-  // ── Lo que dice la tarjeta CRON y lo que ofrece su desplegable ──
-  const todasLasEtapas = useMemo(() => productos.flatMap((p) => [...p.etapas, ...p.etapasEntrega]), [productos]);
-  /**
-   * Las etapas del KANBAN de lo puesto, para nombrarlas y para saber si son todas (punto 14). Se
-   * buscan en el kanban de su ámbito (el embudo o el producto) y no en la bolsa de todas: dos
-   * productos pueden tener una etapa con la misma clave y otro nombre.
-   */
-  const etapasDelKanban = useMemo(() => {
-    if (disparo.trigger_tipo === 'etapa_actual') return productos.find((p) => p.funnelId != null && p.funnelId === disparo.funnel_id)?.etapas ?? null;
-    if (disparo.trigger_tipo === 'entrega_actual') return productos.find((p) => p.productoId != null && p.productoId === disparo.producto_id)?.etapasEntrega ?? null;
-    return null;
-  }, [productos, disparo.trigger_tipo, disparo.funnel_id, disparo.producto_id]);
-  const nombreDe = (k: string) => (etapasDelKanban ?? todasLasEtapas).find((e) => e.value === k)?.label ?? etiquetaEtapa(k);
-  const etapasPuestas = etapasDe(disparo);
-  const nombreDelDisparo = {
-    trigger_tipo: disparo.trigger_tipo, etapa: disparo.etapa,
-    etiquetaTrigger: disparadores.find((d) => d.value === disparo.trigger_tipo)?.label ?? null,
-    nombreEtapa: disparo.etapa ? nombreDe(disparo.etapa) : null,
-    nombreEtiqueta: nombreEtiqueta(etiquetas, disparo.etiqueta_id),
-    nombresEtapas: etapasPuestas.map(nombreDe),
-    todas: !!etapasDelKanban && etapasPuestas.length >= 3 && etapasDelKanban.every((e) => etapasPuestas.includes(e.value)),
-  };
-  const textoDisparo = detalleDisparador({ ...nombreDelDisparo, cron, tz });
-  // Lo que está puesto y no está en la lista, dicho como es (sin el horario: esto es A QUIÉN). Un
-  // disparador por EVENTO de antes cae acá: se muestra, ya no se ofrece (decisión 4).
-  const textoActualDisparo = detalleDisparador({ ...nombreDelDisparo, cron: null });
-  const secciones = pasosDisparo({ disparadores, productos, etiquetas, actual: disparo, textoActual: textoActualDisparo });
+  // ── Lo que dice cada CRON (la tarjeta del lienzo, el texto del primero) ──
+  // Con los nombres de las etapas en el kanban de SU ámbito y los de las etiquetas: `useTextoDisparador`
+  // (app/chatbot/EditorDisparadores.tsx). Un disparador por EVENTO de antes se dice como es.
+  const textosCron = useTextoDisparador({ productos, etiquetas, disparadores, etiquetaEtapa, tz });
+  const textoDisparo = textosCron.texto(crons.primero);
+  /** Las filas de la tarjeta CRON (las dibuja FlujoLienzo, parte «lienzo»): una por CRON, con su ícono. */
+  const filasCron = crons.lista.map((d) => ({ id: d.id, texto: textosCron.texto(d), icono: iconoDeDisparador(d) }));
+  // Cerrar el panel olvida qué CRON estaba abierto: el próximo clic en la tarjeta abre el primero.
+  useEffect(() => { if (!tarjetaAbierta) setCronAbierto(null); }, [tarjetaAbierta]);
   /** Las etapas de VENTA de cada producto con embudo, para la fila «Está en la etapa». */
   const etapasCond: SeccionEtapas[] = productos.flatMap((pr) => (pr.funnelId == null || !pr.etapas.length ? [] : [{
     title: productos.length > 1 ? pr.nombre : 'Etapas', funnelId: pr.funnelId, options: pr.etapas,
@@ -753,25 +609,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
   /** Dónde flotan la caja y la barra de «Crear con IA» (la franja de abajo; ver el render). */
   const franja = franjaIA(muelles, { izq: insetIzq, der: insetDer });
-
-  /**
-   * EL DESPLEGABLE DEL CRON, POR PASOS (tercera tanda, decisión 4): producto → «Adquisición de
-   * clientes» / «Entrega del servicio» → la etapa (`pasosDisparo`, con `grupos` en el Dropdown).
-   * El último paso dice sólo la etapa, así que el botón cerrado lo dice entero (`rotuloDisparo`).
-   *
-   * ⚠️ ELIGE VARIAS (cuarta tanda, punto 14): `varios` marca las etapas puestas y el menú no se
-   * cierra al tocar. Dentro de UN kanban se suman y se sacan; tocar otro kanban o una etiqueta
-   * reemplaza (`valoresTrasTocar`). `minimo={1}`: la última no se apaga (un CRON sin etapa no dispara
-   * nunca). El botón dice cuáles, o «Cualquier etapa de…» si son todas (`rotuloDisparo`).
-   */
-  const desplegableDisparo = (
-    <Dropdown
-      value={valorDisparo(disparo)} secciones={secciones} search width="100%"
-      varios={valoresDisparo(disparo)} minimo={1} buttonStyle={BOTON_CAMPO_CRON}
-      botonLabel={rotuloDisparo(secciones, valorDisparo(disparo), textoActualDisparo)}
-      onChange={tocarDisparo} ariaLabel="Qué dispara esta automatización" disabled={busy != null}
-    />
-  );
 
   /**
    * «PROBAR» (tercera tanda, decisiones 13 y 14): se frena con lo mismo que Publicar
@@ -964,23 +801,22 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             )}
           </div>
         )}
+        disparadores={filasCron}
+        onNuevoDisparador={rolAdmin ? () => setCronAbierto('nuevo') : undefined}
+        onAbrirDisparador={(id) => setCronAbierto(id)}
         editorEntrada={(
           /**
-           * EL EDITOR DEL CRON (cuarta tanda, punto 1: «No me gusta que el editor del CRON como muchos
-           * otros tengan tanto espacio en blanco y un desplegable chico arriba del todo»).
+           * EL PANEL DEL CRON (sexta tanda: varios CRON, seis botones gigantes, cada uno con su editor).
+           * Vive en EditorDisparadores; acá queda lo que es de la AUTOMATIZACIÓN y no de un CRON: el
+           * número de WhatsApp por el que sale, abajo de todo (`pie`).
            *
-           * El selector es el PROTAGONISTA: un campo de ancho completo, con el alto y la letra de un
-           * campo (`BOTON_CAMPO_CRON`) y su rótulo corto ARRIBA («Cuándo arranca»), como cualquier
-           * campo de la casa (`Field`). Lo de la segunda tanda sigue: la ← para volver a elegir entre
-           * tiempo y acción, y sin los rótulos largos de antes («Cuándo se dispara», «Qué lo dispara»,
-           * «Solo a leads recientes», «Sale sola»): el punto 5 sacó las FRASES que explicaban, no el
-           * nombre del campo. Con horario hay dos campos —cuándo y a quién— y cada uno dice cuál es.
-           *
-           * Lo que mide el PANEL (que no quede aire debajo) es del lienzo (`MUELLE`, lib/lienzo-grafo.ts):
-           * acá se cuida que el contenido no deje huecos propios.
+           * Lo que mide el PANEL (que no quede aire debajo) es del lienzo (`MUELLE`, lib/lienzo-grafo.ts).
            */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {lineasWa.length > 1 && (() => {
+          <EditorDisparadores
+            lista={crons.lista} editando={cronAbierto} onEditar={setCronAbierto} onGuardar={crons.guardar}
+            productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
+            tz={tz} busy={busy != null} rolAdmin={rolAdmin}
+            pie={lineasWa.length > 1 ? (() => {
               // ⚠️ La línea guardada entra SIEMPRE a las opciones, aunque se haya ido: un
               // `value` que no está entre sus opciones se dibuja como la primera y el primer
               // clic lo pisa (AGENTS.md, el `<select>` que borra datos).
@@ -991,7 +827,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 ...(lineaSec && !lineasWa.some((l) => l.linea === lineaSec) ? [{ value: lineaSec, label: 'Un número que ya no está vinculado' }] : []),
               ];
               return (
-                <CampoCron rotulo="Número">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Número</div>
                   {rolAdmin ? (
                     <Dropdown
                       value={lineaSec && lineaSec !== porDefault.linea ? lineaSec : ''}
@@ -1004,45 +841,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                     <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>{opciones.find((o) => o.value === (lineaSec ?? ''))?.label ?? porDefault.rotulo}</div>
                   )}
                   {caidaLaSec && <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>Número desconectado</div>}
-                </CampoCron>
+                </div>
               );
-            })()}
-            {rolAdmin ? (
-              <>
-                <CampoCron rotulo="Cuándo arranca">
-                  {/* ⚠️ `SelectorDisparo` trae su `marginBottom: 12` (es compartido con /mensajes, donde
-                      va seguido de otra cosa): acá es el último renglón del campo y ese margen era aire
-                      debajo del selector, justo lo que el punto 1 vino a sacar. */}
-                  <div style={{ marginBottom: -12 }}>
-                    <SelectorDisparo
-                      modo={eligiendo ? null : (cron ? 'tiempo' : 'accion')}
-                      disabled={busy != null}
-                      onModo={(m) => {
-                        if (m === null) { setEligiendo(true); return; }
-                        // Elegir uno APAGA el otro, y es una ESCRITURA y no un `disabled`: dejar
-                        // el horario puesto y sólo grisarlo dejaría una secuencia que el motor
-                        // sigue disparando por tiempo con la pantalla diciendo otra cosa.
-                        if (m === 'tiempo' && !cron) { void guardarCron(CRON_DEFAULT); return; }
-                        if (m === 'accion' && cron) { void guardarCron(null); return; }
-                        setEligiendo(false);
-                      }}
-                      junto={cron
-                        ? <EditorCron cron={cron} tz={tz} disabled={busy != null} onCron={(c) => void guardarCron(c)} />
-                        : desplegableDisparo}
-                    />
-                  </div>
-                </CampoCron>
-                {/* ⚠️ CON HORARIO, EL DESPLEGABLE SIGUE: el horario dice CUÁNDO y esto dice A
-                    QUIÉN. Un horario sin cohorte no inscribiría a nadie, y eso se leería como
-                    que el agendado no funciona. */}
-                {cron && !eligiendo && <CampoCron rotulo="A quién">{desplegableDisparo}</CampoCron>}
-              </>
-            ) : (
-              <CampoCron rotulo="Cuándo arranca">
-                <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>{textoDisparo}</div>
-              </CampoCron>
-            )}
-          </div>
+            })() : undefined}
+          />
         )}
       />
       {/* «Tu forma de escribir», encima de todo. Al `body` porque el lienzo vive adentro

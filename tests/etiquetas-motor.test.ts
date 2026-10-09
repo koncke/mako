@@ -67,7 +67,8 @@ function negocio(opts?: { etapaDe?: Record<number, string>; leads?: number[] }) 
   const etapa = new Map<number, string>(Object.entries(opts?.etapaDe ?? { 10: 'nuevo', 11: 'nuevo', 12: 'nuevo' }).map(([k, v]) => [Number(k), v]));
   const reloj = { ahora: 0 };
   const ultimoDisparo = new Map<string, number>();
-  const log = { historial: [] as string[], disparos: [] as string[], movimientos: [] as string[], sync: [] as string[] };
+  // `disparos` = los de PONER (lo de siempre); `quitadas` = los de SACAR (sexta tanda, CRON punto 3).
+  const log = { historial: [] as string[], disparos: [] as string[], quitadas: [] as string[], movimientos: [] as string[], sync: [] as string[] };
 
   const p: PuertosEtiquetas<Fila> = {
     etiqueta: async (id) => etiquetas.get(id) ?? null,
@@ -78,14 +79,14 @@ function negocio(opts?: { etapaDe?: Record<number, string>; leads?: number[] }) 
     borrarLote: async (ids, e) => ids.filter((l) => filas.delete(`${l}:${e}`)),
     historial: async (l, t) => { log.historial.push(`${l}:${t}`); },
     historialLote: async (ids, t) => { for (const l of ids) log.historial.push(`${l}:${t}`); },
-    reclamarDisparo: async (e, l, min) => {
-      const k = `${e}:${l}`;
+    reclamarDisparo: async (e, l, min, accion = 'poner') => {
+      const k = `${accion}:${e}:${l}`;
       const prev = ultimoDisparo.get(k);
       if (prev != null && reloj.ahora - prev < min * 60_000) return false;
       ultimoDisparo.set(k, reloj.ahora);
       return true;
     },
-    disparar: async (l, e) => { log.disparos.push(`${l}:${e}`); },
+    disparar: async (l, e, accion = 'poner') => { (accion === 'sacar' ? log.quitadas : log.disparos).push(`${l}:${e}`); },
     // El movimiento llama al gancho de la etapa, como setBoardStageOverride en producción. Con un
     // tope: si el espejo entrara en bucle, el test lo dice en vez de colgarse.
     moverAEtapa: async (l, f, k, autor) => {
@@ -122,15 +123,20 @@ test('poner es IDEMPOTENTE: la segunda vez contesta yaEstaba y no hace nada más
   assert.equal(n.log.sync.length, 1, 'no le pega dos veces a WhatsApp (el eco de su propio cambio)');
 });
 
-test('sacar también es idempotente, no dispara y saca de WhatsApp', async () => {
+// Sexta tanda (09/10/2026, CRON punto 3: «Se elimina etiqueta a un lead»): sacar DISPARA su propio
+// evento, con los mismos cortes que poner (no en lote, no si la sacó salir de la etapa, espaciado).
+// Rotura: `sacarEtiquetaCon` sin el disparo → 10 / 1 (éste); sin el corte de `origen: 'etapa'` en el
+// sacar → 10 / 1 (el del espejo, que ahora cuenta las quitadas).
+test('sacar también es idempotente, DISPARA «Se elimina etiqueta» una vez y saca de WhatsApp', async () => {
   const n = negocio();
   await ponerEtiquetaCon(n.p, 10, 1, O);
   const a = await sacarEtiquetaCon(n.p, 10, 1, O);
-  assert.ok(a.ok && !a.yaEstaba && a.disparo === 'no');
+  assert.ok(a.ok && !a.yaEstaba && a.disparo === 'si');
   const b = await sacarEtiquetaCon(n.p, 10, 1, O);
   assert.ok(b.ok && b.yaEstaba, 'sacar la que ya no tiene es yaEstaba');
   assert.deepEqual(n.log.sync, ['poner:10:1', 'sacar:10:1']);
-  assert.equal(n.log.disparos.length, 1, 'sólo el poner disparó');
+  assert.equal(n.log.disparos.length, 1, 'sólo el poner disparó «se le puso»');
+  assert.deepEqual(n.log.quitadas, ['10:1'], 'sacar no disparó «se elimina etiqueta» (o lo disparó dos veces)');
 });
 
 test('ESPACIADO: poner, sacar y poner en menos de 30 s dispara UNA vez; pasado el tiempo, otra', async () => {
@@ -164,6 +170,7 @@ test('LOTE: pone a todos, deja historial, NO dispara ni mueve de etapa, y cuenta
   const d = await sacarLoteCon(n.p, [10, 12], 2, O.autor);
   assert.deepEqual(d.ok && d.cambiados, [10, 12]);
   assert.ok(n.filas.has('11:2'), 'el que ya la tenía antes del lote la conserva');
+  assert.equal(n.log.quitadas.length, 0, 'sacar en lote tampoco dispara «Se elimina etiqueta a un lead»');
 });
 
 test('ESPEJO sin bucle: poner una vinculada mueve a la etapa UNA vez, y el gancho no la vuelve a poner', async () => {
@@ -188,6 +195,9 @@ test('ESPEJO desde la etapa: entrar la pone (sin disparar), salir la saca', asyn
   assert.deepEqual({ puestas: s.puestas, sacadas: s.sacadas }, { puestas: 1, sacadas: 1 });
   assert.deepEqual(s.cambios, [{ leadId: 10, etiquetaId: 3, accion: 'sacar' }, { leadId: 10, etiquetaId: 2, accion: 'poner' }]);
   assert.ok(!n.filas.has('10:3') && n.filas.has('10:2'));
+  // La que SACA salir de la etapa tampoco dispara (sexta tanda): mover 200 leads de etapa en la
+  // barra del CRM sacaría 200 espejadas, un envío masivo por la puerta de atrás.
+  assert.equal(n.log.quitadas.length, 0, 'la que saca una etapa dispara «Se elimina etiqueta»');
   // Una etapa de OTRO producto con la misma key no toca las del negocio.
   const otro = await espejarEtapaCon(n.p, 11, 77, 'nuevo', 'agenda', 'MaKo');
   assert.deepEqual({ puestas: otro.puestas, sacadas: otro.sacadas, cambios: otro.cambios }, { puestas: 0, sacadas: 0, cambios: [] });

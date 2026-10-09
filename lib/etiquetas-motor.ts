@@ -61,10 +61,18 @@ export type PuertosEtiquetas<E extends EtiquetaMotor = EtiquetaMotor> = {
   /** Una línea en el historial del lead (lead_audit). */
   historial: (leadId: number, texto: string, autor: string) => Promise<void>;
   historialLote: (leadIds: number[], texto: string, autor: string) => Promise<void>;
-  /** El espaciado de 30 s por (etiqueta, lead): true = este disparo se lo lleva; false = ya hubo uno. */
-  reclamarDisparo: (etiquetaId: number, leadId: number, minutos: number) => Promise<boolean>;
-  /** Las automatizaciones «cuando se le pone esta etiqueta» (enrolarPorEvento, parte M). */
-  disparar: (leadId: number, etiquetaId: number) => Promise<void>;
+  /**
+   * El espaciado de 30 s por (etiqueta, lead): true = este disparo se lo lleva; false = ya hubo uno.
+   * `accion` separa poner de sacar (sexta tanda): son dos eventos, y sacar una etiqueta a los 10 s de
+   * ponerla no es «el mismo disparo otra vez». Ausente = poner, lo de siempre.
+   */
+  reclamarDisparo: (etiquetaId: number, leadId: number, minutos: number, accion?: 'poner' | 'sacar') => Promise<boolean>;
+  /**
+   * Las automatizaciones «cuando se le pone esta etiqueta» y, desde la sexta tanda (CRON punto 3),
+   * «Se agrega / se elimina etiqueta a un lead» (`enrolarPorEvento` con 'etiqueta' o
+   * 'etiqueta_quitada', lib/nutricion.ts; el «Ignorar» lo mira el motor). Ausente = poner.
+   */
+  disparar: (leadId: number, etiquetaId: number, accion?: 'poner' | 'sacar') => Promise<void>;
   /**
    * Mueve al lead a la etapa vinculada. `motivo` = por qué NO se movió (no está en ese producto, la
    * etapa ya no existe, es un desenlace). Quien mueve llama al espejo (`espejarEtapaCon`) desde el
@@ -150,9 +158,16 @@ export async function ponerEtiquetaCon<E extends EtiquetaMotor>(p: PuertosEtique
 }
 
 /**
- * Saca UNA etiqueta a UN lead. No dispara nada ni mueve de etapa: no hay un «a dónde» natural
- * cuando se saca una etiqueta vinculada, y adivinarlo sería mover al lead por una inferencia.
- * Una etiqueta ARCHIVADA se puede sacar (es la forma de limpiarla de un lead).
+ * Saca UNA etiqueta a UN lead. No mueve de etapa: no hay un «a dónde» natural cuando se saca una
+ * etiqueta vinculada, y adivinarlo sería mover al lead por una inferencia. Una etiqueta ARCHIVADA
+ * se puede sacar (es la forma de limpiarla de un lead).
+ *
+ * ⚠️ Y DESDE LA SEXTA TANDA DISPARA «Se elimina etiqueta a un lead» (CRON punto 3: «las
+ * automatizaciones que tengan esas opciones se dispararán cada que se agregue o elimine una
+ * etiqueta»), con los MISMOS cortes que poner y por lo mismo: no en lote, no cuando la sacó SALIR de
+ * la etapa vinculada (`origen: 'etapa'`: el evento de ese movimiento es la etapa), y espaciado 30 s
+ * por (etiqueta, lead) con su propia clave. Sin el corte de la etapa, mover 200 leads de etapa desde
+ * la barra del CRM sacaba 200 etiquetas espejadas y era un envío masivo por la puerta de atrás.
  */
 export async function sacarEtiquetaCon<E extends EtiquetaMotor>(p: PuertosEtiquetas<E>, leadId: number, etiquetaId: number, o: OpcionesPoner): Promise<ResultadoPoner> {
   const e = await p.etiqueta(etiquetaId);
@@ -160,9 +175,17 @@ export async function sacarEtiquetaCon<E extends EtiquetaMotor>(p: PuertosEtique
   if (!(await p.leadExiste(leadId))) return { ok: false, error: 'Ese lead no existe en este negocio.' };
   if (!(await p.borrar(leadId, etiquetaId))) return nada(true);
   await p.historial(leadId, `Se sacó «${e.nombre}»`, o.autor);
+  let disparo: 'si' | 'espaciado' | 'no' = 'no';
+  if (o.origen !== 'etapa') {
+    disparo = 'espaciado';
+    if (await p.reclamarDisparo(etiquetaId, leadId, ESPACIADO_DISPARO_MIN, 'sacar')) {
+      await p.disparar(leadId, etiquetaId, 'sacar');
+      disparo = 'si';
+    }
+  }
   const sync = o.sincronizar === false ? [] : await p.sincronizar(leadId, e, 'sacar');
   await anotarSync(p, leadId, e, 'sacar', sync);
-  return { ok: true, yaEstaba: false, disparo: 'no', movio: false, sync };
+  return { ok: true, yaEstaba: false, disparo, movio: false, sync };
 }
 
 /** Un cambio que el espejo HIZO en la base y que todavía no se pasó a WhatsApp. */

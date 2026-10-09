@@ -151,6 +151,10 @@ test('lib/etiquetas.ts: el disparo es el evento de la parte M, y ningún error s
   const src = sinComentarios(leer('lib/etiquetas.ts'));
   assert.match(src, /await import\('\.\/nutricion'\)/);
   assert.match(src, /enrolarPorEvento\(leadId, 'etiqueta', \{ etiquetaId \}\)/);
+  // Sexta tanda (CRON punto 3): sacar dispara «Se elimina etiqueta a un lead». Rotura (09/10/2026):
+  // el puerto llamando con 'etiqueta' también al sacar → 16 / 1, cae acá (el motor de mentira de
+  // tests/etiquetas-motor.test.ts no ve el puerto real).
+  assert.match(src, /if \(accion === 'sacar'\) await mod\.enrolarPorEvento\(leadId, 'etiqueta_quitada', \{ etiquetaId \}\);/);
   assert.doesNotMatch(src, /\.catch\(\(\) => \{\s*\}\)/, 'un .catch(() => {}) mudo es el patrón que dejó la sincronización vieja sin rastro');
   assert.doesNotMatch(src, /^\s*void /m, 'lo que sincroniza afuera se ESPERA');
 });
