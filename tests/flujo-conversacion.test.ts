@@ -370,9 +370,11 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
     etiquetas: [{ id: 3, nombre: 'Cualificado' }, { id: 4, nombre: 'Vieja', archivada_at: '2026-01-01' }],
     actual: { trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 }, textoActual: 'x',
   });
-  // La raíz: los PRODUCTOS (sólo el nombre) y las etiquetas. Ni «Eventos» ni «Etapa · …».
-  assert.deepEqual(secs.map((s) => s.title), ['Mentoría', 'Servicio', 'Etiquetas']);
-  const prod = (t: string) => secs.find((s) => s.title === t)!;
+  // La raíz: «Productos» y «Etiquetas» (cuarta tanda, punto 2). Ni «Eventos» ni «La que tiene puesta».
+  assert.deepEqual(secs.map((s) => s.title), ['Productos', 'Etiquetas']);
+  const raiz = (t: string) => secs.find((s) => s.title === t)!;
+  assert.deepEqual(raiz('Productos').grupos!.map((g) => g.title), ['Mentoría', 'Servicio'], 'adentro de «Productos», el nombre de cada uno');
+  const prod = (t: string) => raiz('Productos').grupos!.find((s) => s.title === t) ?? raiz(t);
   assert.deepEqual(prod('Mentoría').options, [], 'un producto no tiene opciones: tiene pasos');
   assert.deepEqual(prod('Mentoría').grupos!.map((g) => [g.title, g.options.map((o) => o.value)]), [
     ['Adquisición de clientes', ['venta:5:agendado']], ['Entrega del servicio', ['entrega:9:onb']],
@@ -383,19 +385,17 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
   assert.equal(rotuloDisparo(secs, 'venta:5:agendado', 'x'), 'Mentoría · Llega a «Agendado»');
   assert.deepEqual(prod('Etiquetas').options.map((o) => o.value), ['etiqueta:3'], 'una etiqueta archivada no se ofrece');
   assert.equal(rotuloDisparo(secs, 'etiqueta:3', 'x'), 'Se le puso «Cualificado»');
-  // Con UN producto, el primer paso no está: arranca en Adquisición / Entrega.
+  // Con UN producto, el producto no está: «Productos» abre directo en Adquisición / Entrega.
   const uno = pasosDisparo({ disparadores: DISPARADORES, productos: [PRODUCTOS[0]], etiquetas: [], actual: { trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 }, textoActual: 'x' });
-  assert.deepEqual(uno.map((s) => s.title), ['Adquisición de clientes', 'Entrega del servicio']);
+  assert.deepEqual(uno.map((s) => s.title), ['Productos']);
+  assert.deepEqual(uno[0].grupos!.map((s) => s.title), ['Adquisición de clientes', 'Entrega del servicio']);
   assert.equal(rotuloDisparo(uno, 'venta:5:agendado', 'x'), 'Llega a «Agendado»');
-  // Un disparador por EVENTO de antes se muestra como lo que es («La que tiene puesta»), sin ofrecer
-  // los demás eventos: pasaron a las condiciones.
+  // Un disparador por EVENTO de antes NO es una sección («La que tiene puesta» salió): lo dice el
+  // botón, y no se ofrecen los eventos (pasaron a las condiciones).
   const evento = pasosDisparo({ disparadores: DISPARADORES, productos: PRODUCTOS, etiquetas: [], actual: { trigger_tipo: 'instant_form_sin_agenda' }, textoActual: 'Dejó el formulario' });
-  assert.deepEqual(evento[0], { title: 'La que tiene puesta', options: [{ value: 'trigger:instant_form_sin_agenda', label: 'Dejó el formulario' }] });
-  assert.ok(!opcionesDeSecciones(evento).some((o) => o.value.startsWith('trigger:') && o.value !== 'trigger:instant_form_sin_agenda'), 'volvieron los eventos');
+  assert.ok(!evento.some((s) => s.title === 'La que tiene puesta'), 'volvió «La que tiene puesta»');
+  assert.ok(!opcionesDeSecciones(evento).some((o) => o.value.startsWith('trigger:')), 'volvieron los eventos');
   assert.equal(rotuloDisparo(evento, 'trigger:instant_form_sin_agenda', 'Dejó el formulario'), 'Dejó el formulario');
-  // Lo que está puesto y no está en la lista entra igual (el `<select>` que borra datos).
-  const conViejo = pasosDisparo({ disparadores: [], productos: [], etiquetas: [], actual: { trigger_tipo: 'etapa_actual', etapa: 'nutri' }, textoActual: 'Llega a «No Agenda»' });
-  assert.deepEqual(conViejo[0], { title: 'La que tiene puesta', options: [{ value: 'venta::nutri', label: 'Llega a «No Agenda»' }] });
   assert.equal(valorDisparo({ trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 }), 'etiqueta:3');
   // Lo que se le manda al server (lo implementa la parte del motor).
   assert.deepEqual(pedidoDisparo('venta:5:agendado', 7), { action: 'trigger', id: 7, trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 });
@@ -421,12 +421,12 @@ test('`seccionesDisparo` (el catálogo PLANO que lee «Crear con IA»): el de an
     actual: { trigger_tipo: 'manual' }, textoActual: 'A mano',
   };
   const plano = seccionesDisparo(op);
-  assert.deepEqual(plano.map((s) => s.title), ['La que tiene puesta', 'Etapa · Mentoría', 'Entrega · Mentoría', 'Entrega · Servicio', 'Etiquetas']);
-  assert.deepEqual(plano[1].options, [{ value: 'venta:5:agendado', label: 'Llega a «Agendado»' }]);
+  assert.deepEqual(plano.map((s) => s.title), ['Etapa · Mentoría', 'Entrega · Mentoría', 'Entrega · Servicio', 'Etiquetas']);
+  assert.deepEqual(plano[0].options, [{ value: 'venta:5:agendado', label: 'Llega a «Agendado»' }]);
   // Los mismos valores que los pasos del desplegable: los dos salen de `kanbansDe`.
   assert.deepEqual(plano.flatMap((s) => s.options.map((o) => o.value)).sort(), opcionesDeSecciones(pasosDisparo(op)).map((o) => o.value).sort());
   // Con un solo producto, «Etapa» y «Entrega» a secas (como antes).
-  assert.deepEqual(seccionesDisparo({ ...op, productos: [op.productos[0]], etiquetas: [] }).map((s) => s.title), ['La que tiene puesta', 'Etapa', 'Entrega']);
+  assert.deepEqual(seccionesDisparo({ ...op, productos: [op.productos[0]], etiquetas: [] }).map((s) => s.title), ['Etapa', 'Entrega']);
 });
 
 test('el Dropdown abre un paso MÁS (`grupos`) y buscando aplana con el camino', () => {

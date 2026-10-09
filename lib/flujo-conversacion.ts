@@ -1185,17 +1185,28 @@ export function opcionesDeSecciones(secs: readonly SeccionDisparo[]): OpcionDisp
  * `disparadores` sigue entrando: es con lo que `textoActual` dice un evento de antes.
  */
 export function pasosDisparo(op: OpcionesDisparo): SeccionDisparo[] {
+  // ⚠️ CUARTA TANDA, PUNTO 2: «no tiene sentido la opción "La que tiene puesta"... te pido que las
+  // opciones sean: "Productos" / "Etiquetas". Y ahí venga todo el resto». La raíz son DOS pasos:
+  // «Productos» (producto → adquisición o entrega → etapa; con un solo producto, el producto no está)
+  // y «Etiquetas». Lo que ya está puesto y no está en la lista (un evento de antes) lo sigue diciendo
+  // el BOTÓN (`rotuloDisparo` cae a `textoActual`), y nada lo pisa hasta que se elija otra cosa: el
+  // desplegable de la casa no es un `<select>`.
   const conAlgo = op.productos.filter((pr) => kanbansDe(pr).length > 0);
-  const secciones: SeccionDisparo[] = conAlgo.length > 1
-    ? conAlgo.map((pr) => ({ title: pr.nombre, options: [], grupos: kanbansDe(pr) }))
-    : conAlgo.length === 1 ? kanbansDe(conAlgo[0]) : [];
+  const secciones: SeccionDisparo[] = [];
+  if (conAlgo.length > 1) secciones.push({ title: PASO_PRODUCTOS, options: [], grupos: conAlgo.map((pr) => ({ title: pr.nombre, options: [], grupos: kanbansDe(pr) })) });
+  else if (conAlgo.length === 1) secciones.push({ title: PASO_PRODUCTOS, options: [], grupos: kanbansDe(conAlgo[0]) });
+  const etiquetas = seccionEtiquetas(op);
+  if (etiquetas) secciones.push(etiquetas);
+  return secciones;
+}
+
+/** El primer paso del CRON: los productos (cuarta tanda, punto 2). */
+export const PASO_PRODUCTOS = 'Productos';
+
+/** Las etiquetas que pueden disparar (las vivas), o null si no hay ninguna. */
+function seccionEtiquetas(op: Pick<OpcionesDisparo, 'etiquetas'>): SeccionDisparo | null {
   const vivas = op.etiquetas.filter((t) => !t.archivada_at);
-  if (vivas.length) secciones.push({ title: 'Etiquetas', options: vivas.map((t) => ({ value: `etiqueta:${t.id}`, label: `Se le puso «${t.nombre}»` })) });
-  const actual = valorDisparo(op.actual);
-  if (!opcionesDeSecciones(secciones).some((o) => o.value === actual)) {
-    secciones.unshift({ title: 'La que tiene puesta', options: [{ value: actual, label: op.textoActual }] });
-  }
-  return secciones.filter((s) => s.options.length > 0 || (s.grupos?.length ?? 0) > 0);
+  return vivas.length ? { title: 'Etiquetas', options: vivas.map((t) => ({ value: `etiqueta:${t.id}`, label: `Se le puso «${t.nombre}»` })) } : null;
 }
 
 /** Lo que entra a `pasosDisparo` y a `seccionesDisparo`. */
@@ -1233,12 +1244,12 @@ function kanbansDe(pr: ProductoParaDisparo): SeccionDisparo[] {
  * desplegable del CRON usa `pasosDisparo`. Los valores salen de `kanbansDe` en los dos.
  */
 export function seccionesDisparo(op: OpcionesDisparo): Array<{ title: string; options: OpcionDisparo[] }> {
-  const varios = op.productos.filter((pr) => kanbansDe(pr).length > 0).length > 1;
+  const conAlgo = op.productos.filter((pr) => kanbansDe(pr).length > 0);
+  const varios = conAlgo.length > 1;
   const out: Array<{ title: string; options: OpcionDisparo[] }> = [];
-  for (const g of pasosDisparo(op)) {
-    if (!g.grupos?.length) { out.push(planoDe(g, null, varios)); continue; }
-    for (const k of g.grupos) out.push(planoDe(k, g.title, varios));
-  }
+  for (const pr of conAlgo) for (const k of kanbansDe(pr)) out.push(planoDe(k, pr.nombre, varios));
+  const etiquetas = seccionEtiquetas(op);
+  if (etiquetas) out.push(etiquetas);
   return out.filter((s) => s.options.length > 0);
 }
 
@@ -1268,9 +1279,10 @@ export function rotuloDisparo(secs: readonly SeccionDisparo[], valor: string, te
   };
   const r = buscar(secs, []);
   if (!r) return textoActual;
-  if (r[r.length - 2] === 'La que tiene puesta' || r[r.length - 2] === 'Etiquetas') return r[r.length - 1];
+  if (r[r.length - 2] === 'Etiquetas') return r[r.length - 1];
   const etapa = r[r.length - 1];
-  const producto = r.length >= 3 ? r[r.length - 3] : null;
+  // [Productos, <producto>, <kanban>, <etapa>]; con un solo producto, [Productos, <kanban>, <etapa>].
+  const producto = r.length >= 4 ? r[r.length - 3] : null;
   return producto ? `${producto} · Llega a «${etapa}»` : `Llega a «${etapa}»`;
 }
 
