@@ -1489,6 +1489,11 @@ REGLAS DURAS (el código las comprueba y saca lo que no cumpla):
 6. No inventes precios, cifras, plazos ni resultados que no estén en el perfil del negocio.
 7. Escribe en el registro de la GUÍA DE VOZ. Sin guía: español neutro, cercano y directo, con tú, aunque el negocio sea del Río de la Plata: nada de voseo.`;
 
+// ⚠️ EL EJEMPLO OBEDECE A LAS REGLAS QUE ENSEÑA (revisión, 09/10/2026). La guía de «Quiere agendar»
+// decía «Ofrécele dos horarios de esta semana»: justo lo que prohíbe la regla 4 (MaKo no ve la
+// agenda, y la agenda no pasa por una IA: decisión del 07/10/2026). Ningún código mira el contenido
+// de una guía, así que un ejemplo que la contradice enseña más que la regla. Lo fija
+// tests/flujo-ia-arreglos.test.ts, que parsea este ejemplo y lo pasa por las dos capas.
 export const CREAR_IA_SYSTEM_TEMPLATE = `Armas AUTOMATIZACIONES de WhatsApp y email para un negocio: un flujo de tarjetas que arranca solo (el CRON) y les escribe a sus leads. Te paso el negocio, lo que tiene configurado y el pedido del dueño. Devuelves el flujo como un objeto JSON.
 
 ${TARJETAS_Y_REGLAS}
@@ -1502,7 +1507,7 @@ LA FORMA (un ejemplo; no copies sus textos):
 {"id": "t4", "tipo": "accion", "operacion": "avisar_al_equipo", "datos": {"mensaje": "Agendó después de la bienvenida"}},
 {"id": "t5", "tipo": "etiqueta", "poner": "Seguimiento"},
 {"id": "r1", "tipo": "si_responde", "casos": [{"titulo": "Quiere agendar", "cuando": "Pide un horario o pregunta cómo agendar", "sigue": "r2"}], "otra_cosa": null},
-{"id": "r2", "tipo": "mensaje", "canal": "whatsapp", "ia": true, "texto": "Ofrécele dos horarios de esta semana y pregúntale cuál le queda mejor."}
+{"id": "r2", "tipo": "mensaje", "canal": "whatsapp", "ia": true, "texto": "Dile que con gusto hablan y pásale el link para que elija cuándo.", "link": "agenda"}
 ]}
 
 Devuelve EXCLUSIVAMENTE el objeto JSON, sin texto alrededor.

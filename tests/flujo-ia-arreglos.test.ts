@@ -13,7 +13,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LISTA_BLANCA_IA, type CtxIA } from '../lib/flujo-ia';
+import { LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE, deIA, validarIA, type CtxIA } from '../lib/flujo-ia';
+import { validarGrafo } from '../lib/flujo-grafo';
 import { porId } from '../lib/api-mako/registro';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -27,7 +28,7 @@ const acciones = LISTA_BLANCA_IA.map((id) => {
   if (!d) throw new Error(`la lista blanca nombra «${id}», que no está en el registro`);
   return { id: d.id, titulo: d.titulo, parametros: d.parametros };
 });
-export const ctxBase = (o: Partial<CtxIA> = {}): CtxIA => ({
+const ctxBase = (o: Partial<CtxIA> = {}): CtxIA => ({
   etiquetas: [{ id: 7, nombre: 'Cualificado' }],
   productos: [
     { funnelId: 3, productoId: null, nombre: 'Mentoría', esDefault: true, etapas: [{ value: 'nuevo', label: 'Nuevo' }, { value: 'agendado', label: 'Agendado' }, { value: 'ganado', label: 'Ganado' }] },
@@ -42,7 +43,8 @@ export const ctxBase = (o: Partial<CtxIA> = {}): CtxIA => ({
   secuenciaId: 99,
   ...o,
 });
-void ctxBase;
+/** Un generador determinista para `nuevoId`. */
+const rndDe = () => { let k = 0; return () => ((k++ * 0.137) % 1); };
 
 // ── asignar_closer_setter: una tarjeta que el lienzo dibuja configurada y nunca hace nada ──
 // rotura (volver a sumarla a LISTA_BLANCA_IA): 1 fallo de 1.
@@ -50,4 +52,34 @@ test('asignar_closer_setter NO está en la lista blanca: sus nombres no se puede
   assert.ok(!LISTA_BLANCA_IA.includes('asignar_closer_setter'));
   // Y el bloque ACCIONES del prompt no la ofrece: sale de la lista blanca.
   assert.ok(!acciones.some((a) => a.id === 'asignar_closer_setter'));
+});
+
+// ── El ejemplo del prompt contradecía su propia regla 4 («una guía no ofrece días ni horarios») ──
+/** El JSON de «LA FORMA (un ejemplo…)» de un prompt, parseado. */
+const ejemploDe = (tpl: string) => {
+  const i = tpl.indexOf('{', tpl.indexOf('LA FORMA ('));
+  const j = tpl.indexOf('\n\nDevuelve EXCLUSIVAMENTE', i);
+  return JSON.parse(tpl.slice(i, j)) as { tarjetas?: Array<Record<string, unknown>>; agregar?: Array<{ tarjetas: Array<Record<string, unknown>> }> };
+};
+// Lo que una guía de «MaKo contesta» no puede hacer: ofrecer un momento. Pedir que elija con el link, sí.
+const OFRECE_MOMENTO = /horari|\bd[ií]as?\b|\bhoy\b|ma[ñn]ana|semana|\b\d{1,2}(:\d\d)?\s*(h|hs|am|pm)\b|\blunes|martes|mi[ée]rcoles|jueves|viernes|s[áa]bado|domingo/i;
+
+// rotura (devolver el texto viejo «Ofrécele dos horarios de esta semana…»): 1 fallo de 3, cae éste.
+test('el ejemplo del prompt: ninguna guía ofrece días ni horarios', () => {
+  for (const tpl of [CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE]) {
+    const ej = ejemploDe(tpl);
+    const tarjetas = [...(ej.tarjetas ?? []), ...(ej.agregar ?? []).flatMap((g) => g.tarjetas)];
+    assert.ok(tarjetas.length > 0, 'no encontré el ejemplo');
+    for (const t of tarjetas) {
+      if (t.ia === true) assert.doesNotMatch(String(t.texto), OFRECE_MOMENTO, `una guía ofrece un momento: «${String(t.texto)}»`);
+    }
+  }
+});
+
+test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', () => {
+  const ctx = ctxBase();
+  const r = deIA(ejemploDe(CREAR_IA_SYSTEM_TEMPLATE), ctx, rndDe());
+  assert.deepEqual(validarGrafo(r.pasos), []);
+  assert.deepEqual(validarIA(r.pasos, ctx), []);
+  assert.equal(r.pasos.length, 7);
 });
