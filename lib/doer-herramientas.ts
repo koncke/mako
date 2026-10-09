@@ -14,7 +14,7 @@
 // SIN `server-only`: lo importan el doer y tests/agenda-whatsapp.test.ts.
 // =============================================================================
 
-import { CONTRATO, areasDelMensaje, sinPrefijoDeLote, type Intencion, type VeredictoIntencion } from './mako-intencion';
+import { CONTRATO, areasDelMensaje, sinPrefijoDeLote, esMoverSinObjeto, type Intencion, type VeredictoIntencion } from './mako-intencion';
 import { toolsDelRegistro, porId, type Vista } from './api-mako/registro';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
@@ -95,7 +95,24 @@ export type EntradaTurno<T extends { name: string }> = {
   sinCalendly?: boolean;
 };
 
-export type Turno<T> = { tools: Array<T | ToolDef>; delRegistro: ToolDef[]; areas: Area[]; ofrece: boolean };
+/** Lo que pregunta MaKo cuando le piden mover algo sin decir qué. Es lo único que ve la
+ *  persona: corto, y sin nada de su agenda (la agenda no pasa por la IA, lib/agenda-sin-ia.ts). */
+export const PREGUNTA_REUNION_O_TAREA = '¿La reunión o la tarea?';
+
+/**
+ * La instrucción de un «movela al viernes» sin pendiente ni agenda abierta (decisión de Martín
+ * del 09/10/2026). Viaja con el VEREDICTO y no como receta de una herramienta: las dos que
+ * entran (mover una reunión, cambiarle la fecha a una tarea) viajan también en pedidos que
+ * sí dicen qué mover, y ahí preguntar sería fricción. Preguntar antes de leer nada: la
+ * respuesta («la reunión», «la tarea») ya llega con lo suyo (lib/mako-intencion.ts, 3-ter-bis).
+ */
+const INSTRUCCION_MOVER_SIN_OBJETO = `TE PIDEN MOVER ALGO A OTRO DÍA U HORA SIN DECIR QUÉ: puede ser una reunión de su agenda o una tarea del plan. Si la conversación no deja claro cuál es, pregunta UNA sola vez, en una línea y antes de llamar ninguna herramienta: «${PREGUNTA_REUNION_O_TAREA}». Si queda claro, sigue con eso sin preguntar.`;
+
+export type Turno<T> = {
+  tools: Array<T | ToolDef>; delRegistro: ToolDef[]; areas: Area[]; ofrece: boolean;
+  /** Una línea más para el system de ESTE turno, o null. Hoy, sólo la de mover sin objeto. */
+  instruccion: string | null;
+};
 
 /** Las herramientas de ESTE turno. */
 export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno<T>): Turno<T> {
@@ -132,5 +149,9 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   const ofrece = v.intencion === 'consultar' || v.intencion === 'pensar';
   const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...delRegistro], v.dudosa)
     .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
-  return { tools, delRegistro, areas, ofrece };
+  // La agenda Y el plan viajan sólo cuando el clasificador no supo cuál de los dos: con una
+  // propuesta de agenda abierta el veredicto trae sólo el CRM, y no hay nada que preguntar.
+  const preguntaQue = v.intencion === 'actuar' && !v.sigueOfrecimiento && (v.areas ?? []).includes('plan')
+    && (v.areas ?? []).includes('crm') && esMoverSinObjeto(p.texto);
+  return { tools, delRegistro, areas, ofrece, instruccion: preguntaQue ? INSTRUCCION_MOVER_SIN_OBJETO : null };
 }

@@ -21,7 +21,8 @@
 //   2. que el «sí» a un ofrecimiento, la corrección de una pendiente y un lote también;
 //   3. que a un negocio sin Calendly no le viajen las de Calendly;
 //   4. que mover NUNCA cree una reunión nueva si no encuentra la que se nombró;
-//   5. que nada de la agenda salga por HTTP sin que alguien lo decida.
+//   5. que nada de la agenda salga por HTTP sin que alguien lo decida;
+//   6. «movela al viernes» sin decir qué, y «Agendar reunión con…» dentro de una lista (09/10).
 //
 // Probado rompiéndolo (08/10/2026), una rotura por vez y con todo en verde antes, junto
 // con tests/agenda-sin-ia.test.ts: 15 roturas, todas con su fallo. Sacar la regla del
@@ -37,8 +38,8 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { clasificarIntencion, areasDelMensaje } from '../lib/mako-intencion';
-import { herramientasDelTurno, DE_CALENDLY } from '../lib/doer-herramientas';
+import { clasificarIntencion, areasDelMensaje, CONTRATO } from '../lib/mako-intencion';
+import { herramientasDelTurno, DE_CALENDLY, PREGUNTA_REUNION_O_TAREA } from '../lib/doer-herramientas';
 import { porId, type Vista } from '../lib/api-mako/registro';
 
 const RAIZ = join(__dirname, '..');
@@ -71,7 +72,7 @@ function turno(mensaje: string, ctx: Ctx = {}, extra: { contextoDelSi?: string; 
     hayPendientes: !!ctx.hayPendientes, contextoDelSi: veredicto.sigueOfrecimiento ? extra.contextoDelSi ?? null : null,
     resumenesPendientes: extra.resumenesPendientes, sinCalendly: extra.sinCalendly,
   });
-  return { veredicto, nombres: t.tools.map((x) => x.name), areas: t.areas };
+  return { veredicto, nombres: t.tools.map((x) => x.name), areas: t.areas, instruccion: t.instruccion };
 }
 
 const trae = (mensaje: string, id: string, r: ReturnType<typeof turno>) =>
@@ -204,4 +205,122 @@ test('nada de la agenda de Google sale por HTTP sin decidirlo', () => {
     assert.ok(!d.canales.includes('http'), `${id} sale por HTTP: exponer la agenda de Google a un bearer es una decisión (snapshot), no un default`);
     assert.ok(d.canales.includes('whatsapp'), `${id} tiene que salir por WhatsApp: es para eso`);
   }
+});
+
+// --- 6. Los dos casos que quedaron abiertos el 08/10 (cerrados el 09/10/2026) ---------------
+// Decisión de Martín («terminalo todo», 09/10/2026), escrita por quien integra:
+//   a) «movela al viernes» SIN pendiente ni agenda abierta: viajan la agenda Y el plan, y si el
+//      modelo no puede saber cuál es, pregunta UNA vez «¿La reunión o la tarea?».
+//   b) «Agendar reunión con…» al principio de una línea DENTRO de un mensaje de varias líneas
+//      es material para el plan (cargar tareas no pregunta nada); SOLO, es una orden de agenda.
+//
+// Medido ANTES del arreglo, con este mismo turno: «movela al viernes» se clasificaba como
+// mover a un lead DE ETAPA («al viernes» leído como una columna), sin agenda_del_dia y sin
+// nada del plan; «cambiala para el jueves», «reprogramala…» y «movela para mañana» caían al
+// default (material, dudosa) con dos herramientas; y «Agendar reunión con Ana mañana a las
+// 15» SOLO también era material (dudosa): la premisa de que suelto ya era una orden era falsa.
+//
+// Probado rompiéndolo (09/10/2026), una rotura por vez, restaurando de memoria y con los 15
+// en verde antes: siete roturas, 1 fallo y 14 pases cada una, y cada fallo es el suyo:
+//   · sin la regla de mover sin objeto (3-ter-ter) → el de la agenda Y el plan (con la
+//     pendiente de agenda vuelve a caer en «lead de etapa», que trae la reunión: ése no cae);
+//   · sin la rama de la pendiente de agenda → el de «no se pregunta»;
+//   · sin la instrucción en el turno → el de la agenda Y el plan;
+//   · sin la regla de la respuesta (3-ter-bis) → el de la respuesta;
+//   · sin el chequeo de UNA línea del infinitivo → el de varias líneas (las de sin viñetas);
+//   · sin la rama del infinitivo → el del pedido solo;
+//   · sin la instrucción en el system del doer → el del system.
+
+const MOVER_SIN_OBJETO = [
+  'movela al viernes',
+  'Mako, movela al viernes a las 10',
+  'pasala al lunes',
+  'cambiala para el jueves a las 11',
+  'reprogramala para mañana',
+  'mové eso al viernes',
+];
+
+test('«movela al viernes» sin decir qué: viajan la agenda Y el plan, y MaKo pregunta UNA vez', () => {
+  for (const m of MOVER_SIN_OBJETO) {
+    const r = turno(m);
+    assert.equal(r.veredicto.intencion, 'actuar', `«${m}» no es una acción: ${r.veredicto.porque}`);
+    assert.ok(!r.veredicto.dudosa, `«${m}» quedó dudosa`);
+    assert.ok(r.areas.includes('crm') && r.areas.includes('plan'), `«${m}» no trae las dos áreas: ${r.areas.join(', ')}`);
+    trae(m, 'proponer_mover_reunion', r);   // reagendar
+    trae(m, 'agenda_del_dia', r);           // leer el día
+    trae(m, 'listar_tareas_plan', r);       // la tarea, con su deadline
+    // La acción de cambiarle la fecha a una tarea vive en otra rama (wip/api-acciones-0910). Si
+    // ya está en el registro, tiene que entrar al presupuesto igual que la de la reunión.
+    if (porId('cambiar_fecha_tarea_plan')) trae(m, 'cambiar_fecha_tarea_plan', r);
+    assert.ok(r.instruccion?.includes(PREGUNTA_REUNION_O_TAREA), `«${m}» no lleva la pregunta: si el modelo no sabe cuál es, no tiene cómo preguntarlo`);
+  }
+});
+
+test('con una propuesta de agenda abierta, «movela al viernes» es la reunión: no se pregunta', () => {
+  const r = turno('movela al viernes', { hayPendientes: true, hayPendienteDeAgenda: true },
+    { resumenesPendientes: ['Agendar «PRUEBA» el jue 8 oct, 12:00 (60 min) en tu Google Calendar, sin invitados.'] });
+  assert.equal(r.veredicto.intencion, 'actuar');
+  trae('movela al viernes', 'proponer_mover_reunion', r);
+  assert.equal(r.instruccion, null, 'pregunta «¿La reunión o la tarea?» con una propuesta de agenda abierta: es fricción');
+  assert.ok(!r.areas.includes('plan'), 'con la propuesta abierta no hay tarea que mover');
+});
+
+test('la respuesta a «¿La reunión o la tarea?» llega con lo que eligió, no como material', () => {
+  const contextoDelSi = `movela al viernes\n${PREGUNTA_REUNION_O_TAREA}`;
+  const reunion = turno('la reunión', { makoPregunto: true }, { contextoDelSi });
+  assert.equal(reunion.veredicto.intencion, 'actuar', `«la reunión» → ${reunion.veredicto.intencion}: ${reunion.veredicto.porque}`);
+  trae('la reunión', 'proponer_mover_reunion', reunion);
+  const tarea = turno('la tarea', { makoPregunto: true }, { contextoDelSi });
+  assert.equal(tarea.veredicto.intencion, 'actuar', `«la tarea» → ${tarea.veredicto.intencion}: ${tarea.veredicto.porque}`);
+  trae('la tarea', 'listar_tareas_plan', tarea);
+  // Y no se vuelve a preguntar: la pregunta es UNA.
+  assert.equal(reunion.instruccion, null);
+  assert.equal(tarea.instruccion, null);
+});
+
+test('con un objeto nombrado no es «mover sin decir qué»', () => {
+  // Un lead a una etapa sigue siendo del CRM, y sin pregunta.
+  const etapa = turno('movelo a calificado');
+  assert.equal(etapa.instruccion, null);
+  assert.ok(!etapa.areas.includes('plan'), '«movelo a calificado» trae el plan');
+  // La reunión nombrada la toma la regla de agenda.
+  const reunion = turno('mové la reunión de mañana al viernes a las 10');
+  assert.equal(reunion.instruccion, null);
+  trae('mové la reunión de mañana al viernes a las 10', 'proponer_mover_reunion', reunion);
+});
+
+// Una lista dictada al grupo: cada línea es una tarea para el plan, «Agendar…» incluida.
+const LISTA_CON_AGENDAR = '- Llamar a la inmobiliaria por la tasación\n- Agendar reunión con Ana mañana a las 15\n- Subir las fotos de la casa del centro';
+// Las mismas líneas sin viñetas y con «Agendar…» PRIMERO, como sale de un dictado por audio:
+// es el caso que distingue «una línea» de «el principio del mensaje». Sin viñetas ni un
+// infinitivo de la lista del dictado queda dudosa (MaKo ofrece anotarlo): eso es de antes.
+const LINEAS_CON_AGENDAR = 'Agendar reunión con Ana mañana a las 15\nLlamar a la inmobiliaria por la tasación\nPagar el hosting';
+
+test('«Agendar reunión con…» dentro de un mensaje de varias líneas es material para el plan', () => {
+  for (const m of [LISTA_CON_AGENDAR, LINEAS_CON_AGENDAR]) {
+    const r = turno(m);
+    assert.equal(r.veredicto.intencion, 'capturar', `una línea de una lista se volvió una orden de agenda: ${r.veredicto.porque}`);
+    assert.deepEqual(r.nombres.filter((n) => /^proponer_(agendar|mover|cambiar|cancelar)_/.test(n)), [], 'viaja una escritura de agenda sobre una lista de tareas');
+    assert.ok(r.nombres.every((n) => (CONTRATO.capturar.tools ?? []).includes(n)), `el turno de una lista trae algo que no es del plan: ${r.nombres.join(', ')}`);
+  }
+  // La lista con viñetas, además, es una carga de tareas sin duda: el borrador va obligatorio.
+  const lista = turno(LISTA_CON_AGENDAR);
+  assert.ok(!lista.veredicto.dudosa);
+  trae('lista', 'proponer_tareas_plan', lista);
+});
+
+test('el mismo «Agendar reunión con…» SOLO es una orden de agenda', () => {
+  for (const m of ['Agendar reunión con Ana mañana a las 15', 'Mako, agendar visita con Juan Pérez el jueves a las 10']) {
+    const r = turno(m);
+    assert.equal(r.veredicto.intencion, 'actuar', `«${m}» suelto no es una orden: ${r.veredicto.porque}`);
+    trae(m, 'proponer_agendar_agenda', r);
+  }
+});
+
+test('la pregunta de mover sin objeto llega al system del doer', () => {
+  const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
+  const ini = doer.indexOf('const bloqueTools = tools.length');
+  const fin = doer.indexOf("'\\n\\nEN ESTE TURNO NO TIENES HERRAMIENTAS", ini);
+  assert.ok(ini > 0 && fin > ini, 'no encontré el bloque de herramientas del system: cambió la forma y este test ya no mira nada');
+  assert.match(doer.slice(ini, fin), /turno\.instruccion/, 'la instrucción del turno no llega al system: el modelo nunca pregunta');
 });
