@@ -94,8 +94,10 @@ test('los DOS montajes de la bandeja le pasan los productos (page.tsx y el cierr
       assert.match(m[0], /\bproductos=\{productos\}/, `${f}: <${m[1]}> se monta sin los productos del alta`);
     }
   }
-  // page.tsx: 2 del wizard + 1 de la bandeja · el wizard: 1 · WhatsAppApp: 1 de EmpresaInbox.
-  assert.equal(montajes, 5, `encontré ${montajes} montajes: el barrido no está mirando lo que debe`);
+  // page.tsx: 1 del wizard + 1 de la bandeja · el wizard: 1 · WhatsAppApp: 1 de EmpresaInbox. Eran 5
+  // hasta c09e16ad (09/10/2026): sin canal vivo, page.tsx ya no cae al wizard sino a la bandeja con
+  // su QR, y ese segundo montaje del wizard se fue a propósito.
+  assert.equal(montajes, 4, `encontré ${montajes} montajes: el barrido no está mirando lo que debe`);
   // Y page.tsx los lee con `leerFunnels` (null = falló), no con `listarFunnels` ([] = falló).
   const page = sinComentarios(leer('app/whatsapp/page.tsx'));
   assert.match(page, /leerFunnels\(\)/, 'page.tsx no lee los productos con leerFunnels: una lectura caída se lee como «hay uno»');
