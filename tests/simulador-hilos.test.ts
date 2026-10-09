@@ -244,10 +244,12 @@ test('adentro de «Si responde» no se reparte: la respuesta corre en un hilo', 
 test('un email del flujo: asunto, vista previa (el preheader) y cuerpo, con el lead de ejemplo', () => {
   assert.deepEqual(
     correoDeEjemplo({ asunto: 'Hola {{nombre}}', preheader: 'De {{negocio}}', cuerpo: 'Te escribo por {{empresa}}' }, 'Mi negocio'),
-    { asunto: 'Hola Luis', vistaPrevia: 'De Mi negocio', cuerpo: 'Te escribo por Acme' },
+    // `html: ''`: el paso no trae `cuerpo_html` (integración de la tercera tanda; el HTML lo prueba
+    // tests/simulador-grafo.test.ts).
+    { asunto: 'Hola Luis', vistaPrevia: 'De Mi negocio', cuerpo: 'Te escribo por Acme', html: '' },
   );
   // Vacío es vacío: sin preheader no se inventa una vista previa con el principio del cuerpo.
-  assert.deepEqual(correoDeEjemplo({ asunto: null, cuerpo: 'Cuerpo' }), { asunto: '', vistaPrevia: '', cuerpo: 'Cuerpo' });
+  assert.deepEqual(correoDeEjemplo({ asunto: null, cuerpo: 'Cuerpo' }), { asunto: '', vistaPrevia: '', cuerpo: 'Cuerpo', html: '' });
 });
 
 // ROTURAS (08/10/2026), una por vez sobre lib/simulador-grafo.ts, con un arnés que rompe, corre este
