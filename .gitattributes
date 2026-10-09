@@ -19,3 +19,9 @@
 # archivo que se sirve al navegador de un visitante es byte por byte el que se
 # probó.
 public/replay/** -text
+
+# El hook de Claude que se COPIA a ~/.claude/ (docs/guardado-automatico.md). Con
+# CRLF, bash falla en la primera linea y el hook no corre: sin error visible, porque
+# el hook va con suppressOutput. Un clon nuevo lo sacaria en CRLF y la copia
+# quedaria muda. Va siempre en LF.
+scripts/claude-hooks/*.sh text eol=lf
