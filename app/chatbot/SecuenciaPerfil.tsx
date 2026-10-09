@@ -28,6 +28,7 @@ import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas 
 import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
+import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, RESERVA_ABAJO_CREAR } from '@/lib/crear-ia-lugar';
 import type { Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, validarGrafo, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
 import type { Muelles } from '@/lib/lienzo-grafo';
@@ -208,6 +209,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const [revelarIA, setRevelarIA] = useState<{ orden: string[]; clave: number } | null>(null);
   const [editandoIA, setEditandoIA] = useState(false);
+  /** Hay una tarjeta abierta (lo avisa el lienzo): la caja y la barra de la IA se esconden. */
+  const [tarjetaAbierta, setTarjetaAbierta] = useState(false);
   const cambiosPropios = rolAdmin && JSON.stringify(pasos) !== visto;
   const avisarSinPublicar = useRef(onSinPublicar);
   useEffect(() => { avisarSinPublicar.current = onSinPublicar; });
@@ -589,6 +592,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     cambioLocal.current?.({ secuenciaId: secuencia.id, pasos, estrategia: estAPublicar, nombre, trigger_tipo: disparo.trigger_tipo, instance_name: lineaSec });
   }, [secuencia.id, pasos, estAPublicar, nombre, disparo.trigger_tipo, lineaSec]);
 
+  /** Dónde flotan la caja y la barra de «Crear con IA» (la franja de abajo; ver el render). */
+  const franja = franjaIA(muelles, { izq: insetIzq, der: insetDer });
+
   const desplegableDisparo = (
     <Dropdown
       value={valorDisparo(disparo)} secciones={secciones} search width="100%"
@@ -606,19 +612,33 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     // para el motor eso es un alto INDEFINIDO — Chrome lo resuelve igual y Safari
     // devuelve CERO, o sea la pantalla en blanco (AGENTS.md, ya pagado con un cliente).
     <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
-      {/* «Crear con IA»: con la automatización VACÍA, la caja del pedido en el medio del lienzo
-          (como el «Create with AI» de ManyChat). Empezar de cero sigue siendo el ＋ del CRON: la capa
-          no toma el puntero fuera de la caja. */}
+      {/* «Crear con IA»: con la automatización VACÍA, la caja del pedido (como el «Create with AI»
+          de ManyChat), y con tarjetas, la barra «Pídele un cambio». Empezar de cero sigue siendo el
+          ＋ del CRON.
+
+          ⚠️ LAS DOS VAN EN LA FRANJA DE ABAJO (`franjaIA`, lib/crear-ia-lugar.ts), entre la lista y
+          lo que tapa la derecha, y la capa NO toma el puntero: sólo lo toma la pieza, que mide lo
+          mismo que lo que dibuja (revisión de la segunda tanda, 09/10/2026). La caja era `inset: 0`
+          centrada en el ancho total: tapaba la lista en ventanas angostas, parte de «Probar» y la
+          tarjeta CRON ENTERA, que el encuadre centra justo ahí. Ahora el lienzo encuadra el CRON
+          ARRIBA de la caja (`reservaAbajo`). Y la barra medía 560 con 460 dibujados: los 100 px de
+          aire se comían los clics de lo de abajo.
+
+          ⚠️ CON UNA TARJETA ABIERTA SE ESCONDEN, SIN DESMONTARSE: el panel del nodo abre en esa
+          misma franja y quedaban encima de sus botones (el emoji y el 🔗 del editor tipo Gmail).
+          Desmontar `CrearConIA` cortaría un pedido en vuelo de hasta un minuto. */}
       {rolAdmin && pasos.length === 0 && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
-          <div style={{ pointerEvents: 'auto', width: 'min(560px, calc(100% - 32px))' }}>
+        <div data-crear-ia="crear" style={{ position: 'absolute', ...franja, display: tarjetaAbierta ? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
+          <div style={{ pointerEvents: 'auto', width: `min(${CAJA_IA_ANCHO}px, 100%)` }}>
             <CrearConIA modo="crear" secuenciaId={secuencia.id} ejemplos={ejemplosIA} pedidoInicial={pedidoIA} onListo={alListoIA} />
           </div>
         </div>
       )}
       {rolAdmin && editandoIA && pasos.length > 0 && (
-        <div style={{ position: 'absolute', left: '50%', bottom: 64, transform: 'translateX(-50%)', width: 'min(560px, calc(100% - 32px))', zIndex: 4 }}>
-          <CrearConIA modo="editar" secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} />
+        <div data-crear-ia="editar" style={{ position: 'absolute', ...franja, display: tarjetaAbierta ? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
+          <div style={{ pointerEvents: 'auto', width: `min(${BARRA_IA_ANCHO}px, 100%)` }}>
+            <CrearConIA modo="editar" secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} />
+          </div>
         </div>
       )}
       <FlujoLienzo
@@ -636,6 +656,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onAudioNuevo={onAudioNuevo} onError={setErr}
         onModoIA={rolAdmin ? abrirGuiaSiFalta : undefined}
         insetIzq={insetIzq} insetDer={insetDer} muelles={muelles} revelar={revelarIA ?? revelar}
+        onTarjetaAbierta={setTarjetaAbierta}
+        reservaAbajo={rolAdmin && pasos.length === 0 ? RESERVA_ABAJO_CREAR : 0}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
             {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el

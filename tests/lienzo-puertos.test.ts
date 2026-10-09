@@ -118,9 +118,10 @@ test('⚠️ `insetDer`: lo que flota a la derecha se corre, en los CUATRO lugar
   const enc = tramo('const encuadrar = useCallback(', '}, [grafo.ancho', 3_000);
   // El cálculo vive en `encuadreInicial` (lib/lienzo-grafo.ts, con test en tests/lienzo.test.ts):
   // el lienzo le tiene que pasar los DOS insets, y la función los descuenta.
-  assert.match(enc, /encuadreInicial\(grafo, \{ w, h, insetIzq, insetDer \}\)/, 'el encuadre mete la última columna debajo del panel');
+  // El alto es el ÚTIL: `reservaAbajo` (la caja de «Crear con IA», tests/crear-ia-lugar.test.ts).
+  assert.match(enc, /encuadreInicial\(grafo, \{ w, h: Math\.max\(1, h - reservaAbajo\), insetIzq, insetDer \}\)/, 'el encuadre mete la última columna debajo del panel');
   assert.match(sinComentarios(leer('../lib/lienzo-grafo.ts')), /const wUtil = Math\.max\(1, caja\.w - izq - \(caja\.insetDer \?\? 0\)\);/);
-  assert.match(enc, /\+\$\{insetIzq\}\+\$\{insetDer\}`/, 'la firma del encuadre no cambia al abrir el panel: no reencuadra');
+  assert.match(enc, /\+\$\{insetIzq\}\+\$\{insetDer\}-\$\{reservaAbajo\}`/, 'la firma del encuadre no cambia al abrir el panel: no reencuadra');
   // Segunda tanda: lo de la derecha va POR FRANJA (`muelles`). Con «Probar» apilado debajo del
   // chrome, a la altura del chrome y en la franja de abajo no tapa nada; ausentes = `insetDer`.
   assert.match(LIENZO, /const derChrome = insetDerChrome \?\? insetDer;\n\s+const derAbajo = insetDerAbajo \?\? insetDer;/);
