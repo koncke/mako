@@ -243,6 +243,31 @@ function tarjetasDe(lista: unknown, avisos: string[]): Card[] {
   return out;
 }
 
+/**
+ * UNA TARJETA COLGADA DE DOS LUGARES, Y UNO ES UNA ESPERA: se queda con la espera.
+ *
+ * Medido con Groq (gpt-oss-120b) el 08/10/2026, «por WhatsApp una confirmación y 3 horas antes un
+ * recordatorio; y a la vez, por email, lo que conviene preparar»: el modelo colgó el recordatorio
+ * del email Y de la espera de «3 h antes». A lo ancho gana el primero que llega (el email), el
+ * segundo padre pasa a ser un «Ir a» entre caminos, y ése se corta: el recordatorio salía apenas
+ * después del email y la espera quedaba sin nada. Una espera sólo existe para demorar lo que sigue,
+ * así que lo que sigue es suyo. El otro padre suelta la flecha (y queda en `avisos`).
+ */
+function preferirEsperas(cards: Card[], avisos: string[]): void {
+  const deEspera = new Map<string, Card>();
+  for (const c of cards) if (c.tipo === 'esperar') { const r = refs(c.raw.sigue)[0]; if (r && !deEspera.has(r)) deEspera.set(r, c); }
+  if (!deEspera.size) return;
+  for (const c of cards) {
+    if (c.tipo === 'condicion' || c.tipo === 'si_responde' || c.tipo === 'ir_a') continue;
+    const lista = refs(c.raw.sigue);
+    const quedan = lista.filter((r) => { const e = deEspera.get(r); return !e || e === c; });
+    if (quedan.length < lista.length) {
+      c.raw.sigue = quedan;
+      avisos.push('Una tarjeta seguía en dos lugares: la dejé después de su espera');
+    }
+  }
+}
+
 // ── Resolver contra el contexto ───────────────────────────────────────────────────
 
 type Estado = { ctx: CtxIA; avisos: string[]; nuevas: EtiquetaNueva[] };
@@ -368,7 +393,7 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
   const op = normNombre(opCruda).replace(/[\s-]+/g, '_');
   const datos = datosCrudos && typeof datosCrudos === 'object' && !Array.isArray(datosCrudos) ? datosCrudos as Record<string, unknown> : {};
   const def = est.ctx.acciones.find((a) => a.id === op);
-  if (!def) return { quitar: `Saqué «${str(opCruda) || 'una acción'}»: no es una acción que pueda usar acá` };
+  if (!def) return { quitar: `Saqué «${str(opCruda) || 'una acción'}»: no es una acción que pueda usar aquí` };
   const params: Record<string, unknown> = {};
   const pideLead = def.parametros.some((p) => p.nombre === 'leadId');
   if (pideLead) params.leadId = LEAD_DEL_EVENTO;
@@ -393,7 +418,18 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
       params.etapa = key;
       continue;
     }
-    const v = valorDeParam(p, datos[p.nombre]);
+    // ⚠️ UNA ACCIÓN NO COMPLETA VARIABLES: `aplicarVariables` corre sobre el texto de un MENSAJE
+    // (lib/nutricion.ts), no sobre los datos de una acción. Medido con Groq el 08/10/2026: el
+    // modelo escribió «El lead {{nombre}} ya agendó» en el aviso al equipo, que habría llegado con
+    // las llaves. Se borran (con los corchetes), y el aviso ya lleva el nombre por el `leadId`.
+    const crudo = datos[p.nombre];
+    let dato: unknown = crudo;
+    if (p.tipo === 'string' && typeof crudo === 'string') {
+      const sin = crudo.replace(RX_VARIABLE, '').replace(RX_CORCHETE, '').replace(/[ \t]+/g, ' ').replace(/ +([,.;:!?])/g, '$1').trim();
+      if (sin !== crudo.trim()) est.avisos.push('Borré una variable de una acción: ahí no se completa');
+      dato = sin;
+    }
+    const v = valorDeParam(p, dato);
     if (v !== undefined) params[p.nombre] = v;
   }
   const faltan = faltanEnPaso(def.parametros as Parametro[], params, { leadId: 1 });
@@ -510,7 +546,7 @@ function nodoDe(c: Card, est: Estado): NodoIA {
       const accion = normNombre(raw.accion);
       const op = sacar || accion === 'sacar' ? OP_SACAR : OP_PONER;
       const nombre = raw.poner ?? raw.sacar ?? raw.etiqueta ?? raw.nombre;
-      if (!est.ctx.acciones.some((a) => a.id === op)) { avisos.push('Saqué una etiqueta: poner etiquetas no está disponible acá'); n.quitar = true; return n; }
+      if (!est.ctx.acciones.some((a) => a.id === op)) { avisos.push('Saqué una etiqueta: poner etiquetas no está disponible aquí'); n.quitar = true; return n; }
       const id = resolverEtiqueta(nombre, est);
       if (id == null) { avisos.push('Saqué una tarjeta de etiqueta sin etiqueta'); n.quitar = true; return n; }
       n.paso = { accion: { operacion: op, params: { leadId: LEAD_DEL_EVENTO, etiquetaId: id } } };
@@ -638,7 +674,7 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
     if (esperaEnRespuesta) avisoUnaVez(`esp:${ref}`, 'Saqué una espera de «Si responde»: ahí se contesta en el momento');
     if (n.quitar || esperaEnRespuesta) {
       if (n.clase === 'condicion') return seguir(n.siNo, hilo, visto);
-      if (n.clase === 'ir_a' || n.clase === 'respuesta') return { tipo: 'nada' };
+      if (n.clase === 'ir_a') return { tipo: 'nada' };
       const d = seguir(n.sigue[0], hilo, visto);
       const extra = n.sigue.slice(1);
       if (d.tipo === 'tarjeta') return { ...d, extraPar: [...extra, ...d.extraPar] };
@@ -898,6 +934,7 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
     primera.casos = respuestas.flatMap((c) => (Array.isArray(c.raw.casos) ? c.raw.casos : []));
   }
   const cards2 = usadas.filter((c) => c.tipo !== 'si_responde' || c === respuestas[0]);
+  preferirEsperas(cards2, est.avisos);
 
   // Las raíces de la salida: `inicio` (string | string[]); sin él, la primera que nadie apunta.
   let inicio = refs(o.inicio).filter((r) => cards2.some((c) => c.tmp === r && c.tipo !== 'si_responde'));
@@ -928,12 +965,16 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   }
   pasos = cortarSaltos(pasos, ctx, est.avisos);
   pasos = podarSueltas(pasos);
+  // ⚠️ EL DISPARADOR SE RESUELVE ANTES DE ELEGIR LAS ETIQUETAS NUEVAS: «etiqueta:Lista» CREA la
+  // etiqueta (un ref), y resuelto después quedaba `etiqueta:-2` con la -2 afuera de
+  // `etiquetasNuevas` — la ruta no la creaba y el disparador se perdía (medido con el test).
+  const disparador = resolverDisparador(o.disparador, est);
   return {
     pasos: renumerar(pasos),
-    etiquetasNuevas: soloUsadas(est.nuevas, pasos, o.disparador, est),
+    etiquetasNuevas: soloUsadas(est.nuevas, pasos, disparador),
     avisos: [...new Set(est.avisos)],
     nombre: str(o.nombre).trim() || null,
-    disparador: resolverDisparador(o.disparador, est),
+    disparador,
   };
 }
 
@@ -953,19 +994,12 @@ function podarSueltas<P extends PasoGrafo>(pasos: P[]): P[] {
   return pasos.filter((p, i) => alcanzable.has(idDe(p, i)));
 }
 
-/** Las etiquetas nuevas que de verdad quedaron en el flujo (o en el disparador). */
-function soloUsadas(nuevas: EtiquetaNueva[], pasos: readonly PasoGrafo[], disparadorCrudo: unknown, est: Estado): EtiquetaNueva[] {
+/** Las etiquetas nuevas que de verdad quedaron en el flujo (o en el disparador ya resuelto). */
+function soloUsadas(nuevas: EtiquetaNueva[], pasos: readonly PasoGrafo[], disparador: string | null): EtiquetaNueva[] {
   const usados = new Set(refsEnPasos(pasos));
-  const d = resolverDisparadorSinCrear(disparadorCrudo, est);
-  if (d != null && d < 0) usados.add(d);
+  const m = /^etiqueta:(-\d+)$/.exec(disparador ?? '');
+  if (m) usados.add(Number(m[1]));
   return nuevas.filter((n) => usados.has(n.ref));
-}
-
-function resolverDisparadorSinCrear(v: unknown, est: Estado): number | null {
-  const s = str(v).trim();
-  if (!s.startsWith('etiqueta:')) return null;
-  const k = normNombre(s.slice('etiqueta:'.length));
-  return est.nuevas.find((n) => normNombre(n.nombre) === k)?.ref ?? null;
 }
 
 /** Los refs (negativos) de etiquetas nuevas que aparecen en los pasos. */
@@ -1046,6 +1080,7 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
       return false;
     });
     if (!sinResp.length) continue;
+    preferirEsperas(sinResp, est.avisos);
     const despues = normNombre(g.despues_de ?? g.después_de ?? 'cron').replace(/\s+/g, '_');
     const salida = normNombre(g.salida ?? 'paralelo').replace(/\s+/g, '_');
     const inicioTmp = refs(g.inicio)[0] && sinResp.some((c) => c.tmp === refs(g.inicio)[0]) ? refs(g.inicio)[0] : sinResp[0].tmp;
@@ -1441,10 +1476,10 @@ REGLAS DURAS (el código las comprueba y saca lo que no cumpla):
 1. Usa SÓLO lo que está en las listas. Una etiqueta que no existe va por su nombre en "etiquetas_nuevas". Nunca inventes un id.
 2. En los textos no escribas links, corchetes ni llaves. Para mandar un link usa "link" con una clave de LINKS; si no hay ninguna, no prometas un link. Las únicas variables son {{nombre}} y {{negocio}}.
 3. Entre dos mensajes de WhatsApp va un "esperar" de al menos 20 horas, salvo que preparen una reunión.
-4. Debajo de "si_responde" no hay "esperar" ni email, y nada arranca a la vez. Ahí, un mensaje con "ia": true es una GUÍA para que MaKo conteste; sin "ia" es un texto fijo.
+4. Debajo de "si_responde" no hay "esperar" ni email, y nada arranca a la vez. Ahí, un mensaje con "ia": true es una GUÍA para que MaKo conteste; sin "ia" es un texto fijo. Una guía no ofrece días ni horarios: MaKo no ve la agenda (para agendar, el "link" de agenda).
 5. Como mucho ${TOPE_TARJETAS_IA} tarjetas, ${TOPE_PARALELOS} caminos a la vez desde una tarjeta, ${TOPE_RAMAS} ramas por condición y ${TOPE_FILAS} filas por rama.
 6. No inventes precios, cifras, plazos ni resultados que no estén en el perfil del negocio.
-7. Escribe en el registro de la GUÍA DE VOZ. Sin guía: español neutro, cercano y directo, con tú.`;
+7. Escribe en el registro de la GUÍA DE VOZ. Sin guía: español neutro, cercano y directo, con tú, aunque el negocio sea del Río de la Plata: nada de voseo.`;
 
 export const CREAR_IA_SYSTEM_TEMPLATE = `Armas AUTOMATIZACIONES de WhatsApp y email para un negocio: un flujo de tarjetas que arranca solo (el CRON) y les escribe a sus leads. Te paso el negocio, lo que tiene configurado y el pedido del dueño. Devuelves el flujo como un objeto JSON.
 

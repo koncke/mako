@@ -5,6 +5,7 @@
 //        del workspace (setter solo lectura; el POST se lo niega).
 // POST → admin-only:
 //        { action:'crear', etapa, nombre }                → secuencia nueva (wizard paso 1)
+//        { action:'crear_vacia', nombre? }                → automatización VACÍA y pausada → { secuenciaId, nombre }
 //        { action:'sugerir-gancho'|'sugerir-preguntas', objetivo, etapa } → { sugerencias }
 //        { action:'guardar-estrategia', secuenciaId, estrategia }         → { ok }
 //        { action:'probar', secuenciaId }                 → prueba en vivo al admin
@@ -15,7 +16,7 @@
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import {
-  getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia,
+  getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, crearSecuenciaVacia, probarSecuencia,
   muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega, renombrarSecuencia, setCronSecuencia,
   setTriggerSecuencia, TriggerInvalidoError,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
@@ -219,6 +220,13 @@ export async function POST(req: NextRequest) {
       if (fid != null && !Number.isFinite(fid)) return Response.json({ ok: false, error: 'producto inválido' }, { status: 400 });
       await setDisparadorEtapa(id, String(body.etapa ?? ''), fid);
       return Response.json({ ok: true });
+    }
+
+    // «＋ Nueva» (decisión 14): una automatización VACÍA y PAUSADA, sin pasos de relleno. Abre el
+    // lienzo con la caja de crear con IA; devuelve su id y el nombre provisorio.
+    if (body.action === 'crear_vacia') {
+      const r = await crearSecuenciaVacia(body.nombre == null ? null : String(body.nombre));
+      return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre });
     }
 
     if (body.action === 'crear') {
