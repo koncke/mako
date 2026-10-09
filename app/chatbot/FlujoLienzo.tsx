@@ -71,9 +71,12 @@ import {
 import { partesExplicitas } from '@/lib/mensaje-partes';
 import { editorDeTarjeta, Y_ENTRADA, type Muelles } from '@/lib/lienzo-grafo';
 import {
-  UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadMostrada, sinPrecision, avisoDePrecision,
+  UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadMostrada,
   type UnidadEspera,
 } from '@/lib/espera-duracion';
+import { etiquetasDelPaso, paramsConEtiquetas } from '@/lib/editor-acciones';
+import { ALTO_PRINCIPAL } from '@/app/components/dropdown-reglas';
+import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { conPosiciones, moverRelativo, fijarPosicion, type Posiciones } from '@/lib/lienzo-posiciones';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 
@@ -715,17 +718,19 @@ function EditorEmail({ paso, id, negocio, busy, cambiar }: { paso: PasoSecuencia
 }
 
 /**
- * LA ETIQUETA, como una frase: «[Poner ▾] [etiqueta ▾]» (decisión 8). Sigue siendo una ⚡ Acción
+ * LA ETIQUETA, como una frase: «[Agregar ▾] [etiquetas]» (decisión 8). Sigue siendo una ⚡ Acción
  * (poner_etiqueta_lead / sacar_etiqueta_lead) sobre el lead del flujo: el motor no cambia. Cambiar
  * la operación o la etiqueta apila (es una decisión, no tipear).
  */
 function EditorEtiquetaLienzo(p: { paso: PasoSecuenciaDto; id: string; busy: boolean; cambiar: Cambiar }) {
   const e = etiquetaDeAccion(p.paso);
   if (!e) return null;
+  // VARIAS ETIQUETAS (sexta tanda, TAG 2): la primera en `etiquetaId` y todas en `etiquetaIds` si son más
+  // de una (`paramsConEtiquetas`, lib/editor-acciones.ts). Con una, el paso queda como siempre.
   return (
-    <EditorEtiqueta key={`etq-${p.id}`} operacion={e.operacion} etiquetaId={e.etiquetaId} deshabilitado={p.busy}
-      onChange={(operacion, etiquetaId) => p.cambiar({
-        accion: { operacion, params: { leadId: LEAD_DEL_EVENTO, ...(etiquetaId != null ? { etiquetaId } : {}) } },
+    <EditorEtiqueta key={`etq-${p.id}`} operacion={e.operacion} etiquetaIds={etiquetasDelPaso(p.paso.accion?.params)} deshabilitado={p.busy}
+      onChange={(operacion, ids) => p.cambiar({
+        accion: { operacion, params: paramsConEtiquetas(ids, { leadId: LEAD_DEL_EVENTO }) },
       }, true)} />
   );
 }
@@ -872,23 +877,27 @@ function EditorAccion({ paso, id, busy, cambiar }: { paso: PasoSecuenciaDto; id:
 type Unidad = UnidadEspera;
 
 /**
- * ESPERAR, COMO UNA FRASE GRANDE: «Esperar [10] [segundos ▾]» (cuarta tanda, punto 1: el campo es el
- * protagonista, de 48 de alto, y la unidad llena lo que queda del renglón), o «[1] [hora ▾] [antes de
- * la reunión ▾]» en las que ya estaban ancladas.
+ * ESPERAR, COMO UNA FRASE GIGANTE: «Esperar [10] [segundos ▾]», o «[1] [hora ▾] [antes de la reunión ▾]»
+ * en las que ya estaban ancladas.
+ *
+ * Sexta tanda (09/10/2026), textual:
+ *   · DELAY 2: «No entiendo el texto "Sigue a la hora en punto", eso no tiene sentido, eliminalo... SI
+ *     es que configuraste un "Horario de oficina" no deberías hacerlo... Eso se hace en todo caso en
+ *     configuraciones, no aquí. No pongas esa limitación.» El aviso de precisión (`avisoDePrecision`,
+ *     lib/espera-duracion.ts) SALE de acá: que la espera se cumpla a la hora exacta, de día o de noche,
+ *     es del motor (parte «tiempo» de la tanda), y el horario de envío de un negocio se pone en
+ *     Configuraciones. Esta frase dice cuánto espera y nada más;
+ *   · CRON 1 (vale para DELAY): «Haz los botones gigantes, y reduce el espacio». El número y la unidad
+ *     miden lo del desplegable PRINCIPAL de la casa (56 de alto, ./dropdown-reglas.ts) y el número va en
+ *     22 y negrita: es lo único que se mira en esta tarjeta. Sin la línea del aviso, la frase es todo
+ *     el panel.
  *
  * ⚠️ SEGUNDOS, MINUTOS, HORAS Y DÍAS desde la quinta tanda (punto 3, literal: «En Delay, falta la
- * opción de minutos y segundos...»). Hasta ahí eran horas y días, «porque el motor corre una vez por
- * hora y ofrecer minutos sería prometer una precisión que no existe». Eso sigue siendo cierto, y por
- * eso la frase lleva su aviso: una espera de hasta 2 min se cumple EN LA MISMA EJECUCIÓN que llegó al
- * DELAY —la corrida del cron o la vía rápida de un evento, después de contestar— (la decisión entera,
- * en la cabecera de lib/espera-duracion.ts); más larga depende del cron, que corre a la hora en punto
- * y sólo de día, y la pantalla dice cuándo sigue con las horas de quien mira (`sinPrecision` +
- * `avisoDePrecision`: «Un número tuyo por encima del suyo no protege: promete»).
- *
- * El dato sigue siendo `espera.minutos`, con decimales para los segundos (10 s = 1/6 min). La UNIDAD
- * que se ve la elige la persona y se recuerda mientras el número entre en ella (`unidadMostrada`): sin
- * eso, tipear «120» en segundos saltaba a «2 minutos» con el cursor adentro. Una espera vieja con
- * minutos sueltos sigue mostrando «minutos»: el valor que está puesto entra siempre (AGENTS.md).
+ * opción de minutos y segundos...»). El dato sigue siendo `espera.minutos`, con decimales para los
+ * segundos (10 s = 1/6 min). La UNIDAD que se ve la elige la persona y se recuerda mientras el número
+ * entre en ella (`unidadMostrada`): sin eso, tipear «120» en segundos saltaba a «2 minutos» con el
+ * cursor adentro. Una espera vieja con minutos sueltos sigue mostrando «minutos»: el valor que está
+ * puesto entra siempre (AGENTS.md).
  */
 function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; busy: boolean; cambiar: Cambiar }) {
   const e: Espera = espera ?? { modo: 'tiempo', minutos: 1440 };
@@ -898,32 +907,29 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
   const n = seg / SEGUNDOS_DE[unidad];
   const poner = (modo: Espera['modo'], cuanto: number, u: Unidad, apilar: boolean) =>
     cambiar({ espera: { modo, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]) } }, apilar);
+  // Un ícono por unidad (general 10: «pon íconos en todos los desplegable»): el cronómetro para lo corto,
+  // el reloj para minutos y horas, el calendario para los días.
+  const iconoUnidad: Record<Unidad, NombreIconoMenu> = { s: 'cronometro', min: 'reloj', h: 'reloj', dias: 'calendario' };
   const numero = (
     <input type="number" min={1} step={1} value={n} disabled={busy} aria-label="Cuánto"
       onChange={(ev) => { const v = Number(ev.target.value); if (v > 0) poner(e.modo, v, unidad, false); }}
-      style={{ ...campoGrande, width: 96, flex: 'none', textAlign: 'center' }} />
+      style={{ ...campoGrande, minHeight: ALTO_PRINCIPAL, width: 104, flex: 'none', textAlign: 'center', fontSize: 22, fontWeight: 700, borderRadius: 13, border: '1.5px solid var(--border-strong)' }} />
   );
   const selUnidad = (
-    <div style={{ flex: '1 1 150px', minWidth: 0 }}>
-      <Dropdown value={unidad} width="100%" ariaLabel="Unidad" search={false} disabled={busy} buttonStyle={botonGrande}
-        options={UNIDADES_ESPERA.map((u) => ({ value: u, label: rotuloUnidad(u, n) }))}
+    <div style={{ flex: '1 1 170px', minWidth: 0 }}>
+      <Dropdown value={unidad} width="100%" ariaLabel="Unidad" search={false} disabled={busy} variante="principal"
+        options={UNIDADES_ESPERA.map((u) => ({ value: u, label: rotuloUnidad(u, n), icono: iconoUnidad[u] }))}
         onChange={(v) => { const u = v as Unidad; setPreferida(u); poner(e.modo, n, u, true); }} />
     </div>
   );
-  const aviso = e.modo === 'tiempo' && sinPrecision(seg)
-    ? <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--dim)' }}>{avisoDePrecision(new Date().getTimezoneOffset())}</div>
-    : null;
   // ⚠️ CUARTA TANDA, PUNTO 9: «En "Delay" lo de "Antes de la reunión" debería ser una CONDITION,
   // dentro de la sección de llamadas» (vive en «Próxima reunión en», lib/condiciones-catalogo.ts). Un
   // DELAY nuevo sólo espera: «Esperar [1] [día]». Uno que YA está anclado a la reunión sigue con su
   // selector, para poder verlo y pasarlo a «Esperar»; el motor lo sigue corriendo igual.
   if (e.modo === 'tiempo') {
     return (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-          <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', flex: 'none' }}>Esperar</span>{numero}{selUnidad}
-        </div>
-        {aviso}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', flex: 'none' }}>Esperar</span>{numero}{selUnidad}
       </div>
     );
   }
@@ -932,7 +938,7 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
       {numero}{selUnidad}
       <div style={{ flex: '1 1 200px', minWidth: 0 }}>
         <Dropdown value={e.modo} width="100%" ariaLabel="Cuándo" search={false} disabled={busy} buttonStyle={botonGrande}
-          options={[{ value: 'tiempo', label: 'Esperar' }, { value: 'antes_reunion', label: 'antes de la reunión' }]}
+          options={[{ value: 'tiempo', label: 'Esperar', icono: 'reloj' }, { value: 'antes_reunion', label: 'antes de la reunión', icono: 'calendario' }]}
           onChange={(v) => poner(v as Espera['modo'], n, unidad, true)} />
       </div>
     </div>

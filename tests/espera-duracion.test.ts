@@ -193,9 +193,9 @@ test('⚠️ la honestidad: TODO lo que depende del cron lo dice la pantalla, co
   for (const off of [360, 180, -120, -330, 0]) {
     assert.ok(avisoDePrecision(off).length <= 42, `«${avisoDePrecision(off)}» (${avisoDePrecision(off).length}) no entra en una línea corta`);
   }
-  // Y el editor lo dibuja con estas dos funciones y la zona del navegador, no con un número propio.
-  const ed = bloque(sinComentarios(leer('app/chatbot/FlujoLienzo.tsx')), 'function EditorEspera(', '\n}\n', 4_200);
-  assert.match(ed, /const aviso = e\.modo === 'tiempo' && sinPrecision\(seg\)\s*\? <div[^>]*>\{avisoDePrecision\(new Date\(\)\.getTimezoneOffset\(\)\)\}<\/div>/);
+  // ⚠️ Desde la sexta tanda (09/10/2026, DELAY 2: «No entiendo el texto "Sigue a la hora en punto"...
+  // eliminalo... No pongas esa limitación») el editor del DELAY NO dibuja este aviso: lo fija
+  // tests/editores-control.test.ts (parte «editores»). Las dos funciones quedan para quien las necesite.
 });
 
 test('⚠️ CADENCIA_MOTOR_MIN dice lo mismo que vercel.json (si cambia la cadencia, cambia lo que se promete)', () => {

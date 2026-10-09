@@ -1563,6 +1563,94 @@ un nivel más adentro: un scratchpad por SESIÓN no es uno por AGENTE.
 - **Nada se vio con clics**: los seis botones, el Recurrente (días, calendario, reloj, huso), «A
   quién», «Ignorar», los eventos apagados y las pastillas de dos CRON se probaron dibujando
   (`tests/editor-disparadores.test.ts`), no en un navegador.
+## Sexta tanda (09/10/2026, parte «editores»): el desplegable de la casa, TAG con varias, ACTION en árbol, DELAY sin aviso
+
+Pedido literal en la bitácora (9 oct 18:37): general 9, 10 y 11, CONDITION 2 a 4 («para todos lados»),
+TAG 1 y 2, ACTION 1 y 2, DELAY 2 y CRON 1. Rama `wip-v6-editores`.
+
+### Una tarjeta TAG con varias etiquetas: la acción acepta UNA y el validador tira el resto SIN ERROR [editores]
+
+Lo obvio era guardar la lista en el paso (`etiquetaIds: [7, 8, 9]`) y dejar que el motor la corra. Medido el
+09/10: `poner_etiqueta_lead` / `sacar_etiqueta_lead` declaran UN `etiquetaId: number`, y `validarInput`
+(lib/api-mako/validar.ts) recorre sólo los `parametros` de la def: lo que la def no declara NO LLEGA y nadie
+lo dice (`faltanEnPaso` tampoco lo ve). Una tarjeta con tres corría la primera —o ninguna— con la pantalla
+mostrando tres. Lo hecho: la primera sigue en `etiquetaId` (así la leen sin cambios la tarjeta, el conteo de
+uso, Crear con IA y el freno de Publicar) y TODAS van en `etiquetaIds` sólo si son más de una; con una, el
+paso queda exacto como antes. Correr una por etiqueta es `unaPorEtiqueta` + `juntarPorEtiqueta`, para el
+ejecutor. ⚠️ **Ese enchufe vive en `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts), que no es de esta parte:
+sin él corre sólo la primera.** Lo dice un test `todo` en tests/editor-etiqueta.test.ts.
+
+La regla: un dato de MÁS DE UN VALOR en un paso de un flujo lo declara la def o lo parte el ejecutor;
+guardarlo y confiar en que viaja es un éxito parcial callado. Los que leen la forma vieja (`params.etiquetaId`
+solo), medidos: `etiquetaDeAccion` (lib/flujo-conversacion.ts), `usoDeEtiqueta` (lib/etiquetas-reglas.ts) y
+lib/flujo-ia.ts (la vuelta a JSON de «Editar con IA», la resolución de las nuevas, `validarIA`).
+
+**Vive en:** `lib/editor-acciones.ts` (`etiquetasDelPaso`, `paramsConEtiquetas`, `unaPorEtiqueta`, `juntarPorEtiqueta`) · `app/chatbot/EditorEtiqueta.tsx` · `app/chatbot/FlujoLienzo.tsx` (`EditorEtiquetaLienzo`)
+
+### «Mover de etapa» y «Mover en otro producto»: cuál sirve lo decide el LEAD, no el flujo [acciones]
+
+Para «faltan muchas acciones», lo obvio era sumar `mover_lead_en_producto`: «Mover de etapa»
+(`proponer_cambio_etapa`) mueve SÓLO en el producto principal del lead —el producto que se elige en el editor
+es una pista—. Medido en los `preparar` (lib/api-mako/areas/crm.run.ts): `mover_lead_en_producto` rechaza el
+producto que es el principal del lead y el producto que el lead no tiene, sin `yaEstaba`. En un flujo pasan
+leads con principales distintos, así que con las dos en el menú la equivocada falla en cada lead con una alarma
+al dueño. Se dejó afuera, con su porqué en `ACCIONES_DEL_FLUJO`. Lo que falta es UNA «Mover de etapa» que, por
+lead, corra una u otra según el producto elegido sea su principal o uno agregado (en el ejecutor, o una acción
+nueva del registro).
+
+**Vive en:** `lib/editor-acciones.ts` (`ACCIONES_DEL_FLUJO`) · `lib/api-mako/areas/crm.run.ts` · `app/_components/CamposAccion.tsx` (`SelectorEtapa`)
+
+### Un campo `icono`, tres formas; y lo que cada negocio nombra no lleva ícono [ui]
+
+El `icono` de un renglón del `Dropdown` acepta el NOMBRE de uno del set de la casa (app/_ui/iconos-menu.tsx,
+para que lo pida una lista armada en un `.ts`), una URL o `data:` (los logos del ＋), o un dibujo. Un nombre
+no trae `:`, `/` ni `.`, así que no se confunde con una URL. ⚠️ `esIconoMenu` va con `hasOwnProperty`: con
+`s in TRAZOS`, «toString» era un ícono (lo cazó la rotura B10) y el renglón dibujaba nada con cara de algo.
+Lo que nombra cada negocio (etapas, productos, etiquetas) va con su `color`, no con un ícono repetido. Y
+«borrar» es UN dibujo (`TRAZOS_BORRAR`) en rojo que no se puede cambiar desde afuera: el rojo no es un prop.
+
+**Vive en:** `app/_ui/iconos-menu.tsx` · `app/_ui/BotonBorrar.tsx` · `app/components/Dropdown.tsx` (`IconoOpcion`) · `app/components/dropdown-reglas.ts`
+
+### Git Bash se come una barra de un argumento que empieza con `//`, y el scratchpad es de las ocho partes [proceso]
+
+- `node reemplazar.mjs archivo nuevo "// ── Marca"` llegó como `/ ── Marca` (MSYS convierte lo que arranca con
+  `//` como si fuera una ruta). El reemplazo por anclas calzó un carácter corrido: «///» arriba y «/ ──»
+  abajo, y el typecheck lo dijo como «Unterminated regular expression literal» en una línea que no nombra
+  la causa. Las anclas de texto van en un archivo (un JSON), nunca por la línea de comandos.
+- El scratchpad de la sesión lo comparten las partes de la corrida: un `eol.mjs` de esta parte lo pisó otra
+  con el mismo nombre en minutos, y `editores/` traía archivos de la cuarta tanda. Cada parte trabaja en una
+  carpeta con su nombre y su tanda (`editores-v6/`).
+
+### Lo que quedó sin hacer (parte «editores»)
+
+- **Los enchufes en archivos ajenos** (el detalle exacto, en el informe de la parte): correr una por etiqueta
+  en `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts); «Agregar Cualificado y 2 más» en la tarjeta
+  (`etiquetaDeAccion` / `textoEtiqueta`, lib/flujo-conversacion.ts); `usoDeEtiqueta` con todas
+  (lib/etiquetas-reglas.ts); el ✕ del chip dice «Sacar» (`ChipEtiqueta`, app/_components/etiquetas-cliente.tsx);
+  «Poner»/«Sacar» en app/crm/AccionesLoteLeads.tsx, app/crm/lead-view/EtiquetasDelLead.tsx, lib/etiquetas-motor.ts
+  (el historial del lead), lib/api-mako/areas/crm.run.ts, crm.def.ts y whatsapp.run.ts, lib/flujo-ia.ts; y el alto
+  del panel del TAG (`ALTO_EDITOR_CONTROL.etiqueta`, lib/lienzo-grafo.ts: con varias, 140 scrollea).
+- **El barrido del tacho por toda la app** (general 9): `BotonBorrar` / `IconoBorrar` existen y no los usa
+  todavía ninguna pantalla. Los lugares: el 🗑 del panel del lienzo (`app/_components/Lienzo.tsx:1060`, el que
+  Martín ve); `Icon name="trash"` (app/admin/ui/CatalogoUI.tsx:193, app/_components/PanelAgencia.tsx:66/363/387,
+  app/chatbot/GrabadorAudioPaso.tsx:168, app/chatbot/OnboardingChatAgent.tsx:1176,
+  app/integraciones/NombrarVideos.tsx:245, app/integraciones/ProbarTracking.tsx:298/677,
+  app/integraciones/ServicioConfigForm.tsx:806, app/video-generator/EditorAnuncio.tsx:516,
+  app/video-generator/ElegirFoto.tsx:240, app/video-generator/PasoTomas.tsx:411,
+  app/ads-manager/BarraAcciones.tsx:369); `IconTrash` del composer (app/whatsapp/_shared/composer-icons.tsx:26,
+  usado en app/chatbot/EditorMensajeWhatsApp.tsx:560, app/whatsapp/_shared/ComposerWhatsApp.tsx:342,
+  app/whatsapp/_shared/VoiceRecorder.tsx:179); el 🗑 de app/experimentos/RetroTab.tsx:113/188; los trazos sueltos
+  de app/crm/AccionesLoteLeads.tsx:147, app/crm/CrmBoard.tsx:263, app/onboarding/Archivero.tsx:79 y
+  app/_ui/EditorRico.tsx:542. Las ✕ que BORRAN (no las que cierran) quedan por contar aparte.
+- **Los íconos en los ~71 desplegables de la app** (general 10): el `Dropdown` los dibuja y el set existe; los
+  pusieron sólo ACTION, TAG y DELAY.
+- **Las acciones de Customer Success de la rama de la API** (`wip/api-acciones-0910`: mover en la entrega,
+  invitar al curso, mandar el link, cortar el acceso, abrir un módulo): entran a `ACCIONES_DEL_FLUJO` cuando
+  la rama llegue a main, y piden controles nuevos (el servicio y la etapa de la ENTREGA, no las del CRM).
+- Los campos de abajo del selector de ACTION siguen a 40 de alto (`Select` de app/_ui): «botones gigantes»
+  quedó en el principal. `app/_components/CamposAccion.tsx`
+- Verlo con clics: el árbol de ACTION, el TAG con tres chips y «＋ Otra», el DELAY a 56 y un desplegable de 8
+  opciones con su buscador.
 
 ## Lo que quedó sin hacer
 

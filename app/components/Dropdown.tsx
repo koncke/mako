@@ -9,12 +9,34 @@
 // que NO lo recorte ningún contenedor con overflow (ej. el scroll del modal de
 // detalle): antes, dentro de un modal scrolleable el menú se cortaba al abrir.
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties , type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties , type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { puedeApagar, rotuloDeVarios } from './dropdown-varios';
 import { altoMaximoDelMenu, lugarDelMenu, CAJA_MENU, SEPARACION_MENU } from './dropdown-lugar';
+import { conBuscador, estiloDeVariante, anchoPorDefecto, type VarianteDropdown } from './dropdown-reglas';
+import { IconoMenu, esIconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
+
+/**
+ * El ícono de un renglón o de una sección (sexta tanda, general 10: «pon íconos en todos los
+ * desplegable, en todas las opciones»). Tres formas en UN campo, y no tres campos para el mismo lugar:
+ *   · el NOMBRE de uno del set de la casa (`'duplicar'`, app/_ui/iconos-menu.tsx), que se puede pedir
+ *     desde una lista armada en un `.ts`; `'borrar'` sale rojo siempre;
+ *   · la URL de una imagen o un `data:` de un SVG (los logos del ＋ del lienzo, como hasta ahora);
+ *   · un dibujo propio (un elemento de React).
+ * Un nombre nunca trae `:` ni `/`, así que no se confunde con una URL (`esIconoMenu`).
+ */
+export type IconoDeOpcion = NombreIconoMenu | (string & {}) | ReactElement;
+
+function IconoOpcion({ icono, size = 18 }: { icono: IconoDeOpcion; size?: number }) {
+  if (typeof icono === 'string') {
+    if (esIconoMenu(icono)) return <span aria-hidden style={{ display: 'inline-flex', flex: 'none', color: 'var(--dim)' }}><IconoMenu nombre={icono} size={size - 1} /></span>;
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={icono} alt="" width={size} height={size} style={{ display: 'block', flex: 'none' }} />;
+  }
+  return <span aria-hidden style={{ display: 'inline-flex', flex: 'none', color: 'var(--dim)' }}>{icono}</span>;
+}
 
 // Avatar de una opción-persona: foto de perfil o iniciales. Se muestra cuando la
 // opción trae la prop `avatar` (string = foto · null = persona sin foto → iniciales).
@@ -85,8 +107,7 @@ function renderOption(
         }} />
       )}
       {o.avatar !== undefined && <OptAvatar url={o.avatar} name={o.label} size={22} cuadrado={o.avatarCuadrado} />}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {o.icono && <img src={o.icono} alt="" width={18} height={18} style={{ display: 'block', flex: 'none' }} />}
+      {o.icono && <IconoOpcion icono={o.icono} />}
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
       {o.crear && <span aria-hidden style={{ flex: 'none', fontSize: 13, lineHeight: 1 }}>＋</span>}
       <span style={{ minWidth: 0, flex: 1 }}>
@@ -236,7 +257,7 @@ export type DropdownAccion = { icono: ReactNode; title: string; tone?: 'bad'; on
    */
   cierra?: boolean };
 
-export type DropdownOption = { value: string; label: string; /** Un ícono (URL o `data:` de un SVG), cuadrado a 18 px, antes del título. Para íconos de línea o logos; una persona va con `avatar`. */ icono?: string; sub?: string; /** Texto extra que la búsqueda mira, además del título y el subtítulo. Para cuando el dato que uno recuerda no está escrito en el renglón (un token, un alias, un código). */ buscar?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
+export type DropdownOption = { value: string; label: string; /** Un ícono antes del título, a 18 px: el NOMBRE de uno del set de la casa (`'duplicar'`, app/_ui/iconos-menu.tsx), una URL o `data:` de un SVG (un logo), o un dibujo propio. Una persona va con `avatar`; una etapa o una etiqueta del negocio, con `color` (no se estandarizan). */ icono?: IconoDeOpcion; sub?: string; /** Texto extra que la búsqueda mira, además del título y el subtítulo. Para cuando el dato que uno recuerda no está escrito en el renglón (un token, un alias, un código). */ buscar?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
   /**
    * La salida para CREAR uno nuevo, no una opción más de la lista.
    *
@@ -281,6 +302,8 @@ export type DropdownOption = { value: string; label: string; /** Un ícono (URL 
   lineaArriba?: boolean };
 /** Grupo con título para menús en columnas (ver prop `columns`) o por secciones (`secciones`). */
 export type DropdownGroup = { title: string; options: DropdownOption[];
+  /** Sólo con `secciones`: el ícono de la fila que ABRE la sección (CRM, WhatsApp…), como el de un renglón. */
+  icono?: IconoDeOpcion;
   /**
    * Sólo con `secciones`: la sección es un ATAJO — sus opciones viven TAMBIÉN en otra sección
    * («Más usadas» del selector de acciones de un flujo, 08/10/2026). En la raíz se ofrece como
@@ -342,7 +365,7 @@ export function Dropdown({
   align = 'left',
   buttonStyle,
   resetAfterSelect = false,
-  sinFlecha = false,
+  sinFlecha: sinFlechaPedida = false,
   ariaLabel,
   botonLabel,
   disabled = false,
@@ -358,6 +381,7 @@ export function Dropdown({
   menuMinAncho,
   menuAlto,
   pie,
+  variante,
 }: {
   value: string;
   options?: DropdownOption[];
@@ -384,8 +408,9 @@ export function Dropdown({
   disabled?: boolean;
   /**
    * Caja de búsqueda arriba del menú. Sin pasar nada aparece SOLA cuando hay más
-   * de 8 opciones — que es el punto en que scrollear deja de ser razonable y el
-   * documento de rediseño pide combobox. `false` la apaga a mano.
+   * de 7 opciones (`UMBRAL_BUSCADOR`, ./dropdown-reglas.ts; eran 8 hasta la sexta
+   * tanda: «Agrega la barra de busqueda en todos los desplegables... Al menos que
+   * por defecto tenga muy pocas opciones»). `false` la apaga a mano.
    */
   search?: boolean;
   /**
@@ -498,8 +523,24 @@ export function Dropdown({
    * y NO cierra el menú: lo que se quitó se ve en la lista de al lado. Ausente = nada.
    */
   pie?: { label: string; onClick: () => void };
+  /**
+   * LA CARA DEL BOTÓN (./dropdown-reglas.ts, sexta tanda):
+   *   · `principal`: el desplegable que MANDA en un editor —qué acción, qué condición, qué operación—,
+   *     más alto, en negrita y de ancho completo si no se le da otro. «Se tiene que diferenciar el
+   *     desplegable principal del resto... Tiene que tener más protagonismo el principal» (CONDITION 3,
+   *     «para todos lados»);
+   *   · `placeholder`: el que AGREGA algo, con borde punteado, el texto centrado y sin flecha, que se
+   *     enciende al pasar el cursor (CONDITION 4: «siempre que puedas usa ese diseño tipo placeholder»).
+   * Ausente = la cara de siempre: ninguna de las pantallas de antes la pasa. `buttonStyle` va encima.
+   */
+  variante?: VarianteDropdown;
 }) {
   const [open, setOpen] = useState(false);
+  /** El cursor sobre el botón: sólo lo usa la variante `placeholder`, que se enciende. */
+  const [encima, setEncima] = useState(false);
+  // El placeholder agrega algo: no elige un valor, así que no lleva la flecha de «acá se elige».
+  const sinFlecha = sinFlechaPedida || variante === 'placeholder';
+  const ancho = width ?? anchoPorDefecto(variante);
   const [pos, setPos] = useState<MenuPos | null>(null);
   const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement | null>(null);
@@ -632,9 +673,9 @@ export function Dropdown({
   const rotuloVarios = rotuloDeVarios(marcados.map((o) => o.label));
   const elegidoVisible = !!selected || marcados.length > 0;
 
-  // Búsqueda: aparece sola pasadas las 8 opciones. Filtra por título Y subtítulo
-  // (en las listas de personas el dato que uno recuerda suele ser el subtítulo).
-  const conBusqueda = search ?? flat.length > 8;
+  // Búsqueda: aparece sola pasadas las 7 opciones (`conBuscador`, ./dropdown-reglas.ts). Filtra por
+  // título Y subtítulo (en las listas de personas el dato que uno recuerda suele ser el subtítulo).
+  const conBusqueda = conBuscador(flat.length, search);
   const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
   // ⚠️ Y TAMBIÉN POR `buscar`, cuando la opción lo trae. Es para las listas donde el
   // dato que uno recuerda no está escrito en ningún renglón: el catálogo de datos de un
@@ -677,7 +718,11 @@ export function Dropdown({
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, width: '100%', padding: '10px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}
       onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-      <span style={{ fontWeight: 600 }}>{g.title}</span>
+      {/* El ícono de la sección (CRM, WhatsApp…), como el de un renglón: el árbol se lee por su forma. */}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {g.icono && <IconoOpcion icono={g.icono} />}
+        <span style={{ fontWeight: 600 }}>{g.title}</span>
+      </span>
       {/* El conteo es el «resumen» de la fila, como en el filtro del plan: dice si vale la pena
           entrar antes de entrar. Una sección de secciones (`grupos`) no cuenta: sólo la flecha.
           Con `resumen`, la fila dice lo que tiene PUESTO (el filtro del Plan, con sus mismos
@@ -706,15 +751,22 @@ export function Dropdown({
     padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)',
     background: 'var(--surface)', color: elegidoVisible ? 'var(--ink)' : 'var(--dim)',
     fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', outline: 'none',
-    width: width ?? 'auto', opacity: disabled ? 0.6 : 1, ...buttonStyle,
+    width: ancho ?? 'auto', opacity: disabled ? 0.6 : 1,
+    // La variante va ENTRE lo de siempre y lo de quien llama: `buttonStyle` sigue mandando.
+    ...estiloDeVariante(variante, encima && !disabled), ...buttonStyle,
   };
+  const conHover = variante === 'placeholder';
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block', width: width ?? 'auto' }}>
-      <button type="button" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} aria-disabled={disabled} disabled={disabled} onClick={toggle} style={btn}>
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block', width: ancho ?? 'auto' }}>
+      <button type="button" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} aria-disabled={disabled} disabled={disabled} onClick={toggle} style={btn}
+        onMouseEnter={conHover ? () => setEncima(true) : undefined} onMouseLeave={conHover ? () => setEncima(false) : undefined}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          {icono && <span style={{ flex: 'none', display: 'flex', color: 'var(--faint)' }}>{icono}</span>}
+          {icono && <span style={{ flex: 'none', display: 'flex', color: conHover ? 'inherit' : 'var(--faint)' }}>{icono}</span>}
           {selected?.avatar !== undefined && <OptAvatar url={selected.avatar} name={selected.label} size={20} cuadrado={selected.avatarCuadrado} />}
+          {/* El ícono de lo elegido también va en el botón (como su color o su avatar): el botón dice lo
+              mismo que el renglón. Con `botonLabel`, quien llama dibuja el botón entero y no se agrega. */}
+          {!botonLabel && selected?.icono && <IconoOpcion icono={selected.icono} size={variante === 'principal' ? 20 : 18} />}
           {selected?.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: selected.color, flex: 'none' }} />}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{botonLabel ?? (selected ? selected.label : rotuloVarios ?? placeholder)}</span>
         </span>
@@ -724,7 +776,7 @@ export function Dropdown({
             desplegable a medio dibujar — se reportó así: «son tres puntos, no 2 y una
             flecha». */}
         {!sinFlecha && (
-          <span style={{ flex: 'none', fontSize: 10, color: 'var(--faint)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+          <span style={{ flex: 'none', fontSize: variante === 'principal' ? 13 : 10, color: 'var(--faint)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
         )}
       </button>
       {open && pos && createPortal(
@@ -751,7 +803,7 @@ export function Dropdown({
               ))
             ) : abierta ? (
               <>
-                <button type="button" onClick={() => setRuta((r) => r.slice(0, -1))}
+                <button type="button" onClick={() => setRuta((r) => r.slice(0, -1))} aria-label={`Volver (${abierta.title})`} title="Volver"
                   style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px 10px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 4 }}>
                   ‹ {abierta.title}
                 </button>
