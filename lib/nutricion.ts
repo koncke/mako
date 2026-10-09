@@ -1318,7 +1318,8 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
     // deja al commit de al lado sin su ocurrencia.
     if (!barridoInscribe(sec)) continue;
     if (!decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora).toca) continue;
-    // `etapasDe(sec)`: una o VARIAS etapas (punto 14). La MISMA pregunta que el commit de abajo.
+    // `etapasDe(sec)`: una o VARIAS etapas (punto 14). La MISMA pregunta que el commit de abajo. No
+    // duplica al pasar por dos: `aInscribir` saltea a quien ya tiene fila (una de etapa no se reusa).
     const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id));
     if (candidatos.length === 0) continue;
     const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
@@ -1426,8 +1427,7 @@ export async function comprometerInscripciones(): Promise<number> {
       if (agenda.toca && (reclamadas ?? []).length === 0) continue;
     }
     if (!agenda.toca) continue;
-    // CUALQUIERA de sus etapas (punto 14). Que no se duplique al pasar por dos lo cuida `aInscribir`:
-    // quien ya tiene fila de ESTA secuencia no se vuelve a inscribir (una de etapa no se reusa).
+    // Una o varias etapas (punto 14).
     const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id));
     if (candidatos.length === 0) continue;
     // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y

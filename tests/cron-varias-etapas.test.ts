@@ -282,6 +282,11 @@ test('⚠️ el pedido de Martín: «un alumno que terminó una clase» → TODA
   // Y si el pedido NO habla de un alumno, nada cambia.
   const venta = ctxIA('Recuperar a quien dejó sus datos y no agendó');
   assert.equal(deIA(flujo(claveDe(venta, 'venta:5:nuevo')), venta, rnd()).disparador, 'venta:5:nuevo');
+  // La adquisición de un producto SIN entrega no se pasa a la entrega de OTRO (sería cambiar el producto).
+  const conTaller = { ...ctx, productos: [...PRODUCTOS.slice(0, 1), { funnelId: 7, productoId: null, nombre: 'Taller', etapas: [{ value: 'nuevo', label: 'Nuevo' }], etapasEntrega: [] }] };
+  assert.equal(disparadorDelPedido('venta:7:nuevo', conTaller), 'venta:7:nuevo');
+  // Y con un solo producto con entrega y ninguna pista, ése.
+  assert.equal(disparadorDelPedido(null, conTaller), 'entrega:9:onb,m1,m2,fin');
 });
 
 test('el modelo puede pedir VARIAS claves; las de otro kanban se sacan con su aviso', () => {
@@ -326,3 +331,5 @@ test('el prompt dice la regla (la primera capa) y la ruta le pasa el pedido y la
 //   17. la 0230 con backfill → 51 / 1.   18. la ruta no pasa el pedido → 51 / 1.
 //   19. el barrido pasa UNA etapa (`sec.etapa`) → 51 / 1.
 // Restaurado: 52 / 0.
+//   20. (este archivo solo, 19 / 0) la adquisición de un producto SIN entrega pasa a la entrega de
+//       otro → 18 / 1.

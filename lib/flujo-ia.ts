@@ -1078,7 +1078,13 @@ export function disparadorDelPedido(valor: string | null, ctx: CtxIA): string | 
   const m = valor ? /^(venta|entrega):([^:]*):/.exec(valor) : null;
   let pid: number | null = null;
   if (m?.[1] === 'entrega') pid = Number(m[2]);
-  else if (m?.[1] === 'venta') pid = conEntrega.find((p) => p.funnelId != null && String(p.funnelId) === m[2])?.productoId ?? null;
+  else if (m?.[1] === 'venta') {
+    // La adquisición de un producto SIN entrega se deja como la eligió el modelo: pasarla a la entrega
+    // de OTRO producto sería cambiarle el producto, no el kanban.
+    const delEmbudo = ctx.productos.find((p) => p.funnelId != null && String(p.funnelId) === m[2]);
+    if (delEmbudo && !conEntrega.includes(delEmbudo)) return valor;
+    pid = delEmbudo?.productoId ?? null;
+  }
   if (pid == null) {
     const pedido = normNombre(ctx.pedido);
     const nombrados = conEntrega.filter((p) => normNombre(p.nombre) && pedido.includes(normNombre(p.nombre)));
