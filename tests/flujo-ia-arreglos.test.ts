@@ -7,7 +7,8 @@
 //
 // ⚠️ PROBADO ROMPIENDO CADA ARREGLO, 09/10/2026: el arnés FIXIA-romper.mjs (scratchpad de la sesión)
 // revierte el arreglo, corre este archivo, cuenta y RESTAURA DE MEMORIA (md5 verificado). El
-// resultado de cada rotura está al lado de su test («rotura: …»).
+// resultado de cada rotura está al lado de su test («rotura: …»); «de N» son los tests que tenía el
+// archivo cuando se rompió (crece con cada arreglo). Las 20 roturas, cazadas.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -268,7 +269,7 @@ test('la espera dice el tope REAL: sale de TOPE_CLIENTE_MS y no es menor que el 
 });
 
 // ── Sólo se mostraba el primer aviso: «va sin link» o «elige qué la dispara» se perdían ──
-// rotura (ordenarAvisos devuelve el orden de llegada): 1 fallo de N, cae éste.
+// rotura (ordenarAvisos devuelve el orden de llegada): 1 fallo de 25, cae éste.
 test('ordenarAvisos y resumenAvisos: primero lo que cambia lo que sale, y «(+N)» con el resto', () => {
   const llegada = [
     'Una tarjeta seguía en dos lugares: la dejé después de su espera',
@@ -287,7 +288,7 @@ test('ordenarAvisos y resumenAvisos: primero lo que cambia lo que sale, y «(+N)
   assert.equal(resumenAvisos(['Elige qué la dispara en el CRON'])!.texto, 'Elige qué la dispara en el CRON');
 });
 
-// rotura (SecuenciaPerfil vuelve a `setErr(r.avisos[0])`): 1 fallo de N, cae éste.
+// rotura (SecuenciaPerfil vuelve a `setErr(r.avisos[0])`): 1 fallo de 25, cae éste.
 test('la ruta manda los avisos ordenados y la pantalla dibuja el resumen, no avisos[0]', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   assert.equal(ruta.split('avisos: ordenarAvisos(avisos)').length - 1, 2, 'los dos `listo` (crear y editar)');
@@ -299,7 +300,7 @@ test('la ruta manda los avisos ordenados y la pantalla dibuja el resumen, no avi
 });
 
 // ── EDITAR pisaba lo que se tocó en el lienzo mientras la IA trabajaba ──
-// rotura (edicionVigente devuelve siempre true): 1 fallo de N, cae éste.
+// rotura (edicionVigente devuelve siempre true): 1 fallo de 25, cae éste.
 test('edicionVigente: si el lienzo cambió desde que se mandó, el resultado no se aplica', () => {
   const base = [{ id: 'a', orden: 1, cuerpo: 'Hola' }];
   assert.equal(edicionVigente(base, [{ id: 'a', orden: 1, cuerpo: 'Hola' }]), true);
@@ -307,7 +308,7 @@ test('edicionVigente: si el lienzo cambió desde que se mandó, el resultado no 
   assert.equal(edicionVigente(undefined, base), true, 'crear no manda base');
 });
 
-// rotura (CrearConIA llama a `p.onListo` del clic en vez del ref): 1 fallo de N, cae éste.
+// rotura (CrearConIA llama a `p.onListo` del clic en vez del ref): 2 fallos de 25, éste y el de las etiquetas.
 test('editar: la caja devuelve la foto que mandó y la pantalla la compara antes de aplicar', () => {
   const caja = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
   assert.match(caja, /const base = p\.modo === 'editar' \? p\.pasos : undefined;/);
@@ -321,7 +322,7 @@ test('editar: la caja devuelve la foto que mandó y la pantalla la compara antes
 });
 
 // ── Las etiquetas que crea la IA se veían como «Una etiqueta que ya no está» hasta recargar ──
-// rotura (sin avisarCambioEtiquetas en el `listo`): 1 fallo de N, cae éste.
+// rotura (sin avisarCambioEtiquetas en el `listo`): 1 fallo de 25, cae éste.
 test('al terminar con etiquetas nuevas, la caja avisa a las listas ANTES de entregar el flujo', () => {
   const caja = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
   assert.match(caja, /import \{ avisarCambioEtiquetas \} from '@\/app\/_components\/etiquetas-cliente';/);
@@ -330,7 +331,7 @@ test('al terminar con etiquetas nuevas, la caja avisa a las listas ANTES de entr
   assert.ok(aviso > 0 && aviso < listo.indexOf('onListoRef.current('), 'el aviso va antes de onListo');
 });
 
-// rotura (la pantalla no siembra el disparador puesto): 1 fallo de N, cae éste.
+// rotura (la pantalla no siembra el disparador puesto): 1 fallo de 25, cae éste.
 test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON lo dibuja sin recargar', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   const ok = ruta.indexOf('puesto = valor;');
@@ -341,13 +342,13 @@ test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON 
 });
 
 // ── Cancelar en «Revisando el flujo» dejaba la automatización guardada y la pantalla sin salida ──
-// rotura (Cancelar también en 'revision'): 1 fallo de N, cae éste.
+// rotura (Cancelar también en 'revision'): 1 fallo de 25, cae éste.
 test('la caja no ofrece Cancelar en «Revisando el flujo»: el server ya no lo respeta', () => {
   const caja = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
   assert.match(caja, /\{estado\.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick=\{cancelar\}>Cancelar<\/Button>\}/);
 });
 
-// rotura (la caja ignora el `guardado` del 409): 1 fallo de N, cae éste.
+// rotura (la caja ignora el `guardado` del 409): 1 fallo de 25, cae éste.
 test('crear sobre una que ya tiene tarjetas: el 409 trae lo guardado y la caja se lo pasa al lienzo', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   const i = ruta.indexOf("if (modo === 'crear' && guardados.length) {");
