@@ -149,4 +149,25 @@ export const BITACORA: Hito[] = [
       'tests/plan-lugar-al-soltar.test.ts — 13 tests, ocho roturas probadas',
     ],
   },
+  {
+    fecha: '9 oct', hora: '—', chat: '—', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Qué cargar de la proyección del 04/10',
+    pedido: '«¿Qué cargo de la proyección del 04/10 al tablero?» → «Sólo las 7 que faltan».',
+    puntos: [
+      'Después de ver el cruce: cuatro bloques ya coincidían, dos fechas eran distintas (Prospección y Anuncios), tres cosas existían sin fecha y siete no existían. La opción elegida decía «sin fecha: el Perro las prioriza. No toco ninguna fecha existente».',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '15:22', chat: '—', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las 7 tareas de la proyección que faltaban, cargadas sin fecha',
+    puntos: [
+      'Por el camino de siempre (borrador y aplicación), así el Perro las ruteó y las puntuó como a cualquier alta: #835 a #841, con prioridades de 81 a 87.',
+      '⚠️ **El Perro les puso fecha a las siete (del 10 al 16/10), y no hay forma de pedirle «sin fecha» en un borrador.** Se las saqué después, con su entrada en el historial, porque lo acordado era sin fecha.',
+      'Antes de crearlas se verificó contra el código que siguieran sin hacer: el embudo del super admin ya estaba declarado, así que la primera quedó en «darle acceso al CRM».',
+      'Al aplicar, el Perro subió «Feature: Cobros y planes» de 80 a 81; ninguno de los 14 proyectos de la corrida del 03/10 cambió.',
+    ],
+    archivos: [
+      'docs/relevo/plan-perro-guardian.md — el cruce de la proyección y lo que se cargó',
+    ],
+  },
 ];

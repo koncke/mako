@@ -3507,6 +3507,28 @@ Kanban, el pop-up) · app/plan/board/PrioridadAMano.tsx (`conLugar`) · lib/plan
 (`fijarPrioridadAMano`) · app/plan/TodoBoard.tsx · app/plan/board/useBoard.ts
 (`aplicarCascadaManual`) · tests/plan-lugar-al-soltar.test.ts · *2026-10-09*
 
+## Un borrador no puede pedir «sin fecha»: el Perro le pone fecha a toda tarea nueva (09/10/2026)
+
+Martín pidió cargar las 7 tareas de la proyección del 04/10 que faltaban «sin fecha». Por el
+camino de siempre (`crearPropuesta` + `aplicarPropuesta`) el Perro les puso fecha a las siete,
+del 10 al 16/10: es lo que hace con toda alta (`priorizarNuevasOwner` puntúa Y fecha), y
+`PropuestaTarea` no tiene cómo decir «ésta va sin fecha a propósito» — un `deadline` vacío se lee
+como «no se sabe», que es justo el hueco que el Perro viene a llenar.
+
+Se resolvió sacándolas después, con su entrada en el historial. **Lo que falta** es que el
+borrador pueda declararlo (un `sinFecha: true` por tarea que el Perro respete, como respeta una
+fecha ya puesta). Es la regla de AGENTS.md sobre la ausencia —«¿alguien lo vació a
+propósito?»— del lado del alta: un vacío decidido y un vacío por llenar no se distinguen si nadie
+los marca.
+
+Y lo esperable de toda alta, que conviene anticipar cuando se le dice a alguien qué va a pasar:
+el Perro re-curvó las tareas no fijadas (103 de 187) y subió el proyecto que recibió trabajo
+nuevo («Feature: Cobros y planes», 80 → 81). Rutea por TEMA: dos de las siete cayeron en otro
+proyecto que el propuesto.
+
+**Vive en:** lib/plan-propuesta.ts (`PropuestaTarea`, `aplicarPropuestas`) · lib/plan-board.ts
+(`priorizarNuevasOwner`) · *2026-10-09*
+
 ## Tres cosas que se sacaron porque no significaban nada
 
 - **El chip «5 · CONSTRUIR»** del escalón. No porque el concepto esté mal: para entender
