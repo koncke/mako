@@ -112,7 +112,8 @@ async function valoresDeSuCurso(l: Lead, ws: number, destino: DestinoMensaje): P
     }
     const conAvance = [...avance.progreso.keys()];
     if (conAvance.length) {
-      const { data: cs, error: e3 } = await db.from('curso_clases').select('producto_id').in('id', conAvance);
+      // Sin las de la papelera (mig 0223): una clase borrada no existe para nadie (tests/curso-papelera).
+      const { data: cs, error: e3 } = await db.from('curso_clases').select('producto_id').in('id', conAvance).is('borrada_at', null);
       if (e3) throw new Error(e3.message);
       for (const c of (cs ?? []) as Array<{ producto_id: number }>) productos.add(Number(c.producto_id));
     }
