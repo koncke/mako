@@ -14,9 +14,10 @@
 //      `procesarEnvios({ esperarHastaMs })`, que duerme al final de la vuelta) y la vía rápida de un
 //      evento, que no duerme adentro del webhook sino DESPUÉS de contestar (`after()`,
 //      `seguirDespuesDeResponder`);
-//   4. la HONESTIDAD: lo que depende del cron (más de 120 s, horas y días incluidos) lo avisa la
-//      pantalla con la cadencia y las horas que dice vercel.json, en la hora de quien mira (si alguien
-//      cambia el cron, este test frena hasta que las constantes digan lo mismo);
+//   4. la CADENCIA: desde la sexta tanda (09/10/2026) el motor mira lo vencido cada minuto, las 24 h
+//      (el tick, más la corrida de cada hora), así que ya no hay aviso que dar: «Sigue a la hora en
+//      punto» se fue. Si alguien cambia el cron, este test frena hasta que las constantes digan lo
+//      mismo;
 //   5. la PÍLDORA y «Probar»: «Esperar 30 s», no «Esperar 1 min» (`textoEspera` redondeaba a minutos).
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026), una rotura por vez y restaurada DE MEMORIA (arnés en el
@@ -30,8 +31,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadDe, unidadMostrada,
-  textoDuracion, esperaEnLaCorrida, sinPrecision, avisoDePrecision,
-  ESPERA_EN_CORRIDA_MAX_S, ESPERA_CORRIDA_HASTA_MS, CADENCIA_MOTOR_MIN, HORAS_MOTOR_UTC,
+  textoDuracion, esperaEnLaCorrida, sinPrecision, avisoDePrecision, desdeFresco,
+  ESPERA_EN_CORRIDA_MAX_S, ESPERA_CORRIDA_HASTA_MS, CADENCIA_MOTOR_MIN, VENTANA_FRESCA_MIN,
 } from '../lib/espera-duracion';
 import { camposDelFlujo, resolverControl } from '../lib/nutricion-grafo-motor';
 import { textoEspera, type PasoGrafo } from '../lib/flujo-grafo';
@@ -174,56 +175,75 @@ test('⚠️ adentro de la corrida: hasta 120 s, antes del tope que dio la ruta,
   assert.ok(ESPERA_CORRIDA_HASTA_MS + ESPERA_EN_CORRIDA_MAX_S * 1000 < 300_000 + 1, 'el tope y la espera no pasan el `maxDuration` de la ruta');
 });
 
-test('⚠️ la honestidad: TODO lo que depende del cron lo dice la pantalla, con las horas de quien mira', () => {
-  assert.equal(sinPrecision(10), false, '10 s se cumple en la misma ejecución');
-  assert.equal(sinPrecision(120), false);
-  assert.equal(sinPrecision(121), true);
-  assert.equal(sinPrecision(5 * 60), true, '5 min: sigue a la hora en punto');
-  // ⚠️ Antes NO avisaba en horas y días («una hora de más sobre un día no cambia nada»): falso de
-  // noche, cuando el cron no corre y «Esperar 2 horas» desde las 22:30 UTC sigue a las 15:00 UTC.
-  assert.equal(sinPrecision(2 * 3600), true, 'horas: de noche se corren hasta la mañana');
-  assert.equal(sinPrecision(86400), true, 'días: también');
-  // El texto: la cadencia y la franja del cron, en la hora LOCAL (UTC − offset).
-  assert.equal(avisoDePrecision(360), 'Sigue a la hora en punto (9 a 17 h)', 'Ciudad de México (UTC−6)');
-  assert.equal(avisoDePrecision(180), 'Sigue a la hora en punto (12 a 20 h)', 'Buenos Aires (UTC−3)');
-  assert.equal(avisoDePrecision(-120), 'Sigue a la hora en punto (17 a 1 h)', 'Madrid en verano: cruza la medianoche');
-  assert.equal(avisoDePrecision(-330), 'Sigue a la hora en punto (20:30 a 4:30 h)', 'una zona con media hora');
-  assert.equal(avisoDePrecision(), 'Sigue a la hora en punto (15 a 23 h)', 'sin offset, UTC');
-  // Una línea bajo el campo (AGENTS.md: lo que se dibuja es corto). El más largo es el de media hora.
-  for (const off of [360, 180, -120, -330, 0]) {
-    assert.ok(avisoDePrecision(off).length <= 42, `«${avisoDePrecision(off)}» (${avisoDePrecision(off).length}) no entra en una línea corta`);
+test('⛔ ya no hay nada que avisar: ninguna espera dibuja «Sigue a la hora en punto» (sexta tanda)', () => {
+  // Martín (09/10/2026): «No entiendo el texto "Sigue a la hora en punto", eso no tiene sentido,
+  // eliminalo». Con el tick de cada minuto la espera dura lo que dice. Los dos cascarones existen
+  // sólo porque el editor del DELAY (de otra parte de la tanda) todavía los importa: con `false` y
+  // vacío, el aviso no se dibuja para ninguna duración.
+  for (const s of [10, 120, 121, 5 * 60, 2 * 3600, 86400, 7 * 86400]) assert.equal(sinPrecision(s), false, `${s} s avisa`);
+  for (const off of [360, 180, -120, -330, 0]) assert.equal(avisoDePrecision(off), '', 'el aviso volvió a decir algo');
+  // Y el texto no vive en el código del módulo (en los comentarios sí: es el porqué).
+  assert.doesNotMatch(sinComentarios(leer('lib/espera-duracion.ts')), /hora en punto/i);
+});
+
+/** Las horas UTC en que corre un schedule de cron (el segundo campo). `null` = no se sabe contar. */
+const horasDe = (campo: string): Set<number> | null => {
+  if (campo === '*') return new Set(Array.from({ length: 24 }, (_, h) => h));
+  const out = new Set<number>();
+  for (const parte of campo.split(',')) {
+    const r = /^(\d+)-(\d+)$/.exec(parte);
+    if (r) for (let h = Number(r[1]); h <= Number(r[2]); h++) out.add(h);
+    else if (/^\d+$/.test(parte)) out.add(Number(parte));
+    else return null;
   }
-  // Y el editor lo dibuja con estas dos funciones y la zona del navegador, no con un número propio.
-  const ed = bloque(sinComentarios(leer('app/chatbot/FlujoLienzo.tsx')), 'function EditorEspera(', '\n}\n', 4_200);
-  assert.match(ed, /const aviso = e\.modo === 'tiempo' && sinPrecision\(seg\)\s*\? <div[^>]*>\{avisoDePrecision\(new Date\(\)\.getTimezoneOffset\(\)\)\}<\/div>/);
-});
+  return out;
+};
 
-test('⚠️ CADENCIA_MOTOR_MIN dice lo mismo que vercel.json (si cambia la cadencia, cambia lo que se promete)', () => {
+test('⚠️ CADENCIA_MOTOR_MIN dice lo mismo que vercel.json: el tick cada minuto y la corrida de la hora, las 24 h', () => {
+  // Probado rompiéndolo (09/10/2026): el tick en «*/5 1-59 …» → cae acá; la corrida de la hora de
+  // vuelta en «0 15-23 * * *» → cae acá (de noche no corría nada).
   const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')) as { crons: Array<{ path: string; schedule: string }> };
-  const cron = vercel.crons.find((c) => c.path === '/api/cron/nutricion');
-  assert.ok(cron, 'no encontré el cron de la nutrición');
-  const [min, hora] = cron!.schedule.trim().split(/\s+/);
-  // Sólo se sabe contar «una vez por hora en el minuto M» (y `*/N` en el minuto); otra forma, que se mida.
-  let cadencia: number;
-  if (/^\d+$/.test(min) && hora !== undefined) cadencia = 60;
-  else if (/^\*\/\d+$/.test(min)) cadencia = Number(min.slice(2));
-  else { assert.fail(`no sé contar «${cron!.schedule}»: hay que medir la cadencia y actualizar CADENCIA_MOTOR_MIN`); }
-  assert.equal(CADENCIA_MOTOR_MIN, cadencia, `vercel.json corre la nutrición cada ${cadencia} min y la pantalla promete ${CADENCIA_MOTOR_MIN}`);
-  // Y la franja de horas, que el aviso dice («9 a 17 h» en Ciudad de México).
-  const franja = /^(\d+)-(\d+)$/.exec(hora ?? '');
-  const horas = hora === '*' ? { desde: 0, hasta: 23 } : franja ? { desde: Number(franja[1]), hasta: Number(franja[2]) } : null;
-  assert.ok(horas, `no sé contar las horas «${hora}»: hay que medirlas y actualizar HORAS_MOTOR_UTC`);
-  assert.deepEqual({ ...HORAS_MOTOR_UTC }, horas, `vercel.json corre la nutrición de ${horas!.desde} a ${horas!.hasta} UTC y la pantalla dice otra franja`);
+  const tick = vercel.crons.find((c) => c.path === '/api/cron/nutricion-tick');
+  const hora = vercel.crons.find((c) => c.path === '/api/cron/nutricion');
+  assert.ok(tick, 'no encontré el tick de la nutrición');
+  assert.ok(hora, 'no encontré el cron de la nutrición');
+  const [minTick, horaTick, ...restoTick] = tick!.schedule.trim().split(/\s+/);
+  const [minHora, horaHora, ...restoHora] = hora!.schedule.trim().split(/\s+/);
+  assert.deepEqual(restoTick, ['*', '*', '*']);
+  assert.deepEqual(restoHora, ['*', '*', '*']);
+  // El tick, cada minuto salvo el 0 (que lo cubre la corrida de la hora): cadencia 1.
+  assert.equal(minTick, '1-59', `el tick corre «${tick!.schedule}»: hay que medir la cadencia y actualizar CADENCIA_MOTOR_MIN`);
+  assert.equal(minHora, '0', 'la corrida de la hora cubre el minuto 0 que el tick no corre');
+  assert.equal(CADENCIA_MOTOR_MIN, 1);
+  // Las 24 horas, las dos: «de día o de noche».
+  assert.equal(horasDe(horaTick)?.size, 24, `el tick corre sólo en las horas «${horaTick}»`);
+  assert.equal(horasDe(horaHora)?.size, 24, `la corrida de la hora corre sólo en «${horaHora}»: de noche no se barre nada`);
+  // La ventana del tick cubre un minuto salteado y la corrida de la hora con el turno tomado.
+  assert.ok(VENTANA_FRESCA_MIN >= 2 * CADENCIA_MOTOR_MIN && VENTANA_FRESCA_MIN < 60);
+  assert.equal(desdeFresco(AHORA), new Date(AHORA - VENTANA_FRESCA_MIN * 60_000).toISOString());
 });
 
-test('⚠️ la ruta del cron le da el tope a TODAS sus corridas: sin él el motor no duerme nunca', () => {
+test('⚠️ las DOS rutas del cron le dan el tope a TODAS sus corridas, y comparten el cupo de la hora', () => {
   // La primera versión ya sabía dormir y la ruta no le pasaba `esperarHastaMs`: la espera corta
   // «adentro de la corrida» no corría en ningún lado, y 30 s eran la corrida de la hora siguiente.
-  const ruta = sinComentarios(leer('app/api/cron/nutricion/route.ts'));
-  assert.match(ruta, /const esperarHastaMs = Date\.now\(\) \+ ESPERA_CORRIDA_HASTA_MS;/, 'el tope se cuenta UNA vez, desde que arrancó la ruta');
-  const llamadas = ruta.match(/procesarEnvios\(\{[^}]*\}\)/g) ?? [];
-  assert.equal(llamadas.length, 3, `la ruta llama al motor ${llamadas.length} veces: hay que mirar la nueva`);
-  for (const l of llamadas) assert.match(l, /esperarHastaMs/, `«${l}» corre sin tope: sus esperas cortas van a la hora siguiente`);
+  // Desde la sexta tanda, además, `cupoPorHora` en todas: sin él, cada tick tendría su propio cupo
+  // de 6 y la línea mandaría hasta 360 por hora.
+  for (const [archivo, cuantas] of [['app/api/cron/nutricion/route.ts', 3], ['app/api/cron/nutricion-tick/route.ts', 1]] as const) {
+    const ruta = sinComentarios(leer(archivo));
+    assert.match(ruta, /const esperarHastaMs = Date\.now\(\) \+ ESPERA_CORRIDA_HASTA_MS;/, `${archivo}: el tope se cuenta UNA vez, desde que arrancó la ruta`);
+    // Perezoso y sin cruzar un `;`: la del tick lleva un objeto adentro (`{ vencidasDesde }`).
+    const llamadas = ruta.match(/procesarEnvios\(\{[^;]*?\}\)/g) ?? [];
+    assert.equal(llamadas.length, cuantas, `${archivo} llama al motor ${llamadas.length} veces: hay que mirar la nueva`);
+    for (const l of llamadas) {
+      assert.match(l, /esperarHastaMs/, `«${l}» corre sin tope: sus esperas cortas van al minuto siguiente`);
+      assert.match(l, /cupoPorHora: true/, `«${l}» tiene su propio cupo de WhatsApp: multiplica el anti-ban`);
+    }
+    // Y con el TURNO del negocio: dos corridas del motor a la vez mandan dos veces.
+    assert.match(ruta, /conTurno(DelMotor)?\(/, `${archivo} corre el motor sin el turno del negocio`);
+  }
+  // El tick, sólo sobre lo que acaba de vencer (salvo al abrir el horario: barre entero).
+  const tick = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));
+  assert.match(tick, /\.\.\.\(motivo === 'vencio' \? \{ vencidasDesde: desde \} : \{\}\)/);
 });
 
 test('⚠️ la VÍA RÁPIDA cumple la espera corta DESPUÉS de contestar (after), con su tope y su workspace', () => {
@@ -251,7 +271,9 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
   const proc = nutri.slice(nutri.indexOf('export async function procesarEnvios('), nutri.indexOf('\nexport async function pausarPorRespuesta('));
   assert.ok(proc.length > 10_000, 'no encontré procesarEnvios');
   // El tope lo da el que llama; sin él no se duerme (la regla vive en `esperaEnLaCorrida`).
-  assert.match(proc, /soloLeadId\?: number; esperarHastaMs\?: number \}/);
+  assert.match(proc, /soloLeadId\?: number; esperarHastaMs\?: number; cupoPorHora\?: boolean; vencidasDesde\?: string \}/);
+  // El tick: sólo lo vencido desde `vencidasDesde`, en la MISMA consulta de la cola.
+  assert.match(proc, /if \(opts\?\.vencidasDesde\) q = q\.gte\('proximo_envio_at', opts\.vencidasDesde\);/);
   // La rama de la espera escribe la hora exacta y ANOTA la corta (sólo si el compare-and-set la movió).
   const rama = bloque(proc, "if (r.tipo === 'esperar') {", '\n          continue;\n        }', 1_800);
   assert.match(rama, /proximo_envio_at: new Date\(r\.proximoMs\)\.toISOString\(\)/);
@@ -273,6 +295,20 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
 });
 
 // ── Roturas (09/10/2026) ─────────────────────────────────────────────────────────────────────
+// TERCERA PASADA (09/10/2026, sexta tanda: el tick de cada minuto, sin ventana y sin aviso). Arnés
+// en el scratchpad, restaurado DE MEMORIA, corriendo este archivo con tests/motor-freno-ventana y
+// tests/nutricion-residuo. Base: 53 / 0. Restaurado: 53 / 0.
+//   X1. el tick en «*/5 * * * *»                                              → 52 / 1
+//   X2. la corrida de la hora de vuelta en «0 15-23 * * *»                      → 52 / 1
+//   X3. el tick sin `cupoPorHora` (su propio cupo de 6 por minuto)             → 51 / 2
+//   X4. `avisoDePrecision` vuelve a decir «Sigue a la hora en punto»           → 52 / 1
+//   X5. la cola del motor sin el corte `vencidasDesde`                         → 52 / 1
+//   M1. el cupo sin `- enLaHora` (motor-freno-ventana)                         → 52 / 1
+//   M2. el horario leído tolerante (`getSetting`: base caída = sin horario)    → 52 / 1
+//   M3. sin horario, la ventana de 9 a 21 de antes                             → 52 / 1
+//   R1. el residuo sin el techo del día (nutricion-residuo)                    → 52 / 1
+// Lo que la pasada de antes medía del aviso (E5, E6, R3, R4, R5, R11) se fue con el aviso.
+//
 // Arnés en el scratchpad (romper.mjs): una rotura por vez, restaurada DE MEMORIA, corriendo este
 // archivo junto con tests/editores-control.test.ts y tests/lienzo-muelles.test.ts. Base: 32 / 0.
 // Pasan / fallan con cada una (las de este archivo):

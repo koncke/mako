@@ -13,10 +13,11 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
 import { IdentidadesFiscalesPanel } from './IdentidadesFiscalesPanel';
 import { CriterioPanel } from './CriterioPanel';
+import { HorarioEnvioPanel } from './HorarioEnvioPanel';
 
 const SANS = "'Geist', sans-serif";
 
-type TabKey = 'notif' | 'fiscal' | 'equipo' | 'criterio';
+type TabKey = 'notif' | 'fiscal' | 'equipo' | 'criterio' | 'horario';
 
 export function ConfigInnerTabs({ equipoPanel, mensajesEnChatbot = false }: {
   /** Panel server-rendered embebido (data cargada en page.tsx). */
@@ -45,6 +46,10 @@ export function ConfigInnerTabs({ equipoPanel, mensajesEnChatbot = false }: {
     // ve (y lo guarda, ver criterio-actions.ts) un admin. Un closer que lo cambie
     // decide que compromisos existen para su jefe.
     ...(esAdmin ? [{ key: 'criterio' as TabKey, label: 'Criterio de reuniones', panel: <CriterioPanel /> }] : []),
+    // El horario en que las automatizaciones le escriben a alguien (sexta tanda, 09/10/2026): por
+    // defecto, cualquier hora. Decide cuándo le llega un mensaje a cada lead, así que sólo un admin
+    // lo cambia (horario-actions.ts). lib/horario-envio.ts tiene el porqué.
+    ...(esAdmin ? [{ key: 'horario' as TabKey, label: 'Horario', panel: <HorarioEnvioPanel /> }] : []),
   ];
   // Solo el Método (agencia) sigue siendo ruta aparte.
   const LINKS: Array<{ href: string; label: string; adminOnly?: boolean }> = [

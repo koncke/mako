@@ -315,20 +315,26 @@ test('⚠️ el residuo pasa de a RESIDUO_POR_CORRIDA por corrida, después de l
   assert.ok(decl >= 0 && decl < bucle, 'el contador se reinicia por lote');
 });
 
-test('RESIDUO_POR_CORRIDA por las corridas del cron no pasa de RESIDUO_POR_DIA', () => {
+test('⚠️ con el cron cada minuto, el residuo sigue saliendo de a UNO por hora y RESIDUO_POR_DIA por día', () => {
+  // Hasta el 09/10/2026 esto contaba las corridas de vercel.json («0 15-23 * * *» = 9 × 1 ≤ 10).
+  // Con el tick de cada minuto y la corrida de la hora las 24 h, «por corrida» dejó de ser techo: las
+  // corridas del cron (`cupoPorHora`) arrancan el contador en lo que el residuo YA usó.
+  // Probado rompiéndolo (09/10/2026): sacar el `enElDia >= RESIDUO_POR_DIA` → cae éste.
   const vercel = JSON.parse(readFileSync(join(raiz, 'vercel.json'), 'utf8')) as { crons: Array<{ path: string; schedule: string }> };
-  const cron = vercel.crons.find((c) => c.path === '/api/cron/nutricion');
-  assert.ok(cron, 'no encontré el cron de la nutrición en vercel.json');
-  const [min, hora, ...resto] = cron.schedule.trim().split(/\s+/);
-  assert.match(min, /^\d+$/, `«${cron.schedule}» corre más de una vez por hora`);
-  assert.deepEqual(resto, ['*', '*', '*'], `no sé contar «${cron.schedule}»`);
-  const corridas = hora.split(',').reduce((n, parte) => {
-    const r = parte.match(/^(\d+)-(\d+)$/);
-    return n + (r ? Number(r[2]) - Number(r[1]) + 1 : /^\d+$/.test(parte) ? 1 : Number.NaN);
-  }, 0);
-  assert.ok(Number.isFinite(corridas), `no sé contar las horas de «${cron.schedule}»`);
-  assert.ok(RESIDUO_POR_CORRIDA * corridas <= RESIDUO_POR_DIA,
-    `${corridas} corridas × ${RESIDUO_POR_CORRIDA} = ${corridas * RESIDUO_POR_CORRIDA} por día: más que RESIDUO_POR_DIA (${RESIDUO_POR_DIA})`);
+  const corren = vercel.crons.filter((c) => c.path === '/api/cron/nutricion' || c.path === '/api/cron/nutricion-tick');
+  assert.equal(corren.length, 2, 'las dos rutas del motor');
+  const src = fuente('lib/nutricion.ts');
+  const fn = bloque(src, 'export async function procesarEnvios(', '\nexport ');
+  assert.match(fn, /if \(opts\?\.cupoPorHora\) residuoEnCorrida = await residuoYaUsado\(secuencias\.filter\(\(s\) => s\.trigger_tipo === TRIGGER_RESIDUO\)\.map\(\(s\) => s\.id\)\);/);
+  // Las dos rutas del cron pasan `cupoPorHora` (lo fija tests/espera-duracion.test.ts, llamada por llamada).
+  for (const c of corren) assert.match(fuente(`app${c.path}/route.ts`), /cupoPorHora: true/);
+  const usado = bloque(src, 'async function residuoYaUsado(', '\n}\n');
+  assert.match(usado, /return enLaHora >= RESIDUO_POR_CORRIDA \|\| enElDia >= RESIDUO_POR_DIA \? RESIDUO_POR_CORRIDA : enLaHora;/);
+  assert.match(usado, /contar\(haceHorasISO\(24\)\)/, 'el día es de 24 h');
+  assert.match(usado, /\.in\('estado', \['enviado', 'borrador', 'fallo'\]\)/, 'cuentan los tres desenlaces de un turno');
+  assert.match(usado, /\} catch \(e\) \{[\s\S]*return RESIDUO_POR_CORRIDA;\s*\}$/, '«no pude leer» es «sin turno»');
+  // Y el techo del día sigue siendo más que el de una hora (si no, el residuo no sale nunca).
+  assert.ok(RESIDUO_POR_DIA >= RESIDUO_POR_CORRIDA);
 });
 
 test('⚠️ los segmentos que MaKo puede usar son los mismos que MaKo lista', () => {

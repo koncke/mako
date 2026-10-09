@@ -1,10 +1,16 @@
 // =============================================================================
-// Cron: motor de nutrición (VSL funnel) — POR WORKSPACE
+// Cron: motor de nutrición (VSL funnel) — POR WORKSPACE, cada hora, las 24 h
 // =============================================================================
+// vercel.json: `0 * * * *`. Hasta el 09/10/2026 era `0 15-23 * * *` (de 9 a 17 en Ciudad de
+// México): lo que vencía de noche salía a la mañana. La sexta tanda lo pasó a las 24 h y le sumó un
+// TICK de cada minuto (app/api/cron/nutricion-tick) que cumple las esperas a su hora; ésta sigue
+// siendo la corrida que hace TODO:
 // Cada corrida itera los workspaces ACTIVOS y, dentro de cada uno: (1) inscribe
-// leads que cayeron en la cohorte de una secuencia activa, (2) procesa los
-// envíos vencidos con rate-limiting anti-baneo (ventana horaria, tope
-// diario/por-corrida POR WORKSPACE, 1 msg/lead cada 20h).
+// leads que cayeron en la cohorte de una secuencia activa, (2) procesa TODOS los
+// envíos vencidos —también lo viejo, que el tick no mira— con rate-limiting
+// anti-baneo (el horario de envío del negocio si puso uno, el tope diario y el de
+// la HORA compartido con el tick, 1 msg/lead cada 20h), con el TURNO del negocio
+// tomado (lib/motor-turno.ts: dos corridas a la vez mandan dos veces).
 //
 // El envío real se decide por workspace con lib/envio-flags.ts (setting
 // envio_whatsapp_enabled / envio_email_enabled; el dueño hereda el env si no
@@ -18,7 +24,7 @@
 //   ?commit=1[&ws=N]  → fuerza el commit del workspace N (default dueño) aunque
 //                       no tenga canales habilitados; los pasos de canales
 //                       apagados avanzan como 'simulado' (semántica histórica).
-//   &ignorar_ventana=1 → ignora la ventana horaria (tests).
+//   &ignorar_ventana=1 → ignora el horario de envío del negocio (tests).
 // Auth: Bearer ${CRON_SECRET}.
 // =============================================================================
 
@@ -35,6 +41,21 @@ import { evaluarDesenlaces } from '@/lib/nutricion-desenlace';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { ESPERA_CORRIDA_HASTA_MS } from '@/lib/espera-duracion';
+import { conTurnoDelMotor } from '@/lib/motor-turno';
+
+/**
+ * Cuánto puede esperar ESTA RUTA, en total, a que un tick suelte el turno de un negocio. Es la única
+ * corrida que barre lo vencido VIEJO: saltearla porque un tick seguía mandando a las :00 dejaría esa
+ * cola una hora más. Es UNO para toda la ruta (no por negocio), como el tope de las esperas cortas:
+ * con `maxDuration = 300` y los negocios de a uno, 60 s por negocio no entrarían.
+ */
+const ESPERA_TURNO_MS = 60_000;
+
+/** El motor con el turno del negocio tomado; si otra corrida lo tiene, se dice y no se corre. */
+async function conTurno<T extends object>(ws: number, hastaMs: number, fn: () => Promise<T>): Promise<T | { saltado: string }> {
+  const r = await conTurnoDelMotor(ws, fn, { esperarMs: Math.max(0, hastaMs - Date.now()) });
+  return r.corrio ? r.resultado : { saltado: r.porque === 'ocupado' ? 'otra corrida tiene el turno' : 'no pude leer el turno' };
+}
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -69,6 +90,8 @@ export async function GET(request: NextRequest) {
    * le pasaba el tope, así que la espera corta «adentro de la corrida» no corría en ningún lado.
    */
   const esperarHastaMs = Date.now() + ESPERA_CORRIDA_HASTA_MS;
+  // Hasta cuándo se espera, en total, a que un tick suelte el turno de un negocio (`ESPERA_TURNO_MS`).
+  const turnoHastaMs = Date.now() + ESPERA_TURNO_MS;
   const wsParam = Number(url.searchParams.get('ws'));
   const wsExplicito = Number.isFinite(wsParam) && wsParam > 0 ? wsParam : null;
 
@@ -111,7 +134,7 @@ export async function GET(request: NextRequest) {
           return null;
         });
         const inscriptas = await comprometerInscripciones();
-        const proc = await procesarEnvios({ ignorarVentana, simularApagados: true, esperarHastaMs });
+        const proc = await conTurno(ws, turnoHastaMs, () => procesarEnvios({ ignorarVentana, simularApagados: true, esperarHastaMs, cupoPorHora: true }));
         return {
           inscriptas,
           ...proc,
@@ -152,11 +175,11 @@ export async function GET(request: NextRequest) {
             // correrlo sólo mueve las acciones. No inscribe por cohorte: eso sigue en 'off'.
             const conAcciones = (await getSecuenciasActivas()).some((s) => s.pasos.some(esPasoAccion));
             if (!conAcciones) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
-            const proc = await procesarEnvios({ ignorarVentana, esperarHastaMs });
+            const proc = await conTurno(w.id, turnoHastaMs, () => procesarEnvios({ ignorarVentana, esperarHastaMs, cupoPorHora: true }));
             return { ws: w.id, modo: 'off (sólo acciones)', ...proc, ...(cerradas ?? {}) };
           }
           const inscriptas = await comprometerInscripciones();
-          const proc = await procesarEnvios({ ignorarVentana, esperarHastaMs });
+          const proc = await conTurno(w.id, turnoHastaMs, () => procesarEnvios({ ignorarVentana, esperarHastaMs, cupoPorHora: true }));
           return { ws: w.id, modo: `commit (wa:${waOn ? 'on' : 'off'} email:${emailOn ? 'on' : 'off'})`, inscriptas, ...proc, ...(cerradas ?? {}) };
         });
         resultados.push(r);
