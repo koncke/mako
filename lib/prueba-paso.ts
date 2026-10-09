@@ -33,7 +33,8 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspace } from './workspace';
+import { firmaDelPie } from './email-remitente';
 import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evolution-envio';
 import { getAudio, audioBase64 } from './setting-audios';
 import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
@@ -86,6 +87,15 @@ export async function enviarPasoDePrueba(p: {
   const primeroEnVentana = await reclamarEspaciado(p.ws, 'prueba-aviso', VENTANA_PRUEBA_MIN, clave).catch(() => true);
   const primero = p.primero || primeroEnVentana;
 
+  // LA FIRMA DEL PIE, la del envío de verdad (cuarta tanda, punto 16): el nombre del NEGOCIO
+  // (`firmaDelPie`, lib/email-remitente.ts), como lo firma el motor y como lo dibuja la bandeja de
+  // «Probar». Sin ella, la prueba llegaba sin firma y no era el mail que recibe el lead. Sin poder leer
+  // el negocio, sin firma: no se inventa una. (El link de baja no va: acá no hay un lead a quien dar
+  // de baja, y un link que no funciona en un mail real es peor que no tenerlo.)
+  const firma = mensaje.canal === 'email'
+    ? await getWorkspace(p.ws).then((w) => firmaDelPie(w?.nombre)).catch(() => '')
+    : '';
+
   let enviados = 0;
   for (const envio of planDePrueba(mensaje, primero)) {
     if (envio.via === 'email') {
@@ -93,7 +103,7 @@ export async function enviarPasoDePrueba(p: {
       // texto plano de respaldo y no el email que se ve en la bandeja. `renderEmailHtml` lo vuelve a sanear.
       const r = await sendEmail({
         to: destino.email!, subject: envio.asunto,
-        html: renderEmailHtml({ subject: envio.asunto, bodyText: envio.texto, bodyHtml: envio.html || undefined }), text: envio.texto,
+        html: renderEmailHtml({ subject: envio.asunto, bodyText: envio.texto, bodyHtml: envio.html || undefined, fromName: firma }), text: envio.texto,
       });
       if (!r.ok) return { ok: false, error: r.error || 'El email no salió' };
       enviados += 1;

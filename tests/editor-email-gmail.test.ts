@@ -31,7 +31,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorEmailGmail, paramsDeVista, nombreDelRemitente, avisoDelRemitente, htmlLegible } from '../app/chatbot/EditorEmailGmail';
+import { EditorEmailGmail, paramsDeVista, nombreDelRemitente, avisoDelRemitente, htmlLegible, AVISO_REEMPLAZA } from '../app/chatbot/EditorEmailGmail';
 import { EditorMensaje } from '../app/agencia/EditorMensaje';
 import { renderEmailHtml } from '../lib/email-html';
 import { sanearHtmlEmail } from '../lib/email-html-seguro';
@@ -201,6 +201,19 @@ test('«Vincular nuevo» monta el flujo de /email (DominioSetup) a demanda, en u
   assert.match(alVincular, /if \(recien\.length === 1\) onChange\(\{ remitente: recien\[0\] === nuevo\.vinculados\[0\] \? null : recien\[0\] \}\);/);
 });
 
+test('«Vincular nuevo» hoy REEMPLAZA (no suma): si ya hay un remitente, el modal lo dice ARRIBA, en una frase', () => {
+  // El workspace tiene UN remitente y «Guardar remitente» lo pisa: el rótulo promete sumar. Ver la
+  // cabecera de `VincularRemitente`.
+  assert.match(GMAIL, /<VincularRemitente inicial=\{estado\?\.dom \?\? null\} reemplaza=\{vinculados\.length > 0\}/,
+    'el aviso no depende de que ya haya un remitente (sin uno, vincular no reemplaza nada)');
+  const modal = GMAIL.slice(GMAIL.indexOf('<Modal titulo="Vincular remitente"'), GMAIL.indexOf('</Modal>'));
+  assert.match(modal, /^<Modal titulo="Vincular remitente"[^>]*>\s*\{reemplaza && \(\s*<div role="note"[^>]*>\{AVISO_REEMPLAZA\}<\/div>\s*\)\}\s*\{error \?/,
+    'el aviso no va arriba del flujo, antes de «Guardar remitente»');
+  assert.match(modal, /color: 'var\(--ink\)'/, 'la consecuencia va en tinta normal, no en gris (AGENTS.md)');
+  assert.ok(AVISO_REEMPLAZA.split(/\s+/).length <= 7, `«${AVISO_REEMPLAZA}» es largo para dibujarse`);
+  assert.match(AVISO_REEMPLAZA, /^Reemplaza /);
+});
+
 test('el EditorMensaje (el de /mensajes) no cambió: sus defaults', () => {
   const html = renderToStaticMarkup(createElement(EditorMensaje, { valor: 'Hola', onChange: () => {} }));
   assert.ok(html.includes('aria-label="El mensaje"'));
@@ -227,3 +240,7 @@ test('el correo como llega, con el cuerpo del editor: el HTML y no el texto de r
 //   R12. el editor rico se desmonta en el modo HTML            → 1 (el modo HTML)
 //   R13. lo elegido sin la regla del motor (remitenteDelPaso)  → 1 (el De)
 //   R14. el motor firma con el nombre del remitente            → 2 (los dos lados + el motor)
+// Cierre del punto 16 (arnés romper-email-2.mjs; base 29 pass / 0 fail):
+//   R18. `reemplaza={false}` (el aviso no mira si hay remitente) → 1 fallo («Vincular nuevo» reemplaza)
+//   R19. el modal sin el texto del aviso                        → 1 (ídem)
+//   R20. el aviso en 14 palabras                              → 1 (ídem)

@@ -979,6 +979,50 @@ era ruido, y Martín la vio como tal. La regla del `<select>` sigue valiendo par
 error de tipos que el mismo comando mostraba arriba. Se cazó en el paso siguiente, sin pushear. El
 chequeo va a un archivo y el `$?` del comando: `npx tsc --noEmit > out.txt 2>&1; echo $?`.
 
+### El «De» del email: hoy hay UN remitente por negocio, y «Vincular nuevo» lo REEMPLAZA [email]
+
+Martín pidió elegir el remitente «si se tiene vinculado varios email, con el botón de vincular
+nuevo». Medido: un workspace tiene UN remitente (`getEmailFrom`: `resend_from` → `RESEND_FROM` → el
+sandbox), «Guardar remitente» de /email lo PISA, y de los 11 workspaces sólo el ws1 tiene
+`resend_from` (y es «MaKo <equipo@hola-mako.com>»). No existe una lista de remitentes en ningún lado.
+
+Lo hecho sin inventar un modelo: el «De» lista lo que hay (`remitentesVinculados` ya lee un
+`remitentes` si la ruta algún día lo manda) y «Vincular nuevo» monta el MISMO `DominioSetup` de
+/email en un modal. Como el rótulo promete SUMAR y ese botón pisa el «De» de todos los emails del
+negocio (los pasos sin remitente propio y los broadcasts), el modal lo dice arriba cuando ya hay uno
+(«Reemplaza el remitente de tu negocio.»). El paso guarda `remitente` sólo si no es el del workspace,
+y el motor lo usa sólo si es del MISMO dominio (`remitenteDelPaso`): la cuenta de Resend es una para
+todos los clientes, así que sin esa guarda un paso guardado con el mail de otro cliente saldría.
+
+**Regla:** mudar a un botón cercano una acción que pisa algo COMPARTIDO le cambia los supuestos de
+frecuencia (AGENTS.md); el lugar nuevo nombra lo que pisa. Sumar de verdad es un dato nuevo (varios
+remitentes por negocio) y lo decide Martín.
+
+**Vive en:** `lib/email-remitente.ts` · `app/chatbot/EditorEmailGmail.tsx` (`VincularRemitente`,
+`AVISO_REEMPLAZA`) · `app/email/EmailApp.tsx` (`DominioSetup`) · `lib/nutricion.ts` (envío y
+`setSecuenciaPasos`)
+
+### Una prop nueva del editor con CERO call sites: el «De» se guardaba y no se veía [email]
+
+`EditorEmailGmail` acepta `remitente` y sus tests lo prueban montándolo a mano, pero quien lo monta
+en el lienzo (`EditorEmail`, `app/chatbot/FlujoLienzo.tsx`, de otra parte de la tanda) no se lo pasa:
+elegir otro remitente lo GUARDABA en el paso y la pantalla seguía diciendo el del workspace. Es
+«escribir la salida no es ofrecerla» con la forma del reparto por archivo: la capacidad en un
+archivo y el enchufe en otro que la parte no podía tocar. Quedó como bloqueante al unir.
+
+**Vive en:** `app/chatbot/FlujoLienzo.tsx` (`EditorEmail`)
+
+### El modo HTML: lo que el editor visual no sabe dibujar SALE, y se simplifica al volver a escribir [email]
+
+La caja HTML pasa cada tecla por la misma lista blanca (`sanearHtmlEmail`) y lo saneado llega al
+paso tal cual, incluido lo que el editor rico no tiene en su esquema (un `h1`, `sub`/`sup`, un
+`colspan`): eso sale en el mail. Al volver al modo visual el editor carga ese HTML con SU esquema, y
+la próxima tecla guarda lo que el editor dibuja, o sea la versión simplificada. No se midió con clics:
+sale de cómo carga ProseMirror un documento. Si un cliente arma un mail en HTML y después toca una
+coma en el visual, pierde lo que el visual no sabe dibujar.
+
+**Vive en:** `app/chatbot/EditorEmailGmail.tsx` (`alCambiarCrudo`, `salirHtml`) · `app/_ui/EditorRico.tsx`
+
 ## Lo que quedó sin hacer
 
 **De la cuarta tanda (09/10/2026):** los puntos 1, 5, 6 (la cuota N), 7, 8, 11 (más acciones), 14,

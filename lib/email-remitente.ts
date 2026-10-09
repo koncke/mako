@@ -15,7 +15,8 @@
 // · El «MaKo» del pie NO lo escribe el render del correo: sale del NOMBRE VISIBLE de ese remitente
 //   (`displayNameDe(getEmailFrom())` en el motor, `nombreDelRemitente` en la vista del editor), que
 //   el render pinta como firma. En el ws1 eso dice «MaKo»; en cualquier workspace sin dominio, el
-//   sandbox dice «Mauricio Bustos» — el nombre de OTRO cliente firmando el mail.
+//   sandbox decía «Mauricio Bustos» — el nombre de OTRO cliente firmando el mail. (Desde el cierre del
+//   punto 16 el sandbox va sin nombre: `SANDBOX_FROM` en lib/resend.ts.)
 //
 // ── Lo que decide este módulo ──
 // · LA FIRMA del pie de un email de un cliente es el NOMBRE DEL NEGOCIO (`firmaDelPie`), nunca el

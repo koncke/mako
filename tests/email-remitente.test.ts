@@ -8,7 +8,8 @@
 // Lo que fija:
 //   · el pie de un email de un CLIENTE firma con el nombre de SU NEGOCIO, nunca con el nombre visible
 //     del remitente (en el ws1 ese nombre es «MaKo»; desde el sandbox, «Mauricio Bustos» para todos);
-//     el link de baja se queda; los mails de la PLATAFORMA siguen firmando «MaKo»;
+//     el link de baja se queda; los mails de la PLATAFORMA siguen firmando «MaKo»; y lo mismo en los
+//     broadcasts de /email y en la prueba de verdad de «Probar» (un barrido sobre app/ y lib/);
 //   · el remitente de un paso sólo se usa si es del MISMO DOMINIO que el del workspace (la cuenta de
 //     Resend es una para todos: sin esto un paso mandaría en nombre de otro cliente);
 //   · los vinculados del «De», y que el motor y `setSecuenciaPasos` los usen (los dos lados).
@@ -16,13 +17,14 @@
 // ── Roturas ── al final.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   sanearRemitente, direccionDe, dominioDe, esRemitenteSandbox, remitenteDelPaso, remitentesVinculados,
   opcionesDeRemitente, remitenteAGuardar, firmaDelPie, partesDeRemitente,
 } from '../lib/email-remitente';
 import { renderEmailHtml } from '../lib/email-html';
-import { paramsDeVista } from '../app/chatbot/EditorEmailGmail';
+import { paramsDeVista, nombreDelRemitente } from '../app/chatbot/EditorEmailGmail';
+import { remitenteVisible } from '../app/chatbot/PanelProbar';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -55,6 +57,43 @@ test('los mails de la PLATAFORMA siguen firmando MaKo (no pasan por la firma del
   assert.match(aviso, /Te lo manda MaKo/, 'la banda y el pie de la plataforma cambiaron');
 });
 
+// ⚠️ EL MISMO BUG VIVÍA EN OTROS DOS LUGARES (09/10/2026, al cerrar el punto 16): los broadcasts de
+// /email (lib/email-marketing.ts, el envío y su prueba) firmaban `displayNameDe(getEmailFrom())` —«MaKo»
+// en los broadcasts del ws1 a SUS leads— y la prueba de verdad de «Probar» (lib/prueba-paso.ts) llegaba
+// sin firma, o sea distinta del mail que recibe el lead. El barrido mira TODO app/ y lib/: una firma
+// nueva con el nombre visible del remitente falla acá, no en la bandeja de un lead.
+const FUENTES = ['app', 'lib'].flatMap((d) => (readdirSync(new URL(`../${d}`, import.meta.url), { recursive: true }) as string[])
+  .filter((f) => /\.tsx?$/.test(f)).map((f) => `${d}/${f.replace(/\\/g, '/')}`));
+/**
+ * Los únicos que firman con el nombre visible de un remitente, con su porqué. `lib/invitaciones.ts`
+ * (`enviarDelNegocio`): manda con el remitente PROPIO del negocio, que sólo existe si verificó SU dominio
+ * (`remitenteDeLaInvitacion` descarta el sandbox y el de MaKo), así que ese nombre lo eligió el negocio.
+ */
+const FIRMA_CON_REMITENTE_PERMITIDA = new Set(['lib/invitaciones.ts']);
+
+test('NINGÚN mail de un cliente firma con el nombre visible del remitente: los broadcasts y la prueba firman con el negocio', () => {
+  const firmanConRemitente = FUENTES.filter((f) => /fromName:\s*displayNameDe\(/.test(sinComentarios(leer(f))));
+  assert.ok(FUENTES.length > 500, `el barrido leyó ${FUENTES.length} archivos: está mirando otra cosa`);
+  assert.deepEqual(firmanConRemitente.filter((f) => !FIRMA_CON_REMITENTE_PERMITIDA.has(f)), [],
+    'un mail firma con el nombre visible del remitente («MaKo» en el ws1, otro cliente desde el sandbox)');
+  // Y el permiso no queda colgado: si ya no firma así, la excepción se va.
+  for (const f of FIRMA_CON_REMITENTE_PERMITIDA) assert.ok(firmanConRemitente.includes(f), `${f} ya no firma con su remitente: sacalo de la lista`);
+
+  // Los broadcasts: el envío y su prueba, los DOS con la firma del negocio.
+  const mk = sinComentarios(leer('lib/email-marketing.ts'));
+  const fn = mk.slice(mk.indexOf('async function firmaDelNegocioActual('), mk.indexOf('\n}\n', mk.indexOf('async function firmaDelNegocioActual(')));
+  assert.ok(fn.length > 60 && fn.length < 400, `el recorte de firmaDelNegocioActual mide ${fn.length}`);
+  assert.match(fn, /return ws \? firmaDelPie\(\(await getWorkspace\(ws\)\)\?\.nombre\) : '';/, 'la firma de los broadcasts no es el negocio');
+  assert.deepEqual([...mk.matchAll(/fromName: ([^,}]+)/g)].map((m) => m[1]!.trim()), ['await firmaDelNegocioActual()', 'fromNameWs']);
+  assert.match(mk, /const fromNameWs = await firmaDelNegocioActual\(\);/);
+
+  // La prueba de verdad de «Probar»: la misma firma que el envío.
+  const pp = sinComentarios(leer('lib/prueba-paso.ts'));
+  assert.match(pp, /\? await getWorkspace\(p\.ws\)\.then\(\(w\) => firmaDelPie\(w\?\.nombre\)\)\.catch\(\(\) => ''\)/, 'la prueba no firma con el negocio');
+  assert.match(pp, /renderEmailHtml\(\{ subject: envio\.asunto, bodyText: envio\.texto, bodyHtml: envio\.html \|\| undefined, fromName: firma \}\)/,
+    'la prueba de «Probar» llega sin la firma que recibe el lead');
+});
+
 // ── Leer un remitente ────────────────────────────────────────────────────────────────────────
 
 test('sanearRemitente: las dos formas, en minúsculas y sin lo que inyecta un encabezado', () => {
@@ -76,6 +115,15 @@ test('sanearRemitente: las dos formas, en minúsculas y sin lo que inyecta un en
   assert.equal(dominioDe('nada'), null);
   assert.deepEqual(partesDeRemitente('Ana <ana@valle.mx>'), { nombre: 'Ana', mail: 'ana@valle.mx' });
   assert.deepEqual(partesDeRemitente('ana@valle.mx'), { nombre: 'ana@valle.mx', mail: 'ana@valle.mx' });
+});
+
+test('el sandbox no lleva el nombre de un CLIENTE: sin nombre visible, «Probar» dice el del negocio', () => {
+  // Decía «Mauricio Bustos <onboarding@resend.dev>»: el remitente de todo workspace sin dominio, así que
+  // la bandeja de «Probar» de OTRO negocio decía «De: Mauricio Bustos».
+  assert.match(sinComentarios(leer('lib/resend.ts')), /const SANDBOX_FROM = 'onboarding@resend\.dev';/, 'el sandbox volvió a tener un nombre');
+  assert.equal(esRemitenteSandbox('onboarding@resend.dev'), true);
+  assert.equal(nombreDelRemitente('onboarding@resend.dev'), '');
+  assert.deepEqual(remitenteVisible('onboarding@resend.dev', 'Codigo Inmobiliario'), { nombre: 'Codigo Inmobiliario', mail: 'onboarding@resend.dev' });
 });
 
 test('el sandbox se reconoce con la MISMA regla que lib/resend.ts', () => {
@@ -174,3 +222,9 @@ test('setSecuenciaPasos guarda el remitente SÓLO en un email, y lo conserva si 
 //   R6. el motor sin el From del paso                      → 1 (el motor)
 //   R7. setSecuenciaPasos sin el remitente                 → 1 (setSecuenciaPasos)
 //   R14. el motor firma con el nombre del remitente        → 2 (el motor acá, y los dos lados del editor)
+// 09/10/2026, cierre del punto 16 (arnés romper-email-2.mjs, misma forma; base 29 pass / 0 fail):
+//   R15. los broadcasts vuelven a `displayNameDe(getEmailFrom())`   → 1 fallo (el barrido)
+//   R16. la firma de los broadcasts es «MaKo» y no el negocio        → 1 (el barrido)
+//   R17. la prueba de «Probar» sin `fromName`                        → 1 (el barrido)
+//   R21. invitaciones deja de firmar con su remitente (permiso colgado) → 1 (el barrido)
+//   R22. el sandbox vuelve a «Mauricio Bustos <onboarding@resend.dev>» → 1 (el sandbox sin nombre)

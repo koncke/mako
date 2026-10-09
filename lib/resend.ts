@@ -20,7 +20,13 @@ const API_BASE = 'https://api.resend.com';
 const ENDPOINT = `${API_BASE}/emails`;
 
 // Remitente sandbox de Resend: solo entrega al dueño de la cuenta.
-const SANDBOX_FROM = 'Mauricio Bustos <onboarding@resend.dev>';
+//
+// ⚠️ SIN NOMBRE VISIBLE, A PROPÓSITO (cuarta tanda del Chatbot, 09/10/2026, punto 16). Decía
+// «Mauricio Bustos», que es un CLIENTE (el ws1), y es el remitente de TODO workspace sin dominio: la
+// bandeja de «Probar» (app/chatbot/PanelProbar.tsx, `remitenteVisible`) le mostraba «De: Mauricio
+// Bustos» a otro negocio, y la firma de sus mails decía lo mismo hasta que dejó de salir del
+// remitente. Sin nombre, quien lo dibuja cae al nombre del negocio. Lo fija tests/email-remitente.test.ts.
+const SANDBOX_FROM = 'onboarding@resend.dev';
 
 // ── Config por workspace (Opción A: cuenta única de MaKo) ────────────────────
 // La API key es LA DE MAKO (env global) para todos los workspaces — cada cliente

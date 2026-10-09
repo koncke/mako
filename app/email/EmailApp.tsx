@@ -880,7 +880,7 @@ export function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpda
             {paso === 3 && (
               <>
                 <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre (ej: Mauricio Bustos)"
+                  <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre (ej: Ana López)"
                     style={{ padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', outline: 'none', minWidth: '200px' }} />
                   <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid var(--border-strong)', borderRadius: '9px', background: 'var(--surface-2)', overflow: 'hidden' }}>
                     <input value={local} onChange={(e) => setLocal(e.target.value)} placeholder="hola" style={{ padding: '9px 4px 9px 12px', border: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '13.5px', outline: 'none', width: '110px', textAlign: 'right' }} />

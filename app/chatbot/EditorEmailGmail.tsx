@@ -276,8 +276,18 @@ let moduloEmail: ModuloEmail | null = null;
  * a demanda: es la pantalla entera de Email y no tiene por qué viajar con /chatbot. Va con un portal al
  * `body`: el panel del editor vive adentro del lienzo, y un `fixed` adentro de una capa transformada o
  * de un `sticky` con z-index no cubre la pantalla (AGENTS.md).
+ *
+ * ⚠️ HOY «VINCULAR» REEMPLAZA, NO SUMA: el workspace tiene UN remitente (`resend_from`) y «Guardar
+ *    remitente» de ese flujo lo pisa, así que cambia el «De» de TODOS los emails del negocio (los
+ *    pasos sin remitente propio y los broadcasts de /email). Mudar ese botón al editor de un paso le
+ *    cambia los supuestos de frecuencia (AGENTS.md: «Mover una acción a un lugar más accesible…»), y
+ *    el rótulo «Vincular nuevo» promete sumar. Por eso, si ya hay uno, el modal lo DICE arriba
+ *    (`reemplaza`). Sumar de verdad necesita guardar varios remitentes por negocio, que no existe:
+ *    lo decide Martín (docs/relevo/chatbot.md).
  */
-function VincularRemitente({ inicial, onCerrar, onDominio }: { inicial: DomState | null; onCerrar: () => void; onDominio: (d: DomState) => void }) {
+export const AVISO_REEMPLAZA = 'Reemplaza el remitente de tu negocio.';
+
+function VincularRemitente({ inicial, reemplaza, onCerrar, onDominio }: { inicial: DomState | null; reemplaza: boolean; onCerrar: () => void; onDominio: (d: DomState) => void }) {
   const [m, setM] = useState<ModuloEmail | null>(moduloEmail);
   const [dom, setDom] = useState<DomState | null>(inicial);
   const [error, setError] = useState(false);
@@ -296,6 +306,9 @@ function VincularRemitente({ inicial, onCerrar, onDominio }: { inicial: DomState
   const Setup = m?.DominioSetup;
   return createPortal(
     <Modal titulo="Vincular remitente" onCerrar={onCerrar} ancho={680}>
+      {reemplaza && (
+        <div role="note" style={{ marginBottom: 12, fontSize: 13, color: 'var(--ink)' }}>{AVISO_REEMPLAZA}</div>
+      )}
       {error ? (
         <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No se pudo abrir.</div>
       ) : Setup && dom ? (
@@ -516,7 +529,7 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
         </PopoverWA>
       )}
       {vincular && (
-        <VincularRemitente inicial={estado?.dom ?? null} onCerrar={() => setVincular(false)} onDominio={alVincular} />
+        <VincularRemitente inicial={estado?.dom ?? null} reemplaza={vinculados.length > 0} onCerrar={() => setVincular(false)} onDominio={alVincular} />
       )}
     </div>
   );

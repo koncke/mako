@@ -168,7 +168,13 @@ export type RenderEmailParams = {
   bodyHtml?: string;
   preheader?: string;      // texto de vista previa (oculto en el cuerpo)
   unsubscribeUrl?: string; // link de baja para el footer
-  fromName?: string;       // firma del pie (display name del remitente del ws)
+  /**
+   * La firma del pie. En un mail de un CLIENTE a sus leads es el nombre de SU NEGOCIO (`firmaDelPie`,
+   * lib/email-remitente.ts: la nutrición, los broadcasts, la prueba de «Probar»), nunca el nombre
+   * visible del remitente: el del ws1 es «MaKo» y el del sandbox el de otro cliente (cuarta tanda del
+   * Chatbot, 09/10/2026, punto 16). Los de la PLATAFORMA pasan «MaKo» explícito. Vacío = sin firma.
+   */
+  fromName?: string;
   /**
    * ⚠️ LA BANDA DE MARCA ES OPT-IN, y no se puede derivar del remitente.
    *

@@ -183,7 +183,8 @@ test('el email del recorrido va a la BANDEJA con su minuto, y lo que sale de ver
   assert.doesNotMatch(src, /<select\b/);
   // Y el mail abierto se dibuja con ese HTML (`cuerpoHtml` → `bodyHtml`), y la prueba real lo manda.
   assert.match(src, /renderEmailHtml\(paramsDeVista\(\{ asunto: correo\.asunto, preheader: correo\.vistaPrevia, cuerpo: correo\.cuerpo, cuerpoHtml: correo\.html \|\| null, negocio, remitente \}\)\)/);
-  assert.match(sinComentarios(leer('lib/prueba-paso.ts')), /renderEmailHtml\(\{ subject: envio\.asunto, bodyText: envio\.texto, bodyHtml: envio\.html \|\| undefined \}\)/);
+  // (Cuarta tanda, punto 16: y con la firma del negocio, `fromName: firma`; la fija tests/email-remitente.test.ts.)
+  assert.match(sinComentarios(leer('lib/prueba-paso.ts')), /renderEmailHtml\(\{ subject: envio\.asunto, bodyText: envio\.texto, bodyHtml: envio\.html \|\| undefined, fromName: firma \}\)/);
 });
 
 // ── La bandeja tipo Gmail ──────────────────────────────────────────────────────
