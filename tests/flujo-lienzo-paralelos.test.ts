@@ -315,7 +315,10 @@ test('el lienzo de /chatbot: sin la tarjeta fantasma, la fila «Si responde» cr
   assert.doesNotMatch(flujo, /ID_NUEVA_RESPUESTA|function Fantasma/, 'volvió la tarjeta fantasma');
   assert.match(flujo, /if \(id === ID_ENTRADA && puerto === PUERTO_RESPUESTA\) \{\n\s+const r = onCrearRespuesta \? onCrearRespuesta\(\) : null;/);
   assert.match(flujo, /const formaPanel: 'apaisado' \| 'columna' = muelles\?\.editorForma === 'apaisado' \? 'apaisado' : 'columna';/);
-  assert.match(flujo, /panelForma=\{formaPanel\} panelAlto=\{muelles\?\.editorAlto\}/);
+  // Cuarta tanda, punto 1: el tamaño del panel sale del TIPO de la tarjeta abierta (`editorDeTarjeta`,
+  // con test en tests/lienzo-muelles.test.ts), no del editor de WhatsApp para todas.
+  assert.match(flujo, /const talla = editorDeTarjeta\(muelles, sel != null \? grafo\.nodos\.find\(\(n\) => n\.id === sel\)\?\.tipo : null\);/);
+  assert.match(flujo, /panelForma=\{formaPanel\} panelAlto=\{talla\.alto\}/);
   // EditorDeNodo: una rama por clase, con los editores de la parte E ENCHUFADOS (integración):
   // el email es el tipo Gmail (su vista previa la fija tests/editor-email-gmail.test.ts) y la
   // etiqueta es la frase. Verificado volviendo a montar el editor de tres campos: 1 fallo.
@@ -326,6 +329,6 @@ test('el lienzo de /chatbot: sin la tarjeta fantasma, la fila «Si responde» cr
   // ⚠️ Tercera tanda (decisión 1): el WhatsApp va en UNA columna, siempre. Partido en dos (el chat a
   // un costado y el composer al otro) Martín lo leyó «bugeado». Y el panel mide lo que dice `muelles`.
   assert.doesNotMatch(flujo, /disposicion=/, 'volvió el WhatsApp partido en dos columnas');
-  assert.match(flujo, /panelAncho=\{formaPanel === 'apaisado' && muelles \? muelles\.editorAncho : 392\}/);
+  assert.match(flujo, /panelAncho=\{talla\.ancho\}/);
   assert.equal(PUERTO_RESPUESTA, 'resp');
 });

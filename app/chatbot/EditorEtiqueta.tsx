@@ -22,6 +22,7 @@
 
 import { Dropdown } from '@/app/components/Dropdown';
 import { SelectorEtiqueta } from '@/app/_components/etiquetas-cliente';
+import { botonGrande } from '@/app/_components/Lienzo';
 import type { OperacionEtiqueta } from '@/lib/editor-acciones';
 
 export type EditorEtiquetaProps = {
@@ -36,19 +37,30 @@ const OPCIONES: Array<{ value: OperacionEtiqueta; label: string }> = [
   { value: 'sacar_etiqueta_lead', label: 'Sacar' },
 ];
 
+/**
+ * LA FRASE, GRANDE (cuarta tanda, punto 1: «tanto espacio en blanco y un desplegable chico arriba del
+ * todo»). Los dos desplegables van con el campo protagonista de la casa (`botonGrande`, 48 de alto) y
+ * la etiqueta llena lo que queda del renglón: el panel mide lo de una frase (`editorDeTarjeta`,
+ * lib/lienzo-grafo.ts), no lo del editor de WhatsApp.
+ *
+ * El ancho de «Poner ▾» sale de la opción más LARGA del conjunto («Poner» y «Sacar», cinco letras, a
+ * 16 px): 128 le deja la flecha sin cortar ninguna (AGENTS.md, el layout se prueba con el valor más
+ * largo). Una etiqueta de 40 letras se corta con «…» adentro de su botón, no empuja la frase.
+ */
 export function EditorEtiqueta({ operacion, etiquetaId, onChange, deshabilitado }: EditorEtiquetaProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
       <Dropdown
         value={operacion}
         options={OPCIONES}
-        width={108}
+        width={128}
         ariaLabel="Poner o sacar"
         disabled={deshabilitado}
         search={false}
+        buttonStyle={botonGrande}
         onChange={(v) => { if (v === 'poner_etiqueta_lead' || v === 'sacar_etiqueta_lead') onChange(v, etiquetaId); }}
       />
-      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+      <div style={{ flex: '1 1 220px', minWidth: 0 }}>
         <SelectorEtiqueta
           value={etiquetaId}
           onElegir={(e) => onChange(operacion, e.id)}
@@ -56,6 +68,7 @@ export function EditorEtiqueta({ operacion, etiquetaId, onChange, deshabilitado 
           ariaLabel="Etiqueta"
           width="100%"
           disabled={deshabilitado}
+          buttonStyle={botonGrande}
         />
       </div>
     </div>

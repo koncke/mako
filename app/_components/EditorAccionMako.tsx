@@ -40,6 +40,8 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Select, Input, Textarea, Checkbox, Field } from '@/app/_ui';
+import { Dropdown } from '@/app/components/Dropdown';
+import { botonGrande } from './Lienzo';
 import type { AccionEditor, ParametroEditor } from '@/lib/api-mako/flujo';
 import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR, LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
 import {
@@ -175,20 +177,28 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
   if (error) return <p style={{ color: 'var(--bad)', fontSize: 13, margin: 0 }}>{error}</p>;
   if (!acciones) return <p style={{ color: 'var(--faint)', fontSize: 13, margin: 0 }}>Cargando acciones…</p>;
 
+  // ⚠️ EL DESPLEGABLE ES EL PROTAGONISTA (cuarta tanda, punto 1: «tanto espacio en blanco y un
+  // desplegable chico arriba del todo»): de ancho completo y con el alto del campo grande de la casa
+  // (`botonGrande`, 48 de alto y letra de 16), y debajo lo que hace y los campos de la elegida. Es el
+  // `Dropdown` y no el `Select` de app/_ui porque ése fija su propio `buttonStyle` (40 de alto); sin
+  // rótulo arriba: el «Elige una acción» del botón y la cabecera ACTION ya lo dicen («Pon mucho menos
+  // títulos dentro del editable», 08/10). Lo usan los dos lienzos: el de /mensajes también lo hereda.
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-        <Select
+        <Dropdown
           value={valor.operacion ?? ''}
           onChange={(id) => onCambio({ operacion: id, params: paramsIniciales(acciones.find((a) => a.id === id)) })}
           secciones={secciones}
           placeholder="Elige una acción"
           disabled={disabled}
           ariaLabel="Acción"
-          menuAncho={340}
+          width="100%"
+          buttonStyle={botonGrande}
+          menuAncho={360}
           menuAlto={420}
         />
-        {elegida && <p style={{ margin: '0 2px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45 }}>{lineaDe(elegida)}</p>}
+        {elegida && <p style={{ margin: '0 2px', fontSize: 13, color: 'var(--dim)', lineHeight: 1.45 }}>{lineaDe(elegida)}</p>}
       </div>
       {/* `key` por operación: lo plegado y el «Cambiar» del lead son de ESTA acción. */}
       {elegida && <FormularioAccion key={elegida.id} accion={elegida} valor={valor} params={params} cambiar={cambiar} opciones={opciones} disabled={disabled} />}

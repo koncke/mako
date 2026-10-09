@@ -123,9 +123,13 @@ test('el selector ofrece SÓLO la lista corta, por grupo; la puesta de afuera va
 
 test('el selector va POR SECCIONES y `accionesParaFlujo` aplica la lista corta', () => {
   const editor = sinComentarios(leer('app/_components/EditorAccionMako.tsx'));
-  const ini = editor.indexOf('<Select\n          value={valor.operacion');
+  // Desde la cuarta tanda (punto 1) es el `Dropdown` con el campo grande de la casa, no el `Select`
+  // de app/_ui (que fija su propio alto de 40): el desplegable es el protagonista del panel.
+  const ini = editor.indexOf('<Dropdown\n          value={valor.operacion');
   const sel = editor.slice(ini, editor.indexOf('/>', ini));
-  assert.ok(sel.length > 50, 'no encontré el Select de la acción');
+  assert.ok(ini >= 0 && sel.length > 50, 'no encontré el desplegable de la acción');
+  assert.match(sel, /width="100%"/, 'el desplegable de la acción va de ancho completo');
+  assert.match(sel, /buttonStyle=\{botonGrande\}/, 'el desplegable de la acción va con el campo grande');
   assert.match(sel, /secciones=\{secciones\}/);
   assert.doesNotMatch(sel, /options=\{/, 'volvió la lista plana');
   assert.match(editor, /seccionesDeAcciones\(acciones, valor\.operacion\)/, 'sin la puesta, un paso viejo no muestra su acción');

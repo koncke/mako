@@ -12,7 +12,7 @@
 // =============================================================================
 
 import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, preparaUnaReunion, secuenciasParaElLead } from '@/lib/nutricion-familias';
-import { getTenantDb, getWorkspace, getWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, getWorkspace, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
 import { LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
@@ -77,6 +77,10 @@ import {
   type Hilo, type LeidoPosicion,
 } from '@/lib/nutricion-hilos';
 import { getAdjunto, adjuntoBase64 } from '@/lib/setting-adjuntos';
+import { esperaEnLaCorrida, ESPERA_CORRIDA_HASTA_MS } from '@/lib/espera-duracion';
+// `after` (Next 16): lo que corre DESPUÉS de contestar el pedido. Lo usa la vía rápida para cumplir
+// una espera corta sin colgar el webhook (`seguirDespuesDeResponder`).
+import { after } from 'next/server';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -2637,6 +2641,62 @@ async function repartirAlEntrar(
   return ini;
 }
 
+/**
+ * Las continuaciones de la vía rápida, EN FILA: duermen en paralelo (cada una lo suyo) y corren el
+ * motor de a una. Un sondeo que trae 30 leads de golpe deja 30 esperas de 30 s que vencen juntas, y
+ * 30 `procesarEnvios` a la vez leerían el tope diario y el de la corrida antes de que ninguno escriba
+ * (la vía rápida de siempre los corre de a uno, en el `for` de quien la llama). Es por proceso: dos
+ * invocaciones en máquinas distintas no se ven, y para eso está el compare-and-set de cada fila.
+ */
+let colaDespuesDeResponder: Promise<void> = Promise.resolve();
+
+/**
+ * LA ESPERA CORTA DE LA VÍA RÁPIDA SE CUMPLE DESPUÉS DE CONTESTAR (quinta tanda, punto 3: «En Delay,
+ * falta la opción de minutos y segundos...»; la decisión entera, en la cabecera de
+ * lib/espera-duracion.ts).
+ *
+ * El caso típico de un DELAY de segundos es «Nuevo lead → esperar 30 s → WhatsApp», y ése corre por la
+ * vía rápida del evento (`enrolarPorEvento` / `inscribirEnSecuencia` → `procesarEnvios({ soloLeadId })`),
+ * adentro de un webhook o de una server action que tiene que contestar ya. Ahí no se puede dormir, y
+ * la fila quedaba esperando a la corrida del cron: los «30 s» eran hasta una hora, o la mañana
+ * siguiente. Con `after()` (Next) el pedido contesta y la función sigue viva: duerme lo que falta y
+ * vuelve a correr ESE lead con su tope, así que una segunda espera corta encadenada detrás también se
+ * cumple ahí (`dormirEsperaCorta`). Pasa por TODAS las guardas otra vez: el anti-ban, la ventana, los
+ * topes.
+ *
+ * ⚠️ NO SE PIERDE NADA SI ESTO NO CORRE: la fila ya tiene su hora exacta (la rama 'esperar' la escribe
+ * antes de anotar la espera), así que si `after` no está (un script, fuera de un pedido) o la función
+ * muere por el `maxDuration` de la ruta que la llamó, la cumple la corrida del cron. Tarde, nunca
+ * perdida. Devuelve si quedó agendada.
+ *
+ * ⚠️ EL WORKSPACE SE FIJA ACÁ: `after` conserva el contexto, pero `getTenantDb` sin `runWithWorkspace`
+ * cae a las cookies, y después de contestar puede no haberlas (AGENTS.md, «El ejecutor fija el
+ * workspace él mismo»).
+ */
+async function seguirDespuesDeResponder(leadId: number, venceMs: number): Promise<boolean> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws == null) return false;
+  const seguir = async (): Promise<void> => {
+    const falta = venceMs - Date.now();
+    if (falta > 0) await new Promise<void>((listo) => setTimeout(listo, falta));
+    const turno = colaDespuesDeResponder.then(() =>
+      runWithWorkspace(ws, () => procesarEnvios({ soloLeadId: leadId, esperarHastaMs: Date.now() + ESPERA_CORRIDA_HASTA_MS })));
+    colaDespuesDeResponder = turno.then(() => undefined, () => undefined);
+    try {
+      await turno;
+    } catch (e) {
+      console.error(`[nutricion] la espera corta del lead ${leadId} no siguió después de contestar (la toma el cron):`, e);
+    }
+  };
+  try {
+    after(seguir);
+    return true;
+  } catch {
+    // Fuera de un pedido (un script, un test): no hay después. La hora exacta ya está en la fila.
+    return false;
+  }
+}
+
 export type ResultadoProceso = {
   saltado?: string;
   enviados: number;
@@ -2648,6 +2708,14 @@ export type ResultadoProceso = {
   fallos: number;
   /** Pasos «⚡ Acción» que corrieron bien. No son mensajes: no cuentan para ningún cupo. */
   acciones: number;
+  /** Cuántas veces la corrida durmió para cumplir una espera corta adentro (ver `esperarHastaMs`). */
+  esperasEnCorrida?: number;
+  /**
+   * La vía rápida dejó una espera corta para DESPUÉS de contestar (`seguirDespuesDeResponder`):
+   * `true` si quedó agendada con `after()`, `false` si no se pudo (fuera de un pedido) y la cumple el
+   * cron. Ausente = no hubo ninguna.
+   */
+  esperaDespuesDeResponder?: boolean;
   detalle: Array<{ lead_id: number; canal: string; estado: string; nota?: string }>;
 };
 
@@ -2662,7 +2730,14 @@ export type ResultadoProceso = {
 //   · opts.simularApagados → los canales apagados se marcan 'simulado' (modo
 //     prueba de la máquina, el ?commit=1 histórico).
 // Un 'fallo' NO avanza el paso (se reintenta), salvo condición terminal.
-export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number }): Promise<ResultadoProceso> {
+//
+// `esperarHastaMs` (quinta tanda, punto 3): hasta cuándo puede DORMIR esta corrida para cumplir una
+// espera corta adentro (≤ 120 s, `esperaEnLaCorrida`, lib/espera-duracion.ts). Lo pasa la ruta del
+// cron con su propio tope (`ESPERA_CORRIDA_HASTA_MS` desde que empezó: tiene `maxDuration` y otros
+// workspaces por delante). Sin él no se duerme nunca: la vía rápida de un evento corre adentro de un
+// webhook, y dos minutos colgado ahí es un reintento del proveedor. Para la vía rápida (`soloLeadId`
+// sin tope), la espera corta se cumple DESPUÉS de contestar: `seguirDespuesDeResponder`.
+export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number; esperarHastaMs?: number }): Promise<ResultadoProceso> {
   const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, acciones: 0, detalle: [] };
   const [waOn, emailOn, sandbox, remitente, lineasEvo] = await Promise.all([
     envioWhatsappHabilitado(),
@@ -2915,6 +2990,48 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // `RESIDUO_POR_CORRIDA` y su uso más abajo.
   let residuoEnCorrida = 0;
 
+  /**
+   * LAS ESPERAS CORTAS SE CUMPLEN ADENTRO DE ESTA CORRIDA (quinta tanda, punto 3: «En Delay, falta la
+   * opción de minutos y segundos»). Una espera se agenda SIEMPRE al segundo exacto en
+   * `proximo_envio_at` (la escribe la rama 'esperar', con compare-and-set), y además, si vence dentro
+   * de `ESPERA_EN_CORRIDA_MAX_S` y antes del tope que dio la ruta (`esperaEnLaCorrida`), se anota acá:
+   * cuando la vuelta se queda sin nada más que mirar, la corrida DUERME hasta la primera, saca de
+   * `vistos` las que ya vencieron y da otra vuelta. Lo que sigue a la espera pasa por TODAS sus
+   * guardas de nuevo —el anti-ban de 20 h incluido—.
+   *
+   * ⚠️ SIN ESTO, «10 s» ERA «la corrida que viene»: el cron corre una vez por hora (vercel.json), así
+   * que una espera de segundos salía a la hora siguiente, o al día siguiente si caía después de las 23
+   * UTC. Y si la corrida muere mientras duerme no se pierde nada: la fila ya tiene su hora exacta y la
+   * toma la corrida de después.
+   *
+   * ⚠️ DUERME AL FINAL DE LA VUELTA Y NO EN LA FILA: una por corrida para todas las esperas que vencen
+   * juntas, y sin frenar al resto del lote. La vuelta que despierta no cuenta para el tope de 6
+   * (`rondas`), que acota el trabajo; las esperas las acota `TOPE_ESPERAS_CORTAS` y el reloj.
+   */
+  const esperasCortas = new Map<number, number>();
+  let esperasHechas = 0;
+  const TOPE_ESPERAS_CORTAS = 8;
+  /**
+   * La primera espera corta que esta corrida NO puede dormir porque no tiene tope (la vía rápida, sin
+   * `esperarHastaMs`): al terminar, `seguirDespuesDeResponder` la cumple después de contestar. Se
+   * mide contra el tope que tendría esa continuación (ahora + `ESPERA_CORRIDA_HASTA_MS`), con la
+   * MISMA función que decide si se duerme, para que «es corta» signifique lo mismo en los dos lados.
+   */
+  let cortaSinTope: number | null = null;
+  const dormirEsperaCorta = async (): Promise<boolean> => {
+    if (!esperasCortas.size || esperasHechas >= TOPE_ESPERAS_CORTAS) return false;
+    const proxima = Math.min(...esperasCortas.values());
+    const ms = esperaEnLaCorrida(proxima, Date.now(), opts?.esperarHastaMs);
+    // La primera ya no entra (el reloj corrió mientras se mandaba lo demás): las de después, tampoco.
+    if (ms == null) { esperasCortas.clear(); return false; }
+    if (ms > 0) await new Promise<void>((listo) => setTimeout(listo, ms));
+    esperasHechas += 1;
+    rondas -= 1;
+    const ahora = Date.now();
+    for (const [id, vence] of esperasCortas) if (vence <= ahora) { vistos.delete(id); esperasCortas.delete(id); }
+    return true;
+  };
+
   while ((!cupoLleno() || sinTopeWa.length > 0) && rondas < 6) {
     rondas += 1;
     // Una acción de esta vuelta dejó su inscripción con el paso siguiente ya vencido.
@@ -2946,7 +3063,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     if (error) throw new Error(`procesarEnvios: ${error.message}`);
     const fetched = (dueRaw ?? []) as FilaCola[];
     const due = fetched.filter((d) => !vistos.has(d.id));
-    if (due.length === 0) break;
+    // Nada vencido: si hay una espera corta por cumplir, se duerme y se vuelve a mirar.
+    if (due.length === 0) { if (await dormirEsperaCorta()) continue; break; }
     for (const d of due) vistos.add(d.id);
 
     // LOS HECHOS DEL LEAD, sólo si alguien del lote está por pasar por una condición, y en UNA
@@ -3103,10 +3221,18 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           continue;
         }
         if (r.tipo === 'esperar') {
+          // Al segundo exacto (`resolverControl`: ahora + la espera), corta o larga.
           const ok = await escribir(insc, {
             paso_actual: r.idx, nodo_actual: idDe(sec.pasos[r.idx], r.idx), proximo_envio_at: new Date(r.proximoMs).toISOString(),
           }, { modo: 'cas', nuevos });
-          res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: ok ? 'espera' : 'otra corrida ya movió esta inscripción' });
+          // Y si vence adentro de esta corrida, se anota para cumplirla acá (`dormirEsperaCorta`).
+          const corta = ok && esperaEnLaCorrida(r.proximoMs, Date.now(), opts?.esperarHastaMs) != null;
+          if (corta) esperasCortas.set(insc.id, Math.min(esperasCortas.get(insc.id) ?? Number.POSITIVE_INFINITY, r.proximoMs));
+          // Sin tope (la vía rápida): si es corta, se cumple DESPUÉS de contestar (ver el final).
+          const paraDespues = ok && !corta && opts?.esperarHastaMs == null
+            && esperaEnLaCorrida(r.proximoMs, Date.now(), Date.now() + ESPERA_CORRIDA_HASTA_MS) != null;
+          if (paraDespues) cortaSinTope = Math.min(cortaSinTope ?? Number.POSITIVE_INFINITY, r.proximoMs);
+          res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: !ok ? 'otra corrida ya movió esta inscripción' : corta ? 'espera corta: sigue en esta corrida' : paraDespues ? 'espera corta: sigue después de contestar' : 'espera' });
           continue;
         }
         // Llegó a un mensaje o una acción. Si ESE nodo tiene su propia espera de antes
@@ -3747,7 +3873,14 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
     }
 
+    // Cola drenada, salvo una espera corta de esta corrida por cumplir: se duerme y otra vuelta.
+    if (fetched.length < LOTE && !otraVuelta && (await dormirEsperaCorta())) continue;
     if (fetched.length < LOTE && !otraVuelta) break; // cola drenada: no quedan más vencidas
+  }
+  if (esperasHechas) res.esperasEnCorrida = esperasHechas;
+  // La vía rápida de UN lead dejó una espera corta: se cumple después de contestar el pedido.
+  if (cortaSinTope != null && opts?.soloLeadId) {
+    res.esperaDespuesDeResponder = await seguirDespuesDeResponder(opts.soloLeadId, cortaSinTope);
   }
 
   // Con el tope diario cumplido sólo corrieron acciones: el corte se sigue diciendo.

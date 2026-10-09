@@ -30,6 +30,7 @@ import { condicionPorId, reunionesDeFila, TOPE_REUNIONES, type HechosCatalogo } 
 import { parseFechaJunta, reunionFuturaMs } from './nutricion-reinscripcion';
 import { claseCompleta } from './curso-bloqueo';
 import type { Clase, Progreso } from './curso';
+import { minutosDeSegundos, segundosDeMinutos } from './espera-duracion';
 
 /** Cuántos «Ir a» se siguen en una sola resolución. `validarGrafo` ya prohíbe el bucle sin espera: esto es la red. */
 export const TOPE_SALTOS = 20;
@@ -834,11 +835,20 @@ function sanearCaso(x: unknown): CasoRespuesta | null {
   };
 }
 
+/**
+ * La espera, saneada. Desde la quinta tanda (punto 3: «En Delay, falta la opción de minutos y
+ * segundos») los minutos llevan DECIMALES para los segundos (10 s = 1/6 min, lib/espera-duracion.ts),
+ * redondeados al SEGUNDO y no al minuto.
+ *
+ * ⚠️ ERA `Math.round(minutos)`: una espera de 10 s se guardaba como 0, caía en «sin espera» y
+ * desaparecía en el primer guardado (la quinta puerta de AGENTS.md, del lado del redondeo). Un número
+ * entero de minutos vuelve exacto (86 400 s / 60 = 1440), así que lo ya guardado no cambia.
+ */
 function sanearEspera(x: unknown): Espera | undefined {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return undefined;
   const o = x as Record<string, unknown>;
-  const minutos = Math.round(Number(o.minutos));
-  // Minutos > 0 o nada: sin espera, `validarGrafo` contesta «la espera no dice cuánto».
+  const minutos = minutosDeSegundos(segundosDeMinutos(o.minutos));
+  // Al menos un segundo o nada: sin espera, `validarGrafo` contesta «la espera no dice cuánto».
   if (!(minutos > 0)) return undefined;
   return { modo: o.modo === 'antes_reunion' ? 'antes_reunion' : 'tiempo', minutos: Math.min(minutos, TOPE_ESPERA_MIN) };
 }

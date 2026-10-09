@@ -33,9 +33,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  muelles, vistaConPanelAbajo, nodoRevelado, aristaRevelada, yDePuerto,
-  MUELLE, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO,
-  type RectMuelle, type NodoFlujo,
+  muelles, vistaConPanelAbajo, nodoRevelado, aristaRevelada, yDePuerto, editorDeTarjeta,
+  MUELLE, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, ALTO_EDITOR_CONTROL, PANEL_COLUMNA_ANCHO,
+  type RectMuelle, type NodoFlujo, type TipoNodo,
 } from '../lib/lienzo-grafo';
 
 const sePisan = (a: RectMuelle, b: RectMuelle) =>
@@ -115,12 +115,13 @@ test('⚠️ en una ventana angosta el editor cae a COLUMNA (con lo que no cambi
   const m = muelles({ w: 840, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
   assert.equal(m.editorForma, 'columna');
   assert.equal(m.editor, null, 'columna: el panel de siempre, no la franja');
-  // Con la lista cerrada, la misma ventana sí tiene lugar (y el editor no pasa de 720).
+  // Con la lista cerrada, la misma ventana sí tiene lugar (y el editor no pasa de su tope). Desde la
+  // cuarta tanda (punto 16) el tope es 840 y la ventana de 840 deja 816 de lugar: manda el lugar.
   const sinLista = muelles({ w: 840, h: 800 }, { listaAbierta: false, probarAbierto: false, editorAbierto: true });
   assert.equal(sinLista.editorForma, 'apaisado');
   assert.equal(sinLista.insets.izq, 0);
   assert.equal(sinLista.editor!.left, PANEL_MARGEN);
-  assert.equal(sinLista.editor!.width, MUELLE.editorAnchoMax);
+  assert.equal(sinLista.editor!.width, Math.min(MUELLE.editorAnchoMax, 840 - PANEL_MARGEN * 2));
   // Justo en el borde: 560 de lugar entra (y el editor mide eso), 559 no.
   const borde = LISTA + PANEL_MARGEN * 2 + MUELLE.apaisadoMin;
   const enBorde = muelles({ w: borde, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
@@ -219,4 +220,73 @@ test('⚠️ una flecha en paralelo sale de la fila que la admite, y de «sig» 
   // salen en paralelo NO pueden saltar a la cabecera.
   assert.equal(yDePuerto(cron(false), 'par:x'), filaAlEntrar);
   assert.equal(yDePuerto(cron(false), 'resp'), 120 - BORDE_NODO - PIE_PUERTOS - 0.5 * ALTO_PUERTO);
+});
+
+// ── Cuarta tanda, punto 1: el editor mide por TIPO de tarjeta (`editorDeTarjeta`) ──────────────
+// Literal: «No me gusta que el editor del CRON como muchos otros tengan tanto espacio en blanco y un
+// desplegable chico arriba del todo». Las capturas: DELAY, ACTION y CONDITION en ~720 × 420 con un
+// renglón arriba, porque todos medían lo del editor de WhatsApp. Y el punto 16: «haz más grande el
+// editable de Email y WhatsApp». Rotura con todo puesto: ver el pie de tests/editores-control.test.ts.
+
+const CONTROL: TipoNodo[] = ['espera', 'etiqueta', 'ir-a', 'accion', 'mako', 'condicion', 'entrada', 'respuesta'];
+
+test('⚠️ el editor de un MENSAJE es más grande que antes (punto 16) y el de control mide lo suyo', () => {
+  const m = muelles({ w: 1850, h: 900 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
+  const msg = editorDeTarjeta(m, 'mensaje');
+  assert.ok(msg.ancho > 720 && msg.alto > 420, `el de WhatsApp/Email mide ${msg.ancho} × ${msg.alto}, no más que los 720 × 420 de antes`);
+  assert.deepEqual(msg, { ancho: m.editorAncho, alto: m.editorAlto }, 'el de mensaje es el rectángulo de `muelles`');
+  for (const t of CONTROL) {
+    const c = editorDeTarjeta(m, t);
+    assert.equal(c.alto, ALTO_EDITOR_CONTROL[t], `${t}: no mide lo de su tipo`);
+    assert.ok(c.alto < msg.alto, `${t}: el de control no es más chico que el de un mensaje`);
+    assert.equal(c.ancho, MUELLE.editorControlAncho, `${t}: el de control no va con su ancho`);
+  }
+  // DELAY, TAG y GO TO son UNA frase o un campo: el panel no pasa de 160 (antes, 420 con un renglón).
+  for (const t of ['espera', 'etiqueta', 'ir-a'] as const) assert.ok(editorDeTarjeta(m, t).alto <= 160, `${t}: volvió el panel con aire`);
+});
+
+test('⚠️ POR TIPO, NUNCA POR CONTENIDO: dos tarjetas del mismo tipo miden lo mismo en cualquier caja', () => {
+  // La función no recibe el contenido: sólo el tipo y la caja. Lo que se fija acá es que el resultado
+  // no dependa de nada más que eso (el mismo tipo, la misma caja, el mismo tamaño), y que abrir o
+  // cerrar «Probar» no le cambie el alto (sí el ancho, que se corta antes de «Probar»).
+  for (const caja of [{ w: 1440, h: 900 }, { w: 1920, h: 1080 }, { w: 1280, h: 700 }]) {
+    const sin = muelles(caja, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
+    const con = muelles(caja, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
+    for (const t of [...CONTROL, 'mensaje' as const]) {
+      assert.deepEqual(editorDeTarjeta(sin, t), editorDeTarjeta(sin, t));
+      if (sin.editorForma === con.editorForma) assert.equal(editorDeTarjeta(con, t).alto, editorDeTarjeta(sin, t).alto, `${caja.w}x${caja.h} ${t}: «Probar» le cambió el alto`);
+    }
+  }
+});
+
+test('⚠️ el de control comparte la esquina con el grande y cabe ADENTRO: si el grande no pisa a «Probar», el chico tampoco', () => {
+  const pisadas: string[] = [];
+  // 1366 con «Probar» deja 581 de lugar: es la caja donde el ancho de control (600) pasaría al de
+  // mensaje si no se topara contra él.
+  for (const w of [1100, 1280, 1366, 1440, 1600, 1920]) for (const h of [560, 700, 900, 1080]) for (const probar of [false, true]) {
+    const m = muelles({ w, h }, { listaAbierta: true, probarAbierto: probar, editorAbierto: true });
+    if (!m.editor) continue;
+    for (const t of CONTROL) {
+      const c = editorDeTarjeta(m, t);
+      // Mismo borde izquierdo y mismo borde de abajo que el grande (`Lienzo`: left + bottom fijos).
+      const r: RectMuelle = { left: m.editor.left, top: m.editor.top + m.editor.height - c.alto, width: c.ancho, height: c.alto };
+      assert.ok(c.ancho <= m.editor.width && c.alto <= m.editor.height, `${w}x${h} ${t}: el de control es más grande que el de mensaje`);
+      assert.ok(c.ancho >= MUELLE.apaisadoMin, `${w}x${h} ${t}: ${c.ancho} de ancho no entra ni la frase de una condición`);
+      if (m.probar && sePisan(m.probar, r)) pisadas.push(`${w}x${h} ${t}`);
+    }
+  }
+  assert.deepEqual(pisadas, [], `«Probar» y un editor de control se pisan en ${pisadas.length} casos`);
+});
+
+test('de columna (ventana angosta) el ancho es el de siempre y el alto sigue siendo por tipo; sin `muelles`, alto libre', () => {
+  const m = muelles({ w: 840, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
+  assert.equal(m.editorForma, 'columna');
+  assert.deepEqual(editorDeTarjeta(m, 'espera'), { ancho: PANEL_COLUMNA_ANCHO, alto: ALTO_EDITOR_CONTROL.espera });
+  assert.deepEqual(editorDeTarjeta(m, 'mensaje'), { ancho: PANEL_COLUMNA_ANCHO, alto: m.editorAlto });
+  // Sin `muelles` o con la caja sin medir (alto 0): 0, que el lienzo lee como el alto libre de siempre.
+  assert.deepEqual(editorDeTarjeta(null, 'accion'), { ancho: PANEL_COLUMNA_ANCHO, alto: 0 });
+  assert.equal(editorDeTarjeta(muelles({ w: 0, h: 0 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true }), 'accion').alto, 0);
+  // En una caja bajísima ninguno pasa del de mensaje (que ya está topado por el chrome).
+  const baja = muelles({ w: 1440, h: 300 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
+  for (const t of CONTROL) assert.ok(editorDeTarjeta(baja, t).alto <= baja.editorAlto, `${t} en una caja de 300`);
 });

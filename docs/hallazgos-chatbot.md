@@ -1023,7 +1023,92 @@ coma en el visual, pierde lo que el visual no sabe dibujar.
 
 **Vive en:** `app/chatbot/EditorEmailGmail.tsx` (`alCambiarCrudo`, `salirHtml`) · `app/_ui/EditorRico.tsx`
 
+## Cuarta tanda punto 1 y quinta punto 3 (09/10/2026, parte «editores»): el panel por tipo y el DELAY con segundos
+
+Pedido literal: «No me gusta que el editor del CRON como muchos otros tengan tanto espacio en blanco y
+un desplegable chico arriba del todo» y «En Delay, falta la opción de minutos y segundos...». Rama
+`wip-v4-editores`; una corrida la empezó y la cuota la cortó, la segunda la verificó contra el pedido
+y cerró lo que faltaba.
+
+### «Segundos» que no eran segundos: el diagnóstico obvio (la precisión del cron) era la mitad [motor]
+
+La primera corrida resolvió la precisión como había que resolverla —una espera de hasta 120 s se
+cumple DURMIENDO adentro de la corrida (`dormirEsperaCorta`), con su tope y sus tests— y la pantalla
+no avisaba nada para ≤ 120 s, o sea prometía exactitud. Medido después, en tres lugares:
+
+- **La ruta del cron nunca le pasaba el tope** (`esperarHastaMs`): `procesarEnvios` sin tope no duerme
+  (a propósito), así que el dormir era una capacidad con CERO call sites. Los tests leían el motor y
+  daban verde; nadie miraba la ruta.
+- **El caso típico no pasa por el cron**: «Nuevo lead → esperar 30 s → WhatsApp» corre por la VÍA
+  RÁPIDA del evento (`enrolarPorEvento` / `inscribirEnSecuencia` → `procesarEnvios({ soloLeadId })`),
+  adentro de un webhook que tiene que contestar ya. Ahí no se puede dormir, y los 30 s eran «la corrida
+  de la hora siguiente». Va con `after()` de Next: contesta y DESPUÉS duerme lo que falta y vuelve a
+  correr ese lead con tope (`seguirDespuesDeResponder`), en fila por proceso para no correr 30 motores
+  a la vez sobre los topes. Si `after` no está o la función muere, la fila ya tiene la hora exacta y la
+  toma el cron: tarde, nunca perdida.
+- **La píldora y «Probar» redondeaban a minutos** (`textoEspera`, lib/flujo-grafo.ts): 10 s se
+  dibujaba «Esperar 0 min» y 30 s «Esperar 1 min», con el editor diciendo «10 segundos» al lado. El
+  commit decía que estaba hecho y el test probaba `textoDuracion`, no a quien la tenía que llamar.
+
+La regla: **una capacidad del motor que depende de un parámetro se verifica en el que lo PASA**, y
+«¿quién llega a este nodo?» se contesta enumerando las ejecuciones que lo alcanzan (acá: el cron y la
+vía rápida), no la que uno tenía en la cabeza.
+
+**Vive en:** `lib/espera-duracion.ts` (la decisión entera, en la cabecera) · `lib/nutricion.ts` (`procesarEnvios`, `seguirDespuesDeResponder`) · `app/api/cron/nutricion/route.ts` · `lib/flujo-grafo.ts` (`textoEspera`)
+
+### Un DELAY corto entre dos WhatsApp no existe: lo frena el anti-ban de 20 h, no la espera [motor]
+
+El ejemplo con que se pensó la feature («audio y 10 s después el link») no puede pasar con ningún
+DELAY: el segundo WhatsApp al mismo lead cae en `frenadoPorAntiBan` (20 h por canal; 3 h con reunión
+en menos de 48 h) y no avanza. Un DELAY de segundos sirve entre el CRON y el primer mensaje, o entre un
+mensaje y una acción, un email o un aviso al grupo. Dos mensajes seguidos de WhatsApp son UNA tarjeta
+con varias burbujas (cuarta tanda, punto 15). La pantalla del DELAY no lo dice: el aviso es de la
+espera, no del anti-ban.
+
+**Vive en:** `lib/nutricion-grafo-motor.ts` (`frenadoPorAntiBan`) · `lib/nutricion.ts` (`HS_MIN_ENTRE_MSGS`)
+
+### «Puede salir hasta 1 h después» era falso dos tercios del día: el cron corre de 15 a 23 UTC [motor, ui]
+
+`"0 15-23 * * *"` son nueve corridas, de 9 a 17 en Ciudad de México. Una espera que vence a las
+17:30 de ahí sigue a las 9 del día siguiente, y eso vale también para «Esperar 2 horas» y «1 día»,
+que no llevaban aviso («una hora de más sobre un día no cambia nada» — de noche son 16). El aviso
+pasó a decir CUÁNDO sigue, con las horas de quien mira y para toda espera de más de 120 s: «Sigue a
+la hora en punto (9 a 17 h)». Las horas y la cadencia las fija un test leyendo vercel.json.
+
+Y de rebote: entre las 17 y las 21 de Ciudad de México la ventana horaria del motor deja mandar y no
+hay ninguna corrida — lo que vence en esa franja espera a la mañana (sólo lo dispara al momento un
+evento nuevo, por la vía rápida). Decide Martín: ampliar el cron cambia cuántas veces por día se
+aplica el tope «por corrida».
+
+**Vive en:** `vercel.json` · `lib/espera-duracion.ts` (`HORAS_MOTOR_UTC`, `avisoDePrecision`)
+
+### El panel mide por TIPO de tarjeta, y el selector es el campo grande de la casa [lienzo]
+
+Todos los editores medían lo del de WhatsApp (~720 × 420): un DELAY era una frase arriba y el resto
+vacío. `editorDeTarjeta` (lib/lienzo-grafo.ts) decide alto y ancho por el TIPO —nunca por el contenido
+de cada render: lo que no entra scrollea adentro—: DELAY, TAG y GO TO 140; MAKO 280; CONDITION y CRON
+320; ACTION y «Si responde» 400; un mensaje, el grande (840 × 560). `campoGrande` / `botonGrande`
+(48 de alto, letra 16) en DELAY, TAG, ACTION y GO TO. Lo que queda raro: el CRON usa su propio
+`BOTON_CAMPO_CRON` (44, letra 14,5) —dos «campos grandes» que difieren es el olor de dos piezas
+separándose— y con horario mensual o anual su contenido pasa los 320 y scrollea.
+
+**Vive en:** `lib/lienzo-grafo.ts` (`editorDeTarjeta`, `ALTO_EDITOR_CONTROL`) · `app/_components/Lienzo.tsx` (`campoGrande`, `botonGrande`, `altoFijo`) · `app/chatbot/SecuenciaPerfil.tsx` (`BOTON_CAMPO_CRON`)
+
 ## Lo que quedó sin hacer
+
+**De la parte «editores» (cuarta 1 + quinta 3, 09/10/2026):**
+
+- **Medir la espera corta en producción.** Lo que corre después de contestar vive lo que el
+  `maxDuration` de la ruta que llamó a la vía rápida (webhooks, server actions): no se midió cuánto es
+  en cada una. Si muere, sale con el cron (la hora exacta ya está en la fila). `lib/nutricion.ts`
+- **De 2 a 59 min sigue dependiendo del cron**: si Martín quiere minutos exactos, hace falta un tick
+  frecuente SÓLO para las filas que salen de una espera (el de `flujo-corridas` corre cada 5 min), sin
+  multiplicar el tope «por corrida». Y la franja 15-23 UTC deja sin corrida de 17 a 21 de México.
+- `BOTON_CAMPO_CRON` (44 / 14,5) contra `botonGrande` (48 / 16): unificar. `app/chatbot/SecuenciaPerfil.tsx`
+  (lo fija `tests/cron-varias-etapas.test.ts`).
+- El selector de la CONDITION sigue siendo el `Dropdown` de fila. `app/chatbot/EditorCondicion.tsx`
+- Verlo con clics: el panel por tipo, el DELAY con «10 segundos» y su aviso, y una espera de 30 s de
+  un lead nuevo de verdad.
 
 **De la cuarta tanda (09/10/2026):** los puntos 1, 5, 6 (la cuota N), 7, 8, 11 (más acciones), 14,
 15 y 16, cada uno con sus archivos, en `docs/relevo/chatbot.md` → «La cuarta tanda». El chat de CRM ya

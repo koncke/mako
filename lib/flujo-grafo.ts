@@ -96,6 +96,8 @@ import {
   cumpleCatalogo, problemaDeFila, textoCondicion, pagoDeFila, cuotaDeFila,
   type HechosCatalogo, type NombresCatalogo, type OperadorCondicion,
 } from './condiciones-catalogo';
+// Puro y sin dependencias: lo importan también el editor (cliente) y el motor.
+import { segundosDeMinutos, textoDuracion } from './espera-duracion';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
@@ -1399,11 +1401,18 @@ function horasTexto(h: number): string {
   return `${h} h`;
 }
 
+/**
+ * La espera en una frase: la píldora de la tarjeta («10 s», sin «Esperar») y el aviso de «Probar»
+ * («⏳ Esperar 10 s»).
+ *
+ * ⚠️ REDONDEABA A MINUTOS ENTEROS (quinta tanda, punto 3): desde que el DELAY lleva segundos
+ * (`espera.minutos` con decimales, lib/espera-duracion.ts), 10 s se dibujaba «Esperar 0 min» y 30 s
+ * «Esperar 1 min» —el `Math.round` de medio minuto—, en la tarjeta y en «Probar», con el editor
+ * diciendo «10 segundos» al lado. La duración la escribe `textoDuracion`, que para un número entero
+ * de minutos da exactamente lo de antes («1 día», «90 min», «2 h»).
+ */
 export function textoEspera(e: Espera | undefined): string {
   if (!e) return 'Esperar';
-  const m = Math.max(0, Math.round(Number(e.minutos) || 0));
-  const dur = m % 1440 === 0 && m >= 1440 ? `${m / 1440} ${m === 1440 ? 'día' : 'días'}`
-    : m % 60 === 0 ? `${m / 60} h`
-    : `${m} min`;
+  const dur = textoDuracion(segundosDeMinutos(e.minutos));
   return e.modo === 'antes_reunion' ? `${dur} antes de la reunión` : `Esperar ${dur}`;
 }
