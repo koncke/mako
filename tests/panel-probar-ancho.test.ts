@@ -100,16 +100,14 @@ test('llena el rectángulo que le da su padre: width y height al 100 %, en los d
   }
 });
 
-test('la cabecera es UN renglón: Probar, el canal, ↻ y ✕ Cerrar', () => {
+test('la cabecera es UN renglón: probar de verdad a la izquierda y ↻; sin título ni «Cerrar» adentro (cuarta tanda, punto 3)', () => {
   const html = dibujar(true);
-  const cab = contenedorComun(html, '>Probar<', '>✕ Cerrar<');
-  assert.doesNotMatch(cab, /<section/, 'el nombre y el cierre no comparten renglón');
+  const cab = contenedorComun(html, '>Probar en WhatsApp<', 'aria-label="Reiniciar"');
+  assert.doesNotMatch(cab, /<section/, 'probar de verdad y ↻ no comparten renglón');
   assert.match(cab, /display:flex/);
   assert.match(cab, /white-space:nowrap/);
-  assert.equal(contenedorComun(html, '>Probar<', 'aria-label="Reiniciar"'), cab);
-  assert.equal(contenedorComun(html, '>Probar<', '>WhatsApp<'), cab, 'el canal va en el renglón del nombre');
-  assert.equal(contenedorComun(dibujar(true, 'email'), '>Probar<', '>Email<').includes('display:flex'), true);
-  assert.match(html, /aria-label="Cerrar"[^>]*>✕ Cerrar</);
+  // «elimina ese texto» (el «Probar WhatsApp» de la cabecera) y el «Cerrar» vive en el chrome.
+  assert.doesNotMatch(html, />Probar<\/span>|✕ Cerrar/);
 });
 
 // ── Punto 14: un canal por vez ─────────────────────────────────────────────────
@@ -119,11 +117,12 @@ test('WhatsApp: el teléfono con su caja para contestar, y abajo TU número con 
   assert.match(html, /placeholder="Responde como el lead…"/, 'sin la caja para contestar como el lead');
   assert.doesNotMatch(html, /aria-label="Recibidos"/, 'la bandeja de email apareció en WhatsApp');
   assert.match(html, /aria-label="Tu WhatsApp"[^>]*placeholder="Tu número"/);
-  assert.match(html, />Probar en mi WhatsApp</);
-  // El campo y su botón, en UNA fila.
-  const fila = contenedorComun(html, 'aria-label="Tu WhatsApp"', '>Probar en mi WhatsApp<');
+  assert.match(html, />Probar en WhatsApp</);
+  // El campo y su botón, en UNA fila, ARRIBA (antes del teléfono).
+  const fila = contenedorComun(html, 'aria-label="Tu WhatsApp"', '>Probar en WhatsApp<');
   assert.match(fila, /^<form /);
-  assert.doesNotMatch(html, /Tu email|Probar en mi email|A mi email|A mi WhatsApp/, 'volvieron los dos canales a la vez');
+  assert.ok(html.indexOf('>Probar en WhatsApp<') < html.indexOf('Responde como el lead'), 'el botón de verdad no está arriba');
+  assert.doesNotMatch(html, /Tu email|Probar en Email|A mi email|A mi WhatsApp/, 'volvieron los dos canales a la vez');
 });
 
 test('Email: la bandeja tipo Gmail, sin caja para contestar, y abajo TU email con su botón; nada de WhatsApp', () => {
@@ -131,15 +130,15 @@ test('Email: la bandeja tipo Gmail, sin caja para contestar, y abajo TU email co
   assert.match(html, /aria-label="Recibidos"/, 'sin la bandeja');
   assert.doesNotMatch(html, /Responde como el lead/, 'una respuesta del lead es un WhatsApp: no va en la bandeja');
   assert.match(html, /aria-label="Tu email"[^>]*placeholder="Tu email"/);
-  assert.match(html, />Probar en mi email</);
-  assert.doesNotMatch(html, /Tu número|Probar en mi WhatsApp|A mi email|A mi WhatsApp/);
+  assert.match(html, />Probar en Email</);
+  assert.doesNotMatch(html, /Tu número|Probar en WhatsApp|A mi email|A mi WhatsApp/);
 });
 
 test('sin ser admin no hay prueba de verdad: ni el destino ni el botón', () => {
   for (const canal of ['whatsapp', 'email'] as const) {
     const html = dibujar(false, canal);
-    assert.doesNotMatch(html, /Tu número|Tu email|Probar en mi/);
-    assert.match(html, />✕ Cerrar</);
+    assert.doesNotMatch(html, /Tu número|Tu email|Probar en (WhatsApp|Email)/);
+    assert.match(html, /aria-label="Reiniciar"/);
   }
 });
 

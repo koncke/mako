@@ -336,11 +336,11 @@ test('el ＋ del medio vive en TODA flecha del árbol, y cada una dice de qué s
 test('el lienzo ofrece «⚡ Acción», la edita con el editor compartido y la agrega sin elegir', () => {
   // El menú del ＋ es UNO, puro (`opcionesDelMas`), y el lienzo lo usa tal cual.
   const menu = opcionesDelMas([], 'entrada', false);
-  assert.ok(menu.some((o) => o.value === 'accion' && o.label === '⚡ Acción'));
+  assert.ok(menu.some((o) => o.value === 'accion' && o.label === 'Acción'));
   // Segunda tanda (parte L): «WhatsApp» y no «Mensaje», desde que el ＋ también crea un email; y
   // el menú recibe el puerto (la fila «Si responde» del CRON ofrece sólo crear «Si responde»).
   // Roto devolviendo el `puerto` a `_puerto` en FlujoLienzo: 1 falla.
-  assert.ok(menu.some((o) => o.value === 'mensaje' && o.label === '💬 WhatsApp'));
+  assert.ok(menu.some((o) => o.value === 'mensaje' && o.label === 'WhatsApp'));
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
   assert.match(lienzo, /opcionesEn=\{\(nodo, puerto, medio\) => opcionesDelMas\(pasos, nodo, medio, puerto\)\}/);
   assert.match(lienzo, /import \{ EditorAccionMako, useTitulosAcciones, type ValorAccion \} from '@\/app\/_components\/EditorAccionMako';/);
