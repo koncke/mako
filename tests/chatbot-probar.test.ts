@@ -67,7 +67,10 @@ test('la lista muestra SÓLO el nombre, entero en dos renglones, y busca por nom
   // Un solo texto: el nombre. Sin subtítulo (el gancho o el primer mensaje recortado).
   assert.match(item, /WebkitLineClamp: 2/);
   assert.match(item, /\}\}>\{nombre\}<\/span>/);
-  assert.equal((item.match(/<span /g) ?? []).length, 3, 'el emoji, el nombre y el punto: nada más');
+  // Tercera tanda (decisión 6): el emoji (con su giro mientras se crea y el punto de estado
+  // encima), el nombre y la columna del «⋯». El único TEXTO sigue siendo el nombre.
+  assert.equal((item.match(/<span /g) ?? []).length, 5, 'el emoji, el giro, el punto, el nombre y el «⋯»: nada más');
+  assert.deepEqual([...item.matchAll(/>\{([a-zA-Z.]+)\}</g)].map((m) => m[1]).sort(), ['menu', 'nombre'], 'un texto más que el nombre en la fila');
   assert.doesNotMatch(lista, /slice\(0, 42\)|estrategia\?\.gancho|pasosQueLlegan/);
   // El buscador busca por lo que se ve.
   assert.match(lista, /\(!q \|\| j\.nombre\.toLowerCase\(\)\.includes\(q\)\)/);
@@ -111,7 +114,8 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   assert.doesNotMatch(lista, /modo === 'chat'|setModo\(|<ChatHilo/, 'volvió el modo que reemplaza al lienzo');
   // El editor se monta SIEMPRE que hay una secuencia elegida, abra o no el panel.
   assert.match(lista, /\) : !sel \? \(\n[\s\S]*?\) : \(\n\s*\n?\s*<SecuenciaPerfil key=\{sel\.id\}/);
-  assert.match(lista, /onProbar=\{\(\) => setProbando\(true\)\}/);
+  // Tercera tanda (decisión 14): «Probar» es de UN canal, y lo elige el desplegable de SecuenciaPerfil.
+  assert.match(lista, /onProbar=\{\(canal\?: CanalProbar\) => setProbando\(canal === 'email' \? 'email' : 'whatsapp'\)\}/);
   assert.match(lista, /onCambioLocal=\{recibirEdicion\}/);
   // Segunda tanda (decisión 11): dónde va «Probar» lo decide UNA función pura (`muelles`,
   // lib/lienzo-grafo.ts, con test en tests/lienzo-muelles.test.ts). La lista sólo mide su caja,
@@ -128,9 +132,9 @@ test('el panel tiene ✕ «Cerrar» y ↻ «Reiniciar», y ningún «Editar»', 
   assert.match(panel, /aria-label="Cerrar"/);
   assert.match(panel, /aria-label="Reiniciar"/);
   assert.doesNotMatch(panel, />Editar<|'Editar'|readOnly/);
-  // ↻ vacía la prueba y arranca de nuevo con el flujo de AHORA.
-  const reiniciar = panel.slice(panel.indexOf('const reiniciar = () => {'), panel.indexOf('const elegirRama'));
-  assert.match(reiniciar, /cortar\(\);\n\s+setMensajes\(\[\]\); setTyping\(null\); setOpciones\(null\);\n\s+setFirmaProbada\(firmaViva\);\n\s+arrancarRefs\(\);/);
+  // ↻ vacía la prueba (el hilo Y la bandeja) y arranca de nuevo con el flujo de AHORA.
+  const reiniciar = panel.slice(panel.indexOf('const reiniciar = (deVerdad = false) => {'), panel.indexOf('const probarDeVerdad'));
+  assert.match(reiniciar, /cortar\(\);\n\s+setMensajes\(\[\]\); setTyping\(null\); setOpciones\(null\);\n\s+setCorreos\(\[\]\); setAbierto\(null\); setRecibiendo\(false\); setTerminado\(false\); setAviso\(null\);\n\s+realRef\.current = deVerdad; setReal\(deVerdad\);\n\s+setFirmaProbada\(firmaViva\);\n\s+arrancarRefs\(\);/);
 });
 
 test('el panel prueba lo LOCAL, anima los mensajes y dice si el flujo cambió', () => {
@@ -195,9 +199,9 @@ test('datos-4: el panel no reenvía una tarjeta que ya salió, y el server topea
   const iPost = mandar.indexOf("postar({ action: 'enviar-real'");
   assert.ok(iSwitch >= 0 && iCorte > iSwitch && iPost > iCorte, 'interruptor → no repetir → mandar, en ese orden');
   // Cada mensaje que se dibuja pasa su TARJETA, y ↻ arranca con el registro vacío.
-  assert.equal((panel.match(/mostrarPaso\(paso, evento\.nodo,/g) ?? []).length, 2, 'las dos llamadas de avanzar() pasan la tarjeta');
+  assert.equal((panel.match(/mostrarPaso\(paso, evento\.nodo,/g) ?? []).length, 3, 'las tres llamadas de avanzar() (el email, «MaKo contesta» y el resto) pasan la tarjeta');
   assert.equal((panel.match(/mandarReal\(\{[^}]*\}, nodo, enRespuesta\)/g) ?? []).length, 4, 'email, audio, archivo y texto');
-  const arrancar = panel.slice(panel.indexOf('const arrancarRefs = () => {'), panel.indexOf('const reiniciar = () => {'));
+  const arrancar = panel.slice(panel.indexOf('const arrancarRefs = () => {'), panel.indexOf('const reiniciar = (deVerdad = false) => {'));
   assert.ok(arrancar.length > 0 && arrancar.length < 800, `el recorte de arrancarRefs mide ${arrancar.length}`);
   assert.match(arrancar, /enviadosReal\.current = new Set\(\);\n\s+turnoLead\.current = 0;/);
   const responder = panel.slice(panel.indexOf('const alResponder = async'), panel.indexOf('async function enviarTexto'));
@@ -236,7 +240,7 @@ test('lienzo-5: tocar la automatización ya elegida no suelta lo que se está pr
   // Segunda tanda (decisión 15): con cambios sin publicar, PRIMERO se pregunta; el cambio de
   // verdad (`cambiarA`) es el de siempre.
   assert.match(elegirFn, /=> \{\n\s+if \(id === selId\) return;\n\s+if \(sinPublicar\) \{ setPendiente\(\{ ir: id \}\); return; \}\n\s+cambiarA\(id\);/);
-  assert.match(lista, /const cambiarA = \(id: number \| typeof ID_RECORDATORIO\) => \{\n\s+setSelId\(id\); setProbando\(false\); setEdicion\(null\);/);
+  assert.match(lista, /const cambiarA = \(id: number \| typeof ID_RECORDATORIO\) => \{\n\s+setSelId\(id\); setProbando\(null\); setEdicion\(null\);/);
 });
 
 test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el wizard', () => {
@@ -291,6 +295,11 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
 //   · «Probar» con un ancho propio (560 fijo) en vez del de `muelles`         -> 14 / 1
 //   · `elegir` cambiando de automatización sin preguntar con cambios sin publicar -> 14 / 1
 
+// TERCERA TANDA (09/10/2026, parte E): «Probar» de un canal, la fila con su «⋯». Se mudaron las
+// aserciones de este archivo sobre PanelProbar y SimuladorWhatsApp (`onProbar(canal)`, ↻ que vacía
+// también la bandeja, `setProbando(null)`, la fila con cinco <span>, las ramas en `ramas`). Las
+// roturas de lo nuevo están en tests/panel-probar-ancho.test.ts y tests/chatbot-lista-nueva.test.ts.
+
 // ⚠️ Visto en producción el 08/10/2026: las ramas para elegir iban DEBAJO de la barra para
 // escribir, afuera del chat, y en una ventana baja quedaban fuera de la vista (medido: los
 // botones a y=557 con la ventana de 566). Van adentro del chat, arriba de la barra, como las
@@ -298,7 +307,10 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
 // ChatHilo pone rojo este test (1 de 1).
 test('las ramas de una condición se eligen ADENTRO del chat, arriba de la barra', () => {
   const panel = PANEL();
-  assert.match(panel, /encimaDelComposer=\{opciones \? \(/);
+  // Tercera tanda: las ramas se arman una vez (`ramas`) y van adentro del chat en WhatsApp; en la
+  // bandeja de email, que no tiene barra, en el renglón de abajo.
+  assert.match(panel, /const ramas = opciones \? \(/);
+  assert.match(panel, /encimaDelComposer=\{ramas\}/);
   assert.doesNotMatch(panel, /\{opciones && \(\s*<div style=\{\{ flex: 'none'/);
   const hilo = sinComentarios(leer('app/whatsapp/_shared/ChatHilo.tsx'));
   // Lo que va encima de la barra se dibuja ANTES del composer.

@@ -90,7 +90,8 @@ test('el fallo de crear se dibuja pegado al «＋ Nueva» de la lista', () => {
 test('crearNueva ignora los clics mientras hay un POST en vuelo, y se suelta en un finally', () => {
   const c = crearNueva();
   assert.match(c, /^const crearNueva = async \(pedido\?: string\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
-  assert.match(c, /finally \{ creandoNueva\.current = false; \}/);
+  // Tercera tanda: el finally suelta también la fila de «Nueva» (`creando`): si falló, se va.
+  assert.match(c, /finally \{ setCreando\(null\); creandoNueva\.current = false; \}/);
   assert.match(sinComentarios(leer('app/chatbot/ChatAgentApp.tsx')), /const creandoNueva = useRef\(false\);/);
 });
 
