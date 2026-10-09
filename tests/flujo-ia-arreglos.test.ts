@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE, deIA, deIAEdicion, validarIA, limpiarTexto, erroresNuevos,
-  disparadoresParaIA, type CtxIA,
+  disparadoresParaIA, numerosEn, type CtxIA,
 } from '../lib/flujo-ia';
 import { validarGrafo, claseDe } from '../lib/flujo-grafo';
 import { seccionesDisparo } from '../lib/flujo-conversacion';
@@ -201,6 +201,40 @@ test('un rótulo que coincide con varias opciones no elige ninguna: queda «elí
   assert.equal(deIA({ disparador: 'Llega a «Agendado»', inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola' }] }, ctxBase({ disparadores: d }), rndDe()).disparador, null);
   // Y la ruta aplana con la función, no a mano.
   assert.match(sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts')), /disparadoresParaIA\(seccionesDisparo\(\{/);
+});
+
+// ── Un `monto` inventado por el modelo se guardaba sin ninguna capa ──
+const pasarAGanado = (monto: unknown) => ({ inicio: 't1', tarjetas: [
+  { id: 't1', tipo: 'accion', operacion: 'proponer_cambio_etapa', datos: { etapa: 'ganado', monto } },
+] });
+const paramsDe = (pasos: ReadonlyArray<{ accion?: unknown }>) => (pasos.find((p) => p.accion)?.accion as { params: Record<string, unknown> } | undefined)?.params;
+
+test('numerosEn lee los números como se escribe la plata', () => {
+  const n = numerosEn('El programa cuesta USD 1.500, o $1,200.50 en cuotas de 2.5 meses. 500 USD.');
+  for (const x of [1500, 1200.5, 2.5, 500]) assert.ok(n.includes(x), `falta ${x}: ${n.join(', ')}`);
+  assert.deepEqual(numerosEn('sin números'), []);
+});
+
+// rotura (resolverAccion acepta cualquier monto): 1 fallo de 14, cae éste.
+test('un monto que no está en el pedido ni en el perfil se saca, con aviso; uno que está, queda', () => {
+  const sinNumeros = deIA(pasarAGanado(997), ctxBase(), rndDe());
+  assert.equal(paramsDe(sinNumeros.pasos)?.etapa, 'ganado', 'la acción queda: sólo se va el monto');
+  assert.equal(paramsDe(sinNumeros.pasos)?.monto, undefined);
+  assert.ok(sinNumeros.avisos.some((a) => a.includes('monto inventado')), sinNumeros.avisos.join(' | '));
+  const conPrecio = ctxBase({ numerosPermitidos: numerosEn('El programa cuesta USD 1.500') });
+  const ok = deIA(pasarAGanado(1500), conPrecio, rndDe());
+  assert.equal(paramsDe(ok.pasos)?.monto, 1500);
+  assert.deepEqual(validarIA(ok.pasos, conPrecio), []);
+});
+
+// rotura (validarIA sin mirar los montos): 1 fallo de 14, cae éste.
+test('validarIA rechaza un monto que no está en el pedido', () => {
+  const conPrecio = ctxBase({ numerosPermitidos: [1500] });
+  const r = deIA(pasarAGanado(1500), conPrecio, rndDe());
+  const mal = r.pasos.map((p) => (p.accion ? { ...p, accion: { ...p.accion, params: { ...p.accion.params, monto: 4999 } } } : p));
+  assert.ok(validarIA(mal, conPrecio).some((e) => e.includes('monto')));
+  // Y la ruta arma los permitidos con el perfil y el pedido.
+  assert.match(sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts')), /numerosPermitidos: numerosEn\(`\$\{perfil\}\\n\$\{pedido\}`\)/);
 });
 
 test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', () => {

@@ -56,7 +56,7 @@ import { validarGrafo, type PasoGrafo } from '@/lib/flujo-grafo';
 import { marcasDeVoseo } from '@/lib/puestas-data';
 import {
   FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE,
-  deIA, deIAEdicion, disparadoresParaIA, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
+  deIA, deIAEdicion, disparadoresParaIA, numerosEn, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
   userDeCrear, userDeEditar, leyendoDe, leyendoTexto, normNombre,
   type CtxIA, type EventoIA, type ResultadoIA, type ResultadoEdicion, type LinkIA,
 } from '@/lib/flujo-ia';
@@ -114,7 +114,7 @@ async function automatizaciones(): Promise<Array<{ id: number; nombre: string }>
  * para dibujar, nunca para decidir): con la lectura caída, `deIA` las tomaría a todas por NUEVAS y
  * crearía duplicados. Lo demás puede faltar: lo que no está se saca del flujo y queda en `avisos`.
  */
-async function armarContexto(ws: number, secuenciaId: number): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
+async function armarContexto(ws: number, secuenciaId: number, pedido: string): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
   const [etiquetas, productos, audios, archivos, accionesWs, entregables, video, agenda, autos, perfil, voz] = await Promise.all([
     listarEtiquetas({ incluirArchivadas: true }),
     productosConEtapas().catch(() => []),
@@ -168,6 +168,8 @@ async function armarContexto(ws: number, secuenciaId: number): Promise<{ ctx: Ct
     automatizaciones: autos,
     secuenciaId,
     usaVoseo: !!voz && marcasDeVoseo(voz).length > 0,
+    // Un MONTO de una acción sólo vale si lo escribió una persona: en el perfil o en el pedido.
+    numerosPermitidos: numerosEn(`${perfil}\n${pedido}`),
   };
   return { ctx, perfil, voz };
 }
@@ -323,7 +325,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (o: EventoIA) => { try { controller.enqueue(enc.encode(JSON.stringify(o) + '\n')); } catch { /* cerrado */ } };
       try {
-        const { ctx, perfil, voz } = await armarContexto(ws, secuenciaId);
+        const { ctx, perfil, voz } = await armarContexto(ws, secuenciaId, pedido);
         const leyendo = leyendoDe(ctx, perfil);
         send({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
 

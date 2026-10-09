@@ -116,6 +116,12 @@ export type CtxIA = {
   secuenciaId?: number | null;
   /** La guía de voz del negocio vosea: el voseo del modelo no se marca. */
   usaVoseo?: boolean;
+  /**
+   * Los números que aparecen en el PERFIL y en el PEDIDO (`numerosEn`). Un monto de una acción
+   * (`monto` de `proponer_cambio_etapa`) sólo se acepta si es uno de éstos. Ausente = ninguno: un
+   * monto que el modelo escribe sin que nadie lo haya dicho es plata inventada.
+   */
+  numerosPermitidos?: readonly number[];
 };
 
 /** Un paso tal como lo arma la IA: un nodo de `pasos` con su relleno. */
@@ -410,6 +416,33 @@ function filaDe(x: unknown, est: Estado): FilaCondicion | null {
   return f;
 }
 
+/**
+ * LOS PARÁMETROS QUE SON PLATA (revisión, 09/10/2026). El bloque ACCIONES ofrece el `monto` de
+ * `proponer_cambio_etapa`, Ganado lo EXIGE (`faltantesParaMover`), así que para «si paga, pásalo a
+ * Ganado» el modelo tiende a poner uno, y si el perfil no trae el precio lo inventa. Ninguna capa lo
+ * comparaba con nada: la regla 6 vivía sólo en el prompt, el lienzo pliega lo opcional, y al
+ * activarla cada lead quedaba con ese valor de venta (la acción puede mandar la conversión a Meta).
+ */
+const RX_PARAM_PLATA = /^(monto|precio|importe|total|valor)/i;
+
+/**
+ * Los números que aparecen en un texto, leídos de las formas en que se escribe plata: «1.500»,
+ * «1,500», «$1,500.00», «2.5», «500 USD». Cada uno entra entero (sin separadores) y, si termina en
+ * un separador con 1 o 2 dígitos, también como decimal. Permisivo a propósito: lo que decide es que
+ * el número ESTÉ en lo que escribió una persona, no adivinar su formato.
+ */
+export function numerosEn(t: string): number[] {
+  const out = new Set<number>();
+  for (const m of String(t ?? '').matchAll(/\d[\d.,]*/g)) {
+    const s = m[0].replace(/[.,]+$/, '');
+    const digitos = s.replace(/[.,]/g, '');
+    if (digitos) out.add(Number(digitos));
+    const dec = /^(.*)[.,](\d{1,2})$/.exec(s);
+    if (dec) out.add(Number(`${dec[1].replace(/[.,]/g, '') || '0'}.${dec[2]}`));
+  }
+  return [...out].filter(Number.isFinite);
+}
+
 /** Un parámetro de una acción, con el tipo que declara el registro. */
 function valorDeParam(p: ParamIA, v: unknown): unknown {
   if (v == null || v === '') return undefined;
@@ -470,6 +503,11 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
       dato = sin;
     }
     const v = valorDeParam(p, dato);
+    // Un monto que no está en el pedido ni en el perfil no se pone: lo escribe una persona.
+    if (v !== undefined && p.tipo === 'number' && RX_PARAM_PLATA.test(p.nombre) && !(est.ctx.numerosPermitidos ?? []).includes(v as number)) {
+      est.avisos.push(`Saqué un monto inventado: ponlo en «${def.titulo}»`);
+      continue;
+    }
     if (v !== undefined) params[p.nombre] = v;
   }
   const faltan = faltanEnPaso(def.parametros as Parametro[], params, { leadId: 1 });
@@ -1310,6 +1348,10 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         if (faltan.length) err.push(`a «${def.titulo}» le falta ${faltan.join(', ')}`);
         if ((a.operacion === OP_PONER || a.operacion === OP_SACAR) && !etiquetaOk(a.params?.etiquetaId)) err.push('una etiqueta de una acción no existe');
         if ('embudoId' in (a.params ?? {}) && !ctx.productos.some((x) => x.funnelId === Number(a.params.embudoId))) err.push('una acción usa un producto que no existe');
+        for (const pr of def.parametros) {
+          const v = a.params?.[pr.nombre];
+          if (pr.tipo === 'number' && RX_PARAM_PLATA.test(pr.nombre) && v != null && !(ctx.numerosPermitidos ?? []).includes(Number(v))) err.push(`a «${def.titulo}» le pusieron un monto que no está en el pedido`);
+        }
       }
     }
     if (c === 'mensaje') {
