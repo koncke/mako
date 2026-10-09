@@ -142,6 +142,40 @@ export function hayOtrosHilos(hilos: readonly Hilo[] | null, h: string | null): 
   return !!hilos && hilos.some((x) => x.h !== h);
 }
 
+/**
+ * Con qué estado se cierra un mensaje que no va a poder salir NUNCA (el lead sin email o dado de
+ * baja del email: reintentar no lo arregla).
+ *
+ *  · Un solo cursor → `cancelada`, lo de siempre.
+ *  · Con hilos → `completada`. Con otros hilos vivos da igual (`aplicarAHilo` cierra SÓLO éste y la
+ *    inscripción sigue activa); decide cuando el del email es el ÚLTIMO hilo vivo. Con `cancelada`
+ *    la inscripción entera terminaba cancelada, el desenlace la sellaba «cancelado» y no miraba
+ *    nada más: ni el «no confirmó», ni la etapa de fallo, ni el encadenado, sobre un lead que había
+ *    recibido todos sus WhatsApp. Y si el email fallaba PRIMERO, el WhatsApp cerraba después como
+ *    `completada`: el mismo lead terminaba distinto según qué hilo cerrara último (revisión del
+ *    09/10/2026). Así termina igual en los dos órdenes.
+ *
+ * El remitente sandbox llega al mismo cierre sólo con otros hilos vivos (decisión 7), donde el estado
+ * no decide nada; sin ellos espera, como siempre.
+ */
+export function estadoDeCierrePermanente(hilos: readonly Hilo[] | null): 'completada' | 'cancelada' {
+  return hilos ? 'completada' : 'cancelada';
+}
+
+/**
+ * ¿La fila vuelve a la cola en esta misma corrida? Sí si lo que sigue por el cursor ya toca, o si
+ * una flecha en paralelo arrancó un hilo ya vencido (un destino «Enseguida»).
+ *
+ * Lo pregunta el paso «⚡ Acción» después de correr. Miraba sólo `proximo`: sin siguiente (null) o
+ * con un siguiente con demora («en 2 h»), el hilo nuevo que la acción acababa de arrancar quedaba
+ * vencido y sin mirar hasta el cron siguiente — una hora, o ~16 h si la acción corría a las 23 UTC
+ * (revisión del 09/10/2026). Los otros dos caminos (el mensaje y la tarjeta de control) ya miraban
+ * los hilos nuevos.
+ */
+export function vuelveALaCola(proximo: string | null, nuevos: readonly Hilo[], ahoraMs: number): boolean {
+  return (proximo != null && Date.parse(proximo) <= ahoraMs) || nuevos.some((n) => Date.parse(n.proximo) <= ahoraMs);
+}
+
 // ── La puerta de la posición: qué se escribe ────────────────────────────────────
 
 /** Lo que la puerta sabe de la fila cuando escribe. `nodo` es la tarjeta en la que está el cursor (o el hilo). */

@@ -16,7 +16,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   sanearHilos, hilosIniciales, hilosVencidos, aplicarAHilo, repartosDe, hilosNuevos, hiloSigueEn, hayOtrosHilos,
-  planDePosicion, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, type Hilo,
+  planDePosicion, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
+  type Hilo,
 } from '../lib/nutricion-hilos';
 import { resolverControl, indiceActual, pasoDeEntrada, esNodoDeControl, esPrimerPaso, necesitaHechos } from '../lib/nutricion-grafo-motor';
 import { ID_INICIO, raicesSalida, type PasoGrafo, type HechosLead } from '../lib/flujo-grafo';
@@ -296,3 +297,63 @@ for (const [nombre, F] of [['#198', F198], ['#212', F212]] as const) {
     });
   });
 }
+
+// ── La revisión del 09/10/2026 (fix-v2-motor) ───────────────────────────────
+
+test('⚠️ el lead sin email: si el hilo del email es el ÚLTIMO vivo, la inscripción termina completada, no cancelada', () => {
+  // Probado rompiéndolo (09/10/2026): `estadoDeCierrePermanente` devolviendo siempre 'cancelada' (lo
+  // de antes) → 22 pasan / 1 falla (éste); y el motor con su `estado: 'cancelada'` fijo de antes en
+  // el cierre por condición permanente → 22 pasan / 1 falla (éste, el `assert.match` del final).
+  const soloEmail: Hilo[] = [{ h: 'e1', nodo: 'e2', proximo: iso(AHORA) }];
+  const leido = { hilos: soloEmail, h: 'e1', nodo: 'e2', proximo_envio_at: null };
+  // Lo que pasaba: la puerta respeta el estado que recibe, y con 'cancelada' la inscripción ENTERA
+  // terminaba cancelada → el desenlace la sellaba «cancelado» sin «no confirmó», etapa ni encadenado.
+  assert.equal(planDePosicion(P, leido, { estado: 'cancelada', proximo_envio_at: null }).update.estado, 'cancelada');
+  // Lo de ahora: con hilos el cierre permanente es 'completada'.
+  assert.equal(estadoDeCierrePermanente(soloEmail), 'completada');
+  assert.deepEqual(planDePosicion(P, leido, { estado: estadoDeCierrePermanente(soloEmail), proximo_envio_at: null }).update,
+    { nodo_actual: null, proximo_envio_at: null, estado: 'completada', hilos: null });
+  // Y es lo MISMO que daba el orden inverso: el email falla primero (con otros hilos vivos el estado
+  // no decide nada) y el WhatsApp cierra último.
+  const hs = hilosIniciales(P, proximoDe)!;
+  const emailPrimero = aplicarAHilo(P, hs, 'e1', { cierra: true, estado: estadoDeCierrePermanente(hs) });
+  assert.equal(emailPrimero.resumen.estado, 'activa');
+  assert.equal(aplicarAHilo(P, emailPrimero.hilos!, 'p', { cierra: true }).resumen.estado, 'completada');
+  // Un cursor solo (los 6 flujos vigentes): 'cancelada', como siempre.
+  assert.equal(estadoDeCierrePermanente(null), 'cancelada');
+  // El motor lo usa en el cierre por condición permanente (sin email / dado de baja).
+  assert.match(PROC, /if \(terminal\) \{\s*await escribir\(insc, \{ estado: estadoDeCierrePermanente\(sanearHilos\(insc\.hilos\)\), proximo_envio_at: null \}, \{ modo: 'fila' \}\);/);
+});
+
+test('⚠️ el compare-and-set de los hilos exige que la fila SIGA teniendo hilos: una retoma no se revive', () => {
+  // Las dos retomas («Ir a» desde «Si responde» y el destrabe de `requiere: 'respondio'`) dejan
+  // `hilos` en NULL con la fila activa y SIN subir `hilos_rev`: la revisión sola no las ve, y una
+  // escritura del motor leída antes escribía el array viejo encima.
+  // Probado rompiéndolo (09/10/2026): sin el `else { q = q.not('hilos', 'is', null); }` → 22 pasan /
+  // 1 falla (éste).
+  const eh = NUTRI.slice(NUTRI.indexOf('async function escribirHilos('), NUTRI.indexOf('async function repartirAlEntrar('));
+  const filtros = eh.slice(eh.indexOf('if (!leido.hilos) {'), eh.indexOf("const { data, error } = await q.select('id');"));
+  assert.ok(filtros.length > 100 && filtros.length < 1500, `el recorte de los filtros mide ${filtros.length}: está mirando otra cosa`);
+  assert.match(filtros, /\} else \{\s*q = q\.not\('hilos', 'is', null\);\s*\}\s*$/, 'con hilos leídos, la fila tiene que seguir teniéndolos');
+  // Y perder el compare-and-set contra una retoma no reaplica: la relectura no encuentra el hilo.
+  assert.equal(hiloSigueEn(null, 'p', 'w1'), false);
+});
+
+test('⚠️ la acción con flechas en paralelo vuelve a la cola si sólo vencieron los hilos que arrancó', () => {
+  // Probado rompiéndolo (09/10/2026): `vuelveALaCola` mirando sólo `proximo` (lo de antes) → 22
+  // pasan / 1 falla (éste); y el motor con la condición de antes (`proximo != null && …`) en el
+  // re-encolado de la acción → 22 pasan / 1 falla (éste, el último `assert.match`).
+  const ya: Hilo = { h: 'x', nodo: 'x', proximo: iso(AHORA) };
+  const luego: Hilo = { h: 'y', nodo: 'y', proximo: iso(AHORA + 2 * HORA) };
+  assert.equal(vuelveALaCola(null, [ya], AHORA), true, 'sin siguiente: el hilo «Enseguida» se mira en esta corrida');
+  assert.equal(vuelveALaCola(iso(AHORA + 2 * HORA), [ya], AHORA), true, 'con un siguiente «en 2 h»: el hilo nuevo igual');
+  assert.equal(vuelveALaCola(iso(AHORA), [], AHORA), true, 'lo de siempre: el siguiente ya toca');
+  assert.equal(vuelveALaCola(iso(AHORA + 2 * HORA), [luego], AHORA), false);
+  assert.equal(vuelveALaCola(null, [], AHORA), false);
+  const acc = PROC.slice(PROC.indexOf('if (esPasoAccion(paso)) {'), PROC.indexOf('if (!opts?.simularApagados && pasoConRelleno(paso))'));
+  assert.ok(acc.length > 1000 && acc.length < 8000, `el recorte de la acción mide ${acc.length}: está mirando otra cosa`);
+  assert.match(acc, /const nuevosAccion = nuevosDe\(sec, repartosDe\(sec\.pasos, insc\.paso_actual\)\.map\(\(destino\) => \(\{ destino, desdeMs: Date\.now\(\) \}\)\), lead\);/);
+  assert.ok(acc.indexOf('const nuevosAccion') < acc.indexOf('correrPasoAccion('), 'se calculan ANTES de correr');
+  assert.match(acc, /\{ modo: 'cas', nuevos: nuevosAccion \}/, 'el reclamo suma los MISMOS hilos que mira el re-encolado');
+  assert.match(acc, /if \(r\.estado !== 'saltado' && vuelveALaCola\(proximo, nuevosAccion, Date\.now\(\)\)\) \{\s*vistos\.delete\(insc\.id\);\s*otraVuelta = true;/);
+});

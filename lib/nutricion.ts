@@ -63,7 +63,8 @@ import {
 import { getSetting } from '@/lib/settings';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
-  hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, type Hilo, type LeidoPosicion,
+  hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
+  type Hilo, type LeidoPosicion,
 } from '@/lib/nutricion-hilos';
 import { getAdjunto, adjuntoBase64 } from '@/lib/setting-adjuntos';
 
@@ -2188,6 +2189,15 @@ async function escribirHilos(
     if (!leido.hilos) {
       q = q.is('hilos', null);
       if (o.modo === 'cas') q = insc.nodo_actual == null ? q.eq('paso_actual', insc.paso_actual).is('nodo_actual', null) : q.eq('paso_actual', insc.paso_actual).eq('nodo_actual', insc.nodo_actual);
+    } else {
+      // ⚠️ LO LEÍDO TENÍA HILOS: LA FILA TIENE QUE SEGUIR TENIÉNDOLOS. Las dos retomas —el «Ir a»
+      // desde «Si responde» (`responderConGrafo`) y el destrabe de `requiere: 'respondio'`— dejan
+      // `hilos` en NULL con la fila 'activa' y SIN subir `hilos_rev`, así que la revisión sola no
+      // las ve: una escritura del motor leída antes (el lote se lee una vez y se recorre en serie,
+      // mandando) ganaba el compare-and-set y escribía el array viejo encima, reviviendo los hilos
+      // congelados y pisando la tarjeta a la que la persona lo mandó (decisión 4; revisión del
+      // 09/10/2026). Así pierde, la relectura da `hiloSigueEn(null, …)` = false y no escribe.
+      q = q.not('hilos', 'is', null);
     }
     const { data, error } = await q.select('id');
     if (error) {
@@ -2875,6 +2885,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const sigIdx = siguienteIndice(sec.pasos, insc.paso_actual);
         const siguientePaso = sigIdx >= 0 ? sec.pasos[sigIdx] : undefined;
         const proximo = siguientePaso ? proximoEnvioDePaso(siguientePaso, lead) : null;
+        // Las flechas en paralelo de la acción arrancan cuando corre: se calculan UNA vez, porque las
+        // usan el reclamo (que las suma) y el re-encolado de abajo (que tiene que verlas).
+        const nuevosAccion = nuevosDe(sec, repartosDe(sec.pasos, insc.paso_actual).map((destino) => ({ destino, desdeMs: Date.now() })), lead);
         const r = await correrPasoAccion(
           {
             accion: { operacion: String(paso.accion?.operacion ?? ''), params: paso.accion?.params },
@@ -2890,7 +2903,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               estado: siguientePaso ? 'activa' : 'completada',
               // Sin `ultimo_paso_at`: es «el último MENSAJE», y una acción no le habló a nadie.
               // Y sus flechas en paralelo arrancan cuando la acción corre (el reclamo las suma).
-            }, { modo: 'cas', nuevos: nuevosDe(sec, repartosDe(sec.pasos, insc.paso_actual).map((destino) => ({ destino, desdeMs: Date.now() })), lead) }),
+            }, { modo: 'cas', nuevos: nuevosAccion }),
             // Import dinámico: lib/api-mako/flujo → ejecutar → los runners → chatbot.run →
             // este archivo es un ciclo (el mismo motivo que `escribirPasoIA`, más abajo).
             ejecutar: async (operacion, params, o) => (await import('@/lib/api-mako/flujo')).ejecutarDesdeFlujo(operacion, params, o),
@@ -2915,7 +2928,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // «crear la tarea» + el mensaje de después saldrían de a uno por hora de cron. Se
         // devuelve a la cola y el bucle da otra vuelta (con su tope de 6). Un mensaje que
         // siga pasa igual por TODAS sus guardas, anti-ban incluido, leídas de nuevo.
-        if (r.estado !== 'saltado' && proximo != null && Date.parse(proximo) <= Date.now()) {
+        // ⚠️ Y LOS HILOS QUE LA ACCIÓN ARRANCÓ TAMBIÉN (`vuelveALaCola`): sin siguiente, o con un
+        // siguiente «en 2 h», un destino «Enseguida» de una flecha en paralelo esperaba al cron de
+        // la hora siguiente (revisión del 09/10/2026).
+        if (r.estado !== 'saltado' && vuelveALaCola(proximo, nuevosAccion, Date.now())) {
           vistos.delete(insc.id);
           otraVuelta = true;
         }
@@ -3280,7 +3296,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (terminal) {
           // Condición permanente (opt-out / sin email): cerramos la inscripción para
           // que no se reintente eternamente y no acumule filas 'fallo' por corrida.
-          await escribir(insc, { estado: 'cancelada', proximo_envio_at: null }, { modo: 'fila' });
+          // ⚠️ CON HILOS CIERRA COMO 'completada', no 'cancelada' (`estadoDeCierrePermanente`): si
+          // el del email era el último hilo vivo, 'cancelada' terminaba la inscripción entera así y
+          // el desenlace se salteaba el «no confirmó», la etapa de fallo y el encadenado.
+          await escribir(insc, { estado: estadoDeCierrePermanente(sanearHilos(insc.hilos)), proximo_envio_at: null }, { modo: 'fila' });
         } else {
           // Backoff: corre el próximo intento para que la fila no bloquee la
           // cola ni genere una fila de 'fallo' por corrida.
