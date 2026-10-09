@@ -175,6 +175,18 @@ function ChatAgentInner() {
   /** La automatización que pidió abrir el deep link `?sec=`: se abre en su LIENZO. */
   const [abrirSec, setAbrirSec] = useState<AbrirSecuencia | null>(null);
   /**
+   * «＋ Nueva» en vuelo: un doble clic mandaba dos `crear_vacia` y dejaba dos filas vacías. Es un
+   * ref y no un estado porque el segundo clic llega antes de que el primero vuelva a dibujar.
+   */
+  const creandoNueva = useRef(false);
+  /**
+   * EL FALLO DE CREAR ES SUYO, NO EL DE LA CARGA (revisión de la segunda tanda, 09/10/2026). Iba a
+   * `error`, que es el de `load()`: con cero automatizaciones el estado vacío se dibuja sólo con
+   * `!error`, así que un «＋ Nueva» fallido se llevaba el estado vacío Y su botón hasta un F5. Se
+   * dibuja pegado al botón que lo produjo.
+   */
+  const [errCrear, setErrCrear] = useState<string | null>(null);
+  /**
    * El onboarding de esta tab es UNA pregunta: ¿hay un WhatsApp vinculado?
    *
    * Eran once pasos y un wizard de 1.800 líneas. Martín (05/10): «esa pestaña ya no
@@ -295,14 +307,17 @@ function ChatAgentInner() {
    * una» de una etapa sin secuencia).
    */
   const crearNueva = async (pedido?: string) => {
+    if (creandoNueva.current) return;
+    creandoNueva.current = true;
+    setErrCrear(null);
     try {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
-      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setError(r?.error ?? 'No se pudo crear la automatización'); return; }
+      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); return; }
       const id = Number(r.secuenciaId);
       setPedidoIA(pedido ? { secuenciaId: id, pedido } : null);
       await load();
       setAbrirSec({ id });
-    } catch { setError('Sin conexión — prueba de nuevo.'); }
+    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { creandoNueva.current = false; }
   };
   const ejemplosIA = huecos.slice(0, 2).map((h) => `Una bienvenida para quien llega a «${h.label}»`);
 
@@ -524,7 +539,12 @@ function ChatAgentInner() {
       {secuencias !== null && secuencias.length === 0 && !error && (
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
           Todavía no hay automatizaciones.
-          {rolAdmin && <div style={{ marginTop: 14 }}><button onClick={() => void crearNueva()} style={btnDark}>＋ Nueva</button></div>}
+          {rolAdmin && (
+            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={() => void crearNueva()} style={btnDark}>＋ Nueva</button>
+              {errCrear && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{errCrear}</span>}
+            </div>
+          )}
         </div>
       )}
 
@@ -536,7 +556,7 @@ function ChatAgentInner() {
         <SimuladorWhatsApp
           secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
-          onNueva={() => void crearNueva()} onReload={() => void load()}
+          onNueva={(pedido) => void crearNueva(pedido)} errorNueva={errCrear} onReload={() => void load()}
           ejemplosIA={ejemplosIA} pedidoIA={pedidoIA}
           abrir={abrirSec}
           handoffs={sinCaso}
@@ -548,15 +568,19 @@ function ChatAgentInner() {
 
              Lo que el aviso tiene que decir sigue estando —cuántas etapas no reciben
              nada, y cuáles en el `title`, donde el largo no ocupa lugar—. Un hueco no es
-             un error: es trabajo que falta. */
-          pie={rolAdmin && huecos.length > 0 ? (
+             un error: es trabajo que falta.
+
+             ⚠️ ES UNA FUNCIÓN QUE RECIBE LA PUERTA DE LA LISTA (`nueva`), no un nodo: «Armar una»
+             llamaba a `crearNueva` directo y se salteaba la pregunta por lo no publicado — creaba la
+             fila primero, el Confirm salía después y «Seguir editando» dejaba una vacía de más. */
+          pie={rolAdmin && huecos.length > 0 ? (nueva) => (
             <div title={huecos.map((h) => h.label).join(', ')}
               style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--faint)' }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
               <span style={{ minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {huecos.length === 1 ? `${huecos[0].label} no tiene secuencia` : `${huecos.length} etapas sin secuencia`}
               </span>
-              <button onClick={() => void crearNueva(`Una automatización para quien llega a «${huecos[0].label}»`)}
+              <button onClick={() => nueva(`Una automatización para quien llega a «${huecos[0].label}»`)}
                 style={{ flex: 'none', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', cursor: 'pointer' }}>
                 Armar una
               </button>
