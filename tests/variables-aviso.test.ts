@@ -108,10 +108,13 @@ test('⚠️ Lo que necesita un LEAD no se ofrece en un mensaje que no habla de 
   // así que el filtro de la pantalla es lo ÚNICO que evita que un `{{lead_nombre}}`
   // llegue crudo al WhatsApp del cliente.
   const sinLead = variablesPara({ conLead: false }).map((v) => v.key);
-  assert.ok(!sinLead.includes('lead_nombre'), 'ofreció un dato del lead sin lead');
+  assert.ok(!sinLead.includes('nombre'), 'ofreció un dato del lead sin lead');
   assert.ok(!sinLead.includes('link_lead'));
   assert.ok(sinLead.includes('link_crm'), 'los links no dependen de ningún lead');
-  assert.ok(variablesPara({ conLead: true }).map((v) => v.key).includes('lead_nombre'));
+  assert.ok(variablesPara({ conLead: true }).map((v) => v.key).includes('nombre'));
+  // `lead_nombre` (el nombre de antes de los avisos) se resuelve y ya no se ofrece: el árbol tiene
+  // `nombre_completo`, y dos filas iguales en un desplegable son una pregunta que no se entiende.
+  assert.ok(!variablesPara({ conLead: true }).some((v) => v.key === 'lead_nombre'));
 });
 
 test('⚠️ NO entran los números de un proveedor: un aviso no puede pagar 900 ms', () => {
@@ -266,16 +269,17 @@ test('⚠️ sin lead, los datos del CRM NO SE MUESTRAN', () => {
   const filas = gs.flatMap((g) => g.items);
   assert.equal(filas.length, sinLead.length, 'el selector dibuja algo que no se puede resolver');
   assert.ok(filas.every((f) => f.alcance === 'siempre'), 'se coló un dato que este mensaje no resuelve');
-  assert.deepEqual(gs.map((g) => g.titulo), ['El momento', 'Links a MaKo']);
+  // (Sexta tanda: el Second Brain y la fecha no dependen de ningún lead.)
+  assert.deepEqual(gs.map((g) => g.titulo), ['Second Brain', 'Fecha y hora', 'Links de MaKo']);
 
-  // Con lead entran los del lead y NO los de la cuota; con los dos, todo el catálogo.
+  // Con lead entran los del lead y NO los de la cuota; con los dos, todo lo que vale para el equipo.
   const conLead = variablesOfrecidas({ conLead: true }).flatMap((g) => g.items);
   assert.ok(conLead.some((f) => f.alcance === 'lead'), 'con lead tiene que haber datos del CRM');
   assert.ok(!conLead.some((f) => f.alcance === 'cuota'), 'ofreció datos de una cuota en un mensaje que no la tiene');
   assert.equal(
     variablesOfrecidas({ conLead: true, conCuota: true }).flatMap((g) => g.items).length,
-    VARIABLES_AVISO.length,
-    'con lead y cuota se puede resolver TODO el catálogo',
+    VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead').length,
+    'con lead y cuota se puede resolver TODO lo del equipo',
   );
   // Y los grupos vacíos no se dibujan: un título sin filas promete algo que no está.
   assert.ok(gs.every((g) => g.items.length > 0), 'quedó un grupo vacío en el desplegable');
@@ -347,7 +351,9 @@ test('El estado se dice en palabras, no con el slug de la base', () => {
 function leadCompleto(over: Partial<Lead> = {}): Lead {
   return {
     id: 2498, nombre: 'Sofía Contreras', email: 'sofia@ejemplo.com', telefono: '+5215512345678',
-    empresa: 'Inmobiliaria del Valle',
+    empresa: 'Inmobiliaria del Valle', web: 'inmobiliariadelvalle.com', created_at: '2026-10-02T15:00:00Z', updated_at: '2026-10-02T15:00:00Z',
+    // Las columnas que el tipo no declara y `getLead` (select *) sí trae (mig 0204).
+    junta_1_url: 'https://meet.google.com/abc-defg-hij', junta_2_url: 'https://meet.google.com/klm-nopq-rst',
     fecha_agenda: '2026-10-12', fecha_junta_1: '2026-10-14', fecha_junta_2: '2026-10-21',
     junta_1_at: null, junta_2_at: null,
     asistio_j1: true, asistio_j2: false, calificado: true, cerro: true,
@@ -358,13 +364,13 @@ function leadCompleto(over: Partial<Lead> = {}): Lead {
     total_cuotas: 4, dia_de_pago: 10,
     venta_tipo: 'suscripcion', suscripcion_monto_usd: 500, suscripcion_meses: 6,
     adset_id_origen: null,
-    utm_source: 'facebook', utm_medium: 'cpc', utm_campaign: 'oct-leads', utm_content: null,
+    utm_source: 'facebook', utm_medium: 'cpc', utm_campaign: 'oct-leads', utm_content: 'video-3',
     fbclid: null,
     respuesta_facturacion: 'US$ 10k - 30k', respuesta_colaboradores: '5 a 10',
     respuesta_objetivo: 'duplicar las ventas', respuesta_cuando_empezar: 'este mes',
     respuesta_inversion: 'US$ 1k - 3k', respuesta_decisor: 'sí',
     meta_lead_id: null, meta_ad_id: null, meta_ad_name: 'Video testimonio 3',
-    meta_campaign_name: 'Inmobiliario · Octubre', meta_adset_name: null,
+    meta_campaign_name: 'Inmobiliario · Octubre', meta_adset_name: 'Dueños 35-55',
     origen_lead: 'instant_form', telefono_normalizado: '5215512345678',
     visitor_id: null, nutricion_realizada: false,
     closer: 'Mauricio', setter: 'Leila',

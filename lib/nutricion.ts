@@ -20,6 +20,7 @@ import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
+import { datosParaElLead } from '@/lib/variables-resolver';
 import { sanearHtmlEmail, textoDeHtmlEmail, aplicarVariablesHtml, cuerpoHtmlAGuardar, cuerpoHtmlEntrante, problemaDeCuerpoHtml } from '@/lib/email-html-seguro';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom } from '@/lib/resend';
 import { remitenteDelPaso, remitenteAGuardar, firmaDelPie } from '@/lib/email-remitente';
@@ -3740,7 +3741,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // patrón que WhatsApp detecta para restringir un número — y además se
         // lee como un bot. Sortear no cuesta nada; redactar por lead costaría
         // una llamada de IA por mensaje.
-        const varsNO = valoresVariablesLead(lead ?? {}, { negocio });
+        // Los datos del «{ }» (sexta tanda): a lo que el motor tiene en la mano se le suma lo que
+        // el paso NOMBRE del catálogo (la etapa, la reunión, el curso…), una lectura por entidad
+        // nombrada. Se mira el paso ENTERO (todas sus partes y el pie): un token en la segunda parte
+        // también cuenta. `datosParaElLead`, lib/variables-resolver.ts.
+        const varsNO = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
         const cuerpoNO = aplicarVariables(textoDelPaso(paso), varsNO);
         // PASO EN MODO IA: el texto se escribe recién en la rama que lo manda, DESPUÉS
         // de cada guarda que corta el envío (sin teléfono, línea caída, bloqueado,
@@ -3988,7 +3993,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // puede salir no mata el WhatsApp ni deja la inscripción sin terminar nunca.
           terminal = hayOtrosHilos(sanearHilos(insc.hilos), insc.h ?? null);
         } else {
-          const vars = valoresVariablesLead(lead, { negocio });
+          // Los datos del «{ }», como el WhatsApp de arriba (`datosParaElLead`).
+          const vars = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
           const cuerpo = aplicarVariables(paso.cuerpo, vars);
           // El cuerpo del editor rico (tercera tanda): se vuelve a SANEAR acá —lo guardó
           // `setSecuenciaPasos`, pero la fila la puede escribir otro— y las variables entran con
@@ -4779,7 +4785,8 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (!(await envioWhatsappHabilitado().catch(() => false))) { await registrar('fallo', 'el envío de WhatsApp está apagado', null); return no('No le contesté: el envío de WhatsApp está apagado.'); }
   if (await estaBloqueado(lead.telefono).catch(() => true)) { await registrar('omitido', 'contacto bloqueado', null); return no('No le contesté: el contacto está bloqueado.'); }
   const negocio = await getWorkspace(ws ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
-  const pie = aplicarVariables(textoDelPaso(p), valoresVariablesLead(lead, { negocio }));
+  // Los datos del «{ }», como los mensajes de la salida (`datosParaElLead`).
+  const pie = aplicarVariables(textoDelPaso(p), await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead, { negocio }), { ws: ws ?? null, leadId }));
   const sale = saleSolo(p, secuencia.envio_automatico) || await esLeadCliente(leadId);
 
   if (p.tipo === 'audio' && Number(p.audio_id) > 0) {
