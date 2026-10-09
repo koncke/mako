@@ -935,6 +935,24 @@ function cortarSaltos<P extends PasoGrafo>(pasos: P[], ctx: CtxIA, avisos: strin
 
 const renumerar = (pasos: PasoIA[]): PasoIA[] => pasos.map((p, i) => ({ ...p, orden: i + 1 }));
 
+/**
+ * LOS DISPARADORES PARA LA IA: las secciones del desplegable del CRON (`seccionesDisparo`), aplanadas
+ * CON EL PRODUCTO EN EL RÓTULO (revisión, 09/10/2026).
+ *
+ * El producto vive en el TÍTULO de la sección («Etapa · Curso») y el rótulo de cada opción es sólo
+ * `Llega a «Agendado»`. Aplanado con `flatMap((s) => s.options)`, dos productos con la misma etapa
+ * daban dos rótulos idénticos, el prompt no unía «Curso» con `venta:5:…`, y `resolverDisparador`
+ * se quedaba con la primera: la automatización escuchaba el embudo equivocado. Lo mismo entre una
+ * venta y una entrega con el mismo nombre de etapa. Ninguna pantalla lo delataba: el botón del
+ * desplegable y la tarjeta CRON dicen «Llega a «Agendado»» sin el producto.
+ */
+export function disparadoresParaIA(secciones: ReadonlyArray<{ title: string; options: ReadonlyArray<{ value: string; label: string }> }>): Array<{ value: string; label: string }> {
+  return secciones.flatMap((s) => s.options.map((o) => ({
+    value: o.value,
+    label: /^(Etapa|Entrega)\b/.test(s.title) ? `${s.title} · ${o.label}` : o.label,
+  })));
+}
+
 /** El disparador que pidió el modelo, contra el catálogo cerrado. null = no se entendió. */
 function resolverDisparador(v: unknown, est: Estado): string | null {
   const s = str(v).trim();
@@ -943,8 +961,11 @@ function resolverDisparador(v: unknown, est: Estado): string | null {
   if (vals.some((d) => d.value === s)) return s;
   if (vals.some((d) => d.value === `trigger:${s}`)) return `trigger:${s}`;
   const k = normNombre(s);
-  const porRotulo = vals.find((d) => normNombre(d.label) === k);
-  if (porRotulo) return porRotulo.value;
+  // ⚠️ UN RÓTULO QUE COINCIDE CON MÁS DE UNA OPCIÓN NO SE RESUELVE: elegir la primera es elegir el
+  // producto al azar. null hace que la ruta avise «Elige qué la dispara en el CRON».
+  const porRotulo = vals.filter((d) => normNombre(d.label) === k);
+  if (porRotulo.length > 1) return null;
+  if (porRotulo.length === 1) return porRotulo[0].value;
   if (s.startsWith('etiqueta:')) {
     const id = resolverEtiqueta(s.slice('etiqueta:'.length), est);
     if (id != null) return `etiqueta:${id}`;

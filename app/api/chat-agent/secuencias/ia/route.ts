@@ -56,7 +56,7 @@ import { validarGrafo, type PasoGrafo } from '@/lib/flujo-grafo';
 import { marcasDeVoseo } from '@/lib/puestas-data';
 import {
   FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE,
-  deIA, deIAEdicion, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
+  deIA, deIAEdicion, disparadoresParaIA, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
   userDeCrear, userDeEditar, leyendoDe, leyendoTexto, normNombre,
   type CtxIA, type EventoIA, type ResultadoIA, type ResultadoEdicion, type LinkIA,
 } from '@/lib/flujo-ia';
@@ -142,13 +142,14 @@ async function armarContexto(ws: number, secuenciaId: number): Promise<{ ctx: Ct
     funnelId: p.funnelId, productoId: p.productoId, nombre: p.nombre, esDefault: p.esDefault,
     etapas: p.etapas, etapasEntrega: p.etapasEntrega,
   }));
-  // EL DISPARADOR: el mismo catálogo cerrado que el desplegable del CRON, aplanado. `manual` no
-  // inscribe a nadie: se saca (la secuencia vacía nace con él y la sección «La que tiene puesta»
-  // lo trae).
-  const disparadores = seccionesDisparo({
+  // EL DISPARADOR: el mismo catálogo cerrado que el desplegable del CRON, aplanado CON EL PRODUCTO
+  // en el rótulo (`disparadoresParaIA`: con dos productos con la misma etapa, el rótulo pelado
+  // elegía el embudo equivocado). `manual` no inscribe a nadie: se saca (la secuencia vacía nace
+  // con él y la sección «La que tiene puesta» lo trae).
+  const disparadores = disparadoresParaIA(seccionesDisparo({
     disparadores: TRIGGERS, productos: prods, etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre, archivada_at: e.archivada_at })),
     actual: { trigger_tipo: 'manual' }, textoActual: 'manual',
-  }).flatMap((s) => s.options).filter((o) => o.value !== 'trigger:manual');
+  })).filter((o) => o.value !== 'trigger:manual');
 
   // LA LISTA BLANCA, cruzada con lo que la capa del workspace ve, y otra vez contra gratis y
   // reversible por si el registro cambia (el test lo cruza también).

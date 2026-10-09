@@ -15,9 +15,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE, deIA, deIAEdicion, validarIA, limpiarTexto, erroresNuevos,
-  type CtxIA,
+  disparadoresParaIA, type CtxIA,
 } from '../lib/flujo-ia';
 import { validarGrafo, claseDe } from '../lib/flujo-grafo';
+import { seccionesDisparo } from '../lib/flujo-conversacion';
 import { porId } from '../lib/api-mako/registro';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -164,6 +165,42 @@ test('la ruta no muestra los errores de la revisión con ids internos: van al lo
   const bloque = ruta.slice(i, ruta.indexOf('}', ruta.indexOf('return {', i)));
   assert.match(bloque, /console\.error\(/);
   assert.doesNotMatch(bloque, /error: `[^`]*\$\{/, 'el error de pantalla interpola un detalle');
+});
+
+// ── El bloque DISPARADORES perdía el producto: el disparador podía quedar en el embudo equivocado ──
+const seccionesDosProductos = () => seccionesDisparo({
+  disparadores: [{ value: 'instant_form_sin_agenda', label: 'Formulario sin agenda' }],
+  productos: [
+    { funnelId: 3, productoId: null, nombre: 'Mentoría', etapas: [{ value: 'agendado', label: 'Agendado' }], etapasEntrega: [] },
+    { funnelId: 5, productoId: 11, nombre: 'Curso', etapas: [{ value: 'agendado', label: 'Agendado' }], etapasEntrega: [{ value: 'agendado', label: 'Agendado' }] },
+  ],
+  etiquetas: [], actual: { trigger_tipo: 'manual' }, textoActual: 'manual',
+});
+
+// rotura (aplanar sin el título: `secciones.flatMap((s) => s.options)`): 1 fallo de 11, cae éste.
+test('disparadoresParaIA: cada etapa lleva su producto y ningún rótulo se repite', () => {
+  const d = disparadoresParaIA(seccionesDosProductos()).filter((o) => o.value !== 'trigger:manual');
+  const etapas = d.filter((o) => /^(venta|entrega):/.test(o.value));
+  assert.equal(etapas.length, 3);
+  assert.equal(new Set(etapas.map((o) => o.label)).size, 3, etapas.map((o) => o.label).join(' | '));
+  assert.ok(etapas.find((o) => o.value === 'venta:5:agendado')!.label.includes('Curso'));
+  assert.ok(etapas.find((o) => o.value === 'entrega:11:agendado')!.label.startsWith('Entrega'));
+  // Y por ese rótulo, la IA resuelve el embudo pedido.
+  const ctx = ctxBase({ disparadores: d });
+  const curso = etapas.find((o) => o.value === 'venta:5:agendado')!.label;
+  assert.equal(deIA({ disparador: curso, inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola' }] }, ctx, rndDe()).disparador, 'venta:5:agendado');
+});
+
+// rotura (resolverDisparador vuelve a tomar la primera coincidencia): 1 fallo de 11, cae éste.
+test('un rótulo que coincide con varias opciones no elige ninguna: queda «elígelo en el CRON»', () => {
+  const ambiguo = [{ value: 'venta:3:agendado', label: 'Llega a «Agendado»' }, { value: 'venta:5:agendado', label: 'Llega a «Agendado»' }];
+  const r = deIA({ disparador: 'Llega a «Agendado»', inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola' }] }, ctxBase({ disparadores: ambiguo }), rndDe());
+  assert.equal(r.disparador, null);
+  // Con el producto en el rótulo, el rótulo pelado ya no coincide con nada: tampoco elige.
+  const d = disparadoresParaIA(seccionesDosProductos());
+  assert.equal(deIA({ disparador: 'Llega a «Agendado»', inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola' }] }, ctxBase({ disparadores: d }), rndDe()).disparador, null);
+  // Y la ruta aplana con la función, no a mano.
+  assert.match(sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts')), /disparadoresParaIA\(seccionesDisparo\(\{/);
 });
 
 test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', () => {
