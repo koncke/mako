@@ -35,7 +35,22 @@ function inboxWA(c: Cfg): number {
   return c.inbox;
 }
 
+/**
+ * ⛔ CHATWOOT ESTÁ APAGADO (decisión de Martín, 09/10/2026: «Elimina de todos lados la
+ * integración con Chatwoot, que no exista más. Guardalo en privado, por si en un futuro
+ * queremos volver a utilizarla»). El WhatsApp OFICIAL ya había salido del producto el 05/10;
+ * desde acá no se habla con Chatwoot para nadie, aunque tenga las credenciales cargadas.
+ *
+ * Se apaga ACÁ porque toda llamada a Chatwoot pasa por `cfg()` y todo el que decide si usarlo
+ * pregunta `chatwootConfigurado()`: con esto los dos contestan «no» para todos los workspaces.
+ * El código entero, tal como estaba, quedó en la etiqueta de git `archivo/chatwoot-2026-10-09`.
+ * Volver a prenderlo es poner esto en false y deshacer los otros cortes, que nombran esta
+ * constante (tests/sin-chatwoot.test.ts los lista).
+ */
+export const CHATWOOT_APAGADO = true;
+
 async function cfg(): Promise<Cfg> {
+  if (CHATWOOT_APAGADO) throw new Error('Chatwoot está apagado en MaKo (09/10/2026).');
   const [base, account, token, inboxRaw] = await Promise.all([
     credWs('CHATWOOT_BASE_URL'), credWs('CHATWOOT_ACCOUNT_ID'),
     credWs('CHATWOOT_API_TOKEN'), credWs('CHATWOOT_WA_INBOX_ID'),
