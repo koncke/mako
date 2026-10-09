@@ -136,6 +136,30 @@ export type EditorRicoProps = {
   etiqueta?: string;
   className?: string;
   style?: CSSProperties;
+  /**
+   * Botones de QUIEN MONTA en la barra de formato, después de las marcas (cuarta tanda del Chatbot,
+   * 09/10/2026, punto 16: «los botones de abajo del todo de "{}" y emoji, deberían estar en algún
+   * lugar del editable de texto arriba, donde están las negritas»). El email los usa para «{ }»,
+   * el emoji y el modo HTML.
+   *
+   * ⚠️ OPCIONAL Y ADITIVO: las lecciones del curso no lo pasan y su barra es la de siempre. Entran a
+   * la MISMA lista de piezas, así que lo que no entra se va a «Más» como cualquier otro botón. Van
+   * temprano en la barra a propósito: lo que se pierde en «Más» es lo del final.
+   */
+  botonesExtra?: ReadonlyArray<BotonExtraRico>;
+};
+
+/**
+ * Un botón de quien monta (ver `botonesExtra`). `accion` recibe el botón para anclar un panel propio;
+ * si el botón quedó adentro de «Más», recibe «Más» (que se cierra al elegir).
+ */
+export type BotonExtraRico = {
+  id: string;
+  nombre: string;
+  icono: ReactNode;
+  activo?: boolean;
+  apagado?: boolean;
+  accion: (el: HTMLElement) => void;
 };
 
 // ── Reglas chicas (puras) ────────────────────────────────────────────────────
@@ -755,7 +779,7 @@ type Pieza = PiezaBoton | { tipo: 'sep'; id: string; sep: true } | { tipo: 'bloq
 export function EditorRico({
   valor, onCambio, subirAdjunto, urlDeAdjunto, placeholder = 'Escribe aquí…', soloLectura = false,
   aceptaArchivos, aceptaImagenes = 'image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif',
-  minAlto = 140, etiqueta = 'Texto', className, style,
+  minAlto = 140, etiqueta = 'Texto', className, style, botonesExtra,
 }: EditorRicoProps) {
   const ctx = useRef<CtxAdjuntos | null>(null);
   if (!ctx.current) ctx.current = { resolver: urlDeAdjunto, vivas: new Set(), locales: new Map() };
@@ -1114,6 +1138,12 @@ export function EditorRico({
         </span>
       ),
     },
+    // Los de quien monta (`botonesExtra`), con su separador. Sin ellos, la barra es la de siempre.
+    // El id lleva prefijo: un `id` de afuera no puede pisar el de una pieza propia.
+    ...(botonesExtra?.length ? [
+      sep('s-extra'),
+      ...botonesExtra.map((b): PiezaBoton => ({ tipo: 'boton', id: `x-${b.id}`, nombre: b.nombre, icono: b.icono, activo: b.activo, apagado: b.apagado, accion: b.accion })),
+    ] : []),
     sep('s-bloque'),
     { tipo: 'bloque', id: 'bloque' },
     sep('s-insertar'),

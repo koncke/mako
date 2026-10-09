@@ -14,7 +14,9 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
-import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
+import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox } from '@/lib/resend';
+import { firmaDelPie } from '@/lib/email-remitente';
+import { getWorkspace, getWorkspaceActual } from '@/lib/workspace';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { enTandas } from '@/lib/ids-con-filas';
 import { COLS_RESIDUO, RESIDUO_DIAS, SEGMENTO_RESIDUO, esResiduoFormulario, type LeadResiduo } from '@/lib/nutricion-residuo';
@@ -606,6 +608,27 @@ export async function eliminarBroadcast(id: number): Promise<void> {
   if (error) throw new Error(`eliminarBroadcast: ${error.message}`);
 }
 
+/**
+ * LA FIRMA DEL PIE de un broadcast: el nombre del NEGOCIO del workspace en curso (`firmaDelPie`,
+ * lib/email-remitente.ts), la MISMA regla que la nutrición de /chatbot (lib/nutricion.ts).
+ *
+ * ⚠️ ERA `displayNameDe(getEmailFrom())`, el nombre visible del remitente, y es el mismo bug que
+ *    Martín vio en el email de un flujo (cuarta tanda del Chatbot, 09/10/2026, punto 16: «Abajo del
+ *    todo pusiste "MaKo / Si no quieres recibir más estos correos, darme de baja." eso no tiene
+ *    sentido»): el remitente del ws1 es «MaKo <equipo@hola-mako.com>», así que los broadcasts que el
+ *    ws1 le manda a SUS leads salían firmados «MaKo»; y en un workspace sin dominio el sandbox
+ *    firmaba con el nombre de otro cliente. El remitente sigue decidiendo el From; la firma no.
+ *    Sin poder leer el negocio, sin firma: no se inventa una.
+ */
+async function firmaDelNegocioActual(): Promise<string> {
+  try {
+    const ws = await getWorkspaceActual();
+    return ws ? firmaDelPie((await getWorkspace(ws))?.nombre) : '';
+  } catch {
+    return '';
+  }
+}
+
 // Envía un email de prueba del broadcast a una dirección (no toca el estado).
 export async function enviarBroadcastPrueba(id: number, emailPrueba: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = (await getTenantDb());
@@ -617,7 +640,7 @@ export async function enviarBroadcastPrueba(id: number, emailPrueba: string): Pr
   const r = await sendEmail({
     to: emailPrueba,
     subject: `[PRUEBA] ${asunto}`,
-    html: renderEmailHtml({ subject: asunto, bodyText: aplicarVariables(b.cuerpo, vars), preheader: aplicarVariables(b.preheader ?? '', vars) || undefined, fromName: displayNameDe(await getEmailFrom()) }),
+    html: renderEmailHtml({ subject: asunto, bodyText: aplicarVariables(b.cuerpo, vars), preheader: aplicarVariables(b.preheader ?? '', vars) || undefined, fromName: await firmaDelNegocioActual() }),
     text: aplicarVariables(b.cuerpo, vars),
     tags: [{ name: 'tipo', value: 'broadcast-prueba' }],
   });
@@ -712,7 +735,7 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
     return vacio(`no se pudo leer a quién ya se le envió (no se mandó nada para no repetir): ${e instanceof Error ? e.message : String(e)}`);
   }
   const destinatarios = candidatos.filter((l) => !yaRegistrados.has(l.id));
-  const fromNameWs = displayNameDe(await getEmailFrom());
+  const fromNameWs = await firmaDelNegocioActual();
 
   await supabase.from('email_broadcasts').update({ estado: 'enviando', updated_at: ahoraISO() }).eq('id', id);
 

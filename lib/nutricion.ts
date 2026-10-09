@@ -21,7 +21,8 @@ import { pipelineStageOf } from '@/lib/pipeline';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sanearHtmlEmail, textoDeHtmlEmail, aplicarVariablesHtml, cuerpoHtmlAGuardar, cuerpoHtmlEntrante, problemaDeCuerpoHtml } from '@/lib/email-html-seguro';
-import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
+import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom } from '@/lib/resend';
+import { remitenteDelPaso, remitenteAGuardar, firmaDelPie } from '@/lib/email-remitente';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarLineas, sondearSocket, type LineaRow } from '@/lib/evolution';
 import { lineaPorDefault, elegirLinea } from '@/lib/lineas-whatsapp';
@@ -144,6 +145,13 @@ export type PasoSecuencia = {
    * email sin este campo (los de antes) sale como siempre, con `cuerpo` y sus marcas.
    */
   cuerpo_html?: string | null;
+  /**
+   * Sólo email (cuarta tanda, 09/10/2026, punto 16): el remitente que eligió el paso en el «De».
+   * Ausente = el del workspace (`getEmailFrom`), como siempre. El motor lo usa sólo si es del MISMO
+   * dominio que el del workspace (`remitenteDelPaso`, lib/email-remitente.ts): la cuenta de Resend
+   * es una para todos los clientes, y sin esa guarda un paso podría mandar en nombre de otro.
+   */
+  remitente?: string | null;
   proveedor?: ProveedorWa;                    // whatsapp: 'oficial' (plantilla/Chatwoot) | 'no_oficial' (Evolution)
   template_wa: string | null;                 // nombre del template aprobado (WhatsApp oficial)
   template_categoria?: 'marketing' | 'utility' | 'authentication';
@@ -549,6 +557,12 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   antes.forEach((p, i) => {
     if (p && p.canal === 'email' && typeof p.cuerpo_html === 'string' && p.cuerpo_html) emailsPrevios.set(idDe(p, i), p);
   });
+  // El remitente de un email (cuarta tanda, punto 16): lo conserva el escritor que no lo manda
+  // (`remitenteAGuardar`), con el mismo merge por id del nodo.
+  const remitentesPrevios = new Map<string, string>();
+  antes.forEach((p, i) => {
+    if (p && p.canal === 'email' && typeof p.remitente === 'string' && p.remitente) remitentesPrevios.set(idDe(p, i), p.remitente);
+  });
 
   // ⚠️ EL PASO «⚡ ACCIÓN» SE VALIDA ANTES DE ESCRIBIR NADA, y una acción inválida frena el
   // guardado ENTERO con un error que la pantalla muestra. Esta función reconstruye cada
@@ -615,6 +629,11 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
     const html = canal === 'email' ? cuerpoHtmlAGuardar(cuerpoHtmlEntrante(p, emailsPrevios.get(idDe(flujo, i)))) : null;
     return html ? { cuerpo: textoDeHtmlEmail(html), cuerpo_html: html } : { cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '' };
   };
+  // El «De» de un email (cuarta tanda, punto 16). Sólo email: un WhatsApp no tiene remitente de correo.
+  const remitenteDelGuardado = (p: PasoSecuencia, flujo: ReturnType<typeof camposDelFlujo>, i: number, canal: CanalNutricion): { remitente?: string } => {
+    const r = canal === 'email' ? remitenteAGuardar(p.remitente, remitentesPrevios.get(idDe(flujo, i))) : null;
+    return r ? { remitente: r } : {};
+  };
 
   // Normaliza el orden (1..n) y descarta basura. Los campos del FLUJO (id, siguiente, nodo,
   // espera, ramas, casos, si_no, destino, revisar) salen de `camposDelFlujo`, saneados uno por
@@ -659,6 +678,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
               : {}),
         asunto: typeof p.asunto === 'string' ? p.asunto : null,
         preheader: typeof p.preheader === 'string' ? p.preheader : null,
+        ...remitenteDelGuardado(p, flujo, i, comun.canal),
         ...cuerpoDelPaso(p, flujo, i, comun.canal),
         // El oficial va DECLARADO; la ausencia del campo cae al no oficial, que es
         // el canal real del chatbot. El porqué, en `proveedorDelPaso`.
@@ -2652,8 +2672,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // `null` = no se pudo leer: ninguna línea se da por lista, y el motivo lo dice.
     listarLineas().catch((): LineaRow[] | null => null),
   ]);
-  // Firma del footer de los emails = display name del remitente DEL WORKSPACE.
-  const fromNameWs = displayNameDe(remitente);
+  // ⚠️ LA FIRMA DEL PIE YA NO ES EL NOMBRE VISIBLE DEL REMITENTE (cuarta tanda, punto 16). Era
+  // `displayNameDe(remitente)`: en el ws1 eso firmaba «MaKo» los mails que le manda a SUS leads, y en
+  // un workspace sin dominio, el sandbox firmaba «Mauricio Bustos». La firma es el nombre del negocio
+  // (`firmaDelPie`, más abajo, con el `negocio` de la corrida). El remitente sigue decidiendo el From.
   // ¿El número no oficial (Evolution) puede mandar AHORA?
   //
   // ⚠️ DECIDÍA CON LA FILA, que miente en las dos direcciones. Con la línea de
@@ -3625,8 +3647,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           textoEnviado = cuerpo; textoAutor = 'fijo';
           const asunto = aplicarVariables(paso.asunto ?? '', vars) || '(sin asunto)';
           const unsubUrl = buildUnsubscribeUrl(insc.lead_id);
+          // El «De» del paso (punto 16), sólo si es del dominio del negocio; si no, el del workspace,
+          // que es lo que `sendEmail` resuelve sin `from` (lib/email-remitente.ts, `remitenteDelPaso`).
+          const fromPaso = remitenteDelPaso(paso.remitente, remitente);
           const r = await sendEmail({
             to: lead.email,
+            ...(fromPaso ? { from: fromPaso } : {}),
             subject: asunto,
             html: renderEmailHtml({
               subject: asunto,
@@ -3634,7 +3660,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               ...(html ? { bodyHtml: aplicarVariablesHtml(html, vars) } : {}),
               preheader: aplicarVariables(paso.preheader ?? '', vars) || undefined,
               unsubscribeUrl: unsubUrl,
-              fromName: fromNameWs,
+              // El nombre del NEGOCIO, nunca el del remitente (ver arriba de la corrida).
+              fromName: firmaDelPie(negocio),
             }),
             text: cuerpo,
             headers: unsubUrl ? { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : undefined,

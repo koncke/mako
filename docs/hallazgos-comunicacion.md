@@ -9381,3 +9381,36 @@ como estaba; poner el interruptor en `false` y deshacer los cortes que lista
 
 *09/10/2026 — sin subagentes (pedido explícito); medido en producción en sólo lectura. 6 roturas
 en `tests/sin-chatwoot.test.ts`, todas con su fallo.*
+
+## La firma del pie de un mail de un CLIENTE era el nombre visible del remitente: «MaKo» en el ws1 (09/10/2026)
+
+**Síntoma:** Martín, sobre el email de un flujo de /chatbot: «Abajo del todo pusiste "MaKo / Si no
+quieres recibir más estos correos, darme de baja." eso no tiene sentido, es una automatización de
+cada cliente, no debería decir MaKo».
+
+**El diagnóstico obvio era el equivocado:** no hay ningún «MaKo» escrito en el render. `renderEmailHtml`
+pinta `fromName` como firma, y los llamadores le pasaban `displayNameDe(getEmailFrom())`, el nombre
+visible del REMITENTE del workspace. El del ws1 es «MaKo <equipo@hola-mako.com>», y el de todo
+workspace sin dominio era el sandbox, `Mauricio Bustos <onboarding@resend.dev>`: el nombre de OTRO
+cliente firmando (y, en la bandeja de «Probar», diciendo «De: Mauricio Bustos»).
+
+**Y no vivía en un lugar, vivía en cuatro:** la nutrición de /chatbot, la vista de «Probar», los
+broadcasts de /email (el envío y su prueba) y la prueba de verdad de «Probar», que llegaba sin firma.
+Se arregló en los cuatro: la firma es `firmaDelPie(nombre del negocio)`, el link de baja se queda, y
+el sandbox va sin nombre. Los mails de la PLATAFORMA siguen pasando `'MaKo'` explícito.
+
+**Regla:** la firma de un mail de un cliente a sus leads es su NEGOCIO, nunca el nombre del remitente
+(«quién manda» y «quién firma» son dos preguntas). Un barrido en `tests/email-remitente.test.ts` falla
+si un `fromName: displayNameDe(` aparece fuera de `lib/invitaciones.ts`, que firma con el remitente
+PROPIO del negocio (sólo existe con su dominio verificado).
+
+⚠️ **Lo que NO arregla:** el ws1 sigue mandando sus automatizaciones y broadcasts DESDE
+`MaKo <equipo@hola-mako.com>` (su `resend_from`). La firma ya es suya; el «De» que ve su lead en la
+bandeja sigue siendo MaKo hasta que conecte su propio dominio. Lo decide Martín.
+
+**Vive en:** `lib/email-remitente.ts` (`firmaDelPie`) · `lib/nutricion.ts` · `lib/email-marketing.ts`
+(`firmaDelNegocioActual`) · `lib/prueba-paso.ts` · `lib/resend.ts` (`SANDBOX_FROM`) ·
+`app/chatbot/EditorEmailGmail.tsx` (`paramsDeVista`) · `lib/email-html.ts`
+
+*09/10/2026 — cuarta tanda del Chatbot, parte «email» (punto 16), cuenta 2. 8 roturas en
+`tests/email-remitente.test.ts` y `tests/editor-email-gmail.test.ts` en este cierre, todas cazadas.*
