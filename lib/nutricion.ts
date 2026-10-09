@@ -36,7 +36,7 @@ import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
 import { tzActual, TZ_DEFAULT, KEY_TIMEZONE } from '@/lib/timezone';
-import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
+import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar, crearBorrador, tieneBorradorNutriPendiente, tieneBorradorPendienteDePaso } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
@@ -48,7 +48,7 @@ import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutric
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
-  escenariosDeRespuesta, nodoPorId, siguienteDe, TOPE_NODOS,
+  escenariosDeRespuesta, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
@@ -60,6 +60,10 @@ import {
   type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida,
 } from '@/lib/nutricion-grafo-motor';
 import { getSetting } from '@/lib/settings';
+import {
+  sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
+  hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, type Hilo, type LeidoPosicion,
+} from '@/lib/nutricion-hilos';
 import { getAdjunto, adjuntoBase64 } from '@/lib/setting-adjuntos';
 
 export type CanalNutricion = 'email' | 'whatsapp';
@@ -2114,6 +2118,103 @@ async function hechosDeLeads(db: Awaited<ReturnType<typeof getTenantDb>>, leadId
   return out;
 }
 
+// ── Los HILOS de una inscripción (segunda tanda, 08/10/2026) ───────────────────
+// Varias flechas en paralelo = varios caminos A LA VEZ en UNA inscripción (`hilos`, mig 0228).
+// Las decisiones viven en lib/nutricion-hilos.ts (puro, con test); acá sólo se lee y se escribe.
+
+/** Una fila de la cola del motor. `h` es el hilo que se está moviendo en esta vuelta (si hay hilos). */
+type FilaCola = {
+  id: number; lead_id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null;
+  proximo_envio_at?: string | null; hilos?: unknown; hilos_rev?: number | null; h?: string | null;
+};
+
+/** Lo que la puerta sabe de la posición de la fila: sus hilos, el hilo que se mueve y su tarjeta. */
+function leidoDePosicion(insc: FilaCola, pasos: readonly PasoSecuencia[]): LeidoPosicion {
+  const idx = insc.nodo_actual ? indicePorId(pasos, insc.nodo_actual) : indiceActual(pasos, insc);
+  return {
+    hilos: sanearHilos(insc.hilos), h: insc.h ?? null,
+    nodo: insc.nodo_actual || (idx >= 0 ? idDe(pasos[idx], idx) : null),
+    proximo_envio_at: insc.proximo_envio_at ?? null,
+  };
+}
+
+/**
+ * La escritura de la posición EN MODO HILOS, con compare-and-set por `hilos_rev`.
+ *
+ * ⚠️ PERDER EL COMPARE-AND-SET NO SIGNIFICA QUE OTRA CORRIDA MOVIÓ ESTE HILO: cualquier escritura de
+ * la fila sube la revisión, incluida la de OTRO hilo. Se relee y el cambio se vuelve a aplicar sólo
+ * si este hilo sigue en la tarjeta en la que se lo leyó (`hiloSigueEn`); si otra corrida ya lo movió,
+ * el cambio es de ella y esto devuelve false (el «otra corrida ya movió esta inscripción» de siempre).
+ * La primera conversión de un cursor exige además `hilos` NULL (y, en modo 'cas', el paso y el nodo
+ * leídos, como `moverConCas`).
+ */
+async function escribirHilos(
+  db: Awaited<ReturnType<typeof getTenantDb>>, insc: FilaCola, pasos: readonly PasoSecuencia[],
+  campos: Record<string, unknown>, o: { modo: 'cas' | 'activa' | 'fila'; alcance?: 'hilo' | 'inscripcion'; nuevos?: readonly Hilo[] },
+): Promise<boolean> {
+  for (let intento = 0; intento < 3; intento++) {
+    const leido = leidoDePosicion(insc, pasos);
+    const plan = planDePosicion(pasos, leido, campos, o);
+    const rev = Number(insc.hilos_rev) || 0;
+    let q = db.from('nutricion_inscripciones')
+      .update({ ...plan.update, hilos_rev: rev + 1, updated_at: ahoraISO() })
+      .eq('id', insc.id).eq('estado', 'activa').eq('hilos_rev', rev);
+    if (!leido.hilos) {
+      q = q.is('hilos', null);
+      if (o.modo === 'cas') q = insc.nodo_actual == null ? q.eq('paso_actual', insc.paso_actual).is('nodo_actual', null) : q.eq('paso_actual', insc.paso_actual).eq('nodo_actual', insc.nodo_actual);
+    }
+    const { data, error } = await q.select('id');
+    if (error) {
+      if (o.modo === 'cas') throw new Error(`procesarEnvios (hilos de la inscripción ${insc.id}): ${error.message}`);
+      console.error(`[nutricion] hilos de la inscripción ${insc.id}: ${error.message}`);
+      return false;
+    }
+    if (((data ?? []) as unknown[]).length > 0) {
+      if (plan.modo === 'hilos') insc.hilos = plan.hilos;
+      insc.hilos_rev = rev + 1;
+      if (!leido.hilos) insc.h = HILO_PRINCIPAL;
+      if (plan.modo === 'hilos' && plan.descartados) console.warn(`[nutricion] inscripción ${insc.id}: ${plan.descartados} flecha(s) en paralelo no arrancaron (ya corría ese hilo o el tope de ${TOPE_HILOS})`);
+      return true;
+    }
+    const { data: f } = await db.from('nutricion_inscripciones')
+      .select('estado, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev').eq('id', insc.id).maybeSingle();
+    const fila = f as { estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; hilos_rev: number | null } | null;
+    if (!fila || fila.estado !== 'activa') return false;
+    const hs = sanearHilos(fila.hilos);
+    const sigue = leido.hilos
+      ? hiloSigueEn(hs, leido.h ?? HILO_PRINCIPAL, leido.nodo)
+      : hs ? hiloSigueEn(hs, HILO_PRINCIPAL, leido.nodo) : !(o.modo === 'cas' && (fila.paso_actual !== insc.paso_actual || fila.nodo_actual !== insc.nodo_actual));
+    if (!sigue) return false;
+    insc.hilos = fila.hilos; insc.hilos_rev = fila.hilos_rev;
+    if (hs && !leido.hilos) insc.h = HILO_PRINCIPAL;
+  }
+  return false;
+}
+
+/**
+ * El REPARTO INICIAL: una fila nueva de un flujo con más de una raíz (el CRON con flechas en
+ * paralelo) pasa a un hilo por raíz la primera vez que el motor la procesa. Sirve igual para la
+ * inscripción por evento, la del cron, la manual y la reusada (todas dejan la fila igual). Con
+ * compare-and-set contra la fila nueva: dos corridas no reparten dos veces.
+ */
+async function repartirAlEntrar(
+  db: Awaited<ReturnType<typeof getTenantDb>>, insc: FilaCola, pasos: readonly PasoSecuencia[], proximoDe: (nodo: string) => string,
+): Promise<Hilo[] | null> {
+  const ini = hilosIniciales(pasos, proximoDe);
+  if (!ini) return null;
+  const { resumen } = aplicarAHilo(pasos, ini, ini[0].h, {});
+  const rev = Number(insc.hilos_rev) || 0;
+  const { data, error } = await db.from('nutricion_inscripciones')
+    .update({ ...resumen, hilos: ini, hilos_rev: rev + 1, updated_at: ahoraISO() })
+    .eq('id', insc.id).eq('estado', 'activa').eq('paso_actual', 0).is('nodo_actual', null).is('hilos', null).eq('hilos_rev', rev)
+    .select('id');
+  if (error) throw new Error(`procesarEnvios (reparto de la inscripción ${insc.id}): ${error.message}`);
+  if (!((data ?? []) as unknown[]).length) return null;
+  insc.hilos = ini;
+  insc.hilos_rev = rev + 1;
+  return ini;
+}
+
 export type ResultadoProceso = {
   saltado?: string;
   enviados: number;
@@ -2327,14 +2428,18 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
    *   · 'fila'   — por id, como siempre (reprogramar un reintento, el avance después de mandar).
    * `alcance` dice qué cierra un `estado: 'completada' | 'cancelada'`: el hilo (lo de siempre:
    * con un solo cursor, hilo e inscripción son lo mismo) o la inscripción entera (la reunión ya
-   * pasó, el residuo ya no aplica, el tope de saltos).
+   * pasó, el residuo ya no aplica, el tope de saltos). `nuevos`: los hilos que arrancan (las
+   * flechas en paralelo de la tarjeta que terminó). Con hilos —o con el primer reparto— decide
+   * `planDePosicion` y escribe `escribirHilos`; sin nada de eso, lo de siempre, tal cual.
    */
   type ModoEscritura = 'cas' | 'activa' | 'fila';
   const escribir = async (
-    insc: { id: number; paso_actual: number; nodo_actual?: string | null },
+    insc: FilaCola,
     campos: Record<string, unknown>,
-    o: { modo: ModoEscritura; alcance?: 'hilo' | 'inscripcion' },
+    o: { modo: ModoEscritura; alcance?: 'hilo' | 'inscripcion'; nuevos?: readonly Hilo[] },
   ): Promise<boolean> => {
+    const pasosInsc = porId.get(insc.secuencia_id)?.pasos ?? [];
+    if (planDePosicion(pasosInsc, leidoDePosicion(insc, pasosInsc), campos, o).modo === 'hilos') return escribirHilos(supabase, insc, pasosInsc, campos, o);
     if (o.modo === 'cas') return moverConCas(insc, campos);
     let q = supabase.from('nutricion_inscripciones').update({ ...campos, updated_at: ahoraISO() }).eq('id', insc.id);
     if (o.modo === 'activa') q = q.eq('estado', 'activa');
@@ -2349,16 +2454,24 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
    * el grafo, no el índice + 1. Devuelve los campos del avance y si lo que sigue YA toca, para
    * mirarlo en esta misma corrida (`otraVuelta`), como hace la acción.
    */
-  const avanceDesde = (sec: Secuencia, idx: number, lead: JuntasLead | null | undefined): { campos: Record<string, unknown>; yaToca: boolean } => {
+  /** Un hilo nuevo por flecha en paralelo, con su programación de siempre y no antes de `desdeMs`. */
+  const nuevosDe = (sec: Secuencia, destinos: ReadonlyArray<{ destino: string; desdeMs: number }>, lead: JuntasLead | null | undefined): Hilo[] =>
+    destinos.map((r) => ({ h: r.destino, nodo: r.destino, proximo: new Date(Math.max(r.desdeMs, Date.parse(proximoEnvioDePaso(nodoPorId(sec.pasos, r.destino) ?? undefined, lead)))).toISOString() }));
+  const avanceDesde = (sec: Secuencia, idx: number, lead: JuntasLead | null | undefined): { campos: Record<string, unknown>; yaToca: boolean; nuevos: Hilo[] } => {
+    // Las flechas en paralelo de la tarjeta que terminó arrancan ahora (vacío sin paralelos).
+    const nuevos = nuevosDe(sec, repartosDe(sec.pasos, idx).map((destino) => ({ destino, desdeMs: Date.now() })), lead);
+    // Un hilo que acaba de arrancar ya vencido se mira en esta misma corrida (otra vuelta).
+    const nuevoYa = nuevos.some((n) => Date.parse(n.proximo) <= Date.now());
     const j = siguienteIndice(sec.pasos, idx);
-    if (j < 0) return { campos: { paso_actual: idx + 1, nodo_actual: null, proximo_envio_at: null, estado: 'completada' }, yaToca: false };
+    if (j < 0) return { campos: { paso_actual: idx + 1, nodo_actual: null, proximo_envio_at: null, estado: 'completada' }, yaToca: nuevoYa, nuevos };
     const proximo = proximoEnvioDePaso(sec.pasos[j], lead);
     return {
+      nuevos,
       campos: { paso_actual: j, nodo_actual: idDe(sec.pasos[j], j), proximo_envio_at: proximo, estado: 'activa' },
       // Sólo lo que NO es un mensaje se mira en la misma corrida (una condición, una espera, una
       // acción): un segundo mensaje pegado al primero sale en la corrida que viene, como siempre
       // —el anti-ban de 20 h lo frenaría igual, y así no deja un «msg <20h» por cada envío—.
-      yaToca: claseDe(sec.pasos[j]) !== 'mensaje' && Date.parse(proximo) <= Date.now(),
+      yaToca: (claseDe(sec.pasos[j]) !== 'mensaje' && Date.parse(proximo) <= Date.now()) || nuevoYa,
     };
   };
 
@@ -2370,6 +2483,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // ser `0 × 3`, o el `.limit(0)` no traería ninguna.
   const LOTE = (cupo > 0 ? cupo : MAX_POR_CORRIDA) * 3;
   const vistos = new Set<number>();
+  // Los hilos ya mirados en esta corrida, por fila, hilo y TARJETA: uno que se movió a otra
+  // tarjeta ya vencida (una condición, una espera) se vuelve a mirar; uno frenado, no.
+  const hilosVistos = new Set<string>();
   let rondas = 0;
   // Cuántas filas del residuo ya pasaron al envío en esta corrida (#790): ver
   // `RESIDUO_POR_CORRIDA` y su uso más abajo.
@@ -2381,7 +2497,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     let otraVuelta = false;
     let q = supabase
       .from('nutricion_inscripciones')
-      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual')
+      // `hilos, hilos_rev` (mig 0228, ANTES del deploy): sin la columna PostgREST rechaza la consulta entera.
+      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev')
       .eq('estado', 'activa')
       .lte('proximo_envio_at', ahoraISO());
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
@@ -2403,7 +2520,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       .order('id', { ascending: true })
       .limit(LOTE);
     if (error) throw new Error(`procesarEnvios: ${error.message}`);
-    const fetched = (dueRaw ?? []) as Array<{ id: number; lead_id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null }>;
+    const fetched = (dueRaw ?? []) as FilaCola[];
     const due = fetched.filter((d) => !vistos.has(d.id));
     if (due.length === 0) break;
     for (const d of due) vistos.add(d.id);
@@ -2411,11 +2528,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // LOS HECHOS DEL LEAD, sólo si alguien del lote está por pasar por una condición, y en UNA
     // lectura para todos (`hechosDeLeads`). Se piden la primera vez que hacen falta. `null` = la
     // lectura falló: esa inscripción se saltea sin decidir nada y queda vencida para la próxima.
+    // Con hilos, cualquiera de sus tarjetas (o de las raíces de una fila que se va a repartir).
     const leadsQueDeciden = [...new Set(due.filter((d) => {
       const s = porId.get(d.secuencia_id);
-      if (!s) return false;
-      const i = indiceActual(s.pasos, d);
-      return i >= 0 && necesitaHechos(s.pasos, i);
+      return !!s && nodosDeLaFila(s.pasos, d, indiceActual(s.pasos, d)).some((i) => necesitaHechos(s.pasos, i));
     }).map((d) => d.lead_id))];
     let hechosLeidos: Promise<Map<number, HechosLead> | null> | null = null;
     const hechosDe = (leadId: number): Promise<HechosLead | null> => {
@@ -2452,6 +2568,24 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 
     for (const insc of due) {
       const sec = porId.get(insc.secuencia_id);
+      const lead = leadMap.get(insc.lead_id);
+      // ── LOS HILOS (segunda tanda): una fila nueva con varias raíces se reparte; con hilos, se
+      // toma UNO —el vencido más antiguo que no se miró en esta corrida en esa tarjeta— y se lo
+      // trata como el cursor de siempre. Si quedan otros vencidos, la fila vuelve a la cola.
+      let hs = sanearHilos(insc.hilos);
+      if (sec && !hs && esFilaNueva(insc) && raicesSalida(sec.pasos).length > 1) {
+        hs = await repartirAlEntrar(supabase, insc, sec.pasos, (n) => proximoEnvioDePaso(nodoPorId(sec.pasos, n) ?? undefined, lead));
+        if (!hs) continue;
+      }
+      if (sec && hs) {
+        const libres = hilosVencidos(hs, Date.now()).filter((x) => !hilosVistos.has(`${insc.id}:${x.h}:${x.nodo}`));
+        if (!libres.length) continue;
+        hilosVistos.add(`${insc.id}:${libres[0].h}:${libres[0].nodo}`);
+        if (libres.length > 1) { vistos.delete(insc.id); otraVuelta = true; }
+        insc.h = libres[0].h;
+        insc.nodo_actual = libres[0].nodo;
+        insc.paso_actual = indicePorId(sec.pasos, libres[0].nodo);
+      }
       // EL NODO ACTUAL (diseño §2): por `nodo_actual`, y si no hay o ya no existe,
       // `pasos[paso_actual]`. Una fila que nunca avanzó está en la ENTRADA de la salida.
       const idxLeido = sec ? indiceActual(sec.pasos, insc) : -1;
@@ -2479,8 +2613,6 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         continue;
       }
 
-      const lead = leadMap.get(insc.lead_id);
-
       // ── LOS NODOS DE CONTROL, ANTES DE LAS GUARDAS (diseño §2) ─────────────────────
       // Una condición, una espera o un «Ir a» no mandan nada: se RESUELVEN (`resolverControl`,
       // lib/nutricion-grafo-motor.ts), el resultado se escribe con compare-and-set y se sigue.
@@ -2490,8 +2622,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const hechos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
         const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead) });
         const canalCtl = pasoLeido.canal;
+        // Las flechas en paralelo que la resolución encontró (de una espera o del inicio) arrancan
+        // con cualquier desenlace del camino, salvo un cierre de la inscripción entera.
+        const nuevos = r.tipo === 'faltan_hechos' ? [] : nuevosDe(sec, r.repartos, lead);
+        if (nuevos.some((n) => Date.parse(n.proximo) <= Date.now())) { vistos.delete(insc.id); otraVuelta = true; }
         const cerrar = async (motivo: string, rastro: boolean, alcance: 'hilo' | 'inscripcion' = 'hilo'): Promise<void> => {
-          if (!(await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance }))) {
+          if (!(await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance, nuevos }))) {
             res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
             return;
           }
@@ -2521,7 +2657,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // corridas del mismo minuto inscribían dos veces. La otra respeta el UNIQUE y la
           // familia (`inscribirEnSecuencia`): si ya estaba, no pasa nada y esta igual termina.
           // `desdeFlujo`: lo terminado NO se reinicia (era reenviarle la secuencia entera).
-          if (!(await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' }))) continue;
+          if (!(await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', nuevos }))) continue;
           const v = await inscribirEnSecuencia(insc.lead_id, r.secuenciaId, { sinEnvioInmediato: true, desdeFlujo: true })
             .catch((e: unknown) => ({ inscribe: false as const, error: e instanceof Error ? e.message : String(e) }));
           res.detalle.push({
@@ -2533,7 +2669,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (r.tipo === 'esperar') {
           const ok = await escribir(insc, {
             paso_actual: r.idx, nodo_actual: idDe(sec.pasos[r.idx], r.idx), proximo_envio_at: new Date(r.proximoMs).toISOString(),
-          }, { modo: 'cas' });
+          }, { modo: 'cas', nuevos });
           res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: ok ? 'espera' : 'otra corrida ya movió esta inscripción' });
           continue;
         }
@@ -2544,7 +2680,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const enSuHora = Date.parse(suHora) <= Date.now() + 60_000;
         const ok = await escribir(insc, {
           paso_actual: r.idx, nodo_actual: idDe(destino, r.idx), ...(enSuHora ? {} : { proximo_envio_at: suHora }),
-        }, { modo: 'cas' });
+        }, { modo: 'cas', nuevos });
         if (!ok) { res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' }); continue; }
         insc.paso_actual = r.idx;
         insc.nodo_actual = idDe(destino, r.idx);
@@ -2646,8 +2782,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const corresponde = paso.requiere === 'ya_contactado' ? yaLeHablamos : !yaLeHablamos;
         if (!corresponde) {
           // Lo que sigue, por el grafo (`siguiente`), no el índice + 1.
-          const { campos, yaToca } = avanceDesde(sec, insc.paso_actual, lead);
-          const ok = await escribir(insc, campos, { modo: 'cas' });
+          const { campos, yaToca, nuevos } = avanceDesde(sec, insc.paso_actual, lead);
+          const ok = await escribir(insc, campos, { modo: 'cas', nuevos });
           if (ok && yaToca) { vistos.delete(insc.id); otraVuelta = true; }
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: paso.requiere === 'ya_contactado' ? 'es primer contacto' : 'ya le habíamos escrito' });
           continue;
@@ -2699,7 +2835,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // escrito; y si el setter descartaba el borrador, la acción ya estaba hecha.
         // ⚠️ SIN MIRAR `envio_automatico`: con «Sale sola» por MENSAJE (`revisar`), el anterior
         // puede haber quedado como borrador aunque la secuencia diga que sale sola.
-        if (lead && await tieneBorradorNutriPendiente(lead.id) && !(await esLeadCliente(lead.id))) {
+        // ⚠️ CON HILOS, EL BORRADOR DE *SU* MENSAJE ANTERIOR (`mensajeAnteriorDe`), no el de cualquier
+        // hilo del lead: un borrador del hilo de WhatsApp no tiene por qué frenar la acción del otro.
+        const delPadre = sanearHilos(insc.hilos) ? await tieneBorradorPendienteDePaso(insc.id, mensajeAnteriorDe(sec.pasos, insc.paso_actual) + 1) : null;
+        if (lead && (delPadre ?? await tieneBorradorNutriPendiente(lead.id)) && !(await esLeadCliente(lead.id))) {
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
           await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
           continue;
@@ -2724,7 +2863,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               proximo_envio_at: proximo,
               estado: siguientePaso ? 'activa' : 'completada',
               // Sin `ultimo_paso_at`: es «el último MENSAJE», y una acción no le habló a nadie.
-            }, { modo: 'cas' }),
+              // Y sus flechas en paralelo arrancan cuando la acción corre (el reclamo las suma).
+            }, { modo: 'cas', nuevos: nuevosDe(sec, repartosDe(sec.pasos, insc.paso_actual).map((destino) => ({ destino, desdeMs: Date.now() })), lead) }),
             // Import dinámico: lib/api-mako/flujo → ejecutar → los runners → chatbot.run →
             // este archivo es un ciclo (el mismo motivo que `escribirPasoIA`, más abajo).
             ejecutar: async (operacion, params, o) => (await import('@/lib/api-mako/flujo')).ejecutarDesdeFlujo(operacion, params, o),
@@ -2782,6 +2922,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const canalApagado = !opts?.simularApagados && !canalOn(paso);
       if (canalApagado && !alcanzablesDesde(sec.pasos, insc.paso_actual).some((j) => canalOn(sec.pasos[j]))) {
         res.esperando += 1;
+        // Decisión 7: un hilo de EMAIL con el email apagado y nada prendido adelante, con otros hilos
+        // vivos, se CIERRA con su rastro (esperando 24 h para siempre, la inscripción no terminaba y
+        // al dueño no le llegaba nunca el «no contestó»). Solo, espera como siempre.
+        if (paso.canal === 'email' && hayOtrosHilos(sanearHilos(insc.hilos), insc.h ?? null)) {
+          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila' });
+          await anotarCierreSinEnvio(insc, paso, lead, 'canal email apagado');
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'canal email apagado: se cerró este hilo' });
+          continue;
+        }
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: `canal ${paso.canal} apagado` });
         await escribir(insc, { proximo_envio_at: enHorasISO(24) }, { modo: 'fila' });
         continue;
@@ -3042,6 +3191,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           estado = 'fallo';
           nota = 'remitente sandbox: verifica tu dominio de envío';
           backoffHoras = 24; // config pendiente: 1 reintento/día
+          // Con otros hilos vivos, esto cierra SÓLO el hilo del email (decisión 7): un email que no
+          // puede salir no mata el WhatsApp ni deja la inscripción sin terminar nunca.
+          terminal = hayOtrosHilos(sanearHilos(insc.hilos), insc.h ?? null);
         } else {
           const vars = valoresVariablesLead(lead, { negocio });
           const cuerpo = aplicarVariables(paso.cuerpo, vars);
@@ -3113,14 +3265,14 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 
       // Lo que sigue, POR EL GRAFO (`siguiente`), y no el índice + 1: con ramas, el elemento de
       // abajo del array puede ser otra rama.
-      const { campos: avance, yaToca } = avanceDesde(sec, insc.paso_actual, lead);
+      const { campos: avance, yaToca, nuevos: nuevosAlSalir } = avanceDesde(sec, insc.paso_actual, lead);
       await escribir(insc, {
         ...avance,
         // El reloj del fallo por silencio se cuenta desde el ÚLTIMO mensaje,
         // no desde que el lead se inscribió: una secuencia con pasos a los 30
         // días se daría por fallida antes de terminar de mandarlos.
         ultimo_paso_at: ahoraISO(),
-      }, { modo: 'fila' });
+      }, { modo: 'fila', nuevos: nuevosAlSalir });
       // La reunión que preparó este paso, en un update APARTE del avance (ver la función).
       await anotarReunionDelPaso(insc.id, sec, lead);
       // ⚠️ SI LO QUE SIGUE YA TOCA, SE MIRA EN ESTA MISMA CORRIDA, como después de una acción:
