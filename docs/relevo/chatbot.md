@@ -24,6 +24,20 @@ está a medias: lo hecho está en `main` (push `9165da11`). El pedido literal de
 - **13.** El filtro al lado del buscador, por estado y por emoji, con «Quitar filtro». El «⋯»
   abre hacia afuera.
 
+**EN CONSTRUCCIÓN (09/10 ~12:00, cuenta `claude2` en 93 %):** Martín dijo «Continua con el resto». Un
+workflow con seis partes en worktrees, cada una en su rama LOCAL `wip-v4-<parte>` (sin pushear):
+`condiciones` (7, 5, 6b), `flechas` (8), `cron` (14 + el editor del CRON del punto 1 + revisar Crear con
+IA), `editores` (1), `whatsapp` (15), `email` (16). Si se corta: cada rama tiene sus commits WIP; se
+retoma con `resumeFromRunId` o se termina a mano desde la rama. Después: unir en `chatbot-v2`, enchufar
+los bloqueantes, aplicar la migración del CRON (0230 o la que toque) ANTES del push, suite entera, push.
+
+⚠️ **El punto 11 (más acciones del CRM y de CS) NO va en esta tanda:** el chat «API de MaKo» las está
+escribiendo en `wip/api-acciones-0910` (worktree `C:/dev/mako-api`, sin pushear): `mover_cliente_entrega_cs`,
+`cambiar_acceso_curso_cs`, `invitar_cliente_curso_cs`, `mandar_link_curso_cs`, `asignar_trabajo_cliente_cs`,
+`agendar_llamada_cs`, `registrar_cobro_cuota`… Cuando esa rama entre a main, se suman a `ACCIONES_DEL_FLUJO`
+(lib/editor-acciones.ts) las que tengan sentido corriendo solas. Esa rama también toca `chatbot.def.ts`
+(`cambiar_disparador_secuencia`): si el CRON pasa a varias etapas, ahí hay que ajustar.
+
 **Falta (en este orden, del más chico al más grande):**
 - **7. «＋ y» / «＋ o» de vuelta y sin «＋ Rama».** Cada fila nueva guarda con qué se une (`union:
   'y' | 'o'` en `FilaCondicion`, lib/flujo-grafo.ts); se evalúa con las «y» atando más que las
