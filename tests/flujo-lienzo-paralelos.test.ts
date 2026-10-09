@@ -303,9 +303,14 @@ test('el lienzo de /chatbot: sin la tarjeta fantasma, la fila «Si responde» cr
   assert.match(flujo, /if \(id === ID_ENTRADA && puerto === PUERTO_RESPUESTA\) \{\n\s+const r = onCrearRespuesta \? onCrearRespuesta\(\) : null;/);
   assert.match(flujo, /const formaPanel: 'apaisado' \| 'columna' = muelles\?\.editorForma === 'apaisado' \? 'apaisado' : 'columna';/);
   assert.match(flujo, /panelForma=\{formaPanel\} panelAlto=\{muelles\?\.editorAlto\}/);
-  // EditorDeNodo: una rama por clase, lista para los editores de la parte E.
+  // EditorDeNodo: una rama por clase, con los editores de la parte E ENCHUFADOS (integración):
+  // el email es el tipo Gmail (su vista previa la fija tests/editor-email-gmail.test.ts), la
+  // etiqueta es la frase y el de WhatsApp va en fila con el panel apaisado. Verificado volviendo
+  // a montar el editor de tres campos: 1 fallo.
   assert.match(flujo, /if \(etiquetaDeAccion\(paso\)\) return <EditorEtiquetaLienzo /);
   assert.match(flujo, /if \(paso\.canal === 'email'\) return <EditorEmail /);
-  assert.match(flujo, /aria-label="Vista previa"/, 'el email no deja escribir la vista previa');
+  assert.match(flujo, /<EditorEmailGmail key=\{`email-\$\{id\}`\}/, 'el email no usa el editor tipo Gmail');
+  assert.match(flujo, /<EditorEtiqueta key=\{`etq-\$\{p\.id\}`\}/, 'la etiqueta no usa la frase');
+  assert.match(flujo, /disposicion=\{formaPanel === 'apaisado' \? 'fila' : 'columna'\}/);
   assert.equal(PUERTO_RESPUESTA, 'resp');
 });
