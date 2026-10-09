@@ -37,6 +37,7 @@ import { Confirm } from '@/app/_ui/Confirm';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { MAX_LABEL_ETAPA } from '@/lib/pipeline';
 import { puedeSerReunion, cambioDeReuniones, reunionSinLugar } from '@/lib/etapa-reunion';
+import { puedeTenerPlazo, sanearPlazo, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
 import {
   editarEtapaAction, embudoEnDetalleAction, renombrarEmbudoAction, archivarEmbudoAction,
   restaurarEmbudoAction, extrasDelEmbudoAction,
@@ -102,6 +103,63 @@ function BotonReunion({ etapa, activa, sinLugar, disabled, onClick }: {
         }}
       >Reunión</button>
     </span>
+  );
+}
+
+/**
+ * El PLAZO de una etapa (#800): si un lead pasa más días que esto ahí, MaKo le avisa al dueño
+ * (lib/lead-quieto.ts). Vacío = sin plazo.
+ *
+ * ⚠️ SE DIBUJA SÓLO CON LO QUE CONTESTÓ EL SERVER (`emb.plazos`), nunca con la semilla del
+ * tablero: un «Plazo» vacío pintado antes de saberlo le diría a quien ya puso uno que no tiene.
+ *
+ * El texto de la pastilla es el dato («5 días»); para qué sirve va en el `title`, no en la
+ * pantalla.
+ */
+function PlazoEtapa({ etapa, dias, disabled, onGuardar }: {
+  etapa: string; dias: number | null; disabled?: boolean; onGuardar: (dias: number | null) => void;
+}) {
+  const [editando, setEditando] = useState(false);
+  const guardar = (crudo: string) => {
+    setEditando(false);
+    const limpio = crudo.trim();
+    const nuevo = limpio === '' ? null : sanearPlazo(limpio);
+    // Un número fuera de rango no borra el plazo que había: se ignora, como un Escape.
+    if (limpio !== '' && nuevo == null) return;
+    if (nuevo === dias) return;
+    onGuardar(nuevo);
+  };
+  if (editando) {
+    return (
+      <span data-nodrag style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flex: 'none' }}>
+        <input
+          autoFocus type="number" min={1} max={PLAZO_MAX_DIAS} defaultValue={dias ?? ''} aria-label={`Plazo de ${etapa}, en días`}
+          onBlur={(ev) => guardar(ev.target.value)}
+          onKeyDown={(ev) => {
+            if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur();
+            if (ev.key === 'Escape') setEditando(false);
+          }}
+          style={{ width: 56, height: 24, fontFamily: SANS, fontSize: 12, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 7, padding: '0 6px', outline: 'none' }}
+        />
+        <span style={{ fontFamily: SANS, fontSize: 12, color: 'var(--dim)' }}>días</span>
+      </span>
+    );
+  }
+  const activo = dias != null;
+  return (
+    <button
+      type="button" data-nodrag onClick={() => setEditando(true)} disabled={disabled}
+      title={activo
+        ? `Si un lead pasa más de ${dias} ${dias === 1 ? 'día' : 'días'} en ${etapa}, MaKo te avisa. Toca para cambiarlo.`
+        : `Ponerle un plazo a ${etapa}: si un lead pasa más días ahí, MaKo te avisa.`}
+      style={{
+        flex: 'none', height: 24, padding: '0 9px', borderRadius: 999, fontFamily: SANS, fontSize: 12, fontWeight: 600,
+        border: `1px solid ${activo ? 'var(--primary)' : 'var(--border-strong)'}`,
+        background: activo ? 'var(--primary-weak)' : 'transparent',
+        color: activo ? 'var(--primary)' : 'var(--dim)',
+        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1,
+      }}
+    >{activo ? `${dias} ${dias === 1 ? 'día' : 'días'}` : 'Plazo'}</button>
   );
 }
 
@@ -341,6 +399,13 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
       router.refresh();
     });
   };
+
+  /**
+   * El plazo de la etapa: un número, null (sin plazo), o undefined = NO SE DIBUJA el campo
+   * (el server todavía no contestó, no pudo leerlos, o la etapa no lleva plazo).
+   */
+  const plazoDe = (e: EtapaDelFunnel): number | null | undefined =>
+    emb?.plazos == null || !puedeTenerPlazo(e) ? undefined : (emb.plazos[e.key] ?? null);
 
   // ── marcar una etapa como reunión ───────────────────────────────────────────────────
   // ⚠️ PREGUNTA SÓLO SI UNA REUNIÓN QUE YA EXISTE CAMBIA DE NÚMERO. La fecha del lead va por
@@ -598,6 +663,10 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         ya no, porque abajo viven las campañas: ver `onGuardado`.) Y la
                         etiqueta cambia con el ícono: `AccionFila` usa el mismo string para el
                         `aria-label` y el `title`, y una ✕ que dice «Configurar» miente. */}
+                    {plazoDe(e) !== undefined && (
+                      <PlazoEtapa etapa={e.label} dias={plazoDe(e) ?? null} disabled={trabajando}
+                        onGuardar={(dias) => aplicar({ op: 'plazo', key: e.key, dias })} />
+                    )}
                     {esEntrada(e) ? (
                       <AccionFila
                         etiqueta={entradasAbierto

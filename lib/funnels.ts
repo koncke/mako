@@ -97,6 +97,63 @@ export async function umbralesDelFunnelDefault(): Promise<Record<string, unknown
   }
 }
 
+/**
+ * Los umbrales de UN embudo (`data.umbrales`), o los del embudo del negocio sin `funnelId`.
+ * `{}` = no declaró ninguno; null = no se pudo leer (y entonces nadie escribe encima).
+ *
+ * Lo leen el pop-up de etapas (el plazo de cada etapa, #800) y la operación que lo guarda,
+ * que tiene que conservar las otras claves de `umbrales` — las cuatro perillas del CRM
+ * automático viven en el mismo objeto.
+ */
+export async function umbralesDe(funnelId?: number | null): Promise<Record<string, unknown> | null> {
+  try {
+    let fila: { data?: unknown } | null | undefined;
+    if (funnelId != null) {
+      const { data, error } = await (await getTenantDb()).from('funnels').select('data').eq('id', funnelId).limit(1);
+      if (error) { console.error(`[funnels] umbralesDe(${funnelId}): ${error.message}`); return null; }
+      fila = ((data ?? []) as Array<{ data?: unknown }>)[0] ?? null;
+    } else {
+      fila = await filaDefault();
+      if (fila === undefined) return null;
+    }
+    if (!fila) return {};
+    const cfg = (fila.data && typeof fila.data === 'object' ? fila.data : {}) as Record<string, unknown>;
+    const u = cfg.umbrales;
+    return u && typeof u === 'object' && !Array.isArray(u) ? { ...(u as Record<string, unknown>) } : {};
+  } catch (e) {
+    console.error(`[funnels] umbralesDe: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
+/**
+ * Cada embudo VIVO del workspace con su config y sus umbrales crudos. null = no se pudo leer.
+ *
+ * Lo usa el aviso del lead quieto (lib/lead-quieto-aviso.ts), que necesita, por embudo, qué
+ * etapas tiene (para descartar plazos de etapas borradas), cómo se llaman (para el mensaje) y
+ * qué plazo le puso el dueño a cada una.
+ */
+export async function funnelsConUmbrales(): Promise<Array<{
+  id: number; esDefault: boolean; cfg: FunnelConfig; umbrales: Record<string, unknown> | null;
+}> | null> {
+  try {
+    const { data, error } = await (await getTenantDb())
+      .from('funnels').select(COLS).eq('activo', true).order('id');
+    if (error) { console.error(`[funnels] funnelsConUmbrales: ${error.message}`); return null; }
+    return ((data ?? []) as unknown as FilaFunnel[]).map((f) => {
+      const d = (f.data && typeof f.data === 'object' ? f.data : {}) as Record<string, unknown>;
+      const u = d.umbrales;
+      return {
+        id: Number(f.id), esDefault: f.es_default === true, cfg: filaAFunnel(f),
+        umbrales: u && typeof u === 'object' && !Array.isArray(u) ? (u as Record<string, unknown>) : null,
+      };
+    });
+  } catch (e) {
+    console.error(`[funnels] funnelsConUmbrales: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 /** Un funnel concreto del workspace actual (el `.eq('workspace_id')` lo pone getTenantDb). */
 export async function getFunnelDe(funnelId: number): Promise<FunnelConfig> {
   try {
