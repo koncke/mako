@@ -181,11 +181,11 @@ export function makoDeAccion(p: PasoGrafo): { mensaje: string; titulo: string } 
   };
 }
 
-/** «+ Cualificado» / «− Seguimiento»: lo que dice la tarjeta de etiqueta. */
+/** «Agregar Cualificado» / «Eliminar Seguimiento»: lo que dice la tarjeta de etiqueta (sexta tanda, TAG 1). */
 function textoEtiqueta(e: NonNullable<ReturnType<typeof etiquetaDeAccion>>, nombres?: NombresParaTexto): string {
   if (e.etiquetaId == null) return 'Sin elegir';
   const nom = nombres?.etiqueta?.(e.etiquetaId) ?? 'una etiqueta';
-  return `${e.operacion === OP_PONER_ETIQUETA ? '+' : '−'} ${nom}`;
+  return `${e.operacion === OP_PONER_ETIQUETA ? 'Agregar' : 'Eliminar'} ${nom}`;
 }
 
 // ── El disparador, dicho como es ──────────────────────────────────────────────────

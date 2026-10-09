@@ -19,13 +19,15 @@
 //   · los RÓTULOS de los parámetros, con tildes: el `rotulo?` de la def (lib/api-mako/tipos.ts)
 //     gana; si no lo tiene, este diccionario de respaldo; si tampoco, el nombre partido. Antes los
 //     derivaba el componente del camelCase y salían «Titulo», «Razon», «Anio», «Kpi id»;
-//   · las SECCIONES del selector, por grupo de la lista corta;
+//   · el ÁRBOL del selector: un ÁREA por sección (CRM, Customer Success, WhatsApp), con su ícono, y
+//     adentro los bloques separados por una línea (sexta tanda, ACTION 1: «siempre con el arbol»);
 //   · el CONTROL de cada parámetro (`controlDe`): la etapa con producto + etapa, la etiqueta, la
 //     automatización, la persona del equipo, el monto con su moneda, la fecha;
 //   · qué campos se ven según lo elegido (`repartoDelFormulario`): monto y motivo sólo al mover a una
 //     etapa que los pide (la regla es la del CRM: `datosQuePideLaEtapa` → lib/stage-requirements.ts);
 //   · la LÍNEA de qué hace una acción, sacada de su descripción;
-//   · qué operaciones son de ETIQUETA (la tarjeta 🏷️ es una presentación sobre ellas).
+//   · qué operaciones son de ETIQUETA (la tarjeta 🏷️ es una presentación sobre ellas), su verbo
+//     («Agregar» / «Eliminar») y cómo una tarjeta con VARIAS etiquetas corre una por etiqueta.
 //
 // ⚠️ NO VIVE EN lib/api-mako/ A PROPÓSITO. Un componente `'use client'` sólo puede importar valores
 //    de cuatro módulos de esa carpeta (tests/api-mako-registro.test.ts: alcance, flujo-params,
@@ -43,6 +45,8 @@ import type { Parametro, TipoParametro } from './api-mako/tipos';
 // que el CRM decide qué pide mover a una etapa. Ver `datosQuePideLaEtapa`.
 import { funnelReqInfo, stepsForStage } from './stage-requirements';
 import type { EtapaLite } from './funnel-etapas';
+// Sólo el TIPO: los nombres del set de íconos de la casa. El dibujo lo hace el desplegable.
+import type { NombreIconoMenu } from '../app/_ui/iconos-menu';
 
 // ── Rótulos ─────────────────────────────────────────────────────────────────────────────────
 
@@ -163,11 +167,28 @@ export function resumenDeAccion(descripcion: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// ── La lista CORTA del lienzo ───────────────────────────────────────────────────────────────
+// ── Las acciones del lienzo, en ÁRBOL por área ──────────────────────────────────────────────
 
-/** Los grupos del selector, en orden. */
-export const GRUPOS_ACCION = ['El lead', 'Equipo', 'Automatizaciones', 'Cliente'] as const;
+/**
+ * LAS ÁREAS: el primer nivel del selector, en orden, con su ícono (sexta tanda, ACTION 1, textual:
+ * «Faltan muchas acciones posibles que podríamos agregar, siempre con el arbol...»). Se abre el área y
+ * adentro están sus acciones; buscar aplana (el `Dropdown` de la casa, `secciones`).
+ */
+export const AREAS_ACCION = ['CRM', 'Customer Success', 'WhatsApp'] as const;
+export type AreaAccion = (typeof AREAS_ACCION)[number];
+export const ICONO_AREA: Readonly<Record<AreaAccion, NombreIconoMenu>> = { CRM: 'equipo', 'Customer Success': 'cliente', WhatsApp: 'whatsapp' };
+
+/**
+ * Los BLOQUES de un área: adentro de un área se separan con una línea, no con otro clic. Tres niveles
+ * (CRM › Etiquetas › Agregar) eran un clic de más sobre once acciones que ya se buscan escribiendo.
+ */
+export const GRUPOS_ACCION = ['Etapa y productos', 'Etiquetas', 'Ficha', 'Equipo', 'Automatizaciones', 'Cliente', 'Chat'] as const;
 export type GrupoAccion = (typeof GRUPOS_ACCION)[number];
+/** El área de cada bloque. `Automatizaciones` sólo tiene las que el selector no ofrece (`FUERA_DEL_SELECTOR`). */
+export const AREA_DE_GRUPO: Readonly<Record<GrupoAccion, AreaAccion>> = {
+  'Etapa y productos': 'CRM', Etiquetas: 'CRM', Ficha: 'CRM', Equipo: 'CRM', Automatizaciones: 'CRM',
+  Cliente: 'Customer Success', Chat: 'WhatsApp',
+};
 
 /** Una acción que el lienzo ofrece: su id del registro y cómo se presenta en un flujo. */
 export type AccionDelFlujo = {
@@ -177,42 +198,62 @@ export type AccionDelFlujo = {
   /** La línea de qué hace, debajo del nombre. Corta: es texto que se DIBUJA. */
   que: string;
   grupo: GrupoAccion;
+  /** El ícono del renglón, del set de la casa (general 10: «pon íconos en todos los desplegable»). */
+  icono: NombreIconoMenu;
 };
 
 /**
- * LAS ACCIONES QUE OFRECE EL LIENZO, en orden. Es el ÚNICO lugar donde vive esta lista:
+ * LAS ACCIONES QUE OFRECE EL LIENZO, en orden y por bloque. Es el ÚNICO lugar donde vive esta lista:
  * `accionesParaFlujo` (lib/api-mako/flujo.ts) la aplica al armar el catálogo, y el selector sólo
  * ofrece éstas.
  *
  * El criterio, medido contra las 200 acciones del registro el 09/10/2026: que tenga sentido CORRIENDO
- * SOLA sobre el lead del flujo, sin una persona mirando. Quedaron afuera, con su porqué:
+ * SOLA sobre el lead del flujo, sin una persona mirando, y que no cueste plata. La sexta tanda (ACTION 1:
+ * «Faltan muchas acciones») sumó las cuatro que cumplían y estaban afuera:
+ *   · `mover_lead_en_producto` («Mover en otro producto»): «Mover de etapa» (`proponer_cambio_etapa`)
+ *     mueve SÓLO en el producto principal —el producto del editor es una pista—, así que mover en un
+ *     producto AGREGADO no tenía forma. El mismo control de etapa escribe su `embudoId`;
+ *   · `quitar_lead_de_producto`: sólo saca de uno de dos o más (del único no deja, y lo dice);
+ *   · `ignorar_datos_sin_marcar` / `reactivar_datos_sin_marcar`: callar o volver a contar sus
+ *     pendientes en «Datos sin marcar» (p.ej. al etiquetarlo «Spam»);
+ *   · `aplicar_etiqueta_lead_whatsapp`: deja en su chat la etiqueta del celular de su etapa.
+ * Siguen afuera, con su porqué:
  *   · las que piden un valor FIJO que en un flujo miente: `mover_a_nutricion_manual` (una fecha límite
  *     fija vence para todos los leads que entren después), `proponer_agendar_agenda` (un día y una hora
- *     fijos), `editar_contacto_lead` (pisaría el nombre o el email de cada lead con el mismo texto);
+ *     fijos), `editar_contacto_lead` (pisaría el nombre o el email de cada lead con el mismo texto),
+ *     `marcar_pago_cobrado` (una cuota por id);
  *   · `proponer_tareas_plan`: aplicar un borrador del plan corre al Perro, que re-curva TODO el
- *     tablero (AGENTS.md); una tarea por lead lo dispararía en cada inscripción;
- *   · `mover_lead_en_producto` y `quitar_lead_de_producto`: «Mover de etapa» ya elige producto y etapa,
- *     y quitar sólo funciona con dos productos o más;
+ *     tablero (AGENTS.md); una tarea por lead lo dispararía en cada inscripción. Del Plan no queda
+ *     ninguna que sea de UN lead;
  *   · `marcar_asistencia_reunion`: la asistencia la marca el evento de la agenda, no un flujo;
- *   · `generar_insight_lead`: usa IA y tarda; no es algo para correr en cada lead;
- *   · lo que no es de UN lead (configurar, publicar, Meta, cursos, el equipo).
- * Lo que falta y NO existe en el registro («sacar de una automatización», «mover en la entrega»)
- * se agrega declarando la acción en su área, y recién ahí entra acá.
+ *   · las que usan IA (`generar_insight_lead`, `redactar_followup_post_llamada`, `analizar_llamadas_lead`):
+ *     tardan y gastan en cada lead;
+ *   · `crear_borrador_whatsapp_empresa`: un WhatsApp al lead es la tarjeta WHATSAPP;
+ *   · lo de Chatwoot (se borró el 09/10/2026) y lo que no es de UN lead (configurar, publicar, Meta,
+ *     cursos, el equipo).
+ * Las de Customer Success que trae la rama de la API (`wip/api-acciones-0910`: mover en la entrega,
+ * invitar al curso, abrir un módulo…) entran acá cuando esa rama llegue a main, cada una con su control
+ * (docs/hallazgos-chatbot.md, parte «editores»).
  *
  * Un paso ya guardado con una acción que no está acá se sigue dibujando y editando: el catálogo trae
  * TODAS las del workspace marcadas con `curada` (lib/api-mako/flujo.ts), y el selector suma la puesta.
  */
 export const ACCIONES_DEL_FLUJO: readonly AccionDelFlujo[] = [
-  { id: 'proponer_cambio_etapa', titulo: 'Mover de etapa', que: 'Lo pasa a otra etapa del kanban', grupo: 'El lead' },
-  { id: 'agregar_lead_a_producto', titulo: 'Agregar a un producto', que: 'Lo suma a otro producto, sin sacarlo del suyo', grupo: 'El lead' },
-  { id: 'poner_etiqueta_lead', titulo: 'Poner una etiqueta', que: 'Le pone una etiqueta del CRM', grupo: 'El lead' },
-  { id: 'sacar_etiqueta_lead', titulo: 'Sacar una etiqueta', que: 'Le saca una etiqueta del CRM', grupo: 'El lead' },
-  { id: 'agregar_nota_lead', titulo: 'Agregar una nota', que: 'Deja una nota en su historial', grupo: 'El lead' },
-  { id: 'marcar_calificado', titulo: 'Marcar calificado', que: 'Marca si era un buen fit', grupo: 'El lead' },
-  { id: 'asignar_closer_setter', titulo: 'Asignar closer o setter', que: 'Le asigna alguien del equipo', grupo: 'Equipo' },
-  { id: 'avisar_al_equipo', titulo: 'Avisar al equipo', que: 'Manda un aviso al grupo de WhatsApp', grupo: 'Equipo' },
-  { id: 'inscribir_lead_secuencia', titulo: 'Inscribir en otra automatización', que: 'Lo mete en otra automatización', grupo: 'Automatizaciones' },
-  { id: 'marcar_estado_cliente_cs', titulo: 'Cambiar el estado del cliente', que: 'Activo, graduado, baja o pausado', grupo: 'Cliente' },
+  { id: 'proponer_cambio_etapa', titulo: 'Mover de etapa', que: 'Lo pasa a otra etapa del kanban', grupo: 'Etapa y productos', icono: 'etapa' },
+  { id: 'mover_lead_en_producto', titulo: 'Mover en otro producto', que: 'Cambia su etapa en un producto agregado', grupo: 'Etapa y productos', icono: 'mover' },
+  { id: 'agregar_lead_a_producto', titulo: 'Agregar a un producto', que: 'Lo suma a otro producto, sin sacarlo del suyo', grupo: 'Etapa y productos', icono: 'producto' },
+  { id: 'quitar_lead_de_producto', titulo: 'Quitar de un producto', que: 'Lo quita de uno de sus productos', grupo: 'Etapa y productos', icono: 'quitar' },
+  { id: 'poner_etiqueta_lead', titulo: 'Agregar una etiqueta', que: 'Le agrega una etiqueta del CRM', grupo: 'Etiquetas', icono: 'etiqueta-mas' },
+  { id: 'sacar_etiqueta_lead', titulo: 'Eliminar una etiqueta', que: 'Le elimina una etiqueta del CRM', grupo: 'Etiquetas', icono: 'etiqueta-menos' },
+  { id: 'agregar_nota_lead', titulo: 'Agregar una nota', que: 'Deja una nota en su historial', grupo: 'Ficha', icono: 'nota' },
+  { id: 'marcar_calificado', titulo: 'Marcar calificado', que: 'Marca si era un buen fit', grupo: 'Ficha', icono: 'calificado' },
+  { id: 'ignorar_datos_sin_marcar', titulo: 'Ignorar sus datos sin marcar', que: 'Deja de contar en «Datos sin marcar»', grupo: 'Ficha', icono: 'silenciar' },
+  { id: 'reactivar_datos_sin_marcar', titulo: 'Volver a contar sus datos', que: 'Vuelve a contar en «Datos sin marcar»', grupo: 'Ficha', icono: 'avisar' },
+  { id: 'asignar_closer_setter', titulo: 'Asignar closer o setter', que: 'Le asigna alguien del equipo', grupo: 'Equipo', icono: 'persona-mas' },
+  { id: 'avisar_al_equipo', titulo: 'Avisar al equipo', que: 'Manda un aviso al grupo de WhatsApp', grupo: 'Equipo', icono: 'mako' },
+  { id: 'inscribir_lead_secuencia', titulo: 'Inscribir en otra automatización', que: 'Lo mete en otra automatización', grupo: 'Automatizaciones', icono: 'accion' },
+  { id: 'marcar_estado_cliente_cs', titulo: 'Cambiar el estado del cliente', que: 'Activo, graduado, baja o pausado', grupo: 'Cliente', icono: 'cliente' },
+  { id: 'aplicar_etiqueta_lead_whatsapp', titulo: 'Etiquetar su chat por su etapa', que: 'Le agrega en el chat la etiqueta de su etapa', grupo: 'Chat', icono: 'whatsapp' },
 ];
 
 const POR_ID: ReadonlyMap<string, AccionDelFlujo> = new Map(ACCIONES_DEL_FLUJO.map((a) => [a.id, a]));
@@ -227,38 +268,136 @@ const POR_ID: ReadonlyMap<string, AccionDelFlujo> = new Map(ACCIONES_DEL_FLUJO.m
  */
 export const FUERA_DEL_SELECTOR: ReadonlySet<string> = new Set(['avisar_al_equipo', 'inscribir_lead_secuencia']);
 
+/** La acción de la lista corta, o null si el lienzo no la ofrece. */
+export const accionDelFlujo = (id: string | null | undefined): AccionDelFlujo | null => (id ? POR_ID.get(id) ?? null : null);
+
+// ── La tarjeta TAG: una o VARIAS etiquetas ──────────────────────────────────────────────────
+
 /** Las operaciones que dibuja la tarjeta 🏷️ (decisión 8: una presentación sobre la ⚡ Acción). */
 export const OPS_ETIQUETA = ['poner_etiqueta_lead', 'sacar_etiqueta_lead'] as const;
 export type OperacionEtiqueta = (typeof OPS_ETIQUETA)[number];
 export const esOperacionEtiqueta = (op: string | null | undefined): op is OperacionEtiqueta =>
   op === 'poner_etiqueta_lead' || op === 'sacar_etiqueta_lead';
 
-/** La acción de la lista corta, o null si el lienzo no la ofrece. */
-export const accionDelFlujo = (id: string | null | undefined): AccionDelFlujo | null => (id ? POR_ID.get(id) ?? null : null);
+/**
+ * EL VERBO, en UN lugar (sexta tanda, TAG 1, textual: «En lugar de "Poner" y "Sacar", se formal
+ * escribiendo siempre... "Agregar" y "Eliminar". Revisa que no esté ese error en otro lado»). Lo usan el
+ * editor de la tarjeta, la línea que dice la tarjeta y los nombres del selector de ACTION.
+ */
+export const VERBO_ETIQUETA: Readonly<Record<OperacionEtiqueta, string>> = {
+  poner_etiqueta_lead: 'Agregar', sacar_etiqueta_lead: 'Eliminar',
+};
+
+/** El parámetro donde viajan las etiquetas de más (la primera sigue en `etiquetaId`). */
+export const PARAM_ETIQUETAS = 'etiquetaIds';
+
+const idValido = (v: unknown): number | null => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v.trim()) ? Number(v) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
+/**
+ * LAS ETIQUETAS DE UNA TARJETA TAG, en orden y sin repetir (sexta tanda, TAG 2: «Se debería poder
+ * seleccionar multiple, si quiero sacar o agragar varias etiquetas»).
+ *
+ * ⚠️ LA ACCIÓN DEL REGISTRO ACEPTA UNA. `poner_etiqueta_lead` / `sacar_etiqueta_lead` declaran un solo
+ *    `etiquetaId: number` (lib/api-mako/areas/crm.def.ts), y el validador del registro TIRA en silencio
+ *    lo que la def no declara (`validarInput`, lib/api-mako/validar.ts: recorre sólo `parametros`).
+ *    Medido el 09/10/2026. Por eso la tarjeta guarda la PRIMERA en `etiquetaId` —así todo lo que ya lee
+ *    una (la tarjeta, el conteo de uso, Crear con IA, el freno de Publicar) sigue andando— y TODAS, sólo
+ *    cuando son más de una, en `etiquetaIds`; y quien corre la acción la corre UNA VEZ POR ETIQUETA
+ *    (`unaPorEtiqueta`). Sin ese enchufe en el ejecutor, una tarjeta con tres corre sólo la primera.
+ */
+export function etiquetasDelPaso(params: Record<string, unknown> | null | undefined): number[] {
+  const out: number[] = [];
+  const sumar = (v: unknown) => { const id = idValido(v); if (id != null && !out.includes(id)) out.push(id); };
+  const varias = params?.[PARAM_ETIQUETAS];
+  if (Array.isArray(varias)) varias.forEach(sumar);
+  sumar(params?.etiquetaId);
+  // Si `etiquetaId` no era la primera de la lista (un paso editado a mano), manda la lista.
+  return out;
+}
+
+/**
+ * Los parámetros de una tarjeta TAG con estas etiquetas, sobre los que ya tenía (el lead): la primera en
+ * `etiquetaId` y la lista entera en `etiquetaIds` SÓLO si son más de una. Con una, el paso queda EXACTO
+ * como hasta ahora (lo que ya está guardado no cambia de forma); con ninguna, sin las dos.
+ */
+export function paramsConEtiquetas(ids: readonly number[], base: Record<string, unknown> = {}): Record<string, unknown> {
+  const limpias = etiquetasDelPaso({ [PARAM_ETIQUETAS]: ids });
+  const { etiquetaId: _1, [PARAM_ETIQUETAS]: _2, ...resto } = base;
+  void _1; void _2;
+  if (!limpias.length) return resto;
+  return { ...resto, etiquetaId: limpias[0], ...(limpias.length > 1 ? { [PARAM_ETIQUETAS]: limpias } : {}) };
+}
+
+/**
+ * PARA EL QUE EJECUTA (`ejecutarDesdeFlujo`, lib/api-mako/flujo.ts): una tanda de parámetros POR
+ * ETIQUETA, cada una con su `etiquetaId` y sin la lista. Una acción que no es de etiqueta, o una tarjeta
+ * con una sola, vuelve tal cual en UNA tanda: para todo lo demás no cambia nada.
+ */
+export function unaPorEtiqueta(operacion: string, params: Record<string, unknown> | null | undefined): Array<Record<string, unknown> | null | undefined> {
+  if (!esOperacionEtiqueta(operacion) || !Array.isArray(params?.[PARAM_ETIQUETAS])) return [params];
+  const ids = etiquetasDelPaso(params);
+  if (ids.length <= 1) return [paramsConEtiquetas(ids, params ?? {})];
+  const { [PARAM_ETIQUETAS]: _l, ...resto } = params ?? {};
+  void _l;
+  return ids.map((etiquetaId) => ({ ...resto, etiquetaId }));
+}
+
+/**
+ * El resultado de las N tandas, como UNO (escrito estructural: `ResultadoFlujo` vive en un módulo
+ * server-only). Salió bien si salieron TODAS —«ya la tenía» cuenta como bien, igual que con una—; el
+ * resumen dice cada una, para que el rastro de la corrida no esconda cuál falló.
+ */
+export function juntarPorEtiqueta<R extends { ok: boolean; resumen: string; via: string }>(rs: readonly R[]): R {
+  if (rs.length === 1) return rs[0];
+  const via = rs.find((r) => r.via !== 'ninguna')?.via ?? rs[0]?.via ?? 'ninguna';
+  return { ...rs[0], ok: rs.every((r) => r.ok), resumen: rs.map((r) => r.resumen).join(' · '), via } as R;
+}
+
+/**
+ * Lo que dice la TARJETA del lienzo: «Agregar Cualificado», «Agregar Cualificado y Seguimiento»,
+ * «Eliminar Cualificado, Seguimiento y 2 más». Los nombres los pone quien llama (los de las archivadas
+ * también: una tarjeta que apunta a una archivada se sigue leyendo).
+ */
+export function textoDeEtiquetas(operacion: OperacionEtiqueta, nombres: readonly string[]): string {
+  const verbo = VERBO_ETIQUETA[operacion];
+  if (!nombres.length) return verbo;
+  if (nombres.length === 1) return `${verbo} ${nombres[0]}`;
+  if (nombres.length === 2) return `${verbo} ${nombres[0]} y ${nombres[1]}`;
+  return `${verbo} ${nombres[0]}, ${nombres[1]} y ${nombres.length - 2} más`;
+}
 
 // ── Las secciones del selector ──────────────────────────────────────────────────────────────
 
 /** Lo mínimo de una acción que necesitan las secciones (es un subconjunto de `AccionEditor`). */
 export type AccionParaSecciones = { id: string; titulo: string; descripcion: string; curada: boolean; grupo: GrupoAccion | null };
 
-export type SeccionAcciones<A> = { titulo: string; acciones: A[] };
+/**
+ * Una sección del selector: un ÁREA con sus acciones en el orden de la lista (los bloques quedan
+ * juntos; quien dibuja pone la línea donde cambia el bloque), o «La que tiene puesta».
+ */
+export type SeccionAcciones<A> = { titulo: string; icono?: NombreIconoMenu; acciones: A[] };
 
 export const SECCION_PUESTA = 'La que tiene puesta';
 
 /**
- * Las secciones del selector: un grupo de la lista corta por sección, en el orden de
- * `GRUPOS_ACCION` y de la lista. Si el paso tiene puesta una acción que NO está en la lista corta
- * (`puesta`), va primero en «La que tiene puesta»: un desplegable cuyo valor no está entre sus
- * opciones no muestra nada (AGENTS.md). Una sección vacía no se devuelve.
+ * Las secciones del selector: un ÁREA por sección, en el orden de `AREAS_ACCION`, con sus acciones en el
+ * orden de la lista. Si el paso tiene puesta una acción que NO está en la lista corta (`puesta`), va
+ * primero en «La que tiene puesta»: un desplegable cuyo valor no está entre sus opciones no muestra nada
+ * (AGENTS.md). Un área vacía no se devuelve (la capa del workspace no ve sus acciones).
  */
 export function seccionesDeAcciones<A extends AccionParaSecciones>(acciones: readonly A[], puesta?: string | null): SeccionAcciones<A>[] {
   const out: SeccionAcciones<A>[] = [];
   const fuera = puesta ? acciones.find((a) => a.id === puesta && (!a.curada || FUERA_DEL_SELECTOR.has(a.id))) : undefined;
   if (fuera) out.push({ titulo: SECCION_PUESTA, acciones: [fuera] });
   const orden = new Map(ACCIONES_DEL_FLUJO.map((a, i) => [a.id, i]));
-  for (const g of GRUPOS_ACCION) {
-    const del = acciones.filter((a) => a.curada && a.grupo === g && !FUERA_DEL_SELECTOR.has(a.id)).sort((x, y) => (orden.get(x.id) ?? 99) - (orden.get(y.id) ?? 99));
-    if (del.length) out.push({ titulo: g, acciones: del });
+  for (const area of AREAS_ACCION) {
+    const del = acciones
+      .filter((a) => a.curada && a.grupo != null && AREA_DE_GRUPO[a.grupo] === area && !FUERA_DEL_SELECTOR.has(a.id))
+      .sort((x, y) => (orden.get(x.id) ?? 99) - (orden.get(y.id) ?? 99));
+    if (del.length) out.push({ titulo: area, icono: ICONO_AREA[area], acciones: del });
   }
   return out;
 }

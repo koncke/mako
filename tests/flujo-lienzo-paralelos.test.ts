@@ -234,14 +234,15 @@ test('⚠️ la tarjeta de ETIQUETA: la ⚡ Acción de poner/sacar dibujada como
   assert.equal(a.titulo, 'TAG', 'los títulos van en inglés (tercera tanda, decisión 5)');
   assert.equal(a.icono, '🏷️');
   assert.equal(a.familia, 'control');
-  assert.equal(a.detalle, '+ Cualificado');
+  // Sexta tanda, TAG 1: «En lugar de "Poner" y "Sacar"... "Agregar" y "Eliminar"» (antes, «+ » y «− »).
+  assert.equal(a.detalle, 'Agregar Cualificado');
   assert.equal(a.color, '#22aa66', 'la tarjeta de etiqueta no lleva el color de la etiqueta');
   assert.equal(a.alto, ALTO_COMPACTO);
   assert.equal(a.ancho, ANCHO_ETIQUETA);
-  assert.equal(nodo(g, 't2').detalle, '− Seguimiento');
+  assert.equal(nodo(g, 't2').detalle, 'Eliminar Seguimiento');
   assert.equal(nodo(g, 't3').detalle, 'Sin elegir');
   assert.ok(nodo(g, 't3').advertencia, 'una etiqueta sin elegir no se marca');
-  assert.equal(nombreDeTarjeta([poner, sacar], 't1', nombres), 'TAG: + Cualificado');
+  assert.equal(nombreDeTarjeta([poner, sacar], 't1', nombres), 'TAG: Agregar Cualificado');
   // Una acción que no es de etiquetas sigue siendo una Acción.
   const otra = grafoDeSecuencia([msg('x', { accion: { operacion: 'mover_etapa', params: {} } })], { disparador: 'X' });
   assert.equal(nodo(otra, 'x').tipo, 'accion');

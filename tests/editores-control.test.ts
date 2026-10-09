@@ -76,28 +76,33 @@ test('el campo protagonista de la casa: 48 de alto y letra de 16, para el input 
   assert.equal(botonGrande.fontSize, 16);
 });
 
-test('⚠️ DELAY: «Esperar [n] [unidad]» como una frase grande, con las cuatro unidades y su `key` por tarjeta', () => {
+test('⚠️ DELAY: «Esperar [n] [unidad]» como una frase GIGANTE, sin el aviso de la hora, con las cuatro unidades y su `key` por tarjeta', () => {
   const ed = bloque(FLUJO, 'function EditorEspera(', '\n}\n', 4_200);
-  assert.match(ed, /style=\{\{ \.\.\.campoGrande, width: 96, flex: 'none', textAlign: 'center' \}\}/, 'el número no va con el campo grande');
-  assert.match(ed, /<Dropdown value=\{unidad\} width="100%" ariaLabel="Unidad" search=\{false\} disabled=\{busy\} buttonStyle=\{botonGrande\}/, 'la unidad no llena el renglón con el campo grande');
-  assert.match(ed, /options=\{UNIDADES_ESPERA\.map\(\(u\) => \(\{ value: u, label: rotuloUnidad\(u, n\) \}\)\)\}/, 'no se ofrecen segundos, minutos, horas y días');
-  assert.match(ed, /fontSize: 18, fontWeight: 700/, '«Esperar» es parte de la frase grande');
+  // Sexta tanda, CRON 1 (vale para DELAY): «Haz los botones gigantes». El número y la unidad miden el principal (56).
+  assert.match(ed, /style=\{\{ \.\.\.campoGrande, minHeight: ALTO_PRINCIPAL, width: 104, flex: 'none', textAlign: 'center', fontSize: 22, fontWeight: 700/, 'el número no es gigante');
+  assert.match(ed, /<Dropdown value=\{unidad\} width="100%" ariaLabel="Unidad" search=\{false\} disabled=\{busy\} variante="principal"/, 'la unidad no es el desplegable principal');
+  assert.match(ed, /options=\{UNIDADES_ESPERA\.map\(\(u\) => \(\{ value: u, label: rotuloUnidad\(u, n\), icono: iconoUnidad\[u\] \}\)\)\}/, 'no se ofrecen las cuatro unidades con su ícono');
+  assert.match(ed, /fontSize: 20, fontWeight: 700/, '«Esperar» es parte de la frase gigante');
+  // Sexta tanda, DELAY 2: «No entiendo el texto "Sigue a la hora en punto"... eliminalo... No pongas esa limitación».
+  assert.doesNotMatch(ed, /avisoDePrecision|sinPrecision|Sigue a la hora/, 'volvió el aviso de la hora en punto al DELAY');
   // El dato: minutos con decimales (segundos / 60), y la unidad elegida se recuerda (sin saltar al tipear).
   assert.match(ed, /minutosDeSegundos\(Math\.max\(1, Math\.round\(cuanto\)\) \* SEGUNDOS_DE\[u\]\)/);
   assert.match(ed, /const unidad = unidadMostrada\(seg, preferida\);/);
   // La `key` por tarjeta: con la unidad sembrada en un estado, pasar a otro DELAY mostraría la de antes.
   assert.match(FLUJO, /case 'esperar': return <EditorEspera key=\{`espera-\$\{id\}`\} /);
   // Lo que ya estaba anclado a la reunión se sigue viendo y editando (cuarta tanda, punto 9).
-  assert.match(ed, /\{ value: 'antes_reunion', label: 'antes de la reunión' \}/);
+  assert.match(ed, /\{ value: 'antes_reunion', label: 'antes de la reunión', icono: 'calendario' \}/);
 });
 
-test('TAG: «[Poner ▾] [etiqueta ▾]» con el campo grande en los dos, y la etiqueta llena el renglón', () => {
-  assert.match(ETIQUETA, /import \{ botonGrande \} from '@\/app\/_components\/Lienzo';/);
-  assert.equal((ETIQUETA.match(/buttonStyle=\{botonGrande\}/g) ?? []).length, 2, 'los dos desplegables de la frase van grandes');
-  assert.match(ETIQUETA, /<div style=\{\{ flex: '1 1 220px', minWidth: 0 \}\}>\s*<SelectorEtiqueta/);
-  // Y se ve: el botón dibujado trae los 48 de alto.
-  const html = renderToStaticMarkup(createElement(EditorEtiqueta, { operacion: 'poner_etiqueta_lead', etiquetaId: null, onChange: () => {} }));
-  assert.ok((html.match(/min-height:48px/g) ?? []).length >= 2, 'la frase no salió con el campo grande');
+test('TAG: «[Agregar ▾] [etiquetas]» gigante: el verbo es el principal y el campo de las etiquetas mide lo mismo', () => {
+  // Sexta tanda, CRON 1 (vale para TAG): «Haz los botones gigantes, y reduce el espacio».
+  assert.match(ETIQUETA, /import \{ ALTO_PRINCIPAL \} from '@\/app\/components\/dropdown-reglas';/);
+  assert.equal((ETIQUETA.match(/variante="principal"/g) ?? []).length, 1, 'el verbo es el desplegable principal');
+  assert.match(ETIQUETA, /minHeight: ALTO_PRINCIPAL,/, 'el campo de las etiquetas no mide lo del principal');
+  assert.match(ETIQUETA, /<div style=\{\{ \.\.\.CAMPO, flex: '1 1 240px' \}\}>/, 'el campo no llena el renglón');
+  // Y se ve: el botón del verbo y el campo traen los 56 de alto.
+  const html = renderToStaticMarkup(createElement(EditorEtiqueta, { operacion: 'poner_etiqueta_lead', etiquetaIds: [], onChange: () => {} }));
+  assert.ok((html.match(/min-height:56px/g) ?? []).length >= 2, 'la frase no salió gigante');
 });
 
 test('ACTION: el desplegable «Elige una acción» de ancho completo y grande, y debajo los campos de la elegida', () => {
@@ -106,7 +111,8 @@ test('ACTION: el desplegable «Elige una acción» de ancho completo y grande, y
   const sel = ACCION.slice(ini, ACCION.indexOf('/>', ini));
   assert.match(sel, /placeholder="Elige una acción"/);
   assert.match(sel, /width="100%"/);
-  assert.match(sel, /buttonStyle=\{botonGrande\}/);
+  // Sexta tanda, CONDITION 3 («para todos lados»): el desplegable que manda es el PRINCIPAL de la casa.
+  assert.match(sel, /variante="principal"/);
   // Los campos de la acción elegida van debajo, con la `key` por operación.
   assert.ok(ACCION.indexOf('<FormularioAccion key={elegida.id}') > ini, 'los campos de la acción no van debajo del desplegable');
 });

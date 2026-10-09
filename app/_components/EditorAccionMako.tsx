@@ -24,29 +24,30 @@
 //   · LO QUE DEPENDE DE OTRO CAMPO APARECE SÓLO CUANDO APLICA (`repartoDelFormulario` con contexto):
 //     monto y motivo sólo al mover a una etapa que los pide (y ahí obligatorios), el motivo del estado
 //     del cliente sólo para una baja o una pausa.
+// ── Sexta tanda (09/10/2026) ── el selector va en ÁRBOL por área (CRM, Customer Success, WhatsApp) con
+// más acciones y un ícono por fila (ACTION 1 y general 10), es el desplegable PRINCIPAL de la casa
+// (CONDITION 3, «para todos lados»), y el lead del flujo ya no se dibuja (ACTION 2: «Elimina lo de
+// "Sobre el lead de este flujo - cambiar", siempre es sobre el lead del flujo»).
 // ── Segunda tanda (08/10/2026, punto 7) ── lo que sigue valiendo: lo que llena el FLUJO no se dibuja
-// (el `respuesta` del aviso, LLENA_EL_FLUJO), el lead del evento es una línea «Sobre el lead de este
-// flujo · Cambiar», lo opcional va plegado detrás de «Más opciones», y los rótulos salen de UN lugar
-// (`rotuloDeParametro`).
+// (el `respuesta` del aviso, LLENA_EL_FLUJO), lo opcional va plegado detrás de «Más opciones», y los
+// rótulos salen de UN lugar (`rotuloDeParametro`).
 //
-// El lead: si la acción pide `leadId`, el default es «el lead del evento» (el que entró, el
-// que agendó, el de la inscripción). Al ELEGIR una acción que pide lead se guarda
-// LEAD_DEL_EVENTO explícito, también si el lead es opcional: sin eso un «Avisar al equipo»
-// recién elegido nacía en «Ninguno» y el aviso salía sin el nombre ni el link del lead. La
-// excepción es la acción con OTRO destinatario (un teléfono): ahí el lead del evento chocaba con
-// él (`naceSobreElLeadDelEvento`, lib/editor-acciones.ts). «Ninguno» y «el del evento» siguen a un
-// clic («Cambiar»).
+// El lead: si la acción pide `leadId`, es «el lead del evento» (el que entró, el que agendó, el de la
+// inscripción). Al ELEGIR una acción que pide lead se guarda LEAD_DEL_EVENTO explícito, también si el
+// lead es opcional: sin eso un «Avisar al equipo» recién elegido nacía en «Ninguno» y el aviso salía
+// sin el nombre ni el link del lead. La excepción es la acción con OTRO destinatario (un teléfono): ahí
+// el lead del evento chocaba con él (`naceSobreElLeadDelEvento`, lib/editor-acciones.ts), y el selector
+// del lead se sigue viendo (`FilaLead`).
 // =============================================================================
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Select, Input, Textarea, Checkbox, Field } from '@/app/_ui';
-import { Dropdown } from '@/app/components/Dropdown';
-import { botonGrande } from './Lienzo';
+import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
 import type { AccionEditor, ParametroEditor } from '@/lib/api-mako/flujo';
 import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR, LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
 import {
   rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, repartoDelFormulario, naceSobreElLeadDelEvento,
-  controlDe, monedaDe, rotuloDeOpcion, faltanDelFormulario, SECCION_PUESTA, type OpcionesAccion,
+  controlDe, monedaDe, rotuloDeOpcion, faltanDelFormulario, accionDelFlujo, SECCION_PUESTA, type OpcionesAccion,
 } from '@/lib/editor-acciones';
 import { SelectorEtiqueta } from './etiquetas-cliente';
 import { useOpcionesAccion, SelectorEtapa, SelectorProducto, SelectorSecuencia, SelectorPersona, CampoMonto, type Cambiar } from './CamposAccion';
@@ -149,18 +150,27 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
   const elegida = useMemo(() => acciones?.find((a) => a.id === valor.operacion) ?? null, [acciones, valor.operacion]);
   // Las listas de la base se piden recién cuando hay una acción elegida que las puede necesitar.
   const opciones = useOpcionesAccion(!!elegida);
-  const secciones = useMemo(() => {
+  const secciones = useMemo((): DropdownGroup[] => {
     if (!acciones) return [];
-    const out = seccionesDeAcciones(acciones, valor.operacion).map((s) => ({
+    // ⚠️ EN ÁRBOL POR ÁREA (sexta tanda, ACTION 1: «Faltan muchas acciones posibles que podríamos
+    // agregar, siempre con el arbol»): el área se abre y adentro están sus acciones, con una línea donde
+    // cambia el bloque (Etapa y productos · Etiquetas · Ficha · Equipo). Cada fila con su ícono (general
+    // 10) y el área también. Buscar aplana, como en todo `Dropdown` por secciones.
+    const out: DropdownGroup[] = seccionesDeAcciones(acciones, valor.operacion).map((s) => ({
       title: s.titulo,
+      icono: s.icono ?? 'check',
       // Sin subtítulo (cuarta tanda, punto 11: «Elimina los subtitulos en las opciones, debería
       // entenderse solo con el título»). Lo que hace va en el `buscar`, para que se encuentre igual.
-      options: s.acciones.map((a): { value: string; label: string; sub?: string; buscar: string } => ({ value: a.id, label: a.titulo, buscar: `${a.id} ${lineaDe(a) ?? ''}` })),
+      options: s.acciones.map((a, i): DropdownOption => ({
+        value: a.id, label: a.titulo, buscar: `${a.id} ${lineaDe(a) ?? ''}`,
+        icono: accionDelFlujo(a.id)?.icono ?? 'accion',
+        ...(i > 0 && a.grupo !== s.acciones[i - 1].grupo ? { lineaArriba: true } : {}),
+      })),
     }));
     // ⚠️ LA QUE ESTÁ PUESTA ENTRA AUNQUE YA NO EXISTA (otra capa, una operación que se retiró): un
     // desplegable cuyo valor no está entre sus opciones no muestra nada (AGENTS.md).
     if (valor.operacion && !acciones.some((a) => a.id === valor.operacion)) {
-      out.unshift({ title: SECCION_PUESTA, options: [{ value: valor.operacion, label: valor.operacion.replace(/_/g, ' '), sub: 'Ya no está disponible', buscar: valor.operacion }] });
+      out.unshift({ title: SECCION_PUESTA, icono: 'check', options: [{ value: valor.operacion, label: valor.operacion.replace(/_/g, ' '), sub: 'Ya no está disponible', buscar: valor.operacion, icono: 'accion' }] });
     }
     return out;
   }, [acciones, valor.operacion]);
@@ -178,11 +188,13 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
   if (!acciones) return <p style={{ color: 'var(--faint)', fontSize: 13, margin: 0 }}>Cargando acciones…</p>;
 
   // ⚠️ EL DESPLEGABLE ES EL PROTAGONISTA (cuarta tanda, punto 1: «tanto espacio en blanco y un
-  // desplegable chico arriba del todo»): de ancho completo y con el alto del campo grande de la casa
-  // (`botonGrande`, 48 de alto y letra de 16), y debajo lo que hace y los campos de la elegida. Es el
-  // `Dropdown` y no el `Select` de app/_ui porque ése fija su propio `buttonStyle` (40 de alto); sin
-  // rótulo arriba: el «Elige una acción» del botón y la cabecera ACTION ya lo dicen («Pon mucho menos
-  // títulos dentro del editable», 08/10). Lo usan los dos lienzos: el de /mensajes también lo hereda.
+  // desplegable chico arriba del todo»), y desde la sexta es el PRINCIPAL de la casa (CONDITION 3, «para
+  // todos lados»: «Se tiene que diferenciar el desplegable principal del resto»): 56 de alto, letra de
+  // 17 en negrita, de ancho completo, con el ícono de la acción elegida; los campos de abajo van con su
+  // tamaño de siempre y se leen como secundarios. Es el `Dropdown` y no el `Select` de app/_ui porque
+  // ése fija su propio `buttonStyle` (40 de alto); sin rótulo arriba: el «Elige una acción» del botón y
+  // la cabecera ACTION ya lo dicen («Pon mucho menos títulos dentro del editable», 08/10). Lo usan los
+  // dos lienzos: el de /mensajes también lo hereda.
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
@@ -194,7 +206,7 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
           disabled={disabled}
           ariaLabel="Acción"
           width="100%"
-          buttonStyle={botonGrande}
+          variante="principal"
           menuAncho={360}
           menuAlto={420}
         />
@@ -242,21 +254,19 @@ export function FormularioAccion({ accion, valor, params, cambiar, opciones, dis
 }
 
 /**
- * El lead, cuando es el del EVENTO, es una línea y no un formulario: es el caso normal y no hay
- * nada que decidir. «Cambiar» abre el selector de siempre (el del evento, otro por id, ninguno).
+ * EL LEAD: SIEMPRE EL DEL FLUJO, y no se dibuja (sexta tanda, ACTION 2, textual: «Elimina lo de "Sobre
+ * el lead de este flujo - cambiar", siempre es sobre el lead del flujo»). Hasta acá era una línea con
+ * «Cambiar», que abría otro lead por id o ninguno: en un flujo no hay a qué otro lead apuntar que no
+ * sea el que entró.
+ *
+ * ⚠️ LO QUE YA ESTÁ GUARDADO DE OTRA FORMA SE SIGUE VIENDO. Un paso viejo con un lead fijo por id, o una
+ *    acción con OTRO destinatario (un teléfono, `naceSobreElLeadDelEvento`) que quedó en «ninguno»,
+ *    muestran el selector de siempre: esconderlo dejaría correr la acción sobre algo que la pantalla no
+ *    dice, y desde ahí se lo vuelve al del evento con un clic.
  */
 function FilaLead({ p, valor, onCambio, disabled }: { p: ParametroEditor; valor: unknown; onCambio: (v: unknown) => void; disabled?: boolean }) {
-  const [cambiando, setCambiando] = useState(false);
   const delEvento = valor === LEAD_DEL_EVENTO || (valor === undefined && p.obligatorio === true);
-  if (delEvento && !cambiando) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--dim)' }}>
-        <span>Sobre el lead de este flujo</span>
-        <span aria-hidden style={{ color: 'var(--faint)' }}>·</span>
-        <button type="button" onClick={() => setCambiando(true)} disabled={disabled} style={botonTexto}>Cambiar</button>
-      </div>
-    );
-  }
+  if (delEvento) return null;
   return <SelectorLead p={p} valor={valor} onCambio={onCambio} disabled={disabled} />;
 }
 

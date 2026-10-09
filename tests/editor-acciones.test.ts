@@ -26,9 +26,10 @@ import { DEFAULT_PIPELINE } from '../lib/pipeline';
 import { buildFunnel } from '../lib/funnel-fila';
 import {
   rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, FUERA_DEL_SELECTOR, repartoDelFormulario, naceSobreElLeadDelEvento,
-  ACCIONES_DEL_FLUJO, GRUPOS_ACCION, SECCION_PUESTA, TOPE_RESUMEN, accionDelFlujo, controlDe, monedaDe,
+  ACCIONES_DEL_FLUJO, GRUPOS_ACCION, AREAS_ACCION, AREA_DE_GRUPO, ICONO_AREA, SECCION_PUESTA, TOPE_RESUMEN, accionDelFlujo, controlDe, monedaDe,
   datosQuePideLaEtapa, visibilidadDe, productoDeLaEtapa, faltanDelFormulario, type OpcionesAccion, type ProductoDeAccion,
 } from '../lib/editor-acciones';
+import { esIconoMenu } from '../app/_ui/iconos-menu';
 import { FormularioAccion } from '../app/_components/EditorAccionMako';
 import type { AccionEditor } from '../lib/api-mako/flujo';
 import { frenoDelFlujo, type PasoParaGrafo } from '../lib/flujo-conversacion';
@@ -52,8 +53,11 @@ const ed = (id: string) => aEditor(porId(id)!);
 
 // ── La lista corta ───────────────────────────────────────────────────────────────────────────
 
-test('⚠️ LA LISTA CORTA: ids exactos del registro, acciones de UN lead, sin JSON crudo, y corta', () => {
-  assert.ok(ACCIONES_DEL_FLUJO.length >= 8 && ACCIONES_DEL_FLUJO.length <= 12, `«muchísimas acciones»: son ${ACCIONES_DEL_FLUJO.length}`);
+test('⚠️ LA LISTA DEL LIENZO: ids exactos del registro, acciones de UN lead, gratis, sin JSON crudo, con su ícono', () => {
+  // Sexta tanda (ACTION 1): «Faltan muchas acciones posibles que podríamos agregar». El piso es lo que
+  // ofrecía la sexta tanda (15 con las dos que el selector no ofrece); el techo frena que la lista vuelva
+  // a ser el registro entero (la tercera tanda: «pusiste muchísimas acciones que tal vez no son necesarias»).
+  assert.ok(ACCIONES_DEL_FLUJO.length >= 15 && ACCIONES_DEL_FLUJO.length <= 30, `son ${ACCIONES_DEL_FLUJO.length}`);
   const ids = ACCIONES_DEL_FLUJO.map((a) => a.id);
   assert.equal(new Set(ids).size, ids.length, 'una acción repetida');
   for (const a of ACCIONES_DEL_FLUJO) {
@@ -62,13 +66,20 @@ test('⚠️ LA LISTA CORTA: ids exactos del registro, acciones de UN lead, sin 
     assert.equal(d!.tipo, 'accion', a.id);
     assert.ok(d!.parametros.some((p) => p.nombre === 'leadId'), `«${a.id}» no es sobre un lead: no tiene sentido corriendo sola en un flujo`);
     assert.ok(!d!.parametros.some((p) => p.tipo === 'object' || p.tipo === 'object[]'), `«${a.id}» pide JSON a mano`);
+    // «las de plata NO»: ni dinero ni IA, que corren y gastan en cada lead que pasa.
+    assert.ok(d!.costo !== 'dinero' && d!.costo !== 'ia', `«${a.id}» cuesta (${d!.costo})`);
     assert.ok((GRUPOS_ACCION as readonly string[]).includes(a.grupo), a.id);
+    assert.ok(esIconoMenu(a.icono), `«${a.id}» sin un ícono del set de la casa`);
     assert.ok(a.titulo.length <= 34 && a.que.length <= 50, `texto que se dibuja demasiado largo: ${a.id}`);
+    // TAG 1: «En lugar de "Poner" y "Sacar"... "Agregar" y "Eliminar". Revisa que no esté ese error en otro lado».
+    assert.doesNotMatch(`${a.titulo} ${a.que}`, /(?<!\p{L})(poner|pone|sacar|saca)(?!\p{L})/iu, `«${a.titulo}» dice poner o sacar`);
   }
-  // Las que piden un valor FIJO que en un flujo miente, no están.
-  for (const id of ['mover_a_nutricion_manual', 'proponer_agendar_agenda', 'editar_contacto_lead', 'proponer_tareas_plan']) {
-    assert.equal(accionDelFlujo(id), null, `«${id}» volvió a la lista corta`);
+  // Las que piden un valor FIJO que en un flujo miente, las que gastan y las que repiten una tarjeta, no están.
+  for (const id of ['mover_a_nutricion_manual', 'proponer_agendar_agenda', 'editar_contacto_lead', 'proponer_tareas_plan', 'marcar_pago_cobrado', 'generar_insight_lead', 'crear_borrador_whatsapp_empresa']) {
+    assert.equal(accionDelFlujo(id), null, `«${id}» volvió a la lista del lienzo`);
   }
+  // Cada bloque cae en un área que el selector dibuja.
+  for (const g of GRUPOS_ACCION) assert.ok((AREAS_ACCION as readonly string[]).includes(AREA_DE_GRUPO[g]), g);
 });
 
 test('⚠️ CADA CAMPO DE LA LISTA CORTA TIENE SU CONTROL: ningún id se tipea', () => {
@@ -104,35 +115,49 @@ test('lo que pide una etapa sale de la regla del CRM, no de una lista de nombres
 
 // ── Las secciones del selector ───────────────────────────────────────────────────────────────
 
-test('el selector ofrece SÓLO la lista corta, por grupo; la puesta de afuera va primero', () => {
+test('el selector ofrece SÓLO la lista del lienzo, en ÁRBOL por área; la puesta de afuera va primero', () => {
   const s = seccionesDeAcciones(EDITOR);
   // Cuarta tanda, punto 11: «Avisar al equipo» (es la tarjeta MaKo) e «Inscribir en otra automatización»
-  // (se hace con una etiqueta) no se ofrecen; el grupo que queda vacío no se dibuja.
+  // (se hace con una etiqueta) no se ofrecen; el área que queda vacía no se dibuja.
   const ofrecidas = ACCIONES_DEL_FLUJO.filter((a) => !FUERA_DEL_SELECTOR.has(a.id));
-  assert.deepEqual(s.map((x) => x.titulo), GRUPOS_ACCION.filter((g) => ofrecidas.some((a) => a.grupo === g)), 'un grupo por sección, en orden');
-  assert.deepEqual(s.flatMap((x) => x.acciones.map((a) => a.id)), ofrecidas.map((a) => a.id), 'la lista corta, en su orden, y nada más');
+  // Sexta tanda (ACTION 1, «siempre con el arbol»): un ÁREA por sección, en el orden de AREAS_ACCION, con su ícono.
+  assert.deepEqual(s.map((x) => x.titulo), AREAS_ACCION.filter((ar) => ofrecidas.some((a) => AREA_DE_GRUPO[a.grupo] === ar)), 'un área por sección, en orden');
+  assert.deepEqual(s.map((x) => x.titulo), ['CRM', 'Customer Success', 'WhatsApp']);
+  assert.ok(s.every((x) => x.icono === ICONO_AREA[x.titulo as keyof typeof ICONO_AREA]), 'cada área con su ícono');
+  const enOrden = AREAS_ACCION.flatMap((ar) => ofrecidas.filter((a) => AREA_DE_GRUPO[a.grupo] === ar));
+  assert.deepEqual(s.flatMap((x) => x.acciones.map((a) => a.id)), enOrden.map((a) => a.id), 'la lista, en su orden por área, y nada más');
+  // Los bloques de un área quedan JUNTOS (quien dibuja pone la línea donde cambia el bloque).
+  const crm = s.find((x) => x.titulo === 'CRM')!.acciones.map((a) => a.grupo);
+  assert.deepEqual(crm, [...crm].sort((x, y) => GRUPOS_ACCION.indexOf(x!) - GRUPOS_ACCION.indexOf(y!)), 'un bloque partido en dos');
   assert.ok(!s.flatMap((x) => x.acciones.map((a) => a.id)).some((id) => id === 'avisar_al_equipo' || id === 'inscribir_lead_secuencia'), 'volvieron «Avisar al equipo» o «Inscribir»');
   const conAviso = seccionesDeAcciones(EDITOR, 'inscribir_lead_secuencia');
   assert.deepEqual([conAviso[0].titulo, conAviso[0].acciones.map((a) => a.id)], [SECCION_PUESTA, ['inscribir_lead_secuencia']], 'un paso que ya la tiene se sigue viendo');
   assert.ok(s.flatMap((x) => x.acciones).every((a) => a.titulo === accionDelFlujo(a.id)!.titulo), 'el nombre de lienzo, no el del registro');
-  const conPuesta = seccionesDeAcciones(EDITOR, 'mover_lead_en_producto');
+  // `mover_lead_en_producto` era la de afuera hasta la sexta tanda (ahora es «Mover en otro producto»).
+  const conPuesta = seccionesDeAcciones(EDITOR, 'marcar_asistencia_reunion');
   assert.equal(conPuesta[0].titulo, SECCION_PUESTA);
-  assert.deepEqual(conPuesta[0].acciones.map((a) => a.id), ['mover_lead_en_producto'], 'un paso guardado con una de afuera se sigue viendo');
-  assert.equal(seccionesDeAcciones(EDITOR, 'proponer_cambio_etapa')[0].titulo, GRUPOS_ACCION[0], 'una de la lista no se duplica arriba');
+  assert.deepEqual(conPuesta[0].acciones.map((a) => a.id), ['marcar_asistencia_reunion'], 'un paso guardado con una de afuera se sigue viendo');
+  assert.equal(seccionesDeAcciones(EDITOR, 'proponer_cambio_etapa')[0].titulo, AREAS_ACCION[0], 'una de la lista no se duplica arriba');
 });
 
 test('el selector va POR SECCIONES y `accionesParaFlujo` aplica la lista corta', () => {
   const editor = sinComentarios(leer('app/_components/EditorAccionMako.tsx'));
-  // Desde la cuarta tanda (punto 1) es el `Dropdown` con el campo grande de la casa, no el `Select`
-  // de app/_ui (que fija su propio alto de 40): el desplegable es el protagonista del panel.
+  // Desde la cuarta tanda (punto 1) es el `Dropdown` y no el `Select` de app/_ui (que fija su propio
+  // alto de 40); desde la sexta (CONDITION 3, «para todos lados»), el PRINCIPAL de la casa.
   const ini = editor.indexOf('<Dropdown\n          value={valor.operacion');
   const sel = editor.slice(ini, editor.indexOf('/>', ini));
   assert.ok(ini >= 0 && sel.length > 50, 'no encontré el desplegable de la acción');
   assert.match(sel, /width="100%"/, 'el desplegable de la acción va de ancho completo');
-  assert.match(sel, /buttonStyle=\{botonGrande\}/, 'el desplegable de la acción va con el campo grande');
+  assert.match(sel, /variante="principal"/, 'el desplegable de la acción no es el principal');
   assert.match(sel, /secciones=\{secciones\}/);
   assert.doesNotMatch(sel, /options=\{/, 'volvió la lista plana');
   assert.match(editor, /seccionesDeAcciones\(acciones, valor\.operacion\)/, 'sin la puesta, un paso viejo no muestra su acción');
+  // El árbol lleva el ícono del área y el de cada acción, y la línea donde cambia el bloque.
+  const arbol = editor.slice(editor.indexOf('const secciones = useMemo('), editor.indexOf('const params = valor.params'));
+  assert.ok(arbol.length > 200 && arbol.length < 2_500, `el recorte del árbol mide ${arbol.length}`);
+  assert.match(arbol, /icono: s\.icono \?\? 'check'/, 'el área sin su ícono');
+  assert.match(arbol, /icono: accionDelFlujo\(a\.id\)\?\.icono \?\? 'accion'/, 'la acción sin su ícono');
+  assert.match(arbol, /i > 0 && a\.grupo !== s\.acciones\[i - 1\]\.grupo \? \{ lineaArriba: true \}/, 'los bloques sin su línea');
   const flujo = sinComentarios(leer('lib/api-mako/flujo.ts'));
   const cat = flujo.slice(flujo.indexOf('export async function accionesParaFlujo'));
   assert.match(cat, /accionDelFlujo\(d\.id\)/);
@@ -316,10 +341,14 @@ test('la automatización, la persona y el sí/no se ELIGEN de la lista del negoc
   assert.ok(sinLeer.includes('No se pudo leer'), '«no pude leer» no es «no hay»');
 });
 
-test('el formulario de «Avisar al equipo»: el lead es una línea, «Respuesta» no está y el título va plegado', () => {
+test('el formulario de «Avisar al equipo»: el lead del flujo NO se dibuja, «Respuesta» no está y el título va plegado', () => {
   const html = dibujar('avisar_al_equipo', { leadId: LEAD_DEL_EVENTO, mensaje: 'Hola' });
-  assert.ok(html.includes('Sobre el lead de este flujo') && html.includes('Cambiar'));
-  assert.ok(!/>Lead</.test(html), 'el lead del evento no es un formulario');
+  // Sexta tanda, ACTION 2: «Elimina lo de "Sobre el lead de este flujo - cambiar", siempre es sobre el lead del flujo».
+  assert.ok(!html.includes('Sobre el lead de este flujo') && !html.includes('Cambiar'), 'volvió la línea del lead');
+  assert.ok(!/>Lead</.test(html) && !html.includes('De qué lead'), 'el lead del evento no es un formulario');
+  // Lo que YA está guardado de otra forma (un lead fijo de antes) se sigue viendo, para poder volverlo al del flujo.
+  const fijo = dibujar('agregar_nota_lead', { leadId: 42, texto: 'x' });
+  assert.ok(fijo.includes('Otro lead (por id)') && fijo.includes('value="42"'), 'un lead fijo de antes quedaría corriendo sin que se vea');
   assert.ok(!html.includes('Respuesta'), 'el campo que pisa el motor');
   assert.ok(html.includes('>Mensaje<'), 'lo obligatorio a la vista');
   assert.ok(html.includes('Más opciones') && !html.includes('Título'), 'lo opcional, plegado');
