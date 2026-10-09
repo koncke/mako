@@ -55,7 +55,7 @@ const emojiSecuencia = (j: SecuenciaDto): string =>
  */
 export type AbrirSecuencia = { id: number };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, ejemplosIA, pedidoIA }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, ejemplosIA, pedidoIA }: {
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
   handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
   productos: ProductoOpcion[];
@@ -72,17 +72,21 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   /**
    * «Nueva»: crea una automatización VACÍA y pausada y la abre con la caja de «Crear con IA»
    * (decisión 14). El wizard de 9 pasos dejó de ser la entrada: ahí no existían «Si responde» ni
-   * las condiciones.
+   * las condiciones. `pedido` precarga la caja de «Crear con IA» («Armar una»). Se llama SIEMPRE
+   * por `nueva`, la puerta que pregunta por lo no publicado ANTES de crear.
    */
-  onNueva: () => void;
+  onNueva: (pedido?: string) => void;
+  /** Por qué no se pudo crear la última («＋ Nueva»): se dibuja pegado al botón. */
+  errorNueva?: string | null;
   /** Pedidos de ejemplo para la caja de una automatización vacía (las etapas sin secuencia). */
   ejemplosIA?: readonly string[];
   /** Un pedido ya escrito para la automatización recién creada («Armar una»). */
   pedidoIA?: { secuenciaId: number; pedido: string } | null;
   onReload: () => void;
   /** El pie de la LISTA (hoy: qué etapas quedaron sin secuencia). Viene de la tab
-   *  porque el dato es del workspace, no de esta pieza. */
-  pie?: ReactNode;
+   *  porque el dato es del workspace, no de esta pieza. Como función recibe `nueva`, la puerta
+   *  de crear: su «Armar una» pregunta por lo no publicado igual que «＋ Nueva». */
+  pie?: ReactNode | ((nueva: (pedido?: string) => void) => ReactNode);
   /** La zona del negocio, para el texto del horario. */
   tz: string | null;
   /** Abrir esta automatización en su lienzo (el deep link `?sec=`). */
@@ -144,22 +148,24 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * botón; «Nueva secuencia» pasa por la misma puerta.
    */
   const [sinPublicar, setSinPublicar] = useState(false);
-  const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva' } | null>(null);
+  const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva'; pedido?: string } | null>(null);
   const elegir = (id: number | typeof ID_RECORDATORIO) => {
     if (id === selId) return;
     if (sinPublicar) { setPendiente({ ir: id }); return; }
     cambiarA(id);
   };
-  const nueva = () => {
-    if (sinPublicar) { setPendiente({ ir: 'nueva' }); return; }
-    onNueva();
+  // ⚠️ La pregunta va ANTES de crear, también para «Armar una» del pie (revisión de la segunda
+  // tanda, 09/10/2026): creaba la fila primero y «Seguir editando» dejaba una vacía de más.
+  const nueva = (pedido?: string) => {
+    if (sinPublicar) { setPendiente({ ir: 'nueva', pedido }); return; }
+    onNueva(pedido);
   };
   const descartar = () => {
     const p = pendiente;
     setPendiente(null);
     if (!p) return;
     setSinPublicar(false);
-    if (p.ir === 'nueva') onNueva();
+    if (p.ir === 'nueva') onNueva(p.pedido);
     else cambiarA(p.ir);
   };
   const recibirEdicion = useCallback((v: EdicionLocal) => setEdicion(v), []);
@@ -287,12 +293,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         </div>
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
           {rolAdmin && (
-            <button type="button" onClick={nueva}
+            <button type="button" onClick={() => nueva()}
               style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85, fontFamily: 'inherit' }}>
               <span style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--faint)' }}>＋</span>
               <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva</span>
             </button>
           )}
+          {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}</div>}
           {lista.length === 0 && !verRecordatorio && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
           {lista.map((j) => (
             <ItemLista key={j.id} on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={j.nombre} onClick={() => elegir(j.id)} />
@@ -306,7 +313,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         {/* El pie de la lista: lo que antes era una franja arriba del lienzo y le comía
             alto a la pizarra. Acá cuelga de lo que nombra —las secuencias— y no ocupa
             un renglón de la tab. */}
-        {pie && <div style={{ flex: 'none', borderTop: '1px solid var(--border)', padding: '9px 14px' }}>{pie}</div>}
+        {pie && <div style={{ flex: 'none', borderTop: '1px solid var(--border)', padding: '9px 14px' }}>{typeof pie === 'function' ? pie(nueva) : pie}</div>}
       </aside>
 
       {/* «PROBAR», EN SU MUELLE (decisión 11): ancho y bajo, arriba a la derecha y debajo del

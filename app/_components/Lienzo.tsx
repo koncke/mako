@@ -85,7 +85,7 @@ export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
   alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, opcionesEn, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false, insetIzq = 0, insetDer = 0,
   insetDerChrome, insetDerAbajo, panelForma = 'columna', panelAlto, revelar = null,
-  onBorrar, puedeBorrar,
+  onBorrar, puedeBorrar, reservaAbajo = 0,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -151,6 +151,13 @@ export function Lienzo({
    */
   insetDerChrome?: number;
   insetDerAbajo?: number;
+  /**
+   * LO QUE EL ENCUADRE DEJA LIBRE ABAJO (revisión de la segunda tanda, 09/10/2026): la caja de
+   * «Crear con IA» de una automatización VACÍA de /chatbot va abajo, y el CRON se encuadra arriba de
+   * ella. Centrado en el alto entero, el CRON quedaba DEBAJO de la caja y no se podía tocar. Sólo
+   * mueve el encuadre (y «Centrar»): el dibujo, los paneles y lo que flota no cambian. Default 0.
+   */
+  reservaAbajo?: number;
   /**
    * LA FORMA DEL PANEL DEL NODO (segunda tanda, decisión 10; pedido literal, punto 3: «El editor
    * de WhatsApp debes hacerlo más ancho que largo, sino, se amontona todo»).
@@ -312,7 +319,7 @@ export function Lienzo({
     // tocar un nodo devolvía el lienzo a su posición inicial y deshacía el paneo que
     // la persona acababa de hacer. El síntoma no se lee como un bug del encuadre:
     // se lee como que el lienzo «rebota solo».
-    const firma = `${Math.round(grafo.ancho)}x${Math.round(grafo.alto)}@${w}x${h}+${insetIzq}+${insetDer}`;
+    const firma = `${Math.round(grafo.ancho)}x${Math.round(grafo.alto)}@${w}x${h}+${insetIzq}+${insetDer}-${reservaAbajo}`;
     if (!forzar && encuadrado.current === firma) return;
     encuadrado.current = firma;
     /**
@@ -339,11 +346,13 @@ export function Lienzo({
      * se ancla en la ENTRADA (el CRON): se arranca por el principio, como en ManyChat, y
      * el resto se recorre arrastrando. «Centrar» vuelve a esta misma vista.
      */
-    vista.current = encuadreInicial(grafo, { w, h, insetIzq, insetDer });
+    // `reservaAbajo`: la franja de abajo que tapa algo de quien monta (ver la prop). El alto que se
+    // le pasa es el ÚTIL, como el ancho: así el CRON de un flujo vacío nace arriba de la caja.
+    vista.current = encuadreInicial(grafo, { w, h: Math.max(1, h - reservaAbajo), insetIzq, insetDer });
     const k = vista.current.k;
     setZoomTxt(Math.round(k * 100));
     pintar();
-  }, [grafo.ancho, grafo.alto, insetIzq, insetDer, pintar]);
+  }, [grafo.ancho, grafo.alto, insetIzq, insetDer, reservaAbajo, pintar]);
 
   useEffect(() => { encuadrar(); }, [encuadrar]);
 

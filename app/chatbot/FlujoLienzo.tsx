@@ -31,7 +31,7 @@
 // (sólo Publicar publica). Una edición que escribiera por su cuenta sería un segundo
 // camino a la base que no pasa por `validarGrafo`.
 
-import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { Lienzo, TarjetaNodo, inpLienzo } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
@@ -87,6 +87,7 @@ export function FlujoLienzo({
   etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
+  onTarjetaAbierta, reservaAbajo,
 }: {
   /** El flujo, normalizado (ids y `siguiente` explícitos). */
   pasos: PasoSecuenciaDto[];
@@ -149,6 +150,15 @@ export function FlujoLienzo({
   muelles?: Muelles | null;
   /** Las tarjetas aparecen de a una («Crear con IA»). Ver `Lienzo.revelar`. */
   revelar?: { orden: string[]; clave: number } | null;
+  /**
+   * Avisa si hay una tarjeta ABIERTA (su panel a la vista). Lo usa quien monta para esconder lo que
+   * flota en la franja de abajo —la caja y la barra de «Crear con IA»—, que si no queda encima del
+   * panel y le tapa los botones (revisión de la segunda tanda, 09/10/2026). La selección vive acá
+   * adentro, así que sin este aviso nadie de afuera sabe que se abrió una.
+   */
+  onTarjetaAbierta?: (abierta: boolean) => void;
+  /** Lo que el encuadre deja libre abajo (la caja de «Crear con IA»). Ver `Lienzo.reservaAbajo`. */
+  reservaAbajo?: number;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   // El foco que pide Publicar se aplica UNA vez por pedido (ajuste de estado en el render,
@@ -192,6 +202,16 @@ export function FlujoLienzo({
   });
   const pasoDe = (id: string) => pasos.find((p, i) => idDe(p, i) === id) ?? null;
   /**
+   * ¿HAY UNA TARJETA ABIERTA? Se CALCULA del dato, igual que el Lienzo decide si dibuja el panel
+   * (una selección que apunta a una tarjeta borrada no abre nada), y se avisa ANTES de pintar
+   * (layout effect): con un efecto común, la barra de «Crear con IA» se vería un cuadro encima del
+   * panel recién abierto.
+   */
+  const abierta = sel != null && grafo.nodos.some((n) => n.id === sel);
+  const avisarAbierta = useRef(onTarjetaAbierta);
+  useLayoutEffect(() => { avisarAbierta.current = onTarjetaAbierta; });
+  useLayoutEffect(() => { avisarAbierta.current?.(abierta); }, [abierta]);
+  /**
    * LA FORMA DEL EDITOR (decisión 10): apaisado cuando `muelles` dice que hay ancho para sus dos
    * columnas; si no (o sin `muelles`), de columna como siempre. Viaja también al editor de cada
    * tarjeta (`formaPanel`): el de WhatsApp en dos columnas es `disposicion='fila'` (parte E).
@@ -205,7 +225,7 @@ export function FlujoLienzo({
       insetIzq={muelles ? muelles.insets.izq : insetIzq} insetDer={muelles ? muelles.insets.der : insetDer}
       insetDerChrome={muelles?.insets.derChrome} insetDerAbajo={muelles?.insets.derAbajo}
       panelForma={formaPanel} panelAlto={muelles?.editorAlto}
-      revelar={revelar}
+      revelar={revelar} reservaAbajo={reservaAbajo}
       chrome={chrome} herramientas={herramientas} accion={pie}
       /* ⚠️ EL ＋ ES EL DE CADA SALIDA (y el del medio de cada flecha), y la tarjeta nueva se
          abre sola: casi todas nacen con algo que elegir (la acción, a dónde va el salto, la
