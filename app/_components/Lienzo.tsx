@@ -44,7 +44,7 @@ import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
   curvaEntre, medioDeCurva, vistaConPanel, vistaConPanelAbajo, vistaAlCerrarPanel, yDePuerto, tieneFilas, encuadreInicial,
   nodoRevelado, aristaRevelada,
-  ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO,
+  ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO, Z_EDITOR_APAISADO, Z_ACCION_LIENZO,
   REVELAR_DURACION_MS, REVELAR_SUBE_PX, REVELAR_PASO_MS, type VistaLienzo,
   type GrafoFlujo, type NodoFlujo, type TonoArista,
 } from '@/lib/lienzo-grafo';
@@ -850,8 +850,10 @@ export function Lienzo({
           )}
         </div>
 
-        {/* `data-esquina-ocupada`: la esquina de los avisos sube para no taparlo (EsquinaAvisos). */}
-        {accion && <div data-no-pan data-esquina-ocupada style={{ position: 'absolute', right: 12 + derAbajo, bottom: 12 }}>{accion}</div>}
+        {/* `data-esquina-ocupada`: la esquina de los avisos sube para no taparlo (EsquinaAvisos).
+            `Z_ACCION_LIENZO`: encima del panel apaisado, que va DESPUÉS en el DOM y le tapaba el
+            primer renglón al error que frena Publicar (lib/lienzo-grafo.ts, «Las capas»). */}
+        {accion && <div data-no-pan data-esquina-ocupada style={{ position: 'absolute', right: 12 + derAbajo, bottom: 12, zIndex: Z_ACCION_LIENZO }}>{accion}</div>}
 
         {/* EL EDITOR. Va acá adentro y en coordenadas de PANTALLA: si viviera en la
             capa transformada, el zoom le cambiaría el tamaño a los inputs. */}
@@ -872,7 +874,9 @@ export function Lienzo({
                 // PANEL_MARGEN y ZOOM_ALTO, importados de lib/lienzo-grafo.ts): con dos cuentas, el
                 // panel y lo que `muelles` le reserva se separarían. El contenido va en columna y
                 // llena el alto, así un editor de dos columnas puede usar el 100 %.
-                ? { right: PANEL_MARGEN + derAbajo, height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' }
+                // `Z_EDITOR_APAISADO`: llega al rincón de abajo a la derecha, encima de la esquina
+                // de avisos (z 55) y de las cajas de «Crear con IA» (z 4). lib/lienzo-grafo.ts.
+                ? { right: PANEL_MARGEN + derAbajo, height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden', zIndex: Z_EDITOR_APAISADO }
                 : {
                   width: panelAncho,
                   // Y con algo apoyado a la DERECHA (el panel de «Probar»), el ancho se topa ahí:
