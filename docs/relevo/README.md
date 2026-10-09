@@ -18,5 +18,6 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
 | Chatbot | `Leé docs/relevo/chatbot.md y seguimos desde ahí.` |
 | Customer Success | `Leé docs/relevo/customer-success.md y seguimos desde ahí.` |
+| Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 
 El estado completo de la ventana está en [`../relevo.md`](../relevo.md).
