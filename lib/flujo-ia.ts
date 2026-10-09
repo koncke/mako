@@ -67,10 +67,18 @@ export const FEATURE_CREAR_IA = 'chatbot-crear-ia';
  * ⚠️ El relevo R5 sumaba `marcar_calificado` y `agregar_nota_lead`, y el registro los declara
  * `reversible: false` (medido el 08/10/2026). Quedan afuera: la decisión 14 dice «gratis y
  * reversibles», y un test lo cruza contra el registro.
+ *
+ * ⚠️ `asignar_closer_setter` TAMPOCO (revisión de la segunda tanda, 09/10/2026). Es gratis y
+ * reversible, pero sus dos parámetros son NOMBRES del equipo y `CtxIA` no los trae: el modelo
+ * escribía cualquier texto (o nada), `faltanEnPaso` daba [] porque los dos son opcionales, y en
+ * cada lead `preparar` (crm.run.ts) rechazaba con «Pasa un closer, un setter o los dos» o «"Juan"
+ * no es nadie del equipo». O sea una tarjeta que el lienzo dibuja configurada y que no hace nada.
+ * Para volver a sumarla hace falta pasar los nombres asignables en `CtxIA` y validarlos con un
+ * igual exacto en `resolverAccion`.
  */
 export const LISTA_BLANCA_IA: readonly string[] = [
   'poner_etiqueta_lead', 'sacar_etiqueta_lead', 'proponer_cambio_etapa', 'mover_lead_en_producto',
-  'agregar_lead_a_producto', 'asignar_closer_setter', 'avisar_al_equipo',
+  'agregar_lead_a_producto', 'avisar_al_equipo',
 ];
 
 const OP_PONER = 'poner_etiqueta_lead';
@@ -108,6 +116,12 @@ export type CtxIA = {
   secuenciaId?: number | null;
   /** La guía de voz del negocio vosea: el voseo del modelo no se marca. */
   usaVoseo?: boolean;
+  /**
+   * Los números que aparecen en el PERFIL y en el PEDIDO (`numerosEn`). Un monto de una acción
+   * (`monto` de `proponer_cambio_etapa`) sólo se acepta si es uno de éstos. Ausente = ninguno: un
+   * monto que el modelo escribe sin que nadie lo haya dicho es plata inventada.
+   */
+  numerosPermitidos?: readonly number[];
 };
 
 /** Un paso tal como lo arma la IA: un nodo de `pasos` con su relleno. */
@@ -161,23 +175,55 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'n
 const RX_URL = /(?:https?:\/\/|www\.)[^\s<>"'()\]]+/gi;
 const RX_CORCHETE = /\[[^\]\n]{0,200}\]/g;
 const RX_VARIABLE = /\{\{?\s*([A-Za-z_]+)\s*\}?\}/g;
+/**
+ * CUALQUIER GRUPO ENTRE LLAVES, no sólo los que parecen una variable (revisión, 09/10/2026).
+ * `RX_VARIABLE` no admite espacios internos, tildes ni dígitos: «{{Nombre del lead}}»,
+ * «{{teléfono}}», «{{ 1 }}» y «{nombre completo}» quedaban CRUDOS y `aplicarVariables`
+ * (lib/template-vars.ts) devuelve tal cual lo que no conoce: le llegaban al lead con las llaves.
+ */
+const RX_LLAVES = /\{+\s*([^{}\n]{0,60}?)\s*\}+/g;
+/** Lo que queda después de `RX_LLAVES`: una variable buena (se conserva) o una llave suelta. */
+const RX_LLAVE_SUELTA = /\{\{[a-z_]+\}\}|[{}]/g;
+/**
+ * UN DOMINIO SIN `http` NI `www` TAMBIÉN ES UN LINK (revisión, 09/10/2026): WhatsApp convierte en
+ * link «calendly.com/juan», y `RX_URL` lo dejaba pasar en las dos capas. Sólo con un TLD de esta
+ * lista corta, en MINÚSCULAS y sin una letra pegada después, para no comerse «datos.Te», «Hola.Me»
+ * ni un decimal. No arranca después de `@`, `/`, `:` ni un punto: un email y el host de una URL
+ * completa (que ya mira `RX_URL`) quedan afuera.
+ */
+const TLD_SUELTO = 'com|net|org|io|co|app|me|ly|link|page|site|ar|mx|es|cl|pe|uy';
+const RX_DOMINIO = new RegExp(`(?<![@\\w.\\/:-])[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.(?:${TLD_SUELTO})(?![A-Za-z0-9-])(?:\\/[^\\s<>"'()\\]]*)?`, 'g');
+
+/** El host de una URL o de un dominio suelto, sin `www.` y en minúsculas. */
+function hostDe(u: string): string {
+  const s = u.trim().replace(/^https?:\/\//i, '');
+  return s.split(/[/?#]/)[0].toLowerCase().replace(/^www\./, '');
+}
 
 /**
  * Lo que se BORRA de un texto escrito por el modelo, antes de pegarle el link:
- *   · toda URL (los links los pone el código, desde `ctx.links`);
+ *   · toda URL (los links los pone el código, desde `ctx.links`), con `http`, con `www.` o como
+ *     un dominio suelto (`RX_DOMINIO`);
  *   · los corchetes (un `[algo]` deja el paso sin salir nunca: `RX_RELLENO`);
- *   · las variables que el motor no resuelve (`esVariableConocida`). Las que sí resuelve se
- *     reescriben con doble llave, que es como las lee `aplicarVariables`.
+ *   · las variables que el motor no resuelve (`esVariableConocida`) y TODA llave suelta. Las que sí
+ *     resuelve se reescriben con doble llave, que es como las lee `aplicarVariables`.
  * Devuelve el texto y qué clase de cosa se sacó, para el aviso.
  */
 export function limpiarTexto(t: string): { texto: string; quitado: Array<'link' | 'corchete' | 'variable'> } {
   const quitado = new Set<'link' | 'corchete' | 'variable'>();
   let s = String(t ?? '');
   s = s.replace(RX_URL, () => { quitado.add('link'); return ''; });
+  s = s.replace(RX_DOMINIO, () => { quitado.add('link'); return ''; });
   s = s.replace(RX_CORCHETE, () => { quitado.add('corchete'); return ''; });
-  s = s.replace(RX_VARIABLE, (_m, k: string) => {
-    const key = k.toLowerCase();
-    if (esVariableConocida(key)) return `{{${key}}}`;
+  s = s.replace(RX_LLAVES, (_m, k: string) => {
+    const key = String(k).trim().toLowerCase();
+    if (/^[a-z_]+$/.test(key) && esVariableConocida(key)) return `{{${key}}}`;
+    quitado.add('variable');
+    return '';
+  });
+  // `{{nombre}}}` o `{nombre` dejan una llave de más: se va (la variable buena se queda).
+  s = s.replace(RX_LLAVE_SUELTA, (m) => {
+    if (m.length > 1) return m;
     quitado.add('variable');
     return '';
   });
@@ -370,6 +416,33 @@ function filaDe(x: unknown, est: Estado): FilaCondicion | null {
   return f;
 }
 
+/**
+ * LOS PARÁMETROS QUE SON PLATA (revisión, 09/10/2026). El bloque ACCIONES ofrece el `monto` de
+ * `proponer_cambio_etapa`, Ganado lo EXIGE (`faltantesParaMover`), así que para «si paga, pásalo a
+ * Ganado» el modelo tiende a poner uno, y si el perfil no trae el precio lo inventa. Ninguna capa lo
+ * comparaba con nada: la regla 6 vivía sólo en el prompt, el lienzo pliega lo opcional, y al
+ * activarla cada lead quedaba con ese valor de venta (la acción puede mandar la conversión a Meta).
+ */
+const RX_PARAM_PLATA = /^(monto|precio|importe|total|valor)/i;
+
+/**
+ * Los números que aparecen en un texto, leídos de las formas en que se escribe plata: «1.500»,
+ * «1,500», «$1,500.00», «2.5», «500 USD». Cada uno entra entero (sin separadores) y, si termina en
+ * un separador con 1 o 2 dígitos, también como decimal. Permisivo a propósito: lo que decide es que
+ * el número ESTÉ en lo que escribió una persona, no adivinar su formato.
+ */
+export function numerosEn(t: string): number[] {
+  const out = new Set<number>();
+  for (const m of String(t ?? '').matchAll(/\d[\d.,]*/g)) {
+    const s = m[0].replace(/[.,]+$/, '');
+    const digitos = s.replace(/[.,]/g, '');
+    if (digitos) out.add(Number(digitos));
+    const dec = /^(.*)[.,](\d{1,2})$/.exec(s);
+    if (dec) out.add(Number(`${dec[1].replace(/[.,]/g, '') || '0'}.${dec[2]}`));
+  }
+  return [...out].filter(Number.isFinite);
+}
+
 /** Un parámetro de una acción, con el tipo que declara el registro. */
 function valorDeParam(p: ParamIA, v: unknown): unknown {
   if (v == null || v === '') return undefined;
@@ -425,11 +498,16 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
     const crudo = datos[p.nombre];
     let dato: unknown = crudo;
     if (p.tipo === 'string' && typeof crudo === 'string') {
-      const sin = crudo.replace(RX_VARIABLE, '').replace(RX_CORCHETE, '').replace(/[ \t]+/g, ' ').replace(/ +([,.;:!?])/g, '$1').trim();
+      const sin = crudo.replace(RX_LLAVES, '').replace(/[{}]/g, '').replace(RX_CORCHETE, '').replace(/[ \t]+/g, ' ').replace(/ +([,.;:!?])/g, '$1').trim();
       if (sin !== crudo.trim()) est.avisos.push('Borré una variable de una acción: ahí no se completa');
       dato = sin;
     }
     const v = valorDeParam(p, dato);
+    // Un monto que no está en el pedido ni en el perfil no se pone: lo escribe una persona.
+    if (v !== undefined && p.tipo === 'number' && RX_PARAM_PLATA.test(p.nombre) && !(est.ctx.numerosPermitidos ?? []).includes(v as number)) {
+      est.avisos.push(`Saqué un monto inventado: ponlo en «${def.titulo}»`);
+      continue;
+    }
     if (v !== undefined) params[p.nombre] = v;
   }
   const faltan = faltanEnPaso(def.parametros as Parametro[], params, { leadId: 1 });
@@ -895,6 +973,24 @@ function cortarSaltos<P extends PasoGrafo>(pasos: P[], ctx: CtxIA, avisos: strin
 
 const renumerar = (pasos: PasoIA[]): PasoIA[] => pasos.map((p, i) => ({ ...p, orden: i + 1 }));
 
+/**
+ * LOS DISPARADORES PARA LA IA: las secciones del desplegable del CRON (`seccionesDisparo`), aplanadas
+ * CON EL PRODUCTO EN EL RÓTULO (revisión, 09/10/2026).
+ *
+ * El producto vive en el TÍTULO de la sección («Etapa · Curso») y el rótulo de cada opción es sólo
+ * `Llega a «Agendado»`. Aplanado con `flatMap((s) => s.options)`, dos productos con la misma etapa
+ * daban dos rótulos idénticos, el prompt no unía «Curso» con `venta:5:…`, y `resolverDisparador`
+ * se quedaba con la primera: la automatización escuchaba el embudo equivocado. Lo mismo entre una
+ * venta y una entrega con el mismo nombre de etapa. Ninguna pantalla lo delataba: el botón del
+ * desplegable y la tarjeta CRON dicen «Llega a «Agendado»» sin el producto.
+ */
+export function disparadoresParaIA(secciones: ReadonlyArray<{ title: string; options: ReadonlyArray<{ value: string; label: string }> }>): Array<{ value: string; label: string }> {
+  return secciones.flatMap((s) => s.options.map((o) => ({
+    value: o.value,
+    label: /^(Etapa|Entrega)\b/.test(s.title) ? `${s.title} · ${o.label}` : o.label,
+  })));
+}
+
 /** El disparador que pidió el modelo, contra el catálogo cerrado. null = no se entendió. */
 function resolverDisparador(v: unknown, est: Estado): string | null {
   const s = str(v).trim();
@@ -903,8 +999,11 @@ function resolverDisparador(v: unknown, est: Estado): string | null {
   if (vals.some((d) => d.value === s)) return s;
   if (vals.some((d) => d.value === `trigger:${s}`)) return `trigger:${s}`;
   const k = normNombre(s);
-  const porRotulo = vals.find((d) => normNombre(d.label) === k);
-  if (porRotulo) return porRotulo.value;
+  // ⚠️ UN RÓTULO QUE COINCIDE CON MÁS DE UNA OPCIÓN NO SE RESUELVE: elegir la primera es elegir el
+  // producto al azar. null hace que la ruta avise «Elige qué la dispara en el CRON».
+  const porRotulo = vals.filter((d) => normNombre(d.label) === k);
+  if (porRotulo.length > 1) return null;
+  if (porRotulo.length === 1) return porRotulo[0].value;
   if (s.startsWith('etiqueta:')) {
     const id = resolverEtiqueta(s.slice('etiqueta:'.length), est);
     if (id != null) return `etiqueta:${id}`;
@@ -1098,6 +1197,13 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
       const cuando = str(caso.cuando).trim().slice(0, 600);
       if (salida === 'otra_cosa' || salida === 'si_no') {
         if (!resp) { est.avisos.push('No hay «Si responde» para colgar «Otra cosa»: no lo agregué'); continue; }
+        // ⚠️ «OTRA COSA» OCUPADA NO SE PISA (revisión, 09/10/2026), igual que la rama general de
+        // abajo. Sin esto `conectarPuerto` la pisaba, lo de antes quedaba suelto y el pedido fallaba
+        // con «tarjetas sueltas: m2» a la vista: un id interno y «Editar sólo AGREGA» roto.
+        if (puertosDe(pasos, indicePorId(pasos, resp)).find((x) => x.puerto === 'si_no')?.destino) {
+          est.avisos.push('Esa salida ya tiene tarjetas: no la pisé');
+          continue;
+        }
         lugar = { tipo: 'puerto', nodo: resp, puerto: 'si_no' };
       } else if (!titulo || !cuando) { est.avisos.push('Un caso nuevo de «Si responde» no decía su nombre o cuándo: no lo agregué'); continue; }
       else lugar = { tipo: 'caso', titulo, cuando };
@@ -1215,6 +1321,7 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
   const etiquetas = new Set(ctx.etiquetas.filter((e) => !e.archivada).map((e) => e.id));
   const etiquetaOk = (v: unknown) => { const n = Number(v); return Number.isInteger(n) && (etiquetas.has(n) || n < 0); };
   const links = new Set(Object.values(ctx.links).map((l) => l.url));
+  const hostsDeLinks = new Set(Object.values(ctx.links).map((l) => hostDe(l.url)));
   const audios = new Set(ctx.audios.map((a) => a.id));
   const archivos = new Set(ctx.archivos.map((a) => a.id));
   const etapaOk = (key: unknown, fid: number | null | undefined) => {
@@ -1241,6 +1348,10 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         if (faltan.length) err.push(`a «${def.titulo}» le falta ${faltan.join(', ')}`);
         if ((a.operacion === OP_PONER || a.operacion === OP_SACAR) && !etiquetaOk(a.params?.etiquetaId)) err.push('una etiqueta de una acción no existe');
         if ('embudoId' in (a.params ?? {}) && !ctx.productos.some((x) => x.funnelId === Number(a.params.embudoId))) err.push('una acción usa un producto que no existe');
+        for (const pr of def.parametros) {
+          const v = a.params?.[pr.nombre];
+          if (pr.tipo === 'number' && RX_PARAM_PLATA.test(pr.nombre) && v != null && !(ctx.numerosPermitidos ?? []).includes(Number(v))) err.push(`a «${def.titulo}» le pusieron un monto que no está en el pedido`);
+        }
       }
     }
     if (c === 'mensaje') {
@@ -1252,7 +1363,11 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         const s = String(t ?? '');
         if (/\[[^\]\n]{0,200}\]/.test(s)) err.push('un texto tiene corchetes (no saldría nunca)');
         for (const u of s.match(RX_URL) ?? []) if (!links.has(u)) err.push('un texto tiene un link que no es de tus links');
+        // Un dominio suelto vale sólo si es el de uno de tus links (el de la URL completa ya se miró).
+        for (const d of s.replace(RX_URL, ' ').match(RX_DOMINIO) ?? []) if (!hostsDeLinks.has(hostDe(d))) err.push('un texto tiene un link que no es de tus links');
         for (const m of s.matchAll(RX_VARIABLE)) if (!esVariableConocida(m[1].toLowerCase())) err.push(`un texto usa la variable «${m[1]}», que no existe`);
+        // Sacadas las variables buenas, no puede quedar NINGUNA llave: el motor la manda cruda.
+        if (/[{}]/.test(s.replace(/\{\{([a-z_]+)\}\}/g, (m0, k: string) => (esVariableConocida(k) ? '' : m0)))) err.push('un texto tiene llaves que no son una variable');
         if (!ctx.usaVoseo && marcasDeVoseo(s).length) err.push(`un texto está en voseo («${marcasDeVoseo(s)[0]}»)`);
       }
     }
@@ -1481,6 +1596,11 @@ REGLAS DURAS (el código las comprueba y saca lo que no cumpla):
 6. No inventes precios, cifras, plazos ni resultados que no estén en el perfil del negocio.
 7. Escribe en el registro de la GUÍA DE VOZ. Sin guía: español neutro, cercano y directo, con tú, aunque el negocio sea del Río de la Plata: nada de voseo.`;
 
+// ⚠️ EL EJEMPLO OBEDECE A LAS REGLAS QUE ENSEÑA (revisión, 09/10/2026). La guía de «Quiere agendar»
+// decía «Ofrécele dos horarios de esta semana»: justo lo que prohíbe la regla 4 (MaKo no ve la
+// agenda, y la agenda no pasa por una IA: decisión del 07/10/2026). Ningún código mira el contenido
+// de una guía, así que un ejemplo que la contradice enseña más que la regla. Lo fija
+// tests/flujo-ia-arreglos.test.ts, que parsea este ejemplo y lo pasa por las dos capas.
 export const CREAR_IA_SYSTEM_TEMPLATE = `Armas AUTOMATIZACIONES de WhatsApp y email para un negocio: un flujo de tarjetas que arranca solo (el CRON) y les escribe a sus leads. Te paso el negocio, lo que tiene configurado y el pedido del dueño. Devuelves el flujo como un objeto JSON.
 
 ${TARJETAS_Y_REGLAS}
@@ -1494,7 +1614,7 @@ LA FORMA (un ejemplo; no copies sus textos):
 {"id": "t4", "tipo": "accion", "operacion": "avisar_al_equipo", "datos": {"mensaje": "Agendó después de la bienvenida"}},
 {"id": "t5", "tipo": "etiqueta", "poner": "Seguimiento"},
 {"id": "r1", "tipo": "si_responde", "casos": [{"titulo": "Quiere agendar", "cuando": "Pide un horario o pregunta cómo agendar", "sigue": "r2"}], "otra_cosa": null},
-{"id": "r2", "tipo": "mensaje", "canal": "whatsapp", "ia": true, "texto": "Ofrécele dos horarios de esta semana y pregúntale cuál le queda mejor."}
+{"id": "r2", "tipo": "mensaje", "canal": "whatsapp", "ia": true, "texto": "Dile que con gusto hablan y pásale el link para que elija cuándo.", "link": "agenda"}
 ]}
 
 Devuelve EXCLUSIVAMENTE el objeto JSON, sin texto alrededor.
@@ -1539,7 +1659,22 @@ export type ListoIA = {
   orden: string[];
   avisos: string[];
   etiquetasNuevas: Array<{ id: number; nombre: string }>;
+  /**
+   * Crear: el valor del desplegable del CRON que quedó PUESTO (`valorDisparo`), o null si no se pudo
+   * poner. Sin él la tarjeta CRON seguía mostrando el de antes («manual») hasta recargar (revisión,
+   * 09/10/2026): `disparo` es un estado sembrado al montar. Editar no toca el disparador.
+   */
+  disparador?: string | null;
 };
+
+/**
+ * El 409 de crear sobre una automatización que YA tiene tarjetas trae lo guardado (revisión,
+ * 09/10/2026). El caso real: Cancelar en «Revisando el flujo» o cambiar de automatización en esa fase
+ * llega tarde (el server ya no mira la señal) y el server guarda igual; la pantalla, con su `pasos`
+ * sembrado vacío, volvía a mostrar la caja de crear y «Crear» contestaba 409 sin salida. Con esto la
+ * caja le pasa lo guardado al lienzo como si acabara de crearlo.
+ */
+export type GuardadoIA = Pick<ListoIA, 'pasos' | 'nombre' | 'orden' | 'disparador'>;
 
 export type EventoIA =
   | { t: 'fase'; fase: 'contexto'; leyendo: LeyendoIA; texto: string }

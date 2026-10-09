@@ -27,11 +27,19 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button } from '@/app/_ui';
 import { GRAMATICA } from '@/lib/mako-gramatica';
-import type { EventoIA, ListoIA } from '@/lib/flujo-ia';
+import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
+import type { EventoIA, ListoIA, GuardadoIA } from '@/lib/flujo-ia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 
-/** Lo que recibe `onListo`. */
-export type ListoCrearIA = Pick<ListoIA, 'secuenciaId' | 'pasos' | 'nombre' | 'orden' | 'avisos' | 'etiquetasNuevas'> & { modo: 'crear' | 'editar' };
+/**
+ * Lo que recibe `onListo`.
+ *   · `disparador` (crear): el valor del desplegable del CRON que quedó puesto, para dibujarlo sin
+ *     recargar.
+ *   · `base` (editar): el borrador que se MANDÓ. El padre lo compara con el lienzo de ahora antes de
+ *     aplicar (`edicionVigente`, lib/flujo-ia-cliente.ts): si se tocó en el medio, no lo pisa.
+ */
+export type ListoCrearIA = Pick<ListoIA, 'secuenciaId' | 'pasos' | 'nombre' | 'orden' | 'avisos' | 'etiquetasNuevas' | 'disparador'>
+  & { modo: 'crear' | 'editar'; base?: readonly PasoGrafo[] };
 
 export type CrearConIAProps = {
   modo: 'crear' | 'editar';
@@ -42,7 +50,8 @@ export type CrearConIAProps = {
   ejemplos?: readonly string[];
   /** Un pedido ya escrito (el «Armar una» de una etapa sin automatización). */
   pedidoInicial?: string;
-  onListo: (r: ListoCrearIA) => void;
+  /** `false` = no lo aplicó (editar sobre un lienzo que cambió): el pedido queda escrito. */
+  onListo: (r: ListoCrearIA) => boolean | void;
   deshabilitado?: boolean;
 };
 
@@ -67,6 +76,14 @@ export function CrearConIA(p: CrearConIAProps) {
   const [estado, setEstado] = useState<Estado>({ t: 'quieto' });
   const [ahora, setAhora] = useState(() => Date.now());
   const ctrl = useRef<AbortController | null>(null);
+  /**
+   * ⚠️ EL `onListo` DE AHORA, NO EL DEL CLIC (revisión, 09/10/2026). `enviar` cierra sobre las props
+   * del render en que se hizo clic: llamar a `p.onListo` al terminar llamaba al del padre de hace
+   * un minuto, con SU `pasos` de entonces, y la comparación con el lienzo de ahora daba siempre
+   * igual. El ref se actualiza en cada render.
+   */
+  const onListoRef = useRef(p.onListo);
+  useEffect(() => { onListoRef.current = p.onListo; });
 
   // El reloj de lo que lleva (progreso real, no decorativo). Corre sólo mientras trabaja.
   const trabajando = estado.t === 'trabajando';
@@ -92,17 +109,30 @@ export function CrearConIA(p: CrearConIAProps) {
     const c = new AbortController();
     ctrl.current = c;
     const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
+    // La foto que se manda (editar): vuelve en `onListo` como `base`.
+    const base = p.modo === 'editar' ? p.pasos : undefined;
     setEstado({ t: 'trabajando', fase: null, leido: null, reparadas: null, desde: Date.now() });
     setAhora(Date.now());
     try {
       const res = await fetch('/api/chat-agent/secuencias/ia', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pedido: texto, secuenciaId: p.secuenciaId, modo: p.modo, ...(p.modo === 'editar' && p.pasos ? { pasos: p.pasos } : {}) }),
+        body: JSON.stringify({ pedido: texto, secuenciaId: p.secuenciaId, modo: p.modo, ...(base ? { pasos: base } : {}) }),
         signal: c.signal,
       });
       // Los errores de antes del stream (403, 400, 409) llegan como JSON plano.
       if (!res.ok || (res.headers.get('content-type') ?? '').includes('application/json')) {
-        const j = await res.json().catch(() => null) as { error?: string } | null;
+        const j = await res.json().catch(() => null) as { error?: string; guardado?: GuardadoIA } | null;
+        // Crear sobre una que YA tiene tarjetas: esta pantalla quedó vieja (un Cancelar que llegó
+        // tarde). Lo guardado pasa al lienzo como si recién se hubiera creado, con el aviso.
+        const g = j?.guardado;
+        if (p.modo === 'crear' && res.status === 409 && g && Array.isArray(g.pasos) && g.pasos.length) {
+          setEstado({ t: 'quieto' });
+          onListoRef.current({
+            modo: 'crear', secuenciaId: p.secuenciaId, pasos: g.pasos, nombre: g.nombre, orden: g.orden,
+            avisos: j?.error ? [j.error] : [], etiquetasNuevas: [], disparador: g.disparador ?? null,
+          });
+          return;
+        }
         setEstado({ t: 'quieto', error: j?.error || `Error ${res.status}` });
         return;
       }
@@ -117,8 +147,17 @@ export function CrearConIA(p: CrearConIAProps) {
         try { ev = JSON.parse(line) as EventoIA; } catch { return false; }
         if (ev.t === 'listo') {
           setEstado({ t: 'quieto' });
-          if (p.modo === 'editar') setPedido('');
-          p.onListo({ modo: ev.modo, secuenciaId: ev.secuenciaId, pasos: ev.pasos, nombre: ev.nombre, orden: ev.orden, avisos: ev.avisos, etiquetasNuevas: ev.etiquetasNuevas });
+          // ⚠️ LAS ETIQUETAS QUE CREÓ EL SERVER (revisión, 09/10/2026): `crearEtiqueta` corre en la ruta,
+          // no pasa por `crearEtiquetaCliente`, y las listas de la pestaña ya estaban pedidas. Sin este
+          // aviso la tarjeta 🏷️ decía «+ una etiqueta» y el selector «Una etiqueta que ya no está»
+          // hasta recargar. Va ANTES de `onListo`: las tarjetas nuevas se dibujan con la lista nueva.
+          if (ev.etiquetasNuevas.length) avisarCambioEtiquetas();
+          const aplicado = onListoRef.current({
+            modo: ev.modo, secuenciaId: ev.secuenciaId, pasos: ev.pasos, nombre: ev.nombre, orden: ev.orden,
+            avisos: ev.avisos, etiquetasNuevas: ev.etiquetasNuevas, disparador: ev.disparador ?? null, base,
+          });
+          // Si el padre no lo aplicó (el lienzo cambió en el medio), el pedido queda escrito.
+          if (p.modo === 'editar' && aplicado !== false) setPedido('');
           return true;
         }
         if (ev.t === 'error') { setEstado({ t: 'quieto', error: ev.error || 'No se pudo' }); return true; }
@@ -177,8 +216,14 @@ export function CrearConIA(p: CrearConIAProps) {
           </ol>
         )}
         <div style={S.pie}>
-          <span style={S.dim}>{segundos} s · hasta 1 min</span>
-          <Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button>
+          {/* ⚠️ EL TOPE SALE DEL TOPE REAL (revisión, 09/10/2026): decía «hasta 1 min» y la ruta le da
+              al modelo hasta 220 s, con reintento, sobre un `maxDuration` de 300. «75 s · hasta 1 min»
+              se lee como colgado y la persona cancela un pedido que iba a terminar. */}
+          <span style={S.dim}>{segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
+          {/* ⚠️ SIN «Cancelar» EN «Revisando el flujo» (revisión, 09/10/2026): el server mira la señal
+              una sola vez, antes de esa fase, y después crea las etiquetas y guarda igual. Un Cancelar
+              ahí dejaba la automatización guardada y la pantalla mostrando la caja vacía. */}
+          {estado.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button>}
         </div>
       </div>
     );

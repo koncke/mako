@@ -27,7 +27,10 @@
 // Sonnet PAGO, y la feature no tiene fila en CLAUDE_PERMITIDO.
 //
 // ⚠️ LAS ETIQUETAS NUEVAS SE CREAN RECIÉN CUANDO TODO VALIDÓ, y antes se mira que la persona no
-// haya cancelado (`req.signal`): un pedido cancelado no deja nada escrito.
+// haya cancelado (`req.signal`): un pedido cancelado MIENTRAS EL MODELO ESCRIBE no deja nada
+// escrito. Después de la fase 'revision' la señal ya no se mira y el server termina de guardar
+// (revisión, 09/10/2026): por eso la caja no dibuja «Cancelar» en esa fase, y el 409 de crear trae
+// lo guardado (`GuardadoIA`) para que una pantalla que quedó vieja no se quede sin salida.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -51,14 +54,15 @@ import { getSetting } from '@/lib/settings';
 import { KEY_LINK_VIDEO } from '@/lib/audios-paso';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { TRIGGERS } from '@/lib/email-marketing';
-import { seccionesDisparo, pedidoDisparo } from '@/lib/flujo-conversacion';
+import { seccionesDisparo, pedidoDisparo, valorDisparo } from '@/lib/flujo-conversacion';
+import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
 import { validarGrafo, type PasoGrafo } from '@/lib/flujo-grafo';
 import { marcasDeVoseo } from '@/lib/puestas-data';
 import {
   FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE,
-  deIA, deIAEdicion, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
+  deIA, deIAEdicion, disparadoresParaIA, numerosEn, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
   userDeCrear, userDeEditar, leyendoDe, leyendoTexto, normNombre,
-  type CtxIA, type EventoIA, type ResultadoIA, type ResultadoEdicion, type LinkIA,
+  type CtxIA, type EventoIA, type ResultadoIA, type ResultadoEdicion, type LinkIA, type GuardadoIA,
 } from '@/lib/flujo-ia';
 
 export const dynamic = 'force-dynamic';
@@ -114,7 +118,7 @@ async function automatizaciones(): Promise<Array<{ id: number; nombre: string }>
  * para dibujar, nunca para decidir): con la lectura caída, `deIA` las tomaría a todas por NUEVAS y
  * crearía duplicados. Lo demás puede faltar: lo que no está se saca del flujo y queda en `avisos`.
  */
-async function armarContexto(ws: number, secuenciaId: number): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
+async function armarContexto(ws: number, secuenciaId: number, pedido: string): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
   const [etiquetas, productos, audios, archivos, accionesWs, entregables, video, agenda, autos, perfil, voz] = await Promise.all([
     listarEtiquetas({ incluirArchivadas: true }),
     productosConEtapas().catch(() => []),
@@ -142,13 +146,14 @@ async function armarContexto(ws: number, secuenciaId: number): Promise<{ ctx: Ct
     funnelId: p.funnelId, productoId: p.productoId, nombre: p.nombre, esDefault: p.esDefault,
     etapas: p.etapas, etapasEntrega: p.etapasEntrega,
   }));
-  // EL DISPARADOR: el mismo catálogo cerrado que el desplegable del CRON, aplanado. `manual` no
-  // inscribe a nadie: se saca (la secuencia vacía nace con él y la sección «La que tiene puesta»
-  // lo trae).
-  const disparadores = seccionesDisparo({
+  // EL DISPARADOR: el mismo catálogo cerrado que el desplegable del CRON, aplanado CON EL PRODUCTO
+  // en el rótulo (`disparadoresParaIA`: con dos productos con la misma etapa, el rótulo pelado
+  // elegía el embudo equivocado). `manual` no inscribe a nadie: se saca (la secuencia vacía nace
+  // con él y la sección «La que tiene puesta» lo trae).
+  const disparadores = disparadoresParaIA(seccionesDisparo({
     disparadores: TRIGGERS, productos: prods, etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre, archivada_at: e.archivada_at })),
     actual: { trigger_tipo: 'manual' }, textoActual: 'manual',
-  }).flatMap((s) => s.options).filter((o) => o.value !== 'trigger:manual');
+  })).filter((o) => o.value !== 'trigger:manual');
 
   // LA LISTA BLANCA, cruzada con lo que la capa del workspace ve, y otra vez contra gratis y
   // reversible por si el registro cambia (el test lo cruza también).
@@ -167,6 +172,8 @@ async function armarContexto(ws: number, secuenciaId: number): Promise<{ ctx: Ct
     automatizaciones: autos,
     secuenciaId,
     usaVoseo: !!voz && marcasDeVoseo(voz).length > 0,
+    // Un MONTO de una acción sólo vale si lo escribió una persona: en el perfil o en el pedido.
+    numerosPermitidos: numerosEn(`${perfil}\n${pedido}`),
   };
   return { ctx, perfil, voz };
 }
@@ -278,8 +285,10 @@ async function generar(p: {
   }
 
   if (ultimo) {
+    // ⚠️ EL DETALLE VA AL LOG, NO A LA PANTALLA (revisión, 09/10/2026): los errores de
+    // `validarGrafo` traen ids internos («tarjetas sueltas: m2»), que no le dicen nada a nadie.
     console.error('[secuencias/ia] la salida no pasó la revisión:', ultimo.join(' | '));
-    return { error: `MaKo armó el flujo pero quedó mal (${ultimo[0]}). Prueba de nuevo o cambia una palabra del pedido.` };
+    return { error: 'MaKo armó el flujo pero quedó mal. Prueba de nuevo o cambia una palabra del pedido.' };
   }
   if (uno.crudos.length) return { error: 'MaKo escribió el flujo pero se cortó al leerlo. Prueba de nuevo.' };
   return { error: await errorDeCascada(errores, 'armar la automatización') };
@@ -304,13 +313,33 @@ export async function POST(req: NextRequest) {
   if (!modo) return Response.json({ ok: false, error: 'modo inválido' }, { status: 400 });
 
   const db = await getTenantDb();
-  const { data: sec, error: errSec } = await db.from('nutricion_secuencias').select('id, nombre, pasos').eq('id', secuenciaId).maybeSingle();
+  const { data: sec, error: errSec } = await db.from('nutricion_secuencias')
+    .select('id, nombre, pasos, activa, trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id').eq('id', secuenciaId).maybeSingle();
   if (errSec) return Response.json({ ok: false, error: `No pude leer la automatización: ${errSec.message}` }, { status: 500 });
   if (!sec) return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
   const guardados = (Array.isArray((sec as { pasos?: unknown }).pasos) ? (sec as { pasos: PasoGrafo[] }).pasos : []);
   // CREAR escribe encima: sólo sobre una VACÍA. Pisar un flujo con leads adentro no es crear.
+  // ⚠️ Y EL 409 TRAE LO GUARDADO (`GuardadoIA`, revisión 09/10/2026): si la pantalla pide crear sobre
+  // una que ya tiene tarjetas es porque su copia quedó vieja (Cancelar en «Revisando» llega tarde y
+  // el server guarda igual). Con lo guardado, la caja se lo pasa al lienzo en vez de quedar sin salida.
   if (modo === 'crear' && guardados.length) {
-    return Response.json({ ok: false, error: 'Esta automatización ya tiene tarjetas: pídele un cambio.' }, { status: 409 });
+    const s = sec as { nombre?: unknown; trigger_tipo?: unknown; etapa?: unknown; funnel_id?: unknown; producto_id?: unknown; etiqueta_id?: unknown };
+    const guardado: GuardadoIA = {
+      pasos: guardados, nombre: String(s.nombre ?? ''), orden: ordenDeRevelado(guardados),
+      disparador: valorDisparo({
+        trigger_tipo: String(s.trigger_tipo ?? 'manual'), etapa: s.etapa == null ? null : String(s.etapa),
+        funnel_id: s.funnel_id == null ? null : Number(s.funnel_id), producto_id: s.producto_id == null ? null : Number(s.producto_id),
+        etiqueta_id: s.etiqueta_id == null ? null : Number(s.etiqueta_id),
+      }),
+    };
+    return Response.json({ ok: false, error: 'Esta automatización ya tiene tarjetas: pídele un cambio.', guardado }, { status: 409 });
+  }
+  // ⚠️ Y PAUSADA (decisión 14: la caja es para una automatización «vacía y PAUSADA»; revisión,
+  // 09/10/2026). Una secuencia lineal de antes, activa, a la que le borraron todas las tarjetas y
+  // publicaron, queda con `pasos: []` y ACTIVA: crear le escribía encima un flujo de la IA con
+  // acciones que corren sin confirmación.
+  if (modo === 'crear' && (sec as { activa?: unknown }).activa === true) {
+    return Response.json({ ok: false, error: 'Pausa esta automatización primero.' }, { status: 409 });
   }
   // EDITAR parte del borrador local de la pantalla (puede tener cambios sin publicar).
   const base: PasoGrafo[] = modo === 'editar' && Array.isArray(body.pasos) ? (body.pasos as PasoGrafo[]) : guardados;
@@ -320,7 +349,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (o: EventoIA) => { try { controller.enqueue(enc.encode(JSON.stringify(o) + '\n')); } catch { /* cerrado */ } };
       try {
-        const { ctx, perfil, voz } = await armarContexto(ws, secuenciaId);
+        const { ctx, perfil, voz } = await armarContexto(ws, secuenciaId, pedido);
         const leyendo = leyendoDe(ctx, perfil);
         send({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
 
@@ -361,7 +390,7 @@ export async function POST(req: NextRequest) {
           const agregadas = new Set((r as ResultadoEdicion).agregadas);
           send({
             t: 'listo', modo, secuenciaId, pasos, nombre: String((sec as { nombre?: unknown }).nombre ?? ''),
-            orden: ordenDeRevelado(pasos).filter((id) => agregadas.has(id)), avisos, etiquetasNuevas: creadas,
+            orden: ordenDeRevelado(pasos).filter((id) => agregadas.has(id)), avisos: ordenarAvisos(avisos), etiquetasNuevas: creadas,
           });
           return;
         }
@@ -372,16 +401,21 @@ export async function POST(req: NextRequest) {
           send({ t: 'error', error: 'Alguien le puso tarjetas mientras tanto: no la pisé.' });
           return;
         }
+        // ⚠️ PRIMERO PAUSAR, DESPUÉS ESCRIBIR (revisión, 09/10/2026). Al revés, si pausar fallaba
+        // después de guardar, el flujo de la IA quedaba guardado y ACTIVO. Así, si lo que sigue
+        // falla, queda pausada y vacía, que no hace daño.
+        await setSecuenciaActiva(secuenciaId, false);
         try {
           await setSecuenciaPasos(secuenciaId, pasos as unknown as PasoSecuencia[]);
         } catch (e) {
           if (e instanceof PasosInvalidosError) { send({ t: 'error', error: `No pude guardar el flujo: ${e.message}` }); return; }
           throw e;
         }
-        await setSecuenciaActiva(secuenciaId, false);
 
         const valor = disparadorReal((r as ResultadoIA).disparador, ids);
         const pedidoTrigger = valor ? pedidoDisparo(valor, secuenciaId) : null;
+        // El que quedó PUESTO viaja en `listo` para que la tarjeta CRON lo dibuje sin recargar.
+        let puesto: string | null = null;
         if (pedidoTrigger) {
           try {
             await setTriggerSecuencia(secuenciaId, {
@@ -392,6 +426,7 @@ export async function POST(req: NextRequest) {
               // Ausente = no toca el embudo (`setTriggerSecuencia`); sólo una etapa de venta lo trae.
               ...('funnel_id' in pedidoTrigger ? { funnel_id: pedidoTrigger.funnel_id == null ? null : Number(pedidoTrigger.funnel_id) } : {}),
             });
+            puesto = valor;
           } catch (e) {
             if (!(e instanceof TriggerInvalidoError)) throw e;
             avisos.push(`No pude poner qué la dispara (${e.message}): elígelo en el CRON`);
@@ -408,7 +443,9 @@ export async function POST(req: NextRequest) {
         // flujo), y el lienzo tiene que dibujar lo mismo que va a leer el motor.
         const { data: final } = await db.from('nutricion_secuencias').select('pasos').eq('id', secuenciaId).maybeSingle();
         const guardado = Array.isArray((final as { pasos?: unknown } | null)?.pasos) ? (final as { pasos: PasoGrafo[] }).pasos : pasos;
-        send({ t: 'listo', modo, secuenciaId, pasos: guardado, nombre, orden: ordenDeRevelado(guardado), avisos, etiquetasNuevas: creadas });
+        // Los avisos van ORDENADOS por lo que cambian en lo que sale (`ordenarAvisos`): la pantalla
+        // muestra el primero, y «Elige qué la dispara» se agrega recién acá, al final.
+        send({ t: 'listo', modo, secuenciaId, pasos: guardado, nombre, orden: ordenDeRevelado(guardado), avisos: ordenarAvisos(avisos), etiquetasNuevas: creadas, disparador: puesto });
       } catch (err) {
         console.error(`[api:secuencias/ia] ${msg(err)}`);
         send({ t: 'error', error: msg(err) });
