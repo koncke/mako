@@ -226,6 +226,10 @@ export function yDePuerto(n: NodoFlujo, puerto?: string): number {
   const filas = n.puertos ?? [];
   let i = filas.findIndex((p) => p.id === puerto);
   if (i < 0 && puerto.startsWith('par:')) i = filas.findIndex((p) => p.paralelo);
+  // ⚠️ Y SI LA FILA YA NO OFRECE MÁS (`paralelo` ausente: se llegó al tope de caminos), las
+  // flechas que YA salen en paralelo siguen saliendo de ella: es la salida de siempre ('sig').
+  // Sin esto, al llegar al tope las flechas del CRON saltaban a la cabecera.
+  if (i < 0 && puerto.startsWith('par:')) i = filas.findIndex((p) => p.id === 'sig');
   if (i < 0) return cabecera;
   return n.y + n.alto - BORDE_NODO - PIE_PUERTOS - (filas.length - i - 0.5) * ALTO_PUERTO;
 }

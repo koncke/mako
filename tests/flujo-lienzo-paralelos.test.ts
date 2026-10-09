@@ -1,0 +1,311 @@
+// =============================================================================
+// El lienzo de la segunda tanda: un solo CRON, flechas en paralelo, dos familias de tarjetas
+// =============================================================================
+// Pedido literal de Martín (08/10/2026, segunda tanda):
+//   1. «No pueden haber 2 flujos por separado. Solo 1 CRON y de ahí desprende todo.»
+//   2. «Del CRON inicial debería poder sacar varias flechas... de un mismo cron puedo sacar toda
+//      una secuencia para WhatsApp y toda otra secuencia de email.»
+//   5. «Las tarjetas de condición, esperar y etiqueta, deberían tener un diseño diferente a las de
+//      mensaje y CRON.»
+//   6. «Falta la tarjeta de etiqueta, para poder colocar una etiqueta al lead.»
+// Las decisiones (docs/chatbot-flujo-ramas-diseno.md, «SEGUNDA TANDA»): 1, 2 (el dibujo), 5, 6, 9,
+// 10, 11 y 15. El modelo (lib/flujo-grafo.ts) es de sólo lectura para esta parte: acá se mide lo
+// que el LIENZO hace con él, ejecutando `grafoDeSecuencia` con flujos de verdad.
+//
+// PROBADO ROMPIÉNDOLO (08/10/2026; con todo puesto: 12 pasan, 0 fallan). Cada rotura de a una,
+// aplicada y restaurada DE MEMORIA por un arnés (nunca con `git checkout`). Pasan / fallan:
+//   1. el CRON vuelve a usar ⚡                                                     -> 11 / 1
+//   2. «Si responde» deja de ser hijo del CRON (no entra en sus destinos)           -> 11 / 1
+//   3. las flechas en paralelo con el tono de siempre ('normal')                    -> 10 / 2
+//   4. un nodo con paralelos NO se trata como multi (los hijos se pisan)            -> 11 / 1
+//   5. se ofrece `paralelo` también dentro de «Si responde»                         -> 11 / 1
+//   6. `lugarDesdeLienzo` manda el ＋ del CRON en paralelo a «al principio»         -> 10 / 2
+//   7. el editor del «Ir a» ofrece tarjetas de OTRO hilo desde la salida            -> 11 / 1
+//   8. la espera deja de ser una píldora (alto de tarjeta normal)                   -> 11 / 1
+//   9. la columna se calcula con el ancho de la tarjeta (las columnas se corren)    -> 11 / 1
+//  10. la tarjeta de etiqueta sin su color                                          -> 11 / 1
+//  11. `nodoNuevo('email')` sin preheader                                           -> 11 / 1
+//  12. `tinteDeControl` usa un token que no se redefine en oscuro (--mako-lite)     -> 11 / 1
+//  13. SecuenciaPerfil sin el `beforeunload`                                        -> 11 / 1
+//  14. la tab cambia de automatización sin preguntar con cambios sin publicar       -> 11 / 1
+//
+// Correr: node --import tsx --test tests/flujo-lienzo-paralelos.test.ts
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  grafoDeSecuencia, insertarDesdeLienzo, nodoNuevo, crearRespuesta, faltaEscribir, nombreDeTarjeta, tarjetasParaIrA,
+  lugarDesdeLienzo, ID_ENTRADA, PUERTO_RESPUESTA, ICONO_CRON, ALTO_PILDORA, ANCHO_PILDORA, ALTO_COMPACTO, ANCHO_ETIQUETA,
+  type PasoParaGrafo, type NodoFlujo,
+} from '../lib/flujo-conversacion';
+import { ANCHO_NODO, ALTO_MIN, yDePuerto } from '../lib/lienzo-grafo';
+import { validarGrafo, nodoPorId, claseDe, ID_INICIO, TOPE_PARALELOS } from '../lib/flujo-grafo';
+
+const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+const rndDe = (semilla = 1) => { let s = semilla; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
+const msg = (id: string, extra: Partial<PasoParaGrafo> = {}): PasoParaGrafo => ({ id, canal: 'whatsapp', delay_horas: 0, cuerpo: 'hola', siguiente: null, ...extra });
+const mail = (id: string, extra: Partial<PasoParaGrafo> = {}): PasoParaGrafo => msg(id, { canal: 'email', asunto: 'Asunto', cuerpo: 'Cuerpo del mail', ...extra });
+const inicio = (siguiente: string | null, paralelos: string[]): PasoParaGrafo => ({ id: ID_INICIO, nodo: 'inicio', siguiente, paralelos, canal: 'whatsapp', delay_horas: 0, cuerpo: '' });
+const nodo = (g: { nodos: NodoFlujo[] }, id: string): NodoFlujo => { const n = g.nodos.find((x) => x.id === id); assert.ok(n, `no está el nodo ${id}`); return n; };
+const sePisan = (a: NodoFlujo, b: NodoFlujo) => a.x < b.x + b.ancho && b.x < a.x + a.ancho && a.y < b.y + b.alto && b.y < a.y + a.alto;
+const sinPisarse = (g: { nodos: NodoFlujo[] }) => {
+  for (let i = 0; i < g.nodos.length; i++) for (let j = i + 1; j < g.nodos.length; j++) {
+    assert.ok(!sePisan(g.nodos[i], g.nodos[j]), `${g.nodos[i].id} y ${g.nodos[j].id} se pisan`);
+  }
+};
+
+/** WhatsApp por la principal y dos hilos de email en paralelo desde el CRON, y «Si responde». */
+const conHilosDelCron = (): PasoParaGrafo[] => {
+  const base = [msg('m1', { siguiente: 'm2' }), msg('m2'), mail('e1', { siguiente: 'e2' }), mail('e2'), mail('f1'), inicio('m1', ['e1', 'f1'])];
+  return crearRespuesta(base, rndDe(3)).pasos;
+};
+
+test('⚠️ el CRON: dos filas («Al entrar» y «Si responde»), su propio ícono y la familia de contenido', () => {
+  const g = grafoDeSecuencia([msg('a')], { disparador: 'Agendó una reunión' });
+  const e = nodo(g, ID_ENTRADA);
+  assert.equal(e.icono, ICONO_CRON);
+  assert.notEqual(e.icono, '⚡', 'el CRON comparte el ⚡ con la Acción (R3)');
+  assert.equal(e.familia, 'contenido');
+  assert.deepEqual(e.puertos!.map((p) => p.rotulo), ['Al entrar', 'Si responde']);
+  assert.equal(e.puertos![0].paralelo, true, '«Al entrar» con salida tiene que ofrecer una flecha en paralelo');
+  // Sin salida, la fila está vacía (su ＋ continúa) y no ofrece paralelo: no hay a qué ir al lado.
+  const vacio = nodo(grafoDeSecuencia([], { disparador: 'X' }), ID_ENTRADA);
+  assert.deepEqual(vacio.puertos![0], { id: 'sig', rotulo: 'Al entrar', vacio: true });
+  // El ＋ en paralelo desde el CRON pide el inicio del modelo, exista o no todavía.
+  assert.deepEqual(lugarDesdeLienzo(ID_ENTRADA, 'par'), { nodo: ID_INICIO, puerto: 'par' });
+  assert.deepEqual(lugarDesdeLienzo(ID_ENTRADA, 'par:e1'), { nodo: ID_INICIO, puerto: 'par:e1' });
+  assert.deepEqual(lugarDesdeLienzo(ID_ENTRADA, 'sig'), { inicio: true });
+});
+
+test('⚠️ las flechas en paralelo del CRON: hijos en la columna 1, apilados sin pisarse, «Si responde» abajo de todo', () => {
+  const pasos = conHilosDelCron();
+  assert.deepEqual(validarGrafo(pasos), [], 'el fixture tiene que ser un flujo válido');
+  const g = grafoDeSecuencia(pasos, { disparador: 'X' });
+  sinPisarse(g);
+  const resp = g.nodos.find((n) => n.tipo === 'respuesta')!;
+  const col1 = ['m1', 'e1', 'f1'].map((id) => nodo(g, id));
+  for (const n of [...col1, resp]) assert.equal(n.x, nodo(g, 'm1').x, `${n.id} no está en la columna 1`);
+  assert.ok(col1[0].y < col1[1].y && col1[1].y < col1[2].y && col1[2].y < resp.y, 'el orden es [principal, …paralelos, «Si responde»]');
+  // El inicio NO se dibuja: ES el CRON. Una tarjeta por paso (menos el inicio) y el CRON.
+  assert.ok(!g.nodos.some((n) => n.id !== ID_ENTRADA && n.titulo === 'CRON'));
+  assert.equal(g.nodos.length, pasos.length);
+  // Las flechas: todas desde el CRON, de su fila «Al entrar», y las en paralelo con OTRO tono.
+  const cron = nodo(g, ID_ENTRADA);
+  const yAlEntrar = yDePuerto(cron, 'sig');
+  for (const [hasta, puerto, tono] of [['m1', 'sig', 'normal'], ['e1', 'par:e1', 'condicional'], ['f1', 'par:f1', 'condicional']] as const) {
+    const a = g.aristas.find((x) => x.hasta === hasta);
+    assert.equal(a?.desde, ID_ENTRADA, `${hasta} no sale del CRON`);
+    assert.equal(a?.puerto, puerto);
+    assert.equal(a?.tono, tono, `la flecha a ${hasta} no se distingue`);
+    assert.equal(yDePuerto(cron, a!.puerto), yAlEntrar, `la flecha a ${hasta} no sale de «Al entrar»`);
+  }
+  // Lo de adentro de cada hilo sigue en fila, a la derecha.
+  assert.equal(nodo(g, 'e2').y, nodo(g, 'e1').y);
+  assert.ok(nodo(g, 'e2').x > nodo(g, 'e1').x);
+});
+
+test('⚠️ una tarjeta con paralelos apila [siguiente, …paralelos] arriba y abajo de su salida, sin pisarse', () => {
+  const pasos = [msg('m1', { siguiente: 'm2', paralelos: ['e1', 'w1'] }), msg('m2', { siguiente: 'm3' }), msg('m3'), mail('e1'), msg('w1')];
+  assert.deepEqual(validarGrafo(pasos), []);
+  const g = grafoDeSecuencia(pasos, { disparador: 'X' });
+  sinPisarse(g);
+  const m1 = nodo(g, 'm1');
+  const salida = yDePuerto(m1, 'sig');
+  const hijos = ['m2', 'e1', 'w1'].map((id) => nodo(g, id));
+  for (const h of hijos) assert.equal(h.x, m1.x + ANCHO_NODO + 92, `${h.id} no está en la columna siguiente`);
+  assert.ok(hijos[0].y < hijos[1].y && hijos[1].y < hijos[2].y);
+  assert.ok(hijos[0].y + hijos[0].alto / 2 < salida && hijos[2].y + hijos[2].alto / 2 > salida, 'los hijos no quedan arriba y abajo de la salida');
+  assert.equal(g.aristas.find((a) => a.hasta === 'e1')?.tono, 'condicional');
+  assert.equal(g.aristas.find((a) => a.hasta === 'm2')?.tono, 'normal');
+  // La salida ocupada ofrece otra flecha en paralelo (le quedan: 2 de 3).
+  assert.deepEqual(m1.puertos, [{ id: 'sig', vacio: false, paralelo: true }]);
+});
+
+test('⚠️ el ＋ en paralelo se ofrece SÓLO donde se puede publicar', () => {
+  // Al tope por tarjeta (3), no.
+  const llena = [msg('m1', { siguiente: 'm2', paralelos: ['a', 'b', 'c'] }), msg('m2'), msg('a'), msg('b'), msg('c')];
+  assert.equal(TOPE_PARALELOS, 3);
+  assert.equal(nodo(grafoDeSecuencia(llena, { disparador: 'X' }), 'm1').puertos![0].paralelo, undefined, 'se ofreció una cuarta flecha en paralelo');
+  // Dentro de «Si responde», no (validarGrafo lo rechaza: la respuesta corre en el momento).
+  const r = crearRespuesta([msg('a')], rndDe());
+  const aviso = nodoPorId(r.pasos, r.id)!.si_no!;
+  const g = grafoDeSecuencia(r.pasos, { disparador: 'X' });
+  assert.equal(nodo(g, aviso).puertos![0].paralelo, undefined, 'se ofreció paralelo dentro de «Si responde»');
+  // Una condición tampoco (sus ramas se excluyen); una espera sí.
+  const conEspera = [msg('m1', { siguiente: 'w' }), { ...nodoNuevo('esperar', [], rndDe()), id: 'w', siguiente: 'm2' }, msg('m2')];
+  const ge = grafoDeSecuencia(conEspera, { disparador: 'X' });
+  assert.equal(nodo(ge, 'w').puertos![0].paralelo, true);
+  // Y al tope de CAMINOS de la automatización (6), ninguna.
+  const seis = [msg('x', { siguiente: 'y', paralelos: ['p1', 'p2', 'p3'] }), msg('y', { paralelos: ['q1', 'q2'] }), ...['p1', 'p2', 'p3', 'q1', 'q2'].map((id) => msg(id))];
+  const g6 = grafoDeSecuencia(seis, { disparador: 'X' });
+  assert.ok(g6.nodos.every((n) => !n.puertos?.some((p) => p.paralelo)), 'se ofreció un séptimo camino');
+});
+
+test('⚠️ `insertarDesdeLienzo`: «en paralelo» (par) y el ＋ del medio de una flecha en paralelo (par:<id>)', () => {
+  // Desde una tarjeta: una flecha más, la tarjeta nueva sin nada después.
+  const base = [msg('m1', { siguiente: 'm2' }), msg('m2')];
+  const r = insertarDesdeLienzo(base, 'm1', 'par', 'email', rndDe());
+  assert.ok(r.id);
+  assert.deepEqual(nodoPorId(r.pasos, 'm1')!.paralelos, [r.id]);
+  assert.equal(nodoPorId(r.pasos, 'm1')!.siguiente, 'm2', 'la flecha en paralelo pisó la de siempre');
+  assert.equal(nodoPorId(r.pasos, r.id)!.siguiente, null);
+  assert.equal(nodoPorId(r.pasos, r.id)!.canal, 'email');
+  assert.deepEqual(validarGrafo(r.pasos), []);
+  // Desde el CRON sin inicio: el inicio se crea, con la salida de hoy como principal.
+  const c = insertarDesdeLienzo(base, ID_ENTRADA, 'par', 'mensaje', rndDe(2));
+  const ini = nodoPorId(c.pasos, ID_INICIO)!;
+  assert.equal(claseDe(ini), 'inicio');
+  assert.equal(ini.siguiente, 'm1');
+  assert.deepEqual(ini.paralelos, [c.id]);
+  assert.deepEqual(validarGrafo(c.pasos), []);
+  // El ＋ del medio de esa flecha: la tarjeta nueva queda EN el medio y apunta a la de antes.
+  const m = insertarDesdeLienzo(c.pasos, ID_ENTRADA, `par:${c.id}`, 'esperar', rndDe(3));
+  assert.deepEqual(nodoPorId(m.pasos, ID_INICIO)!.paralelos, [m.id]);
+  assert.equal(nodoPorId(m.pasos, m.id)!.siguiente, c.id);
+  assert.deepEqual(validarGrafo(m.pasos), []);
+  // Y un «Ir a» en el medio de una flecha en paralelo, no (lo de después quedaría suelto).
+  assert.equal(insertarDesdeLienzo(c.pasos, ID_ENTRADA, `par:${c.id}`, 'ir_a', rndDe(4)).id, null);
+});
+
+test('⚠️ el «Ir a» de la salida no ofrece tarjetas de OTRO hilo; el de «Si responde», todas', () => {
+  const pasos = conHilosDelCron();
+  const conSalto = insertarDesdeLienzo(pasos, 'e2', 'sig', 'ir_a', rndDe(9));
+  const ofrece = tarjetasParaIrA(conSalto.pasos, conSalto.id!);
+  assert.ok(ofrece.includes('e1') && ofrece.includes('e2'), 'el «Ir a» no ofrece las de su propio hilo');
+  for (const otro of ['m1', 'm2', 'f1']) assert.ok(!ofrece.includes(otro), `ofreció ${otro}, de otro hilo: el mismo mensaje saldría dos veces`);
+  assert.ok(!ofrece.includes(ID_INICIO), 'el CRON no es un destino');
+  // Desde «Si responde» (la respuesta pausa todo y retoma UN hilo), todas las de la salida.
+  const resp = pasos.find((p) => claseDe(p) === 'respuesta')!;
+  const avisoId = resp.si_no!;
+  const desdeResp = insertarDesdeLienzo(conSalto.pasos, avisoId, 'sig', 'ir_a', rndDe(11));
+  const todas = tarjetasParaIrA(desdeResp.pasos, desdeResp.id!);
+  for (const t of ['m1', 'm2', 'e1', 'e2', 'f1']) assert.ok(todas.includes(t), `desde «Si responde» falta ${t}`);
+  // Y el editor del «Ir a» usa esa lista (no la suya propia).
+  assert.match(sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx')), /options: tarjetasParaIrA\(pasos, id\)\.map\(\(t\) => \(\{ value: `nodo:\$\{t\}`/);
+});
+
+test('⚠️ dos familias: las de control son compactas (la espera, una píldora) y las columnas siguen alineadas', () => {
+  const espera = (id: string, siguiente: string | null) => ({ ...nodoNuevo('esperar', [], rndDe()), id, siguiente });
+  const pasos: PasoParaGrafo[] = [
+    { id: 'c', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: 'mb', ramas: [{ id: 'r1', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'w' }] },
+    espera('w', 'ma'), msg('ma'),
+    msg('mb', { siguiente: 'mc' }), msg('mc', { siguiente: 'ir' }),
+    { id: 'ir', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'ir_a', destino: { nodo: 'mb' } },
+  ];
+  const g = grafoDeSecuencia(pasos, { disparador: 'X' });
+  sinPisarse(g);
+  const w = nodo(g, 'w');
+  assert.equal(w.familia, 'control');
+  assert.equal(w.tipo, 'espera');
+  assert.equal(w.alto, ALTO_PILDORA, 'la espera no es una píldora');
+  assert.ok(w.ancho >= ANCHO_PILDORA && w.ancho <= ANCHO_NODO, `la píldora mide ${w.ancho} de ancho`);
+  assert.equal(w.detalle, '1 día', 'la píldora dice cuánto espera, en una línea (`textoEspera` sin «Esperar»)');
+  assert.equal(yDePuerto(w, 'sig'), w.y + ALTO_PILDORA / 2, 'la flecha no sale de la mitad de la píldora');
+  assert.equal(nodo(g, 'c').familia, 'control');
+  assert.equal(nodo(g, 'ir').familia, 'control');
+  assert.equal(nodo(g, 'ir').alto, ALTO_COMPACTO);
+  assert.equal(nodo(g, 'mb').familia, 'contenido');
+  assert.equal(nodo(g, ID_ENTRADA).familia, 'contenido');
+  // Las columnas no se corren aunque una tarjeta sea más angosta: «ma» (después de la píldora) y
+  // «mc» (después de un mensaje) están en la misma columna.
+  assert.equal(nodo(g, 'ma').x, nodo(g, 'mc').x, 'una tarjeta angosta corrió su columna');
+  assert.equal(w.x, nodo(g, 'mb').x);
+});
+
+test('⚠️ la tarjeta de ETIQUETA: la ⚡ Acción de poner/sacar dibujada como lo que hace, con su color', () => {
+  const poner = msg('t1', { accion: { operacion: 'poner_etiqueta_lead', params: { leadId: 'evento', etiquetaId: 7 } }, siguiente: 't2' });
+  const sacar = msg('t2', { accion: { operacion: 'sacar_etiqueta_lead', params: { leadId: 'evento', etiquetaId: 8 } }, siguiente: 't3' });
+  const sinElegir = msg('t3', { accion: { operacion: 'poner_etiqueta_lead', params: { leadId: 'evento' } } });
+  const nombres = { etiqueta: (id: number) => ({ 7: 'Cualificado', 8: 'Seguimiento' } as Record<number, string>)[id] ?? null };
+  const colores: Record<number, string> = { 7: '#22aa66', 8: '#cc8800' };
+  const g = grafoDeSecuencia([poner, sacar, sinElegir], { disparador: 'X', nombres, colorEtiqueta: (id) => colores[id] });
+  const a = nodo(g, 't1');
+  assert.equal(a.tipo, 'etiqueta');
+  assert.equal(a.titulo, 'Etiqueta');
+  assert.equal(a.icono, '🏷️');
+  assert.equal(a.familia, 'control');
+  assert.equal(a.detalle, '+ Cualificado');
+  assert.equal(a.color, '#22aa66', 'la tarjeta de etiqueta no lleva el color de la etiqueta');
+  assert.equal(a.alto, ALTO_COMPACTO);
+  assert.equal(a.ancho, ANCHO_ETIQUETA);
+  assert.equal(nodo(g, 't2').detalle, '− Seguimiento');
+  assert.equal(nodo(g, 't3').detalle, 'Sin elegir');
+  assert.ok(nodo(g, 't3').advertencia, 'una etiqueta sin elegir no se marca');
+  assert.equal(nombreDeTarjeta([poner, sacar], 't1', nombres), 'Etiqueta: + Cualificado');
+  // Una acción que no es de etiquetas sigue siendo una Acción.
+  const otra = grafoDeSecuencia([msg('x', { accion: { operacion: 'mover_etapa', params: {} } })], { disparador: 'X' });
+  assert.equal(nodo(otra, 'x').tipo, 'accion');
+});
+
+test('⚠️ el ＋ crea un EMAIL (con su vista previa) y una ETIQUETA sobre el lead del evento', () => {
+  const e = nodoNuevo('email', [], rndDe());
+  assert.equal(e.canal, 'email');
+  assert.equal(e.asunto, '');
+  assert.equal(e.preheader, '');
+  assert.equal(e.cuerpo, '');
+  assert.equal(claseDe(e), 'mensaje');
+  const t = nodoNuevo('etiqueta', [], rndDe());
+  assert.deepEqual(t.accion, { operacion: 'poner_etiqueta_lead', params: { leadId: 'evento' } });
+  // El email nuevo se dibuja como EMAIL y no deja publicar sin asunto.
+  const r = insertarDesdeLienzo([msg('a')], 'a', 'sig', 'email', rndDe(5));
+  const g = grafoDeSecuencia(r.pasos, { disparador: 'X' });
+  const n = nodo(g, r.id!);
+  assert.equal(n.titulo, 'Email');
+  assert.equal(n.icono, '✉️');
+  assert.equal(n.advertencia, 'Sin escribir');
+  assert.equal(faltaEscribir(r.pasos)?.id, r.id);
+  // Con asunto, vista previa y cuerpo, el alto cuenta la caja del mail.
+  const lleno = grafoDeSecuencia([mail('m', { preheader: 'Lo que vas a ver', cuerpo: 'x'.repeat(200) })], { disparador: 'X' });
+  assert.ok(nodo(lleno, 'm').alto > ALTO_MIN, 'el email no cuenta su caja');
+  assert.equal(nodo(lleno, 'm').advertencia, undefined);
+});
+
+test('⚠️ el tinte de las tarjetas de control usa SÓLO tokens que se redefinen en oscuro', () => {
+  const lienzo = sinComentarios(leer('../app/_components/Lienzo.tsx'));
+  const ini = lienzo.indexOf('export function tinteDeControl(');
+  const fin = lienzo.indexOf('\nexport function BotonChico', ini);
+  assert.ok(ini >= 0 && fin > ini);
+  const fn = lienzo.slice(ini, fin);
+  assert.ok(fn.length < 1_200, `el recorte mide ${fn.length}: está mirando otra cosa`);
+  const tokens = [...new Set([...fn.matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]))];
+  assert.ok(tokens.length >= 4, 'el tinte no usa tokens');
+  const css = leer('../app/globals.css');
+  const oscuro = css.slice(css.indexOf('[data-tema="oscuro"] {'), css.indexOf('}', css.indexOf('[data-tema="oscuro"] {')));
+  for (const t of tokens) assert.match(oscuro, new RegExp(`\\n\\s*${t}:`), `${t} no se redefine en oscuro: en oscuro queda un rectángulo pastel`);
+  // La condición, en el primario; la etiqueta, con SU color como `ChipEtiqueta` (color+24, color+66).
+  assert.match(fn, /n\.tipo === 'condicion'\) return \{ fondo: 'var\(--primary-bg\)', borde: 'var\(--primary-weak\)'/);
+  assert.match(fn, /return \{ fondo: `\$\{n\.color\}24`, borde: `\$\{n\.color\}66`/);
+  assert.match(fn, /\/\^#\[0-9a-f\]\{6\}\$\/i\.test\(n\.color\)/, 'un color que no es #rrggbb + «24» no pinta');
+  assert.match(fn, /if \(n\.familia !== 'control'\) return null;/, 'el tinte se le aplicó a /mensajes');
+});
+
+test('⚠️ lo no publicado: se pregunta al cambiar de automatización, y cerrar la pestaña también avisa', () => {
+  const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
+  // Lo que la persona cambió (NO `sinPublicar`: una secuencia de antes abre convertida sin que
+  // nadie toque nada, y preguntar ahí afirmaría algo falso).
+  assert.match(perfil, /const cambiosPropios = rolAdmin && JSON\.stringify\(pasos\) !== visto;/);
+  assert.match(perfil, /useEffect\(\(\) => \{ avisarSinPublicar\.current\?\.\(cambiosPropios\); \}, \[cambiosPropios\]\);/);
+  assert.match(perfil, /if \(!cambiosPropios\) return;\n\s+const alSalir = \(e: BeforeUnloadEvent\) => \{ e\.preventDefault\(\); e\.returnValue = ''; \};\n\s+window\.addEventListener\('beforeunload', alSalir\);/);
+  // Publicar deja lo visto al día (si no, preguntaría después de publicar).
+  const pub = perfil.slice(perfil.indexOf('const publicar = async () => {'), perfil.indexOf('const publicar = async () => {') + 4_000);
+  assert.match(pub, /setPublicado\(JSON\.stringify\(pasos\)\);\n\s+setVisto\(JSON\.stringify\(pasos\)\);/);
+  const tab = sinComentarios(leer('../app/chatbot/SimuladorWhatsApp.tsx'));
+  assert.match(tab, /if \(sinPublicar\) \{ setPendiente\(\{ ir: id \}\); return; \}/, 'cambiar de automatización no pregunta');
+  assert.match(tab, /if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva' \}\); return; \}/, '«Nueva secuencia» no pregunta');
+  assert.match(tab, /<Confirm\n\s+message="Tienes cambios sin publicar"\n\s+confirmLabel="Descartar cambios" cancelLabel="Seguir editando"/);
+  assert.match(tab, /onSinPublicar=\{setSinPublicar\}/);
+});
+
+test('el lienzo de /chatbot: sin la tarjeta fantasma, la fila «Si responde» crea la tarjeta, el editor sigue a `muelles`', () => {
+  const flujo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
+  assert.doesNotMatch(flujo, /ID_NUEVA_RESPUESTA|function Fantasma/, 'volvió la tarjeta fantasma');
+  assert.match(flujo, /if \(id === ID_ENTRADA && puerto === PUERTO_RESPUESTA\) \{\n\s+const r = onCrearRespuesta \? onCrearRespuesta\(\) : null;/);
+  assert.match(flujo, /const formaPanel: 'apaisado' \| 'columna' = muelles\?\.editorForma === 'apaisado' \? 'apaisado' : 'columna';/);
+  assert.match(flujo, /panelForma=\{formaPanel\} panelAlto=\{muelles\?\.editorAlto\}/);
+  // EditorDeNodo: una rama por clase, lista para los editores de la parte E.
+  assert.match(flujo, /if \(etiquetaDeAccion\(paso\)\) return <EditorEtiquetaLienzo /);
+  assert.match(flujo, /if \(paso\.canal === 'email'\) return <EditorEmail /);
+  assert.match(flujo, /aria-label="Vista previa"/, 'el email no deja escribir la vista previa');
+  assert.equal(PUERTO_RESPUESTA, 'resp');
+});

@@ -277,7 +277,8 @@ test('costuras-5: la fila «Otra cosa» marca cuántas respuestas quedaron sin c
   assert.equal(fila().marca, undefined);
   assert.equal(fila(2).rotulo, 'Otra cosa', 'la marca no reemplaza al rótulo');
   // La tarjeta la dibuja, y el perfil cuenta las de ESTA automatización.
-  const tarjeta = bloque(LIENZO, 'export function TarjetaNodo(', '\nexport function BotonChico', 4_000);
+  // Hasta `tinteDeControl`, que desde la segunda tanda va entre la tarjeta y `BotonChico`.
+  const tarjeta = bloque(LIENZO, 'export function TarjetaNodo(', '\nexport function tinteDeControl', 4_600);
   assert.match(tarjeta, /\{p\.marca && \(/);
   assert.match(PERFIL, /const pendientesOtraCosa = \(handoffs \?\? \[\]\)\.filter\(\(h\) => h\.secuenciaId === secuencia\.id\)\.length;/);
   assert.match(PERFIL, /<FlujoLienzo[\s\S]*?pendientesOtraCosa=\{pendientesOtraCosa\}/);
