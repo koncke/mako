@@ -27,7 +27,7 @@ import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId } from '@/lib/api-mako/registro';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
-import { herramientasDelTurno } from '@/lib/doer-herramientas';
+import { herramientasDelTurno, preguntoReunionOTarea } from '@/lib/doer-herramientas';
 import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
@@ -801,6 +801,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       hayContacto: contactosDelMensaje(data.message).length > 0,
       hayAgendaAbierta: !!agendaAbierta,
       makoPregunto: makoPreguntoAlgo(typeof ultimoDeMako === 'string' ? ultimoDeMako : null),
+      // «la reunión» / «la tarea» contestan «¿La reunión o la tarea?» sólo si MaKo hizo ESA
+      // pregunta: después de cualquier otra, «la agenda de mañana?» es una consulta.
+      preguntoReunionOTarea: preguntoReunionOTarea(typeof ultimoDeMako === 'string' ? ultimoDeMako : null),
     });
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.

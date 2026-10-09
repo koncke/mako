@@ -14,7 +14,7 @@
 // SIN `server-only`: lo importan el doer y tests/agenda-whatsapp.test.ts.
 // =============================================================================
 
-import { CONTRATO, areasDelMensaje, sinPrefijoDeLote, esMoverSinObjeto, type Intencion, type VeredictoIntencion } from './mako-intencion';
+import { CONTRATO, areasDelMensaje, sinPrefijoDeLote, type Intencion, type VeredictoIntencion } from './mako-intencion';
 import { toolsDelRegistro, porId, type Vista } from './api-mako/registro';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
@@ -100,17 +100,43 @@ export type EntradaTurno<T extends { name: string }> = {
 export const PREGUNTA_REUNION_O_TAREA = '¿La reunión o la tarea?';
 
 /**
+ * ¿El último mensaje de MaKo hizo ESA pregunta? Es lo único que convierte «la reunión» o «la
+ * tarea» en la respuesta (lib/mako-intencion.ts, 3-ter-bis). ⚠️ No alcanza con «MaKo preguntó
+ * algo» (`makoPreguntoAlgo`): con eso, después de CUALQUIER «¿…?» —«¿Quieres el detalle?»—,
+ * «la agenda de mañana?» dejaba de ser una consulta y llegaba como acción, con las herramientas
+ * que escriben (medido por el revisor el 09/10/2026). Mira la ÚLTIMA pregunta del final y
+ * acepta que el modelo la diga con sus palabras («¿Te refieres a la reunión o a la tarea?»):
+ * las dos palabras en la misma pregunta.
+ */
+export function preguntoReunionOTarea(ultimoDeMako: string | null | undefined): boolean {
+  const preguntas = (ultimoDeMako ?? '').slice(-280).match(/[^?.!\n]*\?/g);
+  const ultima = preguntas?.[preguntas.length - 1] ?? '';
+  return /reuni[oó]n/i.test(ultima) && /\btarea/i.test(ultima);
+}
+
+/**
+ * La herramienta que le cambia la fecha a una tarea. ⚠️ Al 09/10/2026 NO viaja por WhatsApp: en
+ * main no existe, y en la rama que la trae (wip/api-acciones-0910) es `canales: HTTP`. O sea que
+ * «la tarea» no tiene con qué moverse por aquí, y sin decírselo el modelo improvisa (la única
+ * escritura del plan que viaja es `proponer_tareas_plan`, que CREA una tarea).
+ */
+const CAMBIA_FECHA_DE_TAREA = 'cambiar_fecha_tarea_plan';
+export const SIN_FECHA_DE_TAREA = 'Si es una tarea: en este turno no tienes con qué cambiarle la fecha. Dilo en una línea (se cambia desde el plan) y no la cargues como tarea nueva.';
+
+/**
  * La instrucción de un «movela al viernes» sin pendiente ni agenda abierta (decisión de Martín
  * del 09/10/2026). Viaja con el VEREDICTO y no como receta de una herramienta: las dos que
  * entran (mover una reunión, cambiarle la fecha a una tarea) viajan también en pedidos que
  * sí dicen qué mover, y ahí preguntar sería fricción. Preguntar antes de leer nada: la
- * respuesta («la reunión», «la tarea») ya llega con lo suyo (lib/mako-intencion.ts, 3-ter-bis).
+ * respuesta («la reunión», «la tarea») ya llega con lo suyo (lib/mako-intencion.ts, 3-ter-bis),
+ * siempre que MaKo la haya preguntado con esas dos palabras (`preguntoReunionOTarea`).
  */
 const INSTRUCCION_MOVER_SIN_OBJETO = `TE PIDEN MOVER ALGO A OTRO DÍA U HORA SIN DECIR QUÉ: puede ser una reunión de su agenda o una tarea del plan. Si la conversación no deja claro cuál es, pregunta UNA sola vez, en una línea y antes de llamar ninguna herramienta: «${PREGUNTA_REUNION_O_TAREA}». Si queda claro, sigue con eso sin preguntar.`;
 
 export type Turno<T> = {
   tools: Array<T | ToolDef>; delRegistro: ToolDef[]; areas: Area[]; ofrece: boolean;
-  /** Una línea más para el system de ESTE turno, o null. Hoy, sólo la de mover sin objeto. */
+  /** Una línea más para el system de ESTE turno, o null. Hoy, sólo la de mover sin decir qué
+   *  y la de «la tarea» cuando no viaja con qué cambiarle la fecha. */
   instruccion: string | null;
 };
 
@@ -149,9 +175,14 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   const ofrece = v.intencion === 'consultar' || v.intencion === 'pensar';
   const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...delRegistro], v.dudosa)
     .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
-  // La agenda Y el plan viajan sólo cuando el clasificador no supo cuál de los dos: con una
-  // propuesta de agenda abierta el veredicto trae sólo el CRM, y no hay nada que preguntar.
-  const preguntaQue = v.intencion === 'actuar' && !v.sigueOfrecimiento && (v.areas ?? []).includes('plan')
-    && (v.areas ?? []).includes('crm') && esMoverSinObjeto(p.texto);
-  return { tools, delRegistro, areas, ofrece, instruccion: preguntaQue ? INSTRUCCION_MOVER_SIN_OBJETO : null };
+  // Lo dice el VEREDICTO, no el texto leído otra vez: con una propuesta de agenda abierta el
+  // clasificador ya decidió que es la reunión y no marca nada. Re-leer el texto acá tenía su
+  // propio preludio, y «buen día, movela al viernes» llegaba con la agenda y el plan y SIN la
+  // pregunta (el saludo lo pela el clasificador; el preludio del CRM no conoce «buen día»).
+  const sinFecha = tools.some((t) => t.name === CAMBIA_FECHA_DE_TAREA) ? null : SIN_FECHA_DE_TAREA;
+  const instruccion = v.intencion !== 'actuar' ? null
+    : v.mover === 'sin-decir-que' ? [INSTRUCCION_MOVER_SIN_OBJETO, sinFecha].filter(Boolean).join(' ')
+    : v.mover === 'tarea' ? sinFecha
+    : null;
+  return { tools, delRegistro, areas, ofrece, instruccion };
 }
