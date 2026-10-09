@@ -42,6 +42,7 @@ import {
   type DepsPasoAccion, type EntradaPasoAccion,
 } from '../lib/nutricion-paso-accion';
 import { grafoDeSecuencia, opcionesDelMas, nodoNuevo, type PasoParaGrafo } from '../lib/flujo-conversacion';
+import { vuelveALaCola } from '../lib/nutricion-hilos';
 
 const leer = (p: string): string => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas ANTES que los bloques: un `/*` adentro de un `//` se comería código (AGENTS.md).
@@ -248,7 +249,12 @@ test('el cupo de mensajes no frena a las acciones: con el tope cumplido el motor
 test('«Enseguida» quiere decir enseguida: lo que sigue a una acción ya vencido se mira en la MISMA corrida', () => {
   // La fila ya está en `vistos`: sin devolverla a la cola, tres pasos a 0 h (mover, crear la
   // tarea, el mensaje) salían de a uno por hora de cron, con el lienzo diciendo «Enseguida».
-  assert.match(rama(), /if \(r\.estado !== 'saltado' && proximo != null && Date\.parse\(proximo\) <= Date\.now\(\)\) \{\s*vistos\.delete\(insc\.id\);\s*otraVuelta = true;\s*\}/);
+  // (09/10/2026: la condición pasó a `vuelveALaCola`, que mira además los hilos que la acción
+  // arrancó por sus flechas en paralelo; su test, en tests/nutricion-hilos.test.ts.)
+  assert.match(rama(), /if \(r\.estado !== 'saltado' && vuelveALaCola\(proximo, nuevosAccion, Date\.now\(\)\)\) \{\s*vistos\.delete\(insc\.id\);\s*otraVuelta = true;\s*\}/);
+  const t = Date.parse('2026-10-09T15:00:00Z');
+  assert.equal(vuelveALaCola(new Date(t).toISOString(), [], t), true, 'lo que sigue ya vencido vuelve a la cola');
+  assert.equal(vuelveALaCola(new Date(t + 3_600_000).toISOString(), [], t), false);
   assert.match(PROC, /if \(fetched\.length < LOTE && !otraVuelta\) break;/, 'la vuelta que sigue no se da si la cola «parece» drenada');
   // La marca es POR VUELTA: si no se reinicia, el bucle gira hasta el tope sin nada nuevo.
   assert.match(PROC, /rondas \+= 1;\s*let otraVuelta = false;/);
