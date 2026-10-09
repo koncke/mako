@@ -118,6 +118,32 @@ export function useEtiquetas(): { etiquetas: Etiqueta[] | null; error: string | 
 }
 
 /**
+ * TODAS las etiquetas, con las archivadas: para NOMBRAR las que un flujo ya tiene puestas (las
+ * tarjetas del lienzo de /chatbot, «Probar»), no para elegir. `null` mientras carga.
+ *
+ * ⚠️ SE VUELVE A PEDIR CUANDO ALGUIEN CREA, EDITA O ARCHIVA (`avisarCambioEtiquetas`). Existe para que
+ * el lienzo deje su lectura propia (app/chatbot/SecuenciaPerfil.tsx pedía la lista por su cuenta y
+ * sólo sumaba lo que creaba SU selector): con el SelectorEtiqueta de acá en la condición y en la
+ * tarjeta 🏷️, una etiqueta recién creada no tendría nombre en su tarjeta hasta recargar la página.
+ */
+export function useEtiquetasTodas(): Etiqueta[] | null {
+  const [todas, setTodas] = useState<Etiqueta[] | null>(null);
+  const [vuelta, setVuelta] = useState(0);
+  useEffect(() => {
+    let vivo = true;
+    // Sin red: lo que ya había se queda (una tarjeta sin nombre es peor que una con el de antes).
+    pedirTodas().then((e) => { if (vivo) setTodas(e); }).catch(() => { if (vivo) setTodas((t) => t ?? []); });
+    return () => { vivo = false; };
+  }, [vuelta]);
+  useEffect(() => {
+    const otra = () => setVuelta((v) => v + 1);
+    window.addEventListener(EVENTO, otra);
+    return () => window.removeEventListener(EVENTO, otra);
+  }, []);
+  return todas;
+}
+
+/**
  * El chip de una etiqueta: su color de fondo, suave, y el nombre. Una ARCHIVADA que el lead
  * todavía tiene se dibuja apagada y con «(archivada)»: ya no cuenta en las automatizaciones
  * (decisión del 08/10/2026) y la fila queda como historia.
