@@ -10,9 +10,10 @@
 // `probarSecuencia`—: texto, audio de la biblioteca (+ su pie como segundo mensaje), archivo de la
 // biblioteca con su caption, y email.
 //
-// ⚠️ EL DESTINO NO SE GUARDA. Lo que se escribe en el panel es de esta prueba. El campo viene
-// precargado con el teléfono y el email de QUIEN PRUEBA (su fila de `usuarios`), nunca con el
-// contacto de reportes del workspace (lib/simulador-grafo.ts, `destinoDelQueMira`).
+// ⚠️ EL DESTINO ES DE QUIEN PRUEBA, NUNCA DEL NEGOCIO. El desplegable ofrece el teléfono y el email de
+// su fila de `usuarios` y los que ESA persona guardó como «Nuevo número» (quinta tanda, punto 1:
+// `guardarDestinoDeQuienPrueba`, en su `perfil`); nunca el contacto de reportes del workspace
+// (lib/simulador-grafo.ts, `destinoDelQueMira`, `destinosGuardados`).
 //
 // ⚠️ NO TOCA INSCRIPCIONES NI `nutricion_envios`: cero contaminación de las métricas y del freno
 // anti-ban, igual que `probarSecuencia`. Lo único que queda es el espejo del saliente en
@@ -34,15 +35,37 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { getSupabaseServer } from './supabase';
+import { buscarUsuarioPorEmail } from './usuarios';
 import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evolution-envio';
 import { getAudio, audioBase64 } from './setting-audios';
 import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { reclamarEspaciado } from './espaciado';
 import {
-  planDePrueba, claveDestinoPrueba, reclamarCupoPrueba, tipoDeMime, VENTANA_PRUEBA_MIN,
-  type DestinoPrueba, type MensajePrueba,
+  planDePrueba, claveDestinoPrueba, reclamarCupoPrueba, tipoDeMime, VENTANA_PRUEBA_MIN, destinosGuardados, perfilConDestino,
+  type DestinoPrueba, type MensajePrueba, type DestinosGuardados,
 } from './simulador-grafo';
+
+/**
+ * Suma un destino a los GUARDADOS de quien prueba (quinta tanda, punto 1: «primero el desplegable me
+ * debe ofrecer los números que ya tiene guardado, y abajo un botón de "Nuevo número"»).
+ *
+ * ⚠️ EN SU FILA, POR SU EMAIL DE SESIÓN, nunca «viendo como cliente» (`getPerfil` devuelve el admin
+ * del cliente) ni en el workspace: son SUS números de prueba. Y el jsonb `perfil` se reescribe desde
+ * lo que ya tenía (`perfilConDestino`): adentro viven los campos del formulario y `notifInApp`.
+ */
+export async function guardarDestinoDeQuienPrueba(email: string, destino: unknown):
+  Promise<{ ok: true; guardados: DestinosGuardados } | { ok: false; error: string }> {
+  const u = await buscarUsuarioPorEmail(email);
+  if (!u) return { ok: false, error: 'Sin usuario propio' };
+  const perfil = perfilConDestino((u as { perfil?: unknown }).perfil, (destino && typeof destino === 'object' ? destino : {}) as { telefono?: unknown; email?: unknown });
+  if (!perfil) return { ok: false, error: 'Ese destino no sirve' };
+  const { error } = await getSupabaseServer().from('usuarios')
+    .update({ perfil, updated_at: new Date().toISOString() }).eq('id', (u as { id: number }).id);
+  if (error) return { ok: false, error: 'No se guardó' };
+  return { ok: true, guardados: destinosGuardados({ email: (u as { email?: unknown }).email, perfil }) };
+}
 
 export type ResultadoPruebaPaso = { ok: true; enviados: number } | { ok: false; error: string };
 

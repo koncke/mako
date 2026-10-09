@@ -1,10 +1,13 @@
 // =============================================================================
 // API: el «Probar» de /chatbot — el panel que recorre el flujo que se está editando
 // =============================================================================
-// GET  ?destino=1 → { telefono, email }: el destino PRECARGADO de «A mi WhatsApp / A mi email»:
-//      el de la PERSONA que mira (su fila de `usuarios`), o vacío. Sólo admin. No se escribe nunca.
+// GET  ?destino=1 → { telefono, email, telefonos, emails }: lo de la PERSONA que mira (su fila de
+//      `usuarios`): su teléfono y su email, y los que guardó para probar (`destinosGuardados`). Sólo admin.
 //      ⚠️ Antes era el contacto de reportes del WORKSPACE: con el super admin mirando a un cliente,
 //      la prueba le llegaba al cliente (revisión adversarial del 08/10/2026, lienzo-3).
+// POST { action: 'guardar-destino', destino: { telefono } | { email } } → { telefonos, emails }
+//      Suma un «Nuevo número» / «Nuevo email» a los guardados de ESA persona (quinta tanda, punto 1),
+//      en SU fila. Nunca en el workspace.
 // POST { action: 'clasificar', pasos, mensaje? | audioBase64? } → { casoId, titulo, transcript? }
 //      Clasifica la respuesta del lead contra los casos de «Si responde» LOCALES (los que se ven
 //      en el lienzo, sin publicar), con el MISMO clasificador del motor (`clasificarEscenario`).
@@ -29,8 +32,8 @@ import { clasificarEscenario } from '@/lib/chat-agent-handoff';
 import { getUsuarioActual } from '@/lib/auth';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { escenariosDeRespuesta, normalizar, TOPE_NODOS, type PasoGrafo } from '@/lib/flujo-grafo';
-import { destinoDelQueMira, sanearDestinoPrueba, sanearMensajePrueba } from '@/lib/simulador-grafo';
-import { enviarPasoDePrueba } from '@/lib/prueba-paso';
+import { destinoDelQueMira, destinosGuardados, sanearDestinoPrueba, sanearMensajePrueba } from '@/lib/simulador-grafo';
+import { enviarPasoDePrueba, guardarDestinoDeQuienPrueba } from '@/lib/prueba-paso';
 import type { EscenarioSecuencia } from '@/lib/setting-estrategia';
 
 export const dynamic = 'force-dynamic';
@@ -82,7 +85,10 @@ export async function GET(req: NextRequest) {
     const sesion = await getUsuarioActual();
     const propia = sesion?.email ? await buscarUsuarioPorEmail(sesion.email) : null;
     const d = destinoDelQueMira(propia);
-    return json({ ok: true, telefono: d.telefono, email: d.email });
+    // Los GUARDADOS de esa misma persona (quinta tanda, punto 1): el desplegable de «Probar en
+    // WhatsApp / Email» los ofrece primero. Su teléfono y su email de siempre van adelante.
+    const g = destinosGuardados(propia);
+    return json({ ok: true, telefono: d.telefono, email: d.email, telefonos: g.telefonos, emails: g.emails });
   } catch (e) {
     console.error(`[api:chat-agent/simulador GET] ${msg(e)}`);
     return json({ ok: false, error: 'No pude leer tu contacto.' }, 500);
@@ -150,6 +156,14 @@ export async function POST(req: NextRequest) {
       const destino = sanearDestinoPrueba(body.destino);
       const r = await enviarPasoDePrueba({ ws: a.ws, secuenciaId: id, destino, mensaje, primero: body.primero === true });
       return r.ok ? json({ ok: true, enviados: r.enviados }) : json({ ok: false, error: r.error }, 400);
+    }
+
+    // ── Guardar un «Nuevo número» / «Nuevo email» en los de QUIEN PRUEBA ───────
+    if (body.action === 'guardar-destino') {
+      if (a.rol !== 'admin') return json({ ok: false, error: 'Solo el admin prueba de verdad.' }, 403);
+      const sesion = await getUsuarioActual();
+      const r = sesion?.email ? await guardarDestinoDeQuienPrueba(sesion.email, body.destino) : { ok: false as const, error: 'Sin usuario propio' };
+      return r.ok ? json({ ok: true, telefonos: r.guardados.telefonos, emails: r.guardados.emails }) : json({ ok: false, error: r.error }, 400);
     }
 
     // ── El setter libre de antes (sin action) ───────────────────────────────

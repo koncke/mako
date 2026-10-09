@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  PanelProbar, BandejaGmail, cuandoLlega, remitenteVisible, vistaDeFila, PANEL_PROBAR_ANCHO, PANEL_PROBAR_ALTO,
+  PanelProbar, BandejaGmail, MenuDestinos, cuandoLlega, remitenteVisible, vistaDeFila, destinoLegible, PANEL_PROBAR_ANCHO, PANEL_PROBAR_ALTO,
   type CanalProbar, type CorreoRecibido,
 } from '../app/chatbot/PanelProbar';
 import { paramsDeVista } from '../app/chatbot/EditorEmailGmail';
@@ -100,38 +100,80 @@ test('llena el rectángulo que le da su padre: width y height al 100 %, en los d
   }
 });
 
-test('la cabecera es UN renglón: probar de verdad a la izquierda y ↻; sin título ni «Cerrar» adentro (cuarta tanda, punto 3)', () => {
+// ⚠️ QUINTA TANDA, PUNTO 1 (09/10/2026) — CAMBIÓ LO QUE ESTOS TESTS FIJABAN. Pedido literal: «no
+// elimines el logo de WhatsApp o Email arriba a la izquierda, y pon al lado del botón de "Reiniciar" el
+// botón de "Probar en WhatsApp", y que no esté desplegado el "Tu número", sino que al clickear ese botón
+// salga el desplegable... primero... los números que ya tiene guardado, y abajo un botón de "Nuevo
+// número"... Esto mismo con Email». Antes fijaban el campo «Tu número» + el botón A LA IZQUIERDA.
+
+test('la cabecera es UN renglón: el logo a la izquierda, «Probar en WhatsApp» al lado de ↻; sin título ni «Cerrar»', () => {
   const html = dibujar(true);
   const cab = contenedorComun(html, '>Probar en WhatsApp<', 'aria-label="Reiniciar"');
   assert.doesNotMatch(cab, /<section/, 'probar de verdad y ↻ no comparten renglón');
   assert.match(cab, /display:flex/);
   assert.match(cab, /white-space:nowrap/);
+  // El logo del canal, en el MISMO renglón y ANTES que todo.
+  const logo = html.indexOf('alt="WhatsApp"');
+  assert.ok(logo > 0 && logo < html.indexOf('>Probar en WhatsApp<'), 'el logo no está arriba a la izquierda');
+  assert.equal(contenedorComun(html, 'alt="WhatsApp"', 'aria-label="Reiniciar"'), cab, 'el logo se fue a otro renglón');
+  // «Probar en WhatsApp» pegado a ↻: entre los dos, sólo el cierre de uno y la apertura del otro.
+  const entre = html.slice(html.indexOf('>Probar en WhatsApp<') + '>Probar en WhatsApp<'.length, html.indexOf('aria-label="Reiniciar"'));
+  assert.equal((entre.match(/<button/g) ?? []).length, 1, 'otro botón se metió entre «Probar en WhatsApp» y ↻');
+  assert.doesNotMatch(entre, /<input|<form|<span|<img/, 'algo se metió entre «Probar en WhatsApp» y ↻');
   // «elimina ese texto» (el «Probar WhatsApp» de la cabecera) y el «Cerrar» vive en el chrome.
   assert.doesNotMatch(html, />Probar<\/span>|✕ Cerrar/);
 });
 
 // ── Punto 14: un canal por vez ─────────────────────────────────────────────────
 
-test('WhatsApp: el teléfono con su caja para contestar, y abajo TU número con su botón; nada de email', () => {
+test('WhatsApp: el teléfono con su caja para contestar; «Tu número» NO está desplegado: lo abre el botón', () => {
   const html = dibujar(true, 'whatsapp');
   assert.match(html, /placeholder="Responde como el lead…"/, 'sin la caja para contestar como el lead');
   assert.doesNotMatch(html, /aria-label="Recibidos"/, 'la bandeja de email apareció en WhatsApp');
-  assert.match(html, /aria-label="Tu WhatsApp"[^>]*placeholder="Tu número"/);
-  assert.match(html, />Probar en WhatsApp</);
-  // El campo y su botón, en UNA fila, ARRIBA (antes del teléfono).
-  const fila = contenedorComun(html, 'aria-label="Tu WhatsApp"', '>Probar en WhatsApp<');
-  assert.match(fila, /^<form /);
+  assert.doesNotMatch(html, /placeholder="Tu número"|aria-label="Tu WhatsApp"|<form /, 'el campo volvió a estar desplegado');
+  assert.match(html, /aria-haspopup="dialog"[^>]*>Probar en WhatsApp</, 'el botón abre el desplegable');
   assert.ok(html.indexOf('>Probar en WhatsApp<') < html.indexOf('Responde como el lead'), 'el botón de verdad no está arriba');
   assert.doesNotMatch(html, /Tu email|Probar en Email|A mi email|A mi WhatsApp/, 'volvieron los dos canales a la vez');
 });
 
-test('Email: la bandeja tipo Gmail, sin caja para contestar, y abajo TU email con su botón; nada de WhatsApp', () => {
+test('Email: la bandeja tipo Gmail con su logo, sin caja para contestar, y el mismo botón; nada de WhatsApp', () => {
   const html = dibujar(true, 'email');
   assert.match(html, /aria-label="Recibidos"/, 'sin la bandeja');
   assert.doesNotMatch(html, /Responde como el lead/, 'una respuesta del lead es un WhatsApp: no va en la bandeja');
-  assert.match(html, /aria-label="Tu email"[^>]*placeholder="Tu email"/);
-  assert.match(html, />Probar en Email</);
-  assert.doesNotMatch(html, /Tu número|Probar en WhatsApp|A mi email|A mi WhatsApp/);
+  assert.ok(html.indexOf('alt="Email"') > 0 && html.indexOf('alt="Email"') < html.indexOf('>Probar en Email<'), 'el logo del email no está arriba a la izquierda');
+  assert.doesNotMatch(html, /placeholder="Tu email"|<form /);
+  assert.match(html, /aria-haspopup="dialog"[^>]*>Probar en Email</);
+  assert.doesNotMatch(html, /Tu número|Probar en WhatsApp|A mi email|A mi WhatsApp|alt="WhatsApp"/);
+});
+
+test('el desplegable: primero los GUARDADOS (elegir uno prueba ahí) y abajo «Nuevo número» con su form de banderas', () => {
+  const menu = (p: Partial<Parameters<typeof MenuDestinos>[0]>) => renderToStaticMarkup(createElement(MenuDestinos, {
+    esEmail: false, guardados: { telefonos: ['5491125052605', '5215512345678'], emails: ['yo@mio.com'] }, onElegir: () => {},
+    nuevo: false, onNuevo: () => {}, onProbarNuevo: () => {}, error: null,
+    formTelefono: createElement('i', null, 'FORM-TEL'), formEmail: createElement('i', null, 'FORM-MAIL'), puedeProbarNuevo: false, ...p,
+  }));
+  const html = menu({});
+  // Los guardados primero, con la lada separada, y «Nuevo número» ABAJO.
+  assert.ok(html.indexOf('+54 91125052605') > 0 && html.indexOf('+52 15512345678') > html.indexOf('+54 91125052605'), html);
+  assert.ok(html.indexOf('Nuevo número') > html.indexOf('+52 15512345678'), '«Nuevo número» va abajo');
+  assert.doesNotMatch(html, /FORM-TEL/, 'el form sólo aparece al tocar «Nuevo número»');
+  // Al tocar «Nuevo número»: el form de siempre y su botón; el email, lo mismo con su form.
+  const nuevo = menu({ nuevo: true, error: 'Número incompleto' });
+  assert.match(nuevo, /<form[^>]*>[\s\S]*FORM-TEL[\s\S]*Número incompleto[\s\S]*>Probar</);
+  assert.doesNotMatch(nuevo, /Nuevo número/);
+  assert.match(menu({ esEmail: true }), />yo@mio\.com</);
+  assert.match(menu({ esEmail: true }), /Nuevo email/);
+  assert.match(menu({ esEmail: true, nuevo: true }), /FORM-MAIL/);
+  // «No pude leer» no es «no tiene», y la lista vacía lo dice.
+  assert.match(menu({ guardados: 'error' }), /No pude leer tus números/);
+  assert.match(menu({ guardados: { telefonos: [], emails: [] } }), /Sin números guardados/);
+  assert.match(menu({ guardados: null }), /Cargando/);
+  // El form del número es EL de la casa (con la bandera), no un input suelto.
+  const src = PANEL();
+  assert.match(src, /<TelefonoConPais lada=\{lada\} numero=\{numero\} onLada=\{setLada\}/);
+  assert.match(src, /portalTo=\{cajaMenu\}/, 'sin portalTo, el selector del país se abre DETRÁS del desplegable');
+  assert.equal(destinoLegible('5491125052605', false), '+54 91125052605');
+  assert.equal(destinoLegible(' yo@mio.com ', true), 'yo@mio.com');
 });
 
 test('sin ser admin no hay prueba de verdad: ni el destino ni el botón', () => {
@@ -144,12 +186,19 @@ test('sin ser admin no hay prueba de verdad: ni el destino ni el botón', () => 
 
 test('el botón de verdad arranca de nuevo el MISMO recorrido, de verdad; ↻ vuelve a la prueba sin envío', () => {
   const src = PANEL();
-  const reiniciar = src.slice(src.indexOf('const reiniciar = (deVerdad = false) => {'), src.indexOf('const probarDeVerdad'));
+  const reiniciar = src.slice(src.indexOf('const reiniciar = (deVerdad = false) => {'), src.indexOf('const [menu, setMenu] = useState(false);'));
   assert.ok(reiniciar.length > 50 && reiniciar.length < 600, `el recorte de reiniciar mide ${reiniciar.length}`);
   assert.match(reiniciar, /realRef\.current = deVerdad; setReal\(deVerdad\);/);
   assert.match(reiniciar, /arrancarRefs\(\);/);
-  const deVerdad = src.slice(src.indexOf('const probarDeVerdad = (e: FormEvent) => {'), src.indexOf('const elegirRama'));
-  assert.match(deVerdad, /if \(!destino\.trim\(\)\) return;\n\s+reiniciar\(true\);/);
+  // Elegir un destino del desplegable (o probar uno nuevo) arranca el recorrido DE VERDAD a ése.
+  const deVerdad = src.slice(src.indexOf('const probarA = (d: string) => {'), src.indexOf('const probarNuevo = (e: FormEvent) => {'));
+  assert.ok(deVerdad.length > 50 && deVerdad.length < 500, `el recorte de probarA mide ${deVerdad.length}`);
+  assert.match(deVerdad, /if \(!limpio\) return;/);
+  assert.match(deVerdad, /ctx\.current = \{ \.\.\.ctx\.current, destino: limpio \};\n\s+reiniciar\(true\);/, 'el primer envío tiene que ver el destino nuevo');
+  const nuevo = src.slice(src.indexOf('const probarNuevo = (e: FormEvent) => {'), src.indexOf('const abrirCorreo'));
+  assert.match(nuevo, /sanearDestinoPrueba\(\{ telefono: unirTelefono\(lada, numero\) \}\)\.telefono/, 'la lada y el número, con la regla del server');
+  assert.match(nuevo, /postar\(\{ action: 'guardar-destino', destino:/);
+  assert.match(nuevo, /probarA\(d\);/);
   // ↻ y «Cambió · ↻» llaman SIN argumento: `onClick={reiniciar}` le pasaría el evento y saldría de verdad.
   assert.equal((src.match(/onClick=\{\(\) => reiniciar\(\)\}/g) ?? []).length, 2);
   assert.doesNotMatch(src, /onClick=\{reiniciar\}/);
@@ -159,7 +208,8 @@ test('lo del OTRO canal ni se dibuja ni sale: el filtro vive en el panel, y lo r
   const src = PANEL();
   const avanzar = src.slice(src.indexOf('function avanzar() {'), src.indexOf('const arrancarRefs = () => {'));
   assert.ok(avanzar.length > 0 && avanzar.length < 3200, `el recorte de avanzar mide ${avanzar.length}`);
-  assert.match(avanzar, /const delPaso: CanalProbar = paso\.canal === 'email' \? 'email' : 'whatsapp';\n\s+if \(delPaso !== ctx\.current\.canal\) \{ luego\(0, avanzar\); return; \}/);
+  // (Quinta tanda, punto 1: en el medio se marca «ya le escribimos», salga por el canal que salga.)
+  assert.match(avanzar, /const delPaso: CanalProbar = paso\.canal === 'email' \? 'email' : 'whatsapp';\s+huboMensaje\.current = true;\s+if \(delPaso !== ctx\.current\.canal\) \{ luego\(0, avanzar\); return; \}/);
   // El filtro va ANTES de dibujar y de mandar nada.
   assert.ok(avanzar.indexOf('if (delPaso !== ctx.current.canal)') < avanzar.indexOf('mostrarPaso('));
   const mandar = src.slice(src.indexOf('const mandarReal = ('), src.indexOf('const mostrarPaso = ('));
@@ -173,7 +223,8 @@ test('lo del OTRO canal ni se dibuja ni sale: el filtro vive en el panel, y lo r
 
 test('el email del recorrido va a la BANDEJA con su minuto, y lo que sale de verdad es lo que se ve', () => {
   const src = PANEL();
-  const rama = src.slice(src.indexOf("if (p.canal === 'email') {"), src.indexOf("if (p.tipo === 'audio') {"));
+  // (Cuarta tanda, punto 15: lo que sigue a la rama del email es el WhatsApp de VARIAS partes.)
+  const rama = src.slice(src.indexOf("if (p.canal === 'email') {"), src.indexOf("if (redactado == null && p.tipo !== 'ia') {"));
   assert.ok(rama.length > 0 && rama.length < 700, `el recorte de la rama del email mide ${rama.length}`);
   assert.match(rama, /const correo = correoDeEjemplo\(p, c\.negocio\);/);
   assert.match(rama, /ponerCorreo\(\{ id: nuevoId\('em'\), \.\.\.correo, minuto, leido: false \}\);/);
@@ -252,3 +303,10 @@ test('las piezas puras: cuándo llega, quién lo manda y la vista previa de la f
 //   · P9 el mail abierto con otro render que el del envío: 12 / 1. · P10 los días en horas: 11 / 2.
 //   · P11 el remitente sin la regla del envío: 12 / 1. · P12 el asunto siempre en negrita: 12 / 1.
 //   · P13 la prueba real sin ser admin: 12 / 1.
+//
+// ROTURAS de la quinta tanda, punto 1 (09/10/2026), con el arnés del scratchpad corriendo este
+// archivo junto con los otros cuatro de la tanda (base 69 / 0). Las 5 cayeron:
+//   · H1 sin el logo del canal: 67 / 2 (las dos cabeceras). · H2 el botón sin abrir el desplegable
+//     (`aria-haspopup`): 67 / 2. · H3 la lista caída dicha como «Sin números guardados»: 68 / 1.
+//   · H4 el form del número sin `portalTo`: 68 / 1. · H5 `probarA` sin poner el destino en `ctx`
+//     antes de arrancar (el primer envío iría al destino de antes): 68 / 1.

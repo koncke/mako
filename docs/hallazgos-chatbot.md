@@ -951,6 +951,10 @@ primera rama (el «Sí»). La regla: una prueba que arranca sola no puede quedar
 decisión que nadie le pidió a quien mira; si hace falta probar la otra rama, eso es un control
 aparte, no un freno.
 
+⚠️ **Y «siempre por el Sí» fue el arreglo equivocado** (quinta tanda): cambió el freno por un desvío.
+Ver «"Probar" por el "Sí" también escondía los mensajes», más abajo: la decide el motor con un lead
+recién llegado.
+
 **Vive en:** `app/chatbot/PanelProbar.tsx` (el `case 'condicion'`)
 
 ### Sacar un tipo de tarjeta del producto = dejar de OFRECERLO, no dejar de dibujarlo [lienzo]
@@ -979,7 +983,70 @@ era ruido, y Martín la vio como tal. La regla del `<select>` sigue valiendo par
 error de tipos que el mismo comando mostraba arriba. Se cazó en el paso siguiente, sin pushear. El
 chequeo va a un archivo y el `$?` del comando: `npx tsc --noEmit > out.txt 2>&1; echo $?`.
 
+## Cuarta tanda, punto 15, y quinta, punto 1 (09/10/2026): varios mensajes por tarjeta y «Probar» como un lead nuevo
+
+### «Probar» por el «Sí» también escondía los mensajes: la causa no era la espera [probar]
+
+Síntoma (quinta tanda, punto 1): «al darle probar en la automatización de bienvenida, no salió el
+mensaje que debería salir… si es por el delay, evidentemente no debe tardar nada». El diagnóstico
+obvio era la espera de 1 h, y era el equivocado: la prueba ya no espera (la píldora se dice y se
+sigue). MEDIDO con la Bienvenida del ws1 (`docs/relevo/chatbot-secuencias.json`, M2) y la regla de la
+cuarta tanda: «Esperar 1 h» → el «Sí» de «Agendó» → «↪ Sigue en «Agendó: confirmar y preparar»», y
+ningún mensaje. El arreglo de la entrada de arriba («sigue sola por el Sí») cambió el freno por un
+desvío: toda condición del tipo «si ya agendó, mandalo a otra automatización» se comía el flujo.
+
+La regla: **una prueba que decide sola decide como el MOTOR, con un lead que acaba de entrar por ese
+CRON** (sin agenda, sin pago, sin respuestas, llegado ahora, con la etapa o la etiqueta por la que
+entró), y lo que la prueba misma produjo también cuenta (después de un mensaje, «ya le escribimos»).
+Con la MISMA función que el motor (`elegirSalida`). Y el bloque `catalogo` de ese lead va con CEROS,
+no ausente: ausente, una condición negada del catálogo («No reprodujo el VSL») nunca se cumple, y la
+prueba seguiría por el «Si no» de algo que un lead nuevo sí cumple.
+
+**Vive en:** `lib/simulador-grafo.ts` (`hechosDeLeadNuevo`, `leadNuevoDelCron`, `elegirComoLead`) · `app/chatbot/PanelProbar.tsx` (el `case 'condicion'`) · `tests/probar-lead-nuevo.test.ts`
+
+### Un dato que pasa a vivir en DOS lugares rompe a quien pregunta «¿quién usa esto?» [modelo]
+
+Un mensaje de varias partes guarda la primera en los campos de siempre (`cuerpo`, `audio_id`,
+`media_id`: el espejo) y el resto en `partes`. El barrido de AGENTS.md («antes de sumar un tipo de
+paso, `grep` de `.pasos` y de `setSecuenciaPasos`») encontró a los que leían sólo el espejo, y el caso
+caro no recorre pasos: PREGUNTA por un id. `pasosUsanAdjunto` (biblioteca) y `borrar_audio` (API)
+miraban `media_id` / `audio_id` del paso, así que el archivo o el audio de la SEGUNDA parte se podía
+borrar y el motor fallaba en cada lead cada 24 h, sin que nadie lo viera (`enviarPartesDelPaso` baja
+todo antes de mandar y no manda nada). Los otros: el generador de copy le pedía texto al modelo para
+el espejo (un audio con cuerpo vacío) y ese texto entraba como una parte MÁS; las variantes se
+generaban —y se pagaban— para que el guardado las tirara; la prueba de la API mandaba sólo la primera
+parte (y un audio sin su pie, que el motor sí manda); la ficha de la API y el contexto de MaKo leían
+sólo el espejo.
+
+La regla: **al partir un dato en espejo + resto, se buscan también los lectores del ID (`audio_id ===`,
+`media_id ===`), no sólo los que recorren la lista**, y la pregunta «¿lo usa?» va en UNA función
+(`pasoUsaAudio`, `pasoUsaArchivo`).
+
+**Vive en:** `lib/mensaje-partes.ts` · `lib/setting-adjuntos-reglas.ts` (`pasosUsanAdjunto`) · `lib/api-mako/areas/chatbot.run.ts` (`borrar_audio`, la ficha) · `lib/nutricion-generator.ts` · `lib/secuencias-variantes.ts` · `lib/setting-secuencias.ts` (`probarSecuencia`) · `lib/mako-context.ts` · `tests/partes-recorren.test.ts`
+
+### Los destinos de «Probar» se guardan, y son de la PERSONA [probar]
+
+Pedido: «primero el desplegable me debe ofrecer los números que ya tiene guardado, y abajo un botón de
+"Nuevo número"». Hasta acá la regla era «el destino NO se guarda» (lienzo-3: precargar el contacto de
+reportes del NEGOCIO le mandaba la prueba al cliente). Lo que se guarda ahora es de QUIEN PRUEBA: su
+teléfono y su email de siempre, y los que fue escribiendo como «Nuevo número», en `usuarios.perfil.
+destinosPrueba` de SU fila (por el email de su sesión, nunca «viendo como cliente»), reescribiendo el
+jsonb desde lo que ya tenía (ahí viven el formulario y `notifInApp`). Nunca los destinatarios del
+workspace: con el super admin mirando a un cliente, ofrecer los números del cliente es un clic de
+distancia de mandarle la prueba a él.
+
+**Vive en:** `lib/simulador-grafo.ts` (`destinosGuardados`, `perfilConDestino`) · `lib/prueba-paso.ts` (`guardarDestinoDeQuienPrueba`) · `app/api/chat-agent/simulador/route.ts` (`guardar-destino`) · `app/chatbot/PanelProbar.tsx` (`MenuDestinos`)
+
 ## Lo que quedó sin hacer
+
+**Del punto 15 de la cuarta tanda (09/10/2026), lo que vive en archivos de otras partes:** el número de
+salida con «Vincular nuevo» dentro del editor (falta pasar `linea` desde SecuenciaPerfil por
+FlujoLienzo), «✦ MaKo» al lado del título del panel (`makoEnCabecera` + `BotonMakoWhatsApp`, falta la
+ranura en la cabecera de `Lienzo.tsx`) y la TARJETA del lienzo con las partes y sin la transcripción
+(`VistaMensaje` y `altoDeMensaje`). El marcador de cuántas partes salieron vive en
+`nutricion_envios.asunto` (una columna `partes_salidas` es el arreglo de fondo) y el borrador del
+setter de un mensaje de varias partes junta los textos en uno (`wa_borradores` no tiene partes).
+`app/chatbot/FlujoLienzo.tsx` · `app/_components/Lienzo.tsx` · `lib/flujo-conversacion.ts` · `lib/mensaje-partes.ts`
 
 **De la cuarta tanda (09/10/2026):** los puntos 1, 5, 6 (la cuota N), 7, 8, 11 (más acciones), 14,
 15 y 16, cada uno con sus archivos, en `docs/relevo/chatbot.md` → «La cuarta tanda». El chat de CRM ya

@@ -3,8 +3,9 @@
 // =============================================================================
 // Pedido de Martín (08/10/2026, punto 10): «El botón de probar se rompe… No tiene la animación
 // de entrada de los mensajes y tampoco puedo interactuar, para probarlo de verdad». Molde de
-// ManyChat («In Manychat»): un teléfono al lado del lienzo que recorre la automatización; en una
-// condición, quien prueba ELIGE la rama; una espera no espera; una acción no se ejecuta.
+// ManyChat («In Manychat»): un teléfono al lado del lienzo que recorre la automatización; una
+// espera no espera; una acción no se ejecuta. Una condición la decidía quien prueba con botones; desde
+// la quinta tanda la decide el MOTOR con un lead RECIÉN LLEGADO (`hechosDeLeadNuevo`, más abajo).
 //
 // Módulo PURO y sin `server-only`: lo ejecutan tests/simulador-grafo.test.ts y
 // tests/simulador-hilos.test.ts, y lo usa el panel (app/chatbot/PanelProbar.tsx). La navegación es
@@ -47,11 +48,12 @@
 // =============================================================================
 
 import {
-  type PasoGrafo, type NombresParaTexto,
+  type PasoGrafo, type NombresParaTexto, type HechosLead,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
-  textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado,
+  textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida,
 } from './flujo-grafo';
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
+import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
 // El HTML de un email (parte C de la tercera tanda): puro y sin `server-only`, como este módulo.
 import { aplicarVariablesHtml, sanearHtmlEmail, htmlEmailVacio, TOPE_HTML_EMAIL } from './email-html-seguro';
@@ -153,6 +155,109 @@ export function firmaFlujo(pasos: readonly unknown[]): string {
 }
 
 // ── El lead de ejemplo ─────────────────────────────────────────────────────────
+
+// ── El lead RECIÉN LLEGADO: por dónde sigue una condición en la prueba ─────────────────────────
+// Pedido de Martín (09/10/2026, quinta tanda, punto 1): «al darle probar en la automatización de
+// bienvenida, no salió el mensaje que debería salir en la prueba». MEDIDO sobre la Bienvenida del ws1
+// (docs/relevo/chatbot-secuencias.json, M2) con la regla de la cuarta tanda —cada condición sigue por
+// su PRIMERA rama, el «Sí»—: la prueba mostraba «Esperar 1 h», entraba por el «Sí» de «Agendó» y
+// saltaba a OTRA automatización («↪ Sigue en «Agendó: confirmar y preparar»»). Ningún mensaje. No era
+// la espera (una espera ya no espera: se dice y se sigue): era la rama.
+//
+// La regla nueva: «Probar» corre como un lead que ACABA de entrar por el CRON —sin agenda, sin pago,
+// sin respuestas, llegado ahora— y cada condición se decide con la MISMA función del motor
+// (`elegirSalida`, lib/flujo-grafo.ts), sin botones (cuarta tanda, puntos 3 y 17). Lo que la prueba
+// misma produce también cuenta: después de un mensaje, «ya le escribimos» es verdad; después de
+// contestar como el lead, «respondió» también.
+//
+// ⚠️ LO QUE NO PASÓ, NO PASÓ (ceros), y lo que NO SE SABE de un lead nuevo queda sin saber: el bloque
+// `catalogo` va con ceros y listas vacías (ni reuniones, ni pagos, ni curso, ni clics), no ausente —
+// ausente, una condición negada del catálogo («No vio el video») nunca se cumpliría y la prueba
+// seguiría por el «Si no» de algo que un lead nuevo sí cumple—.
+
+/** Lo que el CRON dice de quién entra, y lo que ya pasó en ESTA prueba. */
+export type LeadNuevoPrueba = {
+  /** La etapa por la que entra (CRON por etapa o por entrega). */
+  etapa?: string | null;
+  /** El embudo de esa etapa (CRON por etapa de un producto). */
+  funnelId?: number | null;
+  /** El producto de cuya ENTREGA cuelga (CRON por etapa de entrega). */
+  productoId?: number | null;
+  /** La etiqueta que lo dispara (CRON por etiqueta): un lead que entra por ahí la TIENE. */
+  etiquetaId?: number | null;
+  /** Ya le salió un mensaje en esta prueba. */
+  yaContactado?: boolean;
+  /** Quien prueba escribió como el lead. */
+  respondio?: boolean;
+  ahoraMs?: number;
+};
+
+/**
+ * Quién entra según el CRON: por una etapa (del embudo o de la entrega) entra EN esa etapa; por una
+ * etiqueta, con esa etiqueta puesta. Por otra cosa (a mano, un evento) no se sabe nada de su etapa.
+ */
+export function leadNuevoDelCron(s: {
+  trigger_tipo?: string | null; etapa?: string | null; funnel_id?: number | null; producto_id?: number | null; etiqueta_id?: number | null;
+}): LeadNuevoPrueba {
+  if (s.trigger_tipo === TRIGGER_ETAPA) return { etapa: s.etapa ?? null, funnelId: s.funnel_id ?? null };
+  if (s.trigger_tipo === TRIGGER_ENTREGA) return { etapa: s.etapa ?? null, productoId: s.producto_id ?? null };
+  if (s.trigger_tipo === TRIGGER_ETIQUETA) return { etiquetaId: s.etiqueta_id ?? null };
+  return {};
+}
+
+/** Los hechos de un lead que acaba de entrar: lo que el motor sabría de él en su primer minuto. */
+export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
+  const ahoraMs = c.ahoraMs ?? Date.now();
+  const etapa = c.etapa ? String(c.etapa) : null;
+  const funnel = c.funnelId != null && Number.isFinite(Number(c.funnelId)) ? Number(c.funnelId) : null;
+  const producto = c.productoId != null && Number.isFinite(Number(c.productoId)) ? Number(c.productoId) : null;
+  const etiqueta = c.etiquetaId != null && Number.isFinite(Number(c.etiquetaId)) ? Number(c.etiquetaId) : null;
+  return {
+    etiquetas: new Set(etiqueta != null ? [etiqueta] : []),
+    // Por la entrega, la etapa es del kanban de ENTREGA (`catalogo.entrega`), no de la casa.
+    etapa: producto == null ? etapa : null,
+    ...(funnel != null && etapa && producto == null ? { etapasPorProducto: new Map([[funnel, etapa]]) } : {}),
+    agendo: false,
+    pago: false,
+    yaContactado: !!c.yaContactado,
+    respondio: !!c.respondio,
+    creadoMs: ahoraMs,
+    tieneTelefono: true,
+    tieneEmail: true,
+    ahoraMs,
+    catalogo: {
+      lead: {
+        origen: null, estado: null, calificado: null, deFormularioMeta: false, conVisitante: false, campana: null,
+        emailBaja: false, ventaTipo: null, tieneFechaAgenda: false,
+        r1: { fechaMs: null, asistio: null }, r2: { fechaMs: null, asistio: null },
+        cerro: null, tieneFechaCierre: false, confirmoCompra: false, proximaReunionMs: null,
+      },
+      vsl: { plays: 0, maxPct: null },
+      clics: 0,
+      respuestas: '',
+      pagos: { pagadas: 0, vencidas: 0, cuotas: new Map() },
+      curso: { completas: new Set(), enviadas: new Set(), aprobadas: new Set(), modulosCompletos: new Set(), avance: new Map() },
+      acceso: null,
+      comunidad: { posts: 0, comentarios: 0, comentoPosts: new Set() },
+      entrega: new Set(producto != null && etapa ? [`${producto}:${etapa}`] : []),
+      estadoCliente: 'activo',
+    },
+  };
+}
+
+/**
+ * La condición que espera elección, decidida como la decidiría el motor con este lead
+ * (`elegirSalida`). `opcion`: por cuál siguió (null = la tarjeta ya no está: el hilo sigue por el «Si
+ * no», que es lo que el motor hace con lo que no sabe).
+ */
+export function elegirComoLead(pasos: readonly PasoGrafo[], estado: EstadoSim, hechos: HechosLead): { estado: EstadoSim; opcion: OpcionRama | null } {
+  const e = estado.eligiendo;
+  if (!e) return { estado, opcion: null };
+  const p = nodoPorId(pasos, e.nodo);
+  const puerto = p ? elegirSalida(p, hechos).puerto : RESULTADO_SI_NO;
+  const opcion = e.opciones.find((o) => o.puerto === puerto) ?? e.opciones.find((o) => o.puerto === RESULTADO_SI_NO) ?? null;
+  return { estado: opcion ? elegir(estado, opcion.puerto) : { ...estado, eligiendo: null }, opcion };
+}
 
 /**
  * El lead con el que se resuelven las variables: los EJEMPLOS del catálogo del motor
@@ -572,6 +677,63 @@ export function destinoDelQueMira(u: { email?: unknown; perfil?: unknown } | nul
   };
 }
 
+// ── Los destinos GUARDADOS de quien prueba (quinta tanda, punto 1) ──────────────────────────────
+// Pedido de Martín (09/10/2026), textual: «que no esté desplegado el "Tu número", sino que al
+// clickear ese botón salga el desplegable... Y primero el desplegable me debe ofrecer los números que
+// ya tiene guardado, y abajo un botón de "Nuevo número", y que tenga el form que ya tenemos de número,
+// con la característica con las banderas, etc... Esto mismo con Email».
+//
+// ⚠️ SON DE LA PERSONA, NO DEL NEGOCIO, como el precargado de antes (lienzo-3): viven en el jsonb
+// `perfil` de SU fila de `usuarios` (`destinosPrueba`), primero su teléfono / su email de siempre y
+// después los que fue usando. NUNCA el contacto de reportes ni los destinatarios del workspace: con el
+// super admin mirando a un cliente, ofrecer los números del cliente es un clic de distancia de
+// mandarle la prueba a él.
+
+/** Cuántos guardados por canal (además del de su perfil). Los más nuevos primero. */
+export const TOPE_DESTINOS_GUARDADOS = 6;
+/** La clave adentro de `usuarios.perfil`. */
+export const CLAVE_DESTINOS_PRUEBA = 'destinosPrueba';
+
+export type DestinosGuardados = { telefonos: string[]; emails: string[] };
+
+const listaDeTextos = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+/** Los destinos de quien prueba, en orden y sin repetidos: el de su perfil primero, después los guardados. */
+export function destinosGuardados(u: { email?: unknown; perfil?: unknown } | null | undefined): DestinosGuardados {
+  const propio = destinoDelQueMira(u);
+  const perfil = u?.perfil && typeof u.perfil === 'object' && !Array.isArray(u.perfil) ? (u.perfil as Record<string, unknown>) : {};
+  const g = (perfil[CLAVE_DESTINOS_PRUEBA] && typeof perfil[CLAVE_DESTINOS_PRUEBA] === 'object' ? perfil[CLAVE_DESTINOS_PRUEBA] : {}) as Record<string, unknown>;
+  const telefonos: string[] = [];
+  for (const t of [propio.telefono, ...listaDeTextos(g.telefonos)]) {
+    const d = sanearDestinoPrueba({ telefono: t }).telefono;
+    if (d && !telefonos.includes(d)) telefonos.push(d);
+  }
+  const emails: string[] = [];
+  for (const e of [propio.email, ...listaDeTextos(g.emails)]) {
+    const d = sanearDestinoPrueba({ email: e }).email?.toLowerCase();
+    if (d && !emails.includes(d)) emails.push(d);
+  }
+  return { telefonos, emails };
+}
+
+/**
+ * El `perfil` con un destino más guardado: al principio, sin repetir y con el tope. Lo demás del
+ * jsonb viaja INTACTO (ahí viven los campos del formulario y `notifInApp`: partir de {} los borraría).
+ * null = el destino no sirve (no se guarda nada).
+ */
+export function perfilConDestino(perfil: unknown, d: { telefono?: unknown; email?: unknown }): Record<string, unknown> | null {
+  const base = perfil && typeof perfil === 'object' && !Array.isArray(perfil) ? { ...(perfil as Record<string, unknown>) } : {};
+  const s = sanearDestinoPrueba(d);
+  if (!s.telefono && !s.email) return null;
+  const g = (base[CLAVE_DESTINOS_PRUEBA] && typeof base[CLAVE_DESTINOS_PRUEBA] === 'object' ? base[CLAVE_DESTINOS_PRUEBA] : {}) as Record<string, unknown>;
+  const sumar = (lista: string[], v: string | null) => (v ? [v, ...lista.filter((x) => x !== v)] : lista).slice(0, TOPE_DESTINOS_GUARDADOS);
+  base[CLAVE_DESTINOS_PRUEBA] = {
+    telefonos: sumar(listaDeTextos(g.telefonos), s.telefono),
+    emails: sumar(listaDeTextos(g.emails), s.email?.toLowerCase() ?? null),
+  };
+  return base;
+}
+
 const idPositivo = (v: unknown): number | null => {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 ? n : null;
@@ -598,7 +760,10 @@ export function sanearMensajePrueba(raw: unknown): MensajePrueba | null {
   return { canal, tipo: canal === 'email' ? 'texto' : tipo, texto, asunto, audio_id, media_id, ...(html ? { html } : {}) };
 }
 
-/** El destino que se escribió en el panel. NO se guarda en ningún lado: es de esta prueba. */
+/**
+ * El destino que se eligió o se escribió en el panel. Lo que sale de acá se usa para ESTA prueba; si
+ * quien prueba lo escribió como «Nuevo número», se suma a SUS guardados (`perfilConDestino`).
+ */
 export function sanearDestinoPrueba(raw: unknown): DestinoPrueba {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const digitos = typeof o.telefono === 'string' ? o.telefono.replace(/\D/g, '') : '';
