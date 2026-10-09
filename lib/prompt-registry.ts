@@ -58,6 +58,7 @@ import { VOZ_SEGMENTAR_TEMPLATE, VOZ_ANALISIS_SYSTEM_TEMPLATE, VOZ_ANALISIS_USER
 import { VARIANTES_SYSTEM_TEMPLATE } from './secuencias-variantes';
 import { PASO_IA_SYSTEM_TEMPLATE } from './paso-ia';
 import { GUION_PASO_SYSTEM_TEMPLATE } from './guion-audio';
+import { CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE } from './flujo-ia';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -442,6 +443,25 @@ export const REGISTRY: Group[] = [
         variables: [v('perfil', 'perfil del negocio'), v('secuencia', 'objetivo + gancho + preguntas de la secuencia'), v('voz', 'guía de voz destilada del negocio')], scope: 'static-only', sensitive: false,
         default: GUION_PASO_SYSTEM_TEMPLATE,
         context: 'El botón «Escríbeme el guion» al grabar la nota de voz de un mensaje: lo que el dueño lee en voz alta. No borres las reglas de no leer links ni datos entre llaves, ni el largo de 30 a 60 segundos: el código lo comprueba (lib/guion-audio.ts → revisarGuion) y descarta el guion que no cumple. Y no lo pases a voseo: lo escucha el cliente del negocio.',
+      },
+      // Crear con IA (08/10/2026, decisión 14). SIN slots, a propósito: el negocio, sus listas y el
+      // pedido viajan en el mensaje `user` (lib/flujo-ia.ts → userDeCrear / userDeEditar), porque un
+      // override guardado desde /configuraciones no conoce bloques nuevos y los perdería en
+      // silencio. Los `{{nombre}}` y `{{negocio}}` del texto NO son slots: son las variables del
+      // motor que el modelo tiene que escribir tal cual en los mensajes.
+      {
+        key: 'chatbot.crear-ia.system', source: 'override',
+        label: 'Crear una automatización con IA (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: CREAR_IA_SYSTEM_TEMPLATE,
+        context: 'La caja «¿Qué quieres que haga?» de una automatización nueva: el modelo devuelve el flujo como un JSON propio con NOMBRES, y el código lo traduce y lo repara (lib/flujo-ia.ts → deIA). No borres la forma del JSON ni las reglas duras: el código saca lo que no las cumple y, si queda roto, prueba otro proveedor. No le pidas links ni ids: los pone el código. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
+      },
+      {
+        key: 'chatbot.editar-ia.system', source: 'override',
+        label: 'Agregarle tarjetas a una automatización con IA (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: EDITAR_IA_SYSTEM_TEMPLATE,
+        context: 'La barra «Pídele un cambio» de una automatización que ya existe. Sólo AGREGA tramos colgados de una salida vacía, de un camino en paralelo o de «Si responde»: nunca cambia ni borra una tarjeta (ahí puede haber leads parados). No borres la forma de "agregar" ni la regla de no pisar una salida ocupada: el código la comprueba (lib/flujo-ia.ts → deIAEdicion).',
       },
       {
         key: 'setting.ensayo', source: 'override',
