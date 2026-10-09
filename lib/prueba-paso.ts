@@ -19,8 +19,12 @@
 // anti-ban, igual que `probarSecuencia`. Lo único que queda es el espejo del saliente en
 // `wa_mensajes`, que es lo que hace cualquier envío por la línea.
 //
-// ⚠️ SALE POR LA LÍNEA DE LA SECUENCIA (`instance_name`): probarla por otra sería probar otra
-// cosa. Se lee de la fila guardada (la línea se guarda al elegirla, no con «Publicar»).
+// ⚠️ SALE POR EL EMISOR QUE ELIGIÓ QUIEN PRUEBA (sexta tanda, «Probar» 2: «deberían pedir emisor
+// (siempre dentro de los email y numeros configurados, con la opción de agregar nuevo)»), y si no
+// eligió, por la línea de la secuencia (`instance_name`, leída de la fila guardada). La línea pedida
+// la valida el envío (`elegirLinea`: una que no es del negocio NO manda y no cae a la de por default);
+// el remitente pedido, `remitenteDelPaso` (del mismo dominio que el del negocio, nunca el sandbox):
+// uno que no sirve corta con su motivo, nunca sale por otro.
 //
 // ⚠️ Y CON TOPE POR DESTINO (revisión adversarial del 08/10/2026, datos-4). El panel corre en el
 // navegador y no espera las esperas: un «Ir a» que vuelve sobre un mensaje mandaba ~21 WhatsApp
@@ -35,17 +39,17 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspace } from './workspace';
-import { firmaDelPie } from './email-remitente';
+import { firmaDelPie, remitenteDelPaso } from './email-remitente';
 import { getSupabaseServer } from './supabase';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evolution-envio';
 import { getAudio, audioBase64 } from './setting-audios';
 import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
-import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
+import { sendEmail, renderEmailHtml, remitenteEsSandbox, getEmailFrom } from './resend';
 import { reclamarEspaciado } from './espaciado';
 import {
-  planDePrueba, claveDestinoPrueba, reclamarCupoPrueba, tipoDeMime, VENTANA_PRUEBA_MIN, destinosGuardados, perfilConDestino,
-  type DestinoPrueba, type MensajePrueba, type DestinosGuardados,
+  planDePrueba, claveDestinoPrueba, reclamarCupoPrueba, tipoDeMime, VENTANA_PRUEBA_MIN, destinosGuardados, perfilConDestino, lineaDePrueba,
+  type DestinoPrueba, type MensajePrueba, type DestinosGuardados, type EmisorPrueba,
 } from './simulador-grafo';
 
 /**
@@ -78,6 +82,8 @@ export async function enviarPasoDePrueba(p: {
   mensaje: MensajePrueba;
   /** Es el primero que sale en esta prueba: lleva el aviso. */
   primero: boolean;
+  /** Desde dónde sale (sexta tanda). Ausente = la línea de la automatización y el remitente del negocio. */
+  emisor?: EmisorPrueba;
 }): Promise<ResultadoPruebaPaso> {
   const { mensaje, destino } = p;
   if (mensaje.canal === 'whatsapp' && !destino.telefono) return { ok: false, error: 'Falta tu número' };
@@ -90,10 +96,17 @@ export async function enviarPasoDePrueba(p: {
     .from('nutricion_secuencias').select('id, instance_name').eq('id', p.secuenciaId).maybeSingle();
   if (error) return { ok: false, error: 'No pude leer la automatización' };
   if (!sec) return { ok: false, error: 'Esa automatización no existe' };
-  const linea = ((sec as { instance_name?: string | null }).instance_name ?? null) || null;
+  const linea = lineaDePrueba(p.emisor, (sec as { instance_name?: string | null }).instance_name);
 
   if (mensaje.canal === 'email' && await remitenteEsSandbox()) {
     return { ok: false, error: 'Verifica tu dominio para mandar emails' };
+  }
+  // El remitente pedido: sólo uno del dominio del negocio. Si ya no lo es, se dice (nunca sale por otro).
+  let from: string | undefined;
+  if (mensaje.canal === 'email' && p.emisor?.remitente) {
+    const usable = remitenteDelPaso(p.emisor.remitente, await getEmailFrom());
+    if (!usable) return { ok: false, error: 'Ese remitente ya no es de tu negocio' };
+    from = usable;
   }
 
   // El tope. Sin poder contar, no se manda: es la línea no oficial del cliente.
@@ -125,7 +138,7 @@ export async function enviarPasoDePrueba(p: {
       // Con el HTML del editor rico (parte C de la tercera tanda): sin `bodyHtml`, la prueba mandaba el
       // texto plano de respaldo y no el email que se ve en la bandeja. `renderEmailHtml` lo vuelve a sanear.
       const r = await sendEmail({
-        to: destino.email!, subject: envio.asunto,
+        to: destino.email!, ...(from ? { from } : {}), subject: envio.asunto,
         html: renderEmailHtml({ subject: envio.asunto, bodyText: envio.texto, bodyHtml: envio.html || undefined, fromName: firma }), text: envio.texto,
       });
       if (!r.ok) return { ok: false, error: r.error || 'El email no salió' };

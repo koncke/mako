@@ -57,6 +57,8 @@ import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-et
 import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
 // El HTML de un email (parte C de la tercera tanda): puro y sin `server-only`, como este módulo.
 import { aplicarVariablesHtml, sanearHtmlEmail, htmlEmailVacio, TOPE_HTML_EMAIL } from './email-html-seguro';
+// El remitente de la prueba real (sexta tanda): puro y sin imports, como este módulo.
+import { sanearRemitente } from './email-remitente';
 
 /** Topes: el motor corta a 20 saltos por corrida; acá además se cortan las vueltas infinitas. */
 export const TOPE_SALTOS = 20;
@@ -189,6 +191,12 @@ export type LeadNuevoPrueba = {
   yaContactado?: boolean;
   /** Quien prueba escribió como el lead. */
   respondio?: boolean;
+  /**
+   * Si el lead de la prueba tiene teléfono / email. Ausente = sí (lo de siempre). Lo elige
+   * `contactoParaProbar` según el canal que se prueba: de un lead nuevo, es lo único que NO se sabe.
+   */
+  tieneTelefono?: boolean;
+  tieneEmail?: boolean;
   ahoraMs?: number;
 };
 
@@ -222,8 +230,8 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
     yaContactado: !!c.yaContactado,
     respondio: !!c.respondio,
     creadoMs: ahoraMs,
-    tieneTelefono: true,
-    tieneEmail: true,
+    tieneTelefono: c.tieneTelefono !== false,
+    tieneEmail: c.tieneEmail !== false,
     ahoraMs,
     catalogo: {
       lead: {
@@ -541,6 +549,83 @@ export function escenarioParaRedactar(estado: EstadoSim, paso: PasoGrafo): { tit
   };
 }
 
+// ── Qué CONTACTO tiene el lead de la prueba (sexta tanda, «Probar» 1, 09/10/2026) ──────────────
+// Pedido de Martín, textual: «Mira la captura que te paso, está configurado el email y en PROBAR no
+// salió nada. Al igual que WhatsApp, el email debe salir con su animación...». La captura: la
+// automatización «Felicitación al terminar clase» (#226 del ws1), CRON → CONDITION «Tiene WhatsApp»
+// → «Sí»: WhatsApp + TAG; «Si no»: EMAIL. «Probar en Email» abierto, «Sin correos» y «Fin» abajo.
+//
+// ⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: el envío, la bandeja y la animación andaban. MEDIDO con
+// el flujo real (leído de la base, sólo lectura): el lead de la prueba (`hechosDeLeadNuevo`) tenía
+// teléfono Y email SIEMPRE, así que «Tiene WhatsApp» salía por el «Sí» —un WhatsApp, que la bandeja
+// no dibuja, y la etiqueta— y el email del «Si no» no aparecía nunca. La quinta tanda ya había
+// pagado lo mismo con «Agendó»: decidir como el motor está bien; lo que estaba mal era el DATO.
+//
+// La regla: de un lead que ACABA de entrar, lo que NO se sabe es si tiene teléfono y si tiene email
+// (un lead real llega con uno, con el otro o con los dos). Esos dos hechos se ELIGEN para el canal
+// que se prueba: primero el lead con los dos (lo de siempre), y si así no llega ningún mensaje de ese
+// canal, el que tiene SÓLO ese canal, después el que tiene sólo el otro y al final ninguno. El
+// primero con el que llega algo es el lead de la prueba. Lo demás —sin agenda, sin pago, llegado
+// ahora— sigue siendo un hecho y no se elige.
+
+/** Lo que de un lead recién llegado no se sabe y puede ir para los dos lados. */
+export type ContactoPrueba = { tieneTelefono: boolean; tieneEmail: boolean };
+
+/** El contacto de siempre: los dos. */
+export const CONTACTO_COMPLETO: ContactoPrueba = { tieneTelefono: true, tieneEmail: true };
+
+/**
+ * Los MENSAJES que vería el lead de la prueba, de una vez y sin animación: el MISMO recorrido del
+ * panel (`siguiente`, y cada condición con `elegirComoLead`), con «ya le escribimos» después del
+ * primer mensaje, como lo marca el panel. Lo que no es un mensaje (esperas, acciones, saltos) no se
+ * devuelve. Exportada para el test y para `contactoParaProbar`.
+ */
+export function mensajesDelRecorrido<P extends PasoGrafo>(pasos: readonly P[], lead: LeadNuevoPrueba = {}, nombres: NombresSim = {}): P[] {
+  const ahoraMs = lead.ahoraMs ?? Date.now();
+  let st = iniciar(pasos);
+  let contactado = false;
+  const out: P[] = [];
+  // Cada vuelta muestra un evento o decide una condición: el tope de eventos corta cualquier bucle.
+  for (let vuelta = 0; vuelta < TOPE_EVENTOS * 2 + 4; vuelta++) {
+    const r = siguiente(pasos, st, nombres);
+    st = r.estado;
+    if (r.evento?.t === 'mensaje') { out.push(r.evento.paso); contactado = true; continue; }
+    if (r.evento?.t === 'fin') break;
+    if (!st.eligiendo) { if (!r.evento) break; continue; }
+    const e = elegirComoLead(pasos, st, hechosDeLeadNuevo({ ...lead, yaContactado: contactado, respondio: false, ahoraMs }));
+    if (!e.opcion) break;
+    st = e.estado;
+  }
+  return out;
+}
+
+/**
+ * El contacto del lead de la prueba de UN canal: el primero (en el orden de la cabecera) con el que
+ * le llega algún mensaje de ese canal. `esDelCanal` lo decide quien prueba (el panel), y `propio`
+ * es el dato que ese canal necesita: `tieneEmail` para el email, `tieneTelefono` para WhatsApp. Si
+ * con ninguno llega nada, el de siempre: no hay a quién inventarle un dato.
+ */
+export function contactoParaProbar<P extends PasoGrafo>(
+  pasos: readonly P[],
+  esDelCanal: (p: P) => boolean,
+  propio: keyof ContactoPrueba,
+  lead: LeadNuevoPrueba = {},
+  nombres: NombresSim = {},
+): ContactoPrueba {
+  const otro: keyof ContactoPrueba = propio === 'tieneEmail' ? 'tieneTelefono' : 'tieneEmail';
+  const candidatos: ContactoPrueba[] = [
+    CONTACTO_COMPLETO,
+    { [propio]: true, [otro]: false } as ContactoPrueba,
+    { [propio]: false, [otro]: true } as ContactoPrueba,
+    { tieneTelefono: false, tieneEmail: false },
+  ];
+  const ahoraMs = lead.ahoraMs ?? Date.now();
+  for (const c of candidatos) {
+    if (mensajesDelRecorrido(pasos, { ...lead, ...c, ahoraMs }, nombres).some(esDelCanal)) return c;
+  }
+  return CONTACTO_COMPLETO;
+}
+
 // ── La prueba REAL: qué sale a «mi WhatsApp» / «mi email» ────────────────────────
 // Lo envía lib/prueba-paso.ts (server-only). Acá vive la parte que se puede EJECUTAR en un test:
 // qué forma tiene un mensaje de prueba y qué envíos produce.
@@ -771,6 +856,48 @@ export function sanearDestinoPrueba(raw: unknown): DestinoPrueba {
   const em = typeof o.email === 'string' ? o.email.trim() : '';
   const email = em.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) ? em : null;
   return { telefono, email };
+}
+
+// ── El EMISOR de la prueba real (sexta tanda, «Probar» 2) ────────────────────────────────────────
+// Pedido de Martín, textual: «Los botones de Probar con WhatsApp / Email. Para probarlo en la vida
+// real, deberían pedir emisor (siempre dentro de los email y numeros configurados, con la opción de
+// agregar nuevo) y remitente...». O sea: DESDE qué número / email sale la prueba (sólo los vinculados
+// del negocio) y A cuál llega (los guardados de quien prueba).
+//
+// ⚠️ LO QUE LLEGA DEL NAVEGADOR ES UN PEDIDO, NO UNA AUTORIZACIÓN: la línea la vuelve a resolver el
+// envío con `elegirLinea` (lib/lineas-whatsapp.ts), que rechaza una línea que no es del negocio sin
+// caer a la de por default; el remitente lo vuelve a decidir `remitenteDelPaso` (mismo dominio que el
+// del negocio, nunca el sandbox). Acá sólo se le da forma.
+
+/**
+ * Desde dónde sale la prueba. `linea`: ausente = la de la automatización; null = la de por default.
+ * `remitente`: ausente o null = el del negocio.
+ */
+export type EmisorPrueba = { linea?: string | null; remitente?: string | null };
+
+/** El emisor que manda el panel, saneado. Lo que no se puede leer queda AUSENTE (= el de siempre). */
+export function sanearEmisorPrueba(raw: unknown): EmisorPrueba {
+  const o = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
+  const out: EmisorPrueba = {};
+  if ('linea' in o) {
+    const l = typeof o.linea === 'string' ? o.linea.trim() : '';
+    if (o.linea === null || l === '') out.linea = null;
+    else if (/^[A-Za-z0-9_.-]{1,80}$/.test(l)) out.linea = l;
+  }
+  if (typeof o.remitente === 'string' && o.remitente.trim()) {
+    const r = sanearRemitente(o.remitente);
+    if (r) out.remitente = r;
+  }
+  return out;
+}
+
+/**
+ * La línea que se le PIDE al envío para la prueba: la que eligió quien prueba (null = la de por
+ * default) o, si no eligió, la de la automatización. El envío la vuelve a validar (`elegirLinea`).
+ */
+export function lineaDePrueba(emisor: EmisorPrueba | null | undefined, deLaSecuencia: string | null | undefined): string | null {
+  if (emisor && 'linea' in emisor && emisor.linea !== undefined) return emisor.linea || null;
+  return (deLaSecuencia ?? '').trim() || null;
 }
 
 /**
