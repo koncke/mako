@@ -9488,3 +9488,152 @@ cliente cargó su key —que tapó el síntoma—. Lo que faltaba de verdad, ade
 en `docs/hallazgos-integraciones.md` («El remitente de Resend…»).
 
 _09/10/2026 — sin subagentes; probado rompiéndolo (1 fallo por cada `process.env` devuelto)._
+
+---
+
+## Instagram y Messenger con la app MaKo: qué se puede sin Zernio (09/10)
+
+Martín preguntó si, con la app propia de Meta (MaKo, 2586146911825340) en validación, se
+puede dejar de depender de Zernio: que el cliente conecte su Instagram en MaKo y use las
+automatizaciones, los DM como chatbot, y además publicar Reels y lo que hoy hace Metricool.
+Leído contra la doc de Meta el 09/10/2026 (páginas actualizadas entre jun y sep de 2026) y
+contra el estado de la app que está en `hallazgos-ads.md` → «Conectar con Meta».
+
+**La respuesta corta: sí, todo eso existe por API y con la app MaKo alcanza.** Lo que lo
+traba no es técnico: es el App Review de cada permiso. Y una regla de Meta decide el diseño
+antes que cualquier otra cosa: **una app usa Facebook Login O Instagram Login para los
+permisos de Instagram, no las dos** (página *Instagram Platform → App Review*, 30/06/2026).
+La app MaKo ya usa Facebook Login for Business para anuncios, páginas y leads.
+
+### 1. Los dos caminos para conectar Instagram
+
+| | Facebook Login for Business (lo que ya tiene la app) | Instagram Login («Business Login for Instagram») |
+|---|---|---|
+| Con qué entra el cliente | su cuenta de Facebook; elige el Instagram en el diálogo de Meta | usuario y contraseña de Instagram |
+| Página de Facebook vinculada | **obligatoria** | no hace falta |
+| Token | de usuario del sistema, **no vence** (así está hoy) | de Instagram, **60 días**, hay que refrescarlo |
+| Host | `graph.facebook.com` | `graph.instagram.com` |
+| Permisos | `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`, `instagram_content_publish`, `instagram_manage_insights` + `pages_show_list`, `pages_read_engagement` | `instagram_business_basic`, `…_manage_messages`, `…_manage_comments`, `…_content_publish` |
+| DM | por la Messenger Platform (Instagram Messaging) | directo |
+| Lo que NO puede | — | **anuncios**, búsqueda de hashtags, etiquetar productos, anuncios de colaboración |
+
+**Recomendado: el mismo app y Facebook Login.** Un cliente de MaKo pauta en Meta, y pautar
+ya exige una página: la condición de la página la cumple. El token no vence, el
+«Conectar con Meta» es el mismo botón, y es UNA revisión. «Entrar con usuario de Instagram,
+sin página» es posible, pero es **una segunda app** con su propio App Review — vale sólo si
+aparecen clientes que no pautan y no tienen página.
+
+### 2. DM como chatbot
+
+- **La conversación la abre siempre la persona**: un mensaje, una mención en una historia,
+  un comentario contestado por privado o un anuncio. MaKo nunca escribe primero.
+- **Ventana**: 24 h desde el último mensaje de la persona; **hasta 7 días** si el primer
+  mensaje vino de un anuncio Click-to-Direct. Para que conteste un HUMANO hay una ventana
+  aparte de 7 días con la etiqueta de agente humano — y Meta la prohíbe para respuestas
+  automáticas (lo midió la corrida del 14/08, sección de arriba).
+- **Webhooks**: `messages` (incluye los ecos, en Instagram no hay campo aparte),
+  `messaging_postbacks` (botones e icebreakers), `messaging_referrals` (links ig.me y
+  anuncios), `messaging_reactions`, `messaging_seen`, `messaging_optins`.
+- **Comentario → DM** (lo que más se compra): sirve para comentarios en posts, Reels,
+  historias, Lives **y anuncios**. **Un solo mensaje** por comentario, dentro de 7 días; seguir
+  la charla sólo si la persona contesta, y en 24 h. La página de Meta lista para esto sólo
+  `…_basic` + `…_manage_comments`, pero continuar necesita también `…_manage_messages`: se
+  piden los TRES (ya estaba medido el 14/08).
+- **Límites**: 100 mensajes por segundo por cuenta (texto, links, reacciones), 10/s con
+  audio o video, comentario→DM 750 por hora en posts y Reels. No es un techo que un cliente
+  de MaKo vaya a tocar.
+- **Bandeja**: lo que se contesta por API va a la carpeta «General» del Instagram del
+  cliente, y las conversaciones en «Solicitudes» sin actividad por 30 días no vuelven por API.
+- **Aviso de bot**: donde la ley lo exige (Meta nombra California y Alemania) el chat
+  automático tiene que decir que es automático al empezar.
+
+### 3. Messenger: los disparadores de ManyChat, uno por uno
+
+| Disparador | Cómo llega | Permiso | ¿Se puede? |
+|---|---|---|---|
+| Mensaje | webhook `messages` | `pages_messaging` | sí |
+| Comentario en una publicación | webhook `feed` de la página → respuesta privada | `pages_messaging` + `pages_manage_metadata` | sí: un mensaje, 7 días, como en Instagram |
+| Link m.me con `ref` | hilo nuevo: el botón «Empezar» trae el `ref` en `messaging_postbacks`; hilo existente: `messaging_referrals` | `pages_messaging` | sí |
+| Código QR | es el mismo link m.me con `ref` metido en un QR común; no hay API aparte | — | sí |
+| Clic en anuncio Click-to-Messenger | `messaging_referrals` con `source: ADS`, el `ad_id` y título/imagen del anuncio | `pages_messaging` | sí, y la ventana sube a 7 días |
+| Tienda de Facebook | existe el webhook `send_cart` (sólo Messenger) | — | **sin verificar**: no se midió si las tiendas siguen mandando carritos |
+
+Fuera de las 24 h, Messenger tiene más salidas que Instagram: etiquetas de mensaje (para
+casos aprobados), mensajes de utilidad, *Marketing Messages* y mensajes patrocinados (pagos).
+**Ninguna de las de marketing existe para Instagram.**
+
+⚠️ **Todo webhook de página exige `pages_manage_metadata`** (lo pide la suscripción por
+`subscribed_apps`). El 07/10 se dejó **afuera** del App Review a propósito: sin él no hay DM
+de Messenger, ni comentarios, ni el webhook de leads en vivo (que hoy entra por polling).
+
+### 4. Publicar, y lo que hace Metricool por fuera de la API
+
+- **Se puede publicar**: imágenes, videos, Reels (incluidos los Reels de prueba, que se
+  muestran sólo a no seguidores), carruseles e **historias** (`media_type: STORIES`).
+- **Historias sólo en cuentas Business** según la doc de Meta; la ayuda de Metricool se
+  contradice sobre cuentas Creator. Hay que mirar el tipo de cuenta de cada cliente.
+- **Tope**: la página de Meta del 30/06/2026 dice **100 publicaciones por 24 h** por cuenta
+  (un carrusel cuenta como una); la ayuda de Metricool dice 50. Se lee
+  `GET /{ig-id}/content_publishing_limit` por cuenta y ése es el número (la regla del 14/08
+  sigue en pie).
+- **Meta no programa**: publica cuando se lo piden. Programar es un cron de MaKo, y el
+  contenedor se crea al publicar porque vence a las 24 h.
+- **La API no puede**: filtros, etiquetas de compra, imágenes que no sean JPEG, y en
+  historias los stickers de link, encuesta, pregunta o cuenta regresiva, ni las menciones.
+- **Lo que hace Metricool con eso**: lo que la API no permite te lo manda como notificación
+  al celular, baja el archivo, copia el texto, y lo publicás a mano en Instagram. Música:
+  sólo la de su propia biblioteca; fuera de ella, a mano. O sea que Metricool tiene los
+  mismos topes; lo que suma es producto propio (otras redes, link en bio, análisis de
+  competidores) — esto último **no se verificó**, sale de su ayuda y de su marketing.
+
+### 5. Qué cambia en la verificación en curso, y en qué orden
+
+- **Verificación de acceso (Tech Provider)**: una por NEGOCIO, no por permiso, y una vez
+  aprobada pasan todas sus apps. La lista de permisos que la disparan ya incluye
+  `instagram_basic`, `instagram_business_basic` y los de publicación: **la que está en
+  revisión desde el 08/10 cubre Instagram**. No hay que pedir nada nuevo ahí.
+- **Verificación del negocio**: hecha (08/10). Tampoco cambia.
+- **App Review**: acá sí suma. Cada permiso se aprueba por separado, y cada uno necesita al
+  menos una llamada exitosa hecha con un rol en la app, un screencast con el botón de login
+  a la vista y el caso de uso paso a paso.
+
+**Orden recomendado:**
+
+1. Esperar la verificación de acceso (~5 días hábiles desde el 08/10) y comprobar que entran
+   los permisos de anuncios (`hallazgos-ads.md`, «reconectar y medir `/me/permissions`»).
+2. Agregar a la app los productos **Messenger** (con su parte de Instagram) e **Instagram →
+   API setup with Facebook login**, y sumar los permisos nuevos a la configuración
+   «MaKo - Conectar Meta» (config_id 1856482472307001).
+3. Hacer una llamada real con cada permiso, desde el ws9 con la página Hola MaKo y el
+   Instagram de MaKo — eso es lo que Meta pide antes de dejar enviar.
+4. Mandarlos a revisión, **con `pages_manage_metadata`**. Si la revisión de anuncios todavía
+   no se envió, en el mismo envío; si ya se envió, en uno segundo (no se pudo saber desde
+   el repo si se envió).
+5. Recién aprobado, apagar Zernio cliente por cliente. **Mientras tanto Zernio es el
+   puente correcto**: él es el proveedor verificado y aprobado, y por eso no le hace falta
+   ningún App Review a MaKo.
+
+### Lo que quedó SIN verificar
+
+- Que la app MaKo no pueda mezclar los dos logins: es lo que dice la doc, no se probó.
+- Si las tiendas de Facebook siguen mandando `send_cart`.
+- Si el App Review de anuncios ya se envió.
+- Lo de Metricool, que sale de su centro de ayuda y no de una prueba.
+- Lo que ya estaba abierto el 14/08: el `tag` de agente humano en `graph.instagram.com`, y
+  el `content_publishing_limit` real de una cuenta viva.
+
+### GOTCHA de investigación: el truco del `.md` de la doc de Meta murió
+
+La regla de arriba (14/08) decía que agregarle `.md` a una URL de `developers.facebook.com`
+devolvía el markdown fuente en inglés. **Medido el 09/10: 404**, incluso con la URL exacta
+que dejó escrita. Lo que anda hoy es **`?locale=en_US`**: contesta 200, en inglés y con el
+texto en el HTML; se baja con `curl` y se le sacan las etiquetas. **Se sigue sin usar
+WebFetch** para esto: pasa el texto por un modelo que resume, que es como el 14/08 apareció
+un enum que no existe. Grepear el texto crudo no inventa nada.
+
+**Vive en (cuando se implemente):** `lib/meta-login.ts` (la configuración y los permisos) ·
+`lib/meta-conexion.ts` · `app/api/webhooks/meta-leads` (la firma de la app MaKo) · el canal
+de Instagram que hoy arma el Chatbot sobre Zernio.
+
+*09/10/2026 — investigación pedida por Martín al chat de Ads Manager (cuenta 2), leyendo la
+doc de Meta como texto crudo; sin tocar código.*

@@ -3906,3 +3906,21 @@ documento o el sitio. Antes de mandar, se busca cada uno.
 **Vive en:** lib/titular-mako.ts · app/vsl/Landing.tsx (`PieLegal`) · app/privacidad/page.tsx ·
 app/terminos/page.tsx · app/page.tsx · app/vsl/PortadaSinJs.tsx ·
 tests/razon-social-sitio.test.ts · *2026-10-08 publicitar-mako*
+
+## Sumar Instagram y Messenger a la app MaKo: lo que cambia en la revisión (09/10)
+
+El detalle está en `hallazgos-comunicacion.md` → «Instagram y Messenger con la app MaKo: qué
+se puede sin Zernio». Lo que toca a la app, en cuatro renglones:
+
+- **Una app usa Facebook Login O Instagram Login para los permisos de Instagram, no las
+  dos** (doc de App Review de Instagram, 30/06/2026). La MaKo ya usa Facebook Login for
+  Business, así que Instagram entra por ahí y exige página vinculada; «entrar con usuario de
+  Instagram» sería una segunda app.
+- **La verificación de acceso en curso ya cubre Instagram**: es una por negocio, y su lista
+  incluye `instagram_basic` y `instagram_business_basic`.
+- **`pages_manage_metadata` no puede seguir afuera del App Review**: lo exige TODA
+  suscripción de webhook de página — DM de Messenger, comentarios, y el de leads en vivo.
+- Los productos que faltan en la app: **Messenger** (con su parte de Instagram) e
+  **Instagram → API setup with Facebook login**.
+
+*09/10/2026 — investigación, sin tocar código.*

@@ -309,4 +309,29 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ads.md — «La primera prueba real (08/10)…»',
     ],
   },
+  {
+    fecha: '9 oct', hora: '18:45', chat: 'Chatbot', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '¿Con la app propia de Meta se puede dejar de depender de Zernio?',
+    pedido: 'quiero que investigues, ahora que estoy creando y en proceso de validación de la app de Meta, ¿Podré no depender de Zernio?... Y hacer que un usuario se logee en su cuenta de Instagram directamente en MaKo y ya se pueda utilizar las automatizaciones, etc... (Mandale a hacer esta investigación al chat Ads Manager, que se está encargando de la app de Meta... Quiero saber si con eso, aparte de los DM en Instagram como chatbot, también podré hacer cosas como publicar Reels dentro de MaKo, y todo lo que hoy hace Metricool por ejemplo)',
+    puntos: [
+      'Llegó por el chat del Chatbot, que mientras tanto implementa Instagram y Messenger sobre Zernio: la pregunta no frena ese trabajo, decide si Zernio es el destino o un puente.',
+      'Son tres preguntas en una: conectar el Instagram del cliente sin un tercero, los DM como chatbot (y Messenger como ManyChat), y publicar como Metricool.',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '19:30', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Instagram y Messenger se pueden con la app MaKo; lo que traba es el App Review',
+    puntos: [
+      'Sí a las tres: DM e Instagram por API, comentario→DM (un mensaje, 7 días), Messenger con m.me, QR y anuncios Click-to-Messenger, y publicar Reels, carruseles e historias (100 por día según Meta). Lo que la API no deja —stickers de historias, música— Metricool tampoco lo hace: lo manda al celular para publicar a mano.',
+      '⚠️ La regla que decide el diseño: una app usa Facebook Login O Instagram Login para Instagram, no las dos. La MaKo ya usa Facebook Login, así que Instagram entra por ahí y pide página vinculada; entrar con usuario de Instagram sin página sería una segunda app.',
+      'La verificación de acceso en curso ya cubre Instagram (es una por negocio). Lo que suma es App Review permiso por permiso, y pages_manage_metadata no puede seguir afuera: sin él no hay ningún webhook de página.',
+      'El truco del .md para leer la doc de Meta ya da 404; lo que anda es ?locale=en_US y grepear el texto crudo.',
+    ],
+    archivos: [
+      'docs/hallazgos-comunicacion.md — «Instagram y Messenger con la app MaKo: qué se puede sin Zernio»',
+      'docs/hallazgos-ads.md — «Sumar Instagram y Messenger a la app MaKo»',
+    ],
+  },
 ];
