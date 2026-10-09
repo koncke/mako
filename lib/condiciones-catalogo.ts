@@ -105,6 +105,12 @@ export const SIMBOLO_OP: Record<OperadorCondicion, string> = { mayor_igual: '≥
 
 export type DefCondicion = {
   id: string;
+  /**
+   * RETIRADA: no se ofrece más, y el motor la sigue evaluando para los flujos que ya la tienen (cuarta
+   * tanda, punto 6: «hay otras CONDITION que no entiendo como lo vas a saber detectar... "Confirmó la
+   * compra y no pagó" ¿Cómo se sabe ese dato?, no hay nada así en el CRM»).
+   */
+  retirada?: true;
   seccion: SeccionCondicion;
   /** La sección con un CRON de entrega, si cambia (los pagos son «Pagos del cliente»). */
   seccionEntrega?: SeccionCondicion;
@@ -328,7 +334,7 @@ export const CONDICIONES: readonly DefCondicion[] = [
   // ── Pagos ──
   { id: 'pago', seccion: 'Pagos', ambito: 'adquisicion', rotulo: ['Pagó', 'No pagó'], negable: true, valor: LEGADO, fuentes: ['lead'] },
   {
-    id: 'confirmo_sin_pago', seccion: 'Pagos', ambito: 'adquisicion', rotulo: ['Confirmó la compra y no pagó', ''], negable: false, valor: NINGUNO, fuentes: ['lead'],
+    id: 'confirmo_sin_pago', retirada: true, seccion: 'Pagos', ambito: 'adquisicion', rotulo: ['Confirmó la compra y no pagó', ''], negable: false, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => (L(h) ? L(h)!.confirmoCompra && !h.pago : null),
   },
   {
@@ -466,6 +472,7 @@ export function ambitoDeDisparo(triggerTipo: string | null | undefined): AmbitoD
 
 /** ¿Se ofrece esta condición con este CRON? */
 export function seOfrece(c: DefCondicion, ambito: AmbitoDisparo): boolean {
+  if (c.retirada) return false;
   return c.ambito === 'ambos' || c.ambito === ambito;
 }
 

@@ -101,7 +101,8 @@ test('⚠️ el ＋ de una salida vacía y el ＋ del medio de una flecha insert
   // Y la salida que admite flechas EN PARALELO ofrece otro ＋ con el punto OCUPADO (al pasar el
   // cursor), que pide el puerto 'par' y lo dice en su menú (segunda tanda, decisión 2).
   assert.match(puntos, /\{!p\.vacio && p\.paralelo && puede && onAgregarTras && encima === n\.id && \(/);
-  assert.match(puntos, /ariaLabel="Agregar en paralelo" titulo="En paralelo"/);
+  assert.match(puntos, /ariaLabel="Agregar en paralelo"/);
+  assert.doesNotMatch(LIENZO, /titulo="En paralelo"/, 'volvió el título «En paralelo» (cuarta tanda, punto 10)');
   assert.match(puntos, /opciones=\{opciones\('par', false\)\}\n\s+onElegir=\{\(v\) => onAgregarTras\(n\.id, v, 'par'\)\}/);
   // El medio de una flecha: inserta en el puerto de ESA flecha, y la curva sale de él.
   const medio = tramo('{onAgregarTras && (opcionesEn || opcionesAgregar) && grafo.aristas.map((a, i) => {', '{grafo.aristas.map((a, i) => {', 3_000);

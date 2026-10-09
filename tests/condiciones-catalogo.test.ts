@@ -114,7 +114,9 @@ test('con un CRON de ADQUISICIÓN se ofrece el CRM y nada de Customer Success; c
     if (c.ambito === 'adquisicion') assert.ok(!e.has(c.id), `${c.id} (adquisición) apareció en entrega`);
   }
   // Lo que antes eran «Eventos» del CRON, ahora son condiciones (punto 4).
-  for (const x of ['form_sin_agenda', 'vsl_sin_agendar', 'vsl_poco', 'r1_pendiente', 'asistio_r1', 'calificado_sin_r2', 'r2_sin_cerrar', 'confirmo_sin_pago']) assert.ok(a.has(x), `falta ${x}`);
+  for (const x of ['form_sin_agenda', 'vsl_sin_agendar', 'vsl_poco', 'r1_pendiente', 'asistio_r1', 'calificado_sin_r2', 'r2_sin_cerrar']) assert.ok(a.has(x), `falta ${x}`);
+  // Cuarta tanda, punto 6: lo que el CRM no registra no se ofrece (el motor la sigue evaluando abajo).
+  assert.ok(!a.has('confirmo_sin_pago'), 'volvió «Confirmó la compra y no pagó»');
   for (const x of ['completo_clase', 'completo_modulo', 'avance_curso', 'comento_post', 'envio_tarea', 'etapa_entrega']) assert.ok(e.has(x), `falta ${x}`);
 });
 

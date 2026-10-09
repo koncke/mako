@@ -640,9 +640,20 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
       options={[{ value: 'tiempo', label: 'Esperar' }, { value: 'antes_reunion', label: 'antes de la reunión' }]}
       onChange={(v) => poner(v as Espera['modo'], n, unidad, true)} />
   );
+  // ⚠️ CUARTA TANDA, PUNTO 9: «En "Delay" lo de "Antes de la reunión" debería ser una CONDITION,
+  // dentro de la sección de llamadas» (vive en «Próxima reunión en», lib/condiciones-catalogo.ts). Un
+  // DELAY nuevo sólo espera: «Esperar [1] [día]». Uno que YA está anclado a la reunión sigue con su
+  // selector, para poder verlo y pasarlo a «Esperar»; el motor lo sigue corriendo igual.
+  if (e.modo === 'tiempo') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Esperar</span>{numero}{selUnidad}
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      {e.modo === 'tiempo' ? <>{selModo}{numero}{selUnidad}</> : <>{numero}{selUnidad}{selModo}</>}
+      {numero}{selUnidad}{selModo}
     </div>
   );
 }
