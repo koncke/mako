@@ -67,8 +67,10 @@ export function repoPlan(): Repo {
     // La prioridad A MANO (el slider del detalle y el pop-up del arrastre). Vive acá y NO
     // en el repo del cliente a propósito: `/api/plan-board` es «solo admin» y `score_manual`
     // (mig 0143) es una columna de `plan_tareas` que `experimento_tareas` no tiene.
-    prioridadManual: async (entidad, id, score) => {
-      const j = await apiPlan({ action: 'prioridad-manual', entidad, id, score });
+    // `lugar` y `deshacer` viajan tal cual: las vecinas a correr las decide el SERVER con el
+    // tablero recién leído (`hacerLugar` adentro de `fijarPrioridadAMano`), no esta pestaña.
+    prioridadManual: async (entidad, id, score, opts) => {
+      const j = await apiPlan({ action: 'prioridad-manual', entidad, id, score, lugar: opts?.lugar, deshacer: opts?.deshacer });
       if (!j.ok) throw new Error(j.error || 'no se pudo fijar la prioridad');
       return { score: Number(j.score) || score, movidos: Array.isArray(j.movidos) ? j.movidos : [] };
     },

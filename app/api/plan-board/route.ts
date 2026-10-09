@@ -128,7 +128,18 @@ export async function POST(req: NextRequest) {
       const score = Number(body.score);
       if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
       if (!Number.isFinite(score)) return NextResponse.json({ ok: false, error: 'score requerido' }, { status: 400 });
-      const r = await fijarPrioridadAMano({ entidad, itemId: id, score });
+      // Los dos opcionales se SANEAN acá y no se confía en su forma: son ids y números que
+      // escribe el navegador. Lo que se corre lo decide el server; esto sólo dice dónde se
+      // soltó, o qué corrimiento se está deshaciendo.
+      const idONull = (v: unknown) => (typeof v === 'string' && v ? v : null);
+      const l = body.lugar as { arriba?: unknown; abajo?: unknown } | undefined;
+      const lugar = l && typeof l === 'object' ? { arriba: idONull(l.arriba), abajo: idONull(l.abajo) } : undefined;
+      const deshacer = Array.isArray(body.deshacer)
+        ? (body.deshacer as Array<{ id?: unknown; antes?: unknown; despues?: unknown }>).slice(0, 200)
+          .filter((c) => typeof c?.id === 'string' && Number.isFinite(Number(c.antes)) && Number.isFinite(Number(c.despues)))
+          .map((c) => ({ id: String(c.id), antes: Math.round(Number(c.antes)), despues: Math.round(Number(c.despues)) }))
+        : undefined;
+      const r = await fijarPrioridadAMano({ entidad, itemId: id, score, lugar, deshacer });
       return NextResponse.json(r.ok ? { ok: true, score: r.score, antes: r.antes, movidos: r.movidos, reprioId: r.reprioId } : { ok: false, error: r.error });
     }
     if (action === 'prioridad-al-perro') {

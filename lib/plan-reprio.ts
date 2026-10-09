@@ -33,6 +33,7 @@ import { getTenantDb } from '@/lib/workspace';
 import { enPlan, listPlanBoard } from '@/lib/plan-board';
 import { prioFromScore, type Label, type BoardTask, type Hist, type Actor } from '@/app/plan/board/types';
 import { fijarYDesempatar, mismoOrdenRelativo, noPisaManuales, respetaElReclamo, sinEmpates, type Falla, type Puntuado } from '@/app/plan/board/metodologia';
+import { baseCorrida, hacerLugar, type Corrimiento, type OpcionesPrioridadManual } from '@/app/plan/board/lugar-al-soltar';
 import { exigenciaDe, cumpleLaCarga, preguntaPorFaltante, type Prueba, type Exigencia } from '@/lib/plan-prueba';
 import { dictarAudiencia, type Antecedente } from '@/lib/mako-guardian';
 import { esRecurrente, sinRecurrentes, PORQUE_NO_COMPITE } from '@/lib/plan-recurrentes';
@@ -326,7 +327,7 @@ export async function aplicarReprio(reprioId: string): Promise<{ movidos: number
  * `score_manual` SÍ se marca acá, y es lo correcto: esa columna significa «esto lo decidió
  * la persona» (mig 0143). Lo que no puede marcarla es una corrida automática.
  */
-export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; itemId: string; score: number }): Promise<
+export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; itemId: string; score: number } & OpcionesPrioridadManual): Promise<
   { ok: true; score: number; antes: number; movidos: Movimiento[]; reprioId?: string } | { ok: false; error: string }
 > {
   return enPlan(async () => {
@@ -353,7 +354,11 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
     // Pedir el número que ya tiene, cuando además ya estaba fijado a mano, no es un cambio:
     // es un click de más. Sin esta salida queda una entrada de historial por cada vez que
     // alguien toca el slider y lo devuelve a su lugar.
-    if (pedido === scoreActual && item.scoreManual) {
+    //
+    // ⚠️ SALVO QUE VENGA UN LUGAR O UN DESHACER: soltar una tarjeta ya fijada entre dos que
+    // tienen su mismo número no le cambia el número y SÍ le cambia el lugar — es exactamente el
+    // caso que corre a las de abajo.
+    if (pedido === scoreActual && item.scoreManual && !p.lugar && !p.deshacer?.length) {
       return { ok: true as const, score: scoreActual, antes: scoreActual, movidos: [] };
     }
 
@@ -369,22 +374,69 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
     if (!esProy) {
       const final = pedido;
       const ahora = new Date().toISOString();
+      const tarea = item as BoardTask;
+      // ⚠️ LAS DE ABAJO, CUANDO SE SOLTÓ EN EL KANBAN (09/10/2026, «Correr las de abajo»).
+      // Entre dos tareas con el mismo número no hay número que deje a la soltada en el medio
+      // —el Kanban desempata por `num`— y esto es lo que no es una cascada: se corren SÓLO las
+      // que estorban ese lugar, un punto, sin cruzarse entre ellas y sin cambiar de columna.
+      // La regla vive en `hacerLugar` (app/plan/board/lugar-al-soltar.ts) y se corre acá con el
+      // tablero recién leído, no con el de la pestaña. Si el número que quedó en el pop-up
+      // contradice el lugar, o una vecina ya no está, devuelve null y se escribe el número solo.
+      const compiten = sinRecurrentes(tareas.filter((x) => x.id !== item.id && x.progress < 100));
+      const corridas: Corrimiento[] = p.lugar
+        ? (hacerLugar(compiten.map((x) => ({ id: x.id, score: x.score || 0, num: x.num })), { id: item.id, score: final, num: tarea.num }, p.lugar) ?? [])
+        : [];
+      // Y el camino de VUELTA: deshacer un arrastre devuelve a cada vecina SÓLO si todavía
+      // tiene el número que le puso el arrastre. Si alguien la movió en el medio, ese número es
+      // más nuevo que el deshacer.
+      const devueltas: Corrimiento[] = (p.deshacer ?? [])
+        .filter((c) => (tareas.find((x) => x.id === c.id)?.score ?? null) === c.despues)
+        .map((c) => ({ id: c.id, antes: c.despues, despues: c.antes }));
+      const vecinas = [...corridas, ...devueltas];
+      const deId = new Map(tareas.map((x) => [x.id, x]));
+
       const { data: fila } = await db.from('plan_reprios').insert({
         tablero: 'plan', entidad: 'tarea', item_id: item.id, item_nombre: nombre,
         score_antes: scoreActual, score_pedido: pedido, motivo: '', pruebas: [], preguntas: [],
         score_final: final, razon: 'Prioridad fijada a mano', respuesta: '', fallas: '',
-        estado: 'aplicado', aplicado_at: ahora, movidos: 1,
-        ripple: { [item.id]: { nombre, antes: scoreActual, despues: final, manualAntes: !!item.scoreManual } },
+        estado: 'aplicado', aplicado_at: ahora, movidos: 1 + vecinas.length,
+        ripple: {
+          [item.id]: { nombre, antes: scoreActual, despues: final, manualAntes: !!item.scoreManual },
+          ...Object.fromEntries(vecinas.map((c) => [c.id, { nombre: deId.get(c.id)?.title ?? c.id, antes: c.antes, despues: c.despues, manualAntes: !!deId.get(c.id)?.scoreManual }])),
+        },
       }).select('id').single();
       await db.from('plan_tareas').update({
         score: final, score_base: final, score_manual: true, score_razon: 'Prioridad fijada a mano',
         priority: prioFromScore(final), // la columna se DERIVA del score, y el umbral vive en types.ts
         updated_at: ahora,
       }).eq('id', item.id);
+
+      // Las vecinas: el número, la BASE corrida lo mismo (el Perro re-curva cada día desde la
+      // base, y sin moverla la próxima corrida deshace el lugar) y la columna derivada. Sin
+      // candado y sin razón: no las decidió nadie, se corrieron por aritmética — mismo criterio
+      // que la cascada de proyectos, más abajo. El `.eq('score', antes)` es el compare-and-set:
+      // si otra escritura la movió entre la lectura y ésta, se deja como está.
+      const escritas = new Set<string>();
+      const TANDA = 20;
+      for (let i = 0; i < vecinas.length; i += TANDA) {
+        await Promise.all(vecinas.slice(i, i + TANDA).map(async (c) => {
+          const { data } = await db.from('plan_tareas').update({
+            score: c.despues, score_base: baseCorrida(deId.get(c.id)?.scoreBase, c),
+            priority: prioFromScore(c.despues), updated_at: ahora,
+          }).eq('id', c.id).eq('score', c.antes).select('id');
+          if (data?.length) escritas.add(c.id);
+        }));
+      }
+      const corridasEscritas = corridas.filter((c) => escritas.has(c.id)).length;
+      const mas = corridasEscritas > 0 ? ` · se corrieron ${corridasEscritas} más` : '';
       await escribirHistorial('tarea', item.id, final === scoreActual
-        ? `Fijaste la prioridad en ${final}: MaKo ya no la mueve sola`
-        : `Fijaste la prioridad en ${final} a mano — antes ${scoreActual}`, 'user');
-      return { ok: true as const, score: final, antes: scoreActual, movidos: [], reprioId: fila?.id };
+        ? `Fijaste la prioridad en ${final}: MaKo ya no la mueve sola${mas}`
+        : `Fijaste la prioridad en ${final} a mano — antes ${scoreActual}${mas}`, 'user');
+      // Vuelven SÓLO las que se escribieron de verdad: la pantalla las corre con esto, y una
+      // vecina que el compare-and-set dejó quieta pintada como corrida miente hasta el F5.
+      const movidos = vecinas.filter((c) => escritas.has(c.id))
+        .map((c) => ({ id: c.id, nombre: deId.get(c.id)?.title ?? c.id, antes: c.antes, despues: c.despues, manualAntes: !!deId.get(c.id)?.scoreManual }));
+      return { ok: true as const, score: final, antes: scoreActual, movidos, reprioId: fila?.id };
     }
 
     // El universo es del MISMO NIVEL, igual que en la audiencia: un proyecto se compara con

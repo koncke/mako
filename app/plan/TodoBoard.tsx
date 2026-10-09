@@ -7,8 +7,10 @@
 // Tarea↔BoardTask / Categoria↔Label y el Repo que persiste contra la API.
 // En demo (local sin Supabase) el Repo muta en memoria.
 
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { BoardShell } from './board/BoardShell';
+import { hacerLugar, type Corrimiento } from './board/lugar-al-soltar';
+import { esRecurrente } from '@/lib/plan-recurrentes';
 import { useBoard } from './board/useBoard';
 import { type BoardTask, type Label, type Repo, type BoardUser, type GuardPatch, type Prio, prioFromScore } from './board/types';
 // Los dos mappers de ENTRADA viven en un `.ts` para que también los pueda importar el
@@ -84,6 +86,11 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
 
   /** Los leads ganados del workspace, leídos en el server (mig 0172). */
   clientes?: ClienteRef[] }) {
+  // Las tareas como las ve la pantalla AHORA, para que `prioridadManual` sepa a quién correr
+  // al soltar en el Kanban. Acá no hay server que relea el tablero (este tablero persiste
+  // desde el navegador), así que la foto es el estado del board — no las `tareas` con las
+  // que se montó, que envejecen con el primer cambio.
+  const tareasVivas = useRef<BoardTask[]>([]);
   const repo: Repo = {
     // MISMA config que el board del super-admin (PlanBoard): la única diferencia real
     // es la persistencia (DB vs localStorage). Proyectos 1-a-1, mismo naming.
@@ -143,7 +150,7 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
      * —sólo lo que NACE—, así que no hay nada de lo que haya que protegerse. Escribir el
      * número alcanza; inventarle un candado que nada respeta sería peor.
      */
-    prioridadManual: async (entidad, id, score) => {
+    prioridadManual: async (entidad, id, score, opts) => {
       const n = Math.max(1, Math.min(100, Math.round(score)));
       if (demo) return { score: n, movidos: [] };
       // `score_razon` viaja con el número: sin eso, la tarjeta queda mostrando la razón que
@@ -152,9 +159,27 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
         ? await api({ action: 'editar', id: Number(id), patch: { score: n, prioridad: prioFromScore(n), score_razon: 'La fijaste a mano' } })
         : await api({ action: 'categoria-editar', id: Number(id), patch: { prioridad: n, score_razon: 'La fijaste a mano' } });
       if (!j.ok) throw new Error(j.error || 'No se pudo cambiar la prioridad.');
-      // Sin cascada: `movidos` vacío es la verdad, no un placeholder. El board pinta «Listo»
-      // en vez de «se corrieron N más», que es exactamente lo que pasó.
-      return { score: n, movidos: [] };
+      if (entidad !== 'tarea') return { score: n, movidos: [] };
+      // Sin cascada, pero CON LAS DE ABAJO cuando se soltó en el Kanban: la misma regla que el
+      // tablero del dueño (`hacerLugar`), porque acá también empatan y el Kanban desempata por
+      // `num`. Y el camino de vuelta de un deshacer, sólo sobre las que nadie movió después.
+      const todas = tareasVivas.current;
+      const yo = todas.find((t) => t.id === id);
+      const compiten = todas.filter((t) => t.id !== id && t.progress < 100 && !esRecurrente(t));
+      const corridas: Corrimiento[] = opts?.lugar && yo
+        ? (hacerLugar(compiten.map((t) => ({ id: t.id, score: t.score, num: t.num })), { id, score: n, num: yo.num }, opts.lugar) ?? [])
+        : [];
+      const devueltas: Corrimiento[] = (opts?.deshacer ?? [])
+        .filter((c) => todas.find((t) => t.id === c.id)?.score === c.despues)
+        .map((c) => ({ id: c.id, antes: c.despues, despues: c.antes }));
+      // Vuelven SÓLO las que se escribieron: la pantalla las corre con esto, y una que falló
+      // pintada como corrida miente hasta el F5.
+      const movidos: Array<{ id: string; nombre: string; antes: number; despues: number }> = [];
+      for (const c of [...corridas, ...devueltas]) {
+        const jv = await api({ action: 'editar', id: Number(c.id), patch: { score: c.despues, prioridad: prioFromScore(c.despues) } });
+        if (jv.ok) movidos.push({ id: c.id, nombre: todas.find((t) => t.id === c.id)?.title ?? c.id, antes: c.antes, despues: c.despues });
+      }
+      return { score: n, movidos };
     },
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
@@ -183,6 +208,7 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
     },
   };
   const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo);
+  useEffect(() => { tareasVivas.current = board.tasks; });
   // Scope del auto-load POR workspace: la preferencia del cliente X no se comparte con
   // el board de la agencia ni con otro workspace en la misma impersonación/origin.
   // El cliente entra en el scope por lo mismo que en `PlanBoard`: un filtro dejado en el

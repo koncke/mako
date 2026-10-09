@@ -9,6 +9,7 @@
 // sólo se declara el campo. El módulo no lleva `server-only` a propósito (lo importan las
 // pantallas), así que traerlo desde este archivo —que también viaja al navegador— es gratis.
 import { llevaDeadline } from '@/lib/plan-recurrentes';
+import type { OpcionesPrioridadManual } from './lugar-al-soltar';
 
 export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 // Quién tocó algo. Los dos últimos son IA pero NO son lo mismo, y confundirlos es
@@ -427,7 +428,7 @@ export type Repo = {
    * peor que no tenerlo — se lee como que la app está rota, y encima esconderlo no
    * protege nada porque el que decide es el server.
    */
-  prioridadManual?(entidad: 'proyecto' | 'tarea', id: string, score: number): Promise<{ score: number; movidos: Array<{ id: string; nombre: string; antes: number; despues: number }> }>;
+  prioridadManual?(entidad: 'proyecto' | 'tarea', id: string, score: number, opts?: OpcionesPrioridadManual): Promise<{ score: number; movidos: Array<{ id: string; nombre: string; antes: number; despues: number }> }>;
   /** Devolverle la decisión a MaKo (saca el candado de la mig 0143). Va de la mano del anterior. */
   prioridadAlPerro?(entidad: 'proyecto' | 'tarea', id: string): Promise<void>;
   /**
