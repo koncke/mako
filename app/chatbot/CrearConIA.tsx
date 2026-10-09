@@ -177,7 +177,10 @@ export function CrearConIA(p: CrearConIAProps) {
           </ol>
         )}
         <div style={S.pie}>
-          <span style={S.dim}>{segundos} s · hasta 1 min</span>
+          {/* ⚠️ EL TOPE SALE DEL TOPE REAL (revisión, 09/10/2026): decía «hasta 1 min» y la ruta le da
+              al modelo hasta 220 s, con reintento, sobre un `maxDuration` de 300. «75 s · hasta 1 min»
+              se lee como colgado y la persona cancela un pedido que iba a terminar. */}
+          <span style={S.dim}>{segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
           <Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button>
         </div>
       </div>

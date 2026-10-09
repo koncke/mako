@@ -255,6 +255,17 @@ test('crear: se PAUSA antes de escribir los pasos, y después de mirar la cancel
   assert.equal(ruta.split('setSecuenciaActiva(').length - 1, 1, 'una sola pausa');
 });
 
+// ── «hasta 1 min» en la espera, cuando la ruta puede tardar ~5 min ──
+// rotura (volver a «hasta 1 min»): 1 fallo de 17, cae éste.
+test('la espera dice el tope REAL: sale de TOPE_CLIENTE_MS y no es menor que el de la ruta', () => {
+  const src = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  assert.doesNotMatch(src, /hasta 1 min/);
+  assert.match(src, /hasta \{Math\.round\(TOPE_CLIENTE_MS \/ 60_000\)\} min/);
+  const tope = Number(/const TOPE_CLIENTE_MS = ([\d_]+);/.exec(src)?.[1].replace(/_/g, ''));
+  const max = Number(/export const maxDuration = (\d+);/.exec(leer('app/api/chat-agent/secuencias/ia/route.ts'))?.[1]);
+  assert.ok(Math.round(tope / 60_000) >= max / 60, `dice ${Math.round(tope / 60_000)} min y la ruta corta a ${max} s`);
+});
+
 test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', () => {
   const ctx = ctxBase();
   const r = deIA(ejemploDe(CREAR_IA_SYSTEM_TEMPLATE), ctx, rndDe());
