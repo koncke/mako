@@ -954,7 +954,7 @@ export async function updateLead(
     email: merged.email,
     telefono: merged.telefono,
     // Si el caller editó el teléfono, recalculamos su forma normalizada (llave de
-    // match de webhooks Calendly/Meta/Chatwoot). Sin esto, editar el teléfono a
+    // match de webhooks Calendly/Meta). Sin esto, editar el teléfono a
     // mano dejaba la llave vieja y el próximo webhook creaba un lead duplicado.
     ...(input.telefono !== undefined ? { telefono_normalizado: normalizarTelefono(merged.telefono) } : {}),
     empresa: merged.empresa,

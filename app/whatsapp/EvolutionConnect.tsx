@@ -3,7 +3,7 @@
 // =============================================================================
 // EvolutionConnect — chip de estado + modal de conexión por QR del WhatsApp
 // NO oficial (Evolution API). Autocontenido: su propio estado/fetching, se
-// embebe en el header de la tab WhatsApp junto al chip de Chatwoot.
+// embebe en la tab WhatsApp.
 // =============================================================================
 // Flujo: "Conectar" → POST conectar (QR base64) → se pollea el estado cada 3s y
 // se refresca el QR cada 20s (los QR de WhatsApp expiran) hasta que engancha.

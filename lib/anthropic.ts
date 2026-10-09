@@ -250,7 +250,7 @@ export async function chatClaude(
 // 'tool_use'), ejecuta el `runTool` del caller, le devuelve el resultado, y
 // vuelve a llamar — hasta que Claude termina (end_turn). Es el cimiento del
 // "doer": el MCP bridge (send_whatsapp / meta_ad_write / book_meeting…) se
-// enchufa acá como `tools` + un `runTool` que rutea a lib/chatwoot, meta-ads, etc.
+// enchufa acá como `tools` + un `runTool` que rutea a meta-ads, etc.
 //
 // Claves de Opus 4.8 (verificadas con la skill claude-api):
 //   · tool-use NO necesita beta header (es GA en /v1/messages).

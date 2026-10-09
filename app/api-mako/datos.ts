@@ -187,7 +187,7 @@ function estadosDe(d: OperacionDef, directo: boolean): { codigo: number; descrip
 }
 
 /** ¿Se puede correr desde la pantalla? Sólo LECTURAS que no gastan: `gratis` (nuestra base) o
- *  `externo` (leen a Meta, Chatwoot…). Las de `ia` cuestan cuota, y una acción no se
+ *  `externo` (leen a Meta, Calendly…). Las de `ia` cuestan cuota, y una acción no se
  *  «prueba». `datosDeGoogle` no sale por HTTP. */
 export function sePuedeProbar(d: OperacionDef): boolean {
   return esLectura(d) && d.canales.includes('http') && (d.costo === 'gratis' || d.costo === 'externo') && !d.datosDeGoogle;

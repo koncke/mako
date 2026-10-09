@@ -3,7 +3,7 @@
 // =============================================================================
 // Evolution pega acá con { event, instance, data, ... }. Llega SIN sesión, así
 // que mapeamos instance→workspace por evolution_instancias (getSupabaseServer,
-// sin scope, igual que el webhook de Resend). Auth por ?secret= (como Chatwoot).
+// sin scope, igual que el webhook de Resend). Auth por ?secret=.
 //
 // F2.1 maneja conexión/QR. F2.2 sumará 'messages.upsert' (espejo en DB + media).
 // Siempre respondemos 200 salvo firma inválida — Evolution reintenta si no.

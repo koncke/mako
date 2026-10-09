@@ -4,8 +4,8 @@
 // Grabador de nota de voz — hook + barra visual, COMPARTIDO entre inboxes.
 // Extraído 1:1 del inbox oficial (WhatsAppApp.tsx: startRec/stopRec/pauseRec/
 // resumeRec + la barra con waveform) para que el no oficial lo use IDÉNTICO.
-// El hook entrega el Blob grabado; el que llama decide el formato/envío (MP3 para
-// Chatwoot, webm/opus para Evolution).
+// El hook entrega el Blob grabado; el que llama decide el formato/envío (webm/opus para
+// Evolution; el MP3 era para el oficial, Chatwoot, que se borró el 09/10/2026).
 // =============================================================================
 //
 // ⚠️ DESMONTAR A MITAD DE UNA GRABACIÓN NO ENTREGA EL AUDIO (08/10/2026). El cleanup llamaba

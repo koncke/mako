@@ -6,7 +6,7 @@
 // mudan juntas el día que cambie el dominio, así que viven juntas.
 // =============================================================================
 // Con esto se arman los links absolutos que salen de la app: URLs de webhook
-// que le registramos a Chatwoot/Evolution, links de WhatsApp del doer, el
+// que le registramos a Evolution, links de WhatsApp del doer, el
 // unsubscribe de los emails y el beacon del VSL. Muchos de esos se generan
 // desde crons, donde no hay request del que sacar el origin.
 //
@@ -25,7 +25,7 @@
 //      Ojo: NEXT_PUBLIC_* se inlinea en BUILD — sin redeploy queda el valor viejo.
 //   4. El dominio agregado al proyecto de Vercel + su DNS.
 // Afuera (lo que se olvida y falla EN SILENCIO):
-//   5. Los webhooks REGISTRADOS en cada servicio: Chatwoot, cada instancia de
+//   5. Los webhooks REGISTRADOS en cada servicio: cada instancia de
 //      Evolution (incluida la de voz, que ningún botón de la UI alcanza), Calendly,
 //      Fathom, Meta Lead Ads, Resend. Ninguno se entera solo del cambio.
 //   6. El snippet de tracking pegado en la landing de CADA cliente: se copia con la

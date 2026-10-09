@@ -16,7 +16,7 @@
 // apriete "aplicar".
 //
 // El mapeo token → workspace vive en webhook_routing('agente', token, ws), el
-// mismo índice de plataforma que ya usan Meta/Chatwoot/Calendly/Fathom/landing.
+// mismo índice de plataforma que ya usan Meta/Calendly/Fathom/landing.
 // =============================================================================
 
 import 'server-only';

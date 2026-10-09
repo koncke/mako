@@ -1,7 +1,7 @@
 // =============================================================================
 // credenciales — tokens de integraciones POR WORKSPACE (tablas 0053/0054/0055)
 // =============================================================================
-// Cada cliente (workspace) guarda sus propios tokens de Meta/Chatwoot/etc.,
+// Cada cliente (workspace) guarda sus propios tokens de Meta/Calendly/etc.,
 // cifrados AES-256-GCM. El resolver `credWs(clave)` devuelve el token del
 // workspace del request.
 //

@@ -6,15 +6,20 @@
 // acción, esperar). Módulo SIN 'server-only' (lo importan webhooks, UI y runtime).
 //
 // El enum de EVENTOS es CERRADO: cada valor corresponde 1:1 a un choke point donde
-// ya se llama emitirDelCatalogo (calendly/fathom/meta-leads/chatwoot). No inventar
+// ya se llama emitirDelCatalogo (calendly/fathom/meta-leads). No inventar
 // eventos sin choke point.
+//
+// ⚠️ 'lead.wa_entrante' SE QUEDÓ SIN CHOKE POINT el 09/10/2026: lo emitía el webhook de
+// Chatwoot, que se borró con la integración. Sigue en el enum porque puede haber flujos
+// guardados que lo nombran (pendiente: emitirlo desde la respuesta del número de empresa o
+// sacarlo junto con esos flujos).
 
 export type EventoFlujo =
   | 'lead.agendo'        // webhooks/calendly invitee.created (R1 y R2)
   | 'lead.cancelo'       // webhooks/calendly invitee.canceled
   | 'reunion.ocurrio'    // webhooks/fathom new-meeting-content-ready
   | 'lead.form_meta'     // webhooks/meta-leads (INSERT)
-  | 'lead.wa_entrante';  // webhooks/chatwoot mensaje entrante
+  | 'lead.wa_entrante';  // ⚠️ sin emisor desde el 09/10/2026 (ver arriba)
 
 export const EVENTOS: Array<{ key: EventoFlujo; label: string }> = [
   { key: 'lead.agendo', label: 'Un lead agenda una reunión' },

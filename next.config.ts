@@ -36,8 +36,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // El middleware (proxy) bufferea el body con tope 10MB por defecto y, si se
     // pasa, TRUNCA el archivo en silencio (no falla) → un adjunto >10MB llegaría
-    // corrupto a Chatwoot. Subimos a 20MB para cubrir el tope real de subida del
-    // inbox (route /api/whatsapp/.../attachments cap a 16MB).
+    // corrupto. Se subió a 20MB para el inbox oficial (Chatwoot, borrado el 09/10/2026,
+    // topeaba en 16MB) y se deja: el tope sirve igual para cualquier subida.
     proxyClientMaxBodySize: '20mb',
   },
   // /vsl/mako-cs sirve tal cual el HTML exportado de Claude Design (bundle

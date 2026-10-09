@@ -108,22 +108,10 @@ test('el mail de «te compartieron material» lo firma la PLATAFORMA, no el clie
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Por qué línea de Chatwoot sale un mensaje
+// 3. Por qué línea de Chatwoot sale un mensaje — SE FUE el 09/10/2026 con la integración
 // ─────────────────────────────────────────────────────────────────────────────
-// Dos defectos en el mismo camino, y los dos deciden la LÍNEA: `cfg()` caía al inbox `3`
-// cuando el workspace no lo declaraba, y `crearOReusarConversacion` reusaba cualquier
-// conversación abierta del contacto sin mirar de qué bandeja era. Escribir ahí manda el
-// mensaje por donde el negocio no lo eligió, y el envío vuelve «ok» igual.
-test('Chatwoot no tiene inbox por default, y reusar una conversación mira que sea de ESE inbox', () => {
-  const src = sinComentarios(leer('lib/chatwoot.ts'));
-  assert.doesNotMatch(src, /\?\?\s*'3'/, 'volvió el inbox por default: un número cableado decide por qué WhatsApp sale el mensaje');
-  assert.match(src, /function inboxWA\(c: Cfg\): number \{/, 'el inbox se lee por un lector que falla con su motivo');
-  assert.doesNotMatch(src.replace(/function inboxWA[\s\S]*?\n\}/, ''), /\bc\.inbox\b/,
-    'alguien lee `c.inbox` directo: con el inbox sin declarar sale `null` en una URL en vez de un error que diga qué falta');
-
-  const reuso = bloque(src, 'async function crearOReusarConversacion(', 'return crearConversacion(c, contactId);');
-  assert.match(reuso, /\.filter\(\(x\) => x\.inboxId === inbox\)/, 'reusar tiene que elegir SÓLO entre las conversaciones de este inbox');
-});
+// Fijaba que `cfg()` no cayera al inbox `3` y que reusar una conversación mirara su bandeja.
+// Chatwoot se borró (lib/chatwoot.ts es un cascarón sin pedidos: tests/sin-chatwoot.test.ts).
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. El drenador de corridas de flujo

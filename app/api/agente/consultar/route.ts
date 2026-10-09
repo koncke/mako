@@ -30,7 +30,7 @@ import { CONSULTAS_AGENTE, consultaPermitida, inputDeConsulta, PARAMS_CONSULTA }
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-// `historial_whatsapp` sale a Chatwoot y `reuniones_lead` a Calendly/Fathom.
+// `reuniones_lead` sale a Calendly/Fathom. (`historial_whatsapp` salía a Chatwoot hasta el 09/10/2026.)
 export const maxDuration = 60;
 
 /** El catálogo, con la descripción REAL de cada tool. Se saca de `MAKO_TOOLS` en
