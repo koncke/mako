@@ -28,7 +28,7 @@ import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { monedaCuentaMeta } from '@/lib/moneda-meta';
 import { conversorDeGasto } from '@/lib/presupuesto-cambio';
-import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, validarActivacion, PasosInvalidosError } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
@@ -801,6 +801,17 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const activa = Boolean((input as { activa?: unknown }).activa);
         const sec = await runWithWorkspace(ws, async () => (await getSecuenciasConStats()).find((s) => s.id === secuenciaId));
         if (!sec) return JSON.stringify({ ok: false, error: `No existe la secuencia #${secuenciaId}.` });
+        // ⚠️ ACTIVAR SE VALIDA AL PROPONER, no sólo al confirmar (regla 3 de la API de MaKo): un flujo
+        // que Publicar no dejaría guardar se sabe sin escribir. Validado sólo en `setSecuenciaActiva`,
+        // el «sí» reclamaba la pendiente y después la rechazaba, y había que volver a pedirlo.
+        if (activa) {
+          try {
+            await runWithWorkspace(ws, () => validarActivacion(secuenciaId));
+          } catch (e) {
+            if (e instanceof PasosInvalidosError) return JSON.stringify({ ok: false, error: e.message });
+            throw e;
+          }
+        }
         return proponer('nutricion_toggle', { secuenciaId, activa }, `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"`);
       }
 

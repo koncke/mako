@@ -361,6 +361,30 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
 }
 
 /**
+ * ¿Se puede ACTIVAR esta secuencia? Lo guardado pasa por las mismas validaciones que Publicar
+ * (`setSecuenciaPasos` con `soloValidar`), sin escribir nada; si no pasa, tira `PasosInvalidosError`
+ * con «No se activó:» y el primer error en palabras.
+ *
+ * ⚠️ EXPORTADA PARA QUE QUIEN PROPONE ACTIVAR LO SEPA ANTES DE DEJAR LA PENDIENTE
+ * (`proponer_toggle_nutricion`, lib/mako-doer-acciones.ts: el doer de WhatsApp, la API y un paso
+ * «⚡ Acción»). Validar sólo al ejecutar consumía el «sí» y después lo rechazaba: confirmar RECLAMA
+ * la pendiente antes de correr, y lo reclamado no vuelve a 'pendiente' (regla 3 de la API de MaKo,
+ * AGENTS.md; revisión del 09/10/2026).
+ */
+export async function validarActivacion(id: number): Promise<void> {
+  const supabase = (await getTenantDb());
+  const { data, error: eLeer } = await supabase.from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
+  if (eLeer) throw new Error(`validarActivacion: ${eLeer.message}`);
+  const guardados = (data as { pasos?: unknown } | null)?.pasos;
+  try {
+    await setSecuenciaPasos(id, Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : [], { soloValidar: true });
+  } catch (e) {
+    if (e instanceof PasosInvalidosError) throw new PasosInvalidosError(e.message.replace(/^No se guardó:/, 'No se activó:'));
+    throw e;
+  }
+}
+
+/**
  * Prende o apaga una secuencia.
  *
  * ⚠️ ACTIVAR VALIDA LO MISMO QUE PUBLICAR (decisión 15 de la segunda tanda, 08/10/2026): lo
@@ -372,17 +396,9 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
  */
 export async function setSecuenciaActiva(id: number, activa: boolean): Promise<void> {
   const supabase = (await getTenantDb());
-  if (activa) {
-    const { data, error: eLeer } = await supabase.from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
-    if (eLeer) throw new Error(`setSecuenciaActiva: ${eLeer.message}`);
-    const guardados = (data as { pasos?: unknown } | null)?.pasos;
-    try {
-      await setSecuenciaPasos(id, Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : [], { soloValidar: true });
-    } catch (e) {
-      if (e instanceof PasosInvalidosError) throw new PasosInvalidosError(e.message.replace(/^No se guardó:/, 'No se activó:'));
-      throw e;
-    }
-  }
+  // La red de seguridad: quien PROPONE activar ya validó (`validarActivacion`), pero entre la
+  // propuesta y el «sí» los pasos pueden haber cambiado.
+  if (activa) await validarActivacion(id);
   const { error } = await supabase
     .from('nutricion_secuencias')
     .update({ activa, updated_at: ahoraISO() })
