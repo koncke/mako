@@ -13,6 +13,8 @@
 //                                                          → «qué lo dispara» (400 si no se puede)
 //        { action:'emoji', secuenciaId, emoji | null }    → el emoji del título (mig 0229; 400 si no es uno)
 //        { action:'duplicar', secuenciaId }               → { secuenciaId, nombre } (la copia nace PAUSADA)
+//        { action:'posiciones', secuenciaId, posiciones } → dónde quedó cada tarjeta del lienzo (mig 0233)
+//                                                          → { ok, posiciones } | { ok:false, sinColumna }
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -44,6 +46,7 @@ import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 // campo: los pasos por `setSecuenciaPasos` y el horario por `setCronSecuencia` (lib/secuencia-duplicar.ts).
 import { duplicarSecuencia, type DbDuplicar } from '@/lib/secuencia-duplicar';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
+import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-posiciones';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -156,7 +159,7 @@ export async function POST(req: NextRequest) {
     action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown;
     handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown;
     id?: unknown; trigger_tipo?: unknown; producto_id?: unknown; funnel_id?: unknown; etiqueta_id?: unknown;
-    emoji?: unknown; etapas?: unknown[];
+    emoji?: unknown; etapas?: unknown[]; posiciones?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -210,6 +213,21 @@ export async function POST(req: NextRequest) {
         throw e;
       }
       return Response.json({ ok: true });
+    }
+
+    /**
+     * DÓNDE QUEDÓ CADA TARJETA DEL LIENZO (mig 0233, quinta tanda, punto 2: «tampoco se puede mover
+     * las tarjetas libremente por el lienzo»). Su PROPIA acción, a propósito: no pasa por Publicar ni
+     * por `setSecuenciaPasos`, que tira lo que no conoce (lib/secuencia-posiciones.ts). La columna
+     * que falta contesta `sinColumna` (200: no es un error de la persona) y la pantalla deja de mandar.
+     */
+    if (body.action === 'posiciones') {
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+      const r = await guardarPosicionesSecuencia((await getTenantDb()) as unknown as DbPosiciones, id, body.posiciones);
+      if (r.ok) return Response.json({ ok: true, posiciones: r.posiciones });
+      if (r.motivo === 'sin_columna') return Response.json({ ok: false, sinColumna: true });
+      return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
     }
 
     /**

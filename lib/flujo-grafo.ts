@@ -49,7 +49,8 @@
 // Cada nodo tiene UN padre (las salidas de un nodo son sus PUERTOS, todos al borde
 // derecho, una fila por rama — el molde de ManyChat). Para volver a juntar dos ramas está
 // el nodo `ir_a` con destino `{ nodo }`: un salto, no un segundo padre. Así el layout es
-// un árbol determinista (sin posiciones guardadas) y el motor no puede quedar en un ciclo
+// un árbol determinista (lo que la persona MUEVE se guarda aparte, en `posiciones`, mig 0233,
+// y no toca este modelo) y el motor no puede quedar en un ciclo
 // sin una espera en el medio (`validarGrafo`).
 //
 // ── SEGUNDA TANDA (08/10/2026, noche): UN SOLO CRON Y FLECHAS EN PARALELO ─────────────

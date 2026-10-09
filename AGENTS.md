@@ -4271,6 +4271,14 @@ una flecha se declaró en 28 px —gorda a propósito, porque un trazo de 1,6 px
 de apuntar— y con el lienzo al 22% daba **6 px**, con su botón en 5. La cura es un `scale`
 inverso con el zoom que la pantalla ya muestra, que lo deja igual a cualquier zoom.
 
+⚠️ **Y `vector-effect: non-scaling-stroke` NO LO CURA cuando el zoom es CSS.** Es la salida que
+aparece primero para un trazo de SVG, y el diagnóstico de la quinta tanda la proponía para la
+zona de toque de las flechas. Chromium calcula el trazo «que no escala» sólo con las
+transformaciones de ADENTRO del `<svg>`, y el zoom del lienzo es un `transform: scale(k)` sobre
+la capa HTML que lo contiene. Medido el 09/10/2026 con `elementFromPoint`, capa al 40 %: con el
+efecto y un ancho de 16, la franja daba **6,5 px** —exactamente lo mismo que 16 a secas—; con
+`16 / k` y sin efecto, **16,5**. Va el ancho dividido por el zoom (`TOQUE_FLECHA * 100 / zoomTxt`).
+
 ⚠️ **Y LA MISMA TRAMPA INVALIDA LA VERIFICACIÓN.** Para apuntarle al medio de una flecha se
 calculó `getPointAtLength(L/2)` + el `getBoundingClientRect()` del `<svg>`: el punto está
 en unidades de usuario y el rect ya trae el `scale`, así que al 68% el resultado caía 81 px
@@ -6517,14 +6525,32 @@ permiso para dibujar la bifurcación muerta. Lo que decidía era un `if` del des
 el `findIndex` que salta al paso siguiente; desde el flujo con ramas (08/10/2026), el
 `switch` de `cumpleFila`.
 
-⚠️ **Y el layout de /chatbot no se guarda.** Guardar posiciones es un campo nuevo, y en
-este repo los pasos pasan por un saneo que reconstruye cada uno CAMPO POR CAMPO y descarta
-lo que no conoce: el layout se perdería en silencio en el primer guardado hecho desde otra
-pantalla. Cuando se decidió, la secuencia más grande de la base tenía TRES pasos; desde el
-08/10/2026 una convertida tiene hasta 12 tarjetas (el tope es 60) y la razón es otra: el
-flujo es un ÁRBOL (un padre por tarjeta, las ramas se juntan con «Ir a»), así que el layout
-se DERIVA del dato igual que las aristas (`lib/flujo-conversacion.ts`). Las posiciones
-guardadas son del lienzo de /mensajes (`app/agencia/FlujoAviso.tsx`).
+⚠️ **Y el layout de /chatbot SE GUARDA desde el 09/10/2026 — pero sólo lo que la persona
+MOVIÓ, y en su propia columna.** Hasta ese día no se guardaba (el flujo es un ÁRBOL y el
+layout se DERIVA del dato igual que las aristas, `lib/flujo-conversacion.ts`), y Martín lo
+pidió con todas las letras en la quinta tanda: «tampoco se puede mover las tarjetas
+libremente por el lienzo». Lo que gobierna el código nuevo:
+
+- **El árbol sigue siendo el default.** Una tarjeta sin posición guardada va donde la pone
+  el árbol; un flujo que nadie tocó se dibuja idéntico (`conPosiciones`,
+  `lib/lienzo-posiciones.ts`, devuelve el mismo grafo).
+- **Vive en `nutricion_secuencias.posiciones` (jsonb, mig 0233), NUNCA adentro de `pasos`
+  ni de `estrategia`.** `pasos` lo reconstruye `setSecuenciaPasos` campo por campo y tira lo
+  que no conoce (la razón por la que esto no se hizo antes), y la estrategia se guarda
+  ENTERA desde varias pantallas: las dos perderían el layout en silencio.
+- **Se escribe por SU PROPIA acción** (POST /api/chat-agent/secuencias, `action:
+  'posiciones'` → `guardarPosicionesSecuencia`, `lib/secuencia-posiciones.ts`), al soltar,
+  con un respiro y optimista (`app/chatbot/usePosicionesLienzo.ts`). Nunca por Publicar ni
+  por `validarGrafo`: acomodar el dibujo no cambia qué hace la automatización, no deja «Sin
+  publicar» y no entra a la pila de deshacer de los pasos.
+- **Relativa al CRON DERIVADO, no absoluta.** El árbol pasa por `aOrigen`: una rama que abre
+  hacia arriba corre el dibujo entero, y una coordenada absoluta quedaría corrida. Se guarda
+  el desplazamiento desde donde el árbol pone la tarjeta CRON, y `moverRelativo` mide contra
+  el grafo DERIVADO (mover el CRON no arrastra a las demás).
+- **Podada:** al soltar, la posición de una tarjeta que ya no existe no sobrevive.
+- **Y tolera la columna que falta y la lectura que falla** (`null` ≠ `{}`): sin leerlas, las
+  tarjetas se mueven en la pantalla y NO se guardan — guardar un mapa que arrancó vacío
+  pisaría lo que la persona ya había acomodado.
 
 ## Y el gesto de un lienzo: pointer events, con tres trampas medidas
 
@@ -6593,12 +6619,17 @@ Si la afirmación es «esto no vuelve a aparecer», el universo es el archivo en
   tarjetas del tamaño de una uña. Y lo que estaba abajo queda DEBAJO, no al lado —
   el botón de guardar terminó pintado detrás del dibujo. La capa flotante va con
   `pointerEvents: none` y su contenido con `auto`, o la franja se traga el paneo.
-- **Al arrastrar un nodo (en el lienzo de /mensajes: el de /chatbot no guarda posiciones),
+- **Al arrastrar un nodo (en los dos lienzos: /mensajes y, desde el 09/10/2026, /chatbot),
   el delta del mouse se DIVIDE POR LA ESCALA.** Al 50%, mover
   el cursor 100 px tiene que mover la tarjeta 200 en coordenadas del grafo. El
   guardado va al soltar y con un respiro (un POST por `pointermove` son sesenta por
   segundo), es optimista, y las posiciones se PODAN: la coordenada de un nodo que ya
   no existe sobrevive para siempre y el próximo con ese id nace en su lugar.
+- **Lo que se arrastra es el ENVOLTORIO de la tarjeta, y las flechas la siguen.** Moviendo
+  sólo la tarjeta, sus puntos de salida y sus ＋ (que cuelgan del envoltorio) se quedaban en
+  el lugar viejo, y las flechas se despegaban hasta soltar. Y soltar NO reencuadra: el
+  dibujo cambia de tamaño y la firma del encuadre también, y sin la guarda (`trasMover`,
+  `app/_components/Lienzo.tsx`) acomodar una tarjeta deshacía el paneo.
 
 ⚠️ **Y un componente que puede no mostrar nada tiene que poder NO DIBUJARSE.**
 Envuelto en una tarjeta desde afuera, un `return null` se convierte en una cajita

@@ -34,8 +34,10 @@ import {
 } from './lienzo-grafo';
 import { EVENTOS, describirPaso, type Disparador, type Paso } from './flujos-tipos';
 import { textoCron, type CronAviso } from './cron-aviso';
-
-export type Posiciones = Record<string, { x: number; y: number }>;
+// Las posiciones y su poda son de los DOS lienzos (éste y el de /chatbot, desde la quinta tanda):
+// viven en lib/lienzo-posiciones.ts y se re-exportan acá para los que ya las importaban de este módulo.
+import { podarPosiciones, type Posiciones } from './lienzo-posiciones';
+export { podarPosiciones, type Posiciones };
 
 export type AvisoParaGrafo = {
   /** Qué lo hace salir, en palabras. Sale del catálogo: es un hecho, no una opción. */
@@ -306,15 +308,8 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
   return { nodos, aristas, ...encerrar(nodos) };
 }
 
-/** Las posiciones que ya no corresponden a ningún nodo. Se tiran al guardar: si
- *  no, borrar un paso deja su coordenada para siempre y el próximo con el mismo
- *  id nace en el lugar del que se fue. */
-export function podarPosiciones(pos: Posiciones, ids: ReadonlyArray<string>): Posiciones {
-  const vivos = new Set(ids);
-  const out: Posiciones = {};
-  for (const [k, v] of Object.entries(pos)) if (vivos.has(k)) out[k] = v;
-  return out;
-}
+// `podarPosiciones` (tirar las posiciones de los nodos que ya no existen) se mudó a
+// lib/lienzo-posiciones.ts: la usan los dos lienzos. Se re-exporta arriba.
 
 // ── QUÉ PASOS DIBUJA EL LIENZO, Y DÓNDE ENTRA UNO NUEVO ───────────────────
 // ⚠️ ESTE FILTRO ESTABA ESCRITO CINCO VECES en `FlujoAviso.tsx` — una por el

@@ -25,6 +25,7 @@ import { EditorCron, SelectorDisparo, CRON_DEFAULT } from '@/app/_components/Edi
 import type { CronAviso } from '@/lib/cron-aviso';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
+import { usePosicionesLienzo } from './usePosicionesLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
@@ -610,6 +611,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const etiquetas: EtiquetaLienzo[] = useEtiquetasTodas() ?? [];
 
   /**
+   * DÓNDE QUEDÓ CADA TARJETA MOVIDA (quinta tanda, punto 2; mig 0233). Se guarda al soltar, con su
+   * propia acción y no con Publicar (app/chatbot/usePosicionesLienzo.ts). Sólo el admin mueve: un
+   * setter mira el flujo como quedó acomodado y panea. Fuera de la pila de deshacer, a propósito: la
+   * pila es de lo que hace la automatización, y acomodar el dibujo no lo cambia.
+   */
+  const lugares = usePosicionesLienzo(secuencia.id, secuencia.posiciones, { puedeGuardar: rolAdmin, onError: setErr });
+
+  /**
    * DE QUÉ NÚMERO SALE (pedido de Martín, 06/10/2026). Se guarda al elegir, como el
    * disparador. El selector sólo se dibuja con DOS líneas o más: con una, no hay nada que
    * elegir. El server valida la línea al guardar y al mandar.
@@ -813,6 +822,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onModoIA={rolAdmin ? abrirGuiaSiFalta : undefined}
         insetIzq={insetIzq} insetDer={insetDer} muelles={muelles} revelar={revelarIA ?? revelar}
         onTarjetaAbierta={setTarjetaAbierta}
+        posiciones={lugares.posiciones} onPosiciones={rolAdmin ? lugares.mover : undefined}
         reservaAbajo={rolAdmin && pasos.length === 0 ? RESERVA_ABAJO_CREAR : 0}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>

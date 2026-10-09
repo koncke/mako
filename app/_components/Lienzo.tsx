@@ -60,6 +60,22 @@ const K_MAX = 2.4;
 /** Umbral de arrastre al cuadrado: por debajo de esto, el gesto fue un CLIC.
  *  Va al cuadrado para no sacar una raíz por cada `pointermove`. */
 const ARRASTRE2 = 25;
+/**
+ * EL ANCHO DE TOQUE DE UNA FLECHA, en píxeles de PANTALLA (quinta tanda, punto 2: «ya no está la
+ * opción de insertar un delay o condición algo en medio de una flecha»). El ＋ del medio no se había
+ * roto: vivía en un cuadrado invisible de 28 px en el punto medio y la flecha no reaccionaba fuera de
+ * él. Mientras la espera se dibujaba SOBRE la flecha («24 h»), la etiqueta marcaba dónde pasar el
+ * cursor; al pasar la espera a su propia tarjeta (08/10) se perdió la pista. Ahora la flecha entera
+ * es la zona: un segundo trazo transparente de este ancho, y pasar por cualquier punto muestra el ＋.
+ */
+const TOQUE_FLECHA = 16;
+/**
+ * Cuánto espera el ＋ de una flecha antes de apagarse al salir de ella. El ＋ va en el PUNTO MEDIO y
+ * la flecha es una curva: ir en línea recta desde otro punto de la curva hasta el ＋ sale de la franja
+ * de 16 px en una flecha con desnivel, y sin este respiro el botón se apaga en el camino (la misma
+ * familia que el ＋ de la tarjeta que se apagaba a 8 px, AGENTS.md).
+ */
+const GRACIA_FLECHA_MS = 350;
 /** Ancho del panel de edición, y el margen con el que se despega del borde. */
 /**
  * Ancho del panel de edición. Es el DEFAULT: quien monta el lienzo puede pedir otro
@@ -255,6 +271,27 @@ export function Lienzo({
   const [encima, setEncima] = useState<string | null>(null);
   /** Sobre qué flecha está el cursor: es lo que muestra su ＋ del medio. */
   const [enFlecha, setEnFlecha] = useState<number | null>(null);
+  /** El apagado diferido del ＋ de una flecha (`GRACIA_FLECHA_MS`). */
+  const salidaFlecha = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const entrarFlecha = (i: number) => {
+    if (salidaFlecha.current) { clearTimeout(salidaFlecha.current); salidaFlecha.current = null; }
+    setEnFlecha(i);
+  };
+  const salirFlecha = (i: number) => {
+    // ⚠️ NO SE APAGA MIENTRAS HAYA UN MENÚ ABIERTO: el del ＋ se monta por PORTAL en el body, fuera
+    // de la flecha, y al ir del botón al menú se dispara el leave (la misma regla que la tarjeta).
+    if (document.querySelector('[role="listbox"]')) return;
+    if (salidaFlecha.current) clearTimeout(salidaFlecha.current);
+    salidaFlecha.current = setTimeout(() => { salidaFlecha.current = null; setEnFlecha((p) => (p === i ? null : p)); }, GRACIA_FLECHA_MS);
+  };
+  useEffect(() => () => { if (salidaFlecha.current) clearTimeout(salidaFlecha.current); }, []);
+  /**
+   * Se acaba de SOLTAR una tarjeta: el encuadre que dispare ese cambio de tamaño del dibujo no
+   * reencuadra. Sin esto, soltar una tarjeta más allá del borde agranda `grafo.ancho`, cambia la
+   * firma y el lienzo vuelve a centrar — o sea que acomodar una tarjeta deshace el paneo (el «rebota
+   * solo» de las trampas de arriba, ahora por el arrastre). Vale una vez y se apaga sola.
+   */
+  const trasMover = useRef(false);
   /** Lo que el panel corrió, para devolverlo al cerrar. Ver `vistaAlCerrarPanel`. */
   const corrimiento = useRef<{ antes: VistaLienzo; aplicada: VistaLienzo } | null>(null);
   /** La última forma encuadrada: grafo + caja. Ver `encuadrar`. */
@@ -329,6 +366,8 @@ export function Lienzo({
     // se lee como que el lienzo «rebota solo».
     const firma = `${Math.round(grafo.ancho)}x${Math.round(grafo.alto)}@${w}x${h}+${insetIzq}+${insetDer}-${reservaAbajo}`;
     if (!forzar && encuadrado.current === firma) return;
+    // Lo cambió soltar una tarjeta (`trasMover`): se anota la firma nueva y la vista NO se toca.
+    if (!forzar && trasMover.current) { trasMover.current = false; encuadrado.current = firma; return; }
     encuadrado.current = firma;
     /**
      * ⚠️ EL ENCUADRE DESCUENTA EL INSET, Y NO ES COSMÉTICA: SIN ESO LA PRIMERA TARJETA
@@ -398,6 +437,42 @@ export function Lienzo({
     return () => c.removeEventListener('wheel', onWheel);
   }, [pintar]);
 
+  /**
+   * ARRASTRAR UNA TARJETA LA LLEVA CON TODO LO QUE CUELGA DE ELLA, Y LAS FLECHAS LA SIGUEN.
+   *
+   * · Se mueve el ENVOLTORIO (`data-envoltorio`), no la tarjeta: adentro van el ＋ de pasar el
+   *   cursor, los puntos de las salidas y sus ＋. Hasta la quinta tanda se movía sólo la tarjeta
+   *   (`left`/`top`) y el ＋ a mano; con las salidas de /chatbot, los puntos y sus ＋ se quedaban en
+   *   el lugar viejo mientras ella viajaba. `setPointerCapture` retargetea los eventos al contenedor,
+   *   así que durante el arrastre no hay enter ni leave en los envoltorios: `encima` queda congelado
+   *   en la agarrada y su ＋ viaja con ella.
+   * · Las flechas que la tocan se recalculan con la MISMA curva (`curvaEntre`), y su ＋ del medio y su
+   *   etiqueta van al punto medio nuevo: sin esto la tarjeta se despegaba de sus flechas hasta soltar.
+   *
+   * `dx`/`dy` en coordenadas del GRAFO (el delta del mouse ya dividido por el zoom). Con 0/0 devuelve
+   * todo a lo que dice el estado (`soltarArrastre`).
+   */
+  function pintarArrastre(id: string, dx: number, dy: number) {
+    const c = caja.current;
+    if (!c) return;
+    const env = c.querySelector(`[data-envoltorio="${id}"]`);
+    if (env instanceof HTMLElement) env.style.transform = dx || dy ? `translate(${dx}px, ${dy}px)` : '';
+    const mov = (n: NodoFlujo) => (n.id === id ? { ...n, x: n.x + dx, y: n.y + dy } : n);
+    grafo.aristas.forEach((a, i) => {
+      if (a.desde !== id && a.hasta !== id) return;
+      const d = grafo.nodos.find((n) => n.id === a.desde);
+      const h = grafo.nodos.find((n) => n.id === a.hasta);
+      if (!d || !h) return;
+      const curva = curvaEntre(mov(d), mov(h), a.puerto);
+      c.querySelectorAll(`[data-arista="${i}"]`).forEach((el) => el.setAttribute('d', curva));
+      const m = medioDeCurva(mov(d), mov(h), a.puerto);
+      c.querySelectorAll(`[data-arista-medio="${i}"]`).forEach((el) => {
+        if (el instanceof HTMLElement) { el.style.left = `${m.x}px`; el.style.top = `${m.y}px`; }
+      });
+    });
+  }
+  const soltarArrastre = (id: string) => pintarArrastre(id, 0, 0);
+
   function onPointerDown(e: React.PointerEvent) {
     /**
      * ⚠️ UN EVENTO DE REACT BUBBLEA POR EL PORTAL; `closest()` CAMINA EL DOM.
@@ -452,24 +527,9 @@ export function Lienzo({
       // cursor — y cuanto más lejos del 100%, más se despega.
       const k = vista.current.k || 1;
       movido.current = { id: g.nodo, x: g.nx0 + dx / k, y: g.ny0 + dy / k };
-      // Se escribe sobre el nodo del DOM, no con setState: un setState por
-      // `pointermove` redibuja el grafo entero 60 veces por segundo.
-      const el = caja.current?.querySelector(`[data-nodo="${g.nodo}"]`);
-      if (el instanceof HTMLElement) {
-        el.style.left = `${movido.current.x}px`;
-        el.style.top = `${movido.current.y}px`;
-      }
-      // ⚠️ Y EL ＋ SE MUEVE CON ELLA. `setPointerCapture` retargetea los eventos al
-      // contenedor, así que durante todo el arrastre no se dispara ni un enter ni un
-      // leave en los envoltorios: `encima` queda congelado en el nodo agarrado. Sin
-      // esto, el botón se queda flotando en el lugar viejo mientras la tarjeta viaja —
-      // justo en el gesto que el dueño nombró.
-      const mas = caja.current?.querySelector(`[data-mas="${g.nodo}"]`);
-      const nodoMov = grafo.nodos.find((x) => x.id === g.nodo);
-      if (mas instanceof HTMLElement && nodoMov) {
-        mas.style.left = `${movido.current.x + nodoMov.ancho}px`;
-        mas.style.top = `${movido.current.y + 10}px`;
-      }
+      // Se escribe sobre el DOM, no con setState: un setState por `pointermove` redibuja el
+      // grafo entero 60 veces por segundo.
+      pintarArrastre(g.nodo, dx / k, dy / k);
       return;
     }
     vista.current = { ...vista.current, tx: g.tx0 + dx, ty: g.ty0 + dy };
@@ -485,10 +545,16 @@ export function Lienzo({
     if (!g) return;
     // El CLIC se resuelve acá y no en un onClick del nodo: con la captura puesta,
     // los eventos siguientes van al contenedor y el onClick del hijo no dispara.
+    // Lo que el arrastre escribió a mano en el DOM vuelve a lo que dice el ESTADO, y recién después
+    // se avisa: el render del cambio (en este mismo evento, antes de pintar) pone lo nuevo. Al revés,
+    // un soltar que no cambia el estado dejaría la tarjeta dibujada donde no está.
+    if (g.arrastrandoNodo && g.nodo) soltarArrastre(g.nodo);
     if (g.movido <= ARRASTRE2) onSeleccion(g.nodo && seleccion === g.nodo ? null : g.nodo);
     else if (g.arrastrandoNodo && movido.current) {
       // El guardado va al SOLTAR, no en cada píxel: un POST por `pointermove` son
       // sesenta por segundo contra la misma fila.
+      trasMover.current = true;
+      setTimeout(() => { trasMover.current = false; }, 0);
       onMover?.(movido.current.id, Math.round(movido.current.x), Math.round(movido.current.y));
     }
     movido.current = null;
@@ -611,11 +677,44 @@ export function Lienzo({
               if (!d || !h) return null;
               // Revelando, una flecha aparece cuando ya están sus dos puntas.
               const vista = !revelar || aristaRevelada(revelar.orden, revelados, a);
+              // La flecha con el cursor encima se marca (más opaca y un poco más gruesa): es la pista de
+              // que se puede tocar, que antes daba la etiqueta «24 h».
+              const tocada = enFlecha === i;
               return (
-                <path key={i} d={curvaEntre(d, h, a.puerto)} fill="none" stroke={COLOR_TONO[a.tono]}
-                  strokeWidth={1.6} strokeDasharray={a.tono === 'condicional' ? '5 4' : undefined}
-                  markerEnd={`url(#punta-${a.tono})`} opacity={vista ? 0.85 : 0}
+                <path key={i} data-arista={i} d={curvaEntre(d, h, a.puerto)} fill="none" stroke={COLOR_TONO[a.tono]}
+                  strokeWidth={tocada ? 2.4 : 1.6} strokeDasharray={a.tono === 'condicional' ? '5 4' : undefined}
+                  markerEnd={`url(#punta-${a.tono})`} opacity={vista ? (tocada ? 1 : 0.85) : 0}
                   style={revelar ? { transition: `opacity ${REVELAR_DURACION_MS}ms ease` } : undefined} />
+              );
+            })}
+            {/*
+              ⚠️ LA ZONA DE TOQUE DE CADA FLECHA: un segundo trazo, transparente y gordo, encima del que
+              se ve (`TOQUE_FLECHA`). Pasar el cursor por CUALQUIER punto de la flecha muestra su ＋ del
+              medio; antes sólo lo mostraba un cuadrado invisible de 28 px en el punto medio.
+
+              · `pointerEvents: 'stroke'` en el trazo: el `<svg>` va con `none` (el fondo panea), y
+                `stroke` cuenta el trazo aunque sea transparente (el valor del `stroke` no afecta).
+              · ⚠️ EL ANCHO SE DIVIDE POR EL ZOOM, y NO con `vectorEffect='non-scaling-stroke'`: el
+                zoom es un `transform: scale(k)` de CSS sobre la capa HTML, y Chromium calcula el
+                trazo «que no escala» sólo con las transformaciones de ADENTRO del svg. Medido el
+                09/10/2026 en Chrome con `elementFromPoint`, capa al 40 %: con el efecto y 16, la
+                franja daba 6,5 px (= 16 a secas); con 16 / k, 16,5 px. Es la regla de la casa («una
+                medida adentro de una capa con scale(k) se ve k veces más chica») con el mismo arreglo
+                que la zona del ＋: el inverso del zoom que la pantalla ya muestra.
+              · Va DESPUÉS de las flechas que se ven y ANTES de las tarjetas (que se dibujan encima):
+                sobre una tarjeta manda la tarjeta.
+              · Sin ＋ que mostrar (sin `onAgregarTras`, `sinMas`, revelando) no hay zona.
+            */}
+            {onAgregarTras && (opcionesEn || opcionesAgregar) && !revelando && grafo.aristas.map((a, i) => {
+              if (a.sinMas) return null;
+              const d = grafo.nodos.find((n) => n.id === a.desde);
+              const h = grafo.nodos.find((n) => n.id === a.hasta);
+              if (!d || !h) return null;
+              return (
+                <path key={`toque-${i}`} data-arista={i} data-toque-flecha={i} d={curvaEntre(d, h, a.puerto)}
+                  fill="none" stroke="transparent" strokeWidth={(TOQUE_FLECHA * 100) / zoomTxt}
+                  style={{ pointerEvents: 'stroke' }}
+                  onPointerEnter={() => entrarFlecha(i)} onPointerLeave={() => salirFlecha(i)} />
               );
             })}
           </svg>
@@ -634,7 +733,10 @@ export function Lienzo({
 
             Va con una zona de hover PROPIA y gorda (28 px), no sobre el `<path>`: un
             trazo de 1,6 px es imposible de apuntar, que es la misma medición que ya
-            obligó a darle al ＋ de la tarjeta un puente de 8 px de padding.
+            obligó a darle al ＋ de la tarjeta un puente de 8 px de padding. Y desde la
+            quinta tanda la FLECHA ENTERA también la enciende (la zona de toque del
+            `<svg>`, arriba): la zona del medio queda como el lugar del botón y como el
+            puente entre la flecha y él.
 
             ⚠️ CON PUERTOS, INSERTA EN EL PUERTO DE LA FLECHA (`a.puerto`), no «después
             del nodo»: con N salidas eso es ambiguo, y el ＋ de la rama de abajo agregaba
@@ -649,9 +751,9 @@ export function Lienzo({
             const m = medioDeCurva(d, h, a.puerto);
             const abierta = enFlecha === i;
             return (
-              <div key={`mas-${i}`} data-no-pan
-                onPointerEnter={() => setEnFlecha(i)}
-                onPointerLeave={() => { if (document.querySelector('[role="listbox"]')) return; setEnFlecha((p) => (p === i ? null : p)); }}
+              <div key={`mas-${i}`} data-no-pan data-arista-medio={i}
+                onPointerEnter={() => entrarFlecha(i)}
+                onPointerLeave={() => salirFlecha(i)}
                 style={{
                   position: 'absolute', left: m.x, top: m.y,
                   // ⚠️ LA ZONA SE MIDE EN PÍXELES DE PANTALLA, NO DEL GRAFO. Vive adentro
@@ -686,7 +788,7 @@ export function Lienzo({
             if (!d || !h) return null;
             const m = medioDeCurva(d, h, a.puerto);
             return (
-              <div key={`et-${i}`} style={{
+              <div key={`et-${i}`} data-arista-medio={i} style={{
                 position: 'absolute', left: m.x, top: m.y, transform: 'translate(-50%, -50%)',
                 padding: '3px 8px', borderRadius: 999, whiteSpace: 'nowrap',
                 background: 'var(--surface)', border: `1px solid ${COLOR_TONO[a.tono]}`,
@@ -715,9 +817,10 @@ export function Lienzo({
              * continuo, y como es el span el que tiene caja, el hover no se corta.
              * (Un `margin` no sirve: el margen no recibe eventos de puntero.)
              */
-            <div key={n.id}
+            <div key={n.id} data-envoltorio={n.id}
               // Revelando: opacidad 0 y unos px abajo hasta que le toque. El envoltorio mide 0×0,
-              // pero la opacidad y el `transform` se aplican igual a todo lo que pinta adentro.
+              // pero la opacidad y el `transform` se aplican igual a todo lo que pinta adentro (y por
+              // eso el ARRASTRE mueve este envoltorio: la tarjeta, su ＋ y sus salidas, juntos).
               style={estiloRevelado(n.id)}
               onPointerEnter={() => setEncima(n.id)}
               /**
