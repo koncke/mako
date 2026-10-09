@@ -80,10 +80,14 @@ export function siguienteIndice(pasos: readonly PasoGrafo[], idx: number): numbe
   return indicePorId(pasos, siguienteDe(pasos, idx));
 }
 
+// ⚠️ EL INICIO TAMBIÉN (segunda tanda, 08/10/2026): no manda nada. Sin él acá, `setSecuenciaPasos`
+// no le ponía el relleno de control y lo reconstruía como un mensaje, `esPrimerPaso` creía que la
+// primera tarjeta de un hilo tenía un mensaje adelante, y la prueba, el generador y la API lo
+// recorrían como un mensaje vacío.
 const esControl = (p: PasoGrafo | undefined): boolean => {
   if (!p) return false;
   const c = claseDe(p);
-  return c === 'condicion' || c === 'esperar' || c === 'ir_a' || c === 'respuesta';
+  return c === 'condicion' || c === 'esperar' || c === 'ir_a' || c === 'respuesta' || c === 'inicio';
 };
 
 export const esNodoDeControl = esControl;
@@ -98,7 +102,14 @@ export type ContextoControl = {
   reunionMs: number | null;
 };
 
-export type Resolucion =
+/**
+ * Una flecha en paralelo que arranca un hilo NUEVO (segunda tanda, 08/10/2026): `destino` es su
+ * primera tarjeta y `desdeMs`, desde cuándo puede correr (cuando venció la espera que la tiene, o
+ * ahora si es el inicio o la espera ya había vencido).
+ */
+export type Reparto = { destino: string; desdeMs: number };
+
+export type Resolucion = (
   /** Un mensaje o una acción: sigue a las guardas y al envío. */
   | { tipo: 'nodo'; idx: number; via: string[] }
   /** Una espera: se programa `proximoMs` y la inscripción pasa a `idx` (lo que sigue a la espera). */
@@ -107,12 +118,25 @@ export type Resolucion =
   | { tipo: 'fin'; motivo: string; via: string[] }
   /** «Ir a» otra automatización: se inscribe en ésa y ésta termina. */
   | { tipo: 'ir_a_secuencia'; secuenciaId: number; via: string[] }
-  /** Hay que evaluar una condición y no hay hechos: leerlos y volver a llamar. */
-  | { tipo: 'faltan_hechos' }
   /** Una espera «antes de la reunión» sin reunión por delante: se cierra sin mandar, como el ancla de siempre. */
   | { tipo: 'sin_reunion'; via: string[] }
   /** Más de `TOPE_SALTOS` «Ir a» seguidos: un bucle que `validarGrafo` no dejó guardar, hecho a mano. */
-  | { tipo: 'tope_saltos'; via: string[] };
+  | { tipo: 'tope_saltos'; via: string[] }
+) & {
+  /**
+   * Las flechas en paralelo que la resolución ENCONTRÓ en el camino (de una espera o del inicio).
+   * ⚠️ SE DEVUELVEN AUNQUE LA RESOLUCIÓN SIGA DE LARGO: una espera ya vencida se pasa sin frenar,
+   * y sin esto sus flechas en paralelo se perdían en silencio. Vacío en un flujo sin paralelos.
+   */
+  repartos: Reparto[];
+}
+  /** Hay que evaluar una condición y no hay hechos: leerlos y volver a llamar. */
+  | { tipo: 'faltan_hechos' };
+
+/** Las flechas en paralelo de una tarjeta (sin repetidos ni vacías), tal como las recorre el motor. */
+function paralelosDelNodo(pasos: readonly PasoGrafo[], idx: number): string[] {
+  return puertosDe(pasos, idx).flatMap((pt) => (pt.puerto.startsWith('par:') && pt.destino ? [pt.destino] : []));
+}
 
 /**
  * Resuelve los nodos de CONTROL desde `desde` hasta el primer mensaje o acción.
@@ -127,53 +151,71 @@ export type Resolucion =
  */
 export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx: ContextoControl): Resolucion {
   const via: string[] = [];
+  const repartos: Reparto[] = [];
+  const repartir = (i: number, desdeMs: number) => {
+    for (const d of paralelosDelNodo(pasos, i)) if (!repartos.some((r) => r.destino === d)) repartos.push({ destino: d, desdeMs });
+  };
   let idx = desde;
   let saltos = 0;
   for (let vuelta = 0; vuelta <= TOPE_NODOS * 2 + TOPE_SALTOS; vuelta++) {
     const p = pasos[idx];
-    if (!p) return { tipo: 'fin', motivo: 'no hay más tarjetas', via };
+    if (!p) return { tipo: 'fin', motivo: 'no hay más tarjetas', via, repartos };
     const c = claseDe(p);
-    if (c === 'mensaje' || c === 'accion') return { tipo: 'nodo', idx, via };
+    if (c === 'mensaje' || c === 'accion') return { tipo: 'nodo', idx, via, repartos };
     via.push(idDe(p, idx));
-    if (c === 'respuesta') return { tipo: 'fin', motivo: '«Si responde» no corre en la salida', via };
+    if (c === 'respuesta') return { tipo: 'fin', motivo: '«Si responde» no corre en la salida', via, repartos };
+    if (c === 'inicio') {
+      // El CRON con flechas en paralelo. El motor arranca un hilo por raíz al inscribir
+      // (`raicesSalida`) y nunca debería pararse acá; si una fila llega a esta tarjeta igual, se
+      // sigue por su salida principal y sus flechas arrancan ahora.
+      repartir(idx, ctx.ahoraMs);
+      const j = siguienteIndice(pasos, idx);
+      if (j < 0) return { tipo: 'fin', motivo: 'el CRON no tiene una salida principal', via, repartos };
+      idx = j;
+      continue;
+    }
     if (c === 'condicion') {
       if (!ctx.hechos) return { tipo: 'faltan_hechos' };
       const s = elegirSalida(p, ctx.hechos);
       const j = indicePorId(pasos, s.destino);
-      if (j < 0) return { tipo: 'fin', motivo: 'la condición termina aquí', via };
+      if (j < 0) return { tipo: 'fin', motivo: 'la condición termina aquí', via, repartos };
       idx = j;
       continue;
     }
     if (c === 'esperar') {
       const j = siguienteIndice(pasos, idx);
-      // Esperar para no hacer nada después es lo mismo que terminar ahora.
-      if (j < 0) return { tipo: 'fin', motivo: 'no hay nada después de la espera', via };
+      const tieneParalelos = paralelosDelNodo(pasos, idx).length > 0;
+      // Esperar para no hacer nada después es lo mismo que terminar ahora (salvo que la espera
+      // tenga flechas en paralelo: esas arrancan cuando vence, aunque este camino termine).
+      if (j < 0 && !tieneParalelos) return { tipo: 'fin', motivo: 'no hay nada después de la espera', via, repartos };
       const minutos = Math.max(0, Number(p.espera?.minutos) || 0);
       let objetivo: number;
       if (p.espera?.modo === 'antes_reunion') {
-        if (ctx.reunionMs == null) return { tipo: 'sin_reunion', via };
+        if (ctx.reunionMs == null) return { tipo: 'sin_reunion', via, repartos };
         objetivo = ctx.reunionMs - minutos * 60_000;
       } else {
         objetivo = ctx.ahoraMs + minutos * 60_000;
       }
+      repartir(idx, Math.max(objetivo, ctx.ahoraMs));
+      if (j < 0) return { tipo: 'fin', motivo: 'no hay nada después de la espera', via, repartos };
       if (objetivo <= ctx.ahoraMs) { idx = j; continue; }
-      return { tipo: 'esperar', idx: j, proximoMs: objetivo, via };
+      return { tipo: 'esperar', idx: j, proximoMs: objetivo, via, repartos };
     }
     // ir_a
     const d = p.destino;
-    if (!d) return { tipo: 'fin', motivo: '«Ir a» sin destino', via };
+    if (!d) return { tipo: 'fin', motivo: '«Ir a» sin destino', via, repartos };
     if ('secuencia_id' in d) {
       const sid = Number(d.secuencia_id);
-      if (!Number.isInteger(sid) || sid <= 0) return { tipo: 'fin', motivo: '«Ir a» sin destino', via };
-      return { tipo: 'ir_a_secuencia', secuenciaId: sid, via };
+      if (!Number.isInteger(sid) || sid <= 0) return { tipo: 'fin', motivo: '«Ir a» sin destino', via, repartos };
+      return { tipo: 'ir_a_secuencia', secuenciaId: sid, via, repartos };
     }
     saltos += 1;
-    if (saltos > TOPE_SALTOS) return { tipo: 'tope_saltos', via };
+    if (saltos > TOPE_SALTOS) return { tipo: 'tope_saltos', via, repartos };
     const j = indicePorId(pasos, d.nodo);
-    if (j < 0) return { tipo: 'fin', motivo: 'el «Ir a» apunta a una tarjeta que ya no existe', via };
+    if (j < 0) return { tipo: 'fin', motivo: 'el «Ir a» apunta a una tarjeta que ya no existe', via, repartos };
     idx = j;
   }
-  return { tipo: 'tope_saltos', via };
+  return { tipo: 'tope_saltos', via, repartos };
 }
 
 /**
@@ -190,7 +232,7 @@ export function necesitaHechos(pasos: readonly PasoGrafo[], desde: number): bool
     if (!p) return false;
     const c = claseDe(p);
     if (c === 'condicion') return true;
-    if (c === 'esperar') { idx = siguienteIndice(pasos, idx); continue; }
+    if (c === 'esperar' || c === 'inicio') { idx = siguienteIndice(pasos, idx); continue; }
     if (c === 'ir_a' && p.destino && 'nodo' in p.destino) { idx = indicePorId(pasos, p.destino.nodo); continue; }
     return false;
   }

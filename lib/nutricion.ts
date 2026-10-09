@@ -49,7 +49,7 @@ import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, nodoPorId, siguienteDe, TOPE_NODOS,
-  type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead,
+  type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import {
@@ -141,8 +141,14 @@ export type PasoSecuencia = {
   id?: string;
   /** A qué nodo sigue. Ausente = el elemento siguiente del array; null = termina. */
   siguiente?: string | null;
-  /** La clase cuando no es un mensaje ni una acción. */
-  nodo?: 'esperar' | 'condicion' | 'respuesta' | 'ir_a';
+  /**
+   * La clase cuando no es un mensaje ni una acción. Sale del modelo (`PasoGrafo['nodo']`) y no se
+   * copia a mano: la copia no conocía 'inicio' (el CRON con flechas en paralelo) y el tipo dejaba
+   * de compilar en cuanto el modelo sumó una clase.
+   */
+  nodo?: PasoGrafo['nodo'];
+  /** Mensaje, acción, espera e inicio: lo que arranca A LA VEZ cuando esta tarjeta termina (lib/flujo-grafo.ts). */
+  paralelos?: string[];
   espera?: Espera;
   ramas?: RamaCondicion[];
   casos?: CasoRespuesta[];
