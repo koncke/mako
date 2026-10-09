@@ -34,6 +34,7 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { evaluarDesenlaces } from '@/lib/nutricion-desenlace';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { ESPERA_CORRIDA_HASTA_MS } from '@/lib/espera-duracion';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -57,6 +58,17 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url);
   const ignorarVentana = url.searchParams.get('ignorar_ventana') === '1';
+  /**
+   * HASTA CUÁNDO PUEDE DORMIR ESTA CORRIDA para cumplir una espera corta adentro (quinta tanda, punto
+   * 3: un DELAY de 30 s sale a los 30 s y no en la corrida de la hora siguiente; la decisión, en la
+   * cabecera de lib/espera-duracion.ts). UNO para toda la ruta, contado desde que arrancó: los
+   * workspaces corren de a uno y `maxDuration` es 300, así que entre todos no se duerme más de 150 s.
+   *
+   * ⚠️ SIN ESTO EL MOTOR NO DUERME NUNCA: `procesarEnvios` sin tope no espera (a propósito: la vía
+   * rápida corre adentro de un webhook). La primera versión del motor ya sabía dormir y esta ruta no
+   * le pasaba el tope, así que la espera corta «adentro de la corrida» no corría en ningún lado.
+   */
+  const esperarHastaMs = Date.now() + ESPERA_CORRIDA_HASTA_MS;
   const wsParam = Number(url.searchParams.get('ws'));
   const wsExplicito = Number.isFinite(wsParam) && wsParam > 0 ? wsParam : null;
 
@@ -99,7 +111,7 @@ export async function GET(request: NextRequest) {
           return null;
         });
         const inscriptas = await comprometerInscripciones();
-        const proc = await procesarEnvios({ ignorarVentana, simularApagados: true });
+        const proc = await procesarEnvios({ ignorarVentana, simularApagados: true, esperarHastaMs });
         return {
           inscriptas,
           ...proc,
@@ -140,11 +152,11 @@ export async function GET(request: NextRequest) {
             // correrlo sólo mueve las acciones. No inscribe por cohorte: eso sigue en 'off'.
             const conAcciones = (await getSecuenciasActivas()).some((s) => s.pasos.some(esPasoAccion));
             if (!conAcciones) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
-            const proc = await procesarEnvios({ ignorarVentana });
+            const proc = await procesarEnvios({ ignorarVentana, esperarHastaMs });
             return { ws: w.id, modo: 'off (sólo acciones)', ...proc, ...(cerradas ?? {}) };
           }
           const inscriptas = await comprometerInscripciones();
-          const proc = await procesarEnvios({ ignorarVentana });
+          const proc = await procesarEnvios({ ignorarVentana, esperarHastaMs });
           return { ws: w.id, modo: `commit (wa:${waOn ? 'on' : 'off'} email:${emailOn ? 'on' : 'off'})`, inscriptas, ...proc, ...(cerradas ?? {}) };
         });
         resultados.push(r);

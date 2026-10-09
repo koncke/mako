@@ -9,11 +9,15 @@
 //      redondea al SEGUNDO (antes, al minuto: 10 s se guardaba como 0 y la espera desaparecía);
 //   2. la PANTALLA: la unidad que eligió la persona se recuerda mientras el número entre en ella, y el
 //      texto de la píldora da lo mismo que antes para los minutos enteros;
-//   3. el MOTOR: la espera se agenda al segundo exacto, y la de hasta 120 s se cumple ADENTRO de la
-//      corrida (`procesarEnvios({ esperarHastaMs })` duerme al final de la vuelta) sólo si el que llama
-//      le da un tope — la vía rápida de un evento corre adentro de un webhook y no duerme;
-//   4. la HONESTIDAD: lo que depende del cron (2 a 59 min) lo avisa la pantalla, con la cadencia que
-//      dice vercel.json (si alguien la cambia, este test frena hasta que la constante diga lo mismo).
+//   3. el MOTOR: la espera se agenda al segundo exacto, y la de hasta 120 s se cumple EN LA MISMA
+//      EJECUCIÓN que llegó al DELAY: la corrida del cron (la ruta le da el tope a
+//      `procesarEnvios({ esperarHastaMs })`, que duerme al final de la vuelta) y la vía rápida de un
+//      evento, que no duerme adentro del webhook sino DESPUÉS de contestar (`after()`,
+//      `seguirDespuesDeResponder`);
+//   4. la HONESTIDAD: lo que depende del cron (más de 120 s, horas y días incluidos) lo avisa la
+//      pantalla con la cadencia y las horas que dice vercel.json, en la hora de quien mira (si alguien
+//      cambia el cron, este test frena hasta que las constantes digan lo mismo);
+//   5. la PÍLDORA y «Probar»: «Esperar 30 s», no «Esperar 1 min» (`textoEspera` redondeaba a minutos).
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026), una rotura por vez y restaurada DE MEMORIA (arnés en el
 // scratchpad, nunca `git checkout`). Con todo puesto: ver el pie del archivo.
@@ -27,10 +31,11 @@ import { readFileSync } from 'node:fs';
 import {
   UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadDe, unidadMostrada,
   textoDuracion, esperaEnLaCorrida, sinPrecision, avisoDePrecision,
-  ESPERA_EN_CORRIDA_MAX_S, ESPERA_CORRIDA_HASTA_MS, CADENCIA_MOTOR_MIN,
+  ESPERA_EN_CORRIDA_MAX_S, ESPERA_CORRIDA_HASTA_MS, CADENCIA_MOTOR_MIN, HORAS_MOTOR_UTC,
 } from '../lib/espera-duracion';
 import { camposDelFlujo, resolverControl } from '../lib/nutricion-grafo-motor';
-import type { PasoGrafo } from '../lib/flujo-grafo';
+import { textoEspera, type PasoGrafo } from '../lib/flujo-grafo';
+import { iniciar, siguiente } from '../lib/simulador-grafo';
 
 const leer = (r: string): string => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -130,6 +135,31 @@ test('el texto de la píldora: igual que antes para los minutos enteros, y con l
   assert.equal(textoDuracion(90), '90 s');
 });
 
+test('⚠️ la píldora y «Probar» dicen los SEGUNDOS: `textoEspera` redondeaba a minutos («Esperar 0 min» para 10 s)', () => {
+  // El editor decía «10 segundos» y la tarjeta y «Probar», al lado, «Esperar 0 min»; 30 s, «1 min».
+  assert.equal(textoEspera({ modo: 'tiempo', minutos: minutosDeSegundos(10) }), 'Esperar 10 s');
+  assert.equal(textoEspera({ modo: 'tiempo', minutos: minutosDeSegundos(30) }), 'Esperar 30 s');
+  assert.equal(textoEspera({ modo: 'tiempo', minutos: minutosDeSegundos(90) }), 'Esperar 90 s');
+  // Lo de siempre, idéntico (lo fijan también tests/flujo-grafo.test.ts y tests/simulador-*.test.ts).
+  assert.equal(textoEspera({ modo: 'tiempo', minutos: 1440 }), 'Esperar 1 día');
+  assert.equal(textoEspera({ modo: 'tiempo', minutos: 90 }), 'Esperar 90 min');
+  assert.equal(textoEspera({ modo: 'antes_reunion', minutos: 15 }), '15 min antes de la reunión');
+  // «Probar» no espera: dice cuánto con el MISMO texto y sigue (lib/simulador-grafo.ts).
+  const f: PasoGrafo[] = [
+    { id: 'e', nodo: 'esperar', espera: { modo: 'tiempo', minutos: minutosDeSegundos(30) }, siguiente: 'm', canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null } as PasoGrafo,
+    { id: 'm', canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: 'el link', template_wa: null } as PasoGrafo,
+  ];
+  let st = iniciar(f);
+  const vistos: string[] = [];
+  for (let i = 0; i < 12 && !st.terminado; i++) {
+    const r = siguiente(f, st);
+    if (r.evento?.t === 'espera') vistos.push(r.evento.texto);
+    if (r.evento?.t === 'mensaje') vistos.push(`💬${r.evento.paso.cuerpo}`);
+    st = r.estado;
+  }
+  assert.deepEqual(vistos, ['⏳ Esperar 30 s', '💬el link']);
+});
+
 test('⚠️ adentro de la corrida: hasta 120 s, antes del tope que dio la ruta, y NUNCA sin tope', () => {
   const tope = AHORA + ESPERA_CORRIDA_HASTA_MS;
   assert.equal(esperaEnLaCorrida(AHORA + 10_000, AHORA, tope), 10_000, '«audio y 10 s después el link»');
@@ -144,18 +174,28 @@ test('⚠️ adentro de la corrida: hasta 120 s, antes del tope que dio la ruta,
   assert.ok(ESPERA_CORRIDA_HASTA_MS + ESPERA_EN_CORRIDA_MAX_S * 1000 < 300_000 + 1, 'el tope y la espera no pasan el `maxDuration` de la ruta');
 });
 
-test('⚠️ la honestidad: lo que depende del cron (2 a 59 min) lo dice la pantalla; lo de la corrida y lo largo, no', () => {
-  assert.equal(sinPrecision(10), false, '10 s se cumple en la corrida');
+test('⚠️ la honestidad: TODO lo que depende del cron lo dice la pantalla, con las horas de quien mira', () => {
+  assert.equal(sinPrecision(10), false, '10 s se cumple en la misma ejecución');
   assert.equal(sinPrecision(120), false);
   assert.equal(sinPrecision(121), true);
-  assert.equal(sinPrecision(5 * 60), true, '5 min: puede salir hasta una vuelta del cron después');
-  assert.equal(sinPrecision(59 * 60), true);
-  assert.equal(sinPrecision(60 * 60), false, 'una hora de más sobre una hora o un día no cambia lo que se eligió');
-  assert.equal(avisoDePrecision(), 'Puede salir hasta 1 h después');
-  assert.ok(avisoDePrecision().split(' ').length <= 6, 'el aviso es una línea corta (AGENTS.md: lo que se dibuja es corto)');
-  // Y el editor lo dibuja con estas dos funciones, no con un número propio.
+  assert.equal(sinPrecision(5 * 60), true, '5 min: sigue a la hora en punto');
+  // ⚠️ Antes NO avisaba en horas y días («una hora de más sobre un día no cambia nada»): falso de
+  // noche, cuando el cron no corre y «Esperar 2 horas» desde las 22:30 UTC sigue a las 15:00 UTC.
+  assert.equal(sinPrecision(2 * 3600), true, 'horas: de noche se corren hasta la mañana');
+  assert.equal(sinPrecision(86400), true, 'días: también');
+  // El texto: la cadencia y la franja del cron, en la hora LOCAL (UTC − offset).
+  assert.equal(avisoDePrecision(360), 'Sigue a la hora en punto (9 a 17 h)', 'Ciudad de México (UTC−6)');
+  assert.equal(avisoDePrecision(180), 'Sigue a la hora en punto (12 a 20 h)', 'Buenos Aires (UTC−3)');
+  assert.equal(avisoDePrecision(-120), 'Sigue a la hora en punto (17 a 1 h)', 'Madrid en verano: cruza la medianoche');
+  assert.equal(avisoDePrecision(-330), 'Sigue a la hora en punto (20:30 a 4:30 h)', 'una zona con media hora');
+  assert.equal(avisoDePrecision(), 'Sigue a la hora en punto (15 a 23 h)', 'sin offset, UTC');
+  // Una línea bajo el campo (AGENTS.md: lo que se dibuja es corto). El más largo es el de media hora.
+  for (const off of [360, 180, -120, -330, 0]) {
+    assert.ok(avisoDePrecision(off).length <= 42, `«${avisoDePrecision(off)}» (${avisoDePrecision(off).length}) no entra en una línea corta`);
+  }
+  // Y el editor lo dibuja con estas dos funciones y la zona del navegador, no con un número propio.
   const ed = bloque(sinComentarios(leer('app/chatbot/FlujoLienzo.tsx')), 'function EditorEspera(', '\n}\n', 4_200);
-  assert.match(ed, /const aviso = e\.modo === 'tiempo' && sinPrecision\(seg\)\s*\? <div[^>]*>\{avisoDePrecision\(\)\}<\/div>/);
+  assert.match(ed, /const aviso = e\.modo === 'tiempo' && sinPrecision\(seg\)\s*\? <div[^>]*>\{avisoDePrecision\(new Date\(\)\.getTimezoneOffset\(\)\)\}<\/div>/);
 });
 
 test('⚠️ CADENCIA_MOTOR_MIN dice lo mismo que vercel.json (si cambia la cadencia, cambia lo que se promete)', () => {
@@ -169,6 +209,41 @@ test('⚠️ CADENCIA_MOTOR_MIN dice lo mismo que vercel.json (si cambia la cade
   else if (/^\*\/\d+$/.test(min)) cadencia = Number(min.slice(2));
   else { assert.fail(`no sé contar «${cron!.schedule}»: hay que medir la cadencia y actualizar CADENCIA_MOTOR_MIN`); }
   assert.equal(CADENCIA_MOTOR_MIN, cadencia, `vercel.json corre la nutrición cada ${cadencia} min y la pantalla promete ${CADENCIA_MOTOR_MIN}`);
+  // Y la franja de horas, que el aviso dice («9 a 17 h» en Ciudad de México).
+  const franja = /^(\d+)-(\d+)$/.exec(hora ?? '');
+  const horas = hora === '*' ? { desde: 0, hasta: 23 } : franja ? { desde: Number(franja[1]), hasta: Number(franja[2]) } : null;
+  assert.ok(horas, `no sé contar las horas «${hora}»: hay que medirlas y actualizar HORAS_MOTOR_UTC`);
+  assert.deepEqual({ ...HORAS_MOTOR_UTC }, horas, `vercel.json corre la nutrición de ${horas!.desde} a ${horas!.hasta} UTC y la pantalla dice otra franja`);
+});
+
+test('⚠️ la ruta del cron le da el tope a TODAS sus corridas: sin él el motor no duerme nunca', () => {
+  // La primera versión ya sabía dormir y la ruta no le pasaba `esperarHastaMs`: la espera corta
+  // «adentro de la corrida» no corría en ningún lado, y 30 s eran la corrida de la hora siguiente.
+  const ruta = sinComentarios(leer('app/api/cron/nutricion/route.ts'));
+  assert.match(ruta, /const esperarHastaMs = Date\.now\(\) \+ ESPERA_CORRIDA_HASTA_MS;/, 'el tope se cuenta UNA vez, desde que arrancó la ruta');
+  const llamadas = ruta.match(/procesarEnvios\(\{[^}]*\}\)/g) ?? [];
+  assert.equal(llamadas.length, 3, `la ruta llama al motor ${llamadas.length} veces: hay que mirar la nueva`);
+  for (const l of llamadas) assert.match(l, /esperarHastaMs/, `«${l}» corre sin tope: sus esperas cortas van a la hora siguiente`);
+});
+
+test('⚠️ la VÍA RÁPIDA cumple la espera corta DESPUÉS de contestar (after), con su tope y su workspace', () => {
+  const nutri = sinComentarios(leer('lib/nutricion.ts'));
+  const proc = nutri.slice(nutri.indexOf('export async function procesarEnvios('), nutri.indexOf('\nexport async function pausarPorRespuesta('));
+  assert.ok(proc.length > 10_000, 'no encontré procesarEnvios');
+  // La rama de la espera anota la corta que no puede dormir (sin tope), medida con la MISMA función.
+  const rama = bloque(proc, "if (r.tipo === 'esperar') {", '\n          continue;\n        }', 1_800);
+  assert.match(rama, /const paraDespues = ok && !corta && opts\?\.esperarHastaMs == null\s*&& esperaEnLaCorrida\(r\.proximoMs, Date\.now\(\), Date\.now\(\) \+ ESPERA_CORRIDA_HASTA_MS\) != null;/);
+  assert.match(rama, /if \(paraDespues\) cortaSinTope = Math\.min\(/);
+  // Al terminar, sólo la de UN lead (la vía rápida) sigue después de contestar.
+  assert.match(proc, /if \(cortaSinTope != null && opts\?\.soloLeadId\) \{\s*res\.esperaDespuesDeResponder = await seguirDespuesDeResponder\(opts\.soloLeadId, cortaSinTope\);/);
+  // La continuación: after(), el workspace fijado, el tope (para las cortas encadenadas) y en fila.
+  const seg = bloque(nutri, 'async function seguirDespuesDeResponder(', '\n}\n', 2_000);
+  assert.match(seg, /after\(seguir\);/);
+  assert.match(seg, /\} catch \{/, 'fuera de un pedido `after` tira: no puede tirar la vía rápida');
+  assert.match(seg, /runWithWorkspace\(ws, \(\) => procesarEnvios\(\{ soloLeadId: leadId, esperarHastaMs: Date\.now\(\) \+ ESPERA_CORRIDA_HASTA_MS \}\)\)/);
+  assert.match(seg, /colaDespuesDeResponder\.then\(/, 'las continuaciones corren el motor de a una');
+  assert.match(seg, /if \(falta > 0\) await new Promise<void>\(\(listo\) => setTimeout\(listo, falta\)\);/);
+  assert.match(nutri, /import \{ after \} from 'next\/server';/);
 });
 
 test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, en las DOS salidas del bucle', () => {
@@ -178,7 +253,7 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
   // El tope lo da el que llama; sin él no se duerme (la regla vive en `esperaEnLaCorrida`).
   assert.match(proc, /soloLeadId\?: number; esperarHastaMs\?: number \}/);
   // La rama de la espera escribe la hora exacta y ANOTA la corta (sólo si el compare-and-set la movió).
-  const rama = bloque(proc, "if (r.tipo === 'esperar') {", '\n          continue;\n        }', 1_400);
+  const rama = bloque(proc, "if (r.tipo === 'esperar') {", '\n          continue;\n        }', 1_800);
   assert.match(rama, /proximo_envio_at: new Date\(r\.proximoMs\)\.toISOString\(\)/);
   assert.match(rama, /const corta = ok && esperaEnLaCorrida\(r\.proximoMs, Date\.now\(\), opts\?\.esperarHastaMs\) != null;/);
   assert.match(rama, /if \(corta\) esperasCortas\.set\(insc\.id, /);
@@ -193,7 +268,7 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
   assert.match(dormir, /esperasHechas >= TOPE_ESPERAS_CORTAS/, 'sin tope de esperas, una corrida podría dormir sin fin');
   // ⚠️ El anti-ban sigue: lo que viene después de la espera pasa por TODAS las guardas de la vuelta.
   assert.match(proc, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioReciente, enviadoEnCorrida\)/);
-  // La vía rápida (un evento) no da tope: no duerme.
+  // La vía rápida (un evento) no da tope: no duerme ADENTRO del webhook (sigue después: el test de abajo).
   assert.match(nutri, /try \{ await procesarEnvios\(\{ soloLeadId: leadId \}\); \}/);
 });
 
@@ -211,3 +286,19 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
 //   E8. la rama de la espera no anota la corta                          → 31 / 1
 //   E10. el desplegable de la unidad nace con 80 px («segundos» pide 123) → 31 / 1
 // (E9 —el DELAY sin segundos ni minutos— lo caza tests/editores-control.test.ts.)
+// (E5 era «el aviso también en horas y días»: desde la segunda pasada eso es lo CORRECTO, ver R3.)
+//
+// SEGUNDA PASADA (09/10/2026, la que cableó la ruta, la vía rápida y la píldora). Mismo arnés
+// (romper2.mjs), los mismos tres archivos. Base: 35 / 0. Restaurado: 35 / 0.
+//   R1. `textoEspera` vuelve a redondear a minutos                       → 34 / 1
+//   R2. la ruta corre el modo «sólo acciones» sin `esperarHastaMs`       → 34 / 1
+//   R3. `sinPrecision` vuelve a «sólo de 2 a 59 min»                      → 34 / 1
+//   R4. el aviso ignora la zona de quien mira (dice las horas en UTC)     → 34 / 1
+//   R5. HORAS_MOTOR_UTC dice 14-23 con vercel.json en 15-23              → 33 / 2
+//   R6. la rama de la espera no anota la corta para después de contestar → 34 / 1
+//   R7. la vía rápida corre la continuación EN LÍNEA, sin `after`        → 34 / 1
+//   R8. la continuación corre sin `runWithWorkspace`                      → 34 / 1
+//   R9. la continuación corre SIN tope (la segunda corta no se cumple)   → 34 / 1
+//   R10. la continuación también sin `soloLeadId` (o sea, desde el cron) → 34 / 1
+//   R11. el editor dibuja el aviso sin la zona del navegador             → 34 / 1
+//   R12. las continuaciones corren el motor a la vez (sin la fila)       → 34 / 1

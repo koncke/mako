@@ -632,9 +632,11 @@ type Unidad = UnidadEspera;
  * ⚠️ SEGUNDOS, MINUTOS, HORAS Y DÍAS desde la quinta tanda (punto 3, literal: «En Delay, falta la
  * opción de minutos y segundos...»). Hasta ahí eran horas y días, «porque el motor corre una vez por
  * hora y ofrecer minutos sería prometer una precisión que no existe». Eso sigue siendo cierto, y por
- * eso la frase lleva su aviso: una espera de hasta 2 min se cumple ADENTRO de la corrida del motor
- * (lib/nutricion.ts, `dormirEsperaCorta`); de 2 a 59 min depende del cron, y la pantalla lo dice
- * (`sinPrecision`, lib/espera-duracion.ts: «Un número tuyo por encima del suyo no protege: promete»).
+ * eso la frase lleva su aviso: una espera de hasta 2 min se cumple EN LA MISMA EJECUCIÓN que llegó al
+ * DELAY —la corrida del cron o la vía rápida de un evento, después de contestar— (la decisión entera,
+ * en la cabecera de lib/espera-duracion.ts); más larga depende del cron, que corre a la hora en punto
+ * y sólo de día, y la pantalla dice cuándo sigue con las horas de quien mira (`sinPrecision` +
+ * `avisoDePrecision`: «Un número tuyo por encima del suyo no protege: promete»).
  *
  * El dato sigue siendo `espera.minutos`, con decimales para los segundos (10 s = 1/6 min). La UNIDAD
  * que se ve la elige la persona y se recuerda mientras el número entre en ella (`unidadMostrada`): sin
@@ -662,7 +664,7 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
     </div>
   );
   const aviso = e.modo === 'tiempo' && sinPrecision(seg)
-    ? <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--dim)' }}>{avisoDePrecision()}</div>
+    ? <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--dim)' }}>{avisoDePrecision(new Date().getTimezoneOffset())}</div>
     : null;
   // ⚠️ CUARTA TANDA, PUNTO 9: «En "Delay" lo de "Antes de la reunión" debería ser una CONDITION,
   // dentro de la sección de llamadas» (vive en «Próxima reunión en», lib/condiciones-catalogo.ts). Un

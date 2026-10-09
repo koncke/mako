@@ -12,6 +12,26 @@
 //     es la que la pantalla tiene que decir (AGENTS.md: «Un número tuyo por encima del suyo no
 //     protege: promete»).
 //
+// ⚠️ LA DECISIÓN, CON UN DELAY DE 30 s (lo que la pantalla promete es lo que el motor hace):
+//   · Se agenda SIEMPRE al segundo exacto en `proximo_envio_at` (`resolverControl`). Si nadie lo
+//     cumple antes, lo toma la corrida del cron que sigue: tarde, nunca perdido.
+//   · Hasta `ESPERA_EN_CORRIDA_MAX_S` (120 s) se cumple EN LA MISMA EJECUCIÓN que llegó al DELAY,
+//     durmiendo. Hay dos ejecuciones que llegan a un DELAY, y las dos lo hacen:
+//       - la corrida del cron (app/api/cron/nutricion/route.ts) le da a `procesarEnvios` su tope
+//         (`esperarHastaMs`) y la corrida duerme al final de la vuelta (`dormirEsperaCorta`);
+//       - la VÍA RÁPIDA de un evento («Nuevo lead → esperar 30 s → WhatsApp», el caso típico) corre
+//         adentro de un webhook o de una server action que tiene que contestar YA: no duerme ahí.
+//         Sigue DESPUÉS de contestar, con `after()` de Next (`seguirDespuesDeResponder`,
+//         lib/nutricion.ts): duerme lo que falta y vuelve a correr ese lead con su tope.
+//     Sin la segunda, los 30 s eran «la corrida que viene»: hasta una hora, o la mañana siguiente.
+//   · Más de 120 s depende del cron, que corre a la hora en punto y SÓLO de 15 a 23 UTC: 5 min puede
+//     salir hasta una hora tarde, y de noche a la mañana siguiente. La pantalla lo dice con las horas
+//     de quien mira (`avisoDePrecision`), para TODA espera que no se cumple adentro de la corrida —
+//     también las de horas y días, que de noche se corren igual—.
+//   · Lo que NO es de la espera y la pantalla no promete: el anti-ban de 20 h por canal (un segundo
+//     WhatsApp al mismo lead espera 20 h aunque el DELAY diga 10 s) y la ventana horaria del negocio.
+//   · «Probar» (lib/simulador-grafo.ts) no espera: dice «⏳ Esperar 30 s» y sigue.
+//
 // ⚠️ EL DATO SIGUE SIENDO `espera.minutos` (lib/flujo-grafo.ts), CON DECIMALES PARA LOS SEGUNDOS:
 // 10 s = 1/6 min. Se eligió contra un campo `segundos` nuevo porque el tipo `Espera`, `validarGrafo`
 // (minutos > 0), el motor (`ahora + minutos × 60 000`), el simulador y el conversor ya leen minutos
@@ -103,11 +123,14 @@ export function textoDuracion(segundos: number): string {
 export const ESPERA_EN_CORRIDA_MAX_S = 120;
 
 /**
- * El tope de la corrida del cron para que una espera corta TERMINE, contado desde que empezó la
- * ruta. `app/api/cron/nutricion/route.ts` tiene `maxDuration = 300` y recorre los workspaces de a
- * uno: esperar más tarde que esto le come el tiempo a los workspaces que faltan. Lo pasa la ruta
- * (`procesarEnvios({ esperarHastaMs })`); sin ese dato, el motor no duerme nunca (la vía rápida de
- * un evento corre adentro de un webhook, que no puede quedarse dos minutos colgado).
+ * El tope para que una espera corta TERMINE, contado desde que empezó la ejecución que duerme.
+ *   · La corrida del cron: `app/api/cron/nutricion/route.ts` tiene `maxDuration = 300` y recorre los
+ *     workspaces de a uno; el tope es UNO para toda la ruta (desde que arrancó), así que entre todos
+ *     los workspaces no se duermen más de 150 s y a los que faltan les quedan ≥ 150.
+ *   · La vía rápida, después de contestar (`seguirDespuesDeResponder`, lib/nutricion.ts): desde que
+ *     vuelve a correr el lead, para las esperas cortas que vengan encadenadas detrás.
+ * Sin tope (`esperarHastaMs` ausente) `procesarEnvios` no duerme nunca: la vía rápida corre adentro
+ * de un webhook, y dos minutos colgado ahí es un reintento del proveedor.
  */
 export const ESPERA_CORRIDA_HASTA_MS = 150_000;
 
@@ -117,6 +140,13 @@ export const ESPERA_CORRIDA_HASTA_MS = 150_000;
  * el test frena hasta que esto diga lo mismo — y con esto, lo que la pantalla promete.
  */
 export const CADENCIA_MOTOR_MIN = 60;
+
+/**
+ * LAS HORAS EN QUE CORRE EL MOTOR, en UTC: el `15-23` de `"0 15-23 * * *"` (vercel.json). Fuera de
+ * esa franja no hay corrida: una espera que vence a las 23:30 UTC sigue a las 15:00 UTC del día
+ * siguiente. Lo fija el mismo test que la cadencia.
+ */
+export const HORAS_MOTOR_UTC = { desde: 15, hasta: 23 } as const;
 
 /**
  * ¿Esta espera se cumple ADENTRO de la corrida? Devuelve cuántos ms dormir (0 si ya venció), o null
@@ -133,18 +163,42 @@ export function esperaEnLaCorrida(proximoMs: number, ahoraMs: number, hastaMs: n
 }
 
 /**
- * ¿La pantalla tiene que avisar que esta espera puede salir más tarde? Sí para lo que no cabe en la
- * corrida y es más corto que la cadencia del cron (2 min a 59 min): ahí el atraso posible (hasta una
- * vuelta del cron) es más grande que la espera misma. Las de horas y días no: una hora de más sobre
- * un día no cambia lo que se eligió.
+ * ¿La pantalla tiene que avisar cuándo sigue de verdad esta espera? Sí para TODA la que no se cumple
+ * adentro de la corrida (más de `ESPERA_EN_CORRIDA_MAX_S`): ésas dependen del cron.
+ *
+ * ⚠️ ERA «sólo de 2 a 59 min», con el porqué de que «una hora de más sobre un día no cambia lo que se
+ * eligió». Eso es cierto de día y falso de noche: el cron corre sólo de 15 a 23 UTC
+ * (`HORAS_MOTOR_UTC`), así que «Esperar 2 horas» desde las 22:30 UTC sigue a las 15:00 del día
+ * siguiente — 16 h y media, sin que la pantalla dijera nada. Y «Puede salir hasta 1 h después», el
+ * aviso de antes, era falso dos tercios del día por lo mismo.
  */
 export function sinPrecision(segundos: number): boolean {
-  return segundos > ESPERA_EN_CORRIDA_MAX_S && segundos < CADENCIA_MOTOR_MIN * 60;
+  return segundos > ESPERA_EN_CORRIDA_MAX_S;
 }
 
-/** Lo que dice la pantalla en ese caso. Corto, y con la cadencia de verdad. */
-export function avisoDePrecision(): string {
-  return CADENCIA_MOTOR_MIN % 60 === 0
-    ? `Puede salir hasta ${CADENCIA_MOTOR_MIN / 60} h después`
-    : `Puede salir hasta ${CADENCIA_MOTOR_MIN} min después`;
+/** «9» o «20:30»: la hora local de una hora UTC, con el desvío de `Date#getTimezoneOffset`. */
+function horaLocal(horaUtc: number, offsetMin: number): string {
+  const m = (((horaUtc * 60 - offsetMin) % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return mm ? `${h}:${String(mm).padStart(2, '0')}` : String(h);
+}
+
+/**
+ * Lo que dice la pantalla debajo de una espera que depende del cron: CUÁNDO sigue de verdad, en una
+ * línea («Sigue a la hora en punto (9 a 17 h)» para quien mira desde Ciudad de México).
+ *
+ * `offsetMin` es el de `new Date().getTimezoneOffset()` de quien MIRA (UTC − local, en minutos: 360
+ * en Ciudad de México): las horas del cron dichas en UTC no las entiende nadie. Es la zona del
+ * navegador y no la del negocio a propósito: el que lee el aviso es el que lo tiene que poder usar.
+ * El editor no se dibuja en el server (el panel sólo existe con una tarjeta tocada), así que no hay
+ * dos zonas que hidratar.
+ */
+export function avisoDePrecision(offsetMin = 0): string {
+  const cadencia = CADENCIA_MOTOR_MIN === 60 ? 'Sigue a la hora en punto' : `Sigue cada ${CADENCIA_MOTOR_MIN} min`;
+  const { desde, hasta } = HORAS_MOTOR_UTC;
+  // Las 24 horas: no hay franja que decir.
+  if (hasta - desde >= 23) return cadencia;
+  const off = Number.isFinite(offsetMin) ? Math.round(offsetMin) : 0;
+  return `${cadencia} (${horaLocal(desde, off)} a ${horaLocal(hasta, off)} h)`;
 }
