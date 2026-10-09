@@ -152,6 +152,8 @@ Acá está el 80% del problema, y es lo que no se ve hasta que muerde.
 | Las 27 skills de `.claude/skills` | el repo | Sí — versionado |
 | `docs/hallazgos-*.md` | el repo | Sí — versionado |
 | El hook `pre-push` | `.git/hooks/` | Sí, mientras compartan clon (no se versiona) |
+| El marcador de cuenta | `~\.claude\cuenta-activa.txt` | **Sí** — por eso lo DECLARA Martín |
+| El % de cuota semanal | `~\.claude\uso-semanal.txt` | **Sí** — y por eso lleva la cuenta adentro |
 | **La sesión / el login** | `~\.claude\.credentials.json` | **No** — es el punto |
 | **Los conectores MCP** (Notion, Fathom, Gmail, Canva) | la cuenta de claude.ai | **No** — van atados a cada cuenta |
 | El historial de sesiones (`/resume`) | `<config dir>\projects\<clave>\*.jsonl` | No |
@@ -181,6 +183,41 @@ cmd /c mklink /J "<ruta del link>" "$HOME\.claude\projects\C--Users-marti-OneDri
 canal entre cuentas. Pero lo que gobierna código sigue yendo a `AGENTS.md` y lo que se
 aprendió a `docs/hallazgos-<área>.md`, que además lo lee un humano y sobrevive a
 cualquier reinstalación del config dir.
+
+### ⚠️ `~\.claude\` ENTERO es compartido, y eso incluye los NÚMEROS
+
+El junction de la memoria es a propósito. Lo que sorprende es el resto: **las dos cuentas
+usan el mismo `~\.claude\`**, así que todo archivo suelto que alguien deje ahí lo lee la
+otra — y un número no viene con la cara de quién lo midió.
+
+Mordió el 09/10/2026. El hook de uso semanal le avisó a un chat de la cuenta 2
+**«USO SEMANAL EN 98% — CIERRE: no arranques nada más»**. Era verdad, pero de la cuenta 1,
+que lo había medido a las 15:45. La cuenta 2 estaba en **17%**. La sesión le creyó: recortó
+el trabajo, le mandó a otro chat la orden de ir breve «porque Martín está al 98%», y dejó a
+medias un `git pull --rebase` que quedó en conflicto sobre el clon compartido. Martín:
+*«No crucé el límite semanal… Esta es la otra cuenta, siempre tenés que ejecutar el comando
+para ver el % del límite semanal»*.
+
+La cura es que **el dato diga de quién es**. `~\.claude\uso-semanal.txt` lleva cuatro campos
+y el cuarto es la cuenta:
+
+```sh
+echo <pct> <resetsAt> $(date -u +%FT%TZ) $(head -1 ~/.claude/cuenta-activa.txt) > ~/.claude/uso-semanal.txt
+```
+
+`~\.claude\bitacora-sesion.sh` compara ese cuarto campo con `cuenta-activa.txt`: si no
+coincide —o falta— trata el número como **sin medir** y pide medirlo de nuevo en vez de
+disparar los umbrales del 85, 90 y 95%. Probado con cuatro casos: otra cuenta al 98%, ésta
+al 98%, una línea vieja sin cuenta, y ésta al 17%.
+
+**La regla general, que vale para cualquier archivo que se deje en `~\.claude\`:** si lo
+escriben las dos cuentas, tiene que decir **cuál lo escribió**, y el que lo lee tiene que
+descartar lo ajeno. Es la misma lección que el marcador de cuenta, una capa más abajo: un
+archivo compartido sin dueño declarado no es un dato, es una trampa.
+
+Y del lado del que lee: **un aviso que cambia lo que hacés se verifica antes de obedecerlo.**
+El % real se mide con la herramienta `get_usage` (ventana «Weekly · all models»), que lee la
+cuenta que está corriendo ahora. El hook es una foto; `get_usage` es la lectura viva.
 
 ---
 
