@@ -1059,7 +1059,10 @@ export function quitarRama<P extends PasoGrafo>(pasos: readonly P[], condId: str
   const c = nodoPorId(pasos, condId);
   const r = c?.ramas?.find((x) => x.id === ramaId);
   if (!c || !r) return [...pasos];
-  const sin = sacarSubarbol(pasos, r.siguiente);
+  // La rama se lleva también el subárbol de cada flecha en paralelo suya (cuarta tanda, punto 8): si no,
+  // quedan tarjetas sueltas que Publicar rechaza.
+  let sin = sacarSubarbol(pasos, r.siguiente);
+  for (const d of paralelosDeResultado(c, ramaId)) sin = sacarSubarbol(sin, d);
   const c2 = nodoPorId(sin, condId)!;
   return cambiarNodo(sin, condId, { ramas: (c2.ramas ?? []).filter((x) => x.id !== ramaId) } as Partial<P>);
 }

@@ -467,7 +467,7 @@ test('⚠️ lo que se ofrece se memoriza por la FORMA: tipear no lo recalcula, 
 // `par:` a la PRIMERA fila con `paralelo`, así que la del «Si no» sale de la fila del «Sí». Este test
 // queda como `todo` hasta que se aplique la línea del bloqueante (ver el informe de la parte
 // «flechas»); al aplicarla, se le saca el `todo`.
-test('la flecha en paralelo de un resultado sale de la fila de ESE resultado (yDePuerto)', { todo: 'BLOQUEANTE: yDePuerto en lib/lienzo-grafo.ts' }, () => {
+test('la flecha en paralelo de un resultado sale de la fila de ESE resultado (yDePuerto)', () => {
   const k = nodo(EJEMPLO, 'k');
   assert.equal(yDePuerto(k, 'par:en@si_no'), yDePuerto(k, 'si_no'));
   assert.equal(yDePuerto(k, 'par:es@si'), yDePuerto(k, 'si'));

@@ -53,7 +53,7 @@ import {
   type PasoGrafo, type FilaCondicion, type CampoCondicion,
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS,
   claseDe, idDe, nuevoId, puertosDe, raicesSalida, raizRespuesta, descendientes, indicePorId,
-  conectarPuerto, puedeTenerParalelos, validarGrafo,
+  conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { accionDelFlujo } from './editor-acciones';
@@ -1254,13 +1254,6 @@ export function disparadorReal(valor: string | null, ids: ReadonlyMap<number, nu
 }
 
 // ── EDITAR: sólo AGREGAR ──────────────────────────────────────────────────────────
-
-/** Cuántas flechas en paralelo hay en un flujo (para `TOPE_HILOS`). */
-function contarParalelos(pasos: readonly PasoGrafo[]): number {
-  let n = 0;
-  for (const p of pasos) if (puedeTenerParalelos(p) && Array.isArray(p.paralelos)) n += p.paralelos.filter((d) => typeof d === 'string' && d).length;
-  return n;
-}
 
 /**
  * EDITAR SÓLO AGREGA (decisión 14, v1). El modelo devuelve tramos nuevos anclados a una salida

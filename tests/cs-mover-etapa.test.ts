@@ -72,7 +72,9 @@ test('el recorte es la función y no media biblioteca', () => {
   // a 11000 el 06/10, por el compare-and-set y el catálogo estricto (medía 8889). Lo que
   // el número cuida sigue siendo lo mismo —que el recorte no se coma la función de al
   // lado— y por eso sigue habiendo un techo y no `> 0`.
-  assert.ok(CUERPO.length > 1500 && CUERPO.length < 11000, `el recorte mide ${CUERPO.length}: está mirando otra cosa`);
+  // El tope subió de 11000 a 11500 con la cuarta tanda (punto 14): el cierre silencioso pasa la etapa nueva y
+  // dice por qué en dos renglones; medido 11066.
+  assert.ok(CUERPO.length > 1500 && CUERPO.length < 11500, `el recorte mide ${CUERPO.length}: está mirando otra cosa`);
   assert.ok(!CUERPO.includes('sacarClienteDeEntrega'), 'el recorte se comió la función siguiente');
 });
 
