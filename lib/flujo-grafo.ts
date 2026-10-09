@@ -75,7 +75,7 @@
 
 // El catálogo de condiciones importa sólo TIPOS de acá: el ciclo no existe en runtime.
 import {
-  cumpleCatalogo, problemaDeFila, textoCondicion,
+  cumpleCatalogo, problemaDeFila, textoCondicion, pagoDeFila, cuotaDeFila,
   type HechosCatalogo, type NombresCatalogo, type OperadorCondicion,
 } from './condiciones-catalogo';
 
@@ -116,12 +116,29 @@ export type FilaCondicion = {
   op?: OperadorCondicion;
   /** Una numérica que además se refiere a algo: «Avance del curso [X] ≥ 50 %» (el curso). */
   ref?: string | number | null;
+  /**
+   * CON QUÉ SE UNE A LA FILA DE ARRIBA (cuarta tanda, punto 7: «me gustaba antes la opción de "+y"
+   * "+o", para que cumplan ambas o una de las 2»). AUSENTE = el `modo` de la rama, así una rama
+   * guardada antes evalúa y se dibuja igual que siempre. En la primera fila no significa nada.
+   * Las «y» atan más que las «o»: A y B o C = (A y B) o C (`gruposDeRama`).
+   */
+  union?: 'y' | 'o';
+  /**
+   * Las etapas de REUNIÓN que acota la condición (cuarta tanda, punto 5: «que dentro del editable de
+   * esa sección se elija 1 o más reuniones de las etapas del kanban»), cada una `${funnelId}:${key}`.
+   * Vacío o ausente = cualquier reunión. Sólo en las condiciones del catálogo con `reuniones: true`.
+   */
+  reuniones?: string[];
 };
 
 /** Una rama de la condición. Gana la PRIMERA que se cumple, de arriba hacia abajo. */
 export type RamaCondicion = {
   id: string;
-  /** 'todas' = Y entre sus filas; 'cualquiera' = O. Una rama sin filas nunca se cumple. */
+  /**
+   * La unión de las filas que no dicen la suya (`FilaCondicion.union`): 'todas' = Y, 'cualquiera' = O.
+   * Desde la cuarta tanda cada fila nueva guarda su unión, y esto queda para las de antes. Una rama
+   * sin filas nunca se cumple.
+   */
   modo: 'todas' | 'cualquiera';
   filas: FilaCondicion[];
   siguiente: string | null;
@@ -773,7 +790,8 @@ export function cumpleFila(f: FilaCondicion, h: HechosLead): boolean {
       break;
     }
     case 'agendo': si = h.agendo; break;
-    case 'pago': si = h.pago; break;
+    // «No pagó» con la cuota N (cuarta tanda, punto 6) decide `pagoDeFila`; sin cuota, lo de siempre.
+    case 'pago': { const p = pagoDeFila(f, h); if (p == null) return false; si = p; break; }
     case 'ya_contactado': si = h.yaContactado; break;
     case 'respondio': si = h.respondio; break;
     // La misma regla que `dentroDeAntiguedad` (lib/setting-estrategia.ts): sin fecha de
@@ -787,10 +805,36 @@ export function cumpleFila(f: FilaCondicion, h: HechosLead): boolean {
   return f.no ? !si : si;
 }
 
+/**
+ * Con qué se une la fila `k` a la de arriba: la suya, o el `modo` de la rama si no dice ninguna (una
+ * rama de antes). La primera fila no se une a nada: se contesta lo mismo por prolijidad.
+ */
+export function unionDe(r: Pick<RamaCondicion, 'modo' | 'filas'>, k: number): 'y' | 'o' {
+  const u = r.filas?.[k]?.union;
+  if (u === 'y' || u === 'o') return u;
+  return r.modo === 'cualquiera' ? 'o' : 'y';
+}
+
+/**
+ * LAS FILAS DE UNA RAMA EN GRUPOS: cada «o» abre un grupo nuevo y cada «y» suma al de arriba. La rama
+ * se cumple si se cumple ALGÚN grupo entero. Es la precedencia de siempre (las «y» atan más que las
+ * «o»): «A y B o C» es «(A y B) o C». Lo usan la evaluación (`cumpleRama`) y lo que se mira al
+ * inscribir (`antiguedadDeEntrada`): con dos lecturas de la unión, una rama mixta decidiría distinto
+ * al inscribir que al pasar por la tarjeta.
+ */
+export function gruposDeRama(r: Pick<RamaCondicion, 'modo' | 'filas'>): FilaCondicion[][] {
+  const grupos: FilaCondicion[][] = [];
+  (r.filas ?? []).forEach((f, k) => {
+    if (k === 0 || unionDe(r, k) === 'o') grupos.push([f]);
+    else grupos[grupos.length - 1].push(f);
+  });
+  return grupos;
+}
+
 export function cumpleRama(r: RamaCondicion, h: HechosLead): boolean {
-  const filas = r.filas ?? [];
-  if (!filas.length) return false;
-  return r.modo === 'cualquiera' ? filas.some((f) => cumpleFila(f, h)) : filas.every((f) => cumpleFila(f, h));
+  const grupos = gruposDeRama(r);
+  if (!grupos.length) return false;
+  return grupos.some((g) => g.every((f) => cumpleFila(f, h)));
 }
 
 /** Por dónde sale una condición: la primera rama que se cumple, o «si no». */
@@ -818,12 +862,19 @@ export function antiguedadDeEntrada(pasos: readonly PasoGrafo[]): number | null 
   if (!p || claseDe(p) !== 'condicion' || (p.si_no ?? null) !== null) return null;
   const ramas = p.ramas ?? [];
   if (!ramas.length) return null;
+  // Cada GRUPO de cada rama (`gruposDeRama`: las «o» los separan) tiene que exigir la antigüedad:
+  // con un grupo que no la pide, el lead entra por ése. Una rama con «o» en el medio y `modo: 'todas'`
+  // (una fila nueva con su unión) se leía como «todas» y dejaba afuera a quien entraba por la otra.
+  // El máximo es conservador: deja inscribir de más, nunca de menos.
   let max = 0;
   for (const r of ramas) {
-    const exige = (r.filas ?? []).filter((f) => f.campo === 'antiguedad' && !f.no && Number(f.valor) > 0);
-    if (!exige.length) return null;
-    if (r.modo === 'cualquiera' && (r.filas ?? []).length > 1) return null;
-    max = Math.max(max, ...exige.map((f) => Number(f.valor)));
+    const grupos = gruposDeRama(r);
+    if (!grupos.length) return null;
+    for (const g of grupos) {
+      const exige = g.filter((f) => f.campo === 'antiguedad' && !f.no && Number(f.valor) > 0);
+      if (!exige.length) return null;
+      max = Math.max(max, ...exige.map((f) => Number(f.valor)));
+    }
   }
   return max || null;
 }
@@ -1057,7 +1108,11 @@ export function textoFila(f: FilaCondicion, n: NombresParaTexto = {}): string {
       return no ? `No está en «${nom}»` : `Está en «${nom}»`;
     }
     case 'agendo': return no ? 'No agendó' : 'Agendó';
-    case 'pago': return no ? 'No pagó' : 'Pagó';
+    case 'pago': {
+      const n = cuotaDeFila(f);
+      const base = no ? 'No pagó' : 'Pagó';
+      return n == null ? base : `${base} la cuota ${n}`;
+    }
     case 'ya_contactado': return no ? 'Nunca le escribiste' : 'Ya le escribiste';
     case 'respondio': return no ? 'Nunca te escribió' : 'Te escribió alguna vez';
     case 'antiguedad': return `Llegó hace ${no ? 'más' : 'menos'} de ${horasTexto(Number(f.valor))}`;
@@ -1067,10 +1122,11 @@ export function textoFila(f: FilaCondicion, n: NombresParaTexto = {}): string {
   }
 }
 
+/** La rama en una frase, con la unión de CADA fila («A y B o C»): la misma que evalúa `cumpleRama`. */
 export function textoRama(r: RamaCondicion, n: NombresParaTexto = {}): string {
   const filas = r.filas ?? [];
   if (!filas.length) return 'Elige una condición';
-  return filas.map((f) => textoFila(f, n)).join(r.modo === 'cualquiera' ? ' o ' : ' y ');
+  return filas.map((f, k) => (k ? ` ${unionDe(r, k)} ` : '') + textoFila(f, n)).join('');
 }
 
 function horasTexto(h: number): string {

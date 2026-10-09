@@ -1,7 +1,12 @@
 // =============================================================================
 // API: los CATÁLOGOS del editor de la condición (app/chatbot/EditorCondicion.tsx)
 // =============================================================================
-// GET → { ok, cursos: CursoCondicion[], posts: [{ id, titulo }], campanas: string[] }
+// GET → { ok, cursos: CursoCondicion[], posts: [{ id, titulo }], campanas: string[], reuniones: ReunionesDeEmbudo[] | null }
+//
+// `reuniones` (cuarta tanda, punto 5): las etapas de REUNIÓN de cada embudo, en su orden, para el
+// selector de «Asistió / No asistió a la reunión», «Tiene reunión agendada» y «Próxima reunión en».
+// Va APARTE del resto: si los embudos no se pueden leer, `null` («no se pudo leer», no «no hay») y el
+// editor igual ofrece la condición para cualquier reunión; los cursos y los posts no se caen por eso.
 //
 // Lo que las condiciones del catálogo (lib/condiciones-catalogo.ts) necesitan para elegir un valor
 // y que ninguna otra ruta da junto: los cursos (productos con clases) con sus módulos y sus clases,
@@ -22,7 +27,9 @@ import { listProductos } from '@/lib/productos';
 import { COLUMNAS_CLASE, aClase } from '@/lib/curso-datos';
 import { modulosDelCurso } from '@/lib/curso-modulos-datos';
 import { tieneTarea } from '@/lib/curso';
-import { armarCursos } from '@/lib/condiciones-catalogo';
+import { armarCursos, reunionesParaEditor, type ReunionesDeEmbudo } from '@/lib/condiciones-catalogo';
+import { leerFunnels, getFunnelDe, getFunnelDefault } from '@/lib/funnels';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -31,6 +38,24 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** Cuántos posts se ofrecen: los más recientes. Una lista de 500 títulos no se elige, se busca. */
 const TOPE_POSTS = 200;
 
+/**
+ * Las etapas de reunión de cada embudo activo, con el MISMO camino que las opciones de una acción
+ * (app/api/flujos/opciones/route.ts): el default por `getFunnelDefault` y el resto por id. Una lectura
+ * fallida devuelve el pipeline de FÁBRICA, y ofrecer sus reuniones sería ofrecer etapas que este
+ * negocio quizás no tiene: `null`.
+ */
+async function reunionesPorEmbudo(): Promise<ReunionesDeEmbudo[] | null> {
+  const funnels = await leerFunnels();
+  if (!funnels) return null;
+  const embudos: Array<{ funnelId: number; nombre: string; stages: Array<{ key: string; label?: string; kind?: string }> }> = [];
+  for (const f of funnels) {
+    const cfg = f.esDefault ? await getFunnelDefault() : await getFunnelDe(f.id);
+    if (cfg.origen === 'error') return null;
+    embudos.push({ funnelId: f.id, nombre: nombreVisible(f), stages: cfg.stages });
+  }
+  return reunionesParaEditor(embudos);
+}
+
 export async function GET() {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
   if (ws == null || rol !== 'admin') {
@@ -38,7 +63,7 @@ export async function GET() {
   }
   try {
     const db = await getTenantDb();
-    const [productos, filasClase, postsRes, campanasFilas] = await Promise.all([
+    const [productos, filasClase, postsRes, campanasFilas, reuniones] = await Promise.all([
       listProductos(),
       leerTodo<Parameters<typeof aClase>[0] & { id: number }>(db, 'curso_clases', COLUMNAS_CLASE, {
         orden: 'id', filtros: (q) => q.is('borrada_at', null),
@@ -48,6 +73,7 @@ export async function GET() {
       leerTodo<{ id: number; meta_campaign_name: string | null }>(db, 'leads', 'id, meta_campaign_name', {
         orden: 'id', filtros: (q) => q.not('meta_campaign_name', 'is', null),
       }),
+      reunionesPorEmbudo().catch((e: unknown) => { console.error(`[api:chat-agent/condiciones GET] reuniones: ${msg(e)}`); return null; }),
     ]);
     if (postsRes.error) throw new Error(`comunidad_posts: ${postsRes.error.message}`);
     const clases = filasClase.map(aClase);
@@ -67,7 +93,7 @@ export async function GET() {
       titulo: (p.titulo?.trim() || p.cuerpo?.trim().slice(0, 60) || `Post ${p.id}`),
     }));
     const campanas = [...new Set(campanasFilas.map((f) => f.meta_campaign_name?.trim() ?? '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-    return Response.json({ ok: true, cursos, posts, campanas });
+    return Response.json({ ok: true, cursos, posts, campanas, reuniones });
   } catch (e) {
     console.error(`[api:chat-agent/condiciones GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
