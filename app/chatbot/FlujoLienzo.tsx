@@ -160,6 +160,16 @@ export function FlujoLienzo({
   /** El editor de la tarjeta CRON. Viene de afuera porque su estado (el disparador, el
    *  horario, la línea) vive en quien monta el lienzo, igual que la pila de deshacer. */
   editorEntrada?: ReactNode;
+  /**
+   * LOS CRON de la automatización (sexta tanda, CRON punto 10: «más de un CRON»): una fila por CRON en
+   * la tarjeta, con su texto y su ícono (`iconoDeDisparador`, lib/disparadores.ts). Los llena
+   * SecuenciaPerfil (parte «disparadores»); dibujarlos es de este archivo (parte «lienzo»).
+   */
+  disparadores?: Array<{ id: string; texto: string; icono?: string }>;
+  /** «＋ Nuevo CRON» de la tarjeta: abre el panel del CRON con el editor de uno nuevo. */
+  onNuevoDisparador?: () => void;
+  /** Una fila de la tarjeta: abre el panel del CRON con ESE CRON. */
+  onAbrirDisparador?: (id: string) => void;
   /** Cuánto se corre lo que flota a la izquierda (la lista de secuencias) y a la derecha
    *  (el panel de «Probar»). No angostan el dibujo — ver `Lienzo.insetIzq`. */
   insetIzq?: number;

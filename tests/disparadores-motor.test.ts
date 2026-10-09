@@ -101,3 +101,14 @@ test('las lecturas del motor piden la lista y, sin la 0241, vuelven a lo de siem
   assert.equal([...NUTRI.matchAll(/\.\.\.listaDe\(r\),/g)].length, 2);
   assert.match(NUTRI, /disparadores: disparadoresDe\(r\),/);
 });
+
+// La ficha que lee MaKo (y un token por /api/v1) dice TODOS los CRON: sin la lista, `trigger` y `etapa`
+// —que son sólo el primero— se leían como «tiene un solo disparador». Verificado sacando la línea
+// (09/10/2026, este archivo, base 7 / 0): 6 / 1.
+test('la ficha de una secuencia (API de MaKo) trae la lista de CRON, no sólo el primero', () => {
+  const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
+  const ini = run.indexOf('ficha_secuencia_mensajes: {');
+  const ficha = run.slice(ini, run.indexOf('pasos: s.pasos.map(', ini));
+  assert.ok(ini >= 0 && ficha.length > 0 && ficha.length < 1500, `el recorte mide ${ficha.length}: está mirando otra cosa`);
+  assert.match(ficha, /disparadores: s\.disparadores \?\? \[\],/);
+});

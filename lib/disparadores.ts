@@ -641,11 +641,17 @@ export type NombresDeDisparo = {
   tz?: string | null;
 };
 
-/** «El grupo de MaKo y Llega a «Agendado»»: a quién le llega un Recurrente. */
+/**
+ * La cohorte de un Recurrente dicha como A QUIÉN: no es «llega a» (un evento) sino los que ESTÁN:
+ * «En «Agendado»», «Tienen «Cualificado»». Sale de la frase de siempre (`detalleDisparador`).
+ */
+export const textoCohorte = (deSiempre: string): string => deSiempre.replace(/^Llega a /, 'En ').replace(/^Se le puso /, 'Tienen ');
+
+/** «El grupo de MaKo y En «Agendado»»: a quién le llega un Recurrente. */
 export function textoQuien(d: Disparador, n: NombresDeDisparo): string {
   const partes: string[] = [];
   if (d.grupo) partes.push(TEXTO_GRUPO);
-  if (tieneCohorte(d)) partes.push(n.deSiempre({ ...d, cron: null }));
+  if (tieneCohorte(d)) partes.push(textoCohorte(n.deSiempre({ ...d, cron: null })));
   return partes.join(' y ');
 }
 

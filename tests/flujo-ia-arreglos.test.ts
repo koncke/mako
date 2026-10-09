@@ -338,7 +338,9 @@ test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON 
   assert.ok(ok > ruta.indexOf('await setTriggerSecuencia(') && ok < ruta.indexOf('} catch (e) {', ok), 'sólo si setTriggerSecuencia no tiró');
   assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto \}\);/);
   const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /if \(puesto\) setDisparo\(\(d\) => disparoDeValor\(puesto, d\)\);/);
+  // Sexta tanda (varios CRON): lo puesto se pinta en el PRIMERO de la lista (`useDisparadores`).
+  // Verificado sacando el `sembrarPrimero` (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1, cae éste.
+  assert.match(perfil, /if \(puesto\) crons\.sembrarPrimero\(disparoDeValor\(puesto, disparo\)\);/);
 });
 
 // ── Cancelar en «Revisando el flujo» dejaba la automatización guardada y la pantalla sin salida ──

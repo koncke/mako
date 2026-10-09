@@ -195,7 +195,9 @@ test('costuras-11: el lienzo pide las archivadas y las nombra «(archivada)», s
     ramas: [{ id: 'r', modo: 'todas', filas: [{ campo: 'etiqueta', valor: 3 }], siguiente: null }] };
   const g = grafoDeSecuencia([cond], { disparador: 'X', nombres: { etiqueta: (id) => nombreEtiqueta(etiquetas, id) } });
   assert.equal(nodo(g, 'c').puertos![0].rotulo, 'Tiene «Cualificado (archivada)»');
-  assert.match(PERFIL, /nombreEtiqueta: nombreEtiqueta\(etiquetas, disparo\.etiqueta_id\),/);
+  // Sexta tanda (varios CRON): lo que dice cada CRON lo arma `useTextoDisparador` (EditorDisparadores).
+  // Verificado con `nombreEtiqueta: null` ahí (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1.
+  assert.match(leer('../app/chatbot/EditorDisparadores.tsx'), /nombreEtiqueta: nombreEtiqueta\(p\.etiquetas, d\.etiqueta_id \?\? null\),/);
   // (Con la tercera tanda el objeto suma `catalogo` y va en varios renglones: el `\s*` lo tolera.)
   assert.match(LIENZO_FLUJO, /const nombres: NombresParaTexto = \{\s*etiqueta: \(id\) => nombreEtiqueta\(etiquetas, id\)/);
 });

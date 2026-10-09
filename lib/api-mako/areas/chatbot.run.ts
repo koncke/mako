@@ -161,6 +161,9 @@ export const RUNNERS: Runners = {
       if (!s) return errorLectura(noExiste(id));
       return json({
         id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, activa: s.activa,
+        // LOS CRON (sexta tanda, mig 0241): la automatización arranca por CUALQUIERA de ellos, y `trigger` /
+        // `etapa` de arriba son sólo el PRIMERO. Sin esto, quien lee la ficha creía que tenía uno solo.
+        disparadores: s.disparadores ?? [],
         // Con ramas, «el paso 3» no es un lugar del flujo: cada tarjeta va con su `id` y a cuál sigue.
         con_ramas: !esLineal(s.pasos),
         pasos: s.pasos.map((p, i) => esNodoDeControl(p) ? ({

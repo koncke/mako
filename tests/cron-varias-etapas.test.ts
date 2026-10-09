@@ -226,16 +226,20 @@ test('el botón dice CUÁLES, o «Cualquier etapa…» si son todas (y el produc
 });
 
 test('el CRON elige VARIAS en el desplegable de la casa, guarda una vez con respiro, y su editor tiene rótulo y campo grande (punto 1)', () => {
-  const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /varios=\{valoresDisparo\(disparo\)\} minimo=\{1\}/);
-  assert.match(perfil, /onChange=\{tocarDisparo\}/);
-  assert.match(perfil, /const valor = valorDeVarios\(valoresTrasTocar\(valoresDisparo\(disparo\), tocado\)\);/);
-  assert.match(perfil, /setTimeout\(\(\) => \{ disparoPendiente\.current = null; void mandarDisparo\(body, nuevo\); \}, RESPIRO_DISPARO_MS\)/);
-  // El editor: el rótulo arriba y el selector de ancho completo con el alto de un campo.
-  assert.match(perfil, /<CampoCron rotulo="Cuándo arranca">/);
-  assert.match(perfil, /\{cron && !eligiendo && <CampoCron rotulo="A quién">\{desplegableDisparo\}<\/CampoCron>\}/);
-  assert.match(perfil, /const BOTON_CAMPO_CRON: CSSProperties = \{ minHeight: 44,/);
-  assert.match(perfil, /search width="100%"/);
+  // ⚠️ SEXTA TANDA (varios CRON, 09/10/2026): el desplegable vive en el editor del CRON «Producto»
+  // (app/chatbot/EditorDisparadores.tsx) y lo que se guarda con respiro es la LISTA de CRON
+  // (`useDisparadores`). El rótulo «Cuándo arranca» / «A quién» de antes se fue con el par «Por
+  // tiempo» / «Por una acción»: la primera pantalla son los seis botones gigantes, y «A quién» es una
+  // fila del Recurrente.
+  const editor = sinComentarios(leer('app/chatbot/EditorDisparadores.tsx'));
+  assert.match(editor, /varios=\{valor \? valoresDisparo\(actual\) : \[\]\} minimo=\{1\}/);
+  assert.match(editor, /onChange=\{tocarEtapa\}/);
+  assert.match(editor, /const valor = valorDeVarios\(valoresTrasTocar\(d\.trigger_tipo === 'etapa_actual' \|\| d\.trigger_tipo === 'entrega_actual' \? valoresDisparo\(actual\) : \[\], tocado\)\);/);
+  assert.match(editor, /setTimeout\(\(\) => \{ pendiente\.current = null; void mandar\(body\); \}, RESPIRO_DISPARO_MS\)/);
+  // El selector de ancho completo con el alto de un campo grande (`botonGrande`, el de la casa).
+  assert.match(editor, /export const BOTON_CAMPO_CRON: CSSProperties = \{ \.\.\.botonGrande \};/);
+  assert.match(editor, /search width="100%"\s+varios=/);
+  assert.match(editor, /<span style=\{\{ fontFamily: SANS, fontSize: 12\.5, fontWeight: 600, color: 'var\(--dim\)' \}\}>A quién<\/span>/);
 });
 
 // ── 6. Crear con IA: varias claves, y el alumno va por TODAS las de la entrega ──────────
@@ -333,3 +337,6 @@ test('el prompt dice la regla (la primera capa) y la ruta le pasa el pedido y la
 // Restaurado: 52 / 0.
 //   20. (este archivo solo, 19 / 0) la adquisición de un producto SIN entrega pasa a la entrega de
 //       otro → 18 / 1.
+// SEXTA TANDA (09/10/2026, el desplegable mudado a EditorDisparadores.tsx). Corriendo este archivo +
+// flujo-conversacion + flujo-ia-arreglos + lienzo-revision: baseline 71 / 0. Que tocar una etapa la
+// REEMPLACE en vez de sumarla (`onChange` directo a `disparoDeValor`) → 70 / 1, cae el de arriba.
