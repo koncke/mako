@@ -587,6 +587,60 @@ export function validarGrafo(pasos: readonly PasoGrafo[]): string[] {
 }
 
 /**
+ * LAS TARJETAS QUE ESTÁN DENTRO DE UN BUCLE: las que, siguiendo el grafo de EJECUCIÓN (los
+ * puertos más los saltos de un «Ir a» a una tarjeta), vuelven a sí mismas. Un bucle es cualquier
+ * ciclo de ese grafo, no sólo un salto hacia su propio ancestro: dos saltos cruzados entre ramas
+ * también vuelven.
+ *
+ * ⚠️ UNA SOLA FUNCIÓN PARA LA REGLA Y PARA LO QUE SE OFRECE. La usan `reglasDeHilos` (rechaza al
+ * publicar una tarjeta que reparte dentro de un bucle) y el lienzo (`grafoDeSecuencia` no ofrece
+ * el ＋ en paralelo en una tarjeta de un bucle, y `tarjetasParaIrA` no ofrece el destino que lo
+ * arma). Hasta el 09/10/2026 el lienzo miraba la clase, «Si responde» y los topes y NO los
+ * bucles: ofrecía «＋ En paralelo» en CRON → m1 → esperar → «Ir a» m1 y Publicar lo rechazaba
+ * (revisión de la segunda tanda, frente modelo). Con dos copias de «qué es un bucle», la del
+ * lienzo y la de validar se separan en la primera que se toque.
+ */
+export function nodosEnBucle(pasos: readonly PasoGrafo[]): Set<string> {
+  const ids = pasos.map((p, i) => idDe(p, i));
+  // El primero gana, como `indicePorId`: con ids repetidos (que `validarGrafo` rechaza aparte) se
+  // sigue la misma tarjeta que seguiría el resto del modelo.
+  const indice = new Map<string, number>();
+  ids.forEach((id, i) => { if (!indice.has(id)) indice.set(id, i); });
+  const ejec = pasos.map((p, i) => {
+    const out = puertosDe(pasos, i).map((pt) => pt.destino).filter((d): d is string => !!d);
+    if (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino) out.push(p.destino.nodo);
+    return out;
+  });
+  const out = new Set<string>();
+  pasos.forEach((_, i) => {
+    const vistos = new Set<string>();
+    const pila = [...ejec[i]];
+    while (pila.length) {
+      const cur = pila.pop()!;
+      if (cur === ids[i]) { out.add(ids[i]); return; }
+      if (vistos.has(cur)) continue;
+      vistos.add(cur);
+      const k = indice.get(cur);
+      if (k !== undefined) pila.push(...ejec[k]);
+    }
+  });
+  return out;
+}
+
+/**
+ * Las tarjetas que sacan flechas en paralelo DENTRO DE UN BUCLE (lo que `validarGrafo` rechaza,
+ * en el orden del array). Exportada para que el lienzo pregunte lo MISMO sobre un flujo
+ * hipotético (`tarjetasParaIrA`) en vez de reescribir la regla.
+ */
+export function repartenEnBucle(pasos: readonly PasoGrafo[]): Set<string> {
+  if (!pasos.some((p) => paralelosDe(p).length)) return new Set();
+  const enBucle = nodosEnBucle(pasos);
+  const out = new Set<string>();
+  pasos.forEach((p, i) => { const id = idDe(p, i); if (paralelosDe(p).length && enBucle.has(id)) out.add(id); });
+  return out;
+}
+
+/**
  * Las reglas de la SEGUNDA TANDA (el inicio, «Si responde» sin padre y las flechas en paralelo).
  * Aparte de `validarGrafo` para que cada una se lea con su porqué.
  */
@@ -629,28 +683,9 @@ function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp
     if (paralelosDe(pasos[indicePorId(pasos, d)]).length) err.push('«Si responde» no puede sacar flechas en paralelo');
   }
   // Una tarjeta con paralelos DENTRO DE UN BUCLE de «Ir a» abre hilos nuevos en cada vuelta, sin
-  // fin: m1 (en paralelo m2) → esperar 1 día → «Ir a» m1 suma un hilo m2 por día. Un bucle es
-  // cualquier ciclo del grafo de EJECUCIÓN (puertos + saltos a una tarjeta), no sólo un salto
-  // hacia su propio ancestro: dos saltos cruzados entre ramas también vuelven.
-  const ejec = (i: number): string[] => {
-    const p = pasos[i];
-    const out = puertosDe(pasos, i).map((pt) => pt.destino).filter((d): d is string => !!d);
-    if (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino) out.push(p.destino.nodo);
-    return out;
-  };
-  pasos.forEach((p, i) => {
-    if (!paralelosDe(p).length) return;
-    const vistos = new Set<string>();
-    const pila = ejec(i);
-    while (pila.length) {
-      const cur = pila.pop()!;
-      if (cur === ids[i]) { err.push(`la tarjeta ${ids[i]} saca flechas en paralelo dentro de un bucle de «Ir a» (abriría caminos nuevos en cada vuelta)`); return; }
-      if (vistos.has(cur)) continue;
-      vistos.add(cur);
-      const k = indicePorId(pasos, cur);
-      if (k >= 0) pila.push(...ejec(k));
-    }
-  });
+  // fin: m1 (en paralelo m2) → esperar 1 día → «Ir a» m1 suma un hilo m2 por día. Qué es un bucle
+  // lo decide `nodosEnBucle`, la misma función con la que el lienzo deja de ofrecerlo.
+  for (const id of repartenEnBucle(pasos)) err.push(`la tarjeta ${id} saca flechas en paralelo dentro de un bucle de «Ir a» (abriría caminos nuevos en cada vuelta)`);
   // Un «Ir a {tarjeta}» de la SALIDA sólo salta dentro de su propio hilo: a la tarjeta de otro,
   // dos cursores caen en la misma tarjeta y al lead le llega el mismo mensaje dos veces. Desde «Si
   // responde» sí se puede ir a cualquier lado: la respuesta pausa todo y retoma UN solo hilo.

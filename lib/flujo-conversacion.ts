@@ -59,7 +59,7 @@ import {
   type PasoGrafo, type RamaCondicion, type CampoCondicion, type NombresParaTexto, type LugarInsercion,
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, HILO_RESPUESTA,
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, hiloDe,
-  indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, textoRama, textoEspera,
+  indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, textoRama, textoEspera, nodosEnBucle, repartenEnBucle,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
@@ -463,10 +463,17 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // sólo donde se pueden PUBLICAR: en una clase que las admite, fuera de «Si responde», debajo
   // del tope por tarjeta y del tope de caminos de la automatización. Ofrecerlas donde
   // `validarGrafo` las rechaza sería un control que no se puede guardar.
+  //
+  // ⚠️ Y FUERA DE UN BUCLE DE «IR A» (`nodosEnBucle`, la misma función que usa la regla). Hasta el
+  // 09/10/2026 esto no miraba los bucles: en CRON → m1 → esperar → «Ir a» m1 ofrecía el ＋ en
+  // paralelo en m1 y en la espera, y Publicar lo rechazaba con «saca flechas en paralelo dentro
+  // de un bucle». Una flecha nueva no arma un bucle (la tarjeta que crea no sigue en nada), así
+  // que alcanza con mirar el flujo como está.
   const paralelosDe = (i: number) => puertosDe(pasos, i).filter((pt) => pt.puerto.startsWith('par:')).length;
   const caminos = 1 + pasos.reduce((s, _, i) => s + paralelosDe(i), 0);
+  const enBucle = nodosEnBucle(pasos);
   const admiteParalelo = (i: number): boolean => i >= 0
-    ? puedeTenerParalelos(pasos[i]) && !enRespuesta.has(ids[i]) && ids[i] !== resp && caminos < TOPE_HILOS && paralelosDe(i) < TOPE_PARALELOS
+    ? puedeTenerParalelos(pasos[i]) && !enRespuesta.has(ids[i]) && ids[i] !== resp && !enBucle.has(ids[i]) && caminos < TOPE_HILOS && paralelosDe(i) < TOPE_PARALELOS
     : caminos < TOPE_HILOS;
 
   // ── La tarjeta de cada paso (sin posición todavía) ──
@@ -815,18 +822,28 @@ export function sacarSubarbol<P extends PasoGrafo>(pasos: readonly P[], raiz: st
  * sería un control que no se puede guardar. Desde «Si responde» se ofrecen todas: la respuesta
  * pausa todo y retoma UN solo hilo. Un «Ir a» suelto (sin hilo todavía) también las ve todas.
  *
+ * ⚠️ Y NINGUNA QUE ARME UN BUCLE CON UNA TARJETA QUE REPARTE. Con m1 sacando una flecha en
+ * paralelo, un «Ir a» puesto después de la espera ofrecía m1, y elegirla armaba el bucle que
+ * `validarGrafo` rechaza («saca flechas en paralelo dentro de un bucle»). Se pregunta con la MISMA
+ * regla (`repartenEnBucle`) sobre el flujo con ese destino puesto, contra el mismo flujo con el
+ * «Ir a» sin destino: así un bucle que ya estaba mal por otro lado no esconde todas las opciones,
+ * y el destino que tiene puesto, si el resto está bien, sigue en la lista.
+ *
  * Nunca a sí mismo, a otro «Ir a», a «Si responde» ni al CRON (volver a entrar no es un salto).
  */
 export function tarjetasParaIrA(pasos: readonly PasoGrafo[], irAId: string): string[] {
   const hilo = hiloDe(pasos);
   const desde = hilo.get(irAId);
   const todas = desde === undefined || desde === HILO_RESPUESTA;
+  const sinDestino = cambiarNodo(pasos, irAId, { destino: undefined });
+  const yaMal = repartenEnBucle(sinDestino);
+  const armaBucle = (d: string): boolean => [...repartenEnBucle(cambiarNodo(pasos, irAId, { destino: { nodo: d } }))].some((x) => !yaMal.has(x));
   return pasos
     .map((p, i) => ({ p, id: idDe(p, i) }))
     .filter(({ p, id }) => {
       const c = claseDe(p);
       if (id === irAId || c === 'ir_a' || c === 'respuesta' || c === 'inicio') return false;
-      return todas || hilo.get(id) === desde;
+      return (todas || hilo.get(id) === desde) && !armaBucle(id);
     })
     .map(({ id }) => id);
 }
