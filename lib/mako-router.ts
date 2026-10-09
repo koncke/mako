@@ -11,6 +11,8 @@
 //   · ante la duda se ESCALA (a Sonnet/Opus), nunca se degrada.
 // El resultado queda en `motivo` (router:tier) para auditar en el Saldo de IA.
 
+import { esPedidoSobreLead } from './mako-intencion';
+
 export type Tier = 'cheap' | 'sonnet' | 'opus';
 export type RutaDoer = { tier: Tier; needsTools: boolean; model: string; effort: 'low' | 'medium' | 'high'; motivo: string };
 
@@ -57,6 +59,11 @@ export function rutearDoer(texto: string, ctx: { hayMedia?: boolean; hayPendient
   //    una tarea puede DECIR "escribir un email" o "por qué X" y eso es su CONTENIDO, no
   //    un pedido de copy/análisis. Sin esto, "anotá al plan: escribir el email" se iba a
   //    Opus (caro) en vez de Sonnet/Groq (feedback jul-19, costo).
+  // ⚠️ «Anotá en el lead Nicolás que…» nombra «anotá» y NO es del plan: es una nota del CRM
+  // (lib/mako-intencion.ts, `esPedidoSobreLead`). Con `(plan)` en la ruta, el doer exigía un
+  // borrador del plan y, si la IA fallaba, guardaba el pedido como una tarea (08/10/2026).
+  if (esPedidoSobreLead(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (dato/acción)' };
+
   if (PLAN.test(t) || LISTA_TAREAS(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (plan)' };
 
   // 3) Razonamiento / copywriting → Opus (voz de marca / multi-paso).

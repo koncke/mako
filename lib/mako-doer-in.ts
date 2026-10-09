@@ -32,7 +32,7 @@ import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
-import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo } from '@/lib/mako-intencion';
+import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, esPedidoSobreLead } from '@/lib/mako-intencion';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
@@ -216,6 +216,10 @@ function nombraAMaKo(texto: string): boolean {
  *  agregar un contacto, cargar un reporte) y dispararían el acuse fuera de lugar. Ante la
  *  duda NO acusamos (el pedido igual se procesa igual, solo sin el "recibido" instantáneo). */
 function esCargaDePlan(texto: string): boolean {
+  // «Anotá en el lead Nicolás que…» es una nota del CRM: sin esto el acuse decía «anoto eso»,
+  // se exigía un borrador del plan y, con la IA caída, el pedido se guardaba como una tarea
+  // (08/10/2026, ws15). La misma función que usa el clasificador (lib/mako-intencion.ts).
+  if (esPedidoSobreLead(texto)) return false;
   if (/\b(anot[aá]|apunt[aá])|al plan\b|a la lista\b/i.test(norm(texto))) return true;
   return (texto.match(/(^|\n)\s*(\d+[.)]|[-*•])\s+\S/g) ?? []).length >= 2;
 }

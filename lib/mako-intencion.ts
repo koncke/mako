@@ -91,6 +91,91 @@ export type VeredictoIntencion = {
 /** Lo que dice un pedido de agenda para el presupuesto: pone primero las de agenda. */
 export const RELEVANCIA_AGENDA = 'agendar reagendar mover cambiar cancelar reunion visita cita agenda evento';
 
+// ── EL PEDIDO SOBRE UN LEAD DEL CRM ─────────────────────────────────────────────
+// EL CASO (08/10/2026, ws15). Joan, por audio, en el grupo de MaKo de una inmobiliaria: «Macu,
+// anotá en el lead que llegó Nicolás lo que dijo Bright… Anotá en el lead Nicolás como una nota
+// que ya tiene su propiedad con Remax y no quiere dar exclusiva. Solo agregá esa nota al lead
+// Nicolás». La herramienta existe (`agregar_nota_lead`, y su descripción dice textual «úsala
+// cuando el dueño diga "anota en X que…"»), pero el turno llegó con las tres del PLAN: «anotá»
+// era «cargalo al plan» en TRES puertas a la vez —`PEDIDO_ANOTAR` acá, el `PLAN` del router
+// (lib/mako-router.ts) y `esCargaDePlan` (lib/mako-doer-in.ts)—, y cuando Gemini dio 503 el
+// mensaje se guardó crudo como borrador del plan. Martín: «le pidió que cargue una NOTA a ese
+// lead y creó una tarea». Una hora antes, «okay, movelo a "calificado" dentro del CRM» había
+// caído al default (`capturar`): «movelo» sin tilde no estaba en ninguna lista.
+//
+// ⚠️ NO ERA UN CASO SUELTO. Medido ese día con el turno real (clasificador + la selección de
+// lib/doer-herramientas.ts): de 19 pedidos comunes del CRM —nota, mover de etapa, marcar
+// calificado, asignar closer, poner una etiqueta— 17 llegaban SIN su herramienta. Sólo pasaban
+// los que traen la tilde exacta («mové a Rosana…») que pide `ACCION_CUENTA_RE`. El registro
+// tenía las operaciones; el clasificador no las dejaba llegar.
+//
+// La señal es el OBJETO, no el verbo: un verbo de pedido + algo que sólo vive en el CRM (un
+// lead, su ficha, una nota, una etapa, «calificado», una etiqueta, el closer). La tercera
+// persona («si el closer marca al lead…») se descarta como en el resto del archivo: la forma
+// sin tilde y sin pronombre cuenta sólo si ARRANCA el mensaje, que es como se da una orden.
+// Lo peor que deja equivocarse es una propuesta de más, que no se escribe sin el «sí».
+//
+// Todo se prueba contra el texto SIN tildes, salvo el voseo con tilde, que se mira en el crudo.
+
+/** Lo que va delante de la orden y no cambia nada. «Macu» es como transcribe el audio «MaKo». */
+const PRELUDIO_CRM = /^(?:[\s,.:;!¡¿?"'-]*(?:mako|maco|macu|che|porfa|por favor|oye|ey|hola|buenas|ok(?:ey|ay)?|dale|bueno|listo|perfecto|y)\b)*[\s,.:;!¡¿?"'-]*/;
+/** Verbos de pedido con pronombre pegado: imperativo sí o sí (no hay tercera persona así). */
+const VERBO_CRM_PEGADO = /\b(?:anota(?:le|lo|la)|apunta(?:le|lo|la)|agrega(?:le|lo|la|les)|suma(?:le|lo|la)|deja(?:le|lo|la)|pone(?:le|lo|la|les|los|las)|ponle|ponlo|ponla|carga(?:le|lo|la)|escribi(?:le)|guarda(?:le|lo|la)|registra(?:le|lo|la)|move(?:lo|la|los|las)|mueve(?:lo|la|los|las)|pasa(?:lo|la|los|las)|lleva(?:lo|la|los|las)|marca(?:lo|la|le|los|las)|asigna(?:le|lo|la)|etiqueta(?:lo|la)|califica(?:lo|la)|descarta(?:lo|la)|cambia(?:le|lo|la)|saca(?:le|lo|la)|quita(?:le|lo|la))\b/;
+/** Voseo con tilde (en el texto CRUDO): «anotá», «mové», «marcá». */
+const VERBO_CRM_TILDE = /(?:^|[\s,.;:!¡¿?"'(])(?:anotá|apuntá|agregá|sumá|dejá|poné|cargá|escribí|guardá|registrá|mové|pasá|llevá|marcá|asigná|calificá|descartá|cambiá|sacá|quitá)(?=[\s,.;:!?"')]|$)/i;
+/** La forma suelta (tuteo o voseo sin tilde): sólo cuenta si es lo PRIMERO del mensaje. */
+const VERBO_CRM_SUELTO = /^(?:anota|apunta|agrega|suma|deja|pone|pon|carga|escribe|guarda|registra|mueve|move|pasa|lleva|marca|asigna|califica|descarta|cambia|saca|quita)\b/;
+/** Algo que sólo vive en el CRM. */
+const OBJETO_CRM = /\b(?:leads?|ficha|crm|historial|notas?|comentario|etapas?|columna|embudo|funnel|pipeline|calificad[oa]s?|descartad[oa]s?|ganad[oa]s?|perdid[oa]s?|etiquetas?|closer|setter|prospectos?|seguimiento \d|pre ?listing|en revision|nutricion manual|asisti(?:o|eron|da|do)?|productos?)\b/;
+/** Mover a un lugar: «movelo a calificado», «pasalo a pre listing», «ponelo en descartado». */
+const MOVER_A = /\b(?:move|mueve|pasa|lleva|pone)(?:lo|la|los|las)\s+(?:a|al|en|como|hacia)\s+(?!limpio\b)\S/;
+/** Dar de alta: «me agregás a lead a German», «cargalo como lead», «creá un lead con…».
+ *  (`agregas`, segunda persona: es como pide quien no usa el imperativo, ws11, 07/10/2026). */
+const ALTA_LEAD = /\b(?:agrega|agregas|agregame|agregalo|agregala|carga|cargas|cargame|cargalo|cargala|crea|crealo|creala|suma|sumalo|sumala|mete|metelo|metela|registra|registralo)\b[^.\n]{0,25}?\b(?:a|como|un|una|nuevo|nueva)\s+(?:un\s+|nuevo\s+|nueva\s+)?lead\b/;
+/** Los verbos de ANOTAR: con un lead de objeto, lo que piden es una nota aunque no la nombren
+ *  («anotá en el lead de Rosana que no atendió»). */
+const VERBO_NOTA = /\b(?:anota|apunta|escribi|escribe|registra|deja|suma)(?:le|lo|la)?\b/;
+/** Lo que es del PLAN aunque nombre un lead: «anotá en el plan que llame al lead». */
+const ES_DEL_PLAN = /\b(?:(?:al|el|mi|en el) plan|a la lista|tareas?|pendientes?|recordame|recuerdame|anotame|apuntame|no me olvide)\b|\bnotas? de voz\b/;
+
+export type PedidoSobreLead = { tipo: 'nota' | 'etapa' | 'calificado' | 'etiqueta' | 'asignar' | 'alta' };
+
+/** Lo que suma cada tipo a la relevancia del presupuesto: pone primero su herramienta. */
+export const RELEVANCIA_CRM: Readonly<Record<PedidoSobreLead['tipo'], string>> = {
+  nota: 'agregar nota lead historial notas',
+  etapa: 'cambio etapa mover lead producto',
+  calificado: 'marcar calificado asistencia lead',
+  etiqueta: 'etiqueta lead poner sacar',
+  asignar: 'asignar closer setter lead',
+  alta: 'proponer lead nuevo alta crear cargar',
+};
+
+/**
+ * ¿Le pide a MaKo hacer algo sobre un lead del CRM? Puro: lo usan el clasificador, el router
+ * (lib/mako-router.ts) y `esCargaDePlan` (lib/mako-doer-in.ts), para que las tres puertas
+ * digan lo mismo. Recibe el texto crudo; null si no es un pedido sobre un lead.
+ */
+export function esPedidoSobreLead(texto: string): PedidoSobreLead | null {
+  const crudo = sinPrefijoDeLote(texto || '').trim();
+  if (!crudo || crudo.length > 600) return null;
+  const n = norm(crudo);
+  if (ES_DEL_PLAN.test(n)) return null;
+  // Un volcado sigue siendo material: «Idea: que el lead se mueva solo…», una lista de cosas.
+  if (ENCABEZADO_VOLCADO.test(crudo) || INFINITIVO_TITULO.test(crudo) || esLista(crudo)) return null;
+  const arranque = n.replace(PRELUDIO_CRM, '');
+  // El alta va antes: «me agregás a lead…» no trae un imperativo, y es inequívoca.
+  if (ALTA_LEAD.test(n) && !/\b(?:notas?|comentario|historial)\b/.test(n)) return { tipo: 'alta' };
+  const verbo = VERBO_CRM_PEGADO.test(n) || VERBO_CRM_TILDE.test(crudo) || VERBO_CRM_SUELTO.test(arranque);
+  if (!verbo) return null;
+  if (!OBJETO_CRM.test(n) && !MOVER_A.test(n)) return null;
+  if (/\b(?:notas?|comentario|historial)\b/.test(n)) return { tipo: 'nota' };
+  if (/\betiquetas?\b/.test(n)) return { tipo: 'etiqueta' };
+  if (/\b(?:closer|setter)\b/.test(n)) return { tipo: 'asignar' };
+  if (/\bmarca/.test(n) && /\bcomo\b/.test(n)) return { tipo: 'calificado' };
+  if (VERBO_NOTA.test(arranque) && !MOVER_A.test(n)) return { tipo: 'nota' };
+  return { tipo: 'etapa' };
+}
+
 // ── Señales ──────────────────────────────────────────────────────────────────
 
 const norm = (s: string): string => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -359,6 +444,7 @@ export function clasificarIntencion(
   // lo que escribió la persona: el encabezado de un lote alarga el texto y no es de ella.
   const nPersona = norm(sinPrefijoDeLote(t));
   const pedidoAgenda = esPedidoAgenda(nPersona) || corrigeAgenda(nPersona, !!ctx.hayPendienteDeAgenda);
+  const pedidoLead = esPedidoSobreLead(t);
 
   // 0) COMPARTIÓ UN CONTACTO. Va antes que todo porque no admite lectura: nadie
   //    comparte una tarjeta de contacto para que quede anotada como una idea.
@@ -378,12 +464,14 @@ export function clasificarIntencion(
   //    y «no, movela al viernes a las 10» arrancan con una palabra de CONFIRMACION, y con
   //    una pendiente abierta se leían como un «no» — el turno llegaba sin las herramientas
   //    de agenda y corregir una propuesta sólo la cancelaba (08/10/2026).
-  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !pedidoAgenda) {
+  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !pedidoAgenda && !pedidoLead) {
     return { intencion: 'confirmar', dudosa: false, porque: 'confirmación con pendiente vigente' };
   }
 
-  // 2) Pedido explícito de anotar. No hay ambigüedad posible.
-  if (PEDIDO_ANOTAR.test(n)) {
+  // 2) Pedido explícito de anotar. No hay ambigüedad posible… salvo que diga DÓNDE, y el
+  //    dónde sea un lead: «anotá en el lead Nicolás que…» es una nota del CRM, no del plan
+  //    (ver `esPedidoSobreLead`). Pasa de largo y lo toma la regla 3-quater.
+  if (PEDIDO_ANOTAR.test(n) && !pedidoLead) {
     return { intencion: 'capturar', dudosa: false, porque: 'pidió anotarlo explícitamente' };
   }
 
@@ -437,6 +525,16 @@ export function clasificarIntencion(
   //        a «¿te la agendo mañana a las 12?» llegaba sin ninguna herramienta de Google.
   if (ctx.makoPregunto && CONFIRMACION.test(t) && !NEGATIVA.test(t) && t.length <= 160 && !esLista(t)) {
     return { intencion: 'actuar', dudosa: false, porque: 'dice que sí a lo que MaKo le acaba de ofrecer', sigueOfrecimiento: true };
+  }
+
+  // 3-quater) UN PEDIDO SOBRE UN LEAD: una nota, una etapa, «calificado», una etiqueta, el
+  //           closer (ver `esPedidoSobreLead`, que ya descarta los volcados y lo del plan).
+  //           Va antes de la pregunta y del imperativo por lo mismo que el de agenda: «pasá a
+  //           Nicolás a calificado» es un imperativo, y en `pensar` las herramientas que
+  //           escriben no viajan. Lleva el área y su relevancia: «movelo a pre listing» no
+  //           nombra el CRM, y sin la relevancia la acción queda afuera del presupuesto.
+  if (pedidoLead) {
+    return { intencion: 'actuar', dudosa: false, porque: `pedido sobre un lead del CRM (${pedidoLead.tipo})`, areas: ['crm'], relevancia: RELEVANCIA_CRM[pedidoLead.tipo] };
   }
 
   // ── El cruce que importa: material dictado vs pedido a MaKo ────────────────
