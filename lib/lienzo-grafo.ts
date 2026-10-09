@@ -38,7 +38,25 @@ export type TipoNodo =
   // La tarjeta de ETIQUETA del chatbot (segunda tanda, decisión 8): una PRESENTACIÓN sobre la
   // ⚡ Acción `poner_etiqueta_lead` / `sacar_etiqueta_lead`. El dato sigue siendo una acción y
   // el motor no cambia; lo que cambia es cómo se dibuja.
-  | 'etiqueta';
+  | 'etiqueta'
+  // La tarjeta MAKO del chatbot (tercera tanda, decisión 11): la ⚡ Acción `avisar_al_equipo`, que
+  // le escribe al GRUPO de WhatsApp del negocio (nunca al lead). Misma idea que la etiqueta.
+  | 'mako';
+
+/**
+ * LA IDENTIDAD DE UNA TARJETA DE MENSAJE (tercera tanda, decisión 5): la de WhatsApp lleva el verde
+ * y el fondo de chat; la de Email, el blanco de Gmail y el sobre rojo. Ausente = la tarjeta de
+ * siempre (/mensajes no la pasa).
+ */
+export type CanalTarjeta = 'whatsapp' | 'email';
+
+/**
+ * Los dos íconos de tarjeta que no son ni un emoji ni una marca del catálogo (`ServicioVisual`): el
+ * logo de MaKo y el sobre de Gmail. Los dibuja `IconoNodo` (app/_components/Lienzo.tsx); viven acá
+ * porque los ponen los constructores de grafos, que son puros.
+ */
+export const ICONO_MAKO = 'mako';
+export const ICONO_GMAIL = 'gmail';
 
 /**
  * LAS DOS FAMILIAS DE TARJETAS (segunda tanda, decisión 9; pedido literal, punto 5: «Las
@@ -115,6 +133,8 @@ export type NodoFlujo = {
    * pegarle «24» a un `var(--x)` o a un `rgb()` da un color inválido, que no falla — no pinta.
    */
   color?: string | null;
+  /** WhatsApp o Email: la tarjeta lleva la identidad de esa app (ver `CanalTarjeta`). */
+  canal?: CanalTarjeta;
   x: number; y: number; ancho: number; alto: number;
 };
 
@@ -431,15 +451,26 @@ export const Z_ACCION_LIENZO = 57;
 export function vistaConPanelAbajo(
   v: VistaLienzo,
   nodo: { x: number; y: number; ancho: number; alto: number },
-  libre: { izq: number; der: number; arriba: number; abajo: number },
+  libre: {
+    izq: number; der: number; arriba: number; abajo: number;
+    /**
+     * El borde DERECHO del panel mediano (tercera tanda) y el piso que queda a su derecha. Una
+     * tarjeta que arranca a la derecha del panel no está tapada: se mide contra `abajoSinPanel`
+     * (encima de la fila del zoom), no contra el techo del panel. Ausentes = el panel de borde a
+     * borde de antes.
+     */
+    panelDer?: number; abajoSinPanel?: number;
+  },
 ): VistaLienzo | null {
   if (libre.abajo <= libre.arriba || libre.der <= libre.izq) return null;
   const top = v.ty + nodo.y * v.k;
   const alto = nodo.alto * v.k;
   const left = v.tx + nodo.x * v.k;
   const ancho = nodo.ancho * v.k;
+  const alLado = libre.panelDer != null && left >= libre.panelDer;
+  const abajo = alLado ? Math.max(libre.abajo, libre.abajoSinPanel ?? libre.abajo) : libre.abajo;
   let dy = 0;
-  if (top + alto > libre.abajo) dy = libre.abajo - (top + alto);
+  if (top + alto > abajo) dy = abajo - (top + alto);
   if (top + dy < libre.arriba) dy = libre.arriba - top;
   let dx = 0;
   if (left + ancho > libre.der) dx = libre.der - (left + ancho);
@@ -465,11 +496,22 @@ export const MUELLE = {
   probarAltoMin: 240,
   /** Lo que «Probar» y el editor toman como mucho del alto de la caja, cada uno. */
   fraccionAlto: 0.46,
-  /** El editor apaisado: alto FIJO (una caja cuyo alto es un tope salta al pasar de tarjeta). */
-  editorAltoMax: 360,
+  /**
+   * EL EDITOR MEDIANO (tercera tanda, decisión 1): hasta ~720 de ancho, PEGADO A LA LISTA, y alto
+   * FIJO de ~420 (una caja cuyo alto es un tope salta al pasar de tarjeta).
+   *
+   * ⚠️ HASTA EL 09/10 IBA DE LA LISTA AL BORDE DERECHO, y Martín lo devolvió: «El editor no debe ser
+   * tan ancho, ya te fuiste al otro extremo». En una ventana de 1440 medía 1112 de ancho por 360 de
+   * alto, y el WhatsApp partido en dos columnas (el chat a un costado, el composer al otro) se leía
+   * roto. Mediano y de una columna, como un teléfono.
+   */
+  editorAnchoMax: 720,
+  editorAltoMax: 420,
   editorAltoMin: 240,
-  /** Por debajo de este ancho útil el editor apaisado no tiene lugar para sus dos columnas. */
-  apaisadoMin: 620,
+  /** Lo que el editor toma del alto de la caja (con el tope de arriba): 0,5 de 840 ya son 420. */
+  editorFraccionAlto: 0.5,
+  /** Por debajo de este ancho útil el editor mediano no entra y cae al panel de columna (392). */
+  apaisadoMin: 560,
   /** El aire entre «Probar» y el editor apilados. */
   separacion: 12,
 } as const;
@@ -487,6 +529,11 @@ export type Muelles = {
   disposicion: 'apilados' | 'lado' | null;
   /** El alto del editor apaisado (el `panelAlto` del lienzo), esté abierto o no. */
   editorAlto: number;
+  /**
+   * El ANCHO del editor mediano (el `panelAncho` del lienzo cuando es apaisado), esté abierto o no:
+   * hasta `MUELLE.editorAnchoMax`, pegado a la lista. Lo dibujado y lo reservado salen de acá.
+   */
+  editorAncho: number;
   /**
    * Lo que cada cosa que flota sobre el lienzo tiene que dejar libre:
    *   · `izq`: la lista (el chrome, el zoom, el panel y el encuadre: `Lienzo.insetIzq`);
@@ -506,8 +553,12 @@ export type Muelles = {
  * sino, se rompe el diseño». Con los dos anchos y anclados donde estaban, se pisan (R3: con la
  * lista y «Probar» abiertos quedaban ~500 px de lienzo y el editor ocupaba 392). La salida
  * (decisión 11): «Probar» arriba a la derecha, debajo del chrome, y el editor en la franja de
- * abajo, de la lista al borde derecho. Si apilados no entran (una ventana baja), van lado a lado:
+ * abajo, pegado a la lista. Si apilados no entran (una ventana baja), van lado a lado:
  * «Probar» de arriba a abajo a la derecha y el editor entre la lista y él.
+ *
+ * Desde la tercera tanda el editor es MEDIANO (`MUELLE.editorAnchoMax`, ~420 de alto): ya no llega
+ * al borde derecho. «Probar» sigue sin tocarlo porque el alto de «Probar» descuenta el del editor
+ * (apilados) o el editor se corta antes de «Probar» (lado a lado).
  *
  * ⚠️ UNA SOLA FUNCIÓN, PURA. Lo decide esto y nada más: la lista, el lienzo y «Probar» leen el
  * resultado. Repartida en tres componentes, esta aritmética ya produjo el inset contado dos veces.
@@ -528,17 +579,20 @@ export function muelles(
   const bajo = PANEL_MARGEN + ZOOM_ALTO;
   const editorAlto = Math.max(0, Math.min(
     MUELLE.editorAltoMax,
-    Math.max(MUELLE.editorAltoMin, Math.round(h * MUELLE.fraccionAlto)),
+    Math.max(MUELLE.editorAltoMin, Math.round(h * MUELLE.editorFraccionAlto)),
     h - bajo - CHROME_ALTO,
   ));
-  const anchoEditor = (derAbajo: number) => w - izq - derAbajo - PANEL_MARGEN * 2;
-  const forma = (derAbajo: number): 'apaisado' | 'columna' => (anchoEditor(derAbajo) >= MUELLE.apaisadoMin ? 'apaisado' : 'columna');
+  // El lugar que hay entre la lista y lo que tapa la derecha abajo; el editor toma hasta 720 de eso,
+  // pegado a la lista (decisión 1). Sobre lo que queda a su derecha sigue el lienzo.
+  const lugarEditor = (derAbajo: number) => w - izq - derAbajo - PANEL_MARGEN * 2;
+  const anchoEditor = (derAbajo: number) => Math.min(MUELLE.editorAnchoMax, lugarEditor(derAbajo));
+  const forma = (derAbajo: number): 'apaisado' | 'columna' => (lugarEditor(derAbajo) >= MUELLE.apaisadoMin ? 'apaisado' : 'columna');
   const editor = (derAbajo: number): RectMuelle | null => (op.editorAbierto && forma(derAbajo) === 'apaisado'
     ? { left: izq + PANEL_MARGEN, top: h - bajo - editorAlto, width: anchoEditor(derAbajo), height: editorAlto }
     : null);
 
   if (!op.probarAbierto) {
-    return { probar: null, editor: editor(0), editorForma: forma(0), disposicion: null, editorAlto, insets: { izq, der: 0, derChrome: 0, derAbajo: 0 } };
+    return { probar: null, editor: editor(0), editorForma: forma(0), disposicion: null, editorAlto, editorAncho: anchoEditor(0), insets: { izq, der: 0, derChrome: 0, derAbajo: 0 } };
   }
 
   // Apilados: «Probar» entre el chrome y el editor, a la derecha.
@@ -547,7 +601,7 @@ export function muelles(
   if (forma(0) === 'apaisado' && anchoP >= MUELLE.probarAnchoMin && altoP >= MUELLE.probarAltoMin) {
     return {
       probar: { left: w - H - anchoP, top: CHROME_ALTO, width: anchoP, height: altoP },
-      editor: editor(0), editorForma: 'apaisado', disposicion: 'apilados', editorAlto,
+      editor: editor(0), editorForma: 'apaisado', disposicion: 'apilados', editorAlto, editorAncho: anchoEditor(0),
       insets: { izq, der: anchoP + H * 2, derChrome: 0, derAbajo: 0 },
     };
   }
@@ -560,7 +614,7 @@ export function muelles(
   const der = anchoL + H * 2;
   return {
     probar: { left: w - H - anchoL, top: H, width: anchoL, height: Math.max(0, h - H * 2) },
-    editor: editor(der), editorForma: forma(der), disposicion: 'lado', editorAlto,
+    editor: editor(der), editorForma: forma(der), disposicion: 'lado', editorAlto, editorAncho: anchoEditor(der),
     insets: { izq, der, derChrome: der, derAbajo: der },
   };
 }

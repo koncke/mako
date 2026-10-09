@@ -300,7 +300,7 @@ test('⚠️ el grafo dibuja la acción como su propio nodo, con el TÍTULO de l
   );
   const n = g.nodos.find((x) => x.id === 'b');
   assert.equal(n?.tipo, 'accion', 'dibujada como mensaje, una acción es una burbuja vacía que afirma que al lead le llegó algo');
-  assert.equal(n?.titulo, 'Acción');
+  assert.equal(n?.titulo, 'ACTION', 'los títulos de las tarjetas van en inglés (tercera tanda, decisión 5)');
   assert.equal(n?.detalle, 'Mover un lead de etapa');
   assert.equal(n?.advertencia, undefined);
   // Cuelga de la salida del paso anterior, sin rótulo de tiempo: la espera es una tarjeta.

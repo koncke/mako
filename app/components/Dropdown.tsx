@@ -276,7 +276,34 @@ export type DropdownGroup = { title: string; options: DropdownOption[];
    * dos veces, una con el rótulo del atajo y otra con el de su sección de verdad. Opcional: ninguna
    * de las pantallas de antes lo pasa, así que para ellas no cambia nada.
    */
-  atajo?: boolean };
+  atajo?: boolean;
+  /**
+   * Sólo con `secciones`: UN NIVEL MÁS. La sección no lista opciones sino otras secciones, que se
+   * abren igual (con su ‹ para volver). Existe por el disparador del CRON de /chatbot (tercera tanda,
+   * 09/10/2026): «los productos, solo el nombre... al ingresar, 2 opciones: Entrega o Adquisición, y
+   * dentro las etapas de cada kanban». Buscar aplana también esto: el rótulo de cada tramo es el
+   * camino («Producto · Adquisición de clientes»). Opcional: sin `grupos`, nada cambia.
+   */
+  grupos?: DropdownGroup[] };
+
+/** Las opciones de un grupo y de todos los de adentro. */
+function opcionesDe(g: DropdownGroup): DropdownOption[] {
+  return [...g.options, ...(g.grupos ?? []).flatMap(opcionesDe)];
+}
+/** Los grupos con algo que mostrar después de filtrar, con sus hijos filtrados también. */
+function filtrarGrupos(gs: readonly DropdownGroup[], coincide: (o: DropdownOption) => boolean, sinAtajos: boolean): DropdownGroup[] {
+  return gs
+    .filter((g) => !(sinAtajos && g.atajo))
+    .map((g) => ({ ...g, options: g.options.filter(coincide), ...(g.grupos ? { grupos: filtrarGrupos(g.grupos, coincide, sinAtajos) } : {}) }))
+    .filter((g) => g.options.length > 0 || (g.grupos?.length ?? 0) > 0);
+}
+/** Buscando se aplana: un tramo por grupo con opciones, rotulado con su camino. */
+function tramosPlanos(gs: readonly DropdownGroup[], camino: string[] = []): Array<{ title: string; options: DropdownOption[] }> {
+  return gs.flatMap((g) => [
+    ...(g.options.length ? [{ title: [...camino, g.title].join(' · '), options: g.options }] : []),
+    ...tramosPlanos(g.grupos ?? [], [...camino, g.title]),
+  ]);
+}
 
 type MenuPos = { top?: number; bottom?: number; left?: number; right?: number; width: number;
   /** El alto que queda entre el botón y el borde de la ventana, del lado donde abre. */
@@ -437,8 +464,11 @@ export function Dropdown({
   const ref = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
-  /** En qué sección está parada la persona. `null` = la raíz, con la lista de secciones. */
-  const [seccion, setSeccion] = useState<string | null>(null);
+  /**
+   * En qué sección está parada la persona: el CAMINO de títulos (`[]` = la raíz, con la lista de
+   * secciones). Un camino y no un título porque una sección puede tener `grupos` adentro.
+   */
+  const [ruta, setRuta] = useState<string[]>([]);
 
   // Calcula la posición fija del menú a partir del rect del botón. Abre hacia
   // arriba si abajo no hay lugar (sin empujar el layout). En coordenadas de
@@ -544,7 +574,7 @@ export function Dropdown({
     };
   }, [open]);
 
-  const flat = secciones ? secciones.flatMap((g) => g.options)
+  const flat = secciones ? secciones.flatMap(opcionesDe)
     : columns ? columns.flat().flatMap((g) => g.options)
     : (options ?? []);
   const selected = resetAfterSelect || varios ? undefined : flat.find((o) => o.value === value);
@@ -576,8 +606,15 @@ export function Dropdown({
   const buscando = q.trim().length > 0;
   // Las secciones con algo que mostrar, ya filtradas por la búsqueda. Buscando, sin los ATAJOS: sus
   // opciones también están en su sección de verdad (ver `atajo` en DropdownGroup).
-  const seccVisibles = secciones?.filter((g) => !(buscando && g.atajo)).map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length);
-  const abierta = seccVisibles?.find((g) => g.title === seccion) ?? null;
+  const seccVisibles = secciones ? filtrarGrupos(secciones, coincide, buscando) : undefined;
+  // La sección abierta: se baja por el camino, nivel por nivel. Un camino que ya no existe (las
+  // opciones cambiaron) se lee como la raíz.
+  let abierta: DropdownGroup | null = null;
+  for (const t of ruta) {
+    const nivel: DropdownGroup[] = abierta ? (abierta.grupos ?? []) : (seccVisibles ?? []);
+    abierta = nivel.find((g) => g.title === t) ?? null;
+    if (!abierta) break;
+  }
   const sinResultados = q.trim().length > 0 && (
     secciones ? !seccVisibles?.length
       : columns ? !colsVisibles?.some((c) => c.length)
@@ -586,10 +623,23 @@ export function Dropdown({
   // El foco entra solo en la búsqueda: con el menú abierto ya se puede escribir,
   // sin tener que ir a buscar el campo con el mouse.
   useEffect(() => {
-    if (!open) { setSeccion(null); return; }   // se reabre en la raíz, siempre
+    if (!open) { setRuta([]); return; }   // se reabre en la raíz, siempre
     const t = setTimeout(() => searchRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, [open]);
+
+  /** El renglón que ABRE una sección (en la raíz, o adentro de otra con `grupos`). */
+  const botonSeccion = (g: DropdownGroup) => (
+    <button key={g.title} type="button" onClick={() => setRuta((r) => [...r, g.title])}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, width: '100%', padding: '10px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+      <span style={{ fontWeight: 600 }}>{g.title}</span>
+      {/* El conteo es el «resumen» de la fila, como en el filtro del plan: dice si vale la pena
+          entrar antes de entrar. Una sección de secciones (`grupos`) no cuenta: sólo la flecha. */}
+      <span style={{ fontSize: 12, color: 'var(--faint)', flex: 'none' }}>{g.grupos?.length ? '›' : `${g.options.length} ›`}</span>
+    </button>
+  );
 
   const rotuloGrupo: CSSProperties = {
     fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em',
@@ -637,7 +687,7 @@ export function Dropdown({
             // ── Por secciones: la raíz lista las categorías; adentro, sus opciones.
             buscando ? (
               // Buscando se APLANA: el grupo pasa a ser el rótulo de cada tramo.
-              (seccVisibles ?? []).map((g) => (
+              tramosPlanos(seccVisibles ?? []).map((g) => (
                 <div key={g.title}>
                   <div style={rotuloGrupo}>{g.title}</div>
                   {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined))}
@@ -645,24 +695,15 @@ export function Dropdown({
               ))
             ) : abierta ? (
               <>
-                <button type="button" onClick={() => setSeccion(null)}
+                <button type="button" onClick={() => setRuta((r) => r.slice(0, -1))}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px 10px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 4 }}>
                   ‹ {abierta.title}
                 </button>
+                {(abierta.grupos ?? []).map((g) => botonSeccion(g))}
                 {abierta.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined))}
               </>
             ) : (
-              (seccVisibles ?? []).map((g) => (
-                <button key={g.title} type="button" onClick={() => setSeccion(g.title)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, width: '100%', padding: '10px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                  <span style={{ fontWeight: 600 }}>{g.title}</span>
-                  {/* El conteo es el «resumen» de la fila, como en el filtro del plan:
-                      dice si vale la pena entrar antes de entrar. */}
-                  <span style={{ fontSize: 12, color: 'var(--faint)', flex: 'none' }}>{g.options.length} ›</span>
-                </button>
-              ))
+              (seccVisibles ?? []).map((g) => botonSeccion(g))
             )
           ) : columns ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>

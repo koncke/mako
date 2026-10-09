@@ -132,8 +132,10 @@ test('⚠️ `insetDer`: lo que flota a la derecha se corre, en los CUATRO lugar
   // ancho EXTERIOR, y restarle el relleno y el borde otra vez angostaba el editor 30 px de más.
   assert.match(LIENZO, /maxWidth: `calc\(100% - \$\{PANEL_MARGEN \* 2 \+ insetIzq \+ insetDer\}px\)`/, 'el panel del nodo');
   assert.doesNotMatch(LIENZO, /insetDer \+ 30\}/, 'volvió el `+ 30` del panel');
-  // Y el panel APAISADO va de la lista a lo que tapa la derecha EN SU FRANJA, con alto FIJO.
-  assert.match(LIENZO, /\? \{ right: PANEL_MARGEN \+ derAbajo, height: panelAlto, display: 'flex'/);
+  // Y el panel APAISADO es MEDIANO desde la tercera tanda (decisión 1): `panelAncho` pegado a la
+  // lista, topado por lo que tapa la derecha EN SU FRANJA, con alto FIJO.
+  assert.match(LIENZO, /width: panelAncho, maxWidth: `calc\(100% - \$\{PANEL_MARGEN \* 2 \+ insetIzq \+ derAbajo\}px\)`,\s*height: panelAlto, display: 'flex'/);
+  assert.doesNotMatch(LIENZO, /right: PANEL_MARGEN \+ derAbajo, height: panelAlto/, 'volvió el editor de borde a borde');
 });
 
 test('la papelera de la cabecera del panel borra la tarjeta (y cierra el panel)', () => {

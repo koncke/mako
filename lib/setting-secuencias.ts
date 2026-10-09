@@ -29,8 +29,49 @@ import { getAudio, audioBase64 } from './setting-audios';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { aplicarVariables, valoresVariablesLead } from './template-vars';
 import { esPasoAccion } from './nutricion-paso-accion';
+import { emojiDeSecuencia } from './flujo-conversacion';
 
-export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & { estrategia: Estrategia | null; metricas: MetricasSecuencia };
+export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
+  estrategia: Estrategia | null; metricas: MetricasSecuencia;
+  /** El emoji del título (mig 0229). null = el del objetivo, que lo pone la pantalla. */
+  emoji: string | null;
+};
+
+/**
+ * LOS EMOJIS DE LAS SECUENCIAS (mig 0229), en una consulta APARTE de `getSecuenciasConStats`
+ * (lib/nutricion.ts, que es de otra parte y lo leen el motor y la API de MaKo: sumarle una columna
+ * ahí la volvería obligatoria para el cron). Una lectura por pantalla, sin paginar a propósito: son
+ * las automatizaciones de UN negocio, decenas, nunca mil.
+ *
+ * ⚠️ UN ERROR TIRA (también la columna que falta: la 0229 va ANTES del deploy). «No pude leer» no es
+ * «no tiene emoji»: devolver vacío pintaría el del objetivo sobre uno elegido, y el primer guardado
+ * de otra cosa no lo borraría, pero la pantalla mentiría.
+ */
+async function emojisDeSecuencias(supabase: Awaited<ReturnType<typeof getTenantDb>>): Promise<Map<number, string>> {
+  const { data, error } = await supabase.from('nutricion_secuencias').select('id, emoji').is('archivada_at', null);
+  if (error) throw new Error(`emojisDeSecuencias: ${error.message}`);
+  const out = new Map<number, string>();
+  for (const r of (data ?? []) as Array<{ id: number; emoji: string | null }>) {
+    const e = emojiDeSecuencia(r.emoji);
+    if (e) out.set(Number(r.id), e);
+  }
+  return out;
+}
+
+/** Guarda el emoji del título (null = vuelve al del objetivo). Uno que no es un emoji, 400. El
+ *  saneo es UNA función pura (`emojiDeSecuencia`, lib/flujo-conversacion.ts), con test. */
+export async function setEmojiSecuencia(secuenciaId: number, emoji: unknown): Promise<void> {
+  const e = emoji == null || emoji === '' ? null : emojiDeSecuencia(emoji);
+  if (emoji != null && emoji !== '' && !e) throw new TriggerInvalidoError('Ese no es un emoji.');
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase
+    .from('nutricion_secuencias')
+    .update({ emoji: e, updated_at: new Date().toISOString() })
+    .eq('id', secuenciaId)
+    .select('id');
+  if (error) throw new Error(`setEmojiSecuencia: ${error.message}`);
+  if (!data?.length) throw new TriggerInvalidoError('Esa automatización no existe en este negocio.');
+}
 
 /** Secuencias + métricas 30d + la serie diaria del workspace (una sola pasada). */
 export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrategia[]; serie: PuntoSerie[] }> {
@@ -49,10 +90,12 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     leerTodo<FilaInsc>(supabase, 'nutricion_inscripciones', 'secuencia_id, estado, updated_at', { orden: 'id' }),
   ]);
   const met = agregarMetricas(filasEnvio, filasInsc);
+  const emojis = await emojisDeSecuencias(supabase);
   const secuencias = secs.map((s) => ({
     ...s,
     estrategia: parseEstrategia(s.estrategia),
     metricas: met.get(s.id) ?? { ...METRICAS_CERO },
+    emoji: emojis.get(s.id) ?? null,
   }));
   return { secuencias, serie: serieDiaria(filasEnvio, filasInsc, new Date().toISOString()) };
 }

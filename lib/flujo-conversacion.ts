@@ -51,7 +51,7 @@
 //     salen de la fila «Al entrar».
 
 import {
-  ANCHO_NODO, ALTO_MIN, GAP_Y, MARGEN, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO,
+  ANCHO_NODO, ALTO_MIN, GAP_Y, MARGEN, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, ICONO_MAKO, ICONO_GMAIL,
   encerrar, aOrigen, centroDeFilas, tieneFilas,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo, type PuertoNodo,
 } from './lienzo-grafo';
@@ -59,7 +59,7 @@ import {
   type PasoGrafo, type RamaCondicion, type CampoCondicion, type NombresParaTexto, type LugarInsercion,
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, HILO_RESPUESTA,
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, hiloDe,
-  indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, textoRama, textoEspera, nodosEnBucle, repartenEnBucle,
+  indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, repartenEnBucle,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
@@ -123,6 +123,11 @@ export const ALTO_PILDORA = 44;
 export const ANCHO_PILDORA = 170;
 export const ALTO_COMPACTO = 64;
 export const ANCHO_ETIQUETA = 210;
+/**
+ * La tarjeta MAKO: la cabecera (47) y hasta tres renglones del mensaje (12,5 × 1,45 ≈ 18 c/u), con la
+ * misma holgura que un mensaje. El texto se corta con «…» a los 90 caracteres (`grafoDeSecuencia`).
+ */
+export const ALTO_MAKO = 47 + 3 * 18 + 8;
 
 /** El ancho de la píldora de una espera: el de su texto, con piso y techo. */
 function anchoPildora(texto: string): number {
@@ -141,6 +146,29 @@ export function etiquetaDeAccion(p: PasoGrafo): { operacion: typeof OP_PONER_ETI
   if (op !== OP_PONER_ETIQUETA && op !== OP_SACAR_ETIQUETA) return null;
   const id = Number(a?.params?.etiquetaId);
   return { operacion: op, etiquetaId: Number.isFinite(id) && id > 0 ? id : null };
+}
+
+/**
+ * ¿ESTE PASO ES LA TARJETA MAKO? (tercera tanda, decisión 11; pedido literal: «Falta una tarjeta de
+ * "WhatsApp de MaKo" para que se pueda configurar un mensaje que envíe MaKo al grupo de WhatsApp»).
+ * Es la ⚡ Acción `avisar_al_equipo` (OP_AVISAR) dibujada como lo que hace, igual que la etiqueta: el
+ * motor no cambia. NO es un mensaje al lead: le escribe al GRUPO del negocio. La «Otra cosa» que
+ * nace con «Si responde» (`crearRespuesta`) también es una.
+ */
+export function esMako(p: PasoGrafo): boolean {
+  if (claseDe(p) !== 'accion') return false;
+  const a = p.accion as { operacion?: unknown } | null | undefined;
+  return a?.operacion === OP_AVISAR;
+}
+
+/** El mensaje y el título de una tarjeta MAKO (lo que el editor edita y la tarjeta muestra). */
+export function makoDeAccion(p: PasoGrafo): { mensaje: string; titulo: string } | null {
+  if (!esMako(p)) return null;
+  const params = (p.accion as { params?: Record<string, unknown> } | null | undefined)?.params ?? {};
+  return {
+    mensaje: typeof params.mensaje === 'string' ? params.mensaje : '',
+    titulo: typeof params.titulo === 'string' ? params.titulo : '',
+  };
 }
 
 /** «+ Cualificado» / «− Seguimiento»: lo que dice la tarjeta de etiqueta. */
@@ -297,23 +325,35 @@ export function altoConFilas(filas: number): number {
 // ── Nombrar una tarjeta (para los errores y el «Ir a») ────────────────────────────
 
 /**
+ * LOS TÍTULOS DE LAS TARJETAS, EN INGLÉS (tercera tanda, decisión 5; pedido literal: «todos los
+ * títulos de las tarjetas estén en inglés, "CRON - DELAY - WHATSAPP"»). UN lugar: el árbol, los
+ * errores y el recordatorio (app/chatbot/RecordatorioFlujo.tsx) leen de acá. Van en mayúsculas
+ * porque así se dibujan, y el error nombra la tarjeta con lo mismo que se lee.
+ */
+export const TITULO = {
+  cron: 'CRON', whatsapp: 'WHATSAPP', email: 'EMAIL', esperar: 'DELAY', condicion: 'CONDITION',
+  etiqueta: 'TAG', accion: 'ACTION', mako: 'MAKO', respuesta: 'REPLY',
+  // «Ir a» ya no se crea (decisión 3), pero los que existen se siguen dibujando.
+  ir_a: 'GO TO',
+} as const;
+
+/**
  * EL TÍTULO QUE LA TARJETA DIBUJA. Lo usan el árbol (la cabecera de cada tarjeta) y los
  * nombres de los errores: una sola función, para que el error nombre la tarjeta con lo
  * mismo que se lee en el lienzo.
  */
-export function tituloDeTarjeta(p: PasoGrafo, enRespuesta: boolean): string {
+export function tituloDeTarjeta(p: PasoGrafo, enRespuesta?: boolean): string {
+  void enRespuesta;
   switch (claseDe(p)) {
-    case 'condicion': return 'Condición';
-    case 'respuesta': return 'Si responde';
-    case 'ir_a': return 'Ir a';
-    case 'esperar': return 'Esperar';
-    case 'accion': return etiquetaDeAccion(p) ? 'Etiqueta' : 'Acción';
-    case 'inicio': return 'CRON';
-    default:
-      if (p.canal === 'email') return 'Email';
-      if (p.tipo === 'audio') return 'Nota de voz';
-      if (p.tipo === 'media') return 'Archivo';
-      return p.tipo === 'ia' && enRespuesta ? 'MaKo contesta' : 'Mensaje';
+    case 'condicion': return TITULO.condicion;
+    case 'respuesta': return TITULO.respuesta;
+    case 'ir_a': return TITULO.ir_a;
+    case 'esperar': return TITULO.esperar;
+    case 'accion': return etiquetaDeAccion(p) ? TITULO.etiqueta : esMako(p) ? TITULO.mako : TITULO.accion;
+    case 'inicio': return TITULO.cron;
+    // Un WhatsApp con texto, audio, archivo o escrito por MaKo es WHATSAPP (decisión 5): «no pongas
+    // "Nota de voz" es simplemente "WhatsApp" y un WhatsApp puede contener diversas cosas».
+    default: return p.canal === 'email' ? TITULO.email : TITULO.whatsapp;
   }
 }
 
@@ -327,6 +367,7 @@ function trozoDe(p: PasoGrafo, nombres?: NombresParaTexto): string {
   else if (c === 'esperar') t = textoEspera(p.espera).replace(/^Esperar /, '');
   else if (c === 'condicion' && p.ramas?.[0]) t = textoRama(p.ramas[0], nombres);
   else if (et && et.etiquetaId != null) t = textoEtiqueta(et, nombres);
+  else if (esMako(p)) t = makoDeAccion(p)?.mensaje ?? '';
   t = t.replace(/\s+/g, ' ').trim();
   return t.length > TROZO ? `${t.slice(0, TROZO - 1).trimEnd()}…` : t;
 }
@@ -360,6 +401,12 @@ export function nombreDeTarjeta(pasos: readonly PasoGrafo[], id: string, nombres
 export function faltaEscribir(pasos: readonly PasoGrafo[]): { id: string; error: string } | null {
   for (let i = 0; i < pasos.length; i++) {
     const p = pasos[i];
+    // La tarjeta MAKO sin mensaje tampoco sale: `avisar_al_equipo` lo exige, y el saneo del server
+    // la guardaría igual (corre en cada lead y falla en cada uno). Se frena acá, abriéndola.
+    if (esMako(p) && !(makoDeAccion(p)?.mensaje ?? '').trim()) {
+      const id = idDe(p, i);
+      return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
+    }
     if (claseDe(p) !== 'mensaje') continue;
     // Un email sin asunto también está a medio escribir: saldría «(sin asunto)», que es lo que
     // pone el motor cuando no hay, y un email nuevo nace con el asunto vacío (`nodoNuevo('email')`).
@@ -490,12 +537,12 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     if (c === 'condicion') {
       const puertos: PuertoNodo[] = (p.ramas ?? []).map((r) => ({ id: r.id, rotulo: textoRama(r, op.nombres), tono: 'buena' as const, vacio: !r.siguiente }));
       puertos.push({ id: 'si_no', rotulo: 'Si no', tono: 'mala', vacio: !p.si_no });
-      t = { ...base, tipo: 'condicion', familia: 'control', titulo: 'Condición', icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
+      t = { ...base, tipo: 'condicion', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'respuesta') {
       const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: x.titulo?.trim() || 'Caso sin nombre', tono: 'buena' as const, vacio: !x.siguiente }));
       const pendientes = Math.max(0, Math.floor(Number(op.pendientesOtraCosa) || 0));
       puertos.push({ id: 'si_no', rotulo: 'Otra cosa', tono: 'mala', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
-      t = { ...base, tipo: 'respuesta', familia: 'contenido', titulo: 'Si responde', icono: '↩️', puertos, alto: altoConFilas(puertos.length) };
+      t = { ...base, tipo: 'respuesta', familia: 'contenido', titulo: TITULO.respuesta, icono: '↩️', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'ir_a') {
       const d = p.destino;
       let detalle = 'Sin elegir';
@@ -509,7 +556,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         advertencia = existe.has(d.nodo) ? undefined : 'Esa tarjeta ya no existe';
       }
       // `puertos: []`: un «Ir a» termina ahí. Sin puntos y sin el ＋ de pasar el cursor.
-      t = { ...base, tipo: 'ir-a', familia: 'control', titulo: 'Ir a', icono: '↪️', detalle, ...(advertencia ? { advertencia } : {}), puertos: [], alto: ALTO_COMPACTO };
+      t = { ...base, tipo: 'ir-a', familia: 'control', titulo: TITULO.ir_a, icono: '↪️', detalle, ...(advertencia ? { advertencia } : {}), puertos: [], alto: ALTO_COMPACTO };
     } else {
       // Mensaje, acción y espera: UNA salida, el punto a la altura de la cabecera. Con el punto
       // ocupado, la misma salida ofrece una flecha EN PARALELO (si se puede publicar).
@@ -517,11 +564,21 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       const et = etiquetaDeAccion(p);
       if (c === 'esperar') {
         const detalle = textoEspera(p.espera).replace(/^Esperar /, '');
-        t = { ...base, tipo: 'espera', familia: 'control', titulo: 'Esperar', icono: '⏳', detalle, puertos, ancho: anchoPildora(detalle), alto: ALTO_PILDORA };
+        t = { ...base, tipo: 'espera', familia: 'control', titulo: TITULO.esperar, icono: '⏳', detalle, puertos, ancho: anchoPildora(detalle), alto: ALTO_PILDORA };
+      } else if (esMako(p)) {
+        // LA TARJETA MAKO (decisión 11): la ⚡ Acción `avisar_al_equipo` dibujada como lo que hace,
+        // con el mensaje recortado. Le escribe al grupo del negocio, no al lead.
+        const m = makoDeAccion(p)!;
+        const msg = m.mensaje.replace(/\s+/g, ' ').trim();
+        t = {
+          ...base, tipo: 'mako', familia: 'contenido', titulo: TITULO.mako, icono: ICONO_MAKO, puertos, alto: ALTO_MAKO,
+          detalle: msg ? (msg.length > 90 ? `${msg.slice(0, 89).trimEnd()}…` : msg) : 'Sin escribir',
+          ...(msg ? {} : { advertencia: 'Sin escribir' }),
+        };
       } else if (et) {
         // LA TARJETA DE ETIQUETA (decisión 8): la misma ⚡ Acción, dibujada como lo que hace.
         t = {
-          ...base, tipo: 'etiqueta', familia: 'control', titulo: 'Etiqueta', icono: '🏷️', puertos,
+          ...base, tipo: 'etiqueta', familia: 'control', titulo: TITULO.etiqueta, icono: '🏷️', puertos,
           ancho: ANCHO_ETIQUETA, alto: ALTO_COMPACTO, detalle: textoEtiqueta(et, op.nombres),
           color: et.etiquetaId != null ? (op.colorEtiqueta?.(et.etiquetaId) ?? null) : null,
           ...(et.etiquetaId == null ? { advertencia: 'Falta elegir la etiqueta' } : {}),
@@ -531,18 +588,23 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         // una burbuja en blanco que afirma que al lead le llega algo.
         const operacion = (p.accion?.operacion ?? '').trim();
         t = {
-          ...base, tipo: 'accion', familia: 'contenido', titulo: 'Acción', icono: '⚡', puertos, alto: ALTO_MIN + 14,
+          ...base, tipo: 'accion', familia: 'contenido', titulo: TITULO.accion, icono: '⚡', puertos, alto: ALTO_MIN + 14,
           detalle: operacion ? (op.tituloAccion?.(operacion) || operacion) : 'Sin elegir',
           ...(operacion ? {} : { advertencia: 'Falta elegir la acción' }),
         };
       } else {
         const email = p.canal === 'email';
         const titulo = tituloDeTarjeta(p, enRespuesta.has(id));
-        const icono = email ? '✉️' : p.tipo === 'audio' ? '🎙️' : p.tipo === 'media' ? '📎' : '💬';
+        // La identidad de la app (decisión 5): el logo de WhatsApp para todo lo que sale por ahí
+        // —texto, audio, archivo o escrito por MaKo— y el sobre de Gmail para el email.
+        const icono = email ? ICONO_GMAIL : 'whatsapp';
         const vacio = (p.tipo === 'audio' && !p.audio_id) || (p.tipo === 'media' && !p.media_id)
           || (p.tipo !== 'audio' && p.tipo !== 'media' && (!(p.cuerpo ?? '').trim() || (email && !(p.asunto ?? '').trim())));
         const audio = p.tipo === 'audio' && Number(p.audio_id) > 0 ? op.audioDe?.(Number(p.audio_id)) : undefined;
-        t = { ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, puertos, alto: altoDeMensaje(p, audio), ...(vacio ? { advertencia: 'Sin escribir' } : {}) };
+        t = {
+          ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: email ? 'email' : 'whatsapp',
+          puertos, alto: altoDeMensaje(p, audio), ...(vacio ? { advertencia: 'Sin escribir' } : {}),
+        };
       }
     }
     if (!alcanzable.has(id) && !t.advertencia) t = { ...t, advertencia: 'Tarjeta suelta' };
@@ -561,7 +623,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // que aparece sólo a veces es un lugar que nadie encuentra.
   const lineasCron = Math.min(2, Math.max(1, renglonesDe(op.disparador, 34)));
   tarjetas.set(ID_ENTRADA, {
-    id: ID_ENTRADA, tipo: 'entrada', familia: 'contenido', titulo: 'CRON', icono: ICONO_CRON, detalle: op.disparador,
+    id: ID_ENTRADA, tipo: 'entrada', familia: 'contenido', titulo: TITULO.cron, icono: ICONO_CRON, detalle: op.disparador,
     puertos: [
       { id: 'sig', rotulo: 'Al entrar', vacio: !raiz, ...(raiz && admiteParalelo(iIni) ? { paralelo: true } : {}) },
       { id: PUERTO_RESPUESTA, rotulo: 'Si responde', vacio: !resp },
@@ -686,25 +748,37 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
 
 // ── Editar: lo que hace cada ＋ ─────────────────────────────────────────────────────
 
-export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'ir_a';
+/**
+ * Lo que el ＋ CREA. Sin «Ir a» desde la tercera tanda (decisión 3; pedido literal: «No se entiende
+ * lo de "Ir a" eso para mi no tiene mucho sentido. Eliminalo»). Los «Ir a» que ya existen (la 198
+ * salta a la 212, el que junta ramas) se siguen dibujando, corriendo y borrando: lo que se va es
+ * crearlos. Con «MaKo» (decisión 11): la ⚡ Acción `avisar_al_equipo`, dibujada como su tarjeta.
+ */
+export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako';
 /** Lo que ofrece el ＋ de un lugar: lo que se inserta, y en la fila «Si responde» del CRON, crearla. */
 export type QueAgregarEn = QueAgregar | 'respuesta';
+/** Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). */
+export type OpcionMas = { value: QueAgregarEn; label: string; avatar?: string; avatarCuadrado?: boolean };
+
+/** El logo de MaKo para el renglón «MaKo» del ＋ (decisión 11: «con el ícono de MaKo»). */
+export const AVATAR_MAKO = '/mako.svg';
 
 /**
- * El menú del ＋. Lista plana con emoji y título, como la de /mensajes (son siete: el
- * patrón se elige por el TAMAÑO de la lista). El orden es el del contrato (segunda tanda):
- * 💬 WhatsApp · ✉️ Email · ⏳ Esperar · 🔀 Condición · 🏷️ Etiqueta · ⚡ Acción · ↪ Ir a.
+ * El menú del ＋. Lista plana con emoji y título, como la de /mensajes (el patrón se elige por el
+ * TAMAÑO de la lista). El orden:
+ * 💬 WhatsApp · ✉️ Email · ⏳ Esperar · 🔀 Condición · 🏷️ Etiqueta · ⚡ Acción · MaKo.
  *
  * · «WhatsApp» y no «Mensaje»: desde que el ＋ también crea un email, «mensaje» no dice por
  *   dónde sale (hasta el 08/10 el lienzo NO podía crear un email: R3).
  * · Debajo de «Si responde» no hay «Email» ni «Esperar»: se contesta en el momento y por el
  *   chat donde el lead escribió (`validarGrafo` rechaza la espera; un email ahí no contesta
  *   nada). Ofrecerlos sería un control que no se puede publicar.
- * · En el MEDIO de una flecha no hay «Ir a»: un salto termina ahí, y lo que colgaba de
- *   esa salida quedaría suelto.
+ * · «MaKo» va con el logo (un `avatar`, la imagen de /mako.svg) y sin emoji: la tarjeta le escribe al
+ *   grupo del negocio con MaKo, y su identidad es la de MaKo.
  * · La fila «Si responde» del CRON (`puerto: 'resp'`) ofrece UNA cosa: crear «Si responde».
  */
-export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean, puerto?: string): Array<{ value: QueAgregarEn; label: string }> {
+export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean, puerto?: string): OpcionMas[] {
+  void medio;
   if (nodoLienzo === ID_ENTRADA && puerto === PUERTO_RESPUESTA) return [{ value: 'respuesta', label: '↩️ Si responde' }];
   const resp = raizRespuesta(pasos);
   const enRespuesta = nodoLienzo !== ID_ENTRADA && (nodoLienzo === resp || subarbolRespuesta(pasos).has(nodoLienzo));
@@ -714,7 +788,7 @@ export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, 
     { value: 'condicion', label: '🔀 Condición' },
     { value: 'etiqueta', label: '🏷️ Etiqueta' },
     { value: 'accion', label: '⚡ Acción' },
-    ...(medio ? [] : [{ value: 'ir_a' as const, label: '↪ Ir a' }]),
+    { value: 'mako', label: 'MaKo', avatar: AVATAR_MAKO, avatarCuadrado: true },
   ];
 }
 
@@ -746,7 +820,9 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
     // La etiqueta es la ⚡ Acción de poner una etiqueta, sobre el lead del EVENTO (decisión 8): nace
     // «Poner» y sin etiqueta elegida, y así no se puede publicar hasta elegir una.
     case 'etiqueta': return { ...b, accion: { operacion: OP_PONER_ETIQUETA, params: { leadId: LEAD_DEL_EVENTO } } };
-    case 'ir_a': return { ...b, nodo: 'ir_a', destino: null };
+    // La tarjeta MAKO (decisión 11): el aviso al grupo del negocio, sobre el lead del EVENTO (el aviso
+    // lleva su nombre, su teléfono y el link a su ficha). Nace sin mensaje: `faltaEscribir` lo frena.
+    case 'mako': return { ...b, accion: { operacion: OP_AVISAR, params: { leadId: LEAD_DEL_EVENTO, mensaje: '' } } };
     default: return b;
   }
 }
@@ -786,12 +862,8 @@ export function insertarDesdeLienzo<P extends PasoParaGrafo>(
 ): { pasos: P[]; id: string | null } {
   const base = normalizar(pasos);
   const lugar = lugarDesdeLienzo(nodo, puerto);
-  // Un «Ir a» sólo entra en una salida VACÍA: insertado en el medio, lo que seguía
-  // quedaría suelto (`insertarNodo` no le cuelga nada a un salto).
-  const ocupado = 'inicio' in lugar
-    ? raizSalida(base)
-    : (puertosDe(base, indicePorId(base, lugar.nodo)).find((pt) => pt.puerto === lugar.puerto)?.destino ?? null);
-  if (que === 'ir_a' && ocupado) return { pasos: base, id: null };
+  // (Hasta la tercera tanda acá se frenaba un «Ir a» en una salida ocupada. El ＋ ya no crea «Ir a»:
+  // decisión 3.)
   const nuevo = nodoNuevo(que, base, rnd) as unknown as P;
   const out = insertarNodo(base, lugar, nuevo);
   if (!out.some((p) => p.id === nuevo.id)) return { pasos: base, id: null };
@@ -1023,10 +1095,12 @@ export type DisparoActual = {
   producto_id?: number | null; etiqueta_id?: number | null;
 };
 
-/** Los disparadores que el desplegable ofrece en su PROPIA sección (etapa, entrega,
- *  etiqueta), y `manual`, que no inscribe a nadie: ofrecerlo sería elegir que la
- *  automatización no corra nunca. */
-const TRIGGERS_APARTE = new Set(['etapa_actual', 'entrega_actual', 'etiqueta_puesta', 'manual']);
+/** Un paso del desplegable del CRON: sus opciones, o los pasos de adentro (`grupos`). */
+export type SeccionDisparo = { title: string; options: OpcionDisparo[]; grupos?: SeccionDisparo[] };
+
+/** Los dos kanbans de un producto, con el nombre con que se ofrecen (decisión 4). */
+export const KANBAN_ADQUISICION = 'Adquisición de clientes';
+export const KANBAN_ENTREGA = 'Entrega del servicio';
 
 /** El valor del desplegable para lo que la secuencia tiene puesto. */
 export function valorDisparo(s: DisparoActual): string {
@@ -1036,49 +1110,149 @@ export function valorDisparo(s: DisparoActual): string {
   return `trigger:${s.trigger_tipo}`;
 }
 
+/** Todas las opciones de un árbol de pasos, aplanadas (para saber si lo puesto está). */
+export function opcionesDeSecciones(secs: readonly SeccionDisparo[]): OpcionDisparo[] {
+  return secs.flatMap((s) => [...s.options, ...opcionesDeSecciones(s.grupos ?? [])]);
+}
+
 /**
- * TODO LO QUE PUEDE DISPARAR UNA AUTOMATIZACIÓN, EN UN DESPLEGABLE CON SECCIONES.
+ * LO QUE PUEDE DISPARAR UNA AUTOMATIZACIÓN, EN UN DESPLEGABLE POR PASOS (tercera tanda, decisión 4).
  *
- * Punto 5: «No pongas un botón de "Cambiar a etapa", eso debe ser un desplegable para
- * seleccionar las acciones que pueden disparar esa automatización». Hasta el 08/10 había
- * dos formas según el disparador: con uno de etapa, dos desplegables (etapa y producto);
- * con cualquier otro, el texto y el botón «Cambiar a una etapa», que REESCRIBÍA el
- * disparador a etapa sin que nadie lo pidiera. Ahora es una sola lista: los eventos del
- * catálogo (`TRIGGERS`), las etapas de venta de cada producto, las de su entrega y cada
- * etiqueta. El producto viaja en el VALOR, así que no hay un segundo desplegable.
+ * Pedido literal: «En el CRON, deben aparecer en el desplegable los productos, solo el nombre de los
+ * mismos. Luego, al ingresar, 2 opciones: "Entrega de Servicio" o "Adquisición de Cliente", y dentro
+ * las etapas de cada kanban. SI solo tiene un producto, el primer paso se omite... Elimina lo de
+ * "Eventos" todo eso debería ir dentro del editable del CONDICIONAL».
+ *
+ *   · PRODUCTO (sólo el nombre) → «Adquisición de clientes» (las etapas del EMBUDO, lo de antes de
+ *     comprar) o «Entrega del servicio» (las de la ENTREGA, lo de después) → la etapa. Con un solo
+ *     producto, el primer paso no está. Un producto sin embudo no tiene «Adquisición»; uno sin
+ *     entrega declarada, no tiene «Entrega»: un paso sin nada adentro es un callejón.
+ *   · «Etiquetas» queda como un paso más al final (primera tanda, punto 12: «debería también poder
+ *     salir acciones y CRON desde etiquetas»). No es un evento.
+ *   · Los EVENTOS del catálogo (`TRIGGERS`: «dejó el formulario», «agendó»…) ya no se ofrecen: pasan a
+ *     las condiciones. Una automatización que ya dispara por uno lo sigue mostrando como lo que es
+ *     («La que tiene puesta»), sin ofrecerlo.
+ *
+ * Hasta el 09/10 era una lista de secciones planas: «Eventos», «Etapa · <producto>» y «Entrega ·
+ * <producto>», una por cada combinación, y con tres productos eran siete secciones en la raíz.
  *
  * ⚠️ Y LA QUE ESTÁ PUESTA ENTRA SIEMPRE: un valor que no está entre las opciones se dibuja
  * como la primera y el primer clic lo pisa (AGENTS.md, el `<select>` que borra datos).
+ * `disparadores` sigue entrando: es con lo que `textoActual` dice un evento de antes.
  */
-export function seccionesDisparo(op: {
+export function pasosDisparo(op: OpcionesDisparo): SeccionDisparo[] {
+  const conAlgo = op.productos.filter((pr) => kanbansDe(pr).length > 0);
+  const secciones: SeccionDisparo[] = conAlgo.length > 1
+    ? conAlgo.map((pr) => ({ title: pr.nombre, options: [], grupos: kanbansDe(pr) }))
+    : conAlgo.length === 1 ? kanbansDe(conAlgo[0]) : [];
+  const vivas = op.etiquetas.filter((t) => !t.archivada_at);
+  if (vivas.length) secciones.push({ title: 'Etiquetas', options: vivas.map((t) => ({ value: `etiqueta:${t.id}`, label: `Se le puso «${t.nombre}»` })) });
+  const actual = valorDisparo(op.actual);
+  if (!opcionesDeSecciones(secciones).some((o) => o.value === actual)) {
+    secciones.unshift({ title: 'La que tiene puesta', options: [{ value: actual, label: op.textoActual }] });
+  }
+  return secciones.filter((s) => s.options.length > 0 || (s.grupos?.length ?? 0) > 0);
+}
+
+/** Lo que entra a `pasosDisparo` y a `seccionesDisparo`. */
+export type OpcionesDisparo = {
   disparadores: readonly OpcionDisparo[];
   productos: readonly ProductoParaDisparo[];
   etiquetas: readonly EtiquetaParaDisparo[];
   actual: DisparoActual;
   /** Cómo se dice lo que está puesto (`detalleDisparador`), para cuando no está en la lista. */
   textoActual: string;
-}): Array<{ title: string; options: OpcionDisparo[] }> {
-  const varios = op.productos.length > 1;
-  const secciones: Array<{ title: string; options: OpcionDisparo[] }> = [
-    { title: 'Eventos', options: op.disparadores.filter((d) => !TRIGGERS_APARTE.has(d.value)).map((d) => ({ value: `trigger:${d.value}`, label: d.label })) },
-  ];
-  // Sólo los productos con EMBUDO tienen etapas de venta: un servicio sin embudo tiene
-  // `funnelId` null y sólo trae las de su entrega.
-  for (const pr of op.productos) {
-    if (pr.funnelId == null || !pr.etapas.length) continue;
-    secciones.push({ title: varios ? `Etapa · ${pr.nombre}` : 'Etapa', options: pr.etapas.map((e) => ({ value: `venta:${pr.funnelId}:${e.value}`, label: `Llega a «${e.label}»` })) });
+};
+
+/**
+ * Los dos kanbans de UN producto con sus etapas. Sólo los productos con EMBUDO tienen etapas de venta:
+ * un servicio sin embudo tiene `funnelId` null y sólo trae las de su entrega. Lo leen los dos armados
+ * (`pasosDisparo` y `seccionesDisparo`): un valor (`venta:<embudo>:<etapa>`) se escribe en UN lugar.
+ */
+function kanbansDe(pr: ProductoParaDisparo): SeccionDisparo[] {
+  const out: SeccionDisparo[] = [];
+  if (pr.funnelId != null && pr.etapas.length) {
+    out.push({ title: KANBAN_ADQUISICION, options: pr.etapas.map((e) => ({ value: `venta:${pr.funnelId}:${e.value}`, label: e.label })) });
   }
-  for (const pr of op.productos) {
-    if (pr.productoId == null || !pr.etapasEntrega.length) continue;
-    secciones.push({ title: varios ? `Entrega · ${pr.nombre}` : 'Entrega', options: pr.etapasEntrega.map((e) => ({ value: `entrega:${pr.productoId}:${e.value}`, label: `Llega a «${e.label}»` })) });
+  if (pr.productoId != null && pr.etapasEntrega.length) {
+    out.push({ title: KANBAN_ENTREGA, options: pr.etapasEntrega.map((e) => ({ value: `entrega:${pr.productoId}:${e.value}`, label: e.label })) });
   }
-  const vivas = op.etiquetas.filter((t) => !t.archivada_at);
-  if (vivas.length) secciones.push({ title: 'Etiquetas', options: vivas.map((t) => ({ value: `etiqueta:${t.id}`, label: `Se le puso «${t.nombre}»` })) });
-  const actual = valorDisparo(op.actual);
-  if (!secciones.some((s) => s.options.some((o) => o.value === actual))) {
-    secciones.unshift({ title: 'La que tiene puesta', options: [{ value: actual, label: op.textoActual }] });
+  return out;
+}
+
+/**
+ * LO MISMO, PLANO: una sección por kanban de cada producto («Etapa · <producto>», «Entrega ·
+ * <producto>»; con un solo producto, «Etapa» y «Entrega»), con el rótulo `Llega a «X»`. Es el
+ * contrato de antes de la tercera tanda, MENOS «Eventos» (decisión 4), y lo leen los que aplanan el
+ * catálogo para otro lector — «Crear con IA» (`disparadoresParaIA`, lib/flujo-ia.ts, que pone el
+ * título de la sección en el rótulo para no confundir dos productos con la misma etapa). El
+ * desplegable del CRON usa `pasosDisparo`. Los valores salen de `kanbansDe` en los dos.
+ */
+export function seccionesDisparo(op: OpcionesDisparo): Array<{ title: string; options: OpcionDisparo[] }> {
+  const varios = op.productos.filter((pr) => kanbansDe(pr).length > 0).length > 1;
+  const out: Array<{ title: string; options: OpcionDisparo[] }> = [];
+  for (const g of pasosDisparo(op)) {
+    if (!g.grupos?.length) { out.push(planoDe(g, null, varios)); continue; }
+    for (const k of g.grupos) out.push(planoDe(k, g.title, varios));
   }
-  return secciones.filter((s) => s.options.length > 0);
+  return out.filter((s) => s.options.length > 0);
+}
+
+function planoDe(g: SeccionDisparo, producto: string | null, varios: boolean): { title: string; options: OpcionDisparo[] } {
+  const kanban = g.title === KANBAN_ADQUISICION ? 'Etapa' : g.title === KANBAN_ENTREGA ? 'Entrega' : null;
+  if (!kanban) return { title: g.title, options: g.options };
+  return {
+    title: varios && producto ? `${kanban} · ${producto}` : kanban,
+    options: g.options.map((o) => ({ value: o.value, label: `Llega a «${o.label}»` })),
+  };
+}
+
+/**
+ * CÓMO SE DICE LA ETAPA ELEGIDA EN EL BOTÓN DEL DESPLEGABLE: «Llega a «Agendado»», y con varios
+ * productos el producto adelante. Las opciones del último paso dicen sólo la etapa (el paso ya dice
+ * de qué producto y de qué kanban); cerrado, el botón tiene que decirlo todo.
+ */
+export function rotuloDisparo(secs: readonly SeccionDisparo[], valor: string, textoActual: string): string {
+  const buscar = (s: readonly SeccionDisparo[], ruta: string[]): string[] | null => {
+    for (const g of s) {
+      const o = g.options.find((x) => x.value === valor);
+      if (o) return [...ruta, g.title, o.label];
+      const r = buscar(g.grupos ?? [], [...ruta, g.title]);
+      if (r) return r;
+    }
+    return null;
+  };
+  const r = buscar(secs, []);
+  if (!r) return textoActual;
+  if (r[r.length - 2] === 'La que tiene puesta' || r[r.length - 2] === 'Etiquetas') return r[r.length - 1];
+  const etapa = r[r.length - 1];
+  const producto = r.length >= 3 ? r[r.length - 3] : null;
+  return producto ? `${producto} · Llega a «${etapa}»` : `Llega a «${etapa}»`;
+}
+
+/**
+ * LOS CANALES QUE «PROBAR» OFRECE (tercera tanda, decisión 14): los que el flujo USA, en el orden
+ * WhatsApp → Email. Sin ningún mensaje, WhatsApp (el teléfono es lo que «Probar» abre por default).
+ */
+export function canalesParaProbar(pasos: readonly PasoGrafo[]): Array<'whatsapp' | 'email'> {
+  const mensajes = pasos.filter((p) => claseDe(p) === 'mensaje');
+  const out: Array<'whatsapp' | 'email'> = [];
+  if (mensajes.some((p) => p.canal !== 'email')) out.push('whatsapp');
+  if (mensajes.some((p) => p.canal === 'email')) out.push('email');
+  return out.length ? out : ['whatsapp'];
+}
+
+/**
+ * ¿SE PUEDE PROBAR / PUBLICAR? Lo mismo que frena Publicar (decisión 13: «No debería dejarme "Probar"
+ * si hay cosas inconclusas en la edición... que me lleve al lugar donde falta el dato»): la forma
+ * (`validarGrafo`) y lo que falta escribir (`faltaEscribir`). Devuelve el error ya legible y la
+ * tarjeta a abrir, o null si está todo. UNA función para los dos botones: con dos, uno se queda viejo.
+ */
+export function frenoDelFlujo(pasos: readonly PasoGrafo[]): { error: string; tarjeta: string | null } | null {
+  const errores = validarGrafo(pasos);
+  if (errores.length) return { error: errorLegible(errores[0], pasos), tarjeta: tarjetaDelError(errores[0], pasos) };
+  const vacia = faltaEscribir(pasos);
+  return vacia ? { error: vacia.error, tarjeta: vacia.id } : null;
 }
 
 /** Lo que se le manda al server al elegir un valor del desplegable (POST
@@ -1091,6 +1265,28 @@ export function pedidoDisparo(valor: string, secuenciaId: number): Record<string
   if (clase === 'entrega' && etapa && Number(ambito) > 0) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'entrega_actual', etapa, producto_id: Number(ambito) };
   if (clase === 'etiqueta' && Number(ambito) > 0) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'etiqueta_puesta', etiqueta_id: Number(ambito) };
   return null;
+}
+
+// ── El emoji del título (tercera tanda, decisión 8) ───────────────────────────────
+
+/** El tope de un emoji en unidades UTF-16: alcanza para una familia con ZWJ y tonos de piel. */
+export const TOPE_EMOJI = 16;
+
+/**
+ * EL EMOJI DEL TÍTULO COMO SE GUARDA (mig 0229): sin espacios, con su tope, y sin letras ni números
+ * sueltos (un «a» no es un emoji: lo que el selector manda siempre es uno). null = el de su objetivo.
+ * Qué es un emoji lo dice Unicode (`\p{Extended_Pictographic}`, y las banderas): si el texto no trae
+ * ninguno, no se guarda. Vive acá (puro) y no en lib/setting-secuencias.ts (`server-only`), para que
+ * el test lo pueda ejecutar; quien guarda lo importa.
+ */
+export function emojiDeSecuencia(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  if (!t || t.length > TOPE_EMOJI) return null;
+  if (!/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(t)) return null;
+  // Lo que queda sin las piezas de un emoji (banderas, keycaps, selectores) no puede traer letras.
+  if (/[\p{L}\p{N}]/u.test(t.replace(/[\u{1F1E6}-\u{1F1FF}#*0-9️⃣]/gu, ''))) return null;
+  return t;
 }
 
 /** Lo puesto después de elegir (lo que se pinta mientras el server confirma). */

@@ -36,6 +36,12 @@
 // Etiqueta). Con todo puesto 13 / 0; el arnés L-roturas2:
 //  18. «Si responde» deja de ser hijo del CRON (`destinosDe` sin `resp`)          -> 12 / 1
 //  19. el menú del ＋ sin «🏷️ Etiqueta»                                           -> 12 / 1
+// Tercera tanda (09/10/2026, parte B: «Ir a» fuera del ＋, el CRON por pasos y el freno de «Probar»).
+// Con todo puesto 15 / 0; arnés b-arnes (en memoria):
+//  20. vuelve «↪ Ir a» al menú del ＋                                              -> 14 / 1
+//  21. vuelve la sección «Eventos» al desplegable del CRON (y al catálogo plano)   -> 13 / 2
+//  22. con UN producto, el paso del producto igual está                            -> 14 / 1
+//  23. `frenoDelFlujo` sin `validarGrafo` (sólo mira lo vacío)                     -> 14 / 1
 //
 // Correr: node --import tsx --test tests/flujo-conversacion.test.ts
 import { test } from 'node:test';
@@ -44,6 +50,7 @@ import { readFileSync } from 'node:fs';
 import {
   grafoDeSecuencia, detalleDisparador, insertarDesdeLienzo, nodoNuevo, opcionesDelMas,
   seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, faltaEscribir, crearRespuesta, agregarCaso, quitarRama,
+  rotuloDisparo, opcionesDeSecciones, frenoDelFlujo, pasosDisparo,
   CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, PUERTO_RESPUESTA,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
@@ -149,7 +156,7 @@ test('«Si responde» CUELGA DEL CRON: columna 1, debajo de la salida, con su fl
   sinPisarse(g);
   const resp = nodo(g, r.id);
   const e = nodo(g, ID_ENTRADA);
-  assert.equal(resp.titulo, 'Si responde');
+  assert.equal(resp.titulo, 'REPLY');
   assert.equal(resp.x, nodo(g, 'a').x, '«Si responde» va en la columna 1, la de la salida');
   assert.ok(resp.x > e.x + e.ancho, '«Si responde» va a la derecha del CRON');
   const salida = g.nodos.filter((n) => n.id === 'a' || n.id === 'b');
@@ -165,7 +172,8 @@ test('«Si responde» CUELGA DEL CRON: columna 1, debajo de la salida, con su fl
   const caso = nodoPorId(conCaso, r.id)!.casos![0];
   const contesta = nodoPorId(conCaso, caso.siguiente)!;
   assert.equal(contesta.tipo, 'ia');
-  assert.equal(nodo(g, contesta.id!).titulo, 'MaKo contesta');
+  // Tercera tanda (decisión 5): un WhatsApp escrito por MaKo también se titula WHATSAPP.
+  assert.equal(nodo(g, contesta.id!).titulo, 'WHATSAPP');
   // Y el motor lo lee como la guía del caso (`escenariosDeRespuesta`), con «Otra cosa» avisando.
   assert.equal(escenariosDeRespuesta(conCaso).length, 1);
   assert.equal((nodoPorId(conCaso, nodoPorId(conCaso, r.id)!.si_no)!.accion as { operacion: string }).operacion, 'avisar_al_equipo');
@@ -225,9 +233,12 @@ test('⚠️ el ＋ de un puerto inserta EN ese puerto, y lo que colgaba pasa a 
   const nueva = nodoPorId(ini.pasos, ini.id)!;
   assert.equal(claseDe(nueva), 'condicion');
   assert.equal(nueva.ramas![0].siguiente, 'a', 'la condición nueva se lleva lo que seguía en su primera rama');
-  // Un «Ir a» sólo en una salida VACÍA: en el medio, lo que seguía quedaría suelto.
-  assert.equal(insertarDesdeLienzo(pasos, 'c', 'r1', 'ir_a', rndDe(5)).id, null);
-  assert.ok(insertarDesdeLienzo(pasos, 'm1', 'sig', 'ir_a', rndDe(6)).id);
+  // La tarjeta MAKO (tercera tanda, decisión 11) entra en el medio como cualquiera: es el aviso al
+  // grupo sobre el lead del evento, y lo que seguía cuelga de ella.
+  const mk = insertarDesdeLienzo(pasos, 'c', 'r1', 'mako', rndDe(5));
+  assert.equal(nodoPorId(mk.pasos, 'c')!.ramas![0].siguiente, mk.id);
+  assert.equal(nodoPorId(mk.pasos, mk.id)!.siguiente, 'm1');
+  assert.deepEqual(nodoPorId(mk.pasos, mk.id)!.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: '' } });
   // El orden queda renumerado (lo lee `orden`, las métricas por paso).
   assert.deepEqual(r.pasos.map((p) => p.orden), r.pasos.map((_, i) => i + 1));
 });
@@ -248,17 +259,18 @@ test('⚠️ ningún mensaje nace con espera: la espera es su propia tarjeta (pu
   assert.doesNotMatch(sinComentarios(leer(PERFIL)), /delay_horas:\s*[1-9]/);
 });
 
-test('el menú del ＋: sin «Email» ni «Esperar» debajo de «Si responde», sin «Ir a» en el medio de una flecha', () => {
+test('el menú del ＋: sin «Email» ni «Esperar» debajo de «Si responde», sin «Ir a» en ningún lado, y con MaKo', () => {
   const r = crearRespuesta([msg('a')], rndDe());
   const valores = (o: Array<{ value: string }>) => o.map((x) => x.value);
-  // El orden del contrato (segunda tanda): WhatsApp · Email · Esperar · Condición · Etiqueta · Acción · Ir a.
-  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'email', 'esperar', 'condicion', 'etiqueta', 'accion', 'ir_a']);
+  // Tercera tanda: «Ir a» ya no se crea (decisión 3) y suma «MaKo» con su logo (decisión 11).
+  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'email', 'esperar', 'condicion', 'etiqueta', 'accion', 'mako']);
   assert.ok(!valores(opcionesDelMas(r.pasos, r.id, false)).includes('esperar'), 'se ofreció esperar en «Si responde»');
   const aviso = nodoPorId(r.pasos, r.id)!.si_no!;
   assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('esperar'), 'se ofreció esperar debajo de «Si responde»');
   assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('email'), 'se ofreció un email debajo de «Si responde»');
-  assert.ok(!valores(opcionesDelMas(r.pasos, 'a', true)).includes('ir_a'), 'se ofreció «Ir a» en el medio');
-  assert.deepEqual(opcionesDelMas(r.pasos, 'a', false).map((x) => x.label), ['💬 WhatsApp', '✉️ Email', '⏳ Esperar', '🔀 Condición', '🏷️ Etiqueta', '⚡ Acción', '↪ Ir a']);
+  for (const medio of [false, true]) assert.ok(!valores(opcionesDelMas(r.pasos, 'a', medio)).includes('ir_a' as never), 'volvió «Ir a» al ＋');
+  assert.deepEqual(opcionesDelMas(r.pasos, 'a', false).map((x) => x.label), ['💬 WhatsApp', '✉️ Email', '⏳ Esperar', '🔀 Condición', '🏷️ Etiqueta', '⚡ Acción', 'MaKo']);
+  assert.deepEqual(opcionesDelMas(r.pasos, 'a', false).at(-1), { value: 'mako', label: 'MaKo', avatar: '/mako.svg', avatarCuadrado: true });
 });
 
 test('quitar una rama se lleva lo que colgaba de ella (y el flujo sigue válido)', () => {
@@ -273,29 +285,39 @@ test('quitar una rama se lleva lo que colgaba de ella (y el flujo sigue válido)
 test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como se ve', () => {
   const perfil = sinComentarios(leer(PERFIL));
   const pub = bloque(perfil, 'const publicar = async () => {', '\n  };', 2_400);
-  const valida = pub.indexOf('validarGrafo(pasos)');
+  // Tercera tanda (decisión 13): la forma y lo que falta escribir los decide UNA función,
+  // `frenoDelFlujo`, que también frena «Probar». El error ABRE la tarjeta (`frenar`, con su id).
+  const valida = pub.indexOf('frenoDelFlujo(pasos)');
   assert.ok(valida >= 0 && valida < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda sin validar');
-  // Desde la revisión del 08/10 (lienzo-6) el error además ABRE la tarjeta (`frenar`, con su
-  // id): eso lo prueba tests/lienzo-revision.test.ts.
-  assert.match(pub, /if \(errores\.length\) \{ frenar\(errorLegible\(errores\[0\], pasos\), tarjetaDelError\(errores\[0\], pasos\)\); return; \}/);
+  assert.match(pub, /const freno = frenoDelFlujo\(pasos\);\s*if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
+  const freno = sinComentarios(leer('../lib/flujo-conversacion.ts'));
+  const fn = bloque(freno, 'export function frenoDelFlujo(', '\n}\n', 900);
+  assert.ok(fn.indexOf('validarGrafo(pasos)') >= 0 && fn.indexOf('validarGrafo(pasos)') < fn.indexOf('faltaEscribir(pasos)'), 'el freno no mira la forma antes que lo vacío');
+  assert.match(fn, /return \{ error: errorLegible\(errores\[0\], pasos\), tarjeta: tarjetaDelError\(errores\[0\], pasos\) \}/);
   // Convertida: los pasos Y la estrategia con la LIMPIEZA (el motor viejo no repite lo que hacen
   // las tarjetas). Sin estrategia no se manda nada (lienzo-8, en tests/lienzo-revision.test.ts).
   assert.match(pub, /if \(convertida\) \{\s*const limpia = estrategiaConLimpieza\(est\);\s*if \(limpia\) \{\s*const r = await api\(\{ action: 'guardar-estrategia', secuenciaId: secuencia\.id, estrategia: limpia \}\)/);
   assert.ok(pub.indexOf("fetch('/api/whatsapp/secuencias'") < pub.indexOf('guardar-estrategia'), 'primero los pasos, después la limpieza');
   // Una tarjeta VACÍA no se publica: `validarGrafo` mira la forma y no el contenido, y el
   // «MaKo contesta» con el que nace cada caso de «Si responde» nace sin guía.
-  assert.match(pub, /const vacia = faltaEscribir\(pasos\);\s*if \(vacia\) \{ frenar\(vacia\.error, vacia\.id\); return; \}/);
-  assert.ok(pub.indexOf('faltaEscribir(pasos)') < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda antes de mirar si hay tarjetas vacías');
   const r = crearRespuesta([msg('a')], rndDe());
   const conCaso = agregarCaso(r.pasos, r.id, rndDe(3));
-  assert.deepEqual(faltaEscribir(conCaso.pasos), { id: conCaso.mensaje, error: 'Falta completar «MaKo contesta»' });
+  assert.deepEqual(faltaEscribir(conCaso.pasos), { id: conCaso.mensaje, error: 'Falta completar «WHATSAPP»' });
+  // El freno mira primero la FORMA: un caso sin nombre lo frena `validarGrafo`; con nombre, lo vacío.
+  assert.equal(frenoDelFlujo(conCaso.pasos)?.error, 'Un caso de «Si responde» no tiene nombre o descripción');
+  const nombrado = conCaso.pasos.map((p) => (p.id === r.id ? { ...p, casos: p.casos!.map((c) => ({ ...c, titulo: 'Precio', cuando: 'Pregunta el precio' })) } : p));
+  assert.deepEqual(frenoDelFlujo(nombrado), { error: 'Falta completar «WHATSAPP»', tarjeta: conCaso.mensaje });
   assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', audio_id: 4, cuerpo: '' })]), null, 'una nota de voz sin pie no está vacía');
-  assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', cuerpo: '' })])?.error, 'Falta completar «Nota de voz»', 'una nota de voz sin audio sí');
-  // El error, sin ids crudos, y sin «la condición «Condición»».
+  assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', cuerpo: '' })])?.error, 'Falta completar «WHATSAPP»', 'una nota de voz sin audio sí');
+  // La tarjeta MAKO sin mensaje tampoco sale (`avisar_al_equipo` lo exige).
+  const conMako = insertarDesdeLienzo([msg('a')], 'a', 'sig', 'mako', rndDe(8));
+  assert.deepEqual(faltaEscribir(conMako.pasos), { id: conMako.id, error: 'Falta completar «MAKO»' });
+  // El error, sin ids crudos, y sin «la condición «CONDITION»».
   const malos: PasoParaGrafo[] = [{ id: 'n0abcde', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', ramas: [], si_no: null }];
   const legible = errorLegible(validarGrafo(malos)[0], malos);
   assert.doesNotMatch(legible, /n0abcde/);
-  assert.equal(legible, '«Condición» no tiene ninguna rama');
+  assert.equal(legible, '«CONDITION» no tiene ninguna rama');
+  assert.deepEqual(frenoDelFlujo(malos), { error: legible, tarjeta: 'n0abcde' });
 });
 
 test('⚠️ al abrir, lo de antes se ve CONVERTIDO; un flujo de tarjetas no se vuelve a convertir ni pierde lo de su estrategia', () => {
@@ -311,27 +333,45 @@ test('⚠️ al abrir, lo de antes se ve CONVERTIDO; un flujo de tarjetas no se 
 
 // ── 5: el desplegable del disparador ────────────────────────────────────────
 
-test('⚠️ el desplegable de disparadores reemplaza a «Cambiar a una etapa»', () => {
-  const secs = seccionesDisparo({
-    disparadores: [
-      { value: 'manual', label: 'Manual' }, { value: 'instant_form_sin_agenda', label: 'Dejó el formulario' },
-      { value: 'etapa_actual', label: 'Etapa' }, { value: 'entrega_actual', label: 'Entrega' },
-    ],
-    productos: [
-      { funnelId: 5, productoId: 9, nombre: 'Mentoría', etapas: [{ value: 'agendado', label: 'Agendado' }], etapasEntrega: [{ value: 'onb', label: 'Onboarding' }] },
-      { funnelId: null, productoId: 11, nombre: 'Servicio', etapas: [], etapasEntrega: [{ value: 'kick', label: 'Kickoff' }] },
-    ],
+test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / Entrega → etapa, sin «Eventos» (tercera tanda)', () => {
+  const PRODUCTOS = [
+    { funnelId: 5, productoId: 9, nombre: 'Mentoría', etapas: [{ value: 'agendado', label: 'Agendado' }], etapasEntrega: [{ value: 'onb', label: 'Onboarding' }] },
+    { funnelId: null, productoId: 11, nombre: 'Servicio', etapas: [], etapasEntrega: [{ value: 'kick', label: 'Kickoff' }] },
+  ];
+  const DISPARADORES = [
+    { value: 'manual', label: 'Manual' }, { value: 'instant_form_sin_agenda', label: 'Dejó el formulario' },
+    { value: 'etapa_actual', label: 'Etapa' }, { value: 'entrega_actual', label: 'Entrega' },
+  ];
+  const secs = pasosDisparo({
+    disparadores: DISPARADORES, productos: PRODUCTOS,
     etiquetas: [{ id: 3, nombre: 'Cualificado' }, { id: 4, nombre: 'Vieja', archivada_at: '2026-01-01' }],
-    actual: { trigger_tipo: 'instant_form_sin_agenda' }, textoActual: 'x',
+    actual: { trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 }, textoActual: 'x',
   });
-  const por = (t: string) => secs.find((s) => s.title === t)?.options.map((o) => o.value);
-  assert.deepEqual(por('Eventos'), ['trigger:instant_form_sin_agenda'], '`manual` no inscribe a nadie, y etapa/entrega tienen su sección');
-  assert.deepEqual(por('Etapa · Mentoría'), ['venta:5:agendado']);
-  assert.equal(por('Etapa · Servicio'), undefined, 'un servicio sin embudo no tiene etapas de venta');
-  assert.deepEqual(por('Entrega · Servicio'), ['entrega:11:kick']);
-  assert.deepEqual(por('Etiquetas'), ['etiqueta:3'], 'una etiqueta archivada no se ofrece');
+  // La raíz: los PRODUCTOS (sólo el nombre) y las etiquetas. Ni «Eventos» ni «Etapa · …».
+  assert.deepEqual(secs.map((s) => s.title), ['Mentoría', 'Servicio', 'Etiquetas']);
+  const prod = (t: string) => secs.find((s) => s.title === t)!;
+  assert.deepEqual(prod('Mentoría').options, [], 'un producto no tiene opciones: tiene pasos');
+  assert.deepEqual(prod('Mentoría').grupos!.map((g) => [g.title, g.options.map((o) => o.value)]), [
+    ['Adquisición de clientes', ['venta:5:agendado']], ['Entrega del servicio', ['entrega:9:onb']],
+  ]);
+  assert.deepEqual(prod('Servicio').grupos!.map((g) => g.title), ['Entrega del servicio'], 'un servicio sin embudo no tiene «Adquisición»');
+  // El último paso dice la etapa; el botón cerrado lo dice entero.
+  assert.equal(prod('Mentoría').grupos![0].options[0].label, 'Agendado');
+  assert.equal(rotuloDisparo(secs, 'venta:5:agendado', 'x'), 'Mentoría · Llega a «Agendado»');
+  assert.deepEqual(prod('Etiquetas').options.map((o) => o.value), ['etiqueta:3'], 'una etiqueta archivada no se ofrece');
+  assert.equal(rotuloDisparo(secs, 'etiqueta:3', 'x'), 'Se le puso «Cualificado»');
+  // Con UN producto, el primer paso no está: arranca en Adquisición / Entrega.
+  const uno = pasosDisparo({ disparadores: DISPARADORES, productos: [PRODUCTOS[0]], etiquetas: [], actual: { trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 }, textoActual: 'x' });
+  assert.deepEqual(uno.map((s) => s.title), ['Adquisición de clientes', 'Entrega del servicio']);
+  assert.equal(rotuloDisparo(uno, 'venta:5:agendado', 'x'), 'Llega a «Agendado»');
+  // Un disparador por EVENTO de antes se muestra como lo que es («La que tiene puesta»), sin ofrecer
+  // los demás eventos: pasaron a las condiciones.
+  const evento = pasosDisparo({ disparadores: DISPARADORES, productos: PRODUCTOS, etiquetas: [], actual: { trigger_tipo: 'instant_form_sin_agenda' }, textoActual: 'Dejó el formulario' });
+  assert.deepEqual(evento[0], { title: 'La que tiene puesta', options: [{ value: 'trigger:instant_form_sin_agenda', label: 'Dejó el formulario' }] });
+  assert.ok(!opcionesDeSecciones(evento).some((o) => o.value.startsWith('trigger:') && o.value !== 'trigger:instant_form_sin_agenda'), 'volvieron los eventos');
+  assert.equal(rotuloDisparo(evento, 'trigger:instant_form_sin_agenda', 'Dejó el formulario'), 'Dejó el formulario');
   // Lo que está puesto y no está en la lista entra igual (el `<select>` que borra datos).
-  const conViejo = seccionesDisparo({ disparadores: [], productos: [], etiquetas: [], actual: { trigger_tipo: 'etapa_actual', etapa: 'nutri' }, textoActual: 'Llega a «No Agenda»' });
+  const conViejo = pasosDisparo({ disparadores: [], productos: [], etiquetas: [], actual: { trigger_tipo: 'etapa_actual', etapa: 'nutri' }, textoActual: 'Llega a «No Agenda»' });
   assert.deepEqual(conViejo[0], { title: 'La que tiene puesta', options: [{ value: 'venta::nutri', label: 'Llega a «No Agenda»' }] });
   assert.equal(valorDisparo({ trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 }), 'etiqueta:3');
   // Lo que se le manda al server (lo implementa la parte del motor).
@@ -344,7 +384,38 @@ test('⚠️ el desplegable de disparadores reemplaza a «Cambiar a una etapa»'
   const perfil = sinComentarios(leer(PERFIL));
   assert.doesNotMatch(perfil, /Cambiar a una etapa|setCambiandoAEtapa|Cuándo se dispara|Qué lo dispara|Solo a leads recientes|Sale sola/);
   assert.match(perfil, /const body = pedidoDisparo\(valor, secuencia\.id\);/);
-  assert.match(perfil, /<Dropdown\s+value=\{valorDisparo\(disparo\)\} secciones=\{secciones\}/);
+  assert.match(perfil, /<Dropdown\s+value=\{valorDisparo\(disparo\)\} secciones=\{secciones\} search width="100%"\s+botonLabel=\{rotuloDisparo\(secciones, valorDisparo\(disparo\), textoActualDisparo\)\}/);
+});
+
+test('`seccionesDisparo` (el catálogo PLANO que lee «Crear con IA»): el de antes, sin «Eventos», y con los valores de los pasos', () => {
+  const op = {
+    disparadores: [{ value: 'instant_form_sin_agenda', label: 'Dejó el formulario' }],
+    productos: [
+      { funnelId: 5, productoId: 9, nombre: 'Mentoría', etapas: [{ value: 'agendado', label: 'Agendado' }], etapasEntrega: [{ value: 'onb', label: 'Onboarding' }] },
+      { funnelId: null, productoId: 11, nombre: 'Servicio', etapas: [], etapasEntrega: [{ value: 'kick', label: 'Kickoff' }] },
+    ],
+    etiquetas: [{ id: 3, nombre: 'Cualificado' }],
+    actual: { trigger_tipo: 'manual' }, textoActual: 'A mano',
+  };
+  const plano = seccionesDisparo(op);
+  assert.deepEqual(plano.map((s) => s.title), ['La que tiene puesta', 'Etapa · Mentoría', 'Entrega · Mentoría', 'Entrega · Servicio', 'Etiquetas']);
+  assert.deepEqual(plano[1].options, [{ value: 'venta:5:agendado', label: 'Llega a «Agendado»' }]);
+  // Los mismos valores que los pasos del desplegable: los dos salen de `kanbansDe`.
+  assert.deepEqual(plano.flatMap((s) => s.options.map((o) => o.value)).sort(), opcionesDeSecciones(pasosDisparo(op)).map((o) => o.value).sort());
+  // Con un solo producto, «Etapa» y «Entrega» a secas (como antes).
+  assert.deepEqual(seccionesDisparo({ ...op, productos: [op.productos[0]], etiquetas: [] }).map((s) => s.title), ['La que tiene puesta', 'Etapa', 'Entrega']);
+});
+
+test('el Dropdown abre un paso MÁS (`grupos`) y buscando aplana con el camino', () => {
+  const dd = sinComentarios(leer('../app/components/Dropdown.tsx'));
+  // Abrir una sección suma su título al CAMINO; la ‹ lo saca. Un camino y no un título suelto.
+  assert.match(dd, /onClick=\{\(\) => setRuta\(\(r\) => \[\.\.\.r, g\.title\]\)\}/);
+  assert.match(dd, /onClick=\{\(\) => setRuta\(\(r\) => r\.slice\(0, -1\)\)\}/);
+  // Adentro de una sección: primero sus pasos, después sus opciones.
+  assert.match(dd, /\{\(abierta\.grupos \?\? \[\]\)\.map\(\(g\) => botonSeccion\(g\)\)\}\s*\{abierta\.options\.map\(/);
+  // Lo elegido se encuentra aunque viva dos pasos adentro (el botón dice qué está puesto).
+  assert.match(dd, /const flat = secciones \? secciones\.flatMap\(opcionesDe\)/);
+  assert.match(dd, /tramosPlanos\(seccVisibles \?\? \[\]\)\.map\(/);
 });
 
 // ── La honestidad del dibujo ────────────────────────────────────────────────

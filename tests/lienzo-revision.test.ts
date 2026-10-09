@@ -231,19 +231,21 @@ test('lienzo-6: una tarjeta se nombra por lo que DIBUJA (su título y lo que dic
     assert.ok(nombre === n.titulo || nombre.startsWith(`${n.titulo}: `), `«${nombre}» no empieza por lo que dice la tarjeta («${n.titulo}»)`);
     assert.doesNotMatch(nombre, new RegExp(`^${n.titulo} \\d+$`), 'volvió el número que no se dibuja');
   }
-  assert.equal(nombreDeTarjeta(pasos, contesta), 'MaKo contesta');
-  assert.equal(nombreDeTarjeta(pasos, 'a'), 'Mensaje: hola');
-  assert.equal(tituloDeTarjeta(nodoPorId(pasos, 'b')!, false), 'Mensaje', 'un «IA» de la salida no es «MaKo contesta»');
+  // Tercera tanda (decisión 5): los títulos en inglés, y todo lo que sale por WhatsApp es WHATSAPP
+  // (también el «MaKo contesta» de un caso: lo que lo distingue es el ✦ de la burbuja, no el título).
+  assert.equal(nombreDeTarjeta(pasos, contesta), 'WHATSAPP');
+  assert.equal(nombreDeTarjeta(pasos, 'a'), 'WHATSAPP: hola');
+  assert.equal(tituloDeTarjeta(nodoPorId(pasos, 'b')!, false), 'WHATSAPP');
   // El error nombra la tarjeta como se ve, sin «la condición «Condición»», y dice CUÁL es.
   const irA: PasoParaGrafo = { id: 'n0irax', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'ir_a', destino: null };
   const malos = [msg('m', { siguiente: 'n0irax' }), irA];
   const err = validarGrafo(malos)[0];
   assert.match(err, /n0irax/);
-  assert.equal(errorLegible(err, malos), '«Ir a» no dice a dónde');
+  assert.equal(errorLegible(err, malos), '«GO TO» no dice a dónde');
   assert.equal(tarjetaDelError(err, malos), 'n0irax');
   assert.equal(tarjetaDelError('tarjetas sueltas: m, n0irax', malos), 'm', 'la primera que nombra');
   assert.equal(tarjetaDelError('ids repetidos', malos), null);
-  assert.deepEqual(faltaEscribir([msg('x', { cuerpo: '' })]), { id: 'x', error: 'Falta completar «Mensaje»' });
+  assert.deepEqual(faltaEscribir([msg('x', { cuerpo: '' })]), { id: 'x', error: 'Falta completar «WHATSAPP»' });
 });
 
 test('lienzo-6: Publicar ABRE la tarjeta culpable, y el lienzo la abre una vez por pedido', () => {
@@ -251,8 +253,9 @@ test('lienzo-6: Publicar ABRE la tarjeta culpable, y el lienzo la abre una vez p
   assert.match(frenar, /setErr\(mensaje\);/);
   assert.match(frenar, /if \(tarjeta\) setFoco\(\(f\) => \(\{ id: tarjeta, vez: \(f\?\.vez \?\? 0\) \+ 1 \}\)\);/);
   const pub = bloque(PERFIL, 'const publicar = async () => {', '\n  };', 2_600);
-  assert.match(pub, /frenar\(errorLegible\(errores\[0\], pasos\), tarjetaDelError\(errores\[0\], pasos\)\)/);
-  assert.match(pub, /frenar\(vacia\.error, vacia\.id\)/);
+  // Tercera tanda: la forma y lo vacío los arma `frenoDelFlujo` (el mismo que frena «Probar»), con
+  // el error legible y la tarjeta a abrir (lo fija tests/flujo-conversacion.test.ts).
+  assert.match(pub, /if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
   assert.match(pub, /frenar\(e \? errorLegible\(e, pasos\) : 'No se pudo publicar\.', e \? tarjetaDelError\(e, pasos\) : null\)/, 'el error del server tampoco abre nada');
   assert.match(PERFIL, /<FlujoLienzo[\s\S]*?foco=\{foco\}/);
   assert.match(LIENZO_FLUJO, /if \(foco && foco\.vez !== focoVisto\) \{ setFocoVisto\(foco\.vez\); setSel\(foco\.id\); \}/);

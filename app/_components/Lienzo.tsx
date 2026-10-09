@@ -40,12 +40,13 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
+import { MakoLogo } from './MakoBrand';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
   curvaEntre, medioDeCurva, vistaConPanel, vistaConPanelAbajo, vistaAlCerrarPanel, yDePuerto, tieneFilas, encuadreInicial,
   nodoRevelado, aristaRevelada,
   ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO, Z_EDITOR_APAISADO, Z_ACCION_LIENZO,
-  REVELAR_DURACION_MS, REVELAR_SUBE_PX, REVELAR_PASO_MS, type VistaLienzo,
+  REVELAR_DURACION_MS, REVELAR_SUBE_PX, REVELAR_PASO_MS, ICONO_MAKO, ICONO_GMAIL, type VistaLienzo,
   type GrafoFlujo, type NodoFlujo, type TonoArista,
 } from '@/lib/lienzo-grafo';
 
@@ -523,6 +524,9 @@ export function Lienzo({
         izq: insetIzq + PANEL_MARGEN, der: caja.current.clientWidth - insetDer - PANEL_MARGEN,
         arriba: chrome ? CHROME_ALTO : PANEL_MARGEN,
         abajo: caja.current.clientHeight - (PANEL_MARGEN + ZOOM_ALTO) - Number(panelAlto) - PANEL_MARGEN,
+        // El panel es mediano: lo que arranca a su derecha no está tapado y no se corre.
+        panelDer: insetIzq + PANEL_MARGEN + panelAncho + PANEL_MARGEN,
+        abajoSinPanel: caja.current.clientHeight - (PANEL_MARGEN + ZOOM_ALTO) - PANEL_MARGEN,
       })
       : vistaConPanel(vista.current, n.x, panelAncho, PANEL_MARGEN + insetIzq, {
         separacion: PANEL_MARGEN, nodoAncho: n.ancho, tope: caja.current.clientWidth - insetDer,
@@ -885,7 +889,14 @@ export function Lienzo({
                 // llena el alto, así un editor de dos columnas puede usar el 100 %.
                 // `Z_EDITOR_APAISADO`: llega al rincón de abajo a la derecha, encima de la esquina
                 // de avisos (z 55) y de las cajas de «Crear con IA» (z 4). lib/lienzo-grafo.ts.
-                ? { right: PANEL_MARGEN + derAbajo, height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden', zIndex: Z_EDITOR_APAISADO }
+                //
+                // ⚠️ MEDIANO DESDE LA TERCERA TANDA (decisión 1): `panelAncho` (el `editorAncho` de
+                // `muelles`, hasta 720) pegado a la lista, y no de la lista al borde derecho — «ya te
+                // fuiste al otro extremo». El tope por si la caja se achica entre dos cálculos.
+                ? {
+                  width: panelAncho, maxWidth: `calc(100% - ${PANEL_MARGEN * 2 + insetIzq + derAbajo}px)`,
+                  height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden', zIndex: Z_EDITOR_APAISADO,
+                }
                 : {
                   width: panelAncho,
                   // Y con algo apoyado a la DERECHA (el panel de «Probar»), el ancho se topa ahí:
@@ -946,7 +957,7 @@ export function Lienzo({
 export function TarjetaNodo({ nodo, activo, roto, children }: {
   nodo: NodoFlujo; activo: boolean; roto?: boolean; children: ReactNode;
 }) {
-  const tinte = tinteDeControl(nodo);
+  const tinte = tinteDeControl(nodo) ?? identidadDeTarjeta(nodo);
   const borde = activo ? 'var(--primary)' : roto ? 'var(--bad)' : (tinte?.borde ?? 'var(--border)');
   const fijo = nodo.puertos !== undefined;
   const filas = tieneFilas(nodo) ? (nodo.puertos ?? []) : [];
@@ -979,14 +990,17 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
       style={{
         position: 'absolute', left: nodo.x, top: nodo.y, width: nodo.ancho,
         ...(fijo ? { height: nodo.alto, display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { minHeight: nodo.alto }),
-        borderRadius: 13, background: tinte?.fondo ?? 'var(--surface)', border: `${BORDE_NODO}px solid ${borde}`,
+        // El patrón (el papel de chat de WhatsApp) va en el MISMO `background`, como capa encima del
+        // color: `background` + `backgroundImage` sueltos son shorthand y longhand peleando en React.
+        borderRadius: 13, border: `${BORDE_NODO}px solid ${borde}`,
+        background: tinte && 'patron' in tinte && tinte.patron ? `${tinte.patron} 0 0 / 14px 14px, ${tinte.fondo}` : (tinte?.fondo ?? 'var(--surface)'),
         boxShadow: activo ? '0 0 0 3px var(--primary-bg)' : '0 1px 2px rgba(0,0,0,.05)',
         padding: fijo ? `11px 11px ${PIE_PUERTOS}px` : 11, boxSizing: 'border-box', cursor: 'pointer', fontFamily: SANS,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, flex: 'none' }}>
         <IconoNodo icono={nodo.icono} tam={15} />
-        <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: tinte?.titulo ?? 'var(--dim)' }}>
+        <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: tinte?.titulo ?? 'var(--dim)', fontWeight: nodo.canal || nodo.tipo === 'mako' ? 700 : undefined }}>
           {nodo.titulo}
         </span>
         {nodo.advertencia && (
@@ -1029,6 +1043,40 @@ export function tinteDeControl(n: Pick<NodoFlujo, 'familia' | 'tipo' | 'color'>)
     return { fondo: `${n.color}24`, borde: `${n.color}66`, titulo: 'var(--ink)' };
   }
   return { fondo: 'var(--surface-2)', borde: 'var(--border)', titulo: 'var(--dim)' };
+}
+
+/**
+ * LA IDENTIDAD DE UNA TARJETA QUE MANDA ALGO (tercera tanda, decisión 5; pedido literal: «pon un
+ * diseño característico a las tarjetas de WhatsApp e Email, que hagan recordar a esas Apps,
+ * colores, etc...»), o null para la blanca de siempre.
+ *
+ *   · WHATSAPP: el verde de la marca en el borde y el título, y el fondo de chat (un punteado
+ *     verde muy suave, como el papel tapiz de WhatsApp);
+ *   · EMAIL: el blanco de Gmail (la superficie) y el rojo del sobre en el título;
+ *   · MAKO: el dorado de MaKo, que le escribe al grupo del negocio.
+ *
+ * ⚠️ LOS VERDES, ROJOS Y DORADOS SE MEZCLAN CON TOKENS QUE SE REDEFINEN EN OSCURO (`color-mix` con
+ * `--surface`, `--surface-2`, `--border` y `--ink`), nunca solos: `--wa*` y `--mako` no se redefinen
+ * (R3), y un `#25D366` puro de fondo en oscuro es un rectángulo fosforescente. Mezclado con la
+ * superficie, en claro es un verde agua y en oscuro un verde noche; mezclado con la tinta, el título
+ * se oscurece en claro y se aclara en oscuro, así se lee en los dos.
+ */
+export function identidadDeTarjeta(n: Pick<NodoFlujo, 'canal' | 'tipo'>): { fondo: string; borde: string; titulo: string; patron?: string } | null {
+  if (n.canal === 'whatsapp') {
+    return {
+      fondo: 'color-mix(in srgb, #25D366 7%, var(--surface))',
+      borde: 'color-mix(in srgb, #25D366 50%, var(--border))',
+      titulo: 'color-mix(in srgb, #128C7E 70%, var(--ink))',
+      patron: 'radial-gradient(color-mix(in srgb, #25D366 22%, transparent) 1px, transparent 1.2px)',
+    };
+  }
+  if (n.canal === 'email') {
+    return { fondo: 'var(--surface)', borde: 'color-mix(in srgb, #EA4335 35%, var(--border))', titulo: 'color-mix(in srgb, #EA4335 80%, var(--ink))' };
+  }
+  if (n.tipo === 'mako') {
+    return { fondo: 'color-mix(in srgb, #C9A227 8%, var(--surface))', borde: 'color-mix(in srgb, #C9A227 45%, var(--border))', titulo: 'color-mix(in srgb, #A07E14 70%, var(--ink))' };
+  }
+  return null;
 }
 
 export function BotonChico({ children, onClick, rotulo }: { children: ReactNode; onClick: () => void; rotulo: string }) {
@@ -1112,5 +1160,19 @@ export const rotuloLienzo: CSSProperties = {
  */
 function IconoNodo({ icono, tam }: { icono: string; tam: number }) {
   if (ICON[icono]) return <SvcIcon k={icono} size={Math.round(tam * 0.74)} box={tam + 7} radius={6} />;
+  // MaKo: su logo (la tarjeta que le escribe al grupo del negocio). Sin animación: en un lienzo con
+  // N tarjetas, N logos rebotando al abrir es ruido.
+  if (icono === ICONO_MAKO) return <MakoLogo size={tam + 7} animate={false} />;
+  // El sobre de Gmail (decisión 5: «el sobre rojo»). Dibujado acá y no del catálogo de marcas:
+  // `email` ahí es el logo de Resend, que es por dónde sale, no lo que la persona reconoce.
+  if (icono === ICONO_GMAIL) {
+    const s = tam + 5;
+    return (
+      <svg width={s} height={s} viewBox="0 0 24 24" aria-hidden style={{ display: 'block', flex: 'none' }}>
+        <rect x="2" y="5" width="20" height="14" rx="2.5" fill="#fff" stroke="#EA4335" strokeWidth="1.6" />
+        <path d="M3.2 6.4 12 13l8.8-6.6" fill="none" stroke="#EA4335" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+    );
+  }
   return <span style={{ fontSize: tam - 2 }}>{icono}</span>;
 }
