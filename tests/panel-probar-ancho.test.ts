@@ -392,7 +392,8 @@ test('el simulador de cada canal se elige en UN lugar (la parte «canales» ench
   const src = PANEL();
   assert.match(src, /let simulador: ReactNode;\n\s+switch \(canal\) \{\n\s+case 'email':/);
   assert.match(src, /<div style=\{\{ flex: 1, minHeight: 0, position: 'relative' \}\}>\n\s+\{simulador\}\n\s+<\/div>/);
-  assert.deepEqual(Object.keys(CANALES_PROBAR).sort(), ['email', 'whatsapp']);
+  // La parte «canales» enchufó Instagram y Messenger acá (sexta tanda, al integrar): una fila y un `case`.
+  assert.deepEqual(Object.keys(CANALES_PROBAR).sort(), ['email', 'instagram', 'messenger', 'whatsapp']);
   // La cabecera lee el canal de `CANALES_PROBAR`, no de un `esEmail ?`.
   assert.match(src, /<img src=\{def\.logo\} alt=\{def\.nombre\}/);
   assert.match(src, /\{def\.probarEn\}<\/Button>/);
