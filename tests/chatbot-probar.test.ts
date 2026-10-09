@@ -100,7 +100,7 @@ test('el recordatorio ofrece sólo lo que el emisor permite: textos, sin quitar 
   // Las esperas no se abren: sus minutos son fijos en el emisor.
   assert.match(r, /onSeleccion=\{\(id\) => setSel\(id && \/\^toque-\\d\+\$\/\.test\(id\) \? id : null\)\}/);
   // El disparador se llama CRON (punto 4) y la cadena es la del emisor: 24 h, 1 h, 15 min.
-  assert.match(r, /titulo: 'CRON', icono: '⚡', detalle: 'Agendó una reunión'/);
+  assert.match(r, /titulo: 'CRON', icono: ICONO_CRON, detalle: 'Agendó una reunión'/);
   assert.match(r, /const ANTES: Record<Toque, string> = \{ 1440: '24 h antes de la reunión', 60: '1 h antes', 15: '15 min antes' \};/);
 });
 

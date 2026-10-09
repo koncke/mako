@@ -111,11 +111,6 @@ export type MsgProbar = HiloMsg & { correo?: CorreoVisto };
 /**
  * Cómo se dibuja a mano un mensaje del hilo de «Probar»: un email, como un MAIL; todo lo demás,
  * `null` (la burbuja de siempre). Es lo que `ChatHilo` recibe por `renderMensaje`.
- *
- * ⚠️ `ChatHilo` (app/whatsapp/_shared/ChatHilo.tsx) todavía NO tiene esa prop y no es de esta parte:
- * hasta que se le agregue, un `tipo` desconocido cae a la burbuja de WhatsApp con «✉️ asunto» como
- * firma y el cuerpo adentro (se ve, pero no como un mail). El pedido exacto (la prop en ChatHilo y
- * `renderMensaje={dibujarMensajeProbar}` acá) lo lleva el reporte de la parte P de la segunda tanda.
  */
 export function dibujarMensajeProbar(m: HiloMsg): ReactNode | null {
   const c = m.tipo === 'email' ? (m as MsgProbar).correo : undefined;
@@ -546,6 +541,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           <ChatHilo
             accent="var(--wa)" accentBubble="var(--wa-bubble)"
             mensajes={mensajes} typing={typing} animarNuevos
+            renderMensaje={dibujarMensajeProbar}
             draftKey={`probar-${secuencia.id}`}
             placeholder="Responde como el lead…"
             onEnviarTexto={enviarTexto} onEnviarArchivo={enviarArchivo}

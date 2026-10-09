@@ -37,6 +37,10 @@ import { Lienzo, TarjetaNodo, inpLienzo } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import { EditorMensajeWhatsApp, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
+import { EditorEmailGmail } from './EditorEmailGmail';
+import { EditorEtiqueta } from './EditorEtiqueta';
+import { SelectorEtiqueta } from '@/app/_components/etiquetas-cliente';
+import { LEAD_DEL_EVENTO } from '@/lib/api-mako/flujo-params';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
@@ -80,7 +84,7 @@ type Biblioteca = { estado: 'ok'; lista: AdjuntoDto[] } | { estado: 'error' } | 
 
 export function FlujoLienzo({
   pasos, disparador, secuencias, audios, negocio, rolAdmin, busy, envioAutoSecuencia,
-  etiquetas, onCrearEtiqueta, etapas, paraGuion, foco, pendientesOtraCosa,
+  etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
 }: {
@@ -99,7 +103,6 @@ export function FlujoLienzo({
   envioAutoSecuencia: boolean;
   etiquetas: EtiquetaLienzo[];
   /** «+ Nueva» en el selector de etiqueta. Devuelve la creada, o null si no se pudo. */
-  onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>;
   etapas: SeccionEtapas[];
   /**
    * El objetivo, el gancho y las preguntas de la estrategia, para «✦ guion» de una nota de voz
@@ -243,7 +246,7 @@ export function FlujoLienzo({
         <EditorDeNodo
           nodo={n} paso={pasoDe(n.id)} pasos={pasos} secuencias={secuencias}
           audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy} envioAutoSecuencia={envioAutoSecuencia}
-          etiquetas={etiquetas} onCrearEtiqueta={onCrearEtiqueta} etapas={etapas}
+          etiquetas={etiquetas} etapas={etapas}
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada} formaPanel={formaPanel}
@@ -340,7 +343,7 @@ type PropsEditor = {
   nodo: NodoFlujo; paso: PasoSecuenciaDto | null; pasos: PasoSecuenciaDto[];
   secuencias: ReadonlyArray<{ id: number; nombre: string }>;
   audios: AudioSetting[]; negocio: string; rolAdmin: boolean; busy: boolean; envioAutoSecuencia: boolean;
-  etiquetas: EtiquetaLienzo[]; onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>; etapas: SeccionEtapas[];
+  etiquetas: EtiquetaLienzo[]; etapas: SeccionEtapas[];
   nombres: NombresParaTexto;
   paraGuion?: ParaGuion;
   /** La biblioteca de archivos ya leída (undefined = el editor la pide solo). */
@@ -357,14 +360,10 @@ type PropsEditor = {
 /**
  * EL EDITOR DE LA TARJETA TOCADA: una rama por CLASE de tarjeta, y cada rama en su función.
  *
- * ⚠️ LAS RAMAS DE LA SEGUNDA TANDA ESTÁN SEPARADAS A PROPÓSITO, listas para que la integración
- * enchufe los editores de la parte E sin tocar nada más (docs/chatbot-flujo-ramas-diseno.md,
- * «Los editores (parte E)»):
+ * Los de la segunda tanda (docs/chatbot-flujo-ramas-diseno.md, «Los editores (parte E)»):
  *   · `EditorEmail`          → `EditorEmailGmail` (asunto, vista previa y cuerpo, tipo Gmail);
  *   · `EditorEtiquetaLienzo` → `EditorEtiqueta` (una frase: «[Poner ▾] [etiqueta ▾]»);
- *   · `EditorMensaje`        → `EditorMensajeWhatsApp` con `disposicion` según `formaPanel`.
- * Hasta que se enchufen, el email se edita con sus tres campos y la etiqueta con el editor de la
- * ⚡ Acción (que ya elige la etiqueta con su selector): las dos funcionan, sólo que no son anchas.
+ *   · `EditorMensaje`        → `EditorMensajeWhatsApp` en dos columnas con el panel apaisado.
  */
 function EditorDeNodo(pr: PropsEditor) {
   const { nodo, paso, rolAdmin } = pr;
@@ -386,37 +385,39 @@ function EditorDeNodo(pr: PropsEditor) {
     case 'respuesta': return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
     case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
     default:
-      if (paso.canal === 'email') return <EditorEmail paso={paso} busy={pr.busy} cambiar={cambiar} />;
+      if (paso.canal === 'email') return <EditorEmail paso={paso} id={id} negocio={pr.negocio} busy={pr.busy} cambiar={cambiar} />;
       return <EditorMensaje {...pr} paso={paso} id={id} cambiar={cambiar} />;
   }
 }
 
 /**
- * EL EMAIL. Hasta que la integración monte `EditorEmailGmail` (parte E), sus tres campos: el
- * asunto, la VISTA PREVIA (el preheader, que el motor ya manda y el lienzo no dejaba escribir: R3)
- * y el cuerpo. Tipear no apila: el Ctrl+Z del texto es del navegador.
+ * EL EMAIL, con la cara de redactar en Gmail (punto 4 del pedido): asunto, la VISTA PREVIA (el
+ * preheader, que el motor ya manda) y el cuerpo con negrita, itálica y tachado; a la derecha, el
+ * mail abierto con el MISMO render que sale. Tipear no apila: el Ctrl+Z del texto es del navegador.
+ * La `key` va por tarjeta: el editor siembra estado de sus props (AGENTS.md).
  */
-function EditorEmail({ paso, busy, cambiar }: { paso: PasoSecuenciaDto; busy: boolean; cambiar: Cambiar }) {
+function EditorEmail({ paso, id, negocio, busy, cambiar }: { paso: PasoSecuenciaDto; id: string; negocio: string; busy: boolean; cambiar: Cambiar }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <input value={paso.asunto ?? ''} disabled={busy} placeholder="Asunto" aria-label="Asunto"
-        onChange={(e) => cambiar({ asunto: e.target.value }, false)} style={{ ...inpLienzo, fontWeight: 600 }} />
-      <input value={paso.preheader ?? ''} disabled={busy} placeholder="Vista previa" aria-label="Vista previa"
-        onChange={(e) => cambiar({ preheader: e.target.value }, false)} style={inpLienzo} />
-      <textarea value={paso.cuerpo} disabled={busy} rows={6} placeholder="Escribe el mensaje" aria-label="Cuerpo"
-        onChange={(e) => cambiar({ cuerpo: e.target.value }, false)}
-        style={{ ...inpLienzo, minHeight: 110, lineHeight: 1.5, resize: 'vertical' }} />
-    </div>
+    <EditorEmailGmail key={`email-${id}`}
+      asunto={paso.asunto ?? ''} preheader={paso.preheader ?? ''} cuerpo={paso.cuerpo ?? ''}
+      onChange={(patch) => cambiar(patch, false)} negocio={negocio} deshabilitado={busy} />
   );
 }
 
 /**
- * LA ETIQUETA. Hasta que la integración monte `EditorEtiqueta` (parte E: «[Poner ▾] [etiqueta ▾]»),
- * el editor de la ⚡ Acción, que ya trae el selector de etiqueta y el de la operación. Funciona igual:
- * la tarjeta es una acción.
+ * LA ETIQUETA, como una frase: «[Poner ▾] [etiqueta ▾]» (decisión 8). Sigue siendo una ⚡ Acción
+ * (poner_etiqueta_lead / sacar_etiqueta_lead) sobre el lead del flujo: el motor no cambia. Cambiar
+ * la operación o la etiqueta apila (es una decisión, no tipear).
  */
 function EditorEtiquetaLienzo(p: { paso: PasoSecuenciaDto; id: string; busy: boolean; cambiar: Cambiar }) {
-  return <EditorAccion {...p} />;
+  const e = etiquetaDeAccion(p.paso);
+  if (!e) return null;
+  return (
+    <EditorEtiqueta key={`etq-${p.id}`} operacion={e.operacion} etiquetaId={e.etiquetaId} deshabilitado={p.busy}
+      onChange={(operacion, etiquetaId) => p.cambiar({
+        accion: { operacion, params: { leadId: LEAD_DEL_EVENTO, ...(etiquetaId != null ? { etiquetaId } : {}) } },
+      }, true)} />
+  );
 }
 
 type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
@@ -442,7 +443,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, formaPanel }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   const modoIA = (on: boolean) => {
     // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
@@ -454,6 +455,9 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
     <EditorMensajeWhatsApp
       key={`msg-${id}`}
       paso={paso}
+      // Punto 3 del pedido: «más ancho que largo, si no se amontona todo». Con el panel apaisado
+      // el chat va a la izquierda y el composer a la derecha; angosto, vuelve a la columna.
+      disposicion={formaPanel === 'apaisado' ? 'fila' : 'columna'}
       onChange={(patch) => {
         // Tipear no entra a la pila (el Ctrl+Z del texto es del navegador); cambiar de
         // audio, de archivo, de tipo o de «Revisar», sí. Escribir en una variante también es
@@ -554,7 +558,7 @@ const OPCIONES_CAMPO: DropdownOption[] = [...CONDICIONES_VIVAS].flatMap((c) => [
  * todas con «y» o todas con «o» (el modo de la rama). Sólo se ofrecen las condiciones que
  * el motor evalúa (`CONDICIONES_VIVAS`).
  */
-function EditorCondicion({ paso, id, cambiar, onPasos, etiquetas, onCrearEtiqueta, etapas, busy, onError }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorCondicion({ paso, id, cambiar, onPasos, etapas, busy }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const ramas = paso.ramas ?? [];
   const setRama = (ri: number, r: RamaCondicion, apilar: boolean) => cambiar({ ramas: ramas.map((x, k) => (k === ri ? r : x)) }, apilar);
   return (
@@ -565,7 +569,7 @@ function EditorCondicion({ paso, id, cambiar, onPasos, etiquetas, onCrearEtiquet
             <Fragment key={fi}>
               {fi > 0 && <div style={{ fontSize: 11, color: 'var(--faint)', margin: '5px 0 5px 2px' }}>{r.modo === 'cualquiera' ? 'o' : 'y'}</div>}
               <FilaFrase
-                fila={f} etiquetas={etiquetas} onCrearEtiqueta={onCrearEtiqueta} etapas={etapas} busy={busy} onError={onError}
+                fila={f} etapas={etapas} busy={busy}
                 puedeQuitar={!(ramas.length === 1 && r.filas.length === 1)}
                 onCambiar={(nf, apilar) => setRama(ri, { ...r, filas: r.filas.map((x, k) => (k === fi ? nf : x)) }, apilar)}
                 onQuitar={() => (r.filas.length > 1
@@ -590,10 +594,9 @@ function EditorCondicion({ paso, id, cambiar, onPasos, etiquetas, onCrearEtiquet
 }
 
 /** Una fila de una rama: «[campo, en positivo o negado] [valor]» y su ✕. */
-function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etiquetas, onCrearEtiqueta, etapas, busy, onError }: {
+function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etapas, busy }: {
   fila: FilaCondicion; onCambiar: (f: FilaCondicion, apilar: boolean) => void; onQuitar: () => void; puedeQuitar: boolean;
-  etiquetas: EtiquetaLienzo[]; onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>; etapas: SeccionEtapas[];
-  busy: boolean; onError: (m: string) => void;
+  etapas: SeccionEtapas[]; busy: boolean;
 }) {
   const valorCampo = `${fila.campo}|${fila.no ? 1 : 0}`;
   const elegirCampo = (v: string) => {
@@ -606,8 +609,8 @@ function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etiquetas, onCrearE
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <Dropdown value={valorCampo} options={OPCIONES_CAMPO} width={fila.campo === 'etiqueta' || fila.campo === 'etapa' || fila.campo === 'antiguedad' ? 168 : 230} ariaLabel="Condición" onChange={elegirCampo} disabled={busy} />
       {fila.campo === 'etiqueta' && (
-        <SelectorEtiqueta valor={fila.valor == null ? null : Number(fila.valor)} etiquetas={etiquetas} onCrear={onCrearEtiqueta} busy={busy} onError={onError}
-          onElegir={(idEt) => onCambiar({ ...fila, valor: idEt }, true)} />
+        <SelectorEtiqueta value={fila.valor == null ? null : Number(fila.valor)} placeholder="Elige" width={150} ariaLabel="Etiqueta" disabled={busy}
+          onElegir={(e) => onCambiar({ ...fila, valor: e.id }, true)} />
       )}
       {fila.campo === 'etapa' && <SelectorEtapa fila={fila} etapas={etapas} busy={busy} onElegir={(key, funnelId) => onCambiar({ ...fila, valor: key, funnel_id: funnelId }, true)} />}
       {fila.campo === 'antiguedad' && (
@@ -621,43 +624,6 @@ function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etiquetas, onCrearE
       <button type="button" onClick={onQuitar} disabled={busy || !puedeQuitar} title="Quitar" aria-label="Quitar esta condición"
         style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', cursor: puedeQuitar ? 'pointer' : 'default', opacity: puedeQuitar ? 1 : 0.35, fontSize: 13, padding: '4px 2px' }}>✕</button>
     </div>
-  );
-}
-
-/** El selector de etiqueta, con «+ Nueva» (POST /api/crm/etiquetas, lo hace la parte E). */
-function SelectorEtiqueta({ valor, etiquetas, onElegir, onCrear, busy, onError }: {
-  valor: number | null; etiquetas: EtiquetaLienzo[]; onElegir: (id: number) => void;
-  onCrear?: (nombre: string) => Promise<EtiquetaLienzo | null>; busy: boolean; onError: (m: string) => void;
-}) {
-  const [creando, setCreando] = useState(false);
-  const [nombre, setNombre] = useState('');
-  const crear = async () => {
-    const t = nombre.trim();
-    setCreando(false); setNombre('');
-    if (!t || !onCrear) return;
-    const nueva = await onCrear(t);
-    if (nueva) onElegir(nueva.id); else onError('No se pudo crear la etiqueta');
-  };
-  if (creando) {
-    return (
-      <input autoFocus value={nombre} maxLength={40} placeholder="Nombre" aria-label="Nombre de la etiqueta nueva"
-        onChange={(e) => setNombre(e.target.value)} onBlur={() => void crear()}
-        onKeyDown={(e) => { if (e.key === 'Enter') void crear(); if (e.key === 'Escape') { setCreando(false); setNombre(''); } }}
-        style={{ ...inpLienzo, flex: 1, minWidth: 120 }} />
-    );
-  }
-  const vivas = etiquetas.filter((t) => !t.archivada_at || t.id === valor);
-  const opciones: DropdownOption[] = [
-    ...vivas.map((t) => ({ value: String(t.id), label: nombreEtiqueta(etiquetas, t.id) ?? t.nombre, ...(t.color ? { color: t.color } : {}) })),
-    // ⚠️ La que está puesta entra SIEMPRE, aunque no esté en la lista (todavía cargando, o
-    // de otro lado): un valor que no está entre las opciones se dibuja como la primera.
-    ...(valor != null && !vivas.some((t) => t.id === valor) ? [{ value: String(valor), label: 'Una etiqueta que ya no está' }] : []),
-    ...(onCrear ? [{ value: '__nueva', label: 'Nueva', crear: true }] : []),
-  ];
-  return (
-    <Dropdown value={valor == null ? '' : String(valor)} options={opciones} placeholder="Elige" width={150} ariaLabel="Etiqueta" disabled={busy}
-      search={vivas.length > 8}
-      onChange={(v) => { if (v === '__nueva') { setCreando(true); return; } if (Number(v) > 0) onElegir(Number(v)); }} />
   );
 }
 

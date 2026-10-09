@@ -15,6 +15,7 @@ import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, pre
 import { getTenantDb, getWorkspace, getWorkspaceActual } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
+import { LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
 import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
@@ -4065,7 +4066,12 @@ async function correrAccionDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: num
   const clave = `${inscId ?? `lead${leadId}`}:${idDe(p, i)}:${respondeA ?? (texto ?? '').trim().slice(0, 300)}`;
   if (!(await reclamarEspaciado(ws, `respuesta-accion:${secuencia.id}`, 7 * 24 * 60, clave).catch(() => false))) return { resumen: null, avisoSalio: esAviso };
   const respuesta = (texto ?? '').trim().slice(0, 1000);
-  const params = esAviso && respuesta ? { ...(p.accion?.params ?? {}), respuesta } : p.accion?.params;
+  // Lo que llena el flujo sale de la MISMA lista que el editor esconde (LLENA_EL_FLUJO): el
+  // editor no muestra «respuesta» del aviso porque acá se pisa con lo que escribió el lead.
+  const delFlujo = Object.entries(LLENA_EL_FLUJO[operacion] ?? {}).filter(([, fuente]) => fuente === 'respuesta_del_lead');
+  const params = respuesta && delFlujo.length
+    ? { ...(p.accion?.params ?? {}), ...Object.fromEntries(delFlujo.map(([campo]) => [campo, respuesta])) }
+    : p.accion?.params;
   const r = await (await import('@/lib/api-mako/flujo')).ejecutarDesdeFlujo(operacion, params, {
     ws, origen: `secuencia:${secuencia.id}:nodo:${idDe(p, i)}`, nombre: secuencia.nombre, leadId,
   });

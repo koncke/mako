@@ -55,7 +55,7 @@ const emojiSecuencia = (j: SecuenciaDto): string =>
  */
 export type AbrirSecuencia = { id: number };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores, pie, tz, abrir, handoffs }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, ejemplosIA, pedidoIA }: {
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
   handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
   productos: ProductoOpcion[];
@@ -69,7 +69,16 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   rolAdmin: boolean;
   audios: AudioSetting[];
   onAudioNuevo: (a: AudioSetting) => void;
-  onWizard: (id: number | 'nueva') => void;
+  /**
+   * «Nueva»: crea una automatización VACÍA y pausada y la abre con la caja de «Crear con IA»
+   * (decisión 14). El wizard de 9 pasos dejó de ser la entrada: ahí no existían «Si responde» ni
+   * las condiciones.
+   */
+  onNueva: () => void;
+  /** Pedidos de ejemplo para la caja de una automatización vacía (las etapas sin secuencia). */
+  ejemplosIA?: readonly string[];
+  /** Un pedido ya escrito para la automatización recién creada («Armar una»). */
+  pedidoIA?: { secuenciaId: number; pedido: string } | null;
   onReload: () => void;
   /** El pie de la LISTA (hoy: qué etapas quedaron sin secuencia). Viene de la tab
    *  porque el dato es del workspace, no de esta pieza. */
@@ -143,14 +152,14 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   };
   const nueva = () => {
     if (sinPublicar) { setPendiente({ ir: 'nueva' }); return; }
-    onWizard('nueva');
+    onNueva();
   };
   const descartar = () => {
     const p = pendiente;
     setPendiente(null);
     if (!p) return;
     setSinPublicar(false);
-    if (p.ir === 'nueva') onWizard('nueva');
+    if (p.ir === 'nueva') onNueva();
     else cambiarA(p.ir);
   };
   const recibirEdicion = useCallback((v: EdicionLocal) => setEdicion(v), []);
@@ -239,7 +248,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             }}
             onProbar={() => setProbando(true)}
             onCambioLocal={recibirEdicion}
-            onCambio={onReload} onWizard={() => onWizard(sel.id)} />
+            ejemplosIA={ejemplosIA}
+            pedidoIA={pedidoIA?.secuenciaId === sel.id ? pedidoIA.pedido : undefined}
+            onCambio={onReload} />
         )}
       </div>
 
@@ -279,7 +290,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             <button type="button" onClick={nueva}
               style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85, fontFamily: 'inherit' }}>
               <span style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--faint)' }}>＋</span>
-              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva secuencia</span>
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva</span>
             </button>
           )}
           {lista.length === 0 && !verRecordatorio && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}

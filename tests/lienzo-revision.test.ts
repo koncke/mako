@@ -174,7 +174,11 @@ test('costuras-9 y lienzo-7: escribir en una variante NO apila una foto; quitar 
 // ── costuras-11: las etiquetas archivadas se nombran donde siguen puestas ─────────────
 
 test('costuras-11: el lienzo pide las archivadas y las nombra «(archivada)», sin ofrecerlas', () => {
-  assert.match(PERFIL, /fetch\('\/api\/crm\/etiquetas\?archivadas=1', \{ cache: 'no-store' \}\)/);
+  // Segunda tanda: la lista es la COMPARTIDA (useEtiquetasTodas), que pide las archivadas y se
+  // relee cuando el selector exportado crea una. Verificado volviendo a la lectura propia: 1 fallo.
+  assert.match(PERFIL, /useEtiquetasTodas\(\) \?\? \[\]/);
+  assert.doesNotMatch(PERFIL, /fetch\('\/api\/crm\/etiquetas/);
+  assert.match(leer('../app/_components/etiquetas-cliente.tsx'), /etiquetas\?archivadas=1/);
   const etiquetas = [{ id: 3, nombre: 'Cualificado', archivada_at: '2026-10-08' }, { id: 4, nombre: 'Seguimiento' }];
   assert.equal(nombreEtiqueta(etiquetas, 3), 'Cualificado (archivada)');
   assert.equal(nombreEtiqueta(etiquetas, 4), 'Seguimiento');

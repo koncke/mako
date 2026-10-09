@@ -910,7 +910,9 @@ export function Lienzo({
                 style={{ marginLeft: onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) ? 0 : 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', padding: 0 }}>✕</button>
             </div>
             {apaisado
-              ? <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{renderEditor(nodoSel)}</div>
+              // En COLUMNA flex: los editores anchos (WhatsApp en fila, el email tipo Gmail) estiran
+              // con `flex: 1` + `min-height: 0`. Nunca `height: 100%`, que Safari resuelve a cero.
+              ? <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>{renderEditor(nodoSel)}</div>
               : renderEditor(nodoSel)}
           </div>
         )}
