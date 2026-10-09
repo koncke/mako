@@ -23,8 +23,11 @@ bitácora de `/admin/dev/plan`.
 - **Los scores de los 14 proyectos que reordenó la corrida del 03/10: «Dejarlos».** Son el plan
   de las cinco etapas que está vigente. Los diez deadlines que esa corrida pisó ya se habían
   revertido en `3cc5ecb2` (04/10).
-- **`docs/proyeccion-04oct.md`: «Mostrame qué cambiaría».** Sigue SIN cargarse. El cruce está en
-  el punto 4.
+- **`docs/proyeccion-04oct.md`: «Mostrame qué cambiaría», y después «Sólo las 7 que faltan».**
+  Se cargaron el 09/10 como tareas #835 a #841, SIN FECHA (el Perro les había puesto del 10 al
+  16/10 y se las saqué, con su entrada en el historial) y sin tocar ninguna fecha existente. Las
+  dos fechas que la proyección cambiaba (Prospección al 19/10, Anuncios al 1/11) NO se tocaron.
+  El cruce está en el punto 4.
 
 ## 3. Lo que quedó a medio hacer
 
@@ -47,10 +50,17 @@ bitácora de `/admin/dev/plan`.
 | Stripe propio · `/terminos` con la cláusula de cobro · el documento de oferta | Existen **sin fecha**: #388, #551, #783 (`/reembolsos` no aparece) |
 | Tu CRM + tu embudo · el embudo de la app · filtro de embudo en broadcasts · la capa nueva + migración · el webhook de pago · precios y botón de compra en la landing · anuncios + pasarela | **No existen** (7) |
 
-Nada de eso pisa algo que una persona tocó después del 04/10: los únicos toques a mano son el
-trimestre de Chatbot y de Customer Success (07/10), que la proyección no cambia. **Cargar
-cualquiera de esas cosas es decisión de Martín**, con la regla de AGENTS.md («la fuente más
-nueva puede ser el tablero mismo»).
+Nada de eso pisaba algo que una persona tocó después del 04/10: los únicos toques a mano eran el
+trimestre de Chatbot y de Customer Success (07/10), que la proyección no cambia.
+
+**Cargadas las 7 que no existían** (09/10, por el camino de siempre: borrador y aplicación):
+#835 acceso al CRM del super admin y #836 el embudo de la app y #837 el envío masivo por embudo →
+Feature: CRM · #838 el nivel de acceso del plan de la app y #839 el webhook de pago → Feature:
+Cobros y planes · #840 precios y botón de compra → Vender MaKo: Landing y VSL · #841 la pasarela
+aprobada → Legal y fiscal. Dos cayeron en otro proyecto que el que propuse (#836 y #841): el
+Perro rutea por tema. Al aplicar, el Perro subió «Feature: Cobros y planes» de 80 a 81 y
+re-curvó las tareas no fijadas, que es lo que hace toda alta; ninguno de los 14 proyectos de la
+corrida del 03/10 cambió de número.
 
 ## 5. Trampas del área
 
