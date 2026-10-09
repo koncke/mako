@@ -278,8 +278,10 @@ async function generar(p: {
   }
 
   if (ultimo) {
+    // ⚠️ EL DETALLE VA AL LOG, NO A LA PANTALLA (revisión, 09/10/2026): los errores de
+    // `validarGrafo` traen ids internos («tarjetas sueltas: m2»), que no le dicen nada a nadie.
     console.error('[secuencias/ia] la salida no pasó la revisión:', ultimo.join(' | '));
-    return { error: `MaKo armó el flujo pero quedó mal (${ultimo[0]}). Prueba de nuevo o cambia una palabra del pedido.` };
+    return { error: 'MaKo armó el flujo pero quedó mal. Prueba de nuevo o cambia una palabra del pedido.' };
   }
   if (uno.crudos.length) return { error: 'MaKo escribió el flujo pero se cortó al leerlo. Prueba de nuevo.' };
   return { error: await errorDeCascada(errores, 'armar la automatización') };

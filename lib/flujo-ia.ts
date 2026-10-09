@@ -1138,6 +1138,13 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
       const cuando = str(caso.cuando).trim().slice(0, 600);
       if (salida === 'otra_cosa' || salida === 'si_no') {
         if (!resp) { est.avisos.push('No hay «Si responde» para colgar «Otra cosa»: no lo agregué'); continue; }
+        // ⚠️ «OTRA COSA» OCUPADA NO SE PISA (revisión, 09/10/2026), igual que la rama general de
+        // abajo. Sin esto `conectarPuerto` la pisaba, lo de antes quedaba suelto y el pedido fallaba
+        // con «tarjetas sueltas: m2» a la vista: un id interno y «Editar sólo AGREGA» roto.
+        if (puertosDe(pasos, indicePorId(pasos, resp)).find((x) => x.puerto === 'si_no')?.destino) {
+          est.avisos.push('Esa salida ya tiene tarjetas: no la pisé');
+          continue;
+        }
         lugar = { tipo: 'puerto', nodo: resp, puerto: 'si_no' };
       } else if (!titulo || !cuando) { est.avisos.push('Un caso nuevo de «Si responde» no decía su nombre o cuándo: no lo agregué'); continue; }
       else lugar = { tipo: 'caso', titulo, cuando };

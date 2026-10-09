@@ -13,8 +13,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE, deIA, validarIA, limpiarTexto, type CtxIA } from '../lib/flujo-ia';
-import { validarGrafo } from '../lib/flujo-grafo';
+import {
+  LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE, deIA, deIAEdicion, validarIA, limpiarTexto, erroresNuevos,
+  type CtxIA,
+} from '../lib/flujo-ia';
+import { validarGrafo, claseDe } from '../lib/flujo-grafo';
 import { porId } from '../lib/api-mako/registro';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -130,6 +133,37 @@ test('validarIA rechaza un dominio suelto salvo que sea el host de uno de tus li
   assert.ok(validarIA(ajeno, ctx).some((e) => e.includes('link')));
   const propio = r.pasos.map((p) => ({ ...p, cuerpo: 'Agenda en cal.com/negocio/llamada' }));
   assert.deepEqual(validarIA(propio, ctx), []);
+});
+
+// ── EDITAR con «Otra cosa» ocupada pisaba el puerto y fallaba con un id interno en pantalla ──
+// rotura (sacar el chequeo de «Otra cosa» ocupada en deIAEdicion): 1 fallo de 9, cae éste.
+test('editar: «Otra cosa» ocupada no se pisa; lo de antes queda igual y no hay tarjetas sueltas', () => {
+  const ctx = ctxBase();
+  const base = deIA({ inicio: 't1', tarjetas: [
+    { id: 't1', tipo: 'mensaje', texto: 'Hola' },
+    { id: 'r1', tipo: 'si_responde', casos: [{ titulo: 'Pregunta', cuando: 'Hace una pregunta', sigue: 'r2' }], otra_cosa: 'r3' },
+    { id: 'r2', tipo: 'mensaje', texto: 'Te contesto' },
+    { id: 'r3', tipo: 'mensaje', texto: 'Lo veo y te digo' },
+  ] }, ctx, rndDe()).pasos;
+  const resp = base.find((p) => claseDe(p) === 'respuesta')!;
+  assert.ok(resp.si_no, 'la base tiene «Otra cosa» ocupada');
+  const r = deIAEdicion({ agregar: [
+    { despues_de: 'si_responde', salida: 'otra_cosa', tarjetas: [{ id: 'x1', tipo: 'mensaje', texto: 'Esto pisaría' }] },
+  ] }, base, ctx, rndDe());
+  assert.ok(r.avisos.some((a) => a.includes('no la pisé')), r.avisos.join(' | '));
+  assert.deepEqual(r.agregadas, []);
+  assert.deepEqual(erroresNuevos(base, r.pasos), []);
+  assert.equal(r.pasos.find((p) => claseDe(p) === 'respuesta')!.si_no, resp.si_no);
+});
+
+// rotura (volver a interpolar `ultimo[0]` en el error): 1 fallo de 9, cae éste.
+test('la ruta no muestra los errores de la revisión con ids internos: van al log', () => {
+  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  const i = ruta.indexOf('if (ultimo) {');
+  assert.ok(i > 0);
+  const bloque = ruta.slice(i, ruta.indexOf('}', ruta.indexOf('return {', i)));
+  assert.match(bloque, /console\.error\(/);
+  assert.doesNotMatch(bloque, /error: `[^`]*\$\{/, 'el error de pantalla interpola un detalle');
 });
 
 test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', () => {
