@@ -60,7 +60,8 @@ test('un pedido cancelado no escribe nada: se mira la señal ANTES de crear etiq
 
 // rotura 4 (crear sin exigir la vacía): 1 fallo.
 test('crear exige la automatización VACÍA, la vuelve a mirar antes de guardar, y la deja PAUSADA', () => {
-  assert.match(RUTA, /if \(modo === 'crear' && guardados\.length\) \{\n\s*return Response\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 409 \}\);/);
+  // Desde la revisión del 09/10/2026 el 409 trae lo guardado (`guardado`): ver tests/flujo-ia-arreglos.test.ts.
+  assert.match(RUTA, /if \(modo === 'crear' && guardados\.length\) \{[^}]*\{[\s\S]*?return Response\.json\(\{ ok: false, error: '[^']+', guardado \}, \{ status: 409 \}\);/);
   assert.match(RUTA, /await setSecuenciaActiva\(secuenciaId, false\);/);
   assert.match(RUTA, /select\('pasos'\)\.eq\('id', secuenciaId\)/);
 });

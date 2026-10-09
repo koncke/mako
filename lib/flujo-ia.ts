@@ -1659,7 +1659,22 @@ export type ListoIA = {
   orden: string[];
   avisos: string[];
   etiquetasNuevas: Array<{ id: number; nombre: string }>;
+  /**
+   * Crear: el valor del desplegable del CRON que quedó PUESTO (`valorDisparo`), o null si no se pudo
+   * poner. Sin él la tarjeta CRON seguía mostrando el de antes («manual») hasta recargar (revisión,
+   * 09/10/2026): `disparo` es un estado sembrado al montar. Editar no toca el disparador.
+   */
+  disparador?: string | null;
 };
+
+/**
+ * El 409 de crear sobre una automatización que YA tiene tarjetas trae lo guardado (revisión,
+ * 09/10/2026). El caso real: Cancelar en «Revisando el flujo» o cambiar de automatización en esa fase
+ * llega tarde (el server ya no mira la señal) y el server guarda igual; la pantalla, con su `pasos`
+ * sembrado vacío, volvía a mostrar la caja de crear y «Crear» contestaba 409 sin salida. Con esto la
+ * caja le pasa lo guardado al lienzo como si acabara de crearlo.
+ */
+export type GuardadoIA = Pick<ListoIA, 'pasos' | 'nombre' | 'orden' | 'disparador'>;
 
 export type EventoIA =
   | { t: 'fase'; fase: 'contexto'; leyendo: LeyendoIA; texto: string }

@@ -28,6 +28,7 @@ import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas 
 import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
+import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
 import type { Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, validarGrafo, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
 import type { Muelles } from '@/lib/lienzo-grafo';
@@ -314,7 +315,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     queueMicrotask(() => { apilado.current = false; });
   };
 
-  const alListoIA = (r: ListoCrearIA) => {
+  /** Los avisos de la IA: el que se dibuja y la lista entera (en el `title`). */
+  const [avisosIA, setAvisosIA] = useState<{ texto: string; todos: string[] } | null>(null);
+  const alListoIA = (r: ListoCrearIA): boolean => {
     const nuevos = renumerar(r.pasos as PasoSecuenciaDto[]);
     if (r.modo === 'crear') {
       const guardado = JSON.stringify(renumerar(normalizar(r.pasos as PasoSecuenciaDto[])));
@@ -323,8 +326,15 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       setVisto(JSON.stringify(nuevos));
       setConvertida(false);
       if (r.nombre) setNombre(r.nombre);
+      // El disparador que quedó puesto (revisión, 09/10/2026): `disparo` se siembra al montar, y sin
+      // esto la tarjeta CRON seguía diciendo el de antes («manual») hasta recargar.
+      const puesto = r.disparador;
+      if (puesto) setDisparo((d) => disparoDeValor(puesto, d));
       onCambio();
     } else {
+      // ⚠️ SI EL LIENZO CAMBIÓ MIENTRAS LA IA TRABAJABA, NO SE PISA (revisión, 09/10/2026): el
+      // resultado se armó sobre la foto que se mandó, y aplicarlo borraba la corrección del medio.
+      if (!edicionVigente(r.base, pasos)) { setErr('Cambiaste el flujo: pídelo de nuevo'); return false; }
       fotoAntes();
       setPasos(nuevos);
       setEditandoIA(false);
@@ -332,7 +342,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setRevelarIA({ orden: r.orden, clave: Date.now() });
     const n = r.etiquetasNuevas.length;
     if (n) flashOk(n === 1 ? '1 etiqueta nueva' : `${n} etiquetas nuevas`);
-    if (r.avisos.length) setErr(r.avisos[0]);
+    // ⚠️ EL AVISO QUE MÁS IMPORTA, NO EL PRIMERO QUE SALIÓ (revisión, 09/10/2026): «Elige qué la
+    // dispara» o «va sin link» quedaban detrás de cualquier otro y no se veían nunca.
+    const res = resumenAvisos(r.avisos);
+    if (res) { setErr(res.texto); setAvisosIA(res); }
+    return true;
   };
 
   /** EL CHOKE POINT: todo cambio del lienzo pasa por acá (y por eso todo se deshace). */
@@ -666,7 +680,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {/* El error va ACÁ, pegado al botón que lo produce: abajo del lienzo y a la
                 izquierda nacía debajo de la lista de secuencias, que flota encima. */}
             {err ? (
-              <span role="alert" style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}</span>
+              <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}</span>
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
             ) : sinPublicar ? (
