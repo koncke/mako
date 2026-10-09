@@ -29,7 +29,8 @@ const SANS = "'Geist', sans-serif";
  */
 export type IconoDeOpcion = NombreIconoMenu | (string & {}) | ReactElement;
 
-function IconoOpcion({ icono, size = 18 }: { icono: IconoDeOpcion; size?: number }) {
+/** El ícono de una opción, venga como nombre del set, como URL o como elemento. Lo usa también el menú del lienzo. */
+export function IconoOpcion({ icono, size = 18 }: { icono: IconoDeOpcion; size?: number }) {
   if (typeof icono === 'string') {
     if (esIconoMenu(icono)) return <span aria-hidden style={{ display: 'inline-flex', flex: 'none', color: 'var(--dim)' }}><IconoMenu nombre={icono} size={size - 1} /></span>;
     // eslint-disable-next-line @next/next/no-img-element

@@ -61,7 +61,7 @@ import { createPortal } from 'react-dom';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { MakoLogo } from './MakoBrand';
 import { Icon } from './icons';
-import { Dropdown, type DropdownOption } from '../components/Dropdown';
+import { Dropdown, IconoOpcion, type DropdownOption } from '../components/Dropdown';
 import {
   curvaEntre, curvaPuntos, medioDeCurva, puntoDeCurva, tDePildora, posicionDePildora, puntoDeEntrada, puntoDePuerto, filaDePuerto,
   vistaConPanel, vistaConPanelAbajo, vistaAlCerrarPanel, yDePuerto, tieneFilas, rotuloDeFila, encuadreInicial,
@@ -414,8 +414,7 @@ export function Lienzo({
   const comoItems = (opciones: OpcionAgrupada[], elegir: (v: string) => void): ItemMenuLienzo[] =>
     opciones.map((o) => ({
       id: o.value, label: o.label, grupo: o.grupo, deshabilitado: o.disabled,
-      // eslint-disable-next-line @next/next/no-img-element
-      icono: o.icono ? <img src={o.icono} alt="" width={18} height={18} style={{ display: 'block' }} /> : undefined,
+      icono: o.icono ? <IconoOpcion icono={o.icono} /> : undefined,
       onElegir: () => elegir(o.value),
     }));
 
