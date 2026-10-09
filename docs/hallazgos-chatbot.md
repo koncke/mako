@@ -1346,6 +1346,11 @@ La regla: antes de dar por cerrada una parte que toca `lib/nutricion.ts` o un pr
   que entrega al soltar (tiene la barra nueva, no la escucha) y la tarea del alumno
   (`app/compartido/curso/[token]/TareaAlumno.tsx`) tiene su propio MediaRecorder.
 - **El disparador no le llega al ✦** (el `disparador` del lienzo a `EditorDeNodo`, `app/chatbot/FlujoLienzo.tsx`).
+- **El clon de configuración se lleva la línea POR MENSAJE** (`secuenciaParaElDestino`, `lib/clonar-config.ts`):
+  vacía `audio_id` y `media_id` y deja la `linea` del paso, que nombra un número del DUEÑO. En el destino
+  `elegirLinea` la rechaza (no es del negocio) y ese mensaje no sale, sin caer a la de por default. Va
+  `linea` en la misma lista, con su aviso («vuelve a la línea de la automatización»). Duplicar
+  (`lib/secuencia-duplicar.ts`) es del mismo workspace y está bien que la conserve.
 - **Verlo con clics en producción**: el ✦ con las keys reales de un cliente (sólo se probó la pantalla) y
   la grabación en Safari (el WAV unido se probó en Chrome).
 
