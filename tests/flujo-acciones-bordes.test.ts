@@ -166,7 +166,10 @@ test('secuencias: la acción espera si el mensaje anterior quedó como borrador 
   // Desde el 08/10/2026 sin `!sec.envio_automatico`: «sale sola» pasó a ser POR TARJETA
   // (`revisar`), así que en una secuencia que sale sola el mensaje de antes igual pudo quedar
   // como borrador. La pregunta es si HAY uno pendiente, no qué dice la secuencia.
-  assert.match(rama, /if \(lead && await tieneBorradorNutriPendiente\(lead\.id\) && !\(await esLeadCliente\(lead\.id\)\)\) \{/);
+  // (Segunda tanda, 08/10/2026: con hilos en paralelo espera el borrador de SU mensaje anterior;
+  // con un solo cursor, cualquier borrador del lead, como siempre.)
+  assert.match(rama, /const delPadre = sanearHilos\(insc\.hilos\) \? await tieneBorradorPendienteDePaso\(insc\.id, mensajeAnteriorDe\(sec\.pasos, insc\.paso_actual\) \+ 1\) : null;/);
+  assert.match(rama, /if \(lead && \(delPadre \?\? await tieneBorradorNutriPendiente\(lead\.id\)\) && !\(await esLeadCliente\(lead\.id\)\)\) \{/);
   assert.doesNotMatch(rama, /!sec\.envio_automatico && await tieneBorradorNutriPendiente/);
   assert.match(rama, /continue;/);
 });

@@ -10,7 +10,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { setSecuenciaActiva, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
+import { setSecuenciaActiva, setSecuenciaPasos, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia, DisparadorEmailError,
   ETAPAS, TRIGGERS,
@@ -78,6 +78,8 @@ export async function PATCH(req: NextRequest) {
     return Response.json({ ok: true });
   } catch (e) {
     if (e instanceof DisparadorEmailError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+    // Activar valida lo mismo que Publicar (segunda tanda): un flujo roto no se prende, y el motivo es del dueño, no un 500.
+    if (e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });
     console.error(`[api:email/secuencias PATCH] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
   }

@@ -100,7 +100,7 @@ test('el recordatorio ofrece sólo lo que el emisor permite: textos, sin quitar 
   // Las esperas no se abren: sus minutos son fijos en el emisor.
   assert.match(r, /onSeleccion=\{\(id\) => setSel\(id && \/\^toque-\\d\+\$\/\.test\(id\) \? id : null\)\}/);
   // El disparador se llama CRON (punto 4) y la cadena es la del emisor: 24 h, 1 h, 15 min.
-  assert.match(r, /titulo: 'CRON', icono: '⚡', detalle: 'Agendó una reunión'/);
+  assert.match(r, /titulo: 'CRON', icono: ICONO_CRON, detalle: 'Agendó una reunión'/);
   assert.match(r, /const ANTES: Record<Toque, string> = \{ 1440: '24 h antes de la reunión', 60: '1 h antes', 15: '15 min antes' \};/);
 });
 
@@ -113,9 +113,14 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   assert.match(lista, /\) : !sel \? \(\n[\s\S]*?\) : \(\n\s*\n?\s*<SecuenciaPerfil key=\{sel\.id\}/);
   assert.match(lista, /onProbar=\{\(\) => setProbando\(true\)\}/);
   assert.match(lista, /onCambioLocal=\{recibirEdicion\}/);
-  assert.match(lista, /insetDer=\{probando \? PANEL_PROBAR_ANCHO \+ LISTA_HUECO \* 2 : undefined\}/);
-  assert.match(lista, /\{probando && sel && \(\n\s+<PanelProbar\n/);
-  assert.match(lista, /style=\{\{ position: 'absolute', right: LISTA_HUECO, top: LISTA_HUECO, bottom: LISTA_HUECO, width: PANEL_PROBAR_ANCHO, zIndex: 3 \}\}/);
+  // Segunda tanda (decisión 11): dónde va «Probar» lo decide UNA función pura (`muelles`,
+  // lib/lienzo-grafo.ts, con test en tests/lienzo-muelles.test.ts). La lista sólo mide su caja,
+  // reparte los insets y monta el panel en SU rectángulo; el panel lo llena (100 %).
+  assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible, editorAbierto: true \}\);/);
+  assert.match(lista, /insetDer=\{m\.insets\.der \|\| undefined\}\n\s+muelles=\{m\}/);
+  assert.match(lista, /\{probarVisible && sel && m\.probar && \(\n\s+<div data-muelle="probar" style=\{\{ position: 'absolute', left: m\.probar\.left, top: m\.probar\.top, width: m\.probar\.width, height: m\.probar\.height, zIndex: 3, display: 'flex' \}\}>\n\s+<PanelProbar\n/);
+  assert.match(lista, /style=\{\{ width: '100%', height: '100%' \}\}/);
+  assert.doesNotMatch(lista, /PANEL_PROBAR_ANCHO/, 'el ancho de «Probar» volvió a decidirse en la lista y no en `muelles`');
 });
 
 test('el panel tiene ✕ «Cerrar» y ↻ «Reiniciar», y ningún «Editar»', () => {
@@ -228,7 +233,10 @@ test('lienzo-3: «A mi WhatsApp» se precarga con lo de QUIEN PRUEBA, nunca con 
 test('lienzo-5: tocar la automatización ya elegida no suelta lo que se está probando', () => {
   const lista = LISTA();
   const elegirFn = lista.slice(lista.indexOf('const elegir = (id: number | typeof ID_RECORDATORIO) => {'), lista.indexOf('const recibirEdicion'));
-  assert.match(elegirFn, /=> \{\n\s+if \(id === selId\) return;\n\s+setSelId\(id\); setProbando\(false\); setEdicion\(null\);/);
+  // Segunda tanda (decisión 15): con cambios sin publicar, PRIMERO se pregunta; el cambio de
+  // verdad (`cambiarA`) es el de siempre.
+  assert.match(elegirFn, /=> \{\n\s+if \(id === selId\) return;\n\s+if \(sinPublicar\) \{ setPendiente\(\{ ir: id \}\); return; \}\n\s+cambiarA\(id\);/);
+  assert.match(lista, /const cambiarA = \(id: number \| typeof ID_RECORDATORIO\) => \{\n\s+setSelId\(id\); setProbando\(false\); setEdicion\(null\);/);
 });
 
 test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el wizard', () => {
@@ -277,6 +285,11 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
 //   · lienzo-5: tocar la misma automatización vaciando la edición.
 //   · costuras-5: `?sec=` abriendo el wizard; la lista sin el pedido del link; el pedido sin
 //     elegir la automatización; la página leyendo otro parámetro que el que arma el aviso.
+//
+// ROTURAS de la segunda tanda (08/10/2026, parte L: «Probar» en el muelle de `muelles` y la
+// pregunta antes de perder lo no publicado). Sin romper: 15 pass / 0 fail:
+//   · «Probar» con un ancho propio (560 fijo) en vez del de `muelles`         -> 14 / 1
+//   · `elegir` cambiando de automatización sin preguntar con cambios sin publicar -> 14 / 1
 
 // ⚠️ Visto en producción el 08/10/2026: las ramas para elegir iban DEBAJO de la barra para
 // escribir, afuera del chat, y en una ventana baja quedaban fuera de la vista (medido: los

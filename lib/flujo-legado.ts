@@ -125,6 +125,10 @@ export function esFlujoExplicito(pasos: readonly PasoGrafo[]): boolean {
   return pasos.some((p, i) => {
     const c = claseDe(p);
     if (c === 'esperar' || c === 'condicion' || c === 'respuesta' || c === 'ir_a') return true;
+    // Segunda tanda (08/10/2026): el inicio (el CRON con flechas en paralelo) y cualquier flecha en
+    // paralelo. Convertirlos de nuevo los aplastaba en UNA fila: el hilo de email del ejemplo de
+    // Martín («de un mismo cron... una secuencia para WhatsApp y otra de email») desaparecía.
+    if (c === 'inicio' || (Array.isArray(p.paralelos) && p.paralelos.length > 0)) return true;
     if (p.siguiente === undefined) return false;
     const lineal = pasos[i + 1] ? idDe(pasos[i + 1], i + 1) : null;
     return (p.siguiente ?? null) !== lineal;

@@ -1,0 +1,175 @@
+// =============================================================================
+// Los MUELLES de /chatbot: dónde va «Probar», el editor apaisado y lo que cada cosa deja libre
+// =============================================================================
+// Pedido literal de Martín (segunda tanda, 08/10/2026), puntos 3 y 8: «El editor de WhatsApp
+// debes hacerlo más ancho que largo, sino, se amontona todo» y «El "Probar" debe ser más ancho
+// también, no tan largo, sino, se rompe el diseño». Con los dos anchos y anclados donde estaban
+// se pisaban (relevo R3: con la lista y «Probar» abiertos quedaban ~500 px de lienzo y el editor
+// ocupaba 392). Decisión 11: «Probar» arriba a la derecha, debajo del chrome; el editor en la
+// franja de abajo; y si apilados no entran (ventana baja), lado a lado.
+//
+// Lo decide UNA función pura (`muelles`, lib/lienzo-grafo.ts): esta aritmética repartida en tres
+// componentes ya produjo el inset contado dos veces (hallazgos-chatbot.md). Acá se EJECUTA con
+// cajas de verdad y se mide que los rectángulos no se pisen.
+//
+// PROBADO ROMPIÉNDOLO (08/10/2026; con todo puesto: 8 pasan, 0 fallan). Cada rotura de a una,
+// aplicada y restaurada DE MEMORIA por un arnés (nunca con `git checkout`). Pasan / fallan:
+//   1. «Probar» apilado arranca en top 0 (debajo del chrome no)                    -> 7 / 1
+//   2. el alto de «Probar» deja de descontar el editor (se pisan)                   -> 6 / 2
+//      (a 1440x900 entran igual: lo caza la caja de 1280x620, donde sí se pisan)
+//   3. «Probar» depende de `editorAbierto` (su alto cambia al abrir una tarjeta)     -> 7 / 1
+//   4. sin la caída a «lado a lado» en una ventana baja                             -> 7 / 1
+//   5. el editor apaisado sin el piso de 620 px (no cae a columna en una angosta)   -> 7 / 1
+//   6. `vistaConPanelAbajo` centra la tarjeta alta (la cabecera queda bajo el chrome) -> 7 / 1
+//   7. `nodoRevelado` esconde lo que el orden no nombra (el CRON)                   -> 7 / 1
+//   8. `yDePuerto` sin la caída a la fila 'sig' al llegar al tope de caminos        -> 7 / 1
+//
+// Correr: node --import tsx --test tests/lienzo-muelles.test.ts
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  muelles, vistaConPanelAbajo, nodoRevelado, aristaRevelada, yDePuerto,
+  MUELLE, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO,
+  type RectMuelle, type NodoFlujo,
+} from '../lib/lienzo-grafo';
+
+const sePisan = (a: RectMuelle, b: RectMuelle) =>
+  a.left < b.left + b.width && b.left < a.left + a.width && a.top < b.top + b.height && b.top < a.top + a.height;
+const dentro = (r: RectMuelle, w: number, h: number) =>
+  r.left >= 0 && r.top >= 0 && r.left + r.width <= w && r.top + r.height <= h && r.width > 0 && r.height > 0;
+const LISTA = MUELLE.listaAncho + MUELLE.hueco * 2;
+const ABAJO = PANEL_MARGEN + ZOOM_ALTO;
+
+test('⚠️ ventana grande: «Probar» ancho y bajo arriba a la derecha, el editor en la franja de abajo, y no se pisan', () => {
+  const w = 1440, h = 900;
+  const m = muelles({ w, h }, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
+  assert.equal(m.disposicion, 'apilados');
+  assert.equal(m.editorForma, 'apaisado');
+  const p = m.probar!, e = m.editor!;
+  // «Probar»: debajo del chrome, pegado a la derecha con el hueco, ~560 de ancho, alto ≤ 420 y ≤ 46 %.
+  assert.equal(p.top, CHROME_ALTO, '«Probar» tapa el chrome');
+  assert.equal(p.left + p.width, w - MUELLE.hueco);
+  assert.equal(p.width, MUELLE.probarAncho);
+  assert.ok(p.height <= MUELLE.probarAltoMax && p.height <= Math.round(h * MUELLE.fraccionAlto), `«Probar» mide ${p.height} de alto: no es bajo`);
+  assert.ok(p.width > p.height, '«Probar» tiene que ser más ancho que alto (punto 8)');
+  // El editor: de la lista al borde derecho, pegado arriba de la fila del zoom, alto FIJO.
+  assert.equal(e.left, LISTA + PANEL_MARGEN);
+  assert.equal(e.left + e.width, w - PANEL_MARGEN);
+  assert.equal(e.top + e.height, h - ABAJO, 'el editor no queda arriba de la fila del zoom');
+  assert.equal(e.height, m.editorAlto);
+  assert.ok(e.width > e.height, 'el editor tiene que ser más ancho que alto (punto 3)');
+  assert.ok(!sePisan(p, e), '«Probar» y el editor se pisan');
+  assert.ok(dentro(p, w, h) && dentro(e, w, h));
+  // Los insets: la lista a la izquierda; a la derecha, «Probar» sólo en la franja de arriba.
+  assert.deepEqual(m.insets, { izq: LISTA, der: p.width + MUELLE.hueco * 2, derChrome: 0, derAbajo: 0 });
+});
+
+test('⚠️ abrir una tarjeta NO le cambia el tamaño a «Probar» (una medición que cambia lo que mide no decide)', () => {
+  for (const caja of [{ w: 1440, h: 900 }, { w: 1280, h: 620 }, { w: 1100, h: 500 }, { w: 1920, h: 1080 }]) {
+    const cerrado = muelles(caja, { listaAbierta: true, probarAbierto: true, editorAbierto: false });
+    const abierto = muelles(caja, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
+    assert.deepEqual(abierto.probar, cerrado.probar, `en ${caja.w}x${caja.h} «Probar» cambia al abrir el editor`);
+    assert.deepEqual(abierto.insets, cerrado.insets);
+    assert.equal(cerrado.editor, null, 'sin tarjeta abierta no hay rectángulo del editor');
+    assert.equal(abierto.editorAlto, cerrado.editorAlto);
+    // Y en ninguna de estas cajas se pisan (1280x620 es la que cae a lado a lado).
+    if (abierto.probar && abierto.editor) assert.ok(!sePisan(abierto.probar, abierto.editor), `en ${caja.w}x${caja.h} «Probar» y el editor se pisan`);
+    if (abierto.probar) assert.ok(dentro(abierto.probar, caja.w, caja.h), `en ${caja.w}x${caja.h} «Probar» se sale de la caja`);
+  }
+});
+
+test('⚠️ ventana baja: si apilados no entran, van LADO A LADO y tampoco se pisan', () => {
+  const w = 1440, h = 560;
+  const m = muelles({ w, h }, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
+  assert.equal(m.disposicion, 'lado');
+  const p = m.probar!;
+  assert.equal(p.top, MUELLE.hueco);
+  assert.equal(p.height, h - MUELLE.hueco * 2, 'lado a lado, «Probar» va de arriba a abajo');
+  assert.ok(dentro(p, w, h));
+  assert.equal(m.insets.derChrome, m.insets.der, 'lado a lado, «Probar» también tapa a la altura del chrome');
+  assert.equal(m.insets.derAbajo, m.insets.der);
+  if (m.editor) {
+    assert.ok(!sePisan(p, m.editor), '«Probar» y el editor se pisan lado a lado');
+    assert.ok(m.editor.left + m.editor.width <= p.left, 'el editor se mete debajo de «Probar»');
+    assert.ok(m.editor.width >= MUELLE.apaisadoMin);
+  } else {
+    assert.equal(m.editorForma, 'columna');
+  }
+  // Y en una caja bajísima los rectángulos siguen siendo válidos (nada negativo).
+  const chica = muelles({ w: 1200, h: 300 }, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
+  assert.ok(chica.probar!.height >= 0 && chica.editorAlto >= 0);
+});
+
+test('⚠️ en una ventana angosta el editor cae a COLUMNA (con lo que no cambia al abrir el panel)', () => {
+  // 272 + 32 de lista + 24 de márgenes: con 900 de ancho quedan 572 < 620.
+  const m = muelles({ w: 900, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
+  assert.equal(m.editorForma, 'columna');
+  assert.equal(m.editor, null, 'columna: el panel de siempre, no la franja');
+  // Con la lista cerrada, la misma ventana sí tiene lugar.
+  const sinLista = muelles({ w: 900, h: 800 }, { listaAbierta: false, probarAbierto: false, editorAbierto: true });
+  assert.equal(sinLista.editorForma, 'apaisado');
+  assert.equal(sinLista.insets.izq, 0);
+  assert.equal(sinLista.editor!.left, PANEL_MARGEN);
+  // Justo en el borde: 620 de editor entra, 619 no.
+  const borde = LISTA + PANEL_MARGEN * 2 + MUELLE.apaisadoMin;
+  assert.equal(muelles({ w: borde, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true }).editorForma, 'apaisado');
+  assert.equal(muelles({ w: borde - 1, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true }).editorForma, 'columna');
+});
+
+test('«Probar» cerrado no reserva nada a la derecha', () => {
+  const m = muelles({ w: 1440, h: 900 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
+  assert.equal(m.probar, null);
+  assert.equal(m.disposicion, null);
+  assert.deepEqual(m.insets, { izq: LISTA, der: 0, derChrome: 0, derAbajo: 0 });
+  assert.equal(m.editor!.left + m.editor!.width, 1440 - PANEL_MARGEN);
+});
+
+test('⚠️ `vistaConPanelAbajo`: corre la vista en VERTICAL para que la tarjeta quede arriba del panel apaisado', () => {
+  const v = { k: 1, tx: 0, ty: 0 };
+  const libre = { izq: 316, der: 1400, arriba: 64, abajo: 480 };
+  // Una tarjeta que el panel tapa (llega hasta 600): sube lo justo para terminar en `abajo`.
+  const tapada = { x: 400, y: 450, ancho: 252, alto: 150 };
+  const r = vistaConPanelAbajo(v, tapada, libre)!;
+  assert.equal(r.ty, libre.abajo - (tapada.y + tapada.alto));
+  assert.equal(r.tx, 0, 'no se mueve de costado si no hace falta');
+  assert.equal(r.k, 1, 'no cambia el zoom');
+  // Ya a la vista: no se toca (devolver la vista corre sola; ver `vistaAlCerrarPanel`).
+  assert.equal(vistaConPanelAbajo(v, { x: 400, y: 100, ancho: 252, alto: 120 }, libre), null);
+  // Más alta que la franja: se alinea ARRIBA (se ve la cabecera, que dice qué se edita).
+  const alta = vistaConPanelAbajo(v, { x: 400, y: 300, ancho: 252, alto: 600 }, libre)!;
+  assert.equal(alta.ty + 300, libre.arriba, 'una tarjeta alta quedó con la cabecera debajo del chrome');
+  // Debajo de la lista: también se corre a la derecha.
+  const izq = vistaConPanelAbajo(v, { x: 100, y: 450, ancho: 252, alto: 150 }, libre)!;
+  assert.equal(izq.tx + 100, libre.izq);
+  // Con zoom, todo en coordenadas de pantalla.
+  const z = vistaConPanelAbajo({ k: 0.5, tx: 0, ty: 0 }, { x: 800, y: 900, ancho: 252, alto: 150 }, libre)!;
+  assert.equal(z.ty + (900 + 150) * 0.5, libre.abajo);
+  // Sin franja (panel más alto que la caja): no hay a dónde correrla.
+  assert.equal(vistaConPanelAbajo(v, tapada, { ...libre, abajo: 60 }), null);
+});
+
+test('el revelado: lo que el orden no nombra se ve siempre, y una flecha aparece con sus dos puntas', () => {
+  const orden = ['a', 'b', 'c'];
+  assert.equal(nodoRevelado(orden, 0, 'a'), false);
+  assert.equal(nodoRevelado(orden, 1, 'a'), true);
+  assert.equal(nodoRevelado(orden, 1, 'b'), false);
+  assert.equal(nodoRevelado(orden, 0, 'entrada'), true, 'el CRON (que el orden no nombra) desapareció');
+  assert.equal(nodoRevelado(orden, Number.POSITIVE_INFINITY, 'c'), true, 'completado: todo a la vista');
+  assert.equal(nodoRevelado(null, 0, 'c'), true, 'sin revelado: todo a la vista');
+  assert.equal(aristaRevelada(orden, 2, { desde: 'a', hasta: 'c' }), false);
+  assert.equal(aristaRevelada(orden, 3, { desde: 'a', hasta: 'c' }), true);
+  assert.equal(aristaRevelada(orden, 1, { desde: 'entrada', hasta: 'a' }), true);
+});
+
+test('⚠️ una flecha en paralelo sale de la fila que la admite, y de «sig» si la fila ya no ofrece más', () => {
+  const cron = (paralelo: boolean): NodoFlujo => ({
+    id: 'entrada', tipo: 'entrada', titulo: 'CRON', icono: '⏰', x: 0, y: 0, ancho: 252, alto: 120,
+    puertos: [{ id: 'sig', rotulo: 'Al entrar', vacio: false, ...(paralelo ? { paralelo: true } : {}) }, { id: 'resp', rotulo: 'Si responde', vacio: true }],
+  });
+  const filaAlEntrar = 120 - BORDE_NODO - PIE_PUERTOS - 1.5 * ALTO_PUERTO;
+  assert.equal(yDePuerto(cron(true), 'par:x'), filaAlEntrar);
+  // Al tope de caminos la fila deja de ofrecer el ＋ (`paralelo` ausente) y las flechas que ya
+  // salen en paralelo NO pueden saltar a la cabecera.
+  assert.equal(yDePuerto(cron(false), 'par:x'), filaAlEntrar);
+  assert.equal(yDePuerto(cron(false), 'resp'), 120 - BORDE_NODO - PIE_PUERTOS - 0.5 * ALTO_PUERTO);
+});

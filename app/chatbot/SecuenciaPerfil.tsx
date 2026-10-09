@@ -26,8 +26,11 @@ import type { CronAviso } from '@/lib/cron-aviso';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
+import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
+import { CrearConIA, type ListoCrearIA } from './CrearConIA';
 import type { Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, validarGrafo, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
+import type { Muelles } from '@/lib/lienzo-grafo';
 import { legadoAGrafo, esFlujoExplicito } from '@/lib/flujo-legado';
 import {
   insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, faltaEscribir, tarjetaDelError, estrategiaConLimpieza,
@@ -76,7 +79,7 @@ export type EdicionLocal = {
   instance_name: string | null;
 };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer, handoffs }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, ejemplosIA, pedidoIA }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver un «Ir a» y convertir un «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -108,7 +111,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   onAudioNuevo: (a: AudioSetting) => void;
   onClose?: () => void;
   onCambio: () => void;
-  onWizard: () => void;
   /**
    * Lo que se está editando, SIN publicar, cada vez que cambia. Lo lee el panel de
    * «Probar» (punto 10: «no puedo interactuar, para probarlo de verdad»): tiene que probar
@@ -124,6 +126,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * se borró, no se veían en ningún lado). Ausente = no se marca nada.
    */
   handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
+  /** Dónde va cada cosa que flota (`muelles`, lib/lienzo-grafo.ts). Lo calcula la tab. */
+  muelles?: Muelles | null;
+  /** Las tarjetas aparecen de a una («Crear con IA», decisión 14). Lo pasa quien crea. */
+  revelar?: { orden: string[]; clave: number } | null;
+  /**
+   * Hay cambios del flujo SIN PUBLICAR que la persona hizo (decisión 15). Lo lee la tab para
+   * preguntar antes de cambiar de automatización: con el `key` por secuencia, cambiar remonta este
+   * componente y lo no publicado se perdía sin aviso (medido, R1/R3).
+   */
+  onSinPublicar?: (hay: boolean) => void;
+  /** «Crear con IA»: pedidos de ejemplo para la caja de una automatización vacía. */
+  ejemplosIA?: readonly string[];
+  /** «Crear con IA»: un pedido ya escrito (el «Armar una» de una etapa sin automatización). */
+  pedidoIA?: string;
 }) {
   const est = secuencia.estrategia;
 
@@ -162,6 +178,40 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [convertida, setConvertida] = useState(inicial.convertida);
   const [publicado, setPublicado] = useState(inicial.publicado);
   const sinPublicar = convertida || JSON.stringify(pasos) !== publicado;
+
+  /**
+   * LO QUE LA PERSONA CAMBIÓ Y NO PUBLICÓ (decisión 15): el flujo de ahora contra el que vio al
+   * abrir o al publicar por última vez. NO es `sinPublicar`: una secuencia de antes abre
+   * CONVERTIDA (el lienzo la muestra en tarjetas) y eso dice «Sin publicar» sin que nadie haya
+   * tocado nada. Preguntar «Tienes cambios sin publicar» ahí sería afirmar algo falso, y salir no
+   * pierde nada: la conversión se vuelve a hacer al abrirla.
+   */
+  const [visto, setVisto] = useState(() => JSON.stringify(inicial.pasos));
+
+  /**
+   * «CREAR CON IA» (punto 11, decisión 14). Crear ya GUARDÓ la automatización (pausada) en el server:
+   * lo que vuelve pasa a ser lo publicado y lo visto, y la tab relee (cambió el nombre y el disparador).
+   * Editar es un BORRADOR local: UNA foto de deshacer y «Sin publicar». En los dos casos las tarjetas
+   * aparecen de a una sobre el layout final (`revelar`), nunca armando el flujo de a pedazos.
+   */
+  const [revelarIA, setRevelarIA] = useState<{ orden: string[]; clave: number } | null>(null);
+  const [editandoIA, setEditandoIA] = useState(false);
+  const cambiosPropios = rolAdmin && JSON.stringify(pasos) !== visto;
+  const avisarSinPublicar = useRef(onSinPublicar);
+  useEffect(() => { avisarSinPublicar.current = onSinPublicar; });
+  useEffect(() => { avisarSinPublicar.current?.(cambiosPropios); }, [cambiosPropios]);
+  // Al desmontarse (cambió de automatización, se descartó), ya no hay nada sin publicar acá.
+  useEffect(() => () => { avisarSinPublicar.current?.(false); }, []);
+  /**
+   * Y CERRAR LA PESTAÑA (o recargar) TAMBIÉN PREGUNTA mientras haya cambios. El navegador muestra
+   * su propio cartel —no se le puede poner texto—: es el único que corre al cerrar.
+   */
+  useEffect(() => {
+    if (!cambiosPropios) return;
+    const alSalir = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', alSalir);
+    return () => window.removeEventListener('beforeunload', alSalir);
+  }, [cambiosPropios]);
 
   /**
    * CÓMO SE DISPARA: POR TIEMPO O POR UNA ACCIÓN.
@@ -264,6 +314,27 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     queueMicrotask(() => { apilado.current = false; });
   };
 
+  const alListoIA = (r: ListoCrearIA) => {
+    const nuevos = renumerar(r.pasos as PasoSecuenciaDto[]);
+    if (r.modo === 'crear') {
+      const guardado = JSON.stringify(renumerar(normalizar(r.pasos as PasoSecuenciaDto[])));
+      setPasos(nuevos);
+      setPublicado(guardado);
+      setVisto(JSON.stringify(nuevos));
+      setConvertida(false);
+      if (r.nombre) setNombre(r.nombre);
+      onCambio();
+    } else {
+      fotoAntes();
+      setPasos(nuevos);
+      setEditandoIA(false);
+    }
+    setRevelarIA({ orden: r.orden, clave: Date.now() });
+    const n = r.etiquetasNuevas.length;
+    if (n) flashOk(n === 1 ? '1 etiqueta nueva' : `${n} etiquetas nuevas`);
+    if (r.avisos.length) setErr(r.avisos[0]);
+  };
+
   /** EL CHOKE POINT: todo cambio del lienzo pasa por acá (y por eso todo se deshace). */
   const onPasos: CambioPasos = (fn, conFoto) => {
     if (conFoto) fotoAntes();
@@ -335,6 +406,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       }
     } catch { setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }
     setPublicado(JSON.stringify(pasos));
+    setVisto(JSON.stringify(pasos));
     if (convertida) {
       // ⚠️ SIN ESTRATEGIA NO SE MANDA NADA (revisión, lienzo-8): `estrategiaConLimpieza(null)`
       // es null, y antes inventaba `{ objetivo: 'agendar', … }` donde no había nada.
@@ -380,26 +452,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * dueño la reemplazaba creyendo que se había borrado. Las archivadas no se OFRECEN
    * (`seccionesDisparo` y el selector las filtran); sólo se nombran donde siguen puestas, con
    * «(archivada)» (`nombreEtiqueta`).
+   *
+   * ⚠️ ES LA LISTA COMPARTIDA (`useEtiquetasTodas`, segunda tanda), no una lectura propia: la
+   * tarjeta 🏷️ y la condición crean etiquetas con el selector EXPORTADO («＋ Nueva»), que avisa
+   * a todos los lectores. Con una lista propia, una etiqueta recién creada quedaba sin nombre en
+   * su tarjeta hasta recargar.
    */
-  const [etiquetas, setEtiquetas] = useState<EtiquetaLienzo[]>([]);
-  useEffect(() => {
-    let vivo = true;
-    void (async () => {
-      try {
-        const j = await (await fetch('/api/crm/etiquetas?archivadas=1', { cache: 'no-store' })).json();
-        if (vivo && Array.isArray(j?.etiquetas)) setEtiquetas(j.etiquetas);
-      } catch { /* sin lista: se ofrece crear */ }
-    })();
-    return () => { vivo = false; };
-  }, []);
-  const crearEtiqueta = async (n: string): Promise<EtiquetaLienzo | null> => {
-    try {
-      const j = await (await fetch('/api/crm/etiquetas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear', nombre: n }) })).json();
-      const t = j?.etiqueta as EtiquetaLienzo | undefined;
-      if (t && Number(t.id) > 0) { setEtiquetas((prev) => [...prev.filter((x) => x.id !== t.id), t]); return t; }
-    } catch { /* abajo */ }
-    return null;
-  };
+  const etiquetas: EtiquetaLienzo[] = useEtiquetasTodas() ?? [];
 
   /**
    * DE QUÉ NÚMERO SALE (pedido de Martín, 06/10/2026). Se guarda al elegir, como el
@@ -515,14 +574,29 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     // `flex: 1` + `minHeight: 0`, NO `height: 100%`: el padre saca su alto de un flex y
     // para el motor eso es un alto INDEFINIDO — Chrome lo resuelve igual y Safari
     // devuelve CERO, o sea la pantalla en blanco (AGENTS.md, ya pagado con un cliente).
-    <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+    <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+      {/* «Crear con IA»: con la automatización VACÍA, la caja del pedido en el medio del lienzo
+          (como el «Create with AI» de ManyChat). Empezar de cero sigue siendo el ＋ del CRON: la capa
+          no toma el puntero fuera de la caja. */}
+      {rolAdmin && pasos.length === 0 && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
+          <div style={{ pointerEvents: 'auto', width: 'min(560px, calc(100% - 32px))' }}>
+            <CrearConIA modo="crear" secuenciaId={secuencia.id} ejemplos={ejemplosIA} pedidoInicial={pedidoIA} onListo={alListoIA} />
+          </div>
+        </div>
+      )}
+      {rolAdmin && editandoIA && pasos.length > 0 && (
+        <div style={{ position: 'absolute', left: '50%', bottom: 64, transform: 'translateX(-50%)', width: 'min(560px, calc(100% - 32px))', zIndex: 4 }}>
+          <CrearConIA modo="editar" secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} />
+        </div>
+      )}
       <FlujoLienzo
         pasos={pasos}
         disparador={textoDisparo}
         secuencias={secuencias.filter((s) => s.id !== secuencia.id).map((s) => ({ id: s.id, nombre: s.nombre }))}
         audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy != null}
         envioAutoSecuencia={est?.envio_automatico === true}
-        etiquetas={etiquetas} onCrearEtiqueta={rolAdmin ? crearEtiqueta : undefined} etapas={etapasCond}
+        etiquetas={etiquetas} etapas={etapasCond}
         paraGuion={paraGuion} foco={foco} pendientesOtraCosa={pendientesOtraCosa}
         onPasos={onPasos}
         onAgregar={rolAdmin ? agregarEn : undefined}
@@ -530,7 +604,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onCrearRespuesta={rolAdmin ? nuevaRespuesta : undefined}
         onAudioNuevo={onAudioNuevo} onError={setErr}
         onModoIA={rolAdmin ? abrirGuiaSiFalta : undefined}
-        insetIzq={insetIzq} insetDer={insetDer}
+        insetIzq={insetIzq} insetDer={insetDer} muelles={muelles} revelar={revelarIA ?? revelar}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
             {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
@@ -582,6 +656,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <BotonPila titulo="Deshacer (Ctrl+Z)" onClick={deshacer} activo={puedeDeshacer}>↶</BotonPila>
             <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
+            {pasos.length > 0 && (
+              <BotonPila titulo="Pedirle un cambio a MaKo" onClick={() => setEditandoIA((v) => !v)} activo>✦</BotonPila>
+            )}
           </div>
         ) : undefined}
         pie={rolAdmin ? (
