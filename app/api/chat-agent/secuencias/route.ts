@@ -15,6 +15,12 @@
 //        { action:'duplicar', secuenciaId }               → { secuenciaId, nombre } (la copia nace PAUSADA)
 //        { action:'posiciones', secuenciaId, posiciones } → dónde quedó cada tarjeta del lienzo (mig 0233)
 //                                                          → { ok, posiciones } | { ok:false, sinColumna }
+//        { action:'disparadores', secuenciaId, disparadores: Disparador[] }
+//                                                          → los CRON de la automatización, la lista
+//                                                            entera (mig 0241) → { ok, disparadores }
+//                                                            (400 con el motivo si no se puede)
+// GET ?canales=1 → { ok, canales } — ¿están conectados Instagram, Messenger y el email? (el CRON los
+//                  ofrece sólo si lo están: lib/disparadores-canales.ts)
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -47,13 +53,16 @@ import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 import { duplicarSecuencia, type DbDuplicar } from '@/lib/secuencia-duplicar';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-posiciones';
+// VARIOS CRON (sexta tanda, mig 0241): guardar la lista y saber qué canales se pueden ofrecer.
+import { guardarDisparadores } from '@/lib/disparadores-guardar';
+import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
   if (ws == null && rol === 'admin') {
     // Admin de agencia sin impersonar: no hay workspace del que leer secuencias.
@@ -61,6 +70,14 @@ export async function GET() {
   }
   if (ws == null || (rol !== 'admin' && rol !== 'setter')) {
     return Response.json({ ok: false, error: 'Sin acceso a Setting en este workspace.' }, { status: 403 });
+  }
+  // ¿Están conectados Instagram, Messenger y el email? Aparte del GET de siempre, a propósito: le
+  // pregunta a Meta (hasta 6 s) y sólo lo necesita el editor del CRON al abrir uno de esos canales.
+  if (req.nextUrl?.searchParams.get('canales') === '1') {
+    try { return Response.json({ ok: true, canales: await estadoCanalesDisparo() }); } catch (e) {
+      console.error(`[api:setting/secuencias GET canales] ${msg(e)}`);
+      return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
   }
   try {
     const [{ secuencias, serie }, funnel, leadMagnets, wsRow, huecos, instancia] = await Promise.all([
@@ -159,7 +176,7 @@ export async function POST(req: NextRequest) {
     action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown;
     handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown;
     id?: unknown; trigger_tipo?: unknown; producto_id?: unknown; funnel_id?: unknown; etiqueta_id?: unknown;
-    emoji?: unknown; etapas?: unknown[]; posiciones?: unknown;
+    emoji?: unknown; etapas?: unknown[]; posiciones?: unknown; disparadores?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -188,6 +205,25 @@ export async function POST(req: NextRequest) {
         throw e;
       }
       return Response.json({ ok: true });
+    }
+
+    /**
+     * LOS CRON DE LA AUTOMATIZACIÓN, LA LISTA ENTERA (sexta tanda, CRON punto 10: «agrega la opción de
+     * tener más de un CRON»). Es lo que guarda el editor del CRON (app/chatbot/EditorDisparadores.tsx)
+     * para cualquiera de sus tipos: el primero va a las columnas de siempre y la lista a la mig 0241
+     * (`guardarDisparadores`). Lo que no se puede guardar —una etapa que no existe, dos CRON iguales,
+     * dos o más sin la 0241— contesta 400 con el motivo. `trigger` y `cron` (arriba y abajo) siguen
+     * para los que escriben sólo el primero (Crear con IA).
+     */
+    if (body.action === 'disparadores') {
+      const id = Number(body.secuenciaId ?? body.id);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+      try {
+        return Response.json({ ok: true, disparadores: await guardarDisparadores(id, body.disparadores) });
+      } catch (e) {
+        if (e instanceof TriggerInvalidoError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+        throw e;
+      }
     }
 
     // El NOMBRE, que se edita tocándolo en el lienzo (mismo gesto que en /mensajes).

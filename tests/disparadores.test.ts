@@ -17,6 +17,7 @@ import {
   ZONAS_POR_PAIS, paisDeZona, EVENTOS_INSTAGRAM, EVENTOS_MESSENGER, CLASES_DISPARADOR, VALOR_GRUPO,
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_SOLO_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TOPE_DISPARADORES, vistasPorDisparador, unaPorSecuencia,
+  conProximas, nuevosOCambiados,
   type Disparador,
 } from '../lib/disparadores';
 import { PAISES } from '../lib/paises';
@@ -270,6 +271,23 @@ test('cada país de la lista del teléfono tiene sus zonas, y todas las conoce `
   assert.equal(paisDeZona('Marte/Olympus'), null);
 });
 
+test('⚠️ al guardar, un horario que NO cambió conserva su ocurrencia; uno nuevo siembra la suya, en el futuro', () => {
+  const ahora = new Date('2026-10-12T16:00:00Z');                       // lunes 10:00 de México
+  const previo: Disparador = { id: 'd2', trigger_tipo: TRIGGER_SOLO_GRUPO, grupo: true, cron: { unidad: 'semana', cada: 1, hora: 9, minuto: 0, diaSemana: 1 }, cron_proxima_at: '2026-10-12T15:00:00.000Z' };
+  // Tocar «A quién» (sumarle una etiqueta) guarda la lista entera: el horario es el mismo.
+  const tocado: Disparador = { ...previo, trigger_tipo: 'etiqueta_puesta', etiqueta_id: 4 };
+  const [a] = conProximas([tocado], [previo], ahora, 'America/Mexico_City');
+  assert.equal(a.cron_proxima_at, '2026-10-12T15:00:00.000Z', 'se corrió el ancla a «ahora» y se perdió la ocurrencia de hoy');
+  // Cambiar la hora es otro horario: siembra la próxima, estrictamente después de ahora.
+  const [b] = conProximas([{ ...tocado, cron: { ...previo.cron!, hora: 11 } }], [previo], ahora, 'America/Mexico_City');
+  assert.equal(b.cron_proxima_at, '2026-10-12T17:00:00.000Z');
+  // Sin horario, ninguna.
+  assert.equal(conProximas([{ id: 'd1', trigger_tipo: 'etiqueta_puesta', etiqueta_id: 4, cron_proxima_at: 'x' }], [], ahora, 'UTC')[0].cron_proxima_at, null);
+  // Lo que se valida contra el negocio: sólo lo nuevo o distinto.
+  const viejo: Disparador = { id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'borrada', funnel_id: 5 };
+  assert.deepEqual(nuevosOCambiados([viejo, tocado], [viejo, previo]).map((d) => d.id), ['d2']);
+});
+
 test('la firma no mira el id ni la próxima ocurrencia, y sí el Ignorar y el horario', () => {
   const a: Disparador = { id: 'd1', trigger_tipo: TRIGGER_ETIQUETA_AGREGADA, ignorar: [2, 1] };
   assert.equal(firmaDisparador(a), firmaDisparador({ ...a, id: 'd9', ignorar: [1, 2] }));
@@ -292,4 +310,7 @@ test('la firma no mira el id ni la próxima ocurrencia, y sí el Ignorar y el ho
 //   · `quienTrasTocar` sin la regla «con el grupo, la última etapa se puede sacar»    → 16 / 1
 //   · `textosParaElGrupo` siguiendo las ramas de una condición                        → 16 / 1
 //   · `problemaDeDisparadores` sin el chequeo de dos iguales                          → 16 / 1
-// Restaurado: 17 / 0.
+// Restaurado: 17 / 0. Y con las vistas del motor y el guardado (19 en total):
+//   · `vistasPorDisparador` con el `funnel_id` del CRON también fuera de adquisición  → 18 / 1
+//   · `conProximas` recalculando siempre (sin conservar la de un horario igual)       → 18 / 1
+// Restaurado: 19 / 0.

@@ -29,7 +29,7 @@
 // Por eso un escritor viejo es inofensivo: cambia el primero y los demás siguen.
 // =============================================================================
 
-import { sanearCron, textoCron, type CronAviso } from './cron-aviso';
+import { sanearCron, textoCron, proximaOcurrencia, type CronAviso } from './cron-aviso';
 import { normalizarEtapas, etapasDe, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, type DisparoActual } from './flujo-conversacion';
 import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo } from './flujo-grafo';
@@ -341,6 +341,30 @@ export const firmaCron = (c: unknown): string => {
 
 /** La firma de la LISTA entera (para saber si la pantalla tiene que volver a sembrarse). */
 export const firmaLista = (lista: readonly Disparador[]): string => JSON.stringify(lista.map((d) => [d.id, firmaDisparador(d)]));
+
+/**
+ * LA PRÓXIMA OCURRENCIA DE CADA HORARIO AL GUARDAR (lib/disparadores-guardar.ts). La de antes si el
+ * horario de ESE CRON no cambió; si es nuevo o distinto, una nueva desde ahora (sembrar no dispara:
+ * es estrictamente posterior). Sin horario, ninguna.
+ *
+ * ⚠️ RECALCULARLA EN CADA GUARDADO CORRÍA EL ANCLA A «AHORA». Tocar «A quién», o el evento de OTRO
+ * CRON, guarda la lista entera: un «todos los lunes a las 9» guardado un lunes a las 10 saltaba al
+ * lunes siguiente y perdía la ocurrencia de hoy (o la reclamada, si el motor ya la había avanzado).
+ */
+export function conProximas(lista: readonly Disparador[], previos: readonly Disparador[], ahora: Date, tz: string): Disparador[] {
+  return lista.map((d) => {
+    if (!d.cron) return { ...d, cron_proxima_at: null };
+    const previo = previos.find((p) => p.id === d.id);
+    if (previo?.cron && previo.cron_proxima_at && firmaCron(previo.cron) === firmaCron(d.cron)) return { ...d, cron_proxima_at: previo.cron_proxima_at };
+    return { ...d, cron_proxima_at: proximaOcurrencia(d.cron, ahora, tz, ahora).toISOString() };
+  });
+}
+
+/** Los CRON que hay que validar contra el negocio al guardar: los nuevos o distintos (ver lib/disparadores-guardar.ts). */
+export function nuevosOCambiados(lista: readonly Disparador[], previos: readonly Disparador[]): Disparador[] {
+  const firmas = new Set(previos.map(firmaDisparador));
+  return lista.filter((d) => !firmas.has(firmaDisparador(d)));
+}
 
 // ── Qué es cada uno ─────────────────────────────────────────────────────────────────────────────
 
