@@ -770,7 +770,8 @@ export type HechosLead = {
   /**
    * Lo que piden las condiciones del CATÁLOGO (lib/condiciones-catalogo.ts). Cada bloque lo lee el
    * motor sólo si una fila del flujo lo pide (`fuentesDeFilas`); ausente = no se leyó, y la fila
-   * que lo necesita no se cumple. «Probar» no lo necesita: ahí quien prueba elige la rama.
+   * que lo necesita no se cumple. «Probar» no lo necesita: sigue cada condición por el «Sí» (cuarta
+   * tanda, punto 17), y la dice con el mismo `textoRama`.
    */
   catalogo?: HechosCatalogo;
 };

@@ -60,7 +60,7 @@ export type EditorCondicionProps = {
   productos: ProductoCondicion[];
   busy: boolean;
   /**
-   * @deprecated Cuarta tanda, punto 7: «＋ Rama" ... Eso eliminalo». El editor ya no lo dibuja; queda
+   * @deprecated Cuarta tanda, punto 7: «el botón de "+Rama"... Eso eliminalo». El editor ya no lo dibuja; queda
    * opcional para que quien lo monta compile hasta que deje de pasarlo.
    */
   onAgregarRama?: () => void;
