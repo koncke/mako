@@ -29,6 +29,42 @@ test('npm run typecheck pasa por el lock, no llama a tsc directo', () => {
   );
 });
 
+/**
+ * Y el package.json NO alcanza: el `.git` de este clon lo comparten 20 checkouts, y
+ * `npm run typecheck` resuelve el script del package.json DEL WORKTREE. Medido el
+ * 09/10/2026: SEIS worktrees checkouteados antes del commit del lock (75314fc1) traían
+ * `tsc --noEmit` crudo y los seis podían correrlo — o sea que el pre-push, que vive en el
+ * `.git` común, les disparaba un tsc de 2,3 GB sin esperar a nadie. El lock se llama por la
+ * ruta del clon principal desde el hook, que es el único lugar común a todos los árboles.
+ *
+ * Se SALTEA cuando no hay hook legible (un clon nuevo, o un worktree donde `.git` es un
+ * archivo): una guarda frena sólo lo que se arregla haciendo lo que pide.
+ *
+ * Verificado rompiéndolo: con el hook llamando `npm run --silent typecheck` a secas,
+ * 1 fallo / 2 pases; con el lock cableado, 3 pases.
+ */
+test('el pre-push de este clon pasa el typecheck por el lock', () => {
+  let hook: string;
+  try {
+    hook = leer('../.git/hooks/pre-push');
+  } catch {
+    return; // sin hook (clon nuevo o worktree): nada que exigir acá
+  }
+  assert.match(
+    hook,
+    /typecheck-lock\.mjs/,
+    '.git/hooks/pre-push tiene que llamar al lock por ruta del clon principal: ' +
+      '`npm run typecheck` a secas resuelve el package.json del worktree, y hay worktrees ' +
+      'con `tsc --noEmit` crudo. Ver AGENTS.md → «El typecheck NO corre en el build».',
+  );
+  assert.match(
+    hook,
+    /git rev-parse --git-common-dir/,
+    'la ruta del lock sale de --git-common-dir (el clon principal), no cableada a mano: ' +
+      'cableada, el hook deja de funcionar si alguien mueve o reclona el repo.',
+  );
+});
+
 test('el lock suelta siempre y propaga el código de salida', () => {
   const src = leer('../scripts/typecheck-lock.mjs');
   // Sin el finally, un typecheck que falla deja el lock puesto y el próximo push

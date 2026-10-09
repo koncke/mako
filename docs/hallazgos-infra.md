@@ -3568,6 +3568,218 @@ contra un typecheck del repo principal).
 
 **Vive en:** `C:\dev\mako-api\scripts\typecheck-lock.mjs` (copia) · *2026-10-08*
 
+⚠️ **REFUTADO AL DÍA SIGUIENTE, y la refutación es el hallazgo:** «es por máquina, así que
+se turnan solos» era falso para el 30% de los árboles de trabajo. Ver la entrada que sigue.
+
+### Un lock que vive en un archivo VERSIONADO protege a un COMMIT, no a una máquina
+
+El 08/10 se serializaron los typechecks con un lock en `os.tmpdir()` y se verificó así: los
+dos `package.json` apuntan al mismo script y el script declara el mismo archivo de lock. Las
+dos cosas eran ciertas y **midieron los dos proyectos equivocados**.
+
+Medido el 09/10/2026 sobre los 20 checkouts de este repo que hay en la máquina:
+
+| | checkouts |
+|---|---|
+| con el lock cableado | 14 |
+| con `"typecheck": "tsc --noEmit"` CRUDO | **6** |
+| …y con el binario de `tsc` disponible, o sea capaces de correrlo | **6** |
+
+**El mecanismo:** `npm run typecheck` resuelve el script del `package.json` **del worktree**,
+y el `pre-push` vive en el `.git` **compartido**. Así que un `git push` desde cualquiera de
+esos seis corría un `tsc` de 2,3 GB sin esperar a nadie — exactamente el escenario que trabó
+la máquina — con el `package.json` del clon principal perfecto y el guard
+(`tests/typecheck-lock.test.ts`) en verde, porque ese guard lee `../package.json` relativo a
+sí mismo y en esos worktrees **el archivo del guard ni existe**.
+
+Los seis son `.claude/worktrees/wf_2927dff7-760-1..4`, `wt-cierre` y `wtnota`: todos con
+trabajo sin commitear o con commits que no están en `origin/main`, o sea **imposibles de
+borrar para cerrar el agujero**.
+
+**La cura: el lock se llama desde el HOOK, por la ruta del clon principal** —el único lugar
+común a todos los árboles de trabajo—, y `npm run` queda de respaldo:
+
+```sh
+LOCK_TSC="$(dirname "$(git rev-parse --git-common-dir)")/scripts/typecheck-lock.mjs"
+if [ -f "$LOCK_TSC" ]; then node "$LOCK_TSC"; else npm run --silent typecheck; fi
+```
+
+El `cwd` sigue siendo el del worktree, así que `tsc` lee SU `tsconfig`: **lo que se serializa
+es la RAM, no lo que se chequea.**
+
+⚠️ **Probado con un dueño FALSO del lock, no con dos typechecks de verdad.** A la máquina le
+quedaban 2 GB y `tsc` pide 2,3: correr dos para comprobarlo era provocar el freeze que se
+está arreglando. Se tomó el lock con un proceso vivo que escribe su propio `process.pid` (el
+de Windows; el `$$` de Git Bash es el de MSYS y `process.kill(pid,0)` lo lee como muerto), y
+se verificó que el segundo —lanzado **desde `wtnota`**, uno de los seis sin lock— contesta
+«espero mi turno» y NO arranca `tsc`. Con la contraprueba: con el lock libre, no dice que
+espera. El archivo de lock se suelta al final, o se traba el push de las otras sesiones.
+
+**La lección que generaliza:** una guarda que se distribuye por un archivo del repo empieza a
+valer **desde su commit**, y todo árbol de trabajo anterior queda del lado viejo sin que nada
+avise. Si lo que la guarda protege es un recurso de la MÁQUINA (la RAM, un puerto, un
+archivo de lock, una cuota), el único lugar correcto es uno que no se versione por copia:
+el hook, una tarea del sistema, o el binario mismo. Es la misma familia que «los hooks de
+git no se versionan», leída al revés: **el problema no es que el hook falte, es que el
+package.json sobre.**
+
+**Vive en:** `.git/hooks/pre-push` · `tests/typecheck-lock.test.ts` · `AGENTS.md` → «El
+typecheck NO corre en el build» · *2026-10-09*
+
+### Mi propia verificación abortó dos borrados legítimos: un cero correcto sobre otra pregunta
+
+Dos agentes confirmaron, cada uno por su lado, que 20 videos duplicados y 51 clips ya estaban
+en Drive. Antes de borrar puse mi propio chequeo —bien, es la regla— y contestó **«en Drive
+veo 1 archivo, esperaba >=20»** y **«0 de 51 con gemelo»**. Abortó los dos.
+
+Los agentes tenían razón. Lo que estaba mal era mi pregunta: **las carpetas de Drive tienen
+subcarpetas por módulo**, y `Get-ChildItem -File` sin `-Recurse` sólo ve el nivel de arriba,
+donde lo único que hay es `desktop.ini`. Recursivo: 119 y 129 archivos.
+
+La forma correcta no era agregar `-Recurse`: era **cruzar por CLAVE**, que es lo que el
+pipeline ya tiene escrito. `drive.json` del curso (23/23 clases con `videoId`) y
+`doc-clips.json` (51/51 archivo → `driveId`), más el tamaño byte-exacto arriba (51/51). Un
+listado de nombres es un parecido; el manifiesto es la clave.
+
+⚠️ **Y el orden importa: una verificación propia que falla NO desmiente a quien midió
+antes.** Lo primero que hay que sospechar es la medición nueva, que es la más barata de
+comprobar — y acá era la equivocada. Si hubiera escrito «los agentes se equivocaron», el
+hallazgo que quedaba en el repo era falso.
+
+**Vive en:** `C:/cursos/<curso>/drive.json` · `doc-clips.json` · *2026-10-09*
+
+### El contenedor MSIX cuenta el disco DOS veces, con el mismo File ID
+
+Claude Desktop es una app MSIX, así que **redirige `%LOCALAPPDATA%` y `%APPDATA%`**:
+`AppData\Local\ms-playwright` y
+`AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\ms-playwright` son **el mismo
+archivo visto dos veces** — verificado con `fsutil file queryfileid`: mismo File ID. Sumar
+las dos ramas en una auditoría de disco cuenta **3,3 GB de aire** (ms-playwright 2,03 +
+npm-cache 1,0 + pip 0,15 + uv 0,13, que YA están adentro de los 3,66 GB del paquete).
+
+Y la contracara, que es la que hace perder tiempo: lo que se ve desde adentro del contenedor
+y lo que se ve desde el Explorador **no son la misma ruta**, así que un borrado hecho «desde
+afuera» puede no tocar lo que uno midió adentro.
+
+**Vive en:** `AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\` · *2026-10-09*
+
+### El 4,19 GB que todos citan es el TECHO de node, no lo que pide nada
+
+Tres «riesgos» de esta corrida venían con 4,2 GB al lado: `next build`, `npm run lint` y
+cualquier otro script. Es el **mismo número** en los tres porque no es una medición: es
+`v8.getHeapStatistics().heap_size_limit` en esta máquina, o sea el máximo que puede pedir
+**cualquier** proceso de node antes de morir por OOM. Con ese criterio, todo script del repo
+«pesa 4,19 GB».
+
+Lo medido de verdad, corriendo cada uno con un cap duro:
+
+| | techo citado | medido |
+|---|---|---|
+| `tsc --noEmit` | 4,19 GB | **1,0 – 2,4 GB** (pico real 2,3) |
+| `npm run lint` (todo el repo) | 4,19 GB | **1,4 GB** y 11+ minutos |
+
+Y el mecanismo que justificaba el número de lint era falso: **el eslint de este repo NO es
+type-aware.** Ninguna de sus 11 capas pone `project` / `projectService`, y
+`eslint-config-next/typescript` usa `configs.recommended`, no `recommendedTypeChecked`. La
+prueba empírica: lintear UN archivo cuesta 282 MB — si levantara el programa de TypeScript,
+un archivo costaría casi lo mismo que 2.430. Si alguien le pone un lock a `lint`, el
+argumento honesto es «tarda 11 minutos», no «pide 4,2 GB».
+
+⚠️ **Y a `next build` NO se le pone un lock: ya tiene uno nativo.** Next 16.2.6,
+`build/index.js:535`: `lockDistDir` está en el `defaultConfig` CONGELADO y este repo no lo
+desactiva, así que dos `next build` sobre el mismo `distDir` no pueden correr a la vez — el
+segundo muere en un segundo con «Another next build process is already running» (ya pasó en
+esta máquina). Encima, envolver `build` tocaría **el camino de deploy**: `vercel.json` no
+declara `buildCommand`, así que Vercel corre ese script tal cual. Y copiar el lock del
+typecheck sería un bug, no una copia: ese lock, a los 10 minutos, **corre igual** — bien para
+dos typechecks (cuestan RAM), fatal para dos builds escribiendo el mismo `.next`.
+
+**Vive en:** `node_modules/next/dist/build/index.js` · `eslint.config.mjs` · *2026-10-09*
+
+### `cursos-liberar.sh` está ciego a 2,3 de los 3,5 GB que quedan en C:/cursos
+
+El barrido automático ya hizo su trabajo: de los ~120 GB de restos que motivaron el script
+queda **3,5 GB**. Pero su `pesoVideo()` **sólo mira `<curso>/video`**, y lo que sobrevive
+está afuera de ahí: `Jaque Blue/_duplicados` (1,1 GB — el bajador descargó 20 clases DOS
+veces y el dedup liberó sólo una copia), `pdfs/` + `recursos/` (869 MB) y
+`creativos-ugc-realistas/doc-clips` (398 MB). El camino oficial (`curso-liberables.mjs
+--ver`) dice que hoy liberaría **18 MB, un curso**; y con `PISO_GB=60` y 108 GB libres no
+correría ni eso.
+
+⚠️ **Y los duplicados NO son byte-idénticos** (difieren 0,001%-0,01%: son dos descargas
+distintas del mismo stream, con duración idéntica al milisegundo por `ffprobe`). Por eso
+`--liberar` **nunca** los iba a tocar: exige coincidencia byte a byte. Un guard correcto
+dejando crecer una fuga para siempre.
+
+**Vive en:** `scripts/cursos-liberar.sh` → `pesoVideo()` · *2026-10-09*
+
+### El cuello de botella de RAM no son los chats: es Chrome
+
+Medido con la máquina trabada: una sesión de Claude Code son **0,26 GB** (5 sesiones = 1,29
+GB, y el pico de la más cargada fue 0,8 GB). Chrome, 2,75–6,4 GB según cuántas pestañas
+estén cargadas. **Cerrar un chat devuelve 0,26 GB; cerrar una pestaña pesada, 0,5 GB.**
+
+Cuántas sesiones entran sin paginar, con un typecheck de 2,9 GB corriendo y 1,5 GB de margen:
+
+| Chrome | sesiones que entran |
+|---|---|
+| 6,4 GB (47 pestañas) | **0** — pagina siempre |
+| 4,0 GB | 1 |
+| 2,5 GB | 3 |
+| cerrado | 6 |
+
+Sin typecheck, sólo sesiones en reposo: 2 con Chrome como estaba, 7 con Chrome en 2,5 GB.
+
+⚠️ **Y lo que tenía la máquina al 100% de CPU no era un dev server ni el typecheck: eran DOS
+suites de tests en paralelo** (`npm test` con ~15 procesos `tsx` cada una, una en el clon y
+otra en `wt-chatbot`), más dos `node -e` sueltos. `PagesInputPerSec` pasó de **3.007/seg**
+durante los tests a 161/seg al terminar. `npm test` no tiene lock y no está en el pre-push:
+se dispara a mano, así que no hay guarda posible — pero vale saber que dos suites a la vez
+pagina la máquina igual que dos typechecks.
+
+**Vive en:** `package.json` → `scripts.test` · *2026-10-09*
+
+### Borrar datos de «sesiones muertas» relee quién está vivo EN EL MOMENTO
+
+El briefing de la corrida decía 3 sesiones de Claude Code. Había **5**, con nombre y PID
+(leídas de `~/.claude/sessions/*.json` y cruzadas con la línea de comandos de cada
+`claude.exe`). Un borrado con la lista del briefing le pisa el scratchpad y los `subagents/`
+a dos ventanas abiertas.
+
+Por eso todo comando de limpieza relee la lista **al borrar**, aborta si no puede parsear
+alguna ficha, y protege además **toda sesión cuyo transcript se haya escrito en las últimas 3
+horas** —una ficha puede faltar—. Con eso se liberaron 2,7 GB de `subagents/` de 38 sesiones
+cerradas (archivos anteriores al 01/10) y 1,12 GB de 484 scratchpads, sin tocar un solo
+`.jsonl` de transcript ni la carpeta `memory/`.
+
+⚠️ **Y `.next/node_modules` tiene JUNCTIONS al `node_modules` real** (medido en
+`C:\dev\mako-api`: `postcss-9745a0d11e3197ae` y `sharp-20c6a5da84e2135f`). Un
+`Remove-Item -Recurse` de PowerShell 5.1 los **sigue** y borra el contenido del destino; va
+`cmd /c rd /s /q`, que borra el junction como entrada. Verificado antes y después: 143
+archivos / 853.311 bytes idénticos.
+
+**Vive en:** `~/.claude/sessions/*.json` · *2026-10-09*
+
+### Lo que NO se liberó, y por qué (para no volver a medirlo)
+
+21,0 GB liberados de los ~70 GB que el barrido encontró. Lo que quedó, con su motivo medido:
+
+| Candidato | GB | Por qué no |
+|---|---|---|
+| `C:\Windows\Installer` sin referencia | 14,3 | Existen, pero el comando propuesto (leer `HKLM:\…\Installer\Patches`) **rompe la máquina** corrido como admin. Necesita admin y revisión paquete por paquete |
+| `DriveFS\content_cache` | 17,9 | Uso activo medido (escrituras 37 min antes) y el beneficio declarado estaba inventado |
+| `CapCut\User Data\Cache` | 10,7 | El 77% de los bytes NO es cache: la descripción era falsa |
+| `hiberfil.sys` | 6,3 | La máquina hibernó hace dos días: no es peso muerto |
+| `pagefile.sys` | 39,6 | **El commit limit depende de él** (55,3 GB = 15,7 físicos + 39,6). Con 2 GB libres, tocarlo es romper la máquina |
+| Chrome `OptGuideOnDeviceModel` | 4,0 | Es el motor de la detección de estafas de Navegación Segura, usado hace 3 horas |
+| Chrome caches (10 perfiles) | 5,6 | Refutado parcialmente; se puede revisar con Chrome cerrado |
+| `WinSxS` / shadow copies / `C:\Windows\Temp` | ? | **Sin medir: piden admin.** `Dism /AnalyzeComponentStore` dio error 740. El 23,6 GB de WinSxS es tamaño APARENTE, inflado por hardlinks |
+| `ms-playwright` (5 revisiones) | 2,0 | Las usó una sesión viva hace 3 días y hoy, por ruta absoluta |
+| `npm-cache` | 1,0 | **No son tarballs**: `_cacache` son 5 MB y el GB está en `_npx`. Se libera con `npm cache npx rm --force` |
+| `hyperframes/node_modules` | 0,44 | Su lockfile es de `bun` y bun no está instalado: restaurar exige instalarlo primero |
+
+**Vive en:** esta entrada · *2026-10-09*
+
 ## La integración con Claude nunca funcionó desde afuera
 
 **Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `tests/rutas-publicas.test.ts`
