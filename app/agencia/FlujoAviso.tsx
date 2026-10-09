@@ -85,9 +85,15 @@ type FotoTablero = { flujo: Flujo | null; pos: Posiciones };
 export function FlujoAviso({
   id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, guardando,
   asunto, onAsunto, onAsuntoGuardar, tituloMensaje, aporta = [],
-  onTexto, onCambio, probando, prueba, onProbar, chrome, pie,
+  onTexto, onCambio, probando, prueba, onProbar, chrome, pie, insetIzq,
 }: {
   id: string;
+  /**
+   * Lo que tapa una pieza apoyada sobre el borde izquierdo: la lista de /chatbot, que desde la
+   * quinta tanda (punto 5) muestra este lienzo para los Mensajes de MaKo. Va tal cual al
+   * `insetIzq` del lienzo. Ausente = 0 (la tab de /mensajes, sin nada encima).
+   */
+  insetIzq?: number;
   disparador: string;
   frecuenciaMin: number;
   texto: string;
@@ -394,7 +400,7 @@ export function FlujoAviso({
             <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
           </div>
         ) : undefined}
-        sinMarco alto="100%"
+        sinMarco alto="100%" insetIzq={insetIzq}
         renderNodo={(n, activo) => (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>
             {n.tipo === 'mensaje' && n.id === 'mensaje'
