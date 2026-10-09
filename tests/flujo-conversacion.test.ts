@@ -271,17 +271,20 @@ test('el menú del ＋: sin «Email» ni «Esperar» debajo de «Si responde», 
   const r = crearRespuesta([msg('a')], rndDe());
   const valores = (o: Array<{ value: string }>) => o.map((x) => x.value);
   // Tercera tanda: «Ir a» ya no se crea (decisión 3) y suma «MaKo» con su logo (decisión 11).
-  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'email', 'esperar', 'condicion', 'etiqueta', 'accion', 'mako']);
+  // Sexta tanda (parte «canales»): Instagram y Messenger, con los mensajes.
+  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'email', 'instagram', 'messenger', 'esperar', 'condicion', 'etiqueta', 'accion', 'mako']);
   assert.ok(!valores(opcionesDelMas(r.pasos, r.id, false)).includes('esperar'), 'se ofreció esperar en «Si responde»');
   const aviso = nodoPorId(r.pasos, r.id)!.si_no!;
   assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('esperar'), 'se ofreció esperar debajo de «Si responde»');
   assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('email'), 'se ofreció un email debajo de «Si responde»');
+  // Ni Instagram ni Messenger: «Si responde» le contesta por el WhatsApp donde escribió, y el motor lo frena.
+  assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).some((v) => v === 'instagram' || v === 'messenger'), 'se ofreció Instagram debajo de «Si responde»');
   for (const medio of [false, true]) assert.ok(!valores(opcionesDelMas(r.pasos, 'a', medio)).includes('ir_a' as never), 'volvió «Ir a» al ＋');
   // Cuarta tanda, punto 10: sin emojis (cada renglón con su ícono), «MaKo en WhatsApp», y por grupos
   // separados con una línea: mensajes · tiempo y lógica · CRM · MaKo.
   const menu = opcionesDelMas(r.pasos, 'a', false);
-  assert.deepEqual(menu.map((x) => x.label), ['WhatsApp', 'Email', 'Esperar', 'Condición', 'Etiqueta', 'Acción', 'MaKo en WhatsApp']);
-  assert.deepEqual(menu.map((x) => x.grupo), [0, 0, 1, 1, 2, 2, 3]);
+  assert.deepEqual(menu.map((x) => x.label), ['WhatsApp', 'Email', 'Instagram', 'Messenger', 'Esperar', 'Condición', 'Etiqueta', 'Acción', 'MaKo en WhatsApp']);
+  assert.deepEqual(menu.map((x) => x.grupo), [0, 0, 0, 0, 1, 1, 2, 2, 3]);
   for (const o of menu) {
     assert.ok(o.icono?.startsWith('data:image/svg+xml'), `${o.label} sin ícono`);
     assert.ok(!/\p{Extended_Pictographic}/u.test(o.label), `${o.label} con emoji`);
