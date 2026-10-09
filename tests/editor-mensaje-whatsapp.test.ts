@@ -36,6 +36,11 @@
 //   9. «{ }» fuera de la barra de varias partes (sin `trasClip`).
 //  10. «✦ MaKo» repetido aunque lo lleve la cabecera (`makoEnCabecera` ignorado).
 //  11. ComposerWhatsApp sin dibujar la ranura `trasClip`.
+// SEXTA TANDA (09/10/2026, parte «whatsapp»): el número y el ✦ pasaron a la CABECERA del panel
+// (`CabeceraWhatsApp`) y el ✦ abre el panel de MaKo adentro del editor; el guion de la grabación ya no se
+// pide acá. Los tests de esas tres cosas se reescribieron y se re-probaron con el mismo arnés (este
+// archivo, base 24/0): el ✦ que no abre el panel → 23/1; la cabecera sin el número → 22/2; la cabecera
+// sin el ✦ → 23/1. Lo demás de la tanda, en tests/whatsapp-sexta-tanda.test.ts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

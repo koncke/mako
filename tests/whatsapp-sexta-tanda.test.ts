@@ -413,5 +413,32 @@ test('«MaKo en WhatsApp»: el MISMO editor, UN texto, con «{ }», sin mic ni c
   assert.match(bloque(flujo, 'function cabeceraDe(', '\n}\n', 800), /if \(claseDe\(paso\) === 'accion'\) return esMako\(paso\);/);
 });
 
-// ── Probado rompiéndolo (09/10/2026), de a una y restaurando de memoria ──
-// (ver el resultado al pie, completado con la corrida)
+// ── Probado rompiéndolo (09/10/2026), de a una y restaurando DE MEMORIA (arnés del scratchpad). ──
+// Base 26/0; 27 roturas, 27 cazadas (pasan/fallan):
+//  R1 la burbuja vuelve a `min(240px, 100%)` (el bug)                   → 25/1
+//  R2 ✓ entrega en el acto, como antes                                  → 22/4
+//  R3 la ➤ no vacía la revisión antes de entregar (dos clics, dos envíos) → 25/1
+//  R4 🎤 reemplaza el tramo en vez de sumarlo                            → 24/2
+//  R5 la barra grabando con la ➤ «Enviar audio» en vez del ✓             → 25/1
+//  R6 ChatHilo sin el composer por conversación (`key`)                  → 25/1
+//  R7 la pausa sin el tope de 10 s                                       → 25/1
+//  R8 sin el tope de 20 s por tarjeta                                    → 25/1
+//  R9 audio + texto con pausa colapsado al pie de siempre                → 25/1
+//  R10 el motor duerme una constante                                     → 25/1
+//  R11 sin la clave, la línea del paso se pierde                         → 25/1
+//  R12 el motor manda por la línea de la secuencia                       → 25/1
+//  R13 `setSecuenciaPasos` sin guardar la línea                          → 25/1
+//  R14 un mensaje guarda `null` por la de por default                    → 25/1
+//  R15 la burbuja vuelve a topearse sola (el hueco de WhatsApp 4)        → 25/1
+//  R16 sin las palomitas                                                 → 25/1
+//  R17 mientras graba se lee el texto aunque MaKo no propuso nada        → 25/1
+//  R18 «Grabar con este guion» no arranca a grabar                       → 25/1
+//  R19 editar un audio vuelve a ser el chip                              → 25/1
+//  R20 la tarjeta corta siempre a 5 renglones                            → 25/1
+//  R21 un link inventado pasa                                            → 25/1
+//  R22 vuelve el piso de 25 palabras del guion                           → 25/1
+//  R23 el prompt con sólo las variables del lead                         → 25/1
+//  R24 la ruta sin el guard de admin                                     → 25/1
+//  R25 una lectura que no existe en el registro                          → 25/1
+//  R26 «MaKo en WhatsApp» con micrófono                                  → 25/1
+//  R27 la tarjeta MAKO sin su cabecera                                   → 25/1
