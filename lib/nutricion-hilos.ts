@@ -16,7 +16,7 @@
 // real. El que ESCRIBE es lib/nutricion.ts (`escribir`, la puerta de la posición).
 // =============================================================================
 
-import { HILO_PRINCIPAL, TOPE_HILOS, claseDe, idDe, indicePorId, padreDe, puertosDe, raicesSalida, type PasoGrafo } from './flujo-grafo';
+import { HILO_PRINCIPAL, TOPE_HILOS, claseDe, idDe, indicePorId, puertosDe, raicesSalida, aristasDeVuelta, padresSinVuelta, type PasoGrafo } from './flujo-grafo';
 
 /**
  * Un camino vivo de la inscripción. `h` es su nombre: 'p' el principal, o el id de la tarjeta
@@ -279,17 +279,23 @@ export function proximoDeEntrada<P extends PasoGrafo>(pasos: readonly P[], proxi
  * sigue mirando «cualquier borrador del lead», como siempre.
  */
 export function mensajeAnteriorDe(pasos: readonly PasoGrafo[], idx: number): number {
-  const vistos = new Set<string>();
-  let cur = pasos[idx] ? idDe(pasos[idx], idx) : null;
-  while (cur && !vistos.has(cur)) {
-    vistos.add(cur);
-    const pa = padreDe(pasos, cur);
-    if (!pa) return -1;
-    const j = indicePorId(pasos, pa.id);
-    const c = j >= 0 ? claseDe(pasos[j]) : null;
-    if (c === 'mensaje') return j;
-    if (c !== 'condicion' && c !== 'esperar' && c !== 'inicio') return -1;
-    cur = pa.id;
+  const desde = pasos[idx] ? idDe(pasos[idx], idx) : null;
+  if (!desde) return -1;
+  // ⚠️ SEXTA TANDA: CON VARIOS PADRES (sin las flechas que vuelven), el primero que se encuentra
+  // subiendo en el orden del array: el motor espera el borrador de UN mensaje, y no sabe por cuál de
+  // los caminos llegó este hilo. Una acción arriba corta ese camino, como siempre.
+  const vuelta = aristasDeVuelta(pasos);
+  const vistos = new Set<string>([desde]);
+  const cola = [desde];
+  while (cola.length) {
+    const cur = cola.shift()!;
+    for (const pa of padresSinVuelta(pasos, cur, vuelta)) {
+      const j = indicePorId(pasos, pa.id);
+      const c = j >= 0 ? claseDe(pasos[j]) : null;
+      if (c === 'mensaje') return j;
+      if (c !== 'condicion' && c !== 'esperar' && c !== 'inicio') continue;
+      if (!vistos.has(pa.id)) { vistos.add(pa.id); cola.push(pa.id); }
+    }
   }
   return -1;
 }

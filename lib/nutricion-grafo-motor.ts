@@ -21,8 +21,8 @@
 
 import {
   CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS,
-  claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, padreDe, elegirSalida,
-  normalizar, nuevoId, paralelosDeResultado,
+  claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida,
+  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
 } from './flujo-grafo';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
@@ -288,15 +288,22 @@ export function alcanzablesDesde(pasos: readonly PasoGrafo[], idx: number): numb
  * seguimientos de quien ya la recibió.
  */
 export function esPrimerPaso(pasos: readonly PasoGrafo[], idx: number): boolean {
-  const vistos = new Set<string>();
-  let cur = pasos[idx] ? idDe(pasos[idx], idx) : null;
-  while (cur && !vistos.has(cur)) {
-    vistos.add(cur);
-    const pa = padreDe(pasos, cur);
-    if (!pa) return true;
-    const p = pasos[indicePorId(pasos, pa.id)];
-    if (p && !esControl(p)) return false;
-    cur = pa.id;
+  const desde = pasos[idx] ? idDe(pasos[idx], idx) : null;
+  if (!desde) return true;
+  // ⚠️ SEXTA TANDA: POR TODOS LOS PADRES, MENOS LAS FLECHAS QUE VUELVEN. Una tarjeta puede tener
+  // varios: es la primera sólo si por NINGÚN camino desde la raíz hay un mensaje o una acción antes.
+  // Y la flecha de un «volver al principio» (lo que antes era un «Ir a», que no era un padre) no es lo
+  // de antes: sin sacarla, la bienvenida de un bucle dejaba de ser la primera.
+  const vuelta = aristasDeVuelta(pasos);
+  const vistos = new Set<string>([desde]);
+  const pila = [desde];
+  while (pila.length) {
+    const cur = pila.pop()!;
+    for (const pa of padresSinVuelta(pasos, cur, vuelta)) {
+      const p = pasos[indicePorId(pasos, pa.id)];
+      if (p && !esControl(p)) return false;
+      if (!vistos.has(pa.id)) { vistos.add(pa.id); pila.push(pa.id); }
+    }
   }
   return true;
 }
@@ -320,20 +327,30 @@ export function minutosAntesDeReunion(pasos: readonly PasoGrafo[], idx: number):
   const p = pasos[idx];
   if (!p) return null;
   const sube = claseDe(p) === 'mensaje';
-  const vistos = new Set<string>();
-  let cur = idDe(p, idx);
-  while (!vistos.has(cur)) {
-    vistos.add(cur);
-    const pa = padreDe(pasos, cur);
-    if (!pa) return null;
-    const padre = pasos[indicePorId(pasos, pa.id)];
-    if (!padre) return null;
-    const c = claseDe(padre);
-    if (c === 'esperar') return padre.espera?.modo === 'antes_reunion' ? Math.max(0, Number(padre.espera.minutos) || 0) : null;
-    if (!sube || c !== 'condicion') return null;
-    cur = pa.id;
+  // ⚠️ SEXTA TANDA: POR TODOS LOS PADRES (sin las flechas que vuelven). Si por ALGÚN camino cuelga de
+  // una espera «antes de la reunión», es un recordatorio: se vuelve a mirar la agenda al mandarlo (sin
+  // reunión por delante se cierra), que es la guarda que protege de «Mañana es tu reunión» sin reunión.
+  // Con varias, la de más minutos: re-ancla lo menos posible.
+  const vuelta = aristasDeVuelta(pasos);
+  const vistos = new Set<string>([idDe(p, idx)]);
+  const pila = [idDe(p, idx)];
+  let max: number | null = null;
+  while (pila.length) {
+    const cur = pila.pop()!;
+    for (const pa of padresSinVuelta(pasos, cur, vuelta)) {
+      const padre = pasos[indicePorId(pasos, pa.id)];
+      if (!padre) continue;
+      const c = claseDe(padre);
+      if (c === 'esperar') {
+        if (padre.espera?.modo === 'antes_reunion') max = Math.max(max ?? 0, Math.max(0, Number(padre.espera.minutos) || 0));
+        continue;
+      }
+      if (!sube || c !== 'condicion' || vistos.has(pa.id)) continue;
+      vistos.add(pa.id);
+      pila.push(pa.id);
+    }
   }
-  return null;
+  return max;
 }
 
 /**
