@@ -25,6 +25,7 @@
 // =============================================================================
 
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useRouter } from '@/app/_ui/Link';
 import { AGENTE_TOKEN_ARCHIVO } from '@/lib/agente-constantes';
 import { TEXTO_ALCANCE } from '@/lib/api-mako/alcance';
 import type { Alcance } from '@/lib/api-mako/tipos';
@@ -95,6 +96,7 @@ export function TutorialAgente({ actual: actualInicial, appUrl }: { actual: Toke
   // perdió genera otro, que deja sin efecto al anterior.
   const [actual, setActual] = useState<TokenAgenteVisible | null>(actualInicial);
   const [recien, setRecien] = useState<string | null>(null);
+  const router = useRouter();
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<Copiable | null>(null);
@@ -130,6 +132,15 @@ export function TutorialAgente({ actual: actualInicial, appUrl }: { actual: Toke
         setRecien(j.token as string);
         setActual({ pista: j.pista as string, alcance: j.alcance as Alcance });
         setVerTrato(false);
+        // ⚠️ LA PISTA QUE BAJÓ DEL SERVER QUEDÓ VIEJA, y el modal la vuelve a leer. Este
+        // componente vive adentro de un modal que se DESMONTA al cerrarse, y al reabrirlo
+        // arranca de nuevo con `actualInicial`, que es la foto de cuando se cargó la página:
+        // sin refrescar, quien acaba de generar su primer token cierra, reabre y ve otra vez
+        // «Generar token» (y si lo aprieta, revoca el que ya pegó en su máquina); quien rotó
+        // ve la pista del token que acaba de matar. Antes del 09/10/2026 pasaba lo mismo con
+        // el token entero. `refresh` no desmonta nada que esté abierto: `recien` sigue en
+        // pantalla hasta que se cierre.
+        router.refresh();
         return;
       }
       if (j?.necesitaConsentimiento) { setVerTrato(true); return; }

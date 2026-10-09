@@ -136,8 +136,27 @@ export async function acunarCon(
   const indice = await alm.indexar(hashDeToken(token), ws);
   if (indice !== 'ok') throw new Error('No se pudo guardar el token. Prueba de nuevo.');
   await alm.escribirSetting(ws, guardadoDeToken(token));
-  await alm.borrarIndicesEnClaro(ws);
+  await limpiarEnClaro(alm, ws);
   return { token, pista: pistaDe(token) };
+}
+
+/**
+ * La limpieza de las filas en claro, que NO puede tumbar lo que ya se escribió.
+ *
+ * ⚠️ Corre DESPUÉS del setting: a esa altura el token anterior ya está revocado y el nuevo
+ * existe sólo en esta llamada. Si un error de la limpieza subiera, el POST contestaría 500
+ * y el token nuevo se perdería sin que nadie lo vea — la persona quedaría sin ninguno que
+ * ande. Las filas que queden no autentican (el setting está en hash) y las borra la próxima
+ * rotación o el script de conversión. La implementación real ya traga los errores de la
+ * base (`borrarRoutingConPrefijo`), pero tira si el prefijo trae un comodín de LIKE: eso es
+ * un error de programación, y ni así vale el token de alguien.
+ */
+async function limpiarEnClaro(alm: AlmacenAgente, ws: number): Promise<void> {
+  try {
+    await alm.borrarIndicesEnClaro(ws);
+  } catch (e) {
+    console.error(`[agente-token] no pude borrar las filas en claro del ws ${ws}: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 /**
@@ -146,7 +165,7 @@ export async function acunarCon(
  */
 export async function revocarCon(alm: AlmacenAgente, ws: number): Promise<void> {
   await alm.escribirSetting(ws, '');
-  await alm.borrarIndicesEnClaro(ws);
+  await limpiarEnClaro(alm, ws);
 }
 
 /**

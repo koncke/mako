@@ -16,6 +16,7 @@
 //   · sin `borrarIndicesEnClaro` al rotar:                              1 fallo, 11 pases
 //   · el script escribiendo en el dry-run (sin el `return`):            1 fallo, 11 pases
 //   · el script logueando el token de cada fila en claro:               2 fallos, 10 pases
+// La revisión del mismo día sumó dos (14 en total), cada uno con su rotura en su comentario.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -31,6 +32,7 @@ import {
 import { convertirAgenteTokens, type IoConversion } from '../lib/agente-token-conversion';
 import { hashDeToken, pistaDe } from '../lib/api-mako/tokens-lista';
 import { alcanceDePista, alcanceDeToken, prefijoDeAlcance } from '../lib/api-mako/alcance';
+import { agenteSkillMarkdown } from '../lib/agente-skill';
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -128,6 +130,26 @@ test('revocar: nada autentica y la pantalla vuelve a «Genera tu token»', async
   await revocarCon(b.alm, 2);
   assert.equal(await wsDeTokenCon(b.alm, token), null);
   assert.equal(visibleDe(leerGuardado(b.settings.get(2))), null);
+});
+
+test('si la limpieza de las filas en claro TIRA, el token nuevo igual se entrega y autentica', async () => {
+  // Revisión del 09/10/2026: la limpieza corre DESPUÉS del setting, con el token anterior ya
+  // revocado. Si su error subía, el POST contestaba 500 y la persona se quedaba sin ningún
+  // token que ande. Probado rompiéndolo (sacando el try de `limpiarEnClaro`): 1 fallo.
+  const viejo = `mkoag_${'34'.repeat(24)}`;
+  const b = baseFalsa({ settings: { 6: viejo }, indice: { [viejo]: 6 } });
+  b.alm.borrarIndicesEnClaro = async () => { throw new Error('el prefijo no puede traer comodines de LIKE'); };
+  const errorOriginal = console.error;
+  console.error = () => {};
+  try {
+    const { token } = await acunarCon(b.alm, 6, 'proponer', azar);
+    assert.equal(await wsDeTokenCon(b.alm, token), 6, 'el token recién entregado no autentica');
+    assert.equal(await wsDeTokenCon(b.alm, viejo), null, 'el anterior siguió valiendo');
+    await revocarCon(b.alm, 6);
+    assert.equal(await wsDeTokenCon(b.alm, token), null);
+  } finally {
+    console.error = errorOriginal;
+  }
 });
 
 test('si el índice no queda del workspace, no se guarda un token que no resolvería', async () => {
@@ -253,4 +275,41 @@ test('ninguna función devuelve el texto plano: el setting sólo lo tocan el nú
   const tut = sinComentarios(leer('app/_components/TutorialAgente.tsx'));
   assert.match(tut, /setRecien\(j\.token as string\)/);
   assert.ok(!/tokenInicial/.test(tut), 'el tutorial volvió a recibir el token del server');
+});
+
+test('la pantalla recibe la PISTA del POST y se refresca: al reabrir el modal no vuelve la foto vieja', () => {
+  // Revisión del 09/10/2026. El modal que muestra el tutorial se DESMONTA al cerrarse y al
+  // reabrirlo arranca con la pista que bajó del server al cargar la página: sin el refresh,
+  // quien acaba de generar su primer token reabría y veía otra vez «Generar token» (y al
+  // apretarlo revocaba el que ya había pegado). Probado rompiéndolo: sin `router.refresh()`,
+  // 1 fallo; sin `pista` en la respuesta del POST, 1 fallo.
+  const ruta = sinComentarios(leer('app/api/agente/token/route.ts'));
+  assert.match(ruta, /\{ ok: true, token, pista, alcance \}/, 'el POST no devuelve la pista que la pantalla dibuja después');
+  assert.match(ruta, /'Cache-Control': 'no-store/, 'la única respuesta con el token en claro no puede quedar en un caché');
+  const tut = sinComentarios(leer('app/_components/TutorialAgente.tsx'));
+  const ini = tut.indexOf('if (j?.ok) {');
+  const fin = tut.indexOf('if (j?.necesitaConsentimiento)', ini);
+  assert.ok(ini > 0 && fin > ini && fin - ini < 600, `no encontré la rama del éxito del POST (largo ${fin - ini})`);
+  const exito = tut.slice(ini, fin);
+  assert.match(exito, /setActual\(\{ pista: j\.pista as string/);
+  assert.match(exito, /router\.refresh\(\)/, 'sin refrescar, al reabrir el modal vuelve la pista de cuando cargó la página');
+  assert.match(tut, /no se vuelve a mostrar/, 'el token se ve una vez y la pantalla no lo avisa');
+});
+
+test('la skill manda a sacar el token a un botón que EXISTE en la pantalla', () => {
+  // Revisión del 09/10/2026. La skill (la que se publica en el repo del plugin) le decía a
+  // Claude que mandara a la persona a Integraciones, «botón Copiar». Ese botón ya sólo existe
+  // la vez que se genera: a quien lo generó antes y no lo guardó, Claude lo mandaba a buscar
+  // un control que su pantalla no tiene. Probado rompiéndolo: con el texto de antes, 1 fallo;
+  // con «Generar otro» renombrado en la pantalla, 1 fallo.
+  const generica = agenteSkillMarkdown('https://ejemplo.test', null);
+  const ini = generica.indexOf('Dile de dónde sacarlo');
+  const fin = generica.indexOf('Dale el comando ya armado', ini);
+  assert.ok(ini > 0 && fin > ini && fin - ini < 600, `no encontré el paso de la skill (largo ${fin - ini})`);
+  const paso = generica.slice(ini, fin);
+  assert.ok(!/«Copiar»/.test(paso), 'la skill manda a un botón «Copiar» que sólo existe la vez que se genera el token');
+  const boton = /«([^»]+)»/.exec(paso)?.[1];
+  assert.equal(boton, 'Generar otro');
+  const tut = sinComentarios(leer('app/_components/TutorialAgente.tsx'));
+  assert.ok(tut.includes(`'${boton}'`), `la skill nombra «${boton}» y la pantalla no tiene ese botón`);
 });
