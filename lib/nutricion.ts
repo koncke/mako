@@ -171,6 +171,8 @@ export type PasoSecuencia = {
   ramas?: RamaCondicion[];
   casos?: CasoRespuesta[];
   si_no?: string | null;
+  /** Condición (cuarta tanda, punto 8): las flechas en paralelo del «Si no» (las de cada rama van en la rama). */
+  paralelos_si_no?: string[];
   destino?: DestinoIrA | null;
   /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
   revisar?: boolean;
