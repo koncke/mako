@@ -267,8 +267,16 @@ export type DropdownOption = { value: string; label: string; sub?: string; /** T
    */
   soloAcciones?: boolean;
   sutil?: boolean };
-/** Grupo con título para menús en columnas (ver prop `columns`). */
-export type DropdownGroup = { title: string; options: DropdownOption[] };
+/** Grupo con título para menús en columnas (ver prop `columns`) o por secciones (`secciones`). */
+export type DropdownGroup = { title: string; options: DropdownOption[];
+  /**
+   * Sólo con `secciones`: la sección es un ATAJO — sus opciones viven TAMBIÉN en otra sección
+   * («Más usadas» del selector de acciones de un flujo, 08/10/2026). En la raíz se ofrece como
+   * cualquiera; con texto en el buscador NO se dibuja, porque buscar aplana y cada resultado salía
+   * dos veces, una con el rótulo del atajo y otra con el de su sección de verdad. Opcional: ninguna
+   * de las pantallas de antes lo pasa, así que para ellas no cambia nada.
+   */
+  atajo?: boolean };
 
 type MenuPos = { top?: number; bottom?: number; left?: number; right?: number; width: number;
   /** El alto que queda entre el botón y el borde de la ventana, del lado donde abre. */
@@ -296,6 +304,8 @@ export function Dropdown({
   icono,
   varios,
   minimo = 0,
+  menuAncho,
+  menuAlto,
 }: {
   value: string;
   options?: DropdownOption[];
@@ -409,6 +419,17 @@ export function Dropdown({
   varios?: string[];
   /** Con `varios`: cuántos tienen que quedar marcados. El renglón que lo rompería no se apaga. */
   minimo?: number;
+  /**
+   * El TOPE de ancho y de alto del menú de lista (y del de secciones), en px. Sin pasar nada, los de
+   * siempre: 360 × 340. No aplica a `columns`, que tiene los suyos.
+   *
+   * Existe por el selector de acciones de un flujo (08/10/2026): 17 secciones y renglones de dos
+   * líneas (el título y qué hace) en 340 px de alto eran seis renglones a la vista. El alto sigue
+   * topado por el lugar que QUEDA del lado donde abre (`altoMaximoDelMenu`), así que pedir más no
+   * saca el menú de la ventana.
+   */
+  menuAncho?: number;
+  menuAlto?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -552,9 +573,10 @@ export function Dropdown({
   const coincide = (o: DropdownOption) => !q.trim() || norm(`${o.label} ${o.sub ?? ''} ${o.buscar ?? ''}`).includes(norm(q.trim()));
   const optsVisibles = (options ?? []).filter(coincide);
   const colsVisibles = columns?.map((col) => col.map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length));
-  // Las secciones con algo que mostrar, ya filtradas por la búsqueda.
-  const seccVisibles = secciones?.map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length);
   const buscando = q.trim().length > 0;
+  // Las secciones con algo que mostrar, ya filtradas por la búsqueda. Buscando, sin los ATAJOS: sus
+  // opciones también están en su sección de verdad (ver `atajo` en DropdownGroup).
+  const seccVisibles = secciones?.filter((g) => !(buscando && g.atajo)).map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length);
   const abierta = seccVisibles?.find((g) => g.title === seccion) ?? null;
   const sinResultados = q.trim().length > 0 && (
     secciones ? !seccVisibles?.length
@@ -600,7 +622,7 @@ export function Dropdown({
         )}
       </button>
       {open && pos && createPortal(
-        <div ref={menuRef} role="listbox" aria-multiselectable={varios ? true : undefined} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : 360, maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : altoMaximoDelMenu(480, pos.espacio, 200)) : altoMaximoDelMenu(340, pos.espacio), overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
+        <div ref={menuRef} role="listbox" aria-multiselectable={varios ? true : undefined} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : (menuAncho ?? 360), maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : altoMaximoDelMenu(480, pos.espacio, 200)) : altoMaximoDelMenu(menuAlto ?? 340, pos.espacio), overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
           {conBusqueda && (
             // Queda PEGADA arriba: en una lista larga el buscador tiene que
             // seguir a la vista mientras se scrollea, o deja de servir.

@@ -22,6 +22,23 @@ export const LEAD_DEL_EVENTO = 'evento';
  */
 export const LEAD_A_ELEGIR = 'a_elegir';
 
+/**
+ * Los parámetros que pone el FLUJO y no la persona, por operación, y de dónde salen.
+ *
+ * Hoy uno: el `respuesta` de `avisar_al_equipo`, que el motor llena con el texto literal del lead
+ * cuando el aviso sale de «Si responde» (lib/nutricion.ts, `correrAccionDeRespuesta`). El editor del
+ * paso (app/_components/EditorAccionMako.tsx) NO lo dibuja: un campo «Respuesta» a la vista invitaba
+ * a escribir algo que el motor pisa, y se reportó con la captura de «Avisar al equipo» (segunda tanda
+ * del 08/10/2026). Vive ACÁ, al lado de LEAD_DEL_EVENTO, para que el motor y el editor lean la MISMA
+ * lista: con dos, el día que el motor llene otro campo el editor lo seguiría ofreciendo.
+ *
+ * (El `leadId` del evento no está acá: ése sí se puede cambiar, y el editor lo resume en una línea.)
+ */
+export type FuenteDelFlujo = 'respuesta_del_lead';
+export const LLENA_EL_FLUJO: Readonly<Record<string, Readonly<Record<string, FuenteDelFlujo>>>> = {
+  avisar_al_equipo: { respuesta: 'respuesta_del_lead' },
+};
+
 export type DatosDelEvento = { leadId?: number | null };
 
 /** ¿La operación recibe un lead? Es lo que hace que un paso se pueda alimentar del evento. */
