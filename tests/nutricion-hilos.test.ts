@@ -154,14 +154,14 @@ test('⚠️ resolverControl devuelve las flechas de una espera AUNQUE la resolu
   // La reunión es en 30 min: la espera «1 h antes» ya venció y se sigue de largo.
   const ya = resolverControl(E, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 30 * 60_000 });
   assert.equal(ya.tipo, 'nodo');
-  assert.deepEqual(ya.tipo !== 'faltan_hechos' && ya.repartos, [{ destino: 'x', desdeMs: AHORA }], 'las flechas de una espera vencida se perdían');
+  assert.deepEqual(ya.repartos, [{ destino: 'x', desdeMs: AHORA }], 'las flechas de una espera vencida se perdían');
   // La reunión es en 3 h: la espera frena y sus flechas arrancan cuando vence.
   const frena = resolverControl(E, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 3 * HORA });
   assert.deepEqual(frena.tipo !== 'faltan_hechos' && frena.repartos, [{ destino: 'x', desdeMs: AHORA + 2 * HORA }]);
   // Una espera SIN siguiente y con flechas: este camino termina, las flechas arrancan al vencer.
   const sola = resolverControl([ctl('e', { nodo: 'esperar', espera: { modo: 'tiempo', minutos: 60 }, siguiente: null, paralelos: ['x'] }), msg('x', { siguiente: null })], 0, { hechos: null, ahoraMs: AHORA, reunionMs: null });
   assert.equal(sola.tipo, 'fin');
-  assert.deepEqual(sola.tipo !== 'faltan_hechos' && sola.repartos, [{ destino: 'x', desdeMs: AHORA + HORA }]);
+  assert.deepEqual(sola.repartos, [{ destino: 'x', desdeMs: AHORA + HORA }]);
 });
 
 test('el inicio nunca es un paso: no recibe un mensaje, se resuelve por su salida y no es «el primer paso»', () => {
