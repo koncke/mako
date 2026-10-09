@@ -531,7 +531,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
       <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4, lineHeight: 1.55 }}>
         El que tienes instalado es de una versión anterior, así que la prueba no diría nada útil:
         las verificaciones nuevas fallarían porque ese Pixel todavía no las envía.
-        <b> Copia el código de arriba, reemplázalo en tu página y vuelve aquí.</b>
+        <b> Pon la línea de arriba en lugar del código viejo y vuelve aquí.</b>
       </div>
     </div>
   );

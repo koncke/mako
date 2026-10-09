@@ -159,13 +159,15 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, cuotas = [], agenteActual, appUrl, pixel }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, cuotas = [], agenteActual, appUrl, pixel }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
   incidentes: Incidente[];
   /** <script> con el token del workspace, listo para copiar. null = admin sin impersonar. */
   snippetLanding?: string | null;
+  /** La línea del cargador del Pixel (lib/pixel-cargador.ts). null = admin sin impersonar. */
+  cargadorLanding?: string | null;
   /** El código pegado en su página es de una versión vieja (lo sabe el beacon). */
   landingVieja?: boolean;
   /** Cuota gratis consumida hoy por cada IA barata (gauge "cuánto queda"). */
@@ -495,6 +497,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           health={health} metaError={metaError} usage={usage}
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
           snippetLanding={snippetLanding}
+          cargadorLanding={cargadorLanding}
           pixel={pixel}
           agenteActual={agenteActual ?? null}
           appUrl={appUrl ?? ''}
@@ -814,10 +817,18 @@ const closeBtn: CSSProperties = { flex: 'none', width: 30, height: 30, border: '
 // Los pasos son una secuencia; las plataformas son ALTERNATIVAS del paso 2 (una
 // línea por plataforma, no una oración corrida con todas adentro).
 type PasoPegar = { paso: string; plataformas?: Array<[string, string]> };
+// ⚠️ DESDE EL 09/10/2026 LO QUE SE PEGA ES LA LÍNEA DEL CARGADOR (lib/pixel-cargador.ts),
+// no las ~2.226 líneas del código: sirve siempre el Pixel del día, así que nadie vuelve a
+// pegar nada cuando sale una versión. El código entero queda como alternativa («Código
+// completo») para quien no puede cargar un script externo.
 const DONDE_PEGAR: PasoPegar[] = [
-  { paso: 'Copia el código de aquí arriba.' },
+  { paso: 'Copia la línea de aquí arriba. Con ella, cada mejora del Pixel te llega sola.' },
   {
-    paso: 'Abre tu página y pégalo justo antes de </body>, en todas las páginas que quieras medir.',
+    // ⚠️ «EN LUGAR DEL CÓDIGO VIEJO»: quien ya tenía el código pegado y suma la línea sin
+    // sacarlo deja DOS Pixeles corriendo (el snippet no se protege de correr dos veces), y
+    // cada visita se cuenta doble. Si la copia vieja es de la 22, ningún aviso lo dice: para
+    // `versionEnHtml` eso es «al día» (gana la más vieja, y la 22 no es vieja).
+    paso: 'Abre tu página y pégala justo antes de </body>, en todas las páginas que quieras medir. Si ya tenías el código del Pixel, bórralo.',
     plataformas: [
       ['Lovable, Claude Code, o cualquier editor web por prompt', 'pídele "pega este script antes del </body>".'],
       ['Framer', 'Settings → Custom Code → End of <body>.'],
@@ -827,7 +838,9 @@ const DONDE_PEGAR: PasoPegar[] = [
       // ⚠️ El caso de los clientes de Código Inmobiliario (08/10/2026): su editor con IA
       // les TAPA partes del código con ******** y lo rechaza, o lo tienen en un .js
       // propio. El archivo se pone en la carpeta sin pasar por el chat (lib/pixel-archivo.ts).
-      [`Si tu editor tapa el código con ******** o lo tienes en un archivo`, `descárgalo, guárdalo en public/ y, antes del </body>, carga <script src="/${ARCHIVO_PIXEL}"></script>.`],
+      // Con la línea del cargador ese caso casi no aparece (no hay nada que tapar), y el
+      // camino sigue para quien no puede cargar un script de otro dominio.
+      [`Si tu editor tapa algo con ******** o no acepta un script externo`, `abre «Código completo» y descárgalo: guárdalo en public/ y, antes del </body>, carga <script src="/${ARCHIVO_PIXEL}"></script>.`],
     ],
   },
   { paso: 'Publica los cambios y entra a tu página una vez. En cuanto llegue la primera visita, esta integración se pone en verde.' },
@@ -938,8 +951,11 @@ type DatosPixel = {
 };
 
 
-function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
+function CodigoLanding({ snippet, cargador, pixel, elegida, onElegir }: {
   snippet: string | null;
+  /** La línea del cargador (`<script src=".../m.js?id=…" defer>`). Es lo PRIMERO que se
+   *  ofrece; `snippet` queda como alternativa. null = el server no la armó. */
+  cargador?: string | null;
   pixel?: DatosPixel;
   /** La landing elegida vive en el MODAL, no acá: el paso 4 se renderiza fuera
    *  de este componente y necesita la misma respuesta. */
@@ -947,6 +963,10 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
 }) {
   const routerLanding = useRouter();
   const [copiado, setCopiado] = useState(false);
+  const [lineaCopiada, setLineaCopiada] = useState(false);
+  // El código entero es la ALTERNATIVA: plegado hasta que alguien lo pide. Sin línea del
+  // cargador (no debería pasar) se muestra de entrada, porque es lo único que hay.
+  const [completoAbierto, setCompletoAbierto] = useState(!cargador);
   const [codigoAbierto, setCodigoAbierto] = useState(false);
   const [errorCopia, setErrorCopia] = useState(false);
   const [abierto, setAbierto] = useState(false);
@@ -963,6 +983,7 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
   // adentro; sin Clarity, es el que resuelve el server y no hay nada que pedir.
   const codigo = snippet;
   const tokens = useMemo(() => (codigo ? resaltar(codigo) : []), [codigo]);
+  const tokensLinea = useMemo(() => (cargador ? resaltar(cargador) : []), [cargador]);
 
   // "Verificar" = el "Probar conexión" de la landing. No hay API ajena contra la
   // cual probar: la única prueba honesta es que ya hayan llegado eventos.
@@ -977,7 +998,7 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
           // saber si está todo bien decía que sí sobre un snippet al que le falta
           // la mitad. Se responde lo que hay que hacer, no lo que llega.
           ? j.codigoViejo
-            ? { ok: false, text: 'Llegan eventos, pero el código instalado es de una versión anterior. Copia el de arriba y reemplázalo en tu página.' }
+            ? { ok: false, text: 'Llegan eventos, pero el código instalado es de una versión anterior. Pon la línea de arriba en lugar del código viejo.' }
             : { ok: true, text: `Recibiendo eventos${j.ultima ? ` (última hace ${fmtDuracion(j.ultima, new Date().toISOString())})` : ''}.` }
           : { ok: false, text: 'Aún no llega ningún evento. Instala el Pixel de MaKo en tu página y recárgala.' });
       } else {
@@ -1001,6 +1022,18 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const copiarLinea = async () => {
+    if (!cargador) return;
+    try {
+      await navigator.clipboard.writeText(cargador);
+      setErrorCopia(false);
+      setLineaCopiada(true);
+      setTimeout(() => setLineaCopiada(false), 1800);
+    } catch {
+      setErrorCopia(true);
+    }
   };
 
   const copiar = async () => {
@@ -1080,8 +1113,43 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
           landings={landings} onLandings={setLandings} rechazos={pixel?.gracias ?? []} />
       </Paso>
 
-      <Paso n={3} titulo="Copia el código y pégalo en tu página">
+      <Paso n={3} titulo={cargador ? 'Copia esta línea y pégala en tu página' : 'Copia el código y pégalo en tu página'}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
+      {/* ⚠️ LO PRIMERO ES LA LÍNEA DEL CARGADOR (09/10/2026, decisión de Martín). Una línea
+          que sirve el Pixel del día desde el server: nadie pega 2.226 líneas, nadie vuelve a
+          pegar nada cuando sale una versión, y no hay nada que un editor con IA pueda tapar
+          con ********. Es la MISMA barra oscura que el código, sin el plegado: una línea
+          entra entera. El código completo queda abajo, como alternativa. */}
+      {cargador && (
+        <div className="mk-key-row mk-key-row--code">
+          <div className="mk-key-codewrap">
+            {/* Entera, envolviendo: es una sola línea y se tiene que poder leer (el «…» del
+                plegado escondería justo el token). */}
+            <pre className="mk-key-code" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 'none', padding: '9px 0' }}>
+              <code style={{ fontFamily: MONO }}>
+                {tokensLinea.map((tk, n) => <span key={n} style={{ color: tk.c }}>{tk.t}</span>)}
+              </code>
+            </pre>
+          </div>
+          <IconBtn name={lineaCopiada ? 'check' : 'copy'} title={lineaCopiada ? '¡Copiado!' : 'Copiar la línea'} tone={lineaCopiada ? 'good' : 'dim'} onClick={copiarLinea} />
+          <IconBtn name="help" title={abierto ? 'Ocultar la ayuda' : '¿Dónde la pego?'} tone={abierto ? 'primary' : 'dim'} onClick={() => setAbierto((o) => !o)} />
+        </div>
+      )}
+
+      {/* La alternativa, para quien no puede cargar un script de otro dominio (o tiene el
+          Pixel en un .js propio). Un rótulo y no un párrafo: el porqué está acá. */}
+      {cargador && (
+        <button type="button" onClick={() => setCompletoAbierto((o) => !o)} aria-expanded={completoAbierto}
+          title="Para quien no puede cargar un script externo"
+          style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: 0, border: 0, background: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)' }}>
+          <span aria-hidden style={{ display: 'inline-block', transition: 'transform .15s ease', transform: completoAbierto ? 'rotate(90deg)' : 'none' }}>›</span>
+          Código completo
+        </button>
+      )}
+
+      {completoAbierto && (
+      <>
       {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.
           Antes eran tres piezas sueltas —un bloque de código, dos botones y un
           «Ver el código»— que no se parecían a nada del resto de la pantalla.
@@ -1120,9 +1188,12 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
             en la barra de una credencial el «?» vive adentro, al lado de su
             campo, y despliega los pasos abajo. Es el mismo gesto —pedir ayuda
             sobre esto que tengo acá— y tiene que estar en el mismo lugar. */}
-        <IconBtn name="help" title={abierto ? 'Ocultar la ayuda' : '¿Dónde lo pego?'} tone={abierto ? 'primary' : 'dim'} onClick={() => setAbierto((o) => !o)} />
+        {!cargador && <IconBtn name="help" title={abierto ? 'Ocultar la ayuda' : '¿Dónde lo pego?'} tone={abierto ? 'primary' : 'dim'} onClick={() => setAbierto((o) => !o)} />}
       </div>
-      {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — ábrelo con la flecha, selecciónalo y cópialo a mano.</span>}
+      </>
+      )}
+      {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos: selecciónalo y cópialo a mano.</span>}
+      </div>
 
       {estado && (
         <div style={{ fontSize: 12.5, fontWeight: 500, color: estado.ok ? 'var(--good)' : 'var(--bad)', lineHeight: 1.45 }}>
@@ -1248,13 +1319,13 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   );
 }
 
-function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, pixel, agenteActual, appUrl, onClose, onCambio, onRefetchUsage }: {
+function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, cargadorLanding, pixel, agenteActual, appUrl, onClose, onCambio, onRefetchUsage }: {
   i: Integracion; sev: 'good' | 'warn' | 'bad';
   /** Reemplaza la palabra del chip cuando el estado tiene un nombre propio ("Falta permiso"). */
   chipWord?: string;
   /** Permiso real de la agenda de Google (lo pide el board una vez, ver arriba). */
   gcal: GoogleCalendarStatus | null;
-  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; pixel?: DatosPixel; agenteActual?: TokenAgenteVisible | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
+  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; cargadorLanding?: string | null; pixel?: DatosPixel; agenteActual?: TokenAgenteVisible | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
   // El workspace de la pestaña, para que el OAuth de Google sepa a QUIÉN le está
   // conectando la agenda: es un redirect de página entera y el `?ws=` no viaja solo.
@@ -1435,7 +1506,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
             <TutorialAgente actual={agenteActual ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
             <>
-              <CodigoLanding snippet={snippetLanding ?? null} pixel={pixel}
+              <CodigoLanding snippet={snippetLanding ?? null} cargador={cargadorLanding ?? null} pixel={pixel}
                 elegida={landingModal} onElegir={setLandingModal} />
               {/* ⚠️ EL PASO 4 NO EXISTE HASTA QUE HAY LANDING ELEGIDA. Mientras
                   el estado vivía adentro de CodigoLanding —y el paso 4 se

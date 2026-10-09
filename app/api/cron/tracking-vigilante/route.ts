@@ -25,6 +25,7 @@ import { getSetting } from '@/lib/settings';
 import { LANDING_TOKEN_KEY, SNIPPET_VERSION, novedadesDesde, snippetDesactualizado, verificarPagina } from '@/lib/landing-token';
 import { noGrabanTodas } from '@/lib/replay-ficha';
 import { versionServida } from '@/lib/pixel-servido';
+import { PIXEL_MINIMO_AVISO } from '@/lib/pixel-aviso';
 import { CONFIG_KEY, parsearConfig, urlsDe } from '@/lib/landing-config';
 import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
 
@@ -244,8 +245,10 @@ export async function GET(req: NextRequest) {
                 // sigue «viejo» hasta que entra alguien, y este WhatsApp le pedía repegar
                 // algo que ya había repegado. Si la página ya sirve el código actual, no
                 // se nombra. Si no se pudo leer, manda la visita, como antes.
-                const servida = await versionServida(v.url, { minimo: SNIPPET_VERSION });
-                if (servida != null && servida >= SNIPPET_VERSION) { yaSirvenLaNueva++; continue; }
+                // ⚠️ Y el corte es el del aviso (PIXEL_MINIMO_AVISO), no la última versión:
+                // una página que sirve la 22, o la línea del cargador, no se nombra (09/10/2026).
+                const servida = await versionServida(v.url, { minimo: PIXEL_MINIMO_AVISO, actual: SNIPPET_VERSION });
+                if (servida != null && servida >= PIXEL_MINIMO_AVISO) { yaSirvenLaNueva++; continue; }
                 atrasadas.push(v.url);
                 versionesAtrasadas.push(typeof v.version === 'number' ? v.version : null);
                 // Las novedades se cuentan desde la página MÁS atrasada, no desde el
@@ -287,14 +290,22 @@ export async function GET(req: NextRequest) {
             await emitirDelCatalogo('tracking-desactualizado', {
               ws: w.id,
               dedupTtlMin: DEDUP_VIEJO_MIN,
-              dedupKey: `v${SNIPPET_VERSION}`,
+              // ⚠️ LA CLAVE SALE DEL MÍNIMO QUE PIDE REPEGAR, NO DE SNIPPET_VERSION (09/10/2026).
+              // Con `v${SNIPPET_VERSION}` subir a la v23 —que sólo renombra una variable— cambiaba
+              // la clave a 'v23' y, con `snippetDesactualizado` cortando en la versión actual,
+              // le mandaba este WhatsApp a cada negocio en la 22. El VALOR no cambió: era 'v22' y
+              // sigue siendo 'v22', así que nadie recibe un envío extra. Cambia solo cuando
+              // alguien sube PIXEL_MINIMO_AVISO a mano, que es cuando sí se pide algo nuevo.
+              dedupKey: `v${PIXEL_MINIMO_AVISO}`,
               texto: [
                 ...(razon ? [razon] : []),
                 ...(cuales ? [cuales] : []),
                 '',
                 `*Qué te estás perdiendo:* ${novedadesDesde(minima)}.`,
                 '',
-                `*Cómo se arregla* (2 minutos): entra aquí, elige ${atrasadas.length > 1 ? 'cada página' : 'esa página'}, copia el código y vuelve a pegarlo donde estaba.`,
+                // El arreglo es la línea del cargador (lib/pixel-cargador.ts): se pega una vez y
+                // sirve siempre el Pixel del día, así que este mensaje no vuelve a hacer falta.
+                `*Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en ${atrasadas.length > 1 ? 'cada página' : atrasadas.length === 1 ? 'esa página' : 'tu página'} en lugar del código viejo. Con esa línea no vuelves a actualizar nada.`,
                 linkLanding(w.id),
               ].join('\n'),
             });

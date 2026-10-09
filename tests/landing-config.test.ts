@@ -367,7 +367,8 @@ test('⚠️ CABLEADO: los productos y las páginas bajan del SERVER, no de una 
 test('CABLEADO: el paso 2 está montado como el 2, y comparte las páginas con el 1', () => {
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
   assert.ok(/<Paso n=\{2\} titulo="¿Qué producto vende\?">/.test(board), 'el producto es el paso 2');
-  assert.ok(/<Paso n=\{3\} titulo="Copia el código/.test(board), 'el código es el 3');
+  // Desde el 09/10/2026 el paso 3 ofrece primero la LÍNEA del cargador (lib/pixel-cargador.ts).
+  assert.ok(/<Paso n=\{3\} titulo=\{cargador \? 'Copia esta línea/.test(board), 'el código es el 3');
   // ⚠️ El MISMO estado de páginas para los dos pasos: con una copia en cada uno,
   // guardar en el 2 dejaba al 1 mostrando la configuración vieja.
   assert.ok(/<SelectorLanding elegida=\{elegida\} onElegir=\{onElegir\} landings=\{landings\} onLandings=\{setLandings\} \/>/.test(board),

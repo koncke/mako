@@ -233,7 +233,7 @@ export function MapaDeCalor() {
   if (errorPaginas) return <ErrorState titulo="No se pudieron leer tus páginas" detalle="Nada de lo de abajo se puede afirmar todavía." accion={{ label: 'Volver a intentar', onClick: () => void cargarPaginas() }} detalleTecnico={errorPaginas} />;
   if (!paginas) return <SkeletonLines lines={6} />;
   if (!paginas.length) {
-    return <EmptyState titulo="Todavía no hay páginas" detalle="Elige tu página en el Pixel de MaKo y vuelve a pegar el código: los toques empiezan a llegar solos." accion={{ label: 'Ir al Pixel', href: RUTA_PIXEL }} />;
+    return <EmptyState titulo="Todavía no hay páginas" detalle="Elige tu página en el Pixel de MaKo y pega su línea: los toques empiezan a llegar solos." accion={{ label: 'Ir al Pixel', href: RUTA_PIXEL }} />;
   }
 
   const pag = paginas.find((p) => p.url === url) ?? null;
@@ -280,7 +280,7 @@ export function MapaDeCalor() {
         <EmptyState
           titulo="Todavía no hay toques aquí"
           detalle={version != null && version < PIXEL_PUNTO_DESDE
-            ? 'El código de esta página es anterior al mapa de calor. Vuelve a pegarlo y los toques empiezan a llegar.'
+            ? 'El código de esta página es anterior al mapa de calor. Pon la línea del Pixel en su lugar y los toques empiezan a llegar.'
             : `Cuando alguien toque esta página en ${disp === 'movil' ? 'un celular' : 'una computadora'}, aparece aquí.`}
           accion={version != null && version < PIXEL_ANCLA_DESDE ? { label: 'Actualizar el código', href: RUTA_PIXEL } : undefined}
         />

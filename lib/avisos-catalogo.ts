@@ -578,8 +578,11 @@ Conviene que le marques tú: +52 55 4874 2149
     // del formulario de opt-in) no le llega nunca y nadie tiene forma de notarlo.
     // Por eso el aviso dice QUÉ se está perdiendo y no solo «actualizá»: sin eso
     // es una tarea sin motivo, y una tarea sin motivo no la hace nadie.
-    disparador: 'Cron diario: el beacon reporta una versión de snippet anterior a la actual (SNIPPET_VERSION).',
-    ejemplo: `🟡 Tu página tiene un código viejo del Pixel y por eso no graba las visitas. *Qué te estás perdiendo:* el mapa de calor de tu página y la grabación de cada visita. *Cómo se arregla* (2 minutos): entra aquí, elige esa página, copia el código y vuelve a pegarlo donde estaba. — MaKo`,
+    // ⚠️ El corte es PIXEL_MINIMO_AVISO y no SNIPPET_VERSION desde el 09/10/2026: subir la
+    // versión del código ya no le manda este mensaje a todos; sólo subir el mínimo, a mano.
+    // Y el arreglo que propone es la línea del cargador, que no se vuelve a pegar nunca.
+    disparador: 'Cron diario: el beacon reporta una versión del Pixel anterior al mínimo que pide repegar (PIXEL_MINIMO_AVISO).',
+    ejemplo: `🟡 Tu página tiene un código viejo del Pixel y por eso no graba las visitas. *Qué te estás perdiendo:* el mapa de calor de tu página y la grabación de cada visita. *Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en esa página en lugar del código viejo. Con esa línea no vuelves a actualizar nada. — MaKo`,
   },
   {
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',

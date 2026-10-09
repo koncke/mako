@@ -28,7 +28,9 @@ const AL_DIA_MS = 10 * 60_000;
 const OTRO_MS = 30_000;
 const cache = new Map<string, { v: number | null; hasta: number }>();
 
-export async function versionServida(url: string, opts: { minimo?: number; plazoMs?: number } = {}): Promise<number | null> {
+// `actual` es SNIPPET_VERSION, y lo pasa quien la conoce: una página con la línea del
+// cargador (lib/pixel-cargador.ts) sirve siempre esa versión (`versionEnHtml`).
+export async function versionServida(url: string, opts: { minimo?: number; plazoMs?: number; actual?: number } = {}): Promise<number | null> {
   const k = clavePagina(url);
   if (!k) return null;
   const minimo = opts.minimo ?? PIXEL_MINIMO_AVISO;
@@ -41,7 +43,7 @@ export async function versionServida(url: string, opts: { minimo?: number; plazo
       htmlDePagina(url),
       new Promise<never>((_, rechazar) => { plazo = setTimeout(() => rechazar(new Error('plazo')), opts.plazoMs ?? 5_000); }),
     ]);
-    v = versionEnHtml(html);
+    v = versionEnHtml(html, opts.actual ?? minimo);
   } catch {
     v = null;
   } finally {

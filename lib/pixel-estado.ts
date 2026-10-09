@@ -17,7 +17,7 @@
 // =============================================================================
 import 'server-only';
 import { getSetting } from './settings';
-import { SNIPPET_VERSION_KEY } from './landing-token';
+import { SNIPPET_VERSION, SNIPPET_VERSION_KEY } from './landing-token';
 import { CONFIG_KEY, parsearConfig, urlsDe } from './landing-config';
 import { PAGINAS_KEY, parsearPaginas } from './landing-paginas';
 import { versionServida } from './pixel-servido';
@@ -50,7 +50,9 @@ export async function estadoPixel(opts: { minimo?: number } = {}) {
   const servidas: Record<string, number | null> = {};
   await Promise.all(paraMirar(base).map(async (url) => {
     const k = clavePagina(url);
-    if (k) servidas[k] = await versionServida(url, { minimo });
+    // `actual`: una página con la línea del cargador (lib/pixel-cargador.ts) sirve siempre
+    // la versión de hoy, así que se lee como al día aunque sus visitas digan otra cosa.
+    if (k) servidas[k] = await versionServida(url, { minimo, actual: SNIPPET_VERSION });
   }));
   return veredictoPixel({ ...base, servidas });
 }

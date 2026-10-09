@@ -158,9 +158,11 @@ test('el snippet lleva versión, y algo la mira cuando se queda vieja', () => {
   // fail-closed y el opt-in se rechaza con 400: el snippet queda MUDO y la
   // pantalla lo muestra igual de lindo. Si agregás algo nuevo al snippet, sumá
   // acá su aserción: lo que no se afirma es lo próximo que se va a romper.
+  // Desde la v23 la variable se llama `CUENTA` (el editor con IA de un cliente tapaba
+  // `var TOKEN` con ********). Es el mismo token y la misma aserción.
   assert.ok(
-    /var TOKEN = '\$\{token\}'/.test(lib),
-    'el TOKEN dejó de interpolarse: el snippet sale sin identificar el workspace y no mide ni captura nada',
+    /var CUENTA = '\$\{token\}'/.test(lib),
+    'el token dejó de interpolarse: el snippet sale sin identificar el workspace y no mide ni captura nada',
   );
 
   const beacon = leer('../app/api/track/vsl/route.ts');
@@ -169,7 +171,9 @@ test('el snippet lleva versión, y algo la mira cuando se queda vieja', () => {
   // La comparación vive en `snippetDesactualizado()` — sin server-only alrededor
   // del dato, y con UN solo lugar que decide «esto quedó viejo»: lo consumen el
   // cron (para el WhatsApp) y la pantalla (para el chip). Dos copias divergirían.
-  assert.ok(/instalada < SNIPPET_VERSION/.test(lib), 'nadie compara la instalada contra la actual: la versión sola no avisa nada');
+  // ⚠️ Desde el 09/10/2026 «viejo» corta en PIXEL_MINIMO_AVISO, no en la versión actual:
+  // con la actual, la v23 (un renombre) le mandaba el WhatsApp a cada negocio en la 22.
+  assert.ok(/viejo: instalada < PIXEL_MINIMO_AVISO/.test(lib), 'nadie compara la instalada contra el mínimo que pide repegar: la versión sola no avisa nada');
   const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
   assert.ok(/snippetDesactualizado\(\)/.test(cron), 'el cron tiene que preguntar por el mismo lugar que la pantalla');
   assert.ok(/tracking-desactualizado/.test(cron), 'falta el aviso por WhatsApp');
@@ -393,7 +397,10 @@ test('el panel usa las piezas de la casa, no HTML crudo', () => {
 
 test('el código usa LA MISMA barra que una credencial, no una pieza propia', () => {
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
-  const i = board.indexOf('mk-key-row mk-key-row--code');
+  // La barra del código COMPLETO (la plegable). Desde el 09/10/2026 la primera barra
+  // oscura es la de la línea del cargador, que va arriba (tests/pixel-cargador.test.ts).
+  const i = board.indexOf('mk-key-row mk-key-row--code${codigoAbierto');
+  assert.ok(i > 0, 'no encontré la barra del código completo');
   const bloque = board.slice(i, i + 2600);
 
   // Mismo esqueleto que `.mk-key-row`: contenido a la izquierda, acciones
@@ -454,7 +461,8 @@ test('la barra del código arranca PLEGADA y la ayuda es su cuarto botón', () =
   assert.ok(/--code\.is-abierta \{[^}]*align-items: flex-start/.test(css.replace(/\n/g, '')), 'abierta, los íconos van ARRIBA y no centrados contra el bloque');
 
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
-  const j = board.indexOf('mk-key-row mk-key-row--code');
+  const j = board.indexOf('mk-key-row mk-key-row--code${codigoAbierto');
+  assert.ok(j > 0, 'no encontré la barra del código completo');
   const barra = board.slice(j, board.indexOf('{errorCopia', j));
   const botones = barra.match(/<IconBtn/g) ?? [];
   // TRES desde que verificar se mudó al desplegable: chevron, copiar y ayuda.
@@ -462,7 +470,12 @@ test('la barra del código arranca PLEGADA y la ayuda es su cuarto botón', () =
   // puede pegar (su editor con IA lo tapa con ********; lib/pixel-archivo.ts). Ese
   // botón se dibuja sólo si el snippet tiene la forma esperada.
   // La ayuda sigue siendo el ÚLTIMO botón de la barra y no una fila aparte.
+  // ⚠️ Desde el 09/10/2026 la ayuda se dibuja acá sólo si NO hay línea del cargador
+  // (`!cargador &&`): con la línea, el «?» vive en SU barra, que es lo que se pega.
   assert.equal(botones.length, 4, `la barra tiene que tener 4 botones y tiene ${botones.length}`);
+  const k = board.indexOf('mk-key-row mk-key-row--code">');
+  const barraLinea = board.slice(k, board.indexOf('</div>\n      )}', k));
+  assert.ok(k > 0 && /onClick=\{copiarLinea\}/.test(barraLinea) && /name="help"/.test(barraLinea), 'la barra de la línea del cargador tiene que tener copiar y la ayuda');
   assert.ok(barra.lastIndexOf('<IconBtn') === barra.indexOf('<IconBtn name="help"'), 'la ayuda dejó de ser el último botón de la barra');
   assert.ok(/name="help"/.test(barra), 'el «?» va DENTRO de la barra, no en una fila aparte debajo');
 });
@@ -869,7 +882,7 @@ test('verificar pregunta por LA PÁGINA elegida, no por el workspace', () => {
   // La versión sale de la visita MÁS RECIENTE que la traiga: si repegaron el
   // código hace una hora, eso manda sobre 300 visitas viejas.
   assert.ok(/filas\.find\(\(r\) => r\.sv != null\)/.test(lib), 'la versión tiene que salir de la visita más reciente');
-  assert.ok(/version < SNIPPET_VERSION/.test(lib), 'sin comparar contra la actual no puede decir «vieja»');
+  assert.ok(/version < PIXEL_MINIMO_AVISO/.test(lib), 'sin comparar contra el mínimo que pide repegar no puede decir «vieja»');
 
   const beacon = leer('../app/api/track/vsl/route.ts');
   assert.ok(/sv: Number\.isFinite/.test(beacon), 'sin guardar sv por visita no hay versión por página');
