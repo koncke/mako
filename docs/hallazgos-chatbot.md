@@ -1317,6 +1317,23 @@ no suena. Para probar un gesto, esbuild (el del clon) arma el componente con Rea
 entra por `app/_ui/Link`, lee `process.env` al importar y sin eso la página queda en blanco. Para grabar,
 los flags del micrófono falso de arriba. Ni un POST a producción, y sin el `turbopack.root`.
 
+### Dos guards de OTRAS áreas leían lo que esta parte tocó, y sólo los vio el `npm test` completo [proceso]
+
+Los tests de los archivos tocados daban 124/0; la suite entera, 6400/2. Los dos rojos eran guards que leen
+fuente de otra área:
+
+- **Un prompt que CITA el voseo para prohibirlo cae en el guard del voseo** (`tests/puente-panel-copy.test.ts`
+  barre `lib/` entero): «Nada de voseo («tenés», «querés»)» en `lib/mako-redacta.ts` lo frenó. Se nombran
+  las formas neutras («tienes», «quieres»), nunca las prohibidas.
+- **La línea por mensaje rompía un guard de Comunicación**: `tests/lineas-whatsapp.test.ts` exigía
+  `const lineaSec = sec.instance_name;` literal en la rama del no oficial de `lib/nutricion.ts`. Se mudó a
+  la forma nueva (`lineaDelPaso(paso) ?? sec.instance_name`), probado rompiéndolo (15/1).
+
+La regla: antes de dar por cerrada una parte que toca `lib/nutricion.ts` o un prompt, `grep` de la ruta en
+`tests/` (`leer('lib/nutricion.ts')`) dice qué otros guards la miran; correr sólo los propios no los ve.
+
+**Vive en:** `tests/lineas-whatsapp.test.ts` · `tests/puente-panel-copy.test.ts` · `lib/mako-redacta.ts`
+
 ### Lo que quedó sin hacer (parte «whatsapp»)
 
 - **Las Notificaciones con la tarjeta MAKO y el editor nuevo (MaKo en WhatsApp 3)**: su lienzo es
