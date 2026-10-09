@@ -68,11 +68,19 @@ export function escapeHtml(s: string): string {
  *
  * El `[^*\n]` (y sus gemelos) es lo que impide que un asterisco suelto a principio
  * de renglón —una viñeta— se coma medio párrafo hasta encontrar el siguiente.
+ *
+ * ⚠️ LOS BORDES DE LA ITÁLICA INCLUYEN LOS SIGNOS DEL ESPAÑOL (revisión de la segunda tanda
+ * del Chatbot, 09/10/2026). El editor de email y «Probar» pintan `¡_Hola_!`, `«_esto_»` y
+ * `"_aquello_"` en itálica (sus renderers no exigen bordes), y el mail le llegaba al lead con los
+ * guiones bajos a la vista: acá antes de la marca sólo valían el espacio y el paréntesis. Se suman
+ * `¡ ¿ « “` antes y `» ”` después, y la comilla recta como `&quot;` — esta función opera sobre
+ * texto YA escapado, y un `"` crudo además calzaría con las comillas de los atributos que mete
+ * `linkify`. Vale para todos los mails (avisos y broadcasts): sólo traduce más itálicas legítimas.
  */
 export function marcasAHtml(escaped: string): string {
   return escaped
     .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
-    .replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s.,;:!?)])/g, '$1<em>$2</em>')
+    .replace(/(^|[\s(¡¿«“]|&quot;)_([^_\n]+)_(?=$|[\s.,;:!?)»”]|&quot;)/g, '$1<em>$2</em>')
     .replace(/~([^~\n]+)~/g, '<span style="text-decoration:line-through;">$1</span>');
 }
 
