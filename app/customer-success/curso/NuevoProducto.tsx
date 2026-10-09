@@ -22,12 +22,19 @@
 //
 // ⚠️ VA AFUERA DEL CURSO (lo monta ./CursoApp.tsx al lado de ./QuitarEtapa.tsx): adentro, la hoja del
 //    curso le saca el fondo y el borde a los botones de un diálogo, y `Modal` no se portalea.
+//
+// ⚠️ EL NOMBRE PERDÍA EL FOCO CON CADA LETRA (audio del 08/10/2026 a la noche, punto 1). No era un
+//    componente definido adentro de otro ni una `key`: era el `onCerrar` de una flecha nueva por render,
+//    del que depende el efecto de foco de `Modal`. Va `useCerrarEstable`, y el foco al abrir con
+//    `useFocoInicial` (el `autoFocus` cae sobre la caja todavía escondida). El porqué medido, en
+//    ./dialogo-foco.ts.
 
 import { useId, useState } from 'react';
 import { Button, Field, Input, Modal } from '@/app/_ui';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { crearServicioAction } from '../actions';
+import { useCerrarEstable, useFocoInicial } from './dialogo-foco';
 
 /** El curso del producto `id` (el `?ws=` lo pone `conWs`). */
 const rutaDelCurso = (id: number) => `/customer-success/curso?producto=${id}`;
@@ -39,6 +46,9 @@ export function NuevoProducto({ onCerrar }: { onCerrar: () => void }) {
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState('');
   const n = nombre.trim();
+  // Mientras se crea no se cierra: el diálogo espera la página nueva («Creando…»).
+  const cerrar = useCerrarEstable(onCerrar, creando);
+  useFocoInicial(id);
 
   const crear = async () => {
     if (!n || creando) return;
@@ -56,7 +66,7 @@ export function NuevoProducto({ onCerrar }: { onCerrar: () => void }) {
   };
 
   return (
-    <Modal titulo="Nuevo producto" ancho={440} onCerrar={() => { if (!creando) onCerrar(); }}
+    <Modal titulo="Nuevo producto" ancho={440} onCerrar={cerrar}
       pie={(
         <>
           <Button variant="secondary" disabled={creando} onClick={onCerrar}>No crear</Button>
@@ -64,7 +74,7 @@ export function NuevoProducto({ onCerrar }: { onCerrar: () => void }) {
         </>
       )}>
       <Field label="Nombre" required htmlFor={id} hint="También aparece en el CRM.">
-        <Input id={id} value={nombre} autoFocus placeholder="Nombre del producto" disabled={creando} maxLength={60}
+        <Input id={id} value={nombre} placeholder="Nombre del producto" disabled={creando} maxLength={60}
           onChange={(e) => { setNombre(e.target.value); setError(''); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void crear(); } }} />
       </Field>

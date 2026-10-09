@@ -59,6 +59,7 @@ import {
 } from './curso-ficha-lectura';
 import { CabezaAvance, CeldasAvance, EstiloAvance } from './curso/FilaAvance';
 import { BotonInvitar } from './curso/InvitarAlCurso';
+import { accesoEnProducto } from '@/lib/curso-invitar-reglas';
 import RespuestaTarea from './curso/RespuestaTarea';
 
 type Carga = 'cargando' | { ok: false; error: string } | { ok: true; curso: CursoDeCliente };
@@ -132,7 +133,7 @@ export function FichaCurso({ leadId, entrega }: {
           <Avance leadId={leadId} curso={curso} prod={prod} editar={editar} />
         </div>
         <aside className="fcu-lado">
-          {(curso.acceso || curso.errorAcceso) && <Acceso leadId={leadId} curso={curso} editar={editar} />}
+          {(curso.acceso || curso.errorAcceso) && <Acceso leadId={leadId} curso={curso} editar={editar} productoId={prod?.productoId ?? null} />}
           {/* Los permisos (item 9, 07/10/2026): qué módulos ve. Sólo con el acceso LEÍDO: con la
               lectura caída no se sabe qué tiene, y unas casillas sobre «no sé» guardarían encima. */}
           {curso.acceso && (curso.productos?.length ?? 0) > 0 && <Permisos leadId={leadId} curso={curso} editar={editar} />}
@@ -416,8 +417,13 @@ function Bloque({ b }: { b: BloqueRespuesta }) {
  * `estadoDeInvitacion` y `fraseInvitacion` (./curso-ficha-lectura.ts), las MISMAS que la
  * columna «Acceso» de la tabla Avance: con dos redacciones, la ficha y la tabla dirían cosas
  * distintas del mismo cliente.
+ *
+ * ⚠️ LA INVITACIÓN SE MIRA DESDE EL CURSO ELEGIDO ARRIBA (`productoId`, 09/10/2026, puntos 6 y 7 del
+ * audio del 08/10 a la noche), igual que la tabla Avance de ese curso: invitado a OTRO curso es «Sin
+ * invitar» acá, e «Invitar» invita a ÉSTE (el mail nombra sólo éste y el acceso pasa a abrirlo). El
+ * link, los ingresos, copiar, mandar y cortar siguen siendo del acceso entero: es uno por cliente.
  */
-function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeCliente; editar: Editar }) {
+function Acceso({ leadId, curso, editar, productoId }: { leadId: number; curso: CursoDeCliente; editar: Editar; productoId: number | null }) {
   const copiado = useOkFlash();
   const enviado = useOkFlash();
   const [ocupado, setOcupado] = useState<'copiar' | 'mandar' | 'cortar' | 'habilitar' | null>(null);
@@ -509,7 +515,9 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
     }
   }
 
-  const invitacion = a ? estadoDeInvitacion(a) : null;
+  /** El acceso visto desde el curso elegido (ver la cabecera). Sin curso elegido, el de siempre. */
+  const desde = a && productoId != null ? accesoEnProducto(a, productoId) : a;
+  const invitacion = desde ? estadoDeInvitacion(desde) : null;
 
   return (
     <section className="fcu-sec">
@@ -537,7 +545,8 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
               <div className="fcu-bots">
                 {/* «Reenviar invitación» manda el link de la versión VIGENTE: después de cortar y
                     habilitar, el que le llegó antes ya no abre. */}
-                <BotonInvitar leadId={leadId} nombre={curso.nombre} emailCrm={curso.emailCrm} acceso={a}
+                <BotonInvitar leadId={leadId} nombre={curso.nombre} emailCrm={curso.emailCrm} acceso={desde}
+                  productoId={productoId ?? undefined}
                   variant={invitacion.tipo === 'invitado' ? 'secondary' : 'primary'}
                   areas={curso.areas} lideres={curso.lideres}
                   onLideres={(l) => editar((c) => ({ ...c, lideres: l }))}

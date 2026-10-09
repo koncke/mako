@@ -5027,3 +5027,179 @@ todos los lectores de esa tabla y cada uno decide** (guard en `tests/curso-comen
   `beforeunload`; una imagen en la consigna vista por el alumno; Calendly, Cal.com y HubSpot
   insertados con cuentas reales; un hilo de clase con la clase cerrada; la invitación de un negocio
   con dominio y una real por WhatsApp.
+
+## El feedback del audio del 08/10 a la noche: acceso por producto y la vista del alumno (09/10/2026)
+
+La fuente es [feedback-curso-08oct-noche.md](feedback-curso-08oct-noche.md): la segunda prueba del curso
+con Leandro (ws10, productos «Fiesta Music» y «Service Delivery & Ops»). Tres pistas en paralelo
+(acceso e invitación, vista del alumno, editor), una revisión adversarial y un cierre que aplicó sus
+arreglos. **Mig 0232 APLICADA** el 09/10 ~14:30 (`curso_accesos.productos bigint[]`, sin backfill; va
+ANTES del deploy porque el código nuevo la lee). Sin commitear al cierre (~16:15). Verificado: typecheck
+acotado de 1509 archivos con 0 errores; 1025/1025 en `curso*`, `alumno*`, `comunidad*`,
+`crm-curso-al-ganar` y `cs-*`, y 64/64 en las guardas generales. Nada de la invitación por producto se
+vio en la app real.
+
+### Lo que se arregló, punto por punto
+
+1. **El nombre del producto perdía el foco con cada letra**: `onCerrar` estable (`useCerrarEstable`) y
+   el foco cuando el campo se ve (`useFocoInicial`), en `app/customer-success/curso/dialogo-foco.ts`.
+   También `QuitarEtapa` y la pregunta de salir de `LeccionEditable`.
+2. **La escala y las estrellas, centradas** (`TareaAlumno.tsx`, `.cpt-escala-caja`).
+3. **El quiz dice el resultado**: «✓ Correcta / ✗ Incorrecta», y con el quiz cerrado la respuesta
+   correcta (`revelarCorrectas`, en las dos puertas del alumno).
+4. **Un solo scroll en la lección del alumno** (`unSoloScroll`: sólo el portal y la vista previa).
+5. **La vista previa corrige el quiz como el server** (`conCorrectasDelEquipo`). La pista lo escribió
+   y el cierre lo enchufó en `app/customer-success/curso/vista/page.tsx`.
+6. **El mail nombra sólo el curso desde el que se invita**: el editor, la tarjeta del kanban, la tabla
+   Avance, la ficha y la invitación automática al ganar pasan el producto.
+7. **El acceso guarda qué cursos abre** (mig 0232). El portal, la comunidad, los mensajes y la IA ven
+   sólo eso. En la comunidad también los MIEMBROS, que se le habían escapado a la pista.
+8. **El pie**: «Este curso es personal. © {curso}», nunca MaKo.
+9. **El formulario de invitar es un borrador** en `sessionStorage`, por workspace y producto.
+10. **Si el correo no sale por configuración, dice de quién fue** (`correoQueFallo`) y monta ahí
+    mismo el formulario de Integraciones.
+11. **El teléfono dice «Opcional. Sin él, sólo por correo.»** En el código ya era opcional.
+12. **«Sólo aparecen los clientes ganados.»** bajo la lista de invitar.
+
+### Lo que se decidió por default (a confirmar por Martín)
+
+- **`productos` NULL = «todos sus productos»**, lo de antes, y sin backfill. **La lista la escribe sólo
+  una invitación que SALIÓ**, en la misma escritura que `invitacion_enviada_at`. **Invitar SUMA el
+  producto y nunca reemplaza.** Un NULL se achica a `[X]` sólo si nunca se le entregó nada (ni mail, ni
+  WhatsApp con el link, ni ingresos). Sacar un curso es «Quitar de este producto» o «Cortar acceso».
+- **La ficha mira la invitación DESDE EL CURSO ELEGIDO ARRIBA**: la frase y el botón, igual que la
+  tabla Avance de ese curso. El link, los ingresos, copiar, mandar y cortar siguen siendo del acceso
+  entero (es uno por cliente).
+- **La ficha muestra los cursos de los que es CLIENTE**, no los que ve. Agendar una llamada vale sobre
+  cualquiera de ellos, y sus mensajes no le nombran clases de un curso que su acceso no abre. **El mail
+  del líder de un área nombra lo que su link abre**, que se rige por el acceso del cliente.
+- **La respuesta correcta sólo con el quiz cerrado** (aprobado o sin intentos), y nunca en una clase
+  POR ÁREA: ahí revelarla abriría el examen de las otras áreas.
+- **`unSoloScroll` es una prop y sólo la pasa el portal**: Conocimientos y el editor siguen como
+  estaban. El video queda pegado arriba sólo con el texto al costado y en escritorio.
+- **El pie no lleva año.** El borrador va en `sessionStorage` y no en `localStorage` (son datos de una
+  persona). «También por WhatsApp» no se guarda y vuelve siempre apagada.
+- **El correo «ahí mismo» aparece cuando el envío ya falló**: verificarlo antes leería la misma key de
+  MaKo que a veces llega y a veces no. «Falló el correo de MaKo» (era «No salió por MaKo», que se leía
+  como «no se mandó por MaKo»).
+- **El foco se arregló en los archivos de la tab Curso, no en `app/_ui/Modal.tsx`**, que es donde vive
+  la causa: Modal lo usan 47 diálogos y no era de esta pista.
+- **Riesgo raro aceptado**: dos invitaciones del mismo cliente a DOS productos en el mismo instante. La
+  segunda contesta «ya invitado» sin mandar mail. Nunca salen dos.
+
+### Hallazgos
+
+- **«RESEND_API_KEY no configurada» no era la key del negocio.** El diagnóstico obvio, «al negocio le
+  falta su key», era el equivocado: Leandro cargó la suya y le salió lo mismo. Sin remitente, la
+  invitación sale por MaKo, y la key de la PLATAFORMA no está en Vercel production. Llega hidratando la
+  credencial del ws1 al arrancar, y `lib/resend.ts:37` la lee de `process.env` sin esperar esa carga
+  (`envCred` existe para eso). «Lo arregló» cargar el remitente, que pasó la invitación a SU key.
+  **Regla: un error de envío dice por dónde iba (`via`) antes de pedirle algo a quien invita.**
+- **«Ve los dos cursos»: una función contestaba dos preguntas.** `productosDelAlumno` (lib/curso-datos.ts)
+  era a la vez «de qué es cliente» (el kanban) y «qué cursos ve» (el portal). Ahora «qué ve» cruza con lo
+  que abre el acceso, y «de qué es cliente» es `productosDelCliente`. `tests/curso-invitar-reglas.test.ts`
+  obliga a clasificar cada call site nuevo. ⚠️ Cuenta ARCHIVOS: un archivo que hace las dos preguntas
+  (la ficha) necesita un assert por función. Medido en el cierre: cambiar una por la otra daba 128/0.
+- **Escribir la lista al CREAR la fila reproducía el bug por otro lado.** La fila nace antes del mail, y
+  en el audio hubo intentos fallidos desde los dos productos. **Regla: lo que abre un acceso lo escribe
+  sólo una invitación que salió.**
+- **«Ya invitado» era por cliente**, en el editor y en el reclamo sin sesión (`lib/curso-invitar.ts`,
+  `reclamarInvitacion`). Ahora es por producto (`productos.not.cs.{X}`). Con NULL, ese `not.cs` da NULL y
+  excluye la fila, que es justo «invitado a todos». En PostgREST, «(A o B) y (C o D)» se escribe como
+  UN `.or` con los cuatro `and(…)`: con dos `.or()` encadenados no está claro cómo los junta.
+- **La comunidad se escapó del barrido de «qué ve».** `actorDelAlumno` ya estaba acotado. Los
+  MIEMBROS (`miembrosDeLaComunidad`, lib/comunidad-datos.ts) salían de `esDelProducto` + «acceso
+  vigente» e ignoraban `productos`. Un alumno invitado a un solo curso aparecía en el directorio, el
+  ranking, el perfil y las @menciones de la comunidad del otro. El guard no lo vio porque busca
+  `productosDelAlumno`. **Regla: una regla de acceso nueva se barre por la PREGUNTA (quién decide si
+  alguien entra), no por el nombre de la función vieja.**
+- **Salidas huérfanas, otra vez.** La prop `productoId` de ModalInvitar, BotonInvitar y CeldaAcceso, y
+  `conCorrectasDelEquipo`, nacieron con CERO call sites: cada pista tenía sus archivos y el call site
+  vivía en el de otra. Desde la tarjeta, la tabla y la ficha se seguía invitando a todos: el bug del
+  audio por otra puerta. Lo cazó la revisión y lo enchufó el cierre; es la regla de AGENTS.md
+  («REPARTIR TRABAJO POR ARCHIVO GARANTIZA SALIDAS HUÉRFANAS»), pagada de nuevo. Y el bloqueante decía
+  que `cursoDe` arma la tarjeta en KanbanEntrega.tsx: vive en ClientesApp.tsx, el kanban sólo lo llama.
+- **El quiz «no te dice el resultado» no era del dibujo.** Al alumno real el server sí lo corregía
+  (medido en `curso_progreso` del ws10). La que no decía nada era la VISTA PREVIA: sin las correctas,
+  daba el quiz por enviado y sin nota. **Regla: la vista previa y la real deciden con la MISMA regla
+  (`quizCerrado`), nunca con «¿llegaron las correctas?»** (app/compartido/curso/[token]/tarea-valores.ts).
+- **«Hay dos scroll» era la mitad.** En la vista previa la columna del papel NO desbordaba y aun así la
+  rueda no movía nada: `overscroll-behavior: contain` sobre un contenedor de scroll que no tiene qué
+  scrollear frena la rueda en Chromium (app/_cursos/estilos.ts y la cola de scripts/avatarhype-css.mjs).
+  **Regla: o el elemento scrollea de verdad, o va con overflow visible.**
+- **El foco: el diagnóstico obvio era falso.** Se buscaba un componente definido adentro de otro o una
+  `key` que cambia, y el barrido con el AST dio CERO. La causa vive en `app/_ui/Modal.tsx`: su efecto de
+  foco depende de `[onCerrar, arriba]` (línea 152), y `NuevoProducto` le pasaba una flecha nueva en
+  cada tecla. La limpieza devolvía el foco atrás y el cuerpo enfocaba la caja. La segunda mitad:
+  `autoFocus` no anda adentro de un Modal de la casa, porque su primer render es `display:none`.
+  `InvitarAlCurso.tsx` ya lo tenía escrito en un comentario el 08/10 y el commit de esa tarde escribió
+  `NuevoProducto` con el mismo bug. **Regla: todo Modal recibe un `onCerrar` de identidad fija** hasta
+  que se arregle Modal. El guard (`tests/curso-nuevo-producto.test.ts`) cubre sólo la tab Curso.
+- **Un NULL que ya se usó no se achica nunca, y la fila de Leandro es ésa.** Es la única fila de
+  `curso_accesos` de la base (id 5, ws10, lead 2625): NULL, invitada a las 01:50 y con 6 ingresos.
+  Sigue viendo los dos cursos, y ninguna invitación nueva la acota (`yaSeLeDio`).
+- **El teléfono «obligatorio» no lo era en el código**: lo decía la pantalla, que no marcaba
+  «opcional». **Si un campo no es obligatorio y otros sí, lo dice.**
+- **El guard de los lectores de `.campos` caza una transformación que devuelve la lista entera.** Va
+  una excepción escrita con su `contiene` (tests/curso-tareas-secciones.test.ts), no un destructuring
+  para esquivar el regex. Sin ella, el árbol no se podía commitear en verde.
+
+**Trampas del entorno** (cada una costó minutos y se lee como un bug del código):
+
+- Con Playwright, `route.continue({ headers: { 'sec-fetch-dest': 'empty' } })` **no pisa
+  `sec-fetch-dest`** en Chromium. Abrir el portal así le contó ingresos al lead 2625: de los 6 que
+  tiene, hasta 5 son de las mediciones. Lo que no cuenta es pedir el documento con `route.fetch`
+  desde Node, con «preview» en el user-agent, y servirlo con `route.fulfill`.
+- Un documento servido con `route.fulfill` hace que **Local Network Access bloquee el websocket del
+  HMR**. La página queda en «Abriendo el curso…» para siempre, sin un solo error. Se lanza con
+  `--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests`.
+- Con la lectura de la columna en el árbol y la 0232 sin aplicar, **el portal entero contestó «No
+  pudimos cargar tus clases»**. Antes de diagnosticar un portal caído: `git status` de
+  lib/curso-datos.ts y si su columna existe en `information_schema`.
+- En headless, con la página recién cargada, **el primer `requestAnimationFrame` llega 570 ms tarde**.
+  Un banco de foco se abre con un clic, nunca montado al cargar.
+- **Cinco `tsc` a la vez llevaron el typecheck a 35 min**, y el lock se vence a los 10. Lo que alcanza
+  es un tsconfig acotado en el scratchpad: `files` con los archivos tocados, `include: []`,
+  `incremental: false` y `plugins: []` (1509 archivos, ~1,5 min). El `TYPECHECK-RAPIDO.md` y el
+  `aplicar-por-pooler.mjs` que nombraban las tareas no existían.
+
+### Lo que quedó SIN hacer
+
+- **`app/_ui/Modal.tsx`, el arreglo de raíz** (UI compartida). (1) Importar `useLayoutEffect`;
+  debajo de `const tituloId = useId();`, `const cerrarRef = useRef(onCerrar); useLayoutEffect(() => {
+  cerrarRef.current = onCerrar; });`; en la línea 129 `onCerrar()` pasa a `cerrarRef.current()`, y las
+  deps de la 152 a `[arriba]`. (2) Sacar el `cajaRef.current?.focus()` de la 121, que corre con la caja
+  en `display:none`, y enfocar cuando la capa se ve: `const enfocada = useRef(false); useEffect(() => {
+  const caja = cajaRef.current; if (!capa.visible || enfocada.current || !caja) return;
+  enfocada.current = true; if (caja.contains(document.activeElement)) return;
+  (caja.querySelector<HTMLElement>('[data-autofocus]') ?? caja).focus(); }, [capa.visible]);`. El
+  `autoFocus` de React no llega al DOM: por eso el marcador es `data-autofocus`. Medido en un banco con
+  una copia parcheada: «Abrir cuenta» pasa de «a» a «ana@x», y `NuevoProducto` sigue andando.
+  Mientras tanto vive el mismo bug en `CuentaDeMaKo.tsx:217` («Abrir cuenta», MEDIDO: «ana@x» → «a»).
+  Con la misma forma y sin medir: `AdminView.tsx:1025` y `EditarObjetivo.tsx:94` y `:172`. Sólo con la
+  flecha: Pricing, CampanasBrowser, CrmBoard y VideoGeneratorApp.
+- **`InvitarAlCurso.tsx:139-144`**: el foco al abrir no llega al campo (medido). Va `useFocoInicial(id)`.
+  Y `alCerrar.current = onCerrar` en el render (`InvitarAlCurso.tsx:136`, `InvitarAlumnos.tsx:148`, que
+  eslint marca) pasa a `useCerrarEstable`. También `Dropdown.tsx:704-738`: al elegir, el foco cae al
+  body. Y `PortadaPicker.tsx:243-277`, con el mismo patrón y sin medir.
+- **`lib/resend.ts:37`** (Integraciones): `await envCred('RESEND_API_KEY')`. Hasta entonces, con
+  `'mako'`, el formulario «ahí mismo» le pide al cliente su correo para tapar una falla nuestra.
+- **La fila de Leandro** (decide Martín): `update curso_accesos set productos = '{39}' where id = 5 and
+  workspace_id = 10 and lead_id = 2625 and area is null;`, o «Quitar de este producto» en Service
+  Delivery (10). Y avisarle que pruebe con un alumno NUEVO. El «Entró N veces» de esa fila subió por las
+  mediciones: corregirlo es una escritura, también suya.
+- **El correo con Google/Gmail** (punto 14) y los puntos 13 y 15 del audio son de Integraciones.
+- **Ideas para decidir, no bugs**: el diseño del mail de invitación; el Curso como pestaña de la
+  comunidad (a Leandro le gusta separado: no hay pedido); los niveles del ranking, que salen sin
+  configurar; el grupo de WhatsApp del curso desde MaKo.
+- **Las correctas de una clase por área y de un quiz reabierto** (`darOtroIntento`,
+  lib/curso-entregas.ts): las de un reabierto ya se vieron. Decide Martín.
+- **El editor de la tab Curso** (`CursoApp.tsx`) sigue con dos scrolls en la lección: es pasarle
+  `unSoloScroll` a CursoUgc.
+- **La ficha no muestra qué cursos abre el acceso**, ni deja sacar uno salvo con «Quitar de este
+  producto» o «Cortar acceso». El dato ya viaja (`accesoParaPantalla.productos`).
+- **No medido: la invitación al ganar en un producto AGREGADO** (`moverEtapaEnProducto`). Con el
+  producto puesto, si el lead no tiene fila en `cliente_entrega` de ése, el núcleo contesta «No es
+  cliente de ese producto» y no invita (lib/crm-curso-al-ganar.ts). Antes invitaba a lo que veía.
+- **Nada de la invitación por producto se vio en la app real**: el modal con su borrador, el correo
+  embebido, la lista desde el curso y la tarjeta, Avance y ficha por producto. El ws3 tiene 0 productos.

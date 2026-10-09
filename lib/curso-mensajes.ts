@@ -341,7 +341,13 @@ async function contenidoDe(f: FilaSesion): Promise<Contenido> {
   if (!etapa) return { ok: false, motivo: 'no está en la entrega de su servicio' };
   const deLaEtapa = curso.clases.filter((c) => c.etapa === etapa);
   // Sólo lo que puede ABRIR (ver `abiertasDe`); sin poder evaluarlo, no se nombra nada (`null`).
-  const abiertas = deLaEtapa.length ? await abiertasDe({ leadId: f.lead_id, productoId: curso.productoId, productos, casa, clases: curso.clases, progreso }) : null;
+  // ⚠️ Y SÓLO DE UN CURSO QUE SU ACCESO LE ABRE (09/10/2026, mig 0232): una sesión puede traer el
+  // `producto_id` de un curso al que no se lo invitó (las de antes, o una llamada del equipo, que agenda
+  // sobre cualquier producto del que es cliente). Ahí `etapaActualDe` encuentra etapa igual, y nombrarle
+  // clases sería mandarlo a buscar lo que su portal no le muestra.
+  const abiertas = deLaEtapa.length && productos.includes(curso.productoId)
+    ? await abiertasDe({ leadId: f.lead_id, productoId: curso.productoId, productos, casa, clases: curso.clases, progreso })
+    : null;
   // `null` = la etapa no tiene clases cargadas (o no se pudo saber cuáles se le abren): ni «te falta»
   // ni «vas al día» serían verdad.
   const pendientes = deLaEtapa.length && abiertas

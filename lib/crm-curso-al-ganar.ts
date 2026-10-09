@@ -90,7 +90,13 @@ export async function alGanarInvitarAlCurso(p: { leadId: number; funnelId: numbe
     const trabajo = async () => {
       try {
         const { invitarAlCursoSinSesion } = await import('./curso-invitar');
-        const r = await invitarAlCursoSinSesion({ ws, leadId: p.leadId, autor: MAKO });
+        // ⚠️ AL CURSO DEL PRODUCTO DONDE GANÓ (09/10/2026, punto 7 del audio del 08/10 a la noche). Sin
+        // el producto, el acceso nacía en NULL = «todos sus productos», el mail nombraba todos los que
+        // ve, y desde ahí ninguna invitación por producto lo podía acotar (un NULL ya usado no se
+        // achica: `productosTrasInvitar`, lib/curso-invitar-reglas.ts). Un embudo sin producto sigue
+        // como antes (null).
+        const productoId = (await productoDeFunnel([real])).get(real)?.id ?? null;
+        const r = await invitarAlCursoSinSesion({ ws, leadId: p.leadId, autor: MAKO, productoId });
         await logLeadEvent(p.leadId, 'Curso', lineaDelCurso(r), MAKO);
       } catch (e) {
         console.error(`[curso-auto] lead ${p.leadId}: la invitación automática falló:`, e instanceof Error ? e.message : e);

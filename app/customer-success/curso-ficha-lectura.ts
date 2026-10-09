@@ -507,6 +507,12 @@ export type AccesoInvitacion = {
   email?: string | null;
   /** Cuándo SALIÓ el mail (se escribe sólo si salió). */
   invitacionEnviadaAt?: string | null;
+  /**
+   * Qué cursos abre (mig 0232): `null` = todos sus productos; ausente = no se leyó. Con esto una
+   * pantalla parada en UN curso lo mira desde ahí (`accesoEnProducto`, lib/curso-invitar-reglas.ts):
+   * invitado a otro curso no es «Invitado» a éste. Sin leerlo, no se afirma nada.
+   */
+  productos?: number[] | null;
 };
 
 /**
@@ -596,6 +602,8 @@ export type AccesoDeFila = {
   ultimoIngresoAt: string | null;
   email?: string | null;
   invitacionEnviadaAt?: string | null;
+  /** Qué cursos abre (mig 0232). `null` = todos; ausente = no se leyó (ver `AccesoInvitacion`). */
+  productos?: number[] | null;
 } | null;
 
 /**
@@ -615,6 +623,8 @@ export function accesoDeFila(a: AccesoDeFila): AccesoInvitacion | null {
     ultimoIngresoAt: a.ultimoIngresoAt,
     email: a.email,
     invitacionEnviadaAt: existe ? a.invitacionEnviadaAt : null,
+    // Viaja tal cual: quien está parado en un curso lo mira desde ahí con `accesoEnProducto`.
+    ...(a.productos !== undefined ? { productos: a.productos } : {}),
   };
 }
 

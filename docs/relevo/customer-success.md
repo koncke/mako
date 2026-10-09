@@ -1,5 +1,33 @@
 # Retomar: Customer Success
 
+## 09/10, ~16:15: el feedback del audio del 08/10 a la noche (SIN COMMITEAR)
+
+**Qué cambió** (fuente: docs/feedback-curso-08oct-noche.md; lo aprendido, en
+docs/hallazgos-customer-success.md → «El feedback del audio del 08/10 a la noche»):
+
+- **Mig 0232 APLICADA**: `curso_accesos.productos`, o sea qué cursos abre cada acceso (NULL = todos).
+- **Se invita al curso donde se está parado.** Vale para el editor, la tarjeta del kanban, la tabla
+  Avance, la ficha y la invitación al ganar. El mail nombra sólo ése, y el portal, la comunidad y los
+  mensajes ven sólo lo que abre el acceso.
+- **La vista del alumno**: la escala centrada, el quiz que dice el resultado, un solo scroll, la vista
+  previa que corrige como el server y el pie «Este curso es personal. © {curso}».
+- **El editor**: el nombre del producto ya no pierde el foco, el borrador al invitar, el correo
+  configurable ahí mismo y el teléfono opcional.
+- Typecheck acotado con 0 errores y 1025/1025 tests. **Nada de la invitación por producto se vio en
+  la app real.** Los archivos están en `git status` (tres pistas y el cierre): commitear por ruta.
+
+**Espera a Martín:**
+
+- **La fila de Leandro** (ws10, lead 2625) sigue abriendo los DOS cursos: es un NULL ya usado y no se
+  achica solo. Va la línea SQL del hallazgo o «Quitar de este producto», y que pruebe con un alumno
+  nuevo.
+- **`lib/resend.ts:37`** (Integraciones): leer la key de MaKo con `envCred`. Es la causa real del
+  «RESEND_API_KEY no configurada».
+- **`app/_ui/Modal.tsx` de raíz**: el mismo bug del foco vive en «Abrir cuenta» y en otros 8 diálogos.
+- Las decisiones por default del hallazgo: la ficha mira la invitación desde el curso elegido, y las
+  correctas se muestran sólo con el quiz cerrado y nunca por área. También las ideas del audio y lo
+  de Gmail, que es de Integraciones.
+
 **Dónde quedó:** 07/10, 18:45. Sesión `7a6bc4be` (cuenta `claude2`). Último pedido: la tab Curso
 sin barra y personalizable (abajo). El de la tanda anterior: «Revisa todo lo que falta en el
 proyecto de Customer Success y terminalo todo, cierra las tareas».

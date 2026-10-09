@@ -419,6 +419,26 @@ html:has(.ahdoc--embebido), body:has(.ahdoc--embebido) { overflow: visible !impo
 .ahdoc.ahdoc--ugc.ahdoc--embebido .ugc .ugc-main { height: auto !important; max-height: none !important; align-self: stretch !important; }
 .ahdoc.ahdoc--ugc.ahdoc--embebido .ugc .ugc-content > .ugc-split > .ugc-pcol { max-height: none !important; }
 
+/* ── Un solo scroll en la leccion (unSoloScroll en ./tipos.ts): la vista del alumno ──────
+ * Punto 4 del audio del 08/10 a la noche: «hay dos scroll... tengo que poner el cursor aca para que pueda
+ * deslizar». La cola del origen hace de cada columna de la leccion un contenedor de scroll con
+ * overscroll-behavior: contain, y el contenido scrollea aparte. Medido a 1440x900 antes del arreglo: con el
+ * cursor sobre el papel la rueda movia SOLO el papel y al final se trababa (el contain no la deja pasar al
+ * contenido); en la vista previa, con el papel sin desborde, NO MOVIA NADA: un contenedor con contain frena
+ * la rueda aunque no tenga nada que scrollear. Con el cursor en el titulo o al costado si scrolleaba.
+ * Aca las columnas crecen con lo suyo y lo unico que scrollea es .ugc-content. El split no se encoge: si se
+ * encogiera, lo de abajo (los comentarios) se dibujaria ENCIMA del papel que desborda. El video queda pegado
+ * arriba mientras se lee al costado, solo al costado y en escritorio: abajo o en el telefono va primero y se
+ * va con el scroll. Conocimientos y la tab Curso no llevan la clase: siguen con una columna que scrollea. */
+.ahdoc.ahdoc--ugc.ahdoc--un-scroll .ugc .ugc-content > .ugc-split { flex: 0 0 auto !important; }
+.ahdoc.ahdoc--ugc.ahdoc--un-scroll .ugc .ugc-split > .ugc-vcol,
+.ahdoc.ahdoc--ugc.ahdoc--un-scroll .ugc .ugc-split > .ugc-pcol { overflow: visible !important; max-height: none !important; }
+@media (min-width: 761px) {
+  .ahdoc.ahdoc--ugc.ahdoc--un-scroll .ugc .ugc-split:not(.ugc-split--abajo) > .ugc-vcol {
+    position: sticky !important; top: 0 !important; align-self: flex-start !important;
+  }
+}
+
 /* ── El telefono: la barra se vuelve una franja con un menu ────────────────────
  * La hoja del origen deja la barra de 268px al lado del contenido en cualquier ancho; a 390px
  * el contenido se queda con 120. Aca la marca y el boton de los modulos van arriba, y la lista

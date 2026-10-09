@@ -38,12 +38,22 @@
 // ⚠️ SI EL MAIL NO SALIÓ, EL MODAL NO SE CIERRA: se queda abierto con el motivo. Cerrarlo y
 // pintar «Invitado» sería el falso éxito de los avisos de aprobación de agencia; y cerrarlo con
 // un error abajo, en una celda de la tabla, es un error que nadie lee.
+//
+// ── A UN CURSO (puntos 6, 7 y 10 del audio del 08/10/2026 a la noche) ─────────────────────────────
+// `productoId` (opcional): el producto DESDE el que se invita — la tarjeta del kanban de ese producto, la
+// tabla Avance de ese curso. Con él la invitación va por `invitarAlCursoDelProductoAction`
+// (./invitar-actions.ts): el mail nombra sólo ese curso y el acceso pasa a abrir ése. Sin él (la ficha,
+// que es de TODOS sus productos), por `invitarAlCursoAction` como siempre. Y si el correo no salió por
+// su configuración, el modal monta el formulario del correo AHÍ MISMO (`CorreoAhiMismo`, ./InvitarAlumnos).
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Field, Input, Modal, Select, useOkFlash, type ButtonVariant } from '@/app/_ui';
 import { emailUtilizable } from '@/lib/agencia-altas';
 import { habilitarAccesoCursoAction, invitarAlCursoAction, invitarLiderAction } from '../curso-ficha-actions';
+import { invitarAlCursoDelProductoAction } from './invitar-actions';
+import { CorreoAhiMismo } from './InvitarAlumnos';
+import type { CorreoQueFallo } from '@/lib/curso-invitar-reglas';
 import {
   estadoDeInvitacion, fraseInvitacion,
   type AccesoFicha, type AccesoInvitacion, type AccesoLiderFicha, type AvisoInvitacionCurso,
@@ -75,6 +85,11 @@ type PropsInvitar = {
   lideres?: readonly AccesoLiderFicha[];
   /** Los líderes como quedaron después de invitar a uno. */
   onLideres?: (l: AccesoLiderFicha[]) => void;
+  /**
+   * El producto desde el que se invita (la tarjeta del kanban, la tabla Avance): el mail nombra sólo ese
+   * curso y el acceso abre ése. Sin él, la invitación de siempre (ver la cabecera).
+   */
+  productoId?: number;
 };
 
 /**
@@ -86,7 +101,7 @@ type PropsInvitar = {
  *
  * `onEnviada`: el mail SALIÓ (para el «Enviada» del botón que lo abrió, si hay uno).
  */
-export function ModalInvitar({ leadId, nombre, emailCrm, acceso, onListo, areas, lideres, onLideres, onCerrar, onEnviada }: PropsInvitar & {
+export function ModalInvitar({ leadId, nombre, emailCrm, acceso, onListo, areas, lideres, onLideres, productoId, onCerrar, onEnviada }: PropsInvitar & {
   onCerrar: () => void;
   onEnviada?: () => void;
 }) {
@@ -107,6 +122,8 @@ export function ModalInvitar({ leadId, nombre, emailCrm, acceso, onListo, areas,
   const [mandando, setMandando] = useState(false);
   const mandandoRef = useRef(false);
   const [error, setError] = useState('');
+  /** Si el correo no salió por su configuración, de quién fue: el formulario aparece ahí mismo. */
+  const [correoMal, setCorreoMal] = useState<CorreoQueFallo>(null);
 
   /**
    * ⚠️ `onCerrar` ESTABLE, no una flecha nueva en cada render. El efecto de `Modal` depende de
@@ -135,10 +152,15 @@ export function ModalInvitar({ leadId, nombre, emailCrm, acceso, onListo, areas,
     setError('');
     try {
       // ⚠️ AL LÍDER VA SU PROPIA ACTION (`invitarLiderAction`): su link es otro (`c2.`, sólo sus
-      // clases) y su mail no ofrece entrar con Google. El acceso del cliente no se toca.
-      const r = para ? await invitarLiderAction(leadId, para, correo) : await invitarAlCursoAction(leadId, correo);
+      // clases) y su mail no ofrece entrar con Google. El acceso del cliente no se toca. Con producto,
+      // la del producto (ver la cabecera); sin él, la de la ficha.
+      const r = para ? await invitarLiderAction(leadId, para, correo)
+        : productoId ? await invitarAlCursoDelProductoAction(leadId, productoId, correo)
+          : await invitarAlCursoAction(leadId, correo);
       if (!r.ok) { setError(r.error); return; }
       if ('lideres' in r && r.lideres) onLideres?.(r.lideres);
+      // Sólo la action del producto dice de quién fue un correo caído (`correo`); las otras dos, no.
+      setCorreoMal(!r.enviado && 'correo' in r ? (r as { correo: CorreoQueFallo }).correo : null);
       if (!r.enviado) {
         // El acceso pudo haber nacido igual (se crea antes de mandar): se pinta, sin aviso.
         if ('acceso' in r) onListo(r.acceso, null);
@@ -192,6 +214,8 @@ export function ModalInvitar({ leadId, nombre, emailCrm, acceso, onListo, areas,
           onChange={(e) => setCorreo(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') void mandar(); }} />
       </Field>
+      {/* Punto 10: el correo, ahí mismo. Se guarda y se vuelve a apretar «Mandar invitación». */}
+      {correoMal && <CorreoAhiMismo cual={correoMal} />}
     </Modal>,
     document.body,
   );
@@ -221,13 +245,15 @@ export function BotonInvitar({ variant = 'secondary', ...props }: PropsInvitar &
  * `onAcceso`: el acceso como quedó después de invitar o habilitar, para que la fila lo pinte sin
  * esperar a que la página se vuelva a leer.
  */
-export function CeldaAcceso({ leadId, nombre, emailCrm, acceso, onAcceso }: {
+export function CeldaAcceso({ leadId, nombre, emailCrm, acceso, onAcceso, productoId }: {
   leadId: number;
   nombre: string;
   emailCrm: string | null | undefined;
   /** `null` = no se pudo leer: no se ofrece nada (no se invita a ciegas). */
   acceso: AccesoInvitacion | null;
   onAcceso: (a: AccesoFicha) => void;
+  /** El curso de la tabla: con él, «Invitar» invita a ESE curso (ver la cabecera). */
+  productoId?: number;
 }) {
   const [habilitando, setHabilitando] = useState(false);
   const [error, setError] = useState('');
@@ -260,7 +286,7 @@ export function CeldaAcceso({ leadId, nombre, emailCrm, acceso, onAcceso }: {
         // El link que sale después es NUEVO: los viejos siguen sin abrir (la versión subió al cortar).
         <Button size="sm" variant="tertiary" loading={habilitando} onClick={() => void habilitar()}>Volver a habilitar</Button>
       ) : (
-        <BotonInvitar leadId={leadId} nombre={nombre} emailCrm={emailCrm} acceso={acceso} variant="tertiary"
+        <BotonInvitar leadId={leadId} nombre={nombre} emailCrm={emailCrm} acceso={acceso} variant="tertiary" productoId={productoId}
           onListo={(a, aviso) => { if (a) onAcceso(a); setError(aviso?.texto ?? ''); }} />
       )}
       {error && <span className="av-mal ia-mal" title={error}>{error}</span>}

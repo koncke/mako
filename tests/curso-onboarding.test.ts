@@ -214,7 +214,10 @@ test('la vista previa no crea accesos ni cuenta ingresos: sin lead, sin token y 
   const vista = sinComentarios(leer('app/customer-success/curso/vista/page.tsx'));
   // Desde el 08/10/2026 lleva además las URLs firmadas de los adjuntos de las descripciones (la vista
   // previa no tiene token para pedirlos como el alumno).
-  assert.match(vista, /<PortalAlumno\s+token=""\s+vista=\{vista\}\s+vistaPrevia(?:\s+urlsAdjuntos=\{urlsAdjuntos\})?\s*\/>/, 'la vista previa tiene que dibujar el portal en modo previa');
+  // Desde el 09/10/2026 la vista va con TODAS las correctas (`conCorrectasDelEquipo`, punto 5 del audio
+  // del 08/10 a la noche): la vista previa corrige el quiz como el server. Lo fija
+  // tests/curso-vista-alumno-0910.test.ts.
+  assert.match(vista, /<PortalAlumno\s+token=""\s+vista=\{conCorrectasDelEquipo\(vista, clases\)\}\s+vistaPrevia(?:\s+urlsAdjuntos=\{urlsAdjuntos\})?\s*\/>/, 'la vista previa tiene que dibujar el portal en modo previa');
   assert.doesNotMatch(vista, /@\/lib\/curso-acceso|@\/lib\/alumno-acceso/, 'la vista previa no firma ni lee accesos');
   for (const f of ['linkDeAcceso', 'accesoDe', 'contarIngreso', 'resolverAcceso', 'marcarInvitacion', 'firmarAccesoCurso', 'linkDeEntradaAlumno', 'armarVistaAlumno', 'progresoDelCliente']) {
     assert.ok(!vista.includes(`${f}(`), `la vista previa llama a ${f}: toca el acceso o el avance de un cliente real`);

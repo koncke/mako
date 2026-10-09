@@ -309,7 +309,13 @@ function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProduct
       }}
       leccion={(clase) => leccion(clase.id)}
       arriba={arriba}
-      pieBarra={vistaPrevia ? 'Vista previa. No se guarda nada.' : 'Este enlace es personal. No lo compartas.'}
+      // UN SOLO SCROLL en la lección (punto 4 del audio del 08/10 a la noche: «hay dos scroll»; con el cursor
+      // sobre el papel no se deslizaba). Ver `unSoloScroll` en app/_cursos/tipos.ts.
+      unSoloScroll
+      // ⚠️ NO «Este enlace es personal» (punto 8 del audio del 08/10 a la noche): el alumno entra también por
+      //    /mi-curso, sin ningún enlace, y la frase se leía como un aviso técnico. Va el aviso de un curso pago,
+      //    como los de Mastery House o Blue Hackers, con la marca del CURSO (la del producto, nunca MaKo).
+      pieBarra={vistaPrevia ? 'Vista previa. No se guarda nada.' : `Este curso es personal. © ${tituloDe(producto)}`}
       textos={{ ...TEXTOS_PORTAL, empezar: empezado ? 'Seguir' : 'Empezar' }}
     />
   );

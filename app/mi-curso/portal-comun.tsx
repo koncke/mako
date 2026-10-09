@@ -23,8 +23,10 @@ import type { CSSProperties } from 'react';
 import { headers } from 'next/headers';
 import { runWithWorkspace } from '@/lib/workspace';
 import { leerAccesoCurso } from '@/lib/curso-acceso';
-import { resolverAcceso, contarIngreso } from '@/lib/curso-datos';
+import { resolverAcceso, contarIngreso, claseDeId } from '@/lib/curso-datos';
 import { armarVistaAlumno, type VistaAlumno } from '@/lib/curso-portal';
+import { camposConRespuesta, type Campo } from '@/lib/curso';
+import { clasesConQuizCerrado, revelarCorrectas } from '@/app/compartido/curso/[token]/tarea-valores';
 import { Pagina } from '@/app/_ui/Pagina';
 
 /**
@@ -71,7 +73,7 @@ export async function cargarPortal(token: string): Promise<CargaPortal> {
     const navega = dest ? dest === 'document' : (!h.get('rsc') && !esVistaPrevia);
     const conteo = navega ? contarIngreso(acceso.leadId) : Promise.resolve();
     try {
-      return { vista: await armarVistaAlumno(acceso.leadId, { alcance: acceso.alcance }) };
+      return { vista: await conCorrectasCerradas(await armarVistaAlumno(acceso.leadId, { alcance: acceso.alcance })) };
     } catch (e) {
       console.error('[curso-portal] no pude armar la vista del alumno:', e instanceof Error ? e.message : e);
       return 'fallo';
@@ -79,6 +81,30 @@ export async function cargarPortal(token: string): Promise<CargaPortal> {
       await conteo;
     }
   });
+}
+
+/**
+ * La vista con las correctas de los quizzes CERRADOS del alumno (aprobados, o sin intentos), para decirle
+ * cuál era la respuesta de lo que erró (punto 3 del audio del 08/10 a la noche). `claseVista` las saca
+ * siempre; acá vuelven sólo las de esos quizzes (`revelarCorrectas`, la regla y su porqué). La usan las
+ * DOS puertas (este archivo y app/compartido/curso/[token]/page.tsx).
+ *
+ * Lee de la base sólo las clases con un quiz cerrado (casi nunca hay ninguna). Si esa lectura falla, la
+ * vista sale como estaba: es un dato de más y no puede tumbar el portal. ⚠️ Corre adentro de
+ * `runWithWorkspace`: `claseDeId` lee con el filtro del inquilino.
+ */
+export async function conCorrectasCerradas(vista: VistaAlumno): Promise<VistaAlumno> {
+  const ids = clasesConQuizCerrado(vista);
+  if (!ids.length) return vista;
+  try {
+    const clases = await Promise.all(ids.map((id) => claseDeId(id)));
+    const base = new Map<number, Campo[]>();
+    for (const c of clases) if (c) base.set(c.id, camposConRespuesta(c.campos));
+    return revelarCorrectas(vista, (id) => base.get(id));
+  } catch (e) {
+    console.warn('[curso-portal] no pude leer las correctas de los quizzes cerrados:', e instanceof Error ? e.message : e);
+    return vista;
+  }
 }
 
 /** La pantalla de un acceso que no abre (o de una lectura caída): una frase, sin el porqué. */

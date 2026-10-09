@@ -21,6 +21,7 @@
 import { useState } from 'react';
 import { Button, Modal, Select } from '@/app/_ui';
 import type { DestinoClientes } from '@/lib/curso-modulos';
+import { useCerrarEstable } from './dialogo-foco';
 
 /** Lo que se pregunta. `clientes` en 0 = sólo se confirma (eliminar un módulo sin clientes). */
 export type PreguntaQuitar = {
@@ -49,13 +50,17 @@ export function QuitarEtapa({ pregunta, onCerrar }: { pregunta: PreguntaQuitar; 
   const [destino, setDestino] = useState('');
   const [haciendo, setHaciendo] = useState(false);
   const falta = pregunta.clientes > 0 && !destino;
+  // ⚠️ `onCerrar` de identidad FIJA (audio del 08/10/2026 a la noche, punto 1; ./dialogo-foco.ts): con una
+  //    flecha nueva por render, cada render le mandaba el foco a la caja. Medido con 10 etapas (el desplegable
+  //    trae buscador) y la pantalla re-renderizándose: tipear «Grad» en el buscador dejaba el campo vacío.
+  const cerrar = useCerrarEstable(onCerrar, haciendo);
   const hacer = async () => {
     if (falta || haciendo) return;
     setHaciendo(true);
     try { await pregunta.hacer(pregunta.clientes > 0 ? destino : null); } finally { setHaciendo(false); onCerrar(); }
   };
   return (
-    <Modal titulo={pregunta.titulo} onCerrar={() => { if (!haciendo) onCerrar(); }} ancho={440}
+    <Modal titulo={pregunta.titulo} onCerrar={cerrar} ancho={440}
       pie={(
         <>
           <Button variant="secondary" disabled={haciendo} onClick={onCerrar}>No, dejarlo</Button>

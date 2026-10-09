@@ -390,8 +390,19 @@ export type CursoUgcProps = {
    * `varsDeFuente` en `.ugc`, como el acento, y la hoja de esa familia se pide sólo si hace falta.
    */
   fuente?: string | null;
-  /** Una línea chica al pie de la barra («Este enlace es personal»). En el teléfono no va. */
+  /** Una línea chica al pie de la barra («Este curso es personal. © …»). En el teléfono no va. */
   pieBarra?: ReactNode;
+  /**
+   * La lección con UN SOLO SCROLL, el del contenido: las dos columnas crecen con lo suyo y no scrollean por
+   * su cuenta, y el video queda pegado arriba (sticky) mientras se lee al costado. Sin esto (default), cada
+   * columna scrollea la suya, como en Conocimientos, donde un documento mide 8000 px.
+   *
+   * Lo pide la VISTA DEL ALUMNO (punto 4 del audio del 08/10 a la noche, min 10: «hay dos scroll… tengo que
+   * poner el cursor acá para que pueda deslizar»). Medido: la columna del papel es un contenedor de scroll
+   * con `overscroll-behavior: contain`, y con el cursor encima la rueda no llegaba al contenido — en la
+   * vista previa, ni un píxel. Conocimientos (con alumnos reales) y la tab Curso siguen como estaban.
+   */
+  unSoloScroll?: boolean;
   /** El nivel de arriba del curso. Sin esto no hay salida en la barra (un share de UN curso). */
   onSalir?: () => void;
   /**

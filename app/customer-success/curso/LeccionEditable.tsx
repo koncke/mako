@@ -70,6 +70,7 @@ import { subirConProgreso } from './subir-video';
 import { TareaEditor } from './TareaEditor';
 import { EditorRicoPerezoso } from './editor-rico-perezoso';
 import { videoDeClase } from './reglas';
+import { useCerrarEstable } from './dialogo-foco';
 import {
   claseDelBorrador, claveDeVideo, borradorDe, cambiosParaGuardar, erroresDelBorrador, esGestoNuevo, gestoDe, linkDeVideo,
   lugarDelVideo, minutosDeDuracion, oembedDeLoom, ofrecePorArea, partesCambiadas, rebasar, textoDeBarra,
@@ -464,8 +465,10 @@ const estadoTrasCambio = (base: BorradorLeccion, b: BorradorLeccion): EstadoBarr
 function PreguntaSalir({ rotulo, guardando, onGuardar, onDescartar, onSeguirEditando }: {
   rotulo: string; guardando: boolean; onGuardar: () => void; onDescartar: () => void; onSeguirEditando: () => void;
 }) {
+  // `onCerrar` de identidad fija: con una flecha nueva, cada render le movía el foco a la caja (./dialogo-foco.ts).
+  const cerrar = useCerrarEstable(onSeguirEditando, guardando);
   return (
-    <Modal titulo="Hay cambios sin guardar" ancho={440} onCerrar={() => { if (!guardando) onSeguirEditando(); }}
+    <Modal titulo="Hay cambios sin guardar" ancho={440} onCerrar={cerrar}
       pie={(
         <>
           <Button variant="secondary" size="sm" disabled={guardando} onClick={onSeguirEditando}>Seguir editando</Button>
