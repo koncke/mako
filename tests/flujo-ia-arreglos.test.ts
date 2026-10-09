@@ -237,6 +237,24 @@ test('validarIA rechaza un monto que no está en el pedido', () => {
   assert.match(sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts')), /numerosPermitidos: numerosEn\(`\$\{perfil\}\\n\$\{pedido\}`\)/);
 });
 
+// ── CREAR aceptaba una automatización ACTIVA con pasos [] y escribía los pasos antes de pausarla ──
+// rotura (sin el 409 de la activa): 1 fallo de 24 (con flujo-ia-ruta), cae éste.
+test('crear: una automatización ACTIVA no se crea con IA (409, «Pausa esta automatización primero»)', () => {
+  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  assert.match(ruta, /\.select\('id, nombre, pasos, activa[^']*'\)/);
+  assert.match(ruta, /if \(modo === 'crear' && \(sec as \{ activa\?: unknown \}\)\.activa === true\) \{\n\s*return Response\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 409 \}\);/);
+});
+
+// rotura (pausar DESPUÉS de guardar, como estaba): 1 fallo de 24 (con flujo-ia-ruta), cae éste.
+test('crear: se PAUSA antes de escribir los pasos, y después de mirar la cancelación', () => {
+  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  const senal = ruta.indexOf('if (req.signal.aborted)');
+  const pausa = ruta.indexOf('await setSecuenciaActiva(secuenciaId, false);');
+  const guarda = ruta.indexOf('await setSecuenciaPasos(');
+  assert.ok(senal > 0 && pausa > senal && guarda > pausa, `señal ${senal} · pausa ${pausa} · guardar ${guarda}`);
+  assert.equal(ruta.split('setSecuenciaActiva(').length - 1, 1, 'una sola pausa');
+});
+
 test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', () => {
   const ctx = ctxBase();
   const r = deIA(ejemploDe(CREAR_IA_SYSTEM_TEMPLATE), ctx, rndDe());

@@ -309,13 +309,20 @@ export async function POST(req: NextRequest) {
   if (!modo) return Response.json({ ok: false, error: 'modo inválido' }, { status: 400 });
 
   const db = await getTenantDb();
-  const { data: sec, error: errSec } = await db.from('nutricion_secuencias').select('id, nombre, pasos').eq('id', secuenciaId).maybeSingle();
+  const { data: sec, error: errSec } = await db.from('nutricion_secuencias').select('id, nombre, pasos, activa').eq('id', secuenciaId).maybeSingle();
   if (errSec) return Response.json({ ok: false, error: `No pude leer la automatización: ${errSec.message}` }, { status: 500 });
   if (!sec) return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
   const guardados = (Array.isArray((sec as { pasos?: unknown }).pasos) ? (sec as { pasos: PasoGrafo[] }).pasos : []);
   // CREAR escribe encima: sólo sobre una VACÍA. Pisar un flujo con leads adentro no es crear.
   if (modo === 'crear' && guardados.length) {
     return Response.json({ ok: false, error: 'Esta automatización ya tiene tarjetas: pídele un cambio.' }, { status: 409 });
+  }
+  // ⚠️ Y PAUSADA (decisión 14: la caja es para una automatización «vacía y PAUSADA»; revisión,
+  // 09/10/2026). Una secuencia lineal de antes, activa, a la que le borraron todas las tarjetas y
+  // publicaron, queda con `pasos: []` y ACTIVA: crear le escribía encima un flujo de la IA con
+  // acciones que corren sin confirmación.
+  if (modo === 'crear' && (sec as { activa?: unknown }).activa === true) {
+    return Response.json({ ok: false, error: 'Pausa esta automatización primero.' }, { status: 409 });
   }
   // EDITAR parte del borrador local de la pantalla (puede tener cambios sin publicar).
   const base: PasoGrafo[] = modo === 'editar' && Array.isArray(body.pasos) ? (body.pasos as PasoGrafo[]) : guardados;
@@ -377,13 +384,16 @@ export async function POST(req: NextRequest) {
           send({ t: 'error', error: 'Alguien le puso tarjetas mientras tanto: no la pisé.' });
           return;
         }
+        // ⚠️ PRIMERO PAUSAR, DESPUÉS ESCRIBIR (revisión, 09/10/2026). Al revés, si pausar fallaba
+        // después de guardar, el flujo de la IA quedaba guardado y ACTIVO. Así, si lo que sigue
+        // falla, queda pausada y vacía, que no hace daño.
+        await setSecuenciaActiva(secuenciaId, false);
         try {
           await setSecuenciaPasos(secuenciaId, pasos as unknown as PasoSecuencia[]);
         } catch (e) {
           if (e instanceof PasosInvalidosError) { send({ t: 'error', error: `No pude guardar el flujo: ${e.message}` }); return; }
           throw e;
         }
-        await setSecuenciaActiva(secuenciaId, false);
 
         const valor = disparadorReal((r as ResultadoIA).disparador, ids);
         const pedidoTrigger = valor ? pedidoDisparo(valor, secuenciaId) : null;
