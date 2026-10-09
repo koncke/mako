@@ -21,7 +21,7 @@ import { Icon } from '@/app/_components/icons';
 // next/link NO: perdería el ?ws= y mandaría al super admin a SU propio WhatsApp
 // en vez del que está mirando.
 import Link from '@/app/_ui/Link';
-import { SimuladorWhatsApp, type AbrirSecuencia } from './SimuladorWhatsApp';
+import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando } from './SimuladorWhatsApp';
 import type { CronAviso } from '@/lib/cron-aviso';
 // ⚠️ ACÁ SE IMPORTABAN `HandoffsPanel` Y `RecordatorioReunion`, y se fueron el 08/10/2026 con
 // el pedido de Martín: «Elimina completamente lo de arriba ese form que ocupa toda la pantalla,
@@ -181,6 +181,8 @@ function ChatAgentInner() {
    * ref y no un estado porque el segundo clic llega antes de que el primero vuelva a dibujar.
    */
   const creandoNueva = useRef(false);
+  /** La fila de «＋ Nueva» mientras el server la crea (decisión 7): ver `crearNueva`. */
+  const [creando, setCreando] = useState<Creando | null>(null);
   /**
    * EL FALLO DE CREAR ES SUYO, NO EL DE LA CARGA (revisión de la segunda tanda, 09/10/2026). Iba a
    * `error`, que es el de `load()`: con cero automatizaciones el estado vacío se dibuja sólo con
@@ -304,23 +306,40 @@ function ChatAgentInner() {
   useEffect(() => { void load(); }, [load]);
 
   /**
-   * «NUEVA» (decisión 14): una automatización VACÍA y pausada, y se abre su lienzo con la caja de
-   * «Crear con IA». Empezar de cero es tocar el ＋ del CRON. `pedido` precarga la caja (el «Armar
-   * una» de una etapa sin secuencia).
+   * «NUEVA» (decisión 14 de la segunda tanda): una automatización VACÍA y pausada, y se abre su
+   * lienzo con la caja de «Crear con IA». Empezar de cero es tocar el ＋ del CRON. `pedido` precarga
+   * la caja (el «Armar una» de una etapa sin secuencia).
+   *
+   * ⚠️ AL INSTANTE (tercera tanda, decisión 7). Martín: «al apretarlo… si se tarda en crearlo, un
+   * loader... Mejor si se crea automáticamente la tarjeta en la sidebar y se abre el lienzo, y que el
+   * loader en todo caso esté al entrar al lienzo… para esas 2 acciones no debería tardar nada».
+   * Antes la fila aparecía DESPUÉS del POST y del `load()` entero. Ahora:
+   *   1. la fila «Nueva automatización» aparece YA al final de la lista (`creando` +
+   *      `listaConCreando`), elegida, con el lienzo abierto y su loader adentro;
+   *   2. cuando el server contesta, la fila toma su id real (la selección la sigue por su clave) y
+   *      el `load()` trae la de verdad, que la reemplaza sola: mismo id;
+   *   3. si falla, la fila se va —vuelve la que estaba elegida— y el error queda pegado al botón.
+   * `creando` es un ESTADO aparte y no una fila metida en `secuencias`: un `load()` de otra pantalla
+   * en el medio la borraría.
    */
   const crearNueva = async (pedido?: string) => {
     if (creandoNueva.current) return;
     creandoNueva.current = true;
     setErrCrear(null);
+    const temporal = -Date.now();
+    setCreando({ temporal, id: null });
+    setAbrirSec({ id: temporal });
     try {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
       if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); return; }
       const id = Number(r.secuenciaId);
       setPedidoIA(pedido ? { secuenciaId: id, pedido } : null);
+      setCreando({ temporal, id });
       await load();
-      setAbrirSec({ id });
-    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { creandoNueva.current = false; }
+    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
   };
+  /** La lista que se dibuja: la del server más la fila que se está creando (`listaConCreando`). */
+  const visibles = secuencias === null ? null : listaConCreando(secuencias, creando);
   const ejemplosIA = huecos.slice(0, 2).map((h) => `Una bienvenida para quien llega a «${h.label}»`);
 
   // ── El ancla del deep link ────────────────────────────────────────────────
@@ -538,7 +557,7 @@ function ChatAgentInner() {
 
       {secuencias === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando secuencias…</div>}
 
-      {secuencias !== null && secuencias.length === 0 && !error && (
+      {visibles !== null && visibles.length === 0 && !error && (
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
           Todavía no hay automatizaciones.
           {rolAdmin && (
@@ -554,9 +573,9 @@ function ChatAgentInner() {
       {/* EL QUE ESTIRA, Y PEGADO A LOS BORDES. Todo lo de arriba es `flex: none` con su
           propio padding; esto se lleva el alto que sobra y llega hasta el borde de la
           tab, que es lo que significa «que ocupe TODA la tab». */}
-      {secuencias !== null && secuencias.length > 0 && (
+      {visibles !== null && visibles.length > 0 && (
         <SimuladorWhatsApp
-          secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
+          secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={(pedido) => void crearNueva(pedido)} errorNueva={errCrear} onReload={() => void load()}
           ejemplosIA={ejemplosIA} pedidoIA={pedidoIA}

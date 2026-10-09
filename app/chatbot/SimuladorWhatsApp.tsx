@@ -5,14 +5,33 @@
 // =============================================================================
 // El nombre es de cuando esto era un chat simulado (réplica de PlantillasView de SuperAdmin). Hoy
 // es la pantalla entera: el lienzo de la automatización elegida de borde a borde, la lista
-// flotando a la izquierda y, al tocar «Probar», el teléfono acoplado a la derecha
+// flotando a la izquierda y, al tocar «Probar», el panel del canal elegido acoplado a la derecha
 // (PanelProbar). El editor de la secuencia (SecuenciaPerfil) queda SIEMPRE montado.
+//
+// ── TERCERA TANDA (09/10/2026): «Probar» por canal, los tres puntos y «Nueva» al instante ──
+//   · «PROBAR» ES DE UN CANAL (decisión 14): el desplegable lo dibuja SecuenciaPerfil y llama
+//     `onProbar(canal)`; acá se guarda el canal y se monta PanelProbar con él. Otro canal es otro
+//     panel (va en la `key`).
+//   · LOS TRES PUNTOS DE CADA FILA (decisión 6, pedido literal: «en la sidebar donde están todas
+//     las secuencias pon los típicos 3 puntos para poder hacer estas acciones, como activarla,
+//     eliminarla, etc...»): el menú de la casa (`Dropdown` con «⋯», el de las columnas del CRM) con
+//     Activar/Pausar, Duplicar y Eliminar. Eliminar ARCHIVA (se recupera desde la base) y pregunta
+//     con la confirmación de la casa, una frase pegada al botón. El «⋯» tiene su PROPIA columna
+//     (no tapa el nombre): para que el nombre siga entrando en dos renglones (tope 40), el punto
+//     de estado pasó a ser una marca sobre el emoji, y la fila ganó los píxeles que el menú ocupa.
+//   · «NUEVA» (decisión 7, pedido literal: «si le paso el cursor debería tener una animación... Y
+//     al apretarlo... Mejor si se crea automáticamente la tarjeta en la sidebar y se abre el
+//     lienzo, y que el loader en todo caso esté al entrar al lienzo»): una animación al pasar el
+//     cursor (el ＋ gira, como el logo de la marca) y al tocarla la fila aparece YA, elegida, con el
+//     lienzo abierto y un loader adentro. La fila la pone ChatAgentApp (`crearNueva`, con
+//     `listaConCreando`); cuando el server contesta, la fila toma su id real y la selección la
+//     sigue (por su clave, `claveCreando`). Si falla, la fila se va y vuelve la que estaba elegida.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
 import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
-import { PanelProbar } from './PanelProbar';
+import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { RecordatorioFlujo, NOMBRE_RECORDATORIO } from './RecordatorioFlujo';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
@@ -43,10 +62,90 @@ export const TOPE_NOMBRE = 40;
 /** El ítem del recordatorio en la lista. No es una fila de `nutricion_secuencias`. */
 const ID_RECORDATORIO = 'recordatorio' as const;
 
+// ── «Nueva» al instante (decisión 7) ──────────────────────────────────────────
+// Viven ACÁ y no en ChatAgentApp porque los usan los dos y ChatAgentApp ya importa este archivo:
+// al revés sería un ciclo.
+
+/** El nombre de la fila mientras el server la crea: el mismo que le pone `crearSecuenciaVacia`. */
+export const NOMBRE_CREANDO = 'Nueva automatización';
+
+/**
+ * La CLAVE de la fila que se está creando: dice qué fila es aunque su id cambie (nace con un id
+ * negativo y toma el real cuando el server contesta). Ninguna clave de verdad empieza así.
+ */
+export const claveCreando = (temporal: number): string => `creando:${temporal}`;
+export const esFilaCreando = (j: Pick<SecuenciaDto, 'clave'>): boolean => j.clave.startsWith('creando:');
+
+/**
+ * La fila que aparece YA al tocar «Nueva». Es una automatización vacía y pausada, como la que
+ * crea el server (`crearSecuenciaVacia`: etapa y disparador 'manual', sin pasos): así, cuando el
+ * server contesta, la fila no cambia de cara, sólo de id.
+ */
+export function filaCreando(temporal: number): SecuenciaDto {
+  return {
+    id: temporal, clave: claveCreando(temporal), nombre: NOMBRE_CREANDO, etapa: 'manual', trigger_tipo: 'manual',
+    activa: false, pasos: [], inscriptos: 0, enviados: 0, estrategia: null,
+    metricas: {} as SecuenciaDto['metricas'],
+  };
+}
+
+/** Una creación en vuelo: el id temporal y, cuando el server contesta, el real. */
+export type Creando = { temporal: number; id: number | null };
+
+/**
+ * La lista con la fila que se está creando AL FINAL (donde el server pone la nueva: ordena por id).
+ * Se CALCULA, no se escribe en la lista: un `load()` que llegue en el medio (otra pantalla que
+ * recarga) la borraría. Con el id real ya contestado, la fila tiene ese id; y cuando la fila de
+ * verdad llega en la lista, ésta se va sola (mismo id): no hay un tercer paso que olvidar.
+ */
+export function listaConCreando(lista: readonly SecuenciaDto[], creando: Creando | null): SecuenciaDto[] {
+  if (!creando) return [...lista];
+  if (creando.id != null && lista.some((j) => j.id === creando.id)) return [...lista];
+  return [...lista, { ...filaCreando(creando.temporal), id: creando.id ?? creando.temporal }];
+}
+
+/** Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. */
+export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'eliminar'; label: string }> {
+  return [
+    { value: 'activa', label: activa ? 'Pausar' : 'Activar' },
+    { value: 'duplicar', label: 'Duplicar' },
+    { value: 'eliminar', label: 'Eliminar' },
+  ];
+}
+
 // El objetivo puede ser uno del catálogo O uno que escribió el dueño: para esos no hay emoji
 // propio y cae al genérico.
 const emojiSecuencia = (j: SecuenciaDto): string =>
   (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
+
+const API_SECUENCIAS = '/api/chat-agent/secuencias';
+
+async function pedir(url: string, method: 'POST' | 'PATCH', body: Record<string, unknown>): Promise<Record<string, unknown> & { ok?: boolean; error?: string }> {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
+}
+
+/**
+ * Lo que un estilo en línea no puede: el hover de la fila y del «⋯», y la animación de «Nueva».
+ * Con `prefers-reduced-motion` el ＋ no gira. Sin backticks acá adentro: es un template literal.
+ *
+ * ⚠️ El fondo de la fila y de «Nueva» va en la CLASE y no en el `style`: un estilo en línea le
+ * gana a cualquier `:hover` (AGENTS.md, los 129 botones del CRM).
+ */
+const CSS_LISTA = `
+.chb-fila{background:transparent;border-color:transparent;transition:background .14s ease}
+.chb-fila:hover{background:var(--surface-2)}
+.chb-fila.is-on{background:var(--surface-2);border-color:var(--border-strong)}
+.chb-fila .chb-menu{opacity:0;transition:opacity .14s ease}
+.chb-fila:hover .chb-menu,.chb-fila:focus-within .chb-menu,.chb-fila.is-on .chb-menu{opacity:1}
+@media (hover: none){.chb-fila .chb-menu{opacity:1}}
+.chb-nueva{background:transparent;color:var(--dim);border:1px dashed var(--border-strong);opacity:.85;transition:border-color .16s ease,color .16s ease,background .16s ease,opacity .16s ease}
+.chb-nueva:hover,.chb-nueva:focus-visible{opacity:1;color:var(--primary);border-color:var(--primary);background:var(--primary-bg)}
+.chb-nueva__mas{background:var(--surface-2);border:1px dashed var(--border-strong);color:var(--faint);transition:transform .24s cubic-bezier(.34,1.36,.64,1),color .16s ease,border-color .16s ease,background .16s ease}
+.chb-nueva:hover .chb-nueva__mas,.chb-nueva:focus-visible .chb-nueva__mas{transform:rotate(90deg) scale(1.06);color:var(--primary);border-color:var(--primary);border-style:solid;background:var(--surface)}
+.chb-nueva:active .chb-nueva__mas{transform:rotate(90deg) scale(.92)}
+@media (prefers-reduced-motion: reduce){.chb-nueva__mas{transition:none}.chb-nueva:hover .chb-nueva__mas,.chb-nueva:focus-visible .chb-nueva__mas,.chb-nueva:active .chb-nueva__mas{transform:none}}
+`;
 
 /**
  * Un pedido de abrir el LIENZO de una automatización desde afuera (el link del aviso,
@@ -71,8 +170,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   onAudioNuevo: (a: AudioSetting) => void;
   /**
    * «Nueva»: crea una automatización VACÍA y pausada y la abre con la caja de «Crear con IA»
-   * (decisión 14). El wizard de 9 pasos dejó de ser la entrada: ahí no existían «Si responde» ni
-   * las condiciones. `pedido` precarga la caja de «Crear con IA» («Armar una»). Se llama SIEMPRE
+   * (decisión 14 de la segunda tanda). `pedido` precarga la caja («Armar una»). Se llama SIEMPRE
    * por `nueva`, la puerta que pregunta por lo no publicado ANTES de crear.
    */
   onNueva: (pedido?: string) => void;
@@ -95,11 +193,26 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const [busq, setBusq] = useState('');
   const [filtro, setFiltro] = useState<'todas' | 'activas' | 'pausadas'>('todas');
   const [elegida, setSelId] = useState<number | typeof ID_RECORDATORIO | ''>('');
-  // Sin nada elegido, la primera. Se CALCULA y no se escribe con un efecto: un efecto que
-  // corrige el estado dibuja primero la pantalla vacía y después la corrige.
-  const selId = elegida === '' ? (secuencias[0]?.id ?? '') : elegida;
-  /** El teléfono de «Probar» abierto. El lienzo NO se desmonta: se prueba lo que se edita. */
-  const [probando, setProbando] = useState(false);
+  /** La que estaba elegida antes de abrir una fila que se está creando: si falla, se vuelve. */
+  const [volverA, setVolverA] = useState<number | typeof ID_RECORDATORIO | ''>('');
+
+  // LA FILA NUEVA TOMÓ SU ID REAL: la selección la sigue, por su clave (decisión 7). Se aplica AL
+  // DIBUJAR y no en un efecto: un efecto pintaría primero «Elige una automatización».
+  let elegidaViva = elegida;
+  if (typeof elegida === 'number' && elegida < 0) {
+    const fila = secuencias.find((j) => j.clave === claveCreando(elegida));
+    if (fila && fila.id !== elegida) { elegidaViva = fila.id; setSelId(fila.id); }
+  }
+  /**
+   * Lo elegido, si todavía está; si no (se eliminó, o la fila nueva no se pudo crear), la que estaba
+   * antes y, si tampoco, la primera. Se CALCULA y no se escribe con un efecto: un efecto que
+   * corrige el estado dibuja primero la pantalla vacía y después la corrige.
+   */
+  const existe = (id: number | typeof ID_RECORDATORIO | ''): boolean =>
+    id === ID_RECORDATORIO ? true : id !== '' && secuencias.some((j) => j.id === id);
+  const selId = existe(elegidaViva) ? elegidaViva : existe(volverA) ? volverA : (secuencias[0]?.id ?? '');
+  /** El panel de «Probar» abierto, y de qué canal. El lienzo NO se desmonta: se prueba lo que se edita. */
+  const [probando, setProbando] = useState<CanalProbar | null>(null);
   /** Lo que el lienzo tiene sin publicar (`onCambioLocal`): es lo que prueba el panel. */
   const [edicion, setEdicion] = useState<EdicionLocal | null>(null);
   /** El interruptor del recordatorio, para el punto de la lista y el filtro. null = no se sabe. */
@@ -115,6 +228,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     return () => { vivo = false; };
   }, [rolAdmin]);
 
+  const sel = typeof selId === 'number' ? secuencias.find((j) => j.id === selId) : undefined;
+  const creandoSel = !!sel && esFilaCreando(sel);
+  // La fila que se está creando nace PAUSADA: con «Activas» o un texto en el buscador no se vería,
+  // y «aparece YA en la lista» es lo que se pidió. Se limpian AL DIBUJAR, sólo mientras está elegida.
+  if (creandoSel && (filtro !== 'todas' || busq)) { setFiltro('todas'); setBusq(''); }
+
   // ⚠️ EL BUSCADOR BUSCA POR NOMBRE, que es lo único que la lista muestra (pedido de Martín,
   // 08/10/2026, punto 3: «elimina el subtitulo, solo el título»). Buscar por un gancho que no se
   // ve devolvía filas que no dicen por qué coinciden.
@@ -127,7 +246,6 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const verRecordatorio = rolAdmin
     && (filtro === 'todas' || (recordatorioActivo != null && pasaFiltro(recordatorioActivo)))
     && (!q || NOMBRE_RECORDATORIO.toLowerCase().includes(q));
-  const sel = typeof selId === 'number' ? secuencias.find((j) => j.id === selId) : undefined;
 
   /**
    * Elegir OTRA automatización: cierra «Probar» y suelta la edición local de la anterior.
@@ -135,11 +253,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * ⚠️ TOCAR LA QUE YA ESTÁ ELEGIDA NO HACE NADA (revisión adversarial del 08/10/2026,
    * lienzo-5). Antes vaciaba `edicion` igual: el lienzo no se remonta (misma `key`) y su efecto no
    * vuelve a emitir hasta el próximo cambio, así que «Probar» caía a lo GUARDADO —el texto viejo,
-   * sin «Cambió · ↻» y, con «A mi WhatsApp» prendido, mandándolo—. Un clic sin efecto visible no
+   * sin «Cambió · ↻» y, con la prueba real prendida, mandándolo—. Un clic sin efecto visible no
    * puede cambiar qué se prueba.
    */
   const cambiarA = (id: number | typeof ID_RECORDATORIO) => {
-    setSelId(id); setProbando(false); setEdicion(null);
+    setSelId(id); setProbando(null); setEdicion(null);
+    // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
+    if (typeof id === 'number' && id < 0) setVolverA(selId);
   };
   /**
    * ⚠️ Y CON CAMBIOS SIN PUBLICAR, SE PREGUNTA ANTES (decisión 15). El lienzo se remonta por
@@ -170,6 +290,68 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   };
   const recibirEdicion = useCallback((v: EdicionLocal) => setEdicion(v), []);
 
+  // ── Los tres puntos de cada fila (decisión 6) ─────────────────────────────────
+  /** La fila con una acción en vuelo: su «⋯» se apaga hasta que vuelva. */
+  const [ocupada, setOcupada] = useState<number | null>(null);
+  /** Por qué no se pudo: debajo de ESA fila, no en otro lado. */
+  const [errFila, setErrFila] = useState<{ id: number; texto: string } | null>(null);
+  const [aEliminar, setAEliminar] = useState<SecuenciaDto | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  /** La copia recién creada: se abre cuando llegue en la lista (si no hay nada sin publicar). */
+  const [abrirCopia, setAbrirCopia] = useState<number | null>(null);
+  if (abrirCopia != null && secuencias.some((j) => j.id === abrirCopia)) {
+    setAbrirCopia(null);
+    // Con cambios sin publicar NO se abre: preguntar por algo que nadie pidió se lee como un
+    // error. La copia queda a la vista en la lista.
+    if (!sinPublicar) cambiarA(abrirCopia);
+  }
+
+  /**
+   * Activar/Pausar y Duplicar. Lo valida el server: Activar valida lo mismo que Publicar
+   * (`setSecuenciaActiva`) y Duplicar pasa los pasos por `setSecuenciaPasos`
+   * (lib/secuencia-duplicar.ts); lo que contesta mal queda pegado a la fila.
+   */
+  const accionFila = async (j: SecuenciaDto, accion: string) => {
+    if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
+    if (accion !== 'activa' && accion !== 'duplicar') return;
+    setErrFila(null); setOcupada(j.id);
+    try {
+      if (accion === 'activa') {
+        const r = await pedir('/api/whatsapp/secuencias', 'PATCH', { id: j.id, activa: !j.activa });
+        if (!r.ok) { setErrFila({ id: j.id, texto: r.error || 'No se pudo cambiar' }); return; }
+      } else {
+        const r = await pedir(API_SECUENCIAS, 'POST', { action: 'duplicar', secuenciaId: j.id });
+        if (!r.ok || !(Number(r.secuenciaId) > 0)) { setErrFila({ id: j.id, texto: r.error || 'No se pudo duplicar' }); return; }
+        // La copia nace pausada: con «Activas» no se vería.
+        if (filtro === 'activas') setFiltro('todas');
+        setAbrirCopia(Number(r.secuenciaId));
+      }
+      onReload();
+    } catch {
+      setErrFila({ id: j.id, texto: 'Sin conexión' });
+    } finally {
+      setOcupada(null);
+    }
+  };
+
+  /** Eliminar = ARCHIVAR (`archivarSecuencias`): deja de enviar, sale de la lista, se recupera desde la base. */
+  const eliminar = async () => {
+    const j = aEliminar;
+    if (!j) return;
+    setEliminando(true);
+    try {
+      const r = await pedir(API_SECUENCIAS, 'POST', { action: 'archivar', ids: [j.id] });
+      if (!r.ok) { setErrFila({ id: j.id, texto: r.error || 'No se pudo eliminar' }); return; }
+      // Lo no publicado de la que se fue ya no tiene dónde publicarse: que no pregunte al cambiar.
+      if (j.id === selId) setSinPublicar(false);
+      onReload();
+    } catch {
+      setErrFila({ id: j.id, texto: 'Sin conexión' });
+    } finally {
+      setEliminando(false); setAEliminar(null);
+    }
+  };
+
   /**
    * LOS MUELLES (decisión 11): dónde va «Probar», el editor apaisado y lo que cada cosa que flota
    * tiene que dejar libre. Lo decide UNA función pura (`muelles`, lib/lienzo-grafo.ts) con la caja
@@ -192,7 +374,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * de una charla que pasó a una persona dice «súmalo como caso en «Si responde»» con
    * `/chatbot?sec=<id>`, y ese link abría el wizard de 9 pasos, donde «Si responde» no existe.
    * Se aplica AL DIBUJAR y no en un efecto: un efecto pintaría primero la primera de la lista y
-   * después la del link.
+   * después la del link. Es también la puerta por la que se abre la fila que se está creando.
    */
   const [abrirVisto, setAbrirVisto] = useState<AbrirSecuencia | null>(null);
   if (abrir && abrir !== abrirVisto && secuencias.some((j) => j.id === abrir.id)) {
@@ -202,7 +384,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
   // `editorAbierto: true`: lo que se reparte es el muelle que el editor ocupa CUANDO se abre (el
   // lienzo lo usa al tocar una tarjeta). «Probar» no depende de eso (ver `muelles`).
-  const probarVisible = probando && !!sel && caja.w > 0;
+  const probarVisible = probando != null && !!sel && !creandoSel && caja.w > 0;
   const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible, editorAbierto: true });
 
   /**
@@ -216,11 +398,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    *
    * ⚠️ «PROBAR» YA NO REEMPLAZA AL LIENZO (punto 10, 08/10/2026). Era un modo 'chat' que
    * desmontaba el editor —se perdía lo no publicado— y dejaba el chat debajo de esta lista, con
-   * «Editar» como única salida. Ahora es un teléfono acoplado a la DERECHA, como la lista a la
+   * «Editar» como única salida. Ahora es un panel acoplado a la DERECHA, como la lista a la
    * izquierda, y el lienzo le corre lo que flota con `insetDer`.
    */
   return (
     <div ref={raiz} style={{ flex: 1, minHeight: 0, position: 'relative', minWidth: 0, display: 'flex' }}>
+      <style>{CSS_LISTA}</style>
       {/* EL LIENZO: debajo de todo y de borde a borde. */}
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {selId === ID_RECORDATORIO && rolAdmin ? (
@@ -228,6 +411,18 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         ) : !sel ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
             Elige una automatización
+          </div>
+        ) : creandoSel ? (
+          /* «NUEVA» AL INSTANTE (decisión 7): el lienzo ya está abierto, con su cuadrícula, y lo
+             que tarda —el server creando la fila— se ve ACÁ adentro. El lienzo de verdad se monta
+             cuando la fila tiene su id real (no hay a dónde guardar antes). */
+          <div aria-busy="true" style={{
+            flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            paddingLeft: m.insets.izq, color: 'var(--dim)', fontSize: 13.5,
+            backgroundImage: 'radial-gradient(var(--border) 1px, transparent 1px)', backgroundSize: '22px 22px',
+          }}>
+            <span className="mk-spin" style={{ width: 18, height: 18 }} aria-hidden />
+            Creando…
           </div>
         ) : (
           /**
@@ -252,7 +447,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               const otra = secuencias.find((j) => j.clave === clave);
               if (otra) elegir(otra.id);
             }}
-            onProbar={() => setProbando(true)}
+            /* El canal lo elige el desplegable de «Probar» (SecuenciaPerfil). Opcional a
+               propósito: un `onProbar()` sin canal abre WhatsApp, el de siempre. */
+            onProbar={(canal?: CanalProbar) => setProbando(canal === 'email' ? 'email' : 'whatsapp')}
             onCambioLocal={recibirEdicion}
             ejemplosIA={ejemplosIA}
             pedidoIA={pedidoIA?.secuenciaId === sel.id ? pedidoIA.pedido : undefined}
@@ -293,19 +490,37 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         </div>
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
           {rolAdmin && (
-            <button type="button" onClick={() => nueva()}
-              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85, fontFamily: 'inherit' }}>
-              <span style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--faint)' }}>＋</span>
+            <button type="button" onClick={() => nueva()} className="chb-nueva"
+              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 12, cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit' }}>
+              <span aria-hidden className="chb-nueva__mas" style={{ width: 36, height: 36, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>＋</span>
               <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva</span>
             </button>
           )}
           {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}</div>}
           {lista.length === 0 && !verRecordatorio && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
-          {lista.map((j) => (
-            <ItemLista key={j.id} on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={j.nombre} onClick={() => elegir(j.id)} />
-          ))}
+          {lista.map((j) => {
+            const creando = esFilaCreando(j);
+            return (
+              <div key={creando ? j.clave : j.id}>
+                <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={j.nombre} creando={creando}
+                  onClick={() => elegir(j.id)}
+                  menu={rolAdmin && !creando ? (
+                    /* ⚠️ VA EL `Dropdown` DE LA CASA y no un menú propio: la lista scrollea
+                       (`overflowY: auto`) y un menú en flujo se recortaría contra su borde. Éste se
+                       dibuja por portal. Es el molde del «⋯» de las columnas del CRM. */
+                    <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha search={false}
+                      ariaLabel={`Opciones de ${j.nombre}`} disabled={ocupada === j.id}
+                      buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+                      options={opcionesDeFila(j.activa)}
+                      onChange={(v) => void accionFila(j, v)} />
+                  ) : undefined} />
+                {errFila?.id === j.id && <div role="alert" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--bad)' }}>{errFila.texto}</div>}
+              </div>
+            );
+          })}
           {/* EL RECORDATORIO, COMO UNA AUTOMATIZACIÓN MÁS (punto 2). Lo sigue mandando su
-              emisor de siempre; la lista sólo lo abre en su lienzo. */}
+              emisor de siempre; la lista sólo lo abre en su lienzo. Sin «⋯»: no se duplica ni
+              se archiva (no es una fila de secuencias), y se prende en su propio lienzo. */}
           {verRecordatorio && (
             <ItemLista on={selId === ID_RECORDATORIO} activa={recordatorioActivo === true} emoji="⏰" nombre={NOMBRE_RECORDATORIO} onClick={() => elegir(ID_RECORDATORIO)} />
           )}
@@ -319,13 +534,15 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       {/* «PROBAR», EN SU MUELLE (decisión 11): ancho y bajo, arriba a la derecha y debajo del
           chrome; o de arriba a abajo a la derecha si la ventana es baja. El rectángulo sale de
           `muelles` y el panel lo LLENA (width/height 100 %): ni el ancho ni el alto se deciden
-          adentro. Se remonta por automatización: otra secuencia es otra prueba. */}
+          adentro. Se remonta por automatización y por canal: otra secuencia u otro canal es otra
+          prueba. */}
       {probarVisible && sel && m.probar && (
         <div data-muelle="probar" style={{ position: 'absolute', left: m.probar.left, top: m.probar.top, width: m.probar.width, height: m.probar.height, zIndex: 3, display: 'flex' }}>
           <PanelProbar
-            key={sel.id}
+            key={`${sel.id}-${probando}`}
+            canal={probando ?? 'whatsapp'}
             secuencia={sel} edicion={edicion} secuencias={secuencias} audios={audios} negocio={negocio}
-            rolAdmin={rolAdmin} etiquetaEtapa={etiquetaEtapa} onCerrar={() => setProbando(false)}
+            rolAdmin={rolAdmin} etiquetaEtapa={etiquetaEtapa} onCerrar={() => setProbando(null)}
             style={{ width: '100%', height: '100%' }}
           />
         </div>
@@ -340,29 +557,53 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           onConfirm={descartar} onCancel={() => setPendiente(null)}
         />
       )}
+
+      {/* Eliminar ARCHIVA: la confirmación de la casa, una frase pegada al botón. */}
+      {aEliminar && (
+        <Confirm
+          message={`«${aEliminar.nombre}» deja de enviar y sale de la lista.`}
+          confirmLabel="Eliminar automatización" cancelLabel="No eliminar" tone="danger" loading={eliminando}
+          onConfirm={() => void eliminar()} onCancel={() => setAEliminar(null)}
+        />
+      )}
     </div>
   );
 }
 
 /**
- * Una fila de la lista: el emoji, el NOMBRE ENTERO y el punto de estado. Nada más.
+ * Una fila de la lista: el emoji (con el punto de estado encima), el NOMBRE ENTERO y su «⋯».
  *
  * ⚠️ SIN SUBTÍTULO (pedido de Martín, 08/10/2026, punto 3): «elimina el subtitulo, solo el
  * título. Y procura que se vea todo, con un máximo de caracteres para los títulos». El nombre va
- * en DOS renglones (`line-clamp`): en un renglón de ~162 px entraban ~22 caracteres y los seis
- * vigentes (31 a 39) se cortaban todos. Dos renglones son ~44, por encima del tope de 40.
+ * en DOS renglones (`line-clamp`). Antes medía ~162 px (emoji 38 + punto 8 al costado). Con el
+ * «⋯» de la tercera tanda (28 px) el punto se mudó ENCIMA del emoji y la fila se ajustó (emoji
+ * de 36, relleno de 10 y 4): el nombre sigue midiendo ~162 px, o sea ~44 caracteres en dos
+ * renglones, por encima del tope de 40. El «⋯» tiene su columna propia y no tapa el nombre;
+ * aparece al pasar el cursor, con la fila elegida y siempre en una pantalla táctil.
+ *
+ * La fila es un <div> con DOS botones (abrir y el menú): un botón adentro de otro no es HTML.
  */
-function ItemLista({ on, activa, emoji, nombre, onClick }: {
+function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
+  /** El «⋯» de la fila. Sin él (el recordatorio, la que se está creando, quien no es admin), nada. */
+  menu?: ReactNode;
+  /** La fila que el server está creando: en vez del emoji, el giro. */
+  creando?: boolean;
 }) {
   return (
-    <button type="button" onClick={onClick} title={nombre.length > TOPE_NOMBRE ? nombre : undefined}
-      style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, opacity: activa ? 1 : 0.55, fontFamily: 'inherit' }}>
-      <span style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emoji}</span>
-      <span style={{ minWidth: 0, flex: 1, fontWeight: 600, fontSize: 13.5, lineHeight: 1.3, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>{nombre}</span>
-      {/* El punto dice el estado sin una palabra: en una fila de 272 px,
-          «pausada» se come el nombre. El rótulo entero está en el lienzo. */}
-      <span title={activa ? 'Activa' : 'Pausada'} style={{ width: 8, height: 8, borderRadius: '50%', background: activa ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
-    </button>
+    <div className={`chb-fila${on ? ' is-on' : ''}`}
+      style={{ display: 'flex', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderStyle: 'solid', marginBottom: 2 }}>
+      <button type="button" onClick={onClick} title={nombre.length > TOPE_NOMBRE ? nombre : undefined} aria-current={on || undefined}
+        style={{ flex: 1, minWidth: 0, textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px 4px 10px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', opacity: activa || creando ? 1 : 0.55 }}>
+        {/* El punto dice el estado sin una palabra: en una fila de 272 px, «pausada» se come el
+            nombre. El rótulo entero está en el lienzo. */}
+        <span style={{ position: 'relative', width: 36, height: 36, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+          {creando ? <span className="mk-spin" style={{ width: 14, height: 14 }} aria-hidden /> : emoji}
+          <span title={activa ? 'Activa' : 'Pausada'} style={{ position: 'absolute', right: -1, bottom: -1, width: 10, height: 10, borderRadius: '50%', background: activa ? 'var(--good)' : 'var(--border-strong)', boxShadow: `0 0 0 2px ${on ? 'var(--surface-2)' : 'var(--surface)'}` }} />
+        </span>
+        <span style={{ minWidth: 0, flex: 1, fontWeight: 600, fontSize: 13.5, lineHeight: 1.3, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>{nombre}</span>
+      </button>
+      {menu && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}
+    </div>
   );
 }
