@@ -22,7 +22,7 @@
 import {
   CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS,
   claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, padreDe, elegirSalida,
-  normalizar, nuevoId,
+  normalizar, nuevoId, paralelosDeResultado,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
 } from './flujo-grafo';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
@@ -181,6 +181,11 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
     if (c === 'condicion') {
       if (!ctx.hechos) return { tipo: 'faltan_hechos' };
       const s = elegirSalida(p, ctx.hechos);
+      // CUARTA TANDA, PUNTO 8 («varias si se cumple y varias si no se cumple»): las flechas en
+      // paralelo del RESULTADO ELEGIDO arrancan ahora, sea cual sea el desenlace de su principal. Las
+      // del otro resultado no corren para este lead. Es el mismo `repartos` que una espera o el
+      // inicio: el motor (`nuevosDe` → `escribir`) no distingue de dónde salió la flecha.
+      for (const d of paralelosDeResultado(p, s.puerto)) if (!repartos.some((r) => r.destino === d)) repartos.push({ destino: d, desdeMs: ctx.ahoraMs });
       const j = indicePorId(pasos, s.destino);
       if (j < 0) return { tipo: 'fin', motivo: 'la condición termina aquí', via, repartos };
       idx = j;
@@ -797,11 +802,15 @@ function sanearRama(x: unknown): RamaCondicion | null {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const o = x as Record<string, unknown>;
   const filas = Array.isArray(o.filas) ? o.filas.map(sanearFila).filter((f): f is FilaCondicion => !!f) : [];
+  // ⚠️ LA QUINTA PUERTA (AGENTS.md), cuarta tanda, punto 8: las flechas en paralelo de cada rama.
+  // Sin esta línea `setSecuenciaPasos` las borraba en el primer guardado, sin error.
+  const paralelos = sanearParalelos(o.paralelos);
   return {
     id: idValido(o.id) ? o.id : '',
     modo: o.modo === 'cualquiera' ? 'cualquiera' : 'todas',
     filas,
     siguiente: destinoId(o.siguiente) ?? null,
+    ...(paralelos ? { paralelos } : {}),
   };
 }
 
@@ -836,7 +845,7 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar'>;
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar'>;
 
 /**
  * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
@@ -867,6 +876,9 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   if (nodo === 'condicion') {
     out.ramas = Array.isArray(o.ramas) ? o.ramas.map(sanearRama).filter((r): r is RamaCondicion => !!r) : [];
     out.si_no = destinoId(o.si_no) ?? null;
+    // Las flechas en paralelo del «Si no» (cuarta tanda, punto 8): la quinta puerta, como las de la rama.
+    const parSiNo = sanearParalelos(o.paralelos_si_no);
+    if (parSiNo) out.paralelos_si_no = parSiNo;
   }
   if (nodo === 'respuesta') {
     out.casos = Array.isArray(o.casos) ? o.casos.map(sanearCaso).filter((c): c is CasoRespuesta => !!c) : [];
