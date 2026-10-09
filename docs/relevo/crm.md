@@ -1,5 +1,36 @@
 # Relevo — CRM
 
+## ⚡ Actualización del 09/10/2026, 15:10 — sesión CRM, cuenta claude2
+
+Commit `5a4e3f04` (pusheado en esta misma tanda). Dos cosas, las dos sin decisión pendiente:
+
+- **#800 cerrado en código:** pastilla «Plazo» por etapa en el editor de etapas y aviso diario
+  `crm-lead-quieto` (los que pasaron el plazo, sin moverlos, sin depender del CRM automático).
+  → `docs/hallazgos-crm.md` → «El lead QUIETO». Nace sin efecto: nadie tiene plazos todavía.
+- **La revisión de propuestas (`/crm/revisar`) perdía al contacto repetido de la landing**, sus
+  productos y su campaña. Arreglado. → `docs/hallazgos-crm.md` → «Confirmar una propuesta de la
+  landing…». ⚠️ **Leila (ws11) tiene 5 contactos de su landing esperando ahí**, uno de hoy: con
+  el arreglo desplegado ya se pueden confirmar sin perder nada.
+
+**Lo que espera a Martín** (se lo pregunté en el chat; nada de esto se decide solo):
+1. ws11: la mensualidad de Nadia #2605 (4.235,29 es el total del contrato), ¿los 444 de Fabi
+   #2606 son USD o pesos?, y Fabi sigue en dos productos (Nora ya no).
+2. Ganar en un producto AGREGADO no marca ganado al lead: ¿así?
+3. #18: el texto de los follow-ups, cuántos y cada cuánto (se puede armar en /chatbot).
+4. #15: en qué cliente se prende el piloto del CRM automático.
+5. #20: n8n, ¿se apaga o pasa el acceso?
+6. #671: «Agendar R2» necesita un Calendly conectado para probarlo (sólo lo tiene el ws1).
+7. Prender en quien lo quiera lo que nació apagado (página de gracias → Ganado, invitar al curso).
+
+**Quedan abiertos en el plan:** #671, #18, #15, #40 (el planificador del CRM automático sigue
+en R1/R2 y necesita una migración para la reunión N) y #20. **Sin hacer y sin decisión:** la
+COHORTE del panel lateral (punto 1 del relevo del 05/10) y que confirmar una propuesta la marque
+ANTES de crear (dos pestañas pueden crear dos veces).
+
+⚠️ Dos rojos de la suite que NO son del CRM (09/10, 14:50): `tests/curso-tareas-secciones` lee
+archivos del curso que Customer Success tiene a medio editar, y `tests/inbox-agregar-al-crm`
+cuenta 4 montajes de la bandeja de WhatsApp donde espera 5 desde `c09e16ad` (14:28).
+
 ## ⚡ Actualización del 08/10/2026, 08:00 — sesión CRM, cuenta claude2
 
 El feedback de Leila (ws11) y la grabación de sesiones, en producción:

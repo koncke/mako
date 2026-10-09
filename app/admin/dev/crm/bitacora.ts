@@ -31,7 +31,8 @@ export const PARTES: Parte[] = [
   { titulo: 'El resumen del lead', detalle: '/crm/[id]/resumen para leer en el celular · el análisis de la llamada a un botón', estado: 'hecha' },
   { titulo: 'Un embudo por producto', detalle: 'Cada producto con sus etapas, su TOFU y su tablero de leads (mig 0181)', estado: 'hecha' },
   { titulo: 'El embudo se edita DENTRO del CRM', detalle: 'Etapas, entradas y nutriciones en un pop-up · el editor viejo y la ruta /funnel se retiraron', estado: 'hecha' },
-  { titulo: 'Los leads se mueven entre productos', detalle: 'Traerlos de otro embudo con filtros y en lote · y aviso si esa persona ya está en otro', estado: 'hecha' },
+  { titulo: 'Un lead en varios productos', detalle: 'Se AGREGA a otro producto, nunca se mueve (mig 0207) · traerlos de otro embudo con filtros y en lote', estado: 'hecha' },
+  { titulo: 'El lead quieto', detalle: 'Un plazo por etapa · un aviso por día de los que lo pasaron, sin moverlos', estado: 'hecha' },
   { titulo: 'Aislamiento del CRM por workspace', detalle: 'Ningún módulo de cliente lleva datos del dueño · un lead ajeno dice qué pasó en vez de un 404', estado: 'sigue' },
   { titulo: 'El lead y lo que se le vendió', detalle: 'leads.producto_id sigue sin una sola línea que la lea o la escriba: hoy el vínculo es funnel_id', estado: 'cola' },
 ];
@@ -1488,6 +1489,64 @@ export const BITACORA: Hito[] = [
       "lib/etapa-reunion.ts — qué se puede marcar y qué reuniones se corren",
       "app/crm/actions.ts — editarEtapaAction, op reunion",
       "app/crm/EtapasModal.tsx — el botón y la confirmación"
+    ]
+  },
+  {
+    "fecha": "9 oct",
+    "hora": "15:04",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "El plazo de cada etapa y el aviso del lead quieto (#800)",
+    "puntos": [
+      "Una pastilla «Plazo» por etapa en el editor de etapas.",
+      "Aviso diario de los leads que pasaron el plazo, sin moverlos y sin depender del CRM automático.",
+      "En una etapa de reunión, el reloj arranca el día de la reunión.",
+      "Probado con datos reales en modo prueba (ws4) y la pastilla en el navegador (ws9)."
+    ],
+    "commits": [
+      {
+        "sha": "5a4e3f04",
+        "msg": "CRM: el plazo de cada etapa y el aviso del lead quieto (#800); la revisión de propuestas lleva productos y campaña",
+        "lineas": 1357,
+        "archivos": 18
+      }
+    ],
+    "archivos": [
+      "lib/lead-quieto.ts — las reglas, puras",
+      "lib/lead-quieto-aviso.ts — lee la base y emite crm-lead-quieto",
+      "app/crm/EtapasModal.tsx — la pastilla Plazo",
+      "app/crm/actions.ts — op plazo y EmbudoEnDetalle.plazos",
+      "app/api/cron/crm-automatico/route.ts — corre después del motor"
+    ]
+  },
+  {
+    "fecha": "9 oct",
+    "hora": "15:04",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "correccion",
+    "titulo": "Confirmar un contacto de la landing ya no lo pierde",
+    "puntos": [
+      "La revisión muestra el «ya existe»: antes decía «Crear 1 lead» y no creaba nada.",
+      "El lead queda en los productos que pidió: agregar, nunca mover.",
+      "Conserva la campaña (utm, fbclid y la visita).",
+      "Ya no dice «Lo propuso Claude» sobre un formulario de la landing."
+    ],
+    "commits": [
+      {
+        "sha": "5a4e3f04",
+        "msg": "CRM: el plazo de cada etapa y el aviso del lead quieto (#800); la revisión de propuestas lleva productos y campaña",
+        "lineas": 1357,
+        "archivos": 18
+      }
+    ],
+    "archivos": [
+      "app/crm/revisar/[id]/propuesta-lead.ts — productos, atribución y quién lo propuso",
+      "app/crm/revisar/[id]/acciones.ts — los aplica al confirmar",
+      "app/api/track/optin/route.ts — la propuesta guarda los productos"
     ]
   }
 ];
