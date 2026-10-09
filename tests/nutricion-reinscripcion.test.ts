@@ -419,7 +419,8 @@ test('cada paso que sale re-anota la reunión, en un update APARTE del avance', 
   assert.ok(helper.length > 0 && helper.length < 900, `la re-anotación mide ${helper.length}: está mirando otra cosa`);
   assert.match(helper, /const reunionDelPaso = preparaUnaReunion\(sec\.trigger_tipo\) \? reunionQuePreparaMs\(lead\) : null;\s*if \(reunionDelPaso != null\) \{\s*const \{ error: eReunion \} = await supabase\.from\('nutricion_inscripciones'\)\s*\.update\(\{ reunion_at: /);
   // (08/10/2026: lo que sigue sale del GRAFO, `avanceDesde`, no del índice + 1.)
-  const ini = proc.indexOf('const { campos: avance, yaToca } = avanceDesde(sec, insc.paso_actual, lead);');
+  // (Segunda tanda, 08/10/2026: el avance trae también los hilos que arrancan, `nuevos`.)
+  const ini = proc.indexOf('const { campos: avance, yaToca, nuevos: nuevosAlSalir } = avanceDesde(sec, insc.paso_actual, lead);');
   const fin = proc.indexOf("if (estado === 'enviado') res.enviados += 1;", ini);
   assert.ok(ini > 0 && fin > ini, 'no encontré el avance del paso');
   const trozo = proc.slice(ini, fin);
