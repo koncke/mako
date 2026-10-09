@@ -3,9 +3,8 @@
 // =============================================================================
 // El problema que resuelve: hoy una tab sin su integración NO dice que le falta
 // una integración. Comercial renderiza seis secciones en $0 y un gráfico plano
-// (se lee como roto, no como "todavía no"), y WhatsApp dice "Sin conversaciones"
-// cuando en realidad Chatwoot nunca se conectó — un error de config disfrazado
-// de dato vacío, que es la peor lectura posible: le echa la culpa al dato.
+// (se lee como roto, no como "todavía no"). Un error de config disfrazado de
+// dato vacío es la peor lectura posible: le echa la culpa al dato.
 //
 // En vez de eso, la tab muestra la MISMA pantalla partida del onboarding: a la
 // izquierda el aside negro con lo que va a poder hacer (y, apenas conecta, los
@@ -77,24 +76,8 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     ],
   },
 
-  whatsapp: {
-    key: 'whatsapp',
-    titulo: 'WhatsApp',
-    servicio: 'whatsapp',
-    eyebrow: '✦ Con WhatsApp conectado',
-    queFalta: 'Conecta tu cuenta por Chatwoot y la bandeja pasa a vivir aquí adentro. Tu número de empresa no pide credencial: se engancha escaneando un QR desde esta misma tab.',
-    ademas: 'Ojo con el ID de bandeja: si no fijas el tuyo se usa uno por default que no es el tuyo. El nombre de tu bandeja aparece a la izquierda apenas conectas — si no es el que esperabas, cambia el ID.',
-    slides: [
-      // app/whatsapp/WhatsAppApp.tsx + _shared/VoiceRecorder.tsx
-      { t: 'El inbox, aquí adentro', d: 'Un hilo por lead con su etapa del funnel al lado, adjuntos, y notas de voz que grabas desde el composer.' },
-      // app/whatsapp/WhatsAppAdvisor.tsx (Sugerencia.guion_voz) + lib/whatsapp-advisor.ts
-      { t: 'MaKo te dice qué escribir', d: 'Lee la conversación real, la etapa y la ventana de 24h, y te deja mensajes listos con su ángulo y su tono — hasta el guion de una nota de voz.' },
-      // lib/template-validator.ts (Hallazgo/Propuesta + aplicarPropuesta)
-      { t: 'Plantillas que no te rechazan', d: 'MaKo valida el borrador contra las reglas de Meta antes de mandarlo: la regla que rompe y una versión corregida que aplicas de un click.' },
-      // EvolutionConnect + EmpresaInbox + lib/evolution.ts (espejo en wa_mensajes)
-      { t: 'Dos números, un historial', d: 'El oficial y el de empresa conviven en la misma tab, y el no oficial queda espejado en tu base: si te banean el número, el historial sigue aquí.' },
-    ],
-  },
+  // WhatsApp no tiene entrada desde el 09/10/2026: pedía las credenciales de Chatwoot, que se
+  // borró con toda la integración. El número de empresa se vincula por QR desde la misma tab.
 
   email: {
     key: 'email',

@@ -222,44 +222,9 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  {
-    key: 'whatsapp',
-    nombre: 'WhatsApp (Chatwoot)',
-    categoria: 'Mensajería',
-    core: true,
-    paraQue: 'Inbox de WhatsApp, plantillas y envíos de nutrición automática a leads.',
-    campos: [
-      { env: 'CHATWOOT_BASE_URL', label: 'URL base de Chatwoot', placeholder: 'https://app.chatwoot.com', nota: 'La dirección con la que entras a Chatwoot, cortada antes de "/app". Ejemplo: "https://app.chatwoot.com". Sin barra al final. Si tu empresa instaló Chatwoot en su propio servidor, va la dirección de tu empresa.', host: true },
-      { env: 'CHATWOOT_ACCOUNT_ID', label: 'ID de la cuenta', placeholder: '1', nota: 'El número que aparece justo después de "accounts" en la dirección de tu Chatwoot. Suele ser corto: un 1, un 3.' },
-      { env: 'CHATWOOT_API_TOKEN', label: 'Access token', secreto: true, nota: 'Está al final de tu "Configuración del perfil" en Chatwoot, en el bloque "Access Token". Solo lo ve un usuario administrador. Guárdalo como una contraseña.' },
-      { env: 'CHATWOOT_WA_INBOX_ID', label: 'ID del inbox de WhatsApp', opcional: true, placeholder: '2', nota: 'Opcional. Es el último número de la dirección cuando abres tu bandeja de WhatsApp en Chatwoot. Sin esto las conversaciones se ven igual, pero no se pueden mandar plantillas ni los seguimientos automáticos.' },
-    ],
-    tutorial: {
-      url: 'https://app.chatwoot.com',
-      urlLabel: 'Chatwoot',
-      pasos: [
-        'Para qué sirve: las conversaciones de WhatsApp con tus clientes se ven aquí adentro y MaKo puede mandar los seguimientos automáticos. Chatwoot es el programa que ya maneja tu WhatsApp; aquí solo vas a copiar cuatro datos de ahí.',
-        'Entra a tu Chatwoot con tu usuario de siempre. Si no sabes de qué se trata o no tienes usuario, Chatwoot no se contrata solo: lo monta quien te conectó el número de WhatsApp. Escríbele a tu agencia y pídele "acceso de administrador a Chatwoot", porque con menos que administrador el paso del token no funciona.',
-        'Tres de los cuatro datos se leen de la dirección de la página, la que se escribe en el navegador. Si estás en el celular aparece recortada: para estos pasos conviene abrir Chatwoot en una computadora.',
-        'Mira esa dirección. Si usas la versión en la nube empieza con "https://app.chatwoot.com"; si tu empresa instaló Chatwoot en su propio servidor, empieza con la dirección de tu empresa.',
-        'Copia esa dirección hasta antes de "/app" y pégala en el campo "URL base de Chatwoot". Queda algo como "https://app.chatwoot.com". Sin barra al final.',
-        'Mira la dirección completa otra vez: dice algo como ".../app/accounts/3/...". El número que va justo después de "accounts" es el identificador de tu cuenta.',
-        'Copia ese número y pégalo en el campo "ID de la cuenta".',
-        'Ahora, en Chatwoot, toca tu foto de perfil, abajo a la izquierda de todo.',
-        'Elige "Configuración del perfil".',
-        'Baja hasta el final de esa pantalla, hasta el bloque que dice "Access Token".',
-        'Copia ese código y pégalo en el campo "Access token". Es lo que deja a MaKo leer y responder tus conversaciones: guárdalo como si fuera una contraseña.',
-        'Si no ves ese bloque "Access Token", es porque tu usuario de Chatwoot no es administrador de la cuenta. Pídeselo a quien la administra: solo un administrador puede verlo.',
-        'Falta un último dato y es opcional. En Chatwoot cada canal de entrada es una bandeja —ellos la llaman "inbox"—: la de WhatsApp es donde caen los mensajes de tu línea. Cada bandeja tiene un número que la identifica, un 1, un 2, y eso es lo que va en el campo "ID del inbox de WhatsApp".',
-        'Sin ese número las conversaciones se ven igual en MaKo, pero no se pueden mandar plantillas ni los seguimientos automáticos. Si no lo quieres ahora, deja el campo vacío y guarda.',
-        'Para conseguirlo, toca el engranaje de "Configuración" en el menú de Chatwoot: en la computadora está en la columna de la izquierda; en el celular, detrás del botón de las tres rayitas.',
-        'Entra a "Bandejas de entrada".',
-        'Toca la bandeja de WhatsApp para abrir su configuración.',
-        'Mira la dirección completa otra vez: ahora termina en algo como ".../settings/inboxes/2". Ese último número es el que va en el campo "ID del inbox de WhatsApp".',
-        'Si en la lista no hay ninguna bandeja de WhatsApp, es porque el número todavía no está conectado en Chatwoot. Eso se hace ahí mismo, con el botón "Agregar bandeja de entrada", y después vuelves a buscar ese número.',
-      ],
-    },
-  },
+  // WhatsApp (Chatwoot), el WhatsApp OFICIAL, salió el 09/10/2026: ver tests/sin-chatwoot.test.ts.
+  // El WhatsApp del producto es el número de empresa (Evolution), que se vincula por QR desde
+  // /whatsapp y no pide ninguna credencial acá.
   // Instagram (Zernio) salió el 06/10/2026 con la tab Instagram: ver tests/sin-instagram.test.ts.
   {
     key: 'email',
@@ -1021,55 +986,6 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://business.facebook.com/events_manager2',
     urlLabel: 'Administrador de eventos',
-  },
-  CHATWOOT_BASE_URL: {
-    pasos: [
-        'Para qué sirve: le dice a MaKo dónde vive tu Chatwoot, que es el programa que ya maneja tu WhatsApp. Sin esta dirección no puede leer ni responder ninguna conversación.',
-        'Entra a tu Chatwoot con tu usuario de siempre. Si no sabes de qué se trata, Chatwoot no se contrata solo: lo monta quien te conectó el número de WhatsApp, así que pídeselo a tu agencia.',
-        'Mira la dirección de la página, la que se escribe en el navegador. Si estás en el celular aparece recortada: para este dato conviene abrir Chatwoot en una computadora.',
-        'Copia esa dirección hasta antes de "/app". Si usas la versión en la nube queda "https://app.chatwoot.com"; si tu empresa instaló Chatwoot en su propio servidor, queda la dirección de tu empresa.',
-        'Pégala en el campo "URL base de Chatwoot", sin barra al final.',
-      ],
-    url: 'https://app.chatwoot.com',
-    urlLabel: 'Chatwoot',
-  },
-  CHATWOOT_ACCOUNT_ID: {
-    pasos: [
-        'Para qué sirve: en un mismo Chatwoot pueden convivir varias cuentas. Este número le dice a MaKo cuál es la tuya.',
-        'Entra a tu Chatwoot con tu usuario de siempre.',
-        'Mira la dirección de la página, la que se escribe en el navegador: dice algo como "app.chatwoot.com/app/accounts/3/…". Si estás en el celular aparece recortada, así que para este dato conviene una computadora.',
-        'El número que va justo después de "accounts" es el que buscas. Suele ser corto: un 1, un 3.',
-        'Cópialo y pégalo en el campo "ID de la cuenta". Solo el número, sin barras.',
-      ],
-    url: 'https://app.chatwoot.com',
-    urlLabel: 'Chatwoot',
-  },
-  CHATWOOT_API_TOKEN: {
-    pasos: [
-        'Para qué sirve: es lo que deja a MaKo leer y responder tus conversaciones de WhatsApp desde aquí adentro.',
-        'Entra a tu Chatwoot con un usuario administrador: este código solo se le muestra a los administradores.',
-        'Toca tu foto de perfil, abajo a la izquierda de todo.',
-        'Elige "Configuración del perfil".',
-        'Baja hasta el final de esa pantalla, hasta el bloque que dice "Access Token".',
-        'Copia ese código y pégalo en el campo "Access token". Guárdalo como si fuera una contraseña: quien lo tenga puede escribirles a tus clientes.',
-        'Si no ves ese bloque, es porque tu usuario no es administrador de la cuenta. Pídeselo a quien la administra.',
-      ],
-    url: 'https://app.chatwoot.com',
-    urlLabel: 'Chatwoot',
-  },
-  CHATWOOT_WA_INBOX_ID: {
-    pasos: [
-        'Para qué sirve: sin este número las conversaciones se ven igual en MaKo, pero no se pueden mandar plantillas ni los seguimientos automáticos. Es opcional: si no lo quieres ahora, deja el campo vacío.',
-        'En Chatwoot cada canal de entrada es una bandeja —ellos la llaman "inbox"—: la de WhatsApp es donde caen los mensajes de tu línea. Cada bandeja tiene un número que la identifica, un 1, un 2, y eso es lo que va en este campo.',
-        'Entra a tu Chatwoot y toca el engranaje de "Configuración": en la computadora está en la columna de la izquierda; en el celular, detrás del botón de las tres rayitas.',
-        'Entra a "Bandejas de entrada".',
-        'Toca la bandeja de WhatsApp para abrir su configuración.',
-        'Mira la dirección de la página: ahora termina en algo como ".../settings/inboxes/2".',
-        'Copia ese último número y pégalo en el campo "ID del inbox de WhatsApp".',
-        'Si en la lista no hay ninguna bandeja de WhatsApp, es porque el número todavía no está conectado en Chatwoot. Eso se hace ahí mismo, con el botón "Agregar bandeja de entrada".',
-      ],
-    url: 'https://app.chatwoot.com',
-    urlLabel: 'Chatwoot → Bandejas de entrada',
   },
   RESEND_API_KEY: {
     pasos: [

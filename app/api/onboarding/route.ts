@@ -34,7 +34,8 @@ export const dynamic = 'force-dynamic';
 // openai, supabase, google) NO se le pide al cliente — es global.
 // 'email' NO está: con la cuenta única de Resend (Opción A) el cliente no carga
 // API key — verifica su dominio desde el mini-onboarding de la tab /email.
-const SERVICIOS_CLIENTE = new Set(['meta', 'whatsapp', 'fathom', 'panda', 'youtube', 'calendly']);
+// ('whatsapp' —Chatwoot— salió el 09/10/2026: el número de empresa se vincula por QR, sin credencial.)
+const SERVICIOS_CLIENTE = new Set(['meta', 'fathom', 'panda', 'youtube', 'calendly']);
 // Qué integraciones son OBLIGATORIAS ya no es una constante: sale de la capa
 // del cliente (lib/capas.ts → integracionesRequeridas). Una capa sin ads ni CRM
 // no tiene nada que conectar.

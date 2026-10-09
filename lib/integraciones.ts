@@ -13,7 +13,6 @@ import { googleCalendarConectado, googleCalendarDueno } from './google-calendar'
 import { capaDef } from './capas';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { getAgenteToken } from './agente-token';
-import { CHATWOOT_APAGADO } from './chatwoot';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -158,25 +157,12 @@ export async function getIntegraciones(): Promise<Integracion[]> {
   const wsActual = await getWorkspaceActual().catch(() => null);
   const esSuper = wsActual != null && wsActual === (await wsSuperAdmin().catch(() => -1));
 
-  const defsTodas = defsVisibles(DEFS, { cats, ocultas, esSuper });
-  /**
-   * El WhatsApp OFICIAL (Cloud API de Meta, vía Chatwoot) sale del producto.
-   *
-   * Martín, 05/10: «ahora Meta te cobra por la app de oficial… si ya tengo el chatbot que
-   * maneja tranquilamente el no oficial y no tenía restricciones, directamente voy a sacar
-   * el tema de oficial». El costo por mensaje no se justifica para el volumen de estos
-   * clientes, y la vinculación por QR no tiene ni tarifa ni trámite de aprobación.
-   *
-   * Se ESCONDE, no se borra, y con una excepción medida: el workspace que YA lo tiene
-   * conectado lo sigue viendo. Sacárselo a quien hoy recibe conversaciones por ahí le
-   * dejaría el inbox sin forma de administrar sus credenciales — esconder una integración
-   * viva no la apaga, solo la vuelve inmanejable.
-   */
-  //
-  // ⛔ Y desde el 09/10/2026 Chatwoot está APAGADO para todos (lib/chatwoot.ts,
-  // `CHATWOOT_APAGADO`): la tarjeta ya no se le muestra a nadie, tampoco a quien lo tenía.
-  const yaUsaOficial = !CHATWOOT_APAGADO && await credWs('CHATWOOT_API_TOKEN').then(Boolean).catch(() => false);
-  const defs = defsTodas.filter((d) => d.key !== 'whatsapp' || yaUsaOficial);
+  const defs = defsVisibles(DEFS, { cats, ocultas, esSuper });
+  // ⛔ El WhatsApp OFICIAL (Cloud API de Meta, vía Chatwoot) salió del producto en dos pasos:
+  // el 05/10/2026 se escondió la tarjeta (Martín: «ahora Meta te cobra por la app de
+  // oficial… directamente voy a sacar el tema de oficial»), salvo para quien ya lo tenía, y
+  // el 09/10/2026 se borró la integración entera («que no exista más»): la tarjeta ya no está
+  // en lib/integraciones-catalogo.ts. Ver tests/sin-chatwoot.test.ts.
   return Promise.all(defs.map(async (d) => {
     if (d.key === 'landing') {
       return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };
