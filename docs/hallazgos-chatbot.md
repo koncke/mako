@@ -863,11 +863,10 @@ tabla (`lead_respuestas`).
 - **Verla en un navegador en producción**: el CRON con «Al entrar» y «Si responde», el ＋ en paralelo,
   las tarjetas de control, el editor apaisado (WhatsApp en fila, Gmail, la frase de etiqueta), el
   selector de acciones, «Probar» ancho con un email, y crear con IA de punta a punta en el ws3.
-- **Las secuencias de los clientes, en pausa** (punto 10): las especificaciones validadas están en
-  `docs/relevo/chatbot-secuencias.json` (M1 confirmación pre-reunión que reemplaza a 212/213, la 220
-  con «Si responde», la Bienvenida con email; C2 confirmación y C3 no-show de Código Inmobiliario).
-  Falta crearlas con `setSecuenciaPasos` (crear la etiqueta «Confirmó» en el ws1; sacar el
-  `LINK_AGENDA_R1`, que no existe). Código Inmobiliario no tiene canal hoy.
+- **Las secuencias de los clientes están creadas EN PAUSA** (#221, #222 y la #220 en el ws1; #223 y
+  #224 en el ws13). Falta que Martín las active, y el disparador de la #224: la etapa «noresp» no
+  existe en el embudo del ws13 y `setTriggerSecuencia` la rechaza. Código Inmobiliario no tiene canal
+  hoy.
 - `saveLeadRespuestas` guarda el set entero en UN insert: una fila mala pierde todas. `lib/leads.ts`
 - El «+N» de los avisos de la IA vive en el `title` (no se ve en un teléfono). `app/chatbot/SecuenciaPerfil.tsx`
 - `asignar_closer_setter` salió de la lista blanca de la IA en vez de validar nombres. `lib/flujo-ia.ts`

@@ -31,8 +31,14 @@ Lo que quedó, punto por punto:
 9. **Auditoría de ManyChat**: `docs/chatbot-auditoria-manychat.md`. Trae lo que hacemos mejor, lo
    que hacíamos mal (y qué se arregló), lo que falta en orden, lo que decide Martín y lo que no hay
    que copiar.
-10. **Secuencias de los clientes: SIN CREAR.** Las especificaciones validadas están en
-    `docs/relevo/chatbot-secuencias.json`. Ver «Lo que falta».
+10. **Secuencias de los clientes, creadas EN PAUSA** (09/10, ~01:40). No se tocó ninguna prendida:
+    - ws1: **#221** «Agendó: confirmar y preparar» (reemplaza a 212 y 213, pone la etiqueta
+      «Confirmó», que se creó), **#222** «Bienvenida con email» (reemplaza a 198; sus «Ir a» van a
+      #221), y la **#220** suma «Si responde» (sigue apagada).
+    - ws13: **#223** «Agendó: confirmación de auditoría», con el WhatsApp y el email EN PARALELO desde
+      el CRON, y **#224** «No asistió: reagendar auditoría», todavía sin disparador (queda en «A
+      mano»): la etapa «noresp» de sus leads no existe en su embudo.
+    - Las especificaciones están en `docs/relevo/chatbot-secuencias.json`.
     Para Código Inmobiliario quedó hecho lo que pidieron: el aviso «Nuevo agendado» trae teléfono,
     email y las respuestas del formulario de Cal.com, que ahora se guardan en la ficha.
 11. **Crear con IA.** «＋ Nueva» crea una automatización vacía y pausada y abre la caja del pedido. El
@@ -47,21 +53,17 @@ La revisión adversarial reportó 38 hallazgos: 32 confirmados, los 32 arreglado
 - **Mirarlo en un navegador en producción.** Nada de la tanda se vio con clics (bootear local
   escribe en prod). La lista de qué mirar está en `docs/hallazgos-chatbot.md` → «Lo que quedó sin
   hacer».
-- **Crear en pausa las secuencias del punto 10**, con `setSecuenciaPasos` dentro de
-  `runWithWorkspace` (`npx tsx --conditions react-server`):
-  - ws1: «Agendó: confirmar y preparar» (M1, reemplaza a 212 y 213; antes hay que crear la
-    etiqueta «Confirmó» y poner su id), la 220 con «Si responde» (sacar el `LINK_AGENDA_R1`: no hay
-    link de agenda guardado), y la Bienvenida con email (las «Ir a» apuntan a M1).
-  - ws13: la confirmación (C2; conviene armarla con el WhatsApp y el email EN PARALELO desde el CRON,
-    que es justo el ejemplo del punto 2) y la del no-show (C3, disparador etapa `noresp`).
-  - No se tocan las prendidas (198, 212, 213): las nuevas las reemplazan cuando Martín las active.
+- **El disparador de la #224** (no-show de Código Inmobiliario): su embudo tiene lead, agenda,
+  ganado, st0, manual y reactivación, y no tiene «noresp». Hay que sumar la etapa o usar
+  `no_show_j1`, que exige leads abiertos, y ninguno de sus 14 no-shows lo está.
 - Los pendientes técnicos chicos están en `docs/hallazgos-chatbot.md`.
 
 ## Lo que espera a Martín
 
-- **Activar las secuencias nuevas** cuando estén creadas: pausar 212 y 213 y activar M1. Para la
-  Bienvenida con email, el email del ws1 tiene que estar prendido y el remitente no puede seguir
-  siendo «MaKo».
+- **Activar las secuencias nuevas**: pausar 212 y 213 y activar la #221. Para la #222 (que
+  reemplaza a la 198), el email del ws1 tiene que estar prendido y el remitente no puede seguir
+  siendo «MaKo». La copia nueva («voy a liberar el espacio» 4 h antes, «no vio el video», «puede no
+  calificar») sale como borrador hasta que la mires.
 - **Código Inmobiliario no tiene canal** hacia sus leads: la línea está desconectada y el email sale
   del sandbox.
 - **Decisiones mías de la tanda (con su default)**, en el diseño:
