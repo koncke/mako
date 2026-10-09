@@ -8,7 +8,7 @@
 // ⚠️ PROBADO ROMPIENDO CADA ARREGLO, 09/10/2026: el arnés FIXIA-romper.mjs (scratchpad de la sesión)
 // revierte el arreglo, corre este archivo, cuenta y RESTAURA DE MEMORIA (md5 verificado). El
 // resultado de cada rotura está al lado de su test («rotura: …»); «de N» son los tests que tenía el
-// archivo cuando se rompió (crece con cada arreglo). Las 20 roturas, cazadas.
+// archivo cuando se rompió (crece con cada arreglo). Las 23 roturas, cazadas.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
