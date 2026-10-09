@@ -358,8 +358,29 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   }));
 }
 
+/**
+ * Prende o apaga una secuencia.
+ *
+ * ⚠️ ACTIVAR VALIDA LO MISMO QUE PUBLICAR (decisión 15 de la segunda tanda, 08/10/2026): lo
+ * guardado pasa por las mismas validaciones de `setSecuenciaPasos` —`validarGrafo`, la acción sin
+ * elegir o incompleta, el archivo sin archivo, el «Ir a» a sí misma— sin escribir nada, y una que
+ * no pasa se rechaza con el primer error en palabras (`PasosInvalidosError`: la ruta contesta 400).
+ * Sin esto, «Activar» prendía un flujo que «Publicar» no habría dejado guardar (uno escrito por un
+ * camino viejo, o anterior a una regla nueva), y el motor lo corría a ciegas. Apagar no valida.
+ */
 export async function setSecuenciaActiva(id: number, activa: boolean): Promise<void> {
   const supabase = (await getTenantDb());
+  if (activa) {
+    const { data, error: eLeer } = await supabase.from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
+    if (eLeer) throw new Error(`setSecuenciaActiva: ${eLeer.message}`);
+    const guardados = (data as { pasos?: unknown } | null)?.pasos;
+    try {
+      await setSecuenciaPasos(id, Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : [], { soloValidar: true });
+    } catch (e) {
+      if (e instanceof PasosInvalidosError) throw new PasosInvalidosError(e.message.replace(/^No se guardó:/, 'No se activó:'));
+      throw e;
+    }
+  }
   const { error } = await supabase
     .from('nutricion_secuencias')
     .update({ activa, updated_at: ahoraISO() })
@@ -422,7 +443,7 @@ function problemaDeMedia(p: PasoSecuencia): string | null {
   return null;
 }
 
-export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Promise<void> {
+export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: { soloValidar?: boolean }): Promise<void> {
   const supabase = (await getTenantDb());
 
   // Lo que ya está guardado, para MERGEAR los campos que ninguna pantalla edita.
@@ -561,6 +582,8 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
   const grafo = normalizar(limpio);
   const errores = validarGrafo(grafo);
   if (errores.length) throw new PasosInvalidosError(`No se guardó: ${errores[0]}.`);
+  // Activar valida lo mismo que Publicar, sin escribir (`setSecuenciaActiva`).
+  if (o?.soloValidar) return;
   const { error } = await supabase
     .from('nutricion_secuencias')
     .update({ pasos: grafo, updated_at: ahoraISO() })
@@ -1243,7 +1266,9 @@ async function aInscribir(
     : null;
   const alta = (lead_id: number, reunionMs: number | null): AltaInscripcion => ({
     lead_id,
-    proximo_envio_at: escalonados?.get(lead_id) ?? proximoEnvioDePaso(entrada, juntas.get(lead_id)),
+    // El mínimo entre las raíces (`proximoDeEntrada`): con flechas en paralelo desde el CRON, un
+    // camino «ya» no espera al principal. Con una sola raíz es la entrada, como siempre.
+    proximo_envio_at: escalonados?.get(lead_id) ?? proximoDeEntrada(sec.pasos, (p) => proximoEnvioDePaso(p, juntas.get(lead_id))),
     reunion_at: prepara && reunionMs != null ? new Date(reunionMs).toISOString() : null,
   });
   return {
@@ -1612,7 +1637,7 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     for (const s of elegidas) {
       // El primer paso de una secuencia disparada por evento sale YA: el delay configurado
       // cuenta desde el evento, no desde el cron. Un paso anclado a la reunión, desde la agenda.
-      const proximo = proximoEnvioDePaso(pasoDeEntrada(s.pasos), juntas);
+      const proximo = proximoDeEntrada(s.pasos, (p) => proximoEnvioDePaso(p, juntas));
       const previa = previaDe.get(s.id);
       if (previa) {
         const r = reusables.get(previa.id);
@@ -1739,7 +1764,7 @@ export async function inscribirEnSecuencia(
   });
   if (!v.inscribe) return { inscribe: false, porque: v.porque, secuencia: ref, lead: quien };
 
-  const proximo = proximoEnvioDePaso(pasoDeEntrada(pasos), lead);
+  const proximo = proximoDeEntrada(pasos, (p) => proximoEnvioDePaso(p, lead));
   const reunion = prepara ? reunionQuePreparaMs(lead) : null;
   const reunionAt = reunion == null ? null : new Date(reunion).toISOString();
   const hecho = { inscribe: true as const, como: v.como, secuencia: ref, lead: quien, proximoEnvioAt: proximo };
@@ -3394,6 +3419,8 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
           paso_actual: idx,
           nodo_actual: idDe(sec.pasos[idx], idx),
           proximo_envio_at: proximoEnvioDePaso(sec.pasos[idx], null),
+          // Retoma UN camino: si la inscripción tenía hilos en paralelo, quedan descartados.
+          hilos: null,
           updated_at: ahoraISO(),
         }).eq('id', insc.id);
       }
@@ -3831,10 +3858,13 @@ async function responderConGrafo(c: CtxRespuesta): Promise<boolean> {
       const d = p.destino;
       if (d && 'nodo' in d) {
         // RETOMA LA SALIDA en esa tarjeta: activa y para ya; la próxima vuelta del motor sigue.
+        // ⚠️ RETOMA *UN* HILO Y DESCARTA LOS CONGELADOS (`hilos: null`, decisión 4 de la segunda
+        // tanda): la rama de «Si responde» decide cómo sigue la charla, y despertar todos los hilos
+        // le mandaría varios mensajes seguidos a alguien que acaba de escribir.
         const j = indicePorId(pasos, d.nodo);
         if (j >= 0) {
           const { error } = await supabase.from('nutricion_inscripciones')
-            .update({ estado: 'activa', paso_actual: j, nodo_actual: d.nodo, proximo_envio_at: ahoraISO(), updated_at: ahoraISO() })
+            .update({ estado: 'activa', paso_actual: j, nodo_actual: d.nodo, proximo_envio_at: ahoraISO(), hilos: null, updated_at: ahoraISO() })
             .eq('lead_id', leadId).eq('secuencia_id', secuencia.id).in('estado', ['respondio', 'completada', 'activa']);
           hecho.push(error ? `No pude retomar la secuencia (${error.message.slice(0, 120)}).` : 'Retomé la secuencia.');
           if (!error) siguio = true;

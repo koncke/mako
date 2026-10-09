@@ -594,6 +594,31 @@ export function dentroDeVentanaEn(ahoraMs: number, tz: string, inicio: number, f
   return h >= inicio && h < fin;
 }
 
+// ── La fecha de una reunión, en palabras y en la zona del negocio ───────────────
+
+/**
+ * «viernes 9 de octubre, 18:00» para el aviso «no confirmó» (lib/nutricion-desenlace.ts).
+ *
+ * ⚠️ SE ESCRIBÍA EN LA ZONA DEL SERVIDOR, que en Vercel es UTC: medido el 08/10/2026 en el grupo de
+ * Mauricio, el aviso dijo «sábado 10, 01:00 a.m.» para una reunión del viernes 9 a las 18 de
+ * Tijuana. La hora va en la zona del NEGOCIO (`tz`). Una fecha sin hora (sólo el día) se dice sin
+ * hora: inventarle una sería afirmar algo que nadie cargó.
+ */
+export function textoFechaReunion(lead: Record<string, unknown>, tz: string): string {
+  const raw = [lead.junta_1_at, lead.fecha_junta_1, lead.fecha_agenda].find((x) => typeof x === 'string' && x);
+  if (typeof raw !== 'string') return '';
+  const soloDia = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  // Un día suelto se lee a mediodía UTC: cae en ese mismo día en cualquier zona de América.
+  const d = new Date(soloDia ? `${raw}T12:00:00Z` : raw);
+  if (Number.isNaN(d.getTime())) return '';
+  const zona = zonaValida(tz) ? tz : ZONA_SIN_CONFIGURAR;
+  try {
+    return soloDia
+      ? d.toLocaleDateString('es-MX', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' })
+      : d.toLocaleString('es-MX', { timeZone: zona, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  } catch { return ''; }
+}
+
 // ── Archivos ────────────────────────────────────────────────────────────────────
 
 /** Cómo sale un archivo de la biblioteca por Evolution: imagen, video o documento según el mime. */
