@@ -62,7 +62,9 @@ import {
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
   type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo,
 } from '@/lib/nutricion-grafo-motor';
-import { fuentesDeFilas, etapasEntregaDeFilas, normalizarTexto, type Fuente, type HechosCatalogo } from '@/lib/condiciones-catalogo';
+import {
+  fuentesDeFilas, etapasEntregaDeFilas, embudosDeReunionDeFilas, estadoDeCuotas, normalizarTexto, type Fuente, type HechosCatalogo,
+} from '@/lib/condiciones-catalogo';
 import { hoyEnTz } from '@/lib/date-utils';
 import { getSetting } from '@/lib/settings';
 import {
@@ -2277,17 +2279,37 @@ async function hechosDelCatalogo(
     }
     return m;
   };
-  const leerPagos = async (): Promise<Map<number, Array<{ pagado: boolean | null; fecha_esperada: string | null }>> | null> => {
+  // `numero` (cuarta tanda, punto 6): la cuota N de «No pagó la cuota N» es la fila con ese número, la
+  // que el CRM dibuja «Cuota N» (lib/pagos.ts la escribe, único por lead_id + numero).
+  type CuotaLeida = { numero: number | null; pagado: boolean | null; fecha_esperada: string | null };
+  const leerPagos = async (): Promise<Map<number, CuotaLeida[]> | null> => {
     if (!pide('pagos')) return null;
-    const m = new Map<number, Array<{ pagado: boolean | null; fecha_esperada: string | null }>>();
+    const m = new Map<number, CuotaLeida[]>();
     for (const tanda of enTandas(ids, 200)) {
-      for (const r of await leerTodo<{ id: number; lead_id: number; pagado: boolean | null; fecha_esperada: string | null }>(db, 'pagos', 'id, lead_id, pagado, fecha_esperada', {
+      for (const r of await leerTodo<{ id: number; lead_id: number; numero: number | null; pagado: boolean | null; fecha_esperada: string | null }>(db, 'pagos', 'id, lead_id, numero, pagado, fecha_esperada', {
         orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
       })) {
         const arr = m.get(Number(r.lead_id)) ?? [];
-        arr.push({ pagado: r.pagado, fecha_esperada: r.fecha_esperada });
+        arr.push({ numero: r.numero, pagado: r.pagado, fecha_esperada: r.fecha_esperada });
         m.set(Number(r.lead_id), arr);
       }
+    }
+    return m;
+  };
+  // El ORDEN de las reuniones de los embudos que nombran las filas (cuarta tanda, punto 5): UNA lectura
+  // por embudo nombrado, no por lead. Es la config, la misma para todo el lote. Un embudo borrado no
+  // tiene orden (sus etapas dan «no sé»); una lectura que falla TIRA, como todo lo de acá: con el
+  // pipeline de fábrica, «la primera reunión» sería la de otro embudo (AGENTS.md, la lectura que cae al
+  // default sirve para dibujar, nunca para decidir).
+  const leerReuniones = async (): Promise<Map<number, string[]> | null> => {
+    if (!pide('reuniones')) return null;
+    const [{ getFunnelDe }, { reunionesDe }] = await Promise.all([import('@/lib/funnels'), import('@/lib/funnel-etapas')]);
+    const m = new Map<number, string[]>();
+    for (const id of embudosDeReunionDeFilas(filas)) {
+      const cfg = await getFunnelDe(id);
+      if (cfg.origen === 'error') throw new Error(`condición por reunión: no se pudo leer el embudo ${id}`);
+      if (cfg.origen === 'sin-fila') continue;
+      m.set(id, reunionesDe(cfg.stages));
     }
     return m;
   };
@@ -2364,12 +2386,14 @@ async function hechosDelCatalogo(
   };
   const leerHoy = async (): Promise<string> => (pide('pagos') ? hoyEnTz(await tzActual()) : '');
 
-  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy] = await Promise.all([
+  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones] = await Promise.all([
     leerVsl(), leerClics(), leerRespuestas(), leerPagos(), leerCurso(), leerAcceso(), leerComunidad(), leerEntrega(), leerCs(), leerHoy(),
+    leerReuniones(),
   ]);
 
   return (f, ahoraMs) => {
     const c: HechosCatalogo = { lead: catalogoDeLead(f, ahoraMs) };
+    if (reuniones) c.reuniones = reuniones;
     const vid = typeof f.visitor_id === 'string' && f.visitor_id ? f.visitor_id : null;
     if (vsl) {
       // Sin visitante no se lo pudo seguir: «no sé». Con visitante y sin eventos, 0 (no reprodujo).
@@ -2393,7 +2417,10 @@ async function hechosDelCatalogo(
         : [];
       c.respuestas = normalizarTexto([...(respuestas.get(f.id) ?? []), ...viejas, ...meta].join(' · '));
     }
-    if (pagos) c.pagos = resumenPagos(pagos.get(f.id) ?? [], hoy);
+    if (pagos) {
+      const suyas = pagos.get(f.id) ?? [];
+      c.pagos = { ...resumenPagos(suyas, hoy), cuotas: estadoDeCuotas(suyas, hoy) };
+    }
     if (curso) c.curso = resumenCursoDeAlumno(curso.clases, curso.progreso.get(f.id));
     if (acceso) c.acceso = acceso.get(f.id) ?? null;
     if (comunidad) {

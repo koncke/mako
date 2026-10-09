@@ -26,7 +26,7 @@ import {
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
 } from './flujo-grafo';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
-import { condicionPorId, type HechosCatalogo } from './condiciones-catalogo';
+import { condicionPorId, reunionesDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
 import { parseFechaJunta, reunionFuturaMs } from './nutricion-reinscripcion';
 import { claseCompleta } from './curso-bloqueo';
 import type { Clase, Progreso } from './curso';
@@ -774,6 +774,15 @@ function sanearFila(x: unknown): FilaCondicion | null {
   if (def?.valor.t === 'numero' && def.valor.ref) {
     const r = Number(o.ref);
     if (Number.isInteger(r) && r > 0) f.ref = r;
+  }
+  // CUARTA TANDA (la quinta puerta otra vez): la unión con la fila de arriba (punto 7) y las etapas de
+  // reunión elegidas (punto 5). Sin estas dos líneas, el primer guardado volvía «A o B» a «A y B» (el
+  // `modo` de la rama) y «No asistió a la reunión «Discovery»» a «cualquier reunión».
+  if (o.union === 'y' || o.union === 'o') f.union = o.union;
+  if (def?.reuniones && Array.isArray(o.reuniones)) {
+    const r = reunionesDeFila({ reuniones: o.reuniones.filter((x): x is string => typeof x === 'string' && x.length <= 120) })
+      .slice(0, TOPE_REUNIONES).map((x) => `${x.funnelId}:${x.key}`);
+    if (r.length) f.reuniones = r;
   }
   return f;
 }
