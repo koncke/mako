@@ -38,6 +38,7 @@ import { calificadoSeDescarta } from './calificado-reunion';
 // Qué deriva `updateLead` del desenlace (estado ↔ cerro, motivo, venta) y CUÁNDO:
 // puro y con test (tests/updatelead-no-borra-venta.test.ts).
 import { desenlaceAlGuardar } from './lead-desenlace';
+import { yaGuardado } from './lead-respuestas';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 // Qué reunión anula una cancelación: puro y con test (tests/recordatorio-lead.test.ts).
 import { juntaACancelar } from './recordatorio-lead';
@@ -2258,16 +2259,19 @@ export async function saveLeadRespuestas(
   try {
     const db = await getTenantDb();
     // Idempotencia (backfill / reintentos del webhook): no duplicar si ya hay una
-    // fila para el mismo (lead, reunión, evento).
+    // fila para el mismo (lead, reunión, día) CON EL MISMO CONTENIDO. Un set distinto
+    // el mismo día es un reagendado (o cancelar y volver a reservar) y se guarda:
+    // getLeadRespuestas se queda con la más nueva. Por qué se compara campo por campo
+    // y no como texto, en `yaGuardado` (lib/lead-respuestas.ts).
     if (eventoInicio) {
       const { data: ya } = await db
         .from('lead_respuestas')
-        .select('id')
+        .select('respuestas')
         .eq('lead_id', leadId)
         .eq('reunion', reunion)
         .eq('evento_inicio', eventoInicio)
-        .limit(1);
-      if (ya && ya.length) return;
+        .limit(20);
+      if (yaGuardado((ya ?? []) as Array<{ respuestas: unknown }>, respuestas)) return;
     }
     const { error } = await db
       .from('lead_respuestas')
