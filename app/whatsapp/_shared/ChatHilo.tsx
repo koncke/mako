@@ -117,6 +117,12 @@ export type ChatHiloProps = {
    * del chat, debajo de la barra, quedaban fuera de la vista en una ventana baja.
    */
   encimaDelComposer?: ReactNode;
+  /**
+   * Dibuja un mensaje a mano en vez de la burbuja; null = la burbuja de siempre. «Probar» dibuja
+   * así un email del flujo como un MAIL (asunto, vista previa, cuerpo), no como un WhatsApp.
+   * Opcional: los otros usos del hilo no lo pasan y no cambian.
+   */
+  renderMensaje?: (m: HiloMsg) => ReactNode | null;
 };
 
 // Borradores por conversación (sobreviven el salto entre chats, como el inbox real):
@@ -127,7 +133,7 @@ const audioStore = new Map<string, Blob>();
 
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
-  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange, animarNuevos, encimaDelComposer,
+  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange, animarNuevos, encimaDelComposer, renderMensaje,
 }: ChatHiloProps) {
   const [draft, setDraftState] = useState<string>(() => (draftKey ? draftStore.get(draftKey) ?? '' : ''));
   const [adjunto, setAdjuntoState] = useState<File | null>(() => (draftKey ? adjuntoStore.get(draftKey) ?? null : null));
@@ -275,6 +281,8 @@ export function ChatHilo({
               </div>
             );
           }
+          const aMano = renderMensaje?.(m);
+          if (aMano != null) return <div key={m.id} className={entra}>{aMano}</div>;
           const mine = m.fromMe;
           return (
             <Fragment key={m.id}>

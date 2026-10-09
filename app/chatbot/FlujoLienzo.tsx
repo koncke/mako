@@ -37,6 +37,10 @@ import { Lienzo, TarjetaNodo, inpLienzo } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import { EditorMensajeWhatsApp, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
+import { EditorEmailGmail } from './EditorEmailGmail';
+import { EditorEtiqueta } from './EditorEtiqueta';
+import { SelectorEtiqueta } from '@/app/_components/etiquetas-cliente';
+import { LEAD_DEL_EVENTO } from '@/lib/api-mako/flujo-params';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
@@ -49,10 +53,12 @@ import {
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
-  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo,
-  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, ID_NUEVA_RESPUESTA,
+  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, tarjetasParaIrA,
+  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, PUERTO_RESPUESTA,
+  MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL,
   type NodoFlujo, type QueAgregar,
 } from '@/lib/flujo-conversacion';
+import type { Muelles } from '@/lib/lienzo-grafo';
 import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
 
 const SANS = "'Geist', sans-serif";
@@ -78,9 +84,9 @@ type Biblioteca = { estado: 'ok'; lista: AdjuntoDto[] } | { estado: 'error' } | 
 
 export function FlujoLienzo({
   pasos, disparador, secuencias, audios, negocio, rolAdmin, busy, envioAutoSecuencia,
-  etiquetas, onCrearEtiqueta, etapas, paraGuion, foco, pendientesOtraCosa,
+  etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
-  chrome, herramientas, pie, editorEntrada, insetIzq, insetDer,
+  chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
 }: {
   /** El flujo, normalizado (ids y `siguiente` explícitos). */
   pasos: PasoSecuenciaDto[];
@@ -97,7 +103,6 @@ export function FlujoLienzo({
   envioAutoSecuencia: boolean;
   etiquetas: EtiquetaLienzo[];
   /** «+ Nueva» en el selector de etiqueta. Devuelve la creada, o null si no se pudo. */
-  onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>;
   etapas: SeccionEtapas[];
   /**
    * El objetivo, el gancho y las preguntas de la estrategia, para «✦ guion» de una nota de voz
@@ -117,7 +122,7 @@ export function FlujoLienzo({
   onAgregar?: (nodo: string, puerto: string | undefined, que: QueAgregar) => string | null;
   /** La papelera de la cabecera del panel. */
   onBorrar?: (id: string) => void;
-  /** La tarjeta fantasma «＋ Si responde». Devuelve el id de la tarjeta nueva. */
+  /** El ＋ de la fila «Si responde» del CRON, vacía: crea la tarjeta. Devuelve su id. */
   onCrearRespuesta?: () => string | null;
   onAudioNuevo: (a: AudioSetting) => void;
   onError: (m: string) => void;
@@ -136,6 +141,14 @@ export function FlujoLienzo({
    *  (el panel de «Probar»). No angostan el dibujo — ver `Lienzo.insetIzq`. */
   insetIzq?: number;
   insetDer?: number;
+  /**
+   * DÓNDE VA CADA COSA QUE FLOTA (`muelles`, lib/lienzo-grafo.ts): la lista, «Probar» y el editor.
+   * Con esto el editor es APAISADO (la franja de abajo, alto fijo) y los insets salen de una sola
+   * cuenta; sin esto, lo de siempre (`insetIzq`/`insetDer` y el panel de columna).
+   */
+  muelles?: Muelles | null;
+  /** Las tarjetas aparecen de a una («Crear con IA»). Ver `Lienzo.revelar`. */
+  revelar?: { orden: string[]; clave: number } | null;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   // El foco que pide Publicar se aplica UNA vez por pedido (ajuste de estado en el render,
@@ -173,46 +186,58 @@ export function FlujoLienzo({
   const nombres: NombresParaTexto = { etiqueta: (id) => nombreEtiqueta(etiquetas, id), etapa: nombreEtapa };
   const grafo = grafoDeSecuencia(pasos, {
     disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
-    nombres, editable: rolAdmin && !!onCrearRespuesta,
+    nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
     pendientesOtraCosa,
   });
   const pasoDe = (id: string) => pasos.find((p, i) => idDe(p, i) === id) ?? null;
+  /**
+   * LA FORMA DEL EDITOR (decisión 10): apaisado cuando `muelles` dice que hay ancho para sus dos
+   * columnas; si no (o sin `muelles`), de columna como siempre. Viaja también al editor de cada
+   * tarjeta (`formaPanel`): el de WhatsApp en dos columnas es `disposicion='fila'` (parte E).
+   */
+  const formaPanel: 'apaisado' | 'columna' = muelles?.editorForma === 'apaisado' ? 'apaisado' : 'columna';
 
   return (
     <Lienzo
-      grafo={grafo} seleccion={sel}
-      onSeleccion={(id) => {
-        // La tarjeta fantasma no se abre: tocarla CREA «Si responde» y abre la de verdad.
-        if (id === ID_NUEVA_RESPUESTA) {
-          const nuevo = rolAdmin && onCrearRespuesta ? onCrearRespuesta() : null;
-          if (nuevo) setSel(nuevo);
-          return;
-        }
-        setSel(id);
-      }}
-      sinMarco alto="100%" insetIzq={insetIzq} insetDer={insetDer} panelAncho={392}
+      grafo={grafo} seleccion={sel} onSeleccion={setSel}
+      sinMarco alto="100%" panelAncho={392}
+      insetIzq={muelles ? muelles.insets.izq : insetIzq} insetDer={muelles ? muelles.insets.der : insetDer}
+      insetDerChrome={muelles?.insets.derChrome} insetDerAbajo={muelles?.insets.derAbajo}
+      panelForma={formaPanel} panelAlto={muelles?.editorAlto}
+      revelar={revelar}
       chrome={chrome} herramientas={herramientas} accion={pie}
       /* ⚠️ EL ＋ ES EL DE CADA SALIDA (y el del medio de cada flecha), y la tarjeta nueva se
          abre sola: casi todas nacen con algo que elegir (la acción, a dónde va el salto, la
-         condición). */
+         condición). La fila «Si responde» del CRON, vacía, crea «Si responde» (`crearRespuesta`):
+         desapareció la tarjeta fantasma que lo hacía (decisión 1, un solo CRON). */
       onAgregarTras={editable ? ((id, que, puerto) => {
+        if (id === ID_ENTRADA && puerto === PUERTO_RESPUESTA) {
+          const r = onCrearRespuesta ? onCrearRespuesta() : null;
+          if (r) setSel(r);
+          return;
+        }
         const nuevo = onAgregar!(id, puerto, que as QueAgregar);
         if (nuevo) setSel(nuevo);
       }) : undefined}
-      opcionesEn={(nodo, _puerto, medio) => opcionesDelMas(pasos, nodo, medio)}
-      puedeAgregarTras={(id) => id !== ID_NUEVA_RESPUESTA}
+      opcionesEn={(nodo, puerto, medio) => opcionesDelMas(pasos, nodo, medio, puerto)}
       onBorrar={rolAdmin && onBorrar ? onBorrar : undefined}
-      puedeBorrar={(id) => id !== ID_ENTRADA && id !== ID_NUEVA_RESPUESTA}
+      puedeBorrar={(id) => id !== ID_ENTRADA}
       renderNodo={(n, activo) => {
-        if (n.id === ID_NUEVA_RESPUESTA) return <Fantasma key={n.id} nodo={n} />;
         const paso = pasoDe(n.id);
+        // La espera es una píldora de UNA línea: su texto va suelto (TarjetaNodo lo envuelve).
+        if (n.tipo === 'espera') return <TarjetaNodo key={n.id} nodo={n} activo={activo}>{n.detalle}</TarjetaNodo>;
         return (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && Boolean(n.advertencia)}>
             {n.tipo === 'mensaje' && paso
               ? <VistaMensaje paso={paso} audios={audios} negocio={negocio} biblioteca={biblioteca} />
               : n.detalle
-                ? <div style={{ fontSize: 12.5, fontWeight: n.tipo === 'accion' ? 600 : 400, color: n.advertencia ? 'var(--faint)' : 'var(--ink)', lineHeight: 1.45 }}>{n.detalle}</div>
+                ? <div style={{
+                  fontSize: 12.5, fontWeight: n.tipo === 'accion' || n.tipo === 'etiqueta' ? 600 : 400,
+                  color: n.advertencia ? 'var(--faint)' : 'var(--ink)', lineHeight: 1.45,
+                  // Las de control son de UNA línea (su alto es fijo y compacto): lo que no entra, «…».
+                  ...(n.familia === 'control' ? { whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' } : {}),
+                }}>{n.detalle}</div>
                 : null}
           </TarjetaNodo>
         );
@@ -221,27 +246,14 @@ export function FlujoLienzo({
         <EditorDeNodo
           nodo={n} paso={pasoDe(n.id)} pasos={pasos} secuencias={secuencias}
           audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy} envioAutoSecuencia={envioAutoSecuencia}
-          etiquetas={etiquetas} onCrearEtiqueta={onCrearEtiqueta} etapas={etapas}
+          etiquetas={etiquetas} etapas={etapas}
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
-          editorEntrada={editorEntrada}
+          editorEntrada={editorEntrada} formaPanel={formaPanel}
           onAbrir={(id) => setSel(id)}
         />
       )}
     />
-  );
-}
-
-/** La tarjeta fantasma «＋ Si responde»: el lugar donde va, dicho por su forma. */
-function Fantasma({ nodo }: { nodo: NodoFlujo }) {
-  return (
-    <div data-nodo={nodo.id} role="button" tabIndex={0} aria-label="Agregar «Si responde»"
-      style={{
-        position: 'absolute', left: nodo.x, top: nodo.y, width: nodo.ancho, height: nodo.alto, boxSizing: 'border-box',
-        borderRadius: 13, border: '1.5px dashed var(--border-strong)', background: 'transparent',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, fontFamily: SANS, cursor: 'pointer',
-      }}>＋ Si responde</div>
   );
 }
 
@@ -260,20 +272,46 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
   const n = negocio.trim();
   const texto = aplicarVariables(paso.cuerpo || '', n ? { negocio: n } : {});
   const a = paso.tipo === 'audio' ? audios.find((x) => x.id === paso.audio_id) ?? null : null;
+  if (paso.canal === 'email') return <VistaEmail paso={paso} texto={texto} negocio={n} />;
   const vacio = paso.tipo === 'media' ? !paso.media_id : paso.tipo !== 'audio' && !texto.trim();
   if (vacio) return <span style={{ fontSize: 12, color: 'var(--faint)' }}>Sin escribir</span>;
   if (paso.tipo === 'media') return <VistaArchivo paso={paso} texto={texto} negocio={negocio} biblioteca={biblioteca} />;
   return (
     <>
-      {paso.canal === 'email' && paso.asunto && (
-        <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{paso.asunto}</div>
-      )}
       <BurbujaHilo compacta saliente autor={negocio} contenido={{
         texto,
         audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: a?.transcript ?? null, duracion_s: a?.duracion_s ?? null } : null,
         ia: paso.tipo === 'ia',
       }} />
     </>
+  );
+}
+
+/**
+ * EL EMAIL EN LA TARJETA, COMO UN MAIL (segunda tanda): la caja del correo con el asunto arriba
+ * en negrita, la vista previa en gris y hasta tres renglones del cuerpo. Hasta el 08/10 se dibujaba
+ * como una burbuja de WhatsApp con el asunto chiquito encima: se leía como un WhatsApp.
+ *
+ * ⚠️ LOS NÚMEROS SON LOS DE `altoDeMensaje` (lib/flujo-conversacion.ts: `MARCO_MAIL`,
+ * `RENGLON_ASUNTO`, `RENGLON_PREHEADER`, `RENGLON_CUERPO_MAIL`, `RENGLONES_EMAIL`): la tarjeta
+ * tiene alto FIJO y el alto se estima antes de pintar. Si cambia uno, cambian los dos.
+ */
+function VistaEmail({ paso, texto, negocio }: { paso: PasoSecuenciaDto; texto: string; negocio: string }) {
+  const asunto = aplicarVariables((paso.asunto ?? '').trim(), negocio ? { negocio } : {});
+  const pre = aplicarVariables((paso.preheader ?? '').trim(), negocio ? { negocio } : {});
+  if (!asunto && !texto.trim()) return <span style={{ fontSize: 12, color: 'var(--faint)' }}>Sin escribir</span>;
+  const linea: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: `${(MARCO_MAIL - 2) / 2}px 9px`, background: 'var(--surface)' }}>
+      <div style={{ ...linea, fontSize: 12.5, fontWeight: 700, lineHeight: `${RENGLON_ASUNTO}px`, color: asunto ? 'var(--ink)' : 'var(--faint)' }}>{asunto || 'Sin asunto'}</div>
+      {pre && <div style={{ ...linea, fontSize: 11, lineHeight: `${RENGLON_PREHEADER}px`, color: 'var(--faint)' }}>{pre}</div>}
+      {texto.trim() && (
+        <div style={{
+          marginTop: SEP_MAIL, fontSize: 12, lineHeight: `${RENGLON_CUERPO_MAIL}px`, color: 'var(--dim)', whiteSpace: 'pre-wrap',
+          display: '-webkit-box', WebkitLineClamp: RENGLONES_EMAIL, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere',
+        }}>{texto}</div>
+      )}
+    </div>
   );
 }
 
@@ -305,7 +343,7 @@ type PropsEditor = {
   nodo: NodoFlujo; paso: PasoSecuenciaDto | null; pasos: PasoSecuenciaDto[];
   secuencias: ReadonlyArray<{ id: number; nombre: string }>;
   audios: AudioSetting[]; negocio: string; rolAdmin: boolean; busy: boolean; envioAutoSecuencia: boolean;
-  etiquetas: EtiquetaLienzo[]; onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>; etapas: SeccionEtapas[];
+  etiquetas: EtiquetaLienzo[]; etapas: SeccionEtapas[];
   nombres: NombresParaTexto;
   paraGuion?: ParaGuion;
   /** La biblioteca de archivos ya leída (undefined = el editor la pide solo). */
@@ -314,9 +352,19 @@ type PropsEditor = {
   onAudioNuevo: (a: AudioSetting) => void; onError: (m: string) => void; onModoIA?: (on: boolean) => void;
   /** Lo que se edita en la tarjeta CRON. Ver FlujoLienzo. */
   editorEntrada?: ReactNode;
+  /** La forma del panel donde se dibuja este editor (apaisado = la franja de abajo, ancha y baja). */
+  formaPanel: 'apaisado' | 'columna';
   onAbrir: (id: string) => void;
 };
 
+/**
+ * EL EDITOR DE LA TARJETA TOCADA: una rama por CLASE de tarjeta, y cada rama en su función.
+ *
+ * Los de la segunda tanda (docs/chatbot-flujo-ramas-diseno.md, «Los editores (parte E)»):
+ *   · `EditorEmail`          → `EditorEmailGmail` (asunto, vista previa y cuerpo, tipo Gmail);
+ *   · `EditorEtiquetaLienzo` → `EditorEtiqueta` (una frase: «[Poner ▾] [etiqueta ▾]»);
+ *   · `EditorMensaje`        → `EditorMensajeWhatsApp` en dos columnas con el panel apaisado.
+ */
 function EditorDeNodo(pr: PropsEditor) {
   const { nodo, paso, rolAdmin } = pr;
   // ⚠️ UN SETTER NO EDITA, PERO TIENE QUE PODER LEER. Un mensaje no tiene `detalle` —su
@@ -328,13 +376,48 @@ function EditorDeNodo(pr: PropsEditor) {
   /** Un cambio de ESTA tarjeta. `apilar`: entra a la pila de deshacer (lo que no es tipear). */
   const cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => pr.onPasos((prev) => cambiarNodo(prev, id, patch), apilar);
   switch (claseDe(paso)) {
-    case 'accion': return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
+    case 'accion':
+      // La etiqueta es una ⚡ Acción dibujada como lo que hace (decisión 8): tiene su propio editor.
+      if (etiquetaDeAccion(paso)) return <EditorEtiquetaLienzo paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
+      return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
     case 'esperar': return <EditorEspera espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
     case 'condicion': return <EditorCondicion {...pr} paso={paso} id={id} cambiar={cambiar} />;
     case 'respuesta': return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
     case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
-    default: return <EditorMensaje {...pr} paso={paso} id={id} cambiar={cambiar} />;
+    default:
+      if (paso.canal === 'email') return <EditorEmail paso={paso} id={id} negocio={pr.negocio} busy={pr.busy} cambiar={cambiar} />;
+      return <EditorMensaje {...pr} paso={paso} id={id} cambiar={cambiar} />;
   }
+}
+
+/**
+ * EL EMAIL, con la cara de redactar en Gmail (punto 4 del pedido): asunto, la VISTA PREVIA (el
+ * preheader, que el motor ya manda) y el cuerpo con negrita, itálica y tachado; a la derecha, el
+ * mail abierto con el MISMO render que sale. Tipear no apila: el Ctrl+Z del texto es del navegador.
+ * La `key` va por tarjeta: el editor siembra estado de sus props (AGENTS.md).
+ */
+function EditorEmail({ paso, id, negocio, busy, cambiar }: { paso: PasoSecuenciaDto; id: string; negocio: string; busy: boolean; cambiar: Cambiar }) {
+  return (
+    <EditorEmailGmail key={`email-${id}`}
+      asunto={paso.asunto ?? ''} preheader={paso.preheader ?? ''} cuerpo={paso.cuerpo ?? ''}
+      onChange={(patch) => cambiar(patch, false)} negocio={negocio} deshabilitado={busy} />
+  );
+}
+
+/**
+ * LA ETIQUETA, como una frase: «[Poner ▾] [etiqueta ▾]» (decisión 8). Sigue siendo una ⚡ Acción
+ * (poner_etiqueta_lead / sacar_etiqueta_lead) sobre el lead del flujo: el motor no cambia. Cambiar
+ * la operación o la etiqueta apila (es una decisión, no tipear).
+ */
+function EditorEtiquetaLienzo(p: { paso: PasoSecuenciaDto; id: string; busy: boolean; cambiar: Cambiar }) {
+  const e = etiquetaDeAccion(p.paso);
+  if (!e) return null;
+  return (
+    <EditorEtiqueta key={`etq-${p.id}`} operacion={e.operacion} etiquetaId={e.etiquetaId} deshabilitado={p.busy}
+      onChange={(operacion, etiquetaId) => p.cambiar({
+        accion: { operacion, params: { leadId: LEAD_DEL_EVENTO, ...(etiquetaId != null ? { etiquetaId } : {}) } },
+      }, true)} />
+  );
 }
 
 type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
@@ -360,18 +443,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, busy, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
-  if (paso.canal === 'email') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <input value={paso.asunto ?? ''} disabled={busy} placeholder="Asunto"
-          onChange={(e) => cambiar({ asunto: e.target.value }, false)} style={inpLienzo} />
-        <textarea value={paso.cuerpo} disabled={busy} rows={6} placeholder="Escribe el mensaje"
-          onChange={(e) => cambiar({ cuerpo: e.target.value }, false)}
-          style={{ ...inpLienzo, minHeight: 110, lineHeight: 1.5, resize: 'vertical' }} />
-      </div>
-    );
-  }
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, formaPanel }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   const modoIA = (on: boolean) => {
     // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
@@ -383,6 +455,9 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, busy, envioA
     <EditorMensajeWhatsApp
       key={`msg-${id}`}
       paso={paso}
+      // Punto 3 del pedido: «más ancho que largo, si no se amontona todo». Con el panel apaisado
+      // el chat va a la izquierda y el composer a la derecha; angosto, vuelve a la columna.
+      disposicion={formaPanel === 'apaisado' ? 'fila' : 'columna'}
       onChange={(patch) => {
         // Tipear no entra a la pila (el Ctrl+Z del texto es del navegador); cambiar de
         // audio, de archivo, de tipo o de «Revisar», sí. Escribir en una variante también es
@@ -483,7 +558,7 @@ const OPCIONES_CAMPO: DropdownOption[] = [...CONDICIONES_VIVAS].flatMap((c) => [
  * todas con «y» o todas con «o» (el modo de la rama). Sólo se ofrecen las condiciones que
  * el motor evalúa (`CONDICIONES_VIVAS`).
  */
-function EditorCondicion({ paso, id, cambiar, onPasos, etiquetas, onCrearEtiqueta, etapas, busy, onError }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorCondicion({ paso, id, cambiar, onPasos, etapas, busy }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const ramas = paso.ramas ?? [];
   const setRama = (ri: number, r: RamaCondicion, apilar: boolean) => cambiar({ ramas: ramas.map((x, k) => (k === ri ? r : x)) }, apilar);
   return (
@@ -494,7 +569,7 @@ function EditorCondicion({ paso, id, cambiar, onPasos, etiquetas, onCrearEtiquet
             <Fragment key={fi}>
               {fi > 0 && <div style={{ fontSize: 11, color: 'var(--faint)', margin: '5px 0 5px 2px' }}>{r.modo === 'cualquiera' ? 'o' : 'y'}</div>}
               <FilaFrase
-                fila={f} etiquetas={etiquetas} onCrearEtiqueta={onCrearEtiqueta} etapas={etapas} busy={busy} onError={onError}
+                fila={f} etapas={etapas} busy={busy}
                 puedeQuitar={!(ramas.length === 1 && r.filas.length === 1)}
                 onCambiar={(nf, apilar) => setRama(ri, { ...r, filas: r.filas.map((x, k) => (k === fi ? nf : x)) }, apilar)}
                 onQuitar={() => (r.filas.length > 1
@@ -519,10 +594,9 @@ function EditorCondicion({ paso, id, cambiar, onPasos, etiquetas, onCrearEtiquet
 }
 
 /** Una fila de una rama: «[campo, en positivo o negado] [valor]» y su ✕. */
-function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etiquetas, onCrearEtiqueta, etapas, busy, onError }: {
+function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etapas, busy }: {
   fila: FilaCondicion; onCambiar: (f: FilaCondicion, apilar: boolean) => void; onQuitar: () => void; puedeQuitar: boolean;
-  etiquetas: EtiquetaLienzo[]; onCrearEtiqueta?: (nombre: string) => Promise<EtiquetaLienzo | null>; etapas: SeccionEtapas[];
-  busy: boolean; onError: (m: string) => void;
+  etapas: SeccionEtapas[]; busy: boolean;
 }) {
   const valorCampo = `${fila.campo}|${fila.no ? 1 : 0}`;
   const elegirCampo = (v: string) => {
@@ -535,8 +609,8 @@ function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etiquetas, onCrearE
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <Dropdown value={valorCampo} options={OPCIONES_CAMPO} width={fila.campo === 'etiqueta' || fila.campo === 'etapa' || fila.campo === 'antiguedad' ? 168 : 230} ariaLabel="Condición" onChange={elegirCampo} disabled={busy} />
       {fila.campo === 'etiqueta' && (
-        <SelectorEtiqueta valor={fila.valor == null ? null : Number(fila.valor)} etiquetas={etiquetas} onCrear={onCrearEtiqueta} busy={busy} onError={onError}
-          onElegir={(idEt) => onCambiar({ ...fila, valor: idEt }, true)} />
+        <SelectorEtiqueta value={fila.valor == null ? null : Number(fila.valor)} placeholder="Elige" width={150} ariaLabel="Etiqueta" disabled={busy}
+          onElegir={(e) => onCambiar({ ...fila, valor: e.id }, true)} />
       )}
       {fila.campo === 'etapa' && <SelectorEtapa fila={fila} etapas={etapas} busy={busy} onElegir={(key, funnelId) => onCambiar({ ...fila, valor: key, funnel_id: funnelId }, true)} />}
       {fila.campo === 'antiguedad' && (
@@ -550,43 +624,6 @@ function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etiquetas, onCrearE
       <button type="button" onClick={onQuitar} disabled={busy || !puedeQuitar} title="Quitar" aria-label="Quitar esta condición"
         style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', cursor: puedeQuitar ? 'pointer' : 'default', opacity: puedeQuitar ? 1 : 0.35, fontSize: 13, padding: '4px 2px' }}>✕</button>
     </div>
-  );
-}
-
-/** El selector de etiqueta, con «+ Nueva» (POST /api/crm/etiquetas, lo hace la parte E). */
-function SelectorEtiqueta({ valor, etiquetas, onElegir, onCrear, busy, onError }: {
-  valor: number | null; etiquetas: EtiquetaLienzo[]; onElegir: (id: number) => void;
-  onCrear?: (nombre: string) => Promise<EtiquetaLienzo | null>; busy: boolean; onError: (m: string) => void;
-}) {
-  const [creando, setCreando] = useState(false);
-  const [nombre, setNombre] = useState('');
-  const crear = async () => {
-    const t = nombre.trim();
-    setCreando(false); setNombre('');
-    if (!t || !onCrear) return;
-    const nueva = await onCrear(t);
-    if (nueva) onElegir(nueva.id); else onError('No se pudo crear la etiqueta');
-  };
-  if (creando) {
-    return (
-      <input autoFocus value={nombre} maxLength={40} placeholder="Nombre" aria-label="Nombre de la etiqueta nueva"
-        onChange={(e) => setNombre(e.target.value)} onBlur={() => void crear()}
-        onKeyDown={(e) => { if (e.key === 'Enter') void crear(); if (e.key === 'Escape') { setCreando(false); setNombre(''); } }}
-        style={{ ...inpLienzo, flex: 1, minWidth: 120 }} />
-    );
-  }
-  const vivas = etiquetas.filter((t) => !t.archivada_at || t.id === valor);
-  const opciones: DropdownOption[] = [
-    ...vivas.map((t) => ({ value: String(t.id), label: nombreEtiqueta(etiquetas, t.id) ?? t.nombre, ...(t.color ? { color: t.color } : {}) })),
-    // ⚠️ La que está puesta entra SIEMPRE, aunque no esté en la lista (todavía cargando, o
-    // de otro lado): un valor que no está entre las opciones se dibuja como la primera.
-    ...(valor != null && !vivas.some((t) => t.id === valor) ? [{ value: String(valor), label: 'Una etiqueta que ya no está' }] : []),
-    ...(onCrear ? [{ value: '__nueva', label: 'Nueva', crear: true }] : []),
-  ];
-  return (
-    <Dropdown value={valor == null ? '' : String(valor)} options={opciones} placeholder="Elige" width={150} ariaLabel="Etiqueta" disabled={busy}
-      search={vivas.length > 8}
-      onChange={(v) => { if (v === '__nueva') { setCreando(true); return; } if (Number(v) > 0) onElegir(Number(v)); }} />
   );
 }
 
@@ -642,19 +679,22 @@ function EditorRespuesta({ paso, id, cambiar, onPasos, busy, onAbrir }: PropsEdi
   );
 }
 
-/** «IR A»: otra automatización (se la inscribe) u otra tarjeta de este flujo (un salto). */
+/**
+ * «IR A»: otra automatización (se la inscribe) u otra tarjeta de este flujo (un salto).
+ *
+ * ⚠️ DESDE LA SALIDA, SÓLO LAS TARJETAS DE SU HILO (`tarjetasParaIrA`, con `hiloDe` del modelo):
+ * con flechas en paralelo, saltar a la tarjeta de otro hilo le manda lo mismo dos veces al lead y
+ * `validarGrafo` no lo deja publicar. Desde «Si responde», todas.
+ */
 function EditorIrA({ paso, id, cambiar, pasos, secuencias, nombres, busy }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const d = paso.destino ?? null;
   const valor = !d ? '' : 'secuencia_id' in d ? `sec:${d.secuencia_id}` : `nodo:${d.nodo}`;
-  const tarjetas = pasos
-    .map((p, i) => ({ p, id: idDe(p, i) }))
-    .filter((x) => x.id !== id && claseDe(x.p) !== 'ir_a' && claseDe(x.p) !== 'respuesta');
   const secciones = [
     { title: 'Otra automatización', options: secuencias.map((s) => ({ value: `sec:${s.id}`, label: s.nombre })) },
     {
       title: 'Otra tarjeta de este flujo',
       // El nombre ya trae lo que la tarjeta dice («Mensaje: Hola, te…»), como la tarjeta del «Ir a».
-      options: tarjetas.map((x) => ({ value: `nodo:${x.id}`, label: nombreDeTarjeta(pasos, x.id, nombres) })),
+      options: tarjetasParaIrA(pasos, id).map((t) => ({ value: `nodo:${t}`, label: nombreDeTarjeta(pasos, t, nombres) })),
     },
   ].filter((s) => s.options.length > 0);
   if (valor && !secciones.some((s) => s.options.some((o) => o.value === valor))) {

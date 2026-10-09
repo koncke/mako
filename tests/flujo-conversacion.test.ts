@@ -32,6 +32,10 @@
 //  15. `errorLegible` deja el id crudo                                            -> 12 / 1
 //  16. Publicar sin `faltaEscribir` (sale una tarjeta vacía)                      -> 12 / 1
 //  17. `faltaEscribir` da por escrita una nota de voz sin audio                   -> 12 / 1
+// Segunda tanda (08/10/2026, parte L: «Si responde» cuelga del CRON y el menú del ＋ suma Email y
+// Etiqueta). Con todo puesto 13 / 0; el arnés L-roturas2:
+//  18. «Si responde» deja de ser hijo del CRON (`destinosDe` sin `resp`)          -> 12 / 1
+//  19. el menú del ＋ sin «🏷️ Etiqueta»                                           -> 12 / 1
 //
 // Correr: node --import tsx --test tests/flujo-conversacion.test.ts
 import { test } from 'node:test';
@@ -40,7 +44,7 @@ import { readFileSync } from 'node:fs';
 import {
   grafoDeSecuencia, detalleDisparador, insertarDesdeLienzo, nodoNuevo, opcionesDelMas,
   seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, faltaEscribir, crearRespuesta, agregarCaso, quitarRama,
-  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, ID_NUEVA_RESPUESTA,
+  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, PUERTO_RESPUESTA,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
 import { MARGEN, centroDeFilas } from '../lib/lienzo-grafo';
@@ -136,18 +140,26 @@ test('⚠️ el árbol: dos ramas no se pisan, se apilan ARRIBA y ABAJO del puer
   }
 });
 
-test('«Si responde» va abajo, en la columna del CRON, sin pisar a la salida (y si no hay, su tarjeta fantasma)', () => {
+test('«Si responde» CUELGA DEL CRON: columna 1, debajo de la salida, con su flecha desde su fila (segunda tanda)', () => {
+  // Decisión 1 (un solo CRON): hasta el 08/10 «Si responde» iba suelta en la columna del CRON y,
+  // sin ella, había una tarjeta fantasma «＋ Si responde». Ahora es la segunda fila del CRON.
   const r = crearRespuesta([msg('a', { siguiente: 'b' }), msg('b')], rndDe());
   const conCaso = agregarCaso(r.pasos, r.id, rndDe(7)).pasos;
-  const g = grafoDeSecuencia(conCaso, { disparador: 'X', editable: true });
+  const g = grafoDeSecuencia(conCaso, { disparador: 'X' });
   sinPisarse(g);
   const resp = nodo(g, r.id);
   const e = nodo(g, ID_ENTRADA);
   assert.equal(resp.titulo, 'Si responde');
-  assert.equal(resp.x, e.x, '«Si responde» va en la columna del CRON');
-  const salida = g.nodos.filter((n) => n.id === 'a' || n.id === 'b' || n.id === ID_ENTRADA);
+  assert.equal(resp.x, nodo(g, 'a').x, '«Si responde» va en la columna 1, la de la salida');
+  assert.ok(resp.x > e.x + e.ancho, '«Si responde» va a la derecha del CRON');
+  const salida = g.nodos.filter((n) => n.id === 'a' || n.id === 'b');
   assert.ok(resp.y > Math.max(...salida.map((n) => n.y + n.alto)), '«Si responde» va abajo de la salida');
-  assert.ok(!g.nodos.some((n) => n.id === ID_NUEVA_RESPUESTA), 'con «Si responde» no hay fantasma');
+  const flecha = g.aristas.find((x) => x.hasta === r.id);
+  assert.equal(flecha?.desde, ID_ENTRADA);
+  assert.equal(flecha?.puerto, PUERTO_RESPUESTA, 'la flecha sale de la fila «Si responde» del CRON');
+  assert.equal(flecha?.sinMas, true, 'nada va antes de «Si responde»: sin el ＋ del medio');
+  assert.deepEqual(e.puertos!.map((p) => [p.id, p.rotulo, p.vacio]), [['sig', 'Al entrar', false], [PUERTO_RESPUESTA, 'Si responde', false]]);
+  assert.equal(g.nodos.length, conCaso.length + 1, 'una tarjeta por paso y el CRON: no hay fantasma');
   // Sus salidas son los casos y «Otra cosa», en ese orden; el caso nace con «MaKo contesta».
   assert.deepEqual(resp.puertos!.map((p) => p.rotulo), ['Caso sin nombre', 'Otra cosa']);
   const caso = nodoPorId(conCaso, r.id)!.casos![0];
@@ -157,10 +169,11 @@ test('«Si responde» va abajo, en la columna del CRON, sin pisar a la salida (y
   // Y el motor lo lee como la guía del caso (`escenariosDeRespuesta`), con «Otra cosa» avisando.
   assert.equal(escenariosDeRespuesta(conCaso).length, 1);
   assert.equal((nodoPorId(conCaso, nodoPorId(conCaso, r.id)!.si_no)!.accion as { operacion: string }).operacion, 'avisar_al_equipo');
-  // Sin «Si responde» y editable: la tarjeta fantasma.
-  const sin = grafoDeSecuencia([msg('a')], { disparador: 'X', editable: true });
-  assert.ok(sin.nodos.some((n) => n.id === ID_NUEVA_RESPUESTA));
-  assert.ok(!grafoDeSecuencia([msg('a')], { disparador: 'X' }).nodos.some((n) => n.id === ID_NUEVA_RESPUESTA), 'quien no edita no ve el fantasma');
+  // Sin «Si responde»: la fila está igual, vacía (su ＋ la crea), y no hay ninguna tarjeta de más.
+  const sin = grafoDeSecuencia([msg('a')], { disparador: 'X' });
+  assert.equal(sin.nodos.length, 2, 'volvió la tarjeta fantasma');
+  assert.deepEqual(nodo(sin, ID_ENTRADA).puertos!.find((p) => p.id === PUERTO_RESPUESTA), { id: PUERTO_RESPUESTA, rotulo: 'Si responde', vacio: true });
+  assert.deepEqual(opcionesDelMas([msg('a')], ID_ENTRADA, false, PUERTO_RESPUESTA).map((o) => o.value), ['respuesta'], 'el ＋ de esa fila crea «Si responde» y nada más');
 });
 
 test('⚠️ cada flecha sale de SU puerto, y une nodos que existen', () => {
@@ -174,8 +187,9 @@ test('⚠️ cada flecha sale de SU puerto, y une nodos que existen', () => {
   assert.equal(a('m3')?.puerto, 'si_no');
   const ids = new Set(g.nodos.map((n) => n.id));
   for (const x of g.aristas) assert.ok(ids.has(x.desde) && ids.has(x.hasta), `${x.desde} → ${x.hasta}`);
-  // Una salida vacía se dice: su punto lleva el ＋.
-  assert.deepEqual(nodo(g, 'm1').puertos, [{ id: 'sig', vacio: true }]);
+  // Una salida vacía se dice: su punto lleva el ＋. Y un mensaje de la salida admite flechas en
+  // paralelo (`paralelo`: con el punto ocupado, el lienzo ofrece un ＋ más).
+  assert.deepEqual(nodo(g, 'm1').puertos, [{ id: 'sig', vacio: true, paralelo: true }]);
   assert.equal(nodo(g, 'c').puertos!.find((p) => p.id === 'si_no')?.rotulo, 'Si no');
 });
 
@@ -234,15 +248,17 @@ test('⚠️ ningún mensaje nace con espera: la espera es su propia tarjeta (pu
   assert.doesNotMatch(sinComentarios(leer(PERFIL)), /delay_horas:\s*[1-9]/);
 });
 
-test('el menú del ＋: sin «Esperar» debajo de «Si responde», sin «Ir a» en el medio de una flecha', () => {
+test('el menú del ＋: sin «Email» ni «Esperar» debajo de «Si responde», sin «Ir a» en el medio de una flecha', () => {
   const r = crearRespuesta([msg('a')], rndDe());
   const valores = (o: Array<{ value: string }>) => o.map((x) => x.value);
-  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'esperar', 'condicion', 'accion', 'ir_a']);
+  // El orden del contrato (segunda tanda): WhatsApp · Email · Esperar · Condición · Etiqueta · Acción · Ir a.
+  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'email', 'esperar', 'condicion', 'etiqueta', 'accion', 'ir_a']);
   assert.ok(!valores(opcionesDelMas(r.pasos, r.id, false)).includes('esperar'), 'se ofreció esperar en «Si responde»');
   const aviso = nodoPorId(r.pasos, r.id)!.si_no!;
   assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('esperar'), 'se ofreció esperar debajo de «Si responde»');
+  assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('email'), 'se ofreció un email debajo de «Si responde»');
   assert.ok(!valores(opcionesDelMas(r.pasos, 'a', true)).includes('ir_a'), 'se ofreció «Ir a» en el medio');
-  assert.deepEqual(opcionesDelMas(r.pasos, 'a', false).map((x) => x.label), ['💬 Mensaje', '⏳ Esperar', '🔀 Condición', '⚡ Acción', '↪ Ir a']);
+  assert.deepEqual(opcionesDelMas(r.pasos, 'a', false).map((x) => x.label), ['💬 WhatsApp', '✉️ Email', '⏳ Esperar', '🔀 Condición', '🏷️ Etiqueta', '⚡ Acción', '↪ Ir a']);
 });
 
 test('quitar una rama se lleva lo que colgaba de ella (y el flujo sigue válido)', () => {

@@ -32,10 +32,91 @@
 //    inserta TEXTO PLANO: un copiar-pegar de un doc trae tablas, colores y fuentes
 //    que el serializador tira igual, pero mientras tanto rompen el renglón.
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type ReactNode, type Ref, useMemo } from 'react';
 import { tramosConVariables } from '@/lib/variables-aviso';
 import { Dropdown } from '../components/Dropdown';
 import type { VariableAviso } from '@/lib/variables-aviso';
+
+/**
+ * Lo que el editor expone a quien lo monta (opcional: /mensajes no lo usa). Existe por el editor de
+ * email tipo Gmail de /chatbot (app/chatbot/EditorEmailGmail.tsx, 08/10/2026), que tiene su emoji y su
+ * 🔗 FUERA de la caja, en la barra de abajo como Gmail: para meter algo donde estaba el cursor hace
+ * falta que el editor lo sepa aunque el foco se haya ido al campo de la URL.
+ */
+export type EditorMensajeHandle = {
+  /** Escribe `texto` donde estaba el cursor la última vez (o al final) y lo guarda. */
+  insertar: (texto: string) => void;
+};
+
+/**
+ * Cuántos caracteres VISIBLES hay en `raiz`, con las MISMAS reglas de renglón que `domAMarcas`: un
+ * `<br>` es un salto, y un `div`/`p` que no arranca la caja también. Sin las marcas (`*`, `_`, `~` no
+ * se ven), así que vale igual antes y después de repintar.
+ */
+function largoVisible(raiz: Node): number {
+  let out = '';
+  const visitar = (x: Node) => {
+    if (x.nodeType === Node.TEXT_NODE) { out += x.textContent ?? ''; return; }
+    if (!(x instanceof HTMLElement)) return;
+    const tag = x.tagName.toLowerCase();
+    if (tag === 'br') { out += '\n'; return; }
+    if ((tag === 'div' || tag === 'p') && out && !out.endsWith('\n')) out += '\n';
+    for (const h of Array.from(x.childNodes)) visitar(h);
+  };
+  for (const h of Array.from(raiz.childNodes)) visitar(h);
+  return out.length;
+}
+
+/**
+ * El cursor como un NÚMERO (caracteres visibles desde el principio), no como un `Range`.
+ *
+ * ⚠️ UN `Range` GUARDADO NO SOBREVIVE AL BLUR. Al salir de la caja se repinta (`repintar`) y el
+ * HTML se reescribe apenas el navegador haya metido un `<div>` por un Enter, así que los nodos del
+ * rango quedan sueltos y meter un emoji o un link caía al final. Un número se vuelve a ubicar en el
+ * HTML nuevo (`ubicarCursor`), porque los dos recorridos cuentan igual.
+ */
+function cursorVisible(raiz: HTMLElement): number | null {
+  const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+  if (!sel || !sel.rangeCount) return null;
+  const r = sel.getRangeAt(0);
+  if (!raiz.contains(r.startContainer)) return null;
+  const hasta = document.createRange();
+  hasta.setStart(raiz, 0);
+  hasta.setEnd(r.startContainer, r.startOffset);
+  return largoVisible(hasta.cloneContents());
+}
+
+/** El punto del DOM que está `n` caracteres visibles adentro de `raiz` (la inversa de `cursorVisible`). */
+function ubicarCursor(raiz: HTMLElement, n: number): { nodo: Node; off: number } {
+  let resto = Math.max(0, n);
+  let previo = '';
+  const hallado: { v: { nodo: Node; off: number } | null } = { v: null };
+  const antesDe = (x: Node) => ({ nodo: x.parentNode ?? raiz, off: Array.prototype.indexOf.call(x.parentNode?.childNodes ?? [], x) as number });
+  const visitar = (x: Node): boolean => {
+    if (x.nodeType === Node.TEXT_NODE) {
+      const t = x.textContent ?? '';
+      if (resto <= t.length) { hallado.v = { nodo: x, off: resto }; return true; }
+      resto -= t.length;
+      if (t) previo = t[t.length - 1];
+      return false;
+    }
+    if (!(x instanceof HTMLElement)) return false;
+    const tag = x.tagName.toLowerCase();
+    if (tag === 'br') {
+      if (resto === 0) { hallado.v = antesDe(x); return true; }
+      resto -= 1; previo = '\n';
+      return false;
+    }
+    if ((tag === 'div' || tag === 'p') && previo && previo !== '\n') {
+      if (resto === 0) { hallado.v = antesDe(x); return true; }
+      resto -= 1; previo = '\n';
+    }
+    for (const h of Array.from(x.childNodes)) if (visitar(h)) return true;
+    return false;
+  };
+  for (const h of Array.from(raiz.childNodes)) if (visitar(h)) break;
+  return hallado.v ?? { nodo: raiz, off: raiz.childNodes.length };
+}
 
 const SANS = "'Geist', sans-serif";
 
@@ -108,7 +189,7 @@ function domAMarcas(nodo: Node): string {
   return out;
 }
 
-export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables, accion }: {
+export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables, accion, ref: refExterno, etiqueta = 'El mensaje', maxAlto = 430 }: {
   valor: string;
   onChange: (v: string) => void;
   filas?: number;
@@ -122,8 +203,18 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
    * Llegan AGRUPADOS y no planos a propósito: qué se ofrece y cómo se agrupa lo decide el
    * catálogo (`variablesOfrecidas`), así que un grupo nuevo o una regla de alcance nueva
    * las hereda esta barra sin tocarla.
+   *
+   * De cada dato se usan la clave, el nombre y el ejemplo: el email de /chatbot le pasa los del
+   * MOTOR de secuencias (lib/template-vars.ts), que no son `VariableAviso` y no tienen alcance.
    */
-  variables?: Array<{ titulo: string; items: VariableAviso[] }>;
+  variables?: Array<{ titulo: string; items: Array<Pick<VariableAviso, 'key' | 'label' | 'ejemplo'>> }>;
+  // ── Opcionales, para el email de /chatbot (08/10/2026). /mensajes no pasa ninguno. ──
+  /** Meter texto desde afuera, donde estaba el cursor (`EditorMensajeHandle`). */
+  ref?: Ref<EditorMensajeHandle>;
+  /** El nombre de la caja para el lector de pantalla. */
+  etiqueta?: string;
+  /** Hasta dónde crece la caja antes de scrollear. */
+  maxAlto?: number;
 }) {
   // Los grupos salen del catálogo, no de esta pantalla. Ver el comentario del selector.
   const grupos = useMemo(() => variables ?? [], [variables]);
@@ -151,6 +242,41 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
   }, [enfocado]);
   /** Lo último que ESTE editor emitió. Ver la trampa 1. */
   const propio = useRef<string | null>(null);
+  /** Dónde estaba el cursor la última vez, en caracteres visibles (ver `cursorVisible`). */
+  const cursor = useRef<number | null>(null);
+  const recordarCursor = () => {
+    const el = ref.current;
+    if (!el) return;
+    const n = cursorVisible(el);
+    if (n != null) cursor.current = n;
+  };
+
+  /**
+   * Mete `texto` donde estaba el cursor. Si la caja sigue enfocada (el botón de afuera no le robó
+   * el foco), con la selección viva; si no, con el número guardado. Es el camino de `insertText`,
+   * el mismo del pegado: respeta el deshacer del navegador.
+   */
+  function insertarTexto(texto: string) {
+    const el = ref.current;
+    if (!el || disabled || !texto) return;
+    const vivo = typeof document !== 'undefined' && document.activeElement === el && cursorVisible(el) != null;
+    if (!vivo) {
+      el.focus();
+      const sel = window.getSelection();
+      if (sel) {
+        const p = cursor.current != null ? ubicarCursor(el, cursor.current) : { nodo: el, off: el.childNodes.length };
+        const r = document.createRange();
+        r.setStart(p.nodo, p.off);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+    }
+    document.execCommand('insertText', false, texto);
+    emitir();
+    recordarCursor();
+  }
+  useImperativeHandle(refExterno, () => ({ insertar: insertarTexto }));
 
   useEffect(() => {
     const el = ref.current;
@@ -158,6 +284,7 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
     if (valor === propio.current) return;   // vino de nuestra propia tecla: el DOM ya está bien
     el.innerHTML = marcasAHtmlEditor(valor);
     propio.current = valor;
+    cursor.current = null;                  // otro texto: el cursor de antes no es de éste
   }, [valor]);
 
   function emitir() {
@@ -190,6 +317,7 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
     repintar();
     const sel = window.getSelection();
     if (sel && el.lastChild) { const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
+    recordarCursor();
   }
 
   /**
@@ -333,10 +461,13 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
         ref={ref}
         contentEditable={!disabled}
         suppressContentEditableWarning
-        role="textbox" aria-multiline="true" aria-label="El mensaje"
-        onInput={emitir}
+        role="textbox" aria-multiline="true" aria-label={etiqueta}
+        onInput={() => { emitir(); recordarCursor(); }}
+        onKeyUp={recordarCursor}
+        onMouseUp={recordarCursor}
         onFocus={() => setEnfocado(true)}
-        onBlur={() => { emitir(); repintar(); }}
+        // El cursor se recuerda ANTES de repintar: después, los nodos donde estaba ya no existen.
+        onBlur={() => { recordarCursor(); emitir(); repintar(); }}
         onPaste={(e) => {
           e.preventDefault();
           const txt = e.clipboardData.getData('text/plain');
@@ -351,7 +482,7 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
           // editar el texto debería ser bastante más grande, para que entre todo
           // bien»: lo paga haber sacado RECORDATORIOS, que liberó el espacio. Subir
           // `PANEL_ANCHO` o `maxHeight` del panel habría movido TODOS los lienzos.
-          minHeight: filas * 22, maxHeight: 430, overflowY: 'auto',
+          minHeight: filas * 22, maxHeight: maxAlto, overflowY: 'auto',
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
         }}
       />

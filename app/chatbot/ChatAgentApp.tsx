@@ -21,7 +21,6 @@ import { Icon } from '@/app/_components/icons';
 // next/link NO: perdería el ?ws= y mandaría al super admin a SU propio WhatsApp
 // en vez del que está mirando.
 import Link from '@/app/_ui/Link';
-import { SecuenciaWizard } from './SecuenciaWizard';
 import { SimuladorWhatsApp, type AbrirSecuencia } from './SimuladorWhatsApp';
 import type { CronAviso } from '@/lib/cron-aviso';
 // ⚠️ ACÁ SE IMPORTABAN `HandoffsPanel` Y `RecordatorioReunion`, y se fueron el 08/10/2026 con
@@ -163,7 +162,6 @@ function ChatAgentInner() {
   const [etapas, setEtapas] = useState<Opcion[]>([]);
   const [productos, setProductos] = useState<ProductoOpcion[]>([]);
   const [disparadores, setDisparadores] = useState<Opcion[]>([]);
-  const [leadMagnets, setLeadMagnets] = useState<Array<{ id: string; nombre: string }>>([]);
   // Etapas de nutrición sin ninguna secuencia que las cubra. Reemplaza al viejo
   // seed: en vez de inventar secuencias con copy de relleno, se avisa qué falta.
   const [huecos, setHuecos] = useState<Array<{ etapa: string; label: string }>>([]);
@@ -172,8 +170,8 @@ function ChatAgentInner() {
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [audios, setAudios] = useState<AudioSetting[]>([]);
-  // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
-  const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
+  /** El pedido ya escrito para la automatización recién creada («Armar una» de una etapa). */
+  const [pedidoIA, setPedidoIA] = useState<{ secuenciaId: number; pedido: string } | null>(null);
   /** La automatización que pidió abrir el deep link `?sec=`: se abre en su LIENZO. */
   const [abrirSec, setAbrirSec] = useState<AbrirSecuencia | null>(null);
   /**
@@ -223,7 +221,7 @@ function ChatAgentInner() {
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
       setSinCaso(Array.isArray(j.handoffs) ? (j.handoffs as Array<{ secuenciaId: number | null }>) : []);
-      setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
+      setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []);
       setProductos(j.productos ?? []); setDisparadores(j.disparadores ?? []);
       setHuecos(j.huecos ?? []); setTz(j.tz ?? null);
       setNegocio(j.negocio ?? '');
@@ -290,6 +288,23 @@ function ChatAgentInner() {
     }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  /**
+   * «NUEVA» (decisión 14): una automatización VACÍA y pausada, y se abre su lienzo con la caja de
+   * «Crear con IA». Empezar de cero es tocar el ＋ del CRON. `pedido` precarga la caja (el «Armar
+   * una» de una etapa sin secuencia).
+   */
+  const crearNueva = async (pedido?: string) => {
+    try {
+      const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
+      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setError(r?.error ?? 'No se pudo crear la automatización'); return; }
+      const id = Number(r.secuenciaId);
+      setPedidoIA(pedido ? { secuenciaId: id, pedido } : null);
+      await load();
+      setAbrirSec({ id });
+    } catch { setError('Sin conexión — prueba de nuevo.'); }
+  };
+  const ejemplosIA = huecos.slice(0, 2).map((h) => `Una bienvenida para quien llega a «${h.label}»`);
 
   // ── El ancla del deep link ────────────────────────────────────────────────
   // Se aplica UNA sola vez. Sin el ref, cada render volvería a forzar la sub-tab
@@ -508,8 +523,8 @@ function ChatAgentInner() {
 
       {secuencias !== null && secuencias.length === 0 && !error && (
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
-          Todavía no hay secuencias en este workspace.{rolAdmin ? ' Empieza con «+ Nueva secuencia de mensajes».' : ''}
-          {rolAdmin && <div style={{ marginTop: 14 }}><button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva secuencia de mensajes</button></div>}
+          Todavía no hay automatizaciones.
+          {rolAdmin && <div style={{ marginTop: 14 }}><button onClick={() => void crearNueva()} style={btnDark}>＋ Nueva</button></div>}
         </div>
       )}
 
@@ -521,7 +536,8 @@ function ChatAgentInner() {
         <SimuladorWhatsApp
           secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
-          onWizard={(id) => setWizard(id)} onReload={() => void load()}
+          onNueva={() => void crearNueva()} onReload={() => void load()}
+          ejemplosIA={ejemplosIA} pedidoIA={pedidoIA}
           abrir={abrirSec}
           handoffs={sinCaso}
           /* ⚠️ QUÉ ETAPAS QUEDARON SIN SECUENCIA — ERA UNA FRANJA ARRIBA DEL LIENZO.
@@ -540,7 +556,7 @@ function ChatAgentInner() {
               <span style={{ minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {huecos.length === 1 ? `${huecos[0].label} no tiene secuencia` : `${huecos.length} etapas sin secuencia`}
               </span>
-              <button onClick={() => setWizard('nueva')}
+              <button onClick={() => void crearNueva(`Una automatización para quien llega a «${huecos[0].label}»`)}
                 style={{ flex: 'none', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', cursor: 'pointer' }}>
                 Armar una
               </button>
@@ -549,19 +565,6 @@ function ChatAgentInner() {
         />
       )}
 
-      {wizard !== null && (
-        <SecuenciaWizard
-          secuenciaId={wizard === 'nueva' ? null : wizard}
-          secuencias={secuencias ?? []}
-          objetivos={objetivos}
-          etapas={etapas}
-          leadMagnets={leadMagnets}
-          audios={audios}
-          onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
-          onClose={() => setWizard(null)}
-          onDone={() => { setWizard(null); void load(); }}
-        />
-      )}
     </main>
   );
 }

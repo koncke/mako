@@ -218,6 +218,12 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // que el veto lo cortaba mudo. La ruta (app/api/chat-agent/onboarding/guion-audio) lee
   // el override como pin y, sin él, recorre CASCADA_DOCS: Gemini primero, nunca Claude.
   { feature: 'setting-guion-audio', label: 'Guion para leer al grabar un audio (Chatbot)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe en la voz del negocio lo que se dice en la nota de voz de un mensaje, a partir de su texto y del objetivo de la secuencia. Sin PII: el mismo audio le llega a todos. Si se fija Claude aquí, la ruta lo ignora y sigue gratis.' },
+  // Crear (o agregarle tarjetas a) una automatización del Chatbot desde un pedido escrito
+  // (08/10/2026, decisión 14). La ruta (app/api/chat-agent/secuencias/ia) lee el override como
+  // pin y, sin él, recorre CASCADA_DOCS: Gemini primero, NUNCA Claude (no tiene fila en
+  // CLAUDE_PERMITIDO a propósito). Degradarse acá es aceptable: el resultado se VE en el lienzo y
+  // pasa por validarGrafo + validarIA (lib/flujo-ia.ts) antes de mostrarse.
+  { feature: 'chatbot-crear-ia', label: 'Crear una automatización con IA (Chatbot)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: 'Arma el flujo de tarjetas (mensajes, esperas, condiciones, etiquetas, acciones) desde lo que pide el dueño, con el perfil del negocio y sus listas. Sin datos de leads. Los ids, los links y las etiquetas los resuelve el código, no el modelo. Si se fija Claude aquí, la ruta lo ignora y sigue gratis.' },
   { feature: 'nutri-destilar-voz', label: 'MaKo aprende tu voz (nutrición)', grupo: 'Copywriting', def: GEMINI() },
   { feature: 'nutri-generar', label: 'MaKo escribe la secuencia de nutrición', grupo: 'Copywriting', def: GEMINI() },
   { feature: 'email-generar', label: 'Escribir email de nutrición', grupo: 'Copywriting', def: GEMINI() },

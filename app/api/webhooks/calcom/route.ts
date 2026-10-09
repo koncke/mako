@@ -17,8 +17,8 @@
 //
 // La lógica de negocio NO se duplica: se normaliza la reserva y de ahí en
 // adelante se llama a las MISMAS funciones que usa Calendly (upsertLeadFromCalendly,
-// setFechaJunta2, cancelarJuntaEnLead). Dos caminos que escriben leads distinto
-// son dos CRMs.
+// setFechaJunta2, cancelarJuntaEnLead, saveLeadRespuestas, enrolarPorEvento). Dos
+// caminos que escriben leads distinto son dos CRMs.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -28,6 +28,8 @@ import {
   clasificarJuntaCalcom,
   accionDeTrigger,
   CalcomSignatureError,
+  preguntasDeReserva,
+  textoNuevoAgendado,
   type CalcomWebhookPayload,
 } from '@/lib/calcom';
 import { isoToFechaTijuana } from '@/lib/calendly';
@@ -36,12 +38,14 @@ import {
   findLeadByContacto,
   setFechaJunta2,
   cancelarJuntaEnLead,
+  saveLeadRespuestas,
 } from '@/lib/leads';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { linkResumenLead } from '@/lib/lead-resumen';
 import { dispararEvento } from '@/lib/flujos';
+import { enrolarPorEvento } from '@/lib/nutricion';
 import { runWithWorkspace } from '@/lib/workspace';
 import { credWsEstricta } from '@/lib/credenciales';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
@@ -195,13 +199,20 @@ export async function POST(request: NextRequest) {
           return Response.json({ ok: true, trigger: body.triggerEvent, tipo: 'j2', action: 'sin_match', ms });
         }
         await setFechaJunta2(lead.id, fechaReunion, reserva.inicio);
+        // Lo que completó en el formulario de la R2, POR reunión y con la MISMA función que Calendly.
+        // No tira: una respuesta que no se guarda no puede tumbar la reserva.
+        await saveLeadRespuestas(lead.id, 'R2', preguntasDeReserva(reserva.respuestas), fechaReunion);
         await emitirDelCatalogo('reunion-nuevo-agendado', {
           // ⚠️ Dedup POR RESERVA. Los webhooks se reentregan y el mismo agendado
           // salía 2 y 3 veces (medido: 9 s, 25 s, 38 s y 41 s de diferencia). La
           // clave lleva el HORARIO además del uid: un reintento trae los dos
           // iguales, y un REAGENDADO cambia el horario — o sea que ese sí avisa.
           dedupTtlMin: 180, dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}`,
-          texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(reserva.inicio, tz)}*.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
+          // El contacto, del formulario primero (lo que la persona escribió AHORA) y del lead si no vino.
+          texto: textoNuevoAgendado({
+            nombre: lead.nombre, reunion: 'R2', cuando: fmtFechaHoraLocal(reserva.inicio, tz), link: linkResumenLead(lead.id, ws),
+            telefono: reserva.telefono ?? lead.telefono, email: reserva.email ?? lead.email, respuestas: reserva.respuestas,
+          }),
         });
         // La MISMA clave que el aviso de arriba: Cal.com reentrega, y una reentrega no repite los pasos.
         await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2', dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}` });
@@ -234,15 +245,28 @@ export async function POST(request: NextRequest) {
         origen_lead: 'calcom',
       });
 
+      // Lo que completó en el formulario (el rubro, si es agente, su Instagram…), como las de
+      // Calendly: hasta el 08/10/2026 se tiraban, y la ficha y el aviso no tenían de dónde sacarlas.
+      await saveLeadRespuestas(lead.id, 'R1', preguntasDeReserva(reserva.respuestas), fechaReunion);
+
       await emitirDelCatalogo('reunion-nuevo-agendado', {
         // Ver la nota de la R2: dedup por reserva + horario.
         dedupTtlMin: 180, dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}`,
-        texto: `🎯 *Nuevo agendado*: ${reserva.nombre ?? reserva.email} reservó una *R1 para el ${fmtFechaHoraLocal(reserva.inicio, tz)}*.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
+        // ⚠️ SE ENRIQUECE ESTE aviso, no se crea otro: Código Inmobiliario pidió «un único
+        // WhatsApp» con el teléfono y lo completado, y un segundo aviso por agenda serían dos.
+        texto: textoNuevoAgendado({
+          nombre: reserva.nombre ?? reserva.email, reunion: 'R1', cuando: fmtFechaHoraLocal(reserva.inicio, tz), link: linkResumenLead(lead.id, ws),
+          telefono: reserva.telefono ?? lead.telefono, email: reserva.email, respuestas: reserva.respuestas,
+        }),
       });
       await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: reserva.nombre ?? reserva.email, reunion: 'R1', dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}` });
+      // Las automatizaciones de «Agendó» arrancan YA, como con Calendly. Sin esto, una agenda de
+      // Cal.com sólo entraba por el barrido del cron (de 15 a 23 UTC), y el primer mensaje de
+      // preparación salía horas después de reservar. No tira: el lead ya quedó creado.
+      await enrolarPorEvento(lead.id, 'agenda_nueva');
 
-      console.log(`[webhook:calcom] R1 → lead=${lead.id} ${created ? 'creado' : 'actualizado'} fecha=${fechaReunion} ms=${ms}`);
-      return Response.json({ ok: true, trigger: body.triggerEvent, tipo, action: created ? 'crear' : 'actualizar', lead_id: lead.id, ms });
+      console.log(`[webhook:calcom] R1 → lead=${lead.id} ${created ? 'creado' : 'actualizado'} fecha=${fechaReunion} respuestas=${reserva.respuestas.length} ms=${ms}`);
+      return Response.json({ ok: true, trigger: body.triggerEvent, tipo, action: created ? 'crear' : 'actualizar', lead_id: lead.id, respuestas: reserva.respuestas.length, ms });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[webhook:calcom] error procesando ${body.triggerEvent}: ${message}`);

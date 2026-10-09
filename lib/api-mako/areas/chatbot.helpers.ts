@@ -93,10 +93,12 @@ export const TOPE_INSCRIPCIONES_LEAD = 100;
 export async function inscripcionesDeLead(leadId: number) {
   const db = await getTenantDb();
   const { data, error } = await db.from('nutricion_inscripciones')
-    .select('secuencia_id, estado, paso_actual, proximo_envio_at, ultimo_paso_at, desenlace, desenlace_at, inscripto_at')
+    // `nodo_actual` y `hilos` (migs 0223 y 0228): con ramas, `paso_actual` es un índice del array y
+    // no dice dónde está; con flechas en paralelo, puede estar en varias tarjetas a la vez.
+    .select('secuencia_id, estado, paso_actual, nodo_actual, hilos, proximo_envio_at, ultimo_paso_at, desenlace, desenlace_at, inscripto_at')
     .eq('lead_id', leadId).order('inscripto_at', { ascending: false }).limit(TOPE_INSCRIPCIONES_LEAD);
   if (error) throw new Error(`api-mako: inscripcionesDeLead: ${error.message}`);
-  const filas = (data ?? []) as Array<{ secuencia_id: number; estado: string; paso_actual: number; proximo_envio_at: string | null; ultimo_paso_at: string | null; desenlace: string | null; desenlace_at: string | null; inscripto_at: string }>;
+  const filas = (data ?? []) as Array<{ secuencia_id: number; estado: string; paso_actual: number; nodo_actual: string | null; hilos: unknown; proximo_envio_at: string | null; ultimo_paso_at: string | null; desenlace: string | null; desenlace_at: string | null; inscripto_at: string }>;
   const ids = [...new Set(filas.map((f) => f.secuencia_id))];
   // Con las archivadas: una inscripción cancelada al archivar sigue siendo historia del lead.
   const { data: secs } = ids.length
