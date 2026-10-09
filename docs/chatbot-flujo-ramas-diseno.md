@@ -561,3 +561,65 @@ Contratos entre partes (la integración enchufa lo que falte):
 - `EditorCondicion` (A) recibe `{ paso, cambiar, ambito: 'adquisicion' | 'entrega', etapas, productos, busy }`
   y lo monta `FlujoLienzo` (B). `ambitoDeDisparo(trigger_tipo)` vive en lib/condiciones-catalogo.ts.
 - La tarjeta MAKO (B) es una acción `avisar_al_equipo` con `tipo: 'mako'` en el lienzo, como la etiqueta.
+
+# CUARTA TANDA (09/10/2026, mañana): editores sin aire, CRON por Productos / Etiquetas, condiciones con «+y» «+o», «Probar» arriba
+
+El pedido literal (17 puntos y doce capturas) está en `app/admin/dev/chatbot/bitacora.ts`, en el hito
+del 9 oct a las 11:02. La tarea del punto 5 que toca el CRM (marcar qué etapas son reuniones) se le
+mandó al chat de CRM el mismo día. La cuenta estaba en 92 % de su cuota semanal.
+
+## Decisiones (mías; Martín las puede dar vuelta)
+
+1. **Un editor de control mide lo que tiene adentro.** CRON, DELAY, CONDITION, TAG y ACTION abren un
+   panel que crece con su contenido. El selector es el protagonista: un campo grande, de ancho
+   completo y con su rótulo. Los de WhatsApp y Email son más grandes (punto 16).
+2. **El desplegable del CRON arranca en dos secciones: «Productos» y «Etiquetas».** Productos lleva a
+   producto, después «Adquisición» o «Entrega», y después la etapa; con un solo producto, el primer
+   paso no está. «La que tiene puesta» (la sección con lo ya elegido) sale.
+3. **«Probar» es más alto.** El botón de arriba («▶ Probar») pasa a decir «Cerrar» mientras está
+   abierto. Adentro, arriba a la izquierda, va el número o el email con el botón «Probar en WhatsApp»
+   o «Probar en Email». El título y el «Cerrar» de adentro salen. Que no salieran los mensajes era un
+   bug: se arregla.
+4. **El CRON no tiene «Si responde» ni «Al entrar».** De él salen varias flechas (hilos en paralelo).
+   Las automatizaciones que YA tienen «Si responde» (las convertidas de la primera tanda) lo siguen
+   corriendo y dibujando hasta que alguien lo borre: sacarlo cambia qué hace hoy una secuencia
+   prendida. No se ofrece para nada nuevo.
+5. **Las reuniones son UNA familia de condiciones** («Asistió / No asistió a la reunión», «Tiene
+   reunión agendada», «Próxima reunión en»), con un selector de una o más etapas de reunión del
+   kanban. El motor mapea cada etapa elegida a su lugar de la ficha con `reunionesDe` (`kind:
+   'reunion'`; la tabla tiene dos lugares, así que una tercera reunión no tiene dato y la condición da
+   «no sé»). Sin etapas elegidas, vale cualquiera. Las R1 y R2 de antes se siguen evaluando.
+6. **Sale lo que el CRM no registra**: «Confirmó la compra y no pagó». «No pagó» suma «la cuota N»
+   (vacío = cualquiera).
+7. **Sin «＋ Rama».** Una CONDITION es una pregunta con «Sí» y «Si no». Vuelven «＋ y» y «＋ o»: cada
+   fila nueva recuerda con qué se une, y se evalúa como siempre (las «y» atan más que las «o»). Las
+   condiciones de antes con varias ramas se siguen dibujando y corriendo.
+8. **De cada resultado de una condición salen varias flechas**: «Sí» y «Si no» tienen sus propias
+   flechas en paralelo, como el CRON.
+9. **El DELAY sólo espera** (horas o días). «Antes de la reunión» sale de su desplegable para lo nuevo
+   y vive en la condición «Próxima reunión en». Las esperas ancladas que ya existen siguen corriendo.
+10. **El ＋ de una tarjeta**: sin «En paralelo», con íconos en vez de emojis, los logos de WhatsApp y
+    Gmail, la estrella de MaKo y «MaKo en WhatsApp». Es más ancho y va por grupos separados con una
+    línea: mensajes (WhatsApp, Email) · tiempo y lógica (Delay, Condition) · CRM (Tag, Action) · MaKo.
+11. **ACTION**: «Elige una acción», sin subtítulos, sin «Avisar al equipo» (es «MaKo en WhatsApp») ni
+    «Inscribir en otra automatización» (se hace con una etiqueta). Suma las del CRM y Customer Success
+    que el registro ya sabe correr desde un flujo.
+12. **REPLY y GO TO no se ofrecen más.** Las que existen se dibujan, corren y se pueden borrar (como el
+    «Ir a» de la tercera tanda).
+13. **La lista**: el filtro va al lado del buscador, en la misma fila. Suma filtrar por emoji, y en vez
+    de «Todas» hay «Quitar filtro». El «⋯» abre hacia afuera de la lista, sin tapar la tarjeta.
+14. **El CRON puede elegir varias etapas.** Es una columna nueva y el motor inscribe por cualquiera de
+    ellas. La IA elige todas las de entrega cuando el pedido habla de «un alumno». ⚠️ Toca la base y
+    el motor: va en una tanda propia.
+15. **WhatsApp manda VARIOS mensajes por tarjeta**: «Enviar» suma la burbuja y vacía la barra. Cada
+    burbuja tiene su lápiz para editarla y una papelera visible con 5 segundos de deshacer. Sin
+    transcripción del audio. El «{ }» va al lado del clip, «✦ MaKo» al lado del título, y arriba se
+    elige desde qué número sale, con «Vincular nuevo» ahí mismo.
+16. **Email**: «De» elige entre los remitentes vinculados y ofrece «Vincular nuevo». Salen la «Vista
+    previa» y el ojo. Suma un modo HTML. El pie de baja sale con el nombre del NEGOCIO, nunca «MaKo»:
+    el link de baja se queda porque es lo que separa un mail de un spam. El «{ }» y el emoji suben a
+    la barra de formato.
+17. **«Probar» no pregunta por ramas.** Recorre cada condición por el «Sí» y muestra sólo los mensajes
+    del canal elegido: el de Email no muestra WhatsApp.
+
+Lo que no entre en esta cuenta queda en `docs/relevo/chatbot.md` con su número de punto.
