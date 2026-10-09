@@ -4,7 +4,7 @@ description: >
   El negocio del usuario vive en MaKo: su oferta, su cliente ideal, sus avatares, sus
   razones de compra, su catálogo, cómo suena su marca, su plan de trabajo Y SUS NÚMEROS
   REALES —inversión en Meta, impresiones, visitas al landing, leads, reuniones agendadas
-  y realizadas, cierres— además de sus leads uno por uno con su conversación de WhatsApp.
+  y realizadas, cierres— además de sus leads uno por uno.
   Usar SIEMPRE que haya que escribir, decidir o proponer algo sobre su negocio —un
   anuncio, un guion, un email, una oferta, un precio, una decisión de marketing—, cuando
   pregunten CÓMO LE ESTÁ YENDO o pidan un reporte o los datos de un período, cuando
@@ -41,8 +41,8 @@ qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a t
    impresiones de Meta, visitas al landing, plays del VSL, leads, reuniones agendadas y
    realizadas, cierres e ingreso. Por día, semana o mes, y descargable.
 4. **Consultar los datos VIVOS** (`GET /api/agente/consultar`) — leads con su etapa,
-   la conversación real de WhatsApp con uno, sus reuniones y si asistió, el funnel del
-   negocio, lo que los experimentos ya validaron.
+   sus reuniones y si asistió, el funnel del negocio, lo que los experimentos ya
+   validaron.
 5. **Leer el plan abierto** (`GET /api/agente/plan`).
 6. **Proponer**: tareas nuevas, cierres de lo que ya se hizo, y detalle sobre lo que ya
    está anotado (`POST /api/agente/plan`).
@@ -313,8 +313,7 @@ curl -s "$BASE/api/agente/consultar?que=buscar_leads&texto=ana" -H "Authorizatio
 curl -s "$BASE/api/agente/consultar?que=ficha_lead&leadId=1395"  -H "Authorization: Bearer $TOKEN"
 ```
 
-Las consultas: `buscar_leads` · `ficha_lead` · `historial_whatsapp` (la conversación
-REAL con esa persona) · `reuniones_lead` · `reuniones_recientes` · `ver_funnel` (las
+Las consultas: `buscar_leads` · `ficha_lead` · `reuniones_lead` · `reuniones_recientes` · `ver_funnel` (las
 etapas de ESTE negocio, no un embudo genérico) · `estado_experimentos` (lo que el
 negocio ya validó y puedes afirmar) · `buscar_conocimiento` (su metodología cargada) ·
 `buscar_tutorial` · **`analisis_negocio`** (ver abajo).
