@@ -1449,5 +1449,45 @@ export const BITACORA: Hito[] = [
       "lib/mako-router.ts · lib/mako-doer-in.ts — «anotá en el lead» no es del plan",
       "tests/crm-pedidos-whatsapp.test.ts — el turno real, con las frases de los grupos"
     ]
+  },
+  {
+    "fecha": "9 oct",
+    "hora": "11:14",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Marcar qué etapas son una reunión (lo pidió por el chat de Chatbot)",
+    "pedido": "Si, lo que te pidió chatbot hazlo ahora",
+    "puntos": [
+      "El pedido, en su tanda sobre /chatbot: «dentro del editor de etapas en el CRM, debería poder seleccionarse qué etapas hacen referencia a una REUNIÓN»."
+    ]
+  },
+  {
+    "fecha": "9 oct",
+    "hora": "11:25",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "El editor de etapas marca qué etapa es una reunión",
+    "puntos": [
+      "Un botón «Reunión» por etapa; no en la entrada, el pago ni el cierre.",
+      "Pregunta antes sólo si una reunión cambia de número: la fecha va por orden.",
+      "Probado en ws3: desmarcar y volver a marcar deja el embudo idéntico."
+    ],
+    "commits": [
+      {
+        "sha": "adf1ca3d",
+        "msg": "CRM: en el editor de etapas se marca qué etapa es una reunión",
+        "lineas": 231,
+        "archivos": 4
+      }
+    ],
+    "archivos": [
+      "lib/etapa-reunion.ts — qué se puede marcar y qué reuniones se corren",
+      "app/crm/actions.ts — editarEtapaAction, op reunion",
+      "app/crm/EtapasModal.tsx — el botón y la confirmación"
+    ]
   }
 ];

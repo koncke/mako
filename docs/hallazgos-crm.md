@@ -7510,3 +7510,45 @@ investigación, para que él decida antes de construir.
 conversaciones y la fecha original. Tampoco se sabe qué CRM usan de verdad nuestros clientes.
 
 _08/10/2026, cuenta 2, con un subagente de investigación (sólo web y lectura del repo)._
+
+## «Es una reunión»: marcar una etapa cambia requisitos, transiciones y DÓNDE se lee la fecha (09/10/2026)
+
+**Vive en:** `lib/etapa-reunion.ts` · `app/crm/actions.ts` (`editarEtapaAction`, op `reunion`) ·
+`app/crm/EtapasModal.tsx` (`BotonReunion`, `marcarReunion`) · `tests/etapa-reunion.test.ts`
+
+Martín, por el chat de Chatbot: «dentro del editor de etapas en el CRM, debería poder
+seleccionarse qué etapas hacen referencia a una REUNIÓN». El Chatbot deja de decir R1/R2 y su
+condición «Asistió / No asistió» va a ofrecer sólo las etapas marcadas, leyéndolas con
+`reunionesDe`. Hasta ahora `kind: 'reunion'` sólo lo ponía `generateFunnel` al armar un embudo de
+plantilla: un negocio que armó el suyo a mano no tenía cómo marcarla.
+
+⚠️ **No es sólo la pantalla.** Medido en ws3 desmarcando «Agenda R2»:
+- el nivel de requisitos de Facturando bajó de 4 a 2 y el de Ganado de 5 a 3, porque
+  `funnelReqInfo` cuenta las reuniones;
+- `generateFunnel` sacó 6 transiciones: el no-show de la R2, «asistió, no compró», y perdido y
+  descalificado desde la R2;
+- volver a marcarla dejó el embudo idéntico, con las demás etapas intactas.
+
+Marcar la primera reunión de un embudo hace que los leads de Facturando y Ganado empiecen a
+pedir la fecha y la asistencia de la reunión 1: aparecen en «Datos sin marcar». Es el
+significado, no un error, y guardar nunca se bloquea.
+
+⚠️ **La fecha va por ORDEN, no por etapa.** La tabla `leads` tiene dos pares de columnas
+(`fecha_junta_1/junta_1_at` y `fecha_junta_2/junta_2_at`), y la primera reunión del embudo usa
+el primero (`slotPorIndice`). Marcar una etapa que va ANTES de una reunión existente la corre al
+segundo lugar, y las fechas ya cargadas se verían en otra etapa. Por eso el pop-up pregunta sólo
+en ese caso (`cambioDeReuniones`); si nadie se corre, se marca sin fricción. La tercera reunión
+no tiene columnas y lleva «Sin fecha». Los requisitos sólo miran la reunión 1 y la 2, así que
+una tercera no pide nada imposible.
+
+⚠️ **Lo que NO puede ser reunión** son la entrada, el pago, el cierre, las de grupo y las cuatro
+terminales: perderían su tipo, y al desmarcarlas volverían como un paso cualquiera. Apagada,
+una etapa vuelve a `'paso'`, lo mismo que una etapa nueva, y no a «sin tipo». La regla la
+cumple la action, porque `op` es el argumento de una server action.
+
+**Lo que quedó SIN hacer:**
+- No se miró el botón en un navegador.
+- Corregir el orden de los datos cuando una reunión se corre de número: hoy sólo se avisa, y
+  la fecha queda en el lugar de su número viejo.
+
+_09/10/2026, cuenta 2, sin subagentes. Commit `adf1ca3d`._
