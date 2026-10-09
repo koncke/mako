@@ -163,7 +163,8 @@ export function Lienzo({
    * LA FORMA DEL PANEL DEL NODO (segunda tanda, decisión 10; pedido literal, punto 3: «El editor
    * de WhatsApp debes hacerlo más ancho que largo, sino, se amontona todo»).
    *
-   *   · `columna` (default): anclado abajo a la izquierda, ancho `panelAncho` y alto libre.
+   *   · `columna` (default): anclado abajo a la izquierda, ancho `panelAncho`; alto libre, o FIJO
+   *     si viene `panelAlto` (cuarta tanda, punto 1: el alto lo decide el tipo de tarjeta).
    *   · `apaisado`: la franja de abajo, de `insetIzq` a `insetDerAbajo`, con alto FIJO
    *     (`panelAlto`). Fijo y no un tope: una caja cuyo alto es un tope cambia de tamaño al
    *     pasar de una tarjeta a otra, y se lleva puesto lo que cuelga adentro (AGENTS.md).
@@ -261,6 +262,12 @@ export function Lienzo({
   const derChrome = insetDerChrome ?? insetDer;
   const derAbajo = insetDerAbajo ?? insetDer;
   const apaisado = panelForma === 'apaisado' && Number(panelAlto) > 0;
+  /**
+   * EL PANEL TIENE ALTO FIJO SI QUIEN MONTA LO DA, también de columna (cuarta tanda, punto 1). El
+   * alto lo decide el TIPO de tarjeta (`editorDeTarjeta`, lib/lienzo-grafo.ts), nunca el contenido de
+   * cada render. Sin `panelAlto` (el lienzo de /mensajes), el alto libre de siempre.
+   */
+  const altoFijo = Number(panelAlto) > 0;
 
   /**
    * EL REVELADO: cuántas tarjetas de `revelar.orden` ya aparecieron. Infinity = todas (sin
@@ -907,7 +914,12 @@ export function Lienzo({
                   // veces): en una ventana angosta el editor quedaba 30 px más angosto de lo que
                   // entraba (hallazgos-chatbot.md, «Con «Probar» abierto…»).
                   maxWidth: `calc(100% - ${PANEL_MARGEN * 2 + insetIzq + insetDer}px)`,
-                  maxHeight: `calc(100% - ${24 + ZOOM_ALTO}px)`, overflowY: 'auto' as const,
+                  maxHeight: `calc(100% - ${24 + ZOOM_ALTO}px)`,
+                  // Con alto por tipo (cuarta tanda, punto 1), en columna flex como el apaisado: el
+                  // contenido scrollea adentro y el panel no salta de tamaño entre dos tarjetas.
+                  ...(altoFijo
+                    ? { height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' }
+                    : { overflowY: 'auto' as const }),
                 }),
               padding: 14, borderRadius: 14,
               background: 'var(--surface)', border: '1px solid var(--border-strong)',
@@ -933,7 +945,7 @@ export function Lienzo({
               <button onClick={() => onSeleccion(null)} aria-label="Cerrar este paso" title="Cerrar este paso"
                 style={{ marginLeft: onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) ? 0 : 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', padding: 0 }}>✕</button>
             </div>
-            {apaisado
+            {altoFijo
               // En COLUMNA flex: los editores anchos (WhatsApp en fila, el email tipo Gmail) estiran
               // con `flex: 1` + `min-height: 0`. Nunca `height: 100%`, que Safari resuelve a cero.
               ? <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>{renderEditor(nodoSel)}</div>
@@ -1161,6 +1173,24 @@ export const inpLienzo: CSSProperties = {
 export const rotuloLienzo: CSSProperties = {
   fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
   color: 'var(--dim)', display: 'block', marginBottom: 6,
+};
+
+/**
+ * EL CAMPO PROTAGONISTA DE UN EDITOR DE CONTROL (cuarta tanda, punto 1: «tanto espacio en blanco y un
+ * desplegable chico arriba del todo»). DELAY, TAG, ACTION y GO TO tienen UNA cosa que elegir: ésa va
+ * grande y de ancho completo (48 de alto, letra de 16), y el panel mide lo suyo (`editorDeTarjeta`,
+ * lib/lienzo-grafo.ts). Vive acá, al lado de `inpLienzo`, para que los editores no lo copien: un
+ * selector grande en una tarjeta y chico en la de al lado es el olor de dos piezas separándose.
+ *
+ *   · `campoGrande`: un input (el número de un DELAY).
+ *   · `botonGrande`: el `buttonStyle` de un `Dropdown` (la unidad, la acción, la etiqueta).
+ */
+export const ALTO_CAMPO_GRANDE = 48;
+export const campoGrande: CSSProperties = {
+  ...inpLienzo, minHeight: ALTO_CAMPO_GRANDE, padding: '11px 14px', borderRadius: 11, fontSize: 16, fontWeight: 600,
+};
+export const botonGrande: CSSProperties = {
+  minHeight: ALTO_CAMPO_GRANDE, padding: '11px 14px', borderRadius: 11, fontSize: 16, fontWeight: 600,
 };
 
 /**

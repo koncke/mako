@@ -33,7 +33,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
-import { Lienzo, TarjetaNodo, inpLienzo } from '@/app/_components/Lienzo';
+import { Lienzo, TarjetaNodo, inpLienzo, campoGrande, botonGrande } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import { EditorMensajeWhatsApp, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
@@ -61,7 +61,11 @@ import {
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL,
   type NodoFlujo, type QueAgregar,
 } from '@/lib/flujo-conversacion';
-import type { Muelles } from '@/lib/lienzo-grafo';
+import { editorDeTarjeta, type Muelles } from '@/lib/lienzo-grafo';
+import {
+  UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadMostrada, sinPrecision, avisoDePrecision,
+  type UnidadEspera,
+} from '@/lib/espera-duracion';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 
 const SANS = "'Geist', sans-serif";
@@ -235,16 +239,22 @@ export function FlujoLienzo({
    * siempre. El editor de WhatsApp va SIEMPRE en una columna (decisión 1): partido en dos se leía roto.
    */
   const formaPanel: 'apaisado' | 'columna' = muelles?.editorForma === 'apaisado' ? 'apaisado' : 'columna';
+  /**
+   * EL TAMAÑO DEL PANEL, POR TIPO DE TARJETA (cuarta tanda, punto 1: «tanto espacio en blanco y un
+   * desplegable chico arriba del todo»). Un mensaje, el editor grande de `muelles` (punto 16); lo
+   * demás, el alto de su tipo y 600 de ancho (`editorDeTarjeta`, lib/lienzo-grafo.ts, con test). Sale
+   * del TIPO de la tarjeta abierta, nunca del contenido: elegir una acción con más campos no mueve el
+   * panel, que scrollea adentro.
+   */
+  const talla = editorDeTarjeta(muelles, sel != null ? grafo.nodos.find((n) => n.id === sel)?.tipo : null);
 
   return (
     <Lienzo
       grafo={grafo} seleccion={sel} onSeleccion={setSel}
-      // El editor MEDIANO (tercera tanda, decisión 1): el ancho que le da `muelles` (hasta 720, pegado
-      // a la lista); de columna, el de siempre.
-      sinMarco alto="100%" panelAncho={formaPanel === 'apaisado' && muelles ? muelles.editorAncho : 392}
+      sinMarco alto="100%" panelAncho={talla.ancho}
       insetIzq={muelles ? muelles.insets.izq : insetIzq} insetDer={muelles ? muelles.insets.der : insetDer}
       insetDerChrome={muelles?.insets.derChrome} insetDerAbajo={muelles?.insets.derAbajo}
-      panelForma={formaPanel} panelAlto={muelles?.editorAlto}
+      panelForma={formaPanel} panelAlto={talla.alto}
       revelar={revelar} reservaAbajo={reservaAbajo}
       chrome={chrome} herramientas={herramientas} accion={pie}
       /* ⚠️ EL ＋ ES EL DE CADA SALIDA (y el del medio de cada flecha), y la tarjeta nueva se
@@ -426,7 +436,8 @@ function EditorDeNodo(pr: PropsEditor) {
       // La tarjeta MAKO (tercera tanda, decisión 11): el aviso al grupo del negocio, con su editor.
       if (esMako(paso)) return <EditorMako key={`mako-${id}`} paso={paso} busy={pr.busy} cambiar={cambiar} />;
       return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
-    case 'esperar': return <EditorEspera espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
+    // La `key` va por tarjeta: el editor recuerda la unidad elegida (`useState` sembrado de props).
+    case 'esperar': return <EditorEspera key={`espera-${id}`} espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
     // La condición (parte A de la tercera tanda): el catálogo filtrado por el ámbito del CRON. Agregar
     // o quitar una rama crea un puerto o se lleva lo que colgaba de él: eso lo hace el lienzo.
     case 'condicion': return (
@@ -511,13 +522,17 @@ function EditorMako({ paso, busy, cambiar }: { paso: PasoSecuenciaDto; busy: boo
     // El cursor queda después del dato, como al tipearlo.
     requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(ini + t.length, ini + t.length); } });
   };
+  // EL MENSAJE ES EL PROTAGONISTA (cuarta tanda, punto 1): llena el alto del panel (fijo por tipo,
+  // `editorDeTarjeta`) en vez de quedar en cuatro renglones con aire debajo. Columna flex y
+  // `flex: 1` + `minHeight`, nunca `height: 100%` (Safari lo resuelve a cero).
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
       <input value={m.titulo} maxLength={120} placeholder="Título (opcional)" disabled={busy} aria-label="Título del aviso"
-        onChange={(e) => poner({ titulo: e.target.value }, false)} style={{ ...inpLienzo, fontWeight: 600 }} />
-      <textarea ref={area} value={m.mensaje} rows={4} maxLength={1000} placeholder="Mensaje para tu equipo" disabled={busy} aria-label="Mensaje para tu equipo"
-        onChange={(e) => poner({ mensaje: e.target.value }, false)} style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45 }} />
-      <div>
+        onChange={(e) => poner({ titulo: e.target.value }, false)} style={{ ...inpLienzo, fontWeight: 600, flex: 'none' }} />
+      <textarea ref={area} value={m.mensaje} rows={5} maxLength={1000} placeholder="Mensaje para tu equipo" disabled={busy} aria-label="Mensaje para tu equipo"
+        onChange={(e) => poner({ mensaje: e.target.value }, false)}
+        style={{ ...inpLienzo, flex: 1, minHeight: 96, resize: 'none', fontSize: 14.5, lineHeight: 1.5, padding: '10px 12px', borderRadius: 11 }} />
+      <div style={{ flex: 'none' }}>
         <Dropdown value="" resetAfterSelect options={DATOS_MAKO} botonLabel="＋ Dato del lead" ariaLabel="Insertar un dato del lead" disabled={busy}
           buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 8 }} onChange={(v) => v && insertar(v)} />
       </div>
@@ -606,54 +621,71 @@ function EditorAccion({ paso, id, busy, cambiar }: { paso: PasoSecuenciaDto; id:
   );
 }
 
-type Unidad = 'min' | 'h' | 'dias';
-const MIN_DE: Record<Unidad, number> = { min: 1, h: 60, dias: 1440 };
+// `Unidad` es la de lib/espera-duracion.ts (segundos, minutos, horas, días).
+type Unidad = UnidadEspera;
 
 /**
- * ESPERAR, COMO UNA FRASE: «Esperar [24] [h]» o «[1] [h] antes de la reunión».
+ * ESPERAR, COMO UNA FRASE GRANDE: «Esperar [10] [segundos ▾]» (cuarta tanda, punto 1: el campo es el
+ * protagonista, de 48 de alto, y la unidad llena lo que queda del renglón), o «[1] [hora ▾] [antes de
+ * la reunión ▾]» en las que ya estaban ancladas.
  *
- * Horas y días, nada más: el motor corre una vez por hora, así que ofrecer minutos sería
- * prometer una precisión que no existe. Los minutos quedan en el dato (el recordatorio
- * los usa), y si una espera ya trae minutos sueltos, la unidad «min» aparece —el valor que
- * está puesto entra SIEMPRE a las opciones, o el primer clic lo pisa (AGENTS.md).
+ * ⚠️ SEGUNDOS, MINUTOS, HORAS Y DÍAS desde la quinta tanda (punto 3, literal: «En Delay, falta la
+ * opción de minutos y segundos...»). Hasta ahí eran horas y días, «porque el motor corre una vez por
+ * hora y ofrecer minutos sería prometer una precisión que no existe». Eso sigue siendo cierto, y por
+ * eso la frase lleva su aviso: una espera de hasta 2 min se cumple ADENTRO de la corrida del motor
+ * (lib/nutricion.ts, `dormirEsperaCorta`); de 2 a 59 min depende del cron, y la pantalla lo dice
+ * (`sinPrecision`, lib/espera-duracion.ts: «Un número tuyo por encima del suyo no protege: promete»).
+ *
+ * El dato sigue siendo `espera.minutos`, con decimales para los segundos (10 s = 1/6 min). La UNIDAD
+ * que se ve la elige la persona y se recuerda mientras el número entre en ella (`unidadMostrada`): sin
+ * eso, tipear «120» en segundos saltaba a «2 minutos» con el cursor adentro. Una espera vieja con
+ * minutos sueltos sigue mostrando «minutos»: el valor que está puesto entra siempre (AGENTS.md).
  */
 function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; busy: boolean; cambiar: Cambiar }) {
   const e: Espera = espera ?? { modo: 'tiempo', minutos: 1440 };
-  const m = Math.max(1, Math.round(Number(e.minutos) || 0));
-  const unidad: Unidad = m % 1440 === 0 ? 'dias' : m % 60 === 0 ? 'h' : 'min';
-  const n = m / MIN_DE[unidad];
+  const seg = Math.max(1, segundosDeMinutos(e.minutos));
+  const [preferida, setPreferida] = useState<Unidad | null>(null);
+  const unidad = unidadMostrada(seg, preferida);
+  const n = seg / SEGUNDOS_DE[unidad];
   const poner = (modo: Espera['modo'], cuanto: number, u: Unidad, apilar: boolean) =>
-    cambiar({ espera: { modo, minutos: Math.max(1, Math.round(cuanto * MIN_DE[u])) } }, apilar);
+    cambiar({ espera: { modo, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]) } }, apilar);
   const numero = (
     <input type="number" min={1} step={1} value={n} disabled={busy} aria-label="Cuánto"
       onChange={(ev) => { const v = Number(ev.target.value); if (v > 0) poner(e.modo, v, unidad, false); }}
-      style={{ ...inpLienzo, width: 64, flex: 'none' }} />
+      style={{ ...campoGrande, width: 96, flex: 'none', textAlign: 'center' }} />
   );
-  const unidades: DropdownOption[] = [
-    ...(unidad === 'min' ? [{ value: 'min', label: 'min' }] : []),
-    { value: 'h', label: 'h' },
-    { value: 'dias', label: n === 1 && unidad === 'dias' ? 'día' : 'días' },
-  ];
-  const selUnidad = <Dropdown value={unidad} options={unidades} width={84} ariaLabel="Unidad" onChange={(v) => poner(e.modo, n, v as Unidad, true)} />;
-  const selModo = (
-    <Dropdown value={e.modo} width={e.modo === 'tiempo' ? 104 : 168} ariaLabel="Cuándo"
-      options={[{ value: 'tiempo', label: 'Esperar' }, { value: 'antes_reunion', label: 'antes de la reunión' }]}
-      onChange={(v) => poner(v as Espera['modo'], n, unidad, true)} />
+  const selUnidad = (
+    <div style={{ flex: '1 1 150px', minWidth: 0 }}>
+      <Dropdown value={unidad} width="100%" ariaLabel="Unidad" search={false} disabled={busy} buttonStyle={botonGrande}
+        options={UNIDADES_ESPERA.map((u) => ({ value: u, label: rotuloUnidad(u, n) }))}
+        onChange={(v) => { const u = v as Unidad; setPreferida(u); poner(e.modo, n, u, true); }} />
+    </div>
   );
+  const aviso = e.modo === 'tiempo' && sinPrecision(seg)
+    ? <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--dim)' }}>{avisoDePrecision()}</div>
+    : null;
   // ⚠️ CUARTA TANDA, PUNTO 9: «En "Delay" lo de "Antes de la reunión" debería ser una CONDITION,
   // dentro de la sección de llamadas» (vive en «Próxima reunión en», lib/condiciones-catalogo.ts). Un
   // DELAY nuevo sólo espera: «Esperar [1] [día]». Uno que YA está anclado a la reunión sigue con su
   // selector, para poder verlo y pasarlo a «Esperar»; el motor lo sigue corriendo igual.
   if (e.modo === 'tiempo') {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Esperar</span>{numero}{selUnidad}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+          <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', flex: 'none' }}>Esperar</span>{numero}{selUnidad}
+        </div>
+        {aviso}
       </div>
     );
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      {numero}{selUnidad}{selModo}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+      {numero}{selUnidad}
+      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+        <Dropdown value={e.modo} width="100%" ariaLabel="Cuándo" search={false} disabled={busy} buttonStyle={botonGrande}
+          options={[{ value: 'tiempo', label: 'Esperar' }, { value: 'antes_reunion', label: 'antes de la reunión' }]}
+          onChange={(v) => poner(v as Espera['modo'], n, unidad, true)} />
+      </div>
     </div>
   );
 }
@@ -716,8 +748,9 @@ function EditorIrA({ paso, id, cambiar, pasos, secuencias, nombres, busy }: Prop
   if (valor && !secciones.some((s) => s.options.some((o) => o.value === valor))) {
     secciones.unshift({ title: 'La que tiene puesta', options: [{ value: valor, label: 'Algo que ya no existe' }] });
   }
+  // Grande y de ancho completo: es lo único que se elige acá (cuarta tanda, punto 1).
   return (
-    <Dropdown value={valor} secciones={secciones} placeholder="Elige a dónde" width="100%" ariaLabel="A dónde va" disabled={busy} search
+    <Dropdown value={valor} secciones={secciones} placeholder="Elige a dónde" width="100%" ariaLabel="A dónde va" disabled={busy} search buttonStyle={botonGrande}
       onChange={(v) => {
         const [clase, ...resto] = v.split(':');
         const x = resto.join(':');

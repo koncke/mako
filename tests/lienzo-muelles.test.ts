@@ -115,12 +115,13 @@ test('⚠️ en una ventana angosta el editor cae a COLUMNA (con lo que no cambi
   const m = muelles({ w: 840, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
   assert.equal(m.editorForma, 'columna');
   assert.equal(m.editor, null, 'columna: el panel de siempre, no la franja');
-  // Con la lista cerrada, la misma ventana sí tiene lugar (y el editor no pasa de 720).
+  // Con la lista cerrada, la misma ventana sí tiene lugar (y el editor no pasa de su tope). Desde la
+  // cuarta tanda (punto 16) el tope es 840 y la ventana de 840 deja 816 de lugar: manda el lugar.
   const sinLista = muelles({ w: 840, h: 800 }, { listaAbierta: false, probarAbierto: false, editorAbierto: true });
   assert.equal(sinLista.editorForma, 'apaisado');
   assert.equal(sinLista.insets.izq, 0);
   assert.equal(sinLista.editor!.left, PANEL_MARGEN);
-  assert.equal(sinLista.editor!.width, MUELLE.editorAnchoMax);
+  assert.equal(sinLista.editor!.width, Math.min(MUELLE.editorAnchoMax, 840 - PANEL_MARGEN * 2));
   // Justo en el borde: 560 de lugar entra (y el editor mide eso), 559 no.
   const borde = LISTA + PANEL_MARGEN * 2 + MUELLE.apaisadoMin;
   const enBorde = muelles({ w: borde, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });

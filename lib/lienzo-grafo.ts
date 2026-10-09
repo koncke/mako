@@ -497,19 +497,30 @@ export const MUELLE = {
   /** Lo que «Probar» y el editor toman como mucho del alto de la caja, cada uno. */
   fraccionAlto: 0.46,
   /**
-   * EL EDITOR MEDIANO (tercera tanda, decisión 1): hasta ~720 de ancho, PEGADO A LA LISTA, y alto
-   * FIJO de ~420 (una caja cuyo alto es un tope salta al pasar de tarjeta).
+   * EL EDITOR MEDIANO (tercera tanda, decisión 1): PEGADO A LA LISTA y de alto FIJO (una caja cuyo
+   * alto es un tope salta al pasar de tarjeta).
    *
    * ⚠️ HASTA EL 09/10 IBA DE LA LISTA AL BORDE DERECHO, y Martín lo devolvió: «El editor no debe ser
    * tan ancho, ya te fuiste al otro extremo». En una ventana de 1440 medía 1112 de ancho por 360 de
    * alto, y el WhatsApp partido en dos columnas (el chat a un costado, el composer al otro) se leía
    * roto. Mediano y de una columna, como un teléfono.
+   *
+   * ⚠️ CUARTA TANDA, PUNTO 16: «haz más grande el editable de Email y WhatsApp». Estos números son
+   * desde entonces los del editor de MENSAJE (WhatsApp y Email): de 720 × 420 a 840 × 560. Sigue
+   * pegado a la lista y una columna; «Probar» no lo pisa por construcción (el ancho se corta antes
+   * de él y el alto no pasa del chrome). Los de control miden lo suyo: `editorDeTarjeta`.
    */
-  editorAnchoMax: 720,
-  editorAltoMax: 420,
-  editorAltoMin: 240,
-  /** Lo que el editor toma del alto de la caja (con el tope de arriba): 0,5 de 840 ya son 420. */
-  editorFraccionAlto: 0.5,
+  editorAnchoMax: 840,
+  editorAltoMax: 560,
+  editorAltoMin: 280,
+  /** Lo que el editor toma del alto de la caja (con el tope de arriba): 0,64 de 875 ya son 560. */
+  editorFraccionAlto: 0.64,
+  /**
+   * EL ANCHO DE UN EDITOR DE CONTROL (cuarta tanda, punto 1). Con 560 de adentro entra la frase más
+   * larga de una condición (`ANCHO` de app/chatbot/EditorCondicion.tsx) y el desplegable de una
+   * acción sin cortar los títulos largos; a 840, un DELAY de una frase dejaba media caja vacía.
+   */
+  editorControlAncho: 600,
   /** Por debajo de este ancho útil el editor mediano no entra y cae al panel de columna (392). */
   apaisadoMin: 560,
   /** El aire entre «Probar» y el editor apilados. */
@@ -556,9 +567,10 @@ export type Muelles = {
  * abajo, pegado a la lista. Si apilados no entran (una ventana baja), van lado a lado:
  * «Probar» de arriba a abajo a la derecha y el editor entre la lista y él.
  *
- * Desde la tercera tanda el editor es MEDIANO (`MUELLE.editorAnchoMax`, ~420 de alto): ya no llega
- * al borde derecho. «Probar» sigue sin tocarlo porque el alto de «Probar» descuenta el del editor
- * (apilados) o el editor se corta antes de «Probar» (lado a lado).
+ * Desde la tercera tanda el editor es MEDIANO (`MUELLE.editorAnchoMax`): ya no llega al borde
+ * derecho. «Probar» sigue sin tocarlo porque el editor se corta antes de «Probar» (lado a lado).
+ * El rectángulo `editor` es el del editor MÁS GRANDE (el de un mensaje); el de una tarjeta de control
+ * es más chico y comparte la esquina de abajo a la izquierda (`editorDeTarjeta`), así que cabe adentro.
  *
  * ⚠️ UNA SOLA FUNCIÓN, PURA. Lo decide esto y nada más: la lista, el lienzo y «Probar» leen el
  * resultado. Repartida en tres componentes, esta aritmética ya produjo el inset contado dos veces.
@@ -609,6 +621,65 @@ export function muelles(
     probar: { left: w - H - anchoL, top: CHROME_ALTO, width: anchoL, height: Math.max(0, h - CHROME_ALTO - H) },
     editor: editor(der), editorForma: forma(der), disposicion: 'lado', editorAlto, editorAncho: anchoEditor(der),
     insets: { izq, der, derChrome: 0, derAbajo: der },
+  };
+}
+
+// ── El tamaño del editor, por TIPO de tarjeta (cuarta tanda, punto 1) ──────────────────
+
+/** El ancho del panel de COLUMNA (ventana angosta, `editorForma: 'columna'`): el de siempre. */
+export const PANEL_COLUMNA_ANCHO = 392;
+
+/**
+ * EL ALTO DEL EDITOR DE CADA TARJETA DE CONTROL, con la cabecera incluida (62 px: relleno, borde, el
+ * renglón del título y su aire). Cada número es su contenido TÍPICO, medido sobre los editores:
+ *   · DELAY, TAG, GO TO: una frase o un campo grande (48) y una línea debajo (el aviso de precisión
+ *     del DELAY, el error de «＋ Nueva» etiqueta) → 140;
+ *   · MAKO: el título, el mensaje con ~5 renglones y «＋ Dato del lead» → 280;
+ *   · ACTION: el desplegable, lo que hace, el lead y dos o tres campos («Mover un lead de etapa»:
+ *     producto, etapa y el monto de Ganado) → 400;
+ *   · CONDITION y CRON: dos o tres filas con sus «＋» → 320; «Si responde», tres casos → 400.
+ * Lo que no entra SCROLLEA adentro del panel: el panel no crece.
+ *
+ * ⚠️ POR TIPO, NUNCA POR CONTENIDO (AGENTS.md: «una caja cuyo alto es un tope cambia de tamaño, y se
+ * lleva puesto lo que cuelga adentro»). Elegir una acción con cinco campos no le cambia el alto al
+ * panel; pasar de una tarjeta a otra del mismo tipo, tampoco.
+ */
+export const ALTO_EDITOR_CONTROL: Readonly<Partial<Record<TipoNodo, number>>> = {
+  espera: 140, etiqueta: 140, 'ir-a': 140,
+  mako: 280,
+  accion: 400,
+  condicion: 320, entrada: 320, respuesta: 400,
+};
+const ALTO_EDITOR_CONTROL_OTRO = 320;
+
+export type TallaEditor = { ancho: number; alto: number };
+
+/**
+ * QUÉ TAMAÑO TIENE EL EDITOR DE UNA TARJETA (cuarta tanda, punto 1, literal: «No me gusta que el editor
+ * del CRON como muchos otros tengan tanto espacio en blanco y un desplegable chico arriba del todo,
+ * mejora el diseño»). Las capturas: DELAY, ACTION y CONDITION en un panel de ~720 × 420 con un renglón
+ * arriba y el resto vacío, porque TODOS medían lo del editor de WhatsApp.
+ *
+ *   · Un MENSAJE (WhatsApp o Email): el grande de `muelles` (`editorAncho` × `editorAlto`, punto 16).
+ *   · Lo demás: `ALTO_EDITOR_CONTROL` de su tipo y `MUELLE.editorControlAncho` de ancho, nunca más
+ *     que el de un mensaje (los dos comparten la esquina de abajo a la izquierda, así que si el
+ *     grande no pisa a «Probar», el chico tampoco).
+ *   · De columna (ventana angosta): `PANEL_COLUMNA_ANCHO` de ancho para todos; el alto, igual.
+ *
+ * Sin `muelles`, o con la caja todavía sin medir (`editorAlto` 0): alto 0, que el lienzo lee como
+ * «el alto libre de siempre».
+ */
+export function editorDeTarjeta(
+  m: Pick<Muelles, 'editorForma' | 'editorAncho' | 'editorAlto'> | null | undefined,
+  tipo: TipoNodo | null | undefined,
+): TallaEditor {
+  const apaisado = m?.editorForma === 'apaisado';
+  const anchoMensaje = m && apaisado ? m.editorAncho : PANEL_COLUMNA_ANCHO;
+  const altoMensaje = Math.max(0, m?.editorAlto ?? 0);
+  if (!tipo || tipo === 'mensaje') return { ancho: anchoMensaje, alto: altoMensaje };
+  return {
+    ancho: apaisado ? Math.min(MUELLE.editorControlAncho, anchoMensaje) : anchoMensaje,
+    alto: Math.min(ALTO_EDITOR_CONTROL[tipo] ?? ALTO_EDITOR_CONTROL_OTRO, altoMensaje),
   };
 }
 
