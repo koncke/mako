@@ -177,28 +177,36 @@ test('toda vista nueva de una migración revoca a anon', () => {
   //   · Las tablas aplicadas con el `postgres` de scripts/apply-migration.mjs
   //     quedan sólo con postgres+service_role — o sea que hoy el camino depende
   //     de QUIÉN aplique el DDL, que es justo lo que no se puede dejar al azar.
-  // La excusa va por NOMBRE DE VISTA y no por archivo: `v_cohortes_semanales` se
-  // crea en la 0001 y se vuelve a crear en la 0013 y en la 0084, así que exceptuar
-  // un archivo dejaría entrar cualquier vista nueva que se escriba en ese archivo.
-  const YA_FILTRADAS = new Map([
-    // No se arregla acá: están aplicadas hace más de un año y el revoke es un
-    // cambio de permisos en PROD, que lo decide el humano en una migración propia.
-    // Queda escrito con la medición para que el que la escriba no la repita.
-    ['v_cohortes_semanales', 'leak medido el 26/09: anon=arwdDxtm y security_invoker apagado, leyendo leads.'],
-    ['v_cohortes_mensuales', 'ídem v_cohortes_semanales.'],
-  ]);
+  //
+  // ✅ CERRADO el 09/10/2026 (mig 0231, decisión de Martín): las dos vistas de cohortes
+  // contestaban 200 con 54 y 19 filas a la clave anon y a la publishable; después de
+  // aplicarla, 401 «permission denied», y la service role las sigue leyendo igual.
+  // Por eso ya no hay lista de excusas.
+  //
+  // Probado ROMPIÉNDOLO el 09/10: sacar el revoke de v_cohortes_mensuales de la 0231
+  // pasa de 8/8 a 1 fallo nombrando «0084 → v_cohortes_mensuales»; sacar el de
+  // v_funnel_productos de la 0171, 1 fallo nombrando esa vista.
+  //
+  // La regla que queda: el revoke tiene que estar en el MISMO archivo que crea la vista
+  // o en uno POSTERIOR al ÚLTIMO que la crea. `v_cohortes_semanales` se crea en la 0001,
+  // la 0013 y la 0084, y la cierra la 0231: un revoke anterior a la última creación no
+  // cuenta, porque un `drop` + `create` le devuelve los permisos por defecto.
   const dir = resolve(ROOT, 'supabase/migrations');
-  const culpables: string[] = [];
-  for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql'))) {
-    // Las líneas de comentario SQL se sacan antes: la 0013 tiene un «CREATE OR
-    // REPLACE VIEW exige…» adentro de un `--` y no es una vista.
-    const sql = readFileSync(join(dir, f), 'utf8').replace(/^\s*--[^\n]*$/gm, '');
-    for (const m of sql.matchAll(/create\s+(?:or\s+replace\s+)?view\s+([a-z0-9_]+)/gi)) {
-      const vista = m[1].toLowerCase();
-      if (YA_FILTRADAS.has(vista)) continue;
-      const revoca = new RegExp(String.raw`revoke\s+all\s+on\s+${vista}\b`, 'i').test(sql);
-      if (!revoca) culpables.push(`${f} → ${vista}`);
+  const archivos = readdirSync(dir).filter((x) => x.endsWith('.sql')).sort();
+  // Las líneas de comentario SQL se sacan antes: la 0013 tiene un «CREATE OR
+  // REPLACE VIEW exige…» adentro de un `--` y no es una vista.
+  const sqlDe = new Map(archivos.map((f) => [f, readFileSync(join(dir, f), 'utf8').replace(/^\s*--[^\n]*$/gm, '')]));
+  const ultimaCreacion = new Map<string, number>();
+  archivos.forEach((f, i) => {
+    for (const m of sqlDe.get(f)!.matchAll(/create\s+(?:or\s+replace\s+)?view\s+([a-z0-9_]+)/gi)) {
+      ultimaCreacion.set(m[1].toLowerCase(), i);
     }
+  });
+  const culpables: string[] = [];
+  for (const [vista, i] of ultimaCreacion) {
+    const re = new RegExp(String.raw`revoke\s+all\s+on\s+(?:[a-z0-9_]+\s*,\s*)*${vista}\b`, 'i');
+    const revoca = archivos.slice(i).some((f) => re.test(sqlDe.get(f)!));
+    if (!revoca) culpables.push(`${archivos[i]} → ${vista}`);
   }
   assert.deepEqual(culpables, [], `estas vistas quedan legibles por anon: ${culpables.join(', ')}`);
 });
