@@ -6,8 +6,8 @@
 // mismas etiquetas que se asignan en MaKo, se pongan en esas ambas plataformas».
 //
 // Módulo PURO y sin `server-only`: lo importan los tests, la ruta y el registro de la API.
-// Acá vive todo lo que se puede decidir sin leer la base —el nombre, el color, el slug de
-// Chatwoot, qué etiqueta del celular es una lista del sistema, y quién apunta a una etiqueta
+// Acá vive todo lo que se puede decidir sin leer la base —el nombre, el color, qué etiqueta
+// del celular es una lista del sistema, y quién apunta a una etiqueta
 // dentro de los pasos de una secuencia—. La orquestación de poner y sacar vive en
 // lib/etiquetas-motor.ts (también puro, con puertos), y la base en lib/etiquetas.ts.
 // =============================================================================
@@ -33,7 +33,7 @@ export const COLOR_ETIQUETA_DEFAULT = COLORES_ETIQUETA[0];
  */
 export const ESPACIADO_DISPARO_MIN = 0.5;
 
-/** Hasta cuántos leads de un lote se pasan a WhatsApp/Chatwoot en la misma llamada. */
+/** Hasta cuántos leads de un lote se pasan a WhatsApp en la misma llamada. */
 export const SYNC_LOTE_MAX = 40;
 
 /** El trigger de una secuencia que arranca cuando se pone una etiqueta (lo resuelve el motor, parte M). */
@@ -80,24 +80,6 @@ export function emojiValido(e: unknown): string | null {
   if (typeof e !== 'string') return null;
   const s = e.trim();
   return s.length >= 1 && s.length <= 16 ? s : null;
-}
-
-// ── Chatwoot ─────────────────────────────────────────────────────────────────
-
-/**
- * El título con el que se crea en Chatwoot. Su modelo lo pasa a minúscula y sólo admite letras,
- * números, guion y guion bajo, único por cuenta (github.com/chatwoot/chatwoot app/models/label.rb):
- * «Seguimiento semanal» es inválido tal cual. Se GUARDA el resultado (`chatwoot_label`) y no se
- * recalcula: renombrar en MaKo no renombra allá.
- */
-export function slugChatwoot(nombre: string, id: number): string {
-  const base = limpiarNombreEtiqueta(nombre)
-    .normalize('NFD').replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^[_-]+|[_-]+$/g, '');
-  return (base || `etiqueta_${id}`).slice(0, 60);
 }
 
 // ── El catálogo del celular (Evolution) ──────────────────────────────────────

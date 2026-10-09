@@ -35,9 +35,8 @@ import { terminalEstadoFor, pipelineStageOf, MAKO_SETTER, type StageDerivable } 
 import { reclamarEspaciado } from './espaciado';
 import { etiquetarChatWhatsApp, getInstanciaRow } from './evolution';
 import { catalogoParaMapear } from './evolution-labels';
-import { chatwootConfigurado, asegurarEtiquetaChatwoot, contactoChatwootEstricto, etiquetarContactoChatwoot } from './chatwoot';
 import {
-  limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, slugChatwoot, usoEnPasos,
+  limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, usoEnPasos,
   leerFotoEspejo, planEspejo, COLOR_ETIQUETA_DEFAULT, type LabelCelular, type EtapaActual,
 } from './etiquetas-reglas';
 import {
@@ -59,8 +58,6 @@ export type Etiqueta = {
   /** La etiqueta del celular a la que corresponde, por la línea donde existe. */
   wa_instance: string | null;
   wa_label_id: string | null;
-  /** El slug con el que se creó en Chatwoot (se guarda, no se recalcula). */
-  chatwoot_label: string | null;
   orden: number;
   archivada_at: string | null;
   created_at: string;
@@ -71,7 +68,9 @@ export type Etiqueta = {
 export class EtiquetaError extends Error {}
 export const esEtiquetaError = (e: unknown): e is EtiquetaError => e instanceof EtiquetaError;
 
-const COLS = 'id, nombre, color, emoji, funnel_id, etapa_key, wa_instance, wa_label_id, chatwoot_label, orden, archivada_at, created_at, updated_at';
+// ⚠️ `crm_etiquetas.chatwoot_label` sigue en la base (mig 0224) y no se lee: era el espejo de la
+// etiqueta en Chatwoot, que se borró el 09/10/2026 con toda la integración.
+const COLS = 'id, nombre, color, emoji, funnel_id, etapa_key, wa_instance, wa_label_id, orden, archivada_at, created_at, updated_at';
 const CAMPO_HISTORIAL = 'Etiqueta';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -85,7 +84,6 @@ function aEtiqueta(r: Record<string, unknown>): Etiqueta {
     etapa_key: (r.etapa_key as string | null) ?? null,
     wa_instance: (r.wa_instance as string | null) ?? null,
     wa_label_id: r.wa_label_id == null ? null : String(r.wa_label_id),
-    chatwoot_label: (r.chatwoot_label as string | null) ?? null,
     orden: Number(r.orden ?? 0),
     archivada_at: (r.archivada_at as string | null) ?? null,
     created_at: String(r.created_at ?? ''),
@@ -230,28 +228,11 @@ async function nombreLibre(nombre: string, salvo?: number): Promise<void> {
   if (otra) throw new EtiquetaError(`Ya hay una etiqueta «${otra.nombre}».`);
 }
 
-/** Crea la etiqueta en Chatwoot si el negocio lo tiene, y guarda el slug. Nunca tira: devuelve el aviso. */
-async function alChatwoot(e: Etiqueta): Promise<string | null> {
-  try {
-    if (!(await chatwootConfigurado())) return null;
-    const slug = await asegurarEtiquetaChatwoot(slugChatwoot(e.nombre, e.id), e.color, `MaKo · ${e.nombre}`);
-    if (slug !== e.chatwoot_label) await guardarSlug(e.id, slug);
-    e.chatwoot_label = slug;
-    return null;
-  } catch (err) {
-    console.error(`[etiquetas] Chatwoot, etiqueta ${e.id}:`, msg(err));
-    return `No se creó en Chatwoot: ${msg(err)}`.slice(0, 200);
-  }
-}
-
-async function guardarSlug(id: number, slug: string): Promise<void> {
-  const db = await getTenantDb();
-  const { error } = await db.from('crm_etiquetas').update({ chatwoot_label: slug, updated_at: new Date().toISOString() }).eq('id', id);
-  if (error) throw new Error(`No pude guardar la etiqueta de Chatwoot: ${error.message}`);
-}
-
-/** Crea una etiqueta. Devuelve la etiqueta y, si algo de afuera no salió, el aviso. */
-export async function crearEtiqueta(input: EntradaEtiqueta): Promise<{ etiqueta: Etiqueta; aviso: string | null }> {
+/**
+ * Crea una etiqueta. (Hasta el 09/10/2026 devolvía además un `aviso` cuando no se podía crear
+ * en Chatwoot; se fue con la integración. La del celular se pone al etiquetar a un lead.)
+ */
+export async function crearEtiqueta(input: EntradaEtiqueta): Promise<{ etiqueta: Etiqueta }> {
   const nombre = limpiarNombreEtiqueta(input.nombre);
   if (!nombre) throw new EtiquetaError('Falta el nombre.');
   await nombreLibre(nombre);
@@ -272,14 +253,12 @@ export async function crearEtiqueta(input: EntradaEtiqueta): Promise<{ etiqueta:
     if (error.code === '23505') throw new EtiquetaError(`Ya hay una etiqueta «${nombre}».`);
     throw new Error(`No se pudo crear la etiqueta: ${error.message}`);
   }
-  const etiqueta = aEtiqueta(data as Record<string, unknown>);
-  return { etiqueta, aviso: await alChatwoot(etiqueta) };
+  return { etiqueta: aEtiqueta(data as Record<string, unknown>) };
 }
 
 /**
  * Edita nombre, color, emoji, el vínculo a una etapa o la etiqueta del celular. Cambiar el vínculo
  * vale DE ACÁ EN ADELANTE: no les pone ni les saca la etiqueta a los que ya están en esa etapa.
- * Renombrar no renombra en Chatwoot (el slug guardado sigue valiendo, a propósito).
  */
 export async function editarEtiqueta(id: number, input: EntradaEtiqueta): Promise<Etiqueta> {
   const actual = await etiquetaPorId(id);
@@ -358,42 +337,23 @@ async function telefonoDelLead(leadId: number): Promise<string | null> {
   return d.length >= 8 ? d : null;
 }
 
-/** Pone o saca la etiqueta en WhatsApp (si está mapeada) y en Chatwoot (si el negocio lo tiene). */
+/**
+ * Pone o saca la etiqueta en el WhatsApp del celular, si está mapeada. (Hasta el 09/10/2026
+ * también en Chatwoot, que se borró con toda la integración.)
+ */
 async function sincronizarAfuera(leadId: number, e: Etiqueta, accion: 'poner' | 'sacar'): Promise<ResultadoSync[]> {
-  const out: ResultadoSync[] = [];
-  const quiereWa = Boolean(e.wa_label_id && e.wa_instance);
-  let cw = false;
-  try { cw = await chatwootConfigurado(); } catch { cw = false; }
-  if (!quiereWa && !cw) return out;
+  if (!e.wa_label_id || !e.wa_instance) return [];
   let tel: string | null;
-  try { tel = await telefonoDelLead(leadId); } catch (err) { return [{ destino: quiereWa ? 'WhatsApp' : 'Chatwoot', ok: false, error: msg(err) }]; }
+  try { tel = await telefonoDelLead(leadId); } catch (err) { return [{ destino: 'WhatsApp', ok: false, error: msg(err) }]; }
   // Sin teléfono no hay chat que etiquetar: no es un fallo.
-  if (!tel) return out;
-  if (quiereWa) {
-    try {
-      // El jid del espejo, que es el que dio WhatsApp; si no hay chat, el número como jid
-      // completo (así `createJid` de Evolution no le borra el 9 a un argentino).
-      const jid = (await jidDelChat(tel)) ?? `${tel}@s.whatsapp.net`;
-      const r = await etiquetarChatWhatsApp(jid, String(e.wa_label_id), accion === 'poner' ? 'add' : 'remove', e.wa_instance);
-      out.push(r.ok ? { destino: 'WhatsApp', ok: true } : { destino: 'WhatsApp', ok: false, error: r.error });
-    } catch (err) { out.push({ destino: 'WhatsApp', ok: false, error: msg(err) }); }
-  }
-  if (cw) {
-    try {
-      let slug = e.chatwoot_label;
-      // Sacar una que nunca se creó allá no tiene nada que sacar.
-      if (!slug && accion === 'poner') {
-        slug = await asegurarEtiquetaChatwoot(slugChatwoot(e.nombre, e.id), e.color, `MaKo · ${e.nombre}`);
-        await guardarSlug(e.id, slug);
-      }
-      if (slug) {
-        const contacto = await contactoChatwootEstricto(tel);
-        // Sin contacto en Chatwoot no se crea uno: etiquetar no es dar de alta.
-        if (contacto != null) { await etiquetarContactoChatwoot(contacto, slug, accion); out.push({ destino: 'Chatwoot', ok: true }); }
-      }
-    } catch (err) { out.push({ destino: 'Chatwoot', ok: false, error: msg(err) }); }
-  }
-  return out;
+  if (!tel) return [];
+  try {
+    // El jid del espejo, que es el que dio WhatsApp; si no hay chat, el número como jid
+    // completo (así `createJid` de Evolution no le borra el 9 a un argentino).
+    const jid = (await jidDelChat(tel)) ?? `${tel}@s.whatsapp.net`;
+    const r = await etiquetarChatWhatsApp(jid, String(e.wa_label_id), accion === 'poner' ? 'add' : 'remove', e.wa_instance);
+    return [r.ok ? { destino: 'WhatsApp', ok: true } : { destino: 'WhatsApp', ok: false, error: r.error }];
+  } catch (err) { return [{ destino: 'WhatsApp', ok: false, error: msg(err) }]; }
 }
 
 /**
@@ -541,12 +501,7 @@ function puertos(): PuertosEtiquetas<Etiqueta> {
       if (error) throw new Error(`No pude leer las etiquetas de la etapa: ${error.message}`);
       return ((data ?? []) as Array<Record<string, unknown>>).map(aEtiqueta).filter((e) => (e.funnel_id ?? def) === destino);
     },
-    destinos: async (e) => {
-      const out: Array<ResultadoSync['destino']> = [];
-      if (e.wa_label_id && e.wa_instance) out.push('WhatsApp');
-      try { if (await chatwootConfigurado()) out.push('Chatwoot'); } catch { /* sin Chatwoot */ }
-      return out;
-    },
+    destinos: async (e) => (e.wa_label_id && e.wa_instance ? ['WhatsApp'] : []),
     sincronizar: sincronizarAfuera,
   };
 }
@@ -597,7 +552,7 @@ export async function sacarEtiquetaLote(leadIds: number[], etiquetaId: number, o
  * mover un lead tiene que funcionar aunque las etiquetas fallen, y el fallo queda en el log.
  *
  * Adentro de un LOTE (`conLoteDeEtiquetas`), escribe la base y deja lo que cambió para el final,
- * sin pegarle a WhatsApp ni a Chatwoot en cada vuelta.
+ * sin pegarle a WhatsApp en cada vuelta.
  */
 export async function espejarEtapa(
   leadId: number,
@@ -620,9 +575,9 @@ export async function espejarEtapa(
 /**
  * EL FLAG DE LOTE HASTA EL ESPEJO (revisión del 08/10/2026, etiquetas-4/datos-3). Mover 200 leads
  * de etapa desde la barra del CRM (`moverLeadsDeEtapaAction`, que llama de a uno al MISMO camino que
- * el tablero) esperaba, lead por lead, la sincronización de cada etiqueta espejada: WhatsApp y tres
- * llamadas a Chatwoot por etiqueta, cientos de viajes HTTP adentro de una server action de 60 s, y
- * el lote cortado a la mitad sin poder devolver el conteo.
+ * el tablero) esperaba, lead por lead, la sincronización de cada etiqueta espejada (entonces WhatsApp
+ * y tres llamadas a Chatwoot por etiqueta): cientos de viajes HTTP adentro de una server action de
+ * 60 s, y el lote cortado a la mitad sin poder devolver el conteo.
  *
  * Adentro de `fn`, todo espejo (`espejarEtapa`, lo llame setPipelineStage, updateLead o quien sea)
  * escribe la base y anota lo que cambió; al terminar `fn` —también si tira— se sincroniza con el
@@ -649,7 +604,7 @@ export async function conLoteDeEtiquetas<T>(fn: () => Promise<T>): Promise<{ res
 }
 
 /**
- * El final de un lote: pasa a WhatsApp y a Chatwoot lo que el espejo dejó sin sincronizar, con el
+ * El final de un lote: pasa a WhatsApp lo que el espejo dejó sin sincronizar, con el
  * MISMO tope que el lote de etiquetas (`SYNC_LOTE_MAX`) y una línea en el historial de los que no
  * se pasaron. Nunca tira: los leads ya se movieron y sus etiquetas ya están en la base.
  */

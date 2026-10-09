@@ -78,7 +78,8 @@ test('?dry=1 lista a quién le mandaría y no arma ni manda nada', () => {
   assert.ok(iDry > 0 && iDry < iArma && iArma < iManda, 'el dry-run arma o manda el reporte');
   const dry = fn.slice(iDry, iArma);
   assert.match(dry, /enmascararDestino/, 'el dry-run imprime los teléfonos y correos enteros en el log del cron');
-  assert.match(dry, /waPorChatwoot/, 'el dry-run no dice si el WhatsApp tiene por dónde salir');
+  // Desde el 09/10/2026 el WhatsApp del reporte no tiene por dónde salir (salía por Chatwoot).
+  assert.match(dry, /waSinCanal/, 'el dry-run no dice que el WhatsApp no tiene por dónde salir');
 });
 
 test('los reportes diario y horario siguen siendo sólo del dueño (decisión del 06/10/2026)', () => {
@@ -122,7 +123,7 @@ test('destinosDelReporte: la lista del negocio y, si está vacía, el contacto s
 test('despacharReporte usa la MISMA regla de destinos que el cron', () => {
   // Con dos copias, el cron decide «tiene a quién» con una y el despacho reparte con otra.
   const src = sinComentarios(leer('../lib/notify.ts'));
-  const desp = src.slice(src.indexOf('export async function despacharReporte'), src.indexOf('export async function flushPendientesWhatsapp'));
+  const desp = src.slice(src.indexOf('export async function despacharReporte'));
   assert.match(desp, /destinosDelReporte\(await getDestinatarios\(\), perfil\)/, 'el despacho dejó de usar la regla compartida');
   assert.ok(!/\.telefonos\.length > 0 \?/.test(src), 'la regla de destinos volvió a escribirse a mano en lib/notify.ts');
 });

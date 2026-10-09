@@ -385,7 +385,6 @@ test('el borrador del setter se reemplaza con OTRO id, y un paso aprobado a mano
   assert.doesNotMatch(g, /\.update\(\{\s*texto/, 'pisar el texto del mismo id manda lo que nadie leyó');
   const e = bloque(env, 'export async function enviarBorrador(');
   assert.ok(e.includes('await anotarPasoEnviado(id);'));
-  assert.ok(sinComentarios(leer('lib/borrador-oficial.ts')).includes('await anotarPasoEnviado(b.id);'));
 });
 
 // El test «Instagram le pasa al setter el lead y el caso (#361, #358)» leía

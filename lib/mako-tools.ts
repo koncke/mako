@@ -19,13 +19,11 @@ import type { ToolDef, ToolRunner } from './anthropic';
 import { listCategorias, listTareas } from './todo';
 import { estaPendiente } from './todo-estados';
 import {
-  listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez,
-  normalizarTelefono, type Lead,
+  listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez, type Lead,
 } from './leads';
 import { getFunnelDefault } from './funnels';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
-import { contactoIdPorTelefono, contactoEnInboxWA, getContactMessages } from './chatwoot';
 import { buscarReunionesAutomatico } from './auto-reuniones';
 import { tzActual } from './timezone';
 import { analisisNegocio } from './analisis-negocio';
@@ -93,7 +91,7 @@ export const MAKO_TOOLS: ToolDef[] = [
   },
   {
     name: 'historial_whatsapp',
-    description: 'Últimos mensajes de WhatsApp (oficial) con un lead. Sirve para entender el tono real de la conversación, las objeciones y por qué se enfrió.',
+    description: 'RETIRADA: leía el WhatsApp oficial, que ya no existe en MaKo. Contesta eso y nada más; no la uses para leer una conversación.',
     input_schema: {
       type: 'object',
       properties: {
@@ -208,24 +206,12 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     }
 
     case 'historial_whatsapp': {
-      const lead = await requireLead(input);
-      const tel = normalizarTelefono(lead.telefono);
-      if (!tel) return `El lead ${lead.nombre} no tiene teléfono cargado.`;
-      const contactId = await contactoIdPorTelefono(tel);
-      if (contactId == null) return `No encontré una conversación de WhatsApp para ${lead.nombre} (${tel}).`;
-      if (!(await contactoEnInboxWA(contactId))) return 'Ese contacto no está en el inbox de WhatsApp de este workspace.';
-      const limite = Math.max(1, Math.min(80, num(input, 'limite') ?? 25));
-      const mensajes = (await getContactMessages(contactId))
-        .filter((m) => m.messageType === 0 || m.messageType === 1 || m.messageType === 3)
-        .slice(-limite)
-        .map((m) => ({
-          // messageType 3 es una PLANTILLA, y la manda el negocio: con `saliente`
-          // (solo el 1) salían como del lead las plantillas de la nutrición.
-          de: m.messageType === 0 ? 'lead' : m.messageType === 3 ? 'negocio (plantilla)' : 'negocio',
-          texto: m.texto ?? (m.adjuntos.length ? '(adjunto)' : ''),
-          estado: m.status,
-        }));
-      return JSON.stringify({ lead: lead.nombre, telefono: tel, mensajes });
+      // ⛔ Leía el hilo del lead en el WhatsApp OFICIAL (Chatwoot), que se borró el 09/10/2026 con
+      // toda la integración (decisión de Martín: «que no exista más»). Sigue como caso porque la
+      // llaman lib/api-mako/areas/whatsapp.run.ts y lib/agente-consultas.ts, que todavía la
+      // declaran (pendiente de la segunda tanda): contesta lo que pasa en vez de fingir que buscó y
+      // no encontró — «no encontré una conversación» se leería como que el lead nunca escribió.
+      return 'El WhatsApp oficial ya no existe en MaKo: no hay historial que leer por ahí. La conversación por el número de empresa está en la bandeja de WhatsApp.';
     }
 
     case 'reuniones_lead': {

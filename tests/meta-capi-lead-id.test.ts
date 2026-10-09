@@ -193,7 +193,8 @@ test('la calificación del CRM manda los dos eventos, con lead_id y con event_id
 });
 
 test('el lead CRUDO lo manda el webhook de formularios, con la hora real de Meta', () => {
-  const envio = bloque(leer('app/api/webhooks/meta-leads/route.ts'), 'const capi = await sendMetaCAPIEvent(', '// Alta del chat');
+  // El bloque cerraba en «// Alta del chat» (el contacto en Chatwoot), que se fue el 09/10/2026.
+  const envio = bloque(leer('app/api/webhooks/meta-leads/route.ts'), 'const capi = await sendMetaCAPIEvent(', '// Aviso al dueño del workspace');
   assert.ok(envio.length < 1500, `el recorte mide ${envio.length}`);
   assert.match(envio, /eventName: 'Lead'/);
   assert.match(envio, /metaLeadId: leadgenId/);

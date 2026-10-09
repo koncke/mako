@@ -26,7 +26,6 @@ import { getTenantDb, runWithWorkspace, listarWorkspaces, getWorkspaceActual, OW
 import { hoyEnTijuana } from './date-utils';
 import { leerTodo } from './supabase-paginado';
 import { buscarReunionesAutomatico } from './auto-reuniones';
-import { contactoIdPorTelefono, getContactMessages } from './chatwoot';
 import { crearConfirmacion, type CrearConfirmacionInput } from './mako-confirmaciones';
 import { crmAutoHabilitado } from './envio-flags';
 import { emitirDelCatalogo } from './avisos';
@@ -136,7 +135,7 @@ export async function evaluarAutoTodos(hoyISO: string = hoyEnTijuana()): Promise
 // se aplican TAMBIÉN, pero dejan una fila en mako_confirmaciones para que el
 // humano confirme o revierta al entrar al CRM. Solo corre en modo commit del cron.
 
-// T1/T3 pegan a APIs externas (Fathom/Chatwoot): acotamos por corrida para no
+// T1 pega a una API externa (Fathom): acotamos por corrida para no
 // pasarnos del maxDuration del cron. Los "auto" (T2) son baratos: se aplican todos.
 const MAX_EXTERNAS_POR_CORRIDA = 25;
 
@@ -443,50 +442,20 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     });
   }
 
-  // T3 — Nutrición manual vencida → revisar WhatsApp para decidir.
+  // T3 — Nutrición manual vencida → la persona decide el desenlace.
+  //
+  // ⛔ Hasta el 09/10/2026 T3 contaba los mensajes del lead en el WhatsApp OFICIAL (Chatwoot): con
+  // alguno lo movía solo a «No responde», sin ninguno pedía decidir. Chatwoot se borró con toda la
+  // integración, así que ya no hay de dónde contar y queda sólo la segunda rama: no mueve nada y
+  // pide decidir. La pregunta NO afirma «sin mensajes»: el lead puede haber escrito por el número
+  // de empresa, que T3 todavía no lee (pendiente: contar desde el espejo, `wa_mensajes`).
   if (a.tipo === 'manual_vencida') {
     if (lead.pipeline_stage !== 'manual') return 'skip';
     if (yaConf.has(a.leadId + '|T3')) return 'skip'; // ya resuelta/pendiente (anti-loop)
-    let inbound = 0;
-    try {
-      const tel = lead.telefono ?? lead.telefono_normalizado;
-      if (tel) {
-        const cid = await contactoIdPorTelefono(tel);
-        if (cid) {
-          const msgs = await getContactMessages(cid);
-          inbound = msgs.filter((m) => m.messageType === 0).length;
-        }
-      }
-    } catch {
-      inbound = -1; // no se pudo consultar el chat (fallo transitorio de Chatwoot)
-    }
-
-    // Fallo transitorio de Chatwoot: NO clasificamos ni marcamos nada; que la
-    // próxima corrida reintente (sin quemar el cupo anti-loop de T3).
-    if (inbound === -1) return 'skip';
-
-    if (inbound > 0) {
-      // Hubo conversación → No responde (con opción a Perdido).
-      const prevStage = lead.pipeline_stage ?? null;
-      const prevEstado = lead.estado_lead;
-      const prevDeadline = lead.nutricion_manual_deadline ?? null;
-      if (!(await moverAuto(a.leadId, 'noresp'))) return 'skip';
-      await logRegla(a.leadId, 'T3', `→ No responde: venció la nutrición manual y hay ${inbound} mensaje(s) del lead en WhatsApp`);
-      return confirmarOCompensar(a.leadId, {
-        leadId: a.leadId, leadNombre: lead.nombre, regla: 'T3', tipo: a.tipo, clave: 'T3',
-        titulo: `Nutrición manual vencida — ${lead.nombre ?? 'lead'}`,
-        detalle: `${inbound} mensaje(s) del lead en WhatsApp → clasificado como No responde. Si desistió, márcalo Perdido.`,
-        aplicado: true,
-        cambios: [{ campo: 'Etapa', antes: 'Nutrición - Manual', despues: 'No responde' }],
-        revert: { estado_lead: prevEstado, pipeline_stage: prevStage, nutricion_manual_deadline: prevDeadline },
-        opciones: [{ key: 'perdido', label: 'Marcar Perdido', stage: 'perdido', tone: 'danger' }],
-      });
-    }
-    // inbound === 0 → sin mensajes reales; no cambia nada, pide decidir.
     return confirmarOCompensar(a.leadId, {
       leadId: a.leadId, leadNombre: lead.nombre, regla: 'T3', tipo: a.tipo, clave: 'T3',
       titulo: `Nutrición manual vencida — ${lead.nombre ?? 'lead'}`,
-      detalle: 'Sin mensajes del lead en WhatsApp. Decide el desenlace o déjalo para completar los datos.',
+      detalle: 'Venció la nutrición manual. Decide el desenlace o déjalo para completar los datos.',
       aplicado: false,
       cambios: [],
       opciones: [
@@ -552,7 +521,9 @@ export async function aplicarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Pro
   // solo no puede afirmar lo que no verificó.
   const aplicadas: EstancadoAplicado[] = [];
   for (const a of acciones) {
-    const esExterna = a.tipo === 'reunion_check' || a.tipo === 'manual_vencida';
+    // T3 (`manual_vencida`) contaba como externa mientras leía el chat en Chatwoot (hasta el
+    // 09/10/2026); hoy es una fila en la base y no gasta el tope.
+    const esExterna = a.tipo === 'reunion_check';
     if (esExterna && externas >= MAX_EXTERNAS_POR_CORRIDA) { restantes++; continue; }
     try {
       const r = await aplicarAccion(a, yaConf);

@@ -25,7 +25,6 @@ import { hoyEnTz } from './date-utils';
 import { tzActual } from './timezone';
 import { getLead, getLeadRespuestas, getTrackingEvents, faltantesDeLead, type Lead, type FathomLink, type RespuestaQA, type TrackingEvent } from './leads';
 import { getPagosByLead, type Pago } from './pagos';
-import { contactoIdPorTelefono, getContactMessages, type ChatwootMessage } from './chatwoot';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -259,26 +258,11 @@ function bloqueLlamadas(rows: AnalisisRow[]): string {
   return contenidoNoConfiable(partes.join('\n\n'), 'llamadas_fathom');
 }
 
-// El formateador se arma por llamada porque la zona sale del WORKSPACE (antes
-// era un const de módulo clavado a Tijuana). Le fechaba el chat de un cliente de
-// otro huso con las horas del dueño, y el modelo razonaba sobre esas horas:
-// "escribió de madrugada", "contestó al otro día" salían mal.
-function bloqueChat(msgs: ChatwootMessage[], tz: string): string {
-  const fmt = new Intl.DateTimeFormat('es-MX', { timeZone: tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-  // Sin actividades de sistema (type 2); las plantillas (type 3) son NUESTRAS,
-  // no del lead — atribuirlas mal contamina dolor/señales/objeciones.
-  const conTexto = msgs.filter((m) => m.messageType !== 2 && ((m.texto && m.texto.trim()) || m.adjuntos.length));
-  if (!conTexto.length) return SIN;
-  const ultimos = conTexto.slice(-150);
-  const lineas = ultimos.map((m) => {
-    const quien = m.saliente || m.messageType === 3 ? 'NOSOTROS' : 'LEAD';
-    const cuando = m.fecha ? fmt.format(new Date(m.fecha * 1000)) : '';
-    const texto = m.texto?.trim() || `[adjunto: ${m.adjuntos.map((a) => a.tipo).join(', ')}]`;
-    return `[${cuando}] ${quien}: ${texto}`;
-  });
-  const nota = conTexto.length > ultimos.length ? `(mostrando los últimos ${ultimos.length} de ${conTexto.length} mensajes)\n` : '';
-  return contenidoNoConfiable(nota + lineas.join('\n'), 'chat_whatsapp');
-}
+// ⛔ El CHAT DE WHATSAPP salía del WhatsApp OFICIAL (Chatwoot) hasta el 09/10/2026, cuando se
+// borró la integración. Hoy el bloque va «(sin datos)» y `fuentes.chat` en 0: el número de
+// empresa tiene su espejo (`wa_mensajes`), pero leerlo acá es un cambio aparte (pendiente).
+// El formateador viejo (con la zona del workspace y la atribución LEAD/NOSOTROS) está en la
+// etiqueta de git `archivo/chatwoot-2026-10-09`.
 
 function bloqueTracking(eventos: TrackingEvent[], visitas?: { total_visitas: number; dias_distintos: number }): string {
   if (!eventos.length && !visitas?.total_visitas) return SIN;
@@ -364,12 +348,11 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
 
     const etapa = etapaDe(lead);
     const supabase = (await getTenantDb());
-    // Zona del workspace: manda tanto en el "hoy" con el que el modelo mide
-    // antigüedades como en las horas del chat que lee.
+    // Zona del workspace: manda en el "hoy" con el que el modelo mide antigüedades.
     const tz = await tzActual();
 
     // Fuentes en paralelo (cada una tolera fallo individual).
-    const [respuestas, pagos, analisis, tracking, chatMsgs, adTranscript] = await Promise.all([
+    const [respuestas, pagos, analisis, tracking, adTranscript] = await Promise.all([
       getLeadRespuestas(lead),
       getPagosByLead(lead.id).catch(() => [] as Pago[]),
       supabase
@@ -384,13 +367,6 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
         .limit(10)
         .then((r) => (r.data ?? []) as AnalisisRow[]),
       getTrackingEvents(lead.visitor_id).catch(() => [] as TrackingEvent[]),
-      (async () => {
-        const tel = lead.telefono ?? lead.telefono_normalizado;
-        if (!tel) return [] as ChatwootMessage[];
-        const contactId = await contactoIdPorTelefono(tel);
-        if (!contactId) return [] as ChatwootMessage[];
-        return getContactMessages(contactId).catch(() => [] as ChatwootMessage[]);
-      })(),
       (async () => {
         if (!lead.meta_ad_id) return null;
         const { data } = await supabase
@@ -429,7 +405,6 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
         sinLlamadas: true,
       };
     }
-    const chatConTexto = chatMsgs.filter((m) => m.messageType === 0 && m.texto?.trim()).length;
 
     // Prompt (system y user editables desde /configuraciones).
     // Contenido escrito por el lead o por terceros (ficha del CRM, tracking del
@@ -443,7 +418,7 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
       reuniones: bloqueReuniones(lead),
       respuestas: bloqueRespuestas(respuestas),
       llamadas: bloqueLlamadas(analisis),
-      chat: bloqueChat(chatMsgs, tz),
+      chat: SIN,
       anuncio: adTranscript ? contenidoNoConfiable(adTranscript, 'anuncio_transcript') : SIN,
       tracking: trackingTxt === SIN ? trackingTxt : contenidoNoConfiable(trackingTxt, 'tracking_web'),
       deal: bloqueDeal(lead, pagos),
@@ -463,7 +438,7 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
       llamadas: analisis.length,
       respuestasR1: respuestas.R1.length > 0,
       respuestasR2: respuestas.R2.length > 0,
-      chat: chatConTexto,
+      chat: 0,
       anuncio: !!adTranscript,
       tracking: tracking.length,
       deal: pagos.length > 0 || !!lead.monto_cierre_usd,

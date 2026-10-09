@@ -3,11 +3,10 @@
 // =============================================================================
 // GET            → { borradores, pendientes } (los que el setter revisa/envía)
 // GET ?camino=1  → cada borrador además con `camino`: por dónde puede salir
-//                  (empresa / oficial / null + el motivo en una frase). Lo pide
-//                  el panel para NO dibujar el botón de enviar cuando no hay por
-//                  dónde — fuera de la ventana de 24 h, Meta rechaza el texto
-//                  libre y el error se lee como que la app está rota. El cálculo
-//                  es SERVIDOR: el cliente nunca decide el canal ni la ventana.
+//                  (empresa / null + el motivo en una frase). Lo pide el panel
+//                  para NO dibujar el botón de enviar cuando no hay por dónde
+//                  (el número del borrador desconectado o ya desvinculado). El
+//                  cálculo es SERVIDOR: el cliente nunca decide el canal.
 // POST  → { id, action:'enviar' }    → manda el borrador por el canal que puede
 //         { id, action:'descartar' } → lo descarta
 // Scopeado por getTenantDb; visible/operable por admin/setter que atienden chats.
@@ -16,7 +15,7 @@
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { listBorradores, contarBorradores, descartarBorrador } from '@/lib/evolution-envio';
-import { CAMINO_INDETERMINADO, caminosDeEnvio, enviarBorradorPorSuCanal } from '@/lib/borrador-oficial';
+import { CAMINO_INDETERMINADO, caminosDeEnvio, enviarBorradorPorSuCanal } from '@/lib/borrador-camino';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,9 +27,8 @@ export async function GET(req: NextRequest) {
     if (new URL(req.url).searchParams.get('camino') !== '1') {
       return Response.json({ ok: true, borradores, pendientes });
     }
-    // Un solo viaje para todos: con el no oficial vivo ni se consulta Chatwoot. El audio y el
-    // archivo viajan: un borrador que los lleva no tiene camino oficial (manda sólo el pie).
-    const caminos = await caminosDeEnvio(borradores.map((b) => ({ id: b.id, telefono: b.telefono, linea: b.linea, audioId: b.audioId, adjuntoId: b.adjuntoId })));
+    // Un solo viaje para todos: una lectura de las líneas del negocio.
+    const caminos = await caminosDeEnvio(borradores.map((b) => ({ id: b.id, linea: b.linea })));
     return Response.json({
       ok: true,
       pendientes,
@@ -53,8 +51,8 @@ export async function POST(req: NextRequest) {
   try {
     if (body.action === 'enviar') {
       const sesion = await getUsuarioActual();
-      // El canal lo elige el servidor y vuelve a verificar la ventana: entre que
-      // el botón se dibujó y este clic, la ventana se cierra sola con el reloj.
+      // El canal lo elige el servidor y lo vuelve a verificar: entre que el botón se
+      // dibujó y este clic, el número se puede haber caído.
       const r = await enviarBorradorPorSuCanal(id, sesion?.email ?? 'setter');
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
       return Response.json({ ok: true });

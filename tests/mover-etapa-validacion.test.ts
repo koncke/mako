@@ -247,7 +247,8 @@ test('CABLEADO: el motor automático mueve SOLO por moverAuto', () => {
   assert.ok(fn.includes('moverLeadAuto('), 'moverAuto dejó de usar la fuente única');
   assert.ok(fn.includes("canal: 'CRM automático'"), 'el historial tiene que decir QUIÉN no pudo mover el lead');
   // Y si no se movió, no se crea la confirmación que anunciaría un cambio inexistente.
-  assert.ok(/if \(!\(await moverAuto\(a\.leadId, 'noresp'\)\)\) return 'skip';/.test(src));
+  // (T3 también movía solo a «No responde» con mensajes del lead en Chatwoot; desde el
+  // 09/10/2026 no mueve nada y pide decidir, así que su línea salió de acá.)
   assert.ok(/if \(!movido\) return 'skip';/.test(src));
 });
 

@@ -43,7 +43,6 @@ import {
 } from '@/lib/leads';
 import { linkDeReunion, juntaQueSeCancela } from '@/lib/recordatorio-lead';
 import { enqueueJ2SinMatch } from '@/lib/review-queue';
-import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
@@ -571,11 +570,8 @@ export async function POST(request: NextRequest) {
         // como legacy/compat; la ficha lee lead_respuestas primero).
         await saveLeadRespuestas(lead.id, 'R1', qa, fechaJ1);
 
-        // Alta del chat: contacto + conversación en Chatwoot (silencioso) para
-        // que el lead nuevo tenga su hilo de WhatsApp desde el día cero.
-        if (created && lead.telefono) {
-          await ensureContactoWhatsapp(lead.nombre, lead.telefono);
-        }
+        // (Hasta el 09/10/2026 acá se le creaba al lead nuevo su contacto y su conversación en
+        // Chatwoot; se fue con la integración.)
 
         console.log(
           `[webhook:calendly] ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} email=${email} fecha_j1=${fechaJ1} utm_campaign=${utm_campaign ?? '—'} ms=${ms}`,
