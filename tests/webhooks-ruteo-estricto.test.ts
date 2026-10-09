@@ -4,12 +4,13 @@
 // El 06/10/2026 se arregló en Calendly (tests/calendly-error.test.ts): con `wsPorIdentificador`,
 // que no lee el `error` de supabase-js, la base caída daba null y un webhook lo leía como «este
 // evento no es de ningún negocio» → 200 y perdido. Quedaron cuatro con la misma lectura: Cal.com,
-// Chatwoot, Fathom y Meta. Este test los fija a los cuatro y barre la carpeta entera, para que el
-// sexto webhook no nazca con la lectura que traga el error.
+// Chatwoot, Fathom y Meta. Este test los fija y barre la carpeta entera, para que el webhook
+// siguiente no nazca con la lectura que traga el error. (El de Chatwoot se borró el 09/10/2026,
+// con toda la integración: tests/sin-chatwoot.test.ts.)
 //
 // Qué contesta cada uno depende de qué hace el proveedor con un 5xx (medido el 07/10/2026, ver
 // lib/webhook-fallo-ruteo.ts): Fathom (Svix) reintenta y deshabilita a los 5 días, Meta reintenta
-// ~36 h, Cal.com y Chatwoot no reintentan nunca.
+// ~36 h, Cal.com no reintenta nunca.
 //
 // Probado rompiéndolo (07/10/2026), una rotura por vez y restaurando desde memoria: la huella con
 // la vieja primero o aceptando cualquier servicio; Cal.com con el ruteo, la key o la J2
@@ -94,10 +95,6 @@ test('Fathom: ruteo y secreto estrictos, y el fallo pasa por el clasificador', (
   assert.equal((src.match(/responderFalloDeRuteo\('fathom'/g) ?? []).length, 2);
 });
 
-test('Chatwoot: el ruteo estricto, y el fallo queda anotado', () => {
-  assert.match(ruta('chatwoot'), /catch \(err\) \{\s*return responderFalloDeRuteo\('chatwoot', err, accountId\);/);
-});
-
 test('Meta: un ruteo que no se pudo leer de forma transitoria hace reintentar el LOTE', () => {
   const src = ruta('meta-leads');
   assert.match(src, /anotarFalloDeRuteo\('meta', err, pageId\)/);
@@ -120,7 +117,7 @@ test('el fallo de ruteo contesta 503 SÓLO si reintentar lo arregla, y anota en 
 // ── Fuera de los webhooks: /api/track y los tokens (07/10/2026) ───────────────
 // El mismo null, en las otras puertas que deciden de quién es algo que entra SIN sesión: el
 // formulario de una landing (un lead), los beacons de medición, el bearer de la skill de Claude
-// y el chequeo de salud del webhook de Chatwoot.
+// y el chequeo de salud del webhook de Chatwoot (este último se fue con la integración, el 09/10/2026).
 //
 // Probado rompiéndolo (07/10/2026), una por vez y restaurando desde memoria: optin sin reintento
 // (14 / 1), optin y vsl tolerantes (13 / 2 cada uno: el barrido y su guard), replay contestando
@@ -190,11 +187,4 @@ test('el token del agente: «no pude verificar» es 503, nunca 401', () => {
   }
   const http = sinComentarios(leer('../lib/api-mako/http.ts'));
   assert.match(http, /catch \(e\) \{[\s\S]{0,300}status: 503/, '/api/v1 contesta 401 «token inválido» cuando la base no dejó verificarlo');
-});
-
-test('el chequeo del webhook de Chatwoot: «no pude comprobar» no es «sin ruteo»', () => {
-  const src = sinComentarios(leer('../lib/chatwoot.ts'));
-  assert.match(src, /const account = await credWsEstricta\('CHATWOOT_ACCOUNT_ID', ws\);/);
-  assert.match(src, /const dueno = await wsPorIdentificadorEstricto\('chatwoot', account\);/,
-    'con la tolerante la pantalla ofrece REPARAR un webhook sano');
 });

@@ -244,7 +244,9 @@ test('la bandeja filtra por línea en la base, y la pantalla siempre le pasa una
   // (Y desde el 08/10/2026 lleva los productos del «+ Agregar al CRM»: tests/inbox-agregar-al-crm.test.ts.)
   assert.match(app, /<EmpresaInbox key=\{`bandeja-\$\{lineaActiva\?\.linea \?\? 'default'\}`\} puedeChatbot=\{puedeChatbot\} linea=\{lineaActiva\?\.linea \?\? null\} productos=\{productos\} \/>/);
   // Sin la lista —o con la lista caída— la bandeja leería el espejo entero: dos números mezclados.
-  assert.match(app, /canal === 'empresa' && lineasCargadas && !\(lineasError && !lineas\.length\) && !agregando/);
+  // (Hasta el 09/10/2026 la condición arrancaba con `canal === 'empresa' &&`: la otra pestaña era
+  // la bandeja oficial, que se fue con Chatwoot.)
+  assert.match(app, /\{lineasCargadas && !\(lineasError && !lineas\.length\) && !agregando/);
 });
 
 test('las migraciones dicen su orden: la que agrega ANTES del deploy, la que saca DESPUÉS', () => {

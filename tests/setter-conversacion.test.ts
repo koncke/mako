@@ -348,14 +348,14 @@ test('responderSimulador cuenta la insistencia ANTES de llamar al modelo (#360)'
   assert.match(b, /errorDeCascada\(errores, tema\)/);
 });
 
-test('el panel «Consejo» de las dos bandejas lee el formulario del lead (#361)', () => {
+// (Eran DOS bandejas hasta el 09/10/2026: la oficial, en WhatsAppApp.tsx, se fue con Chatwoot.)
+test('el panel «Consejo» de la bandeja lee el formulario del lead (#361)', () => {
   const ruta = sinComentarios(leer('app/api/whatsapp/advisor/route.ts'));
   assert.match(ruta, /bloqueFormulario\(await getLeadRespuestas\(fila\), 'asesor'\)/);
   assert.match(ruta, /recomendarMensajes\(await conFormulario\(leadDe\(body\), body\)\)/);
   assert.match(ruta, /const lead = await conFormulario\(leadDe\(body\), body\);/);
   assert.match(sinComentarios(leer('app/whatsapp/WhatsAppAdvisor.tsx')), /leadId: grupo\.leadId \?\? null,/);
   assert.match(sinComentarios(leer('app/whatsapp/EmpresaInbox.tsx')), /etapaLabel: selConv\.etapaLabel, leadId: selConv\.leadId \}/);
-  assert.match(sinComentarios(leer('app/whatsapp/WhatsAppApp.tsx')), /etapaLabel: sel\.etapaLabel, leadId: sel\.leadId \}/);
 });
 
 test('revisión del 06/10: el motor descarta el borrador viejo, no contesta un mensaje viejo y no pisa «calificado»', () => {

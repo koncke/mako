@@ -155,7 +155,7 @@ test('con la cookie del alumno, TODO lo demás sigue cerrado', () => {
   for (const p of ['/crm', '/crm/21', '/customer-success', '/customer-success/curso', '/plan', '/inicio', '/general', '/mako', '/mi-curso/x', '/admin']) {
     assert.ok(aLogin(pedir('GET', p, { cookie })), `${p} se abrió con la cookie del alumno`);
   }
-  for (const p of ['/api/crm/leads', '/api/whatsapp/conversations', '/api/plan-board', '/api/todo', '/api/datos-sin-marcar-count']) {
+  for (const p of ['/api/crm/leads', '/api/whatsapp/evolution/mensajes', '/api/plan-board', '/api/todo', '/api/datos-sin-marcar-count']) {
     assert.equal(pedir('GET', p, { cookie }).status, 401, p);
   }
   // Y puesta en el lugar de la sesión de MaKo, tampoco: el prefijo `al1.` no es un `v1.`.
