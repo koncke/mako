@@ -28,7 +28,7 @@ está a medias: lo hecho está en `main` (push `9165da11`). El pedido literal de
 workflow con seis partes en worktrees, cada una en su rama LOCAL `wip-v4-<parte>` (sin pushear):
 `condiciones` (7, 5, 6b), `flechas` (8), `cron` (14 + el editor del CRON del punto 1 + revisar Crear con
 IA), `editores` (1), `whatsapp` (15), `email` (16). Si se corta: cada rama tiene sus commits WIP; se
-retoma con `resumeFromRunId` o se termina a mano desde la rama. Después: unir en `chatbot-v2`, enchufar
+retoma con `resumeFromRunId: "wf_f6f9b9a0-933"` (script en `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main-wt-chatbot/461dd390-9e4f-44a5-810a-0e9efe9b8ae0/workflows/scripts/chatbot-cuarta-tanda-resto-wf_f6f9b9a0-933.js`; worktrees en `dashboard-marketing/.claude/worktrees/wf_f6f9b9a0-933-N`) o se termina a mano desde la rama. Después: unir en `chatbot-v2`, enchufar
 los bloqueantes, aplicar la migración del CRON (0230 o la que toque) ANTES del push, suite entera, push.
 
 ⚠️ **El punto 11 (más acciones del CRM y de CS) NO va en esta tanda:** el chat «API de MaKo» las está
