@@ -50,7 +50,7 @@ import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
-  type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo,
+  type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import {
@@ -58,8 +58,11 @@ import {
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
   avisoSalio, frenadoPorAntiBan, anotarEnCorrida, zonaDelMotor, dentroDeVentanaEn,
-  type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida,
+  filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
+  type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo,
 } from '@/lib/nutricion-grafo-motor';
+import { fuentesDeFilas, etapasEntregaDeFilas, normalizarTexto, type Fuente, type HechosCatalogo } from '@/lib/condiciones-catalogo';
+import { hoyEnTz } from '@/lib/date-utils';
 import { getSetting } from '@/lib/settings';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
@@ -2060,6 +2063,12 @@ async function leadIdsDe(
  * leídos en BATCH para todos los leads del lote. Sólo se llama si algún lead del lote está por
  * pasar por una condición (`necesitaHechos`): sin condiciones, el motor no lee nada de esto.
  *
+ * ⚠️ SE LEE SÓLO LO QUE PIDEN LAS FILAS (tercera tanda, 09/10/2026). `filas` son las condiciones de
+ * los flujos del lote (`filasDelFlujo`), y cada una dice de qué FUENTE sale (lib/condiciones-catalogo.ts,
+ * `fuentesDeFilas`): UNA consulta por fuente para todo el lote, nunca una por lead. Sin `filas` se
+ * leen las fuentes de antes del catálogo (las nueve condiciones de siempre), que es lo que pedía
+ * todo llamador anterior.
+ *
  * Cada hecho sale de la MISMA fuente que ya lo decide en otro lado, nunca de una cuenta nueva:
  *   · la etapa de la casa, con `pipelineStageOf` (el override manual o la derivada), y la de
  *     cada producto, de `lead_funnel` (mig 0207) con la casa resuelta por `casaReal`;
@@ -2070,47 +2079,72 @@ async function leadIdsDe(
  *   · las etiquetas, de `crm_lead_etiquetas` (mig 0224), MENOS las archivadas
  *     (`etiquetasQueCuentan`: archivar la apaga). ⚠️ Si esa tabla todavía no existe,
  *     el conjunto vacío y un log: la condición «Tiene la etiqueta X» sale por «no», y la corrida
- *     de los demás no se rompe por una migración de otra parte.
+ *     de los demás no se rompe por una migración de otra parte;
+ *   · el VSL con `getVslEngagementMap` (lo de la lista de leads y las cohortes de antes);
+ *   · el curso con `progresoDeClientes` (el progreso EFECTIVO) y `claseCompleta` (la regla del
+ *     portal), resumido por `resumenCursoDeAlumno`;
+ *   · la etapa de entrega con `clientesEnEtapaDeEntrega` (la cohorte del kanban: sin fila = la
+ *     primera etapa), una vez por etapa que el flujo nombra.
  * Cualquier otro error TIRA: decidir una rama sin el dato es mandarle al lead lo que no le toca.
  */
-async function hechosDeLeads(db: Awaited<ReturnType<typeof getTenantDb>>, leadIds: readonly number[]): Promise<Map<number, HechosLead>> {
+const FUENTES_DE_ANTES: ReadonlySet<Fuente> = new Set<Fuente>(['lead', 'etiquetas', 'productos', 'contacto', 'respondio']);
+
+async function hechosDeLeads(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  leadIds: readonly number[],
+  filas?: readonly FilaCondicion[],
+): Promise<Map<number, HechosLead>> {
   const ids = [...new Set(leadIds)];
   const out = new Map<number, HechosLead>();
   if (!ids.length) return out;
-  type FilaLeadHechos = FilaHechos & {
+  const fuentes = filas ? fuentesDeFilas(filas) : FUENTES_DE_ANTES;
+  const pide = (x: Fuente) => fuentes.has(x);
+  type FilaLeadHechos = FilaHechos & FilaLeadCatalogo & {
     estado_lead: 'abierto' | 'ganado' | 'perdido' | 'descalificado' | 'no_responde';
     pipeline_stage: string | null; fecha_agenda: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null;
     nutricion_realizada: boolean | null; funnel_id: number | string | null;
+    respuesta_facturacion?: string | null; respuesta_colaboradores?: string | null; respuesta_objetivo?: string | null;
+    respuesta_cuando_empezar?: string | null; respuesta_inversion?: string | null; respuesta_decisor?: string | null;
+    meta_field_data?: unknown;
   };
-  const filas: FilaLeadHechos[] = [];
+  const filasLead: FilaLeadHechos[] = [];
   const productos = new Map<number, Map<number, string>>();
   const etiquetas = new Map<number, Set<number>>();
-  let sinTablaEtiquetas = false;
+  let sinTablaEtiquetas = !pide('etiquetas');
   // Las ARCHIVADAS no cuentan (decisión del 08/10/2026: archivar una etiqueta la APAGA). El lead
   // conserva la fila —es su historia—, pero «Tiene X» deja de cumplirse. Una lectura por lote.
   let archivadas = new Set<number>();
-  try {
-    archivadas = new Set((await leerTodo<{ id: number | string }>(db, 'crm_etiquetas', 'id', {
-      orden: 'id', filtros: (q) => q.not('archivada_at', 'is', null),
-    })).map((f) => Number(f.id)));
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (!esTablaInexistente({ message: msg })) throw e;
-    sinTablaEtiquetas = true;
-    console.warn(`[nutricion] condición por etiqueta: la tabla de etiquetas todavía no existe, se evalúa sin etiquetas (${msg})`);
+  if (pide('etiquetas')) {
+    try {
+      archivadas = new Set((await leerTodo<{ id: number | string }>(db, 'crm_etiquetas', 'id', {
+        orden: 'id', filtros: (q) => q.not('archivada_at', 'is', null),
+      })).map((f) => Number(f.id)));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!esTablaInexistente({ message: msg })) throw e;
+      sinTablaEtiquetas = true;
+      console.warn(`[nutricion] condición por etiqueta: la tabla de etiquetas todavía no existe, se evalúa sin etiquetas (${msg})`);
+    }
   }
+  // Las columnas de la fila: las de siempre, y las del catálogo (origen, reuniones, compra…) sólo
+  // si alguna fila las pide — más las respuestas viejas del formulario si se busca en ellas.
+  const COLS_BASE = 'id, created_at, telefono, email, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_primer_pago, cerro, estado_lead, pipeline_stage, fecha_agenda, asistio_j1, asistio_j2, nutricion_realizada, funnel_id';
+  const COLS_CATALOGO = 'origen_lead, calificado, meta_lead_id, visitor_id, meta_campaign_name, email_opt_out, venta_tipo, fecha_cierre, fecha_confirmacion';
+  const COLS_RESPUESTAS = 'respuesta_facturacion, respuesta_colaboradores, respuesta_objetivo, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor, meta_field_data';
+  const catalogoLead = filas != null;
+  const cols = [COLS_BASE, catalogoLead ? COLS_CATALOGO : '', pide('respuestas') ? COLS_RESPUESTAS : ''].filter(Boolean).join(', ');
   for (const tanda of enTandas(ids, 200)) {
-    filas.push(...await leerTodo<FilaLeadHechos>(db, 'leads',
-      'id, created_at, telefono, email, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_primer_pago, cerro, estado_lead, pipeline_stage, fecha_agenda, asistio_j1, asistio_j2, nutricion_realizada, funnel_id',
-      { orden: 'id', filtros: (q) => q.in('id', tanda) as ConsultaPaginada }));
-    for (const f of await leerTodo<{ id: number; lead_id: number; funnel_id: number | string; etapa: string | null }>(db, 'lead_funnel', 'id, lead_id, funnel_id, etapa', {
-      orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
-    })) {
-      const fid = Number(f.funnel_id);
-      if (!Number.isFinite(fid) || !f.etapa) continue;
-      const m = productos.get(Number(f.lead_id)) ?? new Map<number, string>();
-      m.set(fid, f.etapa);
-      productos.set(Number(f.lead_id), m);
+    filasLead.push(...await leerTodo<FilaLeadHechos>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.in('id', tanda) as ConsultaPaginada }));
+    if (pide('productos')) {
+      for (const f of await leerTodo<{ id: number; lead_id: number; funnel_id: number | string; etapa: string | null }>(db, 'lead_funnel', 'id, lead_id, funnel_id, etapa', {
+        orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+      })) {
+        const fid = Number(f.funnel_id);
+        if (!Number.isFinite(fid) || !f.etapa) continue;
+        const m = productos.get(Number(f.lead_id)) ?? new Map<number, string>();
+        m.set(fid, f.etapa);
+        productos.set(Number(f.lead_id), m);
+      }
     }
     if (!sinTablaEtiquetas) {
       try {
@@ -2130,35 +2164,218 @@ async function hechosDeLeads(db: Awaited<ReturnType<typeof getTenantDb>>, leadId
     }
   }
   const [{ idDelFunnelDefault }, { casaReal }] = await Promise.all([import('@/lib/funnels'), import('@/lib/lead-funnel-reglas')]);
-  const [defaultId, contactados, escribieron, pausaron] = await Promise.all([
-    idDelFunnelDefault(),
-    leadsYaContactados(ids),
+  const [defaultId, contactados, escribieron, pausaron, catalogo] = await Promise.all([
+    pide('productos') ? idDelFunnelDefault() : Promise.resolve(null),
+    pide('contacto') ? leadsYaContactados(ids) : Promise.resolve(new Set<number>()),
     // `evento` y `otro` son reacciones y protocolo, no un mensaje del lead (lib/setter-conversacion.ts).
     // `tipo` admite NULL: un `not in` pelado lo dejaría afuera (NULL no es «distinto de»).
-    idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(db.from('wa_mensajes').select('lead_id')
-      .in('lead_id', pend).eq('from_me', false).or('tipo.is.null,tipo.not.in.(evento,otro)'), 'wa_mensajes')),
-    idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(db.from('nutricion_inscripciones').select('lead_id')
-      .in('lead_id', pend).eq('estado', 'respondio'), 'nutricion_inscripciones')),
+    pide('respondio') ? idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(db.from('wa_mensajes').select('lead_id')
+      .in('lead_id', pend).eq('from_me', false).or('tipo.is.null,tipo.not.in.(evento,otro)'), 'wa_mensajes')) : Promise.resolve(new Set<number>()),
+    pide('respondio') ? idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(db.from('nutricion_inscripciones').select('lead_id')
+      .in('lead_id', pend).eq('estado', 'respondio'), 'nutricion_inscripciones')) : Promise.resolve(new Set<number>()),
+    catalogoLead ? hechosDelCatalogo(db, ids, filasLead, fuentes, filas ?? []) : Promise.resolve(null),
   ]);
   const ahoraMs = Date.now();
-  for (const f of filas) {
+  for (const f of filasLead) {
     const etapaCasa = pipelineStageOf({
       estado_lead: f.estado_lead, pipeline_stage: f.pipeline_stage, fecha_agenda: f.fecha_agenda,
       fecha_junta_1: f.fecha_junta_1 ?? null, fecha_junta_2: f.fecha_junta_2 ?? null,
       asistio_j1: f.asistio_j1, asistio_j2: f.asistio_j2, nutricion_realizada: f.nutricion_realizada ?? undefined,
     });
     const porProducto = new Map(productos.get(f.id) ?? []);
-    const casa = casaReal(f.funnel_id == null ? null : Number(f.funnel_id), defaultId);
+    const casa = pide('productos') ? casaReal(f.funnel_id == null ? null : Number(f.funnel_id), defaultId) : null;
     if (casa != null) porProducto.set(casa, etapaCasa);
+    const delCatalogo = catalogo?.(f, ahoraMs);
     out.set(f.id, hechosDeLead(f, {
       etiquetas: etiquetasQueCuentan(etiquetas.get(f.id) ?? [], archivadas),
       etapaCasa,
       etapasPorProducto: porProducto,
       yaContactado: contactados.has(f.id),
       respondio: escribieron.has(f.id) || pausaron.has(f.id),
+      ...(delCatalogo ? { catalogo: delCatalogo } : {}),
     }, ahoraMs));
   }
   return out;
+}
+
+/**
+ * Las fuentes del CATÁLOGO (lib/condiciones-catalogo.ts), una lectura por fuente para todo el lote.
+ * Devuelve la función que arma el bloque `catalogo` de cada lead con lo leído. Una fuente que
+ * ninguna fila pide no se lee, y su bloque queda AUSENTE: la condición que lo necesitara devuelve
+ * «no sé» y no se cumple.
+ *
+ * ⚠️ SIN LAS CLASES DE LA PAPELERA, NI LOS HILOS DE CLASE: `curso_clases` y `curso_modulos` van con
+ * `borrada_at`/`borrado_at` nulo (tests/curso-papelera.test.ts) y `comunidad_posts` sin `clase_id`
+ * (los comentarios de una clase no son publicar en la comunidad: tests/curso-comentarios-clase.test.ts).
+ */
+async function hechosDelCatalogo(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  ids: readonly number[],
+  filasLead: ReadonlyArray<{ id: number; visitor_id?: string | null } & Record<string, unknown>>,
+  fuentes: ReadonlySet<Fuente>,
+  filas: readonly FilaCondicion[],
+): Promise<(f: FilaLeadCatalogo & { id: number } & Record<string, unknown>, ahoraMs: number) => HechosCatalogo> {
+  const pide = (x: Fuente) => fuentes.has(x);
+  const visitantes = [...new Set(filasLead.map((f) => f.visitor_id).filter((v): v is string => !!v))];
+
+  const leerVsl = async () => (pide('vsl') ? getVslEngagementMap(visitantes) : null);
+  const leerClics = async (): Promise<Map<string, number> | null> => {
+    if (!pide('clics')) return null;
+    const m = new Map<string, number>();
+    for (const tanda of enTandas(visitantes, 200)) {
+      for (const r of await leerTodo<{ id: number; visitor_id: string }>(db, 'vsl_events', 'id, visitor_id', {
+        orden: 'id', filtros: (q) => q.in('visitor_id', tanda).eq('tipo_evento', 'click') as ConsultaPaginada,
+      })) m.set(r.visitor_id, (m.get(r.visitor_id) ?? 0) + 1);
+    }
+    return m;
+  };
+  const leerRespuestas = async (): Promise<Map<number, string[]> | null> => {
+    if (!pide('respuestas')) return null;
+    const m = new Map<number, string[]>();
+    for (const tanda of enTandas(ids, 200)) {
+      for (const r of await leerTodo<{ id: number; lead_id: number; respuestas: unknown }>(db, 'lead_respuestas', 'id, lead_id, respuestas', {
+        orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+      })) {
+        const arr = m.get(Number(r.lead_id)) ?? [];
+        for (const qa of Array.isArray(r.respuestas) ? r.respuestas : []) {
+          const o = qa as { q?: unknown; a?: unknown };
+          if (typeof o.a === 'string') arr.push(o.a);
+        }
+        m.set(Number(r.lead_id), arr);
+      }
+    }
+    return m;
+  };
+  const leerPagos = async (): Promise<Map<number, Array<{ pagado: boolean | null; fecha_esperada: string | null }>> | null> => {
+    if (!pide('pagos')) return null;
+    const m = new Map<number, Array<{ pagado: boolean | null; fecha_esperada: string | null }>>();
+    for (const tanda of enTandas(ids, 200)) {
+      for (const r of await leerTodo<{ id: number; lead_id: number; pagado: boolean | null; fecha_esperada: string | null }>(db, 'pagos', 'id, lead_id, pagado, fecha_esperada', {
+        orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+      })) {
+        const arr = m.get(Number(r.lead_id)) ?? [];
+        arr.push({ pagado: r.pagado, fecha_esperada: r.fecha_esperada });
+        m.set(Number(r.lead_id), arr);
+      }
+    }
+    return m;
+  };
+  const leerCurso = async () => {
+    if (!pide('curso')) return null;
+    const [{ progresoDeClientes, aClase, COLUMNAS_CLASE }] = await Promise.all([import('@/lib/curso-datos')]);
+    const [filasClase, progreso] = await Promise.all([
+      leerTodo<Parameters<typeof aClase>[0] & { id: number }>(db, 'curso_clases', COLUMNAS_CLASE, {
+        orden: 'id', filtros: (q) => q.is('borrada_at', null) as ConsultaPaginada,
+      }),
+      progresoDeClientes(ids),
+    ]);
+    return { clases: filasClase.map(aClase), progreso };
+  };
+  const leerAcceso = async (): Promise<Map<number, { ingresos: number; ultimoMs: number | null }> | null> => {
+    if (!pide('acceso')) return null;
+    // Un alias y no el tipo en línea: los guards que barren las consultas a la tabla cortan la
+    // sentencia en el primer «;», y el de un tipo en línea les escondía el filtro (tests/curso-accesos-area.test.ts).
+    type FilaAcceso = { id: number; lead_id: number; ingresos: number | null; ultimo_ingreso_at: string | null; area: string | null };
+    const m = new Map<number, { ingresos: number; ultimoMs: number | null }>();
+    for (const tanda of enTandas(ids, 200)) {
+      // El acceso del CLIENTE (`area` nula): el de un líder de área es otra persona.
+      for (const r of await leerTodo<FilaAcceso>(db, 'curso_accesos', 'id, lead_id, ingresos, ultimo_ingreso_at, area', {
+        orden: 'id', filtros: (q) => q.in('lead_id', tanda).is('area', null) as ConsultaPaginada,
+      })) {
+        const ms = r.ultimo_ingreso_at ? Date.parse(r.ultimo_ingreso_at) : NaN;
+        m.set(Number(r.lead_id), { ingresos: Number(r.ingresos ?? 0), ultimoMs: Number.isFinite(ms) ? ms : null });
+      }
+    }
+    return m;
+  };
+  const leerComunidad = async () => {
+    if (!pide('comunidad')) return null;
+    const posts = new Map<number, number>();
+    const comentarios = new Map<number, number>();
+    const comento = new Map<number, Set<number>>();
+    type FilaDeLead = { id: number; lead_id: number };   // alias: ver FilaAcceso (tests/curso-comentarios-clase.test.ts)
+    for (const tanda of enTandas(ids, 200)) {
+      for (const r of await leerTodo<FilaDeLead>(db, 'comunidad_posts', 'id, lead_id', {
+        orden: 'id', filtros: (q) => q.in('lead_id', tanda).is('clase_id', null) as ConsultaPaginada,
+      })) posts.set(Number(r.lead_id), (posts.get(Number(r.lead_id)) ?? 0) + 1);
+      for (const r of await leerTodo<{ id: number; lead_id: number; post_id: number }>(db, 'comunidad_comentarios', 'id, lead_id, post_id', {
+        orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+      })) {
+        const lead = Number(r.lead_id);
+        comentarios.set(lead, (comentarios.get(lead) ?? 0) + 1);
+        const s = comento.get(lead) ?? new Set<number>();
+        s.add(Number(r.post_id));
+        comento.set(lead, s);
+      }
+    }
+    return { posts, comentarios, comento };
+  };
+  const leerEntrega = async (): Promise<Map<string, Set<number>> | null> => {
+    if (!pide('entrega')) return null;
+    const { clientesEnEtapaDeEntrega } = await import('@/app/customer-success/entrega');
+    const m = new Map<string, Set<number>>();
+    // Una lectura por etapa que el flujo NOMBRA (no por lead): la cohorte del kanban, con su regla
+    // derivada (sin fila = la primera etapa) y el universo de clientes, no las filas.
+    for (const { productoId, etapa } of etapasEntregaDeFilas(filas)) {
+      m.set(`${productoId}:${etapa}`, new Set(await clientesEnEtapaDeEntrega(productoId, etapa)));
+    }
+    return m;
+  };
+  const leerCs = async (): Promise<Map<number, string> | null> => {
+    if (!pide('cs')) return null;
+    const m = new Map<number, string>();
+    for (const tanda of enTandas(ids, 200)) {
+      for (const r of await leerTodo<{ id: number; lead_id: number; estado: string | null }>(db, 'cs_clientes', 'id, lead_id, estado', {
+        orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+      })) if (r.estado) m.set(Number(r.lead_id), String(r.estado));
+    }
+    return m;
+  };
+  const leerHoy = async (): Promise<string> => (pide('pagos') ? hoyEnTz(await tzActual()) : '');
+
+  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy] = await Promise.all([
+    leerVsl(), leerClics(), leerRespuestas(), leerPagos(), leerCurso(), leerAcceso(), leerComunidad(), leerEntrega(), leerCs(), leerHoy(),
+  ]);
+
+  return (f, ahoraMs) => {
+    const c: HechosCatalogo = { lead: catalogoDeLead(f, ahoraMs) };
+    const vid = typeof f.visitor_id === 'string' && f.visitor_id ? f.visitor_id : null;
+    if (vsl) {
+      // Sin visitante no se lo pudo seguir: «no sé». Con visitante y sin eventos, 0 (no reprodujo).
+      const e = vid ? vsl.get(vid) : undefined;
+      c.vsl = vid ? { plays: e?.plays ?? 0, maxPct: e?.max_pct ?? null } : null;
+    }
+    if (clics) c.clics = vid ? clics.get(vid) ?? 0 : null;
+    if (respuestas) {
+      const viejas = [
+        f.respuesta_facturacion, f.respuesta_colaboradores, f.respuesta_objetivo, f.respuesta_cuando_empezar,
+        f.respuesta_inversion, f.respuesta_decisor,
+      ].filter((x): x is string => typeof x === 'string');
+      // El formulario de Meta llega como [{ name, values[] }]: las preguntas propias, sin los datos
+      // de contacto (buscar «gmail» en «las respuestas» no es una pregunta del formulario).
+      const CONTACTO = new Set(['full_name', 'first_name', 'last_name', 'phone_number', 'email']);
+      const meta = Array.isArray(f.meta_field_data)
+        ? (f.meta_field_data as Array<{ name?: unknown; values?: unknown }>)
+          .filter((x) => !CONTACTO.has(String(x?.name ?? '')))
+          .flatMap((x) => (Array.isArray(x?.values) ? x.values : []))
+          .filter((x): x is string => typeof x === 'string')
+        : [];
+      c.respuestas = normalizarTexto([...(respuestas.get(f.id) ?? []), ...viejas, ...meta].join(' · '));
+    }
+    if (pagos) c.pagos = resumenPagos(pagos.get(f.id) ?? [], hoy);
+    if (curso) c.curso = resumenCursoDeAlumno(curso.clases, curso.progreso.get(f.id));
+    if (acceso) c.acceso = acceso.get(f.id) ?? null;
+    if (comunidad) {
+      c.comunidad = {
+        posts: comunidad.posts.get(f.id) ?? 0,
+        comentarios: comunidad.comentarios.get(f.id) ?? 0,
+        comentoPosts: comunidad.comento.get(f.id) ?? new Set<number>(),
+      };
+    }
+    if (entrega) c.entrega = new Set([...entrega].filter(([, leads]) => leads.has(f.id)).map(([k]) => k));
+    if (cs) c.estadoCliente = cs.get(f.id) ?? 'activo';
+    return c;
+  };
 }
 
 // ── Los HILOS de una inscripción (segunda tanda, 08/10/2026) ───────────────────
@@ -2581,14 +2798,19 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // lectura para todos (`hechosDeLeads`). Se piden la primera vez que hacen falta. `null` = la
     // lectura falló: esa inscripción se saltea sin decidir nada y queda vencida para la próxima.
     // Con hilos, cualquiera de sus tarjetas (o de las raíces de una fila que se va a repartir).
-    const leadsQueDeciden = [...new Set(due.filter((d) => {
+    const quienesDeciden = due.filter((d) => {
       const s = porId.get(d.secuencia_id);
       return !!s && nodosDeLaFila(s.pasos, d, indiceActual(s.pasos, d)).some((i) => necesitaHechos(s.pasos, i));
-    }).map((d) => d.lead_id))];
+    });
+    const leadsQueDeciden = [...new Set(quienesDeciden.map((d) => d.lead_id))];
+    // Las condiciones de esos flujos deciden QUÉ se lee (`fuentesDeFilas`): una lectura por fuente
+    // para todo el lote, y ninguna de lo que nadie pregunta.
+    const filasQueDeciden: FilaCondicion[] = [...new Set(quienesDeciden.map((d) => d.secuencia_id))]
+      .flatMap((sid) => filasDelFlujo(porId.get(sid)?.pasos ?? []));
     let hechosLeidos: Promise<Map<number, HechosLead> | null> | null = null;
     const hechosDe = (leadId: number): Promise<HechosLead | null> => {
       if (!leadsQueDeciden.length) return Promise.resolve(null);
-      hechosLeidos ??= hechosDeLeads(supabase, leadsQueDeciden).catch((e: unknown) => {
+      hechosLeidos ??= hechosDeLeads(supabase, leadsQueDeciden, filasQueDeciden).catch((e: unknown) => {
         console.error('[nutricion] hechos del lead para las condiciones:', e instanceof Error ? e.message : String(e));
         return null;
       });
@@ -3881,7 +4103,7 @@ async function responderConGrafo(c: CtxRespuesta): Promise<boolean> {
     const clase = claseDe(p);
     if (clase === 'condicion') {
       if (hechos === undefined) {
-        hechos = (await hechosDeLeads(supabase, [leadId]).catch((e: unknown) => {
+        hechos = (await hechosDeLeads(supabase, [leadId], filasDelFlujo(pasos)).catch((e: unknown) => {
           console.error(`[nutricion] «Si responde», hechos del lead ${leadId}:`, e instanceof Error ? e.message : String(e));
           return null;
         }))?.get(leadId) ?? null;

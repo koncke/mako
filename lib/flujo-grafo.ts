@@ -73,6 +73,12 @@
 //     «por orden» y al armado de audios del onboarding sobre una secuencia lineal.
 // =============================================================================
 
+// El catálogo de condiciones importa sólo TIPOS de acá: el ciclo no existe en runtime.
+import {
+  cumpleCatalogo, problemaDeFila, textoCondicion,
+  type HechosCatalogo, type NombresCatalogo, type OperadorCondicion,
+} from './condiciones-catalogo';
+
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
 /** De qué está hecha una condición. Cada una la evalúa el motor con un dato que YA tiene. */
@@ -91,13 +97,25 @@ export const CAMPOS_CONDICION: readonly CampoCondicion[] = [
   'etiqueta', 'etapa', 'agendo', 'pago', 'ya_contactado', 'respondio', 'antiguedad', 'tiene_telefono', 'tiene_email',
 ];
 
+/**
+ * De qué está hecha una fila: una de las nueve de arriba (que siguen valiendo tal cual) o un id del
+ * CATÁLOGO de condiciones (lib/condiciones-catalogo.ts, tercera tanda: «Debe ser bien amplio»). Un
+ * id que ninguno de los dos conoce NUNCA se cumple, ni negado, y `validarGrafo` no lo deja guardar.
+ */
+export type CampoFila = CampoCondicion | (string & {});
+
 export type FilaCondicion = {
-  campo: CampoCondicion;
-  /** La negación: «No tiene», «No agendó», «Llegó hace MÁS de». */
+  campo: CampoFila;
+  /** La negación: «No tiene», «No agendó», «Llegó hace MÁS de». Sólo en las negables del catálogo. */
   no?: boolean;
+  /** El dato elegido: id de etiqueta, key de etapa, horas, un número, un id del catálogo, un texto. */
   valor?: string | number | null;
   /** Sólo `etapa`: el producto. null/ausente = la casa del lead. */
   funnel_id?: number | null;
+  /** Las numéricas del catálogo: ≥ (ausente) o ≤. */
+  op?: OperadorCondicion;
+  /** Una numérica que además se refiere a algo: «Avance del curso [X] ≥ 50 %» (el curso). */
+  ref?: string | number | null;
 };
 
 /** Una rama de la condición. Gana la PRIMERA que se cumple, de arriba hacia abajo. */
@@ -521,10 +539,11 @@ export function validarGrafo(pasos: readonly PasoGrafo[]): string[] {
       for (const r of ramas) {
         if (!r.filas?.length) err.push(`una rama de la condición ${ids[i]} no tiene ninguna condición`);
         if ((r.filas?.length ?? 0) > TOPE_FILAS) err.push(`una rama de la condición ${ids[i]} tiene más de ${TOPE_FILAS} condiciones`);
+        // Lo que cada fila necesita para que el motor la pueda decidir lo dice UNA función, la del
+        // catálogo (`problemaDeFila`): la misma que mira el editor para marcar la fila incompleta.
         for (const f of r.filas ?? []) {
-          if (!CAMPOS_CONDICION.includes(f.campo)) err.push(`condición desconocida: ${String(f.campo)}`);
-          if ((f.campo === 'etiqueta' || f.campo === 'etapa') && (f.valor == null || f.valor === '')) err.push(`falta elegir la ${f.campo} en la condición ${ids[i]}`);
-          if (f.campo === 'antiguedad' && !(Number(f.valor) > 0)) err.push(`falta el número de horas en la condición ${ids[i]}`);
+          const p = problemaDeFila(f);
+          if (p) err.push(p.startsWith('condición desconocida') ? p : `${p} en la condición ${ids[i]}`);
         }
       }
     }
@@ -731,8 +750,19 @@ export type HechosLead = {
   tieneTelefono: boolean;
   tieneEmail: boolean;
   ahoraMs: number;
+  /**
+   * Lo que piden las condiciones del CATÁLOGO (lib/condiciones-catalogo.ts). Cada bloque lo lee el
+   * motor sólo si una fila del flujo lo pide (`fuentesDeFilas`); ausente = no se leyó, y la fila
+   * que lo necesita no se cumple. «Probar» no lo necesita: ahí quien prueba elige la rama.
+   */
+  catalogo?: HechosCatalogo;
 };
 
+/**
+ * ¿Se cumple esta fila? Las nueve de antes, en el `switch` (lo mira el guard del lienzo:
+ * tests/flujo-conversacion.test.ts); el resto, en el catálogo (`cumpleCatalogo`), con la MISMA
+ * regla: un campo que no se conoce, o un dato que no se sabe, NUNCA se cumple, ni negado.
+ */
 export function cumpleFila(f: FilaCondicion, h: HechosLead): boolean {
   let si: boolean;
   switch (f.campo) {
@@ -751,7 +781,8 @@ export function cumpleFila(f: FilaCondicion, h: HechosLead): boolean {
     case 'antiguedad': si = h.creadoMs != null && (h.ahoraMs - h.creadoMs) / 3_600_000 <= Number(f.valor); break;
     case 'tiene_telefono': si = h.tieneTelefono; break;
     case 'tiene_email': si = h.tieneEmail; break;
-    default: return false;   // un campo que no se conoce NUNCA se cumple, ni negado
+    // Lo del catálogo (o un campo que no se conoce, que NUNCA se cumple, ni negado).
+    default: return cumpleCatalogo(f, h);
   }
   return f.no ? !si : si;
 }
@@ -1010,6 +1041,8 @@ export function borrarNodo<P extends PasoGrafo>(pasos: readonly P[], id: string)
 export type NombresParaTexto = {
   etiqueta?: (id: number) => string | null;
   etapa?: (key: string, funnelId: number | null) => string | null;
+  /** El nombre de un valor del catálogo (una clase, un módulo, un curso…). Sin él, el genérico. */
+  catalogo?: NombresCatalogo;
 };
 
 export function textoFila(f: FilaCondicion, n: NombresParaTexto = {}): string {
@@ -1030,7 +1063,7 @@ export function textoFila(f: FilaCondicion, n: NombresParaTexto = {}): string {
     case 'antiguedad': return `Llegó hace ${no ? 'más' : 'menos'} de ${horasTexto(Number(f.valor))}`;
     case 'tiene_telefono': return no ? 'Sin WhatsApp' : 'Tiene WhatsApp';
     case 'tiene_email': return no ? 'Sin email' : 'Tiene email';
-    default: return 'Condición';
+    default: return textoCondicion(f, n.catalogo);
   }
 }
 

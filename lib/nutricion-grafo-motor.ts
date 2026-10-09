@@ -26,6 +26,10 @@ import {
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
 } from './flujo-grafo';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
+import { condicionPorId, type HechosCatalogo } from './condiciones-catalogo';
+import { parseFechaJunta, reunionFuturaMs } from './nutricion-reinscripcion';
+import { claseCompleta } from './curso-bloqueo';
+import type { Clase, Progreso } from './curso';
 
 /** Cuántos «Ir a» se siguen en una sola resolución. `validarGrafo` ya prohíbe el bucle sin espera: esto es la red. */
 export const TOPE_SALTOS = 20;
@@ -412,12 +416,15 @@ export type ExtrasHechos = {
   etapasPorProducto?: ReadonlyMap<number, string>;
   yaContactado: boolean;
   respondio: boolean;
+  /** Lo que leyeron las fuentes del catálogo (lib/condiciones-catalogo.ts). Ausente = ninguna. */
+  catalogo?: HechosCatalogo;
 };
 
 /** Los hechos con los que se evalúa una condición (`HechosLead`, lib/flujo-grafo.ts). */
 export function hechosDeLead(fila: FilaHechos, x: ExtrasHechos, ahoraMs: number): HechosLead {
   const creado = fila.created_at ? Date.parse(fila.created_at) : NaN;
   return {
+    ...(x.catalogo ? { catalogo: x.catalogo } : {}),
     etiquetas: x.etiquetas ?? new Set<number>(),
     etapa: x.etapaCasa,
     etapasPorProducto: x.etapasPorProducto ?? new Map<number, string>(),
@@ -430,6 +437,102 @@ export function hechosDeLead(fila: FilaHechos, x: ExtrasHechos, ahoraMs: number)
     tieneEmail: /\S+@\S+/.test(String(fila.email ?? '')),
     ahoraMs,
   };
+}
+
+// ── Los hechos del CATÁLOGO, desde lo leído (puro: lo ejecuta tests/condiciones-motor.test.ts) ──
+
+/** Lo que el motor lee de la fila de `leads` para el bloque `lead` del catálogo. */
+export type FilaLeadCatalogo = {
+  origen_lead?: string | null; estado_lead?: string | null; calificado?: boolean | null;
+  meta_lead_id?: string | null; visitor_id?: string | null; meta_campaign_name?: string | null;
+  email_opt_out?: boolean | null; venta_tipo?: string | null; fecha_agenda?: string | null;
+  fecha_junta_1?: string | null; junta_1_at?: string | null; asistio_j1?: boolean | null;
+  fecha_junta_2?: string | null; junta_2_at?: string | null; asistio_j2?: boolean | null;
+  cerro?: boolean | null; fecha_cierre?: string | null; fecha_confirmacion?: string | null;
+};
+
+const msJunta = (x: string | null | undefined): number | null => {
+  if (!x) return null;
+  const ms = parseFechaJunta(x);
+  return Number.isFinite(ms) ? ms : null;
+};
+
+/**
+ * El bloque `lead` del catálogo. Las reuniones se leen con la MISMA regla que el motor
+ * (`parseFechaJunta`: una fecha sin hora es el mediodía de México) y la próxima con
+ * `reunionFuturaMs`, la que usa el ancla «antes de la reunión».
+ */
+export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number): NonNullable<HechosCatalogo['lead']> {
+  return {
+    origen: f.origen_lead ?? null,
+    estado: f.estado_lead ?? null,
+    calificado: f.calificado ?? null,
+    deFormularioMeta: !!f.meta_lead_id,
+    conVisitante: !!f.visitor_id,
+    campana: f.meta_campaign_name?.trim() || null,
+    emailBaja: f.email_opt_out === true,
+    ventaTipo: f.venta_tipo ?? null,
+    tieneFechaAgenda: !!f.fecha_agenda,
+    r1: { fechaMs: msJunta(f.junta_1_at ?? f.fecha_junta_1), asistio: f.asistio_j1 ?? null },
+    r2: { fechaMs: msJunta(f.junta_2_at ?? f.fecha_junta_2), asistio: f.asistio_j2 ?? null },
+    cerro: f.cerro ?? null,
+    tieneFechaCierre: !!f.fecha_cierre,
+    confirmoCompra: !!f.fecha_confirmacion,
+    proximaReunionMs: reunionFuturaMs(f, ahoraMs),
+  };
+}
+
+/** Las clases tal como las necesita el resumen: su curso, su módulo y lo que la completa. */
+export type ClaseParaResumen = Pick<Clase, 'id' | 'productoId' | 'etapa' | 'tarea' | 'campos' | 'videoTipo' | 'videoUrl' | 'videoPath'> & { tareaHtml?: string | null };
+
+/**
+ * El bloque `curso` del catálogo para UN alumno. «Completó» es la regla del portal
+ * (`claseCompleta`, lib/curso-bloqueo.ts: tarea enviada, el tilde de hecha, o el video visto hasta
+ * `PCT_VISTO`); un módulo está completo con TODAS sus clases completas; el avance es el % de
+ * clases completas de cada curso. Se inicializa con el UNIVERSO: todo curso con clases entra al
+ * mapa (0 % si no hizo nada), así «no lo empezó» no se confunde con «no sé».
+ *
+ * `progreso` es el EFECTIVO (`progresoDeClientes`): una clase por área cuenta enviada cuando la
+ * enviaron todas sus áreas, como en el portal y en la ficha.
+ */
+export function resumenCursoDeAlumno(
+  clases: readonly ClaseParaResumen[],
+  progreso: ReadonlyMap<number, Pick<Progreso, 'estado' | 'pct' | 'hechaAt'>> | undefined,
+): NonNullable<HechosCatalogo['curso']> {
+  const completas = new Set<number>();
+  const enviadas = new Set<number>();
+  const aprobadas = new Set<number>();
+  const porModulo = new Map<string, { total: number; hechas: number }>();
+  const porCurso = new Map<number, { total: number; hechas: number }>();
+  for (const c of clases) {
+    const p = progreso?.get(c.id);
+    const completa = claseCompleta(c, p);
+    if (completa) completas.add(c.id);
+    if (p?.estado === 'enviada' || p?.estado === 'aprobada') enviadas.add(c.id);
+    if (p?.estado === 'aprobada') aprobadas.add(c.id);
+    const km = `${c.productoId}:${c.etapa}`;
+    const m = porModulo.get(km) ?? { total: 0, hechas: 0 };
+    m.total += 1; if (completa) m.hechas += 1;
+    porModulo.set(km, m);
+    const k = porCurso.get(c.productoId) ?? { total: 0, hechas: 0 };
+    k.total += 1; if (completa) k.hechas += 1;
+    porCurso.set(c.productoId, k);
+  }
+  const modulosCompletos = new Set([...porModulo].filter(([, m]) => m.total > 0 && m.hechas === m.total).map(([k]) => k));
+  const avance = new Map([...porCurso].map(([id, k]) => [id, Math.round((100 * k.hechas) / k.total)] as [number, number]));
+  return { completas, enviadas, aprobadas, modulosCompletos, avance };
+}
+
+/** Cuotas pagadas y vencidas (impagas con fecha esperada ANTES de hoy, en el día del negocio). */
+export function resumenPagos(cuotas: ReadonlyArray<{ pagado: boolean | null; fecha_esperada: string | null }>, hoy: string): { pagadas: number; vencidas: number } {
+  let pagadas = 0;
+  let vencidas = 0;
+  for (const c of cuotas) {
+    if (c.pagado === true) pagadas++;
+    // Sin fecha esperada nunca se puede declarar vencida (la regla de lib/cs-senal.ts).
+    else if (c.fecha_esperada && c.fecha_esperada.slice(0, 10) < hoy) vencidas++;
+  }
+  return { pagadas, vencidas };
 }
 
 /**
@@ -648,17 +751,46 @@ const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a', 'inicio']);
 /** Un año de espera, en minutos. Una espera más larga es un dato roto, no una decisión. */
 const TOPE_ESPERA_MIN = 366 * 24 * 60;
 
+/**
+ * Una fila de una condición, saneada. Acepta las nueve de antes y todo id del CATÁLOGO
+ * (lib/condiciones-catalogo.ts), y CONSERVA lo que el catálogo suma —el operador (`op`) y la
+ * referencia (`ref`)—: si no, `setSecuenciaPasos` los borraba en el primer guardado y «Avance del
+ * curso ≥ 50 %» volvía como «≥ 50 %» de ningún curso (la quinta puerta, AGENTS.md). Un id que el
+ * catálogo no conoce se descarta: nunca se cumpliría.
+ */
 function sanearFila(x: unknown): FilaCondicion | null {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const o = x as Record<string, unknown>;
+  const def = condicionPorId(o.campo);
+  if (!def && !CAMPOS_CONDICION.some((c) => c === o.campo)) return null;
   const campo = o.campo as FilaCondicion['campo'];
-  if (!CAMPOS_CONDICION.includes(campo)) return null;
   const f: FilaCondicion = { campo };
-  if (o.no === true) f.no = true;
+  // La negación sólo donde el catálogo la ofrece (un número ya dice ≥ o ≤).
+  if (o.no === true && (def?.negable ?? true)) f.no = true;
   if (typeof o.valor === 'number' && Number.isFinite(o.valor)) f.valor = o.valor;
   else if (typeof o.valor === 'string' && o.valor.trim()) f.valor = o.valor.trim().slice(0, 120);
   if (campo === 'etapa' && o.funnel_id != null && Number.isFinite(Number(o.funnel_id)) && Number(o.funnel_id) > 0) f.funnel_id = Number(o.funnel_id);
+  if (def?.valor.t === 'numero' && (o.op === 'mayor_igual' || o.op === 'menor_igual')) f.op = o.op;
+  if (def?.valor.t === 'numero' && def.valor.ref) {
+    const r = Number(o.ref);
+    if (Number.isInteger(r) && r > 0) f.ref = r;
+  }
   return f;
+}
+
+/**
+ * TODAS las filas de las condiciones de un flujo. Es lo que decide qué FUENTES lee el motor
+ * (`fuentesDeFilas`, lib/condiciones-catalogo.ts) en `hechosDeLeads`: se mira el flujo entero y
+ * no sólo el camino de hoy, porque leer de más es una consulta y leer de menos es decidir sin el
+ * dato.
+ */
+export function filasDelFlujo(pasos: readonly PasoGrafo[]): FilaCondicion[] {
+  const out: FilaCondicion[] = [];
+  for (const p of pasos) {
+    if (!p || claseDe(p) !== 'condicion') continue;
+    for (const r of p.ramas ?? []) out.push(...(r.filas ?? []));
+  }
+  return out;
 }
 
 function sanearRama(x: unknown): RamaCondicion | null {
