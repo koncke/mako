@@ -9312,3 +9312,43 @@ Resend como propio: esos caen al remitente de MaKo. Sin «si falla, lo manda MaK
 dejó de verificar se dice en la pantalla. Medido en prod: el ws11 pasa a firmar con su dominio; el
 ws1 sigue como MaKo. El WhatsApp de la invitación es opcional, sale después del mail y mira el
 interruptor de envío del negocio. · *2026-10-08 Customer Success*
+
+## Chatwoot APAGADO: un interruptor, no 122 archivos borrados (09/10/2026)
+
+**Vive en:** `lib/chatwoot.ts` (`CHATWOOT_APAGADO`, `cfg()`) · `lib/integraciones.ts` ·
+`app/whatsapp/page.tsx` · `app/whatsapp/WhatsAppApp.tsx` · `app/api/webhooks/chatwoot/route.ts` ·
+`tests/sin-chatwoot.test.ts` · la etiqueta de git `archivo/chatwoot-2026-10-09`
+
+Martín: «Elimina de todos lados la integración con Chatwoot, que no exista más. Guardalo en
+privado, por si en un futuro queremos volver a utilizarla, pero por ahora quitalo».
+
+⚠️ **«Es fácil» no era: Chatwoot está en 122 archivos (640 menciones).** No es una tarjeta de
+Integraciones: es la base de la bandeja de WhatsApp OFICIAL de `/whatsapp` (conversaciones,
+mensajes, adjuntos, plantillas, borradores oficiales), del espejo de etiquetas, de avisos y de
+envíos. Medido en producción ese día: el ws1 (Mauricio) lo tenía configurado entero y con su
+webhook ruteado; el ws4, sin cuenta; el ws13, sólo el id de cuenta. Martín eligió APAGARLO hoy y
+borrar el código de fondo después.
+
+**Cómo quedó apagado.** Toda llamada a Chatwoot pasa por `cfg()` y todo el que decide si usarlo
+pregunta `chatwootConfigurado()`: con `CHATWOOT_APAGADO = true`, `cfg()` corta antes de leer
+una sola credencial y los dos contestan «no» para todos los workspaces. Aparte, lo que se VE:
+la tarjeta no se le muestra a nadie (antes la veía quien tenía el token), la pestaña oficial de
+`/whatsapp` no se dibuja, el sondeo del webhook no se monta, y tres textos dejaron de nombrarlo
+(Teléfonos, el reporte de experimentos y la política de privacidad). El webhook contesta 200 sin
+procesar nada, como el de Zernio cuando salió Instagram: un 4xx haría que Chatwoot reintente.
+
+**Para volver:** `git checkout archivo/chatwoot-2026-10-09 -- <rutas>` trae cualquier archivo tal
+como estaba; poner el interruptor en `false` y deshacer los cortes que lista
+`tests/sin-chatwoot.test.ts` lo prende entero. El test falla hasta que alguien lo decida.
+
+**SIN HACER:**
+- **Borrar el código dormido**: los 122 archivos siguen ahí, sin correr. Se hace por tandas.
+- **Las credenciales de Chatwoot** del ws1, ws4 y ws13 siguen en `credenciales`, y las filas de
+  `webhook_routing` del ws1 y el ws13 también. No se borraron: borrar datos de un cliente lo
+  decide Martín, y sin ellas volver a prenderlo pediría reconfigurar.
+- **La columna `crm_etiquetas.chatwoot_label`** (2 filas) queda; sin Chatwoot no la lee nadie.
+- **El webhook sigue registrado en el Chatwoot del ws1**: Chatwoot sigue mandando eventos, que
+  ahora se ignoran. Darlo de baja es del lado de su Chatwoot.
+
+*09/10/2026 — sin subagentes (pedido explícito); medido en producción en sólo lectura. 6 roturas
+en `tests/sin-chatwoot.test.ts`, todas con su fallo.*

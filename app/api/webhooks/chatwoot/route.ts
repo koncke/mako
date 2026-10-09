@@ -20,6 +20,7 @@ import { credWs } from '@/lib/credenciales';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { esCanalWhatsapp } from '@/lib/chatwoot-canales';
+import { CHATWOOT_APAGADO } from '@/lib/chatwoot';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,6 +81,10 @@ async function buscarLeadPorTelefono(d: string): Promise<number | null> {
 }
 
 export async function POST(req: NextRequest) {
+  // ⛔ CHATWOOT ESTÁ APAGADO (lib/chatwoot.ts, 09/10/2026): un evento que llegue no toca
+  // nada. 200 y sin procesar, como el webhook de Zernio cuando salió Instagram: un 4xx/5xx
+  // haría que Chatwoot reintente; con un 200 deja de insistir sin que nadie haga nada.
+  if (CHATWOOT_APAGADO) return Response.json({ ok: true, ignorado: 'chatwoot apagado' });
   // Auth FAIL-CLOSED: este webhook es público y MUTA datos (pausa nutrición,
   // reescribe pipeline_stage, dispara avisos), así que exigimos el secret.
   // Sin CHATWOOT_WEBHOOK_SECRET: en prod se rechaza (cerrado antes que abierto);

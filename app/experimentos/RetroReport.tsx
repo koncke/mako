@@ -72,7 +72,7 @@ const TOOL_BLURB: Record<ToolId, string> = {
   crm: 'Estado de los leads: nutridos, sin tocar y secuencias.',
   graphics: 'Los números del negocio: CPL, CAC, vendido y cobrado.',
   todo: 'Tareas del equipo ligadas a las recomendaciones.',
-  chats: 'Mensajes de venta. Chatwoot todavía sin conectar.',
+  chats: 'Mensajes de venta. WhatsApp todavía sin conectar.',
   crosses: 'Los hallazgos que cruzan dos tabs: el contenido más valioso del análisis.',
 };
 
