@@ -34,9 +34,10 @@ import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { useNotifications } from '../_components/NotificationsProvider';
 import { useConfirm } from '../_components/useConfirm';
 
-// La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
+// La MISMA ficha editable del CRM (on-demand, ssr:false).
 const LeadEditModal = dynamic(() => import('../crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
-// Atajos: idénticos a los del inbox oficial (se pasan al panel de MaKo).
+// Atajos (se pasan al panel de MaKo). Eran los mismos de la bandeja oficial, que se borró
+// el 09/10/2026.
 const QUICK = ['Reagendar tu Diagnóstico', 'Te paso el link de pago', 'Te comparto el video de nuevo'];
 
 type Conv = {
@@ -527,7 +528,7 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null, productos }: {
           {verOcultos && <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--dim)', lineHeight: 1.4 }}>Conversaciones ocultas. Abre una y toca «Mostrar contacto» para devolverla al inbox.</div>}
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
-          {/* La misma cola que el inbox oficial (app/whatsapp/_shared/PanelBorradores). */}
+          {/* La cola de borradores (app/whatsapp/_shared/PanelBorradores). */}
           <PanelBorradores onEnviado={async () => { await loadConvs(); if (selRef.current) await loadMsgs(selRef.current); }} />
           {loadingConvs && convs.length === 0 && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
           {!loadingConvs && convsOrdenados.length === 0 && !err && (

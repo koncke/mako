@@ -1,9 +1,10 @@
 // =============================================================================
 // Etapa del funnel para el inbox de WhatsApp — colores + chip + derivación.
-// Compartido entre server (getConversacionesNoOficial) y client (EmpresaInbox),
-// y espeja 1:1 la derivarEtapa del inbox oficial (conversations/route.ts) para que
-// el filtro por etapa se vea y funcione igual en ambos canales. Puro (sin
-// server-only / use client): lo pueden importar los dos lados.
+// Compartido entre server (getConversacionesNoOficial) y client (EmpresaInbox).
+// Puro (sin server-only / use client): lo pueden importar los dos lados.
+// (Hasta el 09/10/2026 espejaba 1:1 la derivarEtapa de la bandeja oficial,
+// app/api/whatsapp/conversations, para que el filtro se viera igual en los dos
+// canales; esa bandeja se borró y esta es la única derivación.)
 // =============================================================================
 
 import type { CSSProperties } from 'react';
@@ -44,7 +45,7 @@ export type LeadEtapaFields = {
   fecha_agenda?: string | null; visitor_id?: string | null; meta_lead_id?: string | null;
 };
 
-// Etapa del funnel (misma cascada que el inbox oficial).
+// Etapa del funnel (la cascada que usaba también la bandeja oficial, ya borrada).
 export function derivarEtapa(l: LeadEtapaFields): { key: string; label: string } {
   if (l.fecha_primer_pago) return { key: 'cliente', label: 'Cliente' };
   if (l.fecha_confirmacion && l.cerro !== true) return { key: 'por-cobrar', label: 'Por cobrar' };
