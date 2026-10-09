@@ -69,6 +69,18 @@ const tarjetaChrome: CSSProperties = {
  */
 const guiaOfrecida = { enLaVisita: false };
 
+/** El disparador que trae la FILA (la prop), en la forma que usa el desplegable del CRON. */
+export function disparoDeSecuencia(s: Pick<SecuenciaDto, 'trigger_tipo' | 'etapa' | 'funnel_id' | 'producto_id' | 'etiqueta_id'>): DisparoActual {
+  return {
+    trigger_tipo: s.trigger_tipo, etapa: s.etapa,
+    funnel_id: s.funnel_id ?? null, producto_id: s.producto_id ?? null, etiqueta_id: s.etiqueta_id ?? null,
+  };
+}
+
+/** Lo que distingue un disparador de otro: si cambia en la prop, el CRON se vuelve a sembrar. */
+export const firmaDisparo = (d: DisparoActual): string =>
+  [d.trigger_tipo, d.etapa ?? '', d.funnel_id ?? '', d.producto_id ?? '', d.etiqueta_id ?? ''].join('|');
+
 /** La edición en curso de una automatización, tal como la ve el lienzo. */
 export type EdicionLocal = {
   secuenciaId: number;
@@ -252,11 +264,23 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * elegir (POST `action: 'trigger'`, lo implementa la parte del motor) y se pinta
    * optimista, con la vuelta si el server dice que no.
    */
-  const [disparo, setDisparo] = useState<DisparoActual>(() => ({
-    trigger_tipo: secuencia.trigger_tipo, etapa: secuencia.etapa,
-    funnel_id: secuencia.funnel_id ?? null, producto_id: secuencia.producto_id ?? null,
-    etiqueta_id: secuencia.etiqueta_id ?? null,
-  }));
+  const [disparo, setDisparo] = useState<DisparoActual>(() => disparoDeSecuencia(secuencia));
+  /**
+   * ⚠️ Y SE VUELVE A SEMBRAR CUANDO EL SERVER LO CAMBIA (revisión de la segunda tanda, 09/10/2026).
+   * «Crear con IA» guarda el disparador que eligió el modelo en el server (`setTriggerSecuencia`) y
+   * el lienzo NO se remonta (el `key` es el id, que no cambia): con el `useState` sembrado una sola
+   * vez, la tarjeta CRON seguía diciendo «A mano», el desplegable marcaba lo de antes y «Probar»
+   * recibía el `trigger_tipo` viejo — y la pantalla donde se activa mostraba otro disparador que el
+   * que iba a inscribir. Se compara EN EL RENDER (no en un efecto, que pintaría primero lo viejo).
+   * No choca con el optimista de `guardarDisparo`: la prop sólo cambia cuando vuelve la relectura,
+   * y vuelve al mismo valor que ya se pintó.
+   */
+  const firmaProp = firmaDisparo(disparoDeSecuencia(secuencia));
+  const [firmaVista, setFirmaVista] = useState(firmaProp);
+  if (firmaProp !== firmaVista) {
+    setFirmaVista(firmaProp);
+    setDisparo(disparoDeSecuencia(secuencia));
+  }
   const guardarDisparo = async (valor: string) => {
     const body = pedidoDisparo(valor, secuencia.id);
     if (!body) return;
