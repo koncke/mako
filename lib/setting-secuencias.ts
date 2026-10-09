@@ -29,6 +29,7 @@ import { getAudio, audioBase64 } from './setting-audios';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { aplicarVariables, valoresVariablesLead } from './template-vars';
 import { esPasoAccion } from './nutricion-paso-accion';
+import { partesDe } from './mensaje-partes';
 import { emojiDeSecuencia } from './flujo-conversacion';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
@@ -646,26 +647,35 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
     if (paso.canal === 'whatsapp') {
       if (!contacto.telefono) { avisos.push(`Paso ${paso.orden}: sin teléfono en Perfil, no se probó.`); continue; }
       if (!evoConectada) { avisos.push('Tu WhatsApp está desconectado: esos pasos no se probaron (vuelve a vincularlo en Configuración → WhatsApp).'); continue; }
-      // Paso de nota de voz: te llega el audio de verdad, como al lead.
-      if (paso.tipo === 'audio' && Number(paso.audio_id) > 0) {
-        const audio = await getAudio(Number(paso.audio_id));
-        const b64 = audio ? await audioBase64(audio) : null;
-        if (!audio || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el audio «${audio?.titulo ?? paso.audio_id}».`); continue; }
-        const ra = await enviarAudioYEspejar({ telefono: contacto.telefono, base64: b64, mimetype: audio.media_mime, linea: lineaSec });
-        if (ra.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (audio): ${ra.error ?? 'no salió'}`);
-        continue;
+      // ⚠️ CADA PARTE, EN ORDEN, COMO LE LLEGA AL LEAD (cuarta tanda, punto 15: «un audio primero y
+      // luego un link»). `partesDe` lee también lo de antes: un audio con pie son dos (el audio y el
+      // texto de después, que antes la prueba NO mandaba y el motor sí). El rótulo «[PRUEBA n/N]» va
+      // en el primer texto o caption del paso; un audio no tiene dónde llevarlo. Si una parte falla,
+      // las que siguen de ese paso no salen: es lo que hace el motor (`enviarPartesDelPaso`).
+      const lista = partesDe(paso);
+      if (!lista.length) { avisos.push(`Paso ${paso.orden}: sin escribir, no se probó.`); continue; }
+      let rotulado = false;
+      const conRotulo = (t: string) => { if (rotulado) return t; rotulado = true; return `[PRUEBA ${paso.orden}/${total}] ${t}`; };
+      for (const parte of lista) {
+        if (parte.tipo === 'audio') {
+          // La nota de voz de verdad, como al lead.
+          const audio = await getAudio(parte.audio_id);
+          const b64 = audio ? await audioBase64(audio) : null;
+          if (!audio || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el audio «${audio?.titulo ?? parte.audio_id}».`); break; }
+          const ra = await enviarAudioYEspejar({ telefono: contacto.telefono, base64: b64, mimetype: audio.media_mime, linea: lineaSec });
+          if (ra.ok) enviadosWa += 1; else { avisos.push(`Paso ${paso.orden} (audio): ${ra.error ?? 'no salió'}`); break; }
+        } else if (parte.tipo === 'media') {
+          // El archivo de verdad, con su pie.
+          const adj = await getAdjunto(parte.media_id);
+          const b64 = adj ? await adjuntoBase64(adj) : null;
+          if (!adj || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el archivo «${adj?.titulo ?? parte.media_id}».`); break; }
+          const rm = await enviarMediaYEspejar({ telefono: contacto.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: conRotulo(aplicarVariables(parte.cuerpo ?? '', vars)), linea: lineaSec });
+          if (rm.ok) enviadosWa += 1; else { avisos.push(`Paso ${paso.orden} (archivo): ${rm.error ?? 'no salió'}`); break; }
+        } else {
+          const r = await enviarYEspejar({ telefono: contacto.telefono, texto: conRotulo(aplicarVariables(parte.cuerpo, vars)), linea: lineaSec });
+          if (r.ok) enviadosWa += 1; else { avisos.push(`Paso ${paso.orden} (WhatsApp): ${r.error ?? 'no salió'}`); break; }
+        }
       }
-      // Paso de ARCHIVO: te llega el archivo de verdad, con su pie.
-      if (paso.tipo === 'media' && Number(paso.media_id) > 0) {
-        const adj = await getAdjunto(Number(paso.media_id));
-        const b64 = adj ? await adjuntoBase64(adj) : null;
-        if (!adj || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el archivo «${adj?.titulo ?? paso.media_id}».`); continue; }
-        const rm = await enviarMediaYEspejar({ telefono: contacto.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: cuerpo, linea: lineaSec });
-        if (rm.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (archivo): ${rm.error ?? 'no salió'}`);
-        continue;
-      }
-      const r = await enviarYEspejar({ telefono: contacto.telefono, texto: cuerpo, linea: lineaSec });
-      if (r.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (WhatsApp): ${r.error ?? 'no salió'}`);
     } else {
       if (!contacto.email) { avisos.push(`Paso ${paso.orden}: sin email en Perfil, no se probó.`); continue; }
       if (sandbox) { avisos.push('Remitente sandbox: verifica tu dominio para probar los emails.'); continue; }

@@ -25,6 +25,7 @@ import { puedeAfirmarEtapa } from './nutricion-familias';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { esNodoDeControl } from './nutricion-grafo-motor';
 import { esPasoAccion } from './nutricion-paso-accion';
+import { partesExplicitas } from './mensaje-partes';
 
 const KEY_VOZ = 'mako.voz_guia';
 
@@ -306,7 +307,13 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   // Un paso «⚡ Acción de MaKo» no tiene texto: no viaja al modelo y sale del merge tal cual.
   // Antes se le pedía copy al modelo y el saneo lo tiraba al guardar (cuerpo vacío forzado).
   // Ni una tarjeta de CONTROL (condición, espera, «Si responde», «Ir a»): tampoco tiene texto.
-  const aEscribir = sec.pasos.filter((p) => !esPasoAccion(p) && !esNodoDeControl(p));
+  // ⚠️ NI UN MENSAJE DE VARIAS PARTES (cuarta tanda, punto 15: «un audio primero y luego un link»).
+  // MaKo reescribe UN texto, y el modelo sólo vería el espejo de la primera parte: sobre un audio
+  // (cuerpo vacío) escribía un texto que entraba como una parte MÁS entre el audio y el link, y sobre
+  // un texto pisaba el primero sin saber qué decían los otros. Lo armó una persona, mensaje por
+  // mensaje: sale del merge tal cual, como las acciones.
+  const varias = (p: PasoSecuencia) => p.canal === 'whatsapp' && partesExplicitas(p) != null;
+  const aEscribir = sec.pasos.filter((p) => !esPasoAccion(p) && !esNodoDeControl(p) && !varias(p));
   if (!aEscribir.length) return { ok: false, error: 'Esta secuencia sólo tiene acciones: no hay texto que escribir.' };
 
   const contexto = await contextoDeSecuencia(sec);
@@ -360,6 +367,7 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   const merged: PasoSecuencia[] = sec.pasos.map((orig) => {
     if (esPasoAccion(orig)) return orig;
     if (esNodoDeControl(orig)) return orig;
+    if (varias(orig)) return orig;
     const i = deTexto++;
     const g = genPasos.find((x) => Number(x.orden) === orig.orden) ?? genPasos[i];
     const cuerpo = asStr(g?.cuerpo).trim() || orig.cuerpo;

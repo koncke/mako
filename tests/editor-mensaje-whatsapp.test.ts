@@ -14,7 +14,8 @@
 //   · ⚠️ CUARTA TANDA, PUNTO 15 (09/10/2026) — CAMBIÓ LO QUE ESTE TEST FIJABA: el mensaje es una LISTA
 //     de partes. La barra es un borrador (modo `enviar`: «Enviar» suma la burbuja y vacía la barra);
 //     cada burbuja tiene ✏️ y una papelera visible con «Deshacer» 5 s; el audio sin transcripción;
-//     «{ }» y «✦ MaKo» arriba (nada debajo de la barra); arriba, el número de salida. Antes este test
+//     «{ }» EN la barra al lado del clip y «✦ MaKo» arriba (nada debajo de la barra); arriba, el
+//     número de salida. Antes este test
 //     fijaba el chip del audio guardado arriba del campo, el campo como «el pie», «Usar» con
 //     `pasoAVozDesde` y «✦ MaKo»/«{ }» DEBAJO de la barra: se reescribió a lo nuevo.
 //
@@ -29,13 +30,19 @@
 //   6. el composer de varias partes en modo `editar` (la barra vuelve a ser el mensaje) → 1.
 //   7. el número de salida dibujado sin la prop `linea`                            → 2.
 //   8. `aplicarPartes` sin las variantes explícitas `[]` para lo que no es un texto → 1.
+// Al TERMINAR el punto 15 (09/10/2026, mismo arnés, este archivo con los otros cuatro de la tanda;
+// base 69 / 0) «{ }» pasó a la barra al lado del clip y «✦ MaKo» puede ir en la cabecera. 3 roturas,
+// 3 cazadas, cada una 68 / 1:
+//   9. «{ }» fuera de la barra de varias partes (sin `trasClip`).
+//  10. «✦ MaKo» repetido aunque lo lleve la cabecera (`makoEnCabecera` ignorado).
+//  11. ComposerWhatsApp sin dibujar la ranura `trasClip`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  EditorMensajeWhatsApp, mismoPaso, placeholderDe, partesDeLaBarra, enviarALista, ALTO_MIN_CHAT,
+  EditorMensajeWhatsApp, BotonMakoWhatsApp, mismoPaso, placeholderDe, partesDeLaBarra, enviarALista, makoPosible, ALTO_MIN_CHAT,
   type EditorMensajeWhatsAppProps,
 } from '../app/chatbot/EditorMensajeWhatsApp';
 import { pasoSinAdjunto, pasoAMedia, pasoAVozDesde, pasoAVoz, cambiosDePaso } from '../lib/guion-audio';
@@ -252,7 +259,10 @@ test('el número de salida va arriba SÓLO si quien monta pasa la línea de la a
 
 // ── UNA columna, como un teléfono, y NADA debajo de la barra ─────────────────────────────────
 
-test('una sola columna: arriba «{ }» y «✦ MaKo», el chat, y la barra abajo de todo', () => {
+// ⚠️ CUARTA TANDA, PUNTO 15 (09/10/2026, al terminarlo): «{ }» pasó de la fila de arriba A LA BARRA, al
+// lado del clip («la opción de "{}" para insertar dato, debería estar al lado del botón de adjuntar
+// archivo»), con la ranura `trasClip` de ComposerWhatsApp. «✦ MaKo» sigue arriba.
+test('una sola columna: arriba «✦ MaKo», el chat, y la barra abajo de todo con «{ }» al lado del clip', () => {
   for (const disposicion of [undefined, 'columna', 'fila'] as const) {
     const html = dibujar({ disposicion, permiteIA: true });
     const chat = html.indexOf('data-chat="true"');
@@ -262,14 +272,41 @@ test('una sola columna: arriba «{ }» y «✦ MaKo», el chat, y la barra abajo
     assert.ok(enChat.includes('Hola, ¿cómo vas?'), 'la burbuja vive en el chat');
     assert.ok(!enChat.includes('placeholder='), 'la barra no se mete en el chat');
     const arriba = html.slice(0, chat);
-    for (const t of ['aria-label="Insertar un dato"', '✦ MaKo']) assert.ok(arriba.includes(t), `${disposicion}: ${t} va arriba`);
+    assert.ok(arriba.includes('✦ MaKo'), `${disposicion}: ✦ MaKo va arriba`);
+    assert.ok(!arriba.includes('Insertar un dato'), `${disposicion}: «{ }» quedó arriba`);
     const abajo = html.slice(barra);
-    for (const t of ['placeholder="Escribe un mensaje"', 'Grabar nota de voz', 'Adjuntar archivo']) assert.ok(abajo.includes(t), `${disposicion}: falta ${t} en la barra`);
+    for (const t of ['placeholder="Escribe un mensaje"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"']) assert.ok(abajo.includes(t), `${disposicion}: falta ${t} en la barra`);
+    // «{ }» AL LADO del clip: después del clip y antes del campo, en la MISMA fila.
+    const iClip = abajo.indexOf('aria-label="Adjuntar archivo"');
+    const iDatos = abajo.indexOf('aria-label="Insertar un dato"');
+    const iCampo = abajo.indexOf('<textarea');
+    assert.ok(iClip < iDatos && iDatos < iCampo, `${disposicion}: «{ }» no está entre el clip y el campo`);
+    assert.doesNotMatch(abajo.slice(iClip, iCampo), /<div/, '«{ }» se fue a otra fila');
     // «no quiero botones ni nada abajo de donde se escriben mensajes».
-    for (const t of ['Insertar un dato', '✦ MaKo', '↻']) assert.ok(!abajo.includes(t), `${disposicion}: ${t} quedó debajo de la barra`);
+    const despuesDelCampo = abajo.slice(abajo.indexOf('</textarea>'));
+    for (const t of ['Insertar un dato', '✦ MaKo', '↻']) assert.ok(!despuesDelCampo.includes(t), `${disposicion}: ${t} quedó debajo de la barra`);
     assert.ok(!html.includes('mk-wa-fila') && !html.includes('<style') && !html.includes('container-type'), 'volvió algo de la fila');
   }
   assert.equal(dibujar({ disposicion: 'fila' }), dibujar({}), 'la `fila` no cambia ni un píxel');
+  // En el oficial y el recordatorio (sin clip) «{ }» también va en la barra, al lado del emoji.
+  const sinClip = dibujar({ permiteAudio: false, permiteAdjuntos: false });
+  assert.ok(sinClip.indexOf('aria-label="Insertar un dato"') > sinClip.indexOf('data-barra="true"'));
+});
+
+test('«✦ MaKo» al lado del TÍTULO cuando la cabecera del panel lo lleva; la misma regla en los dos lugares', () => {
+  // Con la cabecera dibujándolo (`makoEnCabecera`), el editor no lo repite.
+  assert.ok(!dibujar({ permiteIA: true, makoEnCabecera: true }).includes('✦ MaKo'));
+  // Sin nada que mostrar arriba (ni número, ni MaKo, ni «↻ N»), no hay fila vacía.
+  const html = dibujar({ permiteIA: true, makoEnCabecera: true });
+  assert.ok(html.indexOf('data-chat="true"') < 200, 'quedó una fila vacía arriba del chat');
+  // El botón exportado (lo usa la cabecera) y la regla de cuándo se ofrece.
+  const boton = renderToStaticMarkup(createElement(BotonMakoWhatsApp, { activo: true, onCambiar: () => {} }));
+  assert.match(boton, /aria-pressed="true"/);
+  assert.equal(makoPosible(paso(), true, true), true);
+  assert.equal(makoPosible(paso(), false, true), false);
+  assert.equal(makoPosible(paso({ tipo: 'audio', audio_id: 7, cuerpo: '' }), true, true), false);
+  assert.equal(makoPosible(paso({ partes: [{ tipo: 'texto', cuerpo: 'a' }, { tipo: 'texto', cuerpo: 'b' }], cuerpo: 'a' }), true, true), false);
+  assert.equal(makoPosible(paso({ tipo: 'audio', audio_id: 7 }), true, false), true, 'en el oficial la barra ES el texto');
 });
 
 test('el chat LLENA el alto que haya y es lo único que se achica; nada de height:100%', () => {

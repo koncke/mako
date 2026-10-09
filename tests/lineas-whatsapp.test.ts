@@ -229,7 +229,9 @@ test('el motor manda cada secuencia por SU línea, con una sonda por línea', ()
   // Los cuatro envíos y los tres borradores de la rama llevan la línea de la secuencia (desde el
   // 08/10/2026 el archivo de la biblioteca suma uno de cada: `enviarMediaYEspejar` y su borrador).
   // Probado rompiéndolo (08/10/2026): el envío del archivo sin su línea → 1 falla (15/1).
-  assert.equal(cuenta(rama, 'linea: lineaSec'), 7);
+  // Desde el 09/10/2026 (cuarta tanda, punto 15) el mensaje de VARIAS partes suma su envío
+  // (`enviarPartesDelPaso`) y su borrador: 9. Probado rompiéndolo: las partes sin su línea → 1 falla.
+  assert.equal(cuenta(rama, 'linea: lineaSec'), 9);
   // Y guardarla valida que sea del negocio.
   assert.match(bloque(nutri, 'export async function setSecuenciaLinea(', '\n}\n'), /elegirLinea\(await listarLineas\(\), linea, ws\)/);
 });

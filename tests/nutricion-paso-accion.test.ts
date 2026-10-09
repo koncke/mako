@@ -169,7 +169,9 @@ test('sin workspace no se corre nada ajeno: se registra el fallo', async () => {
 // ── El motor, cableado (lib/nutricion.ts, con `server-only`) ─────────────────
 
 const MOTOR = sinComentarios(leer('lib/nutricion.ts'));
-const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 40_000);
+// El tope es el largo de `procesarEnvios`: 40.583 caracteres el 09/10/2026, al sumarle la rama del
+// mensaje de VARIAS partes (cuarta tanda, punto 15). Si se pasa, que se mire qué creció antes de subirlo.
+const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 44_000);
 // Hasta la primera guarda que es sólo del mensaje que sigue a la rama (`canalOn`). Perezoso:
 // si la rama se mueve de lugar, que caigan los tests que la miran, no el archivo entero.
 const rama = (): string => bloque(PROC, 'if (esPasoAccion(paso)) {', 'const canalOn = ', 4_000);

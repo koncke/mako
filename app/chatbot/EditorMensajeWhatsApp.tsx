@@ -28,10 +28,10 @@
 //     VISIBLE, roja, con «Deshacer» 5 s (el toast de la casa, app/_ui/Toast).
 //   · UN ADJUNTO VA COMO EN WHATSAPP: elegirlo lo deja arriba de la barra (el chip) y lo escrito es su
 //     pie; «Enviar» lo suma. Una nota de voz grabada se manda con la flecha, como en WhatsApp.
-//   · SIN LA TRANSCRIPCIÓN del audio (en la burbuja), y NADA DEBAJO DE LA BARRA: «✦ MaKo» y «{ }»
-//     suben a la fila de arriba (al lado del número de salida). ⚠️ «{ }» va arriba hasta que el
-//     composer tenga el lugar al lado del clip (ComposerWhatsApp no tiene esa ranura y es de otra
-//     parte: está pedido como bloqueante en el reporte de esta parte).
+//   · SIN LA TRANSCRIPCIÓN del audio (en la burbuja), y NADA DEBAJO DE LA BARRA: «{ }» va EN la barra,
+//     al lado del clip (la ranura `trasClip` de ComposerWhatsApp), y «✦ MaKo» arriba: en la cabecera
+//     del panel al lado del título cuando quien monta la dibuja (`makoEnCabecera` + `BotonMakoWhatsApp`),
+//     y si no, en la fila de arriba.
 //   · ARRIBA, EL NÚMERO DE SALIDA (`linea`, SalidaWhatsApp.tsx) con «Vincular nuevo». Es el de la
 //     AUTOMATIZACIÓN: lo pasa quien monta, y sin la prop no se dibuja.
 //
@@ -52,7 +52,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
 import { BurbujaHilo } from '../whatsapp/_shared/BurbujaHilo';
-import { ComposerWhatsApp, PopoverWA, MenuWA, IconVideo, type ComposerHandle, type OpcionMenuWA, type ChipComposer } from '../whatsapp/_shared/ComposerWhatsApp';
+import { ComposerWhatsApp, PopoverWA, MenuWA, IconVideo, iconComposer, type ComposerHandle, type OpcionMenuWA, type ChipComposer } from '../whatsapp/_shared/ComposerWhatsApp';
 import { IconClip, IconDoc, IconMic, IconTrash } from '../whatsapp/_shared/composer-icons';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
 import { SalidaWhatsApp } from './SalidaWhatsApp';
@@ -118,7 +118,36 @@ export type EditorMensajeWhatsAppProps = {
    * mismo del selector del CRON). Sin esto, la fila del número no se dibuja.
    */
   linea?: { actual: string | null; onElegir: (linea: string | null) => void | Promise<void> };
+  /**
+   * «✦ MaKo» va en la CABECERA del panel, al lado del título «WhatsApp» (punto 15: «el botón de MaKo
+   * arriba del todo, al lado del título de WhatsApp»). La cabecera es del lienzo: quien monta la dibuja
+   * con `BotonMakoWhatsApp` y pasa esto para que el editor no la repita. Sin esto, va en la fila de arriba.
+   */
+  makoEnCabecera?: boolean;
 };
+
+/**
+ * ¿Se ofrece «✦ MaKo»? MaKo reescribe UN texto: con un solo texto (o nada todavía), sí; con un audio,
+ * un archivo o varias partes, no. `permiteIA` es lo que decide quien monta (el no oficial). Pura y
+ * exportada: la usa la cabecera del panel para no ofrecerlo donde el editor no lo haría.
+ */
+export function makoPosible(paso: PasoSecuenciaDto, permiteIA: boolean | undefined, varias: boolean): boolean {
+  if (!permiteIA) return false;
+  if (!varias) return true;
+  const lista = partesDe(paso);
+  return lista.length === 0 || esUnTexto(lista);
+}
+
+/** «✦ MaKo»: prendido, MaKo adapta el texto a cada persona. Lo usa el editor o la cabecera del panel. */
+export function BotonMakoWhatsApp({ activo, deshabilitado, onCambiar }: { activo: boolean; deshabilitado?: boolean; onCambiar: (on: boolean) => void }) {
+  return (
+    <button type="button" disabled={deshabilitado} aria-pressed={activo} title="MaKo lo adapta para cada persona"
+      onClick={() => onCambiar(!activo)}
+      style={{ ...chip, ...(activo ? { background: 'var(--mako-bg)', borderColor: 'var(--mako-border)', color: 'var(--mako-ink)' } : {}) }}>
+      ✦ MaKo
+    </button>
+  );
+}
 
 /** La ruta del guion: la misma que usa PasoAudioControl (una cosa, un lugar). */
 const RUTA_GUION = '/api/chat-agent/onboarding/guion-audio';
@@ -192,7 +221,7 @@ export const ALTO_MIN_CHAT = 110;
 
 export function EditorMensajeWhatsApp({
   paso, onChange, audios, onAudioNuevo, variables, permiteIA, onModoIA, permiteAudio = true, permiteAdjuntos = true,
-  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, deshabilitado, onError, linea,
+  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, deshabilitado, onError, linea, makoEnCabecera,
 }: EditorMensajeWhatsAppProps) {
   const ws = useWs();
   // ¿Varias partes? Sólo por el no oficial (ver la cabecera): el oficial y el recordatorio mandan uno.
@@ -515,7 +544,7 @@ export function EditorMensajeWhatsApp({
   const variantes = unTexto ? (paso.variantes ?? []) : [];
   const ocupado = !!deshabilitado || !!fase || !!subida;
   // ✦ MaKo: con UN texto (o nada todavía). Con varias partes no hay un texto que reescribir.
-  const iaPosible = !!permiteIA && (!varias || partes.length === 0 || unTexto);
+  const iaPosible = makoPosible(paso, permiteIA, varias);
 
   const vista: ReactNode = varias ? (
     partes.length ? partes.map((p, i) => (
@@ -537,6 +566,15 @@ export function EditorMensajeWhatsApp({
     )) : sinEscribir
   ) : (
     <BurbujaHilo contenido={{ texto: conNegocio(paso.cuerpo ?? ''), ia: esIA }} vacio={sinEscribir} />
+  );
+
+  // «{ }» EN LA BARRA, AL LADO DEL CLIP (punto 15: «la opción de "{}" para insertar dato, debería estar
+  // al lado del botón de adjuntar archivo»): la ranura `trasClip` de ComposerWhatsApp. Antes iba en la
+  // fila de arriba porque el composer no tenía ese lugar.
+  const botonDatos = (
+    <button type="button" ref={setBtnDatos} disabled={ocupado} title="Insertar un dato" aria-label="Insertar un dato" aria-expanded={abierto === 'datos'}
+      onClick={() => setAbierto((a) => (a === 'datos' ? null : 'datos'))}
+      style={{ ...iconComposer, width: 38, height: 38, fontSize: 13.5, fontWeight: 600, fontFamily: "'Geist Mono', monospace", color: abierto === 'datos' ? 'var(--primary)' : 'var(--dim)', opacity: ocupado ? 0.5 : 1 }}>{'{ }'}</button>
   );
 
   const faseNodo = fase ? (
@@ -568,6 +606,7 @@ export function EditorMensajeWhatsApp({
       audioPendiente={grabado ? { url: urlGrabado, onDescartar: () => setGrabado(null), onUsar: () => void usarAudio() } : null}
       chip={chipActual}
       maxAlto={168}
+      trasClip={botonDatos}
     />
   ) : (
     <ComposerWhatsApp
@@ -577,31 +616,28 @@ export function EditorMensajeWhatsApp({
       onValor={(v) => onChange({ cuerpo: v })}
       placeholder={placeholderDe(paso.tipo, placeholder)}
       ocupado={ocupado}
+      trasClip={botonDatos}
     />
   );
 
-  // LA FILA DE ARRIBA: el número de salida, y a la derecha «{ }» y «✦ MaKo». Arriba y no abajo:
-  // «no quiero botones ni nada abajo de donde se escriben mensajes».
-  const arriba = (
+  // LA FILA DE ARRIBA: el número de salida y «✦ MaKo» (hasta que la cabecera del panel lo lleve al
+  // lado del título: `makoEnCabecera`). Arriba y no abajo: «no quiero botones ni nada abajo de donde
+  // se escriben mensajes». Sin nada que mostrar, no hay fila.
+  const conMakoAca = iaPosible && !makoEnCabecera;
+  const conSalida = !!linea && varias;
+  const conVariantes = !varias && variantes.length > 0;
+  const arriba = (conSalida || conMakoAca || conVariantes) ? (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, minWidth: 0 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        {linea && varias && <SalidaWhatsApp actual={linea.actual} onElegir={linea.onElegir} deshabilitado={ocupado} />}
+        {conSalida && linea && <SalidaWhatsApp actual={linea.actual} onElegir={linea.onElegir} deshabilitado={ocupado} />}
       </div>
-      <button type="button" ref={setBtnDatos} disabled={ocupado} title="Insertar un dato" aria-label="Insertar un dato" aria-expanded={abierto === 'datos'}
-        onClick={() => setAbierto((a) => (a === 'datos' ? null : 'datos'))} style={{ ...chip, fontFamily: "'Geist Mono', monospace" }}>{'{ }'}</button>
-      {iaPosible && (
-        <button type="button" disabled={ocupado} aria-pressed={esIA} title="MaKo lo adapta para cada persona"
-          onClick={() => { const on = !esIA; onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); }}
-          style={{ ...chip, ...(esIA ? { background: 'var(--mako-bg)', borderColor: 'var(--mako-border)', color: 'var(--mako-ink)' } : {}) }}>
-          ✦ MaKo
-        </button>
-      )}
-      {!varias && variantes.length > 0 && (
+      {conMakoAca && <BotonMakoWhatsApp activo={esIA} deshabilitado={ocupado} onCambiar={(on) => { onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); }} />}
+      {conVariantes && (
         <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
           onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={chip}>↻ {variantes.length}</button>
       )}
     </div>
-  );
+  ) : null;
 
   // ── UNA columna, como un teléfono: arriba la fila, el chat (llena y scrollea), la barra abajo ──
   // El alto lo pone quien monta (el panel de /chatbot): el CHAT se queda con lo que sobra y es lo

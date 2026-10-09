@@ -21,6 +21,9 @@
 //    subida (lo que el navegador DECLARA) y al registrar (lo que Storage dice que se GUARDÓ, con
 //    `info()`). Lo que no pasa la segunda se borra.
 
+// Puro como este módulo: quién usa un archivo, mirando también las partes de un mensaje.
+import { pasoUsaArchivo, type PasoConPartes } from './mensaje-partes';
+
 /** El bucket del espejo del no oficial, que también guarda la biblioteca. */
 export const BUCKET_ADJUNTOS_WA = 'wa-media';
 /** La carpeta de la biblioteca adentro del prefijo del workspace. */
@@ -244,10 +247,17 @@ export function huerfanosDelBucket(
     .slice(0, TOPE_BARRIDO);
 }
 
-/** ¿Algún paso de esta secuencia nombra este archivo? (para no dejar un `media_id` colgado al borrar) */
+/**
+ * ¿Algún paso de esta secuencia nombra este archivo? (para no dejar un `media_id` colgado al borrar)
+ *
+ * ⚠️ EN CUALQUIERA DE SUS PARTES (cuarta tanda, punto 15): un mensaje de varias partes lleva el
+ * archivo de la segunda en `partes`, no en `media_id` (que es el espejo de la PRIMERA). Mirando sólo
+ * el espejo, ese archivo se podía borrar y el motor fallaba en cada lead (`pasoUsaArchivo`,
+ * lib/mensaje-partes.ts).
+ */
 export function pasosUsanAdjunto(pasos: unknown, id: number): boolean {
   if (!Array.isArray(pasos)) return false;
-  return pasos.some((p) => !!p && typeof p === 'object' && Number((p as { media_id?: unknown }).media_id) === id);
+  return pasos.some((p) => pasoUsaArchivo(p as PasoConPartes, id));
 }
 
 /** Lo que viaja a la pantalla: sin el path del bucket, con la URL firmada para verlo. */

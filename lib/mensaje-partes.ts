@@ -125,6 +125,41 @@ export function partesExplicitas(p: PasoConPartes): ParteMensaje[] | null {
 /** Las burbujas de un paso, en orden: las de varias partes, o las que dicen los campos de siempre. */
 export const partesDe = (p: PasoConPartes): ParteMensaje[] => partesExplicitas(p) ?? partesDeLegado(p);
 
+// ── Quién USA un audio o un archivo ─────────────────────────────────────────────
+// ⚠️ EL ESPEJO NO ALCANZA. Antes de borrar un audio o un archivo de la biblioteca se pregunta si un
+// paso lo usa, y esa pregunta miraba sólo `audio_id` / `media_id` del paso: el audio de la SEGUNDA
+// parte se podía borrar, y el motor fallaba con «el audio ya no existe» en cada lead, cada 24 h, sin
+// que nadie lo viera (`enviarPartesDelPaso` baja todo antes de mandar y no manda nada). Se pregunta
+// por las partes y por los campos de siempre (la primera, y lo de antes).
+
+/** ¿Este paso usa el audio `id`, en cualquiera de sus partes? */
+export function pasoUsaAudio(p: PasoConPartes | null | undefined, id: number): boolean {
+  if (!p || typeof p !== 'object') return false;
+  if (Number(p.audio_id) === id) return true;
+  return Array.isArray(p.partes) && p.partes.some((x) => !!x && typeof x === 'object' && (x as { tipo?: unknown }).tipo === 'audio' && Number((x as { audio_id?: unknown }).audio_id) === id);
+}
+
+/** ¿Este paso usa el archivo `id` de la biblioteca, en cualquiera de sus partes? */
+export function pasoUsaArchivo(p: PasoConPartes | null | undefined, id: number): boolean {
+  if (!p || typeof p !== 'object') return false;
+  if (Number(p.media_id) === id) return true;
+  return Array.isArray(p.partes) && p.partes.some((x) => !!x && typeof x === 'object' && (x as { tipo?: unknown }).tipo === 'media' && Number((x as { media_id?: unknown }).media_id) === id);
+}
+
+/** Los pasos (crudos, de la fila) que usan el audio `id`. */
+export const pasosUsanAudio = (pasos: unknown, id: number): boolean =>
+  Array.isArray(pasos) && pasos.some((p) => pasoUsaAudio(p as PasoConPartes, id));
+
+/**
+ * Un mensaje en UN renglón, para quien lee la secuencia sin verla (MaKo, la ficha de la API): las
+ * partes en orden, el texto recortado. Un mensaje de los de siempre es su texto, como antes.
+ */
+export function resumenDePartes(p: PasoConPartes, largo = 90): string {
+  const lista = partesExplicitas(p);
+  if (!lista) return (typeof p.cuerpo === 'string' ? p.cuerpo : '').slice(0, largo);
+  return lista.map((x) => (x.tipo === 'audio' ? '[audio]' : x.tipo === 'media' ? `[archivo]${x.cuerpo?.trim() ? ` ${x.cuerpo.trim().slice(0, 40)}` : ''}` : x.cuerpo.trim().slice(0, 60))).join(' · ').slice(0, largo * 2);
+}
+
 /** Los campos de un mensaje, en su forma GUARDADA. `partes: []` = una sola (el editor lo manda así). */
 export type CamposMensaje = {
   tipo: 'texto' | 'audio' | 'media' | 'ia';
