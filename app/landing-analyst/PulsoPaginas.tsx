@@ -88,21 +88,21 @@ function Profundidad({ pag, pixel, falla }: {
         <EmptyState inline
           titulo="Tu página todavía no tiene el Pixel"
           detalle="Se pega una vez en el HTML y desde ahí mide las visitas, los clics y hasta dónde baja cada persona."
-          accion={{ label: 'Copiar el código', href: LINK_PIXEL }} />
+          accion={{ label: 'Copiar la línea', href: LINK_PIXEL }} />
       );
     }
     if (pixel && pixel.instalada > 0 && pixel.instalada < PIXEL_SCROLL_DESDE) {
       return (
         <EmptyState inline
           titulo="Tu Pixel todavía no mide el scroll"
-          detalle={`El código que tienes pegado es de una versión anterior a la ${PIXEL_SCROLL_DESDE}, que es la que mide hasta dónde baja cada persona. Se arregla pegándolo de nuevo.`}
-          accion={{ label: 'Volver a copiar el código', href: LINK_PIXEL }} />
+          detalle={`El código que tienes pegado es de una versión anterior a la ${PIXEL_SCROLL_DESDE}, que es la que mide hasta dónde baja cada persona. Se arregla poniendo la línea del Pixel.`}
+          accion={{ label: 'Poner la línea', href: LINK_PIXEL }} />
       );
     }
     return (
       <EmptyState inline
         titulo="Todavía no llegó ni un dato de scroll de esta página"
-        detalle="Aparece en cuanto alguien entre y baje. Si ya recibiste visitas aquí, revisa que el código esté en esta página y no solo en la principal."
+        detalle="Aparece en cuanto alguien entre y baje. Si ya recibiste visitas aquí, revisa que el Pixel esté en esta página y no solo en la principal."
         accion={{ label: 'Revisar el código', href: LINK_PIXEL }} />
     );
   }
@@ -149,16 +149,16 @@ function Clics({ pag, pixel, falla }: {
       return (
         <EmptyState inline
           titulo="Tu página todavía no tiene el Pixel"
-          detalle="Sin el código pegado no hay forma de saber qué botón toca la gente."
-          accion={{ label: 'Copiar el código', href: LINK_PIXEL }} />
+          detalle="Sin el Pixel no hay forma de saber qué botón toca la gente."
+          accion={{ label: 'Copiar la línea', href: LINK_PIXEL }} />
       );
     }
     if (pixel && pixel.instalada > 0 && pixel.instalada < PIXEL_CLICS_DESDE) {
       return (
         <EmptyState inline
           titulo="Tu Pixel todavía no mide los clics"
-          detalle={`Los clics llegaron en la versión ${PIXEL_CLICS_DESDE} del código. Pégalo de nuevo y empiezan a contarse.`}
-          accion={{ label: 'Volver a copiar el código', href: LINK_PIXEL }} />
+          detalle={`Los clics llegaron en la versión ${PIXEL_CLICS_DESDE} del código. Pon la línea del Pixel y empiezan a contarse.`}
+          accion={{ label: 'Poner la línea', href: LINK_PIXEL }} />
       );
     }
     if (pag.clicsDelConstructor > 0) {
@@ -247,8 +247,8 @@ export function PulsoPaginas() {
         {fallaPaginas && <Banner tono="bad">No se pudo leer tu lista de páginas, así que puede faltar alguna aquí.</Banner>}
         <EmptyState
           titulo="Todavía no hay nada medido"
-          detalle="El Pixel de MaKo se pega una vez en el HTML de tu página y desde ahí cuenta las visitas, los clics y hasta dónde baja cada persona."
-          accion={{ label: 'Copiar el código', href: LINK_PIXEL }} />
+          detalle="El Pixel de MaKo es una línea que se pega una vez en el HTML de tu página y desde ahí cuenta las visitas, los clics y hasta dónde baja cada persona."
+          accion={{ label: 'Copiar la línea', href: LINK_PIXEL }} />
       </div>
     );
   }
@@ -257,8 +257,11 @@ export function PulsoPaginas() {
     <div style={{ display: 'grid', gap: 18 }}>
       {fallaPaginas && <Banner tono="bad">No se pudo leer tu lista de páginas, así que puede faltar alguna en el selector.</Banner>}
       {datos.pixel?.viejo && (
-        <Banner tono="warn" accion={{ label: 'Volver a copiar el código', href: LINK_PIXEL }}>
-          Tu Pixel es de la versión {datos.pixel.instalada} y la actual es la {datos.pixel.actual}. Te falta medir {datos.pixel.novedades}.
+        // El arreglo es la LÍNEA del Pixel (lib/pixel-cargador.ts, 09/10/2026), no repegar
+        // el código. Y «Te falta:» y no «Te falta medir»: desde la v23 la novedad más nueva
+        // es la línea que se actualiza sola, que no es una medición.
+        <Banner tono="warn" accion={{ label: 'Poner la línea', href: LINK_PIXEL }}>
+          Tu Pixel es de la versión {datos.pixel.instalada} y la actual es la {datos.pixel.actual}. Te falta: {datos.pixel.novedades}.
         </Banner>
       )}
       {datos.eventosSinPagina > 0 && (

@@ -167,6 +167,28 @@ test('lee el estado del Pixel EN ESA PÁGINA', () => {
   assert.equal(A('<html></html>').versionPixel, null);
 });
 
+test('el token del Pixel se lee con el nombre nuevo (v23) y desde la LÍNEA del cargador', () => {
+  // Desde la v23 (09/10/2026) el token viaja en `var CUENTA` —`var TOKEN` lo tapaba con
+  // ******** el editor con IA de un cliente— y una página con el cargador de una línea
+  // (lib/pixel-cargador.ts) no trae el código: trae `/m.js?id=<token>`. Sin leer las dos
+  // formas nuevas, «esta landing tiene el código de OTRO workspace» deja de verse justo en
+  // las páginas que se instalan como se pide ahora.
+  //
+  // PROBADO ROMPIÉNDOLO (09/10/2026, con 9 / 0 en este archivo antes):
+  //   · la regex del token sin `CUENTA` (sólo `var TOKEN`) → 8 pass / 1 fail (éste)
+  //   · sin la rama `tokenDelCargador`                     → 8 pass / 1 fail (éste)
+  const cuenta = A(`<script>var CUENTA = 'mko_cuenta123'; var SV = 23;</script>`);
+  assert.ok(cuenta.piezas.has('pixel'));
+  assert.equal(cuenta.tokenPixel, 'mko_cuenta123');
+  assert.equal(cuenta.versionPixel, 23);
+
+  const linea = A(`<body><script src="https://hola-mako.com/m.js?id=mko_${'e5'.repeat(16)}" defer></script></body>`);
+  assert.ok(linea.piezas.has('pixel'), 'la página con la línea del cargador tiene el Pixel');
+  assert.equal(linea.tokenPixel, `mko_${'e5'.repeat(16)}`);
+  // La versión no está en el HTML: la sirve el cargador, y es la del día.
+  assert.equal(linea.versionPixel, null);
+});
+
 test('el caso de Mauricio: agenda embebida y ningún botón propio', () => {
   // Es la landing que destapó todo esto. Con la lista vieja le quedaban dos
   // puntos en rojo para siempre.

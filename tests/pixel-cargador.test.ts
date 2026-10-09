@@ -32,7 +32,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Script } from 'node:vm';
@@ -137,6 +137,11 @@ test('la línea se reconoce en un HTML (con otro dominio, con más parámetros) 
   assert.equal(tokenDelCargador(`<script src="https://hola-mako.com/m.js?v=2&amp;id=${TOKEN}" defer></script>`), TOKEN);
   assert.equal(tokenDelCargador(`<script src="https://hola-mako.com/m.js?v=2&id=${TOKEN}"></script>`), TOKEN);
   assert.equal(tokenDelCargador('<script src="https://cdn.x.com/m.js?id=ab"></script>'), null, 'un id corto no es un token');
+  // ⚠️ Un `/m.js?id=` de OTRO producto no es nuestra línea (revisión del 09/10/2026): con
+  // él, una página con el Pixel viejo metido por un administrador de etiquetas se leía al
+  // día y el aviso se apagaba. Verificado quitando el `mko_` de la regex: 13 / 1 (éste).
+  assert.equal(tokenDelCargador('<script src="https://cdn.otro.com/m.js?id=GTM-ABCDEFGH12"></script>'), null, 'un id ajeno no es nuestro token');
+  assert.equal(tokenDelCargador(`<script src="https://cdn.otro.com/m.js?id=${'f'.repeat(32)}"></script>`), null);
   assert.equal(tokenDelCargador(`<script src="https://x.com/m.jsx?id=${TOKEN}"></script>`), null);
   assert.equal(tokenDelCargador(`<script src="https://x.com/am.js?pid=${TOKEN}"></script>`), null, '`pid=` no es `id=`');
   assert.equal(tokenDelCargador(''), null);
@@ -201,4 +206,72 @@ test('la pantalla ofrece primero la línea, y el código completo queda como alt
   assert.match(page, /lineaCargador\(tokenLanding, APP_URL\)/);
   assert.match(page, /cargadorLanding=\{cargadorLanding\}/);
   assert.match(board, /cargador=\{cargadorLanding \?\? null\}/);
+});
+
+// ── Lo que sumó la revisión (09/10/2026) ─────────────────────────────────────
+// PROBADO ROMPIÉNDOLO, una rotura por vez con el archivo en verde antes (14 / 0), con el
+// mismo arnés que restaura de memoria (comparado byte a byte después):
+//   · un `app/m.js/x/route.ts` vacío al lado de la ruta              → 13 / 1 «la carpeta…»
+//   · el aviso fijo con «vuelve a pegar el código» otra vez          → 13 / 1 «ningún texto…»
+//   · el botón del pulso con «Volver a copiar el código» otra vez    → 13 / 1 «ningún texto…»
+//   · `versionServida` llamando `versionEnHtml(html)` sin `actual`   → 13 / 1 «lo que lee…»
+//   · `estadoPixel` llamando `versionServida(url, { minimo })`        → 13 / 1 «lo que lee…»
+//   (Antes de este test, la rotura de `versionServida` sin `actual` daba VERDE: 14 / 0 en
+//   tests/pixel-aviso.test.ts, que es el que mira `versionEnHtml`.)
+
+test('lo que lee la página le pasa la versión ACTUAL a la línea del cargador, en los tres lectores', () => {
+  // `versionEnHtml` sin `actual` lee la línea como PIXEL_MINIMO_AVISO (22): alcanza para
+  // apagar el aviso, y el diagnóstico de la página diría «tienes la 22 y la actual es la
+  // 23» sobre una página que sirve la 23. Y `versionServida` cachea por PÁGINA, no por
+  // `actual`: si un lector lo pasa y otro no, el primero que mira deja el número del otro.
+  const servido = sinComentarios(leer('lib/pixel-servido.ts'));
+  assert.match(servido, /versionEnHtml\(html, opts\.actual \?\? minimo\)/, 'versionServida no le pasa `actual` a versionEnHtml');
+  assert.match(sinComentarios(leer('lib/pixel-estado.ts')), /versionServida\(url, \{ minimo, actual: SNIPPET_VERSION \}\)/);
+  assert.match(sinComentarios(leer('lib/landing-token.ts')), /versionServida\(urlLanding, \{ minimo: SNIPPET_VERSION, actual: SNIPPET_VERSION \}\)/);
+  const llamadas = [...['app', 'lib'].flatMap((d) => execFileSync('git', ['ls-files', d], { cwd: RAIZ, encoding: 'utf8' }).split('\n'))]
+    .filter((f) => /\.(ts|tsx)$/.test(f) && f !== 'lib/pixel-servido.ts')
+    .flatMap((f) => (sinComentarios(leer(f)).match(/versionServida\([^)]*\)/g) ?? []).map((m) => `${f}: ${m}`));
+  assert.ok(llamadas.length >= 3, `encontré ${llamadas.length} llamadas a versionServida: este test está mirando otra cosa`);
+  const sinActual = llamadas.filter((l) => !/actual: SNIPPET_VERSION/.test(l));
+  assert.deepEqual(sinActual, [], 'un lector de versionServida sin `actual` deja en la caché la línea leída como 22');
+});
+
+test('la carpeta de la ruta tiene SÓLO su route.ts: PUBLICOS la abre como prefijo', () => {
+  // `matchea` (lib/rutas-publicas.ts) abre la entrada Y todo lo que cuelgue de ella
+  // (`/m.js/…`). Hoy no cuelga nada; una ruta que naciera en `app/m.js/<algo>/` quedaría
+  // pública y sin sesión sin que nadie lo decidiera. Es la regla de /api/v1: si el prefijo
+  // abre, se enumera en positivo lo que hay adentro.
+  const carpeta = join(RAIZ, 'app', RUTA_CARGADOR.slice(1));
+  assert.deepEqual(readdirSync(carpeta).sort(), ['route.ts'],
+    `en app${RUTA_CARGADOR}/ apareció algo más que route.ts: queda público por el prefijo de PUBLICOS`);
+});
+
+test('ningún texto que ve el cliente lo manda a REPEGAR el código: lo manda a la línea', () => {
+  // Desde el 09/10/2026 el arreglo de un Pixel viejo es poner la línea del cargador, que
+  // sirve siempre la versión del día. Un texto que dice «vuelve a pegar el código» manda a
+  // repetir lo que va a quedar viejo otra vez — y era lo que decían el aviso fijo de la
+  // esquina, el pulso, el mapa de calor y «Verificar» (los cazó la revisión: el cambio
+  // había tocado el WhatsApp y el paso 3, y no éstos).
+  const PROHIBIDAS = [
+    /vuelve a pegar(?:lo)?(?! nada)/i, /volver a pegar(?!lo)(?! nada)/i, /p[ée]galo de nuevo/i,
+    /peg[aá]ndolo de nuevo/i, /copia el c[oó]digo de arriba/i, /volver a copiar el c[oó]digo/i,
+    /label: 'Copiar el c[oó]digo'/i, /reempl[aá]zalo/i,
+  ];
+  const ARCHIVOS = [
+    'app/_components/AvisoPixelViejo.tsx',
+    'app/landing-analyst/PulsoPaginas.tsx',
+    'app/landing-analyst/MapaDeCalor.tsx',
+    'app/integraciones/ProbarTracking.tsx',
+    'app/integraciones/IntegracionesBoard.tsx',
+    'app/api/cron/tracking-vigilante/route.ts',
+    'lib/landing-token.ts',
+    'lib/avisos-catalogo.ts',
+  ];
+  const malas: string[] = [];
+  for (const f of ARCHIVOS) {
+    sinComentarios(leer(f)).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').split('\n').forEach((l, i) => {
+      for (const re of PROHIBIDAS) if (re.test(l)) malas.push(`${f}:${i + 1} ${l.trim().slice(0, 120)}`);
+    });
+  }
+  assert.deepEqual(malas, [], `estos textos todavía mandan a repegar el código:\n${malas.join('\n')}`);
 });

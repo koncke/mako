@@ -185,7 +185,10 @@ export const RUNNERS: Runners = {
       // de WhatsApp revientan el techo de tokens del turno siguiente.
       return json({
         link: linkIntegracionesLanding(), version: SNIPPET_VERSION, largo_caracteres: codigo.length,
-        nota: 'El código no viaja por el chat: es demasiado largo para copiarlo en un mensaje. Manda el link: en Integraciones → Landing la persona lo copia con un botón. Es el mismo código para todas sus páginas.',
+        // Desde el 09/10/2026 lo que se pega es UNA línea (lib/pixel-cargador.ts) que sirve
+        // siempre la versión del día. Tampoco viaja por el chat: lleva el token de la cuenta,
+        // y un dato exacto que pasa por un modelo deja de serlo (AGENTS.md).
+        nota: 'El código no viaja por el chat. Manda el link: en Integraciones → Landing la persona copia con un botón UNA línea que se pega una vez, en todas sus páginas, y que se actualiza sola (el código completo queda como alternativa). Si ya tenía el código pegado, la línea va en su lugar.',
       });
     },
   },

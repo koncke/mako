@@ -822,7 +822,11 @@ type PasoPegar = { paso: string; plataformas?: Array<[string, string]> };
 const DONDE_PEGAR: PasoPegar[] = [
   { paso: 'Copia la línea de aquí arriba. Con ella, cada mejora del Pixel te llega sola.' },
   {
-    paso: 'Abre tu página y pégala justo antes de </body>, en todas las páginas que quieras medir.',
+    // ⚠️ «EN LUGAR DEL CÓDIGO VIEJO»: quien ya tenía el código pegado y suma la línea sin
+    // sacarlo deja DOS Pixeles corriendo (el snippet no se protege de correr dos veces), y
+    // cada visita se cuenta doble. Si la copia vieja es de la 22, ningún aviso lo dice: para
+    // `versionEnHtml` eso es «al día» (gana la más vieja, y la 22 no es vieja).
+    paso: 'Abre tu página y pégala justo antes de </body>, en todas las páginas que quieras medir. Si ya tenías el código del Pixel, bórralo.',
     plataformas: [
       ['Lovable, Claude Code, o cualquier editor web por prompt', 'pídele "pega este script antes del </body>".'],
       ['Framer', 'Settings → Custom Code → End of <body>.'],

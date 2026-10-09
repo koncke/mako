@@ -280,7 +280,7 @@ export function MapaDeCalor() {
         <EmptyState
           titulo="Todavía no hay toques aquí"
           detalle={version != null && version < PIXEL_PUNTO_DESDE
-            ? 'El código de esta página es anterior al mapa de calor. Vuelve a pegarlo y los toques empiezan a llegar.'
+            ? 'El código de esta página es anterior al mapa de calor. Pon la línea del Pixel en su lugar y los toques empiezan a llegar.'
             : `Cuando alguien toque esta página en ${disp === 'movil' ? 'un celular' : 'una computadora'}, aparece aquí.`}
           accion={version != null && version < PIXEL_ANCLA_DESDE ? { label: 'Actualizar el código', href: RUTA_PIXEL } : undefined}
         />

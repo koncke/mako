@@ -602,7 +602,7 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
       texto: version == null
         // Llegan visitas pero ninguna dice su versión: son de antes de que el
         // snippet la mandara, o sea de las más viejas que hay.
-        ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el Pixel es tan antiguo que no informa su versión. Copia el código de arriba y reemplázalo.`
+        ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el Pixel es tan antiguo que no informa su versión. Pon la línea del Pixel en lugar del código viejo.`
         : vieja
           ? `Está midiendo con la versión ${version}, y la actual es la ${SNIPPET_VERSION}. Pon la línea del Pixel EN ESTA PÁGINA, en lugar del código viejo, para sumar: ${novedadesDesde(version)}.`
           : version >= SNIPPET_VERSION

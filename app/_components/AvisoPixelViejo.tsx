@@ -52,9 +52,11 @@ export function AvisoPixelViejo() {
 
   if (sinChrome || !estado?.viejo) return null;
 
+  // ⚠️ El arreglo es la LÍNEA del Pixel (lib/pixel-cargador.ts, 09/10/2026), no repegar el
+  // código: la línea sirve siempre la versión del día, así que este aviso no vuelve.
   const porque = estado.instalada != null
-    ? `Tu página mide con la versión ${estado.instalada} del Pixel: vuelve a pegar el código para grabar las visitas y ver el mapa de calor.`
-    : 'Vuelve a pegar el código del Pixel para grabar las visitas y ver el mapa de calor.';
+    ? `Tu página mide con la versión ${estado.instalada} del Pixel: pon la línea del Pixel en lugar del código viejo para grabar las visitas y ver el mapa de calor.`
+    : 'Pon la línea del Pixel en lugar del código viejo para grabar las visitas y ver el mapa de calor.';
 
   return (
     <Link href={RUTA_PIXEL} title={porque} aria-label={porque}

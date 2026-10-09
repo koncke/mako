@@ -64,9 +64,17 @@ export function lineaCargador(token: string, base: string): string {
  * Se busca el camino con su parámetro (`/m.js?id=`) y no el dominio: el día que
  * MaKo se mude, las líneas pegadas con el dominio viejo siguen siendo nuestras.
  * Acepta `&amp;` y el resto del query después, que es como lo escribe un HTML.
+ *
+ * ⚠️ PERO EL TOKEN TIENE QUE SER NUESTRO (`mko_…`). `/m.js?id=` es un nombre genérico:
+ * cualquier otro script de la página puede llamarse así, y esta función es la que decide
+ * que una página «está al día» (`versionEnHtml`, lib/pixel-aviso.ts). Con un id ajeno, una
+ * página con el Pixel viejo metido por un administrador de etiquetas —que no está en el
+ * HTML— se leía como al día y el aviso se apagaba. Medido el 09/10/2026 (sólo lectura):
+ * los 9 tokens de landing del ruteo son `mko_` + 32 hex. La ruta sigue aceptando la forma
+ * amplia (`FORMA_TOKEN`); lo que se acota es lo que se AFIRMA de una página ajena.
  */
 export function tokenDelCargador(html: string | null | undefined): string | null {
-  const m = /\/m\.js\?(?:[^"'\s>]*?&(?:amp;)?)?id=([\w-]{8,64})(?=["'&\s>]|$)/.exec(html ?? '');
+  const m = /\/m\.js\?(?:[^"'\s>]*?&(?:amp;)?)?id=(mko_[\w-]{4,60})(?=["'&\s>]|$)/.exec(html ?? '');
   return m ? m[1] : null;
 }
 
