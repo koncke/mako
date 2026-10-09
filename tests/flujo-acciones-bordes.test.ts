@@ -26,6 +26,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { controlDe } from '../lib/editor-acciones';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s
@@ -156,7 +157,9 @@ test('el editor del paso: «Otro lead» se puede elegir, y los campos guardan la
   assert.match(src, /e\.target\.value \? Number\(e\.target\.value\) : LEAD_A_ELEGIR/, '«Otro lead» sin id vuelve como LEAD_A_ELEGIR, no como un vacío que se borra');
   assert.match(src, /typeof valor === 'number' \? valor : LEAD_A_ELEGIR/);
   assert.match(src, /key=\{`\$\{valor\.operacion \?\? ''\}:\$\{p\.nombre\}`\}/, 'el JSON crudo de un campo se queda de la acción anterior');
-  assert.match(src, /if \(p\.tipo === 'string\[\]' && p\.enum\?\.length\) \{[\s\S]*?varios=\{lista\}/);
+  // Desde la tercera tanda (09/10/2026) el control lo decide `controlDe` (lib/editor-acciones.ts).
+  assert.equal(controlDe({ nombre: 'respuestas', tipo: 'string[]', enum: ['0', '1'] }), 'varias');
+  assert.match(src, /case 'varias': \{[\s\S]*?varios=\{lista\}/);
   assert.match(src, /const ok = p\.tipo === 'object' \? esObjeto\(v\) : Array\.isArray\(v\) && v\.every\(esObjeto\);/);
 });
 

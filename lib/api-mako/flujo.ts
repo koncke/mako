@@ -39,6 +39,7 @@ import { createLead } from '@/lib/leads';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { enviarBorrador } from '@/lib/evolution-envio';
 import { runWithWorkspace } from '@/lib/workspace';
+import { ACCIONES_DEL_FLUJO, accionDelFlujo, type GrupoAccion } from '@/lib/editor-acciones';
 
 export type ResultadoFlujo = {
   ok: boolean;
@@ -177,20 +178,41 @@ async function crearLeadsDePropuesta(ws: number, propuestaId: string, ctx: Ctx):
 
 export type ParametroEditor = Pick<Parametro, 'nombre' | 'tipo' | 'descripcion' | 'obligatorio' | 'enum' | 'minimo' | 'maximo' | 'entero' | 'rotulo'>;
 export type AccionEditor = {
-  id: string; area: string; areaTitulo: string; titulo: string; descripcion: string;
+  id: string; area: string; areaTitulo: string;
+  /** El nombre en el lienzo: el de la lista corta si está en ella, si no el del registro. */
+  titulo: string;
+  descripcion: string;
   costo: string; reversible: boolean; pideLead: boolean; parametros: ParametroEditor[];
+  /** ¿Está en la lista corta del lienzo (`ACCIONES_DEL_FLUJO`)? Sólo éstas se ofrecen. */
+  curada: boolean;
+  /** Su grupo en el selector (null fuera de la lista corta). */
+  grupo: GrupoAccion | null;
+  /** La línea de qué hace, de la lista corta (null fuera de ella: el editor la saca de la descripción). */
+  que: string | null;
 };
 
 /**
  * Las acciones que un paso puede correr en ESTE workspace: las que su capa ve (el mismo
  * `visible()` de todo canal). Se arma en el server y baja por la API: el registro no se
  * importa desde un componente cliente (AGENTS.md).
+ *
+ * ⚠️ RESPETA LA LISTA CORTA (`ACCIONES_DEL_FLUJO`, lib/editor-acciones.ts; tercera tanda, punto 16:
+ * «siento que pusiste muchísimas acciones que tal vez no son necesarias»). Las de la lista van
+ * primero, en su orden, con su nombre de lienzo y `curada: true`; el selector sólo ofrece ésas. Las
+ * demás SIGUEN VINIENDO, con `curada: false`: un paso ya guardado con una de ellas (de antes, de la
+ * API, de Crear con IA) se tiene que poder dibujar con su nombre y editar con su formulario. Sacarlas
+ * del catálogo dejaba esa tarjeta con el id crudo y sin formulario.
  */
 export async function accionesParaFlujo(ws: number): Promise<AccionEditor[]> {
   const vista = await vistaDe(ctxDeFlujo(ws, 'catalogo', 'catálogo'));
-  return REGISTRO.filter((d) => esAccion(d) && visible(d, vista)).map((d) => ({
-    id: d.id, area: d.area, areaTitulo: AREA_INFO[d.area]?.titulo ?? d.area, titulo: d.titulo, descripcion: d.descripcion,
-    costo: d.costo, reversible: esAccion(d) ? d.reversible : false, pideLead: pideLead(d.parametros),
-    parametros: d.parametros.map((p) => ({ nombre: p.nombre, tipo: p.tipo, descripcion: p.descripcion, obligatorio: p.obligatorio, enum: p.enum, minimo: p.minimo, maximo: p.maximo, entero: p.entero, rotulo: p.rotulo })),
-  }));
+  const orden = new Map(ACCIONES_DEL_FLUJO.map((a, i) => [a.id, i]));
+  return REGISTRO.filter((d) => esAccion(d) && visible(d, vista)).map((d): AccionEditor => {
+    const lista = accionDelFlujo(d.id);
+    return {
+      id: d.id, area: d.area, areaTitulo: AREA_INFO[d.area]?.titulo ?? d.area, titulo: lista?.titulo ?? d.titulo, descripcion: d.descripcion,
+      costo: d.costo, reversible: esAccion(d) ? d.reversible : false, pideLead: pideLead(d.parametros),
+      parametros: d.parametros.map((p) => ({ nombre: p.nombre, tipo: p.tipo, descripcion: p.descripcion, obligatorio: p.obligatorio, enum: p.enum, minimo: p.minimo, maximo: p.maximo, entero: p.entero, rotulo: p.rotulo })),
+      curada: lista != null, grupo: lista?.grupo ?? null, que: lista?.que ?? null,
+    };
+  }).sort((a, b) => (orden.get(a.id) ?? 9999) - (orden.get(b.id) ?? 9999));
 }
