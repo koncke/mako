@@ -265,6 +265,7 @@ test('salir de la entrega también cierra, y no enrola nada', () => {
 });
 
 // Probado rompiéndolo (05/10/2026):
+//   · (09/10/2026, punto 14) cerrando sin la etapa nueva (`ctx?.etapa` fuera de la llamada): 1 fallo.
 //   · borrando la llamada a `cerrarEntregaDeEtapa` del evento: 1 fallo.
 //   · invirtiendo el orden (enrolar antes de cerrar): 1 fallo, el del orden.
 //   · reemplazando `secuenciasDeEntrega` por un filtro a mano adentro del cierre:

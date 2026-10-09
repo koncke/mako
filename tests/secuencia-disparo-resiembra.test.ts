@@ -17,6 +17,9 @@
 // componente dio 1 fallo y 4 pases (cae el guard del cableado); haciendo que `firmaDisparo` ignore
 // `trigger_tipo` dio 1 fallo y 4 pases (cae el de «manual» contra un disparador por evento, que deja
 // la etapa igual — con sólo el caso de la etapa cambiada esa rotura pasaba en VERDE).
+// CUARTA TANDA, PUNTO 14 (09/10/2026): volver a sembrar aunque haya un guardado en camino (sacar el
+// `if (!guardandoDisparo)`) → 1 fallo (el del render); `etapasDe` sin la coherencia → cae «VARIAS
+// etapas…» (tests/cron-varias-etapas.test.ts trae el detalle de las 19 roturas).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

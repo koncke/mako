@@ -306,6 +306,23 @@ test('el prompt dice la regla (la primera capa) y la ruta le pasa el pedido y la
   assert.match(ruta, /etapas: Array\.isArray\(pedidoTrigger\.etapas\) \? \(pedidoTrigger\.etapas as unknown\[\]\)\.map\(String\) : null,/);
 });
 
-// PROBADO ROMPIÉNDOLO (09/10/2026, cuarta tanda): baseline 17 pass / 0 fail. Una rotura por vez,
-// restaurada de memoria:
-//   (los números van en el commit de los tests, debajo)
+// PROBADO ROMPIÉNDOLO (09/10/2026, cuarta tanda; arnés en el scratchpad de la sesión, romper.mjs, que
+// restaura de MEMORIA en un `finally`). Corriendo este archivo + secuencia-disparo-resiembra +
+// nutricion-etapa: baseline 52 pass / 0 fail. Una rotura por vez:
+//    1. `etapasDe` sin la coherencia (la lista manda siempre) → 49 / 3 (etapasDe, el evento de venta
+//       con la lista vieja, y la firma del CRON).
+//    2. `secuenciasDeEtapa` con UNA etapa → 51 / 1.     3. `secuenciasDeEntrega` con UNA → 51 / 1.
+//    4. cerrar sin restar las que cubren la nueva → 51 / 1.
+//    5. la cohorte de la entrega con la primera etapa → 51 / 1.
+//    6. el evento cierra sin la etapa nueva → 51 / 1 (cae el guard de nutricion-etapa.test.ts).
+//    7. la lectura del motor tragándose cualquier error → 51 / 1.
+//    8. sin la 0230, guardar la primera de varias en silencio → 51 / 1.
+//    9. otro kanban se SUMA en vez de reemplazar → 51 / 1.   10. la última etapa se apaga → 51 / 1.
+//   11. sin «Cualquier etapa» → 51 / 1.   12. el pedido sin `etapas` → 51 / 1.
+//   13. sin la segunda capa del alumno → 51 / 1.
+//   14. `hablaDeAlumno` con tres palabras en el medio → 51 / 1 («terminaron el formulario del curso»).
+//   15. mezclar kanbans sin aviso → 51 / 1.
+//   16. la relectura re-siembra en medio del respiro → 51 / 1 (cae el de secuencia-disparo-resiembra).
+//   17. la 0230 con backfill → 51 / 1.   18. la ruta no pasa el pedido → 51 / 1.
+//   19. el barrido pasa UNA etapa (`sec.etapa`) → 51 / 1.
+// Restaurado: 52 / 0.
