@@ -67,9 +67,56 @@ export type CronAviso = {
   hora: number;
   minuto: number;
   diaSemana?: number;
+  /**
+   * VARIOS días de la semana (sexta tanda del Chatbot, 09/10/2026, CRON punto 9: «no puedo poner
+   * más de 1 día a la semana, martes y jueves por ejemplo»). 0 = domingo, en el orden de la semana
+   * que arranca el LUNES (`ordenarDias`). Sólo con `unidad: 'semana'` y sólo con DOS o más: con uno
+   * no se escribe y `diaSemana` dice cuál, así que un horario de antes (o de /mensajes, que no
+   * ofrece varios) se sanea idéntico. Cuando está, `diaSemana` es el primero.
+   */
+  dias?: number[];
   diaMes?: number;
+  /**
+   * «El segundo martes» en vez de «el día 10» (el bloque del mes del diálogo de Google Calendar que
+   * copia el Plan, `RepeticionModal` de app/plan/board/AccionesLote.tsx). 1 a 4, o -1 = el último;
+   * va con `diaSemana`. Sólo con `unidad: 'mes'`. Ausente = `diaMes`, como siempre.
+   */
+  ordinal?: number;
   mes?: number;
+  /**
+   * Desde qué día sale (YYYY-MM-DD, en la zona del horario): antes no sale nada. Es la «fecha de
+   * inicio» con calendario del pedido (CRON punto 9). Ausente = desde ya.
+   */
+  desde?: string;
+  /**
+   * La zona del horario (IANA), cuando la persona la eligió (CRON punto 9: «por defecto, siempre
+   * dejalo en el huso del usuario, pero que se pueda editar»). Ausente = la del negocio, que es lo
+   * que pasa quien llama. MANDA sobre la que llega por parámetro (`proximaOcurrencia`).
+   */
+  tz?: string;
 };
+
+/** Los días en el orden de una semana que arranca el LUNES (como el diálogo del Plan). */
+const ordenSemana = (d: number): number => (d + 6) % 7;
+const ordenarDias = (ds: number[]): number[] => [...new Set(ds)].sort((a, b) => ordenSemana(a) - ordenSemana(b));
+
+/** ¿Es una zona que este motor de fechas conoce? Sin `server-only` (lib/timezone lo tiene). */
+export function zonaValida(tz: unknown): tz is string {
+  if (typeof tz !== 'string' || !tz.trim() || tz.length > 64) return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
+}
+
+/** 'YYYY-MM-DD' que existe en el calendario. */
+const fechaValida = (s: unknown): s is string => {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  const f = new Date(Date.UTC(y, m - 1, d));
+  return f.getUTCFullYear() === y && f.getUTCMonth() === m - 1 && f.getUTCDate() === d;
+};
+
+/** La zona con la que se calcula un horario: la suya si la eligió, si no la del negocio. */
+export const zonaDelCron = (c: Pick<CronAviso, 'tz'> | null | undefined, porDefecto: string): string =>
+  (c?.tz && zonaValida(c.tz) ? c.tz : porDefecto);
 
 const enteroEn = (v: unknown, min: number, max: number, def: number): number => {
   const n = Math.floor(Number(v));
@@ -96,9 +143,27 @@ export function sanearCron(v: unknown): CronAviso | null {
     hora: enteroEn(o.hora, 0, 23, 9),
     minuto: enteroEn(o.minuto, 0, 59, 0),
   };
-  if (unidad === 'semana') out.diaSemana = enteroEn(o.diaSemana, 0, 6, 1);
-  if (unidad === 'mes' || unidad === 'anio') out.diaMes = enteroEn(o.diaMes, 1, DIA_MES_MAX, 1);
+  if (unidad === 'semana') {
+    // VARIOS días: los que se entienden, sin repetir y en el orden de la semana. Con UNO solo no se
+    // escribe la lista (el horario queda igual que uno de antes); sin ninguno válido, `diaSemana`.
+    const dias = Array.isArray(o.dias)
+      ? ordenarDias((o.dias as unknown[]).map((x) => Math.floor(Number(x))).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))
+      : [];
+    out.diaSemana = dias.length ? dias[0] : enteroEn(o.diaSemana, 0, 6, 1);
+    if (dias.length > 1) out.dias = dias;
+  }
+  // «El segundo martes» (sólo el mes): con un ordinal que se entiende, va con su día de la semana y
+  // sin `diaMes`; si no, el día del mes de siempre.
+  const ordinal = Math.floor(Number(o.ordinal));
+  if (unidad === 'mes' && o.ordinal != null && (ordinal === -1 || (ordinal >= 1 && ordinal <= 4))) {
+    out.ordinal = ordinal;
+    out.diaSemana = enteroEn(o.diaSemana, 0, 6, 1);
+  } else if (unidad === 'mes' || unidad === 'anio') out.diaMes = enteroEn(o.diaMes, 1, DIA_MES_MAX, 1);
   if (unidad === 'anio') out.mes = enteroEn(o.mes, 1, 12, 1);
+  // La fecha de inicio y la zona: sólo si se entienden. Una zona inventada no tira el horario: se
+  // cae a la del negocio, que es lo que pasaría sin el campo.
+  if (fechaValida(o.desde)) out.desde = o.desde;
+  if (zonaValida(o.tz)) out.tz = o.tz;
   return out;
 }
 
@@ -124,12 +189,22 @@ export function textoCron(c: CronAviso, tz?: string | null): string {
   let base: string;
   if (c.unidad === 'hora') base = n === 1 ? 'Cada hora' : `Cada${cada}`;
   else if (c.unidad === 'dia') base = n === 1 ? `Todos los días a las ${hora}` : `Cada${cada} a las ${hora}`;
+  // VARIOS días: «Todos los martes y jueves». Con uno, la frase de siempre (los horarios de antes
+  // y los de /mensajes se leen igual que ayer).
+  else if (c.unidad === 'semana' && (c.dias?.length ?? 0) > 1) base = `${n === 1 ? 'Todos los' : `Cada${cada}, los`} ${enumerar(c.dias!.map((d) => DIAS_PLURAL[d]))} a las ${hora}`;
   else if (c.unidad === 'semana') base = `${n === 1 ? 'Todos los' : `Cada${cada}, el`} ${DIAS[c.diaSemana ?? 1]} a las ${hora}`;
+  else if (c.unidad === 'mes' && c.ordinal != null) base = `${n === 1 ? 'El' : `Cada${cada}, el`} ${ORDINAL_TXT[String(c.ordinal)] ?? 'primer'} ${DIAS[c.diaSemana ?? 1]}${n === 1 ? ' de cada mes' : ''} a las ${hora}`;
   else if (c.unidad === 'mes') base = `${n === 1 ? 'El' : `Cada${cada}, el`} ${c.diaMes ?? 1} a las ${hora}`;
   else base = `${n === 1 ? 'El' : `Cada${cada}, el`} ${c.diaMes ?? 1} de ${MESES[(c.mes ?? 1) - 1]} a las ${hora}`;
+  // La zona que se NOMBRA es la que se usa: la del horario si la eligió, si no la que pasa quien llama.
+  const zona = c.tz && zonaValida(c.tz) ? c.tz : tz;
   // «Cada hora» no lleva hora de pared: la hora de pared no la decide nadie ahí.
-  return c.unidad === 'hora' || !tz ? base : `${base} de ${tz}`;
+  return c.unidad === 'hora' || !zona ? base : `${base} de ${zona}`;
 }
+
+const DIAS_PLURAL = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'];
+const ORDINAL_TXT: Record<string, string> = { '1': 'primer', '2': 'segundo', '3': 'tercer', '4': 'cuarto', '-1': 'último' };
+const enumerar = (xs: string[]): string => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
 
 // ── HORA DE PARED ↔ INSTANTE ────────────────────────────────────────────────
 // No hay librería de fechas en el repo (medido: ni luxon, ni date-fns, ni
@@ -195,26 +270,44 @@ const diaValido = (y: number, m: number, d: number): number =>
  * vueltas es un backstop: con `cada: 99` años y un `anterior` de 1970 el bucle
  * igual termina.
  */
-export function proximaOcurrencia(c: CronAviso, anterior: Date, tz: string, ahora: Date = new Date()): Date {
+export function proximaOcurrencia(c: CronAviso, anteriorPedido: Date, tzPedida: string, ahora: Date = new Date()): Date {
+  // ⚠️ LA ZONA DEL HORARIO MANDA SOBRE LA QUE LLEGA (CRON punto 9: el huso se elige). Va acá y no en
+  // cada caller: son cinco (el motor, el dry-run, el guardado, los avisos programados, la pantalla) y
+  // uno que se olvide calcularía en otra zona sin un error.
+  const tz = zonaDelCron(c, tzPedida);
+  // ⚠️ LA FECHA DE INICIO ES UN PISO, Y LA GRILLA ARRANCA AHÍ. Con un ancla anterior al inicio
+  // (un horario recién guardado, sembrado con `ahora`), se ancla en el INICIO: «cada 2 días desde el
+  // jueves» tiene que salir el jueves, no el viernes por haber contado desde hoy.
+  const piso = c.desde ? instanteDe(tz, ...(c.desde.split('-').map(Number) as [number, number, number]), 0, 0) : null;
+  const antesDelPiso = piso != null && anteriorPedido.getTime() < piso.getTime();
+  // El «un milisegundo antes» hace que la primera del día de inicio valga (`vale` exige DESPUÉS del ancla).
+  const anterior = antesDelPiso ? new Date(piso!.getTime() - 1) : anteriorPedido;
+  const vale = (t: number): boolean => t > ahora.getTime() && t > anterior.getTime();
+
   if (c.unidad === 'hora') {
     const paso = c.cada * 3_600_000;
-    let t = anterior.getTime() + paso;
+    // Con piso, la grilla de las horas arranca en el inicio (el primero sale ahí mismo).
+    const base = antesDelPiso ? piso!.getTime() - paso : anterior.getTime();
+    let t = base + paso;
     if (t <= ahora.getTime()) {
       // Se salta a la ocurrencia de la grilla que viene después de ahora.
-      const saltos = Math.ceil((ahora.getTime() - anterior.getTime()) / paso);
-      t = anterior.getTime() + Math.max(1, saltos) * paso;
+      const saltos = Math.ceil((ahora.getTime() - base) / paso);
+      t = base + Math.max(1, saltos) * paso;
       if (t <= ahora.getTime()) t += paso;
     }
     return new Date(t);
   }
 
-  const a = partesEn(tz, anterior);
+  const a = antesDelPiso ? partesEn(tz, piso!) : partesEn(tz, anterior);
   let y = a.y, m = a.m, d = a.d;
+
+  // VARIOS DÍAS DE LA SEMANA (o uno, con su propio camino: el de abajo, que es el de siempre).
+  if (c.unidad === 'semana' && (c.dias?.length ?? 0) > 1) return proximaSemanalVarios(c, tz, y, m, d, vale, ahora);
 
   for (let i = 0; i < 5000; i++) {
     if (c.unidad === 'dia') {
       const cand = instanteDe(tz, y, m, d, c.hora, c.minuto);
-      if (cand.getTime() > ahora.getTime() && cand.getTime() > anterior.getTime()) return cand;
+      if (vale(cand.getTime())) return cand;
       const sig = new Date(Date.UTC(y, m - 1, d + c.cada));
       y = sig.getUTCFullYear(); m = sig.getUTCMonth() + 1; d = sig.getUTCDate();
       continue;
@@ -232,16 +325,18 @@ export function proximaOcurrencia(c: CronAviso, anterior: Date, tz: string, ahor
         continue;   // vuelve a entrar ya parado en el día pedido
       }
       const cand = instanteDe(tz, y, m, d, c.hora, c.minuto);
-      if (cand.getTime() > ahora.getTime() && cand.getTime() > anterior.getTime()) return cand;
+      if (vale(cand.getTime())) return cand;
       const sig = new Date(Date.UTC(y, m - 1, d + 7 * c.cada));
       y = sig.getUTCFullYear(); m = sig.getUTCMonth() + 1; d = sig.getUTCDate();
       continue;
     }
-    // mes y año
+    // mes y año. «El segundo martes» (`ordinal`) se busca en CADA mes: no es un número fijo.
     const mesObjetivo = c.unidad === 'anio' ? (c.mes ?? 1) : m;
-    const dia = diaValido(y, mesObjetivo, c.diaMes ?? 1);
+    const dia = c.unidad === 'mes' && c.ordinal != null
+      ? diaDelOrdinal(y, mesObjetivo, c.ordinal, c.diaSemana ?? 1)
+      : diaValido(y, mesObjetivo, c.diaMes ?? 1);
     const cand = instanteDe(tz, y, mesObjetivo, dia, c.hora, c.minuto);
-    if (cand.getTime() > ahora.getTime() && cand.getTime() > anterior.getTime()) return cand;
+    if (vale(cand.getTime())) return cand;
     if (c.unidad === 'anio') { y += c.cada; continue; }
     const sig = new Date(Date.UTC(y, m - 1 + c.cada, 1));
     y = sig.getUTCFullYear(); m = sig.getUTCMonth() + 1; d = 1;
@@ -249,6 +344,66 @@ export function proximaOcurrencia(c: CronAviso, anterior: Date, tz: string, ahor
   // Backstop: no puede pasar con los topes de arriba, y si pasa no se agenda nada
   // en el pasado — que es lo que dispararía un envío por tick para siempre.
   return new Date(ahora.getTime() + 86_400_000);
+}
+
+/** El día de la semana de una fecha de CALENDARIO (0 = domingo). No depende de ninguna zona. */
+const dowDe = (y: number, m: number, d: number): number => new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+const diasDelMes = (y: number, m: number): number => new Date(Date.UTC(y, m, 0)).getUTCDate();
+
+/** «El segundo martes» de un mes: 1 a 4, o -1 = el último. */
+function diaDelOrdinal(y: number, m: number, ordinal: number, diaSemana: number): number {
+  if (ordinal === -1) {
+    const ultimo = diasDelMes(y, m);
+    return ultimo - ((dowDe(y, m, ultimo) - diaSemana + 7) % 7);
+  }
+  return 1 + ((diaSemana - dowDe(y, m, 1) + 7) % 7) + (ordinal - 1) * 7;
+}
+
+/**
+ * VARIOS DÍAS DE LA SEMANA, «cada N semanas» (CRON punto 9: martes y jueves). Es la generalización
+ * del camino de un solo día, y con un solo día da LO MISMO (lo fija tests/cron-aviso-dias.test.ts):
+ *
+ *   1. se PLANTA en el primer día elegido desde el ancla (el de la semana en curso, si queda);
+ *   2. las semanas que valen son las de esa planta y las de `cada` en `cada` después — semanas de
+ *      CALENDARIO, de lunes a domingo, como el diálogo de Google Calendar que copia el Plan. Con
+ *      semanas que arrancan en la planta, «cada 2 semanas, martes y jueves» desde un miércoles daba
+ *      jueves y el martes CINCO días después, que no es lo que nadie eligió;
+ *   3. se recorre día por día dentro de las semanas que valen.
+ *
+ * ⚠️ Y SALTA LO PERDIDO DE A CICLOS ENTEROS: con el cron caído un mes, recorrer día por día desde el
+ * ancla vieja serviría igual (5000 vueltas), pero el salto deja la grilla en su lugar y no depende del
+ * tope del bucle.
+ */
+function proximaSemanalVarios(
+  c: CronAviso, tz: string, y0: number, m0: number, d0: number,
+  vale: (t: number) => boolean, ahora: Date,
+): Date {
+  const dias = new Set(c.dias ?? [c.diaSemana ?? 1]);
+  const DIA = 86_400_000;
+  const fecha = (ms: number) => { const f = new Date(ms); return { y: f.getUTCFullYear(), m: f.getUTCMonth() + 1, d: f.getUTCDate() }; };
+  // 1. La planta: el primer día elegido desde el ancla (incluido el día del ancla).
+  let planta = Date.UTC(y0, m0 - 1, d0);
+  for (let i = 0; i < 7 && !dias.has(new Date(planta).getUTCDay()); i++) planta += DIA;
+  // 2. El lunes de la semana de la planta, y el largo de un ciclo.
+  const lunes0 = planta - ordenSemana(new Date(planta).getUTCDay()) * DIA;
+  const ciclo = 7 * c.cada * DIA;
+  // Lo perdido se salta de a ciclos enteros, sin pasar de la planta.
+  const a = partesEn(tz, ahora);
+  const hoy = Date.UTC(a.y, a.m - 1, a.d);
+  let desde = planta;
+  if (hoy - DIA > planta) {
+    const ciclos = Math.floor((hoy - DIA - lunes0) / ciclo);
+    desde = Math.max(planta, lunes0 + ciclos * ciclo);
+  }
+  // 3. Día por día, sólo en las semanas que valen.
+  for (let t = desde, i = 0; i < 5000; t += DIA, i++) {
+    const semana = Math.floor((t - lunes0) / (7 * DIA));
+    if (semana % c.cada !== 0 || !dias.has(new Date(t).getUTCDay())) continue;
+    const f = fecha(t);
+    const cand = instanteDe(tz, f.y, f.m, f.d, c.hora, c.minuto);
+    if (vale(cand.getTime())) return cand;
+  }
+  return new Date(ahora.getTime() + DIA);
 }
 
 // ── QUÉ PUEDE SALIR POR TIEMPO ──────────────────────────────────────────────
