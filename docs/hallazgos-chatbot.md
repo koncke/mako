@@ -1754,6 +1754,150 @@ en cada uno de los 7 reintentos.
 - **Medir en Messenger si quien comenta y quien contesta son la misma fila** (ver la tabla). Si no, la unión
   sale del eco de la respuesta privada (`message.sent`), que hoy no se escucha. `lib/zernio-entrante.ts`
 - **Verlo con clics y un evento real**: nada de esto recibió un webhook de verdad.
+## Sexta tanda (09/10/2026, parte «whatsapp»): el audio, la grabación, el número y el ✦ por mensaje
+
+### El audio «que no se escucha» no era el audio: un porcentaje cíclico dejaba el reproductor en 0 px [whatsapp]
+
+Síntoma (WhatsApp 1 y 8): en el editor del lienzo la burbuja de un audio salía vacía («no aparece nada») y
+en /whatsapp un audio propio mostraba sólo «—» y «⋮», sin play ni duración. Es la familia de la #350.
+
+El diagnóstico obvio —el MP3 de lamejs sin cabecera Xing que la tarjeta #350 apuntaba— era el equivocado.
+Medido en orden: **datos** (`wa_mensajes` 89057 del ws1, el audio que Martín se mandó: `media_path` puesto,
+MP3 válido, cabecera `fffb`, 30.528 bytes); **server** (la URL firmada contesta 206 `audio/mpeg`);
+**navegador** (el mismo archivo en un `<audio controls>` de 240 px dura 2,544 s y suena). Con la burbuja
+REAL renderizada y medida en Chrome: el `<audio>` medía **43 px** en /whatsapp y **0 px** en el editor.
+La burbuja se ajusta a su contenido (`max-width: 78%` en un flex) y el reproductor tenía
+`width: min(240px, 100%)`: ese 100% es cíclico, y para un elemento REEMPLAZADO el navegador lo resuelve
+contra cero al calcular el ancho de la burbuja. En /whatsapp sólo la hora y las palomitas le daban 45 px;
+los controles nativos de Chrome se esconden de a uno cuando no entran, y el play es el primero que se va.
+
+La regla: **un reemplazado (`audio`, `video`, `img`) adentro de una caja que se ajusta a su contenido lleva
+un ancho en px, nunca un % ni un `min(px, %)`**: el % se resuelve contra la caja que mide lo que mide él. El
+reproductor pasó a ser propio (▶, avance y tiempo) con ancho en px; adentro de una caja de ancho conocido
+(la tarjeta), `100%`. Y para diagnosticar «no se ve», se mide el ancho del elemento antes que el archivo.
+
+**Vive en:** `app/whatsapp/_shared/AudioPlay.tsx` · `app/whatsapp/_shared/BurbujaHilo.tsx` (`ANCHO_AUDIO`) · `tests/whatsapp-sexta-tanda.test.ts`
+
+### Un 78% de una caja que se ajusta a su hijo es un hueco del 22% [whatsapp]
+
+Síntoma (WhatsApp 4): el lápiz y la papelera de la segunda burbuja quedaban lejos del mensaje. La burbuja
+llevaba su `max-width: 78%` adentro de un envoltorio que se ajusta a ella: el envoltorio crecía hasta el
+ancho del texto y la burbuja ocupaba el 78% de eso, alineada a la derecha. Con un texto largo, un cuarto de
+la fila vacío entre los botones y el mensaje. **El tope de ancho lo pone la FILA** (el envoltorio con
+`max-width: calc(100% - 70px)`), y la burbuja va al 100% de él (`BurbujaHilo` `maxAncho`). Medido en
+Chrome después: 6 px entre la papelera y la burbuja.
+
+**Vive en:** `app/chatbot/EditorMensajeWhatsApp.tsx` (`vista`) · `app/whatsapp/_shared/BurbujaHilo.tsx` (`maxAncho`)
+
+### «Terminar» no es «mandar», y un MediaRecorder parado no se reanuda [whatsapp]
+
+Pedido (WhatsApp 7): «al darle enviar, en cualquier lado, no se debe enviar, se debe "terminar"… y donde
+aparece el punto rojo, el botón de reproducir… Y si apreto el botón de enviar otra vez, ahí sí se envía».
+La sesión (`crearSesionVoz`) va sobre el grabador de siempre: cada ✓ es un `stop` cuyo blob NO se entrega,
+se guarda como TRAMO; la ➤ une los tramos y recién ahí entrega. Tres cosas que no se ven en el código:
+
+- **«Seguir grabando» después de terminar no existe en MediaRecorder**: parado, no se reanuda. Pausarlo en
+  vez de pararlo dejaba el micrófono prendido mientras la persona escucha. Se graba otro tramo y se unen
+  decodificando (Web Audio) en un WAV; quien manda lo pasa a MP3 igual que a un tramo solo (`blobToMp3`
+  decodifica cualquier cosa que el navegador entienda), así el camino de envío no cambia.
+- **`audioAlSoltar` (EmpresaInbox) ya no decide nada** y el archivo que la pasa no se tocó: la regla vive en
+  el composer, que es por donde pasan los tres que graban («en todos lados»). Lo mismo para los grabadores
+  del onboarding (`GrabadorAudioPaso`) y `PasoAudioControl`.
+- **El composer de ChatHilo va por conversación** (`key`): una escucha a medias ya no viaja al chat de al
+  lado. El borrador de AUDIO por chat que guardaba ChatHilo se fue con esto, a sabiendas.
+
+Probado en Chrome con micrófono FALSO (`--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`
+y `permissions: ['microphone']`): grabar → ✓ → la barra de escuchar (sin ➤ mientras graba) → 🎤 → ✓ → el
+WAV unido dura 2,76 s y suena → ➤ entrega UNA vez.
+
+**Vive en:** `app/whatsapp/_shared/VoiceRecorder.tsx` (`crearSesionVoz`, `useGrabacionVoz`, `BarraGrabacion`, `unirAudios`) · `app/whatsapp/_shared/ComposerWhatsApp.tsx` · `app/whatsapp/_shared/ChatHilo.tsx`
+
+### La línea de UN mensaje: en el paso, `null` no es «la de por default» [whatsapp]
+
+WhatsApp 2: el número es de cada tarjeta (`linea` del paso; el motor manda con `lineaDelPaso(paso) ??
+sec.instance_name`). El selector de siempre guardaba la de por default como `null`, que en la SECUENCIA es
+«la de por default» y en el PASO es «la de la automatización» —que puede ser otra—: elegir la principal en un
+mensaje lo dejaba siguiendo a la automatización. Con `explicita` se guarda su nombre (`lineaElegida`).
+Y `setSecuenciaPasos` la reconstruye con la regla de las variantes: con la clave manda lo que llega, sin la
+clave (la API, /email, el generador) se conserva la del mismo paso por su id (`lineaAlGuardar`). Una línea
+pedida que no es del negocio no está en `lineasEvo`: `canalDeLinea` frena el envío con su motivo, sin caer
+a otra (AGENTS.md, «Un negocio tiene VARIAS líneas»).
+
+**Vive en:** `lib/mensaje-partes.ts` (`lineaDelPaso`, `lineaAlGuardar`) · `lib/nutricion.ts` (la línea del envío y `setSecuenciaPasos`) · `app/chatbot/SalidaWhatsApp.tsx` (`lineaElegida`) · `app/chatbot/EditorMensajeWhatsApp.tsx` (`CabeceraWhatsApp`)
+
+### La pausa entre los mensajes de una tarjeta duerme ADENTRO de la corrida: por eso es corta [whatsapp]
+
+WhatsApp 11. Las partes salen una detrás de otra en la MISMA ejecución (`enviarPartesDelPaso`): una pausa es
+el motor durmiendo. El cron (`maxDuration` 300) manda hasta 6 leads y además duerme hasta 150 s por las
+esperas cortas; con pausas de minutos, seis leads se comen la función, y una función cortada a la mitad no
+escribe cuántas partes salieron: el reintento le repite al lead lo que ya leyó. Topes: 10 s por pausa y 20 s
+por tarjeta (`problemaDePartes` al guardar, `pausaAntesDe` en el motor); para más, la tarjeta DELAY, que
+programa en vez de dormir. Dos trampas: el audio con pie de siempre (`formaGuardada`) colapsaba
+[audio, texto] a los campos de antes y la pausa del texto no tenía dónde guardarse (con pausa, se guarda
+como dos partes); y la pausa por default era 1,2 s y la pantalla decía «1 s» (pasó a 1 s redondo).
+
+**Vive en:** `lib/mensaje-partes.ts` (`pausaAntesDe`, `pausasPosibles`, `PAUSA_TOTAL_MAX_S`, `formaGuardada`) · `lib/nutricion.ts` (`enviarPartesDelPaso`)
+
+### El ✦ de MaKo: el contexto por el REGISTRO, y lo que el registro no deja ver desde la app [whatsapp]
+
+WhatsApp 3. La ruta lee el negocio, los productos, el embudo, el curso y la voz con `ejecutarOperacion`
+(canal `app`, alcance lectura): las mismas lecturas de MaKo por WhatsApp, con su gating. **`listar_cursos`
+contesta 404 desde la app**: el área `curso` declara `canales: ['http']`. Se pide igual y se saltea; el día
+que el área sume `'app'`, entra sola (está en «bloqueantes» del reparto). Dos más:
+
+- **El detector de voseo marca «acá»** (`marcasDeVoseo`, lib/puestas-data.ts): un mensaje del modelo con
+  «agenda acá» se descarta como voseo. Para el neutro es «aquí»; lo dice el prompt.
+- **El «demasiado corto» de WhatsApp 6** (`GUION_PALABRAS.min` 25, lib/guion-audio.ts) no pasa por el ✦: el
+  filtro del panel no tiene piso (un audio corto es un audio) y sí el techo. El botón «✦ guion» que lo
+  disparaba salió de la grabación; el piso sigue vivo para «Escríbeme el guion» del onboarding.
+
+**Vive en:** `lib/mako-redacta.ts` · `app/api/chat-agent/redactar/route.ts` · `app/chatbot/MakoRedacta.tsx`
+
+### Proceso: un componente del lienzo se verifica sin `next dev`, con esbuild y Chrome [proceso]
+
+`renderToStaticMarkup` sirve para medir anchos (el HTML real en Chrome headless) pero no ata eventos: un ▶
+no suena. Para probar un gesto, esbuild (el del clon) arma el componente con React vivo en un `.js` suelto
+(`alias` al worktree, `nodePaths` al `node_modules`) y Playwright lo abre por `file://` con
+`--allow-file-access-from-files`. Necesita un `banner` con `var process = { env: {...} }`: `next/link`, que
+entra por `app/_ui/Link`, lee `process.env` al importar y sin eso la página queda en blanco. Para grabar,
+los flags del micrófono falso de arriba. Ni un POST a producción, y sin el `turbopack.root`.
+
+### Dos guards de OTRAS áreas leían lo que esta parte tocó, y sólo los vio el `npm test` completo [proceso]
+
+Los tests de los archivos tocados daban 124/0; la suite entera, 6400/2. Los dos rojos eran guards que leen
+fuente de otra área:
+
+- **Un prompt que CITA el voseo para prohibirlo cae en el guard del voseo** (`tests/puente-panel-copy.test.ts`
+  barre `lib/` entero): «Nada de voseo («tenés», «querés»)» en `lib/mako-redacta.ts` lo frenó. Se nombran
+  las formas neutras («tienes», «quieres»), nunca las prohibidas.
+- **La línea por mensaje rompía un guard de Comunicación**: `tests/lineas-whatsapp.test.ts` exigía
+  `const lineaSec = sec.instance_name;` literal en la rama del no oficial de `lib/nutricion.ts`. Se mudó a
+  la forma nueva (`lineaDelPaso(paso) ?? sec.instance_name`), probado rompiéndolo (15/1).
+
+La regla: antes de dar por cerrada una parte que toca `lib/nutricion.ts` o un prompt, `grep` de la ruta en
+`tests/` (`leer('lib/nutricion.ts')`) dice qué otros guards la miran; correr sólo los propios no los ve.
+
+**Vive en:** `tests/lineas-whatsapp.test.ts` · `tests/puente-panel-copy.test.ts` · `lib/mako-redacta.ts`
+
+### Lo que quedó sin hacer (parte «whatsapp»)
+
+- **Las Notificaciones con la tarjeta MAKO y el editor nuevo (MaKo en WhatsApp 3)**: su lienzo es
+  `app/agencia/FlujoAviso.tsx` + `lib/flujo-aviso.ts` (la tarjeta «WHATSAPP» sale de `grafoDeAviso`, del
+  CÓDIGO: no hay datos que convertir) y el editor viejo es `app/agencia/EditorMensaje.tsx`. Quedó listo
+  `EditorMensajeGrupo` para montarlo; los cambios exactos están en «bloqueantes» del reparto.
+- **El título de la TARJETA MAKO** en el lienzo sigue «MAKO» (`TITULO.mako`, `lib/flujo-conversacion.ts`); la
+  cabecera del panel ya dice «MaKo en WhatsApp».
+- **El onboarding del Video Generator** (`app/video-generator/OnboardingVideoGen.tsx`) sigue con el grabador
+  que entrega al soltar (tiene la barra nueva, no la escucha) y la tarea del alumno
+  (`app/compartido/curso/[token]/TareaAlumno.tsx`) tiene su propio MediaRecorder.
+- **El disparador no le llega al ✦** (el `disparador` del lienzo a `EditorDeNodo`, `app/chatbot/FlujoLienzo.tsx`).
+- **El clon de configuración se lleva la línea POR MENSAJE** (`secuenciaParaElDestino`, `lib/clonar-config.ts`):
+  vacía `audio_id` y `media_id` y deja la `linea` del paso, que nombra un número del DUEÑO. En el destino
+  `elegirLinea` la rechaza (no es del negocio) y ese mensaje no sale, sin caer a la de por default. Va
+  `linea` en la misma lista, con su aviso («vuelve a la línea de la automatización»). Duplicar
+  (`lib/secuencia-duplicar.ts`) es del mismo workspace y está bien que la conserve.
+- **Verlo con clics en producción**: el ✦ con las keys reales de un cliente (sólo se probó la pantalla) y
+  la grabación en Safari (el WAV unido se probó en Chrome).
 
 ## Lo que quedó sin hacer
 

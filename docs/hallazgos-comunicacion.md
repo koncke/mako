@@ -8806,6 +8806,13 @@ Range y desde un `blob:` recién grabado, con 2,5 s y con 40 s— y en **WebKit*
 storage. La tarjeta queda abierta: no está probado que esté arreglada, falta saber en qué
 navegador se vio o probarlo en la pantalla real.
 
+⚠️ **Actualización 09/10/2026 (sexta tanda del Chatbot): la causa NO era el archivo, era el ANCHO.** Con
+la burbuja real medida en Chrome, el `<audio>` medía 43 px en /whatsapp y 0 px en el editor del lienzo:
+`width: min(240px, 100%)` adentro de una burbuja que se ajusta a su contenido es un porcentaje cíclico, y
+para un reemplazado el navegador lo resuelve contra cero. Por eso el arnés de arriba —un `<audio>` suelto,
+con su ancho— sonaba siempre. `AudioPlay` pasó a ser un reproductor propio con ancho en px. El detalle, en
+[hallazgos-chatbot.md](hallazgos-chatbot.md) → «El audio "que no se escucha" no era el audio».
+
 Dos trampas del entorno, para el próximo que lo mida:
 
 - **El Chromium de Playwright (`ms-playwright/chromium-1243`) no arranca en esta máquina**:

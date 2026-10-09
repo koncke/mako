@@ -221,8 +221,14 @@ test('el paso de la voz vuelve al catálogo como OPCIONAL: no reabre el onboardi
 // y que el editor la llame.
 test('la casilla sale sólo donde el saneo conserva el modo, con la MISMA función', () => {
   const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-  assert.match(lienzo, /function permiteIADe\(paso: PasoSecuenciaDto, hayModoIA: boolean\): boolean \{\n  return hayModoIA && paso\.canal === 'whatsapp' && proveedorDelPaso\(paso\) === 'no_oficial' && paso\.tipo !== 'audio' && paso\.tipo !== 'media';\n\}/);
+  // ⚠️ SEXTA TANDA (WhatsApp 3): el ✦ pasó a ser el panel que ayuda a ESCRIBIR, y se ofrece con
+  // cualquier contenido del no oficial (un audio también se escribe: MaKo propone el guion). La CASILLA
+  // de «adaptarlo a cada persona» (el `tipo: 'ia'`) sigue saliendo sólo con UN texto: `adaptable`.
+  assert.match(lienzo, /function permiteIADe\(paso: PasoSecuenciaDto, hayModoIA: boolean\): boolean \{\n  return hayModoIA && paso\.canal === 'whatsapp' && proveedorDelPaso\(paso\) === 'no_oficial';\n\}/);
   assert.match(lienzo, /permiteIA=\{permiteIADe\(paso, !!onModoIA\)\}/);
+  const editor = sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx'));
+  assert.match(editor, /const puedeAdaptar = !!permiteIA && adaptable\(paso, varias\);/);
+  assert.match(editor, /adaptar=\{puedeAdaptar \? \{/, 'la casilla salía con un audio o con varias partes');
   assert.match(lienzo, /import \{ proveedorDelPaso \} from '@\/lib\/nutricion-canal'/);
   // Y la tarjeta lo dice: sin la marca, una tarjeta IA y una fija se ven idénticas.
   assert.match(lienzo, /ia: paso\.tipo === 'ia',/);

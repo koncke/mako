@@ -225,7 +225,10 @@ test('el motor manda cada secuencia por SU línea, con una sonda por línea', ()
   const proc = bloque(nutri, 'export async function procesarEnvios(', '\nexport async function ');
   assert.doesNotMatch(proc, /getInstanciaRow\(/, 'una sola fila decidía por todas las líneas');
   const rama = bloque(nutri, "} else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {", "} else if (waOn && paso.canal === 'whatsapp') {");
-  assert.match(rama, /const lineaSec = sec\.instance_name;/);
+  // Sexta tanda (09/10/2026, WhatsApp 2): el número es de CADA MENSAJE. Manda la línea del paso
+  // (`lineaDelPaso`, lib/mensaje-partes.ts); sin una propia, la de la secuencia, como antes.
+  // Probado rompiéndolo: volviendo a `const lineaSec = sec.instance_name;` → 1 falla (15/1; base 16/0).
+  assert.match(rama, /const lineaSec = lineaDelPaso\(paso\) \?\? sec\.instance_name;/);
   assert.match(rama, /const canalEvo = await canalDeLinea\(lineaSec\);/);
   // Los cuatro envíos y los tres borradores de la rama llevan la línea de la secuencia (desde el
   // 08/10/2026 el archivo de la biblioteca suma uno de cada: `enviarMediaYEspejar` y su borrador).

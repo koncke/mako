@@ -41,7 +41,10 @@ import { Toast, useToast } from '@/app/_ui';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, type Edicion } from '@/lib/flujo-edicion';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
-import { EditorMensajeWhatsApp, BotonMakoWhatsApp, makoPosible, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
+import {
+  EditorMensajeWhatsApp, EditorMensajeGrupo, CabeceraWhatsApp, CabeceraMakoEnWhatsApp,
+  type EditorMensajeWhatsAppProps, type PasoConLinea,
+} from './EditorMensajeWhatsApp';
 import { EditorEmailGmail } from './EditorEmailGmail';
 import { EditorEtiqueta } from './EditorEtiqueta';
 // El editor de la CONDICIÓN (tercera tanda, puntos 9 y 10): una frase por fila, del catálogo por
@@ -64,7 +67,7 @@ import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
   revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, makoDeAccion, errorLegible,
   ID_ENTRADA, PUERTO_RESPUESTA,
-  MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES,
+  MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES, altoDeMensaje,
   MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO,
   type NodoFlujo, type QueAgregar, type DisparadorTarjeta, type AristaFlujo,
 } from '@/lib/flujo-conversacion';
@@ -473,18 +476,21 @@ export function FlujoLienzo({
           onAbrir={(id) => setSel(id)}
         />
       )}
-      // «✦ MaKo» AL LADO DEL TÍTULO del panel de un mensaje de WhatsApp (cuarta tanda, punto 15). Se
-      // ofrece con la MISMA regla que el editor (`makoPosible` + `permiteIADe`), que con
-      // `makoEnCabecera` deja de dibujar el suyo: un solo botón, nunca dos.
-      accionesTitulo={(n) => {
+      // LA CABECERA DEL PANEL DE UN WHATSAPP (sexta tanda, WhatsApp 2 y 3): el logo, el NÚMERO de ese
+      // mensaje en lugar de la palabra «WhatsApp» y el ✦ de MaKo al lado (`CabeceraWhatsApp`). La de una
+      // tarjeta MAKO dice «MaKo en WhatsApp» (MaKo en WhatsApp 1). Las demás, la de siempre del lienzo
+      // (`tituloEditor` ausente). Se decide con la tarjeta ABIERTA: el lienzo sólo pinta una cabecera.
+      tituloEditor={cabeceraDe(sel ? pasoDe(sel) : null, rolAdmin) ? (n) => {
         const paso = pasoDe(n.id);
-        if (!rolAdmin || !paso || claseDe(paso) !== 'mensaje' || paso.canal === 'email') return null;
-        if (!makoPosible(paso, permiteIADe(paso, !!onModoIA), proveedorDelPaso(paso) === 'no_oficial')) return null;
+        if (paso && esMako(paso)) return <CabeceraMakoEnWhatsApp />;
+        if (!paso) return null;
+        const conLinea: Partial<PasoConLinea> = {};
         return (
-          <BotonMakoWhatsApp activo={paso.tipo === 'ia'} deshabilitado={busy}
-            onCambiar={(on) => { onPasos((prev) => cambiarNodo(prev, n.id, { tipo: on ? 'ia' : 'texto' }), true); onModoIA?.(on); }} />
+          <CabeceraWhatsApp paso={paso} lineaAutomatizacion={linea?.actual ?? null} deshabilitado={busy}
+            conMako={permiteIADe(paso, !!onModoIA)}
+            onLinea={(l) => { conLinea.linea = l; onPasos((prev) => cambiarNodo(prev, n.id, conLinea as Partial<PasoSecuenciaDto>), true); }} />
         );
-      }}
+      } : undefined}
     />
     {/* El aviso de «Acomodado», con su deshacer (las posiciones no viven en la pila de los pasos). */}
     <Toast state={toast} onClose={limpiarAviso} />
@@ -539,11 +545,23 @@ function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
 }
 
 /**
- * ¿El editor de este mensaje ofrece «✦ MaKo»? Sólo donde el motor la honra: WhatsApp no oficial y un
- * mensaje de texto (ver `EditorMensaje`). Una función para el editor y la cabecera del panel.
+ * ¿La tarjeta abierta lleva la cabecera propia? Un WhatsApp NO oficial (el número y el ✦) o una
+ * tarjeta MAKO («MaKo en WhatsApp»), y sólo para quien edita. Las demás, la cabecera del lienzo.
+ */
+function cabeceraDe(paso: PasoSecuenciaDto | null, rolAdmin: boolean): boolean {
+  if (!paso || !rolAdmin) return false;
+  if (claseDe(paso) === 'accion') return esMako(paso);
+  return claseDe(paso) === 'mensaje' && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial';
+}
+
+/**
+ * ¿El editor de este mensaje ofrece «✦ MaKo»? Por el WhatsApp no oficial, con cualquier contenido (la
+ * sexta tanda lo volvió el panel que ayuda a ESCRIBIR, y un audio también se escribe: MaKo propone el
+ * guion). «Adaptarlo a cada persona» sigue siendo sólo de un texto, y eso lo decide el editor
+ * (`adaptable`). Una función para el editor y la cabecera del panel.
  */
 function permiteIADe(paso: PasoSecuenciaDto, hayModoIA: boolean): boolean {
-  return hayModoIA && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial' && paso.tipo !== 'audio' && paso.tipo !== 'media';
+  return hayModoIA && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial';
 }
 
 /**
@@ -564,18 +582,21 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
   if (paso.canal === 'email') return <VistaEmail paso={paso} texto={texto} negocio={n} />;
   const vacio = paso.tipo === 'media' ? !paso.media_id : paso.tipo !== 'audio' && !texto.trim();
   if (vacio) return <span style={{ fontSize: 12, color: 'var(--faint)' }}>Sin escribir</span>;
-  // VARIAS PARTES (cuarta tanda, punto 15): la tarjeta dibuja la PRIMERA (los campos de siempre son su
-  // espejo) y «+N más» debajo. El alto lo mide `altoDeMensaje` con lo mismo (`RENGLON_MAS_PARTES`).
+  // VARIAS PARTES (cuarta tanda, punto 15; sexta, WhatsApp 12: «muestre solo el primer mensaje, y abajo
+  // a la derecha sutil "+1 mensaje..."»): la tarjeta dibuja la PRIMERA (los campos de siempre son su
+  // espejo) y el renglón chico a la derecha. El alto lo mide `altoDeMensaje` con lo mismo
+  // (`RENGLON_MAS_PARTES`).
   const mas = (partesExplicitas(paso)?.length ?? 1) - 1;
   const masPartes = mas > 0
-    ? <div style={{ marginTop: 4, fontSize: 11, lineHeight: `${RENGLON_MAS_PARTES}px`, color: 'var(--dim)', fontWeight: 600 }}>+{mas} más</div>
+    ? <div style={{ marginTop: 4, fontSize: 11, lineHeight: `${RENGLON_MAS_PARTES}px`, color: 'var(--faint)', textAlign: 'right' }}>{textoMasPartes(mas)}</div>
     : null;
   if (paso.tipo === 'media') return <><VistaArchivo paso={paso} texto={texto} negocio={negocio} biblioteca={biblioteca} />{masPartes}</>;
   return (
     <>
       {/* Sin la transcripción del audio (punto 15: «que no se vea la transcripción»): el alto
-          tampoco la cuenta. */}
-      <BurbujaHilo compacta saliente autor={negocio} contenido={{
+          tampoco la cuenta. Un texto largo TERMINA EN «…» adentro de la tarjeta (WhatsApp 12: «así no
+          se rompe el diseño»): los renglones salen del MISMO alto que estima el árbol. */}
+      <BurbujaHilo compacta saliente autor={negocio} lineas={renglonesDeTarjeta(paso, mas)} contenido={{
         texto,
         audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: null, duracion_s: a?.duracion_s ?? null } : null,
         ia: paso.tipo === 'ia',
@@ -583,6 +604,22 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
       {masPartes}
     </>
   );
+}
+
+/** «+1 mensaje…», «+2 mensajes…»: lo que queda adentro de la tarjeta. Pura (test). */
+export const textoMasPartes = (n: number): string => `+${n} ${n === 1 ? 'mensaje' : 'mensajes'}…`;
+
+/**
+ * CUÁNTOS RENGLONES DEL TEXTO ENTRAN EN LA TARJETA antes del «…». La tarjeta tiene alto FIJO (lleva
+ * puertos) y lo estima `altoDeMensaje` antes de pintar; la burbuja cortaba a 5 renglones aunque el alto
+ * estimado tuviera lugar para 3, y lo que no entraba se cortaba a la mitad de un renglón, sin «…». Se
+ * calcula con el MISMO alto: el marco de la tarjeta (47), el de la burbuja (18), el aire (6) y el
+ * renglón «+N» si lo hay, a 18,1 px por renglón (12,5 × 1,45). Entre 1 y 5.
+ */
+export function renglonesDeTarjeta(paso: PasoSecuenciaDto, mas: number): number {
+  const alto = altoDeMensaje(paso as unknown as Parameters<typeof altoDeMensaje>[0]);
+  const libre = alto - 47 - 18 - 6 - (paso.tipo === 'ia' ? 18 : 0) - (mas > 0 ? 4 + RENGLON_MAS_PARTES : 0);
+  return Math.max(1, Math.min(5, Math.floor(libre / 18.125)));
 }
 
 /**
@@ -752,56 +789,31 @@ function EditorEtiquetaLienzo(p: { paso: PasoSecuenciaDto; id: string; busy: boo
 
 type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
 
-/** Los datos del lead que se pueden poner en el mensaje de la tarjeta MAKO. */
-const DATOS_MAKO: DropdownOption[] = VARIABLES_LEAD.map((v) => ({ value: v.key, label: v.label, sub: v.ejemplo }));
+/** Los datos del lead que se pueden poner en el mensaje de la tarjeta MAKO (el aviso los resuelve). */
+const DATOS_MAKO = VARIABLES_LEAD.map((v) => ({ key: v.key, label: v.label, ejemplo: v.ejemplo }));
 
 /**
- * LA TARJETA MAKO: el mensaje que MaKo le manda al GRUPO de WhatsApp del negocio (tercera tanda,
- * decisión 11), con los datos del lead para insertar y un título opcional. Sigue siendo la ⚡ Acción
- * `avisar_al_equipo` sobre el lead del EVENTO: el aviso ya lleva su nombre, su teléfono y el link a su
- * ficha, y no se repite para el mismo lead en 12 h (lib/api-mako/areas/chatbot.run.ts).
+ * LA TARJETA MAKO («MaKo en WhatsApp»): el mensaje que MaKo le manda al GRUPO de WhatsApp del negocio
+ * (tercera tanda, decisión 11). Sigue siendo la ⚡ Acción `avisar_al_equipo` sobre el lead del EVENTO:
+ * el aviso ya lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en
+ * 12 h (lib/api-mako/areas/chatbot.run.ts).
  *
- * ⚠️ NO ES UN MENSAJE AL LEAD. Por eso no es el composer de WhatsApp: ni audio, ni archivos, ni
- * «Revisar antes de enviar».
+ * ⚠️ SEXTA TANDA (MaKo en WhatsApp 2: «El editable de MaKo en WhatsApp debe ser lo mismo que el
+ *    editable de WhatsApp. La misma interfaz»): es el MISMO editor de WhatsApp en modo grupo
+ *    (`EditorMensajeGrupo`): el chat con la burbuja de MaKo, emojis y «{ }». Sin audio ni archivos: el
+ *    aviso al grupo es UN texto. El «Título (opcional)» salió de la pantalla —en WhatsApp un mensaje no
+ *    tiene título— y el que ya estaba guardado se conserva tal cual (`params` viaja entero).
  *
- * Tipear no apila (el Ctrl+Z del texto es del navegador); insertar un dato, sí. La `key` va por
- * tarjeta: el editor guarda dónde estaba el cursor.
+ * Tipear no apila (el Ctrl+Z del texto es del navegador). La `key` va por tarjeta.
  */
 function EditorMako({ paso, busy, cambiar }: { paso: PasoSecuenciaDto; busy: boolean; cambiar: Cambiar }) {
   const m = makoDeAccion(paso) ?? { mensaje: '', titulo: '' };
-  const area = useRef<HTMLTextAreaElement | null>(null);
   const params = paso.accion?.params ?? {};
-  const poner = (patch: { mensaje?: string; titulo?: string }, apilar: boolean) => {
-    const sig: Record<string, unknown> = { ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO, ...patch };
-    // Un título vacío no viaja: el aviso pone el suyo («<lead>: hay que verlo»).
-    if (typeof sig.titulo === 'string' && !sig.titulo.trim()) delete sig.titulo;
-    cambiar({ accion: { operacion: paso.accion?.operacion ?? '', params: sig } }, apilar);
+  const poner = (mensaje: string) => {
+    const sig: Record<string, unknown> = { ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO, mensaje };
+    cambiar({ accion: { operacion: paso.accion?.operacion ?? '', params: sig } }, false);
   };
-  const insertar = (clave: string) => {
-    const t = `{{${clave}}}`;
-    const el = area.current;
-    const ini = el ? el.selectionStart : m.mensaje.length;
-    const fin = el ? el.selectionEnd : m.mensaje.length;
-    poner({ mensaje: m.mensaje.slice(0, ini) + t + m.mensaje.slice(fin) }, true);
-    // El cursor queda después del dato, como al tipearlo.
-    requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(ini + t.length, ini + t.length); } });
-  };
-  // EL MENSAJE ES EL PROTAGONISTA (cuarta tanda, punto 1): llena el alto del panel (fijo por tipo,
-  // `editorDeTarjeta`) en vez de quedar en cuatro renglones con aire debajo. Columna flex y
-  // `flex: 1` + `minHeight`, nunca `height: 100%` (Safari lo resuelve a cero).
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
-      <input value={m.titulo} maxLength={120} placeholder="Título (opcional)" disabled={busy} aria-label="Título del aviso"
-        onChange={(e) => poner({ titulo: e.target.value }, false)} style={{ ...inpLienzo, fontWeight: 600, flex: 'none' }} />
-      <textarea ref={area} value={m.mensaje} rows={5} maxLength={1000} placeholder="Mensaje para tu equipo" disabled={busy} aria-label="Mensaje para tu equipo"
-        onChange={(e) => poner({ mensaje: e.target.value }, false)}
-        style={{ ...inpLienzo, flex: 1, minHeight: 96, resize: 'none', fontSize: 14.5, lineHeight: 1.5, padding: '10px 12px', borderRadius: 11 }} />
-      <div style={{ flex: 'none' }}>
-        <Dropdown value="" resetAfterSelect options={DATOS_MAKO} botonLabel="＋ Dato del lead" ariaLabel="Insertar un dato del lead" disabled={busy}
-          buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 8 }} onChange={(v) => v && insertar(v)} />
-      </div>
-    </div>
-  );
+  return <EditorMensajeGrupo texto={m.mensaje} onTexto={poner} variables={DATOS_MAKO} deshabilitado={busy} />;
 }
 
 function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto | null }) {
@@ -825,7 +837,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, linea }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   const modoIA = (on: boolean) => {
     // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
@@ -850,11 +862,11 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       audios={audios} onAudioNuevo={onAudioNuevo}
       adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
       paraGuion={paraGuion}
+      // El ✦ va en la CABECERA del panel (`CabeceraWhatsApp`, el `tituloEditor` de FlujoLienzo), con la
+      // misma regla; el panel que abre se dibuja en el editor. El número también va en la cabecera y es
+      // de este mensaje (sexta tanda, WhatsApp 2 y 3).
       permiteIA={permiteIADe(paso, !!onModoIA)}
       onModoIA={modoIA}
-      // «✦ MaKo» lo dibuja la cabecera del panel (`accionesTitulo` en FlujoLienzo), con la misma regla.
-      makoEnCabecera
-      linea={linea}
       permiteAudio={noOficial}
       permiteAdjuntos={noOficial}
       // «Sale sola» pasó a cada mensaje (punto 6): ausente en el paso = lo que hace el MOTOR con

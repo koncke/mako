@@ -51,9 +51,21 @@ export type BurbujaHiloProps = {
   onVerImagen?: (url: string) => void;
   /** Lo que se dibuja cuando no hay nada que mostrar («Sin escribir» en el editor). */
   vacio?: ReactNode;
+  /**
+   * El tope de ancho de la burbuja. Default: 78% (el hilo) y 100% (la compacta). El editor del lienzo
+   * pasa `100%`: ahí el tope lo pone la FILA (los botones de editar y borrar van pegados), y un 78%
+   * de una caja que se ajusta a la burbuja dejaba un hueco de un cuarto de fila entre los botones y
+   * el mensaje (sexta tanda, WhatsApp 4: «el icono de editar y borrar están muy despegados»).
+   */
+  maxAncho?: string;
+  /** Los renglones del texto en la compacta antes del «…» (default 5). */
+  lineas?: number;
 };
 
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`;
+
+/** El ancho del reproductor en una burbuja normal: en px (ver el comentario del render). */
+export const ANCHO_AUDIO = 240;
 
 /** Qué es la media: lo que dice el espejo, y si no, el tipo del archivo. */
 export function tipoDeMedia(m: NonNullable<ContenidoBurbuja['media']>): 'image' | 'video' | 'document' | 'sticker' {
@@ -64,7 +76,7 @@ export function tipoDeMedia(m: NonNullable<ContenidoBurbuja['media']>): 'image' 
   return 'document';
 }
 
-export function BurbujaHilo({ contenido, saliente = true, compacta = false, autor, hora, pie, fondo, onVerImagen, vacio }: BurbujaHiloProps) {
+export function BurbujaHilo({ contenido, saliente = true, compacta = false, autor, hora, pie, fondo, onVerImagen, vacio, maxAncho, lineas = 5 }: BurbujaHiloProps) {
   const { texto, audio, media, ia } = contenido;
   // 240 como en el hilo, pero nunca más que la burbuja: en el editor del lienzo (328 px) una foto
   // de 240 se salía por el costado.
@@ -76,7 +88,7 @@ export function BurbujaHilo({ contenido, saliente = true, compacta = false, auto
   const nada = !texto && !audio && !media;
 
   const caja: CSSProperties = {
-    maxWidth: compacta ? '100%' : '78%',
+    maxWidth: maxAncho ?? (compacta ? '100%' : '78%'),
     minWidth: 0,
     padding: compacta ? '8px 10px' : '10px 13px',
     borderRadius: saliente ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
@@ -129,8 +141,13 @@ export function BurbujaHilo({ contenido, saliente = true, compacta = false, auto
         </span>
       )}
 
+      {/* ⚠️ EL ANCHO DEL REPRODUCTOR VA EN PX, NO EN %: la burbuja se ajusta a su contenido, y un
+          `min(240px, 100%)` ahí es un porcentaje cíclico que el navegador resolvía a CERO — el audio
+          «que no se podía escuchar» (AudioPlay.tsx, la medición). La compacta vive en una tarjeta de
+          ancho conocido: ahí sí el 100%. */}
       {audio && (audio.url
-        ? <AudioPlay src={audio.url} style={{ width: ancho, maxWidth: '100%', marginBottom: sep(conTexto || !!audio.transcript), ...(compacta ? { height: 34 } : {}) }} />
+        ? <AudioPlay src={audio.url} compacto={compacta} duracion={audio.duracion_s ?? null}
+            style={{ width: compacta ? '100%' : ANCHO_AUDIO, maxWidth: '100%', marginBottom: sep(conTexto || !!audio.transcript) }} />
         : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', marginBottom: sep(conTexto) }}><IconClip /> {audio.titulo || 'audio'} (no disponible)</span>)}
       {audio?.titulo && audio.url && compacta && (
         <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: sep(conTexto || !!audio.transcript) }}>{audio.titulo}{audio.duracion_s ? ` · ${fmtDur(audio.duracion_s)}` : ''}</div>
@@ -144,7 +161,7 @@ export function BurbujaHilo({ contenido, saliente = true, compacta = false, auto
       {(conTexto || (tipo === 'document' && !!media?.nombre && !!texto)) && (
         <div style={{
           fontSize: compacta ? 12.5 : 14, lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
-          ...(compacta ? { display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } : {}),
+          ...(compacta ? { display: '-webkit-box', WebkitLineClamp: lineas, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } : {}),
         }}><TextoMarcas texto={texto!} /></div>
       )}
       {nada && vacio}

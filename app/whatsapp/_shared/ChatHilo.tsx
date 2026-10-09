@@ -126,10 +126,13 @@ export type ChatHiloProps = {
 };
 
 // Borradores por conversación (sobreviven el salto entre chats, como el inbox real):
-// texto, adjunto y audio grabado-sin-enviar quedan atados a SU chat.
+// texto y adjunto quedan atados a SU chat.
+// ⚠️ EL AUDIO GRABADO SIN MANDAR YA NO (sexta tanda, WhatsApp 7): se escucha en la barra del composer
+//    (la sesión de voz) y el composer se monta POR CONVERSACIÓN (`key`), así que cambiar de chat a mitad
+//    de una grabación o de una escucha la descarta. Lo contrario —que viaje y salga en el otro chat, o
+//    en el de antes con la pantalla mostrando otro— es justo «el audio que se escapa».
 const draftStore = new Map<string, string>();
 const adjuntoStore = new Map<string, File>();
-const audioStore = new Map<string, Blob>();
 
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
@@ -137,10 +140,9 @@ export function ChatHilo({
 }: ChatHiloProps) {
   const [draft, setDraftState] = useState<string>(() => (draftKey ? draftStore.get(draftKey) ?? '' : ''));
   const [adjunto, setAdjuntoState] = useState<File | null>(() => (draftKey ? adjuntoStore.get(draftKey) ?? null : null));
-  const [audioPend, setAudioPendState] = useState<Blob | null>(() => (draftKey ? audioStore.get(draftKey) ?? null : null));
   const prevKey = useRef(draftKey);
-  // Reporta si el chat tiene ALGO en borrador (texto/adjunto/audio) → orden en la lista.
-  const reportar = (key: string | undefined) => { if (key) onDraftChange?.(key, !!(draftStore.get(key) || adjuntoStore.get(key) || audioStore.get(key))); };
+  // Reporta si el chat tiene ALGO en borrador (texto/adjunto) → orden en la lista.
+  const reportar = (key: string | undefined) => { if (key) onDraftChange?.(key, !!(draftStore.get(key) || adjuntoStore.get(key))); };
   // El borrador se lleva TAMBIÉN en un ref, y el store se escribe FUERA del
   // updater de estado. React puede invocar un updater dos veces (StrictMode) y
   // `reportar` avisa al PADRE: hacerlo adentro dispara un efecto ajeno durante
@@ -153,7 +155,6 @@ export function ChatHilo({
     if (draftKey) { if (next) draftStore.set(draftKey, next); else draftStore.delete(draftKey); reportar(draftKey); }
   };
   const setAdjunto = (f: File | null) => { setAdjuntoState(f); if (draftKey) { if (f) adjuntoStore.set(draftKey, f); else adjuntoStore.delete(draftKey); reportar(draftKey); } };
-  const setAudioPend = (b: Blob | null) => { setAudioPendState(b); if (draftKey) { if (b) audioStore.set(draftKey, b); else audioStore.delete(draftKey); reportar(draftKey); } };
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
   const [audioFase, setAudioFase] = useState<string | null>(null);
@@ -171,9 +172,7 @@ export function ChatHilo({
 
   const adjuntoPreview = useMemo(() => (adjunto && adjunto.type.startsWith('image/') ? URL.createObjectURL(adjunto) : null), [adjunto]);
   useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
-  const audioUrl = useMemo(() => (audioPend ? URL.createObjectURL(audioPend) : null), [audioPend]);
-  useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
-  // Cambió la conversación → cargar SU borrador/adjunto/audio (no se pierden).
+  // Cambió la conversación → cargar SU borrador/adjunto (no se pierden).
   useEffect(() => {
     if (prevKey.current === draftKey) return;
     prevKey.current = draftKey;
@@ -181,7 +180,6 @@ export function ChatHilo({
     draftRef.current = suyo; // el ref tiene que seguir al estado o el próximo envío usa el borrador viejo
     setDraftState(suyo);
     setAdjuntoState(draftKey ? adjuntoStore.get(draftKey) ?? null : null);
-    setAudioPendState(draftKey ? audioStore.get(draftKey) ?? null : null);
     setSendErr(null);
   }, [draftKey]);
   useEffect(() => { const el = scrollRef.current; if (el && stickRef.current) el.scrollTop = el.scrollHeight; }, [mensajes, typing]);
@@ -224,22 +222,16 @@ export function ChatHilo({
       } finally { setSending(false); }
     } else await enviarTexto();
   }
-  // Al terminar de grabar NO se manda: queda como borrador para escucharlo antes.
-  const guardarAudio = (blob: Blob) => { if (onEnviarArchivo) setAudioPend(blob); };
-  const enviarAudioPend = async () => {
-    const pend = audioPend;
-    if (!pend || !onEnviarArchivo || sending) return;
+  // El audio ya se ESCUCHÓ en la barra del composer (✓ termina, ➤ manda): lo que llega acá es lo que
+  // se pidió mandar. Si el envío falla, se dice: la barra ya se vació, y volver a grabar es lo que hay.
+  const enviarAudio = async (grabado: Blob) => {
+    if (!onEnviarArchivo || sending) return;
     setSending(true); setSendErr(null); setAudioFase('Procesando audio…'); stickRef.current = true;
     let mp3: Blob;
-    try { const { blobToMp3 } = await import('../audio'); mp3 = await blobToMp3(pend); }
+    try { const { blobToMp3 } = await import('../audio'); mp3 = await blobToMp3(grabado); }
     catch (e) { setSendErr('No se pudo procesar el audio (' + (e instanceof Error ? e.message : 'error') + ').'); setSending(false); setAudioFase(null); return; }
     setAudioFase('Enviando audio…');
-    // Mismo criterio que el texto: la burbuja del audio ya está arriba, así que
-    // la barra de preview no puede quedar abajo mostrando el mismo audio.
-    setAudioPend(null);
-    if (!(await onEnviarArchivo(mp3, 'audio', 'nota-de-voz.mp3'))) {
-      setAudioPend(pend); setSendErr('No se pudo enviar el audio.');
-    }
+    if (!(await onEnviarArchivo(mp3, 'audio', 'nota-de-voz.mp3'))) setSendErr('No se pudo enviar el audio.');
     setSending(false); setAudioFase(null);
   };
   const puedeComponer = !readOnly && (!!onEnviarTexto || !!onEnviarArchivo);
@@ -321,9 +313,11 @@ export function ChatHilo({
 
       {encimaDelComposer && <div style={{ flex: 'none', padding: '8px 12px 0', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>{encimaDelComposer}</div>}
       {readOnly && <ComposerWhatsApp modo="enviar" soloLectura valor="" onValor={() => {}} placeholder={placeholder} />}
-      {/* Audio grabado SIN enviar: se escucha antes de mandarlo (o se descarta). Queda en borrador. */}
+      {/* El composer va POR CONVERSACIÓN (`key`): una grabación o una escucha a medias no viaja al
+          chat de al lado (ver la cabecera de los borradores). */}
       {puedeComponer && (
         <ComposerWhatsApp
+          key={draftKey ?? 'hilo'}
           modo="enviar"
           valor={draft}
           onValor={setDraft}
@@ -332,9 +326,8 @@ export function ChatHilo({
           placeholder={adjunto ? 'Agrega un texto (opcional)…' : placeholder}
           onArchivo={onEnviarArchivo ? pickFile : undefined}
           acceptArchivo="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx"
-          onAudio={onEnviarArchivo ? guardarAudio : undefined}
+          onAudio={onEnviarArchivo ? enviarAudio : undefined}
           onErrorAudio={setSendErr}
-          audioPendiente={audioPend ? { url: audioUrl, onDescartar: () => setAudioPend(null), onUsar: () => void enviarAudioPend() } : null}
           chip={adjunto ? { imagen: adjuntoPreview, icono: 'doc', titulo: adjunto.name, detalle: `${(adjunto.size / 1024).toFixed(0)} KB`, onQuitar: () => setAdjunto(null) } : null}
         />
       )}

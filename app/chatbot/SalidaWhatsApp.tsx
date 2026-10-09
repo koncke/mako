@@ -7,13 +7,16 @@
 // elegir desde qué número sale ese mensaje, por si se tiene varios números vinculados, con el botón
 // de vincular nuevo, y que se haga desde allí mismo...».
 //
-// ⚠️ EL NÚMERO ES DE LA AUTOMATIZACIÓN, NO DEL MENSAJE (`nutricion_secuencias.instance_name`). Un
-// mensaje por un número y el siguiente por otro le escribe al lead desde dos WhatsApp distintos, y la
-// respuesta vuelve por el número al que contestó (AGENTS.md, «Un negocio tiene VARIAS líneas»). Por
-// eso el selector cambia el de la secuencia y LO DICE («Toda la automatización»). Es el MISMO dato que
-// elige el CRON (SecuenciaPerfil): quien monta pasa el valor y el guardado (`onElegir`); este
-// componente no escribe la secuencia por su cuenta — con dos escritores del mismo campo, el segundo
-// pisa al primero con lo que tenía en memoria.
+// ⚠️ SEXTA TANDA (WhatsApp 2): EL NÚMERO ES DE CADA MENSAJE. Hasta acá era de la automatización y lo
+// decía («Toda la automatización»); Martín, textual: «elimina el texto de "Toda la automatización" para
+// eso es configurable el número... Si más adelante en la automatización quiero enviar otro mensaje por
+// otro de mis números vinculados en MaKo, se debería poder sin problema». Lo monta la cabecera del panel
+// de un WhatsApp (`CabeceraWhatsApp`, EditorMensajeWhatsApp.tsx) con `explicita`: elegir la de por
+// default guarda SU nombre, porque en el paso `null` no es «la de por default» sino «la de la
+// automatización». El de la automatización lo sigue eligiendo el CRON (SecuenciaPerfil), sin `explicita`.
+// Este componente no escribe nada por su cuenta: quien monta pasa el valor y el guardado (`onElegir`).
+// (Una respuesta del lead vuelve igual por el número al que contestó: AGENTS.md, «Un negocio tiene
+// VARIAS líneas».)
 //
 // ⚠️ «VINCULAR NUEVO» ES EL MISMO FLUJO DE /whatsapp, NO UNA COPIA: `EvolutionConnect` con `nueva`
 // (el QR de una línea que nace al pedirlo), en un modal y sin salir de /chatbot. Si el modal se cierra
@@ -62,12 +65,27 @@ export function valorDeSalida(lineas: readonly LineaWa[], actual: string | null)
   return porDefault && porDefault.linea === actual ? POR_DEFAULT : actual;
 }
 
-export function SalidaWhatsApp({ actual, onElegir, deshabilitado }: {
-  /** La línea de la automatización (`instance_name`); null = la de por default. */
+/**
+ * Lo que se guarda al elegir. Sin `explicita`, la de por default se guarda como `null` (la
+ * automatización). Con `explicita` (un mensaje), su NOMBRE: en el paso, `null` es «la de la
+ * automatización», que puede ser otra. Pura y exportada para el test.
+ */
+export function lineaElegida(v: string, lineas: readonly LineaWa[], explicita: boolean): string | null {
+  if (v) return v;
+  if (!explicita) return null;
+  const porDefault = lineas.find((l) => l.esDefault) ?? lineas[0] ?? null;
+  return porDefault?.linea ?? null;
+}
+
+export function SalidaWhatsApp({ actual, onElegir, deshabilitado, explicita = false, ancho = 220 }: {
+  /** La línea que se ve elegida (`instance_name`); null = la de por default. */
   actual: string | null;
-  /** Guarda la línea de la automatización (el mismo guardado que el selector del CRON). */
+  /** Guarda la línea elegida (la de la automatización, o la de un mensaje con `explicita`). */
   onElegir: (linea: string | null) => void | Promise<void>;
   deshabilitado?: boolean;
+  /** Un mensaje: la de por default se guarda con su nombre (ver `lineaElegida`). */
+  explicita?: boolean;
+  ancho?: number;
 }) {
   const [lineas, setLineas] = useState<LineaWa[] | 'error' | null>(null);
   const [vinculando, setVinculando] = useState(false);
@@ -79,12 +97,13 @@ export function SalidaWhatsApp({ actual, onElegir, deshabilitado }: {
       setLineas(j?.ok && Array.isArray(j.lineas) ? j.lineas : 'error');
     } catch { setLineas('error'); }
   }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- la lista sale de la red: es sincronizar con algo de afuera
   useEffect(() => { void leer(); }, [leer]);
 
   const lista = Array.isArray(lineas) ? lineas : [];
   const elegir = (v: string) => {
     if (v === VINCULAR) { setVinculando(true); return; }
-    void onElegir(v || null);
+    void onElegir(lineaElegida(v, lista, explicita));
   };
 
   return (
@@ -101,15 +120,10 @@ export function SalidaWhatsApp({ actual, onElegir, deshabilitado }: {
           options={opcionesDeSalida(lista, actual)}
           onChange={elegir}
           disabled={deshabilitado || lineas === null}
-          ariaLabel="Número de WhatsApp por el que sale esta automatización"
-          width={220}
+          ariaLabel={explicita ? 'Número de WhatsApp por el que sale este mensaje' : 'Número de WhatsApp por el que sale esta automatización'}
+          width={ancho}
           buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
         />
-      )}
-      {lista.length > 0 && (
-        <span title="El número es de toda la automatización" style={{ fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-          Toda la automatización
-        </span>
       )}
       {vinculando && (
         <Modal titulo="Vincular número" onCerrar={() => setVinculando(false)} ancho={440}>

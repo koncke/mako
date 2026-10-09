@@ -125,9 +125,12 @@ test('GO TO y MAKO: el destino grande; el mensaje llena el panel', () => {
   const ir = bloque(FLUJO, 'function EditorIrA(', '\n}\n', 2_400);
   // SEXTA TANDA (punto 12): GO TO ya no elige destino; el botón que lo pasa a flecha es el campo grande.
   assert.match(ir, /style=\{\{ \.\.\.botonGrande, width: '100%'/);
+  // ⚠️ SEXTA TANDA (MaKo en WhatsApp 2: «debe ser lo mismo que el editable de WhatsApp»): el editor MAKO
+  // es el de WhatsApp en modo grupo (`EditorMensajeGrupo`), que llena el panel como el de un mensaje (su
+  // raíz es `flex: 1 1 auto` y el chat se queda con lo que sobra: tests/editor-mensaje-whatsapp.test.ts).
   const mako = bloque(FLUJO, 'function EditorMako(', '\n}\n', 3_200);
-  assert.match(mako, /<div style=\{\{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 \}\}>/, 'el editor MAKO no llena el alto del panel');
-  assert.match(mako, /style=\{\{ \.\.\.inpLienzo, flex: 1, minHeight: 96, resize: 'none'/, 'el mensaje no es el que estira');
+  assert.match(mako, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\}/, 'el editor MAKO no es el de WhatsApp');
+  assert.doesNotMatch(mako, /<textarea|inpLienzo/, 'volvió el editor viejo de la tarjeta MAKO');
 });
 
 test('⚠️ ningún editor de control deja media caja vacía con un `maxWidth` propio (AGENTS.md)', () => {
