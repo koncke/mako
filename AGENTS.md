@@ -65,6 +65,23 @@ quedaron `??` en `docs/relevo/`, a un `git clean` de desaparecer, y la cuenta qu
 veía en el repo. Se rescataron en `035931f7`. Un relevo sin commitear no es un relevo: es un
 borrador en el disco de una sesión que ya no existe.
 
+**Cómo se sabe que se viene el corte: `get_usage` (herramienta de la app).** Devuelve el % usado
+de cada ventana del plan — la de 5 horas y la **semanal**, que es la que corta — y el % de
+contexto de la sesión. **A partir del 85% semanal, cada chat escribe y commitea su relevo YA**,
+sin esperar a terminar la tanda; y el chat orquestador le avisa a Martín y les manda el
+checklist de cierre a los demás. Al 08/10/2026 la semanal estaba en 77%: el aviso llega con
+margen si alguien lo mira, y no llega nunca si nadie lo mira.
+
+**Y si igual se corta, hay una red que no depende del modelo.** El hook `SessionEnd`
+(`~/.claude/bitacora-sesion.sh fin`) commitea `docs/relevo/` y `docs/relevo.md` si quedaron
+escritos y sin commitear: por RUTA (no se lleva lo que otra sesión tenga stageado), con lock
+para cuando cierran varias a la vez, y **sin pushear** (la otra cuenta usa este mismo clon).
+Dispara aunque no quede cuota — la bitácora tiene los `fin` de las sesiones del 06/10 que se
+habían quedado sin tokens. Probado en un worktree descartable: commiteó un relevo nuevo y uno
+modificado, dejó afuera un archivo ajeno stageado, y una segunda corrida no hizo nada.
+**La red sólo salva lo que esté ESCRITO**: si el chat se corta antes de escribir su relevo, no
+hay nada que commitear. Por eso el umbral del 85% sigue siendo la parte que importa.
+
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
 `next build` tiene `typescript.ignoreBuildErrors: true` (ver next.config.ts). **No es
