@@ -77,22 +77,26 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     ],
   },
 
+  // ⛔ SIN `servicio` desde el 09/10/2026: el `servicio: 'whatsapp'` de acá eran las
+  // credenciales de CHATWOOT (el canal oficial), que está apagado (lib/chatwoot.ts). El
+  // WhatsApp del producto se conecta escaneando un QR en /whatsapp (Evolution) y no pide
+  // ninguna credencial. Con el servicio puesto, la tab mostraba el formulario de Chatwoot
+  // a quien no tenía el número vinculado, y `ver_activacion_tab` de la API de MaKo
+  // contestaba «falta conectar Chatwoot».
   whatsapp: {
     key: 'whatsapp',
     titulo: 'WhatsApp',
-    servicio: 'whatsapp',
+    cta: { label: 'Escanear el QR →', href: '/whatsapp' },
+    icono: 'whatsapp',
     eyebrow: '✦ Con WhatsApp conectado',
-    queFalta: 'Conecta tu cuenta por Chatwoot y la bandeja pasa a vivir aquí adentro. Tu número de empresa no pide credencial: se engancha escaneando un QR desde esta misma tab.',
-    ademas: 'Ojo con el ID de bandeja: si no fijas el tuyo se usa uno por default que no es el tuyo. El nombre de tu bandeja aparece a la izquierda apenas conectas — si no es el que esperabas, cambia el ID.',
+    queFalta: 'Escanea el QR con el WhatsApp de tu negocio desde esta misma tab y la bandeja pasa a vivir aquí adentro.',
     slides: [
       // app/whatsapp/WhatsAppApp.tsx + _shared/VoiceRecorder.tsx
       { t: 'El inbox, aquí adentro', d: 'Un hilo por lead con su etapa del funnel al lado, adjuntos, y notas de voz que grabas desde el composer.' },
       // app/whatsapp/WhatsAppAdvisor.tsx (Sugerencia.guion_voz) + lib/whatsapp-advisor.ts
-      { t: 'MaKo te dice qué escribir', d: 'Lee la conversación real, la etapa y la ventana de 24h, y te deja mensajes listos con su ángulo y su tono — hasta el guion de una nota de voz.' },
-      // lib/template-validator.ts (Hallazgo/Propuesta + aplicarPropuesta)
-      { t: 'Plantillas que no te rechazan', d: 'MaKo valida el borrador contra las reglas de Meta antes de mandarlo: la regla que rompe y una versión corregida que aplicas de un click.' },
+      { t: 'MaKo te dice qué escribir', d: 'Lee la conversación real y la etapa, y te deja mensajes listos con su ángulo y su tono — hasta el guion de una nota de voz.' },
       // EvolutionConnect + EmpresaInbox + lib/evolution.ts (espejo en wa_mensajes)
-      { t: 'Dos números, un historial', d: 'El oficial y el de empresa conviven en la misma tab, y el no oficial queda espejado en tu base: si te banean el número, el historial sigue aquí.' },
+      { t: 'Tu historial, a salvo', d: 'Las conversaciones quedan espejadas en tu base: si te banean el número, el historial sigue aquí.' },
     ],
   },
 
