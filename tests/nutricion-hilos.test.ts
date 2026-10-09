@@ -47,8 +47,8 @@ const proximoDe = (n: string) => iso(AHORA + (n === 'e1' ? 0 : HORA));
 // ── Las funciones puras ─────────────────────────────────────────────────────
 
 test('hilosIniciales: un hilo por raíz (la principal es «p»); con una sola raíz, NULL', () => {
-  // Probado rompiéndolo (08/10/2026): `hilosIniciales` sin el corte de una sola raíz → 21 pasan /
-  // 2 fallan (éste y el de los vigentes, que dejaba de ser un cursor).
+  // Probado rompiéndolo (08/10/2026): `hilosIniciales` sin el corte de una sola raíz → 17 pasan /
+  // 3 fallan (éste y los dos de los vigentes, que dejaban de ser un cursor).
   assert.deepEqual(raicesSalida(P), ['w1', 'e1']);
   assert.deepEqual(hilosIniciales(P, proximoDe), [
     { h: 'p', nodo: 'w1', proximo: iso(AHORA + HORA) },
@@ -79,7 +79,7 @@ test('aplicarAHilo: se mueve UN hilo; las columnas de siempre resumen el que ven
 
 test('⚠️ un hilo que termina cierra SÓLO su camino; la inscripción termina cuando no queda ninguno', () => {
   // Probado rompiéndolo (08/10/2026): `aplicarAHilo` cerrando la inscripción con el primer cierre
-  // (sin mirar los otros hilos) → 21 pasan / 2 fallan (éste y el del email que no mata al WhatsApp).
+  // (sin mirar los otros hilos) → 18 pasan / 2 fallan (éste y el del email que no mata al WhatsApp).
   const hs = hilosIniciales(P, proximoDe)!;
   const uno = aplicarAHilo(P, hs, 'e1', { cierra: true });
   assert.equal(uno.resumen.estado, 'activa', 'el email terminó y el WhatsApp sigue');
@@ -104,6 +104,7 @@ test('repartosDe / hilosNuevos: las flechas en paralelo de una tarjeta arrancan 
 });
 
 test('hiloSigueEn / hayOtrosHilos: lo que preguntan el compare-and-set y lo terminal de un email', () => {
+  // Probado rompiéndolo (08/10/2026): `hiloSigueEn` sin mirar la tarjeta → 19 pasan / 1 falla (éste).
   const hs = hilosIniciales(P, proximoDe)!;
   assert.equal(hiloSigueEn(hs, 'e1', 'e1'), true);
   assert.equal(hiloSigueEn(hs, 'e1', 'e2'), false, 'otra corrida ya movió este hilo: el cambio es de ella');
@@ -116,8 +117,8 @@ test('hiloSigueEn / hayOtrosHilos: lo que preguntan el compare-and-set y lo term
 // ── La puerta de la posición ────────────────────────────────────────────────
 
 test('planDePosicion: sin hilos ni repartos, los campos van TAL CUAL (el camino de siempre)', () => {
-  // Probado rompiéndolo (08/10/2026): `planDePosicion` siempre en modo hilos → 20 pasan / 3 fallan
-  // (éste, el de los vigentes y el del reparto desde un cursor).
+  // Probado rompiéndolo (08/10/2026): `planDePosicion` siempre en modo hilos → 17 pasan / 3 fallan
+  // (éste y los dos de los vigentes).
   const campos = { paso_actual: 3, nodo_actual: 'w2', proximo_envio_at: iso(AHORA), estado: 'activa', ultimo_paso_at: 'x' };
   assert.deepEqual(planDePosicion(P, { hilos: null, h: null, nodo: 'w1', proximo_envio_at: null }, campos), { modo: 'cursor', update: campos });
 });
@@ -145,7 +146,7 @@ test('planDePosicion: con hilos, cerrar mueve UN hilo; el alcance «inscripción
 // ── resolverControl devuelve los repartos ───────────────────────────────────
 
 test('⚠️ resolverControl devuelve las flechas de una espera AUNQUE la resolución siga de largo', () => {
-  // Probado rompiéndolo (08/10/2026): sin el `repartir(...)` de la espera → 20 pasan / 3 fallan.
+  // Probado rompiéndolo (08/10/2026): sin el `repartir(...)` de la espera → 19 pasan / 1 falla (éste).
   const E: PasoGrafo[] = [
     ctl('e', { nodo: 'esperar', espera: { modo: 'antes_reunion', minutos: 60 }, siguiente: 'm', paralelos: ['x'] }),
     msg('m', { siguiente: null }), msg('x', { siguiente: null }),
@@ -164,8 +165,8 @@ test('⚠️ resolverControl devuelve las flechas de una espera AUNQUE la resolu
 });
 
 test('el inicio nunca es un paso: no recibe un mensaje, se resuelve por su salida y no es «el primer paso»', () => {
-  // Probado rompiéndolo (08/10/2026): `esControl` sin 'inicio' (lo de la parte 0) → 21 pasan / 2
-  // fallan (éste: `esNodoDeControl` y `esPrimerPaso` de la primera tarjeta real).
+  // Probado rompiéndolo (08/10/2026): `esControl` sin 'inicio' (lo de la parte 0) → 19 pasan / 1
+  // falla (éste: `esNodoDeControl` y `esPrimerPaso` de la primera tarjeta real).
   const ini = P.findIndex((p) => p.id === ID_INICIO);
   assert.equal(esNodoDeControl(P[ini]), true, 'setSecuenciaPasos le ponía el relleno de un mensaje');
   assert.equal(esPrimerPaso(P, 0), true, 'w1 cuelga del inicio: sigue siendo el primero de su hilo');
@@ -184,7 +185,7 @@ test('nodosDeLaFila / esFilaNueva: qué tarjetas mira el lote para leer los hech
 });
 
 test('proximoDeEntrada: el mínimo entre las raíces (un email «ya» no espera a un WhatsApp «en 1 h»)', () => {
-  // Probado rompiéndolo (08/10/2026): devolviendo la principal (lo de antes) → 22 pasan / 1 falla.
+  // Probado rompiéndolo (08/10/2026): devolviendo la principal (lo de antes) → 19 pasan / 1 falla.
   const r = proximoDeEntrada(P, (p) => (p?.id === 'e1' ? iso(AHORA) : iso(AHORA + HORA)));
   assert.equal(r, iso(AHORA));
   assert.equal(proximoDeEntrada([], () => 'sin-raiz'), 'sin-raiz');
@@ -206,7 +207,7 @@ const PROC = NUTRI.slice(NUTRI.indexOf('export async function procesarEnvios('),
 
 test('el motor: reparte al entrar, toma UN hilo por vuelta y vuelve a la cola si quedan otros', () => {
   // Probado rompiéndolo (08/10/2026): sin el `vistos.delete(insc.id); otraVuelta = true;` de la
-  // selección → 22 pasan / 1 falla (éste).
+  // selección → 19 pasan / 1 falla (éste).
   assert.match(PROC, /if \(sec && !hs && esFilaNueva\(insc\) && raicesSalida\(sec\.pasos\)\.length > 1\) \{\s*hs = await repartirAlEntrar\(/);
   assert.match(PROC, /const libres = hilosVencidos\(hs, Date\.now\(\)\)\.filter\(\(x\) => !hilosVistos\.has\(`\$\{insc\.id\}:\$\{x\.h\}:\$\{x\.nodo\}`\)\);/);
   assert.match(PROC, /if \(libres\.length > 1\) \{ vistos\.delete\(insc\.id\); otraVuelta = true; \}/);
@@ -265,7 +266,7 @@ const F212: PasoGrafo[] = [
 for (const [nombre, F] of [['#198', F198], ['#212', F212]] as const) {
   test(`⚠️ ${nombre} (hilos NULL) no entra NUNCA al modo hilos: cada escritura es la de siempre, tal cual`, () => {
     // Probado rompiéndolo (08/10/2026): `repartosDe` devolviendo la salida principal además de los
-    // paralelos → caen los dos tests de vigentes (y 3 más): sus escrituras pasaban a modo hilos.
+    // paralelos → 17 pasan / 3 fallan (los dos de vigentes y el de `repartosDe`).
     assert.equal(raicesSalida(F).length, 1, 'una sola raíz: no se reparte al entrar');
     assert.equal(hilosIniciales(F, () => iso(AHORA)), null);
     assert.equal(proximoDeEntrada(F, (p) => (p ? `entrada:${p.id}` : 'nada')), `entrada:${pasoDeEntrada(F)?.id}`, 'el primer envío es el de la entrada, como siempre');
