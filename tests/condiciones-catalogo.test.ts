@@ -4,8 +4,8 @@
 // Lo que fija: que cada condición del catálogo tenga su LECTOR en el motor y su evaluación (una
 // condición que el motor no puede evaluar es una mentira de pantalla), que «no sé» no se cumpla ni
 // negado, que el filtro por el CRON (adquisición / entrega) sea el que pidió Martín, que el saneo de
-// lo que se guarda conserve el operador y la referencia (la quinta puerta), y que el editor nuevo no
-// vuelva a los botoncitos «+y +o».
+// lo que se guarda conserve el operador y la referencia (la quinta puerta), y que el editor no vuelva a
+// «＋ Rama» ni a «Todas / Cualquiera» (cuarta tanda, punto 7).
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026; con todo puesto: 19 pasan, 0 fallan). Cada rotura de a una, con
 // un arnés que restaura DE MEMORIA (nunca con `git checkout`). Pasan / fallan:
@@ -16,6 +16,9 @@
 //   5. el editor vuelve a tener un botón «+ o»                                            -> 18 / 1
 //   6. `resumenCursoDeAlumno` saltea las clases sin progreso (se pierde el universo)      -> 18 / 1
 //   7. la ruta del catálogo lee `comunidad_posts` sin `clase_id`                          -> 18 / 1
+// ⚠️ La rotura 5 ya no aplica: la cuarta tanda (punto 7) DEVOLVIÓ «＋ y» / «＋ o», cada uno con la unión
+// de su fila. Los dos tests que cambió la cuarta tanda (lo que se ofrece de las reuniones y el editor)
+// se rompieron con el arnés de tests/condiciones-cuarta.test.ts (roturas 16 y 17).
 //
 // Correr: node --import tsx --test tests/condiciones-catalogo.test.ts
 import { test } from 'node:test';
@@ -114,7 +117,14 @@ test('con un CRON de ADQUISICIÓN se ofrece el CRM y nada de Customer Success; c
     if (c.ambito === 'adquisicion') assert.ok(!e.has(c.id), `${c.id} (adquisición) apareció en entrega`);
   }
   // Lo que antes eran «Eventos» del CRON, ahora son condiciones (punto 4).
-  for (const x of ['form_sin_agenda', 'vsl_sin_agendar', 'vsl_poco', 'r1_pendiente', 'asistio_r1', 'calificado_sin_r2', 'r2_sin_cerrar']) assert.ok(a.has(x), `falta ${x}`);
+  for (const x of ['form_sin_agenda', 'vsl_sin_agendar', 'vsl_poco']) assert.ok(a.has(x), `falta ${x}`);
+  // CUARTA TANDA, punto 5 (cambió lo que fijaba esta línea): las de «R1» / «R2» ya no se ofrecen —«no
+  // tiene sentido diferenciar "R1" de "R2"»— y en su lugar va la familia de la reunión, acotable a
+  // etapas. El motor las sigue evaluando para los flujos que ya las tienen (los tests de abajo).
+  for (const x of ['r1_pendiente', 'asistio_r1', 'asistio_r2', 'agendo_r2', 'r1_sin_avanzar', 'calificado_sin_r2', 'r2_sin_cerrar']) assert.ok(!a.has(x), `volvió ${x}`);
+  for (const x of ['asistio_reunion', 'reunion_agendada', 'reunion_en']) assert.ok(a.has(x), `falta ${x}`);
+  // Ninguna condición que se OFRECE dice R1 o R2 en su rótulo.
+  for (const s of adq) for (const o of s.options) assert.doesNotMatch(o.label, /\bR[12]\b/, `«${o.label}» habla de R1/R2`);
   // Cuarta tanda, punto 6: lo que el CRM no registra no se ofrece (el motor la sigue evaluando abajo).
   assert.ok(!a.has('confirmo_sin_pago'), 'volvió «Confirmó la compra y no pagó»');
   for (const x of ['completo_clase', 'completo_modulo', 'avance_curso', 'comento_post', 'envio_tarea', 'etapa_entrega']) assert.ok(e.has(x), `falta ${x}`);
@@ -290,15 +300,21 @@ test('resumenPagos y catalogoDeLead', () => {
 
 // ── La pantalla y la ruta ──────────────────────────────────────────────────────
 
-test('el editor: frases, «＋ Condición» por secciones, «Todas / Cualquiera» y sin los botoncitos «+y +o»', () => {
+// CUARTA TANDA, punto 7 (cambió lo que fijaba este test): vuelven «＋ y» / «＋ o» —«me gustaba antes la
+// opción de "+y" "+o"»— pero cada uno fija la unión de SU fila (lo prueba tests/condiciones-cuarta.test.ts);
+// salen «＋ Rama» —«es básicamente lo mismo que "+condición"... Eso eliminalo»— y el «Todas / Cualquiera»
+// que reemplaza la unión por fila. Y el punto 1: el selector de ancho completo, sin un tope propio.
+test('el editor: «＋ Condición» la primera, «＋ y» / «＋ o» las demás, sin «＋ Rama» ni «Todas / Cualquiera»', () => {
   const src = sinComentarios(leer('../app/chatbot/EditorCondicion.tsx'));
-  assert.doesNotMatch(src, />\s*\+ ?[yo]\s*</, 'volvieron los botones «+ y» / «+ o»');
   assert.match(src, /seccionesDeCondiciones\(ambito, cat\)/);
   assert.match(src, /＋ Condición/);
-  assert.match(src, /'Todas'/);
-  assert.match(src, /'Cualquiera'/);
-  assert.match(src, /＋ Rama/);
-  assert.match(src, /maxWidth: ANCHO/);
+  assert.match(src, /texto="＋ y"[^>]*onElegir=\{agregar\('y'\)\}/);
+  assert.match(src, /texto="＋ o"[^>]*onElegir=\{agregar\('o'\)\}/);
+  assert.doesNotMatch(src, /＋ Rama/, 'volvió «＋ Rama»');
+  assert.doesNotMatch(src, /onAgregarRama\(/, 'el editor llama a agregar una rama');
+  assert.doesNotMatch(src, /'Todas'|'Cualquiera'/, 'volvió el «Todas / Cualquiera» de la rama');
+  assert.doesNotMatch(src, /maxWidth/, 'el editor no lleva ancho propio: el tope es del contenedor');
+  assert.doesNotMatch(src, /La que tiene puesta/, 'lo puesto lo dice el botón (cuarta tanda, decisión 2)');
   assert.doesNotMatch(src, /<select/, 'nada de <select> nativo');
 });
 

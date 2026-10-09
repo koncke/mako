@@ -18,9 +18,14 @@ const SANS = "'Geist', sans-serif";
 
 type TabKey = 'notif' | 'fiscal' | 'equipo' | 'criterio';
 
-export function ConfigInnerTabs({ equipoPanel }: {
+export function ConfigInnerTabs({ equipoPanel, mensajesEnChatbot = false }: {
   /** Panel server-rendered embebido (data cargada en page.tsx). */
   equipoPanel: ReactNode;
+  /**
+   * El negocio tiene /chatbot: el lienzo de cada mensaje de Notificaciones se edita allá (quinta
+   * tanda, punto 5). Lo decide el server (page.tsx) con la misma función que el guard de /chatbot.
+   */
+  mensajesEnChatbot?: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>('notif');
   const [esAdmin, setEsAdmin] = useState(false);
@@ -33,7 +38,7 @@ export function ConfigInnerTabs({ equipoPanel }: {
   }, []);
 
   const TABS: Array<{ key: TabKey; label: string; panel: ReactNode }> = [
-    { key: 'notif', label: 'Notificaciones', panel: <NotificacionesPanel /> },
+    { key: 'notif', label: 'Notificaciones', panel: <NotificacionesPanel editarEnChatbot={mensajesEnChatbot} /> },
     { key: 'fiscal', label: 'Identidades fiscales', panel: <IdentidadesFiscalesPanel /> },
     { key: 'equipo', label: 'Equipo', panel: equipoPanel },
     // El criterio gobierna QUE ENTRA al tablero de todo el workspace, asi que solo lo

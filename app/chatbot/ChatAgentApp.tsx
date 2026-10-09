@@ -21,7 +21,11 @@ import { Icon } from '@/app/_components/icons';
 // next/link NO: perdería el ?ws= y mandaría al super admin a SU propio WhatsApp
 // en vez del que está mirando.
 import Link from '@/app/_ui/Link';
-import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando } from './SimuladorWhatsApp';
+import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type AbrirAviso, type Creando } from './SimuladorWhatsApp';
+// Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5): el
+// endpoint y el parámetro del link son los de allá (lib/chatbot-mensajes-mako.ts).
+import { ENDPOINT_MENSAJES_MAKO, PARAM_AVISO, mensajePedido } from '@/lib/chatbot-mensajes-mako';
+import type { PlantillaVista } from '@/lib/plantillas';
 import type { CronAviso } from '@/lib/cron-aviso';
 // ⚠️ ACÁ SE IMPORTABAN `HandoffsPanel` Y `RecordatorioReunion`, y se fueron el 08/10/2026 con
 // el pedido de Martín: «Elimina completamente lo de arriba ese form que ocupa toda la pantalla,
@@ -84,6 +88,12 @@ export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espe
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
+  /**
+   * Las etapas de un CRON con VARIAS (cuarta tanda, punto 14; mig 0230), crudas como vienen de la
+   * fila. Cuáles disparan lo dice `etapasDe` (lib/nutricion-etapa.ts): manda si su primera es `etapa`.
+   * `[]`/ausente = una sola, la de `etapa`.
+   */
+  etapas?: string[] | null;
   activa: boolean; pasos: PasoSecuenciaDto[]; inscriptos: number; enviados: number;
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
   /** El EMBUDO al que se acota una secuencia de venta. null = todos los productos. */
@@ -178,6 +188,15 @@ function ChatAgentInner() {
   const [pedidoIA, setPedidoIA] = useState<{ secuenciaId: number; pedido: string } | null>(null);
   /** La automatización que pidió abrir el deep link `?sec=`: se abre en su LIENZO. */
   const [abrirSec, setAbrirSec] = useState<AbrirSecuencia | null>(null);
+  /**
+   * LOS MENSAJES DE MAKO (quinta tanda, punto 5): los flujos de Configuraciones › Notificaciones,
+   * leídos por SU endpoint, que tiene guard de admin del workspace. Se piden sólo con `rolAdmin`:
+   * a un setter el endpoint le contesta 403, y la lista no puede ofrecerle filas que no puede
+   * abrir. `null` = no se leyeron (o no se pudieron leer): la lista no dibuja el grupo.
+   */
+  const [avisos, setAvisos] = useState<PlantillaVista[] | null>(null);
+  /** El mensaje que pidió abrir el link de Notificaciones (`?aviso=`). */
+  const [abrirAviso, setAbrirAviso] = useState<AbrirAviso | null>(null);
   /**
    * «＋ Nueva» en vuelo: un doble clic mandaba dos `crear_vacia` y dejaba dos filas vacías. Es un
    * ref y no un estado porque el segundo clic llega antes de que el primero vuelva a dibujar.
@@ -308,6 +327,20 @@ function ChatAgentInner() {
   useEffect(() => { void load(); }, [load]);
 
   /**
+   * Los Mensajes de MaKo, aparte de `load()`: son de OTRA pantalla y otra ruta, y un fallo de acá
+   * no puede dejar la tab con el cartel de error de las automatizaciones. Si no se pueden leer, la
+   * lista sigue con sus automatizaciones y sin el grupo — no se afirma que no haya ninguno.
+   */
+  const cargarAvisos = useCallback(async () => {
+    try {
+      const r = await fetch(ENDPOINT_MENSAJES_MAKO, { cache: 'no-store' });
+      const j = await r.json().catch(() => null);
+      if (r.ok && j?.ok && Array.isArray(j.plantillas)) setAvisos(j.plantillas as PlantillaVista[]);
+    } catch { /* sin red: la lista queda con las automatizaciones */ }
+  }, []);
+  useEffect(() => { if (rolAdmin) void cargarAvisos(); }, [rolAdmin, cargarAvisos]);
+
+  /**
    * «NUEVA» (decisión 14 de la segunda tanda): una automatización VACÍA y pausada, y se abre su
    * lienzo con la caja de «Crear con IA». Empezar de cero es tocar el ＋ del CRON. `pedido` precarga
    * la caja (el «Armar una» de una etapa sin secuencia).
@@ -383,6 +416,22 @@ function ChatAgentInner() {
     anclaAplicada.current = true;
   }, [params, secuencias]);
 
+  // ── El ancla del link de Notificaciones: /chatbot?aviso=<id> (quinta tanda, punto 5) ──
+  // Aparte del de `?sec=`: espera a OTRA lista (los mensajes, que llegan por otra ruta y sólo para
+  // el admin). Se aplica una vez por query: volver a leer los mensajes después de un cambio no
+  // vuelve a abrir el del link encima de lo que la persona eligió después. Un id que no está entre
+  // los que esta persona ve no abre nada (quien no es admin, o un mensaje que ya no existe).
+  const ultimaQueryAviso = useRef<string | null>(null);
+  useEffect(() => {
+    const id = mensajePedido(avisos, params.get(PARAM_AVISO));
+    if (!id) return;
+    const q = params.toString();
+    if (ultimaQueryAviso.current === q) return;
+    ultimaQueryAviso.current = q;
+    setAbrirAviso({ id });
+  }, [params, avisos]);
+  const hayAvisos = rolAdmin && (avisos?.length ?? 0) > 0;
+
   const etiquetaEtapa = useCallback(
     (key: string) => etapas.find((e) => e.value === key)?.label ?? ETAPA_LABEL[key] ?? key,
     [etapas],
@@ -409,7 +458,14 @@ function ChatAgentInner() {
   // un lienzo que todavía no puede mandar nada. `EvolutionConnect` es la misma pieza que usa
   // /whatsapp —ahí viven el sondeo, el QR y la recuperación de una sesión caída— y en modo
   // `inline` se dibuja sola y desaparece en cuanto engancha.
-  if (enOnboarding) {
+  //
+  // ⚠️ SALVO QUE SE VENGA A EDITAR UN MENSAJE DE MAKO (quinta tanda, punto 5): el link de
+  // Notificaciones (`?aviso=<id>`) es el ÚNICO lugar donde ese mensaje se edita desde que su lienzo
+  // salió de allá, y un mensaje de MaKo no sale por la línea del negocio (va al grupo de MaKo o al
+  // correo). Detrás del QR, un negocio sin WhatsApp vinculado se quedaba sin ningún lugar donde
+  // editarlo (AGENTS.md, «Si después de cerrar no queda ningún camino…»).
+  const vieneAUnMensaje = params.get(PARAM_AVISO) != null;
+  if (enOnboarding && !vieneAUnMensaje) {
     return (
       <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px', gap: 16 }}>
         <div>
@@ -558,7 +614,9 @@ function ChatAgentInner() {
 
       {secuencias === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando secuencias…</div>}
 
-      {visibles !== null && visibles.length === 0 && !error && (
+      {/* Sin automatizaciones PERO con Mensajes de MaKo, va la lista (quinta tanda, punto 5): el link
+          de Notificaciones tiene que aterrizar en el lienzo de su mensaje, no en este cartel. */}
+      {visibles !== null && visibles.length === 0 && !hayAvisos && !error && (
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
           Todavía no hay automatizaciones.
           {rolAdmin && (
@@ -574,9 +632,10 @@ function ChatAgentInner() {
       {/* EL QUE ESTIRA, Y PEGADO A LOS BORDES. Todo lo de arriba es `flex: none` con su
           propio padding; esto se lleva el alto que sobra y llega hasta el borde de la
           tab, que es lo que significa «que ocupe TODA la tab». */}
-      {visibles !== null && visibles.length > 0 && (
+      {visibles !== null && (visibles.length > 0 || hayAvisos) && (
         <SimuladorWhatsApp
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
+          avisos={avisos} abrirAviso={abrirAviso} onAvisosCambio={() => void cargarAvisos()}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={(pedido) => void crearNueva(pedido)} errorNueva={errCrear} onReload={() => void load()}
           pedidoIA={pedidoIA}

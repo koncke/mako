@@ -988,7 +988,9 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea, produc
                 titila en rojo, y al entrar se abre su pantalla de conexion. Los
                 componentes siguen montados porque aca viven el sondeo, el QR y la
                 reparacion del espejo — sin ellos la tab no sabria si el canal esta vivo. */}
-            <ChatwootWebhookChip ocultarChip abierto={modalOficial} onAbierto={setModalOficial} onSalud={setOficialProblema} />
+            {/* Sólo con el canal oficial: el sondeo le pega a Chatwoot, que está apagado
+                desde el 09/10/2026 (lib/chatwoot.ts). */}
+            {mostrarOficial && <ChatwootWebhookChip ocultarChip abierto={modalOficial} onAbierto={setModalOficial} onSalud={setOficialProblema} />}
             {envioAdmin && envioWaOn != null && (
               <button onClick={() => void toggleEnvioWa()} disabled={envioBusy} aria-pressed={envioWaOn}
                 title={

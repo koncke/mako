@@ -143,8 +143,11 @@ test('la rama de la post-agenda no pierde el ámbito al llamarse a sí misma', (
 
 test('el motor le pasa a la cohorte el embudo DE LA SECUENCIA', () => {
   const src = motor();
-  const sitios = [...src.matchAll(/leadsDeCohorte\(sec\.trigger_tipo, sec\.etapa([^)]*)\)/g)];
+  // ⚠️ CUARTA TANDA, PUNTO 14 (mig 0230): la etapa viaja como `etapasDe(sec)` —una o VARIAS—, no como
+  // `sec.etapa`. Lo que este guard cuida no cambió: que el ámbito viaje en los dos call-sites.
+  const sitios = [...src.matchAll(/leadsDeCohorte\(sec\.trigger_tipo, etapasDe\(sec\)([^)]*)\)/g)];
   assert.equal(sitios.length, 2, `los call-sites de leadsDeCohorte son ${sitios.length}: el plan y el commit`);
+  assert.doesNotMatch(src, /leadsDeCohorte\(sec\.trigger_tipo, sec\.etapa/, 'un call-site volvió a pasar UNA etapa: un CRON de varias inscribiría sólo por la primera');
   for (const s of sitios) {
     // Desde el 05/10 viaja también `sec.producto_id`: el ámbito de una secuencia de
     // ENTREGA es el producto y no el embudo (mig 0189). Lo que el guard cuida sigue
@@ -155,8 +158,18 @@ test('el motor le pasa a la cohorte el embudo DE LA SECUENCIA', () => {
   }
   // La etiqueta tiene que venir de la base, como el embudo: los dos selects del motor la traen.
   // Probado rompiéndolo (08/10/2026): sacando `etiqueta_id` de uno de los dos → 1 falla (7/1).
-  const conEtiqueta = [...src.matchAll(/\.select\('([^']*trigger_tipo[^']*)'\)/g)].filter((m) => m[1].includes('etiqueta_id'));
-  assert.ok(conEtiqueta.length >= 2, `los selects de secuencias con etiqueta_id son ${conEtiqueta.length}: el trigger de etiqueta resolvería la cohorte vacía`);
+  // ⚠️ CUARTA TANDA, PUNTO 14: los dos selects pasan a leer UNA constante (`COLS_SECUENCIA`, por
+  // `leerFilasDeSecuencias`, que vuelve a pedir sin `etapas` si la 0230 no está). Se fija la constante y
+  // que las dos lecturas pasen por ahí: una lectura que vuelva a un `.select('…')` propio sin pasar por
+  // la constante se queda sin el ámbito el día que alguien lo sume a una sola.
+  const cols = /const COLS_SECUENCIA = '([^']*)';/.exec(src)?.[1] ?? '';
+  assert.ok(cols.includes('trigger_tipo'), 'no encontré COLS_SECUENCIA');
+  assert.ok(cols.includes('etiqueta_id'), 'COLS_SECUENCIA no trae etiqueta_id: el trigger de etiqueta resolvería la cohorte vacía');
+  for (const f of ['export async function getSecuenciasActivas(', 'export async function getSecuenciasConStats(']) {
+    const i = src.indexOf(f);
+    const cuerpo = src.slice(i, src.indexOf('\n}\n', i));
+    assert.ok(i >= 0 && /leerFilasDeSecuencias\(\(cols\) => supabase\s*\.from\('nutricion_secuencias'\)\s*\.select\(cols\)/.test(cuerpo), `${f} no lee por leerFilasDeSecuencias`);
+  }
   // Y el dato tiene que llegar desde la base, o `sec.funnel_id` es `undefined`
   // para siempre y el ámbito es «todos» aunque el dueño declare el embudo.
   // ⚠️ NO SE FIJA LA LISTA EXACTA DE COLUMNAS. La primera versión de este guard pedía
@@ -170,10 +183,11 @@ test('el motor le pasa a la cohorte el embudo DE LA SECUENCIA', () => {
   // aplicó y NO avisó — el test dio 8/0 sobre un archivo que yo creía roto, que es un
   // verde sobre una medición que nunca ocurrió.
   for (const campo of ['funnel_id', 'producto_id']) {
-    const selects = [...src.matchAll(/\.select\('([^']*trigger_tipo[^']*)'\)/g)];
+    // Los `.select('…trigger_tipo…')` que queden sueltos, y la constante de las dos lecturas del motor.
+    const selects = [...[...src.matchAll(/\.select\('([^']*trigger_tipo[^']*)'\)/g)].map((m) => m[1]), cols];
     assert.ok(selects.length > 0, 'no encontré el select de las secuencias');
     for (const sel of selects) {
-      assert.ok(sel[1].includes(campo),
+      assert.ok(sel.includes(campo),
         `el select de las secuencias no trae ${campo}: la declaración del dueño no llega al motor`);
     }
   }

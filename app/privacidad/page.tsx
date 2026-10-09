@@ -328,7 +328,7 @@ export default function Page() {
         <li><strong>Google</strong> — para entrar y, si la conectas, para tu agenda.</li>
         <li><strong>Resend</strong> — el envío de correos.</li>
         <li>
-          <strong>Chatwoot, Evolution y Meta</strong> — los canales de WhatsApp e Instagram.
+          <strong>Evolution</strong> — el canal de WhatsApp.
         </li>
         <li><strong>Meta</strong> — tus campañas publicitarias. El correo y el teléfono de un contacto pueden enviarse <strong>cifrados de forma irreversible</strong> para medir conversiones.</li>
         <li><strong>Calendly y Cal.com</strong> — las agendas de reserva.</li>
