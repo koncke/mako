@@ -407,15 +407,8 @@ test('el botón sale sólo con `paraGuion`, y pide desde el MENSAJE (no desde la
   assert.match(pedir, /onError\(j\?\.error \|\| /, 'el motivo que manda la ruta es el que se muestra');
 });
 
-// ⟵ ROTURA (10): el wizard volviendo al pase a mano que conservaba el cuerpo → rojo (1 fallo).
-test('el wizard pasa a voz con `pasoAVoz`, le da el guion al control y no lo guarda', () => {
-  const wiz = sinComentarios(leer('app/chatbot/SecuenciaWizard.tsx'));
-  const ctl = bloque(wiz, '<PasoAudioControl', '/>');
-  assert.match(ctl, /\(id \? pasoAVoz\(x, id\) : pasoATexto\(x\)\)/);
-  assert.match(ctl, /guion=\{guionParaLeer\(p\)\}/);
-  assert.match(ctl, /paraGuion=\{\{ objetivo, gancho, preguntas, pie: p\.tipo === 'audio' \? p\.cuerpo : '' \}\}/);
-  assert.match(wiz, /pasos: draft\?\.map\(sinGuion\)/);
-});
+// (Rotura 10 retirada el 08/10/2026, segunda tanda: el wizard de 9 pasos dejó de ser la entrada
+// para crear —«＋ Nueva» abre el lienzo con «Crear con IA»— y su archivo se borró sin call sites.)
 
 // ⚠️ REESCRITO EL 08/10/2026: el lienzo ya NO monta `PasoAudioControl` (punto 8: «El
 // editable del audio también está horrible, todos los botones amontonados... que todo lo que

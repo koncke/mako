@@ -6,12 +6,12 @@
 // ManyChat («In Manychat»): un teléfono al lado del lienzo que recorre la automatización; en una
 // condición, quien prueba ELIGE la rama; una espera no espera; una acción no se ejecuta.
 //
-// Módulo PURO y sin `server-only`: lo ejecuta tests/simulador-grafo.test.ts y lo usa el panel
-// (app/chatbot/PanelProbar.tsx). La navegación es la de lib/flujo-grafo.ts —la MISMA que lee el
-// motor—, así que lo que se prueba es lo que va a pasar, y no un setter libre como antes: la
-// #198 tenía cero casos y en el simulador viejo MaKo contestaba igual, mientras en producción
-// toda respuesta iba a hand-off. Un simulador que no recorre el dato del motor afirma algo que
-// el motor no hace.
+// Módulo PURO y sin `server-only`: lo ejecutan tests/simulador-grafo.test.ts y
+// tests/simulador-hilos.test.ts, y lo usa el panel (app/chatbot/PanelProbar.tsx). La navegación es
+// la de lib/flujo-grafo.ts —la MISMA que lee el motor—, así que lo que se prueba es lo que va a
+// pasar, y no un setter libre como antes: la #198 tenía cero casos y en el simulador viejo MaKo
+// contestaba igual, mientras en producción toda respuesta iba a hand-off. Un simulador que no
+// recorre el dato del motor afirma algo que el motor no hace.
 //
 // ── QUÉ SE PRUEBA: LO QUE SE VE, NO LO GUARDADO ──────────────────────────────
 // Recibe los pasos LOCALES (lo que el lienzo tiene sin publicar, `onCambioLocal`). Antes
@@ -19,16 +19,37 @@
 // perdía lo escrito.
 //
 // ── LAS DOS RAÍCES ───────────────────────────────────────────────────────────
-// La SALIDA arranca en `raizSalida` y corre sola. Una respuesta del lead la PAUSA
+// La SALIDA arranca en `raicesSalida` y corre sola. Una respuesta del lead la PAUSA
 // (`pausarPorRespuesta`, igual que el motor) y corre «Si responde»: el servidor clasifica contra
 // los casos locales y este módulo entra por la rama elegida (`entrarEnRespuesta`). Un «Ir a» a una
 // tarjeta desde «Si responde» RETOMA la salida ahí (lo mismo que hace el motor).
+//
+// ── SEGUNDA TANDA (08/10/2026, noche): VARIOS CAMINOS A LA VEZ ───────────────
+// Pedido de Martín, punto 2: «de un mismo cron puedo sacar todo una secuencia para WhatsApp y
+// toda otra secuencia de email». Con flechas en paralelo (`paralelos`, lib/flujo-grafo.ts) la
+// salida deja de ser UN cursor: es una lista de HILOS, cada uno con su RELOJ en minutos virtuales
+// (docs/chatbot-flujo-ramas-diseno.md, «"Probar" (parte P)», y la decisión 3 del motor).
+//
+//   · Corre el hilo de reloj más bajo; en un empate, el primero del array (que es el orden en
+//     que nacieron). Así la prueba muestra el ORDEN REAL: el WhatsApp del día 0, el email del
+//     día 0, y recién después el WhatsApp del día 1. Con un solo cursor, «Probar» mostraba toda
+//     la rama de WhatsApp —días incluidos— antes del primer email.
+//   · Una espera suma sus minutos al reloj de SU hilo y nada más.
+//   · Una tarjeta con flechas en paralelo, cuando termina, agrega un hilo por flecha con el
+//     reloj que tiene el padre en ese momento (una espera termina DESPUÉS de esperar).
+//   · Una condición pendiente frena la prueba ENTERA: una pregunta a la vez, aunque otro hilo
+//     tenga algo para mostrar.
+//   · Una respuesta del lead pausa TODOS los hilos (como el motor, decisión 4); «Si responde»
+//     corre en UN hilo, y su «Ir a {tarjeta}» retoma la salida en UN hilo y descarta los
+//     congelados.
+//   · Las raíces y las salidas salen del modelo (`raicesSalida`, `puertosDe`), no de una idea
+//     propia: el puerto `par:<id>` es la flecha en paralelo.
 // =============================================================================
 
 import {
   type PasoGrafo, type NombresParaTexto,
-  claseDe, idDe, indicePorId, nodoPorId, normalizar, raizSalida, raizRespuesta, siguienteDe,
-  textoEspera, textoRama,
+  claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
+  textoEspera, textoRama, TOPE_HILOS,
 } from './flujo-grafo';
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
@@ -50,17 +71,39 @@ export type EventoSim<P extends PasoGrafo = PasoGrafo> =
 
 export type CasoElegido = { id: string | null; titulo: string; cuando: string };
 
+/**
+ * Un camino que corre: en qué tarjeta está y su reloj.
+ *
+ * `esperado`: la espera donde está parado YA se sumó al reloj y falta DECIRLA. La píldora
+ * «⏳ Esperar 1 día» sale cuando a este hilo le vuelve a tocar —o sea, después de lo que los
+ * otros hilos mandan mientras tanto—, justo antes de lo que sigue a la espera. Si saliera al
+ * empezar a esperar, el email del día 0 aparecería DEBAJO de «Esperar 1 día» y se leería como
+ * que llega al día siguiente.
+ */
+export type HiloSim = { cursor: string; reloj: number; esperado?: true };
+
 export type EstadoSim = {
-  /** El próximo nodo a correr. */
-  cursor: string | null;
+  /**
+   * Los caminos vivos (vacío = no queda nada que correr). Sin flechas en paralelo hay uno solo,
+   * como siempre. Un hilo que termina SALE del array: su `cursor` nunca es null.
+   */
+  hilos: HiloSim[];
   rama: 'salida' | 'respuesta';
-  /** La condición que espera que quien prueba elija. Mientras no elija, no se avanza. */
-  eligiendo: { nodo: string; opciones: OpcionRama[] } | null;
+  /**
+   * La condición que espera que quien prueba elija, y en QUÉ hilo (su índice: mientras se elige
+   * no corre nada, así que el array no cambia). Mientras no elija, no avanza ningún hilo.
+   */
+  eligiendo: { nodo: string; opciones: OpcionRama[]; hilo: number } | null;
   /** Una respuesta del lead pausó la salida: ya no corre (salvo un «Ir a» desde «Si responde»). */
   salidaPausada: boolean;
   terminado: boolean;
   saltos: number;
   eventos: number;
+  /**
+   * El minuto virtual de lo último que corrió. Una respuesta del lead llega «ahora»: el hilo de
+   * «Si responde» (y el que retoma la salida con un «Ir a») nace con este reloj.
+   */
+  ahora: number;
   /** El caso de «Si responde» por el que se entró (para redactar «MaKo contesta»). */
   caso: CasoElegido | null;
 };
@@ -118,11 +161,39 @@ export function textoDeEjemplo(texto: string, negocio?: string | null): string {
   return aplicarVariables(texto ?? '', valoresVariablesLead(LEAD_DE_EJEMPLO, { negocio }));
 }
 
+/**
+ * Un email del flujo tal como lo ve el lead en su bandeja: el asunto, la vista previa (el
+ * `preheader`, lo gris que Gmail pone al lado del asunto) y el cuerpo, con las variables del lead
+ * de ejemplo. «Probar» lo dibuja como un MAIL y no como una burbuja de WhatsApp: un email que se
+ * ve como un WhatsApp no prueba cómo llega (decisión 11 de la segunda tanda).
+ *
+ * Vacío = vacío: el panel decide qué rótulo poner («Sin asunto»), y la vista previa ausente no se
+ * reemplaza por el principio del cuerpo, que ya se ve debajo.
+ */
+export function correoDeEjemplo(
+  p: { asunto?: string | null; preheader?: string | null; cuerpo?: string | null },
+  negocio?: string | null,
+): { asunto: string; vistaPrevia: string; cuerpo: string } {
+  return {
+    asunto: textoDeEjemplo(p.asunto ?? '', negocio).trim(),
+    vistaPrevia: textoDeEjemplo(p.preheader ?? '', negocio).trim(),
+    cuerpo: textoDeEjemplo(p.cuerpo ?? '', negocio),
+  };
+}
+
 // ── Recorrer ───────────────────────────────────────────────────────────────────
 
 export function iniciar(pasos: readonly PasoGrafo[]): EstadoSim {
-  const raiz = raizSalida(pasos);
-  return { cursor: raiz, rama: 'salida', eligiendo: null, salidaPausada: false, terminado: false, saltos: 0, eventos: 0, caso: null };
+  // Un hilo por raíz: la principal y cada flecha en paralelo del CRON, todas en el minuto 0.
+  const hilos = raicesSalida(pasos).slice(0, TOPE_HILOS).map((cursor) => ({ cursor, reloj: 0 }));
+  return { hilos, rama: 'salida', eligiendo: null, salidaPausada: false, terminado: false, saltos: 0, eventos: 0, ahora: 0, caso: null };
+}
+
+/** El hilo que corre ahora: el de reloj más bajo; en un empate, el primero del array. */
+export function proximoHilo(hilos: readonly HiloSim[]): number {
+  let k = 0;
+  for (let i = 1; i < hilos.length; i++) if (hilos[i].reloj < hilos[k].reloj) k = i;
+  return k;
 }
 
 const nombreAccion = (p: PasoGrafo, n: NombresSim): string => {
@@ -135,13 +206,131 @@ const nombreAccion = (p: PasoGrafo, n: NombresSim): string => {
 type Paso<P extends PasoGrafo> = { evento: EventoSim<P> | null; estado: EstadoSim };
 
 function fin<P extends PasoGrafo>(estado: EstadoSim, texto: string): Paso<P> {
-  return { evento: { t: 'fin', texto }, estado: { ...estado, cursor: null, eligiendo: null, terminado: true } };
+  return { evento: { t: 'fin', texto }, estado: { ...estado, hilos: [], eligiendo: null, terminado: true } };
 }
 
 /**
+ * Las salidas de una tarjeta de UNA salida, leídas de sus PUERTOS (el modelo): la de siempre
+ * (`sig`) y las flechas en paralelo (`par:<id>`).
+ */
+function salidasDe(pasos: readonly PasoGrafo[], i: number): { sig: string | null; paralelos: string[] } {
+  const pts = puertosDe(pasos, i);
+  return {
+    sig: pts.find((pt) => pt.puerto === 'sig')?.destino ?? null,
+    paralelos: pts.filter((pt) => pt.puerto.startsWith('par:') && pt.destino).map((pt) => pt.destino as string),
+  };
+}
+
+/**
+ * El hilo `k` terminó su tarjeta: sigue en `sig` (o sale del array si no hay nada después) y
+ * cada flecha en paralelo agrega un hilo AL FINAL con el mismo reloj.
+ *
+ * ⚠️ El tope de hilos vivos (`TOPE_HILOS`) se respeta acá aunque `validarGrafo` ya lo exija: lo
+ * que se prueba es lo LOCAL, sin publicar, y puede ser un flujo que no se podría guardar. Lo que
+ * no entra no se abre; el tope de eventos corta el resto.
+ */
+function seguir(hilos: readonly HiloSim[], k: number, sig: string | null, paralelos: readonly string[], reloj: number): HiloSim[] {
+  const out = hilos.slice();
+  if (sig) out[k] = { cursor: sig, reloj };
+  else out.splice(k, 1);
+  for (const d of paralelos) if (out.length < TOPE_HILOS) out.push({ cursor: d, reloj });
+  return out;
+}
+
+/**
+ * El hilo `k` se cierra sin decir nada (una tarjeta que ya no existe, un «Ir a» sin destino). Si
+ * era el último, la prueba termina con `texto`.
+ */
+function cerrarHilo<P extends PasoGrafo>(estado: EstadoSim, k: number, texto: string): Paso<P> {
+  const hilos = estado.hilos.filter((_, j) => j !== k);
+  if (!hilos.length) return fin(estado, texto);
+  return { evento: null, estado: { ...estado, hilos } };
+}
+
+/**
+ * Corre UNA tarjeta del hilo `k`. `evento: null` = avanzó sin nada que mostrar (contó una espera,
+ * cerró un hilo en silencio): `siguiente` vuelve a elegir hilo.
+ */
+function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim, k: number, nombres: NombresSim): Paso<P> {
+  const h = estado.hilos[k];
+  const st: EstadoSim = { ...estado, ahora: h.reloj };
+  const i = indicePorId(pasos, h.cursor);
+  if (i < 0) return cerrarHilo(st, k, 'Esa tarjeta ya no existe');
+  const p = pasos[i];
+  const id = idDe(p, i);
+  // `eventos` cuenta lo que se MUESTRA: lo que avanza en silencio (`cerrarHilo`, contar una
+  // espera) parte de `st`.
+  const base: EstadoSim = { ...st, eventos: st.eventos + 1 };
+  // Adentro de «Si responde» no se reparte (no se puede guardar: `validarGrafo`), y la respuesta
+  // corre en UN hilo, como en el motor.
+  const avanzar = (reloj: number): HiloSim[] => {
+    const s = salidasDe(pasos, i);
+    return seguir(st.hilos, k, s.sig, st.rama === 'respuesta' ? [] : s.paralelos, reloj);
+  };
+  switch (claseDe(p)) {
+    case 'mensaje':
+      return { evento: { t: 'mensaje', nodo: id, paso: p, enRespuesta: st.rama === 'respuesta' }, estado: { ...base, hilos: avanzar(h.reloj) } };
+    case 'accion':
+      // No se ejecuta: probar no puede mover un lead ni crear una tarea de verdad.
+      return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
+    case 'esperar': {
+      if (!h.esperado) {
+        // No espera: suma al reloj de SU hilo y lo dice cuando le vuelve a tocar (ver `HiloSim`).
+        // «N antes de la reunión» no mueve el reloj: la prueba no tiene una reunión de la que
+        // descontar, y un número inventado ordenaría los hilos con un dato que no existe.
+        const min = p.espera?.modo === 'tiempo' ? Math.max(0, Number(p.espera.minutos) || 0) : 0;
+        const hilos = st.hilos.slice();
+        hilos[k] = { cursor: h.cursor, reloj: h.reloj + min, esperado: true };
+        return { evento: null, estado: { ...st, hilos } };
+      }
+      return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
+    }
+    case 'condicion': {
+      const opciones: OpcionRama[] = [
+        ...(p.ramas ?? []).map((r) => ({ puerto: r.id, texto: textoRama(r, nombres), destino: r.siguiente ?? null })),
+        { puerto: 'si_no', texto: 'Si no', destino: p.si_no ?? null },
+      ];
+      return { evento: { t: 'condicion', nodo: id, opciones }, estado: { ...base, eligiendo: { nodo: id, opciones, hilo: k } } };
+    }
+    case 'respuesta':
+      // A «Si responde» se entra por una respuesta del lead, no caminando (y no se puede guardar
+      // una flecha hacia ella). Se cierra ese hilo; si era el último, se dice qué falta.
+      return cerrarHilo(st, k, 'Espera la respuesta');
+    case 'inicio':
+      // El CRON no es una tarjeta del camino: nadie puede seguir en él (`validarGrafo`).
+      return cerrarHilo(st, k, 'Fin');
+    case 'ir_a': {
+      const d = p.destino;
+      if (!d) return cerrarHilo(st, k, 'Fin');
+      if ('secuencia_id' in d) {
+        // Cierra SU hilo (el motor la inscribe en la otra); los demás siguen.
+        const nom = nombres.secuencia?.(d.secuencia_id) ?? 'otra automatización';
+        const hilos = st.hilos.filter((_, j) => j !== k);
+        return { evento: { t: 'salto', nodo: id, texto: `↪ Sigue en «${nom}»` }, estado: { ...base, hilos, terminado: hilos.length === 0 } };
+      }
+      const saltos = st.saltos + 1;
+      if (saltos > TOPE_SALTOS) return fin(base, 'Se repite: fin de la prueba');
+      const evento: EventoSim<P> = { t: 'salto', nodo: id, texto: '↪ Ir a otra tarjeta' };
+      if (st.rama === 'respuesta') {
+        // Desde «Si responde», un salto a una tarjeta RETOMA la salida ahí en UN hilo (el motor
+        // hace lo mismo y descarta los congelados: retomar todo junto le mandaría varios mensajes
+        // seguidos a alguien que acaba de escribir).
+        return { evento, estado: { ...base, saltos, hilos: [{ cursor: d.nodo, reloj: h.reloj }], rama: 'salida', salidaPausada: false } };
+      }
+      const hilos = st.hilos.slice();
+      hilos[k] = { cursor: d.nodo, reloj: h.reloj };
+      return { evento, estado: { ...base, saltos, hilos } };
+    }
+  }
+}
+
+/** Cuántas vueltas sin evento puede dar `siguiente`: cada hilo cuenta una espera o se cierra. */
+const TOPE_VUELTAS_MUDAS = TOPE_HILOS * 2 + 2;
+
+/**
  * El próximo evento. `null` cuando no hay nada que correr: terminó, espera una elección, o la
- * salida está pausada. Un paso por llamada: el panel pone el «escribiendo…» y la pausa entre uno y
- * otro.
+ * salida está pausada. Un evento por llamada: el panel pone el «escribiendo…» y la pausa entre
+ * uno y otro.
  */
 export function siguiente<P extends PasoGrafo>(
   pasos: readonly P[],
@@ -150,76 +339,49 @@ export function siguiente<P extends PasoGrafo>(
 ): Paso<P> {
   if (estado.terminado || estado.eligiendo) return { evento: null, estado };
   if (estado.rama === 'salida' && estado.salidaPausada) return { evento: null, estado };
-  if (!estado.cursor) {
-    return fin(estado, estado.rama === 'respuesta' ? 'Fin de la respuesta' : estado.eventos === 0 ? 'Sin tarjetas' : 'Fin');
-  }
-  if (estado.eventos >= TOPE_EVENTOS) return fin(estado, 'Se repite: fin de la prueba');
-  const i = indicePorId(pasos, estado.cursor);
-  if (i < 0) return fin(estado, 'Esa tarjeta ya no existe');
-  const p = pasos[i];
-  const id = idDe(p, i);
-  const base: EstadoSim = { ...estado, eventos: estado.eventos + 1 };
-  switch (claseDe(p)) {
-    case 'mensaje':
-      return { evento: { t: 'mensaje', nodo: id, paso: p, enRespuesta: estado.rama === 'respuesta' }, estado: { ...base, cursor: siguienteDe(pasos, i) } };
-    case 'accion':
-      // No se ejecuta: probar no puede mover un lead ni crear una tarea de verdad.
-      return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}` }, estado: { ...base, cursor: siguienteDe(pasos, i) } };
-    case 'esperar':
-      // No espera: se dice cuánto y se sigue.
-      return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)}` }, estado: { ...base, cursor: siguienteDe(pasos, i) } };
-    case 'condicion': {
-      const opciones: OpcionRama[] = [
-        ...(p.ramas ?? []).map((r) => ({ puerto: r.id, texto: textoRama(r, nombres), destino: r.siguiente ?? null })),
-        { puerto: 'si_no', texto: 'Si no', destino: p.si_no ?? null },
-      ];
-      return { evento: { t: 'condicion', nodo: id, opciones }, estado: { ...base, eligiendo: { nodo: id, opciones } } };
+  let st = estado;
+  for (let vuelta = 0; vuelta <= TOPE_VUELTAS_MUDAS; vuelta++) {
+    if (!st.hilos.length) {
+      return fin(st, st.rama === 'respuesta' ? 'Fin de la respuesta' : st.eventos === 0 ? 'Sin tarjetas' : 'Fin');
     }
-    case 'respuesta':
-      // A «Si responde» se entra por una respuesta del lead, no caminando.
-      return fin(base, 'Espera la respuesta');
-    case 'ir_a': {
-      const d = p.destino;
-      if (!d) return fin(base, 'Fin');
-      if ('secuencia_id' in d) {
-        const nom = nombres.secuencia?.(d.secuencia_id) ?? 'otra automatización';
-        return { evento: { t: 'salto', nodo: id, texto: `↪ Sigue en «${nom}»` }, estado: { ...base, cursor: null, terminado: true } };
-      }
-      const saltos = estado.saltos + 1;
-      if (saltos > TOPE_SALTOS) return fin(base, 'Se repite: fin de la prueba');
-      // Desde «Si responde», un salto a una tarjeta RETOMA la salida ahí (el motor hace lo mismo).
-      return {
-        evento: { t: 'salto', nodo: id, texto: '↪ Ir a otra tarjeta' },
-        estado: { ...base, saltos, cursor: d.nodo, rama: 'salida', salidaPausada: false },
-      };
-    }
+    if (st.eventos >= TOPE_EVENTOS) return fin(st, 'Se repite: fin de la prueba');
+    const r = correrHilo(pasos, st, proximoHilo(st.hilos), nombres);
+    if (r.evento || r.estado.terminado) return r;
+    st = r.estado;
   }
+  return fin(st, 'Se repite: fin de la prueba');
 }
 
-/** Quien prueba elige por qué rama sigue una condición. */
+/** Quien prueba elige por qué rama sigue una condición: se mueve SU hilo, no otro. */
 export function elegir(estado: EstadoSim, puerto: string): EstadoSim {
   const e = estado.eligiendo;
   if (!e) return estado;
   const o = e.opciones.find((x) => x.puerto === puerto);
   if (!o) return estado;
-  return { ...estado, eligiendo: null, cursor: o.destino };
+  const h = estado.hilos[e.hilo];
+  if (!h) return { ...estado, eligiendo: null };
+  return { ...estado, eligiendo: null, hilos: seguir(estado.hilos, e.hilo, o.destino, [], h.reloj) };
 }
 
 /**
- * El lead escribió: la salida se PAUSA, como en el motor (`pausarPorRespuesta`). Mientras la
- * salida corre el lead no respondió; por eso las condiciones de la salida no tienen «respondió».
+ * El lead escribió: la salida se PAUSA entera —todos sus hilos—, como en el motor
+ * (`pausarPorRespuesta`). Mientras la salida corre el lead no respondió; por eso las condiciones
+ * de la salida no tienen «respondió». Si estaba corriendo «Si responde», esa respuesta se corta:
+ * el turno nuevo la reemplaza.
  */
 export function pausarPorRespuesta(estado: EstadoSim): { estado: EstadoSim; pausoLaSalida: boolean } {
-  const corria = estado.rama === 'salida' && !estado.salidaPausada && !estado.terminado;
+  const corria = estado.rama === 'salida' && !estado.salidaPausada && !estado.terminado && estado.hilos.length > 0;
   return {
-    estado: { ...estado, salidaPausada: estado.salidaPausada || estado.rama === 'salida', eligiendo: null, ...(estado.rama === 'respuesta' ? { terminado: true, cursor: null } : {}) },
+    estado: { ...estado, salidaPausada: estado.salidaPausada || estado.rama === 'salida', eligiendo: null, ...(estado.rama === 'respuesta' ? { terminado: true, hilos: [] } : {}) },
     pausoLaSalida: corria,
   };
 }
 
 /**
  * Entra a «Si responde» por el caso que eligió el clasificador (`casoId`), o por «Otra cosa»
- * (`null`). Sin tarjeta «Si responde», `sinRespuesta`: MaKo no contesta.
+ * (`null`), en UN hilo con el reloj de «ahora». Los hilos congelados de la salida se descartan:
+ * sólo vuelve el que retome un «Ir a» (decisión 4). Sin tarjeta «Si responde», `sinRespuesta`:
+ * MaKo no contesta.
  */
 export function entrarEnRespuesta(
   pasos: readonly PasoGrafo[],
@@ -227,12 +389,12 @@ export function entrarEnRespuesta(
   casoId: string | null,
 ): { estado: EstadoSim; sinRespuesta: boolean; caso: CasoElegido | null } {
   const r = nodoPorId(pasos, raizRespuesta(pasos));
-  if (!r) return { estado: { ...estado, terminado: true, cursor: null, eligiendo: null }, sinRespuesta: true, caso: null };
+  if (!r) return { estado: { ...estado, terminado: true, hilos: [], eligiendo: null }, sinRespuesta: true, caso: null };
   const c = casoId ? (r.casos ?? []).find((x) => x.id === casoId) ?? null : null;
   const caso: CasoElegido = c ? { id: c.id, titulo: c.titulo, cuando: c.cuando } : { id: null, titulo: 'Otra cosa', cuando: '' };
   const destino = c ? c.siguiente ?? null : r.si_no ?? null;
   return {
-    estado: { ...estado, cursor: destino, rama: 'respuesta', eligiendo: null, terminado: false, saltos: 0, caso },
+    estado: { ...estado, hilos: destino ? [{ cursor: destino, reloj: estado.ahora }] : [], rama: 'respuesta', eligiendo: null, terminado: false, saltos: 0, caso },
     sinRespuesta: false,
     caso,
   };

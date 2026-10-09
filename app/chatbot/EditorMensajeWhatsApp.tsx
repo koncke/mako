@@ -15,6 +15,14 @@
 // siempre (`ComposerWhatsApp` en modo `editar`). Debajo, una fila mínima: ✦ (MaKo lo adapta),
 // { } (datos), «↻ N» (otras formas de decirlo) y «Revisar antes de enviar».
 //
+// Segunda tanda (08/10/2026, punto 3: «El editor de WhatsApp debes hacerlo más ancho que largo,
+// sino, se amontona todo»; decisión 10): `disposicion="fila"` para el panel APAISADO de /chatbot.
+// Las piezas son las mismas y en el mismo orden de lectura; cambia dónde va cada una: el chat a la
+// izquierda (~44 %) a todo el alto, y a la derecha el chip, la barra y las herramientas. Grabando,
+// el guion vive en la columna de la derecha, que tiene ancho para leerse. Por debajo de
+// `ANCHO_MIN_FILA` se apila sola (container query): el editor nunca vuelve a amontonarse aunque
+// quien lo monte se equivoque de disposición. `columna` (el default) no cambió ni un píxel.
+//
 // Cómo mapea al paso, sin campos nuevos más que `media_id`:
 //   · `cuerpo` es lo que se escribe en la barra: el texto, la base de MaKo, el PIE del audio o el
 //     caption del archivo. Por eso no hay rótulos: el placeholder dice cuál de los cuatro es.
@@ -92,6 +100,14 @@ export type EditorMensajeWhatsAppProps = {
   deshabilitado?: boolean;
   /** Además de la línea de error del editor. */
   onError?: (m: string) => void;
+  /**
+   * Cómo se acomoda (segunda tanda, 08/10/2026, decisión 10). `columna` (default, lo de siempre):
+   * la burbuja arriba y la barra abajo, para un panel angosto. `fila`: para el panel APAISADO de
+   * /chatbot (~900-1100 × ~340), el chat a la izquierda con las burbujas a todo el alto, y a la
+   * derecha el adjunto, la barra y las herramientas. Quien monta decide cuál según el panel; en un
+   * contenedor angosto la `fila` se apila sola (container query), así que nunca se amontona.
+   */
+  disposicion?: 'columna' | 'fila';
 };
 
 /** La ruta del guion: la misma que usa PasoAudioControl (una cosa, un lugar). */
@@ -123,10 +139,30 @@ const cacheBiblioteca = new Map<string, { t: number; lista: AdjuntoDto[] }>();
 const chip: CSSProperties = { height: 28, padding: '0 10px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const cajaPopover: CSSProperties = { width: 280, maxHeight: 340, overflowY: 'auto', padding: 10, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, boxShadow: '0 12px 34px rgba(18,21,27,.18)', fontFamily: "'Geist', sans-serif", display: 'flex', flexDirection: 'column', gap: 8 };
 
+/**
+ * La `fila`, en CSS y no en el `style`: el grid de dos columnas se apila con un container query
+ * cuando el panel es angosto, y un `style` en línea le gana a cualquier regla — también a la de la
+ * consulta. Lo que no cambia con el ancho sí va en línea.
+ */
+const CSS_FILA = `
+.mk-wa-fila{display:grid;grid-template-columns:minmax(0,44fr) minmax(0,56fr);grid-template-rows:minmax(0,1fr);gap:12px;flex:1 1 auto;min-height:0;min-width:0}
+.mk-wa-fila-chat{min-height:160px}
+@container mkwa (max-width: 559px){.mk-wa-fila{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}.mk-wa-fila-chat{min-height:0;max-height:260px}}
+`;
+
+/**
+ * El ancho desde el que la `fila` se apila (el `max-width` de la consulta de arriba, + 1). Con menos,
+ * el composer de la derecha quedaría en ~300 px: los tres íconos de 38 y un campo de ~150, que es
+ * exactamente el amontonado que la fila viene a sacar.
+ */
+export const ANCHO_MIN_FILA = 560;
+
 export function EditorMensajeWhatsApp({
   paso, onChange, audios, onAudioNuevo, variables, permiteIA, onModoIA, permiteAudio = true, permiteAdjuntos = true,
   mostrarRevisar, revisarHeredado, negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, deshabilitado, onError,
+  disposicion = 'columna',
 }: EditorMensajeWhatsAppProps) {
+  const enFila = disposicion === 'fila';
   const ws = useWs();
   const [pendiente, setPendiente] = useState<{ blob: Blob; secs: number } | null>(null);
   const [fase, setFase] = useState<string | null>(null);
@@ -251,7 +287,10 @@ export function EditorMensajeWhatsApp({
 
   const mientrasGraba: ReactNode = (paraLeer || puedeGuion) ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '9px 11px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-      {paraLeer && <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 150, overflowY: 'auto' }}>{paraLeer}</div>}
+      {/* En `fila` el guion vive en la columna de la derecha, que es ANCHA (~540 px contra ~362): con
+          120 de alto entran ~400 caracteres a la vista, más que los ~315 de la columna con 150. Más alto
+          no entra: el panel apaisado mide ~340 y abajo van la barra de grabar y las herramientas. */}
+      {paraLeer && <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: enFila ? 120 : 150, overflowY: 'auto' }}>{paraLeer}</div>}
       {puedeGuion && (
         <button type="button" onClick={() => void pedirGuion()} disabled={pidiendo} title="MaKo escribe qué decir"
           style={{ ...chip, alignSelf: 'flex-start', color: 'var(--mako-ink)' }}>
@@ -374,35 +413,31 @@ export function EditorMensajeWhatsApp({
   const revisar = paso.revisar ?? !!revisarHeredado;
   const ocupado = !!deshabilitado || !!fase || !!subida;
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-      <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)' }}>
-        <div style={{ padding: 12, background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
-          {vista}
-        </div>
-        {fase && (
-          <div style={{ padding: '7px 12px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Spinner size={12} /> {fase}
-          </div>
-        )}
-        <ComposerWhatsApp
-          ref={composer}
-          modo="editar"
-          valor={paso.cuerpo ?? ''}
-          onValor={(v) => onChange({ cuerpo: v })}
-          placeholder={placeholderDe(paso.tipo, placeholder)}
-          ocupado={ocupado}
-          menuClip={menuClip.length ? menuClip : undefined}
-          onAudio={permiteAudio ? (blob, secs) => { setError(null); setPendiente({ blob, secs }); } : undefined}
-          onErrorAudio={avisar}
-          mientrasGraba={mientrasGraba}
-          audioPendiente={pendiente ? { url: urlPendiente, onDescartar: () => setPendiente(null), onUsar: () => void usarAudio(), rotuloUsar: 'Usar' } : null}
-          chip={chipActual}
-        />
-        {error && <div role="alert" style={{ padding: '6px 12px 8px', fontSize: 12, color: 'var(--bad)' }}>{error}</div>}
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+  // ── Las piezas: las MISMAS en las dos disposiciones; sólo cambia dónde va cada una ────────
+  const faseNodo = fase ? (
+    <div style={{ padding: '7px 12px', borderTop: enFila ? undefined : '1px solid var(--border)', borderBottom: enFila ? '1px solid var(--border)' : undefined, fontSize: 12.5, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 7 }}>
+      <Spinner size={12} /> {fase}
+    </div>
+  ) : null;
+  const composerNodo = (
+    <ComposerWhatsApp
+      ref={composer}
+      modo="editar"
+      valor={paso.cuerpo ?? ''}
+      onValor={(v) => onChange({ cuerpo: v })}
+      placeholder={placeholderDe(paso.tipo, placeholder)}
+      ocupado={ocupado}
+      menuClip={menuClip.length ? menuClip : undefined}
+      onAudio={permiteAudio ? (blob, secs) => { setError(null); setPendiente({ blob, secs }); } : undefined}
+      onErrorAudio={avisar}
+      mientrasGraba={mientrasGraba}
+      audioPendiente={pendiente ? { url: urlPendiente, onDescartar: () => setPendiente(null), onUsar: () => void usarAudio(), rotuloUsar: 'Usar' } : null}
+      chip={chipActual}
+    />
+  );
+  const errorNodo = error ? <div role="alert" style={{ padding: '6px 12px 8px', fontSize: 12, color: 'var(--bad)' }}>{error}</div> : null;
+  const herramientas = (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
         {permiteIA && esTexto && (
           <button type="button" disabled={ocupado} aria-pressed={paso.tipo === 'ia'} title="MaKo lo adapta para cada persona"
             onClick={() => { const on = paso.tipo !== 'ia'; onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); }}
@@ -422,6 +457,51 @@ export function EditorMensajeWhatsApp({
           </div>
         )}
       </div>
+  );
+
+  const cuerpo: ReactNode = enFila ? (
+    // ── `fila`: el chat a la izquierda a todo el alto; a la derecha la barra y las herramientas ──
+    // El alto lo pone quien monta (el panel apaisado, de alto FIJO): esto estira con flex, nunca con
+    // `height: 100%` (AGENTS.md: contra un alto indefinido, Safari lo resuelve a cero).
+    <div className="mk-wa-fila">
+      <div className="mk-wa-fila-chat" style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface-2)', padding: 12, display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto' }}>
+        {/* `marginTop: auto` y no `justify-content: flex-end`: con flex-end y scroll, lo que desborda
+            por ARRIBA no se puede alcanzar. Así la burbuja queda abajo, como en un chat, y scrollea. */}
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          {vista}
+        </div>
+      </div>
+      <div className="mk-wa-fila-der" style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0, minWidth: 0, overflowY: 'auto' }}>
+        {/* Abajo, como en WhatsApp, con el mismo `marginTop: auto` que el chat: si al grabar el guion no
+            entra, la columna scrollea en vez de cortar por arriba. */}
+        <div style={{ flex: 'none', marginTop: 'auto', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)' }}>
+          {faseNodo}
+          {composerNodo}
+          {errorNodo}
+        </div>
+        {herramientas}
+      </div>
+    </div>
+  ) : (
+    <>
+      <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)' }}>
+        <div style={{ padding: 12, background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+          {vista}
+        </div>
+        {faseNodo}
+        {composerNodo}
+        {errorNodo}
+      </div>
+      {herramientas}
+    </>
+  );
+
+  return (
+    <div style={enFila
+      ? { display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, minWidth: 0, containerType: 'inline-size', containerName: 'mkwa' }
+      : { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+      {enFila && <style>{CSS_FILA}</style>}
+      {cuerpo}
 
       <input ref={inputFoto} type="file" accept={ACEPTA_FOTO_VIDEO} style={{ display: 'none' }}
         onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; if (f) void subirArchivo(f); }} />

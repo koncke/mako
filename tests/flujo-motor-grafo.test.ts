@@ -115,10 +115,12 @@ test('(1) una fila que nunca avanzó está en la ENTRADA de la salida, no en el 
 // ── 2. Las tarjetas de control ───────────────────────────────────────────────
 
 test('(2) una condición sin hechos pide leerlos; con hechos, elige la rama', () => {
+  // (Desde la segunda tanda, 08/10/2026, toda resolución trae `repartos`: las flechas en paralelo
+  // que encontró en el camino. Sin paralelos, vacío.)
   assert.deepEqual(resolverControl(A, 1, { hechos: null, ahoraMs: AHORA, reunionMs: null }), { tipo: 'faltan_hechos' });
-  assert.deepEqual(resolverControl(A, 1, { hechos: H({ agendo: true }), ahoraMs: AHORA, reunionMs: null }), { tipo: 'nodo', idx: 2, via: ['c'] });
+  assert.deepEqual(resolverControl(A, 1, { hechos: H({ agendo: true }), ahoraMs: AHORA, reunionMs: null }), { tipo: 'nodo', idx: 2, via: ['c'], repartos: [] });
   // «Si no» → la espera: programa el próximo y pasa la inscripción a lo que SIGUE a la espera.
-  assert.deepEqual(resolverControl(A, 1, { hechos: H(), ahoraMs: AHORA, reunionMs: null }), { tipo: 'esperar', idx: 4, proximoMs: AHORA + HORA, via: ['c', 'e'] });
+  assert.deepEqual(resolverControl(A, 1, { hechos: H(), ahoraMs: AHORA, reunionMs: null }), { tipo: 'esperar', idx: 4, proximoMs: AHORA + HORA, via: ['c', 'e'], repartos: [] });
   // «Si responde» no corre en la salida.
   assert.equal(resolverControl(A, 0, { hechos: H(), ahoraMs: AHORA, reunionMs: null }).tipo, 'fin');
 });
@@ -126,17 +128,17 @@ test('(2) una condición sin hechos pide leerlos; con hechos, elige la rama', ()
 test('(2) una espera «antes de la reunión»: sin reunión cierra, ya pasada sigue de largo, futura espera', () => {
   const R = [ctl('e1', { nodo: 'esperar', espera: { modo: 'antes_reunion', minutos: 60 }, siguiente: 'm1' }), msg('m1', { siguiente: null })];
   assert.equal(resolverControl(R, 0, { hechos: null, ahoraMs: AHORA, reunionMs: null }).tipo, 'sin_reunion');
-  assert.deepEqual(resolverControl(R, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 30 * 60_000 }), { tipo: 'nodo', idx: 1, via: ['e1'] });
-  assert.deepEqual(resolverControl(R, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 3 * HORA }), { tipo: 'esperar', idx: 1, proximoMs: AHORA + 2 * HORA, via: ['e1'] });
+  assert.deepEqual(resolverControl(R, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 30 * 60_000 }), { tipo: 'nodo', idx: 1, via: ['e1'], repartos: [] });
+  assert.deepEqual(resolverControl(R, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 3 * HORA }), { tipo: 'esperar', idx: 1, proximoMs: AHORA + 2 * HORA, via: ['e1'], repartos: [] });
   assert.equal(minutosAntesDeReunion(R, 1), 60, 'el mensaje que cuelga de esa espera es un recordatorio');
   assert.equal(minutosAntesDeReunion(A, 4), null, 'una espera de tiempo no ancla nada');
 });
 
 test('(2) «Ir a»: otra automatización la termina; a una tarjeta salta; un bucle corta en el tope', () => {
   assert.deepEqual(resolverControl([ctl('j', { nodo: 'ir_a', destino: { secuencia_id: 77 } })], 0, { hechos: null, ahoraMs: AHORA, reunionMs: null }),
-    { tipo: 'ir_a_secuencia', secuenciaId: 77, via: ['j'] });
+    { tipo: 'ir_a_secuencia', secuenciaId: 77, via: ['j'], repartos: [] });
   assert.deepEqual(resolverControl([ctl('x', { nodo: 'ir_a', destino: { nodo: 'm' } }), msg('m')], 0, { hechos: null, ahoraMs: AHORA, reunionMs: null }),
-    { tipo: 'nodo', idx: 1, via: ['x'] });
+    { tipo: 'nodo', idx: 1, via: ['x'], repartos: [] });
   const bucle = [ctl('a', { nodo: 'ir_a', destino: { nodo: 'b' } }), ctl('b', { nodo: 'ir_a', destino: { nodo: 'a' } })];
   const r = resolverControl(bucle, 0, { hechos: null, ahoraMs: AHORA, reunionMs: null });
   assert.equal(r.tipo, 'tope_saltos');
@@ -344,7 +346,12 @@ test('(8) «Si responde» despacha a responderConGrafo, y «MaKo contesta» usa 
 
 test('(8) la posición se escribe y se compara: el motor lee y guarda `nodo_actual` y `nodo_id`', () => {
   const proc = fn(NUTRI, 'export async function procesarEnvios(');
-  assert.match(proc, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual'\)/);
+  // (Segunda tanda, 08/10/2026: la cola lee también `hilos, hilos_rev` —mig 0228, ANTES del deploy—
+  // y `proximo_envio_at`, que es el próximo del cursor cuando se convierte en el hilo principal.)
+  assert.match(proc, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev'\)/);
+  const mig0228 = leer('../supabase/migrations/0228_hilos_paralelos.sql');
+  for (const col of ['hilos jsonb', 'hilos_rev integer not null default 0']) assert.ok(mig0228.includes(`add column if not exists ${col}`), `falta ${col} en la 0228`);
+  assert.match(mig0228, /ANTES DEL DEPLOY/, 'la 0228 no dice en qué orden se aplica');
   assert.match(proc, /const idxLeido = sec \? indiceActual\(sec\.pasos, insc\) : -1;/);
   assert.ok((proc.match(/nodo_id: idDe\(paso, insc\.paso_actual\),/g) ?? []).length >= 3, 'un envío sin el nodo que lo dejó');
   // El tope de 20 «Ir a» seguidos va por `resolverControl`, que lo devuelve como un cierre.

@@ -31,28 +31,40 @@
 // determinista y no tiene casos: cada nodo tiene UN padre (las salidas son sus puertos)
 // y para juntar ramas está «Ir a», que es un salto y no un segundo padre.
 //
-// ── EL LAYOUT ──────────────────────────────────────────────────────────────────────────
-//   · arriba a la izquierda, la tarjeta CRON (el disparador; NO es un paso) y, a su
-//     derecha, la SALIDA: lo que MaKo manda por su cuenta (`raizSalida`);
-//   · abajo, la raíz «Si responde» (o la tarjeta fantasma «＋ Si responde»);
-//   · cada nodo de varias salidas apila sus ramas ARRIBA y ABAJO del centro de sus filas,
-//     cada una con el alto de su subárbol, así dos ramas no se pisan nunca;
+// ── EL LAYOUT (reescrito el 08/10/2026, segunda tanda: UN SOLO CRON) ─────────────────────
+// Pedido literal, punto 1: «No pueden haber 2 flujos por separado. Solo 1 CRON y de ahí
+// desprende todo». Hasta acá «Si responde» se dibujaba ABAJO, suelta en la columna del CRON, y
+// cuando no existía había una tarjeta fantasma «＋ Si responde»: dos flujos, uno debajo del otro.
+//   · arriba a la izquierda, la tarjeta CRON (el disparador; NO es un paso) con DOS filas: «Al
+//     entrar» (la salida: lo que MaKo manda por su cuenta, `raizSalida`, y las flechas en
+//     paralelo del CRON) y «Si responde» (vacía, su ＋ crea la tarjeta: `crearRespuesta`);
+//   · «Si responde» es un HIJO del CRON en el dibujo (columna 1, debajo de la salida y de los
+//     paralelos), con su flecha desde su fila. No es una flecha más de «Al entrar»: es un EVENTO,
+//     no un camino en el tiempo (decisión 1). El DATO no cambia: «Si responde» no tiene padre
+//     (`validarGrafo` lo exige) y la relación con el CRON sale de que es única.
+//   · cada nodo de varias salidas —una condición, «Si responde», el CRON y toda tarjeta con
+//     flechas en paralelo— apila sus hijos ARRIBA y ABAJO de su ancla, cada uno con el alto de
+//     su subárbol, así dos ramas no se pisan nunca;
 //   · al final todo se corre a coordenadas ≥ 0 (`aOrigen`): la primera rama de la primera
 //     condición nace arriba de su padre, o sea con `y` negativa.
+//   · el nodo de INICIO (`'entrada'`, lib/flujo-grafo.ts) NO se dibuja: ES el CRON. Sus flechas
+//     salen de la fila «Al entrar».
 
 import {
   ANCHO_NODO, ALTO_MIN, GAP_Y, MARGEN, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO,
-  encerrar, aOrigen, centroDeFilas,
+  encerrar, aOrigen, centroDeFilas, tieneFilas,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo, type PuertoNodo,
 } from './lienzo-grafo';
 import {
   type PasoGrafo, type RamaCondicion, type CampoCondicion, type NombresParaTexto, type LugarInsercion,
-  CAMPOS_CONDICION, claseDe, idDe, normalizar, puertosDe, raizSalida, raizRespuesta, descendientes,
+  CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, HILO_RESPUESTA,
+  claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, hiloDe,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, textoRama, textoEspera,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
-export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo, PuertoNodo } from './lienzo-grafo';
+import { LEAD_DEL_EVENTO } from './api-mako/flujo-params';
+export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo, PuertoNodo, FamiliaNodo } from './lienzo-grafo';
 export { curvaEntre, medioDeCurva, ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y } from './lienzo-grafo';
 
 /** Lo que este módulo lee de un paso: el nodo del flujo y lo de siempre del mensaje. Es
@@ -62,20 +74,81 @@ export type PasoParaGrafo = PasoGrafo & {
   /** El paso «⚡ Acción de MaKo» (lib/nutricion-paso-accion.ts). */
   accion?: { operacion?: string; params?: Record<string, unknown> } | null;
   variantes?: string[];
+  /** Sólo email: la «vista previa» (el texto gris que el cliente de correo muestra tras el asunto). */
+  preheader?: string | null;
 };
 
-/** Los ids de lo que NO es un paso. Un paso nunca se llama así: `nuevoId` da `n…` y
- *  `normalizar` da `o<índice>`. */
-export const ID_ENTRADA = 'entrada';
-export const ID_NUEVA_RESPUESTA = 'nueva-respuesta';
+/**
+ * La tarjeta CRON. Es el MISMO id que el nodo de inicio del modelo (`ID_INICIO`, lib/flujo-grafo.ts)
+ * a propósito: el ＋ del CRON manda ese id, y `{ nodo: ID_INICIO, puerto: 'par' }` es literalmente
+ * lo que el lienzo pide para una flecha en paralelo desde el CRON. Un paso nunca se llama así:
+ * `nuevoId` da `n…` y `normalizar` da `o<índice>`.
+ */
+export const ID_ENTRADA = ID_INICIO;
+/** La fila «Si responde» del CRON (la otra es «Al entrar», el puerto 'sig'). */
+export const PUERTO_RESPUESTA = 'resp';
+
+/** Las dos operaciones que se dibujan como la tarjeta de ETIQUETA (decisión 8). */
+export const OP_PONER_ETIQUETA = 'poner_etiqueta_lead';
+export const OP_SACAR_ETIQUETA = 'sacar_etiqueta_lead';
 
 /** Separación entre columnas del árbol. Sin etiquetas sobre las flechas, alcanza para el
  *  ＋ de una salida vacía y el ＋ del medio. */
 const GAP_COLUMNA = 92;
-/** Entre la salida y «Si responde» (y lo que haya debajo). */
+/** Entre el árbol del CRON y lo que haya suelto debajo. */
 const GAP_RAICES = 56;
-const ALTO_ENTRADA = ALTO_MIN + 14;
-const ALTO_FANTASMA = 56;
+/**
+ * El CRON: borde 1,5×2 + relleno 11 + 8 + la cabecera (24) + sus dos filas; más un renglón de
+ * 18 px por renglón del disparador (uno o dos: «Todos los días a las 09:00 de America/Tijuana»
+ * son dos). Se ESTIMA: la tarjeta tiene alto fijo y las filas van pegadas al pie.
+ */
+const ALTO_CRON_BASE = 11 + 24 + 2 * ALTO_PUERTO + PIE_PUERTOS + BORDE_NODO * 2;
+const RENGLON_DETALLE = 18;
+/** El ícono del CRON. NO es ⚡: ése es de la Acción, y las dos tarjetas lo compartían (R3). */
+export const ICONO_CRON = '⏰';
+
+/**
+ * LAS TARJETAS DE CONTROL, compactas (decisión 9). Los números salen de los estilos de
+ * `TarjetaNodo` (app/_components/Lienzo.tsx): si cambia uno, cambia acá.
+ *
+ *   · la ESPERA es una píldora de una línea: alto 44 (el punto de salida, `yDePuerto`, cae a la
+ *     mitad), ancho ~170 o lo que pida su texto («1 h antes de la reunión»);
+ *   · la ETIQUETA y el «IR A»: la cabecera y una línea — relleno 11 + cabecera 24 + 18 + pie 8 +
+ *     borde 3 = 64.
+ *
+ * El layout pone las columnas a `x + ANCHO_NODO + GAP_COLUMNA` (no a `x + ancho`): una tarjeta más
+ * angosta queda alineada a la izquierda de su columna y la de al lado no se corre.
+ */
+export const ALTO_PILDORA = 44;
+export const ANCHO_PILDORA = 170;
+export const ALTO_COMPACTO = 64;
+export const ANCHO_ETIQUETA = 210;
+
+/** El ancho de la píldora de una espera: el de su texto, con piso y techo. */
+function anchoPildora(texto: string): number {
+  return Math.min(ANCHO_NODO, Math.max(ANCHO_PILDORA, Math.ceil(64 + texto.length * 7.5)));
+}
+
+/**
+ * ¿ESTE PASO ES UNA TARJETA DE ETIQUETA? Una ⚡ Acción `poner_etiqueta_lead` /
+ * `sacar_etiqueta_lead` (decisión 8: una PRESENTACIÓN, el motor no cambia). Devuelve qué hace y
+ * con qué etiqueta (null = todavía sin elegir), o null si no es una.
+ */
+export function etiquetaDeAccion(p: PasoGrafo): { operacion: typeof OP_PONER_ETIQUETA | typeof OP_SACAR_ETIQUETA; etiquetaId: number | null } | null {
+  if (claseDe(p) !== 'accion') return null;
+  const a = p.accion as { operacion?: unknown; params?: Record<string, unknown> } | null | undefined;
+  const op = typeof a?.operacion === 'string' ? a.operacion : '';
+  if (op !== OP_PONER_ETIQUETA && op !== OP_SACAR_ETIQUETA) return null;
+  const id = Number(a?.params?.etiquetaId);
+  return { operacion: op, etiquetaId: Number.isFinite(id) && id > 0 ? id : null };
+}
+
+/** «+ Cualificado» / «− Seguimiento»: lo que dice la tarjeta de etiqueta. */
+function textoEtiqueta(e: NonNullable<ReturnType<typeof etiquetaDeAccion>>, nombres?: NombresParaTexto): string {
+  if (e.etiquetaId == null) return 'Sin elegir';
+  const nom = nombres?.etiqueta?.(e.etiquetaId) ?? 'una etiqueta';
+  return `${e.operacion === OP_PONER_ETIQUETA ? '+' : '−'} ${nom}`;
+}
 
 // ── El disparador, dicho como es ──────────────────────────────────────────────────
 
@@ -158,6 +231,15 @@ const RENGLON_DICE = 16;        // «Dice: …», 11 px × 1,45
 const LETRAS_DICE = 36;
 const HOLGURA = 6;              // la fuente que no llegó, el redondeo
 const TOPE_MENSAJE = 260;
+// La caja del mail (`VistaEmail`): relleno 7×2 + borde 1×2; el asunto a 12,5 px en 18; la vista
+// previa a 11 px en 16; el cuerpo a 12 px × 1,45, tres renglones como mucho, de ~36 letras.
+export const MARCO_MAIL = 16;
+export const RENGLON_ASUNTO = 18;
+export const RENGLON_PREHEADER = 16;
+export const RENGLON_CUERPO_MAIL = 17.5;
+export const SEP_MAIL = 4;
+export const RENGLONES_EMAIL = 3;
+const LETRAS_EMAIL = 36;
 
 const renglonesDe = (t: string, letras: number): number =>
   t.trim() ? Math.max(1, Math.ceil(t.trim().length / letras)) + (t.trim().match(/\n/g)?.length ?? 0) : 0;
@@ -190,8 +272,20 @@ export function altoDeMensaje(p: PasoParaGrafo, audio?: AudioParaAlto): number {
     const h = MARCO_TARJETA + MARCO_BURBUJA + ALTO_CHIP_ARCHIVO + (pie ? SEP_BURBUJA + pie * RENGLON_TEXTO : 0) + HOLGURA;
     return Math.min(TOPE_MENSAJE, Math.max(ALTO_MIN, Math.ceil(h)));
   }
+  if (p.canal === 'email') {
+    // ⚠️ UN EMAIL SE DIBUJA COMO UN MAIL, NO COMO UNA BURBUJA (segunda tanda): la caja del correo
+    // (`VistaEmail`, app/chatbot/FlujoLienzo.tsx) con el asunto arriba, la vista previa en gris y
+    // a lo sumo tres renglones del cuerpo. Se suma por partes con lo mismo que dibuja.
+    const asunto = (p.asunto ?? '').trim();
+    const pre = (p.preheader ?? '').trim();
+    if (!asunto && !cuerpo.trim()) return ALTO_MIN;
+    const rc = Math.min(RENGLONES_EMAIL, renglonesDe(cuerpo, LETRAS_EMAIL));
+    const h = MARCO_TARJETA + MARCO_MAIL + RENGLON_ASUNTO + (pre ? RENGLON_PREHEADER : 0)
+      + (rc ? SEP_MAIL + rc * RENGLON_CUERPO_MAIL : 0) + HOLGURA;
+    return Math.min(TOPE_MENSAJE, Math.max(ALTO_MIN, Math.ceil(h)));
+  }
   const renglones = Math.max(1, Math.ceil(cuerpo.length / 34)) + (cuerpo.match(/\n/g)?.length ?? 0);
-  const extra = (p.canal === 'email' && p.asunto ? 22 : 0) + (p.tipo === 'ia' ? 18 : 0);
+  const extra = p.tipo === 'ia' ? 18 : 0;
   return Math.min(TOPE_MENSAJE, ALTO_MIN + 8 + Math.min(renglones, 8) * 17 + extra);
 }
 
@@ -213,7 +307,8 @@ export function tituloDeTarjeta(p: PasoGrafo, enRespuesta: boolean): string {
     case 'respuesta': return 'Si responde';
     case 'ir_a': return 'Ir a';
     case 'esperar': return 'Esperar';
-    case 'accion': return 'Acción';
+    case 'accion': return etiquetaDeAccion(p) ? 'Etiqueta' : 'Acción';
+    case 'inicio': return 'CRON';
     default:
       if (p.canal === 'email') return 'Email';
       if (p.tipo === 'audio') return 'Nota de voz';
@@ -226,10 +321,12 @@ export function tituloDeTarjeta(p: PasoGrafo, enRespuesta: boolean): string {
 const TROZO = 26;
 function trozoDe(p: PasoGrafo, nombres?: NombresParaTexto): string {
   const c = claseDe(p);
+  const et = etiquetaDeAccion(p);
   let t = '';
-  if (c === 'mensaje') t = p.cuerpo ?? '';
+  if (c === 'mensaje') t = p.canal === 'email' ? (p.asunto ?? '') || (p.cuerpo ?? '') : (p.cuerpo ?? '');
   else if (c === 'esperar') t = textoEspera(p.espera).replace(/^Esperar /, '');
   else if (c === 'condicion' && p.ramas?.[0]) t = textoRama(p.ramas[0], nombres);
+  else if (et && et.etiquetaId != null) t = textoEtiqueta(et, nombres);
   t = t.replace(/\s+/g, ' ').trim();
   return t.length > TROZO ? `${t.slice(0, TROZO - 1).trimEnd()}…` : t;
 }
@@ -264,7 +361,10 @@ export function faltaEscribir(pasos: readonly PasoGrafo[]): { id: string; error:
   for (let i = 0; i < pasos.length; i++) {
     const p = pasos[i];
     if (claseDe(p) !== 'mensaje') continue;
-    const vacio = p.tipo === 'audio' ? !p.audio_id : p.tipo === 'media' ? !p.media_id : !(p.cuerpo ?? '').trim();
+    // Un email sin asunto también está a medio escribir: saldría «(sin asunto)», que es lo que
+    // pone el motor cuando no hay, y un email nuevo nace con el asunto vacío (`nodoNuevo('email')`).
+    const vacio = p.tipo === 'audio' ? !p.audio_id : p.tipo === 'media' ? !p.media_id
+      : !(p.cuerpo ?? '').trim() || (p.canal === 'email' && !(p.asunto ?? '').trim());
     const id = idDe(p, i);
     if (vacio) return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
   }
@@ -319,8 +419,11 @@ export type OpcionesGrafo = {
   tituloAccion?: (operacion: string) => string | null | undefined;
   /** Los nombres de las etiquetas y las etapas, para las filas de una condición. */
   nombres?: NombresParaTexto;
-  /** Se puede editar: sin «Si responde», dibuja la tarjeta fantasma «＋ Si responde». */
-  editable?: boolean;
+  /**
+   * El color (`#rrggbb`) de una etiqueta, para teñir su tarjeta (decisión 9: «la etiqueta con el
+   * color de la etiqueta»). Sin él, la tarjeta de etiqueta va en `--surface-2`.
+   */
+  colorEtiqueta?: (id: number) => string | null | undefined;
   /** El audio de la biblioteca de una nota de voz: si tiene transcripción, la tarjeta la
    *  muestra y el alto la cuenta (`altoDeMensaje`). Sin esto, se mide sin transcripción. */
   audioDe?: (id: number) => AudioParaAlto;
@@ -342,17 +445,29 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   const pasos = normalizar(pasosIn);
   const ids = pasos.map((p, i) => idDe(p, i));
   const existe = new Set(ids);
+  const iIni = pasos.findIndex((p) => claseDe(p) === 'inicio');
   const raiz = raizSalida(pasos);
   const resp = raizRespuesta(pasos);
   const enRespuesta = subarbolRespuesta(pasos);
   const porSecuencia = new Map((op.secuencias ?? []).map((s) => [s.id, s.nombre]));
 
-  // Lo que se alcanza desde una raíz o desde un salto. Lo demás es una tarjeta suelta
-  // (la misma regla que `validarGrafo`): se dibuja igual —esconderla la haría imposible de
-  // borrar— y con su marca.
+  // Lo que se alcanza desde una raíz (la de cada hilo de la salida y «Si responde») o desde un
+  // salto. Lo demás es una tarjeta suelta (la misma regla que `validarGrafo`): se dibuja igual
+  // —esconderla la haría imposible de borrar— y con su marca.
   const alcanzable = new Set<string>();
-  const raices = [raiz, resp, ...pasos.flatMap((p) => (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino ? [p.destino.nodo] : []))];
+  const raices = [...raicesSalida(pasos), resp, ...pasos.flatMap((p) => (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino ? [p.destino.nodo] : []))];
   for (const x of raices) if (x && existe.has(x)) { alcanzable.add(x); for (const d of descendientes(pasos, x)) alcanzable.add(d); }
+
+  // ── Las flechas en paralelo que todavía se pueden sacar (decisión 2) ──
+  // Una salida las ofrece (`paralelo` en su puerto: el lienzo dibuja el ＋ con el punto ocupado)
+  // sólo donde se pueden PUBLICAR: en una clase que las admite, fuera de «Si responde», debajo
+  // del tope por tarjeta y del tope de caminos de la automatización. Ofrecerlas donde
+  // `validarGrafo` las rechaza sería un control que no se puede guardar.
+  const paralelosDe = (i: number) => puertosDe(pasos, i).filter((pt) => pt.puerto.startsWith('par:')).length;
+  const caminos = 1 + pasos.reduce((s, _, i) => s + paralelosDe(i), 0);
+  const admiteParalelo = (i: number): boolean => i >= 0
+    ? puedeTenerParalelos(pasos[i]) && !enRespuesta.has(ids[i]) && ids[i] !== resp && caminos < TOPE_HILOS && paralelosDe(i) < TOPE_PARALELOS
+    : caminos < TOPE_HILOS;
 
   // ── La tarjeta de cada paso (sin posición todavía) ──
   type Tarjeta = Omit<NodoFlujo, 'x' | 'y'>;
@@ -360,18 +475,20 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   pasos.forEach((p, i) => {
     const id = ids[i];
     const c = claseDe(p);
+    // El inicio ES el CRON: no tiene tarjeta propia (la del CRON se arma abajo).
+    if (c === 'inicio') return;
     const pts = puertosDe(pasos, i);
     const base = { id, ancho: ANCHO_NODO };
     let t: Tarjeta;
     if (c === 'condicion') {
       const puertos: PuertoNodo[] = (p.ramas ?? []).map((r) => ({ id: r.id, rotulo: textoRama(r, op.nombres), tono: 'buena' as const, vacio: !r.siguiente }));
       puertos.push({ id: 'si_no', rotulo: 'Si no', tono: 'mala', vacio: !p.si_no });
-      t = { ...base, tipo: 'condicion', titulo: 'Condición', icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
+      t = { ...base, tipo: 'condicion', familia: 'control', titulo: 'Condición', icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'respuesta') {
       const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: x.titulo?.trim() || 'Caso sin nombre', tono: 'buena' as const, vacio: !x.siguiente }));
       const pendientes = Math.max(0, Math.floor(Number(op.pendientesOtraCosa) || 0));
       puertos.push({ id: 'si_no', rotulo: 'Otra cosa', tono: 'mala', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
-      t = { ...base, tipo: 'respuesta', titulo: 'Si responde', icono: '↩️', puertos, alto: altoConFilas(puertos.length) };
+      t = { ...base, tipo: 'respuesta', familia: 'contenido', titulo: 'Si responde', icono: '↩️', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'ir_a') {
       const d = p.destino;
       let detalle = 'Sin elegir';
@@ -385,18 +502,29 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         advertencia = existe.has(d.nodo) ? undefined : 'Esa tarjeta ya no existe';
       }
       // `puertos: []`: un «Ir a» termina ahí. Sin puntos y sin el ＋ de pasar el cursor.
-      t = { ...base, tipo: 'ir-a', titulo: 'Ir a', icono: '↪️', detalle, ...(advertencia ? { advertencia } : {}), puertos: [], alto: ALTO_MIN };
+      t = { ...base, tipo: 'ir-a', familia: 'control', titulo: 'Ir a', icono: '↪️', detalle, ...(advertencia ? { advertencia } : {}), puertos: [], alto: ALTO_COMPACTO };
     } else {
-      // Mensaje, acción y espera: UNA salida, el punto a la altura de la cabecera.
-      const puertos: PuertoNodo[] = [{ id: 'sig', vacio: !pts[0]?.destino }];
+      // Mensaje, acción y espera: UNA salida, el punto a la altura de la cabecera. Con el punto
+      // ocupado, la misma salida ofrece una flecha EN PARALELO (si se puede publicar).
+      const puertos: PuertoNodo[] = [{ id: 'sig', vacio: !pts[0]?.destino, ...(admiteParalelo(i) ? { paralelo: true } : {}) }];
+      const et = etiquetaDeAccion(p);
       if (c === 'esperar') {
-        t = { ...base, tipo: 'espera', titulo: 'Esperar', icono: '⏳', detalle: textoEspera(p.espera).replace(/^Esperar /, ''), puertos, alto: ALTO_MIN };
+        const detalle = textoEspera(p.espera).replace(/^Esperar /, '');
+        t = { ...base, tipo: 'espera', familia: 'control', titulo: 'Esperar', icono: '⏳', detalle, puertos, ancho: anchoPildora(detalle), alto: ALTO_PILDORA };
+      } else if (et) {
+        // LA TARJETA DE ETIQUETA (decisión 8): la misma ⚡ Acción, dibujada como lo que hace.
+        t = {
+          ...base, tipo: 'etiqueta', familia: 'control', titulo: 'Etiqueta', icono: '🏷️', puertos,
+          ancho: ANCHO_ETIQUETA, alto: ALTO_COMPACTO, detalle: textoEtiqueta(et, op.nombres),
+          color: et.etiquetaId != null ? (op.colorEtiqueta?.(et.etiquetaId) ?? null) : null,
+          ...(et.etiquetaId == null ? { advertencia: 'Falta elegir la etiqueta' } : {}),
+        };
       } else if (c === 'accion') {
         // ⚠️ UN PASO DE ACCIÓN ES OTRO NODO, NO UN MENSAJE VACÍO: dibujado como mensaje sería
         // una burbuja en blanco que afirma que al lead le llega algo.
         const operacion = (p.accion?.operacion ?? '').trim();
         t = {
-          ...base, tipo: 'accion', titulo: 'Acción', icono: '⚡', puertos, alto: ALTO_MIN + 14,
+          ...base, tipo: 'accion', familia: 'contenido', titulo: 'Acción', icono: '⚡', puertos, alto: ALTO_MIN + 14,
           detalle: operacion ? (op.tituloAccion?.(operacion) || operacion) : 'Sin elegir',
           ...(operacion ? {} : { advertencia: 'Falta elegir la acción' }),
         };
@@ -404,9 +532,10 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         const email = p.canal === 'email';
         const titulo = tituloDeTarjeta(p, enRespuesta.has(id));
         const icono = email ? '✉️' : p.tipo === 'audio' ? '🎙️' : p.tipo === 'media' ? '📎' : '💬';
-        const vacio = (p.tipo === 'audio' && !p.audio_id) || (p.tipo === 'media' && !p.media_id) || (p.tipo !== 'audio' && p.tipo !== 'media' && !(p.cuerpo ?? '').trim());
+        const vacio = (p.tipo === 'audio' && !p.audio_id) || (p.tipo === 'media' && !p.media_id)
+          || (p.tipo !== 'audio' && p.tipo !== 'media' && (!(p.cuerpo ?? '').trim() || (email && !(p.asunto ?? '').trim())));
         const audio = p.tipo === 'audio' && Number(p.audio_id) > 0 ? op.audioDe?.(Number(p.audio_id)) : undefined;
-        t = { ...base, tipo: 'mensaje', titulo, icono, puertos, alto: altoDeMensaje(p, audio), ...(vacio ? { advertencia: 'Sin escribir' } : {}) };
+        t = { ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, puertos, alto: altoDeMensaje(p, audio), ...(vacio ? { advertencia: 'Sin escribir' } : {}) };
       }
     }
     if (!alcanzable.has(id) && !t.advertencia) t = { ...t, advertencia: 'Tarjeta suelta' };
@@ -419,25 +548,54 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     tarjetas.set(id, t);
   });
 
+  // ── La tarjeta CRON: el disparador, con sus DOS filas (decisión 1) ──
+  // «Al entrar» es la salida (`sig`) y de ella salen las flechas en paralelo del CRON; «Si
+  // responde» es el evento, y vacía su ＋ crea la tarjeta. Las dos se dibujan SIEMPRE: una fila
+  // que aparece sólo a veces es un lugar que nadie encuentra.
+  const lineasCron = Math.min(2, Math.max(1, renglonesDe(op.disparador, 34)));
+  tarjetas.set(ID_ENTRADA, {
+    id: ID_ENTRADA, tipo: 'entrada', familia: 'contenido', titulo: 'CRON', icono: ICONO_CRON, detalle: op.disparador,
+    puertos: [
+      { id: 'sig', rotulo: 'Al entrar', vacio: !raiz, ...(raiz && admiteParalelo(iIni) ? { paralelo: true } : {}) },
+      { id: PUERTO_RESPUESTA, rotulo: 'Si responde', vacio: !resp },
+    ],
+    ancho: ANCHO_NODO, alto: ALTO_CRON_BASE + lineasCron * RENGLON_DETALLE,
+  });
+
   // ── El árbol: a quién le cuelga cada uno (el PRIMERO que lo alcanza gana) ──
   // Con un grafo válido cada nodo tiene un padre; mientras se edita puede no serlo, y un
   // nodo con dos padres se dibuja UNA vez (las dos flechas igual se ven).
+  //
+  // Los hijos del CRON son [la salida principal, …sus flechas en paralelo, «Si responde»]: en
+  // ese orden se apilan, así «Si responde» queda debajo de la salida y de los paralelos.
+  const destinosDe = (id: string): Array<string | null> => {
+    if (id !== ID_ENTRADA) return puertosDe(pasos, indicePorId(pasos, id)).map((pt) => pt.destino);
+    const salida = iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz];
+    return [...salida, resp];
+  };
   const hijos = new Map<string, string[]>();
   const asignado = new Set<string>();
   const armar = (id: string) => {
-    const i = indicePorId(pasos, id);
     const hs: string[] = [];
-    for (const pt of puertosDe(pasos, i)) {
-      const d = pt.destino;
-      if (d && existe.has(d) && !asignado.has(d)) { asignado.add(d); hs.push(d); }
+    for (const d of destinosDe(id)) {
+      if (d && existe.has(d) && d !== ID_ENTRADA && !asignado.has(d)) { asignado.add(d); hs.push(d); }
     }
     hijos.set(id, hs);
     for (const h of hs) armar(h);
   };
-  const esMulti = (id: string) => { const c = claseDe(pasos[indicePorId(pasos, id)]); return c === 'condicion' || c === 'respuesta'; };
+  // Varias salidas: las que tienen filas (condición, «Si responde», el CRON) y toda tarjeta con
+  // flechas en paralelo (sus hijos son [siguiente, …paralelos] y se apilan igual).
+  const esMulti = (id: string) => {
+    if (id === ID_ENTRADA) return true;
+    const c = claseDe(pasos[indicePorId(pasos, id)]);
+    return c === 'condicion' || c === 'respuesta' || (hijos.get(id)?.length ?? 0) > 1;
+  };
+  // El ancla es de donde SALEN las flechas: el centro de las filas, o la cabecera de una tarjeta
+  // de una sola salida (con paralelos, todas salen del mismo punto).
   const anclaDe = (id: string) => {
     const t = tarjetas.get(id)!;
-    return esMulti(id) ? centroDeFilas(t.alto, t.puertos?.length ?? 0) : 0;
+    if (!esMulti(id)) return 0;
+    return tieneFilas(t) ? centroDeFilas(t.alto, t.puertos?.length ?? 0) : Math.min(t.alto / 2, 44);
   };
 
   // `sobre`: cuánto se extiende el subárbol ARRIBA del tope del nodo; `bajo`: hasta dónde
@@ -475,58 +633,45 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     }
   };
 
-  // 1. La salida, a la derecha del CRON, arrancando a su altura.
-  const nodos: NodoFlujo[] = [{
-    id: ID_ENTRADA, tipo: 'entrada', titulo: 'CRON', icono: '⚡', detalle: op.disparador,
-    puertos: [{ id: 'sig', vacio: !raiz }],
-    x: 0, y: 0, ancho: ANCHO_NODO, alto: ALTO_ENTRADA,
-  }];
-  let cursor = ALTO_ENTRADA;
-  if (raiz && existe.has(raiz)) {
-    asignado.add(raiz); armar(raiz);
-    const m = medir(raiz);
-    colocar(raiz, ANCHO_NODO + GAP_COLUMNA, 0);
-    cursor = Math.max(ALTO_ENTRADA, m.bajo);
-  }
-  cursor += GAP_RAICES;
+  // 1. El CRON y todo lo que cuelga de él: la salida, sus paralelos y «Si responde» (columna 1).
+  asignado.add(ID_ENTRADA); armar(ID_ENTRADA);
+  const mCron = medir(ID_ENTRADA);
+  colocar(ID_ENTRADA, 0, 0);
+  let cursor = mCron.bajo + GAP_RAICES;
 
-  // 2. «Si responde» abajo, en la columna del CRON (o su tarjeta fantasma).
-  if (resp && !asignado.has(resp)) {
-    asignado.add(resp); armar(resp);
-    const m = medir(resp);
-    colocar(resp, 0, cursor + m.sobre);
-    cursor += m.sobre + m.bajo + GAP_RAICES;
-  } else if (!resp && op.editable) {
-    nodos.push({
-      id: ID_NUEVA_RESPUESTA, tipo: 'suelto', titulo: 'Si responde', icono: '＋', puertos: [],
-      x: 0, y: cursor, ancho: ANCHO_NODO, alto: ALTO_FANTASMA,
-    });
-    cursor += ALTO_FANTASMA + GAP_RAICES;
-  }
-
-  // 3. Lo que no cuelga de ninguna raíz (el destino de un salto sin padre, una tarjeta
-  //    suelta, un ciclo), abajo de todo y en el orden del array.
-  for (const id of ids) {
-    if (asignado.has(id)) continue;
+  // 2. Lo que no cuelga de ninguna raíz (el destino de un salto sin padre, una tarjeta
+  //    suelta, un ciclo), abajo de todo y en el orden del array. El inicio no: ES el CRON.
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    if (asignado.has(id) || i === iIni) continue;
     asignado.add(id); armar(id);
     const m = medir(id);
     colocar(id, 0, cursor + m.sobre);
     cursor += m.sobre + m.bajo + GAP_RAICES;
   }
 
-  for (const id of ids) {
+  const nodos: NodoFlujo[] = [];
+  for (const id of [ID_ENTRADA, ...ids.filter((_, i) => i !== iIni)]) {
     const p = pos.get(id);
     if (p) nodos.push({ ...tarjetas.get(id)!, ...p });
   }
 
   // ── Las flechas: una por salida con destino, desde SU puerto ──
+  // Las del inicio salen del CRON (es el mismo id: «Al entrar»). Sin inicio, la flecha del CRON a
+  // la salida se arma a mano. Las flechas EN PARALELO van con otro tono (`condicional`: punteada,
+  // en el color primario) para que se lea que corren a la vez, no una después de la otra.
   const aristas: AristaFlujo[] = [];
-  if (raiz && pos.has(raiz)) aristas.push({ desde: ID_ENTRADA, hasta: raiz, puerto: 'sig', tono: 'normal' });
+  if (iIni < 0 && raiz && pos.has(raiz)) aristas.push({ desde: ID_ENTRADA, hasta: raiz, puerto: 'sig', tono: 'normal' });
   pasos.forEach((_, i) => {
     for (const pt of puertosDe(pasos, i)) {
-      if (pt.destino && pos.has(pt.destino)) aristas.push({ desde: ids[i], hasta: pt.destino, puerto: pt.puerto, tono: 'normal' });
+      if (pt.destino && pos.has(pt.destino)) {
+        aristas.push({ desde: i === iIni ? ID_ENTRADA : ids[i], hasta: pt.destino, puerto: pt.puerto, tono: pt.puerto.startsWith('par:') ? 'condicional' : 'normal' });
+      }
     }
   });
+  // «Si responde», desde su fila del CRON. SIN el ＋ del medio: nada puede ir antes de «Si
+  // responde» (no tiene padre), así que insertar ahí sería un control que no se puede publicar.
+  if (resp && pos.has(resp)) aristas.push({ desde: ID_ENTRADA, hasta: resp, puerto: PUERTO_RESPUESTA, tono: 'normal', sinMas: true });
 
   const normal = aOrigen(nodos, MARGEN);
   return { nodos: normal, aristas, ...encerrar(normal) };
@@ -534,31 +679,40 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
 
 // ── Editar: lo que hace cada ＋ ─────────────────────────────────────────────────────
 
-export type QueAgregar = 'mensaje' | 'esperar' | 'condicion' | 'accion' | 'ir_a';
+export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'ir_a';
+/** Lo que ofrece el ＋ de un lugar: lo que se inserta, y en la fila «Si responde» del CRON, crearla. */
+export type QueAgregarEn = QueAgregar | 'respuesta';
 
 /**
- * El menú del ＋. Lista plana con emoji y título, como la de /mensajes (son cinco: el
- * patrón se elige por el TAMAÑO de la lista).
+ * El menú del ＋. Lista plana con emoji y título, como la de /mensajes (son siete: el
+ * patrón se elige por el TAMAÑO de la lista). El orden es el del contrato (segunda tanda):
+ * 💬 WhatsApp · ✉️ Email · ⏳ Esperar · 🔀 Condición · 🏷️ Etiqueta · ⚡ Acción · ↪ Ir a.
  *
- * · Debajo de «Si responde» no hay «Esperar»: se contesta en el momento (`validarGrafo`
- *   lo rechaza igual; ofrecerlo sería un control que no se puede publicar).
+ * · «WhatsApp» y no «Mensaje»: desde que el ＋ también crea un email, «mensaje» no dice por
+ *   dónde sale (hasta el 08/10 el lienzo NO podía crear un email: R3).
+ * · Debajo de «Si responde» no hay «Email» ni «Esperar»: se contesta en el momento y por el
+ *   chat donde el lead escribió (`validarGrafo` rechaza la espera; un email ahí no contesta
+ *   nada). Ofrecerlos sería un control que no se puede publicar.
  * · En el MEDIO de una flecha no hay «Ir a»: un salto termina ahí, y lo que colgaba de
  *   esa salida quedaría suelto.
+ * · La fila «Si responde» del CRON (`puerto: 'resp'`) ofrece UNA cosa: crear «Si responde».
  */
-export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean): Array<{ value: QueAgregar; label: string }> {
+export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean, puerto?: string): Array<{ value: QueAgregarEn; label: string }> {
+  if (nodoLienzo === ID_ENTRADA && puerto === PUERTO_RESPUESTA) return [{ value: 'respuesta', label: '↩️ Si responde' }];
   const resp = raizRespuesta(pasos);
   const enRespuesta = nodoLienzo !== ID_ENTRADA && (nodoLienzo === resp || subarbolRespuesta(pasos).has(nodoLienzo));
   return [
-    { value: 'mensaje', label: '💬 Mensaje' },
-    ...(enRespuesta ? [] : [{ value: 'esperar' as const, label: '⏳ Esperar' }]),
+    { value: 'mensaje', label: '💬 WhatsApp' },
+    ...(enRespuesta ? [] : [{ value: 'email' as const, label: '✉️ Email' }, { value: 'esperar' as const, label: '⏳ Esperar' }]),
     { value: 'condicion', label: '🔀 Condición' },
+    { value: 'etiqueta', label: '🏷️ Etiqueta' },
     { value: 'accion', label: '⚡ Acción' },
     ...(medio ? [] : [{ value: 'ir_a' as const, label: '↪ Ir a' }]),
   ];
 }
 
 /** Los campos que `setSecuenciaPasos` exige a todo paso, incluido uno de control. */
-const relleno = () => ({ orden: 0, canal: 'whatsapp' as const, delay_horas: 0, asunto: null, cuerpo: '', template_wa: null, proveedor: 'no_oficial' as const });
+const relleno = () => ({ orden: 0, canal: 'whatsapp' as string, delay_horas: 0, asunto: null as string | null, cuerpo: '', template_wa: null, proveedor: 'no_oficial' as const });
 
 /**
  * Una tarjeta nueva, ya con id.
@@ -579,14 +733,33 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
       return { ...b, nodo: 'condicion', ramas: [{ id: rama, modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: null }], si_no: null };
     }
     case 'accion': return { ...b, accion: { operacion: '', params: {} } };
+    // Un email: el mismo paso con su canal, el asunto y la vista previa vacíos (los pide el editor
+    // tipo Gmail; sin asunto, `faltaEscribir` no lo deja publicar).
+    case 'email': return { ...b, canal: 'email', asunto: '', preheader: '', cuerpo: '' };
+    // La etiqueta es la ⚡ Acción de poner una etiqueta, sobre el lead del EVENTO (decisión 8): nace
+    // «Poner» y sin etiqueta elegida, y así no se puede publicar hasta elegir una.
+    case 'etiqueta': return { ...b, accion: { operacion: OP_PONER_ETIQUETA, params: { leadId: LEAD_DEL_EVENTO } } };
     case 'ir_a': return { ...b, nodo: 'ir_a', destino: null };
     default: return b;
   }
 }
 
-/** Dónde inserta el ＋ de un nodo del lienzo: el del CRON, al principio de la salida. */
+/**
+ * Dónde inserta el ＋ de un nodo del lienzo.
+ *
+ *   · El del CRON en «Al entrar» (vacía), al principio de la salida.
+ *   · El de una salida con el punto OCUPADO que ofrece paralelo (`puerto: 'par'`): una flecha en
+ *     paralelo NUEVA. Desde el CRON es `{ nodo: ID_INICIO, puerto: 'par' }`, exista o no el
+ *     inicio: `insertarNodo` lo crea con la primera.
+ *   · El del MEDIO de una flecha en paralelo (`puerto: 'par:<id>'`): la tarjeta nueva queda en el
+ *     medio de ESA flecha.
+ */
 export function lugarDesdeLienzo(nodo: string, puerto?: string): LugarInsercion {
-  return nodo === ID_ENTRADA ? { inicio: true } : { nodo, puerto: puerto || 'sig' };
+  if (nodo === ID_ENTRADA) {
+    if (puerto === 'par' || puerto?.startsWith('par:')) return { nodo: ID_INICIO, puerto };
+    return { inicio: true };
+  }
+  return { nodo, puerto: puerto || 'sig' };
 }
 
 /** El orden del array es el orden de lectura (`orden`, las métricas por paso). */
@@ -631,6 +804,31 @@ export function sacarSubarbol<P extends PasoGrafo>(pasos: readonly P[], raiz: st
     for (const pt of puertosDe(out, i)) if (pt.destino && quitar.has(pt.destino)) out = conectarPuerto(out, out[i].id!, pt.puerto, null);
   }
   return out;
+}
+
+/**
+ * LAS TARJETAS A LAS QUE PUEDE SALTAR UN «IR A» (en el orden del array).
+ *
+ * ⚠️ DESDE LA SALIDA, SÓLO LAS DE SU PROPIO HILO (segunda tanda): con flechas en paralelo, un
+ * «Ir a» a la tarjeta de OTRO hilo pone dos cursores en la misma tarjeta y al lead le llega el
+ * mismo mensaje dos veces. `validarGrafo` lo rechaza al publicar; ofrecerlo en el desplegable
+ * sería un control que no se puede guardar. Desde «Si responde» se ofrecen todas: la respuesta
+ * pausa todo y retoma UN solo hilo. Un «Ir a» suelto (sin hilo todavía) también las ve todas.
+ *
+ * Nunca a sí mismo, a otro «Ir a», a «Si responde» ni al CRON (volver a entrar no es un salto).
+ */
+export function tarjetasParaIrA(pasos: readonly PasoGrafo[], irAId: string): string[] {
+  const hilo = hiloDe(pasos);
+  const desde = hilo.get(irAId);
+  const todas = desde === undefined || desde === HILO_RESPUESTA;
+  return pasos
+    .map((p, i) => ({ p, id: idDe(p, i) }))
+    .filter(({ p, id }) => {
+      const c = claseDe(p);
+      if (id === irAId || c === 'ir_a' || c === 'respuesta' || c === 'inicio') return false;
+      return todas || hilo.get(id) === desde;
+    })
+    .map(({ id }) => id);
 }
 
 export function cambiarNodo<P extends PasoGrafo>(pasos: readonly P[], id: string, patch: Partial<P>): P[] {

@@ -21,6 +21,11 @@
 //   8. la papelera de la cabecera sin llamar a `onBorrar`                       -> 6 / 1
 //   9. `TarjetaNodo` crece con su contenido aunque tenga puertos                -> 6 / 1
 //  10. vuelve el ＋ de pasar el cursor en un nodo con puertos                   -> 6 / 1
+// Segunda tanda (08/10/2026, parte L: el ＋ en paralelo, los insets por franja, sin el `+ 30`).
+// Con todo puesto 7 / 0:
+//  11. sin el ＋ en paralelo con el punto ocupado                               -> 6 / 1
+//  12. vuelve el `+ 30` al `maxWidth` del panel                                 -> 6 / 1
+//  13. el chrome se corre con `insetDer` y no con `derChrome`                   -> 6 / 1
 //
 // Correr: node --import tsx --test tests/lienzo-puertos.test.ts
 import { test } from 'node:test';
@@ -90,8 +95,14 @@ test('⚠️ el ＋ de una salida vacía y el ＋ del medio de una flecha insert
   const puntos = tramo('(n.puertos ?? []).map((p) => {', '</div>\n          ))}', 3_200);
   assert.match(puntos, /const y = yDePuerto\(n, p\.id\);/);
   assert.match(puntos, /p\.vacio && puede && onAgregarTras &&/);
-  assert.match(puntos, /onChange=\{\(v\) => v && onAgregarTras\(n\.id, v, p\.id\)\}/);
-  assert.match(puntos, /opcionesEn \? opcionesEn\(n\.id, p\.id, false\)/);
+  // Desde la segunda tanda el ＋ es `MasDeSalida` (un desplegable, o un botón si hay UNA opción).
+  assert.match(puntos, /const opciones = \(puerto: string, medio: boolean\) => \(opcionesEn \? opcionesEn\(n\.id, puerto, medio\)/);
+  assert.match(puntos, /opciones=\{opciones\(p\.id, false\)\}\n\s+onElegir=\{\(v\) => onAgregarTras\(n\.id, v, p\.id\)\}/);
+  // Y la salida que admite flechas EN PARALELO ofrece otro ＋ con el punto OCUPADO (al pasar el
+  // cursor), que pide el puerto 'par' y lo dice en su menú (segunda tanda, decisión 2).
+  assert.match(puntos, /\{!p\.vacio && p\.paralelo && puede && onAgregarTras && encima === n\.id && \(/);
+  assert.match(puntos, /ariaLabel="Agregar en paralelo" titulo="En paralelo"/);
+  assert.match(puntos, /opciones=\{opciones\('par', false\)\}\n\s+onElegir=\{\(v\) => onAgregarTras\(n\.id, v, 'par'\)\}/);
   // El medio de una flecha: inserta en el puerto de ESA flecha, y la curva sale de él.
   const medio = tramo('{onAgregarTras && (opcionesEn || opcionesAgregar) && grafo.aristas.map((a, i) => {', '{grafo.aristas.map((a, i) => {', 3_000);
   assert.match(medio, /const m = medioDeCurva\(d, h, a\.puerto\);/);
@@ -110,9 +121,17 @@ test('⚠️ `insetDer`: lo que flota a la derecha se corre, en los CUATRO lugar
   assert.match(enc, /encuadreInicial\(grafo, \{ w, h, insetIzq, insetDer \}\)/, 'el encuadre mete la última columna debajo del panel');
   assert.match(sinComentarios(leer('../lib/lienzo-grafo.ts')), /const wUtil = Math\.max\(1, caja\.w - izq - \(caja\.insetDer \?\? 0\)\);/);
   assert.match(enc, /\+\$\{insetIzq\}\+\$\{insetDer\}`/, 'la firma del encuadre no cambia al abrir el panel: no reencuadra');
-  assert.match(LIENZO, /left: insetIzq, right: insetDer, top: 0, padding: 14/, 'el chrome');
-  assert.match(LIENZO, /data-esquina-ocupada style=\{\{ position: 'absolute', right: 12 \+ insetDer, bottom: 12 \}\}/, '«Publicar»');
-  assert.match(LIENZO, /maxWidth: `calc\(100% - \$\{PANEL_MARGEN \* 2 \+ insetIzq \+ insetDer \+ 30\}px\)`/, 'el panel del nodo');
+  // Segunda tanda: lo de la derecha va POR FRANJA (`muelles`). Con «Probar» apilado debajo del
+  // chrome, a la altura del chrome y en la franja de abajo no tapa nada; ausentes = `insetDer`.
+  assert.match(LIENZO, /const derChrome = insetDerChrome \?\? insetDer;\n\s+const derAbajo = insetDerAbajo \?\? insetDer;/);
+  assert.match(LIENZO, /left: insetIzq, right: derChrome, top: 0, padding: 14/, 'el chrome');
+  assert.match(LIENZO, /data-esquina-ocupada style=\{\{ position: 'absolute', right: 12 \+ derAbajo, bottom: 12 \}\}/, '«Publicar»');
+  // ⚠️ SIN EL `+ 30` (hallazgos-chatbot.md): `* { box-sizing: border-box }` hace de `maxWidth` el
+  // ancho EXTERIOR, y restarle el relleno y el borde otra vez angostaba el editor 30 px de más.
+  assert.match(LIENZO, /maxWidth: `calc\(100% - \$\{PANEL_MARGEN \* 2 \+ insetIzq \+ insetDer\}px\)`/, 'el panel del nodo');
+  assert.doesNotMatch(LIENZO, /insetDer \+ 30\}/, 'volvió el `+ 30` del panel');
+  // Y el panel APAISADO va de la lista a lo que tapa la derecha EN SU FRANJA, con alto FIJO.
+  assert.match(LIENZO, /\? \{ right: PANEL_MARGEN \+ derAbajo, height: panelAlto, display: 'flex'/);
 });
 
 test('la papelera de la cabecera del panel borra la tarjeta (y cierra el panel)', () => {
@@ -124,7 +143,8 @@ test('la papelera de la cabecera del panel borra la tarjeta (y cierra el panel)'
 test('⚠️ con puertos la tarjeta tiene ALTO FIJO y las filas pegadas al pie', () => {
   // Si la tarjeta creciera con su contenido, las filas se correrían y cada flecha saldría
   // de la fila de al lado: el punto lo dibuja el lienzo afuera, contando desde el pie.
-  const t = tramo('export function TarjetaNodo(', '\nexport function BotonChico', 3_400);
+  // Hasta `tinteDeControl`, que desde la segunda tanda va entre la tarjeta y `BotonChico`.
+  const t = tramo('export function TarjetaNodo(', '\nexport function tinteDeControl', 4_600);
   assert.match(t, /const fijo = nodo\.puertos !== undefined;/);
   assert.match(t, /\.\.\.\(fijo \? \{ height: nodo\.alto, display: 'flex', flexDirection: 'column', overflow: 'hidden' \} : \{ minHeight: nodo\.alto \}\)/);
   assert.match(t, /padding: fijo \? `11px 11px \$\{PIE_PUERTOS\}px` : 11/);
