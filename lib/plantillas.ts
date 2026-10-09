@@ -382,7 +382,7 @@ export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: 
  *
  * Las 'parcial' sí entran: esas salen, aunque no en todos los casos.
  *
- * El cliente ve SOLO los de `AVISOS_DEL_CLIENTE` (lib/avisos-catalogo.ts): seis,
+ * El cliente ve SOLO los de `AVISOS_DEL_CLIENTE` (lib/avisos-catalogo.ts): ocho,
  * elegidos a mano. El resto se sigue emitiendo —lo gobierna la agencia desde
  * /mensajes— pero no le ocupa una fila que tendría que entender y decidir.
  *

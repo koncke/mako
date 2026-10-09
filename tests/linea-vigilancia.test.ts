@@ -31,14 +31,22 @@
 // pases cada una (10 tests): sacar el corte `sinInstancia` de `decidirLinea` · que el
 // vigilante le pase `sinInstancia: false`.
 //
+// ⚠️ Y EL «VOLVIÓ» (09/10/2026, decisión de Martín al cerrar el Chatbot: «las dos cosas»). Sale
+// sólo si la caída se había avisado; sin aviso previo, y en una línea desvinculada, se limpia en
+// silencio. Y los dos avisos los ve y los puede apagar el cliente. Probado rompiéndolo (14 tests,
+// 1 fallo y 13 pases cada una, salvo la desvinculada: 2 y 12): que vuelva a dar `limpiar` con la
+// caída avisada · que dé `volvio` sin aviso previo · que una desvinculada «vuelva» · el «volvió»
+// con un link · el vigilante sin mandar el «volvió» · que lo mande antes de limpiar las marcas ·
+// sacar el aviso nuevo de la lista del cliente.
+//
 // Correr: node --import tsx --test tests/linea-vigilancia.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  decidirLinea, textoCaida, lineaLegible, CONFIRMAR_MIN, CADA_MIN_LINEA, DEDUP_LINEA_MIN,
+  decidirLinea, textoCaida, textoVolvio, lineaLegible, CONFIRMAR_MIN, CADA_MIN_LINEA, DEDUP_LINEA_MIN,
 } from '../lib/linea-vigilancia';
-import { CATALOGO_AVISOS } from '../lib/avisos-catalogo';
+import { CATALOGO_AVISOS, AVISOS_DEL_CLIENTE } from '../lib/avisos-catalogo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 const sinComentarios = (src: string): string => src
@@ -106,8 +114,41 @@ test('⛔ una línea que el negocio DESVINCULÓ no «se cae»: no avisa nunca', 
 
 test('al volver se limpian las marcas; sin marcas, no se escribe nada', () => {
   assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, sinInstancia: false, marcas: sinMarcas, ahoraMs: AHORA }), { que: 'nada' });
+  // Se cortó y volvió entre dos corridas, sin que se llegara a avisar: no hay nada que desmentir.
   assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: haceMin(30), avisado: null }, ahoraMs: AHORA }), { que: 'limpiar' });
-  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: null, avisado: haceMin(30) }, ahoraMs: AHORA }), { que: 'limpiar' });
+});
+
+test('⚠️ si la caída SE AVISÓ, al volver sale el «volvió»; una desvinculada no «vuelve»', () => {
+  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: haceMin(3000), avisado: haceMin(30) }, ahoraMs: AHORA }), { que: 'volvio' });
+  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: null, avisado: haceMin(30) }, ahoraMs: AHORA }), { que: 'volvio' });
+  assert.deepEqual(decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, sinInstancia: true, marcas: { desde: haceMin(3000), avisado: haceMin(30) }, ahoraMs: AHORA }), { que: 'limpiar' });
+});
+
+test('el «volvió» nombra la línea y no manda a hacer nada', () => {
+  const t = textoVolvio({ linea: '+5215512345678' });
+  assert.match(t, /Volvió tu WhatsApp\* \(\+5215512345678\)/);
+  assert.ok(!/https?:\/\/|escanear|reconect/i.test(t), `el «volvió» manda a hacer algo: «${t}»`);
+  assert.match(textoVolvio({ linea: null }), /^🟢 \*Volvió tu WhatsApp\*\./);
+});
+
+test('⚠️ el vigilante limpia las marcas y DESPUÉS manda el «volvió», con su propia clave de dedup', () => {
+  const src = sinComentarios(leer('../lib/lineas-vigilante.ts'));
+  const i = src.indexOf("if (decision.que === 'limpiar' || decision.que === 'volvio') {");
+  assert.ok(i > 0, 'el vigilante no maneja el «volvió»');
+  const rama = src.slice(i, src.indexOf("if (decision.que !== 'avisar') return base;", i));
+  const iLimpia = rama.indexOf('setSetting(keyAvisado(linea), \'\')');
+  const iEmite = rama.indexOf("emitirDelCatalogo('wa-reconectado'");
+  assert.ok(iLimpia > 0 && iEmite > iLimpia, 'el «volvió» sale antes de limpiar las marcas (o no sale)');
+  assert.match(rama, /texto: textoVolvio\(\{ linea: lineaLegible\(f\) \}\), dedupKey: `volvio:\$\{linea\}`/);
+});
+
+test('⚠️ el cliente los VE y los puede apagar: los dos avisos están en su lista, prendidos por defecto', () => {
+  for (const id of ['wa-desconectado', 'wa-reconectado']) {
+    assert.ok(AVISOS_DEL_CLIENTE.includes(id), `«${id}» no está en la lista del cliente: no lo puede apagar`);
+    const cat = CATALOGO_AVISOS.find((c) => c.id === id);
+    assert.equal(cat?.porDefecto, 'on', `«${id}» nace apagado`);
+    assert.equal(cat?.yaImplementado, 'si');
+  }
 });
 
 test('⚠️ el texto manda a re-escanear SÓLO cuando WhatsApp cerró la sesión (401/403)', () => {

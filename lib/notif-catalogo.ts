@@ -171,6 +171,8 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp sin responder', sub: 'Un contacto escribe y todavía nadie le contestó.' },
   // Cableado el 06/10/2026 (lib/lineas-vigilante.ts, desde el cron de alertas).
   { id: 'wa-desconectado', titulo: 'Se cayó tu WhatsApp', sub: 'Tu línea por QR dejó de mandar y recibir. Avisa una vez y cada 24 h.' },
+  // El «volvió» de la caída de arriba (09/10/2026, lib/lineas-vigilante.ts).
+  { id: 'wa-reconectado', titulo: 'Volvió tu WhatsApp', sub: 'La línea que se había caído vuelve a mandar y recibir.' },
   { id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo un anuncio', sub: 'Un anuncio publicado necesita aprobación manual para salir.' },
   { id: 'tracking-apagado', titulo: 'La landing dejó de mandar datos', sub: 'Se cortó el seguimiento y las métricas quedan ciegas.' },
   { id: 'objetivo-en-riesgo', titulo: 'Tu objetivo del trimestre va atrasado', sub: 'Lo acumulado quedó por debajo del ritmo que hace falta para llegar.' },

@@ -29,8 +29,13 @@
 //     zombi del 403, el corte— deja la instancia viva en Evolution: medido el 25/09/2026, una
 //     llevaba 22 días así. Lo que distingue las dos es `esInstanciaInexistente`
 //     (lib/evolution-sonda.ts).
-//   · AL VOLVER se limpian las marcas, sin mensaje: la decisión fue avisar la caída, y un
-//     «volvió» pide un mensaje propio en el catálogo (queda anotado como pendiente).
+//   · AL VOLVER se limpian las marcas, y si ya se le había avisado la caída sale un «volvió»
+//     (`wa-reconectado`). Decisión de Martín, 09/10/2026 al cerrar el Chatbot («las dos
+//     cosas»: que el cliente pueda apagar el aviso y que haya un «volvió»). Es la contracara de
+//     la insistencia, igual que `meta-cuenta-recuperada`: si MaKo avisó «se cortó» cada 24 h y
+//     después se calla, el negocio no sabe si volvió o si el aviso se rompió. Si la caída nunca
+//     se llegó a avisar (se cortó y volvió entre dos corridas), no hay nada que desmentir: se
+//     limpia en silencio. Y una línea DESVINCULADA tampoco «vuelve»: se limpia sin mensaje.
 //
 // Sin `server-only`: lo importan el vigilante (lib/lineas-vigilante.ts) y el test.
 
@@ -57,7 +62,9 @@ export type DecisionLinea =
   | { que: 'nada' }
   | { que: 'fijar_desde' }
   | { que: 'avisar' }
-  | { que: 'limpiar' };
+  | { que: 'limpiar' }
+  /** Volvió una línea cuya caída YA se avisó: se limpian las marcas y sale el «volvió». */
+  | { que: 'volvio' };
 
 export function decidirLinea(e: {
   sondeo: Sondeo;
@@ -75,7 +82,10 @@ export function decidirLinea(e: {
 }): DecisionLinea {
   const hayMarcas = !!(e.marcas.desde || e.marcas.avisado);
   if (e.sondeo === 'sin_respuesta') return { que: 'nada' };
-  if (e.sondeo === 'vivo') return hayMarcas ? { que: 'limpiar' } : { que: 'nada' };
+  if (e.sondeo === 'vivo') {
+    if (e.marcas.avisado) return { que: 'volvio' };
+    return hayMarcas ? { que: 'limpiar' } : { que: 'nada' };
+  }
   // Va antes que todo lo de «muerto»: si la línea estaba caída y avisada y después el negocio
   // la desvinculó para volver a escanear, las marcas se van — el próximo «se cayó» empieza de cero.
   if (e.sinInstancia) return hayMarcas ? { que: 'limpiar' } : { que: 'nada' };
@@ -130,4 +140,13 @@ export function textoCaida(e: {
     return `🔴 *Se desconectó tu WhatsApp*${cual}. WhatsApp cerró la sesión del dispositivo vinculado${fecha ? ` el ${fecha}` : ''}: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: ${e.link} — MaKo`;
   }
   return `🔴 *Se cortó tu WhatsApp*${cual}. Por ese número no entran ni salen mensajes${fecha ? ` desde el ${fecha}` : ''}. Puede volver solo; si sigue así, reconéctalo: ${e.link} — MaKo`;
+}
+
+/**
+ * El «volvió». Corto y sin link: no hay nada que hacer, y lo único que tiene que decir es que lo
+ * que se avisó ya no pasa. Lleva la línea porque un negocio con dos números tiene que saber cuál.
+ */
+export function textoVolvio(e: { linea: string | null }): string {
+  const cual = e.linea ? ` (${e.linea})` : '';
+  return `🟢 *Volvió tu WhatsApp*${cual}. Por ese número ya entran y salen mensajes otra vez. — MaKo`;
 }

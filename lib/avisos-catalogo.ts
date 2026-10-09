@@ -203,7 +203,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'prueba-grabada': 'landing',
   'landing-cambio': 'landing',
   'prueba-recibida': 'landing',
-  'wa-desconectado': 'sistema',
+  'wa-desconectado': 'sistema', 'wa-reconectado': 'sistema',
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
@@ -251,6 +251,10 @@ export const AVISOS_DEL_CLIENTE: readonly string[] = [
   'reunion-ocurrio-fathom', // terminó y quedó la grabación
   'wa-mensaje-entrante',    // alguien escribió y nadie contestó
   'cuota-vencida',          // hay plata por cobrar
+  // Los dos de la línea de WhatsApp: Martín, 09/10/2026 al cerrar el Chatbot, «las dos cosas» —
+  // que el cliente pueda apagar el aviso de la caída, y que haya un «volvió».
+  'wa-desconectado',        // se cayó su WhatsApp
+  'wa-reconectado',         // y volvió
 ];
 
 export const esAvisoDelCliente = (id: string): boolean => AVISOS_DEL_CLIENTE.includes(id);
@@ -779,6 +783,18 @@ https://hola-mako.com/plan — MaKo`,
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'El cron de alertas (cada 10 min) prueba cada línea de WhatsApp por QR del negocio. Si dos pruebas seguidas la dan caída, avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
     ejemplo: `🔴 *Se desconectó tu WhatsApp* (+52 55 1234 5678). WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: https://hola-mako.com/whatsapp — MaKo`,
+  },
+  {
+    /**
+     * La contracara del de arriba (09/10/2026, decisión de Martín al cerrar el Chatbot). Sale
+     * sólo si la caída SE AVISÓ: un corte que volvió entre dos corridas del cron no tiene nada
+     * que desmentir. Lo dispara lib/lineas-vigilante.ts con el texto de `textoVolvio`
+     * (lib/linea-vigilancia.ts). Ejemplo ficticio.
+     */
+    id: 'wa-reconectado', titulo: 'WhatsApp de empresa reconectado', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'El cron de alertas (cada 10 min) ve viva una línea cuya caída ya se había avisado. Sale una vez y deja de insistir.',
+    ejemplo: `🟢 *Volvió tu WhatsApp* (+52 55 1234 5678). Por ese número ya entran y salen mensajes otra vez. — MaKo`,
   },
   {
     id: 'wa-sin-responder', titulo: 'Conversaciones sin responder hace X horas', categoria: 'accion',

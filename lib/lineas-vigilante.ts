@@ -36,7 +36,7 @@ import { emitirDelCatalogo } from './avisos';
 import { linkApp } from './app-url';
 import { tzDeWorkspace } from './timezone';
 import {
-  decidirLinea, textoCaida, lineaLegible, keyDesde, keyAvisado, DEDUP_LINEA_MIN,
+  decidirLinea, textoCaida, textoVolvio, lineaLegible, keyDesde, keyAvisado, DEDUP_LINEA_MIN,
   type DecisionLinea, type MarcasLinea,
 } from './linea-vigilancia';
 
@@ -50,7 +50,7 @@ type FilaLinea = {
 
 export type ResultadoLinea = {
   ws: number; linea: string; sondeo: Sondeo; que: DecisionLinea['que'];
-  /** sólo cuando `que` es `avisar`: si le llegó al negocio por algún canal. */
+  /** sólo cuando `que` es `avisar` o `volvio`: si le llegó al negocio por algún canal. */
   llego?: boolean;
   error?: string;
 };
@@ -120,12 +120,25 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
       await runWithWorkspace(ws, () => setSetting(keyDesde(linea), ahora));
       return base;
     }
-    if (decision.que === 'limpiar') {
+    if (decision.que === 'limpiar' || decision.que === 'volvio') {
       await runWithWorkspace(ws, async () => {
         await setSetting(keyDesde(linea), '');
         await setSetting(keyAvisado(linea), '');
       });
-      return base;
+      if (decision.que === 'limpiar') return base;
+      // ⚠️ LAS MARCAS SE LIMPIAN AUNQUE EL «VOLVIÓ» NO LLEGUE. Al revés que la caída: si se
+      // quedaran puestas esperando que el aviso salga, la próxima caída de esta línea arrancaría
+      // con un «desde» viejo y se avisaría sin la segunda medición que la confirma. Un «volvió»
+      // perdido es lo menos caro de los dos. El dedup va con su propia clave: no comparte ventana
+      // con el «se cortó» de la misma línea.
+      const r = await emitirDelCatalogo('wa-reconectado', {
+        ws, texto: textoVolvio({ linea: lineaLegible(f) }), dedupKey: `volvio:${linea}`, dedupTtlMin: DEDUP_LINEA_MIN,
+      });
+      const llego = r.wa || r.email === true;
+      return {
+        ...base, llego,
+        ...(llego ? {} : { error: r.waError ?? (r.apagado ? 'el negocio lo tiene apagado' : r.deduped ? 'ya avisado hace poco' : 'no salió por ningún canal') }),
+      };
     }
     if (decision.que !== 'avisar') return base;
 
