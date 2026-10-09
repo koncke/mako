@@ -809,9 +809,12 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
   const b = { ...relleno(), id };
   switch (que) {
     case 'esperar': return { ...b, nodo: 'esperar', espera: { modo: 'tiempo', minutos: 1440 } };
+    // ⚠️ LA RAMA NACE SIN FILAS (tercera tanda, punto 9): una fila «Agendó» de relleno era de donde
+    // salían las filas repetidas de la captura. La fila se agrega al ELEGIR la condición
+    // (EditorCondicion), y una rama vacía la frena `validarGrafo` hasta entonces («Elige una condición»).
     case 'condicion': {
       const rama = nuevoId([...pasos, { id }], rnd);
-      return { ...b, nodo: 'condicion', ramas: [{ id: rama, modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: null }], si_no: null };
+      return { ...b, nodo: 'condicion', ramas: [{ id: rama, modo: 'todas', filas: [], siguiente: null }], si_no: null };
     }
     case 'accion': return { ...b, accion: { operacion: '', params: {} } };
     // Un email: el mismo paso con su canal, el asunto y la vista previa vacíos (los pide el editor
@@ -924,11 +927,11 @@ export function cambiarNodo<P extends PasoGrafo>(pasos: readonly P[], id: string
   return pasos.map((p, i) => (idDe(p, i) === id ? { ...p, ...patch } : p));
 }
 
-/** «+ condición»: una rama más, al final (antes del «Si no»). */
+/** «＋ Rama»: una rama más, al final (antes del «Si no»). Nace SIN filas, como la de `nodoNuevo`. */
 export function agregarRama<P extends PasoGrafo>(pasos: readonly P[], condId: string, rnd: () => number = Math.random): P[] {
   const c = nodoPorId(pasos, condId);
   if (!c || claseDe(c) !== 'condicion') return [...pasos];
-  const rama: RamaCondicion = { id: nuevoId(pasos, rnd), modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: null };
+  const rama: RamaCondicion = { id: nuevoId(pasos, rnd), modo: 'todas', filas: [], siguiente: null };
   return cambiarNodo(pasos, condId, { ramas: [...(c.ramas ?? []), rama] } as Partial<P>);
 }
 

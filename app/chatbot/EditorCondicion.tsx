@@ -84,16 +84,18 @@ function leerCatalogos(): Promise<CatalogosRemotos | null> {
 
 /**
  * Los catálogos de las condiciones (cursos, módulos, clases, posts, campañas). Lo usa este editor y
- * lo puede usar el lienzo para que la TARJETA diga el nombre de lo elegido
- * (`nombresCatalogoDe` → `NombresParaTexto.catalogo`).
+ * lo usan el lienzo y «Probar» para que la TARJETA diga el nombre de lo elegido
+ * (`nombresCatalogoDe` → `NombresParaTexto.catalogo`). `activo` en false no pide nada: el lienzo lo
+ * pide sólo si el flujo tiene una condición y quien mira es admin (la ruta es de admin).
  */
-export function useCatalogosCondicion(): CatalogosRemotos | null {
+export function useCatalogosCondicion(activo = true): CatalogosRemotos | null {
   const [cat, setCat] = useState<CatalogosRemotos | null>(null);
   useEffect(() => {
+    if (!activo) return;
     let vivo = true;
     void leerCatalogos().then((c) => { if (vivo) setCat(c); });
     return () => { vivo = false; };
-  }, []);
+  }, [activo]);
   return cat;
 }
 

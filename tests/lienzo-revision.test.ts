@@ -194,7 +194,8 @@ test('costuras-11: el lienzo pide las archivadas y las nombra «(archivada)», s
   const g = grafoDeSecuencia([cond], { disparador: 'X', nombres: { etiqueta: (id) => nombreEtiqueta(etiquetas, id) } });
   assert.equal(nodo(g, 'c').puertos![0].rotulo, 'Tiene «Cualificado (archivada)»');
   assert.match(PERFIL, /nombreEtiqueta: nombreEtiqueta\(etiquetas, disparo\.etiqueta_id\),/);
-  assert.match(LIENZO_FLUJO, /const nombres: NombresParaTexto = \{ etiqueta: \(id\) => nombreEtiqueta\(etiquetas, id\)/);
+  // (Con la tercera tanda el objeto suma `catalogo` y va en varios renglones: el `\s*` lo tolera.)
+  assert.match(LIENZO_FLUJO, /const nombres: NombresParaTexto = \{\s*etiqueta: \(id\) => nombreEtiqueta\(etiquetas, id\)/);
 });
 
 // ── lienzo-4: con «Probar» abierto, la tarjeta no queda debajo del teléfono ───────────

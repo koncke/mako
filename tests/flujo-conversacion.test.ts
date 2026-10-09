@@ -49,7 +49,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   grafoDeSecuencia, detalleDisparador, insertarDesdeLienzo, nodoNuevo, opcionesDelMas,
-  seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, faltaEscribir, crearRespuesta, agregarCaso, quitarRama,
+  seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, faltaEscribir, crearRespuesta, agregarCaso, quitarRama, agregarRama,
   rotuloDisparo, opcionesDeSecciones, frenoDelFlujo, pasosDisparo,
   CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, PUERTO_RESPUESTA,
   type PasoParaGrafo, type NodoFlujo,
@@ -233,6 +233,13 @@ test('⚠️ el ＋ de un puerto inserta EN ese puerto, y lo que colgaba pasa a 
   const nueva = nodoPorId(ini.pasos, ini.id)!;
   assert.equal(claseDe(nueva), 'condicion');
   assert.equal(nueva.ramas![0].siguiente, 'a', 'la condición nueva se lleva lo que seguía en su primera rama');
+  // Tercera tanda, punto 9: la rama nace SIN filas (la fila «Agendó» de relleno era de donde salían
+  // las filas repetidas), y «＋ Rama» igual. Una rama vacía la frena `validarGrafo` hasta elegir una.
+  // Rotura (volver a `filas: [{ campo: 'agendo' }]` en las dos): 1 fallo de 1.
+  assert.deepEqual(nueva.ramas![0].filas, []);
+  const conOtra = agregarRama(ini.pasos, ini.id!, rndDe(6));
+  assert.deepEqual(nodoPorId(conOtra, ini.id!)!.ramas!.map((r) => r.filas), [[], []]);
+  assert.ok(validarGrafo(conOtra).some((e) => /no tiene ninguna condición/.test(e)));
   // La tarjeta MAKO (tercera tanda, decisión 11) entra en el medio como cualquiera: es el aviso al
   // grupo sobre el lead del evento, y lo que seguía cuelga de ella.
   const mk = insertarDesdeLienzo(pasos, 'c', 'r1', 'mako', rndDe(5));
@@ -429,9 +436,18 @@ test('⚠️ `CONDICIONES_VIVAS` es lo que el motor EVALÚA, medido en el `switc
   const casos = new Set([...cuerpo.matchAll(/case '([a-z_]+)'/g)].map((m) => m[1]));
   assert.ok(casos.size > 0, 'no encontré un solo `case`: el guard se quedó ciego');
   assert.deepEqual([...CONDICIONES_VIVAS].sort(), [...casos].sort());
-  // Cada una se dice como frase, en positivo y negada, y el editor ofrece SÓLO éstas.
+  // Cada una se dice como frase, en positivo y negada.
   for (const c of CONDICIONES_VIVAS) assert.ok(FRASE_CONDICION[c]?.[0] && FRASE_CONDICION[c]?.[1], `${c} sin frase`);
-  assert.match(sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx')), /const OPCIONES_CAMPO: DropdownOption\[\] = \[\.\.\.CONDICIONES_VIVAS\]\.flatMap/);
+  // El editor es el de la tercera tanda (app/chatbot/EditorCondicion.tsx, con el catálogo de
+  // lib/condiciones-catalogo.ts, que trae estas 9 y las nuevas): FlujoLienzo sólo lo monta, sin una
+  // lista propia de condiciones que se quede vieja.
+  const lienzo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
+  assert.match(lienzo, /from '\.\/EditorCondicion'/);
+  assert.doesNotMatch(lienzo, /OPCIONES_CAMPO|CONDICIONES_VIVAS/);
+  // Con el ámbito del CRON (adquisición o entrega: qué condiciones se ofrecen) y los nombres del
+  // catálogo para la tarjeta («Completó la clase «Bienvenida»», no «una clase»).
+  assert.match(lienzo, /ambito=\{ambitoDeDisparo\(pr\.triggerTipo\)\}/);
+  assert.match(lienzo, /catalogo: nombresCatalogoDe\(catalogosDe\(\{ etapas, productos: productos \?\? \[\], remotos: remotosCond \}\)\)/);
   // Y la tarjeta dice las ramas con el texto del modelo (`textoRama`), no uno propio.
   const r = crearRespuesta([cond('c', [['r1', null]], null)], rndDe());
   assert.ok(raizRespuesta(r.pasos));

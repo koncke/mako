@@ -31,7 +31,7 @@
 // (sólo Publicar publica). Una edición que escribiera por su cuenta sería un segundo
 // camino a la base que no pasa por `validarGrafo`.
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { Lienzo, TarjetaNodo, inpLienzo } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
@@ -39,7 +39,10 @@ import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_c
 import { EditorMensajeWhatsApp, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
 import { EditorEmailGmail } from './EditorEmailGmail';
 import { EditorEtiqueta } from './EditorEtiqueta';
-import { SelectorEtiqueta } from '@/app/_components/etiquetas-cliente';
+// El editor de la CONDICIÓN (tercera tanda, puntos 9 y 10): una frase por fila, del catálogo por
+// secciones filtrado por el CRON. Vive aparte; este archivo sólo lo monta.
+import { EditorCondicion, useCatalogosCondicion, catalogosDe } from './EditorCondicion';
+import { ambitoDeDisparo, nombresCatalogoDe } from '@/lib/condiciones-catalogo';
 import { LEAD_DEL_EVENTO } from '@/lib/api-mako/flujo-params';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
@@ -48,13 +51,13 @@ import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { aplicarVariables, VARIABLES_LEAD } from '@/lib/template-vars';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
-  claseDe, idDe, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS,
-  type FilaCondicion, type RamaCondicion, type CampoCondicion, type Espera, type NombresParaTexto,
+  claseDe, idDe, TOPE_CASOS,
+  type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
   revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, tarjetasParaIrA, esMako, makoDeAccion,
-  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, PUERTO_RESPUESTA,
+  ID_ENTRADA, PUERTO_RESPUESTA,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL,
   type NodoFlujo, type QueAgregar,
 } from '@/lib/flujo-conversacion';
@@ -200,8 +203,15 @@ export function FlujoLienzo({
   }, [rolAdmin, hayArchivos, biblioteca]);
   const archivoNuevo = (a: AdjuntoDto) => setBiblioteca((b) => (b?.estado === 'ok' ? { estado: 'ok', lista: [a, ...b.lista.filter((x) => x.id !== a.id)] } : b));
 
-  // Los nombres de las etiquetas y las etapas: los mismos para la tarjeta y para el «Ir a».
-  const nombres: NombresParaTexto = { etiqueta: (id) => nombreEtiqueta(etiquetas, id), etapa: nombreEtapa };
+  // Los catálogos de las condiciones (cursos, clases, posts, campañas), para que la tarjeta diga el
+  // nombre de lo elegido («Completó la clase «Bienvenida»» y no «una clase»). Se piden sólo si hay una
+  // condición y quien mira es admin (la ruta es de admin): un setter ve el texto genérico.
+  const remotosCond = useCatalogosCondicion(rolAdmin && pasos.some((p) => claseDe(p) === 'condicion'));
+  // Los nombres de las etiquetas, las etapas y lo del catálogo: los mismos para la tarjeta y para el «Ir a».
+  const nombres: NombresParaTexto = {
+    etiqueta: (id) => nombreEtiqueta(etiquetas, id), etapa: nombreEtapa,
+    catalogo: nombresCatalogoDe(catalogosDe({ etapas, productos: productos ?? [], remotos: remotosCond })),
+  };
   const grafo = grafoDeSecuencia(pasos, {
     disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
@@ -417,7 +427,14 @@ function EditorDeNodo(pr: PropsEditor) {
       if (esMako(paso)) return <EditorMako key={`mako-${id}`} paso={paso} busy={pr.busy} cambiar={cambiar} />;
       return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
     case 'esperar': return <EditorEspera espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
-    case 'condicion': return <EditorCondicion {...pr} paso={paso} id={id} cambiar={cambiar} />;
+    // La condición (parte A de la tercera tanda): el catálogo filtrado por el ámbito del CRON. Agregar
+    // o quitar una rama crea un puerto o se lleva lo que colgaba de él: eso lo hace el lienzo.
+    case 'condicion': return (
+      <EditorCondicion key={`cond-${id}`} paso={paso} cambiar={cambiar}
+        ambito={ambitoDeDisparo(pr.triggerTipo)} etapas={pr.etapas} productos={pr.productos ?? []} busy={pr.busy}
+        onAgregarRama={() => pr.onPasos((prev) => agregarRama(prev, id), true)}
+        onQuitarRama={(ramaId) => pr.onPasos((prev) => quitarRama(prev, id, ramaId), true)} />
+    );
     case 'respuesta': return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
     case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
     default:
@@ -434,8 +451,10 @@ function EditorDeNodo(pr: PropsEditor) {
  */
 function EditorEmail({ paso, id, negocio, busy, cambiar }: { paso: PasoSecuenciaDto; id: string; negocio: string; busy: boolean; cambiar: Cambiar }) {
   return (
+    // `cuerpoHtml`: el editor rico arranca del HTML guardado y un deshacer del lienzo lo devuelve
+    // entero (sin esto, arrancaba del texto plano y deshacer sólo volvía el texto).
     <EditorEmailGmail key={`email-${id}`}
-      asunto={paso.asunto ?? ''} preheader={paso.preheader ?? ''} cuerpo={paso.cuerpo ?? ''}
+      asunto={paso.asunto ?? ''} preheader={paso.preheader ?? ''} cuerpo={paso.cuerpo ?? ''} cuerpoHtml={paso.cuerpo_html ?? ''}
       onChange={(patch) => cambiar(patch, false)} negocio={negocio} deshabilitado={busy} />
   );
 }
@@ -625,104 +644,6 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       {e.modo === 'tiempo' ? <>{selModo}{numero}{selUnidad}</> : <>{numero}{selUnidad}{selModo}</>}
     </div>
-  );
-}
-
-const OPCIONES_CAMPO: DropdownOption[] = [...CONDICIONES_VIVAS].flatMap((c) => [
-  { value: `${c}|0`, label: FRASE_CONDICION[c][0] },
-  { value: `${c}|1`, label: FRASE_CONDICION[c][1] },
-]);
-
-/**
- * LA CONDICIÓN: las ramas de arriba hacia abajo, como se leen en la tarjeta. Gana la
- * PRIMERA que se cumple (if / else-if / else, el molde de ManyChat), y «Si no» es la
- * última salida, fija.
- *
- * Cada rama es una o varias FILAS-FRASE («[Tiene la etiqueta ▾] [Cualificado ▾]») unidas
- * todas con «y» o todas con «o» (el modo de la rama). Sólo se ofrecen las condiciones que
- * el motor evalúa (`CONDICIONES_VIVAS`).
- */
-function EditorCondicion({ paso, id, cambiar, onPasos, etapas, busy }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
-  const ramas = paso.ramas ?? [];
-  const setRama = (ri: number, r: RamaCondicion, apilar: boolean) => cambiar({ ramas: ramas.map((x, k) => (k === ri ? r : x)) }, apilar);
-  return (
-    <div>
-      {ramas.map((r, ri) => (
-        <div key={r.id} style={{ borderTop: ri ? '1px solid var(--border)' : 'none', paddingTop: ri ? 10 : 0, marginTop: ri ? 10 : 0 }}>
-          {r.filas.map((f, fi) => (
-            <Fragment key={fi}>
-              {fi > 0 && <div style={{ fontSize: 11, color: 'var(--faint)', margin: '5px 0 5px 2px' }}>{r.modo === 'cualquiera' ? 'o' : 'y'}</div>}
-              <FilaFrase
-                fila={f} etapas={etapas} busy={busy}
-                puedeQuitar={!(ramas.length === 1 && r.filas.length === 1)}
-                onCambiar={(nf, apilar) => setRama(ri, { ...r, filas: r.filas.map((x, k) => (k === fi ? nf : x)) }, apilar)}
-                onQuitar={() => (r.filas.length > 1
-                  ? setRama(ri, { ...r, filas: r.filas.filter((_, k) => k !== fi) }, true)
-                  // La última fila de una rama se lleva la rama (y lo que colgaba de ella).
-                  : onPasos((prev) => quitarRama(prev, id, r.id), true))}
-              />
-            </Fragment>
-          ))}
-          <div style={{ display: 'flex', gap: 10, marginTop: 7 }}>
-            <BotonTexto disabled={busy || r.filas.length >= TOPE_FILAS} onClick={() => setRama(ri, { ...r, modo: 'todas', filas: [...r.filas, { campo: 'agendo' }] }, true)}>+ y</BotonTexto>
-            <BotonTexto disabled={busy || r.filas.length >= TOPE_FILAS} onClick={() => setRama(ri, { ...r, modo: 'cualquiera', filas: [...r.filas, { campo: 'agendo' }] }, true)}>+ o</BotonTexto>
-          </div>
-        </div>
-      ))}
-      <div style={{ marginTop: 12 }}>
-        <BotonTexto disabled={busy || ramas.length >= TOPE_RAMAS} onClick={() => onPasos((prev) => agregarRama(prev, id), true)}>+ condición</BotonTexto>
-      </div>
-      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--dim)' }}>Si no</div>
-    </div>
-  );
-}
-
-/** Una fila de una rama: «[campo, en positivo o negado] [valor]» y su ✕. */
-function FilaFrase({ fila, onCambiar, onQuitar, puedeQuitar, etapas, busy }: {
-  fila: FilaCondicion; onCambiar: (f: FilaCondicion, apilar: boolean) => void; onQuitar: () => void; puedeQuitar: boolean;
-  etapas: SeccionEtapas[]; busy: boolean;
-}) {
-  const valorCampo = `${fila.campo}|${fila.no ? 1 : 0}`;
-  const elegirCampo = (v: string) => {
-    const [campo, no] = v.split('|') as [CampoCondicion, string];
-    const mismo = campo === fila.campo;
-    const valor = mismo ? fila.valor : campo === 'antiguedad' ? 72 : null;
-    onCambiar({ campo, ...(no === '1' ? { no: true } : {}), ...(valor != null ? { valor } : {}), ...(campo === 'etapa' && mismo ? { funnel_id: fila.funnel_id ?? null } : {}) }, true);
-  };
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      <Dropdown value={valorCampo} options={OPCIONES_CAMPO} width={fila.campo === 'etiqueta' || fila.campo === 'etapa' || fila.campo === 'antiguedad' ? 168 : 230} ariaLabel="Condición" onChange={elegirCampo} disabled={busy} />
-      {fila.campo === 'etiqueta' && (
-        <SelectorEtiqueta value={fila.valor == null ? null : Number(fila.valor)} placeholder="Elige" width={150} ariaLabel="Etiqueta" disabled={busy}
-          onElegir={(e) => onCambiar({ ...fila, valor: e.id }, true)} />
-      )}
-      {fila.campo === 'etapa' && <SelectorEtapa fila={fila} etapas={etapas} busy={busy} onElegir={(key, funnelId) => onCambiar({ ...fila, valor: key, funnel_id: funnelId }, true)} />}
-      {fila.campo === 'antiguedad' && (
-        <>
-          <input type="number" min={1} step={1} value={Number(fila.valor) || ''} disabled={busy} aria-label="Horas"
-            onChange={(e) => onCambiar({ ...fila, valor: Math.max(1, Math.round(Number(e.target.value) || 0)) }, false)}
-            style={{ ...inpLienzo, width: 64, flex: 'none' }} />
-          <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>h</span>
-        </>
-      )}
-      <button type="button" onClick={onQuitar} disabled={busy || !puedeQuitar} title="Quitar" aria-label="Quitar esta condición"
-        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', cursor: puedeQuitar ? 'pointer' : 'default', opacity: puedeQuitar ? 1 : 0.35, fontSize: 13, padding: '4px 2px' }}>✕</button>
-    </div>
-  );
-}
-
-/** El selector de etapa: las de cada producto, en su sección. El producto viaja en el valor. */
-function SelectorEtapa({ fila, etapas, onElegir, busy }: {
-  fila: FilaCondicion; etapas: SeccionEtapas[]; onElegir: (key: string, funnelId: number | null) => void; busy: boolean;
-}) {
-  const valor = fila.valor != null && fila.valor !== '' ? `${fila.funnel_id ?? ''}:${fila.valor}` : '';
-  const secciones = etapas.map((s) => ({ title: s.title, options: s.options.map((o) => ({ value: `${s.funnelId}:${o.value}`, label: o.label })) }));
-  if (valor && !secciones.some((s) => s.options.some((o) => o.value === valor))) {
-    secciones.unshift({ title: 'La que tiene puesta', options: [{ value: valor, label: String(fila.valor) }] });
-  }
-  return (
-    <Dropdown value={valor} secciones={secciones} placeholder="Elige" width={150} ariaLabel="Etapa" disabled={busy}
-      onChange={(v) => { const [fid, ...k] = v.split(':'); onElegir(k.join(':'), fid ? Number(fid) : null); }} />
   );
 }
 
