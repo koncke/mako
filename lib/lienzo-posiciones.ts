@@ -112,3 +112,19 @@ export function moverRelativo(
   const sig = sanearPosiciones({ ...(pos ?? {}), [id]: { x: x - base.x, y: y - base.y } }, Number.POSITIVE_INFINITY);
   return podarPosiciones(sig, derivado.nodos.map((n) => n.id));
 }
+
+/**
+ * UNA TARJETA QUE TODAVÍA NO ESTÁ EN EL DIBUJO, PUESTA EN UN LUGAR (sexta tanda, punto 7: los pasos
+ * sueltos que se crean con el click derecho «en cualquier momento y lugar del tablero», y la copia de
+ * «Duplicar» al lado de la original). Es `moverRelativo` sin podar ESE id: la tarjeta nace en el mismo
+ * cambio y el grafo derivado que se le pasa todavía no la tiene —podada, nacía abajo de todo, donde la
+ * pone el árbol a una suelta—. Las demás se podan igual.
+ */
+export function fijarPosicion(
+  derivado: Pick<GrafoFlujo, 'nodos'>, pos: Posiciones | null | undefined,
+  id: string, x: number, y: number, ancla = 'entrada',
+): Posiciones {
+  const base = baseDe(derivado, ancla);
+  const sig = sanearPosiciones({ ...(pos ?? {}), [id]: { x: x - base.x, y: y - base.y } }, Number.POSITIVE_INFINITY);
+  return podarPosiciones(sig, [...derivado.nodos.map((n) => n.id), id]);
+}

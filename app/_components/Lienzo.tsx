@@ -32,22 +32,42 @@
 //    página: por eso el alto tiene tope y el lienzo no ocupa todo el largo.
 //
 // ── LAS SALIDAS (08/10/2026) ────────────────────────────────────────────────
-// Un nodo con `puertos` dibuja un PUNTO por salida en su borde derecho, y un ＋ al lado
-// del punto cuando esa salida está vacía: así se crean las ramas de una condición
-// «arriba y abajo» (punto 9), sin arrastrar flechas. El ＋ del medio de una flecha
-// inserta EN el puerto del que sale esa flecha. Todo es opcional: el lienzo de
+// Un nodo con `puertos` dibuja un CÍRCULO por salida en su borde derecho. El ＋ del medio de
+// una flecha inserta EN el puerto del que sale esa flecha. Todo es opcional: el lienzo de
 // /mensajes no tiene puertos y se dibuja como siempre.
+//
+// ── LA SEXTA TANDA (09/10/2026): EL CÍRCULO «ENTONCES», ARRASTRAR, BORRAR, EL CLICK DERECHO ──
+// El molde es ManyChat, con el pedido de Martín textual:
+//   · 4  «cada paso tiene un círculo al final que dice "Entonces" y la flecha sale de ahí. Ya no
+//        existe más el "+" al lado de una tarjeta, sino el círculo de abajo» → la salida de una
+//        tarjeta es una fila al pie (`salidaAlPie`) con «Entonces ●» / «Siguiente paso ⊕», y el ＋
+//        vive ADENTRO del círculo (uno por puerto: cada rama de una condición tiene el suyo).
+//   · 5  «Si apreto en el circulo con el "+" un solo click, debería salir la flecha y al final de la
+//        flecha el desplegable... Y si apreto y mantengo... arrastrar esa flecha a otra tarjeta» →
+//        un CLIC asoma una flecha con el menú en la punta (`fantasma`); ARRASTRAR la lleva con el
+//        cursor, atenúa todo menos la tarjeta de origen y la de abajo del cursor, y al soltar sobre
+//        cualquier punto de una tarjeta llama a `onConectar` (la flecha entra a su punto fijo,
+//        `puntoDeEntrada`). Soltar en el vacío no hace nada.
+//   · 6  «Al lado del "+"... el icono de basura, así se puede eliminar esa flecha» → `onQuitarFlecha`,
+//        al lado del círculo y en el medio de cada flecha.
+//   · 2  «click derecho en el lienzo... crear una tarjeta, guardar... en una tarjeta, eliminar,
+//        duplicar» → `menuLienzo` / `menuNodo`, con íconos. Sin ellos no hay menú (/mensajes).
+//   · DELAY 1 «Que Delay no sea una tarjeta, que la flecha no se corte» → las esperas de una arista
+//        (`AristaFlujo.esperas`) son pastillas sobre la flecha, y se editan tocándolas.
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { MakoLogo } from './MakoBrand';
+import { Icon } from './icons';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
-  curvaEntre, medioDeCurva, vistaConPanel, vistaConPanelAbajo, vistaAlCerrarPanel, yDePuerto, tieneFilas, encuadreInicial,
+  curvaEntre, curvaPuntos, medioDeCurva, puntoDeCurva, tDePildora, posicionDePildora, puntoDeEntrada, puntoDePuerto, filaDePuerto,
+  vistaConPanel, vistaConPanelAbajo, vistaAlCerrarPanel, yDePuerto, tieneFilas, rotuloDeFila, encuadreInicial,
   nodoRevelado, aristaRevelada,
-  ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO, Z_EDITOR_APAISADO, Z_ACCION_LIENZO,
+  ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO, Z_EDITOR_APAISADO, Z_ACCION_LIENZO, ALTO_PILDORA_FLECHA,
   REVELAR_DURACION_MS, REVELAR_SUBE_PX, REVELAR_PASO_MS, ICONO_MAKO, ICONO_GMAIL, type VistaLienzo,
-  type GrafoFlujo, type NodoFlujo, type TonoArista,
+  type GrafoFlujo, type NodoFlujo, type TonoArista, type AristaFlujo, type PuertoNodo,
 } from '@/lib/lienzo-grafo';
 
 const SANS = "'Geist', sans-serif";
@@ -98,12 +118,48 @@ export const COLOR_TONO: Record<TonoArista, string> = {
   condicional: 'var(--primary)',
 };
 
+/**
+ * UNA OPCIÓN DEL CLICK DERECHO (sexta tanda, punto 2). Con ícono siempre que se pueda (punto 10: «en
+ * los desplegables, también siempre con ÍCONO»); `grupo` separa con una línea; `peligro` va en rojo
+ * (lo que borra). Las arma quien monta el lienzo: el lienzo no sabe qué es una tarjeta.
+ */
+export type ItemMenuLienzo = {
+  id: string; label: string; icono?: ReactNode; onElegir: () => void;
+  peligro?: boolean; deshabilitado?: boolean; grupo?: number;
+};
+
+/** La opacidad de lo que NO es la tarjeta de origen ni la de abajo del cursor mientras se arrastra una flecha. */
+const ATENUADO = 0.28;
+/** Cuánto baja el ＋ del medio de una flecha que lleva una espera encima: si no, la pastilla lo tapa. */
+const DESVIO_MEDIO = 22;
+/** El círculo de una salida: su diámetro, y cuánto asoma la flecha al tocarlo (con el menú en la punta). */
+const CIRCULO = 16;
+const ASOMA_FLECHA = 118;
+
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accionesTitulo, accion,
   alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, opcionesEn, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false, insetIzq = 0, insetDer = 0,
   insetDerChrome, insetDerAbajo, panelForma = 'columna', panelAlto, revelar = null,
   onBorrar, puedeBorrar, reservaAbajo = 0,
+  onConectar, onQuitarFlecha, menuLienzo, menuNodo, nombreNodo,
 }: {
+  /**
+   * ARRASTRAR UNA FLECHA (sexta tanda, punto 5): se soltó el ＋ del círculo de la salida `puerto` (la
+   * FILA: 'sig', una rama, un caso) de `desde` sobre la tarjeta `hacia`. Lo que eso significa en el
+   * dato lo decide quien monta (lib/flujo-edicion.ts, `conectar`). Sin esto, el círculo sólo agrega.
+   */
+  onConectar?: (desde: string, puerto: string, hacia: string) => void;
+  /** La papelera de una flecha (sexta tanda, punto 6): al lado del círculo y en el medio de la flecha. */
+  onQuitarFlecha?: (a: AristaFlujo) => void;
+  /**
+   * EL CLICK DERECHO (sexta tanda, punto 2): las opciones en el fondo del lienzo —`punto` es dónde se
+   * hizo, en coordenadas del GRAFO (ahí nace una tarjeta suelta)— y en una tarjeta. El lienzo suma
+   * «Centrar» al del fondo. Sin ninguno de los dos, el click derecho es el del navegador (/mensajes).
+   */
+  menuLienzo?: (punto: { x: number; y: number }) => ItemMenuLienzo[];
+  menuNodo?: (id: string) => ItemMenuLienzo[];
+  /** Cómo se nombra una tarjeta en un menú («Quitar la flecha a «WHATSAPP: Hola…»»). */
+  nombreNodo?: (id: string) => string;
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
    *  borrar un paso, o el panel queda abierto sobre un nodo que ya no existe. */
@@ -214,8 +270,11 @@ export function Lienzo({
    *  suelto en una esquina no dice DÓNDE entra el paso; éste sí.
    *
    *  `puerto`: de qué salida. Lo pasan el ＋ de un punto vacío y el ＋ del medio de una
-   *  flecha que sale de un puerto. Ausente = el nodo no tiene puertos (/mensajes). */
-  onAgregarTras?: (id: string, que: string, puerto?: string) => void;
+   *  flecha que sale de un puerto. Ausente = el nodo no tiene puertos (/mensajes).
+   *
+   *  `punto`: dónde quedó la PUNTA de la flecha que asomó al tocar el círculo (sexta tanda, punto 5),
+   *  en coordenadas del grafo. Quien monta puede poner ahí la tarjeta nueva. */
+  onAgregarTras?: (id: string, que: string, puerto?: string, punto?: { x: number; y: number }) => void;
   /**
    * Qué se puede agregar EN un lugar (un nodo, una de sus salidas, el medio de una
    * flecha). Gana sobre `opcionesAgregar` y sobre su filtro del medio, que es de /mensajes:
@@ -308,6 +367,158 @@ export function Lienzo({
    * cada render. Sin `panelAlto` (el lienzo de /mensajes), el alto libre de siempre.
    */
   const altoFijo = Number(panelAlto) > 0;
+
+  /**
+   * LA FLECHA QUE ASOMA AL TOCAR UN CÍRCULO, con el menú de qué agregar EN SU PUNTA (sexta tanda,
+   * punto 5: «debería salir la flecha y al final de la flecha el desplegable, no como hoy que el
+   * desplegable sale al lado de la anterior tarjeta»). Coordenadas del grafo para la flecha y de
+   * pantalla para el menú (que va por portal). Se cierra al elegir, con Escape o con cualquier clic.
+   */
+  const [fantasma, setFantasma] = useState<{
+    desde: string; puerto: string; x1: number; y1: number; x2: number; y2: number; menuX: number; menuY: number;
+    items: ItemMenuLienzo[];
+  } | null>(null);
+  const cerrarFantasma = useCallback(() => setFantasma(null), []);
+  /**
+   * LA FLECHA QUE SE ARRASTRA (sexta tanda, punto 5). En el estado va SÓLO lo que cambia pocas veces —de
+   * qué tarjeta sale y sobre cuál está el cursor—, que es lo que atenúa y resalta. La punta que sigue
+   * al cursor se escribe en el DOM (`flechaTemp`), nunca con setState: es la trampa 3.
+   */
+  const [arrastreFlecha, setArrastreFlecha] = useState<{ desde: string } | null>(null);
+  const [sobreFlecha, setSobreFlecha] = useState<string | null>(null);
+  const flechaTemp = useRef<SVGPathElement | null>(null);
+  /** La `d` con que nace la flecha arrastrada (después la mueve `moverCirculo` sobre el DOM). */
+  const dTemp = useRef('');
+  const gestoFlecha = useRef<{
+    desde: string; fila: string; puertoAgregar: string | null; x0: number; y0: number;
+    activo: boolean; sobre: string | null; sx: number; sy: number; vacio: boolean;
+  } | null>(null);
+  /** El click derecho abierto (en coordenadas de PANTALLA: va por portal). */
+  const [menu, setMenu] = useState<{ x: number; y: number; items: ItemMenuLienzo[] } | null>(null);
+  const cerrarMenu = useCallback(() => setMenu(null), []);
+
+  /** Un punto de la pantalla en coordenadas del grafo, y al revés (la vista vive en un ref). */
+  const aGrafo = (clientX: number, clientY: number) => {
+    const r = caja.current?.getBoundingClientRect();
+    const v = vista.current;
+    return { x: (clientX - (r?.left ?? 0) - v.tx) / v.k, y: (clientY - (r?.top ?? 0) - v.ty) / v.k };
+  };
+  const aPantalla = (x: number, y: number) => {
+    const r = caja.current?.getBoundingClientRect();
+    const v = vista.current;
+    return { x: (r?.left ?? 0) + v.tx + x * v.k, y: (r?.top ?? 0) + v.ty + y * v.k };
+  };
+
+  /** Las opciones de un ＋ como opciones del menú, con su ícono y su grupo. */
+  const comoItems = (opciones: OpcionAgrupada[], elegir: (v: string) => void): ItemMenuLienzo[] =>
+    opciones.map((o) => ({
+      id: o.value, label: o.label, grupo: o.grupo, deshabilitado: o.disabled,
+      // eslint-disable-next-line @next/next/no-img-element
+      icono: o.icono ? <img src={o.icono} alt="" width={18} height={18} style={{ display: 'block' }} /> : undefined,
+      onElegir: () => elegir(o.value),
+    }));
+
+  /** ¿Qué tarjeta hay debajo del cursor (que no sea la de origen)? La pastilla de una espera no cuenta. */
+  const tarjetaBajo = (clientX: number, clientY: number, salvo: string): string | null => {
+    const el = typeof document !== 'undefined' ? document.elementFromPoint(clientX, clientY) : null;
+    const id = el instanceof Element ? el.closest('[data-nodo]')?.getAttribute('data-nodo') ?? null : null;
+    return id && id !== salvo && caja.current?.contains(el) ? id : null;
+  };
+
+  /**
+   * EL GESTO DEL CÍRCULO: apretar, y o se suelta en el lugar (un CLIC: asoma la flecha con el menú en la
+   * punta) o se arrastra (la flecha sigue al cursor y se conecta al soltar sobre una tarjeta). El
+   * círculo captura el puntero: el `pointermove` y el `pointerup` le llegan a él aunque el cursor esté
+   * sobre otra tarjeta, y por eso la de abajo se busca con `elementFromPoint`.
+   */
+  function bajarCirculo(e: React.PointerEvent, n: NodoFlujo, p: PuertoNodo, puertoAgregar: string | null) {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    const s = puntoDePuerto(n, p.id);
+    gestoFlecha.current = { desde: n.id, fila: p.id, puertoAgregar, x0: e.clientX, y0: e.clientY, activo: false, sobre: null, sx: s.x, sy: s.y, vacio: p.vacio };
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* el gesto sigue sin captura */ }
+  }
+  function moverCirculo(e: React.PointerEvent) {
+    const g = gestoFlecha.current;
+    if (!g) return;
+    const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (!g.activo) {
+      if (dx * dx + dy * dy <= ARRASTRE2 || !onConectar) return;
+      g.activo = true;
+      const p0 = aGrafo(e.clientX, e.clientY);
+      dTemp.current = curvaPuntos(g.sx, g.sy, p0.x, p0.y);
+      setFantasma(null);
+      setArrastreFlecha({ desde: g.desde });
+    }
+    const sobre = tarjetaBajo(e.clientX, e.clientY, g.desde);
+    if (sobre !== g.sobre) { g.sobre = sobre; setSobreFlecha(sobre); }
+    // Sobre una tarjeta, la punta ya va a SU punto de entrada: así se ve dónde va a quedar.
+    const destino = sobre ? grafo.nodos.find((x) => x.id === sobre) : null;
+    const fin = destino ? puntoDeEntrada(destino) : aGrafo(e.clientX, e.clientY);
+    dTemp.current = curvaPuntos(g.sx, g.sy, fin.x, fin.y);
+    flechaTemp.current?.setAttribute('d', dTemp.current);
+  }
+  function soltarCirculo(e: React.PointerEvent, cancelado = false) {
+    const g = gestoFlecha.current;
+    gestoFlecha.current = null;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ya se soltó */ }
+    if (!g) return;
+    if (g.activo) {
+      setArrastreFlecha(null); setSobreFlecha(null);
+      if (!cancelado && g.sobre) onConectar?.(g.desde, g.fila, g.sobre);
+      return;
+    }
+    if (cancelado || g.puertoAgregar == null || !onAgregarTras) return;
+    const n = grafo.nodos.find((x) => x.id === g.desde);
+    if (!n) return;
+    const puerto = g.puertoAgregar;
+    const opciones: OpcionAgrupada[] = opcionesEn ? opcionesEn(n.id, puerto, false) : (opcionesAgregar ?? [{ value: 'accion', label: '＋' }]);
+    // La flecha asoma hacia donde va a nacer la tarjeta: a la derecha, y más abajo si la salida ya
+    // tenía su flecha (la nueva corre en paralelo, debajo).
+    const fin = { x: g.sx + ASOMA_FLECHA, y: g.sy + (g.vacio ? 0 : 56) };
+    const elegir = (v: string) => { setFantasma(null); onAgregarTras(n.id, v, puerto, fin); };
+    // Una sola opción es una pregunta ya contestada (como `MasDeSalida`): se agrega directo.
+    if (opciones.length === 1) { elegir(opciones[0].value); return; }
+    const pant = aPantalla(fin.x, fin.y);
+    setMenu(null);
+    setFantasma({ desde: n.id, puerto, x1: g.sx, y1: g.sy, x2: fin.x, y2: fin.y, menuX: pant.x + 6, menuY: pant.y - 14, items: comoItems(opciones, elegir) });
+  }
+
+  /** La papelera de un círculo: con UNA flecha la saca; con varias, pregunta cuál. */
+  function quitarDeFila(e: React.MouseEvent, flechas: AristaFlujo[]) {
+    e.stopPropagation();
+    if (!onQuitarFlecha || !flechas.length) return;
+    if (flechas.length === 1) { onQuitarFlecha(flechas[0]); return; }
+    setFantasma(null);
+    setMenu({
+      x: e.clientX, y: e.clientY,
+      items: flechas.map((a, k) => ({
+        id: `quitar-${k}`, label: `Quitar la flecha a «${nombreNodo?.(a.hasta) ?? grafo.nodos.find((x) => x.id === a.hasta)?.titulo ?? 'esa tarjeta'}»`,
+        icono: <IconoBorrar />, peligro: true, onElegir: () => onQuitarFlecha(a),
+      })),
+    });
+  }
+
+  /**
+   * EL CLICK DERECHO (sexta tanda, punto 2): en una tarjeta (o la pastilla de una espera), lo de esa
+   * tarjeta; en el fondo, lo del lienzo con el punto donde se hizo. Adentro del panel, del chrome o del
+   * zoom (`data-no-pan`) queda el del navegador: ahí se copia y se pega.
+   */
+  function onContextMenu(e: React.MouseEvent) {
+    if (!menuLienzo && !menuNodo) return;
+    const t = e.target as HTMLElement;
+    if (!caja.current?.contains(t)) return;
+    const pildora = t.closest('[data-pildora]')?.getAttribute('data-pildora') ?? null;
+    if (!pildora && t.closest('[data-no-pan]')) return;
+    const id = pildora ?? t.closest('[data-nodo]')?.getAttribute('data-nodo') ?? null;
+    const items = id
+      ? (menuNodo?.(id) ?? [])
+      : [...(menuLienzo?.(aGrafo(e.clientX, e.clientY)) ?? []), { id: 'centrar', label: 'Centrar', icono: <IconoCentrar />, grupo: 99, onElegir: () => encuadrar(true) }];
+    if (!items.length) return;
+    e.preventDefault();
+    setFantasma(null);
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  }
 
   /**
    * EL REVELADO: cuántas tarjetas de `revelar.orden` ya aparecieron. Infinity = todas (sin
@@ -470,7 +681,14 @@ export function Lienzo({
       c.querySelectorAll(`[data-arista="${i}"]`).forEach((el) => el.setAttribute('d', curva));
       const m = medioDeCurva(mov(d), mov(h), a.puerto);
       c.querySelectorAll(`[data-arista-medio="${i}"]`).forEach((el) => {
-        if (el instanceof HTMLElement) { el.style.left = `${m.x}px`; el.style.top = `${m.y}px`; }
+        // El ＋ del medio de una flecha con una espera encima va un poco más abajo (`DESVIO_MEDIO`).
+        const desvio = Number(el.getAttribute('data-desvio') ?? 0) || 0;
+        if (el instanceof HTMLElement) { el.style.left = `${m.x}px`; el.style.top = `${m.y + desvio}px`; }
+      });
+      // Y las pastillas de sus esperas, en su punto de la curva.
+      c.querySelectorAll(`[data-arista-pildora="${i}"]`).forEach((el) => {
+        const p = puntoDeCurva(mov(d), mov(h), a.puerto, Number(el.getAttribute('data-t') ?? 0.5));
+        if (el instanceof HTMLElement) { el.style.left = `${p.x}px`; el.style.top = `${p.y}px`; }
       });
     });
   }
@@ -498,6 +716,9 @@ export function Lienzo({
      */
     const dentro = caja.current?.contains(e.target as Node) ?? false;
     if (!dentro) return;
+    // ⚠️ SÓLO EL BOTÓN PRINCIPAL (sexta tanda): con el click derecho abriendo su menú, el botón 2 armaba
+    // un gesto y al soltar SELECCIONABA la tarjeta (abría su panel debajo del menú).
+    if (e.button !== 0) return;
     // Los controles de adentro del editor no arrastran el lienzo.
     if ((e.target as HTMLElement).closest('[data-no-pan]')) return;
     const v = vista.current;
@@ -585,8 +806,10 @@ export function Lienzo({
       pintar();
       return;
     }
-    const n = grafo.nodos.find((x) => x.id === seleccion);
-    if (!n) return;
+    const elegido = grafo.nodos.find((x) => x.id === seleccion);
+    if (!elegido) return;
+    // Una espera que va en una flecha no tiene tarjeta: lo que no se puede tapar es su PASTILLA.
+    const n = elegido.enFlecha ? { ...elegido, ...(posicionDePildora(grafo, elegido.id) ?? {}) } : elegido;
     // Las dos cuentas viven en `lib/lienzo-grafo.ts`, sin `server-only`, para que
     // tengan test: adentro de este efecto no las puede importar nadie.
     // El panel abre a `PANEL_MARGEN + insetIzq`, así que el borde contra el que se
@@ -635,6 +858,7 @@ export function Lienzo({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onContextMenu={onContextMenu}
         // ⚠️ `overflow: hidden` NO impide que el contenedor se scrollee POR CÓDIGO, y
         // eso desincroniza el dibujo de la vista: el `transform` sigue diciendo una
         // cosa y en pantalla todo está corrido. Pasa solo — al enfocar un input de un
@@ -674,6 +898,8 @@ export function Lienzo({
                 </marker>
               ))}
             </defs>
+            {/* Mientras se arrastra una flecha, las de verdad se atenúan con el resto (punto 5). */}
+            <g opacity={arrastreFlecha ? ATENUADO : 1} style={{ transition: 'opacity .12s ease' }}>
             {grafo.aristas.map((a, i) => {
               const d = grafo.nodos.find((n) => n.id === a.desde);
               const h = grafo.nodos.find((n) => n.id === a.hasta);
@@ -690,6 +916,18 @@ export function Lienzo({
                   style={revelar ? { transition: `opacity ${REVELAR_DURACION_MS}ms ease` } : undefined} />
               );
             })}
+            </g>
+            {/* LA FLECHA QUE ASOMA (un clic en el círculo: el menú va en su punta) y LA QUE SE ARRASTRA
+                (sigue al cursor; su `d` la escribe `moverCirculo` en el DOM). En el color primario y
+                punteadas: todavía no son una flecha del flujo. */}
+            {fantasma && (
+              <path d={curvaPuntos(fantasma.x1, fantasma.y1, fantasma.x2, fantasma.y2)} fill="none" stroke={COLOR_TONO.condicional}
+                strokeWidth={1.8} strokeDasharray="5 4" markerEnd="url(#punta-condicional)" />
+            )}
+            {arrastreFlecha && (
+              <path ref={flechaTemp} data-flecha-arrastrada d={dTemp.current} fill="none" stroke={COLOR_TONO.condicional}
+                strokeWidth={2} strokeDasharray="5 4" markerEnd="url(#punta-condicional)" />
+            )}
             {/*
               ⚠️ LA ZONA DE TOQUE DE CADA FLECHA: un segundo trazo, transparente y gordo, encima del que
               se ve (`TOQUE_FLECHA`). Pasar el cursor por CUALQUIER punto de la flecha muestra su ＋ del
@@ -708,7 +946,7 @@ export function Lienzo({
                 sobre una tarjeta manda la tarjeta.
               · Sin ＋ que mostrar (sin `onAgregarTras`, `sinMas`, revelando) no hay zona.
             */}
-            {onAgregarTras && (opcionesEn || opcionesAgregar) && !revelando && grafo.aristas.map((a, i) => {
+            {((onAgregarTras && (opcionesEn || opcionesAgregar)) || onQuitarFlecha) && !revelando && !arrastreFlecha && grafo.aristas.map((a, i) => {
               if (a.sinMas) return null;
               const d = grafo.nodos.find((n) => n.id === a.desde);
               const h = grafo.nodos.find((n) => n.id === a.hasta);
@@ -744,21 +982,28 @@ export function Lienzo({
             ⚠️ CON PUERTOS, INSERTA EN EL PUERTO DE LA FLECHA (`a.puerto`), no «después
             del nodo»: con N salidas eso es ambiguo, y el ＋ de la rama de abajo agregaba
             en la de arriba.
+
+            ⚠️ Y AL LADO, LA PAPELERA DE ESA FLECHA (sexta tanda, punto 6): borra exactamente
+            la flecha sobre la que está el cursor (`onQuitarFlecha`). Con una espera encima de
+            la flecha (sus pastillas), el par baja `DESVIO_MEDIO` para no taparla.
           */}
-          {onAgregarTras && (opcionesEn || opcionesAgregar) && grafo.aristas.map((a, i) => {
+          {((onAgregarTras && (opcionesEn || opcionesAgregar)) || onQuitarFlecha) && grafo.aristas.map((a, i) => {
             const d = grafo.nodos.find((n) => n.id === a.desde);
             const h = grafo.nodos.find((n) => n.id === a.hasta);
             if (!d || !h || a.sinMas) return null;
-            // Mientras se revela no hay dónde insertar: la flecha todavía no está.
-            if (revelando) return null;
+            // Mientras se revela no hay dónde insertar: la flecha todavía no está. Y mientras se
+            // arrastra otra flecha, tampoco: el ＋ quedaría bajo el cursor.
+            if (revelando || arrastreFlecha) return null;
             const m = medioDeCurva(d, h, a.puerto);
             const abierta = enFlecha === i;
+            const desvio = a.esperas?.length ? DESVIO_MEDIO : 0;
+            const conMas = Boolean(onAgregarTras && (opcionesEn || opcionesAgregar));
             return (
-              <div key={`mas-${i}`} data-no-pan data-arista-medio={i}
+              <div key={`mas-${i}`} data-no-pan data-arista-medio={i} data-desvio={desvio}
                 onPointerEnter={() => entrarFlecha(i)}
                 onPointerLeave={() => salirFlecha(i)}
                 style={{
-                  position: 'absolute', left: m.x, top: m.y,
+                  position: 'absolute', left: m.x, top: m.y + desvio,
                   // ⚠️ LA ZONA SE MIDE EN PÍXELES DE PANTALLA, NO DEL GRAFO. Vive adentro
                   // de la capa transformada, así que sus 28 px son 28 × k: medido en el
                   // navegador el 04/10/2026, con el lienzo al 22% la zona daba **6 px** y
@@ -766,9 +1011,9 @@ export function Lienzo({
                   // obligó a no colgarla del `<path>` de 1,6 px. El `scale` inverso la
                   // deja del mismo tamaño a cualquier zoom, y al ＋ también.
                   transform: `translate(-50%, -50%) scale(${100 / zoomTxt})`,
-                  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  minWidth: 28, height: 28, gap: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                {abierta && (
+                {abierta && conMas && onAgregarTras && (
                   <Dropdown
                     value="" ariaLabel="Agregar algo en el medio"
                     sinFlecha botonLabel="＋" disabled={agregarOcupado}
@@ -780,8 +1025,46 @@ export function Lienzo({
                     onChange={(v) => v && onAgregarTras(a.desde, v, a.puerto)}
                   />
                 )}
+                {abierta && onQuitarFlecha && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onQuitarFlecha(a); setEnFlecha(null); }} disabled={agregarOcupado}
+                    aria-label="Borrar esta flecha" title="Borrar esta flecha" data-quitar-flecha={i}
+                    style={{ ...estiloPapelera, width: 22, height: 22 }}><IconoBorrar tam={13} /></button>
+                )}
               </div>
             );
+          })}
+
+          {/* LAS ESPERAS QUE VAN EN UNA FLECHA (sexta tanda, DELAY 1: «que la flecha no se corte, que
+              sea algo en medio de la flecha, más sutil»): una pastilla por espera, repartidas sobre la
+              curva (`tDePildora`). Se tocan para editarlas (abren su panel como una tarjeta) y el click
+              derecho les da su menú. No son `data-nodo`: no se arrastran ni reciben una flecha. */}
+          {grafo.aristas.map((a, i) => {
+            if (!a.esperas?.length) return null;
+            const d = grafo.nodos.find((n) => n.id === a.desde);
+            const h = grafo.nodos.find((n) => n.id === a.hasta);
+            if (!d || !h) return null;
+            const vista = !revelar || aristaRevelada(revelar.orden, revelados, a);
+            return a.esperas.map((e, k) => {
+              const t = tDePildora(k, a.esperas!.length);
+              const p = puntoDeCurva(d, h, a.puerto, t);
+              const activa = seleccion === e.id;
+              return (
+                <button key={`pildora-${i}-${e.id}`} type="button" data-no-pan data-pildora={e.id} data-arista-pildora={i} data-t={t}
+                  onClick={(ev) => { ev.stopPropagation(); onSeleccion(activa ? null : e.id); }}
+                  title={`Esperar ${e.texto}`} aria-label={`Esperar ${e.texto}`} aria-pressed={activa}
+                  style={{
+                    position: 'absolute', left: p.x, top: p.y, transform: 'translate(-50%, -50%)',
+                    height: ALTO_PILDORA_FLECHA, padding: '0 9px', borderRadius: 999, whiteSpace: 'nowrap',
+                    display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontFamily: SANS,
+                    background: 'var(--surface)', border: `1px solid ${activa ? 'var(--primary)' : 'var(--border-strong)'}`,
+                    boxShadow: activa ? '0 0 0 3px var(--primary-bg)' : 'none',
+                    fontSize: 11, fontWeight: 600, color: 'var(--dim)',
+                    opacity: !vista ? 0 : arrastreFlecha ? ATENUADO : 1, transition: 'opacity .12s ease',
+                  }}>
+                  <span aria-hidden style={{ fontSize: 11 }}>⏳</span>{e.texto}
+                </button>
+              );
+            });
           })}
 
           {grafo.aristas.map((a, i) => {
@@ -800,7 +1083,7 @@ export function Lienzo({
             );
           })}
 
-          {grafo.nodos.map((n) => (
+          {grafo.nodos.filter((n) => !n.enFlecha).map((n) => (
             /**
              * ⚠️ EL ENVOLTORIO MIDE 0×0: SU REGIÓN DE HOVER ES LA UNIÓN DE SUS HIJOS.
              *
@@ -824,7 +1107,17 @@ export function Lienzo({
               // Revelando: opacidad 0 y unos px abajo hasta que le toque. El envoltorio mide 0×0,
               // pero la opacidad y el `transform` se aplican igual a todo lo que pinta adentro (y por
               // eso el ARRASTRE mueve este envoltorio: la tarjeta, su ＋ y sus salidas, juntos).
-              style={estiloRevelado(n.id)}
+              //
+              // ⚠️ Y MIENTRAS SE ARRASTRA UNA FLECHA, TODO SE ATENÚA MENOS LA TARJETA DE ORIGEN Y LA DE
+              // ABAJO DEL CURSOR (sexta tanda, punto 5: «que se ponga un poco opaco todo el resto menos
+              // la tarjeta de origen... y cuando la paso por arriba de otra tarjeta también se le quita
+              // lo opaco»). Revelando, manda el revelado.
+              style={{
+                ...estiloRevelado(n.id),
+                ...(arrastreFlecha && n.id !== arrastreFlecha.desde && n.id !== sobreFlecha
+                  ? { opacity: ATENUADO, transition: 'opacity .12s ease' }
+                  : arrastreFlecha ? { transition: 'opacity .12s ease' } : {}),
+              }}
               onPointerEnter={() => setEncima(n.id)}
               /**
                * ⚠️ NO SE APAGA MIENTRAS HAYA UN MENU ABIERTO. El ＋ sólo existe con
@@ -837,7 +1130,9 @@ export function Lienzo({
               onFocus={() => setEncima(n.id)}
               onBlur={() => setEncima((prev) => (prev === n.id ? null : prev))}
             >
-              {renderNodo(n, seleccion === n.id)}
+              {/* La de abajo del cursor mientras se arrastra una flecha va resaltada como elegida: es
+                  donde va a entrar. */}
+              {renderNodo(n, seleccion === n.id || sobreFlecha === n.id)}
               {/* Un nodo CON puertos agrega desde sus puntos (abajo), no desde el ＋ de
                   pasar el cursor: dos ＋ en la misma tarjeta prometerían dos lugares. */}
               {onAgregarTras && !n.puertos && encima === n.id && (puedeAgregarTras?.(n.id) ?? true) && (
@@ -878,62 +1173,62 @@ export function Lienzo({
                 </span>
               )}
               {/*
-                ⚠️ UN PUNTO POR SALIDA, EN EL BORDE DERECHO, Y SU ＋ CUANDO ESTÁ VACÍA.
-                Es el molde de ManyChat, medido en su ayuda: «Connect steps on the canvas
-                by clicking on the connection dot and choosing another step». El punto se
-                dibuja AFUERA de la tarjeta (acá, no en `TarjetaNodo`) para que quede
-                exactamente donde sale la flecha: los dos leen `yDePuerto`.
+                ⚠️ UN CÍRCULO POR SALIDA, EN EL BORDE DERECHO, CON SU ＋ ADENTRO (sexta tanda, punto 4:
+                «Ya no existe más el "+" al lado de una tarjeta, sino el círculo de abajo, que ahí si
+                puedes poner el "+"»). Lo dibuja el lienzo AFUERA de la tarjeta (acá, no en `TarjetaNodo`)
+                para que quede exactamente donde sale la flecha: los dos leen `yDePuerto`. El texto de la
+                fila («Entonces» / «Siguiente paso», o el de la rama) es de la tarjeta.
 
-                El ＋ no depende del hover: una salida vacía es algo que falta, y lo que
-                falta se ve sin tener que buscarlo con el cursor.
-
-                ⚠️ Y UNA SALIDA QUE ADMITE FLECHAS EN PARALELO (`paralelo`) OFRECE OTRO ＋ CON
-                EL PUNTO OCUPADO (segunda tanda, decisión 2): el de la salida vacía continúa el
-                hilo; éste abre uno nuevo que corre A LA VEZ, y su menú lo dice («En paralelo»).
-                Ése sí va con el hover: no es algo que falte, es una opción más, y siempre a la
-                vista llenaría el lienzo de ＋ sobre cada flecha. Arranca EN el borde de la tarjeta
-                y se come la separación como padding (el bug de los 8 px de acá arriba).
+                · Hueco (borde de color, fondo blanco): la salida está vacía. Lleno: ya sigue en algo.
+                · El ＋ va adentro cuando se puede agregar ahí: con la salida vacía (continúa el hilo) o
+                  con una que admite flechas en paralelo (`paralelo`: abre otra que corre a la vez; desde
+                  el RESULTADO de una condición es `par@<fila>`, cuarta tanda, punto 8).
+                · UN CLIC asoma la flecha con el menú en su punta; ARRASTRAR la lleva a otra tarjeta
+                  (`onConectar`). Ver `bajarCirculo`. El círculo no depende del hover: una salida vacía
+                  es algo que falta, y lo que falta se ve sin buscarlo.
+                · ⚠️ LA PAPELERA DE SUS FLECHAS (punto 6), PEGADA AL CÍRCULO: el par es un solo span que
+                  arranca en el círculo, así el cursor no cruza aire entre los dos (el bug de los 8 px de
+                  acá arriba). Va al pasar el cursor por la tarjeta: siempre a la vista, una papelera por
+                  salida llenaría el lienzo.
               */}
               {(n.puertos ?? []).map((p) => {
                 const y = yDePuerto(n, p.id);
                 const puede = Boolean(onAgregarTras) && (puedeAgregarTras?.(n.id) ?? true);
-                const color = p.tono ? COLOR_TONO[p.tono] : 'var(--border-strong)';
-                const opciones = (puerto: string, medio: boolean) => (opcionesEn ? opcionesEn(n.id, puerto, medio) : (opcionesAgregar ?? [{ value: 'accion', label: '＋' }]));
-                // La flecha en paralelo NUEVA: desde la salida de siempre es 'par'; desde la fila de un
-                // RESULTADO de una condición es 'par@<fila>' (cuarta tanda, punto 8: «varias si se
-                // cumple y varias si no se cumple»). Con 'par' a secas, el ＋ del «Si no» no diría de
-                // qué fila sale, y el modelo no la agregaría en ningún lado.
+                const color = p.tono ? COLOR_TONO[p.tono] : 'var(--primary)';
                 const enParalelo = p.id === 'sig' ? 'par' : `par@${p.id}`;
+                const puertoAgregar = p.vacio ? p.id : p.paralelo ? enParalelo : null;
+                const conMas = puede && puertoAgregar != null;
+                // Se arrastra desde donde se puede sumar una flecha (vacía, o que admite paralelo): de
+                // una salida llena que no admite más, una flecha nueva no tiene a dónde ir.
+                const arrastrable = Boolean(onConectar) && conMas;
+                // Las flechas que salen de ESTA fila (la principal y las que salen en paralelo de ella).
+                const flechas = onQuitarFlecha ? grafo.aristas.filter((a) => a.desde === n.id && !a.sinMas && (filaDePuerto(n, a.puerto) ?? 'sig') === p.id) : [];
+                const conPapelera = flechas.length > 0 && !arrastreFlecha && (encima === n.id || seleccion === n.id);
+                const titulo = p.rotulo ? `«${p.rotulo}»` : 'esta salida';
                 return (
-                  <div key={`pt-${n.id}-${p.id}`}>
-                    <span aria-hidden style={{
-                      position: 'absolute', left: n.x + n.ancho, top: y, transform: 'translate(-50%, -50%)',
-                      width: 9, height: 9, borderRadius: 999, boxSizing: 'border-box', pointerEvents: 'none',
-                      border: `1.5px solid ${color}`, background: p.vacio ? 'var(--surface)' : color,
-                    }} />
-                    {p.vacio && puede && onAgregarTras && (
-                      <span data-no-pan data-mas-puerto={`${n.id}:${p.id}`}
-                        style={{ position: 'absolute', left: n.x + n.ancho + 7, top: y, transform: 'translateY(-50%)', display: 'inline-flex', lineHeight: 0 }}>
-                        <MasDeSalida
-                          ariaLabel={p.rotulo ? `Agregar en «${p.rotulo}»` : 'Agregar después de esta tarjeta'}
-                          disabled={agregarOcupado}
-                          opciones={opciones(p.id, false)}
-                          onElegir={(v) => onAgregarTras(n.id, v, p.id)}
-                        />
-                      </span>
+                  <span key={`pt-${n.id}-${p.id}`} data-no-pan data-salida={`${n.id}:${p.id}`}
+                    style={{ position: 'absolute', left: n.x + n.ancho - CIRCULO / 2, top: y, transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center', gap: 2, lineHeight: 0 }}>
+                    <button type="button" data-mas-puerto={`${n.id}:${p.id}`} disabled={agregarOcupado && !arrastrable}
+                      aria-label={conMas ? `Agregar en ${titulo}` : `Salida ${titulo}`}
+                      title={conMas ? (arrastrable ? 'Clic: agregar · Arrastrar: conectar' : 'Agregar') : undefined}
+                      onPointerDown={(e) => { if (!conMas && !arrastrable) return; bajarCirculo(e, n, p, conMas && !agregarOcupado ? puertoAgregar : null); }}
+                      onPointerMove={moverCirculo}
+                      onPointerUp={(e) => soltarCirculo(e)}
+                      onPointerCancel={(e) => soltarCirculo(e, true)}
+                      style={{
+                        width: CIRCULO, height: CIRCULO, padding: 0, borderRadius: 999, boxSizing: 'border-box', flex: 'none',
+                        border: `1.5px solid ${color}`, background: p.vacio ? 'var(--surface)' : color,
+                        color: p.vacio ? color : 'var(--surface)', fontSize: 11, fontWeight: 700, lineHeight: 1, fontFamily: SANS,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: conMas || arrastrable ? 'pointer' : 'default', touchAction: 'none',
+                        boxShadow: '0 1px 3px rgba(0,0,0,.12)',
+                      }}>{conMas ? '＋' : null}</button>
+                    {conPapelera && (
+                      <button type="button" data-quitar-salida={`${n.id}:${p.id}`} onClick={(e) => quitarDeFila(e, flechas)} disabled={agregarOcupado}
+                        aria-label={flechas.length === 1 ? 'Borrar esta flecha' : 'Borrar una flecha'} title={flechas.length === 1 ? 'Borrar esta flecha' : 'Borrar una flecha'}
+                        style={estiloPapelera}><IconoBorrar tam={13} /></button>
                     )}
-                    {!p.vacio && p.paralelo && puede && onAgregarTras && encima === n.id && (
-                      <span data-no-pan data-mas-paralelo={`${n.id}:${p.id}`}
-                        style={{ position: 'absolute', left: n.x + n.ancho, top: y, transform: 'translateY(-50%)', paddingLeft: 7, display: 'inline-flex', lineHeight: 0 }}>
-                        <MasDeSalida
-                          ariaLabel="Agregar en paralelo"
-                          disabled={agregarOcupado}
-                          opciones={opciones(enParalelo, false)}
-                          onElegir={(v) => onAgregarTras(n.id, v, enParalelo)}
-                        />
-                      </span>
-                    )}
-                  </div>
+                  </span>
                 );
               })}
             </div>
@@ -1070,7 +1365,132 @@ export function Lienzo({
           </div>
         )}
       </div>
+      {/* Los dos menús van por PORTAL al `body`: el lienzo vive adentro de cajas con `overflow` y
+          `transform`, y un menú nacido ahí se recortaría (el mismo criterio que el `Dropdown`). */}
+      {fantasma && <MenuFlotante x={fantasma.menuX} y={fantasma.menuY} items={fantasma.items} onCerrar={cerrarFantasma} etiqueta="Qué agregar" />}
+      {menu && <MenuFlotante x={menu.x} y={menu.y} items={menu.items} onCerrar={cerrarMenu} etiqueta="Opciones" />}
     </div>
+  );
+}
+
+/**
+ * UN MENÚ FLOTANTE: el del click derecho y el de la punta de la flecha que asoma (sexta tanda). Cada
+ * opción con su ícono (punto 10) y los grupos separados con una línea. Se acomoda adentro de la
+ * ventana (se da vuelta hacia arriba o hacia la izquierda si no entra) y se cierra con Escape, con un
+ * clic afuera, con la rueda o al redimensionar.
+ *
+ * ⚠️ EL ESCAPE SE FRENA CON `stopImmediatePropagation` (AGENTS.md, «un popover anclado también es una
+ * capa»): todos los Escape de la casa viven en `document` y en captura, y con `stopPropagation` el
+ * del panel del nodo —o el de un modal de abajo— también cerraba.
+ */
+function MenuFlotante({ x, y, items, onCerrar, etiqueta }: {
+  x: number; y: number; items: ItemMenuLienzo[]; onCerrar: () => void; etiqueta: string;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [lugar, setLugar] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    setLugar({
+      left: x + w + 8 > vw ? Math.max(8, x - w) : x,
+      top: y + h + 8 > vh ? Math.max(8, y - h) : y,
+    });
+    // El foco entra al primero: con el menú abierto ya se elige con las flechas y Enter.
+    el.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
+  }, [x, y]);
+  useEffect(() => {
+    const fuera = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) onCerrar(); };
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); onCerrar(); return; }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      const botones = [...(ref.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [])];
+      if (!botones.length) return;
+      e.preventDefault();
+      const i = botones.indexOf(document.activeElement as HTMLButtonElement);
+      const sig = e.key === 'ArrowDown' ? (i + 1) % botones.length : (i - 1 + botones.length) % botones.length;
+      botones[sig].focus();
+    };
+    const cerrar = () => onCerrar();
+    document.addEventListener('pointerdown', fuera, true);
+    document.addEventListener('keydown', tecla, true);
+    window.addEventListener('resize', cerrar);
+    window.addEventListener('blur', cerrar);
+    window.addEventListener('wheel', cerrar, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener('pointerdown', fuera, true);
+      document.removeEventListener('keydown', tecla, true);
+      window.removeEventListener('resize', cerrar);
+      window.removeEventListener('blur', cerrar);
+      window.removeEventListener('wheel', cerrar, { capture: true });
+    };
+  }, [onCerrar]);
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div ref={ref} role="menu" aria-label={etiqueta} data-menu-lienzo
+      onContextMenu={(e) => e.preventDefault()}
+      style={{
+        position: 'fixed', left: lugar?.left ?? x, top: lugar?.top ?? y, zIndex: 1000,
+        visibility: lugar ? 'visible' : 'hidden', minWidth: 214, maxWidth: 300, padding: 5, borderRadius: 12,
+        background: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: '0 12px 32px rgba(0,0,0,.18)',
+        fontFamily: SANS,
+      }}>
+      <style>{'.lz-item{background:transparent}.lz-item:hover:not(:disabled),.lz-item:focus-visible{background:var(--surface-2);outline:none}'}</style>
+      {items.map((it, k) => (
+        <Fragment key={it.id}>
+          {k > 0 && (items[k - 1].grupo ?? 0) !== (it.grupo ?? 0) && <div role="separator" style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />}
+          <button type="button" role="menuitem" className="lz-item" disabled={it.deshabilitado}
+            onClick={() => { onCerrar(); it.onElegir(); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '8px 10px',
+              borderRadius: 8, border: 'none', cursor: it.deshabilitado ? 'default' : 'pointer', fontFamily: SANS,
+              fontSize: 13.5, fontWeight: 600, color: it.peligro ? 'var(--bad)' : 'var(--ink)', opacity: it.deshabilitado ? 0.45 : 1,
+            }}>
+            <span aria-hidden style={{ width: 18, height: 18, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: it.peligro ? 'var(--bad)' : 'var(--dim)' }}>{it.icono}</span>
+            <span style={{ minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>
+          </button>
+        </Fragment>
+      ))}
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * LA PAPELERA, SIEMPRE EN ROJO (sexta tanda, punto 9: «busca un ícono más reconocible... Y que siempre
+ * el ícono de borrar sea rojo»): el `trash` de la casa (app/_components/icons.tsx), en `--bad`.
+ */
+export function IconoBorrar({ tam = 16 }: { tam?: number }) {
+  return <span aria-hidden style={{ display: 'inline-flex', color: 'var(--bad)' }}><Icon name="trash" size={tam} /></span>;
+}
+
+/** El botón de la papelera de una flecha: chico, redondo, con el borde de la casa. */
+const estiloPapelera: CSSProperties = {
+  width: CIRCULO + 4, height: CIRCULO + 4, padding: 0, borderRadius: 999, flex: 'none',
+  border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer',
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,.12)',
+};
+
+/** «Centrar»: el marco con sus cuatro esquinas. */
+export function IconoCentrar({ tam = 16 }: { tam?: number }) {
+  return (
+    <svg width={tam} height={tam} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /><circle cx="12" cy="12" r="2.2" />
+    </svg>
+  );
+}
+
+/**
+ * «ACOMODAR» (sexta tanda, punto 14: «pon un botón de ícono para "acomodar" todas las tarjetas»):
+ * tres tarjetas unidas como un árbol, que es lo que hace (vuelve al layout automático).
+ */
+export function IconoAcomodar({ tam = 16 }: { tam?: number }) {
+  return (
+    <svg width={tam} height={tam} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="9.5" width="6" height="5" rx="1.4" /><rect x="15" y="3.5" width="6" height="5" rx="1.4" /><rect x="15" y="15.5" width="6" height="5" rx="1.4" />
+      <path d="M9 12h3M12 6v12M12 6h3M12 18h3" />
+    </svg>
   );
 }
 
@@ -1090,6 +1510,8 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
   const borde = activo ? 'var(--primary)' : roto ? 'var(--bad)' : (tinte?.borde ?? 'var(--border)');
   const fijo = nodo.puertos !== undefined;
   const filas = tieneFilas(nodo) ? (nodo.puertos ?? []) : [];
+  // SUELTA (sexta tanda, punto 7): borde punteado, como la píldora de una espera. Elegida, el de siempre.
+  const trazo = nodo.suelta && !activo ? 'dashed' : 'solid';
   /**
    * ⚠️ LA ESPERA ES UNA PÍLDORA (segunda tanda, decisión 9): «⏳ 24 h» en UNA línea, sin
    * cabecera. Su alto y su ancho los estima lib/flujo-conversacion.ts (el punto de salida se
@@ -1121,7 +1543,7 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
         ...(fijo ? { height: nodo.alto, display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { minHeight: nodo.alto }),
         // El patrón (el papel de chat de WhatsApp) va en el MISMO `background`, como capa encima del
         // color: `background` + `backgroundImage` sueltos son shorthand y longhand peleando en React.
-        borderRadius: 13, border: `${BORDE_NODO}px solid ${borde}`,
+        borderRadius: 13, border: `${BORDE_NODO}px ${trazo} ${nodo.suelta && !activo && !roto ? 'var(--border-strong)' : borde}`,
         background: tinte && 'patron' in tinte && tinte.patron ? `${tinte.patron} 0 0 / 14px 14px, ${tinte.fondo}` : (tinte?.fondo ?? 'var(--surface)'),
         boxShadow: activo ? '0 0 0 3px var(--primary-bg)' : '0 1px 2px rgba(0,0,0,.05)',
         padding: fijo ? `11px 11px ${PIE_PUERTOS}px` : 11, boxSizing: 'border-box', cursor: 'pointer', fontFamily: SANS,
@@ -1137,20 +1559,28 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
         )}
       </div>
       {fijo ? <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{children}</div> : children}
-      {filas.map((p) => (
-        <div key={p.id} title={p.rotulo}
-          style={{
-            flex: 'none', height: ALTO_PUERTO, boxSizing: 'border-box', borderTop: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', paddingRight: 6, fontSize: 11.5, color: p.tono === 'mala' ? 'var(--dim)' : 'var(--ink)',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.rotulo}</span>
-          {/* La marca CEDE último: el rótulo se corta con «…» antes que ella (flex: none). */}
-          {p.marca && (
-            <span style={{ marginLeft: 'auto', flex: 'none', padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: 'var(--warn)', border: '1px solid var(--warn)', background: 'var(--surface)' }}>{p.marca}</span>
-          )}
-        </div>
-      ))}
+      {filas.map((p) => {
+        // LA SALIDA AL PIE (sexta tanda, punto 4): «Entonces» / «Siguiente paso» a la DERECHA, pegado
+        // al círculo que dibuja el lienzo sobre el borde, y sin filete (no es una rama: es la salida).
+        const alPie = p.rotulo == null && nodo.salidaAlPie;
+        const texto = rotuloDeFila(nodo, p);
+        return (
+          <div key={p.id} title={texto} data-fila-salida={p.id}
+            style={{
+              flex: 'none', height: ALTO_PUERTO, boxSizing: 'border-box', borderTop: alPie ? 'none' : '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: alPie ? 'flex-end' : undefined, paddingRight: alPie ? 12 : 6,
+              fontSize: 11.5, fontWeight: alPie ? 600 : undefined,
+              color: alPie ? (p.vacio ? 'var(--faint)' : 'var(--dim)') : p.tono === 'mala' ? 'var(--dim)' : 'var(--ink)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{texto}</span>
+            {/* La marca CEDE último: el rótulo se corta con «…» antes que ella (flex: none). */}
+            {p.marca && (
+              <span style={{ marginLeft: 'auto', flex: 'none', padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: 'var(--warn)', border: '1px solid var(--warn)', background: 'var(--surface)' }}>{p.marca}</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1220,43 +1650,11 @@ export function BotonChico({ children, onClick, rotulo }: { children: ReactNode;
   );
 }
 
-const estiloMas: CSSProperties = {
-  width: 22, height: 22, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)',
-  background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center',
-  justifyContent: 'center', fontSize: 13, lineHeight: 1, cursor: 'pointer', fontFamily: SANS,
-};
-
-/**
- * EL ＋ DE UNA SALIDA: un desplegable con lo que se puede agregar ahí.
- *
- * ⚠️ CON UNA SOLA OPCIÓN NO HAY DESPLEGABLE: un menú de una opción es una pregunta ya contestada
- * (el mismo criterio que el ＋ de pasar el cursor, más arriba). Es el caso de la fila «Si
- * responde» del CRON vacía: su ＋ crea la tarjeta y listo. El botón lleva la opción en su
- * nombre accesible, para que diga qué hace.
- *
- * ⚠️ SIN TÍTULO «En paralelo» (cuarta tanda, punto 10: «elimina el texto "En paralelo"»): que el ＋
- * del punto ocupado abre otra flecha ya lo dice la flecha que aparece.
+/*
+ * (Acá vivía `MasDeSalida`, el ＋ de una salida como desplegable pegado a la tarjeta. Desde la sexta
+ * tanda el ＋ va ADENTRO del círculo y su menú en la punta de la flecha que asoma (`soltarCirculo` +
+ * `MenuFlotante`); con una sola opción sigue sin menú: se agrega directo.)
  */
-function MasDeSalida({ opciones, onElegir, ariaLabel, disabled }: {
-  opciones: DropdownOption[]; onElegir: (v: string) => void; ariaLabel: string; disabled?: boolean;
-}) {
-  if (opciones.length === 1) {
-    const o = opciones[0];
-    return (
-      <button type="button" onClick={() => onElegir(o.value)} disabled={disabled}
-        aria-label={`${ariaLabel}: ${o.label}`} title={o.label}
-        style={{ ...estiloMas, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1 }}>＋</button>
-    );
-  }
-  return (
-    <Dropdown
-      value="" ariaLabel={ariaLabel} sinFlecha botonLabel="＋" disabled={disabled}
-      buttonStyle={estiloMas}
-      {...menuDeOpciones(opciones)}
-      onChange={(v) => v && onElegir(v)}
-    />
-  );
-}
 
 /** Una opción del ＋ que dice a qué GRUPO pertenece (los grupos van separados por una línea). */
 type OpcionAgrupada = DropdownOption & { grupo?: number };
@@ -1325,7 +1723,7 @@ export const botonGrande: CSSProperties = {
  * es: si `icono` es una clave del catálogo de marcas, se dibuja la marca; si es
  * cualquier otra cosa, es texto. Un emoji nunca va a ser una clave.
  */
-function IconoNodo({ icono, tam }: { icono: string; tam: number }) {
+export function IconoNodo({ icono, tam }: { icono: string; tam: number }) {
   if (ICON[icono]) return <SvcIcon k={icono} size={Math.round(tam * 0.74)} box={tam + 7} radius={6} />;
   // MaKo: su logo (la tarjeta que le escribe al grupo del negocio). Sin animación: en un lienzo con
   // N tarjetas, N logos rebotando al abrir es ruido.

@@ -40,7 +40,7 @@ import {
   insertarDesdeLienzo, TITULO, ID_ENTRADA, ALTO_MAKO,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
-import { ICONO_MAKO, ICONO_GMAIL } from '../lib/lienzo-grafo';
+import { ICONO_MAKO, ICONO_GMAIL, ALTO_PUERTO } from '../lib/lienzo-grafo';
 import { ID_INICIO } from '../lib/flujo-grafo';
 import { identidadDeTarjeta } from '../app/_components/Lienzo';
 
@@ -132,7 +132,8 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   assert.equal(n.tipo, 'mako');
   assert.equal(n.icono, ICONO_MAKO);
   assert.equal(n.familia, 'contenido', 'manda algo: es de contenido');
-  assert.equal(n.alto, ALTO_MAKO);
+  // Más la fila de su salida al pie (sexta tanda, punto 4: «Entonces ●»).
+  assert.equal(n.alto, ALTO_MAKO + ALTO_PUERTO);
   assert.ok(n.detalle!.length <= 90 && n.detalle!.endsWith('…'), `el mensaje no se recorta: «${n.detalle}»`);
   assert.equal(n.advertencia, undefined);
   assert.equal(nodo(g, 'v').advertencia, 'Sin escribir', 'una tarjeta MAKO sin mensaje no se marca');

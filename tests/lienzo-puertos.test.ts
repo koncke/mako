@@ -92,24 +92,26 @@ test('⚠️ `aOrigen` lleva a coordenadas ≥ 0 sin mover nada respecto de nada
 
 test('⚠️ el ＋ de una salida vacía y el ＋ del medio de una flecha insertan EN el puerto', () => {
   // El punto: un ＋ siempre visible en cada salida vacía, que llama con SU puerto.
-  const puntos = tramo('(n.puertos ?? []).map((p) => {', '</div>\n          ))}', 3_200);
+  const puntos = tramo('(n.puertos ?? []).map((p) => {', '</div>\n          ))}', 4_000);
   assert.match(puntos, /const y = yDePuerto\(n, p\.id\);/);
-  assert.match(puntos, /p\.vacio && puede && onAgregarTras &&/);
-  // Desde la segunda tanda el ＋ es `MasDeSalida` (un desplegable, o un botón si hay UNA opción).
-  assert.match(puntos, /const opciones = \(puerto: string, medio: boolean\) => \(opcionesEn \? opcionesEn\(n\.id, puerto, medio\)/);
-  assert.match(puntos, /opciones=\{opciones\(p\.id, false\)\}\n\s+onElegir=\{\(v\) => onAgregarTras\(n\.id, v, p\.id\)\}/);
-  // Y la salida que admite flechas EN PARALELO ofrece otro ＋ con el punto OCUPADO (al pasar el
-  // cursor), que pide el puerto 'par' y lo dice en su menú (segunda tanda, decisión 2).
-  assert.match(puntos, /\{!p\.vacio && p\.paralelo && puede && onAgregarTras && encima === n\.id && \(/);
-  assert.match(puntos, /ariaLabel="Agregar en paralelo"/);
-  assert.doesNotMatch(LIENZO, /titulo="En paralelo"/, 'volvió el título «En paralelo» (cuarta tanda, punto 10)');
-  // CUARTA TANDA, PUNTO 8 (cambió esto): la fila de un RESULTADO de una condición pide
-  // `par@<fila>`; la salida de siempre ('sig', también la «Al entrar» del CRON) sigue pidiendo 'par'.
-  // Con 'par' a secas el ＋ del «Si no» no decía de qué fila salía y el modelo no la agregaba.
+  // SEXTA TANDA, PUNTO 4: el ＋ va ADENTRO del círculo de cada salida (ya no al lado de la tarjeta), y
+  // su menú en la punta de la flecha que asoma al tocarlo (`soltarCirculo`). Con la salida VACÍA, el ＋
+  // continúa por ESA salida (su puerto); con la salida ocupada que admite flechas EN PARALELO, abre otra
+  // (segunda tanda, decisión 2).
+  // CUARTA TANDA, PUNTO 8: la fila de un RESULTADO de una condición pide `par@<fila>`; la salida de
+  // siempre ('sig', también la «Al entrar» del CRON) sigue pidiendo 'par'. Con 'par' a secas el ＋ del
+  // «Si no» no decía de qué fila salía y el modelo no la agregaba.
   assert.match(puntos, /const enParalelo = p\.id === 'sig' \? 'par' : `par@\$\{p\.id\}`;/);
-  assert.match(puntos, /opciones=\{opciones\(enParalelo, false\)\}\n\s+onElegir=\{\(v\) => onAgregarTras\(n\.id, v, enParalelo\)\}/);
+  assert.match(puntos, /const puertoAgregar = p\.vacio \? p\.id : p\.paralelo \? enParalelo : null;/);
+  assert.match(puntos, /bajarCirculo\(e, n, p, conMas && !agregarOcupado \? puertoAgregar : null\)/);
+  assert.doesNotMatch(LIENZO, /titulo="En paralelo"/, 'volvió el título «En paralelo» (cuarta tanda, punto 10)');
+  // Y el clic del círculo pide las opciones de ESE lugar y agrega en ESE puerto (con la punta).
+  const clic = tramo('function soltarCirculo(', 'function quitarDeFila(', 2_600);
+  assert.match(clic, /const puerto = g\.puertoAgregar;/);
+  assert.match(clic, /opcionesEn \? opcionesEn\(n\.id, puerto, false\)/);
+  assert.match(clic, /onAgregarTras\(n\.id, v, puerto, fin\)/);
   // El medio de una flecha: inserta en el puerto de ESA flecha, y la curva sale de él.
-  const medio = tramo('{onAgregarTras && (opcionesEn || opcionesAgregar) && grafo.aristas.map((a, i) => {', '{grafo.aristas.map((a, i) => {', 3_000);
+  const medio = tramo('{((onAgregarTras && (opcionesEn || opcionesAgregar)) || onQuitarFlecha) && grafo.aristas.map((a, i) => {', '{grafo.aristas.map((a, i) => {', 3_400);
   assert.match(medio, /const m = medioDeCurva\(d, h, a\.puerto\);/);
   assert.match(medio, /onChange=\{\(v\) => v && onAgregarTras\(a\.desde, v, a\.puerto\)\}/);
   assert.match(medio, /opcionesEn \? opcionesEn\(a\.desde, a\.puerto, true\)/);
@@ -158,5 +160,7 @@ test('⚠️ con puertos la tarjeta tiene ALTO FIJO y las filas pegadas al pie',
   assert.match(t, /\.\.\.\(fijo \? \{ height: nodo\.alto, display: 'flex', flexDirection: 'column', overflow: 'hidden' \} : \{ minHeight: nodo\.alto \}\)/);
   assert.match(t, /padding: fijo \? `11px 11px \$\{PIE_PUERTOS\}px` : 11/);
   assert.match(t, /flex: 'none', height: ALTO_PUERTO/);
-  assert.match(t, /border: `\$\{BORDE_NODO\}px solid \$\{borde\}`/);
+  // Sexta tanda, punto 7: una tarjeta SUELTA va punteada (`trazo`); la de siempre, sólida.
+  assert.match(t, /const trazo = nodo\.suelta && !activo \? 'dashed' : 'solid';/);
+  assert.match(t, /border: `\$\{BORDE_NODO\}px \$\{trazo\} /);
 });

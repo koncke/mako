@@ -14,22 +14,19 @@
 // modelo las tiene (lib/flujo-grafo.ts: condición con N ramas y «si no», «Si responde»
 // con sus casos, esperar, «Ir a»).
 //
-// Lo que SIGUE sin copiarse de ManyChat es ARRASTRAR PARA CONECTAR, y por la misma razón
-// de siempre: este repo ya construyó un editor de flechas a mano (el mapa del funnel) y
-// el dueño lo descartó por rebuscado — «así se evita que el usuario tenga que configurar
-// flechas». Y ManyChat tampoco lo exige: medido en su ayuda, una tarjeta nueva se crea
-// «clicking on the connection dot and choosing another step». Acá es lo mismo: cada
-// salida es un punto en el borde derecho de su tarjeta y la rama se crea desde el ＋ de
-// ese punto (o desde el ＋ del medio de una flecha, que inserta EN esa salida). Nadie
-// conecta nada: la flecha es una consecuencia del dato.
+// ⚠️ ARRASTRAR PARA CONECTAR SE COPIA DESDE LA SEXTA TANDA (09/10/2026). Hasta acá este comentario
+// decía que no, porque el editor de flechas del funnel se había descartado por rebuscado. Martín
+// ahora lo pidió con todas las letras (punto 5: «si apreto y mantengo el click en el "+" debería
+// poder arrastrar esa flecha a otra tarjeta»). Lo que NO cambió: la flecha ES el dato (`siguiente`,
+// las ramas, los `paralelos`), no un dibujo aparte. Arrastrar escribe ese dato por una función pura
+// (`conectar`, lib/flujo-edicion.ts) y este módulo lo vuelve a dibujar; una tarjeta puede tener
+// varios padres (punto 13: «más de una flecha saliendo y llegando a una tarjeta»).
 //
-// ── POR QUÉ NO SE GUARDA LA POSICIÓN DE UNA TARJETA ──────────────────────────────────
-// ManyChat tiene «auto-arrange», o sea que un layout automático en árbol es fiel al
-// molde. Y guardar posiciones sería otro campo en cada paso, que pasa por
-// `setSecuenciaPasos` (reconstruye campo por campo): una posición que no viaja en uno de
-// los diez escritores de `pasos` se pierde en silencio. El árbol se calcula acá, es
-// determinista y no tiene casos: cada nodo tiene UN padre (las salidas son sus puertos)
-// y para juntar ramas está «Ir a», que es un salto y no un segundo padre.
+// ── LA POSICIÓN DE UNA TARJETA ───────────────────────────────────────────────────────
+// El árbol (auto-arrange, como ManyChat) sigue siendo el default y se calcula acá. Desde la quinta
+// tanda una tarjeta que la persona movió va donde la dejó (lib/lienzo-posiciones.ts, en su propia
+// columna, nunca en `pasos`), y desde la sexta las SUELTAS nacen donde se crearon con el click
+// derecho. Con varios padres, una tarjeta se coloca UNA vez, bajo el primero que la alcanza.
 //
 // ── EL LAYOUT (reescrito el 08/10/2026, segunda tanda: UN SOLO CRON) ─────────────────────
 // Pedido literal, punto 1: «No pueden haber 2 flujos por separado. Solo 1 CRON y de ahí
@@ -54,7 +51,7 @@
 import { htmlEmailVacio } from './email-html-seguro';
 import {
   ANCHO_NODO, ALTO_MIN, GAP_Y, MARGEN, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, ICONO_MAKO, ICONO_GMAIL,
-  encerrar, aOrigen, centroDeFilas, tieneFilas,
+  encerrar, aOrigen, centroDeFilas, tieneFilas, posicionDePildora,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo, type PuertoNodo,
 } from './lienzo-grafo';
 import {
@@ -105,17 +102,51 @@ export const OP_SACAR_ETIQUETA = 'sacar_etiqueta_lead';
 const GAP_COLUMNA = 92;
 /** Entre el árbol del CRON y lo que haya suelto debajo. */
 const GAP_RAICES = 56;
-/**
- * El CRON: borde 1,5×2 + relleno 11 + 8 + la cabecera (24) + sus dos filas; más un renglón de
- * 18 px por renglón del disparador (uno o dos: «Todos los días a las 09:00 de America/Tijuana»
- * son dos). Se ESTIMA: la tarjeta tiene alto fijo y las filas van pegadas al pie.
+/*
+ * (Hasta la sexta tanda el alto del CRON eran dos constantes —con filas y sin filas— más un renglón
+ * de 18 px por renglón del disparador. Desde que el CRON lleva una caja por disparador y su salida al
+ * pie, se suma por partes en `altoCron`.)
  */
-const ALTO_CRON_BASE = 11 + 24 + 2 * ALTO_PUERTO + PIE_PUERTOS + BORDE_NODO * 2;
-/** El CRON sin filas (cuarta tanda, punto 4): la cabecera, el disparador y su relleno. */
-const ALTO_CRON_SIN_FILAS = 11 + 24 + 11 + BORDE_NODO * 2;
-const RENGLON_DETALLE = 18;
-/** El ícono del CRON. NO es ⚡: ése es de la Acción, y las dos tarjetas lo compartían (R3). */
-export const ICONO_CRON = '⏰';
+/**
+ * El ícono del CRON: EL RAYO (sexta tanda, CRON 10, literal: «Y que el emoji de CRON sea el rayo»).
+ * Hasta acá era ⏰ porque el ⚡ era de la Acción y las dos tarjetas lo compartían (R3): el que se
+ * mudó es el de la Acción (`ICONO_ACCION`). Siguen sin compartirlo.
+ */
+export const ICONO_CRON = '⚡';
+/** El ícono de la ACTION: el engranaje. Le cedió el rayo al CRON (sexta tanda). */
+export const ICONO_ACCION = '⚙️';
+
+/**
+ * UN DISPARADOR DE LA TARJETA CRON (sexta tanda, CRON 10: «Me gusta que se vea la opción de Cron que
+ * seleccioné y abajo también "+Nuevo CRON", es decir, agrega la opción de tener más de un CRON»). Lo
+ * arma quien sabe cuáles son (la parte de los disparadores, desde SecuenciaPerfil); el lienzo sólo
+ * los dibuja, cada uno en su cajita, como el «Cuando…» de ManyChat. `icono`: un emoji o una marca
+ * del catálogo (`ServicioVisual`), lo mismo que el ícono de una tarjeta.
+ */
+export type DisparadorTarjeta = { id: string; texto: string; icono?: string };
+
+/**
+ * LAS PIEZAS DE LA TARJETA CRON, en px (las dibuja `TarjetaCron`, app/chatbot/FlujoLienzo.tsx: si
+ * cambia una, cambia acá). La tarjeta tiene alto FIJO —lleva su salida al pie— así que se SUMA:
+ * cada disparador es una caja de uno o dos renglones, «+ Nuevo CRON» un renglón punteado.
+ */
+export const RENGLON_DISPARO = 17;
+export const MARCO_DISPARO = 14;
+export const SEP_DISPARO = 6;
+export const ALTO_NUEVO_DISPARO = 30;
+/** Las letras de un renglón de la caja (252 de tarjeta − rellenos, borde y el ícono, a 12,5 px). */
+const LETRAS_DISPARO = 28;
+/** Relleno de arriba, la cabecera (el ícono de 22) y su margen, y el borde de arriba. */
+const CABECERA_TARJETA = 11 + 22 + 7 + BORDE_NODO;
+export const altoCajaDisparo = (texto: string): number =>
+  MARCO_DISPARO + Math.min(2, Math.max(1, renglonesDe(texto, LETRAS_DISPARO))) * RENGLON_DISPARO;
+
+/** El alto de la tarjeta CRON con sus disparadores, «+ Nuevo CRON» y `filas` filas de salida al pie. */
+export function altoCron(disparadores: readonly string[], conNuevo: boolean, filas: number): number {
+  const cajas = disparadores.reduce((s, t) => s + altoCajaDisparo(t), 0) + SEP_DISPARO * Math.max(0, disparadores.length - 1);
+  return Math.ceil(CABECERA_TARJETA + cajas + (conNuevo ? SEP_DISPARO + ALTO_NUEVO_DISPARO : 0) + SEP_DISPARO
+    + filas * ALTO_PUERTO + PIE_PUERTOS + BORDE_NODO);
+}
 
 /**
  * LAS TARJETAS DE CONTROL, compactas (decisión 9). Los números salen de los estilos de
@@ -522,6 +553,14 @@ export type OpcionesGrafo = {
    * «Otra cosa», que es por donde salieron: sin la marca, no se ven en ningún lado.
    */
   pendientesOtraCosa?: number;
+  /**
+   * LOS DISPARADORES DE LA TARJETA CRON (sexta tanda, CRON 10), uno por caja. Ausente = una sola caja
+   * con `disparador` (lo de siempre). Lo que cuenta acá es cuántos son y qué dicen: de eso sale el
+   * alto de la tarjeta, que es fijo (lleva su salida al pie).
+   */
+  disparadores?: readonly DisparadorTarjeta[];
+  /** Se dibuja «+ Nuevo CRON» debajo de los disparadores (quien monta sabe agregar uno). */
+  nuevoDisparador?: boolean;
 };
 
 /** Lo que cuelga de «Si responde» (sin ella). Ahí no hay esperas: se contesta en el momento. */
@@ -625,14 +664,58 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   const conParalelo = filasConParalelo(pasos);
   const admiteEnResultado = (i: number, resultado: string): boolean => conParalelo.get(`${ids[i]}|${resultado}`) === true;
 
+  // ── Las ESPERAS QUE VAN EN LA FLECHA (sexta tanda, DELAY 1: «Que Delay no sea una tarjeta, que la
+  //    flecha no se corte, que sea algo en medio de la flecha, más sutil») ──
+  // Una espera es una pastilla sobre la flecha de su padre a lo que sigue cuando ESO es lo que es: un
+  // solo padre, una sola salida que sigue en algo que existe, y nada en paralelo. Ahí la flecha va del
+  // padre a lo de después sin cortarse y la espera no ocupa columna. Lo demás (una espera al final,
+  // suelta, con dos padres, que reparte) se sigue dibujando como su píldora, con su salida: ahí sí es
+  // un lugar del dibujo (hay que poder agregar después de ella). El DATO no cambia: sigue siendo un
+  // nodo `esperar` en `pasos`, con su `siguiente`.
+  const padres = new Map<string, number>();
+  pasos.forEach((_, i) => { for (const pt of puertosDe(pasos, i)) if (pt.destino) padres.set(pt.destino, (padres.get(pt.destino) ?? 0) + 1); });
+  if (iIni < 0 && raiz) padres.set(raiz, (padres.get(raiz) ?? 0) + 1);
+  const salidaUnica = (id: string): string | null => {
+    const i = indicePorId(pasos, id);
+    const pts = i >= 0 ? puertosDe(pasos, i) : [];
+    return pts.length === 1 && pts[0].puerto === 'sig' ? pts[0].destino : null;
+  };
+  const colapsable = (id: string): boolean => {
+    const i = indicePorId(pasos, id);
+    if (i < 0 || claseDe(pasos[i]) !== 'esperar' || padres.get(id) !== 1 || enRespuesta.has(id)) return false;
+    const d = salidaUnica(id);
+    return d != null && d !== id && existe.has(d);
+  };
+  /** De `d` en adelante: las esperas que van en la flecha y la tarjeta donde la flecha llega. */
+  const tramo = (d: string | null): { hasta: string | null; esperas: string[] } => {
+    const esperas: string[] = [];
+    let cur = d;
+    while (cur && colapsable(cur) && !esperas.includes(cur)) { esperas.push(cur); cur = salidaUnica(cur); }
+    // Un círculo de esperas (no se puede publicar, pero se dibuja) no se aplasta: se ve como es.
+    if (cur && esperas.includes(cur)) return { hasta: d, esperas: [] };
+    return { hasta: cur, esperas };
+  };
+  // Sólo las que se alcanzan desde una tarjeta que SE dibuja (o desde el CRON): una espera colapsable
+  // a la que no llega nadie (un círculo de esperas sueltas) se dibuja como píldora, o desaparecería.
+  const enFlecha = new Set<string>();
+  {
+    const fuentes = [
+      ...(iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz]),
+      ...pasos.flatMap((p, i) => (i === iIni || colapsable(ids[i]) ? [] : puertosDe(pasos, i).map((pt) => pt.destino))),
+    ];
+    for (const d of fuentes) for (const e of tramo(d).esperas) enFlecha.add(e);
+  }
+  const textoDeEspera = (id: string) => textoEspera(nodoPorId(pasos, id)?.espera).replace(/^Esperar /, '');
+
   // ── La tarjeta de cada paso (sin posición todavía) ──
   type Tarjeta = Omit<NodoFlujo, 'x' | 'y'>;
   const tarjetas = new Map<string, Tarjeta>();
   pasos.forEach((p, i) => {
     const id = ids[i];
     const c = claseDe(p);
-    // El inicio ES el CRON: no tiene tarjeta propia (la del CRON se arma abajo).
-    if (c === 'inicio') return;
+    // El inicio ES el CRON: no tiene tarjeta propia (la del CRON se arma abajo). Y una espera que va
+    // en la flecha tampoco: es la pastilla de una arista (se agrega como nodo `enFlecha` al final).
+    if (c === 'inicio' || enFlecha.has(id)) return;
     const pts = puertosDe(pasos, i);
     const base = { id, ancho: ANCHO_NODO };
     let t: Tarjeta;
@@ -664,9 +747,14 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       // `puertos: []`: un «Ir a» termina ahí. Sin puntos y sin el ＋ de pasar el cursor.
       t = { ...base, tipo: 'ir-a', familia: 'control', titulo: TITULO.ir_a, icono: '↪️', detalle, ...(advertencia ? { advertencia } : {}), puertos: [], alto: ALTO_COMPACTO };
     } else {
-      // Mensaje, acción y espera: UNA salida, el punto a la altura de la cabecera. Con el punto
-      // ocupado, la misma salida ofrece una flecha EN PARALELO (si se puede publicar).
+      // Mensaje, acción y espera: UNA salida. Con el punto ocupado, la misma salida ofrece una flecha
+      // EN PARALELO (si se puede publicar).
+      //
+      // ⚠️ SEXTA TANDA, PUNTO 4: LA SALIDA VA AL PIE, «Entonces ●» / «Siguiente paso ○» (`salidaAlPie`),
+      // y la tarjeta mide eso de más (`ALTO_PUERTO`). La píldora de una espera, no: es de una línea y
+      // su círculo va en el medio de su borde derecho, como siempre.
       const puertos: PuertoNodo[] = [{ id: 'sig', vacio: !pts[0]?.destino, ...(admiteParalelo(i) ? { paralelo: true } : {}) }];
+      const pie = { salidaAlPie: true as const };
       const et = etiquetaDeAccion(p);
       if (c === 'esperar') {
         const detalle = textoEspera(p.espera).replace(/^Esperar /, '');
@@ -677,15 +765,15 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         const m = makoDeAccion(p)!;
         const msg = m.mensaje.replace(/\s+/g, ' ').trim();
         t = {
-          ...base, tipo: 'mako', familia: 'contenido', titulo: TITULO.mako, icono: ICONO_MAKO, puertos, alto: ALTO_MAKO,
+          ...base, tipo: 'mako', familia: 'contenido', titulo: TITULO.mako, icono: ICONO_MAKO, puertos, ...pie, alto: ALTO_MAKO + ALTO_PUERTO,
           detalle: msg ? (msg.length > 90 ? `${msg.slice(0, 89).trimEnd()}…` : msg) : 'Sin escribir',
           ...(msg ? {} : { advertencia: 'Sin escribir' }),
         };
       } else if (et) {
         // LA TARJETA DE ETIQUETA (decisión 8): la misma ⚡ Acción, dibujada como lo que hace.
         t = {
-          ...base, tipo: 'etiqueta', familia: 'control', titulo: TITULO.etiqueta, icono: '🏷️', puertos,
-          ancho: ANCHO_ETIQUETA, alto: ALTO_COMPACTO, detalle: textoEtiqueta(et, op.nombres),
+          ...base, tipo: 'etiqueta', familia: 'control', titulo: TITULO.etiqueta, icono: '🏷️', puertos, ...pie,
+          ancho: ANCHO_ETIQUETA, alto: ALTO_COMPACTO + ALTO_PUERTO, detalle: textoEtiqueta(et, op.nombres),
           color: et.etiquetaId != null ? (op.colorEtiqueta?.(et.etiquetaId) ?? null) : null,
           ...(et.etiquetaId == null ? { advertencia: 'Falta elegir la etiqueta' } : {}),
         };
@@ -694,7 +782,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         // una burbuja en blanco que afirma que al lead le llega algo.
         const operacion = (p.accion?.operacion ?? '').trim();
         t = {
-          ...base, tipo: 'accion', familia: 'contenido', titulo: TITULO.accion, icono: '⚡', puertos, alto: ALTO_MIN + 14,
+          ...base, tipo: 'accion', familia: 'contenido', titulo: TITULO.accion, icono: ICONO_ACCION, puertos, ...pie, alto: ALTO_MIN + 14 + ALTO_PUERTO,
           detalle: operacion ? (op.tituloAccion?.(operacion) || operacion) : 'Sin elegir',
           ...(operacion ? {} : { advertencia: 'Falta elegir la acción' }),
         };
@@ -708,10 +796,13 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         const audio = p.tipo === 'audio' && Number(p.audio_id) > 0 ? op.audioDe?.(Number(p.audio_id)) : undefined;
         t = {
           ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: email ? 'email' : 'whatsapp',
-          puertos, alto: altoDeMensaje(p, audio), ...(vacio ? { advertencia: 'Sin escribir' } : {}),
+          puertos, ...pie, alto: altoDeMensaje(p, audio) + ALTO_PUERTO, ...(vacio ? { advertencia: 'Sin escribir' } : {}),
         };
       }
     }
+    // SUELTA (sexta tanda, punto 7): no cuelga de nada. Se marca en el dibujo (borde punteado) aunque
+    // ya diga otra cosa, como «Sin escribir»: Publicar la frena igual (`validarGrafo`).
+    if (!alcanzable.has(id)) t = { ...t, suelta: true };
     if (!alcanzable.has(id) && !t.advertencia) t = { ...t, advertencia: 'Tarjeta suelta' };
     // Lo de ANTES que quedó en un paso de un flujo ya convertido (una espera en
     // `delay_horas`, un `requiere`): el motor lo sigue haciendo y la tarjeta no lo muestra,
@@ -732,14 +823,20 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // CRON nuevo no tiene filas: de él salen varias flechas (en paralelo) desde la cabecera. Sólo un
   // flujo que YA tiene «Si responde» (los convertidos de la primera tanda) lo sigue dibujando con
   // sus dos filas: sacarlo cambiaría qué hace hoy una secuencia prendida.
-  const lineasCron = Math.min(2, Math.max(1, renglonesDe(op.disparador, 34)));
+  //
+  // ⚠️ SEXTA TANDA, CRON 10: «copiá la tarjeta de CRON de ManyChat»: «⚡ CRON» con una cajita por
+  // disparador elegido (`op.disparadores`, o la de siempre con `op.disparador`), «+ Nuevo CRON» abajo
+  // si quien monta sabe agregar uno, y la salida al pie, «Entonces ●». El alto se SUMA (`altoCron`):
+  // la tarjeta tiene alto fijo. Un flujo con «Si responde» sigue con sus dos filas.
+  const textosCron = (op.disparadores?.length ? op.disparadores.map((d) => d.texto) : [op.disparador]);
   const salidaCron = { id: 'sig', vacio: !raiz, ...(raiz && admiteParalelo(iIni) ? { paralelo: true } : {}) };
   tarjetas.set(ID_ENTRADA, {
     id: ID_ENTRADA, tipo: 'entrada', familia: 'contenido', titulo: TITULO.cron, icono: ICONO_CRON, detalle: op.disparador,
     puertos: resp
       ? [{ ...salidaCron, rotulo: 'Al entrar' }, { id: PUERTO_RESPUESTA, rotulo: 'Si responde', vacio: false }]
       : [salidaCron],
-    ancho: ANCHO_NODO, alto: (resp ? ALTO_CRON_BASE : ALTO_CRON_SIN_FILAS) + lineasCron * RENGLON_DETALLE,
+    ...(resp ? {} : { salidaAlPie: true }),
+    ancho: ANCHO_NODO, alto: altoCron(textosCron, op.nuevoDisparador === true, resp ? 2 : 1),
   });
 
   // ── El árbol: a quién le cuelga cada uno (el PRIMERO que lo alcanza gana) ──
@@ -748,10 +845,13 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   //
   // Los hijos del CRON son [la salida principal, …sus flechas en paralelo, «Si responde»]: en
   // ese orden se apilan, así «Si responde» queda debajo de la salida y de los paralelos.
+  //
+  // Una espera que va EN LA FLECHA no ocupa columna: el hijo es lo que viene después de ella (`tramo`).
   const destinosDe = (id: string): Array<string | null> => {
-    if (id !== ID_ENTRADA) return puertosDe(pasos, indicePorId(pasos, id)).map((pt) => pt.destino);
+    const visibles = (ds: Array<string | null>) => ds.map((d) => tramo(d).hasta);
+    if (id !== ID_ENTRADA) return visibles(puertosDe(pasos, indicePorId(pasos, id)).map((pt) => pt.destino));
     const salida = iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz];
-    return [...salida, resp];
+    return [...visibles(salida), resp];
   };
   const hijos = new Map<string, string[]>();
   const asignado = new Set<string>();
@@ -814,6 +914,8 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   };
 
   // 1. El CRON y todo lo que cuelga de él: la salida, sus paralelos y «Si responde» (columna 1).
+  //    Las esperas que van en una flecha no son de nadie: no se colocan (ni abajo, como sueltas).
+  for (const e of enFlecha) asignado.add(e);
   asignado.add(ID_ENTRADA); armar(ID_ENTRADA);
   const mCron = medir(ID_ENTRADA);
   colocar(ID_ENTRADA, 0, 0);
@@ -840,12 +942,19 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // Las del inicio salen del CRON (es el mismo id: «Al entrar»). Sin inicio, la flecha del CRON a
   // la salida se arma a mano. Las flechas EN PARALELO van con otro tono (`condicional`: punteada,
   // en el color primario) para que se lea que corren a la vez, no una después de la otra.
+  // Una flecha que pasa por esperas (`tramo`) llega a lo de después y las lleva como pastillas.
   const aristas: AristaFlujo[] = [];
-  if (iIni < 0 && raiz && pos.has(raiz)) aristas.push({ desde: ID_ENTRADA, hasta: raiz, puerto: 'sig', tono: 'normal' });
+  const conEsperas = (t: { esperas: string[] }) => (t.esperas.length ? { esperas: t.esperas.map((e) => ({ id: e, texto: textoDeEspera(e) })) } : {});
+  if (iIni < 0 && raiz) {
+    const t = tramo(raiz);
+    if (t.hasta && pos.has(t.hasta)) aristas.push({ desde: ID_ENTRADA, hasta: t.hasta, puerto: 'sig', tono: 'normal', ...conEsperas(t) });
+  }
   pasos.forEach((_, i) => {
+    if (enFlecha.has(ids[i])) return;
     for (const pt of puertosDe(pasos, i)) {
-      if (pt.destino && pos.has(pt.destino)) {
-        aristas.push({ desde: i === iIni ? ID_ENTRADA : ids[i], hasta: pt.destino, puerto: pt.puerto, tono: pt.puerto.startsWith('par:') ? 'condicional' : 'normal' });
+      const t = tramo(pt.destino);
+      if (t.hasta && pos.has(t.hasta)) {
+        aristas.push({ desde: i === iIni ? ID_ENTRADA : ids[i], hasta: t.hasta, puerto: pt.puerto, tono: pt.puerto.startsWith('par:') ? 'condicional' : 'normal', ...conEsperas(t) });
       }
     }
   });
@@ -854,7 +963,20 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   if (resp && pos.has(resp)) aristas.push({ desde: ID_ENTRADA, hasta: resp, puerto: PUERTO_RESPUESTA, tono: 'normal', sinMas: true });
 
   const normal = aOrigen(nodos, MARGEN);
-  return { nodos: normal, aristas, ...encerrar(normal) };
+  // Las esperas de las flechas, como nodos `enFlecha` en el lugar de su pastilla: no se dibujan como
+  // tarjeta, pero se seleccionan, se editan y salen en el menú como cualquiera (el panel las busca acá).
+  const ocultas: NodoFlujo[] = [];
+  const g0 = { nodos: normal, aristas };
+  for (const e of enFlecha) {
+    const r = posicionDePildora(g0, e);
+    if (!r) continue;
+    ocultas.push({
+      id: e, tipo: 'espera', familia: 'control', titulo: TITULO.esperar, icono: '⏳', detalle: textoDeEspera(e),
+      enFlecha: true, puertos: [], x: r.x, y: r.y, ancho: r.ancho, alto: r.alto,
+    });
+  }
+  const todos = [...normal, ...ocultas];
+  return { nodos: todos, aristas, ...encerrar(normal) };
 }
 
 // ── Editar: lo que hace cada ＋ ─────────────────────────────────────────────────────
@@ -888,7 +1010,8 @@ export const ICONOS_MAS = {
   esperar: svg(`<path ${LINEA} d="M7 3h10M7 21h10M8 3v2.5c0 1.6 1.2 2.8 4 4.5 2.8-1.7 4-2.9 4-4.5V3M8 21v-2.5c0-1.6 1.2-2.8 4-4.5 2.8 1.7 4 2.9 4 4.5V21"/>`),
   condicion: svg(`<g ${LINEA}><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10M18 9c0 4-3 6-12 8"/></g>`),
   etiqueta: svg(`<g ${LINEA}><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.4"/></g>`),
-  accion: svg(`<path ${LINEA} d="M13 2 4 14h7l-1 8 9-12h-7z"/>`),
+  // El engranaje: el rayo es del CRON desde la sexta tanda (`ICONO_CRON`), y las dos no lo comparten.
+  accion: svg(`<g ${LINEA}><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g>`),
   mako: svg('<path fill="#F2B01E" d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z"/>', '-12 -12 24 24'),
 } as const;
 
@@ -909,14 +1032,34 @@ export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, 
   void medio; void puerto;
   const resp = raizRespuesta(pasos);
   const enRespuesta = nodoLienzo !== ID_ENTRADA && (nodoLienzo === resp || subarbolRespuesta(pasos).has(nodoLienzo));
-  return [
-    { value: 'mensaje', label: 'WhatsApp', icono: ICONOS_MAS.whatsapp, grupo: 0 },
-    ...(enRespuesta ? [] : [{ value: 'email' as const, label: 'Email', icono: ICONOS_MAS.email, grupo: 0 }, { value: 'esperar' as const, label: 'Esperar', icono: ICONOS_MAS.esperar, grupo: 1 }]),
-    { value: 'condicion', label: 'Condición', icono: ICONOS_MAS.condicion, grupo: 1 },
-    { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
-    { value: 'accion', label: 'Acción', icono: ICONOS_MAS.accion, grupo: 2 },
-    { value: 'mako', label: 'MaKo en WhatsApp', icono: ICONOS_MAS.mako, grupo: 3 },
-  ];
+  return MENU_MAS.filter((o) => !(enRespuesta && o.fueraDeRespuesta)).map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
+}
+
+/**
+ * LO QUE SE PUEDE CREAR, una fila por tipo de tarjeta: lo leen el ＋ de cada salida
+ * (`opcionesDelMas`) y el click derecho en el lienzo (`opcionesSueltas`, sexta tanda, punto 2).
+ *
+ * ⚠️ PARA SUMAR UN TIPO, UNA FILA ACÁ (y su caso en `nodoNuevo` y en `QueAgregar`): el menú se arma
+ * solo. `fueraDeRespuesta`: no se ofrece debajo de un «Si responde» (se contesta en el momento y por
+ * el chat donde el lead escribió). `grupo` lo separa con una línea; `icono` es un SVG, nunca un emoji.
+ */
+export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }> = [
+  { value: 'mensaje', label: 'WhatsApp', icono: ICONOS_MAS.whatsapp, grupo: 0 },
+  { value: 'email', label: 'Email', icono: ICONOS_MAS.email, grupo: 0, fueraDeRespuesta: true },
+  { value: 'esperar', label: 'Esperar', icono: ICONOS_MAS.esperar, grupo: 1, fueraDeRespuesta: true },
+  { value: 'condicion', label: 'Condición', icono: ICONOS_MAS.condicion, grupo: 1 },
+  { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
+  { value: 'accion', label: 'Acción', icono: ICONOS_MAS.accion, grupo: 2 },
+  { value: 'mako', label: 'MaKo en WhatsApp', icono: ICONOS_MAS.mako, grupo: 3 },
+];
+
+/**
+ * LO QUE EL CLICK DERECHO CREA SUELTO en el lienzo (sexta tanda, punto 2: «crear una tarjeta» en
+ * cualquier lugar). Lo mismo que el ＋, sin la restricción de «Si responde» (una tarjeta suelta no
+ * cuelga de nada todavía) y sin «Si responde» (no se ofrece desde la cuarta tanda).
+ */
+export function opcionesSueltas(): OpcionMas[] {
+  return MENU_MAS.map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
 }
 
 /** Los campos que `setSecuenciaPasos` exige a todo paso, incluido uno de control. */

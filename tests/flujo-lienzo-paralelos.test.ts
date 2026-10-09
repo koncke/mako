@@ -38,7 +38,7 @@ import {
   lugarDesdeLienzo, ID_ENTRADA, PUERTO_RESPUESTA, ICONO_CRON, ALTO_PILDORA, ANCHO_PILDORA, ALTO_COMPACTO, ANCHO_ETIQUETA,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
-import { ANCHO_NODO, ALTO_MIN, yDePuerto } from '../lib/lienzo-grafo';
+import { ANCHO_NODO, ALTO_MIN, ALTO_PUERTO, yDePuerto } from '../lib/lienzo-grafo';
 import { validarGrafo, nodoPorId, claseDe, ID_INICIO, TOPE_PARALELOS } from '../lib/flujo-grafo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -65,7 +65,11 @@ test('⚠️ el CRON: SIN filas (ni «Al entrar» ni «Si responde»), su propio
   const g = grafoDeSecuencia([msg('a')], { disparador: 'Agendó una reunión' });
   const e = nodo(g, ID_ENTRADA);
   assert.equal(e.icono, ICONO_CRON);
-  assert.notEqual(e.icono, '⚡', 'el CRON comparte el ⚡ con la Acción (R3)');
+  // SEXTA TANDA, CRON 10: «que el emoji de CRON sea el rayo». El que se mudó es el de la Acción: las dos
+  // tarjetas siguen sin compartir el ícono (R3).
+  assert.equal(ICONO_CRON, '⚡', 'el CRON no es el rayo');
+  const accion = nodo(grafoDeSecuencia([msg('ac', { accion: { operacion: 'mover_lead', params: {} } })], { disparador: 'X' }), 'ac');
+  assert.notEqual(accion.icono, ICONO_CRON, 'la Acción comparte el ícono con el CRON (R3)');
   assert.equal(e.familia, 'contenido');
   // Cuarta tanda, punto 4: «se va el texto "Si responde" del CRON, y también quita el texto "Al
   // entrar"». Una sola salida sin rótulo, de la que salen las flechas en paralelo.
@@ -134,8 +138,9 @@ test('⚠️ el ＋ en paralelo se ofrece SÓLO donde se puede publicar', () => 
   const aviso = nodoPorId(r.pasos, r.id)!.si_no!;
   const g = grafoDeSecuencia(r.pasos, { disparador: 'X' });
   assert.equal(nodo(g, aviso).puertos![0].paralelo, undefined, 'se ofreció paralelo dentro de «Si responde»');
-  // Una condición tampoco (sus ramas se excluyen); una espera sí.
-  const conEspera = [msg('m1', { siguiente: 'w' }), { ...nodoNuevo('esperar', [], rndDe()), id: 'w', siguiente: 'm2' }, msg('m2')];
+  // Una condición tampoco (sus ramas se excluyen); una espera sí. (Sexta tanda: una espera en el MEDIO
+  // de una flecha va como pastilla sobre ella, sin salida propia; la del FINAL es su píldora y reparte.)
+  const conEspera = [msg('m1', { siguiente: 'w' }), { ...nodoNuevo('esperar', [], rndDe()), id: 'w', siguiente: null }];
   const ge = grafoDeSecuencia(conEspera, { disparador: 'X' });
   assert.equal(nodo(ge, 'w').puertos![0].paralelo, true);
   // Y al tope de CAMINOS de la automatización (6), ninguna.
@@ -196,9 +201,13 @@ test('⚠️ el «Ir a» de la salida no ofrece tarjetas de OTRO hilo; el de «S
 
 test('⚠️ dos familias: las de control son compactas (la espera, una píldora) y las columnas siguen alineadas', () => {
   const espera = (id: string, siguiente: string | null) => ({ ...nodoNuevo('esperar', [], rndDe()), id, siguiente });
+  // SEXTA TANDA (DELAY 1): una espera EN EL MEDIO de una flecha ya no es una tarjeta (va sobre la flecha,
+  // lo mide tests/lienzo-sexta-tanda.test.ts). La píldora es la espera del FINAL de un camino, y ésa es
+  // la que se mide acá: «w» cierra la rama de arriba. La tarjeta angosta de la columna es la etiqueta «t».
   const pasos: PasoParaGrafo[] = [
-    { id: 'c', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: 'mb', ramas: [{ id: 'r1', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'w' }] },
-    espera('w', 'ma'), msg('ma'),
+    { id: 'c', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: 'mb', ramas: [{ id: 'r1', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 't' }] },
+    msg('t', { accion: { operacion: 'poner_etiqueta_lead', params: { leadId: 'evento', etiquetaId: 7 } }, siguiente: 'ma' }),
+    msg('ma', { siguiente: 'w' }), espera('w', null),
     msg('mb', { siguiente: 'mc' }), msg('mc', { siguiente: 'ir' }),
     { id: 'ir', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'ir_a', destino: { nodo: 'mb' } },
   ];
@@ -216,10 +225,10 @@ test('⚠️ dos familias: las de control son compactas (la espera, una píldora
   assert.equal(nodo(g, 'ir').alto, ALTO_COMPACTO);
   assert.equal(nodo(g, 'mb').familia, 'contenido');
   assert.equal(nodo(g, ID_ENTRADA).familia, 'contenido');
-  // Las columnas no se corren aunque una tarjeta sea más angosta: «ma» (después de la píldora) y
-  // «mc» (después de un mensaje) están en la misma columna.
+  // Las columnas no se corren aunque una tarjeta sea más angosta: «ma» (después de la etiqueta) y «mc»
+  // (después de un mensaje) en la misma columna, y la píldora con el «Ir a» en la siguiente.
   assert.equal(nodo(g, 'ma').x, nodo(g, 'mc').x, 'una tarjeta angosta corrió su columna');
-  assert.equal(w.x, nodo(g, 'mb').x);
+  assert.equal(w.x, nodo(g, 'ir').x);
 });
 
 test('⚠️ la tarjeta de ETIQUETA: la ⚡ Acción de poner/sacar dibujada como lo que hace, con su color', () => {
@@ -236,7 +245,9 @@ test('⚠️ la tarjeta de ETIQUETA: la ⚡ Acción de poner/sacar dibujada como
   assert.equal(a.familia, 'control');
   assert.equal(a.detalle, '+ Cualificado');
   assert.equal(a.color, '#22aa66', 'la tarjeta de etiqueta no lleva el color de la etiqueta');
-  assert.equal(a.alto, ALTO_COMPACTO);
+  // Sexta tanda, punto 4: su salida va al pie («Entonces ●»), una fila más.
+  assert.equal(a.alto, ALTO_COMPACTO + ALTO_PUERTO);
+  assert.equal(a.salidaAlPie, true);
   assert.equal(a.ancho, ANCHO_ETIQUETA);
   assert.equal(nodo(g, 't2').detalle, '− Seguimiento');
   assert.equal(nodo(g, 't3').detalle, 'Sin elegir');

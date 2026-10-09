@@ -135,6 +135,24 @@ export type NodoFlujo = {
   color?: string | null;
   /** WhatsApp o Email: la tarjeta lleva la identidad de esa app (ver `CanalTarjeta`). */
   canal?: CanalTarjeta;
+  /**
+   * LA SALIDA AL PIE (sexta tanda, punto 4: «cada paso tiene un círculo al final que dice "Entonces"
+   * y la flecha sale de ahí... si no tiene siguiente paso, el texto al lado del círculo con el "+"
+   * dice "Siguiente paso"»). La salida ÚNICA de la tarjeta se dibuja como una FILA al pie, con el
+   * texto a la derecha y el círculo sobre el borde: cuenta como fila para `yDePuerto` y el alto de la
+   * tarjeta la incluye. Ausente = la salida de siempre, a la altura de la cabecera (/mensajes, la
+   * píldora de una espera).
+   */
+  salidaAlPie?: boolean;
+  /** No cuelga de nada (sexta tanda, punto 7): se creó suelta o se le borró la flecha. Borde punteado. */
+  suelta?: boolean;
+  /**
+   * UNA ESPERA DIBUJADA EN LA FLECHA (sexta tanda, DELAY 1: «Que Delay no sea una tarjeta, que la
+   * flecha no se corte»). El nodo existe —se selecciona, se edita, sale en el menú— pero no se dibuja
+   * como tarjeta: es la pastilla de una arista (`AristaFlujo.esperas`). Su `x`/`y` son los de la
+   * pastilla al armar el grafo; la posición viva la calcula `posicionDePildora`.
+   */
+  enFlecha?: boolean;
   x: number; y: number; ancho: number; alto: number;
 };
 
@@ -155,6 +173,13 @@ export type AristaFlujo = {
    * la que cuelga es peor que no tenerlo.
    */
   sinMas?: boolean;
+  /**
+   * LAS ESPERAS QUE VAN SOBRE ESTA FLECHA (sexta tanda, DELAY 1), en orden: la flecha va de `desde` a
+   * `hasta` sin cortarse y cada espera es una pastilla en el camino. En el DATO la flecha de `desde`
+   * llega a la PRIMERA espera (`esperas[0].id`) y la última sigue en `hasta`: quien borra o inserta
+   * sobre esta flecha tiene que mirar esto, no `hasta`.
+   */
+  esperas?: Array<{ id: string; texto: string }>;
 };
 
 export type GrafoFlujo = {
@@ -223,9 +248,46 @@ export function aOrigen(nodos: readonly NodoFlujo[], margen: number = MARGEN): N
   return nodos.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
 }
 
-/** ¿El nodo dibuja FILAS de salida (varias, con rótulo), o una sola salida simple? */
-export function tieneFilas(n: Pick<NodoFlujo, 'puertos'>): boolean {
-  return (n.puertos ?? []).some((p) => p.rotulo != null);
+/**
+ * ¿El nodo dibuja FILAS de salida (varias, con rótulo, o la salida al pie), o una sola salida
+ * simple a la altura de la cabecera?
+ */
+export function tieneFilas(n: Pick<NodoFlujo, 'puertos'> & { salidaAlPie?: boolean }): boolean {
+  const pts = n.puertos ?? [];
+  return pts.some((p) => p.rotulo != null) || (n.salidaAlPie === true && pts.length > 0);
+}
+
+/**
+ * LO QUE DICE UNA FILA DE SALIDA. La de una rama o un caso, su rótulo; la salida al pie (sexta
+ * tanda, punto 4), «Entonces» si ya sigue en algo y «Siguiente paso» si no: es el molde de ManyChat.
+ */
+export const ROTULO_ENTONCES = 'Entonces';
+export const ROTULO_SIGUIENTE = 'Siguiente paso';
+export function rotuloDeFila(n: { salidaAlPie?: boolean }, p: Pick<PuertoNodo, 'rotulo' | 'vacio'>): string | undefined {
+  if (p.rotulo != null) return p.rotulo;
+  return n.salidaAlPie ? (p.vacio ? ROTULO_SIGUIENTE : ROTULO_ENTONCES) : undefined;
+}
+
+/**
+ * LA FILA DE LA QUE SALE UNA FLECHA: el puerto de la arista (`sig`, una rama, `par:<id>`,
+ * `par:<id>@<resultado>`) leído como la FILA de la tarjeta donde se dibuja su círculo. Lo usan
+ * `yDePuerto` (de dónde sale la curva) y el lienzo (qué flechas borra la papelera de un círculo).
+ * null = la tarjeta no tiene filas (sale de la cabecera).
+ *
+ * · Una flecha en paralelo de un RESULTADO (`par:<destino>@<resultado>`) sale de la fila de ESE
+ *   resultado (cuarta tanda, punto 8).
+ * · Una en paralelo de una tarjeta (`par:<destino>`) sale de la fila que la admite (`paralelo`: en el
+ *   CRON es «Al entrar»), y si ya no ofrece más (el tope), de la de siempre ('sig').
+ */
+export function filaDePuerto(n: NodoFlujo, puerto?: string): string | null {
+  if (!puerto || !tieneFilas(n)) return null;
+  const filas = n.puertos ?? [];
+  let i = filas.findIndex((p) => p.id === puerto);
+  const arroba = puerto.startsWith('par:') ? puerto.lastIndexOf('@') : -1;
+  if (i < 0 && arroba > 0) i = filas.findIndex((p) => p.id === puerto.slice(arroba + 1));
+  if (i < 0 && puerto.startsWith('par:')) i = filas.findIndex((p) => p.paralelo);
+  if (i < 0 && puerto.startsWith('par:')) i = filas.findIndex((p) => p.id === 'sig');
+  return i < 0 ? null : filas[i].id;
 }
 
 /**
@@ -242,20 +304,31 @@ export function tieneFilas(n: Pick<NodoFlujo, 'puertos'>): boolean {
  */
 export function yDePuerto(n: NodoFlujo, puerto?: string): number {
   const cabecera = n.y + Math.min(n.alto / 2, 44);
-  if (!puerto || !tieneFilas(n)) return cabecera;
+  // ⚠️ LA SALIDA AL PIE (sexta tanda) es una fila aunque nadie pida un puerto: sin puerto, sale de ella.
+  const fila = filaDePuerto(n, puerto ?? (n.salidaAlPie ? 'sig' : undefined));
+  if (fila == null) return cabecera;
   const filas = n.puertos ?? [];
-  let i = filas.findIndex((p) => p.id === puerto);
-  // CUARTA TANDA, PUNTO 8: una flecha en paralelo de un RESULTADO (`par:<destino>@<resultado>`) sale de
-  // la fila de ESE resultado; sin esto, toda flecha par: salía de la PRIMERA fila con `paralelo`.
-  const arroba = puerto.startsWith('par:') ? puerto.lastIndexOf('@') : -1;
-  if (i < 0 && arroba > 0) i = filas.findIndex((p) => p.id === puerto.slice(arroba + 1));
-  if (i < 0 && puerto.startsWith('par:')) i = filas.findIndex((p) => p.paralelo);
-  // ⚠️ Y SI LA FILA YA NO OFRECE MÁS (`paralelo` ausente: se llegó al tope de caminos), las
-  // flechas que YA salen en paralelo siguen saliendo de ella: es la salida de siempre ('sig').
-  // Sin esto, al llegar al tope las flechas del CRON saltaban a la cabecera.
-  if (i < 0 && puerto.startsWith('par:')) i = filas.findIndex((p) => p.id === 'sig');
-  if (i < 0) return cabecera;
+  // CUARTA TANDA, PUNTO 8: una flecha en paralelo de un RESULTADO sale de la fila de ESE resultado; y
+  // si la fila ya no ofrece más (el tope), las que YA salen en paralelo siguen saliendo de la de
+  // siempre ('sig'). Las dos reglas viven en `filaDePuerto`.
+  const i = filas.findIndex((p) => p.id === fila);
   return n.y + n.alto - BORDE_NODO - PIE_PUERTOS - (filas.length - i - 0.5) * ALTO_PUERTO;
+}
+
+/**
+ * DÓNDE ENTRA UNA FLECHA A UNA TARJETA (sexta tanda, punto 5: «Yo puedo soltar en cualquier lugar de
+ * la tarjeta la flecha, pero siempre se coloca en el mismo lugar»). Siempre el mismo punto: el borde
+ * izquierdo, a la altura del TÍTULO, como en ManyChat. Una tarjeta con salidas (/chatbot) entra en
+ * su cabecera (`Y_ENTRADA`); las de /mensajes (sin `puertos`) siguen con los 44 px de siempre.
+ */
+export const Y_ENTRADA = 22;
+export function puntoDeEntrada(b: NodoFlujo): { x: number; y: number } {
+  return { x: b.x, y: b.y + Math.min(b.alto / 2, b.puertos !== undefined ? Y_ENTRADA : 44) };
+}
+
+/** Dónde sale la flecha de un puerto: el borde derecho, a la altura de su fila (`yDePuerto`). */
+export function puntoDePuerto(n: NodoFlujo, puerto?: string): { x: number; y: number } {
+  return { x: n.x + n.ancho, y: yDePuerto(n, puerto) };
 }
 
 /**
@@ -282,8 +355,57 @@ export function centroDeFilas(alto: number, filas: number): number {
  */
 export function curvaEntre(a: NodoFlujo, b: NodoFlujo, puerto?: string): string {
   const { x1, y1, x2, y2 } = puntas(a, b, puerto);
+  return curvaPuntos(x1, y1, x2, y2);
+}
+
+/**
+ * La MISMA curva entre dos puntos sueltos: la flecha que sigue al cursor mientras se arrastra desde un
+ * círculo (sexta tanda, punto 5) y la que asoma al tocarlo, con el menú en su punta. Con la misma
+ * forma que las de verdad, la que se suelta no «salta» al conectarse.
+ */
+export function curvaPuntos(x1: number, y1: number, x2: number, y2: number): string {
   const dx = Math.max(38, Math.abs(x2 - x1) * 0.5);
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+}
+
+/**
+ * Un punto de la curva de una arista en `t` (0 = la salida, 1 = la llegada): la Bézier cúbica de
+ * `curvaEntre`, evaluada. Es dónde van las pastillas de las esperas sobre una flecha (sexta tanda,
+ * DELAY 1): con una, en el medio; con varias, repartidas. `medioDeCurva` es el punto medio de las
+ * PUNTAS (no de la curva) y se queda así: lo fijan los tests de la etiqueta y del ＋ del medio.
+ */
+export function puntoDeCurva(a: NodoFlujo, b: NodoFlujo, puerto: string | undefined, t: number): { x: number; y: number } {
+  const { x1, y1, x2, y2 } = puntas(a, b, puerto);
+  const dx = Math.max(38, Math.abs(x2 - x1) * 0.5);
+  const u = 1 - t;
+  const bez = (p0: number, p1: number, p2: number, p3: number) => u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+  return { x: bez(x1, x1 + dx, x2 - dx, x2), y: bez(y1, y1, y2, y2) };
+}
+
+/** Dónde va la pastilla `k` de `n` sobre una flecha: repartidas a lo largo, sin tocar las puntas. */
+export const tDePildora = (k: number, n: number): number => (k + 1) / (n + 1);
+
+/** El tamaño de la pastilla de una espera sobre una flecha (la dibuja el lienzo; el texto lo ajusta). */
+export const ALTO_PILDORA_FLECHA = 22;
+export const anchoPildoraFlecha = (texto: string): number => Math.min(150, Math.max(54, Math.ceil(30 + texto.length * 6.4)));
+
+/**
+ * DÓNDE ESTÁ AHORA LA PASTILLA de una espera dibujada en una flecha (`NodoFlujo.enFlecha`), como el
+ * rectángulo de una tarjeta, o null si ninguna flecha la lleva. Se calcula de la flecha que la lleva:
+ * mover una de sus puntas la mueve. Lo usa el lienzo para correr la vista cuando se abre su panel.
+ */
+export function posicionDePildora(g: Pick<GrafoFlujo, 'nodos' | 'aristas'>, id: string): { x: number; y: number; ancho: number; alto: number } | null {
+  for (const a of g.aristas) {
+    const k = (a.esperas ?? []).findIndex((e) => e.id === id);
+    if (k < 0) continue;
+    const d = g.nodos.find((n) => n.id === a.desde);
+    const h = g.nodos.find((n) => n.id === a.hasta);
+    if (!d || !h) return null;
+    const p = puntoDeCurva(d, h, a.puerto, tDePildora(k, a.esperas!.length));
+    const ancho = anchoPildoraFlecha(a.esperas![k].texto);
+    return { x: p.x - ancho / 2, y: p.y - ALTO_PILDORA_FLECHA / 2, ancho, alto: ALTO_PILDORA_FLECHA };
+  }
+  return null;
 }
 
 /** El punto medio de esa misma curva, donde va la etiqueta (y el ＋ del medio). */
@@ -714,13 +836,14 @@ export function aristaRevelada(orden: readonly string[] | null | undefined, cuan
   return nodoRevelado(orden, cuantos, a.desde) && nodoRevelado(orden, cuantos, a.hasta);
 }
 
-/** De dónde sale y a dónde llega la flecha. La salida es la de su puerto (`yDePuerto`);
- *  la llegada, a la altura de la cabecera del destino, con el mismo tope de 44 px. */
+/** De dónde sale y a dónde llega la flecha. La salida es la de su puerto (`yDePuerto`); la
+ *  llegada, el punto fijo de entrada del destino (`puntoDeEntrada`). */
 function puntas(a: NodoFlujo, b: NodoFlujo, puerto?: string) {
+  const e = puntoDeEntrada(b);
   return {
     x1: a.x + a.ancho,
     y1: yDePuerto(a, puerto),
-    x2: b.x,
-    y2: b.y + Math.min(b.alto / 2, 44),
+    x2: e.x,
+    y2: e.y,
   };
 }

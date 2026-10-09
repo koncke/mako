@@ -35,7 +35,9 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, RESERVA_ABAJO_CREAR } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
 import type { Objetivo } from '@/lib/setting-estrategia';
-import { normalizar, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
+import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
+import { eliminar } from '@/lib/flujo-edicion';
+import { MakoStar } from '@/app/_components/MakoBrand';
 import type { Muelles } from '@/lib/lienzo-grafo';
 import { legadoAGrafo, esFlujoExplicito } from '@/lib/flujo-legado';
 import {
@@ -499,11 +501,17 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setPasos(r.pasos);
     return r.id;
   };
-  /** La papelera de la cabecera del panel (`borrarNodo`): una tarjeta simple se saca de la
-   *  cadena; una condición o «Si responde» se lleva sus ramas, y el deshacer las devuelve. */
+  /**
+   * ELIMINAR UNA TARJETA (la papelera del panel y el click derecho): se va ELLA y lo que colgaba queda
+   * SUELTO, nunca se borra (sexta tanda, punto 7: «Que se elimine una flecha no significa que se elimine
+   * la tarjeta posterior, sino que queda "flotando"»). Hasta acá era `borrarNodo`, que reconectaba la
+   * cadena y se llevaba las ramas de una condición. El deshacer lo devuelve todo.
+   */
   const borrar = (id: string) => {
+    const r = eliminar(pasos, id);
+    if (!r.ok) { setErr(r.motivo); return; }
     fotoAntes();
-    setPasos((prev) => renumerar(borrarNodo(prev, id)));
+    setPasos(renumerar(r.pasos));
   };
   const nuevaRespuesta = (): string | null => {
     const r = crearRespuesta(pasos);
@@ -872,15 +880,21 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
               </div>
             </div>
 
-            {/* «Activar» en su propia tarjeta, a la derecha del título: adentro de la del
-                título la hace de dos renglones y aprieta el nombre. */}
-            <div style={{ ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-              <button onClick={toggle} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
-                style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
-                <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
+            {/* «PEDIRLE UN CAMBIO A MAKO», AL LADO DEL TÍTULO (sexta tanda, punto 8: «El botón de IA de
+                "Pedirle un cambio a MaKo" ponlo al lado del cuadro del título, donde hoy está
+                "activar"»). Vivía en la fila del zoom, como un ✦ más entre el deshacer; ahí quedó
+                «Acomodar» (punto 14). Abre y cierra la barra de «Crear con IA» de abajo. */}
+            {rolAdmin && pasos.length > 0 && (
+              <button type="button" onClick={() => setEditandoIA((v) => !v)} aria-pressed={editandoIA}
+                title="Pedirle un cambio a MaKo" aria-label="Pedirle un cambio a MaKo"
+                style={{
+                  ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  height: 38, minWidth: 38, padding: '0 11px', cursor: 'pointer', fontFamily: 'inherit',
+                  ...(editandoIA ? { background: 'var(--mako-bg)', borderColor: 'var(--mako-border)' } : {}),
+                }}>
+                <MakoStar size={16} animate={false} />
               </button>
-            </div>
+            )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
                 probar debería estar a la derecha del todo, no pegado a "Activar"»). El
@@ -902,23 +916,37 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           </div>
         )}
         herramientas={rolAdmin ? (
+          // Pegado a esto, el lienzo pone «Acomodar» (FlujoLienzo): donde estaba el ✦ de MaKo, que
+          // subió al lado del título (sexta tanda, puntos 8 y 14).
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <BotonPila titulo="Deshacer (Ctrl+Z)" onClick={deshacer} activo={puedeDeshacer}>↶</BotonPila>
             <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
-            {pasos.length > 0 && (
-              <BotonPila titulo="Pedirle un cambio a MaKo" onClick={() => setEditandoIA((v) => !v)} activo>✦</BotonPila>
-            )}
           </div>
         ) : undefined}
-        pie={rolAdmin ? (
+        // «Publicar» también desde el click derecho del lienzo (sexta tanda, punto 2), con la MISMA
+        // función y apagado cuando el botón lo está.
+        onPublicar={rolAdmin ? () => void publicar() : undefined}
+        puedePublicar={sinPublicar && busy !== 'save'}
+        // El pie va también para quien no edita: ve si está activa (el interruptor, apagado). Lo de
+        // escribir —el error, «Publicar»— es sólo del admin.
+        pie={(
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             {/* El error va ACÁ, pegado al botón que lo produce: abajo del lienzo y a la
                 izquierda nacía debajo de la lista de secuencias, que flota encima. */}
-            {err ? (
+            {rolAdmin && (err ? (
               <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}</span>
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
-            ) : null}
+            ) : null)}
+            {/* «ACTIVAR», AL LADO DE «PUBLICAR» (sexta tanda, punto 8: «Activar pasa a estar al lado de
+                "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
+            <div style={{ ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
+              <button onClick={toggle} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+                style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
+                <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
+              </button>
+            </div>
             {/* ⚠️ «PUBLICAR», NO «GUARDAR»: es el mismo verbo que en /mensajes y dice lo
                 que pasa: lo que está en el lienzo pasa a ser lo que MaKo manda.
 
@@ -927,13 +955,15 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 está APAGADO cuando no hay nada que publicar. Una secuencia de antes que abre
                 convertida a tarjetas cuenta como cambio (`sinPublicar`): publicarla es lo que la
                 convierte, y lo que cambió se lee al pasar el cursor. */}
-            <button onClick={() => void publicar()} disabled={busy === 'save' || !sinPublicar}
-              title={sinPublicar && convertida && inicial.notas.length ? inicial.notas.join(' · ') : undefined}
-              style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: sinPublicar ? 'pointer' : 'default', opacity: busy === 'save' || !sinPublicar ? 0.45 : 1, fontFamily: 'inherit' }}>
-              {busy === 'save' ? 'Publicando…' : 'Publicar'}
-            </button>
+            {rolAdmin && (
+              <button onClick={() => void publicar()} disabled={busy === 'save' || !sinPublicar}
+                title={sinPublicar && convertida && inicial.notas.length ? inicial.notas.join(' · ') : undefined}
+                style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: sinPublicar ? 'pointer' : 'default', opacity: busy === 'save' || !sinPublicar ? 0.45 : 1, fontFamily: 'inherit' }}>
+                {busy === 'save' ? 'Publicando…' : 'Publicar'}
+              </button>
+            )}
           </div>
-        ) : undefined}
+        )}
         editorEntrada={(
           /**
            * EL EDITOR DEL CRON (cuarta tanda, punto 1: «No me gusta que el editor del CRON como muchos
