@@ -35,6 +35,18 @@ está a medias: lo hecho está en `main` (push `9165da11`). El pedido literal de
   con `resumeFromRunId`; y `wip-v5-lista` (4 y 5 de la quinta) + un diagnóstico del ＋ del medio de las flechas y del arrastre
   — workflow `wf_8c0dd6fe-093`. Los reportes de cada parte quedan en el `journal.jsonl` de su workflow
   (`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/461dd390-9e4f-44a5-810a-0e9efe9b8ae0/subagents/workflows/<runId>/`).
+- **TERMINADA y SIN UNIR: `wip-v5-lista`** (puntos 4 y 5 de la quinta; suite verde en su rama, 6071/0). Filtro del Plan en la
+  lista (app/chatbot/FiltroLista.tsx, lib/chatbot-lista-filtro.ts) y los flujos de Configuraciones › Notificaciones en /chatbot
+  (app/chatbot/MensajeMakoLienzo.tsx, lib/chatbot-mensajes-mako.ts, `/chatbot?aviso=<id>`); en Notificaciones queda «Editar en
+  Chatbot ↗». Para unir: `git merge wip-v5-lista` en wt-chatbot + su bloqueante (`MUELLE.listaAncho` 272 → 320 en
+  lib/lienzo-grafo.ts) + npm test + push. Decide Martín: ¿/mensajes (el catálogo de la agencia) también se muda a /chatbot?
+- **DIAGNÓSTICO del punto 2 (en el journal de `wf_8c0dd6fe-093`):** (a) el ＋ del medio NO se rompió: es un cuadrado invisible
+  de 28 px en el punto medio y la flecha no reacciona fuera de él (antes la etiqueta «24 h» lo marcaba). Arreglo: un segundo
+  `<path>` transparente por arista, strokeWidth 14-16, `vectorEffect='non-scaling-stroke'`, `pointerEvents:'stroke'`, que dé
+  el hover a TODA la flecha (app/_components/Lienzo.tsx ~601-613). (b) /chatbot NUNCA pudo mover tarjetas: FlujoLienzo no pasa
+  `onMover`. Hace falta una columna `nutricion_secuencias.posiciones jsonb` (nunca en `pasos` ni `estrategia`), relativa al
+  CRON, escrita por su propia acción, mezclada con el layout derivado; cambia la regla de AGENTS.md «el layout de /chatbot no se
+  guarda» (Martín ya lo pidió).
 - Pendientes de las tres unidas (en sus reportes): sacar `onAgregarRama` de FlujoLienzo.tsx:435 (no bloquea); decidir si
   «Agendó» se retira (dice lo mismo que «Tiene reunión agendada»); el panel del CRON tiene que medir su contenido (~130-410
   px según el horario: lo hace la parte «editores»); Crear con IA no conoce las flechas por resultado; con «felicitar a un
