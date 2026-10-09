@@ -664,7 +664,7 @@ export function Lienzo({
                     // En el MEDIO de una flecha de /mensajes no se ofrece un mensaje: un
                     // canal se prende para el mensaje entero, no entre dos pasos. Quien
                     // pasa `opcionesEn` decide lo suyo.
-                    options={opcionesEn ? opcionesEn(a.desde, a.puerto, true) : (opcionesAgregar ?? []).filter((o) => o.value === 'delay' || o.value === 'condicional' || o.value === 'accion')}
+                    {...menuDeOpciones(opcionesEn ? opcionesEn(a.desde, a.puerto, true) : (opcionesAgregar ?? []).filter((o) => o.value === 'delay' || o.value === 'condicional' || o.value === 'accion'))}
                     onChange={(v) => v && onAgregarTras(a.desde, v, a.puerto)}
                   />
                 )}
@@ -808,7 +808,7 @@ export function Lienzo({
                       <span data-no-pan data-mas-paralelo={`${n.id}:${p.id}`}
                         style={{ position: 'absolute', left: n.x + n.ancho, top: y, transform: 'translateY(-50%)', paddingLeft: 7, display: 'inline-flex', lineHeight: 0 }}>
                         <MasDeSalida
-                          ariaLabel="Agregar en paralelo" titulo="En paralelo"
+                          ariaLabel="Agregar en paralelo"
                           disabled={agregarOcupado}
                           opciones={opciones('par', false)}
                           onElegir={(v) => onAgregarTras(n.id, v, 'par')}
@@ -1105,11 +1105,11 @@ const estiloMas: CSSProperties = {
  * responde» del CRON vacía: su ＋ crea la tarjeta y listo. El botón lleva la opción en su
  * nombre accesible, para que diga qué hace.
  *
- * `titulo`: lo que dice el menú arriba (el de una flecha en paralelo dice «En paralelo»: es lo
- * que distingue ese ＋ del de la salida vacía, que continúa el hilo).
+ * ⚠️ SIN TÍTULO «En paralelo» (cuarta tanda, punto 10: «elimina el texto "En paralelo"»): que el ＋
+ * del punto ocupado abre otra flecha ya lo dice la flecha que aparece.
  */
-function MasDeSalida({ opciones, onElegir, ariaLabel, titulo, disabled }: {
-  opciones: DropdownOption[]; onElegir: (v: string) => void; ariaLabel: string; titulo?: string; disabled?: boolean;
+function MasDeSalida({ opciones, onElegir, ariaLabel, disabled }: {
+  opciones: DropdownOption[]; onElegir: (v: string) => void; ariaLabel: string; disabled?: boolean;
 }) {
   if (opciones.length === 1) {
     const o = opciones[0];
@@ -1123,10 +1123,30 @@ function MasDeSalida({ opciones, onElegir, ariaLabel, titulo, disabled }: {
     <Dropdown
       value="" ariaLabel={ariaLabel} sinFlecha botonLabel="＋" disabled={disabled}
       buttonStyle={estiloMas}
-      {...(titulo ? { columns: [[{ title: titulo, options: opciones }]], alContenido: true } : { options: opciones })}
+      {...menuDeOpciones(opciones)}
       onChange={(v) => v && onElegir(v)}
     />
   );
+}
+
+/** Una opción del ＋ que dice a qué GRUPO pertenece (los grupos van separados por una línea). */
+type OpcionAgrupada = DropdownOption & { grupo?: number };
+
+/**
+ * El menú de un ＋: una lista plana, o grupos separados por una línea cuando las opciones traen
+ * `grupo` (cuarta tanda, punto 10: «separa las secciones con divider, por ejemplo WhatsApp y Email
+ * juntos»). Con grupos es más ancho: un ＋ de 22 px abría un menú apretado.
+ */
+function menuDeOpciones(opciones: OpcionAgrupada[]) {
+  if (!opciones.some((o) => o.grupo != null)) return { options: opciones };
+  const grupos = new Map<number, DropdownOption[]>();
+  for (const o of opciones) {
+    const g = o.grupo ?? 0;
+    if (!grupos.has(g)) grupos.set(g, []);
+    grupos.get(g)!.push(o);
+  }
+  const lista = [...grupos.entries()].sort((a, b) => a[0] - b[0]).map(([, options]) => ({ title: '', options }));
+  return { columns: [lista], alContenido: true, menuMinAncho: 230 };
 }
 
 /** El estilo de un input adentro del panel. Vive acá para que los dos lienzos no

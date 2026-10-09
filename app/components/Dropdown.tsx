@@ -85,6 +85,8 @@ function renderOption(
         }} />
       )}
       {o.avatar !== undefined && <OptAvatar url={o.avatar} name={o.label} size={22} cuadrado={o.avatarCuadrado} />}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {o.icono && <img src={o.icono} alt="" width={18} height={18} style={{ display: 'block', flex: 'none' }} />}
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
       {o.crear && <span aria-hidden style={{ flex: 'none', fontSize: 13, lineHeight: 1 }}>＋</span>}
       <span style={{ minWidth: 0, flex: 1 }}>
@@ -234,7 +236,7 @@ export type DropdownAccion = { icono: ReactNode; title: string; tone?: 'bad'; on
    */
   cierra?: boolean };
 
-export type DropdownOption = { value: string; label: string; sub?: string; /** Texto extra que la búsqueda mira, además del título y el subtítulo. Para cuando el dato que uno recuerda no está escrito en el renglón (un token, un alias, un código). */ buscar?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
+export type DropdownOption = { value: string; label: string; /** Un ícono (URL o `data:` de un SVG), cuadrado a 18 px, antes del título. Para íconos de línea o logos; una persona va con `avatar`. */ icono?: string; sub?: string; /** Texto extra que la búsqueda mira, además del título y el subtítulo. Para cuando el dato que uno recuerda no está escrito en el renglón (un token, un alias, un código). */ buscar?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
   /**
    * La salida para CREAR uno nuevo, no una opción más de la lista.
    *
@@ -332,6 +334,7 @@ export function Dropdown({
   varios,
   minimo = 0,
   menuAncho,
+  menuMinAncho,
   menuAlto,
 }: {
   value: string;
@@ -456,6 +459,9 @@ export function Dropdown({
    * saca el menú de la ventana.
    */
   menuAncho?: number;
+  /** El ancho MÍNIMO del menú, cuando el botón que lo abre es chico (un ＋ de 22 px abría un menú
+   *  apretado: «Que sea un poco más ancho el desplegable», 09/10/2026). */
+  menuMinAncho?: number;
   menuAlto?: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -672,7 +678,7 @@ export function Dropdown({
         )}
       </button>
       {open && pos && createPortal(
-        <div ref={menuRef} role="listbox" aria-multiselectable={varios ? true : undefined} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : (menuAncho ?? 360), maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : altoMaximoDelMenu(480, pos.espacio, 200)) : altoMaximoDelMenu(menuAlto ?? 340, pos.espacio), overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
+        <div ref={menuRef} role="listbox" aria-multiselectable={varios ? true : undefined} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: Math.max(pos.width ?? 0, menuMinAncho ?? 0), width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : (menuAncho ?? 360), maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : altoMaximoDelMenu(480, pos.espacio, 200)) : altoMaximoDelMenu(menuAlto ?? 340, pos.espacio), overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
           {conBusqueda && (
             // Queda PEGADA arriba: en una lista larga el buscador tiene que
             // seguir a la vista mientras se scrollea, o deja de servir.
@@ -709,9 +715,13 @@ export function Dropdown({
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {(colsVisibles ?? columns).map((col, ci) => (
                 <div key={ci} style={{ flex: '1 1 190px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {col.map((g) => (
-                    <div key={g.title}>
-                      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', padding: '8px 11px 4px' }}>{g.title}</div>
+                  {col.map((g, gi) => (
+                    <div key={g.title || `g${gi}`}>
+                      {/* Un grupo SIN título es un grupo separado por una línea (el ＋ del lienzo:
+                          «separa las secciones con divider»), y el primero no lleva nada arriba. */}
+                      {g.title
+                        ? <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', padding: '8px 11px 4px' }}>{g.title}</div>
+                        : gi > 0 ? <div aria-hidden style={{ borderTop: '1px solid var(--border)', margin: '4px 8px' }} /> : null}
                       {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), true, subEnColumnas, varios ? { valores: varios, minimo } : undefined))}
                     </div>
                   ))}

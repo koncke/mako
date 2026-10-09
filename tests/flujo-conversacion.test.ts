@@ -177,11 +177,12 @@ test('«Si responde» CUELGA DEL CRON: columna 1, debajo de la salida, con su fl
   // Y el motor lo lee como la guía del caso (`escenariosDeRespuesta`), con «Otra cosa» avisando.
   assert.equal(escenariosDeRespuesta(conCaso).length, 1);
   assert.equal((nodoPorId(conCaso, nodoPorId(conCaso, r.id)!.si_no)!.accion as { operacion: string }).operacion, 'avisar_al_equipo');
-  // Sin «Si responde»: la fila está igual, vacía (su ＋ la crea), y no hay ninguna tarjeta de más.
+  // Sin «Si responde» (cuarta tanda, punto 4): el CRON no tiene la fila ni se ofrece crearla, y no
+  // hay ninguna tarjeta de más. Lo de arriba es lo que sigue dibujando un flujo que YA la tiene.
   const sin = grafoDeSecuencia([msg('a')], { disparador: 'X' });
   assert.equal(sin.nodos.length, 2, 'volvió la tarjeta fantasma');
-  assert.deepEqual(nodo(sin, ID_ENTRADA).puertos!.find((p) => p.id === PUERTO_RESPUESTA), { id: PUERTO_RESPUESTA, rotulo: 'Si responde', vacio: true });
-  assert.deepEqual(opcionesDelMas([msg('a')], ID_ENTRADA, false, PUERTO_RESPUESTA).map((o) => o.value), ['respuesta'], 'el ＋ de esa fila crea «Si responde» y nada más');
+  assert.equal(nodo(sin, ID_ENTRADA).puertos!.find((p) => p.id === PUERTO_RESPUESTA), undefined, 'volvió la fila «Si responde» al CRON');
+  assert.ok(!opcionesDelMas([msg('a')], ID_ENTRADA, false, PUERTO_RESPUESTA).some((o) => o.value === 'respuesta'), 'el ＋ volvió a ofrecer «Si responde»');
 });
 
 test('⚠️ cada flecha sale de SU puerto, y une nodos que existen', () => {
@@ -276,8 +277,15 @@ test('el menú del ＋: sin «Email» ni «Esperar» debajo de «Si responde», 
   assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('esperar'), 'se ofreció esperar debajo de «Si responde»');
   assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('email'), 'se ofreció un email debajo de «Si responde»');
   for (const medio of [false, true]) assert.ok(!valores(opcionesDelMas(r.pasos, 'a', medio)).includes('ir_a' as never), 'volvió «Ir a» al ＋');
-  assert.deepEqual(opcionesDelMas(r.pasos, 'a', false).map((x) => x.label), ['💬 WhatsApp', '✉️ Email', '⏳ Esperar', '🔀 Condición', '🏷️ Etiqueta', '⚡ Acción', 'MaKo']);
-  assert.deepEqual(opcionesDelMas(r.pasos, 'a', false).at(-1), { value: 'mako', label: 'MaKo', avatar: '/mako.svg', avatarCuadrado: true });
+  // Cuarta tanda, punto 10: sin emojis (cada renglón con su ícono), «MaKo en WhatsApp», y por grupos
+  // separados con una línea: mensajes · tiempo y lógica · CRM · MaKo.
+  const menu = opcionesDelMas(r.pasos, 'a', false);
+  assert.deepEqual(menu.map((x) => x.label), ['WhatsApp', 'Email', 'Esperar', 'Condición', 'Etiqueta', 'Acción', 'MaKo en WhatsApp']);
+  assert.deepEqual(menu.map((x) => x.grupo), [0, 0, 1, 1, 2, 2, 3]);
+  for (const o of menu) {
+    assert.ok(o.icono?.startsWith('data:image/svg+xml'), `${o.label} sin ícono`);
+    assert.ok(!/\p{Extended_Pictographic}/u.test(o.label), `${o.label} con emoji`);
+  }
 });
 
 test('quitar una rama se lleva lo que colgaba de ella (y el flujo sigue válido)', () => {

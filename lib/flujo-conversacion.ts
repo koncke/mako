@@ -105,6 +105,8 @@ const GAP_RAICES = 56;
  * son dos). Se ESTIMA: la tarjeta tiene alto fijo y las filas van pegadas al pie.
  */
 const ALTO_CRON_BASE = 11 + 24 + 2 * ALTO_PUERTO + PIE_PUERTOS + BORDE_NODO * 2;
+/** El CRON sin filas (cuarta tanda, punto 4): la cabecera, el disparador y su relleno. */
+const ALTO_CRON_SIN_FILAS = 11 + 24 + 11 + BORDE_NODO * 2;
 const RENGLON_DETALLE = 18;
 /** El ícono del CRON. NO es ⚡: ése es de la Acción, y las dos tarjetas lo compartían (R3). */
 export const ICONO_CRON = '⏰';
@@ -638,14 +640,20 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // «Al entrar» es la salida (`sig`) y de ella salen las flechas en paralelo del CRON; «Si
   // responde» es el evento, y vacía su ＋ crea la tarjeta. Las dos se dibujan SIEMPRE: una fila
   // que aparece sólo a veces es un lugar que nadie encuentra.
+  //
+  // ⚠️ CUARTA TANDA, PUNTO 4: «No tiene sentido que el CRON tenga la opción de "Si responde"... Eso es
+  // una CONDITION... se va el texto "Si responde" del CRON, y también quita el texto "Al entrar"». El
+  // CRON nuevo no tiene filas: de él salen varias flechas (en paralelo) desde la cabecera. Sólo un
+  // flujo que YA tiene «Si responde» (los convertidos de la primera tanda) lo sigue dibujando con
+  // sus dos filas: sacarlo cambiaría qué hace hoy una secuencia prendida.
   const lineasCron = Math.min(2, Math.max(1, renglonesDe(op.disparador, 34)));
+  const salidaCron = { id: 'sig', vacio: !raiz, ...(raiz && admiteParalelo(iIni) ? { paralelo: true } : {}) };
   tarjetas.set(ID_ENTRADA, {
     id: ID_ENTRADA, tipo: 'entrada', familia: 'contenido', titulo: TITULO.cron, icono: ICONO_CRON, detalle: op.disparador,
-    puertos: [
-      { id: 'sig', rotulo: 'Al entrar', vacio: !raiz, ...(raiz && admiteParalelo(iIni) ? { paralelo: true } : {}) },
-      { id: PUERTO_RESPUESTA, rotulo: 'Si responde', vacio: !resp },
-    ],
-    ancho: ANCHO_NODO, alto: ALTO_CRON_BASE + lineasCron * RENGLON_DETALLE,
+    puertos: resp
+      ? [{ ...salidaCron, rotulo: 'Al entrar' }, { id: PUERTO_RESPUESTA, rotulo: 'Si responde', vacio: false }]
+      : [salidaCron],
+    ancho: ANCHO_NODO, alto: (resp ? ALTO_CRON_BASE : ALTO_CRON_SIN_FILAS) + lineasCron * RENGLON_DETALLE,
   });
 
   // ── El árbol: a quién le cuelga cada uno (el PRIMERO que lo alcanza gana) ──
@@ -774,38 +782,54 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
 export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako';
 /** Lo que ofrece el ＋ de un lugar: lo que se inserta, y en la fila «Si responde» del CRON, crearla. */
 export type QueAgregarEn = QueAgregar | 'respuesta';
-/** Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). */
-export type OpcionMas = { value: QueAgregarEn; label: string; avatar?: string; avatarCuadrado?: boolean };
+/** Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). `grupo` separa
+ *  el menú con una línea; `icono` es un SVG (`data:`), nunca un emoji. */
+export type OpcionMas = { value: QueAgregarEn; label: string; icono?: string; grupo?: number };
 
-/** El logo de MaKo para el renglón «MaKo» del ＋ (decisión 11: «con el ícono de MaKo»). */
-export const AVATAR_MAKO = '/mako.svg';
+/** Un SVG chico como `data:` para un renglón del menú. */
+const svg = (cuerpo: string, viewBox = '0 0 24 24') =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${cuerpo}</svg>`)}`;
+const LINEA = 'fill="none" stroke="#4C5363" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
 
 /**
- * El menú del ＋. Lista plana con emoji y título, como la de /mensajes (el patrón se elige por el
- * TAMAÑO de la lista). El orden:
- * 💬 WhatsApp · ✉️ Email · ⏳ Esperar · 🔀 Condición · 🏷️ Etiqueta · ⚡ Acción · MaKo.
+ * Los íconos del ＋ (cuarta tanda, punto 10: «pon ÍCONOS no emojis, y los logos de WhatsApp y Gmail
+ * en ese caso. Y revisa que el ícono de MaKo está mal, no es la estrella de siempre»). La estrella es
+ * la chispa de `MakoLogo` (`SPARK` en app/_components/MakoBrand.tsx), en el dorado de `--mako`.
+ */
+export const ICONOS_MAS = {
+  whatsapp: svg('<path fill="#25D366" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/><path fill="#fff" d="M8.6 7.2c.2-.4.4-.4.7-.4h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .6l-.4.6c-.2.2-.3.4-.1.7.3.5 1 1.4 1.6 1.9.8.7 1.5 1 1.8 1.1.2.1.4.1.6-.1l.7-.8c.2-.2.4-.2.6-.1l1.8.9c.3.1.4.2.4.4 0 .3-.1 1.1-.6 1.6-.5.5-1.3.8-1.9.8-.6 0-2.3-.3-4.3-2.1-2.3-2-2.9-3.9-3-4.4-.1-.6.1-1.7.6-2.2z"/>'),
+  email: svg('<rect x="2" y="5" width="20" height="14" rx="2.5" fill="#fff" stroke="#EA4335" stroke-width="1.6"/><path d="M3.2 6.4 12 13l8.8-6.6" fill="none" stroke="#EA4335" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'),
+  esperar: svg(`<path ${LINEA} d="M7 3h10M7 21h10M8 3v2.5c0 1.6 1.2 2.8 4 4.5 2.8-1.7 4-2.9 4-4.5V3M8 21v-2.5c0-1.6 1.2-2.8 4-4.5 2.8 1.7 4 2.9 4 4.5V21"/>`),
+  condicion: svg(`<g ${LINEA}><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10M18 9c0 4-3 6-12 8"/></g>`),
+  etiqueta: svg(`<g ${LINEA}><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.4"/></g>`),
+  accion: svg(`<path ${LINEA} d="M13 2 4 14h7l-1 8 9-12h-7z"/>`),
+  mako: svg('<path fill="#F2B01E" d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z"/>', '-12 -12 24 24'),
+} as const;
+
+/**
+ * El menú del ＋, por grupos separados con una línea (cuarta tanda, punto 10):
+ *   mensajes (WhatsApp, Email) · tiempo y lógica (Esperar, Condición) · CRM (Etiqueta, Acción) ·
+ *   MaKo en WhatsApp.
  *
  * · «WhatsApp» y no «Mensaje»: desde que el ＋ también crea un email, «mensaje» no dice por
- *   dónde sale (hasta el 08/10 el lienzo NO podía crear un email: R3).
- * · Debajo de «Si responde» no hay «Email» ni «Esperar»: se contesta en el momento y por el
- *   chat donde el lead escribió (`validarGrafo` rechaza la espera; un email ahí no contesta
- *   nada). Ofrecerlos sería un control que no se puede publicar.
- * · «MaKo» va con el logo (un `avatar`, la imagen de /mako.svg) y sin emoji: la tarjeta le escribe al
- *   grupo del negocio con MaKo, y su identidad es la de MaKo.
- * · La fila «Si responde» del CRON (`puerto: 'resp'`) ofrece UNA cosa: crear «Si responde».
+ *   dónde sale.
+ * · Debajo de un «Si responde» que ya existe no hay «Email» ni «Esperar»: se contesta en el momento
+ *   y por el chat donde el lead escribió (`validarGrafo` rechaza la espera).
+ * · «Si responde» y «Ir a» NO se ofrecen (cuarta tanda, puntos 4 y 12: «Elimina las tarjetas de
+ *   "Reply" y "Go to"... si alguien quiere configurar que la automatización se detenga cuando alguien
+ *   contesta, ya lo puede hacer con CONDITION»). Los que ya existen se dibujan, corren y se borran.
  */
 export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean, puerto?: string): OpcionMas[] {
-  void medio;
-  if (nodoLienzo === ID_ENTRADA && puerto === PUERTO_RESPUESTA) return [{ value: 'respuesta', label: '↩️ Si responde' }];
+  void medio; void puerto;
   const resp = raizRespuesta(pasos);
   const enRespuesta = nodoLienzo !== ID_ENTRADA && (nodoLienzo === resp || subarbolRespuesta(pasos).has(nodoLienzo));
   return [
-    { value: 'mensaje', label: '💬 WhatsApp' },
-    ...(enRespuesta ? [] : [{ value: 'email' as const, label: '✉️ Email' }, { value: 'esperar' as const, label: '⏳ Esperar' }]),
-    { value: 'condicion', label: '🔀 Condición' },
-    { value: 'etiqueta', label: '🏷️ Etiqueta' },
-    { value: 'accion', label: '⚡ Acción' },
-    { value: 'mako', label: 'MaKo', avatar: AVATAR_MAKO, avatarCuadrado: true },
+    { value: 'mensaje', label: 'WhatsApp', icono: ICONOS_MAS.whatsapp, grupo: 0 },
+    ...(enRespuesta ? [] : [{ value: 'email' as const, label: 'Email', icono: ICONOS_MAS.email, grupo: 0 }, { value: 'esperar' as const, label: 'Esperar', icono: ICONOS_MAS.esperar, grupo: 1 }]),
+    { value: 'condicion', label: 'Condición', icono: ICONOS_MAS.condicion, grupo: 1 },
+    { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
+    { value: 'accion', label: 'Acción', icono: ICONOS_MAS.accion, grupo: 2 },
+    { value: 'mako', label: 'MaKo en WhatsApp', icono: ICONOS_MAS.mako, grupo: 3 },
   ];
 }
 

@@ -61,17 +61,19 @@ const conHilosDelCron = (): PasoParaGrafo[] => {
   return crearRespuesta(base, rndDe(3)).pasos;
 };
 
-test('⚠️ el CRON: dos filas («Al entrar» y «Si responde»), su propio ícono y la familia de contenido', () => {
+test('⚠️ el CRON: SIN filas (ni «Al entrar» ni «Si responde»), su propio ícono y la familia de contenido', () => {
   const g = grafoDeSecuencia([msg('a')], { disparador: 'Agendó una reunión' });
   const e = nodo(g, ID_ENTRADA);
   assert.equal(e.icono, ICONO_CRON);
   assert.notEqual(e.icono, '⚡', 'el CRON comparte el ⚡ con la Acción (R3)');
   assert.equal(e.familia, 'contenido');
-  assert.deepEqual(e.puertos!.map((p) => p.rotulo), ['Al entrar', 'Si responde']);
-  assert.equal(e.puertos![0].paralelo, true, '«Al entrar» con salida tiene que ofrecer una flecha en paralelo');
-  // Sin salida, la fila está vacía (su ＋ continúa) y no ofrece paralelo: no hay a qué ir al lado.
+  // Cuarta tanda, punto 4: «se va el texto "Si responde" del CRON, y también quita el texto "Al
+  // entrar"». Una sola salida sin rótulo, de la que salen las flechas en paralelo.
+  assert.deepEqual(e.puertos!.map((p) => p.rotulo), [undefined]);
+  assert.equal(e.puertos![0].paralelo, true, 'el CRON con salida tiene que ofrecer una flecha en paralelo');
+  // Sin salida, está vacía (su ＋ continúa) y no ofrece paralelo: no hay a qué ir al lado.
   const vacio = nodo(grafoDeSecuencia([], { disparador: 'X' }), ID_ENTRADA);
-  assert.deepEqual(vacio.puertos![0], { id: 'sig', rotulo: 'Al entrar', vacio: true });
+  assert.deepEqual(vacio.puertos![0], { id: 'sig', vacio: true });
   // El ＋ en paralelo desde el CRON pide el inicio del modelo, exista o no todavía.
   assert.deepEqual(lugarDesdeLienzo(ID_ENTRADA, 'par'), { nodo: ID_INICIO, puerto: 'par' });
   assert.deepEqual(lugarDesdeLienzo(ID_ENTRADA, 'par:e1'), { nodo: ID_INICIO, puerto: 'par:e1' });
