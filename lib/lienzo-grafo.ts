@@ -492,7 +492,7 @@ export const MUELLE = {
   /** El hueco de las cosas que flotan contra el borde (la lista, «Probar»). */
   hueco: 16,
   /** La lista de automatizaciones, a la izquierda. */
-  listaAncho: 272,
+  listaAncho: 320,
   /** «Probar», apilado arriba a la derecha (pedido literal, punto 8: «más ancho, no tan largo»). */
   probarAncho: 560,
   probarAnchoMin: 360,

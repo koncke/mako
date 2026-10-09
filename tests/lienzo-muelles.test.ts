@@ -111,7 +111,7 @@ test('⚠️ ventana baja: si apilados no entran, van LADO A LADO y tampoco se p
 });
 
 test('⚠️ en una ventana angosta el editor cae a COLUMNA (con lo que no cambia al abrir el panel)', () => {
-  // 272 + 32 de lista + 24 de márgenes: con 840 de ancho quedan 512 < 560 (el piso del mediano).
+  // 320 + 32 de lista + 24 de márgenes: con 840 de ancho quedan 464 < 560 (el piso del mediano).
   const m = muelles({ w: 840, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
   assert.equal(m.editorForma, 'columna');
   assert.equal(m.editor, null, 'columna: el panel de siempre, no la franja');
