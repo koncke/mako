@@ -33,7 +33,10 @@ import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuenc
 import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, type InscCharla } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
-import { secuenciasDeEtapa, secuenciasDeEntrega, secuenciasDeEtiqueta, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from '@/lib/nutricion-etapa';
+import {
+  secuenciasDeEtapa, secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas,
+  TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
+} from '@/lib/nutricion-etapa';
 import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA } from '@/lib/nutricion-residuo';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
@@ -63,7 +66,9 @@ import {
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
   type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo,
 } from '@/lib/nutricion-grafo-motor';
-import { fuentesDeFilas, etapasEntregaDeFilas, normalizarTexto, type Fuente, type HechosCatalogo } from '@/lib/condiciones-catalogo';
+import {
+  fuentesDeFilas, etapasEntregaDeFilas, embudosDeReunionDeFilas, estadoDeCuotas, normalizarTexto, type Fuente, type HechosCatalogo,
+} from '@/lib/condiciones-catalogo';
 import { hoyEnTz } from '@/lib/date-utils';
 import { getSetting } from '@/lib/settings';
 import {
@@ -179,6 +184,8 @@ export type PasoSecuencia = {
   ramas?: RamaCondicion[];
   casos?: CasoRespuesta[];
   si_no?: string | null;
+  /** Condición (cuarta tanda, punto 8): las flechas en paralelo del «Si no» (las de cada rama van en la rama). */
+  paralelos_si_no?: string[];
   destino?: DestinoIrA | null;
   /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
   revisar?: boolean;
@@ -189,6 +196,12 @@ export type Secuencia = {
   clave: string;
   nombre: string;
   etapa: string;
+  /**
+   * Las etapas de un CRON con VARIAS (mig 0230, cuarta tanda punto 14), tal como están en la fila
+   * (saneadas). Las que DISPARAN las dice `etapasDe` (lib/nutricion-etapa.ts): esta lista manda sólo
+   * si su primera es `etapa`. `[]` = una sola etapa, la de `etapa` (todas las filas de antes).
+   */
+  etapas: string[];
   trigger_tipo: string;
   activa: boolean;
   pasos: PasoSecuencia[];
@@ -236,7 +249,42 @@ type FilaSecuencia = {
   id: number; clave: string; nombre: string; etapa: string;
   trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
   funnel_id: number | null; cron: unknown; cron_proxima_at: string | null; instance_name: string | null; etiqueta_id: number | string | null;
+  /** Ausente con la 0230 sin aplicar (`leerFilasDeSecuencias` vuelve a pedir sin ella). */
+  etapas?: unknown;
 };
+
+/**
+ * Las columnas que leen las dos lecturas de secuencias del motor (`getSecuenciasActivas` y
+ * `getSecuenciasConStats`). UNA lista para las dos: el ámbito (`funnel_id`, `producto_id`,
+ * `etiqueta_id`) tiene que viajar en las dos o la cohorte de una de ellas sale sin acotar
+ * (tests/nutricion-ambito-embudo.test.ts lo fija sobre esta constante).
+ */
+const COLS_SECUENCIA = 'id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name, etiqueta_id';
+/** Y la columna de la 0230, que se pide aparte para poder pedir sin ella. */
+const COL_ETAPAS = 'etapas';
+
+/**
+ * LEE LAS SECUENCIAS CON `etapas`, Y SIN ELLA SI LA 0230 TODAVÍA NO ESTÁ (cuarta tanda, punto 14).
+ *
+ * ⚠️ TOLERA LA COLUMNA QUE FALTA, Y SÓLO ESO, AL REVÉS QUE LA 0229. PostgREST rechaza la consulta
+ * ENTERA si una columna no existe, y estas dos lecturas son las del MOTOR: con el deploy adelantado a
+ * la migración, `getSecuenciasActivas` tiraba y no salía ningún mensaje de ningún cliente, en
+ * silencio. Sin la columna, cada secuencia dispara por su `etapa` —lo de siempre— y queda el log.
+ * Cualquier otro error (la tabla, la red, un permiso) tira como siempre: `esColumnaInexistente` mira
+ * 42703 / PGRST204, no «cualquier cosa que diga column».
+ */
+async function leerFilasDeSecuencias(
+  pedir: (cols: string) => PromiseLike<{ data: unknown; error: { code?: string | null; message: string } | null }>,
+  quien: string,
+): Promise<FilaSecuencia[]> {
+  const conEtapas = await pedir(`${COLS_SECUENCIA}, ${COL_ETAPAS}`);
+  if (!conEtapas.error) return (conEtapas.data ?? []) as FilaSecuencia[];
+  if (!esColumnaInexistente(conEtapas.error)) throw new Error(`${quien}: ${conEtapas.error.message}`);
+  console.warn(`[nutricion] ${quien}: falta la columna nutricion_secuencias.etapas (mig 0230); cada secuencia dispara por su etapa (${conEtapas.error.message})`);
+  const sin = await pedir(COLS_SECUENCIA);
+  if (sin.error) throw new Error(`${quien}: ${sin.error.message}`);
+  return (sin.data ?? []) as FilaSecuencia[];
+}
 
 // % de retención del VSL a partir del cual consideramos "lo vio en serio".
 export const UMBRAL_VSL_PCT = 50;
@@ -282,19 +330,18 @@ function haceDiasISO(dias: number): string {
 // ── Secuencias ───────────────────────────────────────────────────────────────
 export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
+  const rows = await leerFilasDeSecuencias((cols) => supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name, etiqueta_id')
+    .select(cols)
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
-    .is('archivada_at', null);
-  if (error) throw new Error(`getSecuenciasActivas: ${error.message}`);
-  const rows = (data ?? []) as FilaSecuencia[];
+    .is('archivada_at', null), 'getSecuenciasActivas');
   return rows.map((r) => ({
     id: r.id,
     clave: r.clave,
     nombre: r.nombre,
     etapa: r.etapa,
+    etapas: normalizarEtapas(r.etapas ?? null),
     trigger_tipo: r.trigger_tipo,
     activa: r.activa,
     pasos: Array.isArray(r.pasos) ? (r.pasos as PasoSecuencia[]) : [],
@@ -320,16 +367,14 @@ export type SecuenciaConStats = Secuencia & { inscriptos: number; enviados: numb
 // `estrategia` (jsonb, mig 0107) viaja crudo: el parser vive en setting-estrategia.
 export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
+  const rows = await leerFilasDeSecuencias((cols) => supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at, instance_name, etiqueta_id')
+    .select(cols)
     // Las archivadas no se listan, no enrolan y no envían. No se borran porque
     // las inscripciones y los envíos las referencian: borrarlas se llevaría
     // puesto el historial de a quién se le escribió.
     .is('archivada_at', null)
-    .order('id', { ascending: true });
-  if (error) throw new Error(`getSecuenciasConStats: ${error.message}`);
-  const rows = (data ?? []) as FilaSecuencia[];
+    .order('id', { ascending: true }), 'getSecuenciasConStats');
 
   // Contados PÁGINA POR PÁGINA (se agrega al vuelo, no se materializa). Eran dos
   // `.select()` sueltos sobre las tablas enteras: nutricion_envios suma hasta 40
@@ -361,6 +406,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     clave: r.clave,
     nombre: r.nombre,
     etapa: r.etapa,
+    etapas: normalizarEtapas(r.etapas ?? null),
     trigger_tipo: r.trigger_tipo,
     activa: r.activa,
     pasos: Array.isArray(r.pasos) ? (r.pasos as PasoSecuencia[]) : [],
@@ -742,9 +788,17 @@ async function ambitoDeFunnel(funnelId: number | null | undefined): Promise<Ambi
 // resuelve UNA vez acá: con NULL —hoy, las 62 filas— la cohorte se arma como
 // siempre, sin filtrar y sin leer nada. El porqué de los tres casos está en
 // lib/nutricion-ambito.ts.
+/**
+ * La etapa o las etapas que pide una cohorte. Desde el punto 14 de la cuarta tanda (mig 0230) un
+ * CRON puede colgarse de VARIAS etapas de un kanban y la cohorte es la UNIÓN: quien está parado en
+ * CUALQUIERA. El barrido pasa `etapasDe(sec)`; un string suelto sigue valiendo (una etapa).
+ */
+type EtapasPedidas = string | readonly string[] | null | undefined;
+const listaDeEtapas = (e: EtapasPedidas): string[] => (typeof e === 'string' ? normalizarEtapas([e]) : normalizarEtapas(e ?? null));
+
 export async function leadsDeCohorte(
   triggerTipo: string,
-  etapa?: string | null,
+  etapa?: EtapasPedidas,
   funnelId?: number | null,
   productoId?: number | null,
   etiquetaId?: number | null,
@@ -776,8 +830,8 @@ export async function leadsDeCohorte(
    * Y TIRA si no puede leer: un universo a medias le escribe a quien no corresponde.
    */
   if (triggerTipo === TRIGGER_ENTREGA) {
-    const key = (etapa ?? '').trim();
-    if (!key) return [];
+    const keys = listaDeEtapas(etapa);
+    if (!keys.length) return [];
     try {
       const { clientesEnEtapaDeEntrega } = await import('@/app/customer-success/entrega');
       // NULL = la entrega de cualquier producto (igual que `funnel_id` NULL). Un bigint puede
@@ -785,9 +839,15 @@ export async function leadsDeCohorte(
       // eso le mandaría la secuencia a la entrega de todos los servicios.
       const prod = productoId == null ? null : Number(productoId);
       if (prod != null && !Number.isFinite(prod)) return [];
-      return await clientesEnEtapaDeEntrega(prod, key);
+      // CUALQUIERA de sus etapas (punto 14): la UNIÓN, sin repetir. Una por una con la MISMA regla
+      // del kanban (`clientesEnEtapa`), y en serie: cada una lee el universo de la entrega, y un CRON
+      // tiene un puñado de etapas. Si una tira, tira la cohorte entera (un universo a medias le
+      // escribe a quien no corresponde).
+      const out = new Set<number>();
+      for (const key of keys) for (const id of await clientesEnEtapaDeEntrega(prod, key)) out.add(id);
+      return [...out];
     } catch (e) {
-      throw new Error(`cohorte entrega_actual(${key}): ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`cohorte entrega_actual(${keys.join(', ')}): ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null);
@@ -852,7 +912,7 @@ async function leadsConEtiqueta(
 // sí misma con otro trigger— no vuelva a consultar `funnels`, y sobre todo para
 // que no pueda perderlo en el camino: el trigger hermano juntaría los leads de
 // todos los embudos y la exclusión de familia no se enteraría.
-async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambito: AmbitoFunnel, etiquetaId: number | null = null): Promise<number[]> {
+async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambito: AmbitoFunnel, etiquetaId: number | null = null): Promise<number[]> {
   const supabase = (await getTenantDb());
 
   if (triggerTipo === TRIGGER_ETIQUETA) return leadsConEtiqueta(supabase, etiquetaId, ambito);
@@ -861,7 +921,9 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambit
   const fechaDesde45 = haceDiasISO(45).slice(0, 10); // YYYY-MM-DD, ventana de hitos recientes
 
   if (triggerTipo === 'etapa_actual') {
-    if (!etapa) return [];
+    // Una o VARIAS (punto 14): entra quien esté parado en CUALQUIERA de ellas.
+    const keys = listaDeEtapas(etapa);
+    if (!keys.length) return [];
     // Ventana anti-revival de 90 días sobre el ÚLTIMO HITO del lead (no sobre su
     // edad): un lead viejo con una transición fresca (agendó, tuvo reunión)
     // entra; uno sin actividad en 90 días queda afuera.
@@ -880,7 +942,7 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambit
         { eq: { estado_lead: 'abierto' }, filtros: (q) => conAmbito(q, ambito) },
       );
     } catch (e) {
-      throw new Error(`cohorte etapa_actual(${etapa}): ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`cohorte etapa_actual(${keys.join(', ')}): ${e instanceof Error ? e.message : String(e)}`);
     }
     type LeadEtapa = { id: number; estado_lead: 'abierto'; pipeline_stage: string | null; fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; nutricion_realizada: boolean | null; created_at: string };
     const corte = Date.now() - 90 * 86400 * 1000;
@@ -893,7 +955,7 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambit
     );
     return (data as LeadEtapa[])
       .filter((l) => ultimoHito(l) >= corte)
-      .filter((l) => pipelineStageOf({ ...l, nutricion_realizada: l.nutricion_realizada ?? undefined }) === etapa)
+      .filter((l) => keys.includes(pipelineStageOf({ ...l, nutricion_realizada: l.nutricion_realizada ?? undefined })))
       .map((l) => l.id);
   }
 
@@ -1280,7 +1342,9 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
     // deja al commit de al lado sin su ocurrencia.
     if (!barridoInscribe(sec)) continue;
     if (!decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora).toca) continue;
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id, sec.etiqueta_id));
+    // `etapasDe(sec)`: una o VARIAS etapas (punto 14). La MISMA pregunta que el commit de abajo. No
+    // duplica al pasar por dos: `aInscribir` saltea a quien ya tiene fila (una de etapa no se reusa).
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id));
     if (candidatos.length === 0) continue;
     const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
       .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
@@ -1387,7 +1451,8 @@ export async function comprometerInscripciones(): Promise<number> {
       if (agenda.toca && (reclamadas ?? []).length === 0) continue;
     }
     if (!agenda.toca) continue;
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id, sec.etiqueta_id));
+    // Una o varias etapas (punto 14).
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id));
     if (candidatos.length === 0) continue;
     // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y
     // el insert moría contra el unique — o sea que igual cortaba, pero con un
@@ -1506,20 +1571,24 @@ export async function secuenciasPorEtapaDeEntrega(productoId: number): Promise<R
   if (!Number.isFinite(productoId) || productoId <= 0) return null;
   try {
     const supabase = await getTenantDb();
-    const { data, error } = await supabase
+    // Con `etapas` (mig 0230) y sin ella si todavía no está: la misma tolerancia que las lecturas
+    // del motor, y sólo a la columna que falta.
+    const pedir = (cols: string) => supabase
       .from('nutricion_secuencias')
-      .select('etapa')
+      .select(cols)
       .eq('trigger_tipo', TRIGGER_ENTREGA)
       .eq('producto_id', productoId);
+    let { data, error } = await pedir('etapa, etapas');
+    if (error && esColumnaInexistente(error)) ({ data, error } = await pedir('etapa'));
     if (error) {
       console.error(`[nutricion] secuenciasPorEtapaDeEntrega(${productoId}): ${error.message}`);
       return null;
     }
     const out: Record<string, number> = {};
-    for (const r of (data ?? []) as Array<{ etapa: string | null }>) {
-      const key = (r.etapa ?? '').trim();
-      if (!key) continue;
-      out[key] = (out[key] ?? 0) + 1;
+    // Una secuencia de VARIAS etapas (punto 14) cuenta en CADA una: borrar cualquiera de ellas la
+    // deja disparando por menos, y el editor tiene que poder avisarlo.
+    for (const r of (data ?? []) as unknown as Array<{ etapa: string | null; etapas?: string[] | null }>) {
+      for (const key of etapasDe(r)) out[key] = (out[key] ?? 0) + 1;
     }
     return out;
   } catch (e) {
@@ -1549,19 +1618,26 @@ export async function secuenciasPorEtapaDeEntrega(productoId: number): Promise<R
  *
  * Devuelve cuántas cerró. Nunca tira: cerrar de menos deja un mensaje de más, que es
  * malo, pero romper el movimiento del kanban es peor.
+ *
+ * ⚠️ `etapaHacia` (punto 14): una secuencia de VARIAS etapas que cubre también la etapa nueva NO
+ * se cierra — el momento del que habla no terminó, y la inscripción única no la dejaría reabrir
+ * (`secuenciasQueSeCierran`, lib/nutricion-etapa.ts). Sin destino (salir de la entrega), se cierra
+ * todo lo de la etapa que se deja.
  */
 export async function cerrarEntregaDeEtapa(
   leadId: number,
   etapaDesde: string | null | undefined,
   productoId: number | string | null | undefined,
+  etapaHacia?: string | null,
 ): Promise<number> {
   try {
     const key = (etapaDesde ?? '').trim();
     if (!key) return 0;
     const supabase = await getTenantDb();
     // Las secuencias de LA ETAPA QUE SE DEJA, con el mismo criterio con el que se
-    // enrolan las de la etapa nueva: una función, no dos.
-    const deLaEtapa = secuenciasDeEntrega(await getSecuenciasActivas(), key, productoId);
+    // enrolan las de la etapa nueva (`secuenciasQueSeCierran` filtra con `secuenciasDeEntrega`):
+    // una función, no dos.
+    const deLaEtapa = secuenciasQueSeCierran(await getSecuenciasActivas(), key, etapaHacia, productoId);
     if (!deLaEtapa.length) return 0;
     const { data, error } = await supabase
       .from('nutricion_inscripciones')
@@ -1666,8 +1742,9 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     if (evento === 'entrega') {
       // PRIMERO se cierra lo de la etapa que se deja y DESPUÉS se enrola en la nueva:
       // al revés, un movimiento de ida y vuelta dejaría viva la inscripción de la etapa
-      // que el cliente ya no tiene.
-      await cerrarEntregaDeEtapa(leadId, ctx?.desde, ctx?.productoId);
+      // que el cliente ya no tiene. Con la etapa NUEVA (punto 14): una secuencia que cubre
+      // las dos sigue corriendo.
+      await cerrarEntregaDeEtapa(leadId, ctx?.desde, ctx?.productoId, ctx?.etapa);
       delEvento = secuenciasDeEntrega(delEvento, ctx?.etapa, ctx?.productoId);
     }
     // ⚠️ LA ETIQUETA TAMBIÉN PREGUNTA POR *CUÁL*, como la etapa: sin esto, ponerle «Cualificado»
@@ -2297,17 +2374,37 @@ async function hechosDelCatalogo(
     }
     return m;
   };
-  const leerPagos = async (): Promise<Map<number, Array<{ pagado: boolean | null; fecha_esperada: string | null }>> | null> => {
+  // `numero` (cuarta tanda, punto 6): la cuota N de «No pagó la cuota N» es la fila con ese número, la
+  // que el CRM dibuja «Cuota N» (lib/pagos.ts la escribe, único por lead_id + numero).
+  type CuotaLeida = { numero: number | null; pagado: boolean | null; fecha_esperada: string | null };
+  const leerPagos = async (): Promise<Map<number, CuotaLeida[]> | null> => {
     if (!pide('pagos')) return null;
-    const m = new Map<number, Array<{ pagado: boolean | null; fecha_esperada: string | null }>>();
+    const m = new Map<number, CuotaLeida[]>();
     for (const tanda of enTandas(ids, 200)) {
-      for (const r of await leerTodo<{ id: number; lead_id: number; pagado: boolean | null; fecha_esperada: string | null }>(db, 'pagos', 'id, lead_id, pagado, fecha_esperada', {
+      for (const r of await leerTodo<{ id: number; lead_id: number; numero: number | null; pagado: boolean | null; fecha_esperada: string | null }>(db, 'pagos', 'id, lead_id, numero, pagado, fecha_esperada', {
         orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
       })) {
         const arr = m.get(Number(r.lead_id)) ?? [];
-        arr.push({ pagado: r.pagado, fecha_esperada: r.fecha_esperada });
+        arr.push({ numero: r.numero, pagado: r.pagado, fecha_esperada: r.fecha_esperada });
         m.set(Number(r.lead_id), arr);
       }
+    }
+    return m;
+  };
+  // El ORDEN de las reuniones de los embudos que nombran las filas (cuarta tanda, punto 5): UNA lectura
+  // por embudo nombrado, no por lead. Es la config, la misma para todo el lote. Un embudo borrado no
+  // tiene orden (sus etapas dan «no sé»); una lectura que falla TIRA, como todo lo de acá: con el
+  // pipeline de fábrica, «la primera reunión» sería la de otro embudo (AGENTS.md, la lectura que cae al
+  // default sirve para dibujar, nunca para decidir).
+  const leerReuniones = async (): Promise<Map<number, string[]> | null> => {
+    if (!pide('reuniones')) return null;
+    const [{ getFunnelDe }, { reunionesDe }] = await Promise.all([import('@/lib/funnels'), import('@/lib/funnel-etapas')]);
+    const m = new Map<number, string[]>();
+    for (const id of embudosDeReunionDeFilas(filas)) {
+      const cfg = await getFunnelDe(id);
+      if (cfg.origen === 'error') throw new Error(`condición por reunión: no se pudo leer el embudo ${id}`);
+      if (cfg.origen === 'sin-fila') continue;
+      m.set(id, reunionesDe(cfg.stages));
     }
     return m;
   };
@@ -2384,12 +2481,14 @@ async function hechosDelCatalogo(
   };
   const leerHoy = async (): Promise<string> => (pide('pagos') ? hoyEnTz(await tzActual()) : '');
 
-  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy] = await Promise.all([
+  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones] = await Promise.all([
     leerVsl(), leerClics(), leerRespuestas(), leerPagos(), leerCurso(), leerAcceso(), leerComunidad(), leerEntrega(), leerCs(), leerHoy(),
+    leerReuniones(),
   ]);
 
   return (f, ahoraMs) => {
     const c: HechosCatalogo = { lead: catalogoDeLead(f, ahoraMs) };
+    if (reuniones) c.reuniones = reuniones;
     const vid = typeof f.visitor_id === 'string' && f.visitor_id ? f.visitor_id : null;
     if (vsl) {
       // Sin visitante no se lo pudo seguir: «no sé». Con visitante y sin eventos, 0 (no reprodujo).
@@ -2413,7 +2512,10 @@ async function hechosDelCatalogo(
         : [];
       c.respuestas = normalizarTexto([...(respuestas.get(f.id) ?? []), ...viejas, ...meta].join(' · '));
     }
-    if (pagos) c.pagos = resumenPagos(pagos.get(f.id) ?? [], hoy);
+    if (pagos) {
+      const suyas = pagos.get(f.id) ?? [];
+      c.pagos = { ...resumenPagos(suyas, hoy), cuotas: estadoDeCuotas(suyas, hoy) };
+    }
     if (curso) c.curso = resumenCursoDeAlumno(curso.clases, curso.progreso.get(f.id));
     if (acceso) c.acceso = acceso.get(f.id) ?? null;
     if (comunidad) {
@@ -2949,8 +3051,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const hechos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
         const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead) });
         const canalCtl = pasoLeido.canal;
-        // Las flechas en paralelo que la resolución encontró (de una espera o del inicio) arrancan
-        // con cualquier desenlace del camino, salvo un cierre de la inscripción entera.
+        // Las flechas en paralelo que la resolución encontró (de una espera, del inicio o —cuarta
+        // tanda, punto 8— del RESULTADO elegido de una condición) arrancan con cualquier desenlace
+        // del camino, salvo un cierre de la inscripción entera. Un hilo por flecha, por la misma
+        // puerta (`escribir`, con su compare-and-set de `hilos_rev`).
         const nuevos = r.tipo === 'faltan_hechos' ? [] : nuevosDe(sec, r.repartos, lead);
         if (nuevos.some((n) => Date.parse(n.proximo) <= Date.now())) { vistos.delete(insc.id); otraVuelta = true; }
         const cerrar = async (motivo: string, rastro: boolean, alcance: 'hilo' | 'inscripcion' = 'hilo'): Promise<void> => {
@@ -2969,7 +3073,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // Una condición que cierra ANTES de que salga nada (la «Llegó hace menos de N h» del
           // conversor) deja su rastro, como lo dejaba el tope de antigüedad de antes (#789).
           const porCondicion = r.via.some((id) => claseDe(sec.pasos[indicePorId(sec.pasos, id)] ?? {}) === 'condicion');
-          await cerrar(porCondicion ? 'la condición cerró el flujo sin mandar nada' : r.motivo, porCondicion && esPrimerPaso(sec.pasos, idxLeido));
+          // ⚠️ CON FLECHAS EN PARALELO ARRANCANDO (`nuevos`: las de una espera o, desde la cuarta tanda,
+          // las del resultado elegido de una condición), ESTE camino termina pero el flujo NO: el rastro
+          // de «la condición cerró el flujo sin mandar nada» mentiría sobre un lead al que le van a
+          // llegar los mensajes de los otros hilos (y contaría un omitido).
+          const cerroElFlujo = porCondicion && !nuevos.length;
+          await cerrar(cerroElFlujo ? 'la condición cerró el flujo sin mandar nada' : r.motivo, cerroElFlujo && esPrimerPaso(sec.pasos, idxLeido));
           continue;
         }
         // Estos dos cierran la INSCRIPCIÓN entera: la condición que hacía verdadero al flujo dejó

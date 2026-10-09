@@ -165,7 +165,7 @@ export const RUNNERS: Runners = {
         pasos: s.pasos.map((p, i) => esNodoDeControl(p) ? ({
           // Una tarjeta de CONTROL no manda nada: decide por dónde sigue el flujo.
           orden: p.orden, id: idDe(p, i), tipo: p.nodo, siguiente: siguienteDe(s.pasos, i), espera: p.espera ?? null,
-          ramas: p.ramas ?? null, casos: p.casos ?? null, si_no: p.si_no ?? null, destino: p.destino ?? null,
+          ramas: p.ramas ?? null, casos: p.casos ?? null, si_no: p.si_no ?? null, paralelos_si_no: p.paralelos_si_no ?? null, destino: p.destino ?? null,
         }) : esPasoAccion(p) ? ({
           // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
           orden: p.orden, id: idDe(p, i), tipo: 'accion', delay_horas: p.delay_horas, ancla: p.ancla ?? null, requiere: p.requiere ?? null,

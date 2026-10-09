@@ -9,7 +9,7 @@
 //        { action:'sugerir-gancho'|'sugerir-preguntas', objetivo, etapa } → { sugerencias }
 //        { action:'guardar-estrategia', secuenciaId, estrategia }         → { ok }
 //        { action:'probar', secuenciaId }                 → prueba en vivo al admin
-//        { action:'trigger', id, trigger_tipo, etapa?, producto_id?, funnel_id?, etiqueta_id? }
+//        { action:'trigger', id, trigger_tipo, etapa?, etapas?, producto_id?, funnel_id?, etiqueta_id? }
 //                                                          → «qué lo dispara» (400 si no se puede)
 //        { action:'emoji', secuenciaId, emoji | null }    → el emoji del título (mig 0229; 400 si no es uno)
 //        { action:'duplicar', secuenciaId }               → { secuenciaId, nombre } (la copia nace PAUSADA)
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
     action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown;
     handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown;
     id?: unknown; trigger_tipo?: unknown; producto_id?: unknown; funnel_id?: unknown; etiqueta_id?: unknown;
-    emoji?: unknown;
+    emoji?: unknown; etapas?: unknown[];
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -174,6 +174,8 @@ export async function POST(req: NextRequest) {
         await setTriggerSecuencia(id, {
           trigger_tipo: String(body.trigger_tipo ?? ''),
           etapa: body.etapa == null ? null : String(body.etapa),
+          // VARIAS etapas de un mismo kanban (cuarta tanda, punto 14): las sanea y valida la puerta.
+          etapas: Array.isArray(body.etapas) ? body.etapas.map((x) => String(x ?? '')) : null,
           producto_id: num(body.producto_id), etiqueta_id: num(body.etiqueta_id),
           // «No vino» no es «null» (= todos los embudos): sin la clave, el embudo no se toca.
           ...('funnel_id' in body ? { funnel_id: num(body.funnel_id) } : {}),

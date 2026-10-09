@@ -644,4 +644,29 @@ export const BITACORA: Hito[] = [
       'tests/agenda-sin-ia.test.ts — centinelas; 23 roturas',
     ],
   },
+  // ── 9 de octubre: Chatwoot fuera ──────────────────────────────────────────────
+  {
+    fecha: '9 oct', hora: '12:53', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sacar la integración con Chatwoot',
+    pedido: 'Elimina de todos lados la integración con Chatwoot, que no exista más. Guardalo en privado, por si en un futuro queremos volver a utilizarla, pero por ahora quitalo. Hazlo rapido, sin multi agente, es facil',
+    puntos: [
+      'Medido antes de tocar: Chatwoot estaba en 122 archivos y era la base de la bandeja oficial de /whatsapp, con el ws1 conectado. Martín eligió «Apagarla ya» y borrar el código de fondo después.',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '12:53', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Chatwoot apagado con un interruptor, y guardado en una etiqueta de git',
+    puntos: [
+      '**Un solo corte en `cfg()`** (lib/chatwoot.ts): toda llamada pasa por ahí y todo el que decide pregunta `chatwootConfigurado()`, así que con `CHATWOOT_APAGADO` contestan «no» para todos.',
+      '**Lo que se ve, aparte:** la tarjeta ya no se le muestra a nadie, la pestaña oficial de /whatsapp no se dibuja, el webhook contesta 200 sin procesar, y tres textos dejaron de nombrarlo (privacidad incluida).',
+      '**En privado:** el código entero quedó en la etiqueta `archivo/chatwoot-2026-10-09`. Las credenciales de los clientes no se borraron.',
+    ],
+    archivos: [
+      'lib/chatwoot.ts — `CHATWOOT_APAGADO` y el corte en `cfg()`',
+      'tests/sin-chatwoot.test.ts — los seis cortes; 6 roturas',
+      'docs/hallazgos-comunicacion.md — «Chatwoot APAGADO: un interruptor, no 122 archivos borrados»',
+    ],
+  },
 ];

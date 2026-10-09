@@ -24,11 +24,51 @@ está a medias: lo hecho está en `main` (push `9165da11`). El pedido literal de
 - **13.** El filtro al lado del buscador, por estado y por emoji, con «Quitar filtro». El «⋯»
   abre hacia afuera.
 
+**ESTADO 09/10 ~13:00 (cuota 98 %, leer esto primero):**
+- UNIDAS en `chatbot-v2` (wt-chatbot) con sus bloqueantes aplicados: `wip-v4-condiciones` (7, 5, 6b), `wip-v4-flechas` (8)
+  y `wip-v4-cron` (14; trae la mig **0230_secuencia_etapas.sql**, que va ANTES del deploy; el código tolera que falte:
+  guardar varias etapas contesta «Aún no se pueden varias etapas»). Suite verde. Si no se llegó a pushear: aplicar la 0230
+  (`node scripts/apply-migration.mjs` desde el clon) y `git push origin HEAD:main` desde wt-chatbot.
+- CORRIENDO en segundo plano (si la cuota cortó, quedaron a medias en sus ramas locales): `wip-v4-editores` (1 + el 3 de la
+  quinta: segundos y minutos en el DELAY), `wip-v4-whatsapp` (15 + el 1 de la quinta: «Probar» con logo, desplegable de
+  números guardados y el lead RECIÉN LLEGADO para elegir rama), `wip-v4-email` (16) — workflow `wf_f6f9b9a0-933`, retomable
+  con `resumeFromRunId`; y `wip-v5-lista` (4 y 5 de la quinta) + un diagnóstico del ＋ del medio de las flechas y del arrastre
+  — workflow `wf_8c0dd6fe-093`. Los reportes de cada parte quedan en el `journal.jsonl` de su workflow
+  (`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/461dd390-9e4f-44a5-810a-0e9efe9b8ae0/subagents/workflows/<runId>/`).
+- **TERMINADA y SIN UNIR: `wip-v5-lista`** (puntos 4 y 5 de la quinta; suite verde en su rama, 6071/0). Filtro del Plan en la
+  lista (app/chatbot/FiltroLista.tsx, lib/chatbot-lista-filtro.ts) y los flujos de Configuraciones › Notificaciones en /chatbot
+  (app/chatbot/MensajeMakoLienzo.tsx, lib/chatbot-mensajes-mako.ts, `/chatbot?aviso=<id>`); en Notificaciones queda «Editar en
+  Chatbot ↗». Para unir: `git merge wip-v5-lista` en wt-chatbot + su bloqueante (`MUELLE.listaAncho` 272 → 320 en
+  lib/lienzo-grafo.ts) + npm test + push. Decide Martín: ¿/mensajes (el catálogo de la agencia) también se muda a /chatbot?
+- **DIAGNÓSTICO del punto 2 (en el journal de `wf_8c0dd6fe-093`):** (a) el ＋ del medio NO se rompió: es un cuadrado invisible
+  de 28 px en el punto medio y la flecha no reacciona fuera de él (antes la etiqueta «24 h» lo marcaba). Arreglo: un segundo
+  `<path>` transparente por arista, strokeWidth 14-16, `vectorEffect='non-scaling-stroke'`, `pointerEvents:'stroke'`, que dé
+  el hover a TODA la flecha (app/_components/Lienzo.tsx ~601-613). (b) /chatbot NUNCA pudo mover tarjetas: FlujoLienzo no pasa
+  `onMover`. Hace falta una columna `nutricion_secuencias.posiciones jsonb` (nunca en `pasos` ni `estrategia`), relativa al
+  CRON, escrita por su propia acción, mezclada con el layout derivado; cambia la regla de AGENTS.md «el layout de /chatbot no se
+  guarda» (Martín ya lo pidió).
+- Pendientes de las tres unidas (en sus reportes): sacar `onAgregarRama` de FlujoLienzo.tsx:435 (no bloquea); decidir si
+  «Agendó» se retira (dice lo mismo que «Tiene reunión agendada»); el panel del CRON tiene que medir su contenido (~130-410
+  px según el horario: lo hace la parte «editores»); Crear con IA no conoce las flechas por resultado; con «felicitar a un
+  alumno que terminó una clase» la IA elige TODAS las etapas de entrega, pero llegar a una etapa es terminar un MÓDULO, no
+  una clase (decide Martín).
+
+**QUINTA TANDA (09/10 ~12:20, pedido literal en la bitácora):** 1. «Probar» con el logo del canal arriba a la
+izquierda, «Probar en WhatsApp» al lado de ↻ que abre un desplegable con los números guardados y «Nuevo número» (el form
+de teléfono con banderas), igual con Email; y la prueba de «Bienvenida» no mostró el mensaje porque siguió por el «Sí» de
+«Agendó» (que salta a otra automatización): «Probar» tiene que evaluar las condiciones como un lead RECIÉN LLEGADO (sin
+agenda, sin pago, recién entrado), no siempre el «Sí». 2. el ＋ del medio de una flecha desapareció y las tarjetas no se
+mueven (diagnóstico en wf_8c0dd6fe-093). 3. minutos y segundos en el DELAY (el motor corre cada hora: hay que resolver
+la precisión, no sólo ofrecer la unidad). 4. el filtro del Plan en la lista (ícono, secciones Emojis / Estado / Canal con
+«A clientes» y «Al WhatsApp de MaKo», multi-selección, «Quitar filtros» sutil abajo) y la lista más ancha. 5. los flujos
+de «Notificaciones» (Mensajes de MaKo) adentro de /chatbot, y en esa tab un enlace en vez del lienzo. 4 y 5 en la rama
+local `wip-v5-lista` (wf_8c0dd6fe-093); 1, 2 y 3 después de unir la cuarta.
+
 **EN CONSTRUCCIÓN (09/10 ~12:00, cuenta `claude2` en 93 %):** Martín dijo «Continua con el resto». Un
 workflow con seis partes en worktrees, cada una en su rama LOCAL `wip-v4-<parte>` (sin pushear):
 `condiciones` (7, 5, 6b), `flechas` (8), `cron` (14 + el editor del CRON del punto 1 + revisar Crear con
 IA), `editores` (1), `whatsapp` (15), `email` (16). Si se corta: cada rama tiene sus commits WIP; se
-retoma con `resumeFromRunId` o se termina a mano desde la rama. Después: unir en `chatbot-v2`, enchufar
+retoma con `resumeFromRunId: "wf_f6f9b9a0-933"` (script en `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main-wt-chatbot/461dd390-9e4f-44a5-810a-0e9efe9b8ae0/workflows/scripts/chatbot-cuarta-tanda-resto-wf_f6f9b9a0-933.js`; worktrees en `dashboard-marketing/.claude/worktrees/wf_f6f9b9a0-933-N`) o se termina a mano desde la rama. Después: unir en `chatbot-v2`, enchufar
 los bloqueantes, aplicar la migración del CRON (0230 o la que toque) ANTES del push, suite entera, push.
 
 ⚠️ **El punto 11 (más acciones del CRM y de CS) NO va en esta tanda:** el chat «API de MaKo» las está

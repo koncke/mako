@@ -62,10 +62,14 @@ import {
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, HILO_RESPUESTA,
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, hiloDe,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, repartenEnBucle,
+  RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
 import { LEAD_DEL_EVENTO } from './api-mako/flujo-params';
+// Puro (sólo importa ./nutricion-ambito, sin imports): la regla de cuáles etapas disparan (`etapasDe`).
+import { etapasDe, normalizarEtapas } from './nutricion-etapa';
+import { alternarValor } from '../app/components/dropdown-varios';
 export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo, PuertoNodo, FamiliaNodo } from './lienzo-grafo';
 export { curvaEntre, medioDeCurva, ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y } from './lienzo-grafo';
 
@@ -202,9 +206,17 @@ export function detalleDisparador(d: {
   etiquetaTrigger?: string | null;
   nombreEtapa?: string | null;
   nombreEtiqueta?: string | null;
+  /**
+   * Con VARIAS etapas (cuarta tanda, punto 14): sus nombres, en el orden en que se eligieron. Con dos
+   * o más, mandan sobre `nombreEtapa`. `todas`: son todas las de su kanban.
+   */
+  nombresEtapas?: readonly string[] | null;
+  todas?: boolean;
 }): string {
   if (d.cron) return textoCron(d.cron, d.tz ?? null);
   if (d.trigger_tipo === 'etapa_actual' || d.trigger_tipo === 'entrega_actual') {
+    const nombres = (d.nombresEtapas ?? []).map((n) => n.trim()).filter(Boolean);
+    if (nombres.length > 1) return fraseEtapas(nombres, d.todas === true, d.trigger_tipo === 'entrega_actual' ? 'entrega' : 'venta');
     return `Llega a «${(d.nombreEtapa || d.etapa || 'una etapa').trim()}»`;
   }
   if (d.trigger_tipo === 'etiqueta_puesta') return `Se le puso «${d.nombreEtiqueta || 'una etiqueta'}»`;
@@ -508,6 +520,61 @@ export function subarbolRespuesta(pasos: readonly PasoGrafo[]): Set<string> {
   return r ? descendientes(pasos, r) : new Set();
 }
 
+/**
+ * QUÉ FILAS DE RESULTADO admiten una flecha en paralelo NUEVA (cuarta tanda, punto 8: «varias si se
+ * cumple y varias si no se cumple»), como `<condición>|<resultado>` → sí/no. `pasos`, normalizados.
+ *
+ * Lo que se ofrece sale de la regla que Publicar RECHAZA: se arma el flujo HIPOTÉTICO con la flecha
+ * nueva (`insertarNodo`, lo mismo que hace el ＋) y tiene que pasar `validarGrafo` sin ningún error
+ * que hoy no esté. Los topes, «Si responde» y el bucle se preguntan ADEMÁS a mano, con las mismas
+ * funciones (`contarParalelos`, `nodosEnBucle`): un error que YA está en la lista («corre como mucho
+ * 6 caminos», «"Si responde" no puede…») repetido no se ve como nuevo. Y al revés, el hipotético ve lo
+ * que ningún chequeo a mano mira (hoy: el tope de 60 tarjetas).
+ *
+ * ⚠️ MEMORIZADO POR LA FORMA DEL FLUJO. Medido el 09/10/2026: con un `validarGrafo` hipotético por fila,
+ * `grafoDeSecuencia` pasaba de 4,4 ms a 75-110 ms en un flujo de 57 tarjetas y 19 condiciones, y corre
+ * en CADA render del lienzo (FlujoLienzo no lo memoriza: una tecla en un editor es un render). La
+ * respuesta depende sólo de la FORMA (ids, clases, salidas, flechas, destinos): lo que depende del
+ * contenido (una fila de condición incompleta, una espera sin minutos, un caso sin nombre) da el MISMO
+ * error en el flujo de hoy y en el hipotético, así que no cambia la resta. Una sola entrada: la del
+ * flujo que se está editando.
+ */
+let memoFilasConParalelo: { firma: string; filas: ReadonlyMap<string, boolean> } | null = null;
+
+export function filasConParalelo(pasos: readonly PasoGrafo[]): ReadonlyMap<string, boolean> {
+  const firma = JSON.stringify(pasos.map((p, i) => [
+    idDe(p, i), claseDe(p), p.siguiente ?? null, p.paralelos ?? null,
+    (p.ramas ?? []).map((r) => [r.id, r.siguiente ?? null, r.paralelos ?? null]),
+    p.si_no ?? null, p.paralelos_si_no ?? null, (p.casos ?? []).map((c) => [c.id, c.siguiente ?? null]), p.destino ?? null,
+  ]));
+  if (memoFilasConParalelo?.firma === firma) return memoFilasConParalelo.filas;
+  const filas = new Map<string, boolean>();
+  const condiciones = pasos.map((p, i) => i).filter((i) => claseDe(pasos[i]) === 'condicion');
+  if (condiciones.length) {
+    const ids = pasos.map((p, i) => idDe(p, i));
+    const resp = raizRespuesta(pasos);
+    const enRespuesta = new Set(resp ? [resp, ...descendientes(pasos, resp)] : []);
+    const enBucle = nodosEnBucle(pasos);
+    const caminos = 1 + contarParalelos(pasos);
+    const erroresHoy = new Set(validarGrafo(pasos));
+    const idDePrueba = nuevoId(pasos, () => 0.5);
+    for (const i of condiciones) {
+      for (const resultado of [...(pasos[i].ramas ?? []).map((r) => r.id), RESULTADO_SI_NO]) {
+        let si = !enRespuesta.has(ids[i]) && !enBucle.has(ids[i]) && caminos < TOPE_HILOS
+          && paralelosDeResultado(pasos[i], resultado).length < TOPE_PARALELOS;
+        if (si) {
+          const prueba = { ...relleno(), id: idDePrueba } as unknown as PasoGrafo;
+          const hipotetico = insertarNodo(pasos, { nodo: ids[i], puerto: puertoParalelo(null, resultado) }, prueba);
+          si = hipotetico.some((q) => q.id === idDePrueba) && validarGrafo(hipotetico).every((e) => erroresHoy.has(e));
+        }
+        filas.set(`${ids[i]}|${resultado}`, si);
+      }
+    }
+  }
+  memoFilasConParalelo = { firma, filas };
+  return filas;
+}
+
 export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: OpcionesGrafo): GrafoFlujo {
   const pasos = normalizar(pasosIn);
   const ids = pasos.map((p, i) => idDe(p, i));
@@ -537,11 +604,16 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // de un bucle». Una flecha nueva no arma un bucle (la tarjeta que crea no sigue en nada), así
   // que alcanza con mirar el flujo como está.
   const paralelosDe = (i: number) => puertosDe(pasos, i).filter((pt) => pt.puerto.startsWith('par:')).length;
-  const caminos = 1 + pasos.reduce((s, _, i) => s + paralelosDe(i), 0);
+  // Los caminos con la MISMA cuenta que `validarGrafo` (`contarParalelos`): las flechas de las tarjetas
+  // y, desde la cuarta tanda, las de cada resultado de una condición.
+  const caminos = 1 + contarParalelos(pasos);
   const enBucle = nodosEnBucle(pasos);
   const admiteParalelo = (i: number): boolean => i >= 0
     ? puedeTenerParalelos(pasos[i]) && !enRespuesta.has(ids[i]) && ids[i] !== resp && !enBucle.has(ids[i]) && caminos < TOPE_HILOS && paralelosDe(i) < TOPE_PARALELOS
     : caminos < TOPE_HILOS;
+  // ── Y las de cada RESULTADO de una condición (cuarta tanda, punto 8): `filasConParalelo` ──
+  const conParalelo = filasConParalelo(pasos);
+  const admiteEnResultado = (i: number, resultado: string): boolean => conParalelo.get(`${ids[i]}|${resultado}`) === true;
 
   // ── La tarjeta de cada paso (sin posición todavía) ──
   type Tarjeta = Omit<NodoFlujo, 'x' | 'y'>;
@@ -555,8 +627,12 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     const base = { id, ancho: ANCHO_NODO };
     let t: Tarjeta;
     if (c === 'condicion') {
-      const puertos: PuertoNodo[] = (p.ramas ?? []).map((r) => ({ id: r.id, rotulo: textoRama(r, op.nombres), tono: 'buena' as const, vacio: !r.siguiente }));
-      puertos.push({ id: 'si_no', rotulo: 'Si no', tono: 'mala', vacio: !p.si_no });
+      // Cada fila es un RESULTADO: con `paralelo` ofrece el ＋ de una flecha en paralelo desde ESA fila
+      // (cuarta tanda, punto 8), y las que ya salen en paralelo (`par:<id>@<resultado>`) se dibujan
+      // desde ella.
+      const enParalelo = (resultado: string) => (admiteEnResultado(i, resultado) ? { paralelo: true } : {});
+      const puertos: PuertoNodo[] = (p.ramas ?? []).map((r) => ({ id: r.id, rotulo: textoRama(r, op.nombres), tono: 'buena' as const, vacio: !r.siguiente, ...enParalelo(r.id) }));
+      puertos.push({ id: RESULTADO_SI_NO, rotulo: 'Si no', tono: 'mala', vacio: !p.si_no, ...enParalelo(RESULTADO_SI_NO) });
       t = { ...base, tipo: 'condicion', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'respuesta') {
       const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: x.titulo?.trim() || 'Caso sin nombre', tono: 'buena' as const, vacio: !x.siguiente }));
@@ -880,6 +956,9 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
  *     inicio: `insertarNodo` lo crea con la primera.
  *   · El del MEDIO de una flecha en paralelo (`puerto: 'par:<id>'`): la tarjeta nueva queda en el
  *     medio de ESA flecha.
+ *   · El de la fila de un RESULTADO de una condición con el punto ocupado (`puerto: 'par@<resultado>'`,
+ *     cuarta tanda, punto 8): una flecha en paralelo NUEVA desde ese resultado; y el del medio de una
+ *     de ellas (`'par:<id>@<resultado>'`). Viajan tal cual: `insertarNodo` los entiende.
  */
 export function lugarDesdeLienzo(nodo: string, puerto?: string): LugarInsercion {
   if (nodo === ID_ENTRADA) {
@@ -980,7 +1059,10 @@ export function quitarRama<P extends PasoGrafo>(pasos: readonly P[], condId: str
   const c = nodoPorId(pasos, condId);
   const r = c?.ramas?.find((x) => x.id === ramaId);
   if (!c || !r) return [...pasos];
-  const sin = sacarSubarbol(pasos, r.siguiente);
+  // La rama se lleva también el subárbol de cada flecha en paralelo suya (cuarta tanda, punto 8): si no,
+  // quedan tarjetas sueltas que Publicar rechaza.
+  let sin = sacarSubarbol(pasos, r.siguiente);
+  for (const d of paralelosDeResultado(c, ramaId)) sin = sacarSubarbol(sin, d);
   const c2 = nodoPorId(sin, condId)!;
   return cambiarNodo(sin, condId, { ramas: (c2.ramas ?? []).filter((x) => x.id !== ramaId) } as Partial<P>);
 }
@@ -1137,6 +1219,8 @@ export type EtiquetaParaDisparo = { id: number; nombre: string; archivada_at?: s
 export type DisparoActual = {
   trigger_tipo: string; etapa?: string | null; funnel_id?: number | null;
   producto_id?: number | null; etiqueta_id?: number | null;
+  /** VARIAS etapas del mismo kanban (punto 14, mig 0230). Cuáles disparan lo dice `etapasDe`. */
+  etapas?: readonly string[] | null;
 };
 
 /** Un paso del desplegable del CRON: sus opciones, o los pasos de adentro (`grupos`). */
@@ -1146,12 +1230,86 @@ export type SeccionDisparo = { title: string; options: OpcionDisparo[]; grupos?:
 export const KANBAN_ADQUISICION = 'Adquisición de clientes';
 export const KANBAN_ENTREGA = 'Entrega del servicio';
 
-/** El valor del desplegable para lo que la secuencia tiene puesto. */
+/**
+ * El valor del desplegable para lo que la secuencia tiene puesto.
+ *
+ * Con VARIAS etapas (punto 14) las claves van juntas detrás del ámbito, separadas por coma:
+ * `entrega:9:onb,hito1,hito2`. Es UN string a propósito: es lo que viaja entre «Crear con IA», la
+ * ruta, el 409 con lo guardado y la tarjeta CRON (`ListoIA.disparador`, `disparoDeValor`), y así
+ * ninguno de esos caminos necesitó otro campo. Una clave de etapa no lleva coma: las de la entrega
+ * son `[a-z0-9_]` (`nuevaClaveEtapa`) y las del embudo, de fábrica o `st<N>`.
+ */
 export function valorDisparo(s: DisparoActual): string {
-  if (s.trigger_tipo === 'etapa_actual') return `venta:${s.funnel_id ?? ''}:${s.etapa ?? ''}`;
-  if (s.trigger_tipo === 'entrega_actual') return `entrega:${s.producto_id ?? ''}:${s.etapa ?? ''}`;
+  if (s.trigger_tipo === 'etapa_actual') return `venta:${s.funnel_id ?? ''}:${etapasDe(s).join(',')}`;
+  if (s.trigger_tipo === 'entrega_actual') return `entrega:${s.producto_id ?? ''}:${etapasDe(s).join(',')}`;
   if (s.trigger_tipo === 'etiqueta_puesta') return `etiqueta:${s.etiqueta_id ?? ''}`;
   return `trigger:${s.trigger_tipo}`;
+}
+
+/**
+ * Lo puesto, como los valores de UNA etapa cada uno (los de las opciones del desplegable): es lo que
+ * el Dropdown marca con `varios`. Un disparador sin etapa es un valor solo.
+ */
+export function valoresDisparo(s: DisparoActual): string[] {
+  return separarValor(valorDisparo(s));
+}
+
+/** `venta:5:a,b` → [`venta:5:a`, `venta:5:b`]. Lo demás, tal cual. */
+export function separarValor(valor: string): string[] {
+  const m = /^(venta|entrega):([^:]*):(.*)$/.exec(valor);
+  if (!m) return valor ? [valor] : [];
+  const keys = normalizarEtapas(m[3].split(','));
+  return keys.length ? keys.map((k) => `${m[1]}:${m[2]}:${k}`) : [];
+}
+
+/** El KANBAN de un valor: `venta:<embudo>` o `entrega:<producto>`. null = no es de etapa. */
+export function kanbanDeValor(valor: string): string | null {
+  const m = /^(venta|entrega):([^:]*):/.exec(valor);
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+
+/**
+ * LOS VALORES DESPUÉS DE TOCAR UNA OPCIÓN del desplegable del CRON (punto 14: «quiero que en el CRON
+ * se puedan seleccionar más de 1 etapa»).
+ *
+ *   · Una etapa del MISMO kanban que lo puesto → se prende o se apaga (`alternarValor`, la misma del
+ *     Dropdown), y la última no se apaga: un CRON sin etapa no dispara nunca.
+ *   · Una etapa de OTRO kanban (la entrega en vez de la adquisición, u otro producto) → REEMPLAZA a
+ *     lo puesto. Un CRON es de UN kanban: su ámbito (`funnel_id` o `producto_id`) es una columna, así
+ *     que mezclar no se puede ni guardar. Reemplazar es lo que la persona espera cuando cambia de
+ *     kanban; sumarla en silencio no se podría escribir.
+ *   · Una etiqueta → reemplaza todo (dispara UNA).
+ */
+export function valoresTrasTocar(actuales: readonly string[], tocado: string): string[] {
+  const k = kanbanDeValor(tocado);
+  if (!k) return [tocado];
+  const mismos = actuales.filter((v) => kanbanDeValor(v) === k);
+  if (mismos.length !== actuales.length || !mismos.length) return [tocado];
+  return alternarValor([...mismos], tocado, 1);
+}
+
+/** Los valores de UN kanban, juntos en el valor que se guarda (`venta:5:a,b`). Vacío → ''. */
+export function valorDeVarios(valores: readonly string[]): string {
+  if (!valores.length) return '';
+  const k = kanbanDeValor(valores[0]);
+  if (!k) return valores[0];
+  const keys = normalizarEtapas(valores.filter((v) => kanbanDeValor(v) === k).map((v) => v.slice(k.length + 1)));
+  return `${k}:${keys.join(',')}`;
+}
+
+/**
+ * CÓMO SE DICEN VARIAS ETAPAS, en el botón del desplegable y en la tarjeta CRON (punto 14: «el botón
+ * dice cuántas o cuáles»). Dice CUÁLES mientras entren en un renglón y, si son todas las del kanban,
+ * lo dice así — es lo que la persona eligió, no una lista que hay que leer.
+ *   · 2 → `Llega a «A» o «B»`
+ *   · todas (3+) → `Cualquier etapa de la entrega` / `… de la venta`
+ *   · 3+ → `Llega a «A», «B» y 3 más`
+ */
+export function fraseEtapas(nombres: readonly string[], todas: boolean, kanban: 'venta' | 'entrega'): string {
+  if (nombres.length === 1) return `Llega a «${nombres[0]}»`;
+  if (nombres.length === 2) return `Llega a «${nombres[0]}» o «${nombres[1]}»`;
+  if (todas) return kanban === 'entrega' ? 'Cualquier etapa de la entrega' : 'Cualquier etapa de la venta';
+  return `Llega a «${nombres[0]}», «${nombres[1]}» y ${nombres.length - 2} más`;
 }
 
 /** Todas las opciones de un árbol de pasos, aplanadas (para saber si lo puesto está). */
@@ -1268,22 +1426,29 @@ function planoDe(g: SeccionDisparo, producto: string | null, varios: boolean): {
  * de qué producto y de qué kanban); cerrado, el botón tiene que decirlo todo.
  */
 export function rotuloDisparo(secs: readonly SeccionDisparo[], valor: string, textoActual: string): string {
-  const buscar = (s: readonly SeccionDisparo[], ruta: string[]): string[] | null => {
+  // El camino de títulos hasta una opción, y cuántas opciones tiene su paso (para «todas»).
+  const buscar = (s: readonly SeccionDisparo[], ruta: string[], v: string): { ruta: string[]; enElPaso: number } | null => {
     for (const g of s) {
-      const o = g.options.find((x) => x.value === valor);
-      if (o) return [...ruta, g.title, o.label];
-      const r = buscar(g.grupos ?? [], [...ruta, g.title]);
+      const o = g.options.find((x) => x.value === v);
+      if (o) return { ruta: [...ruta, g.title, o.label], enElPaso: g.options.length };
+      const r = buscar(g.grupos ?? [], [...ruta, g.title], v);
       if (r) return r;
     }
     return null;
   };
-  const r = buscar(secs, []);
-  if (!r) return textoActual;
+  // VARIAS etapas (punto 14): cada una se busca por su valor de UNA etapa. Si alguna no está en la
+  // lista (la borraron del kanban), el botón dice lo puesto como lo dice la tarjeta (`textoActual`).
+  const partes = separarValor(valor);
+  const halladas = partes.map((v) => buscar(secs, [], v));
+  if (!halladas.length || halladas.some((h) => !h)) return textoActual;
+  const r = halladas[0]!.ruta;
   if (r[r.length - 2] === 'Etiquetas') return r[r.length - 1];
-  const etapa = r[r.length - 1];
   // [Productos, <producto>, <kanban>, <etapa>]; con un solo producto, [Productos, <kanban>, <etapa>].
   const producto = r.length >= 4 ? r[r.length - 3] : null;
-  return producto ? `${producto} · Llega a «${etapa}»` : `Llega a «${etapa}»`;
+  const nombres = halladas.map((h) => h!.ruta[h!.ruta.length - 1]);
+  const todas = nombres.length >= 3 && nombres.length === halladas[0]!.enElPaso;
+  const frase = fraseEtapas(nombres, todas, r[r.length - 2] === KANBAN_ENTREGA ? 'entrega' : 'venta');
+  return producto ? `${producto} · ${frase}` : frase;
 }
 
 /**
@@ -1341,10 +1506,14 @@ export function frenoDelFlujo(pasos: readonly PasoGrafo[], faltanEnAccion?: Falt
  *  /api/chat-agent/secuencias, `action: 'trigger'`). null = el valor no se entiende. */
 export function pedidoDisparo(valor: string, secuenciaId: number): Record<string, unknown> | null {
   const [clase, ambito, ...resto] = valor.split(':');
-  const etapa = resto.join(':');
+  // VARIAS etapas (punto 14) viajan juntas, con coma (`valorDisparo`). Con una sola, el pedido es
+  // EXACTAMENTE el de siempre (sin `etapas`): la ruta, la API y los tests viejos lo siguen leyendo igual.
+  const keys = clase === 'venta' || clase === 'entrega' ? normalizarEtapas(resto.join(':').split(',')) : [];
+  const etapa = keys[0] ?? '';
+  const varias = keys.length > 1 ? { etapas: keys } : {};
   if (clase === 'trigger' && ambito) return { action: 'trigger', id: secuenciaId, trigger_tipo: [ambito, ...resto].join(':') };
-  if (clase === 'venta' && etapa) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'etapa_actual', etapa, funnel_id: ambito ? Number(ambito) : null };
-  if (clase === 'entrega' && etapa && Number(ambito) > 0) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'entrega_actual', etapa, producto_id: Number(ambito) };
+  if (clase === 'venta' && etapa) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'etapa_actual', etapa, ...varias, funnel_id: ambito ? Number(ambito) : null };
+  if (clase === 'entrega' && etapa && Number(ambito) > 0) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'entrega_actual', etapa, ...varias, producto_id: Number(ambito) };
   if (clase === 'etiqueta' && Number(ambito) > 0) return { action: 'trigger', id: secuenciaId, trigger_tipo: 'etiqueta_puesta', etiqueta_id: Number(ambito) };
   return null;
 }
@@ -1381,5 +1550,8 @@ export function disparoDeValor(valor: string, previo: DisparoActual): DisparoAct
     funnel_id: (p.funnel_id as number | null | undefined) ?? null,
     producto_id: (p.producto_id as number | undefined) ?? null,
     etiqueta_id: (p.etiqueta_id as number | undefined) ?? null,
+    // Con una sola etapa, null (como la fila que escribe `escribirDisparador`): así la firma de lo
+    // pintado y la de la relectura coinciden y no se vuelve a sembrar de gusto.
+    etapas: (p.etapas as string[] | undefined) ?? null,
   };
 }

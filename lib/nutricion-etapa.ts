@@ -25,12 +25,57 @@
 
 import { leadEnAmbito, type AmbitoFunnel } from './nutricion-ambito';
 
+// ── VARIAS ETAPAS (cuarta tanda, punto 14; mig 0230) ──────────────────────────────
+// Pedido de Martín (09/10/2026): «tal vez yo quiera enviar esa automatización en varias etapas,
+// entonces quiero que en el CRON se puedan seleccionar más de 1 etapa». `etapa` (text) es UNA; la
+// lista vive en `etapas` (text[]), y `etapa` sigue escribiéndose con la primera para los lectores
+// viejos (la API de MaKo, /email, el generador de copy, la clonación).
+
+/** Cuántas etapas puede tener un CRON. Un kanban de la casa no pasa de ~15; el tope corta un pedido roto. */
+export const TOPE_ETAPAS = 30;
+
+/** Una lista de claves limpia: sin vacíos, sin espacios alrededor, sin repetidas, en su orden, con tope. */
+export function normalizarEtapas(lista: unknown): string[] {
+  if (!Array.isArray(lista)) return [];
+  const out: string[] = [];
+  for (const x of lista) {
+    const k = typeof x === 'string' ? x.trim() : '';
+    if (k && !out.includes(k)) out.push(k);
+    if (out.length >= TOPE_ETAPAS) break;
+  }
+  return out;
+}
+
+/**
+ * LAS ETAPAS QUE DISPARAN UNA SECUENCIA. Una función y no un campo: la leen el evento (venta y
+ * entrega), el barrido del cron, el cierre de la etapa que se deja, el conteo por etapa del editor de
+ * Customer Success y el desplegable del CRON. Con dos copias de la regla, una se queda vieja.
+ *
+ * `etapas` MANDA cuando no está vacía Y su PRIMERA es `etapa`; si no, vale `etapa` sola.
+ *
+ * ⚠️ LA COHERENCIA NO ES PROLIJIDAD: es lo que vuelve inofensivos a los escritores VIEJOS. La API de
+ * MaKo (`cambiar_disparador_secuencia`, `email.run`) y /email (`actualizarMetaEmailSecuencia`)
+ * escriben sólo `etapa`. Sin esta condición, cambiarle la etapa por ahí a una secuencia que tenía
+ * [a, b] la dejaba disparando por [a, b] con la pantalla del que la cambió diciendo «c». Con ella, la
+ * lista vieja deja de coincidir y se ignora sola. (El caso que no cubre: un escritor viejo que pone
+ * `etapa` = la primera de la lista; ahí sigue la lista. Por eso la regla de la casa es que quien
+ * escribe `etapa` escriba también `etapas`.)
+ */
+export function etapasDe(s: { etapa?: string | null; etapas?: readonly unknown[] | null }): string[] {
+  const una = (s.etapa ?? '').trim();
+  const lista = normalizarEtapas(s.etapas ?? null);
+  if (lista.length && lista[0] === una) return lista;
+  return una ? [una] : [];
+}
+
 /** Lo mínimo que hace falta de una secuencia para saber si esta etapa la dispara. */
 export type SecuenciaDeEtapa = {
   id: number;
   trigger_tipo: string;
   /** La key del stage del que cuelga. Sin etapa no hay nada que comparar. */
   etapa: string | null;
+  /** Las de un CRON con varias etapas (mig 0230). Manda según `etapasDe`. */
+  etapas?: readonly string[] | null;
   /** El ámbito de embudo YA resuelto (`ambitoDeSecuencia`): el caller es el único que
    *  puede saber si ese embudo es el del negocio. */
   ambito: AmbitoFunnel;
@@ -61,9 +106,12 @@ export function secuenciasDeEtapa<T extends SecuenciaDeEtapa>(
   // seguro: un evento sin la etapa adentro NO puede caer en «entonces todas».
   const key = (etapa ?? '').trim();
   if (!key) return [];
+  // CUALQUIERA de sus etapas (punto 14): una secuencia de [agenda, facturando] la dispara caer en
+  // cualquiera de las dos. Que no se duplique al pasar por las dos lo cuida la inscripción única
+  // (lead, secuencia): el evento saltea a quien ya tiene fila (`enrolarPorEvento`).
   return secuencias.filter((s) => (
     s.trigger_tipo === TRIGGER_ETAPA
-    && (s.etapa ?? '').trim() === key
+    && etapasDe(s).includes(key)
     && leadEnAmbito(s.ambito, leadFunnelId)
   ));
 }
@@ -76,6 +124,8 @@ export type SecuenciaDeEntrega = {
   id: number;
   trigger_tipo: string;
   etapa: string | null;
+  /** Las de un CRON con varias etapas de la entrega (mig 0230). Manda según `etapasDe`. */
+  etapas?: readonly string[] | null;
   /** El producto de cuya entrega cuelga. NULL = la entrega de cualquier producto. */
   producto_id?: number | string | null;
 };
@@ -113,12 +163,35 @@ export function secuenciasDeEntrega<T extends SecuenciaDeEntrega>(
   if (prod == null || !Number.isFinite(prod)) return [];
   return secuencias.filter((s) => {
     if (s.trigger_tipo !== TRIGGER_ENTREGA) return false;
-    if ((s.etapa ?? '').trim() !== key) return false;
+    if (!etapasDe(s).includes(key)) return false;
     // NULL = la entrega de CUALQUIER producto, igual que `funnel_id` NULL en la venta.
     if (s.producto_id == null || s.producto_id === '') return true;
     const suyo = Number(s.producto_id);
     return Number.isFinite(suyo) && suyo === prod;
   });
+}
+
+/**
+ * LO QUE SE CIERRA AL DEJAR UNA ETAPA DE LA ENTREGA: las secuencias de `desde`, MENOS las que
+ * también cubren `hacia` (punto 14).
+ *
+ * ⚠️ SIN LA RESTA, UNA SECUENCIA DE VARIAS ETAPAS SE CORTABA SOLA en su propio recorrido. El evento
+ * cierra lo de la etapa que se deja ANTES de enrolar en la nueva (`cerrarEntregaDeEtapa`, lib/
+ * nutricion.ts), y la inscripción única hace que enrolar no reabra lo cerrado: un cliente con la
+ * felicitación en [hito1, hito2, hito3] que pasaba de hito1 a hito2 se quedaba sin el resto del
+ * flujo. Para una secuencia que también cubre la etapa nueva, el momento del que habla NO terminó.
+ * `hacia` vacío (salir de la entrega, o un movimiento sin destino) = se cierra todo lo de `desde`.
+ */
+export function secuenciasQueSeCierran<T extends SecuenciaDeEntrega>(
+  secuencias: readonly T[],
+  desde: string | null | undefined,
+  hacia: string | null | undefined,
+  productoId: number | string | null | undefined,
+): T[] {
+  const deLaQueSeDeja = secuenciasDeEntrega(secuencias, desde, productoId);
+  const destino = (hacia ?? '').trim();
+  if (!destino) return deLaQueSeDeja;
+  return deLaQueSeDeja.filter((s) => !etapasDe(s).includes(destino));
 }
 
 /**

@@ -241,7 +241,9 @@ test('validarIA rechaza un monto que no está en el pedido', () => {
 // rotura (sin el 409 de la activa): 1 fallo de 24 (con flujo-ia-ruta), cae éste.
 test('crear: una automatización ACTIVA no se crea con IA (409, «Pausa esta automatización primero»)', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
-  assert.match(ruta, /\.select\('id, nombre, pasos, activa[^']*'\)/);
+  // Desde la cuarta tanda (punto 14) la lectura pasa por `leerSec(cols)`, que vuelve a pedir sin
+  // `etapas` si la 0230 no está: lo que se cuida es lo mismo, que `activa` se lea.
+  assert.match(ruta, /leerSec\('id, nombre, pasos, activa[^']*'\)/);
   assert.match(ruta, /if \(modo === 'crear' && \(sec as \{ activa\?: unknown \}\)\.activa === true\) \{\n\s*return Response\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 409 \}\);/);
 });
 

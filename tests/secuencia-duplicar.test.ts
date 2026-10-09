@@ -15,10 +15,10 @@ import {
 } from '../lib/secuencia-duplicar';
 
 /** Las 18 columnas de `nutricion_secuencias`, medidas el 09/10/2026 contra information_schema, más el emoji (mig 0229). */
-const COLUMNAS = ['id', 'clave', 'nombre', 'etapa', 'trigger_tipo', 'activa', 'pasos', 'created_at', 'updated_at', 'workspace_id', 'estrategia', 'archivada_at', 'funnel_id', 'producto_id', 'cron', 'cron_proxima_at', 'instance_name', 'etiqueta_id', 'emoji'];
+const COLUMNAS = ['id', 'clave', 'nombre', 'etapa', 'etapas', 'trigger_tipo', 'activa', 'pasos', 'created_at', 'updated_at', 'workspace_id', 'estrategia', 'archivada_at', 'funnel_id', 'producto_id', 'cron', 'cron_proxima_at', 'instance_name', 'etiqueta_id', 'emoji'];
 
 const ORIGINAL: FilaOriginal = {
-  id: 198, clave: 'bienvenida', nombre: 'Bienvenida para quien agenda una llamada', etapa: 'agendado', trigger_tipo: 'etapa',
+  id: 198, clave: 'bienvenida', nombre: 'Bienvenida para quien agenda una llamada', etapa: 'agendado', etapas: ['agendado', 'facturando'], trigger_tipo: 'etapa',
   activa: true, pasos: [{ id: 'a', orden: 1, canal: 'whatsapp', cuerpo: 'Hola' }], created_at: '2026-10-01', updated_at: '2026-10-08',
   workspace_id: 1, estrategia: { objetivo: 'agendar' }, archivada_at: null, funnel_id: 3, producto_id: 9,
   cron: { unidad: 'dia', cada: 1, hora: 9, minuto: 0 }, cron_proxima_at: '2026-01-01T15:00:00Z', instance_name: 'linea-2', etiqueta_id: null, emoji: '🎯',

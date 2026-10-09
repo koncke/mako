@@ -59,7 +59,7 @@ async function api(endpoint: string, body: unknown): Promise<{ ok: boolean; erro
  * scroll anidado. Son dos props y no un `embebido` porque son dos decisiones: el
  * alto lo manda la fila del grid, y el marco, quién lo dibuja.
  */
-export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true }: {
+export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true, insetIzq }: {
   plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void;
   /**
    * Abre la vista de PROBAR (el chat). Opcional a propósito: el que no la implementa
@@ -71,6 +71,14 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
   onVerChat?: () => void;
   endpoint?: string;
   alto?: number | string; marco?: boolean;
+  /**
+   * Lo que tapa una pieza apoyada sobre el borde IZQUIERDO del lienzo: la lista de /chatbot, que
+   * desde la quinta tanda (punto 5) monta este mismo detalle para los Mensajes de MaKo. Va directo
+   * al `insetIzq` del lienzo (chrome, zoom, panel del nodo y encuadre: AGENTS.md, «Apoyar algo
+   * sobre el borde de un lienzo son CUATRO lugares»). Es un NÚMERO y no un flag `embebido`: cuánto
+   * tapa lo decide quien apoya la pieza (`muelles`), no este componente. Ausente = 0, como siempre.
+   */
+  insetIzq?: number;
 }) {
   const crear = plantilla === null;
   const [titulo, setTitulo] = useState(plantilla?.titulo ?? '');
@@ -289,6 +297,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
            sentido». */
         <FlujoAviso
           id={id}
+          insetIzq={insetIzq}
           disparador={plantilla.disparador}
           frecuenciaMin={plantilla.frecuenciaMin}
           texto={texto}
