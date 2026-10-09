@@ -116,8 +116,32 @@ export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'dupl
 // El emoji que se eligió en el título (tercera tanda, decisión 8: `nutricion_secuencias.emoji`) y, sin
 // uno elegido, el del objetivo, como el chrome del lienzo. El objetivo puede ser uno del catálogo O uno
 // que escribió el dueño: para esos no hay emoji propio y cae al genérico.
-const emojiSecuencia = (j: SecuenciaDto): string =>
+export const emojiSecuencia = (j: Pick<SecuenciaDto, 'emoji' | 'estrategia'>): string =>
   j.emoji || (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
+
+/** El emoji del recordatorio de la reunión en la lista (es una fila más, y también se filtra). */
+const EMOJI_RECORDATORIO = '⏰';
+/** El valor del renglón «Quitar filtro»: no es un filtro, vuelve a la lista entera. */
+export const QUITAR_FILTRO = '__quitar';
+
+/**
+ * Las opciones del filtro de la lista (cuarta tanda, punto 13): por estado, por cada emoji que se ve
+ * en la lista (con cuántas tiene), y «Quitar filtro» sólo si hay uno puesto. Sin «Todas»: sin filtro
+ * el botón dice «Filtrar».
+ */
+export function opcionesDeFiltro(
+  secuencias: ReadonlyArray<Pick<SecuenciaDto, 'activa' | 'emoji' | 'estrategia'>>, filtro: string, emojiRecordatorio: string | null,
+): Array<{ value: string; label: string }> {
+  const porEmoji = new Map<string, number>();
+  for (const j of secuencias) { const e = emojiSecuencia(j); porEmoji.set(e, (porEmoji.get(e) ?? 0) + 1); }
+  if (emojiRecordatorio) porEmoji.set(emojiRecordatorio, (porEmoji.get(emojiRecordatorio) ?? 0) + 1);
+  return [
+    ...(filtro ? [{ value: QUITAR_FILTRO, label: 'Quitar filtro' }] : []),
+    { value: 'activas', label: `Activas · ${secuencias.filter((j) => j.activa).length}` },
+    { value: 'pausadas', label: `Pausadas · ${secuencias.filter((j) => !j.activa).length}` },
+    ...[...porEmoji.entries()].map(([e, n]) => ({ value: `emoji:${e}`, label: `${e} · ${n}` })),
+  ];
+}
 
 const API_SECUENCIAS = '/api/chat-agent/secuencias';
 
@@ -190,7 +214,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   abrir?: AbrirSecuencia | null;
 }) {
   const [busq, setBusq] = useState('');
-  const [filtro, setFiltro] = useState<'todas' | 'activas' | 'pausadas'>('todas');
+  /** '' = sin filtro · 'activas' · 'pausadas' · `emoji:<el emoji>` (cuarta tanda, punto 13). */
+  const [filtro, setFiltro] = useState<string>('');
   const [elegida, setSelId] = useState<number | typeof ID_RECORDATORIO | ''>('');
   /** La que estaba elegida antes de abrir una fila que se está creando: si falla, se vuelve. */
   const [volverA, setVolverA] = useState<number | typeof ID_RECORDATORIO | ''>('');
@@ -231,19 +256,23 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const creandoSel = !!sel && esFilaCreando(sel);
   // La fila que se está creando nace PAUSADA: con «Activas» o un texto en el buscador no se vería,
   // y «aparece YA en la lista» es lo que se pidió. Se limpian AL DIBUJAR, sólo mientras está elegida.
-  if (creandoSel && (filtro !== 'todas' || busq)) { setFiltro('todas'); setBusq(''); }
+  if (creandoSel && (filtro !== '' || busq)) { setFiltro(''); setBusq(''); }
 
   // ⚠️ EL BUSCADOR BUSCA POR NOMBRE, que es lo único que la lista muestra (pedido de Martín,
   // 08/10/2026, punto 3: «elimina el subtitulo, solo el título»). Buscar por un gancho que no se
   // ve devolvía filas que no dicen por qué coinciden.
   const q = busq.trim().toLowerCase();
-  const pasaFiltro = (activa: boolean) => filtro === 'todas' || (filtro === 'activas') === activa;
+  const pasaFiltro = (activa: boolean | null, emoji: string) =>
+    filtro === '' ? true
+      : filtro.startsWith('emoji:') ? filtro.slice(6) === emoji
+        : activa != null && (filtro === 'activas') === activa;
   const lista = useMemo(
-    () => secuencias.filter((j) => (filtro === 'todas' || (filtro === 'activas') === j.activa) && (!q || j.nombre.toLowerCase().includes(q))),
+    () => secuencias.filter((j) => pasaFiltro(j.activa, emojiSecuencia(j)) && (!q || j.nombre.toLowerCase().includes(q))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [secuencias, q, filtro],
   );
   const verRecordatorio = rolAdmin
-    && (filtro === 'todas' || (recordatorioActivo != null && pasaFiltro(recordatorioActivo)))
+    && pasaFiltro(recordatorioActivo, EMOJI_RECORDATORIO)
     && (!q || NOMBRE_RECORDATORIO.toLowerCase().includes(q));
 
   /**
@@ -322,7 +351,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         const r = await pedir(API_SECUENCIAS, 'POST', { action: 'duplicar', secuenciaId: j.id });
         if (!r.ok || !(Number(r.secuenciaId) > 0)) { setErrFila({ id: j.id, texto: r.error || 'No se pudo duplicar' }); return; }
         // La copia nace pausada: con «Activas» no se vería.
-        if (filtro === 'activas') setFiltro('todas');
+        if (filtro !== '') setFiltro('');
         setAbrirCopia(Number(r.secuenciaId));
       }
       onReload();
@@ -472,19 +501,19 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         {/* El buscador va SIEMPRE, como en el molde. Antes aparecía con más de seis
             secuencias, y un control que aparece solo es un control que nadie busca. */}
         <div style={{ flex: 'none', padding: '14px 14px 12px', borderBottom: '1px solid var(--border)' }}>
-          <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar" aria-label="Buscar por nombre"
-            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
-          <div style={{ marginTop: 10 }}>
-            {/* El filtro del molde es por categoría; acá la pregunta equivalente es por
-                ESTADO. Una pausada no manda nada, y es lo que uno busca cuando algo no
-                sale. Un filtro que devuelve siempre la misma lista sería ruido. */}
-            <Dropdown value={filtro} onChange={(v) => setFiltro(v as 'todas' | 'activas' | 'pausadas')} width={180}
-              ariaLabel="Filtrar secuencias" buttonStyle={{ padding: '8px 11px', fontSize: 13 }}
-              options={[
-                { value: 'todas', label: `Todas · ${secuencias.length}` },
-                { value: 'activas', label: `Activas · ${secuencias.filter((j) => j.activa).length}` },
-                { value: 'pausadas', label: `Pausadas · ${secuencias.filter((j) => !j.activa).length}` },
-              ]} />
+          {/* EL FILTRO VA AL LADO DEL BUSCADOR, en la misma fila (cuarta tanda, punto 13: «al lado
+              debe estar el desplegable de "Todas, activas, etc..." y agrega la opción de filtrar por
+              emojis. Y en ese caso, elimina "Todas" simplemente, eliminar filtro»). Por ESTADO (una
+              pausada no manda nada, y es lo que uno busca cuando algo no sale) o por EMOJI (el que
+              se ve en la fila, también el que pone MaKo cuando no eligieron uno). */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar" aria-label="Buscar por nombre"
+              style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
+            <div style={{ flex: 'none' }}>
+              <Dropdown value={filtro} placeholder="Filtrar" onChange={(v) => setFiltro(v === QUITAR_FILTRO ? '' : v)} width={104}
+                ariaLabel="Filtrar secuencias" buttonStyle={{ padding: '9px 10px', fontSize: 13 }} menuMinAncho={190} search={false}
+                options={opcionesDeFiltro(secuencias, filtro, rolAdmin ? EMOJI_RECORDATORIO : null)} />
+            </div>
           </div>
         </div>
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
@@ -507,7 +536,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
                     /* ⚠️ VA EL `Dropdown` DE LA CASA y no un menú propio: la lista scrollea
                        (`overflowY: auto`) y un menú en flujo se recortaría contra su borde. Éste se
                        dibuja por portal. Es el molde del «⋯» de las columnas del CRM. */
-                    <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha search={false}
+                    // El menú abre hacia AFUERA de la lista (cuarta tanda, punto 13: «debería salir
+                    // para el otro lado, no tapar a la tarjeta de la secuencia»).
+                    <Dropdown value="" placeholder="⋯" align="afuera" resetAfterSelect sinFlecha search={false}
                       ariaLabel={`Opciones de ${j.nombre}`} disabled={ocupada === j.id}
                       buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
                       options={opcionesDeFila(j.activa)}
@@ -521,7 +552,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               emisor de siempre; la lista sólo lo abre en su lienzo. Sin «⋯»: no se duplica ni
               se archiva (no es una fila de secuencias), y se prende en su propio lienzo. */}
           {verRecordatorio && (
-            <ItemLista on={selId === ID_RECORDATORIO} activa={recordatorioActivo === true} emoji="⏰" nombre={NOMBRE_RECORDATORIO} onClick={() => elegir(ID_RECORDATORIO)} />
+            <ItemLista on={selId === ID_RECORDATORIO} activa={recordatorioActivo === true} emoji={EMOJI_RECORDATORIO} nombre={NOMBRE_RECORDATORIO} onClick={() => elegir(ID_RECORDATORIO)} />
           )}
         </div>
         {/* El pie de la lista: lo que antes era una franja arriba del lienzo y le comía

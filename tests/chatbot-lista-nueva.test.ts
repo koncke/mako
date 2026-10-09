@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  SimuladorWhatsApp, filaCreando, listaConCreando, claveCreando, esFilaCreando, opcionesDeFila, NOMBRE_CREANDO,
+  SimuladorWhatsApp, filaCreando, listaConCreando, claveCreando, esFilaCreando, opcionesDeFila, NOMBRE_CREANDO, opcionesDeFiltro, QUITAR_FILTRO,
 } from '../app/chatbot/SimuladorWhatsApp';
 import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
 
@@ -118,7 +118,7 @@ test('la selección SIGUE a la fila cuando toma su id real (por su clave), y si 
   const cambiar = recorte(lista, 'const cambiarA = (id: number | typeof ID_RECORDATORIO) => {', '\n  };', 600);
   assert.match(cambiar, /if \(typeof id === 'number' && id < 0\) setVolverA\(selId\);/);
   // La nueva nace pausada: con «Activas» o un texto en el buscador no se vería.
-  assert.match(lista, /if \(creandoSel && \(filtro !== 'todas' \|\| busq\)\) \{ setFiltro\('todas'\); setBusq\(''\); \}/);
+  assert.match(lista, /if \(creandoSel && \(filtro !== '' \|\| busq\)\) \{ setFiltro\(''\); setBusq\(''\); \}/);
 });
 
 test('«Nueva» tiene su animación al pasar el cursor (el ＋ gira), quieta con reduced-motion, y el hover le gana al estilo', () => {
@@ -148,7 +148,8 @@ test('cada fila tiene su «⋯» (el menú de la casa): Activar o Pausar, Duplic
   // Sin admin, sin menú (el POST es sólo del admin).
   assert.doesNotMatch(dibujar([SECUENCIA], { rolAdmin: false }), /Opciones de Bienvenida/);
   const lista = LISTA();
-  assert.match(lista, /<Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha search=\{false\}/);
+  // Cuarta tanda, punto 13: el menú abre hacia AFUERA de la lista, sin tapar la tarjeta.
+  assert.match(lista, /<Dropdown value="" placeholder="⋯" align="afuera" resetAfterSelect sinFlecha search=\{false\}/);
   assert.match(lista, /options=\{opcionesDeFila\(j\.activa\)\}/);
 });
 
@@ -182,3 +183,16 @@ test('la copia se abre cuando llega en la lista, pero NO si hay algo sin publica
 //     perdiendo contra un fondo en línea; L8 la copia se abre aunque haya algo sin publicar; L9 con
 //     «Activas» la nueva no se ve; L10 el «⋯» adentro del botón de la fila.
 //   · A1 la fila aparece después del POST; A2 la lista dibujada sin la fila nueva.
+
+test('el filtro de la lista: al lado del buscador, por estado y por emoji, y «Quitar filtro» en vez de «Todas» (cuarta tanda, punto 13)', () => {
+  const secs = [{ activa: true, emoji: '🗓️', estrategia: null }, { activa: false, emoji: '🗓️', estrategia: null }, { activa: true, emoji: null, estrategia: null }];
+  const sin = opcionesDeFiltro(secs, '', '⏰');
+  assert.deepEqual(sin.map((o) => o.label), ['Activas · 2', 'Pausadas · 1', '🗓️ · 2', '⚑ · 1', '⏰ · 1']);
+  assert.ok(!sin.some((o) => /Todas/.test(o.label)), 'volvió «Todas»');
+  assert.equal(opcionesDeFiltro(secs, 'activas', null)[0].value, QUITAR_FILTRO, 'con un filtro puesto, lo primero es quitarlo');
+  assert.ok(!opcionesDeFiltro(secs, '', null).some((o) => o.value === QUITAR_FILTRO), '«Quitar filtro» sin filtro puesto');
+  // Y va en la MISMA fila que el buscador.
+  const lista = LISTA();
+  const fila = lista.slice(lista.indexOf('aria-label="Buscar por nombre"') - 200, lista.indexOf('ariaLabel="Filtrar secuencias"'));
+  assert.ok(fila.length > 0 && fila.length < 900, 'el filtro no está al lado del buscador');
+});

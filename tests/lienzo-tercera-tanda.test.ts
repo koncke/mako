@@ -214,7 +214,7 @@ test('⚠️ el emoji se toca en el chrome, se guarda por su acción y el GET lo
   // mismo emoji que el chrome, con el mismo respaldo (el del objetivo).
   assert.match(perfil, /const emojiProp = secuencia\.emoji \?\? null;/);
   assert.match(sinComentarios(leer('../app/chatbot/ChatAgentApp.tsx')), /emoji\?: string \| null;/);
-  assert.match(sinComentarios(leer('../app/chatbot/SimuladorWhatsApp.tsx')), /const emojiSecuencia = \(j: SecuenciaDto\): string =>\n\s+j\.emoji \|\| \(j\.estrategia/);
+  assert.match(sinComentarios(leer('../app/chatbot/SimuladorWhatsApp.tsx')), /const emojiSecuencia = \(j: Pick<SecuenciaDto, 'emoji' \| 'estrategia'>\): string =>\n\s+j\.emoji \|\| \(j\.estrategia/);
   assert.match(perfil, /const j = await api\(\{ action: 'emoji', secuenciaId: secuencia\.id, emoji: e \}\);/);
   assert.match(perfil, /const emojiVisto = emojiGuardado \|\| \(est \? \(EMOJI_OBJ\[est\.objetivo as Objetivo\] \?\? '🎯'\) : '⚑'\);/, 'sin emoji guardado, el del objetivo');
   const ruta = sinComentarios(leer('../app/api/chat-agent/secuencias/route.ts'));

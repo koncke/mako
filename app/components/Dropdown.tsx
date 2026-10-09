@@ -348,7 +348,10 @@ export function Dropdown({
   onChange: (value: string) => void;
   placeholder?: string;
   width?: number | string;
-  align?: 'left' | 'right';
+  /** De qué lado del botón se abre el menú. `afuera`: a la DERECHA del botón y a su altura, sin
+   *  taparlo ni tapar lo que está a su izquierda (el «⋯» de una fila de una lista: «el desplegable
+   *  debería salir para el otro lado, no tapar a la tarjeta», 09/10/2026). */
+  align?: 'left' | 'right' | 'afuera';
   buttonStyle?: CSSProperties;
   /** Para selects-acción (ej. "Mover a…"): no refleja la selección, vuelve al placeholder. */
   resetAfterSelect?: boolean;
@@ -489,7 +492,9 @@ export function Dropdown({
     const r = ref.current.getBoundingClientRect();
     const lugar = lugarDelMenu({ top: r.top, bottom: r.bottom, ventana: window.innerHeight, alto });
     const up = lugar.arriba;
-    const vertical = up ? { bottom: window.innerHeight - r.top + SEPARACION_MENU } : { top: r.bottom + SEPARACION_MENU };
+    const vertical = align === 'afuera'
+      ? (up ? { bottom: window.innerHeight - r.bottom } : { top: r.top })
+      : up ? { bottom: window.innerHeight - r.top + SEPARACION_MENU } : { top: r.bottom + SEPARACION_MENU };
     // El alto que le queda al CONTENIDO: el lugar menos el relleno y el borde de la caja.
     const espacio = Math.max(0, lugar.espacio - CAJA_MENU);
     // Con columnas el ancho del menú es conocido → clampear al viewport para
@@ -504,7 +509,7 @@ export function Dropdown({
       width: r.width,
       ...vertical,
       espacio,
-      ...(align === 'right' ? { right: window.innerWidth - r.right } : { left: r.left }),
+      ...(align === 'right' ? { right: window.innerWidth - r.right } : align === 'afuera' ? { left: r.right + SEPARACION_MENU } : { left: r.left }),
     });
   };
   const toggle = () => {
