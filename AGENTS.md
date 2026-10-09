@@ -65,12 +65,18 @@ quedaron `??` en `docs/relevo/`, a un `git clean` de desaparecer, y la cuenta qu
 veía en el repo. Se rescataron en `035931f7`. Un relevo sin commitear no es un relevo: es un
 borrador en el disco de una sesión que ya no existe.
 
-**Cómo se sabe que se viene el corte: `get_usage` (herramienta de la app).** Devuelve el % usado
-de cada ventana del plan — la de 5 horas y la **semanal**, que es la que corta — y el % de
-contexto de la sesión. **A partir del 85% semanal, cada chat escribe y commitea su relevo YA**,
-sin esperar a terminar la tanda; y el chat orquestador le avisa a Martín y les manda el
-checklist de cierre a los demás. Al 08/10/2026 la semanal estaba en 77%: el aviso llega con
-margen si alguien lo mira, y no llega nunca si nadie lo mira.
+**Cómo se sabe que se viene el corte: lo avisa un hook, solo, al 85, 90 y 95% semanal.** El %
+lo devuelve `get_usage` (herramienta de la app), y ningún script lo puede leer: no queda en
+ningún archivo local. Así que el modelo mide y lo deja en `~/.claude/uso-semanal.txt`, y el
+hook `UserPromptSubmit` (`~/.claude/bitacora-sesion.sh turno`) lo lee **en cada mensaje de
+cada chat**: si la medición tiene más de 30 minutos te pide que vuelvas a medir —hacelo, con el
+comando que trae—, y si se cruzó un umbral te da la orden de cierre una sola vez y saca una
+FOTO local de lo sin commitear (`refs/wip/semanal-u<N>-<fecha>`, no se pushea). **Cuando
+llegue la orden, se cumple antes de seguir**: relevo escrito y commiteado, lo terminado
+pusheado, lo a medias NO (pushear es desplegar a clientes, y el código sigue en este clon al
+cambiar de cuenta). El detalle, las piezas y cómo replicarlo, en
+[docs/guardado-automatico.md](docs/guardado-automatico.md); la copia versionada del hook, en
+`scripts/claude-hooks/`.
 
 **Y si igual se corta, hay una red que no depende del modelo.** El hook `SessionEnd`
 (`~/.claude/bitacora-sesion.sh fin`) commitea `docs/relevo/` y `docs/relevo.md` si quedaron

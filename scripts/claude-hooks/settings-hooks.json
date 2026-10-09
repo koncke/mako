@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.claude/bitacora-sesion.sh\" inicio",
+            "timeout": 15,
+            "suppressOutput": true,
+            "statusMessage": "Resolviendo la cuenta activa..."
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.claude/bitacora-sesion.sh\" fin",
+            "timeout": 30,
+            "suppressOutput": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.claude/bitacora-sesion.sh\" turno",
+            "timeout": 60,
+            "suppressOutput": true
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -438,4 +438,36 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — las cuatro trampas del clon compartido',
     ],
   },
+  {
+    fecha: '8 oct', hora: '23:35', chat: 'Estrategia 2 CUENTAS', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '¿Cómo me aseguro de que, cerca del límite, se guarde el contexto?',
+    pedido: 'En breves voy a pasarme a la otra cuenta, estas registrando absolutamente todo? Como me aseguro de que llegado cercano al límite se guarde contexto?',
+    puntos: [
+      'El 06/10 la cuenta 1 escribió seis briefings y se quedó sin tokens antes del commit. Pero la bitácora de sesiones tiene los `fin` de esas mismas sesiones: **el hook de cierre dispara aunque no quede cuota**. Así que el último commit puede no depender del modelo.',
+      'Sale la red: el hook `SessionEnd` commitea `docs/relevo/` si quedó escrito y sin commitear — por RUTA, con lock (cuatro sesiones cerraron en el mismo segundo) y sin push.',
+      'Y el aviso: `get_usage` devuelve el % de la ventana semanal, que es la que corta. Al 08/10 estaba en 77%.',
+    ],
+    commits: [
+      { sha: '548b0239', msg: 'AGENTS.md: cómo se sabe que se viene el corte, y la red cuando igual llega', lineas: 17, archivos: 1 },
+    ],
+  },
+  {
+    fecha: '8 oct', hora: '23:48', chat: 'Estrategia 2 CUENTAS', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que se guarde solo al 85, 90 y 95% de la cuota semanal',
+    pedido: 'Y esto no puede funcionar de manera automática? Que vayan "pusheando" los cambios que hayan realizado llegado al 85% semanal, y luego al 90% y 95%. No me interesa mucho ir guardando por la ventana de contexto, más por la ventana semanal. Y también si lo implementas, dejalo asentado que implementaste así puedo implementar lo mismo en la otra cuenta',
+    puntos: [
+      '⚠️ **Ningún script puede leer el % semanal**: no queda en ningún archivo local (el log de la app sólo lo anota cuando el límite YA se pasó, y está quieto desde agosto). Lo lee el modelo con `get_usage`. Se reparte: el modelo mide y lo deja en `~/.claude/uso-semanal.txt`; un hook `UserPromptSubmit` lo lee en cada mensaje de cada chat y dispara los umbrales. La ventana es de la CUENTA, así que cualquier chat que mida le avisa a todos.',
+      '**Lo que NO hace, a propósito: pushear lo a medias.** Pushear a `main` es desplegar a clientes, y para no perderlo no hace falta — las dos cuentas usan el mismo clon en la misma máquina. Lo que se pierde al cambiar de cuenta es el contexto, y eso es el relevo. En cada umbral: relevo commiteado, lo terminado pusheado, y una FOTO local de lo sin commitear en `refs/wip/semanal-u<N>-<fecha>` (índice temporal: no toca el compartido, no mueve la rama).',
+      'Probado en un worktree descartable con estado propio: sin medir pide medir · 70% calla · 86% ordena y saca la foto · la misma sesión no repite · otra sesión recibe el aviso sin foto nueva · 91% dispara el 90%. La foto trae lo modificado y lo sin trackear; `main` no se movió.',
+      'Para la otra cuenta: en la app de escritorio las dos usan el mismo `~/.claude`, así que **ya corre en las dos** (la bitácora tiene los `inicio`/`fin` de `claude1` escritos por este mismo hook). Sólo la terminal con `claude2` del `$PROFILE` necesita copiarlo.',
+    ],
+    archivos: [
+      'docs/guardado-automatico.md — qué hace, por qué no pushea lo a medias, cómo replicarlo y cómo verificarlo',
+      'scripts/claude-hooks/ — la copia versionada del hook y del bloque de settings.json',
+      'AGENTS.md — el aviso del corte pasa a ser automático, y la orden se cumple antes de seguir',
+      '~/.claude/bitacora-sesion.sh — la acción `turno`',
+    ],
+  },
 ];
