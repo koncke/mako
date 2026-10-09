@@ -223,6 +223,9 @@ test('el email lleva su HTML: con las variables por contexto, saneado al llegar,
   const m = sanearMensajePrueba({ canal: 'email', tipo: 'texto', texto: 'Hola', asunto: 'A', html: '<p>Hola</p><script>alert(1)</script><img src="javascript:x">' })!;
   assert.equal(m.html, '<p>Hola</p>', 'lo que manda el navegador vuelve a pasar por la lista blanca');
   assert.equal(sanearMensajePrueba({ canal: 'whatsapp', tipo: 'texto', texto: 'Hola', html: '<p>x</p>' })!.html, undefined, 'un WhatsApp no lleva HTML');
+  // Un email con sólo una imagen sale (su texto plano está vacío); uno con el HTML vacío, no.
+  assert.ok(sanearMensajePrueba({ canal: 'email', tipo: 'texto', texto: '', asunto: 'A', html: '<p><img src="https://x.com/a.png" alt=""></p>' })?.html);
+  assert.equal(sanearMensajePrueba({ canal: 'email', tipo: 'texto', texto: '', asunto: 'A', html: '<p></p>' }), null);
   assert.deepEqual(planDePrueba(m, true), [{ via: 'email', asunto: '[Prueba] A', texto: `${AVISO_PRUEBA}\n\nHola`, html: `<p>${AVISO_PRUEBA}</p><p>Hola</p>` }]);
   assert.deepEqual(planDePrueba(m, false), [{ via: 'email', asunto: 'A', texto: 'Hola', html: '<p>Hola</p>' }]);
 });

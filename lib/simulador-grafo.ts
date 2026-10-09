@@ -54,7 +54,7 @@ import {
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
 // El HTML de un email (parte C de la tercera tanda): puro y sin `server-only`, como este módulo.
-import { aplicarVariablesHtml, sanearHtmlEmail, TOPE_HTML_EMAIL } from './email-html-seguro';
+import { aplicarVariablesHtml, sanearHtmlEmail, htmlEmailVacio, TOPE_HTML_EMAIL } from './email-html-seguro';
 
 /** Topes: el motor corta a 20 saltos por corrida; acá además se cortan las vueltas infinitas. */
 export const TOPE_SALTOS = 20;
@@ -572,11 +572,13 @@ export function sanearMensajePrueba(raw: unknown): MensajePrueba | null {
   const asunto = typeof o.asunto === 'string' ? o.asunto.slice(0, 300) : null;
   const audio_id = idPositivo(o.audio_id);
   const media_id = idPositivo(o.media_id);
-  // El HTML de un email vuelve a pasar por la lista blanca: lo manda el navegador.
-  const html = canal === 'email' && typeof o.html === 'string' ? sanearHtmlEmail(o.html.slice(0, TOPE_HTML_EMAIL)) : null;
+  // El HTML de un email vuelve a pasar por la lista blanca: lo manda el navegador. Uno sin nada que
+  // leer (`<p></p>`) no viaja; uno con sólo una imagen sí, aunque su texto plano esté vacío.
+  const saneado = canal === 'email' && typeof o.html === 'string' ? sanearHtmlEmail(o.html.slice(0, TOPE_HTML_EMAIL)) : '';
+  const html = saneado && !htmlEmailVacio(saneado) ? saneado : null;
   if (canal === 'whatsapp' && tipo === 'audio' && !audio_id) return null;
   if (canal === 'whatsapp' && tipo === 'media' && !media_id) return null;
-  if (tipo === 'texto' && !texto.trim()) return null;
+  if (tipo === 'texto' && !texto.trim() && !html) return null;
   return { canal, tipo: canal === 'email' ? 'texto' : tipo, texto, asunto, audio_id, media_id, ...(html ? { html } : {}) };
 }
 

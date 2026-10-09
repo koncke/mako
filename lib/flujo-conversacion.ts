@@ -50,6 +50,8 @@
 //   · el nodo de INICIO (`'entrada'`, lib/flujo-grafo.ts) NO se dibuja: ES el CRON. Sus flechas
 //     salen de la fila «Al entrar».
 
+// Puro (sólo importa ./template-vars): la pregunta «¿este HTML tiene algo que leer?» del saneo del email.
+import { htmlEmailVacio } from './email-html-seguro';
 import {
   ANCHO_NODO, ALTO_MIN, GAP_Y, MARGEN, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, ICONO_MAKO, ICONO_GMAIL,
   encerrar, aOrigen, centroDeFilas, tieneFilas,
@@ -408,14 +410,30 @@ export function faltaEscribir(pasos: readonly PasoGrafo[]): { id: string; error:
       return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
     }
     if (claseDe(p) !== 'mensaje') continue;
-    // Un email sin asunto también está a medio escribir: saldría «(sin asunto)», que es lo que
-    // pone el motor cuando no hay, y un email nuevo nace con el asunto vacío (`nodoNuevo('email')`).
-    const vacio = p.tipo === 'audio' ? !p.audio_id : p.tipo === 'media' ? !p.media_id
-      : !(p.cuerpo ?? '').trim() || (p.canal === 'email' && !(p.asunto ?? '').trim());
     const id = idDe(p, i);
-    if (vacio) return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
+    if (mensajeVacio(p)) return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
   }
   return null;
+}
+
+/**
+ * ¿UN MENSAJE NO DICE NADA? La MISMA regla para el «Sin escribir» de la tarjeta y para el freno de
+ * Publicar (`faltaEscribir`): eran dos copias.
+ *   · Un email sin asunto está a medio escribir: saldría «(sin asunto)», que es lo que pone el motor
+ *     cuando no hay, y un email nuevo nace con el asunto vacío (`nodoNuevo('email')`).
+ *   · ⚠️ UN EMAIL CON SÓLO UNA IMAGEN NO ESTÁ VACÍO (integración de la tercera tanda): su `cuerpo` (el
+ *     texto plano derivado del editor rico) puede quedar en '' y el `cuerpo_html` tener qué mostrar.
+ *     La pregunta sobre el HTML es la del saneo (`htmlEmailVacio`), no una copia.
+ */
+export function mensajeVacio(p: PasoGrafo): boolean {
+  if (p.tipo === 'audio') return !p.audio_id;
+  if (p.tipo === 'media') return !p.media_id;
+  if (p.canal === 'email') {
+    if (!(p.asunto ?? '').trim()) return true;
+    const html = (p as { cuerpo_html?: unknown }).cuerpo_html;
+    return !(p.cuerpo ?? '').trim() && (typeof html !== 'string' || htmlEmailVacio(html));
+  }
+  return !(p.cuerpo ?? '').trim();
 }
 
 const escaparRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -598,8 +616,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         // La identidad de la app (decisión 5): el logo de WhatsApp para todo lo que sale por ahí
         // —texto, audio, archivo o escrito por MaKo— y el sobre de Gmail para el email.
         const icono = email ? ICONO_GMAIL : 'whatsapp';
-        const vacio = (p.tipo === 'audio' && !p.audio_id) || (p.tipo === 'media' && !p.media_id)
-          || (p.tipo !== 'audio' && p.tipo !== 'media' && (!(p.cuerpo ?? '').trim() || (email && !(p.asunto ?? '').trim())));
+        const vacio = mensajeVacio(p);
         const audio = p.tipo === 'audio' && Number(p.audio_id) > 0 ? op.audioDe?.(Number(p.audio_id)) : undefined;
         t = {
           ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: email ? 'email' : 'whatsapp',

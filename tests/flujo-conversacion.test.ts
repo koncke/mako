@@ -317,6 +317,13 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   assert.deepEqual(frenoDelFlujo(nombrado), { error: 'Falta completar «WHATSAPP»', tarjeta: conCaso.mensaje });
   assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', audio_id: 4, cuerpo: '' })]), null, 'una nota de voz sin pie no está vacía');
   assert.equal(faltaEscribir([msg('a'), msg('b', { tipo: 'audio', cuerpo: '' })])?.error, 'Falta completar «WHATSAPP»', 'una nota de voz sin audio sí');
+  // Integración (parte C): un email con SÓLO una imagen no está vacío —su texto plano derivado queda en
+  // ''—, y la tarjeta no dice «Sin escribir». Uno con el HTML vacío, sí. Rotura (volver a mirar sólo
+  // `cuerpo`): 1 fallo.
+  const conImagen = msg('e', { canal: 'email', asunto: 'Mira', cuerpo: '', cuerpo_html: '<p><img src="https://x.com/a.png" alt=""></p>' } as Partial<PasoParaGrafo>);
+  assert.equal(faltaEscribir([conImagen]), null);
+  assert.equal(nodo(grafoDeSecuencia([conImagen], { disparador: 'X' }), 'e').advertencia, undefined);
+  assert.equal(faltaEscribir([{ ...conImagen, cuerpo_html: '<p></p>' } as PasoParaGrafo])?.id, 'e');
   // La tarjeta MAKO sin mensaje tampoco sale (`avisar_al_equipo` lo exige).
   const conMako = insertarDesdeLienzo([msg('a')], 'a', 'sig', 'mako', rndDe(8));
   assert.deepEqual(faltaEscribir(conMako.pasos), { id: conMako.id, error: 'Falta completar «MAKO»' });
