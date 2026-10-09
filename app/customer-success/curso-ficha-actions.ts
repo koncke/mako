@@ -34,11 +34,11 @@
 
 import { getTenantDb, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import { puedeUsarCs } from './puerta';
+import { productosDelCliente } from './entrega';
 import { getUsuarioActual } from '@/lib/auth';
 import { listProductos } from '@/lib/productos';
 import { entregasDeProductos } from '@/lib/entrega-servicio';
 import { colorDeEtapa } from '@/lib/servicio-etapas';
-import { firmarAccesoCurso } from '@/lib/curso-acceso';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { invitarLiderPorEmail } from '@/lib/invitaciones';
 import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
@@ -47,11 +47,11 @@ import { modulosDelCurso, contextoDelAlumno } from '@/lib/curso-modulos-datos';
 import { aperturasDe } from '@/lib/curso-bloqueo';
 import type { ModuloCurso } from '@/lib/curso-modulos';
 import {
-  clasesDelProducto, claseDeId, progresoDelCliente, avanceDelCliente, accesoDe, linkDeAcceso, urlDeToken, marcarInvitacion,
+  clasesDelProducto, claseDeId, progresoDelCliente, avanceDelCliente, accesoDe, linkDeAcceso, marcarInvitacion,
   revocarAcceso, reactivarAcceso, sesionesDe, agendarSesion, borrarSesion, aprobarTarea, productosDelAlumno,
   ubicacionEnEntregaDe, accesosDeLideres, linkDeAccesoLider, linkDeLiderLeido, guardarAlcance, ponerDesbloqueo,
-  productosConCasaDelAlumno,
-  type EstadoAcceso, type EstadoAccesoLider, type Sesion,
+  accesoParaPantalla,
+  type EstadoAccesoLider, type Sesion,
 } from '@/lib/curso-datos';
 import { mandarLinkDelCurso } from '@/lib/curso-mensajes';
 import { urlEntregaParaEquipo, darOtroIntento } from '@/lib/curso-entregas';
@@ -106,48 +106,44 @@ async function puerta(leadId: number): Promise<{ ok: true; lead: LeadPuerta } | 
 /**
  * El estado de su acceso tal cual lo ve la ficha, leído DESPUÉS de lo que se haya hecho.
  *
- * ⚠️ NO ESCRIBE: el link se FIRMA con la versión vigente (`firmarAccesoCurso`), no se pide a
- * `linkDeAcceso`, que crea la fila. Sin fila no hay link (`existe: false`): lo crean invitar,
- * copiar o mandar.
+ * ⚠️ NO ESCRIBE: el link se FIRMA con la versión vigente, no se pide a `linkDeAcceso`, que crea
+ * la fila. Sin fila no hay link (`existe: false`): lo crean invitar, copiar o mandar.
+ *
+ * ⚠️ ES `accesoParaPantalla` (lib/curso-datos.ts) DESDE EL 09/10/2026, y no una copia privada: acá
+ * vivía `aFicha`, la misma lectura escrita dos veces, y la copia se quedó sin `productos` (qué cursos
+ * abre, mig 0232) — justo lo que la ficha necesita para decir «Invitado» o «Invitar» desde el curso
+ * elegido arriba (`accesoEnProducto`, FichaCurso.tsx).
  */
 async function accesoActual(leadId: number, ws: number | null): Promise<AccesoFicha> {
-  return aFicha(await accesoDe(leadId), leadId, ws);
-}
-
-function aFicha(a: EstadoAcceso | null, leadId: number, ws: number | null): AccesoFicha {
-  const token = a && !a.revocado && ws ? firmarAccesoCurso({ ws, leadId, version: a.version }) : null;
-  return {
-    existe: a != null,
-    link: token ? urlDeToken(token) : null,
-    revocado: a?.revocado ?? false,
-    ingresos: a?.ingresos ?? 0,
-    ultimoIngresoAt: a?.ultimoIngresoAt ?? null,
-    email: a?.email ?? null,
-    invitacionEnviadaAt: a?.invitacionEnviadaAt ?? null,
-    alcance: a?.alcance ?? null,
-  };
+  return accesoParaPantalla(leadId, ws);
 }
 
 /**
- * Sus productos (los del ALUMNO) que tienen al menos una clase, con su nombre y sus clases.
- * Lo usan el avance de la ficha y la invitación (el nombre del programa va en el asunto).
+ * Sus productos (los del CLIENTE) que tienen al menos una clase, con su nombre y sus clases, y su
+ * casa en el CRM. Lo usan el avance de la ficha, los permisos y los candados.
  *
- * ⚠️ LOS PRODUCTOS SON LOS DEL ALUMNO (`productosDelAlumno`), la MISMA regla que el kanban y que
- * el portal: la ficha no puede mostrar —ni invitar a— un curso que el link del cliente no le
- * abre, ni al revés.
+ * ⚠️ «DE QUÉ ES CLIENTE» (`productosDelCliente`, la regla del kanban), NO «QUÉ VE» (09/10/2026, mig
+ * 0232). La ficha es del EQUIPO: tiene que mostrar —y dejar invitar a— un curso de un producto del
+ * que es cliente aunque su acceso todavía no lo abra. Con `productosDelAlumno` (que desde la 0232
+ * contesta «qué cursos VE»), a un alumno invitado sólo a un curso la ficha le escondía los otros, y
+ * agendar una llamada de ese producto contestaba «no es suyo».
  */
-async function cursosDelCliente(leadId: number): Promise<{ ids: number[]; cursos: Array<{ productoId: number; nombre: string; clases: Clase[] }> }> {
-  const ids = await productosDelAlumno(leadId);
-  if (!ids.length) return { ids, cursos: [] };
+async function cursosDelCliente(leadId: number): Promise<{ ids: number[]; casa: number | null; cursos: CursoConClases[] }> {
+  const { productos: ids, casa } = await productosDelCliente(leadId);
+  return { ids, casa, cursos: await cursosDe(ids) };
+}
+
+type CursoConClases = { productoId: number; nombre: string; clases: Clase[] };
+
+/** De esos productos, los que tienen al menos una clase, con su nombre y sus clases (en ese orden). */
+async function cursosDe(ids: readonly number[]): Promise<CursoConClases[]> {
+  if (!ids.length) return [];
   const [catalogo, clases] = await Promise.all([
     listProductos(false),
     Promise.all(ids.map(async (id) => [id, await clasesDelProducto(id)] as const)),
   ]);
   const nombre = new Map(catalogo.map((p) => [Number(p.id), p.nombre]));
-  return {
-    ids,
-    cursos: clases.filter(([, cs]) => cs.length > 0).map(([id, cs]) => ({ productoId: id, nombre: nombre.get(id) ?? 'Producto', clases: cs })),
-  };
+  return clases.filter(([, cs]) => cs.length > 0).map(([id, cs]) => ({ productoId: id, nombre: nombre.get(id) ?? 'Producto', clases: cs }));
 }
 
 /**
@@ -184,17 +180,18 @@ async function bloqueosDelProducto(p: {
  * marca ninguna y lo dice en la fila de Avance.
  */
 async function productosConCurso(leadId: number): Promise<{ productos: ProductoFicha[]; areas: string[] }> {
-  const { ids, cursos } = await cursosDelCliente(leadId);
+  const { ids, casa, cursos } = await cursosDelCliente(leadId);
   if (!cursos.length) return { productos: [], areas: [] };
   // `avanceDelCliente` y no `progresoDelCliente`: trae además lo que contestó cada área y las áreas
   // que declaró (#665), en la MISMA lectura. Los MÓDULOS de cada curso (D1) y el acceso (sus permisos,
   // para no ofrecer abrir a mano lo que no es suyo) van en la misma ronda.
-  const [entregas, avance, actuales, cursosMods, casa, acceso] = await Promise.all([
+  // La casa sale de la MISMA lectura que los productos (`cursosDelCliente`): es un hecho del CRM y no
+  // depende de lo que abra su acceso.
+  const [entregas, avance, actuales, cursosMods, acceso] = await Promise.all([
     entregasDeProductos(cursos.map((c) => c.productoId)),
     avanceDelCliente(leadId),
     Promise.all(cursos.map((c) => ubicacionEnEntregaDe(leadId, c.productoId, ids))),
     Promise.all(cursos.map((c) => modulosDelCurso(c.productoId))),
-    productosConCasaDelAlumno(leadId).then((x) => x.casa),
     accesoDe(leadId).catch(() => null),
   ]);
   const out: ProductoFicha[] = [];
@@ -562,7 +559,10 @@ export async function invitarLiderAction(leadId: number, area: string, email: st
       const cortado = (await accesoDe(leadId, a.area))?.revocado;
       return { ok: false, error: cortado ? 'Su acceso está cortado. Primero vuelve a habilitarlo.' : 'No pude armar su link.' };
     }
-    const { cursos } = await cursosDelCliente(leadId);
+    // ⚠️ El mail del LÍDER nombra los cursos que su link ABRE, y su link se rige por el acceso del
+    // cliente (lib/curso-datos.ts, `productosQueAbre`): «qué ve» (`productosDelAlumno`), no «de qué es
+    // cliente», que es lo que muestra la ficha (09/10/2026).
+    const cursos = await cursosDe(await productosDelAlumno(leadId));
     const negocio = (await getWorkspace(ws).catch(() => null))?.nombre?.trim() || null;
     const programa = new Intl.ListFormat('es', { style: 'long', type: 'conjunction' }).format(cursos.map((c) => c.nombre));
 
@@ -647,7 +647,10 @@ export async function agendarLlamadaCursoAction(leadId: number, fechaIso: string
     if (t < Date.now() - TOLERANCIA_PASADO_MS) return { ok: false, error: 'Esa hora ya pasó.' };
     let prod: number | null = null;
     if (productoId != null) {
-      if (!(await productosDelAlumno(leadId)).includes(productoId)) return { ok: false, error: 'Ese producto no es suyo.' };
+      // «De qué es cliente» (la regla del kanban), no «qué ve»: la llamada es del equipo, y puede ser de
+      // un curso al que todavía no se lo invitó. Sus mensajes no le nombran clases de un curso que su
+      // acceso no abre (`contenidoDe`, lib/curso-mensajes.ts).
+      if (!(await productosDelCliente(leadId)).productos.includes(productoId)) return { ok: false, error: 'Ese producto no es suyo.' };
       prod = productoId;
     }
     const sesion = await agendarSesion(leadId, prod, new Date(t).toISOString(), (nota ?? '').trim().slice(0, 500) || null);

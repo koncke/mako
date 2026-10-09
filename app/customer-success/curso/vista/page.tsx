@@ -37,6 +37,7 @@ import { tzActual } from '@/lib/timezone';
 import { hoyEnTz } from '@/lib/date-utils';
 import { Pagina, EmptyState } from '@/app/_ui';
 import PortalAlumno from '@/app/compartido/curso/[token]/PortalAlumno';
+import { conCorrectasDelEquipo } from '@/app/compartido/curso/[token]/tarea-valores';
 import { BarraVistaPrevia } from './BarraVistaPrevia';
 
 // ⚠️ ITEM 3 DEL AUDIO DEL 08/10/2026 (02:40 y 15:40: «la vista del alumno no me aparece, tienes que
@@ -140,11 +141,16 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
   // ocupa la ventana y lo reparte entre la barra y el curso con flex. Un `height: 100%` acá no
   // resolvería: el padre no tiene alto definido (AGENTS.md, «una vista a pantalla completa ESTIRA
   // con flex»).
+  //
+  // ⚠️ PUNTO 5 DEL AUDIO DEL 08/10 A LA NOCHE: la vista va con TODAS las correctas de vuelta
+  //    (`conCorrectasDelEquipo`; `clases` es la de arriba, de la base y con las correctas). Sin eso la
+  //    vista previa no podía corregir el quiz —lo daba por enviado, sin nota— mientras al alumno el
+  //    server sí lo corregía. CUÁNDO se muestra la correcta lo decide la misma regla que al alumno.
   return (
     <div style={{ height: '100dvh', minHeight: 560, display: 'flex', flexDirection: 'column' }}>
       <BarraVistaPrevia productoId={productoId} anotar={adminId != null} />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <PortalAlumno token="" vista={vista} vistaPrevia urlsAdjuntos={urlsAdjuntos} />
+        <PortalAlumno token="" vista={conCorrectasDelEquipo(vista, clases)} vistaPrevia urlsAdjuntos={urlsAdjuntos} />
       </div>
     </div>
   );

@@ -248,7 +248,12 @@ test('la action sanea los canales en el SERVER, con su tope; el modal los manda 
   assert.match(op, /lineaConectada: linea\?\.estado === 'conectado'/);
   const comp = sinComentarios(leer('app/customer-success/curso/InvitarAlumnos.tsx'));
   assert.equal((comp.match(/const \[porWhatsapp, setPorWhatsapp\] = useState\(false\);/g) ?? []).length, 2, 'la casilla nace prendida en alguna pestaña');
+  // Las dos pestañas mandan lo que dice la casilla. Y «Volver a invitar» (el alta de cero cuyo correo no
+  // salió reintenta SÓLO la invitación, 09/10/2026) manda lo que se pidió AL CREAR, guardado en `listo`:
+  // con el borrador ya vacío, `ofreceWa` dice que no y el WhatsApp marcado se perdía (revisión de la corrida).
   assert.equal((comp.match(/canalesCon\(ofreceWa && porWhatsapp\)/g) ?? []).length, 2, 'una pestaña no manda los canales');
+  assert.match(comp, /conWhatsapp: ofreceWa && porWhatsapp \}\);/, 'lo pedido al crear no queda guardado para reintentar');
+  assert.equal((comp.match(/canalesCon\(listo\.conWhatsapp\)/g) ?? []).length, 1, '«Volver a invitar» no manda lo pedido al crear');
   assert.equal((comp.match(/\{ofreceWa && \(\s*<Checkbox checked=\{porWhatsapp\}/g) ?? []).length, 2, 'la casilla se dibuja sin poder mandarse');
   assert.match(comp, /opcionesDeInvitarAction\(idsSinInvitar\)/);
 });

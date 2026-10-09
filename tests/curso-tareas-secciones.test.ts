@@ -275,6 +275,9 @@ const EXCEPCIONES: Array<{ archivo: string; contiene?: string; motivo: string }>
   { archivo: 'lib/curso-programa-nqe.ts', motivo: 'la semilla del programa de Mauricio: escribe campos, no los lee' },
   { archivo: 'app/api/compartido/curso/tarea/route.ts', contiene: 'const campos = r.clase.campos;', motivo: 'la ruta de la tarea: lo que hace con `campos` es por TIPO (quiz, archivo, comunidad) o por los sumideros' },
   { archivo: 'app/compartido/curso/[token]/TareaAlumno.tsx', contiene: 't.campos', motivo: '`t` es una TareaDeClase: ya agrupada por tareasDeClase, sin secciones' },
+  // Sólo esas dos líneas (revelarCorrectas y conCorrectasDelEquipo, 09/10/2026): las otras lecturas
+  // de `.campos` de ese archivo sí pasan por camposConRespuesta y tienen que seguir bajo el guard.
+  { archivo: 'app/compartido/curso/[token]/tarea-valores.ts', contiene: 'conCorrectas(c.campos', motivo: 'revelarCorrectas y conCorrectasDelEquipo: la lista ENTERA vuelve a la vista con las correctas puestas en los quizzes; conCorrectas mira el tipo y deja pasar la sección tal cual' },
   { archivo: 'app/customer-success/curso-ficha-lectura.ts', contiene: 't.campos', motivo: '`t` es una TareaDeClase (gruposPorTarea)' },
   { archivo: 'app/customer-success/FichaCurso.tsx', contiene: "!c.tarea.trim() && !c.campos.length", motivo: '«¿pide algo?»: una sección es una tarea, como en tieneTarea' },
   { archivo: 'lib/curso-portal.ts', contiene: 'campos: c.campos.map((x) => {', motivo: 'conHtmlSaneado: re-sanea la consigna de cada sección (la línea de abajo mira el tipo)' },

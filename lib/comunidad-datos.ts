@@ -51,6 +51,9 @@ import {
 import { destinatarios, avisosDeComentario, type AvisoPendiente } from './comunidad-notificaciones';
 import { esZonaValida } from './comunidad-eventos';
 import { moduloPermitido, type AlcanceCurso } from './curso-alcance';
+// Qué cursos abre el acceso de un alumno (mig 0232): un miembro de la comunidad de un producto es alguien
+// cuyo acceso ABRE ese producto, no sólo un cliente de él (ver `miembrosDeLaComunidad`).
+import { abreElProducto, saneaProductos } from './curso-invitar-reglas';
 // El ajuste «Comentarios en las clases» (mig 0227): su clave y su saneo son de lib/curso-estilo.ts, puro.
 import { claveDe, sanearAjuste, type Ajuste } from './curso-estilo';
 import type {
@@ -337,7 +340,13 @@ export type Comunidad = { equipo: Map<string, MiembroBase>; alumnos: Map<string,
  *   · el EQUIPO: las cuentas del workspace que no están suspendidas;
  *   · los ALUMNOS: los clientes ganados que son de ESE producto (la misma regla del kanban de Customer
  *     Success: su casa del CRM o una fila en `cliente_entrega`) y tienen el acceso al curso VIGENTE
- *     (`curso_accesos` del cliente, sin revocar), menos los baneados de esta comunidad.
+ *     (`curso_accesos` del cliente, sin revocar) Y QUE ABRE ESE PRODUCTO (`productos`, mig 0232),
+ *     menos los baneados de esta comunidad.
+ *
+ * ⚠️ «QUE ABRE ESE PRODUCTO» (09/10/2026, punto 7 del audio del 08/10 a la noche). Sin eso, un alumno
+ *    invitado sólo a Fiesta Music que además es cliente de Service Delivery aparecía en la comunidad de
+ *    Service Delivery —directorio, conteo, ranking, perfil, @menciones—: los alumnos de un curso al que
+ *    no lo invitaron veían su nombre y su foto. `productos` NULL = todos, como en el portal.
  *
  * ⚠️ TIRA SI CUALQUIER LECTURA FALLA (`universoDeLaEntrega` es la lectura estricta): con la entrega
  *    caída, «nadie es miembro» se leería como una comunidad vacía.
@@ -347,7 +356,7 @@ export type Comunidad = { equipo: Map<string, MiembroBase>; alumnos: Map<string,
 /** La fila del acceso al curso que hace miembro a un alumno. (Un alias y no el tipo en línea: el guard de
  * tests/curso-accesos-area.test.ts corta la sentencia en el primer punto y coma, y uno adentro del
  * genérico la dejaba sin el filtro de área a la vista.) */
-type FilaAccesoMiembro = { id: number; lead_id: number; created_at: string; revocado_at: string | null };
+type FilaAccesoMiembro = { id: number; lead_id: number; created_at: string; revocado_at: string | null; productos?: unknown };
 
 export async function miembrosDeLaComunidad(ws: number, productoId: number): Promise<Comunidad> {
   if ((await getWorkspaceActual()) !== ws) throw new Error('El negocio del pedido no coincide.');
@@ -357,7 +366,7 @@ export async function miembrosDeLaComunidad(ws: number, productoId: number): Pro
     universoDeLaEntrega(),
     sb.from('usuarios').select('id, created_at, estado').eq('workspace_id', ws),
     leerTodo<FilaAccesoMiembro>(
-      sb, 'curso_accesos', 'id, lead_id, created_at, revocado_at',
+      sb, 'curso_accesos', 'id, lead_id, created_at, revocado_at, productos',
       { orden: 'id', eq: { workspace_id: ws }, filtros: (q) => q.is('area', null) },
     ),
     de(ws, 'comunidad_baneos').select('miembro').eq('producto_id', productoId).is('levantado_at', null),
@@ -373,7 +382,7 @@ export async function miembrosDeLaComunidad(ws: number, productoId: number): Pro
   }
 
   const vigente = new Map<number, string>();
-  for (const a of accesos) if (!a.revocado_at) vigente.set(Number(a.lead_id), a.created_at);
+  for (const a of accesos) if (!a.revocado_at && abreElProducto(saneaProductos(a.productos), productoId)) vigente.set(Number(a.lead_id), a.created_at);
   const baneados = new Set(((baneos.data ?? []) as Array<{ miembro: string }>).map((b) => b.miembro));
   const asignacion = u.filas[productoId] ?? {};
   const alumnos = new Map<string, MiembroBase & { leadId: number }>();

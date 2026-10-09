@@ -308,6 +308,9 @@ test('los mensajes NOMBRAN sólo lo que el alumno puede abrir: candados y permis
   const contenido = bloque('async function contenidoDe(', 'type Ctx =');
   assert.match(contenido, /pendientesDe\(deLaEtapa\.filter\(\(c\) => abiertas\.has\(c\.id\)\)/);
   assert.match(contenido, /const pendientes = deLaEtapa\.length && abiertas\s*\?/, 'sin evaluar, `null` (ni «te falta» ni «vas al día»)');
+  // 09/10/2026 (mig 0232): y sólo de un curso que su acceso le abre. Una sesión con el producto de un
+  // curso al que no se lo invitó no le nombra ninguna clase.
+  assert.match(contenido, /const abiertas = deLaEtapa\.length && productos\.includes\(curso\.productoId\)\s*\?/, 'nombra clases de un curso que su acceso no le abre');
 });
 
 test('la marca: compare-and-set contra el valor recién leído, y se lee si agarró la fila', () => {

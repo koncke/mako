@@ -9,7 +9,9 @@
 // ⚠️ NO SE IMPORTA NADA DE lib/curso-portal.ts: ese módulo trae, por `import()`, la capa de datos
 // con `server-only`, y un componente cliente que lo importara arrastraría ese grafo al navegador.
 
-import { camposConRespuesta, campoLleno, campoCompleto, NOTA_MIN_DEFAULT, type Campo, type NotaQuiz, type Valores, type ValorCampo } from '@/lib/curso';
+import { camposConRespuesta, campoLleno, campoCompleto, NOTA_MIN_DEFAULT, type Calificacion, type Campo, type NotaQuiz, type Valores, type ValorCampo } from '@/lib/curso';
+// SÓLO TIPOS (se borran al compilar): el aviso de arriba sigue en pie para los valores.
+import type { VistaAlumno, ClaseVista } from '@/lib/curso-portal';
 
 const esTabla = (v: ValorCampo | undefined): v is string[][] => Array.isArray(v) && v.length > 0 && Array.isArray(v[0]);
 const ncol = (c: Campo) => Math.max(1, c.columnas?.length ?? 1);
@@ -102,6 +104,7 @@ export function estadoDeQuiz(c: Pick<Campo, 'notaMin' | 'intentos'>, n: NotaQuiz
   if (!n) return null;
   if (n.aprobado) return { aprobado: true, sinIntentos: false, titulo: `Aprobado · ${n.nota} %`, detalle: null };
   const tope = c.intentos ?? 0;
+  // `quedan === 0` es `quizCerrado` sin aprobar (abajo): la misma cuenta que el server.
   const quedan = tope > 0 ? Math.max(0, tope - n.intentos) : null;
   const malas = (n.malas ?? []).map((i) => i + 1);
   const partes = [
@@ -110,11 +113,151 @@ export function estadoDeQuiz(c: Pick<Campo, 'notaMin' | 'intentos'>, n: NotaQuiz
   ].filter(Boolean);
   return {
     aprobado: false,
-    sinIntentos: quedan === 0,
+    sinIntentos: quizCerrado(c, n),
     titulo: `Sacaste ${n.nota} %. Necesitas ${c.notaMin ?? NOTA_MIN_DEFAULT} %.`,
     detalle: partes.length ? partes.join(' ') : null,
   };
 }
+
+// ── El quiz corregido: si acertó, y la correcta cuando ya no hay vuelta atrás ──────────────────
+// El audio del 08/10 a la noche (docs/feedback-curso-08oct-noche.md, puntos 3 y 5): «hay un error en el
+// quiz que no te dice el resultado» —en la vista previa no decía nada— y como alumno de verdad decía
+// «Aprobado · 100 %» sin decir qué pregunta estaba bien. Ahora cada pregunta dice si acertó, y en la que
+// erró, la respuesta correcta cuando el quiz ya está cerrado.
+
+/**
+ * ¿El quiz ya no se vuelve a contestar? Aprobado (el server no lo vuelve a corregir, `corregirEnvio`), o
+ * con un tope de intentos usado entero sin aprobar (el server ya no lo corrige). Es la MISMA cuenta que
+ * `corregirEnvio` y que «Ya no quedan intentos» de `estadoDeQuiz`.
+ *
+ * Es la condición para mostrar la RESPUESTA CORRECTA: con intentos por delante, mostrarla sería darle el
+ * examen resuelto. Sin tope (`intentos` 0) y sin aprobar no se cierra nunca: se le dice qué erró y nada más.
+ *
+ * ⚠️ El equipo puede reabrirlo DESPUÉS (`darOtroIntento` en lib/curso-entregas.ts, o subiendo el tope):
+ *    para entonces el alumno ya vio las correctas. Es el costo de la regla, y lo decide quien lo reabre.
+ */
+export function quizCerrado(c: Pick<Campo, 'intentos'>, n: NotaQuiz | undefined): boolean {
+  if (!n) return false;
+  if (n.aprobado) return true;
+  const tope = c.intentos ?? 0;
+  return tope > 0 && n.intentos >= tope;
+}
+
+/** Cómo le fue en UNA pregunta de un quiz corregido. */
+export type RevisionPregunta = {
+  /** `true` acertó, `false` erró, `null` = no se sabe (sin corregir, o una nota vieja sin `malas`). */
+  bien: boolean | null;
+  /** La respuesta correcta: SÓLO en una que erró, con el quiz cerrado (`quizCerrado`) y si llegó. */
+  correctas: string[] | null;
+};
+
+/**
+ * Pregunta por pregunta: si acertó (sale de `malas`, las posiciones que el server guarda con la nota) y,
+ * en las que erró, la correcta cuando ya se puede decir.
+ *
+ * ⚠️ SE DECIDE CON `quizCerrado`, NUNCA CON «¿LLEGARON LAS CORRECTAS?». La vista previa del equipo las
+ *    tiene siempre (corrige en local, como el server) y al alumno le llegan recién con el quiz cerrado
+ *    (`revelarCorrectas`): decidiendo por lo que llegó, la vista previa mostraría la correcta al primer
+ *    intento y el alumno no, que es justo el punto 5 («la previsualización y la vista real no coinciden»).
+ */
+export function revisionDeQuiz(c: Pick<Campo, 'preguntas' | 'intentos'>, n: NotaQuiz | undefined): RevisionPregunta[] {
+  const ps = c.preguntas ?? [];
+  if (!n) return ps.map(() => ({ bien: null, correctas: null }));
+  const malas = Array.isArray(n.malas) ? new Set(n.malas) : null;
+  const cerrado = quizCerrado(c, n);
+  return ps.map((p, i) => {
+    // Una nota sin `malas` (de antes de guardarlas) sólo dice algo en los extremos.
+    const bien = malas ? !malas.has(i) : n.nota === 100 ? true : n.nota === 0 ? false : null;
+    const correctas = bien === false && cerrado && p.correctas?.length ? [...p.correctas] : null;
+    return { bien, correctas };
+  });
+}
+
+/**
+ * Los campos con las correctas de sus quizzes DE VUELTA (las saca `camposParaAlumno`), tomadas de los
+ * campos de la BASE por id de campo y de pregunta (un renglón borrado o agregado no corre nada). `cuales`
+ * elige los quizzes: sin él, todos — la vista previa del EQUIPO, que corrige en local igual que el server
+ * (`respuestaDeVistaPrevia` en ./TareaAlumno.tsx); con él, sólo esos — el alumno, los cerrados. No muta
+ * lo que recibe.
+ */
+export function conCorrectas(campos: readonly Campo[], base: readonly Campo[], cuales?: (c: Campo) => boolean): Campo[] {
+  const deLaBase = new Map(base.filter((b) => b.tipo === 'quiz').map((b) => [b.id, b]));
+  return campos.map((c) => {
+    const b = c.tipo === 'quiz' ? deLaBase.get(c.id) : undefined;
+    if (!b || !c.preguntas || (cuales && !cuales(b))) return c;
+    const porId = new Map((b.preguntas ?? []).map((p) => [p.id, p.correctas ?? []]));
+    return { ...c, preguntas: c.preguntas.map((p) => ({ ...p, correctas: [...(porId.get(p.id) ?? [])] })) };
+  });
+}
+
+/** Los ids de los quizzes cerrados de una respuesta. */
+const quizzesCerrados = (campos: readonly Campo[], calif: Calificacion | undefined): string[] =>
+  campos.filter((c) => c.tipo === 'quiz' && quizCerrado(c, calif?.[c.id])).map((c) => c.id);
+
+/**
+ * Las clases de la vista con algún quiz cerrado: las únicas cuyos campos de la base hace falta leer para
+ * `revelarCorrectas` (casi siempre ninguna: la página no paga una lectura de más).
+ */
+export function clasesConQuizCerrado(vista: VistaAlumno): number[] {
+  const out: number[] = [];
+  for (const p of vista.productos) {
+    for (const m of p.modulos) {
+      for (const c of m.clases) {
+        if ('cerrada' in c || c.areas) continue;
+        if (quizzesCerrados(camposConRespuesta(c.campos), c.calificacion).length) out.push(c.id);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * La vista del alumno con las correctas de sus quizzes CERRADOS puestas de vuelta (punto 3): después de
+ * aprobar, o sin intentos, se le dice cuál era la respuesta de lo que erró. Las de un quiz abierto siguen
+ * sin viajar. `baseDe` da los campos de la base de una clase (con las correctas); sin ellos, nada cambia.
+ *
+ * ⚠️ SÓLO EN LAS CLASES QUE SE CONTESTAN UNA VEZ. En una POR ÁREA la nota es de cada área y los campos
+ *    son de la clase: revelarlas porque cerró un área le abriría el examen a las otras. Ahí se dice qué
+ *    erró, sin la correcta.
+ */
+export function revelarCorrectas(vista: VistaAlumno, baseDe: (claseId: number) => readonly Campo[] | undefined): VistaAlumno {
+  return enCadaClase(vista, (c) => {
+    if (c.areas) return c;
+    const ids = new Set(quizzesCerrados(camposConRespuesta(c.campos), c.calificacion));
+    const base = ids.size ? baseDe(c.id) : undefined;
+    // La lista ENTERA vuelve a la vista (con sus secciones, que el alumno lee): `conCorrectas` toca sólo
+    // los quizzes elegidos y deja pasar todo lo demás tal cual.
+    return base ? { ...c, campos: conCorrectas(c.campos, base, (b) => ids.has(b.id)) } : c;
+  });
+}
+
+/**
+ * La vista previa del EQUIPO con TODAS las correctas de vuelta (punto 5 del audio del 08/10 a la noche:
+ * «en la previsualización no se ve la respuesta correcta, pero como alumno me aparece»). `claseVista` se
+ * las saca, y sin ellas la vista previa no podía corregir —daba el quiz por enviado, sin nota— mientras
+ * al alumno el server sí lo corregía. Con ellas, `TareaAlumno` corrige en local igual que el server
+ * (`corregirEnvio`), y CUÁNDO se muestra la correcta lo decide la misma regla que al alumno
+ * (`revisionDeQuiz`). Es el equipo: las correctas ya las ve en la tab.
+ *
+ * ⚠️ NUNCA EN LA PUERTA DE UN ALUMNO: ahí van sólo las de sus quizzes cerrados (`revelarCorrectas`).
+ * `clases`: las de la base del producto, con sus campos como los lee la página (con las correctas).
+ */
+export function conCorrectasDelEquipo(vista: VistaAlumno, clases: ReadonlyArray<{ id: number; campos: readonly Campo[] }>): VistaAlumno {
+  const deLaBase = new Map(clases.map((c) => [c.id, camposConRespuesta(c.campos)]));
+  return enCadaClase(vista, (c) => {
+    const base = deLaBase.get(c.id);
+    return base ? { ...c, campos: conCorrectas(c.campos, base) } : c;
+  });
+}
+
+/** Cada clase ABIERTA de la vista, pasada por `f`. Una cerrada no trae campos (no viajó nada de ella). */
+const enCadaClase = (vista: VistaAlumno, f: (c: ClaseVista) => ClaseVista): VistaAlumno => ({
+  ...vista,
+  productos: vista.productos.map((p) => ({
+    ...p,
+    modulos: p.modulos.map((m) => ({ ...m, clases: m.clases.map((c) => ('cerrada' in c ? c : f(c))) })),
+  })),
+});
 
 const corto = (s: string) => (s.length > 60 ? `${s.slice(0, 57).trimEnd()}…` : s);
 

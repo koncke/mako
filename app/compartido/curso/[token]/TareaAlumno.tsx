@@ -43,6 +43,8 @@
 //   · EL QUIZ SE CORRIGE EN EL SERVER: acá no llegan las correctas (`camposParaAlumno`). Un envío
 //     desaprobado vuelve como borrador con su nota, y el alumno reintenta. Aprobado, no se vuelve a
 //     contestar. En la vista previa del EQUIPO (que sí tiene las correctas) se corrige en local.
+//     Desde el 09/10 cada pregunta dice si acertó, y con el quiz CERRADO (aprobado o sin intentos) la
+//     correcta de la que erró: esas correctas sí viajan (`revelarCorrectas`, ./tarea-valores.ts).
 //   · GRABAR: `MediaRecorder` con permiso, contador y tope (para solo al llegar), escuchar o ver antes
 //     de usarla, y regrabar. Si el navegador no graba, o no dio permiso, se ofrece subir un archivo.
 //   · UN LINK, UNA ESCALA, «YA AGENDÉ» Y «LO HICE» cuentan con la MISMA regla que el server
@@ -86,7 +88,7 @@ import type { PropuestaVista } from '@/lib/curso-portal';
 import { Button, Input, Textarea, Radio, Checkbox, Progress } from '@/app/_ui';
 import { HtmlSeguro } from '@/app/_ui/HtmlSeguro';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
-import { filasDeTabla, filaVacia, queFalta, fraseQueFalta, fraseDeBytes, reloj, estadoDeQuiz } from './tarea-valores';
+import { filasDeTabla, filaVacia, queFalta, fraseQueFalta, fraseDeBytes, reloj, estadoDeQuiz, quizCerrado, revisionDeQuiz } from './tarea-valores';
 import { useVistaPrevia } from './vista-previa';
 
 const URL_TAREA = '/api/compartido/curso/tarea';
@@ -124,8 +126,11 @@ type Herramientas = {
 
 /**
  * Lo que contestaría el server, en la VISTA PREVIA del equipo (no sale nada). Un quiz se corrige acá
- * SÓLO si los campos traen las correctas: los de la tab Curso sí; los del portal en vista previa no
- * (pasan por `claseVista`), y ahí se da por enviado sin nota en vez de decir «0 %».
+ * SÓLO si los campos traen las correctas: los de la tab Curso sí; los del portal en vista previa pasan por
+ * `claseVista`, que las saca, y la página tiene que ponérselas de vuelta (`conCorrectasDelEquipo`, ./tarea-valores.ts)
+ * para que la vista previa diga lo mismo que le dice el server al alumno (punto 5 del audio del 08/10 a la
+ * noche: «en la previsualización no se ve la respuesta correcta, pero como alumno me aparece»). Si llegan
+ * sin ellas, se da por enviado sin nota en vez de decir «0 %».
  */
 function respuestaDeVistaPrevia(campos: readonly Campo[], v: Valores, enviar: boolean, antes: Calificacion): Respuesta {
   let estado: EstadoTarea = enviar ? 'enviada' : 'pendiente';
@@ -185,7 +190,10 @@ export default function TareaAlumno({ token, claseId, area, tarea, tareaHtml, ur
   onEstado: (e: EstadoTarea) => void;
   /** Se resolvió la propuesta (la aprobó, la corrigió o ya no estaba): el chip de la clase se va. */
   onPropuesta?: () => void;
-  /** El envío completó la etapa y el cliente pasó a la siguiente. */
+  /**
+   * Lo guardado cambió algo que arma el SERVER y hay que pedir la vista de nuevo: el envío completó la
+   * etapa (y el cliente pasó a la siguiente), o cerró un quiz cuyas correctas todavía no llegaron.
+   */
   onAvance: () => void;
   /**
    * Lo último que quedó, AL DESMONTARSE: el borrador si sigue pendiente, lo enviado si no.
@@ -456,7 +464,16 @@ export default function TareaAlumno({ token, claseId, area, tarea, tareaHtml, ur
     const mandado = valores;
     const j = await mandar(mandado, true);
     setEnviando(false);
-    if (j?.calificacion) setCalif(j.calificacion);
+    if (j?.calificacion) {
+      setCalif(j.calificacion);
+      // UN QUIZ QUE SE CERRÓ CON ESTE ENVÍO (aprobó, o gastó el último intento) y cuyas correctas no están:
+      // se pide la página de nuevo, que las trae (`revelarCorrectas`) para decirle cuál era la respuesta
+      // de lo que erró. Con las correctas ya acá (la vista previa del equipo) no hace falta, y si el envío
+      // además pasó de etapa, la página se pide abajo (una vez).
+      const cerro = campos.some((q) => q.tipo === 'quiz' && !quizCerrado(q, calif[q.id]) && quizCerrado(q, j.calificacion?.[q.id])
+        && !(q.preguntas ?? []).every((p) => (p.correctas?.length ?? 0) > 0));
+      if (cerro && !j.avance?.movido) onAvance();
+    }
     if (!j?.ok || !j.progreso) {
       if (j?.error === 'sin intentos') { setAviso({ tono: 'error', texto: 'Ya no quedan intentos.' }); return; }
       if (j?.error === 'no aprobó') { setAviso({ tono: 'falta', texto: quizDesaprobado(j.calificacion) ?? 'No aprobaste el quiz.' }); return; }
@@ -919,8 +936,10 @@ function CampoEscala({ id, campo, valor, soloLectura, onCambio }: {
     );
   }
 
+  // La fila y sus extremos van en UNA caja centrada del ancho de los botones (`--n`): centrada la fila y a
+  // lo ancho los extremos, el «1 · …» quedaba lejos del 1 (ver CSS_TIPOS, la escala centrada).
   return (
-    <>
+    <div className="cpt-escala-caja" style={{ '--n': nums.length } as CSSProperties}>
       <div ref={grupoRef} className="cpt-escala" role="radiogroup" aria-label={campo.label} onKeyDown={teclas}>
         {nums.map((n) => (
           <button key={n} type="button" role="radio" data-n={n} aria-checked={valido === n} tabIndex={tabDe(n)} disabled={soloLectura}
@@ -930,7 +949,7 @@ function CampoEscala({ id, campo, valor, soloLectura, onCambio }: {
         ))}
       </div>
       {extremos}
-    </>
+    </div>
   );
 }
 
@@ -1105,8 +1124,14 @@ function Tabla({ campo, valor, soloLectura, onCambio }: {
 // ── Quiz ──────────────────────────────────────────────────────────────────────
 
 /**
- * Las preguntas de un quiz. Sin las correctas (no llegan): la nota la pone el server al enviar, y acá
- * se dice cómo le fue (`estadoDeQuiz`). Aprobado, o sin intentos, ya no se contesta.
+ * Las preguntas de un quiz. La nota la pone el server al enviar, y acá se dice cómo le fue: la nota y
+ * los intentos (`estadoDeQuiz`), y PREGUNTA POR PREGUNTA si acertó y, en la que erró con el quiz ya
+ * cerrado, la respuesta correcta (`revisionDeQuiz`; punto 3 del audio del 08/10 a la noche: «no te dice
+ * el resultado»). Aprobado, o sin intentos, ya no se contesta.
+ *
+ * ⚠️ LAS CORRECTAS NO LLEGAN CON EL QUIZ ABIERTO (`camposParaAlumno`): las pone de vuelta la página
+ *    cuando se cierra (`revelarCorrectas`, app/mi-curso/portal-comun.tsx), y por eso al cerrarse se pide
+ *    la página de nuevo (`enviar`, arriba). La vista previa del equipo las tiene siempre y decide igual.
  */
 function CampoQuiz({ idBase, campo, valor, soloLectura, onCambio, nota }: {
   idBase: string; campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; onCambio: (v: ValorCampo) => void; nota: NotaQuiz | undefined;
@@ -1115,6 +1140,7 @@ function CampoQuiz({ idBase, campo, valor, soloLectura, onCambio, nota }: {
   const filas = Array.isArray(valor) ? (valor as unknown[]) : [];
   const deFila = (i: number): string[] => (Array.isArray(filas[i]) ? (filas[i] as unknown[]).filter((x): x is string => typeof x === 'string') : []);
   const est = estadoDeQuiz(campo, nota);
+  const revision = revisionDeQuiz(campo, nota);
   const ro = soloLectura || !!est?.aprobado || !!est?.sinIntentos;
   const set = (i: number, marcadas: string[]) => onCambio(ps.map((_, k) => (k === i ? marcadas : deFila(k))));
   return (
@@ -1122,10 +1148,15 @@ function CampoQuiz({ idBase, campo, valor, soloLectura, onCambio, nota }: {
       <ol className="cpt-quiz">
         {ps.map((p, i) => {
           const marcadas = deFila(i);
-          const mal = !!est && !est.aprobado && (nota?.malas ?? []).includes(i);
+          const r = revision[i];
           return (
-            <li key={p.id} className={`cpt-preg${mal ? ' is-mal' : ''}`}>
-              <p className="cpt-preg-t">{p.texto}</p>
+            <li key={p.id} className={`cpt-preg${r?.bien === false ? ' is-mal' : ''}`}>
+              <p className="cpt-preg-t">
+                {p.texto}
+                {r?.bien != null && (
+                  <span className={`cpt-preg-marca ${r.bien ? 'is-bien' : 'is-mal'}`}>{r.bien ? '✓ Correcta' : '✗ Incorrecta'}</span>
+                )}
+              </p>
               {p.opciones.map((o) => (p.multiple ? (
                 <Checkbox key={o} checked={marcadas.includes(o)} disabled={ro} label={o}
                   onChange={(on) => set(i, on ? [...marcadas, o] : marcadas.filter((x) => x !== o))} />
@@ -1133,6 +1164,11 @@ function CampoQuiz({ idBase, campo, valor, soloLectura, onCambio, nota }: {
                 <Radio key={o} name={`${idBase}-q${i}`} checked={marcadas[0] === o} disabled={ro} label={o}
                   onChange={(on) => { if (on) set(i, [o]); }} />
               )))}
+              {r?.correctas && (
+                <p className="cpt-correcta">
+                  {r.correctas.length > 1 ? 'Respuestas correctas: ' : 'Respuesta correcta: '}<strong>{r.correctas.join(', ')}</strong>
+                </p>
+              )}
             </li>
           );
         })}
@@ -1509,7 +1545,14 @@ const CSS_TIPOS = `
    del curso. Todos con .cp-tarea adelante: la hoja del origen deja sin fondo ni borde a todo button de
    .ahdoc, y una clase sola pierde contra esa regla (la escala salia como numeros sueltos). El foco se
    ve siempre con el teclado. */
-.cp-tarea .cpt-escala{ display: flex; flex-wrap: wrap; gap: 6px; }
+/* LA ESCALA Y LAS ESTRELLAS, CENTRADAS (punto 2 del audio del 08/10 a la noche, min 9: «tanto las estrellas
+   como lo que sea, debería estar centrado en lugar de alineado a la izquierda»). Cada una en una caja del
+   ancho de sus botones, al medio del papel y con los extremos debajo de las puntas: centrada la fila sola,
+   con los extremos a lo ancho, el «1 · ...» quedaba lejos del 1. La caja de los numeros mide lo que miden
+   N botones de 64 px (--n, desde el componente) y en un papel angosto vuelve al 100 % y la fila baja. */
+.cp-tarea .cpt-escala-caja{ width: min(100%, calc(var(--n, 10) * 64px + (var(--n, 10) - 1) * 6px)); margin-inline: auto; }
+.cp-tarea .cpt-escala{ display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.cp-tarea .cpt-estrellas-caja{ width: fit-content; max-width: 100%; margin-inline: auto; }
 .cp-tarea .cpt-esc{ flex: 1 0 40px; max-width: 64px; min-height: 44px; display: grid; place-items: center; padding: 0 6px;
   border: 2px solid var(--u-ink, var(--border-strong)); border-radius: 10px; background: var(--u-card, var(--surface));
   color: var(--u-ink, var(--ink)); font: 700 15px/1 var(--ugc-fuente, inherit); font-variant-numeric: tabular-nums; cursor: pointer;
@@ -1522,7 +1565,7 @@ const CSS_TIPOS = `
   outline: 3px solid var(--u-ink, var(--ink)); outline-offset: 2px; }
 
 .cp-tarea .cpt-desl{ display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.cp-tarea .cpt-desl-valor{ display: flex; align-items: baseline; gap: 6px; }
+.cp-tarea .cpt-desl-valor{ display: flex; align-items: baseline; justify-content: center; gap: 6px; }
 .cp-tarea .cpt-desl-valor strong{ font: 800 30px/1 var(--ugc-fuente, inherit); font-variant-numeric: tabular-nums; color: var(--u-ink, var(--ink)); }
 .cp-tarea .cpt-desl-valor span{ font-size: var(--fs-meta); color: var(--u-ink-60, var(--dim)); }
 .cp-tarea .cpt-desl-rango{ -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 30px; margin: 0; padding: 0;
@@ -1545,7 +1588,7 @@ const CSS_TIPOS = `
 .cp-tarea .cpt-desl.is-vacio .cpt-desl-valor strong{ color: var(--u-ink-40, var(--faint)); }
 
 /* Estrellas: en UNA fila que se achica (diez entran en 390 px), nunca un scroll de costado. */
-.cp-tarea .cpt-estrellas{ display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; min-width: 0; }
+.cp-tarea .cpt-estrellas{ display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 2px; min-width: 0; }
 .cp-tarea .cpt-estrella{ flex: 0 1 44px; min-width: 26px; min-height: 44px; display: grid; place-items: center; padding: 0;
   border: 0; background: none; cursor: pointer; line-height: 1; font-size: clamp(22px, 7vw, 32px);
   color: var(--u-line, #ded9ca); -webkit-text-stroke: 1.5px var(--u-ink, var(--ink)); transition: transform .1s, color .1s; }
@@ -1574,6 +1617,14 @@ const CSS_TIPOS = `
 .cpt-preg{ display: flex; flex-direction: column; gap: 2px; }
 .cpt-preg-t{ margin: 0 0 4px; font-size: var(--fs-md); line-height: 1.45; overflow-wrap: anywhere; }
 .cpt-preg.is-mal .cpt-preg-t{ color: var(--bad); }
+/* Si acerto cada pregunta, y la correcta de la que erro con el quiz cerrado (punto 3 del 08/10 a la noche).
+   Con .cp-tarea adelante: la hoja del origen pone en cero el relleno de todo lo de .ahdoc. */
+.cp-tarea .cpt-preg-marca{ display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; vertical-align: 1px;
+  font-size: var(--fs-meta); font-weight: 700; line-height: 1.5; white-space: nowrap; }
+.cp-tarea .cpt-preg-marca.is-bien{ color: var(--good); background: var(--good-bg); }
+.cp-tarea .cpt-preg-marca.is-mal{ color: var(--bad); background: var(--bad-bg); }
+.cp-tarea .cpt-correcta{ margin: 6px 0 0; font-size: var(--fs-sm); color: var(--u-ink, var(--ink)); }
+.cp-tarea .cpt-correcta strong{ font-weight: 700; color: var(--good); }
 .cpt-nota{ margin: 6px 0 0; font-size: var(--fs-sm); font-weight: 600; }
 .cpt-nota.is-ok{ color: var(--good); }
 .cpt-nota.is-mal{ color: var(--warn); }

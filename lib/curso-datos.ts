@@ -18,6 +18,7 @@ import { leerTodo } from './supabase-paginado';
 import { linkApp } from './app-url';
 import { firmarAccesoCurso, leerAccesoCurso, firmarAccesoLider, leerAccesoLider, type AccesoCurso } from './curso-acceso';
 import { saneaAlcance, type AlcanceCurso } from './curso-alcance';
+import { saneaProductos, productosVisibles, productosTrasInvitar } from './curso-invitar-reglas';
 import { saneaBloqueo, type Desbloqueo } from './curso-bloqueo';
 import {
   pctVisto, sanearValores, respuestaCompleta, progresoEfectivo, areasDelCliente, nombreDeArea, leerCalificacion, tieneTarea,
@@ -482,6 +483,10 @@ type FilaAcceso = {
   email: string | null; invitacion_enviada_at: string | null; invitado_por: string | null;
   /** Los permisos del alumno (mig 0219). Llega crudo del jsonb: se sanea al mapear. */
   alcance?: unknown;
+  /** El último WhatsApp del curso que le llegó con su link (mig 0211). */
+  link_enviado_at?: string | null;
+  /** Los productos cuyo curso abre (mig 0232). Llega crudo (`bigint[]`): se sanea al mapear. */
+  productos?: unknown;
 };
 /**
  * El acceso de un cliente (o del líder de una de sus áreas). ⚠️ «Tiene fila» NO es «lo invitaron»
@@ -494,14 +499,23 @@ export type EstadoAcceso = {
   version: number; revocado: boolean; ingresos: number; ultimoIngresoAt: string | null;
   email: string | null; invitacionEnviadaAt: string | null; invitadoPor: string | null;
   alcance: AlcanceCurso;
+  /** Cuándo le llegó su link por WhatsApp por última vez (mig 0211). */
+  linkEnviadoAt: string | null;
+  /**
+   * Los productos cuyo curso ABRE este acceso (mig 0232). `null` = todos sus productos (lo de antes).
+   * Sólo significa algo en la fila del CLIENTE; la regla, en lib/curso-invitar-reglas.ts.
+   */
+  productos: number[] | null;
 };
 /** El acceso del LÍDER de un área: lo mismo, más su área y el id de su fila (va adentro del link). */
 export type EstadoAccesoLider = EstadoAcceso & { id: number; area: string };
 /**
  * ⚠️ TRAE `alcance` (mig 0219), así que la 0219 va ANTES del deploy: sin la columna PostgREST
  * rechaza la consulta entera y se caen la ficha, el portal y el cron de recordatorios.
+ * ⚠️ Y `productos` (mig 0232), por lo mismo: la 0232 va ANTES del deploy. `link_enviado_at` es de la
+ * 0211, aplicada hace rato.
  */
-const COLS_ACCESO = 'id, lead_id, area, version, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at, invitado_por, alcance';
+const COLS_ACCESO = 'id, lead_id, area, version, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at, invitado_por, alcance, link_enviado_at, productos';
 
 const aEstado = (f: FilaAcceso): EstadoAcceso => ({
   version: f.version, revocado: f.revocado_at != null, ingresos: f.ingresos ?? 0, ultimoIngresoAt: f.ultimo_ingreso_at,
@@ -509,6 +523,10 @@ const aEstado = (f: FilaAcceso): EstadoAcceso => ({
   // Se sanea al LEER y no se cree lo guardado: el jsonb lo escribió una action con lo que mandó un
   // navegador. `saneaAlcance` nunca tira; lo ilegible es `null` (ve todo), que es lo de siempre.
   alcance: saneaAlcance(f.alcance),
+  linkEnviadoAt: f.link_enviado_at ?? null,
+  // ⚠️ Lo ilegible de ACÁ es «ninguno», no «todos» (`saneaProductos`): un valor que no se entiende no
+  // le abre todos los cursos del negocio.
+  productos: saneaProductos(f.productos),
 });
 
 /**
@@ -528,6 +546,57 @@ const conArea = <Q>(q: Q, area: string | null): Q => {
 export async function accesoDe(leadId: number, area: string | null = null): Promise<EstadoAcceso | null> {
   const f = await filaDeAcceso(leadId, area);
   return f ? aEstado(f) : null;
+}
+
+/** El acceso del cliente como lo dibujan la ficha, la celda «Acceso» y la tarjeta del kanban. */
+export type AccesoParaPantalla = {
+  existe: boolean; link: string | null; revocado: boolean; ingresos: number; ultimoIngresoAt: string | null;
+  email: string | null; invitacionEnviadaAt: string | null; alcance: AlcanceCurso;
+  /** Qué cursos abre (mig 0232). `null` = todos sus productos. */
+  productos: number[] | null;
+};
+
+/**
+ * El acceso del CLIENTE leído DESPUÉS de lo que se haya hecho, con su link firmado al leer. ⚠️ NO
+ * ESCRIBE: sin fila vuelve `existe: false` (la fila la crean invitar, copiar o mandar el link).
+ *
+ * Es la forma de `AccesoFicha` (app/customer-success/curso-ficha-lectura.ts). Vive acá porque la
+ * necesitan dos archivos de actions — la ficha (`aFicha`, su copia privada hasta que pase a usar ésta)
+ * y la invitación a un producto (app/customer-success/curso/invitar-actions.ts) — y con dos copias la
+ * segunda se queda sin el campo que se agregue mañana.
+ */
+export async function accesoParaPantalla(leadId: number, ws: number | null): Promise<AccesoParaPantalla> {
+  const a = await accesoDe(leadId);
+  const token = a && !a.revocado && ws ? firmarAccesoCurso({ ws, leadId, version: a.version }) : null;
+  return {
+    existe: a != null,
+    link: token ? urlDeToken(token) : null,
+    revocado: a?.revocado ?? false,
+    ingresos: a?.ingresos ?? 0,
+    ultimoIngresoAt: a?.ultimoIngresoAt ?? null,
+    email: a?.email ?? null,
+    invitacionEnviadaAt: a?.invitacionEnviadaAt ?? null,
+    alcance: a?.alcance ?? null,
+    productos: a?.productos ?? null,
+  };
+}
+
+/**
+ * Qué cursos abre el acceso de CADA uno de estos clientes (mig 0232), de una: lead → lista (`null` =
+ * todos). Un lead sin acceso no aparece. Lo usa el modal de invitar del editor para mirar la lista
+ * «Clientes sin invitar» DESDE ESE curso (`accesoEnProducto`, lib/curso-invitar-reglas.ts): invitado a
+ * otro curso del negocio no es invitado a éste. Tira si la base no contesta.
+ */
+export async function productosDeAccesos(leadIds: readonly number[]): Promise<Map<number, number[] | null>> {
+  const out = new Map<number, number[] | null>();
+  const ids = [...new Set(leadIds.filter((n) => Number.isInteger(n) && n > 0))];
+  const db = await getTenantDb();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('curso_accesos').select('lead_id, productos').in('lead_id', ids.slice(i, i + 200)).is('area', null);
+    if (error) throw new Error(error.message);
+    for (const f of (data ?? []) as Array<{ lead_id: number | string; productos?: unknown }>) out.set(Number(f.lead_id), saneaProductos(f.productos));
+  }
+  return out;
 }
 
 async function filaDeAcceso(leadId: number, area: string | null): Promise<FilaAcceso | null> {
@@ -622,14 +691,31 @@ export const urlDeToken = (token: string): string => linkApp(`/compartido/curso/
  *
  * `area` null = la del cliente. ⚠️ El email de un líder NUNCA lo lee el login con Google
  * (`accesoInvitadoPorEmail` filtra `area is null`): si lo leyera, el líder entraría como el cliente.
+ *
+ * `productoId` (mig 0232, punto 7 del audio del 08/10/2026 a la noche): el producto al que se lo
+ * INVITÓ. En la MISMA escritura que dice que salió, el acceso pasa a abrir ese curso
+ * (`productosTrasInvitar`, lib/curso-invitar-reglas.ts: suma, nunca reemplaza; y una fila que abría
+ * todo y ya se usó, sigue abriendo todo). Sin producto (la invitación de la ficha o del CRM que todavía
+ * no dicen cuál) la lista no se toca. ⚠️ Sólo para el CLIENTE: el líder se rige por la fila del cliente.
+ *
+ * ⚠️ LEE Y DESPUÉS ESCRIBE la lista (no es atómico). Dos invitaciones del MISMO cliente a DOS productos
+ * en el mismo instante podrían pisarse; la sin sesión no llega porque reclama la fila antes
+ * (`reclamarInvitacion`), y la de una persona no la aprieta dos veces a la vez.
  */
-export async function marcarInvitacion(leadId: number, email: string, porQuien: string | null, area: string | null = null): Promise<void> {
+export async function marcarInvitacion(leadId: number, email: string, porQuien: string | null, area: string | null = null, productoId: number | null = null): Promise<void> {
   const db = await getTenantDb();
+  let productos: { productos: number[] | null } | Record<string, never> = {};
+  if (area == null && productoId != null) {
+    const previo = await accesoDe(leadId);
+    // Sin fila no hay qué anotar (el update de abajo no encuentra nada): `productosTrasInvitar(null)`
+    // igual devuelve sólo ése, por si una carrera la creó en el medio.
+    productos = { productos: productosTrasInvitar(previo, productoId) };
+  }
   // `invitando_at: null`: el reclamo de la invitación sin sesión (`reclamarInvitacion`) se suelta
   // en la misma escritura que dice que salió — con dos escrituras, un fallo entre las dos dejaría
   // la fila reclamada (y otro disparo esperando 5 minutos) sobre una invitación ya anotada.
   const { error } = await conArea(db.from('curso_accesos')
-    .update({ email: email.trim().toLowerCase(), invitacion_enviada_at: new Date().toISOString(), invitado_por: porQuien, invitando_at: null })
+    .update({ email: email.trim().toLowerCase(), invitacion_enviada_at: new Date().toISOString(), invitado_por: porQuien, invitando_at: null, ...productos })
     .eq('lead_id', leadId), area);
   if (error) throw new Error(error.message);
 }
@@ -646,15 +732,25 @@ const RECLAMO_MS = 5 * 60_000;
  * ⚠️ COMPARE-AND-SET EN EL WHERE, no un «leer y después escribir»: dos disparos del mismo «pasó a
  * Ganado» (lib/curso-invitar.ts lo explica) leían los dos «sin invitar» y mandaban dos mails. Acá
  * el segundo no encuentra la fila. La fila tiene que existir (la crea `linkDeAcceso` antes).
+ *
+ * `productoId` (mig 0232): la invitación a UN curso. «Nadie la mandó todavía» pasa a ser «nadie lo
+ * invitó a ESTE producto»: sin invitación, o invitado con una lista que no lo tiene (`productos` sin
+ * ese id). Un acceso invitado que abre todo (`productos` null) ya lo tiene: no se reclama. Es la regla
+ * de `invitadoAlProducto` (lib/curso-invitar-reglas.ts) escrita en el WHERE, en UN `or` en forma
+ * normal disyuntiva — (sin invitar O sin ese producto) Y (sin reclamo O reclamo vencido) — porque dos
+ * `.or()` encadenados no se sabe cómo los junta PostgREST.
  */
-export async function reclamarInvitacion(leadId: number, ahora: Date = new Date()): Promise<boolean> {
+export async function reclamarInvitacion(leadId: number, ahora: Date = new Date(), productoId: number | null = null): Promise<boolean> {
   const db = await getTenantDb();
   const vencido = new Date(ahora.getTime() - RECLAMO_MS).toISOString();
-  const { data, error } = await db.from('curso_accesos')
+  const base = db.from('curso_accesos')
     .update({ invitando_at: ahora.toISOString() })
-    .eq('lead_id', leadId).is('area', null).is('revocado_at', null).is('invitacion_enviada_at', null)
-    .or(`invitando_at.is.null,invitando_at.lt.${vencido}`)
-    .select('id');
+    .eq('lead_id', leadId).is('area', null).is('revocado_at', null);
+  const libre = ['invitando_at.is.null', `invitando_at.lt.${vencido}`];
+  const q = productoId != null && Number.isInteger(productoId) && productoId > 0
+    ? base.or(['invitacion_enviada_at.is.null', `productos.not.cs.{${productoId}}`].flatMap((a) => libre.map((b) => `and(${a},${b})`)).join(','))
+    : base.is('invitacion_enviada_at', null).or(libre.join(','));
+  const { data, error } = await q.select('id');
   if (error) throw new Error(error.message);
   return (data ?? []).length > 0;
 }
@@ -914,9 +1010,17 @@ export async function aprobarTarea(leadId: number, claseId: number, aprobada = t
 // ── Dónde está el cliente ────────────────────────────────────────────────────
 
 /**
- * Los productos del cliente, con la MISMA regla que el kanban de Customer Success (su casa en
- * el CRM o una fila en `cliente_entrega`). El portal sólo muestra el curso de ésos: un link
- * válido no abre el curso de un producto que el cliente no compró.
+ * Los productos cuyo curso VE el alumno: los suyos, con la MISMA regla que el kanban de Customer
+ * Success (su casa en el CRM o una fila en `cliente_entrega`), cruzados con los que abre su acceso
+ * (mig 0232). El portal sólo muestra el curso de ésos: un link válido no abre el curso de un producto
+ * que el cliente no compró — ni, desde el 09/10/2026, el de uno al que no lo invitaron.
+ *
+ * ⚠️ «QUÉ VE EL ALUMNO» Y «DE QUÉ PRODUCTOS ES CLIENTE» SON DOS PREGUNTAS (punto 7 del audio del
+ * 08/10/2026 a la noche: «tengo acceso a los dos cursos, cuando sólo le había invitado al curso de
+ * Fiesta Music»). Ésta contesta la primera, y la usan el portal, la comunidad del alumno, los mensajes
+ * del curso y la propuesta de la IA. La segunda es `productosDelCliente`
+ * (app/customer-success/entrega.ts): la usan el kanban, la invitación (¿es cliente de ese producto?) y
+ * todo lo que es del EQUIPO y no del alumno.
  */
 export async function productosDelAlumno(leadId: number): Promise<number[]> {
   return (await productosConCasaDelAlumno(leadId)).productos;
@@ -924,11 +1028,28 @@ export async function productosDelAlumno(leadId: number): Promise<number[]> {
 
 /**
  * Lo mismo, y cuál es su CASA (el producto de su embudo en el CRM). Lo necesita el goteo del curso:
- * desde cuándo cuenta depende de si el producto es su casa o una fila aparte (`abiertoDesdeDe`).
+ * desde cuándo cuenta depende de si el producto es su casa o una fila aparte (`abiertoDesdeDe`). La
+ * casa es un hecho del CRM: no se acota por lo que abre su acceso.
+ *
+ * ⚠️ UNA lectura más por pedido: la lista de su acceso (`productosQueAbre`). Si falla, TIRA — «no pude
+ * leer qué abre» no es «abre todo» (el portal contesta su error y se reintenta).
  */
 export async function productosConCasaDelAlumno(leadId: number): Promise<{ productos: number[]; casa: number | null }> {
   const { productosDelCliente } = await import('@/app/customer-success/entrega');
-  return productosDelCliente(leadId);
+  const [suyos, abre] = await Promise.all([productosDelCliente(leadId), productosQueAbre(leadId)]);
+  return { productos: productosVisibles(suyos.productos, abre), casa: suyos.casa };
+}
+
+/**
+ * Qué productos abre el acceso DEL CLIENTE (`area` null; el de un líder se rige por éste, como el
+ * alcance). Sin fila = `null` (todos): nunca se le dio acceso, y es la regla de siempre. Tira si la base
+ * no contesta.
+ */
+async function productosQueAbre(leadId: number): Promise<number[] | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('curso_accesos').select('productos').eq('lead_id', leadId).is('area', null).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? saneaProductos((data as { productos?: unknown }).productos) : null;
 }
 
 /**
@@ -960,10 +1081,13 @@ export async function etapaActualDe(leadId: number, productoId: number, producto
 export async function ubicacionEnEntregaDe(leadId: number, productoId: number, productosYaLeidos?: readonly number[]): Promise<{ etapa: string | null; borrada: string | null }> {
   // `productosYaLeidos`: quien ya los tiene (la ficha, el portal) los pasa. Leerlos son dos
   // rondas de consultas (catálogo, embudos, filas), y repetirlas por producto alargaba la ficha.
+  // ⚠️ SIN ELLOS, LOS DEL CLIENTE (`productosDelCliente`) y no los que ve el alumno: en qué etapa de la
+  // entrega está es un hecho del kanban, no de lo que abre su acceso (mig 0232). El portal y los
+  // mensajes, que sí hablan de lo que ve, pasan su lista ya acotada.
   const [{ entregaDeProductoEstricta, entregaDeCliente }, { entregaPorDefecto }, productos] = await Promise.all([
     import('./entrega-servicio'),
     import('./servicio-etapas'),
-    productosYaLeidos ?? productosDelAlumno(leadId),
+    productosYaLeidos ?? import('@/app/customer-success/entrega').then((m) => m.productosDelCliente(leadId)).then((x) => x.productos),
   ]);
   if (!productos.includes(productoId)) return { etapa: null, borrada: null };
   const [leida, fila] = await Promise.all([entregaDeProductoEstricta(productoId), entregaDeCliente(leadId, productoId)]);

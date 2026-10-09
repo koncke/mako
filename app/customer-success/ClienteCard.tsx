@@ -48,7 +48,13 @@ export { colorDe };
  * invitar (no se invita a ciegas: podría ser un segundo mail a alguien ya invitado).
  */
 export type CursoDeTarjeta = {
+  /** Su acceso, ya mirado desde el curso de este tablero (`accesoEnProducto`, ClientesApp). */
   acceso: AccesoInvitacion | null;
+  /**
+   * El producto del tablero (puntos 6 y 7 del audio del 08/10 a la noche): «Invitar al curso» invita a
+   * ESTE curso — el mail nombra sólo éste y el acceso pasa a abrirlo. Sin él se invitaba a todos.
+   */
+  productoId: number;
   /** El acceso como quedó después de invitar (lo releyó el server). */
   onAcceso: (a: AccesoFicha) => void;
 };
@@ -270,7 +276,7 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
         (`ModalInvitar` se portalea solo al body): adentro de la tarjeta heredaría su
         `pointer-events: none` y, en el kanban, su `overflow: hidden`. */}
     {invitando && curso && (
-      <ModalInvitar leadId={c.leadId} nombre={nombre} emailCrm={c.email} acceso={curso.acceso}
+      <ModalInvitar leadId={c.leadId} nombre={nombre} emailCrm={c.email} acceso={curso.acceso} productoId={curso.productoId}
         onCerrar={() => setInvitando(false)}
         onEnviada={() => setAviso({ tono: 'ok', texto: 'Invitación enviada.' })}
         onListo={(a, av) => { if (a) curso.onAcceso(a); if (av) setAviso(av); }} />

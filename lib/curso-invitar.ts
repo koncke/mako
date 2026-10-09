@@ -69,9 +69,24 @@ import 'server-only';
 // ⚠️ LA INVITACIÓN AUTOMÁTICA AL GANAR (lib/crm-curso-al-ganar.ts, del CRM) NO PASA `canales`: sigue
 //    siendo sólo correo. Su REMITENTE sí cambió con el de todos (lib/invitaciones.ts): es el mismo mail.
 
+// ── A UN CURSO, NO A TODOS (puntos 6 y 7 del audio del 08/10/2026 a la noche) ──────────────────────
+// «Le envió la invitación a dos productos en lugar de enviarle la invitación al producto en donde estaba
+// parado» y «tengo acceso a los dos cursos, cuando sólo le había invitado al curso de Fiesta Music».
+// `productoId` = el producto DESDE el que se invita (el editor del curso, la tarjeta del kanban, la tabla
+// Avance). Con él:
+//   · el mail nombra SÓLO ese curso (`cursos`), nunca los otros productos del cliente;
+//   · tiene que ser un producto del que es cliente (la regla del kanban), o es un error;
+//   · «ya invitado» y «ya entró» se preguntan POR ESE PRODUCTO (`invitadoAlProducto`): un alumno de Fiesta
+//     Music no está invitado a Service Delivery, y el reclamo sin sesión también es por producto;
+//   · al salir el mail, su acceso pasa a abrir ese curso (`marcar` → `productosTrasInvitar`,
+//     lib/curso-invitar-reglas.ts). El portal le muestra sólo lo que su acceso abre (`productosDelAlumno`).
+// Sin `productoId` (la ficha y el CRM, hasta que digan cuál) es lo de antes, con UNA diferencia: el mail
+// nombra los cursos que el alumno VE (`productosDelAlumno`), nunca uno que su acceso no le abre.
+
 import { emailNormalizado, emailUtilizable } from './agencia-altas';
 import type { ResultadoInvitacion } from './invitacion-aviso';
 import { canalesDeInvitacion } from './curso-invitar-canales';
+import { invitadoAlProducto, entroAlProducto, type ProductosDelAcceso } from './curso-invitar-reglas';
 
 /** Por qué NO se mandó, cuando no mandar es lo correcto. */
 // `ya-entro` (08/10/2026, lo señaló el chat del CRM): tiene acceso, nunca se le mandó el mail y ya
@@ -103,6 +118,11 @@ export type IntentoInvitar =
     fallo: string | null;
     /** El WhatsApp, SÓLO si se pidió (`canales`). `motivo` = por qué no salió, corto. */
     whatsapp?: { enviado: boolean; motivo?: string };
+    /**
+     * Con qué remitente salió (o se intentó): el del negocio o el de MaKo. Lo necesita la pantalla para
+     * decir DE QUIÉN fue un correo que no salió (`correoQueFallo`, lib/curso-invitar-reglas.ts).
+     */
+    via?: 'negocio' | 'mako';
   };
 
 /**
@@ -116,7 +136,7 @@ export const TEXTO_NO_INVITA: Record<MotivoNoInvita, string> = {
   'ya-invitado': 'Ya está invitado.',
   'ya-entro': 'Ya entró al curso.',
   'sin-email': 'Falta su email.',
-  'sin-clases': 'Sus productos todavía no tienen clases.',
+  'sin-clases': 'El curso todavía no tiene clases.',
   cortado: 'Su acceso está cortado. Primero vuelve a habilitarlo.',
   'no-ganado': 'Ya no figura como cliente.',
 };
@@ -129,13 +149,21 @@ export type DepsInvitar = {
   capaConCs(ws: number): Promise<boolean>;
   /** `telefono`: el del CRM, para «También por WhatsApp» (no se lee si no se pidió). */
   lead(leadId: number): Promise<{ nombre: string | null; email: string | null; ganado: boolean; telefono?: string | null } | null>;
-  /** El acceso del CLIENTE sin crearlo. `null` = nunca se le dio. */
-  acceso(leadId: number): Promise<{ revocado: boolean; invitacionEnviadaAt: string | null; ingresos?: number } | null>;
-  /** Los nombres de SUS productos que tienen clases (la regla del portal: `productosDelAlumno`). */
-  cursos(leadId: number): Promise<string[]>;
+  /**
+   * El acceso del CLIENTE sin crearlo. `null` = nunca se le dio. `productos` (mig 0232) = qué cursos
+   * abre (`null` o ausente = todos sus productos).
+   */
+  acceso(leadId: number): Promise<{ revocado: boolean; invitacionEnviadaAt: string | null; ingresos?: number; productos?: ProductosDelAcceso } | null>;
+  /**
+   * Los nombres de los cursos que nombra el mail. Con `productoId`: SÓLO ése, si es un producto del que
+   * es cliente (la regla del kanban) — `null` si no lo es —, y `[]` si todavía no tiene clases. Sin
+   * producto: los que VE (`productosDelAlumno`) que tienen clases.
+   */
+  cursos(leadId: number, productoId: number | null): Promise<string[] | null>;
   /** El link de entrada de la versión vigente, CREANDO el acceso si no estaba. `null` = cortado o sin secreto. */
   linkDeEntrada(leadId: number, ws: number, autor: string): Promise<string | null>;
-  reclamar(leadId: number): Promise<boolean>;
+  /** El reclamo sin sesión (compare-and-set). Con `productoId`, «nadie lo invitó a ESE producto». */
+  reclamar(leadId: number, productoId: number | null): Promise<boolean>;
   soltar(leadId: number): Promise<void>;
   negocio(ws: number): Promise<string | null>;
   /** El login, para la línea de «entra con Google». */
@@ -144,13 +172,14 @@ export type DepsInvitar = {
    * El mail. NUNCA tira por contrato (`invitarAlCursoPorEmail`); igual se ataja. `ws` es el del ALUMNO:
    * decide el remitente (el del negocio si tiene su dominio conectado, si no el de MaKo).
    */
-  mandar(m: { ws: number; email: string; nombre: string | null; programa: string; negocio: string | null; enlace: string; entrarConGoogle: string }): Promise<ResultadoInvitacion>;
+  mandar(m: { ws: number; email: string; nombre: string | null; programa: string; negocio: string | null; enlace: string; entrarConGoogle: string }): Promise<ResultadoInvitacion & { remitente?: 'negocio' | 'mako' }>;
   /**
    * El WhatsApp, por la línea de por default del negocio, con el mismo link de entrada. Se llama SÓLO con
    * 'whatsapp' en `canales` y con el correo ya salido. NUNCA tira por contrato; igual se ataja.
    */
   mandarWhatsapp(m: { leadId: number; telefono: string | null; nombre: string | null; programa: string; negocio: string | null; enlace: string }): Promise<{ enviado: boolean; motivo?: string }>;
-  marcar(leadId: number, email: string, autor: string): Promise<void>;
+  /** Anota que SALIÓ, y con `productoId` su acceso pasa a abrir ese curso (`marcarInvitacion`). */
+  marcar(leadId: number, email: string, autor: string, productoId: number | null): Promise<void>;
   guardarEmailDelLead(leadId: number, email: string): Promise<void>;
 };
 
@@ -168,10 +197,14 @@ export async function invitarAlCurso(
     ws: number; leadId: number; email?: string | null; autor: string; reenviar?: boolean;
     /** Por dónde: `['email']` (default) o `['email', 'whatsapp']`. Lo sanea `canalesDeInvitacion`. */
     canales?: unknown;
+    /** A QUÉ curso (ver la cabecera, «A UN CURSO, NO A TODOS»). Sin él, lo de antes. */
+    productoId?: number | null;
   },
   deps?: DepsInvitar,
 ): Promise<IntentoInvitar> {
   if (!idValido(p.ws) || !idValido(p.leadId)) return { tipo: 'error', error: 'Faltan datos.' };
+  if (p.productoId != null && !idValido(p.productoId)) return { tipo: 'error', error: 'Falta el producto.' };
+  const productoId = p.productoId ?? null;
   const autor = (p.autor ?? '').trim() || 'MaKo';
   const reenviar = p.reenviar === true;
   const conWhatsapp = canalesDeInvitacion(p.canales).includes('whatsapp');
@@ -186,10 +219,16 @@ export async function invitarAlCurso(
 
       const previo = await d.acceso(p.leadId);
       if (previo?.revocado) return { tipo: 'no', motivo: 'cortado' };
-      if (!reenviar && previo?.invitacionEnviadaAt) return { tipo: 'no', motivo: 'ya-invitado' };
-      if (!reenviar && (previo?.ingresos ?? 0) > 0) return { tipo: 'no', motivo: 'ya-entro' };
+      // Por producto: invitado a OTRO curso no es «ya invitado» a éste (ver la cabecera). `productos`
+      // ausente (quien no lo leyó) cuenta como «todos», que es lo de antes.
+      const deEste = previo ? { ...previo, productos: previo.productos ?? null } : null;
+      const yaInvitado = productoId != null ? invitadoAlProducto(deEste, productoId) : !!previo?.invitacionEnviadaAt;
+      const yaEntro = productoId != null ? entroAlProducto(deEste, productoId) : (previo?.ingresos ?? 0) > 0;
+      if (!reenviar && yaInvitado) return { tipo: 'no', motivo: 'ya-invitado' };
+      if (!reenviar && yaEntro) return { tipo: 'no', motivo: 'ya-entro' };
 
-      const cursos = await d.cursos(p.leadId);
+      const cursos = await d.cursos(p.leadId, productoId);
+      if (cursos === null) return { tipo: 'error', error: 'No es cliente de ese producto.' };
       if (!cursos.length) return { tipo: 'no', motivo: 'sin-clases' };
 
       // El email pedido gana; sin pedido, el del CRM. Uno pedido que no sirve es un error del que
@@ -207,23 +246,25 @@ export async function invitarAlCurso(
       }
 
       // ⚠️ EL RECLAMO VA DESPUÉS DE CREAR LA FILA (es un update sobre ella) y ANTES del mail.
-      if (!reenviar && !(await d.reclamar(p.leadId))) return { tipo: 'no', motivo: 'ya-invitado' };
+      if (!reenviar && !(await d.reclamar(p.leadId, productoId))) return { tipo: 'no', motivo: 'ya-invitado' };
 
       const negocio = await d.negocio(p.ws).catch(() => null);
       const programa = new Intl.ListFormat('es', { style: 'long', type: 'conjunction' }).format(cursos);
-      let inv: ResultadoInvitacion;
+      let inv: ResultadoInvitacion & { remitente?: 'negocio' | 'mako' };
       try {
         inv = await d.mandar({ ws: p.ws, email: correo, nombre: lead.nombre, programa, negocio, enlace, entrarConGoogle: d.entrarConGoogle() });
       } catch (e) {
         inv = { enviado: false, error: texto(e, 'el envío falló'), enlace };
       }
+      const via = inv.remitente === 'negocio' || inv.remitente === 'mako' ? { via: inv.remitente } : {};
 
       if (!inv.enviado) {
-        // No salió: se suelta el reclamo para que el próximo intento pueda mandarla. Nada anotado. Y el
+        // No salió: se suelta el reclamo para que el próximo intento pueda mandarla. Nada anotado —ni el
+        // producto: un intento que no le llegó a nadie no le abre nada (lib/curso-invitar-reglas.ts). Y el
         // WhatsApp tampoco sale (ver la cabecera): la invitación no existe hasta que salga el correo.
         if (!reenviar) await d.soltar(p.leadId);
         return {
-          tipo: 'mandado', enviado: false, email: correo, anotado: false, fallo: inv.error || 'el envío falló',
+          tipo: 'mandado', enviado: false, email: correo, anotado: false, fallo: inv.error || 'el envío falló', ...via,
           ...(conWhatsapp ? { whatsapp: { enviado: false, motivo: 'no salió el correo' } } : {}),
         };
       }
@@ -231,7 +272,7 @@ export async function invitarAlCurso(
       // ⚠️ DE ACÁ PARA ABAJO NADA TIRA: el mail ya salió.
       let anotado = false;
       try {
-        await d.marcar(p.leadId, correo, autor);
+        await d.marcar(p.leadId, correo, autor, productoId);
         anotado = true;
       } catch (e) {
         console.error('[curso-invitar] la invitación salió y no se pudo anotar:', texto(e, ''));
@@ -242,7 +283,7 @@ export async function invitarAlCurso(
         }
       }
       // «También por WhatsApp»: el MISMO link de entrada, después de que el correo salió y se anotó.
-      if (!conWhatsapp) return { tipo: 'mandado', enviado: true, email: correo, anotado, fallo: null };
+      if (!conWhatsapp) return { tipo: 'mandado', enviado: true, email: correo, anotado, fallo: null, ...via };
       let whatsapp: { enviado: boolean; motivo?: string };
       try {
         whatsapp = await d.mandarWhatsapp({ leadId: p.leadId, telefono: lead.telefono ?? null, nombre: lead.nombre, programa, negocio, enlace });
@@ -250,7 +291,7 @@ export async function invitarAlCurso(
         console.error('[curso-invitar] el WhatsApp de la invitación falló:', texto(e, ''));
         whatsapp = { enviado: false, motivo: 'no salió' };
       }
-      return { tipo: 'mandado', enviado: true, email: correo, anotado, fallo: null, whatsapp };
+      return { tipo: 'mandado', enviado: true, email: correo, anotado, fallo: null, whatsapp, ...via };
     });
   } catch (e) {
     return { tipo: 'error', error: texto(e, 'No se pudo invitar.') };
@@ -260,9 +301,12 @@ export async function invitarAlCurso(
 /**
  * La invitación SIN SESIÓN, con el contrato de docs/diseno-curso-skool.md. La usa el CRM (un
  * webhook, un cron, MaKo por WhatsApp). `autor` firma `invitado_por` y el historial.
+ *
+ * `productoId` (opcional, 09/10/2026): el producto del embudo donde ganó. Con él, el mail nombra sólo
+ * ese curso y el acceso abre sólo ése (ver la cabecera). Sin él, lo de antes.
  */
-export async function invitarAlCursoSinSesion(p: { ws: number; leadId: number; email?: string; autor: string }): Promise<ResultadoInvitarSinSesion> {
-  return aContrato(await invitarAlCurso({ ws: p.ws, leadId: p.leadId, email: p.email ?? null, autor: p.autor, reenviar: false }));
+export async function invitarAlCursoSinSesion(p: { ws: number; leadId: number; email?: string; autor: string; productoId?: number | null }): Promise<ResultadoInvitarSinSesion> {
+  return aContrato(await invitarAlCurso({ ws: p.ws, leadId: p.leadId, email: p.email ?? null, autor: p.autor, reenviar: false, productoId: p.productoId ?? null }));
 }
 
 /** El intento, reducido al contrato. Exportada para que el test la ejecute con su base simulada. */
@@ -280,9 +324,9 @@ export function aContrato(r: IntentoInvitar): ResultadoInvitarSinSesion {
  * request y sin argumento: en un cron que recorre inquilinos contestaría la del primero para todos.
  */
 async function depsReales(): Promise<DepsInvitar> {
-  const [workspace, datos, alumno, invitaciones, capas, appUrl, productos] = await Promise.all([
+  const [workspace, datos, alumno, invitaciones, capas, appUrl, productos, entrega] = await Promise.all([
     import('./workspace'), import('./curso-datos'), import('./alumno-acceso'), import('./invitaciones'),
-    import('./capas'), import('./app-url'), import('./productos'),
+    import('./capas'), import('./app-url'), import('./productos'), import('@/app/customer-success/entrega'),
   ]);
   return {
     enWorkspace: (ws, fn) => workspace.runWithWorkspace(ws, fn),
@@ -302,11 +346,16 @@ async function depsReales(): Promise<DepsInvitar> {
     },
     acceso: async (leadId) => {
       const a = await datos.accesoDe(leadId);
-      return a ? { revocado: a.revocado, invitacionEnviadaAt: a.invitacionEnviadaAt, ingresos: a.ingresos } : null;
+      return a ? { revocado: a.revocado, invitacionEnviadaAt: a.invitacionEnviadaAt, ingresos: a.ingresos, productos: a.productos } : null;
     },
-    cursos: async (leadId) => {
-      // La MISMA regla que el portal y la ficha: los productos del ALUMNO, y de ésos los que tienen clases.
-      const ids = await datos.productosDelAlumno(leadId);
+    cursos: async (leadId, productoId) => {
+      // Con producto: ¿es cliente de ése? (la regla del KANBAN, `productosDelCliente`: todavía no lo
+      // abre su acceso, justamente se lo está invitando). Sin producto: los que VE (`productosDelAlumno`,
+      // la regla del portal), así el mail nunca nombra un curso que su acceso no le abre.
+      const ids = productoId != null
+        ? ((await entrega.productosDelCliente(leadId)).productos.includes(productoId) ? [productoId] : null)
+        : await datos.productosDelAlumno(leadId);
+      if (ids == null) return null;
       if (!ids.length) return [];
       const [catalogo, conClases] = await Promise.all([
         productos.listProductos(false),
@@ -316,13 +365,13 @@ async function depsReales(): Promise<DepsInvitar> {
       return conClases.filter((id): id is number => id != null).map((id) => nombre.get(id) || 'tu programa');
     },
     linkDeEntrada: (leadId, ws, autor) => alumno.linkDeEntradaAlumno(leadId, ws, autor),
-    reclamar: (leadId) => datos.reclamarInvitacion(leadId),
+    reclamar: (leadId, productoId) => datos.reclamarInvitacion(leadId, new Date(), productoId),
     soltar: (leadId) => datos.soltarInvitacion(leadId),
     negocio: async (ws) => (await workspace.getWorkspace(ws))?.nombre?.trim() || null,
     entrarConGoogle: () => appUrl.linkApp('/login', null),
     mandar: (m) => invitaciones.invitarAlCursoPorEmail(m),
     mandarWhatsapp: (m) => mandarInvitacionPorWhatsapp(m),
-    marcar: (leadId, email, autor) => datos.marcarInvitacion(leadId, email, autor),
+    marcar: (leadId, email, autor, productoId) => datos.marcarInvitacion(leadId, email, autor, null, productoId),
     guardarEmailDelLead: async (leadId, email) => {
       const db = await workspace.getTenantDb();
       const { error } = await db.from('leads').update({ email }).eq('id', leadId);

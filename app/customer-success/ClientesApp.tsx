@@ -52,6 +52,7 @@ import { AvanceCurso, type FilaConAcceso } from './curso/AvanceCurso';
 import type { EtapaVista } from './curso/FilaAvance';
 import type { CursoDeTarjeta } from './ClienteCard';
 import { accesoDeFila, type AccesoInvitacion } from './curso-ficha-lectura';
+import { accesoEnProducto } from '@/lib/curso-invitar-reglas';
 
 /**
  * Lo que la cartera necesita del CURSO (07/10/2026, items 4 y 9). Lo arma page.tsx
@@ -78,6 +79,8 @@ const filaDeAcceso = (a: AccesoInvitacion): NonNullable<FilaConAcceso['acceso']>
   ultimoIngresoAt: a.ultimoIngresoAt,
   email: a.email ?? null,
   invitacionEnviadaAt: a.invitacionEnviadaAt ?? null,
+  // Qué cursos abre, si se leyó: sin esto la tabla de OTRO producto lo daría por invitado ahí también.
+  ...(a.productos !== undefined ? { productos: a.productos } : {}),
 });
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
@@ -262,8 +265,11 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    */
   const cursoDe = (leadId: number): CursoDeTarjeta | null => {
     if (!curso || !servicio || !curso.conCurso[servicio.productoId]) return null;
-    const acceso = accesoMovs[leadId] ?? (curso.accesos ? accesoDeFila(curso.accesos[leadId] ?? { estado: 'sin-link', ingresos: 0, ultimoIngresoAt: null }) : null);
-    return { acceso, onAcceso: (a) => alAcceso(leadId, a) };
+    const crudo = accesoMovs[leadId] ?? (curso.accesos ? accesoDeFila(curso.accesos[leadId] ?? { estado: 'sin-link', ingresos: 0, ultimoIngresoAt: null }) : null);
+    // ⚠️ DESDE EL CURSO DE ESTE TABLERO (puntos 6 y 7 del audio del 08/10 a la noche): invitado a otro
+    // curso es «Invitar al curso» acá, y el modal invita a ÉSTE (el mail nombra sólo éste).
+    const acceso = accesoEnProducto(crudo, servicio.productoId);
+    return { acceso, productoId: servicio.productoId, onAcceso: (a) => alAcceso(leadId, a) };
   };
   /**
    * QUÉ FASE DEL TABLERO SE ESTÁ MIRANDO. `null` = todas, `''` = las columnas sueltas.
@@ -1233,7 +1239,7 @@ function AvanceDelServicio({ curso, productoId, visibles, accesoMovs, onAcceso }
     .map((f) => (accesoMovs[f.leadId] ? { ...f, acceso: filaDeAcceso(accesoMovs[f.leadId]) } : f));
   // «No encontré» no es «no tiene clientes»: con el buscador puesto, la tabla vacía diría lo segundo.
   if (!filas.length && p.filas.length) return <p className="cl-nada">Ningún cliente coincide con lo que buscaste.</p>;
-  return <AvanceCurso etapas={p.etapas} filas={filas} error={null} onAcceso={onAcceso} />;
+  return <AvanceCurso etapas={p.etapas} filas={filas} error={null} onAcceso={onAcceso} productoId={productoId} />;
 }
 
 /**

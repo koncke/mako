@@ -3983,6 +3983,24 @@ desde el navegador, así que lo que el estado local no tenga sale como `null`. N
 se borra solo, sin un error, sin un 4xx y con la tarjeta a la vista. Es la misma trampa que
 los mappers de lectura, del lado de la escritura.
 
+# Todo `<Modal>` recibe un `onCerrar` de identidad FIJA, y `autoFocus` adentro no anda
+
+El efecto de foco de `app/_ui/Modal.tsx` depende de `[onCerrar, arriba]`. Una flecha creada en
+el mismo componente que tiene el estado de un campo es una identidad nueva por tecla: el efecto
+se re-ejecuta, su limpieza devuelve el foco atrás y el campo **pierde el foco con cada letra**.
+Medido el 09/10/2026 en «Nuevo producto» de la tab Curso; el diagnóstico obvio (un componente
+definido adentro de otro, una `key` que cambia) era falso: el barrido con el AST dio cero.
+
+- **Va `useCerrarEstable(onCerrar, ocupado)`** (`app/customer-success/curso/dialogo-foco.ts`) o un
+  `useCallback(…, [])` con refs. Pasar el `onCerrar` del padre tal cual tampoco alcanza si el
+  padre se re-renderiza por otra cosa (un toast, un sondeo).
+- **`autoFocus` (y cualquier `.focus()` al montar) no llega**: el primer render de la caja es
+  `display:none`. Va `useFocoInicial(id)`, que espera a que el campo se vea.
+- **Hasta que se arregle Modal de raíz** (el `onCerrar` por ref y el foco cuando la capa se ve;
+  los cambios exactos en `docs/hallazgos-customer-success.md` → «El feedback del audio del 08/10 a
+  la noche»), el mismo bug vive en otros nueve
+  diálogos de la app. `tests/curso-nuevo-producto.test.ts` lo frena sólo en la tab Curso.
+
 # Un componente COMPARTIDO no lleva el endpoint adentro: lleva la capacidad del Repo
 
 Si dos productos distintos montan el mismo componente —en este repo, `BoardShell` es el

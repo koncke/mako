@@ -32,7 +32,8 @@
  *     .ugc-main
  *       .ugc-topbar    buscador + el curso
  *       .ugc-arriba    (opcional) lo fijo de la pantalla: un selector, un saludo
- *       .ugc-content   índice, grilla o lección — lo único que scrollea
+ *       .ugc-content   índice, grilla o lección — lo único que scrollea (en la lección, cada
+ *                      columna scrollea la suya, salvo con `unSoloScroll`: ver ./tipos.ts)
  *
  * ⚠️ NADA DE CARACTERES DE 3 BYTES EN EL TEXTO DE ESTE ARCHIVO (flechas, puntos
  *    suspensivos, tildes de check). Un reemplazo hecho con PowerShell rompió una vez la
@@ -170,7 +171,7 @@ function BarraAvance({ p, className }: { p: { hechas: number; total: number }; c
 export default function CursoUgc(props: CursoUgcProps) {
   const {
     titulo, subtitulo, marca, modulos, clases, portada, leccion, recursos, entradasExtra,
-    edicion, arriba, pieBarra, onSalir, modo = 'pagina', acento, disposicion, fuente,
+    edicion, arriba, pieBarra, onSalir, modo = 'pagina', acento, disposicion, fuente, unSoloScroll,
   } = props;
   const t: TextosUgc = useMemo(() => ({ ...TEXTOS_DEFAULT, ...props.textos }), [props.textos]);
   const cssListo = useCssUgc();
@@ -281,8 +282,9 @@ export default function CursoUgc(props: CursoUgcProps) {
 
   return (
     // `ahdoc--ugc` acota lo propio de este dibujo (./estilos.ts): CursoReplica comparte la hoja
-    // del origen y no tiene, por ejemplo, el menú del teléfono.
-    <div className={`ahdoc ahdoc--ugc${modo === 'embebido' ? ' ahdoc--embebido' : ''}`}>
+    // del origen y no tiene, por ejemplo, el menú del teléfono. `ahdoc--un-scroll`: la lección con un
+    // solo scroll (`unSoloScroll`, ./tipos.ts), la vista del alumno.
+    <div className={`ahdoc ahdoc--ugc${modo === 'embebido' ? ' ahdoc--embebido' : ''}${unSoloScroll ? ' ahdoc--un-scroll' : ''}`}>
       <style dangerouslySetInnerHTML={{ __html: CSS_UGC }} />
       <div className="paper-bg" aria-hidden />
       <div className="grain" aria-hidden />

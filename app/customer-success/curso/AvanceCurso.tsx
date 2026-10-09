@@ -31,6 +31,7 @@ import type { AccesoFila, FilaAvance } from './reglas';
 import { CabezaAvance, CeldasAvance, EstiloAvance, type EtapaVista } from './FilaAvance';
 import { CeldaAcceso, EstiloInvitar } from './InvitarAlCurso';
 import { accesoDeFila, type AccesoInvitacion } from '../curso-ficha-lectura';
+import { accesoEnProducto } from '@/lib/curso-invitar-reglas';
 
 // CursoApp lo importa de acá desde antes de que existiera FilaAvance.tsx.
 export type { EtapaVista };
@@ -45,14 +46,15 @@ export type { EtapaVista };
  */
 export type FilaConAcceso = Omit<FilaAvance, 'acceso'> & {
   email?: string | null;
-  acceso: (AccesoFila & { email?: string | null; invitacionEnviadaAt?: string | null }) | null;
+  /** `productos`: qué cursos abre (mig 0232); la columna «Acceso» lo mira desde el curso de la tabla. */
+  acceso: (AccesoFila & { email?: string | null; invitacionEnviadaAt?: string | null; productos?: number[] | null }) | null;
 };
 
 // ⛔ ACÁ VIVÍA `accesoDeFila` (el acceso de una fila → lo que lee la celda). Se mudó a
 // ../curso-ficha-lectura.ts el 07/10/2026: desde que la tarjeta del kanban y la lista «Clientes sin
 // invitar» también la necesitan, tres traducciones del mismo acceso podían decir tres cosas.
 
-export function AvanceCurso({ etapas, filas, error, onAcceso }: {
+export function AvanceCurso({ etapas, filas, error, onAcceso, productoId }: {
   etapas: EtapaVista[];
   filas: readonly FilaConAcceso[];
   error: string | null;
@@ -61,6 +63,12 @@ export function AvanceCurso({ etapas, filas, error, onAcceso }: {
    * Clientes para que la tarjeta del kanban diga lo mismo (`Reenviar invitación`) sin releer la página.
    */
   onAcceso?: (leadId: number, a: AccesoInvitacion) => void;
+  /**
+   * El curso de ESTA tabla (puntos 6 y 7 del audio del 08/10 a la noche). Con él la columna «Acceso»
+   * mira la invitación desde este curso (`accesoEnProducto`: invitado a otro curso es «Sin invitar»
+   * acá) e «Invitar» invita a ESTE curso — el mail nombra sólo éste y el acceso pasa a abrirlo.
+   */
+  productoId?: number;
 }) {
   /**
    * Lo que cambió en esta pantalla (invitar, habilitar), por cliente. El acceso es del CLIENTE,
@@ -100,7 +108,10 @@ export function AvanceCurso({ etapas, filas, error, onAcceso }: {
         </thead>
         <tbody>
           {filas.map((f) => {
-            const acceso = cambios[f.leadId] ?? accesoDeFila(f.acceso);
+            // Lo cambiado acá también se mira desde este curso: invitarlo desde otro producto no lo
+            // deja «Invitado» en éste.
+            const crudo = cambios[f.leadId] ?? accesoDeFila(f.acceso);
+            const acceso = productoId != null ? accesoEnProducto(crudo, productoId) : crudo;
             return (
               <tr key={f.leadId}>
                 <td className="av-cli">
@@ -108,7 +119,7 @@ export function AvanceCurso({ etapas, filas, error, onAcceso }: {
                   {f.empresa && <div className="av-sub">{f.empresa}</div>}
                 </td>
                 <td>
-                  <CeldaAcceso leadId={f.leadId} nombre={f.nombre} emailCrm={f.email} acceso={acceso}
+                  <CeldaAcceso leadId={f.leadId} nombre={f.nombre} emailCrm={f.email} acceso={acceso} productoId={productoId}
                     onAcceso={(a) => alCambiar(f.leadId, a)} />
                 </td>
                 <CeldasAvance etapas={etapas} fila={{ ...f, acceso }} />

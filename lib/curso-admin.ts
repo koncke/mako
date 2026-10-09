@@ -31,6 +31,7 @@ import {
   type AccesoFila,
 } from '@/app/customer-success/curso/reglas';
 import { borradorDe, igualParte, videoParaGuardar } from '@/app/customer-success/curso/leccion-reglas';
+import { saneaProductos } from './curso-invitar-reglas';
 
 /** El bucket privado de la mig 0202. */
 export const BUCKET_CURSO = 'curso-videos';
@@ -801,7 +802,15 @@ export async function urlsDeVistaPrevia(paths: readonly string[]): Promise<Map<s
  * app/customer-success/curso-ficha-lectura.ts) y la tabla Avance le ofrecía «Invitar» —nunca
  * «Reenviar»— a gente ya invitada, con el modal vacío: un mail duplicado a un clic.
  */
-export type AccesoFilaInvitacion = AccesoFila & { email: string | null; invitacionEnviadaAt: string | null };
+export type AccesoFilaInvitacion = AccesoFila & {
+  email: string | null; invitacionEnviadaAt: string | null;
+  /**
+   * Qué cursos abre (mig 0232): `null` = todos sus productos. Viaja para que la tarjeta del kanban y la
+   * tabla Avance de UN producto lo miren desde ahí (`accesoEnProducto`): sin esto, la de Service
+   * Delivery le pintaba «Invitado» / «Reenviar» a quien sólo está invitado a Fiesta Music (09/10/2026).
+   */
+  productos: number[] | null;
+};
 
 /**
  * El acceso al portal de VARIOS clientes (la tabla de Avance y las tarjetas del kanban): leadId →
@@ -817,15 +826,16 @@ export async function accesosDeClientes(leadIds: readonly number[]): Promise<Map
   // ⚠️ `area is null`: el acceso DEL CLIENTE. Desde la 0212 un cliente tiene además uno por cada
   // líder de área, y sin el filtro la columna «Acceso» pintaba el del último líder (#665).
   const { data, error } = await db.from('curso_accesos')
-    .select('lead_id, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at').in('lead_id', [...leadIds]).is('area', null);
+    .select('lead_id, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at, productos').in('lead_id', [...leadIds]).is('area', null);
   if (error) throw new Error(error.message);
-  for (const f of (data ?? []) as Array<{ lead_id: number; revocado_at: string | null; ingresos: number | null; ultimo_ingreso_at: string | null; email: string | null; invitacion_enviada_at: string | null }>) {
+  for (const f of (data ?? []) as Array<{ lead_id: number; revocado_at: string | null; ingresos: number | null; ultimo_ingreso_at: string | null; email: string | null; invitacion_enviada_at: string | null; productos?: unknown }>) {
     out.set(Number(f.lead_id), {
       estado: f.revocado_at ? 'cortado' : 'activo',
       ingresos: f.ingresos ?? 0,
       ultimoIngresoAt: f.ultimo_ingreso_at ?? null,
       email: f.email ?? null,
       invitacionEnviadaAt: f.invitacion_enviada_at ?? null,
+      productos: saneaProductos(f.productos),
     });
   }
   return out;

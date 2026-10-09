@@ -112,7 +112,10 @@ test('el enganche sale barato si está apagado y no tira hacia quien movió al l
 
 test('NO hay una segunda invitación: delega en la de Customer Success', () => {
   const src = sinComentarios(leer('lib/crm-curso-al-ganar.ts'));
-  assert.ok(src.includes('invitarAlCursoSinSesion({ ws, leadId: p.leadId, autor: MAKO })'), 'delega');
+  // Al curso del producto DONDE GANÓ (09/10/2026): sin el producto, el acceso nacía abriendo todos sus
+  // productos y ninguna invitación posterior lo acotaba.
+  assert.ok(src.includes('invitarAlCursoSinSesion({ ws, leadId: p.leadId, autor: MAKO, productoId })'), 'delega, con el producto');
+  assert.match(src, /const productoId = \(await productoDeFunnel\(\[real\]\)\)\.get\(real\)\?\.id \?\? null;/, 'el producto sale del embudo donde ganó');
   // Ninguna de las piezas que arman una invitación: si aparece una, hay dos invitaciones.
   for (const pieza of ['linkDeAcceso(', 'firmarAccesoCurso(', 'invitarAlCursoPorEmail(', 'marcarInvitacion(', "from('usuarios')", 'mako_session']) {
     assert.ok(!src.includes(pieza), pieza);

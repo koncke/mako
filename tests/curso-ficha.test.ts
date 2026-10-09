@@ -363,9 +363,16 @@ test('ABRIR la ficha no crea el acceso: sólo invitar, copiar y mandar lo crean'
   // «alguien abrió su ficha».
   assert.doesNotMatch(cuerpoDe('cursoDeClienteAction'), /linkDeAcceso\(/, 'abrir la pestaña volvió a crear el acceso');
   const accesoActual = ACC.slice(ACC.indexOf('async function accesoActual('), ACC.indexOf('async function cursosDelCliente('));
-  assert.ok(accesoActual.length > 0 && accesoActual.length < 1500, 'no encontré accesoActual/aFicha');
+  assert.ok(accesoActual.length > 0 && accesoActual.length < 1500, 'no encontré accesoActual');
   assert.doesNotMatch(accesoActual, /linkDeAcceso\(/, 'leer el acceso no puede escribirlo');
-  assert.match(accesoActual, /firmarAccesoCurso\(/, 'el link se FIRMA al leer, no se crea');
+  // Desde el 09/10/2026 la lectura es UNA (`accesoParaPantalla`, la que usa también la invitación a un
+  // producto): la copia privada de acá (`aFicha`) se había quedado sin `productos` (mig 0232).
+  assert.match(accesoActual, /return accesoParaPantalla\(leadId, ws\);/, 'la ficha volvió a tener su copia de la lectura del acceso');
+  const paraPantalla = sinComentarios(leer('lib/curso-datos.ts'));
+  const pp = paraPantalla.slice(paraPantalla.indexOf('export async function accesoParaPantalla('), paraPantalla.indexOf('export async function productosDeAccesos('));
+  assert.ok(pp.length > 0 && pp.length < 1500, 'no encontré accesoParaPantalla');
+  assert.doesNotMatch(pp, /linkDeAcceso\(/, 'leer el acceso no puede escribirlo');
+  assert.match(pp, /firmarAccesoCurso\(/, 'el link se FIRMA al leer, no se crea');
   assert.match(cuerpoDe('linkDelCursoAction'), /linkDeAcceso\(/);
   // Desde el 07/10/2026 invitar es UN núcleo (lib/curso-invitar.ts, el mismo que usa el CRM sin
   // sesión) y la action lo envuelve: el acceso lo crea `linkDeEntradaAlumno`, que llama a

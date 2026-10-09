@@ -71,6 +71,12 @@
 //   34. la tarjeta ofreciendo «Invitar al curso» sobre «no lo sé»               → «las opciones del curso…»
 //   35. `no-ganado` diciendo otra vez «no es de este workspace»                → «cada motivo se le dice…»
 //   36. `usarLeadId` tratado siempre como cliente nuevo                        → «invitar-actions…»
+//
+// A UN CURSO (09/10/2026, puntos 6 y 7 del audio de la noche; scratchpad fb-acceso/romper.mjs, mismo
+// método). Con todo en su lugar: 30 pass / 0 fail. «a UN curso: el mail nombra sólo ése…» cae con:
+// «ya invitado» sin producto, marcar sin el producto, `invitadoAlProducto` sin mirar el producto, y el
+// núcleo sin el error de «no es cliente de ese producto» (29 / 1 cada una). Las demás roturas de esa
+// tanda, en tests/curso-invitar-reglas.test.ts.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -185,7 +191,9 @@ test('la lectura de accesos trae el email y la invitación, y una fila invitada 
   // tabla Avance ofrecía «Invitar» —nunca «Reenviar»— a gente ya invitada, con el modal vacío.
   const admin = sinComentarios(leer('lib/curso-admin.ts'));
   const fn = bloque(admin, 'export async function accesosDeClientes(', '\n}\n');
-  assert.match(fn, /\.select\('lead_id, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at'\)/);
+  // `, productos` (mig 0232) es opcional en el patrón: con ella la lista de un curso deja de dar por
+  // invitado a quien sólo lo está a OTRO curso (`accesoEnProducto`, lib/curso-invitar-reglas.ts).
+  assert.match(fn, /\.select\('lead_id, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at(, productos)?'\)/);
   assert.match(fn, /invitacionEnviadaAt: f\.invitacion_enviada_at \?\? null/);
   assert.match(fn, /\.is\('area', null\)/, 'el acceso DEL CLIENTE, no el de un líder');
   // La traducción de la fila (una sola, para la celda, la tarjeta y el editor).
@@ -254,7 +262,7 @@ test('el núcleo: corta lo cortado ANTES de mandar, manda el link de entrada, y 
 });
 
 /** Corre `invitarAlCurso` con una base SIMULADA en un proceso hijo (`server-only` bajo `react-server`). */
-type Caso = { r: { tipo: string; motivo?: string; enviado?: boolean; anotado?: boolean; fallo?: string | null; error?: string }; contrato: Record<string, unknown>; log: string[] };
+type Caso = { r: { tipo: string; motivo?: string; enviado?: boolean; anotado?: boolean; fallo?: string | null; error?: string; via?: string }; contrato: Record<string, unknown>; log: string[] };
 /** Los casos y, aparte, cómo se le dice cada motivo a una persona (`TEXTO_NO_INVITA`, del mismo módulo). */
 type Corrida = { casos: Record<string, Caso>; textos: Record<string, string> };
 function correrNucleo(): Corrida {
@@ -276,14 +284,20 @@ function correrNucleo(): Corrida {
           if ('accesoDespues' in o && log.filter((x) => x === 'acceso').length > 1) return o.accesoDespues;
           return 'acceso' in o ? o.acceso : null;
         },
-        cursos: async () => { log.push('cursos'); return o.cursos || ['Negocio que Escala']; },
+        // Por producto (09/10/2026): con qué producto se pidió, y null = no es cliente de ése.
+        cursos: async (l, p) => {
+          log.push('cursos');
+          if (p != null) log.push('cursosDe:' + p);
+          if (p != null && 'cursosDelProducto' in o) return o.cursosDelProducto;
+          return o.cursos || ['Negocio que Escala'];
+        },
         linkDeEntrada: async () => { log.push('link'); return 'link' in o ? o.link : 'https://x/api/compartido/curso/entrar?t=c1.9.21.1.f'; },
-        reclamar: async () => { log.push('reclamar'); return o.reclamar !== false; },
+        reclamar: async (l, p) => { log.push('reclamar'); if (p != null) log.push('reclamarDe:' + p); return o.reclamar !== false; },
         soltar: async () => { log.push('soltar'); },
         negocio: async () => 'Mauricio Bustos',
         entrarConGoogle: () => 'https://x/login',
-        mandar: async (m) => { log.push('mandar:' + m.email + ':' + m.enlace + ':' + (d.dentro ? 'dentro' : 'fuera')); return o.mandar || { enviado: true, enlace: m.enlace }; },
-        marcar: async (id, e) => { log.push('marcar:' + e); },
+        mandar: async (m) => { log.push('mandar:' + m.email + ':' + m.enlace + ':' + (d.dentro ? 'dentro' : 'fuera')); log.push('programa:' + m.programa); return o.mandar || { enviado: true, enlace: m.enlace }; },
+        marcar: async (id, e, a, p) => { log.push('marcar:' + e); if (p != null) log.push('marcarDe:' + p); },
         guardarEmailDelLead: async (id, e) => { log.push('guardarEmail:' + e); },
       });
       return { d, log };
@@ -311,6 +325,15 @@ function correrNucleo(): Corrida {
     await caso('mailCaido', {}, { mandar: { enviado: false, error: 'remitente de prueba', enlace: 'e' } });
     await caso('cortadoAlArmar', {}, { link: null, accesoDespues: { revocado: true, invitacionEnviadaAt: null } });
     await caso('sinSecreto', {}, { link: null });
+    // A UN CURSO (puntos 6 y 7 del audio del 08/10/2026 a la noche).
+    await caso('aFiesta', { productoId: 39 }, { cursosDelProducto: ['Fiesta Music'] });
+    await caso('invitadoAOtro', { productoId: 39 }, { cursosDelProducto: ['Fiesta Music'], acceso: { revocado: false, invitacionEnviadaAt: '2026-10-09T01:50:20Z', productos: [10], ingresos: 1 } });
+    await caso('invitadoAEste', { productoId: 39 }, { acceso: { revocado: false, invitacionEnviadaAt: '2026-10-09T01:50:20Z', productos: [39] } });
+    await caso('invitadoATodos', { productoId: 39 }, { acceso: { revocado: false, invitacionEnviadaAt: '2026-10-09T01:50:20Z', productos: null } });
+    await caso('entroAOtro', { productoId: 39 }, { cursosDelProducto: ['Fiesta Music'], acceso: { revocado: false, invitacionEnviadaAt: null, productos: [10], ingresos: 3 } });
+    await caso('noEsSuyo', { productoId: 77 }, { cursosDelProducto: null });
+    await caso('productoMalo', { productoId: -1 }, {});
+    await caso('caidoPorMako', { productoId: 39 }, { cursosDelProducto: ['Fiesta Music'], mandar: { enviado: false, error: 'RESEND_API_KEY no configurada', enlace: 'e', remitente: 'mako' } });
     console.log(JSON.stringify({ casos: salida, textos: TEXTO_NO_INVITA }));
   `;
   const out = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', codigo], {
@@ -393,6 +416,34 @@ test('cada motivo se le dice a una persona sin afirmar de más, y en neutro', { 
   assert.deepEqual(Object.keys(t).sort(), ['cortado', 'no-ganado', 'sin-clases', 'sin-email', 'ya-entro', 'ya-invitado']);
   assert.doesNotMatch(t['no-ganado'], /workspace|cuenta/i, 'afirma que es de otro workspace');
   assert.deepEqual(marcasDeVoseo(Object.values(t).join('\n')), [], 'un motivo vosea');
+});
+
+test('a UN curso: el mail nombra sólo ése, «ya invitado» es por producto, y el producto llega al reclamo y a la lista', { timeout: 180_000 }, () => {
+  // Puntos 6 y 7 del audio del 08/10/2026 a la noche: «Tu acceso al programa de Service Delivery Ops y
+  // Fiesta Music» y «tengo acceso a los dos cursos, cuando sólo le había invitado al curso de Fiesta Music».
+  const s = nuc();
+  const f = s.aFiesta.log;
+  assert.ok(f.includes('cursosDe:39'), 'los cursos del mail no se pidieron por el producto');
+  assert.ok(f.includes('programa:Fiesta Music'), `el mail nombra otra cosa: ${f.find((x) => x.startsWith('programa:'))}`);
+  assert.ok(f.includes('reclamarDe:39'), 'el reclamo sin sesión no es por producto');
+  assert.ok(f.includes('marcarDe:39'), 'la invitación no le abre ese curso a su acceso');
+  assert.deepEqual(s.aFiesta.contrato, { ok: true, enviado: true });
+  // Invitado a OTRO curso (o ya entró a otro): éste se invita igual.
+  assert.equal(s.invitadoAOtro.r.tipo, 'mandado', 'el invitado a Service Delivery figuraba invitado a Fiesta Music');
+  assert.equal(s.entroAOtro.r.tipo, 'mandado');
+  // Invitado a ÉSTE, o a todos (lo de antes): ya está.
+  assert.deepEqual(s.invitadoAEste.contrato, { ok: true, enviado: false, motivo: 'ya-invitado' });
+  assert.deepEqual(s.invitadoATodos.contrato, { ok: true, enviado: false, motivo: 'ya-invitado' });
+  // Un producto del que no es cliente es un ERROR, no un mail; y uno inválido ni se mira.
+  assert.deepEqual(s.noEsSuyo.contrato, { ok: false, error: 'No es cliente de ese producto.' });
+  assert.ok(!s.noEsSuyo.log.some((x) => x.startsWith('mandar')));
+  assert.equal(s.productoMalo.contrato.ok, false);
+  assert.ok(!s.productoMalo.log.includes('lead'), 'leyó el lead con un producto inválido');
+  // Sin producto, como siempre: ni el reclamo ni la lista se tocan por producto.
+  assert.ok(!s.feliz.log.some((x) => x.startsWith('reclamarDe:') || x.startsWith('marcarDe:') || x.startsWith('cursosDe:')));
+  // Un correo que no salió dice POR DÓNDE iba: la pantalla dice de quién fue (lib/curso-invitar-reglas.ts).
+  assert.equal(s.caidoPorMako.r.via, 'mako');
+  assert.ok(!s.caidoPorMako.log.some((x) => x.startsWith('marcar')), 'un intento que no salió le abrió el curso');
 });
 
 test('el mail del curso NO anota nada: correría en el workspace de la plataforma', () => {
@@ -606,17 +657,20 @@ test('invitar-actions: «use server», SÓLO funciones async, y cada una abre co
   // Las dos usan LA invitación (no una copia) y sin «reenviar»: idempotentes. Desde el 08/10/2026 con
   // sus `canales` («También por WhatsApp», item 21): el patrón los acepta al final, saneados en el server.
   const src = sinComentarios(leer(ruta));
-  assert.equal((src.match(/invitarAlCurso\(\{ ws, leadId, email: correo, autor, reenviar: false(, canales(: canalesDeInvitacion\(datos\.canales\))?)? \}\)/g) ?? []).length, 2);
+  // Desde el 09/10/2026 con su `productoId` (puntos 6 y 7 del audio de la noche): el mail nombra sólo ese
+  // curso y el acceso abre ése (tests/curso-invitar-reglas.test.ts).
+  assert.equal((src.match(/invitarAlCurso\(\{ ws, leadId, email: correo, autor, reenviar: false(, canales(: canalesDeInvitacion\(datos\.canales\))?)?, productoId \}\)/g) ?? []).length, 2);
   assert.doesNotMatch(src, /invitarAlCursoPorEmail|marcarInvitacion|crearUsuario/);
   // El alta de cero pasa por la MISMA alta de la cartera, y entra al kanban por el choke point.
   assert.match(src, /crearClienteAction\(\{/);
   assert.match(src, /moverClienteDeEtapa\(\{ leadId, productoId, etapa: null, por: autor \}\)/);
   // ⚠️ Revisión del 08/10/2026: y SÓLO en este producto. Nace en el embudo principal, así que su
-  // casa es el producto principal: invitado desde el curso de OTRO quedaba en los dos y el mail le
-  // abría también el curso del principal (`productosDelAlumno`). Se lo saca de los otros con la
-  // misma «Quitar de este producto», y si no se pudo NO se lo invita.
+  // casa es el producto principal: invitado desde el curso de OTRO quedaba en los dos kanbans. Se lo
+  // saca de los otros con la misma «Quitar de este producto», y si no se pudo NO se lo invita. Desde el
+  // 09/10/2026 la pregunta es la del KANBAN (`productosDelCliente`): `productosDelAlumno` pasó a ser
+  // «qué cursos VE» (mig 0232) y a alguien todavía no invitado le diría que no es de ningún producto.
   const nuevo = bloque(src, 'export async function invitarNuevoAlumnoAction(', 'async function conEstado(');
-  assert.match(nuevo, /if \(enKanban && nuevoCliente\) \{\s*for \(const otro of \(await productosDelAlumno\(leadId\)\)\.filter\(\(x\) => x !== productoId\)\) \{\s*const q = await quitarDeProductoAction\(leadId, otro\);\s*if \(!q\.ok\) \{ soloAca = false;/);
+  assert.match(nuevo, /if \(enKanban && nuevoCliente\) \{\s*for \(const otro of \(await productosDelCliente\(leadId\)\)\.productos\.filter\(\(x\) => x !== productoId\)\) \{\s*const q = await quitarDeProductoAction\(leadId, otro\);\s*if \(!q\.ok\) \{ soloAca = false;/);
   const sinOtro = nuevo.indexOf('!soloAca');
   assert.ok(sinOtro > 0 && sinOtro < nuevo.indexOf('invitarAlCurso('), 'invita sin saber si quedó sólo en este producto');
   // Uno que YA era cliente sigue en lo suyo: sólo se lo saca de otros si esta action lo hizo cliente.

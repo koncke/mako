@@ -839,4 +839,29 @@ export const BITACORA: Hito[] = [
       "docs/feedback-curso-08oct.md + docs/migracion-cursos.md — la fuente y la investigación",
     ],
   },
+  {
+    fecha: "9 oct", hora: "16:08", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El segundo audio de Leandro: cada alumno ve s\u00f3lo los cursos a los que se lo invit\u00f3",
+    pedido: "Volv\u00ed! Avanc\u00e9 mucho en la otra cuenta, revisa donde nos quedamos y te adjunto el \u00faltimo audio de feedback [audio de 27 min del 08/10 a las 22:58: la segunda prueba del curso con Leandro; transcripto en docs/feedback-curso-08oct-noche.md]",
+    puntos: [
+      "UN INVITADO A UN CURSO ENTRABA A TODOS: el acceso se resolv\u00eda por cliente. Ahora cada acceso dice qu\u00e9 cursos abre (mig 0232, curso_accesos.productos; NULL = todos, como antes), e invitar suma s\u00f3lo el curso donde se est\u00e1 parado, desde las cinco puertas.",
+      "El mail nombra s\u00f3lo ese curso; el invitar guarda borrador, el tel\u00e9fono es opcional y, si falta la key del mail, se configura ah\u00ed mismo con el formulario de Integraciones.",
+      "Vista del alumno: el quiz dice si acert\u00f3 y la previsualizaci\u00f3n muestra lo mismo; escala y estrellas centradas; \u00abEste curso es personal. \u00a9 marca\u00bb.",
+      "El nombre de un producto nuevo perd\u00eda el foco con cada tecla: un onCerrar nuevo por render re-disparaba el foco del Modal. La regla qued\u00f3 en AGENTS.md; el arreglo de ra\u00edz en Modal.tsx queda pendiente.",
+      "ESPERA A MART\u00cdN: el acceso de prueba de Leandro (ws10) sigue abriendo los dos cursos porque se cre\u00f3 antes; las ideas del audio (mail personalizable, grupo de WhatsApp, niveles del ranking).",
+    ],
+    commits: [
+      { sha: "777c213e", msg: "Curso: cada alumno ve sólo los cursos a los que se lo invitó, y lo que dejó el audio del 08/10 a la noche", lineas: 2833, archivos: 45 },
+    ],
+    archivos: [
+      "supabase/migrations/0232_curso_accesos_productos.sql \u2014 qu\u00e9 cursos abre cada acceso",
+      "lib/curso-invitar-reglas.ts \u2014 las reglas puras del acceso por producto",
+      "lib/curso-invitar.ts \u2014 invitar a UN curso y el mail con su nombre",
+      "app/customer-success/curso/InvitarAlumnos.tsx \u2014 el modal de invitar: borrador y la key ah\u00ed mismo",
+      "app/compartido/curso/[token]/TareaAlumno.tsx \u2014 el quiz dice el resultado",
+      "app/customer-success/curso/dialogo-foco.ts \u2014 el onCerrar estable de los modales",
+      "docs/feedback-curso-08oct-noche.md \u2014 el audio, punto por punto",
+    ],
+  },
 ];
