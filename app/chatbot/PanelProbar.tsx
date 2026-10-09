@@ -66,12 +66,39 @@
 //   · UN MENSAJE DE VARIAS PARTES (cuarta tanda, punto 15) sale parte por parte, y cada una sale de
 //     verdad una vez (`${nodo}#${k}`). El audio, sin su transcripción.
 //
+// ── SEXTA TANDA (09/10/2026, «Probar» 1, 2 y 3) ─────────────────────────────────────────
+// Pedido literal: «1. Mira la captura que te paso, está configurado el email y en PROBAR no salió
+// nada. Al igual que WhatsApp, el email debe salir con su animación... 2. Los botones de Probar con
+// WhatsApp / Email. Para probarlo en la vida real, deberían pedir emisor (siempre dentro de los email
+// y numeros configurados, con la opción de agregar nuevo) y remitente... 3. En Email, elimina el
+// texto de "Fin" que aparece abajo del todo».
+//   · 1: NO ERA LA BANDEJA NI LA ANIMACIÓN. El lead de la prueba tenía WhatsApp siempre, así que una
+//     condición «Tiene WhatsApp» salía por el «Sí» y el email del «Si no» no llegaba nunca (medido
+//     con la #226 del ws1). Ahora el lead de cada canal se elige (`contactoParaProbar`,
+//     lib/simulador-grafo.ts) en `arrancarRefs`, y la condición lo usa.
+//   · 2: «Probar en WhatsApp / Email» abre el desplegable con DOS partes: «De» (las líneas de
+//     WhatsApp del negocio o su remitente de email, con «Vincular nuevo») y «Para» (los guardados de
+//     quien prueba, con «Nuevo»). El emisor elegido viaja en cada envío real (`emisor`); el server lo
+//     vuelve a validar. ⚠️ Hoy hay UN remitente de email por negocio (lib/email-remitente.ts):
+//     «Vincular nuevo» lo REEMPLAZA y el modal lo dice (`AVISO_REEMPLAZA`).
+//   · 3: en la bandeja, las píldoras del recorrido («Fin», las esperas, las acciones) NO se dibujan:
+//     la bandeja ya dice cuándo llega cada mail. Sólo lo que falló (`pildoraEnLaBandeja`).
+//   · EL SIMULADOR DE CADA CANAL se elige en UN lugar (`CANALES_PROBAR`, `canalDelPaso` y el
+//     `switch` del cuerpo, «EL SIMULADOR DE CADA CANAL»): sumar Instagram o Messenger es una fila y
+//     un `case`.
+//
 // ⚠️ EL TEXTO DE ESTA PIEZA ES CORTO A PROPÓSITO (AGENTS.md, «el texto que se DIBUJA»): una
 // píldora son 1-4 palabras. El porqué de cada cosa vive acá, no en la pantalla.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
-import { Button } from '@/app/_ui';
+import { Button, Modal } from '@/app/_ui';
+import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
+import { opcionesDeSalida, valorDeSalida, type LineaWa } from './SalidaWhatsApp';
+import { AVISO_REEMPLAZA } from './EditorEmailGmail';
+import { remitentesVinculados, partesDeRemitente } from '@/lib/email-remitente';
+import type { DomState } from '../email/EmailApp';
 import { useTitulosAcciones } from '@/app/_components/EditorAccionMako';
 import { renderEmailHtml } from '@/lib/email-html';
 import { paramsDeVista, nombreDelRemitente } from './EditorEmailGmail';
@@ -83,8 +110,8 @@ import { claseDe, raizRespuesta } from '@/lib/flujo-grafo';
 import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
-  hechosDeLeadNuevo, leadNuevoDelCron, elegirComoLead, sanearDestinoPrueba,
-  type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados,
+  hechosDeLeadNuevo, leadNuevoDelCron, elegirComoLead, sanearDestinoPrueba, contactoParaProbar, CONTACTO_COMPLETO,
+  type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados, type ContactoPrueba, type EmisorPrueba,
 } from '@/lib/simulador-grafo';
 import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
 import { ICONOS_MAS } from '@/lib/flujo-conversacion';
@@ -107,6 +134,46 @@ export const PANEL_PROBAR_ALTO = 400;
  * Messenger (sexta tanda) corren el MISMO recorrido de acá y se dibujan con `SimuladorSocial`.
  */
 export type CanalProbar = 'whatsapp' | 'email' | CanalSocial;
+
+// ── LOS CANALES DE «PROBAR» (sexta tanda) ───────────────────────────────────────────
+// UN lugar por canal: su logo, el rótulo del botón de verdad, qué dato del lead necesita
+// (`contactoParaProbar`) y si su destino es un email. Sumar un canal (la parte «canales»: Instagram,
+// Messenger) es una fila acá, su caso en `canalDelPaso` y su `case` en «EL SIMULADOR DE CADA CANAL»,
+// al pie del componente. Lo que no tenga una fila, no se puede probar.
+type DefCanalProbar = {
+  logo: string;
+  nombre: string;
+  /** El botón de la prueba de verdad (y el título de su desplegable). */
+  probarEn: string;
+  /** El dato del lead de la prueba que este canal necesita para recibir algo. */
+  contacto: keyof ContactoPrueba;
+  /** El destino es un email (si no, un teléfono con su bandera). */
+  destinoEsEmail: boolean;
+};
+export const CANALES_PROBAR: Record<CanalProbar, DefCanalProbar> = {
+  whatsapp: { logo: ICONOS_MAS.whatsapp, nombre: 'WhatsApp', probarEn: 'Probar en WhatsApp', contacto: 'tieneTelefono', destinoEsEmail: false },
+  email: { logo: ICONOS_MAS.email, nombre: 'Email', probarEn: 'Probar en Email', contacto: 'tieneEmail', destinoEsEmail: true },
+  // Instagram y Messenger (parte «canales»): sólo el simulador, sin prueba de verdad (`probarEn` no se dibuja).
+  // Su dato de contacto no es ni teléfono ni email: se toma el del WhatsApp para elegir el camino.
+  instagram: { logo: logoSocialSvg('instagram'), nombre: NOMBRE_CANAL.instagram, probarEn: '', contacto: 'tieneTelefono', destinoEsEmail: false },
+  messenger: { logo: logoSocialSvg('messenger'), nombre: NOMBRE_CANAL.messenger, probarEn: '', contacto: 'tieneTelefono', destinoEsEmail: false },
+};
+
+/** De qué canal es un mensaje del flujo. Un paso sin canal es un WhatsApp, como en el motor. */
+export function canalDelPaso(p: { canal?: string | null }): CanalProbar {
+  if (esCanalSocial(p.canal)) return p.canal;
+  return p.canal === 'email' ? 'email' : 'whatsapp';
+}
+
+/**
+ * ¿Una píldora del recorrido se dibuja en la BANDEJA? Sólo lo que falló, o lo que se pide a propósito
+ * (`forzar`, «Ya salió · no se reenvía»). «Fin», las esperas y las acciones no (sexta tanda, «Probar»
+ * 3: «En Email, elimina el texto de "Fin" que aparece abajo del todo»): la bandeja dice cuándo llega
+ * cada mail y un renglón suelto abajo se lee como un mail que no llegó. En el teléfono van todas.
+ */
+export function pildoraEnLaBandeja(tono: 'ok' | 'bad' | null, forzar = false): boolean {
+  return forzar || tono === 'bad';
+}
 
 const API = '/api/chat-agent/simulador';
 const ESCRIBIENDO_MS = 600;
@@ -214,9 +281,15 @@ function Inicial({ nombre }: { nombre: string }) {
  * La bandeja de «Probar» por email, tipo Gmail. Sin estado propio: lo que llegó, cuál está
  * abierto y si está llegando uno lo decide el panel. Lo nuevo va ARRIBA, como en una bandeja.
  */
-export function BandejaGmail({ correos, abierto, recibiendo, terminado, remitente, negocio, onAbrir, onVolver }: {
+export function BandejaGmail({ correos, abierto, recibiendo, terminado, remitente, negocio, onAbrir, onVolver, entra }: {
   correos: readonly CorreoRecibido[];
   abierto: string | null;
+  /**
+   * El mail que ACABA de llegar: sólo ése entra con la animación (sexta tanda, «Probar» 1: «el email
+   * debe salir con su animación»). Ausente = todos (lo de antes). Sin esto, volver de un mail abierto
+   * re-animaba la bandeja entera, que se lee como que llegaron todos de nuevo.
+   */
+  entra?: string | null;
   /** Está por llegar uno: la fila que late arriba (el «escribiendo…» de una bandeja). */
   recibiendo: boolean;
   /** La prueba terminó: recién ahí «Sin correos» es un hecho y no un parpadeo. */
@@ -248,7 +321,7 @@ export function BandejaGmail({ correos, abierto, recibiendo, terminado, remitent
           </div>
         )}
         {[...correos].reverse().map((c) => (
-          <button key={c.id} type="button" onClick={() => onAbrir(c.id)} className="pp-fila pp-entra" data-leido={c.leido ? '' : undefined}
+          <button key={c.id} type="button" onClick={() => onAbrir(c.id)} className={entra === undefined || entra === c.id ? 'pp-fila pp-entra' : 'pp-fila'} data-leido={c.leido ? '' : undefined}
             style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'flex-start', padding: '10px 14px', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--ink)' }}>
             <Inicial nombre={de.nombre} />
             <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -330,14 +403,47 @@ const filaDestino: CSSProperties = {
   background: 'transparent', color: 'var(--ink)', fontSize: 13.5, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
 };
 
+/** Un emisor que se puede elegir: una línea de WhatsApp o un remitente de email del negocio. */
+export type OpcionEmisor = { valor: string; rotulo: string; color?: string };
+
+/** Lo que el desplegable necesita del EMISOR (sexta tanda, «Probar» 2). Sin estado propio. */
+export type EmisorDelMenu = {
+  /** null = todavía cargando; 'error' = no se pudo leer (no es «no hay»). */
+  opciones: OpcionEmisor[] | 'error' | null;
+  elegido: string | null;
+  onElegir: (valor: string) => void;
+  onVincular: () => void;
+  /** «Vincular nuevo» no se puede (sin permiso): la fila no se dibuja. */
+  puedeVincular?: boolean;
+};
+
+const rotuloSeccion: CSSProperties = { padding: '6px 10px 2px', fontSize: 11.5, fontWeight: 600, color: 'var(--faint)' };
+
+function IconoMas() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" style={{ flex: 'none' }}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+function IconoTilde({ visible }: { visible: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', visibility: visible ? 'visible' : 'hidden', color: 'var(--primary)' }}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 /**
- * El desplegable de «Probar en WhatsApp / Email» (quinta tanda, punto 1): primero los GUARDADOS de
- * quien prueba (elegir uno prueba ahí), y abajo «Nuevo número» / «Nuevo email», que abre el form de
- * siempre. Sin estado propio: lo decide el panel. Exportado para el test.
+ * El desplegable de «Probar en WhatsApp / Email». Sexta tanda («Probar» 2): arriba «De», el EMISOR
+ * (las líneas o el remitente del negocio, con «Vincular nuevo»; elegir uno no arranca nada), y abajo
+ * «Para», el DESTINO (quinta tanda, punto 1): primero los GUARDADOS de quien prueba (elegir uno prueba
+ * ahí, desde el emisor elegido), y abajo «Nuevo número» / «Nuevo email», que abre el form de siempre.
+ * Sin estado propio: lo decide el panel. Exportado para el test. Sin `emisor`, sólo «Para».
  *
  * ⚠️ «NO PUDE LEER» NO ES «NO TIENE» (AGENTS.md): con la lista caída se dice eso, y «Nuevo» sigue.
  */
-export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onNuevo, onProbarNuevo, error, formTelefono, formEmail, puedeProbarNuevo }: {
+export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onNuevo, onProbarNuevo, error, formTelefono, formEmail, puedeProbarNuevo, emisor }: {
   refCaja?: (el: HTMLDivElement | null) => void;
   esEmail: boolean;
   guardados: DestinosGuardados | 'error' | null;
@@ -349,11 +455,36 @@ export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onN
   formTelefono: ReactNode;
   formEmail: ReactNode;
   puedeProbarNuevo: boolean;
+  emisor?: EmisorDelMenu;
 }) {
   const lista = guardados && guardados !== 'error' ? (esEmail ? guardados.emails : guardados.telefonos) : [];
   return (
     <div ref={refCaja} role="menu" style={cajaDestinos}>
       <style>{'.pp-destino:hover{background:var(--surface-2)}'}</style>
+      {emisor && (
+        <div role="group" aria-label="De" style={{ borderBottom: '1px solid var(--border)', marginBottom: 4, paddingBottom: 4 }}>
+          <div style={rotuloSeccion}>De</div>
+          {emisor.opciones === null && <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>}
+          {emisor.opciones === 'error' && <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--dim)' }}>{esEmail ? 'No pude leer tu remitente' : 'No pude leer tus números'}</div>}
+          {Array.isArray(emisor.opciones) && emisor.opciones.length === 0 && (
+            <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--faint)' }}>{esEmail ? 'Sin remitente' : 'Sin números'}</div>
+          )}
+          {Array.isArray(emisor.opciones) && emisor.opciones.map((o) => (
+            <button key={o.valor || '__default'} type="button" role="menuitemradio" aria-checked={o.valor === emisor.elegido} className="pp-destino"
+              onClick={() => emisor.onElegir(o.valor)} style={filaDestino}>
+              <IconoTilde visible={o.valor === emisor.elegido} />
+              {o.color && <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: o.color, flex: 'none' }} />}
+              <span style={{ flex: 1, minWidth: 0, ...recorte }}>{o.rotulo}</span>
+            </button>
+          ))}
+          {emisor.puedeVincular !== false && (
+            <button type="button" className="pp-destino" onClick={emisor.onVincular} style={{ ...filaDestino, color: 'var(--primary)', fontWeight: 600 }}>
+              <IconoMas /> Vincular nuevo
+            </button>
+          )}
+        </div>
+      )}
+      {emisor && <div style={rotuloSeccion}>Para</div>}
       {guardados === null && <div style={{ padding: '9px 10px', fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>}
       {guardados === 'error' && <div style={{ padding: '9px 10px', fontSize: 13, color: 'var(--dim)' }}>{esEmail ? 'No pude leer tus emails' : 'No pude leer tus números'}</div>}
       {lista.map((d) => (
@@ -373,11 +504,90 @@ export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onN
           </form>
         ) : (
           <button type="button" className="pp-destino" onClick={onNuevo} style={{ ...filaDestino, color: 'var(--primary)', fontWeight: 600 }}>
-            ＋ {esEmail ? 'Nuevo email' : 'Nuevo número'}
+            <IconoMas /> {esEmail ? 'Nuevo email' : 'Nuevo número'}
           </button>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Las líneas de WhatsApp del negocio como emisores, con la MISMA regla que el número de salida del
+ * editor (`opcionesDeSalida`, SalidaWhatsApp.tsx): la de por default primero (valor ''), la de la
+ * automatización SIEMPRE aunque ya no esté. Sin el renglón de vincular: ése lo pone el menú.
+ */
+export function emisoresDeLineas(lineas: readonly LineaWa[], deLaSecuencia: string | null): OpcionEmisor[] {
+  return opcionesDeSalida(lineas, deLaSecuencia).filter((o) => !o.crear).map((o) => ({ valor: o.value, rotulo: o.label, ...(o.color ? { color: o.color } : {}) }));
+}
+
+/** El remitente de email del negocio como emisor (hoy UNO: lib/email-remitente.ts). */
+export function emisoresDeRemitentes(vinculados: readonly string[]): OpcionEmisor[] {
+  return vinculados.map((r) => {
+    const p = partesDeRemitente(r);
+    return { valor: r, rotulo: p.nombre !== p.mail ? `${p.nombre} <${p.mail}>` : p.mail };
+  });
+}
+
+/**
+ * Lo que viaja como `emisor` en cada envío real. Sólo lo que quien prueba ELIGIÓ: sin elegir, nada
+ * (el server usa la línea de la automatización y el remitente del negocio). Una línea elegida vacía
+ * ('') es «la de por default».
+ */
+export function emisorAEnviar(canal: CanalProbar, elegido: string | null): EmisorPrueba {
+  if (elegido == null) return {};
+  return canal === 'email' ? { remitente: elegido } : { linea: elegido };
+}
+
+const RUTA_LINEAS = '/api/whatsapp/evolution/mensajes?lineas=1';
+
+/** El flujo de conectar el dominio de /email, cuando ya llegó (se pide a demanda, como el editor). */
+type ModuloEmail = typeof import('../email/EmailApp');
+let moduloEmail: ModuloEmail | null = null;
+
+/**
+ * «Vincular nuevo» del emisor: el MISMO flujo que el resto de la app, en un modal y sin salir de
+ * «Probar». WhatsApp: `EvolutionConnect` con `nueva` (el de SalidaWhatsApp y /whatsapp). Email: el
+ * `DominioSetup` de /email (el de EditorEmailGmail), y como HOY un negocio tiene UN remitente, si ya
+ * hay uno el modal dice que lo REEMPLAZA (`AVISO_REEMPLAZA`): cambia el «De» de todos sus emails.
+ */
+function VincularEmisor({ canal, dom, reemplaza, onCerrar, onLinea, onDominio }: {
+  canal: CanalProbar; dom: DomState | null; reemplaza: boolean;
+  onCerrar: () => void; onLinea: (linea: string) => void; onDominio: (d: DomState) => void;
+}) {
+  const [m, setM] = useState<ModuloEmail | null>(moduloEmail);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (canal !== 'email' || m) return;
+    let vivo = true;
+    import('../email/EmailApp').then((x) => { moduloEmail = x; if (vivo) setM(x); }).catch(() => { if (vivo) setError(true); });
+    return () => { vivo = false; };
+  }, [canal, m]);
+  // Al `body`: el panel vive en un muelle con z-index, y un `fixed` adentro de un contexto de
+  // apilamiento queda debajo de lo que tenga un z mayor (AGENTS.md, el `sticky` con z-index).
+  if (canal === 'whatsapp') {
+    return createPortal(
+      <Modal titulo="Vincular número" onCerrar={onCerrar} ancho={440}>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 420 }}>
+          <EvolutionConnect key="nueva-linea" nueva inline panelVisible ocultarChip onLineaCreada={onLinea} />
+        </div>
+      </Modal>,
+      document.body,
+    );
+  }
+  const Setup = m?.DominioSetup;
+  return createPortal(
+    <Modal titulo="Vincular remitente" onCerrar={onCerrar} ancho={680}>
+      {reemplaza && <div role="note" style={{ marginBottom: 12, fontSize: 13, color: 'var(--ink)' }}>{AVISO_REEMPLAZA}</div>}
+      {error || !dom ? (
+        <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No se pudo abrir.</div>
+      ) : Setup ? (
+        <Setup dom={dom} onUpdate={onDominio} />
+      ) : (
+        <div role="status" style={{ fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>
+      )}
+    </Modal>,
+    document.body,
   );
 }
 
@@ -480,16 +690,44 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   }, [usaMedia]);
 
   // El remitente del workspace, para la bandeja: el MISMO que lee el editor de email. Sin él, la
-  // fila dice el nombre del negocio (`remitenteVisible`).
+  // fila dice el nombre del negocio (`remitenteVisible`). Y lo mismo es el EMISOR del email de la
+  // prueba real (sexta tanda): los vinculados salen de esta respuesta (`remitentesVinculados`).
+  const [dom, setDom] = useState<DomState | 'error' | null>(null);
   useEffect(() => {
     if (canal !== 'email') return;
     let vivo = true;
     // Con tope: la ruta le pregunta a Resend en vivo, y sin `signal` una conexión caída no vuelve nunca.
     void fetch('/api/email/dominio', { cache: 'no-store', signal: AbortSignal.timeout(20_000) }).then((r) => r.json()).then((j) => {
-      if (vivo && j?.ok && typeof j.remitente === 'string') setRemitente(j.remitente);
-    }).catch(() => { /* sin remitente */ });
+      if (!vivo) return;
+      if (j?.ok && typeof j.remitente === 'string') { setRemitente(j.remitente); setDom(j as DomState); } else setDom('error');
+    }).catch(() => { if (vivo) setDom('error'); });
     return () => { vivo = false; };
   }, [canal]);
+
+  // LAS LÍNEAS DE WHATSAPP DEL NEGOCIO, para el EMISOR de la prueba real (sexta tanda, «Probar» 2). Las
+  // mismas que ofrece el número de salida del editor (`/api/whatsapp/evolution/mensajes?lineas=1`).
+  // Sólo el admin manda de verdad: sólo él las pide. «No pude leer» no es «no tiene».
+  const [lineas, setLineas] = useState<LineaWa[] | 'error' | null>(null);
+  /** Sube al vincular una línea nueva: la lista se vuelve a pedir. */
+  const [vueltaLineas, setVueltaLineas] = useState(0);
+  useEffect(() => {
+    if (!rolAdmin || canal !== 'whatsapp') return;
+    let vivo = true;
+    void fetch(RUTA_LINEAS, { cache: 'no-store', signal: AbortSignal.timeout(20_000) }).then((r) => r.json()).then((j: { ok?: boolean; lineas?: LineaWa[] }) => {
+      if (vivo) setLineas(j?.ok && Array.isArray(j.lineas) ? j.lineas : 'error');
+    }).catch(() => { if (vivo) setLineas('error'); });
+    return () => { vivo = false; };
+  }, [rolAdmin, canal, vueltaLineas]);
+
+  /** El emisor que ELIGIÓ quien prueba (null = el de siempre: la línea de la automatización / el remitente del negocio). */
+  const [emisor, setEmisor] = useState<string | null>(null);
+  const [vinculando, setVinculando] = useState(false);
+  const vinculados = dom && dom !== 'error' ? remitentesVinculados(dom) : [];
+  const opcionesEmisor: OpcionEmisor[] | 'error' | null = canal === 'email'
+    ? (dom === 'error' ? 'error' : dom === null ? null : emisoresDeRemitentes(vinculados))
+    : (lineas === 'error' ? 'error' : lineas === null ? null : emisoresDeLineas(lineas, secuencia.instance_name ?? null));
+  const emisorVisible = emisor ?? (canal === 'email' ? vinculados[0] ?? null : Array.isArray(lineas) ? valorDeSalida(lineas, secuencia.instance_name ?? null) : null);
+  const rotuloEmisor = Array.isArray(opcionesEmisor) ? opcionesEmisor.find((o) => o.valor === emisorVisible)?.rotulo ?? null : null;
 
   // LOS DESTINOS GUARDADOS de QUIEN PRUEBA (quinta tanda, punto 1): su teléfono y su email, y los que
   // guardó con «Nuevo número». Sólo admin, que es el único que manda. «No pude leer» no es «no tiene»:
@@ -554,18 +792,31 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   }), [propia?.trigger_tipo, secuencia.trigger_tipo, secuencia.etapa, secuencia.funnel_id, secuencia.producto_id, secuencia.etiqueta_id]);
   const leadRef = useRef(leadDelCron);
   useEffect(() => { leadRef.current = leadDelCron; }, [leadDelCron]);
-  const ctx = useRef({ nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id });
+  /**
+   * Si el lead de la prueba tiene teléfono / email (sexta tanda, «Probar» 1): se ELIGE al arrancar
+   * para que le llegue lo del canal que se prueba (`contactoParaProbar`). Lo usa cada condición.
+   */
+  const contactoRef = useRef<ContactoPrueba>(CONTACTO_COMPLETO);
+  const contactoDe = (f: typeof flujoVivo): ContactoPrueba =>
+    contactoParaProbar(f, (p) => canalDelPaso(p) === canal, CANALES_PROBAR[canal].contacto, leadRef.current, ctx.current.nombres);
+  const emisorReal = emisorAEnviar(canal, emisor);
+  const ctx = useRef({ nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal });
   useEffect(() => {
-    ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id };
+    ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal };
   });
 
   const firma = () => ctx.current.negocio || 'Tu negocio';
   const nuevoId = (pre: string) => `${pre}-${++seq.current}`;
   const poner = (m: HiloMsg) => { msgsRef.current = [...msgsRef.current, m]; setMensajes(msgsRef.current); };
-  const ponerCorreo = (c: CorreoRecibido) => { correosRef.current = [...correosRef.current, c]; setCorreos(correosRef.current); };
-  /** Una píldora: en el teléfono, adentro del hilo; en la bandeja, el renglón de abajo. */
-  const sistema = (texto: string, tono: 'ok' | 'bad' | null = null) => {
-    if (ctx.current.canal === 'email') { setAviso({ texto, tono }); return; }
+  /** El mail que acaba de llegar es el único que entra con la animación (`entra` de la bandeja). */
+  const [entra, setEntra] = useState<string | null>(null);
+  const ponerCorreo = (c: CorreoRecibido) => { correosRef.current = [...correosRef.current, c]; setCorreos(correosRef.current); setEntra(c.id); };
+  /**
+   * Una píldora: en el teléfono, adentro del hilo; en la bandeja, el renglón de abajo, y sólo si
+   * `pildoraEnLaBandeja` (sexta tanda, «Probar» 3: sin «Fin»). `forzar`: va en la bandeja igual.
+   */
+  const sistema = (texto: string, tono: 'ok' | 'bad' | null = null, forzar = false) => {
+    if (ctx.current.canal === 'email') { if (pildoraEnLaBandeja(tono, forzar)) setAviso({ texto, tono }); return; }
     poner({ id: nuevoId('sis'), fromMe: false, tipo: 'sistema', tono, texto, fecha: new Date().toISOString() });
   };
   const luego = (ms: number, fn: () => void) => {
@@ -590,7 +841,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     const vaEmail = realRef.current && c.canal === 'email' && m.canal === 'email';
     if (!vaWa && !vaEmail) return;
     if (!debeSalirDeVerdad(enviadosReal.current, nodo, enRespuesta, turnoLead.current)) {
-      if (!dijoRepetido.current) { dijoRepetido.current = true; sistema('Ya salió · no se reenvía'); }
+      if (!dijoRepetido.current) { dijoRepetido.current = true; sistema('Ya salió · no se reenvía', null, true); }
       return;
     }
     const destinoReal = vaEmail ? { telefono: null, email: c.destino } : { telefono: c.destino, email: null };
@@ -598,7 +849,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     colaReal.current = colaReal.current.then(async () => {
       const primero = !yaSalioUno.current;
       yaSalioUno.current = true;
-      const j = await postar({ action: 'enviar-real', secuenciaId: c.secuenciaId, destino: destinoReal, mensaje: m, primero });
+      // El EMISOR elegido (sexta tanda): un pedido; el server lo vuelve a validar.
+      const j = await postar({ action: 'enviar-real', secuenciaId: c.secuenciaId, destino: destinoReal, mensaje: m, primero, emisor: c.emisor });
       if (!j.ok) {
         if (primero) yaSalioUno.current = false;
         if (run.current === r0) sistema(`No salió · ${j.error ?? 'error'}`, 'bad');
@@ -682,7 +934,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     switch (evento.t) {
       case 'mensaje': {
         const paso = evento.paso as PasoSecuenciaDto;
-        const delPaso: CanalProbar = esCanalSocial(paso.canal) ? paso.canal : paso.canal === 'email' ? 'email' : 'whatsapp';
+        const delPaso: CanalProbar = canalDelPaso(paso);
         // Salga por el canal que salga, desde acá el lead «ya fue contactado» (para las condiciones).
         huboMensaje.current = true;
         // UN CANAL POR VEZ: lo del otro canal ni se dibuja ni sale. El recorrido sigue igual (sus
@@ -727,8 +979,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       // y «↪ Sigue en…», nada más). La decide el MOTOR (`elegirSalida`) con un lead RECIÉN LLEGADO por
       // este CRON: sin agenda, sin pago, entrado ahora, y lo que esta prueba ya le mandó o le contestó.
       case 'condicion': {
+        // ⚠️ SEXTA TANDA, «PROBAR» 1: con el CONTACTO elegido para el canal (`contactoRef`). Con
+        // teléfono y email siempre, «Tiene WhatsApp» salía por el «Sí» y el email del «Si no» no
+        // llegaba nunca a la bandeja.
         const r = elegirComoLead(flujoRef.current, simRef.current, hechosDeLeadNuevo({
-          ...leadRef.current, yaContactado: huboMensaje.current, respondio: turnoLead.current > 0,
+          ...leadRef.current, ...contactoRef.current, yaContactado: huboMensaje.current, respondio: turnoLead.current > 0,
         }));
         simRef.current = r.estado;
         if (!r.opcion) { sistema('Fin'); setTerminado(true); return; }
@@ -746,6 +1001,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const arrancarRefs = () => {
     flujoRef.current = flujoVivo;
     simRef.current = iniciar(flujoVivo);
+    contactoRef.current = contactoDe(flujoVivo);
     msgsRef.current = [];
     correosRef.current = [];
     yaSalioUno.current = false;
@@ -814,6 +1070,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
 
   const abrirCorreo = (id: string) => {
     setAbierto(id);
+    // Al volver a la bandeja, nada entra de nuevo: ya llegó.
+    setEntra(null);
     correosRef.current = correosRef.current.map((c) => (c.id === id ? { ...c, leido: true } : c));
     setCorreos(correosRef.current);
   };
@@ -869,8 +1127,29 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   }
 
   const cambio = firmaViva !== firmaProbada;
-  const esEmail = canal === 'email';
+  const def = CANALES_PROBAR[canal];
+  /** El destino de la prueba de verdad es un email (si no, un teléfono). */
+  const esEmail = def.destinoEsEmail;
+  /** Instagram o Messenger: el mismo recorrido, dibujado con `SimuladorSocial` y sin prueba de verdad. */
   const social = esCanalSocial(canal) ? canal : null;
+
+  /** «Vincular nuevo» del emisor: se cierra el desplegable y se abre el flujo de siempre. */
+  const abrirVincular = () => { cerrarMenu(); setVinculando(true); };
+  /** La línea recién vinculada pasa a ser el emisor, y el desplegable vuelve a abrirse para elegir «Para». */
+  const alVincularLinea = (linea: string) => {
+    setVinculando(false);
+    setVueltaLineas((v) => v + 1);
+    setEmisor(linea);
+    setMenu(true);
+  };
+  /** El dominio cambió en el flujo de /email: el remitente nuevo (si apareció uno) pasa a ser el emisor. */
+  const alVincularDominio = (d: DomState) => {
+    const antes = vinculados;
+    setDom(d);
+    if (typeof d.remitente === 'string') setRemitente(d.remitente);
+    const recien = remitentesVinculados(d).filter((r) => !antes.includes(r));
+    if (recien.length === 1) setEmisor(recien[0]);
+  };
 
   // LLENA EL RECTÁNGULO DEL PADRE (`width/height: 100%`): el lugar y el tamaño los decide quien lo
   // monta (`muelles`). Un padre que lo ancla arriba Y abajo sin dar alto lo dimensiona con el
@@ -883,6 +1162,42 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   };
   if (style?.top != null && style?.bottom != null && style.height == null) delete raiz.height;
 
+  // ── EL SIMULADOR DE CADA CANAL (sexta tanda) ─────────────────────────────────────────────────
+  // UN `switch`, y es el único lugar donde se decide qué se dibuja por canal. La parte «canales»
+  // enchufa acá Instagram y Messenger: su fila en `CANALES_PROBAR`, su caso en `canalDelPaso` y su
+  // `case` acá. El recorrido, los envíos de verdad y la cabecera ya leen el canal de esos dos lugares.
+  let simulador: ReactNode;
+  switch (canal) {
+    case 'email':
+      // La BANDEJA tipo Gmail: lo que llega, con el MISMO render que sale. Sin caja para contestar.
+      simulador = (
+        <BandejaGmail correos={correos} abierto={abierto} recibiendo={recibiendo} terminado={terminado} entra={entra}
+          remitente={remitente} negocio={negocio} onAbrir={abrirCorreo} onVolver={() => setAbierto(null)} />
+      );
+      break;
+    case 'instagram':
+    case 'messenger':
+      // El DM como lo ve el lead (parte «canales»): el MISMO recorrido, con la cara de Instagram o Messenger.
+      simulador = <SimuladorSocial canal={canal} mensajes={mensajes} typing={typing} onEnviarTexto={enviarTexto} negocio={negocio} />;
+      break;
+    case 'whatsapp':
+    default:
+      // EL TELÉFONO: el hilo con su animación y la caja para contestar como el lead.
+      simulador = (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+          <ChatHilo
+            accent="var(--wa)" accentBubble="var(--wa-bubble)"
+            mensajes={mensajes} typing={typing} animarNuevos
+            draftKey={`probar-${secuencia.id}`}
+            placeholder="Responde como el lead…"
+            onEnviarTexto={enviarTexto} onEnviarArchivo={enviarArchivo}
+            /* Vacío a propósito: arranca solo y en 150 ms ya está el «escribiendo…». Un «Sin
+               mensajes» que aparece y se va se lee como un parpadeo. */
+            vacio={<></>}
+          />
+        </div>
+      );
+  }
 
   return (
     <section aria-label="Probar" data-canal={canal} style={raiz}>
@@ -896,14 +1211,15 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           (SecuenciaPerfil). */}
       <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 0', whiteSpace: 'nowrap' }}>
         {/* EL LOGO DEL CANAL, arriba a la izquierda (quinta tanda, punto 1: «no elimines el logo de
-            WhatsApp o Email arriba a la izquierda»). Los mismos del ＋ (`ICONOS_MAS`). */}
+            WhatsApp o Email arriba a la izquierda»). Los mismos del ＋ (`ICONOS_MAS`), por `CANALES_PROBAR`. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={social ? logoSocialSvg(social) : esEmail ? ICONOS_MAS.email : ICONOS_MAS.whatsapp} alt={social ? NOMBRE_CANAL[social] : esEmail ? 'Email' : 'WhatsApp'} width={22} height={22} style={{ flex: 'none', display: 'block' }} />
+        <img src={def.logo} alt={def.nombre} width={22} height={22} style={{ flex: 'none', display: 'block' }} />
         <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
           {rolAdmin && real && (
             <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--dim)', ...recorte }}>
               <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)', flex: 'none' }} />
-              Llega a {destinoLegible(destino, esEmail)}
+              {/* Desde dónde y a dónde (sexta tanda, «Probar» 2). Sin emisor leído, sólo a dónde. */}
+              {rotuloEmisor ? `${rotuloEmisor} → ${destinoLegible(destino, esEmail)}` : `Llega a ${destinoLegible(destino, esEmail)}`}
             </div>
           )}
         </div>
@@ -913,18 +1229,17 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             Cambió · ↻
           </button>
         )}
-        {/* «PROBAR EN WHATSAPP» AL LADO DE ↻, y el destino en un DESPLEGABLE que abre el botón (quinta
-            tanda, punto 1: «que no esté desplegado el "Tu número", sino que al clickear ese botón salga
-            el desplegable»). Sólo el admin manda de verdad. */}
+        {/* «PROBAR EN WHATSAPP» AL LADO DE ↻, y el emisor y el destino en un DESPLEGABLE que abre el
+            botón (quinta tanda, punto 1; sexta, «Probar» 2). Sólo el admin manda de verdad. */}
         {/* Sin «Probar en Instagram» de verdad: Meta no deja escribirle primero a nadie (SimuladorSocial). */}
         {rolAdmin && !real && !social && (
           <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
-            onClick={() => (menu ? cerrarMenu() : setMenu(true))}>{esEmail ? 'Probar en Email' : 'Probar en WhatsApp'}</Button>
+            onClick={() => (menu ? cerrarMenu() : setMenu(true))}>{def.probarEn}</Button>
         )}
         <button type="button" onClick={() => reiniciar()} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>
       </div>
       {menu && rolAdmin && (
-        <PopoverWA ancla={btnProbar} etiqueta={esEmail ? 'Probar en Email' : 'Probar en WhatsApp'} onCerrar={cerrarMenu}>
+        <PopoverWA ancla={btnProbar} etiqueta={def.probarEn} onCerrar={cerrarMenu}>
           <MenuDestinos
             refCaja={setCajaMenu} esEmail={esEmail} guardados={guardados} onElegir={probarA}
             nuevo={nuevo} onNuevo={() => { setNuevo(true); setErrNuevo(null); }} onProbarNuevo={probarNuevo} error={errNuevo}
@@ -937,37 +1252,24 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
                 aria-label="Nuevo email" placeholder="nombre@correo.com" style={inpReal} />
             )}
             puedeProbarNuevo={esEmail ? !!nuevoEmail.trim() : !!numero.trim()}
+            emisor={{ opciones: opcionesEmisor, elegido: emisorVisible, onElegir: setEmisor, onVincular: abrirVincular }}
           />
         </PopoverWA>
+      )}
+      {vinculando && rolAdmin && (
+        <VincularEmisor canal={canal} dom={dom && dom !== 'error' ? dom : null} reemplaza={vinculados.length > 0}
+          onCerrar={() => setVinculando(false)} onLinea={alVincularLinea} onDominio={alVincularDominio} />
       )}
 
       {/* El cuerpo va en una caja ABSOLUTA: `ChatHilo` se mide con `height: 100%`, y contra un
           alto que sale de `flex: 1` eso es CERO en Safari (AGENTS.md). Con `inset: 0` el alto
           es definido en los dos motores. */}
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        {social ? (
-          <SimuladorSocial canal={social} mensajes={mensajes} typing={typing} onEnviarTexto={enviarTexto} negocio={negocio} />
-        ) : esEmail ? (
-          <BandejaGmail correos={correos} abierto={abierto} recibiendo={recibiendo} terminado={terminado}
-            remitente={remitente} negocio={negocio} onAbrir={abrirCorreo} onVolver={() => setAbierto(null)} />
-        ) : (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-            <ChatHilo
-              accent="var(--wa)" accentBubble="var(--wa-bubble)"
-              mensajes={mensajes} typing={typing} animarNuevos
-              draftKey={`probar-${secuencia.id}`}
-              placeholder="Responde como el lead…"
-              onEnviarTexto={enviarTexto} onEnviarArchivo={enviarArchivo}
-              /* Vacío a propósito: arranca solo y en 150 ms ya está el «escribiendo…». Un «Sin
-                 mensajes» que aparece y se va se lee como un parpadeo. */
-              vacio={<></>}
-            />
-          </div>
-        )}
+        {simulador}
       </div>
 
-      {/* En la bandeja no hay hilo: la última píldora va en un renglón debajo. */}
-      {esEmail && aviso && (
+      {/* En la bandeja no hay hilo: la última píldora que falló va en un renglón debajo (sin «Fin»). */}
+      {canal === 'email' && aviso && (
         <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 6, padding: '0 2px' }}>
           <span role="status" style={{ fontSize: 12.5, color: aviso.tono === 'bad' ? 'var(--bad)' : 'var(--dim)', ...recorte }}>{aviso.texto}</span>
         </div>

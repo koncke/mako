@@ -1992,6 +1992,76 @@ Las 8 partes corren en worktrees distintos pero con el MISMO scratchpad. El mens
 parte (`msg1.txt`) lo pisó, minutos después de usarlo, el de la parte «canales». Salió bien porque se
 commiteó antes; al revés, esta rama llevaba el mensaje de otra. Cada parte escribe en su subcarpeta
 (`scratchpad/<parte>/`) y verifica `git log -1 --format=%B` después de commitear.
+## Sexta tanda (09/10/2026, parte «probar»): el email de «Probar», el emisor de la prueba real y el email que llega
+
+### «Probar en Email» vacío: no era la bandeja, era el CONTACTO del lead de la prueba [probar]
+
+**Síntoma:** «está configurado el email y en PROBAR no salió nada» — «Sin correos» y «Fin» abajo, en
+la «Felicitación al terminar clase» (#226 del ws1: CRON → «Tiene WhatsApp» → Sí: WhatsApp + TAG; Si no:
+EMAIL).
+
+⚠️ **El diagnóstico obvio era el equivocado**: la bandeja, la animación y el envío andaban. Medido con
+el flujo leído de la base: `hechosDeLeadNuevo` le daba al lead de la prueba teléfono Y email SIEMPRE,
+así que «Tiene WhatsApp» salía por el «Sí» y el email del «Si no» no llegaba nunca. Es la misma familia
+que «Agendó» en la quinta tanda: decidir como el motor está bien; el DATO estaba mal.
+
+**Regla:** de un lead que acaba de entrar, lo único que NO se sabe es si tiene teléfono y si tiene
+email. Esos dos se ELIGEN para el canal que se prueba (`contactoParaProbar`: los dos → sólo el canal
+probado → sólo el otro → ninguno; el primero con el que llega algo de ese canal), corriendo el MISMO
+recorrido de una vez (`mensajesDelRecorrido`). Lo que sí se sabe (sin agenda, sin pago) no se elige:
+un email detrás de «Agendó» sigue sin llegar, y eso es lo que pasa de verdad.
+
+**Vive en:** `lib/simulador-grafo.ts` (`contactoParaProbar`, `mensajesDelRecorrido`, `hechosDeLeadNuevo`) ·
+`app/chatbot/PanelProbar.tsx` (`arrancarRefs`, el `case 'condicion'`) · `tests/probar-email-canal.test.ts`
+
+### El email que llega (Resend): lo que hay que saber antes de tocarlo [email-entrante]
+
+Medido el 09/10/2026 (doc oficial y la cuenta, sólo lectura):
+
+- **El webhook `email.received` trae sólo el SOBRE** (`from`, `to`, `cc`, `received_for`, `subject`,
+  `message_id`, los adjuntos sin contenido). El cuerpo se pide aparte: `GET /emails/receiving/{id}`.
+  Para disparar alcanza; para una condición sobre el texto, hace falta esa llamada.
+- **La cuenta de MaKo tiene UN dominio (hola-mako.com) con `receiving: disabled`, y su único webhook
+  (a /api/webhooks/resend) YA está suscripto a `email.received`** y lo tira al `default`. O sea: el día
+  que alguien prenda la recepción, los mails llegan a esa ruta y se pierden sin un error.
+- ⚠️ **«Opción A: una cuenta de Resend para todos» no es del todo cierto**: los ws 1, 4, 10 y 11 tienen
+  su propia `RESEND_API_KEY`, y el único `resend_domain` cargado (ws11, leilafittipaldi.com) NO está en
+  la cuenta de MaKo. Un cliente con cuenta propia recibe en SU cuenta: haría falta un webhook allá con su
+  secreto.
+- **Se rutea por `resend_domain` (se reclama con titularidad), NUNCA por `resend_from`**: el del ws1 es
+  «MaKo <equipo@hola-mako.com>», el dominio de la PLATAFORMA. Un subdominio cuenta (el MX recomendado va
+  en uno), el reclamo exacto gana, dos workspaces → de ninguno.
+- **La fila de `email_entrantes` es la deduplicación Y el rastro**: `email_id` único corta los reintentos
+  de Svix; lo descartado queda con su motivo. Un mail de ningún negocio también queda escrito
+  (`workspace_id` null), nunca asignado «por default».
+
+**Vive en:** `lib/email-entrante-reglas.ts` · `lib/email-entrante.ts` · `app/api/webhooks/email-entrante/route.ts` ·
+`supabase/migrations/0245_email_entrantes.sql` · `tests/email-entrante.test.ts`
+
+### El emisor de la prueba real es un PEDIDO; lo autoriza el envío [probar]
+
+«Probar en WhatsApp / Email» pide «De» (las líneas o el remitente del negocio, con «Vincular nuevo») y
+«Para». El emisor viaja del navegador, así que el server no lo cree: la línea la resuelve `elegirLinea`
+en el envío (una ajena no manda y NO cae a la de por default) y el remitente, `remitenteDelPaso` (mismo
+dominio que el del negocio). Uno que no sirve corta con su motivo ANTES del tope, para no gastar un
+lugar. Y hoy hay UN remitente por negocio: «Vincular nuevo» del email REEMPLAZA y lo dice.
+
+**Vive en:** `lib/simulador-grafo.ts` (`sanearEmisorPrueba`, `lineaDePrueba`) · `lib/prueba-paso.ts` ·
+`app/chatbot/PanelProbar.tsx` (`MenuDestinos`, `VincularEmisor`, `CANALES_PROBAR`)
+
+### Lo que quedó sin hacer (parte «probar»)
+
+- **Que llegue un mail de verdad**: prender «Receiving» en el dominio en Resend + el MX del cliente, y
+  sumar `email.received` a la ruta nueva (un webhook con `RESEND_INBOUND_WEBHOOK_SECRET`) o delegarlo
+  desde /api/webhooks/resend (`case 'email.received'` → `recibirEmailEntrante`). Lo decide Martín.
+- **Un email del lead no PAUSA la automatización que le está escribiendo** (una respuesta de WhatsApp
+  sí). Es del motor: `lib/nutricion.ts` (`pausarPorRespuesta` del lado del webhook).
+- `email_entrantes` tiene que entrar a `TABLAS_DE_INQUILINO` (`lib/tablas-de-inquilino.ts`) y el
+  servicio `'email'` a `ServicioRuteo` (`lib/webhook-ruteo-huella.ts`) para anotar los fallos de ruteo
+  en el super admin como los demás webhooks.
+- `app/chatbot/SimuladorEmail.tsx` tiene CERO call sites (lo reemplazó la bandeja de `PanelProbar`).
+- Nada de esto se vio con clics: el desplegable «De / Para», «Vincular nuevo» en su modal y la bandeja
+  con la #226.
 
 ## Lo que quedó sin hacer
 

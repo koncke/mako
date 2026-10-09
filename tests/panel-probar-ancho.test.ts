@@ -23,6 +23,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   PanelProbar, BandejaGmail, MenuDestinos, cuandoLlega, remitenteVisible, vistaDeFila, destinoLegible, PANEL_PROBAR_ANCHO, PANEL_PROBAR_ALTO,
+  canalDelPaso, CANALES_PROBAR, pildoraEnLaBandeja, emisoresDeLineas, emisoresDeRemitentes, emisorAEnviar,
   type CanalProbar, type CorreoRecibido,
 } from '../app/chatbot/PanelProbar';
 import { paramsDeVista } from '../app/chatbot/EditorEmailGmail';
@@ -209,8 +210,14 @@ test('lo del OTRO canal ni se dibuja ni sale: el filtro vive en el panel, y lo r
   const avanzar = src.slice(src.indexOf('function avanzar() {'), src.indexOf('const arrancarRefs = () => {'));
   assert.ok(avanzar.length > 0 && avanzar.length < 3200, `el recorte de avanzar mide ${avanzar.length}`);
   // (Quinta tanda, punto 1: en el medio se marca «ya le escribimos», salga por el canal que salga.)
+  // (Sexta tanda: el canal de un paso sale de UNA función, `canalDelPaso`, la misma del contacto.)
+  assert.match(avanzar, /const delPaso: CanalProbar = canalDelPaso\(paso\);\s+huboMensaje\.current = true;\s+if \(delPaso !== ctx\.current\.canal\) \{ luego\(0, avanzar\); return; \}/);
+  assert.equal(canalDelPaso({ canal: 'email' }), 'email');
+  assert.equal(canalDelPaso({ canal: 'whatsapp' }), 'whatsapp');
+  assert.equal(canalDelPaso({}), 'whatsapp', 'un paso sin canal es un WhatsApp, como en el motor');
   // (Sexta tanda, parte «canales»: Instagram y Messenger son su propio canal, no WhatsApp.)
-  assert.match(avanzar, /const delPaso: CanalProbar = esCanalSocial\(paso\.canal\) \? paso\.canal : paso\.canal === 'email' \? 'email' : 'whatsapp';\s+huboMensaje\.current = true;\s+if \(delPaso !== ctx\.current\.canal\) \{ luego\(0, avanzar\); return; \}/);
+  assert.equal(canalDelPaso({ canal: 'instagram' }), 'instagram');
+  assert.equal(canalDelPaso({ canal: 'messenger' }), 'messenger');
   // El filtro va ANTES de dibujar y de mandar nada.
   assert.ok(avanzar.indexOf('if (delPaso !== ctx.current.canal)') < avanzar.indexOf('mostrarPaso('));
   const mandar = src.slice(src.indexOf('const mandarReal = ('), src.indexOf('const mostrarPaso = ('));
@@ -294,6 +301,103 @@ test('las piezas puras: cuándo llega, quién lo manda y la vista previa de la f
   assert.equal(vistaDeFila({ vistaPrevia: '', cuerpo: '*Hola*\n\n_tú_ ~ya~' }), 'Hola tú ya');
 });
 
+// ── Sexta tanda (09/10/2026): «Probar» 1, 2 y 3 ───────────────────────────────────────
+// «1. ...está configurado el email y en PROBAR no salió nada. Al igual que WhatsApp, el email debe
+// salir con su animación... 2. ...deberían pedir emisor (siempre dentro de los email y numeros
+// configurados, con la opción de agregar nuevo) y remitente... 3. En Email, elimina el texto de "Fin"
+// que aparece abajo del todo.» El recorrido lo EJECUTA tests/probar-email-canal.test.ts; acá, el panel.
+
+test('«Probar» 1: el lead de la prueba se elige por canal al arrancar, y la condición lo usa', () => {
+  const src = PANEL();
+  const arrancar = src.slice(src.indexOf('const arrancarRefs = () => {'), src.indexOf('const reiniciar = (deVerdad = false) => {'));
+  assert.match(arrancar, /simRef\.current = iniciar\(flujoVivo\);\n\s+contactoRef\.current = contactoDe\(flujoVivo\);/, 'el contacto no se elige al arrancar con el flujo que se prueba');
+  assert.match(src, /contactoParaProbar\(f, \(p\) => canalDelPaso\(p\) === canal, CANALES_PROBAR\[canal\]\.contacto, leadRef\.current, ctx\.current\.nombres\)/);
+  const caso = src.slice(src.indexOf("case 'condicion': {"), src.indexOf("case 'fin':"));
+  assert.match(caso, /hechosDeLeadNuevo\(\{\n\s+\.\.\.leadRef\.current, \.\.\.contactoRef\.current, yaContactado:/, 'la condición vuelve a decidir con teléfono y email siempre');
+  assert.equal(CANALES_PROBAR.email.contacto, 'tieneEmail');
+  assert.equal(CANALES_PROBAR.whatsapp.contacto, 'tieneTelefono');
+});
+
+test('«Probar» 1: el mail que llega entra con su animación; volver de uno abierto no re-anima la bandeja', () => {
+  const dos = [correo({ id: 'a', asunto: 'Uno' }), correo({ id: 'b', asunto: 'Dos' })];
+  const conEntra = bandeja({ correos: dos, entra: 'b' });
+  assert.equal((conEntra.match(/class="pp-fila pp-entra"/g) ?? []).length, 1, 'sólo el último entra animado');
+  assert.ok(conEntra.indexOf('class="pp-fila pp-entra"') < conEntra.indexOf('>Dos<') && conEntra.indexOf('>Dos<') < conEntra.indexOf('>Uno<'));
+  assert.equal((bandeja({ correos: dos, entra: null }).match(/pp-entra/g) ?? []).length, 0, 'volviendo de un mail abierto, nada entra');
+  assert.equal((bandeja({ correos: dos }).match(/class="pp-fila pp-entra"/g) ?? []).length, 2, 'sin `entra`, lo de antes');
+  const src = PANEL();
+  assert.match(src, /const ponerCorreo = \(c: CorreoRecibido\) => \{ correosRef\.current = \[\.\.\.correosRef\.current, c\]; setCorreos\(correosRef\.current\); setEntra\(c\.id\); \};/);
+  assert.match(src, /<BandejaGmail correos=\{correos\}[^>]*entra=\{entra\}/);
+});
+
+test('«Probar» 3: en la bandeja no va «Fin» (ni las esperas ni las acciones); sí lo que falló', () => {
+  assert.equal(pildoraEnLaBandeja(null), false, '«Fin» y las píldoras del recorrido no van en la bandeja');
+  assert.equal(pildoraEnLaBandeja('ok'), false);
+  assert.equal(pildoraEnLaBandeja('bad'), true, 'un envío que falló se dice');
+  assert.equal(pildoraEnLaBandeja(null, true), true);
+  const src = PANEL();
+  const sis = src.slice(src.indexOf('const sistema = ('), src.indexOf('const luego = ('));
+  assert.ok(sis.length > 0 && sis.length < 400, `el recorte de sistema mide ${sis.length}`);
+  assert.match(sis, /if \(ctx\.current\.canal === 'email'\) \{ if \(pildoraEnLaBandeja\(tono, forzar\)\) setAviso\(\{ texto, tono \}\); return; \}/);
+  // «Ya salió · no se reenvía» habla del envío de verdad: va igual.
+  assert.match(src, /sistema\('Ya salió · no se reenvía', null, true\)/);
+});
+
+test('«Probar» 2: el desplegable pide «De» (el emisor, con «Vincular nuevo») ARRIBA y «Para» abajo', () => {
+  const menu = (p: Partial<Parameters<typeof MenuDestinos>[0]>) => renderToStaticMarkup(createElement(MenuDestinos, {
+    esEmail: false, guardados: { telefonos: ['5491125052605'], emails: [] }, onElegir: () => {},
+    nuevo: false, onNuevo: () => {}, onProbarNuevo: () => {}, error: null,
+    formTelefono: createElement('i', null, 'FORM-TEL'), formEmail: createElement('i', null, 'FORM-MAIL'), puedeProbarNuevo: false, ...p,
+  }));
+  const html = menu({ emisor: { opciones: [{ valor: '', rotulo: '+5215511111111', color: 'var(--good)' }, { valor: 'mako_ws1_b', rotulo: 'Ventas' }], elegido: 'mako_ws1_b', onElegir: () => {}, onVincular: () => {} } });
+  const iDe = html.indexOf('>De<'); const iPara = html.indexOf('>Para<');
+  assert.ok(iDe > 0 && iPara > iDe, 'falta «De» arriba de «Para»');
+  assert.ok(html.indexOf('>Ventas<') > iDe && html.indexOf('>Ventas<') < iPara, 'las líneas van en «De»');
+  assert.ok(html.indexOf('Vincular nuevo') > iDe && html.indexOf('Vincular nuevo') < iPara, '«Vincular nuevo» va en «De»');
+  assert.ok(html.indexOf('+54 91125052605') > iPara, 'los guardados van en «Para»');
+  // El elegido lleva su tilde (y `aria-checked`), el otro no.
+  assert.match(html, /aria-checked="true"[^>]*>(?:(?!<\/button>).)*Ventas/);
+  assert.match(html, /aria-checked="false"[^>]*>(?:(?!<\/button>).)*\+5215511111111/);
+  // «No pude leer» no es «no hay»; sin emisor, el menú es el de antes (sin «De»).
+  assert.match(menu({ emisor: { opciones: 'error', elegido: null, onElegir: () => {}, onVincular: () => {} } }), /No pude leer tus números[\s\S]*Vincular nuevo/);
+  assert.match(menu({ esEmail: true, emisor: { opciones: [], elegido: null, onElegir: () => {}, onVincular: () => {} } }), /Sin remitente[\s\S]*Vincular nuevo/);
+  assert.doesNotMatch(menu({}), />De<|Vincular nuevo/);
+  // Íconos, no emojis ni el ＋ de texto, en los renglones de crear.
+  assert.doesNotMatch(menu({ emisor: { opciones: [], elegido: null, onElegir: () => {}, onVincular: () => {} } }), /＋/);
+});
+
+test('«Probar» 2: los emisores salen de lo vinculado del negocio, y viaja sólo lo que se ELIGIÓ', () => {
+  const lineas = [
+    { linea: 'mako_ws1', rotulo: '+5215511111111', estado: 'conectado', esDefault: true },
+    { linea: 'mako_ws1_b', rotulo: 'Ventas', estado: 'desconectado', esDefault: false },
+  ];
+  assert.deepEqual(emisoresDeLineas(lineas, null).map((o) => [o.valor, o.rotulo]), [['', '+5215511111111'], ['mako_ws1_b', 'Ventas']], 'la de por default primero, sin el renglón de vincular');
+  assert.ok(emisoresDeLineas(lineas, 'mako_ws1_viejo').some((o) => o.valor === 'mako_ws1_viejo'), 'la de la automatización entra aunque ya no esté');
+  assert.deepEqual(emisoresDeRemitentes(['Mi negocio <hola@minegocio.com>', 'hola@minegocio.com']).map((o) => o.rotulo), ['Mi negocio <hola@minegocio.com>', 'hola@minegocio.com']);
+  assert.deepEqual(emisorAEnviar('whatsapp', null), {}, 'sin elegir no viaja nada: el server usa la línea de la automatización');
+  assert.deepEqual(emisorAEnviar('whatsapp', ''), { linea: '' });
+  assert.deepEqual(emisorAEnviar('email', 'Mi negocio <hola@minegocio.com>'), { remitente: 'Mi negocio <hola@minegocio.com>' });
+  const src = PANEL();
+  const mandar = src.slice(src.indexOf('const mandarReal = ('), src.indexOf('const mostrarParte = ('));
+  assert.match(mandar, /postar\(\{ action: 'enviar-real', secuenciaId: c\.secuenciaId, destino: destinoReal, mensaje: m, primero, emisor: c\.emisor \}\)/, 'el emisor elegido no viaja');
+  assert.match(src, /emisor=\{\{ opciones: opcionesEmisor, elegido: emisorVisible, onElegir: setEmisor, onVincular: abrirVincular \}\}/);
+  // «Vincular nuevo» es el flujo de siempre (el QR de una línea nueva; el dominio de /email), y el email
+  // dice que REEMPLAZA (hoy hay UN remitente por negocio).
+  assert.match(src, /<EvolutionConnect key="nueva-linea" nueva inline panelVisible ocultarChip onLineaCreada=\{onLinea\} \/>/);
+  assert.match(src, /\{reemplaza && <div role="note"[^>]*>\{AVISO_REEMPLAZA\}<\/div>\}/);
+  assert.match(src, /<VincularEmisor canal=\{canal\}[^>]*reemplaza=\{vinculados\.length > 0\}/);
+});
+
+test('el simulador de cada canal se elige en UN lugar (la parte «canales» enchufa ahí)', () => {
+  const src = PANEL();
+  assert.match(src, /let simulador: ReactNode;\n\s+switch \(canal\) \{\n\s+case 'email':/);
+  assert.match(src, /<div style=\{\{ flex: 1, minHeight: 0, position: 'relative' \}\}>\n\s+\{simulador\}\n\s+<\/div>/);
+  assert.deepEqual(Object.keys(CANALES_PROBAR).sort(), ['email', 'whatsapp']);
+  // La cabecera lee el canal de `CANALES_PROBAR`, no de un `esEmail ?`.
+  assert.match(src, /<img src=\{def\.logo\} alt=\{def\.nombre\}/);
+  assert.match(src, /\{def\.probarEn\}<\/Button>/);
+});
+
 // ROTURAS (09/10/2026), una por vez sobre app/chatbot/PanelProbar.tsx, con un arnés que rompe, corre
 // este archivo y restaura DE MEMORIA (nunca con git checkout) verificando con md5 que volviera
 // idéntico. Sin romper: 13 pass / 0 fail. Las 13 cayeron:
@@ -312,3 +416,11 @@ test('las piezas puras: cuándo llega, quién lo manda y la vista previa de la f
 //     (`aria-haspopup`): 67 / 2. · H3 la lista caída dicha como «Sin números guardados»: 68 / 1.
 //   · H4 el form del número sin `portalTo`: 68 / 1. · H5 `probarA` sin poner el destino en `ctx`
 //     antes de arrancar (el primer envío iría al destino de antes): 68 / 1.
+//
+// ROTURAS de la sexta tanda («Probar» 1, 2 y 3; 09/10/2026), con el arnés del scratchpad corriendo
+// este archivo con probar-email-canal, probar-lead-nuevo y chatbot-probar (base 53 / 0). Las 10 cayeron,
+// cada una 52 / 1: P1 arrancar sin elegir el contacto · P2 la condición sin el contacto elegido · P3 la
+// bandeja con todas las píldoras («Fin» vuelve) · P4 `pildoraEnLaBandeja` dejando pasar lo neutro · P5
+// el envío real sin el emisor · P6 la bandeja animando todo siempre · P7 el menú sin «Para» · P8 los
+// emisores con el renglón de vincular de SalidaWhatsApp · P9 `emisorAEnviar` mandando algo sin elegir ·
+// P10 `canalDelPaso` sin reconocer el email.

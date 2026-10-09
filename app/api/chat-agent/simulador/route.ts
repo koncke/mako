@@ -14,9 +14,10 @@
 // POST { action: 'responder', secuenciaId, historial, escenario } → { respuesta }
 //      Redacta un «MaKo contesta» con el redactor del motor (`responderSimulador`) y el caso
 //      LOCAL como guía.
-// POST { action: 'enviar-real', secuenciaId, destino, mensaje, primero } → { enviados }
+// POST { action: 'enviar-real', secuenciaId, destino, mensaje, primero, emisor? } → { enviados }
 //      Manda DE VERDAD un mensaje que apareció en el panel (lib/prueba-paso.ts). Sólo admin, con
-//      tope por (workspace, destino): 10 mensajes cada 10 minutos.
+//      tope por (workspace, destino): 10 mensajes cada 10 minutos. `emisor` (sexta tanda): `{ linea }`
+//      (WhatsApp; '' = la de por default) o `{ remitente }` (email). Ausente = el de siempre.
 // POST { secuenciaId, historial, audioBase64? } (sin action) → { respuesta, desenlace }
 //      El setter libre de antes. Queda por compatibilidad; el panel nuevo no lo usa.
 //
@@ -32,7 +33,7 @@ import { clasificarEscenario } from '@/lib/chat-agent-handoff';
 import { getUsuarioActual } from '@/lib/auth';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { escenariosDeRespuesta, normalizar, TOPE_NODOS, type PasoGrafo } from '@/lib/flujo-grafo';
-import { destinoDelQueMira, destinosGuardados, sanearDestinoPrueba, sanearMensajePrueba } from '@/lib/simulador-grafo';
+import { destinoDelQueMira, destinosGuardados, sanearDestinoPrueba, sanearMensajePrueba, sanearEmisorPrueba } from '@/lib/simulador-grafo';
 import { enviarPasoDePrueba, guardarDestinoDeQuienPrueba } from '@/lib/prueba-paso';
 import type { EscenarioSecuencia } from '@/lib/setting-estrategia';
 
@@ -154,7 +155,9 @@ export async function POST(req: NextRequest) {
       if (!mensaje) return json({ ok: false, error: 'mensaje inválido' }, 400);
       // El destino es de ESTA prueba: se usa y se olvida (ver lib/prueba-paso.ts).
       const destino = sanearDestinoPrueba(body.destino);
-      const r = await enviarPasoDePrueba({ ws: a.ws, secuenciaId: id, destino, mensaje, primero: body.primero === true });
+      // El EMISOR (sexta tanda): un pedido; la línea y el remitente los vuelve a validar el envío.
+      const emisor = sanearEmisorPrueba(body.emisor);
+      const r = await enviarPasoDePrueba({ ws: a.ws, secuenciaId: id, destino, mensaje, primero: body.primero === true, emisor });
       return r.ok ? json({ ok: true, enviados: r.enviados }) : json({ ok: false, error: r.error }, 400);
     }
 
