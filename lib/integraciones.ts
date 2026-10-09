@@ -12,7 +12,7 @@ import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
-import { getAgenteToken } from './agente-token';
+import { tokenAgenteVisible } from './agente-token';
 import { CHATWOOT_APAGADO } from './chatwoot';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
@@ -97,7 +97,7 @@ async function estadoGoogleCalendar(): Promise<Pick<Integracion, 'estado' | 'det
 async function estadoAgente(): Promise<Pick<Integracion, 'estado' | 'detalle'>> {
   try {
     const ws = await getWorkspaceActual();
-    if (ws != null && (await getAgenteToken(ws))) {
+    if (ws != null && (await tokenAgenteVisible(ws))) {
       return { estado: 'conectada', detalle: 'Token generado — Claude ya puede leer tu negocio y tu plan, y proponerte tareas.' };
     }
   } catch (e) {

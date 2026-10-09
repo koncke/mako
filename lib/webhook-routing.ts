@@ -191,6 +191,31 @@ export async function borrarRoutingDeWs(servicio: string, ws: number): Promise<v
 }
 
 /**
+ * Borra las filas de un servicio de un workspace cuyo identificador ARRANCA con `prefijo`.
+ * Best-effort (no lanza).
+ *
+ * Existe para el token principal del agente (lib/agente-token-nucleo.ts): desde el
+ * 09/10/2026 se indexa por su HASH, y las filas del formato viejo —el token en claro, que
+ * arranca con `mkoag_`— se borran al rotar o revocar. Un hash (64 hex) no puede arrancar
+ * así, así que el prefijo separa las dos sin mirar nada más. ⚠️ `prefijo` va directo a un
+ * LIKE: `_` y `%` son comodines, y por eso se pasa SIN el guion bajo (`mkoag`).
+ */
+export async function borrarRoutingConPrefijo(servicio: string, ws: number, prefijo: string): Promise<void> {
+  if (!prefijo || /[%_\\]/.test(prefijo)) throw new Error('borrarRoutingConPrefijo: el prefijo no puede traer comodines de LIKE');
+  try {
+    const { error } = await getSupabaseServer()
+      .from('webhook_routing')
+      .delete()
+      .eq('servicio', servicio)
+      .eq('workspace_id', ws)
+      .like('identificador', `${prefijo}%`);
+    if (error) throw new Error(error.message);
+  } catch (e) {
+    console.error('[webhook-routing] borrarRoutingConPrefijo falló:', e);
+  }
+}
+
+/**
  * Siembra el routing del DUEÑO (OWNER_WS) desde el env, en cada boot. Las
  * credenciales del dueño viven en el env de Vercel (nunca pasan por
  * guardarCredencial → no auto-espejan), así que sin esto sus webhooks quedarían

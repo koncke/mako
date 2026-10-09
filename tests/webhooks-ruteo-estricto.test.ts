@@ -179,9 +179,15 @@ test('los beacons de medición: estrictos y 503, sin reintento', () => {
 });
 
 test('el token del agente: «no pude verificar» es 503, nunca 401', () => {
+  // Desde el 09/10/2026 la lógica vive en lib/agente-token-nucleo.ts (con test propio:
+  // tests/agente-token-hash.test.ts) y lib/agente-token.ts arma la base de verdad. Lo que se
+  // fija acá es esa base: las dos lecturas que autentican, estrictas, y con el reintento.
+  // Probado rompiéndolo (09/10/2026): el setting con getSetting, 1 fallo / 14 pases; sin
+  // conReintentoTransitorio, 1 fallo / 14 pases.
   const tok = sinComentarios(leer('../lib/agente-token.ts'));
-  assert.match(tok, /wsPorIdentificadorEstricto\(AGENTE_SERVICIO, t\)/);
-  assert.match(tok, /getSettingEstricto\(AGENTE_TOKEN_KEY\)/, 'con getSetting, la base caída da «revocado» sobre un token vigente');
+  assert.match(tok, /wsPorIndice: \(identificador\) => wsPorIdentificadorEstricto\(AGENTE_SERVICIO, identificador\)/);
+  assert.match(tok, /leerSetting: \(ws\) => runWithWorkspace\(ws, \(\) => getSettingEstricto\(AGENTE_TOKEN_KEY\)\)/, 'con getSetting, la base caída da «revocado» sobre un token vigente');
+  assert.match(tok, /conReintentoTransitorio\(\(\) => wsDeTokenCon\(almacen, t\)\)/, 'sin el reintento, un pestañeo de la base es un 503 sobre un token bueno');
   assert.match(tok, /status: 503/);
   for (const r of ['consultar', 'contexto', 'hook', 'lead', 'metricas', 'plan', 'skill', 'telemetria']) {
     const src = sinComentarios(leer(`../app/api/agente/${r}/route.ts`));

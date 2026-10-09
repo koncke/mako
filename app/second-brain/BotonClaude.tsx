@@ -25,10 +25,11 @@ import { Carrusel, EnlaceMaKo } from '@/app/_components/PanelMarketing';
 import { SvcIcon, BrandDefs } from '@/app/_components/ServicioVisual';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { SLIDES } from '@/lib/servicio-slides';
+import type { TokenAgenteVisible } from '@/lib/agente-token-nucleo';
 
 const MONO = "'Geist Mono', monospace";
 
-export function BotonClaude({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
+export function BotonClaude({ actual, appUrl }: { actual: TokenAgenteVisible | null; appUrl: string }) {
   const [abierto, setAbierto] = useState(false);
   return (
     <>
@@ -91,7 +92,7 @@ export function BotonClaude({ tokenInicial, appUrl }: { tokenInicial: string | n
                 <button type="button" onClick={() => setAbierto(false)} aria-label="Cerrar" style={closeBtn}>✕</button>
               </div>
               <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 26px 26px' }}>
-                <TutorialAgente tokenInicial={tokenInicial} appUrl={appUrl} />
+                <TutorialAgente actual={actual} appUrl={appUrl} />
               </div>
             </div>
           </div>

@@ -10,7 +10,7 @@ import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual
 import { integracionConectada } from '@/lib/credenciales';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
 import { estadoPixel } from '@/lib/pixel-estado';
-import { getAgenteToken } from '@/lib/agente-token';
+import { tokenAgenteVisible } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { cuotasProveedores } from '@/lib/ia-cuotas';
 import { landingsDelWorkspace } from '@/lib/landing-config-leer';
@@ -79,8 +79,9 @@ export default async function IntegracionesPage() {
 
   // Token del agente externo (Claude Code). Se LEE, no se acuña: es una credencial
   // real (da lectura del plan del workspace), así que solo nace cuando el humano
-  // aprieta el botón. null = todavía no generó ninguno.
-  const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);
+  // aprieta el botón. null = todavía no generó ninguno. Baja SÓLO la pista y el alcance:
+  // desde el 09/10/2026 el token no está guardado (se muestra una vez, al acuñarlo).
+  const agenteActual = ws == null ? null : await tokenAgenteVisible(ws).catch(() => null);
 
   // ── LO QUE EL PIXEL NECESITA PARA PINTARSE, EN EL PRIMER FRAME ─────────────
   // Las páginas del workspace (paso 1) y los productos que se les pueden asignar
@@ -113,7 +114,7 @@ export default async function IntegracionesPage() {
       snippetLanding={snippetLanding}
       landingVieja={landingVieja}
       cuotas={cuotas}
-      agenteToken={agenteToken}
+      agenteActual={agenteActual}
       appUrl={APP_URL}
       pixel={{ landings: landingsPixel, productos: productosPixel, gracias: graciasPixel }}
     />

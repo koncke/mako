@@ -135,8 +135,10 @@ buscando una carpeta oculta. Haz los cuatro pasos:
    es `C:\Users\<tu-usuario>\.mako-token`; en macOS o Linux, `/Users/<tu-usuario>/.mako-token`).
    Avísale que **empieza con un punto, así que el explorador no lo muestra** hasta que
    active «ver archivos ocultos» (Windows: Ctrl+Shift+. · macOS: Cmd+Shift+.).
-2. **Dile de dónde sacarlo:** en MaKo, **Integraciones → Conectar con Claude**, botón
-   «Copiar». Es un click.
+2. **Dile de dónde sacarlo:** en MaKo, **Integraciones → Conectar con Claude**. MaKo lo
+   muestra UNA sola vez, al generarlo: si ya lo generó antes y no lo tiene guardado, no hay
+   de dónde copiarlo — que apriete «Generar otro» (el anterior deja de funcionar donde lo
+   haya pegado).
 3. **Dale el comando ya armado** para que lo corra él, con su token pegado adentro. Así el
    token no pasa por esta conversación:
    - Windows (PowerShell): `Set-Content -NoNewline "$HOME\.mako-token" 'PEGA-TU-TOKEN'`

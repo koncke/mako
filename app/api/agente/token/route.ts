@@ -1,7 +1,8 @@
 // =============================================================================
 // /api/agente/token — acuñar/rotar el token del AGENTE (Claude Code) del workspace
 // =============================================================================
-// POST → { token }. Si ya había uno, este lo REEMPLAZA (el viejo deja de servir).
+// POST → { token, pista }. Si ya había uno, este lo REEMPLAZA (el viejo deja de servir).
+// El token se devuelve UNA vez: en la base queda sólo su hash (09/10/2026).
 // Con sesión de browser: lo aprieta el humano desde /integraciones, nunca un
 // agente. Solo el ADMIN del workspace (o el super-admin) puede acuñar: el token
 // da lectura del plan entero de ese workspace.
@@ -49,7 +50,13 @@ export async function POST(req: Request) {
       }
       await aceptar(ws, sesion.email ?? 'sin-email');
     }
-    return NextResponse.json({ ok: true, token: await rotarAgenteToken(ws, alcance), alcance });
+    // La ÚNICA vez que el token sale de MaKo: en la base queda su hash (lib/agente-token-nucleo.ts).
+    // La pantalla lo muestra en este momento y después sólo la pista.
+    const { token, pista } = await rotarAgenteToken(ws, alcance);
+    return NextResponse.json(
+      { ok: true, token, pista, alcance },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } },
+    );
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }

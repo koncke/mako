@@ -25,12 +25,13 @@ import { filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import { Grafo } from './Grafo';
 import { AreasHub } from './AreasHub';
 import { BotonClaude } from './BotonClaude';
+import type { TokenAgenteVisible } from '@/lib/agente-token-nucleo';
 import { BotonExportar } from './BotonExportar';
 
-export function VistaCerebro({ cerebro, funnelPanel, agenteToken, appUrl }: {
+export function VistaCerebro({ cerebro, funnelPanel, agenteActual, appUrl }: {
   cerebro: Cerebro;
   funnelPanel: ReactNode;
-  agenteToken: string | null;
+  agenteActual: TokenAgenteVisible | null;
   appUrl: string;
 }) {
   // `?area=oferta` abre esa sección de entrada. Existe porque otras pantallas
@@ -69,7 +70,7 @@ export function VistaCerebro({ cerebro, funnelPanel, agenteToken, appUrl }: {
       <PageHeader
         titulo="Second Brain"
         proposito="Todo lo que MaKo sabe de tu negocio."
-        acciones={<BotonClaude tokenInicial={agenteToken} appUrl={appUrl} />}
+        acciones={<BotonClaude actual={agenteActual} appUrl={appUrl} />}
         accion={<BotonExportar cerebro={cerebro} filtroMapa={filtro} recorte={verse} />}
       />
       <Grafo cerebro={cerebro} onAbrirArea={abrir} areaAbierta={abierta} onVerse={alVerse} filtro={filtro} onFiltro={setFiltro} />

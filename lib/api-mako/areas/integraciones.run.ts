@@ -26,7 +26,7 @@
 
 import 'server-only';
 import type { Runners, SalidaLectura } from '../tipos';
-import { alcanceDeToken, TEXTO_ALCANCE } from '../alcance';
+import { TEXTO_ALCANCE } from '../alcance';
 import { servicioDelWs, keysServiciosDelWs, tarjetasDelWs } from './integraciones.helpers';
 import { getIntegraciones } from '@/lib/integraciones';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
@@ -37,7 +37,7 @@ import { permisoCalendarioGoogle, googleCalendarConectado } from '@/lib/google-c
 import { cuotasProveedores, cuentasDe } from '@/lib/ia-cuotas';
 import { getUsageSummary } from '@/lib/anthropic-usage';
 import { tabActivacion } from '@/lib/tab-activacion';
-import { getAgenteToken } from '@/lib/agente-token';
+import { tokenAgenteVisible } from '@/lib/agente-token';
 import { linkPantalla } from '../link';
 import { OWNER_WS } from '@/lib/workspace';
 
@@ -245,11 +245,13 @@ export const RUNNERS: Runners = {
 
   ver_estado_agente_claude: {
     leer: async (_input, ctx) => {
-      const token = await getAgenteToken(ctx.ws);
-      // El token es un SECRETO: de él solo sale si existe y el alcance de su prefijo.
-      const alcance = token ? alcanceDeToken(token) : null;
+      // El token es un SECRETO y desde el 09/10/2026 ni siquiera está guardado: lo que hay es
+      // su hash y su PISTA (el prefijo y los últimos 4), que es lo único que sale de acá.
+      const token = await tokenAgenteVisible(ctx.ws);
+      const alcance = token?.alcance ?? null;
       return J({
         conectado: !!token,
+        pista: token?.pista ?? null,
         alcance,
         alcance_titulo: alcance ? TEXTO_ALCANCE[alcance].titulo : null,
         que_permite: alcance ? TEXTO_ALCANCE[alcance].que : null,

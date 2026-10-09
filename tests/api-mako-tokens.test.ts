@@ -12,7 +12,8 @@
 //
 // 2. LA FRONTERA, que es la que importa. Un token con nombre vale SOLO para /api/v1.
 //    Si `/api/agente/*` lo aceptara, `/api/agente/skill` le devolvería al que pide el
-//    archivo de la skill con el token PRINCIPAL adentro (`getAgenteToken(ws) ?? token`):
+//    archivo de la skill con el token PRINCIPAL adentro (el bearer presentado, desde el
+//    09/10/2026; antes `getAgenteToken(ws) ?? token`):
 //    un token «Solo leer» se llevaba el de la skill, que propone. Y el reporte del
 //    plugin (`/hook`, `/telemetria`) tiene el consentimiento atado al principal.
 //    Se fija leyendo el FUENTE: las rutas de /api/agente no pueden nombrar el
@@ -155,10 +156,12 @@ test('lo que baja a la pantalla NO lleva el hash, y trae el último uso', () => 
 });
 
 test('las claves de los tokens con nombre no son las del principal', () => {
-  const agente = leer('lib/agente-token.ts');
+  // Las constantes del principal viven en el núcleo desde el 09/10/2026 (lib/agente-token.ts
+  // las re-exporta): ahí las lee también el script que convierte las filas viejas a hash.
+  const agente = leer('lib/agente-token-nucleo.ts');
   const key = /AGENTE_TOKEN_KEY = '([^']+)'/.exec(agente)?.[1];
   const servicio = /AGENTE_SERVICIO = '([^']+)'/.exec(agente)?.[1];
-  assert.ok(key && servicio, 'no encontré las constantes del principal en lib/agente-token.ts');
+  assert.ok(key && servicio, 'no encontré las constantes del principal en lib/agente-token-nucleo.ts');
   assert.notEqual(API_TOKENS_KEY, key, 'la lista pisaría el token de la skill');
   assert.notEqual(SERVICIO_API, servicio, 'un hash en el índice del principal no lo resuelve nadie, y mezcla los dos');
 });
@@ -185,9 +188,11 @@ test('LA FRONTERA: ninguna ruta de /api/agente acepta un token con nombre', () =
 });
 
 test('LA FRONTERA: el resolvedor del principal no conoce los tokens con nombre', () => {
-  const src = sinComentarios(leer('lib/agente-token.ts'));
-  assert.ok(!/api-mako\/tokens['"]/.test(src), 'lib/agente-token.ts importa lib/api-mako/tokens: /api/agente pasaría a aceptar tokens con nombre');
-  assert.ok(!/wsPorTokenApi/.test(src));
+  for (const f of ['lib/agente-token.ts', 'lib/agente-token-nucleo.ts']) {
+    const src = sinComentarios(leer(f));
+    assert.ok(!/api-mako\/tokens['"]/.test(src), `${f} importa lib/api-mako/tokens: /api/agente pasaría a aceptar tokens con nombre`);
+    assert.ok(!/wsPorTokenApi/.test(src));
+  }
 });
 
 test('/api/v1 sí los acepta: su resolvedor es resolverTokenApi, que cae al principal', () => {

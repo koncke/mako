@@ -9699,7 +9699,7 @@ curl -L \
 
 ### `GET /api/v1/integraciones/agente-claude` — Estado de Claude conectado
 
-Si el negocio ya generó el token para conectar Claude (la skill de MaKo) y con qué alcance: solo leer, leer y proponer, o además ejecutar. Nunca devuelve el token. Úsala ante «¿tengo Claude conectado?» o para explicar por qué Claude no puede confirmar una acción. No requiere parámetros.
+Si el negocio ya generó el token para conectar Claude (la skill de MaKo) y con qué alcance: solo leer, leer y proponer, o además ejecutar. Nunca devuelve el token: sólo su pista (el prefijo y los últimos 4 caracteres) para reconocerlo. Úsala ante «¿tengo Claude conectado?» o para explicar por qué Claude no puede confirmar una acción. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/integraciones/ver_estado_agente_claude`
 - **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)

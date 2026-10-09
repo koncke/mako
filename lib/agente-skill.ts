@@ -52,6 +52,12 @@ export { AGENTE_TOKEN_ARCHIVO };
  * la skill se actualiza uno de los dos y el otro se queda viejo — que es exactamente el
  * bug del contrato del `detalle` que este repo ya pagó. La del repo público se GENERA
  * con `scripts/generar-plugin.mjs`, y el pre-push falla si quedó vieja.
+ *
+ * ⚠️ «DE DÓNDE SACAR EL TOKEN» DESCRIBE UNA PANTALLA (09/10/2026). Desde que el token se
+ * guarda por hash (lib/agente-token-nucleo.ts), Integraciones lo muestra UNA vez, al
+ * generarlo; después quedan la pista y «Generar otro». El paso 2 decía «botón Copiar», y
+ * con eso Claude mandaba a quien ya lo tenía generado a un botón que no existe. Si la
+ * tarjeta cambia de botones, este texto cambia con ella (tests/agente-token-hash.test.ts).
  */
 export function agenteSkillMarkdown(baseUrl: string, token: string | null): string {
   const base = baseUrl.replace(/\/+$/, '');
@@ -192,8 +198,10 @@ buscando una carpeta oculta. Haz los cuatro pasos:
    es \`C:\\Users\\<tu-usuario>\\.mako-token\`; en macOS o Linux, \`/Users/<tu-usuario>/.mako-token\`).
    Avísale que **empieza con un punto, así que el explorador no lo muestra** hasta que
    active «ver archivos ocultos» (Windows: Ctrl+Shift+. · macOS: Cmd+Shift+.).
-2. **Dile de dónde sacarlo:** en MaKo, **Integraciones → Conectar con Claude**, botón
-   «Copiar». Es un click.
+2. **Dile de dónde sacarlo:** en MaKo, **Integraciones → Conectar con Claude**. MaKo lo
+   muestra UNA sola vez, al generarlo: si ya lo generó antes y no lo tiene guardado, no hay
+   de dónde copiarlo — que apriete «Generar otro» (el anterior deja de funcionar donde lo
+   haya pegado).
 3. **Dale el comando ya armado** para que lo corra él, con su token pegado adentro. Así el
    token no pasa por esta conversación:
    - Windows (PowerShell): \`Set-Content -NoNewline "$HOME\\.mako-token" 'PEGA-TU-TOKEN'\`
