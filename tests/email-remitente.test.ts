@@ -163,4 +163,14 @@ test('setSecuenciaPasos guarda el remitente SÓLO en un email, y lo conserva si 
 });
 
 // ── Roturas ──────────────────────────────────────────────────────────────────────────────────
-// (se completan abajo al probarlo rompiéndolo)
+// 09/10/2026, arnés romper-email.mjs del scratchpad: una rotura por vez sobre el archivo real,
+// restaurada de MEMORIA, corriendo este archivo + editor-email-gmail + editor-rico-botones-extra
+// (base: 26 pass / 0 fail). Las que tocan este archivo:
+//   R1. remitenteDelPaso sin comparar el dominio           → 2 fallos (remitenteDelPaso; las opciones)
+//   R2. los vinculados sin filtrar por dominio             → 1 (los vinculados)
+//   R3. remitenteAGuardar sin conservar el previo          → 1 (la quinta puerta)
+//   R4. el sandbox con otra regla que lib/resend.ts        → 2 (la regla; los vinculados)
+//   R5. la vista firma con el nombre del remitente         → 3 (el pie del ws1 acá, y dos del editor)
+//   R6. el motor sin el From del paso                      → 1 (el motor)
+//   R7. setSecuenciaPasos sin el remitente                 → 1 (setSecuenciaPasos)
+//   R14. el motor firma con el nombre del remitente        → 2 (el motor acá, y los dos lados del editor)

@@ -217,4 +217,13 @@ test('el correo como llega, con el cuerpo del editor: el HTML y no el texto de r
 // ── Roturas ──────────────────────────────────────────────────────────────────────────────────
 // 08/10/2026 (segunda tanda, arnés E-v2-romper.mjs): 9 roturas, 9 cazadas sobre la versión de dos
 // columnas. La tercera tanda reescribió el editor (09/10/2026, arnés C-romper.mjs: 4 roturas, 4 cazadas).
-// La cuarta tanda (punto 16) lo volvió a cambiar: las roturas nuevas, abajo.
+// La cuarta tanda (punto 16) lo volvió a cambiar. 09/10/2026, arnés romper-email.mjs del scratchpad
+// (una por vez, restaurada de memoria; base 26 pass / 0 fail con email-remitente y
+// editor-rico-botones-extra). Las que tocan este archivo:
+//   R5.  la vista firma con el nombre del remitente           → 3 fallos (dos acá + el pie del ws1)
+//   R9.  el modo HTML manda al paso lo escrito sin sanear      → 1 (el modo HTML)
+//   R10. htmlLegible sin consumir los saltos (no idempotente)  → 1 (htmlLegible)
+//   R11. elegir el del workspace lo GUARDA en vez de sacarlo   → 1 (el De)
+//   R12. el editor rico se desmonta en el modo HTML            → 1 (el modo HTML)
+//   R13. lo elegido sin la regla del motor (remitenteDelPaso)  → 1 (el De)
+//   R14. el motor firma con el nombre del remitente            → 2 (los dos lados + el motor)

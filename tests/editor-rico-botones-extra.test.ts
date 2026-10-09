@@ -68,4 +68,8 @@ test('entran a la MISMA lista de piezas (barra, «Más» y la regla que mide), c
 });
 
 // ── Roturas ──────────────────────────────────────────────────────────────────────────────────
-// (se completan abajo al probarlo rompiéndolo)
+// 09/10/2026, arnés romper-email.mjs del scratchpad (una por vez, restaurada de memoria; base 26 pass /
+// 0 fail con email-remitente y editor-email-gmail):
+//   R8. los botones extra fuera de la lista de piezas (`...(false ? [`) → 2 fallos (el orden en la barra
+//       dibujada; la lista de piezas). El de «la barra de las lecciones es la de siempre» queda verde,
+//       que es lo correcto: sin extra, la barra no cambia.
