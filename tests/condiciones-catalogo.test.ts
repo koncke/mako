@@ -4,8 +4,8 @@
 // Lo que fija: que cada condición del catálogo tenga su LECTOR en el motor y su evaluación (una
 // condición que el motor no puede evaluar es una mentira de pantalla), que «no sé» no se cumpla ni
 // negado, que el filtro por el CRON (adquisición / entrega) sea el que pidió Martín, que el saneo de
-// lo que se guarda conserve el operador y la referencia (la quinta puerta), y que el editor nuevo no
-// vuelva a los botoncitos «+y +o».
+// lo que se guarda conserve el operador y la referencia (la quinta puerta), y que el editor no vuelva a
+// «＋ Rama» ni a «Todas / Cualquiera» (cuarta tanda, punto 7).
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026; con todo puesto: 19 pasan, 0 fallan). Cada rotura de a una, con
 // un arnés que restaura DE MEMORIA (nunca con `git checkout`). Pasan / fallan:
@@ -16,6 +16,9 @@
 //   5. el editor vuelve a tener un botón «+ o»                                            -> 18 / 1
 //   6. `resumenCursoDeAlumno` saltea las clases sin progreso (se pierde el universo)      -> 18 / 1
 //   7. la ruta del catálogo lee `comunidad_posts` sin `clase_id`                          -> 18 / 1
+// ⚠️ La rotura 5 ya no aplica: la cuarta tanda (punto 7) DEVOLVIÓ «＋ y» / «＋ o», cada uno con la unión
+// de su fila. Los dos tests que cambió la cuarta tanda (lo que se ofrece de las reuniones y el editor)
+// se rompieron con el arnés de tests/condiciones-cuarta.test.ts (roturas 16 y 17).
 //
 // Correr: node --import tsx --test tests/condiciones-catalogo.test.ts
 import { test } from 'node:test';

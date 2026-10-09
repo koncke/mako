@@ -11,7 +11,31 @@
 //        de R1/R2 se siguen evaluando.
 //   · 6. «No pagó la cuota N»: el estado POR cuota (`pagos.numero`), leído en batch.
 //
-// PROBADO ROMPIÉNDOLO (09/10/2026; con todo puesto: N pasan, 0 fallan — ver el pie del archivo).
+// PROBADO ROMPIÉNDOLO (09/10/2026), corriendo este archivo junto con tests/condiciones-catalogo.test.ts:
+// con todo puesto 41 pasan / 0 fallan. Cada rotura de a una, con un arnés que restaura DE MEMORIA (nunca
+// con `git checkout`). Pasan / fallan:
+//    1. `unionDe` ignora la unión de la fila (vuelve al `modo` de la rama)                  -> 36 / 5
+//    2. `gruposDeRama` con la precedencia al revés (la «y» abre grupo)                     -> 37 / 4
+//    3. `sanearFila` sin la línea de la unión                                             -> 40 / 1
+//    4. `sanearFila` sin las reuniones                                                    -> 40 / 1
+//    5. `antiguedadDeEntrada` mira sólo el primer grupo                                   -> 40 / 1
+//    6. `textoRama` con el separador del `modo` de la rama                                -> 40 / 1
+//    7. `lugaresDeFila` sin mirar si el lead está en el embudo                            -> 40 / 1
+//    8. `lugaresDeFila` toma siempre la primera reunión (sin el orden)                    -> 38 / 3
+//    9. `asistioA`: una asistencia gana sobre un no-show                                  -> 40 / 1
+//   10. `pagoDeFila`: una cuota sin vencer cuenta como «no pagó»                          -> 40 / 1
+//   11. `estadoDeCuotas` vence el mismo día (`<=` hoy)                                    -> 39 / 2
+//   12. `fuentesDeFilas` no pide los pagos para la cuota                                  -> 40 / 1
+//   13. la ruta lee las reuniones sin su propio catch                                     -> 40 / 1
+//   14. el motor no tira si el embudo no se lee (caería al pipeline de fábrica)           -> 40 / 1
+//   15. el editor agrega la fila sin su unión                                             -> 40 / 1
+//   16. el editor vuelve a ofrecer «＋ Rama»                                               -> 40 / 1
+//   17. «Asistió a la R1» vuelve a ofrecerse (sin `retirada`)                             -> 39 / 2
+//   18. el separador cambia el modo de la rama ENTERA (el bug de «+y» de la tercera tanda) -> 40 / 1
+//   19. la tarjeta no nombra las reuniones elegidas                                       -> 40 / 1
+//   20. la tercera reunión se ofrece como elegible                                        -> 40 / 1
+// ⚠️ La 11 dio 41 / 0 en la primera vuelta: ninguna cuota del caso vencía HOY. Se sumó la cuota 5 y
+// un quinto de fechas en HOY al diferencial: el borde es justo donde dos reglas de «vencida» se separan.
 //
 // Correr: npx tsx --test tests/condiciones-cuarta.test.ts
 import { test } from 'node:test';
@@ -280,19 +304,22 @@ const CUOTAS = [
   { numero: 2, pagado: false, fecha_esperada: '2026-10-01' },
   { numero: 3, pagado: null, fecha_esperada: '2026-11-01' },
   { numero: 4, pagado: false, fecha_esperada: null },
+  // Vence HOY: todavía no está vencida (la regla de `resumenPagos` es «antes de hoy»).
+  { numero: 5, pagado: false, fecha_esperada: HOY },
 ];
 const conCuotas = (o: Partial<HechosLead> = {}) => H({ pagos: { ...resumenPagos(CUOTAS, HOY), cuotas: estadoDeCuotas(CUOTAS, HOY) } }, o);
 
 test('6: el estado de cada cuota, con la MISMA regla de vencida que `resumenPagos`', () => {
   const e = estadoDeCuotas(CUOTAS, HOY);
-  assert.deepEqual([...e], [[0, 'pagada'], [1, 'pagada'], [2, 'vencida'], [3, 'pendiente'], [4, 'pendiente']]);
+  assert.deepEqual([...e], [[0, 'pagada'], [1, 'pagada'], [2, 'vencida'], [3, 'pendiente'], [4, 'pendiente'], [5, 'pendiente']]);
   // Diferencial: las dos funciones cuentan lo mismo (pagadas y vencidas) sobre muchas listas.
   let semilla = 7;
   const azar = () => { semilla = (semilla * 1103515245 + 12345) % 2 ** 31; return semilla / 2 ** 31; };
   for (let k = 0; k < 200; k++) {
     const lista = Array.from({ length: Math.floor(azar() * 8) }, (_, i) => ({
       numero: i, pagado: azar() < 0.3 ? true : azar() < 0.5 ? false : null,
-      fecha_esperada: azar() < 0.2 ? null : `2026-${String(1 + Math.floor(azar() * 12)).padStart(2, '0')}-${String(1 + Math.floor(azar() * 28)).padStart(2, '0')}`,
+      // Un quinto de las fechas es HOY: el borde donde una regla de «vencida» copiada mal se separa.
+      fecha_esperada: azar() < 0.2 ? null : azar() < 0.2 ? HOY : `2026-${String(1 + Math.floor(azar() * 12)).padStart(2, '0')}-${String(1 + Math.floor(azar() * 28)).padStart(2, '0')}`,
     }));
     const r = resumenPagos(lista, HOY);
     const est = [...estadoDeCuotas(lista, HOY).values()];
@@ -307,7 +334,7 @@ test('6: «No pagó la cuota N»: pagada = pagó, vencida e impaga = no pagó, l
   assert.equal(cumpleFila({ campo: 'pago', valor: 1, no: true }, h), false);
   assert.equal(cumpleFila({ campo: 'pago', valor: 2, no: true }, h), true, 'la cuota 2 venció y no se pagó');
   assert.equal(cumpleFila({ campo: 'pago', valor: 2 }, h), false);
-  for (const n of [3, 4, 9]) {
+  for (const n of [3, 4, 5, 9]) {
     assert.equal(cumpleFila({ campo: 'pago', valor: n, no: true }, h), false, `cuota ${n}: no venció, sin fecha o no existe`);
     assert.equal(cumpleFila({ campo: 'pago', valor: n }, h), false);
   }
