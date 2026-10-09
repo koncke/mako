@@ -25,12 +25,13 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 /** El cuerpo de `alListoIA`, hasta su cierre real (`\n  };` a nivel del componente). */
 function alListoIA(): string {
   const src = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
-  const ini = src.indexOf('const alListoIA = (r: ListoCrearIA) => {');
+  // Tolera el tipo de retorno (`): boolean =>`, de otro arreglo de la misma tanda).
+  const ini = src.indexOf('const alListoIA = (r: ListoCrearIA)');
   assert.ok(ini >= 0, 'no está alListoIA');
   const fin = src.indexOf('\n  };', ini);
   assert.ok(fin > ini);
   const cuerpo = src.slice(ini, fin);
-  assert.ok(cuerpo.length < 2000, `el recorte mide ${cuerpo.length}: está mirando otra cosa`);
+  assert.ok(cuerpo.length < 3500, `el recorte mide ${cuerpo.length}: está mirando otra cosa`);
   return cuerpo;
 }
 

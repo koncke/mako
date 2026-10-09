@@ -88,7 +88,7 @@ test('⚠️ los errores de los hilos dicen QUÉ pasó, sin el porqué entre par
   // El error va en una tarjeta de `maxWidth` 380 con 12 de relleno por lado y su borde, a 12,5 px:
   // ~6,4 px por letra en promedio (Geist), o sea ~55 letras por renglón.
   const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
-  const ancho = numero(perfil, /<span role="alert" style=\{\{ \.\.\.tarjetaChrome, maxWidth: (\d+), fontSize: 12\.5/, 'el ancho del error de Publicar');
+  const ancho = numero(perfil, /<span role="alert"[^>]*?style=\{\{ \.\.\.tarjetaChrome, maxWidth: (\d+), fontSize: 12\.5/, 'el ancho del error de Publicar');
   const letras = Math.floor((ancho - 26) / 6.4);
   for (const [pasos, esperado] of casos) {
     const errs = validarGrafo(pasos);
