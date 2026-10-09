@@ -32,7 +32,7 @@
 // camino a la base que no pasa por `validarGrafo`.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Dropdown, type DropdownOption } from '../components/Dropdown';
+import { Dropdown } from '../components/Dropdown';
 import { Lienzo, TarjetaNodo, inpLienzo, campoGrande, botonGrande } from '@/app/_components/Lienzo';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';

@@ -97,6 +97,7 @@ export function SalidaWhatsApp({ actual, onElegir, deshabilitado, explicita = fa
       setLineas(j?.ok && Array.isArray(j.lineas) ? j.lineas : 'error');
     } catch { setLineas('error'); }
   }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- la lista sale de la red: es sincronizar con algo de afuera
   useEffect(() => { void leer(); }, [leer]);
 
   const lista = Array.isArray(lineas) ? lineas : [];

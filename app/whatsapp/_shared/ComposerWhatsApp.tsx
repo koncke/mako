@@ -45,7 +45,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { EmojiPicker } from '../EmojiPicker';
-import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc, IconTrash } from './composer-icons';
+import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc } from './composer-icons';
 import { useGrabacionVoz, BarraGrabacion } from './VoiceRecorder';
 import { useCapaModal } from '@/app/_components/pila-modales';
 

@@ -72,11 +72,14 @@ export function AudioPlay({ src, style, compacto = false, duracion, color = 'var
   const [actual, setActual] = useState(0);
   const [total, setTotal] = useState(0);
   const [roto, setRoto] = useState(false);
+  // Otro audio en el mismo reproductor: lo de antes no se queda (el patrón de «ajustar el estado
+  // cuando cambia una prop», en el render y no en un efecto).
+  const [deSrc, setDeSrc] = useState(src);
+  if (deSrc !== src) { setDeSrc(src); setSonando(false); setActual(0); setTotal(0); setRoto(false); }
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    setSonando(false); setActual(0); setTotal(0); setRoto(false);
     let escaneando = false;
 
     const leerTotal = () => { if (Number.isFinite(el.duration) && el.duration > 0) setTotal(el.duration); };
