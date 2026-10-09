@@ -121,7 +121,10 @@ test('el selector va POR SECCIONES y el Select se las pasa al Dropdown', () => {
   const select = sinComentarios(leer('app/_ui/Select.tsx'));
   assert.match(select, /secciones=\{secciones\}/, 'Select no le pasa `secciones` al Dropdown');
   const dropdown = sinComentarios(leer('app/components/Dropdown.tsx'));
-  assert.match(dropdown, /secciones\?\.filter\(\(g\) => !\(buscando && g\.atajo\)\)/, 'buscando, cada resultado saldría dos veces');
+  // Desde la tercera tanda (los `grupos` del CRON) el filtro es `filtrarGrupos`, recursivo, y saca
+  // los atajos con lo mismo: `sinAtajos` es `buscando`.
+  assert.match(dropdown, /const seccVisibles = secciones \? filtrarGrupos\(secciones, coincide, buscando\) : undefined;/, 'buscando, cada resultado saldría dos veces');
+  assert.match(dropdown, /\.filter\(\(g\) => !\(sinAtajos && g\.atajo\)\)/, 'buscando, cada resultado saldría dos veces');
 });
 
 // ── Lo que llena el flujo, y el lead de entrada ──────────────────────────────────────────────

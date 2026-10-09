@@ -45,7 +45,7 @@ import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
-import { aplicarVariables } from '@/lib/template-vars';
+import { aplicarVariables, VARIABLES_LEAD } from '@/lib/template-vars';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
   claseDe, idDe, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS,
@@ -53,13 +53,13 @@ import {
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
-  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, tarjetasParaIrA,
+  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, tarjetasParaIrA, esMako, makoDeAccion,
   CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, PUERTO_RESPUESTA,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL,
   type NodoFlujo, type QueAgregar,
 } from '@/lib/flujo-conversacion';
 import type { Muelles } from '@/lib/lienzo-grafo';
-import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
+import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 
 const SANS = "'Geist', sans-serif";
 
@@ -87,7 +87,7 @@ export function FlujoLienzo({
   etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
-  onTarjetaAbierta, reservaAbajo,
+  onTarjetaAbierta, reservaAbajo, triggerTipo, productos,
 }: {
   /** El flujo, normalizado (ids y `siguiente` explícitos). */
   pasos: PasoSecuenciaDto[];
@@ -159,6 +159,14 @@ export function FlujoLienzo({
   onTarjetaAbierta?: (abierta: boolean) => void;
   /** Lo que el encuadre deja libre abajo (la caja de «Crear con IA»). Ver `Lienzo.reservaAbajo`. */
   reservaAbajo?: number;
+  /**
+   * El disparador de la automatización y los productos con sus etapas (tercera tanda). Los necesita el
+   * editor de la CONDICIÓN de la parte A (`EditorCondicion`: `ambito` sale de `ambitoDeDisparo(triggerTipo)`
+   * y `productos` es lo que ofrece): viajan hasta `PropsEditor` para que la integración sólo cambie el
+   * componente. Opcionales: sin ellos, lo de siempre.
+   */
+  triggerTipo?: string;
+  productos?: ProductoOpcion[];
 }) {
   const [sel, setSel] = useState<string | null>(null);
   // El foco que pide Publicar se aplica UNA vez por pedido (ajuste de estado en el render,
@@ -212,16 +220,18 @@ export function FlujoLienzo({
   useLayoutEffect(() => { avisarAbierta.current = onTarjetaAbierta; });
   useLayoutEffect(() => { avisarAbierta.current?.(abierta); }, [abierta]);
   /**
-   * LA FORMA DEL EDITOR (decisión 10): apaisado cuando `muelles` dice que hay ancho para sus dos
-   * columnas; si no (o sin `muelles`), de columna como siempre. Viaja también al editor de cada
-   * tarjeta (`formaPanel`): el de WhatsApp en dos columnas es `disposicion='fila'` (parte E).
+   * LA FORMA DEL EDITOR: el panel mediano de abajo (`apaisado`, tercera tanda: hasta 720 × ~420,
+   * pegado a la lista) cuando `muelles` dice que entra; si no (o sin `muelles`), de columna como
+   * siempre. El editor de WhatsApp va SIEMPRE en una columna (decisión 1): partido en dos se leía roto.
    */
   const formaPanel: 'apaisado' | 'columna' = muelles?.editorForma === 'apaisado' ? 'apaisado' : 'columna';
 
   return (
     <Lienzo
       grafo={grafo} seleccion={sel} onSeleccion={setSel}
-      sinMarco alto="100%" panelAncho={392}
+      // El editor MEDIANO (tercera tanda, decisión 1): el ancho que le da `muelles` (hasta 720, pegado
+      // a la lista); de columna, el de siempre.
+      sinMarco alto="100%" panelAncho={formaPanel === 'apaisado' && muelles ? muelles.editorAncho : 392}
       insetIzq={muelles ? muelles.insets.izq : insetIzq} insetDer={muelles ? muelles.insets.der : insetDer}
       insetDerChrome={muelles?.insets.derChrome} insetDerAbajo={muelles?.insets.derAbajo}
       panelForma={formaPanel} panelAlto={muelles?.editorAlto}
@@ -257,6 +267,8 @@ export function FlujoLienzo({
                   color: n.advertencia ? 'var(--faint)' : 'var(--ink)', lineHeight: 1.45,
                   // Las de control son de UNA línea (su alto es fijo y compacto): lo que no entra, «…».
                   ...(n.familia === 'control' ? { whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' } : {}),
+                  // La tarjeta MAKO: hasta tres renglones del mensaje (`ALTO_MAKO`).
+                  ...(n.tipo === 'mako' ? { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden', overflowWrap: 'anywhere' as const } : {}),
                 }}>{n.detalle}</div>
                 : null}
           </TarjetaNodo>
@@ -266,7 +278,7 @@ export function FlujoLienzo({
         <EditorDeNodo
           nodo={n} paso={pasoDe(n.id)} pasos={pasos} secuencias={secuencias}
           audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy} envioAutoSecuencia={envioAutoSecuencia}
-          etiquetas={etiquetas} etapas={etapas}
+          etiquetas={etiquetas} etapas={etapas} triggerTipo={triggerTipo} productos={productos}
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada} formaPanel={formaPanel}
@@ -364,6 +376,8 @@ type PropsEditor = {
   secuencias: ReadonlyArray<{ id: number; nombre: string }>;
   audios: AudioSetting[]; negocio: string; rolAdmin: boolean; busy: boolean; envioAutoSecuencia: boolean;
   etiquetas: EtiquetaLienzo[]; etapas: SeccionEtapas[];
+  /** Para el editor de la condición de la parte A (ver FlujoLienzo). */
+  triggerTipo?: string; productos?: ProductoOpcion[];
   nombres: NombresParaTexto;
   paraGuion?: ParaGuion;
   /** La biblioteca de archivos ya leída (undefined = el editor la pide solo). */
@@ -399,6 +413,8 @@ function EditorDeNodo(pr: PropsEditor) {
     case 'accion':
       // La etiqueta es una ⚡ Acción dibujada como lo que hace (decisión 8): tiene su propio editor.
       if (etiquetaDeAccion(paso)) return <EditorEtiquetaLienzo paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
+      // La tarjeta MAKO (tercera tanda, decisión 11): el aviso al grupo del negocio, con su editor.
+      if (esMako(paso)) return <EditorMako key={`mako-${id}`} paso={paso} busy={pr.busy} cambiar={cambiar} />;
       return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
     case 'esperar': return <EditorEspera espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
     case 'condicion': return <EditorCondicion {...pr} paso={paso} id={id} cambiar={cambiar} />;
@@ -442,6 +458,54 @@ function EditorEtiquetaLienzo(p: { paso: PasoSecuenciaDto; id: string; busy: boo
 
 type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
 
+/** Los datos del lead que se pueden poner en el mensaje de la tarjeta MAKO. */
+const DATOS_MAKO: DropdownOption[] = VARIABLES_LEAD.map((v) => ({ value: v.key, label: v.label, sub: v.ejemplo }));
+
+/**
+ * LA TARJETA MAKO: el mensaje que MaKo le manda al GRUPO de WhatsApp del negocio (tercera tanda,
+ * decisión 11), con los datos del lead para insertar y un título opcional. Sigue siendo la ⚡ Acción
+ * `avisar_al_equipo` sobre el lead del EVENTO: el aviso ya lleva su nombre, su teléfono y el link a su
+ * ficha, y no se repite para el mismo lead en 12 h (lib/api-mako/areas/chatbot.run.ts).
+ *
+ * ⚠️ NO ES UN MENSAJE AL LEAD. Por eso no es el composer de WhatsApp: ni audio, ni archivos, ni
+ * «Revisar antes de enviar».
+ *
+ * Tipear no apila (el Ctrl+Z del texto es del navegador); insertar un dato, sí. La `key` va por
+ * tarjeta: el editor guarda dónde estaba el cursor.
+ */
+function EditorMako({ paso, busy, cambiar }: { paso: PasoSecuenciaDto; busy: boolean; cambiar: Cambiar }) {
+  const m = makoDeAccion(paso) ?? { mensaje: '', titulo: '' };
+  const area = useRef<HTMLTextAreaElement | null>(null);
+  const params = paso.accion?.params ?? {};
+  const poner = (patch: { mensaje?: string; titulo?: string }, apilar: boolean) => {
+    const sig: Record<string, unknown> = { ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO, ...patch };
+    // Un título vacío no viaja: el aviso pone el suyo («<lead>: hay que verlo»).
+    if (typeof sig.titulo === 'string' && !sig.titulo.trim()) delete sig.titulo;
+    cambiar({ accion: { operacion: paso.accion?.operacion ?? '', params: sig } }, apilar);
+  };
+  const insertar = (clave: string) => {
+    const t = `{{${clave}}}`;
+    const el = area.current;
+    const ini = el ? el.selectionStart : m.mensaje.length;
+    const fin = el ? el.selectionEnd : m.mensaje.length;
+    poner({ mensaje: m.mensaje.slice(0, ini) + t + m.mensaje.slice(fin) }, true);
+    // El cursor queda después del dato, como al tipearlo.
+    requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(ini + t.length, ini + t.length); } });
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <input value={m.titulo} maxLength={120} placeholder="Título (opcional)" disabled={busy} aria-label="Título del aviso"
+        onChange={(e) => poner({ titulo: e.target.value }, false)} style={{ ...inpLienzo, fontWeight: 600 }} />
+      <textarea ref={area} value={m.mensaje} rows={4} maxLength={1000} placeholder="Mensaje para tu equipo" disabled={busy} aria-label="Mensaje para tu equipo"
+        onChange={(e) => poner({ mensaje: e.target.value }, false)} style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45 }} />
+      <div>
+        <Dropdown value="" resetAfterSelect options={DATOS_MAKO} botonLabel="＋ Dato del lead" ariaLabel="Insertar un dato del lead" disabled={busy}
+          buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 8 }} onChange={(v) => v && insertar(v)} />
+      </div>
+    </div>
+  );
+}
+
 function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto | null }) {
   const txt: CSSProperties = { fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' };
   if (paso && claseDe(paso) === 'mensaje') return <div style={txt}>{paso.cuerpo || 'Sin escribir'}</div>;
@@ -463,7 +527,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, formaPanel }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   const modoIA = (on: boolean) => {
     // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
@@ -475,9 +539,9 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
     <EditorMensajeWhatsApp
       key={`msg-${id}`}
       paso={paso}
-      // Punto 3 del pedido: «más ancho que largo, si no se amontona todo». Con el panel apaisado
-      // el chat va a la izquierda y el composer a la derecha; angosto, vuelve a la columna.
-      disposicion={formaPanel === 'apaisado' ? 'fila' : 'columna'}
+      // ⚠️ SIN `disposicion` (tercera tanda, decisión 1): el chat arriba y el composer abajo, como un
+      // teléfono. Hasta el 09/10 iba `'fila'` con el panel apaisado —el chat a un costado y el
+      // composer al otro— y Martín lo leyó «bugeado».
       onChange={(patch) => {
         // Tipear no entra a la pila (el Ctrl+Z del texto es del navegador); cambiar de
         // audio, de archivo, de tipo o de «Revisar», sí. Escribir en una variante también es

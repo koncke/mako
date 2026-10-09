@@ -46,7 +46,8 @@ test('todo token que el lienzo resuelve está en el catálogo del motor', () => 
   const src = readFileSync(new URL('../app/chatbot/FlujoLienzo.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
     .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.doesNotMatch(src, /\.replace\(\s*\/\\\{\\\{/, 'volvió un replace de tokens a mano: la vista y el motor pueden separarse');
-  assert.match(src, /import \{ aplicarVariables \} from '@\/lib\/template-vars';/);
+  // (Desde la tercera tanda importa también VARIABLES_LEAD: los datos que la tarjeta MAKO inserta.)
+  assert.match(src, /import \{ aplicarVariables(, VARIABLES_LEAD)? \} from '@\/lib\/template-vars';/);
   const usos = [...src.matchAll(/aplicarVariables\([^,]+,\s*([^;]+?)\);/g)].map((m) => m[1]);
   assert.ok(usos.length >= 1, 'el lienzo dejó de resolver la vista con la función del motor');
   const claves = usos.flatMap((u) => [...u.matchAll(/\{\s*([a-z_]+)\s*:/g)].map((m) => m[1]));

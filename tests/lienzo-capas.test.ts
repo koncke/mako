@@ -58,7 +58,8 @@ test('⚠️ el panel apaisado va encima de la esquina de avisos y de «Crear co
 
 test('⚠️ el lienzo USA las dos capas: el panel apaisado y el contenedor de «Publicar»', () => {
   const lienzo = sinComentarios(leer('../app/_components/Lienzo.tsx'));
-  assert.match(lienzo, /\? \{ right: PANEL_MARGEN \+ derAbajo, height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden', zIndex: Z_EDITOR_APAISADO \}/,
+  // Desde la tercera tanda el panel es MEDIANO (`width: panelAncho`, decisión 1) y sigue con su capa.
+  assert.match(lienzo, /height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden', zIndex: Z_EDITOR_APAISADO,/,
     'el panel apaisado no lleva su capa');
   assert.match(lienzo, /\{accion && <div data-no-pan data-esquina-ocupada style=\{\{ position: 'absolute', right: 12 \+ derAbajo, bottom: 12, zIndex: Z_ACCION_LIENZO \}\}>\{accion\}<\/div>\}/,
     '«Publicar» no lleva su capa');

@@ -164,13 +164,20 @@ test('⚠️ `insertarDesdeLienzo`: «en paralelo» (par) y el ＋ del medio de 
   assert.deepEqual(nodoPorId(m.pasos, ID_INICIO)!.paralelos, [m.id]);
   assert.equal(nodoPorId(m.pasos, m.id)!.siguiente, c.id);
   assert.deepEqual(validarGrafo(m.pasos), []);
-  // Y un «Ir a» en el medio de una flecha en paralelo, no (lo de después quedaría suelto).
-  assert.equal(insertarDesdeLienzo(c.pasos, ID_ENTRADA, `par:${c.id}`, 'ir_a', rndDe(4)).id, null);
+  // (Hasta la tercera tanda acá se probaba que un «Ir a» no entraba en el medio: el ＋ ya no crea
+  // «Ir a», decisión 3. Lo fija tests/flujo-conversacion.test.ts.)
+});
+
+/** Un «Ir a» sin destino al final de `desde`: ya no lo crea el ＋ (decisión 3), pero los que existen
+ *  se siguen editando, así que el editor se prueba con uno armado a mano. */
+const conIrA = (pasos: PasoParaGrafo[], desde: string, id: string): { pasos: PasoParaGrafo[]; id: string } => ({
+  pasos: [...pasos.map((p) => (p.id === desde ? { ...p, siguiente: id } : p)), { id, canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'ir_a', destino: null, siguiente: null }],
+  id,
 });
 
 test('⚠️ el «Ir a» de la salida no ofrece tarjetas de OTRO hilo; el de «Si responde», todas', () => {
   const pasos = conHilosDelCron();
-  const conSalto = insertarDesdeLienzo(pasos, 'e2', 'sig', 'ir_a', rndDe(9));
+  const conSalto = conIrA(pasos, 'e2', 'irx');
   const ofrece = tarjetasParaIrA(conSalto.pasos, conSalto.id!);
   assert.ok(ofrece.includes('e1') && ofrece.includes('e2'), 'el «Ir a» no ofrece las de su propio hilo');
   for (const otro of ['m1', 'm2', 'f1']) assert.ok(!ofrece.includes(otro), `ofreció ${otro}, de otro hilo: el mismo mensaje saldría dos veces`);
@@ -178,7 +185,7 @@ test('⚠️ el «Ir a» de la salida no ofrece tarjetas de OTRO hilo; el de «S
   // Desde «Si responde» (la respuesta pausa todo y retoma UN hilo), todas las de la salida.
   const resp = pasos.find((p) => claseDe(p) === 'respuesta')!;
   const avisoId = resp.si_no!;
-  const desdeResp = insertarDesdeLienzo(conSalto.pasos, avisoId, 'sig', 'ir_a', rndDe(11));
+  const desdeResp = conIrA(conSalto.pasos, avisoId, 'iry');
   const todas = tarjetasParaIrA(desdeResp.pasos, desdeResp.id!);
   for (const t of ['m1', 'm2', 'e1', 'e2', 'f1']) assert.ok(todas.includes(t), `desde «Si responde» falta ${t}`);
   // Y el editor del «Ir a» usa esa lista (no la suya propia).
@@ -222,7 +229,7 @@ test('⚠️ la tarjeta de ETIQUETA: la ⚡ Acción de poner/sacar dibujada como
   const g = grafoDeSecuencia([poner, sacar, sinElegir], { disparador: 'X', nombres, colorEtiqueta: (id) => colores[id] });
   const a = nodo(g, 't1');
   assert.equal(a.tipo, 'etiqueta');
-  assert.equal(a.titulo, 'Etiqueta');
+  assert.equal(a.titulo, 'TAG', 'los títulos van en inglés (tercera tanda, decisión 5)');
   assert.equal(a.icono, '🏷️');
   assert.equal(a.familia, 'control');
   assert.equal(a.detalle, '+ Cualificado');
@@ -232,7 +239,7 @@ test('⚠️ la tarjeta de ETIQUETA: la ⚡ Acción de poner/sacar dibujada como
   assert.equal(nodo(g, 't2').detalle, '− Seguimiento');
   assert.equal(nodo(g, 't3').detalle, 'Sin elegir');
   assert.ok(nodo(g, 't3').advertencia, 'una etiqueta sin elegir no se marca');
-  assert.equal(nombreDeTarjeta([poner, sacar], 't1', nombres), 'Etiqueta: + Cualificado');
+  assert.equal(nombreDeTarjeta([poner, sacar], 't1', nombres), 'TAG: + Cualificado');
   // Una acción que no es de etiquetas sigue siendo una Acción.
   const otra = grafoDeSecuencia([msg('x', { accion: { operacion: 'mover_etapa', params: {} } })], { disparador: 'X' });
   assert.equal(nodo(otra, 'x').tipo, 'accion');
@@ -251,8 +258,10 @@ test('⚠️ el ＋ crea un EMAIL (con su vista previa) y una ETIQUETA sobre el 
   const r = insertarDesdeLienzo([msg('a')], 'a', 'sig', 'email', rndDe(5));
   const g = grafoDeSecuencia(r.pasos, { disparador: 'X' });
   const n = nodo(g, r.id!);
-  assert.equal(n.titulo, 'Email');
-  assert.equal(n.icono, '✉️');
+  // Tercera tanda (decisión 5): el título en inglés, el sobre de Gmail y la identidad de la app.
+  assert.equal(n.titulo, 'EMAIL');
+  assert.equal(n.icono, 'gmail');
+  assert.equal(n.canal, 'email');
   assert.equal(n.advertencia, 'Sin escribir');
   assert.equal(faltaEscribir(r.pasos)?.id, r.id);
   // Con asunto, vista previa y cuerpo, el alto cuenta la caja del mail.
@@ -264,7 +273,8 @@ test('⚠️ el ＋ crea un EMAIL (con su vista previa) y una ETIQUETA sobre el 
 test('⚠️ el tinte de las tarjetas de control usa SÓLO tokens que se redefinen en oscuro', () => {
   const lienzo = sinComentarios(leer('../app/_components/Lienzo.tsx'));
   const ini = lienzo.indexOf('export function tinteDeControl(');
-  const fin = lienzo.indexOf('\nexport function BotonChico', ini);
+  // Hasta el cierre de la función (la de la identidad de WhatsApp/Email va después, con su test).
+  const fin = lienzo.indexOf('\n}\n', ini);
   assert.ok(ini >= 0 && fin > ini);
   const fn = lienzo.slice(ini, fin);
   assert.ok(fn.length < 1_200, `el recorte mide ${fn.length}: está mirando otra cosa`);
@@ -305,13 +315,15 @@ test('el lienzo de /chatbot: sin la tarjeta fantasma, la fila «Si responde» cr
   assert.match(flujo, /const formaPanel: 'apaisado' \| 'columna' = muelles\?\.editorForma === 'apaisado' \? 'apaisado' : 'columna';/);
   assert.match(flujo, /panelForma=\{formaPanel\} panelAlto=\{muelles\?\.editorAlto\}/);
   // EditorDeNodo: una rama por clase, con los editores de la parte E ENCHUFADOS (integración):
-  // el email es el tipo Gmail (su vista previa la fija tests/editor-email-gmail.test.ts), la
-  // etiqueta es la frase y el de WhatsApp va en fila con el panel apaisado. Verificado volviendo
-  // a montar el editor de tres campos: 1 fallo.
+  // el email es el tipo Gmail (su vista previa la fija tests/editor-email-gmail.test.ts) y la
+  // etiqueta es la frase. Verificado volviendo a montar el editor de tres campos: 1 fallo.
   assert.match(flujo, /if \(etiquetaDeAccion\(paso\)\) return <EditorEtiquetaLienzo /);
   assert.match(flujo, /if \(paso\.canal === 'email'\) return <EditorEmail /);
   assert.match(flujo, /<EditorEmailGmail key=\{`email-\$\{id\}`\}/, 'el email no usa el editor tipo Gmail');
   assert.match(flujo, /<EditorEtiqueta key=\{`etq-\$\{p\.id\}`\}/, 'la etiqueta no usa la frase');
-  assert.match(flujo, /disposicion=\{formaPanel === 'apaisado' \? 'fila' : 'columna'\}/);
+  // ⚠️ Tercera tanda (decisión 1): el WhatsApp va en UNA columna, siempre. Partido en dos (el chat a
+  // un costado y el composer al otro) Martín lo leyó «bugeado». Y el panel mide lo que dice `muelles`.
+  assert.doesNotMatch(flujo, /disposicion=/, 'volvió el WhatsApp partido en dos columnas');
+  assert.match(flujo, /panelAncho=\{formaPanel === 'apaisado' && muelles \? muelles\.editorAncho : 392\}/);
   assert.equal(PUERTO_RESPUESTA, 'resp');
 });

@@ -36,7 +36,7 @@ import type { PasoSecuenciaDto } from './ChatAgentApp';
 import { ANCHO_NODO, ALTO_MIN, MARGEN, encerrar, type AristaFlujo, type GrafoFlujo, type NodoFlujo } from '@/lib/lienzo-grafo';
 import { TOQUES, type Toque } from '@/lib/recordatorio-lead';
 // El CRON no comparte el ⚡ con la Acción (segunda tanda, decisión 9): es UN ícono para los dos lienzos.
-import { ICONO_CRON } from '@/lib/flujo-conversacion';
+import { ICONO_CRON, TITULO } from '@/lib/flujo-conversacion';
 
 const URL_API = '/api/chat-agent/recordatorio-reunion';
 
@@ -78,12 +78,14 @@ export function grafoRecordatorio(textos: Partial<Record<Toque, string>>): Grafo
     if (prev) aristas.push({ desde: prev.id, hasta: n.id, tono: 'normal' });
     x += n.ancho + GAP;
   };
-  poner({ id: 'entrada', tipo: 'entrada', titulo: 'CRON', icono: ICONO_CRON, detalle: 'Agendó una reunión', ancho: ANCHO_CRON, alto: ALTO_MIN });
+  // Los títulos en inglés, los MISMOS que el lienzo de una secuencia (`TITULO`, tercera tanda,
+  // decisión 5), y la tarjeta de WhatsApp con su identidad (`canal`).
+  poner({ id: 'entrada', tipo: 'entrada', titulo: TITULO.cron, icono: ICONO_CRON, detalle: 'Agendó una reunión', ancho: ANCHO_CRON, alto: ALTO_MIN });
   for (const min of TOQUES) {
-    poner({ id: `espera-${min}`, tipo: 'espera', titulo: 'Esperar', icono: '⏳', detalle: ANTES[min], ancho: ANCHO_ESPERA, alto: ALTO_MIN });
+    poner({ id: `espera-${min}`, tipo: 'espera', titulo: TITULO.esperar, icono: '⏳', detalle: ANTES[min], ancho: ANCHO_ESPERA, alto: ALTO_MIN });
     // Un alto que crece con el texto, para que la flecha salga a la altura de la cabecera.
     const largo = (textos[min] ?? '').length;
-    poner({ id: `toque-${min}`, tipo: 'mensaje', titulo: 'WhatsApp', icono: 'whatsapp', orden: min, ancho: ANCHO_NODO, alto: Math.max(ALTO_MIN + 30, 70 + Math.ceil(largo / 34) * 18) });
+    poner({ id: `toque-${min}`, tipo: 'mensaje', titulo: TITULO.whatsapp, icono: 'whatsapp', canal: 'whatsapp', orden: min, ancho: ANCHO_NODO, alto: Math.max(ALTO_MIN + 30, 70 + Math.ceil(largo / 34) * 18) });
   }
   const caja = encerrar(nodos);
   return { nodos, aristas, ancho: caja.ancho, alto: caja.alto };

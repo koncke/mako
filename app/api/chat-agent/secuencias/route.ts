@@ -11,6 +11,7 @@
 //        { action:'probar', secuenciaId }                 → prueba en vivo al admin
 //        { action:'trigger', id, trigger_tipo, etapa?, producto_id?, funnel_id?, etiqueta_id? }
 //                                                          → «qué lo dispara» (400 si no se puede)
+//        { action:'emoji', secuenciaId, emoji | null }    → el emoji del título (mig 0229; 400 si no es uno)
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -18,7 +19,7 @@ import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/worksp
 import {
   getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, crearSecuenciaVacia, probarSecuencia,
   muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega, renombrarSecuencia, setCronSecuencia,
-  setTriggerSecuencia, TriggerInvalidoError,
+  setTriggerSecuencia, setEmojiSecuencia, TriggerInvalidoError,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
@@ -150,6 +151,7 @@ export async function POST(req: NextRequest) {
     action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown;
     handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown;
     id?: unknown; trigger_tipo?: unknown; producto_id?: unknown; funnel_id?: unknown; etiqueta_id?: unknown;
+    emoji?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -183,6 +185,23 @@ export async function POST(req: NextRequest) {
       const id = Number(body.secuenciaId);
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
       await renombrarSecuencia(id, String(body.nombre ?? ''));
+      return Response.json({ ok: true });
+    }
+
+    /**
+     * EL EMOJI DEL TÍTULO (mig 0229, tercera tanda, decisión 8): se elige tocándolo en el lienzo con
+     * el selector de la casa. `emoji: null` (o vacío) vuelve al del objetivo. Lo que no es un emoji
+     * contesta 400 con el motivo (`setEmojiSecuencia`).
+     */
+    if (body.action === 'emoji') {
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+      try {
+        await setEmojiSecuencia(id, body.emoji ?? null);
+      } catch (e) {
+        if (e instanceof TriggerInvalidoError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+        throw e;
+      }
       return Response.json({ ok: true });
     }
 

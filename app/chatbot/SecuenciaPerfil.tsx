@@ -31,14 +31,16 @@ import { CrearConIA, type ListoCrearIA } from './CrearConIA';
 import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, RESERVA_ABAJO_CREAR } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
 import type { Objetivo } from '@/lib/setting-estrategia';
-import { normalizar, validarGrafo, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
+import { normalizar, borrarNodo, esNodoMensaje } from '@/lib/flujo-grafo';
 import type { Muelles } from '@/lib/lienzo-grafo';
 import { legadoAGrafo, esFlujoExplicito } from '@/lib/flujo-legado';
 import {
-  insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, faltaEscribir, tarjetaDelError, estrategiaConLimpieza,
-  detalleDisparador, seccionesDisparo, valorDisparo, pedidoDisparo, disparoDeValor, nombreEtiqueta,
+  insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, tarjetaDelError, estrategiaConLimpieza,
+  detalleDisparador, pasosDisparo, valorDisparo, pedidoDisparo, disparoDeValor, nombreEtiqueta,
+  rotuloDisparo, canalesParaProbar, frenoDelFlujo,
   type QueAgregar, type DisparoActual,
 } from '@/lib/flujo-conversacion';
+import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
 import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
@@ -106,9 +108,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   onElegir?: (id: number) => void;
   /** Crear una. Está acá y no en una pantalla aparte por lo mismo. */
   onNueva?: () => void;
-  /** Abre el panel de «Probar». Lo decide quien monta: el panel es una vista hermana del
-   *  lienzo, no un panel de adentro del editor. */
-  onProbar?: () => void;
+  /**
+   * Abre el panel de «Probar» en ESE canal (tercera tanda, decisión 14: un desplegable WhatsApp /
+   * Email, sólo con los que el flujo usa). Lo decide quien monta: el panel es una vista hermana del
+   * lienzo. Se llama recién cuando el flujo pasa lo mismo que Publicar (`frenoDelFlujo`).
+   */
+  onProbar?: (canal: 'whatsapp' | 'email') => void;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   rolAdmin: boolean;
@@ -264,7 +269,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
   /**
    * QUÉ LA DISPARA: un desplegable con TODO lo que puede disparar una automatización
-   * (`seccionesDisparo`), que reemplaza al par «texto + Cambiar a una etapa». Se guarda al
+   * (`pasosDisparo`), que reemplaza al par «texto + Cambiar a una etapa». Se guarda al
    * elegir (POST `action: 'trigger'`, lo implementa la parte del motor) y se pinta
    * optimista, con la vuelta si el server dice que no.
    */
@@ -306,6 +311,27 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     if (!t || t === secuencia.nombre) { setNombre(secuencia.nombre); return; }
     const j = await api({ action: 'nombre', secuenciaId: secuencia.id, nombre: t });
     if (!j.ok) { setErr(j.error ?? 'No se pudo cambiar el nombre'); setNombre(secuencia.nombre); return; }
+    setErr(null);
+    onCambio();
+  };
+
+  /**
+   * EL EMOJI (mig 0229, `nutricion_secuencias.emoji`): se guarda al elegir, optimista y con la vuelta
+   * si el server dice que no. Sin emoji guardado, el del objetivo (el de siempre). `undefined` en el
+   * optimista = «todavía no tocaron nada, manda la prop».
+   *
+   * ⚠️ El DTO todavía no declara `emoji` (SecuenciaDto vive en ChatAgentApp.tsx, de otra parte): se
+   * lee estructural hasta que la integración sume el campo.
+   */
+  const emojiProp = (secuencia as SecuenciaDto & { emoji?: string | null }).emoji ?? null;
+  const [emojiOptimista, setEmojiOptimista] = useState<string | null | undefined>(undefined);
+  const emojiGuardado = emojiOptimista !== undefined ? emojiOptimista : emojiProp;
+  const emojiVisto = emojiGuardado || (est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑');
+  const guardarEmoji = async (e: string) => {
+    const previo = emojiGuardado;
+    setEmojiOptimista(e);
+    const j = await api({ action: 'emoji', secuenciaId: secuencia.id, emoji: e });
+    if (!j.ok) { setEmojiOptimista(previo); setErr(j.error ?? 'No se pudo cambiar el emoji'); return; }
     setErr(null);
     onCambio();
   };
@@ -436,10 +462,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const publicar = async () => {
     setErr(null);
-    const errores = validarGrafo(pasos);
-    if (errores.length) { frenar(errorLegible(errores[0], pasos), tarjetaDelError(errores[0], pasos)); return; }
-    const vacia = faltaEscribir(pasos);
-    if (vacia) { frenar(vacia.error, vacia.id); return; }
+    // La forma y lo que falta escribir, con la MISMA función que frena «Probar» (`frenoDelFlujo`).
+    const freno = frenoDelFlujo(pasos);
+    if (freno) { frenar(freno.error, freno.tarjeta); return; }
     setBusy('save');
     try {
       const rp = await (await fetch('/api/whatsapp/secuencias', {
@@ -582,11 +607,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     nombreEtiqueta: nombreEtiqueta(etiquetas, disparo.etiqueta_id),
   };
   const textoDisparo = detalleDisparador({ ...nombreDelDisparo, cron, tz });
-  const secciones = seccionesDisparo({
-    disparadores, productos, etiquetas, actual: disparo,
-    // Lo que está puesto y no está en la lista, dicho como es (sin el horario: esto es A QUIÉN).
-    textoActual: detalleDisparador({ ...nombreDelDisparo, cron: null }),
-  });
+  // Lo que está puesto y no está en la lista, dicho como es (sin el horario: esto es A QUIÉN). Un
+  // disparador por EVENTO de antes cae acá: se muestra, ya no se ofrece (decisión 4).
+  const textoActualDisparo = detalleDisparador({ ...nombreDelDisparo, cron: null });
+  const secciones = pasosDisparo({ disparadores, productos, etiquetas, actual: disparo, textoActual: textoActualDisparo });
   /** Las etapas de VENTA de cada producto con embudo, para la fila «Está en la etapa». */
   const etapasCond: SeccionEtapas[] = productos.flatMap((pr) => (pr.funnelId == null || !pr.etapas.length ? [] : [{
     title: productos.length > 1 ? pr.nombre : 'Etapas', funnelId: pr.funnelId, options: pr.etapas,
@@ -609,12 +633,34 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   /** Dónde flotan la caja y la barra de «Crear con IA» (la franja de abajo; ver el render). */
   const franja = franjaIA(muelles, { izq: insetIzq, der: insetDer });
 
+  /**
+   * EL DESPLEGABLE DEL CRON, POR PASOS (tercera tanda, decisión 4): producto → «Adquisición de
+   * clientes» / «Entrega del servicio» → la etapa (`pasosDisparo`, con `grupos` en el Dropdown).
+   * El último paso dice sólo la etapa, así que el botón cerrado lo dice entero (`rotuloDisparo`).
+   */
   const desplegableDisparo = (
     <Dropdown
       value={valorDisparo(disparo)} secciones={secciones} search width="100%"
+      botonLabel={rotuloDisparo(secciones, valorDisparo(disparo), textoActualDisparo)}
       onChange={(v) => void guardarDisparo(v)} ariaLabel="Qué dispara esta automatización" disabled={busy != null}
     />
   );
+
+  /**
+   * «PROBAR» (tercera tanda, decisiones 13 y 14): se frena con lo mismo que Publicar
+   * (`frenoDelFlujo`: `validarGrafo` + lo que falta escribir) y abre la tarjeta que falta, como las
+   * tareas del curso; y es un desplegable WhatsApp / Email con sólo los canales que el flujo usa (con
+   * uno solo, un botón). Quien monta abre el panel con ese canal (`onProbar(canal)`).
+   */
+  const canales = canalesParaProbar(pasos);
+  const probar = (canal: 'whatsapp' | 'email') => {
+    if (!onProbar) return;
+    const freno = frenoDelFlujo(pasos);
+    if (freno) { frenar(freno.error, freno.tarjeta); return; }
+    setErr(null);
+    onProbar(canal);
+  };
+  const estiloProbar: CSSProperties = { ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' };
 
   /**
    * ⚠️ EL LIENZO ES LA PANTALLA. No hay barra, ni cabecera, ni pie: el título, el
@@ -661,7 +707,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         secuencias={secuencias.filter((s) => s.id !== secuencia.id).map((s) => ({ id: s.id, nombre: s.nombre }))}
         audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy != null}
         envioAutoSecuencia={est?.envio_automatico === true}
-        etiquetas={etiquetas} etapas={etapasCond}
+        etiquetas={etiquetas} etapas={etapasCond} triggerTipo={disparo.trigger_tipo} productos={productos}
         paraGuion={paraGuion} foco={foco} pendientesOtraCosa={pendientesOtraCosa}
         onPasos={onPasos}
         onAgregar={rolAdmin ? agregarEn : undefined}
@@ -679,7 +725,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 avance del «0» de la fuente— así que con `maxWidth` la tarjeta encoge al
                 hacer click. Con el ancho puesto, los dos estados miden lo mismo. */}
             <div style={{ ...tarjetaChrome, minWidth: 0, width: 400, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ flex: 'none', fontSize: 18, lineHeight: 1 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</span>
+              {/* EL EMOJI SE TOCA Y SE CAMBIA (tercera tanda, decisión 8; pedido literal: «No puedo
+                  editar el emoji del título, y si debería... Dejame poner cualquier emoji, ya tenemos
+                  un desplegable al respecto»). El selector es el de la casa (el de los proyectos del
+                  Plan). Sin emoji guardado, el de su objetivo, como siempre. */}
+              {rolAdmin
+                ? <EmojiPickerMini value={emojiVisto} onPick={(e) => void guardarEmoji(e)} />
+                : <span style={{ flex: 'none', fontSize: 18, lineHeight: 1 }}>{emojiVisto}</span>}
               <div style={{ minWidth: 0, flex: 1 }}>
                 {/* El nombre se cambia HACIENDO CLICK EN ÉL, como en el resto de la
                     casa: un lápiz al lado es un segundo control para la misma acción. */}
@@ -714,8 +766,15 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 `marginLeft: auto` lo empuja contra el borde derecho del chrome, que ya
                 descuenta el panel de «Probar» abierto (`insetDer`). */}
             {onProbar && (
-              <button onClick={onProbar} title="Probar esta automatización"
-                style={{ ...tarjetaChrome, marginLeft: 'auto', flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' }}>▶ Probar</button>
+              <div style={{ marginLeft: 'auto', flex: 'none' }}>
+                {canales.length > 1 ? (
+                  <Dropdown value="" resetAfterSelect sinFlecha={false} botonLabel="▶ Probar" ariaLabel="Probar esta automatización"
+                    options={canales.map((c) => ({ value: c, label: c === 'email' ? 'Email' : 'WhatsApp' }))}
+                    buttonStyle={estiloProbar} onChange={(v) => v && probar(v as 'whatsapp' | 'email')} />
+                ) : (
+                  <button onClick={() => probar(canales[0])} title="Probar esta automatización" style={estiloProbar}>▶ Probar</button>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -736,14 +795,18 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
               <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}</span>
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
-            ) : sinPublicar ? (
-              <span title={inicial.notas.length && convertida ? inicial.notas.join(' · ') : undefined}
-                style={{ ...tarjetaChrome, fontSize: 12, color: 'var(--dim)' }}>Sin publicar</span>
             ) : null}
             {/* ⚠️ «PUBLICAR», NO «GUARDAR»: es el mismo verbo que en /mensajes y dice lo
-                que pasa: lo que está en el lienzo pasa a ser lo que MaKo manda. */}
-            <button onClick={() => void publicar()} disabled={busy === 'save'}
-              style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'save' ? 0.45 : 1, fontFamily: 'inherit' }}>
+                que pasa: lo que está en el lienzo pasa a ser lo que MaKo manda.
+
+                ⚠️ Y SIN EL CARTEL «Sin publicar» (tercera tanda, decisión 15; pedido literal: «se
+                sobre entiende que si se puede apretar, es porque hay cambios sin publicar»): el botón
+                está APAGADO cuando no hay nada que publicar. Una secuencia de antes que abre
+                convertida a tarjetas cuenta como cambio (`sinPublicar`): publicarla es lo que la
+                convierte, y lo que cambió se lee al pasar el cursor. */}
+            <button onClick={() => void publicar()} disabled={busy === 'save' || !sinPublicar}
+              title={sinPublicar && convertida && inicial.notas.length ? inicial.notas.join(' · ') : undefined}
+              style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: sinPublicar ? 'pointer' : 'default', opacity: busy === 'save' || !sinPublicar ? 0.45 : 1, fontFamily: 'inherit' }}>
               {busy === 'save' ? 'Publicando…' : 'Publicar'}
             </button>
           </div>
