@@ -24,6 +24,17 @@ está a medias: lo hecho está en `main` (push `9165da11`). El pedido literal de
 - **13.** El filtro al lado del buscador, por estado y por emoji, con «Quitar filtro». El «⋯»
   abre hacia afuera.
 
+**QUINTA TANDA (09/10 ~12:20, pedido literal en la bitácora):** 1. «Probar» con el logo del canal arriba a la
+izquierda, «Probar en WhatsApp» al lado de ↻ que abre un desplegable con los números guardados y «Nuevo número» (el form
+de teléfono con banderas), igual con Email; y la prueba de «Bienvenida» no mostró el mensaje porque siguió por el «Sí» de
+«Agendó» (que salta a otra automatización): «Probar» tiene que evaluar las condiciones como un lead RECIÉN LLEGADO (sin
+agenda, sin pago, recién entrado), no siempre el «Sí». 2. el ＋ del medio de una flecha desapareció y las tarjetas no se
+mueven (diagnóstico en wf_8c0dd6fe-093). 3. minutos y segundos en el DELAY (el motor corre cada hora: hay que resolver
+la precisión, no sólo ofrecer la unidad). 4. el filtro del Plan en la lista (ícono, secciones Emojis / Estado / Canal con
+«A clientes» y «Al WhatsApp de MaKo», multi-selección, «Quitar filtros» sutil abajo) y la lista más ancha. 5. los flujos
+de «Notificaciones» (Mensajes de MaKo) adentro de /chatbot, y en esa tab un enlace en vez del lienzo. 4 y 5 en la rama
+local `wip-v5-lista` (wf_8c0dd6fe-093); 1, 2 y 3 después de unir la cuarta.
+
 **EN CONSTRUCCIÓN (09/10 ~12:00, cuenta `claude2` en 93 %):** Martín dijo «Continua con el resto». Un
 workflow con seis partes en worktrees, cada una en su rama LOCAL `wip-v4-<parte>` (sin pushear):
 `condiciones` (7, 5, 6b), `flechas` (8), `cron` (14 + el editor del CRON del punto 1 + revisar Crear con
