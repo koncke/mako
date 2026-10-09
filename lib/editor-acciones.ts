@@ -232,7 +232,7 @@ export type AccionDelFlujo = {
  *   · las que usan IA (`generar_insight_lead`, `redactar_followup_post_llamada`, `analizar_llamadas_lead`):
  *     tardan y gastan en cada lead;
  *   · `crear_borrador_whatsapp_empresa`: un WhatsApp al lead es la tarjeta WHATSAPP;
- *   · lo de Chatwoot (se borró el 09/10/2026) y lo que no es de UN lead (configurar, publicar, Meta,
+ *   · lo del WhatsApp oficial (se borró el 09/10/2026) y lo que no es de UN lead (configurar, publicar, Meta,
  *     cursos, el equipo).
  * Las de Customer Success que trae la rama de la API (`wip/api-acciones-0910`: mover en la entrega,
  * invitar al curso, abrir un módulo…) entran acá cuando esa rama llegue a main, cada una con su control
