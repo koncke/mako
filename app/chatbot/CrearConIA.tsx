@@ -1,14 +1,28 @@
 'use client';
 // =============================================================================
-// CrearConIA — la caja «✦ ¿Qué quieres que haga?» de una automatización del Chatbot
+// CrearConIA — la caja «✦ Generar con IA» de una automatización del Chatbot
 // =============================================================================
 // Pedido de Martín (08/10/2026, segunda tanda, punto 11): «Quiero que implementes la
 // funcionalidad de crear un secuencia con IA, mediante un "prompt", y que ahí se vayan
 // creando...». Decisión 14 de docs/chatbot-flujo-ramas-diseno.md.
 //
+// TERCERA TANDA (09/10/2026, «Por otro lado», puntos 2 a 6, y la decisión 17 del diseño):
+//   · «el imput minimalista… como lo que tenemos en PLAN de nueva tarea» → una línea subrayada y el
+//     micrófono al lado, como app/plan/board/CrearTareaModal.tsx;
+//   · «que acepte grabar audio y que se vaya transcribiendo ahí mismo» → el MISMO botón de ahí
+//     (`BotonDictar`: en vivo con el reconocimiento del navegador, y grabar y subir de respaldo);
+//   · «el título… mejor "Generar con IA"»;
+//   · «el placeholder… escribe un ejemplo, borra y escribe otra cosa… ejemplos más genéricos… al darle
+//     click debe parar la animación completamente» → `useEjemploQueSeEscribe`, que para DEL TODO al
+//     primer toque y no vuelve. Los `ejemplos` que llegan por props (armados con nombres de etapas, tipo
+//     «Nutrición No Show R1») ya no se dibujan;
+//   · «la animación de creación debería poner un poco "opaco" todo el resto, y no dejar editar el flujo
+//     mientras la IA lo crea… con un botón de cancelar» → mientras trabaja, una CAPA fija sobre toda la
+//     pantalla (portal a `document.body`) con el estado encima, que se traga los clics y el teclado, y
+//     «Cancelar» corta el pedido (AbortController) y deja la caja con el pedido escrito.
+//
 // Dos formas, el mismo componente:
-//   · `modo: 'crear'`  — la caja centrada del lienzo VACÍO de una automatización recién creada
-//     («＋ Nueva» → `crear_vacia`), con dos o tres ejemplos que manda quien la monta.
+//   · `modo: 'crear'`  — la caja del lienzo VACÍO de una automatización recién creada.
 //   · `modo: 'editar'` — una barra de una línea, «Pídele un cambio», para agregarle tarjetas.
 //
 // Habla con POST /api/chat-agent/secuencias/ia (stream NDJSON) y al terminar llama a `onListo`
@@ -19,15 +33,15 @@
 // ⚠️ MIENTRAS TRABAJA SE VEN LAS FASES REALES, no un spinner eterno: `GRAMATICA.analizando`
 // («Revisando») exige mostrar sobre qué está trabajando, y AGENTS.md exige que todo lo que pueda
 // pasar los ~8 s diga cuánto puede tardar. El tope del cliente es el de la ruta (300 s) + margen.
-//
-// ⚠️ No lo montan SecuenciaPerfil ni SimuladorWhatsApp (son de la parte L): lo enchufa la
-// integración.
 // =============================================================================
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/app/_ui';
+import Link from '@/app/_ui/Link';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
+import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
 import type { EventoIA, ListoIA, GuardadoIA } from '@/lib/flujo-ia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 
@@ -46,7 +60,11 @@ export type CrearConIAProps = {
   secuenciaId: number;
   /** Editar: el borrador LOCAL del lienzo (puede tener cambios sin publicar). */
   pasos?: readonly PasoGrafo[];
-  /** Crear: dos o tres pedidos de ejemplo (un clic los copia a la caja). */
+  /**
+   * @deprecated Ya no se dibuja (tercera tanda, punto 5: «pon ejemplos más genéricos, no algo tan
+   * específico como "Nutrición no show 1"»). Los ejemplos son los de `EJEMPLOS`, escribiéndose en el
+   * placeholder. Queda en el tipo sólo para no romper el call site de SecuenciaPerfil.
+   */
   ejemplos?: readonly string[];
   /** Un pedido ya escrito (el «Armar una» de una etapa sin automatización). */
   pedidoInicial?: string;
@@ -60,7 +78,7 @@ const TOPE_CLIENTE_MS = 310_000;
 
 type Fase = 'contexto' | 'modelo' | 'revision';
 type Estado =
-  | { t: 'quieto'; error?: string }
+  | { t: 'quieto'; error?: string; link?: string }
   | { t: 'trabajando'; fase: Fase | null; leido: string | null; reparadas: number | null; desde: number };
 
 /** Lo que se dice de cada fase (corto: AGENTS.md, el texto que se dibuja). */
@@ -71,11 +89,89 @@ const TEXTO_FASE: Record<Fase, string> = {
 };
 const ORDEN_FASES: Fase[] = ['contexto', 'modelo', 'revision'];
 
+// ── El placeholder que se escribe solo ──────────────────────────────────────────
+
+/**
+ * Los ejemplos del placeholder: GENÉRICOS a propósito (punto 5). Lo que hace un negocio cualquiera, sin
+ * el nombre de una etapa, un producto ni un cliente — un nombre de etapa de un cliente en la pantalla de
+ * otro se lee como un dato (AGENTS.md: un ejemplo de UI es ficticio por regla).
+ */
+export const EJEMPLOS = [
+  'Confirmar la reunión un día antes y avisarme si no contesta',
+  'Recuperar a quien dejó sus datos y no agendó',
+  'Dar la bienvenida por WhatsApp a cada lead nuevo',
+  'Volver a escribirle a quien no vino a la llamada',
+  'Etiquetar a quien responde que le interesa',
+] as const;
+
+/** Lo que queda en el campo cuando la animación ya paró. */
+const PLACEHOLDER_QUIETO = 'Escribe o dicta qué tiene que pasar';
+
+/**
+ * El ritmo. El mecanismo es el del onboarding (app/onboarding/Bienvenida.tsx, `Maquina`: escribe, se
+ * queda, borra, sigue con la próxima, con un jitter para que no suene a metrónomo), pero más rápido:
+ * allá se escribe el final de una frase de 3 palabras y acá un pedido entero de 8 a 10.
+ */
+const MS_LETRA = 60;
+const MS_BORRAR = 28;
+const MS_JITTER = 40;
+const MS_QUIETA = 1900;
+
+/**
+ * El ejemplo que se escribe y se borra. Arranca con el primero COMPLETO (el HTML del server y el del
+ * cliente coinciden) y, con `activo` en false, deja de moverse para siempre: el primer toque a la caja
+ * lo apaga y no vuelve (punto 5: «al darle click debe parar la animación completamente»). Con
+ * `prefers-reduced-motion` no se mueve nunca.
+ */
+function useEjemploQueSeEscribe(activo: boolean): string {
+  const [i, setI] = useState(0);
+  const [largo, setLargo] = useState<number>(EJEMPLOS[0].length);
+  const [borrando, setBorrando] = useState(false);
+  const [quieto, setQuieto] = useState(false);
+
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setQuieto(true);
+    } catch { /* sin matchMedia */ }
+  }, []);
+
+  useEffect(() => {
+    if (!activo || quieto) return;
+    const frase = EJEMPLOS[i];
+    if (!borrando && largo === frase.length) {
+      const t = setTimeout(() => setBorrando(true), MS_QUIETA);
+      return () => clearTimeout(t);
+    }
+    if (borrando && largo === 0) {
+      const t = setTimeout(() => { setBorrando(false); setI((x) => (x + 1) % EJEMPLOS.length); }, 280);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), (borrando ? MS_BORRAR : MS_LETRA) + Math.random() * MS_JITTER);
+    return () => clearTimeout(t);
+  }, [activo, quieto, i, largo, borrando]);
+
+  return EJEMPLOS[i].slice(0, largo);
+}
+
 export function CrearConIA(p: CrearConIAProps) {
   const [pedido, setPedido] = useState(p.pedidoInicial ?? '');
   const [estado, setEstado] = useState<Estado>({ t: 'quieto' });
   const [ahora, setAhora] = useState(() => Date.now());
+  /** El placeholder ya no se mueve: alguien tocó la caja (o vino un pedido escrito). No vuelve. */
+  const [tocada, setTocada] = useState(() => !!p.pedidoInicial);
+  const ejemplo = useEjemploQueSeEscribe(p.modo === 'crear' && !tocada && !pedido);
   const ctrl = useRef<AbortController | null>(null);
+  const capaRef = useRef<HTMLDivElement | null>(null);
+  // El campo crece con lo que tiene (hasta 5 renglones), también cuando lo llena el dictado, que no
+  // dispara `onInput`.
+  const campoRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    const t = campoRef.current;
+    if (!t) return;
+    t.style.height = 'auto';
+    t.style.height = `${Math.min(t.scrollHeight, 132)}px`;
+  }, [pedido]);
   /**
    * ⚠️ EL `onListo` DE AHORA, NO EL DEL CLIC (revisión, 09/10/2026). `enviar` cierra sobre las props
    * del render en que se hizo clic: llamar a `p.onListo` al terminar llamaba al del padre de hace
@@ -103,9 +199,34 @@ export function CrearConIA(p: CrearConIAProps) {
     setEstado({ t: 'quieto' });
   };
 
+  /**
+   * ⚠️ MIENTRAS TRABAJA, EL TECLADO TAMPOCO LLEGA AL LIENZO (punto 6: «no dejar editar el flujo»). La
+   * capa se traga los clics, pero un atajo vive en `document` (el deshacer del lienzo, Suprimir sobre una
+   * tarjeta): se corta en CAPTURA todo lo que no nace adentro de la capa. Escape cancela, igual que el
+   * botón, y sólo cuando el botón está (en «Revisando el flujo» el server ya no mira la señal).
+   */
+  const fase = estado.t === 'trabajando' ? estado.fase : null;
+  useEffect(() => {
+    if (!trabajando) return;
+    capaRef.current?.focus();
+    const alTeclado = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && fase !== 'revision') { e.preventDefault(); e.stopImmediatePropagation(); cancelar(); return; }
+      // Tab no saca el foco de la capa (lo de abajo no se puede tocar). Lo demás que nace en la capa
+      // (Enter o espacio sobre «Cancelar») sigue su camino.
+      if (e.key === 'Tab') { e.preventDefault(); return; }
+      if (capaRef.current && e.target instanceof Node && capaRef.current.contains(e.target)) return;
+      // Sin `preventDefault`: los atajos del NAVEGADOR (recargar, cambiar de pestaña) siguen andando;
+      // lo que se corta es que lleguen a los de la app.
+      e.stopImmediatePropagation();
+    };
+    document.addEventListener('keydown', alTeclado, true);
+    return () => document.removeEventListener('keydown', alTeclado, true);
+  }, [trabajando, fase]);
+
   const enviar = async () => {
     const texto = pedido.trim();
     if (!texto || trabajando || p.deshabilitado) return;
+    setTocada(true);
     const c = new AbortController();
     ctrl.current = c;
     const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
@@ -160,7 +281,7 @@ export function CrearConIA(p: CrearConIAProps) {
           if (p.modo === 'editar' && aplicado !== false) setPedido('');
           return true;
         }
-        if (ev.t === 'error') { setEstado({ t: 'quieto', error: ev.error || 'No se pudo' }); return true; }
+        if (ev.t === 'error') { setEstado({ t: 'quieto', error: ev.error || 'No se pudo', link: ev.link }); return true; }
         if (ev.t === 'fase') {
           setEstado((s) => (s.t !== 'trabajando' ? s : {
             ...s, fase: ev.fase,
@@ -195,16 +316,16 @@ export function CrearConIA(p: CrearConIAProps) {
 
   const segundos = trabajando ? Math.max(0, Math.round((ahora - estado.desde) / 1000)) : 0;
 
-  // ── Trabajando: las fases reales ──
+  // ── Trabajando: la capa que oscurece todo, con las fases reales encima ──
   if (estado.t === 'trabajando') {
     const actual = estado.fase ? ORDEN_FASES.indexOf(estado.fase) : -1;
-    return (
-      <div style={p.modo === 'crear' ? S.caja : S.barraTrabajando} role="status" aria-live="polite">
-        <div style={S.cabeza}>
-          <span style={S.rotulo}>✦ {GRAMATICA.analizando.rotulo}</span>
-          {estado.leido && <span style={S.leido}>· {estado.leido}</span>}
-        </div>
-        {p.modo === 'crear' && (
+    const tarjeta = (
+      <div data-crear-ia-capa="" style={S.capa}>
+        <div ref={capaRef} tabIndex={-1} style={S.trabajando} role="status" aria-live="polite">
+          <div style={S.cabeza}>
+            <span style={S.rotulo}>✦ {GRAMATICA.analizando.rotulo}</span>
+            {estado.leido && <span style={S.leido}>· {estado.leido}</span>}
+          </div>
           <ol style={S.fases}>
             {ORDEN_FASES.map((f, i) => (
               <li key={f} style={{ ...S.fase, color: i <= actual ? 'var(--ink)' : 'var(--faint)' }}>
@@ -214,20 +335,29 @@ export function CrearConIA(p: CrearConIAProps) {
               </li>
             ))}
           </ol>
-        )}
-        <div style={S.pie}>
-          {/* ⚠️ EL TOPE SALE DEL TOPE REAL (revisión, 09/10/2026): decía «hasta 1 min» y la ruta le da
-              al modelo hasta 220 s, con reintento, sobre un `maxDuration` de 300. «75 s · hasta 1 min»
-              se lee como colgado y la persona cancela un pedido que iba a terminar. */}
-          <span style={S.dim}>{segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
-          {/* ⚠️ SIN «Cancelar» EN «Revisando el flujo» (revisión, 09/10/2026): el server mira la señal
-              una sola vez, antes de esa fase, y después crea las etiquetas y guarda igual. Un Cancelar
-              ahí dejaba la automatización guardada y la pantalla mostrando la caja vacía. */}
-          {estado.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button>}
+          <div style={S.pie}>
+            {/* ⚠️ EL TOPE SALE DEL TOPE REAL (revisión, 09/10/2026): decía «hasta 1 min» y la ruta le da
+                al modelo hasta 220 s, con reintento, sobre un `maxDuration` de 300. «75 s · hasta 1 min»
+                se lee como colgado y la persona cancela un pedido que iba a terminar. */}
+            <span style={S.dim}>{segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
+            {/* ⚠️ SIN «Cancelar» EN «Revisando el flujo» (revisión, 09/10/2026): el server mira la señal
+                una sola vez, antes de esa fase, y después crea las etiquetas y guarda igual. Un Cancelar
+                ahí dejaba la automatización guardada y la pantalla mostrando la caja vacía. */}
+            {estado.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button>}
+          </div>
         </div>
       </div>
     );
+    // La capa va al `body`: adentro del lienzo, un ancestro con `transform`, `overflow` o z-index la
+    // dejaría recortada o debajo de la lista y de «Publicar» (AGENTS.md, el sticky que clampea el z).
+    return typeof document !== 'undefined' ? createPortal(tarjeta, document.body) : tarjeta;
   }
+
+  const error = estado.error ? (
+    <p style={S.error} role="alert">
+      <TextoConLink texto={estado.error} link={estado.link} />
+    </p>
+  ) : null;
 
   // ── Editar: una línea ──
   if (p.modo === 'editar') {
@@ -247,39 +377,46 @@ export function CrearConIA(p: CrearConIAProps) {
             disabled={p.deshabilitado}
             style={S.input}
           />
+          <BotonDictar titulo="Dictar el cambio" valor={pedido} onValor={setPedido} onError={(m) => setEstado({ t: 'quieto', error: m })} />
           <Button type="submit" variant="mako" size="sm" disabled={!pedido.trim() || p.deshabilitado}>Agregar</Button>
         </form>
-        {estado.error && <p style={S.error} role="alert">{estado.error}</p>}
+        {error}
       </div>
     );
   }
 
-  // ── Crear: la caja centrada ──
+  // ── Crear: la caja, como «Nueva tarea» del Plan ──
+  const parar = () => { if (!tocada) setTocada(true); };
   return (
-    <form style={S.caja} onSubmit={(e) => { e.preventDefault(); void enviar(); }}>
-      <label htmlFor={`crear-ia-${p.secuenciaId}`} style={S.titulo}>✦ ¿Qué quieres que haga?</label>
-      <textarea
-        id={`crear-ia-${p.secuenciaId}`}
-        className="mk-textarea"
-        value={pedido}
-        onChange={(e) => setPedido(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void enviar(); } }}
-        placeholder="Ej.: bienvenida por WhatsApp y, si no agenda, un email a los 2 días"
-        rows={3}
-        maxLength={2000}
-        disabled={p.deshabilitado}
-        style={S.textarea}
-      />
-      {!!p.ejemplos?.length && (
-        <div style={S.ejemplos}>
-          {p.ejemplos.slice(0, 3).map((ej) => (
-            <button key={ej} type="button" style={S.ejemplo} onClick={() => setPedido(ej)} title="Usar este pedido">
-              {ej}
-            </button>
-          ))}
-        </div>
-      )}
-      {estado.error && <p style={S.error} role="alert">{estado.error}</p>}
+    <form
+      style={S.caja}
+      onSubmit={(e) => { e.preventDefault(); void enviar(); }}
+      onPointerDownCapture={parar}
+      onFocusCapture={parar}
+    >
+      <div style={S.encabezado}>
+        <span aria-hidden style={S.chispa}>✦</span>
+        <label htmlFor={`crear-ia-${p.secuenciaId}`} style={S.titulo}>Generar con IA</label>
+      </div>
+      <div style={S.fila}>
+        <textarea
+          ref={campoRef}
+          id={`crear-ia-${p.secuenciaId}`}
+          value={pedido}
+          onChange={(e) => { setPedido(e.target.value); parar(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); } }}
+          onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--mako)'; }}
+          onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'var(--border)'; }}
+          placeholder={tocada ? PLACEHOLDER_QUIETO : ejemplo}
+          aria-label="Qué tiene que hacer la automatización"
+          rows={2}
+          maxLength={2000}
+          disabled={p.deshabilitado}
+          style={S.campo}
+        />
+        <BotonDictar titulo="Dictar el pedido" valor={pedido} onValor={(v) => { setPedido(v); parar(); }} onError={(m) => setEstado({ t: 'quieto', error: m })} />
+      </div>
+      {error}
       <div style={S.pie}>
         <span style={S.dim}>Nace pausada</span>
         <Button type="submit" variant="mako" disabled={!pedido.trim() || p.deshabilitado}>Crear</Button>
@@ -288,23 +425,42 @@ export function CrearConIA(p: CrearConIAProps) {
   );
 }
 
+/** El error, con la palabra «Integraciones» convertida en el link a donde se arregla (si lo hay). */
+function TextoConLink({ texto, link }: { texto: string; link?: string }) {
+  if (!link) return <>{texto}</>;
+  const i = texto.indexOf('Integraciones');
+  if (i < 0) return <>{texto} <Link href={link} style={S.link}>Abrir</Link></>;
+  return <>{texto.slice(0, i)}<Link href={link} style={S.link}>Integraciones</Link>{texto.slice(i + 'Integraciones'.length)}</>;
+}
+
 // Sólo tokens que existen en claro y en oscuro (app/globals.css → [data-tema="oscuro"]).
 const S: Record<string, CSSProperties> = {
   caja: {
-    width: 'min(520px, 100%)', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12,
-    padding: 18, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--mako-border)',
-    boxShadow: '0 6px 24px rgba(0,0,0,.08)',
+    width: 'min(520px, 100%)', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10,
+    padding: '14px 18px 16px', borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)',
+    boxShadow: '0 10px 30px rgba(18,21,27,.12)',
   },
-  titulo: { fontSize: 16, fontWeight: 600, color: 'var(--ink)' },
-  textarea: { width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 72 },
-  ejemplos: { display: 'flex', flexWrap: 'wrap', gap: 6 },
-  ejemplo: {
-    font: 'inherit', fontSize: 12.5, lineHeight: 1.3, textAlign: 'left', cursor: 'pointer',
-    padding: '6px 10px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--dim)',
+  encabezado: { display: 'flex', alignItems: 'center', gap: 8 },
+  titulo: { fontSize: 14, fontWeight: 700, color: 'var(--ink)' },
+  fila: { display: 'flex', alignItems: 'flex-end', gap: 8 },
+  campo: {
+    flex: 1, minWidth: 0, boxSizing: 'border-box', resize: 'none', padding: '10px 0', border: 'none',
+    borderBottom: '2px solid var(--border)', background: 'transparent', color: 'var(--ink)', font: 'inherit',
+    fontSize: 16, lineHeight: 1.4, outline: 'none', overflowY: 'auto',
   },
   pie: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   dim: { fontSize: 12.5, color: 'var(--faint)' },
-  error: { margin: 0, fontSize: 13, color: 'var(--bad)' },
+  error: { margin: 0, fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
+  link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
+  capa: {
+    position: 'fixed', inset: 0, zIndex: 125, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: 16, background: 'rgba(18,21,27,.45)', backdropFilter: 'blur(2px)',
+  },
+  trabajando: {
+    width: 'min(440px, 100%)', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12,
+    padding: 18, borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)',
+    boxShadow: '0 30px 70px rgba(18,21,27,.35)', outline: 'none',
+  },
   cabeza: { display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', minWidth: 0 },
   rotulo: { fontSize: 14, fontWeight: 600, color: 'var(--mako-ink)' },
   leido: { fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis' },
@@ -315,11 +471,6 @@ const S: Record<string, CSSProperties> = {
   barra: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px 4px 12px', borderRadius: 999,
     background: 'var(--surface)', border: '1px solid var(--mako-border)', boxShadow: '0 4px 16px rgba(0,0,0,.08)',
-  },
-  barraTrabajando: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '6px 6px 6px 14px',
-    borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--mako-border)', width: 'min(460px, 100%)',
-    boxSizing: 'border-box',
   },
   chispa: { color: 'var(--mako-ink)', fontSize: 14, flex: 'none' },
   input: { flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', font: 'inherit', fontSize: 14, padding: '6px 0' },

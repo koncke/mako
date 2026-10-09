@@ -18,13 +18,14 @@
  *
  *   0 — lo que cambia lo que sale y pide algo a la persona: el disparador, un link o un audio que no
  *       va, un monto que hay que poner, un tramo que no se agregó;
- *   1 — lo que se sacó;
+ *   1 — lo que se sacó (y, desde la tercera tanda, la flecha de una tarjeta colgada de dos lugares:
+ *       sin «Ir a», la segunda salida queda vacía);
  *   2 — lo cosmético.
  * Estable: dentro de la misma prioridad queda el orden de llegada.
  */
 const PRIORIDAD: ReadonlyArray<RegExp> = [
   /dispara|sin link|va como texto|monto|no la pis[ée]|no lo agregu[ée]|no agregu[ée]/i,
-  /^(Saqu[ée]|Cort[ée]|Borr[ée])/,
+  /^(Saqu[ée]|Cort[ée]|Borr[ée])|dej[ée] en el primero/,
 ];
 
 function prioridad(a: string): number {

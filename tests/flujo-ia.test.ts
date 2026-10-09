@@ -45,8 +45,6 @@ const ctxBase = (o: Partial<CtxIA> = {}): CtxIA => ({
   archivos: [],
   acciones,
   links: { agenda: { url: URL_AGENDA, para: 'agendar una llamada' } },
-  automatizaciones: [{ id: 50, nombre: 'Recordatorio' }],
-  secuenciaId: 99,
   ...o,
 });
 
@@ -268,25 +266,38 @@ test('una espera dentro de «Si responde» se saca y lo que seguía sube', () =>
   assert.ok(r.avisos.some((a) => a.includes('espera de «Si responde»')));
 });
 
-// rotura 15 (no cortar el «Ir a» que vuelve atrás sin espera): 1 fallo.
-test('un «Ir a» hacia atrás sin espera se corta; con una espera en el medio queda', () => {
+// TERCERA TANDA, decisión 3: «Ir a» sale de Crear con IA. Antes acá se probaba que un «Ir a» hacia
+// atrás con una espera en el medio QUEDABA; ahora no queda ninguno.
+// PROBADO ROMPIÉNDOLO (09/10/2026, scratchpad F-romper.mjs, restaura de memoria), de 21 tests:
+// nodoDe deja el «Ir a» que pidió el modelo → 1 fallo; el segundo padre se corta sin aviso → 1 fallo;
+// validarIA acepta un «Ir a» → 1 fallo. Cae éste las tres veces.
+test('Crear con IA no arma «Ir a»: el que pide el modelo se saca, y un segundo padre se corta', () => {
   const ctx = ctxBase();
-  const sinEspera = deIA({ inicio: 't1', tarjetas: [
-    { id: 't1', tipo: 'mensaje', texto: 'Uno', sigue: 't2' },
-    { id: 't2', tipo: 'mensaje', texto: 'Dos', sigue: 't3' },
-    { id: 't3', tipo: 'ir_a', a: 't1' },
-  ] }, ctx, rndDe());
-  ok(sinEspera.pasos, ctx);
-  assert.equal(porClase(sinEspera.pasos, 'ir_a').length, 0);
-  assert.ok(sinEspera.avisos.some((a) => a.includes('volvía atrás')));
-
-  const conEspera = deIA({ inicio: 't1', tarjetas: [
+  const pedido = deIA({ inicio: 't1', tarjetas: [
     { id: 't1', tipo: 'mensaje', texto: 'Uno', sigue: 't2' },
     { id: 't2', tipo: 'esperar', dias: 3, sigue: 't3' },
     { id: 't3', tipo: 'ir_a', a: 't1' },
   ] }, ctx, rndDe());
-  ok(conEspera.pasos, ctx);
-  assert.equal(porClase(conEspera.pasos, 'ir_a').length, 1);
+  ok(pedido.pasos, ctx);
+  assert.equal(porClase(pedido.pasos, 'ir_a').length, 0);
+  assert.equal(porClase(pedido.pasos, 'esperar')[0].siguiente, null, 'la espera queda sin nada después');
+  assert.ok(pedido.avisos.some((a) => a.includes('«Ir a»')), pedido.avisos.join(' | '));
+
+  // Dos ramas que apuntan a la misma tarjeta: queda en la primera, la otra salida vacía, y sin salto.
+  const dosPadres = deIA({ inicio: 't1', tarjetas: [
+    { id: 't1', tipo: 'condicion', ramas: [{ si: [{ campo: 'agendo' }], sigue: 't2' }], si_no: 't2' },
+    { id: 't2', tipo: 'mensaje', texto: 'Para todos' },
+  ] }, ctx, rndDe());
+  ok(dosPadres.pasos, ctx);
+  assert.equal(porClase(dosPadres.pasos, 'ir_a').length, 0);
+  const cond = porClase(dosPadres.pasos, 'condicion')[0];
+  assert.equal(cond.ramas![0].siguiente, mensajes(dosPadres.pasos)[0].id);
+  assert.equal(cond.si_no, null);
+  assert.ok(dosPadres.avisos.some((a) => a.includes('dos lugares')), dosPadres.avisos.join(' | '));
+
+  // Y la segunda capa lo rechaza si una reparación fallara.
+  const conSalto = [...pedido.pasos, { id: 'zz', nodo: 'ir_a' as const, destino: { nodo: pedido.pasos[0].id! } }];
+  assert.ok(validarIA(conSalto, ctx).some((e) => e.includes('«Ir a»')));
 });
 
 // rotura 16 (no avisar las sueltas; lo que no cuelga de nada nunca se emite): 1 fallo.

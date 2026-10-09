@@ -21,10 +21,18 @@
 //     (UNA foto de deshacer y Publicar, como cualquier cambio). `pasos` es ese borrador, que puede
 //     tener cambios sin publicar; sin él, se parte de lo guardado.
 //
-// ⚠️ NUNCA POR CLAUDE. La llamada es `chatCheapCascade` sobre CASCADA_DOCS (Gemini primero), con
-// el pin de /modelos-ia salvo que apunte a Anthropic: es el molde de `escribir()` en
-// app/api/chat-agent/onboarding/guion-audio/route.ts. `chatClaude` sin `fallback: []` caería a
-// Sonnet PAGO, y la feature no tiene fila en CLAUDE_PERMITIDO.
+// ⚠️ NUNCA POR CLAUDE, NI POR NADA QUE COBRE. La llamada es `chatCheapCascade` sobre
+// `PROVS_CREAR_IA` (gemini → groq → openrouter, lib/flujo-ia.ts), con el pin de /modelos-ia PRIMERO
+// si es un proveedor gratis. `chatClaude` sin `fallback: []` caería a Sonnet PAGO, y la feature no
+// tiene fila en CLAUDE_PERMITIDO.
+//
+// ⚠️ LA FALLA DE PRODUCCIÓN DEL 09/10/2026 (ws1, «Hay un problema de configuración de MaKo…»), medida
+// con las keys reales (scratchpad F-diag.mts): Gemini 403 (Google bloqueó el proyecto de la key),
+// OpenRouter 404 (el modelo ya no es gratis), Mistral 429 (siempre), OpenAI en la lista (cobra) y
+// Groq —que contesta 200 con un flujo válido en 3,4 s— SALTEADO: la cascada suma prompt + maxTokens
+// contra su techo (7k) y el pedido pesaba ~10k. Arreglo: el contexto compacto, la salida que entra
+// (`salidaParaIA`), la lista sin pagos ni rebotes crónicos, un modelo gratis vivo para OpenRouter
+// (`MODELOS_CREAR_IA`), y el motivo por proveedor (`falloDeIA`) en vez de la bolsa entera.
 //
 // ⚠️ LAS ETIQUETAS NUEVAS SE CREAN RECIÉN CUANDO TODO VALIDÓ, y antes se mira que la persona no
 // haya cancelado (`req.signal`): un pedido cancelado MIENTRAS EL MODELO ESCRIBE no deja nada
@@ -35,7 +43,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada, type ProvName } from '@/lib/ai-cheap';
+import { chatCheapCascade, MODELO_DOCS, provsDe, tokensAprox, techoDeEntrada, type ProvName } from '@/lib/ai-cheap';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { getPromptText } from '@/lib/prompt-render';
 import { parseJsonObject } from '@/lib/json-del-modelo';
@@ -60,9 +68,10 @@ import { validarGrafo, type PasoGrafo } from '@/lib/flujo-grafo';
 import { marcasDeVoseo } from '@/lib/puestas-data';
 import {
   FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE,
+  PROVS_CREAR_IA, PROVS_GRATIS_PIN, MODELOS_CREAR_IA, salidaParaIA, falloDeIA,
   deIA, deIAEdicion, disparadoresParaIA, numerosEn, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
   userDeCrear, userDeEditar, leyendoDe, leyendoTexto, normNombre,
-  type CtxIA, type EventoIA, type ResultadoIA, type ResultadoEdicion, type LinkIA, type GuardadoIA,
+  type CtxIA, type EventoIA, type ResultadoIA, type ResultadoEdicion, type LinkIA, type GuardadoIA, type FalloIA,
 } from '@/lib/flujo-ia';
 
 export const dynamic = 'force-dynamic';
@@ -105,21 +114,14 @@ async function linkDeAgenda(): Promise<string | null> {
   }
 }
 
-/** Las otras automatizaciones del negocio (para un «Ir a»), sin las archivadas. */
-async function automatizaciones(): Promise<Array<{ id: number; nombre: string }>> {
-  const db = await getTenantDb();
-  const { data, error } = await db.from('nutricion_secuencias').select('id, nombre').is('archivada_at', null);
-  if (error) throw new Error(`automatizaciones: ${error.message}`);
-  return ((data ?? []) as Array<{ id: number; nombre: string }>).map((s) => ({ id: Number(s.id), nombre: String(s.nombre ?? '') }));
-}
-
 /**
  * Arma `CtxIA`. ⚠️ LAS ETIQUETAS SE LEEN ESTRICTAS (AGENTS.md: una lectura que cae al default sirve
  * para dibujar, nunca para decidir): con la lectura caída, `deIA` las tomaría a todas por NUEVAS y
  * crearía duplicados. Lo demás puede faltar: lo que no está se saca del flujo y queda en `avisos`.
+ * (Las otras automatizaciones ya no se leen: sólo servían para un «Ir a», que la IA no arma más.)
  */
-async function armarContexto(ws: number, secuenciaId: number, pedido: string): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
-  const [etiquetas, productos, audios, archivos, accionesWs, entregables, video, agenda, autos, perfil, voz] = await Promise.all([
+async function armarContexto(ws: number, pedido: string): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
+  const [etiquetas, productos, audios, archivos, accionesWs, entregables, video, agenda, perfil, voz] = await Promise.all([
     listarEtiquetas({ incluirArchivadas: true }),
     productosConEtapas().catch(() => []),
     listAudios().catch(() => []),
@@ -128,7 +130,6 @@ async function armarContexto(ws: number, secuenciaId: number, pedido: string): P
     getEntregables().catch(() => []),
     getSetting(KEY_LINK_VIDEO).catch(() => null),
     linkDeAgenda(),
-    automatizaciones().catch(() => []),
     perfilNegocioTexto().catch(() => ''),
     getVozGuia().catch(() => null),
   ]);
@@ -169,8 +170,6 @@ async function armarContexto(ws: number, secuenciaId: number, pedido: string): P
     archivos: archivos.map((a) => ({ id: a.id, titulo: a.titulo, mime: a.media_mime })),
     acciones,
     links,
-    automatizaciones: autos,
-    secuenciaId,
     usaVoseo: !!voz && marcasDeVoseo(voz).length > 0,
     // Un MONTO de una acción sólo vale si lo escribió una persona: en el perfil o en el pedido.
     numerosPermitidos: numerosEn(`${perfil}\n${pedido}`),
@@ -215,8 +214,11 @@ async function pasada(p: {
   provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[];
 }): Promise<{ bueno: ResultadoIA | ResultadoEdicion | null; crudos: string[]; ultimo: string[] | null }> {
   const out: { bueno: ResultadoIA | ResultadoEdicion | null; crudos: string[]; ultimo: string[] | null } = { bueno: null, crudos: [], ultimo: null };
+  // ⚠️ LA SALIDA SE DIMENSIONA PARA QUE GROQ ENTRE (`salidaParaIA`): con 6000 fijos la cascada lo
+  // salteaba siempre, y era el único proveedor que le contestaba al ws1.
+  const maxTokens = salidaParaIA(tokensAprox(p.system) + tokensAprox(p.user), techoDeEntrada('groq'));
   await chatCheapCascade({
-    system: p.system, user: p.user, json: true, maxTokens: 6000, temperature: 0.4,
+    system: p.system, user: p.user, json: true, maxTokens, temperature: 0.4,
     feature: FEATURE_CREAR_IA, motivo: p.motivo,
     provs: p.provs, modelos: p.modelos, timeoutMs: 100_000, hastaMs: p.hastaMs,
     erroresOut: p.errores,
@@ -239,16 +241,25 @@ async function pasada(p: {
  *   2. si algún proveedor escribió un JSON que no se pudo leer, la cascada lo COPIA como JSON
  *      válido (no se le pide que piense) y se vuelve a traducir;
  *   3. si lo que se leyó tenía errores de validación, UN reintento listándolos («corrige esto»).
- * Si nada sirve, el error honesto: `errorDeCascada` cuando nadie contestó, o qué quedó mal.
+ * Si nada sirve, el error honesto: `falloDeIA` (el motivo por proveedor, en una línea) cuando nadie
+ * contestó, o qué quedó mal.
  */
 async function generar(p: {
   system: string; user: string; inicio: number;
   traducir: (obj: Record<string, unknown>) => Traducido;
-}): Promise<{ r: ResultadoIA | ResultadoEdicion } | { error: string }> {
+}): Promise<{ r: ResultadoIA | ResultadoEdicion } | FalloIA> {
+  // El pin de /modelos-ia va PRIMERO y el resto de la lista atrás: con el pin solo, una key de ese
+  // proveedor bloqueada dejaba la feature sin nadie a quien caer. Un pin pago (Claude, OpenAI) no se
+  // usa: esta feature no cobra nunca.
   const pin = await overrideDeFeature(FEATURE_CREAR_IA).catch(() => null);
-  const usaPin = pin != null && pin.provider !== 'anthropic';
-  const provs: ProvName[] = usaPin ? [pin.provider as ProvName] : CASCADA_DOCS;
-  const modelos: Partial<Record<ProvName, string>> = usaPin ? ({ [pin.provider]: pin.model } as Partial<Record<ProvName, string>>) : MODELO_DOCS;
+  const pinGratis = pin != null && PROVS_GRATIS_PIN.includes(pin.provider as ProvName) ? pin : null;
+  const provs: ProvName[] = pinGratis
+    ? [pinGratis.provider as ProvName, ...PROVS_CREAR_IA.filter((x) => x !== pinGratis.provider)]
+    : [...PROVS_CREAR_IA];
+  const modelos: Partial<Record<ProvName, string>> = {
+    ...MODELO_DOCS, ...MODELOS_CREAR_IA,
+    ...(pinGratis ? { [pinGratis.provider]: pinGratis.model } : {}),
+  };
   const hastaMs = p.inicio + PLAZO_MODELO_MS;
   const quedan = () => hastaMs - Date.now();
   const errores: string[] = [];
@@ -291,7 +302,9 @@ async function generar(p: {
     return { error: 'MaKo armó el flujo pero quedó mal. Prueba de nuevo o cambia una palabra del pedido.' };
   }
   if (uno.crudos.length) return { error: 'MaKo escribió el flujo pero se cortó al leerlo. Prueba de nuevo.' };
-  return { error: await errorDeCascada(errores, 'armar la automatización') };
+  console.error('[secuencias/ia] ningún proveedor armó el flujo:', errores.join(' | '));
+  const hayIA = (await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0);
+  return falloDeIA(errores, hayIA);
 }
 
 // ── La ruta ───────────────────────────────────────────────────────────────────────
@@ -349,7 +362,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (o: EventoIA) => { try { controller.enqueue(enc.encode(JSON.stringify(o) + '\n')); } catch { /* cerrado */ } };
       try {
-        const { ctx, perfil, voz } = await armarContexto(ws, secuenciaId, pedido);
+        const { ctx, perfil, voz } = await armarContexto(ws, pedido);
         const leyendo = leyendoDe(ctx, perfil);
         send({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
 
@@ -374,7 +387,7 @@ export async function POST(req: NextRequest) {
 
         send({ t: 'fase', fase: 'modelo' });
         const g = await generar({ system, user, inicio, traducir });
-        if ('error' in g) { send({ t: 'error', error: g.error }); return; }
+        if ('error' in g) { send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) }); return; }
         const r = g.r;
         send({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
 
