@@ -273,6 +273,8 @@ export function FlujoLienzo({
   const aplicar = (r: Edicion<PasoSecuenciaDto>): boolean => {
     if (!r.ok) { onError(errorLegible(r.motivo, pasos)); return false; }
     onPasos(() => r.pasos, true);
+    // Lo que se hizo bien borra el motivo de lo que no se pudo (si no, quedaba en rojo hasta Publicar).
+    onError('');
     return true;
   };
   /** Una tarjeta nueva PUESTA en un punto (la suelta del click derecho, la copia de «Duplicar»). */

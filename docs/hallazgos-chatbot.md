@@ -1209,6 +1209,96 @@ tardó 4,6 min; matar un `npm test` en curso deja 218 falsos rojos «The service
 de migración se ocupó DOS veces mientras se trabajaba (0231 y 0232): se mira justo antes de commitear.
 Y el agente dejó el `next dev` prendido al terminar: quien une la tanda revisa los procesos.
 
+## Sexta tanda (09/10/2026, parte «lienzo»): «Entonces», arrastrar flechas, sueltas, el DELAY en la flecha y el click derecho
+
+Pedido literal en la bitácora (9 oct 18:37), General 2-8, 13 y 14, CRON 10 y DELAY 1. Las ediciones
+del mouse viven en `lib/flujo-edicion.ts` (puro, con test); el lienzo las dibuja.
+
+### El CRON implícito convierte «queda flotando» en «pasa a colgar del CRON» [lienzo]
+
+**Síntoma (en los tests, antes de la pantalla):** borrar la primera tarjeta hacía que la de después
+quedara conectada al CRON sola; y conectar una suelta a la primera hacía que la SUELTA pasara a ser la
+salida (CRON → suelta → primera).
+
+**Causa:** sin nodo de inicio, la salida es «la primera tarjeta que nadie apunta, en el orden del array»
+(`raizSalida`). Toda edición que cambia quién no tiene padre puede cambiar la raíz sin que nadie la toque.
+⚠️ El diagnóstico obvio («la suelta tiene que ir al final del array») es la mitad: un hijo que pierde a su
+padre puede estar ANTES de la raíz en el array, y se la gana igual.
+
+**Regla:** una edición que puede cambiar «la primera» deja la flecha del CRON EXPLÍCITA (`conRaiz`: el
+inicio `'entrada'` con la raíz de antes) — sólo cuando hace falta, así un flujo que nadie desconectó
+queda igual byte a byte. Romperlo tumba 4 de 16 tests.
+
+**Vive en:** `lib/flujo-edicion.ts` (`conRaiz`) · `tests/flujo-edicion.test.ts`
+
+### Sacar la regla de «dos padres» abre una puerta que no es de dibujo: dos hilos que se juntan [modelo, lienzo]
+
+**Síntoma:** CRON → m1 → m2 con e1 en paralelo; conectar e1 a m2 «se puede» y el lead recibe m2 DOS veces.
+
+**Causa:** ⚠️ la regla «una tarjeta cuelga de un solo lugar» de `validarGrafo` parecía una restricción
+del layout (un árbol) y era además la que impedía que dos hilos en paralelo alcanzaran la misma tarjeta:
+el motor corre cada hilo por su cuenta (`aplicarAHilo`). Con varios padres (punto 13), juntar ramas de
+una CONDICIÓN está bien (se excluyen: corre una) y juntar dos hilos en paralelo duplica envíos.
+
+**Regla:** `conectar` rechaza juntar dos caminos en paralelo (`tarjetasDondeSeJuntan`; «Si responde» no
+cuenta: retoma UN hilo). ⚠️ Pero `validarGrafo` también lo tiene que rechazar, o Crear con IA, la API o un
+flujo viejo lo producen sin pasar por el lienzo: lo pedí a la parte del modelo.
+
+**Vive en:** `lib/flujo-edicion.ts` (`tarjetasDondeSeJuntan`) · `lib/flujo-grafo.ts` (`validarGrafo`)
+
+### Una espera sobre la flecha sigue siendo un NODO: la flecha del dato llega a ella, no a `hasta` [lienzo]
+
+El DELAY del medio se dibuja como pastilla sobre la flecha padre → lo de después (`AristaFlujo.esperas`) y
+no ocupa columna; en el dato sigue siendo un `esperar` con su `siguiente`. Quien borra o inserta sobre esa
+flecha mira `esperas[0]`, no `hasta`: borrar la flecha se lleva sus esperas (eran de ella) y deja suelto lo
+de después; eliminar la pastilla la SACA de la cadena (`borrarNodo`) y la flecha queda. Se aplasta sólo si
+es un lugar de la flecha: un padre, una salida que sigue en algo y nada en paralelo; la del final, con dos
+padres o que reparte sigue siendo su píldora. Lo que se pierde: una espera del medio ya no ofrece «＋ en
+paralelo» desde ella (no tiene círculo).
+
+**Vive en:** `lib/flujo-conversacion.ts` (`colapsable`, `tramo`) · `lib/lienzo-grafo.ts` (`posicionDePildora`, `puntoDeCurva`) · `app/chatbot/FlujoLienzo.tsx` (`quitarFlecha`, `borrarTarjeta`)
+
+### El botón derecho armaba un gesto y SELECCIONABA la tarjeta debajo de su menú [lienzo]
+
+`onPointerDown` no miraba el botón: con el click derecho capturaba el puntero y el `pointerup` lo
+resolvía como un clic (abría el panel). El gesto de un lienzo se arma sólo con `e.button === 0`.
+
+**Vive en:** `app/_components/Lienzo.tsx` (`onPointerDown`, `bajarCirculo`)
+
+### El scratchpad NO es de la parte: es de la SESIÓN, y las ocho partes son la misma [proceso]
+
+A mitad de la corrida, `msg1.txt` del scratchpad pasó a tener el mensaje de commit de OTRA parte («tiempo»).
+Se salvó porque el commit ya había salido (verificado con `git log -1 --format=%B`). ⚠️ El diagnóstico
+obvio —«el scratchpad es mío, la regla de `/tmp` no me toca»— es el equivocado: los subagentes de un
+workflow comparten el directorio de su sesión, y los nombres que se le ocurren a uno (`msg1.txt`, `tc.txt`,
+`correr-tests.mjs`) se le ocurren a todos. Cada parte trabaja en su subcarpeta (`scratchpad/parte-<nombre>/`).
+
+### Verificado con clics (dev server del worktree, ws1, sólo lectura) [lienzo]
+
+Playwright contra `next dev`, con una automatización de mentira inyectada en el GET de secuencias
+(m1 → espera 1 h → m2, y m3 suelta) y TODO lo que no es GET contestado por el arnés: 0 llegaron al server.
+Medido: el fondo con botón derecho ofrece 10 filas (los 7 tipos, Publicar, Acomodar, Centrar) y cierra con
+Escape; la tarjeta, 3 (Duplicar, Desconectar, Eliminar) sin abrir el panel; un clic en el ＋ de m2 abre el
+menú de 7 tipos en la punta (pegado al borde derecho de la ventana); arrastrando de m2 a m3 queda todo en
+0,28 menos origen y destino (1) con la flecha siguiendo al cursor, y al soltar las flechas pasan de 2 a 3 y
+m3 deja de estar suelta; la papelera de m1 se lleva la flecha y su espera (píldoras 1 → 0) y deja sueltas
+m2 y m3 (m3 cuelga de una suelta, así que tampoco se alcanza).
+
+⚠️ El ws3 no sirve para esto: rebota al onboarding GLOBAL (`/onboarding?ws=3`), y el arnés esperó el
+lienzo 10 minutos en vez de fallar al ver la URL. Un arnés que espera un selector mira también `p.url()`.
+
+### Lo que quedó sin hacer (parte «lienzo»)
+
+- **Verlo con clics con datos reales** de un cliente: lo de arriba corrió sobre una automatización
+  inyectada. Sin clic quedaron: editar la píldora del DELAY, crear una tarjeta con el botón derecho en un
+  punto, Duplicar, la lista «⚡ Cuando…» del CRON y el botón Acomodar.
+- La lista: el reparto la ubicaba en `ChatAgentApp.tsx` y vive en `app/chatbot/SimuladorWhatsApp.tsx`
+  (las divisiones y los íconos del «⋯» son dos hunks ahí). Los íconos del desplegable del FILTRO salen de
+  `lib/chatbot-lista-filtro.ts`, que no es de esta parte.
+- Las posiciones (lo movido, la suelta, «Acomodar») siguen afuera de Ctrl+Z: «Acomodar» trae su deshacer
+  en un aviso; mover una tarjeta, no.
+- La papelera del círculo aparece al pasar el cursor por la tarjeta (o con la tarjeta elegida), no siempre.
+
 ## Lo que quedó sin hacer
 
 **De la parte «lienzo» (quinta 2), lo que decide Martín:** si mover una tarjeta se deshace con Ctrl+Z (hoy
